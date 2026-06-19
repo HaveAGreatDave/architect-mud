@@ -1,0 +1,6 @@
+{
+  "name": "weather-system",
+  "version": "1.0.0",
+  "description": "Adds dynamic weather to zone descriptions",
+  "hooks": ["zone.describeAmbient", "tick.minute", "player.enterZone"]
+}

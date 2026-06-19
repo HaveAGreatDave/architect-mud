@@ -411,6 +411,9 @@
       <button class="qcmd" onclick="sendCmd('skills')">skills</button>
       <button class="qcmd" onclick="sendCmd('who')">who</button>
       <button class="qcmd" onclick="sendCmd('help')">help</button>
+      <button class="qcmd" onclick="sendCmd('recipes')">recipes</button>
+      <button class="qcmd" onclick="sendCmd('factions')">factions</button>
+      <button class="qcmd" onclick="sendCmd('mutations')">mutations</button>
     </div>
     <div id="input-area">
       <span id="prompt">&gt;</span>
@@ -477,17 +480,27 @@ let currentNpcId = null;
 let currentZone = null;
 
 // --- WebSocket ---
+let reconnectDelay = 1000;
+let coldStartTimer = null;
+
 function connect() {
   ws = new WebSocket(WS_URL);
 
   ws.onopen = () => {
+    reconnectDelay = 1000;
     setConnStatus('online', 'CONNECTED');
-    appendMsg('Connected to ARCHITECT. Authenticate to enter.', 'system');
+    if (coldStartTimer) { clearTimeout(coldStartTimer); coldStartTimer = null; hideColdStart(); }
+    if (!player) appendMsg('Connected to ARCHITECT. Login or register to enter.', 'system');
+    // Client-side ping every 10s to keep Render free tier alive
+    setInterval(() => { if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({type:'ping'})); }, 10000);
   };
 
   ws.onclose = () => {
     setConnStatus('offline', 'DISCONNECTED');
-    setTimeout(connect, 3000);
+    // Show cold-start notice after 5s of disconnect
+    coldStartTimer = setTimeout(showColdStart, 5000);
+    reconnectDelay = Math.min(reconnectDelay * 1.5, 15000);
+    setTimeout(connect, reconnectDelay);
   };
 
   ws.onmessage = (e) => {
@@ -587,7 +600,38 @@ function handleServerMsg(msg) {
     case 'error':
       appendMsg(msg.message, 'error');
       break;
+    case 'craft': case 'buy': case 'sell': case 'loot':
+      appendHtml(msg.message, 'loot');
+      break;
+    case 'recipes': case 'mutations': case 'factions': case 'shop':
+      appendHtml(msg.message, 'help');
+      break;
+    case 'mutation_gained':
+      appendHtml(msg.message, 'combat-incoming');
+      break;
+    case 'kicked':
+      appendMsg(msg.message, 'error');
+      ws.close();
+      break;
+    case 'pong': break; // keepalive
   }
+}
+
+function showColdStart() {
+  let el = document.getElementById('cold-start-notice');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'cold-start-notice';
+    el.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--bg2);border:1px solid var(--accent);padding:24px;text-align:center;z-index:300;border-radius:2px;max-width:320px';
+    el.innerHTML = '<div style="color:var(--accent);font-size:13px;letter-spacing:2px;margin-bottom:8px">ARCHITECT</div><div style="color:var(--text-dim);font-size:12px;line-height:1.6">Server is waking up.<br>Free tier cold start — about 60 seconds.<br><span style="color:var(--text);font-size:11px">Reconnecting automatically...</span></div>';
+    document.body.appendChild(el);
+  }
+  el.style.display = 'block';
+}
+
+function hideColdStart() {
+  const el = document.getElementById('cold-start-notice');
+  if (el) el.style.display = 'none';
 }
 
 // --- Auth ---

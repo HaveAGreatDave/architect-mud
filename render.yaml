@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: architect-mud
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        sync: false           # paste your Supabase URL in the Render dashboard
+      - key: NODE_ENV
+        value: production
+      - key: RENDER_EXTERNAL_URL
+        sync: false           # paste your full Render URL e.g. architect-mud.onrender.com
