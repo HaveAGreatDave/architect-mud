@@ -698,9 +698,13 @@ function sendCmd(cmd) {
   ws.send(JSON.stringify({ type: 'command', command: cmd }));
 }
 
-// Auto-focus input when user types anywhere
+// Auto-focus the game command input when user types anywhere —
+// but never steal focus while another input/textarea is active
+// (e.g. the login form) or while the auth screen is showing.
 document.addEventListener('keydown', (e) => {
-  if (e.target === input) return;
+  const tag = e.target.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+  if (document.getElementById('auth-screen').style.display !== 'none') return;
   if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
     input.focus();
   }
