@@ -470,7 +470,11 @@
 </div>
 
 <script>
-const WS_URL = `ws://${location.host}`;
+// Match the page's own protocol — wss:// when served over https://,
+// ws:// only for plain http:// (e.g. local dev on localhost).
+// Browsers block insecure ws:// connections from an https:// page.
+const WS_PROTOCOL = location.protocol === 'https:' ? 'wss:' : 'ws:';
+const WS_URL = `${WS_PROTOCOL}//${location.host}`;
 let ws = null;
 let player = null;
 let cmdHistory = [];
