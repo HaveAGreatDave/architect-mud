@@ -501,6 +501,22 @@ function connect() {
     coldStartTimer = setTimeout(showColdStart, 5000);
     reconnectDelay = Math.min(reconnectDelay * 1.5, 15000);
     setTimeout(connect, reconnectDelay);
+
+    // If a login was in flight when we disconnected, unstick the form
+    if (authPending) {
+      clearTimeout(authTimeout);
+      authPending = false;
+      const submitBtn = document.getElementById('auth-submit');
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = isRegister ? 'Register' : 'Enter';
+      }
+      const errEl = document.getElementById('auth-error');
+      if (errEl) {
+        errEl.textContent = 'Connection lost during login. Reconnecting...';
+        errEl.style.color = 'var(--red)';
+      }
+    }
   };
 
   ws.onmessage = (e) => {
@@ -513,13 +529,24 @@ function handleServerMsg(msg) {
   switch(msg.type) {
     case 'connected': break;
     case 'auth_success':
+      clearTimeout(authTimeout);
+      authPending = false;
       player = msg.player;
       document.getElementById('auth-screen').style.display = 'none';
       document.getElementById('handle-display').textContent = player.handle;
       updateVitals(player);
       break;
     case 'auth_fail':
-      document.getElementById('auth-error').textContent = msg.message;
+      clearTimeout(authTimeout);
+      authPending = false;
+      {
+        const submitBtn = document.getElementById('auth-submit');
+        submitBtn.disabled = false;
+        submitBtn.textContent = isRegister ? 'Register' : 'Enter';
+        const errEl = document.getElementById('auth-error');
+        errEl.textContent = msg.message;
+        errEl.style.color = 'var(--red)';
+      }
       break;
     case 'look':
       appendMsg('─'.repeat(50), 'separator');
@@ -635,16 +662,46 @@ function hideColdStart() {
 }
 
 // --- Auth ---
+let authPending = false;
+let authTimeout = null;
+
 function doAuth() {
   const username = document.getElementById('auth-username').value.trim();
   const password = document.getElementById('auth-password').value;
   const handle = document.getElementById('auth-handle').value.trim();
   const errEl = document.getElementById('auth-error');
+  const submitBtn = document.getElementById('auth-submit');
 
-  if (!username || !password) { errEl.textContent = 'Username and password required.'; return; }
-  if (isRegister && !handle) { errEl.textContent = 'Handle required.'; return; }
+  if (authPending) return; // prevent double-submit
+
+  if (!username || !password) { errEl.textContent = 'Username and password required.'; errEl.style.color = ''; return; }
+  if (isRegister && !handle) { errEl.textContent = 'Handle required.'; errEl.style.color = ''; return; }
+
+  // Check connection state BEFORE attempting anything
+  if (!ws || ws.readyState === WebSocket.CONNECTING) {
+    errEl.textContent = 'Still connecting to server... try again in a moment.';
+    errEl.style.color = 'var(--yellow, #d4c44a)';
+    return;
+  }
+  if (ws.readyState !== WebSocket.OPEN) {
+    errEl.textContent = 'Not connected. Server may be waking up (free tier cold start ~60s) — reconnecting automatically.';
+    errEl.style.color = 'var(--red)';
+    return;
+  }
 
   errEl.textContent = '';
+  authPending = true;
+  submitBtn.disabled = true;
+  submitBtn.textContent = isRegister ? 'Registering...' : 'Logging in...';
+
+  // Failsafe: if we never hear back, unstick the form after 10s
+  authTimeout = setTimeout(() => {
+    authPending = false;
+    submitBtn.disabled = false;
+    submitBtn.textContent = isRegister ? 'Register' : 'Enter';
+    errEl.textContent = 'No response from server. Check your connection and try again.';
+    errEl.style.color = 'var(--red)';
+  }, 10000);
 
   if (isRegister) {
     fetch('/api/auth/register', {
@@ -652,9 +709,23 @@ function doAuth() {
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({username, password, handle})
     }).then(r => r.json()).then(data => {
-      if (data.error) { errEl.textContent = data.error; return; }
-      // Now auth via WS
+      if (data.error) {
+        clearTimeout(authTimeout);
+        authPending = false;
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Register';
+        errEl.textContent = data.error;
+        errEl.style.color = 'var(--red)';
+        return;
+      }
       ws.send(JSON.stringify({ type: 'auth', username, password }));
+    }).catch(err => {
+      clearTimeout(authTimeout);
+      authPending = false;
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Register';
+      errEl.textContent = 'Registration request failed: ' + err.message;
+      errEl.style.color = 'var(--red)';
     });
   } else {
     ws.send(JSON.stringify({ type: 'auth', username, password }));
@@ -663,6 +734,9 @@ function doAuth() {
 
 document.getElementById('auth-submit').addEventListener('click', doAuth);
 document.getElementById('auth-password').addEventListener('keydown', e => { if (e.key === 'Enter') doAuth(); });
+document.getElementById('auth-username').addEventListener('keydown', e => { if (e.key === 'Enter') doAuth(); });
+document.getElementById('auth-handle').addEventListener('keydown', e => { if (e.key === 'Enter') doAuth(); });
+
 
 document.getElementById('auth-toggle-link').addEventListener('click', () => {
   isRegister = !isRegister;
