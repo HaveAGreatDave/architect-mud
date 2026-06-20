@@ -26,6 +26,7 @@ export async function migrate() {
       current_zone TEXT DEFAULT 'zone_start',
       anchor_zone TEXT DEFAULT 'zone_start',
       credits INTEGER DEFAULT 50,
+      visibly_mutated INTEGER DEFAULT 0,
       created_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW()),
       last_seen BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
     );
@@ -179,6 +180,63 @@ export async function migrate() {
       rent_cost INTEGER DEFAULT 100,
       purchased_at BIGINT,
       FOREIGN KEY (zone_id) REFERENCES zones(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS recipes (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      category TEXT DEFAULT 'misc',
+      requires_station TEXT,
+      skill_req JSONB DEFAULT '{}',
+      ingredients JSONB DEFAULT '[]',
+      base_output JSONB NOT NULL,
+      skill_id TEXT NOT NULL,
+      base_difficulty INTEGER DEFAULT 3
+    );
+
+    CREATE TABLE IF NOT EXISTS drugs (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      item_id TEXT,
+      duration_seconds INTEGER DEFAULT 300,
+      effects JSONB DEFAULT '{}',
+      addiction_chance REAL DEFAULT 0,
+      overdose_threshold INTEGER DEFAULT 3,
+      withdrawal_effects JSONB DEFAULT '{}',
+      flags JSONB DEFAULT '{}'
+    );
+
+    CREATE TABLE IF NOT EXISTS player_drug_state (
+      player_id TEXT NOT NULL,
+      drug_id TEXT NOT NULL,
+      active_until BIGINT,
+      doses_in_system INTEGER DEFAULT 0,
+      times_used INTEGER DEFAULT 0,
+      is_addicted INTEGER DEFAULT 0,
+      last_used_at BIGINT,
+      PRIMARY KEY (player_id, drug_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS mutations (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      polarity TEXT DEFAULT 'mixed',
+      visible INTEGER DEFAULT 1,
+      stat_modifiers JSONB DEFAULT '{}',
+      effects JSONB DEFAULT '{}',
+      drawbacks JSONB DEFAULT '[]',
+      rarity TEXT DEFAULT 'uncommon',
+      radiation_threshold INTEGER DEFAULT 40
+    );
+
+    CREATE TABLE IF NOT EXISTS player_mutations (
+      player_id TEXT NOT NULL,
+      mutation_id TEXT NOT NULL,
+      acquired_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW()),
+      PRIMARY KEY (player_id, mutation_id)
     );
 
     CREATE INDEX IF NOT EXISTS idx_players_username ON players(username);

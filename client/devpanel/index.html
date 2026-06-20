@@ -272,6 +272,10 @@
     <div class="nav-item" onclick="showPanel('enemies')">👾 Enemies</div>
     <div class="nav-item" onclick="showPanel('items')">🗡 Items</div>
     <div class="nav-item" onclick="showPanel('npcs')">🧑 NPCs</div>
+    <div class="nav-item" onclick="showPanel('recipes')">⚗ Recipes</div>
+    <div class="nav-item" onclick="showPanel('mutations')">☢ Mutations</div>
+    <div class="nav-item" onclick="showPanel('drugs')">💊 Drugs</div>
+    <div class="nav-item" onclick="showPanel('apartments')">🏠 Apartments</div>
     <div class="nav-section">Server</div>
     <div class="nav-item" onclick="showPanel('worldstate')">📡 World State</div>
     <div class="nav-item" onclick="showPanel('players')">👥 Players</div>
@@ -434,6 +438,52 @@ const PANELS = {
     editForm: npcEditForm,
     save: saveNpc,
     delete: id => API(`/npcs/${id}`, 'DELETE'),
+  },
+  mutations: {
+    title: 'Mutations',
+    fetch: () => API('/mutations'),
+    columns: [
+      { key: 'name', label: 'Name' },
+      { key: 'polarity', label: 'Polarity', render: v => `<span class="badge badge-${v==='positive'?'safe-zone':v==='negative'?'lethal':'medium'}">${v}</span>` },
+      { key: 'visible', label: 'Visible', render: v => v ? '👁' : '' },
+      { key: 'rarity', label: 'Rarity' },
+      { key: 'radiation_threshold', label: 'Rad. Threshold' },
+    ],
+    editForm: mutationEditForm,
+    save: saveMutation,
+    delete: id => API(`/mutations/${id}`, 'DELETE'),
+  },
+  drugs: {
+    title: 'Drugs',
+    fetch: () => API('/drugs'),
+    columns: [
+      { key: 'name', label: 'Name' },
+      { key: 'duration_seconds', label: 'Duration (s)' },
+      { key: 'addiction_chance', label: 'Addiction %', render: v => `${Math.round((v||0)*100)}%` },
+      { key: 'overdose_threshold', label: 'OD Threshold' },
+    ],
+    editForm: drugEditForm,
+    save: saveDrug,
+    delete: id => API(`/drugs/${id}`, 'DELETE'),
+  },
+  apartments: {
+    title: 'Apartments',
+    fetch: () => API('/apartments'),
+    render: renderApartments,
+  },
+  recipes: {
+    title: 'Recipes',
+    fetch: () => API('/recipes'),
+    columns: [
+      { key: 'name', label: 'Name' },
+      { key: 'category', label: 'Category' },
+      { key: 'skill_id', label: 'Skill' },
+      { key: 'base_difficulty', label: 'Difficulty' },
+      { key: 'requires_station', label: 'Station' },
+    ],
+    editForm: recipeEditForm,
+    save: saveRecipe,
+    delete: id => API(`/recipes/${id}`, 'DELETE'),
   },
   worldstate: {
     title: 'World State',
@@ -658,13 +708,152 @@ function enemyEditForm(rec, isNew) {
       <div class="field"><label>Credit Reward</label><input type="number" id="f-credit_reward" value="${rec.credit_reward||0}"></div>
     </div>
     <div class="field"><label>Loot Table (JSON array)</label><textarea id="f-loot_table" rows="5">${JSON.stringify(rec.loot_table||[], null, 2)}</textarea></div>
+    <div class="field"><label>First Strike Delay (ms) — hesitation before its first attack after aggroing. 0 = attacks immediately.</label><input type="number" id="f-first_strike_delay_ms" value="${rec.flags?.first_strike_delay_ms||0}" min="0" step="500"></div>
+    <div class="field"><label>Battle Cries (one per line) — shown on its first strike</label><textarea id="f-battle_cries" rows="3">${(rec.flags?.battle_cries||[]).join('\n')}</textarea></div>
   `;
+}
+
+// --- Mutation forms ---
+function mutationEditForm(rec, isNew) {
+  const statMods = typeof rec.stat_modifiers === 'object' ? rec.stat_modifiers : JSON.parse(rec.stat_modifiers||'{}');
+  const effects = typeof rec.effects === 'object' ? rec.effects : JSON.parse(rec.effects||'{}');
+  const drawbacks = Array.isArray(rec.drawbacks) ? rec.drawbacks : JSON.parse(rec.drawbacks||'[]');
+  return `
+    <div class="field"><label>Mutation ID</label><input id="f-id" value="${isNew?'':rec.id}" ${!isNew?'readonly style="opacity:0.5"':''}></div>
+    <div class="field"><label>Name</label><input id="f-name" value="${rec.name||''}"></div>
+    <div class="field"><label>Description</label><textarea id="f-description" rows="2">${rec.description||''}</textarea></div>
+    <div class="field-row">
+      <div class="field"><label>Polarity</label>
+        <select id="f-polarity">
+          ${['positive','negative','mixed'].map(p=>`<option ${rec.polarity===p?'selected':''}>${p}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field"><label>Visible? (drives Custodian outcast checks)</label>
+        <select id="f-visible">
+          <option value="1" ${rec.visible?'selected':''}>Visible</option>
+          <option value="0" ${!rec.visible?'selected':''}>Hidden</option>
+        </select>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Rarity</label><input id="f-rarity" value="${rec.rarity||'uncommon'}"></div>
+      <div class="field"><label>Radiation Threshold</label><input type="number" id="f-radiation_threshold" value="${rec.radiation_threshold||40}" min="0" max="100"></div>
+    </div>
+    <div class="field"><label>Stat Modifiers (JSON — permanent, applied once on grant)</label><textarea id="f-stat_modifiers" rows="2">${JSON.stringify(statMods, null, 2)}</textarea></div>
+    <div class="field"><label>Effects (JSON — freeform, read by engine code as needed)</label><textarea id="f-effects" rows="3">${JSON.stringify(effects, null, 2)}</textarea></div>
+    <div class="field"><label>Drawbacks (JSON array of strings, shown to the player)</label><textarea id="f-drawbacks" rows="2">${JSON.stringify(drawbacks, null, 2)}</textarea></div>
+  `;
+}
+
+async function saveMutation(existing) {
+  const isNew = !existing?.id;
+  let statMods, effects, drawbacks;
+  try { statMods = JSON.parse(document.getElementById('f-stat_modifiers').value); } catch { return { error: 'Stat modifiers: invalid JSON' }; }
+  try { effects = JSON.parse(document.getElementById('f-effects').value); } catch { return { error: 'Effects: invalid JSON' }; }
+  try { drawbacks = JSON.parse(document.getElementById('f-drawbacks').value); } catch { return { error: 'Drawbacks: invalid JSON' }; }
+  const body = {
+    name: document.getElementById('f-name').value,
+    description: document.getElementById('f-description').value,
+    polarity: document.getElementById('f-polarity').value,
+    visible: document.getElementById('f-visible').value === '1',
+    rarity: document.getElementById('f-rarity').value || 'uncommon',
+    radiation_threshold: +document.getElementById('f-radiation_threshold').value || 40,
+    stat_modifiers: statMods, effects, drawbacks,
+  };
+  if (isNew) { body.id = document.getElementById('f-id').value.trim(); return API('/mutations', 'POST', body); }
+  return API(`/mutations/${existing.id}`, 'PUT', body);
+}
+
+// --- Drug forms ---
+function drugEditForm(rec, isNew) {
+  const effects = typeof rec.effects === 'object' ? rec.effects : JSON.parse(rec.effects||'{}');
+  const withdrawal = typeof rec.withdrawal_effects === 'object' ? rec.withdrawal_effects : JSON.parse(rec.withdrawal_effects||'{}');
+  return `
+    <div class="field"><label>Drug ID</label><input id="f-id" value="${isNew?'':rec.id}" ${!isNew?'readonly style="opacity:0.5"':''}></div>
+    <div class="field"><label>Name</label><input id="f-name" value="${rec.name||''}"></div>
+    <div class="field"><label>Description</label><textarea id="f-description" rows="2">${rec.description||''}</textarea></div>
+    <div class="field"><label>Linked Item ID (must exist in Items)</label><input id="f-item_id" value="${rec.item_id||''}" placeholder="e.g. item_drug_buzz"></div>
+    <div class="field-row">
+      <div class="field"><label>Duration (seconds)</label><input type="number" id="f-duration_seconds" value="${rec.duration_seconds||300}"></div>
+      <div class="field"><label>Overdose Threshold (doses in system)</label><input type="number" id="f-overdose_threshold" value="${rec.overdose_threshold||3}" min="1"></div>
+    </div>
+    <div class="field"><label>Addiction Chance (0.0 - 1.0)</label><input type="number" id="f-addiction_chance" value="${rec.addiction_chance||0}" min="0" max="1" step="0.01"></div>
+    <div class="field"><label>Effects (JSON — hp/sanity/hunger/thirst/radiation deltas)</label><textarea id="f-effects" rows="3">${JSON.stringify(effects, null, 2)}</textarea></div>
+    <div class="field"><label>Overdose Effects (JSON — applied on top of normal effects when overdosed)</label><textarea id="f-withdrawal_effects" rows="3">${JSON.stringify(withdrawal.overdose ? withdrawal : {overdose:{}}, null, 2)}</textarea></div>
+  `;
+}
+
+async function saveDrug(existing) {
+  const isNew = !existing?.id;
+  let effects, withdrawal;
+  try { effects = JSON.parse(document.getElementById('f-effects').value); } catch { return { error: 'Effects: invalid JSON' }; }
+  try { withdrawal = JSON.parse(document.getElementById('f-withdrawal_effects').value); } catch { return { error: 'Overdose effects: invalid JSON' }; }
+  const body = {
+    name: document.getElementById('f-name').value,
+    description: document.getElementById('f-description').value,
+    item_id: document.getElementById('f-item_id').value || null,
+    duration_seconds: +document.getElementById('f-duration_seconds').value || 300,
+    overdose_threshold: +document.getElementById('f-overdose_threshold').value || 3,
+    addiction_chance: +document.getElementById('f-addiction_chance').value || 0,
+    effects, withdrawal_effects: withdrawal,
+  };
+  if (isNew) { body.id = document.getElementById('f-id').value.trim(); return API('/drugs', 'POST', body); }
+  return API(`/drugs/${existing.id}`, 'PUT', body);
+}
+
+
+function recipeEditForm(rec, isNew) {
+  const skillReq = typeof rec.skill_req === 'object' ? rec.skill_req : JSON.parse(rec.skill_req||'{}');
+  const ingredients = Array.isArray(rec.ingredients) ? rec.ingredients : JSON.parse(rec.ingredients||'[]');
+  const output = typeof rec.base_output === 'object' ? rec.base_output : JSON.parse(rec.base_output||'{}');
+  return `
+    <div class="field"><label>Recipe ID</label><input id="f-id" value="${isNew?'':rec.id}" ${!isNew?'readonly style="opacity:0.5"':''}></div>
+    <div class="field"><label>Name</label><input id="f-name" value="${rec.name||''}"></div>
+    <div class="field"><label>Description</label><textarea id="f-description" rows="2">${rec.description||''}</textarea></div>
+    <div class="field-row">
+      <div class="field"><label>Category</label><input id="f-category" value="${rec.category||'misc'}" placeholder="weapons / armor / medicine / tech"></div>
+      <div class="field"><label>Requires Station (blank = none)</label><input id="f-requires_station" value="${rec.requires_station||''}" placeholder="e.g. chemistry_set"></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Primary Skill (used for the craft roll)</label><input id="f-skill_id" value="${rec.skill_id||'fabrication'}"></div>
+      <div class="field"><label>Base Difficulty</label><input type="number" id="f-base_difficulty" value="${rec.base_difficulty||3}" min="1" max="20"></div>
+    </div>
+    <div class="field"><label>Skill Requirements (JSON object — skill_id: min_rank)</label><textarea id="f-skill_req" rows="3">${JSON.stringify(skillReq, null, 2)}</textarea></div>
+    <div class="field"><label>Ingredients (JSON array)</label><textarea id="f-ingredients" rows="5">${JSON.stringify(ingredients, null, 2)}</textarea></div>
+    <div class="field"><label>Output (JSON: item_id + quantity)</label><textarea id="f-base_output" rows="2">${JSON.stringify(output, null, 2)}</textarea></div>
+  `;
+}
+
+async function saveRecipe(existing) {
+  const isNew = !existing?.id;
+  let skillReq, ingredients, output;
+  try { skillReq = JSON.parse(document.getElementById('f-skill_req').value); } catch { return { error: 'Skill requirements: invalid JSON' }; }
+  try { ingredients = JSON.parse(document.getElementById('f-ingredients').value); } catch { return { error: 'Ingredients: invalid JSON' }; }
+  try { output = JSON.parse(document.getElementById('f-base_output').value); } catch { return { error: 'Output: invalid JSON' }; }
+  if (!output.item_id) return { error: 'Output must include an item_id' };
+
+  const body = {
+    name: document.getElementById('f-name').value,
+    description: document.getElementById('f-description').value,
+    category: document.getElementById('f-category').value || 'misc',
+    requires_station: document.getElementById('f-requires_station').value || null,
+    skill_id: document.getElementById('f-skill_id').value,
+    base_difficulty: +document.getElementById('f-base_difficulty').value || 3,
+    skill_req: skillReq,
+    ingredients,
+    base_output: output,
+  };
+  if (isNew) { body.id = document.getElementById('f-id').value.trim(); return API('/recipes', 'POST', body); }
+  return API(`/recipes/${existing.id}`, 'PUT', body);
 }
 
 async function saveEnemy(existing) {
   const isNew = !existing?.id;
   let loot;
   try { loot = JSON.parse(document.getElementById('f-loot_table').value); } catch { return { error: 'Loot table: invalid JSON' }; }
+  const existingFlags = existing?.flags || {};
+  const cries = document.getElementById('f-battle_cries').value.split('\n').map(s=>s.trim()).filter(Boolean);
+  const flags = { ...existingFlags, first_strike_delay_ms: +document.getElementById('f-first_strike_delay_ms').value || 0, battle_cries: cries };
   const body = {
     name: document.getElementById('f-name').value,
     description: document.getElementById('f-description').value,
@@ -681,6 +870,7 @@ async function saveEnemy(existing) {
     xp_reward: +document.getElementById('f-xp_reward').value,
     credit_reward: +document.getElementById('f-credit_reward').value,
     loot_table: loot,
+    flags,
   };
   if (isNew) { body.id = document.getElementById('f-id').value.trim(); return API('/enemies', 'POST', body); }
   return API(`/enemies/${existing.id}`, 'PUT', body);
@@ -808,6 +998,83 @@ function renderWorldState(data) {
   document.getElementById('ws-enemies').textContent = data.live_enemies || 0;
   document.getElementById('ws-corpses').textContent = data.live_corpses || 0;
   document.getElementById('ws-zones').textContent = zones.length;
+}
+
+function renderApartments(rows) {
+  const panel = document.getElementById('list-panel');
+  let html = `<div style="padding:12px"><button class="action-btn success" onclick="openBuildApartmentModal()">+ Build Apartment Building</button></div>`;
+  html += '<table><thead><tr><th>Unit</th><th>Zone ID</th><th>Owner</th><th>Locked</th><th>Lock Diff.</th><th>Rent</th><th></th></tr></thead><tbody>';
+  for (const a of rows) {
+    html += `<tr>
+      <td>${a.zone_name || a.zone_id}</td>
+      <td style="font-size:11px;color:var(--text-dim)">${a.zone_id}</td>
+      <td>${a.owner_handle || '<span style="color:var(--text-dim)">unowned</span>'}</td>
+      <td>${a.is_locked ? '🔒' : '🔓'}</td>
+      <td>${a.lock_difficulty}</td>
+      <td>${a.rent_cost}c</td>
+      <td><button class="action-btn danger" onclick="deleteApartmentUnit('${a.zone_id}')">Delete</button></td>
+    </tr>`;
+  }
+  html += '</tbody></table>';
+  if (!rows.length) html += '<div style="padding:16px;color:var(--text-dim)">No apartment units yet. Build a block to get started.</div>';
+  panel.innerHTML = html;
+}
+
+async function deleteApartmentUnit(zoneId) {
+  if (!confirm(`Delete apartment unit ${zoneId}? This also deletes its zone.`)) return;
+  const result = await API(`/apartments/${zoneId}`, 'DELETE');
+  if (result?.error) { toast(result.error, true); return; }
+  toast('Unit deleted');
+  loadPanel('apartments');
+}
+
+async function openBuildApartmentModal() {
+  const zones = await API('/zones');
+  const zoneOptions = (zones || []).map(z => `<option value="${z.id}">${z.name} (${z.id})</option>`).join('');
+  document.getElementById('edit-panel').classList.add('open');
+  document.getElementById('edit-title').textContent = 'Build Apartment Building';
+  document.getElementById('delete-btn').style.display = 'none';
+  document.getElementById('edit-body').innerHTML = `
+    <div class="field"><label>Attach To Zone</label>
+      <select id="bb-attach_to_zone_id">${zoneOptions}</select>
+    </div>
+    <div class="field"><label>Direction From That Zone</label>
+      <select id="bb-attach_direction">
+        ${['down','up','north','south','east','west'].map(d=>`<option value="${d}">${d}</option>`).join('')}
+      </select>
+    </div>
+    <div class="field"><label>Building Name</label><input id="bb-building_name" value="Residential Block" placeholder="e.g. Coldwater Residences"></div>
+    <div class="field"><label>Lobby Description</label><textarea id="bb-lobby_description" rows="3" placeholder="Leave blank for a generic description"></textarea></div>
+    <div class="field-row">
+      <div class="field"><label>Number of Units (1-6)</label><input type="number" id="bb-unit_count" value="4" min="1" max="6"></div>
+      <div class="field"><label>Rent Cost (credits)</label><input type="number" id="bb-rent_cost" value="100" min="0"></div>
+    </div>
+    <div class="field"><label>Unit Name Prefix</label><input id="bb-unit_name_prefix" value="Unit" placeholder="e.g. Unit, Room, Suite"></div>
+    <p style="font-size:11px;color:var(--text-dim);margin-top:4px">Generates a lobby attached to the chosen zone, plus one unit per remaining compass direction (max 6). Each unit is created unowned and ready to RENT — exits are wired automatically and symmetrically.</p>
+  `;
+  // Swap the save button's behavior just for this modal
+  const saveBtn = document.querySelector('.edit-footer .action-btn.success');
+  if (saveBtn) saveBtn.setAttribute('onclick', 'submitBuildApartment()');
+}
+
+async function submitBuildApartment() {
+  const body = {
+    attach_to_zone_id: document.getElementById('bb-attach_to_zone_id').value,
+    attach_direction: document.getElementById('bb-attach_direction').value,
+    building_name: document.getElementById('bb-building_name').value || 'Residential Block',
+    lobby_description: document.getElementById('bb-lobby_description').value || null,
+    unit_count: +document.getElementById('bb-unit_count').value || 4,
+    rent_cost: +document.getElementById('bb-rent_cost').value || 100,
+    unit_name_prefix: document.getElementById('bb-unit_name_prefix').value || 'Unit',
+  };
+  const result = await API('/apartments/build', 'POST', body);
+  if (result?.error) { toast(result.error, true); return; }
+  toast(result.message || 'Building created');
+  closeEdit();
+  // Restore the normal save button behavior for other panels
+  const saveBtn = document.querySelector('.edit-footer .action-btn.success');
+  if (saveBtn) saveBtn.setAttribute('onclick', 'saveRecord()');
+  loadPanel('apartments');
 }
 
 async function reloadZone(id) {

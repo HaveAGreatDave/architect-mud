@@ -156,6 +156,7 @@ export function removeEnemyInstance(id) {
 
 function spawnEnemySync(template, zoneId) {
   const id = `ei_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+  const flags = template.flags || {};
   const instance = {
     instanceId: id, templateId: template.id,
     name: template.name, description: template.description,
@@ -165,8 +166,12 @@ function spawnEnemySync(template, zoneId) {
     armor: template.armor, xp_reward: template.xp_reward, credit_reward: template.credit_reward,
     loot_table: template.loot_table || [],
     behavior: template.behavior, faction: template.faction,
-    death_message: template.death_message, flags: template.flags || {},
+    death_message: template.death_message, flags,
     zoneId, targetId: null, lastAttack: 0, statuses: [],
+    // Lore-appropriate enemies (skittish scavengers, slow lumbering mutants)
+    // hesitate before their FIRST attack after aggroing — set the moment they
+    // acquire a target, checked separately from the normal attack-interval pace.
+    aggroedAt: null,
   };
   world.enemies.set(id, instance);
   world.zones.get(zoneId)?.enemies.add(id);

@@ -3,12 +3,15 @@ import { readFileSync, existsSync } from 'fs';
 import { join, extname, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { WebSocketServer } from 'ws';
-import { createHash } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 
 import { initWorld, addPlayerToZone, removePlayerFromZone, setLivePlayer, getLivePlayer, removeLivePlayer, getZone, getMinimapData } from './engine/world.js';
 import { handleCommand, describeZone } from './engine/commands.js';
 import { startGameLoop } from './engine/gameLoop.js';
 import { loadPlugins } from './engine/plugins.js';
+import { loadRecipes } from './engine/crafting.js';
+import { loadDrugs } from './engine/drugs.js';
+import { loadMutations } from './engine/mutations.js';
 import { handleApiRequest } from './api/routes.js';
 import { startKeepalive } from './keepalive.js';
 import { query } from './models/db.js';
@@ -184,7 +187,20 @@ async function handleDialogue(ws, session, msg) {
   const npc = rows[0];
   const node = (npc.dialogue_tree || {})[msg.choice];
   if (!node) { ws.send(JSON.stringify({ type:'dialogue_end', message:`${npc.name} has nothing more to say.` })); return; }
-  ws.send(JSON.stringify({ type:'dialogue', npcId:msg.npcId, npcName:npc.name, node:msg.choice, text:node.text, options:node.options||[] }));
+
+  let grantMessage = '';
+  if (node.grants_item?.item_id) {
+    const { item_id, quantity = 1 } = node.grants_item;
+    const { rows: already } = await query('SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2', [session.playerId, item_id]);
+    if (!already.length) {
+      await query('INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,$3,$4,1.0)',
+        [randomUUID(), session.playerId, item_id, quantity]);
+      const { rows: itemRows } = await query('SELECT name FROM items WHERE id=$1', [item_id]);
+      grantMessage = `\n\n<span class="item-grant">You receive: ${itemRows[0]?.name || item_id}${quantity>1?` x${quantity}`:''}.</span>`;
+    }
+  }
+
+  ws.send(JSON.stringify({ type:'dialogue', npcId:msg.npcId, npcName:npc.name, node:msg.choice, text:node.text + grantMessage, options:node.options||[] }));
 }
 
 // Safety net: a bug in any single request handler should never be able
@@ -199,6 +215,9 @@ process.on('unhandledRejection', (err) => {
 async function boot() {
   console.log('\n⚙  Booting ARCHITECT MUD...');
   await initWorld();
+  await loadRecipes();
+  await loadDrugs();
+  await loadMutations();
   await loadPlugins();
   startGameLoop(broadcast);
   startKeepalive();

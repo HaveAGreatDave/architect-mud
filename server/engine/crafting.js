@@ -1,6 +1,10 @@
 /**
  * Crafting system — deep simulation.
  * Material quality + tool skill + fabrication skill all affect output.
+ *
+ * Recipes live in the `recipes` table (dev-panel editable) and are cached
+ * in memory here, mirroring how world.js caches zones — read the cache on
+ * every craft attempt, refresh it whenever the dev panel publishes a change.
  */
 import { query } from '../models/db.js';
 import { awardSkillXp, skillCheck } from './skills.js';
@@ -14,87 +18,35 @@ export const QUALITY_TIERS = {
   architect_grade: { label: 'Architect-Grade', multiplier: 3.0,  color: 'item-rarity-very_rare' },
 };
 
-// All recipes. Each has required items (with quality minimums), tool requirements, skill reqs, and output.
-export const RECIPES = {
-  'recipe_pipe_weapon': {
-    id: 'recipe_pipe_weapon',
-    name: 'Pipe Wrench',
-    description: 'Combine scrap metal into a crude but effective blunt weapon.',
-    category: 'weapons',
-    requires_station: null,
-    skill_req: { fabrication: 0 },
-    ingredients: [
-      { item_id: 'item_scrap_metal', quantity: 3, min_quality: 'scrap' },
-    ],
-    base_output: { item_id: 'item_pipe_wrench', quantity: 1 },
-    skill_id: 'fabrication',
-    base_difficulty: 3,
-  },
-  'recipe_bandage': {
-    id: 'recipe_bandage',
-    name: 'Field Bandage',
-    description: 'Tear cloth into bandages. Requires nothing but desperation.',
-    category: 'medicine',
-    requires_station: null,
-    skill_req: { medicine: 0 },
-    ingredients: [
-      { item_id: 'item_scrap_metal', quantity: 0 }, // placeholder — in real game: cloth
-    ],
-    base_output: { item_id: 'item_bandage', quantity: 2 },
-    skill_id: 'medicine',
-    base_difficulty: 2,
-  },
-  'recipe_rad_pills_crude': {
-    id: 'recipe_rad_pills_crude',
-    name: 'Crude RadAway',
-    description: 'Improvised radiation treatment. Effective. Unpleasant.',
-    category: 'medicine',
-    requires_station: 'chemistry_set',
-    skill_req: { medicine: 3, fabrication: 1 },
-    ingredients: [
-      { item_id: 'item_mutant_gland', quantity: 1, min_quality: 'common' },
-    ],
-    base_output: { item_id: 'item_rad_pills', quantity: 2 },
-    skill_id: 'medicine',
-    base_difficulty: 6,
-  },
-  'recipe_scrap_armor': {
-    id: 'recipe_scrap_armor',
-    name: 'Scrap Vest',
-    description: 'Layer metal sheeting over salvaged clothing. Crude but it absorbs hits.',
-    category: 'armor',
-    requires_station: null,
-    skill_req: { fabrication: 1 },
-    ingredients: [
-      { item_id: 'item_scrap_metal', quantity: 5, min_quality: 'scrap' },
-    ],
-    base_output: { item_id: 'item_scrap_armor', quantity: 1 },
-    skill_id: 'fabrication',
-    base_difficulty: 4,
-  },
-  'recipe_glitch_decoder': {
-    id: 'recipe_glitch_decoder',
-    name: 'Architect Signal Decoder',
-    description: 'Assembles a device that can interpret Architect data fragments. Requires high skill and rare parts.',
-    category: 'tech',
-    requires_station: 'architect_terminal',
-    skill_req: { hacking: 5, electronics: 4 },
-    ingredients: [
-      { item_id: 'item_drone_core', quantity: 1, min_quality: 'common' },
-      { item_id: 'item_architect_fragment', quantity: 1, min_quality: 'common' },
-    ],
-    base_output: { item_id: 'item_signal_decoder', quantity: 1 },
-    skill_id: 'hacking',
-    base_difficulty: 10,
-  },
-};
+// In-memory recipe cache. DB is the source of truth; this is just fast read access.
+let RECIPE_CACHE = {};
+
+export async function loadRecipes() {
+  const { rows } = await query('SELECT * FROM recipes');
+  const cache = {};
+  for (const r of rows) {
+    cache[r.id] = {
+      id: r.id, name: r.name, description: r.description, category: r.category,
+      requires_station: r.requires_station,
+      skill_req: r.skill_req || {},
+      ingredients: r.ingredients || [],
+      base_output: r.base_output,
+      skill_id: r.skill_id,
+      base_difficulty: r.base_difficulty,
+    };
+  }
+  RECIPE_CACHE = cache;
+  return cache;
+}
+
+export function getRecipeCache() { return RECIPE_CACHE; }
 
 /**
  * Attempt to craft a recipe.
  * Returns { success, message, output?, critical? }
  */
 export async function attemptCraft(player, recipeId, stationQuality = 'none') {
-  const recipe = RECIPES[recipeId];
+  const recipe = RECIPE_CACHE[recipeId];
   if (!recipe) return { success: false, message: 'Unknown recipe.' };
 
   // Check skill requirements
@@ -202,7 +154,7 @@ export async function attemptCraft(player, recipeId, stationQuality = 'none') {
 }
 
 export function getAvailableRecipes(playerSkills = {}) {
-  return Object.values(RECIPES).filter(recipe => {
+  return Object.values(RECIPE_CACHE).filter(recipe => {
     for (const [skillId, minRank] of Object.entries(recipe.skill_req || {})) {
       if ((playerSkills[skillId] || 0) < minRank) return false;
     }

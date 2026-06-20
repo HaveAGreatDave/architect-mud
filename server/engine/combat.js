@@ -118,6 +118,7 @@ export function enemyAttackPlayer(enemy, player) {
   const now = Date.now();
   const attackInterval = 5000 - (enemy.stat_agi * 150);
   if (now - enemy.lastAttack < attackInterval) return null;
+  const isFirstStrike = enemy.lastAttack === 0;
   enemy.lastAttack = now;
 
   const attacker = {
@@ -132,9 +133,17 @@ export function enemyAttackPlayer(enemy, player) {
     armor: player.armor || 0,
   };
 
+  // Some enemies yell something as they attack — flavor text from the
+  // enemy's flags JSON, dev-panel editable. Cry fires on the first strike
+  // (most natural — the moment they actually commit to the fight).
+  const cries = enemy.flags?.battle_cries;
+  const cry = (isFirstStrike && Array.isArray(cries) && cries.length)
+    ? `<span class="battle-cry">${enemy.name} ${cries[Math.floor(Math.random() * cries.length)]}</span>\n`
+    : '';
+
   const result = rollAttack(attacker, defender);
   if (!result.hit) {
-    return { hit: false, message: `${enemy.name} attacks you and misses.` };
+    return { hit: false, message: `${cry}${enemy.name} attacks you and misses.` };
   }
 
   return {
@@ -142,8 +151,8 @@ export function enemyAttackPlayer(enemy, player) {
     damage: result.damage,
     critical: result.critical,
     message: result.critical
-      ? `CRITICAL! ${enemy.name} hits you for ${result.damage} damage!`
-      : `${enemy.name} hits you for ${result.damage} damage.`,
+      ? `${cry}CRITICAL! ${enemy.name} hits you for ${result.damage} damage!`
+      : `${cry}${enemy.name} hits you for ${result.damage} damage.`,
   };
 }
 

@@ -1,19 +1,24 @@
 import { query } from '../models/db.js';
-import { getZone, getZoneEnemies, getZoneNpcs, getZoneCorpses, addPlayerToZone, removePlayerFromZone, getMinimapData } from './world.js';
+import { getZone, getZoneEnemies, getZoneNpcs, getZoneCorpses, getZonePlayers, addPlayerToZone, removePlayerFromZone, getMinimapData } from './world.js';
 import { playerAttackEnemy, isOnCooldown, getCooldownRemaining } from './combat.js';
 import { awardSkillXp, getPlayerSkills, SKILLS } from './skills.js';
-import { RECIPES, getAvailableRecipes, attemptCraft } from './crafting.js';
-import { getPlayerMutations } from './mutations.js';
+import { getAvailableRecipes, attemptCraft } from './crafting.js';
+import { getPlayerMutations, getCustodianOutcastResponse } from './mutations.js';
 import { getPlayerFactionRep } from './factions.js';
 import { getVendorStock, buyFromVendor, sellToVendor } from './vendor.js';
 import { cmdRent, cmdLockDoor, cmdUpgradeLock, cmdPickLock, cmdSleep, describeApartmentStatus } from './apartments.js';
+import { useDrug } from './drugs.js';
 import { randomUUID } from 'crypto';
+
+// Per-player cooldown so Custodian turrets don't fire on every single look/move
+const turretCooldowns = new Map();
 
 export async function describeZone(zone, player) {
   const exits = Object.keys(zone.exits || {});
   const enemies = getZoneEnemies(zone.id);
   const npcs = getZoneNpcs(zone.id);
   const corpses = getZoneCorpses(zone.id);
+  const others = getZonePlayers(zone.id).filter(p => p.id !== player.id);
 
   // Items lying on the ground in this zone
   const { rows: groundItems } = await query(
@@ -29,6 +34,21 @@ export async function describeZone(zone, player) {
   if (zone.pvp_enabled) desc += ` <span class="pvp-warning">⚔ PVP</span>`;
   desc += `\n${zone.description}`;
   desc += await describeApartmentStatus(zone);
+
+  const outcastResponse = getCustodianOutcastResponse(zone, player);
+  if (outcastResponse) {
+    desc += outcastResponse.message;
+    if (outcastResponse.hostile) {
+      const lastHit = turretCooldowns.get(player.id) || 0;
+      if (Date.now() - lastHit > 8000) {
+        turretCooldowns.set(player.id, Date.now());
+        const dmg = Math.floor(Math.random() * 8) + 6;
+        player.hp = Math.max(1, player.hp - dmg);
+        await query('UPDATE players SET hp=$1 WHERE id=$2', [player.hp, player.id]);
+        desc += `\n<span class="death-message">The turret fires. -${dmg} HP. (${player.hp}/${player.hp_max})</span>`;
+      }
+    }
+  }
 
   // Weave notable ground items directly into the prose, underlined and
   // clickable, the way HellMOO highlights interactable nouns in room text.
@@ -46,6 +66,12 @@ export async function describeZone(zone, player) {
       `<span class="action-link exit-link" data-action="go" data-target="${dir}" title="Go ${dir}">${dir}</span>`
     );
     desc += `\n<span class="exits-label">Exits:</span> ${exitLinks.join(', ')}`;
+  }
+  if (others.length) {
+    const playerLinks = others.map(p =>
+      `<span class="action-link player-link" data-action="examine" data-target="${p.handle}" title="Look at ${p.handle}">${p.handle}</span>`
+    );
+    desc += `\n<span class="players-label">Also here:</span> ${playerLinks.join(', ')}`;
   }
   if (npcs.length) {
     const npcLinks = npcs.map(n =>
@@ -138,8 +164,13 @@ async function cmdMove(direction, player, broadcast) {
   player.current_zone = targetId;
   await query('UPDATE players SET current_zone=$1 WHERE id=$2', [targetId, player.id]);
 
+  const OPPOSITE = { north:'south', south:'north', east:'west', west:'east', up:'down', down:'up' };
+  const arrivalDir = OPPOSITE[direction] || null;
+
   broadcast(zone.id, { type:'zone_event', message:`${player.handle} heads ${direction}.` }, player.id);
-  broadcast(targetId, { type:'zone_event', message:`${player.handle} arrives.` }, player.id);
+  broadcast(targetId, { type:'zone_event', message: arrivalDir
+    ? `${player.handle} arrives from the ${arrivalDir}.`
+    : `${player.handle} arrives.` }, player.id);
 
   let radGain = 0;
   if (targetZone.radiation_level > 0) {
@@ -158,7 +189,13 @@ async function cmdAttack(targetStr, player, broadcast) {
   if (!enemies.length) return { type:'error', message:'Nothing to attack here.' };
   const target = enemies.find(e => e.name.toLowerCase().includes(targetStr));
   if (!target) return { type:'error', message:`Can't find "${targetStr}" here.` };
+  return resolveAttack(player, target, broadcast);
+}
 
+// Shared by both the manual "attack" command and auto-retaliation when a
+// player is hit by something they haven't engaged yet. Same weapon lookup,
+// skill XP, loot drop, and broadcast behavior either way.
+export async function resolveAttack(player, target, broadcast) {
   const { rows } = await query(`SELECT i.* FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.is_equipped=1 AND i.type='weapon' LIMIT 1`, [player.id]);
   const equipped = rows[0];
   const weaponStats = equipped ? (equipped.effects || {}) : { damage_min:2, damage_max:4 };
@@ -248,6 +285,25 @@ async function cmdDrop(targetStr, player, broadcast) {
 
 async function cmdUse(targetStr, player) {
   if (!targetStr) return { type:'error', message:'Use what?' };
+
+  // Drugs are a distinct item type — route through the drugs engine for
+  // addiction/overdose/duration handling instead of the plain consumable path.
+  const { rows: drugRows } = await query(
+    `SELECT pi.*, i.name, i.type, d.id as drug_id FROM player_inventory pi
+     JOIN items i ON i.id = pi.item_id
+     JOIN drugs d ON d.item_id = i.id
+     WHERE pi.player_id=$1 AND i.name ILIKE $2 LIMIT 1`,
+    [player.id, `%${targetStr}%`]
+  );
+  if (drugRows.length) {
+    const item = drugRows[0];
+    const result = await useDrug(player, item.drug_id);
+    if (!result.success) return { type:'error', message: result.message };
+    if (item.quantity > 1) await query('UPDATE player_inventory SET quantity=quantity-1 WHERE id=$1', [item.id]);
+    else await query('DELETE FROM player_inventory WHERE id=$1', [item.id]);
+    return { type:'use', message: result.message, player_update: result.player_update };
+  }
+
   const { rows } = await query(`SELECT pi.*,i.name,i.effects FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND i.name ILIKE $2 AND i.type='consumable' LIMIT 1`, [player.id, `%${targetStr}%`]);
   if (!rows.length) return { type:'error', message:`No usable item "${targetStr}" in inventory.` };
   const item = rows[0];
@@ -301,6 +357,13 @@ async function cmdExamine(targetStr, player) {
   const npcs = getZoneNpcs(player.current_zone);
   const npc = npcs.find(n=>n.name.toLowerCase().includes(targetStr));
   if (npc) return { type:'examine', message:`${npc.name}\n${npc.description}` };
+  const others = getZonePlayers(player.current_zone).filter(p => p.id !== player.id);
+  const target = others.find(p => p.handle.toLowerCase().includes(targetStr));
+  if (target) {
+    let msg = `${target.handle}\n${target.origin_fragment || 'A survivor. They give nothing else away.'}`;
+    if (target.visibly_mutated) msg += `\n<span class="mutation-tag">Something about them isn't quite human anymore.</span>`;
+    return { type:'examine', message: msg };
+  }
   return { type:'error', message:`You don't see "${targetStr}" here.` };
 }
 

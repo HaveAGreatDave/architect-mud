@@ -1,5 +1,6 @@
 import { world, tickSpawns, getRandomAmbient, getLivePlayer } from './world.js';
-import { enemyAttackPlayer, tickStatuses } from './combat.js';
+import { enemyAttackPlayer, tickStatuses, isOnCooldown } from './combat.js';
+import { resolveAttack } from './commands.js';
 import { checkMutationTrigger } from './mutations.js';
 import { fireHook } from './plugins.js';
 import { query } from '../models/db.js';
@@ -26,18 +27,41 @@ function tick() {
       if (!zone || zone.players.size === 0) continue;
       if (enemy.behavior === 'aggressive' || enemy.behavior === 'territorial') {
         enemy.targetId = [...zone.players][Math.floor(Math.random() * zone.players.size)];
+        enemy.aggroedAt = Date.now();
       }
     }
     if (enemy.targetId) {
       const target = getLivePlayer(enemy.targetId);
-      if (!target || target.current_zone !== enemy.zoneId) { enemy.targetId = null; continue; }
+      if (!target || target.current_zone !== enemy.zoneId) { enemy.targetId = null; enemy.aggroedAt = null; continue; }
+
+      // Some enemies hesitate before their first swing (lore-appropriate —
+      // a skittish scavenger sizing you up, a slow mutant lumbering closer).
+      // first_strike_delay_ms lives in the enemy's flags JSON.
+      const firstStrikeDelay = enemy.flags?.first_strike_delay_ms || 0;
+      if (firstStrikeDelay > 0 && enemy.lastAttack === 0) {
+        const elapsedSinceAggro = Date.now() - (enemy.aggroedAt || Date.now());
+        if (elapsedSinceAggro < firstStrikeDelay) continue;
+      }
+
       const result = enemyAttackPlayer(enemy, target);
       if (!result) continue;
       if (result.hit) {
         target.hp = Math.max(0, target.hp - result.damage);
         query('UPDATE players SET hp=$1 WHERE id=$2', [target.hp, target.id]).catch(()=>{});
         broadcastFn(null, { type:'combat_incoming', message:result.message, damage:result.damage, hp:target.hp, hp_max:target.hp_max }, null, target.id);
-        if (target.hp <= 0) handlePlayerDeath(target, enemy);
+        if (target.hp <= 0) { handlePlayerDeath(target, enemy); continue; }
+
+        // Auto-retaliate: if the player isn't already mid-swing on someone
+        // else, fight back automatically rather than just standing there.
+        if (!isOnCooldown(target.id, 'attack')) {
+          resolveAttack(target, enemy, broadcastFn)
+            .then(atkResult => {
+              if (atkResult?.type === 'combat') {
+                broadcastFn(null, { ...atkResult, auto:true }, null, target.id);
+              }
+            })
+            .catch(() => {});
+        }
       } else {
         broadcastFn(null, { type:'combat_miss', message:result.message }, null, enemy.targetId);
       }

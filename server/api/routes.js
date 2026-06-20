@@ -1,5 +1,8 @@
 import { query } from '../models/db.js';
 import { reloadZone, getAllZones, world } from '../engine/world.js';
+import { loadRecipes } from '../engine/crafting.js';
+import { loadDrugs } from '../engine/drugs.js';
+import { loadMutations } from '../engine/mutations.js';
 import { randomUUID, createHash } from 'crypto';
 
 const hashPassword = pw => createHash('sha256').update(pw).digest('hex');
@@ -44,6 +47,21 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path==='/npcs' && method==='POST') return requireDev(auth, ()=>apiCreateNpc(body));
   if (path.startsWith('/npcs/') && method==='PUT') return requireDev(auth, ()=>apiUpdateNpc(path.split('/')[2],body));
   if (path==='/factions' && method==='GET') { const {rows}=await query('SELECT * FROM factions'); return {status:200,body:rows}; }
+  if (path==='/recipes' && method==='GET') return requireDev(auth, apiGetRecipes);
+  if (path==='/recipes' && method==='POST') return requireDev(auth, ()=>apiCreateRecipe(body));
+  if (path.startsWith('/recipes/') && method==='PUT') return requireDev(auth, ()=>apiUpdateRecipe(path.split('/')[2],body));
+  if (path.startsWith('/recipes/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteRecipe(path.split('/')[2]));
+  if (path==='/apartments' && method==='GET') return requireDev(auth, apiGetApartments);
+  if (path==='/apartments/build' && method==='POST') return requireDev(auth, ()=>apiBuildApartmentBlock(body));
+  if (path.startsWith('/apartments/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteApartment(path.split('/')[2]));
+  if (path==='/drugs' && method==='GET') return requireDev(auth, apiGetDrugs);
+  if (path==='/drugs' && method==='POST') return requireDev(auth, ()=>apiCreateDrug(body));
+  if (path.startsWith('/drugs/') && method==='PUT') return requireDev(auth, ()=>apiUpdateDrug(path.split('/')[2],body));
+  if (path.startsWith('/drugs/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteDrug(path.split('/')[2]));
+  if (path==='/mutations' && method==='GET') return requireDev(auth, apiGetMutations);
+  if (path==='/mutations' && method==='POST') return requireDev(auth, ()=>apiCreateMutation(body));
+  if (path.startsWith('/mutations/') && method==='PUT') return requireDev(auth, ()=>apiUpdateMutation(path.split('/')[2],body));
+  if (path.startsWith('/mutations/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteMutation(path.split('/')[2]));
   if (path==='/world/state' && method==='GET') return requireDev(auth, apiWorldState);
   if (path==='/world/reload' && method==='POST') return requireDev(auth, ()=>apiReloadZone(body));
   if (path==='/players' && method==='GET') return requireAdmin(auth, apiGetPlayers);
@@ -183,4 +201,167 @@ async function apiReloadZone(body) {
 async function apiGetPlayers() {
   const {rows}=await query('SELECT id,username,handle,role,current_zone,credits,created_at,last_seen FROM players');
   return {status:200,body:rows};
+}
+async function apiGetRecipes() { const {rows}=await query('SELECT * FROM recipes'); return {status:200,body:rows}; }
+
+async function apiGetDrugs() { const {rows}=await query('SELECT * FROM drugs'); return {status:200,body:rows}; }
+async function apiCreateDrug(body) {
+  const id=body.id||`drug_${Date.now()}`;
+  try {
+    await query(`INSERT INTO drugs (id,name,description,item_id,duration_seconds,effects,addiction_chance,overdose_threshold,withdrawal_effects,flags) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+      [id,body.name,body.description||'',body.item_id||null,body.duration_seconds||300,JSON.stringify(body.effects||{}),body.addiction_chance||0,body.overdose_threshold||3,JSON.stringify(body.withdrawal_effects||{}),JSON.stringify(body.flags||{})]);
+    await loadDrugs();
+    return {status:201,body:{id}};
+  } catch(e) { return {status:400,body:{error:e.message}}; }
+}
+async function apiUpdateDrug(id,body) {
+  try {
+    await query(`UPDATE drugs SET name=$1,description=$2,item_id=$3,duration_seconds=$4,effects=$5,addiction_chance=$6,overdose_threshold=$7,withdrawal_effects=$8,flags=$9 WHERE id=$10`,
+      [body.name,body.description||'',body.item_id||null,body.duration_seconds||300,JSON.stringify(body.effects||{}),body.addiction_chance||0,body.overdose_threshold||3,JSON.stringify(body.withdrawal_effects||{}),JSON.stringify(body.flags||{}),id]);
+    await loadDrugs();
+    return {status:200,body:{id}};
+  } catch(e) { return {status:400,body:{error:e.message}}; }
+}
+async function apiDeleteDrug(id) {
+  try { await query('DELETE FROM drugs WHERE id=$1',[id]); await loadDrugs(); return {status:200,body:{message:'Deleted'}}; }
+  catch(e) { return {status:400,body:{error:e.message}}; }
+}
+
+async function apiGetMutations() { const {rows}=await query('SELECT * FROM mutations'); return {status:200,body:rows}; }
+async function apiCreateMutation(body) {
+  const id=body.id||`mut_${Date.now()}`;
+  try {
+    await query(`INSERT INTO mutations (id,name,description,polarity,visible,stat_modifiers,effects,drawbacks,rarity,radiation_threshold) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+      [id,body.name,body.description||'',body.polarity||'mixed',body.visible?1:0,JSON.stringify(body.stat_modifiers||{}),JSON.stringify(body.effects||{}),JSON.stringify(body.drawbacks||[]),body.rarity||'uncommon',body.radiation_threshold||40]);
+    await loadMutations();
+    return {status:201,body:{id}};
+  } catch(e) { return {status:400,body:{error:e.message}}; }
+}
+async function apiUpdateMutation(id,body) {
+  try {
+    await query(`UPDATE mutations SET name=$1,description=$2,polarity=$3,visible=$4,stat_modifiers=$5,effects=$6,drawbacks=$7,rarity=$8,radiation_threshold=$9 WHERE id=$10`,
+      [body.name,body.description||'',body.polarity||'mixed',body.visible?1:0,JSON.stringify(body.stat_modifiers||{}),JSON.stringify(body.effects||{}),JSON.stringify(body.drawbacks||[]),body.rarity||'uncommon',body.radiation_threshold||40,id]);
+    await loadMutations();
+    return {status:200,body:{id}};
+  } catch(e) { return {status:400,body:{error:e.message}}; }
+}
+async function apiDeleteMutation(id) {
+  try { await query('DELETE FROM mutations WHERE id=$1',[id]); await loadMutations(); return {status:200,body:{message:'Deleted'}}; }
+  catch(e) { return {status:400,body:{error:e.message}}; }
+}
+
+async function apiGetApartments() {
+  const { rows } = await query(`
+    SELECT a.*, z.name as zone_name, z.description as zone_description
+    FROM apartments a JOIN zones z ON z.id = a.zone_id
+    ORDER BY a.zone_id
+  `);
+  return { status:200, body: rows };
+}
+
+async function apiDeleteApartment(zoneId) {
+  try {
+    await query('DELETE FROM apartments WHERE zone_id=$1', [zoneId]);
+    await query('DELETE FROM zones WHERE id=$1', [zoneId]);
+    world.zones.delete(zoneId);
+    return { status:200, body:{ message:'Apartment unit and its zone deleted' } };
+  } catch(e) { return { status:400, body:{error:e.message} }; }
+}
+
+// Generates a whole apartment building in one action: a lobby attached to
+// an existing zone (e.g. zone_start) via the given direction, plus N unit
+// zones branching off the lobby — each pre-registered in the apartments
+// table as unowned and ready to RENT. Saves builders from hand-wiring
+// exit JSON for every unit, which is exactly the kind of busywork the dev
+// panel exists to remove.
+const UNIT_DIRECTIONS = ['north','south','east','west','up','down'];
+async function apiBuildApartmentBlock(body) {
+  const {
+    attach_to_zone_id, attach_direction = 'down',
+    building_name = 'Residential Block', lobby_description,
+    unit_count = 4, unit_name_prefix = 'Unit', rent_cost = 100,
+    danger_rating = 'safe',
+  } = body || {};
+
+  if (!attach_to_zone_id) return { status:400, body:{error:'attach_to_zone_id is required'} };
+  if (unit_count < 1 || unit_count > 6) return { status:400, body:{error:'unit_count must be between 1 and 6 (one per compass direction, max)'} };
+
+  const { rows: parentRows } = await query('SELECT * FROM zones WHERE id=$1', [attach_to_zone_id]);
+  if (!parentRows.length) return { status:400, body:{error:`Zone ${attach_to_zone_id} does not exist`} };
+  const parent = parentRows[0];
+  const parentExits = parent.exits || {};
+  if (parentExits[attach_direction]) {
+    return { status:400, body:{error:`${attach_to_zone_id} already has an exit ${attach_direction} (to ${parentExits[attach_direction]}). Choose a different direction or parent zone.`} };
+  }
+
+  const OPPOSITE = { north:'south', south:'north', east:'west', west:'east', up:'down', down:'up' };
+  const lobbyId = `zone_apt_lobby_${Date.now()}`;
+  const unitDirs = UNIT_DIRECTIONS.filter(d => d !== OPPOSITE[attach_direction]).slice(0, unit_count);
+  const unitIds = unitDirs.map((_, i) => `zone_apt_unit_${Date.now()}_${i}`);
+
+  // Lobby exits: back to the parent zone, plus one per unit
+  const lobbyExits = { [OPPOSITE[attach_direction]]: attach_to_zone_id };
+  unitDirs.forEach((dir, i) => { lobbyExits[dir] = unitIds[i]; });
+
+  try {
+    // Create the lobby
+    await query(
+      `INSERT INTO zones (id,name,description,danger_rating,pvp_enabled,radiation_level,is_safe_zone,exits,ambient_events,flags) VALUES ($1,$2,$3,$4,0,0,1,$5,$6,'{}')`,
+      [lobbyId, building_name, lobby_description || `A converted lobby. A corkboard by the door lists available units.`, danger_rating, JSON.stringify(lobbyExits), JSON.stringify([])]
+    );
+
+    // Create each unit, register it in apartments as unowned
+    for (let i = 0; i < unitIds.length; i++) {
+      const unitId = unitIds[i];
+      const unitLabel = `${unit_name_prefix} ${i + 1}`;
+      await query(
+        `INSERT INTO zones (id,name,description,danger_rating,pvp_enabled,radiation_level,is_safe_zone,exits,ambient_events,flags) VALUES ($1,$2,$3,$4,0,0,1,$5,$6,$7)`,
+        [unitId, unitLabel, 'A small, plain room. Yours, if you want it.', danger_rating, JSON.stringify({ [OPPOSITE[unitDirs[i]]]: lobbyId }), JSON.stringify([]), JSON.stringify({ is_apartment: true })]
+      );
+      await query(
+        `INSERT INTO apartments (zone_id, owner_id, is_locked, lock_difficulty, rent_cost) VALUES ($1,NULL,0,4,$2)`,
+        [unitId, rent_cost]
+      );
+    }
+
+    // Wire the parent zone's new exit to the lobby
+    const updatedParentExits = { ...parentExits, [attach_direction]: lobbyId };
+    await query('UPDATE zones SET exits=$1 WHERE id=$2', [JSON.stringify(updatedParentExits), attach_to_zone_id]);
+
+    // Hot-reload everything that changed
+    await reloadZone(attach_to_zone_id);
+    await reloadZone(lobbyId);
+    for (const unitId of unitIds) await reloadZone(unitId);
+
+    return {
+      status: 201,
+      body: { lobby_id: lobbyId, unit_ids: unitIds, message: `Built ${building_name} with ${unitIds.length} unit(s), attached ${attach_direction} of ${attach_to_zone_id}.` },
+    };
+  } catch (e) {
+    return { status:400, body:{error:e.message} };
+  }
+}
+async function apiCreateRecipe(body) {
+  const id=body.id||`recipe_${Date.now()}`;
+  try {
+    await query(`INSERT INTO recipes (id,name,description,category,requires_station,skill_req,ingredients,base_output,skill_id,base_difficulty) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+      [id,body.name,body.description||'',body.category||'misc',body.requires_station||null,JSON.stringify(body.skill_req||{}),JSON.stringify(body.ingredients||[]),JSON.stringify(body.base_output||{}),body.skill_id,body.base_difficulty||3]);
+    await loadRecipes();
+    return {status:201,body:{id}};
+  } catch(e) { return {status:400,body:{error:e.message}}; }
+}
+async function apiUpdateRecipe(id,body) {
+  try {
+    await query(`UPDATE recipes SET name=$1,description=$2,category=$3,requires_station=$4,skill_req=$5,ingredients=$6,base_output=$7,skill_id=$8,base_difficulty=$9 WHERE id=$10`,
+      [body.name,body.description||'',body.category||'misc',body.requires_station||null,JSON.stringify(body.skill_req||{}),JSON.stringify(body.ingredients||[]),JSON.stringify(body.base_output||{}),body.skill_id,body.base_difficulty||3,id]);
+    await loadRecipes();
+    return {status:200,body:{id}};
+  } catch(e) { return {status:400,body:{error:e.message}}; }
+}
+async function apiDeleteRecipe(id) {
+  try {
+    await query('DELETE FROM recipes WHERE id=$1',[id]);
+    await loadRecipes();
+    return {status:200,body:{message:'Deleted'}};
+  } catch(e) { return {status:400,body:{error:e.message}}; }
 }

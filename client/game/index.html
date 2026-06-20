@@ -192,7 +192,7 @@
   .zone-danger-lethal { color: var(--red); border: 1px solid var(--red); background: rgba(224,85,85,0.15); }
   .rad-warning { color: var(--green); font-size: 11px; }
   .pvp-warning { color: var(--red); font-size: 11px; }
-  .exits-label, .npcs-label, .enemies-label, .corpses-label, .apartment-label { color: var(--text-dim); }
+  .exits-label, .npcs-label, .enemies-label, .corpses-label, .apartment-label, .players-label { color: var(--text-dim); }
   .apartment-label { color: var(--cyan); font-weight: 600; }
   .enemies-label { color: var(--orange); }
   .inv-header, .stats-header, .skills-header, .who-header, .help-header { color: var(--accent); font-weight: bold; text-transform: uppercase; letter-spacing: 2px; }
@@ -204,6 +204,11 @@
   .skill-category { color: var(--accent-dim); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
   .help-category { color: var(--accent); }
   .death-message { color: var(--red); font-size: 13px; }
+  .battle-cry { color: var(--orange); font-style: italic; }
+  .mutation-tag { color: var(--purple); font-style: italic; }
+  .overdose-warning, .turret-warning { color: var(--red); font-weight: 600; }
+  .addiction-warning, .outcast-warning { color: var(--orange); font-style: italic; }
+  .item-grant { color: var(--cyan); }
 
   /* ─── INPUT BAR ─── */
   #input-area {
@@ -344,6 +349,7 @@
   .action-link:hover { text-decoration-style: solid; filter: brightness(1.25); }
 
   .exit-link { color: var(--cyan); }
+  .player-link { color: var(--purple); }
   .npc-link { color: var(--green); }
   .enemy-link { color: var(--red); }
   .corpse-link { color: var(--text-dim); }
@@ -517,6 +523,12 @@
     opacity: 0.9;
     text-shadow: 0 0 12px var(--accent-dim);
     user-select: none;
+    animation: skull-pulse 3.5s ease-in-out infinite;
+  }
+
+  @keyframes skull-pulse {
+    0%, 100% { text-shadow: 0 0 12px var(--accent-dim); opacity: 0.9; }
+    50% { text-shadow: 0 0 20px var(--accent), 0 0 6px var(--accent); opacity: 1; }
   }
 
   #auth-title {
@@ -592,26 +604,27 @@
 <!-- AUTH SCREEN -->
 <div id="auth-screen">
   <div id="auth-box">
-    <pre id="auth-ascii">            ▄▄▄▄▄▄▄▄▄▄▄▄▄▄
-         ▄██████████████████▄
-       ▄███▀▀░░░░░░░░░░▀▀███▄
-      ███▀░░░░░░░░░░░░░░░░▀███
-     ██▀░░░▄▄▄▄░░░░░░▄▄▄▄░░░▀██
-     ██░░▄██▓▓██▄░░▄██▓▓██▄░░██
-     ██░░██▓░░▓██░░██▓░░▓██░░██
-     ██░░▀██▓▓██▀░░▀██▓▓██▀░░██
-     ██░░░░▀▀▀▀░░░░░░▀▀▀▀░░░░██
-      ██░░░░░░░▄██▄░░░░░░░░░██
-       ██░░░░░██░░██░░░░░░░██
-        ▀██░░░▀▀▀▀░░░░░░░▄██▀
-         ▀████▄░░░░░░░▄████▀
-        ██▀▀▀████▄▄▄████▀▀▀██
-       ██░░░░░░▀████▀░░░░░░░██
-       ██░░░░░░██▀▀▀▀██░░░░░██
-        ██░░░░██░░░░░░██░░░██
-         ▀█▄░░██░░░░░░██░░▄█▀
-           ▀█▄▀█▄░░░░▄█▀▄█▀
-             ▀▀▀▀▀▀▀▀▀▀▀▀</pre>
+    <pre id="auth-ascii">            ╓              ╖
+              ▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+          ▄▄██████████████████▄▄
+        ▄████▀░░░░░░░░░░░░░▀████▄
+       ███▀░░░░░░░░░░░░░░░░░░▀███
+      ██▀░░░▄████▄░░░▄████▄░░░▀██
+     ██░░░██▓▓◆▓▓██░██▓▓◆▓▓██░░░██
+     ██░░░██▓▓▓▓▓██░██▓▓▓▓▓██░░░██
+     ██░░░░▀████▀░░░░░▀████▀░░░░██
+      ██▄░░░░░░░░░░░░░░░░░░░░░▄██
+       ▀██▄░░░░░░▄▄▄▄▄░░░░░░▄██▀
+         ▀██▄░░░█░░░░░█░░░▄██▀
+           ▀██▄░▀▀▀▀▀░▄██▀
+          ▄▄▄▀████████▀▄▄▄
+        ▄██▀▀▀▀████████▀▀▀▀██▄
+       ██░░░░░░██▀▀▀▀██░░░░░░░██
+       ██░░░░░██░░░░░░██░░░░░░██
+        ██░░░██░░░░░░░░██░░░░██
+         ▀██░██░░░░░░░░░██░██▀
+           ▀█▀░░░░░░░░░░░▀█▀
+            ╙              ╜</pre>
     <pre id="auth-title">░▒▓█▓▒░ ▄▀█ █▀█ █▀▀ █░█ █ ▀█▀ █▀▀ █▀▀ ▀█▀ ░▒▓█▓▒░
 ░▒▓█▓▒░ █▀█ █▀▄ █▄▄ █▀█ █ ░█░ ██▄ █▄▄ ░█░ ░▒▓█▓▒░</pre>
     <div class="tagline">The AI won. You survived. Probably.</div>
@@ -864,7 +877,7 @@ function handleServerMsg(msg) {
       if (player) { player.hp = msg.hp; updateVitals(player); }
       break;
     case 'combat_miss':
-      appendMsg(msg.message, 'system');
+      appendHtml(msg.message, 'system');
       break;
     case 'player_death':
       appendHtml(msg.message, 'death');
@@ -1147,7 +1160,7 @@ function parseZoneInfo(html) {
 function openDialogue(msg) {
   currentNpcId = msg.npcId;
   document.getElementById('dialogue-npc-name').textContent = msg.npcName;
-  document.getElementById('dialogue-text').textContent = msg.text;
+  document.getElementById('dialogue-text').innerHTML = msg.text;
   const opts = document.getElementById('dialogue-options');
   opts.innerHTML = '';
   for (const opt of (msg.options || [])) {
