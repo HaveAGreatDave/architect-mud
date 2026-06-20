@@ -2,7 +2,7 @@ import { query } from '../models/db.js';
 import { getZone, getZoneEnemies, getZoneNpcs, getZoneCorpses, getZonePlayers, getAllLivePlayers, addPlayerToZone, removePlayerFromZone, getMinimapData } from './world.js';
 import { playerAttackEnemy, isOnCooldown, getCooldownRemaining } from './combat.js';
 import { awardSkillXp, getPlayerSkills, SKILLS, skillCheck } from './skills.js';
-import { getAvailableRecipes, attemptCraft } from './crafting.js';
+import { getAvailableRecipes, attemptCraft, validateCraft, craftBar } from './crafting.js';
 import { getPlayerMutations, getCustodianOutcastResponse } from './mutations.js';
 import { getPlayerFactionRep } from './factions.js';
 import { getVendorStock, buyFromVendor, sellToVendor } from './vendor.js';
@@ -284,6 +284,14 @@ export async function handleCommand(input, player, broadcast) {
     const result = await handleCommand(input, player, broadcast);
     if (result) result.message = `You wake up.\n\n${result.message}`;
     return result;
+  }
+
+  // Crafting is a busy state, like sleep: any other command cancels it. A new
+  // `craft` is handled in cmdCraft (it replaces the in-progress craft), so it's
+  // excluded here. Nothing was consumed at craft start, so materials are kept.
+  if (player.currentCraft && cmd !== 'craft') {
+    player.currentCraft = null;
+    broadcast(null, { type:'craft_end', status:'interrupted', message:'You stop crafting. Your materials are intact.' }, null, player.id);
   }
 
   switch (cmd) {
@@ -763,8 +771,22 @@ async function cmdRecipes(player) {
 async function cmdCraft(args, player) {
   const recipeId = args.join('_');
   if (!recipeId) return { type:'error', message:'Craft what? Use RECIPES to see available recipes.' };
-  const result = await attemptCraft(player, recipeId);
-  return { type:result.success ? 'craft' : 'error', message:result.message };
+
+  const check = await validateCraft(player, recipeId);
+  if (!check.ok) return { type:'error', message:check.message };
+
+  // craft_time 0 (or missing) keeps the old instant behavior.
+  const craftTime = check.recipe.craft_time ?? 3;
+  if (craftTime <= 0) {
+    const result = await attemptCraft(player, recipeId);
+    return { type:result.success ? 'craft' : 'error', message:result.message };
+  }
+
+  // Timed craft: mark the player busy and let the game loop tick the bar and
+  // run attemptCraft (which consumes ingredients) on completion. Nothing is
+  // consumed here, so any interruption leaves materials intact.
+  player.currentCraft = { recipeId, startedAt: Date.now(), durationMs: craftTime * 1000 };
+  return { type:'craft_progress', percent:0, bar:craftBar(0), message:`You begin crafting ${check.recipe.name}.` };
 }
 
 async function cmdMutations(player) {

@@ -1,827 +1,31 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ARCHITECT</title>
-<style>
-  :root {
-    --bg: #05050a;
-    --bg2: #0d0d16;
-    --bg3: #15151f;
-    --border: #2a2a40;
-    --text: #e8e8f5;
-    --text-dim: #8888a8;
-    --text-bright: #ffffff;
-    --accent: #ff2ec4;
-    --accent-dim: #6e1957;
-    --green: #39ff8f;
-    --red: #ff3b5c;
-    --orange: #ff9a3c;
-    --yellow: #f5e642;
-    --cyan: #28e5ff;
-    --purple: #b86bff;
-    --font-mono: 'Lucida Console', 'Lucida Sans Typewriter', 'Monaco', 'Consolas', monospace;
-    --font-size-base: 14px;
-    --density-padding: 16px;
-    --density-gap: 8px;
-  }
-
-  /* Light theme — same accent family for brand continuity, warm paper background */
-  [data-theme="light"] {
-    --bg: #f4f2ed;
-    --bg2: #e9e6de;
-    --bg3: #ddd9cf;
-    --border: #c8c3b6;
-    --text: #3a3834;
-    --text-dim: #8a8578;
-    --text-bright: #1a1916;
-    --accent: #c4197f;
-    --accent-dim: #f5cfe5;
-    --green: #1f8f4f;
-    --red: #c23b3b;
-    --orange: #b8651f;
-    --yellow: #9c8a1a;
-    --cyan: #157a92;
-    --purple: #7b3f99;
-  }
-
-  /* High contrast — pure black/white, amber accent (classic terminal phosphor) */
-  [data-theme="contrast"] {
-    --bg: #000000;
-    --bg2: #0a0a0a;
-    --bg3: #141414;
-    --border: #555555;
-    --text: #ffffff;
-    --text-dim: #aaaaaa;
-    --text-bright: #ffffff;
-    --accent: #ffb000;
-    --accent-dim: #5c3f00;
-    --green: #4eff4e;
-    --red: #ff5050;
-    --orange: #ffb000;
-    --yellow: #ffe14e;
-    --cyan: #50e0ff;
-    --purple: #d050ff;
-  }
-
-  /* Compact density — used on mobile/desktop "compact" display mode */
-  [data-density="compact"] {
-    --density-padding: 8px;
-    --density-gap: 4px;
-  }
-
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-
-  body {
-    font-size: var(--font-size-base);
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--font-mono);
-    line-height: 1.5;
-    transition: background 0.2s ease, color 0.2s ease;
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-
-  /* ─── HEADER ─── */
-  #header {
-    background: var(--bg2);
-    border-bottom: 1px solid var(--border);
-    padding: 6px 16px;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    flex-shrink: 0;
-  }
-
-  #header .logo {
-    color: var(--accent);
-    font-size: 16px;
-    font-weight: bold;
-    letter-spacing: 4px;
-    text-transform: uppercase;
-  }
-
-  #header .conn-status {
-    font-size: 11px;
-    color: var(--text-dim);
-  }
-  #header .conn-status.online { color: var(--green); }
-  #header .conn-status.offline { color: var(--red); }
-
-  #header .handle-display {
-    margin-left: auto;
-    color: var(--accent);
-    font-size: 12px;
-  }
-
-  #header .credits-display {
-    color: var(--cyan);
-    font-size: 12px;
-    font-weight: bold;
-    padding: 2px 8px;
-    border: 1px solid var(--border);
-    border-radius: 2px;
-    white-space: nowrap;
-  }
-
-  /* ─── MAIN LAYOUT ─── */
-  #main {
-    display: grid;
-    grid-template-columns: 1fr 240px;
-    flex: 1;
-    overflow: hidden;
-  }
-
-  [data-density="compact"] #main {
-    grid-template-columns: 1fr 190px;
-  }
-
-  /* Narrow viewport — stack sidebar below the output instead of beside it */
-  @media (max-width: 720px) {
-    #main {
-      grid-template-columns: 1fr;
-      grid-template-rows: 1fr auto;
-      overflow-y: auto;
-    }
-    #output-container { border-right: none; border-bottom: 1px solid var(--border); min-height: 50vh; }
-    #sidebar { overflow-y: visible; max-height: 40vh; }
-    #header .logo { font-size: 13px; letter-spacing: 2px; }
-    #quick-cmds { overflow-x: auto; flex-wrap: nowrap; }
-    #auth-box { width: 95vw; padding: 18px 14px 24px; }
-    #auth-ascii { font-size: 9px; }
-    #auth-title { font-size: 7px; letter-spacing: 0; }
-  }
-
-  /* ─── OUTPUT PANE ─── */
-  #output-container {
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    border-right: 1px solid var(--border);
-  }
-
-  #output {
-    flex: 1;
-    overflow-y: auto;
-    padding: 12px var(--density-padding);
-    scroll-behavior: smooth;
-  }
-
-  #output::-webkit-scrollbar { width: 6px; }
-  #output::-webkit-scrollbar-track { background: var(--bg2); }
-  #output::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-
-  .msg { padding: 2px 0; white-space: pre-wrap; word-break: break-word; }
-  .msg + .msg { }
-
-  .msg-system { color: var(--text-dim); font-style: italic; }
-  .msg-echo { color: var(--text-dim); opacity: 0.75; }
-  .msg-look { color: var(--text-bright); }
-  .msg-combat { color: var(--orange); }
-  .msg-combat-incoming { color: var(--red); }
-  .msg-death { color: var(--red); font-weight: bold; }
-  .msg-ambient { color: var(--text-dim); font-style: italic; }
-  .msg-say { color: var(--cyan); }
-  .msg-zone-event { color: var(--text-dim); font-style: italic; }
-  .msg-error { color: var(--red); }
-  .msg-loot { color: var(--green); }
-  .msg-help { color: var(--text); }
-  .msg-separator { color: var(--border); margin: 4px 0; }
-
-  /* Rich text styles used in game output */
-  .zone-name { color: var(--accent); font-size: 15px; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; }
-  .zone-danger { font-size: 11px; padding: 1px 5px; border-radius: 2px; }
-  .zone-danger-safe { color: var(--green); border: 1px solid var(--green); }
-  .zone-danger-low { color: var(--yellow); border: 1px solid var(--yellow); }
-  .zone-danger-medium { color: var(--orange); border: 1px solid var(--orange); }
-  .zone-danger-high { color: var(--red); border: 1px solid var(--red); }
-  .zone-danger-lethal { color: var(--red); border: 1px solid var(--red); background: rgba(224,85,85,0.15); }
-  .rad-warning { color: var(--green); font-size: 11px; }
-  .pvp-warning { color: var(--red); font-size: 11px; }
-  .light-level { display: block; font-size: 11px; font-style: italic; margin: 2px 0; }
-  .light-clear { color: var(--text-dim); }
-  .light-dim { color: var(--yellow); }
-  .light-dark { color: var(--red); }
-  .exits-label, .npcs-label, .enemies-label, .corpses-label, .apartment-label, .players-label, .buildings-label, .rooms-label, .furniture-label { color: var(--text-dim); }
-  .apartment-label { color: var(--cyan); font-weight: 600; }
-  .enemies-label { color: var(--orange); }
-  .inv-header, .stats-header, .skills-header, .who-header, .help-header { color: var(--accent); font-weight: bold; text-transform: uppercase; letter-spacing: 2px; }
-  .status-flags { color: var(--cyan); font-size: 12px; }
-  .equipped { color: var(--green); }
-  .item-rarity-common { color: var(--text-dim); }
-  .item-rarity-uncommon { color: var(--green); }
-  .item-rarity-rare { color: var(--cyan); }
-  .item-rarity-very_rare { color: var(--purple); }
-  .skill-category { color: var(--accent-dim); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
-  .help-category { color: var(--accent); }
-  .death-message { color: var(--red); font-size: 13px; }
-  .clone-vat-message { color: var(--text-dim); font-style: italic; font-size: 12px; }
-  .battle-cry { color: var(--orange); font-style: italic; }
-  .mutation-tag { color: var(--purple); font-style: italic; }
-  .overdose-warning, .turret-warning { color: var(--red); font-weight: 600; }
-  .addiction-warning, .outcast-warning { color: var(--orange); font-style: italic; }
-  .item-grant { color: var(--cyan); }
-
-  /* ─── ENVIRONMENT HUD ─── */
-  #env-hud-sidebar {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 13px;
-    color: var(--text);
-    cursor: pointer;
-    padding: 2px;
-    border-radius: 2px;
-    transition: background 0.15s;
-  }
-  #env-hud-sidebar:hover { background: var(--bg3); }
-  #env-hud-sidebar .env-icon { font-size: 15px; }
-  #env-hud-sidebar .env-clock { color: var(--text-bright); font-weight: bold; letter-spacing: 0.5px; }
-  #env-hud-sidebar .env-temp { color: var(--cyan); margin-left: auto; }
-
-  /* Forecast panel — mirrors the dialogue panel's modal pattern */
-  #forecast-panel {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.75);
-    z-index: 100;
-    align-items: center;
-    justify-content: center;
-  }
-  #forecast-panel.active { display: flex; }
-  #forecast-box {
-    background: var(--bg2);
-    border: 1px solid var(--accent);
-    padding: 24px;
-    max-width: 420px;
-    width: 90%;
-    border-radius: 2px;
-  }
-  #forecast-header { color: var(--accent); font-weight: bold; margin-bottom: 14px; text-transform: uppercase; letter-spacing: 1px; }
-  #forecast-days { display: flex; flex-direction: column; gap: 6px; }
-  .forecast-day-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 7px 10px;
-    background: var(--bg3);
-    border: 1px solid var(--border);
-    border-radius: 2px;
-    font-size: 13px;
-  }
-  .forecast-day-row.fd-today { border-color: var(--accent); }
-  .forecast-day-row .fd-label { color: var(--text-dim); width: 56px; flex-shrink: 0; }
-  .forecast-day-row .fd-icon { font-size: 16px; width: 22px; text-align: center; }
-  .forecast-day-row .fd-weather { color: var(--text-dim); flex: 1; text-transform: capitalize; }
-  .forecast-day-row .fd-temp { color: var(--cyan); font-weight: bold; }
-
-  /* Visibility dimming — a cosmetic overlay on the output pane only, driven
-     by GDD §7's visibility category for the player's current zone. Never
-     alters game text/logic, just how it reads on screen. */
-  #output-container { transition: filter 0.6s ease; }
-  body.env-vis-dim #output-container { filter: brightness(0.88) contrast(0.95); }
-  body.env-vis-dark #output-container { filter: brightness(0.7) contrast(0.9) saturate(0.85); }
-
-  /* ─── INPUT BAR ─── */
-  #input-area {
-    border-top: 1px solid var(--border);
-    padding: 10px 16px;
-    display: flex;
-    gap: 8px;
-    background: var(--bg2);
-    flex-shrink: 0;
-  }
-
-  #prompt { color: var(--accent); align-self: center; user-select: none; }
-
-  #cmd-input {
-    flex: 1;
-    background: transparent;
-    border: none;
-    color: var(--text-bright);
-    font-family: var(--font-mono);
-    font-size: 14px;
-    outline: none;
-    caret-color: var(--accent);
-  }
-
-  #cmd-input::placeholder { color: var(--text-dim); }
-
-  /* Quick command buttons */
-  #quick-cmds {
-    border-top: 1px solid var(--border);
-    padding: 6px 16px;
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-    background: var(--bg);
-    flex-shrink: 0;
-  }
-
-  .qcmd {
-    background: var(--bg3);
-    border: 1px solid var(--border);
-    color: var(--text-dim);
-    font-family: var(--font-mono);
-    font-size: 11px;
-    padding: 2px 8px;
-    cursor: pointer;
-    border-radius: 2px;
-    transition: all 0.1s;
-  }
-  .qcmd:hover { border-color: var(--accent); color: var(--accent); }
-
-  /* ─── SIDEBAR ─── */
-  #sidebar {
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    background: var(--bg2);
-  }
-
-  .sidebar-section {
-    padding: 12px;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .sidebar-label {
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    color: var(--text-dim);
-    margin-bottom: 8px;
-  }
-
-  /* Vitals bars */
-  .vital { margin-bottom: 6px; }
-  .vital-label { font-size: 11px; color: var(--text-dim); display: flex; justify-content: space-between; margin-bottom: 2px; }
-  .vital-bar-bg { background: var(--bg3); height: 6px; border-radius: 1px; }
-  .vital-bar { height: 100%; border-radius: 1px; transition: width 0.3s; }
-  .vital-hp .vital-bar { background: var(--green); }
-  .vital-sanity .vital-bar { background: var(--purple); }
-  .vital-hunger .vital-bar { background: var(--yellow); }
-  .vital-thirst .vital-bar { background: var(--cyan); }
-  .vital-radiation .vital-bar { background: var(--orange); }
-  .vital-bar.low { background: var(--red); }
-
-  /* Zone info */
-  #zone-name-display {
-    font-size: 11px;
-    color: var(--accent);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    margin-bottom: 4px;
-  }
-
-  #exits-display {
-    font-size: 11px;
-    color: var(--text-dim);
-  }
-
-  .exit-btn {
-    background: var(--bg3);
-    border: 1px solid var(--border);
-    color: var(--text-dim);
-    font-family: var(--font-mono);
-    font-size: 11px;
-    padding: 2px 8px;
-    cursor: pointer;
-    margin: 2px;
-    border-radius: 2px;
-    transition: all 0.1s;
-  }
-  .exit-btn:hover { border-color: var(--accent); color: var(--accent); }
-
-  /* Settings button */
-  #settings-btn {
-    background: transparent;
-    border: 1px solid var(--border);
-    color: var(--text-dim);
-    font-size: 14px;
-    width: 28px;
-    height: 28px;
-    cursor: pointer;
-    border-radius: 2px;
-    transition: all 0.15s;
-    line-height: 1;
-  }
-  #settings-btn:hover { border-color: var(--accent); color: var(--accent); transform: rotate(45deg); }
-
-  #signout-btn {
-    background: transparent;
-    border: 1px solid var(--border);
-    color: var(--text-dim);
-    font-size: 14px;
-    width: 28px;
-    height: 28px;
-    cursor: pointer;
-    border-radius: 2px;
-    transition: all 0.15s;
-    line-height: 1;
-    margin-left: 6px;
-  }
-  #signout-btn:hover { border-color: var(--red); color: var(--red); }
-
-  /* Clickable nouns in room text — exits, items, NPCs, enemies, corpses.
-     Underlined and colored by category so it's clear what kind of thing
-     it is and that it's interactive, without having to type the command. */
-  .action-link {
-    text-decoration: underline;
-    text-decoration-style: dotted;
-    text-underline-offset: 3px;
-    cursor: pointer;
-    transition: color 0.1s, text-decoration-style 0.1s;
-    font-weight: 600;
-  }
-  .action-link:hover { text-decoration-style: solid; filter: brightness(1.25); }
-
-  .exit-link { color: var(--cyan); }
-.building-row, .room-row { margin: 2px 0 2px 2px; }
-.dir-tag { color: var(--text-dim); font-weight: bold; margin-right: 4px; }
-.building-link { color: var(--purple); }
-.room-nav-link { color: var(--cyan); }
-.furniture-link { color: var(--orange); }
-  .player-link { color: var(--purple); }
-  .npc-link { color: var(--green); }
-  .enemy-link { color: var(--red); }
-  .corpse-link { color: var(--text-dim); }
-  .room-item { /* item rarity classes already set color; just add link affordance */ }
-
-  /* ─── MINIMAP ─── */
-  #minimap-section {
-    font-family: var(--font-mono);
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 2px;
-    padding: 10px;
-  }
-  #minimap-grid {
-    white-space: pre;
-    font-size: 22px;
-    line-height: 1.5;
-    letter-spacing: 4px;
-    overflow-x: auto;
-    text-align: center;
-  }
-  .mm-cell { display: inline-block; width: 1.4ch; }
-  .mm-current { color: var(--bg); background: var(--accent); font-weight: bold; border-radius: 2px; }
-  .mm-safe { color: var(--green); font-weight: bold; }
-  .mm-low { color: var(--yellow); font-weight: bold; }
-  .mm-medium { color: var(--orange); font-weight: bold; }
-  .mm-high { color: var(--red); font-weight: bold; }
-  .mm-lethal { color: var(--red); font-weight: bold; text-shadow: 0 0 6px var(--red); }
-  .mm-empty { color: var(--border); }
-  .mm-legend { font-size: 11px; color: var(--text-dim); margin-top: 10px; line-height: 1.8; text-align: center; }
-  .mm-legend .mm-current { padding: 1px 5px; border-radius: 2px; }
-
-  /* ─── SETTINGS MODAL ─── */
-  #settings-panel {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.75);
-    z-index: 150;
-    align-items: center;
-    justify-content: center;
-  }
-  #settings-panel.active { display: flex; }
-
-  #settings-box {
-    background: var(--bg2);
-    border: 1px solid var(--accent);
-    padding: 24px;
-    max-width: 420px;
-    width: 90%;
-    border-radius: 2px;
-    max-height: 85vh;
-    overflow-y: auto;
-  }
-  #settings-box h2 {
-    color: var(--accent);
-    font-size: 14px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    margin-bottom: 18px;
-  }
-  .settings-group { margin-bottom: 20px; }
-  .settings-group label.group-label {
-    display: block;
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    color: var(--text-dim);
-    margin-bottom: 8px;
-  }
-  .settings-options {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-  }
-
-  /* Equipment panel */
-  #equip-panel {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.75);
-    z-index: 150;
-    align-items: center;
-    justify-content: center;
-  }
-  #equip-panel.active { display: flex; }
-  #equip-box {
-    background: var(--bg2);
-    border: 1px solid var(--accent);
-    padding: 20px;
-    max-width: 700px;
-    width: 92%;
-    border-radius: 2px;
-    max-height: 88vh;
-    display: flex;
-    flex-direction: column;
-  }
-  #equip-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
-  #equip-header h2 { color: var(--accent); font-size: 14px; letter-spacing: 2px; text-transform: uppercase; }
-  #equip-close {
-    background: transparent; border: 1px solid var(--border); color: var(--text-dim);
-    width: 26px; height: 26px; cursor: pointer; border-radius: 2px;
-  }
-  #equip-close:hover { border-color: var(--red); color: var(--red); }
-
-  #equip-body { display: flex; gap: 18px; overflow: hidden; flex: 1; min-height: 0; }
-
-  #equip-doll {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    width: 240px;
-    flex-shrink: 0;
-    align-content: start;
-  }
-  .equip-slot {
-    background: var(--bg3);
-    border: 1px dashed var(--border);
-    border-radius: 3px;
-    padding: 8px;
-    min-height: 56px;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    transition: border-color 0.15s, background 0.15s;
-  }
-  .equip-slot.drag-over { border-color: var(--cyan); border-style: solid; background: var(--bg); }
-  .equip-slot-label { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); }
-  .equip-slot-item {
-    font-size: 11px;
-    color: var(--text-bright);
-    cursor: grab;
-    min-height: 16px;
-  }
-  .equip-slot-item.filled {
-    background: var(--accent-dim);
-    border: 1px solid var(--accent);
-    border-radius: 2px;
-    padding: 4px 6px;
-  }
-  .equip-slot-item.empty { color: var(--text-dim); font-style: italic; }
-
-  #equip-inv-list {
-    flex: 1;
-    overflow-y: auto;
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    gap: 8px;
-    align-content: start;
-    padding: 2px;
-  }
-  .equip-item-card {
-    background: var(--bg3);
-    border: 1px solid var(--border);
-    border-radius: 3px;
-    padding: 8px;
-    cursor: grab;
-    transition: border-color 0.15s;
-    font-size: 11px;
-  }
-  .equip-item-card:hover { border-color: var(--accent); }
-  .equip-item-card.dragging { opacity: 0.4; }
-  .equip-item-card .eic-name { color: var(--text-bright); display: block; margin-bottom: 2px; }
-  .equip-item-card .eic-meta { color: var(--text-dim); font-size: 10px; }
-  .equip-item-card.equippable { border-left: 3px solid var(--cyan); }
-  .equip-item-card.is-equipped { border-left: 3px solid var(--green); }
-
-  #equip-credits { margin-top: 12px; font-size: 12px; color: var(--text-dim); text-align: right; }
-  #equip-credits-val { color: var(--accent); font-weight: bold; }
-
-  @media (max-width: 720px) {
-    #equip-body { flex-direction: column; overflow-y: auto; }
-    #equip-doll { width: 100%; }
-  }
-
-  .settings-opt {
-    background: var(--bg3);
-    border: 1px solid var(--border);
-    color: var(--text-dim);
-    font-family: var(--font-mono);
-    font-size: 12px;
-    padding: 6px 12px;
-    cursor: pointer;
-    border-radius: 2px;
-    transition: all 0.15s;
-  }
-  .settings-opt:hover { border-color: var(--accent); color: var(--text); }
-  .settings-opt.selected { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
-  #settings-close {
-    width: 100%;
-    margin-top: 8px;
-    background: var(--accent-dim);
-    border: 1px solid var(--accent);
-    color: var(--text-bright);
-    font-family: var(--font-mono);
-    font-size: 12px;
-    padding: 9px;
-    cursor: pointer;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    border-radius: 2px;
-    transition: all 0.15s;
-  }
-  #settings-close:hover { background: var(--accent); color: var(--bg); }
-
-  /* Dialogue panel */
-  #dialogue-panel {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.75);
-    z-index: 100;
-    align-items: center;
-    justify-content: center;
-  }
-  #dialogue-panel.active { display: flex; }
-
-  #dialogue-box {
-    background: var(--bg2);
-    border: 1px solid var(--accent);
-    padding: 24px;
-    max-width: 540px;
-    width: 90%;
-    border-radius: 2px;
-  }
-  #dialogue-npc-name { color: var(--accent); font-weight: bold; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px; }
-  #dialogue-text { color: var(--text-bright); margin-bottom: 16px; line-height: 1.6; white-space: pre-wrap; }
-  #dialogue-options { display: flex; flex-direction: column; gap: 6px; }
-  .dialogue-opt {
-    background: var(--bg3);
-    border: 1px solid var(--border);
-    color: var(--text);
-    font-family: var(--font-mono);
-    font-size: 13px;
-    padding: 8px 12px;
-    cursor: pointer;
-    text-align: left;
-    border-radius: 2px;
-    transition: all 0.1s;
-  }
-  .dialogue-opt:hover { border-color: var(--accent); color: var(--accent); }
-
-  /* Auth screen */
-  #auth-screen {
-    position: fixed;
-    inset: 0;
-    background: var(--bg);
-    z-index: 200;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  #auth-box {
-    background: var(--bg2);
-    border: 1px solid var(--border);
-    box-shadow: 0 0 24px -8px var(--cyan);
-    padding: 24px 28px 32px;
-    width: 480px;
-    max-width: 92vw;
-    border-radius: 2px;
-  }
-
-  #auth-ascii {
-    font-family: var(--font-mono);
-    font-size: 13px;
-    line-height: 1.15;
-    white-space: pre;
-    text-align: center;
-    margin-bottom: 14px;
-    user-select: none;
-  }
-
-  /* Two-tone glow — magenta frame, cyan core. Each channel pulses its own
-     text-shadow blur on its own animation so the glow itself breathes,
-     not just brightness/opacity over a flat color. */
-  .sk-m { color: var(--accent); animation: glow-m 3s ease-in-out infinite; }
-  .sk-c { color: var(--cyan); animation: glow-c 3s ease-in-out infinite; animation-delay: 0.4s; }
-
-  @keyframes glow-m {
-    0%, 100% { text-shadow: 0 0 6px var(--accent-dim); }
-    50% { text-shadow: 0 0 18px var(--accent), 0 0 32px var(--accent-dim); }
-  }
-  @keyframes glow-c {
-    0%, 100% { text-shadow: 0 0 6px var(--cyan); }
-    50% { text-shadow: 0 0 20px var(--cyan), 0 0 36px var(--cyan); }
-  }
-
-  #auth-title {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    line-height: 1.4;
-    white-space: pre;
-    text-align: center;
-    margin-bottom: 6px;
-    user-select: none;
-    letter-spacing: 0.5px;
-  }
-
-  #auth-box .tagline {
-    text-align: center;
-    color: var(--text-dim);
-    font-size: 11px;
-    margin-bottom: 24px;
-  }
-
-  .auth-field { margin-bottom: 14px; }
-  .auth-field label { display: block; font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
-  .auth-field input {
-    width: 100%;
-    background: var(--bg3);
-    border: 1px solid var(--border);
-    color: var(--text-bright);
-    font-family: var(--font-mono);
-    font-size: 13px;
-    padding: 8px 10px;
-    outline: none;
-    border-radius: 2px;
-    transition: border-color 0.15s;
-  }
-  .auth-field input:focus { border-color: var(--accent); }
-
-  .auth-btn {
-    width: 100%;
-    background: var(--accent-dim);
-    border: 1px solid var(--accent);
-    color: var(--text-bright);
-    font-family: var(--font-mono);
-    font-size: 13px;
-    padding: 10px;
-    cursor: pointer;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    transition: all 0.15s;
-    border-radius: 2px;
-    margin-bottom: 8px;
-  }
-  .auth-btn:hover { background: var(--accent); color: var(--bg); }
-
-  .auth-toggle {
-    text-align: center;
-    font-size: 11px;
-    color: var(--text-dim);
-    margin-top: 8px;
-  }
-  .auth-toggle a { color: var(--accent); cursor: pointer; text-decoration: none; }
-  .auth-toggle a:hover { text-decoration: underline; }
-
-  .auth-error { color: var(--red); font-size: 11px; margin-top: 8px; text-align: center; min-height: 16px; }
-
-  .auth-handle-field { display: none; }
-  .auth-handle-field.visible { display: block; }
-</style>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <!-- AUTH SCREEN -->
 <div id="auth-screen">
   <div id="auth-box">
-    <pre id="auth-ascii"><span class="sk-m">              ╱╲</span>
-<span class="sk-m">             ╱  ╲</span>
-<span class="sk-m">        ┌───╱    ╲───┐</span>
-<span class="sk-m">        │  ╱      ╲  │</span>
-<span class="sk-m">    ┌───┤ ╱   </span><span class="sk-c">██</span><span class="sk-m">   ╲ ├───┐</span>
-<span class="sk-m">    │   │╱  </span><span class="sk-c">██████</span><span class="sk-m">  ╲│   │</span>
-<span class="sk-m">    │   ┼  </span><span class="sk-c">████████</span><span class="sk-m">  ┼   │</span>
-<span class="sk-m">    │   │╲  </span><span class="sk-c">██████</span><span class="sk-m">  ╱│   │</span>
-<span class="sk-m">    └───┤ ╲   </span><span class="sk-c">██</span><span class="sk-m">   ╱ ├───┘</span>
-<span class="sk-m">        │  ╲      ╱  │</span>
-<span class="sk-m">        └───╲    ╱───┘</span>
-<span class="sk-m">             ╲  ╱</span>
-<span class="sk-m">              ╲╱</span></pre>
-    <pre id="auth-title"><span class="sk-c">░▒▓█▓▒░</span> <span class="sk-m">▄▀█ █▀█ █▀▀ █░█ █ ▀█▀ █▀▀ █▀▀ ▀█▀</span> <span class="sk-c">░▒▓█▓▒░</span>
-<span class="sk-c">░▒▓█▓▒░</span> <span class="sk-m">█▀█ █▀▄ █▄▄ █▀█ █ ░█░ ██▄ █▄▄ ░█░</span> <span class="sk-c">░▒▓█▓▒░</span></pre>
+    <pre id="auth-ascii"><span class="sk-m">              â•±â•²</span>
+<span class="sk-m">             â•±  â•²</span>
+<span class="sk-m">        â”Œâ”€â”€â”€â•±    â•²â”€â”€â”€â”</span>
+<span class="sk-m">        â”‚  â•±      â•²  â”‚</span>
+<span class="sk-m">    â”Œâ”€â”€â”€â”¤ â•±   </span><span class="sk-c">â–ˆâ–ˆ</span><span class="sk-m">   â•² â”œâ”€â”€â”€â”</span>
+<span class="sk-m">    â”‚   â”‚â•±  </span><span class="sk-c">â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆ</span><span class="sk-m">  â•²â”‚   â”‚</span>
+<span class="sk-m">    â”‚   â”¼  </span><span class="sk-c">â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆ</span><span class="sk-m">  â”¼   â”‚</span>
+<span class="sk-m">    â”‚   â”‚â•²  </span><span class="sk-c">â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆ</span><span class="sk-m">  â•±â”‚   â”‚</span>
+<span class="sk-m">    â””â”€â”€â”€â”¤ â•²   </span><span class="sk-c">â–ˆâ–ˆ</span><span class="sk-m">   â•± â”œâ”€â”€â”€â”˜</span>
+<span class="sk-m">        â”‚  â•²      â•±  â”‚</span>
+<span class="sk-m">        â””â”€â”€â”€â•²    â•±â”€â”€â”€â”˜</span>
+<span class="sk-m">             â•²  â•±</span>
+<span class="sk-m">              â•²â•±</span></pre>
+    <pre id="auth-title"><span class="sk-c">â–‘â–’â–“â–ˆâ–“â–’â–‘</span> <span class="sk-m">â–„â–€â–ˆ â–ˆâ–€â–ˆ â–ˆâ–€â–€ â–ˆâ–‘â–ˆ â–ˆ â–€â–ˆâ–€ â–ˆâ–€â–€ â–ˆâ–€â–€ â–€â–ˆâ–€</span> <span class="sk-c">â–‘â–’â–“â–ˆâ–“â–’â–‘</span>
+<span class="sk-c">â–‘â–’â–“â–ˆâ–“â–’â–‘</span> <span class="sk-m">â–ˆâ–€â–ˆ â–ˆâ–€â–„ â–ˆâ–„â–„ â–ˆâ–€â–ˆ â–ˆ â–‘â–ˆâ–‘ â–ˆâ–ˆâ–„ â–ˆâ–„â–„ â–‘â–ˆâ–‘</span> <span class="sk-c">â–‘â–’â–“â–ˆâ–“â–’â–‘</span></pre>
 
     <div class="tagline">The AI won. You survived. Probably.</div>
 
@@ -852,9 +56,9 @@
   <span class="logo">ARCHITECT</span>
   <span class="conn-status offline" id="conn-status">DISCONNECTED</span>
   <span class="handle-display" id="handle-display"></span>
-  <span class="credits-display" id="credits-display" title="Credits carried">₵ <span id="header-credits-val">0</span></span>
-  <button id="settings-btn" title="Settings" aria-label="Open settings">⚙</button>
-  <button id="signout-btn" title="Sign Out" aria-label="Sign out">⏻</button>
+  <span class="credits-display" id="credits-display" title="Credits carried">â‚µ <span id="header-credits-val">0</span></span>
+  <button id="settings-btn" title="Settings" aria-label="Open settings">âš™</button>
+  <button id="signout-btn" title="Sign Out" aria-label="Sign out">â»</button>
 </div>
 
 <div id="main">
@@ -880,52 +84,52 @@
   <div id="sidebar">
     <div class="sidebar-section" id="minimap-section">
       <div class="sidebar-label">Map</div>
-      <div id="minimap-grid">—</div>
+      <div id="minimap-grid">â€”</div>
       <div class="mm-legend" id="minimap-legend"></div>
     </div>
 
     <div class="sidebar-section">
       <div class="sidebar-label">Vitals</div>
       <div class="vital vital-hp">
-        <div class="vital-label"><span>HP</span><span id="hp-val">—</span></div>
+        <div class="vital-label"><span>HP</span><span id="hp-val">â€”</span></div>
         <div class="vital-bar-bg"><div class="vital-bar" id="hp-bar" style="width:100%"></div></div>
       </div>
       <div class="vital vital-sanity">
-        <div class="vital-label"><span>Sanity</span><span id="san-val">—</span></div>
+        <div class="vital-label"><span>Sanity</span><span id="san-val">â€”</span></div>
         <div class="vital-bar-bg"><div class="vital-bar" id="san-bar" style="width:100%"></div></div>
       </div>
       <div class="vital vital-hunger">
-        <div class="vital-label"><span>Hunger</span><span id="hun-val">—</span></div>
+        <div class="vital-label"><span>Hunger</span><span id="hun-val">â€”</span></div>
         <div class="vital-bar-bg"><div class="vital-bar" id="hun-bar" style="width:100%"></div></div>
       </div>
       <div class="vital vital-thirst">
-        <div class="vital-label"><span>Thirst</span><span id="thi-val">—</span></div>
+        <div class="vital-label"><span>Thirst</span><span id="thi-val">â€”</span></div>
         <div class="vital-bar-bg"><div class="vital-bar" id="thi-bar" style="width:100%"></div></div>
       </div>
       <div class="vital vital-radiation">
-        <div class="vital-label"><span>☢ Radiation</span><span id="rad-val">—</span></div>
+        <div class="vital-label"><span>â˜¢ Radiation</span><span id="rad-val">â€”</span></div>
         <div class="vital-bar-bg"><div class="vital-bar" id="rad-bar" style="width:0%"></div></div>
       </div>
     </div>
 
     <div class="sidebar-section">
       <div class="sidebar-label">Location</div>
-      <div id="zone-name-display">—</div>
+      <div id="zone-name-display">â€”</div>
       <div id="exits-display"></div>
     </div>
 
     <div class="sidebar-section" id="env-section">
       <div class="sidebar-label">Environment</div>
       <div id="env-hud-sidebar" onclick="openForecast()" title="View 7-day forecast">
-        <span class="env-icon" id="env-weather-icon">—</span>
-        <span class="env-clock" id="env-clock">—:—</span>
-        <span class="env-icon" id="env-time-icon">—</span>
-        <span class="env-temp" id="env-temp">—°C</span>
+        <span class="env-icon" id="env-weather-icon">â€”</span>
+        <span class="env-clock" id="env-clock">â€”:â€”</span>
+        <span class="env-icon" id="env-time-icon">â€”</span>
+        <span class="env-temp" id="env-temp">â€”Â°C</span>
       </div>
     </div>
 
     <div class="sidebar-section" id="enemy-section" style="display:none">
-      <div class="sidebar-label" style="color:var(--red)">⚠ Hostiles</div>
+      <div class="sidebar-label" style="color:var(--red)">âš  Hostiles</div>
       <div id="enemy-list" style="font-size:11px;color:var(--orange)"></div>
     </div>
   </div>
@@ -972,7 +176,7 @@
   <div id="equip-box">
     <div id="equip-header">
       <h2>Inventory &amp; Equipment</h2>
-      <button id="equip-close" aria-label="Close">✕</button>
+      <button id="equip-close" aria-label="Close">âœ•</button>
     </div>
     <div id="equip-body">
       <div id="equip-doll">
@@ -1024,7 +228,7 @@
 </div>
 
 <script>
-// Match the page's own protocol — wss:// when served over https://,
+// Match the page's own protocol â€” wss:// when served over https://,
 // ws:// only for plain http:// (e.g. local dev on localhost).
 // Browsers block insecure ws:// connections from an https:// page.
 const WS_PROTOCOL = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -1093,6 +297,26 @@ function connect() {
 function handleServerMsg(msg) {
   switch(msg.type) {
     case 'connected': break;
+    case 'craft_progress': {
+      if (msg.message) appendMsg(msg.message, 'system');
+      let bar = document.getElementById('craft-progress-line');
+      if (!bar) {
+        bar = document.createElement('div');
+        bar.className = 'msg msg-system';
+        bar.id = 'craft-progress-line';
+        document.getElementById('output').appendChild(bar);
+      }
+      bar.textContent = msg.bar;
+      scrollOutput();
+      break;
+    }
+    case 'craft_end': {
+      const bar = document.getElementById('craft-progress-line');
+      if (bar) bar.remove();
+      appendHtml(msg.message, msg.status === 'success' ? 'loot' : 'error');
+      if (msg.player_update && player) { Object.assign(player, msg.player_update); updateVitals(player); }
+      break;
+    }
     case 'auth_success':
       clearTimeout(authTimeout);
       authPending = false;
@@ -1115,7 +339,7 @@ function handleServerMsg(msg) {
       }
       break;
     case 'look':
-      appendMsg('─'.repeat(50), 'separator');
+      appendMsg('â”€'.repeat(50), 'separator');
       appendHtml(msg.message, 'look');
       if (msg.zone) currentZone = msg.zone;
       parseZoneInfo(msg.message);
@@ -1126,7 +350,7 @@ function handleServerMsg(msg) {
       appendHtml(msg.message, 'look');
       currentZone = msg.zone;
       parseZoneInfo(msg.message);
-      if (msg.radiation_gain > 0) appendMsg(`☢ +${msg.radiation_gain} radiation absorbed.`, 'system');
+      if (msg.radiation_gain > 0) appendMsg(`â˜¢ +${msg.radiation_gain} radiation absorbed.`, 'system');
       if (player) { player.radiation = Math.min(100, (player.radiation||0) + (msg.radiation_gain||0)); updateVitals(player); }
       if (msg.minimap) renderMinimap(msg.minimap);
       refreshZoneVisibility();
@@ -1252,7 +476,7 @@ function showColdStart() {
     el = document.createElement('div');
     el.id = 'cold-start-notice';
     el.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--bg2);border:1px solid var(--accent);padding:24px;text-align:center;z-index:300;border-radius:2px;max-width:320px';
-    el.innerHTML = '<div style="color:var(--accent);font-size:13px;letter-spacing:2px;margin-bottom:8px">ARCHITECT</div><div style="color:var(--text-dim);font-size:12px;line-height:1.6">Server is waking up.<br>Free tier cold start — about 60 seconds.<br><span style="color:var(--text);font-size:11px">Reconnecting automatically...</span></div>';
+    el.innerHTML = '<div style="color:var(--accent);font-size:13px;letter-spacing:2px;margin-bottom:8px">ARCHITECT</div><div style="color:var(--text-dim);font-size:12px;line-height:1.6">Server is waking up.<br>Free tier cold start â€” about 60 seconds.<br><span style="color:var(--text);font-size:11px">Reconnecting automatically...</span></div>';
     document.body.appendChild(el);
   }
   el.style.display = 'block';
@@ -1286,7 +510,7 @@ function doAuth() {
     return;
   }
   if (ws.readyState !== WebSocket.OPEN) {
-    errEl.textContent = 'Not connected. Server may be waking up (free tier cold start ~60s) — reconnecting automatically.';
+    errEl.textContent = 'Not connected. Server may be waking up (free tier cold start ~60s) â€” reconnecting automatically.';
     errEl.style.color = 'var(--red)';
     return;
   }
@@ -1374,7 +598,7 @@ function sendCmd(cmd) {
   ws.send(JSON.stringify({ type: 'command', command: cmd }));
 }
 
-// Same as sendCmd but skips the chat-log echo — for UI-driven actions
+// Same as sendCmd but skips the chat-log echo â€” for UI-driven actions
 // (drag/click in the equipment panel) where printing "> equipid <uuid>"
 // into the conversation log would just be noise.
 function sendCmdSilent(cmd) {
@@ -1382,7 +606,7 @@ function sendCmdSilent(cmd) {
   ws.send(JSON.stringify({ type: 'command', command: cmd }));
 }
 
-// Auto-focus the game command input when user types anywhere —
+// Auto-focus the game command input when user types anywhere â€”
 // but never steal focus while another input/textarea is active
 // (e.g. the login form) or while the auth screen is showing.
 document.addEventListener('keydown', (e) => {
@@ -1441,18 +665,18 @@ function setBar(id, val, max, inverse = false) {
 }
 
 // --- Environment HUD (time / weather / power / forecast) ---
-// Driven by server/engine/environment.js — GET /api/environment/state on
+// Driven by server/engine/environment.js â€” GET /api/environment/state on
 // login, then 'environment.sync' (every 30 game-minutes), 'environment.daily'
 // (every 24h), and 'environment.weatherOverride' over the existing
 // WebSocket. Weather/temp update only on those server pushes; the clock
-// itself ticks forward client-side once per real minute (GDD §3.2 — server
+// itself ticks forward client-side once per real minute (GDD Â§3.2 â€” server
 // stays authoritative, client just fills the gap between syncs) and
 // resyncs to the server's value on every push, correcting any drift.
 const DAY_PHASES_CLIENT = [
-  { name: 'dawn', start: 5 * 60, end: 7 * 60, icon: '🌅' },
-  { name: 'day', start: 7 * 60, end: 17 * 60, icon: '☀' },
-  { name: 'dusk', start: 17 * 60, end: 20 * 60, icon: '🌇' },
-  { name: 'night', start: 20 * 60, end: 5 * 60, icon: '🌙' },
+  { name: 'dawn', start: 5 * 60, end: 7 * 60, icon: 'ðŸŒ…' },
+  { name: 'day', start: 7 * 60, end: 17 * 60, icon: 'â˜€' },
+  { name: 'dusk', start: 17 * 60, end: 20 * 60, icon: 'ðŸŒ‡' },
+  { name: 'night', start: 20 * 60, end: 5 * 60, icon: 'ðŸŒ™' },
 ];
 function timeIconForMinutes(m) {
   if (m >= 5 * 60 && m < 7 * 60) return DAY_PHASES_CLIENT[0].icon;
@@ -1471,13 +695,13 @@ function formatHHMM(m) {
 }
 
 let clientMinutes = null;   // local running clock, ticks +1 every real minute
-let envWeatherIcon = '—';
+let envWeatherIcon = 'â€”';
 let envTempC = null;
 
 function updateEnvironmentHUD(env) {
   if (!env || !env.time) return;
-  clientMinutes = parseHHMM(env.time); // resync — server is authoritative
-  envWeatherIcon = env.weatherIcon || '—';
+  clientMinutes = parseHHMM(env.time); // resync â€” server is authoritative
+  envWeatherIcon = env.weatherIcon || 'â€”';
   envTempC = env.tempC;
   renderEnvironmentHUD();
 }
@@ -1491,10 +715,10 @@ function renderEnvironmentHUD() {
   if (weatherEl) weatherEl.textContent = envWeatherIcon;
   if (clockEl) clockEl.textContent = formatHHMM(clientMinutes);
   if (timeIconEl) timeIconEl.textContent = timeIconForMinutes(clientMinutes);
-  if (tempEl) tempEl.textContent = envTempC !== null ? `${envTempC}°C` : '—°C';
+  if (tempEl) tempEl.textContent = envTempC !== null ? `${envTempC}Â°C` : 'â€”Â°C';
 }
 
-// Local minute tick — keeps the clock moving between the server's 30-minute
+// Local minute tick â€” keeps the clock moving between the server's 30-minute
 // syncs instead of sitting frozen on a stale value.
 setInterval(() => {
   if (clientMinutes === null) return;
@@ -1503,7 +727,7 @@ setInterval(() => {
 }, 60000);
 
 // Pulls this zone's visibility category whenever the player arrives
-// somewhere and fades the output pane to match (GDD §7.1). Cosmetic only.
+// somewhere and fades the output pane to match (GDD Â§7.1). Cosmetic only.
 function refreshZoneVisibility() {
   if (!currentZone) return;
   fetch(`/api/environment/visibility/${encodeURIComponent(currentZone)}`)
@@ -1586,7 +810,7 @@ function renderEquipPanel(items) {
     card.setAttribute('draggable', 'true');
     card.setAttribute('data-id', item.id);
     const qty = item.quantity > 1 ? ` x${item.quantity}` : '';
-    const slotLabel = flags.slot ? ` · ${flags.slot.replace('_',' ')}` : '';
+    const slotLabel = flags.slot ? ` Â· ${flags.slot.replace('_',' ')}` : '';
     card.innerHTML = `<span class="eic-name">${item.name}${qty}</span><span class="eic-meta">${item.rarity || ''}${slotLabel}</span>`;
     card.ondragstart = (e) => onItemDragStart(e, item.id);
     card.ondragend = () => card.classList.remove('dragging');
@@ -1675,7 +899,7 @@ function renderForecastPanel(forecast) {
       <span class="fd-label">${i === 0 ? 'Today' : (f.date || '').slice(5) || `+${i}`}</span>
       <span class="fd-icon">${f.icon || ''}</span>
       <span class="fd-weather">${(f.weatherType || '').replace('_', ' ')}</span>
-      <span class="fd-temp">${f.tempC}°C</span>
+      <span class="fd-temp">${f.tempC}Â°C</span>
     </div>
   `).join('');
   document.getElementById('forecast-panel').classList.add('active');
@@ -1695,7 +919,7 @@ function setConnStatus(state, text) {
   el.textContent = text;
 }
 
-// ─── SETTINGS ───────────────────────────────────────────────────────────
+// â”€â”€â”€ SETTINGS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const SETTINGS_KEY = 'architect_settings';
 const DEFAULT_SETTINGS = { theme: 'dark', fontSize: '14', density: 'comfortable' };
 
@@ -1759,7 +983,7 @@ function initSettingsUI() {
 
   document.getElementById('signout-btn').addEventListener('click', () => {
     const confirmed = confirm(
-      "Sign out?\n\nYour body stays asleep exactly where you log out — it will remain in the world, vulnerable to anyone who finds it, until you return.\n\nMake sure you're somewhere safe (your apartment, locked) before signing out."
+      "Sign out?\n\nYour body stays asleep exactly where you log out â€” it will remain in the world, vulnerable to anyone who finds it, until you return.\n\nMake sure you're somewhere safe (your apartment, locked) before signing out."
     );
     if (!confirmed) return;
     if (ws) { try { ws.close(); } catch {} }
@@ -1776,7 +1000,7 @@ if (!localStorage.getItem(SETTINGS_KEY) && window.innerWidth < 720) {
 applySettings();
 initSettingsUI();
 
-// ─── MINIMAP ────────────────────────────────────────────────────────────
+// â”€â”€â”€ MINIMAP â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Renders a small ASCII grid of nearby zones using each zone's exits to
 // position it relative to the player, HellMOO-style colorized by danger.
 function renderMinimap(nodes) {
@@ -1801,7 +1025,7 @@ function renderMinimap(nodes) {
     const [x,y] = coords.get(id);
     if (!node) continue;
     for (const [dir, targetId] of Object.entries(node.exits || {})) {
-      if (!DIR_OFFSET[dir]) continue; // skip up/down — 2D grid only
+      if (!DIR_OFFSET[dir]) continue; // skip up/down â€” 2D grid only
       if (!byId.has(targetId) || seen.has(targetId)) continue;
       const [dx,dy] = DIR_OFFSET[dir];
       coords.set(targetId, [x+dx, y+dy]);
@@ -1827,21 +1051,21 @@ function renderMinimap(nodes) {
     let row = '';
     for (let x = minX; x <= maxX; x++) {
       const id = cellAt.get(`${x},${y}`);
-      if (!id) { row += `<span class="mm-cell mm-empty">·</span>`; continue; }
+      if (!id) { row += `<span class="mm-cell mm-empty">Â·</span>`; continue; }
       const node = byId.get(id);
       const isCurrent = node.is_current;
       const cls = isCurrent ? 'mm-current' : (dangerClass[node.danger_rating] || '');
-      const symbol = isCurrent ? '@' : (node.is_safe_zone ? '◆' : (node.pvp_enabled ? '✕' : '○'));
+      const symbol = isCurrent ? '@' : (node.is_safe_zone ? 'â—†' : (node.pvp_enabled ? 'âœ•' : 'â—‹'));
       row += `<span class="mm-cell ${cls}" title="${node.name}">${symbol}</span>`;
     }
     html += row + '\n';
   }
   grid.innerHTML = html.trimEnd();
 
-  legend.innerHTML = `<span class="mm-current">@</span> you &nbsp; ◆ safe &nbsp; ○ zone &nbsp; <span style="color:var(--red)">✕</span> pvp`;
+  legend.innerHTML = `<span class="mm-current">@</span> you &nbsp; â—† safe &nbsp; â—‹ zone &nbsp; <span style="color:var(--red)">âœ•</span> pvp`;
 }
 
-// Click any actionable noun in the room text — exit, item, NPC, enemy, or corpse —
+// Click any actionable noun in the room text â€” exit, item, NPC, enemy, or corpse â€”
 // and run the corresponding command automatically instead of typing it.
 document.getElementById('output').addEventListener('click', (e) => {
   const el = e.target.closest('.action-link');

@@ -2,7 +2,7 @@
 
 ## What This Is
 
-Post-singularity browser MUD in the HellMOO tradition. Text-driven, real-time, brutal, and funny. Node.js server with raw WebSockets, vanilla JS single-file frontends, PostgreSQL via Supabase. No build step, no ORM, no framework.
+Post-singularity browser MUD in the HellMOO tradition. Text-driven, real-time, brutal, and funny. Node.js server with raw WebSockets, vanilla JS frontends, PostgreSQL via Supabase. No build step, no ORM, no framework.
 
 ## Key Docs
 
@@ -16,7 +16,7 @@ Post-singularity browser MUD in the HellMOO tradition. Text-driven, real-time, b
 
 - **Engine vs. content are separate.** The codebase is the engine. World content (zones, items, enemies, NPCs) lives in Postgres and is edited through the dev panel. Don't hardcode content into engine files.
 - **No ORM.** All queries go through the single `query()` helper in `server/models/db.js`. Keep it that way.
-- **No frameworks.** Frontend is single-file HTML/CSS/JS. No build pipeline to add.
+- **No frameworks.** Frontend is vanilla HTML + a sibling CSS file per page + inline JS. No build pipeline to add.
 - **Plugins for extensibility.** New behavior hooks belong in `/plugins/`, not in engine files, unless they're genuinely core.
 
 ## Working Agreements

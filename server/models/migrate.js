@@ -206,7 +206,8 @@ export async function migrate() {
       ingredients JSONB DEFAULT '[]',
       base_output JSONB NOT NULL,
       skill_id TEXT NOT NULL,
-      base_difficulty INTEGER DEFAULT 3
+      base_difficulty INTEGER DEFAULT 3,
+      craft_time INTEGER DEFAULT 3
     );
 
     CREATE TABLE IF NOT EXISTS drugs (
@@ -252,6 +253,8 @@ export async function migrate() {
       acquired_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW()),
       PRIMARY KEY (player_id, mutation_id)
     );
+
+    ALTER TABLE recipes ADD COLUMN IF NOT EXISTS craft_time INTEGER DEFAULT 3;
 
     CREATE INDEX IF NOT EXISTS idx_players_username ON players(username);
     CREATE INDEX IF NOT EXISTS idx_player_inventory_player ON player_inventory(player_id);

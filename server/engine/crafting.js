@@ -33,6 +33,7 @@ export async function loadRecipes() {
       base_output: r.base_output,
       skill_id: r.skill_id,
       base_difficulty: r.base_difficulty,
+      craft_time: r.craft_time ?? 3,
     };
   }
   RECIPE_CACHE = cache;
@@ -40,6 +41,54 @@ export async function loadRecipes() {
 }
 
 export function getRecipeCache() { return RECIPE_CACHE; }
+
+/** ASCII progress bar: craftBar(60) -> "[||||||----] 60%" (10 segments). */
+export function craftBar(percent) {
+  const filled = Math.round(Math.max(0, Math.min(100, percent)) / 10);
+  return `[${'|'.repeat(filled)}${'-'.repeat(10 - filled)}] ${Math.floor(percent)}%`;
+}
+
+/**
+ * Non-mutating pre-check before starting a timed craft: confirms the recipe
+ * exists and the player has the skills, station, and ingredients. Consumes
+ * nothing — actual consumption happens in attemptCraft when the craft finishes.
+ * Returns { ok, message, recipe }.
+ */
+export async function validateCraft(player, recipeId, stationQuality = 'none') {
+  const recipe = RECIPE_CACHE[recipeId];
+  if (!recipe) return { ok: false, message: 'Unknown recipe.' };
+
+  const { rows: skillRows } = await query(
+    'SELECT skill_id, rank FROM player_skills WHERE player_id = $1', [player.id]
+  );
+  const playerSkills = {};
+  for (const r of skillRows) playerSkills[r.skill_id] = r.rank;
+
+  for (const [skillId, minRank] of Object.entries(recipe.skill_req || {})) {
+    if ((playerSkills[skillId] || 0) < minRank) {
+      return { ok: false, message: `You need ${skillId.replace(/_/g, ' ')} rank ${minRank} to craft this.` };
+    }
+  }
+
+  if (recipe.requires_station && stationQuality === 'none') {
+    return { ok: false, message: `This recipe requires a ${recipe.requires_station.replace(/_/g, ' ')}.` };
+  }
+
+  const { rows: inventory } = await query(
+    `SELECT pi.item_id, pi.quantity FROM player_inventory pi WHERE pi.player_id = $1`,
+    [player.id]
+  );
+  for (const ing of recipe.ingredients) {
+    if (ing.quantity === 0) continue;
+    const found = inventory.find(inv => inv.item_id === ing.item_id && inv.quantity >= ing.quantity);
+    if (!found) {
+      const { rows: itemRows } = await query('SELECT name FROM items WHERE id = $1', [ing.item_id]);
+      return { ok: false, message: `You need ${ing.quantity}x ${itemRows[0]?.name || ing.item_id}.` };
+    }
+  }
+
+  return { ok: true, recipe };
+}
 
 /**
  * Attempt to craft a recipe.

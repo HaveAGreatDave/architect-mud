@@ -1,6 +1,7 @@
 import { world, tickSpawns, getRandomAmbient, getLivePlayer } from './world.js';
 import { enemyAttackPlayer, tickStatuses, isOnCooldown } from './combat.js';
 import { resolveAttack } from './commands.js';
+import { attemptCraft, craftBar } from './crafting.js';
 import { checkMutationTrigger } from './mutations.js';
 import { tickSleep } from './apartments.js';
 import { fireHook } from './plugins.js';
@@ -52,6 +53,13 @@ function tick() {
         broadcastFn(null, { type:'combat_incoming', message:result.message, damage:result.damage, hp:target.hp, hp_max:target.hp_max }, null, target.id);
         if (target.hp <= 0) { handlePlayerDeath(target, enemy); continue; }
 
+        // Taking a hit interrupts any in-progress craft (materials kept, since
+        // nothing is consumed until the craft completes).
+        if (target.currentCraft) {
+          target.currentCraft = null;
+          broadcastFn(null, { type:'craft_end', status:'interrupted', message:'The attack breaks your concentration — crafting interrupted! Your materials are intact.' }, null, target.id);
+        }
+
         // Auto-retaliate: if the player isn't already mid-swing on someone
         // else, fight back automatically rather than just standing there.
         if (!isOnCooldown(target.id, 'attack')) {
@@ -76,6 +84,27 @@ function tick() {
       broadcastFn(null, { type:'status_tick', messages }, null, playerId);
       if (player.hp <= 0) handlePlayerDeath(player, null);
     }
+  }
+
+  // Crafting: advance the progress bar, and finish the craft when its time is up.
+  for (const [playerId, player] of world.players) {
+    const craft = player.currentCraft;
+    if (!craft) continue;
+    const elapsed = Date.now() - craft.startedAt;
+    if (elapsed < craft.durationMs) {
+      const percent = (elapsed / craft.durationMs) * 100;
+      broadcastFn(null, { type:'craft_progress', percent, bar:craftBar(percent) }, null, playerId);
+      continue;
+    }
+    // Clear before running attemptCraft so a slow completion can't be re-finished
+    // on the next tick. attemptCraft consumes ingredients and creates the item.
+    player.currentCraft = null;
+    attemptCraft(player, craft.recipeId)
+      .then(result => broadcastFn(null, { type:'craft_end', status:result.success ? 'success' : 'failed', message:result.message }, null, playerId))
+      .catch(err => {
+        console.error('craft completion error', err);
+        broadcastFn(null, { type:'craft_end', status:'failed', message:'Your craft fizzles unexpectedly.' }, null, playerId);
+      });
   }
 }
 
@@ -132,6 +161,7 @@ function handlePlayerDeath(player, killer) {
   player.thirst = 100;
   player.radiation = 0;
   player.sleeping = null;
+  player.currentCraft = null;
 
   broadcastFn(null, {
     type:'player_death',
