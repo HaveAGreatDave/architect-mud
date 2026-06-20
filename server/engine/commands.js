@@ -130,6 +130,9 @@ export async function handleCommand(input, player, broadcast) {
     case 'drop': return cmdDrop(args.join(' '), player, broadcast);
     case 'use': case 'eat': case 'drink': return cmdUse(args.join(' '), player);
     case 'equip': case 'wear': return cmdEquip(args.join(' '), player);
+    case 'unequip': case 'remove': return cmdUnequip(args.join(' '), player);
+    case 'equipid': return cmdEquipById(args[0], player);
+    case 'unequipid': return cmdUnequipById(args[0], player);
     case 'talk': case 'speak': return cmdTalk(args.join(' '), player);
     case 'examine': case 'ex': case 'x': return cmdExamine(args.join(' '), player);
     case 'who': return cmdWho();
@@ -247,7 +250,7 @@ export async function resolveAttack(player, target, broadcast) {
 }
 
 async function cmdInventory(player) {
-  const { rows } = await query(`SELECT pi.*,i.name,i.type,i.weight,i.rarity FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 ORDER BY i.type,i.name`, [player.id]);
+  const { rows } = await query(`SELECT pi.*,i.name,i.type,i.subtype,i.weight,i.rarity,i.flags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 ORDER BY i.type,i.name`, [player.id]);
   if (!rows.length) return { type:'inventory', message:'Your inventory is empty.', items:[] };
   let msg = '<span class="inv-header">INVENTORY</span>\n';
   for (const item of rows) {
@@ -294,12 +297,28 @@ async function cmdSkills(player) {
 
 async function cmdTake(targetStr, player, broadcast) {
   if (!targetStr) return { type:'error', message:'Take what?' };
-  const { rows } = await query(`SELECT pi.*,i.name FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND i.name ILIKE $2 LIMIT 1`, [`_ground_${player.current_zone}`, `%${targetStr}%`]);
+  const { rows } = await query(`SELECT pi.*,i.name,i.is_stackable FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND i.name ILIKE $2 LIMIT 1`, [`_ground_${player.current_zone}`, `%${targetStr}%`]);
   if (!rows.length) return { type:'error', message:`Can't find "${targetStr}" here.` };
-  await query('UPDATE player_inventory SET player_id=$1 WHERE id=$2', [player.id, rows[0].id]);
+  const ground = rows[0];
+
+  if (ground.is_stackable) {
+    const { rows: existing } = await query(
+      'SELECT id, quantity FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND is_equipped=0',
+      [player.id, ground.item_id]
+    );
+    if (existing.length) {
+      await query('UPDATE player_inventory SET quantity = quantity + $1 WHERE id = $2', [ground.quantity, existing[0].id]);
+      await query('DELETE FROM player_inventory WHERE id=$1', [ground.id]);
+      await awardSkillXp(player.id, 'scavenging', 2);
+      broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} picks up ${ground.name}.` }, player.id);
+      return { type:'take', message:`You pick up ${ground.name}.` };
+    }
+  }
+
+  await query('UPDATE player_inventory SET player_id=$1 WHERE id=$2', [player.id, ground.id]);
   await awardSkillXp(player.id, 'scavenging', 2);
-  broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} picks up ${rows[0].name}.` }, player.id);
-  return { type:'take', message:`You pick up ${rows[0].name}.` };
+  broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} picks up ${ground.name}.` }, player.id);
+  return { type:'take', message:`You pick up ${ground.name}.` };
 }
 
 async function cmdDrop(targetStr, player, broadcast) {
@@ -371,6 +390,15 @@ async function cmdUse(targetStr, player) {
   return { type:'use', message:messages.join('\n'), player_update:{hp:player.hp,hunger:player.hunger,thirst:player.thirst,radiation:player.radiation,credits:player.credits} };
 }
 
+// Canonical body-slot taxonomy. An item's flags.slot must be one of these
+// for it to be equippable in a specific location; anything else falls back
+// to a generic slot named after its item type (rare — only legacy/unflagged
+// items should ever hit that fallback).
+export const EQUIP_SLOTS = {
+  head: 'Head', torso: 'Torso', hands: 'Hands', legs: 'Legs', feet: 'Feet',
+  weapon_hand: 'Weapon Hand', accessory: 'Accessory',
+};
+
 async function cmdEquip(targetStr, player) {
   if (!targetStr) return { type:'error', message:'Equip what?' };
   const { rows } = await query(`SELECT pi.*,i.name,i.type,i.subtype,i.flags,i.requirements FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND i.name ILIKE $2 AND (i.type='weapon' OR i.type='armor') LIMIT 1`, [player.id, `%${targetStr}%`]);
@@ -381,10 +409,47 @@ async function cmdEquip(targetStr, player) {
     if ((player[stat]||0) < val) return { type:'error', message:`Need ${stat.replace('stat_','')} ${val} to use this.` };
   }
   const flags = item.flags || {};
-  const slot = flags.slot || item.type;
+  const slot = flags.slot && EQUIP_SLOTS[flags.slot] ? flags.slot : (item.type === 'weapon' ? 'weapon_hand' : null);
+  if (!slot) return { type:'error', message:`${item.name} doesn't have a valid equip slot configured.` };
   await query('UPDATE player_inventory SET is_equipped=0 WHERE player_id=$1 AND slot=$2', [player.id, slot]);
   await query('UPDATE player_inventory SET is_equipped=1,slot=$1 WHERE id=$2', [slot, item.id]);
-  return { type:'equip', message:`You equip ${item.name}.` };
+  return { type:'equip', message:`You equip ${item.name}.`, slot };
+}
+
+async function cmdUnequip(targetStr, player) {
+  if (!targetStr) return { type:'error', message:'Unequip what?' };
+  const { rows } = await query(`SELECT pi.*,i.name FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.is_equipped=1 AND i.name ILIKE $2 LIMIT 1`, [player.id, `%${targetStr}%`]);
+  if (!rows.length) return { type:'error', message:`You don't have "${targetStr}" equipped.` };
+  await query('UPDATE player_inventory SET is_equipped=0 WHERE id=$1', [rows[0].id]);
+  return { type:'equip', message:`You unequip ${rows[0].name}.` };
+}
+
+// Deterministic id-targeted variants for the visual equipment panel — the
+// click/drag UI knows exactly which inventory row it's acting on and
+// shouldn't rely on fuzzy name matching the way a typed command does.
+async function cmdEquipById(inventoryId, player) {
+  if (!inventoryId) return { type:'error', message:'Nothing selected to equip.' };
+  const { rows } = await query(`SELECT pi.*,i.name,i.type,i.flags,i.requirements FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.id=$1 AND pi.player_id=$2 AND (i.type='weapon' OR i.type='armor') LIMIT 1`, [inventoryId, player.id]);
+  if (!rows.length) return { type:'error', message:`Can't equip that.` };
+  const item = rows[0];
+  const reqs = item.requirements || {};
+  for (const [stat,val] of Object.entries(reqs)) {
+    if ((player[stat]||0) < val) return { type:'error', message:`Need ${stat.replace('stat_','')} ${val} to use this.` };
+  }
+  const flags = item.flags || {};
+  const slot = flags.slot && EQUIP_SLOTS[flags.slot] ? flags.slot : (item.type === 'weapon' ? 'weapon_hand' : null);
+  if (!slot) return { type:'error', message:`${item.name} doesn't have a valid equip slot configured.` };
+  await query('UPDATE player_inventory SET is_equipped=0 WHERE player_id=$1 AND slot=$2', [player.id, slot]);
+  await query('UPDATE player_inventory SET is_equipped=1,slot=$1 WHERE id=$2', [slot, item.id]);
+  return { type:'equip', message:`You equip ${item.name}.`, slot };
+}
+
+async function cmdUnequipById(inventoryId, player) {
+  if (!inventoryId) return { type:'error', message:'Nothing selected to unequip.' };
+  const { rows } = await query(`SELECT pi.*,i.name FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.id=$1 AND pi.player_id=$2 AND pi.is_equipped=1 LIMIT 1`, [inventoryId, player.id]);
+  if (!rows.length) return { type:'error', message:`That isn't equipped.` };
+  await query('UPDATE player_inventory SET is_equipped=0 WHERE id=$1', [rows[0].id]);
+  return { type:'equip', message:`You unequip ${rows[0].name}.` };
 }
 
 function cmdTalk(targetStr, player) {
@@ -545,11 +610,23 @@ async function cmdLootCorpse(targetStr, player, broadcast) {
   if (!corpses.length) return { type:'error', message:'No corpses to loot here.' };
 
   // Check if it's a player corpse (full loot PvP)
-  const { rows } = await query(`SELECT pi.*,i.name FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1`, [`_corpse_${player.current_zone}`]);
+  const { rows } = await query(`SELECT pi.*,i.name,i.is_stackable FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1`, [`_corpse_${player.current_zone}`]);
   if (!rows.length) return { type:'error', message:'Nothing left to loot.' };
 
   const looted = [];
   for (const item of rows) {
+    if (item.is_stackable) {
+      const { rows: existing } = await query(
+        'SELECT id, quantity FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND is_equipped=0',
+        [player.id, item.item_id]
+      );
+      if (existing.length) {
+        await query('UPDATE player_inventory SET quantity = quantity + $1 WHERE id = $2', [item.quantity, existing[0].id]);
+        await query('DELETE FROM player_inventory WHERE id=$1', [item.id]);
+        looted.push(item.name);
+        continue;
+      }
+    }
     await query('UPDATE player_inventory SET player_id=$1 WHERE id=$2', [player.id, item.id]);
     looted.push(item.name);
   }

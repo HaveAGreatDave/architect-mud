@@ -114,8 +114,9 @@ npm run dev
 | `look` | Describe your surroundings |
 | `attack <target>` | Attack a hostile |
 | `loot <corpse>` | Loot a dead player or NPC |
-| `inventory` | Show inventory |
-| `take / drop / use / equip` | Item management |
+| `inventory` / `inv` / `i` | Opens the visual inventory & equipment panel — drag or click items into body slots |
+| `take / drop / use` | Item management |
+| `equip <item>` / `unequip <item>` | Equip or unequip by typed name (the visual panel does this too, via drag or click) |
 | `recipes` | Show craftable recipes |
 | `craft <recipe_id>` | Craft an item |
 | `shop <npc>` | Browse a vendor |
@@ -157,6 +158,14 @@ Players can rent apartment units in the Residential block and secure them with a
 - **`sleep`** / **`rest`** — begins a timed sleep that gradually restores HP and Sanity over real time while draining hunger and thirst, same as if you were unconscious rather than resting instantly. Your own locked apartment rests faster and deeper than any other safe zone or an unlocked apartment that isn't yours; sleep doesn't work at all somewhere dangerous. Sending any other command wakes you up early — whatever you'd already recovered is kept. Sleep also auto-ends if you'd starve/dehydrate unconscious, or after 30 in-game minutes regardless.
 
 Apartment zones are just regular zones with the `is_apartment` flag set in their `flags` JSON — togglable on any zone from the dev panel's zone editor.
+
+---
+
+## Inventory & Equipment
+
+- Stackable items merge into a single row with a quantity instead of creating duplicate entries — applies to picking items up off the ground, looting corpses, and crafting output (crafted items only merge with an existing stack of the *same quality tier*; a pristine craft and a scrap craft of the same item stay separate).
+- Equipment uses seven body slots: **Head, Torso, Hands, Legs, Feet, Weapon Hand, Accessory**. An item declares its slot via `flags.slot` in its item definition; weapons with no explicit slot default to Weapon Hand.
+- The visual panel (opened via `inventory`/`inv`/`i`, or the **inv** button) shows a body-slot diagram next to your unequipped items — drag an item onto a slot to equip it, drag an equipped item back out to unequip, or just click either side as a shortcut for the same thing.
 
 ---
 
@@ -223,6 +232,7 @@ Restart the server. Plugin loads automatically. No core code changes.
 - [x] **Faction reputation** — 6 tiers, trade discounts, hostile behavior
 - [x] **Vendor system** — buy/sell with faction rep discounts
 - [x] Skill system — 18 skills (incl. Security for lockpicking), XP-by-use, rank 0–10
+- [x] **Inventory & equipment** — stackable items (no more duplicate rows), 7-slot body equipment with a drag/click visual panel
 - [x] NPC dialogue trees
 - [x] **Plugin system** — hook-based, drop-in extensibility
 - [x] Dev panel — Zone, Enemy, Item, NPC editors with live hot-reload and surfaced error toasts

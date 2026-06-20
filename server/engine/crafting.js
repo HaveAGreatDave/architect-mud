@@ -134,13 +134,33 @@ export async function attemptCraft(player, recipeId, stationQuality = 'none') {
   const xpGain = recipe.base_difficulty * 5 + (skillResult.success ? 10 : 0);
   await awardSkillXp(player.id, recipe.skill_id, xpGain);
 
-  // Insert output item
+  // Insert output item — stacks onto an existing pile of the same item at
+  // the same quality tier (a pristine craft and a scrap craft of the same
+  // item are NOT the same stack; quality is part of what's being matched).
   const { randomUUID } = await import('crypto');
   const outputQty = recipe.base_output.quantity * (critical ? 2 : 1);
-  await query(
-    'INSERT INTO player_inventory (id, player_id, item_id, quantity, condition, custom_data) VALUES ($1, $2, $3, $4, $5, $6)',
-    [randomUUID(), player.id, recipe.base_output.item_id, outputQty, 1.0, JSON.stringify({ quality: outputQuality })]
-  );
+  const customData = { quality: outputQuality };
+
+  const { rows: outputItemRows } = await query('SELECT is_stackable FROM items WHERE id=$1', [recipe.base_output.item_id]);
+  const outputIsStackable = outputItemRows[0]?.is_stackable;
+
+  let existingStack = [];
+  if (outputIsStackable) {
+    const result = await query(
+      `SELECT id, quantity FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND is_equipped=0 AND custom_data=$3`,
+      [player.id, recipe.base_output.item_id, JSON.stringify(customData)]
+    );
+    existingStack = result.rows;
+  }
+
+  if (existingStack.length) {
+    await query('UPDATE player_inventory SET quantity = quantity + $1 WHERE id = $2', [outputQty, existingStack[0].id]);
+  } else {
+    await query(
+      'INSERT INTO player_inventory (id, player_id, item_id, quantity, condition, custom_data) VALUES ($1, $2, $3, $4, $5, $6)',
+      [randomUUID(), player.id, recipe.base_output.item_id, outputQty, 1.0, JSON.stringify(customData)]
+    );
+  }
 
   const critMsg = critical ? ' CRITICAL CRAFT — double output! ' : '';
   return {

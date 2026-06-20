@@ -142,7 +142,7 @@
     #header .logo { font-size: 13px; letter-spacing: 2px; }
     #quick-cmds { overflow-x: auto; flex-wrap: nowrap; }
     #auth-box { width: 95vw; padding: 18px 14px 24px; }
-    #auth-ascii { font-size: 6.5px; }
+    #auth-ascii { font-size: 9px; }
     #auth-title { font-size: 7px; letter-spacing: 0; }
   }
 
@@ -442,6 +442,107 @@
     gap: 6px;
     flex-wrap: wrap;
   }
+
+  /* Equipment panel */
+  #equip-panel {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    z-index: 150;
+    align-items: center;
+    justify-content: center;
+  }
+  #equip-panel.active { display: flex; }
+  #equip-box {
+    background: var(--bg2);
+    border: 1px solid var(--accent);
+    padding: 20px;
+    max-width: 700px;
+    width: 92%;
+    border-radius: 2px;
+    max-height: 88vh;
+    display: flex;
+    flex-direction: column;
+  }
+  #equip-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+  #equip-header h2 { color: var(--accent); font-size: 14px; letter-spacing: 2px; text-transform: uppercase; }
+  #equip-close {
+    background: transparent; border: 1px solid var(--border); color: var(--text-dim);
+    width: 26px; height: 26px; cursor: pointer; border-radius: 2px;
+  }
+  #equip-close:hover { border-color: var(--red); color: var(--red); }
+
+  #equip-body { display: flex; gap: 18px; overflow: hidden; flex: 1; min-height: 0; }
+
+  #equip-doll {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    width: 240px;
+    flex-shrink: 0;
+    align-content: start;
+  }
+  .equip-slot {
+    background: var(--bg3);
+    border: 1px dashed var(--border);
+    border-radius: 3px;
+    padding: 8px;
+    min-height: 56px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .equip-slot.drag-over { border-color: var(--cyan); border-style: solid; background: var(--bg); }
+  .equip-slot-label { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); }
+  .equip-slot-item {
+    font-size: 11px;
+    color: var(--text-bright);
+    cursor: grab;
+    min-height: 16px;
+  }
+  .equip-slot-item.filled {
+    background: var(--accent-dim);
+    border: 1px solid var(--accent);
+    border-radius: 2px;
+    padding: 4px 6px;
+  }
+  .equip-slot-item.empty { color: var(--text-dim); font-style: italic; }
+
+  #equip-inv-list {
+    flex: 1;
+    overflow-y: auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 8px;
+    align-content: start;
+    padding: 2px;
+  }
+  .equip-item-card {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 8px;
+    cursor: grab;
+    transition: border-color 0.15s;
+    font-size: 11px;
+  }
+  .equip-item-card:hover { border-color: var(--accent); }
+  .equip-item-card.dragging { opacity: 0.4; }
+  .equip-item-card .eic-name { color: var(--text-bright); display: block; margin-bottom: 2px; }
+  .equip-item-card .eic-meta { color: var(--text-dim); font-size: 10px; }
+  .equip-item-card.equippable { border-left: 3px solid var(--cyan); }
+  .equip-item-card.is-equipped { border-left: 3px solid var(--green); }
+
+  #equip-credits { margin-top: 12px; font-size: 12px; color: var(--text-dim); text-align: right; }
+  #equip-credits-val { color: var(--accent); font-weight: bold; }
+
+  @media (max-width: 720px) {
+    #equip-body { flex-direction: column; overflow-y: auto; }
+    #equip-doll { width: 100%; }
+  }
+
   .settings-opt {
     background: var(--bg3);
     border: 1px solid var(--border);
@@ -532,28 +633,27 @@
 
   #auth-ascii {
     font-family: var(--font-mono);
-    font-size: 9px;
-    line-height: 1.05;
+    font-size: 13px;
+    line-height: 1.15;
     white-space: pre;
     text-align: center;
-    margin-bottom: 10px;
-    opacity: 0.92;
+    margin-bottom: 14px;
     user-select: none;
-    animation: skull-pulse 3.5s ease-in-out infinite;
   }
 
-  /* Glitch / chromatic-aberration color bands — magenta and cyan channels
-     offset across the skull like a corrupted RGB split, with warm
-     yellow/green flecks on the organic eye and cool cyan on the
-     cybernetic eye plate so the two read as distinctly different materials. */
-  .sk-m { color: var(--accent); text-shadow: 0 0 8px var(--accent-dim); }
-  .sk-c { color: var(--cyan); text-shadow: 0 0 8px var(--cyan); }
-  .sk-y { color: var(--yellow); text-shadow: 0 0 6px var(--yellow); }
-  .sk-g { color: var(--green); text-shadow: 0 0 6px var(--green); }
+  /* Two-tone glow — magenta frame, cyan core. Each channel pulses its own
+     text-shadow blur on its own animation so the glow itself breathes,
+     not just brightness/opacity over a flat color. */
+  .sk-m { color: var(--accent); animation: glow-m 3s ease-in-out infinite; }
+  .sk-c { color: var(--cyan); animation: glow-c 3s ease-in-out infinite; animation-delay: 0.4s; }
 
-  @keyframes skull-pulse {
-    0%, 100% { filter: brightness(0.92) saturate(0.9); opacity: 0.88; }
-    50% { filter: brightness(1.15) saturate(1.2); opacity: 1; }
+  @keyframes glow-m {
+    0%, 100% { text-shadow: 0 0 6px var(--accent-dim); }
+    50% { text-shadow: 0 0 18px var(--accent), 0 0 32px var(--accent-dim); }
+  }
+  @keyframes glow-c {
+    0%, 100% { text-shadow: 0 0 6px var(--cyan); }
+    50% { text-shadow: 0 0 20px var(--cyan), 0 0 36px var(--cyan); }
   }
 
   #auth-title {
@@ -627,27 +727,19 @@
 <!-- AUTH SCREEN -->
 <div id="auth-screen">
   <div id="auth-box">
-    <pre id="auth-ascii"><span class="sk-m">         </span><span class="sk-c">   ▄▄▄▄▄▄</span><span class="sk-m">▄▄▄▄▄▄▄▄▄▄</span>
-<span class="sk-m">         </span><span class="sk-c">▄████████</span><span class="sk-m">██████████▄</span>
-<span class="sk-m">       ▄██</span><span class="sk-c">██▀▀░░░░░░</span><span class="sk-m">░░░░▀▀████▄</span>
-<span class="sk-m">      ████</span><span class="sk-c">▀░░░░▄▄▄▄▄</span><span class="sk-m">▄▄▄░░░▀████</span>
-<span class="sk-m">     ███▀░</span><span class="sk-c">░░░░░░░░░░</span><span class="sk-m">░░░░░░░░▀███</span>
-<span class="sk-m">    ███▌░░░</span><span class="sk-c">░░░░░░░░░░░</span><span class="sk-m">░░░░░░░▐███</span>
-<span class="sk-m">    ██▌░░</span><span class="sk-y">●●●</span><span class="sk-m">░░░░░░░░░░░░</span><span class="sk-c">╔══╗</span><span class="sk-m">░░▐██</span>
-<span class="sk-m">    ██▌░░</span><span class="sk-y">●</span><span class="sk-g">◆</span><span class="sk-y">●</span><span class="sk-m">░░░░░░░░░░░░</span><span class="sk-c">║▓▓║</span><span class="sk-m">░░▐██</span>
-<span class="sk-m">    ██▌░░</span><span class="sk-y">●●●</span><span class="sk-m">░░░░░░░░░░░░</span><span class="sk-c">╚══╝</span><span class="sk-m">░░▐██</span>
-<span class="sk-m">     ██▌░░</span><span class="sk-c">░░░░░░░▄▀▄</span><span class="sk-m">░░░░░░░░░▐██</span>
-<span class="sk-m">      ██▄░</span><span class="sk-c">░░░░░░▀▄▄▀</span><span class="sk-m">░░░░░░░░▄██</span>
-<span class="sk-m">       ▀██</span><span class="sk-c">▄░░░░░░░░░</span><span class="sk-m">░░░░░░░▄██▀</span>
-<span class="sk-m">         </span><span class="sk-c">▀██▄░░░░░</span><span class="sk-m">░░░░░░░▄██▀</span>
-<span class="sk-m">        ▄▄</span><span class="sk-c">▄▀███▄▄▄▄▄</span><span class="sk-m">▄▄▄███▀▄▄▄</span>
-<span class="sk-m">      ▄██▀</span><span class="sk-c">▀░░▀██████</span><span class="sk-m">██▀░░▀▀██▄</span>
-<span class="sk-m">     ██░░░</span><span class="sk-c">░░░░│░│◆│░</span><span class="sk-m">│░░░░░░░██</span>
-<span class="sk-m">     █▌░░░</span><span class="sk-c">░░░░│░│░│░</span><span class="sk-m">│░░░░░░░▐█</span>
-<span class="sk-m">      ██░░</span><span class="sk-c">░░░░▀░▀░▀░</span><span class="sk-m">▀░░░░░░░██</span>
-<span class="sk-m">       ▀██</span><span class="sk-c">░░░░░░░░░░</span><span class="sk-m">░░░░░░░██▀</span>
-<span class="sk-m">         </span><span class="sk-c">▀█▄░░░░░░</span><span class="sk-m">░░░░░░░▄█▀</span>
-<span class="sk-m">        </span><span class="sk-c">   ▀▀▄▄▄</span><span class="sk-m">▄▄▄▄▄▄▄▄▀▀</span></pre>
+    <pre id="auth-ascii"><span class="sk-m">              ╱╲</span>
+<span class="sk-m">             ╱  ╲</span>
+<span class="sk-m">        ┌───╱    ╲───┐</span>
+<span class="sk-m">        │  ╱      ╲  │</span>
+<span class="sk-m">    ┌───┤ ╱   </span><span class="sk-c">██</span><span class="sk-m">   ╲ ├───┐</span>
+<span class="sk-m">    │   │╱  </span><span class="sk-c">██████</span><span class="sk-m">  ╲│   │</span>
+<span class="sk-m">    │   ┼  </span><span class="sk-c">████████</span><span class="sk-m">  ┼   │</span>
+<span class="sk-m">    │   │╲  </span><span class="sk-c">██████</span><span class="sk-m">  ╱│   │</span>
+<span class="sk-m">    └───┤ ╲   </span><span class="sk-c">██</span><span class="sk-m">   ╱ ├───┘</span>
+<span class="sk-m">        │  ╲      ╱  │</span>
+<span class="sk-m">        └───╲    ╱───┘</span>
+<span class="sk-m">             ╲  ╱</span>
+<span class="sk-m">              ╲╱</span></pre>
     <pre id="auth-title"><span class="sk-c">░▒▓█▓▒░</span> <span class="sk-m">▄▀█ █▀█ █▀▀ █░█ █ ▀█▀ █▀▀ █▀▀ ▀█▀</span> <span class="sk-c">░▒▓█▓▒░</span>
 <span class="sk-c">░▒▓█▓▒░</span> <span class="sk-m">█▀█ █▀▄ █▄▄ █▀█ █ ░█░ ██▄ █▄▄ ░█░</span> <span class="sk-c">░▒▓█▓▒░</span></pre>
 
@@ -689,7 +781,7 @@
     <div id="output"></div>
     <div id="quick-cmds">
       <button class="qcmd" onclick="sendCmd('look')">look</button>
-      <button class="qcmd" onclick="sendCmd('inventory')">inv</button>
+      <button class="qcmd" onclick="openEquipPanel()">inv</button>
       <button class="qcmd" onclick="sendCmd('stats')">stats</button>
       <button class="qcmd" onclick="sendCmd('skills')">skills</button>
       <button class="qcmd" onclick="sendCmd('who')">who</button>
@@ -781,6 +873,43 @@
     </div>
 
     <button id="settings-close">Done</button>
+  </div>
+</div>
+
+<!-- EQUIPMENT PANEL -->
+<div id="equip-panel">
+  <div id="equip-box">
+    <div id="equip-header">
+      <h2>Inventory &amp; Equipment</h2>
+      <button id="equip-close" aria-label="Close">✕</button>
+    </div>
+    <div id="equip-body">
+      <div id="equip-doll">
+        <div class="equip-slot" data-slot="head" ondragover="event.preventDefault()" ondrop="onSlotDrop(event,'head')">
+          <span class="equip-slot-label">Head</span><div class="equip-slot-item"></div>
+        </div>
+        <div class="equip-slot" data-slot="torso" ondragover="event.preventDefault()" ondrop="onSlotDrop(event,'torso')">
+          <span class="equip-slot-label">Torso</span><div class="equip-slot-item"></div>
+        </div>
+        <div class="equip-slot" data-slot="hands" ondragover="event.preventDefault()" ondrop="onSlotDrop(event,'hands')">
+          <span class="equip-slot-label">Hands</span><div class="equip-slot-item"></div>
+        </div>
+        <div class="equip-slot" data-slot="weapon_hand" ondragover="event.preventDefault()" ondrop="onSlotDrop(event,'weapon_hand')">
+          <span class="equip-slot-label">Weapon</span><div class="equip-slot-item"></div>
+        </div>
+        <div class="equip-slot" data-slot="legs" ondragover="event.preventDefault()" ondrop="onSlotDrop(event,'legs')">
+          <span class="equip-slot-label">Legs</span><div class="equip-slot-item"></div>
+        </div>
+        <div class="equip-slot" data-slot="feet" ondragover="event.preventDefault()" ondrop="onSlotDrop(event,'feet')">
+          <span class="equip-slot-label">Feet</span><div class="equip-slot-item"></div>
+        </div>
+        <div class="equip-slot" data-slot="accessory" ondragover="event.preventDefault()" ondrop="onSlotDrop(event,'accessory')">
+          <span class="equip-slot-label">Accessory</span><div class="equip-slot-item"></div>
+        </div>
+      </div>
+      <div id="equip-inv-list" ondragover="event.preventDefault()" ondrop="onInvListDrop(event)"></div>
+    </div>
+    <div id="equip-credits">Credits: <span id="equip-credits-val">0</span></div>
   </div>
 </div>
 
@@ -930,7 +1059,8 @@ function handleServerMsg(msg) {
       appendMsg(msg.message, 'say');
       break;
     case 'inventory':
-      appendHtml(msg.message, 'help');
+      renderEquipPanel(msg.items || []);
+      document.getElementById('equip-panel').classList.add('active');
       break;
     case 'stats':
       appendHtml(msg.message, 'help');
@@ -939,8 +1069,15 @@ function handleServerMsg(msg) {
     case 'skills':
       appendHtml(msg.message, 'help');
       break;
-    case 'who': case 'help': case 'examine': case 'take': case 'drop': case 'equip':
+    case 'who': case 'help': case 'examine': case 'take': case 'drop':
       appendHtml(msg.message, 'help');
+      break;
+    case 'equip':
+      if (document.getElementById('equip-panel').classList.contains('active')) {
+        sendCmdSilent('inventory');
+      } else {
+        appendHtml(msg.message, 'help');
+      }
       break;
     case 'use':
       appendHtml(msg.message, 'loot');
@@ -1114,6 +1251,14 @@ function sendCmd(cmd) {
   ws.send(JSON.stringify({ type: 'command', command: cmd }));
 }
 
+// Same as sendCmd but skips the chat-log echo — for UI-driven actions
+// (drag/click in the equipment panel) where printing "> equipid <uuid>"
+// into the conversation log would just be noise.
+function sendCmdSilent(cmd) {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  ws.send(JSON.stringify({ type: 'command', command: cmd }));
+}
+
 // Auto-focus the game command input when user types anywhere —
 // but never steal focus while another input/textarea is active
 // (e.g. the login form) or while the auth screen is showing.
@@ -1191,6 +1336,96 @@ function parseZoneInfo(html) {
     }
   }
 }
+
+// --- Equipment panel ---
+const EQUIP_SLOT_NAMES = ['head','torso','hands','weapon_hand','legs','feet','accessory'];
+let equipDraggedId = null;
+
+function openEquipPanel() {
+  sendCmd('inventory');
+}
+
+function closeEquipPanel() {
+  document.getElementById('equip-panel').classList.remove('active');
+}
+
+function renderEquipPanel(items) {
+  // Clear all slots first
+  for (const slotName of EQUIP_SLOT_NAMES) {
+    const slotEl = document.querySelector(`.equip-slot[data-slot="${slotName}"] .equip-slot-item`);
+    if (slotEl) { slotEl.className = 'equip-slot-item empty'; slotEl.textContent = '(empty)'; slotEl.removeAttribute('draggable'); slotEl.removeAttribute('data-id'); }
+  }
+
+  const unequipped = [];
+  for (const item of items) {
+    if (item.is_equipped && item.slot) {
+      const slotEl = document.querySelector(`.equip-slot[data-slot="${item.slot}"] .equip-slot-item`);
+      if (slotEl) {
+        slotEl.className = 'equip-slot-item filled';
+        slotEl.textContent = item.name + (item.quantity > 1 ? ` x${item.quantity}` : '');
+        slotEl.setAttribute('draggable', 'true');
+        slotEl.setAttribute('data-id', item.id);
+        slotEl.ondragstart = (e) => onItemDragStart(e, item.id);
+        slotEl.onclick = () => unequipItem(item.id);
+        slotEl.title = 'Click or drag out to unequip';
+      }
+    } else {
+      unequipped.push(item);
+    }
+  }
+
+  const list = document.getElementById('equip-inv-list');
+  list.innerHTML = '';
+  for (const item of unequipped) {
+    const flags = item.flags || {};
+    const equippable = (item.type === 'weapon' || item.type === 'armor') && (flags.slot || item.type === 'weapon');
+    const card = document.createElement('div');
+    card.className = 'equip-item-card' + (equippable ? ' equippable' : '');
+    card.setAttribute('draggable', 'true');
+    card.setAttribute('data-id', item.id);
+    const qty = item.quantity > 1 ? ` x${item.quantity}` : '';
+    const slotLabel = flags.slot ? ` · ${flags.slot.replace('_',' ')}` : '';
+    card.innerHTML = `<span class="eic-name">${item.name}${qty}</span><span class="eic-meta">${item.rarity || ''}${slotLabel}</span>`;
+    card.ondragstart = (e) => onItemDragStart(e, item.id);
+    card.ondragend = () => card.classList.remove('dragging');
+    if (equippable) card.onclick = () => equipItem(item.id);
+    list.appendChild(card);
+  }
+
+  document.getElementById('equip-credits-val').textContent = (player && player.credits) || 0;
+}
+
+function onItemDragStart(e, id) {
+  equipDraggedId = id;
+  e.target.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+}
+
+function onSlotDrop(e, slotName) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  if (equipDraggedId) equipItem(equipDraggedId);
+  equipDraggedId = null;
+}
+
+function onInvListDrop(e) {
+  e.preventDefault();
+  if (equipDraggedId) unequipItem(equipDraggedId);
+  equipDraggedId = null;
+}
+
+function equipItem(id) {
+  sendCmdSilent(`equipid ${id}`);
+}
+
+function unequipItem(id) {
+  sendCmdSilent(`unequipid ${id}`);
+}
+
+document.querySelectorAll('.equip-slot').forEach(slotEl => {
+  slotEl.addEventListener('dragenter', () => slotEl.classList.add('drag-over'));
+  slotEl.addEventListener('dragleave', () => slotEl.classList.remove('drag-over'));
+});
 
 // --- Dialogue ---
 function openDialogue(msg) {
@@ -1283,6 +1518,11 @@ function initSettingsUI() {
   });
   document.getElementById('settings-panel').addEventListener('click', (e) => {
     if (e.target.id === 'settings-panel') document.getElementById('settings-panel').classList.remove('active');
+  });
+
+  document.getElementById('equip-close').addEventListener('click', closeEquipPanel);
+  document.getElementById('equip-panel').addEventListener('click', (e) => {
+    if (e.target.id === 'equip-panel') closeEquipPanel();
   });
 
   document.getElementById('signout-btn').addEventListener('click', () => {
