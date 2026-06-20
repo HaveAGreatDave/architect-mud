@@ -626,6 +626,11 @@ export const EQUIP_SLOTS = {
   weapon_hand: 'Weapon Hand', accessory: 'Accessory',
 };
 
+export async function recomputeArmor(player) {
+  const { rows } = await query(`SELECT i.effects FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.is_equipped=1`, [player.id]);
+  player.armor = rows.reduce((sum, r) => sum + (r.effects?.armor || 0), 0);
+}
+
 async function cmdEquip(targetStr, player) {
   if (!targetStr) return { type:'error', message:'Equip what?' };
   const { rows } = await query(`SELECT pi.*,i.name,i.type,i.subtype,i.flags,i.requirements FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND i.name ILIKE $2 AND (i.type='weapon' OR i.type='armor') LIMIT 1`, [player.id, `%${targetStr}%`]);
