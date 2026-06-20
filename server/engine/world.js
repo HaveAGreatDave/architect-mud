@@ -145,6 +145,7 @@ export function addPlayerToZone(pid, zid) { world.zones.get(zid)?.players.add(pi
 export function removePlayerFromZone(pid, zid) { world.zones.get(zid)?.players.delete(pid); }
 export function setLivePlayer(pid, data) { world.players.set(pid, data); }
 export function getLivePlayer(pid) { return world.players.get(pid) || null; }
+export function getAllLivePlayers() { return [...world.players.values()]; }
 export function removeLivePlayer(pid) { world.players.delete(pid); }
 
 export function getEnemyInstance(id) { return world.enemies.get(id) || null; }

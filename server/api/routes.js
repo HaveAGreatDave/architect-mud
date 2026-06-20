@@ -1,5 +1,5 @@
 import { query } from '../models/db.js';
-import { reloadZone, getAllZones, world } from '../engine/world.js';
+import { reloadZone, getAllZones, world, getAllLivePlayers } from '../engine/world.js';
 import { loadRecipes } from '../engine/crafting.js';
 import { loadDrugs } from '../engine/drugs.js';
 import { loadMutations } from '../engine/mutations.js';
@@ -190,7 +190,7 @@ async function apiUpdateNpc(id,body) {
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
 async function apiWorldState() {
-  const {rows:players} = await query(`SELECT handle,current_zone FROM players WHERE last_seen > $1`,[Math.floor(Date.now()/1000)-300]);
+  const players = getAllLivePlayers().map(p => ({ handle: p.handle, current_zone: p.current_zone }));
   return {status:200,body:{zones:getAllZones(),online_players:players,live_enemies:world.enemies.size,live_corpses:world.corpses.size}};
 }
 async function apiReloadZone(body) {

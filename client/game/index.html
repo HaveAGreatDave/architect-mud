@@ -906,6 +906,9 @@ function handleServerMsg(msg) {
     case 'zone_event':
       appendMsg(msg.message, 'zone-event');
       break;
+    case 'emote':
+      appendMsg(msg.message, 'zone-event');
+      break;
     case 'say':
       appendMsg(msg.message, 'say');
       break;

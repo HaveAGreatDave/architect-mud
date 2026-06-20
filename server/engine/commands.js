@@ -1,5 +1,5 @@
 import { query } from '../models/db.js';
-import { getZone, getZoneEnemies, getZoneNpcs, getZoneCorpses, getZonePlayers, addPlayerToZone, removePlayerFromZone, getMinimapData } from './world.js';
+import { getZone, getZoneEnemies, getZoneNpcs, getZoneCorpses, getZonePlayers, getAllLivePlayers, addPlayerToZone, removePlayerFromZone, getMinimapData } from './world.js';
 import { playerAttackEnemy, isOnCooldown, getCooldownRemaining } from './combat.js';
 import { awardSkillXp, getPlayerSkills, SKILLS } from './skills.js';
 import { getAvailableRecipes, attemptCraft } from './crafting.js';
@@ -102,7 +102,7 @@ export async function handleCommand(input, player, broadcast) {
   const args = parts.slice(1);
 
   switch (cmd) {
-    case 'look': case 'l': return cmdLook(player);
+    case 'look': case 'l': return args.length ? cmdLook(player, args.join(' ')) : cmdLook(player);
     case 'go': case 'move':
       return cmdMove(args[0], player, broadcast);
     case 'north': case 'n': return cmdMove('north', player, broadcast);
@@ -140,14 +140,23 @@ export async function handleCommand(input, player, broadcast) {
       if (args[0] === 'lock') return cmdUpgradeLock(player);
       return { type:'error', message:'Upgrade what? Try "upgrade lock".' };
     case 'help': case '?': return cmdHelp();
+    case 'obama': return cmdObama(args.join(' '), player, broadcast);
     default: return { type:'error', message:`Unknown command: "${cmd}". Type HELP for commands.` };
   }
 }
 
-async function cmdLook(player) {
-  const zone = getZone(player.current_zone);
-  if (!zone) return { type:'error', message:'You are nowhere. This is a bug.' };
-  return { type:'look', message: await describeZone(zone, player), minimap: getMinimapData(zone.id) };
+async function cmdLook(player, targetStr) {
+  if (!targetStr || targetStr === 'room' || targetStr === 'around') {
+    const zone = getZone(player.current_zone);
+    if (!zone) return { type:'error', message:'You are nowhere. This is a bug.' };
+    return { type:'look', message: await describeZone(zone, player), minimap: getMinimapData(zone.id) };
+  }
+  if (targetStr === 'me' || targetStr === 'self' || targetStr === 'myself') {
+    let msg = `${player.handle}\n${player.origin_fragment || 'A survivor. Still standing, somehow.'}`;
+    if (player.visibly_mutated) msg += `\n<span class="mutation-tag">Whatever's changed about you, it shows.</span>`;
+    return { type:'examine', message: msg };
+  }
+  return cmdExamine(targetStr, player);
 }
 
 async function cmdMove(direction, player, broadcast) {
@@ -368,10 +377,15 @@ async function cmdExamine(targetStr, player) {
 }
 
 async function cmdWho() {
-  const { rows } = await query(`SELECT handle,current_zone FROM players WHERE last_seen > $1 AND role='player'`, [Math.floor(Date.now()/1000)-300]);
-  if (!rows.length) return { type:'who', message:'No other survivors currently online.' };
+  // The DB's last_seen column only updates on login/disconnect, not on every
+  // command — using it as a presence check meant idle-but-connected players
+  // silently vanished from WHO after 5 minutes. world.players is the actual
+  // live connection map and reflects who's online right now, regardless of
+  // how long they've been idle or which zone they're in.
+  const online = getAllLivePlayers().filter(p => p.role !== 'admin' && p.role !== 'ghost');
+  if (!online.length) return { type:'who', message:'No other survivors currently online.' };
   let msg = '<span class="who-header">SURVIVORS ONLINE</span>\n';
-  for (const p of rows) msg += `  ${p.handle.padEnd(20)} ${p.current_zone}\n`;
+  for (const p of online) msg += `  ${p.handle.padEnd(20)} ${p.current_zone}\n`;
   return { type:'who', message:msg };
 }
 
@@ -379,6 +393,16 @@ function cmdSay(text, player, broadcast) {
   if (!text) return { type:'error', message:'Say what?' };
   broadcast(player.current_zone, { type:'say', message:`${player.handle} says: "${text}"` }, null);
   return { type:'say', message:`You say: "${text}"` };
+}
+
+// Hidden command. No further commentary necessary.
+function cmdObama(targetStr, player, broadcast) {
+  if (!targetStr) return { type:'error', message:'Fist bump whom?' };
+  const others = getZonePlayers(player.current_zone).filter(p => p.id !== player.id);
+  const target = others.find(p => p.handle.toLowerCase().includes(targetStr));
+  if (!target) return { type:'error', message:`Can't find "${targetStr}" here to fist bump.` };
+  broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} fist bumps ${target.handle}. Yes, we can.` }, null);
+  return { type:'emote', message:`You fist bump ${target.handle}.` };
 }
 
 async function cmdRecipes(player) {
@@ -504,5 +528,5 @@ function cmdHelp() {
 <span class="help-category">PROPERTY</span>    rent  |  lock  |  unlock  |  pick  |  upgrade lock  |  sleep
 <span class="help-category">CHARACTER</span>   stats  skills  mutations  factions
 <span class="help-category">SOCIAL</span>      talk &lt;npc&gt;  |  say &lt;message&gt;  |  who
-<span class="help-category">INFO</span>        look  examine &lt;thing&gt;  help` };
+<span class="help-category">INFO</span>        look  |  look &lt;me/item/player&gt;  |  examine &lt;thing&gt;  help` };
 }
