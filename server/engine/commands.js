@@ -214,7 +214,8 @@ export async function describeZone(zone, player) {
   if (groundItems.length) {
     const itemMentions = groundItems.map(item => {
       const rarityClass = `item-rarity-${item.rarity}`;
-      return `<span class="action-link room-item ${rarityClass}" data-action="take" data-target="${item.name}" title="Take ${item.name}">${item.name}</span>`;
+      const qty = item.quantity > 1 ? ` (x${item.quantity})` : '';
+      return `<span class="action-link room-item ${rarityClass}" data-action="take" data-target="${item.name}" title="Take ${item.name}">${item.name}</span>${qty}`;
     });
     desc += ` Lying here: ${itemMentions.join(', ')}.`;
   }
