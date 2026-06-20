@@ -504,7 +504,7 @@ async function cmdStats(player) {
   const radBar = `[${'█'.repeat(Math.floor(p.radiation/10))}${'░'.repeat(10-Math.floor(p.radiation/10))}]`;
   let msg = `<span class="stats-header">${p.handle}</span> — ${p.archetype||'unknown'}\n\n`;
   msg += `HP:     ${p.hp}/${p.hp_max}\nSanity: ${p.sanity}/${p.sanity_max}\nHunger: ${p.hunger}/100\nThirst: ${p.thirst}/100\nRAD:    ${radBar} ${p.radiation}/100\n\n`;
-  msg += `STR:${p.stat_str}  AGI:${p.stat_agi}  INT:${p.stat_int}\nWIL:${p.stat_wil}  END:${p.stat_end}  CHA:${p.stat_cha}\n\nCredits: ${p.credits}`;
+  msg += `STR:${p.stat_str}  AGI:${p.stat_agi}  INT:${p.stat_int}\nWIL:${p.stat_wil}  END:${p.stat_end}  CHA:${p.stat_cha}\n\nArmor: ${player.armor || 0}\nCredits: ${p.credits}`;
 
   const statusFlags = [];
   if (player.sleeping) statusFlags.push('Asleep');
