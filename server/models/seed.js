@@ -19,6 +19,7 @@ async function seed() {
     { id: 'zone_badland_w_gate', name: 'The Rust Quarter West', description: 'Industrial wasteland at the western edge. Enormous processing facilities stand half-collapsed, ground stained in colors that don\'t occur in nature.', danger_rating: 'medium', pvp_enabled: 1, radiation_level: 15, is_safe_zone: 0, exits: { north: 'zone_badland_w_outer', south: 'zone_badland_sw_outer', east: 'zone_city_west' }, ambient_events: ["A Geiger counter ticks somewhere nearby, the rhythm wrong for the environment.", "The ruins groan. Structural settling, probably."] },
     { id: 'zone_city_west', name: 'Franchise Strip', description: 'Pre-Handoff retail storefronts, repurposed and argued over for years. Big box skeletons and drive-through lanes now used as livestock pens, retrofitted for survival.', danger_rating: 'safe', pvp_enabled: 0, radiation_level: 0, is_safe_zone: 1, exits: { north: 'zone_city_nw', south: 'zone_city_sw', east: 'zone_start', west: 'zone_badland_w_gate' }, ambient_events: ["A vendor shouts: \"AUTHENTIC PRE-HANDOFF CANNED GOODS. ONLY SLIGHTLY EXPIRED.\"", "Two people argue about whether the Architect controls the weather."] },
     { id: 'zone_start', name: 'The Threshold', description: 'The dead center of Coldwater Basin. A transit hub turned town square. WELCOME TO COLDWATER BASIN reads a banner half-eaten by something. POPULATION: SURVIVING is spraypainted beneath it. A battered Franchise ATM hums against one wall, somehow still online. This is where everyone ends up eventually.', danger_rating: 'safe', pvp_enabled: 0, radiation_level: 0, is_safe_zone: 1, exits: { north: 'zone_city_north', south: 'zone_city_south', east: 'zone_city_east', west: 'zone_city_west', down: 'zone_residential_lobby' }, ambient_events: ["A ragged figure catches your eye and immediately looks away.", "Somewhere, a fast food jingle loops on a dying speaker."], flags: { has_atm: true } },
+    { id: 'zone_embassy_lobby', name: 'Embassy Hotel & Bar', description: 'Marble floors gone dull under a permanent film of dust, but somebody still mops them. A chandelier missing a third of its crystals hangs over a lobby that\'s seen better centuries. A hand-lettered sign still reads, unironically, WELCOME VALUED GUESTS. Along one wall, a bar still operates — more out of habit than business model — under a brass sign reading THE EMBASSY LOUNGE, est. before any of this.', danger_rating: 'safe', pvp_enabled: 0, radiation_level: 0, is_safe_zone: 1, exits: { down: 'zone_start' }, ambient_events: ["A bellhop cart, empty, still makes its rounds on a track nobody's maintained in years.", "Someone in a torn bellhop uniform insists, quietly, that the pool is open. There is no pool."], flags: { is_building: true } },
     { id: 'zone_city_east', name: 'The Loading Bay', description: 'A vast warehouse complex The Franchise uses as a distribution hub. Forklifts move between shelves stacked to the ceiling. Everything here has a SKU.', danger_rating: 'safe', pvp_enabled: 0, radiation_level: 0, is_safe_zone: 1, exits: { north: 'zone_city_ne', south: 'zone_city_se', east: 'zone_badland_e_gate', west: 'zone_start' }, ambient_events: ["An autonomous forklift nearly runs you over. It has a smiley face sticker.", "\"CUSTOMER SATISFACTION IS OUR PRIORITY,\" the speakers insist, less and less convincingly."] },
     { id: 'zone_badland_e_gate', name: 'The Bleed', description: 'Past the eastern edge, the ground itself seems wrong. Pools of iridescent liquid, and creatures adapted to whatever the Architect\'s infrastructure leaks out here.', danger_rating: 'lethal', pvp_enabled: 1, radiation_level: 60, is_safe_zone: 0, exits: { north: 'zone_badland_e_outer', south: 'zone_badland_se_outer', west: 'zone_city_east' }, ambient_events: ["Something large moves in a liquid pool nearby. The liquid moves back.", "The Geiger counter stops ticking. This is not good news."] },
     { id: 'zone_badland_sw_outer', name: 'The Static Wood', description: 'What used to be a park. The trees are still there. They are not doing well — bark peeling back to reveal something too smooth underneath.', danger_rating: 'medium', pvp_enabled: 1, radiation_level: 6, is_safe_zone: 0, exits: { north: 'zone_badland_w_gate', south: 'zone_badland_sw_corner', east: 'zone_city_sw' }, ambient_events: ["A branch creaks overhead with no wind to move it.", "The grass here is the wrong shade of green, uniformly."] },
@@ -43,6 +44,11 @@ async function seed() {
       [z.id,z.name,z.description,z.danger_rating,z.pvp_enabled,z.radiation_level,z.is_safe_zone,JSON.stringify(z.exits),JSON.stringify(z.ambient_events),JSON.stringify(z.flags||{})]);
   }
   console.log(`✓ Seeded ${zones.length} zones`);
+
+  // zone_start already existed before this wave, so the ON CONFLICT DO
+  // NOTHING insert above won't touch its exits — merge in 'up' directly,
+  // only if nothing's already using that direction.
+  await query(`UPDATE zones SET exits = exits || '{"up":"zone_embassy_lobby"}'::jsonb WHERE id = 'zone_start' AND NOT (exits ? 'up')`);
 
   // Factions
   const factions = [
@@ -201,6 +207,8 @@ async function seed() {
     ['item_drink_basin_swill','Basin Swill','House drink. Nobody has ever asked what\'s in it twice.','consumable','drink',0.4,4,'common',1,'{"thirst":15,"sanity":3}','{}','{}'],
     ['item_drink_rust_whiskey','Rust Whiskey','Tastes like it was filtered through the pipe it\'s named after. Probably was.','consumable','drink',0.4,9,'common',1,'{"thirst":10,"sanity":8,"hp":-2}','{}','{}'],
     ['item_drink_glow_cocktail','Glow Cocktail','Faintly luminescent. The bartender swears the radiation is "mostly cosmetic."','consumable','drink',0.4,14,'uncommon',1,'{"thirst":12,"sanity":12,"radiation":4}','{}','{}'],
+    ['item_drink_embassy_reserve','Embassy Reserve','Aged in what used to be a wine cellar and is now mostly intact. The only drink in the basin served with a paper umbrella, against everyone\'s better judgment.','consumable','drink',0.4,22,'rare',1,'{"thirst":18,"sanity":18,"hp":3}','{}','{}'],
+    ['item_embassy_canapes','Embassy Canapés','Bite-sized, garnished, served on an actual plate. Nobody asks what\'s in them; the presentation is doing all the work.','consumable','food',0.2,9,'uncommon',1,'{"hunger":14,"sanity":5}','{}','{}'],
     ['item_bar_jerky','Mystery Jerky','Labeled "MEAT-ADJACENT." Surprisingly not the worst thing on the menu.','consumable','food',0.2,6,'common',1,'{"hunger":18}','{}','{}'],
   ];
   for (const [id,name,desc,type,subtype,weight,value,rarity,stackable,effects,reqs,flags] of items) {
@@ -234,7 +242,17 @@ async function seed() {
     JSON.stringify([{item_id:'item_drink_basin_swill',price:4,stock:99},{item_id:'item_drink_rust_whiskey',price:9,stock:30},{item_id:'item_drink_glow_cocktail',price:14,stock:12},{item_id:'item_bar_jerky',price:6,stock:20}]),
     0, '{}'
   ]);
-  console.log('✓ Seeded 2 NPCs');
+  await query(`INSERT INTO npcs (id,name,description,zone_id,faction,disposition,dialogue_tree,vendor_inventory,wanders,flags) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT (id) DO NOTHING`, [
+    'npc_embassy_barkeep','Lowry','A former concierge, still buttoned into a frayed Embassy vest, polishing a glass that was already clean. Calls every customer "valued guest," sincerity optional.','zone_embassy_lobby',null,'neutral',
+    JSON.stringify({
+      root: { text: "Welcome to the Embassy Lounge, valued guest. We maintain certain standards here, within reason. What can I get you?", options: [{label:"What's on the menu?",next:'menu'},{label:"Any news from the front desk?",next:'gossip'},{label:"Never mind.",next:null}] },
+      menu: { text: "The Reserve is our signature pour — don't ask what's left to age it in. The Swill is also available, for guests with simpler tastes, or none. Canapés are complimentary with a drink. They are not actually complimentary.", options:[{label:"Back",next:'root'}] },
+      gossip: { text: "Checked someone in last week who swore they had a reservation. We haven't taken reservations since the Handoff. I checked him in anyway. Standards, valued guest.", options:[{label:"Back",next:'root'}] },
+    }),
+    JSON.stringify([{item_id:'item_drink_embassy_reserve',price:22,stock:15},{item_id:'item_drink_basin_swill',price:4,stock:99},{item_id:'item_embassy_canapes',price:9,stock:25}]),
+    0, '{}'
+  ]);
+  console.log('✓ Seeded 3 NPCs');
 
   // Admin account
   await query(`INSERT INTO players (id,username,password_hash,role,handle,origin_fragment,archetype) VALUES ($1,$2,$3,'admin',$4,$5,$6) ON CONFLICT DO NOTHING`,

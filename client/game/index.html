@@ -1044,7 +1044,8 @@ function connect() {
     reconnectDelay = 1000;
     setConnStatus('online', 'CONNECTED');
     if (coldStartTimer) { clearTimeout(coldStartTimer); coldStartTimer = null; hideColdStart(); }
-    if (!player) appendMsg('Connected to ARCHITECT. Login or register to enter.', 'system');
+    if (player) appendMsg(`Connected to ARCHITECT as ${player.handle}.`, 'system');
+    else appendMsg('Connected to ARCHITECT. Login or register to enter.', 'system');
     // Client-side ping every 10s to keep Render free tier alive
     setInterval(() => { if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({type:'ping'})); }, 10000);
   };
