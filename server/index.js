@@ -94,6 +94,11 @@ wss.on('connection', (ws) => {
   ws.on('pong', () => { ws.isAlive = true; });
 
   ws.on('message', async (data) => {
+    // Any message — a real command, the client's own app-level ping, etc. —
+    // proves the connection is alive. Don't rely solely on the raw WS
+    // protocol ping/pong (below); some proxies mishandle control frames,
+    // which would otherwise terminate a connection that's clearly still active.
+    ws.isAlive = true;
     let msg; try { msg = JSON.parse(data.toString()); } catch { return; }
     const session = clients.get(ws);
     if (msg.type === 'auth') return handleAuth(ws, session, msg);

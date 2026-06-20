@@ -1,7 +1,5 @@
 import { query } from './db.js';
-
 import { migrateEnvironment } from './migrate.environment.js';
-await migrateEnvironment(query);
 
 export async function migrate() {
   await query(`
@@ -131,6 +129,18 @@ export async function migrate() {
       flags JSONB DEFAULT '{}'
     );
 
+    -- Non-takeable scenery (bar counters, stools, beds, tables...). Distinct
+    -- from items: items live in player_inventory (including the
+    -- "_ground_<zoneId>" ground-item hack) and are takeable; furniture is
+    -- permanent room dressing, examine-only, never enters an inventory.
+    CREATE TABLE IF NOT EXISTS furniture (
+      id TEXT PRIMARY KEY,
+      zone_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      description TEXT NOT NULL,
+      flags JSONB DEFAULT '{}'
+    );
+
     CREATE TABLE IF NOT EXISTS factions (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -255,6 +265,9 @@ export async function migrate() {
   `);
 
   console.log('✓ Database migrated (Postgres)');
+
+  await migrateEnvironment(query);
+  console.log('✓ Environment tables migrated');
 }
 
 migrate().catch(e => { console.error(e); process.exit(1); });
