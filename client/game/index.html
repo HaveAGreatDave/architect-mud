@@ -233,10 +233,52 @@
     gap: 8px;
     font-size: 13px;
     color: var(--text);
+    cursor: pointer;
+    padding: 2px;
+    border-radius: 2px;
+    transition: background 0.15s;
   }
+  #env-hud-sidebar:hover { background: var(--bg3); }
   #env-hud-sidebar .env-icon { font-size: 15px; }
   #env-hud-sidebar .env-clock { color: var(--text-bright); font-weight: bold; letter-spacing: 0.5px; }
   #env-hud-sidebar .env-temp { color: var(--cyan); margin-left: auto; }
+
+  /* Forecast panel — mirrors the dialogue panel's modal pattern */
+  #forecast-panel {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+  #forecast-panel.active { display: flex; }
+  #forecast-box {
+    background: var(--bg2);
+    border: 1px solid var(--accent);
+    padding: 24px;
+    max-width: 420px;
+    width: 90%;
+    border-radius: 2px;
+  }
+  #forecast-header { color: var(--accent); font-weight: bold; margin-bottom: 14px; text-transform: uppercase; letter-spacing: 1px; }
+  #forecast-days { display: flex; flex-direction: column; gap: 6px; }
+  .forecast-day-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 10px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    font-size: 13px;
+  }
+  .forecast-day-row.fd-today { border-color: var(--accent); }
+  .forecast-day-row .fd-label { color: var(--text-dim); width: 56px; flex-shrink: 0; }
+  .forecast-day-row .fd-icon { font-size: 16px; width: 22px; text-align: center; }
+  .forecast-day-row .fd-weather { color: var(--text-dim); flex: 1; text-transform: capitalize; }
+  .forecast-day-row .fd-temp { color: var(--cyan); font-weight: bold; }
 
   /* Visibility dimming — a cosmetic overlay on the output pane only, driven
      by GDD §7's visibility category for the player's current zone. Never
@@ -869,7 +911,7 @@
 
     <div class="sidebar-section" id="env-section">
       <div class="sidebar-label">Environment</div>
-      <div id="env-hud-sidebar">
+      <div id="env-hud-sidebar" onclick="openForecast()" title="View 7-day forecast">
         <span class="env-icon" id="env-weather-icon">—</span>
         <span class="env-clock" id="env-clock">—:—</span>
         <span class="env-icon" id="env-time-icon">—</span>
@@ -964,6 +1006,15 @@
     <div id="dialogue-text"></div>
     <div id="dialogue-options"></div>
     <button class="dialogue-opt" style="margin-top:10px;color:var(--text-dim)" onclick="closeDialogue()">[ Leave ]</button>
+  </div>
+</div>
+
+<!-- FORECAST PANEL -->
+<div id="forecast-panel">
+  <div id="forecast-box">
+    <div id="forecast-header">7-Day Forecast</div>
+    <div id="forecast-days"></div>
+    <button class="dialogue-opt" style="margin-top:14px;color:var(--text-dim)" onclick="closeForecast()">[ Close ]</button>
   </div>
 </div>
 
@@ -1594,6 +1645,36 @@ function closeDialogue() {
 // Close dialogue on backdrop click
 document.getElementById('dialogue-panel').addEventListener('click', (e) => {
   if (e.target === document.getElementById('dialogue-panel')) closeDialogue();
+});
+
+// --- Forecast popup ---
+function openForecast() {
+  fetch('/api/environment/forecast')
+    .then(r => r.json())
+    .then(renderForecastPanel)
+    .catch(() => appendMsg('Could not reach the forecast feed.', 'error'));
+}
+
+function renderForecastPanel(forecast) {
+  const el = document.getElementById('forecast-days');
+  if (!el) return;
+  el.innerHTML = (forecast || []).map((f, i) => `
+    <div class="forecast-day-row ${i === 0 ? 'fd-today' : ''}">
+      <span class="fd-label">${i === 0 ? 'Today' : (f.date || '').slice(5) || `+${i}`}</span>
+      <span class="fd-icon">${f.icon || ''}</span>
+      <span class="fd-weather">${(f.weatherType || '').replace('_', ' ')}</span>
+      <span class="fd-temp">${f.tempC}°C</span>
+    </div>
+  `).join('');
+  document.getElementById('forecast-panel').classList.add('active');
+}
+
+function closeForecast() {
+  document.getElementById('forecast-panel').classList.remove('active');
+}
+
+document.getElementById('forecast-panel').addEventListener('click', (e) => {
+  if (e.target.id === 'forecast-panel') closeForecast();
 });
 
 function setConnStatus(state, text) {
