@@ -1779,6 +1779,7 @@ function applyZoneEditToMap(zoneId) {
   if (g('f-danger_rating')) z.danger_rating = g('f-danger_rating').value;
   if (g('f-marker')) z.marker = g('f-marker').value.trim() || null;
   if (g('f-color')) z.color = g('f-color').value.trim() || null;
+  z.exits = { ...zoneEditExitsState };
   renderMapOverview();
 }
 
@@ -1974,15 +1975,27 @@ function changeFloor(delta) {
 }
 
 // Toggle a reciprocal connection between two adjacent zones from the gap slot.
-function mapToggleConn(aId, bId, dir) {
+// Saves immediately so the Zones panel stays in sync without needing Save Layout.
+async function mapToggleConn(aId, bId, dir) {
   const o = mapOverview;
   const a = o.zones.get(aId), b = o.zones.get(bId);
   if (!a || !b) return;
   const opp = MAP_OPP[dir];
-  if (a.exits[dir] === bId || b.exits[opp] === aId) { delete a.exits[dir]; delete b.exits[opp]; }
+  const wasLinked = a.exits[dir] === bId || b.exits[opp] === aId;
+  if (wasLinked) { delete a.exits[dir]; delete b.exits[opp]; }
   else { a.exits[dir] = bId; b.exits[opp] = aId; }
-  o.dirtyExit.add(aId); o.dirtyExit.add(bId);
   renderMapOverview();
+  const [ra, rb] = await Promise.all([
+    API(`/zones/${aId}`, 'PUT', { exits: a.exits }),
+    API(`/zones/${bId}`, 'PUT', { exits: b.exits }),
+  ]);
+  if (ra?.error || rb?.error) {
+    // Revert in-memory on failure
+    if (wasLinked) { a.exits[dir] = bId; b.exits[opp] = aId; }
+    else { delete a.exits[dir]; delete b.exits[opp]; }
+    renderMapOverview();
+    toast(ra?.error || rb?.error, true);
+  }
 }
 
 function mapDragStart(e, id) {
@@ -2012,6 +2025,21 @@ function mapDrop(e, x, y) {
     z.grid_x = x; z.grid_y = y; z.grid_z = o.z;
   }
   o.dirtyPos.add(mapDragId);
+
+  // Auto-connect to orthogonally adjacent zones on the same floor.
+  // Exits are marked dirty and will save with the layout. Remove unwanted links via the gap slots.
+  const movedZone = o.zones.get(mapDragId);
+  for (const [dir, off] of Object.entries(MAP_DIR3D)) {
+    if (off[2] !== 0) continue; // skip up/down — those are manual
+    const neighbor = [...o.zones.values()].find(z => z.id !== mapDragId && (z.grid_z ?? 0) === o.z && z.grid_x === x + off[0] && z.grid_y === y + off[1]);
+    if (!neighbor) continue;
+    const opp = MAP_OPP[dir];
+    movedZone.exits[dir] = neighbor.id;
+    neighbor.exits[opp] = mapDragId;
+    o.dirtyExit.add(mapDragId);
+    o.dirtyExit.add(neighbor.id);
+  }
+
   mapDragId = null; mapDragFromTray = false;
   renderMapOverview();
 }
