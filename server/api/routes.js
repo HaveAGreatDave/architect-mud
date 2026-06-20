@@ -86,22 +86,36 @@ async function apiCreateZone(body,auth) {
 async function apiUpdateZone(id,body) {
   const sets=[]; const vals=[];
   let i=1;
+  const boolFields = ['pvp_enabled','is_safe_zone'];
   const simple=['name','description','danger_rating','pvp_enabled','radiation_level','is_safe_zone'];
-  for (const f of simple) if (body[f]!==undefined) { sets.push(`${f}=$${i++}`); vals.push(body[f]); }
+  for (const f of simple) {
+    if (body[f]!==undefined) {
+      sets.push(`${f}=$${i++}`);
+      // pvp_enabled / is_safe_zone are INTEGER columns (0/1) — coerce
+      // booleans from the client instead of letting pg choke on "false"/"true"
+      vals.push(boolFields.includes(f) ? (body[f] ? 1 : 0) : body[f]);
+    }
+  }
   if (body.exits!==undefined) { sets.push(`exits=$${i++}`); vals.push(JSON.stringify(body.exits)); }
   if (body.ambient_events!==undefined) { sets.push(`ambient_events=$${i++}`); vals.push(JSON.stringify(body.ambient_events)); }
   if (body.flags!==undefined) { sets.push(`flags=$${i++}`); vals.push(JSON.stringify(body.flags)); }
   sets.push(`updated_at=EXTRACT(EPOCH FROM NOW())`);
   vals.push(id);
-  await query(`UPDATE zones SET ${sets.join(',')} WHERE id=$${i}`,vals);
-  await reloadZone(id);
-  return {status:200,body:{id,message:'Zone updated and live'}};
+  try {
+    await query(`UPDATE zones SET ${sets.join(',')} WHERE id=$${i}`,vals);
+    await reloadZone(id);
+    return {status:200,body:{id,message:'Zone updated and live'}};
+  } catch(e) {
+    return {status:400,body:{error:e.message}};
+  }
 }
 async function apiDeleteZone(id) {
   if (id==='zone_start') return {status:400,body:{error:'Cannot delete spawn zone'}};
-  await query('DELETE FROM zones WHERE id=$1',[id]);
-  world.zones.delete(id);
-  return {status:200,body:{message:'Zone deleted'}};
+  try {
+    await query('DELETE FROM zones WHERE id=$1',[id]);
+    world.zones.delete(id);
+    return {status:200,body:{message:'Zone deleted'}};
+  } catch(e) { return {status:400,body:{error:e.message}}; }
 }
 async function apiGetEnemies() { const {rows}=await query('SELECT * FROM enemies'); return {status:200,body:rows}; }
 async function apiCreateEnemy(body) {
@@ -113,11 +127,18 @@ async function apiCreateEnemy(body) {
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
 async function apiUpdateEnemy(id,body) {
-  await query(`UPDATE enemies SET name=$1,description=$2,stat_str=$3,stat_agi=$4,stat_end=$5,hp_max=$6,damage_min=$7,damage_max=$8,armor=$9,xp_reward=$10,credit_reward=$11,loot_table=$12,behavior=$13,faction=$14,death_message=$15,flags=$16 WHERE id=$17`,
-    [body.name,body.description,body.stat_str,body.stat_agi,body.stat_end,body.hp_max,body.damage_min,body.damage_max,body.armor,body.xp_reward,body.credit_reward,JSON.stringify(body.loot_table||[]),body.behavior,body.faction,body.death_message,JSON.stringify(body.flags||{}),id]);
-  return {status:200,body:{id}};
+  try {
+    await query(`UPDATE enemies SET name=$1,description=$2,stat_str=$3,stat_agi=$4,stat_end=$5,hp_max=$6,damage_min=$7,damage_max=$8,armor=$9,xp_reward=$10,credit_reward=$11,loot_table=$12,behavior=$13,faction=$14,death_message=$15,flags=$16 WHERE id=$17`,
+      [body.name,body.description,body.stat_str,body.stat_agi,body.stat_end,body.hp_max,body.damage_min,body.damage_max,body.armor,body.xp_reward,body.credit_reward,JSON.stringify(body.loot_table||[]),body.behavior,body.faction,body.death_message,JSON.stringify(body.flags||{}),id]);
+    return {status:200,body:{id}};
+  } catch(e) { return {status:400,body:{error:e.message}}; }
 }
-async function apiDeleteEnemy(id) { await query('DELETE FROM enemies WHERE id=$1',[id]); return {status:200,body:{message:'Deleted'}}; }
+async function apiDeleteEnemy(id) {
+  try {
+    await query('DELETE FROM enemies WHERE id=$1',[id]);
+    return {status:200,body:{message:'Deleted'}};
+  } catch(e) { return {status:400,body:{error:e.message}}; }
+}
 async function apiGetItems() { const {rows}=await query('SELECT * FROM items'); return {status:200,body:rows}; }
 async function apiCreateItem(body) {
   const id=body.id||`item_${Date.now()}`;
@@ -128,9 +149,11 @@ async function apiCreateItem(body) {
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
 async function apiUpdateItem(id,body) {
-  await query(`UPDATE items SET name=$1,description=$2,type=$3,subtype=$4,weight=$5,value=$6,rarity=$7,is_stackable=$8,effects=$9,stat_modifiers=$10,requirements=$11,flags=$12 WHERE id=$13`,
-    [body.name,body.description,body.type,body.subtype,body.weight,body.value,body.rarity,body.is_stackable?1:0,JSON.stringify(body.effects||{}),JSON.stringify(body.stat_modifiers||{}),JSON.stringify(body.requirements||{}),JSON.stringify(body.flags||{}),id]);
-  return {status:200,body:{id}};
+  try {
+    await query(`UPDATE items SET name=$1,description=$2,type=$3,subtype=$4,weight=$5,value=$6,rarity=$7,is_stackable=$8,effects=$9,stat_modifiers=$10,requirements=$11,flags=$12 WHERE id=$13`,
+      [body.name,body.description,body.type,body.subtype,body.weight,body.value,body.rarity,body.is_stackable?1:0,JSON.stringify(body.effects||{}),JSON.stringify(body.stat_modifiers||{}),JSON.stringify(body.requirements||{}),JSON.stringify(body.flags||{}),id]);
+    return {status:200,body:{id}};
+  } catch(e) { return {status:400,body:{error:e.message}}; }
 }
 async function apiGetNpcs() { const {rows}=await query('SELECT * FROM npcs'); return {status:200,body:rows}; }
 async function apiCreateNpc(body) {
@@ -142,9 +165,11 @@ async function apiCreateNpc(body) {
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
 async function apiUpdateNpc(id,body) {
-  await query(`UPDATE npcs SET name=$1,description=$2,zone_id=$3,faction=$4,disposition=$5,dialogue_tree=$6,vendor_inventory=$7,wanders=$8,flags=$9 WHERE id=$10`,
-    [body.name,body.description,body.zone_id,body.faction,body.disposition,JSON.stringify(body.dialogue_tree||{}),JSON.stringify(body.vendor_inventory||[]),body.wanders?1:0,JSON.stringify(body.flags||{}),id]);
-  return {status:200,body:{id}};
+  try {
+    await query(`UPDATE npcs SET name=$1,description=$2,zone_id=$3,faction=$4,disposition=$5,dialogue_tree=$6,vendor_inventory=$7,wanders=$8,flags=$9 WHERE id=$10`,
+      [body.name,body.description,body.zone_id,body.faction,body.disposition,JSON.stringify(body.dialogue_tree||{}),JSON.stringify(body.vendor_inventory||[]),body.wanders?1:0,JSON.stringify(body.flags||{}),id]);
+    return {status:200,body:{id}};
+  } catch(e) { return {status:400,body:{error:e.message}}; }
 }
 async function apiWorldState() {
   const {rows:players} = await query(`SELECT handle,current_zone FROM players WHERE last_seen > $1`,[Math.floor(Date.now()/1000)-300]);

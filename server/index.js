@@ -187,6 +187,15 @@ async function handleDialogue(ws, session, msg) {
   ws.send(JSON.stringify({ type:'dialogue', npcId:msg.npcId, npcName:npc.name, node:msg.choice, text:node.text, options:node.options||[] }));
 }
 
+// Safety net: a bug in any single request handler should never be able
+// to take the whole server down. Log it, keep running.
+process.on('uncaughtException', (err) => {
+  console.error('⚠ Uncaught exception (server staying up):', err);
+});
+process.on('unhandledRejection', (err) => {
+  console.error('⚠ Unhandled rejection (server staying up):', err);
+});
+
 async function boot() {
   console.log('\n⚙  Booting ARCHITECT MUD...');
   await initWorld();

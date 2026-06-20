@@ -327,8 +327,31 @@ const API = async (path, method = 'GET', body = null) => {
     headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }
   };
   if (body) opts.body = JSON.stringify(body);
-  const res = await fetch(`/api${path}`, opts);
-  return res.json();
+
+  let res;
+  try {
+    res = await fetch(`/api${path}`, opts);
+  } catch (err) {
+    // Network failure — server unreachable, cold start, CORS, etc.
+    return { error: `Network error: ${err.message}` };
+  }
+
+  let data;
+  try {
+    data = await res.json();
+  } catch (err) {
+    return { error: `Server returned an unreadable response (status ${res.status})` };
+  }
+
+  if (!res.ok) {
+    // Surface the server's error message if present, otherwise the status
+    if (res.status === 403) {
+      return { error: data.error || 'Access denied — your session may have expired. Please log in again.' };
+    }
+    return { error: data.error || `Request failed (status ${res.status})` };
+  }
+
+  return data;
 };
 
 async function devLogin() {
@@ -520,11 +543,20 @@ function closeEdit() {
 async function saveRecord() {
   const p = PANELS[currentPanel];
   if (!p?.save) return;
-  const result = await p.save(currentRecord);
-  if (result?.error) { toast(result.error, true); return; }
-  toast('Saved & published ✓');
-  loadPanel(currentPanel);
-  closeEdit();
+  const submitBtn = document.querySelector('.edit-footer .action-btn.success');
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Saving...'; }
+  try {
+    const result = await p.save(currentRecord);
+    if (result?.error) { toast(result.error, true); return; }
+    toast('Saved & published ✓');
+    await loadPanel(currentPanel);
+    closeEdit();
+  } catch (err) {
+    toast(`Unexpected error: ${err.message}`, true);
+    console.error('saveRecord failed:', err);
+  } finally {
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Save & Publish'; }
+  }
 }
 
 async function deleteRecord() {
@@ -532,10 +564,16 @@ async function deleteRecord() {
   if (!confirm(`Delete ${currentRecord.name || currentRecord.id}?`)) return;
   const p = PANELS[currentPanel];
   if (!p?.delete) return;
-  await p.delete(currentRecord.id);
-  toast('Deleted');
-  loadPanel(currentPanel);
-  closeEdit();
+  try {
+    const result = await p.delete(currentRecord.id);
+    if (result?.error) { toast(result.error, true); return; }
+    toast('Deleted');
+    await loadPanel(currentPanel);
+    closeEdit();
+  } catch (err) {
+    toast(`Unexpected error: ${err.message}`, true);
+    console.error('deleteRecord failed:', err);
+  }
 }
 
 // --- Zone forms ---
