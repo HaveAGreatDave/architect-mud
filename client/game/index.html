@@ -325,15 +325,24 @@
   }
   #settings-btn:hover { border-color: var(--accent); color: var(--accent); transform: rotate(45deg); }
 
-  /* Room items — underlined, clickable nouns woven into room description */
-  .room-item {
+  /* Clickable nouns in room text — exits, items, NPCs, enemies, corpses.
+     Underlined and colored by category so it's clear what kind of thing
+     it is and that it's interactive, without having to type the command. */
+  .action-link {
     text-decoration: underline;
     text-decoration-style: dotted;
     text-underline-offset: 3px;
     cursor: pointer;
-    transition: color 0.1s;
+    transition: color 0.1s, text-decoration-style 0.1s;
+    font-weight: 600;
   }
-  .room-item:hover { color: var(--accent-bright, var(--accent)); text-decoration-style: solid; }
+  .action-link:hover { text-decoration-style: solid; filter: brightness(1.25); }
+
+  .exit-link { color: var(--cyan); }
+  .npc-link { color: var(--green); }
+  .enemy-link { color: var(--red); }
+  .corpse-link { color: var(--text-dim); }
+  .room-item { /* item rarity classes already set color; just add link affordance */ }
 
   /* ─── MINIMAP ─── */
   #minimap-section {
@@ -1257,12 +1266,15 @@ function renderMinimap(nodes) {
   legend.innerHTML = `<span class="mm-current">@</span> you &nbsp; ◆ safe &nbsp; ○ zone &nbsp; <span style="color:var(--red)">✕</span> pvp`;
 }
 
-// Click a room item to take it
+// Click any actionable noun in the room text — exit, item, NPC, enemy, or corpse —
+// and run the corresponding command automatically instead of typing it.
 document.getElementById('output').addEventListener('click', (e) => {
-  const el = e.target.closest('.room-item');
+  const el = e.target.closest('.action-link');
   if (!el) return;
-  const itemName = el.dataset.item;
-  if (itemName) sendCmd(`take ${itemName.toLowerCase()}`);
+  const action = el.dataset.action;
+  const target = el.dataset.target;
+  if (!action || !target) return;
+  sendCmd(`${action} ${target.toLowerCase()}`);
 });
 
 // Boot

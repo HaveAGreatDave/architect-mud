@@ -33,16 +33,36 @@ export async function describeZone(zone, player) {
   if (groundItems.length) {
     const itemMentions = groundItems.map(item => {
       const rarityClass = `item-rarity-${item.rarity}`;
-      return `<span class="room-item ${rarityClass}" data-item="${item.name}" title="${item.name} — take it">${item.name}</span>`;
+      return `<span class="action-link room-item ${rarityClass}" data-action="take" data-target="${item.name}" title="Take ${item.name}">${item.name}</span>`;
     });
     desc += ` Lying here: ${itemMentions.join(', ')}.`;
   }
 
   desc += `\n`;
-  if (exits.length) desc += `\n<span class="exits-label">Exits:</span> ${exits.join(', ')}`;
-  if (npcs.length) desc += `\n<span class="npcs-label">NPCs here:</span> ${npcs.map(n=>n.name).join(', ')}`;
-  if (enemies.length) desc += `\n<span class="enemies-label">Hostiles:</span> ${enemies.map(e=>`${e.name} (${e.hp}/${e.hp_max}HP)`).join(', ')}`;
-  if (corpses.length) desc += `\n<span class="corpses-label">Corpses:</span> ${corpses.map(c=>c.name).join(', ')}`;
+  if (exits.length) {
+    const exitLinks = exits.map(dir =>
+      `<span class="action-link exit-link" data-action="go" data-target="${dir}" title="Go ${dir}">${dir}</span>`
+    );
+    desc += `\n<span class="exits-label">Exits:</span> ${exitLinks.join(', ')}`;
+  }
+  if (npcs.length) {
+    const npcLinks = npcs.map(n =>
+      `<span class="action-link npc-link" data-action="talk" data-target="${n.name}" title="Talk to ${n.name}">${n.name}</span>`
+    );
+    desc += `\n<span class="npcs-label">NPCs here:</span> ${npcLinks.join(', ')}`;
+  }
+  if (enemies.length) {
+    const enemyLinks = enemies.map(e =>
+      `<span class="action-link enemy-link" data-action="attack" data-target="${e.name}" title="Attack ${e.name}">${e.name}</span> (${e.hp}/${e.hp_max}HP)`
+    );
+    desc += `\n<span class="enemies-label">Hostiles:</span> ${enemyLinks.join(', ')}`;
+  }
+  if (corpses.length) {
+    const corpseLinks = corpses.map(c =>
+      `<span class="action-link corpse-link" data-action="loot" data-target="${c.name}" title="Loot ${c.name}">${c.name}</span>`
+    );
+    desc += `\n<span class="corpses-label">Corpses:</span> ${corpseLinks.join(', ')}`;
+  }
   return desc;
 }
 
@@ -55,8 +75,14 @@ export async function handleCommand(input, player, broadcast) {
 
   switch (cmd) {
     case 'look': case 'l': return cmdLook(player);
-    case 'go': case 'move': case 'north': case 'south': case 'east': case 'west': case 'up': case 'down':
-      return cmdMove(cmd === 'go' || cmd === 'move' ? args[0] : cmd, player, broadcast);
+    case 'go': case 'move':
+      return cmdMove(args[0], player, broadcast);
+    case 'north': case 'n': return cmdMove('north', player, broadcast);
+    case 'south': case 's': return cmdMove('south', player, broadcast);
+    case 'east': case 'e': return cmdMove('east', player, broadcast);
+    case 'west': case 'w': return cmdMove('west', player, broadcast);
+    case 'up': case 'u': return cmdMove('up', player, broadcast);
+    case 'down': case 'd': return cmdMove('down', player, broadcast);
     case 'attack': case 'kill': case 'k': return cmdAttack(args.join(' '), player, broadcast);
     case 'inventory': case 'inv': case 'i': return cmdInventory(player);
     case 'stats': case 'status': case 'st': return cmdStats(player);
