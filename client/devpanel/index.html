@@ -371,6 +371,7 @@
   <span class="auth-status" id="auth-badge">NOT AUTHENTICATED</span>
   <div id="header-actions">
     <button class="action-btn" onclick="refreshWorld()">↻ Refresh</button>
+    <button class="action-btn" id="publish-btn" onclick="publishChanges()" style="display:none" disabled>Publish Changes</button>
     <button class="action-btn" id="ghost-btn" onclick="openGhostMode()" style="display:none">👻 Ghost Mode</button>
   </div>
 </div>
@@ -502,6 +503,7 @@ async function devLogin() {
   document.getElementById('auth-badge').textContent = `${data.handle} [${data.role}]`;
   document.getElementById('auth-badge').className = 'auth-status ok';
   if (['admin','dev'].includes(data.role)) document.getElementById('ghost-btn').style.display = '';
+  updatePublishBtn();
   loadPanel('zones');
   startWorldStatePolling();
 }
@@ -932,10 +934,15 @@ async function zoneEditForm(rec, isNew) {
   const flags = rec.flags || {};
   zoneEditExitsState = { ...exits };
   // New zones created by clicking an empty cell on the Maps overview arrive
-  // with a pending grid placement; existing zones keep their stored position.
+  // with a pending grid placement; existing zones use the in-memory map state
+  // so unsaved drag positions are reflected immediately without needing to
+  // publish first; fall back to server data if not on the maps panel.
+  const mapZone = mapOverview?.zones.get(rec?.id);
   const place = (isNew && pendingZonePlacement)
     ? { ...pendingZonePlacement }
-    : { map_id: rec.map_id, grid_x: rec.grid_x, grid_y: rec.grid_y, grid_z: rec.grid_z };
+    : mapZone
+      ? { map_id: mapZone.map_id, grid_x: mapZone.grid_x, grid_y: mapZone.grid_y, grid_z: mapZone.grid_z ?? 0 }
+      : { map_id: rec.map_id, grid_x: rec.grid_x, grid_y: rec.grid_y, grid_z: rec.grid_z };
   pendingZonePlacement = null;
 
   let subSectionsHtml = '<div class="zone-subsection-note">Save this zone first to add rooms, NPCs, furniture, or a generator.</div>';
@@ -1804,6 +1811,21 @@ function setZoneColor(c) { const el = document.getElementById('f-color'); if (el
 function mapsDirty() { return mapOverview && (mapOverview.dirtyPos.size || mapOverview.dirtyExit.size); }
 function mapsGuard() { return !mapsDirty() || confirm('Discard unsaved layout changes?'); }
 
+function updatePublishBtn() {
+  const btn = document.getElementById('publish-btn');
+  if (!btn) return;
+  const dirty = mapsDirty();
+  btn.style.display = '';
+  btn.disabled = !dirty;
+  btn.className = dirty ? 'action-btn success' : 'action-btn';
+  btn.textContent = dirty ? 'Publish Changes *' : 'Publish Changes';
+}
+
+async function publishChanges() {
+  if (!mapsDirty()) return;
+  await saveMapLayout();
+}
+
 async function renderMapsPanel(data) {
   mapsList = Array.isArray(data) ? data : [];
   const panel = document.getElementById('list-panel');
@@ -1847,6 +1869,7 @@ function validateMapOverview(zonesMap) {
 }
 
 function renderMapOverview() {
+  updatePublishBtn();
   const o = mapOverview;
   const panel = document.getElementById('list-panel');
   const all = [...o.zones.values()];
@@ -1865,7 +1888,6 @@ function renderMapOverview() {
     <button class="action-btn" onclick="changeFloor(-1)">▾</button>
     <span style="min-width:60px;text-align:center">z = ${o.z}</span>
     <button class="action-btn" onclick="changeFloor(1)">▴</button>
-    <button class="action-btn success" onclick="saveMapLayout()" ${errors.length || !mapsDirty() ? 'disabled' : ''} style="margin-left:auto">Save Layout${mapsDirty() ? ' *' : ''}</button>
   </div>`;
 
   // Validation panel
