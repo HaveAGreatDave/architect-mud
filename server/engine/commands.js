@@ -183,7 +183,7 @@ export async function handleCommand(input, player, broadcast) {
       if (args[0] === 'lock') return cmdUpgradeLock(player);
       return { type:'error', message:'Upgrade what? Try "upgrade lock".' };
     case 'help': case '?': return cmdHelp();
-    case 'obama': return cmdObama(args.join(' '), player, broadcast);
+    case '/obama': return cmdObama(args.join(' '), player, broadcast);
     default: return { type:'error', message:`Unknown command: "${cmd}". Type HELP for commands.` };
   }
 }
