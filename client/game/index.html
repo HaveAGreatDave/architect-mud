@@ -1036,6 +1036,7 @@ let currentZone = null;
 // --- WebSocket ---
 let reconnectDelay = 1000;
 let coldStartTimer = null;
+let pingInterval = null;
 
 function connect() {
   ws = new WebSocket(WS_URL);
@@ -1046,8 +1047,13 @@ function connect() {
     if (coldStartTimer) { clearTimeout(coldStartTimer); coldStartTimer = null; hideColdStart(); }
     if (player) appendMsg(`Connected to ARCHITECT as ${player.handle}.`, 'system');
     else appendMsg('Connected to ARCHITECT. Login or register to enter.', 'system');
-    // Client-side ping every 10s to keep Render free tier alive
-    setInterval(() => { if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({type:'ping'})); }, 10000);
+    // Client-side ping every 10s to keep Render free tier alive. Clear any
+    // interval from a previous connection first — onopen fires again on
+    // every reconnect, and without this each one stacks a new interval that
+    // never gets cleaned up, so a session with several reconnects ends up
+    // sending more and more duplicate pings per tick forever.
+    if (pingInterval) clearInterval(pingInterval);
+    pingInterval = setInterval(() => { if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({type:'ping'})); }, 10000);
   };
 
   ws.onclose = () => {
