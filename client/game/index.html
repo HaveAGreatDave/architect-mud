@@ -196,6 +196,7 @@
   .apartment-label { color: var(--cyan); font-weight: 600; }
   .enemies-label { color: var(--orange); }
   .inv-header, .stats-header, .skills-header, .who-header, .help-header { color: var(--accent); font-weight: bold; text-transform: uppercase; letter-spacing: 2px; }
+  .status-flags { color: var(--cyan); font-size: 12px; }
   .equipped { color: var(--green); }
   .item-rarity-common { color: var(--text-dim); }
   .item-rarity-uncommon { color: var(--green); }
@@ -204,6 +205,7 @@
   .skill-category { color: var(--accent-dim); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
   .help-category { color: var(--accent); }
   .death-message { color: var(--red); font-size: 13px; }
+  .clone-vat-message { color: var(--text-dim); font-style: italic; font-size: 12px; }
   .battle-cry { color: var(--orange); font-style: italic; }
   .mutation-tag { color: var(--purple); font-style: italic; }
   .overdose-warning, .turret-warning { color: var(--red); font-weight: 600; }
@@ -904,11 +906,19 @@ function handleServerMsg(msg) {
       break;
     case 'player_death':
       appendHtml(msg.message, 'death');
-      if (player) { player.hp = 10; updateVitals(player); }
+      if (player && msg.player_update) { Object.assign(player, msg.player_update); updateVitals(player); }
       setTimeout(() => { sendCmd('look'); }, 1500);
       break;
     case 'ambient':
       appendHtml(msg.message, 'ambient');
+      break;
+    case 'sleep':
+      appendMsg(msg.message, 'system');
+      break;
+    case 'sleep_tick':
+    case 'sleep_end':
+      appendMsg(msg.message, 'system');
+      if (player && msg.player_update) { Object.assign(player, msg.player_update); updateVitals(player); }
       break;
     case 'zone_event':
       appendMsg(msg.message, 'zone-event');

@@ -101,6 +101,17 @@ export async function handleCommand(input, player, broadcast) {
   const cmd = parts[0];
   const args = parts.slice(1);
 
+  // Any command except sleep/rest itself wakes a sleeping player up early —
+  // sleep is a state you opt into and can opt out of at any time, not a
+  // lockout. The resource gains/losses already applied for whichever
+  // minutes were slept are kept; nothing is reverted on early wake.
+  if (player.sleeping && cmd !== 'sleep' && cmd !== 'rest') {
+    player.sleeping = null;
+    const result = await handleCommand(input, player, broadcast);
+    if (result) result.message = `You wake up.\n\n${result.message}`;
+    return result;
+  }
+
   switch (cmd) {
     case 'look': case 'l': return args.length ? cmdLook(player, args.join(' ')) : cmdLook(player);
     case 'go': case 'move':
@@ -256,6 +267,14 @@ async function cmdStats(player) {
   let msg = `<span class="stats-header">${p.handle}</span> — ${p.archetype||'unknown'}\n\n`;
   msg += `HP:     ${p.hp}/${p.hp_max}\nSanity: ${p.sanity}/${p.sanity_max}\nHunger: ${p.hunger}/100\nThirst: ${p.thirst}/100\nRAD:    ${radBar} ${p.radiation}/100\n\n`;
   msg += `STR:${p.stat_str}  AGI:${p.stat_agi}  INT:${p.stat_int}\nWIL:${p.stat_wil}  END:${p.stat_end}  CHA:${p.stat_cha}\n\nCredits: ${p.credits}`;
+
+  const statusFlags = [];
+  if (player.sleeping) statusFlags.push('Asleep');
+  if (player.healOverTime?.length) statusFlags.push(`Healing (${player.healOverTime.reduce((s,h)=>s+h.perTick*h.ticksRemaining,0)} HP over ${Math.max(...player.healOverTime.map(h=>h.ticksRemaining))}m)`);
+  if (player.wellFedUntil && Date.now() < player.wellFedUntil) statusFlags.push('Well-Fed');
+  if (player.hydratedUntil && Date.now() < player.hydratedUntil) statusFlags.push('Hydrated');
+  if (statusFlags.length) msg += `\n\n<span class="status-flags">${statusFlags.join(' · ')}</span>`;
+
   return { type:'stats', message:msg, player:p };
 }
 
@@ -313,7 +332,7 @@ async function cmdUse(targetStr, player) {
     return { type:'use', message: result.message, player_update: result.player_update };
   }
 
-  const { rows } = await query(`SELECT pi.*,i.name,i.effects FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND i.name ILIKE $2 AND i.type='consumable' LIMIT 1`, [player.id, `%${targetStr}%`]);
+  const { rows } = await query(`SELECT pi.*,i.name,i.subtype,i.effects FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND i.name ILIKE $2 AND i.type='consumable' LIMIT 1`, [player.id, `%${targetStr}%`]);
   if (!rows.length) return { type:'error', message:`No usable item "${targetStr}" in inventory.` };
   const item = rows[0];
   const effects = item.effects || {};
@@ -323,6 +342,28 @@ async function cmdUse(targetStr, player) {
   if (effects.thirst) { player.thirst = Math.min(100, player.thirst+effects.thirst); messages.push(`+${effects.thirst} Thirst.`); }
   if (effects.radiation) { player.radiation = Math.max(0, player.radiation+effects.radiation); messages.push(`${effects.radiation} Radiation.`); }
   if (effects.credits) { player.credits = (player.credits||0)+effects.credits; messages.push(`+${effects.credits} credits.`); }
+  if (effects.hp_over_time) {
+    // Heal-over-time effects stack rather than overwrite — using a second
+    // bandage while one is already working just adds another HoT tick to
+    // the queue, same as it would in practice.
+    const { amount, duration_seconds } = effects.hp_over_time;
+    const ticks = Math.max(1, Math.round(duration_seconds / 60));
+    const perTick = Math.ceil(amount / ticks);
+    player.healOverTime = player.healOverTime || [];
+    player.healOverTime.push({ perTick, ticksRemaining: ticks });
+    messages.push(`Bleeding slows. You'll recover ${amount} HP over the next ${Math.round(duration_seconds/60)} minute(s).`);
+  }
+  // Food speeds up natural HP regen for a while; water speeds up radiation
+  // removal — any item of that subtype grants the buff, not just specific
+  // named items, so this scales automatically as more food/drink is added.
+  if (item.subtype === 'food') {
+    player.wellFedUntil = Date.now() + 10 * 60 * 1000; // 10 minutes
+    messages.push(`Well-fed: HP regen is faster for a while.`);
+  }
+  if (item.subtype === 'drink') {
+    player.hydratedUntil = Date.now() + 10 * 60 * 1000; // 10 minutes
+    messages.push(`Hydrated: radiation clears faster for a while.`);
+  }
   await query('UPDATE players SET hp=$1,hunger=$2,thirst=$3,radiation=$4,credits=$5 WHERE id=$6', [player.hp,player.hunger,player.thirst,player.radiation,player.credits,player.id]);
   if (item.quantity > 1) await query('UPDATE player_inventory SET quantity=quantity-1 WHERE id=$1', [item.id]);
   else await query('DELETE FROM player_inventory WHERE id=$1', [item.id]);

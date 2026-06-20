@@ -124,7 +124,7 @@ npm run dev
 | `lock` / `unlock` | Secure or open your apartment door (owner only) |
 | `pick` | Attempt to pick a locked door (Security skill check) |
 | `upgrade lock` | Spend credits to raise your door's lock difficulty |
-| `sleep` / `rest` | Rest to restore HP/Sanity — full restore in your own locked apartment, partial in any safe zone |
+| `sleep` / `rest` | Begin gradually resting — restores HP/Sanity over real time, drains hunger/thirst while you're out. Any other command wakes you early. |
 | `stats` | Show vitals and stats |
 | `skills` | Show skill levels |
 | `mutations` | Show your mutations |
@@ -154,9 +154,19 @@ Players can rent apartment units in the Residential block and secure them with a
 - **`lock`** / **`unlock`** — owner-only. A locked door blocks entry and sleep for everyone but you.
 - **`pick`** — anyone can attempt to pick someone else's locked door. Runs a **Security** skill check (d10 + skill rank + AGI bonus) against the door's lock difficulty. Failing still grants partial skill XP.
 - **`upgrade lock`** — owner spends credits to raise the lock's difficulty, making it harder to pick.
-- **`sleep`** / **`rest`** — restores HP and Sanity. Full restore in your own locked apartment; a lesser restore in any safe zone or an unlocked apartment that isn't yours; doesn't work in dangerous zones at all.
+- **`sleep`** / **`rest`** — begins a timed sleep that gradually restores HP and Sanity over real time while draining hunger and thirst, same as if you were unconscious rather than resting instantly. Your own locked apartment rests faster and deeper than any other safe zone or an unlocked apartment that isn't yours; sleep doesn't work at all somewhere dangerous. Sending any other command wakes you up early — whatever you'd already recovered is kept. Sleep also auto-ends if you'd starve/dehydrate unconscious, or after 30 in-game minutes regardless.
 
 Apartment zones are just regular zones with the `is_apartment` flag set in their `flags` JSON — togglable on any zone from the dev panel's zone editor.
+
+---
+
+## Survival
+
+- **Hunger and thirst deplete slowly** — thirst reaches 0 in roughly 5 hours of real time if never replenished, hunger in roughly 6–7 hours. Both are genuinely lethal if ignored at 0 (small, steady HP loss per minute), not just a discomfort.
+- **Food and water do more than refill their own meter**: eating grants a temporary "Well-Fed" buff that speeds up natural HP regeneration; drinking grants a temporary "Hydrated" buff that speeds up radiation decay. Both last 10 minutes and apply automatically to any item with the matching `food`/`drink` subtype.
+- **Healing items can be instant or gradual.** An item's `effects` JSON supports a flat `hp` bump (instant) or an `hp_over_time: { amount, duration_seconds }` field (gradual, ticks once a minute, stacks if used again before finishing). Field Bandages and Trauma Kits both use the gradual form.
+- **New players start with 3 Field Bandages** in their inventory.
+- **Death respawns you fully restored** — HP, Sanity, Hunger, Thirst, and Radiation all reset to full/zero as appropriate, framed as stepping out of a cloning vat. All learned skills carry over untouched; only the body resets.
 
 ---
 
@@ -203,9 +213,11 @@ Restart the server. Plugin loads automatically. No core code changes.
 - [x] Real-time combat with cooldowns, crits, miss rolls (HellMOO-paced: ~3.5s player cooldown, enemy speed scaled by AGI)
 - [x] Enemy AI with targeting and attack timers, spawns confined to badlands only
 - [x] Status effects (bleeding, burning, irradiated)
-- [x] Survival meters — HP, Sanity, Hunger, Thirst, Radiation
+- [x] Survival meters — HP, Sanity, Hunger, Thirst, Radiation, balanced for multi-hour real-time depletion, genuinely lethal if neglected
 - [x] Full loot PvP — corpses lootable by anyone for 10 minutes
-- [x] **Apartments & property** — rent, lock, pick (skill-checked), upgrade, and sleep for safe rest
+- [x] **Apartments & property** — rent, lock, pick (skill-checked), upgrade, and timed sleep for gradual safe rest
+- [x] **Healing** — instant and heal-over-time consumables (bandages, medkits), well-fed/hydrated buffs from food and water
+- [x] **Death & respawn** — full stat restore via cloning-vat respawn, all skills retained
 - [x] **Crafting system** — quality tiers, skill checks, station requirements, crit crafts
 - [x] **Mutation system** — radiation triggers permanent mutations with buffs/drawbacks
 - [x] **Faction reputation** — 6 tiers, trade discounts, hostile behavior

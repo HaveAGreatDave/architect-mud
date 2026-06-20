@@ -180,7 +180,8 @@ async function seed() {
     ['item_ration','Vacuum Ration','Pre-Handoff emergency ration. Flavor: SAVORY.','consumable','food',0.3,8,'common',1,'{"hunger":25}','{}'],
     ['item_water_bottle','Filtered Water','Aggressively filtered water.','consumable','drink',0.5,5,'common',1,'{"thirst":40}','{}'],
     ['item_rad_pills','RadAway™','Bright orange pills. Tastes like failure and citrus.','consumable','medicine',0.1,25,'uncommon',1,'{"radiation":-20}','{}'],
-    ['item_bandage','Field Bandage','Gauze and tape. Stops bleeding.','consumable','medicine',0.2,10,'common',1,'{"hp":15}','{}'],
+    ['item_bandage','Field Bandage','Gauze and tape. Stops bleeding, eventually — not instantly, whatever the label implies.','consumable','medicine',0.2,10,'common',1,'{"hp_over_time":{"amount":18,"duration_seconds":180}}','{}'],
+    ['item_medkit','Trauma Kit','Real medical supplies. Increasingly rare, increasingly suspicious about why someone is selling them.','consumable','medicine',1.2,55,'uncommon',1,'{"hp_over_time":{"amount":50,"duration_seconds":300}}','{}'],
     ['item_pipe_wrench','Pipe Wrench','Heavy. Reliable. Pre-used.','weapon','blunt',2.5,30,'common',0,'{"damage_min":4,"damage_max":9}','{"stat_str":3}'],
     ['item_rusty_knife','Rusty Knife','A kitchen knife that has seen things.','weapon','bladed',0.4,15,'common',0,'{"damage_min":3,"damage_max":7}','{}'],
     ['item_scrap_armor','Scrap Vest','Metal sheeting over a leather jacket.','armor','chest',4.0,45,'common',0,'{}','{}'],
@@ -210,7 +211,7 @@ async function seed() {
       tutorial_2: { text: "When something's trying to kill you, 'attack' it, or click it — and don't worry too much about timing, you'll swing back automatically if something's already hitting you, because apparently survival instinct is the one thing the apocalypse didn't break. Keep an eye on your HP, Sanity, Hunger, and Thirst. All four can kill you. Sanity's just slower and more embarrassing about it.", options:[{label:"What about gear?",next:'tutorial_3'},{label:"That's enough, thanks.",next:null}] },
       tutorial_3: { text: "Loot corpses, craft what you can, buy what you can't. And rent yourself an apartment when you've got the credits — locked door, real bed, the only guaranteed safe sleep in the basin. Everything else out there is a negotiation.\n\nHere. Don't say I never gave you anything.", options:[{label:"...Thanks, Reg.",next:null}], grants_item:{item_id:'item_pipe_wrench',quantity:1} },
     }),
-    JSON.stringify([{item_id:'item_ration',price:12,stock:10},{item_id:'item_water_bottle',price:8,stock:15},{item_id:'item_bandage',price:15,stock:8}]),
+    JSON.stringify([{item_id:'item_ration',price:12,stock:10},{item_id:'item_water_bottle',price:8,stock:15},{item_id:'item_bandage',price:15,stock:8},{item_id:'item_medkit',price:60,stock:3}]),
     0, '{}'
   ]);
   console.log('✓ Seeded 1 NPC');

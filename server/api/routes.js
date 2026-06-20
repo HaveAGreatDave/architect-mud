@@ -74,6 +74,10 @@ async function apiRegister(body) {
   try {
     const id = randomUUID();
     await query(`INSERT INTO players (id,username,password_hash,handle,role) VALUES ($1,$2,$3,$4,'player')`, [id,username.toLowerCase(),hashPassword(password),handle]);
+    // Starting kit — every new survivor begins with field bandages, so
+    // there's at least one source of healing before they've found or
+    // crafted anything else.
+    await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,'item_bandage',3,1.0)`, [randomUUID(), id]);
     return {status:201,body:{token:makeToken(id,'player'),playerId:id,handle,role:'player'}};
   } catch { return {status:409,body:{error:'Username or handle already taken'}}; }
 }

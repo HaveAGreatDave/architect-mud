@@ -9,11 +9,19 @@ const BASE_LOCK_DIFFICULTY = 4;
 const MAX_LOCK_DIFFICULTY = 14;
 const UPGRADE_COST = 75; // credits per difficulty point, after the first
 
-// How much HP/sanity a full sleep restores. Sleeping in your own locked
-// apartment is full rest; sleeping anywhere else "safe" is a lesser rest;
-// sleeping somewhere dangerous doesn't work at all.
-const SLEEP_RESTORE_HOME = { hp: 1.0, sanity: 1.0 };
-const SLEEP_RESTORE_SAFE_ZONE = { hp: 0.4, sanity: 0.2 };
+// How much of the player's *missing* HP/sanity is restored per minute of
+// sleep — gradual, not instant. Sleeping in your own locked apartment is
+// the fastest, best rest; sleeping anywhere else "safe" is slower and
+// shallower; sleeping somewhere dangerous doesn't work at all.
+const SLEEP_RESTORE_HOME = { hp: 0.18, sanity: 0.15 };
+const SLEEP_RESTORE_SAFE_ZONE = { hp: 0.08, sanity: 0.05 };
+
+// Sleep isn't free — your body still burns through hunger/thirst while
+// you're out, just slower than the cost of staying awake and active would
+// otherwise imply nothing was happening. Per minute of sleep.
+const SLEEP_HUNGER_DRAIN = 1;
+const SLEEP_THIRST_DRAIN = 1;
+const SLEEP_MAX_MINUTES = 30; // auto-wake safety cap, even if fully rested already
 
 export function isApartmentZone(zone) {
   return !!(zone?.flags?.is_apartment);
@@ -133,6 +141,8 @@ export function getSleepEligibility(player, zone) {
 }
 
 export async function cmdSleep(player) {
+  if (player.sleeping) return { type:'error', message:'You are already asleep. (Send any other command to wake up.)' };
+
   const zone = getZone(player.current_zone);
   if (!zone) return { type:'error', message:'You are nowhere. This is a bug.' };
 
@@ -142,20 +152,48 @@ export async function cmdSleep(player) {
     return { type:'error', message:'It\'s not safe enough to sleep here. Find a secured apartment or a safe zone.' };
   }
 
-  const hpGain = Math.ceil((player.hp_max - player.hp) * elig.restore.hp);
-  const sanGain = Math.ceil((player.sanity_max - player.sanity) * elig.restore.sanity);
-  const newHp = Math.min(player.hp_max, player.hp + hpGain);
-  const newSanity = Math.min(player.sanity_max, player.sanity + sanGain);
-
-  await query('UPDATE players SET hp=$1, sanity=$2 WHERE id=$3', [newHp, newSanity, player.id]);
-  player.hp = newHp;
-  player.sanity = newSanity;
+  player.sleeping = { restore: elig.restore, reason: elig.reason, minutesSlept: 0 };
 
   const flavor = elig.reason === 'home'
-    ? 'You sleep behind your own locked door. Properly rested, for once.'
+    ? 'You lie down behind your own locked door and let your guard down, finally.'
     : 'You catch a rough, watchful sleep. Better than nothing.';
 
-  return { type:'sleep', message: `${flavor} (+${hpGain} HP, +${sanGain} Sanity)`, player_update: { hp:newHp, sanity:newSanity } };
+  return { type:'sleep', message: `${flavor} You'll rest gradually while you're out — send any command to wake up early.` };
+}
+
+// Called once per minute (gameLoop's resourceTick cadence) for every
+// currently-sleeping player. Restores a slice of missing HP/sanity, drains
+// hunger/thirst at the (slower-than-awake) sleep rate, and auto-wakes the
+// player on any of: fully rested, hunger/thirst about to run out, or the
+// safety cap on how long a single sleep can run uninterrupted.
+export async function tickSleep(player) {
+  if (!player.sleeping) return null;
+  const { restore } = player.sleeping;
+
+  const hpGain = Math.ceil((player.hp_max - player.hp) * restore.hp);
+  const sanGain = Math.ceil((player.sanity_max - player.sanity) * restore.sanity);
+  player.hp = Math.min(player.hp_max, player.hp + hpGain);
+  player.sanity = Math.min(player.sanity_max, player.sanity + sanGain);
+  player.hunger = Math.max(0, player.hunger - SLEEP_HUNGER_DRAIN);
+  player.thirst = Math.max(0, player.thirst - SLEEP_THIRST_DRAIN);
+  player.sleeping.minutesSlept++;
+
+  await query('UPDATE players SET hp=$1, sanity=$2, hunger=$3, thirst=$4 WHERE id=$5',
+    [player.hp, player.sanity, player.hunger, player.thirst, player.id]);
+
+  const fullyRested = player.hp >= player.hp_max && player.sanity >= player.sanity_max;
+  const runningOnEmpty = player.hunger <= 5 || player.thirst <= 5;
+  const tooLong = player.sleeping.minutesSlept >= SLEEP_MAX_MINUTES;
+
+  if (fullyRested || runningOnEmpty || tooLong) {
+    const reason = fullyRested ? 'You wake up fully rested.'
+      : runningOnEmpty ? 'Your stomach and throat wake you up before you starve in your sleep.'
+      : 'You wake up, having slept as long as your body will allow in one go.';
+    player.sleeping = null;
+    return { type:'sleep_end', message: reason, player_update:{ hp:player.hp, sanity:player.sanity, hunger:player.hunger, thirst:player.thirst } };
+  }
+
+  return { type:'sleep_tick', message: `Still asleep. (+${hpGain} HP, +${sanGain} Sanity)`, player_update:{ hp:player.hp, sanity:player.sanity, hunger:player.hunger, thirst:player.thirst } };
 }
 
 export async function describeApartmentStatus(zone) {
