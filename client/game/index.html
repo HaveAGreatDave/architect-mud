@@ -9,19 +9,19 @@
     --bg: #0a0a0c;
     --bg2: #111116;
     --bg3: #18181f;
-    --border: #2a2a35;
-    --text: #c8c8d4;
-    --text-dim: #5a5a70;
-    --text-bright: #e8e8f0;
-    --accent: #7b68ee;
-    --accent-dim: #3d3470;
-    --green: #4caf74;
-    --red: #e05555;
-    --orange: #e0914a;
-    --yellow: #d4c44a;
-    --cyan: #4ab8d4;
-    --purple: #9b59b6;
-    --font-mono: 'Courier New', 'Lucida Console', monospace;
+    --border: #34344a;
+    --text: #e4e4f0;
+    --text-dim: #8888a0;
+    --text-bright: #ffffff;
+    --accent: #9b89ff;
+    --accent-dim: #46397f;
+    --green: #6fd996;
+    --red: #ff6b6b;
+    --orange: #ffaa5c;
+    --yellow: #f0dc6a;
+    --cyan: #5fd6f5;
+    --purple: #c47ee0;
+    --font-mono: 'JetBrains Mono', 'Cascadia Code', 'Consolas', 'SF Mono', 'Fira Code', 'Source Code Pro', 'Roboto Mono', 'DejaVu Sans Mono', 'Courier New', monospace;
     --font-size-base: 14px;
     --density-padding: 16px;
     --density-gap: 8px;
@@ -338,24 +338,29 @@
   /* ─── MINIMAP ─── */
   #minimap-section {
     font-family: var(--font-mono);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 10px;
   }
   #minimap-grid {
     white-space: pre;
-    font-size: 13px;
-    line-height: 1.3;
-    letter-spacing: 1px;
+    font-size: 22px;
+    line-height: 1.5;
+    letter-spacing: 4px;
     overflow-x: auto;
+    text-align: center;
   }
-  .mm-cell { display: inline-block; width: 1ch; }
-  .mm-current { color: var(--text-bright); background: var(--accent-dim); font-weight: bold; }
-  .mm-safe { color: var(--green); }
-  .mm-low { color: var(--yellow); }
-  .mm-medium { color: var(--orange); }
-  .mm-high { color: var(--red); }
-  .mm-lethal { color: var(--red); font-weight: bold; }
+  .mm-cell { display: inline-block; width: 1.4ch; }
+  .mm-current { color: var(--bg); background: var(--accent); font-weight: bold; border-radius: 2px; }
+  .mm-safe { color: var(--green); font-weight: bold; }
+  .mm-low { color: var(--yellow); font-weight: bold; }
+  .mm-medium { color: var(--orange); font-weight: bold; }
+  .mm-high { color: var(--red); font-weight: bold; }
+  .mm-lethal { color: var(--red); font-weight: bold; text-shadow: 0 0 6px var(--red); }
   .mm-empty { color: var(--border); }
-  .mm-legend { font-size: 10px; color: var(--text-dim); margin-top: 6px; line-height: 1.6; }
-  .mm-legend .mm-current { padding: 0 3px; }
+  .mm-legend { font-size: 11px; color: var(--text-dim); margin-top: 10px; line-height: 1.8; text-align: center; }
+  .mm-legend .mm-current { padding: 1px 5px; border-radius: 2px; }
 
   /* ─── SETTINGS MODAL ─── */
   #settings-panel {
@@ -608,6 +613,12 @@
   </div>
 
   <div id="sidebar">
+    <div class="sidebar-section" id="minimap-section">
+      <div class="sidebar-label">Map</div>
+      <div id="minimap-grid">—</div>
+      <div class="mm-legend" id="minimap-legend"></div>
+    </div>
+
     <div class="sidebar-section">
       <div class="sidebar-label">Vitals</div>
       <div class="vital vital-hp">
@@ -636,12 +647,6 @@
       <div class="sidebar-label">Location</div>
       <div id="zone-name-display">—</div>
       <div id="exits-display"></div>
-    </div>
-
-    <div class="sidebar-section" id="minimap-section">
-      <div class="sidebar-label">Map</div>
-      <div id="minimap-grid">—</div>
-      <div class="mm-legend" id="minimap-legend"></div>
     </div>
 
     <div class="sidebar-section" id="enemy-section" style="display:none">
