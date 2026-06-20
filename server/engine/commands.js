@@ -1,5 +1,5 @@
 import { query } from '../models/db.js';
-import { getZone, getZoneEnemies, getZoneNpcs, getZoneCorpses, addPlayerToZone, removePlayerFromZone } from './world.js';
+import { getZone, getZoneEnemies, getZoneNpcs, getZoneCorpses, addPlayerToZone, removePlayerFromZone, getMinimapData } from './world.js';
 import { playerAttackEnemy, isOnCooldown, getCooldownRemaining } from './combat.js';
 import { awardSkillXp, getPlayerSkills, SKILLS } from './skills.js';
 import { RECIPES, getAvailableRecipes, attemptCraft } from './crafting.js';
@@ -8,16 +8,37 @@ import { getPlayerFactionRep } from './factions.js';
 import { getVendorStock, buyFromVendor, sellToVendor } from './vendor.js';
 import { randomUUID } from 'crypto';
 
-export function describeZone(zone, player) {
+export async function describeZone(zone, player) {
   const exits = Object.keys(zone.exits || {});
   const enemies = getZoneEnemies(zone.id);
   const npcs = getZoneNpcs(zone.id);
   const corpses = getZoneCorpses(zone.id);
+
+  // Items lying on the ground in this zone
+  const { rows: groundItems } = await query(
+    `SELECT pi.*, i.name, i.type, i.rarity FROM player_inventory pi
+     JOIN items i ON i.id = pi.item_id
+     WHERE pi.player_id = $1`,
+    [`_ground_${zone.id}`]
+  );
+
   let desc = `\n<span class="zone-name">${zone.name}</span>\n`;
   desc += `<span class="zone-danger zone-danger-${zone.danger_rating}">[${zone.danger_rating.toUpperCase()}]</span>`;
   if (zone.radiation_level > 0) desc += ` <span class="rad-warning">☢ RAD:${zone.radiation_level}</span>`;
   if (zone.pvp_enabled) desc += ` <span class="pvp-warning">⚔ PVP</span>`;
-  desc += `\n${zone.description}\n`;
+  desc += `\n${zone.description}`;
+
+  // Weave notable ground items directly into the prose, underlined and
+  // clickable, the way HellMOO highlights interactable nouns in room text.
+  if (groundItems.length) {
+    const itemMentions = groundItems.map(item => {
+      const rarityClass = `item-rarity-${item.rarity}`;
+      return `<span class="room-item ${rarityClass}" data-item="${item.name}" title="${item.name} — take it">${item.name}</span>`;
+    });
+    desc += ` Lying here: ${itemMentions.join(', ')}.`;
+  }
+
+  desc += `\n`;
   if (exits.length) desc += `\n<span class="exits-label">Exits:</span> ${exits.join(', ')}`;
   if (npcs.length) desc += `\n<span class="npcs-label">NPCs here:</span> ${npcs.map(n=>n.name).join(', ')}`;
   if (enemies.length) desc += `\n<span class="enemies-label">Hostiles:</span> ${enemies.map(e=>`${e.name} (${e.hp}/${e.hp_max}HP)`).join(', ')}`;
@@ -61,10 +82,10 @@ export async function handleCommand(input, player, broadcast) {
   }
 }
 
-function cmdLook(player) {
+async function cmdLook(player) {
   const zone = getZone(player.current_zone);
   if (!zone) return { type:'error', message:'You are nowhere. This is a bug.' };
-  return { type:'look', message: describeZone(zone, player) };
+  return { type:'look', message: await describeZone(zone, player), minimap: getMinimapData(zone.id) };
 }
 
 async function cmdMove(direction, player, broadcast) {
@@ -92,7 +113,7 @@ async function cmdMove(direction, player, broadcast) {
       await query('UPDATE players SET radiation=$1 WHERE id=$2', [player.radiation, player.id]);
     }
   }
-  return { type:'move', message:describeZone(targetZone, player), zone:targetId, radiation_gain:radGain };
+  return { type:'move', message:await describeZone(targetZone, player), zone:targetId, radiation_gain:radGain, minimap: getMinimapData(targetId) };
 }
 
 async function cmdAttack(targetStr, player, broadcast) {

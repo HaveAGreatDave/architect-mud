@@ -22,16 +22,64 @@
     --cyan: #4ab8d4;
     --purple: #9b59b6;
     --font-mono: 'Courier New', 'Lucida Console', monospace;
+    --font-size-base: 14px;
+    --density-padding: 16px;
+    --density-gap: 8px;
+  }
+
+  /* Light theme — same violet accent for brand continuity, warm paper background */
+  [data-theme="light"] {
+    --bg: #f4f2ed;
+    --bg2: #e9e6de;
+    --bg3: #ddd9cf;
+    --border: #c8c3b6;
+    --text: #3a3834;
+    --text-dim: #8a8578;
+    --text-bright: #1a1916;
+    --accent: #6b4fd6;
+    --accent-dim: #d8cdf5;
+    --green: #2e8b52;
+    --red: #c23b3b;
+    --orange: #b8651f;
+    --yellow: #9c8a1a;
+    --cyan: #1d7f99;
+    --purple: #7b3f99;
+  }
+
+  /* High contrast — pure black/white, amber accent (classic terminal phosphor) */
+  [data-theme="contrast"] {
+    --bg: #000000;
+    --bg2: #0a0a0a;
+    --bg3: #141414;
+    --border: #555555;
+    --text: #ffffff;
+    --text-dim: #aaaaaa;
+    --text-bright: #ffffff;
+    --accent: #ffb000;
+    --accent-dim: #5c3f00;
+    --green: #4eff4e;
+    --red: #ff5050;
+    --orange: #ffb000;
+    --yellow: #ffe14e;
+    --cyan: #50e0ff;
+    --purple: #d050ff;
+  }
+
+  /* Compact density — used on mobile/desktop "compact" display mode */
+  [data-density="compact"] {
+    --density-padding: 8px;
+    --density-gap: 4px;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
   body {
+    font-size: var(--font-size-base);
     background: var(--bg);
     color: var(--text);
     font-family: var(--font-mono);
-    font-size: 14px;
     line-height: 1.5;
+    transition: background 0.2s ease, color 0.2s ease;
     height: 100vh;
     display: flex;
     flex-direction: column;
@@ -78,6 +126,23 @@
     overflow: hidden;
   }
 
+  [data-density="compact"] #main {
+    grid-template-columns: 1fr 190px;
+  }
+
+  /* Narrow viewport — stack sidebar below the output instead of beside it */
+  @media (max-width: 720px) {
+    #main {
+      grid-template-columns: 1fr;
+      grid-template-rows: 1fr auto;
+      overflow-y: auto;
+    }
+    #output-container { border-right: none; border-bottom: 1px solid var(--border); min-height: 50vh; }
+    #sidebar { overflow-y: visible; max-height: 40vh; }
+    #header .logo { font-size: 13px; letter-spacing: 2px; }
+    #quick-cmds { overflow-x: auto; flex-wrap: nowrap; }
+  }
+
   /* ─── OUTPUT PANE ─── */
   #output-container {
     display: flex;
@@ -89,7 +154,7 @@
   #output {
     flex: 1;
     overflow-y: auto;
-    padding: 12px 16px;
+    padding: 12px var(--density-padding);
     scroll-behavior: smooth;
   }
 
@@ -245,6 +310,126 @@
   }
   .exit-btn:hover { border-color: var(--accent); color: var(--accent); }
 
+  /* Settings button */
+  #settings-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-size: 14px;
+    width: 28px;
+    height: 28px;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.15s;
+    line-height: 1;
+  }
+  #settings-btn:hover { border-color: var(--accent); color: var(--accent); transform: rotate(45deg); }
+
+  /* Room items — underlined, clickable nouns woven into room description */
+  .room-item {
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    text-underline-offset: 3px;
+    cursor: pointer;
+    transition: color 0.1s;
+  }
+  .room-item:hover { color: var(--accent-bright, var(--accent)); text-decoration-style: solid; }
+
+  /* ─── MINIMAP ─── */
+  #minimap-section {
+    font-family: var(--font-mono);
+  }
+  #minimap-grid {
+    white-space: pre;
+    font-size: 13px;
+    line-height: 1.3;
+    letter-spacing: 1px;
+    overflow-x: auto;
+  }
+  .mm-cell { display: inline-block; width: 1ch; }
+  .mm-current { color: var(--text-bright); background: var(--accent-dim); font-weight: bold; }
+  .mm-safe { color: var(--green); }
+  .mm-low { color: var(--yellow); }
+  .mm-medium { color: var(--orange); }
+  .mm-high { color: var(--red); }
+  .mm-lethal { color: var(--red); font-weight: bold; }
+  .mm-empty { color: var(--border); }
+  .mm-legend { font-size: 10px; color: var(--text-dim); margin-top: 6px; line-height: 1.6; }
+  .mm-legend .mm-current { padding: 0 3px; }
+
+  /* ─── SETTINGS MODAL ─── */
+  #settings-panel {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    z-index: 150;
+    align-items: center;
+    justify-content: center;
+  }
+  #settings-panel.active { display: flex; }
+
+  #settings-box {
+    background: var(--bg2);
+    border: 1px solid var(--accent);
+    padding: 24px;
+    max-width: 420px;
+    width: 90%;
+    border-radius: 2px;
+    max-height: 85vh;
+    overflow-y: auto;
+  }
+  #settings-box h2 {
+    color: var(--accent);
+    font-size: 14px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 18px;
+  }
+  .settings-group { margin-bottom: 20px; }
+  .settings-group label.group-label {
+    display: block;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+  .settings-options {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .settings-opt {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 6px 12px;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.15s;
+  }
+  .settings-opt:hover { border-color: var(--accent); color: var(--text); }
+  .settings-opt.selected { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+  #settings-close {
+    width: 100%;
+    margin-top: 8px;
+    background: var(--accent-dim);
+    border: 1px solid var(--accent);
+    color: var(--text-bright);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 9px;
+    cursor: pointer;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    border-radius: 2px;
+    transition: all 0.15s;
+  }
+  #settings-close:hover { background: var(--accent); color: var(--bg); }
+
   /* Dialogue panel */
   #dialogue-panel {
     display: none;
@@ -399,6 +584,7 @@
   <span class="logo">ARCHITECT</span>
   <span class="conn-status offline" id="conn-status">DISCONNECTED</span>
   <span class="handle-display" id="handle-display"></span>
+  <button id="settings-btn" title="Settings" aria-label="Open settings">⚙</button>
 </div>
 
 <div id="main">
@@ -452,10 +638,52 @@
       <div id="exits-display"></div>
     </div>
 
+    <div class="sidebar-section" id="minimap-section">
+      <div class="sidebar-label">Map</div>
+      <div id="minimap-grid">—</div>
+      <div class="mm-legend" id="minimap-legend"></div>
+    </div>
+
     <div class="sidebar-section" id="enemy-section" style="display:none">
       <div class="sidebar-label" style="color:var(--red)">⚠ Hostiles</div>
       <div id="enemy-list" style="font-size:11px;color:var(--orange)"></div>
     </div>
+  </div>
+</div>
+
+<!-- SETTINGS PANEL -->
+<div id="settings-panel">
+  <div id="settings-box">
+    <h2>Settings</h2>
+
+    <div class="settings-group">
+      <label class="group-label">Theme</label>
+      <div class="settings-options" id="opt-theme">
+        <button class="settings-opt" data-value="dark">Dark</button>
+        <button class="settings-opt" data-value="light">Light</button>
+        <button class="settings-opt" data-value="contrast">High Contrast</button>
+      </div>
+    </div>
+
+    <div class="settings-group">
+      <label class="group-label">Font Size</label>
+      <div class="settings-options" id="opt-fontsize">
+        <button class="settings-opt" data-value="12">Small</button>
+        <button class="settings-opt" data-value="14">Medium</button>
+        <button class="settings-opt" data-value="17">Large</button>
+        <button class="settings-opt" data-value="20">X-Large</button>
+      </div>
+    </div>
+
+    <div class="settings-group">
+      <label class="group-label">Display</label>
+      <div class="settings-options" id="opt-density">
+        <button class="settings-opt" data-value="comfortable">Comfortable (Desktop)</button>
+        <button class="settings-opt" data-value="compact">Compact (Mobile)</button>
+      </div>
+    </div>
+
+    <button id="settings-close">Done</button>
   </div>
 </div>
 
@@ -556,6 +784,7 @@ function handleServerMsg(msg) {
       appendMsg('─'.repeat(50), 'separator');
       appendHtml(msg.message, 'look');
       parseZoneInfo(msg.message);
+      if (msg.minimap) renderMinimap(msg.minimap);
       break;
     case 'move':
       appendHtml(msg.message, 'look');
@@ -563,6 +792,7 @@ function handleServerMsg(msg) {
       parseZoneInfo(msg.message);
       if (msg.radiation_gain > 0) appendMsg(`☢ +${msg.radiation_gain} radiation absorbed.`, 'system');
       if (player) { player.radiation = Math.min(100, (player.radiation||0) + (msg.radiation_gain||0)); updateVitals(player); }
+      if (msg.minimap) renderMinimap(msg.minimap);
       break;
     case 'combat':
       appendHtml(msg.message, msg.killed ? 'loot' : 'combat');
@@ -890,8 +1120,150 @@ function setConnStatus(state, text) {
   el.textContent = text;
 }
 
+// ─── SETTINGS ───────────────────────────────────────────────────────────
+const SETTINGS_KEY = 'architect_settings';
+const DEFAULT_SETTINGS = { theme: 'dark', fontSize: '14', density: 'comfortable' };
+
+function loadSettings() {
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    if (!raw) return { ...DEFAULT_SETTINGS };
+    return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+  } catch {
+    return { ...DEFAULT_SETTINGS };
+  }
+}
+
+function saveSettings(settings) {
+  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch {}
+}
+
+let settings = loadSettings();
+
+function applySettings() {
+  document.documentElement.setAttribute('data-theme', settings.theme);
+  document.documentElement.setAttribute('data-density', settings.density);
+  document.documentElement.style.setProperty('--font-size-base', settings.fontSize + 'px');
+
+  // Reflect current selection in the UI
+  for (const group of ['theme', 'fontsize', 'density']) {
+    const container = document.getElementById(`opt-${group}`);
+    if (!container) continue;
+    const key = group === 'fontsize' ? 'fontSize' : group;
+    container.querySelectorAll('.settings-opt').forEach(btn => {
+      btn.classList.toggle('selected', btn.dataset.value === String(settings[key]));
+    });
+  }
+}
+
+function initSettingsUI() {
+  document.querySelectorAll('#opt-theme .settings-opt').forEach(btn => {
+    btn.addEventListener('click', () => { settings.theme = btn.dataset.value; saveSettings(settings); applySettings(); });
+  });
+  document.querySelectorAll('#opt-fontsize .settings-opt').forEach(btn => {
+    btn.addEventListener('click', () => { settings.fontSize = btn.dataset.value; saveSettings(settings); applySettings(); });
+  });
+  document.querySelectorAll('#opt-density .settings-opt').forEach(btn => {
+    btn.addEventListener('click', () => { settings.density = btn.dataset.value; saveSettings(settings); applySettings(); });
+  });
+
+  document.getElementById('settings-btn').addEventListener('click', () => {
+    document.getElementById('settings-panel').classList.add('active');
+  });
+  document.getElementById('settings-close').addEventListener('click', () => {
+    document.getElementById('settings-panel').classList.remove('active');
+  });
+  document.getElementById('settings-panel').addEventListener('click', (e) => {
+    if (e.target.id === 'settings-panel') document.getElementById('settings-panel').classList.remove('active');
+  });
+}
+
+// Auto-detect: default new visitors to compact density on small screens
+if (!localStorage.getItem(SETTINGS_KEY) && window.innerWidth < 720) {
+  settings.density = 'compact';
+  settings.fontSize = '16'; // slightly larger touch-friendly default on mobile
+}
+
+applySettings();
+initSettingsUI();
+
+// ─── MINIMAP ────────────────────────────────────────────────────────────
+// Renders a small ASCII grid of nearby zones using each zone's exits to
+// position it relative to the player, HellMOO-style colorized by danger.
+function renderMinimap(nodes) {
+  const grid = document.getElementById('minimap-grid');
+  const legend = document.getElementById('minimap-legend');
+  if (!nodes || !nodes.length) { grid.textContent = '(unmapped)'; legend.innerHTML=''; return; }
+
+  const current = nodes.find(n => n.is_current);
+  if (!current) { grid.textContent = '(unmapped)'; legend.innerHTML=''; return; }
+
+  // Place zones on a coordinate grid via BFS from current, following exit directions
+  const DIR_OFFSET = { north:[0,-1], south:[0,1], east:[1,0], west:[-1,0] };
+  const coords = new Map(); // zoneId -> [x,y]
+  coords.set(current.id, [0,0]);
+  const byId = new Map(nodes.map(n => [n.id, n]));
+  const queue = [current.id];
+  const seen = new Set([current.id]);
+
+  while (queue.length) {
+    const id = queue.shift();
+    const node = byId.get(id);
+    const [x,y] = coords.get(id);
+    if (!node) continue;
+    for (const [dir, targetId] of Object.entries(node.exits || {})) {
+      if (!DIR_OFFSET[dir]) continue; // skip up/down — 2D grid only
+      if (!byId.has(targetId) || seen.has(targetId)) continue;
+      const [dx,dy] = DIR_OFFSET[dir];
+      coords.set(targetId, [x+dx, y+dy]);
+      seen.add(targetId);
+      queue.push(targetId);
+    }
+  }
+
+  if (coords.size === 0) { grid.textContent = '(unmapped)'; legend.innerHTML=''; return; }
+
+  const xs = [...coords.values()].map(c=>c[0]);
+  const ys = [...coords.values()].map(c=>c[1]);
+  const minX = Math.min(...xs), maxX = Math.max(...xs);
+  const minY = Math.min(...ys), maxY = Math.max(...ys);
+
+  const cellAt = new Map();
+  for (const [id, [x,y]] of coords) cellAt.set(`${x},${y}`, id);
+
+  const dangerClass = { safe:'mm-safe', low:'mm-low', medium:'mm-medium', high:'mm-high', lethal:'mm-lethal' };
+
+  let html = '';
+  for (let y = minY; y <= maxY; y++) {
+    let row = '';
+    for (let x = minX; x <= maxX; x++) {
+      const id = cellAt.get(`${x},${y}`);
+      if (!id) { row += `<span class="mm-cell mm-empty">·</span>`; continue; }
+      const node = byId.get(id);
+      const isCurrent = node.is_current;
+      const cls = isCurrent ? 'mm-current' : (dangerClass[node.danger_rating] || '');
+      const symbol = isCurrent ? '@' : (node.is_safe_zone ? '◆' : (node.pvp_enabled ? '✕' : '○'));
+      row += `<span class="mm-cell ${cls}" title="${node.name}">${symbol}</span>`;
+    }
+    html += row + '\n';
+  }
+  grid.innerHTML = html.trimEnd();
+
+  legend.innerHTML = `<span class="mm-current">@</span> you &nbsp; ◆ safe &nbsp; ○ zone &nbsp; <span style="color:var(--red)">✕</span> pvp`;
+}
+
+// Click a room item to take it
+document.getElementById('output').addEventListener('click', (e) => {
+  const el = e.target.closest('.room-item');
+  if (!el) return;
+  const itemName = el.dataset.item;
+  if (itemName) sendCmd(`take ${itemName.toLowerCase()}`);
+});
+
 // Boot
 connect();
+
+
 </script>
 </body>
 </html>

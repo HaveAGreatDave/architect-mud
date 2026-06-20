@@ -56,6 +56,45 @@ async function loadSpawnTemplates() {
 }
 
 export function getZone(id) { return world.zones.get(id) || null; }
+
+// Build a small graph snapshot for the minimap: current zone + everything
+// reachable within `depth` hops, with enough info to render an ASCII grid.
+export function getMinimapData(centerZoneId, depth = 2) {
+  const visited = new Map(); // zoneId -> { zone, distance }
+  const queue = [{ id: centerZoneId, distance: 0 }];
+  visited.set(centerZoneId, 0);
+
+  while (queue.length) {
+    const { id, distance } = queue.shift();
+    if (distance >= depth) continue;
+    const zone = world.zones.get(id);
+    if (!zone) continue;
+    for (const neighborId of Object.values(zone.exits || {})) {
+      if (!visited.has(neighborId)) {
+        visited.set(neighborId, distance + 1);
+        queue.push({ id: neighborId, distance: distance + 1 });
+      }
+    }
+  }
+
+  const nodes = [];
+  for (const [id] of visited) {
+    const zone = world.zones.get(id);
+    if (!zone) continue;
+    nodes.push({
+      id: zone.id,
+      name: zone.name,
+      danger_rating: zone.danger_rating,
+      is_safe_zone: !!zone.is_safe_zone,
+      pvp_enabled: !!zone.pvp_enabled,
+      exits: zone.exits || {},
+      is_current: zone.id === centerZoneId,
+      player_count: zone.players.size,
+    });
+  }
+  return nodes;
+}
+
 export function getAllZones() {
   return [...world.zones.values()].map(z => ({
     id: z.id, name: z.name, description: z.description,

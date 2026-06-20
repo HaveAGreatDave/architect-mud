@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url';
 import { WebSocketServer } from 'ws';
 import { createHash } from 'crypto';
 
-import { initWorld, addPlayerToZone, removePlayerFromZone, setLivePlayer, getLivePlayer, removeLivePlayer, getZone } from './engine/world.js';
+import { initWorld, addPlayerToZone, removePlayerFromZone, setLivePlayer, getLivePlayer, removeLivePlayer, getZone, getMinimapData } from './engine/world.js';
 import { handleCommand, describeZone } from './engine/commands.js';
 import { startGameLoop } from './engine/gameLoop.js';
 import { loadPlugins } from './engine/plugins.js';
@@ -163,7 +163,7 @@ async function handleAuth(ws, session, msg) {
   ws.send(JSON.stringify({ type:'auth_success', player:livePlayer }));
 
   const zone = getZone(livePlayer.current_zone);
-  if (zone) ws.send(JSON.stringify({ type:'look', message:describeZone(zone, livePlayer) }));
+  if (zone) ws.send(JSON.stringify({ type:'look', message: await describeZone(zone, livePlayer), minimap: getMinimapData(zone.id) }));
 }
 
 async function handleGameCommand(ws, session, msg) {
