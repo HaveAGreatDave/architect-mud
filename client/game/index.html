@@ -521,6 +521,7 @@
   #auth-box {
     background: var(--bg2);
     border: 1px solid var(--border);
+    box-shadow: 0 0 24px -8px var(--cyan);
     padding: 24px 28px 32px;
     width: 480px;
     max-width: 92vw;
@@ -528,33 +529,38 @@
   }
 
   #auth-ascii {
-    color: var(--accent);
     font-family: var(--font-mono);
     font-size: 9px;
     line-height: 1.05;
     white-space: pre;
     text-align: center;
     margin-bottom: 10px;
-    opacity: 0.9;
-    text-shadow: 0 0 12px var(--accent-dim);
+    opacity: 0.92;
     user-select: none;
     animation: skull-pulse 3.5s ease-in-out infinite;
   }
 
+  /* Glitch / chromatic-aberration color bands — magenta and cyan channels
+     offset across the skull like a corrupted RGB split, with warm
+     yellow/green flecks on the organic eye and cool cyan on the
+     cybernetic eye plate so the two read as distinctly different materials. */
+  .sk-m { color: var(--accent); text-shadow: 0 0 8px var(--accent-dim); }
+  .sk-c { color: var(--cyan); text-shadow: 0 0 8px var(--cyan); }
+  .sk-y { color: var(--yellow); text-shadow: 0 0 6px var(--yellow); }
+  .sk-g { color: var(--green); text-shadow: 0 0 6px var(--green); }
+
   @keyframes skull-pulse {
-    0%, 100% { text-shadow: 0 0 12px var(--accent-dim); opacity: 0.9; }
-    50% { text-shadow: 0 0 20px var(--accent), 0 0 6px var(--accent); opacity: 1; }
+    0%, 100% { filter: brightness(0.92) saturate(0.9); opacity: 0.88; }
+    50% { filter: brightness(1.15) saturate(1.2); opacity: 1; }
   }
 
   #auth-title {
-    color: var(--accent);
     font-family: var(--font-mono);
     font-size: 10px;
     line-height: 1.4;
     white-space: pre;
     text-align: center;
     margin-bottom: 6px;
-    text-shadow: 0 0 10px var(--accent-dim);
     user-select: none;
     letter-spacing: 0.5px;
   }
@@ -619,29 +625,30 @@
 <!-- AUTH SCREEN -->
 <div id="auth-screen">
   <div id="auth-box">
-    <pre id="auth-ascii">            ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
-         ▄██████████████████▄
-       ▄████▀▀░░░░░░░░░░▀▀████▄
-      ████▀░░░░░░░░░░░░░░░░▀████
-     ███▀░░░░░░░░░░░░░░░░░░░░▀███
-    ███▌░░░░░░░░░░░░░░░░░░░░░░▐███
-    ██▌░░●●●░░░░░░░░░░░░╔══╗░░░▐██
-    ██▌░░●◆●░░░░░░░░░░░░║▓▓║░░░▐██
-    ██▌░░●●●░░░░░░░░░░░░╚══╝░░░▐██
-     ██▌░░░░░░░░░▄▀▄░░░░░░░░░░▐██
-      ██▄░░░░░░░▀▄▄▀░░░░░░░░░▄██
-       ▀██▄░░░░░░░░░░░░░░░░▄██▀
-         ▀██▄░░░░░░░░░░░░▄██▀
-        ▄▄▄▀███▄▄▄▄▄▄▄▄███▀▄▄▄
-      ▄██▀▀░░▀████████▀░░▀▀██▄
-     ██░░░░░░░│░│░│░│░░░░░░░░██
-     █▌░░░░░░░│░│░│░│░░░░░░░░▐█
-      ██░░░░░░▀░▀░▀░▀░░░░░░░░██
-       ▀██░░░░░░░░░░░░░░░░░██▀
-         ▀█▄░░░░░░░░░░░░░▄█▀
-           ▀▀▄▄▄▄▄▄▄▄▄▄▄▀▀</pre>
-    <pre id="auth-title">░▒▓█▓▒░ ▄▀█ █▀█ █▀▀ █░█ █ ▀█▀ █▀▀ █▀▀ ▀█▀ ░▒▓█▓▒░
-░▒▓█▓▒░ █▀█ █▀▄ █▄▄ █▀█ █ ░█░ ██▄ █▄▄ ░█░ ░▒▓█▓▒░</pre>
+    <pre id="auth-ascii"><span class="sk-m">         </span><span class="sk-c">   ▄▄▄▄▄▄</span><span class="sk-m">▄▄▄▄▄▄▄▄▄▄</span>
+<span class="sk-m">         </span><span class="sk-c">▄████████</span><span class="sk-m">██████████▄</span>
+<span class="sk-m">       ▄██</span><span class="sk-c">██▀▀░░░░░░</span><span class="sk-m">░░░░▀▀████▄</span>
+<span class="sk-m">      ████</span><span class="sk-c">▀░░░░▄▄▄▄▄</span><span class="sk-m">▄▄▄░░░▀████</span>
+<span class="sk-m">     ███▀░</span><span class="sk-c">░░░░░░░░░░</span><span class="sk-m">░░░░░░░░▀███</span>
+<span class="sk-m">    ███▌░░░</span><span class="sk-c">░░░░░░░░░░░</span><span class="sk-m">░░░░░░░▐███</span>
+<span class="sk-m">    ██▌░░</span><span class="sk-y">●●●</span><span class="sk-m">░░░░░░░░░░░░</span><span class="sk-c">╔══╗</span><span class="sk-m">░░▐██</span>
+<span class="sk-m">    ██▌░░</span><span class="sk-y">●</span><span class="sk-g">◆</span><span class="sk-y">●</span><span class="sk-m">░░░░░░░░░░░░</span><span class="sk-c">║▓▓║</span><span class="sk-m">░░▐██</span>
+<span class="sk-m">    ██▌░░</span><span class="sk-y">●●●</span><span class="sk-m">░░░░░░░░░░░░</span><span class="sk-c">╚══╝</span><span class="sk-m">░░▐██</span>
+<span class="sk-m">     ██▌░░</span><span class="sk-c">░░░░░░░▄▀▄</span><span class="sk-m">░░░░░░░░░▐██</span>
+<span class="sk-m">      ██▄░</span><span class="sk-c">░░░░░░▀▄▄▀</span><span class="sk-m">░░░░░░░░▄██</span>
+<span class="sk-m">       ▀██</span><span class="sk-c">▄░░░░░░░░░</span><span class="sk-m">░░░░░░░▄██▀</span>
+<span class="sk-m">         </span><span class="sk-c">▀██▄░░░░░</span><span class="sk-m">░░░░░░░▄██▀</span>
+<span class="sk-m">        ▄▄</span><span class="sk-c">▄▀███▄▄▄▄▄</span><span class="sk-m">▄▄▄███▀▄▄▄</span>
+<span class="sk-m">      ▄██▀</span><span class="sk-c">▀░░▀██████</span><span class="sk-m">██▀░░▀▀██▄</span>
+<span class="sk-m">     ██░░░</span><span class="sk-c">░░░░│░│◆│░</span><span class="sk-m">│░░░░░░░██</span>
+<span class="sk-m">     █▌░░░</span><span class="sk-c">░░░░│░│░│░</span><span class="sk-m">│░░░░░░░▐█</span>
+<span class="sk-m">      ██░░</span><span class="sk-c">░░░░▀░▀░▀░</span><span class="sk-m">▀░░░░░░░██</span>
+<span class="sk-m">       ▀██</span><span class="sk-c">░░░░░░░░░░</span><span class="sk-m">░░░░░░░██▀</span>
+<span class="sk-m">         </span><span class="sk-c">▀█▄░░░░░░</span><span class="sk-m">░░░░░░░▄█▀</span>
+<span class="sk-m">        </span><span class="sk-c">   ▀▀▄▄▄</span><span class="sk-m">▄▄▄▄▄▄▄▄▀▀</span></pre>
+    <pre id="auth-title"><span class="sk-c">░▒▓█▓▒░</span> <span class="sk-m">▄▀█ █▀█ █▀▀ █░█ █ ▀█▀ █▀▀ █▀▀ ▀█▀</span> <span class="sk-c">░▒▓█▓▒░</span>
+<span class="sk-c">░▒▓█▓▒░</span> <span class="sk-m">█▀█ █▀▄ █▄▄ █▀█ █ ░█░ ██▄ █▄▄ ░█░</span> <span class="sk-c">░▒▓█▓▒░</span></pre>
+
     <div class="tagline">The AI won. You survived. Probably.</div>
 
     <div class="auth-field auth-handle-field" id="handle-field">
