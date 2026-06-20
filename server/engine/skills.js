@@ -54,5 +54,5 @@ export async function skillCheck(player, skillId, difficulty = 5) {
   const statBonus = skill ? Math.floor((player[skill.stat] || 5) / 2) : 0;
   const roll = Math.floor(Math.random() * 10) + 1;
   const total = roll + rank + statBonus;
-  return { success: total >= difficulty, roll, total, difficulty };
+  return { success: total >= difficulty, roll, total, difficulty, margin: total - difficulty };
 }

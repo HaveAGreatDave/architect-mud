@@ -167,7 +167,7 @@ export async function attemptCraft(player, recipeId, stationQuality = 'none') {
     success: true,
     critical,
     outputQuality,
-    message: `${critMsg}You craft ${outputQty}x ${recipe.name} [${QUALITY_TIERS[outputQuality].label}]. (+${xpGain} fabrication XP)`,
+    message: `${critMsg}You craft ${outputQty}x ${recipe.name} [${QUALITY_TIERS[outputQuality].label}]. (+${xpGain} ${recipe.skill_id} XP)`,
     item_id: recipe.base_output.item_id,
     quantity: outputQty,
   };
