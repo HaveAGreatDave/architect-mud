@@ -6,28 +6,28 @@
 <title>ARCHITECT</title>
 <style>
   :root {
-    --bg: #0a0a0c;
-    --bg2: #111116;
-    --bg3: #18181f;
-    --border: #34344a;
-    --text: #e4e4f0;
-    --text-dim: #8888a0;
+    --bg: #05050a;
+    --bg2: #0d0d16;
+    --bg3: #15151f;
+    --border: #2a2a40;
+    --text: #e8e8f5;
+    --text-dim: #8888a8;
     --text-bright: #ffffff;
-    --accent: #9b89ff;
-    --accent-dim: #46397f;
-    --green: #6fd996;
-    --red: #ff6b6b;
-    --orange: #ffaa5c;
-    --yellow: #f0dc6a;
-    --cyan: #5fd6f5;
-    --purple: #c47ee0;
-    --font-mono: 'JetBrains Mono', 'Cascadia Code', 'Consolas', 'SF Mono', 'Fira Code', 'Source Code Pro', 'Roboto Mono', 'DejaVu Sans Mono', 'Courier New', monospace;
+    --accent: #ff2ec4;
+    --accent-dim: #6e1957;
+    --green: #39ff8f;
+    --red: #ff3b5c;
+    --orange: #ff9a3c;
+    --yellow: #f5e642;
+    --cyan: #28e5ff;
+    --purple: #b86bff;
+    --font-mono: 'Lucida Console', 'Lucida Sans Typewriter', 'Monaco', 'Consolas', monospace;
     --font-size-base: 14px;
     --density-padding: 16px;
     --density-gap: 8px;
   }
 
-  /* Light theme — same violet accent for brand continuity, warm paper background */
+  /* Light theme — same accent family for brand continuity, warm paper background */
   [data-theme="light"] {
     --bg: #f4f2ed;
     --bg2: #e9e6de;
@@ -36,13 +36,13 @@
     --text: #3a3834;
     --text-dim: #8a8578;
     --text-bright: #1a1916;
-    --accent: #6b4fd6;
-    --accent-dim: #d8cdf5;
-    --green: #2e8b52;
+    --accent: #c4197f;
+    --accent-dim: #f5cfe5;
+    --green: #1f8f4f;
     --red: #c23b3b;
     --orange: #b8651f;
     --yellow: #9c8a1a;
-    --cyan: #1d7f99;
+    --cyan: #157a92;
     --purple: #7b3f99;
   }
 
@@ -335,6 +335,21 @@
   }
   #settings-btn:hover { border-color: var(--accent); color: var(--accent); transform: rotate(45deg); }
 
+  #signout-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-size: 14px;
+    width: 28px;
+    height: 28px;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.15s;
+    line-height: 1;
+    margin-left: 6px;
+  }
+  #signout-btn:hover { border-color: var(--red); color: var(--red); }
+
   /* Clickable nouns in room text — exits, items, NPCs, enemies, corpses.
      Underlined and colored by category so it's clear what kind of thing
      it is and that it's interactive, without having to type the command. */
@@ -604,27 +619,27 @@
 <!-- AUTH SCREEN -->
 <div id="auth-screen">
   <div id="auth-box">
-    <pre id="auth-ascii">            ╓              ╖
-              ▄▄▄▄▄▄▄▄▄▄▄▄▄▄
-          ▄▄██████████████████▄▄
-        ▄████▀░░░░░░░░░░░░░▀████▄
-       ███▀░░░░░░░░░░░░░░░░░░▀███
-      ██▀░░░▄████▄░░░▄████▄░░░▀██
-     ██░░░██▓▓◆▓▓██░██▓▓◆▓▓██░░░██
-     ██░░░██▓▓▓▓▓██░██▓▓▓▓▓██░░░██
-     ██░░░░▀████▀░░░░░▀████▀░░░░██
-      ██▄░░░░░░░░░░░░░░░░░░░░░▄██
-       ▀██▄░░░░░░▄▄▄▄▄░░░░░░▄██▀
-         ▀██▄░░░█░░░░░█░░░▄██▀
-           ▀██▄░▀▀▀▀▀░▄██▀
-          ▄▄▄▀████████▀▄▄▄
-        ▄██▀▀▀▀████████▀▀▀▀██▄
-       ██░░░░░░██▀▀▀▀██░░░░░░░██
-       ██░░░░░██░░░░░░██░░░░░░██
-        ██░░░██░░░░░░░░██░░░░██
-         ▀██░██░░░░░░░░░██░██▀
-           ▀█▀░░░░░░░░░░░▀█▀
-            ╙              ╜</pre>
+    <pre id="auth-ascii">            ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+         ▄██████████████████▄
+       ▄████▀▀░░░░░░░░░░▀▀████▄
+      ████▀░░░░░░░░░░░░░░░░▀████
+     ███▀░░░░░░░░░░░░░░░░░░░░▀███
+    ███▌░░░░░░░░░░░░░░░░░░░░░░▐███
+    ██▌░░●●●░░░░░░░░░░░░╔══╗░░░▐██
+    ██▌░░●◆●░░░░░░░░░░░░║▓▓║░░░▐██
+    ██▌░░●●●░░░░░░░░░░░░╚══╝░░░▐██
+     ██▌░░░░░░░░░▄▀▄░░░░░░░░░░▐██
+      ██▄░░░░░░░▀▄▄▀░░░░░░░░░▄██
+       ▀██▄░░░░░░░░░░░░░░░░▄██▀
+         ▀██▄░░░░░░░░░░░░▄██▀
+        ▄▄▄▀███▄▄▄▄▄▄▄▄███▀▄▄▄
+      ▄██▀▀░░▀████████▀░░▀▀██▄
+     ██░░░░░░░│░│░│░│░░░░░░░░██
+     █▌░░░░░░░│░│░│░│░░░░░░░░▐█
+      ██░░░░░░▀░▀░▀░▀░░░░░░░░██
+       ▀██░░░░░░░░░░░░░░░░░██▀
+         ▀█▄░░░░░░░░░░░░░▄█▀
+           ▀▀▄▄▄▄▄▄▄▄▄▄▄▀▀</pre>
     <pre id="auth-title">░▒▓█▓▒░ ▄▀█ █▀█ █▀▀ █░█ █ ▀█▀ █▀▀ █▀▀ ▀█▀ ░▒▓█▓▒░
 ░▒▓█▓▒░ █▀█ █▀▄ █▄▄ █▀█ █ ░█░ ██▄ █▄▄ ░█░ ░▒▓█▓▒░</pre>
     <div class="tagline">The AI won. You survived. Probably.</div>
@@ -657,6 +672,7 @@
   <span class="conn-status offline" id="conn-status">DISCONNECTED</span>
   <span class="handle-display" id="handle-display"></span>
   <button id="settings-btn" title="Settings" aria-label="Open settings">⚙</button>
+  <button id="signout-btn" title="Sign Out" aria-label="Sign out">⏻</button>
 </div>
 
 <div id="main">
@@ -1247,6 +1263,15 @@ function initSettingsUI() {
   });
   document.getElementById('settings-panel').addEventListener('click', (e) => {
     if (e.target.id === 'settings-panel') document.getElementById('settings-panel').classList.remove('active');
+  });
+
+  document.getElementById('signout-btn').addEventListener('click', () => {
+    const confirmed = confirm(
+      "Sign out?\n\nYour body stays asleep exactly where you log out — it will remain in the world, vulnerable to anyone who finds it, until you return.\n\nMake sure you're somewhere safe (your apartment, locked) before signing out."
+    );
+    if (!confirmed) return;
+    if (ws) { try { ws.close(); } catch {} }
+    location.reload();
   });
 }
 

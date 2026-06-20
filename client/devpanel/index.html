@@ -6,20 +6,20 @@
 <title>ARCHITECT // DEV PANEL</title>
 <style>
   :root {
-    --bg: #0c0c10;
-    --bg2: #13131a;
-    --bg3: #1a1a24;
-    --border: #2a2a3d;
-    --text: #b8b8cc;
-    --text-dim: #555570;
-    --text-bright: #e0e0f0;
-    --accent: #7b68ee;
-    --accent2: #4caf74;
-    --accent3: #e0914a;
-    --red: #e05555;
-    --yellow: #d4c44a;
-    --cyan: #4ab8d4;
-    --font: 'Courier New', monospace;
+    --bg: #05050a;
+    --bg2: #0d0d16;
+    --bg3: #15151f;
+    --border: #2a2a40;
+    --text: #c4c4dc;
+    --text-dim: #5c5c78;
+    --text-bright: #e8e8f5;
+    --accent: #ff2ec4;
+    --accent2: #39ff8f;
+    --accent3: #ff9a3c;
+    --red: #ff3b5c;
+    --yellow: #f5e642;
+    --cyan: #28e5ff;
+    --font: 'Lucida Console', 'Lucida Sans Typewriter', 'Monaco', 'Consolas', monospace;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 13px; height: 100vh; display: flex; flex-direction: column; }
@@ -93,6 +93,9 @@
     position: sticky;
     top: 0;
   }
+  th.sortable-col { cursor: pointer; user-select: none; transition: color 0.15s; }
+  th.sortable-col:hover { color: var(--accent); }
+  th.sortable-col.sorted { color: var(--accent); }
   td { padding: 8px 12px; border-bottom: 1px solid var(--bg3); vertical-align: top; }
   tr:hover td { background: var(--bg2); }
   tr.selected td { background: rgba(123,104,238,0.1); }
@@ -506,6 +509,7 @@ const PANELS = {
 
 async function showPanel(name) {
   currentPanel = name;
+  sortState = { key: null, dir: 1 };
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
   event.target.classList.add('active');
   closeEdit();
@@ -529,16 +533,33 @@ async function loadPanel(name) {
   renderTable(p.columns, allRecords, p.noEdit);
 }
 
+let sortState = { key: null, dir: 1 };
+
 function renderTable(columns, records, noEdit = false) {
   const panel = document.getElementById('list-panel');
   if (!records.length) { panel.innerHTML = '<div style="padding:24px;color:var(--text-dim)">No records found.</div>'; return; }
 
+  let sorted = records;
+  if (sortState.key) {
+    sorted = [...records].sort((a, b) => {
+      let av = a[sortState.key], bv = b[sortState.key];
+      if (av == null) av = '';
+      if (bv == null) bv = '';
+      if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * sortState.dir;
+      return String(av).localeCompare(String(bv)) * sortState.dir;
+    });
+  }
+
   let html = '<table><thead><tr>';
-  for (const col of columns) html += `<th>${col.label}</th>`;
+  for (const col of columns) {
+    const isSorted = sortState.key === col.key;
+    const arrow = isSorted ? (sortState.dir === 1 ? ' ▲' : ' ▼') : '';
+    html += `<th class="sortable-col${isSorted?' sorted':''}" onclick="sortTableBy('${col.key}')">${col.label}${arrow}</th>`;
+  }
   if (!noEdit) html += '<th></th>';
   html += '</tr></thead><tbody>';
 
-  for (const rec of records) {
+  for (const rec of sorted) {
     html += `<tr onclick="selectRecord('${rec.id}')">`;
     for (const col of columns) {
       const raw = rec[col.key];
@@ -550,6 +571,19 @@ function renderTable(columns, records, noEdit = false) {
   }
   html += '</tbody></table>';
   panel.innerHTML = html;
+}
+
+function sortTableBy(key) {
+  if (sortState.key === key) sortState.dir *= -1;
+  else { sortState.key = key; sortState.dir = 1; }
+  const p = PANELS[currentPanel];
+  if (p?.columns) renderTable(p.columns, allRecords, p.noEdit);
+}
+
+function sortWorldStateBy(key) {
+  if (sortState.key === key) sortState.dir *= -1;
+  else { sortState.key = key; sortState.dir = 1; }
+  if (window._wsData) renderWorldState(window._wsData);
 }
 
 function filterTable() {
@@ -975,8 +1009,29 @@ async function saveNpc(existing) {
 // --- World state ---
 function renderWorldState(data) {
   const panel = document.getElementById('list-panel');
-  const zones = data.zones || [];
-  let html = '<table><thead><tr><th>Zone</th><th>Danger</th><th>Players</th><th>Enemies</th><th>Safe</th><th></th></tr></thead><tbody>';
+  window._wsData = data; // cache full payload for re-sort without refetch
+  let zones = data.zones || [];
+
+  if (sortState.key) {
+    zones = [...zones].sort((a, b) => {
+      let av = a[sortState.key], bv = b[sortState.key];
+      if (av == null) av = ''; if (bv == null) bv = '';
+      if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * sortState.dir;
+      return String(av).localeCompare(String(bv)) * sortState.dir;
+    });
+  }
+
+  const cols = [
+    {key:'name',label:'Zone'},{key:'danger_rating',label:'Danger'},
+    {key:'player_count',label:'Players'},{key:'enemy_count',label:'Enemies'},{key:'is_safe_zone',label:'Safe'},
+  ];
+  let html = '<table><thead><tr>';
+  for (const c of cols) {
+    const isSorted = sortState.key === c.key;
+    const arrow = isSorted ? (sortState.dir === 1 ? ' ▲' : ' ▼') : '';
+    html += `<th class="sortable-col${isSorted?' sorted':''}" onclick="sortWorldStateBy('${c.key}')">${c.label}${arrow}</th>`;
+  }
+  html += '<th></th></tr></thead><tbody>';
   for (const z of zones) {
     html += `<tr>
       <td>${z.name}</td>
