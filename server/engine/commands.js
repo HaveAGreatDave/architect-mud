@@ -841,8 +841,8 @@ async function cmdWho() {
 
 function cmdSay(text, player, broadcast) {
   if (!text) return { type:'error', message:'Say what?' };
-  broadcast(player.current_zone, { type:'say', message:`${player.handle} says: "${text}"` }, null);
-  return { type:'say', message:`You say: "${text}"` };
+  broadcast(player.current_zone, { type:'say', fromId: player.id, from: player.handle, text }, null);
+  return null;
 }
 
 // Hidden command. No further commentary necessary.

@@ -1242,9 +1242,11 @@ function handleServerMsg(msg) {
     case 'emote':
       appendMsg(msg.message, 'zone-event');
       break;
-    case 'say':
-      appendMsg(msg.message, 'say');
+    case 'say': {
+      const who = (player && msg.fromId === player.id) ? 'You say' : `${msg.from} says`;
+      appendMsg(`${who}: "${msg.text}"`, 'say');
       break;
+    }
     case 'inventory':
       renderEquipPanel(msg.items || []);
       document.getElementById('equip-panel').classList.add('active');
