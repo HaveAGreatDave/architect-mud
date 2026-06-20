@@ -1037,6 +1037,7 @@
 <div id="map-panel">
   <div id="map-box">
     <h2>City Map</h2>
+    <div id="map-floor" style="margin-bottom:8px;font-size:11px;color:var(--text-dim);display:none"></div>
     <div id="map-grid"></div>
     <div style="margin-top:14px;font-size:10px;color:var(--text-dim)">Highlighted tile is your current location.</div>
     <button id="map-close" style="margin-top:14px">Close</button>
@@ -1262,7 +1263,7 @@ function handleServerMsg(msg) {
       appendHtml(msg.message, 'help');
       break;
     case 'map':
-      openMapPopup(msg.tiles || []);
+      openMapPopup(msg);
       break;
     case 'equip':
       if (document.getElementById('equip-panel').classList.contains('active')) {
@@ -1875,26 +1876,39 @@ function renderMinimap(nodes) {
   const current = nodes.find(n => n.is_current);
   if (!current) { grid.textContent = '(unmapped)'; legend.innerHTML=''; return; }
 
-  // Place zones on a coordinate grid via BFS from current, following exit directions
-  const DIR_OFFSET = { north:[0,-1], south:[0,1], east:[1,0], west:[-1,0] };
-  const coords = new Map(); // zoneId -> [x,y]
-  coords.set(current.id, [0,0]);
   const byId = new Map(nodes.map(n => [n.id, n]));
-  const queue = [current.id];
-  const seen = new Set([current.id]);
+  const coords = new Map(); // zoneId -> [x,y]
 
-  while (queue.length) {
-    const id = queue.shift();
-    const node = byId.get(id);
-    const [x,y] = coords.get(id);
-    if (!node) continue;
-    for (const [dir, targetId] of Object.entries(node.exits || {})) {
-      if (!DIR_OFFSET[dir]) continue; // skip up/down — 2D grid only
-      if (!byId.has(targetId) || seen.has(targetId)) continue;
-      const [dx,dy] = DIR_OFFSET[dir];
-      coords.set(targetId, [x+dx, y+dy]);
-      seen.add(targetId);
-      queue.push(targetId);
+  // Prefer real grid coordinates — same map and same floor as the player,
+  // positioned relative to them. Up/down lead to other floors/maps and are
+  // simply off this 2D layer.
+  if (current.map_id && current.grid_x != null && current.grid_y != null) {
+    for (const n of nodes) {
+      if (n.map_id === current.map_id && n.grid_z === current.grid_z && n.grid_x != null && n.grid_y != null) {
+        coords.set(n.id, [n.grid_x - current.grid_x, n.grid_y - current.grid_y]);
+      }
+    }
+  }
+
+  // Fallback for unplaced zones: BFS from current following exit directions.
+  if (!coords.size) {
+    const DIR_OFFSET = { north:[0,-1], south:[0,1], east:[1,0], west:[-1,0] };
+    coords.set(current.id, [0,0]);
+    const queue = [current.id];
+    const seen = new Set([current.id]);
+    while (queue.length) {
+      const id = queue.shift();
+      const node = byId.get(id);
+      const [x,y] = coords.get(id);
+      if (!node) continue;
+      for (const [dir, targetId] of Object.entries(node.exits || {})) {
+        if (!DIR_OFFSET[dir]) continue; // skip up/down — 2D grid only
+        if (!byId.has(targetId) || seen.has(targetId)) continue;
+        const [dx,dy] = DIR_OFFSET[dir];
+        coords.set(targetId, [x+dx, y+dy]);
+        seen.add(targetId);
+        queue.push(targetId);
+      }
     }
   }
 
@@ -1929,10 +1943,11 @@ function renderMinimap(nodes) {
   legend.innerHTML = `<span class="mm-current">@</span> you &nbsp; ◆ safe &nbsp; ○ zone &nbsp; <span style="color:var(--red)">✕</span> pvp`;
 }
 
-// Renders the "map" command's response — a fixed-layout grid of the whole
-// outdoor city (not the local BFS minimap above), shown as a popup.
-// Read-only: this is a navigation reference, not a click-to-travel tool.
-function openMapPopup(tiles) {
+// Renders the "map" command's response — the grid of whichever map the player
+// is on (the world, or a building interior), at their current floor, shown as
+// a popup. Read-only: a navigation reference, not a click-to-travel tool.
+function openMapPopup(data) {
+  const tiles = Array.isArray(data) ? data : (data.tiles || []);
   const grid = document.getElementById('map-grid');
   if (!tiles.length) { grid.textContent = '(no map data)'; }
   else {
@@ -1947,10 +1962,23 @@ function openMapPopup(tiles) {
         const t = byCoord.get(`${x},${y}`);
         if (!t) { html += `<div class="map-tile map-tile-empty"></div>`; continue; }
         const cls = `map-tile danger-${t.danger || 'safe'}${t.isCurrent ? ' map-current' : ''}`;
-        html += `<div class="${cls}">${t.name}</div>`;
+        const style = t.color ? ` style="border-color:${t.color};color:${t.color}"` : '';
+        const mk = t.marker ? `<span class="map-marker">${t.marker}</span> ` : '';
+        html += `<div class="${cls}"${style}>${mk}${t.name}</div>`;
       }
     }
     grid.innerHTML = html;
+  }
+  // Floor indicator — only meaningful for multi-floor maps (buildings).
+  const floors = Array.isArray(data) ? [] : (data.floors || []);
+  const floorEl = document.getElementById('map-floor');
+  if (floorEl) {
+    if (floors.length > 1) {
+      floorEl.textContent = `Floor ${data.floor} of ${floors.length} (${Math.min(...floors)}…${Math.max(...floors)})`;
+      floorEl.style.display = '';
+    } else {
+      floorEl.style.display = 'none';
+    }
   }
   document.getElementById('map-panel').classList.add('active');
 }

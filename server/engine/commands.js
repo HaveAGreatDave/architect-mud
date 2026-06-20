@@ -799,36 +799,31 @@ async function cmdSwitch(targetStr, player) {
     : `You flip the switch. ${light.name} goes dark.` };
 }
 
-// Fixed grid layout for the outdoor map — the city is a small, stable
-// 10-tile grid (see seed.js), so a hand-placed layout is simpler and
-// cleaner than a generic auto-layout algorithm. Shared in spirit with the
-// dev panel's big map (devpanel.html keeps its own copy client-side).
-const OUTDOOR_MAP_LAYOUT = [
-  { id: 'zone_city_north', x: 0, y: -1 },
-  { id: 'zone_city_ne', x: 1, y: -1 },
-  { id: 'zone_badland_w_gate', x: -2, y: 0 },
-  { id: 'zone_city_west', x: -1, y: 0 },
-  { id: 'zone_start', x: 0, y: 0 },
-  { id: 'zone_city_east', x: 1, y: 0 },
-  { id: 'zone_badland_sw_outer', x: -2, y: 1 },
-  { id: 'zone_city_sw', x: -1, y: 1 },
-  { id: 'zone_city_south', x: 0, y: 1 },
-  { id: 'zone_city_se', x: 1, y: 1 },
-];
-
+// The map command renders the player's current map at their current floor,
+// straight from the zones' grid coordinates (assigned in seed.js / the dev
+// panel's overview editor). Each map is its own grid — the world is one map,
+// each building interior another — so this just reads whichever map the
+// player is standing on. up/down floors are split into separate layers.
 async function cmdMap(player) {
-  const ids = OUTDOOR_MAP_LAYOUT.map(t => t.id);
-  const { rows } = await query(`SELECT id, name, danger_rating FROM zones WHERE id = ANY($1::text[])`, [ids]);
-  const byId = new Map(rows.map(z => [z.id, z]));
-  const tiles = OUTDOOR_MAP_LAYOUT.map(t => ({
-    id: t.id,
-    x: t.x,
-    y: t.y,
-    name: byId.get(t.id)?.name || t.id,
-    danger: byId.get(t.id)?.danger_rating || 'safe',
-    isCurrent: t.id === player.current_zone,
+  const { rows: cur } = await query(`SELECT map_id, grid_z FROM zones WHERE id=$1`, [player.current_zone]);
+  const mapId = cur[0]?.map_id;
+  if (!mapId) return { type:'map', tiles: [] };
+  const z = cur[0]?.grid_z ?? 0;
+  const { rows } = await query(
+    `SELECT id, name, danger_rating, grid_x, grid_y, marker, color FROM zones
+     WHERE map_id=$1 AND grid_z=$2 AND grid_x IS NOT NULL AND grid_y IS NOT NULL`,
+    [mapId, z]
+  );
+  const { rows: floors } = await query(
+    `SELECT DISTINCT grid_z FROM zones WHERE map_id=$1 AND grid_z IS NOT NULL ORDER BY grid_z`, [mapId]
+  );
+  const tiles = rows.map(r => ({
+    id: r.id, x: r.grid_x, y: r.grid_y,
+    name: r.name, danger: r.danger_rating || 'safe',
+    marker: r.marker || null, color: r.color || null,
+    isCurrent: r.id === player.current_zone,
   }));
-  return { type:'map', tiles };
+  return { type:'map', tiles, floor: z, floors: floors.map(f => f.grid_z) };
 }
 
 async function cmdWho() {

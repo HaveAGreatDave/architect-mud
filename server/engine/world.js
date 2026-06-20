@@ -100,6 +100,9 @@ export function getMinimapData(centerZoneId, depth = 2) {
       is_safe_zone: !!zone.is_safe_zone,
       pvp_enabled: !!zone.pvp_enabled,
       exits: zone.exits || {},
+      map_id: zone.map_id || null,
+      grid_x: zone.grid_x, grid_y: zone.grid_y, grid_z: zone.grid_z,
+      marker: zone.marker || null, color: zone.color || null,
       is_current: zone.id === centerZoneId,
       player_count: zone.players.size,
     });
@@ -113,6 +116,8 @@ export function getAllZones() {
     danger_rating: z.danger_rating, pvp_enabled: z.pvp_enabled,
     radiation_level: z.radiation_level, is_safe_zone: z.is_safe_zone,
     exits: z.exits, ambient_events: z.ambient_events, flags: z.flags,
+    map_id: z.map_id, grid_x: z.grid_x, grid_y: z.grid_y, grid_z: z.grid_z,
+    marker: z.marker, color: z.color,
     player_count: z.players.size, enemy_count: z.enemies.size,
   }));
 }
