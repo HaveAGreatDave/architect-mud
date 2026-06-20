@@ -163,8 +163,8 @@ async function ensureApartmentRow(zoneId) {
 async function apiCreateZone(body,auth) {
   const id = body.id||`zone_${Date.now()}`;
   try {
-    await query(`INSERT INTO zones (id,name,description,danger_rating,pvp_enabled,radiation_level,is_safe_zone,exits,ambient_events,flags,created_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
-      [id,body.name||'Unnamed Zone',body.description||'An empty place.',body.danger_rating||'medium',body.pvp_enabled?1:0,body.radiation_level||0,body.is_safe_zone?1:0,JSON.stringify(body.exits||{}),JSON.stringify(body.ambient_events||[]),JSON.stringify(body.flags||{}),auth?.playerId]);
+    await query(`INSERT INTO zones (id,name,description,danger_rating,pvp_enabled,radiation_level,is_safe_zone,exits,ambient_events,flags,created_by,map_id,grid_x,grid_y,grid_z,marker,color,bg_color) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
+      [id,body.name||'Unnamed Zone',body.description||'An empty place.',body.danger_rating||'medium',body.pvp_enabled?1:0,body.radiation_level||0,body.is_safe_zone?1:0,JSON.stringify(body.exits||{}),JSON.stringify(body.ambient_events||[]),JSON.stringify(body.flags||{}),auth?.playerId,body.map_id||null,body.grid_x??null,body.grid_y??null,body.grid_z??0,body.marker||null,body.color||null,body.bg_color||null]);
     if (body.flags?.is_apartment) await ensureApartmentRow(id);
     await reloadZone(id);
     fireHook('zone.create', id, body).catch(() => {});
@@ -175,7 +175,7 @@ export async function apiUpdateZone(id,body) {
   const sets=[]; const vals=[];
   let i=1;
   const boolFields = ['pvp_enabled','is_safe_zone'];
-  const simple=['name','description','danger_rating','pvp_enabled','radiation_level','is_safe_zone'];
+  const simple=['name','description','danger_rating','pvp_enabled','radiation_level','is_safe_zone','map_id','grid_x','grid_y','grid_z','marker','color','bg_color'];
   for (const f of simple) {
     if (body[f]!==undefined) {
       sets.push(`${f}=$${i++}`);
@@ -232,6 +232,104 @@ async function apiAddRoom(parentZoneId, body) {
 
     return { status:201, body:{ id: roomId, message:`Room "${name}" added ${direction} of ${parent.name}` } };
   } catch(e) { return { status:400, body:{error:e.message} }; }
+}
+
+// ─── Maps (grid containers) ───────────────────────────────────────────────
+async function apiGetMaps() {
+  const { rows } = await query(`
+    SELECT m.*, (SELECT COUNT(*)::int FROM zones z WHERE z.map_id = m.id) AS zone_count
+    FROM maps m ORDER BY m.id
+  `);
+  return { status:200, body: rows };
+}
+
+async function apiGetMap(id) {
+  const { rows: mapRows } = await query('SELECT * FROM maps WHERE id=$1', [id]);
+  if (!mapRows.length) return { status:404, body:{error:'Not found'} };
+  const { rows: zones } = await query(
+    `SELECT id, name, danger_rating, grid_x, grid_y, grid_z, marker, color, bg_color, exits, flags, map_id
+     FROM zones WHERE map_id=$1`, [id]
+  );
+  // Interior maps that hang off any of this map's zones, so the editor can
+  // offer a "dive in" affordance per building tile.
+  const { rows: children } = await query(
+    'SELECT id, name, parent_zone_id, entry_zone_id FROM maps WHERE parent_zone_id = ANY($1::text[])',
+    [zones.map(z => z.id)]
+  );
+  // Zones not yet on any map — shown in the overview's tray so they can be
+  // dragged onto this (or any) map by hand.
+  const { rows: unplaced } = await query(
+    `SELECT id, name, danger_rating, exits, flags FROM zones WHERE map_id IS NULL ORDER BY name`
+  );
+  return { status:200, body:{ map: mapRows[0], zones, children, unplaced } };
+}
+
+async function apiCreateMap(body, auth) {
+  const id = body.id || `map_${Date.now()}`;
+  if (!body.name) return { status:400, body:{error:'name is required'} };
+  try {
+    await query(
+      `INSERT INTO maps (id,name,parent_zone_id,entry_zone_id,created_by) VALUES ($1,$2,$3,$4,$5)`,
+      [id, body.name, body.parent_zone_id||null, body.entry_zone_id||null, auth?.playerId]
+    );
+    return { status:201, body:{ id, message:'Map created' } };
+  } catch(e) { return { status:400, body:{error:e.message} }; }
+}
+
+// Batch save from the overview editor: zone positions + exit edits. Validates
+// the PROPOSED full-world state first (so broken connections are caught even
+// if the client's pre-check is bypassed) and writes nothing on error.
+async function apiSaveMapLayout(mapId, body) {
+  const positions = Array.isArray(body?.zones) ? body.zones : [];
+  const exitEdits = (body && typeof body.exits === 'object' && body.exits) || {};
+
+  const { rows: mapRows } = await query('SELECT id FROM maps WHERE id=$1', [mapId]);
+  if (!mapRows.length) return { status:404, body:{error:'Map not found'} };
+
+  // Whole-world context: dangling/reciprocal checks can cross maps, and a
+  // cross-map portal's target must be resolvable.
+  const { rows: allZones } = await query('SELECT id, map_id, grid_x, grid_y, grid_z, exits FROM zones');
+  const posById = new Map(positions.map(p => [p.id, p]));
+  const proposed = allZones.map(z => {
+    const p = posById.get(z.id);
+    return {
+      id: z.id, map_id: (p && p.map_id) ? p.map_id : z.map_id,
+      grid_x: p ? p.grid_x : z.grid_x,
+      grid_y: p ? p.grid_y : z.grid_y,
+      grid_z: p ? (p.grid_z ?? 0) : z.grid_z,
+      exits: z.exits || {},
+    };
+  });
+
+  const { errors, warnings } = validateMapLayout(proposed, exitEdits);
+  if (errors.length) return { status:409, body:{ error:'Broken connections must be fixed before saving', broken: errors, warnings } };
+
+  const client = await getClient();
+  try {
+    await client.query('BEGIN');
+    for (const p of positions) {
+      await client.query(
+        `UPDATE zones SET grid_x=$2, grid_y=$3, grid_z=$4, map_id=COALESCE($5,map_id), updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$1`,
+        [p.id, p.grid_x ?? null, p.grid_y ?? null, p.grid_z ?? 0, p.map_id || mapId]
+      );
+    }
+    for (const [zoneId, exits] of Object.entries(exitEdits)) {
+      await client.query(
+        `UPDATE zones SET exits=$2, updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$1`,
+        [zoneId, JSON.stringify(exits || {})]
+      );
+    }
+    await client.query('COMMIT');
+  } catch(e) {
+    await client.query('ROLLBACK').catch(()=>{});
+    client.release();
+    return { status:400, body:{error:e.message} };
+  }
+  client.release();
+
+  const touched = new Set([...positions.map(p => p.id), ...Object.keys(exitEdits)]);
+  for (const zid of touched) await reloadZone(zid);
+  return { status:200, body:{ message:'Layout saved', warnings } };
 }
 
 // Called after zone(s) are removed from the DB. Any currently-connected

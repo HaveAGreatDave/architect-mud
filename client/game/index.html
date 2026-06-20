@@ -461,23 +461,22 @@
     padding: 10px;
   }
   #minimap-grid {
-    white-space: pre;
-    font-size: 22px;
-    line-height: 1.5;
-    letter-spacing: 4px;
-    overflow-x: auto;
+    white-space: nowrap;
+    font-size: 18px;
+    line-height: 1.7;
+    letter-spacing: 0;
     text-align: center;
   }
-  .mm-cell { display: inline-block; width: 1.4ch; }
-  .mm-current { color: var(--bg); background: var(--accent); font-weight: bold; border-radius: 2px; }
-  .mm-safe { color: var(--green); font-weight: bold; }
-  .mm-low { color: var(--yellow); font-weight: bold; }
-  .mm-medium { color: var(--orange); font-weight: bold; }
-  .mm-high { color: var(--red); font-weight: bold; }
-  .mm-lethal { color: var(--red); font-weight: bold; text-shadow: 0 0 6px var(--red); }
-  .mm-empty { color: var(--border); }
-  .mm-legend { font-size: 11px; color: var(--text-dim); margin-top: 10px; line-height: 1.8; text-align: center; }
-  .mm-legend .mm-current { padding: 1px 5px; border-radius: 2px; }
+  .mm-cell { display: inline-block; width: 2ch; text-align: center; }
+  .mm-current { color: #5b9af5; font-weight: bold; }
+  .mm-safe { color: var(--green); }
+  .mm-low { color: var(--yellow); }
+  .mm-medium { color: var(--orange); }
+  .mm-high { color: var(--red); }
+  .mm-lethal { color: var(--red); text-shadow: 0 0 5px var(--red); }
+  .mm-blank { color: #333355; }
+  .mm-zone { color: var(--text-dim); }
+  .mm-legend { font-size: 11px; color: var(--text-dim); margin-top: 8px; line-height: 1.8; text-align: center; }
 
   /* ─── SETTINGS MODAL ─── */
   #settings-panel {
@@ -1889,8 +1888,9 @@ applySettings();
 initSettingsUI();
 
 // ─── MINIMAP ────────────────────────────────────────────────────────────
-// Renders a small ASCII grid of nearby zones using each zone's exits to
-// position it relative to the player, HellMOO-style colorized by danger.
+// Renders a 5×5 ASCII minimap centered on the player.
+// Player tile: "()" in blue. Empty cells: ". " in grey.
+// Zone tiles use bg_color/color if set, otherwise danger-class coloring.
 function renderMinimap(nodes) {
   const grid = document.getElementById('minimap-grid');
   const legend = document.getElementById('minimap-legend');
@@ -1899,35 +1899,38 @@ function renderMinimap(nodes) {
   const current = nodes.find(n => n.is_current);
   if (!current) { grid.textContent = '(unmapped)'; legend.innerHTML=''; return; }
 
-  // Place zones on a coordinate grid via BFS from current, following exit directions
-  const DIR_OFFSET = { north:[0,-1], south:[0,1], east:[1,0], west:[-1,0] };
-  const coords = new Map(); // zoneId -> [x,y]
-  coords.set(current.id, [0,0]);
   const byId = new Map(nodes.map(n => [n.id, n]));
-  const queue = [current.id];
-  const seen = new Set([current.id]);
+  const coords = new Map(); // zoneId -> [x,y] relative to player
 
-  while (queue.length) {
-    const id = queue.shift();
-    const node = byId.get(id);
-    const [x,y] = coords.get(id);
-    if (!node) continue;
-    for (const [dir, targetId] of Object.entries(node.exits || {})) {
-      if (!DIR_OFFSET[dir]) continue; // skip up/down — 2D grid only
-      if (!byId.has(targetId) || seen.has(targetId)) continue;
-      const [dx,dy] = DIR_OFFSET[dir];
-      coords.set(targetId, [x+dx, y+dy]);
-      seen.add(targetId);
-      queue.push(targetId);
+  // Prefer real grid coordinates — same map and floor as player.
+  if (current.map_id && current.grid_x != null && current.grid_y != null) {
+    for (const n of nodes) {
+      if (n.map_id === current.map_id && n.grid_z === current.grid_z && n.grid_x != null && n.grid_y != null) {
+        coords.set(n.id, [n.grid_x - current.grid_x, n.grid_y - current.grid_y]);
+      }
     }
   }
 
-  if (coords.size === 0) { grid.textContent = '(unmapped)'; legend.innerHTML=''; return; }
-
-  const xs = [...coords.values()].map(c=>c[0]);
-  const ys = [...coords.values()].map(c=>c[1]);
-  const minX = Math.min(...xs), maxX = Math.max(...xs);
-  const minY = Math.min(...ys), maxY = Math.max(...ys);
+  // Fallback: BFS from current using exit directions.
+  if (!coords.size) {
+    const DIR_OFFSET = { north:[0,-1], south:[0,1], east:[1,0], west:[-1,0] };
+    coords.set(current.id, [0,0]);
+    const queue = [current.id];
+    const seen = new Set([current.id]);
+    while (queue.length) {
+      const id = queue.shift();
+      const node = byId.get(id);
+      const [x,y] = coords.get(id);
+      if (!node) continue;
+      for (const [dir, targetId] of Object.entries(node.exits || {})) {
+        if (!DIR_OFFSET[dir] || !byId.has(targetId) || seen.has(targetId)) continue;
+        const [dx,dy] = DIR_OFFSET[dir];
+        coords.set(targetId, [x+dx, y+dy]);
+        seen.add(targetId);
+        queue.push(targetId);
+      }
+    }
+  }
 
   const cellAt = new Map();
   for (const [id, [x,y]] of coords) cellAt.set(`${x},${y}`, id);
@@ -1935,22 +1938,34 @@ function renderMinimap(nodes) {
   const dangerClass = { safe:'mm-safe', low:'mm-low', medium:'mm-medium', high:'mm-high', lethal:'mm-lethal' };
 
   let html = '';
-  for (let y = minY; y <= maxY; y++) {
-    let row = '';
-    for (let x = minX; x <= maxX; x++) {
+  for (let y = -2; y <= 2; y++) {
+    for (let x = -2; x <= 2; x++) {
       const id = cellAt.get(`${x},${y}`);
-      if (!id) { row += `<span class="mm-cell mm-empty">·</span>`; continue; }
+      if (!id) {
+        html += `<span class="mm-cell mm-blank">. </span>`;
+        continue;
+      }
       const node = byId.get(id);
-      const isCurrent = node.is_current;
-      const cls = isCurrent ? 'mm-current' : (dangerClass[node.danger_rating] || '');
-      const symbol = isCurrent ? '@' : (node.is_safe_zone ? '◆' : (node.pvp_enabled ? '✕' : '○'));
-      row += `<span class="mm-cell ${cls}" title="${node.name}">${symbol}</span>`;
+      if (!node) { html += `<span class="mm-cell mm-blank">. </span>`; continue; }
+      if (node.is_current) {
+        html += `<span class="mm-cell mm-current" title="${node.name}">()</span>`;
+        continue;
+      }
+      const sym = node.marker
+        ? (node.marker.length === 1 ? node.marker + ' ' : node.marker.slice(0,2))
+        : (node.is_safe_zone ? '◆ ' : (node.pvp_enabled ? '✕ ' : '○ '));
+      const styles = [];
+      if (node.bg_color) styles.push(`background:${node.bg_color}`);
+      if (node.color) styles.push(`color:${node.color}`);
+      const styleAttr = styles.length ? ` style="${styles.join(';')}"` : '';
+      const cls = `mm-cell ${node.color || node.bg_color ? 'mm-zone' : (dangerClass[node.danger_rating] || 'mm-zone')}`;
+      html += `<span class="${cls}"${styleAttr} title="${node.name}">${sym}</span>`;
     }
-    html += row + '\n';
+    html += '<br>';
   }
-  grid.innerHTML = html.trimEnd();
+  grid.innerHTML = html;
 
-  legend.innerHTML = `<span class="mm-current">@</span> you &nbsp; ◆ safe &nbsp; ○ zone &nbsp; <span style="color:var(--red)">✕</span> pvp`;
+  legend.innerHTML = `<span class="mm-current">()</span> you &nbsp; ◆ safe &nbsp; ○ zone &nbsp; <span style="color:var(--red)">✕</span> pvp`;
 }
 
 // Renders the "map" command's response — a fixed-layout grid of the whole

@@ -71,7 +71,7 @@ export function getZone(id) { return world.zones.get(id) || null; }
 
 // Build a small graph snapshot for the minimap: current zone + everything
 // reachable within `depth` hops, with enough info to render an ASCII grid.
-export function getMinimapData(centerZoneId, depth = 2) {
+export function getMinimapData(centerZoneId, depth = 4) {
   const visited = new Map(); // zoneId -> { zone, distance }
   const queue = [{ id: centerZoneId, distance: 0 }];
   visited.set(centerZoneId, 0);
@@ -102,7 +102,7 @@ export function getMinimapData(centerZoneId, depth = 2) {
       exits: zone.exits || {},
       map_id: zone.map_id || null,
       grid_x: zone.grid_x, grid_y: zone.grid_y, grid_z: zone.grid_z,
-      marker: zone.marker || null, color: zone.color || null,
+      marker: zone.marker || null, color: zone.color || null, bg_color: zone.bg_color || null,
       is_current: zone.id === centerZoneId,
       player_count: zone.players.size,
     });
@@ -117,7 +117,7 @@ export function getAllZones() {
     radiation_level: z.radiation_level, is_safe_zone: z.is_safe_zone,
     exits: z.exits, ambient_events: z.ambient_events, flags: z.flags,
     map_id: z.map_id, grid_x: z.grid_x, grid_y: z.grid_y, grid_z: z.grid_z,
-    marker: z.marker, color: z.color,
+    marker: z.marker, color: z.color, bg_color: z.bg_color,
     player_count: z.players.size, enemy_count: z.enemies.size,
   }));
 }
