@@ -221,7 +221,11 @@ async function boot() {
   await loadDrugs();
   await loadMutations();
   await loadPlugins();
-  await initEnvironment({ query, broadcast: (payload) => broadcast(null, payload), emitHook: fireHook });
+  try {
+    await initEnvironment({ query, broadcast: (payload) => broadcast(null, payload), emitHook: fireHook });
+  } catch (e) {
+    console.error('⚠ Environment system failed to init (continuing without it — likely means `npm run db:migrate` hasn\'t been run against this database yet):', e.message);
+  }
   startGameLoop(broadcast);
   startKeepalive();
   httpServer.listen(PORT, () => {
