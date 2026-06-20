@@ -52,6 +52,7 @@ export async function migrateEnvironment(query) {
       flags JSONB NOT NULL DEFAULT '{}'::jsonb
     )
   `);
+  await query(`ALTER TABLE generators ADD COLUMN IF NOT EXISTS name TEXT`);
 
   await query(`
     CREATE TABLE IF NOT EXISTS power_zones (

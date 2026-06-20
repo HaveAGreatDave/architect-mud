@@ -70,6 +70,7 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path.startsWith('/recipes/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteRecipe(path.split('/')[2]));
   if (path==='/apartments' && method==='GET') return requireDev(auth, apiGetApartments);
   if (path==='/apartments/build' && method==='POST') return requireDev(auth, ()=>apiBuildApartmentBlock(body));
+  if (path.startsWith('/apartments/') && method==='PUT') return requireDev(auth, ()=>apiUpdateApartment(path.split('/')[2],body));
   if (path.startsWith('/apartments/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteApartment(path.split('/')[2]));
   if (path==='/drugs' && method==='GET') return requireDev(auth, apiGetDrugs);
   if (path==='/drugs' && method==='POST') return requireDev(auth, ()=>apiCreateDrug(body));
@@ -113,11 +114,25 @@ async function apiGetZone(id) {
   if (!rows.length) return {status:404,body:{error:'Not found'}};
   return {status:200,body:rows[0]};
 }
+// Ensures a zone flagged is_apartment has a matching apartments table row
+// (owner/lock/rent metadata) — the Zone Editor's checkbox is now the only
+// way to flag a zone as a rentable apartment, replacing the old batch
+// builder, so this is what keeps RENT/LOCK/SLEEP functional for it.
+async function ensureApartmentRow(zoneId) {
+  await query(
+    `INSERT INTO apartments (zone_id, owner_id, is_locked, lock_difficulty, rent_cost)
+     VALUES ($1, NULL, 0, 4, 50)
+     ON CONFLICT (zone_id) DO NOTHING`,
+    [zoneId]
+  );
+}
+
 async function apiCreateZone(body,auth) {
   const id = body.id||`zone_${Date.now()}`;
   try {
     await query(`INSERT INTO zones (id,name,description,danger_rating,pvp_enabled,radiation_level,is_safe_zone,exits,ambient_events,flags,created_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
       [id,body.name||'Unnamed Zone',body.description||'An empty place.',body.danger_rating||'medium',body.pvp_enabled?1:0,body.radiation_level||0,body.is_safe_zone?1:0,JSON.stringify(body.exits||{}),JSON.stringify(body.ambient_events||[]),JSON.stringify(body.flags||{}),auth?.playerId]);
+    if (body.flags?.is_apartment) await ensureApartmentRow(id);
     await reloadZone(id);
     return {status:201,body:{id,message:'Zone created and live'}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
@@ -142,6 +157,7 @@ async function apiUpdateZone(id,body) {
   vals.push(id);
   try {
     await query(`UPDATE zones SET ${sets.join(',')} WHERE id=$${i}`,vals);
+    if (body.flags?.is_apartment) await ensureApartmentRow(id);
     await reloadZone(id);
     return {status:200,body:{id,message:'Zone updated and live'}};
   } catch(e) {
@@ -385,11 +401,26 @@ async function apiDeleteMutation(id) {
 
 async function apiGetApartments() {
   const { rows } = await query(`
-    SELECT a.*, z.name as zone_name, z.description as zone_description
+    SELECT a.*, z.name as zone_name, z.description as zone_description, p.handle as owner_handle
     FROM apartments a JOIN zones z ON z.id = a.zone_id
+    LEFT JOIN players p ON p.id = a.owner_id
     ORDER BY a.zone_id
   `);
   return { status:200, body: rows };
+}
+
+async function apiUpdateApartment(zoneId, body) {
+  const sets = []; const vals = []; let i = 1;
+  if (body.is_locked !== undefined) { sets.push(`is_locked=$${i++}`); vals.push(body.is_locked ? 1 : 0); }
+  if (body.lock_difficulty !== undefined) { sets.push(`lock_difficulty=$${i++}`); vals.push(parseInt(body.lock_difficulty) || 1); }
+  if (body.rent_cost !== undefined) { sets.push(`rent_cost=$${i++}`); vals.push(parseInt(body.rent_cost) || 0); }
+  if (!sets.length) return { status:400, body:{ error:'No fields to update' } };
+  vals.push(zoneId);
+  try {
+    const result = await query(`UPDATE apartments SET ${sets.join(',')} WHERE zone_id=$${i}`, vals);
+    if (!result.rowCount) return { status:404, body:{ error:'Apartment record not found for this zone' } };
+    return { status:200, body:{ ok:true } };
+  } catch (e) { return { status:400, body:{ error:e.message } }; }
 }
 
 async function apiDeleteApartment(zoneId) {

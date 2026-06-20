@@ -8,17 +8,12 @@ import { getPlayerFactionRep } from './factions.js';
 import { getVendorStock, buyFromVendor, sellToVendor } from './vendor.js';
 import { cmdRent, cmdLockDoor, cmdUpgradeLock, cmdPickLock, cmdSleep, describeApartmentStatus } from './apartments.js';
 import { useDrug } from './drugs.js';
-import { getZoneVisibility } from './environment.js';
+import { getZoneVisibility, getZonePowerStatus, recomputePower } from './environment.js';
 import { randomUUID } from 'crypto';
 
 // Per-player cooldown so Custodian turrets don't fire on every single look/move
 const turretCooldowns = new Map();
 
-// Flavor line describing how well-lit the zone currently is — driven by
-// the environment system's ambient light + artificial light + weather/fog
-// model (GDD §7). Falls back to "clear" automatically if the environment
-// system never initialized, since getZoneVisibility() reads safe in-memory
-// defaults rather than throwing.
 // Flavor for a player forcibly pulled out of a zone that no longer exists
 // (deleted out from under them, or stale current_zone from before a map
 // shrink). The admin "teleport" command doesn't use this — that's a
@@ -35,6 +30,11 @@ export function describeVoidTeleport() {
   return `\n<span class="zone-name">— VOID —</span>\n${msg}`;
 }
 
+// Flavor line describing how well-lit the zone currently is — driven by
+// the environment system's ambient light + artificial light + weather/fog
+// model (GDD §7). Falls back to "clear" automatically if the environment
+// system never initialized, since getZoneVisibility() reads safe in-memory
+// defaults rather than throwing.
 function describeLightLevel(category) {
   if (category === 'dark') return `<span class="light-level light-dark">It's dark here — you can only make out shadows and shapes.</span>`;
   if (category === 'dim') return `<span class="light-level light-dim">Light is dim; details are hard to make out.</span>`;
@@ -118,6 +118,12 @@ const BUILDING_TYPE_FLAVOR = {
     (name, dirPhrase) => `Corrugated walls mark ${name}, ${dirPhrase}.`,
     (name, dirPhrase) => `${name}'s loading bay door is ${dirPhrase}, half-open.`,
     (name, dirPhrase) => `${name} sits ${dirPhrase}, a rusted forklift abandoned out front.`,
+  ],
+  powerplant: [
+    (name, dirPhrase) => `A low mechanical hum carries from ${name}, ${dirPhrase}.`,
+    (name, dirPhrase) => `${name}'s warning placards are visible even from here, ${dirPhrase}.`,
+    (name, dirPhrase) => `Heat shimmer rises off ${name}, ${dirPhrase}, despite the cold.`,
+    (name, dirPhrase) => `${name} squats ${dirPhrase}, still running, still humming, still here.`,
   ],
 };
 
@@ -214,9 +220,10 @@ export async function describeZone(zone, player) {
   }
 
   if (furniture.length) {
-    const furnitureLinks = furniture.map(f =>
-      `<span class="action-link furniture-link" data-action="examine" data-target="${f.name}" title="Examine ${f.name}">${f.name}</span>`
-    );
+    const furnitureLinks = furniture.map(f => {
+      const stateTag = f.is_light ? ` <span class="light-state ${f.light_on ? 'light-on' : 'light-off'}">(${f.light_on ? 'on' : 'off'})</span>` : '';
+      return `<span class="action-link furniture-link" data-action="examine" data-target="${f.name}" title="Examine ${f.name}">${f.name}</span>${stateTag}`;
+    });
     desc += `\n<span class="furniture-label">Furniture:</span> ${furnitureLinks.join(', ')}`;
   }
 
@@ -309,7 +316,9 @@ export async function handleCommand(input, player, broadcast) {
     case 'unequipid': return cmdUnequipById(args[0], player);
     case 'talk': case 'speak': return cmdTalk(args.join(' '), player);
     case 'examine': case 'ex': case 'x': return cmdExamine(args.join(' '), player);
+    case 'switch': case 'flip': return cmdSwitch(args.join(' '), player);
     case 'who': return cmdWho();
+    case 'map': return cmdMap(player);
     case 'say': return cmdSay(raw.replace(/^say\s*/i,''), player, broadcast);
     case 'craft': return cmdCraft(args, player);
     case 'recipes': return cmdRecipes(player);
@@ -693,7 +702,37 @@ async function cmdExamine(targetStr, player) {
   const { rows } = await query(`SELECT i.* FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND i.name ILIKE $2 LIMIT 1`, [player.id, `%${targetStr}%`]);
   if (rows.length) return { type:'examine', message:`${rows[0].name}\n${rows[0].description}` };
   const { rows: furnitureRows } = await query(`SELECT * FROM furniture WHERE zone_id=$1 AND name ILIKE $2 LIMIT 1`, [player.current_zone, `%${targetStr}%`]);
-  if (furnitureRows.length) return { type:'examine', message:`${furnitureRows[0].name}\n${furnitureRows[0].description}` };
+  if (furnitureRows.length) {
+    const f = furnitureRows[0];
+    let msg = `${f.name}\n${f.description}`;
+    if (f.is_light) {
+      msg += f.light_type === 'streetlight'
+        ? `\n<span class="light-state ${f.light_on ? 'light-on' : 'light-off'}">Currently ${f.light_on ? 'lit' : 'dark'} — city-grid controlled, no switch out here.</span>`
+        : `\n<span class="light-state ${f.light_on ? 'light-on' : 'light-off'}">Currently ${f.light_on ? 'on' : 'off'}. There's a switch.</span>`;
+    }
+    return { type:'examine', message: msg };
+  }
+  const matchAnyGenerator = /generator/i.test(targetStr);
+  const { rows: generatorRows } = await query(
+    `SELECT * FROM generators WHERE zone_id=$1 AND ($2 OR name ILIKE $3) LIMIT 1`,
+    [player.current_zone, matchAnyGenerator, `%${targetStr}%`]
+  );
+  if (generatorRows.length) {
+    const gen = generatorRows[0];
+    const { rows: loadRows } = await query(
+      `SELECT COALESCE(SUM(current_load_kw),0)::float AS total_load, COUNT(*)::int AS zone_count FROM power_zones WHERE generator_id=$1`,
+      [gen.id]
+    );
+    const totalLoad = loadRows[0]?.total_load || 0;
+    const zoneCount = loadRows[0]?.zone_count || 0;
+    const statusLabel = gen.status === 'online' ? 'RUNNING' : gen.status.toUpperCase();
+    const typeLabel = gen.generator_type === 'city_plant' ? 'city power plant' : gen.generator_type === 'building' ? 'building generator' : 'portable generator';
+    let msg = `${gen.name || 'Generator'}\nA permanent ${typeLabel}. No fuel required — it just runs.\n\n` +
+      `STATUS: ${statusLabel}\nOUTPUT: ${gen.capacity_kw}kW capacity, ${totalLoad}kW current draw\n` +
+      `SERVING: ${zoneCount} zone${zoneCount === 1 ? '' : 's'}`;
+    if (totalLoad > gen.capacity_kw) msg += `\n<span class="generator-overload">⚠ OVERLOADED — drawing more than rated capacity.</span>`;
+    return { type:'examine', message: msg };
+  }
   const enemies = getZoneEnemies(player.current_zone);
   const enemy = enemies.find(e=>e.name.toLowerCase().includes(targetStr));
   if (enemy) return { type:'examine', message:`${enemy.name}\n${enemy.description}\nHP: ${enemy.hp}/${enemy.hp_max}` };
@@ -708,6 +747,71 @@ async function cmdExamine(targetStr, player) {
     return { type:'examine', message: msg };
   }
   return { type:'error', message:`You don't see "${targetStr}" here.` };
+}
+
+async function cmdSwitch(targetStr, player) {
+  if (!targetStr) return { type:'error', message:'Switch what? Usage: switch <light name>' };
+  const { rows } = await query(`SELECT * FROM furniture WHERE zone_id=$1 AND is_light=1 AND name ILIKE $2 LIMIT 1`, [player.current_zone, `%${targetStr}%`]);
+  if (!rows.length) return { type:'error', message:`You don't see a light called "${targetStr}" here.` };
+  const light = rows[0];
+
+  if (light.light_type === 'streetlight') {
+    return { type:'error', message:`${light.name} is city-grid infrastructure — it comes on by itself once it gets dark. There's no switch out here.` };
+  }
+
+  const powerStatus = getZonePowerStatus(player.current_zone);
+  if (powerStatus === 'unpowered') {
+    return { type:'error', message:`The switch clicks, but nothing happens. No power reaches this room.` };
+  }
+
+  const newState = light.light_on ? 0 : 1;
+  await query(`UPDATE furniture SET light_on=$1 WHERE id=$2`, [newState, light.id]);
+
+  // Recalculate how many lights are actually lit in this zone right now,
+  // and feed that into the environment system's artificial-light model
+  // immediately rather than waiting for the next tick.
+  const { rows: countRows } = await query(
+    `SELECT COUNT(*)::int AS cnt FROM furniture WHERE zone_id=$1 AND is_light=1 AND light_on=1`,
+    [player.current_zone]
+  );
+  await query(`UPDATE lighting_states SET fixture_count=$1 WHERE zone_id=$2`, [countRows[0]?.cnt || 0, player.current_zone]).catch(()=>{});
+  await recomputePower().catch(()=>{});
+
+  return { type:'action', message: newState
+    ? `You flip the switch. ${light.name} flickers on.`
+    : `You flip the switch. ${light.name} goes dark.` };
+}
+
+// Fixed grid layout for the outdoor map — the city is a small, stable
+// 10-tile grid (see seed.js), so a hand-placed layout is simpler and
+// cleaner than a generic auto-layout algorithm. Shared in spirit with the
+// dev panel's big map (devpanel.html keeps its own copy client-side).
+const OUTDOOR_MAP_LAYOUT = [
+  { id: 'zone_city_north', x: 0, y: -1 },
+  { id: 'zone_city_ne', x: 1, y: -1 },
+  { id: 'zone_badland_w_gate', x: -2, y: 0 },
+  { id: 'zone_city_west', x: -1, y: 0 },
+  { id: 'zone_start', x: 0, y: 0 },
+  { id: 'zone_city_east', x: 1, y: 0 },
+  { id: 'zone_badland_sw_outer', x: -2, y: 1 },
+  { id: 'zone_city_sw', x: -1, y: 1 },
+  { id: 'zone_city_south', x: 0, y: 1 },
+  { id: 'zone_city_se', x: 1, y: 1 },
+];
+
+async function cmdMap(player) {
+  const ids = OUTDOOR_MAP_LAYOUT.map(t => t.id);
+  const { rows } = await query(`SELECT id, name, danger_rating FROM zones WHERE id = ANY($1::text[])`, [ids]);
+  const byId = new Map(rows.map(z => [z.id, z]));
+  const tiles = OUTDOOR_MAP_LAYOUT.map(t => ({
+    id: t.id,
+    x: t.x,
+    y: t.y,
+    name: byId.get(t.id)?.name || t.id,
+    danger: byId.get(t.id)?.danger_rating || 'safe',
+    isCurrent: t.id === player.current_zone,
+  }));
+  return { type:'map', tiles };
 }
 
 async function cmdWho() {
@@ -951,6 +1055,7 @@ function cmdHelp(player) {
 <span class="help-category">PROPERTY</span>    rent  |  lock  |  unlock  |  pick  |  upgrade lock  |  sleep
 <span class="help-category">CHARACTER</span>   stats  skills  mutations  factions
 <span class="help-category">SOCIAL</span>      talk &lt;npc&gt;  |  say &lt;message&gt;  |  who
+<span class="help-category">WORLD</span>       map  |  switch &lt;light&gt;  (flip)
 <span class="help-category">INFO</span>        look  |  look &lt;me/item/player&gt;  |  examine &lt;thing&gt;  help`;
   if (player?.role === 'admin') {
     msg += `\n<span class="help-category">ADMIN</span>      teleport &lt;zone id&gt;  (tp)`;

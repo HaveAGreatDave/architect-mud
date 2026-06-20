@@ -140,6 +140,13 @@ export async function migrate() {
       description TEXT NOT NULL,
       flags JSONB DEFAULT '{}'
     );
+    ALTER TABLE furniture ADD COLUMN IF NOT EXISTS is_light INTEGER DEFAULT 0;
+    ALTER TABLE furniture ADD COLUMN IF NOT EXISTS light_on INTEGER DEFAULT 0;
+    -- 'overhead' (room's main light, switch-operated), 'lamp' (individually
+    -- switched, same as overhead mechanically — distinct mainly for flavor),
+    -- or 'streetlight' (outdoor, NOT player-switchable — toggled
+    -- automatically at dusk/dawn by the environment system instead).
+    ALTER TABLE furniture ADD COLUMN IF NOT EXISTS light_type TEXT DEFAULT 'lamp';
 
     CREATE TABLE IF NOT EXISTS factions (
       id TEXT PRIMARY KEY,

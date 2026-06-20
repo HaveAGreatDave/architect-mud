@@ -230,6 +230,11 @@ export async function initEnvironment({ query, emitHook, broadcast }) {
 
   scheduleTicks();
   state.ready = true;
+
+  // Sync streetlights to the current phase on boot — otherwise a server
+  // restart at night would leave them off until the next dusk transition.
+  const bootLightsOn = (state.phase === 'night' || state.phase === 'dusk') ? 1 : 0;
+  await query(`UPDATE furniture SET light_on=$1 WHERE light_type='streetlight'`, [bootLightsOn]).catch(()=>{});
 }
 
 function scheduleTicks() {
@@ -327,6 +332,17 @@ async function tick30m() {
     `UPDATE world_clock SET game_time_minutes = $1, last_tick_30m = now() WHERE id = 1`,
     [state.minutes]
   );
+
+  // Street lights are city-grid infrastructure, not player-switchable —
+  // they follow the day/night cycle directly rather than a room switch.
+  if (prevPhase !== state.phase) {
+    if (state.phase === 'night' && prevPhase === 'dusk') {
+      await query(`UPDATE furniture SET light_on=1 WHERE light_type='streetlight'`).catch(()=>{});
+    }
+    if (state.phase === 'day' && prevPhase === 'dawn') {
+      await query(`UPDATE furniture SET light_on=0 WHERE light_type='streetlight'`).catch(()=>{});
+    }
+  }
 
   const payload = getHUDPayload();
   if (broadcast) broadcast({ type: 'environment.sync', ...payload });
@@ -610,6 +626,125 @@ export async function devSimulateFailure(generatorId) {
   await simulatePowerNetwork(query, { weatherType: state.weatherType });
   await loadZonePowerAndLighting(query);
   return getPowerMap();
+}
+
+// ---------------------------------------------------------------------------
+// Generator install/remove — dev panel feature. A 'building' generator
+// auto-connects to every zone in the same building cluster (the install
+// zone plus anything reachable through is_apartment/is_interior exit
+// linkage, transitively — the same notion of "building" the Rooms: list
+// and dev panel nesting already use). A 'city_plant' generator connects to
+// every outdoor zone on the map (every zone that ISN'T is_apartment/
+// is_interior) — this is what powers street lights and outdoor equipment.
+// ---------------------------------------------------------------------------
+
+async function getBuildingNetwork(query, startZoneId) {
+  const { rows: allZones } = await query('SELECT id, exits, flags FROM zones');
+  const byId = new Map(allZones.map(z => [z.id, z]));
+  const isInterior = z => !!(z?.flags?.is_apartment || z?.flags?.is_interior);
+  const visited = new Set([startZoneId]);
+  const queue = [startZoneId];
+  while (queue.length) {
+    const id = queue.shift();
+    const zone = byId.get(id);
+    if (!zone) continue;
+    const neighbors = new Set(Object.values(zone.exits || {}));
+    for (const other of allZones) {
+      if (Object.values(other.exits || {}).includes(id)) neighbors.add(other.id);
+    }
+    for (const nId of neighbors) {
+      if (visited.has(nId)) continue;
+      const neighbor = byId.get(nId);
+      if (isInterior(neighbor) || isInterior(zone)) {
+        visited.add(nId);
+        queue.push(nId);
+      }
+    }
+  }
+  return [...visited];
+}
+
+export async function installGenerator({ zoneId, generatorType = 'building', capacityKw, name }) {
+  const { query } = deps;
+  if (!zoneId) throw new Error('zoneId is required');
+  const { rows: zoneRows } = await query('SELECT * FROM zones WHERE id=$1', [zoneId]);
+  if (!zoneRows.length) throw new Error(`Zone ${zoneId} does not exist`);
+  const zone = zoneRows[0];
+
+  const id = `gen_${zoneId}_${Date.now()}`;
+  const capacity = Number(capacityKw) || (generatorType === 'city_plant' ? 500 : 50);
+  const genName = name || (generatorType === 'city_plant' ? 'City Power Plant' : `${zone.name} Generator`);
+
+  // Permanent generators — building and city-plant types never consume
+  // fuel (GDD §5.2), so this row never goes offline from running dry.
+  await query(
+    `INSERT INTO generators (id, zone_id, name, generator_type, capacity_kw, fuel_type, fuel_remaining, fuel_burn_rate, connection_range, status)
+     VALUES ($1,$2,$3,$4,$5,NULL,0,0,0,'online')`,
+    [id, zoneId, genName, generatorType, capacity]
+  );
+
+  const networkZoneIds = generatorType === 'city_plant'
+    ? (await query(`SELECT id FROM zones WHERE NOT COALESCE((flags->>'is_apartment')::boolean,false) AND NOT COALESCE((flags->>'is_interior')::boolean,false)`)).rows.map(r => r.id)
+    : await getBuildingNetwork(query, zoneId);
+
+  for (const zid of networkZoneIds) {
+    const { rows: zRows } = await query('SELECT name FROM zones WHERE id=$1', [zid]);
+    const zName = zRows[0]?.name || zid;
+    await query(
+      `INSERT INTO power_zones (id, name, source_type, generator_id, capacity_kw, current_load_kw, status)
+       VALUES ($1,$2,$3,$4,$5,0,'powered')
+       ON CONFLICT (id) DO UPDATE SET name=$2, source_type=$3, generator_id=$4, capacity_kw=$5`,
+      [zid, zName, generatorType === 'city_plant' ? 'city_grid' : 'building_generator', id, capacity]
+    );
+    const { rows: fixtureRows } = await query(`SELECT COUNT(*)::int AS cnt FROM furniture WHERE zone_id=$1 AND is_light=1`, [zid]);
+    await query(
+      `INSERT INTO lighting_states (zone_id, has_emergency_lighting, artificial_light_level, fixture_count)
+       VALUES ($1,0,0,$2)
+       ON CONFLICT (zone_id) DO UPDATE SET fixture_count=$2`,
+      [zid, fixtureRows[0]?.cnt || 0]
+    );
+  }
+
+  await recomputePower();
+  return { id, zoneId, name: genName, generatorType, capacityKw: capacity, poweredZones: networkZoneIds };
+}
+
+export async function removeGenerator(generatorId) {
+  const { query } = deps;
+  const { rows } = await query('SELECT * FROM generators WHERE id=$1', [generatorId]);
+  if (!rows.length) throw new Error('Generator not found');
+  await query('DELETE FROM power_zones WHERE generator_id=$1', [generatorId]);
+  await query('DELETE FROM generators WHERE id=$1', [generatorId]);
+  await recomputePower();
+  return { ok: true };
+}
+
+export async function getGeneratorsList() {
+  const { query } = deps;
+  const { rows } = await query(`
+    SELECT g.*, z.name as zone_name
+    FROM generators g LEFT JOIN zones z ON z.id = g.zone_id
+    ORDER BY g.generator_type, g.id
+  `);
+  return rows;
+}
+
+// Re-runs the power simulation immediately (instead of waiting for the next
+// 24h tick) — used after install/remove so the dev panel's power map and
+// any live "look at generator" reflect the change right away.
+export async function recomputePower() {
+  const { query } = deps;
+  await simulatePowerNetwork(query, { weatherType: state.weatherType });
+  await loadZonePowerAndLighting(query);
+  return getPowerMap();
+}
+
+// Used by commands.js (light switches, generator examine) to check whether
+// a zone currently has any power at all before allowing an indoor light to
+// be switched on.
+export function getZonePowerStatus(zoneId) {
+  const z = state.zones.get(zoneId);
+  return z ? z.powerStatus : 'unpowered';
 }
 
 // ---------------------------------------------------------------------------

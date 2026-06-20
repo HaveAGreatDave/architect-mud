@@ -14,7 +14,8 @@ async function seed() {
     { id: 'zone_city_se', name: 'The Clinic Block', description: 'One of the only reliably staffed medical points in the basin. People are polite here. Nobody wants to be the reason it closes.', danger_rating: 'safe', pvp_enabled: 0, radiation_level: 0, is_safe_zone: 1, exits: { north: 'zone_city_east', west: 'zone_city_south' }, ambient_events: ["A line forms outside, orderly, almost eerily so.", "Someone hums a tune that might be older than the Handoff."] },
     { id: 'zone_city_south', name: 'The Sprawl Gate', description: 'Where the dense vertical Sprawl tapers into the rest of the city. Laundry lines and extension cords crisscross overhead like a second sky.', danger_rating: 'safe', pvp_enabled: 0, radiation_level: 0, is_safe_zone: 1, exits: { north: 'zone_start', east: 'zone_city_se', west: 'zone_city_sw' }, ambient_events: ["Something crashes several floors above. Then laughter.", "A wall screen loops a corporate conflict-resolution training video, forever."] },
     { id: 'zone_city_sw', name: 'The Under Entrance', description: 'A guarded stairwell down into the old subway tunnels. The Archivists\' real vault is below, but this entrance is calm, watched, safe.', danger_rating: 'safe', pvp_enabled: 0, radiation_level: 0, is_safe_zone: 1, exits: { north: 'zone_city_west', east: 'zone_city_south' }, ambient_events: ["A train horn sounds in the distance. There are no trains.", "Cold air rises from the stairwell, smelling of paper and rust."] },
-    { id: 'zone_badland_w_gate', name: 'The Rust Quarter West', description: 'Industrial wasteland at the western edge. Enormous processing facilities stand half-collapsed, ground stained in colors that don\'t occur in nature. The last buffer between the city and whatever the basin becomes past it.', danger_rating: 'medium', pvp_enabled: 1, radiation_level: 15, is_safe_zone: 0, exits: { south: 'zone_badland_sw_outer', east: 'zone_city_west' }, ambient_events: ["A Geiger counter ticks somewhere nearby, the rhythm wrong for the environment.", "The ruins groan. Structural settling, probably."] },
+    { id: 'zone_badland_w_gate', name: 'The Rust Quarter West', description: 'Industrial wasteland at the western edge. Enormous processing facilities stand half-collapsed, ground stained in colors that don\'t occur in nature. The last buffer between the city and whatever the basin becomes past it.', danger_rating: 'medium', pvp_enabled: 1, radiation_level: 15, is_safe_zone: 0, exits: { south: 'zone_badland_sw_outer', east: 'zone_city_west', west: 'zone_powerplant' }, ambient_events: ["A Geiger counter ticks somewhere nearby, the rhythm wrong for the environment.", "The ruins groan. Structural settling, probably."] },
+    { id: 'zone_powerplant', name: 'Coldwater Power Station', description: 'One of the few pieces of pre-Handoff infrastructure that never stopped running. A squat concrete building humming with a sound that never quite stops, vibrating up through the soles of your boots. Warning placards, faded but legible, cover every surface. Whatever\'s turning inside has been turning since before anyone currently alive in the basin was born, and shows no sign of needing fuel, maintenance, or permission to keep doing it.', danger_rating: 'medium', pvp_enabled: 1, radiation_level: 8, is_safe_zone: 0, exits: { east: 'zone_badland_w_gate' }, ambient_events: ["The hum changes pitch for a moment, then settles back.", "Somewhere inside, something massive and patient keeps turning."], flags: { is_building: true, building_name: 'Coldwater Power Station', building_type: 'powerplant' } },
     { id: 'zone_badland_sw_outer', name: 'The Static Wood', description: 'What used to be a park. The trees are still there. They are not doing well — bark peeling back to reveal something too smooth underneath. Past here, the basin stops pretending to be a city at all.', danger_rating: 'low', pvp_enabled: 1, radiation_level: 5, is_safe_zone: 0, exits: { north: 'zone_badland_w_gate' }, ambient_events: ["A branch creaks overhead with no wind to move it.", "The grass here is the wrong shade of green, uniformly."] },
 
     { id: 'zone_residential_lobby', name: 'Embassy Hotel & Bar — Lobby', description: 'A converted hotel lobby, marble floors gone dull under a permanent film of dust, repurposed into the basin\'s closest thing to real estate. A corkboard by the door — bolted over what used to be the concierge desk — is covered in handwritten unit listings, half of them crossed out. Along one wall, a bar still operates under a brass sign reading THE EMBASSY LOUNGE — a half-dozen cracked vinyl stools lined up at the counter, free to sit if you don\'t mind the wobble. Lowry stands behind it, polishing a glass that was already clean. The building still has working locks upstairs, which around here makes it valuable.', danger_rating: 'safe', pvp_enabled: 0, radiation_level: 0, is_safe_zone: 1, exits: { up: 'zone_city_west', north: 'zone_apt_1', south: 'zone_apt_2', east: 'zone_apt_3', west: 'zone_apt_4' }, ambient_events: ["Someone argues with the building's old intercom system, which only ever says \"PLEASE HOLD.\"", "A hand-written sign reads: UNITS AVAILABLE. ASK ABOUT OUR LOCKS.", "A bellhop cart, empty, still makes its rounds on a track nobody's maintained in years."], flags: { is_building: true, building_name: 'Embassy Hotel & Bar', building_type: 'hotel' } },
@@ -248,6 +249,78 @@ async function seed() {
       [id,zoneId,name,desc]);
   }
   console.log(`✓ Seeded ${furniture.length} furniture`);
+
+  // Lights — overhead lights and lamps are player-switchable (the "switch"
+  // command, room by room); street lights are NOT — they're city-grid
+  // infrastructure that follows the day/night cycle automatically instead
+  // (see environment.js's tick30m). Seeded "on" here, matching the
+  // generators below starting in the running state; environment.js
+  // re-syncs street lights to the actual current time on every boot.
+  const lights = [
+    ['furniture_embassy_overhead','zone_residential_lobby','Lobby Overhead Lights','A row of caged fluorescent fixtures along the ceiling, humming faintly. A switch by the door controls them.','overhead'],
+    ['furniture_embassy_bar_lamp','zone_residential_lobby','Bar Lamp','A small brass lamp at the end of the counter — the one bit of lighting in the room that isn\'t fluorescent.','lamp'],
+    ['furniture_apt1_overhead','zone_apt_1','Overhead Light','A bare bulb on a pull-chain. Functional, nothing more.','overhead'],
+    ['furniture_apt2_overhead','zone_apt_2','Overhead Light','A bare bulb on a pull-chain. Functional, nothing more.','overhead'],
+    ['furniture_apt3_overhead','zone_apt_3','Overhead Light','A bare bulb on a pull-chain. Functional, nothing more.','overhead'],
+    ['furniture_apt4_overhead','zone_apt_4','Overhead Light','A bare bulb on a pull-chain. Functional, nothing more.','overhead'],
+  ];
+  for (const [id,zoneId,name,desc,lightType] of lights) {
+    await query(`INSERT INTO furniture (id,zone_id,name,description,flags,is_light,light_on,light_type) VALUES ($1,$2,$3,$4,'{}',1,1,$5)
+      ON CONFLICT (id) DO UPDATE SET zone_id = EXCLUDED.zone_id, name = EXCLUDED.name, description = EXCLUDED.description, is_light = 1, light_type = EXCLUDED.light_type`,
+      [id,zoneId,name,desc,lightType]);
+  }
+  console.log(`✓ Seeded ${lights.length} lights`);
+
+  // Street lights — one per outdoor zone (including the power station's
+  // own approach road), city-power, not player-switchable.
+  const outdoorZoneIds = [
+    'zone_start','zone_city_west','zone_city_north','zone_city_ne','zone_city_east',
+    'zone_city_se','zone_city_south','zone_city_sw','zone_badland_w_gate',
+    'zone_badland_sw_outer','zone_powerplant',
+  ];
+  for (const zoneId of outdoorZoneIds) {
+    const id = `furniture_streetlight_${zoneId}`;
+    await query(
+      `INSERT INTO furniture (id,zone_id,name,description,flags,is_light,light_on,light_type) VALUES ($1,$2,$3,$4,'{}',1,1,'streetlight')
+       ON CONFLICT (id) DO UPDATE SET zone_id = EXCLUDED.zone_id, is_light = 1, light_type = 'streetlight'`,
+      [id, zoneId, 'Street Lights', 'A row of city-grid streetlights on cracked poles, wired back to the power station. No switch out here — they come on by themselves once it gets dark.']
+    );
+  }
+  console.log(`✓ Seeded ${outdoorZoneIds.length} street lights`);
+
+  // Power grid — the power station is the city-wide generator for every
+  // street light and outdoor zone; the Embassy gets its own building
+  // generator covering its lobby and all 4 connected units. Both are
+  // permanent (no fuel) and start running, with every dependent light on.
+  await query(`
+    INSERT INTO generators (id, zone_id, name, generator_type, capacity_kw, fuel_type, fuel_remaining, fuel_burn_rate, connection_range, status)
+    VALUES ('city_plant', 'zone_powerplant', 'Coldwater Power Station', 'city_plant', 500, NULL, 0, 0, 0, 'online')
+    ON CONFLICT (id) DO UPDATE SET zone_id = 'zone_powerplant', name = 'Coldwater Power Station', status = 'online'
+  `);
+  await query(`
+    INSERT INTO generators (id, zone_id, name, generator_type, capacity_kw, fuel_type, fuel_remaining, fuel_burn_rate, connection_range, status)
+    VALUES ('gen_embassy', 'zone_residential_lobby', 'Embassy Backup Generator', 'building', 50, NULL, 0, 0, 0, 'online')
+    ON CONFLICT (id) DO UPDATE SET zone_id = 'zone_residential_lobby', name = 'Embassy Backup Generator', status = 'online'
+  `);
+
+  async function seedPowerZone(zoneId, generatorId, sourceType, capacityKw, loadKw) {
+    const zoneRow = zones.find(z => z.id === zoneId);
+    await query(`
+      INSERT INTO power_zones (id, name, source_type, generator_id, capacity_kw, current_load_kw, status)
+      VALUES ($1, $2, $3, $4, $5, $6, 'powered')
+      ON CONFLICT (id) DO UPDATE SET name = $2, source_type = $3, generator_id = $4, capacity_kw = $5
+    `, [zoneId, zoneRow?.name || zoneId, sourceType, generatorId, capacityKw, loadKw]);
+    const { rows: fixtureRows } = await query(`SELECT COUNT(*)::int AS cnt FROM furniture WHERE zone_id=$1 AND is_light=1`, [zoneId]);
+    await query(`
+      INSERT INTO lighting_states (zone_id, has_emergency_lighting, artificial_light_level, fixture_count)
+      VALUES ($1, 0, 0, $2)
+      ON CONFLICT (zone_id) DO UPDATE SET fixture_count = $2
+    `, [zoneId, fixtureRows[0]?.cnt || 0]);
+  }
+  for (const zoneId of outdoorZoneIds) await seedPowerZone(zoneId, 'city_plant', 'city_grid', 500, 12);
+  const embassyZoneIds = ['zone_residential_lobby','zone_apt_1','zone_apt_2','zone_apt_3','zone_apt_4'];
+  for (const zoneId of embassyZoneIds) await seedPowerZone(zoneId, 'gen_embassy', 'building_generator', 50, 8);
+  console.log(`✓ Power grid: city plant covering ${outdoorZoneIds.length} zones, Embassy generator covering ${embassyZoneIds.length} zones`);
 
   // NPC
   await query(`INSERT INTO npcs (id,name,description,zone_id,faction,disposition,dialogue_tree,vendor_inventory,wanders,flags) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT (id) DO NOTHING`, [

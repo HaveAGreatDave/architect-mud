@@ -523,6 +523,57 @@
     flex-wrap: wrap;
   }
 
+  /* Map popup */
+  #map-panel {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    z-index: 150;
+    align-items: center;
+    justify-content: center;
+  }
+  #map-panel.active { display: flex; }
+  #map-box {
+    background: var(--bg2);
+    border: 1px solid var(--accent);
+    padding: 24px;
+    border-radius: 2px;
+    max-height: 85vh;
+    overflow-y: auto;
+  }
+  #map-box h2 {
+    color: var(--accent);
+    font-size: 14px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+  #map-grid {
+    display: grid;
+    gap: 4px;
+  }
+  .map-tile {
+    width: 84px;
+    height: 64px;
+    border: 1px solid var(--text-dim);
+    border-radius: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    font-size: 10px;
+    line-height: 1.3;
+    padding: 4px;
+    color: var(--text);
+  }
+  .map-tile.danger-safe { background: rgba(80,180,100,0.18); border-color: rgba(80,180,100,0.5); }
+  .map-tile.danger-low { background: rgba(210,190,60,0.18); border-color: rgba(210,190,60,0.5); }
+  .map-tile.danger-medium { background: rgba(220,140,50,0.2); border-color: rgba(220,140,50,0.55); }
+  .map-tile.danger-high, .map-tile.danger-lethal { background: rgba(200,60,60,0.2); border-color: rgba(200,60,60,0.55); }
+  .map-tile.map-current { outline: 2px solid var(--accent); font-weight: bold; }
+  .map-tile-empty { visibility: hidden; }
+
   /* Equipment panel */
   #equip-panel {
     display: none;
@@ -652,6 +703,21 @@
     transition: all 0.15s;
   }
   #settings-close:hover { background: var(--accent); color: var(--bg); }
+  #map-close {
+    width: 100%;
+    background: var(--accent-dim);
+    border: 1px solid var(--accent);
+    color: var(--text-bright);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 9px;
+    cursor: pointer;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    border-radius: 2px;
+    transition: all 0.15s;
+  }
+  #map-close:hover { background: var(--accent); color: var(--bg); }
 
   /* Dialogue panel */
   #dialogue-panel {
@@ -967,6 +1033,16 @@
   </div>
 </div>
 
+<!-- MAP POPUP -->
+<div id="map-panel">
+  <div id="map-box">
+    <h2>City Map</h2>
+    <div id="map-grid"></div>
+    <div style="margin-top:14px;font-size:10px;color:var(--text-dim)">Highlighted tile is your current location.</div>
+    <button id="map-close" style="margin-top:14px">Close</button>
+  </div>
+</div>
+
 <!-- EQUIPMENT PANEL -->
 <div id="equip-panel">
   <div id="equip-box">
@@ -1180,8 +1256,11 @@ function handleServerMsg(msg) {
     case 'skills':
       appendHtml(msg.message, 'help');
       break;
-    case 'who': case 'help': case 'examine': case 'take': case 'drop':
+    case 'who': case 'help': case 'examine': case 'take': case 'drop': case 'action':
       appendHtml(msg.message, 'help');
+      break;
+    case 'map':
+      openMapPopup(msg.tiles || []);
       break;
     case 'equip':
       if (document.getElementById('equip-panel').classList.contains('active')) {
@@ -1752,6 +1831,13 @@ function initSettingsUI() {
     if (e.target.id === 'settings-panel') document.getElementById('settings-panel').classList.remove('active');
   });
 
+  document.getElementById('map-close').addEventListener('click', () => {
+    document.getElementById('map-panel').classList.remove('active');
+  });
+  document.getElementById('map-panel').addEventListener('click', (e) => {
+    if (e.target.id === 'map-panel') document.getElementById('map-panel').classList.remove('active');
+  });
+
   document.getElementById('equip-close').addEventListener('click', closeEquipPanel);
   document.getElementById('equip-panel').addEventListener('click', (e) => {
     if (e.target.id === 'equip-panel') closeEquipPanel();
@@ -1839,6 +1925,32 @@ function renderMinimap(nodes) {
   grid.innerHTML = html.trimEnd();
 
   legend.innerHTML = `<span class="mm-current">@</span> you &nbsp; ◆ safe &nbsp; ○ zone &nbsp; <span style="color:var(--red)">✕</span> pvp`;
+}
+
+// Renders the "map" command's response — a fixed-layout grid of the whole
+// outdoor city (not the local BFS minimap above), shown as a popup.
+// Read-only: this is a navigation reference, not a click-to-travel tool.
+function openMapPopup(tiles) {
+  const grid = document.getElementById('map-grid');
+  if (!tiles.length) { grid.textContent = '(no map data)'; }
+  else {
+    const xs = tiles.map(t => t.x), ys = tiles.map(t => t.y);
+    const minX = Math.min(...xs), maxX = Math.max(...xs);
+    const minY = Math.min(...ys), maxY = Math.max(...ys);
+    const byCoord = new Map(tiles.map(t => [`${t.x},${t.y}`, t]));
+    grid.style.gridTemplateColumns = `repeat(${maxX - minX + 1}, 84px)`;
+    let html = '';
+    for (let y = minY; y <= maxY; y++) {
+      for (let x = minX; x <= maxX; x++) {
+        const t = byCoord.get(`${x},${y}`);
+        if (!t) { html += `<div class="map-tile map-tile-empty"></div>`; continue; }
+        const cls = `map-tile danger-${t.danger || 'safe'}${t.isCurrent ? ' map-current' : ''}`;
+        html += `<div class="${cls}">${t.name}</div>`;
+      }
+    }
+    grid.innerHTML = html;
+  }
+  document.getElementById('map-panel').classList.add('active');
 }
 
 // Click any actionable noun in the room text — exit, item, NPC, enemy, or corpse —

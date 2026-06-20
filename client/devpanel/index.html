@@ -238,6 +238,60 @@
     width: 300px;
     border-radius: 2px;
   }
+
+  /* Big Map / Settings modals */
+  #bigmap-overlay, #settings-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 500;
+    display: none; align-items: center; justify-content: center;
+  }
+  #bigmap-overlay.active, #settings-overlay.active { display: flex; }
+  .modal-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    padding: 24px;
+    border-radius: 2px;
+    max-height: 85vh;
+    overflow-y: auto;
+  }
+  .modal-card h2 {
+    color: var(--accent);
+    font-size: 14px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+  #bigmap-grid { display: grid; gap: 4px; }
+  .bigmap-tile {
+    width: 110px; height: 76px;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    display: flex; align-items: center; justify-content: center;
+    text-align: center; font-size: 11px; line-height: 1.3; padding: 4px;
+    color: var(--text); cursor: pointer; transition: all 0.1s;
+  }
+  .bigmap-tile:hover { border-color: var(--accent); transform: scale(1.03); }
+  .bigmap-tile-empty { visibility: hidden; cursor: default; }
+  .bigmap-tile-empty:hover { transform: none; }
+  .bigmap-tile.bm-danger-safe { background: rgba(57,255,143,0.12); border-color: rgba(57,255,143,0.4); }
+  .bigmap-tile.bm-danger-low { background: rgba(245,230,66,0.12); border-color: rgba(245,230,66,0.4); }
+  .bigmap-tile.bm-danger-medium { background: rgba(255,154,60,0.14); border-color: rgba(255,154,60,0.45); }
+  .bigmap-tile.bm-danger-high, .bigmap-tile.bm-danger-lethal { background: rgba(255,59,92,0.14); border-color: rgba(255,59,92,0.45); }
+  .bigmap-tile.bm-power-unpowered { background: rgba(92,92,120,0.18); border-color: var(--border); }
+  .bigmap-tile.bm-power-powered { background: rgba(40,229,255,0.14); border-color: rgba(40,229,255,0.45); }
+  .bigmap-tile.bm-power-overloaded { background: rgba(255,154,60,0.18); border-color: rgba(255,154,60,0.55); }
+  .bigmap-tile.bm-power-offline { background: rgba(255,59,92,0.18); border-color: rgba(255,59,92,0.55); }
+  #bigmap-legend, #power-legend { font-size: 10px; color: var(--text-dim); margin-top: 12px; display: flex; gap: 14px; flex-wrap: wrap; }
+  .legend-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }
+
+  /* Settings */
+  .settings-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .settings-row:last-child { border-bottom: none; }
+
+  body.high-contrast {
+    --bg: #000000; --bg2: #0a0a0a; --bg3: #161616;
+    --border: #555566; --text: #ffffff; --text-dim: #aaaaaa; --text-bright: #ffffff;
+    --accent: #ff52d6; --accent2: #5cff9f; --accent3: #ffb15c;
+  }
   .auth-card h2 { color: var(--accent); letter-spacing: 3px; margin-bottom: 4px; font-size: 15px; text-align: center; }
   .auth-card p { color: var(--text-dim); font-size: 11px; text-align: center; margin-bottom: 20px; }
   .auth-card .field input { background: var(--bg3); }
@@ -293,18 +347,19 @@
   <!-- NAV -->
   <div id="nav">
     <div class="nav-section">World</div>
-    <div class="nav-item active" onclick="showPanel('zones')">🗺 Zones</div>
-    <div class="nav-item" onclick="showPanel('enemies')">👾 Enemies</div>
-    <div class="nav-item" onclick="showPanel('items')">🗡 Items</div>
-    <div class="nav-item" onclick="showPanel('npcs')">🧑 NPCs</div>
-    <div class="nav-item" onclick="showPanel('furniture')">🪑 Furniture</div>
-    <div class="nav-item" onclick="showPanel('recipes')">⚗ Recipes</div>
-    <div class="nav-item" onclick="showPanel('mutations')">☢ Mutations</div>
-    <div class="nav-item" onclick="showPanel('drugs')">💊 Drugs</div>
-    <div class="nav-item" onclick="showPanel('apartments')">🏠 Apartments</div>
+    <div class="nav-item active" data-panel="zones" onclick="showPanel('zones')">🗺 Zones</div>
+    <div class="nav-item" data-panel="power" onclick="showPanel('power')">⚡ Power</div>
+    <div class="nav-item" data-panel="enemies" onclick="showPanel('enemies')">👾 Enemies</div>
+    <div class="nav-item" data-panel="items" onclick="showPanel('items')">🗡 Items</div>
+    <div class="nav-item" data-panel="npcs" onclick="showPanel('npcs')">🧑 NPCs</div>
+    <div class="nav-item" data-panel="furniture" onclick="showPanel('furniture')">🪑 Furniture</div>
+    <div class="nav-item" data-panel="recipes" onclick="showPanel('recipes')">⚗ Recipes</div>
+    <div class="nav-item" data-panel="mutations" onclick="showPanel('mutations')">☢ Mutations</div>
+    <div class="nav-item" data-panel="drugs" onclick="showPanel('drugs')">💊 Drugs</div>
     <div class="nav-section">Server</div>
-    <div class="nav-item" onclick="showPanel('worldstate')">📡 World State</div>
-    <div class="nav-item" onclick="showPanel('players')">👥 Players</div>
+    <div class="nav-item" data-panel="worldstate" onclick="showPanel('worldstate')">📡 World State</div>
+    <div class="nav-item" data-panel="players" onclick="showPanel('players')">👥 Players</div>
+    <div class="nav-item" onclick="openSettingsPanel()">⚙ Settings</div>
   </div>
 
   <!-- CONTENT -->
@@ -343,6 +398,32 @@
 </div>
 
 <div class="msg-toast" id="toast"></div>
+
+<!-- BIG MAP -->
+<div id="bigmap-overlay" onclick="if(event.target===this) closeBigMap()">
+  <div class="modal-card">
+    <h2 id="bigmap-title">City Map</h2>
+    <div id="bigmap-grid"></div>
+    <div id="bigmap-legend"></div>
+    <button class="action-btn" style="margin-top:14px;width:100%" onclick="closeBigMap()">Close</button>
+  </div>
+</div>
+
+<!-- SETTINGS -->
+<div id="settings-overlay" onclick="if(event.target===this) closeSettingsPanel()">
+  <div class="modal-card" style="width:320px">
+    <h2>Settings</h2>
+    <div class="settings-row">
+      <span>High Contrast Theme</span>
+      <button class="action-btn" id="settings-contrast-toggle" onclick="toggleHighContrast()">Off</button>
+    </div>
+    <div class="settings-row">
+      <span>Session</span>
+      <button class="action-btn danger" onclick="devpanelLogout()">Log Out</button>
+    </div>
+    <button class="action-btn" style="margin-top:14px;width:100%" onclick="closeSettingsPanel()">Close</button>
+  </div>
+</div>
 
 <script>
 let token = null;
@@ -503,11 +584,6 @@ const PANELS = {
     save: saveDrug,
     delete: id => API(`/drugs/${id}`, 'DELETE'),
   },
-  apartments: {
-    title: 'Apartments',
-    fetch: () => API('/apartments'),
-    render: renderApartments,
-  },
   recipes: {
     title: 'Recipes',
     fetch: () => API('/recipes'),
@@ -521,6 +597,12 @@ const PANELS = {
     editForm: recipeEditForm,
     save: saveRecipe,
     delete: id => API(`/recipes/${id}`, 'DELETE'),
+  },
+  power: {
+    title: 'Power Grid',
+    fetch: () => API('/zones'),
+    render: renderPowerPanel,
+    noEdit: true,
   },
   worldstate: {
     title: 'World State',
@@ -541,11 +623,14 @@ const PANELS = {
   },
 };
 
+function activatePanelNav(name) {
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.panel === name));
+}
+
 async function showPanel(name) {
   currentPanel = name;
   sortState = { key: null, dir: 1 };
-  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-  event.target.classList.add('active');
+  activatePanelNav(name);
   closeEdit();
   loadPanel(name);
 }
@@ -655,7 +740,8 @@ function renderZonesTable(records) {
   }
 
   const columns = PANELS.zones.columns;
-  let html = '<table><thead><tr>';
+  let html = `<div style="padding:10px 12px"><button class="action-btn" onclick="openBigMap()">🗺 View Big Map</button></div>`;
+  html += '<table><thead><tr>';
   for (const col of columns) {
     const isSorted = sortState.key === col.key;
     const arrow = isSorted ? (sortState.dir === 1 ? ' ▲' : ' ▼') : '';
@@ -795,6 +881,7 @@ const BUILDING_TYPES = [
   { id: 'clinic', label: 'Clinic' },
   { id: 'store', label: 'Convenience Store' },
   { id: 'warehouse', label: 'Warehouse' },
+  { id: 'powerplant', label: 'Power Plant' },
 ];
 
 // Caches the currently-open zone's NPCs/furniture so quick-edit buttons
@@ -804,28 +891,33 @@ const BUILDING_TYPES = [
 // the page.
 let zoneEditNpcsCache = [];
 let zoneEditFurnitureCache = [];
+let zoneEditExitsState = {};
 
 async function zoneEditForm(rec, isNew) {
   const exits = rec.exits || {};
   const ambients = Array.isArray(rec.ambient_events) ? rec.ambient_events : [];
   const flags = rec.flags || {};
+  zoneEditExitsState = { ...exits };
 
-  let subSectionsHtml = '<div class="zone-subsection-note">Save this zone first to add rooms, NPCs, or furniture.</div>';
+  let subSectionsHtml = '<div class="zone-subsection-note">Save this zone first to add rooms, NPCs, furniture, or a generator.</div>';
   if (!isNew) {
-    const [npcsData, furnitureData] = await Promise.all([
+    const [npcsData, furnitureData, generatorsData, apartmentsData] = await Promise.all([
       API('/npcs').catch(() => []),
       API('/furniture').catch(() => []),
+      API('/environment/power/generators').catch(() => []),
+      flags.is_apartment ? API('/apartments').catch(() => []) : Promise.resolve([]),
     ]);
     const zoneNpcs = (Array.isArray(npcsData) ? npcsData : []).filter(n => n.zone_id === rec.id);
     const zoneFurniture = (Array.isArray(furnitureData) ? furnitureData : []).filter(f => f.zone_id === rec.id);
+    const zoneGenerator = (Array.isArray(generatorsData) ? generatorsData : []).find(g => g.zone_id === rec.id) || null;
+    const apartmentRecord = (Array.isArray(apartmentsData) ? apartmentsData : []).find(a => a.zone_id === rec.id) || null;
     zoneEditNpcsCache = zoneNpcs;
     zoneEditFurnitureCache = zoneFurniture;
     const childRooms = allRecords.filter(z =>
       (z.flags?.is_apartment || z.flags?.is_interior) &&
       Object.values(z.exits || {})[0] === rec.id
     );
-    const usedDirs = new Set(Object.keys(exits));
-    const freeDirs = ['north','south','east','west','up','down'].filter(d => !usedDirs.has(d));
+    const freeDirs = ['north','south','east','west','up','down'].filter(d => !zoneEditExitsState[d]);
 
     subSectionsHtml = `
       <div class="zone-subsection">
@@ -871,6 +963,47 @@ async function zoneEditForm(rec, isNew) {
         <div id="zone-add-furniture-form"></div>
         <button class="action-btn success" style="margin-top:6px" onclick='openAddFurnitureForm(${JSON.stringify(rec.id)})'>+ Add Furniture</button>
       </div>
+
+      <div class="zone-subsection">
+        <div class="zone-subsection-header">Generator</div>
+        ${zoneGenerator ? `
+          <div class="zone-subitem-row">
+            <span>${zoneGenerator.name || zoneGenerator.id} — <span class="text-dim">${zoneGenerator.generator_type === 'city_plant' ? 'City Plant' : 'Building'}, ${zoneGenerator.capacity_kw}kW, ${zoneGenerator.status}</span></span>
+            <span class="zone-subitem-actions">
+              <button class="action-btn danger" onclick="removeGeneratorQuick('${zoneGenerator.id}','${rec.id}')">Remove</button>
+            </span>
+          </div>
+          <div class="zone-subsection-note">Powers every connected light in this building (or, for a city plant, every outdoor zone on the map).</div>
+        ` : `
+          <div class="zone-subitem-empty">No generator installed here.</div>
+          <div class="field-row" style="margin-top:6px">
+            <div class="field"><label>Type</label>
+              <select id="gen-install-type">
+                <option value="building">Building (powers this building's connected rooms)</option>
+                <option value="city_plant">City Plant (powers every outdoor zone)</option>
+              </select>
+            </div>
+            <div class="field"><label>Capacity (kW)</label><input type="number" id="gen-install-capacity" placeholder="auto"></div>
+          </div>
+          <div class="field"><label>Name (optional)</label><input id="gen-install-name" placeholder="${rec.name || ''} Generator"></div>
+          <button class="action-btn success" onclick='installGeneratorQuick(${JSON.stringify(rec.id)})'>Install Generator</button>
+        `}
+      </div>
+
+      ${flags.is_apartment ? `
+      <div class="zone-subsection">
+        <div class="zone-subsection-header">Apartment Details</div>
+        ${apartmentRecord ? `
+          <div class="field"><label>Owner</label><input value="${apartmentRecord.owner_handle || 'unowned'}" readonly style="opacity:0.6"></div>
+          <div class="field-row">
+            <div class="checkbox-field"><input type="checkbox" id="f-apt-locked" ${apartmentRecord.is_locked?'checked':''}><label>Locked</label></div>
+            <div class="field"><label>Lock Difficulty</label><input type="number" id="f-apt-lock-difficulty" value="${apartmentRecord.lock_difficulty}" min="1" max="10"></div>
+          </div>
+          <div class="field"><label>Rent (credits)</label><input type="number" id="f-apt-rent" value="${apartmentRecord.rent_cost}" min="0"></div>
+          <button class="action-btn success" onclick='saveApartmentDetailsQuick(${JSON.stringify(rec.id)})'>Save Apartment Details</button>
+        ` : `<div class="zone-subitem-empty">Save this zone once more to register its apartment record.</div>`}
+      </div>
+      ` : ''}
     `;
   }
 
@@ -898,7 +1031,7 @@ async function zoneEditForm(rec, isNew) {
       </select>
     </div>
     <div class="checkbox-field"><input type="checkbox" id="f-is_interior" ${flags.is_interior?'checked':''}><label>Interior Room (for hand-built interiors not using Rentable Apartment — e.g. a Kitchen or Bedroom — appears in a "Rooms:" list from other interior zones)</label></div>
-    <div class="field"><label>Exits (JSON object)</label><textarea id="f-exits" rows="4">${JSON.stringify(exits, null, 2)}</textarea></div>
+    <div class="field"><label>Exits</label><div id="exits-builder-body">${renderExitsBuilder(rec.id)}</div></div>
     <div class="field"><label>Ambient Events (JSON array of strings)</label><textarea id="f-ambient_events" rows="6">${JSON.stringify(ambients, null, 2)}</textarea></div>
     ${subSectionsHtml}
   `;
@@ -907,8 +1040,7 @@ async function zoneEditForm(rec, isNew) {
 async function saveZone(existing) {
   const id = document.getElementById('f-id').value.trim();
   const isNew = !existing?.id;
-  let exits, ambients;
-  try { exits = JSON.parse(document.getElementById('f-exits').value); } catch { return { error: 'Exits: invalid JSON' }; }
+  let ambients;
   try { ambients = JSON.parse(document.getElementById('f-ambient_events').value); } catch { return { error: 'Ambient events: invalid JSON' }; }
 
   const existingFlags = existing?.flags || {};
@@ -928,7 +1060,7 @@ async function saveZone(existing) {
     radiation_level: parseInt(document.getElementById('f-radiation_level').value)||0,
     pvp_enabled: document.getElementById('f-pvp_enabled').checked,
     is_safe_zone: document.getElementById('f-is_safe_zone').checked,
-    exits, ambient_events: ambients, flags,
+    exits: { ...zoneEditExitsState }, ambient_events: ambients, flags,
   };
 
   if (isNew) { body.id = id; return API('/zones', 'POST', body); }
@@ -945,6 +1077,77 @@ async function refreshZoneEditPanel(zoneId) {
   await loadPanel('zones');
   currentRecord = allRecords.find(r => r.id === zoneId);
   if (currentRecord) await openEdit(currentRecord, false);
+}
+
+// Exits — direction + destination-zone picker instead of hand-edited JSON.
+// zoneEditExitsState holds the working set for whichever zone is currently
+// open; saveZone() reads from it directly.
+function renderExitsBuilder(selfId) {
+  const dirs = ['north','south','east','west','up','down'];
+  const freeDirs = dirs.filter(d => !zoneEditExitsState[d]);
+  const zoneOptions = allRecords.filter(z => z.id !== selfId)
+    .map(z => `<option value="${z.id}">${z.name} (${z.id})</option>`).join('');
+  const rows = Object.entries(zoneEditExitsState).map(([dir, targetId]) => {
+    const target = allRecords.find(z => z.id === targetId);
+    return `<div class="zone-subitem-row">
+      <span>${dir} → ${target ? target.name : targetId}</span>
+      <span class="zone-subitem-actions"><button class="action-btn danger" onclick="removeExit('${dir}')">Remove</button></span>
+    </div>`;
+  }).join('') || '<div class="zone-subitem-empty">No exits yet.</div>';
+  const addRow = freeDirs.length ? `
+    <div class="zone-inline-form" style="margin-top:6px">
+      <div class="field-row">
+        <div class="field"><label>Direction</label><select id="exit-add-dir">${freeDirs.map(d=>`<option>${d}</option>`).join('')}</select></div>
+        <div class="field"><label>Destination Zone</label><select id="exit-add-zone"><option value="">— select —</option>${zoneOptions}</select></div>
+      </div>
+      <button class="action-btn success" onclick='addExit(${JSON.stringify(selfId)})'>+ Add Exit</button>
+    </div>` : '<div class="zone-subitem-empty">All directions are already in use.</div>';
+  return `<div id="exits-list">${rows}</div>${addRow}`;
+}
+
+function addExit(selfId) {
+  const dir = document.getElementById('exit-add-dir').value;
+  const zoneId = document.getElementById('exit-add-zone').value;
+  if (!zoneId) { toast('Pick a destination zone first', true); return; }
+  zoneEditExitsState[dir] = zoneId;
+  document.getElementById('exits-builder-body').innerHTML = renderExitsBuilder(selfId);
+}
+
+function removeExit(dir) {
+  delete zoneEditExitsState[dir];
+  document.getElementById('exits-builder-body').innerHTML = renderExitsBuilder(currentRecord?.id || '');
+}
+
+// Generators
+async function installGeneratorQuick(zoneId) {
+  const generatorType = document.getElementById('gen-install-type').value;
+  const name = document.getElementById('gen-install-name').value.trim();
+  const capacityKw = parseInt(document.getElementById('gen-install-capacity').value) || undefined;
+  const result = await API('/environment/power/install', 'POST', { zoneId, generatorType, name: name || undefined, capacityKw });
+  if (result?.error) { toast(result.error, true); return; }
+  toast(`Generator installed — powering ${result.poweredZones?.length || 0} zone(s)`);
+  await refreshZoneEditPanel(zoneId);
+}
+
+async function removeGeneratorQuick(generatorId, zoneId) {
+  if (!confirm('Remove this generator? Every zone it powers will go dark.')) return;
+  const result = await API(`/environment/power/generators/${generatorId}`, 'DELETE');
+  if (result?.error) { toast(result.error, true); return; }
+  toast('Generator removed');
+  await refreshZoneEditPanel(zoneId);
+}
+
+// Apartment details (replaces the old standalone Apartments tab)
+async function saveApartmentDetailsQuick(zoneId) {
+  const body = {
+    is_locked: document.getElementById('f-apt-locked').checked,
+    lock_difficulty: parseInt(document.getElementById('f-apt-lock-difficulty').value) || 1,
+    rent_cost: parseInt(document.getElementById('f-apt-rent').value) || 0,
+  };
+  const result = await API(`/apartments/${zoneId}`, 'PUT', body);
+  if (result?.error) { toast(result.error, true); return; }
+  toast('Apartment details saved');
+  await refreshZoneEditPanel(zoneId);
 }
 
 // Rooms
@@ -1419,6 +1622,182 @@ async function saveFurniture(existing) {
   return API(`/furniture/${existing.id}`, 'PUT', body);
 }
 
+// --- Big Map (shared grid layout + renderer for both the Zones screen's
+// popup and the embedded Power tab view) ---
+// The city is a small, fixed 10-tile grid (see seed.js's map-shrink) — a
+// hand-placed layout is simpler and more reliable here than a generic
+// auto-layout algorithm.
+const BIGMAP_LAYOUT = [
+  { id: 'zone_city_north', x: 0, y: -1 },
+  { id: 'zone_city_ne', x: 1, y: -1 },
+  { id: 'zone_badland_w_gate', x: -2, y: 0 },
+  { id: 'zone_city_west', x: -1, y: 0 },
+  { id: 'zone_start', x: 0, y: 0 },
+  { id: 'zone_city_east', x: 1, y: 0 },
+  { id: 'zone_badland_sw_outer', x: -2, y: 1 },
+  { id: 'zone_city_sw', x: -1, y: 1 },
+  { id: 'zone_city_south', x: 0, y: 1 },
+  { id: 'zone_city_se', x: 1, y: 1 },
+];
+
+function buildMapGridHtml(mode, zonesById, powerById, clickable) {
+  const xs = BIGMAP_LAYOUT.map(t => t.x), ys = BIGMAP_LAYOUT.map(t => t.y);
+  const minX = Math.min(...xs), maxX = Math.max(...xs);
+  const minY = Math.min(...ys), maxY = Math.max(...ys);
+  const byCoord = new Map(BIGMAP_LAYOUT.map(t => [`${t.x},${t.y}`, t]));
+  let html = `<div style="display:grid;gap:4px;grid-template-columns:repeat(${maxX - minX + 1}, 110px)">`;
+  for (let y = minY; y <= maxY; y++) {
+    for (let x = minX; x <= maxX; x++) {
+      const tile = byCoord.get(`${x},${y}`);
+      if (!tile) { html += `<div class="bigmap-tile bigmap-tile-empty"></div>`; continue; }
+      const zone = zonesById.get(tile.id);
+      const name = zone ? zone.name : tile.id;
+      let cls = 'bigmap-tile';
+      let sub = '';
+      if (mode === 'power') {
+        const p = powerById.get(tile.id);
+        const status = p ? p.status : 'unpowered';
+        cls += ` bm-power-${status}`;
+        sub = p ? `<br><span style="font-size:9px;opacity:0.8">${p.loadKw}/${p.capacityKw}kW</span>` : `<br><span style="font-size:9px;opacity:0.6">no power</span>`;
+      } else {
+        cls += ` bm-danger-${zone?.danger_rating || 'safe'}`;
+      }
+      const click = clickable ? ` onclick="bigMapTileClick('${tile.id}')"` : '';
+      html += `<div class="${cls}"${click} title="${tile.id}">${name}${sub}</div>`;
+    }
+  }
+  html += '</div>';
+  return html;
+}
+
+function mapLegendHtml(mode) {
+  return mode === 'power'
+    ? `<span><span class="legend-swatch" style="background:rgba(40,229,255,0.4)"></span>Powered</span>
+       <span><span class="legend-swatch" style="background:rgba(255,154,60,0.4)"></span>Overloaded</span>
+       <span><span class="legend-swatch" style="background:rgba(255,59,92,0.4)"></span>Offline</span>
+       <span><span class="legend-swatch" style="background:rgba(92,92,120,0.4)"></span>Unpowered</span>`
+    : `<span><span class="legend-swatch" style="background:rgba(57,255,143,0.4)"></span>Safe</span>
+       <span><span class="legend-swatch" style="background:rgba(245,230,66,0.4)"></span>Low</span>
+       <span><span class="legend-swatch" style="background:rgba(255,154,60,0.4)"></span>Medium</span>
+       <span><span class="legend-swatch" style="background:rgba(255,59,92,0.4)"></span>High/Lethal</span>`;
+}
+
+let bigMapZones = [];
+let bigMapPowerData = [];
+
+async function openBigMap(mode = 'zones') {
+  const calls = [API('/zones').catch(() => [])];
+  if (mode === 'power') calls.push(API('/environment/power/map').catch(() => []));
+  const [zones, powerMap] = await Promise.all(calls);
+  bigMapZones = Array.isArray(zones) ? zones : [];
+  bigMapPowerData = Array.isArray(powerMap) ? powerMap : [];
+  document.getElementById('bigmap-title').textContent = mode === 'power' ? 'Power Grid Map' : 'City Map';
+  const zonesById = new Map(bigMapZones.map(z => [z.id, z]));
+  const powerById = new Map(bigMapPowerData.map(p => [p.zoneId, p]));
+  document.getElementById('bigmap-grid').innerHTML = buildMapGridHtml(mode, zonesById, powerById, true);
+  document.getElementById('bigmap-legend').innerHTML = mapLegendHtml(mode);
+  document.getElementById('bigmap-overlay').classList.add('active');
+}
+
+function closeBigMap() {
+  document.getElementById('bigmap-overlay').classList.remove('active');
+}
+
+async function bigMapTileClick(zoneId) {
+  closeBigMap();
+  closeSettingsPanel();
+  currentPanel = 'zones';
+  sortState = { key: null, dir: 1 };
+  activatePanelNav('zones');
+  closeEdit();
+  await loadPanel('zones');
+  editRecord(zoneId);
+}
+
+// --- Power tab — embedded version of the same grid, toggleable between
+// power coloring and the regular danger-rating coloring, plus a generator
+// list with quick-remove. ---
+let powerPanelGenerators = [];
+let powerPanelMode = 'power';
+
+async function renderPowerPanel(zones) {
+  const [powerMap, generators] = await Promise.all([
+    API('/environment/power/map').catch(() => []),
+    API('/environment/power/generators').catch(() => []),
+  ]);
+  bigMapZones = Array.isArray(zones) ? zones : [];
+  bigMapPowerData = Array.isArray(powerMap) ? powerMap : [];
+  powerPanelGenerators = Array.isArray(generators) ? generators : [];
+  powerPanelMode = 'power';
+  renderPowerPanelBody();
+}
+
+function setPowerPanelMode(mode) {
+  powerPanelMode = mode;
+  renderPowerPanelBody();
+}
+
+function renderPowerPanelBody() {
+  const panel = document.getElementById('list-panel');
+  const zonesById = new Map(bigMapZones.map(z => [z.id, z]));
+  const powerById = new Map(bigMapPowerData.map(p => [p.zoneId, p]));
+
+  let html = `<div style="padding:12px">
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <button class="action-btn ${powerPanelMode==='power'?'primary':''}" onclick="setPowerPanelMode('power')">⚡ Power View</button>
+      <button class="action-btn ${powerPanelMode==='zones'?'primary':''}" onclick="setPowerPanelMode('zones')">🗺 Danger View</button>
+    </div>
+    ${buildMapGridHtml(powerPanelMode, zonesById, powerById, true)}
+    <div style="margin-top:10px;display:flex;gap:14px;flex-wrap:wrap;font-size:10px;color:var(--text-dim)">${mapLegendHtml(powerPanelMode)}</div>
+  </div>`;
+
+  html += `<div style="padding:12px"><h3 style="color:var(--accent);font-size:12px;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">Generators</h3>`;
+  if (powerPanelGenerators.length) {
+    html += '<table><thead><tr><th>Name</th><th>Type</th><th>Zone</th><th>Capacity</th><th>Status</th><th></th></tr></thead><tbody>';
+    for (const g of powerPanelGenerators) {
+      html += `<tr>
+        <td>${g.name || g.id}</td>
+        <td>${g.generator_type === 'city_plant' ? 'City Plant' : 'Building'}</td>
+        <td>${g.zone_name || g.zone_id || '—'}</td>
+        <td>${g.capacity_kw}kW</td>
+        <td><span class="badge badge-${g.status === 'online' ? 'safe' : 'high'}">${g.status}</span></td>
+        <td><button class="action-btn danger" onclick="removeGeneratorFromPowerPanel('${g.id}')">Remove</button></td>
+      </tr>`;
+    }
+    html += '</tbody></table>';
+  } else {
+    html += `<div style="color:var(--text-dim)">No generators installed yet — install one from a zone's editor.</div>`;
+  }
+  html += '</div>';
+
+  panel.innerHTML = html;
+}
+
+async function removeGeneratorFromPowerPanel(generatorId) {
+  if (!confirm('Remove this generator? Every zone it powers will go dark.')) return;
+  const result = await API(`/environment/power/generators/${generatorId}`, 'DELETE');
+  if (result?.error) { toast(result.error, true); return; }
+  toast('Generator removed');
+  loadPanel('power');
+}
+
+// --- Settings ---
+function openSettingsPanel() {
+  document.getElementById('settings-overlay').classList.add('active');
+}
+function closeSettingsPanel() {
+  document.getElementById('settings-overlay').classList.remove('active');
+}
+function toggleHighContrast() {
+  const isOn = document.body.classList.toggle('high-contrast');
+  document.getElementById('settings-contrast-toggle').textContent = isOn ? 'On' : 'Off';
+}
+function devpanelLogout() {
+  if (!confirm('Log out of the dev panel?')) return;
+  token = null;
+  location.reload();
+}
+
 // --- World state ---
 function renderWorldState(data) {
   const panel = document.getElementById('list-panel');
@@ -1466,83 +1845,6 @@ function renderWorldState(data) {
   document.getElementById('ws-enemies').textContent = data.live_enemies || 0;
   document.getElementById('ws-corpses').textContent = data.live_corpses || 0;
   document.getElementById('ws-zones').textContent = zones.length;
-}
-
-function renderApartments(rows) {
-  const panel = document.getElementById('list-panel');
-  let html = `<div style="padding:12px"><button class="action-btn success" onclick="openBuildApartmentModal()">+ Build Apartment Building</button></div>`;
-  html += '<table><thead><tr><th>Unit</th><th>Zone ID</th><th>Owner</th><th>Locked</th><th>Lock Diff.</th><th>Rent</th><th></th></tr></thead><tbody>';
-  for (const a of rows) {
-    html += `<tr>
-      <td>${a.zone_name || a.zone_id}</td>
-      <td style="font-size:11px;color:var(--text-dim)">${a.zone_id}</td>
-      <td>${a.owner_handle || '<span style="color:var(--text-dim)">unowned</span>'}</td>
-      <td>${a.is_locked ? '🔒' : '🔓'}</td>
-      <td>${a.lock_difficulty}</td>
-      <td>${a.rent_cost}c</td>
-      <td><button class="action-btn danger" onclick="deleteApartmentUnit('${a.zone_id}')">Delete</button></td>
-    </tr>`;
-  }
-  html += '</tbody></table>';
-  if (!rows.length) html += '<div style="padding:16px;color:var(--text-dim)">No apartment units yet. Build a block to get started.</div>';
-  panel.innerHTML = html;
-}
-
-async function deleteApartmentUnit(zoneId) {
-  if (!confirm(`Delete apartment unit ${zoneId}? This also deletes its zone.`)) return;
-  const result = await API(`/apartments/${zoneId}`, 'DELETE');
-  if (result?.error) { toast(result.error, true); return; }
-  toast('Unit deleted');
-  loadPanel('apartments');
-}
-
-async function openBuildApartmentModal() {
-  const zones = await API('/zones');
-  const zoneOptions = (zones || []).map(z => `<option value="${z.id}">${z.name} (${z.id})</option>`).join('');
-  document.getElementById('edit-panel').classList.add('open');
-  document.getElementById('edit-title').textContent = 'Build Apartment Building';
-  document.getElementById('delete-btn').style.display = 'none';
-  document.getElementById('edit-body').innerHTML = `
-    <div class="field"><label>Attach To Zone</label>
-      <select id="bb-attach_to_zone_id">${zoneOptions}</select>
-    </div>
-    <div class="field"><label>Direction From That Zone</label>
-      <select id="bb-attach_direction">
-        ${['down','up','north','south','east','west'].map(d=>`<option value="${d}">${d}</option>`).join('')}
-      </select>
-    </div>
-    <div class="field"><label>Building Name</label><input id="bb-building_name" value="Residential Block" placeholder="e.g. Coldwater Residences"></div>
-    <div class="field"><label>Lobby Description</label><textarea id="bb-lobby_description" rows="3" placeholder="Leave blank for a generic description"></textarea></div>
-    <div class="field-row">
-      <div class="field"><label>Number of Units (1-6)</label><input type="number" id="bb-unit_count" value="4" min="1" max="6"></div>
-      <div class="field"><label>Rent Cost (credits)</label><input type="number" id="bb-rent_cost" value="100" min="0"></div>
-    </div>
-    <div class="field"><label>Unit Name Prefix</label><input id="bb-unit_name_prefix" value="Unit" placeholder="e.g. Unit, Room, Suite"></div>
-    <p style="font-size:11px;color:var(--text-dim);margin-top:4px">Generates a lobby attached to the chosen zone, plus one unit per remaining compass direction (max 6). Each unit is created unowned and ready to RENT — exits are wired automatically and symmetrically.</p>
-  `;
-  // Swap the save button's behavior just for this modal
-  const saveBtn = document.querySelector('.edit-footer .action-btn.success');
-  if (saveBtn) saveBtn.setAttribute('onclick', 'submitBuildApartment()');
-}
-
-async function submitBuildApartment() {
-  const body = {
-    attach_to_zone_id: document.getElementById('bb-attach_to_zone_id').value,
-    attach_direction: document.getElementById('bb-attach_direction').value,
-    building_name: document.getElementById('bb-building_name').value || 'Residential Block',
-    lobby_description: document.getElementById('bb-lobby_description').value || null,
-    unit_count: +document.getElementById('bb-unit_count').value || 4,
-    rent_cost: +document.getElementById('bb-rent_cost').value || 100,
-    unit_name_prefix: document.getElementById('bb-unit_name_prefix').value || 'Unit',
-  };
-  const result = await API('/apartments/build', 'POST', body);
-  if (result?.error) { toast(result.error, true); return; }
-  toast(result.message || 'Building created');
-  closeEdit();
-  // Restore the normal save button behavior for other panels
-  const saveBtn = document.querySelector('.edit-footer .action-btn.success');
-  if (saveBtn) saveBtn.setAttribute('onclick', 'saveRecord()');
-  loadPanel('apartments');
 }
 
 async function reloadZone(id) {
