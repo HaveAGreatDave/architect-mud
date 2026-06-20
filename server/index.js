@@ -16,6 +16,13 @@ import { handleApiRequest } from './api/routes.js';
 import { startKeepalive } from './keepalive.js';
 import { query } from './models/db.js';
 
+import { initEnvironment } from './engine/environment.js';
+import { query } from './models/db.js';
+import { emit as emitHook } from './plugins/example-weather/plugins.js'; // adjust to your actual plugin emitter export
+import { broadcastAll } from './plugins/example-weather/index.js';               // adjust to your actual WS broadcast helper
+
+await initEnvironment({ query, emitHook, broadcast: broadcastAll });
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
 

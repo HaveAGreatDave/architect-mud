@@ -1,5 +1,8 @@
 import { query } from './db.js';
 
+import { migrateEnvironment } from './migrate.environment.js';
+await migrateEnvironment(query);
+
 export async function migrate() {
   await query(`
     CREATE TABLE IF NOT EXISTS players (

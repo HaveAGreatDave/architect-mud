@@ -1,0 +1,618 @@
+// server/engine/environment.js
+//
+// Unified Environmental Simulation — Time, Weather, Power, Lighting, Visibility
+//
+// INTEGRATION (do once, in server bootstrap — e.g. server/index.js):
+//
+//   import { initEnvironment } from './engine/environment.js';
+//   import { query } from './models/db.js';
+//   import { emit as emitHook } from './engine/plugins.js'; // adjust to your actual plugin emitter export
+//   import { broadcastAll } from './index.js';               // adjust to your actual WS broadcast helper
+//
+//   await initEnvironment({ query, emitHook, broadcast: broadcastAll });
+//
+// Run the matching migration once before first boot — call this from inside
+// the existing migrate() in server/models/migrate.js:
+//
+//   import { migrateEnvironment } from './migrate.environment.js';
+//   await migrateEnvironment(query);
+//
+// Mount the dev-panel/API routes — see server/api/environment.routes.js for
+// the matching dispatcher and its own integration comment.
+//
+// Nothing in this file touches Postgres on a per-player basis. Reads
+// (visibility, HUD, power map) are served from the in-memory `state` object;
+// Postgres is only written on the two scheduled ticks plus dev-tool calls,
+// matching the GDD's two-interval design (30-minute environmental tick,
+// 24-hour world tick).
+
+import { createHash } from 'node:crypto';
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+const TICK_30M_MS = 30 * 60 * 1000;
+const TICK_24H_MS = 24 * 60 * 60 * 1000;
+
+const WEATHER_TYPES = ['sunny', 'cloudy', 'rain', 'fog', 'storm', 'snow'];
+
+const WEATHER_ICON = {
+  sunny: '☀', cloudy: '☁', rain: '☂', fog: '▒', storm: '⚡', snow: '❄',
+};
+
+const WEATHER_VISIBILITY_FACTOR = {
+  sunny: 1.0, cloudy: 0.9, rain: 0.7, fog: 0.55, storm: 0.5, snow: 0.75,
+};
+
+// Fog is both a weather TYPE and an independent multiplicative term in the
+// GDD's visibility formula (section 7). "fog" weather sets a strong fog
+// factor; every other weather type defaults to 1.0 (no extra penalty), which
+// leaves the term available for a future patchy-fog event without
+// double-penalizing visibility today.
+const FOG_FACTOR = { fog: 0.4 };
+const DEFAULT_FOG_FACTOR = 1.0;
+
+const SEASON_BY_MONTH = [
+  'winter', 'winter', 'spring', 'spring', 'spring', 'summer',
+  'summer', 'summer', 'autumn', 'autumn', 'autumn', 'winter',
+];
+
+const SEASON_BASE_TEMP_C = { winter: 2, spring: 12, summer: 24, autumn: 11 };
+
+const POWER_OVERLOAD_RATIO = 1.0;    // load/capacity above this → 'overloaded'
+const POWER_BLACKOUT_RATIO = 1.25;   // load/capacity above this → 'offline'
+const EMERGENCY_LIGHT_LEVEL = 0.3;   // artificial-light contribution on emergency power only
+const SNOW_LOAD_MULTIPLIER = 1.15;   // snow increases effective load (GDD §11: heating demand)
+const STORM_GENERATOR_FAULT_CHANCE = 0.10; // per 24h tick, per non-building generator
+
+const VISIBILITY_CLEAR = 0.6;
+const VISIBILITY_DIM = 0.35;
+
+// ---------------------------------------------------------------------------
+// In-memory state — source of truth between ticks, persisted to Postgres so
+// it survives restarts. Mirrors the world.js in-memory-cache-over-Postgres
+// pattern already used elsewhere in this codebase.
+// ---------------------------------------------------------------------------
+
+const state = {
+  ready: false,
+  frozen: false,
+  date: null,              // 'YYYY-MM-DD'
+  minutes: 8 * 60,          // minutes since midnight, server-authoritative
+  dayOfWeek: 1,             // 1=Mon..7=Sun
+  season: 'spring',
+  tempC: 12,
+  weatherType: 'sunny',
+  forecast: [],             // 7 entries: { forecastDay, date, weatherType, tempC, locked }
+  ambientLight: 1.0,        // 0..1, recalculated every 30-min tick
+  phase: 'day',
+  zones: new Map(),         // zoneId -> { powerStatus, capacityKw, loadKw, hasEmergencyLighting, artificialLight }
+  lastTick30m: 0,
+  lastTick24h: 0,
+};
+
+let deps = { query: null, emitHook: null, broadcast: null };
+let timer30 = null;
+let timer24 = null;
+
+// ---------------------------------------------------------------------------
+// Deterministic seeded RNG (mulberry32) — forecast generation must be
+// deterministic per date (GDD §4.3), not re-rolled randomly on every call.
+// ---------------------------------------------------------------------------
+
+function seedFromString(str) {
+  const hash = createHash('sha256').update(str).digest();
+  return hash.readUInt32LE(0);
+}
+
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function rand() {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function pick(rand, arr) {
+  return arr[Math.floor(rand() * arr.length) % arr.length];
+}
+
+function seasonForDate(dateStr) {
+  const month = Number(dateStr.slice(5, 7)) - 1;
+  return SEASON_BY_MONTH[month];
+}
+
+function generateWeatherForDate(dateStr) {
+  const rand = mulberry32(seedFromString(`weather:${dateStr}`));
+  const season = seasonForDate(dateStr);
+  const candidates = WEATHER_TYPES.filter(
+    (w) => w !== 'snow' || season === 'winter' || season === 'autumn'
+  );
+  const weatherType = pick(rand, candidates);
+  const base = SEASON_BASE_TEMP_C[season];
+  const variance = Math.round((rand() - 0.5) * 8); // +/-4C
+  return { weatherType, tempC: base + variance };
+}
+
+function addDays(dateStr, days) {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+function dayOfWeekFor(dateStr) {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  const jsDay = d.getUTCDay(); // 0=Sun..6=Sat
+  return jsDay === 0 ? 7 : jsDay; // 1=Mon..7=Sun
+}
+
+// ---------------------------------------------------------------------------
+// Time / phase helpers
+// ---------------------------------------------------------------------------
+
+const DAY_PHASES = [
+  { name: 'dawn', startMin: 5 * 60, endMin: 7 * 60, icon: '🌅' },
+  { name: 'day', startMin: 7 * 60, endMin: 17 * 60, icon: '☀' },
+  { name: 'dusk', startMin: 17 * 60, endMin: 20 * 60, icon: '🌇' },
+  { name: 'night', startMin: 20 * 60, endMin: 5 * 60, icon: '🌙' }, // wraps midnight
+];
+
+function phaseForMinutes(minutesOfDay) {
+  const m = minutesOfDay;
+  if (m >= 5 * 60 && m < 7 * 60) return DAY_PHASES[0];
+  if (m >= 7 * 60 && m < 17 * 60) return DAY_PHASES[1];
+  if (m >= 17 * 60 && m < 20 * 60) return DAY_PHASES[2];
+  return DAY_PHASES[3];
+}
+
+function clamp01(n) { return Math.max(0, Math.min(1, n)); }
+
+function ambientLightForMinutes(minutesOfDay) {
+  const phase = phaseForMinutes(minutesOfDay);
+  if (phase.name === 'day') return 1.0;
+  if (phase.name === 'night') return 0.0;
+  if (phase.name === 'dawn') {
+    const t = (minutesOfDay - phase.startMin) / (phase.endMin - phase.startMin);
+    return clamp01(t);
+  }
+  // dusk
+  const t = (minutesOfDay - phase.startMin) / (phase.endMin - phase.startMin);
+  return clamp01(1 - t);
+}
+
+function formatHHMM(minutesOfDay) {
+  const h = Math.floor(minutesOfDay / 60) % 24;
+  const m = minutesOfDay % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
+function logError(err) {
+  // eslint-disable-next-line no-console
+  console.error('[environment]', err);
+}
+
+// ---------------------------------------------------------------------------
+// Initialization
+// ---------------------------------------------------------------------------
+
+export async function initEnvironment({ query, emitHook, broadcast }) {
+  deps = { query, emitHook, broadcast };
+
+  const clockRow = await ensureClockRow(query);
+  state.date = clockRow.game_date;
+  state.minutes = clockRow.game_time_minutes;
+  state.dayOfWeek = clockRow.day_of_week;
+  state.season = clockRow.season;
+  state.lastTick30m = new Date(clockRow.last_tick_30m).getTime();
+  state.lastTick24h = new Date(clockRow.last_tick_24h).getTime();
+
+  await loadForecast(query);
+  await loadZonePowerAndLighting(query);
+  recalcAmbientAndVisibility();
+
+  // Catch up on missed ticks after downtime, at most once each, then resume
+  // the normal interval from "now" — avoids a restart firing a storm of
+  // redundant ticks while still keeping the world from going stale.
+  const now = Date.now();
+  if (now - state.lastTick24h >= TICK_24H_MS) await tick24h();
+  if (now - state.lastTick30m >= TICK_30M_MS) await tick30m();
+
+  scheduleTicks();
+  state.ready = true;
+}
+
+function scheduleTicks() {
+  if (timer30) clearInterval(timer30);
+  if (timer24) clearInterval(timer24);
+  timer30 = setInterval(() => { if (!state.frozen) tick30m().catch(logError); }, TICK_30M_MS);
+  timer24 = setInterval(() => { if (!state.frozen) tick24h().catch(logError); }, TICK_24H_MS);
+}
+
+async function ensureClockRow(query) {
+  const today = new Date().toISOString().slice(0, 10);
+  await query(
+    `INSERT INTO world_clock (id, game_date, game_time_minutes, day_of_week, season)
+     VALUES (1, $1, $2, $3, $4)
+     ON CONFLICT (id) DO NOTHING`,
+    [today, 8 * 60, dayOfWeekFor(today), seasonForDate(today)]
+  );
+  const { rows } = await query('SELECT * FROM world_clock WHERE id = 1');
+  return rows[0];
+}
+
+async function loadForecast(query) {
+  const { rows } = await query('SELECT * FROM weather_forecast ORDER BY forecast_day ASC');
+  if (rows.length === 0) {
+    await regenerateFullForecast(query, state.date);
+    return loadForecast(query);
+  }
+  state.forecast = rows.map((r) => ({
+    forecastDay: r.forecast_day,
+    date: r.game_date,
+    weatherType: r.weather_type,
+    tempC: r.temp_c,
+    locked: !!r.locked,
+  }));
+  state.weatherType = state.forecast[0].weatherType;
+  state.tempC = state.forecast[0].tempC;
+  return undefined;
+}
+
+async function regenerateFullForecast(query, startDate) {
+  for (let i = 0; i < 7; i += 1) {
+    const date = addDays(startDate, i);
+    const { weatherType, tempC } = generateWeatherForDate(date);
+    await query(
+      `INSERT INTO weather_forecast (forecast_day, game_date, weather_type, temp_c, locked)
+       VALUES ($1, $2, $3, $4, 0)
+       ON CONFLICT (forecast_day) DO NOTHING`,
+      [i, date, weatherType, tempC]
+    );
+  }
+}
+
+async function loadZonePowerAndLighting(query) {
+  const { rows: zones } = await query('SELECT * FROM power_zones');
+  const { rows: lights } = await query('SELECT * FROM lighting_states');
+  const lightByZone = new Map(lights.map((l) => [l.zone_id, l]));
+  state.zones.clear();
+  for (const z of zones) {
+    const light = lightByZone.get(z.id);
+    state.zones.set(z.id, {
+      powerStatus: z.status,
+      capacityKw: z.capacity_kw,
+      loadKw: z.current_load_kw,
+      hasEmergencyLighting: light ? !!light.has_emergency_lighting : false,
+      artificialLight: computeArtificialLight(z.status, light),
+    });
+  }
+}
+
+function computeArtificialLight(powerStatus, light) {
+  if (powerStatus === 'powered') {
+    const fixtureBonus = light ? Math.min(1, (light.fixture_count || 1) / 4) : 1;
+    return clamp01(0.3 + 0.7 * fixtureBonus);
+  }
+  if (powerStatus === 'overloaded') return 0.6;
+  // offline
+  return light && light.has_emergency_lighting ? EMERGENCY_LIGHT_LEVEL : 0.0;
+}
+
+// ---------------------------------------------------------------------------
+// 30-Minute Environmental Tick
+// World time → ambient light → visibility baseline → client clock sync
+// ---------------------------------------------------------------------------
+
+async function tick30m() {
+  const { query, emitHook, broadcast } = deps;
+
+  state.minutes = (state.minutes + 30) % (24 * 60);
+  state.lastTick30m = Date.now();
+
+  const prevPhase = state.phase;
+  recalcAmbientAndVisibility();
+
+  await query(
+    `UPDATE world_clock SET game_time_minutes = $1, last_tick_30m = now() WHERE id = 1`,
+    [state.minutes]
+  );
+
+  const payload = getHUDPayload();
+  if (broadcast) broadcast({ type: 'environment.sync', ...payload });
+
+  if (emitHook) {
+    await emitHook('environment.tick30m', payload);
+    if (prevPhase !== state.phase) {
+      if (state.phase === 'day' && prevPhase === 'dawn') await emitHook('environment.sunrise', payload);
+      if (state.phase === 'night' && prevPhase === 'dusk') await emitHook('environment.sunset', payload);
+    }
+  }
+}
+
+function recalcAmbientAndVisibility() {
+  state.ambientLight = ambientLightForMinutes(state.minutes);
+  state.phase = phaseForMinutes(state.minutes).name;
+  // Per-zone visibility is computed on demand via getZoneVisibility(); only
+  // the ambient baseline is refreshed here, per GDD §7: "Ambient light is
+  // recalculated every 30-minute environmental tick."
+}
+
+// ---------------------------------------------------------------------------
+// 24-Hour World Tick
+// Calendar → forecast → weather/temp model → power simulation → lighting
+// ---------------------------------------------------------------------------
+
+async function tick24h() {
+  const { query, emitHook, broadcast } = deps;
+
+  state.date = addDays(state.date, 1);
+  state.dayOfWeek = dayOfWeekFor(state.date);
+  state.season = seasonForDate(state.date);
+  state.lastTick24h = Date.now();
+
+  await query(
+    `UPDATE world_clock SET game_date = $1, day_of_week = $2, season = $3, last_tick_24h = now() WHERE id = 1`,
+    [state.date, state.dayOfWeek, state.season]
+  );
+
+  await advanceForecast(query);
+  await simulatePowerNetwork(query, { weatherType: state.weatherType });
+  await loadZonePowerAndLighting(query);
+  recalcAmbientAndVisibility();
+
+  const payload = { ...getHUDPayload(), forecast: state.forecast };
+  if (broadcast) broadcast({ type: 'environment.daily', ...payload });
+  if (emitHook) {
+    await emitHook('environment.tick24h', payload);
+    await emitHook('environment.weatherChange', { weatherType: state.weatherType, tempC: state.tempC });
+  }
+}
+
+async function advanceForecast(query) {
+  // Drop day 0 (now past), shift everything down one slot, generate a new
+  // day 6. A locked day keeps its stored values through exactly one shift
+  // rather than being regenerated, then the lock clears — GDD §4.3 says
+  // forecasts "remain locked until the next daily update," and that update
+  // has now happened.
+  const shifted = state.forecast.slice(1);
+  const newDate = addDays(state.forecast[6].date, 1);
+  const generated = generateWeatherForDate(newDate);
+
+  const nextForecast = [...shifted, { date: newDate, weatherType: generated.weatherType, tempC: generated.tempC, locked: false }]
+    .map((f, i) => ({ ...f, forecastDay: i, locked: i < shifted.length ? shifted[i].locked : false }));
+
+  await query('DELETE FROM weather_forecast');
+  for (const f of nextForecast) {
+    await query(
+      `INSERT INTO weather_forecast (forecast_day, game_date, weather_type, temp_c, locked)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [f.forecastDay, f.date, f.weatherType, f.tempC, f.locked ? 1 : 0]
+    );
+  }
+  state.forecast = nextForecast;
+  state.weatherType = nextForecast[0].weatherType;
+  state.tempC = nextForecast[0].tempC;
+}
+
+// ---------------------------------------------------------------------------
+// Power Network Simulation
+// ---------------------------------------------------------------------------
+
+async function simulatePowerNetwork(query, { weatherType }) {
+  const { rows: generators } = await query('SELECT * FROM generators');
+  const { rows: zones } = await query('SELECT * FROM power_zones');
+
+  const loadMultiplier = weatherType === 'snow' ? SNOW_LOAD_MULTIPLIER : 1.0;
+
+  for (const gen of generators) {
+    let status = gen.status === 'flickering' ? 'online' : gen.status; // flicker is transient, clears each tick unless re-triggered
+    let fuelRemaining = gen.fuel_remaining;
+
+    // Only player/portable generators consume fuel — building and
+    // city-plant generators are infinite by design (GDD §5.2).
+    if (gen.generator_type === 'player' && gen.fuel_type) {
+      fuelRemaining = Math.max(0, fuelRemaining - gen.fuel_burn_rate * 30);
+      if (fuelRemaining <= 0) status = 'offline';
+    }
+
+    // Storms can transiently fault non-building generators (GDD §11).
+    if (weatherType === 'storm' && gen.generator_type !== 'building' && status !== 'offline') {
+      if (Math.random() < STORM_GENERATOR_FAULT_CHANCE) status = 'flickering';
+    }
+
+    await query(`UPDATE generators SET status = $1, fuel_remaining = $2 WHERE id = $3`, [status, fuelRemaining, gen.id]);
+  }
+
+  const genById = new Map(generators.map((g) => [g.id, g]));
+  for (const zone of zones) {
+    const gen = genById.get(zone.generator_id);
+    const capacity = gen ? gen.capacity_kw : zone.capacity_kw;
+    const load = zone.current_load_kw * loadMultiplier;
+    const ratio = capacity > 0 ? load / capacity : Infinity;
+
+    let status;
+    if (gen && gen.status === 'offline') status = 'offline';
+    else if (ratio > POWER_BLACKOUT_RATIO) status = 'offline';
+    else if (ratio > POWER_OVERLOAD_RATIO) status = 'overloaded';
+    else status = 'powered';
+
+    await query(`UPDATE power_zones SET status = $1 WHERE id = $2`, [status, zone.id]);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Visibility
+// ---------------------------------------------------------------------------
+
+/**
+ * Visibility = max(ambient, artificial) × weather × fog
+ *
+ * GDD §7 diagrams this as a straight product (Ambient × Artificial × Weather
+ * × Fog). Taken literally, that zeroes out daytime visibility in any zone
+ * with its lights off (artificial = 0) — clearly not the intent. Light
+ * sources are combined with max() instead — the brighter of sun-or-bulb
+ * wins — and weather/fog then act as a shared multiplicative dampener on top
+ * of whatever light is present. This preserves every documented interaction
+ * (storms/fog/snow reduce visibility; no power + night = true darkness;
+ * daylight is unaffected by indoor light switches) without the degenerate
+ * zero case the literal formula produces.
+ */
+export function getZoneVisibility(zoneId) {
+  const zone = state.zones.get(zoneId);
+  const artificial = zone ? zone.artificialLight : 0;
+  const effectiveLight = Math.max(state.ambientLight, artificial);
+  const weatherFactor = WEATHER_VISIBILITY_FACTOR[state.weatherType] ?? 1.0;
+  const fogFactor = FOG_FACTOR[state.weatherType] ?? DEFAULT_FOG_FACTOR;
+  const visibility = clamp01(effectiveLight * weatherFactor * fogFactor);
+
+  let category = 'clear';
+  if (visibility < VISIBILITY_DIM) category = 'dark';
+  else if (visibility < VISIBILITY_CLEAR) category = 'dim';
+
+  return { visibility, category, ambientLight: state.ambientLight, artificialLight: artificial };
+}
+
+// GDD §7.2 feedback lines, for room-description injection on a visibility
+// category change (wire into commands.js room rendering / zone.describeAmbient).
+export function describeVisibilityTransition(prevCategory, nextCategory) {
+  if (prevCategory !== 'dark' && nextCategory === 'dark') {
+    return 'It is becoming difficult to make out more than shadows.';
+  }
+  if (prevCategory === 'dark' && nextCategory !== 'dark') {
+    return 'Light returns, revealing your surroundings once again.';
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// HUD / Forecast / Power accessors
+// ---------------------------------------------------------------------------
+
+export function getHUDPayload() {
+  const phase = phaseForMinutes(state.minutes);
+  return {
+    date: state.date,
+    time: formatHHMM(state.minutes),
+    dayOfWeek: state.dayOfWeek,
+    season: state.season,
+    weatherType: state.weatherType,
+    weatherIcon: WEATHER_ICON[state.weatherType],
+    tempC: state.tempC,
+    tempF: Math.round((state.tempC * 9) / 5 + 32),
+    timePhase: phase.name,
+    timeIcon: phase.icon,
+    frozen: state.frozen,
+  };
+}
+
+export function getForecast() {
+  return state.forecast.map((f) => ({ ...f, icon: WEATHER_ICON[f.weatherType] }));
+}
+
+export function getPowerMap() {
+  return [...state.zones.entries()].map(([zoneId, z]) => ({
+    zoneId,
+    status: z.powerStatus,
+    capacityKw: z.capacityKw,
+    loadKw: z.loadKw,
+    artificialLight: z.artificialLight,
+  }));
+}
+
+export function getEnvironmentState() {
+  return { ...getHUDPayload(), ambientLight: state.ambientLight, forecast: getForecast(), powerMap: getPowerMap() };
+}
+
+// ---------------------------------------------------------------------------
+// Dev Tools (called from server/api/environment.routes.js)
+// ---------------------------------------------------------------------------
+
+export async function devSetTime({ date, minutes }) {
+  const { query } = deps;
+  if (date) state.date = date;
+  if (minutes !== undefined) state.minutes = ((Number(minutes) % (24 * 60)) + 24 * 60) % (24 * 60);
+  state.dayOfWeek = dayOfWeekFor(state.date);
+  recalcAmbientAndVisibility();
+  await query(
+    `UPDATE world_clock SET game_date = $1, game_time_minutes = $2, day_of_week = $3 WHERE id = 1`,
+    [state.date, state.minutes, state.dayOfWeek]
+  );
+  return getHUDPayload();
+}
+
+export async function devAdvanceTime(minutesToAdd) {
+  return devSetTime({ minutes: state.minutes + Number(minutesToAdd || 0) });
+}
+
+export function devFreeze(frozen) {
+  state.frozen = !!frozen;
+  return { frozen: state.frozen };
+}
+
+export async function devForceTick30() { await tick30m(); return getHUDPayload(); }
+export async function devForceTick24() { await tick24h(); return { ...getHUDPayload(), forecast: state.forecast }; }
+
+export async function devOverrideWeather({ weatherType, tempC }) {
+  const { query, broadcast } = deps;
+  if (!WEATHER_TYPES.includes(weatherType)) throw new Error(`Unknown weather type: ${weatherType}`);
+  state.weatherType = weatherType;
+  if (tempC !== undefined) state.tempC = Number(tempC);
+  await query(`UPDATE weather_forecast SET weather_type = $1, temp_c = $2 WHERE forecast_day = 0`, [weatherType, state.tempC]);
+  state.forecast[0] = { ...state.forecast[0], weatherType, tempC: state.tempC };
+  if (broadcast) broadcast({ type: 'environment.weatherOverride', ...getHUDPayload() });
+  return getHUDPayload();
+}
+
+export async function devLockForecastDay(forecastDay, locked) {
+  const { query } = deps;
+  await query(`UPDATE weather_forecast SET locked = $1 WHERE forecast_day = $2`, [locked ? 1 : 0, forecastDay]);
+  if (state.forecast[forecastDay]) state.forecast[forecastDay].locked = !!locked;
+  return getForecast();
+}
+
+export async function devTriggerStorm() { return devOverrideWeather({ weatherType: 'storm' }); }
+export async function devTriggerSnow() { return devOverrideWeather({ weatherType: 'snow' }); }
+
+export async function devSpawnGenerator({ id, zoneId, generatorType, capacityKw, fuelType, fuelRemaining, fuelBurnRate, connectionRange }) {
+  const { query } = deps;
+  await query(
+    `INSERT INTO generators (id, zone_id, generator_type, capacity_kw, fuel_type, fuel_remaining, fuel_burn_rate, connection_range, status)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'online')
+     ON CONFLICT (id) DO UPDATE SET zone_id = $2, generator_type = $3, capacity_kw = $4,
+       fuel_type = $5, fuel_remaining = $6, fuel_burn_rate = $7, connection_range = $8`,
+    [id, zoneId ?? null, generatorType ?? 'player', Number(capacityKw) || 0, fuelType ?? null, Number(fuelRemaining) || 0, Number(fuelBurnRate) || 0, Number(connectionRange) || 0]
+  );
+  return { ok: true, id };
+}
+
+export async function devModifyLoad(zoneId, loadKw) {
+  const { query } = deps;
+  await query(`UPDATE power_zones SET current_load_kw = $1 WHERE id = $2`, [Number(loadKw) || 0, zoneId]);
+  await simulatePowerNetwork(query, { weatherType: state.weatherType });
+  await loadZonePowerAndLighting(query);
+  return getPowerMap();
+}
+
+export async function devSimulateFailure(generatorId) {
+  const { query } = deps;
+  await query(`UPDATE generators SET status = 'offline' WHERE id = $1`, [generatorId]);
+  await simulatePowerNetwork(query, { weatherType: state.weatherType });
+  await loadZonePowerAndLighting(query);
+  return getPowerMap();
+}
+
+// ---------------------------------------------------------------------------
+// Plugin hook names this module emits — register these in your plugin
+// loader's known-hooks list alongside tick.minute / player.enterZone / etc.
+// ---------------------------------------------------------------------------
+
+export const ENVIRONMENT_HOOKS = [
+  'environment.tick30m',
+  'environment.tick24h',
+  'environment.weatherChange',
+  'environment.sunrise',
+  'environment.sunset',
+];

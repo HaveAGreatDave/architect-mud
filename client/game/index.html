@@ -222,6 +222,39 @@
   .addiction-warning, .outcast-warning { color: var(--orange); font-style: italic; }
   .item-grant { color: var(--cyan); }
 
+  /* ─── ENVIRONMENT HUD ─── */
+  .env-hud {
+    color: var(--text-dim);
+    font-size: 12px;
+    font-weight: bold;
+    padding: 2px 8px;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    white-space: nowrap;
+  }
+  #env-forecast { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 6px; }
+  .env-forecast-day {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    padding: 2px 5px;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    font-size: 10px;
+    color: var(--text-dim);
+  }
+  .env-power-powered { color: var(--green); }
+  .env-power-overloaded { color: var(--orange); }
+  .env-power-offline { color: var(--red); }
+
+  /* Visibility dimming — a cosmetic overlay on the output pane only, driven
+     by GDD §7's visibility category for the player's current zone. Never
+     alters game text/logic, just how it reads on screen. */
+  #output-container { transition: filter 0.6s ease; }
+  body.env-vis-dim #output-container { filter: brightness(0.88) contrast(0.95); }
+  body.env-vis-dark #output-container { filter: brightness(0.7) contrast(0.9) saturate(0.85); }
+
   /* ─── INPUT BAR ─── */
   #input-area {
     border-top: 1px solid var(--border);
@@ -783,6 +816,7 @@
   <span class="conn-status offline" id="conn-status">DISCONNECTED</span>
   <span class="handle-display" id="handle-display"></span>
   <span class="credits-display" id="credits-display" title="Credits carried">₵ <span id="header-credits-val">0</span></span>
+  <span class="env-hud" id="env-hud" title="World time">—</span>
   <button id="settings-btn" title="Settings" aria-label="Open settings">⚙</button>
   <button id="signout-btn" title="Sign Out" aria-label="Sign out">⏻</button>
 </div>
@@ -842,6 +876,13 @@
       <div class="sidebar-label">Location</div>
       <div id="zone-name-display">—</div>
       <div id="exits-display"></div>
+    </div>
+
+    <div class="sidebar-section" id="env-section">
+      <div class="sidebar-label">Environment</div>
+      <div id="env-date-display" style="font-size:11px;color:var(--text-dim)">—</div>
+      <div id="env-power-display" style="font-size:11px;margin-top:4px"></div>
+      <div id="env-forecast"></div>
     </div>
 
     <div class="sidebar-section" id="enemy-section" style="display:none">
@@ -1004,6 +1045,10 @@ function handleServerMsg(msg) {
       document.getElementById('auth-screen').style.display = 'none';
       document.getElementById('handle-display').textContent = player.handle;
       updateVitals(player);
+      fetch('/api/environment/state').then(r => r.json()).then(env => {
+        updateEnvironmentHUD(env);
+        if (env.forecast) renderForecast(env.forecast);
+      }).catch(() => {});
       break;
     case 'auth_fail':
       clearTimeout(authTimeout);
@@ -1020,8 +1065,10 @@ function handleServerMsg(msg) {
     case 'look':
       appendMsg('─'.repeat(50), 'separator');
       appendHtml(msg.message, 'look');
+      if (msg.zone) currentZone = msg.zone;
       parseZoneInfo(msg.message);
       if (msg.minimap) renderMinimap(msg.minimap);
+      refreshZoneVisibility();
       break;
     case 'move':
       appendHtml(msg.message, 'look');
@@ -1030,6 +1077,7 @@ function handleServerMsg(msg) {
       if (msg.radiation_gain > 0) appendMsg(`☢ +${msg.radiation_gain} radiation absorbed.`, 'system');
       if (player) { player.radiation = Math.min(100, (player.radiation||0) + (msg.radiation_gain||0)); updateVitals(player); }
       if (msg.minimap) renderMinimap(msg.minimap);
+      refreshZoneVisibility();
       break;
     case 'combat':
       appendHtml(msg.message, msg.killed ? 'loot' : 'combat');
@@ -1136,6 +1184,14 @@ function handleServerMsg(msg) {
     case 'kicked':
       appendMsg(msg.message, 'error');
       ws.close();
+      break;
+    case 'environment.sync':
+    case 'environment.weatherOverride':
+      updateEnvironmentHUD(msg);
+      break;
+    case 'environment.daily':
+      updateEnvironmentHUD(msg);
+      if (msg.forecast) renderForecast(msg.forecast);
       break;
     case 'pong': break; // keepalive
   }
@@ -1333,6 +1389,58 @@ function setBar(id, val, max, inverse = false) {
     bar.classList.toggle('low', inverse ? pct > 60 : pct < 25);
   }
   if (valEl) valEl.textContent = Math.round(val);
+}
+
+// --- Environment HUD (time / weather / power / forecast) ---
+// Driven by server/engine/environment.js — GET /api/environment/state on
+// login, then 'environment.sync' (every 30 game-minutes) and
+// 'environment.daily' (every 24h, includes a fresh forecast) over the
+// existing WebSocket. Pure display: never affects gameplay logic client-side.
+const WEEKDAY_NAMES = { 1: 'Mon', 2: 'Tue', 3: 'Wed', 4: 'Thu', 5: 'Fri', 6: 'Sat', 7: 'Sun' };
+
+function updateEnvironmentHUD(env) {
+  if (!env || !env.weatherIcon) return;
+  const hud = document.getElementById('env-hud');
+  if (hud) {
+    hud.textContent = `${env.timeIcon || ''} ${env.time || ''}  ${env.weatherIcon || ''} ${env.tempC}°C`;
+    hud.title = [env.season, env.weatherType, env.frozen ? 'time frozen' : null].filter(Boolean).join(' · ');
+  }
+  const dateEl = document.getElementById('env-date-display');
+  if (dateEl) dateEl.textContent = `${env.date || '—'} · ${WEEKDAY_NAMES[env.dayOfWeek] || ''} · ${env.season || ''}`;
+  if (env.powerMap) renderZonePower(env.powerMap);
+}
+
+function renderForecast(forecast) {
+  const el = document.getElementById('env-forecast');
+  if (!el) return;
+  el.innerHTML = forecast.map(f => `
+    <div class="env-forecast-day" title="${f.date || ''}">
+      <span>${(f.date || '').slice(5) || '—'}</span>
+      <span>${f.icon || ''}</span>
+      <span>${f.tempC}°</span>
+    </div>
+  `).join('');
+}
+
+function renderZonePower(powerMap) {
+  const el = document.getElementById('env-power-display');
+  if (!el) return;
+  if (!currentZone) { el.textContent = ''; return; }
+  const zone = powerMap.find(z => z.zoneId === currentZone);
+  el.innerHTML = zone ? `Power: <span class="env-power-${zone.status}">${zone.status}</span>` : '';
+}
+
+// Pulls this zone's visibility category whenever the player arrives
+// somewhere and fades the output pane to match (GDD §7.1). Cosmetic only.
+function refreshZoneVisibility() {
+  if (!currentZone) return;
+  fetch(`/api/environment/visibility/${encodeURIComponent(currentZone)}`)
+    .then(r => r.json())
+    .then(v => {
+      document.body.classList.toggle('env-vis-dim', v.category === 'dim');
+      document.body.classList.toggle('env-vis-dark', v.category === 'dark');
+    })
+    .catch(() => {});
 }
 
 // --- Zone info parsing ---

@@ -90,6 +90,10 @@ async function apiLogin(body) {
   return {status:200,body:{token:makeToken(rows[0].id,rows[0].role),playerId:rows[0].id,handle:rows[0].handle,role:rows[0].role}};
 }
 
+import { handleEnvironmentRoute } from './environment.routes.js';
+ ...
+if (await handleEnvironmentRoute(req, res, pathname, method)) return;
+
 async function apiGetZones() { return {status:200,body:getAllZones()}; }
 async function apiGetZone(id) {
   const {rows} = await query('SELECT * FROM zones WHERE id=$1',[id]);
