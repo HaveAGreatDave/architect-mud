@@ -1,0 +1,6 @@
+{
+  "name": "zone-validator",
+  "version": "1.0.0",
+  "description": "World integrity: validates zone exit connectivity, detects and repairs broken exits.",
+  "hooks": ["worldValidator.runFull", "worldValidator.runZone", "zone.create", "zone.update"]
+}

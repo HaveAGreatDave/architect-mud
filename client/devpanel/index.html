@@ -359,6 +359,7 @@
     <div class="nav-section">Server</div>
     <div class="nav-item" data-panel="worldstate" onclick="showPanel('worldstate')">📡 World State</div>
     <div class="nav-item" data-panel="players" onclick="showPanel('players')">👥 Players</div>
+    <div class="nav-item" data-panel="validator" onclick="showPanel('validator')">🔍 Validator</div>
     <div class="nav-item" onclick="openSettingsPanel()">⚙ Settings</div>
   </div>
 
@@ -621,6 +622,12 @@ const PANELS = {
     ],
     noEdit: true,
   },
+  validator: {
+    title: 'Zone Validator',
+    fetch: () => Promise.resolve(null),
+    noEdit: true,
+    render: renderValidatorPanel,
+  },
 };
 
 function activatePanelNav(name) {
@@ -840,6 +847,13 @@ async function saveRecord() {
     const result = await p.save(currentRecord);
     if (result?.error) { toast(result.error, true); return; }
     toast('Saved & published ✓');
+    if (validatorAutoRun && currentPanel === 'zones' && currentRecord?.id) {
+      const savedId = currentRecord.id;
+      runZoneValidation(savedId).then(() => {
+        const issues = lastValidatorReport?.summary?.totalIssues;
+        if (issues > 0) toast(`Zone saved — ${issues} exit issue(s) found (see Validator)`, true);
+      }).catch(() => {});
+    }
     await loadPanel(currentPanel);
     closeEdit();
   } catch (err) {
@@ -1870,6 +1884,137 @@ function openGhostMode() {
   const zone = prompt('Enter zone ID to observe:');
   if (!zone) return;
   toast(`Ghost mode: observing ${zone}`);
+}
+
+// --- Zone Validator panel ---
+
+let validatorAutoRun = localStorage.getItem('validator-auto-run') === 'true';
+let lastValidatorReport = null;
+
+function renderValidatorPanel() {
+  const panel = document.getElementById('list-panel');
+  panel.innerHTML = `
+    <div style="padding:20px;max-width:860px">
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px">
+        <button class="action-btn primary" onclick="runFullValidation()">Run Full Validation</button>
+        <div style="display:flex;gap:6px;align-items:center">
+          <input id="v-zone-id" class="field-input" style="width:220px" placeholder="zone_city_center" />
+          <button class="action-btn" onclick="runZoneValidation()">Validate Zone</button>
+        </div>
+        <label style="display:flex;align-items:center;gap:6px;color:var(--text-dim);font-size:13px;cursor:pointer">
+          <input type="checkbox" id="v-auto-run" ${validatorAutoRun ? 'checked' : ''} onchange="toggleValidatorAutoRun(this.checked)" />
+          Auto-validate on zone save
+        </label>
+        <button class="action-btn" onclick="exportValidatorReport()" style="margin-left:auto">Export JSON</button>
+      </div>
+      <div id="validator-results" style="color:var(--text-dim);font-size:13px">
+        Click <strong>Run Full Validation</strong> to scan all zone exits for integrity issues.
+      </div>
+    </div>`;
+}
+
+function toggleValidatorAutoRun(val) {
+  validatorAutoRun = val;
+  localStorage.setItem('validator-auto-run', val);
+}
+
+async function runFullValidation(opts = {}) {
+  const el = document.getElementById('validator-results');
+  if (el) el.innerHTML = '<span style="color:var(--text-dim)">Running full validation…</span>';
+  try {
+    const result = await API('/worldvalidator/run-full', 'POST', opts);
+    lastValidatorReport = result;
+    renderValidatorResults(result);
+  } catch (err) {
+    if (el) el.innerHTML = `<span style="color:var(--danger)">Error: ${err.message}</span>`;
+  }
+}
+
+async function runZoneValidation(zoneId) {
+  const id = zoneId || document.getElementById('v-zone-id')?.value?.trim();
+  if (!id) { toast('Enter a zone ID first', true); return; }
+  const el = document.getElementById('validator-results');
+  if (el) el.innerHTML = `<span style="color:var(--text-dim)">Validating ${id}…</span>`;
+  try {
+    const result = await API('/worldvalidator/run-zone', 'POST', { zoneId: id });
+    lastValidatorReport = result;
+    renderValidatorResults(result);
+  } catch (err) {
+    if (el) el.innerHTML = `<span style="color:var(--danger)">Error: ${err.message}</span>`;
+  }
+}
+
+const ISSUE_LABELS = {
+  null_dest:      'Null destination',
+  self_loop:      'Self-loop',
+  missing_dest:   'Missing destination',
+  duplicate_dest: 'Duplicate destination',
+};
+
+function renderValidatorResults(r) {
+  const el = document.getElementById('validator-results');
+  if (!el) return;
+  if (r.error) { el.innerHTML = `<span style="color:var(--danger)">${r.error}</span>`; return; }
+
+  const s = r.summary;
+  const ok = s.totalIssues === 0;
+  const summaryColor = ok ? 'var(--success)' : 'var(--warning)';
+
+  let html = `<div style="margin-bottom:14px;padding:12px;background:var(--bg3);border-radius:6px">
+    <div style="font-size:15px;font-weight:600;color:${summaryColor};margin-bottom:6px">
+      ${ok ? '✓ No issues found' : `⚠ ${s.totalIssues} issue${s.totalIssues !== 1 ? 's' : ''} found`}
+    </div>
+    <div style="color:var(--text-dim);font-size:12px;display:flex;gap:20px;flex-wrap:wrap">
+      <span>Zones scanned: <strong>${r.zonesScanned}</strong></span>
+      <span>Exits scanned: <strong>${r.exitsScanned}</strong></span>
+      <span>Auto-repaired: <strong>${r.totalRepairs}</strong></span>
+    </div>`;
+
+  if (!ok) {
+    html += `<div style="margin-top:8px;font-size:12px;color:var(--text-dim);display:flex;gap:16px;flex-wrap:wrap">`;
+    for (const [type, count] of Object.entries(s.byType)) {
+      html += `<span>${ISSUE_LABELS[type] || type}: <strong>${count}</strong></span>`;
+    }
+    html += `</div>`;
+  }
+  html += `</div>`;
+
+  if (r.issues.length > 0) {
+    html += `<table><thead><tr>
+      <th>Zone</th><th>Direction</th><th>Destination</th><th>Issue</th><th>Status</th>
+    </tr></thead><tbody>`;
+    for (const issue of r.issues) {
+      const status = issue.repaired
+        ? `<span style="color:var(--success)">Auto-repaired</span>`
+        : `<span style="color:var(--warning)">Manual review</span>`;
+      html += `<tr>
+        <td><code>${issue.zoneId}</code></td>
+        <td>${issue.dir}</td>
+        <td><code>${issue.destId ?? '—'}</code></td>
+        <td>${ISSUE_LABELS[issue.type] || issue.type}</td>
+        <td>${status}</td>
+      </tr>`;
+    }
+    html += `</tbody></table>`;
+  }
+
+  if (r.needsManualReview?.length > 0) {
+    html += `<div style="margin-top:12px;padding:10px;background:var(--bg3);border-radius:6px;font-size:12px">
+      <strong style="color:var(--warning)">Needs manual review:</strong>
+      <div style="margin-top:4px;color:var(--text-dim)">${r.needsManualReview.map(id => `<code>${id}</code>`).join(', ')}</div>
+    </div>`;
+  }
+
+  el.innerHTML = html;
+}
+
+function exportValidatorReport() {
+  if (!lastValidatorReport) { toast('Run a validation first', true); return; }
+  const blob = new Blob([JSON.stringify(lastValidatorReport, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `zone-validator-${Date.now()}.json`; a.click();
+  URL.revokeObjectURL(url);
 }
 
 // Toast
