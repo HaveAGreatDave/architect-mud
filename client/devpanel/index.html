@@ -580,6 +580,7 @@ async function deleteRecord() {
 function zoneEditForm(rec, isNew) {
   const exits = rec.exits || {};
   const ambients = Array.isArray(rec.ambient_events) ? rec.ambient_events : [];
+  const flags = rec.flags || {};
   return `
     <div class="field"><label>Zone ID</label><input id="f-id" value="${isNew ? '' : rec.id}" ${!isNew ? 'readonly style="opacity:0.5"' : ''}></div>
     <div class="field"><label>Name</label><input id="f-name" value="${rec.name || ''}"></div>
@@ -594,6 +595,7 @@ function zoneEditForm(rec, isNew) {
     </div>
     <div class="checkbox-field"><input type="checkbox" id="f-pvp_enabled" ${rec.pvp_enabled?'checked':''}><label>PvP Enabled</label></div>
     <div class="checkbox-field"><input type="checkbox" id="f-is_safe_zone" ${rec.is_safe_zone?'checked':''}><label>Safe Zone (no PvP, anchor point)</label></div>
+    <div class="checkbox-field"><input type="checkbox" id="f-is_apartment" ${flags.is_apartment?'checked':''}><label>Rentable Apartment (players can RENT, LOCK, SLEEP here)</label></div>
     <div class="field"><label>Exits (JSON object)</label><textarea id="f-exits" rows="4">${JSON.stringify(exits, null, 2)}</textarea></div>
     <div class="field"><label>Ambient Events (JSON array of strings)</label><textarea id="f-ambient_events" rows="6">${JSON.stringify(ambients, null, 2)}</textarea></div>
   `;
@@ -606,6 +608,9 @@ async function saveZone(existing) {
   try { exits = JSON.parse(document.getElementById('f-exits').value); } catch { return { error: 'Exits: invalid JSON' }; }
   try { ambients = JSON.parse(document.getElementById('f-ambient_events').value); } catch { return { error: 'Ambient events: invalid JSON' }; }
 
+  const existingFlags = existing?.flags || {};
+  const flags = { ...existingFlags, is_apartment: document.getElementById('f-is_apartment').checked };
+
   const body = {
     name: document.getElementById('f-name').value,
     description: document.getElementById('f-description').value,
@@ -613,7 +618,7 @@ async function saveZone(existing) {
     radiation_level: parseInt(document.getElementById('f-radiation_level').value)||0,
     pvp_enabled: document.getElementById('f-pvp_enabled').checked,
     is_safe_zone: document.getElementById('f-is_safe_zone').checked,
-    exits, ambient_events: ambients,
+    exits, ambient_events: ambients, flags,
   };
 
   if (isNew) { body.id = id; return API('/zones', 'POST', body); }

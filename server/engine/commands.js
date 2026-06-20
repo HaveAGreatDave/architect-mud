@@ -6,6 +6,7 @@ import { RECIPES, getAvailableRecipes, attemptCraft } from './crafting.js';
 import { getPlayerMutations } from './mutations.js';
 import { getPlayerFactionRep } from './factions.js';
 import { getVendorStock, buyFromVendor, sellToVendor } from './vendor.js';
+import { cmdRent, cmdLockDoor, cmdUpgradeLock, cmdPickLock, cmdSleep, describeApartmentStatus } from './apartments.js';
 import { randomUUID } from 'crypto';
 
 export async function describeZone(zone, player) {
@@ -27,6 +28,7 @@ export async function describeZone(zone, player) {
   if (zone.radiation_level > 0) desc += ` <span class="rad-warning">☢ RAD:${zone.radiation_level}</span>`;
   if (zone.pvp_enabled) desc += ` <span class="pvp-warning">⚔ PVP</span>`;
   desc += `\n${zone.description}`;
+  desc += await describeApartmentStatus(zone);
 
   // Weave notable ground items directly into the prose, underlined and
   // clickable, the way HellMOO highlights interactable nouns in room text.
@@ -103,6 +105,14 @@ export async function handleCommand(input, player, broadcast) {
     case 'buy': return cmdBuy(args, player);
     case 'sell': return cmdSell(args, player);
     case 'loot': return cmdLootCorpse(args.join(' '), player, broadcast);
+    case 'rent': return cmdRent(player);
+    case 'lock': return cmdLockDoor(player, true);
+    case 'unlock': return cmdLockDoor(player, false);
+    case 'pick': case 'picklock': return cmdPickLock(player);
+    case 'sleep': case 'rest': return cmdSleep(player);
+    case 'upgrade':
+      if (args[0] === 'lock') return cmdUpgradeLock(player);
+      return { type:'error', message:'Upgrade what? Try "upgrade lock".' };
     case 'help': case '?': return cmdHelp();
     default: return { type:'error', message:`Unknown command: "${cmd}". Type HELP for commands.` };
   }
@@ -423,11 +433,12 @@ async function cmdLootCorpse(targetStr, player, broadcast) {
 function cmdHelp() {
   return { type:'help', message:`<span class="help-header">COMMANDS</span>
 
-<span class="help-category">MOVEMENT</span>    north south east west up down  |  go &lt;dir&gt;
+<span class="help-category">MOVEMENT</span>    north south east west up down (n/s/e/w/u/d)  |  go &lt;dir&gt;
 <span class="help-category">COMBAT</span>      attack &lt;target&gt;  |  loot &lt;corpse&gt;
 <span class="help-category">ITEMS</span>       inventory  take &lt;item&gt;  drop  use  equip
 <span class="help-category">CRAFTING</span>    recipes  |  craft &lt;recipe_id&gt;
 <span class="help-category">TRADING</span>     shop &lt;npc&gt;  |  buy &lt;item&gt;  |  sell &lt;item&gt;
+<span class="help-category">PROPERTY</span>    rent  |  lock  |  unlock  |  pick  |  upgrade lock  |  sleep
 <span class="help-category">CHARACTER</span>   stats  skills  mutations  factions
 <span class="help-category">SOCIAL</span>      talk &lt;npc&gt;  |  say &lt;message&gt;  |  who
 <span class="help-category">INFO</span>        look  examine &lt;thing&gt;  help` };

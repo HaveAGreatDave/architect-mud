@@ -68,7 +68,7 @@ Skills are grouped into trees but not locked — you can dabble in anything, but
 ### Skill Categories
 - **Combat** — Brawling, Bladed, Firearms, Explosives, Energy Weapons
 - **Survival** — Scavenging, Cooking, Medicine, Navigation
-- **Tech** — Hacking, Electronics, Fabrication, Drone Ops
+- **Tech** — Hacking, Electronics, Fabrication, Drone Ops, Security
 - **Social** — Persuasion, Intimidate, Deception, Faction Lore
 - **Arcane-Tech** — Architect Interface (rare, dangerous, late-game)
 
@@ -106,13 +106,13 @@ Four survival meters. All are threats. None are fun to micromanage — so the de
 ## Combat
 
 ### Feel
-Real-time with cooldowns. Inspired by HellMOO. You type or click commands, they execute, they go on cooldown. Positioning matters within a room (range, cover flags). Multiple enemies gang up. Fleeing is always an option but never guaranteed.
+Real-time with cooldowns. Inspired by HellMOO. You type or click commands, they execute, they go on cooldown. Multiple enemies gang up. Fleeing is always an option but never guaranteed.
 
 ### Structure
-- Each **action** has a cooldown (0.5s – 4s depending on action weight)
+- Each **action** has a cooldown — attack ~3.5s, flee ~4s, item use ~2.5s. Tuned deliberately slower than an early draft that played faster than HellMOO itself.
 - **Attack** rolls against target's defense — modified by skill, stats, and equipment
 - **Status effects** — bleeding, stunned, burning, irradiated, panicked — all have durations and tick effects
-- **Enemies act on their own timers** — you are never truly safe standing still
+- **Enemies act on their own timers**, scaled by their AGI stat (faster enemies attack more often) — you are never truly safe standing still next to something hostile
 
 ### Death
 Death is not the end. It is a setback with flavor.
@@ -151,6 +151,13 @@ Each zone has:
 - **Ambient events** that fire periodically (flavor text, world events, NPC activity)
 - **Points of interest** — lootable, interactive, or quest-relevant locations within the zone
 
+### Map Shape (As Built)
+The world is a 5×5 grid. The center 3×3 is the safe city core (Coldwater Basin) — always PvP-off, zero enemy spawns, no radiation. It's surrounded by a 16-zone ring of badlands where every enemy spawn lives, with danger increasing the further a zone sits from the city: tiles directly bordering the city are medium danger, the next ring out is mostly high, and the four corners are lethal.
+
+This was a deliberate shape, not just a generic grid — the goal is that players cluster and interact with each other in the safe core, and have to make a real decision to leave it and travel into danger to find combat. Enemies do not spawn in the city under any circumstance.
+
+A residential block (apartments — see below) branches off the city core via a `down` exit, off the main directional grid.
+
 ### Safe Zones
 Every region has at least one safe zone — a hub where PvP is off, vendors exist, and players can anchor. Safe zones are not paradise. They are just places where you probably won't die *today*.
 
@@ -177,9 +184,45 @@ This is a shared persistent world. All players exist in the same space.
 - **Social layer** — guilds/crews, shared anchors, group combat bonuses
 - **World events** — periodic server-wide events that all players can participate in or ignore
 
+## Loot & Death Economy
+
+### Full Loot PvP
+When a player kills another player, the corpse is fully lootable — every item, every piece of equipment. This is the rule everywhere, in all zones.
+
+This is a hard design commitment with cascading implications:
+- **Economy is player-driven and brutal.** Rare items circulate because they can be taken.
+- **Safe zones are sacred.** Players will treat hub zones with genuine relief.
+- **Social reputation matters.** Being known as a griefer has real consequences in a persistent world.
+- **Gear is never truly safe.** Players make active decisions about what to carry into dangerous zones.
+
+Death from the environment (enemies, traps, starvation) drops a lootable corpse too — but any player can loot it, not just the killer.
+
+Corpses persist for 10 minutes real-time. A timer is shown to the dead player so they can race back.
+
 ---
 
-## Progression Feel
+## Crafting System
+
+Crafting is a deep simulation. Material quality and tool skill both affect output. This is a primary progression path, not a side system.
+
+### How It Works
+- **Materials have quality tiers** — Scrap / Common / Refined / Pristine / Architect-Grade
+- **Tools have condition** — a degraded workbench produces worse results than a maintained one
+- **Skill governs outcomes** — Fabrication (and sub-skills) determine success rate, quality ceiling, and what recipes are available
+- **Recipes are discovered** — found in the world, traded, or unlocked through faction rep. Some are faction-exclusive.
+
+### Output Variability
+The same recipe with the same materials produces different results based on skill roll + material quality:
+- Low skill + scrap materials = functional but poor quality (lower durability, weaker stats)
+- High skill + pristine materials = exceptional output (top-tier stats, sometimes bonus properties)
+- Critical success (rare): unique named item with a randomly generated bonus property
+
+### Crafting Stations
+Some recipes require specific stations — a weapons bench, a chemistry set, an Architect terminal. Stations exist in the world and are sometimes contested, controlled by factions, or hidden in dangerous zones.
+
+Players can build and own portable stations (lower quality ceiling than world stations).
+
+---
 
 Early game: fragile, funny, dying a lot, learning the world
 Mid game: a recognizable character with a reputation and a build
@@ -189,8 +232,39 @@ The arc is: **nobody → somebody → legend or corpse**
 
 ---
 
+---
+
+## Apartments & Property
+
+Players can rent a fixed apartment unit, lock it, and use it as a guaranteed-safe place to rest — the answer to "where do I actually feel safe" in a world built around full-loot PvP.
+
+### Renting
+Apartment zones are unowned by default and cost a flat credit price to claim (`rent`). Once rented, the unit belongs to that player until further notice — there's currently no rent decay or repossession, so it's a one-time purchase rather than an ongoing cost. (Flagged as a likely future addition — see Open Design Questions.)
+
+### Locks & Lockpicking
+An owner can `lock`/`unlock` their own door at will. A locked door blocks everyone but the owner from entering or sleeping there.
+
+Anyone can `pick` a locked door that isn't theirs. This runs a skill check using the new **Security** skill (tech category) against the door's **lock difficulty** — same d10 + rank + stat-bonus formula used everywhere else in the game. A failed attempt still grants a small amount of Security XP, so repeated failed attempts make a player gradually better at picking locks in general, even without succeeding on this particular door.
+
+Owners can `upgrade lock` to spend credits raising the difficulty, making their door harder to pick over time. This creates a small, ongoing economic sink and a light security arms race — a well-funded player can make their apartment meaningfully safer than a new player's.
+
+### Sleeping
+`sleep` (or `rest`) restores HP and Sanity, scaled by how safe the location actually is:
+- **Your own locked apartment** — full restore. This is the only guaranteed-safe full rest in the game.
+- **Any other safe zone, or someone else's unlocked apartment** — partial restore. Good enough to keep going, not as good as home.
+- **Anywhere dangerous** — sleep doesn't work at all.
+
+This gives apartments a clear, constant value (better rest) without making them mandatory — a player who never rents one can still recover in the city core, just more slowly.
+
+### Why this design
+This was originally an open question ("Housing / base building for players or crews?"). The answer that shipped is deliberately small in scope: no decor, no storage, no crew-shared housing yet. It exists to give the full-loot-PvP economy a "home base" concept and to give the Security skill a clear, repeatable use, without committing to a much larger base-building system before there's a player base to validate it's wanted.
+
+---
+
 ## Open Design Questions
-- PvP looting rules — full loot or protected inventory?
-- Crafting depth — simple (combine X+Y) or complex (recipes, tools, stations)?
-- Does the Architect Interface skill have a quest line, or is it purely emergent?
-- Housing / base building for players or crews?
+- Do crafting stations degrade and need maintenance, or are they permanent?
+- Can players set up player-run shops / vending in safe zones?
+- PvP flagging in mid-tier zones — fully open or opt-in?
+- Apartment storage — a per-unit inventory chest is a natural extension, not yet built
+- Apartment upkeep — should ownership lapse without payment, or is a one-time purchase the final design?
+- Crew/guild-shared apartments — currently single-owner only

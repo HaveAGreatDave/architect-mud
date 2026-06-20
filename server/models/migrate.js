@@ -170,11 +170,23 @@ export async function migrate() {
       created_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
     );
 
+    CREATE TABLE IF NOT EXISTS apartments (
+      zone_id TEXT PRIMARY KEY,
+      owner_id TEXT,
+      owner_handle TEXT,
+      is_locked INTEGER DEFAULT 0,
+      lock_difficulty INTEGER DEFAULT 1,
+      rent_cost INTEGER DEFAULT 100,
+      purchased_at BIGINT,
+      FOREIGN KEY (zone_id) REFERENCES zones(id)
+    );
+
     CREATE INDEX IF NOT EXISTS idx_players_username ON players(username);
     CREATE INDEX IF NOT EXISTS idx_player_inventory_player ON player_inventory(player_id);
     CREATE INDEX IF NOT EXISTS idx_zone_spawns_zone ON zone_spawns(zone_id);
     CREATE INDEX IF NOT EXISTS idx_world_events_zone ON world_events(zone_id);
     CREATE INDEX IF NOT EXISTS idx_world_events_time ON world_events(created_at);
+    CREATE INDEX IF NOT EXISTS idx_apartments_owner ON apartments(owner_id);
   `);
 
   console.log('✓ Database migrated (Postgres)');

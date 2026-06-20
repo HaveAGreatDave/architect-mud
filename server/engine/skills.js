@@ -13,6 +13,7 @@ export const SKILLS = {
   electronics: { id:'electronics', name:'Electronics', category:'tech',     stat:'stat_int' },
   fabrication: { id:'fabrication', name:'Fabrication', category:'tech',     stat:'stat_int' },
   drone_ops:   { id:'drone_ops',   name:'Drone Ops',   category:'tech',     stat:'stat_agi' },
+  security:    { id:'security',    name:'Security',    category:'tech',     stat:'stat_agi' },
   persuasion:  { id:'persuasion',  name:'Persuasion',  category:'social',   stat:'stat_cha' },
   intimidate:  { id:'intimidate',  name:'Intimidate',  category:'social',   stat:'stat_str' },
   deception:   { id:'deception',   name:'Deception',   category:'social',   stat:'stat_cha' },

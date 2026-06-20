@@ -8,13 +8,15 @@ const world = {
   npcs: new Map(),
   corpses: new Map(),
   spawnTimers: new Map(),
+  apartments: new Map(), // zoneId -> apartment row
 };
 
 export async function initWorld() {
   await loadZones();
   await loadNpcs();
   await loadSpawnTemplates();
-  console.log(`✓ World loaded: ${world.zones.size} zones, ${world.npcs.size} NPCs`);
+  await loadApartments();
+  console.log(`✓ World loaded: ${world.zones.size} zones, ${world.npcs.size} NPCs, ${world.apartments.size} apartments`);
 }
 
 async function loadZones() {
@@ -54,6 +56,16 @@ async function loadSpawnTemplates() {
     world.spawnTimers.set(spawn.id, { ...spawn, nextSpawn: Date.now() });
   }
 }
+
+async function loadApartments() {
+  const { rows } = await query('SELECT * FROM apartments');
+  for (const apt of rows) {
+    world.apartments.set(apt.zone_id, apt);
+  }
+}
+
+export function getApartment(zoneId) { return world.apartments.get(zoneId) || null; }
+export function setApartmentCache(zoneId, apt) { world.apartments.set(zoneId, apt); }
 
 export function getZone(id) { return world.zones.get(id) || null; }
 
