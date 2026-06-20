@@ -1,5 +1,6 @@
 import { query } from '../models/db.js';
-import { reloadZone, getAllZones, world, getAllLivePlayers } from '../engine/world.js';
+import { reloadZone, getAllZones, world, getAllLivePlayers, getZone, addPlayerToZone, removePlayerFromZone, getMinimapData } from '../engine/world.js';
+import { describeZone, describeVoidTeleport } from '../engine/commands.js';
 import { loadRecipes } from '../engine/crafting.js';
 import { loadDrugs } from '../engine/drugs.js';
 import { loadMutations } from '../engine/mutations.js';
@@ -8,6 +9,12 @@ import { handleEnvironmentApi } from './environment.routes.js';
 
 const hashPassword = pw => createHash('sha256').update(pw).digest('hex');
 const makeToken = (playerId, role) => Buffer.from(`${playerId}:${role}:${Date.now()}`).toString('base64');
+
+// Set once from index.js's boot() — lets route handlers (specifically zone
+// deletion) push messages to live players without threading a broadcast
+// function through every single handler call.
+let broadcastFn = null;
+export function setBroadcast(fn) { broadcastFn = fn; }
 function verifyToken(headers) {
   const token = (headers?.authorization||'').replace('Bearer ','');
   if (!token) return null;
@@ -176,6 +183,30 @@ async function apiAddRoom(parentZoneId, body) {
   } catch(e) { return { status:400, body:{error:e.message} }; }
 }
 
+// Called after zone(s) are removed from the DB. Any currently-connected
+// player whose current_zone was just deleted gets pulled back to
+// zone_start immediately — DB row, in-memory zone membership, and their
+// live client all updated — instead of being left pointed at a zone that
+// no longer exists until their next reconnect (which the login-time check
+// in index.js's handleAuth covers separately, for anyone offline right now).
+async function rescueDisplacedPlayers(deletedZoneIds) {
+  if (!deletedZoneIds.length) return;
+  const deletedSet = new Set(deletedZoneIds);
+  for (const player of getAllLivePlayers()) {
+    if (!deletedSet.has(player.current_zone)) continue;
+    removePlayerFromZone(player.id, player.current_zone);
+    player.current_zone = 'zone_start';
+    addPlayerToZone(player.id, 'zone_start');
+    await query('UPDATE players SET current_zone=$1 WHERE id=$2', ['zone_start', player.id]).catch(()=>{});
+
+    if (!broadcastFn) continue;
+    const startZone = getZone('zone_start');
+    const lookMessage = startZone ? await describeZone(startZone, player) : '';
+    broadcastFn(null, { type:'move', message: describeVoidTeleport() + lookMessage, zone:'zone_start', minimap: getMinimapData('zone_start') }, null, player.id);
+    broadcastFn('zone_start', { type:'zone_event', message:`${player.handle} flickers into existence out of nowhere.` }, player.id);
+  }
+}
+
 async function apiDeleteZone(id) {
   if (id==='zone_start') return {status:400,body:{error:'Cannot delete spawn zone'}};
   try {
@@ -189,9 +220,10 @@ async function apiDeleteZone(id) {
        AND EXISTS (SELECT 1 FROM jsonb_each_text(exits) e WHERE e.value = $1)`,
       [id]
     );
+    const allDeletedIds = [id, ...children.map(c => c.id)];
     // Any NPC or furniture in the building itself or any of its cascaded
     // rooms would otherwise be orphaned (zone_id pointing at nothing).
-    for (const zid of [id, ...children.map(c => c.id)]) {
+    for (const zid of allDeletedIds) {
       await query('DELETE FROM npcs WHERE zone_id=$1', [zid]);
       await query('DELETE FROM furniture WHERE zone_id=$1', [zid]);
     }
@@ -202,6 +234,7 @@ async function apiDeleteZone(id) {
     }
     await query('DELETE FROM zones WHERE id=$1',[id]);
     world.zones.delete(id);
+    await rescueDisplacedPlayers(allDeletedIds);
     return {status:200,body:{message: children.length ? `Zone deleted (and ${children.length} attached room${children.length>1?'s':''})` : 'Zone deleted'}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }

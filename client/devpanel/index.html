@@ -413,7 +413,6 @@ const PANELS = {
       { key: 'name', label: 'Name' },
       { key: 'danger_rating', label: 'Danger', render: v => `<span class="badge badge-${v}">${v}</span>` },
       { key: 'pvp_enabled', label: 'PvP', render: v => v ? '<span class="badge badge-pvp">PvP</span>' : '' },
-      { key: 'is_safe_zone', label: 'Safe', render: v => v ? '<span class="badge badge-safe-zone">Safe</span>' : '' },
       { key: 'player_count', label: 'Players' },
       { key: 'exits', label: 'Exits', render: v => typeof v === 'object' ? Object.keys(v||{}).join(', ') : '' },
     ],

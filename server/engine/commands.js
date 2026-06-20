@@ -19,6 +19,22 @@ const turretCooldowns = new Map();
 // model (GDD §7). Falls back to "clear" automatically if the environment
 // system never initialized, since getZoneVisibility() reads safe in-memory
 // defaults rather than throwing.
+// Flavor for a player forcibly pulled out of a zone that no longer exists
+// (deleted out from under them, or stale current_zone from before a map
+// shrink). The admin "teleport" command doesn't use this — that's a
+// deliberate move and gets a normal zone look instead. Exported so the
+// server's connection-handling and zone-deletion code (index.js, routes.js)
+// can reuse the exact same flavor instead of duplicating it.
+const VOID_TELEPORT_MESSAGES = [
+  `The floor, the walls, the air itself — all of it just isn't there anymore. You fall through something that isn't falling, for a length of time that isn't time. Then the world reasserts itself around you, all at once.`,
+  `Wherever you just were stops existing mid-step. There's a gap — not dark, not light, just absence — and then solid ground again, like it never happened.`,
+  `Reality hiccups. For a moment there's nothing under you, nothing around you, nothing anywhere at all. Then you're standing somewhere else, and your legs remember how to hold you up.`,
+];
+export function describeVoidTeleport() {
+  const msg = VOID_TELEPORT_MESSAGES[Math.floor(Math.random() * VOID_TELEPORT_MESSAGES.length)];
+  return `\n<span class="zone-name">— VOID —</span>\n${msg}`;
+}
+
 function describeLightLevel(category) {
   if (category === 'dark') return `<span class="light-level light-dark">It's dark here — you can only make out shadows and shapes.</span>`;
   if (category === 'dim') return `<span class="light-level light-dim">Light is dim; details are hard to make out.</span>`;
@@ -315,8 +331,9 @@ export async function handleCommand(input, player, broadcast) {
     case 'upgrade':
       if (args[0] === 'lock') return cmdUpgradeLock(player);
       return { type:'error', message:'Upgrade what? Try "upgrade lock".' };
-    case 'help': case '?': return cmdHelp();
+    case 'help': case '?': return cmdHelp(player);
     case 'obama': return cmdObama(args.join(' '), player, broadcast);
+    case 'teleport': case 'tp': return cmdTeleport(args.join(' '), player, broadcast);
     default: return { type:'error', message:`Unknown command: "${cmd}". Type HELP for commands.` };
   }
 }
@@ -391,6 +408,28 @@ async function cmdMove(direction, player, broadcast) {
     }
   }
   return { type:'move', message:await describeZone(targetZone, player), zone:targetId, radiation_gain:radGain, minimap: getMinimapData(targetId) };
+}
+
+// Admin-only direct travel to any zone by id, bypassing exits entirely —
+// for quickly checking content without walking a route. Same move/arrival
+// mechanics as cmdMove (zone membership, DB sync, broadcasts), just without
+// requiring an exit to exist.
+async function cmdTeleport(targetZoneId, player, broadcast) {
+  if (player.role !== 'admin') return { type:'error', message:"You don't have the clearance for that." };
+  if (!targetZoneId) return { type:'error', message:'Teleport where? Usage: teleport <zone id>' };
+  const targetZone = getZone(targetZoneId);
+  if (!targetZone) return { type:'error', message:`No zone with id "${targetZoneId}" exists.` };
+
+  const oldZoneId = player.current_zone;
+  removePlayerFromZone(player.id, oldZoneId);
+  addPlayerToZone(player.id, targetZoneId);
+  player.current_zone = targetZoneId;
+  await query('UPDATE players SET current_zone=$1 WHERE id=$2', [targetZoneId, player.id]);
+
+  broadcast(oldZoneId, { type:'zone_event', message:`${player.handle} vanishes in a flicker of static.` }, player.id);
+  broadcast(targetZoneId, { type:'zone_event', message:`${player.handle} flickers into existence out of nowhere.` }, player.id);
+
+  return { type:'move', message: await describeZone(targetZone, player), zone: targetZoneId, minimap: getMinimapData(targetZoneId) };
 }
 
 async function cmdAttack(targetStr, player, broadcast) {
@@ -900,8 +939,8 @@ async function cmdLootCorpse(targetStr, player, broadcast) {
   return { type:'loot', message:`You loot the corpse: ${looted.join(', ')}.` };
 }
 
-function cmdHelp() {
-  return { type:'help', message:`<span class="help-header">COMMANDS</span>
+function cmdHelp(player) {
+  let msg = `<span class="help-header">COMMANDS</span>
 
 <span class="help-category">MOVEMENT</span>    north south east west up down (n/s/e/w/u/d)  |  go &lt;dir&gt;
 <span class="help-category">COMBAT</span>      attack &lt;target&gt;  |  loot &lt;corpse&gt;
@@ -912,5 +951,9 @@ function cmdHelp() {
 <span class="help-category">PROPERTY</span>    rent  |  lock  |  unlock  |  pick  |  upgrade lock  |  sleep
 <span class="help-category">CHARACTER</span>   stats  skills  mutations  factions
 <span class="help-category">SOCIAL</span>      talk &lt;npc&gt;  |  say &lt;message&gt;  |  who
-<span class="help-category">INFO</span>        look  |  look &lt;me/item/player&gt;  |  examine &lt;thing&gt;  help` };
+<span class="help-category">INFO</span>        look  |  look &lt;me/item/player&gt;  |  examine &lt;thing&gt;  help`;
+  if (player?.role === 'admin') {
+    msg += `\n<span class="help-category">ADMIN</span>      teleport &lt;zone id&gt;  (tp)`;
+  }
+  return { type:'help', message: msg };
 }
