@@ -97,6 +97,8 @@
   th.sortable-col:hover { color: var(--accent); }
   th.sortable-col.sorted { color: var(--accent); }
   td { padding: 8px 12px; border-bottom: 1px solid var(--bg3); vertical-align: top; }
+  .zone-child-row td { background: var(--bg2); color: var(--text-dim); }
+  .zone-child-indent { color: var(--text-dim); margin-right: 4px; }
   tr:hover td { background: var(--bg2); }
   tr.selected td { background: rgba(123,104,238,0.1); }
 
@@ -397,6 +399,7 @@ const PANELS = {
     editForm: zoneEditForm,
     save: saveZone,
     delete: id => API(`/zones/${id}`, 'DELETE'),
+    render: () => renderZonesTable(allRecords),
   },
   enemies: {
     title: 'Enemies',
@@ -573,10 +576,82 @@ function renderTable(columns, records, noEdit = false) {
   panel.innerHTML = html;
 }
 
+// Zones-specific renderer: any zone flagged is_apartment is treated as a
+// unit belonging to whatever zone its (single) exit leads back to — that's
+// how apiBuildApartmentBlock wires units to their lobby, and how the
+// hand-seeded apartment zones are wired too. Units are listed immediately
+// under their parent building instead of the flat alphabetical/sorted list,
+// and excluded from the top-level rows so they don't appear twice. A unit
+// whose parent isn't in the current zone list (orphaned) just falls back
+// to a normal top-level row, sorted in as usual.
+function renderZonesTable(records) {
+  const panel = document.getElementById('list-panel');
+  if (!records.length) { panel.innerHTML = '<div style="padding:24px;color:var(--text-dim)">No records found.</div>'; return; }
+
+  const byId = new Map(records.map(z => [z.id, z]));
+  const childrenByParent = new Map();
+  const childIds = new Set();
+
+  for (const z of records) {
+    if (!z.flags?.is_apartment) continue;
+    const parentId = Object.values(z.exits || {})[0];
+    if (parentId && byId.has(parentId)) {
+      if (!childrenByParent.has(parentId)) childrenByParent.set(parentId, []);
+      childrenByParent.get(parentId).push(z);
+      childIds.add(z.id);
+    }
+  }
+
+  let topLevel = records.filter(z => !childIds.has(z.id));
+  if (sortState.key) {
+    topLevel = [...topLevel].sort((a, b) => {
+      let av = a[sortState.key], bv = b[sortState.key];
+      if (av == null) av = '';
+      if (bv == null) bv = '';
+      if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * sortState.dir;
+      return String(av).localeCompare(String(bv)) * sortState.dir;
+    });
+  }
+
+  const columns = PANELS.zones.columns;
+  let html = '<table><thead><tr>';
+  for (const col of columns) {
+    const isSorted = sortState.key === col.key;
+    const arrow = isSorted ? (sortState.dir === 1 ? ' ▲' : ' ▼') : '';
+    html += `<th class="sortable-col${isSorted?' sorted':''}" onclick="sortTableBy('${col.key}')">${col.label}${arrow}</th>`;
+  }
+  html += '<th></th></tr></thead><tbody>';
+
+  const renderRow = (rec, isChild) => {
+    let row = `<tr class="${isChild ? 'zone-child-row' : ''}" onclick="selectRecord('${rec.id}')">`;
+    columns.forEach((col, i) => {
+      const raw = rec[col.key];
+      let val = col.render ? col.render(raw) : (raw ?? '—');
+      if (i === 0 && isChild) val = `<span class="zone-child-indent">↳</span>${val}`;
+      row += `<td>${val}</td>`;
+    });
+    row += `<td><button class="action-btn" onclick="event.stopPropagation();editRecord('${rec.id}')">Edit</button></td>`;
+    row += '</tr>';
+    return row;
+  };
+
+  for (const rec of topLevel) {
+    html += renderRow(rec, false);
+    const kids = childrenByParent.get(rec.id);
+    if (kids) {
+      kids.sort((a, b) => String(a.name).localeCompare(String(b.name)));
+      for (const kid of kids) html += renderRow(kid, true);
+    }
+  }
+  html += '</tbody></table>';
+  panel.innerHTML = html;
+}
+
 function sortTableBy(key) {
   if (sortState.key === key) sortState.dir *= -1;
   else { sortState.key = key; sortState.dir = 1; }
   const p = PANELS[currentPanel];
+  if (p?.render) { p.render(allRecords); return; }
   if (p?.columns) renderTable(p.columns, allRecords, p.noEdit);
 }
 
@@ -645,13 +720,18 @@ async function saveRecord() {
 
 async function deleteRecord() {
   if (!currentRecord) return;
-  if (!confirm(`Delete ${currentRecord.name || currentRecord.id}?`)) return;
+  let confirmMsg = `Delete ${currentRecord.name || currentRecord.id}?`;
+  if (currentPanel === 'zones') {
+    const childCount = allRecords.filter(z => z.flags?.is_apartment && Object.values(z.exits || {})[0] === currentRecord.id).length;
+    if (childCount) confirmMsg = `Delete ${currentRecord.name || currentRecord.id}? This will also delete ${childCount} attached room${childCount > 1 ? 's' : ''}.`;
+  }
+  if (!confirm(confirmMsg)) return;
   const p = PANELS[currentPanel];
   if (!p?.delete) return;
   try {
     const result = await p.delete(currentRecord.id);
     if (result?.error) { toast(result.error, true); return; }
-    toast('Deleted');
+    toast(result?.message || 'Deleted');
     await loadPanel(currentPanel);
     closeEdit();
   } catch (err) {

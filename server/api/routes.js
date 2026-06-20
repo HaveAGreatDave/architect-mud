@@ -138,9 +138,23 @@ async function apiUpdateZone(id,body) {
 async function apiDeleteZone(id) {
   if (id==='zone_start') return {status:400,body:{error:'Cannot delete spawn zone'}};
   try {
+    // Cascade: any zone flagged is_apartment whose exits lead back to this
+    // one is a unit belonging to this building (same linkage the dev panel
+    // uses to nest them under it) — delete those first so deleting a
+    // building never leaves orphaned rooms behind.
+    const { rows: children } = await query(
+      `SELECT id FROM zones WHERE (flags->>'is_apartment')::boolean IS TRUE
+       AND EXISTS (SELECT 1 FROM jsonb_each_text(exits) e WHERE e.value = $1)`,
+      [id]
+    );
+    for (const child of children) {
+      await query('DELETE FROM apartments WHERE zone_id=$1', [child.id]);
+      await query('DELETE FROM zones WHERE id=$1', [child.id]);
+      world.zones.delete(child.id);
+    }
     await query('DELETE FROM zones WHERE id=$1',[id]);
     world.zones.delete(id);
-    return {status:200,body:{message:'Zone deleted'}};
+    return {status:200,body:{message: children.length ? `Zone deleted (and ${children.length} attached room${children.length>1?'s':''})` : 'Zone deleted'}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
 async function apiGetEnemies() { const {rows}=await query('SELECT * FROM enemies'); return {status:200,body:rows}; }
