@@ -19,14 +19,150 @@ const turretCooldowns = new Map();
 // model (GDD §7). Falls back to "clear" automatically if the environment
 // system never initialized, since getZoneVisibility() reads safe in-memory
 // defaults rather than throwing.
+// Flavor for a player forcibly pulled out of a zone that no longer exists
+// (deleted out from under them, or stale current_zone from before a map
+// shrink). The admin "teleport" command doesn't use this — that's a
+// deliberate move and gets a normal zone look instead. Exported so the
+// server's connection-handling and zone-deletion code (index.js, routes.js)
+// can reuse the exact same flavor instead of duplicating it.
+const VOID_TELEPORT_MESSAGES = [
+  `The floor, the walls, the air itself — all of it just isn't there anymore. You fall through something that isn't falling, for a length of time that isn't time. Then the world reasserts itself around you, all at once.`,
+  `Wherever you just were stops existing mid-step. There's a gap — not dark, not light, just absence — and then solid ground again, like it never happened.`,
+  `Reality hiccups. For a moment there's nothing under you, nothing around you, nothing anywhere at all. Then you're standing somewhere else, and your legs remember how to hold you up.`,
+];
+export function describeVoidTeleport() {
+  const msg = VOID_TELEPORT_MESSAGES[Math.floor(Math.random() * VOID_TELEPORT_MESSAGES.length)];
+  return `\n<span class="zone-name">— VOID —</span>\n${msg}`;
+}
+
 function describeLightLevel(category) {
   if (category === 'dark') return `<span class="light-level light-dark">It's dark here — you can only make out shadows and shapes.</span>`;
   if (category === 'dim') return `<span class="light-level light-dim">Light is dim; details are hard to make out.</span>`;
   return `<span class="light-level light-clear">Visibility is clear.</span>`;
 }
 
+// --- Building & Room Navigation System ---
+// A zone counts as "interior" for room-listing purposes if it's an
+// apartment unit, a building entrance, or explicitly flagged is_interior
+// (for hand-built houses/interiors not using the apartment-rental system).
+// Buildings are inherently interior too — standing in a lobby, its own
+// further connections should list as Rooms:, the same as standing in any
+// other interior space.
+function isInteriorZone(z) {
+  return !!(z?.flags?.is_interior || z?.flags?.is_apartment || z?.flags?.is_building);
+}
+
+// Splits a zone's exits into three buckets:
+//  - buildings: exits to an is_building-flagged entrance — always shown,
+//    from any zone, so enterable structures are never easy to miss.
+//  - rooms: exits to another interior zone, but only when the CURRENT zone
+//    is itself interior — you only see "rooms" branching off a space
+//    you're already inside, the way buildings are only ever entrances
+//    seen from outside.
+//  - plain: everything else — the regular Exits: line, unchanged.
+function getConnectedDestinations(zone) {
+  const currentIsInterior = isInteriorZone(zone);
+  const buildings = [], rooms = [], plain = [];
+  for (const [direction, targetId] of Object.entries(zone.exits || {})) {
+    const targetZone = getZone(targetId);
+    if (targetZone?.flags?.is_building) {
+      buildings.push({ direction, targetId, name: targetZone.flags.building_name || targetZone.name, type: targetZone.flags.building_type || null });
+    } else if (currentIsInterior && targetZone && isInteriorZone(targetZone)) {
+      rooms.push({ direction, targetId, name: targetZone.name });
+    } else {
+      plain.push(direction);
+    }
+  }
+  return { buildings, rooms, plain };
+}
+
+const DIRECTION_PHRASE = { north:'to the north', south:'to the south', east:'to the east', west:'to the west', up:'above', down:'below' };
+
+// Generic fallback bank, used when a building has no building_type set.
+const BUILDING_FLAVOR_TEMPLATES = [
+  (name, dirPhrase) => `The entrance to ${name} is ${dirPhrase}.`,
+  (name, dirPhrase) => `${name} stands ${dirPhrase}.`,
+  (name, dirPhrase) => `You can see ${name} ${dirPhrase}.`,
+  (name, dirPhrase) => `${name} is ${dirPhrase}.`,
+];
+
+// Type-specific flavor banks — one randomly picked per building per look,
+// same variety mechanism as ambient_events. Keyed by flags.building_type.
+const BUILDING_TYPE_FLAVOR = {
+  hotel: [
+    (name, dirPhrase) => `A faded hotel sign marks the entrance to ${name}, ${dirPhrase}.`,
+    (name, dirPhrase) => `${name}'s revolving door, somehow still turning, sits ${dirPhrase}.`,
+    (name, dirPhrase) => `You can hear faint bar chatter drifting from ${name}, ${dirPhrase}.`,
+    (name, dirPhrase) => `${name} stands ${dirPhrase}, lobby lights flickering but on.`,
+  ],
+  apartment: [
+    (name, dirPhrase) => `A weathered apartment building, ${name}, stands ${dirPhrase}.`,
+    (name, dirPhrase) => `Laundry lines crisscross the windows of ${name}, ${dirPhrase}.`,
+    (name, dirPhrase) => `${name}'s entrance, propped permanently ajar, is ${dirPhrase}.`,
+    (name, dirPhrase) => `You spot mailboxes — most broken into — outside ${name}, ${dirPhrase}.`,
+  ],
+  clinic: [
+    (name, dirPhrase) => `A faded red cross marks the entrance to ${name}, ${dirPhrase}.`,
+    (name, dirPhrase) => `${name} is ${dirPhrase}, a line already forming outside.`,
+    (name, dirPhrase) => `The smell of antiseptic reaches you from ${name}, ${dirPhrase}.`,
+    (name, dirPhrase) => `${name}'s windows are dark except for one lit room, ${dirPhrase}.`,
+  ],
+  store: [
+    (name, dirPhrase) => `${name} occupies the corner ${dirPhrase}, hand-painted prices in the window.`,
+    (name, dirPhrase) => `A flickering OPEN sign hangs in the window of ${name}, ${dirPhrase}.`,
+    (name, dirPhrase) => `${name} is ${dirPhrase}, shelves visible through a cracked storefront.`,
+    (name, dirPhrase) => `You catch the smell of something fried from ${name}, ${dirPhrase}.`,
+  ],
+  warehouse: [
+    (name, dirPhrase) => `An old warehouse, ${name}, looms ${dirPhrase}.`,
+    (name, dirPhrase) => `Corrugated walls mark ${name}, ${dirPhrase}.`,
+    (name, dirPhrase) => `${name}'s loading bay door is ${dirPhrase}, half-open.`,
+    (name, dirPhrase) => `${name} sits ${dirPhrase}, a rusted forklift abandoned out front.`,
+  ],
+};
+
+// Naturally mentions nearby/enterable buildings in the room prose, so
+// players never have to examine every tile to know what's around — one
+// randomly-picked template per building, per look. Uses the type-specific
+// bank when flags.building_type is set and recognized, otherwise the
+// generic fallback bank.
+function describeBuildingDiscovery(buildings) {
+  if (!buildings.length) return '';
+  const sentences = buildings.map(b => {
+    const dirPhrase = DIRECTION_PHRASE[b.direction] || `nearby to the ${b.direction}`;
+    const bank = (b.type && BUILDING_TYPE_FLAVOR[b.type]) || BUILDING_FLAVOR_TEMPLATES;
+    const template = bank[Math.floor(Math.random() * bank.length)];
+    return template(b.name, dirPhrase);
+  });
+  return ' ' + sentences.join(' ');
+}
+
+// Resolves "go/enter <name>" against the buildings and rooms directly
+// connected to the player's current zone. Exact full-name match wins
+// outright; otherwise matches if the typed text is a prefix of ANY
+// individual word in a candidate's name (covers both "the first word as a
+// shortcut" and a later distinguishing word, e.g. "enter Clinic" finding
+// "Riverside Clinic" even though Clinic isn't the first word).
+function resolveNamedDestination(zone, typedNameRaw) {
+  const typed = (typedNameRaw || '').trim().toLowerCase();
+  if (!typed) return { type: 'none' };
+  const { buildings, rooms } = getConnectedDestinations(zone);
+  const candidates = [...buildings, ...rooms];
+  if (!candidates.length) return { type: 'none' };
+
+  const exact = candidates.filter(c => c.name.toLowerCase() === typed);
+  if (exact.length === 1) return { type: 'unique', match: exact[0] };
+
+  const partial = candidates.filter(c =>
+    c.name.toLowerCase().split(/\s+/).some(word => word.startsWith(typed))
+  );
+  if (partial.length === 1) return { type: 'unique', match: partial[0] };
+  if (partial.length > 1) return { type: 'ambiguous', candidates: partial };
+  return { type: 'none' };
+}
+
 export async function describeZone(zone, player) {
-  const exits = Object.keys(zone.exits || {});
+  const { buildings, rooms, plain } = getConnectedDestinations(zone);
   const enemies = getZoneEnemies(zone.id);
   const npcs = getZoneNpcs(zone.id);
   const corpses = getZoneCorpses(zone.id);
@@ -40,12 +176,16 @@ export async function describeZone(zone, player) {
     [`_ground_${zone.id}`]
   );
 
+  // Non-takeable scenery (bar counters, stools, etc.) — examine-only, never
+  // enters an inventory, so it's queried fresh rather than cached.
+  const { rows: furniture } = await query('SELECT * FROM furniture WHERE zone_id = $1', [zone.id]);
+
   let desc = `\n<span class="zone-name">${zone.name}</span>\n`;
   desc += `<span class="zone-danger zone-danger-${zone.danger_rating}">[${zone.danger_rating.toUpperCase()}]</span>`;
   if (zone.radiation_level > 0) desc += ` <span class="rad-warning">☢ RAD:${zone.radiation_level}</span>`;
   if (zone.pvp_enabled) desc += ` <span class="pvp-warning">⚔ PVP</span>`;
   desc += `\n${describeLightLevel(getZoneVisibility(zone.id).category)}`;
-  desc += `\n${zone.description}`;
+  desc += `\n${zone.description}${describeBuildingDiscovery(buildings)}`;
   desc += await describeApartmentStatus(zone);
 
   const outcastResponse = getCustodianOutcastResponse(zone, player);
@@ -73,24 +213,33 @@ export async function describeZone(zone, player) {
     desc += ` Lying here: ${itemMentions.join(', ')}.`;
   }
 
+  if (furniture.length) {
+    const furnitureLinks = furniture.map(f =>
+      `<span class="action-link furniture-link" data-action="examine" data-target="${f.name}" title="Examine ${f.name}">${f.name}</span>`
+    );
+    desc += `\n<span class="furniture-label">Furniture:</span> ${furnitureLinks.join(', ')}`;
+  }
+
   desc += `\n`;
-  if (exits.length) {
-    const exitLinks = exits.map(dir => {
-      const targetZone = getZone(zone.exits[dir]);
-      // A building is just a zone with flags.is_building set — no separate
-      // table. flags.building_name lets the exit label differ from the
-      // zone's own name (e.g. zone "Embassy Hotel — Lobby" but exit tag
-      // "Embassy Hotel & Bar"); falls back to the zone's name otherwise.
-      const buildingName = targetZone?.flags?.is_building
-        ? (targetZone.flags.building_name || targetZone.name)
-        : null;
-      const dirSpan = `<span class="action-link exit-link" data-action="go" data-target="${dir}" title="Go ${dir}">${dir}</span>`;
-      const tagSpan = buildingName
-        ? ` <span class="action-link exit-building-tag" data-action="go" data-target="${dir}" title="Enter ${buildingName}">(${buildingName})</span>`
-        : '';
-      return dirSpan + tagSpan;
-    });
+  if (plain.length) {
+    const exitLinks = plain.map(dir =>
+      `<span class="action-link exit-link" data-action="go" data-target="${dir}" title="Go ${dir}">${dir}</span>`
+    );
     desc += `\n<span class="exits-label">Exits:</span> ${exitLinks.join(', ')}`;
+  }
+  if (buildings.length) {
+    const rows = buildings.map(b => {
+      const dirLabel = b.direction.charAt(0).toUpperCase() + b.direction.slice(1);
+      return `<div class="building-row"><span class="dir-tag">[${dirLabel}]</span> <span class="action-link building-link" data-action="go" data-target="${b.direction}" title="Enter ${b.name}">${b.name}</span></div>`;
+    });
+    desc += `\n<span class="buildings-label">Buildings:</span>${rows.join('')}`;
+  }
+  if (rooms.length) {
+    const rows = rooms.map(r => {
+      const dirLabel = r.direction.charAt(0).toUpperCase() + r.direction.slice(1);
+      return `<div class="room-row"><span class="dir-tag">[${dirLabel}]</span> <span class="action-link room-nav-link" data-action="go" data-target="${r.direction}" title="Go to ${r.name}">${r.name}</span></div>`;
+    });
+    desc += `\n<span class="rooms-label">Rooms:</span>${rows.join('')}`;
   }
   if (others.length) {
     const playerLinks = others.map(p =>
@@ -147,8 +296,8 @@ export async function handleCommand(input, player, broadcast) {
 
   switch (cmd) {
     case 'look': case 'l': return args.length ? cmdLook(player, args.join(' ')) : cmdLook(player);
-    case 'go': case 'move':
-      return cmdMove(args[0], player, broadcast);
+    case 'go': case 'move': case 'enter':
+      return cmdGo(args.join(' '), player, broadcast);
     case 'north': case 'n': return cmdMove('north', player, broadcast);
     case 'south': case 's': return cmdMove('south', player, broadcast);
     case 'east': case 'e': return cmdMove('east', player, broadcast);
@@ -190,8 +339,9 @@ export async function handleCommand(input, player, broadcast) {
     case 'upgrade':
       if (args[0] === 'lock') return cmdUpgradeLock(player);
       return { type:'error', message:'Upgrade what? Try "upgrade lock".' };
-    case 'help': case '?': return cmdHelp();
-    case '/obama': return cmdObama(args.join(' '), player, broadcast);
+    case 'help': case '?': return cmdHelp(player);
+    case 'obama': return cmdObama(args.join(' '), player, broadcast);
+    case 'teleport': case 'tp': return cmdTeleport(args.join(' '), player, broadcast);
     default: return { type:'error', message:`Unknown command: "${cmd}". Type HELP for commands.` };
   }
 }
@@ -208,6 +358,31 @@ async function cmdLook(player, targetStr) {
     return { type:'examine', message: msg };
   }
   return cmdExamine(targetStr, player);
+}
+
+const RAW_DIRECTIONS = ['north', 'south', 'east', 'west', 'up', 'down'];
+
+// Entry point for go/move/enter. A bare literal direction always wins
+// outright — never shadowed by name matching, so "go east" behaves exactly
+// as it always has. Otherwise tries to resolve the typed text against the
+// buildings/rooms connected to the player's current zone (GDD: Building &
+// Room Navigation System) before falling back to the old literal-direction
+// path, which keeps the existing "No exit to the X" error wording for
+// genuinely unrecognized input.
+async function cmdGo(argText, player, broadcast) {
+  if (!argText) return { type: 'error', message: 'Go where? (north, south, east, west, up, down — or a building/room name)' };
+  if (RAW_DIRECTIONS.includes(argText)) return cmdMove(argText, player, broadcast);
+
+  const zone = getZone(player.current_zone);
+  if (!zone) return { type: 'error', message: 'Your zone is missing.' };
+
+  const resolved = resolveNamedDestination(zone, argText);
+  if (resolved.type === 'unique') return cmdMove(resolved.match.direction, player, broadcast);
+  if (resolved.type === 'ambiguous') {
+    const names = resolved.candidates.map(c => c.name).join(', ');
+    return { type: 'error', message: `That could mean several things here: ${names}. Try being more specific.` };
+  }
+  return cmdMove(argText, player, broadcast);
 }
 
 async function cmdMove(direction, player, broadcast) {
@@ -241,6 +416,28 @@ async function cmdMove(direction, player, broadcast) {
     }
   }
   return { type:'move', message:await describeZone(targetZone, player), zone:targetId, radiation_gain:radGain, minimap: getMinimapData(targetId) };
+}
+
+// Admin-only direct travel to any zone by id, bypassing exits entirely —
+// for quickly checking content without walking a route. Same move/arrival
+// mechanics as cmdMove (zone membership, DB sync, broadcasts), just without
+// requiring an exit to exist.
+async function cmdTeleport(targetZoneId, player, broadcast) {
+  if (player.role !== 'admin') return { type:'error', message:"You don't have the clearance for that." };
+  if (!targetZoneId) return { type:'error', message:'Teleport where? Usage: teleport <zone id>' };
+  const targetZone = getZone(targetZoneId);
+  if (!targetZone) return { type:'error', message:`No zone with id "${targetZoneId}" exists.` };
+
+  const oldZoneId = player.current_zone;
+  removePlayerFromZone(player.id, oldZoneId);
+  addPlayerToZone(player.id, targetZoneId);
+  player.current_zone = targetZoneId;
+  await query('UPDATE players SET current_zone=$1 WHERE id=$2', [targetZoneId, player.id]);
+
+  broadcast(oldZoneId, { type:'zone_event', message:`${player.handle} vanishes in a flicker of static.` }, player.id);
+  broadcast(targetZoneId, { type:'zone_event', message:`${player.handle} flickers into existence out of nowhere.` }, player.id);
+
+  return { type:'move', message: await describeZone(targetZone, player), zone: targetZoneId, minimap: getMinimapData(targetZoneId) };
 }
 
 async function cmdAttack(targetStr, player, broadcast) {
@@ -503,6 +700,8 @@ async function cmdExamine(targetStr, player) {
   if (!targetStr || targetStr === 'room') return cmdLook(player);
   const { rows } = await query(`SELECT i.* FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND i.name ILIKE $2 LIMIT 1`, [player.id, `%${targetStr}%`]);
   if (rows.length) return { type:'examine', message:`${rows[0].name}\n${rows[0].description}` };
+  const { rows: furnitureRows } = await query(`SELECT * FROM furniture WHERE zone_id=$1 AND name ILIKE $2 LIMIT 1`, [player.current_zone, `%${targetStr}%`]);
+  if (furnitureRows.length) return { type:'examine', message:`${furnitureRows[0].name}\n${furnitureRows[0].description}` };
   const enemies = getZoneEnemies(player.current_zone);
   const enemy = enemies.find(e=>e.name.toLowerCase().includes(targetStr));
   if (enemy) return { type:'examine', message:`${enemy.name}\n${enemy.description}\nHP: ${enemy.hp}/${enemy.hp_max}` };
@@ -762,8 +961,8 @@ async function cmdLootCorpse(targetStr, player, broadcast) {
   return { type:'loot', message:`You loot the corpse: ${looted.join(', ')}.` };
 }
 
-function cmdHelp() {
-  return { type:'help', message:`<span class="help-header">COMMANDS</span>
+function cmdHelp(player) {
+  let msg = `<span class="help-header">COMMANDS</span>
 
 <span class="help-category">MOVEMENT</span>    north south east west up down (n/s/e/w/u/d)  |  go &lt;dir&gt;
 <span class="help-category">COMBAT</span>      attack &lt;target&gt;  |  loot &lt;corpse&gt;
@@ -774,5 +973,9 @@ function cmdHelp() {
 <span class="help-category">PROPERTY</span>    rent  |  lock  |  unlock  |  pick  |  upgrade lock  |  sleep
 <span class="help-category">CHARACTER</span>   stats  skills  mutations  factions
 <span class="help-category">SOCIAL</span>      talk &lt;npc&gt;  |  say &lt;message&gt;  |  who
-<span class="help-category">INFO</span>        look  |  look &lt;me/item/player&gt;  |  examine &lt;thing&gt;  help` };
+<span class="help-category">INFO</span>        look  |  look &lt;me/item/player&gt;  |  examine &lt;thing&gt;  help`;
+  if (player?.role === 'admin') {
+    msg += `\n<span class="help-category">ADMIN</span>      teleport &lt;zone id&gt;  (tp)`;
+  }
+  return { type:'help', message: msg };
 }

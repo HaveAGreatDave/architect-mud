@@ -1,5 +1,6 @@
 import { query } from '../models/db.js';
-import { reloadZone, getAllZones, world, getAllLivePlayers } from '../engine/world.js';
+import { reloadZone, getAllZones, world, getAllLivePlayers, getZone, addPlayerToZone, removePlayerFromZone, getMinimapData } from '../engine/world.js';
+import { describeZone, describeVoidTeleport } from '../engine/commands.js';
 import { loadRecipes } from '../engine/crafting.js';
 import { loadDrugs } from '../engine/drugs.js';
 import { loadMutations } from '../engine/mutations.js';
@@ -8,6 +9,12 @@ import { handleEnvironmentApi } from './environment.routes.js';
 
 const hashPassword = pw => createHash('sha256').update(pw).digest('hex');
 const makeToken = (playerId, role) => Buffer.from(`${playerId}:${role}:${Date.now()}`).toString('base64');
+
+// Set once from index.js's boot() — lets route handlers (specifically zone
+// deletion) push messages to live players without threading a broadcast
+// function through every single handler call.
+let broadcastFn = null;
+export function setBroadcast(fn) { broadcastFn = fn; }
 function verifyToken(headers) {
   const token = (headers?.authorization||'').replace('Bearer ','');
   if (!token) return null;
@@ -39,6 +46,7 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path.startsWith('/zones/') && method==='GET') return apiGetZone(path.split('/')[2]);
   if (path==='/zones' && method==='POST') return requireDev(auth, ()=>apiCreateZone(body,auth));
   if (path.startsWith('/zones/') && method==='PUT') return requireDev(auth, ()=>apiUpdateZone(path.split('/')[2],body));
+  if (path.startsWith('/zones/') && path.endsWith('/rooms') && method==='POST') return requireDev(auth, ()=>apiAddRoom(path.split('/')[2],body));
   if (path.startsWith('/zones/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteZone(path.split('/')[2]));
   if (path==='/enemies' && method==='GET') return requireDev(auth, apiGetEnemies);
   if (path==='/enemies' && method==='POST') return requireDev(auth, ()=>apiCreateEnemy(body));
@@ -50,6 +58,11 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path==='/npcs' && method==='GET') return requireDev(auth, apiGetNpcs);
   if (path==='/npcs' && method==='POST') return requireDev(auth, ()=>apiCreateNpc(body));
   if (path.startsWith('/npcs/') && method==='PUT') return requireDev(auth, ()=>apiUpdateNpc(path.split('/')[2],body));
+  if (path.startsWith('/npcs/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteNpc(path.split('/')[2]));
+  if (path==='/furniture' && method==='GET') return requireDev(auth, apiGetFurniture);
+  if (path==='/furniture' && method==='POST') return requireDev(auth, ()=>apiCreateFurniture(body));
+  if (path.startsWith('/furniture/') && method==='PUT') return requireDev(auth, ()=>apiUpdateFurniture(path.split('/')[2],body));
+  if (path.startsWith('/furniture/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteFurniture(path.split('/')[2]));
   if (path==='/factions' && method==='GET') { const {rows}=await query('SELECT * FROM factions'); return {status:200,body:rows}; }
   if (path==='/recipes' && method==='GET') return requireDev(auth, apiGetRecipes);
   if (path==='/recipes' && method==='POST') return requireDev(auth, ()=>apiCreateRecipe(body));
@@ -135,12 +148,94 @@ async function apiUpdateZone(id,body) {
     return {status:400,body:{error:e.message}};
   }
 }
+// Adds a single is_interior room branching off an existing zone — the
+// single-room counterpart to apiBuildApartmentBlock's 4-unit version.
+// Used by the Zone Editor's "+ Add Room" button.
+async function apiAddRoom(parentZoneId, body) {
+  const { direction, name, description } = body || {};
+  if (!direction || !name) return { status:400, body:{error:'direction and name are required'} };
+  const OPPOSITE = { north:'south', south:'north', east:'west', west:'east', up:'down', down:'up' };
+  if (!OPPOSITE[direction]) return { status:400, body:{error:`Invalid direction "${direction}"`} };
+
+  const { rows: parentRows } = await query('SELECT * FROM zones WHERE id=$1', [parentZoneId]);
+  if (!parentRows.length) return { status:400, body:{error:`Zone ${parentZoneId} does not exist`} };
+  const parent = parentRows[0];
+  const parentExits = parent.exits || {};
+  if (parentExits[direction]) {
+    return { status:400, body:{error:`${parentZoneId} already has an exit ${direction} (to ${parentExits[direction]}). Choose a different direction.`} };
+  }
+
+  const roomId = `zone_room_${Date.now()}`;
+  const roomExits = { [OPPOSITE[direction]]: parentZoneId };
+
+  try {
+    await query(
+      `INSERT INTO zones (id,name,description,danger_rating,pvp_enabled,radiation_level,is_safe_zone,exits,ambient_events,flags) VALUES ($1,$2,$3,$4,0,0,1,$5,$6,$7)`,
+      [roomId, name, description || 'A small room.', parent.danger_rating || 'safe', JSON.stringify(roomExits), JSON.stringify([]), JSON.stringify({ is_interior: true })]
+    );
+    const updatedParentExits = { ...parentExits, [direction]: roomId };
+    await query('UPDATE zones SET exits=$1 WHERE id=$2', [JSON.stringify(updatedParentExits), parentZoneId]);
+
+    await reloadZone(parentZoneId);
+    await reloadZone(roomId);
+
+    return { status:201, body:{ id: roomId, message:`Room "${name}" added ${direction} of ${parent.name}` } };
+  } catch(e) { return { status:400, body:{error:e.message} }; }
+}
+
+// Called after zone(s) are removed from the DB. Any currently-connected
+// player whose current_zone was just deleted gets pulled back to
+// zone_start immediately — DB row, in-memory zone membership, and their
+// live client all updated — instead of being left pointed at a zone that
+// no longer exists until their next reconnect (which the login-time check
+// in index.js's handleAuth covers separately, for anyone offline right now).
+async function rescueDisplacedPlayers(deletedZoneIds) {
+  if (!deletedZoneIds.length) return;
+  const deletedSet = new Set(deletedZoneIds);
+  for (const player of getAllLivePlayers()) {
+    if (!deletedSet.has(player.current_zone)) continue;
+    removePlayerFromZone(player.id, player.current_zone);
+    player.current_zone = 'zone_start';
+    addPlayerToZone(player.id, 'zone_start');
+    await query('UPDATE players SET current_zone=$1 WHERE id=$2', ['zone_start', player.id]).catch(()=>{});
+
+    if (!broadcastFn) continue;
+    const startZone = getZone('zone_start');
+    const lookMessage = startZone ? await describeZone(startZone, player) : '';
+    broadcastFn(null, { type:'move', message: describeVoidTeleport() + lookMessage, zone:'zone_start', minimap: getMinimapData('zone_start') }, null, player.id);
+    broadcastFn('zone_start', { type:'zone_event', message:`${player.handle} flickers into existence out of nowhere.` }, player.id);
+  }
+}
+
 async function apiDeleteZone(id) {
   if (id==='zone_start') return {status:400,body:{error:'Cannot delete spawn zone'}};
   try {
+    // Cascade: any zone flagged is_apartment OR is_interior whose exits
+    // lead back to this one is a room belonging to this building (same
+    // linkage the dev panel uses to nest them under it, and the same
+    // linkage the in-game Rooms: list uses) — delete those first so
+    // deleting a building never leaves orphaned rooms behind.
+    const { rows: children } = await query(
+      `SELECT id FROM zones WHERE ((flags->>'is_apartment')::boolean IS TRUE OR (flags->>'is_interior')::boolean IS TRUE)
+       AND EXISTS (SELECT 1 FROM jsonb_each_text(exits) e WHERE e.value = $1)`,
+      [id]
+    );
+    const allDeletedIds = [id, ...children.map(c => c.id)];
+    // Any NPC or furniture in the building itself or any of its cascaded
+    // rooms would otherwise be orphaned (zone_id pointing at nothing).
+    for (const zid of allDeletedIds) {
+      await query('DELETE FROM npcs WHERE zone_id=$1', [zid]);
+      await query('DELETE FROM furniture WHERE zone_id=$1', [zid]);
+    }
+    for (const child of children) {
+      await query('DELETE FROM apartments WHERE zone_id=$1', [child.id]);
+      await query('DELETE FROM zones WHERE id=$1', [child.id]);
+      world.zones.delete(child.id);
+    }
     await query('DELETE FROM zones WHERE id=$1',[id]);
     world.zones.delete(id);
-    return {status:200,body:{message:'Zone deleted'}};
+    await rescueDisplacedPlayers(allDeletedIds);
+    return {status:200,body:{message: children.length ? `Zone deleted (and ${children.length} attached room${children.length>1?'s':''})` : 'Zone deleted'}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
 async function apiGetEnemies() { const {rows}=await query('SELECT * FROM enemies'); return {status:200,body:rows}; }
@@ -195,6 +290,36 @@ async function apiUpdateNpc(id,body) {
     await query(`UPDATE npcs SET name=$1,description=$2,zone_id=$3,faction=$4,disposition=$5,dialogue_tree=$6,vendor_inventory=$7,wanders=$8,flags=$9 WHERE id=$10`,
       [body.name,body.description,body.zone_id,body.faction,body.disposition,JSON.stringify(body.dialogue_tree||{}),JSON.stringify(body.vendor_inventory||[]),body.wanders?1:0,JSON.stringify(body.flags||{}),id]);
     return {status:200,body:{id}};
+  } catch(e) { return {status:400,body:{error:e.message}}; }
+}
+async function apiDeleteNpc(id) {
+  try {
+    await query('DELETE FROM npcs WHERE id=$1', [id]);
+    return {status:200,body:{message:'NPC deleted'}};
+  } catch(e) { return {status:400,body:{error:e.message}}; }
+}
+async function apiGetFurniture() { const {rows}=await query('SELECT * FROM furniture'); return {status:200,body:rows}; }
+async function apiCreateFurniture(body) {
+  if (!body?.zone_id) return {status:400,body:{error:'zone_id is required'}};
+  if (!body?.name) return {status:400,body:{error:'name is required'}};
+  const id = body.id || `furniture_${Date.now()}`;
+  try {
+    await query(`INSERT INTO furniture (id,zone_id,name,description,flags) VALUES ($1,$2,$3,$4,$5)`,
+      [id, body.zone_id, body.name, body.description||'', JSON.stringify(body.flags||{})]);
+    return {status:201,body:{id}};
+  } catch(e) { return {status:400,body:{error:e.message}}; }
+}
+async function apiUpdateFurniture(id, body) {
+  try {
+    await query(`UPDATE furniture SET zone_id=$1,name=$2,description=$3,flags=$4 WHERE id=$5`,
+      [body.zone_id, body.name, body.description||'', JSON.stringify(body.flags||{}), id]);
+    return {status:200,body:{id}};
+  } catch(e) { return {status:400,body:{error:e.message}}; }
+}
+async function apiDeleteFurniture(id) {
+  try {
+    await query('DELETE FROM furniture WHERE id=$1', [id]);
+    return {status:200,body:{message:'Furniture deleted'}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
 async function apiWorldState() {

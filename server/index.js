@@ -6,13 +6,13 @@ import { WebSocketServer } from 'ws';
 import { createHash, randomUUID } from 'crypto';
 
 import { initWorld, addPlayerToZone, removePlayerFromZone, setLivePlayer, getLivePlayer, removeLivePlayer, getZone, getMinimapData } from './engine/world.js';
-import { handleCommand, describeZone } from './engine/commands.js';
+import { handleCommand, describeZone, describeVoidTeleport } from './engine/commands.js';
 import { startGameLoop } from './engine/gameLoop.js';
 import { loadPlugins, fireHook } from './engine/plugins.js';
 import { loadRecipes } from './engine/crafting.js';
 import { loadDrugs } from './engine/drugs.js';
 import { loadMutations } from './engine/mutations.js';
-import { handleApiRequest } from './api/routes.js';
+import { handleApiRequest, setBroadcast } from './api/routes.js';
 import { startKeepalive } from './keepalive.js';
 import { query } from './models/db.js';
 
@@ -94,6 +94,11 @@ wss.on('connection', (ws) => {
   ws.on('pong', () => { ws.isAlive = true; });
 
   ws.on('message', async (data) => {
+    // Any message — a real command, the client's own app-level ping, etc. —
+    // proves the connection is alive. Don't rely solely on the raw WS
+    // protocol ping/pong (below); some proxies mishandle control frames,
+    // which would otherwise terminate a connection that's clearly still active.
+    ws.isAlive = true;
     let msg; try { msg = JSON.parse(data.toString()); } catch { return; }
     const session = clients.get(ws);
     if (msg.type === 'auth') return handleAuth(ws, session, msg);
@@ -168,7 +173,21 @@ async function handleAuth(ws, session, msg) {
   ws.send(JSON.stringify({ type:'auth_success', player:livePlayer }));
 
   const zone = getZone(livePlayer.current_zone);
-  if (zone) ws.send(JSON.stringify({ type:'look', message: await describeZone(zone, livePlayer), minimap: getMinimapData(zone.id) }));
+  if (zone) {
+    ws.send(JSON.stringify({ type:'look', message: await describeZone(zone, livePlayer), minimap: getMinimapData(zone.id) }));
+  } else {
+    // Their stored zone was deleted while they were offline — the live
+    // rescue in routes.js only catches players connected at deletion time,
+    // so this is the equivalent safety net for everyone else.
+    livePlayer.current_zone = 'zone_start';
+    addPlayerToZone(player.id, 'zone_start');
+    await query('UPDATE players SET current_zone=$1 WHERE id=$2', ['zone_start', player.id]);
+    const startZone = getZone('zone_start');
+    if (startZone) {
+      ws.send(JSON.stringify({ type:'move', message: describeVoidTeleport() + await describeZone(startZone, livePlayer), zone:'zone_start', minimap: getMinimapData('zone_start') }));
+      broadcast('zone_start', { type:'zone_event', message:`${player.handle} flickers into existence out of nowhere.` }, player.id);
+    }
+  }
 }
 
 async function handleGameCommand(ws, session, msg) {
@@ -216,6 +235,7 @@ process.on('unhandledRejection', (err) => {
 
 async function boot() {
   console.log('\n⚙  Booting ARCHITECT MUD...');
+  setBroadcast(broadcast);
   await initWorld();
   await loadRecipes();
   await loadDrugs();
