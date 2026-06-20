@@ -1903,9 +1903,12 @@ function renderMapOverview() {
   html += `</div>`;
 
   // Grid — pad by one cell so there are empty cells to place new zones into.
+  // Bounds are computed across ALL floors so the grid stays the same size when
+  // switching z-levels, meaning (x,y) positions align visually between floors.
+  const allPlaced = all.filter(z => z.grid_x != null && z.grid_y != null);
   let minX, maxX, minY, maxY;
-  if (onFloor.length) {
-    const xs = onFloor.map(z => z.grid_x), ys = onFloor.map(z => z.grid_y);
+  if (allPlaced.length) {
+    const xs = allPlaced.map(z => z.grid_x), ys = allPlaced.map(z => z.grid_y);
     minX = Math.min(...xs) - 1; maxX = Math.max(...xs) + 1;
     minY = Math.min(...ys) - 1; maxY = Math.max(...ys) + 1;
   } else { minX = -1; maxX = 1; minY = -1; maxY = 1; }
