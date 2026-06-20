@@ -113,6 +113,11 @@ function toDateString(value) {
   return String(value).slice(0, 10);
 }
 
+function seasonForDate(dateStr) {
+  const month = Number(dateStr.slice(5, 7)) - 1;
+  return SEASON_BY_MONTH[month];
+}
+
 function dayOfWeekFor(dateStr) {
   const d = new Date(`${dateStr}T00:00:00Z`);
   const jsDay = d.getUTCDay(); // 0=Sun..6=Sat
