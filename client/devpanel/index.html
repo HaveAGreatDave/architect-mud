@@ -858,6 +858,7 @@ async function openEdit(record, isNew) {
 function closeEdit() {
   document.getElementById('edit-panel').classList.remove('open');
   currentRecord = null;
+  if (mapZoneEditReturn) { currentPanel = 'maps'; mapZoneEditReturn = false; }
 }
 
 async function saveRecord() {
@@ -869,7 +870,8 @@ async function saveRecord() {
     const result = await p.save(currentRecord);
     if (result?.error) { toast(result.error, true); return; }
     toast('Saved & published ✓');
-    await loadPanel(currentPanel);
+    if (mapZoneEditReturn) applyZoneEditToMap(currentRecord?.id);
+    else await loadPanel(currentPanel);
     closeEdit();
   } catch (err) {
     toast(`Unexpected error: ${err.message}`, true);
@@ -893,8 +895,10 @@ async function deleteRecord() {
     const result = await p.delete(currentRecord.id);
     if (result?.error) { toast(result.error, true); return; }
     toast(result?.message || 'Deleted');
-    await loadPanel(currentPanel);
+    const fromMap = mapZoneEditReturn;
     closeEdit();
+    if (fromMap) await loadMapOverview(mapOverview.map.id);
+    else await loadPanel(currentPanel);
   } catch (err) {
     toast(`Unexpected error: ${err.message}`, true);
     console.error('deleteRecord failed:', err);
@@ -1746,15 +1750,36 @@ let bigMapPowerData = [];
 
 // Open a zone's editor from a map tile — switches to the Zones panel (where
 // the zone editor lives) and opens that zone, like the old big-map click.
+// Clicking a tile on the Maps overview opens the zone editor as a sidebar
+// overlay WITHOUT leaving the maps view — the map (and any unsaved layout
+// edits) stays put behind the panel. We load the full zone records so the
+// zone editor and its child-room lookups work, and flip currentPanel to
+// 'zones' so the shared edit machinery (openEdit/saveRecord/deleteRecord)
+// targets the zones config. mapZoneEditReturn tells save/cancel to restore
+// the maps context instead of reloading the zones table.
+let mapZoneEditReturn = false;
+
 async function mapTileEditClick(zoneId) {
   closeSettingsPanel();
+  const data = await PANELS.zones.fetch();
+  allRecords = Array.isArray(data) ? data : (data.zones || []);
   currentPanel = 'zones';
-  sortState = { key: null, dir: 1 };
-  activatePanelNav('zones');
-  document.getElementById('panel-title').textContent = 'Zones';
-  closeEdit();
-  await loadPanel('zones');
+  mapZoneEditReturn = true;
   editRecord(zoneId);
+}
+
+// Push the just-saved display fields into the map's in-memory working copy and
+// re-render, so the tile updates without refetching (which would discard
+// unsaved layout edits). Reads the still-open form inputs before closeEdit.
+function applyZoneEditToMap(zoneId) {
+  const z = mapOverview?.zones.get(zoneId);
+  if (!z) return;
+  const g = id => document.getElementById(id);
+  if (g('f-name')) z.name = g('f-name').value;
+  if (g('f-danger_rating')) z.danger_rating = g('f-danger_rating').value;
+  if (g('f-marker')) z.marker = g('f-marker').value.trim() || null;
+  if (g('f-color')) z.color = g('f-color').value.trim() || null;
+  renderMapOverview();
 }
 
 // ─── MAPS OVERVIEW EDITOR ─────────────────────────────────────────────────
