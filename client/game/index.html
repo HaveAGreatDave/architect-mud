@@ -495,9 +495,22 @@
   #auth-box {
     background: var(--bg2);
     border: 1px solid var(--border);
-    padding: 32px;
-    width: 340px;
+    padding: 28px 32px 32px;
+    width: 380px;
     border-radius: 2px;
+  }
+
+  #auth-ascii {
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    line-height: 1.15;
+    white-space: pre;
+    text-align: center;
+    margin-bottom: 12px;
+    opacity: 0.85;
+    text-shadow: 0 0 12px var(--accent-dim);
+    user-select: none;
   }
 
   #auth-box h1 {
@@ -568,6 +581,14 @@
 <!-- AUTH SCREEN -->
 <div id="auth-screen">
   <div id="auth-box">
+    <pre id="auth-ascii">    ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+  ▄█▀░░░░░░░░░░░░░▀█▄
+ ██░░▄▄▄▄░░░░░▄▄▄▄░░██
+██░░█▄▄▄█░░░░░█▄▄▄█░░██
+██░░░░░░░░▄█▄░░░░░░░░██
+ ██░░░░░░█████░░░░░░██
+  ▀█▄░░░░░▀█▀░░░░░▄█▀
+    ▀▀▄▄▄▄▄▄▄▄▄▄▄▀▀</pre>
     <h1>ARCHITECT</h1>
     <div class="tagline">The AI won. You survived. Probably.</div>
 

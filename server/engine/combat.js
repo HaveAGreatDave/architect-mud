@@ -1,9 +1,9 @@
 import { getEnemyInstance, removeEnemyInstance, getLivePlayer, getZonePlayers } from './world.js';
 
 const COOLDOWNS = {
-  attack: 2000,
-  flee: 3000,
-  use_item: 1500,
+  attack: 3500,
+  flee: 4000,
+  use_item: 2500,
 };
 
 const playerCooldowns = new Map(); // playerId -> { action -> timestamp }
@@ -116,7 +116,7 @@ export function playerAttackEnemy(player, enemyInstanceId, weaponStats) {
 // Enemy attacks player — returns damage result
 export function enemyAttackPlayer(enemy, player) {
   const now = Date.now();
-  const attackInterval = 3000 - (enemy.stat_agi * 100);
+  const attackInterval = 5000 - (enemy.stat_agi * 150);
   if (now - enemy.lastAttack < attackInterval) return null;
   enemy.lastAttack = now;
 

@@ -7,7 +7,8 @@
     "dev": "node --watch server/index.js",
     "start": "node server/index.js",
     "db:migrate": "node server/models/migrate.js",
-    "db:seed": "node server/models/seed.js"
+    "db:seed": "node server/models/seed.js",
+    "db:rename-admin": "node server/models/rename-admin.js"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
