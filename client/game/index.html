@@ -202,6 +202,10 @@
   .zone-danger-lethal { color: var(--red); border: 1px solid var(--red); background: rgba(224,85,85,0.15); }
   .rad-warning { color: var(--green); font-size: 11px; }
   .pvp-warning { color: var(--red); font-size: 11px; }
+  .light-level { display: block; font-size: 11px; font-style: italic; margin: 2px 0; }
+  .light-clear { color: var(--text-dim); }
+  .light-dim { color: var(--yellow); }
+  .light-dark { color: var(--red); }
   .exits-label, .npcs-label, .enemies-label, .corpses-label, .apartment-label, .players-label { color: var(--text-dim); }
   .apartment-label { color: var(--cyan); font-weight: 600; }
   .enemies-label { color: var(--orange); }
@@ -223,30 +227,16 @@
   .item-grant { color: var(--cyan); }
 
   /* ─── ENVIRONMENT HUD ─── */
-  .env-hud {
-    color: var(--text-dim);
-    font-size: 12px;
-    font-weight: bold;
-    padding: 2px 8px;
-    border: 1px solid var(--border);
-    border-radius: 2px;
-    white-space: nowrap;
-  }
-  #env-forecast { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 6px; }
-  .env-forecast-day {
+  #env-hud-sidebar {
     display: flex;
-    flex-direction: column;
     align-items: center;
-    gap: 1px;
-    padding: 2px 5px;
-    border: 1px solid var(--border);
-    border-radius: 2px;
-    font-size: 10px;
-    color: var(--text-dim);
+    gap: 8px;
+    font-size: 13px;
+    color: var(--text);
   }
-  .env-power-powered { color: var(--green); }
-  .env-power-overloaded { color: var(--orange); }
-  .env-power-offline { color: var(--red); }
+  #env-hud-sidebar .env-icon { font-size: 15px; }
+  #env-hud-sidebar .env-clock { color: var(--text-bright); font-weight: bold; letter-spacing: 0.5px; }
+  #env-hud-sidebar .env-temp { color: var(--cyan); margin-left: auto; }
 
   /* Visibility dimming — a cosmetic overlay on the output pane only, driven
      by GDD §7's visibility category for the player's current zone. Never
@@ -816,7 +806,6 @@
   <span class="conn-status offline" id="conn-status">DISCONNECTED</span>
   <span class="handle-display" id="handle-display"></span>
   <span class="credits-display" id="credits-display" title="Credits carried">₵ <span id="header-credits-val">0</span></span>
-  <span class="env-hud" id="env-hud" title="World time">—</span>
   <button id="settings-btn" title="Settings" aria-label="Open settings">⚙</button>
   <button id="signout-btn" title="Sign Out" aria-label="Sign out">⏻</button>
 </div>
@@ -880,9 +869,12 @@
 
     <div class="sidebar-section" id="env-section">
       <div class="sidebar-label">Environment</div>
-      <div id="env-date-display" style="font-size:11px;color:var(--text-dim)">—</div>
-      <div id="env-power-display" style="font-size:11px;margin-top:4px"></div>
-      <div id="env-forecast"></div>
+      <div id="env-hud-sidebar">
+        <span class="env-icon" id="env-weather-icon">—</span>
+        <span class="env-clock" id="env-clock">—:—</span>
+        <span class="env-icon" id="env-time-icon">—</span>
+        <span class="env-temp" id="env-temp">—°C</span>
+      </div>
     </div>
 
     <div class="sidebar-section" id="enemy-section" style="display:none">
@@ -1045,10 +1037,7 @@ function handleServerMsg(msg) {
       document.getElementById('auth-screen').style.display = 'none';
       document.getElementById('handle-display').textContent = player.handle;
       updateVitals(player);
-      fetch('/api/environment/state').then(r => r.json()).then(env => {
-        updateEnvironmentHUD(env);
-        if (env.forecast) renderForecast(env.forecast);
-      }).catch(() => {});
+      fetch('/api/environment/state').then(r => r.json()).then(updateEnvironmentHUD).catch(() => {});
       break;
     case 'auth_fail':
       clearTimeout(authTimeout);
@@ -1186,12 +1175,9 @@ function handleServerMsg(msg) {
       ws.close();
       break;
     case 'environment.sync':
+    case 'environment.daily':
     case 'environment.weatherOverride':
       updateEnvironmentHUD(msg);
-      break;
-    case 'environment.daily':
-      updateEnvironmentHUD(msg);
-      if (msg.forecast) renderForecast(msg.forecast);
       break;
     case 'pong': break; // keepalive
   }
@@ -1393,42 +1379,65 @@ function setBar(id, val, max, inverse = false) {
 
 // --- Environment HUD (time / weather / power / forecast) ---
 // Driven by server/engine/environment.js — GET /api/environment/state on
-// login, then 'environment.sync' (every 30 game-minutes) and
-// 'environment.daily' (every 24h, includes a fresh forecast) over the
-// existing WebSocket. Pure display: never affects gameplay logic client-side.
-const WEEKDAY_NAMES = { 1: 'Mon', 2: 'Tue', 3: 'Wed', 4: 'Thu', 5: 'Fri', 6: 'Sat', 7: 'Sun' };
+// login, then 'environment.sync' (every 30 game-minutes), 'environment.daily'
+// (every 24h), and 'environment.weatherOverride' over the existing
+// WebSocket. Weather/temp update only on those server pushes; the clock
+// itself ticks forward client-side once per real minute (GDD §3.2 — server
+// stays authoritative, client just fills the gap between syncs) and
+// resyncs to the server's value on every push, correcting any drift.
+const DAY_PHASES_CLIENT = [
+  { name: 'dawn', start: 5 * 60, end: 7 * 60, icon: '🌅' },
+  { name: 'day', start: 7 * 60, end: 17 * 60, icon: '☀' },
+  { name: 'dusk', start: 17 * 60, end: 20 * 60, icon: '🌇' },
+  { name: 'night', start: 20 * 60, end: 5 * 60, icon: '🌙' },
+];
+function timeIconForMinutes(m) {
+  if (m >= 5 * 60 && m < 7 * 60) return DAY_PHASES_CLIENT[0].icon;
+  if (m >= 7 * 60 && m < 17 * 60) return DAY_PHASES_CLIENT[1].icon;
+  if (m >= 17 * 60 && m < 20 * 60) return DAY_PHASES_CLIENT[2].icon;
+  return DAY_PHASES_CLIENT[3].icon;
+}
+function parseHHMM(str) {
+  const [h, m] = (str || '0:0').split(':').map(Number);
+  return (h || 0) * 60 + (m || 0);
+}
+function formatHHMM(m) {
+  const h = Math.floor(m / 60) % 24;
+  const mm = m % 60;
+  return `${String(h).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+}
+
+let clientMinutes = null;   // local running clock, ticks +1 every real minute
+let envWeatherIcon = '—';
+let envTempC = null;
 
 function updateEnvironmentHUD(env) {
-  if (!env || !env.weatherIcon) return;
-  const hud = document.getElementById('env-hud');
-  if (hud) {
-    hud.textContent = `${env.timeIcon || ''} ${env.time || ''}  ${env.weatherIcon || ''} ${env.tempC}°C`;
-    hud.title = [env.season, env.weatherType, env.frozen ? 'time frozen' : null].filter(Boolean).join(' · ');
-  }
-  const dateEl = document.getElementById('env-date-display');
-  if (dateEl) dateEl.textContent = `${env.date || '—'} · ${WEEKDAY_NAMES[env.dayOfWeek] || ''} · ${env.season || ''}`;
-  if (env.powerMap) renderZonePower(env.powerMap);
+  if (!env || !env.time) return;
+  clientMinutes = parseHHMM(env.time); // resync — server is authoritative
+  envWeatherIcon = env.weatherIcon || '—';
+  envTempC = env.tempC;
+  renderEnvironmentHUD();
 }
 
-function renderForecast(forecast) {
-  const el = document.getElementById('env-forecast');
-  if (!el) return;
-  el.innerHTML = forecast.map(f => `
-    <div class="env-forecast-day" title="${f.date || ''}">
-      <span>${(f.date || '').slice(5) || '—'}</span>
-      <span>${f.icon || ''}</span>
-      <span>${f.tempC}°</span>
-    </div>
-  `).join('');
+function renderEnvironmentHUD() {
+  if (clientMinutes === null) return;
+  const weatherEl = document.getElementById('env-weather-icon');
+  const clockEl = document.getElementById('env-clock');
+  const timeIconEl = document.getElementById('env-time-icon');
+  const tempEl = document.getElementById('env-temp');
+  if (weatherEl) weatherEl.textContent = envWeatherIcon;
+  if (clockEl) clockEl.textContent = formatHHMM(clientMinutes);
+  if (timeIconEl) timeIconEl.textContent = timeIconForMinutes(clientMinutes);
+  if (tempEl) tempEl.textContent = envTempC !== null ? `${envTempC}°C` : '—°C';
 }
 
-function renderZonePower(powerMap) {
-  const el = document.getElementById('env-power-display');
-  if (!el) return;
-  if (!currentZone) { el.textContent = ''; return; }
-  const zone = powerMap.find(z => z.zoneId === currentZone);
-  el.innerHTML = zone ? `Power: <span class="env-power-${zone.status}">${zone.status}</span>` : '';
-}
+// Local minute tick — keeps the clock moving between the server's 30-minute
+// syncs instead of sitting frozen on a stale value.
+setInterval(() => {
+  if (clientMinutes === null) return;
+  clientMinutes = (clientMinutes + 1) % (24 * 60);
+  renderEnvironmentHUD();
+}, 60000);
 
 // Pulls this zone's visibility category whenever the player arrives
 // somewhere and fades the output pane to match (GDD §7.1). Cosmetic only.

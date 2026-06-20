@@ -8,10 +8,22 @@ import { getPlayerFactionRep } from './factions.js';
 import { getVendorStock, buyFromVendor, sellToVendor } from './vendor.js';
 import { cmdRent, cmdLockDoor, cmdUpgradeLock, cmdPickLock, cmdSleep, describeApartmentStatus } from './apartments.js';
 import { useDrug } from './drugs.js';
+import { getZoneVisibility } from './environment.js';
 import { randomUUID } from 'crypto';
 
 // Per-player cooldown so Custodian turrets don't fire on every single look/move
 const turretCooldowns = new Map();
+
+// Flavor line describing how well-lit the zone currently is — driven by
+// the environment system's ambient light + artificial light + weather/fog
+// model (GDD §7). Falls back to "clear" automatically if the environment
+// system never initialized, since getZoneVisibility() reads safe in-memory
+// defaults rather than throwing.
+function describeLightLevel(category) {
+  if (category === 'dark') return `<span class="light-level light-dark">It's dark here — you can only make out shadows and shapes.</span>`;
+  if (category === 'dim') return `<span class="light-level light-dim">Light is dim; details are hard to make out.</span>`;
+  return `<span class="light-level light-clear">Visibility is clear.</span>`;
+}
 
 export async function describeZone(zone, player) {
   const exits = Object.keys(zone.exits || {});
@@ -32,6 +44,7 @@ export async function describeZone(zone, player) {
   desc += `<span class="zone-danger zone-danger-${zone.danger_rating}">[${zone.danger_rating.toUpperCase()}]</span>`;
   if (zone.radiation_level > 0) desc += ` <span class="rad-warning">☢ RAD:${zone.radiation_level}</span>`;
   if (zone.pvp_enabled) desc += ` <span class="pvp-warning">⚔ PVP</span>`;
+  desc += `\n${describeLightLevel(getZoneVisibility(zone.id).category)}`;
   desc += `\n${zone.description}`;
   desc += await describeApartmentStatus(zone);
 
