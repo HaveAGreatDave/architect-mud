@@ -1306,6 +1306,8 @@ async function saveEnemy(existing) {
 function itemEditForm(rec, isNew) {
   const effects = typeof rec.effects === 'object' ? rec.effects : JSON.parse(rec.effects||'{}');
   const mods = typeof rec.stat_modifiers === 'object' ? rec.stat_modifiers : JSON.parse(rec.stat_modifiers||'{}');
+  const flags = typeof rec.flags === 'object' ? rec.flags : JSON.parse(rec.flags||'{}');
+  const SLOTS = ['','head','torso','hands','legs','feet','weapon_hand','accessory'];
   return `
     <div class="field"><label>Item ID</label><input id="f-id" value="${isNew?'':rec.id}" ${!isNew?'readonly style="opacity:0.5"':''}></div>
     <div class="field"><label>Name</label><input id="f-name" value="${rec.name||''}"></div>
@@ -1329,7 +1331,12 @@ function itemEditForm(rec, isNew) {
     </div>
     <div class="checkbox-field"><input type="checkbox" id="f-is_stackable" ${rec.is_stackable?'checked':''}><label>Stackable</label></div>
     <div class="checkbox-field"><input type="checkbox" id="f-is_quest_item" ${rec.is_quest_item?'checked':''}><label>Quest Item (cannot be dropped)</label></div>
-    <div class="field"><label>Effects (JSON)</label><textarea id="f-effects" rows="4">${JSON.stringify(effects, null, 2)}</textarea></div>
+    <div class="field"><label>Equip Slot (weapons/armor — leave blank for non-equippable items)</label>
+      <select id="f-slot">
+        ${SLOTS.map(s=>`<option value="${s}" ${flags.slot===s?'selected':''}>${s||'(none)'}</option>`).join('')}
+      </select>
+    </div>
+    <div class="field"><label>Effects (JSON — armor items use {"armor": N} for damage reduction)</label><textarea id="f-effects" rows="4">${JSON.stringify(effects, null, 2)}</textarea></div>
     <div class="field"><label>Stat Modifiers (JSON)</label><textarea id="f-stat_modifiers" rows="3">${JSON.stringify(mods, null, 2)}</textarea></div>
   `;
 }
@@ -1339,6 +1346,9 @@ async function saveItem(existing) {
   let effects, mods;
   try { effects = JSON.parse(document.getElementById('f-effects').value); } catch { return { error: 'Effects: invalid JSON' }; }
   try { mods = JSON.parse(document.getElementById('f-stat_modifiers').value); } catch { return { error: 'Stat modifiers: invalid JSON' }; }
+  const flags = typeof existing?.flags === 'object' ? { ...existing.flags } : JSON.parse(existing?.flags || '{}');
+  const slot = document.getElementById('f-slot').value;
+  if (slot) flags.slot = slot; else delete flags.slot;
   const body = {
     name: document.getElementById('f-name').value,
     description: document.getElementById('f-description').value,
@@ -1349,7 +1359,7 @@ async function saveItem(existing) {
     value: +document.getElementById('f-value').value,
     is_stackable: document.getElementById('f-is_stackable').checked,
     is_quest_item: document.getElementById('f-is_quest_item').checked,
-    effects, stat_modifiers: mods,
+    effects, stat_modifiers: mods, flags,
   };
   if (isNew) { body.id = document.getElementById('f-id').value.trim(); return API('/items', 'POST', body); }
   return API(`/items/${existing.id}`, 'PUT', body);
