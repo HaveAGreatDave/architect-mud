@@ -268,6 +268,14 @@ export async function migrate() {
     CREATE INDEX IF NOT EXISTS idx_apartments_owner ON apartments(owner_id);
   `);
 
+  // Normalize legacy item effects: armor was once saved with an uppercase
+  // "ARMOR" key (the engine only reads lowercase "armor"), zeroing out armor.
+  await query(`
+    UPDATE items
+    SET effects = (effects - 'ARMOR') || jsonb_build_object('armor', effects->'ARMOR')
+    WHERE effects ? 'ARMOR';
+  `);
+
   console.log('✓ Database migrated (Postgres)');
 
   await migrateEnvironment(query);
