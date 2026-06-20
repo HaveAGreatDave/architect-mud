@@ -91,8 +91,9 @@ Four survival meters. All are threats. None are fun to micromanage — so the de
 - Zero sanity: catatonia event. Player wakes somewhere else. Memory (session notes) may be scrambled.
 
 ### Hunger / Thirst
-- Drains slowly over real time (or time-in-game, TBD)
-- Ignored long enough: END and STR penalties, then health damage
+- Drains slowly over real time — thirst reaches 0 in ~5 hours unattended, hunger in ~6–7 hours. Thirst is the faster of the two, matching real survival pacing.
+- Ignored long enough (both hit 0): steady, genuinely lethal HP loss, not just a stat penalty — thirst does more damage per minute than hunger does.
+- Food and water both grant a secondary timed buff on top of refilling their own meter: food speeds up HP regeneration ("Well-Fed"), water speeds up radiation decay ("Hydrated"). Both last 10 minutes.
 - Food and water are abundant enough to not be a grind, scarce enough to matter in the deep zones
 
 ### Radiation
@@ -119,8 +120,9 @@ Death is not the end. It is a setback with flavor.
 
 On death:
 - You lose carried items (lootable corpse, persists for a timer)
-- You respawn at your last **anchor point** (set in safe zones)
-- You receive a **death message** — a short, darkly funny description of how it happened
+- You respawn at your last **anchor point** (set in safe zones), stepping out of a cloning vat shaped like a vending machine
+- HP, Sanity, Hunger, Thirst, and Radiation are all fully restored on respawn — the body resets completely, but every skill you've learned carries over untouched
+- You receive a **death message** — a short, darkly funny description of how it happened, followed by a deadpan note about the cloning process itself
 - Repeat deaths in the same zone trigger escalating insults from the game
 
 No permadeath. But death has enough sting to matter.
@@ -201,6 +203,17 @@ Corpses persist for 10 minutes real-time. A timer is shown to the dead player so
 
 ---
 
+## Credit Economy
+
+- New characters start with **20 credits** carried — enough to get a drink and something to eat, not much past that. The scarcity is deliberate; the first session is meant to feel tight.
+- Credits split into two pools: **carried** (on your person at all times, vulnerable to theft) and **banked** (parked at an ATM, completely theft-proof until withdrawn again). This is the entire reason the bank exists — it gives a real, mechanical reason to occasionally walk to a known safe zone instead of just hoarding credits on your person indefinitely.
+- ATMs are a per-zone flag rather than a fixed list, so they can be placed anywhere as the city map grows. Currently only one exists (the starting hub) — full city coverage is intentionally deferred to the world-map expansion pass, where ATM placement can be considered alongside actual zone layout instead of guessed at in isolation.
+- **Theft** is a skill check (Deception) against the act of pickpocketing a specific player, not a stat-vs-stat opposed roll against the victim — keeping it simple and fast rather than turning every theft attempt into a mini combat-style exchange. It only ever touches carried credits, has a cooldown to stop spam, and is disabled in safe zones entirely (the threat is meant to live in the badlands and the gray-area street zones, not the social hub everyone passes through).
+- Getting caught stealing broadcasts to the whole zone — reputational risk is the actual deterrent here, more than the cooldown.
+- Vendors (Reg, the barkeep) already supported faction-rep discounts before this system existed; the credit economy slots in underneath that, unchanged.
+
+---
+
 ## Crafting System
 
 Crafting is a deep simulation. Material quality and tool skill both affect output. This is a primary progression path, not a side system.
@@ -249,10 +262,12 @@ Anyone can `pick` a locked door that isn't theirs. This runs a skill check using
 Owners can `upgrade lock` to spend credits raising the difficulty, making their door harder to pick over time. This creates a small, ongoing economic sink and a light security arms race — a well-funded player can make their apartment meaningfully safer than a new player's.
 
 ### Sleeping
-`sleep` (or `rest`) restores HP and Sanity, scaled by how safe the location actually is:
-- **Your own locked apartment** — full restore. This is the only guaranteed-safe full rest in the game.
-- **Any other safe zone, or someone else's unlocked apartment** — partial restore. Good enough to keep going, not as good as home.
+`sleep` (or `rest`) begins a gradual, timed rest — HP and Sanity recover minute by minute while hunger and thirst drain, rather than an instant full restore. The rate scales by how safe the location actually is:
+- **Your own locked apartment** — fastest, deepest rest. This is the only guaranteed-safe full rest in the game.
+- **Any other safe zone, or someone else's unlocked apartment** — slower, shallower. Good enough to keep going, not as good as home.
 - **Anywhere dangerous** — sleep doesn't work at all.
+
+Sleep auto-ends on full rest, on hunger/thirst running out, or after a 30-minute cap — and any other command wakes the player early, keeping whatever was already recovered.
 
 This gives apartments a clear, constant value (better rest) without making them mandatory — a player who never rents one can still recover in the city core, just more slowly.
 

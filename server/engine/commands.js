@@ -1,7 +1,7 @@
 import { query } from '../models/db.js';
 import { getZone, getZoneEnemies, getZoneNpcs, getZoneCorpses, getZonePlayers, getAllLivePlayers, addPlayerToZone, removePlayerFromZone, getMinimapData } from './world.js';
 import { playerAttackEnemy, isOnCooldown, getCooldownRemaining } from './combat.js';
-import { awardSkillXp, getPlayerSkills, SKILLS } from './skills.js';
+import { awardSkillXp, getPlayerSkills, SKILLS, skillCheck } from './skills.js';
 import { getAvailableRecipes, attemptCraft } from './crafting.js';
 import { getPlayerMutations, getCustodianOutcastResponse } from './mutations.js';
 import { getPlayerFactionRep } from './factions.js';
@@ -144,6 +144,10 @@ export async function handleCommand(input, player, broadcast) {
     case 'shop': case 'browse': return cmdShop(args.join(' '), player);
     case 'buy': return cmdBuy(args, player);
     case 'sell': return cmdSell(args, player);
+    case 'deposit': return cmdDeposit(args[0], player);
+    case 'withdraw': return cmdWithdraw(args[0], player);
+    case 'balance': return cmdBalance(player);
+    case 'steal': return cmdSteal(args.join(' '), player, broadcast);
     case 'loot': return cmdLootCorpse(args.join(' '), player, broadcast);
     case 'rent': return cmdRent(player);
     case 'lock': return cmdLockDoor(player, true);
@@ -605,6 +609,82 @@ async function cmdSell(args, player) {
   return { type:result.success?'sell':'error', message:result.message, player_update:{credits:player.credits} };
 }
 
+function zoneHasAtm(zone) {
+  return !!(zone?.flags?.has_atm);
+}
+
+async function cmdBalance(player) {
+  return { type:'balance', message:`Carried: ${player.credits||0}c\nBanked: ${player.bank_credits||0}c` };
+}
+
+async function cmdDeposit(amountStr, player) {
+  const zone = getZone(player.current_zone);
+  if (!zoneHasAtm(zone)) return { type:'error', message:'There\'s no ATM here.' };
+  const amount = amountStr === 'all' ? (player.credits||0) : parseInt(amountStr, 10);
+  if (!amount || amount <= 0) return { type:'error', message:'Deposit how much? Try "deposit 50" or "deposit all".' };
+  if (amount > (player.credits||0)) return { type:'error', message:`You only have ${player.credits||0} credits on you.` };
+  player.credits -= amount;
+  player.bank_credits = (player.bank_credits||0) + amount;
+  await query('UPDATE players SET credits=$1, bank_credits=$2 WHERE id=$3', [player.credits, player.bank_credits, player.id]);
+  return { type:'deposit', message:`You deposit ${amount}c. Carried: ${player.credits}c · Banked: ${player.bank_credits}c`, player_update:{credits:player.credits, bank_credits:player.bank_credits} };
+}
+
+async function cmdWithdraw(amountStr, player) {
+  const zone = getZone(player.current_zone);
+  if (!zoneHasAtm(zone)) return { type:'error', message:'There\'s no ATM here.' };
+  const amount = amountStr === 'all' ? (player.bank_credits||0) : parseInt(amountStr, 10);
+  if (!amount || amount <= 0) return { type:'error', message:'Withdraw how much? Try "withdraw 50" or "withdraw all".' };
+  if (amount > (player.bank_credits||0)) return { type:'error', message:`You only have ${player.bank_credits||0} credits banked.` };
+  player.bank_credits -= amount;
+  player.credits = (player.credits||0) + amount;
+  await query('UPDATE players SET credits=$1, bank_credits=$2 WHERE id=$3', [player.credits, player.bank_credits, player.id]);
+  return { type:'withdraw', message:`You withdraw ${amount}c. Carried: ${player.credits}c · Banked: ${player.bank_credits}c`, player_update:{credits:player.credits, bank_credits:player.bank_credits} };
+}
+
+// Stealing only ever touches carried credits — banked credits are
+// explicitly theft-proof per design, that's the entire point of a bank.
+const STEAL_COOLDOWN_MS = 60000;
+const stealCooldowns = new Map();
+
+async function cmdSteal(targetStr, player, broadcast) {
+  if (!targetStr) return { type:'error', message:'Steal from whom?' };
+  const zone = getZone(player.current_zone);
+  if (zone?.is_safe_zone) return { type:'error', message:'Too many witnesses. Not here.' };
+
+  const last = stealCooldowns.get(player.id) || 0;
+  if (Date.now() - last < STEAL_COOLDOWN_MS) {
+    return { type:'error', message:`Too soon to try that again. (${Math.ceil((STEAL_COOLDOWN_MS-(Date.now()-last))/1000)}s)` };
+  }
+
+  const others = getZonePlayers(player.current_zone).filter(p => p.id !== player.id);
+  const target = others.find(p => p.handle.toLowerCase().includes(targetStr.toLowerCase()));
+  if (!target) return { type:'error', message:`Can't find "${targetStr}" here.` };
+
+  stealCooldowns.set(player.id, Date.now());
+
+  if ((target.credits||0) <= 0) return { type:'error', message:`${target.handle} isn't carrying any credits.` };
+
+  // Skill-checked via the same shared roll used for lockpicking elsewhere —
+  // Deception, against a flat difficulty. Caught = the whole zone finds
+  // out; succeed quietly = nobody's the wiser.
+  const result = await skillCheck(player, 'deception', 7);
+  const caught = !result.success;
+  await awardSkillXp(player.id, 'deception', 2);
+
+  if (caught) {
+    broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} tries to pick ${target.handle}'s pocket and gets caught red-handed.` }, player.id);
+    return { type:'error', message:`You go for ${target.handle}'s pocket. They notice immediately. Everyone noticed, actually.` };
+  }
+
+  const amount = Math.min(target.credits, Math.ceil(target.credits * (0.1 + Math.random()*0.2)));
+  target.credits -= amount;
+  player.credits = (player.credits||0) + amount;
+  await query('UPDATE players SET credits=$1 WHERE id=$2', [target.credits, target.id]);
+  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
+
+  return { type:'steal', message:`You lift ${amount}c off ${target.handle} without them noticing a thing.`, player_update:{credits:player.credits} };
+}
+
 async function cmdLootCorpse(targetStr, player, broadcast) {
   const corpses = getZoneCorpses(player.current_zone);
   if (!corpses.length) return { type:'error', message:'No corpses to loot here.' };
@@ -643,6 +723,7 @@ function cmdHelp() {
 <span class="help-category">ITEMS</span>       inventory  take &lt;item&gt;  drop  use  equip
 <span class="help-category">CRAFTING</span>    recipes  |  craft &lt;recipe_id&gt;
 <span class="help-category">TRADING</span>     shop &lt;npc&gt;  |  buy &lt;item&gt;  |  sell &lt;item&gt;
+<span class="help-category">ECONOMY</span>     balance  |  deposit &lt;amt/all&gt;  |  withdraw &lt;amt/all&gt;  (ATM required)  |  steal &lt;player&gt;
 <span class="help-category">PROPERTY</span>    rent  |  lock  |  unlock  |  pick  |  upgrade lock  |  sleep
 <span class="help-category">CHARACTER</span>   stats  skills  mutations  factions
 <span class="help-category">SOCIAL</span>      talk &lt;npc&gt;  |  say &lt;message&gt;  |  who

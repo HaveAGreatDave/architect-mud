@@ -118,6 +118,16 @@
     font-size: 12px;
   }
 
+  #header .credits-display {
+    color: var(--cyan);
+    font-size: 12px;
+    font-weight: bold;
+    padding: 2px 8px;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    white-space: nowrap;
+  }
+
   /* ─── MAIN LAYOUT ─── */
   #main {
     display: grid;
@@ -772,6 +782,7 @@
   <span class="logo">ARCHITECT</span>
   <span class="conn-status offline" id="conn-status">DISCONNECTED</span>
   <span class="handle-display" id="handle-display"></span>
+  <span class="credits-display" id="credits-display" title="Credits carried">₵ <span id="header-credits-val">0</span></span>
   <button id="settings-btn" title="Settings" aria-label="Open settings">⚙</button>
   <button id="signout-btn" title="Sign Out" aria-label="Sign out">⏻</button>
 </div>
@@ -1106,8 +1117,15 @@ function handleServerMsg(msg) {
     case 'error':
       appendMsg(msg.message, 'error');
       break;
-    case 'craft': case 'buy': case 'sell': case 'loot':
+    case 'craft': case 'buy': case 'sell': case 'deposit': case 'withdraw': case 'steal':
       appendHtml(msg.message, 'loot');
+      if (msg.player_update && player) { Object.assign(player, msg.player_update); updateVitals(player); }
+      break;
+    case 'loot':
+      appendHtml(msg.message, 'loot');
+      break;
+    case 'balance':
+      appendHtml(msg.message, 'help');
       break;
     case 'recipes': case 'mutations': case 'factions': case 'shop':
       appendHtml(msg.message, 'help');
@@ -1300,6 +1318,10 @@ function updateVitals(p) {
   setBar('hun', p.hunger, 100);
   setBar('thi', p.thirst, 100);
   setBar('rad', p.radiation, 100, true);
+  if (p.credits !== undefined) {
+    const el = document.getElementById('header-credits-val');
+    if (el) el.textContent = p.credits;
+  }
 }
 
 function setBar(id, val, max, inverse = false) {

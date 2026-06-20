@@ -25,7 +25,8 @@ export async function migrate() {
       radiation INTEGER DEFAULT 0,
       current_zone TEXT DEFAULT 'zone_start',
       anchor_zone TEXT DEFAULT 'zone_start',
-      credits INTEGER DEFAULT 50,
+      credits INTEGER DEFAULT 20,
+      bank_credits INTEGER DEFAULT 0,
       visibly_mutated INTEGER DEFAULT 0,
       created_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW()),
       last_seen BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())

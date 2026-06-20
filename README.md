@@ -121,6 +121,9 @@ npm run dev
 | `craft <recipe_id>` | Craft an item |
 | `shop <npc>` | Browse a vendor |
 | `buy / sell <item>` | Trade with a vendor |
+| `balance` | Show carried vs. banked credits |
+| `deposit <amount/all>` / `withdraw <amount/all>` | Move credits to/from your bank balance — requires standing at an ATM. Banked credits cannot be stolen. |
+| `steal <player>` | Attempt to pick a player's pocket (Deception skill check, carried credits only, not usable in safe zones, 60s cooldown) |
 | `rent` | Claim an unowned apartment unit |
 | `lock` / `unlock` | Secure or open your apartment door (owner only) |
 | `pick` | Attempt to pick a locked door (Security skill check) |
@@ -179,6 +182,17 @@ Apartment zones are just regular zones with the `is_apartment` flag set in their
 
 ---
 
+## Economy
+
+- New characters start with **20 credits** — enough for a couple of bar drinks and a ration, not much more.
+- Credits exist in two pools: **carried** (on your person, stealable) and **banked** (stored at an ATM, theft-proof until withdrawn).
+- ATMs are zone-flagged (`flags.has_atm`) — `deposit`/`withdraw` only work standing in a zone that has one. Currently seeded at The Threshold (`zone_start`); more get placed as the city map is built out.
+- **Stealing** targets another player's carried credits only, never their bank balance. It's a Deception skill check against a flat difficulty, has a 60-second cooldown per thief, doesn't work in safe zones, and takes a random 10–30% cut of what the target is carrying. Failing means the whole zone finds out, via a broadcast `zone_event`.
+- **Sully**, a barkeep NPC at the starting bar fixture, sells drinks (Basin Swill, Rust Whiskey, Glow Cocktail) and bar food. Drinks count as the `drink` subtype, so they trigger the Hydrated buff from the Survival system on top of their own effects.
+- Your carried credit balance is always visible in the header, top-right, regardless of what screen or panel you're looking at.
+
+---
+
 ## Plugin System
 
 Drop a folder in `/plugins/` with two files:
@@ -231,6 +245,7 @@ Restart the server. Plugin loads automatically. No core code changes.
 - [x] **Mutation system** — radiation triggers permanent mutations with buffs/drawbacks
 - [x] **Faction reputation** — 6 tiers, trade discounts, hostile behavior
 - [x] **Vendor system** — buy/sell with faction rep discounts
+- [x] **Economy** — 20-credit start, dual carried/banked credit pools, ATM deposit/withdraw, player-to-player theft, barkeep NPC
 - [x] Skill system — 18 skills (incl. Security for lockpicking), XP-by-use, rank 0–10
 - [x] **Inventory & equipment** — stackable items (no more duplicate rows), 7-slot body equipment with a drag/click visual panel
 - [x] NPC dialogue trees
@@ -256,3 +271,4 @@ Restart the server. Plugin loads automatically. No core code changes.
 - [ ] In-game map for dev ghost mode
 - [ ] Apartment decor / storage (currently sleep + lock only, no item storage yet)
 - [ ] Rent decay or upkeep (currently a one-time purchase with no ongoing cost)
+- [ ] More ATMs across the city (currently only one, at The Threshold — full coverage lands with the world-map expansion)

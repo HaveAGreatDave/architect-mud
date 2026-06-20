@@ -163,7 +163,7 @@ next to something hostile.
 ## Database Schema (Actual Tables)
 
 ```sql
-players           -- account, stats, skills location, credits, anchor/current zone
+players           -- account, stats, skills location, credits, bank_credits, anchor/current zone
 player_skills     -- player_id, skill_id, rank, xp
 zones             -- id, name, description, exits (JSONB), flags (JSONB), danger_rating, radiation_level
 items             -- template definitions: type, rarity, effects, stat_modifiers

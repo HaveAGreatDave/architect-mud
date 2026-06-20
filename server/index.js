@@ -153,7 +153,7 @@ async function handleAuth(ws, session, msg) {
     id:player.id, handle:player.handle, role:player.role,
     current_zone:player.current_zone||'zone_start', anchor_zone:player.anchor_zone||'zone_start',
     hp:player.hp, hp_max:player.hp_max, sanity:player.sanity, sanity_max:player.sanity_max,
-    hunger:player.hunger, thirst:player.thirst, radiation:player.radiation, credits:player.credits,
+    hunger:player.hunger, thirst:player.thirst, radiation:player.radiation, credits:player.credits, bank_credits:player.bank_credits||0,
     stat_str:player.stat_str, stat_agi:player.stat_agi, stat_int:player.stat_int,
     stat_wil:player.stat_wil, stat_end:player.stat_end, stat_cha:player.stat_cha,
     armor:0, statuses:[],
