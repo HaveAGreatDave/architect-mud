@@ -75,9 +75,21 @@ export async function describeZone(zone, player) {
 
   desc += `\n`;
   if (exits.length) {
-    const exitLinks = exits.map(dir =>
-      `<span class="action-link exit-link" data-action="go" data-target="${dir}" title="Go ${dir}">${dir}</span>`
-    );
+    const exitLinks = exits.map(dir => {
+      const targetZone = getZone(zone.exits[dir]);
+      // A building is just a zone with flags.is_building set — no separate
+      // table. flags.building_name lets the exit label differ from the
+      // zone's own name (e.g. zone "Embassy Hotel — Lobby" but exit tag
+      // "Embassy Hotel & Bar"); falls back to the zone's name otherwise.
+      const buildingName = targetZone?.flags?.is_building
+        ? (targetZone.flags.building_name || targetZone.name)
+        : null;
+      const dirSpan = `<span class="action-link exit-link" data-action="go" data-target="${dir}" title="Go ${dir}">${dir}</span>`;
+      const tagSpan = buildingName
+        ? ` <span class="action-link exit-building-tag" data-action="go" data-target="${dir}" title="Enter ${buildingName}">(${buildingName})</span>`
+        : '';
+      return dirSpan + tagSpan;
+    });
     desc += `\n<span class="exits-label">Exits:</span> ${exitLinks.join(', ')}`;
   }
   if (others.length) {

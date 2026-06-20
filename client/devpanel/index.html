@@ -680,6 +680,8 @@ function zoneEditForm(rec, isNew) {
     <div class="checkbox-field"><input type="checkbox" id="f-pvp_enabled" ${rec.pvp_enabled?'checked':''}><label>PvP Enabled</label></div>
     <div class="checkbox-field"><input type="checkbox" id="f-is_safe_zone" ${rec.is_safe_zone?'checked':''}><label>Safe Zone (no PvP, anchor point)</label></div>
     <div class="checkbox-field"><input type="checkbox" id="f-is_apartment" ${flags.is_apartment?'checked':''}><label>Rentable Apartment (players can RENT, LOCK, SLEEP here)</label></div>
+    <div class="checkbox-field"><input type="checkbox" id="f-is_building" ${flags.is_building?'checked':''}><label>Building (exits leading here show its name in brackets, e.g. "east (Embassy Hotel & Bar)")</label></div>
+    <div class="field"><label>Building Name (optional — defaults to Zone Name above if left blank)</label><input id="f-building_name" value="${flags.building_name || ''}" placeholder="${rec.name || ''}"></div>
     <div class="field"><label>Exits (JSON object)</label><textarea id="f-exits" rows="4">${JSON.stringify(exits, null, 2)}</textarea></div>
     <div class="field"><label>Ambient Events (JSON array of strings)</label><textarea id="f-ambient_events" rows="6">${JSON.stringify(ambients, null, 2)}</textarea></div>
   `;
@@ -693,7 +695,12 @@ async function saveZone(existing) {
   try { ambients = JSON.parse(document.getElementById('f-ambient_events').value); } catch { return { error: 'Ambient events: invalid JSON' }; }
 
   const existingFlags = existing?.flags || {};
-  const flags = { ...existingFlags, is_apartment: document.getElementById('f-is_apartment').checked };
+  const flags = {
+    ...existingFlags,
+    is_apartment: document.getElementById('f-is_apartment').checked,
+    is_building: document.getElementById('f-is_building').checked,
+    building_name: document.getElementById('f-building_name').value.trim(),
+  };
 
   const body = {
     name: document.getElementById('f-name').value,
