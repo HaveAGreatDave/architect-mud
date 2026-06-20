@@ -1,142 +1,74 @@
 // server/api/environment.routes.js
 //
-// Dev-panel / REST endpoints for the Environmental Systems feature.
+// Environment (time/weather/power/lighting) API.
 //
-// Written for this codebase's actual stack — plain Node `http`, no framework
-// (package.json has no express/body-parser) — so it exposes a single async
-// dispatcher rather than route-decorator syntax.
+// Matches this codebase's REAL dispatcher pattern in server/api/routes.js —
+// NOT raw req/res. handleApiRequest(url, method, body, headers) already
+// strips the leading /api, parses the JSON body, and resolves auth before
+// any route sees it, and every route just returns {status, body}; index.js
+// is what actually writes the HTTP response. This file mirrors that.
 //
-// Wire it into the existing dispatcher in server/api/routes.js, before the
-// final 404 fallthrough:
-//
-//   import { handleEnvironmentRoute } from './environment.routes.js';
-//   ...
-//   if (await handleEnvironmentRoute(req, res, pathname, method)) return;
-//
-// Routes assume admin/dev-role auth has already happened upstream — same
-// assumption the rest of the dev panel API makes per docs/architecture.md.
+// Wiring (already done if you're reading this after the fix):
+//   server/api/routes.js, near the top:
+//     import { handleEnvironmentApi } from './environment.routes.js';
+//   inside handleApiRequest(), right after `const auth = verifyToken(headers);`:
+//     const envResult = await handleEnvironmentApi(path, method, body, auth);
+//     if (envResult) return envResult;
 
 import * as env from '../engine/environment.js';
 
-function sendJSON(res, status, data) {
-  res.writeHead(status, { 'Content-Type': 'application/json' });
-  res.end(JSON.stringify(data));
-}
+const DEV_ROLES = ['dev', 'admin', 'builder', 'designer'];
 
-function readJSONBody(req) {
-  return new Promise((resolve, reject) => {
-    let raw = '';
-    req.on('data', (chunk) => { raw += chunk; });
-    req.on('end', () => {
-      if (!raw) return resolve({});
-      try { resolve(JSON.parse(raw)); }
-      catch (err) { reject(err); }
-    });
-    req.on('error', reject);
-  });
-}
-
-// Same gotcha documented in docs/architecture.md's Lessons Learned: Postgres
-// INTEGER columns reject JS true/false, so booleans get coerced explicitly
-// before anything reaches a query.
-function boolToInt(v) { return v ? 1 : 0; }
-
-export async function handleEnvironmentRoute(req, res, pathname, method) {
-  try {
-    if (pathname === '/api/environment/state' && method === 'GET') {
-      sendJSON(res, 200, env.getEnvironmentState());
-      return true;
-    }
-
-    if (pathname === '/api/environment/forecast' && method === 'GET') {
-      sendJSON(res, 200, env.getForecast());
-      return true;
-    }
-
-    if (pathname === '/api/environment/power/map' && method === 'GET') {
-      sendJSON(res, 200, env.getPowerMap());
-      return true;
-    }
-
-    if (pathname.startsWith('/api/environment/visibility/') && method === 'GET') {
-      const zoneId = decodeURIComponent(pathname.split('/').pop());
-      sendJSON(res, 200, env.getZoneVisibility(zoneId));
-      return true;
-    }
-
-    if (pathname === '/api/environment/time/set' && method === 'POST') {
-      const body = await readJSONBody(req);
-      sendJSON(res, 200, await env.devSetTime(body));
-      return true;
-    }
-
-    if (pathname === '/api/environment/time/advance' && method === 'POST') {
-      const body = await readJSONBody(req);
-      sendJSON(res, 200, await env.devAdvanceTime(body.minutes));
-      return true;
-    }
-
-    if (pathname === '/api/environment/time/freeze' && method === 'POST') {
-      const body = await readJSONBody(req);
-      sendJSON(res, 200, env.devFreeze(boolToInt(body.frozen)));
-      return true;
-    }
-
-    if (pathname === '/api/environment/tick/force30' && method === 'POST') {
-      sendJSON(res, 200, await env.devForceTick30());
-      return true;
-    }
-
-    if (pathname === '/api/environment/tick/force24' && method === 'POST') {
-      sendJSON(res, 200, await env.devForceTick24());
-      return true;
-    }
-
-    if (pathname === '/api/environment/weather/override' && method === 'POST') {
-      const body = await readJSONBody(req);
-      sendJSON(res, 200, await env.devOverrideWeather(body));
-      return true;
-    }
-
-    if (pathname === '/api/environment/weather/storm' && method === 'POST') {
-      sendJSON(res, 200, await env.devTriggerStorm());
-      return true;
-    }
-
-    if (pathname === '/api/environment/weather/snow' && method === 'POST') {
-      sendJSON(res, 200, await env.devTriggerSnow());
-      return true;
-    }
-
-    if (pathname === '/api/environment/forecast/lock' && method === 'POST') {
-      const body = await readJSONBody(req);
-      sendJSON(res, 200, await env.devLockForecastDay(Number(body.day), !!body.locked));
-      return true;
-    }
-
-    if (pathname === '/api/environment/power/generator' && method === 'POST') {
-      const body = await readJSONBody(req);
-      sendJSON(res, 200, await env.devSpawnGenerator(body));
-      return true;
-    }
-
-    if (pathname === '/api/environment/power/load' && method === 'POST') {
-      const body = await readJSONBody(req);
-      sendJSON(res, 200, await env.devModifyLoad(body.zoneId, body.loadKw));
-      return true;
-    }
-
-    if (pathname === '/api/environment/power/fail' && method === 'POST') {
-      const body = await readJSONBody(req);
-      sendJSON(res, 200, await env.devSimulateFailure(body.generatorId));
-      return true;
-    }
-
-    return false; // not an environment route — let the caller fall through
-  } catch (err) {
-    // Same pattern as every other dev-panel write path: a bad request
-    // surfaces as a toast in the dev panel, never crashes the process.
-    sendJSON(res, 400, { error: err.message || 'Environment route error' });
-    return true;
+function requireDevAuth(auth) {
+  if (!auth || !DEV_ROLES.includes(auth.role)) {
+    return { status: 403, body: { error: 'Dev access required' } };
   }
+  return null;
+}
+
+// Returns {status, body} if this was an environment route, or null so
+// handleApiRequest falls through to its own routes.
+export async function handleEnvironmentApi(path, method, body, auth) {
+  if (path === '/environment/state' && method === 'GET') {
+    return { status: 200, body: env.getEnvironmentState() };
+  }
+
+  if (path === '/environment/forecast' && method === 'GET') {
+    return { status: 200, body: env.getForecast() };
+  }
+
+  if (path === '/environment/power/map' && method === 'GET') {
+    return { status: 200, body: env.getPowerMap() };
+  }
+
+  if (path.startsWith('/environment/visibility/') && method === 'GET') {
+    const zoneId = decodeURIComponent(path.split('/')[3] || '');
+    return { status: 200, body: env.getZoneVisibility(zoneId) };
+  }
+
+  // Everything past this point changes world state — dev/admin only,
+  // same role check as zones/enemies/items/etc. elsewhere in routes.js.
+  if (path.startsWith('/environment/') && method === 'POST') {
+    const denied = requireDevAuth(auth);
+    if (denied) return denied;
+
+    try {
+      if (path === '/environment/time/set') return { status: 200, body: await env.devSetTime(body || {}) };
+      if (path === '/environment/time/advance') return { status: 200, body: await env.devAdvanceTime(body?.minutes) };
+      if (path === '/environment/time/freeze') return { status: 200, body: env.devFreeze(body?.frozen ? 1 : 0) };
+      if (path === '/environment/tick/force30') return { status: 200, body: await env.devForceTick30() };
+      if (path === '/environment/tick/force24') return { status: 200, body: await env.devForceTick24() };
+      if (path === '/environment/weather/override') return { status: 200, body: await env.devOverrideWeather(body || {}) };
+      if (path === '/environment/weather/storm') return { status: 200, body: await env.devTriggerStorm() };
+      if (path === '/environment/weather/snow') return { status: 200, body: await env.devTriggerSnow() };
+      if (path === '/environment/forecast/lock') return { status: 200, body: await env.devLockForecastDay(Number(body?.day), !!body?.locked) };
+      if (path === '/environment/power/generator') return { status: 200, body: await env.devSpawnGenerator(body || {}) };
+      if (path === '/environment/power/load') return { status: 200, body: await env.devModifyLoad(body?.zoneId, body?.loadKw) };
+      if (path === '/environment/power/fail') return { status: 200, body: await env.devSimulateFailure(body?.generatorId) };
+    } catch (err) {
+      return { status: 400, body: { error: err.message || 'Environment route error' } };
+    }
+  }
+
+  return null;
 }

@@ -1,21 +1,8 @@
-import Database from 'better-sqlite3';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { query } from './db.js';
+import { migrateEnvironment } from './migrate.environment.js';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const DB_PATH = join(__dirname, '../../data/world.db');
-
-export function getDb() {
-  const db = new Database(DB_PATH);
-  db.pragma('journal_mode = WAL');
-  db.pragma('foreign_keys = ON');
-  return db;
-}
-
-export function migrate() {
-  const db = getDb();
-
-  db.exec(`
+export async function migrate() {
+  await query(`
     CREATE TABLE IF NOT EXISTS players (
       id TEXT PRIMARY KEY,
       username TEXT UNIQUE NOT NULL,
@@ -39,9 +26,11 @@ export function migrate() {
       radiation INTEGER DEFAULT 0,
       current_zone TEXT DEFAULT 'zone_start',
       anchor_zone TEXT DEFAULT 'zone_start',
-      credits INTEGER DEFAULT 50,
-      created_at INTEGER DEFAULT (unixepoch()),
-      last_seen INTEGER DEFAULT (unixepoch())
+      credits INTEGER DEFAULT 20,
+      bank_credits INTEGER DEFAULT 0,
+      visibly_mutated INTEGER DEFAULT 0,
+      created_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW()),
+      last_seen BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
     );
 
     CREATE TABLE IF NOT EXISTS player_skills (
@@ -62,11 +51,11 @@ export function migrate() {
       radiation_level INTEGER DEFAULT 0,
       light_level TEXT DEFAULT 'normal',
       is_safe_zone INTEGER DEFAULT 0,
-      ambient_events TEXT DEFAULT '[]',
-      exits TEXT DEFAULT '{}',
-      flags TEXT DEFAULT '{}',
+      ambient_events JSONB DEFAULT '[]',
+      exits JSONB DEFAULT '{}',
+      flags JSONB DEFAULT '{}',
       created_by TEXT,
-      updated_at INTEGER DEFAULT (unixepoch())
+      updated_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
     );
 
     CREATE TABLE IF NOT EXISTS items (
@@ -81,10 +70,10 @@ export function migrate() {
       is_stackable INTEGER DEFAULT 0,
       is_unique INTEGER DEFAULT 0,
       is_quest_item INTEGER DEFAULT 0,
-      effects TEXT DEFAULT '{}',
-      stat_modifiers TEXT DEFAULT '{}',
-      requirements TEXT DEFAULT '{}',
-      flags TEXT DEFAULT '{}'
+      effects JSONB DEFAULT '{}',
+      stat_modifiers JSONB DEFAULT '{}',
+      requirements JSONB DEFAULT '{}',
+      flags JSONB DEFAULT '{}'
     );
 
     CREATE TABLE IF NOT EXISTS player_inventory (
@@ -95,9 +84,7 @@ export function migrate() {
       condition REAL DEFAULT 1.0,
       is_equipped INTEGER DEFAULT 0,
       slot TEXT,
-      custom_data TEXT DEFAULT '{}',
-      FOREIGN KEY (player_id) REFERENCES players(id),
-      FOREIGN KEY (item_id) REFERENCES items(id)
+      custom_data JSONB DEFAULT '{}'
     );
 
     CREATE TABLE IF NOT EXISTS enemies (
@@ -113,11 +100,11 @@ export function migrate() {
       armor INTEGER DEFAULT 0,
       xp_reward INTEGER DEFAULT 10,
       credit_reward INTEGER DEFAULT 0,
-      loot_table TEXT DEFAULT '[]',
+      loot_table JSONB DEFAULT '[]',
       behavior TEXT DEFAULT 'aggressive',
       faction TEXT,
       death_message TEXT,
-      flags TEXT DEFAULT '{}'
+      flags JSONB DEFAULT '{}'
     );
 
     CREATE TABLE IF NOT EXISTS zone_spawns (
@@ -126,9 +113,7 @@ export function migrate() {
       enemy_id TEXT NOT NULL,
       max_count INTEGER DEFAULT 1,
       spawn_weight INTEGER DEFAULT 100,
-      respawn_seconds INTEGER DEFAULT 300,
-      FOREIGN KEY (zone_id) REFERENCES zones(id),
-      FOREIGN KEY (enemy_id) REFERENCES enemies(id)
+      respawn_seconds INTEGER DEFAULT 300
     );
 
     CREATE TABLE IF NOT EXISTS npcs (
@@ -138,10 +123,10 @@ export function migrate() {
       zone_id TEXT,
       faction TEXT,
       disposition TEXT DEFAULT 'neutral',
-      dialogue_tree TEXT DEFAULT '{}',
-      vendor_inventory TEXT DEFAULT '[]',
+      dialogue_tree JSONB DEFAULT '{}',
+      vendor_inventory JSONB DEFAULT '[]',
       wanders INTEGER DEFAULT 0,
-      flags TEXT DEFAULT '{}'
+      flags JSONB DEFAULT '{}'
     );
 
     CREATE TABLE IF NOT EXISTS factions (
@@ -149,8 +134,8 @@ export function migrate() {
       name TEXT NOT NULL,
       description TEXT NOT NULL,
       color TEXT DEFAULT '#888888',
-      hostile_to TEXT DEFAULT '[]',
-      friendly_to TEXT DEFAULT '[]'
+      hostile_to JSONB DEFAULT '[]',
+      friendly_to JSONB DEFAULT '[]'
     );
 
     CREATE TABLE IF NOT EXISTS player_faction_rep (
@@ -158,15 +143,13 @@ export function migrate() {
       faction_id TEXT NOT NULL,
       reputation INTEGER DEFAULT 0,
       tier TEXT DEFAULT 'unknown',
-      PRIMARY KEY (player_id, faction_id),
-      FOREIGN KEY (player_id) REFERENCES players(id),
-      FOREIGN KEY (faction_id) REFERENCES factions(id)
+      PRIMARY KEY (player_id, faction_id)
     );
 
     CREATE TABLE IF NOT EXISTS loot_tables (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
-      entries TEXT DEFAULT '[]'
+      entries JSONB DEFAULT '[]'
     );
 
     CREATE TABLE IF NOT EXISTS world_events (
@@ -175,19 +158,87 @@ export function migrate() {
       description TEXT NOT NULL,
       zone_id TEXT,
       player_id TEXT,
-      data TEXT DEFAULT '{}',
-      created_at INTEGER DEFAULT (unixepoch())
+      data JSONB DEFAULT '{}',
+      created_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
     );
 
     CREATE TABLE IF NOT EXISTS player_corpses (
       id TEXT PRIMARY KEY,
       player_id TEXT NOT NULL,
       zone_id TEXT NOT NULL,
-      inventory_snapshot TEXT DEFAULT '[]',
+      inventory_snapshot JSONB DEFAULT '[]',
       death_message TEXT,
-      expires_at INTEGER NOT NULL,
-      looted_by TEXT DEFAULT '[]',
-      created_at INTEGER DEFAULT (unixepoch())
+      expires_at BIGINT NOT NULL,
+      looted_by JSONB DEFAULT '[]',
+      created_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
+    );
+
+    CREATE TABLE IF NOT EXISTS apartments (
+      zone_id TEXT PRIMARY KEY,
+      owner_id TEXT,
+      owner_handle TEXT,
+      is_locked INTEGER DEFAULT 0,
+      lock_difficulty INTEGER DEFAULT 1,
+      rent_cost INTEGER DEFAULT 100,
+      purchased_at BIGINT,
+      FOREIGN KEY (zone_id) REFERENCES zones(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS recipes (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      category TEXT DEFAULT 'misc',
+      requires_station TEXT,
+      skill_req JSONB DEFAULT '{}',
+      ingredients JSONB DEFAULT '[]',
+      base_output JSONB NOT NULL,
+      skill_id TEXT NOT NULL,
+      base_difficulty INTEGER DEFAULT 3
+    );
+
+    CREATE TABLE IF NOT EXISTS drugs (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      item_id TEXT,
+      duration_seconds INTEGER DEFAULT 300,
+      effects JSONB DEFAULT '{}',
+      addiction_chance REAL DEFAULT 0,
+      overdose_threshold INTEGER DEFAULT 3,
+      withdrawal_effects JSONB DEFAULT '{}',
+      flags JSONB DEFAULT '{}'
+    );
+
+    CREATE TABLE IF NOT EXISTS player_drug_state (
+      player_id TEXT NOT NULL,
+      drug_id TEXT NOT NULL,
+      active_until BIGINT,
+      doses_in_system INTEGER DEFAULT 0,
+      times_used INTEGER DEFAULT 0,
+      is_addicted INTEGER DEFAULT 0,
+      last_used_at BIGINT,
+      PRIMARY KEY (player_id, drug_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS mutations (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      polarity TEXT DEFAULT 'mixed',
+      visible INTEGER DEFAULT 1,
+      stat_modifiers JSONB DEFAULT '{}',
+      effects JSONB DEFAULT '{}',
+      drawbacks JSONB DEFAULT '[]',
+      rarity TEXT DEFAULT 'uncommon',
+      radiation_threshold INTEGER DEFAULT 40
+    );
+
+    CREATE TABLE IF NOT EXISTS player_mutations (
+      player_id TEXT NOT NULL,
+      mutation_id TEXT NOT NULL,
+      acquired_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW()),
+      PRIMARY KEY (player_id, mutation_id)
     );
 
     CREATE INDEX IF NOT EXISTS idx_players_username ON players(username);
@@ -195,11 +246,13 @@ export function migrate() {
     CREATE INDEX IF NOT EXISTS idx_zone_spawns_zone ON zone_spawns(zone_id);
     CREATE INDEX IF NOT EXISTS idx_world_events_zone ON world_events(zone_id);
     CREATE INDEX IF NOT EXISTS idx_world_events_time ON world_events(created_at);
-    CREATE INDEX IF NOT EXISTS idx_corpses_zone ON player_corpses(zone_id);
+    CREATE INDEX IF NOT EXISTS idx_apartments_owner ON apartments(owner_id);
   `);
 
-  db.close();
-  console.log('✓ Database migrated');
+  console.log('✓ Database migrated (Postgres)');
+
+  await migrateEnvironment(query);
+  console.log('✓ Environment tables migrated');
 }
 
-migrate();
+migrate().catch(e => { console.error(e); process.exit(1); });

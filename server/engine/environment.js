@@ -143,6 +143,14 @@ function addDays(dateStr, days) {
   return d.toISOString().slice(0, 10);
 }
 
+// node-postgres parses DATE columns into JS Date objects on read (it only
+// accepts strings going IN). pg builds that Date from UTC components, so
+// toISOString().slice(0,10) round-trips correctly regardless of server TZ.
+function toDateString(value) {
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  return String(value).slice(0, 10);
+}
+
 function dayOfWeekFor(dateStr) {
   const d = new Date(`${dateStr}T00:00:00Z`);
   const jsDay = d.getUTCDay(); // 0=Sun..6=Sat
@@ -202,7 +210,7 @@ export async function initEnvironment({ query, emitHook, broadcast }) {
   deps = { query, emitHook, broadcast };
 
   const clockRow = await ensureClockRow(query);
-  state.date = clockRow.game_date;
+  state.date = toDateString(clockRow.game_date);
   state.minutes = clockRow.game_time_minutes;
   state.dayOfWeek = clockRow.day_of_week;
   state.season = clockRow.season;
@@ -251,7 +259,7 @@ async function loadForecast(query) {
   }
   state.forecast = rows.map((r) => ({
     forecastDay: r.forecast_day,
-    date: r.game_date,
+    date: toDateString(r.game_date),
     weatherType: r.weather_type,
     tempC: r.temp_c,
     locked: !!r.locked,

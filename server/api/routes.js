@@ -4,6 +4,7 @@ import { loadRecipes } from '../engine/crafting.js';
 import { loadDrugs } from '../engine/drugs.js';
 import { loadMutations } from '../engine/mutations.js';
 import { randomUUID, createHash } from 'crypto';
+import { handleEnvironmentApi } from './environment.routes.js';
 
 const hashPassword = pw => createHash('sha256').update(pw).digest('hex');
 const makeToken = (playerId, role) => Buffer.from(`${playerId}:${role}:${Date.now()}`).toString('base64');
@@ -28,6 +29,9 @@ function requireAdmin(auth, fn) {
 export async function handleApiRequest(url, method, body, headers) {
   const path = url.replace(/^\/api/,'').split('?')[0];
   const auth = verifyToken(headers);
+
+  const envResult = await handleEnvironmentApi(path, method, body, auth);
+  if (envResult) return envResult;
 
   if (path==='/auth/register' && method==='POST') return apiRegister(body);
   if (path==='/auth/login' && method==='POST') return apiLogin(body);
@@ -89,10 +93,6 @@ async function apiLogin(body) {
   if (!rows.length||rows[0].password_hash!==hashPassword(password)) return {status:401,body:{error:'Invalid credentials'}};
   return {status:200,body:{token:makeToken(rows[0].id,rows[0].role),playerId:rows[0].id,handle:rows[0].handle,role:rows[0].role}};
 }
-
-import { handleEnvironmentRoute } from './environment.routes.js';
- ...
-if (await handleEnvironmentRoute(req, res, pathname, method)) return;
 
 async function apiGetZones() { return {status:200,body:getAllZones()}; }
 async function apiGetZone(id) {
