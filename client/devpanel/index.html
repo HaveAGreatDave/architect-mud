@@ -621,6 +621,7 @@ function recipeEditForm(rec, isNew) {
     <div class="field-row">
       <div class="field"><label>Primary Skill (used for the craft roll)</label><input id="f-skill_id" value="${rec.skill_id||'fabrication'}"></div>
       <div class="field"><label>Base Difficulty</label><input type="number" id="f-base_difficulty" value="${rec.base_difficulty||3}" min="1" max="20"></div>
+      <div class="field"><label>Craft Time (seconds, 0 = instant)</label><input type="number" id="f-craft_time" value="${rec.craft_time??3}" min="0" max="600"></div>
     </div>
     <div class="field"><label>Skill Requirements (JSON object â€” skill_id: min_rank)</label><textarea id="f-skill_req" rows="3">${JSON.stringify(skillReq, null, 2)}</textarea></div>
     <div class="field"><label>Ingredients (JSON array)</label><textarea id="f-ingredients" rows="5">${JSON.stringify(ingredients, null, 2)}</textarea></div>
@@ -643,6 +644,7 @@ async function saveRecipe(existing) {
     requires_station: document.getElementById('f-requires_station').value || null,
     skill_id: document.getElementById('f-skill_id').value,
     base_difficulty: +document.getElementById('f-base_difficulty').value || 3,
+    craft_time: document.getElementById('f-craft_time').value === '' ? 3 : +document.getElementById('f-craft_time').value,
     skill_req: skillReq,
     ingredients,
     base_output: output,
