@@ -25,8 +25,6 @@ Every loop should produce a story worth retelling. Death should be memorable.
 
 ## Character Creation
 
-> **As-built note:** the full creation sequence below is the *design intent* and is **not yet implemented**. Registration today takes only a username, password, and handle, and starts every survivor with the same default stats (all 5s) and a kit of 3 Field Bandages. Origin Fragment and Starting Archetype are still TODO.
-
 Players begin with a brief creation sequence that establishes:
 
 - **Handle** — your name in the world. No real names. The old world is gone.
@@ -67,8 +65,8 @@ Skills improve by use. Do a thing, get better at it. There is no XP pool to allo
 
 Skills are grouped into trees but not locked — you can dabble in anything, but depth requires commitment.
 
-### Skill Categories (As Built — 18 skills)
-- **Combat** — Brawling, Bladed, Firearms, Explosives *(an Energy Weapons skill was planned but isn't in yet — energy weapons like the Taser exist as items with no governing skill)*
+### Skill Categories
+- **Combat** — Brawling, Bladed, Firearms, Explosives, Energy Weapons
 - **Survival** — Scavenging, Cooking, Medicine, Navigation
 - **Tech** — Hacking, Electronics, Fabrication, Drone Ops, Security
 - **Social** — Persuasion, Intimidate, Deception, Faction Lore
@@ -156,17 +154,26 @@ Each zone has:
 - **Points of interest** — lootable, interactive, or quest-relevant locations within the zone
 
 ### Map Shape (As Built)
-The world was originally planned as a 5×5 grid (3×3 safe core inside a 16-zone badlands ring), but the shipped map was deliberately **shrunk to a compact 16-zone core** so every zone is fully populated and worth visiting rather than spread thin. As built it is:
+The world is a small hub-and-spoke city, not a grid ring: **The Threshold** sits at the center with exits in all four cardinal directions to eight surrounding city tiles, all danger-rated Safe — always PvP-off, zero enemy spawns, no radiation. One of those tiles (the western edge, Franchise Strip) has a `down` exit to the Embassy Hotel & Bar, the residential block (apartments — see below).
 
-- An **8-zone safe city core** (Coldwater Basin) — always PvP-off, zero enemy spawns, no radiation. The Threshold is the hub.
-- **2 badland zones** beyond the western gate (Rust Quarter West, medium, where enemies spawn; The Static Wood, low, past it) — PvP on.
-- The **Coldwater Power Station** (medium) west of the badlands, which also serves as the city's in-world power plant.
-- The **Embassy Hotel & Bar** building — a lobby/bar plus four rentable apartment units — reached by going `down` from the Franchise Strip.
+Past the city's western edge, two zones form a short buffer into danger: **The Rust Quarter West** (medium danger, the transition zone) and **The Static Wood** beyond it (low danger, a dead end). Past that buffer sits **Coldwater Power Station** — the permanent, fuel-free generator that powers every street light and outdoor zone in the city (see Power, Lighting & Time below). It's danger-rated medium, not safe — industrial hazards, not monsters.
 
-The intent is unchanged: players cluster and interact in the safe core, and must make a real decision to leave it and travel into danger to find combat. Enemies do not spawn in the city under any circumstance. The small footprint is intentional for now — a larger world-map expansion is the planned next pass.
+This is deliberately small rather than a sprawling grid: the goal is still that players cluster in the safe core and make a real, legible decision to head toward the one dangerous edge of the map to find a fight, rather than getting lost in a large ring of samey badland tiles. The map has shrunk at least once already in development and is expected to grow back out in waves rather than all at once.
 
 ### Safe Zones
 Every region has at least one safe zone — a hub where PvP is off, vendors exist, and players can anchor. Safe zones are not paradise. They are just places where you probably won't die *today*.
+
+---
+
+## Power, Lighting & Time
+
+A day/night cycle and a city-wide power grid run independently of zone content — see `docs/architecture.md`'s Environment System section for the implementation. The design intent:
+
+- **Time passes whether or not anyone's watching.** Dusk and dawn are real transitions, not flavor-only — street lights physically turn on and off with them.
+- **The city is never dark by default.** Every outdoor zone and every street light is powered by Coldwater Power Station, a piece of pre-Handoff infrastructure that "never stopped running" — thematically, the Architect's silent competence rather than a friendly utility company (see `docs/story.md`).
+- **Indoor lighting is a player choice, not ambient.** Overhead lights and lamps in a powered room are switched on or off by hand (`switch`/`flip`) — a room can be fully powered and still dark if nobody's bothered to turn the lights on, which is a small, deliberate piece of texture rather than a bug.
+- **Power is local and finite for buildings.** A building generator (installable per-building, also fuel-free) only powers that building's own connected rooms — there's no implicit citywide indoor power. This is meant to make "does this building have its own generator" a real, visible fact about a place, not an invisible system detail.
+- **Darkness is atmosphere, not (yet) a threat.** Visibility affects what a room description tells you, not what you can do — it doesn't currently hide exits, items, or enemies. Whether it should is an open design question (see below); the current treatment is a deliberate, scoped-down first pass rather than the intended final state.
 
 ---
 
@@ -259,6 +266,8 @@ Players can rent a fixed apartment unit, lock it, and use it as a guaranteed-saf
 ### Renting
 Apartment zones are unowned by default and cost a flat credit price to claim (`rent`). Once rented, the unit belongs to that player until further notice — there's currently no rent decay or repossession, so it's a one-time purchase rather than an ongoing cost. (Flagged as a likely future addition — see Open Design Questions.)
 
+A zone becomes a rentable apartment by checking "Rentable Apartment" on it in the dev panel's Zone Editor (which also auto-registers the underlying ownership/lock/rent record), rather than through a dedicated apartment-building tool — apartments are just zones with that flag set, edited the same way as any other room.
+
 ### Locks & Lockpicking
 An owner can `lock`/`unlock` their own door at will. A locked door blocks everyone but the owner from entering or sleeping there.
 
@@ -281,20 +290,6 @@ This was originally an open question ("Housing / base building for players or cr
 
 ---
 
-## Environmental Systems (As Built)
-
-The world is alive on its own clock, independent of any player:
-
-- **Day/night cycle** — dawn → day → dusk → night, on a 30-minute real-time tick. Darkness reduces visibility; streetlights handle themselves at dusk/dawn.
-- **Weather & seasons** — a deterministic 7-day forecast cycles sunny/cloudy/rain/fog/storm/snow on a 24-hour tick, each weather type dampening visibility differently.
-- **Power & lighting** — generators power zones; blackouts and overloads are simulated and weather can fault generators. Indoor lights are player-switchable (only with power); outdoor streetlights are city-grid automatic.
-
-These exist to make the world feel persistent and indifferent — it keeps turning whether or not you're watching — and to give later systems (stealth in the dark, weather-gated events, power sabotage) something concrete to hook into. See `docs/architecture.md` for the simulation model.
-
-## Drugs & Addiction (As Built)
-
-A small substance system gives the WIL "addiction resistance" stat something to resist. Drug-type consumables apply timed effects, carry a per-use addiction roll, and punish over-use: take too many doses too fast and you overdose, taking the drug's withdrawal effects instead of its high. It's deliberately a vice layer — a risky shortcut to a stat edge or a sanity patch, not a core progression path.
-
 ## Open Design Questions
 - Do crafting stations degrade and need maintenance, or are they permanent?
 - Can players set up player-run shops / vending in safe zones?
@@ -302,3 +297,5 @@ A small substance system gives the WIL "addiction resistance" stat something to 
 - Apartment storage — a per-unit inventory chest is a natural extension, not yet built
 - Apartment upkeep — should ownership lapse without payment, or is a one-time purchase the final design?
 - Crew/guild-shared apartments — currently single-owner only
+- Should darkness/being unpowered ever gate gameplay (hidden exits, ambush odds, item visibility) instead of just changing room-description flavor text?
+- Should a building generator ever be able to run out / fail (storm damage, sabotage) the way the design doc's loot/death economy implies infrastructure should be contestable, or are buildings' own generators meant to be a permanent, low-stakes utility?

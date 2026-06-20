@@ -3,12 +3,12 @@ import { getZone, getZoneEnemies, getZoneNpcs, getZoneCorpses, getZonePlayers, g
 import { playerAttackEnemy, isOnCooldown, getCooldownRemaining } from './combat.js';
 import { awardSkillXp, getPlayerSkills, SKILLS, skillCheck } from './skills.js';
 import { getAvailableRecipes, attemptCraft } from './crafting.js';
-import { getPlayerMutations, getCustodianOutcastResponse } from './mutations.js';
-import { getPlayerFactionRep } from './factions.js';
+import { getCustodianOutcastResponse } from './mutations.js';
 import { getVendorStock, buyFromVendor, sellToVendor } from './vendor.js';
 import { cmdRent, cmdLockDoor, cmdUpgradeLock, cmdPickLock, cmdSleep, describeApartmentStatus } from './apartments.js';
 import { useDrug } from './drugs.js';
-import { getZoneVisibility, getZonePowerStatus, recomputePower } from './environment.js';
+import { getZonePowerStatus, recomputePower } from './environment.js';
+import { fireCommand, fireHook } from './plugins.js';
 import { randomUUID } from 'crypto';
 
 // Per-player cooldown so Custodian turrets don't fire on every single look/move
@@ -30,16 +30,6 @@ export function describeVoidTeleport() {
   return `\n<span class="zone-name">— VOID —</span>\n${msg}`;
 }
 
-// Flavor line describing how well-lit the zone currently is — driven by
-// the environment system's ambient light + artificial light + weather/fog
-// model (GDD §7). Falls back to "clear" automatically if the environment
-// system never initialized, since getZoneVisibility() reads safe in-memory
-// defaults rather than throwing.
-function describeLightLevel(category) {
-  if (category === 'dark') return `<span class="light-level light-dark">It's dark here — you can only make out shadows and shapes.</span>`;
-  if (category === 'dim') return `<span class="light-level light-dim">Light is dim; details are hard to make out.</span>`;
-  return `<span class="light-level light-clear">Visibility is clear.</span>`;
-}
 
 // --- Building & Room Navigation System ---
 // A zone counts as "interior" for room-listing purposes if it's an
@@ -190,7 +180,8 @@ export async function describeZone(zone, player) {
   desc += `<span class="zone-danger zone-danger-${zone.danger_rating}">[${zone.danger_rating.toUpperCase()}]</span>`;
   if (zone.radiation_level > 0) desc += ` <span class="rad-warning">☢ RAD:${zone.radiation_level}</span>`;
   if (zone.pvp_enabled) desc += ` <span class="pvp-warning">⚔ PVP</span>`;
-  desc += `\n${describeLightLevel(getZoneVisibility(zone.id).category)}`;
+  const roomDesc = await fireHook('zone.describeRoom', zone);
+  if (roomDesc) desc += `\n${roomDesc}`;
   desc += `\n${zone.description}${describeBuildingDiscovery(buildings)}`;
   desc += await describeApartmentStatus(zone);
 
@@ -293,6 +284,9 @@ export async function handleCommand(input, player, broadcast) {
     return result;
   }
 
+  const pluginResult = await fireCommand(cmd, args, raw, player, broadcast);
+  if (pluginResult !== undefined) return pluginResult;
+
   switch (cmd) {
     case 'look': case 'l': return args.length ? cmdLook(player, args.join(' ')) : cmdLook(player);
     case 'go': case 'move': case 'enter':
@@ -322,8 +316,6 @@ export async function handleCommand(input, player, broadcast) {
     case 'say': return cmdSay(raw.replace(/^say\s*/i,''), player, broadcast);
     case 'craft': return cmdCraft(args, player);
     case 'recipes': return cmdRecipes(player);
-    case 'mutations': return cmdMutations(player);
-    case 'factions': case 'rep': return cmdFactions(player);
     case 'shop': case 'browse': return cmdShop(args.join(' '), player);
     case 'buy': return cmdBuy(args, player);
     case 'sell': return cmdSell(args, player);
@@ -871,29 +863,8 @@ async function cmdCraft(args, player) {
   return { type:result.success ? 'craft' : 'error', message:result.message };
 }
 
-async function cmdMutations(player) {
-  const muts = await getPlayerMutations(player.id);
-  if (!muts.length) return { type:'mutations', message:'No mutations yet. Keep absorbing radiation. Or don\'t. Your call.' };
-  let msg = '<span class="skills-header">YOUR MUTATIONS</span>\n\n';
-  for (const m of muts) {
-    msg += `<span class="zone-name">${m.name}</span>\n${m.description}\n`;
-    if (Object.keys(m.stat_modifiers||{}).length) {
-      msg += `  Stats: ${Object.entries(m.stat_modifiers).map(([k,v])=>`${k.replace('stat_','')}${v>0?'+':''}${v}`).join(', ')}\n`;
-    }
-    if (m.drawbacks?.length) msg += `  <span class="msg-error">Drawbacks: ${m.drawbacks.join(', ')}</span>\n`;
-    msg += '\n';
-  }
-  return { type:'mutations', message:msg };
-}
-
-async function cmdFactions(player) {
-  const reps = await getPlayerFactionRep(player.id);
-  let msg = '<span class="skills-header">FACTION STANDING</span>\n\n';
-  for (const f of reps) {
-    msg += `<span style="color:${f.tier_color}">${f.name.padEnd(24)}</span> ${f.tier_label} (${f.reputation})\n`;
-  }
-  return { type:'factions', message:msg };
-}
+// cmdMutations and cmdFactions have moved to plugins/mutations/ and plugins/factions/
+// respectively, registered via registerCommand().
 
 async function cmdShop(npcName, player) {
   if (!npcName) return { type:'error', message:'Browse whose shop? (shop <npc name>)' };

@@ -169,27 +169,4 @@ function resolveEnemyLoot(enemy) {
   return drops;
 }
 
-// Status effect tick — called each second for players in combat
-export function tickStatuses(player) {
-  const messages = [];
-  if (!player.statuses) return messages;
-
-  player.statuses = player.statuses.filter(s => {
-    if (s.name === 'bleeding') {
-      player.hp = Math.max(0, player.hp - 2);
-      messages.push('You are bleeding. (-2 HP)');
-    }
-    if (s.name === 'burning') {
-      player.hp = Math.max(0, player.hp - 5);
-      messages.push('You are on fire. (-5 HP)');
-    }
-    if (s.name === 'irradiated') {
-      player.radiation = Math.min(100, (player.radiation || 0) + 2);
-      messages.push('Radiation courses through you. (+2 RAD)');
-    }
-    s.duration--;
-    return s.duration > 0;
-  });
-
-  return messages;
-}
+// tickStatuses has moved to server/engine/effects.js as tickEffects.

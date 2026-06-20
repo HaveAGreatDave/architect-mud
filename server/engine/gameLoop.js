@@ -1,9 +1,10 @@
 import { world, tickSpawns, getRandomAmbient, getLivePlayer } from './world.js';
-import { enemyAttackPlayer, tickStatuses, isOnCooldown } from './combat.js';
+import { enemyAttackPlayer, isOnCooldown } from './combat.js';
+import { tickEffects } from './effects.js';
 import { resolveAttack } from './commands.js';
-import { checkMutationTrigger } from './mutations.js';
 import { tickSleep } from './apartments.js';
 import { fireHook } from './plugins.js';
+import { schedule } from './scheduler.js';
 import { query } from '../models/db.js';
 
 let broadcastFn = null;
@@ -11,12 +12,12 @@ let minuteTick = 0;
 
 export function startGameLoop(broadcast) {
   broadcastFn = broadcast;
-  setInterval(tick, 1000);
-  setInterval(minuteTickFn, 60000);
-  setInterval(ambientTick, 45000);
-  setInterval(resourceTick, 60000);
-  setInterval(() => tickSpawns().catch(console.error), 10000);
-  setInterval(cleanCorpses, 30000);
+  setInterval(tick, 1000); // 1s combat tick stays raw — latency-critical hot path
+  schedule('1m', minuteTickFn);
+  schedule('45s', ambientTick);
+  schedule('1m', resourceTick);
+  schedule('10s', () => tickSpawns());
+  schedule('30s', cleanCorpses);
   console.log('✓ Game loop started');
 }
 
@@ -73,9 +74,9 @@ function tick() {
     }
   }
 
-  // Status effects + mutation checks
+  // Status effects
   for (const [playerId, player] of world.players) {
-    const messages = tickStatuses(player);
+    const messages = tickEffects(player);
     if (messages.length) {
       broadcastFn(null, { type:'status_tick', messages }, null, playerId);
       if (player.hp <= 0) handlePlayerDeath(player, null);
@@ -85,20 +86,9 @@ function tick() {
 
 async function minuteTickFn() {
   minuteTick++;
-  // Fire plugin minute hook
-  await fireHook('tick.minute');
+  await fireHook('tick.minute', { broadcast: broadcastFn });
 
-  // Check mutations for all online players
   for (const [playerId, player] of world.players) {
-    if ((player.radiation || 0) >= 40) {
-      const mutation = await checkMutationTrigger(player);
-      if (mutation) {
-        broadcastFn(null, {
-          type: 'mutation_gained',
-          message: `\n<span class="rad-warning">⚠ MUTATION: ${mutation.name}</span>\n${mutation.description}\n${mutation.drawbacks?.length ? `Drawbacks: ${mutation.drawbacks.join(', ')}` : ''}`,
-        }, null, playerId);
-      }
-    }
     // Radiation decay: -1 per minute naturally, -2 per minute while hydrated
     // (water "slightly accelerates radiation removal," per design).
     if ((player.radiation || 0) > 0) {

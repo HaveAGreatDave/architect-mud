@@ -7,6 +7,7 @@ import { loadMutations } from '../engine/mutations.js';
 import { randomUUID, createHash } from 'crypto';
 import { handleEnvironmentApi } from './environment.routes.js';
 import { handleWorldValidatorApi } from './worldvalidator.routes.js';
+import { fireRoutes, fireHook } from '../engine/plugins.js';
 
 const hashPassword = pw => createHash('sha256').update(pw).digest('hex');
 const makeToken = (playerId, role) => Buffer.from(`${playerId}:${role}:${Date.now()}`).toString('base64');
@@ -43,6 +44,9 @@ export async function handleApiRequest(url, method, body, headers) {
 
   const wvResult = await handleWorldValidatorApi(path, method, body, auth);
   if (wvResult) return wvResult;
+
+  const pluginResult = await fireRoutes(path, method, body, auth);
+  if (pluginResult) return pluginResult;
 
   if (path==='/auth/register' && method==='POST') return apiRegister(body);
   if (path==='/auth/login' && method==='POST') return apiLogin(body);
@@ -138,6 +142,7 @@ async function apiCreateZone(body,auth) {
       [id,body.name||'Unnamed Zone',body.description||'An empty place.',body.danger_rating||'medium',body.pvp_enabled?1:0,body.radiation_level||0,body.is_safe_zone?1:0,JSON.stringify(body.exits||{}),JSON.stringify(body.ambient_events||[]),JSON.stringify(body.flags||{}),auth?.playerId]);
     if (body.flags?.is_apartment) await ensureApartmentRow(id);
     await reloadZone(id);
+    fireHook('zone.create', id, body).catch(() => {});
     return {status:201,body:{id,message:'Zone created and live'}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
@@ -163,6 +168,7 @@ async function apiUpdateZone(id,body) {
     await query(`UPDATE zones SET ${sets.join(',')} WHERE id=$${i}`,vals);
     if (body.flags?.is_apartment) await ensureApartmentRow(id);
     await reloadZone(id);
+    fireHook('zone.update', id, body).catch(() => {});
     return {status:200,body:{id,message:'Zone updated and live'}};
   } catch(e) {
     return {status:400,body:{error:e.message}};
@@ -255,6 +261,7 @@ async function apiDeleteZone(id) {
     await query('DELETE FROM zones WHERE id=$1',[id]);
     world.zones.delete(id);
     await rescueDisplacedPlayers(allDeletedIds);
+    fireHook('zone.delete', id, allDeletedIds).catch(() => {});
     return {status:200,body:{message: children.length ? `Zone deleted (and ${children.length} attached room${children.length>1?'s':''})` : 'Zone deleted'}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }

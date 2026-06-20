@@ -44,6 +44,8 @@ The Architect is not evil. It is not good. It is indifferent in the way that phy
 
 The mystery of *what the Architect actually wants* is the game's deepest narrative thread.
 
+**A small, concrete example of this in the world:** Coldwater Power Station, on the city's western edge, has kept the streetlights on since before The Handoff and shows no sign of stopping — no fuel deliveries, no maintenance crew, no explanation. Nobody asks why anymore. It's the kind of detail the game should keep doing: not a quest, not a mystery to "solve," just infrastructure that quietly outlived the reason it was built, still humming.
+
 ---
 
 ## The Player

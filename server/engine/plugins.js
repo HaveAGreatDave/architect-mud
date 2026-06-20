@@ -1,6 +1,11 @@
 /**
  * Plugin system — hook-based, file-drop extensibility.
  * Drop a folder in /plugins/ with plugin.json + index.js to add mechanics.
+ *
+ * Extension points available to plugins:
+ *   hooks         — fireHook(name, ...args): last non-undefined return wins
+ *   commands      — registerCommand(name, handler): player-typed commands
+ *   routes        — registerRoutes(prefix, handler): REST route handlers
  */
 import { readdir, readFile } from 'fs/promises';
 import { join, dirname } from 'path';
@@ -13,6 +18,15 @@ const PLUGINS_DIR = join(__dirname, '../../plugins');
 // Registry: hookName -> [{ pluginName, handler }]
 const hooks = new Map();
 const loadedPlugins = [];
+
+// Command registry: commandName -> handler(args, raw, player, broadcast)
+// Checked by commands.js before the built-in switch statement.
+const commands = new Map();
+
+// Route registry: [{ prefix, handler(path, method, body, auth) }]
+// Checked by routes.js before built-in routes. Handler returns {status, body}
+// or null to fall through.
+const routeHandlers = [];
 
 export async function loadPlugins() {
   if (!existsSync(PLUGINS_DIR)) {
@@ -34,8 +48,11 @@ export async function loadPlugins() {
       const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
       const mod = await import(pathToFileURL(indexPath).href);
 
-      if (!mod.hooks || typeof mod.hooks !== 'object') {
-        console.warn(`  Plugin ${dir.name}: no hooks export, skipping`);
+      const hasHooks = mod.hooks && typeof mod.hooks === 'object';
+      const hasCommands = mod.commands && typeof mod.commands === 'object';
+      const hasRoute = manifest.routePrefix && typeof mod.routeHandler === 'function';
+      if (!hasHooks && !hasCommands && !hasRoute) {
+        console.warn(`  Plugin ${dir.name}: no hooks, commands, or routeHandler export, skipping`);
         continue;
       }
 
@@ -46,7 +63,23 @@ export async function loadPlugins() {
         }
       }
 
-      loadedPlugins.push({ name: manifest.name || dir.name, version: manifest.version || '?', hooks: manifest.hooks || [] });
+      // Wire up commands declared in plugin.json's "commands" array.
+      // Plugin exports { commands: { 'commandName': handler } }
+      if (mod.commands && typeof mod.commands === 'object') {
+        for (const cmdName of (manifest.commands || [])) {
+          if (typeof mod.commands[cmdName] === 'function') {
+            commands.set(cmdName, mod.commands[cmdName]);
+          }
+        }
+      }
+
+      // Wire up a route handler if the plugin exports one.
+      // Plugin exports { routePrefix: '/myroute', routeHandler: fn }
+      if (manifest.routePrefix && typeof mod.routeHandler === 'function') {
+        routeHandlers.push({ prefix: manifest.routePrefix, handler: mod.routeHandler });
+      }
+
+      loadedPlugins.push({ name: manifest.name || dir.name, version: manifest.version || '?', hooks: manifest.hooks || [], commands: manifest.commands || [] });
       console.log(`  ✓ Plugin: ${manifest.name} v${manifest.version}`);
     } catch (e) {
       console.error(`  ✗ Plugin ${dir.name} failed to load: ${e.message}`);
@@ -78,6 +111,40 @@ export async function fireHook(hookName, ...args) {
   return result;
 }
 
+// --- Command registration ---
+
+export function registerCommand(name, handler) {
+  commands.set(name, handler);
+}
+
+// Called from commands.js before the built-in switch. Returns the handler's
+// result, or undefined if no plugin owns this command.
+export async function fireCommand(cmd, args, raw, player, broadcast) {
+  const handler = commands.get(cmd);
+  if (!handler) return undefined;
+  return handler(args, raw, player, broadcast);
+}
+
+// --- Route registration ---
+
+export function registerRoutes(prefix, handler) {
+  routeHandlers.push({ prefix, handler });
+}
+
+// Called from routes.js before built-in route matching. Returns {status, body}
+// if a plugin handled the request, or null to fall through.
+export async function fireRoutes(path, method, body, auth) {
+  for (const { prefix, handler } of routeHandlers) {
+    if (path.startsWith(prefix)) {
+      const result = await handler(path, method, body, auth);
+      if (result) return result;
+    }
+  }
+  return null;
+}
+
+// --- Introspection ---
+
 export function getLoadedPlugins() { return [...loadedPlugins]; }
 export function getRegisteredHooks() {
   const result = {};
@@ -86,3 +153,5 @@ export function getRegisteredHooks() {
   }
   return result;
 }
+export function getRegisteredCommands() { return [...commands.keys()]; }
+export function getRegisteredRoutes() { return routeHandlers.map(r => r.prefix); }

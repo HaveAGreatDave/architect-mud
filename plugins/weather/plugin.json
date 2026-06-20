@@ -1,0 +1,6 @@
+{
+  "name": "weather",
+  "version": "1.0.0",
+  "description": "Deterministic seeded 7-day weather forecast. Owns the weather_forecast table.",
+  "hooks": ["environment.init", "environment.advanceWeather"]
+}

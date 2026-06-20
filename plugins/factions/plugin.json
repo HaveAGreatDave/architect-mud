@@ -1,0 +1,7 @@
+{
+  "name": "factions",
+  "version": "1.0.0",
+  "description": "Player faction reputation display commands.",
+  "hooks": [],
+  "commands": ["factions", "rep"]
+}

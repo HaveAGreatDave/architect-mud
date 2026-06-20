@@ -26,12 +26,14 @@
 // matching the GDD's two-interval design (30-minute environmental tick,
 // 24-hour world tick).
 
-import { createHash } from 'node:crypto';
+import { schedule } from './scheduler.js';
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
+// Used only for boot catch-up logic (have we missed a tick since last restart?).
+// The actual intervals are now managed by scheduler.js.
 const TICK_30M_MS = 30 * 60 * 1000;
 const TICK_24H_MS = 24 * 60 * 60 * 1000;
 
@@ -58,7 +60,6 @@ const SEASON_BY_MONTH = [
   'summer', 'summer', 'autumn', 'autumn', 'autumn', 'winter',
 ];
 
-const SEASON_BASE_TEMP_C = { winter: 2, spring: 12, summer: 24, autumn: 11 };
 
 const POWER_OVERLOAD_RATIO = 1.0;    // load/capacity above this → 'overloaded'
 const POWER_BLACKOUT_RATIO = 1.25;   // load/capacity above this → 'offline'
@@ -93,49 +94,10 @@ const state = {
 };
 
 let deps = { query: null, emitHook: null, broadcast: null };
-let timer30 = null;
-let timer24 = null;
+let ticksScheduled = false;
 
-// ---------------------------------------------------------------------------
-// Deterministic seeded RNG (mulberry32) — forecast generation must be
-// deterministic per date (GDD §4.3), not re-rolled randomly on every call.
-// ---------------------------------------------------------------------------
-
-function seedFromString(str) {
-  const hash = createHash('sha256').update(str).digest();
-  return hash.readUInt32LE(0);
-}
-
-function mulberry32(seed) {
-  let a = seed >>> 0;
-  return function rand() {
-    a |= 0; a = (a + 0x6D2B79F5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function pick(rand, arr) {
-  return arr[Math.floor(rand() * arr.length) % arr.length];
-}
-
-function seasonForDate(dateStr) {
-  const month = Number(dateStr.slice(5, 7)) - 1;
-  return SEASON_BY_MONTH[month];
-}
-
-function generateWeatherForDate(dateStr) {
-  const rand = mulberry32(seedFromString(`weather:${dateStr}`));
-  const season = seasonForDate(dateStr);
-  const candidates = WEATHER_TYPES.filter(
-    (w) => w !== 'snow' || season === 'winter' || season === 'autumn'
-  );
-  const weatherType = pick(rand, candidates);
-  const base = SEASON_BASE_TEMP_C[season];
-  const variance = Math.round((rand() - 0.5) * 8); // +/-4C
-  return { weatherType, tempC: base + variance };
-}
+// Deterministic weather generation (seedFromString, mulberry32, generateWeatherForDate)
+// has moved to plugins/weather/index.js.
 
 function addDays(dateStr, days) {
   const d = new Date(`${dateStr}T00:00:00Z`);
@@ -217,7 +179,11 @@ export async function initEnvironment({ query, emitHook, broadcast }) {
   state.lastTick30m = new Date(clockRow.last_tick_30m).getTime();
   state.lastTick24h = new Date(clockRow.last_tick_24h).getTime();
 
-  await loadForecast(query);
+  // Weather plugin initializes the forecast via this hook. Must run before
+  // loadZonePowerAndLighting + recalcAmbientAndVisibility so state.weatherType
+  // is populated when those functions read it.
+  if (emitHook) await emitHook('environment.init', { setWeatherState });
+
   await loadZonePowerAndLighting(query);
   recalcAmbientAndVisibility();
 
@@ -238,10 +204,10 @@ export async function initEnvironment({ query, emitHook, broadcast }) {
 }
 
 function scheduleTicks() {
-  if (timer30) clearInterval(timer30);
-  if (timer24) clearInterval(timer24);
-  timer30 = setInterval(() => { if (!state.frozen) tick30m().catch(logError); }, TICK_30M_MS);
-  timer24 = setInterval(() => { if (!state.frozen) tick24h().catch(logError); }, TICK_24H_MS);
+  if (ticksScheduled) return; // schedule() is append-only; guard against double-init
+  ticksScheduled = true;
+  schedule('30m', () => { if (!state.frozen) tick30m().catch(logError); });
+  schedule('24h', () => { if (!state.frozen) tick24h().catch(logError); });
 }
 
 async function ensureClockRow(query) {
@@ -256,36 +222,9 @@ async function ensureClockRow(query) {
   return rows[0];
 }
 
-async function loadForecast(query) {
-  const { rows } = await query('SELECT * FROM weather_forecast ORDER BY forecast_day ASC');
-  if (rows.length === 0) {
-    await regenerateFullForecast(query, state.date);
-    return loadForecast(query);
-  }
-  state.forecast = rows.map((r) => ({
-    forecastDay: r.forecast_day,
-    date: toDateString(r.game_date),
-    weatherType: r.weather_type,
-    tempC: r.temp_c,
-    locked: !!r.locked,
-  }));
-  state.weatherType = state.forecast[0].weatherType;
-  state.tempC = state.forecast[0].tempC;
-  return undefined;
-}
-
-async function regenerateFullForecast(query, startDate) {
-  for (let i = 0; i < 7; i += 1) {
-    const date = addDays(startDate, i);
-    const { weatherType, tempC } = generateWeatherForDate(date);
-    await query(
-      `INSERT INTO weather_forecast (forecast_day, game_date, weather_type, temp_c, locked)
-       VALUES ($1, $2, $3, $4, 0)
-       ON CONFLICT (forecast_day) DO NOTHING`,
-      [i, date, weatherType, tempC]
-    );
-  }
-}
+// loadForecast and regenerateFullForecast have moved to plugins/weather/index.js.
+// Forecast state (state.weatherType, state.tempC, state.forecast) is still
+// stored here and set via setWeatherState() — exported below.
 
 async function loadZonePowerAndLighting(query) {
   const { rows: zones } = await query('SELECT * FROM power_zones');
@@ -382,7 +321,10 @@ async function tick24h() {
     [state.date, state.dayOfWeek, state.season]
   );
 
-  await advanceForecast(query);
+  // Weather plugin advances the forecast and updates state.weatherType/tempC
+  // via setWeatherState() BEFORE simulatePowerNetwork reads weatherType for
+  // snow-load calculations.
+  if (emitHook) await emitHook('environment.advanceWeather', { setWeatherState, currentForecast: state.forecast, currentDate: state.date });
   await simulatePowerNetwork(query, { weatherType: state.weatherType });
   await loadZonePowerAndLighting(query);
   recalcAmbientAndVisibility();
@@ -395,31 +337,7 @@ async function tick24h() {
   }
 }
 
-async function advanceForecast(query) {
-  // Drop day 0 (now past), shift everything down one slot, generate a new
-  // day 6. A locked day keeps its stored values through exactly one shift
-  // rather than being regenerated, then the lock clears — GDD §4.3 says
-  // forecasts "remain locked until the next daily update," and that update
-  // has now happened.
-  const shifted = state.forecast.slice(1);
-  const newDate = addDays(state.forecast[6].date, 1);
-  const generated = generateWeatherForDate(newDate);
-
-  const nextForecast = [...shifted, { date: newDate, weatherType: generated.weatherType, tempC: generated.tempC, locked: false }]
-    .map((f, i) => ({ ...f, forecastDay: i, locked: i < shifted.length ? shifted[i].locked : false }));
-
-  await query('DELETE FROM weather_forecast');
-  for (const f of nextForecast) {
-    await query(
-      `INSERT INTO weather_forecast (forecast_day, game_date, weather_type, temp_c, locked)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [f.forecastDay, f.date, f.weatherType, f.tempC, f.locked ? 1 : 0]
-    );
-  }
-  state.forecast = nextForecast;
-  state.weatherType = nextForecast[0].weatherType;
-  state.tempC = nextForecast[0].tempC;
-}
+// advanceForecast has moved to plugins/weather/index.js (environment.advanceWeather hook).
 
 // ---------------------------------------------------------------------------
 // Power Network Simulation
@@ -534,6 +452,15 @@ export function getHUDPayload() {
 
 export function getForecast() {
   return state.forecast.map((f) => ({ ...f, icon: WEATHER_ICON[f.weatherType] }));
+}
+
+// Setter used by the weather plugin to update in-memory weather state.
+// Keep weather logic in the plugin; keep state here where the rest of the
+// engine can read it without importing the plugin.
+export function setWeatherState(weatherType, tempC, forecast) {
+  if (weatherType !== undefined) state.weatherType = weatherType;
+  if (tempC !== undefined) state.tempC = tempC;
+  if (forecast !== undefined) state.forecast = forecast;
 }
 
 export function getPowerMap() {

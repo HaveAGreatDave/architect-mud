@@ -1,0 +1,7 @@
+{
+  "name": "mutations",
+  "version": "1.0.0",
+  "description": "Radiation-triggered mutation system: display command and tick check.",
+  "hooks": ["tick.minute"],
+  "commands": ["mutations"]
+}
