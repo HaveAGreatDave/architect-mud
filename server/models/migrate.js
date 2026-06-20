@@ -272,6 +272,32 @@ export async function migrate() {
 
   await migrateEnvironment(query);
   console.log('✓ Environment tables migrated');
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS staged_changes (
+      id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+      entity_type TEXT NOT NULL,
+      entity_id TEXT NOT NULL,
+      entity_name TEXT,
+      change_type TEXT NOT NULL DEFAULT 'update',
+      method TEXT NOT NULL DEFAULT 'PUT',
+      api_path TEXT NOT NULL,
+      staged_data JSONB,
+      description TEXT,
+      author TEXT NOT NULL DEFAULT 'unknown',
+      staged_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(entity_type, entity_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS deployments (
+      id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+      deployed_at TIMESTAMPTZ DEFAULT NOW(),
+      deployed_by TEXT NOT NULL,
+      change_count INTEGER NOT NULL DEFAULT 0,
+      changes_summary JSONB DEFAULT '[]'
+    );
+  `);
+  console.log('✓ Staging tables migrated');
 }
 
 migrate().catch(e => { console.error(e); process.exit(1); });

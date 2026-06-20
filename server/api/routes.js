@@ -7,6 +7,7 @@ import { loadMutations } from '../engine/mutations.js';
 import { randomUUID, createHash } from 'crypto';
 import { handleEnvironmentApi } from './environment.routes.js';
 import { handleWorldValidatorApi } from './worldvalidator.routes.js';
+import { handleStagingApi } from './staging.routes.js';
 import { fireRoutes, fireHook } from '../engine/plugins.js';
 
 const hashPassword = pw => createHash('sha256').update(pw).digest('hex');
@@ -53,6 +54,9 @@ export async function handleApiRequest(url, method, body, headers) {
 
   const wvResult = await handleWorldValidatorApi(path, method, body, auth);
   if (wvResult) return wvResult;
+
+  const stagingResult = await handleStagingApi(path, method, body, auth);
+  if (stagingResult) return stagingResult;
 
   const pluginResult = await fireRoutes(path, method, body, auth);
   if (pluginResult) return pluginResult;
@@ -164,7 +168,7 @@ async function apiCreateZone(body,auth) {
     return {status:201,body:{id,message:'Zone created and live'}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
-async function apiUpdateZone(id,body) {
+export async function apiUpdateZone(id,body) {
   const sets=[]; const vals=[];
   let i=1;
   const boolFields = ['pvp_enabled','is_safe_zone'];
@@ -292,7 +296,7 @@ async function apiCreateEnemy(body) {
     return {status:201,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
-async function apiUpdateEnemy(id,body) {
+export async function apiUpdateEnemy(id,body) {
   try {
     await query(`UPDATE enemies SET name=$1,description=$2,stat_str=$3,stat_agi=$4,stat_end=$5,hp_max=$6,damage_min=$7,damage_max=$8,armor=$9,xp_reward=$10,credit_reward=$11,loot_table=$12,behavior=$13,faction=$14,death_message=$15,flags=$16 WHERE id=$17`,
       [body.name,body.description,body.stat_str,body.stat_agi,body.stat_end,body.hp_max,body.damage_min,body.damage_max,body.armor,body.xp_reward,body.credit_reward,JSON.stringify(body.loot_table||[]),body.behavior,body.faction,body.death_message,JSON.stringify(body.flags||{}),id]);
@@ -314,7 +318,7 @@ async function apiCreateItem(body) {
     return {status:201,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
-async function apiUpdateItem(id,body) {
+export async function apiUpdateItem(id,body) {
   try {
     await query(`UPDATE items SET name=$1,description=$2,type=$3,subtype=$4,weight=$5,value=$6,rarity=$7,is_stackable=$8,effects=$9,stat_modifiers=$10,requirements=$11,flags=$12 WHERE id=$13`,
       [body.name,body.description,body.type,body.subtype,body.weight,body.value,body.rarity,body.is_stackable?1:0,JSON.stringify(body.effects||{}),JSON.stringify(body.stat_modifiers||{}),JSON.stringify(body.requirements||{}),JSON.stringify(body.flags||{}),id]);
@@ -330,7 +334,7 @@ async function apiCreateNpc(body) {
     return {status:201,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
-async function apiUpdateNpc(id,body) {
+export async function apiUpdateNpc(id,body) {
   try {
     await query(`UPDATE npcs SET name=$1,description=$2,zone_id=$3,faction=$4,disposition=$5,dialogue_tree=$6,vendor_inventory=$7,wanders=$8,flags=$9 WHERE id=$10`,
       [body.name,body.description,body.zone_id,body.faction,body.disposition,JSON.stringify(body.dialogue_tree||{}),JSON.stringify(body.vendor_inventory||[]),body.wanders?1:0,JSON.stringify(body.flags||{}),id]);
@@ -354,7 +358,7 @@ async function apiCreateFurniture(body) {
     return {status:201,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
-async function apiUpdateFurniture(id, body) {
+export async function apiUpdateFurniture(id, body) {
   try {
     await query(`UPDATE furniture SET zone_id=$1,name=$2,description=$3,flags=$4 WHERE id=$5`,
       [body.zone_id, body.name, body.description||'', JSON.stringify(body.flags||{}), id]);
@@ -392,7 +396,7 @@ async function apiCreateDrug(body) {
     return {status:201,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
-async function apiUpdateDrug(id,body) {
+export async function apiUpdateDrug(id,body) {
   try {
     await query(`UPDATE drugs SET name=$1,description=$2,item_id=$3,duration_seconds=$4,effects=$5,addiction_chance=$6,overdose_threshold=$7,withdrawal_effects=$8,flags=$9 WHERE id=$10`,
       [body.name,body.description||'',body.item_id||null,body.duration_seconds||300,JSON.stringify(body.effects||{}),body.addiction_chance||0,body.overdose_threshold||3,JSON.stringify(body.withdrawal_effects||{}),JSON.stringify(body.flags||{}),id]);
@@ -415,7 +419,7 @@ async function apiCreateMutation(body) {
     return {status:201,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
-async function apiUpdateMutation(id,body) {
+export async function apiUpdateMutation(id,body) {
   try {
     await query(`UPDATE mutations SET name=$1,description=$2,polarity=$3,visible=$4,stat_modifiers=$5,effects=$6,drawbacks=$7,rarity=$8,radiation_threshold=$9 WHERE id=$10`,
       [body.name,body.description||'',body.polarity||'mixed',body.visible?1:0,JSON.stringify(body.stat_modifiers||{}),JSON.stringify(body.effects||{}),JSON.stringify(body.drawbacks||[]),body.rarity||'uncommon',body.radiation_threshold||40,id]);
@@ -543,7 +547,7 @@ async function apiCreateRecipe(body) {
     return {status:201,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
-async function apiUpdateRecipe(id,body) {
+export async function apiUpdateRecipe(id,body) {
   try {
     await query(`UPDATE recipes SET name=$1,description=$2,category=$3,requires_station=$4,skill_req=$5,ingredients=$6,base_output=$7,skill_id=$8,base_difficulty=$9 WHERE id=$10`,
       [body.name,body.description||'',body.category||'misc',body.requires_station||null,JSON.stringify(body.skill_req||{}),JSON.stringify(body.ingredients||[]),JSON.stringify(body.base_output||{}),body.skill_id,body.base_difficulty||3,id]);

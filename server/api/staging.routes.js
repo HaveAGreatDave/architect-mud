@@ -1,0 +1,196 @@
+// Staging API — change staging and publishing workflow.
+//
+// All dev-panel writes are intercepted by the client and routed here
+// instead of hitting entity endpoints directly. On publish, staged changes
+// are applied using the same entity-update functions that the live endpoints
+// use (imported from routes.js — circular ESM dep is safe because we only
+// call them inside async request handlers, never at module evaluation time).
+
+import { query } from '../models/db.js';
+import {
+  apiUpdateZone, apiUpdateEnemy, apiUpdateItem, apiUpdateNpc,
+  apiUpdateFurniture, apiUpdateRecipe, apiUpdateMutation, apiUpdateDrug,
+} from './routes.js';
+
+const DEV_ROLES = ['dev', 'admin', 'builder', 'designer'];
+
+export async function handleStagingApi(path, method, body, auth) {
+  if (!path.startsWith('/staging')) return null;
+  if (!auth || !DEV_ROLES.includes(auth.role)) {
+    return { status: 403, body: { error: 'Dev access required' } };
+  }
+
+  if (path === '/staging/stage' && method === 'POST') return stage(body, auth);
+  if (path === '/staging/pending' && method === 'GET') return getPending();
+  if (path === '/staging/publish' && method === 'POST') return publish(body, auth);
+  if (path === '/staging/reject' && method === 'POST') return reject(body, auth);
+  if (path === '/staging/deployments' && method === 'GET') return getDeployments();
+  return null;
+}
+
+async function getAuthorHandle(auth) {
+  try {
+    const { rows } = await query('SELECT handle FROM players WHERE id=$1', [auth.playerId]);
+    return rows[0]?.handle || auth.playerId;
+  } catch { return auth.playerId; }
+}
+
+async function stage(body, auth) {
+  const { entityType, entityId, entityName, changeType, method, apiPath, requestBody, description } = body;
+  if (!entityType || !entityId || !apiPath) {
+    return { status: 400, body: { error: 'entityType, entityId, and apiPath are required' } };
+  }
+  const author = await getAuthorHandle(auth);
+  await query(`
+    INSERT INTO staged_changes
+      (id, entity_type, entity_id, entity_name, change_type, method, api_path, staged_data, description, author, staged_at)
+    VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+    ON CONFLICT (entity_type, entity_id) DO UPDATE SET
+      entity_name   = EXCLUDED.entity_name,
+      change_type   = EXCLUDED.change_type,
+      method        = EXCLUDED.method,
+      api_path      = EXCLUDED.api_path,
+      staged_data   = EXCLUDED.staged_data,
+      description   = EXCLUDED.description,
+      author        = EXCLUDED.author,
+      staged_at     = NOW()
+  `, [entityType, entityId, entityName || entityId, changeType || 'update',
+      method || 'PUT', apiPath, JSON.stringify(requestBody || {}),
+      description || `${changeType || 'update'} ${entityType} "${entityName || entityId}"`,
+      author]);
+
+  const { rows } = await query(
+    'SELECT id FROM staged_changes WHERE entity_type=$1 AND entity_id=$2',
+    [entityType, entityId]
+  );
+  return { status: 200, body: { staged: true, id: rows[0]?.id } };
+}
+
+async function getPending() {
+  const { rows } = await query('SELECT * FROM staged_changes ORDER BY staged_at DESC');
+  return { status: 200, body: { changes: rows.map(formatChange) } };
+}
+
+function formatChange(r) {
+  return {
+    id: r.id,
+    entityType: r.entity_type,
+    entityId: r.entity_id,
+    entityName: r.entity_name,
+    changeType: r.change_type,
+    method: r.method,
+    apiPath: r.api_path,
+    stagedData: r.staged_data,
+    description: r.description,
+    author: r.author,
+    stagedAt: r.staged_at,
+  };
+}
+
+const UPDATERS = {
+  zone:      (id, data) => apiUpdateZone(id, data),
+  enemy:     (id, data) => apiUpdateEnemy(id, data),
+  item:      (id, data) => apiUpdateItem(id, data),
+  npc:       (id, data) => apiUpdateNpc(id, data),
+  furniture: (id, data) => apiUpdateFurniture(id, data),
+  recipe:    (id, data) => apiUpdateRecipe(id, data),
+  mutation:  (id, data) => apiUpdateMutation(id, data),
+  drug:      (id, data) => apiUpdateDrug(id, data),
+};
+
+async function applyChange(change) {
+  const updater = UPDATERS[change.entity_type];
+  if (!updater) throw new Error(`No publisher for entity type: ${change.entity_type}`);
+  const result = await updater(change.entity_id, change.staged_data || {});
+  if (result?.body?.error) throw new Error(result.body.error);
+  return result;
+}
+
+async function publish(body, auth) {
+  const { ids, all } = body || {};
+  const author = await getAuthorHandle(auth);
+
+  let toPublish;
+  if (all) {
+    const { rows } = await query('SELECT * FROM staged_changes ORDER BY staged_at ASC');
+    toPublish = rows;
+  } else if (Array.isArray(ids) && ids.length > 0) {
+    const placeholders = ids.map((_, i) => `$${i + 1}`).join(',');
+    const { rows } = await query(`SELECT * FROM staged_changes WHERE id IN (${placeholders}) ORDER BY staged_at ASC`, ids);
+    toPublish = rows;
+  } else {
+    return { status: 400, body: { error: 'Specify ids or all:true' } };
+  }
+
+  if (!toPublish.length) return { status: 200, body: { published: 0, message: 'Nothing to publish' } };
+
+  const results = [];
+  const errors = [];
+  for (const change of toPublish) {
+    try {
+      await applyChange(change);
+      results.push({ id: change.id, entityType: change.entity_type, entityName: change.entity_name });
+    } catch (err) {
+      errors.push({ id: change.id, entityName: change.entity_name, error: err.message });
+    }
+  }
+
+  // Remove successfully published changes
+  if (results.length) {
+    const publishedIds = results.map(r => r.id);
+    const placeholders = publishedIds.map((_, i) => `$${i + 1}`).join(',');
+    await query(`DELETE FROM staged_changes WHERE id IN (${placeholders})`, publishedIds);
+  }
+
+  // Record deployment
+  if (results.length) {
+    await query(
+      `INSERT INTO deployments (id, deployed_by, change_count, changes_summary)
+       VALUES (gen_random_uuid()::text, $1, $2, $3)`,
+      [author, results.length, JSON.stringify(results)]
+    );
+  }
+
+  return {
+    status: 200,
+    body: {
+      published: results.length,
+      failed: errors.length,
+      errors: errors.length ? errors : undefined,
+      message: `Published ${results.length} change${results.length !== 1 ? 's' : ''}${errors.length ? `, ${errors.length} failed` : ''}`,
+    },
+  };
+}
+
+async function reject(body, auth) {
+  const { ids, all } = body || {};
+
+  if (all) {
+    const { rowCount } = await query('DELETE FROM staged_changes');
+    return { status: 200, body: { rejected: rowCount, message: `Rejected ${rowCount} change${rowCount !== 1 ? 's' : ''}` } };
+  }
+
+  if (Array.isArray(ids) && ids.length > 0) {
+    const placeholders = ids.map((_, i) => `$${i + 1}`).join(',');
+    const { rowCount } = await query(`DELETE FROM staged_changes WHERE id IN (${placeholders})`, ids);
+    return { status: 200, body: { rejected: rowCount, message: `Rejected ${rowCount} change${rowCount !== 1 ? 's' : ''}` } };
+  }
+
+  return { status: 400, body: { error: 'Specify ids or all:true' } };
+}
+
+async function getDeployments() {
+  const { rows } = await query('SELECT * FROM deployments ORDER BY deployed_at DESC LIMIT 3');
+  return {
+    status: 200,
+    body: {
+      deployments: rows.map(r => ({
+        id: r.id,
+        deployedAt: r.deployed_at,
+        deployedBy: r.deployed_by,
+        changeCount: r.change_count,
+        changes: r.changes_summary || [],
+      })),
+    },
+  };
+}
