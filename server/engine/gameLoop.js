@@ -52,10 +52,14 @@ function tick() {
         broadcastFn(null, { type:'combat_incoming', message:result.message, damage:result.damage, hp:target.hp, hp_max:target.hp_max }, null, target.id);
         if (target.hp <= 0) { handlePlayerDeath(target, enemy); continue; }
 
-        // Auto-retaliate: if the player isn't already mid-swing on someone
-        // else, fight back automatically rather than just standing there.
+        // Auto-retaliate: fight back rather than standing there. Stick to the
+        // target we're already fighting — a second attacker doesn't pull our
+        // focus. Only engage this attacker if we have no current target.
         if (!isOnCooldown(target.id, 'attack')) {
-          resolveAttack(target, enemy, broadcastFn)
+          let retaliateTarget = enemy;
+          const current = target.combatTargetId ? world.enemies.get(target.combatTargetId) : null;
+          if (current && current.zoneId === target.current_zone) retaliateTarget = current;
+          resolveAttack(target, retaliateTarget, broadcastFn)
             .then(atkResult => {
               if (atkResult?.type === 'combat') {
                 broadcastFn(null, { ...atkResult, auto:true }, null, target.id);

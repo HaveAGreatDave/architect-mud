@@ -455,6 +455,9 @@ async function cmdAttack(targetStr, player, broadcast) {
 // player is hit by something they haven't engaged yet. Same weapon lookup,
 // skill XP, loot drop, and broadcast behavior either way.
 export async function resolveAttack(player, target, broadcast) {
+  // Remember who we're fighting so auto-retaliation sticks to this target
+  // even when other enemies start attacking us.
+  player.combatTargetId = target.instanceId;
   const { rows } = await query(`SELECT i.* FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.is_equipped=1 AND i.type='weapon' LIMIT 1`, [player.id]);
   const equipped = rows[0];
   const weaponStats = equipped ? (equipped.effects || {}) : { damage_min:2, damage_max:4 };
@@ -467,6 +470,7 @@ export async function resolveAttack(player, target, broadcast) {
   }
 
   if (result.killed) {
+    if (player.combatTargetId === target.instanceId) player.combatTargetId = null;
     if (result.credit_reward > 0) {
       player.credits = (player.credits||0) + result.credit_reward;
       await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
