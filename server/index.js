@@ -6,7 +6,7 @@ import { WebSocketServer } from 'ws';
 import { createHash, randomUUID } from 'crypto';
 
 import { initWorld, addPlayerToZone, removePlayerFromZone, setLivePlayer, getLivePlayer, removeLivePlayer, getZone, getMinimapData } from './engine/world.js';
-import { handleCommand, describeZone, describeVoidTeleport } from './engine/commands.js';
+import { handleCommand, describeZone, describeVoidTeleport, recomputeArmor } from './engine/commands.js';
 import { startGameLoop } from './engine/gameLoop.js';
 import { loadPlugins, fireHook } from './engine/plugins.js';
 import { loadRecipes } from './engine/crafting.js';
@@ -166,6 +166,7 @@ async function handleAuth(ws, session, msg) {
     armor:0, statuses:[],
   };
   setLivePlayer(player.id, livePlayer);
+  await recomputeArmor(livePlayer);
   addPlayerToZone(player.id, livePlayer.current_zone);
   await query('UPDATE players SET last_seen=EXTRACT(EPOCH FROM NOW()) WHERE id=$1', [player.id]);
 
