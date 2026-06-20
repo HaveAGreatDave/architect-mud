@@ -32,7 +32,7 @@ async function seed() {
     { id: 'zone_badland_se_inner', name: 'The Quiet Field', description: 'Suspiciously quiet, suspiciously flat, suspiciously empty. The kind of place that makes you check behind you.', danger_rating: 'high', pvp_enabled: 1, radiation_level: 16, is_safe_zone: 0, exits: { north: 'zone_city_se', east: 'zone_badland_se_corner', west: 'zone_badland_s_gate' }, ambient_events: ["The silence here has a texture, like it's being maintained on purpose.", "Footprints that aren't yours cross the field and simply end."] },
     { id: 'zone_badland_se_corner', name: 'The Outer Bleed', description: 'The far southeastern edge, where the basin\'s contamination is oldest and worst. Even the Rad Mutants seem to avoid the deepest pools.', danger_rating: 'lethal', pvp_enabled: 1, radiation_level: 55, is_safe_zone: 0, exits: { north: 'zone_badland_se_outer', west: 'zone_badland_se_inner' }, ambient_events: ["The ground here is warm, for no reason that makes sense.", "Something massive shifted recently. You can see where."] },
 
-    { id: 'zone_residential_lobby', name: 'Embassy Hotel & Bar — Lobby', description: 'A converted hotel lobby, marble floors gone dull under a permanent film of dust, repurposed into the basin\'s closest thing to real estate. A corkboard by the door — bolted over what used to be the concierge desk — is covered in handwritten unit listings, half of them crossed out. Along one wall, a bar still operates under a brass sign reading THE EMBASSY LOUNGE — a half-dozen cracked vinyl stools lined up at the counter, free to sit if you don\'t mind the wobble. Lowry stands behind it, polishing a glass that was already clean. The building still has working locks upstairs, which around here makes it valuable.', danger_rating: 'safe', pvp_enabled: 0, radiation_level: 0, is_safe_zone: 1, exits: { up: 'zone_city_west', north: 'zone_apt_1', south: 'zone_apt_2', east: 'zone_apt_3', west: 'zone_apt_4' }, ambient_events: ["Someone argues with the building's old intercom system, which only ever says \"PLEASE HOLD.\"", "A hand-written sign reads: UNITS AVAILABLE. ASK ABOUT OUR LOCKS.", "A bellhop cart, empty, still makes its rounds on a track nobody's maintained in years."], flags: { is_building: true, building_name: 'Embassy Hotel & Bar' } },
+    { id: 'zone_residential_lobby', name: 'Embassy Hotel & Bar — Lobby', description: 'A converted hotel lobby, marble floors gone dull under a permanent film of dust, repurposed into the basin\'s closest thing to real estate. A corkboard by the door — bolted over what used to be the concierge desk — is covered in handwritten unit listings, half of them crossed out. Along one wall, a bar still operates under a brass sign reading THE EMBASSY LOUNGE — a half-dozen cracked vinyl stools lined up at the counter, free to sit if you don\'t mind the wobble. Lowry stands behind it, polishing a glass that was already clean. The building still has working locks upstairs, which around here makes it valuable.', danger_rating: 'safe', pvp_enabled: 0, radiation_level: 0, is_safe_zone: 1, exits: { up: 'zone_city_west', north: 'zone_apt_1', south: 'zone_apt_2', east: 'zone_apt_3', west: 'zone_apt_4' }, ambient_events: ["Someone argues with the building's old intercom system, which only ever says \"PLEASE HOLD.\"", "A hand-written sign reads: UNITS AVAILABLE. ASK ABOUT OUR LOCKS.", "A bellhop cart, empty, still makes its rounds on a track nobody's maintained in years."], flags: { is_building: true, building_name: 'Embassy Hotel & Bar', building_type: 'hotel' } },
     { id: 'zone_apt_1', name: 'Unit 1A', description: 'A small studio with a mattress, a hot plate, and a window that doesn\'t open. It\'s not much, but the door locks, and around here that\'s everything.', danger_rating: 'safe', pvp_enabled: 0, radiation_level: 0, is_safe_zone: 1, exits: { south: 'zone_residential_lobby' }, ambient_events: ["Pipes knock somewhere in the walls. The building is old but it holds."], flags: { is_apartment: true } },
     { id: 'zone_apt_2', name: 'Unit 1B', description: 'A corner unit with two windows, both boarded. Someone before you left a faded poster on the wall — a beach, somewhere, once.', danger_rating: 'safe', pvp_enabled: 0, radiation_level: 0, is_safe_zone: 1, exits: { north: 'zone_residential_lobby' }, ambient_events: ["The boarded windows let in thin lines of light that move slowly across the floor."], flags: { is_apartment: true } },
     { id: 'zone_apt_3', name: 'Unit 1C', description: 'A narrow unit, mostly bed and shelving. Whoever lived here last was tidy, methodical, and is conspicuously not here anymore.', danger_rating: 'safe', pvp_enabled: 0, radiation_level: 0, is_safe_zone: 1, exits: { west: 'zone_residential_lobby' }, ambient_events: ["The shelves are bolted to the wall, every one perfectly level."], flags: { is_apartment: true } },
@@ -75,7 +75,7 @@ async function seed() {
   `, [
     'Embassy Hotel & Bar — Lobby',
     'A converted hotel lobby, marble floors gone dull under a permanent film of dust, repurposed into the basin\'s closest thing to real estate. A corkboard by the door — bolted over what used to be the concierge desk — is covered in handwritten unit listings, half of them crossed out. Along one wall, a bar still operates under a brass sign reading THE EMBASSY LOUNGE — a half-dozen cracked vinyl stools lined up at the counter, free to sit if you don\'t mind the wobble. Lowry stands behind it, polishing a glass that was already clean. The building still has working locks upstairs, which around here makes it valuable.',
-    JSON.stringify({ is_building: true, building_name: 'Embassy Hotel & Bar' }),
+    JSON.stringify({ is_building: true, building_name: 'Embassy Hotel & Bar', building_type: 'hotel' }),
   ]);
 
   // Factions
@@ -244,6 +244,24 @@ async function seed() {
       [id,name,desc,type,subtype,weight,value,rarity,stackable,effects,reqs,flags]);
   }
   console.log(`✓ Seeded ${items.length} items`);
+
+  // Furniture — non-takeable scenery, examine-only. Stocking the Embassy
+  // Hotel & Bar lobby as the first real test of the system: the bar
+  // counter, stools, and corkboard the zone's own description already
+  // mentions are now individually examine-able. Idempotent (DO UPDATE)
+  // since this is exactly the kind of content an admin re-seeds while
+  // testing the dev panel's add/edit/delete flow.
+  const furniture = [
+    ['furniture_embassy_bar_counter','zone_residential_lobby','The Embassy Lounge Bar','A scarred wooden counter beneath the brass THE EMBASSY LOUNGE sign. Lowry keeps it spotless out of sheer habit.'],
+    ['furniture_embassy_stools','zone_residential_lobby','Cracked Vinyl Stools','A half-dozen stools lined up at the counter, vinyl split and patched with duct tape. Free to sit, if you don\'t mind the wobble.'],
+    ['furniture_embassy_corkboard','zone_residential_lobby','Unit Listings Corkboard','Bolted over what used to be the concierge desk. Handwritten unit listings cover every inch, half of them crossed out and re-listed at a worse price.'],
+  ];
+  for (const [id,zoneId,name,desc] of furniture) {
+    await query(`INSERT INTO furniture (id,zone_id,name,description,flags) VALUES ($1,$2,$3,$4,'{}')
+      ON CONFLICT (id) DO UPDATE SET zone_id = EXCLUDED.zone_id, name = EXCLUDED.name, description = EXCLUDED.description`,
+      [id,zoneId,name,desc]);
+  }
+  console.log(`✓ Seeded ${furniture.length} furniture`);
 
   // NPC
   await query(`INSERT INTO npcs (id,name,description,zone_id,faction,disposition,dialogue_tree,vendor_inventory,wanders,flags) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT (id) DO NOTHING`, [

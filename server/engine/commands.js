@@ -50,7 +50,7 @@ function getConnectedDestinations(zone) {
   for (const [direction, targetId] of Object.entries(zone.exits || {})) {
     const targetZone = getZone(targetId);
     if (targetZone?.flags?.is_building) {
-      buildings.push({ direction, targetId, name: targetZone.flags.building_name || targetZone.name });
+      buildings.push({ direction, targetId, name: targetZone.flags.building_name || targetZone.name, type: targetZone.flags.building_type || null });
     } else if (currentIsInterior && targetZone && isInteriorZone(targetZone)) {
       rooms.push({ direction, targetId, name: targetZone.name });
     } else {
@@ -61,6 +61,8 @@ function getConnectedDestinations(zone) {
 }
 
 const DIRECTION_PHRASE = { north:'to the north', south:'to the south', east:'to the east', west:'to the west', up:'above', down:'below' };
+
+// Generic fallback bank, used when a building has no building_type set.
 const BUILDING_FLAVOR_TEMPLATES = [
   (name, dirPhrase) => `The entrance to ${name} is ${dirPhrase}.`,
   (name, dirPhrase) => `${name} stands ${dirPhrase}.`,
@@ -68,15 +70,52 @@ const BUILDING_FLAVOR_TEMPLATES = [
   (name, dirPhrase) => `${name} is ${dirPhrase}.`,
 ];
 
+// Type-specific flavor banks — one randomly picked per building per look,
+// same variety mechanism as ambient_events. Keyed by flags.building_type.
+const BUILDING_TYPE_FLAVOR = {
+  hotel: [
+    (name, dirPhrase) => `A faded hotel sign marks the entrance to ${name}, ${dirPhrase}.`,
+    (name, dirPhrase) => `${name}'s revolving door, somehow still turning, sits ${dirPhrase}.`,
+    (name, dirPhrase) => `You can hear faint bar chatter drifting from ${name}, ${dirPhrase}.`,
+    (name, dirPhrase) => `${name} stands ${dirPhrase}, lobby lights flickering but on.`,
+  ],
+  apartment: [
+    (name, dirPhrase) => `A weathered apartment building, ${name}, stands ${dirPhrase}.`,
+    (name, dirPhrase) => `Laundry lines crisscross the windows of ${name}, ${dirPhrase}.`,
+    (name, dirPhrase) => `${name}'s entrance, propped permanently ajar, is ${dirPhrase}.`,
+    (name, dirPhrase) => `You spot mailboxes — most broken into — outside ${name}, ${dirPhrase}.`,
+  ],
+  clinic: [
+    (name, dirPhrase) => `A faded red cross marks the entrance to ${name}, ${dirPhrase}.`,
+    (name, dirPhrase) => `${name} is ${dirPhrase}, a line already forming outside.`,
+    (name, dirPhrase) => `The smell of antiseptic reaches you from ${name}, ${dirPhrase}.`,
+    (name, dirPhrase) => `${name}'s windows are dark except for one lit room, ${dirPhrase}.`,
+  ],
+  store: [
+    (name, dirPhrase) => `${name} occupies the corner ${dirPhrase}, hand-painted prices in the window.`,
+    (name, dirPhrase) => `A flickering OPEN sign hangs in the window of ${name}, ${dirPhrase}.`,
+    (name, dirPhrase) => `${name} is ${dirPhrase}, shelves visible through a cracked storefront.`,
+    (name, dirPhrase) => `You catch the smell of something fried from ${name}, ${dirPhrase}.`,
+  ],
+  warehouse: [
+    (name, dirPhrase) => `An old warehouse, ${name}, looms ${dirPhrase}.`,
+    (name, dirPhrase) => `Corrugated walls mark ${name}, ${dirPhrase}.`,
+    (name, dirPhrase) => `${name}'s loading bay door is ${dirPhrase}, half-open.`,
+    (name, dirPhrase) => `${name} sits ${dirPhrase}, a rusted forklift abandoned out front.`,
+  ],
+};
+
 // Naturally mentions nearby/enterable buildings in the room prose, so
 // players never have to examine every tile to know what's around — one
-// randomly-picked template per building, per look, the same way
-// ambient_events already vary instead of repeating verbatim every time.
+// randomly-picked template per building, per look. Uses the type-specific
+// bank when flags.building_type is set and recognized, otherwise the
+// generic fallback bank.
 function describeBuildingDiscovery(buildings) {
   if (!buildings.length) return '';
   const sentences = buildings.map(b => {
     const dirPhrase = DIRECTION_PHRASE[b.direction] || `nearby to the ${b.direction}`;
-    const template = BUILDING_FLAVOR_TEMPLATES[Math.floor(Math.random() * BUILDING_FLAVOR_TEMPLATES.length)];
+    const bank = (b.type && BUILDING_TYPE_FLAVOR[b.type]) || BUILDING_FLAVOR_TEMPLATES;
+    const template = bank[Math.floor(Math.random() * bank.length)];
     return template(b.name, dirPhrase);
   });
   return ' ' + sentences.join(' ');
@@ -121,6 +160,10 @@ export async function describeZone(zone, player) {
     [`_ground_${zone.id}`]
   );
 
+  // Non-takeable scenery (bar counters, stools, etc.) — examine-only, never
+  // enters an inventory, so it's queried fresh rather than cached.
+  const { rows: furniture } = await query('SELECT * FROM furniture WHERE zone_id = $1', [zone.id]);
+
   let desc = `\n<span class="zone-name">${zone.name}</span>\n`;
   desc += `<span class="zone-danger zone-danger-${zone.danger_rating}">[${zone.danger_rating.toUpperCase()}]</span>`;
   if (zone.radiation_level > 0) desc += ` <span class="rad-warning">☢ RAD:${zone.radiation_level}</span>`;
@@ -152,6 +195,13 @@ export async function describeZone(zone, player) {
       return `<span class="action-link room-item ${rarityClass}" data-action="take" data-target="${item.name}" title="Take ${item.name}">${item.name}</span>`;
     });
     desc += ` Lying here: ${itemMentions.join(', ')}.`;
+  }
+
+  if (furniture.length) {
+    const furnitureLinks = furniture.map(f =>
+      `<span class="action-link furniture-link" data-action="examine" data-target="${f.name}" title="Examine ${f.name}">${f.name}</span>`
+    );
+    desc += `\n<span class="furniture-label">Furniture:</span> ${furnitureLinks.join(', ')}`;
   }
 
   desc += `\n`;
@@ -603,6 +653,8 @@ async function cmdExamine(targetStr, player) {
   if (!targetStr || targetStr === 'room') return cmdLook(player);
   const { rows } = await query(`SELECT i.* FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND i.name ILIKE $2 LIMIT 1`, [player.id, `%${targetStr}%`]);
   if (rows.length) return { type:'examine', message:`${rows[0].name}\n${rows[0].description}` };
+  const { rows: furnitureRows } = await query(`SELECT * FROM furniture WHERE zone_id=$1 AND name ILIKE $2 LIMIT 1`, [player.current_zone, `%${targetStr}%`]);
+  if (furnitureRows.length) return { type:'examine', message:`${furnitureRows[0].name}\n${furnitureRows[0].description}` };
   const enemies = getZoneEnemies(player.current_zone);
   const enemy = enemies.find(e=>e.name.toLowerCase().includes(targetStr));
   if (enemy) return { type:'examine', message:`${enemy.name}\n${enemy.description}\nHP: ${enemy.hp}/${enemy.hp_max}` };

@@ -180,6 +180,26 @@
   .checkbox-field label { font-size: 11px; color: var(--text); margin: 0; }
   .checkbox-field input[type=checkbox] { width: 14px; height: 14px; accent-color: var(--accent); }
 
+  /* Zone Editor: Rooms / NPCs / Furniture management */
+  .zone-subsection { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); }
+  .zone-subsection-header { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .zone-subsection-count { background: var(--bg3); border-radius: 10px; padding: 1px 7px; font-size: 10px; color: var(--text); }
+  .zone-subsection-note { font-size: 11px; color: var(--text-dim); font-style: italic; padding: 8px 0; }
+  .zone-subitem-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; background: var(--bg3); border: 1px solid var(--border); border-radius: 2px; margin-bottom: 4px; font-size: 12px; }
+  .zone-subitem-empty { font-size: 11px; color: var(--text-dim); padding: 6px 0; }
+  .zone-subitem-actions { display: flex; gap: 6px; }
+  .zone-subitem-actions .action-btn { padding: 3px 8px; font-size: 10px; }
+  .zone-inline-form { background: var(--bg3); border: 1px solid var(--border); border-radius: 2px; padding: 12px; margin: 8px 0; }
+  .zone-inline-form .field { margin-bottom: 8px; }
+  .zone-inline-form-actions { display: flex; gap: 8px; margin-top: 4px; }
+  .zone-collapse-toggle {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 16px; height: 16px; margin-right: 6px;
+    border: 1px solid var(--border); border-radius: 2px;
+    font-size: 11px; line-height: 1; color: var(--text-dim); cursor: pointer;
+  }
+  .zone-collapse-toggle:hover { color: var(--accent); border-color: var(--accent); }
+
   .edit-footer {
     padding: 12px 16px;
     border-top: 1px solid var(--border);
@@ -277,6 +297,7 @@
     <div class="nav-item" onclick="showPanel('enemies')">👾 Enemies</div>
     <div class="nav-item" onclick="showPanel('items')">🗡 Items</div>
     <div class="nav-item" onclick="showPanel('npcs')">🧑 NPCs</div>
+    <div class="nav-item" onclick="showPanel('furniture')">🪑 Furniture</div>
     <div class="nav-item" onclick="showPanel('recipes')">⚗ Recipes</div>
     <div class="nav-item" onclick="showPanel('mutations')">☢ Mutations</div>
     <div class="nav-item" onclick="showPanel('drugs')">💊 Drugs</div>
@@ -445,6 +466,17 @@ const PANELS = {
     save: saveNpc,
     delete: id => API(`/npcs/${id}`, 'DELETE'),
   },
+  furniture: {
+    title: 'Furniture',
+    fetch: () => API('/furniture'),
+    columns: [
+      { key: 'name', label: 'Name' },
+      { key: 'zone_id', label: 'Zone' },
+    ],
+    editForm: furnitureEditForm,
+    save: saveFurniture,
+    delete: id => API(`/furniture/${id}`, 'DELETE'),
+  },
   mutations: {
     title: 'Mutations',
     fetch: () => API('/mutations'),
@@ -584,6 +616,16 @@ function renderTable(columns, records, noEdit = false) {
 // and excluded from the top-level rows so they don't appear twice. A unit
 // whose parent isn't in the current zone list (orphaned) just falls back
 // to a normal top-level row, sorted in as usual.
+// Tracks which buildings are collapsed in the Zones list (id -> true).
+// Module-level so it survives re-renders (sorting, refreshing after an
+// edit) within the session; not persisted across page loads.
+const collapsedBuildings = new Set();
+function toggleBuildingCollapse(id) {
+  if (collapsedBuildings.has(id)) collapsedBuildings.delete(id);
+  else collapsedBuildings.add(id);
+  renderZonesTable(allRecords);
+}
+
 function renderZonesTable(records) {
   const panel = document.getElementById('list-panel');
   if (!records.length) { panel.innerHTML = '<div style="padding:24px;color:var(--text-dim)">No records found.</div>'; return; }
@@ -622,12 +664,15 @@ function renderZonesTable(records) {
   }
   html += '<th></th></tr></thead><tbody>';
 
-  const renderRow = (rec, isChild) => {
+  const renderRow = (rec, isChild, hasKids, collapsed) => {
     let row = `<tr class="${isChild ? 'zone-child-row' : ''}" onclick="selectRecord('${rec.id}')">`;
     columns.forEach((col, i) => {
       const raw = rec[col.key];
       let val = col.render ? col.render(raw) : (raw ?? '—');
       if (i === 0 && isChild) val = `<span class="zone-child-indent">↳</span>${val}`;
+      if (i === 0 && hasKids) {
+        val = `<span class="zone-collapse-toggle" title="${collapsed ? 'Expand' : 'Collapse'} rooms" onclick="event.stopPropagation();toggleBuildingCollapse('${rec.id}')">${collapsed ? '+' : '−'}</span>${val}`;
+      }
       row += `<td>${val}</td>`;
     });
     row += `<td><button class="action-btn" onclick="event.stopPropagation();editRecord('${rec.id}')">Edit</button></td>`;
@@ -636,11 +681,12 @@ function renderZonesTable(records) {
   };
 
   for (const rec of topLevel) {
-    html += renderRow(rec, false);
     const kids = childrenByParent.get(rec.id);
-    if (kids) {
+    const collapsed = collapsedBuildings.has(rec.id);
+    html += renderRow(rec, false, !!kids, collapsed);
+    if (kids && !collapsed) {
       kids.sort((a, b) => String(a.name).localeCompare(String(b.name)));
-      for (const kid of kids) html += renderRow(kid, true);
+      for (const kid of kids) html += renderRow(kid, true, false, false);
     }
   }
   html += '</tbody></table>';
@@ -685,13 +731,14 @@ function newRecord() {
   openEdit({}, true);
 }
 
-function openEdit(record, isNew) {
+async function openEdit(record, isNew) {
   const p = PANELS[currentPanel];
   if (!p?.editForm) return;
   document.getElementById('edit-panel').classList.add('open');
   document.getElementById('edit-title').textContent = isNew ? `New ${p.title.slice(0,-1)}` : `Edit: ${record.name || record.id}`;
   document.getElementById('delete-btn').style.display = isNew ? 'none' : '';
-  document.getElementById('edit-body').innerHTML = p.editForm(record, isNew);
+  document.getElementById('edit-body').innerHTML = '<div style="padding:24px;color:var(--text-dim)">Loading...</div>';
+  document.getElementById('edit-body').innerHTML = await p.editForm(record, isNew);
 }
 
 function closeEdit() {
@@ -741,10 +788,93 @@ async function deleteRecord() {
 }
 
 // --- Zone forms ---
-function zoneEditForm(rec, isNew) {
+// Controls which entrance-discovery flavor-text bank a building uses
+// (server-side bank lives in commands.js, keyed by the same ids).
+const BUILDING_TYPES = [
+  { id: 'hotel', label: 'Hotel / Bar' },
+  { id: 'apartment', label: 'Apartment Building' },
+  { id: 'clinic', label: 'Clinic' },
+  { id: 'store', label: 'Convenience Store' },
+  { id: 'warehouse', label: 'Warehouse' },
+];
+
+// Caches the currently-open zone's NPCs/furniture so quick-edit buttons
+// can look records up by id. Deliberately NOT embedding full records (with
+// free-text names/descriptions) into onclick attributes — an apostrophe in
+// a name or description would prematurely close the attribute and break
+// the page.
+let zoneEditNpcsCache = [];
+let zoneEditFurnitureCache = [];
+
+async function zoneEditForm(rec, isNew) {
   const exits = rec.exits || {};
   const ambients = Array.isArray(rec.ambient_events) ? rec.ambient_events : [];
   const flags = rec.flags || {};
+
+  let subSectionsHtml = '<div class="zone-subsection-note">Save this zone first to add rooms, NPCs, or furniture.</div>';
+  if (!isNew) {
+    const [npcsData, furnitureData] = await Promise.all([
+      API('/npcs').catch(() => []),
+      API('/furniture').catch(() => []),
+    ]);
+    const zoneNpcs = (Array.isArray(npcsData) ? npcsData : []).filter(n => n.zone_id === rec.id);
+    const zoneFurniture = (Array.isArray(furnitureData) ? furnitureData : []).filter(f => f.zone_id === rec.id);
+    zoneEditNpcsCache = zoneNpcs;
+    zoneEditFurnitureCache = zoneFurniture;
+    const childRooms = allRecords.filter(z =>
+      (z.flags?.is_apartment || z.flags?.is_interior) &&
+      Object.values(z.exits || {})[0] === rec.id
+    );
+    const usedDirs = new Set(Object.keys(exits));
+    const freeDirs = ['north','south','east','west','up','down'].filter(d => !usedDirs.has(d));
+
+    subSectionsHtml = `
+      <div class="zone-subsection">
+        <div class="zone-subsection-header">Rooms <span class="zone-subsection-count">${childRooms.length}</span></div>
+        <div id="zone-rooms-list">${childRooms.length ? childRooms.map(r => `
+          <div class="zone-subitem-row">
+            <span>${r.name}</span>
+            <span class="zone-subitem-actions">
+              <button class="action-btn" onclick="editRecord('${r.id}')">Edit</button>
+              <button class="action-btn danger" onclick="deleteRoomQuick('${r.id}','${rec.id}')">Delete</button>
+            </span>
+          </div>`).join('') : '<div class="zone-subitem-empty">No rooms yet.</div>'}</div>
+        <div id="zone-add-room-form"></div>
+        ${freeDirs.length
+          ? `<button class="action-btn success" style="margin-top:6px" onclick='openAddRoomForm(${JSON.stringify(rec.id)}, ${JSON.stringify(freeDirs)})'>+ Add Room</button>`
+          : `<div class="zone-subitem-empty">All directions are already in use — free one up in Exits above to add another room.</div>`}
+      </div>
+
+      <div class="zone-subsection">
+        <div class="zone-subsection-header">NPCs <span class="zone-subsection-count">${zoneNpcs.length}</span></div>
+        <div id="zone-npcs-list">${zoneNpcs.length ? zoneNpcs.map(n => `
+          <div class="zone-subitem-row" id="npc-row-${n.id}">
+            <span>${n.name}</span>
+            <span class="zone-subitem-actions">
+              <button class="action-btn" onclick="openEditNpcQuick('${n.id}')">Edit</button>
+              <button class="action-btn danger" onclick="deleteNpcQuick('${n.id}','${rec.id}')">Delete</button>
+            </span>
+          </div>`).join('') : '<div class="zone-subitem-empty">No NPCs here.</div>'}</div>
+        <div id="zone-add-npc-form"></div>
+        <button class="action-btn success" style="margin-top:6px" onclick='openAddNpcForm(${JSON.stringify(rec.id)})'>+ Add NPC</button>
+      </div>
+
+      <div class="zone-subsection">
+        <div class="zone-subsection-header">Furniture <span class="zone-subsection-count">${zoneFurniture.length}</span></div>
+        <div id="zone-furniture-list">${zoneFurniture.length ? zoneFurniture.map(f => `
+          <div class="zone-subitem-row" id="furniture-row-${f.id}">
+            <span>${f.name}</span>
+            <span class="zone-subitem-actions">
+              <button class="action-btn" onclick="openEditFurnitureQuick('${f.id}')">Edit</button>
+              <button class="action-btn danger" onclick="deleteFurnitureQuick('${f.id}','${rec.id}')">Delete</button>
+            </span>
+          </div>`).join('') : '<div class="zone-subitem-empty">No furniture here.</div>'}</div>
+        <div id="zone-add-furniture-form"></div>
+        <button class="action-btn success" style="margin-top:6px" onclick='openAddFurnitureForm(${JSON.stringify(rec.id)})'>+ Add Furniture</button>
+      </div>
+    `;
+  }
+
   return `
     <div class="field"><label>Zone ID</label><input id="f-id" value="${isNew ? '' : rec.id}" ${!isNew ? 'readonly style="opacity:0.5"' : ''}></div>
     <div class="field"><label>Name</label><input id="f-name" value="${rec.name || ''}"></div>
@@ -762,9 +892,16 @@ function zoneEditForm(rec, isNew) {
     <div class="checkbox-field"><input type="checkbox" id="f-is_apartment" ${flags.is_apartment?'checked':''}><label>Rentable Apartment (players can RENT, LOCK, SLEEP here)</label></div>
     <div class="checkbox-field"><input type="checkbox" id="f-is_building" ${flags.is_building?'checked':''}><label>Building (appears in a "Buildings:" list and entrance-discovery text on zones that connect to it)</label></div>
     <div class="field"><label>Building Name (optional — defaults to Zone Name above if left blank)</label><input id="f-building_name" value="${flags.building_name || ''}" placeholder="${rec.name || ''}"></div>
+    <div class="field"><label>Building Type (controls which flavor templates are used in entrance-discovery text)</label>
+      <select id="f-building_type">
+        <option value="">— none / generic —</option>
+        ${BUILDING_TYPES.map(t => `<option value="${t.id}" ${flags.building_type===t.id?'selected':''}>${t.label}</option>`).join('')}
+      </select>
+    </div>
     <div class="checkbox-field"><input type="checkbox" id="f-is_interior" ${flags.is_interior?'checked':''}><label>Interior Room (for hand-built interiors not using Rentable Apartment — e.g. a Kitchen or Bedroom — appears in a "Rooms:" list from other interior zones)</label></div>
     <div class="field"><label>Exits (JSON object)</label><textarea id="f-exits" rows="4">${JSON.stringify(exits, null, 2)}</textarea></div>
     <div class="field"><label>Ambient Events (JSON array of strings)</label><textarea id="f-ambient_events" rows="6">${JSON.stringify(ambients, null, 2)}</textarea></div>
+    ${subSectionsHtml}
   `;
 }
 
@@ -781,6 +918,7 @@ async function saveZone(existing) {
     is_apartment: document.getElementById('f-is_apartment').checked,
     is_building: document.getElementById('f-is_building').checked,
     building_name: document.getElementById('f-building_name').value.trim(),
+    building_type: document.getElementById('f-building_type').value || null,
     is_interior: document.getElementById('f-is_interior').checked,
   };
 
@@ -796,6 +934,172 @@ async function saveZone(existing) {
 
   if (isNew) { body.id = id; return API('/zones', 'POST', body); }
   else return API(`/zones/${existing.id}`, 'PUT', body);
+}
+
+// --- Zone Editor: Rooms / NPCs / Furniture management ---
+// These all operate while staying inside the building's own edit panel —
+// no navigating away to a different top-level panel. After any add/edit/
+// delete, refreshZoneEditPanel() reloads the zones list (so allRecords is
+// current, e.g. a newly-added room shows up) and re-renders the same
+// zone's edit form in place.
+async function refreshZoneEditPanel(zoneId) {
+  await loadPanel('zones');
+  currentRecord = allRecords.find(r => r.id === zoneId);
+  if (currentRecord) await openEdit(currentRecord, false);
+}
+
+// Rooms
+function openAddRoomForm(zoneId, freeDirs) {
+  document.getElementById('zone-add-room-form').innerHTML = `
+    <div class="zone-inline-form">
+      <div class="field"><label>Direction</label><select id="nr-direction">${freeDirs.map(d=>`<option>${d}</option>`).join('')}</select></div>
+      <div class="field"><label>Room Name</label><input id="nr-name" placeholder="e.g. Kitchen"></div>
+      <div class="field"><label>Description</label><textarea id="nr-description" rows="3" placeholder="A small room."></textarea></div>
+      <div class="zone-inline-form-actions">
+        <button class="action-btn success" onclick='submitAddRoom(${JSON.stringify(zoneId)})'>Create</button>
+        <button class="action-btn" onclick="document.getElementById('zone-add-room-form').innerHTML=''">Cancel</button>
+      </div>
+    </div>`;
+}
+async function submitAddRoom(zoneId) {
+  const direction = document.getElementById('nr-direction').value;
+  const name = document.getElementById('nr-name').value.trim();
+  const description = document.getElementById('nr-description').value.trim();
+  if (!name) { toast('Room name is required', true); return; }
+  const result = await API(`/zones/${zoneId}/rooms`, 'POST', { direction, name, description });
+  if (result?.error) { toast(result.error, true); return; }
+  toast(result.message || 'Room added');
+  await refreshZoneEditPanel(zoneId);
+}
+async function deleteRoomQuick(roomId, parentZoneId) {
+  if (!confirm(`Delete this room? This cannot be undone.`)) return;
+  const result = await API(`/zones/${roomId}`, 'DELETE');
+  if (result?.error) { toast(result.error, true); return; }
+  toast(result.message || 'Room deleted');
+  await refreshZoneEditPanel(parentZoneId);
+}
+
+// NPCs
+function openAddNpcForm(zoneId) {
+  document.getElementById('zone-add-npc-form').innerHTML = `
+    <div class="zone-inline-form">
+      <div class="field"><label>Name</label><input id="nn-name" placeholder="e.g. Lowry"></div>
+      <div class="field"><label>Description</label><textarea id="nn-description" rows="3"></textarea></div>
+      <div class="field"><label>Disposition</label>
+        <select id="nn-disposition">${['friendly','neutral','hostile','fearful'].map(d=>`<option>${d}</option>`).join('')}</select>
+      </div>
+      <div class="zone-inline-form-actions">
+        <button class="action-btn success" onclick='submitAddNpc(${JSON.stringify(zoneId)})'>Create</button>
+        <button class="action-btn" onclick="document.getElementById('zone-add-npc-form').innerHTML=''">Cancel</button>
+      </div>
+      <div class="zone-subsection-note">For dialogue trees or a vendor inventory, use the full NPCs panel after creating.</div>
+    </div>`;
+}
+async function submitAddNpc(zoneId) {
+  const name = document.getElementById('nn-name').value.trim();
+  const description = document.getElementById('nn-description').value.trim();
+  const disposition = document.getElementById('nn-disposition').value;
+  if (!name) { toast('NPC name is required', true); return; }
+  const result = await API('/npcs', 'POST', { zone_id: zoneId, name, description, disposition, faction: null, dialogue_tree: {}, vendor_inventory: [], wanders: false, flags: {} });
+  if (result?.error) { toast(result.error, true); return; }
+  toast('NPC added');
+  await refreshZoneEditPanel(zoneId);
+}
+function openEditNpcQuick(npcId) {
+  const npc = zoneEditNpcsCache.find(n => n.id === npcId);
+  const row = document.getElementById(`npc-row-${npcId}`);
+  if (!npc || !row) return;
+  row.innerHTML = `
+    <div class="zone-inline-form">
+      <div class="field"><label>Name</label><input id="en-name-${npc.id}" value="${npc.name||''}"></div>
+      <div class="field"><label>Description</label><textarea id="en-description-${npc.id}" rows="3">${npc.description||''}</textarea></div>
+      <div class="field"><label>Disposition</label>
+        <select id="en-disposition-${npc.id}">${['friendly','neutral','hostile','fearful'].map(d=>`<option ${npc.disposition===d?'selected':''}>${d}</option>`).join('')}</select>
+      </div>
+      <div class="zone-inline-form-actions">
+        <button class="action-btn success" onclick="submitEditNpcQuick('${npc.id}')">Save</button>
+        <button class="action-btn" onclick="refreshZoneEditPanel('${npc.zone_id}')">Cancel</button>
+      </div>
+    </div>`;
+}
+async function submitEditNpcQuick(npcId) {
+  const npc = zoneEditNpcsCache.find(n => n.id === npcId);
+  if (!npc) return;
+  const name = document.getElementById(`en-name-${npc.id}`).value.trim();
+  const description = document.getElementById(`en-description-${npc.id}`).value.trim();
+  const disposition = document.getElementById(`en-disposition-${npc.id}`).value;
+  // Preserve everything this quick-edit form doesn't expose (faction,
+  // dialogue_tree, vendor_inventory, wanders, flags) by round-tripping it
+  // from the cached record.
+  const result = await API(`/npcs/${npc.id}`, 'PUT', {
+    name, description, disposition,
+    zone_id: npc.zone_id, faction: npc.faction,
+    dialogue_tree: npc.dialogue_tree || {}, vendor_inventory: npc.vendor_inventory || [],
+    wanders: npc.wanders, flags: npc.flags || {},
+  });
+  if (result?.error) { toast(result.error, true); return; }
+  toast('NPC updated');
+  await refreshZoneEditPanel(npc.zone_id);
+}
+async function deleteNpcQuick(npcId, zoneId) {
+  if (!confirm('Delete this NPC?')) return;
+  const result = await API(`/npcs/${npcId}`, 'DELETE');
+  if (result?.error) { toast(result.error, true); return; }
+  toast(result.message || 'NPC deleted');
+  await refreshZoneEditPanel(zoneId);
+}
+
+// Furniture
+function openAddFurnitureForm(zoneId) {
+  document.getElementById('zone-add-furniture-form').innerHTML = `
+    <div class="zone-inline-form">
+      <div class="field"><label>Name</label><input id="nf-name" placeholder="e.g. Bar Counter"></div>
+      <div class="field"><label>Description</label><textarea id="nf-description" rows="3"></textarea></div>
+      <div class="zone-inline-form-actions">
+        <button class="action-btn success" onclick='submitAddFurniture(${JSON.stringify(zoneId)})'>Create</button>
+        <button class="action-btn" onclick="document.getElementById('zone-add-furniture-form').innerHTML=''">Cancel</button>
+      </div>
+    </div>`;
+}
+async function submitAddFurniture(zoneId) {
+  const name = document.getElementById('nf-name').value.trim();
+  const description = document.getElementById('nf-description').value.trim();
+  if (!name) { toast('Furniture name is required', true); return; }
+  const result = await API('/furniture', 'POST', { zone_id: zoneId, name, description, flags: {} });
+  if (result?.error) { toast(result.error, true); return; }
+  toast('Furniture added');
+  await refreshZoneEditPanel(zoneId);
+}
+function openEditFurnitureQuick(itemId) {
+  const item = zoneEditFurnitureCache.find(f => f.id === itemId);
+  const row = document.getElementById(`furniture-row-${itemId}`);
+  if (!item || !row) return;
+  row.innerHTML = `
+    <div class="zone-inline-form">
+      <div class="field"><label>Name</label><input id="ef-name-${item.id}" value="${item.name||''}"></div>
+      <div class="field"><label>Description</label><textarea id="ef-description-${item.id}" rows="3">${item.description||''}</textarea></div>
+      <div class="zone-inline-form-actions">
+        <button class="action-btn success" onclick="submitEditFurnitureQuick('${item.id}')">Save</button>
+        <button class="action-btn" onclick="refreshZoneEditPanel('${item.zone_id}')">Cancel</button>
+      </div>
+    </div>`;
+}
+async function submitEditFurnitureQuick(itemId) {
+  const item = zoneEditFurnitureCache.find(f => f.id === itemId);
+  if (!item) return;
+  const name = document.getElementById(`ef-name-${item.id}`).value.trim();
+  const description = document.getElementById(`ef-description-${item.id}`).value.trim();
+  const result = await API(`/furniture/${item.id}`, 'PUT', { zone_id: item.zone_id, name, description, flags: item.flags || {} });
+  if (result?.error) { toast(result.error, true); return; }
+  toast('Furniture updated');
+  await refreshZoneEditPanel(item.zone_id);
+}
+async function deleteFurnitureQuick(furnitureId, zoneId) {
+  if (!confirm('Delete this furniture?')) return;
+  const result = await API(`/furniture/${furnitureId}`, 'DELETE');
+  if (result?.error) { toast(result.error, true); return; }
+  toast(result.message || 'Furniture deleted');
+  await refreshZoneEditPanel(zoneId);
 }
 
 // --- Enemy forms ---
@@ -1093,6 +1397,27 @@ async function saveNpc(existing) {
   };
   if (isNew) { body.id = document.getElementById('f-id').value.trim(); return API('/npcs', 'POST', body); }
   return API(`/npcs/${existing.id}`, 'PUT', body);
+}
+
+// --- Furniture forms ---
+function furnitureEditForm(rec, isNew) {
+  return `
+    <div class="field"><label>Furniture ID</label><input id="f-id" value="${isNew?'':rec.id}" ${!isNew?'readonly style="opacity:0.5"':''}></div>
+    <div class="field"><label>Name</label><input id="f-name" value="${rec.name||''}"></div>
+    <div class="field"><label>Description</label><textarea id="f-description" rows="4">${rec.description||''}</textarea></div>
+    <div class="field"><label>Zone ID</label><input id="f-zone_id" value="${rec.zone_id||''}"></div>
+  `;
+}
+async function saveFurniture(existing) {
+  const isNew = !existing?.id;
+  const body = {
+    name: document.getElementById('f-name').value,
+    description: document.getElementById('f-description').value,
+    zone_id: document.getElementById('f-zone_id').value || null,
+    flags: existing?.flags || {},
+  };
+  if (isNew) { body.id = document.getElementById('f-id').value.trim(); return API('/furniture', 'POST', body); }
+  return API(`/furniture/${existing.id}`, 'PUT', body);
 }
 
 // --- World state ---
