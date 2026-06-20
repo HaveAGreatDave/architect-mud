@@ -25,6 +25,8 @@ Every loop should produce a story worth retelling. Death should be memorable.
 
 ## Character Creation
 
+> **As-built note:** the full creation sequence below is the *design intent* and is **not yet implemented**. Registration today takes only a username, password, and handle, and starts every survivor with the same default stats (all 5s) and a kit of 3 Field Bandages. Origin Fragment and Starting Archetype are still TODO.
+
 Players begin with a brief creation sequence that establishes:
 
 - **Handle** — your name in the world. No real names. The old world is gone.
@@ -65,8 +67,8 @@ Skills improve by use. Do a thing, get better at it. There is no XP pool to allo
 
 Skills are grouped into trees but not locked — you can dabble in anything, but depth requires commitment.
 
-### Skill Categories
-- **Combat** — Brawling, Bladed, Firearms, Explosives, Energy Weapons
+### Skill Categories (As Built — 18 skills)
+- **Combat** — Brawling, Bladed, Firearms, Explosives *(an Energy Weapons skill was planned but isn't in yet — energy weapons like the Taser exist as items with no governing skill)*
 - **Survival** — Scavenging, Cooking, Medicine, Navigation
 - **Tech** — Hacking, Electronics, Fabrication, Drone Ops, Security
 - **Social** — Persuasion, Intimidate, Deception, Faction Lore
@@ -154,11 +156,14 @@ Each zone has:
 - **Points of interest** — lootable, interactive, or quest-relevant locations within the zone
 
 ### Map Shape (As Built)
-The world is a 5×5 grid. The center 3×3 is the safe city core (Coldwater Basin) — always PvP-off, zero enemy spawns, no radiation. It's surrounded by a 16-zone ring of badlands where every enemy spawn lives, with danger increasing the further a zone sits from the city: tiles directly bordering the city are medium danger, the next ring out is mostly high, and the four corners are lethal.
+The world was originally planned as a 5×5 grid (3×3 safe core inside a 16-zone badlands ring), but the shipped map was deliberately **shrunk to a compact 16-zone core** so every zone is fully populated and worth visiting rather than spread thin. As built it is:
 
-This was a deliberate shape, not just a generic grid — the goal is that players cluster and interact with each other in the safe core, and have to make a real decision to leave it and travel into danger to find combat. Enemies do not spawn in the city under any circumstance.
+- An **8-zone safe city core** (Coldwater Basin) — always PvP-off, zero enemy spawns, no radiation. The Threshold is the hub.
+- **2 badland zones** beyond the western gate (Rust Quarter West, medium, where enemies spawn; The Static Wood, low, past it) — PvP on.
+- The **Coldwater Power Station** (medium) west of the badlands, which also serves as the city's in-world power plant.
+- The **Embassy Hotel & Bar** building — a lobby/bar plus four rentable apartment units — reached by going `down` from the Franchise Strip.
 
-A residential block (apartments — see below) branches off the city core via a `down` exit, off the main directional grid.
+The intent is unchanged: players cluster and interact in the safe core, and must make a real decision to leave it and travel into danger to find combat. Enemies do not spawn in the city under any circumstance. The small footprint is intentional for now — a larger world-map expansion is the planned next pass.
 
 ### Safe Zones
 Every region has at least one safe zone — a hub where PvP is off, vendors exist, and players can anchor. Safe zones are not paradise. They are just places where you probably won't die *today*.
@@ -275,6 +280,20 @@ This gives apartments a clear, constant value (better rest) without making them 
 This was originally an open question ("Housing / base building for players or crews?"). The answer that shipped is deliberately small in scope: no decor, no storage, no crew-shared housing yet. It exists to give the full-loot-PvP economy a "home base" concept and to give the Security skill a clear, repeatable use, without committing to a much larger base-building system before there's a player base to validate it's wanted.
 
 ---
+
+## Environmental Systems (As Built)
+
+The world is alive on its own clock, independent of any player:
+
+- **Day/night cycle** — dawn → day → dusk → night, on a 30-minute real-time tick. Darkness reduces visibility; streetlights handle themselves at dusk/dawn.
+- **Weather & seasons** — a deterministic 7-day forecast cycles sunny/cloudy/rain/fog/storm/snow on a 24-hour tick, each weather type dampening visibility differently.
+- **Power & lighting** — generators power zones; blackouts and overloads are simulated and weather can fault generators. Indoor lights are player-switchable (only with power); outdoor streetlights are city-grid automatic.
+
+These exist to make the world feel persistent and indifferent — it keeps turning whether or not you're watching — and to give later systems (stealth in the dark, weather-gated events, power sabotage) something concrete to hook into. See `docs/architecture.md` for the simulation model.
+
+## Drugs & Addiction (As Built)
+
+A small substance system gives the WIL "addiction resistance" stat something to resist. Drug-type consumables apply timed effects, carry a per-use addiction roll, and punish over-use: take too many doses too fast and you overdose, taking the drug's withdrawal effects instead of its high. It's deliberately a vice layer — a risky shortcut to a stat edge or a sanity patch, not a core progression path.
 
 ## Open Design Questions
 - Do crafting stations degrade and need maintenance, or are they permanent?

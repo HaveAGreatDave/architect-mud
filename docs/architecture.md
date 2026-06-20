@@ -31,27 +31,31 @@ No ORM was used. The schema is small enough that hand-written SQL in `migrate.js
 ```
 /
 ├── server/
-│   ├── index.js              # HTTP + WebSocket entry point, auth, global error handlers
+│   ├── index.js              # HTTP + WebSocket entry point, auth, registration, global error handlers
 │   ├── keepalive.js          # Pings Render /health AND runs SELECT 1 against Supabase every 10min
 │   ├── engine/
 │   │   ├── gameLoop.js       # Tick system: combat tick, minute tick, ambient tick, spawn tick
 │   │   ├── combat.js         # Combat resolution, cooldowns, enemy attack timers
-│   │   ├── commands.js       # Command parser/dispatcher, room description rendering
+│   │   ├── commands.js       # Command parser/dispatcher, room rendering, equip/armor, switch/examine
 │   │   ├── world.js          # In-memory zone/entity cache, DB is still source of truth
-│   │   ├── skills.js         # Skill definitions, XP/rank curve, generic skillCheck()
+│   │   ├── skills.js         # Skill definitions (18), XP/rank curve, generic skillCheck()
 │   │   ├── crafting.js       # Recipes, quality tiers, station requirements
 │   │   ├── mutations.js      # Radiation-triggered permanent mutations
+│   │   ├── drugs.js          # Substances: timed effects, addiction, overdose
+│   │   ├── environment.js    # Time/weather/seasons, power grid, lighting, visibility
 │   │   ├── factions.js       # Reputation tiers and effects
 │   │   ├── vendor.js         # Buy/sell with faction rep discounts
 │   │   ├── apartments.js     # Property ownership, locks, lockpicking, safe sleep
 │   │   └── plugins.js        # Hook-based plugin loader
 │   ├── models/
 │   │   ├── db.js             # pg.Pool connection, single query() export
-│   │   ├── migrate.js        # Full schema, idempotent (CREATE TABLE IF NOT EXISTS)
-│   │   ├── seed.js           # World content: zones, items, enemies, NPCs, factions
+│   │   ├── migrate.js        # Core schema, idempotent (CREATE TABLE IF NOT EXISTS)
+│   │   ├── migrate.environment.js # Environment-system tables (clock/weather/power/lighting)
+│   │   ├── seed.js           # World content: zones, items, enemies, NPCs, factions, furniture, power
 │   │   └── rename-admin.js   # One-off migration helper for already-seeded DBs
 │   └── api/
-│       └── routes.js         # REST endpoints for the dev panel (zones/enemies/items/npcs/world state)
+│       ├── routes.js         # REST endpoints for the dev panel (zones/enemies/items/npcs/furniture/recipes/mutations/drugs/world state)
+│       └── environment.routes.js # REST endpoints for the environment dev tools (time/weather/power)
 ├── client/
 │   ├── game/index.html       # Player client — single file, no framework, no build step
 │   └── devpanel/index.html   # Dev panel — same approach
@@ -60,6 +64,10 @@ No ORM was used. The schema is small enough that hand-written SQL in `migrate.js
 ├── render.yaml                # Render free-plan service config
 └── .env.example
 ```
+
+Everything lives under `server/` — `package.json` runs only `server/models/*`.
+(A pre-refactor duplicate of `models/` and `api/` once sat at the repo root; it
+was dead and has been removed.)
 
 There is no `/data/` JSON directory and no separate seed-from-JSON pipeline. World content lives directly as JS object literals inside `seed.js`, which is run once against a fresh database; after that, the database is the only source of truth and further edits go through the dev panel, not the seed file. The seed file is only re-run for entirely new content (e.g. adding a new zone wave), using `ON CONFLICT DO NOTHING` so re-running it is always safe against an already-populated database.
 
@@ -103,19 +111,40 @@ The world-building interface. Accessible only to accounts with `role: dev`/`admi
 - Effects and stat modifiers as JSON
 
 #### 🧑 NPC Editor
-- Dialogue tree as JSON (root node + branching options)
+- Dialogue tree as JSON (root node + branching options), optional `grants_item`
 - Vendor inventory (item, price, stock)
-- Zone assignment, faction, disposition
+- Zone assignment, faction, disposition, wander flag
 
-#### 📊 World State Monitor
-- Live online player count, players-per-zone
-- Read-only, polls the REST API
+#### 🪑 Furniture Editor
+- Non-takeable room scenery (bar counters, beds, corkboards) — examine-only
+- Lights are furniture too: `is_light` / `light_type` (`overhead` / `lamp` /
+  `streetlight`). Overheads/lamps are player-switchable; streetlights follow
+  the day/night cycle. Furniture is also editable inline per-zone from the Zone
+  editor, which nests furniture + the zone's generator under each room.
+
+#### ⚗ Recipe Editor
+- Ingredients, skill requirement, station requirement, base output, difficulty
+
+#### ☢ Mutation Editor / 💊 Drug Editor
+- Mutation defs (polarity, visibility, stat mods, drawbacks, rad threshold)
+- Drug defs (duration, effects, addiction chance, overdose threshold, withdrawal)
+
+#### ⚡ Power Grid
+- Generators and per-zone power state; install/remove generators (a building
+  generator auto-connects to its building cluster; a city plant powers all
+  outdoor zones)
+- Environment dev tools (`server/api/environment.routes.js`): set/advance/freeze
+  time, override weather, force a 30-min or 24-hour tick, lock a forecast day,
+  trigger a storm/snow, simulate a generator failure
+
+#### 📊 World State Monitor / 👥 Players
+- Live online player count, players-per-zone; read-only, polls the REST API
 
 ### Not built (originally planned, deprioritized)
 - Quest editor — no quest system exists yet
 - Loot table editor as a separate named-table concept — loot tables are inlined per-enemy/per-item instead
 - Visual node graph for zones — exits are edited as raw JSON, no drag-and-drop graph view
-- Ghost mode — no invisible/invulnerable admin walk-through mode
+- Ghost mode — no invisible/invulnerable admin walk-through mode (admins do have a `teleport` command)
 - Multi-builder conflict detection / presence indicators — single-admin assumption in practice so far
 
 ---
@@ -162,21 +191,40 @@ next to something hostile.
 
 ## Database Schema (Actual Tables)
 
+Core tables (`server/models/migrate.js`):
+
 ```sql
-players           -- account, stats, skills location, credits, bank_credits, anchor/current zone
+players           -- account, stats, skills location, credits, bank_credits, anchor/current zone, visibly_mutated
 player_skills     -- player_id, skill_id, rank, xp
-zones             -- id, name, description, exits (JSONB), flags (JSONB), danger_rating, radiation_level
-items             -- template definitions: type, rarity, effects, stat_modifiers
-player_inventory  -- player_id (or "_ground_<zone_id>" for dropped items), item_id, quantity
-enemies           -- template definitions: stat block, loot_table, behavior, faction
+zones             -- id, name, description, exits (JSONB), flags (JSONB), danger_rating, radiation_level, light_level, is_safe_zone, pvp_enabled
+items             -- template definitions: type, subtype, effects, stat_modifiers, requirements, flags
+player_inventory  -- player_id (or "_ground_<zone_id>" for dropped items), item_id, quantity, is_equipped, slot
+enemies           -- template definitions: stat block, armor, loot_table, behavior, faction, flags (battle_cries etc.)
 zone_spawns       -- zone_id, enemy_id, max_count, spawn_weight, respawn_seconds
-npcs              -- id, name, zone_id, dialogue_tree (JSONB), vendor_inventory (JSONB)
-factions          -- id, name, description
-player_faction_rep -- player_id, faction_id, reputation score
+npcs              -- id, name, zone_id, dialogue_tree (JSONB), vendor_inventory (JSONB), wanders
+furniture         -- non-takeable scenery (bar counters, beds, lights); is_light/light_on/light_type
+factions          -- id, name, description, color, hostile_to, friendly_to
+player_faction_rep -- player_id, faction_id, reputation score, tier
 loot_tables       -- named, reusable weighted-drop tables (lightly used; most loot is inlined)
 world_events      -- log of significant events
 player_corpses    -- lootable death drops, expire after 10 minutes
 apartments        -- zone_id (PK), owner_id, owner_handle, is_locked, lock_difficulty, rent_cost
+recipes           -- crafting: ingredients, skill_req, requires_station, base_output, base_difficulty
+drugs             -- substance defs: item_id, duration, effects, addiction_chance, overdose_threshold
+player_drug_state -- per-player doses_in_system, times_used, is_addicted, active_until
+mutations         -- mutation defs: polarity, visible, stat_modifiers, effects, drawbacks, radiation_threshold
+player_mutations  -- player_id, mutation_id, acquired_at
+```
+
+Environment-system tables (`server/models/migrate.environment.js`, run from the
+same `migrate()`):
+
+```sql
+world_clock       -- singleton (id=1): game_date, game_time_minutes, day_of_week, season, last tick timestamps
+weather_forecast  -- 7-day rolling forecast: forecast_day, weather_type, temp_c, locked
+generators        -- power sources: type (city_plant/building/player), capacity_kw, fuel, status
+power_zones       -- per-zone power: source_type, generator_id, capacity_kw, current_load_kw, status
+lighting_states   -- per-zone: has_emergency_lighting, artificial_light_level, fixture_count
 ```
 
 Ground-dropped items reuse the `player_inventory` table with a synthetic `player_id` of `_ground_<zone_id>` rather than a separate table — this keeps "take" / "drop" using the same insert/delete logic as normal inventory management.
@@ -184,6 +232,35 @@ Ground-dropped items reuse the `player_inventory` table with a synthetic `player
 `apartments` is keyed by `zone_id` rather than having its own surrogate ID — an apartment is 1:1 with a zone, not a separate spatial entity. Ownership and lock state are cached in-memory in `world.js` (`world.apartments`) for fast reads on every room description, with writes going through Postgres first and then patching the cache.
 
 ---
+
+## Environmental Simulation (Time / Weather / Power / Lighting)
+
+`server/engine/environment.js` runs a single in-memory `state` object persisted
+to Postgres, mirroring the world-cache pattern. Postgres is written only on two
+scheduled ticks plus dev-tool calls — never per-player. Initialized once from
+server bootstrap via `initEnvironment({ query, emitHook, broadcast })`.
+
+- **Two ticks.** A **30-minute tick** advances game time, recomputes ambient
+  light and the day phase (dawn/day/dusk/night), syncs streetlights to the
+  cycle, and broadcasts `environment.sync`. A **24-hour tick** rolls the
+  calendar/season, advances the 7-day forecast, runs the power simulation, and
+  broadcasts `environment.daily`. Missed ticks after downtime are caught up at
+  most once each on boot.
+- **Weather is deterministic per date.** A seeded mulberry32 RNG keyed on the
+  date generates each day's weather/temp, so a forecast is reproducible and not
+  re-rolled on every read. Snow only occurs in winter/autumn.
+- **Power.** Generators (`city_plant` / `building` / `player`) feed
+  `power_zones`. City-plant and building generators are permanent (no fuel);
+  only player generators burn fuel. Load over capacity → `overloaded`, well over
+  → `offline` (blackout). Storms can transiently fault non-building generators;
+  snow raises effective load.
+- **Visibility** = `max(ambient, artificial) × weather × fog`, clamped to 0–1
+  and bucketed into `clear` / `dim` / `dark`. The code deliberately uses `max()`
+  for light sources rather than the GDD's literal product, which would zero out
+  daytime visibility in any room with the lights off.
+- **Lighting.** Indoor overhead/lamp fixtures are player-switchable (`switch`
+  command) and need the room to have power. Streetlights are city-grid
+  infrastructure — no switch; they turn on at dusk, off at dawn automatically.
 
 ## Lessons Learned (Worth Reading Before Changing Infra)
 
@@ -233,6 +310,10 @@ export const hooks = {
 | `player.death` | Player dies |
 | `combat.hit` | An attack lands |
 | `zone.describeAmbient` | Room description is generated — return value appended |
+| `environment.tick30m` | 30-minute environmental tick (time/light) |
+| `environment.tick24h` | 24-hour world tick (calendar/weather/power) |
+| `environment.weatherChange` | Weather/temperature changed |
+| `environment.sunrise` / `environment.sunset` | Day/night phase crossed |
 
 Plugins load at server start by scanning `/plugins/*/plugin.json`. No core code touched to add one. There is no in-panel plugin manager UI yet — enabling/disabling is still done by adding/removing the folder and restarting.
 

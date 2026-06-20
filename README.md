@@ -112,10 +112,13 @@ npm run dev
 |---|---|
 | `north/south/east/west/up/down` (or `n/s/e/w/u/d`) | Move |
 | `look` | Describe your surroundings |
+| `look <me/item/player>` / `examine <thing>` (or `ex`/`x`) | Inspect yourself, an inventory item, a player, or room furniture/scenery |
+| `map` | Show the ASCII minimap |
 | `attack <target>` | Attack a hostile |
 | `loot <corpse>` | Loot a dead player or NPC |
 | `inventory` / `inv` / `i` | Opens the visual inventory & equipment panel — drag or click items into body slots |
-| `take / drop / use` | Item management |
+| `take / drop / use` | Item management (`use`/`eat`/`drink` also consumes drugs — with addiction/overdose risk) |
+| `switch <light>` (or `flip`) | Toggle a room's overhead light or lamp on/off (needs power; streetlights aren't switchable) |
 | `equip <item>` / `unequip <item>` | Equip or unequip by typed name (the visual panel does this too, via drag or click) |
 | `recipes` | Show craftable recipes |
 | `craft <recipe_id>` | Craft an item |
@@ -144,15 +147,20 @@ Exits, NPCs, enemies, corpses, and ground items are also clickable directly in t
 
 ## The World
 
-The map is a 5×5 grid: a **3×3 safe city core** (Coldwater Basin) surrounded by a **ring of 16 badland zones** where all enemies spawn. The city core is always PvP-off with zero enemy spawns — players gather and interact there. Danger escalates outward: zones bordering the city are `medium`, the next ring is mostly `high`, and the four corners are `lethal`.
+The world is currently a compact **16-zone** map (it was deliberately shrunk from an earlier 5×5 grid down to a tight, fully-populated core — see the map-shrink note in `seed.js`). It breaks down as:
 
-A residential block (`down` from the city center) holds rentable apartment units — see Apartments below.
+- **Safe city core (Coldwater Basin)** — 8 connected PvP-off zones with zero enemy spawns: The Threshold (`zone_start`, the hub) plus Threshold Plaza North, Custodian Row, The Loading Bay, The Clinic Block, The Sprawl Gate, The Under Entrance, and the Franchise Strip. This is where players gather and interact.
+- **Badlands** — 2 dangerous zones beyond the western city gate: The Rust Quarter West (`medium`, the buffer where enemies spawn) and The Static Wood (`low`) past it. PvP is on out here.
+- **Coldwater Power Station** — a `medium` building west of the Rust Quarter that doubles as the in-world city power plant for the environment system.
+- **Embassy Hotel & Bar** — a building reached by going `down` from the Franchise Strip: a lobby/bar (the Embassy Lounge) plus four rentable apartment units. See Apartments below.
+
+Enemies never spawn in the city core under any circumstance — leaving it to find combat is a deliberate choice. (The map is intentionally small right now; full expansion is the next big world pass.)
 
 ---
 
 ## Apartments & Property
 
-Players can rent apartment units in the Residential block and secure them with a lock.
+Players can rent apartment units in the Embassy Hotel (go `down` from the Franchise Strip) and secure them with a lock.
 
 - **`rent`** — claim an unowned unit for credits (default 100c)
 - **`lock`** / **`unlock`** — owner-only. A locked door blocks entry and sleep for everyone but you.
@@ -179,6 +187,27 @@ Apartment zones are just regular zones with the `is_apartment` flag set in their
 - **Healing items can be instant or gradual.** An item's `effects` JSON supports a flat `hp` bump (instant) or an `hp_over_time: { amount, duration_seconds }` field (gradual, ticks once a minute, stacks if used again before finishing). Field Bandages and Trauma Kits both use the gradual form.
 - **New players start with 3 Field Bandages** in their inventory.
 - **Death respawns you fully restored** — HP, Sanity, Hunger, Thirst, and Radiation all reset to full/zero as appropriate, framed as stepping out of a cloning vat. All learned skills carry over untouched; only the body resets.
+
+---
+
+## Time, Weather & Power
+
+The world runs a live environmental simulation (see `docs/architecture.md`):
+
+- **A day/night cycle** advances on a 30-minute real-time tick, moving through dawn → day → dusk → night. Streetlights come on by themselves at dusk and shut off at dawn.
+- **Weather and seasons** roll over on a 24-hour tick — sunny/cloudy/rain/fog/storm/snow, each affecting visibility, with a deterministic 7-day forecast.
+- **A power grid** feeds every zone from generators (the Coldwater Power Station for the city/streetlights, a backup generator for the Embassy). Blackouts and overloads are simulated; storms can fault generators.
+- **Indoor lights** (overhead fixtures, lamps) are switchable with `switch <light>`, but only if the room actually has power. Low light reduces visibility.
+
+---
+
+## Drugs & Addiction
+
+Some consumables are `drug`-type substances handled by a dedicated system rather than the plain consumable path:
+
+- Each dose applies timed effects (stat boosts, sanity/HP/radiation shifts) for a duration.
+- Repeated use risks **addiction** (a per-use roll) and, if you take too much too fast, **overdose** — which applies the drug's harsh withdrawal effects instead of its benefits.
+- Seeded examples: **Buzz** (cheap stimulant), **Slow** (numbs pain and panic), **Glasshollow** (Architect-adjacent, sanity-shredding).
 
 ---
 
@@ -224,6 +253,9 @@ Restart the server. Plugin loads automatically. No core code changes.
 - `player.death` (player, killer) — player dies
 - `zone.describeAmbient` (zone) → string — append text to ambient events
 - `combat.hit` (attacker, defender, damage) — attack lands
+- `environment.tick30m` / `environment.tick24h` — environmental + daily world ticks
+- `environment.weatherChange` — weather/temperature changed
+- `environment.sunrise` / `environment.sunset` — day/night phase crossed
 
 ---
 
@@ -231,7 +263,7 @@ Restart the server. Plugin loads automatically. No core code changes.
 
 - [x] WebSocket real-time server (Node.js) with `wss://` support over HTTPS
 - [x] Player auth (register / login) with connection-state-aware feedback and reconnect handling
-- [x] 30 zones — 5×5 grid: 3×3 safe city core + 16-zone badlands ring, plus a 5-zone residential block
+- [x] 16 zones — an 8-zone safe city core, 2 badland zones, the Coldwater Power Station, and the Embassy Hotel building (lobby/bar + 4 apartment units)
 - [x] Movement with radiation exposure, single-letter direction shortcuts
 - [x] Real-time combat with cooldowns, crits, miss rolls (HellMOO-paced: ~3.5s player cooldown, enemy speed scaled by AGI)
 - [x] Enemy AI with targeting and attack timers, spawns confined to badlands only
@@ -243,6 +275,10 @@ Restart the server. Plugin loads automatically. No core code changes.
 - [x] **Death & respawn** — full stat restore via cloning-vat respawn, all skills retained
 - [x] **Crafting system** — quality tiers, skill checks, station requirements, crit crafts
 - [x] **Mutation system** — radiation triggers permanent mutations with buffs/drawbacks
+- [x] **Drug system** — substances with timed effects, addiction rolls, and overdose/withdrawal
+- [x] **Environmental simulation** — day/night cycle, weather + seasons with a 7-day forecast, visibility effects
+- [x] **Power grid & lighting** — generators feed zones, simulated blackouts/overloads, switchable indoor lights, auto streetlights
+- [x] **Furniture & scenery** — non-takeable, examinable room dressing (bar counters, beds, corkboards, light fixtures)
 - [x] **Faction reputation** — 6 tiers, trade discounts, hostile behavior
 - [x] **Vendor system** — buy/sell with faction rep discounts
 - [x] **Economy** — 20-credit start, dual carried/banked credit pools, ATM deposit/withdraw, player-to-player theft, barkeep NPC

@@ -9,6 +9,7 @@ Post-singularity browser MUD in the HellMOO tradition. Text-driven, real-time, b
 - [README.md](README.md) — deploy instructions, player commands, world overview, what's built and what's next
 - [docs/architecture.md](docs/architecture.md) — stack decisions, repo structure, data flows, DB schema, lessons learned from deployment bugs
 - [docs/design.md](docs/design.md) — game design philosophy, combat feel, skill/faction/economy systems, open design questions
+- [docs/items.md](docs/items.md) — item property reference: every `items` field, which JSON keys the engine actually reads, and the working armor format
 
 **Before touching any system, read the relevant doc section if there's one applicable to the request.** The architecture doc especially has real deployment bugs documented — don't relearn them.
 

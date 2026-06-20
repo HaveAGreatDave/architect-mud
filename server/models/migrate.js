@@ -58,6 +58,31 @@ export async function migrate() {
       updated_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
     );
 
+    -- Maps are grid containers. The world is one map (map_world); each
+    -- building interior is its own map, so a building takes a single cell on
+    -- its parent map but can hold many interior cells. parent_zone_id is the
+    -- zone on the parent map this interior belongs to (NULL for the world
+    -- map); entry_zone_id is where a player lands when diving into the map.
+    CREATE TABLE IF NOT EXISTS maps (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      parent_zone_id TEXT,
+      entry_zone_id TEXT,
+      created_by TEXT,
+      updated_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
+    );
+
+    -- Grid coordinates + map membership for every zone. Additive: exits stay
+    -- the source of truth for traversability (adjacency never implies a
+    -- connection); these only position zones on a map for display/editing.
+    -- marker is a <=2-char map glyph, color a CSS color for character.
+    ALTER TABLE zones ADD COLUMN IF NOT EXISTS map_id TEXT;
+    ALTER TABLE zones ADD COLUMN IF NOT EXISTS grid_x INTEGER;
+    ALTER TABLE zones ADD COLUMN IF NOT EXISTS grid_y INTEGER;
+    ALTER TABLE zones ADD COLUMN IF NOT EXISTS grid_z INTEGER DEFAULT 0;
+    ALTER TABLE zones ADD COLUMN IF NOT EXISTS marker TEXT;
+    ALTER TABLE zones ADD COLUMN IF NOT EXISTS color TEXT;
+
     CREATE TABLE IF NOT EXISTS items (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -266,6 +291,7 @@ export async function migrate() {
     CREATE INDEX IF NOT EXISTS idx_world_events_zone ON world_events(zone_id);
     CREATE INDEX IF NOT EXISTS idx_world_events_time ON world_events(created_at);
     CREATE INDEX IF NOT EXISTS idx_apartments_owner ON apartments(owner_id);
+    CREATE INDEX IF NOT EXISTS idx_zones_map ON zones(map_id);
   `);
 
   // Normalize legacy item effects: armor was once saved with an uppercase
