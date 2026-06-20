@@ -6,12 +6,12 @@
 <title>ARCHITECT // DEV PANEL</title>
 <style>
   :root {
-    --bg: #05050a;
-    --bg2: #0d0d16;
-    --bg3: #15151f;
-    --border: #2a2a40;
+    --bg: #0a0a12;
+    --bg2: #13131e;
+    --bg3: #1d1d2c;
+    --border: #35354e;
     --text: #c4c4dc;
-    --text-dim: #5c5c78;
+    --text-dim: #7878a0;
     --text-bright: #e8e8f5;
     --accent: #ff2ec4;
     --accent2: #39ff8f;
@@ -351,8 +351,9 @@
 <div id="layout">
   <!-- NAV -->
   <div id="nav">
+    <div class="nav-item active" data-panel="dashboard" onclick="showPanel('dashboard')" style="border-left-color:var(--accent);color:var(--accent)">⬡ Dashboard</div>
     <div class="nav-section">World</div>
-    <div class="nav-item active" data-panel="zones" onclick="showPanel('zones')">🗺 Zones</div>
+    <div class="nav-item" data-panel="zones" onclick="showPanel('zones')">🗺 Zones</div>
     <div class="nav-item" data-panel="power" onclick="showPanel('power')">⚡ Power</div>
     <div class="nav-item" data-panel="enemies" onclick="showPanel('enemies')">👾 Enemies</div>
     <div class="nav-item" data-panel="items" onclick="showPanel('items')">🗡 Items</div>
@@ -417,6 +418,19 @@
 </div>
 
 <!-- SETTINGS -->
+<div id="whisper-overlay" onclick="if(event.target===this) closeWhisper()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:200;align-items:center;justify-content:center">
+  <div class="modal-card" style="width:380px">
+    <h2 style="margin-bottom:4px">Admin Whisper</h2>
+    <p id="whisper-target-label" style="font-size:11px;color:var(--text-dim);margin-bottom:16px"></p>
+    <div id="whisper-log" style="height:180px;overflow-y:auto;background:var(--bg);border:1px solid var(--border);padding:10px;margin-bottom:12px;font-size:12px;display:flex;flex-direction:column;gap:6px"></div>
+    <div style="display:flex;gap:8px">
+      <input id="whisper-input" type="text" placeholder="Message…" style="flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:7px 10px;outline:none;border-radius:2px" onkeydown="if(event.key==='Enter')sendWhisper()">
+      <button class="action-btn primary" onclick="sendWhisper()">Send</button>
+    </div>
+    <button class="action-btn" style="margin-top:10px;width:100%" onclick="closeWhisper()">Close</button>
+  </div>
+</div>
+
 <div id="settings-overlay" onclick="if(event.target===this) closeSettingsPanel()">
   <div class="modal-card" style="width:320px">
     <h2>Settings</h2>
@@ -524,7 +538,7 @@ async function devLogin() {
   document.getElementById('auth-badge').textContent = `${data.handle} [${data.role}]`;
   document.getElementById('auth-badge').className = 'auth-status ok';
   if (['admin','dev'].includes(data.role)) document.getElementById('ghost-btn').style.display = '';
-  loadPanel('zones');
+  loadPanel('dashboard');
   startWorldStatePolling();
   updateStagingBadge();
   showPlayButton();
@@ -546,7 +560,7 @@ document.getElementById('dev-password').addEventListener('keydown', e => { if(e.
   document.getElementById('auth-badge').textContent = `[${role}]`;
   document.getElementById('auth-badge').className = 'auth-status ok';
   if (['admin','dev'].includes(role)) document.getElementById('ghost-btn').style.display = '';
-  loadPanel('zones');
+  loadPanel('dashboard');
   startWorldStatePolling();
   updateStagingBadge();
   showPlayButton();
@@ -554,6 +568,16 @@ document.getElementById('dev-password').addEventListener('keydown', e => { if(e.
 
 // Panel management
 const PANELS = {
+  dashboard: {
+    title: 'Dashboard',
+    fetch: async () => {
+      const [world, env] = await Promise.all([API('/world/state'), API('/environment/state')]);
+      if (env && !env.error) window._lastEnv = env;
+      return { ...world, _env: env };
+    },
+    noEdit: true,
+    render: renderDashboard,
+  },
   zones: {
     title: 'Zones',
     fetch: () => API('/zones'),
@@ -679,14 +703,8 @@ const PANELS = {
   players: {
     title: 'Players',
     fetch: () => API('/players'),
-    columns: [
-      { key: 'handle', label: 'Handle' },
-      { key: 'username', label: 'Username' },
-      { key: 'role', label: 'Role' },
-      { key: 'current_zone', label: 'Zone' },
-      { key: 'credits', label: 'Credits' },
-    ],
     noEdit: true,
+    render: renderPlayersPanel,
   },
   validator: {
     title: 'Zone Validator',
@@ -1923,6 +1941,151 @@ function devpanelLogout() {
 }
 
 // --- World state ---
+// --- Dashboard ---
+
+function renderDashboard(data) {
+  const panel = document.getElementById('list-panel');
+  const online = (data.online_players || []);
+  const admins = online.filter(p => ['admin','dev','builder','designer'].includes(p.role));
+  const env = data._env || window._lastEnv || {};
+  const forecast = env.forecast || [];
+  const timeStr = env.time || '—';
+  const dateStr = env.date || '—';
+  const season = env.season || '—';
+  const weatherStr = env.weatherType ? `${env.weatherIcon || ''} ${env.weatherType}  ${env.tempC != null ? env.tempC + '°C' : ''}`.trim() : '—';
+
+  const card = (icon, label, value, sub, onclick) => `
+    <div onclick="${onclick}" style="cursor:pointer;background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:20px 24px;display:flex;flex-direction:column;gap:6px" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+      <div style="font-size:22px">${icon}</div>
+      <div style="font-size:26px;font-weight:700;color:var(--text-bright)">${value}</div>
+      <div style="font-size:12px;font-weight:600;color:var(--text)">${label}</div>
+      ${sub ? `<div style="font-size:11px;color:var(--text-dim)">${sub}</div>` : ''}
+    </div>`;
+
+  // Day label: use date string shortened, or forecastDay offset
+  const dayLabel = (f, i) => {
+    if (f.date) { const d = new Date(f.date); return isNaN(d) ? `Day ${i}` : d.toLocaleDateString(undefined,{weekday:'short'}); }
+    return i === 0 ? 'Today' : `+${i}d`;
+  };
+
+  const forecastHtml = forecast.length
+    ? `<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px">
+        ${forecast.slice(0,7).map((f,i)=>`
+          <div style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:10px 14px;text-align:center;min-width:72px">
+            <div style="font-size:11px;color:var(--text-dim);margin-bottom:4px">${dayLabel(f,i)}</div>
+            <div style="font-size:22px;margin-bottom:4px">${f.icon||'?'}</div>
+            <div style="font-size:11px;color:var(--text)">${f.weatherType||'?'}</div>
+            ${f.tempC!=null?`<div style="font-size:10px;color:var(--text-dim);margin-top:2px">${f.tempC}°C</div>`:''}
+          </div>`).join('')}
+      </div>`
+    : `<div style="font-size:12px;color:var(--text-dim)">No forecast data — weather plugin may not be active.</div>`;
+
+  panel.innerHTML = `
+    <div style="padding:24px;max-width:860px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px;margin-bottom:28px">
+        ${card('👥', 'Players Online', online.length, online.length ? online.map(p=>p.handle).join(', ') : 'None', "showPanel('players')")}
+        ${card('🛡', 'Admins Online', admins.length, admins.length ? admins.map(p=>p.handle).join(', ') : 'None', "showPanel('players')")}
+        ${card('🕐', 'Server Time', timeStr, `${dateStr} · ${season} · ${weatherStr}`, "showPanel('worldstate')")}
+        ${card('👾', 'Live Enemies', data.live_enemies ?? '—', `${(data.zones||[]).length} zones active`, "showPanel('worldstate')")}
+      </div>
+
+      <div style="font-size:13px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">7-Day Forecast</div>
+      ${forecastHtml}
+    </div>`;
+}
+
+// --- Players panel ---
+
+let _whisperTargetId = null;
+let _whisperTargetHandle = null;
+
+function renderPlayersPanel(data) {
+  const panel = document.getElementById('list-panel');
+  const players = Array.isArray(data) ? data : [];
+
+  if (!players.length) {
+    panel.innerHTML = '<div style="padding:24px;color:var(--text-dim)">No players found.</div>';
+    return;
+  }
+
+  const onlineDot = online => online
+    ? `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--accent2);margin-right:5px;vertical-align:middle"></span>`
+    : `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--border);margin-right:5px;vertical-align:middle"></span>`;
+
+  const roleColor = r => ({admin:'var(--red)',dev:'var(--accent)',builder:'var(--accent3)',designer:'var(--accent3)'}[r]||'var(--text-dim)');
+
+  let html = `<table><thead><tr>
+    <th></th><th>Handle</th><th>Username</th><th>Role</th><th>Zone</th><th>Credits</th><th style="text-align:right">Actions</th>
+  </tr></thead><tbody>`;
+
+  for (const p of players) {
+    html += `<tr>
+      <td style="width:14px;padding-right:0">${onlineDot(p.online)}</td>
+      <td style="font-weight:600;color:var(--text-bright)">${p.handle}</td>
+      <td style="color:var(--text-dim)">${p.username}</td>
+      <td><span style="color:${roleColor(p.role)}">${p.role}</span></td>
+      <td style="color:var(--text-dim);font-size:11px">${p.current_zone||'—'}</td>
+      <td>${p.credits??0}</td>
+      <td style="text-align:right;white-space:nowrap">
+        <button class="action-btn" style="font-size:10px;padding:3px 8px" onclick="openWhisper('${p.id}','${p.handle.replace(/'/g,"\\'")}')">✉ Whisper</button>
+        <button class="action-btn danger" style="font-size:10px;padding:3px 8px;margin-left:4px" onclick="confirmSmite('${p.id}','${p.handle.replace(/'/g,"\\'")}')">⚡ Smite</button>
+        <button class="action-btn danger" style="font-size:10px;padding:3px 8px;margin-left:4px" onclick="confirmDelete('${p.id}','${p.handle.replace(/'/g,"\\'")}')">✕ Delete</button>
+      </td>
+    </tr>`;
+  }
+
+  html += '</tbody></table>';
+  panel.innerHTML = html;
+}
+
+async function confirmSmite(id, handle) {
+  if (!confirm(`Smite ${handle} with lightning? This will kill them instantly.`)) return;
+  const r = await API(`/players/${id}/smite`, 'POST');
+  if (r.error) { toast(r.error, true); return; }
+  toast(`⚡ ${handle} has been smitten`);
+}
+
+async function confirmDelete(id, handle) {
+  if (!confirm(`Permanently delete ${handle}? This cannot be undone.`)) return;
+  if (!confirm(`Are you sure? All data for "${handle}" will be erased.`)) return;
+  const r = await API(`/players/${id}`, 'DELETE');
+  if (r.error) { toast(r.error, true); return; }
+  toast(`${handle} deleted`);
+  loadPanel('players');
+}
+
+function openWhisper(id, handle) {
+  _whisperTargetId = id;
+  _whisperTargetHandle = handle;
+  document.getElementById('whisper-target-label').textContent = `To: ${handle}`;
+  document.getElementById('whisper-log').innerHTML = '';
+  document.getElementById('whisper-input').value = '';
+  const overlay = document.getElementById('whisper-overlay');
+  overlay.style.display = 'flex';
+  document.getElementById('whisper-input').focus();
+}
+
+function closeWhisper() {
+  document.getElementById('whisper-overlay').style.display = 'none';
+  _whisperTargetId = null;
+  _whisperTargetHandle = null;
+}
+
+async function sendWhisper() {
+  const input = document.getElementById('whisper-input');
+  const msg = input.value.trim();
+  if (!msg || !_whisperTargetId) return;
+  const r = await API(`/players/${_whisperTargetId}/whisper`, 'POST', { message: msg });
+  if (r.error) { toast(r.error, true); return; }
+  const log = document.getElementById('whisper-log');
+  const entry = document.createElement('div');
+  entry.style.cssText = 'font-size:12px;padding:4px 0;border-bottom:1px solid var(--border)';
+  entry.innerHTML = `<span style="color:var(--text-dim);font-size:10px">You → ${_whisperTargetHandle}</span><br>${msg}`;
+  log.appendChild(entry);
+  log.scrollTop = log.scrollHeight;
+  input.value = '';
+}
+
 function renderWorldState(data) {
   const panel = document.getElementById('list-panel');
   window._wsData = data; // cache full payload for re-sort without refetch

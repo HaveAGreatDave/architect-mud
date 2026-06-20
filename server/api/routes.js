@@ -113,6 +113,9 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path==='/world/state' && method==='GET') return requireDev(auth, apiWorldState);
   if (path==='/world/reload' && method==='POST') return requireDev(auth, ()=>apiReloadZone(body));
   if (path==='/players' && method==='GET') return requireAdmin(auth, apiGetPlayers);
+  if (path.startsWith('/players/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeletePlayer(path.split('/')[2]));
+  if (path.startsWith('/players/') && path.endsWith('/smite') && method==='POST') return requireAdmin(auth, ()=>apiSmitePlayer(path.split('/')[2]));
+  if (path.startsWith('/players/') && path.endsWith('/whisper') && method==='POST') return requireAdmin(auth, ()=>apiWhisperPlayer(path.split('/')[2], body));
   return { status:404, body:{error:'Not found'} };
 }
 
@@ -382,7 +385,41 @@ async function apiReloadZone(body) {
 }
 async function apiGetPlayers() {
   const {rows}=await query('SELECT id,username,handle,role,current_zone,credits,created_at,last_seen FROM players');
-  return {status:200,body:rows};
+  const online = new Set(getAllLivePlayers().map(p=>p.id));
+  return {status:200,body:rows.map(r=>({...r,online:online.has(r.id)}))};
+}
+
+async function apiDeletePlayer(id) {
+  const {rows}=await query('SELECT handle FROM players WHERE id=$1',[id]);
+  if (!rows.length) return {status:404,body:{error:'Player not found'}};
+  await query('DELETE FROM player_inventory WHERE player_id=$1',[id]);
+  await query('DELETE FROM player_skills WHERE player_id=$1',[id]);
+  await query('DELETE FROM player_faction_rep WHERE player_id=$1',[id]);
+  await query('DELETE FROM player_mutations WHERE player_id=$1',[id]);
+  await query('DELETE FROM player_drug_state WHERE player_id=$1',[id]);
+  await query('DELETE FROM players WHERE id=$1',[id]);
+  broadcastFn(null,{type:'kicked',message:'Your account has been deleted by an administrator.'},null,id);
+  return {status:200,body:{deleted:true,handle:rows[0].handle}};
+}
+
+async function apiSmitePlayer(id) {
+  const {rows}=await query('SELECT handle,current_zone FROM players WHERE id=$1',[id]);
+  if (!rows.length) return {status:404,body:{error:'Player not found'}};
+  const {handle,current_zone}=rows[0];
+  await query('UPDATE players SET hp=0 WHERE id=$1',[id]);
+  broadcastFn(current_zone,{type:'zone_event',message:`A bolt of lightning strikes ${handle} dead.`});
+  broadcastFn(null,{type:'output',message:'<span style="color:#ff3b5c">⚡ You have been smitten by divine lightning. Everything goes white.</span>'},null,id);
+  broadcastFn(null,{type:'player_update',hp:0},null,id);
+  return {status:200,body:{smited:true,handle}};
+}
+
+async function apiWhisperPlayer(id, body) {
+  const {message}=body||{};
+  if (!message) return {status:400,body:{error:'message required'}};
+  const {rows}=await query('SELECT handle FROM players WHERE id=$1',[id]);
+  if (!rows.length) return {status:404,body:{error:'Player not found'}};
+  broadcastFn(null,{type:'output',message:`<span style="color:#b48eff">[Admin whisper]: ${message}</span>`},null,id);
+  return {status:200,body:{sent:true,handle:rows[0].handle}};
 }
 async function apiGetRecipes() { const {rows}=await query('SELECT * FROM recipes'); return {status:200,body:rows}; }
 
