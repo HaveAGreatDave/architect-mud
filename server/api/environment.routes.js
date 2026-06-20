@@ -41,6 +41,10 @@ export async function handleEnvironmentApi(path, method, body, auth) {
     return { status: 200, body: env.getPowerMap() };
   }
 
+  if (path === '/environment/power/generators' && method === 'GET') {
+    return { status: 200, body: await env.getGeneratorsList() };
+  }
+
   if (path.startsWith('/environment/visibility/') && method === 'GET') {
     const zoneId = decodeURIComponent(path.split('/')[3] || '');
     return { status: 200, body: env.getZoneVisibility(zoneId) };
@@ -48,7 +52,7 @@ export async function handleEnvironmentApi(path, method, body, auth) {
 
   // Everything past this point changes world state — dev/admin only,
   // same role check as zones/enemies/items/etc. elsewhere in routes.js.
-  if (path.startsWith('/environment/') && method === 'POST') {
+  if (path.startsWith('/environment/') && (method === 'POST' || method === 'DELETE')) {
     const denied = requireDevAuth(auth);
     if (denied) return denied;
 
@@ -65,6 +69,10 @@ export async function handleEnvironmentApi(path, method, body, auth) {
       if (path === '/environment/power/generator') return { status: 200, body: await env.devSpawnGenerator(body || {}) };
       if (path === '/environment/power/load') return { status: 200, body: await env.devModifyLoad(body?.zoneId, body?.loadKw) };
       if (path === '/environment/power/fail') return { status: 200, body: await env.devSimulateFailure(body?.generatorId) };
+      if (path === '/environment/power/install' && method === 'POST') return { status: 200, body: await env.installGenerator(body || {}) };
+      if (path.startsWith('/environment/power/generators/') && method === 'DELETE') {
+        return { status: 200, body: await env.removeGenerator(decodeURIComponent(path.split('/')[4] || '')) };
+      }
     } catch (err) {
       return { status: 400, body: { error: err.message || 'Environment route error' } };
     }

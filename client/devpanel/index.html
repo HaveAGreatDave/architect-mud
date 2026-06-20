@@ -283,38 +283,6 @@
   #bigmap-legend, #power-legend { font-size: 10px; color: var(--text-dim); margin-top: 12px; display: flex; gap: 14px; flex-wrap: wrap; }
   .legend-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }
 
-  /* Maps overview editor */
-  .map-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px; border-bottom: 1px solid var(--border); }
-  .map-toolbar select, .map-toolbar input { background: var(--bg3); border: 1px solid var(--border); color: var(--text); padding: 4px 6px; border-radius: 2px; font-size: 11px; }
-  .map-validation { margin: 10px 12px; font-size: 11px; }
-  .map-validation .v-error { color: #ff3b5c; }
-  .map-validation .v-warn { color: #f5e642; }
-  .map-validation .v-ok { color: #39ff8f; }
-  .bigmap-tile.bm-edit { position: relative; }
-  .bigmap-tile.bm-broken { outline: 2px solid #ff3b5c; outline-offset: -2px; }
-  .bigmap-tile-create { width: 110px; height: 76px; border: 1px dashed var(--border); border-radius: 2px; display: flex; align-items: center; justify-content: center; color: var(--text-dim); cursor: pointer; font-size: 18px; transition: all 0.1s; }
-  .bigmap-tile-create:hover { border-color: var(--accent); color: var(--accent); }
-  .map-marker-badge { font-weight: bold; opacity: 0.85; margin-right: 3px; }
-  .map-dive-btn { position: absolute; top: 2px; right: 2px; font-size: 11px; background: var(--bg); border: 1px solid var(--border); border-radius: 2px; padding: 0 4px; cursor: pointer; color: var(--accent); }
-  .color-swatches { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 6px; }
-  .color-swatch { width: 20px; height: 20px; border-radius: 2px; border: 1px solid var(--border); cursor: pointer; }
-  .color-swatch:hover { transform: scale(1.12); }
-  /* Connection slots between adjacent map cells */
-  .conn { display: flex; align-items: center; justify-content: center; color: var(--accent); }
-  .conn-h { width: 16px; height: 76px; }
-  .conn-v { width: 110px; height: 16px; }
-  .conn-open { cursor: pointer; }
-  .conn-open .ln { background: var(--border); opacity: 0.5; }
-  .conn-open:hover .ln { background: var(--accent); opacity: 1; }
-  .conn-linked { cursor: pointer; }
-  .conn-h .ln { height: 3px; width: 100%; }
-  .conn-v .ln { width: 3px; height: 100%; }
-  .conn-linked .ln { background: var(--accent); }
-  .conn-oneway { cursor: pointer; font-size: 13px; line-height: 1; }
-  .cell-exits { font-size: 8px; letter-spacing: 1px; opacity: 0.75; margin-top: 2px; }
-  .cell-exits .ex-broken { color: #ff3b5c; opacity: 1; }
-  .cell-exits .ex-vert { color: var(--accent); }
-
   /* Settings */
   .settings-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); }
   .settings-row:last-child { border-bottom: none; }
@@ -371,7 +339,6 @@
   <span class="auth-status" id="auth-badge">NOT AUTHENTICATED</span>
   <div id="header-actions">
     <button class="action-btn" onclick="refreshWorld()">↻ Refresh</button>
-    <button class="action-btn" id="publish-btn" onclick="publishChanges()" style="display:none" disabled>Publish Changes</button>
     <button class="action-btn" id="ghost-btn" onclick="openGhostMode()" style="display:none">👻 Ghost Mode</button>
   </div>
 </div>
@@ -381,7 +348,6 @@
   <div id="nav">
     <div class="nav-section">World</div>
     <div class="nav-item active" data-panel="zones" onclick="showPanel('zones')">🗺 Zones</div>
-    <div class="nav-item" data-panel="maps" onclick="showPanel('maps')">🧭 Maps</div>
     <div class="nav-item" data-panel="power" onclick="showPanel('power')">⚡ Power</div>
     <div class="nav-item" data-panel="enemies" onclick="showPanel('enemies')">👾 Enemies</div>
     <div class="nav-item" data-panel="items" onclick="showPanel('items')">🗡 Items</div>
@@ -432,6 +398,16 @@
 </div>
 
 <div class="msg-toast" id="toast"></div>
+
+<!-- BIG MAP -->
+<div id="bigmap-overlay" onclick="if(event.target===this) closeBigMap()">
+  <div class="modal-card">
+    <h2 id="bigmap-title">City Map</h2>
+    <div id="bigmap-grid"></div>
+    <div id="bigmap-legend"></div>
+    <button class="action-btn" style="margin-top:14px;width:100%" onclick="closeBigMap()">Close</button>
+  </div>
+</div>
 
 <!-- SETTINGS -->
 <div id="settings-overlay" onclick="if(event.target===this) closeSettingsPanel()">
@@ -503,7 +479,6 @@ async function devLogin() {
   document.getElementById('auth-badge').textContent = `${data.handle} [${data.role}]`;
   document.getElementById('auth-badge').className = 'auth-status ok';
   if (['admin','dev'].includes(data.role)) document.getElementById('ghost-btn').style.display = '';
-  updatePublishBtn();
   loadPanel('zones');
   startWorldStatePolling();
 }
@@ -622,12 +597,6 @@ const PANELS = {
     editForm: recipeEditForm,
     save: saveRecipe,
     delete: id => API(`/recipes/${id}`, 'DELETE'),
-  },
-  maps: {
-    title: 'Maps',
-    fetch: () => API('/maps'),
-    render: renderMapsPanel,
-    noEdit: true,
   },
   power: {
     title: 'Power Grid',
@@ -771,7 +740,7 @@ function renderZonesTable(records) {
   }
 
   const columns = PANELS.zones.columns;
-  let html = `<div style="padding:10px 12px"><button class="action-btn" onclick="showPanel('maps')">🧭 Map Overview</button></div>`;
+  let html = `<div style="padding:10px 12px"><button class="action-btn" onclick="openBigMap()">🗺 View Big Map</button></div>`;
   html += '<table><thead><tr>';
   for (const col of columns) {
     const isSorted = sortState.key === col.key;
@@ -860,7 +829,6 @@ async function openEdit(record, isNew) {
 function closeEdit() {
   document.getElementById('edit-panel').classList.remove('open');
   currentRecord = null;
-  if (mapZoneEditReturn) { currentPanel = 'maps'; mapZoneEditReturn = false; }
 }
 
 async function saveRecord() {
@@ -872,8 +840,7 @@ async function saveRecord() {
     const result = await p.save(currentRecord);
     if (result?.error) { toast(result.error, true); return; }
     toast('Saved & published ✓');
-    if (mapZoneEditReturn) applyZoneEditToMap(currentRecord?.id);
-    else await loadPanel(currentPanel);
+    await loadPanel(currentPanel);
     closeEdit();
   } catch (err) {
     toast(`Unexpected error: ${err.message}`, true);
@@ -897,10 +864,8 @@ async function deleteRecord() {
     const result = await p.delete(currentRecord.id);
     if (result?.error) { toast(result.error, true); return; }
     toast(result?.message || 'Deleted');
-    const fromMap = mapZoneEditReturn;
+    await loadPanel(currentPanel);
     closeEdit();
-    if (fromMap) await loadMapOverview(mapOverview.map.id);
-    else await loadPanel(currentPanel);
   } catch (err) {
     toast(`Unexpected error: ${err.message}`, true);
     console.error('deleteRecord failed:', err);
@@ -933,17 +898,6 @@ async function zoneEditForm(rec, isNew) {
   const ambients = Array.isArray(rec.ambient_events) ? rec.ambient_events : [];
   const flags = rec.flags || {};
   zoneEditExitsState = { ...exits };
-  // New zones created by clicking an empty cell on the Maps overview arrive
-  // with a pending grid placement; existing zones use the in-memory map state
-  // so unsaved drag positions are reflected immediately without needing to
-  // publish first; fall back to server data if not on the maps panel.
-  const mapZone = mapOverview?.zones.get(rec?.id);
-  const place = (isNew && pendingZonePlacement)
-    ? { ...pendingZonePlacement }
-    : mapZone
-      ? { map_id: mapZone.map_id, grid_x: mapZone.grid_x, grid_y: mapZone.grid_y, grid_z: mapZone.grid_z ?? 0 }
-      : { map_id: rec.map_id, grid_x: rec.grid_x, grid_y: rec.grid_y, grid_z: rec.grid_z };
-  pendingZonePlacement = null;
 
   let subSectionsHtml = '<div class="zone-subsection-note">Save this zone first to add rooms, NPCs, furniture, or a generator.</div>';
   if (!isNew) {
@@ -1077,18 +1031,6 @@ async function zoneEditForm(rec, isNew) {
       </select>
     </div>
     <div class="checkbox-field"><input type="checkbox" id="f-is_interior" ${flags.is_interior?'checked':''}><label>Interior Room (for hand-built interiors not using Rentable Apartment — e.g. a Kitchen or Bedroom — appears in a "Rooms:" list from other interior zones)</label></div>
-    <div class="field-row">
-      <div class="field"><label>Map Marker (≤2 chars)</label><input id="f-marker" maxlength="2" value="${rec.marker || ''}" placeholder="e.g. ⌂"></div>
-      <div class="field"><label>Map Color</label>
-        <div class="color-swatches">${MAP_PALETTE.map(c => `<span class="color-swatch" style="background:${c}" title="${c}" onclick="setZoneColor('${c}')"></span>`).join('')}<span class="color-swatch" style="background:transparent;border-style:dashed" title="clear" onclick="setZoneColor('')"></span></div>
-        <input id="f-color" value="${rec.color || ''}" placeholder="#rrggbb (blank = danger color)">
-      </div>
-    </div>
-    <div class="field"><label>Map Placement</label><input readonly style="opacity:0.6" value="${place.map_id ? `${place.map_id} @ (${place.grid_x ?? '–'}, ${place.grid_y ?? '–'}, ${place.grid_z ?? 0}) — move on the Maps overview` : 'unplaced — position from the Maps overview'}"></div>
-    <input type="hidden" id="f-map_id" value="${place.map_id || ''}">
-    <input type="hidden" id="f-grid_x" value="${place.grid_x ?? ''}">
-    <input type="hidden" id="f-grid_y" value="${place.grid_y ?? ''}">
-    <input type="hidden" id="f-grid_z" value="${place.grid_z ?? ''}">
     <div class="field"><label>Exits</label><div id="exits-builder-body">${renderExitsBuilder(rec.id)}</div></div>
     <div class="field"><label>Ambient Events (JSON array of strings)</label><textarea id="f-ambient_events" rows="6">${JSON.stringify(ambients, null, 2)}</textarea></div>
     ${subSectionsHtml}
@@ -1119,20 +1061,7 @@ async function saveZone(existing) {
     pvp_enabled: document.getElementById('f-pvp_enabled').checked,
     is_safe_zone: document.getElementById('f-is_safe_zone').checked,
     exits: { ...zoneEditExitsState }, ambient_events: ambients, flags,
-    marker: document.getElementById('f-marker').value.trim() || null,
-    color: document.getElementById('f-color').value.trim() || null,
   };
-
-  // Grid placement — carried through on every save so editing a zone never
-  // drops its position; new zones placed from the Maps overview get theirs here.
-  const mapId = document.getElementById('f-map_id').value;
-  const gx = document.getElementById('f-grid_x').value;
-  const gy = document.getElementById('f-grid_y').value;
-  const gz = document.getElementById('f-grid_z').value;
-  if (mapId) body.map_id = mapId;
-  if (gx !== '') body.grid_x = parseInt(gx);
-  if (gy !== '') body.grid_y = parseInt(gy);
-  if (gz !== '') body.grid_z = parseInt(gz);
 
   if (isNew) { body.id = id; return API('/zones', 'POST', body); }
   else return API(`/zones/${existing.id}`, 'PUT', body);
@@ -1580,8 +1509,6 @@ async function saveEnemy(existing) {
 function itemEditForm(rec, isNew) {
   const effects = typeof rec.effects === 'object' ? rec.effects : JSON.parse(rec.effects||'{}');
   const mods = typeof rec.stat_modifiers === 'object' ? rec.stat_modifiers : JSON.parse(rec.stat_modifiers||'{}');
-  const flags = typeof rec.flags === 'object' ? rec.flags : JSON.parse(rec.flags||'{}');
-  const SLOTS = ['','head','torso','hands','legs','feet','weapon_hand','accessory'];
   return `
     <div class="field"><label>Item ID</label><input id="f-id" value="${isNew?'':rec.id}" ${!isNew?'readonly style="opacity:0.5"':''}></div>
     <div class="field"><label>Name</label><input id="f-name" value="${rec.name||''}"></div>
@@ -1605,12 +1532,7 @@ function itemEditForm(rec, isNew) {
     </div>
     <div class="checkbox-field"><input type="checkbox" id="f-is_stackable" ${rec.is_stackable?'checked':''}><label>Stackable</label></div>
     <div class="checkbox-field"><input type="checkbox" id="f-is_quest_item" ${rec.is_quest_item?'checked':''}><label>Quest Item (cannot be dropped)</label></div>
-    <div class="field"><label>Equip Slot (weapons/armor — leave blank for non-equippable items)</label>
-      <select id="f-slot">
-        ${SLOTS.map(s=>`<option value="${s}" ${flags.slot===s?'selected':''}>${s||'(none)'}</option>`).join('')}
-      </select>
-    </div>
-    <div class="field"><label>Effects (JSON — armor items use {"armor": N} for damage reduction)</label><textarea id="f-effects" rows="4">${JSON.stringify(effects, null, 2)}</textarea></div>
+    <div class="field"><label>Effects (JSON)</label><textarea id="f-effects" rows="4">${JSON.stringify(effects, null, 2)}</textarea></div>
     <div class="field"><label>Stat Modifiers (JSON)</label><textarea id="f-stat_modifiers" rows="3">${JSON.stringify(mods, null, 2)}</textarea></div>
   `;
 }
@@ -1620,9 +1542,6 @@ async function saveItem(existing) {
   let effects, mods;
   try { effects = JSON.parse(document.getElementById('f-effects').value); } catch { return { error: 'Effects: invalid JSON' }; }
   try { mods = JSON.parse(document.getElementById('f-stat_modifiers').value); } catch { return { error: 'Stat modifiers: invalid JSON' }; }
-  const flags = typeof existing?.flags === 'object' ? { ...existing.flags } : JSON.parse(existing?.flags || '{}');
-  const slot = document.getElementById('f-slot').value;
-  if (slot) flags.slot = slot; else delete flags.slot;
   const body = {
     name: document.getElementById('f-name').value,
     description: document.getElementById('f-description').value,
@@ -1633,7 +1552,7 @@ async function saveItem(existing) {
     value: +document.getElementById('f-value').value,
     is_stackable: document.getElementById('f-is_stackable').checked,
     is_quest_item: document.getElementById('f-is_quest_item').checked,
-    effects, stat_modifiers: mods, flags,
+    effects, stat_modifiers: mods,
   };
   if (isNew) { body.id = document.getElementById('f-id').value.trim(); return API('/items', 'POST', body); }
   return API(`/items/${existing.id}`, 'PUT', body);
@@ -1703,16 +1622,29 @@ async function saveFurniture(existing) {
   return API(`/furniture/${existing.id}`, 'PUT', body);
 }
 
-// --- Map grid renderer (DB-driven) ---
-// Renders a grid from an explicit list of tiles ({id,x,y}), shared by the
-// Power tab (world map, power/danger coloring). The Maps overview below has
-// its own interactive renderer.
-function buildMapGridHtml(mode, tiles, zonesById, powerById, clickable, clickFn = 'mapTileEditClick') {
-  if (!tiles.length) return '<div style="color:var(--text-dim);padding:12px">No placed zones on this map.</div>';
-  const xs = tiles.map(t => t.x), ys = tiles.map(t => t.y);
+// --- Big Map (shared grid layout + renderer for both the Zones screen's
+// popup and the embedded Power tab view) ---
+// The city is a small, fixed 10-tile grid (see seed.js's map-shrink) — a
+// hand-placed layout is simpler and more reliable here than a generic
+// auto-layout algorithm.
+const BIGMAP_LAYOUT = [
+  { id: 'zone_city_north', x: 0, y: -1 },
+  { id: 'zone_city_ne', x: 1, y: -1 },
+  { id: 'zone_badland_w_gate', x: -2, y: 0 },
+  { id: 'zone_city_west', x: -1, y: 0 },
+  { id: 'zone_start', x: 0, y: 0 },
+  { id: 'zone_city_east', x: 1, y: 0 },
+  { id: 'zone_badland_sw_outer', x: -2, y: 1 },
+  { id: 'zone_city_sw', x: -1, y: 1 },
+  { id: 'zone_city_south', x: 0, y: 1 },
+  { id: 'zone_city_se', x: 1, y: 1 },
+];
+
+function buildMapGridHtml(mode, zonesById, powerById, clickable) {
+  const xs = BIGMAP_LAYOUT.map(t => t.x), ys = BIGMAP_LAYOUT.map(t => t.y);
   const minX = Math.min(...xs), maxX = Math.max(...xs);
   const minY = Math.min(...ys), maxY = Math.max(...ys);
-  const byCoord = new Map(tiles.map(t => [`${t.x},${t.y}`, t]));
+  const byCoord = new Map(BIGMAP_LAYOUT.map(t => [`${t.x},${t.y}`, t]));
   let html = `<div style="display:grid;gap:4px;grid-template-columns:repeat(${maxX - minX + 1}, 110px)">`;
   for (let y = minY; y <= maxY; y++) {
     for (let x = minX; x <= maxX; x++) {
@@ -1722,7 +1654,6 @@ function buildMapGridHtml(mode, tiles, zonesById, powerById, clickable, clickFn 
       const name = zone ? zone.name : tile.id;
       let cls = 'bigmap-tile';
       let sub = '';
-      let style = '';
       if (mode === 'power') {
         const p = powerById.get(tile.id);
         const status = p ? p.status : 'unpowered';
@@ -1730,10 +1661,9 @@ function buildMapGridHtml(mode, tiles, zonesById, powerById, clickable, clickFn 
         sub = p ? `<br><span style="font-size:9px;opacity:0.8">${p.loadKw}/${p.capacityKw}kW</span>` : `<br><span style="font-size:9px;opacity:0.6">no power</span>`;
       } else {
         cls += ` bm-danger-${zone?.danger_rating || 'safe'}`;
-        if (zone?.color) style = ` style="border-color:${zone.color}"`;
       }
-      const click = clickable ? ` onclick="${clickFn}('${tile.id}')"` : '';
-      html += `<div class="${cls}"${click}${style} title="${tile.id}">${name}${sub}</div>`;
+      const click = clickable ? ` onclick="bigMapTileClick('${tile.id}')"` : '';
+      html += `<div class="${cls}"${click} title="${tile.id}">${name}${sub}</div>`;
     }
   }
   html += '</div>';
@@ -1755,350 +1685,33 @@ function mapLegendHtml(mode) {
 let bigMapZones = [];
 let bigMapPowerData = [];
 
-// Open a zone's editor from a map tile — switches to the Zones panel (where
-// the zone editor lives) and opens that zone, like the old big-map click.
-// Clicking a tile on the Maps overview opens the zone editor as a sidebar
-// overlay WITHOUT leaving the maps view — the map (and any unsaved layout
-// edits) stays put behind the panel. We load the full zone records so the
-// zone editor and its child-room lookups work, and flip currentPanel to
-// 'zones' so the shared edit machinery (openEdit/saveRecord/deleteRecord)
-// targets the zones config. mapZoneEditReturn tells save/cancel to restore
-// the maps context instead of reloading the zones table.
-let mapZoneEditReturn = false;
+async function openBigMap(mode = 'zones') {
+  const calls = [API('/zones').catch(() => [])];
+  if (mode === 'power') calls.push(API('/environment/power/map').catch(() => []));
+  const [zones, powerMap] = await Promise.all(calls);
+  bigMapZones = Array.isArray(zones) ? zones : [];
+  bigMapPowerData = Array.isArray(powerMap) ? powerMap : [];
+  document.getElementById('bigmap-title').textContent = mode === 'power' ? 'Power Grid Map' : 'City Map';
+  const zonesById = new Map(bigMapZones.map(z => [z.id, z]));
+  const powerById = new Map(bigMapPowerData.map(p => [p.zoneId, p]));
+  document.getElementById('bigmap-grid').innerHTML = buildMapGridHtml(mode, zonesById, powerById, true);
+  document.getElementById('bigmap-legend').innerHTML = mapLegendHtml(mode);
+  document.getElementById('bigmap-overlay').classList.add('active');
+}
 
-async function mapTileEditClick(zoneId) {
+function closeBigMap() {
+  document.getElementById('bigmap-overlay').classList.remove('active');
+}
+
+async function bigMapTileClick(zoneId) {
+  closeBigMap();
   closeSettingsPanel();
-  const data = await PANELS.zones.fetch();
-  allRecords = Array.isArray(data) ? data : (data.zones || []);
-  currentPanel = 'zones';
-  mapZoneEditReturn = true;
-  editRecord(zoneId);
-}
-
-// Push the just-saved display fields into the map's in-memory working copy and
-// re-render, so the tile updates without refetching (which would discard
-// unsaved layout edits). Reads the still-open form inputs before closeEdit.
-function applyZoneEditToMap(zoneId) {
-  const z = mapOverview?.zones.get(zoneId);
-  if (!z) return;
-  const g = id => document.getElementById(id);
-  if (g('f-name')) z.name = g('f-name').value;
-  if (g('f-danger_rating')) z.danger_rating = g('f-danger_rating').value;
-  if (g('f-marker')) z.marker = g('f-marker').value.trim() || null;
-  if (g('f-color')) z.color = g('f-color').value.trim() || null;
-  z.exits = { ...zoneEditExitsState };
-  renderMapOverview();
-}
-
-// ─── MAPS OVERVIEW EDITOR ─────────────────────────────────────────────────
-// A grid view of one map at a time (one floor at a time), where you create
-// zones in empty cells, drag zones to re-position, draw connections between
-// adjacent cells, and dive into building interiors. Layout edits accumulate
-// in a working copy and are saved in one batch; broken connections block the
-// save (server is authoritative, this is the live pre-check).
-const MAP_PALETTE = ['#39ff8f','#28e5ff','#f5e642','#ff9a3c','#ff3b5c','#9b59b6','#7ed321','#888888'];
-const MAP_DIR3D = { north:[0,-1,0], south:[0,1,0], east:[1,0,0], west:[-1,0,0], up:[0,0,1], down:[0,0,-1] };
-const MAP_OPP = { north:'south', south:'north', east:'west', west:'east', up:'down', down:'up' };
-
-let pendingZonePlacement = null;  // {map_id,grid_x,grid_y,grid_z} for a new zone
-let mapsList = [];
-let mapOverview = null;           // { map, zones:Map, unplaced:Map, children, z, dirtyPos:Set, dirtyExit:Set }
-let mapDragId = null;
-let mapDragFromTray = false;
-
-function setZoneColor(c) { const el = document.getElementById('f-color'); if (el) el.value = c; }
-
-function mapsDirty() { return mapOverview && (mapOverview.dirtyPos.size || mapOverview.dirtyExit.size); }
-function mapsGuard() { return !mapsDirty() || confirm('Discard unsaved layout changes?'); }
-
-function updatePublishBtn() {
-  const btn = document.getElementById('publish-btn');
-  if (!btn) return;
-  const dirty = mapsDirty();
-  btn.style.display = '';
-  btn.disabled = !dirty;
-  btn.className = dirty ? 'action-btn success' : 'action-btn';
-  btn.textContent = dirty ? 'Publish Changes *' : 'Publish Changes';
-}
-
-async function publishChanges() {
-  if (!mapsDirty()) return;
-  await saveMapLayout();
-}
-
-async function renderMapsPanel(data) {
-  mapsList = Array.isArray(data) ? data : [];
-  const panel = document.getElementById('list-panel');
-  if (!mapsList.length) { panel.innerHTML = '<div style="padding:24px;color:var(--text-dim)">No maps yet. Run <code>npm run db:seed</code> to create map_world.</div>'; return; }
-  let target = mapOverview?.map?.id;
-  if (!target || !mapsList.find(m => m.id === target)) target = (mapsList.find(m => m.id === 'map_world') || mapsList[0]).id;
-  await loadMapOverview(target);
-}
-
-async function loadMapOverview(mapId) {
-  const data = await API(`/maps/${mapId}`);
-  if (data.error) { toast(data.error, true); return; }
-  const zones = new Map((data.zones || []).map(z => [z.id, { ...z, exits: { ...(z.exits || {}) }, flags: z.flags || {}, grid_z: z.grid_z ?? 0 }]));
-  const unplaced = new Map((data.unplaced || []).map(z => [z.id, { ...z, exits: { ...(z.exits || {}) }, flags: z.flags || {} }]));
-  const keepZ = (mapOverview && mapOverview.map.id === mapId) ? mapOverview.z : 0;
-  mapOverview = { map: data.map, zones, unplaced, children: data.children || [], z: keepZ, dirtyPos: new Set(), dirtyExit: new Set() };
-  renderMapOverview();
-}
-
-// Live mirror of the server's validateMapLayout, over the working copy. Exits
-// whose target isn't on this map are cross-map portals (exempt from geometry;
-// the server checks them for dangling). Geometry mismatch = error; missing
-// reciprocal = warning.
-function validateMapOverview(zonesMap) {
-  const errors = [], warnings = [];
-  for (const z of zonesMap.values()) {
-    for (const [dir, target] of Object.entries(z.exits || {})) {
-      const t = zonesMap.get(target);
-      if (!t) continue; // cross-map portal — server validates
-      const off = MAP_DIR3D[dir];
-      if (off && z.grid_x != null && z.grid_y != null && t.grid_x != null && t.grid_y != null) {
-        const expected = `${z.grid_x + off[0]},${z.grid_y + off[1]},${(z.grid_z ?? 0) + off[2]}`;
-        const actual = `${t.grid_x},${t.grid_y},${t.grid_z ?? 0}`;
-        if (expected !== actual) errors.push({ zoneId: z.id, direction: dir, targetId: target, reason: 'geometry' });
-      }
-      const opp = MAP_OPP[dir];
-      if (opp && (t.exits || {})[opp] !== z.id) warnings.push({ zoneId: z.id, direction: dir, targetId: target, reason: 'missing-reciprocal' });
-    }
-  }
-  return { errors, warnings };
-}
-
-function renderMapOverview() {
-  updatePublishBtn();
-  const o = mapOverview;
-  const panel = document.getElementById('list-panel');
-  const all = [...o.zones.values()];
-  const floors = [...new Set(all.map(z => z.grid_z ?? 0))].sort((a, b) => a - b);
-  const onFloor = all.filter(z => (z.grid_z ?? 0) === o.z && z.grid_x != null && z.grid_y != null);
-  const { errors, warnings } = validateMapOverview(o.zones);
-  const broken = new Set(errors.map(e => e.zoneId));
-  const nameOf = id => o.zones.get(id)?.name || id;
-
-  // Toolbar
-  const mapOptions = mapsList.map(m => `<option value="${m.id}" ${m.id === o.map.id ? 'selected' : ''}>${m.name} (${m.zone_count} zones)</option>`).join('');
-  let html = `<div class="map-toolbar">
-    <label>Map</label>
-    <select onchange="switchMap(this.value)">${mapOptions}</select>
-    <span style="margin-left:6px">Floor</span>
-    <button class="action-btn" onclick="changeFloor(-1)">▾</button>
-    <span style="min-width:60px;text-align:center">z = ${o.z}</span>
-    <button class="action-btn" onclick="changeFloor(1)">▴</button>
-  </div>`;
-
-  // Validation panel
-  html += `<div class="map-validation">`;
-  if (errors.length) {
-    html += `<div class="v-error"><strong>${errors.length} broken connection(s) — fix before saving:</strong></div>`;
-    html += errors.map(e => `<div class="v-error">• ${nameOf(e.zoneId)} → ${e.direction} → ${nameOf(e.targetId)} (${e.reason})</div>`).join('');
-  } else {
-    html += `<div class="v-ok">✓ No broken connections.</div>`;
-  }
-  if (warnings.length) html += `<div class="v-warn" style="margin-top:4px">${warnings.length} one-way exit(s) (allowed): ${warnings.map(w => `${nameOf(w.zoneId)}→${w.direction}`).join(', ')}</div>`;
-  html += `<div style="color:var(--text-dim);margin-top:4px">Drag a zone to move it · click a zone to edit it · click a gap between two zones to connect/disconnect them · click an empty cell to create a zone. Each cell lists its exit directions (▲/▼ = up/down, <span style="color:#ff3b5c">red</span> = broken).</div>`;
-  html += `</div>`;
-
-  // Grid — pad by one cell so there are empty cells to place new zones into.
-  // Bounds are computed across ALL floors so the grid stays the same size when
-  // switching z-levels, meaning (x,y) positions align visually between floors.
-  const allPlaced = all.filter(z => z.grid_x != null && z.grid_y != null);
-  let minX, maxX, minY, maxY;
-  if (allPlaced.length) {
-    const xs = allPlaced.map(z => z.grid_x), ys = allPlaced.map(z => z.grid_y);
-    minX = Math.min(...xs) - 1; maxX = Math.max(...xs) + 1;
-    minY = Math.min(...ys) - 1; maxY = Math.max(...ys) + 1;
-  } else { minX = -1; maxX = 1; minY = -1; maxY = 1; }
-  const byCoord = new Map(onFloor.map(z => [`${z.grid_x},${z.grid_y}`, z]));
-
-  // Per-direction broken set, so a cell's exit readout can flag the bad ones.
-  const brokenByZone = new Map();
-  for (const e of errors) { if (!brokenByZone.has(e.zoneId)) brokenByZone.set(e.zoneId, new Set()); brokenByZone.get(e.zoneId).add(e.direction); }
-
-  // Expanded grid: cells sit at even slots, with a connection slot in the gap
-  // between every pair of orthogonally-adjacent cells.
-  const W = maxX - minX + 1, H = maxY - minY + 1;
-  const colTmpl = Array.from({ length: 2 * W - 1 }, (_, i) => i % 2 ? '16px' : '110px').join(' ');
-  const rowTmpl = Array.from({ length: 2 * H - 1 }, (_, i) => i % 2 ? '16px' : '76px').join(' ');
-  const col = x => 2 * (x - minX) + 1, row = y => 2 * (y - minY) + 1;
-  const cellStyle = (x, y, extra = '') => `style="grid-column:${col(x)};grid-row:${row(y)}${extra}"`;
-
-  html += `<div style="padding:12px;overflow:auto"><div style="display:grid;grid-template-columns:${colTmpl};grid-template-rows:${rowTmpl}">`;
-
-  // Cells (and empty/create slots)
-  for (let y = minY; y <= maxY; y++) {
-    for (let x = minX; x <= maxX; x++) {
-      const z = byCoord.get(`${x},${y}`);
-      if (!z) {
-        html += `<div class="bigmap-tile-create" ${cellStyle(x, y)} ondragover="event.preventDefault()" ondrop="mapDrop(event,${x},${y})" onclick="createZoneAt(${x},${y})">+</div>`;
-        continue;
-      }
-      let cls = `bigmap-tile bm-edit bm-danger-${z.danger_rating || 'safe'}`;
-      if (broken.has(z.id)) cls += ' bm-broken';
-      const colorStyle = z.color ? `;border-color:${z.color}` : '';
-      const child = o.children.find(c => c.parent_zone_id === z.id);
-      const dive = child ? `<span class="map-dive-btn" title="Dive into ${child.name}" onclick="event.stopPropagation();diveInto('${z.id}')">⤵</span>` : '';
-      const marker = z.marker ? `<span class="map-marker-badge">${z.marker}</span>` : '';
-      const bset = brokenByZone.get(z.id) || new Set();
-      const exitDirs = Object.keys(z.exits || {});
-      const exHtml = exitDirs.length ? `<div class="cell-exits">${exitDirs.map(d => {
-        const cl = bset.has(d) ? 'ex-broken' : ((d === 'up' || d === 'down') ? 'ex-vert' : '');
-        const sym = d === 'up' ? '▲' : d === 'down' ? '▼' : d[0].toUpperCase();
-        return `<span class="${cl}">${sym}</span>`;
-      }).join(' ')}</div>` : '';
-      html += `<div class="${cls}" ${cellStyle(x, y, colorStyle)} title="${z.id}" draggable="true" ondragstart="mapDragStart(event,'${z.id}')" ondragover="event.preventDefault()" ondrop="mapDrop(event,${x},${y})" onclick="mapTileEditClick('${z.id}')"><div>${dive}${marker}${z.name}${exHtml}</div></div>`;
-    }
-  }
-
-  // Connection slots between adjacent cells.
-  const connHtml = (a, b, dir, orient, gridStyle) => {
-    if (!a || !b) return `<div class="conn conn-${orient}" style="${gridStyle}"></div>`;
-    const opp = MAP_OPP[dir];
-    const aToB = a.exits[dir] === b.id, bToA = b.exits[opp] === a.id;
-    const click = ` onclick="mapToggleConn('${a.id}','${b.id}','${dir}')"`;
-    const title = ` title="${a.name} ↔ ${b.name}"`;
-    if (aToB && bToA) return `<div class="conn conn-${orient} conn-linked" style="${gridStyle}"${click}${title}><span class="ln"></span></div>`;
-    if (aToB || bToA) {
-      const arrow = orient === 'h' ? (aToB ? '▸' : '◂') : (aToB ? '▾' : '▴');
-      return `<div class="conn conn-${orient} conn-oneway" style="${gridStyle}"${click} title="one-way: ${aToB ? a.name + '→' + b.name : b.name + '→' + a.name}">${arrow}</div>`;
-    }
-    return `<div class="conn conn-${orient} conn-open" style="${gridStyle}"${click}${title}><span class="ln"></span></div>`;
-  };
-  for (let y = minY; y <= maxY; y++) for (let x = minX; x < maxX; x++) {
-    html += connHtml(byCoord.get(`${x},${y}`), byCoord.get(`${x + 1},${y}`), 'east', 'h', `grid-column:${col(x) + 1};grid-row:${row(y)}`);
-  }
-  for (let y = minY; y < maxY; y++) for (let x = minX; x <= maxX; x++) {
-    html += connHtml(byCoord.get(`${x},${y}`), byCoord.get(`${x},${y + 1}`), 'south', 'v', `grid-column:${col(x)};grid-row:${row(y) + 1}`);
-  }
-  html += `</div></div>`;
-
-  // Unplaced-zones tray — drag a chip onto any empty cell to place it on this
-  // map. These are zones with no grid position (disconnected/legacy content).
-  const tray = [...o.unplaced.values()];
-  if (tray.length) {
-    html += `<div style="padding:0 12px 14px">
-      <div style="font-size:11px;color:var(--text-dim);margin-bottom:6px">Unplaced zones — drag onto an empty cell to add to <strong>${o.map.name}</strong>:</div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap">${tray.map(z =>
-        `<span class="bigmap-tile bm-edit bm-danger-${z.danger_rating || 'safe'}" style="width:auto;height:auto;padding:4px 8px;cursor:grab" draggable="true" ondragstart="mapTrayDragStart(event,'${z.id}')" title="${z.id}">${z.name}</span>`
-      ).join('')}</div>
-    </div>`;
-  }
-  panel.innerHTML = html;
-}
-
-async function switchMap(id) {
-  if (!mapsGuard()) { renderMapOverview(); return; }
-  await loadMapOverview(id);
-}
-
-function changeFloor(delta) {
-  mapOverview.z += delta;
-  renderMapOverview();
-}
-
-// Toggle a reciprocal connection between two adjacent zones from the gap slot.
-// Saves immediately so the Zones panel stays in sync without needing Save Layout.
-async function mapToggleConn(aId, bId, dir) {
-  const o = mapOverview;
-  const a = o.zones.get(aId), b = o.zones.get(bId);
-  if (!a || !b) return;
-  const opp = MAP_OPP[dir];
-  const wasLinked = a.exits[dir] === bId || b.exits[opp] === aId;
-  if (wasLinked) { delete a.exits[dir]; delete b.exits[opp]; }
-  else { a.exits[dir] = bId; b.exits[opp] = aId; }
-  renderMapOverview();
-  const [ra, rb] = await Promise.all([
-    API(`/zones/${aId}`, 'PUT', { exits: a.exits }),
-    API(`/zones/${bId}`, 'PUT', { exits: b.exits }),
-  ]);
-  if (ra?.error || rb?.error) {
-    // Revert in-memory on failure
-    if (wasLinked) { a.exits[dir] = bId; b.exits[opp] = aId; }
-    else { delete a.exits[dir]; delete b.exits[opp]; }
-    renderMapOverview();
-    toast(ra?.error || rb?.error, true);
-  }
-}
-
-function mapDragStart(e, id) {
-  mapDragId = id; mapDragFromTray = false;
-  e.dataTransfer.effectAllowed = 'move';
-}
-
-// Drag an unplaced zone out of the tray.
-function mapTrayDragStart(e, id) {
-  mapDragId = id; mapDragFromTray = true;
-  e.dataTransfer.effectAllowed = 'move';
-}
-
-function mapDrop(e, x, y) {
-  e.preventDefault();
-  if (!mapDragId) return;
-  const o = mapOverview;
-  const occupied = [...o.zones.values()].find(z => (z.grid_z ?? 0) === o.z && z.grid_x === x && z.grid_y === y);
-  if (occupied && occupied.id !== mapDragId) { toast('That cell is occupied.', true); mapDragId = null; return; }
-  if (mapDragFromTray) {
-    // Adopt the unplaced zone onto this map at the dropped cell.
-    const z = o.unplaced.get(mapDragId);
-    o.unplaced.delete(mapDragId);
-    o.zones.set(mapDragId, { ...z, map_id: o.map.id, grid_x: x, grid_y: y, grid_z: o.z });
-  } else {
-    const z = o.zones.get(mapDragId);
-    z.grid_x = x; z.grid_y = y; z.grid_z = o.z;
-  }
-  o.dirtyPos.add(mapDragId);
-
-  // Auto-connect to orthogonally adjacent zones on the same floor.
-  // Exits are marked dirty and will save with the layout. Remove unwanted links via the gap slots.
-  const movedZone = o.zones.get(mapDragId);
-  for (const [dir, off] of Object.entries(MAP_DIR3D)) {
-    if (off[2] !== 0) continue; // skip up/down — those are manual
-    const neighbor = [...o.zones.values()].find(z => z.id !== mapDragId && (z.grid_z ?? 0) === o.z && z.grid_x === x + off[0] && z.grid_y === y + off[1]);
-    if (!neighbor) continue;
-    const opp = MAP_OPP[dir];
-    movedZone.exits[dir] = neighbor.id;
-    neighbor.exits[opp] = mapDragId;
-    o.dirtyExit.add(mapDragId);
-    o.dirtyExit.add(neighbor.id);
-  }
-
-  mapDragId = null; mapDragFromTray = false;
-  renderMapOverview();
-}
-
-
-async function createZoneAt(x, y) {
-  if (!mapsGuard()) return;
-  pendingZonePlacement = { map_id: mapOverview.map.id, grid_x: x, grid_y: y, grid_z: mapOverview.z };
   currentPanel = 'zones';
   sortState = { key: null, dir: 1 };
   activatePanelNav('zones');
-  document.getElementById('panel-title').textContent = 'Zones';
+  closeEdit();
   await loadPanel('zones');
-  newRecord();
-}
-
-function diveInto(zoneId) {
-  if (!mapsGuard()) return;
-  const child = mapOverview.children.find(c => c.parent_zone_id === zoneId);
-  if (child) loadMapOverview(child.id);
-  else toast('No interior map hangs off this zone.', true);
-}
-
-async function saveMapLayout() {
-  const o = mapOverview;
-  const { errors } = validateMapOverview(o.zones);
-  if (errors.length) { toast('Fix broken connections before saving.', true); return; }
-  const zones = [...o.dirtyPos].map(id => { const z = o.zones.get(id); return { id, grid_x: z.grid_x, grid_y: z.grid_y, grid_z: z.grid_z ?? 0, map_id: z.map_id }; });
-  const exits = {};
-  for (const id of o.dirtyExit) exits[id] = o.zones.get(id).exits;
-  const result = await API(`/maps/${o.map.id}/layout`, 'PUT', { zones, exits });
-  if (result?.error) { toast(result.error, true); return; }
-  toast('Layout saved ✓' + (result.warnings?.length ? ` (${result.warnings.length} one-way warning(s))` : ''));
-  await loadMapOverview(o.map.id);
+  editRecord(zoneId);
 }
 
 // --- Power tab — embedded version of the same grid, toggleable between
@@ -2128,17 +1741,13 @@ function renderPowerPanelBody() {
   const panel = document.getElementById('list-panel');
   const zonesById = new Map(bigMapZones.map(z => [z.id, z]));
   const powerById = new Map(bigMapPowerData.map(p => [p.zoneId, p]));
-  // The power grid view shows the world map (outdoor zones).
-  const worldTiles = bigMapZones
-    .filter(z => z.map_id === 'map_world' && z.grid_x != null && z.grid_y != null && (z.grid_z ?? 0) === 0)
-    .map(z => ({ id: z.id, x: z.grid_x, y: z.grid_y }));
 
   let html = `<div style="padding:12px">
     <div style="display:flex;gap:8px;margin-bottom:12px">
       <button class="action-btn ${powerPanelMode==='power'?'primary':''}" onclick="setPowerPanelMode('power')">⚡ Power View</button>
       <button class="action-btn ${powerPanelMode==='zones'?'primary':''}" onclick="setPowerPanelMode('zones')">🗺 Danger View</button>
     </div>
-    ${buildMapGridHtml(powerPanelMode, worldTiles, zonesById, powerById, true)}
+    ${buildMapGridHtml(powerPanelMode, zonesById, powerById, true)}
     <div style="margin-top:10px;display:flex;gap:14px;flex-wrap:wrap;font-size:10px;color:var(--text-dim)">${mapLegendHtml(powerPanelMode)}</div>
   </div>`;
 

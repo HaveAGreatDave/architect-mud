@@ -87,97 +87,6 @@ async function seed() {
     JSON.stringify({ is_building: true, building_name: 'Embassy Hotel & Bar', building_type: 'hotel' }),
   ]);
 
-  // --- Grid/map backfill (idempotent) ---
-  // Position every zone on a map by walking its EXITS, so this adapts to
-  // whatever topology the world currently has rather than assuming a fixed
-  // layout (on a pristine seed it reproduces the old hand-placed grid exactly;
-  // on a hand-edited world it follows the real connections). The world is one
-  // grid (map_world) laid out by BFS from its entry zone; each is_building zone
-  // becomes the entry of its own interior map; any zones left disconnected are
-  // dropped onto map_world as separate offset clusters so nothing is stranded.
-  // Exits remain the source of truth for traversability — this only assigns
-  // coordinates, guarded by `map_id IS NULL` so dev-panel placements are never
-  // clobbered. Geometrically inconsistent or dangling exits are left as-is for
-  // the overview editor to surface and the builder to resolve.
-  await query(`INSERT INTO maps (id,name,parent_zone_id,entry_zone_id) VALUES ('map_world','Coldwater Basin',NULL,'zone_start') ON CONFLICT (id) DO NOTHING`);
-
-  const DIR_OFFSET = { north:[0,-1,0], south:[0,1,0], east:[1,0,0], west:[-1,0,0], up:[0,0,1], down:[0,0,-1] };
-  const { rows: bfZones } = await query(`SELECT id, exits, flags, map_id FROM zones`);
-  const zoneById = new Map(bfZones.map(z => [z.id, z]));
-  const isBuilding = id => !!zoneById.get(id)?.flags?.is_building;
-  const isInterior = id => { const f = zoneById.get(id)?.flags || {}; return !!(f.is_interior || f.is_apartment); };
-
-  // BFS from a start zone, accumulating exit deltas into grid coords. Stops at
-  // zones already on another map (portals), missing zones (dangling), and —
-  // per mode — at building entrances / non-interior zones, so world layout and
-  // building interiors don't bleed into each other.
-  //   mode 'world'    : skip building entrances and interior rooms.
-  //   mode 'interior' : only pull interior rooms (and the building start) in.
-  function bfsLayout(startId, mapId, originX, mode) {
-    const coords = new Map([[startId, [originX, 0, 0]]]);
-    const queue = [startId];
-    while (queue.length) {
-      const cur = queue.shift();
-      const [cx, cy, cz] = coords.get(cur);
-      for (const [dir, t] of Object.entries(zoneById.get(cur)?.exits || {})) {
-        const off = DIR_OFFSET[dir];
-        const tz = zoneById.get(t);
-        if (!off || !tz || coords.has(t)) continue;
-        if (tz.map_id && tz.map_id !== mapId) continue;            // already placed elsewhere (portal)
-        if (mode === 'world' && (isBuilding(t) || isInterior(t))) continue;
-        if (mode === 'interior' && !isInterior(t)) continue;       // don't leave the building
-        coords.set(t, [cx + off[0], cy + off[1], cz + off[2]]);
-        queue.push(t);
-      }
-    }
-    return coords;
-  }
-  async function commitCoords(coords, mapId) {
-    for (const [zid, [x, y, z]] of coords) {
-      await query(`UPDATE zones SET map_id=$2, grid_x=$3, grid_y=$4, grid_z=$5 WHERE id=$1 AND map_id IS NULL`, [zid, mapId, x, y, z]);
-      const zr = zoneById.get(zid); if (zr) zr.map_id = mapId;
-    }
-  }
-
-  // 1) The main world, laid out from its entry zone — but ONLY when the world
-  //    hasn't been laid out before. If the entry zone already has a position,
-  //    this DB has been set up (or hand-edited) already; we leave existing
-  //    placements alone and let any unplaced zones go to the overview's tray
-  //    rather than risk dropping them on top of established cells.
-  if (!zoneById.get('zone_start')?.map_id) {
-    await commitCoords(bfsLayout('zone_start', 'map_world', 0, 'world'), 'map_world');
-  }
-
-  // 2) Each building gets its own interior map, laid out from the building.
-  for (const b of bfZones.filter(z => z.flags?.is_building)) {
-    if (zoneById.get(b.id)?.map_id) continue;
-    const mapId = `map_interior_${b.id}`;
-    // Prefer the world zone that has an exit INTO this building (the entrance);
-    // fall back to a building exit leading back out to an already-placed zone.
-    let parentZoneId = null;
-    for (const z of bfZones) {
-      if (zoneById.get(z.id)?.map_id !== 'map_world') continue;
-      if (Object.values(z.exits || {}).includes(b.id)) { parentZoneId = z.id; break; }
-    }
-    if (!parentZoneId) {
-      for (const t of Object.values(b.exits || {})) {
-        if (zoneById.get(t)?.map_id && zoneById.get(t).map_id !== mapId) { parentZoneId = t; break; }
-      }
-    }
-    await query(`INSERT INTO maps (id,name,parent_zone_id,entry_zone_id) VALUES ($1,$2,$3,$4) ON CONFLICT (id) DO NOTHING`,
-      [mapId, b.flags?.building_name || b.id, parentZoneId, b.id]);
-    await commitCoords(bfsLayout(b.id, mapId, 0, 'interior'), mapId);
-  }
-
-  // Anything left unplaced is a zone not reachable by exits from the entry
-  // (disconnected/legacy content). We deliberately DON'T guess a position for
-  // it — it surfaces in the overview editor's "Unplaced zones" tray for the
-  // builder to drop onto the grid by hand. That manual placement is the whole
-  // point of the tool, so the backfill stays honest about what it can't know.
-  const { rows: unplaced } = await query(`SELECT id FROM zones WHERE map_id IS NULL`);
-  if (unplaced.length) console.warn(`⚠ ${unplaced.length} unplaced zone(s) — place them via the dev panel's Maps overview: ${unplaced.map(z => z.id).join(', ')}`);
-  console.log('✓ Grid/map backfill complete');
-
   // Factions
   const factions = [
     { id: 'faction_custodians', name: 'The Custodians', description: 'Former corporate employees who serve the Architect as a divine entity.', color: '#4A90D9', hostile_to: ['faction_breakers'], friendly_to: [] },
@@ -296,7 +205,7 @@ async function seed() {
     ['item_medkit','Trauma Kit','Real medical supplies. Increasingly rare, increasingly suspicious about why someone is selling them.','consumable','medicine',1.2,55,'uncommon',1,'{"hp_over_time":{"amount":50,"duration_seconds":300}}','{}','{}'],
     ['item_pipe_wrench','Pipe Wrench','Heavy. Reliable. Pre-used.','weapon','blunt',2.5,30,'common',0,'{"damage_min":4,"damage_max":9}','{"stat_str":3}','{"slot":"weapon_hand"}'],
     ['item_rusty_knife','Rusty Knife','A kitchen knife that has seen things.','weapon','bladed',0.4,15,'common',0,'{"damage_min":3,"damage_max":7}','{}','{"slot":"weapon_hand"}'],
-    ['item_scrap_armor','Scrap Vest','Metal sheeting over a leather jacket.','armor','chest',4.0,45,'common',0,'{"armor":3}','{}','{"slot":"torso"}'],
+    ['item_scrap_armor','Scrap Vest','Metal sheeting over a leather jacket.','armor','chest',4.0,45,'common',0,'{}','{}','{"slot":"torso"}'],
     ['item_custodian_badge','Custodian ID Badge','Useful for bluffing Custodian checkpoints.','misc','key_item',0.05,40,'uncommon',0,'{}','{}','{}'],
     ['item_drone_core','Drone Processing Core','Still warm. Still probably logging.','material','tech',0.8,120,'rare',0,'{}','{}','{}'],
     ['item_architect_fragment','Architect Data Fragment','Pulses faint blue. Three factions want this.','misc','artifact',0.1,300,'very_rare',0,'{}','{}','{}'],
@@ -305,9 +214,9 @@ async function seed() {
     ['item_mutant_gland','Mutant Gland','Iridescent and foul. Worth money to the right people.','material','organic',0.4,35,'uncommon',1,'{}','{}','{}'],
     ['item_credits_small','Credits (Small)','Franchise-issued digital credit chips.','currency','credits',0,0,'common',1,'{"credits":10}','{}','{}'],
     ['item_credits_medium','Credits (Medium)','A credit chip worth more than your clothing.','currency','credits',0,0,'common',1,'{"credits":35}','{}','{}'],
-    ['item_scrap_helmet','Scrap Helmet','A motorcycle helmet with extra rivets. Visor status: optimistic.','armor','head',1.0,20,'common',0,'{"armor":2}','{}','{"slot":"head"}'],
-    ['item_cargo_pants','Reinforced Cargo Pants','Pockets for days. Knees patched twice over.','armor','legs',1.5,18,'common',0,'{"armor":2}','{}','{"slot":"legs"}'],
-    ['item_steel_boots','Steel-Toed Boots','Standard issue, several owners ago.','armor','feet',1.2,16,'common',0,'{"armor":1}','{}','{"slot":"feet"}'],
+    ['item_scrap_helmet','Scrap Helmet','A motorcycle helmet with extra rivets. Visor status: optimistic.','armor','head',1.0,20,'common',0,'{}','{}','{"slot":"head"}'],
+    ['item_cargo_pants','Reinforced Cargo Pants','Pockets for days. Knees patched twice over.','armor','legs',1.5,18,'common',0,'{}','{}','{"slot":"legs"}'],
+    ['item_steel_boots','Steel-Toed Boots','Standard issue, several owners ago.','armor','feet',1.2,16,'common',0,'{}','{}','{"slot":"feet"}'],
     ['item_rad_band','Rad-Counter Wristband','Clicks faster the worse your day is going.','misc','accessory',0.1,25,'uncommon',0,'{}','{}','{"slot":"accessory"}'],
     ['item_work_gloves','Work Gloves','Stained in ways you choose not to think about.','armor','hands',0.3,8,'common',0,'{}','{}','{"slot":"hands"}'],
     ['item_drink_basin_swill','Basin Swill','House drink. Nobody has ever asked what\'s in it twice.','consumable','drink',0.4,4,'common',1,'{"thirst":15,"sanity":3}','{}','{}'],

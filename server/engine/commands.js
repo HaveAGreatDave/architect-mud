@@ -214,8 +214,7 @@ export async function describeZone(zone, player) {
   if (groundItems.length) {
     const itemMentions = groundItems.map(item => {
       const rarityClass = `item-rarity-${item.rarity}`;
-      const qty = item.quantity > 1 ? ` (x${item.quantity})` : '';
-      return `<span class="action-link room-item ${rarityClass}" data-action="take" data-target="${item.name}" title="Take ${item.name}">${item.name}</span>${qty}`;
+      return `<span class="action-link room-item ${rarityClass}" data-action="take" data-target="${item.name}" title="Take ${item.name}">${item.name}</span>`;
     });
     desc += ` Lying here: ${itemMentions.join(', ')}.`;
   }
@@ -455,9 +454,6 @@ async function cmdAttack(targetStr, player, broadcast) {
 // player is hit by something they haven't engaged yet. Same weapon lookup,
 // skill XP, loot drop, and broadcast behavior either way.
 export async function resolveAttack(player, target, broadcast) {
-  // Remember who we're fighting so auto-retaliation sticks to this target
-  // even when other enemies start attacking us.
-  player.combatTargetId = target.instanceId;
   const { rows } = await query(`SELECT i.* FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.is_equipped=1 AND i.type='weapon' LIMIT 1`, [player.id]);
   const equipped = rows[0];
   const weaponStats = equipped ? (equipped.effects || {}) : { damage_min:2, damage_max:4 };
@@ -470,7 +466,6 @@ export async function resolveAttack(player, target, broadcast) {
   }
 
   if (result.killed) {
-    if (player.combatTargetId === target.instanceId) player.combatTargetId = null;
     if (result.credit_reward > 0) {
       player.credits = (player.credits||0) + result.credit_reward;
       await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
@@ -509,7 +504,7 @@ async function cmdStats(player) {
   const radBar = `[${'█'.repeat(Math.floor(p.radiation/10))}${'░'.repeat(10-Math.floor(p.radiation/10))}]`;
   let msg = `<span class="stats-header">${p.handle}</span> — ${p.archetype||'unknown'}\n\n`;
   msg += `HP:     ${p.hp}/${p.hp_max}\nSanity: ${p.sanity}/${p.sanity_max}\nHunger: ${p.hunger}/100\nThirst: ${p.thirst}/100\nRAD:    ${radBar} ${p.radiation}/100\n\n`;
-  msg += `STR:${p.stat_str}  AGI:${p.stat_agi}  INT:${p.stat_int}\nWIL:${p.stat_wil}  END:${p.stat_end}  CHA:${p.stat_cha}\n\nArmor: ${player.armor || 0}\nCredits: ${p.credits}`;
+  msg += `STR:${p.stat_str}  AGI:${p.stat_agi}  INT:${p.stat_int}\nWIL:${p.stat_wil}  END:${p.stat_end}  CHA:${p.stat_cha}\n\nCredits: ${p.credits}`;
 
   const statusFlags = [];
   if (player.sleeping) statusFlags.push('Asleep');
@@ -639,14 +634,6 @@ export const EQUIP_SLOTS = {
   weapon_hand: 'Weapon Hand', accessory: 'Accessory',
 };
 
-// Derived stat: sum the armor contribution (effects.armor) of every equipped
-// item and cache it on the live player object. Combat reads player.armor
-// directly, so this must be recomputed on login and after every equip change.
-export async function recomputeArmor(player) {
-  const { rows } = await query(`SELECT i.effects FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.is_equipped=1`, [player.id]);
-  player.armor = rows.reduce((sum, r) => sum + (r.effects?.armor || 0), 0);
-}
-
 async function cmdEquip(targetStr, player) {
   if (!targetStr) return { type:'error', message:'Equip what?' };
   const { rows } = await query(`SELECT pi.*,i.name,i.type,i.subtype,i.flags,i.requirements FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND i.name ILIKE $2 AND (i.type='weapon' OR i.type='armor') LIMIT 1`, [player.id, `%${targetStr}%`]);
@@ -661,7 +648,6 @@ async function cmdEquip(targetStr, player) {
   if (!slot) return { type:'error', message:`${item.name} doesn't have a valid equip slot configured.` };
   await query('UPDATE player_inventory SET is_equipped=0 WHERE player_id=$1 AND slot=$2', [player.id, slot]);
   await query('UPDATE player_inventory SET is_equipped=1,slot=$1 WHERE id=$2', [slot, item.id]);
-  await recomputeArmor(player);
   return { type:'equip', message:`You equip ${item.name}.`, slot };
 }
 
@@ -670,7 +656,6 @@ async function cmdUnequip(targetStr, player) {
   const { rows } = await query(`SELECT pi.*,i.name FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.is_equipped=1 AND i.name ILIKE $2 LIMIT 1`, [player.id, `%${targetStr}%`]);
   if (!rows.length) return { type:'error', message:`You don't have "${targetStr}" equipped.` };
   await query('UPDATE player_inventory SET is_equipped=0 WHERE id=$1', [rows[0].id]);
-  await recomputeArmor(player);
   return { type:'equip', message:`You unequip ${rows[0].name}.` };
 }
 
@@ -691,7 +676,6 @@ async function cmdEquipById(inventoryId, player) {
   if (!slot) return { type:'error', message:`${item.name} doesn't have a valid equip slot configured.` };
   await query('UPDATE player_inventory SET is_equipped=0 WHERE player_id=$1 AND slot=$2', [player.id, slot]);
   await query('UPDATE player_inventory SET is_equipped=1,slot=$1 WHERE id=$2', [slot, item.id]);
-  await recomputeArmor(player);
   return { type:'equip', message:`You equip ${item.name}.`, slot };
 }
 
@@ -700,7 +684,6 @@ async function cmdUnequipById(inventoryId, player) {
   const { rows } = await query(`SELECT pi.*,i.name FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.id=$1 AND pi.player_id=$2 AND pi.is_equipped=1 LIMIT 1`, [inventoryId, player.id]);
   if (!rows.length) return { type:'error', message:`That isn't equipped.` };
   await query('UPDATE player_inventory SET is_equipped=0 WHERE id=$1', [rows[0].id]);
-  await recomputeArmor(player);
   return { type:'equip', message:`You unequip ${rows[0].name}.` };
 }
 
@@ -799,31 +782,36 @@ async function cmdSwitch(targetStr, player) {
     : `You flip the switch. ${light.name} goes dark.` };
 }
 
-// The map command renders the player's current map at their current floor,
-// straight from the zones' grid coordinates (assigned in seed.js / the dev
-// panel's overview editor). Each map is its own grid — the world is one map,
-// each building interior another — so this just reads whichever map the
-// player is standing on. up/down floors are split into separate layers.
+// Fixed grid layout for the outdoor map — the city is a small, stable
+// 10-tile grid (see seed.js), so a hand-placed layout is simpler and
+// cleaner than a generic auto-layout algorithm. Shared in spirit with the
+// dev panel's big map (devpanel.html keeps its own copy client-side).
+const OUTDOOR_MAP_LAYOUT = [
+  { id: 'zone_city_north', x: 0, y: -1 },
+  { id: 'zone_city_ne', x: 1, y: -1 },
+  { id: 'zone_badland_w_gate', x: -2, y: 0 },
+  { id: 'zone_city_west', x: -1, y: 0 },
+  { id: 'zone_start', x: 0, y: 0 },
+  { id: 'zone_city_east', x: 1, y: 0 },
+  { id: 'zone_badland_sw_outer', x: -2, y: 1 },
+  { id: 'zone_city_sw', x: -1, y: 1 },
+  { id: 'zone_city_south', x: 0, y: 1 },
+  { id: 'zone_city_se', x: 1, y: 1 },
+];
+
 async function cmdMap(player) {
-  const { rows: cur } = await query(`SELECT map_id, grid_z FROM zones WHERE id=$1`, [player.current_zone]);
-  const mapId = cur[0]?.map_id;
-  if (!mapId) return { type:'map', tiles: [] };
-  const z = cur[0]?.grid_z ?? 0;
-  const { rows } = await query(
-    `SELECT id, name, danger_rating, grid_x, grid_y, marker, color FROM zones
-     WHERE map_id=$1 AND grid_z=$2 AND grid_x IS NOT NULL AND grid_y IS NOT NULL`,
-    [mapId, z]
-  );
-  const { rows: floors } = await query(
-    `SELECT DISTINCT grid_z FROM zones WHERE map_id=$1 AND grid_z IS NOT NULL ORDER BY grid_z`, [mapId]
-  );
-  const tiles = rows.map(r => ({
-    id: r.id, x: r.grid_x, y: r.grid_y,
-    name: r.name, danger: r.danger_rating || 'safe',
-    marker: r.marker || null, color: r.color || null,
-    isCurrent: r.id === player.current_zone,
+  const ids = OUTDOOR_MAP_LAYOUT.map(t => t.id);
+  const { rows } = await query(`SELECT id, name, danger_rating FROM zones WHERE id = ANY($1::text[])`, [ids]);
+  const byId = new Map(rows.map(z => [z.id, z]));
+  const tiles = OUTDOOR_MAP_LAYOUT.map(t => ({
+    id: t.id,
+    x: t.x,
+    y: t.y,
+    name: byId.get(t.id)?.name || t.id,
+    danger: byId.get(t.id)?.danger_rating || 'safe',
+    isCurrent: t.id === player.current_zone,
   }));
-  return { type:'map', tiles, floor: z, floors: floors.map(f => f.grid_z) };
+  return { type:'map', tiles };
 }
 
 async function cmdWho() {
@@ -841,8 +829,8 @@ async function cmdWho() {
 
 function cmdSay(text, player, broadcast) {
   if (!text) return { type:'error', message:'Say what?' };
-  broadcast(player.current_zone, { type:'say', fromId: player.id, from: player.handle, text }, null);
-  return null;
+  broadcast(player.current_zone, { type:'say', message:`${player.handle} says: "${text}"` }, null);
+  return { type:'say', message:`You say: "${text}"` };
 }
 
 // Hidden command. No further commentary necessary.
