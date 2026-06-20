@@ -634,6 +634,14 @@ export const EQUIP_SLOTS = {
   weapon_hand: 'Weapon Hand', accessory: 'Accessory',
 };
 
+// Derived stat: sum the armor contribution (effects.armor) of every equipped
+// item and cache it on the live player object. Combat reads player.armor
+// directly, so this must be recomputed on login and after every equip change.
+export async function recomputeArmor(player) {
+  const { rows } = await query(`SELECT i.effects FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.is_equipped=1`, [player.id]);
+  player.armor = rows.reduce((sum, r) => sum + (r.effects?.armor || 0), 0);
+}
+
 async function cmdEquip(targetStr, player) {
   if (!targetStr) return { type:'error', message:'Equip what?' };
   const { rows } = await query(`SELECT pi.*,i.name,i.type,i.subtype,i.flags,i.requirements FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND i.name ILIKE $2 AND (i.type='weapon' OR i.type='armor') LIMIT 1`, [player.id, `%${targetStr}%`]);
@@ -648,6 +656,7 @@ async function cmdEquip(targetStr, player) {
   if (!slot) return { type:'error', message:`${item.name} doesn't have a valid equip slot configured.` };
   await query('UPDATE player_inventory SET is_equipped=0 WHERE player_id=$1 AND slot=$2', [player.id, slot]);
   await query('UPDATE player_inventory SET is_equipped=1,slot=$1 WHERE id=$2', [slot, item.id]);
+  await recomputeArmor(player);
   return { type:'equip', message:`You equip ${item.name}.`, slot };
 }
 
@@ -656,6 +665,7 @@ async function cmdUnequip(targetStr, player) {
   const { rows } = await query(`SELECT pi.*,i.name FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.is_equipped=1 AND i.name ILIKE $2 LIMIT 1`, [player.id, `%${targetStr}%`]);
   if (!rows.length) return { type:'error', message:`You don't have "${targetStr}" equipped.` };
   await query('UPDATE player_inventory SET is_equipped=0 WHERE id=$1', [rows[0].id]);
+  await recomputeArmor(player);
   return { type:'equip', message:`You unequip ${rows[0].name}.` };
 }
 
@@ -676,6 +686,7 @@ async function cmdEquipById(inventoryId, player) {
   if (!slot) return { type:'error', message:`${item.name} doesn't have a valid equip slot configured.` };
   await query('UPDATE player_inventory SET is_equipped=0 WHERE player_id=$1 AND slot=$2', [player.id, slot]);
   await query('UPDATE player_inventory SET is_equipped=1,slot=$1 WHERE id=$2', [slot, item.id]);
+  await recomputeArmor(player);
   return { type:'equip', message:`You equip ${item.name}.`, slot };
 }
 
@@ -684,6 +695,7 @@ async function cmdUnequipById(inventoryId, player) {
   const { rows } = await query(`SELECT pi.*,i.name FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.id=$1 AND pi.player_id=$2 AND pi.is_equipped=1 LIMIT 1`, [inventoryId, player.id]);
   if (!rows.length) return { type:'error', message:`That isn't equipped.` };
   await query('UPDATE player_inventory SET is_equipped=0 WHERE id=$1', [rows[0].id]);
+  await recomputeArmor(player);
   return { type:'equip', message:`You unequip ${rows[0].name}.` };
 }
 
