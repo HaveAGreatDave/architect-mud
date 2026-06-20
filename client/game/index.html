@@ -291,6 +291,26 @@ function connect() {
 function handleServerMsg(msg) {
   switch(msg.type) {
     case 'connected': break;
+    case 'craft_progress': {
+      if (msg.message) appendMsg(msg.message, 'system');
+      let bar = document.getElementById('craft-progress-line');
+      if (!bar) {
+        bar = document.createElement('div');
+        bar.className = 'msg msg-system';
+        bar.id = 'craft-progress-line';
+        document.getElementById('output').appendChild(bar);
+      }
+      bar.textContent = msg.bar;
+      scrollOutput();
+      break;
+    }
+    case 'craft_end': {
+      const bar = document.getElementById('craft-progress-line');
+      if (bar) bar.remove();
+      appendHtml(msg.message, msg.status === 'success' ? 'loot' : 'error');
+      if (msg.player_update && player) { Object.assign(player, msg.player_update); updateVitals(player); }
+      break;
+    }
     case 'auth_success':
       clearTimeout(authTimeout);
       authPending = false;
