@@ -138,12 +138,13 @@ async function apiUpdateZone(id,body) {
 async function apiDeleteZone(id) {
   if (id==='zone_start') return {status:400,body:{error:'Cannot delete spawn zone'}};
   try {
-    // Cascade: any zone flagged is_apartment whose exits lead back to this
-    // one is a unit belonging to this building (same linkage the dev panel
-    // uses to nest them under it) — delete those first so deleting a
-    // building never leaves orphaned rooms behind.
+    // Cascade: any zone flagged is_apartment OR is_interior whose exits
+    // lead back to this one is a room belonging to this building (same
+    // linkage the dev panel uses to nest them under it, and the same
+    // linkage the in-game Rooms: list uses) — delete those first so
+    // deleting a building never leaves orphaned rooms behind.
     const { rows: children } = await query(
-      `SELECT id FROM zones WHERE (flags->>'is_apartment')::boolean IS TRUE
+      `SELECT id FROM zones WHERE ((flags->>'is_apartment')::boolean IS TRUE OR (flags->>'is_interior')::boolean IS TRUE)
        AND EXISTS (SELECT 1 FROM jsonb_each_text(exits) e WHERE e.value = $1)`,
       [id]
     );
