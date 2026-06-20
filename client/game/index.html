@@ -1127,6 +1127,12 @@ function connect() {
     if (coldStartTimer) { clearTimeout(coldStartTimer); coldStartTimer = null; hideColdStart(); }
     if (player) appendMsg(`Connected to ARCHITECT as ${player.handle}.`, 'system');
     else appendMsg('Connected to ARCHITECT. Login or register to enter.', 'system');
+    // Auto-auth from dev panel switch token (stored in sessionStorage by devpanel).
+    const switchToken = sessionStorage.getItem('game-switch-token');
+    if (switchToken && !player) {
+      sessionStorage.removeItem('game-switch-token');
+      ws.send(JSON.stringify({ type: 'auth_token', token: switchToken }));
+    }
     // Client-side ping every 10s to keep Render free tier alive. Clear any
     // interval from a previous connection first — onopen fires again on
     // every reconnect, and without this each one stacks a new interval that
@@ -1176,7 +1182,11 @@ function handleServerMsg(msg) {
       document.getElementById('auth-screen').style.display = 'none';
       document.getElementById('handle-display').textContent = player.handle;
       updateVitals(player);
-      fetch('/api/environment/state').then(r => r.json()).then(updateEnvironmentHUD).catch(() => {});
+      if (msg.env) updateEnvironmentHUD(msg.env);
+      else fetch('/api/environment/state').then(r => r.json()).then(updateEnvironmentHUD).catch(() => {});
+      if (msg.apiToken) sessionStorage.setItem('devpanel-token', msg.apiToken);
+      const DEV_ROLES = ['admin', 'dev', 'builder', 'designer'];
+      if (DEV_ROLES.includes(player.role)) showDevPanelButton();
       break;
     case 'auth_fail':
       clearTimeout(authTimeout);
@@ -1573,13 +1583,29 @@ function renderEnvironmentHUD() {
   if (tempEl) tempEl.textContent = envTempC !== null ? `${envTempC}°C` : '—°C';
 }
 
-// Local minute tick — keeps the clock moving between the server's 30-minute
-// syncs instead of sitting frozen on a stale value.
+// Local minute tick — keeps the clock moving between the server's 30-minute syncs.
 setInterval(() => {
   if (clientMinutes === null) return;
   clientMinutes = (clientMinutes + 1) % (24 * 60);
   renderEnvironmentHUD();
 }, 60000);
+
+// Periodic resync from server every 5 minutes in case the local tick drifts.
+setInterval(() => {
+  if (clientMinutes === null) return;
+  fetch('/api/environment/state').then(r => r.json()).then(updateEnvironmentHUD).catch(() => {});
+}, 5 * 60 * 1000);
+
+function showDevPanelButton() {
+  if (document.getElementById('dev-panel-btn')) return;
+  const btn = document.createElement('button');
+  btn.id = 'dev-panel-btn';
+  btn.textContent = '⚙ Dev';
+  btn.title = 'Open Dev Panel';
+  btn.style.cssText = 'position:fixed;bottom:12px;right:12px;z-index:999;padding:6px 12px;background:var(--bg3);border:1px solid var(--accent);color:var(--accent);font-family:var(--font);font-size:11px;cursor:pointer;letter-spacing:1px;border-radius:2px;';
+  btn.onclick = () => window.open('/dev', '_blank');
+  document.body.appendChild(btn);
+}
 
 // Pulls this zone's visibility category whenever the player arrives
 // somewhere and fades the output pane to match (GDD §7.1). Cosmetic only.

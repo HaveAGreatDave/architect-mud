@@ -340,6 +340,7 @@
   <div id="header-actions">
     <button class="action-btn" onclick="refreshWorld()">↻ Refresh</button>
     <button class="action-btn" id="ghost-btn" onclick="openGhostMode()" style="display:none">👻 Ghost Mode</button>
+    <button class="action-btn" onclick="launchPlayerClient()" title="Open game client logged in as this account">🎮 Play</button>
   </div>
 </div>
 
@@ -485,6 +486,24 @@ async function devLogin() {
 }
 
 document.getElementById('dev-password').addEventListener('keydown', e => { if(e.key==='Enter') devLogin(); });
+
+// Auto-auth if a Bearer token was passed via sessionStorage (e.g. from the game client).
+// Token format: base64("playerId:role:timestamp") — decode to get role without a round-trip.
+(() => {
+  const stored = sessionStorage.getItem('devpanel-token');
+  if (!stored) return;
+  let role = '', handle = '';
+  try { [, role] = atob(stored).split(':'); } catch { return; }
+  if (!['admin','dev','builder','designer'].includes(role)) return;
+  token = stored;
+  devRole = role;
+  document.getElementById('auth-overlay').classList.add('hidden');
+  document.getElementById('auth-badge').textContent = `[${role}]`;
+  document.getElementById('auth-badge').className = 'auth-status ok';
+  if (['admin','dev'].includes(role)) document.getElementById('ghost-btn').style.display = '';
+  loadPanel('zones');
+  startWorldStatePolling();
+})();
 
 // Panel management
 const PANELS = {
@@ -1884,6 +1903,18 @@ function openGhostMode() {
   const zone = prompt('Enter zone ID to observe:');
   if (!zone) return;
   toast(`Ghost mode: observing ${zone}`);
+}
+
+async function launchPlayerClient() {
+  if (!token) { toast('Not logged in', true); return; }
+  try {
+    const res = await API('/auth/gen-switch-token', 'POST');
+    if (res.error) { toast(res.error, true); return; }
+    sessionStorage.setItem('game-switch-token', res.token);
+    window.open('/', '_blank');
+  } catch (err) {
+    toast('Failed to generate switch token', true);
+  }
 }
 
 // --- Zone Validator panel ---

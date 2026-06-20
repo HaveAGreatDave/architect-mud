@@ -12,6 +12,15 @@ import { fireRoutes, fireHook } from '../engine/plugins.js';
 const hashPassword = pw => createHash('sha256').update(pw).digest('hex');
 const makeToken = (playerId, role) => Buffer.from(`${playerId}:${role}:${Date.now()}`).toString('base64');
 
+// Short-lived one-time tokens for admin ↔ client switching (max 60 seconds).
+const switchTokens = new Map(); // token → { playerId, username, role, handle, expires }
+export function consumeSwitchToken(token) {
+  const entry = switchTokens.get(token);
+  if (!entry || Date.now() > entry.expires) { switchTokens.delete(token); return null; }
+  switchTokens.delete(token);
+  return entry;
+}
+
 // Set once from index.js's boot() — lets route handlers (specifically zone
 // deletion) push messages to live players without threading a broadcast
 // function through every single handler call.
@@ -50,6 +59,15 @@ export async function handleApiRequest(url, method, body, headers) {
 
   if (path==='/auth/register' && method==='POST') return apiRegister(body);
   if (path==='/auth/login' && method==='POST') return apiLogin(body);
+  if (path==='/auth/gen-switch-token' && method==='POST') {
+    if (!auth || !['dev','admin','builder','designer'].includes(auth.role)) return { status:403, body:{error:'Dev access required'} };
+    const { rows } = await query('SELECT id, username, handle, role FROM players WHERE id=$1', [auth.playerId]);
+    if (!rows.length) return { status:404, body:{error:'Player not found'} };
+    const p = rows[0];
+    const token = randomUUID();
+    switchTokens.set(token, { playerId: p.id, username: p.username, role: p.role, handle: p.handle, expires: Date.now() + 60_000 });
+    return { status:200, body:{ token } };
+  }
   if (path==='/zones' && method==='GET') return apiGetZones();
   if (path.startsWith('/zones/') && method==='GET') return apiGetZone(path.split('/')[2]);
   if (path==='/zones' && method==='POST') return requireDev(auth, ()=>apiCreateZone(body,auth));
