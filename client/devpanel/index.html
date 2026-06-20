@@ -340,7 +340,6 @@
   <div id="header-actions" style="display:flex;gap:6px;align-items:center">
     <button class="action-btn" onclick="refreshWorld()">↻ Refresh</button>
     <button class="action-btn" id="ghost-btn" onclick="openGhostMode()" style="display:none">👻 Ghost Mode</button>
-    <button class="action-btn" onclick="launchPlayerClient()" title="Open game client logged in as this account">🎮 Play</button>
     <div style="width:1px;height:20px;background:var(--border);margin:0 4px"></div>
     <button class="action-btn success" id="publish-all-btn" onclick="publishAll()" style="display:none">
       Publish All <span id="staging-badge" style="background:var(--accent2);color:var(--bg);border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px">0</span>
@@ -387,7 +386,7 @@
         </div>
         <div class="edit-body" id="edit-body"></div>
         <div class="edit-footer">
-          <button class="action-btn success" onclick="saveRecord()" style="flex:1">Save & Publish</button>
+          <button class="action-btn success" onclick="saveRecord()" style="flex:1">Save</button>
           <button class="action-btn danger" id="delete-btn" onclick="deleteRecord()">Delete</button>
         </div>
       </div>
@@ -528,6 +527,7 @@ async function devLogin() {
   loadPanel('zones');
   startWorldStatePolling();
   updateStagingBadge();
+  showPlayButton();
 }
 
 document.getElementById('dev-password').addEventListener('keydown', e => { if(e.key==='Enter') devLogin(); });
@@ -549,6 +549,7 @@ document.getElementById('dev-password').addEventListener('keydown', e => { if(e.
   loadPanel('zones');
   startWorldStatePolling();
   updateStagingBadge();
+  showPlayButton();
 })();
 
 // Panel management
@@ -969,7 +970,7 @@ async function saveRecord() {
     toast(`Unexpected error: ${err.message}`, true);
     console.error('saveRecord failed:', err);
   } finally {
-    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Save & Publish'; }
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Save'; }
   }
 }
 
@@ -1993,6 +1994,17 @@ function openGhostMode() {
   const zone = prompt('Enter zone ID to observe:');
   if (!zone) return;
   toast(`Ghost mode: observing ${zone}`);
+}
+
+function showPlayButton() {
+  if (document.getElementById('play-btn')) return;
+  const btn = document.createElement('button');
+  btn.id = 'play-btn';
+  btn.textContent = '🎮 Play';
+  btn.title = 'Open game client logged in as this account';
+  btn.style.cssText = 'position:fixed;bottom:16px;right:16px;z-index:999;padding:6px 14px;background:#1a1a2e;border:1px solid #7c3aed;color:#7c3aed;font-family:monospace;font-size:11px;cursor:pointer;letter-spacing:1px;border-radius:3px;';
+  btn.onclick = launchPlayerClient;
+  document.body.appendChild(btn);
 }
 
 async function launchPlayerClient() {
