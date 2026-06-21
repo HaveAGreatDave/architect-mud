@@ -1047,12 +1047,16 @@ function cmdHelp(player) {
 }
 
 function cmdWhisper(args, raw, player, broadcast) {
-  const targetHandle = args[0];
-  if (!targetHandle) return { type:'error', message:'Usage: whisper <player> <message>' };
-  const msgText = raw.replace(/^\S+\s+\S+\s*/, '').trim();
+  if (!args.length) return { type:'error', message:'Usage: whisper <player> <message>' };
+  // Strip the command word from raw to get "<handle...> <message>"
+  const afterCmd = raw.replace(/^\S+\s+/, '');
+  const livePlayers = getAllLivePlayers().filter(p => p.id !== player.id);
+  // Try longest handle match first so "The Architect" beats "The"
+  const sorted = livePlayers.slice().sort((a,b) => b.handle.length - a.handle.length);
+  const target = sorted.find(p => afterCmd.toLowerCase().startsWith(p.handle.toLowerCase()));
+  if (!target) return { type:'error', message:`No online player matches "${afterCmd.split(' ')[0]}…".` };
+  const msgText = afterCmd.slice(target.handle.length).trim();
   if (!msgText) return { type:'error', message:'Usage: whisper <player> <message>' };
-  const target = getAllLivePlayers().find(p => p.handle.toLowerCase() === targetHandle.toLowerCase() && p.id !== player.id);
-  if (!target) return { type:'error', message:`${targetHandle} is not online.` };
   broadcast(null, { type:'whisper', from: player.handle, message: msgText }, null, target.id);
   return { type:'output', message:`<span style="color:var(--purple)">You whisper to ${target.handle}: "${msgText}"</span>` };
 }
