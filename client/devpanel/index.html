@@ -2122,7 +2122,11 @@ function validateMapOverview(zonesMap) {
       if (off && z.grid_x != null && z.grid_y != null && t.grid_x != null && t.grid_y != null) {
         const expected = `${z.grid_x + off[0]},${z.grid_y + off[1]},${(z.grid_z ?? 0) + off[2]}`;
         const actual = `${t.grid_x},${t.grid_y},${t.grid_z ?? 0}`;
-        if (expected !== actual) { errors.push({ zoneId: z.id, direction: dir, targetId: target, reason: 'geometry' }); geomError = true; }
+        if (expected !== actual) {
+          const [ex, ey, ez] = [z.grid_x + off[0], z.grid_y + off[1], (z.grid_z ?? 0) + off[2]];
+          errors.push({ zoneId: z.id, direction: dir, targetId: target, reason: 'geometry', expectedX: ex, expectedY: ey, expectedZ: ez });
+          geomError = true;
+        }
       }
       // Only flag missing reciprocal when there's no geometry error on this exit,
       // and avoid flagging both directions of the same pair.
@@ -2162,8 +2166,18 @@ function renderMapOverview() {
   // Validation panel
   html += `<div class="map-validation">`;
   if (errors.length) {
-    html += `<div class="v-error"><strong>${errors.length} geometry error(s):</strong></div>`;
-    html += errors.map(e => `<div class="v-error">• ${nameOf(e.zoneId)} → ${e.direction} → ${nameOf(e.targetId)} (position mismatch)</div>`).join('');
+    html += `<div class="v-error"><strong>${errors.length} geometry error(s) — exit points to zone at wrong position:</strong></div>`;
+    html += errors.map(e => {
+      const occupied = [...o.zones.values()].find(z => z.grid_x === e.expectedX && z.grid_y === e.expectedY && (z.grid_z ?? 0) === e.expectedZ);
+      const canMove = !occupied;
+      return `<div class="v-error" style="display:flex;align-items:center;gap:8px;margin-top:3px">
+        <span>• ${nameOf(e.zoneId)} → ${e.direction} → ${nameOf(e.targetId)} (expected at ${e.expectedX},${e.expectedY},${e.expectedZ})</span>
+        ${canMove
+          ? `<button class="action-btn" style="font-size:10px;padding:1px 7px;flex-shrink:0" onclick="mapFixGeometry('${e.targetId}',${e.expectedX},${e.expectedY},${e.expectedZ})">Move here</button>`
+          : `<span style="font-size:10px;color:var(--text-dim);flex-shrink:0">(cell occupied — move manually)</span>`}
+        <button class="action-btn danger" style="font-size:10px;padding:1px 7px;flex-shrink:0" onclick="mapRemoveExit('${e.zoneId}','${e.direction}')">Delete exit</button>
+      </div>`;
+    }).join('');
   } else {
     html += `<div class="v-ok">✓ No geometry errors.</div>`;
   }
@@ -2314,6 +2328,17 @@ async function mapToggleConn(aId, bId, dir) {
     toast(ra?.error || rb?.error, true);
     return;
   }
+  updateStagingBadge();
+}
+
+async function mapFixGeometry(zoneId, x, y, z) {
+  const zone = mapOverview.zones.get(zoneId);
+  if (!zone) return;
+  const oldX = zone.grid_x, oldY = zone.grid_y, oldZ = zone.grid_z;
+  zone.grid_x = x; zone.grid_y = y; zone.grid_z = z;
+  renderMapOverview();
+  const r = await API(`/zones/${zoneId}`, 'PUT', { grid_x: x, grid_y: y, grid_z: z, map_id: zone.map_id, exits: zone.exits });
+  if (r?.error) { zone.grid_x = oldX; zone.grid_y = oldY; zone.grid_z = oldZ; renderMapOverview(); toast(r.error, true); return; }
   updateStagingBadge();
 }
 
