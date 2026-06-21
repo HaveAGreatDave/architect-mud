@@ -169,14 +169,17 @@ export async function describeZone(zone, player) {
       `<span class="light-level light-dark">It is completely dark here. You can't make out your surroundings.${windowHint}</span>`;
   }
 
-  const { buildings, rooms, plain } = getConnectedDestinations(zone);
-  const enemies = getZoneEnemies(zone.id);
-  const npcs = getZoneNpcs(zone.id);
-  const corpses = getZoneCorpses(zone.id);
-  const others = getZonePlayers(zone.id).filter(p => p.id !== player.id);
+  const isDark = vis.category === 'dark';
+  const isDim  = vis.category === 'dim';
 
-  // Items lying on the ground in this zone
-  const { rows: groundItems } = await query(
+  const { buildings, rooms, plain } = getConnectedDestinations(zone);
+  // In the dark: can't see enemies/NPCs/players/items/corpses clearly.
+  const enemies  = isDark ? [] : getZoneEnemies(zone.id);
+  const npcs     = isDark ? [] : getZoneNpcs(zone.id);
+  const corpses  = isDark ? [] : getZoneCorpses(zone.id);
+  const others   = isDark ? [] : getZonePlayers(zone.id).filter(p => p.id !== player.id);
+
+  const { rows: groundItems } = isDark ? { rows: [] } : await query(
     `SELECT pi.*, i.name, i.type, i.rarity FROM player_inventory pi
      JOIN items i ON i.id = pi.item_id
      WHERE pi.player_id = $1`,
@@ -185,16 +188,26 @@ export async function describeZone(zone, player) {
 
   // Non-takeable scenery (bar counters, stools, etc.) — examine-only, never
   // enters an inventory, so it's queried fresh rather than cached.
-  const { rows: furniture } = await query('SELECT * FROM furniture WHERE zone_id = $1', [zone.id]);
+  const { rows: furniture } = isDark ? { rows: [] } : await query('SELECT * FROM furniture WHERE zone_id = $1', [zone.id]);
   const windows = getWindowsForZone(zone.id);
 
   let desc = `\n<span class="zone-name">${zone.name}</span>\n`;
+  // Light level indicator — shown whenever visibility is less than clear
+  if (vis.category === 'dark') {
+    desc += `<span class="light-level light-dark">It's very dark. You can barely make out your surroundings.</span>\n`;
+  } else if (vis.category === 'dim') {
+    desc += `<span class="light-level light-dim">The light is poor here. Details are hard to make out.</span>\n`;
+  }
   desc += `<span class="zone-danger zone-danger-${zone.danger_rating}">[${zone.danger_rating.toUpperCase()}]</span>`;
   if (zone.radiation_level > 0) desc += ` <span class="rad-warning">☢ RAD:${zone.radiation_level}</span>`;
   if (zone.pvp_enabled) desc += ` <span class="pvp-warning">⚔ PVP</span>`;
   const roomDesc = await fireHook('zone.describeRoom', zone);
   if (roomDesc) desc += `\n${roomDesc}`;
-  desc += `\n${zone.description}${describeBuildingDiscovery(buildings)}`;
+  // In dim light show a shortened description (first sentence only)
+  const zoneDesc = isDim
+    ? (zone.description.split(/(?<=[.!?])\s+/)[0] || zone.description)
+    : zone.description;
+  desc += `\n${zoneDesc}${describeBuildingDiscovery(buildings)}`;
   desc += await describeApartmentStatus(zone);
 
   const outcastResponse = getCustodianOutcastResponse(zone, player);
@@ -215,19 +228,26 @@ export async function describeZone(zone, player) {
   // Weave notable ground items directly into the prose, underlined and
   // clickable, the way HellMOO highlights interactable nouns in room text.
   if (groundItems.length) {
-    const itemMentions = groundItems.map(item => {
-      const rarityClass = `item-rarity-${item.rarity}`;
-      return `<span class="action-link room-item ${rarityClass}" data-action="take" data-target="${item.name}" title="Take ${item.name}">${item.name}</span>`;
-    });
-    desc += ` Lying here: ${itemMentions.join(', ')}.`;
+    if (isDim) {
+      // Dim: acknowledge something's there but not what
+      desc += ` Something is lying on the ground nearby.`;
+    } else {
+      const itemMentions = groundItems.map(item => {
+        const rarityClass = `item-rarity-${item.rarity}`;
+        return `<span class="action-link room-item ${rarityClass}" data-action="take" data-target="${item.name}" title="Take ${item.name}">${item.name}</span>`;
+      });
+      desc += ` Lying here: ${itemMentions.join(', ')}.`;
+    }
   }
 
-  if (furniture.length) {
-    const furnitureLinks = furniture.map(f => {
-      const stateTag = f.is_light ? ` <span class="light-state ${f.light_on ? 'light-on' : 'light-off'}">(${f.light_on ? 'on' : 'off'})</span>` : '';
-      return `<span class="action-link furniture-link" data-action="examine" data-target="${f.name}" title="Examine ${f.name}">${f.name}</span>${stateTag}`;
-    });
-    desc += `\n<span class="furniture-label">Furniture:</span> ${furnitureLinks.join(', ')}`;
+  if (!isDark) {
+    if (furniture.length) {
+      const furnitureLinks = furniture.map(f => {
+        const stateTag = f.is_light ? ` <span class="light-state ${f.light_on ? 'light-on' : 'light-off'}">(${f.light_on ? 'on' : 'off'})</span>` : '';
+        return `<span class="action-link furniture-link" data-action="examine" data-target="${f.name}" title="Examine ${f.name}">${f.name}</span>${stateTag}`;
+      });
+      desc += `\n<span class="furniture-label">Furniture:</span> ${furnitureLinks.join(', ')}`;
+    }
   }
   if (windows.length) {
     const windowLinks = windows.map(w => {

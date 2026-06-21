@@ -1,5 +1,5 @@
 import { query } from '../models/db.js';
-import { reloadZone, getAllZones, world, getAllLivePlayers, getZone, addPlayerToZone, removePlayerFromZone, getMinimapData } from '../engine/world.js';
+import { reloadZone, getAllZones, world, getAllLivePlayers, getZone, addPlayerToZone, removePlayerFromZone, getMinimapData, reloadGlobalAmbients } from '../engine/world.js';
 import { describeZone, describeVoidTeleport } from '../engine/commands.js';
 import { loadRecipes } from '../engine/crafting.js';
 import { loadDrugs } from '../engine/drugs.js';
@@ -118,6 +118,10 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path==='/windows' && method==='POST') return requireDev(auth, ()=>apiCreateWindow(body));
   if (path.startsWith('/windows/') && method==='PUT') return requireDev(auth, ()=>apiUpdateWindow(path.split('/')[2],body));
   if (path.startsWith('/windows/') && method==='DELETE') return requireDev(auth, ()=>apiDeleteWindow(path.split('/')[2]));
+  if (path==='/ambient-events' && method==='GET') return requireDev(auth, ()=>apiGetAmbientEvents(url));
+  if (path==='/ambient-events' && method==='POST') return requireDev(auth, ()=>apiCreateAmbientEvent(body));
+  if (path.startsWith('/ambient-events/') && method==='PUT') return requireDev(auth, ()=>apiUpdateAmbientEvent(path.split('/')[2],body));
+  if (path.startsWith('/ambient-events/') && method==='DELETE') return requireDev(auth, ()=>apiDeleteAmbientEvent(path.split('/')[2]));
   if (path==='/world/state' && method==='GET') return requireDev(auth, apiWorldState);
   if (path==='/world/reload' && method==='POST') return requireDev(auth, ()=>apiReloadZone(body));
   if (path==='/players/online' && method==='GET') return { status:200, body: getAllLivePlayers().map(p=>({ id: p.id, handle: p.handle, role: p.role, current_zone: p.current_zone })) };
@@ -175,8 +179,8 @@ async function ensureApartmentRow(zoneId) {
 async function apiCreateZone(body,auth) {
   const id = body.id||`zone_${Date.now()}`;
   try {
-    await query(`INSERT INTO zones (id,name,description,danger_rating,pvp_enabled,radiation_level,is_safe_zone,exits,ambient_events,flags,created_by,map_id,grid_x,grid_y,grid_z,marker,color,bg_color) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
-      [id,body.name||'Unnamed Zone',body.description||'An empty place.',body.danger_rating||'medium',body.pvp_enabled?1:0,body.radiation_level||0,body.is_safe_zone?1:0,JSON.stringify(body.exits||{}),JSON.stringify(body.ambient_events||[]),JSON.stringify(body.flags||{}),auth?.playerId,body.map_id||null,body.grid_x??null,body.grid_y??null,body.grid_z??0,body.marker||null,body.color||null,body.bg_color||null]);
+    await query(`INSERT INTO zones (id,name,description,danger_rating,pvp_enabled,radiation_level,is_safe_zone,exits,ambient_events,ambient_theme,flags,created_by,map_id,grid_x,grid_y,grid_z,marker,color,bg_color) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
+      [id,body.name||'Unnamed Zone',body.description||'An empty place.',body.danger_rating||'medium',body.pvp_enabled?1:0,body.radiation_level||0,body.is_safe_zone?1:0,JSON.stringify(body.exits||{}),JSON.stringify(body.ambient_events||[]),body.ambient_theme||'indoors',JSON.stringify(body.flags||{}),auth?.playerId,body.map_id||null,body.grid_x??null,body.grid_y??null,body.grid_z??0,body.marker||null,body.color||null,body.bg_color||null]);
     if (body.flags?.is_apartment) await ensureApartmentRow(id);
     await reloadZone(id);
     fireHook('zone.create', id, body).catch(() => {});
@@ -198,6 +202,7 @@ export async function apiUpdateZone(id,body) {
   }
   if (body.exits!==undefined) { sets.push(`exits=$${i++}`); vals.push(JSON.stringify(body.exits)); }
   if (body.ambient_events!==undefined) { sets.push(`ambient_events=$${i++}`); vals.push(JSON.stringify(body.ambient_events)); }
+  if (body.ambient_theme!==undefined) { sets.push(`ambient_theme=$${i++}`); vals.push(body.ambient_theme); }
   if (body.flags!==undefined) { sets.push(`flags=$${i++}`); vals.push(JSON.stringify(body.flags)); }
   sets.push(`updated_at=EXTRACT(EPOCH FROM NOW())`);
   vals.push(id);
@@ -793,5 +798,39 @@ async function apiUpdateWindow(id, body) {
 async function apiDeleteWindow(id) {
   await query('DELETE FROM windows WHERE id=$1',[id]);
   await reloadWindowsEnv().catch(()=>{});
+  return { status:200, body:{deleted:true} };
+}
+
+// --- Global Ambient Events ---
+async function apiGetAmbientEvents(fullUrl) {
+  const theme = new URL('http://x' + fullUrl).searchParams.get('theme');
+  const { rows } = theme
+    ? await query('SELECT * FROM global_ambient_events WHERE theme=$1 ORDER BY theme,message', [theme])
+    : await query('SELECT * FROM global_ambient_events ORDER BY theme,message');
+  return { status:200, body:rows };
+}
+async function apiCreateAmbientEvent(body) {
+  const id = randomUUID();
+  const { theme='indoors', message, enabled=1 } = body||{};
+  if (!message?.trim()) return { status:400, body:{error:'message required'} };
+  await query('INSERT INTO global_ambient_events (id,theme,message,enabled) VALUES ($1,$2,$3,$4)',
+    [id, theme, message.trim(), enabled ? 1 : 0]);
+  await reloadGlobalAmbients();
+  return { status:201, body:{id} };
+}
+async function apiUpdateAmbientEvent(id, body) {
+  const { theme, message, enabled } = body||{};
+  await query(`UPDATE global_ambient_events SET
+    theme=COALESCE($1,theme),
+    message=COALESCE($2,message),
+    enabled=COALESCE($3,enabled)
+    WHERE id=$4`,
+    [theme, message?.trim()||null, enabled!=null ? (enabled?1:0) : null, id]);
+  await reloadGlobalAmbients();
+  return { status:200, body:{updated:true} };
+}
+async function apiDeleteAmbientEvent(id) {
+  await query('DELETE FROM global_ambient_events WHERE id=$1',[id]);
+  await reloadGlobalAmbients();
   return { status:200, body:{deleted:true} };
 }

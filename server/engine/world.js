@@ -11,12 +11,32 @@ const world = {
   apartments: new Map(), // zoneId -> apartment row
 };
 
+// Global ambient event pool, keyed by theme.
+let globalAmbientPool = {}; // theme -> string[]
+// Per-zone: last N ambient event strings shown (to avoid repeats).
+const zoneRecentAmbients = new Map(); // zoneId -> string[]
+const RECENT_AMBIENT_WINDOW = 5;
+
 export async function initWorld() {
   await loadZones();
   await loadNpcs();
   await loadSpawnTemplates();
   await loadApartments();
+  await loadGlobalAmbients();
   console.log(`✓ World loaded: ${world.zones.size} zones, ${world.npcs.size} NPCs, ${world.apartments.size} apartments`);
+}
+
+async function loadGlobalAmbients() {
+  const { rows } = await query('SELECT theme, message FROM global_ambient_events WHERE enabled=1').catch(() => ({ rows: [] }));
+  globalAmbientPool = {};
+  for (const row of rows) {
+    if (!globalAmbientPool[row.theme]) globalAmbientPool[row.theme] = [];
+    globalAmbientPool[row.theme].push(row.message);
+  }
+}
+
+export async function reloadGlobalAmbients() {
+  await loadGlobalAmbients();
 }
 
 async function loadZones() {
@@ -210,8 +230,31 @@ export function createCorpse(c) {
 
 export function getRandomAmbient(zoneId) {
   const z = world.zones.get(zoneId);
-  if (!z?.ambient_events?.length) return null;
-  return z.ambient_events[Math.floor(Math.random() * z.ambient_events.length)];
+  const recent = zoneRecentAmbients.get(zoneId) || [];
+
+  // Try a zone-specific event that hasn't been shown recently.
+  const zoneEvents = z?.ambient_events || [];
+  const freshZone = zoneEvents.filter(e => !recent.includes(e));
+  if (freshZone.length) {
+    const pick = freshZone[Math.floor(Math.random() * freshZone.length)];
+    _trackAmbient(zoneId, pick, recent);
+    return pick;
+  }
+
+  // Fall back to the global pool for this zone's theme.
+  const theme = z?.ambient_theme || 'indoors';
+  const pool = globalAmbientPool[theme] || [];
+  const freshGlobal = pool.filter(e => !recent.includes(e));
+  const source = freshGlobal.length ? freshGlobal : pool; // if all recent, pick any
+  if (!source.length) return null;
+  const pick = source[Math.floor(Math.random() * source.length)];
+  _trackAmbient(zoneId, pick, recent);
+  return pick;
+}
+
+function _trackAmbient(zoneId, pick, recent) {
+  const next = [...recent, pick].slice(-RECENT_AMBIENT_WINDOW);
+  zoneRecentAmbients.set(zoneId, next);
 }
 
 export async function reloadZone(zoneId) {

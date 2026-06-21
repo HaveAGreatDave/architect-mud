@@ -54,6 +54,7 @@
     <div class="nav-item" data-panel="mutations" onclick="showPanel('mutations')">☢ Mutations</div>
     <div class="nav-item" data-panel="drugs" onclick="showPanel('drugs')">💊 Drugs</div>
     <div class="nav-item" data-panel="windows" onclick="showPanel('windows')">🪟 Windows</div>
+    <div class="nav-item" data-panel="ambientevents" onclick="showPanel('ambientevents')">🎧 Ambient</div>
     <div class="nav-section">Server</div>
     <div class="nav-item" data-panel="worldstate" onclick="showPanel('worldstate')">📡 World State</div>
     <div class="nav-item" data-panel="timeweather" onclick="showPanel('timeweather')">🕐 Time & Weather</div>
@@ -389,6 +390,12 @@ const PANELS = {
     fetch: () => API('/windows'),
     noEdit: true,
     render: renderWindowsPanel,
+  },
+  ambientevents: {
+    title: 'Ambient Events',
+    fetch: () => API('/ambient-events'),
+    noEdit: true,
+    render: renderAmbientEventsPanel,
   },
   recipes: {
     title: 'Recipes',
@@ -937,6 +944,9 @@ async function zoneEditForm(rec, isNew) {
     <input type="hidden" id="f-grid_y" value="${place.grid_y ?? ''}">
     <input type="hidden" id="f-grid_z" value="${place.grid_z ?? ''}">
     <div class="field"><label>Exits</label><div id="exits-builder-body">${renderExitsBuilder(rec.id)}</div></div>
+    <div class="field"><label>Ambient Theme <span style="color:var(--text-dim);font-weight:400">(global pool fallback theme)</span></label>
+      <select id="f-ambient_theme">${AMBIENT_THEMES.map(t=>`<option value="${t}" ${(rec.ambient_theme||'indoors')===t?'selected':''}>${t.charAt(0).toUpperCase()+t.slice(1)}</option>`).join('')}</select>
+    </div>
     <div class="field"><label>Ambient Events (JSON array of strings)</label><textarea id="f-ambient_events" rows="6">${JSON.stringify(ambients, null, 2)}</textarea></div>
     ${subSectionsHtml}
   `;
@@ -965,7 +975,7 @@ async function saveZone(existing) {
     radiation_level: parseInt(document.getElementById('f-radiation_level').value)||0,
     pvp_enabled: document.getElementById('f-pvp_enabled').checked,
     is_safe_zone: document.getElementById('f-is_safe_zone').checked,
-    exits: { ...zoneEditExitsState }, ambient_events: ambients, flags,
+    exits: { ...zoneEditExitsState }, ambient_events: ambients, ambient_theme: document.getElementById('f-ambient_theme').value, flags,
     marker: document.getElementById('f-marker').value.trim() || null,
     color: document.getElementById('f-color').value.trim() || null,
     bg_color: document.getElementById('f-bg_color').value.trim() || null,
@@ -2228,6 +2238,98 @@ function openWindowModal(w) {
     toast(isNew ? 'Window created' : 'Window updated');
     closeModal();
     loadPanel('windows');
+  };
+  modal.style.display = 'flex';
+}
+
+const AMBIENT_THEMES = ['outdoors','city','indoors','forest','industrial','underground','waterfront','ruins','commercial','residential'];
+
+function renderAmbientEventsPanel(data) {
+  const panel = document.getElementById('list-panel');
+  const events = Array.isArray(data) ? data : [];
+
+  // Group by theme for display
+  const byTheme = {};
+  for (const e of events) {
+    if (!byTheme[e.theme]) byTheme[e.theme] = [];
+    byTheme[e.theme].push(e);
+  }
+  const themes = Object.keys(byTheme).sort();
+
+  const sections = themes.map(theme => {
+    const rows = byTheme[theme].map(e => `<tr>
+      <td style="color:var(--text);font-size:12px;line-height:1.5">${e.message}</td>
+      <td style="text-align:center;width:60px">
+        <span style="color:${e.enabled?'var(--green)':'var(--text-dim)'};font-size:11px">${e.enabled?'on':'off'}</span>
+      </td>
+      <td style="text-align:right;white-space:nowrap;width:120px">
+        <button class="action-btn" style="font-size:10px;padding:3px 8px" onclick="editAmbientEvent(${JSON.stringify(e).replace(/"/g,'&quot;')})">✏</button>
+        <button class="action-btn" style="font-size:10px;padding:3px 8px;margin-left:4px;color:var(--${e.enabled?'red':'green'})" onclick="toggleAmbientEvent('${e.id}',${e.enabled?0:1})">${e.enabled?'Disable':'Enable'}</button>
+        <button class="action-btn danger" style="font-size:10px;padding:3px 8px;margin-left:4px" onclick="deleteAmbientEvent('${e.id}')">✕</button>
+      </td>
+    </tr>`).join('');
+    return `<div style="margin-bottom:16px">
+      <div style="padding:6px 16px;background:var(--bg3);border-top:1px solid var(--border);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--accent)">${theme}</span>
+        <span style="font-size:10px;color:var(--text-dim)">${byTheme[theme].length} event${byTheme[theme].length!==1?'s':''}</span>
+      </div>
+      <table><tbody>${rows}</tbody></table>
+    </div>`;
+  });
+
+  panel.innerHTML = `
+    <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:12px;color:var(--text-dim)">${events.length} total event${events.length!==1?'s':''}</span>
+      <button class="action-btn" onclick="newAmbientEvent()">+ New Event</button>
+    </div>
+    ${sections.length ? sections.join('') : '<div style="padding:24px;color:var(--text-dim)">No ambient events yet. Click + New Event to add one.</div>'}
+  `;
+}
+
+function newAmbientEvent() { openAmbientEventModal({}); }
+
+function editAmbientEvent(e) { openAmbientEventModal(e); }
+
+async function toggleAmbientEvent(id, enabled) {
+  await API(`/ambient-events/${id}`, 'PUT', { enabled });
+  loadPanel('ambientevents');
+}
+
+async function deleteAmbientEvent(id) {
+  if (!confirm('Delete this ambient event?')) return;
+  await API(`/ambient-events/${id}`, 'DELETE');
+  toast('Event deleted');
+  loadPanel('ambientevents');
+}
+
+function openAmbientEventModal(e) {
+  const isNew = !e.id;
+  const modal = document.getElementById('generic-modal');
+  document.getElementById('modal-title').textContent = isNew ? 'New Ambient Event' : 'Edit Ambient Event';
+  const themeOpts = AMBIENT_THEMES.map(t => `<option value="${t}" ${(e.theme||'indoors')===t?'selected':''}>${t.charAt(0).toUpperCase()+t.slice(1)}</option>`).join('');
+  document.getElementById('modal-body').innerHTML = `
+    <div class="field"><label>Theme</label>
+      <select id="ae-theme">${themeOpts}</select>
+    </div>
+    <div class="field"><label>Message</label>
+      <textarea id="ae-message" rows="3" style="resize:vertical">${e.message||''}</textarea>
+    </div>
+    <div class="field" style="display:flex;align-items:center;gap:10px">
+      <input type="checkbox" id="ae-enabled" ${e.enabled!==0?'checked':''}>
+      <label for="ae-enabled" style="margin:0;cursor:pointer">Enabled</label>
+    </div>`;
+  document.getElementById('modal-save').onclick = async () => {
+    const theme = document.getElementById('ae-theme').value;
+    const message = document.getElementById('ae-message').value.trim();
+    const enabled = document.getElementById('ae-enabled').checked ? 1 : 0;
+    if (!message) { toast('Message is required', true); return; }
+    const r = isNew
+      ? await API('/ambient-events', 'POST', { theme, message, enabled })
+      : await API(`/ambient-events/${e.id}`, 'PUT', { theme, message, enabled });
+    if (r?.error) { toast(r.error, true); return; }
+    toast(isNew ? 'Event created' : 'Event updated');
+    closeModal();
+    loadPanel('ambientevents');
   };
   modal.style.display = 'flex';
 }

@@ -173,6 +173,17 @@ export async function migrate() {
     -- automatically at dusk/dawn by the environment system instead).
     ALTER TABLE furniture ADD COLUMN IF NOT EXISTS light_type TEXT DEFAULT 'lamp';
 
+    -- Global ambient event pool, organized by theme. Zones reference a theme
+    -- via the ambient_theme column; the ambient tick pulls from this pool when
+    -- zone-specific events would repeat too soon.
+    CREATE TABLE IF NOT EXISTS global_ambient_events (
+      id TEXT PRIMARY KEY,
+      theme TEXT NOT NULL DEFAULT 'indoors',
+      message TEXT NOT NULL,
+      enabled INTEGER NOT NULL DEFAULT 1
+    );
+    ALTER TABLE zones ADD COLUMN IF NOT EXISTS ambient_theme TEXT DEFAULT 'indoors';
+
     -- Passive window light sources. zone_exterior = NULL means the window
     -- faces the outdoors; non-NULL links two interior zones together.
     CREATE TABLE IF NOT EXISTS windows (
