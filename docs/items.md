@@ -1,255 +1,154 @@
 # Item Properties Reference
 
-How items are defined, what every field does, and — importantly — **which JSON
-keys the engine actually reads**. Several fields look like they should work and
-don't, because the engine only honors specific keys. This doc is the source of
-truth for that, vetted against the engine code (`server/engine/commands.js`,
-`server/engine/combat.js`) and the canonical seed (`server/models/seed.js`).
+How items are defined and what every behavior does. As of the tag-system
+cutover, **all item behavior lives in a single `tags` JSONB column** and is
+described by one shared catalog. This doc explains that model; the catalog
+itself (`client/shared/tagCatalog.js`) is the machine-readable source of truth.
 
 Items are content, not code: they live in the `items` table and are edited
 through the dev panel's **🗡 Items** editor. Nothing here requires a deploy.
 
 ---
 
-## The `items` Table
+## The model in one paragraph
 
-Every item is one row. Columns (see `server/models/migrate.js`):
+An item is identity/economy columns plus a bag of **tags**. A class tag has a
+name and an optional value; `true` for valueless markers. The engine reads
+behavior *only* from tags. There is no more `type`/`subtype` routing, no
+`effects`/`stat_modifiers`/`requirements`/`flags` blobs, and no `is_*` boolean
+columns — every one of those collapsed into a tag. The catalog documents what
+each tag does, so nothing gets silently forgotten as the list grows.
+
+---
+
+## The `items` Table
 
 | Column | Type | Notes |
 |---|---|---|
 | `id` | TEXT PK | e.g. `item_scrap_armor` |
 | `name` | TEXT | Display name. Commands fuzzy-match on this (`ILIKE %name%`). |
-| `description` | TEXT | Shown on `examine`/`look <item>`. |
-| `type` | TEXT | Drives behavior — see [Types](#item-types) below. |
-| `subtype` | TEXT | Flavor + a few real hooks (`food`/`drink` buffs, slot fallbacks). |
-| `weight` | REAL | Carry weight. Currently informational — no enforced carry cap yet. |
+| `weight` | REAL | Carry weight. Currently informational. |
 | `value` | INTEGER | Base price; vendors mark up/down from this. |
 | `rarity` | TEXT | `common` / `uncommon` / `rare` / `very_rare`. Flavor + loot tuning. |
-| `is_stackable` | INTEGER | `1` = merges into a single quantity row instead of duplicate rows. |
-| `is_unique` | INTEGER | Reserved; not enforced in engine logic yet. |
-| `is_quest_item` | INTEGER | `1` = cannot be dropped (`cmdDrop` filters `is_quest_item=0`). |
-| `effects` | JSONB | **The workhorse.** What the item *does*. See below. |
-| `stat_modifiers` | JSONB | Passive stat bumps. See the armor warning below. |
-| `requirements` | JSONB | Gates equipping — `{ "stat_str": 6 }` style. |
-| `flags` | JSONB | Misc, including the all-important `slot`. |
+| `tags` | JSONB | **Everything the item *does*.** A map of tag name → value. |
 
-Booleans are stored as `0/1` INTEGER, not `true/false` — a raw boolean sent to
-these columns crashes `pg`. The dev panel coerces this for you; only matters if
-you write SQL by hand.
+> The legacy columns (`description`, `type`, `subtype`, `is_stackable`,
+> `is_unique`, `is_quest_item`, `effects`, `stat_modifiers`, `requirements`,
+> `flags`) are migrated into `tags` by `migrate.js`. They are dropped in a
+> separate later commit once the cutover is verified; until then they still
+> exist but are unused.
 
 ---
 
-## ⚠️ Armor: the format that actually works
+## The Tag Catalog
 
-This is the single most common item-authoring mistake, so it gets top billing.
+`client/shared/tagCatalog.js` exports `TAG_CATALOG`, a map of
+tag name → `{ label, shape, scope, group, help, options? }`. It is the single
+source of truth: the dev panel builds its editor widgets from it, and the
+engine reads behavior through `server/engine/tags.js` (`hasTag`, `tagValue`,
+`hasFlag`, and a re-export of the catalog).
 
-**Armor reduction is read from `effects.armor`, NOT `stat_modifiers.armor`.**
+`shape` drives both the editor widget and how the value is stored:
 
-Combat subtracts `defender.armor` from incoming damage
-(`server/engine/combat.js` → `rollAttack`). For a player, `player.armor` is a
-derived value, recomputed on login and after every equip change by
-`recomputeArmor()` in `commands.js`:
-
-```js
-// commands.js
-player.armor = rows.reduce((sum, r) => sum + (r.effects?.armor || 0), 0);
-```
-
-It sums `effects.armor` across every **equipped** item. So an armor piece must
-look like this:
-
-```jsonc
-// item: Scrap Vest — CORRECT
-{
-  "type": "armor",
-  "subtype": "chest",
-  "effects":        { "armor": 3 },     // ← engine reads THIS
-  "stat_modifiers": {},
-  "flags":          { "slot": "torso" } // ← must be a valid slot (see below)
-}
-```
-
-A piece written the old way is silently worthless — it equips, occupies the
-slot, but contributes **0** damage reduction:
-
-```jsonc
-// WRONG — armor in stat_modifiers is ignored by combat
-{ "effects": {}, "stat_modifiers": { "armor": 2 }, "flags": { "slot": "chest" } }
-```
-
-Two traps in that wrong example:
-1. `stat_modifiers.armor` is never read for damage reduction.
-2. `slot: "chest"` is not a real slot — the valid torso slot is `"torso"`.
-   An invalid slot falls back to a generic type-named slot for weapons, but
-   armor with no valid slot refuses to equip at all.
-
-A one-time migration in `migrate.js` rewrites a legacy **uppercase** `"ARMOR"`
-effects key down to lowercase `"armor"`, but it does **not** rescue armor that
-was put in `stat_modifiers`. If an old armor item does nothing, check this first.
-
-The dev panel's Item editor labels the effects field accordingly:
-*"armor items use `{"armor": N}` for damage reduction."* Follow that.
-
----
-
-## The `effects` JSON — every key the engine honors
-
-`effects` is consulted by `cmdUse` (consumables/drugs), `recomputeArmor`
-(equipment), and `rollAttack` (weapons). Keys the engine actually reads:
-
-### Equipment effects
-| Key | Used by | Meaning |
+| shape | value | editor widget |
 |---|---|---|
-| `armor` | combat (via `recomputeArmor`) | Flat damage reduction while equipped. Stacks across all worn pieces. |
-| `damage_min` / `damage_max` | combat (weapons) | Weapon damage roll range. Read off the equipped weapon when you attack. |
-| `status_chance` | combat (weapons) | e.g. `{ "stunned": 0.3 }` — chance to inflict a status on hit. |
+| `text` | string | textarea |
+| `flag` | `true` | presence chip (no input) |
+| `int` | integer | number |
+| `enum` | one of `options` | select |
+| `range` | `{ min, max }` | two numbers |
+| `hot` | `{ amount, duration_seconds }` | two numbers |
+| `statmap` | `{ key: number, … }` | small JSON textarea |
 
-### Consumable effects (`cmdUse`)
-| Key | Meaning |
-|---|---|
-| `hp` | Instant flat HP change (can be negative — Rust Whiskey does `hp: -2`). |
-| `hunger` | Restores the hunger meter (capped at 100). |
-| `thirst` | Restores the thirst meter (capped at 100). |
-| `radiation` | Adds/removes radiation (RadAway™ uses `-20`). |
-| `sanity` | Adjusts Sanity (drinks restore it; Glasshollow drops it). |
-| `credits` | Currency pickups (`item_credits_small` = `{ "credits": 10 }`). |
-| `hp_over_time` | `{ "amount": N, "duration_seconds": S }` — gradual heal, ticks once/min, **stacks** if re-used. Field Bandage & Trauma Kit use this. |
-| `status_chance` | On consumables too — Raw Meat: `{ "food_poisoning": 0.6 }`. |
-
-A consumable can carry several of these at once; `cmdUse` applies each present
-key. The item is consumed (quantity-1 or row deleted) and grants 1 Medicine XP.
-
-### Buffs are driven by `subtype`, not `effects`
-`cmdUse` grants timed buffs based on **`subtype`**, automatically, on top of
-whatever `effects` do:
-- `subtype: "food"` → **Well-Fed** (faster HP regen), 10 minutes.
-- `subtype: "drink"` → **Hydrated** (faster radiation decay), 10 minutes.
-
-So any new food/drink gets the right buff for free — just set the subtype.
+`scope` is `class` (on the item template, in `items.tags`) or `instance`
+(presence-only flag on a *carried* item, in `player_inventory.custom_data`).
 
 ---
 
-## `stat_modifiers` JSON
+## Class Tags (taxonomy)
 
-Passive stat bumps carried by an item, e.g. the Pipe Wrench's `{"stat_str": 3}`
-or the Taser's `{"stat_agi": 4}`. Use real stat column names: `stat_str`,
-`stat_agi`, `stat_int`, `stat_wil`, `stat_end`, `stat_cha`.
+| Tag | Shape | What it does |
+|---|---|---|
+| `description` | text | Shown on examine / look. Always present in the editor. |
+| `stackable` | flag | Merges into one quantity row instead of duplicate rows. |
+| `quest_item` | flag | Cannot be dropped or sold. |
+| `unique` | flag | Reserved marker; not enforced yet. |
+| `weapon` | flag | Marks the combat weapon. The equipped item with this tag is used when you attack. |
+| `consumable` | flag | Usable via `use`/`eat`/`drink`; gates the consumable path. |
+| `drug` | flag | Drug marker (visibility/flavor). Mechanics still come from the `drugs` table joined by `item_id`. |
+| `material` / `currency` / `misc` | flag | Category markers (filtering/flavor). |
+| `slot` | enum | `head`·`torso`·`hands`·`legs`·`feet`·`weapon_hand`·`accessory`. **Presence of this tag is what makes an item equippable.** |
+| `armor` | int | Flat damage reduction while equipped. Stacks across worn pieces. |
+| `stat_bonus` | statmap | Passive stat bumps, e.g. `{ "stat_str": 3 }`. |
+| `requires` | statmap | Stat gates to equip, e.g. `{ "stat_str": 6 }`. |
+| `damage` | range | Weapon damage roll `{ min, max }`. |
+| `weapon_skill` | enum | `blunt`·`bladed`·`energy` — routes attack XP. |
+| `status_chance` | statmap | On-hit status, e.g. `{ "stunned": 0.3 }`. |
+| `restore_hp` / `restore_hunger` / `restore_thirst` / `restore_radiation` / `restore_sanity` | int | Consumable stat changes (can be negative). |
+| `grants_credits` | int | Credits granted on use (credit chips). |
+| `heal_over_time` | hot | Gradual heal `{ amount, duration_seconds }`, ticks once/min, stacks. |
+| `well_fed` | flag | Grants the Well-Fed buff (faster HP regen), 10 min. |
+| `hydrating` | flag | Grants the Hydrated buff (faster radiation decay), 10 min. |
 
-**Do not put `armor` here** — see the warning above. Armor goes in `effects`.
+### Name-collision note
 
----
-
-## `requirements` JSON
-
-Checked by `cmdEquip`/`cmdEquipById` before allowing an equip. Each key is a
-player field that must meet or exceed the value:
-
-```jsonc
-{ "stat_str": 6 }   // "Need str 6 to use this." if the player is under
-```
-
----
-
-## `flags` JSON
-
-Freeform, but two keys are meaningful to the engine:
-
-| Flag | Meaning |
-|---|---|
-| `slot` | Which body slot this equips to. **Must** be one of the seven canonical slots below for armor; weapons without a slot default to `weapon_hand`. |
-| (others) | Anything else is content/flavor — the engine ignores unknown flags. |
-
-### Canonical equip slots
-From `EQUIP_SLOTS` in `commands.js` — these strings, exactly:
-
-```
-head · torso · hands · legs · feet · weapon_hand · accessory
-```
-
-Equipping one item into an occupied slot auto-unequips whatever was there. The
-visual inventory panel (`inv`) maps drag targets to these same slots.
+Equip-eligibility is signaled by the **presence of a `slot` tag**, not by
+`weapon`/`armor`. `armor` is purely the integer damage-reduction tag, and
+`weapon` is purely the combat-weapon marker. A weapon therefore carries *both*
+`weapon` and `slot: "weapon_hand"`.
 
 ---
 
-## Item Types
+## Instance Flags
 
-`type` is the primary behavior switch.
-
-| Type | Behavior |
-|---|---|
-| `weapon` | Equippable into `weapon_hand` (or `flags.slot`). Uses `effects.damage_min/max`. |
-| `armor` | Equippable into `flags.slot`. Uses `effects.armor`. |
-| `consumable` | Usable via `use`/`eat`/`drink`. Runs the `effects` consumable keys + subtype buffs. |
-| `drug` | Usable via `use`, but routed through the **drug engine** (addiction/overdose/duration), not the plain consumable path. Needs a matching row in the `drugs` table joined by `item_id`. |
-| `material` | Crafting input. No direct use. |
-| `currency` | Credit chips — `effects.credits` is granted on use. |
-| `misc` | Key items, artifacts, accessories. May still be equippable if it has a valid `flags.slot` (e.g. the Rad-Counter Wristband → `accessory`). |
-
-`equip`/`unequip` only accept `type IN ('weapon','armor')` via typed commands.
-A `misc` accessory is equippable through the visual panel's id-targeted path
-when it has a valid slot.
+Presence-only flags on a single carried item, stored in
+`player_inventory.custom_data` (already JSONB). Currently `broken` and
+`cursed`. Written by game logic as `custom_data.<flag> = true` and read with
+`hasFlag(invRow, name)`. The crafting `custom_data.quality` value is unrelated
+and left untouched.
 
 ---
 
-## Drugs
-
-A `type: "drug"` item is only half the definition. The mechanical half lives in
-the `drugs` table (dev panel → **💊 Drugs**), linked by `item_id`:
-
-| Field | Meaning |
-|---|---|
-| `duration_seconds` | How long the dose stays active. |
-| `effects` | Same stat keys as consumables (`hp`, `sanity`, `radiation`, plus `stat_*_temp`). |
-| `addiction_chance` | Per-use roll to become addicted. |
-| `overdose_threshold` | Doses-in-system at which an overdose triggers. |
-| `withdrawal_effects` | `{ "overdose": { "hp": -20, ... } }` — applied on overdose. |
-
-`doses_in_system` decays over time once a dose's `active_until` passes. State is
-tracked per player in `player_drug_state`. Seeded examples: Buzz, Slow,
-Glasshollow.
-
----
-
-## Worked Examples (from the live seed)
+## Worked Examples
 
 ```jsonc
 // Weapon — Pipe Wrench
-{ "type":"weapon", "subtype":"blunt",
-  "effects":{"damage_min":4,"damage_max":9},
-  "stat_modifiers":{"stat_str":3},
-  "flags":{"slot":"weapon_hand"} }
+{ "description":"Heavy. Reliable. Pre-used.", "weapon":true, "weapon_skill":"blunt",
+  "slot":"weapon_hand", "damage":{"min":4,"max":9}, "stat_bonus":{"stat_str":3} }
 
 // Energy weapon with on-hit status — Custodian Taser
-{ "type":"weapon", "subtype":"energy",
-  "effects":{"damage_min":5,"damage_max":8,"status_chance":{"stunned":0.3}},
-  "stat_modifiers":{"stat_agi":4},
-  "flags":{"slot":"weapon_hand"} }
+{ "weapon":true, "weapon_skill":"energy", "slot":"weapon_hand",
+  "damage":{"min":5,"max":8}, "status_chance":{"stunned":0.3}, "stat_bonus":{"stat_agi":4} }
 
-// Armor — Scrap Helmet (head)
-{ "type":"armor", "subtype":"head",
-  "effects":{"armor":2}, "flags":{"slot":"head"} }
+// Armor piece — Scrap Helmet (head). Add `"armor": N` for damage reduction.
+{ "description":"A motorcycle helmet with extra rivets.", "slot":"head" }
 
 // Gradual heal — Trauma Kit
-{ "type":"consumable", "subtype":"medicine",
-  "effects":{"hp_over_time":{"amount":50,"duration_seconds":300}} }
+{ "consumable":true, "stackable":true, "heal_over_time":{"amount":50,"duration_seconds":300} }
 
-// Drink (auto Hydrated buff via subtype) — Glow Cocktail
-{ "type":"consumable", "subtype":"drink",
-  "effects":{"thirst":12,"sanity":12,"radiation":4} }
+// Drink (auto Hydrated buff) — Glow Cocktail
+{ "consumable":true, "stackable":true, "restore_thirst":12, "restore_sanity":12,
+  "restore_radiation":4, "hydrating":true }
 
-// Accessory in misc — Rad-Counter Wristband
-{ "type":"misc", "subtype":"accessory",
-  "effects":{}, "flags":{"slot":"accessory"} }
+// Accessory — Rad-Counter Wristband
+{ "description":"Clicks faster the worse your day is going.", "misc":true, "slot":"accessory" }
 ```
 
 ---
 
 ## Quick Checklist for a New Armor Piece
 
-1. `type` = `armor`.
-2. Damage reduction goes in **`effects`**: `{ "armor": N }`.
-3. `flags.slot` is one of: `head torso hands legs feet weapon_hand accessory`.
-4. Leave `stat_modifiers` for stat bumps only (or `{}`).
-5. Optional: `requirements` to gate it behind a stat.
-6. Save & Publish in the dev panel — equip it, check `stats` shows the higher
-   Armor number. If it reads 0, you used `stat_modifiers` or a bad slot.
+1. Add a `slot` tag — one of the seven canonical slots. (This is what makes it equippable.)
+2. Add an `armor` int tag for damage reduction. Without it the piece equips but reduces nothing.
+3. Optional `requires` to gate behind a stat; optional `stat_bonus` for passive bumps.
+4. Save & Publish in the dev panel — equip it, check `stats` shows the higher Armor number.
+
+---
+
+## Drugs
+
+A `drug`-tagged item is only half the definition. The mechanical half lives in
+the `drugs` table (dev panel → **💊 Drugs**), linked by `item_id`:
+`duration_seconds`, `effects`, `addiction_chance`, `overdose_threshold`,
+`withdrawal_effects`. `doses_in_system` decays over time; state is tracked per
+player in `player_drug_state`. Seeded examples: Buzz, Slow, Glasshollow.

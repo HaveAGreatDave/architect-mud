@@ -2,17 +2,22 @@ import { query } from '../../models/db.js';
 import { getZoneEnemies, getZoneCorpses, getZonePlayers } from '../world.js';
 import { playerAttackEnemy } from '../combat.js';
 import { awardSkillXp, skillCheck } from '../skills.js';
+import { hasTag, tagValue } from '../tags.js';
 import { randomUUID } from 'crypto';
 
 export async function resolveAttack(player, target, broadcast) {
-  const { rows } = await query(`SELECT i.* FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.is_equipped=1 AND i.type='weapon' LIMIT 1`, [player.id]);
+  const { rows } = await query(`SELECT i.* FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.is_equipped=1 AND jsonb_exists(i.tags,'weapon') LIMIT 1`, [player.id]);
   const equipped = rows[0];
-  const weaponStats = equipped ? (equipped.effects || {}) : { damage_min:2, damage_max:4 };
+  const dmg = equipped ? (tagValue(equipped, 'damage', {}) || {}) : {};
+  const weaponStats = equipped
+    ? { damage_min: dmg.min, damage_max: dmg.max, status_chance: tagValue(equipped, 'status_chance') }
+    : { damage_min:2, damage_max:4 };
   const result = playerAttackEnemy(player, target.instanceId, weaponStats);
   if (!result.success) return { type:'error', message:result.message };
 
   if (result.hit) {
-    const skillId = equipped?.subtype === 'bladed' ? 'bladed' : equipped?.subtype === 'energy' ? 'electronics' : 'brawling';
+    const wskill = tagValue(equipped, 'weapon_skill');
+    const skillId = wskill === 'bladed' ? 'bladed' : wskill === 'energy' ? 'electronics' : 'brawling';
     await awardSkillXp(player.id, skillId, result.killed ? 15 : 5);
   }
 
@@ -46,12 +51,12 @@ async function cmdAttack(targetStr, player, broadcast) {
 async function cmdLootCorpse(targetStr, player, broadcast) {
   const corpses = getZoneCorpses(player.current_zone);
   if (!corpses.length) return { type:'error', message:'No corpses to loot here.' };
-  const { rows } = await query(`SELECT pi.*,i.name,i.is_stackable FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1`, [`_corpse_${player.current_zone}`]);
+  const { rows } = await query(`SELECT pi.*,i.name,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1`, [`_corpse_${player.current_zone}`]);
   if (!rows.length) return { type:'error', message:'Nothing left to loot.' };
 
   const looted = [];
   for (const item of rows) {
-    if (item.is_stackable) {
+    if (hasTag(item, 'stackable')) {
       const { rows: existing } = await query(
         'SELECT id, quantity FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND is_equipped=0',
         [player.id, item.item_id]

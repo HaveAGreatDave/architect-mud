@@ -336,6 +336,9 @@ export async function migrate() {
 
   console.log('✓ Database migrated (Postgres)');
 
+  await migrateItemTags();
+  console.log('✓ Item tags migrated');
+
   await migrateEnvironment(query);
   console.log('✓ Environment tables migrated');
 
@@ -367,6 +370,72 @@ export async function migrate() {
 
   await seedAmbientEvents();
   console.log('✓ Ambient events seeded');
+}
+
+// Collapse all item *behavior* into the single `tags` JSONB column. Adds the
+// column, backfills it from the legacy columns (idempotent — only touches rows
+// whose tags are still '{}'), and relaxes the now-optional NOT NULLs so the
+// API can stop sending description/type. The 7 behavioral columns are dropped
+// in a separate, later commit once the engine + panel are verified.
+async function migrateItemTags() {
+  await query(`ALTER TABLE items ADD COLUMN IF NOT EXISTS tags JSONB DEFAULT '{}'`);
+  await query(`ALTER TABLE items ALTER COLUMN description DROP NOT NULL`).catch(() => {});
+  await query(`ALTER TABLE items ALTER COLUMN type DROP NOT NULL`).catch(() => {});
+
+  const { rows } = await query(`SELECT * FROM items WHERE tags = '{}'::jsonb`);
+  for (const r of rows) {
+    const tags = buildTagsFromLegacyItem(r);
+    if (!Object.keys(tags).length) continue;
+    await query(`UPDATE items SET tags = $1 WHERE id = $2`, [JSON.stringify(tags), r.id]);
+  }
+  if (rows.length) console.log(`  · backfilled tags for ${rows.length} item(s)`);
+}
+
+function buildTagsFromLegacyItem(r) {
+  const tags = {};
+  if (r.description) tags.description = r.description;
+
+  // type markers (armor-ness is carried by slot + the armor int, not a marker)
+  const typeMarker = { weapon: 'weapon', consumable: 'consumable', drug: 'drug',
+    material: 'material', currency: 'currency', misc: 'misc' }[r.type];
+  if (typeMarker) tags[typeMarker] = true;
+
+  // subtype hooks
+  if (r.subtype === 'food') tags.well_fed = true;
+  if (r.subtype === 'drink') tags.hydrating = true;
+  if (r.type === 'weapon' && ['blunt', 'bladed', 'energy'].includes(r.subtype)) {
+    tags.weapon_skill = r.subtype;
+  }
+
+  if (r.is_stackable) tags.stackable = true;
+  if (r.is_quest_item) tags.quest_item = true;
+  if (r.is_unique) tags.unique = true;
+
+  const fx = r.effects || {};
+  if (fx.armor != null) tags.armor = fx.armor;
+  if (fx.damage_min != null || fx.damage_max != null) {
+    tags.damage = { min: fx.damage_min ?? 0, max: fx.damage_max ?? 0 };
+  }
+  if (fx.status_chance) tags.status_chance = fx.status_chance;
+  if (fx.hp != null) tags.restore_hp = fx.hp;
+  if (fx.hunger != null) tags.restore_hunger = fx.hunger;
+  if (fx.thirst != null) tags.restore_thirst = fx.thirst;
+  if (fx.radiation != null) tags.restore_radiation = fx.radiation;
+  if (fx.sanity != null) tags.restore_sanity = fx.sanity;
+  if (fx.credits != null) tags.grants_credits = fx.credits;
+  if (fx.hp_over_time) tags.heal_over_time = fx.hp_over_time;
+
+  // slot — copy from flags; make the weapon fallback explicit
+  const flags = r.flags || {};
+  if (flags.slot) tags.slot = flags.slot;
+  else if (r.type === 'weapon') tags.slot = 'weapon_hand';
+
+  const reqs = r.requirements || {};
+  if (Object.keys(reqs).length) tags.requires = reqs;
+  const mods = r.stat_modifiers || {};
+  if (Object.keys(mods).length) tags.stat_bonus = mods;
+
+  return tags;
 }
 
 async function seedAmbientEvents() {

@@ -1,0 +1,99 @@
+/**
+ * Item Tag Catalog — single source of truth for item behavior.
+ *
+ * Every behavioral property an item can have is a tag. This catalog documents
+ * what each tag does, what shape its value takes, and how the dev panel should
+ * render an editor widget for it. The engine reads behavior from tags; this
+ * file is the reference so functionality isn't forgotten as the list grows.
+ *
+ * Dual-mode by design: the dev panel loads this as a classic <script> (so it
+ * can't use a bare `export`), while the Node engine imports it for its side
+ * effect and reads the global. Both land on `globalThis.TAG_CATALOG`.
+ *
+ * shape — drives the dev-panel input widget and serialization:
+ *   text    free text (textarea)
+ *   flag    valueless marker (stored as `true`)
+ *   int     integer
+ *   enum    one of `options`
+ *   range   { min, max }
+ *   hot     heal-over-time { amount, duration_seconds }
+ *   statmap JSON object of key -> number (small JSON textarea)
+ *
+ * scope — 'class' tags live on the item template (items.tags); 'instance' tags
+ * are presence-only flags on a carried item (player_inventory.custom_data).
+ */
+(function (global) {
+  const TAG_CATALOG = {
+    // --- Core / identity ---
+    description: { label: 'Description', shape: 'text', scope: 'class', group: 'Core',
+      help: 'Free text shown on examine / look <item>.' },
+    stackable: { label: 'Stackable', shape: 'flag', scope: 'class', group: 'Core',
+      help: 'Merges into a single quantity row instead of duplicate rows.' },
+    quest_item: { label: 'Quest Item', shape: 'flag', scope: 'class', group: 'Core',
+      help: 'Cannot be dropped or sold.' },
+    unique: { label: 'Unique', shape: 'flag', scope: 'class', group: 'Core',
+      help: 'Reserved marker; not enforced in engine logic yet.' },
+
+    // --- Type markers (filtering / flavor / routing) ---
+    weapon: { label: 'Weapon', shape: 'flag', scope: 'class', group: 'Type',
+      help: 'Marks a combat weapon. The equipped item with this tag is used when you attack.' },
+    consumable: { label: 'Consumable', shape: 'flag', scope: 'class', group: 'Type',
+      help: 'Usable via use / eat / drink. Gates the consumable-effect path.' },
+    drug: { label: 'Drug', shape: 'flag', scope: 'class', group: 'Type',
+      help: 'Marks a drug (visibility/flavor). Mechanics still come from the drugs table joined by item_id.' },
+    material: { label: 'Material', shape: 'flag', scope: 'class', group: 'Type',
+      help: 'Crafting input. No direct use.' },
+    currency: { label: 'Currency', shape: 'flag', scope: 'class', group: 'Type',
+      help: 'Credit chip flavor marker. Use grants_credits for the actual payout.' },
+    misc: { label: 'Misc', shape: 'flag', scope: 'class', group: 'Type',
+      help: 'Catch-all flavor marker for key items, artifacts, accessories.' },
+
+    // --- Equipment ---
+    slot: { label: 'Equip Slot', shape: 'enum', scope: 'class', group: 'Equipment',
+      options: ['head', 'torso', 'hands', 'legs', 'feet', 'weapon_hand', 'accessory'],
+      help: 'Body slot this equips to. Presence of this tag is what makes an item equippable.' },
+    armor: { label: 'Armor', shape: 'int', scope: 'class', group: 'Equipment',
+      help: 'Flat damage reduction while equipped. Stacks across all worn pieces.' },
+    stat_bonus: { label: 'Stat Bonus', shape: 'statmap', scope: 'class', group: 'Equipment',
+      help: 'Passive stat bumps, e.g. { "stat_str": 3 }. Use real stat keys (stat_str/agi/int/wil/end/cha).' },
+    requires: { label: 'Requirements', shape: 'statmap', scope: 'class', group: 'Equipment',
+      help: 'Stat gates to equip, e.g. { "stat_str": 6 }. Each key must be met or exceeded.' },
+
+    // --- Combat ---
+    damage: { label: 'Damage', shape: 'range', scope: 'class', group: 'Combat',
+      help: 'Weapon damage roll range { min, max }.' },
+    weapon_skill: { label: 'Weapon Skill', shape: 'enum', scope: 'class', group: 'Combat',
+      options: ['blunt', 'bladed', 'energy'],
+      help: 'Which combat skill earns XP and routes the attack.' },
+    status_chance: { label: 'Status Chance', shape: 'statmap', scope: 'class', group: 'Combat',
+      help: 'Chance to inflict a status, e.g. { "stunned": 0.3 }.' },
+
+    // --- Consumable effects ---
+    restore_hp: { label: 'Restore HP', shape: 'int', scope: 'class', group: 'Consumable',
+      help: 'Instant HP change (can be negative).' },
+    restore_hunger: { label: 'Restore Hunger', shape: 'int', scope: 'class', group: 'Consumable',
+      help: 'Restores the hunger meter (capped at 100).' },
+    restore_thirst: { label: 'Restore Thirst', shape: 'int', scope: 'class', group: 'Consumable',
+      help: 'Restores the thirst meter (capped at 100).' },
+    restore_radiation: { label: 'Restore Radiation', shape: 'int', scope: 'class', group: 'Consumable',
+      help: 'Adds/removes radiation (RadAway uses -20).' },
+    restore_sanity: { label: 'Restore Sanity', shape: 'int', scope: 'class', group: 'Consumable',
+      help: 'Adjusts Sanity (drinks restore it; some items drop it).' },
+    grants_credits: { label: 'Grants Credits', shape: 'int', scope: 'class', group: 'Consumable',
+      help: 'Currency granted on use (credit chips).' },
+    heal_over_time: { label: 'Heal Over Time', shape: 'hot', scope: 'class', group: 'Consumable',
+      help: 'Gradual heal { amount, duration_seconds }, ticks once/min, stacks if re-used.' },
+    well_fed: { label: 'Well-Fed', shape: 'flag', scope: 'class', group: 'Consumable',
+      help: 'Grants the Well-Fed buff (faster HP regen) for 10 minutes.' },
+    hydrating: { label: 'Hydrating', shape: 'flag', scope: 'class', group: 'Consumable',
+      help: 'Grants the Hydrated buff (faster radiation decay) for 10 minutes.' },
+
+    // --- Instance flags (presence-only, on a carried item) ---
+    broken: { label: 'Broken', shape: 'flag', scope: 'instance', group: 'Instance',
+      help: 'Per-item state flag set on a carried instance.' },
+    cursed: { label: 'Cursed', shape: 'flag', scope: 'instance', group: 'Instance',
+      help: 'Per-item state flag set on a carried instance.' },
+  };
+
+  global.TAG_CATALOG = TAG_CATALOG;
+})(typeof window !== 'undefined' ? window : globalThis);

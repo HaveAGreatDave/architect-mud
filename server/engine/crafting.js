@@ -141,8 +141,8 @@ export async function attemptCraft(player, recipeId, stationQuality = 'none') {
   const outputQty = recipe.base_output.quantity * (critical ? 2 : 1);
   const customData = { quality: outputQuality };
 
-  const { rows: outputItemRows } = await query('SELECT is_stackable FROM items WHERE id=$1', [recipe.base_output.item_id]);
-  const outputIsStackable = outputItemRows[0]?.is_stackable;
+  const { rows: outputItemRows } = await query('SELECT tags FROM items WHERE id=$1', [recipe.base_output.item_id]);
+  const outputIsStackable = outputItemRows[0]?.tags?.stackable;
 
   let existingStack = [];
   if (outputIsStackable) {

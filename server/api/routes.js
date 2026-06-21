@@ -523,15 +523,15 @@ async function apiGetItems() { const {rows}=await query('SELECT * FROM items'); 
 async function apiCreateItem(body) {
   const id=body.id||`item_${Date.now()}`;
   try {
-    await query(`INSERT INTO items (id,name,description,type,subtype,weight,value,rarity,is_stackable,is_unique,is_quest_item,effects,stat_modifiers,requirements,flags) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
-      [id,body.name,body.description,body.type||'misc',body.subtype||null,body.weight||1,body.value||0,body.rarity||'common',body.is_stackable?1:0,body.is_unique?1:0,body.is_quest_item?1:0,JSON.stringify(body.effects||{}),JSON.stringify(body.stat_modifiers||{}),JSON.stringify(body.requirements||{}),JSON.stringify(body.flags||{})]);
+    await query(`INSERT INTO items (id,name,weight,value,rarity,tags) VALUES ($1,$2,$3,$4,$5,$6)`,
+      [id,body.name,body.weight||1,body.value||0,body.rarity||'common',JSON.stringify(body.tags||{})]);
     return {status:201,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
 export async function apiUpdateItem(id,body) {
   try {
-    await query(`UPDATE items SET name=$1,description=$2,type=$3,subtype=$4,weight=$5,value=$6,rarity=$7,is_stackable=$8,effects=$9,stat_modifiers=$10,requirements=$11,flags=$12 WHERE id=$13`,
-      [body.name,body.description,body.type,body.subtype,body.weight,body.value,body.rarity,body.is_stackable?1:0,JSON.stringify(body.effects||{}),JSON.stringify(body.stat_modifiers||{}),JSON.stringify(body.requirements||{}),JSON.stringify(body.flags||{}),id]);
+    await query(`UPDATE items SET name=$1,weight=$2,value=$3,rarity=$4,tags=$5 WHERE id=$6`,
+      [body.name,body.weight,body.value,body.rarity,JSON.stringify(body.tags||{}),id]);
     return {status:200,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
