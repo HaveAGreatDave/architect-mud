@@ -104,11 +104,14 @@
 
 <!-- BIG MAP -->
 <div id="bigmap-overlay" onclick="if(event.target===this) closeBigMap()">
-  <div class="modal-card">
-    <h2 id="bigmap-title">City Map</h2>
+  <div class="modal-card bigmap-modal">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      <h2 id="bigmap-title" style="margin-bottom:0">City Map</h2>
+      <div id="bigmap-floor-ctrl" style="margin-left:auto;display:flex;align-items:center;gap:6px"></div>
+      <button class="action-btn" onclick="closeBigMap()">✕</button>
+    </div>
     <div id="bigmap-grid"></div>
-    <div id="bigmap-legend"></div>
-    <button class="action-btn" style="margin-top:14px;width:100%" onclick="closeBigMap()">Close</button>
+    <div id="bigmap-legend" style="margin-top:10px;display:flex;gap:14px;flex-wrap:wrap;font-size:10px;color:var(--text-dim)"></div>
   </div>
 </div>
 
@@ -1849,18 +1852,130 @@ function mapLegendHtml(mode) {
 
 let bigMapZones = [];
 let bigMapPowerData = [];
+let bigMapOverlayData = null;
+let bigMapOverlayZ = 0;
+let bigMapOverlayMode = 'zones';
 
 async function openBigMap(mode = 'zones') {
-  const calls = [API('/zones').catch(() => [])];
+  bigMapOverlayMode = mode;
+  // Fetch the primary map data the same way the Maps tab does, plus power if needed.
+  const calls = [API('/maps/map_world').catch(() => null)];
   if (mode === 'power') calls.push(API('/environment/power/map').catch(() => []));
-  const [zones, powerMap] = await Promise.all(calls);
-  bigMapZones = Array.isArray(zones) ? zones : [];
+  const [mapData, powerMap] = await Promise.all(calls);
+  if (!mapData || mapData.error) { toast('Could not load map data', true); return; }
+  bigMapOverlayData = {
+    map: mapData.map,
+    zones: new Map((mapData.zones || []).map(z => [z.id, { ...z, exits: z.exits || {}, grid_z: z.grid_z ?? 0 }])),
+    children: mapData.children || [],
+  };
+  // Keep bigMapZones in sync so buildDynamicMapGrid (power panel) still works.
+  bigMapZones = mapData.zones || [];
   bigMapPowerData = Array.isArray(powerMap) ? powerMap : [];
-  document.getElementById('bigmap-title').textContent = mode === 'power' ? 'Power Grid Map' : 'City Map';
-  const powerById = new Map(bigMapPowerData.map(p => [p.zoneId, p]));
-  document.getElementById('bigmap-grid').innerHTML = buildDynamicMapGrid(bigMapZones, mode, powerById, true);
-  document.getElementById('bigmap-legend').innerHTML = mapLegendHtml(mode);
+  bigMapOverlayZ = 0;
+  document.getElementById('bigmap-title').textContent = mode === 'power' ? 'Power Grid' : (mapData.map?.name || 'City Map');
+  renderBigMapOverlay();
   document.getElementById('bigmap-overlay').classList.add('active');
+}
+
+function renderBigMapOverlay() {
+  const d = bigMapOverlayData;
+  if (!d) return;
+  const powerById = new Map(bigMapPowerData.map(p => [p.zoneId, p]));
+  const all = [...d.zones.values()];
+  const floors = [...new Set(all.map(z => z.grid_z ?? 0))].sort((a, b) => a - b);
+  const onFloor = all.filter(z => (z.grid_z ?? 0) === bigMapOverlayZ && z.grid_x != null && z.grid_y != null);
+
+  // Floor selector
+  const floorCtrl = document.getElementById('bigmap-floor-ctrl');
+  if (floorCtrl) {
+    floorCtrl.innerHTML = floors.length > 1
+      ? `<button class="action-btn" onclick="changeBigMapFloor(-1)">▾</button>
+         <span style="font-size:11px;color:var(--text-dim);min-width:48px;text-align:center">z = ${bigMapOverlayZ}</span>
+         <button class="action-btn" onclick="changeBigMapFloor(1)">▴</button>`
+      : '';
+  }
+
+  if (!onFloor.length) {
+    document.getElementById('bigmap-grid').innerHTML = '<div style="padding:24px;color:var(--text-dim);text-align:center">No zones on this floor.</div>';
+    document.getElementById('bigmap-legend').innerHTML = mapLegendHtml(bigMapOverlayMode);
+    return;
+  }
+
+  const xs = onFloor.map(z => z.grid_x), ys = onFloor.map(z => z.grid_y);
+  const minX = Math.min(...xs) - 1, maxX = Math.max(...xs) + 1;
+  const minY = Math.min(...ys) - 1, maxY = Math.max(...ys) + 1;
+  const byCoord = new Map(onFloor.map(z => [`${z.grid_x},${z.grid_y}`, z]));
+
+  const W = maxX - minX + 1, H = maxY - minY + 1;
+  const colTmpl = Array.from({ length: 2 * W - 1 }, (_, i) => i % 2 ? '14px' : '110px').join(' ');
+  const rowTmpl = Array.from({ length: 2 * H - 1 }, (_, i) => i % 2 ? '14px' : '76px').join(' ');
+  const col = x => 2 * (x - minX) + 1, row = y => 2 * (y - minY) + 1;
+
+  let html = `<div style="display:inline-grid;grid-template-columns:${colTmpl};grid-template-rows:${rowTmpl}">`;
+
+  for (let y = minY; y <= maxY; y++) {
+    for (let x = minX; x <= maxX; x++) {
+      const z = byCoord.get(`${x},${y}`);
+      const gs = `grid-column:${col(x)};grid-row:${row(y)}`;
+      if (!z) { html += `<div style="${gs}"></div>`; continue; }
+
+      const marker = z.marker ? `<span class="map-marker-badge">${z.marker}</span>` : '';
+      const child = d.children.find(c => c.parent_zone_id === z.id);
+      const dive = child ? `<span class="map-dive-btn" title="Has interior">⤵</span>` : '';
+      const exitDirs = Object.keys(z.exits || {});
+      const exHtml = exitDirs.length
+        ? `<div class="cell-exits">${exitDirs.map(dir => {
+            const sym = dir === 'up' ? '▲' : dir === 'down' ? '▼' : dir[0].toUpperCase();
+            return `<span class="${(dir === 'up' || dir === 'down') ? 'ex-vert' : ''}">${sym}</span>`;
+          }).join(' ')}</div>`
+        : '';
+
+      let cls = `bigmap-tile bm-danger-${z.danger_rating || 'safe'}`;
+      let colorStyle = z.color ? `border-color:${z.color};` : '';
+      if (bigMapOverlayMode === 'power') {
+        const p = powerById.get(z.id);
+        cls = `bigmap-tile bm-power-${p ? p.status : 'unpowered'}`;
+        colorStyle = '';
+      }
+
+      html += `<div class="${cls}" style="${gs};${colorStyle}" title="${z.id}" onclick="bigMapTileClick('${z.id}')"><div>${dive}${marker}${z.name}${exHtml}</div></div>`;
+    }
+  }
+
+  // Connection slots — same rendering as renderMapOverview
+  for (let y = minY; y <= maxY; y++) {
+    for (let x = minX; x < maxX; x++) {
+      const a = byCoord.get(`${x},${y}`), b = byCoord.get(`${x+1},${y}`);
+      const gs = `grid-column:${col(x)+1};grid-row:${row(y)}`;
+      if (a && b) {
+        const aToB = a.exits?.east === b.id, bToA = b.exits?.west === a.id;
+        if (aToB && bToA) html += `<div class="conn conn-h conn-linked" style="${gs}"><span class="ln"></span></div>`;
+        else if (aToB || bToA) html += `<div class="conn conn-h conn-oneway" style="${gs}">${aToB ? '▸' : '◂'}</div>`;
+        else html += `<div class="conn conn-h conn-open" style="${gs}"><span class="ln"></span></div>`;
+      } else html += `<div class="conn conn-h" style="${gs}"></div>`;
+    }
+  }
+  for (let y = minY; y < maxY; y++) {
+    for (let x = minX; x <= maxX; x++) {
+      const a = byCoord.get(`${x},${y}`), b = byCoord.get(`${x},${y+1}`);
+      const gs = `grid-column:${col(x)};grid-row:${row(y)+1}`;
+      if (a && b) {
+        const aToB = a.exits?.south === b.id, bToA = b.exits?.north === a.id;
+        if (aToB && bToA) html += `<div class="conn conn-v conn-linked" style="${gs}"><span class="ln"></span></div>`;
+        else if (aToB || bToA) html += `<div class="conn conn-v conn-oneway" style="${gs}">${aToB ? '▾' : '▴'}</div>`;
+        else html += `<div class="conn conn-v conn-open" style="${gs}"><span class="ln"></span></div>`;
+      } else html += `<div class="conn conn-v" style="${gs}"></div>`;
+    }
+  }
+
+  html += '</div>';
+  document.getElementById('bigmap-grid').innerHTML = html;
+  document.getElementById('bigmap-legend').innerHTML = mapLegendHtml(bigMapOverlayMode);
+}
+
+function changeBigMapFloor(delta) {
+  bigMapOverlayZ += delta;
+  renderBigMapOverlay();
 }
 
 function closeBigMap() {
@@ -2096,17 +2211,25 @@ function renderMapOverview() {
   }
   html += `</div></div>`;
 
-  // Unplaced-zones tray — always visible so builders know where to drag new zones.
+  // Unplaced-zones tray — zones with no map assignment, plus placed zones with
+  // no exits (disconnected islands that a builder likely forgot to wire up).
   const tray = [...o.unplaced.values()];
+  const disconnected = [...o.zones.values()].filter(z =>
+    Object.keys(z.exits || {}).length === 0 && z.grid_x != null
+  );
+  const trayChip = z => `<span class="bigmap-tile bm-edit bm-danger-${z.danger_rating || 'safe'}" style="width:auto;height:auto;padding:4px 8px;cursor:grab;flex-shrink:0" draggable="true" ondragstart="mapTrayDragStart(event,'${z.id}')" title="${z.id}">${z.name}</span>`;
   html += `<div style="padding:0 12px 14px;border-top:1px solid var(--border);margin-top:8px">
-    <div style="font-size:11px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;padding-top:10px">Unplaced Zones</div>
-    <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px">Drag a zone onto any empty cell to place it on <strong>${o.map.name}</strong>. Zones appear here when created without a map position.</div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap">${tray.length
-      ? tray.map(z =>
-          `<span class="bigmap-tile bm-edit bm-danger-${z.danger_rating || 'safe'}" style="width:auto;height:auto;padding:4px 8px;cursor:grab" draggable="true" ondragstart="mapTrayDragStart(event,'${z.id}')" title="${z.id}">${z.name}</span>`
-        ).join('')
-      : `<span style="color:var(--text-dim);font-style:italic;font-size:11px">All zones are placed.</span>`
+    <div style="font-size:11px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;padding-top:10px">Unplaced Zones</div>
+    <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px">Zones with no map position. Drag onto an empty cell to place on <strong>${o.map.name}</strong>.</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:${disconnected.length ? '14px' : '0'}">${tray.length
+      ? tray.map(trayChip).join('')
+      : `<span style="color:var(--text-dim);font-style:italic;font-size:11px">None.</span>`
     }</div>
+    ${disconnected.length ? `
+    <div style="font-size:11px;font-weight:600;color:var(--yellow);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">No Connections</div>
+    <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px">These zones are on the map but have no exits — they may need wiring up.</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">${disconnected.map(trayChip).join('')}</div>
+    ` : ''}
   </div>`;
   panel.innerHTML = html;
 }
