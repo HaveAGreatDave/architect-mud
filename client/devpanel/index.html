@@ -2313,14 +2313,14 @@ function renderMapOverview() {
   const col = x => 2 * (x - minX) + 1, row = y => 2 * (y - minY) + 1;
   const cellStyle = (x, y, extra = '') => `style="grid-column:${col(x)};grid-row:${row(y)}${extra}"`;
 
-  html += `<div style="padding:12px;overflow:auto" ondragover="event.preventDefault()"><div style="display:grid;grid-template-columns:${colTmpl};grid-template-rows:${rowTmpl}">`;
+  html += `<div style="padding:12px;overflow:auto" ondragover="event.preventDefault()" ondrop="mapGridDrop(event)"><div style="display:grid;grid-template-columns:${colTmpl};grid-template-rows:${rowTmpl}">`;
 
   // Cells (and empty/create slots)
   for (let y = minY; y <= maxY; y++) {
     for (let x = minX; x <= maxX; x++) {
       const z = byCoord.get(`${x},${y}`);
       if (!z) {
-        html += `<div class="bigmap-tile-create" ${cellStyle(x, y)} ondragover="event.preventDefault()" ondrop="mapDrop(event,${x},${y})" onclick="createZoneAt(${x},${y})">+</div>`;
+        html += `<div class="bigmap-tile-create" ${cellStyle(x, y)} data-map-cell="${x},${y}" ondragover="event.preventDefault()" onclick="createZoneAt(${x},${y})">+</div>`;
         continue;
       }
       let cls = `bigmap-tile bm-edit bm-danger-${z.danger_rating || 'safe'}`;
@@ -2336,7 +2336,7 @@ function renderMapOverview() {
         const sym = d === 'up' ? '▲' : d === 'down' ? '▼' : d[0].toUpperCase();
         return `<span class="${cl}">${sym}</span>`;
       }).join(' ')}</div>` : '';
-      html += `<div class="${cls}" ${cellStyle(x, y, colorStyle)} title="${z.id}" draggable="true" ondragstart="mapDragStart(event,'${z.id}')" ondragover="event.preventDefault()" ondrop="mapDrop(event,${x},${y})" onclick="mapTileEditClick('${z.id}')"><div>${dive}${marker}${z.name}${exHtml}</div></div>`;
+      html += `<div class="${cls}" ${cellStyle(x, y, colorStyle)} data-map-cell="${x},${y}" title="${z.id}" draggable="true" ondragstart="mapDragStart(event,'${z.id}')" ondragover="event.preventDefault()" onclick="mapTileEditClick('${z.id}')"><div>${dive}${marker}${z.name}${exHtml}</div></div>`;
     }
   }
 
@@ -2485,6 +2485,19 @@ async function mapRemoveExit(zoneId, dir) {
   const r = await API(`/zones/${zoneId}`, 'PUT', { exits: z.exits });
   if (r?.error) { z.exits[dir] = old; renderMapOverview(); toast(r.error, true); return; }
   updateStagingBadge();
+}
+
+// Single drop handler on the grid wrapper — walks up from event.target to find
+// the nearest element with data-map-cell, then delegates to mapDrop. This
+// avoids the HTML5 DnD bug where drop fires on an inner child that has no
+// ondrop, gets silently discarded even though the parent has a handler.
+function mapGridDrop(e) {
+  e.preventDefault();
+  let el = e.target;
+  while (el && !el.dataset.mapCell) el = el.parentElement;
+  if (!el) return;
+  const [x, y] = el.dataset.mapCell.split(',').map(Number);
+  mapDrop(e, x, y);
 }
 
 function mapDragStart(e, id) {

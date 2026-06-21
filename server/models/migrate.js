@@ -517,20 +517,22 @@ async function seedAmbientEvents() {
   `).catch(() => {});
 
   // Cleanup: strip is_building / is_interior / world_exit_zone from any zone
-  // that lives on an exterior map (parent_zone_id IS NULL). These flags only
-  // make sense for zones inside interior maps. Dirty maps rows (entry_zone_id
-  // pointing at an exterior zone) can cause the forward backfill below to
-  // incorrectly stamp these flags, so we clear them first.
+  // that has those flags but is NOT the actual entry zone of an interior map it
+  // belongs to. Covers zones with map_id=NULL, zones on exterior maps, and zones
+  // pointed at by dirty maps rows where entry_zone_id doesn't match map_id.
   await query(`
     UPDATE zones z
     SET flags = z.flags - 'is_building' - 'is_interior' - 'world_exit_zone'
-    FROM maps m
-    WHERE z.map_id = m.id
-      AND m.parent_zone_id IS NULL
-      AND (
-        COALESCE((z.flags->>'is_building')::boolean, false) = true
-        OR COALESCE((z.flags->>'is_interior')::boolean, false) = true
-      )
+    WHERE (
+      COALESCE((z.flags->>'is_building')::boolean, false) = true
+      OR COALESCE((z.flags->>'is_interior')::boolean, false) = true
+    )
+    AND NOT EXISTS (
+      SELECT 1 FROM maps m
+      WHERE m.entry_zone_id = z.id
+        AND m.parent_zone_id IS NOT NULL
+        AND z.map_id = m.id
+    )
   `).catch(() => {});
 
   // Backfill: any zone that is the entry_zone_id of an interior map AND is
