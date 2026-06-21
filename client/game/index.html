@@ -900,6 +900,7 @@ function _switchToTab(key) {
   _renderWhisperLog();
   const footer = document.getElementById('whisper-footer');
   if (footer) footer.style.display = key === USERS_TAB ? 'none' : 'flex';
+  if (key === USERS_TAB) _fetchOnlinePlayers();
 }
 
 function _refreshWhisperTabs() {
@@ -944,24 +945,22 @@ function _renderWhisperLog() {
 }
 
 function _renderUsersTab(log) {
-  if (!_onlinePlayers.length) {
-    log.innerHTML = '<div style="padding:16px 10px;color:var(--text-dim);font-size:11px">No players online.</div>'
-      + '<div style="padding:0 10px"><button onclick="_fetchOnlinePlayers()" style="width:100%;background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font-mono);font-size:10px;padding:4px;cursor:pointer;border-radius:2px">↻ Refresh</button></div>';
-    _fetchOnlinePlayers();
-    return;
-  }
   log.innerHTML = '<div style="padding:8px 10px 4px;font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">Online now</div>'
-    + _onlinePlayers.map(p => `<div style="display:flex;align-items:center;padding:6px 10px;border-bottom:1px solid var(--border);cursor:pointer" onclick="openWhisperTab('${p.handle.replace(/'/g,"\\'")}')"><span style="font-size:12px;color:var(--text)">${p.handle}</span></div>`).join('')
+    + (_onlinePlayers.length
+      ? _onlinePlayers.map(p => {
+          const h = p.handle.replace(/'/g,"\\'");
+          return `<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 10px;border-bottom:1px solid var(--border)"><span style="font-size:12px;color:var(--text)">${p.handle}</span><button onclick="openWhisperTab('${h}')" title="Whisper ${p.handle}" style="background:transparent;border:none;color:var(--accent);font-size:13px;cursor:pointer;padding:0 2px;line-height:1">💬</button></div>`;
+        }).join('')
+      : '<div style="padding:10px 10px;color:var(--text-dim);font-size:11px">No other players online.</div>')
     + '<div style="padding:6px 10px"><button onclick="_fetchOnlinePlayers()" style="width:100%;background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font-mono);font-size:10px;padding:4px;cursor:pointer;border-radius:2px">↻ Refresh</button></div>';
 }
 
 async function _fetchOnlinePlayers() {
   try {
-    const token = sessionStorage.getItem('devpanel-token');
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
-    const r = await fetch('/api/players', { headers });
+    const r = await fetch('/api/players/online');
     const data = await r.json();
-    _onlinePlayers = Array.isArray(data) ? data.filter(p => p.online) : [];
+    const myHandle = document.getElementById('handle-display')?.textContent?.trim();
+    _onlinePlayers = Array.isArray(data) ? data.filter(p => p.handle !== myHandle) : [];
   } catch { _onlinePlayers = []; }
   if (_whisperPanelVisible && _activeWhisperTab === USERS_TAB) {
     _renderUsersTab(document.getElementById('whisper-log'));
@@ -1072,11 +1071,9 @@ async function openWhoModal() {
   document.getElementById('who-search').value = '';
   document.getElementById('who-list').innerHTML = '<div style="padding:16px;color:var(--text-dim);font-size:12px">Loading…</div>';
   try {
-    const token = sessionStorage.getItem('devpanel-token');
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
-    const r = await fetch('/api/players', { headers });
+    const r = await fetch('/api/players/online');
     const data = await r.json();
-    _whoPlayers = Array.isArray(data) ? data.filter(p => p.online) : [];
+    _whoPlayers = Array.isArray(data) ? data : [];
   } catch { _whoPlayers = []; }
   _renderWhoList(_whoPlayers);
 }
