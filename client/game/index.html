@@ -347,6 +347,7 @@
   .auth-error { color: var(--red); font-size: 11px; margin-top: 8px; text-align: center; min-height: 16px; }
   .auth-handle-field { display: none; }
   .auth-handle-field.visible { display: block; }
+  @keyframes chat-ping { from { transform: scale(1); box-shadow: 0 0 4px var(--accent); } to { transform: scale(1.35); box-shadow: 0 0 10px var(--accent), 0 0 20px var(--accent-dim); } }
 </style>
 <link rel="stylesheet" href="styles.css">
 </head>
@@ -478,7 +479,10 @@
     </div>
 
     <div class="sidebar-section" style="margin-top:auto;padding-top:8px;border-top:1px solid var(--border)">
-      <button id="chat-toggle-btn" onclick="toggleWhisperPanel()" title="Toggle whisper chat" style="width:100%;background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font-mono);font-size:11px;padding:5px 8px;cursor:pointer;border-radius:2px;text-align:left;transition:all 0.15s">💬 Chat</button>
+      <div style="position:relative;display:inline-block;width:100%">
+        <button id="chat-toggle-btn" onclick="toggleWhisperPanel()" title="Toggle whisper chat" style="width:100%;background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font-mono);font-size:11px;padding:5px 8px;cursor:pointer;border-radius:2px;text-align:left;transition:all 0.15s">💬 Chat</button>
+        <span id="chat-notif-badge" style="display:none;position:absolute;top:-6px;right:-6px;background:var(--accent);color:var(--bg);font-family:var(--font-mono);font-size:10px;font-weight:bold;width:16px;height:16px;border-radius:50%;display:none;align-items:center;justify-content:center;pointer-events:none;animation:chat-ping 0.8s ease-in-out infinite alternate">!</span>
+      </div>
     </div>
   </div>
 </div>
@@ -1037,6 +1041,8 @@ function _updateChatBadge() {
   btn.textContent = total > 0 ? `💬 Chat (${total})` : '💬 Chat';
   btn.style.borderColor = total > 0 ? 'var(--purple)' : '';
   btn.style.color       = total > 0 ? 'var(--purple)' : '';
+  const badge = document.getElementById('chat-notif-badge');
+  if (badge) badge.style.display = total > 0 ? 'flex' : 'none';
 }
 
 function updateChatBadge() { _updateChatBadge(); }
