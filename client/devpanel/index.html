@@ -3191,22 +3191,18 @@ async function publishAll() {
   if (result.error) { toast(result.error, true); return; }
   toast(`✓ ${result.message}`);
   await updateStagingBadge();
-  if (currentPanel === 'changes') loadPanel('changes');
-  // Reload furniture from DB so deleted items disappear and new ones lose their staged badge.
+  // Refresh furniture cache for green badge / deletion cleanup regardless of active panel.
   if (hasFurnitureChanges) {
     const freshData = await PANELS.furniture.fetch();
     _furnitureAllItems = Array.isArray(freshData) ? freshData : (freshData.furniture || []);
     stagedFurnitureNames.forEach(n => _furniturePublishedNames.add(n));
-    if (currentPanel === 'furniture') {
-      renderFurniturePanel({ furniture: _furnitureAllItems, zones: [..._furnitureZoneNames.entries()].map(([id, name]) => ({ id, name })) });
-    }
     setTimeout(() => {
       stagedFurnitureNames.forEach(n => _furniturePublishedNames.delete(n));
-      if (currentPanel === 'furniture') {
-        renderFurniturePanel({ furniture: _furnitureAllItems, zones: [..._furnitureZoneNames.entries()].map(([id, name]) => ({ id, name })) });
-      }
+      if (currentPanel === 'furniture') renderFurniturePanel({ furniture: _furnitureAllItems, zones: [..._furnitureZoneNames.entries()].map(([id, name]) => ({ id, name })) });
     }, 6000);
   }
+  // Reload whichever panel is open so it reflects the published state.
+  loadPanel(currentPanel);
 }
 
 async function rejectAll() {
