@@ -53,7 +53,6 @@
     <div class="nav-item" data-panel="recipes" onclick="showPanel('recipes')">⚗ Recipes</div>
     <div class="nav-item" data-panel="mutations" onclick="showPanel('mutations')">☢ Mutations</div>
     <div class="nav-item" data-panel="drugs" onclick="showPanel('drugs')">💊 Drugs</div>
-    <div class="nav-item" data-panel="windows" onclick="showPanel('windows')">🪟 Windows</div>
     <div class="nav-item" data-panel="sounds" onclick="showPanel('sounds')">🔊 Sounds</div>
     <div class="nav-section">Server</div>
     <div class="nav-item" data-panel="worldstate" onclick="showPanel('worldstate')">📡 World State</div>
@@ -385,12 +384,6 @@ const PANELS = {
     save: saveDrug,
     delete: id => API(`/drugs/${id}`, 'DELETE'),
   },
-  windows: {
-    title: 'Windows',
-    fetch: () => API('/windows'),
-    noEdit: true,
-    render: renderWindowsPanel,
-  },
   sounds: {
     title: 'Sounds',
     fetch: () => Promise.all([API('/sounds'), API('/ambient-events')]).then(([s, a]) => ({ sounds: s, ambients: a })),
@@ -691,6 +684,8 @@ async function openEdit(record, isNew) {
   document.getElementById('delete-btn').style.display = isNew ? 'none' : '';
   document.getElementById('edit-body').innerHTML = '<div style="padding:24px;color:var(--text-dim)">Loading...</div>';
   document.getElementById('edit-body').innerHTML = await p.editForm(record, isNew);
+  // Populate zone windows sub-section after DOM is ready
+  if (currentPanel === 'zones' && record?.id) zoneWindowsRefresh(record.id);
 }
 
 function closeEdit() {
@@ -948,6 +943,14 @@ async function zoneEditForm(rec, isNew) {
       <select id="f-ambient_theme">${AMBIENT_THEMES.map(t=>`<option value="${t}" ${(rec.ambient_theme||'indoors')===t?'selected':''}>${t.charAt(0).toUpperCase()+t.slice(1)}</option>`).join('')}</select>
     </div>
     <div class="field"><label>Ambient Events (JSON array of strings)</label><textarea id="f-ambient_events" rows="6">${JSON.stringify(ambients, null, 2)}</textarea></div>
+    ${rec.id ? `
+    <div class="field" style="border-top:1px solid var(--border);padding-top:14px;margin-top:4px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <label style="margin:0">Windows</label>
+        <button type="button" class="action-btn" style="font-size:11px;padding:3px 10px" onclick="zoneWindowAdd('${rec.id}')">+ Window</button>
+      </div>
+      <div id="zone-windows-list" style="min-height:24px"></div>
+    </div>` : `<div class="field" style="color:var(--text-dim);font-size:11px;font-style:italic">Save this zone first to add windows.</div>`}
     ${subSectionsHtml}
   `;
 }
@@ -2137,107 +2140,110 @@ let _whisperTargetHandle = null;
 
 const ADMIN_ROLES = new Set(['admin','dev','builder','designer']);
 
-function renderWindowsPanel(data) {
-  const panel = document.getElementById('list-panel');
-  const windows = Array.isArray(data) ? data : [];
+// ── Zone-inline window management ────────────────────────────────────────────
+// These are called from the zone edit form's Windows sub-section.
 
-  const glassIcon = s => s === 'broken' ? '<span style="color:var(--red)">broken</span>' : '<span style="color:var(--green)">intact</span>';
-  const curtainIcon = open => open ? '<span style="color:var(--green)">open</span>' : '<span style="color:var(--text-dim)">closed</span>';
+async function zoneWindowsRefresh(zoneId) {
+  const data = await API(`/windows?zone=${encodeURIComponent(zoneId)}`);
+  const windows = Array.isArray(data) ? data : [];
+  const container = document.getElementById('zone-windows-list');
+  if (!container) return;
+
   const transmitBar = v => {
     const pct = Math.round((v||0)*100);
-    return `<div style="display:flex;align-items:center;gap:6px"><div style="flex:1;background:var(--bg3);border-radius:2px;height:6px"><div style="width:${pct}%;background:var(--cyan);height:100%;border-radius:2px"></div></div><span style="font-size:10px;color:var(--text-dim);width:28px">${pct}%</span></div>`;
+    return `<div style="display:flex;align-items:center;gap:4px"><div style="flex:1;background:var(--bg3);border-radius:2px;height:5px"><div style="width:${pct}%;background:var(--cyan);height:100%;border-radius:2px"></div></div><span style="font-size:10px;color:var(--text-dim)">${pct}%</span></div>`;
   };
 
-  const rows = windows.map(w => `<tr>
-    <td style="font-weight:600;color:var(--text-bright)">${w.name}</td>
-    <td style="color:var(--cyan);font-size:11px">${w.zone_interior}</td>
-    <td style="color:var(--text-dim);font-size:11px">${w.zone_exterior || '<em>outdoors</em>'}</td>
-    <td>${curtainIcon(w.curtain_open)}</td>
-    <td>${glassIcon(w.glass_state)}</td>
-    <td style="min-width:100px">${transmitBar(w.light_transmission)}</td>
-    <td style="min-width:100px">${transmitBar(w.visibility_transmission)}</td>
-    <td style="text-align:right;white-space:nowrap">
-      <button class="action-btn" style="font-size:10px;padding:3px 8px" onclick="editWindow('${w.id}')">✏ Edit</button>
-      <button class="action-btn danger" style="font-size:10px;padding:3px 8px;margin-left:4px" onclick="deleteWindow('${w.id}','${w.name.replace(/'/g,"\\'")}')">✕</button>
-    </td>
-  </tr>`).join('');
+  if (!windows.length) {
+    container.innerHTML = '<div style="color:var(--text-dim);font-size:11px;font-style:italic;padding:6px 0">No windows. Click + Window to add one.</div>';
+    return;
+  }
 
-  panel.innerHTML = `
-    <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
-      <span style="font-size:12px;color:var(--text-dim)">${windows.length} window${windows.length!==1?'s':''}</span>
-      <button class="action-btn" onclick="newWindow()">+ New Window</button>
-    </div>
-    ${windows.length ? `
-    <table>
-      <thead><tr><th>Name</th><th>Interior Zone</th><th>Exterior Zone</th><th>Curtain</th><th>Glass</th><th>Light %</th><th>Visibility %</th><th style="text-align:right">Actions</th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table>` : '<div style="padding:24px;color:var(--text-dim)">No windows defined. Click + New Window to add one.</div>'}
-  `;
+  container.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:11px;margin-top:4px">
+    <thead><tr>
+      <th style="text-align:left;padding:3px 6px;color:var(--text-dim)">Name</th>
+      <th style="text-align:left;padding:3px 6px;color:var(--text-dim)">Exterior</th>
+      <th style="padding:3px 6px;color:var(--text-dim)">Curtain</th>
+      <th style="padding:3px 6px;color:var(--text-dim)">Glass</th>
+      <th style="padding:3px 6px;color:var(--text-dim);min-width:80px">Light</th>
+      <th></th>
+    </tr></thead>
+    <tbody>
+    ${windows.map(w => `<tr>
+      <td style="padding:3px 6px;color:var(--text-bright);font-weight:600">${w.name}</td>
+      <td style="padding:3px 6px;color:var(--text-dim);font-size:10px">${w.zone_exterior||'<em>outdoors</em>'}</td>
+      <td style="padding:3px 6px;text-align:center;color:${w.curtain_open?'var(--green)':'var(--text-dim)'}">${w.curtain_open?'open':'closed'}</td>
+      <td style="padding:3px 6px;text-align:center;color:${w.glass_state==='broken'?'var(--red)':'var(--text)'}">${w.glass_state}</td>
+      <td style="padding:3px 6px">${transmitBar(w.light_transmission)}</td>
+      <td style="padding:3px 6px;text-align:right;white-space:nowrap">
+        <button class="action-btn" style="font-size:10px;padding:2px 6px" onclick="zoneWindowEdit('${w.id}','${zoneId}')">✏</button>
+        <button class="action-btn danger" style="font-size:10px;padding:2px 6px;margin-left:2px" onclick="zoneWindowDelete('${w.id}','${w.name.replace(/'/g,"\\'")}','${zoneId}')">✕</button>
+      </td>
+    </tr>`).join('')}
+    </tbody>
+  </table>`;
 }
 
-function newWindow() {
-  openWindowModal({});
-}
-
-async function editWindow(id) {
-  const all = await API('/windows');
-  const w = (Array.isArray(all) ? all : []).find(x => x.id === id);
-  if (w) openWindowModal(w);
-}
-
-async function deleteWindow(id, name) {
+async function zoneWindowDelete(id, name, zoneId) {
   if (!confirm(`Delete window "${name}"?`)) return;
   const r = await API(`/windows/${id}`, 'DELETE');
   if (r?.error) { toast(r.error, true); return; }
   toast(`Window "${name}" deleted`);
-  loadPanel('windows');
+  zoneWindowsRefresh(zoneId);
 }
 
-function openWindowModal(w) {
+function zoneWindowAdd(zoneId) { _openZoneWindowModal({}, zoneId); }
+function zoneWindowEdit(id, zoneId) {
+  API(`/windows?zone=${encodeURIComponent(zoneId)}`).then(all => {
+    const w = (Array.isArray(all) ? all : []).find(x => x.id === id);
+    if (w) _openZoneWindowModal(w, zoneId);
+  });
+}
+
+function _openZoneWindowModal(w, zoneId) {
   const isNew = !w.id;
   const modal = document.getElementById('generic-modal');
-  const title = document.getElementById('modal-title');
-  const body = document.getElementById('modal-body');
-  const save = document.getElementById('modal-save');
-  title.textContent = isNew ? 'New Window' : `Edit: ${w.name}`;
-  body.innerHTML = `
-    <div class="field"><label>Name</label><input id="wm-name" value="${w.name||'window'}"></div>
-    <div class="field"><label>Description</label><textarea id="wm-desc" rows="2">${w.description||'A window.'}</textarea></div>
-    <div class="field"><label>Interior Zone ID</label><input id="wm-interior" value="${w.zone_interior||''}"></div>
-    <div class="field"><label>Exterior Zone ID <span style="color:var(--text-dim)">(blank = outdoors)</span></label><input id="wm-exterior" value="${w.zone_exterior||''}"></div>
+  document.getElementById('modal-title').textContent = isNew ? 'Add Window' : `Edit: ${w.name}`;
+  document.getElementById('modal-body').innerHTML = `
+    <div class="field"><label>Name</label><input id="zwm-name" value="${w.name||'window'}"></div>
+    <div class="field"><label>Description</label><textarea id="zwm-desc" rows="2">${w.description||'A window.'}</textarea></div>
+    <div class="field"><label>Exterior Zone ID <span style="color:var(--text-dim);font-weight:400">(leave blank = faces outdoors)</span></label>
+      <input id="zwm-exterior" value="${w.zone_exterior||''}"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
       <div class="field"><label>Curtain</label>
-        <select id="wm-curtain">
-          <option value="1" ${w.curtain_open||w.curtain_open===undefined?'selected':''}>Open</option>
+        <select id="zwm-curtain">
+          <option value="1" ${(w.curtain_open??1)?'selected':''}>Open</option>
           <option value="0" ${w.curtain_open===0?'selected':''}>Closed</option>
         </select>
       </div>
       <div class="field"><label>Glass</label>
-        <select id="wm-glass">
+        <select id="zwm-glass">
           <option value="intact" ${(w.glass_state||'intact')==='intact'?'selected':''}>Intact</option>
           <option value="broken" ${w.glass_state==='broken'?'selected':''}>Broken</option>
         </select>
       </div>
-      <div class="field"><label>Light Transmission (0–1)</label><input id="wm-light" type="number" min="0" max="1" step="0.05" value="${w.light_transmission??0.8}"></div>
-      <div class="field"><label>Visibility Transmission (0–1)</label><input id="wm-vis" type="number" min="0" max="1" step="0.05" value="${w.visibility_transmission??0.8}"></div>
+      <div class="field"><label>Light Transmission (0–1)</label>
+        <input id="zwm-light" type="number" min="0" max="1" step="0.05" value="${w.light_transmission??0.8}"></div>
+      <div class="field"><label>Visibility Transmission (0–1)</label>
+        <input id="zwm-vis" type="number" min="0" max="1" step="0.05" value="${w.visibility_transmission??0.8}"></div>
     </div>`;
-  save.onclick = async () => {
-    const body2 = {
-      name: document.getElementById('wm-name').value.trim(),
-      description: document.getElementById('wm-desc').value.trim(),
-      zone_interior: document.getElementById('wm-interior').value.trim(),
-      zone_exterior: document.getElementById('wm-exterior').value.trim() || null,
-      curtain_open: parseInt(document.getElementById('wm-curtain').value),
-      glass_state: document.getElementById('wm-glass').value,
-      light_transmission: parseFloat(document.getElementById('wm-light').value),
-      visibility_transmission: parseFloat(document.getElementById('wm-vis').value),
+  document.getElementById('modal-save').onclick = async () => {
+    const body = {
+      name: document.getElementById('zwm-name').value.trim(),
+      description: document.getElementById('zwm-desc').value.trim(),
+      zone_interior: zoneId,
+      zone_exterior: document.getElementById('zwm-exterior').value.trim() || null,
+      curtain_open: parseInt(document.getElementById('zwm-curtain').value),
+      glass_state: document.getElementById('zwm-glass').value,
+      light_transmission: parseFloat(document.getElementById('zwm-light').value),
+      visibility_transmission: parseFloat(document.getElementById('zwm-vis').value),
     };
-    if (!body2.zone_interior) { toast('Interior Zone ID is required', true); return; }
-    const r = isNew ? await API('/windows', 'POST', body2) : await API(`/windows/${w.id}`, 'PUT', body2);
+    if (!body.name) { toast('Name is required', true); return; }
+    const r = isNew ? await API('/windows','POST',body) : await API(`/windows/${w.id}`,'PUT',body);
     if (r?.error) { toast(r.error, true); return; }
-    toast(isNew ? 'Window created' : 'Window updated');
+    toast(isNew ? 'Window added' : 'Window updated');
     closeModal();
-    loadPanel('windows');
+    zoneWindowsRefresh(zoneId);
   };
   modal.style.display = 'flex';
 }

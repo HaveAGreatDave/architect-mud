@@ -385,6 +385,7 @@ export async function handleCommand(input, player, broadcast) {
     case 'whisper': case 'tell': case 't': return cmdWhisper(args, raw, player, broadcast);
     case 'open': return cmdCurtain(args.join(' '), player, true);
     case 'close': return cmdCurtain(args.join(' '), player, false);
+    case 'lightview': return cmdLightView(player);
     default: return { type:'error', message:`Unknown command: "${cmd}". Type HELP for commands.` };
   }
 }
@@ -1216,4 +1217,39 @@ function cmdYell(text, player, broadcast) {
   if (!text.trim()) return { type:'error', message:'Yell what?' };
   propagateYell(player.current_zone, player.id, player.handle, text.trim(), broadcast);
   return { type:'output', message:`<span style="color:var(--yellow);font-weight:bold">You yell: "${text.trim().toUpperCase()}"</span>` };
+}
+
+const STAFF_ROLES = new Set(['admin','dev','builder','designer']);
+
+async function cmdLightView(player) {
+  if (!STAFF_ROLES.has(player.role)) return { type:'error', message:'Permission denied.' };
+  const zone = getZone(player.current_zone);
+  if (!zone) return { type:'error', message:'Zone not found.' };
+
+  const vis = getZoneVisibility(zone.id);
+  const powerStatus = getZonePowerStatus(zone.id);
+  const { rows: lights } = await query('SELECT * FROM furniture WHERE zone_id=$1 AND is_light=1 ORDER BY light_type,name', [zone.id]);
+  const windows = getWindowsForZone(zone.id);
+
+  // Theoretical max: zone at full power + all curtains open and glass intact.
+  // Artificial max = powered contribution (use current if powered, else estimate full-power level).
+  const maxArtificial = powerStatus === 'powered' ? vis.artificialLight
+    : lights.length > 0 ? Math.min(1, 0.3 + 0.7 * Math.min(1, lights.length / 4)) : 0;
+  const maxWindowLight = windows.length > 0
+    ? Math.min(1, windows.reduce((best, w) => Math.max(best, (w.light_transmission ?? 0.8)), 0) * (vis.ambientLight || 0.5))
+    : 0;
+  const isInterior = !!(zone.flags?.is_interior || zone.flags?.is_apartment);
+  const maxLight = Math.min(1, Math.max(isInterior ? Math.max(maxArtificial, maxWindowLight) : vis.ambientLight, maxArtificial));
+
+  return {
+    type: 'lightview',
+    zoneName: zone.name,
+    zoneId: zone.id,
+    isInterior,
+    powerStatus,
+    visibility: vis,
+    maxLight,
+    lights,
+    windows,
+  };
 }

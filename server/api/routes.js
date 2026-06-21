@@ -93,7 +93,7 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path==='/npcs' && method==='POST') return requireDev(auth, ()=>apiCreateNpc(body));
   if (path.startsWith('/npcs/') && method==='PUT') return requireDev(auth, ()=>apiUpdateNpc(path.split('/')[2],body));
   if (path.startsWith('/npcs/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteNpc(path.split('/')[2]));
-  if (path==='/furniture' && method==='GET') return requireDev(auth, apiGetFurniture);
+  if (path==='/furniture' && method==='GET') return requireDev(auth, ()=>apiGetFurniture(url));
   if (path==='/furniture' && method==='POST') return requireDev(auth, ()=>apiCreateFurniture(body));
   if (path.startsWith('/furniture/') && method==='PUT') return requireDev(auth, ()=>apiUpdateFurniture(path.split('/')[2],body));
   if (path.startsWith('/furniture/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteFurniture(path.split('/')[2]));
@@ -469,21 +469,35 @@ async function apiDeleteNpc(id) {
     return {status:200,body:{message:'NPC deleted'}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
-async function apiGetFurniture() { const {rows}=await query('SELECT * FROM furniture'); return {status:200,body:rows}; }
+async function apiGetFurniture(fullUrl) {
+  const zoneId = fullUrl ? new URL('http://x'+fullUrl).searchParams.get('zone') : null;
+  const { rows } = zoneId
+    ? await query('SELECT * FROM furniture WHERE zone_id=$1', [zoneId])
+    : await query('SELECT * FROM furniture');
+  return {status:200,body:rows};
+}
 async function apiCreateFurniture(body) {
   if (!body?.zone_id) return {status:400,body:{error:'zone_id is required'}};
   if (!body?.name) return {status:400,body:{error:'name is required'}};
   const id = body.id || `furniture_${Date.now()}`;
   try {
-    await query(`INSERT INTO furniture (id,zone_id,name,description,flags) VALUES ($1,$2,$3,$4,$5)`,
-      [id, body.zone_id, body.name, body.description||'', JSON.stringify(body.flags||{})]);
+    await query(`INSERT INTO furniture (id,zone_id,name,description,is_light,light_on,light_type,flags) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+      [id, body.zone_id, body.name, body.description||'', body.is_light?1:0, body.light_on?1:0, body.light_type||'lamp', JSON.stringify(body.flags||{})]);
     return {status:201,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
 export async function apiUpdateFurniture(id, body) {
   try {
-    await query(`UPDATE furniture SET zone_id=$1,name=$2,description=$3,flags=$4 WHERE id=$5`,
-      [body.zone_id, body.name, body.description||'', JSON.stringify(body.flags||{}), id]);
+    const sets = [], vals = [];
+    let i = 1;
+    const fields = ['zone_id','name','description','light_type'];
+    for (const f of fields) if (body[f]!=null) { sets.push(`${f}=$${i++}`); vals.push(body[f]); }
+    if (body.flags!=null) { sets.push(`flags=$${i++}`); vals.push(JSON.stringify(body.flags)); }
+    if (body.is_light!=null) { sets.push(`is_light=$${i++}`); vals.push(body.is_light?1:0); }
+    if (body.light_on!=null) { sets.push(`light_on=$${i++}`); vals.push(body.light_on?1:0); }
+    if (!sets.length) return {status:400,body:{error:'nothing to update'}};
+    vals.push(id);
+    await query(`UPDATE furniture SET ${sets.join(',')} WHERE id=$${i}`, vals);
     return {status:200,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
