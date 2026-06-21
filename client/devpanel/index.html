@@ -1531,16 +1531,22 @@ async function saveNpc(existing) {
   return API(`/npcs/${existing.id}`, 'PUT', body);
 }
 
-// --- Furniture forms ---
+// --- Furniture panel (grouped by zone) ---
+
+// Module-level cache so room/add modals can reference fresh data without
+// re-fetching the whole panel.
+let _furnitureAllItems = [];
+let _furnitureZoneNames = new Map();
+
 function renderFurniturePanel(data) {
   const furniture = data.furniture || [];
   const zones = data.zones || [];
-  allRecords = furniture; // so editRecord() / deleteRecord() can find items by id
+  allRecords = furniture;
+  _furnitureAllItems = furniture;
+  _furnitureZoneNames = new Map(zones.map(z => [z.id, z.name]));
 
   const panel = document.getElementById('list-panel');
-  const zoneNames = new Map(zones.map(z => [z.id, z.name]));
 
-  // Group by zone_id; null/missing = "Unplaced"
   const byZone = new Map();
   for (const f of furniture) {
     const key = f.zone_id || '__unplaced__';
@@ -1548,50 +1554,152 @@ function renderFurniturePanel(data) {
     byZone.get(key).push(f);
   }
 
-  // Sort zone groups: placed zones alphabetically by name, Unplaced last
   const zoneKeys = [...byZone.keys()].sort((a, b) => {
     if (a === '__unplaced__') return 1;
     if (b === '__unplaced__') return -1;
-    return (zoneNames.get(a) || a).localeCompare(zoneNames.get(b) || b);
+    return (_furnitureZoneNames.get(a) || a).localeCompare(_furnitureZoneNames.get(b) || b);
   });
-
-  const lightBadge = f => f.is_light
-    ? `<span style="font-size:10px;background:var(--bg3);padding:1px 5px;border-radius:2px;color:${f.light_on ? 'var(--yellow)' : 'var(--text-dim)'}">💡${f.light_type || ''}</span> `
-    : '';
 
   const sections = zoneKeys.map(zoneId => {
     const items = byZone.get(zoneId);
-    const label = zoneId === '__unplaced__'
-      ? '<span style="color:var(--text-dim);font-style:italic">Unplaced</span>'
-      : `<span style="color:var(--text-bright);font-weight:600">${zoneNames.get(zoneId) || zoneId}</span> <span style="color:var(--text-dim);font-size:10px">${zoneId}</span>`;
+    const isUnplaced = zoneId === '__unplaced__';
+    const zoneName = isUnplaced ? 'Unplaced' : (_furnitureZoneNames.get(zoneId) || zoneId);
 
-    const rows = items.map(f => `
-      <div style="display:flex;align-items:center;gap:8px;padding:5px 12px 5px 24px;border-bottom:1px solid var(--border)">
+    const headerLabel = isUnplaced
+      ? `<span style="color:var(--text-dim);font-style:italic">Unplaced</span>`
+      : `<span style="color:var(--cyan);font-weight:700;font-size:13px">${zoneName}</span>
+         <span style="color:var(--text-dim);font-size:10px;margin-left:4px">${zoneId}</span>`;
+
+    const rows = items.map(f => {
+      const lightBadge = f.is_light
+        ? `<span style="font-size:10px;background:var(--bg3);padding:1px 5px;border-radius:2px;margin-left:6px;color:${f.light_on ? 'var(--yellow)' : 'var(--text-dim)'}">💡${f.light_type||''}</span>`
+        : '';
+      return `<div style="display:flex;align-items:center;gap:8px;padding:5px 12px 5px 28px;border-bottom:1px solid var(--border);background:var(--bg1)">
         <div style="flex:1;min-width:0">
-          <span style="color:var(--text-bright)">${f.name}</span>
-          ${lightBadge(f)}
-          ${f.description ? `<div style="font-size:11px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:400px">${f.description}</div>` : ''}
+          <span style="color:var(--text-bright)">${f.name}</span>${lightBadge}
+          ${f.description ? `<div style="font-size:11px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:500px">${f.description}</div>` : ''}
         </div>
         <button class="action-btn" style="font-size:10px;padding:2px 8px" onclick="editRecord('${f.id}')">Edit</button>
-        <button class="action-btn danger" style="font-size:10px;padding:2px 8px" onclick="deleteRecord('${f.id}')">Delete</button>
-      </div>`).join('');
-
-    return `
-      <div>
-        <div style="display:flex;align-items:center;gap:8px;padding:6px 12px;background:var(--bg3);border-top:1px solid var(--border);border-bottom:1px solid var(--border);cursor:pointer;user-select:none"
-             onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
-          <span style="color:var(--text-dim);font-size:11px">▾</span>
-          ${label}
-          <span style="margin-left:auto;font-size:10px;color:var(--text-dim)">${items.length} item${items.length !== 1 ? 's' : ''}</span>
-        </div>
-        <div>${rows}</div>
+        <button class="action-btn danger" style="font-size:10px;padding:2px 8px" onclick="deleteRecord('${f.id}')">Del</button>
       </div>`;
+    }).join('');
+
+    const addBtn = !isUnplaced
+      ? `<button class="action-btn" style="font-size:10px;padding:2px 8px;margin-left:8px" onclick="event.stopPropagation();openFurnitureAddModal('${zoneId}')">+ Add</button>`
+      : '';
+
+    return `<div>
+      <div style="display:flex;align-items:center;gap:0;padding:7px 12px;background:var(--bg3);border-top:2px solid var(--border);border-bottom:1px solid var(--border);cursor:pointer;user-select:none"
+           onclick="fToggle(this)">
+        <span class="f-arrow" style="color:var(--text-dim);font-size:11px;width:14px;display:inline-block;flex-shrink:0">▸</span>
+        ${headerLabel}
+        <span style="margin-left:auto;font-size:10px;color:var(--text-dim);flex-shrink:0">${items.length} item${items.length!==1?'s':''}</span>
+        ${addBtn}
+        ${!isUnplaced ? `<button class="action-btn" style="font-size:10px;padding:2px 8px;margin-left:4px" onclick="event.stopPropagation();openFurnitureRoomModal('${zoneId}')">View Room</button>` : ''}
+      </div>
+      <div class="f-children" style="display:none">${rows}</div>
+    </div>`;
   }).join('');
 
   panel.innerHTML = furniture.length
     ? sections
     : '<div style="padding:24px;color:var(--text-dim)">No furniture found.</div>';
 }
+
+function fToggle(header) {
+  const children = header.nextElementSibling;
+  const arrow = header.querySelector('.f-arrow');
+  const open = children.style.display !== 'none';
+  children.style.display = open ? 'none' : 'block';
+  arrow.textContent = open ? '▸' : '▾';
+}
+
+function openFurnitureAddModal(zoneId) {
+  const zoneName = _furnitureZoneNames.get(zoneId) || zoneId;
+  const opts = _furnitureAllItems
+    .filter(f => f.zone_id !== zoneId)
+    .sort((a,b) => a.name.localeCompare(b.name))
+    .map(f => {
+      const cur = f.zone_id ? (_furnitureZoneNames.get(f.zone_id) || f.zone_id) : 'unplaced';
+      return `<option value="${f.id}">${f.name} (${cur})</option>`;
+    }).join('');
+
+  document.getElementById('modal-title').textContent = `Add furniture to: ${zoneName}`;
+  document.getElementById('modal-body').innerHTML = opts
+    ? `<div class="field"><label>Select furniture to move here</label>
+        <select id="fam-pick" style="width:100%">${opts}</select></div>
+       <div style="font-size:11px;color:var(--text-dim);margin-top:4px">This reassigns the selected furniture item to this room.</div>`
+    : `<div style="color:var(--text-dim);padding:8px 0">All furniture is already in this room, or no furniture exists yet.</div>`;
+
+  document.getElementById('modal-save').style.display = opts ? '' : 'none';
+  document.getElementById('modal-save').onclick = async () => {
+    const id = document.getElementById('fam-pick')?.value;
+    if (!id) return;
+    const r = await API(`/furniture/${id}`, 'PUT', { zone_id: zoneId });
+    if (r?.error) { toast(r.error, true); return; }
+    toast('Furniture moved to room');
+    closeModal();
+    loadPanel('furniture');
+  };
+  document.getElementById('generic-modal').style.display = 'flex';
+}
+
+function openFurnitureRoomModal(zoneId) {
+  const zoneName = _furnitureZoneNames.get(zoneId) || zoneId;
+  const items = _furnitureAllItems.filter(f => f.zone_id === zoneId);
+  const available = _furnitureAllItems.filter(f => f.zone_id !== zoneId);
+
+  const lightBadge = f => f.is_light
+    ? ` <span style="font-size:10px;color:${f.light_on?'var(--yellow)':'var(--text-dim)'}">💡${f.light_type||''}</span>`
+    : '';
+
+  const tableRows = items.map(f => `<tr>
+    <td style="color:var(--text-bright);font-weight:600">${f.name}${lightBadge(f)}</td>
+    <td style="color:var(--text-dim);font-size:11px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.description||''}</td>
+    <td style="text-align:right;white-space:nowrap">
+      <button class="action-btn" style="font-size:10px;padding:2px 6px" onclick="closeModal();editRecord('${f.id}')">Edit</button>
+      <button class="action-btn danger" style="font-size:10px;padding:2px 6px;margin-left:2px" onclick="closeModal();deleteRecord('${f.id}')">Del</button>
+    </td>
+  </tr>`).join('');
+
+  const addOpts = available.sort((a,b)=>a.name.localeCompare(b.name)).map(f => {
+    const cur = f.zone_id ? (_furnitureZoneNames.get(f.zone_id)||f.zone_id) : 'unplaced';
+    return `<option value="${f.id}">${f.name} (${cur})</option>`;
+  }).join('');
+
+  document.getElementById('modal-title').textContent = zoneName;
+  document.getElementById('modal-body').innerHTML = `
+    ${items.length ? `
+    <table style="width:100%;border-collapse:collapse;margin-bottom:16px">
+      <thead><tr>
+        <th style="text-align:left;padding:4px 6px;color:var(--text-dim);font-size:11px">Name</th>
+        <th style="text-align:left;padding:4px 6px;color:var(--text-dim);font-size:11px">Description</th>
+        <th></th>
+      </tr></thead>
+      <tbody>${tableRows}</tbody>
+    </table>` : `<div style="color:var(--text-dim);font-style:italic;margin-bottom:16px;font-size:12px">No furniture in this room.</div>`}
+    <div style="border-top:1px solid var(--border);padding-top:12px">
+      <div style="font-size:12px;font-weight:600;color:var(--accent);margin-bottom:8px">Move furniture here</div>
+      ${addOpts
+        ? `<div class="field"><label>Select furniture to move here</label>
+           <select id="frm-pick" style="width:100%">${addOpts}</select></div>`
+        : `<div style="color:var(--text-dim);font-size:11px">No other furniture to move.</div>`}
+    </div>`;
+
+  document.getElementById('modal-save').style.display = addOpts ? '' : 'none';
+  document.getElementById('modal-save').textContent = 'Move here';
+  document.getElementById('modal-save').onclick = async () => {
+    const id = document.getElementById('frm-pick')?.value;
+    if (!id) return;
+    const r = await API(`/furniture/${id}`, 'PUT', { zone_id: zoneId });
+    if (r?.error) { toast(r.error, true); return; }
+    toast('Furniture moved to room');
+    closeModal();
+    loadPanel('furniture');
+  };
+  document.getElementById('generic-modal').style.display = 'flex';
+}
+
 
 function furnitureEditForm(rec, isNew) {
   return `
@@ -2118,6 +2226,8 @@ function closeSettingsPanel() {
 
 function closeModal() {
   document.getElementById('generic-modal').style.display = 'none';
+  const saveBtn = document.getElementById('modal-save');
+  if (saveBtn) { saveBtn.style.display = ''; saveBtn.textContent = 'Save'; }
 }
 
 const DEV_SETTINGS_KEY = 'devpanel_settings';
