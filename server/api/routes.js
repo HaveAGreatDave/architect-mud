@@ -118,6 +118,7 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path.startsWith('/players/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeletePlayer(path.split('/')[2]));
   if (path.startsWith('/players/') && path.endsWith('/smite') && method==='POST') return requireAdmin(auth, ()=>apiSmitePlayer(path.split('/')[2]));
   if (path.startsWith('/players/') && path.endsWith('/whisper') && method==='POST') return requireAdmin(auth, ()=>apiWhisperPlayer(path.split('/')[2], body));
+  if (path.startsWith('/players/') && path.endsWith('/role') && method==='PUT') return requireAdmin(auth, ()=>apiSetPlayerRole(path.split('/')[2], body));
   return { status:404, body:{error:'Not found'} };
 }
 
@@ -518,8 +519,19 @@ async function apiWhisperPlayer(id, body) {
   if (!message) return {status:400,body:{error:'message required'}};
   const {rows}=await query('SELECT handle FROM players WHERE id=$1',[id]);
   if (!rows.length) return {status:404,body:{error:'Player not found'}};
-  broadcastFn(null,{type:'output',message:`<span style="color:#b48eff">[Admin whisper]: ${message}</span>`},null,id);
+  broadcastFn(null,{type:'whisper',from:'Admin',message},null,id);
   return {status:200,body:{sent:true,handle:rows[0].handle}};
+}
+
+async function apiSetPlayerRole(id, body) {
+  const VALID_ROLES = ['player','builder','designer','dev','admin'];
+  const {role}=body||{};
+  if (!VALID_ROLES.includes(role)) return {status:400,body:{error:'Invalid role'}};
+  const {rows}=await query('SELECT handle FROM players WHERE id=$1',[id]);
+  if (!rows.length) return {status:404,body:{error:'Player not found'}};
+  await query('UPDATE players SET role=$1 WHERE id=$2',[role,id]);
+  broadcastFn(null,{type:'output',message:`<span style="color:#7c3aed">Your account role has been updated to: ${role}.</span>`},null,id);
+  return {status:200,body:{updated:true,handle:rows[0].handle,role}};
 }
 async function apiGetRecipes() { const {rows}=await query('SELECT * FROM recipes'); return {status:200,body:rows}; }
 

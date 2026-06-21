@@ -131,6 +131,23 @@
       <div class="sidebar-label" style="color:var(--red)">⚠ Hostiles</div>
       <div id="enemy-list" style="font-size:11px;color:var(--orange)"></div>
     </div>
+
+    <div class="sidebar-section" style="margin-top:auto;padding-top:8px;border-top:1px solid var(--border)">
+      <button id="chat-toggle-btn" onclick="toggleWhisperPanel()" title="Toggle whisper chat" style="width:100%;background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font-mono);font-size:11px;padding:5px 8px;cursor:pointer;border-radius:2px;text-align:left;transition:all 0.15s">💬 Chat</button>
+    </div>
+  </div>
+</div>
+
+<!-- WHISPER PANEL -->
+<div id="whisper-panel" style="display:none;position:fixed;bottom:0;right:0;width:280px;height:320px;background:var(--bg2);border:1px solid var(--border);border-bottom:none;border-radius:4px 4px 0 0;z-index:100;flex-direction:column">
+  <div style="padding:9px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+    <span style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">Whispers</span>
+    <button onclick="toggleWhisperPanel()" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:13px;line-height:1;font-family:var(--font-mono)">✕</button>
+  </div>
+  <div id="whisper-log" style="flex:1;overflow-y:auto;padding:10px;font-size:12px;display:flex;flex-direction:column;gap:4px"></div>
+  <div style="padding:8px;border-top:1px solid var(--border);display:flex;gap:6px;flex-shrink:0">
+    <input id="whisper-reply-input" type="text" placeholder="Reply…" style="flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font-mono);font-size:12px;padding:5px 8px;outline:none;border-radius:2px" onkeydown="if(event.key==='Enter')sendWhisperReply()">
+    <button onclick="sendWhisperReply()" style="background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:var(--font-mono);font-size:11px;padding:5px 10px;cursor:pointer;border-radius:2px;white-space:nowrap">Send</button>
   </div>
 </div>
 
@@ -470,8 +487,65 @@ function handleServerMsg(msg) {
     case 'environment.weatherOverride':
       updateEnvironmentHUD(msg);
       break;
+    case 'whisper':
+      receiveWhisper(msg.from || 'Admin', msg.message);
+      break;
     case 'pong': break; // keepalive
   }
+}
+
+let _whisperPanelVisible = false;
+let _unreadWhispers = 0;
+
+function toggleWhisperPanel() {
+  _whisperPanelVisible = !_whisperPanelVisible;
+  const panel = document.getElementById('whisper-panel');
+  panel.style.display = _whisperPanelVisible ? 'flex' : 'none';
+  if (_whisperPanelVisible) {
+    _unreadWhispers = 0;
+    updateChatBadge();
+    const log = document.getElementById('whisper-log');
+    if (log) log.scrollTop = log.scrollHeight;
+    document.getElementById('whisper-reply-input')?.focus();
+  }
+}
+
+function receiveWhisper(from, message) {
+  const log = document.getElementById('whisper-log');
+  if (!log) return;
+  const entry = document.createElement('div');
+  entry.style.cssText = 'padding:4px 0;border-bottom:1px solid var(--border)';
+  entry.innerHTML = `<div style="font-size:10px;color:var(--text-dim);margin-bottom:2px">${from}</div><div style="color:var(--purple)">${message}</div>`;
+  log.appendChild(entry);
+  if (_whisperPanelVisible) {
+    log.scrollTop = log.scrollHeight;
+  } else {
+    _unreadWhispers++;
+    updateChatBadge();
+  }
+}
+
+function updateChatBadge() {
+  const btn = document.getElementById('chat-toggle-btn');
+  if (!btn) return;
+  btn.textContent = _unreadWhispers > 0 ? `💬 Chat (${_unreadWhispers})` : '💬 Chat';
+  btn.style.borderColor = _unreadWhispers > 0 ? 'var(--purple)' : '';
+  btn.style.color = _unreadWhispers > 0 ? 'var(--purple)' : '';
+}
+
+function sendWhisperReply() {
+  const input = document.getElementById('whisper-reply-input');
+  const msg = input?.value?.trim();
+  if (!msg) return;
+  const log = document.getElementById('whisper-log');
+  if (log) {
+    const entry = document.createElement('div');
+    entry.style.cssText = 'padding:4px 0;border-bottom:1px solid var(--border)';
+    entry.innerHTML = `<div style="font-size:10px;color:var(--text-dim);margin-bottom:2px">You</div><div style="color:var(--text-dim);font-style:italic">${msg}</div>`;
+    log.appendChild(entry);
+    log.scrollTop = log.scrollHeight;
+  }
+  if (input) input.value = '';
 }
 
 function showColdStart() {
