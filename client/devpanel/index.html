@@ -2496,41 +2496,22 @@ function openInteriorLinkModal(interiorZoneId, exteriorZoneId) {
 }
 
 async function linkInteriorToExterior(interiorZoneId, exteriorZoneId, dir) {
-  const extZone = mapOverview.zones.get(exteriorZoneId);
-  if (!extZone) return;
-
-  // Stage: add exit from exterior zone to interior entry zone
-  extZone.exits[dir] = interiorZoneId;
-  const r1 = await API(`/zones/${exteriorZoneId}`, 'PUT', { exits: extZone.exits });
-  if (r1?.error) { delete extZone.exits[dir]; toast(r1.error, true); return; }
-
-  // Find or create interior map for this exterior zone
-  let interiorMap = mapOverview.children.find(c => c.parent_zone_id === exteriorZoneId);
-  if (!interiorMap) {
-    const r2 = await API('/maps', 'POST', {
-      name: (extZone.name || exteriorZoneId) + ' — Interior',
-      parent_zone_id: exteriorZoneId,
-      entry_zone_id: interiorZoneId,
-    });
-    if (r2?.error) { toast(r2.error, true); return; }
-    interiorMap = { id: r2.id, name: (extZone.name || exteriorZoneId) + ' — Interior', parent_zone_id: exteriorZoneId, entry_zone_id: interiorZoneId };
-    mapOverview.children.push(interiorMap);
-  }
-
-  // Stage: assign interior zone to this interior map at position 0,0,0
   const intZone = mapOverview.unplacedInterior?.get(interiorZoneId);
-  await API(`/zones/${interiorZoneId}`, 'PUT', {
-    map_id: interiorMap.id, grid_x: 0, grid_y: 0, grid_z: 0,
-    exits: intZone?.exits || {},
-  });
+  const r = await API('/maps/link-interior', 'POST', { exteriorZoneId, interiorZoneId, direction: dir });
+  if (r?.error) { toast(r.error, true); return; }
+
+  const interiorMap = r.interiorMap;
   mapOverview.unplacedInterior?.delete(interiorZoneId);
-  updateStagingBadge();
+  // Update exterior zone exits in-memory so the exterior view reflects the link
+  const extZone = mapOverview.zones.get(exteriorZoneId);
+  if (extZone) extZone.exits[dir] = interiorZoneId;
   toast(`Interior linked! Opening interior editor…`);
 
-  // Build interior map overview from in-memory state (zone update is staged, not
-  // committed yet, so loading from server would show an empty map).
+  // Build interior map overview from what we know — the server has committed
+  // everything, but reloading via loadMapOverview would show empty (the zone's
+  // map_id was just set so it appears now, but entry zone is at 0,0,0).
   const entryZone = {
-    ...(intZone || { id: interiorZoneId, name: interiorZoneId, exits: {}, danger_rating: extZone.danger_rating }),
+    ...(intZone || { id: interiorZoneId, name: interiorZoneId, exits: {}, danger_rating: 'safe' }),
     map_id: interiorMap.id, grid_x: 0, grid_y: 0, grid_z: 0,
     flags: { is_interior: true },
   };

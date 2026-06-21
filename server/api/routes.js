@@ -78,6 +78,7 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path.startsWith('/zones/') && method==='GET') return apiGetZone(path.split('/')[2]);
   if (path==='/zones' && method==='POST') return requireDev(auth, ()=>apiCreateZone(body,auth));
   if (path==='/maps' && method==='GET') return requireDev(auth, apiGetMaps);
+  if (path==='/maps/link-interior' && method==='POST') return requireDev(auth, ()=>apiLinkInterior(body, auth));
   if (path.startsWith('/maps/') && method==='GET') return requireDev(auth, ()=>apiGetMap(path.split('/')[2]));
   if (path.startsWith('/zones/') && method==='PUT') return requireDev(auth, ()=>apiUpdateZone(path.split('/')[2],body));
   if (path.startsWith('/zones/') && path.endsWith('/rooms') && method==='POST') return requireDev(auth, ()=>apiAddRoom(path.split('/')[2],body));
@@ -299,6 +300,44 @@ async function apiGetMap(id) {
      ORDER BY name`,
   );
   return { status:200, body:{ map: mapRows[0], zones, children, unplaced, unplacedInterior } };
+}
+
+// Links an interior zone to an exterior zone: adds the exit, finds or creates
+// the interior map, and places the interior zone at 0,0,0 on that map.
+// All done in one server call so the client doesn't chain multiple staged writes.
+async function apiLinkInterior(body, auth) {
+  const { exteriorZoneId, interiorZoneId, direction } = body || {};
+  if (!exteriorZoneId || !interiorZoneId || !direction) {
+    return { status: 400, body: { error: 'exteriorZoneId, interiorZoneId, and direction are required' } };
+  }
+  const { rows: extRows } = await query('SELECT * FROM zones WHERE id=$1', [exteriorZoneId]);
+  if (!extRows.length) return { status: 404, body: { error: `Exterior zone ${exteriorZoneId} not found` } };
+  const { rows: intRows } = await query('SELECT * FROM zones WHERE id=$1', [interiorZoneId]);
+  if (!intRows.length) return { status: 404, body: { error: `Interior zone ${interiorZoneId} not found` } };
+  const extZone = extRows[0];
+  const exits = { ...(extZone.exits || {}), [direction]: interiorZoneId };
+
+  // Find or create the interior map for this exterior zone
+  const { rows: existingMaps } = await query('SELECT * FROM maps WHERE parent_zone_id=$1 LIMIT 1', [exteriorZoneId]);
+  let interiorMap;
+  if (existingMaps.length) {
+    interiorMap = existingMaps[0];
+  } else {
+    const mapId = `map_int_${Date.now()}`;
+    await query(
+      `INSERT INTO maps (id, name, parent_zone_id, entry_zone_id, created_by) VALUES ($1,$2,$3,$4,$5)`,
+      [mapId, extZone.name + ' — Interior', exteriorZoneId, interiorZoneId, auth?.playerId]
+    );
+    const { rows } = await query('SELECT * FROM maps WHERE id=$1', [mapId]);
+    interiorMap = rows[0];
+  }
+
+  // Update exterior zone exits and interior zone map placement
+  await query('UPDATE zones SET exits=$1 WHERE id=$2', [JSON.stringify(exits), exteriorZoneId]);
+  await query('UPDATE zones SET map_id=$1, grid_x=0, grid_y=0, grid_z=0 WHERE id=$2', [interiorMap.id, interiorZoneId]);
+  await Promise.all([reloadZone(exteriorZoneId), reloadZone(interiorZoneId)]);
+
+  return { status: 200, body: { interiorMap } };
 }
 
 async function apiCreateMap(body, auth) {
