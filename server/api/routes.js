@@ -492,6 +492,9 @@ export async function apiDeleteZone(id) {
     }
     await query('DELETE FROM zones WHERE id=$1',[id]);
     world.zones.delete(id);
+    // Clean up any interior maps whose entry zone or parent exterior zone was just deleted.
+    // Zones placed on those maps become unlinked but are left intact for manual cleanup.
+    await query('DELETE FROM maps WHERE entry_zone_id=$1 OR parent_zone_id=$1', [id]);
     await rescueDisplacedPlayers(allDeletedIds);
     fireHook('zone.delete', id, allDeletedIds).catch(() => {});
     return {status:200,body:{message: children.length ? `Zone deleted (and ${children.length} attached room${children.length>1?'s':''})` : 'Zone deleted'}};

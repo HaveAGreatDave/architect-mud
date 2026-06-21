@@ -946,16 +946,36 @@ async function zoneEditForm(rec, isNew) {
             </span>
           </div>
           <div class="zone-subsection-note">Powers every connected light in this building (or, for a city plant, every outdoor zone on the map).</div>
+        ` : flags.is_building ? `
+          <div class="zone-subitem-empty">No generator installed here.</div>
+          <div class="zone-subsection-note" style="margin-bottom:8px">A new room will be created and wired up as an exit from this building.</div>
+          <div class="field-row" style="margin-top:6px">
+            <div class="field"><label>Location</label>
+              <select id="gen-install-location">
+                ${!zoneEditExitsState['up']   ? `<option value="roof">Roof (exit: up)</option>` : ''}
+                ${!zoneEditExitsState['down'] ? `<option value="basement">Basement (exit: down)</option>` : ''}
+                ${zoneEditExitsState['up'] && zoneEditExitsState['down'] ? `<option value="" disabled>Both up and down exits are taken</option>` : ''}
+              </select>
+            </div>
+            <div class="field"><label>Capacity (kW)</label><input type="number" id="gen-install-capacity" placeholder="auto (50)"></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label>Room Name (optional)</label><input id="gen-install-zonename" placeholder="e.g. ${rec.name || ''} Roof"></div>
+            <div class="field"><label>Generator Name (optional)</label><input id="gen-install-name" placeholder="${rec.name || ''} Generator"></div>
+          </div>
+          <button class="action-btn success" onclick='installGeneratorQuick(${JSON.stringify(rec.id)})' ${zoneEditExitsState['up'] && zoneEditExitsState['down'] ? 'disabled title="Free up an exit first"' : ''}>Install Building Generator</button>
+        ` : !flags.is_interior && !flags.is_apartment ? `
+          <div class="zone-subitem-empty">No generator installed here.</div>
+          <div class="zone-subsection-note" style="margin-bottom:8px">Exterior zone — installs a City Power Plant that powers all outdoor zones on the map.</div>
+          <div class="field-row" style="margin-top:6px">
+            <div class="field"><label>Capacity (kW)</label><input type="number" id="gen-install-capacity" placeholder="auto (500)"></div>
+          </div>
+          <div class="field"><label>Name (optional)</label><input id="gen-install-name" placeholder="${rec.name || ''} Power Plant"></div>
+          <button class="action-btn success" onclick='installGeneratorQuick(${JSON.stringify(rec.id)})'>Install City Power Plant</button>
         ` : `
           <div class="zone-subitem-empty">No generator installed here.</div>
           <div class="field-row" style="margin-top:6px">
-            <div class="field"><label>Type</label>
-              <select id="gen-install-type">
-                <option value="building">Building (powers this building's connected rooms)</option>
-                <option value="city_plant">City Plant (powers every outdoor zone)</option>
-              </select>
-            </div>
-            <div class="field"><label>Capacity (kW)</label><input type="number" id="gen-install-capacity" placeholder="auto"></div>
+            <div class="field"><label>Capacity (kW)</label><input type="number" id="gen-install-capacity" placeholder="auto (50)"></div>
           </div>
           <div class="field"><label>Name (optional)</label><input id="gen-install-name" placeholder="${rec.name || ''} Generator"></div>
           <button class="action-btn success" onclick='installGeneratorQuick(${JSON.stringify(rec.id)})'>Install Generator</button>
@@ -1152,12 +1172,86 @@ function removeExit(dir) {
 
 // Generators
 async function installGeneratorQuick(zoneId) {
-  const generatorType = document.getElementById('gen-install-type').value;
+  const rec = allRecords.find(r => r.id === zoneId);
+  const flags = rec?.flags || {};
+
+  if (flags.is_building) {
+    await _installBuildingGenerator(zoneId, rec);
+    return;
+  }
+
+  // Exterior (no interior/apartment flags) → city_plant; anything else → building type
+  const generatorType = (!flags.is_interior && !flags.is_apartment) ? 'city_plant' : 'building';
   const name = document.getElementById('gen-install-name').value.trim();
   const capacityKw = parseInt(document.getElementById('gen-install-capacity').value) || undefined;
   const result = await API('/environment/power/install', 'POST', { zoneId, generatorType, name: name || undefined, capacityKw });
   if (result?.error) { toast(result.error, true); return; }
   toast(`Generator installed — powering ${result.poweredZones?.length || 0} zone(s)`);
+  await refreshZoneEditPanel(zoneId);
+}
+
+async function _installBuildingGenerator(zoneId, rec) {
+  const locationEl = document.getElementById('gen-install-location');
+  const location = locationEl?.value;
+  if (!location) { toast('No available exit direction — free up "up" or "down" first.', true); return; }
+
+  const exitDir    = location === 'roof' ? 'up' : 'down';
+  const returnDir  = location === 'roof' ? 'down' : 'up';
+  const defaultName = `${rec.name || zoneId} ${location === 'roof' ? 'Roof' : 'Basement'}`;
+  const zoneName   = document.getElementById('gen-install-zonename')?.value.trim() || defaultName;
+  const genName    = document.getElementById('gen-install-name')?.value.trim();
+  const capacityKw = parseInt(document.getElementById('gen-install-capacity')?.value) || undefined;
+
+  if ((rec.exits || {})[exitDir]) {
+    toast(`The "${exitDir}" exit is already occupied — choose a different location.`, true);
+    return;
+  }
+
+  const authHeaders = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+
+  // Create roof/basement zone directly (bypass staging — generator install is immediate).
+  const newZoneId = `${zoneId}_${location}_${Date.now()}`;
+  const createRes = await fetch('/api/zones', {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify({
+      id: newZoneId,
+      name: zoneName,
+      description: location === 'roof'
+        ? `The rooftop of ${rec.name || zoneId}.`
+        : `The basement of ${rec.name || zoneId}.`,
+      danger_rating: rec.danger_rating || 'medium',
+      pvp_enabled: false,
+      is_safe_zone: false,
+      exits: { [returnDir]: zoneId },
+      ambient_events: [],
+      ambient_theme: 'indoors',
+      flags: { is_interior: true },
+      map_id: rec.map_id || null,
+      grid_x: null, grid_y: null, grid_z: 0,
+    }),
+  });
+  const createResult = await createRes.json();
+  if (createResult.error) { toast(`Failed to create ${location} zone: ${createResult.error}`, true); return; }
+
+  // Wire exit from building into new zone.
+  const newExits = { ...(rec.exits || {}), [exitDir]: newZoneId };
+  const exitRes = await fetch(`/api/zones/${zoneId}`, {
+    method: 'PUT',
+    headers: authHeaders,
+    body: JSON.stringify({ exits: newExits }),
+  });
+  const exitResult = await exitRes.json();
+  if (exitResult.error) { toast(`Zone created but exit wiring failed: ${exitResult.error}`, true); }
+
+  // Install the generator in the new room.
+  const genResult = await API('/environment/power/install', 'POST', {
+    zoneId: newZoneId, generatorType: 'building',
+    name: genName || `${zoneName} Generator`, capacityKw,
+  });
+  if (genResult?.error) { toast(`Zone created but generator install failed: ${genResult.error}`, true); return; }
+
+  toast(`Generator installed in ${zoneName} — powering ${genResult.poweredZones?.length || 0} zone(s)`);
   await refreshZoneEditPanel(zoneId);
 }
 
@@ -2324,8 +2418,9 @@ function renderMapOverview() {
   }
 
   if (mapViewTab === 'interior') {
-    const intOpts = mapInteriorsList.length
-      ? mapInteriorsList.map(m => `<option value="${m.id}" ${m.id === mapSelectedInteriorId ? 'selected' : ''}>${m.name}</option>`).join('')
+    const intMaps = mapsList.filter(m => m.parent_zone_id);
+    const intOpts = intMaps.length
+      ? intMaps.map(m => `<option value="${m.id}" ${m.id === mapSelectedInteriorId ? 'selected' : ''}>${m.name}</option>`).join('')
       : `<option value="">— no interiors yet —</option>`;
     html += `<div class="map-toolbar">
       <label>Interior</label>
@@ -2658,7 +2753,7 @@ async function linkInteriorToExterior(interiorZoneId, exteriorZoneId, dir) {
   };
   mapViewTab = 'interior';
   mapSelectedInteriorId = interiorMap.id;
-  if (!mapInteriorsList.find(m => m.id === interiorMap.id)) mapInteriorsList.push(interiorMap);
+  if (!mapsList.find(m => m.id === interiorMap.id)) mapsList.push(interiorMap);
   mapOverview = { map: interiorMap, zones: new Map([[interiorZoneId, entryZone]]), unplaced: new Map(), unplacedInterior: new Map(), children: [], z: 0 };
   renderMapOverview();
 }
@@ -2671,16 +2766,16 @@ async function switchMapTab(tab, interiorId) {
     await loadMapOverview(extId);
     return;
   }
-  // Interior tab: fetch interior maps list for the dropdown
+  // Interior tab: refresh mapsList so the dropdown is always current.
   const mapsData = await API('/maps');
   if (!mapsData?.error) {
-    const all = Array.isArray(mapsData) ? mapsData : [];
-    mapInteriorsList = all.filter(m => m.parent_zone_id);
+    mapsList = Array.isArray(mapsData) ? mapsData : [];
   }
+  const intMaps = mapsList.filter(m => m.parent_zone_id);
   if (interiorId) {
     mapSelectedInteriorId = interiorId;
-  } else if (!mapSelectedInteriorId || !mapInteriorsList.find(m => m.id === mapSelectedInteriorId)) {
-    mapSelectedInteriorId = mapInteriorsList[0]?.id || null;
+  } else if (!mapSelectedInteriorId || !intMaps.find(m => m.id === mapSelectedInteriorId)) {
+    mapSelectedInteriorId = intMaps[0]?.id || null;
   }
   if (mapSelectedInteriorId) {
     await loadMapOverview(mapSelectedInteriorId);
