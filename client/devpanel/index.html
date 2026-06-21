@@ -3933,10 +3933,11 @@ function renderValidatorResults(r) {
   html += `</div>`;
 
   const orphans = r.issues.filter(i => i.type === 'orphaned_entity');
+  window._pendingOrphans = orphans.map(o => ({ table: o.entityTable, refId: o.refId }));
   if (orphans.length > 0) {
     html += `<div style="margin-bottom:8px;display:flex;align-items:center;gap:10px">
       <strong style="color:var(--warning);font-size:13px">Orphaned entities (${orphans.length})</strong>
-      <button class="action-btn danger" onclick="deleteAllOrphans(${JSON.stringify(orphans.map(o => ({ table: o.entityTable, refId: o.refId })))})">Delete All Orphans</button>
+      <button class="action-btn danger" onclick="deleteAllOrphans(window._pendingOrphans)">Delete All Orphans</button>
     </div>`;
   }
 
@@ -3953,7 +3954,7 @@ function renderValidatorResults(r) {
         const isStaged = pendingChanges.some(c => c.entityType === 'orphan_cleanup' && c.entityId === entityId);
         const actionCell = isStaged
           ? `<span style="color:var(--danger);font-size:11px">⚠ Marked for Deletion</span>`
-          : `<span style="color:var(--warning)">Manual review</span><button class="action-btn danger" style="margin-left:6px" onclick="deleteOrphan(${JSON.stringify(issue.entityTable)},${JSON.stringify(issue.refId)})">Delete</button>`;
+          : `<span style="color:var(--warning)">Manual review</span><button class="action-btn danger" style="margin-left:6px" onclick="deleteOrphan('${issue.entityTable}','${issue.refId}')">Delete</button>`;
         html += `<tr>
           <td><code>${issue.refId}</code></td>
           <td>${issue.entityTable}</td>
