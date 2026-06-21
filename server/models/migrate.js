@@ -503,16 +503,19 @@ async function seedAmbientEvents() {
     ).catch(() => {}); // skip on duplicate/error
   }
 
-  // Backfill: any zone that is the entry_zone_id of an interior map (one that
-  // has a parent_zone_id) gets is_building:true added to its flags so it is
-  // correctly categorised as a building-type interior zone.
+  // Backfill: any zone that is the entry_zone_id of an interior map gets
+  // is_building:true and world_exit_zone set to that map's parent_zone_id so
+  // the validator and zone editor both have the explicit connection recorded.
   await query(`
     UPDATE zones z
-    SET flags = COALESCE(z.flags, '{}'::jsonb) || '{"is_building": true}'::jsonb
+    SET flags = COALESCE(z.flags, '{}'::jsonb)
+      || '{"is_building": true}'::jsonb
+      || jsonb_build_object('world_exit_zone', m.parent_zone_id)
     FROM maps m
     WHERE m.entry_zone_id = z.id
       AND m.parent_zone_id IS NOT NULL
-      AND COALESCE((z.flags->>'is_building')::boolean, false) = false
+      AND (z.flags->>'world_exit_zone' IS NULL
+        OR COALESCE((z.flags->>'is_building')::boolean, false) = false)
   `).catch(() => {});
 }
 

@@ -83,21 +83,43 @@ async function runFull(opts = {}) {
     if (!autoRepair && result.issues.length > 0) needsManualReview.push(zone.id);
   }
 
-  // Check buildings for missing exterior-map connection. A building zone must
-  // be the entry_zone_id of an interior map that has a parent_zone_id — if not,
-  // players have no way to reach it from the world map.
-  const { rows: orphanBuildings } = await query(`
-    SELECT z.id, z.name FROM zones z
+  // Check buildings for world-map connection issues using the explicit
+  // world_exit_zone flag. Three cases:
+  //   1. is_building but no world_exit_zone set at all
+  //   2. world_exit_zone points to a zone that doesn't exist
+  //   3. world_exit_zone points to a valid exterior zone but that zone has no
+  //      exit back to this building (broken link)
+  const { rows: buildings } = await query(`
+    SELECT z.id, z.name, z.flags->>'world_exit_zone' AS world_exit_zone
+    FROM zones z
     WHERE COALESCE((z.flags->>'is_building')::boolean, false) = true
-      AND NOT EXISTS (
-        SELECT 1 FROM maps m
-        WHERE m.entry_zone_id = z.id AND m.parent_zone_id IS NOT NULL
-      )
   `).catch(() => ({ rows: [] }));
 
-  for (const b of orphanBuildings) {
-    allIssues.push({ type: 'building_no_entrance', zoneId: b.id, dir: null, destId: null, repaired: false });
-    needsManualReview.push(b.id);
+  const { rows: allExteriorZones } = await query(`
+    SELECT z.id, z.exits FROM zones z
+    JOIN maps m ON z.map_id = m.id
+    WHERE m.parent_zone_id IS NULL
+  `).catch(() => ({ rows: [] }));
+  const exteriorById = new Map(allExteriorZones.map(z => [z.id, z]));
+
+  for (const b of buildings) {
+    if (!b.world_exit_zone) {
+      allIssues.push({ type: 'building_no_entrance', zoneId: b.id, dir: null, destId: null, repaired: false });
+      needsManualReview.push(b.id);
+      continue;
+    }
+    const extZone = exteriorById.get(b.world_exit_zone);
+    if (!extZone) {
+      allIssues.push({ type: 'building_no_entrance', zoneId: b.id, dir: null, destId: b.world_exit_zone, repaired: false });
+      needsManualReview.push(b.id);
+      continue;
+    }
+    const exits = extZone.exits || {};
+    const hasLink = Object.values(exits).includes(b.id);
+    if (!hasLink) {
+      allIssues.push({ type: 'building_entrance_broken', zoneId: b.id, dir: null, destId: b.world_exit_zone, repaired: false });
+      needsManualReview.push(b.id);
+    }
   }
 
   return {

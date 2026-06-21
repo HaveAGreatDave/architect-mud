@@ -940,13 +940,16 @@ async function zoneEditForm(rec, isNew) {
     <div class="checkbox-field"><input type="checkbox" id="f-pvp_enabled" ${rec.pvp_enabled?'checked':''}><label>PvP Enabled</label></div>
     <div class="checkbox-field"><input type="checkbox" id="f-is_safe_zone" ${rec.is_safe_zone?'checked':''}><label>Safe Zone (no PvP, anchor point)</label></div>
     <div class="checkbox-field"><input type="checkbox" id="f-is_apartment" ${flags.is_apartment?'checked':''}><label>Rentable Apartment (players can RENT, LOCK, SLEEP here)</label></div>
-    <div class="checkbox-field"><input type="checkbox" id="f-is_building" ${flags.is_building?'checked':''}><label>Building (appears in a "Buildings:" list and entrance-discovery text on zones that connect to it)</label></div>
-    <div class="field"><label>Building Name (optional — defaults to Zone Name above if left blank)</label><input id="f-building_name" value="${flags.building_name || ''}" placeholder="${rec.name || ''}"></div>
-    <div class="field"><label>Building Type (controls which flavor templates are used in entrance-discovery text)</label>
-      <select id="f-building_type">
-        <option value="">— none / generic —</option>
-        ${BUILDING_TYPES.map(t => `<option value="${t.id}" ${flags.building_type===t.id?'selected':''}>${t.label}</option>`).join('')}
-      </select>
+    <div class="checkbox-field"><input type="checkbox" id="f-is_building" ${flags.is_building?'checked':''} onchange="document.getElementById('building-fields').style.display=this.checked?'block':'none'"><label>Building (appears in a "Buildings:" list and entrance-discovery text on zones that connect to it)</label></div>
+    <div id="building-fields" style="display:${flags.is_building?'block':'none'}">
+      <div class="field"><label>Building Name (optional — defaults to Zone Name if blank)</label><input id="f-building_name" value="${flags.building_name || ''}" placeholder="${rec.name || ''}"></div>
+      <div class="field"><label>Building Type (controls entrance-discovery flavor text)</label>
+        <select id="f-building_type">
+          <option value="">— none / generic —</option>
+          ${BUILDING_TYPES.map(t => `<option value="${t.id}" ${flags.building_type===t.id?'selected':''}>${t.label}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field"><label>World Map Exit Zone (exterior zone ID this building leads back to)</label><input id="f-world_exit_zone" value="${flags.world_exit_zone || ''}" placeholder="e.g. zone_street_corner" style="font-family:var(--font-mono)"></div>
     </div>
     <div class="checkbox-field"><input type="checkbox" id="f-is_interior" ${flags.is_interior?'checked':''}><label>Interior Room (for hand-built interiors not using Rentable Apartment — e.g. a Kitchen or Bedroom — appears in a "Rooms:" list from other interior zones)</label></div>
     <div class="field-row">
@@ -997,8 +1000,9 @@ async function saveZone(existing) {
     ...existingFlags,
     is_apartment: document.getElementById('f-is_apartment').checked,
     is_building: document.getElementById('f-is_building').checked,
-    building_name: document.getElementById('f-building_name').value.trim(),
-    building_type: document.getElementById('f-building_type').value || null,
+    building_name: document.getElementById('f-building_name')?.value.trim() || null,
+    building_type: document.getElementById('f-building_type')?.value || null,
+    world_exit_zone: document.getElementById('f-world_exit_zone')?.value.trim() || null,
     is_interior: document.getElementById('f-is_interior').checked,
   };
 
@@ -3659,7 +3663,8 @@ const ISSUE_LABELS = {
   self_loop:            'Self-loop',
   missing_dest:         'Missing destination',
   duplicate_dest:       'Duplicate destination',
-  building_no_entrance: 'Building: no world-map entrance',
+  building_no_entrance:      'Building: no world-map entrance',
+  building_entrance_broken:  'Building: exterior zone has no exit to this building',
 };
 
 function renderValidatorResults(r) {
