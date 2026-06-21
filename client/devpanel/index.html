@@ -2114,22 +2114,37 @@ async function loadMapOverview(mapId) {
 function validateMapOverview(zonesMap) {
   const errors = [], oneWay = [];
   for (const z of zonesMap.values()) {
+    if (z.grid_x == null) continue; // unplaced source — not on the grid, skip
     for (const [dir, target] of Object.entries(z.exits || {})) {
       const t = zonesMap.get(target);
-      if (!t) continue; // cross-map portal — server validates
       const off = MAP_DIR3D[dir];
       let geomError = false;
-      if (off && z.grid_x != null && z.grid_y != null && t.grid_x != null && t.grid_y != null) {
-        const expected = `${z.grid_x + off[0]},${z.grid_y + off[1]},${(z.grid_z ?? 0) + off[2]}`;
+
+      if (!t) {
+        // Target not on this map. Cardinal exits are flagged as dangling; non-cardinal
+        // exits (in/out and custom) are treated as cross-map portals and left to the server.
+        if (off) {
+          errors.push({ zoneId: z.id, direction: dir, targetId: target, reason: 'dangling', expectedX: null, expectedY: null, expectedZ: null });
+          geomError = true;
+        }
+        continue;
+      }
+
+      if (t.grid_x == null) {
+        // Target is assigned to this map but has no grid position yet.
+        errors.push({ zoneId: z.id, direction: dir, targetId: target, reason: 'unplaced-target', expectedX: null, expectedY: null, expectedZ: null });
+        geomError = true;
+      } else if (off) {
+        // Geometry check: target must sit at the expected grid offset from source.
+        const [ex, ey, ez] = [z.grid_x + off[0], z.grid_y + off[1], (z.grid_z ?? 0) + off[2]];
         const actual = `${t.grid_x},${t.grid_y},${t.grid_z ?? 0}`;
-        if (expected !== actual) {
-          const [ex, ey, ez] = [z.grid_x + off[0], z.grid_y + off[1], (z.grid_z ?? 0) + off[2]];
+        if (`${ex},${ey},${ez}` !== actual) {
           errors.push({ zoneId: z.id, direction: dir, targetId: target, reason: 'geometry', expectedX: ex, expectedY: ey, expectedZ: ez });
           geomError = true;
         }
       }
-      // Only flag missing reciprocal when there's no geometry error on this exit,
-      // and avoid flagging both directions of the same pair.
+
+      // One-way check — only when no geometry error, avoid double-reporting pairs.
       if (!geomError) {
         const opp = MAP_OPP[dir];
         if (opp && (t.exits || {})[opp] !== z.id) {
@@ -2168,14 +2183,27 @@ function renderMapOverview() {
   if (errors.length) {
     html += `<div class="v-error"><strong>${errors.length} geometry error(s) — exit points to zone at wrong position:</strong></div>`;
     html += errors.map(e => {
+      const del = `<button class="action-btn danger" style="font-size:10px;padding:1px 7px;flex-shrink:0" onclick="mapRemoveExit('${e.zoneId}','${e.direction}')">Delete exit</button>`;
+      if (e.reason === 'dangling') {
+        return `<div class="v-error" style="display:flex;align-items:center;gap:8px;margin-top:3px">
+          <span>• ${nameOf(e.zoneId)} → ${e.direction} → <em>${e.targetId}</em> (zone not found on this map)</span>
+          ${del}
+        </div>`;
+      }
+      if (e.reason === 'unplaced-target') {
+        return `<div class="v-error" style="display:flex;align-items:center;gap:8px;margin-top:3px">
+          <span>• ${nameOf(e.zoneId)} → ${e.direction} → ${nameOf(e.targetId)} (target has no map position — drag it from the tray)</span>
+          ${del}
+        </div>`;
+      }
+      // reason === 'geometry'
       const occupied = [...o.zones.values()].find(z => z.grid_x === e.expectedX && z.grid_y === e.expectedY && (z.grid_z ?? 0) === e.expectedZ);
-      const canMove = !occupied;
       return `<div class="v-error" style="display:flex;align-items:center;gap:8px;margin-top:3px">
         <span>• ${nameOf(e.zoneId)} → ${e.direction} → ${nameOf(e.targetId)} (expected at ${e.expectedX},${e.expectedY},${e.expectedZ})</span>
-        ${canMove
+        ${!occupied
           ? `<button class="action-btn" style="font-size:10px;padding:1px 7px;flex-shrink:0" onclick="mapFixGeometry('${e.targetId}',${e.expectedX},${e.expectedY},${e.expectedZ})">Move here</button>`
           : `<span style="font-size:10px;color:var(--text-dim);flex-shrink:0">(cell occupied — move manually)</span>`}
-        <button class="action-btn danger" style="font-size:10px;padding:1px 7px;flex-shrink:0" onclick="mapRemoveExit('${e.zoneId}','${e.direction}')">Delete exit</button>
+        ${del}
       </div>`;
     }).join('');
   } else {
