@@ -458,12 +458,12 @@
   }
   #minimap-grid {
     white-space: nowrap;
-    font-size: 18px;
-    line-height: 1.7;
+    font-size: 16px;
+    line-height: 1;
     letter-spacing: 0;
     text-align: center;
   }
-  .mm-cell { display: inline-block; width: 2ch; text-align: center; }
+  .mm-cell { display: inline-block; width: 1.6em; height: 1.6em; line-height: 1.6em; text-align: center; }
   .mm-current { color: #5b9af5; font-weight: bold; }
   .mm-safe { color: var(--green); }
   .mm-low { color: var(--yellow); }
@@ -472,7 +472,6 @@
   .mm-lethal { color: var(--red); text-shadow: 0 0 5px var(--red); }
   .mm-blank { color: #333355; }
   .mm-zone { color: var(--text-dim); }
-  .mm-legend { font-size: 11px; color: var(--text-dim); margin-top: 8px; line-height: 1.8; text-align: center; }
 
   /* ─── SETTINGS MODAL ─── */
   #settings-panel {

@@ -85,7 +85,6 @@
     <div class="sidebar-section" id="minimap-section">
       <div class="sidebar-label">Map</div>
       <div id="minimap-grid">—</div>
-      <div class="mm-legend" id="minimap-legend"></div>
     </div>
 
     <div class="sidebar-section">
@@ -1034,11 +1033,10 @@ initSettingsUI();
 // Zone tiles use bg_color/color if set, otherwise danger-class coloring.
 function renderMinimap(nodes) {
   const grid = document.getElementById('minimap-grid');
-  const legend = document.getElementById('minimap-legend');
-  if (!nodes || !nodes.length) { grid.textContent = '(unmapped)'; legend.innerHTML=''; return; }
+  if (!nodes || !nodes.length) { grid.textContent = '(unmapped)'; return; }
 
   const current = nodes.find(n => n.is_current);
-  if (!current) { grid.textContent = '(unmapped)'; legend.innerHTML=''; return; }
+  if (!current) { grid.textContent = '(unmapped)'; return; }
 
   const byId = new Map(nodes.map(n => [n.id, n]));
   const coords = new Map(); // zoneId -> [x,y] relative to player
@@ -1105,8 +1103,6 @@ function renderMinimap(nodes) {
     html += '<br>';
   }
   grid.innerHTML = html;
-
-  legend.innerHTML = `<span class="mm-current">()</span> you &nbsp; ◆ safe &nbsp; ○ zone &nbsp; <span style="color:var(--red)">✕</span> pvp`;
 }
 
 // Renders the "map" command's response — a fixed-layout grid of the whole
