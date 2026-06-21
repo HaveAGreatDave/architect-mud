@@ -901,3 +901,9 @@
 
   .auth-handle-field { display: none; }
   .auth-handle-field.visible { display: block; }
+
+  /* Whisper-chat notification badge pulse */
+  @keyframes chat-ping {
+    from { transform: scale(1); box-shadow: 0 0 4px var(--accent); }
+    to { transform: scale(1.35); box-shadow: 0 0 10px var(--accent), 0 0 20px var(--accent-dim); }
+  }
