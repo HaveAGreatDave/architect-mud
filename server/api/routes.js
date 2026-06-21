@@ -478,7 +478,7 @@ async function apiDeleteFurniture(id) {
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
 async function apiWorldState() {
-  const players = getAllLivePlayers().map(p => ({ handle: p.handle, current_zone: p.current_zone }));
+  const players = getAllLivePlayers().map(p => ({ handle: p.handle, role: p.role, current_zone: p.current_zone }));
   return {status:200,body:{zones:getAllZones(),online_players:players,live_enemies:world.enemies.size,live_corpses:world.corpses.size}};
 }
 async function apiReloadZone(body) {

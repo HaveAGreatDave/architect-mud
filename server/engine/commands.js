@@ -335,6 +335,7 @@ export async function handleCommand(input, player, broadcast) {
     case 'help': case '?': return cmdHelp(player);
     case 'obama': return cmdObama(args.join(' '), player, broadcast);
     case 'teleport': case 'tp': return cmdTeleport(args.join(' '), player, broadcast);
+    case 'whisper': case 'tell': case 't': return cmdWhisper(args, raw, player, broadcast);
     default: return { type:'error', message:`Unknown command: "${cmd}". Type HELP for commands.` };
   }
 }
@@ -1036,11 +1037,22 @@ function cmdHelp(player) {
 <span class="help-category">ECONOMY</span>     balance  |  deposit &lt;amt/all&gt;  |  withdraw &lt;amt/all&gt;  (ATM required)  |  steal &lt;player&gt;
 <span class="help-category">PROPERTY</span>    rent  |  lock  |  unlock  |  pick  |  upgrade lock  |  sleep
 <span class="help-category">CHARACTER</span>   stats  skills  mutations  factions
-<span class="help-category">SOCIAL</span>      talk &lt;npc&gt;  |  say &lt;message&gt;  |  who
+<span class="help-category">SOCIAL</span>      talk &lt;npc&gt;  |  say &lt;message&gt;  |  who  |  whisper/tell &lt;player&gt; &lt;msg&gt;
 <span class="help-category">WORLD</span>       map  |  switch &lt;light&gt;  (flip)
 <span class="help-category">INFO</span>        look  |  look &lt;me/item/player&gt;  |  examine &lt;thing&gt;  help`;
   if (player?.role === 'admin') {
     msg += `\n<span class="help-category">ADMIN</span>      teleport &lt;zone id&gt;  (tp)`;
   }
   return { type:'help', message: msg };
+}
+
+function cmdWhisper(args, raw, player, broadcast) {
+  const targetHandle = args[0];
+  if (!targetHandle) return { type:'error', message:'Usage: whisper <player> <message>' };
+  const msgText = raw.replace(/^\S+\s+\S+\s*/, '').trim();
+  if (!msgText) return { type:'error', message:'Usage: whisper <player> <message>' };
+  const target = getAllLivePlayers().find(p => p.handle.toLowerCase() === targetHandle.toLowerCase() && p.id !== player.id);
+  if (!target) return { type:'error', message:`${targetHandle} is not online.` };
+  broadcast(null, { type:'whisper', from: player.handle, message: msgText }, null, target.id);
+  return { type:'output', message:`<span style="color:var(--purple)">You whisper to ${target.handle}: "${msgText}"</span>` };
 }

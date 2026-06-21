@@ -1051,14 +1051,14 @@ function sendWhisperReply() {
   const input = document.getElementById('whisper-reply-input');
   const msg = input?.value?.trim();
   if (!msg || !_activeWhisperTab || _activeWhisperTab === USERS_TAB) return;
+  if (!_whisperConvos.has(_activeWhisperTab)) _whisperConvos.set(_activeWhisperTab, { messages: [], scrollTop: 0, unread: 0 });
   const convo = _whisperConvos.get(_activeWhisperTab);
-  if (convo) {
-    convo.messages.push({ from: 'You', message: msg, isMe: true, ts: Date.now() });
-    if (convo.messages.length > WHISPER_MAX_MSGS) convo.messages.shift();
-    _renderWhisperLog();
-    const log = document.getElementById('whisper-log');
-    if (log) log.scrollTop = log.scrollHeight;
-  }
+  convo.messages.push({ from: 'You', message: msg, isMe: true, ts: Date.now() });
+  if (convo.messages.length > WHISPER_MAX_MSGS) convo.messages.shift();
+  _renderWhisperLog();
+  const log = document.getElementById('whisper-log');
+  if (log) log.scrollTop = log.scrollHeight;
+  sendCmdSilent(`whisper ${_activeWhisperTab} ${msg}`);
   if (input) input.value = '';
 }
 
