@@ -92,6 +92,7 @@ const state = {
   ambientLight: 1.0,        // 0..1, recalculated every 30-min tick
   phase: 'day',
   zones: new Map(),         // zoneId -> { powerStatus, capacityKw, loadKw, hasEmergencyLighting, artificialLight }
+  windows: [],              // all window rows from DB, refreshed on init and mutation
   lastTick30m: 0,
   lastTick24h: 0,
 };
@@ -193,6 +194,7 @@ export async function initEnvironment({ query, emitHook, broadcast }) {
   if (emitHook) await emitHook('environment.init', { setWeatherState });
 
   await loadZonePowerAndLighting(query);
+  await loadWindows(query);
   recalcAmbientAndVisibility();
 
   // Catch up on time missed during downtime. Game time runs 1:1 with real time,
@@ -269,6 +271,60 @@ async function loadZonePowerAndLighting(query) {
       artificialLight: computeArtificialLight(z.status, light),
     });
   }
+}
+
+export async function loadWindows(query) {
+  const { rows } = await query('SELECT * FROM windows').catch(() => ({ rows: [] }));
+  state.windows = rows;
+}
+
+// Called by the API after a window is created/updated/deleted.
+export async function reloadWindows() {
+  if (deps.query) await loadWindows(deps.query);
+}
+
+// Light reaching zone_interior through its windows.
+// Outdoor ambient is attenuated by weather, then by each window's transmission
+// and state. Interior-facing windows pass the other room's effective light.
+export function getWindowLightContribution(zoneId) {
+  const weatherFactor = WEATHER_VISIBILITY_FACTOR[state.weatherType] ?? 1.0;
+  const fogFactor = FOG_FACTOR[state.weatherType] ?? DEFAULT_FOG_FACTOR;
+  let best = 0;
+  for (const w of state.windows) {
+    if (w.zone_interior !== zoneId) continue;
+    if (!w.curtain_open && w.glass_state !== 'broken') continue; // blocked
+    const transmission = w.glass_state === 'broken' ? 1.0 : (w.light_transmission ?? 0.8);
+    let source;
+    if (!w.zone_exterior) {
+      // Faces outdoors — transmit global ambient dampened by weather
+      source = state.ambientLight * weatherFactor * fogFactor * transmission;
+    } else {
+      // Interior window — transmit the other room's effective light
+      const otherZone = state.zones.get(w.zone_exterior);
+      const otherArtificial = otherZone ? otherZone.artificialLight : 0;
+      source = Math.max(getWindowLightContribution(w.zone_exterior), otherArtificial) * transmission;
+    }
+    if (source > best) best = source;
+  }
+  return clamp01(best);
+}
+
+// All windows visible in a zone (for room description and look-through).
+export function getWindowsForZone(zoneId) {
+  return state.windows.filter(w => w.zone_interior === zoneId);
+}
+
+// Mutate a window's curtain or glass state in memory + DB.
+export async function setWindowState(windowId, updates) {
+  const w = state.windows.find(w => w.id === windowId);
+  if (!w) return null;
+  Object.assign(w, updates);
+  const { query: q } = deps;
+  if (updates.curtain_open !== undefined)
+    await q('UPDATE windows SET curtain_open=$1 WHERE id=$2', [updates.curtain_open, windowId]);
+  if (updates.glass_state !== undefined)
+    await q('UPDATE windows SET glass_state=$1 WHERE id=$2', [updates.glass_state, windowId]);
+  return w;
 }
 
 function computeArtificialLight(powerStatus, light) {
@@ -433,16 +489,28 @@ async function simulatePowerNetwork(query, { weatherType }) {
 export function getZoneVisibility(zoneId) {
   const zone = state.zones.get(zoneId);
   const artificial = zone ? zone.artificialLight : 0;
-  const effectiveLight = Math.max(state.ambientLight, artificial);
+
+  // Interior zones (is_apartment / is_interior flag) don't receive outdoor
+  // ambient directly — only through windows. Exterior zones use global ambient.
+  const hasWindows = state.windows.some(w => w.zone_interior === zoneId);
+  const windowLight = hasWindows ? getWindowLightContribution(zoneId) : 0;
+  const isInterior = !!(zone && (zone.flags?.is_interior || zone.flags?.is_apartment));
+  const ambientContrib = isInterior ? windowLight : state.ambientLight;
+
+  const effectiveLight = Math.max(ambientContrib, artificial);
   const weatherFactor = WEATHER_VISIBILITY_FACTOR[state.weatherType] ?? 1.0;
   const fogFactor = FOG_FACTOR[state.weatherType] ?? DEFAULT_FOG_FACTOR;
-  const visibility = clamp01(effectiveLight * weatherFactor * fogFactor);
+  // Interior zones aren't directly affected by outdoor weather/fog —
+  // that attenuation was already applied inside getWindowLightContribution.
+  const envFactor = isInterior ? 1.0 : weatherFactor * fogFactor;
+  const visibility = clamp01(effectiveLight * envFactor);
 
   let category = 'clear';
-  if (visibility < VISIBILITY_DIM) category = 'dark';
+  if (visibility === 0) category = 'pitch_dark';
+  else if (visibility < VISIBILITY_DIM) category = 'dark';
   else if (visibility < VISIBILITY_CLEAR) category = 'dim';
 
-  return { visibility, category, ambientLight: state.ambientLight, artificialLight: artificial };
+  return { visibility, category, ambientLight: ambientContrib, artificialLight: artificial, windowLight };
 }
 
 // GDD §7.2 feedback lines, for room-description injection on a visibility

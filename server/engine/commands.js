@@ -7,7 +7,7 @@ import { getCustodianOutcastResponse } from './mutations.js';
 import { getVendorStock, buyFromVendor, sellToVendor } from './vendor.js';
 import { cmdRent, cmdLockDoor, cmdUpgradeLock, cmdPickLock, cmdSleep, describeApartmentStatus } from './apartments.js';
 import { useDrug } from './drugs.js';
-import { getZonePowerStatus, recomputePower } from './environment.js';
+import { getZonePowerStatus, recomputePower, getZoneVisibility, getWindowsForZone, setWindowState } from './environment.js';
 import { fireCommand, fireHook } from './plugins.js';
 import { randomUUID } from 'crypto';
 
@@ -158,6 +158,17 @@ function resolveNamedDestination(zone, typedNameRaw) {
 }
 
 export async function describeZone(zone, player) {
+  // Complete darkness: return a minimal description rather than the normal one.
+  const vis = getZoneVisibility(zone.id);
+  if (vis.category === 'pitch_dark') {
+    const windows = getWindowsForZone(zone.id);
+    const windowHint = windows.length
+      ? ` You can barely make out the outline of ${windows.length === 1 ? 'a window' : 'some windows'} — ${windows.some(w => w.curtain_open) ? 'no light comes through' : 'the curtains are drawn'}.`
+      : '';
+    return `\n<span class="zone-name">${zone.name}</span>\n` +
+      `<span class="light-level light-dark">It is completely dark here. You can't make out your surroundings.${windowHint}</span>`;
+  }
+
   const { buildings, rooms, plain } = getConnectedDestinations(zone);
   const enemies = getZoneEnemies(zone.id);
   const npcs = getZoneNpcs(zone.id);
@@ -175,6 +186,7 @@ export async function describeZone(zone, player) {
   // Non-takeable scenery (bar counters, stools, etc.) — examine-only, never
   // enters an inventory, so it's queried fresh rather than cached.
   const { rows: furniture } = await query('SELECT * FROM furniture WHERE zone_id = $1', [zone.id]);
+  const windows = getWindowsForZone(zone.id);
 
   let desc = `\n<span class="zone-name">${zone.name}</span>\n`;
   desc += `<span class="zone-danger zone-danger-${zone.danger_rating}">[${zone.danger_rating.toUpperCase()}]</span>`;
@@ -216,6 +228,14 @@ export async function describeZone(zone, player) {
       return `<span class="action-link furniture-link" data-action="examine" data-target="${f.name}" title="Examine ${f.name}">${f.name}</span>${stateTag}`;
     });
     desc += `\n<span class="furniture-label">Furniture:</span> ${furnitureLinks.join(', ')}`;
+  }
+  if (windows.length) {
+    const windowLinks = windows.map(w => {
+      const curtainTag = w.curtain_open ? '' : ' <span style="color:var(--text-dim)">(curtained)</span>';
+      const glassTag = w.glass_state === 'broken' ? ' <span style="color:var(--red)">(broken)</span>' : '';
+      return `<span class="action-link furniture-link" data-action="look" data-target="through ${w.name}" title="Look through ${w.name}">${w.name}</span>${curtainTag}${glassTag}`;
+    });
+    desc += `\n<span class="furniture-label">Windows:</span> ${windowLinks.join(', ')}`;
   }
 
   desc += `\n`;
@@ -336,6 +356,8 @@ export async function handleCommand(input, player, broadcast) {
     case 'obama': return cmdObama(args.join(' '), player, broadcast);
     case 'teleport': case 'tp': return cmdTeleport(args.join(' '), player, broadcast);
     case 'whisper': case 'tell': case 't': return cmdWhisper(args, raw, player, broadcast);
+    case 'open': return cmdCurtain(args.join(' '), player, true);
+    case 'close': return cmdCurtain(args.join(' '), player, false);
     default: return { type:'error', message:`Unknown command: "${cmd}". Type HELP for commands.` };
   }
 }
@@ -350,6 +372,15 @@ async function cmdLook(player, targetStr) {
     let msg = `${player.handle}\n${player.origin_fragment || 'A survivor. Still standing, somehow.'}`;
     if (player.visibly_mutated) msg += `\n<span class="mutation-tag">Whatever's changed about you, it shows.</span>`;
     return { type:'examine', message: msg };
+  }
+  // "look through window" / "look window" / "peer through window"
+  const throughMatch = targetStr.match(/^(?:through\s+)?(.+)$/i);
+  const windowTarget = throughMatch?.[1] || targetStr;
+  const windows = getWindowsForZone(player.current_zone);
+  const win = windows.find(w => w.name.toLowerCase().includes(windowTarget.toLowerCase()));
+  if (win || /^(through|window|peer)/.test(targetStr)) {
+    if (!win) return { type:'examine', message:`You don't see a window here.` };
+    return cmdLookThroughWindow(win, player);
   }
   return cmdExamine(targetStr, player);
 }
@@ -1090,4 +1121,56 @@ function cmdWhisper(args, raw, player, broadcast) {
   if (!msgText) return { type:'error', message:'Usage: whisper <player> <message>' };
   broadcast(null, { type:'whisper', from: player.handle, message: msgText }, null, target.id);
   return { type:'output', message:`<span style="color:var(--purple)">You whisper to ${target.handle}: "${msgText}"</span>` };
+}
+
+async function cmdLookThroughWindow(win, player) {
+  if (!win.curtain_open && win.glass_state !== 'broken') {
+    return { type:'examine', message:`The curtains are drawn. You can't see through ${win.name}.` };
+  }
+  const vis = getZoneVisibility(player.current_zone);
+  if (vis.visibility < 0.1 && !win.zone_exterior) {
+    return { type:'examine', message:`It's too dark on your side to make anything out through ${win.name}.` };
+  }
+  if (!win.zone_exterior) {
+    // Faces outside
+    const { getHUDPayload } = await import('./environment.js');
+    const env = getHUDPayload();
+    const weatherDesc = { sunny:'clear skies', cloudy:'overcast skies', rain:'rain falling steadily', fog:'thick fog', storm:'a raging storm', snow:'snow coming down' }[env.weatherType] || env.weatherType;
+    return { type:'examine', message:`Through ${win.name} you see ${weatherDesc} outside. It is ${env.time}, ${env.season}.${win.glass_state === 'broken' ? ' Cold air drifts in through the broken glass.' : ''}` };
+  }
+  // Links to another interior zone
+  const otherZone = getZone(win.zone_exterior);
+  if (!otherZone) return { type:'examine', message:`You peer through ${win.name} but can't make out what's on the other side.` };
+  const otherVis = getZoneVisibility(win.zone_exterior);
+  if (otherVis.category === 'pitch_dark') {
+    return { type:'examine', message:`Through ${win.name} you can see ${otherZone.name}, but it's completely dark in there.` };
+  }
+  return { type:'examine', message:`Through ${win.name} you can see into <span style="color:var(--accent)">${otherZone.name}</span>:\n${otherZone.description}` };
+}
+
+async function cmdCurtain(targetStr, player, open) {
+  const normalised = targetStr.replace(/^curtains?\s*/i, '').trim() || targetStr.replace(/\s*curtains?$/i, '').trim();
+  const windows = getWindowsForZone(player.current_zone);
+  const win = windows.find(w =>
+    !normalised || w.name.toLowerCase().includes(normalised.toLowerCase()) ||
+    /^curtains?$/i.test(targetStr)
+  );
+  if (!win) {
+    // Not a curtain/window command — fall through to generic error only if the
+    // target isn't something else handled elsewhere.
+    if (/^curtains?$/i.test(targetStr) || windows.length) {
+      return { type:'error', message: windows.length ? `Which window? Try "open ${windows[0].name} curtain".` : `There are no windows here.` };
+    }
+    return { type:'error', message:`You can't ${open ? 'open' : 'close'} that.` };
+  }
+  if (win.glass_state === 'broken') {
+    return { type:'examine', message:`The curtains of ${win.name} are already compromised — the glass is broken.` };
+  }
+  if (win.curtain_open === (open ? 1 : 0)) {
+    return { type:'examine', message:`The curtains of ${win.name} are already ${open ? 'open' : 'closed'}.` };
+  }
+  await setWindowState(win.id, { curtain_open: open ? 1 : 0 });
+  return { type:'action', message: open
+    ? `You pull the curtains open. ${win.name} now lets in whatever light is outside.`
+    : `You draw the curtains closed. ${win.name} is blocked.` };
 }

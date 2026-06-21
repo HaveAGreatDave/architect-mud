@@ -53,6 +53,7 @@
     <div class="nav-item" data-panel="recipes" onclick="showPanel('recipes')">⚗ Recipes</div>
     <div class="nav-item" data-panel="mutations" onclick="showPanel('mutations')">☢ Mutations</div>
     <div class="nav-item" data-panel="drugs" onclick="showPanel('drugs')">💊 Drugs</div>
+    <div class="nav-item" data-panel="windows" onclick="showPanel('windows')">🪟 Windows</div>
     <div class="nav-section">Server</div>
     <div class="nav-item" data-panel="worldstate" onclick="showPanel('worldstate')">📡 World State</div>
     <div class="nav-item" data-panel="timeweather" onclick="showPanel('timeweather')">🕐 Time & Weather</div>
@@ -121,6 +122,17 @@
   <div style="padding:8px;border-top:1px solid var(--border);display:flex;gap:6px;flex-shrink:0">
     <input id="whisper-input" type="text" placeholder="Message…" style="flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:6px 8px;outline:none;border-radius:2px" onkeydown="if(event.key==='Enter')sendWhisper()">
     <button class="action-btn primary" onclick="sendWhisper()">Send</button>
+  </div>
+</div>
+
+<div id="generic-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:200;align-items:center;justify-content:center" onclick="if(event.target===this)closeModal()">
+  <div class="modal-card" style="width:520px;max-height:85vh;overflow-y:auto">
+    <h2 id="modal-title" style="color:var(--accent);letter-spacing:2px;text-transform:uppercase;font-size:14px;margin-bottom:18px"></h2>
+    <div id="modal-body"></div>
+    <div style="display:flex;gap:8px;margin-top:18px">
+      <button id="modal-save" class="action-btn primary" style="flex:1">Save</button>
+      <button class="action-btn" style="flex:0 0 auto" onclick="closeModal()">Cancel</button>
+    </div>
   </div>
 </div>
 
@@ -371,6 +383,12 @@ const PANELS = {
     editForm: drugEditForm,
     save: saveDrug,
     delete: id => API(`/drugs/${id}`, 'DELETE'),
+  },
+  windows: {
+    title: 'Windows',
+    fetch: () => API('/windows'),
+    noEdit: true,
+    render: renderWindowsPanel,
   },
   recipes: {
     title: 'Recipes',
@@ -2015,6 +2033,10 @@ function closeSettingsPanel() {
   document.getElementById('settings-overlay').classList.remove('active');
 }
 
+function closeModal() {
+  document.getElementById('generic-modal').style.display = 'none';
+}
+
 const DEV_SETTINGS_KEY = 'devpanel_settings';
 function loadDevSettings() { try { return JSON.parse(localStorage.getItem(DEV_SETTINGS_KEY) || '{}'); } catch { return {}; } }
 function saveDevSettings(s) { try { localStorage.setItem(DEV_SETTINGS_KEY, JSON.stringify(s)); } catch {} }
@@ -2104,6 +2126,111 @@ let _whisperTargetId = null;
 let _whisperTargetHandle = null;
 
 const ADMIN_ROLES = new Set(['admin','dev','builder','designer']);
+
+function renderWindowsPanel(data) {
+  const panel = document.getElementById('list-panel');
+  const windows = Array.isArray(data) ? data : [];
+
+  const glassIcon = s => s === 'broken' ? '<span style="color:var(--red)">broken</span>' : '<span style="color:var(--green)">intact</span>';
+  const curtainIcon = open => open ? '<span style="color:var(--green)">open</span>' : '<span style="color:var(--text-dim)">closed</span>';
+  const transmitBar = v => {
+    const pct = Math.round((v||0)*100);
+    return `<div style="display:flex;align-items:center;gap:6px"><div style="flex:1;background:var(--bg3);border-radius:2px;height:6px"><div style="width:${pct}%;background:var(--cyan);height:100%;border-radius:2px"></div></div><span style="font-size:10px;color:var(--text-dim);width:28px">${pct}%</span></div>`;
+  };
+
+  const rows = windows.map(w => `<tr>
+    <td style="font-weight:600;color:var(--text-bright)">${w.name}</td>
+    <td style="color:var(--cyan);font-size:11px">${w.zone_interior}</td>
+    <td style="color:var(--text-dim);font-size:11px">${w.zone_exterior || '<em>outdoors</em>'}</td>
+    <td>${curtainIcon(w.curtain_open)}</td>
+    <td>${glassIcon(w.glass_state)}</td>
+    <td style="min-width:100px">${transmitBar(w.light_transmission)}</td>
+    <td style="min-width:100px">${transmitBar(w.visibility_transmission)}</td>
+    <td style="text-align:right;white-space:nowrap">
+      <button class="action-btn" style="font-size:10px;padding:3px 8px" onclick="editWindow('${w.id}')">✏ Edit</button>
+      <button class="action-btn danger" style="font-size:10px;padding:3px 8px;margin-left:4px" onclick="deleteWindow('${w.id}','${w.name.replace(/'/g,"\\'")}')">✕</button>
+    </td>
+  </tr>`).join('');
+
+  panel.innerHTML = `
+    <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:12px;color:var(--text-dim)">${windows.length} window${windows.length!==1?'s':''}</span>
+      <button class="action-btn" onclick="newWindow()">+ New Window</button>
+    </div>
+    ${windows.length ? `
+    <table>
+      <thead><tr><th>Name</th><th>Interior Zone</th><th>Exterior Zone</th><th>Curtain</th><th>Glass</th><th>Light %</th><th>Visibility %</th><th style="text-align:right">Actions</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>` : '<div style="padding:24px;color:var(--text-dim)">No windows defined. Click + New Window to add one.</div>'}
+  `;
+}
+
+function newWindow() {
+  openWindowModal({});
+}
+
+async function editWindow(id) {
+  const all = await API('/windows');
+  const w = (Array.isArray(all) ? all : []).find(x => x.id === id);
+  if (w) openWindowModal(w);
+}
+
+async function deleteWindow(id, name) {
+  if (!confirm(`Delete window "${name}"?`)) return;
+  const r = await API(`/windows/${id}`, 'DELETE');
+  if (r?.error) { toast(r.error, true); return; }
+  toast(`Window "${name}" deleted`);
+  loadPanel('windows');
+}
+
+function openWindowModal(w) {
+  const isNew = !w.id;
+  const modal = document.getElementById('generic-modal');
+  const title = document.getElementById('modal-title');
+  const body = document.getElementById('modal-body');
+  const save = document.getElementById('modal-save');
+  title.textContent = isNew ? 'New Window' : `Edit: ${w.name}`;
+  body.innerHTML = `
+    <div class="field"><label>Name</label><input id="wm-name" value="${w.name||'window'}"></div>
+    <div class="field"><label>Description</label><textarea id="wm-desc" rows="2">${w.description||'A window.'}</textarea></div>
+    <div class="field"><label>Interior Zone ID</label><input id="wm-interior" value="${w.zone_interior||''}"></div>
+    <div class="field"><label>Exterior Zone ID <span style="color:var(--text-dim)">(blank = outdoors)</span></label><input id="wm-exterior" value="${w.zone_exterior||''}"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="field"><label>Curtain</label>
+        <select id="wm-curtain">
+          <option value="1" ${w.curtain_open||w.curtain_open===undefined?'selected':''}>Open</option>
+          <option value="0" ${w.curtain_open===0?'selected':''}>Closed</option>
+        </select>
+      </div>
+      <div class="field"><label>Glass</label>
+        <select id="wm-glass">
+          <option value="intact" ${(w.glass_state||'intact')==='intact'?'selected':''}>Intact</option>
+          <option value="broken" ${w.glass_state==='broken'?'selected':''}>Broken</option>
+        </select>
+      </div>
+      <div class="field"><label>Light Transmission (0–1)</label><input id="wm-light" type="number" min="0" max="1" step="0.05" value="${w.light_transmission??0.8}"></div>
+      <div class="field"><label>Visibility Transmission (0–1)</label><input id="wm-vis" type="number" min="0" max="1" step="0.05" value="${w.visibility_transmission??0.8}"></div>
+    </div>`;
+  save.onclick = async () => {
+    const body2 = {
+      name: document.getElementById('wm-name').value.trim(),
+      description: document.getElementById('wm-desc').value.trim(),
+      zone_interior: document.getElementById('wm-interior').value.trim(),
+      zone_exterior: document.getElementById('wm-exterior').value.trim() || null,
+      curtain_open: parseInt(document.getElementById('wm-curtain').value),
+      glass_state: document.getElementById('wm-glass').value,
+      light_transmission: parseFloat(document.getElementById('wm-light').value),
+      visibility_transmission: parseFloat(document.getElementById('wm-vis').value),
+    };
+    if (!body2.zone_interior) { toast('Interior Zone ID is required', true); return; }
+    const r = isNew ? await API('/windows', 'POST', body2) : await API(`/windows/${w.id}`, 'PUT', body2);
+    if (r?.error) { toast(r.error, true); return; }
+    toast(isNew ? 'Window created' : 'Window updated');
+    closeModal();
+    loadPanel('windows');
+  };
+  modal.style.display = 'flex';
+}
 
 function renderPlayersPanel(data) {
   const panel = document.getElementById('list-panel');

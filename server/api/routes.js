@@ -10,6 +10,7 @@ import { handleWorldValidatorApi } from './worldvalidator.routes.js';
 import { handleStagingApi } from './staging.routes.js';
 import { fireRoutes, fireHook } from '../engine/plugins.js';
 import { handlePlayerDeath } from '../engine/gameLoop.js';
+import { reloadWindows as reloadWindowsEnv } from '../engine/environment.js';
 
 const hashPassword = pw => createHash('sha256').update(pw).digest('hex');
 const makeToken = (playerId, role) => Buffer.from(`${playerId}:${role}:${Date.now()}`).toString('base64');
@@ -113,6 +114,10 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path==='/mutations' && method==='POST') return requireDev(auth, ()=>apiCreateMutation(body));
   if (path.startsWith('/mutations/') && method==='PUT') return requireDev(auth, ()=>apiUpdateMutation(path.split('/')[2],body));
   if (path.startsWith('/mutations/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteMutation(path.split('/')[2]));
+  if (path==='/windows' && method==='GET') return requireDev(auth, ()=>apiGetWindows(url));
+  if (path==='/windows' && method==='POST') return requireDev(auth, ()=>apiCreateWindow(body));
+  if (path.startsWith('/windows/') && method==='PUT') return requireDev(auth, ()=>apiUpdateWindow(path.split('/')[2],body));
+  if (path.startsWith('/windows/') && method==='DELETE') return requireDev(auth, ()=>apiDeleteWindow(path.split('/')[2]));
   if (path==='/world/state' && method==='GET') return requireDev(auth, apiWorldState);
   if (path==='/world/reload' && method==='POST') return requireDev(auth, ()=>apiReloadZone(body));
   if (path==='/players/online' && method==='GET') return { status:200, body: getAllLivePlayers().map(p=>({ id: p.id, handle: p.handle, role: p.role, current_zone: p.current_zone })) };
@@ -754,4 +759,39 @@ async function apiDeleteRecipe(id) {
     await loadRecipes();
     return {status:200,body:{message:'Deleted'}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
+}
+
+// --- Windows ---
+async function apiGetWindows(fullUrl) {
+  const zoneId = new URL('http://x' + fullUrl).searchParams.get('zone');
+  const { rows } = zoneId
+    ? await query('SELECT * FROM windows WHERE zone_interior=$1 OR zone_exterior=$1', [zoneId])
+    : await query('SELECT * FROM windows');
+  return { status:200, body:rows };
+}
+async function apiCreateWindow(body) {
+  const id = randomUUID();
+  const { name='window', description='A window.', zone_interior, zone_exterior=null, curtain_open=1, glass_state='intact', light_transmission=0.8, visibility_transmission=0.8 } = body||{};
+  if (!zone_interior) return { status:400, body:{error:'zone_interior required'} };
+  await query('INSERT INTO windows (id,name,description,zone_interior,zone_exterior,curtain_open,glass_state,light_transmission,visibility_transmission) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+    [id,name,description,zone_interior,zone_exterior,curtain_open,glass_state,light_transmission,visibility_transmission]);
+  await reloadWindowsEnv().catch(()=>{});
+  return { status:201, body:{id} };
+}
+async function apiUpdateWindow(id, body) {
+  const { name, description, zone_interior, zone_exterior, curtain_open, glass_state, light_transmission, visibility_transmission } = body||{};
+  await query(`UPDATE windows SET
+    name=COALESCE($1,name), description=COALESCE($2,description),
+    zone_interior=COALESCE($3,zone_interior), zone_exterior=$4,
+    curtain_open=COALESCE($5,curtain_open), glass_state=COALESCE($6,glass_state),
+    light_transmission=COALESCE($7,light_transmission), visibility_transmission=COALESCE($8,visibility_transmission)
+    WHERE id=$9`,
+    [name,description,zone_interior,zone_exterior??null,curtain_open,glass_state,light_transmission,visibility_transmission,id]);
+  await reloadWindowsEnv().catch(()=>{});
+  return { status:200, body:{updated:true} };
+}
+async function apiDeleteWindow(id) {
+  await query('DELETE FROM windows WHERE id=$1',[id]);
+  await reloadWindowsEnv().catch(()=>{});
+  return { status:200, body:{deleted:true} };
 }

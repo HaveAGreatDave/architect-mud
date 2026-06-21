@@ -173,6 +173,21 @@ export async function migrate() {
     -- automatically at dusk/dawn by the environment system instead).
     ALTER TABLE furniture ADD COLUMN IF NOT EXISTS light_type TEXT DEFAULT 'lamp';
 
+    -- Passive window light sources. zone_exterior = NULL means the window
+    -- faces the outdoors; non-NULL links two interior zones together.
+    CREATE TABLE IF NOT EXISTS windows (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL DEFAULT 'window',
+      description TEXT NOT NULL DEFAULT 'A window.',
+      zone_interior TEXT NOT NULL,
+      zone_exterior TEXT,
+      curtain_open INTEGER NOT NULL DEFAULT 1,
+      glass_state TEXT NOT NULL DEFAULT 'intact',
+      light_transmission FLOAT NOT NULL DEFAULT 0.8,
+      visibility_transmission FLOAT NOT NULL DEFAULT 0.8,
+      flags JSONB DEFAULT '{}'
+    );
+
     CREATE TABLE IF NOT EXISTS factions (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
