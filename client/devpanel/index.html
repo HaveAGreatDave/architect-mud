@@ -1613,7 +1613,7 @@ function renderFurniturePanel(data) {
           ${f.description ? `<div style="font-size:11px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:500px">${f.description}</div>` : ''}
         </div>
         <button class="action-btn" style="font-size:10px;padding:2px 8px" onclick="editRecord('${f.id}')">Edit</button>
-        <button class="action-btn danger" style="font-size:10px;padding:2px 8px" onclick="deleteFurnitureStaged('${f.id}','${f.name.replace(/'/g,"\\'")}')">Del</button>
+        <button class="action-btn danger" style="font-size:10px;padding:2px 8px" data-fid="${f.id}" data-fname="${f.name.replace(/"/g,'&quot;')}" onclick="deleteFurnitureStaged(this.dataset.fid,this.dataset.fname)">Del</button>
       </div>`;
     }).join('');
 
