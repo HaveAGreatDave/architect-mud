@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'url';
 import { query } from './db.js';
 import { migrateEnvironment } from './migrate.environment.js';
 
@@ -503,4 +504,7 @@ async function seedAmbientEvents() {
   }
 }
 
-migrate().catch(e => { console.error(e); process.exit(1); });
+// Only auto-run when invoked directly (npm run db:migrate), not when imported.
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  migrate().catch(e => { console.error(e); process.exit(1); });
+}

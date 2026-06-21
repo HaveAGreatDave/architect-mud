@@ -15,6 +15,7 @@ import { loadMutations } from './engine/mutations.js';
 import { handleApiRequest, setBroadcast, consumeSwitchToken } from './api/routes.js';
 import { startKeepalive } from './keepalive.js';
 import { query } from './models/db.js';
+import { migrate } from './models/migrate.js';
 
 import { initEnvironment, getHUDPayload } from './engine/environment.js';
 
@@ -293,6 +294,7 @@ process.on('unhandledRejection', (err) => {
 
 async function boot() {
   console.log('\n⚙  Booting ARCHITECT MUD...');
+  await migrate();
   setBroadcast(broadcast);
   await initWorld();
   await loadRecipes();
