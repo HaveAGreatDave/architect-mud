@@ -745,15 +745,10 @@ async function deleteFurnitureStaged(id, name) {
   const r = await API(`/furniture/${id}`, 'DELETE');
   currentRecord = prev;
   if (r?.error) { toast(r.error, true); return; }
-  if (item?._staged) {
-    // Never hit the DB — just drop it from the local list immediately.
-    _furnitureAllItems = _furnitureAllItems.filter(f => f.id !== id);
-  } else if (item) {
-    item._markedForDeletion = true;
-  }
+  if (item) item._markedForDeletion = true;
   renderFurniturePanel({ furniture: _furnitureAllItems, zones: [..._furnitureZoneNames.entries()].map(([zid, zname]) => ({ id: zid, name: zname })) });
   updateStagingBadge();
-  toast(`"${name}" ${item?._staged ? 'removed' : 'marked for deletion'}`);
+  toast(`"${name}" marked for deletion`);
 }
 
 async function deleteRecord() {
