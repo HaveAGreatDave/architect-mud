@@ -83,16 +83,18 @@ async function runFull(opts = {}) {
     if (!autoRepair && result.issues.length > 0) needsManualReview.push(zone.id);
   }
 
-  // Check buildings for world-map connection issues using the explicit
-  // world_exit_zone flag. Three cases:
-  //   1. is_building but no world_exit_zone set at all
+  // Check building entry zones for world-map connection issues. We query via
+  // the maps table (parent_zone_id IS NOT NULL) so we catch entry zones that
+  // were never flagged is_building, as well as properly flagged ones.
+  // Three cases per building:
+  //   1. No world_exit_zone set at all
   //   2. world_exit_zone points to a zone that doesn't exist
-  //   3. world_exit_zone points to a valid exterior zone but that zone has no
-  //      exit back to this building (broken link)
+  //   3. world_exit_zone is valid but that exterior zone has no exit back here
   const { rows: buildings } = await query(`
     SELECT z.id, z.name, z.flags->>'world_exit_zone' AS world_exit_zone
     FROM zones z
-    WHERE COALESCE((z.flags->>'is_building')::boolean, false) = true
+    WHERE z.id IN (SELECT entry_zone_id FROM maps WHERE parent_zone_id IS NOT NULL AND entry_zone_id IS NOT NULL)
+       OR COALESCE((z.flags->>'is_building')::boolean, false) = true
   `).catch(() => ({ rows: [] }));
 
   const { rows: allExteriorZones } = await query(`

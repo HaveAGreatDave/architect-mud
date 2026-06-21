@@ -483,12 +483,8 @@ async function loadPanel(name) {
 
   allRecords = Array.isArray(data) ? data : (data.zones || []);
 
-  if (p.render) {
-    p.render(data);
-    return;
-  }
-
-  // Overlay pending staged changes so devs see their own work in list views.
+  // Overlay pending staged changes — must happen before any render path so
+  // panels with custom renderers (Zones, Maps, Furniture) still reflect staged edits.
   const entityType = STAGED_ENTITY_TYPES[`/${name}`];
   if (stagingEnabled && entityType && pendingChanges.length) {
     const staged = pendingChanges.filter(c => c.entityType === entityType);
@@ -501,13 +497,17 @@ async function loadPanel(name) {
         if (s.changeType === 'delete') return { ...r, _stagingStatus: `pending delete` };
         return r;
       });
-      // Prepend creates (not yet in live data)
       for (const s of staged) {
         if (s.changeType === 'create' && !allRecords.find(r => r.id === s.entityId)) {
           allRecords.unshift({ ...s.stagedData, id: s.entityId, _stagingStatus: `new (staged)` });
         }
       }
     }
+  }
+
+  if (p.render) {
+    p.render(data);
+    return;
   }
 
   // Add a Status column when any rows have a staging status.
@@ -698,6 +698,10 @@ async function openEdit(record, isNew) {
   document.getElementById('edit-body').innerHTML = await p.editForm(record, isNew);
   // Populate zone windows sub-section after DOM is ready
   if (currentPanel === 'zones' && record?.id) zoneWindowsRefresh(record.id);
+  // Populate world map exit dropdown if this is a building zone
+  if (currentPanel === 'zones' && record?.flags?.is_building) {
+    populateWorldZonesDropdown(record.flags?.world_exit_zone);
+  }
 }
 
 function closeEdit() {
@@ -940,7 +944,7 @@ async function zoneEditForm(rec, isNew) {
     <div class="checkbox-field"><input type="checkbox" id="f-pvp_enabled" ${rec.pvp_enabled?'checked':''}><label>PvP Enabled</label></div>
     <div class="checkbox-field"><input type="checkbox" id="f-is_safe_zone" ${rec.is_safe_zone?'checked':''}><label>Safe Zone (no PvP, anchor point)</label></div>
     <div class="checkbox-field"><input type="checkbox" id="f-is_apartment" ${flags.is_apartment?'checked':''}><label>Rentable Apartment (players can RENT, LOCK, SLEEP here)</label></div>
-    <div class="checkbox-field"><input type="checkbox" id="f-is_building" ${flags.is_building?'checked':''} onchange="document.getElementById('building-fields').style.display=this.checked?'block':'none'"><label>Building (appears in a "Buildings:" list and entrance-discovery text on zones that connect to it)</label></div>
+    <div class="checkbox-field"><input type="checkbox" id="f-is_building" ${flags.is_building?'checked':''} onchange="toggleBuildingFields(this.checked)"><label>Building (appears in a "Buildings:" list and entrance-discovery text on zones that connect to it)</label></div>
     <div id="building-fields" style="display:${flags.is_building?'block':'none'}">
       <div class="field"><label>Building Name (optional — defaults to Zone Name if blank)</label><input id="f-building_name" value="${flags.building_name || ''}" placeholder="${rec.name || ''}"></div>
       <div class="field"><label>Building Type (controls entrance-discovery flavor text)</label>
@@ -949,7 +953,7 @@ async function zoneEditForm(rec, isNew) {
           ${BUILDING_TYPES.map(t => `<option value="${t.id}" ${flags.building_type===t.id?'selected':''}>${t.label}</option>`).join('')}
         </select>
       </div>
-      <div class="field"><label>World Map Exit Zone (exterior zone ID this building leads back to)</label><input id="f-world_exit_zone" value="${flags.world_exit_zone || ''}" placeholder="e.g. zone_street_corner" style="font-family:var(--font-mono)"></div>
+      <div class="field"><label>World Map Exit Zone (exterior zone this building leads back to)</label><select id="f-world_exit_zone"><option value="${flags.world_exit_zone || ''}">Loading exterior zones…</option></select></div>
     </div>
     <div class="checkbox-field"><input type="checkbox" id="f-is_interior" ${flags.is_interior?'checked':''}><label>Interior Room (for hand-built interiors not using Rentable Apartment — e.g. a Kitchen or Bedroom — appears in a "Rooms:" list from other interior zones)</label></div>
     <div class="field-row">
@@ -987,6 +991,28 @@ async function zoneEditForm(rec, isNew) {
     </div>` : `<div class="field" style="color:var(--text-dim);font-size:11px;font-style:italic">Save this zone first to add windows.</div>`}
     ${subSectionsHtml}
   `;
+}
+
+function toggleBuildingFields(show) {
+  const el = document.getElementById('building-fields');
+  if (el) el.style.display = show ? 'block' : 'none';
+  if (show) populateWorldZonesDropdown(document.getElementById('f-world_exit_zone')?.value);
+}
+
+let _worldExtZonesCache = null;
+async function populateWorldZonesDropdown(selectedId) {
+  const sel = document.getElementById('f-world_exit_zone');
+  if (!sel) return;
+  if (!_worldExtZonesCache) {
+    const data = await API('/maps/map_world');
+    _worldExtZonesCache = (data?.zones || [])
+      .filter(z => !z.flags?.is_interior && !z.flags?.is_apartment && !z.flags?.is_building && z.grid_x != null)
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }
+  sel.innerHTML = '<option value="">— none —</option>' +
+    _worldExtZonesCache.map(z =>
+      `<option value="${z.id}"${z.id === selectedId ? ' selected' : ''}>${z.name}</option>`
+    ).join('');
 }
 
 async function saveZone(existing) {
@@ -2357,7 +2383,7 @@ function renderMapOverview() {
     </div>`;
   } else {
     const extTray = [...o.unplaced.values()];
-    const noPosition = [...o.zones.values()].filter(z => z.grid_x == null && !z.flags?.is_interior && !z.flags?.is_apartment);
+    const noPosition = [...o.zones.values()].filter(z => z.grid_x == null && !z.flags?.is_interior && !z.flags?.is_apartment && !z.flags?.is_building);
     const disconnected = [...o.zones.values()].filter(z => Object.keys(z.exits || {}).length === 0 && z.grid_x != null);
     const allExtUnplaced = [...extTray, ...noPosition].sort((a, b) => a.name.localeCompare(b.name));
     const intUnplaced = [...(o.unplacedInterior?.values() || [])];
