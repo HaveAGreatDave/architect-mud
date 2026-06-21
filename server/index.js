@@ -6,7 +6,7 @@ import { WebSocketServer } from 'ws';
 import { createHash, randomUUID } from 'crypto';
 
 import { initWorld, addPlayerToZone, removePlayerFromZone, setLivePlayer, getLivePlayer, removeLivePlayer, getZone, getMinimapData } from './engine/world.js';
-import { handleCommand, describeZone, describeVoidTeleport, recomputeArmor } from './engine/commands.js';
+import { handleCommand, describeZone, describeVoidTeleport, recomputeArmor } from './engine/commands/index.js';
 import { startGameLoop } from './engine/gameLoop.js';
 import { loadPlugins, fireHook } from './engine/plugins.js';
 import { loadRecipes } from './engine/crafting.js';
@@ -43,7 +43,7 @@ function broadcast(zoneId, message, excludePlayerId = null, targetPlayerId = nul
   }
 }
 
-const MIME = { '.html':'text/html', '.js':'application/javascript', '.css':'text/css', '.json':'application/json', '.png':'image/png' };
+const MIME = { '.html':'text/html; charset=utf-8', '.js':'application/javascript; charset=utf-8', '.css':'text/css; charset=utf-8', '.json':'application/json; charset=utf-8', '.png':'image/png' };
 
 const httpServer = createServer(async (req, res) => {
   const url = req.url || '/';
@@ -80,10 +80,19 @@ const httpServer = createServer(async (req, res) => {
   let filePath;
   if (url.startsWith('/dev')) {
     filePath = join(__dirname, '../client/devpanel', url === '/dev' || url === '/dev/' ? 'index.html' : url.replace('/dev',''));
+  } else if (url.startsWith('/shared/')) {
+    filePath = join(__dirname, '../client/shared', url.slice('/shared/'.length));
   } else {
     filePath = join(__dirname, '../client/game', url === '/' ? 'index.html' : url);
   }
-  if (!existsSync(filePath)) filePath = join(__dirname, '../client/game/index.html');
+  if (!existsSync(filePath)) {
+    // Only fall back to the SPA shell for extension-less paths (real navigation
+    // requests). A missing .js/.css file is a module-wiring bug — return a real
+    // 404 so the browser console shows a useful error instead of an HTML parse
+    // failure that silently breaks the module graph.
+    if (extname(url)) { res.writeHead(404); res.end('Not found'); return; }
+    filePath = join(__dirname, '../client/game/index.html');
+  }
   try {
     const data = readFileSync(filePath);
     res.writeHead(200, { 'Content-Type': MIME[extname(filePath)] || 'text/plain' });

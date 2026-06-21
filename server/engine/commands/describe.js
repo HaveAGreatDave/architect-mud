@@ -1,0 +1,269 @@
+import { query } from '../../models/db.js';
+import { getZone, getZoneEnemies, getZoneNpcs, getZoneCorpses, getZonePlayers } from '../world.js';
+import { getZoneVisibility, getWindowsForZone } from '../environment.js';
+import { getCustodianOutcastResponse } from '../mutations.js';
+import { describeApartmentStatus } from '../apartments.js';
+import { fireHook } from '../plugins.js';
+
+const turretCooldowns = new Map();
+
+const VOID_TELEPORT_MESSAGES = [
+  `The floor, the walls, the air itself — all of it just isn't there anymore. You fall through something that isn't falling, for a length of time that isn't time. Then the world reasserts itself around you, all at once.`,
+  `Wherever you just were stops existing mid-step. There's a gap — not dark, not light, just absence — and then solid ground again, like it never happened.`,
+  `Reality hiccups. For a moment there's nothing under you, nothing around you, nothing anywhere at all. Then you're standing somewhere else, and your legs remember how to hold you up.`,
+];
+export function describeVoidTeleport() {
+  const msg = VOID_TELEPORT_MESSAGES[Math.floor(Math.random() * VOID_TELEPORT_MESSAGES.length)];
+  return `\n<span class="zone-name">— VOID —</span>\n${msg}`;
+}
+
+function isInteriorZone(z) {
+  return !!(z?.flags?.is_interior || z?.flags?.is_apartment || z?.flags?.is_building);
+}
+
+function getConnectedDestinations(zone) {
+  const currentIsInterior = isInteriorZone(zone);
+  const buildings = [], rooms = [], plain = [];
+  for (const [direction, targetId] of Object.entries(zone.exits || {})) {
+    const targetZone = getZone(targetId);
+    if (targetZone?.flags?.is_building) {
+      buildings.push({ direction, targetId, name: targetZone.flags.building_name || targetZone.name, type: targetZone.flags.building_type || null });
+    } else if (currentIsInterior && targetZone && isInteriorZone(targetZone)) {
+      rooms.push({ direction, targetId, name: targetZone.name });
+    } else {
+      plain.push(direction);
+    }
+  }
+  return { buildings, rooms, plain };
+}
+
+const DIRECTION_PHRASE = { north:'to the north', south:'to the south', east:'to the east', west:'to the west', up:'above', down:'below' };
+
+const BUILDING_FLAVOR_TEMPLATES = [
+  (name, dirPhrase) => `The entrance to ${name} is ${dirPhrase}.`,
+  (name, dirPhrase) => `${name} stands ${dirPhrase}.`,
+  (name, dirPhrase) => `You can see ${name} ${dirPhrase}.`,
+  (name, dirPhrase) => `${name} is ${dirPhrase}.`,
+];
+
+const BUILDING_TYPE_FLAVOR = {
+  hotel: [
+    (name, dirPhrase) => `A faded hotel sign marks the entrance to ${name}, ${dirPhrase}.`,
+    (name, dirPhrase) => `${name}'s revolving door, somehow still turning, sits ${dirPhrase}.`,
+    (name, dirPhrase) => `You can hear faint bar chatter drifting from ${name}, ${dirPhrase}.`,
+    (name, dirPhrase) => `${name} stands ${dirPhrase}, lobby lights flickering but on.`,
+  ],
+  apartment: [
+    (name, dirPhrase) => `A weathered apartment building, ${name}, stands ${dirPhrase}.`,
+    (name, dirPhrase) => `Laundry lines crisscross the windows of ${name}, ${dirPhrase}.`,
+    (name, dirPhrase) => `${name}'s entrance, propped permanently ajar, is ${dirPhrase}.`,
+    (name, dirPhrase) => `You spot mailboxes — most broken into — outside ${name}, ${dirPhrase}.`,
+  ],
+  clinic: [
+    (name, dirPhrase) => `A faded red cross marks the entrance to ${name}, ${dirPhrase}.`,
+    (name, dirPhrase) => `${name} is ${dirPhrase}, a line already forming outside.`,
+    (name, dirPhrase) => `The smell of antiseptic reaches you from ${name}, ${dirPhrase}.`,
+    (name, dirPhrase) => `${name}'s windows are dark except for one lit room, ${dirPhrase}.`,
+  ],
+  store: [
+    (name, dirPhrase) => `${name} occupies the corner ${dirPhrase}, hand-painted prices in the window.`,
+    (name, dirPhrase) => `A flickering OPEN sign hangs in the window of ${name}, ${dirPhrase}.`,
+    (name, dirPhrase) => `${name} is ${dirPhrase}, shelves visible through a cracked storefront.`,
+    (name, dirPhrase) => `You catch the smell of something fried from ${name}, ${dirPhrase}.`,
+  ],
+  warehouse: [
+    (name, dirPhrase) => `An old warehouse, ${name}, looms ${dirPhrase}.`,
+    (name, dirPhrase) => `Corrugated walls mark ${name}, ${dirPhrase}.`,
+    (name, dirPhrase) => `${name}'s loading bay door is ${dirPhrase}, half-open.`,
+    (name, dirPhrase) => `${name} sits ${dirPhrase}, a rusted forklift abandoned out front.`,
+  ],
+  powerplant: [
+    (name, dirPhrase) => `A low mechanical hum carries from ${name}, ${dirPhrase}.`,
+    (name, dirPhrase) => `${name}'s warning placards are visible even from here, ${dirPhrase}.`,
+    (name, dirPhrase) => `Heat shimmer rises off ${name}, ${dirPhrase}, despite the cold.`,
+    (name, dirPhrase) => `${name} squats ${dirPhrase}, still running, still humming, still here.`,
+  ],
+};
+
+function describeBuildingDiscovery(buildings) {
+  if (!buildings.length) return '';
+  const sentences = buildings.map(b => {
+    const dirPhrase = DIRECTION_PHRASE[b.direction] || `nearby to the ${b.direction}`;
+    const bank = (b.type && BUILDING_TYPE_FLAVOR[b.type]) || BUILDING_FLAVOR_TEMPLATES;
+    const template = bank[Math.floor(Math.random() * bank.length)];
+    return template(b.name, dirPhrase);
+  });
+  return ' ' + sentences.join(' ');
+}
+
+export function resolveNamedDestination(zone, typedNameRaw) {
+  const typed = (typedNameRaw || '').trim().toLowerCase();
+  if (!typed) return { type: 'none' };
+  const { buildings, rooms } = getConnectedDestinations(zone);
+  const candidates = [...buildings, ...rooms];
+  if (!candidates.length) return { type: 'none' };
+
+  const exact = candidates.filter(c => c.name.toLowerCase() === typed);
+  if (exact.length === 1) return { type: 'unique', match: exact[0] };
+
+  const partial = candidates.filter(c =>
+    c.name.toLowerCase().split(/\s+/).some(word => word.startsWith(typed))
+  );
+  if (partial.length === 1) return { type: 'unique', match: partial[0] };
+  if (partial.length > 1) return { type: 'ambiguous', candidates: partial };
+  return { type: 'none' };
+}
+
+function _vaguePresence(npc) {
+  const g = npc.flags?.gender;
+  const GENERIC = ['a figure', 'someone', 'a shadowy presence', 'a shape in the darkness'];
+  const MALE    = ['a man', 'a figure', 'someone'];
+  const FEMALE  = ['a woman', 'a figure', 'someone'];
+  const pool = g === 'male' ? MALE : g === 'female' ? FEMALE : GENERIC;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+export async function describeZone(zone, player) {
+  const vis = getZoneVisibility(zone.id);
+  if (vis.category === 'pitch_dark') {
+    const windows = getWindowsForZone(zone.id);
+    const windowHint = windows.length
+      ? ` You can barely make out the outline of ${windows.length === 1 ? 'a window' : 'some windows'} — ${windows.some(w => w.curtain_open) ? 'no light comes through' : 'the curtains are drawn'}.`
+      : '';
+    return `\n<span class="zone-name">${zone.name}</span>\n` +
+      `<span class="light-level light-dark">It is completely dark here. You can't make out your surroundings.${windowHint}</span>`;
+  }
+
+  const isDark = vis.category === 'dark';
+  const isDim  = vis.category === 'dim';
+
+  const { buildings, rooms, plain } = getConnectedDestinations(zone);
+  const enemies  = isDark ? [] : getZoneEnemies(zone.id);
+  const npcs     = getZoneNpcs(zone.id);
+  const corpses  = isDark ? [] : getZoneCorpses(zone.id);
+  const others   = isDark ? [] : getZonePlayers(zone.id).filter(p => p.id !== player.id);
+
+  const { rows: groundItems } = isDark ? { rows: [] } : await query(
+    `SELECT pi.*, i.name, i.type, i.rarity FROM player_inventory pi
+     JOIN items i ON i.id = pi.item_id
+     WHERE pi.player_id = $1`,
+    [`_ground_${zone.id}`]
+  );
+
+  const { rows: furniture } = isDark ? { rows: [] } : await query('SELECT * FROM furniture WHERE zone_id = $1', [zone.id]);
+  const windows = getWindowsForZone(zone.id);
+
+  let desc = `\n<span class="zone-name">${zone.name}</span>\n`;
+  if (vis.category === 'dark') {
+    desc += `<span class="light-level light-dark">It's very dark. You can barely make out your surroundings.</span>\n`;
+  } else if (vis.category === 'dim') {
+    desc += `<span class="light-level light-dim">The light is poor here. Details are hard to make out.</span>\n`;
+  }
+  desc += `<span class="zone-danger zone-danger-${zone.danger_rating}">[${zone.danger_rating.toUpperCase()}]</span>`;
+  if (zone.radiation_level > 0) desc += ` <span class="rad-warning">☢ RAD:${zone.radiation_level}</span>`;
+  if (zone.pvp_enabled) desc += ` <span class="pvp-warning">⚔ PVP</span>`;
+  const roomDesc = await fireHook('zone.describeRoom', zone);
+  if (roomDesc) desc += `\n${roomDesc}`;
+  const zoneDesc = isDim
+    ? (zone.description.split(/(?<=[.!?])\s+/)[0] || zone.description)
+    : zone.description;
+  desc += `\n${zoneDesc}${describeBuildingDiscovery(buildings)}`;
+  desc += await describeApartmentStatus(zone);
+
+  const outcastResponse = getCustodianOutcastResponse(zone, player);
+  if (outcastResponse) {
+    desc += outcastResponse.message;
+    if (outcastResponse.hostile) {
+      const lastHit = turretCooldowns.get(player.id) || 0;
+      if (Date.now() - lastHit > 8000) {
+        turretCooldowns.set(player.id, Date.now());
+        const dmg = Math.floor(Math.random() * 8) + 6;
+        player.hp = Math.max(1, player.hp - dmg);
+        await query('UPDATE players SET hp=$1 WHERE id=$2', [player.hp, player.id]);
+        desc += `\n<span class="death-message">The turret fires. -${dmg} HP. (${player.hp}/${player.hp_max})</span>`;
+      }
+    }
+  }
+
+  if (groundItems.length) {
+    if (isDim) {
+      desc += ` Something is lying on the ground nearby.`;
+    } else {
+      const itemMentions = groundItems.map(item => {
+        const rarityClass = `item-rarity-${item.rarity}`;
+        return `<span class="action-link room-item ${rarityClass}" data-action="take" data-target="${item.name}" title="Take ${item.name}">${item.name}</span>`;
+      });
+      desc += ` Lying here: ${itemMentions.join(', ')}.`;
+    }
+  }
+
+  if (!isDark) {
+    if (furniture.length) {
+      const furnitureLinks = furniture.map(f => {
+        const stateTag = f.is_light ? ` <span class="light-state ${f.light_on ? 'light-on' : 'light-off'}">(${f.light_on ? 'on' : 'off'})</span>` : '';
+        return `<span class="action-link furniture-link" data-action="examine" data-target="${f.name}" title="Examine ${f.name}">${f.name}</span>${stateTag}`;
+      });
+      desc += `\n<span class="furniture-label">Furniture:</span> ${furnitureLinks.join(', ')}`;
+    }
+  }
+  if (windows.length) {
+    const windowLinks = windows.map(w => {
+      const curtainTag = w.curtain_open ? '' : ' <span style="color:var(--text-dim)">(curtained)</span>';
+      const glassTag = w.glass_state === 'broken' ? ' <span style="color:var(--red)">(broken)</span>' : '';
+      return `<span class="action-link furniture-link" data-action="look" data-target="through ${w.name}" title="Look through ${w.name}">${w.name}</span>${curtainTag}${glassTag}`;
+    });
+    desc += `\n<span class="furniture-label">Windows:</span> ${windowLinks.join(', ')}`;
+  }
+
+  desc += `\n`;
+  if (plain.length) {
+    const exitLinks = plain.map(dir =>
+      `<span class="action-link exit-link" data-action="go" data-target="${dir}" title="Go ${dir}">${dir}</span>`
+    );
+    desc += `\n<span class="exits-label">Exits:</span> ${exitLinks.join(', ')}`;
+  }
+  if (buildings.length) {
+    const rows = buildings.map(b => {
+      const dirLabel = b.direction.charAt(0).toUpperCase() + b.direction.slice(1);
+      return `<div class="building-row"><span class="dir-tag">[${dirLabel}]</span> <span class="action-link building-link" data-action="go" data-target="${b.direction}" title="Enter ${b.name}">${b.name}</span></div>`;
+    });
+    desc += `\n<span class="buildings-label">Buildings:</span>${rows.join('')}`;
+  }
+  if (rooms.length) {
+    const rows = rooms.map(r => {
+      const dirLabel = r.direction.charAt(0).toUpperCase() + r.direction.slice(1);
+      return `<div class="room-row"><span class="dir-tag">[${dirLabel}]</span> <span class="action-link room-nav-link" data-action="go" data-target="${r.direction}" title="Go to ${r.name}">${r.name}</span></div>`;
+    });
+    desc += `\n<span class="rooms-label">Rooms:</span>${rows.join('')}`;
+  }
+  if (others.length) {
+    const playerLinks = others.map(p =>
+      `<span class="action-link player-link" data-action="examine" data-target="${p.handle}" title="Look at ${p.handle}">${p.handle}</span>`
+    );
+    desc += `\n<span class="players-label">Also here:</span> ${playerLinks.join(', ')}`;
+  }
+  if (npcs.length) {
+    if (isDark) {
+      const figures = npcs.map(n => _vaguePresence(n));
+      desc += `\n<span class="npcs-label">Nearby:</span> <span style="color:var(--text-dim);font-style:italic">${figures.join(', ')}</span>`;
+    } else {
+      const npcLinks = npcs.map(n =>
+        `<span class="action-link npc-link" data-action="talk" data-target="${n.name}" title="Talk to ${n.name}">${n.name}</span>`
+      );
+      desc += `\n<span class="npcs-label">NPCs here:</span> ${npcLinks.join(', ')}`;
+    }
+  }
+  if (enemies.length) {
+    const enemyLinks = enemies.map(e =>
+      `<span class="action-link enemy-link" data-action="attack" data-target="${e.name}" title="Attack ${e.name}">${e.name}</span> (${e.hp}/${e.hp_max}HP)`
+    );
+    desc += `\n<span class="enemies-label">Hostiles:</span> ${enemyLinks.join(', ')}`;
+  }
+  if (corpses.length) {
+    const corpseLinks = corpses.map(c =>
+      `<span class="action-link corpse-link" data-action="loot" data-target="${c.name}" title="Loot ${c.name}">${c.name}</span>`
+    );
+    desc += `\n<span class="corpses-label">Corpses:</span> ${corpseLinks.join(', ')}`;
+  }
+  return desc;
+}

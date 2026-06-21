@@ -1,5 +1,9 @@
 # Plugin Architecture Analysis
 
+> **STATUS NOTE (2026-06-21):** This document is superseded in part. The "Phase 1" items it recommended — command registration (`registerCommand`/`fireCommand`), route registration (`registerRoutes`/`fireRoutes`), and a unified `effects.js` — are **already implemented**. See `plugins.js` and `server/engine/effects.js`. The ongoing client/content restructuring work is tracked in `docs/future_proofing.md` instead. This document remains accurate for its architecture survey but its roadmap is stale.
+
+---
+
 **Scope:** Architecture review of `architect-mud` to identify which systems can move out of the engine core and into the existing file-drop plugin framework (`server/engine/plugins.js`).
 
 **Method:** Read every engine/model/api module currently in the repo (`server/engine/*.js`, `server/models/*.js`, `server/api/*.js`), the existing plugin loader and its one reference plugin (`plugins/example-weather/`), and the project's own `docs/architecture.md` / `docs/design.md`. This document reflects that code as of this pass. Two caveats worth stating up front: first, several files (`environment.js`, `commands.js`, `routes.js`, `seed.js`, devpanel/client HTML, the migration files) were modified extensively in this same session and are current; the rest (`world.js`, `combat.js`, `skills.js`, `crafting.js`, `factions.js`, `vendor.js`, `apartments.js`, `drugs.js`, `mutations.js`, `gameLoop.js`, `plugins.js`, `db.js`) were read from a reference copy and assumed unedited outside this conversation — worth a quick diff against the live repo before acting on this. Second, `docs/architecture.md` and `docs/design.md` are themselves now stale in places (they predate the power/lighting/weather system and the map-shrink work) and should get a refresh pass independent of this document.

@@ -1,6 +1,6 @@
 import { query } from '../models/db.js';
 import { reloadZone, getAllZones, world, getAllLivePlayers, getZone, addPlayerToZone, removePlayerFromZone, getMinimapData, reloadGlobalAmbients } from '../engine/world.js';
-import { describeZone, describeVoidTeleport } from '../engine/commands.js';
+import { describeZone, describeVoidTeleport } from '../engine/commands/index.js';
 import { loadRecipes } from '../engine/crafting.js';
 import { loadDrugs } from '../engine/drugs.js';
 import { loadMutations } from '../engine/mutations.js';

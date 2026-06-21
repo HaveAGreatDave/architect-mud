@@ -2,7 +2,7 @@ import { world, tickSpawns, getRandomAmbient, getLivePlayer, getInterruptLoudnes
 import { propagateSound } from './sounds.js';
 import { enemyAttackPlayer, isOnCooldown } from './combat.js';
 import { tickEffects } from './effects.js';
-import { resolveAttack } from './commands.js';
+import { resolveAttack } from './commands/index.js';
 import { tickSleep } from './apartments.js';
 import { fireHook } from './plugins.js';
 import { schedule } from './scheduler.js';

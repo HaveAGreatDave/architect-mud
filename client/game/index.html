@@ -1,364 +1,16 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ARCHITECT</title>
-<style>
-  :root {
-    --bg: #05050a;
-    --bg2: #0d0d16;
-    --bg3: #15151f;
-    --border: #2a2a40;
-    --text: #e8e8f5;
-    --text-dim: #8888a8;
-    --text-bright: #ffffff;
-    --accent: #ff2ec4;
-    --accent-dim: #6e1957;
-    --green: #39ff8f;
-    --red: #ff3b5c;
-    --orange: #ff9a3c;
-    --yellow: #f5e642;
-    --cyan: #28e5ff;
-    --purple: #b86bff;
-    --font-mono: 'Courier New', Courier, monospace;
-    --font-size-base: 14px;
-    --density-padding: 16px;
-    --density-gap: 8px;
-  }
-
-  [data-theme="light"] {
-    --bg: #f4f2ed;
-    --bg2: #e9e6de;
-    --bg3: #ddd9cf;
-    --border: #c8c3b6;
-    --text: #3a3834;
-    --text-dim: #8a8578;
-    --text-bright: #1a1916;
-    --accent: #c4197f;
-    --accent-dim: #f5cfe5;
-    --green: #1f8f4f;
-    --red: #c23b3b;
-    --orange: #b8651f;
-    --yellow: #9c8a1a;
-    --cyan: #157a92;
-    --purple: #7b3f99;
-  }
-
-  [data-theme="contrast"] {
-    --bg: #000000;
-    --bg2: #0a0a0a;
-    --bg3: #141414;
-    --border: #555555;
-    --text: #ffffff;
-    --text-dim: #aaaaaa;
-    --text-bright: #ffffff;
-    --accent: #ffb000;
-    --accent-dim: #5c3f00;
-    --green: #4eff4e;
-    --red: #ff5050;
-    --orange: #ffb000;
-    --yellow: #ffe14e;
-    --cyan: #50e0ff;
-    --purple: #d050ff;
-  }
-
-  [data-density="compact"] {
-    --density-padding: 8px;
-    --density-gap: 4px;
-  }
-
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-
-  body {
-    font-size: var(--font-size-base);
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--font-mono);
-    -webkit-font-smoothing: none;
-    -moz-osx-font-smoothing: unset;
-    font-smooth: never;
-    line-height: 1.5;
-    transition: background 0.2s ease, color 0.2s ease;
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-
-  #header {
-    background: var(--bg2);
-    border-bottom: 1px solid var(--border);
-    padding: 6px 16px;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    flex-shrink: 0;
-  }
-  #header .logo { color: var(--accent); font-size: 16px; font-weight: bold; letter-spacing: 4px; text-transform: uppercase; }
-  #header .conn-status { font-size: 11px; color: var(--text-dim); }
-  #header .conn-status.online { color: var(--green); }
-  #header .conn-status.offline { color: var(--red); }
-  #header .handle-display { margin-left: auto; color: var(--accent); font-size: 12px; }
-  #header .credits-display { color: var(--cyan); font-size: 12px; font-weight: bold; padding: 2px 8px; border: 1px solid var(--border); border-radius: 2px; white-space: nowrap; }
-
-  #main { display: grid; grid-template-columns: 1fr 240px; flex: 1; overflow: hidden; }
-  [data-density="compact"] #main { grid-template-columns: 1fr 190px; }
-
-  @media (max-width: 720px) {
-    #main { grid-template-columns: 1fr; grid-template-rows: 1fr auto; overflow-y: auto; }
-    #output-container { border-right: none; border-bottom: 1px solid var(--border); min-height: 50vh; }
-    #sidebar { overflow-y: visible; max-height: 40vh; }
-    #header .logo { font-size: 13px; letter-spacing: 2px; }
-    #quick-cmds { overflow-x: auto; flex-wrap: nowrap; }
-    #auth-box { width: 95vw; padding: 18px 14px 24px; }
-    #auth-ascii { font-size: 9px; }
-    #auth-title { font-size: 7px; letter-spacing: 0; }
-  }
-
-  #output-container { display: flex; flex-direction: column; overflow: hidden; border-right: 1px solid var(--border); transition: filter 0.6s ease; }
-  body.env-vis-dim #output-container { filter: brightness(0.88) contrast(0.95); }
-  body.env-vis-dark #output-container { filter: brightness(0.7) contrast(0.9) saturate(0.85); }
-
-  #output { flex: 1; overflow-y: auto; padding: 12px var(--density-padding); scroll-behavior: smooth; }
-  #output::-webkit-scrollbar { width: 6px; }
-  #output::-webkit-scrollbar-track { background: var(--bg2); }
-  #output::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-
-  .msg { padding: 2px 0; white-space: pre-wrap; word-break: break-word; }
-  .msg-system { color: var(--text-dim); font-style: italic; }
-  .msg-echo { color: var(--text-dim); opacity: 0.75; }
-  .msg-look { color: var(--text-bright); }
-  .msg-combat { color: var(--orange); }
-  .msg-combat-incoming { color: var(--red); }
-  .msg-death { color: var(--red); font-weight: bold; }
-  .msg-ambient { color: var(--text-dim); font-style: italic; }
-  .msg-ambient-distant { opacity: 0.65; }
-  .msg-say { color: var(--cyan); }
-  .msg-zone-event { color: var(--text-dim); font-style: italic; }
-  .msg-error { color: var(--red); }
-  .msg-loot { color: var(--green); }
-  .msg-help { color: var(--text); }
-  .msg-separator { color: var(--border); margin: 4px 0; }
-
-  .zone-name { color: var(--accent); font-size: 15px; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; }
-  .zone-danger { font-size: 11px; padding: 1px 5px; border-radius: 2px; }
-  .zone-danger-safe { color: var(--green); border: 1px solid var(--green); }
-  .zone-danger-low { color: var(--yellow); border: 1px solid var(--yellow); }
-  .zone-danger-medium { color: var(--orange); border: 1px solid var(--orange); }
-  .zone-danger-high { color: var(--red); border: 1px solid var(--red); }
-  .zone-danger-lethal { color: var(--red); border: 1px solid var(--red); background: rgba(224,85,85,0.15); }
-  .rad-warning { color: var(--green); font-size: 11px; }
-  .pvp-warning { color: var(--red); font-size: 11px; }
-  .light-level { display: block; font-size: 13px; font-style: italic; margin: 2px 0; }
-  .light-clear { color: var(--text-dim); }
-  .light-dim { color: var(--yellow); }
-  .light-dark { color: var(--red); }
-  .exits-label, .npcs-label, .enemies-label, .corpses-label, .apartment-label, .players-label, .buildings-label, .rooms-label, .furniture-label { color: var(--text-dim); }
-  .apartment-label { color: var(--cyan); font-weight: 600; }
-  .enemies-label { color: var(--orange); }
-  .inv-header, .stats-header, .skills-header, .who-header, .help-header { color: var(--accent); font-weight: bold; text-transform: uppercase; letter-spacing: 2px; }
-  .status-flags { color: var(--cyan); font-size: 12px; }
-  .equipped { color: var(--green); }
-  .item-rarity-common { color: var(--text-dim); }
-  .item-rarity-uncommon { color: var(--green); }
-  .item-rarity-rare { color: var(--cyan); }
-  .item-rarity-very_rare { color: var(--purple); }
-  .skill-category { color: var(--accent-dim); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
-  .help-category { color: var(--accent); }
-  .death-message { color: var(--red); font-size: 13px; }
-  .clone-vat-message { color: var(--text-dim); font-style: italic; font-size: 12px; }
-  .battle-cry { color: var(--orange); font-style: italic; }
-  .mutation-tag { color: var(--purple); font-style: italic; }
-  .overdose-warning, .turret-warning { color: var(--red); font-weight: 600; }
-  .addiction-warning, .outcast-warning { color: var(--orange); font-style: italic; }
-  .item-grant { color: var(--cyan); }
-
-  #env-hud-sidebar { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text); cursor: pointer; padding: 2px; border-radius: 2px; transition: background 0.15s; }
-  #env-hud-sidebar:hover { background: var(--bg3); }
-  #env-hud-sidebar .env-icon { font-size: 15px; }
-  #env-hud-sidebar .env-clock { color: var(--text-bright); font-weight: bold; letter-spacing: 0.5px; }
-  #env-hud-sidebar .env-temp { color: var(--cyan); margin-left: auto; }
-
-  #forecast-panel { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 100; align-items: center; justify-content: center; }
-  #forecast-panel.active { display: flex; }
-  #forecast-box { background: var(--bg2); border: 1px solid var(--accent); padding: 24px; max-width: 420px; width: 90%; border-radius: 2px; }
-  #forecast-header { color: var(--accent); font-weight: bold; margin-bottom: 14px; text-transform: uppercase; letter-spacing: 1px; }
-  #forecast-days { display: flex; flex-direction: column; gap: 6px; }
-  .forecast-day-row { display: flex; align-items: center; gap: 10px; padding: 7px 10px; background: var(--bg3); border: 1px solid var(--border); border-radius: 2px; font-size: 13px; }
-  .forecast-day-row.fd-today { border-color: var(--accent); }
-  .forecast-day-row .fd-label { color: var(--text-dim); width: 56px; flex-shrink: 0; }
-  .forecast-day-row .fd-icon { font-size: 16px; width: 22px; text-align: center; }
-  .forecast-day-row .fd-weather { color: var(--text-dim); flex: 1; text-transform: capitalize; }
-  .forecast-day-row .fd-temp { color: var(--cyan); font-weight: bold; }
-
-  #input-area { border-top: 1px solid var(--border); padding: 10px 16px; display: flex; gap: 8px; background: var(--bg2); flex-shrink: 0; }
-  #prompt { color: var(--accent); align-self: center; user-select: none; }
-  #cmd-input { flex: 1; background: transparent; border: none; color: var(--text-bright); font-family: var(--font-mono); font-size: 14px; outline: none; caret-color: var(--accent); }
-  #cmd-input::placeholder { color: var(--text-dim); }
-
-  #quick-cmds { border-top: 1px solid var(--border); padding: 6px 16px; display: flex; gap: 6px; flex-wrap: wrap; background: var(--bg); flex-shrink: 0; }
-  .qcmd { background: var(--bg3); border: 1px solid var(--border); color: var(--text-dim); font-family: var(--font-mono); font-size: 11px; padding: 2px 8px; cursor: pointer; border-radius: 2px; transition: all 0.1s; }
-  .qcmd:hover { border-color: var(--accent); color: var(--accent); }
-
-  #sidebar { display: flex; flex-direction: column; overflow: hidden; background: var(--bg2); }
-  .sidebar-section { padding: 12px; border-bottom: 1px solid var(--border); }
-  .sidebar-label { font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: var(--text-dim); margin-bottom: 8px; }
-
-  .vital { margin-bottom: 6px; }
-  .vital-label { font-size: 11px; color: var(--text-dim); display: flex; justify-content: space-between; margin-bottom: 2px; }
-  .vital-bar-bg { background: var(--bg3); height: 6px; border-radius: 1px; }
-  .vital-bar { height: 100%; border-radius: 1px; transition: width 0.3s; }
-  .vital-hp .vital-bar { background: var(--green); }
-  .vital-sanity .vital-bar { background: var(--purple); }
-  .vital-hunger .vital-bar { background: var(--yellow); }
-  .vital-thirst .vital-bar { background: var(--cyan); }
-  .vital-radiation .vital-bar { background: var(--orange); }
-  .vital-bar.low { background: var(--red); }
-
-  #zone-name-display { font-size: 11px; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
-  #exits-display { font-size: 11px; color: var(--text-dim); }
-  .exit-btn { background: var(--bg3); border: 1px solid var(--border); color: var(--text-dim); font-family: var(--font-mono); font-size: 11px; padding: 2px 8px; cursor: pointer; margin: 2px; border-radius: 2px; transition: all 0.1s; }
-  .exit-btn:hover { border-color: var(--accent); color: var(--accent); }
-
-  #settings-btn { background: transparent; border: 1px solid var(--border); color: var(--text-dim); font-size: 14px; width: 28px; height: 28px; cursor: pointer; border-radius: 2px; transition: all 0.15s; line-height: 1; }
-  #settings-btn:hover { border-color: var(--accent); color: var(--accent); transform: rotate(45deg); }
-  #signout-btn { background: transparent; border: 1px solid var(--border); color: var(--text-dim); font-size: 14px; width: 28px; height: 28px; cursor: pointer; border-radius: 2px; transition: all 0.15s; line-height: 1; margin-left: 6px; }
-  #signout-btn:hover { border-color: var(--red); color: var(--red); }
-
-  .action-link { text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px; cursor: pointer; transition: color 0.1s, text-decoration-style 0.1s; font-weight: 600; }
-  .action-link:hover { text-decoration-style: solid; filter: brightness(1.25); }
-  .exit-link { color: var(--cyan); }
-  .building-row, .room-row { margin: 2px 0 2px 2px; }
-  .dir-tag { color: var(--text-dim); font-weight: bold; margin-right: 4px; }
-  .building-link { color: var(--purple); }
-  .room-nav-link { color: var(--cyan); }
-  .furniture-link { color: var(--orange); }
-  .player-link { color: var(--purple); }
-  .npc-link { color: var(--green); }
-  .enemy-link { color: var(--red); }
-  .corpse-link { color: var(--text-dim); }
-
-  #minimap-section { font-family: var(--font-mono); background: var(--bg); border: 1px solid var(--border); border-radius: 2px; padding: 10px; }
-  #minimap-grid { white-space: nowrap; font-size: 16px; line-height: 1; letter-spacing: 0; text-align: center; }
-  .mm-cell { display: inline-block; width: 1.6em; height: 1.6em; line-height: 1.6em; text-align: center; }
-  .mm-current { color: #5b9af5; font-weight: bold; }
-  .mm-safe { color: var(--green); }
-  .mm-low { color: var(--yellow); }
-  .mm-medium { color: var(--orange); }
-  .mm-high { color: var(--red); }
-  .mm-lethal { color: var(--red); text-shadow: 0 0 5px var(--red); }
-  .mm-blank { color: #333355; }
-  .mm-zone { color: var(--text-dim); }
-
-  #settings-panel { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 150; align-items: center; justify-content: center; }
-  #settings-panel.active { display: flex; }
-  #settings-box { background: var(--bg2); border: 1px solid var(--accent); padding: 24px; max-width: 420px; width: 90%; border-radius: 2px; max-height: 85vh; overflow-y: auto; }
-  #settings-box h2 { color: var(--accent); font-size: 14px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 18px; }
-  .settings-group { margin-bottom: 20px; }
-  .settings-group label.group-label { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); margin-bottom: 8px; }
-  .settings-options { display: flex; gap: 6px; flex-wrap: wrap; }
-  .settings-opt { background: var(--bg3); border: 1px solid var(--border); color: var(--text-dim); font-family: var(--font-mono); font-size: 12px; padding: 6px 12px; cursor: pointer; border-radius: 2px; transition: all 0.15s; }
-  .settings-opt:hover { border-color: var(--accent); color: var(--text); }
-  .settings-opt.selected { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
-  #settings-close { width: 100%; margin-top: 8px; background: var(--accent-dim); border: 1px solid var(--accent); color: var(--text-bright); font-family: var(--font-mono); font-size: 12px; padding: 9px; cursor: pointer; letter-spacing: 1px; text-transform: uppercase; border-radius: 2px; transition: all 0.15s; }
-  #settings-close:hover { background: var(--accent); color: var(--bg); }
-
-  #map-panel { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 150; align-items: center; justify-content: center; }
-  #map-panel.active { display: flex; }
-  #map-box { background: var(--bg2); border: 1px solid var(--accent); padding: 24px; border-radius: 2px; max-height: 85vh; overflow-y: auto; }
-  #map-box h2 { color: var(--accent); font-size: 14px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 16px; }
-  #map-body { display: flex; gap: 28px; align-items: flex-start; }
-  #map-grid { --map-room: 26px; --map-gap: 14px; display: grid; justify-content: start; align-content: start; font-family: 'Courier New', monospace; font-size: 15px; line-height: 1; }
-  .map-c { display: flex; align-items: center; justify-content: center; height: 22px; white-space: pre; }
-  .map-link { color: var(--text-dim); }
-  .map-room { font-weight: bold; border-radius: 2px; color: var(--text); }
-  .map-room.danger-safe { background: rgba(80,180,100,0.22); }
-  .map-room.danger-low { background: rgba(210,190,60,0.22); }
-  .map-room.danger-medium { background: rgba(220,140,50,0.25); }
-  .map-room.danger-high, .map-room.danger-lethal { background: rgba(200,60,60,0.25); }
-  .map-room.map-styled { background: none; }
-  .map-room.map-current { color: var(--accent); background: none; }
-  #map-legend { font-family: 'Courier New', monospace; font-size: 12px; color: var(--text); min-width: 180px; }
-  .map-leg-row { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; white-space: nowrap; }
-  .map-leg-sym { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; min-width: 22px; padding: 1px 3px; font-weight: bold; border-radius: 2px; white-space: pre; }
-  .map-leg-sym.danger-safe { background: rgba(80,180,100,0.22); }
-  .map-leg-sym.danger-low { background: rgba(210,190,60,0.22); }
-  .map-leg-sym.danger-medium { background: rgba(220,140,50,0.25); }
-  .map-leg-sym.danger-high, .map-leg-sym.danger-lethal { background: rgba(200,60,60,0.25); }
-  .map-leg-sym.map-styled { background: none; }
-  .map-leg-sym.map-current { color: var(--accent); background: none; }
-  #map-close { width: 100%; background: var(--accent-dim); border: 1px solid var(--accent); color: var(--text-bright); font-family: var(--font-mono); font-size: 12px; padding: 9px; cursor: pointer; letter-spacing: 1px; text-transform: uppercase; border-radius: 2px; transition: all 0.15s; }
-  #map-close:hover { background: var(--accent); color: var(--bg); }
-
-  #equip-panel { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 150; align-items: center; justify-content: center; }
-  #equip-panel.active { display: flex; }
-  #equip-box { background: var(--bg2); border: 1px solid var(--accent); padding: 20px; max-width: 700px; width: 92%; border-radius: 2px; max-height: 88vh; display: flex; flex-direction: column; }
-  #equip-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
-  #equip-header h2 { color: var(--accent); font-size: 14px; letter-spacing: 2px; text-transform: uppercase; }
-  #equip-close { background: transparent; border: 1px solid var(--border); color: var(--text-dim); width: 26px; height: 26px; cursor: pointer; border-radius: 2px; }
-  #equip-close:hover { border-color: var(--red); color: var(--red); }
-  #equip-body { display: flex; gap: 18px; overflow: hidden; flex: 1; min-height: 0; }
-  #equip-doll { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 240px; flex-shrink: 0; align-content: start; }
-  .equip-slot { background: var(--bg3); border: 1px dashed var(--border); border-radius: 3px; padding: 8px; min-height: 56px; display: flex; flex-direction: column; gap: 4px; transition: border-color 0.15s, background 0.15s; }
-  .equip-slot.drag-over { border-color: var(--cyan); border-style: solid; background: var(--bg); }
-  .equip-slot-label { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); }
-  .equip-slot-item { font-size: 11px; color: var(--text-bright); cursor: grab; min-height: 16px; }
-  .equip-slot-item.filled { background: var(--accent-dim); border: 1px solid var(--accent); border-radius: 2px; padding: 4px 6px; }
-  .equip-slot-item.empty { color: var(--text-dim); font-style: italic; }
-  #equip-inv-list { flex: 1; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; align-content: start; padding: 2px; }
-  .equip-item-card { background: var(--bg3); border: 1px solid var(--border); border-radius: 3px; padding: 8px; cursor: grab; transition: border-color 0.15s; font-size: 11px; }
-  .equip-item-card:hover { border-color: var(--accent); }
-  .equip-item-card.dragging { opacity: 0.4; }
-  .equip-item-card .eic-name { color: var(--text-bright); display: block; margin-bottom: 2px; }
-  .equip-item-card .eic-meta { color: var(--text-dim); font-size: 10px; }
-  .equip-item-card.equippable { border-left: 3px solid var(--cyan); }
-  .equip-item-card.is-equipped { border-left: 3px solid var(--green); }
-  #equip-credits { margin-top: 12px; font-size: 12px; color: var(--text-dim); text-align: right; }
-  #equip-credits-val { color: var(--accent); font-weight: bold; }
-  @media (max-width: 720px) { #equip-body { flex-direction: column; overflow-y: auto; } #equip-doll { width: 100%; } }
-
-  #dialogue-panel { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 100; align-items: center; justify-content: center; }
-  #dialogue-panel.active { display: flex; }
-  #dialogue-box { background: var(--bg2); border: 1px solid var(--accent); padding: 24px; max-width: 540px; width: 90%; border-radius: 2px; }
-  #dialogue-npc-name { color: var(--accent); font-weight: bold; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px; }
-  #dialogue-text { color: var(--text-bright); margin-bottom: 16px; line-height: 1.6; white-space: pre-wrap; }
-  #dialogue-options { display: flex; flex-direction: column; gap: 6px; }
-  .dialogue-opt { background: var(--bg3); border: 1px solid var(--border); color: var(--text); font-family: var(--font-mono); font-size: 13px; padding: 8px 12px; cursor: pointer; text-align: left; border-radius: 2px; transition: all 0.1s; }
-  .dialogue-opt:hover { border-color: var(--accent); color: var(--accent); }
-
-  #auth-screen { position: fixed; inset: 0; background: var(--bg); z-index: 200; display: flex; align-items: center; justify-content: center; }
-  #auth-box { background: var(--bg2); border: 1px solid var(--border); box-shadow: 0 0 24px -8px var(--cyan); padding: 24px 28px 32px; width: 480px; max-width: 92vw; border-radius: 2px; }
-  #auth-ascii { font-family: var(--font-mono); font-size: 13px; line-height: 1.15; white-space: pre; text-align: center; margin-bottom: 14px; user-select: none; }
-  .sk-m { color: var(--accent); animation: glow-m 3s ease-in-out infinite; }
-  .sk-c { color: var(--cyan); animation: glow-c 3s ease-in-out infinite; animation-delay: 0.4s; }
-  @keyframes glow-m { 0%, 100% { text-shadow: 0 0 6px var(--accent-dim); } 50% { text-shadow: 0 0 18px var(--accent), 0 0 32px var(--accent-dim); } }
-  @keyframes glow-c { 0%, 100% { text-shadow: 0 0 6px var(--cyan); } 50% { text-shadow: 0 0 20px var(--cyan), 0 0 36px var(--cyan); } }
-  #auth-title { font-family: var(--font-mono); font-size: 10px; line-height: 1.4; white-space: pre; text-align: center; margin-bottom: 6px; user-select: none; letter-spacing: 0.5px; }
-  #auth-box .tagline { text-align: center; color: var(--text-dim); font-size: 11px; margin-bottom: 24px; }
-  .auth-field { margin-bottom: 14px; }
-  .auth-field label { display: block; font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
-  .auth-field input { width: 100%; background: var(--bg3); border: 1px solid var(--border); color: var(--text-bright); font-family: var(--font-mono); font-size: 13px; padding: 8px 10px; outline: none; border-radius: 2px; transition: border-color 0.15s; }
-  .auth-field input:focus { border-color: var(--accent); }
-  .auth-btn { width: 100%; background: var(--accent-dim); border: 1px solid var(--accent); color: var(--text-bright); font-family: var(--font-mono); font-size: 13px; padding: 10px; cursor: pointer; letter-spacing: 2px; text-transform: uppercase; transition: all 0.15s; border-radius: 2px; margin-bottom: 8px; }
-  .auth-btn:hover { background: var(--accent); color: var(--bg); }
-  .auth-toggle { text-align: center; font-size: 11px; color: var(--text-dim); margin-top: 8px; }
-  .auth-toggle a { color: var(--accent); cursor: pointer; text-decoration: none; }
-  .auth-toggle a:hover { text-decoration: underline; }
-  .auth-error { color: var(--red); font-size: 11px; margin-top: 8px; text-align: center; min-height: 16px; }
-  .auth-handle-field { display: none; }
-  .auth-handle-field.visible { display: block; }
-  #chat-notif-badge { display:none;position:absolute;top:-7px;right:-7px;background:var(--red);color:#fff;font-family:var(--font-mono);font-size:11px;font-weight:bold;width:18px;height:18px;border-radius:3px;border:1px solid rgba(255,255,255,0.3);align-items:center;justify-content:center;pointer-events:none;animation:chat-badge-spin 3s ease-in-out infinite; }
-  @keyframes chat-badge-spin { 0%,60%,100% { transform:rotateY(0deg); } 70% { transform:rotateY(180deg); } 80% { transform:rotateY(0deg); } }
-</style>
-<link rel="stylesheet" href="styles.css">
-</head>
-<body>
-
-<!-- AUTH SCREEN -->
-<div id="auth-screen">
-  <div id="auth-box">
-    <pre id="auth-ascii"><span class="sk-m">              ╱╲</span>
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>ARCHITECT</title>
+		<link rel="stylesheet" href="styles.css" />
+	</head>
+	<body>
+		<!-- AUTH SCREEN -->
+		<div id="auth-screen">
+			<div id="auth-box">
+				<pre id="auth-ascii"><span class="sk-m">              ╱╲</span>
 <span class="sk-m">             ╱  ╲</span>
 <span class="sk-m">        ┌───╱    ╲───┐</span>
 <span class="sk-m">        │  ╱      ╲  │</span>
@@ -371,1804 +23,628 @@
 <span class="sk-m">        └───╲    ╱───┘</span>
 <span class="sk-m">             ╲  ╱</span>
 <span class="sk-m">              ╲╱</span></pre>
-    <pre id="auth-title"><span class="sk-c">░▒▓█▓▒░</span> <span class="sk-m">▄▀█ █▀█ █▀▀ █░█ █ ▀█▀ █▀▀ █▀▀ ▀█▀</span> <span class="sk-c">░▒▓█▓▒░</span>
+				<pre
+					id="auth-title"><span class="sk-c">░▒▓█▓▒░</span> <span class="sk-m">▄▀█ █▀█ █▀▀ █░█ █ ▀█▀ █▀▀ █▀▀ ▀█▀</span> <span class="sk-c">░▒▓█▓▒░</span>
 <span class="sk-c">░▒▓█▓▒░</span> <span class="sk-m">█▀█ █▀▄ █▄▄ █▀█ █ ░█░ ██▄ █▄▄ ░█░</span> <span class="sk-c">░▒▓█▓▒░</span></pre>
 
-    <div class="tagline">The AI won. You survived. Probably.</div>
-
-    <div class="auth-field auth-handle-field" id="handle-field">
-      <label>Handle (in-world name)</label>
-      <input type="text" id="auth-handle" placeholder="How will you be known?" maxlength="24">
-    </div>
-    <div class="auth-field">
-      <label>Username</label>
-      <input type="text" id="auth-username" placeholder="username" autocomplete="username">
-    </div>
-    <div class="auth-field">
-      <label>Password</label>
-      <input type="password" id="auth-password" placeholder="password" autocomplete="current-password">
-    </div>
-
-    <button class="auth-btn" id="auth-submit">Enter</button>
-    <div class="auth-error" id="auth-error"></div>
-    <div class="auth-toggle">
-      <span id="auth-toggle-text">No account?</span>
-      <a id="auth-toggle-link">Register</a>
-    </div>
-  </div>
-</div>
-
-<!-- MAIN UI -->
-<div id="header">
-  <span class="logo">ARCHITECT</span>
-  <span class="conn-status offline" id="conn-status">DISCONNECTED</span>
-  <span class="handle-display" id="handle-display"></span>
-  <span class="credits-display" id="credits-display" title="Credits carried">₵ <span id="header-credits-val">0</span></span>
-  <button id="settings-btn" title="Settings" aria-label="Open settings">⚙</button>
-  <button id="signout-btn" title="Sign Out" aria-label="Sign out">⏻</button>
-  <button id="dev-panel-btn" onclick="window.open('/dev','_blank')" title="Open Dev Panel" style="display:none;background:var(--bg3);border:1px solid var(--purple);color:var(--purple);font-family:var(--font-mono);font-size:11px;padding:4px 10px;cursor:pointer;letter-spacing:1px;border-radius:3px">⚙ Dev</button>
-</div>
-
-<div id="main">
-  <div id="output-container">
-    <div id="output"></div>
-    <div id="quick-cmds">
-      <button class="qcmd" onclick="sendCmd('look')">look</button>
-      <button class="qcmd" onclick="openEquipPanel()">inv</button>
-      <button class="qcmd" onclick="sendCmd('stats')">stats</button>
-      <button class="qcmd" onclick="sendCmd('skills')">skills</button>
-      <button class="qcmd" onclick="sendCmd('who')">who</button>
-      <button class="qcmd" onclick="sendCmd('help')">help</button>
-      <button class="qcmd" onclick="sendCmd('recipes')">recipes</button>
-      <button class="qcmd" onclick="sendCmd('factions')">factions</button>
-      <button class="qcmd" onclick="sendCmd('mutations')">mutations</button>
-      <button id="debug-whisper-btn" class="qcmd" onclick="debugFakeWhisper()" style="display:none;border-color:var(--text-dim);opacity:0.6" title="Send yourself a test whisper">⚙ test whisper</button>
-    </div>
-    <div id="input-area">
-      <span id="prompt">&gt;</span>
-      <input type="text" id="cmd-input" placeholder="Type a command..." autocomplete="off" spellcheck="false">
-    </div>
-  </div>
-
-  <div id="sidebar">
-    <div class="sidebar-section" id="minimap-section">
-      <div class="sidebar-label">Map</div>
-      <div id="minimap-grid">—</div>
-    </div>
-
-    <div class="sidebar-section">
-      <div class="sidebar-label">Vitals</div>
-      <div class="vital vital-hp">
-        <div class="vital-label"><span>HP</span><span id="hp-val">—</span></div>
-        <div class="vital-bar-bg"><div class="vital-bar" id="hp-bar" style="width:100%"></div></div>
-      </div>
-      <div class="vital vital-sanity">
-        <div class="vital-label"><span>Sanity</span><span id="san-val">—</span></div>
-        <div class="vital-bar-bg"><div class="vital-bar" id="san-bar" style="width:100%"></div></div>
-      </div>
-      <div class="vital vital-hunger">
-        <div class="vital-label"><span>Hunger</span><span id="hun-val">—</span></div>
-        <div class="vital-bar-bg"><div class="vital-bar" id="hun-bar" style="width:100%"></div></div>
-      </div>
-      <div class="vital vital-thirst">
-        <div class="vital-label"><span>Thirst</span><span id="thi-val">—</span></div>
-        <div class="vital-bar-bg"><div class="vital-bar" id="thi-bar" style="width:100%"></div></div>
-      </div>
-      <div class="vital vital-radiation">
-        <div class="vital-label"><span>☢ Radiation</span><span id="rad-val">—</span></div>
-        <div class="vital-bar-bg"><div class="vital-bar" id="rad-bar" style="width:0%"></div></div>
-      </div>
-    </div>
-
-    <div class="sidebar-section">
-      <div class="sidebar-label">Location</div>
-      <div id="zone-name-display">—</div>
-      <div id="exits-display"></div>
-    </div>
-
-    <div class="sidebar-section" id="env-section">
-      <div class="sidebar-label">Environment</div>
-      <div id="env-hud-sidebar" onclick="openForecast()" title="View 7-day forecast">
-        <span class="env-icon" id="env-weather-icon">—</span>
-        <span class="env-clock" id="env-clock">—:—</span>
-        <span class="env-icon" id="env-time-icon">—</span>
-        <span class="env-temp" id="env-temp">—°C</span>
-      </div>
-    </div>
-
-    <div class="sidebar-section" id="enemy-section" style="display:none">
-      <div class="sidebar-label" style="color:var(--red)">⚠ Hostiles</div>
-      <div id="enemy-list" style="font-size:11px;color:var(--orange)"></div>
-    </div>
-
-    <div class="sidebar-section" style="margin-top:auto;padding-top:8px;border-top:1px solid var(--border)">
-      <div style="position:relative;display:inline-block;width:100%">
-        <button id="chat-toggle-btn" onclick="toggleWhisperPanel()" title="Toggle whisper chat" style="width:100%;background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font-mono);font-size:11px;padding:5px 8px;cursor:pointer;border-radius:2px;text-align:left;transition:all 0.15s">💬 Chat</button>
-        <span id="chat-notif-badge">!</span>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- WHISPER PANEL (tabbed, draggable) -->
-<div id="whisper-panel" style="display:none;position:fixed;bottom:0;right:0;width:300px;height:340px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;z-index:100;flex-direction:column;box-shadow:0 4px 24px rgba(0,0,0,0.5)">
-  <div id="whisper-drag-handle" style="padding:6px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;cursor:grab;user-select:none">
-    <div id="whisper-tabs" style="display:flex;gap:2px;overflow-x:auto;flex:1;min-width:0"></div>
-    <button onclick="toggleWhisperPanel()" style="flex-shrink:0;background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:13px;line-height:1;font-family:var(--font-mono);margin-left:6px">✕</button>
-  </div>
-  <div id="whisper-log" style="flex:1;overflow-y:scroll;padding:10px;font-size:12px;display:flex;flex-direction:column;gap:4px;position:relative"></div>
-  <div id="whisper-new-msgs" onclick="whisperScrollToBottom()" style="display:none;position:absolute;bottom:50px;right:8px;background:var(--accent);color:#fff;font-size:10px;padding:3px 8px;border-radius:10px;cursor:pointer;z-index:101">New messages ↓</div>
-  <div id="whisper-footer" style="display:none;padding:8px;border-top:1px solid var(--border);gap:6px;flex-shrink:0">
-    <input id="whisper-reply-input" type="text" placeholder="Reply…" style="flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font-mono);font-size:12px;padding:5px 8px;outline:none;border-radius:2px" onkeydown="if(event.key==='Enter')sendWhisperReply()">
-    <button onclick="sendWhisperReply()" style="background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:var(--font-mono);font-size:11px;padding:5px 10px;cursor:pointer;border-radius:2px;white-space:nowrap">Send</button>
-  </div>
-</div>
-
-<!-- WHO DIALOG -->
-<div id="who-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:200;align-items:center;justify-content:center">
-  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;width:380px;max-height:70vh;display:flex;flex-direction:column;overflow:hidden">
-    <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
-      <span style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim)">Who's Online</span>
-      <button onclick="closeWhoModal()" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:14px;font-family:var(--font-mono)">✕</button>
-    </div>
-    <div style="padding:8px 12px;border-bottom:1px solid var(--border)">
-      <input id="who-search" type="text" placeholder="Filter players…" oninput="filterWhoList()" style="width:100%;box-sizing:border-box;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font-mono);font-size:12px;padding:5px 8px;outline:none;border-radius:2px">
-    </div>
-    <div id="who-list" style="flex:1;overflow-y:auto;padding:8px 0"></div>
-  </div>
-</div>
-
-<!-- SETTINGS PANEL -->
-<div id="settings-panel">
-  <div id="settings-box">
-    <h2>Settings</h2>
-
-    <div class="settings-group">
-      <label class="group-label">Theme</label>
-      <div class="settings-options" id="opt-theme">
-        <button class="settings-opt" data-value="dark">Dark</button>
-        <button class="settings-opt" data-value="light">Light</button>
-        <button class="settings-opt" data-value="contrast">High Contrast</button>
-      </div>
-    </div>
-
-    <div class="settings-group">
-      <label class="group-label">Font Size</label>
-      <div class="settings-options" id="opt-fontsize">
-        <button class="settings-opt" data-value="12">Small</button>
-        <button class="settings-opt" data-value="14">Medium</button>
-        <button class="settings-opt" data-value="17">Large</button>
-        <button class="settings-opt" data-value="20">X-Large</button>
-      </div>
-    </div>
-
-    <div class="settings-group">
-      <label class="group-label">Display</label>
-      <div class="settings-options" id="opt-density">
-        <button class="settings-opt" data-value="comfortable">Comfortable (Desktop)</button>
-        <button class="settings-opt" data-value="compact">Compact (Mobile)</button>
-      </div>
-    </div>
-
-    <button id="settings-close">Done</button>
-  </div>
-</div>
-
-<!-- MAP POPUP -->
-<div id="map-panel">
-  <div id="map-box">
-    <h2>City Map</h2>
-    <div id="map-body">
-      <div id="map-grid"></div>
-      <div id="map-legend"></div>
-    </div>
-    <button id="map-close" style="margin-top:14px">Close</button>
-  </div>
-</div>
-
-<!-- EQUIPMENT PANEL -->
-<div id="equip-panel">
-  <div id="equip-box">
-    <div id="equip-header">
-      <h2>Inventory &amp; Equipment</h2>
-      <button id="equip-close" aria-label="Close">✕</button>
-    </div>
-    <div id="equip-body">
-      <div id="equip-doll">
-        <div class="equip-slot" data-slot="head" ondragover="event.preventDefault()" ondrop="onSlotDrop(event,'head')">
-          <span class="equip-slot-label">Head</span><div class="equip-slot-item"></div>
-        </div>
-        <div class="equip-slot" data-slot="torso" ondragover="event.preventDefault()" ondrop="onSlotDrop(event,'torso')">
-          <span class="equip-slot-label">Torso</span><div class="equip-slot-item"></div>
-        </div>
-        <div class="equip-slot" data-slot="hands" ondragover="event.preventDefault()" ondrop="onSlotDrop(event,'hands')">
-          <span class="equip-slot-label">Hands</span><div class="equip-slot-item"></div>
-        </div>
-        <div class="equip-slot" data-slot="weapon_hand" ondragover="event.preventDefault()" ondrop="onSlotDrop(event,'weapon_hand')">
-          <span class="equip-slot-label">Weapon</span><div class="equip-slot-item"></div>
-        </div>
-        <div class="equip-slot" data-slot="legs" ondragover="event.preventDefault()" ondrop="onSlotDrop(event,'legs')">
-          <span class="equip-slot-label">Legs</span><div class="equip-slot-item"></div>
-        </div>
-        <div class="equip-slot" data-slot="feet" ondragover="event.preventDefault()" ondrop="onSlotDrop(event,'feet')">
-          <span class="equip-slot-label">Feet</span><div class="equip-slot-item"></div>
-        </div>
-        <div class="equip-slot" data-slot="accessory" ondragover="event.preventDefault()" ondrop="onSlotDrop(event,'accessory')">
-          <span class="equip-slot-label">Accessory</span><div class="equip-slot-item"></div>
-        </div>
-      </div>
-      <div id="equip-inv-list" ondragover="event.preventDefault()" ondrop="onInvListDrop(event)"></div>
-    </div>
-    <div id="equip-credits">Credits: <span id="equip-credits-val">0</span></div>
-  </div>
-</div>
-
-<!-- DIALOGUE PANEL -->
-<div id="dialogue-panel">
-  <div id="dialogue-box">
-    <div id="dialogue-npc-name"></div>
-    <div id="dialogue-text"></div>
-    <div id="dialogue-options"></div>
-    <button class="dialogue-opt" style="margin-top:10px;color:var(--text-dim)" onclick="closeDialogue()">[ Leave ]</button>
-  </div>
-</div>
-
-<!-- FORECAST PANEL -->
-<div id="forecast-panel">
-  <div id="forecast-box">
-    <div id="forecast-header">7-Day Forecast</div>
-    <div id="forecast-days"></div>
-    <button class="dialogue-opt" style="margin-top:14px;color:var(--text-dim)" onclick="closeForecast()">[ Close ]</button>
-  </div>
-</div>
-
-<script>
-// Match the page's own protocol — wss:// when served over https://,
-// ws:// only for plain http:// (e.g. local dev on localhost).
-// Browsers block insecure ws:// connections from an https:// page.
-const WS_PROTOCOL = location.protocol === 'https:' ? 'wss:' : 'ws:';
-const WS_URL = `${WS_PROTOCOL}//${location.host}`;
-let ws = null;
-let player = null;
-let cmdHistory = [];
-let historyIdx = -1;
-let isRegister = false;
-let currentNpcId = null;
-let currentZone = null;
-
-// --- WebSocket ---
-let reconnectDelay = 1000;
-let coldStartTimer = null;
-let pingInterval = null;
-
-function connect() {
-  ws = new WebSocket(WS_URL);
-
-  ws.onopen = () => {
-    reconnectDelay = 1000;
-    setConnStatus('online', 'CONNECTED');
-    if (coldStartTimer) { clearTimeout(coldStartTimer); coldStartTimer = null; hideColdStart(); }
-    if (player) appendMsg(`Connected to ARCHITECT as ${player.handle}.`, 'system');
-    else appendMsg('Connected to ARCHITECT. Login or register to enter.', 'system');
-    // Auto-auth from dev panel switch token (stored in sessionStorage by devpanel).
-    const switchToken = sessionStorage.getItem('game-switch-token');
-    if (switchToken && !player) {
-      sessionStorage.removeItem('game-switch-token');
-      ws.send(JSON.stringify({ type: 'auth_token', token: switchToken }));
-    }
-    // Client-side ping every 10s to keep Render free tier alive. Clear any
-    // interval from a previous connection first — onopen fires again on
-    // every reconnect, and without this each one stacks a new interval that
-    // never gets cleaned up, so a session with several reconnects ends up
-    // sending more and more duplicate pings per tick forever.
-    if (pingInterval) clearInterval(pingInterval);
-    pingInterval = setInterval(() => { if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({type:'ping'})); }, 10000);
-  };
-
-  ws.onclose = () => {
-    setConnStatus('offline', 'DISCONNECTED');
-    // Show cold-start notice after 5s of disconnect
-    coldStartTimer = setTimeout(showColdStart, 5000);
-    reconnectDelay = Math.min(reconnectDelay * 1.5, 15000);
-    setTimeout(connect, reconnectDelay);
-
-    // If a login was in flight when we disconnected, unstick the form
-    if (authPending) {
-      clearTimeout(authTimeout);
-      authPending = false;
-      const submitBtn = document.getElementById('auth-submit');
-      if (submitBtn) {
-        submitBtn.disabled = false;
-        submitBtn.textContent = isRegister ? 'Register' : 'Enter';
-      }
-      const errEl = document.getElementById('auth-error');
-      if (errEl) {
-        errEl.textContent = 'Connection lost during login. Reconnecting...';
-        errEl.style.color = 'var(--red)';
-      }
-    }
-  };
-
-  ws.onmessage = (e) => {
-    const msg = JSON.parse(e.data);
-    handleServerMsg(msg);
-  };
-}
-
-function handleServerMsg(msg) {
-  switch(msg.type) {
-    case 'connected': break;
-    case 'auth_success':
-      clearTimeout(authTimeout);
-      authPending = false;
-      player = msg.player;
-      document.getElementById('auth-screen').style.display = 'none';
-      document.getElementById('handle-display').textContent = player.handle;
-      updateVitals(player);
-      if (msg.env) updateEnvironmentHUD(msg.env);
-      else fetch('/api/environment/state').then(r => r.json()).then(updateEnvironmentHUD).catch(() => {});
-      if (msg.apiToken) sessionStorage.setItem('devpanel-token', msg.apiToken);
-      _myRole = player.role;
-      const DEV_ROLES = ['admin', 'dev', 'builder', 'designer'];
-      if (DEV_ROLES.includes(player.role)) showDevPanelButton();
-      break;
-    case 'auth_fail':
-      clearTimeout(authTimeout);
-      authPending = false;
-      {
-        const submitBtn = document.getElementById('auth-submit');
-        submitBtn.disabled = false;
-        submitBtn.textContent = isRegister ? 'Register' : 'Enter';
-        const errEl = document.getElementById('auth-error');
-        errEl.textContent = msg.message;
-        errEl.style.color = 'var(--red)';
-      }
-      break;
-    case 'look':
-      appendMsg('─'.repeat(50), 'separator');
-      appendHtml(msg.message, 'look');
-      if (msg.zone) currentZone = msg.zone;
-      parseZoneInfo(msg.message);
-      if (msg.minimap) renderMinimap(msg.minimap);
-      refreshZoneVisibility();
-      break;
-    case 'move':
-      appendHtml(msg.message, 'look');
-      currentZone = msg.zone;
-      parseZoneInfo(msg.message);
-      if (msg.radiation_gain > 0) appendMsg(`☢ +${msg.radiation_gain} radiation absorbed.`, 'system');
-      if (player) { player.radiation = Math.min(100, (player.radiation||0) + (msg.radiation_gain||0)); updateVitals(player); }
-      if (msg.minimap) renderMinimap(msg.minimap);
-      refreshZoneVisibility();
-      break;
-    case 'combat':
-      appendHtml(msg.message, msg.killed ? 'loot' : 'combat');
-      if (msg.killed && msg.loot?.length) {
-        appendMsg(`Loot: ${msg.loot.map(l => `${l.item_id} x${l.quantity}`).join(', ')}`, 'loot');
-      }
-      break;
-    case 'combat_incoming':
-      appendHtml(msg.message, 'combat-incoming');
-      if (player) { player.hp = msg.hp; updateVitals(player); }
-      break;
-    case 'combat_miss':
-      appendHtml(msg.message, 'system');
-      break;
-    case 'player_death':
-      appendHtml(msg.message, 'death');
-      if (player && msg.player_update) { Object.assign(player, msg.player_update); updateVitals(player); }
-      setTimeout(() => { sendCmd('look'); }, 1500);
-      break;
-    case 'ambient':
-      appendHtml(msg.message, 'ambient');
-      break;
-    case 'sleep':
-      appendMsg(msg.message, 'system');
-      break;
-    case 'sleep_tick':
-    case 'sleep_end':
-      appendMsg(msg.message, 'system');
-      if (player && msg.player_update) { Object.assign(player, msg.player_update); updateVitals(player); }
-      break;
-    case 'zone_event':
-      appendMsg(msg.message, 'zone-event');
-      break;
-    case 'emote':
-      appendMsg(msg.message, 'zone-event');
-      break;
-    case 'say':
-      appendMsg(msg.message, 'say');
-      break;
-    case 'inventory':
-      renderEquipPanel(msg.items || []);
-      document.getElementById('equip-panel').classList.add('active');
-      break;
-    case 'stats':
-      appendHtml(msg.message, 'help');
-      if (msg.player) updateVitals(msg.player);
-      break;
-    case 'skills':
-      appendHtml(msg.message, 'help');
-      break;
-    case 'who': case 'help': case 'examine': case 'take': case 'drop': case 'action':
-      appendHtml(msg.message, 'help');
-      break;
-    case 'map':
-      openMapPopup(msg.tiles || []);
-      break;
-    case 'equip':
-      if (document.getElementById('equip-panel').classList.contains('active')) {
-        sendCmdSilent('inventory');
-      } else {
-        appendHtml(msg.message, 'help');
-      }
-      break;
-    case 'use':
-      appendHtml(msg.message, 'loot');
-      if (msg.player_update) updateVitals(msg.player_update);
-      break;
-    case 'dialogue':
-      openDialogue(msg);
-      break;
-    case 'dialogue_end':
-      closeDialogue();
-      appendMsg(msg.message, 'system');
-      break;
-    case 'status_tick':
-      for (const m of msg.messages) appendMsg(m, 'combat-incoming');
-      break;
-    case 'resource_tick':
-      for (const m of msg.messages) appendMsg(m, 'system');
-      if (msg.player_update && player) {
-        Object.assign(player, msg.player_update);
-        updateVitals(player);
-      }
-      break;
-    case 'player_update':
-      if (player) { Object.assign(player, msg); updateVitals(player); }
-      break;
-    case 'error':
-      appendMsg(msg.message, 'error');
-      break;
-    case 'craft': case 'buy': case 'sell': case 'deposit': case 'withdraw': case 'steal':
-      appendHtml(msg.message, 'loot');
-      if (msg.player_update && player) { Object.assign(player, msg.player_update); updateVitals(player); }
-      break;
-    case 'loot':
-      appendHtml(msg.message, 'loot');
-      break;
-    case 'balance':
-      appendHtml(msg.message, 'help');
-      break;
-    case 'recipes': case 'mutations': case 'factions': case 'shop':
-      appendHtml(msg.message, 'help');
-      break;
-    case 'mutation_gained':
-      appendHtml(msg.message, 'combat-incoming');
-      break;
-    case 'kicked':
-      appendMsg(msg.message, 'error');
-      ws.close();
-      break;
-    case 'environment.sync':
-    case 'environment.daily':
-    case 'environment.weatherOverride':
-      updateEnvironmentHUD(msg);
-      break;
-    case 'whisper':
-      receiveWhisper(msg.from || 'Admin', msg.message);
-      break;
-    case 'lightview':
-      openLightViewDialog(msg);
-      break;
-    case 'pong': break; // keepalive
-  }
-}
-
-// --- LightView dialog ---
-
-let _lvData = null; // current lightview payload
-
-function openLightViewDialog(data) {
-  _lvData = data;
-  let modal = document.getElementById('lightview-modal');
-  if (!modal) {
-    modal = document.createElement('div');
-    modal.id = 'lightview-modal';
-    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:500;display:flex;align-items:center;justify-content:center';
-    modal.addEventListener('click', e => { if (e.target === modal) closeLightViewDialog(); });
-    document.body.appendChild(modal);
-  }
-  modal.style.display = 'flex';
-  _renderLightView(modal, data);
-}
-
-function closeLightViewDialog() {
-  const modal = document.getElementById('lightview-modal');
-  if (modal) modal.style.display = 'none';
-}
-
-function _renderLightView(modal, d) {
-  const vis = d.visibility;
-  const curPct = Math.round((vis.visibility || 0) * 100);
-  const maxPct = Math.round((d.maxLight || 0) * 100);
-  const powerColor = d.powerStatus === 'powered' ? 'var(--green)' : d.powerStatus === 'overloaded' ? 'var(--yellow)' : 'var(--red)';
-  const powerLabel = d.powerStatus === 'powered' ? '⚡ Powered' : d.powerStatus === 'overloaded' ? '⚠ Overloaded' : '✗ Offline';
-
-  const barColor = curPct > 70 ? 'var(--green)' : curPct > 30 ? 'var(--yellow)' : 'var(--red)';
-  const bar = (pct, color) => `<div style="flex:1;background:var(--bg3);border-radius:3px;height:8px;position:relative">
-    <div style="width:${pct}%;background:${color};height:100%;border-radius:3px;transition:width 0.3s"></div>
-  </div>`;
-
-  const lightRows = (d.lights||[]).map(l => {
-    const typeOpts = ['overhead','lamp','streetlight'].map(t =>
-      `<option value="${t}" ${l.light_type===t?'selected':''}>${t}</option>`).join('');
-    return `<tr id="lvlight-${l.id}">
-      <td style="color:var(--text-bright)">${l.name}</td>
-      <td><select onchange="lvUpdateLight('${l.id}','light_type',this.value)" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font-mono);font-size:11px;padding:2px 4px">${typeOpts}</select></td>
-      <td style="text-align:center"><span style="color:${l.light_on?'var(--yellow)':'var(--text-dim)'}">${l.light_on?'● ON':'○ OFF'}</span></td>
-      <td style="text-align:center"><span style="color:${d.powerStatus==='powered'?'var(--green)':'var(--red)'}">
-        ${d.powerStatus==='powered'?'✓ Receiving':'✗ No power'}</span></td>
-      <td style="text-align:right;white-space:nowrap">
-        <button onclick="lvToggleLight('${l.id}',${l.light_on?0:1})" style="${_lvBtnStyle(l.light_on?'var(--red)':'var(--green)')}">${l.light_on?'Turn Off':'Turn On'}</button>
-        <button onclick="lvDeleteLight('${l.id}')" style="${_lvBtnStyle('var(--text-dim)')}">✕</button>
-      </td>
-    </tr>`;
-  }).join('') || `<tr><td colspan="5" style="color:var(--text-dim);font-style:italic;padding:8px">No light fixtures in this room.</td></tr>`;
-
-  const winRows = (d.windows||[]).map(w => {
-    const pct = Math.round((w.light_transmission||0.8)*100);
-    const curtainColor = w.curtain_open ? 'var(--green)' : 'var(--text-dim)';
-    const glassColor = w.glass_state==='broken' ? 'var(--red)' : 'var(--text-bright)';
-    return `<tr id="lvwin-${w.id}">
-      <td style="color:var(--text-bright)">${w.name}</td>
-      <td style="color:${curtainColor}">${w.curtain_open?'Open':'Closed'}</td>
-      <td style="color:${glassColor}">${w.glass_state==='broken'?'Broken':'Intact'}</td>
-      <td style="min-width:80px">
-        <div style="display:flex;align-items:center;gap:6px">
-          <div style="flex:1;background:var(--bg3);border-radius:2px;height:5px">
-            <div style="width:${pct}%;background:var(--cyan);height:100%;border-radius:2px"></div>
-          </div>
-          <span style="font-size:10px;color:var(--text-dim)">${pct}%</span>
-        </div>
-      </td>
-      <td style="text-align:right;white-space:nowrap">
-        <button onclick="lvToggleCurtain('${w.id}',${w.curtain_open?0:1})" style="${_lvBtnStyle('var(--accent)')}">${w.curtain_open?'Close':'Open'}</button>
-        <button onclick="lvEditWindow('${w.id}')" style="${_lvBtnStyle('var(--text-dim)')}">✏</button>
-        <button onclick="lvDeleteWindow('${w.id}')" style="${_lvBtnStyle('var(--red)')}">✕</button>
-      </td>
-    </tr>`;
-  }).join('') || `<tr><td colspan="5" style="color:var(--text-dim);font-style:italic;padding:8px">No windows in this room.</td></tr>`;
-
-  modal.innerHTML = `
-  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;width:620px;max-height:85vh;overflow-y:auto;font-family:var(--font-mono)">
-    <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
-      <div>
-        <div style="font-size:13px;font-weight:bold;color:var(--accent);text-transform:uppercase;letter-spacing:2px">⚡ Light View</div>
-        <div style="font-size:11px;color:var(--text-dim);margin-top:2px">${d.zoneName} <span style="color:var(--border)">·</span> ${d.zoneId}</div>
-      </div>
-      <button onclick="closeLightViewDialog()" style="background:none;border:none;color:var(--text-dim);font-size:18px;cursor:pointer;padding:0 4px;line-height:1">✕</button>
-    </div>
-
-    <div style="padding:12px 16px;border-bottom:1px solid var(--border)">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
-        <span style="font-size:11px;color:var(--text-dim);width:90px">Current light</span>
-        ${bar(curPct,barColor)}
-        <span style="font-size:12px;font-weight:bold;color:${barColor};width:36px;text-align:right">${curPct}%</span>
-      </div>
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
-        <span style="font-size:11px;color:var(--text-dim);width:90px">Max possible</span>
-        ${bar(maxPct,'var(--text-dim)')}
-        <span style="font-size:12px;color:var(--text-dim);width:36px;text-align:right">${maxPct}%</span>
-      </div>
-      <div style="display:flex;gap:16px;font-size:11px">
-        <span style="color:${powerColor}">${powerLabel}</span>
-        <span style="color:var(--text-dim)">Artificial: <span style="color:var(--text)">${Math.round((vis.artificialLight||0)*100)}%</span></span>
-        <span style="color:var(--text-dim)">Window: <span style="color:var(--text)">${Math.round((vis.windowLight||0)*100)}%</span></span>
-        <span style="color:var(--text-dim)">Ambient: <span style="color:var(--text)">${Math.round((vis.ambientLight||0)*100)}%</span></span>
-        <span style="color:var(--text-dim)">Category: <span style="color:var(--text)">${vis.category}</span></span>
-      </div>
-    </div>
-
-    <div style="padding:10px 16px 4px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border)">
-      <span style="font-size:12px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:1px">Lights</span>
-      <button onclick="lvAddLight()" style="${_lvBtnStyle('var(--green)')}">+ Add Light</button>
-    </div>
-    <table style="width:100%;border-collapse:collapse;font-size:11px">
-      <thead><tr style="background:var(--bg3)">
-        <th style="padding:5px 8px;text-align:left;color:var(--text-dim)">Name</th>
-        <th style="padding:5px 8px;text-align:left;color:var(--text-dim)">Type</th>
-        <th style="padding:5px 8px;text-align:center;color:var(--text-dim)">State</th>
-        <th style="padding:5px 8px;text-align:center;color:var(--text-dim)">Power</th>
-        <th></th>
-      </tr></thead>
-      <tbody id="lv-lights-body">${lightRows}</tbody>
-    </table>
-
-    <div style="padding:10px 16px 4px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);margin-top:4px">
-      <span style="font-size:12px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:1px">Windows</span>
-      <button onclick="lvAddWindow()" style="${_lvBtnStyle('var(--cyan)')}">+ Add Window</button>
-    </div>
-    <table style="width:100%;border-collapse:collapse;font-size:11px">
-      <thead><tr style="background:var(--bg3)">
-        <th style="padding:5px 8px;text-align:left;color:var(--text-dim)">Name</th>
-        <th style="padding:5px 8px;color:var(--text-dim)">Curtain</th>
-        <th style="padding:5px 8px;color:var(--text-dim)">Glass</th>
-        <th style="padding:5px 8px;color:var(--text-dim);min-width:90px">Light %</th>
-        <th></th>
-      </tr></thead>
-      <tbody id="lv-windows-body">${winRows}</tbody>
-    </table>
-    <div style="padding:10px 16px;border-top:1px solid var(--border);text-align:right">
-      <button onclick="sendCmdSilent('lightview')" style="${_lvBtnStyle('var(--accent)')}" title="Refresh data">↻ Refresh</button>
-      <button onclick="closeLightViewDialog()" style="${_lvBtnStyle('var(--text-dim)')}">Close</button>
-    </div>
-  </div>`;
-}
-
-function _lvBtnStyle(color) {
-  return `background:transparent;border:1px solid ${color};color:${color};font-family:var(--font-mono);font-size:10px;padding:3px 8px;cursor:pointer;border-radius:2px;margin-left:4px`;
-}
-
-function _lvToken() { return sessionStorage.getItem('devpanel-token'); }
-async function _lvAPI(path, method='GET', body) {
-  const token = _lvToken();
-  if (!token) return null;
-  const opts = { method, headers: { Authorization:`Bearer ${token}` } };
-  if (body) { opts.body = JSON.stringify(body); opts.headers['Content-Type']='application/json'; }
-  const r = await fetch('/api' + path, opts).catch(()=>null);
-  return r ? r.json().catch(()=>null) : null;
-}
-
-async function lvToggleLight(id, newState) {
-  await _lvAPI(`/furniture/${id}`, 'PUT', { light_on: newState });
-  sendCmdSilent('lightview'); // refresh
-}
-
-async function lvUpdateLight(id, field, value) {
-  await _lvAPI(`/furniture/${id}`, 'PUT', { [field]: value });
-  sendCmdSilent('lightview');
-}
-
-async function lvDeleteLight(id) {
-  if (!confirm('Delete this light fixture?')) return;
-  await _lvAPI(`/furniture/${id}`, 'DELETE');
-  sendCmdSilent('lightview');
-}
-
-function lvAddLight() {
-  _lvInlineForm('light', null);
-}
-
-async function lvToggleCurtain(id, newState) {
-  await _lvAPI(`/windows/${id}`, 'PUT', { curtain_open: newState });
-  sendCmdSilent('lightview');
-}
-
-async function lvDeleteWindow(id) {
-  if (!confirm('Delete this window?')) return;
-  await _lvAPI(`/windows/${id}`, 'DELETE');
-  sendCmdSilent('lightview');
-}
-
-function lvAddWindow() { _lvInlineForm('window', null); }
-function lvEditWindow(id) {
-  const w = _lvData?.windows?.find(x=>x.id===id);
-  if (w) _lvInlineForm('window', w);
-}
-
-function _lvInlineForm(kind, existing) {
-  // Build a small overlay on top of the lightview modal
-  let overlay = document.getElementById('lv-form-overlay');
-  if (!overlay) {
-    overlay = document.createElement('div');
-    overlay.id = 'lv-form-overlay';
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:600;display:flex;align-items:center;justify-content:center';
-    document.body.appendChild(overlay);
-  }
-  overlay.style.display = 'flex';
-
-  const zoneId = _lvData?.zoneId || '';
-  const isNew = !existing;
-
-  let formHtml;
-  if (kind === 'light') {
-    formHtml = `
-      <div class="field" style="margin-bottom:10px"><label style="font-size:11px;color:var(--text-dim);display:block;margin-bottom:4px">Name</label>
-        <input id="lvf-name" value="${existing?.name||'light fixture'}" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font-mono);font-size:12px;padding:6px 8px"></div>
-      <div class="field" style="margin-bottom:10px"><label style="font-size:11px;color:var(--text-dim);display:block;margin-bottom:4px">Description</label>
-        <textarea id="lvf-desc" rows="2" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font-mono);font-size:12px;padding:6px 8px;resize:vertical">${existing?.description||'A light fixture.'}</textarea></div>
-      <div class="field" style="margin-bottom:10px"><label style="font-size:11px;color:var(--text-dim);display:block;margin-bottom:4px">Type</label>
-        <select id="lvf-type" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font-mono);font-size:12px;padding:6px 8px">
-          ${['overhead','lamp','streetlight'].map(t=>`<option value="${t}" ${(existing?.light_type||'lamp')===t?'selected':''}>${t}</option>`).join('')}
-        </select></div>`;
-  } else {
-    formHtml = `
-      <div class="field" style="margin-bottom:10px"><label style="font-size:11px;color:var(--text-dim);display:block;margin-bottom:4px">Name</label>
-        <input id="lvf-name" value="${existing?.name||'window'}" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font-mono);font-size:12px;padding:6px 8px"></div>
-      <div class="field" style="margin-bottom:10px"><label style="font-size:11px;color:var(--text-dim);display:block;margin-bottom:4px">Description</label>
-        <textarea id="lvf-desc" rows="2" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font-mono);font-size:12px;padding:6px 8px;resize:vertical">${existing?.description||'A window.'}</textarea></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px">
-        <div><label style="font-size:11px;color:var(--text-dim);display:block;margin-bottom:4px">Curtain</label>
-          <select id="lvf-curtain" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font-mono);font-size:12px;padding:6px 8px">
-            <option value="1" ${(existing?.curtain_open??1)?'selected':''}>Open</option>
-            <option value="0" ${existing?.curtain_open===0?'selected':''}>Closed</option>
-          </select></div>
-        <div><label style="font-size:11px;color:var(--text-dim);display:block;margin-bottom:4px">Glass</label>
-          <select id="lvf-glass" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font-mono);font-size:12px;padding:6px 8px">
-            <option value="intact" ${(existing?.glass_state||'intact')==='intact'?'selected':''}>Intact</option>
-            <option value="broken" ${existing?.glass_state==='broken'?'selected':''}>Broken</option>
-          </select></div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px">
-        <div><label style="font-size:11px;color:var(--text-dim);display:block;margin-bottom:4px">Light transmission (0–1)</label>
-          <input id="lvf-lighttrans" type="number" min="0" max="1" step="0.05" value="${existing?.light_transmission??0.8}" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font-mono);font-size:12px;padding:6px 8px"></div>
-        <div><label style="font-size:11px;color:var(--text-dim);display:block;margin-bottom:4px">Exterior zone ID <span style="color:var(--border)">(blank=outdoors)</span></label>
-          <input id="lvf-exterior" value="${existing?.zone_exterior||''}" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font-mono);font-size:12px;padding:6px 8px"></div>
-      </div>`;
-  }
-
-  overlay.innerHTML = `
-    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;width:420px;padding:16px;font-family:var(--font-mono)">
-      <div style="font-size:12px;font-weight:bold;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:14px">
-        ${isNew ? 'Add' : 'Edit'} ${kind === 'light' ? 'Light Fixture' : 'Window'}
-      </div>
-      ${formHtml}
-      <div style="display:flex;gap:8px;margin-top:4px">
-        <button id="lvf-save" style="${_lvBtnStyle('var(--green)')}">Save</button>
-        <button onclick="document.getElementById('lv-form-overlay').style.display='none'" style="${_lvBtnStyle('var(--text-dim)')}">Cancel</button>
-      </div>
-    </div>`;
-
-  document.getElementById('lvf-save').onclick = async () => {
-    const name = document.getElementById('lvf-name').value.trim();
-    if (!name) return;
-    if (kind === 'light') {
-      const b = { zone_id: zoneId, name, description: document.getElementById('lvf-desc').value.trim(), is_light:1, light_on:1, light_type: document.getElementById('lvf-type').value };
-      const r = isNew ? await _lvAPI('/furniture','POST',b) : await _lvAPI(`/furniture/${existing.id}`,'PUT',b);
-      if (r?.error) { alert(r.error); return; }
-    } else {
-      const b = { zone_interior: zoneId, name, description: document.getElementById('lvf-desc').value.trim(), curtain_open: parseInt(document.getElementById('lvf-curtain').value), glass_state: document.getElementById('lvf-glass').value, light_transmission: parseFloat(document.getElementById('lvf-lighttrans').value)||0.8, zone_exterior: document.getElementById('lvf-exterior').value.trim()||null };
-      const r = isNew ? await _lvAPI('/windows','POST',b) : await _lvAPI(`/windows/${existing.id}`,'PUT',b);
-      if (r?.error) { alert(r.error); return; }
-    }
-    overlay.style.display = 'none';
-    sendCmdSilent('lightview');
-  };
-}
-
-// --- Tabbed whisper system ---
-
-const USERS_TAB = '__users__';
-let _myRole = 'player';
-let _whisperPanelVisible = false;
-let _unreadWhispers = 0;
-let _activeWhisperTab = USERS_TAB;
-const _whisperConvos = new Map();
-const WHISPER_MAX_MSGS = 100;
-let _onlinePlayers = [];
-
-function toggleWhisperPanel() {
-  _whisperPanelVisible = !_whisperPanelVisible;
-  const panel = document.getElementById('whisper-panel');
-  panel.style.display = _whisperPanelVisible ? 'flex' : 'none';
-  if (_whisperPanelVisible) {
-    _switchToTab(_activeWhisperTab);
-    if (_activeWhisperTab !== USERS_TAB) document.getElementById('whisper-reply-input')?.focus();
-  }
-  _updateChatBadge();
-}
-
-function openWhisperTab(handle) {
-  if (!_whisperConvos.has(handle)) {
-    _whisperConvos.set(handle, { messages: [], scrollTop: 0, unread: 0 });
-  }
-  _whisperConvos.get(handle).unread = 0;
-  _switchToTab(handle);
-  if (!_whisperPanelVisible) {
-    _whisperPanelVisible = true;
-    document.getElementById('whisper-panel').style.display = 'flex';
-  }
-  document.getElementById('whisper-reply-input')?.focus();
-  _updateChatBadge();
-}
-
-function _switchToTab(key) {
-  _activeWhisperTab = key;
-  _refreshWhisperTabs();
-  _renderWhisperLog();
-  const footer = document.getElementById('whisper-footer');
-  if (footer) footer.style.display = key === USERS_TAB ? 'none' : 'flex';
-  if (key === USERS_TAB) _fetchOnlinePlayers();
-}
-
-function _refreshWhisperTabs() {
-  const tabs = document.getElementById('whisper-tabs');
-  if (!tabs) return;
-  tabs.innerHTML = '';
-  const mkTab = (label, active, color, onClick) => {
-    const t = document.createElement('button');
-    t.style.cssText = `background:${active?'var(--bg3)':'transparent'};border:1px solid ${active?color:'var(--border)'};color:${active?color:'var(--text-dim)'};font-family:var(--font-mono);font-size:10px;padding:3px 8px;cursor:pointer;border-radius:2px;white-space:nowrap;flex-shrink:0`;
-    t.textContent = label;
-    t.onclick = onClick;
-    tabs.appendChild(t);
-  };
-  mkTab('Users', _activeWhisperTab === USERS_TAB, 'var(--purple)', () => _switchToTab(USERS_TAB));
-  for (const [handle, convo] of _whisperConvos) {
-    const t = document.createElement('button');
-    const active = handle === _activeWhisperTab;
-    t.style.cssText = `position:relative;background:${active?'var(--bg3)':'transparent'};border:1px solid ${active?'var(--accent)':'var(--border)'};color:${active?'var(--accent)':'var(--text-dim)'};font-family:var(--font-mono);font-size:10px;padding:3px 8px;cursor:pointer;border-radius:2px;white-space:nowrap;flex-shrink:0`;
-    t.textContent = handle;
-    if (convo.unread > 0) {
-      const pip = document.createElement('span');
-      pip.textContent = '!';
-      pip.style.cssText = 'position:absolute;top:-5px;right:-5px;background:var(--red);color:#fff;font-size:9px;font-weight:bold;width:12px;height:12px;border-radius:2px;display:flex;align-items:center;justify-content:center;pointer-events:none';
-      t.appendChild(pip);
-    }
-    t.onclick = () => openWhisperTab(handle);
-    tabs.appendChild(t);
-  }
-}
-
-function _renderWhisperLog() {
-  const log = document.getElementById('whisper-log');
-  if (!log) return;
-  if (_activeWhisperTab === USERS_TAB) {
-    _renderUsersTab(log);
-    document.getElementById('whisper-new-msgs').style.display = 'none';
-    return;
-  }
-  const convo = _whisperConvos.get(_activeWhisperTab);
-  if (!convo) return;
-  log.innerHTML = '';
-  for (const m of convo.messages) {
-    const entry = document.createElement('div');
-    entry.style.cssText = 'padding:4px 0;border-bottom:1px solid var(--border)';
-    const nameColor = m.isMe ? 'var(--text-dim)' : 'var(--purple)';
-    const msgColor  = m.isMe ? 'var(--text-dim)' : 'var(--text)';
-    entry.innerHTML = `<div style="font-size:10px;color:${nameColor};margin-bottom:2px;font-style:${m.isMe?'italic':''}">${m.from}</div><div style="color:${msgColor}">${m.message}</div>`;
-    log.appendChild(entry);
-  }
-  log.scrollTop = convo.scrollTop || log.scrollHeight;
-  _checkWhisperScroll();
-}
-
-function _renderUsersTab(log) {
-  log.innerHTML = '<div style="padding:8px 10px 4px;font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">Online now</div>'
-    + (_onlinePlayers.length
-      ? _onlinePlayers.map(p => {
-          const h = p.handle.replace(/'/g,"\\'");
-          return `<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 10px;border-bottom:1px solid var(--border)"><span style="font-size:12px;color:var(--text)">${p.handle}</span><button onclick="openWhisperTab('${h}')" title="Whisper ${p.handle}" style="background:transparent;border:none;color:var(--accent);font-size:13px;cursor:pointer;padding:0 2px;line-height:1">💬</button></div>`;
-        }).join('')
-      : '<div style="padding:10px 10px;color:var(--text-dim);font-size:11px">No other players online.</div>')
-    + '<div style="padding:6px 10px"><button onclick="_fetchOnlinePlayers()" style="width:100%;background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font-mono);font-size:10px;padding:4px;cursor:pointer;border-radius:2px">↻ Refresh</button></div>';
-}
-
-async function _fetchOnlinePlayers() {
-  try {
-    const r = await fetch('/api/players/online');
-    const data = await r.json();
-    const myHandle = document.getElementById('handle-display')?.textContent?.trim();
-    _onlinePlayers = Array.isArray(data) ? data.filter(p => p.handle !== myHandle) : [];
-  } catch { _onlinePlayers = []; }
-  if (_whisperPanelVisible && _activeWhisperTab === USERS_TAB) {
-    _renderUsersTab(document.getElementById('whisper-log'));
-  }
-}
-
-function _checkWhisperScroll() {
-  const log = document.getElementById('whisper-log');
-  const pill = document.getElementById('whisper-new-msgs');
-  if (!log || !pill) return;
-  const nearBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 60;
-  pill.style.display = nearBottom ? 'none' : 'block';
-}
-
-function whisperScrollToBottom() {
-  const log = document.getElementById('whisper-log');
-  if (log) log.scrollTop = log.scrollHeight;
-  document.getElementById('whisper-new-msgs').style.display = 'none';
-}
-
-document.getElementById('whisper-log')?.addEventListener('scroll', () => {
-  if (!_activeWhisperTab || _activeWhisperTab === USERS_TAB) return;
-  const log = document.getElementById('whisper-log');
-  _whisperConvos.get(_activeWhisperTab).scrollTop = log.scrollTop;
-  _checkWhisperScroll();
-});
-
-// --- Whisper panel drag ---
-(function() {
-  const dragHandle = document.getElementById('whisper-drag-handle');
-  const panel = document.getElementById('whisper-panel');
-  let dragging = false, ox = 0, oy = 0;
-  dragHandle.addEventListener('mousedown', e => {
-    if (e.target.closest('#whisper-tabs') || e.target.tagName === 'BUTTON') return;
-    dragging = true;
-    const r = panel.getBoundingClientRect();
-    ox = e.clientX - r.left;
-    oy = e.clientY - r.top;
-    dragHandle.style.cursor = 'grabbing';
-    e.preventDefault();
-  });
-  document.addEventListener('mousemove', e => {
-    if (!dragging) return;
-    let x = Math.max(0, Math.min(window.innerWidth  - panel.offsetWidth,  e.clientX - ox));
-    let y = Math.max(0, Math.min(window.innerHeight - panel.offsetHeight, e.clientY - oy));
-    panel.style.left = x + 'px'; panel.style.top = y + 'px';
-    panel.style.right = 'auto'; panel.style.bottom = 'auto';
-  });
-  document.addEventListener('mouseup', () => { dragging = false; dragHandle.style.cursor = 'grab'; });
-})();
-
-function receiveWhisper(from, message) {
-  if (!_whisperConvos.has(from)) _whisperConvos.set(from, { messages: [], scrollTop: 0, unread: 0 });
-  const convo = _whisperConvos.get(from);
-  convo.messages.push({ from, message, isMe: false, ts: Date.now() });
-  if (convo.messages.length > WHISPER_MAX_MSGS) convo.messages.shift();
-  if (_whisperPanelVisible && _activeWhisperTab === from) {
-    _renderWhisperLog();
-    const log = document.getElementById('whisper-log');
-    const nearBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 60;
-    if (nearBottom) { log.scrollTop = log.scrollHeight; document.getElementById('whisper-new-msgs').style.display = 'none'; }
-    else document.getElementById('whisper-new-msgs').style.display = 'block';
-  } else {
-    convo.unread++;
-    _updateChatBadge();
-    if (_whisperPanelVisible) _refreshWhisperTabs();
-  }
-}
-
-function _updateChatBadge() {
-  let total = 0;
-  for (const c of _whisperConvos.values()) total += c.unread;
-  _unreadWhispers = total;
-  const btn = document.getElementById('chat-toggle-btn');
-  if (btn) {
-    btn.textContent = '💬 Chat';
-    btn.style.borderColor = total > 0 ? 'var(--red)' : '';
-    btn.style.color = total > 0 ? 'var(--red)' : '';
-  }
-  const badge = document.getElementById('chat-notif-badge');
-  if (badge) badge.style.display = (total > 0 && !_whisperPanelVisible) ? 'flex' : 'none';
-}
-
-function updateChatBadge() { _updateChatBadge(); }
-
-function sendWhisperReply() {
-  const input = document.getElementById('whisper-reply-input');
-  const msg = input?.value?.trim();
-  if (!msg || !_activeWhisperTab || _activeWhisperTab === USERS_TAB) return;
-  if (!_whisperConvos.has(_activeWhisperTab)) _whisperConvos.set(_activeWhisperTab, { messages: [], scrollTop: 0, unread: 0 });
-  const convo = _whisperConvos.get(_activeWhisperTab);
-  convo.messages.push({ from: 'You', message: msg, isMe: true, ts: Date.now() });
-  if (convo.messages.length > WHISPER_MAX_MSGS) convo.messages.shift();
-  _renderWhisperLog();
-  const log = document.getElementById('whisper-log');
-  if (log) log.scrollTop = log.scrollHeight;
-  sendCmdSilent(`whisper ${_activeWhisperTab} ${msg}`);
-  if (input) input.value = '';
-}
-
-// --- /who modal ---
-
-let _whoPlayers = [];
-
-async function openWhoModal() {
-  const modal = document.getElementById('who-modal');
-  modal.style.display = 'flex';
-  document.getElementById('who-search').value = '';
-  document.getElementById('who-list').innerHTML = '<div style="padding:16px;color:var(--text-dim);font-size:12px">Loading…</div>';
-  try {
-    const r = await fetch('/api/players/online');
-    const data = await r.json();
-    const myHandle = document.getElementById('handle-display')?.textContent?.trim();
-    _whoPlayers = Array.isArray(data) ? data.filter(p => p.handle !== myHandle) : [];
-  } catch { _whoPlayers = []; }
-  _renderWhoList(_whoPlayers);
-}
-
-function closeWhoModal() {
-  document.getElementById('who-modal').style.display = 'none';
-}
-
-document.getElementById('who-modal')?.addEventListener('click', e => {
-  if (e.target === document.getElementById('who-modal')) closeWhoModal();
-});
-
-function filterWhoList() {
-  const q = document.getElementById('who-search').value.toLowerCase();
-  _renderWhoList(q ? _whoPlayers.filter(p => p.handle.toLowerCase().includes(q)) : _whoPlayers);
-}
-
-const IS_ADMIN = () => ['admin','dev','builder','designer'].includes(_myRole);
-
-function _renderWhoList(players) {
-  const list = document.getElementById('who-list');
-  if (!players.length) { list.innerHTML = '<div style="padding:16px;color:var(--text-dim);font-size:12px">No players online.</div>'; return; }
-  const myHandle = document.getElementById('handle-display')?.textContent?.trim();
-  list.innerHTML = players.map(p => {
-    const isSelf = p.handle === myHandle;
-    const whisperBtn = isSelf ? '' : `<button onclick="whoWhisper('${p.handle.replace(/'/g,"\\'")}');closeWhoModal()" style="background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:var(--font-mono);font-size:10px;padding:2px 6px;cursor:pointer;border-radius:2px">✉</button>`;
-    const adminBtns = (!isSelf && IS_ADMIN()) ? `
-      <button onclick="whoSmite('${p.id}','${p.handle.replace(/'/g,"\\'")}');closeWhoModal()" style="background:transparent;border:1px solid var(--red);color:var(--red);font-family:var(--font-mono);font-size:10px;padding:2px 6px;cursor:pointer;border-radius:2px">⚡</button>
-      <button onclick="whoKick('${p.id}','${p.handle.replace(/'/g,"\\'")}');closeWhoModal()" style="background:transparent;border:1px solid var(--red);color:var(--red);font-family:var(--font-mono);font-size:10px;padding:2px 6px;cursor:pointer;border-radius:2px">kick</button>` : '';
-    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 14px;border-bottom:1px solid var(--border)">
-      <div>
-        <span style="font-weight:600;color:${isSelf?'var(--accent)':'var(--text-bright)'};font-size:12px">${p.handle}${isSelf?' (you)':''}</span>
-        <span style="color:var(--text-dim);font-size:10px;margin-left:8px">${p.current_zone||''}</span>
-      </div>
-      <div style="display:flex;gap:4px;align-items:center">
-        ${whisperBtn}${adminBtns}
-      </div>
-    </div>`;
-  }).join('');
-}
-
-function whoWhisper(handle) {
-  openWhisperTab(handle);
-}
-
-async function whoSmite(id, handle) {
-  const token = sessionStorage.getItem('devpanel-token');
-  if (!token) return;
-  await fetch(`/api/players/${id}/smite`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
-}
-
-async function whoKick(id, handle) {
-  const token = sessionStorage.getItem('devpanel-token');
-  if (!token) return;
-  const reason = prompt(`Kick ${handle} — reason (optional):`);
-  if (reason === null) return; // cancelled
-  const adminHandle = document.getElementById('handle-display')?.textContent?.trim() || 'An administrator';
-  await fetch(`/api/players/${id}/kick`, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ reason, adminHandle }) });
-}
-
-function showColdStart() {
-  let el = document.getElementById('cold-start-notice');
-  if (!el) {
-    el = document.createElement('div');
-    el.id = 'cold-start-notice';
-    el.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--bg2);border:1px solid var(--accent);padding:24px;text-align:center;z-index:300;border-radius:2px;max-width:320px';
-    el.innerHTML = '<div style="color:var(--accent);font-size:13px;letter-spacing:2px;margin-bottom:8px">ARCHITECT</div><div style="color:var(--text-dim);font-size:12px;line-height:1.6">Server is waking up.<br>Free tier cold start — about 60 seconds.<br><span style="color:var(--text);font-size:11px">Reconnecting automatically...</span></div>';
-    document.body.appendChild(el);
-  }
-  el.style.display = 'block';
-}
-
-function hideColdStart() {
-  const el = document.getElementById('cold-start-notice');
-  if (el) el.style.display = 'none';
-}
-
-// --- Auth ---
-let authPending = false;
-let authTimeout = null;
-
-function doAuth() {
-  const username = document.getElementById('auth-username').value.trim();
-  const password = document.getElementById('auth-password').value;
-  const handle = document.getElementById('auth-handle').value.trim();
-  const errEl = document.getElementById('auth-error');
-  const submitBtn = document.getElementById('auth-submit');
-
-  if (authPending) return; // prevent double-submit
-
-  if (!username || !password) { errEl.textContent = 'Username and password required.'; errEl.style.color = ''; return; }
-  if (isRegister && !handle) { errEl.textContent = 'Handle required.'; errEl.style.color = ''; return; }
-
-  // Check connection state BEFORE attempting anything
-  if (!ws || ws.readyState === WebSocket.CONNECTING) {
-    errEl.textContent = 'Still connecting to server... try again in a moment.';
-    errEl.style.color = 'var(--yellow, #d4c44a)';
-    return;
-  }
-  if (ws.readyState !== WebSocket.OPEN) {
-    errEl.textContent = 'Not connected. Server may be waking up (free tier cold start ~60s) — reconnecting automatically.';
-    errEl.style.color = 'var(--red)';
-    return;
-  }
-
-  errEl.textContent = '';
-  authPending = true;
-  submitBtn.disabled = true;
-  submitBtn.textContent = isRegister ? 'Registering...' : 'Logging in...';
-
-  // Failsafe: if we never hear back, unstick the form after 10s
-  authTimeout = setTimeout(() => {
-    authPending = false;
-    submitBtn.disabled = false;
-    submitBtn.textContent = isRegister ? 'Register' : 'Enter';
-    errEl.textContent = 'No response from server. Check your connection and try again.';
-    errEl.style.color = 'var(--red)';
-  }, 10000);
-
-  if (isRegister) {
-    fetch('/api/auth/register', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({username, password, handle})
-    }).then(r => r.json()).then(data => {
-      if (data.error) {
-        clearTimeout(authTimeout);
-        authPending = false;
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Register';
-        errEl.textContent = data.error;
-        errEl.style.color = 'var(--red)';
-        return;
-      }
-      ws.send(JSON.stringify({ type: 'auth', username, password }));
-    }).catch(err => {
-      clearTimeout(authTimeout);
-      authPending = false;
-      submitBtn.disabled = false;
-      submitBtn.textContent = 'Register';
-      errEl.textContent = 'Registration request failed: ' + err.message;
-      errEl.style.color = 'var(--red)';
-    });
-  } else {
-    ws.send(JSON.stringify({ type: 'auth', username, password }));
-  }
-}
-
-document.getElementById('auth-submit').addEventListener('click', doAuth);
-document.getElementById('auth-password').addEventListener('keydown', e => { if (e.key === 'Enter') doAuth(); });
-document.getElementById('auth-username').addEventListener('keydown', e => { if (e.key === 'Enter') doAuth(); });
-document.getElementById('auth-handle').addEventListener('keydown', e => { if (e.key === 'Enter') doAuth(); });
-
-
-document.getElementById('auth-toggle-link').addEventListener('click', () => {
-  isRegister = !isRegister;
-  document.getElementById('handle-field').classList.toggle('visible', isRegister);
-  document.getElementById('auth-toggle-text').textContent = isRegister ? 'Have an account?' : 'No account?';
-  document.getElementById('auth-toggle-link').textContent = isRegister ? 'Login' : 'Register';
-  document.getElementById('auth-submit').textContent = isRegister ? 'Register' : 'Enter';
-});
-
-// --- Command input ---
-const input = document.getElementById('cmd-input');
-input.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') {
-    const cmd = input.value.trim();
-    if (!cmd) return;
-    cmdHistory.unshift(cmd);
-    historyIdx = -1;
-    input.value = '';
-    sendCmd(cmd);
-  } else if (e.key === 'ArrowUp') {
-    e.preventDefault();
-    if (historyIdx < cmdHistory.length - 1) { historyIdx++; input.value = cmdHistory[historyIdx]; }
-  } else if (e.key === 'ArrowDown') {
-    e.preventDefault();
-    if (historyIdx > 0) { historyIdx--; input.value = cmdHistory[historyIdx]; }
-    else { historyIdx = -1; input.value = ''; }
-  }
-});
-
-function sendCmd(cmd) {
-  if (!ws || ws.readyState !== WebSocket.OPEN) return;
-  if (cmd.trim().toLowerCase() === 'who') { openWhoModal(); return; }
-  appendMsg(`> ${cmd}`, 'echo');
-  ws.send(JSON.stringify({ type: 'command', command: cmd }));
-}
-
-// Same as sendCmd but skips the chat-log echo — for UI-driven actions
-// (drag/click in the equipment panel) where printing "> equipid <uuid>"
-// into the conversation log would just be noise.
-function sendCmdSilent(cmd) {
-  if (!ws || ws.readyState !== WebSocket.OPEN) return;
-  ws.send(JSON.stringify({ type: 'command', command: cmd }));
-}
-
-// Auto-focus the game command input when user types anywhere —
-// but never steal focus while another input/textarea is active
-// (e.g. the login form) or while the auth screen is showing.
-document.addEventListener('keydown', (e) => {
-  const tag = e.target.tagName;
-  if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-  if (document.getElementById('auth-screen').style.display !== 'none') return;
-  if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
-    input.focus();
-  }
-});
-
-// --- Output ---
-function appendMsg(text, cls = '') {
-  const el = document.createElement('div');
-  el.className = `msg msg-${cls}`;
-  el.textContent = text;
-  document.getElementById('output').appendChild(el);
-  scrollOutput();
-}
-
-function appendHtml(html, cls = '') {
-  const el = document.createElement('div');
-  el.className = `msg msg-${cls}`;
-  el.innerHTML = html;
-  document.getElementById('output').appendChild(el);
-  scrollOutput();
-}
-
-function scrollOutput() {
-  const out = document.getElementById('output');
-  out.scrollTop = out.scrollHeight;
-}
-
-// --- Vitals ---
-function updateVitals(p) {
-  setBar('hp', p.hp, p.hp_max || 100);
-  setBar('san', p.sanity, p.sanity_max || 100);
-  setBar('hun', p.hunger, 100);
-  setBar('thi', p.thirst, 100);
-  setBar('rad', p.radiation, 100, true);
-  if (p.credits !== undefined) {
-    const el = document.getElementById('header-credits-val');
-    if (el) el.textContent = p.credits;
-  }
-}
-
-function setBar(id, val, max, inverse = false) {
-  const pct = Math.max(0, Math.min(100, (val / max) * 100));
-  const bar = document.getElementById(`${id}-bar`);
-  const valEl = document.getElementById(`${id}-val`);
-  if (bar) {
-    bar.style.width = pct + '%';
-    bar.classList.toggle('low', inverse ? pct > 60 : pct < 25);
-  }
-  if (valEl) valEl.textContent = Math.round(val);
-}
-
-// --- Environment HUD (time / weather / power / forecast) ---
-// Driven by server/engine/environment.js — GET /api/environment/state on
-// login, then 'environment.sync' (every 30 game-minutes), 'environment.daily'
-// (every 24h), and 'environment.weatherOverride' over the existing
-// WebSocket. Weather/temp update only on those server pushes; the clock
-// itself ticks forward client-side once per real minute (GDD §3.2 — server
-// stays authoritative, client just fills the gap between syncs) and
-// resyncs to the server's value on every push, correcting any drift.
-const DAY_PHASES_CLIENT = [
-  { name: 'dawn', start: 5 * 60, end: 7 * 60, icon: '🌅' },
-  { name: 'day', start: 7 * 60, end: 17 * 60, icon: '☀' },
-  { name: 'dusk', start: 17 * 60, end: 20 * 60, icon: '🌇' },
-  { name: 'night', start: 20 * 60, end: 5 * 60, icon: '🌙' },
-];
-function timeIconForMinutes(m) {
-  if (m >= 5 * 60 && m < 7 * 60) return DAY_PHASES_CLIENT[0].icon;
-  if (m >= 7 * 60 && m < 17 * 60) return DAY_PHASES_CLIENT[1].icon;
-  if (m >= 17 * 60 && m < 20 * 60) return DAY_PHASES_CLIENT[2].icon;
-  return DAY_PHASES_CLIENT[3].icon;
-}
-function parseHHMM(str) {
-  const [h, m] = (str || '0:0').split(':').map(Number);
-  return (h || 0) * 60 + (m || 0);
-}
-function formatHHMM(m) {
-  const h = Math.floor(m / 60) % 24;
-  const mm = m % 60;
-  return `${String(h).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
-}
-
-let clientMinutes = null;   // local running clock, ticks +1 every real minute
-let envWeatherIcon = '—';
-let envTempC = null;
-
-function updateEnvironmentHUD(env) {
-  if (!env || !env.time) return;
-  clientMinutes = parseHHMM(env.time); // resync — server is authoritative
-  envWeatherIcon = env.weatherIcon || '—';
-  envTempC = env.tempC;
-  renderEnvironmentHUD();
-}
-
-function renderEnvironmentHUD() {
-  if (clientMinutes === null) return;
-  const weatherEl = document.getElementById('env-weather-icon');
-  const clockEl = document.getElementById('env-clock');
-  const timeIconEl = document.getElementById('env-time-icon');
-  const tempEl = document.getElementById('env-temp');
-  if (weatherEl) weatherEl.textContent = envWeatherIcon;
-  if (clockEl) clockEl.textContent = formatHHMM(clientMinutes);
-  if (timeIconEl) timeIconEl.textContent = timeIconForMinutes(clientMinutes);
-  if (tempEl) tempEl.textContent = envTempC !== null ? `${envTempC}°C` : '—°C';
-}
-
-// Local minute tick — keeps the clock moving between the server's 30-minute syncs.
-setInterval(() => {
-  if (clientMinutes === null) return;
-  clientMinutes = (clientMinutes + 1) % (24 * 60);
-  renderEnvironmentHUD();
-}, 60000);
-
-// Periodic resync from server every 5 minutes in case the local tick drifts.
-setInterval(() => {
-  if (clientMinutes === null) return;
-  fetch('/api/environment/state').then(r => r.json()).then(updateEnvironmentHUD).catch(() => {});
-}, 5 * 60 * 1000);
-
-function showDevPanelButton() {
-  const btn = document.getElementById('dev-panel-btn');
-  if (btn) btn.style.display = '';
-  const dbg = document.getElementById('debug-whisper-btn');
-  if (dbg) dbg.style.display = '';
-}
-
-function debugFakeWhisper() {
-  receiveWhisper('TestUser', 'This is a fake whisper to test the chat notification system.');
-}
-
-// Pulls this zone's visibility category whenever the player arrives
-// somewhere and fades the output pane to match (GDD §7.1). Cosmetic only.
-function refreshZoneVisibility() {
-  if (!currentZone) return;
-  fetch(`/api/environment/visibility/${encodeURIComponent(currentZone)}`)
-    .then(r => r.json())
-    .then(v => {
-      document.body.classList.toggle('env-vis-dim', v.category === 'dim');
-      document.body.classList.toggle('env-vis-dark', v.category === 'dark');
-    })
-    .catch(() => {});
-}
-
-// --- Zone info parsing ---
-function parseZoneInfo(html) {
-  const tmp = document.createElement('div');
-  tmp.innerHTML = html;
-  const zoneName = tmp.querySelector('.zone-name')?.textContent;
-  if (zoneName) document.getElementById('zone-name-display').textContent = zoneName;
-
-  // Parse exits from text
-  const text = tmp.textContent;
-  const exitsMatch = text.match(/Exits:\s*([^\n]+)/);
-  const exitsEl = document.getElementById('exits-display');
-  exitsEl.innerHTML = '';
-  if (exitsMatch) {
-    const dirs = exitsMatch[1].split(',').map(s => s.trim()).filter(Boolean);
-    for (const dir of dirs) {
-      const btn = document.createElement('button');
-      btn.className = 'exit-btn';
-      btn.textContent = dir;
-      btn.onclick = () => sendCmd(dir);
-      exitsEl.appendChild(btn);
-    }
-  }
-}
-
-// --- Equipment panel ---
-const EQUIP_SLOT_NAMES = ['head','torso','hands','weapon_hand','legs','feet','accessory'];
-let equipDraggedId = null;
-
-function openEquipPanel() {
-  sendCmd('inventory');
-}
-
-function closeEquipPanel() {
-  document.getElementById('equip-panel').classList.remove('active');
-}
-
-function renderEquipPanel(items) {
-  // Clear all slots first
-  for (const slotName of EQUIP_SLOT_NAMES) {
-    const slotEl = document.querySelector(`.equip-slot[data-slot="${slotName}"] .equip-slot-item`);
-    if (slotEl) { slotEl.className = 'equip-slot-item empty'; slotEl.textContent = '(empty)'; slotEl.removeAttribute('draggable'); slotEl.removeAttribute('data-id'); }
-  }
-
-  const unequipped = [];
-  for (const item of items) {
-    if (item.is_equipped && item.slot) {
-      const slotEl = document.querySelector(`.equip-slot[data-slot="${item.slot}"] .equip-slot-item`);
-      if (slotEl) {
-        slotEl.className = 'equip-slot-item filled';
-        slotEl.textContent = item.name + (item.quantity > 1 ? ` x${item.quantity}` : '');
-        slotEl.setAttribute('draggable', 'true');
-        slotEl.setAttribute('data-id', item.id);
-        slotEl.ondragstart = (e) => onItemDragStart(e, item.id);
-        slotEl.onclick = () => unequipItem(item.id);
-        slotEl.title = 'Click or drag out to unequip';
-      }
-    } else {
-      unequipped.push(item);
-    }
-  }
-
-  const list = document.getElementById('equip-inv-list');
-  list.innerHTML = '';
-  for (const item of unequipped) {
-    const flags = item.flags || {};
-    const equippable = (item.type === 'weapon' || item.type === 'armor') && (flags.slot || item.type === 'weapon');
-    const card = document.createElement('div');
-    card.className = 'equip-item-card' + (equippable ? ' equippable' : '');
-    card.setAttribute('draggable', 'true');
-    card.setAttribute('data-id', item.id);
-    const qty = item.quantity > 1 ? ` x${item.quantity}` : '';
-    const slotLabel = flags.slot ? ` · ${flags.slot.replace('_',' ')}` : '';
-    card.innerHTML = `<span class="eic-name">${item.name}${qty}</span><span class="eic-meta">${item.rarity || ''}${slotLabel}</span>`;
-    card.ondragstart = (e) => onItemDragStart(e, item.id);
-    card.ondragend = () => card.classList.remove('dragging');
-    if (equippable) card.onclick = () => equipItem(item.id);
-    list.appendChild(card);
-  }
-
-  document.getElementById('equip-credits-val').textContent = (player && player.credits) || 0;
-}
-
-function onItemDragStart(e, id) {
-  equipDraggedId = id;
-  e.target.classList.add('dragging');
-  e.dataTransfer.effectAllowed = 'move';
-}
-
-function onSlotDrop(e, slotName) {
-  e.preventDefault();
-  e.currentTarget.classList.remove('drag-over');
-  if (equipDraggedId) equipItem(equipDraggedId);
-  equipDraggedId = null;
-}
-
-function onInvListDrop(e) {
-  e.preventDefault();
-  if (equipDraggedId) unequipItem(equipDraggedId);
-  equipDraggedId = null;
-}
-
-function equipItem(id) {
-  sendCmdSilent(`equipid ${id}`);
-}
-
-function unequipItem(id) {
-  sendCmdSilent(`unequipid ${id}`);
-}
-
-document.querySelectorAll('.equip-slot').forEach(slotEl => {
-  slotEl.addEventListener('dragenter', () => slotEl.classList.add('drag-over'));
-  slotEl.addEventListener('dragleave', () => slotEl.classList.remove('drag-over'));
-});
-
-// --- Dialogue ---
-function openDialogue(msg) {
-  currentNpcId = msg.npcId;
-  document.getElementById('dialogue-npc-name').textContent = msg.npcName;
-  document.getElementById('dialogue-text').innerHTML = msg.text;
-  const opts = document.getElementById('dialogue-options');
-  opts.innerHTML = '';
-  for (const opt of (msg.options || [])) {
-    if (!opt.next) continue;
-    const btn = document.createElement('button');
-    btn.className = 'dialogue-opt';
-    btn.textContent = opt.label;
-    btn.onclick = () => {
-      ws.send(JSON.stringify({ type: 'dialogue', npcId: currentNpcId, choice: opt.next }));
-    };
-    opts.appendChild(btn);
-  }
-  document.getElementById('dialogue-panel').classList.add('active');
-}
-
-function closeDialogue() {
-  document.getElementById('dialogue-panel').classList.remove('active');
-  currentNpcId = null;
-}
-
-// Close dialogue on backdrop click
-document.getElementById('dialogue-panel').addEventListener('click', (e) => {
-  if (e.target === document.getElementById('dialogue-panel')) closeDialogue();
-});
-
-// --- Forecast popup ---
-function openForecast() {
-  fetch('/api/environment/forecast')
-    .then(r => r.json())
-    .then(renderForecastPanel)
-    .catch(() => appendMsg('Could not reach the forecast feed.', 'error'));
-}
-
-function renderForecastPanel(forecast) {
-  const el = document.getElementById('forecast-days');
-  if (!el) return;
-  el.innerHTML = (forecast || []).map((f, i) => `
-    <div class="forecast-day-row ${i === 0 ? 'fd-today' : ''}">
-      <span class="fd-label">${i === 0 ? 'Today' : (f.date || '').slice(5) || `+${i}`}</span>
-      <span class="fd-icon">${f.icon || ''}</span>
-      <span class="fd-weather">${(f.weatherType || '').replace('_', ' ')}</span>
-      <span class="fd-temp">${f.tempC}°C</span>
-    </div>
-  `).join('');
-  document.getElementById('forecast-panel').classList.add('active');
-}
-
-function closeForecast() {
-  document.getElementById('forecast-panel').classList.remove('active');
-}
-
-document.getElementById('forecast-panel').addEventListener('click', (e) => {
-  if (e.target.id === 'forecast-panel') closeForecast();
-});
-
-function setConnStatus(state, text) {
-  const el = document.getElementById('conn-status');
-  el.className = `conn-status ${state}`;
-  el.textContent = text;
-}
-
-// ─── SETTINGS ───────────────────────────────────────────────────────────
-const SETTINGS_KEY = 'architect_settings';
-const DEFAULT_SETTINGS = { theme: 'dark', fontSize: '14', density: 'comfortable' };
-
-function loadSettings() {
-  try {
-    const raw = localStorage.getItem(SETTINGS_KEY);
-    if (!raw) return { ...DEFAULT_SETTINGS };
-    return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
-  } catch {
-    return { ...DEFAULT_SETTINGS };
-  }
-}
-
-function saveSettings(settings) {
-  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch {}
-}
-
-let settings = loadSettings();
-
-function applySettings() {
-  document.documentElement.setAttribute('data-theme', settings.theme);
-  document.documentElement.setAttribute('data-density', settings.density);
-  document.documentElement.style.setProperty('--font-size-base', settings.fontSize + 'px');
-
-  // Reflect current selection in the UI
-  for (const group of ['theme', 'fontsize', 'density']) {
-    const container = document.getElementById(`opt-${group}`);
-    if (!container) continue;
-    const key = group === 'fontsize' ? 'fontSize' : group;
-    container.querySelectorAll('.settings-opt').forEach(btn => {
-      btn.classList.toggle('selected', btn.dataset.value === String(settings[key]));
-    });
-  }
-}
-
-function initSettingsUI() {
-  document.querySelectorAll('#opt-theme .settings-opt').forEach(btn => {
-    btn.addEventListener('click', () => { settings.theme = btn.dataset.value; saveSettings(settings); applySettings(); });
-  });
-  document.querySelectorAll('#opt-fontsize .settings-opt').forEach(btn => {
-    btn.addEventListener('click', () => { settings.fontSize = btn.dataset.value; saveSettings(settings); applySettings(); });
-  });
-  document.querySelectorAll('#opt-density .settings-opt').forEach(btn => {
-    btn.addEventListener('click', () => { settings.density = btn.dataset.value; saveSettings(settings); applySettings(); });
-  });
-
-  document.getElementById('settings-btn').addEventListener('click', () => {
-    document.getElementById('settings-panel').classList.add('active');
-  });
-  document.getElementById('settings-close').addEventListener('click', () => {
-    document.getElementById('settings-panel').classList.remove('active');
-  });
-  document.getElementById('settings-panel').addEventListener('click', (e) => {
-    if (e.target.id === 'settings-panel') document.getElementById('settings-panel').classList.remove('active');
-  });
-
-  document.getElementById('map-close').addEventListener('click', () => {
-    document.getElementById('map-panel').classList.remove('active');
-  });
-  document.getElementById('map-panel').addEventListener('click', (e) => {
-    if (e.target.id === 'map-panel') document.getElementById('map-panel').classList.remove('active');
-  });
-
-  document.getElementById('equip-close').addEventListener('click', closeEquipPanel);
-  document.getElementById('equip-panel').addEventListener('click', (e) => {
-    if (e.target.id === 'equip-panel') closeEquipPanel();
-  });
-
-  document.getElementById('signout-btn').addEventListener('click', () => {
-    const confirmed = confirm(
-      "Sign out?\n\nYour body stays asleep exactly where you log out — it will remain in the world, vulnerable to anyone who finds it, until you return.\n\nMake sure you're somewhere safe (your apartment, locked) before signing out."
-    );
-    if (!confirmed) return;
-    if (ws) { try { ws.close(); } catch {} }
-    location.reload();
-  });
-}
-
-// Auto-detect: default new visitors to compact density on small screens
-if (!localStorage.getItem(SETTINGS_KEY) && window.innerWidth < 720) {
-  settings.density = 'compact';
-  settings.fontSize = '16'; // slightly larger touch-friendly default on mobile
-}
-
-applySettings();
-initSettingsUI();
-
-// ─── MINIMAP ────────────────────────────────────────────────────────────
-// Renders a 5×5 ASCII minimap centered on the player.
-// Player tile: "()" in blue. Empty cells: ". " in grey.
-// Zone tiles use bg_color/color if set, otherwise danger-class coloring.
-function renderMinimap(nodes) {
-  const grid = document.getElementById('minimap-grid');
-  if (!nodes || !nodes.length) { grid.textContent = '(unmapped)'; return; }
-
-  const current = nodes.find(n => n.is_current);
-  if (!current) { grid.textContent = '(unmapped)'; return; }
-
-  const byId = new Map(nodes.map(n => [n.id, n]));
-  const coords = new Map(); // zoneId -> [x,y] relative to player
-
-  // Prefer real grid coordinates — same map and floor as player.
-  if (current.map_id && current.grid_x != null && current.grid_y != null) {
-    for (const n of nodes) {
-      if (n.map_id === current.map_id && n.grid_z === current.grid_z && n.grid_x != null && n.grid_y != null) {
-        coords.set(n.id, [n.grid_x - current.grid_x, n.grid_y - current.grid_y]);
-      }
-    }
-  }
-
-  // Fallback: BFS from current using exit directions.
-  if (!coords.size) {
-    const DIR_OFFSET = { north:[0,-1], south:[0,1], east:[1,0], west:[-1,0] };
-    coords.set(current.id, [0,0]);
-    const queue = [current.id];
-    const seen = new Set([current.id]);
-    while (queue.length) {
-      const id = queue.shift();
-      const node = byId.get(id);
-      const [x,y] = coords.get(id);
-      if (!node) continue;
-      for (const [dir, targetId] of Object.entries(node.exits || {})) {
-        if (!DIR_OFFSET[dir] || !byId.has(targetId) || seen.has(targetId)) continue;
-        const [dx,dy] = DIR_OFFSET[dir];
-        coords.set(targetId, [x+dx, y+dy]);
-        seen.add(targetId);
-        queue.push(targetId);
-      }
-    }
-  }
-
-  const cellAt = new Map();
-  for (const [id, [x,y]] of coords) cellAt.set(`${x},${y}`, id);
-
-  const dangerClass = { safe:'mm-safe', low:'mm-low', medium:'mm-medium', high:'mm-high', lethal:'mm-lethal' };
-
-  let html = '';
-  for (let y = -2; y <= 2; y++) {
-    for (let x = -2; x <= 2; x++) {
-      const id = cellAt.get(`${x},${y}`);
-      if (!id) {
-        html += `<span class="mm-cell mm-blank">. </span>`;
-        continue;
-      }
-      const node = byId.get(id);
-      if (!node) { html += `<span class="mm-cell mm-blank">. </span>`; continue; }
-      if (node.is_current) {
-        html += `<span class="mm-cell mm-current" title="${node.name}">()</span>`;
-        continue;
-      }
-      const sym = node.marker
-        ? (node.marker.length === 1 ? node.marker + ' ' : node.marker.slice(0,2))
-        : (node.is_safe_zone ? '◆ ' : (node.pvp_enabled ? '✕ ' : '○ '));
-      const styles = [];
-      if (node.bg_color) styles.push(`background:${node.bg_color}`);
-      if (node.color) styles.push(`color:${node.color}`);
-      const styleAttr = styles.length ? ` style="${styles.join(';')}"` : '';
-      const cls = `mm-cell ${node.color || node.bg_color ? 'mm-zone' : (dangerClass[node.danger_rating] || 'mm-zone')}`;
-      html += `<span class="${cls}"${styleAttr} title="${node.name}">${sym}</span>`;
-    }
-    html += '<br>';
-  }
-  grid.innerHTML = html;
-}
-
-// Renders the "map" command's response — a fixed-layout grid of the whole
-// outdoor city (not the local BFS minimap above), shown as a popup.
-// Read-only: this is a navigation reference, not a click-to-travel tool.
-function openMapPopup(tiles) {
-  const grid = document.getElementById('map-grid');
-  const legend = document.getElementById('map-legend');
-  if (!tiles.length) {
-    grid.textContent = '(no map data)';
-    legend.innerHTML = '';
-    document.getElementById('map-panel').classList.add('active');
-    return;
-  }
-
-  const xs = tiles.map(t => t.x), ys = tiles.map(t => t.y);
-  const minX = Math.min(...xs), maxX = Math.max(...xs);
-  const minY = Math.min(...ys), maxY = Math.max(...ys);
-  const W = maxX - minX + 1, H = maxY - minY + 1;
-  const byId = new Map(tiles.map(t => [t.id, t]));
-
-  // Two-char marker for a tile: explicit marker, else first two letters of name.
-  const symFor = (t) => {
-    if (t.isCurrent) return '()';
-    if (t.marker) return (t.marker.length === 1 ? t.marker + ' ' : t.marker.slice(0, 2));
-    const letters = (t.name || '').replace(/[^A-Za-z0-9]/g, '');
-    return (letters.slice(0, 2) || '??').padEnd(2, ' ');
-  };
-
-  // The connector grid is 2× resolution: rooms sit on even rows/cols, the
-  // odd cells between them hold the line characters (─ │ ╱ ╲).
-  const gCols = W * 2 - 1, gRows = H * 2 - 1;
-  const cell = Array.from({ length: gRows }, () => new Array(gCols).fill(null));
-
-  for (const t of tiles) {
-    const gx = (t.x - minX) * 2, gy = (t.y - minY) * 2;
-    cell[gy][gx] = { kind: 'room', tile: t };
-  }
-
-  // Draw a connector between a tile and each linked neighbour that's on the map.
-  for (const t of tiles) {
-    const gx = (t.x - minX) * 2, gy = (t.y - minY) * 2;
-    for (const targetId of Object.values(t.exits || {})) {
-      const n = byId.get(targetId);
-      if (!n) continue;
-      const dx = n.x - t.x, dy = n.y - t.y;
-      if (Math.abs(dx) > 1 || Math.abs(dy) > 1) continue;
-      const cy = gy + dy, cx = gx + dx;
-      if (cy < 0 || cy >= gRows || cx < 0 || cx >= gCols) continue;
-      if (cell[cy][cx]?.kind === 'room') continue;
-      let ch = '·';
-      if (dx !== 0 && dy === 0) ch = '─';
-      else if (dx === 0 && dy !== 0) ch = '│';
-      else if (dx !== 0 && dy !== 0) ch = (dx === dy) ? '╲' : '╱';
-      cell[cy][cx] = { kind: 'link', ch };
-    }
-  }
-
-  // Alternating room/gap columns: room cells on even indices, line gaps on odd.
-  grid.style.gridTemplateColumns = Array.from({ length: gCols }, (_, c) =>
-    c % 2 === 0 ? 'var(--map-room)' : 'var(--map-gap)').join(' ');
-
-  let html = '';
-  for (let r = 0; r < gRows; r++) {
-    for (let c = 0; c < gCols; c++) {
-      const it = cell[r][c];
-      if (!it) { html += `<span class="map-c"></span>`; continue; }
-      if (it.kind === 'link') {
-        html += `<span class="map-c map-link">${it.ch}</span>`;
-        continue;
-      }
-      const t = it.tile;
-      const styles = [];
-      if (t.bg_color) styles.push(`background:${t.bg_color}`);
-      if (t.color) styles.push(`color:${t.color}`);
-      const cls = `map-c map-room danger-${t.danger || 'safe'}` +
-        (t.isCurrent ? ' map-current' : '') +
-        (t.bg_color || t.color ? ' map-styled' : '');
-      const style = styles.length ? ` style="${styles.join(';')}"` : '';
-      html += `<span class="${cls}"${style} title="${t.name}">${symFor(t)}</span>`;
-    }
-  }
-  grid.innerHTML = html;
-
-  // Side legend: marker swatch → full zone name, mirroring HellMOO.
-  let leg = `<div class="map-leg-row"><span class="map-leg-sym map-current">()</span> You are here</div>`;
-  for (const t of tiles) {
-    if (t.isCurrent) continue;
-    const styles = [];
-    if (t.bg_color) styles.push(`background:${t.bg_color}`);
-    if (t.color) styles.push(`color:${t.color}`);
-    const cls = `map-leg-sym danger-${t.danger || 'safe'}` + (t.bg_color || t.color ? ' map-styled' : '');
-    const style = styles.length ? ` style="${styles.join(';')}"` : '';
-    leg += `<div class="map-leg-row"><span class="${cls}"${style}>${symFor(t)}</span> ${t.name}</div>`;
-  }
-  legend.innerHTML = leg;
-
-  document.getElementById('map-panel').classList.add('active');
-}
-
-// Click any actionable noun in the room text — exit, item, NPC, enemy, or corpse —
-// and run the corresponding command automatically instead of typing it.
-document.getElementById('output').addEventListener('click', (e) => {
-  const el = e.target.closest('.action-link');
-  if (!el) return;
-  const action = el.dataset.action;
-  const target = el.dataset.target;
-  if (!action || !target) return;
-  sendCmd(`${action} ${target.toLowerCase()}`);
-});
-
-// Boot
-connect();
-
-
-</script>
-</body>
+				<div class="tagline">The AI won. You survived. Probably.</div>
+
+				<div class="auth-field auth-handle-field" id="handle-field">
+					<label>Handle (in-world name)</label>
+					<input
+						type="text"
+						id="auth-handle"
+						placeholder="How will you be known?"
+						maxlength="24" />
+				</div>
+				<div class="auth-field">
+					<label>Username</label>
+					<input
+						type="text"
+						id="auth-username"
+						placeholder="username"
+						autocomplete="username" />
+				</div>
+				<div class="auth-field">
+					<label>Password</label>
+					<input
+						type="password"
+						id="auth-password"
+						placeholder="password"
+						autocomplete="current-password" />
+				</div>
+
+				<button class="auth-btn" id="auth-submit">Enter</button>
+				<div class="auth-error" id="auth-error"></div>
+				<div class="auth-toggle">
+					<span id="auth-toggle-text">No account?</span>
+					<a id="auth-toggle-link">Register</a>
+				</div>
+			</div>
+		</div>
+
+		<!-- MAIN UI -->
+		<div id="header">
+			<span class="logo">ARCHITECT</span>
+			<span class="conn-status offline" id="conn-status"
+				>DISCONNECTED</span
+			>
+			<span class="handle-display" id="handle-display"></span>
+			<span
+				class="credits-display"
+				id="credits-display"
+				title="Credits carried"
+				>₵ <span id="header-credits-val">0</span></span
+			>
+			<button
+				id="settings-btn"
+				title="Settings"
+				aria-label="Open settings">
+				⚙
+			</button>
+			<button id="signout-btn" title="Sign Out" aria-label="Sign out">
+				⏻
+			</button>
+			<button
+				id="dev-panel-btn"
+				onclick="window.open('/dev', '_blank')"
+				title="Open Dev Panel"
+				style="
+					display: none;
+					background: var(--bg3);
+					border: 1px solid var(--purple);
+					color: var(--purple);
+					font-family: var(--font-mono);
+					font-size: 11px;
+					padding: 4px 10px;
+					cursor: pointer;
+					letter-spacing: 1px;
+					border-radius: 3px;
+				">
+				⚙ Dev
+			</button>
+		</div>
+
+		<div id="main">
+			<div id="output-container">
+				<div id="output"></div>
+				<div id="quick-cmds">
+					<button class="qcmd" data-cmd="look">look</button>
+					<button class="qcmd" data-open-equip>inv</button>
+					<button class="qcmd" data-cmd="stats">stats</button>
+					<button class="qcmd" data-cmd="skills">skills</button>
+					<button class="qcmd" data-cmd="who">who</button>
+					<button class="qcmd" data-cmd="help">help</button>
+					<button class="qcmd" data-cmd="recipes">recipes</button>
+					<button class="qcmd" data-cmd="factions">factions</button>
+					<button class="qcmd" data-cmd="mutations">mutations</button>
+					<button
+						id="debug-whisper-btn"
+						class="qcmd"
+						style="
+							display: none;
+							border-color: var(--text-dim);
+							opacity: 0.6;
+						"
+						title="Send yourself a test whisper">
+						⚙ test whisper
+					</button>
+				</div>
+				<div id="input-area">
+					<span id="prompt">&gt;</span>
+					<input
+						type="text"
+						id="cmd-input"
+						placeholder="Type a command..."
+						autocomplete="off"
+						spellcheck="false" />
+				</div>
+			</div>
+
+			<div id="sidebar">
+				<div class="sidebar-section" id="minimap-section">
+					<div class="sidebar-label">Map</div>
+					<div id="minimap-grid">—</div>
+				</div>
+
+				<div class="sidebar-section">
+					<div class="sidebar-label">Vitals</div>
+					<div class="vital vital-hp">
+						<div class="vital-label">
+							<span>HP</span><span id="hp-val">—</span>
+						</div>
+						<div class="vital-bar-bg">
+							<div
+								class="vital-bar"
+								id="hp-bar"
+								style="width: 100%"></div>
+						</div>
+					</div>
+					<div class="vital vital-sanity">
+						<div class="vital-label">
+							<span>Sanity</span><span id="san-val">—</span>
+						</div>
+						<div class="vital-bar-bg">
+							<div
+								class="vital-bar"
+								id="san-bar"
+								style="width: 100%"></div>
+						</div>
+					</div>
+					<div class="vital vital-hunger">
+						<div class="vital-label">
+							<span>Hunger</span><span id="hun-val">—</span>
+						</div>
+						<div class="vital-bar-bg">
+							<div
+								class="vital-bar"
+								id="hun-bar"
+								style="width: 100%"></div>
+						</div>
+					</div>
+					<div class="vital vital-thirst">
+						<div class="vital-label">
+							<span>Thirst</span><span id="thi-val">—</span>
+						</div>
+						<div class="vital-bar-bg">
+							<div
+								class="vital-bar"
+								id="thi-bar"
+								style="width: 100%"></div>
+						</div>
+					</div>
+					<div class="vital vital-radiation">
+						<div class="vital-label">
+							<span>☢ Radiation</span><span id="rad-val">—</span>
+						</div>
+						<div class="vital-bar-bg">
+							<div
+								class="vital-bar"
+								id="rad-bar"
+								style="width: 0%"></div>
+						</div>
+					</div>
+				</div>
+
+				<div class="sidebar-section">
+					<div class="sidebar-label">Location</div>
+					<div id="zone-name-display">—</div>
+					<div id="exits-display"></div>
+				</div>
+
+				<div class="sidebar-section" id="env-section">
+					<div class="sidebar-label">Environment</div>
+					<div id="env-hud-sidebar" title="View 7-day forecast">
+						<span class="env-icon" id="env-weather-icon">—</span>
+						<span class="env-clock" id="env-clock">—:—</span>
+						<span class="env-icon" id="env-time-icon">—</span>
+						<span class="env-temp" id="env-temp">—°C</span>
+					</div>
+				</div>
+
+				<div
+					class="sidebar-section"
+					id="enemy-section"
+					style="display: none">
+					<div class="sidebar-label" style="color: var(--red)">
+						⚠ Hostiles
+					</div>
+					<div
+						id="enemy-list"
+						style="font-size: 11px; color: var(--orange)"></div>
+				</div>
+
+				<div
+					class="sidebar-section"
+					style="
+						margin-top: auto;
+						padding-top: 8px;
+						border-top: 1px solid var(--border);
+					">
+					<div
+						style="
+							position: relative;
+							display: inline-block;
+							width: 100%;
+						">
+						<button
+							id="chat-toggle-btn"
+							title="Toggle whisper chat"
+							style="
+								width: 100%;
+								background: transparent;
+								border: 1px solid var(--border);
+								color: var(--text-dim);
+								font-family: var(--font-mono);
+								font-size: 11px;
+								padding: 5px 8px;
+								cursor: pointer;
+								border-radius: 2px;
+								text-align: left;
+								transition: all 0.15s;
+							">
+							💬 Chat
+						</button>
+						<span id="chat-notif-badge">!</span>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- WHISPER PANEL (tabbed, draggable) -->
+		<div
+			id="whisper-panel"
+			style="
+				display: none;
+				position: fixed;
+				bottom: 0;
+				right: 0;
+				width: 300px;
+				height: 340px;
+				background: var(--bg2);
+				border: 1px solid var(--border);
+				border-radius: 4px;
+				z-index: 100;
+				flex-direction: column;
+				box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+			">
+			<div
+				id="whisper-drag-handle"
+				style="
+					padding: 6px 10px;
+					border-bottom: 1px solid var(--border);
+					display: flex;
+					align-items: center;
+					justify-content: space-between;
+					flex-shrink: 0;
+					cursor: grab;
+					user-select: none;
+				">
+				<div
+					id="whisper-tabs"
+					style="
+						display: flex;
+						gap: 2px;
+						overflow-x: auto;
+						flex: 1;
+						min-width: 0;
+					"></div>
+				<button
+					style="
+						flex-shrink: 0;
+						background: none;
+						border: none;
+						color: var(--text-dim);
+						cursor: pointer;
+						font-size: 13px;
+						line-height: 1;
+						font-family: var(--font-mono);
+						margin-left: 6px;
+					">
+					✕
+				</button>
+			</div>
+			<div
+				id="whisper-log"
+				style="
+					flex: 1;
+					overflow-y: scroll;
+					padding: 10px;
+					font-size: 12px;
+					display: flex;
+					flex-direction: column;
+					gap: 4px;
+					position: relative;
+				"></div>
+			<div
+				id="whisper-new-msgs"
+				style="
+					display: none;
+					position: absolute;
+					bottom: 50px;
+					right: 8px;
+					background: var(--accent);
+					color: #fff;
+					font-size: 10px;
+					padding: 3px 8px;
+					border-radius: 10px;
+					cursor: pointer;
+					z-index: 101;
+				">
+				New messages ↓
+			</div>
+			<div
+				id="whisper-footer"
+				style="
+					display: none;
+					padding: 8px;
+					border-top: 1px solid var(--border);
+					gap: 6px;
+					flex-shrink: 0;
+				">
+				<input
+					id="whisper-reply-input"
+					type="text"
+					placeholder="Reply…"
+					style="
+						flex: 1;
+						background: var(--bg3);
+						border: 1px solid var(--border);
+						color: var(--text);
+						font-family: var(--font-mono);
+						font-size: 12px;
+						padding: 5px 8px;
+						outline: none;
+						border-radius: 2px;
+					" />
+				<button
+					style="
+						background: transparent;
+						border: 1px solid var(--accent);
+						color: var(--accent);
+						font-family: var(--font-mono);
+						font-size: 11px;
+						padding: 5px 10px;
+						cursor: pointer;
+						border-radius: 2px;
+						white-space: nowrap;
+					">
+					Send
+				</button>
+			</div>
+		</div>
+
+		<!-- WHO DIALOG -->
+		<div
+			id="who-modal"
+			style="
+				display: none;
+				position: fixed;
+				inset: 0;
+				background: rgba(0, 0, 0, 0.7);
+				z-index: 200;
+				align-items: center;
+				justify-content: center;
+			">
+			<div
+				style="
+					background: var(--bg2);
+					border: 1px solid var(--border);
+					border-radius: 4px;
+					width: 380px;
+					max-height: 70vh;
+					display: flex;
+					flex-direction: column;
+					overflow: hidden;
+				">
+				<div
+					style="
+						padding: 14px 16px;
+						border-bottom: 1px solid var(--border);
+						display: flex;
+						align-items: center;
+						justify-content: space-between;
+					">
+					<span
+						style="
+							font-size: 12px;
+							font-weight: 600;
+							text-transform: uppercase;
+							letter-spacing: 1px;
+							color: var(--text-dim);
+						"
+						>Who's Online</span
+					>
+					<button
+						style="
+							background: none;
+							border: none;
+							color: var(--text-dim);
+							cursor: pointer;
+							font-size: 14px;
+							font-family: var(--font-mono);
+						">
+						✕
+					</button>
+				</div>
+				<div
+					style="
+						padding: 8px 12px;
+						border-bottom: 1px solid var(--border);
+					">
+					<input
+						id="who-search"
+						type="text"
+						placeholder="Filter players…"
+						style="
+							width: 100%;
+							box-sizing: border-box;
+							background: var(--bg3);
+							border: 1px solid var(--border);
+							color: var(--text);
+							font-family: var(--font-mono);
+							font-size: 12px;
+							padding: 5px 8px;
+							outline: none;
+							border-radius: 2px;
+						" />
+				</div>
+				<div
+					id="who-list"
+					style="flex: 1; overflow-y: auto; padding: 8px 0"></div>
+			</div>
+		</div>
+
+		<!-- SETTINGS PANEL -->
+		<div id="settings-panel">
+			<div id="settings-box">
+				<h2>Settings</h2>
+
+				<div class="settings-group">
+					<label class="group-label">Theme</label>
+					<div class="settings-options" id="opt-theme">
+						<button class="settings-opt" data-value="dark">
+							Dark
+						</button>
+						<button class="settings-opt" data-value="light">
+							Light
+						</button>
+						<button class="settings-opt" data-value="contrast">
+							High Contrast
+						</button>
+					</div>
+				</div>
+
+				<div class="settings-group">
+					<label class="group-label">Font Size</label>
+					<div class="settings-options" id="opt-fontsize">
+						<button class="settings-opt" data-value="12">
+							Small
+						</button>
+						<button class="settings-opt" data-value="14">
+							Medium
+						</button>
+						<button class="settings-opt" data-value="17">
+							Large
+						</button>
+						<button class="settings-opt" data-value="20">
+							X-Large
+						</button>
+					</div>
+				</div>
+
+				<div class="settings-group">
+					<label class="group-label">Display</label>
+					<div class="settings-options" id="opt-density">
+						<button class="settings-opt" data-value="comfortable">
+							Comfortable (Desktop)
+						</button>
+						<button class="settings-opt" data-value="compact">
+							Compact (Mobile)
+						</button>
+					</div>
+				</div>
+
+				<button id="settings-close">Done</button>
+			</div>
+		</div>
+
+		<!-- MAP POPUP -->
+		<div id="map-panel">
+			<div id="map-box">
+				<h2>City Map</h2>
+				<div id="map-body">
+					<div id="map-grid"></div>
+					<div id="map-legend"></div>
+				</div>
+				<button id="map-close" style="margin-top: 14px">Close</button>
+			</div>
+		</div>
+
+		<!-- EQUIPMENT PANEL -->
+		<div id="equip-panel">
+			<div id="equip-box">
+				<div id="equip-header">
+					<h2>Inventory &amp; Equipment</h2>
+					<button id="equip-close" aria-label="Close">✕</button>
+				</div>
+				<div id="equip-body">
+					<div id="equip-doll">
+						<div
+							class="equip-slot"
+							data-slot="head"
+							ondragover="event.preventDefault()"
+							ondrop="onSlotDrop(event, 'head')">
+							<span class="equip-slot-label">Head</span>
+							<div class="equip-slot-item"></div>
+						</div>
+						<div
+							class="equip-slot"
+							data-slot="torso"
+							ondragover="event.preventDefault()"
+							ondrop="onSlotDrop(event, 'torso')">
+							<span class="equip-slot-label">Torso</span>
+							<div class="equip-slot-item"></div>
+						</div>
+						<div
+							class="equip-slot"
+							data-slot="hands"
+							ondragover="event.preventDefault()"
+							ondrop="onSlotDrop(event, 'hands')">
+							<span class="equip-slot-label">Hands</span>
+							<div class="equip-slot-item"></div>
+						</div>
+						<div
+							class="equip-slot"
+							data-slot="weapon_hand"
+							ondragover="event.preventDefault()"
+							ondrop="onSlotDrop(event, 'weapon_hand')">
+							<span class="equip-slot-label">Weapon</span>
+							<div class="equip-slot-item"></div>
+						</div>
+						<div
+							class="equip-slot"
+							data-slot="legs"
+							ondragover="event.preventDefault()"
+							ondrop="onSlotDrop(event, 'legs')">
+							<span class="equip-slot-label">Legs</span>
+							<div class="equip-slot-item"></div>
+						</div>
+						<div
+							class="equip-slot"
+							data-slot="feet"
+							ondragover="event.preventDefault()"
+							ondrop="onSlotDrop(event, 'feet')">
+							<span class="equip-slot-label">Feet</span>
+							<div class="equip-slot-item"></div>
+						</div>
+						<div
+							class="equip-slot"
+							data-slot="accessory"
+							ondragover="event.preventDefault()"
+							ondrop="onSlotDrop(event, 'accessory')">
+							<span class="equip-slot-label">Accessory</span>
+							<div class="equip-slot-item"></div>
+						</div>
+					</div>
+					<div
+						id="equip-inv-list"
+						ondragover="event.preventDefault()"
+						ondrop="onInvListDrop(event)"></div>
+				</div>
+				<div id="equip-credits">
+					Credits: <span id="equip-credits-val">0</span>
+				</div>
+			</div>
+		</div>
+
+		<!-- DIALOGUE PANEL -->
+		<div id="dialogue-panel">
+			<div id="dialogue-box">
+				<div id="dialogue-npc-name"></div>
+				<div id="dialogue-text"></div>
+				<div id="dialogue-options"></div>
+				<button
+					class="dialogue-opt"
+					style="margin-top: 10px; color: var(--text-dim)">
+					[ Leave ]
+				</button>
+			</div>
+		</div>
+
+		<!-- FORECAST PANEL -->
+		<div id="forecast-panel">
+			<div id="forecast-box">
+				<div id="forecast-header">7-Day Forecast</div>
+				<div id="forecast-days"></div>
+				<button
+					class="dialogue-opt"
+					style="margin-top: 14px; color: var(--text-dim)">
+					[ Close ]
+				</button>
+			</div>
+		</div>
+
+		<script type="module" src="js/main.js"></script>
+	</body>
 </html>

@@ -17,8 +17,9 @@ Post-singularity browser MUD in the HellMOO tradition. Text-driven, real-time, b
 
 - **Engine vs. content are separate.** The codebase is the engine. World content (zones, items, enemies, NPCs) lives in Postgres and is edited through the dev panel. Don't hardcode content into engine files.
 - **No ORM.** All queries go through the single `query()` helper in `server/models/db.js`. Keep it that way.
-- **No frameworks.** Each frontend is a single HTML/JS file with its styles in a sibling `styles.css`. No build pipeline to add.
+- **No frameworks, no build pipeline.** Each frontend is an HTML entry point plus native ES modules in a sibling `js/` directory; shared utilities live in `client/shared/` and are served at `/shared/*`. No build step to add.
 - **Plugins for extensibility.** New behavior hooks belong in `/plugins/`, not in engine files, unless they're genuinely core.
+- **UTF-8, always.** Several files (especially `client/game/index.html`) use Unicode glyphs and box-drawing chars (`₵ ⚙ ⏻ ╱ █ ☢`). When editing, preserve UTF-8 without a BOM — never let a tool re-save as Windows-1252 or it double-encodes everything into `â•±â•²` mojibake. After editing such files, sanity-check that the glyphs are still intact.
 
 ## Working Agreements
 
