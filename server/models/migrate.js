@@ -572,9 +572,43 @@ async function seedAmbientEvents() {
     ).catch(() => {}); // skip on duplicate/error
   }
 
-  // Backfill: any zone that is the entry_zone_id of an interior map gets
-  // is_building:true and world_exit_zone set to that map's parent_zone_id so
-  // the validator and zone editor both have the explicit connection recorded.
+  // Backfill: interior maps that have no entry_zone_id set — find the zone at
+  // grid 0,0,0 in that map (where apiLinkInterior always places the entry zone)
+  // and record it so the validator and unplaced-tray queries can use it.
+  await query(`
+    UPDATE maps m
+    SET entry_zone_id = z.id
+    FROM zones z
+    WHERE m.entry_zone_id IS NULL
+      AND m.parent_zone_id IS NOT NULL
+      AND z.map_id = m.id
+      AND z.grid_x = 0 AND z.grid_y = 0 AND COALESCE(z.grid_z, 0) = 0
+  `).catch(() => {});
+
+  // Cleanup: strip is_building / is_interior / world_exit_zone from any zone
+  // that has those flags but is NOT the actual entry zone of an interior map it
+  // belongs to. Covers zones with map_id=NULL, zones on exterior maps, and zones
+  // pointed at by dirty maps rows where entry_zone_id doesn't match map_id.
+  await query(`
+    UPDATE zones z
+    SET flags = z.flags - 'is_building' - 'is_interior' - 'world_exit_zone'
+    WHERE (
+      COALESCE((z.flags->>'is_building')::boolean, false) = true
+      OR COALESCE((z.flags->>'is_interior')::boolean, false) = true
+    )
+    AND NOT EXISTS (
+      SELECT 1 FROM maps m
+      WHERE m.entry_zone_id = z.id
+        AND m.parent_zone_id IS NOT NULL
+        AND z.map_id = m.id
+    )
+  `).catch(() => {});
+
+  // Backfill: any zone that is the entry_zone_id of an interior map AND is
+  // actually assigned to that map (z.map_id = m.id) gets is_building:true and
+  // world_exit_zone. The z.map_id = m.id guard prevents dirty maps rows (where
+  // entry_zone_id points to a zone that lives on a different map) from
+  // incorrectly stamping building flags onto exterior zones.
   await query(`
     UPDATE zones z
     SET flags = COALESCE(z.flags, '{}'::jsonb)
@@ -583,6 +617,7 @@ async function seedAmbientEvents() {
     FROM maps m
     WHERE m.entry_zone_id = z.id
       AND m.parent_zone_id IS NOT NULL
+      AND z.map_id = m.id
       AND (z.flags->>'world_exit_zone' IS NULL
         OR COALESCE((z.flags->>'is_building')::boolean, false) = false)
   `).catch(() => {});

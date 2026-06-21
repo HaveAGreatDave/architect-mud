@@ -287,6 +287,7 @@ async function apiGetMap(id) {
      WHERE (map_id IS NULL OR map_id != $1)
        AND COALESCE((flags->>'is_interior')::boolean, false) = false
        AND COALESCE((flags->>'is_apartment')::boolean, false) = false
+       AND COALESCE((flags->>'is_building')::boolean, false) = false
      ORDER BY name`,
     [id]
   );
@@ -300,11 +301,27 @@ async function apiGetMap(id) {
       AND (COALESCE((flags->>'is_interior')::boolean, false) = true
         OR COALESCE((flags->>'is_apartment')::boolean, false) = true)
     UNION
+    -- Buildings with no interior map at all
     SELECT z.id, z.name, z.danger_rating, z.exits, z.flags FROM zones z
     WHERE COALESCE((z.flags->>'is_building')::boolean, false) = true
       AND NOT EXISTS (
         SELECT 1 FROM maps m
         WHERE m.entry_zone_id = z.id AND m.parent_zone_id IS NOT NULL
+      )
+    UNION
+    -- Buildings that have an interior map but no valid world-map entrance
+    -- (world_exit_zone missing, or the exterior zone has no exit back to this building)
+    SELECT z.id, z.name, z.danger_rating, z.exits, z.flags FROM zones z
+    WHERE COALESCE((z.flags->>'is_building')::boolean, false) = true
+      AND EXISTS (
+        SELECT 1 FROM maps m WHERE m.entry_zone_id = z.id AND m.parent_zone_id IS NOT NULL
+      )
+      AND (
+        z.flags->>'world_exit_zone' IS NULL
+        OR NOT EXISTS (
+          SELECT 1 FROM zones ext, jsonb_each_text(COALESCE(ext.exits, '{}')) kv
+          WHERE ext.id = z.flags->>'world_exit_zone' AND kv.value = z.id
+        )
       )
     ORDER BY name
   `);
@@ -331,6 +348,11 @@ async function apiLinkInterior(body, auth) {
   let interiorMap;
   if (existingMaps.length) {
     interiorMap = existingMaps[0];
+    // Patch entry_zone_id if missing — old maps created before this field was standardized
+    if (!interiorMap.entry_zone_id) {
+      await query('UPDATE maps SET entry_zone_id=$1 WHERE id=$2', [interiorZoneId, interiorMap.id]);
+      interiorMap = { ...interiorMap, entry_zone_id: interiorZoneId };
+    }
   } else {
     const mapId = `map_int_${Date.now()}`;
     await query(
