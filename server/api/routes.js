@@ -289,7 +289,16 @@ async function apiGetMap(id) {
      ORDER BY name`,
     [id]
   );
-  return { status:200, body:{ map: mapRows[0], zones, children, unplaced } };
+  // Interior/apartment zones with no map yet — shown in the exterior tray so
+  // builders can drag them onto an exterior tile to link them.
+  const { rows: unplacedInterior } = await query(
+    `SELECT id, name, danger_rating, exits, flags FROM zones
+     WHERE map_id IS NULL
+       AND (COALESCE((flags->>'is_interior')::boolean, false) = true
+         OR COALESCE((flags->>'is_apartment')::boolean, false) = true)
+     ORDER BY name`,
+  );
+  return { status:200, body:{ map: mapRows[0], zones, children, unplaced, unplacedInterior } };
 }
 
 async function apiCreateMap(body, auth) {

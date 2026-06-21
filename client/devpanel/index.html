@@ -2065,9 +2065,14 @@ const MAP_OPP = { north:'south', south:'north', east:'west', west:'east', up:'do
 let pendingZonePlacement = null;  // {map_id,grid_x,grid_y,grid_z} for a new zone
 let mapZoneEditReturn = false;    // true when zone editor was opened from the map overview
 let mapsList = [];
-let mapOverview = null;           // { map, zones:Map, unplaced:Map, children, z }
+let mapOverview = null;           // { map, zones:Map, unplaced:Map, unplacedInterior:Map, children, z }
 let mapDragId = null;
 let mapDragFromTray = false;
+let mapDragIsInterior = false;
+let mapViewTab = 'exterior';      // 'exterior' | 'interior'
+let mapExteriorMapId = null;      // last-loaded exterior map id, so we can return from interior view
+let mapSelectedInteriorId = null;
+let mapInteriorsList = [];        // interior maps (parent_zone_id != null)
 
 function setZoneColor(c) { const el = document.getElementById('f-color'); if (el) { el.value = c; updateColorPreview(); } }
 function setBgColor(c) { const el = document.getElementById('f-bg_color'); if (el) { el.value = c; updateColorPreview(); } }
@@ -2092,8 +2097,10 @@ async function renderMapsPanel(data) {
   mapsList = Array.isArray(data) ? data : [];
   const panel = document.getElementById('list-panel');
   if (!mapsList.length) { panel.innerHTML = '<div style="padding:24px;color:var(--text-dim)">No maps yet. Run <code>npm run db:seed</code> to create map_world.</div>'; return; }
+  mapViewTab = 'exterior';
   let target = mapOverview?.map?.id;
   if (!target || !mapsList.find(m => m.id === target)) target = (mapsList.find(m => m.id === 'map_world') || mapsList[0]).id;
+  mapExteriorMapId = target;
   await loadMapOverview(target);
 }
 
@@ -2102,8 +2109,9 @@ async function loadMapOverview(mapId) {
   if (data.error) { toast(data.error, true); return; }
   const zones = new Map((data.zones || []).map(z => [z.id, { ...z, exits: { ...(z.exits || {}) }, flags: z.flags || {}, grid_z: z.grid_z ?? 0 }]));
   const unplaced = new Map((data.unplaced || []).map(z => [z.id, { ...z, exits: { ...(z.exits || {}) }, flags: z.flags || {} }]));
+  const unplacedInterior = new Map((data.unplacedInterior || []).map(z => [z.id, { ...z, exits: { ...(z.exits || {}) }, flags: z.flags || {} }]));
   const keepZ = (mapOverview && mapOverview.map.id === mapId) ? mapOverview.z : 0;
-  mapOverview = { map: data.map, zones, unplaced, children: data.children || [], z: keepZ };
+  mapOverview = { map: data.map, zones, unplaced, unplacedInterior, children: data.children || [], z: keepZ };
   renderMapOverview();
 }
 
@@ -2167,16 +2175,46 @@ function renderMapOverview() {
   const broken = new Set(errors.map(e => e.zoneId));
   const nameOf = id => o.zones.get(id)?.name || id;
 
-  // Toolbar
-  const mapOptions = mapsList.map(m => `<option value="${m.id}" ${m.id === o.map.id ? 'selected' : ''}>${m.name} (${m.zone_count} zones)</option>`).join('');
-  let html = `<div class="map-toolbar">
-    <label>Map</label>
-    <select onchange="switchMap(this.value)">${mapOptions}</select>
-    <span style="margin-left:6px">Floor</span>
-    <button class="action-btn" onclick="changeFloor(-1)">▾</button>
-    <span style="min-width:60px;text-align:center">z = ${o.z}</span>
-    <button class="action-btn" onclick="changeFloor(1)">▴</button>
+  // Sub-tab buttons (always at top)
+  const subTabHtml = `<div style="display:flex;border-bottom:1px solid var(--border);background:var(--bg3)">
+    <button onclick="switchMapTab('exterior')" style="flex:1;padding:7px;background:${mapViewTab==='exterior'?'var(--bg2)':'transparent'};border:none;border-bottom:2px solid ${mapViewTab==='exterior'?'var(--accent)':'transparent'};color:${mapViewTab==='exterior'?'var(--accent)':'var(--text-dim)'};cursor:pointer;font-size:12px;font-weight:600;letter-spacing:0.5px">Exterior</button>
+    <button onclick="switchMapTab('interior')" style="flex:1;padding:7px;background:${mapViewTab==='interior'?'var(--bg2)':'transparent'};border:none;border-bottom:2px solid ${mapViewTab==='interior'?'var(--accent)':'transparent'};color:${mapViewTab==='interior'?'var(--accent)':'var(--text-dim)'};cursor:pointer;font-size:12px;font-weight:600;letter-spacing:0.5px">Interior</button>
   </div>`;
+
+  // Toolbar
+  let html = subTabHtml;
+  if (mapViewTab === 'interior' && !mapSelectedInteriorId) {
+    html += `<div style="padding:32px 24px;color:var(--text-dim);font-size:13px">
+      No interior maps yet.<br><br>
+      Switch to <strong>Exterior</strong>, then drag an <strong>Unplaced Interior Zone</strong> from the tray onto any exterior zone tile to link it and create an interior map.
+    </div>`;
+    panel.innerHTML = html;
+    return;
+  }
+
+  if (mapViewTab === 'interior') {
+    const intOpts = mapInteriorsList.length
+      ? mapInteriorsList.map(m => `<option value="${m.id}" ${m.id === mapSelectedInteriorId ? 'selected' : ''}>${m.name}</option>`).join('')
+      : `<option value="">— no interiors yet —</option>`;
+    html += `<div class="map-toolbar">
+      <label>Interior</label>
+      <select onchange="switchInteriorMap(this.value)">${intOpts}</select>
+      <span style="margin-left:6px">Floor</span>
+      <button class="action-btn" onclick="changeFloor(-1)">▾</button>
+      <span style="min-width:60px;text-align:center">z = ${o.z}</span>
+      <button class="action-btn" onclick="changeFloor(1)">▴</button>
+    </div>`;
+  } else {
+    const mapOptions = mapsList.map(m => `<option value="${m.id}" ${m.id === o.map.id ? 'selected' : ''}>${m.name} (${m.zone_count} zones)</option>`).join('');
+    html += `<div class="map-toolbar">
+      <label>Map</label>
+      <select onchange="switchMap(this.value)">${mapOptions}</select>
+      <span style="margin-left:6px">Floor</span>
+      <button class="action-btn" onclick="changeFloor(-1)">▾</button>
+      <span style="min-width:60px;text-align:center">z = ${o.z}</span>
+      <button class="action-btn" onclick="changeFloor(1)">▴</button>
+    </div>`;
+  }
 
   // Validation panel
   html += `<div class="map-validation">`;
@@ -2297,34 +2335,59 @@ function renderMapOverview() {
   html += `</div></div>`;
 
   // Unplaced-zones tray:
-  //  • tray       — map_id IS NULL (server-side unplaced query)
-  //  • noPosition — map_id = this map but grid_x/grid_y not set (assigned but never placed)
-  //  • disconnected — on the grid but exits = {} (wired nowhere)
-  const tray = [...o.unplaced.values()];
-  const noPosition = [...o.zones.values()].filter(z => z.grid_x == null && !z.flags?.is_interior && !z.flags?.is_apartment);
-  const disconnected = [...o.zones.values()].filter(z =>
-    Object.keys(z.exits || {}).length === 0 && z.grid_x != null
-  );
-  const trayChip = z => `<span class="bigmap-tile bm-edit bm-danger-${z.danger_rating || 'safe'}" style="width:auto;height:auto;padding:4px 8px;cursor:grab;flex-shrink:0" draggable="true" ondragstart="mapTrayDragStart(event,'${z.id}')" title="${z.id}">${z.name}</span>`;
-  const allUnplaced = [...tray, ...noPosition].sort((a, b) => a.name.localeCompare(b.name));
-  html += `<div style="padding:0 12px 14px;border-top:1px solid var(--border);margin-top:8px">
-    <div style="font-size:11px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;padding-top:10px">Unplaced Zones</div>
-    <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px">Zones with no grid position. Drag onto an empty cell to place on <strong>${o.map.name}</strong>.</div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:${disconnected.length ? '14px' : '0'}">${allUnplaced.length
-      ? allUnplaced.map(trayChip).join('')
-      : `<span style="color:var(--text-dim);font-style:italic;font-size:11px">None.</span>`
-    }</div>
-    ${disconnected.length ? `
-    <div style="font-size:11px;font-weight:600;color:var(--yellow);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">No Connections</div>
-    <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px">These zones are on the map grid but have no exits — they may need wiring up.</div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap">${disconnected.map(trayChip).join('')}</div>
-    ` : ''}
-  </div>`;
+  const trayChip = (z, dragFn) => `<span class="bigmap-tile bm-edit bm-danger-${z.danger_rating || 'safe'}" style="width:auto;height:auto;padding:4px 8px;cursor:grab;flex-shrink:0" draggable="true" ondragstart="${dragFn}(event,'${z.id}')" title="${z.id}">${z.name}</span>`;
+
+  if (mapViewTab === 'interior') {
+    // Interior tray: rooms in this map with no grid position
+    const unplacedRooms = [...o.zones.values()].filter(z => z.grid_x == null);
+    const disconnected = [...o.zones.values()].filter(z => Object.keys(z.exits || {}).length === 0 && z.grid_x != null);
+    html += `<div style="padding:0 12px 14px;border-top:1px solid var(--border);margin-top:8px">
+      <div style="font-size:11px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;padding-top:10px">Unplaced Rooms</div>
+      <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px">Rooms in this interior with no grid position. Drag onto an empty cell to place.</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:${disconnected.length ? '14px' : '0'}">${unplacedRooms.length
+        ? unplacedRooms.map(z => trayChip(z, 'mapTrayDragStart')).join('')
+        : `<span style="color:var(--text-dim);font-style:italic;font-size:11px">None.</span>`
+      }</div>
+      ${disconnected.length ? `
+      <div style="font-size:11px;font-weight:600;color:var(--yellow);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">No Connections</div>
+      <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px">These rooms are placed but have no exits.</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">${disconnected.map(z => trayChip(z, 'mapTrayDragStart')).join('')}</div>
+      ` : ''}
+    </div>`;
+  } else {
+    //  • tray       — map_id IS NULL (server-side unplaced query)
+    //  • noPosition — map_id = this map but grid_x/grid_y not set (assigned but never placed)
+    //  • disconnected — on the grid but exits = {} (wired nowhere)
+    const tray = [...o.unplaced.values()];
+    const noPosition = [...o.zones.values()].filter(z => z.grid_x == null && !z.flags?.is_interior && !z.flags?.is_apartment);
+    const disconnected = [...o.zones.values()].filter(z => Object.keys(z.exits || {}).length === 0 && z.grid_x != null);
+    const allUnplaced = [...tray, ...noPosition].sort((a, b) => a.name.localeCompare(b.name));
+    html += `<div style="padding:0 12px 14px;border-top:1px solid var(--border);margin-top:8px">
+      <div style="font-size:11px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;padding-top:10px">Unplaced Zones</div>
+      <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px">Zones with no grid position. Drag onto an empty cell to place on <strong>${o.map.name}</strong>.</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:${disconnected.length || (o.unplacedInterior?.size > 0) ? '14px' : '0'}">${allUnplaced.length
+        ? allUnplaced.map(z => trayChip(z, 'mapTrayDragStart')).join('')
+        : `<span style="color:var(--text-dim);font-style:italic;font-size:11px">None.</span>`
+      }</div>
+      ${disconnected.length ? `
+      <div style="font-size:11px;font-weight:600;color:var(--yellow);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">No Connections</div>
+      <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px">These zones are on the map grid but have no exits — they may need wiring up.</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">${disconnected.map(z => trayChip(z, 'mapTrayDragStart')).join('')}</div>
+      ` : ''}
+      ${(o.unplacedInterior?.size > 0) ? `
+      <div style="font-size:11px;font-weight:600;color:var(--accent2);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Unplaced Interior Zones</div>
+      <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px">Drag onto an exterior zone tile to link this interior to it.</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">${[...o.unplacedInterior.values()].map(z => trayChip(z, 'mapInteriorTrayDragStart')).join('')}</div>
+      ` : ''}
+    </div>`;
+  }
   panel.innerHTML = html;
 }
 
 async function switchMap(id) {
   if (!mapsGuard()) { renderMapOverview(); return; }
+  mapViewTab = 'exterior';
+  mapExteriorMapId = id;
   await loadMapOverview(id);
 }
 
@@ -2392,14 +2455,121 @@ async function mapRemoveExit(zoneId, dir) {
 }
 
 function mapDragStart(e, id) {
-  mapDragId = id; mapDragFromTray = false;
+  mapDragId = id; mapDragFromTray = false; mapDragIsInterior = false;
   e.dataTransfer.effectAllowed = 'move';
 }
 
 // Drag an unplaced zone out of the tray.
 function mapTrayDragStart(e, id) {
-  mapDragId = id; mapDragFromTray = true;
+  mapDragId = id; mapDragFromTray = true; mapDragIsInterior = false;
   e.dataTransfer.effectAllowed = 'move';
+}
+
+// Drag an unplaced interior zone — must be dropped onto an existing exterior tile.
+function mapInteriorTrayDragStart(e, id) {
+  mapDragId = id; mapDragFromTray = true; mapDragIsInterior = true;
+  e.dataTransfer.effectAllowed = 'link';
+}
+
+function openInteriorLinkModal(interiorZoneId, exteriorZoneId) {
+  const extZone = mapOverview.zones.get(exteriorZoneId);
+  const intZone = mapOverview.unplacedInterior?.get(interiorZoneId);
+  const dirs = ['in','out','north','south','east','west','up','down'];
+  openModal(`Link to ${extZone?.name || exteriorZoneId}`, `
+    <div class="field">
+      <p style="color:var(--text-dim);margin:0 0 12px">
+        Linking <strong>${intZone?.name || interiorZoneId}</strong> to
+        <strong>${extZone?.name || exteriorZoneId}</strong>.<br>
+        Choose the exit direction from the exterior zone into this interior.
+      </p>
+      <label>Entrance direction</label>
+      <select id="int-link-dir">
+        ${dirs.map(d => `<option value="${d}"${d === 'in' ? ' selected' : ''}>${d}</option>`).join('')}
+      </select>
+    </div>
+  `);
+  document.getElementById('modal-save').onclick = async () => {
+    const dir = document.getElementById('int-link-dir').value;
+    closeModal();
+    await linkInteriorToExterior(interiorZoneId, exteriorZoneId, dir);
+  };
+}
+
+async function linkInteriorToExterior(interiorZoneId, exteriorZoneId, dir) {
+  const extZone = mapOverview.zones.get(exteriorZoneId);
+  if (!extZone) return;
+
+  // Stage: add exit from exterior zone to interior entry zone
+  extZone.exits[dir] = interiorZoneId;
+  const r1 = await API(`/zones/${exteriorZoneId}`, 'PUT', { exits: extZone.exits });
+  if (r1?.error) { delete extZone.exits[dir]; toast(r1.error, true); return; }
+
+  // Find or create interior map for this exterior zone
+  let interiorMap = mapOverview.children.find(c => c.parent_zone_id === exteriorZoneId);
+  if (!interiorMap) {
+    const r2 = await API('/maps', 'POST', {
+      name: (extZone.name || exteriorZoneId) + ' — Interior',
+      parent_zone_id: exteriorZoneId,
+      entry_zone_id: interiorZoneId,
+    });
+    if (r2?.error) { toast(r2.error, true); return; }
+    interiorMap = { id: r2.id, name: (extZone.name || exteriorZoneId) + ' — Interior', parent_zone_id: exteriorZoneId, entry_zone_id: interiorZoneId };
+    mapOverview.children.push(interiorMap);
+  }
+
+  // Stage: assign interior zone to this interior map at position 0,0,0
+  const intZone = mapOverview.unplacedInterior?.get(interiorZoneId);
+  await API(`/zones/${interiorZoneId}`, 'PUT', {
+    map_id: interiorMap.id, grid_x: 0, grid_y: 0, grid_z: 0,
+    exits: intZone?.exits || {},
+  });
+  mapOverview.unplacedInterior?.delete(interiorZoneId);
+  updateStagingBadge();
+  toast(`Interior linked! Opening interior editor…`);
+
+  // Build interior map overview from in-memory state (zone update is staged, not
+  // committed yet, so loading from server would show an empty map).
+  const entryZone = {
+    ...(intZone || { id: interiorZoneId, name: interiorZoneId, exits: {}, danger_rating: extZone.danger_rating }),
+    map_id: interiorMap.id, grid_x: 0, grid_y: 0, grid_z: 0,
+    flags: { is_interior: true },
+  };
+  mapViewTab = 'interior';
+  mapSelectedInteriorId = interiorMap.id;
+  if (!mapInteriorsList.find(m => m.id === interiorMap.id)) mapInteriorsList.push(interiorMap);
+  mapOverview = { map: interiorMap, zones: new Map([[interiorZoneId, entryZone]]), unplaced: new Map(), unplacedInterior: new Map(), children: [], z: 0 };
+  renderMapOverview();
+}
+
+async function switchMapTab(tab, interiorId) {
+  mapViewTab = tab;
+  if (tab === 'exterior') {
+    const extId = mapExteriorMapId || mapsList.find(m => !m.parent_zone_id)?.id || mapsList[0]?.id;
+    await loadMapOverview(extId);
+    return;
+  }
+  // Interior tab: fetch interior maps list for the dropdown
+  const mapsData = await API('/maps');
+  if (!mapsData?.error) {
+    const all = Array.isArray(mapsData) ? mapsData : [];
+    mapInteriorsList = all.filter(m => m.parent_zone_id);
+  }
+  if (interiorId) {
+    mapSelectedInteriorId = interiorId;
+  } else if (!mapSelectedInteriorId || !mapInteriorsList.find(m => m.id === mapSelectedInteriorId)) {
+    mapSelectedInteriorId = mapInteriorsList[0]?.id || null;
+  }
+  if (mapSelectedInteriorId) {
+    await loadMapOverview(mapSelectedInteriorId);
+  } else {
+    // No interiors exist — show placeholder using existing mapOverview (exterior data)
+    renderMapOverview();
+  }
+}
+
+async function switchInteriorMap(id) {
+  mapSelectedInteriorId = id;
+  await loadMapOverview(id);
 }
 
 async function mapDrop(e, x, y) {
@@ -2407,6 +2577,16 @@ async function mapDrop(e, x, y) {
   if (!mapDragId) return;
   const o = mapOverview;
   const occupied = [...o.zones.values()].find(z => (z.grid_z ?? 0) === o.z && z.grid_x === x && z.grid_y === y);
+
+  // Interior zone dragged from tray — must land on an existing exterior tile
+  if (mapDragIsInterior) {
+    mapDragIsInterior = false;
+    const intId = mapDragId; mapDragId = null; mapDragFromTray = false;
+    if (!occupied) { toast('Drop interior zones onto an existing exterior zone tile to link them.', true); return; }
+    openInteriorLinkModal(intId, occupied.id);
+    return;
+  }
+
   if (occupied && occupied.id !== mapDragId) { toast('That cell is occupied.', true); mapDragId = null; return; }
 
   const draggedId = mapDragId, fromTray = mapDragFromTray;
