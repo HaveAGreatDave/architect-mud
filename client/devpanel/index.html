@@ -1537,7 +1537,7 @@ async function saveNpc(existing) {
 // re-fetching the whole panel.
 let _furnitureAllItems = [];
 let _furnitureZoneNames = new Map();
-let _furnitureExpandZone = null;
+const _furnitureExpandedZones = new Set();
 
 function renderFurniturePanel(data) {
   const furniture = data.furniture || [];
@@ -1606,10 +1606,12 @@ function renderFurniturePanel(data) {
     ? sections
     : '<div style="padding:24px;color:var(--text-dim)">No furniture found.</div>';
 
-  if (_furnitureExpandZone) {
-    const header = panel.querySelector(`[data-zone-id="${_furnitureExpandZone}"]`);
-    if (header) fToggle(header);
-    _furnitureExpandZone = null;
+  for (const zid of _furnitureExpandedZones) {
+    const header = panel.querySelector(`[data-zone-id="${zid}"]`);
+    if (header) {
+      header.nextElementSibling.style.display = 'block';
+      header.querySelector('.f-arrow').textContent = '▾';
+    }
   }
 }
 
@@ -1619,6 +1621,11 @@ function fToggle(header) {
   const open = children.style.display !== 'none';
   children.style.display = open ? 'none' : 'block';
   arrow.textContent = open ? '▸' : '▾';
+  const zid = header.dataset.zoneId;
+  if (zid) {
+    if (open) _furnitureExpandedZones.delete(zid);
+    else _furnitureExpandedZones.add(zid);
+  }
 }
 
 function openFurnitureAddModal(zoneId) {
@@ -1658,7 +1665,7 @@ function openFurnitureAddModal(zoneId) {
     closeModal();
     const newId = r.id || r.entityId || `furniture_${Date.now()}`;
     _furnitureAllItems.push({ id: newId, zone_id: zoneId, name: template.name, description: template.description || '', flags: template.flags || {}, is_light: template.is_light || 0, light_on: template.light_on || 0, light_type: template.light_type || 'lamp' });
-    _furnitureExpandZone = zoneId;
+    _furnitureExpandedZones.add(zoneId);
     renderFurniturePanel({ furniture: _furnitureAllItems, zones: [..._furnitureZoneNames.entries()].map(([zid, zname]) => ({ id: zid, name: zname })) });
   };
   document.getElementById('generic-modal').style.display = 'flex';
