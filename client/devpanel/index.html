@@ -2313,7 +2313,7 @@ function renderMapOverview() {
   const col = x => 2 * (x - minX) + 1, row = y => 2 * (y - minY) + 1;
   const cellStyle = (x, y, extra = '') => `style="grid-column:${col(x)};grid-row:${row(y)}${extra}"`;
 
-  html += `<div style="padding:12px;overflow:auto"><div style="display:grid;grid-template-columns:${colTmpl};grid-template-rows:${rowTmpl}">`;
+  html += `<div style="padding:12px;overflow:auto" ondragover="event.preventDefault()"><div style="display:grid;grid-template-columns:${colTmpl};grid-template-rows:${rowTmpl}">`;
 
   // Cells (and empty/create slots)
   for (let y = minY; y <= maxY; y++) {
