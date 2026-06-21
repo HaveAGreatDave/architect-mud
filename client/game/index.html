@@ -175,8 +175,10 @@
 <div id="map-panel">
   <div id="map-box">
     <h2>City Map</h2>
-    <div id="map-grid"></div>
-    <div style="margin-top:14px;font-size:10px;color:var(--text-dim)">Highlighted tile is your current location.</div>
+    <div id="map-body">
+      <div id="map-grid"></div>
+      <div id="map-legend"></div>
+    </div>
     <button id="map-close" style="margin-top:14px">Close</button>
   </div>
 </div>
@@ -1112,24 +1114,96 @@ function renderMinimap(nodes) {
 // Read-only: this is a navigation reference, not a click-to-travel tool.
 function openMapPopup(tiles) {
   const grid = document.getElementById('map-grid');
-  if (!tiles.length) { grid.textContent = '(no map data)'; }
-  else {
-    const xs = tiles.map(t => t.x), ys = tiles.map(t => t.y);
-    const minX = Math.min(...xs), maxX = Math.max(...xs);
-    const minY = Math.min(...ys), maxY = Math.max(...ys);
-    const byCoord = new Map(tiles.map(t => [`${t.x},${t.y}`, t]));
-    grid.style.gridTemplateColumns = `repeat(${maxX - minX + 1}, 84px)`;
-    let html = '';
-    for (let y = minY; y <= maxY; y++) {
-      for (let x = minX; x <= maxX; x++) {
-        const t = byCoord.get(`${x},${y}`);
-        if (!t) { html += `<div class="map-tile map-tile-empty"></div>`; continue; }
-        const cls = `map-tile danger-${t.danger || 'safe'}${t.isCurrent ? ' map-current' : ''}`;
-        html += `<div class="${cls}">${t.name}</div>`;
-      }
-    }
-    grid.innerHTML = html;
+  const legend = document.getElementById('map-legend');
+  if (!tiles.length) {
+    grid.textContent = '(no map data)';
+    legend.innerHTML = '';
+    document.getElementById('map-panel').classList.add('active');
+    return;
   }
+
+  const xs = tiles.map(t => t.x), ys = tiles.map(t => t.y);
+  const minX = Math.min(...xs), maxX = Math.max(...xs);
+  const minY = Math.min(...ys), maxY = Math.max(...ys);
+  const W = maxX - minX + 1, H = maxY - minY + 1;
+  const byId = new Map(tiles.map(t => [t.id, t]));
+
+  // Two-char marker for a tile: explicit marker, else first two letters of name.
+  const symFor = (t) => {
+    if (t.isCurrent) return '()';
+    if (t.marker) return (t.marker.length === 1 ? t.marker + ' ' : t.marker.slice(0, 2));
+    const letters = (t.name || '').replace(/[^A-Za-z0-9]/g, '');
+    return (letters.slice(0, 2) || '??').padEnd(2, ' ');
+  };
+
+  // The connector grid is 2× resolution: rooms sit on even rows/cols, the
+  // odd cells between them hold the line characters (─ │ ╱ ╲).
+  const gCols = W * 2 - 1, gRows = H * 2 - 1;
+  const cell = Array.from({ length: gRows }, () => new Array(gCols).fill(null));
+
+  for (const t of tiles) {
+    const gx = (t.x - minX) * 2, gy = (t.y - minY) * 2;
+    cell[gy][gx] = { kind: 'room', tile: t };
+  }
+
+  // Draw a connector between a tile and each linked neighbour that's on the map.
+  for (const t of tiles) {
+    const gx = (t.x - minX) * 2, gy = (t.y - minY) * 2;
+    for (const targetId of Object.values(t.exits || {})) {
+      const n = byId.get(targetId);
+      if (!n) continue;
+      const dx = n.x - t.x, dy = n.y - t.y;
+      if (Math.abs(dx) > 1 || Math.abs(dy) > 1) continue;
+      const cy = gy + dy, cx = gx + dx;
+      if (cy < 0 || cy >= gRows || cx < 0 || cx >= gCols) continue;
+      if (cell[cy][cx]?.kind === 'room') continue;
+      let ch = '·';
+      if (dx !== 0 && dy === 0) ch = '─';
+      else if (dx === 0 && dy !== 0) ch = '│';
+      else if (dx !== 0 && dy !== 0) ch = (dx === dy) ? '╲' : '╱';
+      cell[cy][cx] = { kind: 'link', ch };
+    }
+  }
+
+  // Alternating room/gap columns: room cells on even indices, line gaps on odd.
+  grid.style.gridTemplateColumns = Array.from({ length: gCols }, (_, c) =>
+    c % 2 === 0 ? 'var(--map-room)' : 'var(--map-gap)').join(' ');
+
+  let html = '';
+  for (let r = 0; r < gRows; r++) {
+    for (let c = 0; c < gCols; c++) {
+      const it = cell[r][c];
+      if (!it) { html += `<span class="map-c"></span>`; continue; }
+      if (it.kind === 'link') {
+        html += `<span class="map-c map-link">${it.ch}</span>`;
+        continue;
+      }
+      const t = it.tile;
+      const styles = [];
+      if (t.bg_color) styles.push(`background:${t.bg_color}`);
+      if (t.color) styles.push(`color:${t.color}`);
+      const cls = `map-c map-room danger-${t.danger || 'safe'}` +
+        (t.isCurrent ? ' map-current' : '') +
+        (t.bg_color || t.color ? ' map-styled' : '');
+      const style = styles.length ? ` style="${styles.join(';')}"` : '';
+      html += `<span class="${cls}"${style} title="${t.name}">${symFor(t)}</span>`;
+    }
+  }
+  grid.innerHTML = html;
+
+  // Side legend: marker swatch → full zone name, mirroring HellMOO.
+  let leg = `<div class="map-leg-row"><span class="map-leg-sym map-current">()</span> You are here</div>`;
+  for (const t of tiles) {
+    if (t.isCurrent) continue;
+    const styles = [];
+    if (t.bg_color) styles.push(`background:${t.bg_color}`);
+    if (t.color) styles.push(`color:${t.color}`);
+    const cls = `map-leg-sym danger-${t.danger || 'safe'}` + (t.bg_color || t.color ? ' map-styled' : '');
+    const style = styles.length ? ` style="${styles.join(';')}"` : '';
+    leg += `<div class="map-leg-row"><span class="${cls}"${style}>${symFor(t)}</span> ${t.name}</div>`;
+  }
+  legend.innerHTML = leg;
+
   document.getElementById('map-panel').classList.add('active');
 }
 

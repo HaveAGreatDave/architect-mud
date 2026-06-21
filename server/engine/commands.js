@@ -1,5 +1,5 @@
 import { query } from '../models/db.js';
-import { getZone, getZoneEnemies, getZoneNpcs, getZoneCorpses, getZonePlayers, getAllLivePlayers, addPlayerToZone, removePlayerFromZone, getMinimapData } from './world.js';
+import { getZone, getZoneEnemies, getZoneNpcs, getZoneCorpses, getZonePlayers, getAllLivePlayers, addPlayerToZone, removePlayerFromZone, getMinimapData, getAllZones } from './world.js';
 import { playerAttackEnemy, isOnCooldown, getCooldownRemaining } from './combat.js';
 import { awardSkillXp, getPlayerSkills, SKILLS, skillCheck } from './skills.js';
 import { getAvailableRecipes, attemptCraft } from './crafting.js';
@@ -779,35 +779,41 @@ async function cmdSwitch(targetStr, player) {
     : `You flip the switch. ${light.name} goes dark.` };
 }
 
-// Fixed grid layout for the outdoor map — the city is a small, stable
-// 10-tile grid (see seed.js), so a hand-placed layout is simpler and
-// cleaner than a generic auto-layout algorithm. Shared in spirit with the
-// dev panel's big map (devpanel.html keeps its own copy client-side).
-const OUTDOOR_MAP_LAYOUT = [
-  { id: 'zone_city_north', x: 0, y: -1 },
-  { id: 'zone_city_ne', x: 1, y: -1 },
-  { id: 'zone_badland_w_gate', x: -2, y: 0 },
-  { id: 'zone_city_west', x: -1, y: 0 },
-  { id: 'zone_start', x: 0, y: 0 },
-  { id: 'zone_city_east', x: 1, y: 0 },
-  { id: 'zone_badland_sw_outer', x: -2, y: 1 },
-  { id: 'zone_city_sw', x: -1, y: 1 },
-  { id: 'zone_city_south', x: 0, y: 1 },
-  { id: 'zone_city_se', x: 1, y: 1 },
-];
-
+// Build the outdoor map from real grid coordinates — same source the dev
+// panel renders from. We take every zone sharing the current zone's map and
+// floor, and the client lays them out by grid_x/grid_y with connector lines.
 async function cmdMap(player) {
-  const ids = OUTDOOR_MAP_LAYOUT.map(t => t.id);
-  const { rows } = await query(`SELECT id, name, danger_rating FROM zones WHERE id = ANY($1::text[])`, [ids]);
-  const byId = new Map(rows.map(z => [z.id, z]));
-  const tiles = OUTDOOR_MAP_LAYOUT.map(t => ({
-    id: t.id,
-    x: t.x,
-    y: t.y,
-    name: byId.get(t.id)?.name || t.id,
-    danger: byId.get(t.id)?.danger_rating || 'safe',
-    isCurrent: t.id === player.current_zone,
-  }));
+  const current = getZone(player.current_zone);
+  if (!current || !current.map_id || current.grid_x == null || current.grid_y == null) {
+    return { type:'map', tiles: [] };
+  }
+
+  const onMap = getAllZones().filter(z =>
+    z.map_id === current.map_id &&
+    z.grid_z === current.grid_z &&
+    z.grid_x != null && z.grid_y != null);
+  const placed = new Set(onMap.map(z => z.id));
+
+  const tiles = onMap.map(z => {
+    // Only keep exits that point at another placed tile, so the client can
+    // draw connector lines between adjacent rooms.
+    const links = {};
+    for (const [dir, target] of Object.entries(z.exits || {})) {
+      if (placed.has(target)) links[dir] = target;
+    }
+    return {
+      id: z.id,
+      x: z.grid_x,
+      y: z.grid_y,
+      name: z.name,
+      danger: z.danger_rating || 'safe',
+      marker: z.marker || null,
+      color: z.color || null,
+      bg_color: z.bg_color || null,
+      exits: links,
+      isCurrent: z.id === player.current_zone,
+    };
+  });
   return { type:'map', tiles };
 }
 
