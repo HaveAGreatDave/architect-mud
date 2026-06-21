@@ -290,15 +290,24 @@ async function apiGetMap(id) {
      ORDER BY name`,
     [id]
   );
-  // Interior/apartment zones with no map yet — shown in the exterior tray so
-  // builders can drag them onto an exterior tile to link them.
-  const { rows: unplacedInterior } = await query(
-    `SELECT id, name, danger_rating, exits, flags FROM zones
-     WHERE map_id IS NULL
-       AND (COALESCE((flags->>'is_interior')::boolean, false) = true
-         OR COALESCE((flags->>'is_apartment')::boolean, false) = true)
-     ORDER BY name`,
-  );
+  // Interior/apartment zones with no map assignment, PLUS any building zones
+  // that have no exterior connection (no interior map with a parent_zone_id
+  // pointing to an exterior zone). Both sets need to be linked before they're
+  // reachable by players.
+  const { rows: unplacedInterior } = await query(`
+    SELECT id, name, danger_rating, exits, flags FROM zones
+    WHERE map_id IS NULL
+      AND (COALESCE((flags->>'is_interior')::boolean, false) = true
+        OR COALESCE((flags->>'is_apartment')::boolean, false) = true)
+    UNION
+    SELECT z.id, z.name, z.danger_rating, z.exits, z.flags FROM zones z
+    WHERE COALESCE((z.flags->>'is_building')::boolean, false) = true
+      AND NOT EXISTS (
+        SELECT 1 FROM maps m
+        WHERE m.entry_zone_id = z.id AND m.parent_zone_id IS NOT NULL
+      )
+    ORDER BY name
+  `);
   return { status:200, body:{ map: mapRows[0], zones, children, unplaced, unplacedInterior } };
 }
 

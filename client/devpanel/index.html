@@ -3655,10 +3655,11 @@ async function runZoneValidation(zoneId) {
 }
 
 const ISSUE_LABELS = {
-  null_dest:      'Null destination',
-  self_loop:      'Self-loop',
-  missing_dest:   'Missing destination',
-  duplicate_dest: 'Duplicate destination',
+  null_dest:            'Null destination',
+  self_loop:            'Self-loop',
+  missing_dest:         'Missing destination',
+  duplicate_dest:       'Duplicate destination',
+  building_no_entrance: 'Building: no world-map entrance',
 };
 
 function renderValidatorResults(r) {
@@ -3699,8 +3700,8 @@ function renderValidatorResults(r) {
         : `<span style="color:var(--warning)">Manual review</span>`;
       html += `<tr>
         <td><code>${issue.zoneId}</code></td>
-        <td>${issue.dir}</td>
-        <td><code>${issue.destId ?? '—'}</code></td>
+        <td>${issue.dir ?? '—'}</td>
+        <td>${issue.destId ? `<code>${issue.destId}</code>` : '—'}</td>
         <td>${ISSUE_LABELS[issue.type] || issue.type}</td>
         <td>${status}</td>
       </tr>`;

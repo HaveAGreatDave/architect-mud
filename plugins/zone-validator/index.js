@@ -83,6 +83,23 @@ async function runFull(opts = {}) {
     if (!autoRepair && result.issues.length > 0) needsManualReview.push(zone.id);
   }
 
+  // Check buildings for missing exterior-map connection. A building zone must
+  // be the entry_zone_id of an interior map that has a parent_zone_id — if not,
+  // players have no way to reach it from the world map.
+  const { rows: orphanBuildings } = await query(`
+    SELECT z.id, z.name FROM zones z
+    WHERE COALESCE((z.flags->>'is_building')::boolean, false) = true
+      AND NOT EXISTS (
+        SELECT 1 FROM maps m
+        WHERE m.entry_zone_id = z.id AND m.parent_zone_id IS NOT NULL
+      )
+  `).catch(() => ({ rows: [] }));
+
+  for (const b of orphanBuildings) {
+    allIssues.push({ type: 'building_no_entrance', zoneId: b.id, dir: null, destId: null, repaired: false });
+    needsManualReview.push(b.id);
+  }
+
   return {
     zonesScanned: zones.length,
     exitsScanned: totalExits,
