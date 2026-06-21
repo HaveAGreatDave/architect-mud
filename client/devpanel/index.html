@@ -3901,6 +3901,7 @@ const ISSUE_LABELS = {
   duplicate_dest:       'Duplicate destination',
   building_no_entrance:      'Building: no world-map entrance',
   building_entrance_broken:  'Building: exterior zone has no exit to this building',
+  orphaned_entity:           'Orphaned entity (zone deleted)',
 };
 
 function renderValidatorResults(r) {
@@ -3939,13 +3940,23 @@ function renderValidatorResults(r) {
       const status = issue.repaired
         ? `<span style="color:var(--success)">Auto-repaired</span>`
         : `<span style="color:var(--warning)">Manual review</span>`;
-      html += `<tr>
-        <td><code>${issue.zoneId}</code></td>
-        <td>${issue.dir ?? '—'}</td>
-        <td>${issue.destId ? `<code>${issue.destId}</code>` : '—'}</td>
-        <td>${ISSUE_LABELS[issue.type] || issue.type}</td>
-        <td>${status}</td>
-      </tr>`;
+      if (issue.type === 'orphaned_entity') {
+        html += `<tr>
+          <td><code>${issue.refId}</code></td>
+          <td>${issue.entityTable}</td>
+          <td>—</td>
+          <td>${ISSUE_LABELS[issue.type]}</td>
+          <td>${status}</td>
+        </tr>`;
+      } else {
+        html += `<tr>
+          <td><code>${issue.zoneId}</code></td>
+          <td>${issue.dir ?? '—'}</td>
+          <td>${issue.destId ? `<code>${issue.destId}</code>` : '—'}</td>
+          <td>${ISSUE_LABELS[issue.type] || issue.type}</td>
+          <td>${status}</td>
+        </tr>`;
+      }
     }
     html += `</tbody></table>`;
   }

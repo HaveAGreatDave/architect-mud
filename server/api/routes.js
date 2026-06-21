@@ -479,11 +479,17 @@ export async function apiDeleteZone(id) {
       [id]
     );
     const allDeletedIds = [id, ...children.map(c => c.id)];
-    // Any NPC or furniture in the building itself or any of its cascaded
-    // rooms would otherwise be orphaned (zone_id pointing at nothing).
+    // Cascade-delete everything tied to these zone IDs so nothing is left orphaned.
     for (const zid of allDeletedIds) {
-      await query('DELETE FROM npcs WHERE zone_id=$1', [zid]);
-      await query('DELETE FROM furniture WHERE zone_id=$1', [zid]);
+      await query('DELETE FROM npcs             WHERE zone_id=$1', [zid]);
+      await query('DELETE FROM furniture        WHERE zone_id=$1', [zid]);
+      await query('DELETE FROM zone_spawns      WHERE zone_id=$1', [zid]);
+      await query('DELETE FROM lighting_states  WHERE zone_id=$1', [zid]);
+      await query('DELETE FROM generators       WHERE zone_id=$1', [zid]);
+      await query('DELETE FROM power_zones      WHERE id=$1',      [zid]);
+      await query('DELETE FROM player_corpses   WHERE zone_id=$1', [zid]);
+      await query('DELETE FROM world_events     WHERE zone_id=$1', [zid]);
+      await query('DELETE FROM windows          WHERE zone_interior=$1 OR zone_exterior=$1', [zid]);
     }
     for (const child of children) {
       await query('DELETE FROM apartments WHERE zone_id=$1', [child.id]);

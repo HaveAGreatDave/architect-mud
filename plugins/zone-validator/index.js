@@ -124,6 +124,28 @@ async function runFull(opts = {}) {
     }
   }
 
+  // Check for orphaned records in entity tables that reference non-existent zones.
+  const orphanChecks = [
+    { table: 'furniture',       col: 'zone_id',       label: 'furniture' },
+    { table: 'npcs',            col: 'zone_id',       label: 'npc' },
+    { table: 'zone_spawns',     col: 'zone_id',       label: 'zone_spawn' },
+    { table: 'generators',      col: 'zone_id',       label: 'generator' },
+    { table: 'power_zones',     col: 'id',            label: 'power_zone' },
+    { table: 'lighting_states', col: 'zone_id',       label: 'lighting_state' },
+    { table: 'windows',         col: 'zone_interior', label: 'window' },
+    { table: 'items',           col: 'zone_id',       label: 'item' },
+  ];
+  for (const { table, col, label } of orphanChecks) {
+    const { rows: orphans } = await query(
+      `SELECT ${col} AS ref_id FROM ${table}
+       WHERE ${col} IS NOT NULL AND ${col} NOT IN (SELECT id FROM zones)`
+    ).catch(() => ({ rows: [] }));
+    for (const row of orphans) {
+      allIssues.push({ type: 'orphaned_entity', entityTable: table, entityLabel: label, refId: row.ref_id, repaired: false });
+      if (!needsManualReview.includes(row.ref_id)) needsManualReview.push(row.ref_id);
+    }
+  }
+
   return {
     zonesScanned: zones.length,
     exitsScanned: totalExits,
