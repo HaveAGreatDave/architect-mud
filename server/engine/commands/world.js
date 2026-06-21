@@ -44,8 +44,16 @@ async function cmdExamine(targetStr, player) {
     if (!zone) return { type:'error', message:'You are nowhere. This is a bug.' };
     return { type:'look', message: await describeZone(zone, player), minimap: getMinimapData(player.current_zone) };
   }
-  const { rows } = await query(`SELECT i.* FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND i.name ILIKE $2 LIMIT 1`, [player.id, `%${targetStr}%`]);
-  if (rows.length) return { type:'examine', message:`${rows[0].name}\n${rows[0].description}` };
+  const { rows } = await query(`SELECT pi.id AS inv_id, i.* FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND i.name ILIKE $2 LIMIT 1`, [player.id, `%${targetStr}%`]);
+  if (rows.length) {
+    const it = rows[0];
+    let msg = `${it.name}\n${it.description}`;
+    if (it.tags && Object.prototype.hasOwnProperty.call(it.tags, 'container')) {
+      const { describeContainer } = await import('./inventory.js');
+      msg += `\n\n${await describeContainer({ id: it.inv_id, name: it.name, tags: it.tags })}`;
+    }
+    return { type:'examine', message: msg };
+  }
   const { rows: furnitureRows } = await query(`SELECT * FROM furniture WHERE zone_id=$1 AND name ILIKE $2 LIMIT 1`, [player.current_zone, `%${targetStr}%`]);
   if (furnitureRows.length) {
     const f = furnitureRows[0];
@@ -143,6 +151,7 @@ function cmdHelp(player) {
 <span class="help-category">MOVEMENT</span>    north south east west up down (n/s/e/w/u/d)  |  go &lt;dir&gt;
 <span class="help-category">COMBAT</span>      attack &lt;target&gt;  |  loot &lt;corpse&gt;
 <span class="help-category">ITEMS</span>       inventory  take &lt;item&gt;  drop  use  equip
+<span class="help-category">CONTAINERS</span>  look in &lt;container&gt;  |  stow &lt;item&gt; in &lt;container&gt;  |  pull &lt;item&gt; from &lt;container&gt;
 <span class="help-category">CRAFTING</span>    recipes  |  craft &lt;recipe_id&gt;
 <span class="help-category">TRADING</span>     shop &lt;npc&gt;  |  buy &lt;item&gt;  |  sell &lt;item&gt;
 <span class="help-category">ECONOMY</span>     balance  |  deposit &lt;amt/all&gt;  |  withdraw &lt;amt/all&gt;  (ATM required)  |  steal &lt;player&gt;

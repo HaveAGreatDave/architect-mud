@@ -16,25 +16,53 @@ export async function recomputeArmor(player) {
 }
 
 async function cmdInventory(player) {
-  const { rows } = await query(`SELECT pi.*,i.name,i.rarity,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 ORDER BY i.name`, [player.id]);
+  const { rows } = await query(`SELECT pi.*,i.name,i.rarity,i.tags,i.weight FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL ORDER BY i.name`, [player.id]);
   if (!rows.length) return { type:'inventory', message:'Your inventory is empty.', items:[] };
   let msg = '<span class="inv-header">INVENTORY</span>\n';
   for (const item of rows) {
     const eq = item.is_equipped ? ' <span class="equipped">[equipped]</span>' : '';
     const quality = item.custom_data?.quality ? ` [${item.custom_data.quality}]` : '';
     const instFlags = INSTANCE_FLAGS.filter(n => hasFlag(item, n)).map(n => ` [${n}]`).join('');
-    msg += `  ${item.name}${item.quantity>1?` x${item.quantity}`:''}${quality}${instFlags}${eq} — <span class="item-rarity-${item.rarity}">${item.rarity}</span>\n`;
+    let container = '';
+    if (hasTag(item, 'container')) {
+      const used = await containerContentsWeight(item.id);
+      container = ` <span class="equipped">[${round1(used)}/${tagValue(item, 'container', 0)}]</span>`;
+    }
+    msg += `  ${item.name}${item.quantity>1?` x${item.quantity}`:''}${quality}${instFlags}${container}${eq} — <span class="item-rarity-${item.rarity}">${item.rarity}</span>\n`;
   }
+  const weight = await computeCarriedWeight(player);
+  msg += `\nWeight: ${round1(weight)}`;
   msg += `\nCredits: ${player.credits||0}`;
   return { type:'inventory', message:msg, items:rows };
 }
 
+function round1(n) { return Math.round(n * 10) / 10; }
+
+// Sum of weight*quantity for everything inside a given container row.
+async function containerContentsWeight(containerRowId) {
+  const { rows } = await query(`SELECT COALESCE(SUM(i.weight*pi.quantity),0) AS w FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.container_id=$1`, [containerRowId]);
+  return Number(rows[0].w) || 0;
+}
+
+// Total carried weight: top-level items at full weight, contained items at 75%.
+export async function computeCarriedWeight(player) {
+  const { rows } = await query(
+    `SELECT
+       COALESCE(SUM(i.weight*pi.quantity) FILTER (WHERE pi.container_id IS NULL),0) AS top,
+       COALESCE(SUM(i.weight*pi.quantity) FILTER (WHERE pi.container_id IS NOT NULL),0) AS contained
+     FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1`,
+    [player.id]
+  );
+  return (Number(rows[0].top) || 0) + (Number(rows[0].contained) || 0) * 0.75;
+}
+
 async function cmdTake(targetStr, player, broadcast) {
   if (!targetStr) return { type:'error', message:'Take what?' };
+  if (targetStr.toLowerCase().includes(' from ')) return cmdPull(targetStr, player);
 
   if (targetStr.toLowerCase() === 'all') {
     const { rows: allGround } = await query(
-      `SELECT pi.*,i.name,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1`,
+      `SELECT pi.*,i.name,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL`,
       [`_ground_${player.current_zone}`]
     );
     if (!allGround.length) return { type:'error', message:'Nothing here to take.' };
@@ -62,7 +90,7 @@ async function cmdTake(targetStr, player, broadcast) {
     return { type:'take', message:messages.join('\n') };
   }
 
-  const { rows } = await query(`SELECT pi.*,i.name,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND i.name ILIKE $2 LIMIT 1`, [`_ground_${player.current_zone}`, `%${targetStr}%`]);
+  const { rows } = await query(`SELECT pi.*,i.name,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND i.name ILIKE $2 LIMIT 1`, [`_ground_${player.current_zone}`, `%${targetStr}%`]);
   if (!rows.length) return { type:'error', message:`Can't find "${targetStr}" here.` };
   const ground = rows[0];
 
@@ -198,6 +226,106 @@ async function cmdUnequipById(inventoryId, player) {
   return { type:'equip', message:`You unequip ${rows[0].name}.` };
 }
 
+// Find a container the player can reach: their inventory first, then the ground.
+async function resolveContainer(nameStr, player) {
+  if (nameStr) {
+    const { rows } = await query(
+      `SELECT pi.*,i.name,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id
+       WHERE pi.player_id IN ($1,$2) AND pi.container_id IS NULL
+       AND jsonb_exists(i.tags,'container') AND i.name ILIKE $3
+       ORDER BY (pi.player_id=$1) DESC LIMIT 1`,
+      [player.id, `_ground_${player.current_zone}`, `%${nameStr}%`]
+    );
+    return rows[0] || null;
+  }
+  // No name given — default only if exactly one container is reachable.
+  const { rows } = await query(
+    `SELECT pi.*,i.name,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id
+     WHERE pi.player_id IN ($1,$2) AND pi.container_id IS NULL AND jsonb_exists(i.tags,'container')`,
+    [player.id, `_ground_${player.current_zone}`]
+  );
+  return rows.length === 1 ? rows[0] : (rows.length === 0 ? null : 'ambiguous');
+}
+
+async function cmdLookInContainer(nameStr, player) {
+  const container = await resolveContainer(nameStr, player);
+  if (container === 'ambiguous') return { type:'error', message:`Which container? Try "look in <name>".` };
+  if (!container) return { type:'error', message:`You don't see a container${nameStr?` matching "${nameStr}"`:''} here.` };
+  return { type:'examine', message: await describeContainer(container) };
+}
+
+async function describeContainer(container) {
+  const cap = tagValue(container, 'container', 0);
+  const { rows } = await query(`SELECT pi.quantity,i.name FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.container_id=$1 ORDER BY i.name`, [container.id]);
+  const used = await containerContentsWeight(container.id);
+  let msg = `${container.name} (Capacity: ${round1(used)}/${cap})`;
+  if (!rows.length) { msg += `\n  It's empty.`; return msg; }
+  for (const r of rows) msg += `\n  ${r.name}${r.quantity>1?` x${r.quantity}`:''}`;
+  return msg;
+}
+
+async function cmdStow(argStr, player) {
+  if (!argStr) return { type:'error', message:'Stow what?' };
+  const [itemPart, containerPart] = splitOn(argStr, ' in ');
+  if (!itemPart) return { type:'error', message:'Stow what?' };
+  const container = await resolveContainer(containerPart, player);
+  if (container === 'ambiguous') return { type:'error', message:`Which container? Try "stow <item> in <name>".` };
+  if (!container) return { type:'error', message:`You don't see a container${containerPart?` matching "${containerPart}"`:''} here.` };
+
+  const { rows } = await query(`SELECT pi.*,i.name,i.tags,i.weight FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND i.name ILIKE $2 AND NOT jsonb_exists(i.tags,'quest_item') LIMIT 1`, [player.id, `%${itemPart}%`]);
+  if (!rows.length) return { type:'error', message:`You don't have "${itemPart}" to stow.` };
+  const item = rows[0];
+  if (item.id === container.id) return { type:'error', message:`You can't put ${container.name} inside itself.` };
+  if (hasTag(item, 'container')) return { type:'error', message:`You can't stow a container inside another container.` };
+
+  const cap = tagValue(container, 'container', 0);
+  const used = await containerContentsWeight(container.id);
+  const adding = (item.weight || 0) * item.quantity;
+  if (used + adding > cap) return { type:'error', message:`${container.name} can't hold that — ${round1(used)}/${cap} used, ${item.name} weighs ${round1(adding)}.` };
+
+  if (hasTag(item, 'stackable')) {
+    const { rows: existing } = await query('SELECT id FROM player_inventory WHERE container_id=$1 AND item_id=$2 LIMIT 1', [container.id, item.item_id]);
+    if (existing.length) {
+      await query('UPDATE player_inventory SET quantity=quantity+$1 WHERE id=$2', [item.quantity, existing[0].id]);
+      await query('DELETE FROM player_inventory WHERE id=$1', [item.id]);
+      return { type:'stow', message:`You stow ${item.name} in ${container.name}.` };
+    }
+  }
+  await query('UPDATE player_inventory SET container_id=$1, is_equipped=0, slot=NULL WHERE id=$2', [container.id, item.id]);
+  return { type:'stow', message:`You stow ${item.name} in ${container.name}.` };
+}
+
+async function cmdPull(argStr, player) {
+  if (!argStr) return { type:'error', message:'Pull what?' };
+  const [itemPart, containerPart] = splitOn(argStr, ' from ');
+  if (!itemPart) return { type:'error', message:'Pull what?' };
+  const container = await resolveContainer(containerPart, player);
+  if (container === 'ambiguous') return { type:'error', message:`Which container? Try "pull <item> from <name>".` };
+  if (!container) return { type:'error', message:`You don't see a container${containerPart?` matching "${containerPart}"`:''} here.` };
+
+  const { rows } = await query(`SELECT pi.*,i.name,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.container_id=$1 AND i.name ILIKE $2 LIMIT 1`, [container.id, `%${itemPart}%`]);
+  if (!rows.length) return { type:'error', message:`There's no "${itemPart}" in ${container.name}.` };
+  const item = rows[0];
+
+  if (hasTag(item, 'stackable')) {
+    const { rows: existing } = await query('SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND container_id IS NULL AND is_equipped=0 LIMIT 1', [player.id, item.item_id]);
+    if (existing.length) {
+      await query('UPDATE player_inventory SET quantity=quantity+$1 WHERE id=$2', [item.quantity, existing[0].id]);
+      await query('DELETE FROM player_inventory WHERE id=$1', [item.id]);
+      return { type:'pull', message:`You pull ${item.name} from ${container.name}.` };
+    }
+  }
+  await query('UPDATE player_inventory SET container_id=NULL, player_id=$1 WHERE id=$2', [player.id, item.id]);
+  return { type:'pull', message:`You pull ${item.name} from ${container.name}.` };
+}
+
+// Split a string on the first occurrence of sep; returns [before, after].
+function splitOn(str, sep) {
+  const idx = str.toLowerCase().indexOf(sep);
+  if (idx === -1) return [str.trim(), ''];
+  return [str.slice(0, idx).trim(), str.slice(idx + sep.length).trim()];
+}
+
 export const handlers = {
   inventory: (args, raw, player) => cmdInventory(player),
   inv: (args, raw, player) => cmdInventory(player),
@@ -214,4 +342,9 @@ export const handlers = {
   remove:   (args, raw, player) => cmdUnequip(args.join(' '), player),
   equipid:   (args, raw, player) => cmdEquipById(args[0], player),
   unequipid: (args, raw, player) => cmdUnequipById(args[0], player),
+  stow:  (args, raw, player) => cmdStow(args.join(' '), player),
+  put:   (args, raw, player) => cmdStow(args.join(' '), player),
+  pull:  (args, raw, player) => cmdPull(args.join(' '), player),
 };
+
+export { cmdLookInContainer, describeContainer };

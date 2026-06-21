@@ -89,6 +89,7 @@ engine reads behavior through `server/engine/tags.js` (`hasTag`, `tagValue`,
 | `heal_over_time` | hot | Gradual heal `{ amount, duration_seconds }`, ticks once/min, stacks. |
 | `well_fed` | flag | Grants the Well-Fed buff (faster HP regen), 10 min. |
 | `hydrating` | flag | Grants the Hydrated buff (faster radiation decay), 10 min. |
+| `container` | int | Marks the item as a container; value is the max total weight it can hold. See **Containers** below. |
 
 ### Name-collision note
 
@@ -144,6 +145,31 @@ and left untouched.
 4. Save & Publish in the dev panel — equip it, check `stats` shows the higher Armor number.
 
 ---
+
+## Containers
+
+An item with a `container` tag holds other items up to a max total weight (the
+tag's integer value). Presence of the tag is what makes it a container — the
+value is the capacity, mirroring how `slot` works for equippables.
+
+**Storage.** Contents are tracked relationally on `player_inventory` via a
+`container_id` column: a row with `container_id` set lives *inside* the
+container whose row id it references. Such rows are excluded from every
+"what's here" listing (inventory, ground, `take all`) by an
+`AND container_id IS NULL` guard. A contained item keeps its `player_id`; its
+location is determined by the container, so picking up or dropping a container
+only changes the container row's `player_id` and the contents travel with it.
+
+**Weight.** Carried weight is computed in `computeCarriedWeight()`
+(`server/engine/commands/inventory.js`): top-level items at full weight,
+contained items at 75%. There is no carry cap — it's surfaced in the
+`inventory` listing for information.
+
+**Commands.** `look in <container>` / `examine <container>` list contents and
+fill; `stow <item> [in <container>]` (alias `put`) moves an inventory item in
+(rejecting nesting and over-capacity); `pull <item> [from <container>]` (also
+`take <item> from <container>`) moves it back out. All resolve a container in
+the player's inventory or on the ground.
 
 ## Drugs
 

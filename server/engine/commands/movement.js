@@ -34,6 +34,11 @@ async function cmdLook(player, targetStr) {
     if (!zone) return { type:'error', message:'You are nowhere. This is a bug.' };
     return { type:'look', message: await describeZone(zone, player), minimap: getMinimapData(zone.id) };
   }
+  const inMatch = targetStr.match(/^in\s+(.+)$/i);
+  if (inMatch) {
+    const { cmdLookInContainer } = await import('./inventory.js');
+    return cmdLookInContainer(inMatch[1], player);
+  }
   if (targetStr === 'me' || targetStr === 'self' || targetStr === 'myself') {
     let msg = `${player.handle}\n${player.origin_fragment || 'A survivor. Still standing, somehow.'}`;
     if (player.visibly_mutated) msg += `\n<span class="mutation-tag">Whatever's changed about you, it shows.</span>`;
