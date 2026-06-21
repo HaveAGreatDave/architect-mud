@@ -1,4 +1,5 @@
-import { world, tickSpawns, getRandomAmbient, getLivePlayer } from './world.js';
+import { world, tickSpawns, getRandomAmbient, getLivePlayer, getInterruptLoudness, registerInterrupt } from './world.js';
+import { propagateSound } from './sounds.js';
 import { enemyAttackPlayer, isOnCooldown } from './combat.js';
 import { tickEffects } from './effects.js';
 import { resolveAttack } from './commands.js';
@@ -149,10 +150,24 @@ export function handlePlayerDeath(player, killer) {
 async function ambientTick() {
   for (const [zoneId, zone] of world.zones) {
     if (zone.players.size === 0 || Math.random() > 0.4) continue;
-    // Try plugin hook first, fall back to zone ambients
+
+    // Plugin hook first
     const pluginAmbient = await fireHook('zone.describeAmbient', zone);
-    const ambient = pluginAmbient || getRandomAmbient(zoneId);
-    if (ambient) broadcastFn(zoneId, { type:'ambient', message:`<span class="ambient">${ambient}</span>` });
+    if (pluginAmbient) {
+      broadcastFn(zoneId, { type:'ambient', message:`<span class="msg-ambient">${pluginAmbient}</span>` });
+      continue;
+    }
+
+    const ambient = getRandomAmbient(zoneId);
+    if (!ambient) continue;
+
+    // Suppress this ambient if a louder sound recently fired in this zone.
+    const interrupt = getInterruptLoudness(zoneId);
+    if (interrupt > ambient.loudness * 1.5) continue;
+
+    // Propagate with sound reach — quiet ambients stay local, louder ones spread.
+    registerInterrupt(zoneId, ambient.loudness, 6000);
+    propagateSound(zoneId, ambient.message, ambient.loudness, broadcastFn);
   }
 }
 

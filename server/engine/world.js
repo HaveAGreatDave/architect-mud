@@ -17,6 +17,10 @@ let globalAmbientPool = {}; // theme -> string[]
 const zoneRecentAmbients = new Map(); // zoneId -> string[]
 const RECENT_AMBIENT_WINDOW = 5;
 
+// Per-zone: loudness of last loud sound, expires after a few seconds.
+// Quieter ambients are suppressed while a loud sound is "in the air".
+const zoneInterruptLoudness = new Map(); // zoneId -> { loudness, expiresAt }
+
 export async function initWorld() {
   await loadZones();
   await loadNpcs();
@@ -27,11 +31,11 @@ export async function initWorld() {
 }
 
 async function loadGlobalAmbients() {
-  const { rows } = await query('SELECT theme, message FROM global_ambient_events WHERE enabled=1').catch(() => ({ rows: [] }));
+  const { rows } = await query('SELECT * FROM global_ambient_events').catch(() => ({ rows: [] }));
   globalAmbientPool = {};
   for (const row of rows) {
     if (!globalAmbientPool[row.theme]) globalAmbientPool[row.theme] = [];
-    globalAmbientPool[row.theme].push(row.message);
+    globalAmbientPool[row.theme].push(row); // store full row (message, loudness, weight, enabled)
   }
 }
 
@@ -228,33 +232,58 @@ export function createCorpse(c) {
   world.zones.get(c.zoneId)?.corpses.add(c.id);
 }
 
+// Returns { message, loudness } or null.
 export function getRandomAmbient(zoneId) {
   const z = world.zones.get(zoneId);
   const recent = zoneRecentAmbients.get(zoneId) || [];
 
-  // Try a zone-specific event that hasn't been shown recently.
+  // Try zone-specific events first (no weight — they're hand-authored per zone).
   const zoneEvents = z?.ambient_events || [];
   const freshZone = zoneEvents.filter(e => !recent.includes(e));
   if (freshZone.length) {
     const pick = freshZone[Math.floor(Math.random() * freshZone.length)];
     _trackAmbient(zoneId, pick, recent);
-    return pick;
+    return { message: pick, loudness: 1.0 };
   }
 
-  // Fall back to the global pool for this zone's theme.
+  // Fall back to the global weighted pool for this zone's theme.
   const theme = z?.ambient_theme || 'indoors';
-  const pool = globalAmbientPool[theme] || [];
-  const freshGlobal = pool.filter(e => !recent.includes(e));
-  const source = freshGlobal.length ? freshGlobal : pool; // if all recent, pick any
-  if (!source.length) return null;
-  const pick = source[Math.floor(Math.random() * source.length)];
-  _trackAmbient(zoneId, pick, recent);
-  return pick;
+  const pool = (globalAmbientPool[theme] || []).filter(e => e.enabled);
+  if (!pool.length) return null;
+  const fresh = pool.filter(e => !recent.includes(e.message));
+  const source = fresh.length ? fresh : pool;
+
+  // Weighted random selection.
+  const totalWeight = source.reduce((s, e) => s + (e.weight || 100), 0);
+  let rand = Math.random() * totalWeight;
+  let pick = source[source.length - 1];
+  for (const e of source) {
+    rand -= (e.weight || 100);
+    if (rand <= 0) { pick = e; break; }
+  }
+  _trackAmbient(zoneId, pick.message, recent);
+  return { message: pick.message, loudness: pick.loudness ?? 1.0 };
 }
 
-function _trackAmbient(zoneId, pick, recent) {
-  const next = [...recent, pick].slice(-RECENT_AMBIENT_WINDOW);
+function _trackAmbient(zoneId, message, recent) {
+  const next = [...recent, message].slice(-RECENT_AMBIENT_WINDOW);
   zoneRecentAmbients.set(zoneId, next);
+}
+
+// Register a loud sound in a zone so quieter ambients are suppressed temporarily.
+export function registerInterrupt(zoneId, loudness, durationMs = 8000) {
+  const existing = zoneInterruptLoudness.get(zoneId);
+  if (!existing || loudness > existing.loudness) {
+    zoneInterruptLoudness.set(zoneId, { loudness, expiresAt: Date.now() + durationMs });
+  }
+}
+
+// Returns the current interrupt loudness for a zone, or 0 if none active.
+export function getInterruptLoudness(zoneId) {
+  const entry = zoneInterruptLoudness.get(zoneId);
+  if (!entry) return 0;
+  if (Date.now() > entry.expiresAt) { zoneInterruptLoudness.delete(zoneId); return 0; }
+  return entry.loudness;
 }
 
 export async function reloadZone(zoneId) {

@@ -122,6 +122,10 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path==='/ambient-events' && method==='POST') return requireDev(auth, ()=>apiCreateAmbientEvent(body));
   if (path.startsWith('/ambient-events/') && method==='PUT') return requireDev(auth, ()=>apiUpdateAmbientEvent(path.split('/')[2],body));
   if (path.startsWith('/ambient-events/') && method==='DELETE') return requireDev(auth, ()=>apiDeleteAmbientEvent(path.split('/')[2]));
+  if (path==='/sounds' && method==='GET') return requireDev(auth, ()=>apiGetSounds(url));
+  if (path==='/sounds' && method==='POST') return requireDev(auth, ()=>apiCreateSound(body));
+  if (path.startsWith('/sounds/') && method==='PUT') return requireDev(auth, ()=>apiUpdateSound(path.split('/')[2],body));
+  if (path.startsWith('/sounds/') && method==='DELETE') return requireDev(auth, ()=>apiDeleteSound(path.split('/')[2]));
   if (path==='/world/state' && method==='GET') return requireDev(auth, apiWorldState);
   if (path==='/world/reload' && method==='POST') return requireDev(auth, ()=>apiReloadZone(body));
   if (path==='/players/online' && method==='GET') return { status:200, body: getAllLivePlayers().map(p=>({ id: p.id, handle: p.handle, role: p.role, current_zone: p.current_zone })) };
@@ -811,26 +815,64 @@ async function apiGetAmbientEvents(fullUrl) {
 }
 async function apiCreateAmbientEvent(body) {
   const id = randomUUID();
-  const { theme='indoors', message, enabled=1 } = body||{};
+  const { theme='indoors', message, enabled=1, loudness=1.0, weight=100 } = body||{};
   if (!message?.trim()) return { status:400, body:{error:'message required'} };
-  await query('INSERT INTO global_ambient_events (id,theme,message,enabled) VALUES ($1,$2,$3,$4)',
-    [id, theme, message.trim(), enabled ? 1 : 0]);
+  await query('INSERT INTO global_ambient_events (id,theme,message,loudness,weight,enabled) VALUES ($1,$2,$3,$4,$5,$6)',
+    [id, theme, message.trim(), loudness, weight, enabled ? 1 : 0]);
   await reloadGlobalAmbients();
   return { status:201, body:{id} };
 }
 async function apiUpdateAmbientEvent(id, body) {
-  const { theme, message, enabled } = body||{};
+  const { theme, message, enabled, loudness, weight } = body||{};
   await query(`UPDATE global_ambient_events SET
     theme=COALESCE($1,theme),
     message=COALESCE($2,message),
-    enabled=COALESCE($3,enabled)
-    WHERE id=$4`,
-    [theme, message?.trim()||null, enabled!=null ? (enabled?1:0) : null, id]);
+    enabled=COALESCE($3,enabled),
+    loudness=COALESCE($4,loudness),
+    weight=COALESCE($5,weight)
+    WHERE id=$6`,
+    [theme, message?.trim()||null, enabled!=null?(enabled?1:0):null, loudness??null, weight??null, id]);
   await reloadGlobalAmbients();
   return { status:200, body:{updated:true} };
 }
 async function apiDeleteAmbientEvent(id) {
   await query('DELETE FROM global_ambient_events WHERE id=$1',[id]);
   await reloadGlobalAmbients();
+  return { status:200, body:{deleted:true} };
+}
+
+// --- Sounds ---
+async function apiGetSounds(fullUrl) {
+  const category = new URL('http://x' + fullUrl).searchParams.get('category');
+  const { rows } = category
+    ? await query('SELECT * FROM sounds WHERE category=$1 ORDER BY category,name', [category])
+    : await query('SELECT * FROM sounds ORDER BY category,name');
+  return { status:200, body:rows };
+}
+async function apiCreateSound(body) {
+  const id = randomUUID();
+  const { name, category='misc', descriptions=[], loudness=3.0, tags={}, enabled=1 } = body||{};
+  if (!name?.trim()) return { status:400, body:{error:'name required'} };
+  await query('INSERT INTO sounds (id,name,category,descriptions,loudness,tags,enabled) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+    [id, name.trim(), category, JSON.stringify(descriptions), loudness, JSON.stringify(tags), enabled?1:0]);
+  return { status:201, body:{id} };
+}
+async function apiUpdateSound(id, body) {
+  const { name, category, descriptions, loudness, tags, enabled } = body||{};
+  const sets = [], vals = [];
+  let i = 1;
+  if (name!=null)         { sets.push(`name=$${i++}`);         vals.push(name.trim()); }
+  if (category!=null)     { sets.push(`category=$${i++}`);     vals.push(category); }
+  if (descriptions!=null) { sets.push(`descriptions=$${i++}`); vals.push(JSON.stringify(descriptions)); }
+  if (loudness!=null)     { sets.push(`loudness=$${i++}`);     vals.push(loudness); }
+  if (tags!=null)         { sets.push(`tags=$${i++}`);         vals.push(JSON.stringify(tags)); }
+  if (enabled!=null)      { sets.push(`enabled=$${i++}`);      vals.push(enabled?1:0); }
+  if (!sets.length) return { status:400, body:{error:'nothing to update'} };
+  vals.push(id);
+  await query(`UPDATE sounds SET ${sets.join(',')} WHERE id=$${i}`, vals);
+  return { status:200, body:{updated:true} };
+}
+async function apiDeleteSound(id) {
+  await query('DELETE FROM sounds WHERE id=$1',[id]);
   return { status:200, body:{deleted:true} };
 }

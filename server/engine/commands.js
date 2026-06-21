@@ -9,6 +9,7 @@ import { cmdRent, cmdLockDoor, cmdUpgradeLock, cmdPickLock, cmdSleep, describeAp
 import { useDrug } from './drugs.js';
 import { getZonePowerStatus, recomputePower, getZoneVisibility, getWindowsForZone, setWindowState } from './environment.js';
 import { fireCommand, fireHook } from './plugins.js';
+import { propagateYell } from './sounds.js';
 import { randomUUID } from 'crypto';
 
 // Per-player cooldown so Custodian turrets don't fire on every single look/move
@@ -173,9 +174,9 @@ export async function describeZone(zone, player) {
   const isDim  = vis.category === 'dim';
 
   const { buildings, rooms, plain } = getConnectedDestinations(zone);
-  // In the dark: can't see enemies/NPCs/players/items/corpses clearly.
+  // In the dark: enemies/players/corpses/items hidden, but vague NPC presences detectable.
   const enemies  = isDark ? [] : getZoneEnemies(zone.id);
-  const npcs     = isDark ? [] : getZoneNpcs(zone.id);
+  const npcs     = getZoneNpcs(zone.id);
   const corpses  = isDark ? [] : getZoneCorpses(zone.id);
   const others   = isDark ? [] : getZonePlayers(zone.id).filter(p => p.id !== player.id);
 
@@ -286,10 +287,15 @@ export async function describeZone(zone, player) {
     desc += `\n<span class="players-label">Also here:</span> ${playerLinks.join(', ')}`;
   }
   if (npcs.length) {
-    const npcLinks = npcs.map(n =>
-      `<span class="action-link npc-link" data-action="talk" data-target="${n.name}" title="Talk to ${n.name}">${n.name}</span>`
-    );
-    desc += `\n<span class="npcs-label">NPCs here:</span> ${npcLinks.join(', ')}`;
+    if (isDark) {
+      const figures = npcs.map(n => _vaguePresence(n));
+      desc += `\n<span class="npcs-label">Nearby:</span> <span style="color:var(--text-dim);font-style:italic">${figures.join(', ')}</span>`;
+    } else {
+      const npcLinks = npcs.map(n =>
+        `<span class="action-link npc-link" data-action="talk" data-target="${n.name}" title="Talk to ${n.name}">${n.name}</span>`
+      );
+      desc += `\n<span class="npcs-label">NPCs here:</span> ${npcLinks.join(', ')}`;
+    }
   }
   if (enemies.length) {
     const enemyLinks = enemies.map(e =>
@@ -354,6 +360,7 @@ export async function handleCommand(input, player, broadcast) {
     case 'who': return cmdWho();
     case 'map': return cmdMap(player);
     case 'say': return cmdSay(raw.replace(/^say\s*/i,''), player, broadcast);
+    case 'yell': case 'shout': return cmdYell(raw.replace(/^(yell|shout)\s*/i,''), player, broadcast);
     case 'craft': return cmdCraft(args, player);
     case 'recipes': return cmdRecipes(player);
     case 'shop': case 'browse': return cmdShop(args.join(' '), player);
@@ -1193,4 +1200,20 @@ async function cmdCurtain(targetStr, player, open) {
   return { type:'action', message: open
     ? `You pull the curtains open. ${win.name} now lets in whatever light is outside.`
     : `You draw the curtains closed. ${win.name} is blocked.` };
+}
+
+// Vague description for an NPC in darkness — uses flags.gender if available.
+function _vaguePresence(npc) {
+  const g = npc.flags?.gender;
+  const GENERIC = ['a figure', 'someone', 'a shadowy presence', 'a shape in the darkness'];
+  const MALE    = ['a man', 'a figure', 'someone'];
+  const FEMALE  = ['a woman', 'a figure', 'someone'];
+  const pool = g === 'male' ? MALE : g === 'female' ? FEMALE : GENERIC;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+function cmdYell(text, player, broadcast) {
+  if (!text.trim()) return { type:'error', message:'Yell what?' };
+  propagateYell(player.current_zone, player.id, player.handle, text.trim(), broadcast);
+  return { type:'output', message:`<span style="color:var(--yellow);font-weight:bold">You yell: "${text.trim().toUpperCase()}"</span>` };
 }
