@@ -2211,23 +2211,27 @@ function renderMapOverview() {
   }
   html += `</div></div>`;
 
-  // Unplaced-zones tray — zones with no map assignment, plus placed zones with
-  // no exits (disconnected islands that a builder likely forgot to wire up).
+  // Unplaced-zones tray:
+  //  • tray       — map_id IS NULL (server-side unplaced query)
+  //  • noPosition — map_id = this map but grid_x/grid_y not set (assigned but never placed)
+  //  • disconnected — on the grid but exits = {} (wired nowhere)
   const tray = [...o.unplaced.values()];
+  const noPosition = [...o.zones.values()].filter(z => z.grid_x == null);
   const disconnected = [...o.zones.values()].filter(z =>
     Object.keys(z.exits || {}).length === 0 && z.grid_x != null
   );
   const trayChip = z => `<span class="bigmap-tile bm-edit bm-danger-${z.danger_rating || 'safe'}" style="width:auto;height:auto;padding:4px 8px;cursor:grab;flex-shrink:0" draggable="true" ondragstart="mapTrayDragStart(event,'${z.id}')" title="${z.id}">${z.name}</span>`;
+  const allUnplaced = [...tray, ...noPosition].sort((a, b) => a.name.localeCompare(b.name));
   html += `<div style="padding:0 12px 14px;border-top:1px solid var(--border);margin-top:8px">
     <div style="font-size:11px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;padding-top:10px">Unplaced Zones</div>
-    <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px">Zones with no map position. Drag onto an empty cell to place on <strong>${o.map.name}</strong>.</div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:${disconnected.length ? '14px' : '0'}">${tray.length
-      ? tray.map(trayChip).join('')
+    <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px">Zones with no grid position. Drag onto an empty cell to place on <strong>${o.map.name}</strong>.</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:${disconnected.length ? '14px' : '0'}">${allUnplaced.length
+      ? allUnplaced.map(trayChip).join('')
       : `<span style="color:var(--text-dim);font-style:italic;font-size:11px">None.</span>`
     }</div>
     ${disconnected.length ? `
     <div style="font-size:11px;font-weight:600;color:var(--yellow);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">No Connections</div>
-    <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px">These zones are on the map but have no exits — they may need wiring up.</div>
+    <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px">These zones are on the map grid but have no exits — they may need wiring up.</div>
     <div style="display:flex;gap:6px;flex-wrap:wrap">${disconnected.map(trayChip).join('')}</div>
     ` : ''}
   </div>`;
