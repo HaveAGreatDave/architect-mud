@@ -614,6 +614,7 @@ function renderZonesTable(records) {
   }
 
   const columns = PANELS.zones.columns;
+  const hasStagedRows = records.some(r => r._stagingStatus);
   let html = `<div style="padding:10px 12px"><button class="action-btn" onclick="openBigMap()">🗺 View Big Map</button></div>`;
   html += '<table><thead><tr>';
   for (const col of columns) {
@@ -621,10 +622,22 @@ function renderZonesTable(records) {
     const arrow = isSorted ? (sortState.dir === 1 ? ' ▲' : ' ▼') : '';
     html += `<th class="sortable-col${isSorted?' sorted':''}" onclick="sortTableBy('${col.key}')">${col.label}${arrow}</th>`;
   }
+  if (hasStagedRows) html += '<th>Status</th>';
   html += '<th></th></tr></thead><tbody>';
 
+  const stagingBadge = s => {
+    if (!s) return '';
+    if (s === 'pending delete') return `<span style="color:var(--danger);font-size:11px">⚠ Marked for Deletion</span>`;
+    if (s === 'new (staged)') return `<span style="color:var(--warning);font-size:11px">● Not Published</span>`;
+    return `<span style="color:var(--warning);font-size:11px">● ${s}</span>`;
+  };
+
   const renderRow = (rec, isChild, hasKids, collapsed) => {
-    let row = `<tr class="${isChild ? 'zone-child-row' : ''}" style="cursor:pointer" onclick="editRecord('${rec.id}')">`;
+    const isPendingDelete = rec._stagingStatus === 'pending delete';
+    const rowStyle = isPendingDelete
+      ? 'cursor:pointer;opacity:0.6;text-decoration:line-through'
+      : rec._stagingStatus ? 'cursor:pointer;border-left:3px solid var(--warning)' : 'cursor:pointer';
+    let row = `<tr class="${isChild ? 'zone-child-row' : ''}" style="${rowStyle}" onclick="editRecord('${rec.id}')">`;
     columns.forEach((col, i) => {
       const raw = rec[col.key];
       let val = col.render ? col.render(raw) : (raw ?? '—');
@@ -634,10 +647,11 @@ function renderZonesTable(records) {
       }
       row += `<td>${val}</td>`;
     });
+    if (hasStagedRows) row += `<td>${stagingBadge(rec._stagingStatus)}</td>`;
     row += `<td style="white-space:nowrap">
       <button class="action-btn" onclick="event.stopPropagation();editRecord('${rec.id}')">Edit</button>
       <button class="action-btn" style="margin-left:3px" onclick="event.stopPropagation();cloneZoneRow('${rec.id}')">Clone</button>
-      <button class="action-btn danger" style="margin-left:3px" onclick="event.stopPropagation();deleteZoneRow('${rec.id}')">Delete</button>
+      ${isPendingDelete ? '' : `<button class="action-btn danger" style="margin-left:3px" onclick="event.stopPropagation();deleteZoneRow('${rec.id}')">Delete</button>`}
     </td>`;
     row += '</tr>';
     return row;
@@ -726,7 +740,7 @@ async function saveRecord() {
     if (result?.error) { toast(result.error, true); return; }
     if (result?.staged) {
       toast('Staged for review ✓');
-      updateStagingBadge();
+      await updateStagingBadge();
     } else {
       toast('Saved & published ✓');
     }
@@ -803,7 +817,12 @@ async function deleteZoneRow(id) {
   const result = await API(`/zones/${id}`, 'DELETE');
   currentRecord = prev;
   if (result?.error) { toast(result.error, true); return; }
-  toast(result?.message || 'Deleted');
+  if (result?.staged) {
+    toast('Marked for deletion — publish to apply');
+    await updateStagingBadge();
+  } else {
+    toast(result?.message || 'Deleted');
+  }
   await loadPanel('zones');
 }
 
@@ -2824,6 +2843,12 @@ function openSettingsPanel() {
 }
 function closeSettingsPanel() {
   document.getElementById('settings-overlay').classList.remove('active');
+}
+
+function openModal(title, bodyHtml) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-body').innerHTML = bodyHtml;
+  document.getElementById('generic-modal').style.display = 'flex';
 }
 
 function closeModal() {
