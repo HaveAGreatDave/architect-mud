@@ -487,7 +487,7 @@ export function getEnvironmentState() {
 // ---------------------------------------------------------------------------
 
 export async function devSetTime({ date, minutes }) {
-  const { query } = deps;
+  const { query, broadcast } = deps;
   if (date) state.date = date;
   if (minutes !== undefined) state.minutes = ((Number(minutes) % (24 * 60)) + 24 * 60) % (24 * 60);
   state.dayOfWeek = dayOfWeekFor(state.date);
@@ -496,7 +496,9 @@ export async function devSetTime({ date, minutes }) {
     `UPDATE world_clock SET game_date = $1, game_time_minutes = $2, day_of_week = $3 WHERE id = 1`,
     [state.date, state.minutes, state.dayOfWeek]
   );
-  return getHUDPayload();
+  const payload = getHUDPayload();
+  if (broadcast) broadcast({ type: 'environment.sync', ...payload });
+  return payload;
 }
 
 export async function devAdvanceTime(minutesToAdd) {

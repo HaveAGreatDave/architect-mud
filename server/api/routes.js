@@ -119,6 +119,8 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path.startsWith('/players/') && path.endsWith('/smite') && method==='POST') return requireAdmin(auth, ()=>apiSmitePlayer(path.split('/')[2]));
   if (path.startsWith('/players/') && path.endsWith('/whisper') && method==='POST') return requireAdmin(auth, ()=>apiWhisperPlayer(path.split('/')[2], body));
   if (path.startsWith('/players/') && path.endsWith('/role') && method==='PUT') return requireAdmin(auth, ()=>apiSetPlayerRole(path.split('/')[2], body));
+  if (path.startsWith('/players/') && path.endsWith('/kick') && method==='POST') return requireAdmin(auth, ()=>apiKickPlayer(path.split('/')[2], body));
+  if (path.startsWith('/players/') && path.endsWith('/teleport') && method==='POST') return requireAdmin(auth, ()=>apiTeleportPlayer(path.split('/')[2], body));
   return { status:404, body:{error:'Not found'} };
 }
 
@@ -521,6 +523,36 @@ async function apiWhisperPlayer(id, body) {
   if (!rows.length) return {status:404,body:{error:'Player not found'}};
   broadcastFn(null,{type:'whisper',from:'Admin',message},null,id);
   return {status:200,body:{sent:true,handle:rows[0].handle}};
+}
+
+async function apiKickPlayer(id, body) {
+  const {rows}=await query('SELECT handle FROM players WHERE id=$1',[id]);
+  if (!rows.length) return {status:404,body:{error:'Player not found'}};
+  const reason = body?.reason || 'Kicked by administrator.';
+  broadcastFn(null,{type:'kicked',message:reason},null,id);
+  return {status:200,body:{kicked:true,handle:rows[0].handle}};
+}
+
+async function apiTeleportPlayer(id, body) {
+  const {zoneId}=body||{};
+  if (!zoneId) return {status:400,body:{error:'zoneId required'}};
+  const zone = getZone(zoneId);
+  if (!zone) return {status:404,body:{error:'Zone not found'}};
+  const {rows}=await query('SELECT handle,current_zone FROM players WHERE id=$1',[id]);
+  if (!rows.length) return {status:404,body:{error:'Player not found'}};
+  const {handle,current_zone}=rows[0];
+  await query('UPDATE players SET current_zone=$1 WHERE id=$2',[zoneId,id]);
+  // Update live player if online
+  const live = getAllLivePlayers().find(p=>p.id===id);
+  if (live) {
+    removePlayerFromZone(id, current_zone);
+    live.current_zone = zoneId;
+    addPlayerToZone(id, zoneId);
+  }
+  const lookMsg = await describeZone(zone, live || {handle,current_zone:zoneId});
+  broadcastFn(null,{type:'move',message:`<span style="color:var(--cyan)">An unseen force picks you up and deposits you elsewhere.</span>\n\n${lookMsg}`,zone:zoneId,minimap:getMinimapData(zoneId)},null,id);
+  broadcastFn(zoneId,{type:'zone_event',message:`${handle} materialises out of thin air.`},id);
+  return {status:200,body:{teleported:true,handle,zoneId}};
 }
 
 async function apiSetPlayerRole(id, body) {
