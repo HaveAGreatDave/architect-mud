@@ -64,7 +64,13 @@ const httpServer = createServer(async (req, res) => {
       for await (const chunk of req) chunks.push(chunk);
       try { body = JSON.parse(Buffer.concat(chunks).toString()); } catch {}
     }
-    const result = await handleApiRequest(url, req.method, body, req.headers);
+    let result;
+    try {
+      result = await handleApiRequest(url, req.method, body, req.headers);
+    } catch (err) {
+      console.error('API error:', url, err);
+      result = { status: 500, body: { error: err.message || 'Internal server error' } };
+    }
     res.writeHead(result.status, { 'Content-Type':'application/json', ...cors });
     res.end(JSON.stringify(result.body));
     return;

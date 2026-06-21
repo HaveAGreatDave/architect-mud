@@ -468,7 +468,19 @@ async function loadPanel(name) {
   document.getElementById('panel-title').textContent = p.title;
   document.getElementById('new-btn').style.display = p.noEdit || name === 'worldstate' || name === 'players' ? 'none' : '';
 
-  const data = await p.fetch();
+  let data;
+  try {
+    data = await p.fetch();
+  } catch (err) {
+    document.getElementById('list-panel').innerHTML = `<div style="padding:24px;color:var(--red)">Error loading panel: ${err.message}</div>`;
+    return;
+  }
+
+  if (data?.error) {
+    document.getElementById('list-panel').innerHTML = `<div style="padding:24px;color:var(--red)">Server error: ${data.error}</div>`;
+    return;
+  }
+
   allRecords = Array.isArray(data) ? data : (data.zones || []);
 
   if (p.render) {
