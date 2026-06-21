@@ -2112,22 +2112,30 @@ async function loadMapOverview(mapId) {
 // the server checks them for dangling). Geometry mismatch = error; missing
 // reciprocal = warning.
 function validateMapOverview(zonesMap) {
-  const errors = [], warnings = [];
+  const errors = [], oneWay = [];
   for (const z of zonesMap.values()) {
     for (const [dir, target] of Object.entries(z.exits || {})) {
       const t = zonesMap.get(target);
       if (!t) continue; // cross-map portal — server validates
       const off = MAP_DIR3D[dir];
+      let geomError = false;
       if (off && z.grid_x != null && z.grid_y != null && t.grid_x != null && t.grid_y != null) {
         const expected = `${z.grid_x + off[0]},${z.grid_y + off[1]},${(z.grid_z ?? 0) + off[2]}`;
         const actual = `${t.grid_x},${t.grid_y},${t.grid_z ?? 0}`;
-        if (expected !== actual) errors.push({ zoneId: z.id, direction: dir, targetId: target, reason: 'geometry' });
+        if (expected !== actual) { errors.push({ zoneId: z.id, direction: dir, targetId: target, reason: 'geometry' }); geomError = true; }
       }
-      const opp = MAP_OPP[dir];
-      if (opp && (t.exits || {})[opp] !== z.id) warnings.push({ zoneId: z.id, direction: dir, targetId: target, reason: 'missing-reciprocal' });
+      // Only flag missing reciprocal when there's no geometry error on this exit,
+      // and avoid flagging both directions of the same pair.
+      if (!geomError) {
+        const opp = MAP_OPP[dir];
+        if (opp && (t.exits || {})[opp] !== z.id) {
+          const alreadyFlagged = oneWay.some(w => w.zoneId === target && w.direction === opp && w.targetId === z.id);
+          if (!alreadyFlagged) oneWay.push({ zoneId: z.id, direction: dir, targetId: target });
+        }
+      }
     }
   }
-  return { errors, warnings };
+  return { errors, oneWay };
 }
 
 function renderMapOverview() {
@@ -2136,7 +2144,7 @@ function renderMapOverview() {
   const all = [...o.zones.values()];
   const floors = [...new Set(all.map(z => z.grid_z ?? 0))].sort((a, b) => a - b);
   const onFloor = all.filter(z => (z.grid_z ?? 0) === o.z && z.grid_x != null && z.grid_y != null);
-  const { errors, warnings } = validateMapOverview(o.zones);
+  const { errors, oneWay } = validateMapOverview(o.zones);
   const broken = new Set(errors.map(e => e.zoneId));
   const nameOf = id => o.zones.get(id)?.name || id;
 
@@ -2154,13 +2162,23 @@ function renderMapOverview() {
   // Validation panel
   html += `<div class="map-validation">`;
   if (errors.length) {
-    html += `<div class="v-error"><strong>${errors.length} broken connection(s) — fix before saving:</strong></div>`;
-    html += errors.map(e => `<div class="v-error">• ${nameOf(e.zoneId)} → ${e.direction} → ${nameOf(e.targetId)} (${e.reason})</div>`).join('');
+    html += `<div class="v-error"><strong>${errors.length} geometry error(s):</strong></div>`;
+    html += errors.map(e => `<div class="v-error">• ${nameOf(e.zoneId)} → ${e.direction} → ${nameOf(e.targetId)} (position mismatch)</div>`).join('');
   } else {
-    html += `<div class="v-ok">✓ No broken connections.</div>`;
+    html += `<div class="v-ok">✓ No geometry errors.</div>`;
   }
-  if (warnings.length) html += `<div class="v-warn" style="margin-top:4px">${warnings.length} one-way exit(s) (allowed): ${warnings.map(w => `${nameOf(w.zoneId)}→${w.direction}`).join(', ')}</div>`;
-  html += `<div style="color:var(--text-dim);margin-top:4px">Drag a zone to move it · click a zone to edit it · click a gap between two zones to connect/disconnect them · click an empty cell to create a zone. Each cell lists its exit directions (▲/▼ = up/down, <span style="color:#ff3b5c">red</span> = broken).</div>`;
+  if (oneWay.length) {
+    html += `<div class="v-warn" style="margin-top:6px"><strong>${oneWay.length} one-way connection(s) — return exit missing:</strong></div>`;
+    html += oneWay.map(w => {
+      const opp = MAP_OPP[w.direction];
+      return `<div class="v-warn" style="display:flex;align-items:center;gap:8px;margin-top:3px">
+        <span>• ${nameOf(w.zoneId)} → ${w.direction} → ${nameOf(w.targetId)} (no ${opp} return)</span>
+        <button class="action-btn" style="font-size:10px;padding:1px 7px;flex-shrink:0" onclick="mapAddReciprocal('${w.targetId}','${opp}','${w.zoneId}')">Add ${opp} return</button>
+        <button class="action-btn danger" style="font-size:10px;padding:1px 7px;flex-shrink:0" onclick="mapRemoveExit('${w.zoneId}','${w.direction}')">Delete exit</button>
+      </div>`;
+    }).join('');
+  }
+  html += `<div style="color:var(--text-dim);margin-top:6px;font-size:10px">Drag to move · click zone to edit · click gap to connect/disconnect · click empty cell to create. Exit badges: <span style="color:var(--cyan)">▲▼</span> = up/down, <span style="color:#ff3b5c">red</span> = geometry error.</div>`;
   html += `</div>`;
 
   // Grid — pad by one cell so there are empty cells to place new zones into.
@@ -2296,6 +2314,27 @@ async function mapToggleConn(aId, bId, dir) {
     toast(ra?.error || rb?.error, true);
     return;
   }
+  updateStagingBadge();
+}
+
+async function mapAddReciprocal(zoneId, dir, targetId) {
+  const z = mapOverview.zones.get(zoneId);
+  if (!z) return;
+  z.exits[dir] = targetId;
+  renderMapOverview();
+  const r = await API(`/zones/${zoneId}`, 'PUT', { exits: z.exits });
+  if (r?.error) { delete z.exits[dir]; renderMapOverview(); toast(r.error, true); return; }
+  updateStagingBadge();
+}
+
+async function mapRemoveExit(zoneId, dir) {
+  const z = mapOverview.zones.get(zoneId);
+  if (!z) return;
+  const old = z.exits[dir];
+  delete z.exits[dir];
+  renderMapOverview();
+  const r = await API(`/zones/${zoneId}`, 'PUT', { exits: z.exits });
+  if (r?.error) { z.exits[dir] = old; renderMapOverview(); toast(r.error, true); return; }
   updateStagingBadge();
 }
 
