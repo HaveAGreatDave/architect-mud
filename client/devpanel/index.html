@@ -739,7 +739,6 @@ async function saveRecord() {
 }
 
 async function deleteFurnitureStaged(id, name) {
-  if (!confirm(`Mark "${name}" for deletion? It will be removed when you publish.`)) return;
   const prev = currentRecord;
   currentRecord = { name }; // staging interceptor reads currentRecord.name for the entity label
   const r = await API(`/furniture/${id}`, 'DELETE');
@@ -3185,15 +3184,16 @@ async function updateStagingBadge() {
 
 async function publishAll() {
   if (!confirm(`Publish all ${pendingChanges.length} staged change${pendingChanges.length !== 1 ? 's' : ''} to the live world?`)) return;
-  // Capture staged furniture names before they get cleared so we can show a green badge after reload.
+  // Capture staged furniture state before publish so we can update the list immediately after.
   const stagedFurnitureNames = _furnitureAllItems.filter(f => f._staged).map(f => f.name);
+  const hasFurnitureChanges = _furnitureAllItems.some(f => f._staged || f._markedForDeletion);
   const result = await API('/staging/publish', 'POST', { all: true });
   if (result.error) { toast(result.error, true); return; }
   toast(`✓ ${result.message}`);
   await updateStagingBadge();
   if (currentPanel === 'changes') loadPanel('changes');
-  // Reload furniture panel (even if not current) so fresh DB data replaces staged items.
-  if (stagedFurnitureNames.length) {
+  // Reload furniture from DB so deleted items disappear and new ones lose their staged badge.
+  if (hasFurnitureChanges) {
     const freshData = await PANELS.furniture.fetch();
     _furnitureAllItems = Array.isArray(freshData) ? freshData : (freshData.furniture || []);
     stagedFurnitureNames.forEach(n => _furniturePublishedNames.add(n));
