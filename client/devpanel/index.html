@@ -739,16 +739,21 @@ async function saveRecord() {
 }
 
 async function deleteFurnitureStaged(id, name) {
+  const item = _furnitureAllItems.find(f => f.id === id);
   const prev = currentRecord;
   currentRecord = { name }; // staging interceptor reads currentRecord.name for the entity label
   const r = await API(`/furniture/${id}`, 'DELETE');
   currentRecord = prev;
   if (r?.error) { toast(r.error, true); return; }
-  const item = _furnitureAllItems.find(f => f.id === id);
-  if (item) item._markedForDeletion = true;
+  if (item?._staged) {
+    // Never hit the DB — just drop it from the local list immediately.
+    _furnitureAllItems = _furnitureAllItems.filter(f => f.id !== id);
+  } else if (item) {
+    item._markedForDeletion = true;
+  }
   renderFurniturePanel({ furniture: _furnitureAllItems, zones: [..._furnitureZoneNames.entries()].map(([zid, zname]) => ({ id: zid, name: zname })) });
   updateStagingBadge();
-  toast(`"${name}" marked for deletion`);
+  toast(`"${name}" ${item?._staged ? 'removed' : 'marked for deletion'}`);
 }
 
 async function deleteRecord() {
