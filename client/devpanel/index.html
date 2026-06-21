@@ -348,11 +348,8 @@ const PANELS = {
   },
   furniture: {
     title: 'Furniture',
-    fetch: () => API('/furniture'),
-    columns: [
-      { key: 'name', label: 'Name' },
-      { key: 'zone_id', label: 'Zone' },
-    ],
+    fetch: () => Promise.all([API('/furniture'), API('/zones')]).then(([f, z]) => ({ furniture: Array.isArray(f) ? f : [], zones: Array.isArray(z) ? z : [] })),
+    render: renderFurniturePanel,
     editForm: furnitureEditForm,
     save: saveFurniture,
     delete: id => API(`/furniture/${id}`, 'DELETE'),
@@ -1535,6 +1532,67 @@ async function saveNpc(existing) {
 }
 
 // --- Furniture forms ---
+function renderFurniturePanel(data) {
+  const furniture = data.furniture || [];
+  const zones = data.zones || [];
+  allRecords = furniture; // so editRecord() / deleteRecord() can find items by id
+
+  const panel = document.getElementById('list-panel');
+  const zoneNames = new Map(zones.map(z => [z.id, z.name]));
+
+  // Group by zone_id; null/missing = "Unplaced"
+  const byZone = new Map();
+  for (const f of furniture) {
+    const key = f.zone_id || '__unplaced__';
+    if (!byZone.has(key)) byZone.set(key, []);
+    byZone.get(key).push(f);
+  }
+
+  // Sort zone groups: placed zones alphabetically by name, Unplaced last
+  const zoneKeys = [...byZone.keys()].sort((a, b) => {
+    if (a === '__unplaced__') return 1;
+    if (b === '__unplaced__') return -1;
+    return (zoneNames.get(a) || a).localeCompare(zoneNames.get(b) || b);
+  });
+
+  const lightBadge = f => f.is_light
+    ? `<span style="font-size:10px;background:var(--bg3);padding:1px 5px;border-radius:2px;color:${f.light_on ? 'var(--yellow)' : 'var(--text-dim)'}">💡${f.light_type || ''}</span> `
+    : '';
+
+  const sections = zoneKeys.map(zoneId => {
+    const items = byZone.get(zoneId);
+    const label = zoneId === '__unplaced__'
+      ? '<span style="color:var(--text-dim);font-style:italic">Unplaced</span>'
+      : `<span style="color:var(--text-bright);font-weight:600">${zoneNames.get(zoneId) || zoneId}</span> <span style="color:var(--text-dim);font-size:10px">${zoneId}</span>`;
+
+    const rows = items.map(f => `
+      <div style="display:flex;align-items:center;gap:8px;padding:5px 12px 5px 24px;border-bottom:1px solid var(--border)">
+        <div style="flex:1;min-width:0">
+          <span style="color:var(--text-bright)">${f.name}</span>
+          ${lightBadge(f)}
+          ${f.description ? `<div style="font-size:11px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:400px">${f.description}</div>` : ''}
+        </div>
+        <button class="action-btn" style="font-size:10px;padding:2px 8px" onclick="editRecord('${f.id}')">Edit</button>
+        <button class="action-btn danger" style="font-size:10px;padding:2px 8px" onclick="deleteRecord('${f.id}')">Delete</button>
+      </div>`).join('');
+
+    return `
+      <div>
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 12px;background:var(--bg3);border-top:1px solid var(--border);border-bottom:1px solid var(--border);cursor:pointer;user-select:none"
+             onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
+          <span style="color:var(--text-dim);font-size:11px">▾</span>
+          ${label}
+          <span style="margin-left:auto;font-size:10px;color:var(--text-dim)">${items.length} item${items.length !== 1 ? 's' : ''}</span>
+        </div>
+        <div>${rows}</div>
+      </div>`;
+  }).join('');
+
+  panel.innerHTML = furniture.length
+    ? sections
+    : '<div style="padding:24px;color:var(--text-dim)">No furniture found.</div>';
+}
+
 function furnitureEditForm(rec, isNew) {
   return `
     <div class="field"><label>Furniture ID</label><input id="f-id" value="${isNew?'':rec.id}" ${!isNew?'readonly style="opacity:0.5"':''}></div>
