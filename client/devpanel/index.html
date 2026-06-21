@@ -1677,6 +1677,7 @@ function openFurnitureAddModal(zoneId) {
     _furnitureAllItems.push({ id: newId, zone_id: zoneId, name: template.name, description: template.description || '', flags: template.flags || {}, is_light: template.is_light || 0, light_on: template.light_on || 0, light_type: template.light_type || 'lamp', _staged: true });
     _furnitureExpandedZones.add(zoneId);
     renderFurniturePanel({ furniture: _furnitureAllItems, zones: [..._furnitureZoneNames.entries()].map(([zid, zname]) => ({ id: zid, name: zname })) });
+    updateStagingBadge();
   };
   document.getElementById('generic-modal').style.display = 'flex';
 }
@@ -2219,7 +2220,7 @@ function renderMapOverview() {
   //  • noPosition — map_id = this map but grid_x/grid_y not set (assigned but never placed)
   //  • disconnected — on the grid but exits = {} (wired nowhere)
   const tray = [...o.unplaced.values()];
-  const noPosition = [...o.zones.values()].filter(z => z.grid_x == null);
+  const noPosition = [...o.zones.values()].filter(z => z.grid_x == null && !z.flags?.is_interior && !z.flags?.is_apartment);
   const disconnected = [...o.zones.values()].filter(z =>
     Object.keys(z.exits || {}).length === 0 && z.grid_x != null
   );
@@ -2272,7 +2273,9 @@ async function mapToggleConn(aId, bId, dir) {
     else { delete a.exits[dir]; delete b.exits[opp]; }
     renderMapOverview();
     toast(ra?.error || rb?.error, true);
+    return;
   }
+  updateStagingBadge();
 }
 
 function mapDragStart(e, id) {
@@ -2331,6 +2334,7 @@ async function mapDrop(e, x, y) {
   const failed = results.find(r => r?.error);
   if (failed) { toast(failed.error, true); await loadMapOverview(o.map.id); return; }
   toast('Moved ✓');
+  updateStagingBadge();
 }
 
 
