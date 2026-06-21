@@ -181,7 +181,7 @@ async function ensureApartmentRow(zoneId) {
   );
 }
 
-async function apiCreateZone(body,auth) {
+export async function apiCreateZone(body,auth) {
   const id = body.id||`zone_${Date.now()}`;
   try {
     await query(`INSERT INTO zones (id,name,description,danger_rating,pvp_enabled,radiation_level,is_safe_zone,exits,ambient_events,ambient_theme,flags,created_by,map_id,grid_x,grid_y,grid_z,marker,color,bg_color) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
@@ -465,7 +465,7 @@ async function rescueDisplacedPlayers(deletedZoneIds) {
   }
 }
 
-async function apiDeleteZone(id) {
+export async function apiDeleteZone(id) {
   if (id==='zone_start') return {status:400,body:{error:'Cannot delete spawn zone'}};
   try {
     // Cascade: any zone flagged is_apartment OR is_interior whose exits

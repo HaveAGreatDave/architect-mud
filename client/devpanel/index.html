@@ -2467,21 +2467,15 @@ function renderMapOverview() {
   const trayChip = (z, dragFn) => `<span class="bigmap-tile bm-edit bm-danger-${z.danger_rating || 'safe'}" style="width:auto;height:auto;padding:4px 8px;cursor:grab;flex-shrink:0" draggable="true" ondragstart="${dragFn}(event,'${z.id}')" title="${z.id}">${z.name}</span>`;
 
   if (mapViewTab === 'interior') {
-    // Interior tray: rooms in this map with no grid position
-    const unplacedRooms = [...o.zones.values()].filter(z => z.grid_x == null);
-    const disconnected = [...o.zones.values()].filter(z => Object.keys(z.exits || {}).length === 0 && z.grid_x != null);
+    // Interior tray: rooms with no grid position OR no exits established
+    const needsAttention = [...o.zones.values()].filter(z => z.grid_x == null || Object.keys(z.exits || {}).length === 0);
     html += `<div style="padding:0 12px 14px;border-top:1px solid var(--border);margin-top:8px">
-      <div style="font-size:11px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;padding-top:10px">Unplaced Rooms</div>
-      <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px">Rooms in this interior with no grid position. Drag onto an empty cell to place.</div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:${disconnected.length ? '14px' : '0'}">${unplacedRooms.length
-        ? unplacedRooms.map(z => trayChip(z, 'mapTrayDragStart')).join('')
-        : `<span style="color:var(--text-dim);font-style:italic;font-size:11px">None.</span>`
+      <div style="font-size:11px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;padding-top:10px">Unplaced / No Exits</div>
+      <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px">Rooms with no grid position or no exits. Drag unplaced rooms onto an empty cell to place.</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">${needsAttention.length
+        ? needsAttention.map(z => trayChip(z, 'mapTrayDragStart')).join('')
+        : `<span style="color:var(--text-dim);font-style:italic;font-size:11px">None — all rooms are placed and connected.</span>`
       }</div>
-      ${disconnected.length ? `
-      <div style="font-size:11px;font-weight:600;color:var(--yellow);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">No Connections</div>
-      <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px">These rooms are placed but have no exits.</div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap">${disconnected.map(z => trayChip(z, 'mapTrayDragStart')).join('')}</div>
-      ` : ''}
     </div>`;
   } else {
     const extTray = [...o.unplaced.values()];

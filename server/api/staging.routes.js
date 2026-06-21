@@ -8,6 +8,7 @@
 
 import { query } from '../models/db.js';
 import {
+  apiCreateZone, apiDeleteZone,
   apiCreateFurniture, apiDeleteFurniture,
   apiUpdateZone, apiUpdateEnemy, apiUpdateItem, apiUpdateNpc,
   apiUpdateFurniture, apiUpdateRecipe, apiUpdateMutation, apiUpdateDrug,
@@ -100,10 +101,12 @@ const UPDATERS = {
 };
 
 const CREATORS = {
+  zone:      (data) => apiCreateZone(data, null),
   furniture: (data) => apiCreateFurniture(data),
 };
 
 const DELETERS = {
+  zone:      (id) => apiDeleteZone(id),
   furniture: (id) => apiDeleteFurniture(id),
 };
 
