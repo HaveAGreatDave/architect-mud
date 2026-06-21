@@ -1537,6 +1537,7 @@ async function saveNpc(existing) {
 // re-fetching the whole panel.
 let _furnitureAllItems = [];
 let _furnitureZoneNames = new Map();
+let _furnitureExpandZone = null;
 
 function renderFurniturePanel(data) {
   const furniture = data.furniture || [];
@@ -1589,7 +1590,7 @@ function renderFurniturePanel(data) {
       : '';
 
     return `<div>
-      <div style="display:flex;align-items:center;gap:0;padding:7px 12px;background:var(--bg3);border-top:2px solid var(--border);border-bottom:1px solid var(--border);cursor:pointer;user-select:none"
+      <div data-zone-id="${zoneId}" style="display:flex;align-items:center;gap:0;padding:7px 12px;background:var(--bg3);border-top:2px solid var(--border);border-bottom:1px solid var(--border);cursor:pointer;user-select:none"
            onclick="fToggle(this)">
         <span class="f-arrow" style="color:var(--text-dim);font-size:11px;width:14px;display:inline-block;flex-shrink:0">▸</span>
         ${headerLabel}
@@ -1604,6 +1605,12 @@ function renderFurniturePanel(data) {
   panel.innerHTML = furniture.length
     ? sections
     : '<div style="padding:24px;color:var(--text-dim)">No furniture found.</div>';
+
+  if (_furnitureExpandZone) {
+    const header = panel.querySelector(`[data-zone-id="${_furnitureExpandZone}"]`);
+    if (header) fToggle(header);
+    _furnitureExpandZone = null;
+  }
 }
 
 function fToggle(header) {
@@ -1649,7 +1656,10 @@ function openFurnitureAddModal(zoneId) {
     if (r?.error) { toast(r.error, true); return; }
     toast('Furniture added to room');
     closeModal();
-    loadPanel('furniture');
+    const newId = r.id || r.entityId || `furniture_${Date.now()}`;
+    _furnitureAllItems.push({ id: newId, zone_id: zoneId, name: template.name, description: template.description || '', flags: template.flags || {}, is_light: template.is_light || 0, light_on: template.light_on || 0, light_type: template.light_type || 'lamp' });
+    _furnitureExpandZone = zoneId;
+    renderFurniturePanel({ furniture: _furnitureAllItems, zones: [..._furnitureZoneNames.entries()].map(([zid, zname]) => ({ id: zid, name: zname })) });
   };
   document.getElementById('generic-modal').style.display = 'flex';
 }
