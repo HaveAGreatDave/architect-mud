@@ -44,14 +44,14 @@ export function renderEquipPanel(items) {
   const list = document.getElementById('equip-inv-list');
   list.innerHTML = '';
   for (const item of unequipped) {
-    const flags = item.flags || {};
-    const equippable = (item.type === 'weapon' || item.type === 'armor') && (flags.slot || item.type === 'weapon');
+    const tags = item.tags || {};
+    const equippable = !!tags.slot;
     const card = document.createElement('div');
     card.className = 'equip-item-card' + (equippable ? ' equippable' : '');
     card.setAttribute('draggable', 'true');
     card.setAttribute('data-id', item.id);
     const qty = item.quantity > 1 ? ` x${item.quantity}` : '';
-    const slotLabel = flags.slot ? ` · ${flags.slot.replace('_',' ')}` : '';
+    const slotLabel = tags.slot ? ` · ${tags.slot.replace('_',' ')}` : '';
     card.innerHTML = `<span class="eic-name">${item.name}${qty}</span><span class="eic-meta">${item.rarity || ''}${slotLabel}</span>`;
     card.ondragstart = (e) => onItemDragStart(e, item.id);
     card.ondragend = () => card.classList.remove('dragging');

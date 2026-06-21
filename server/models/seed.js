@@ -156,12 +156,17 @@ async function seed() {
   }
   console.log(`✓ Seeded ${recipes.length} recipes`);
 
-  // Drug items + drug definitions
-  await query(`INSERT INTO items (id,name,description,type,subtype,weight,value,rarity,is_stackable,effects,flags) VALUES
-    ('item_drug_buzz','Buzz','A cheap stimulant tab. Tastes like batteries.','drug',null,0.1,8,'common',1,'{}','{}'),
-    ('item_drug_slow','Slow','A thick blue syrup. Time gets soft.','drug',null,0.2,15,'uncommon',1,'{}','{}'),
-    ('item_drug_glasshollow','Glasshollow','Architect-adjacent. Nobody''s sure what it actually is. People take it anyway.','drug',null,0.1,40,'rare',1,'{}','{}')
-    ON CONFLICT (id) DO NOTHING`);
+  // Drug items + drug definitions. The item half is just identity + the
+  // drug/stackable markers; the mechanical half lives in the drugs table.
+  const drugItems = [
+    ['item_drug_buzz','Buzz',0.1,8,'common',{ description:'A cheap stimulant tab. Tastes like batteries.', drug:true, stackable:true }],
+    ['item_drug_slow','Slow',0.2,15,'uncommon',{ description:'A thick blue syrup. Time gets soft.', drug:true, stackable:true }],
+    ['item_drug_glasshollow','Glasshollow',0.1,40,'rare',{ description:"Architect-adjacent. Nobody's sure what it actually is. People take it anyway.", drug:true, stackable:true }],
+  ];
+  for (const [id,name,weight,value,rarity,tags] of drugItems) {
+    await query(`INSERT INTO items (id,name,weight,value,rarity,tags) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (id) DO NOTHING`,
+      [id,name,weight,value,rarity,JSON.stringify(tags)]);
+  }
 
   const drugs = [
     { id:'drug_buzz', name:'Buzz', description:'A jittery, short-lived stimulant. Common in the Franchise Strip.', item_id:'item_drug_buzz', duration_seconds:240, effects:{stat_agi_temp:2,hunger:-5}, addiction_chance:0.04, overdose_threshold:3, withdrawal_effects:{overdose:{hp:-10,sanity:-5}} },
@@ -195,40 +200,42 @@ async function seed() {
   }
   console.log(`✓ Seeded ${mutations.length} mutations`);
 
-  // Items (condensed)
+  // Items — all behavior lives in the `tags` object (the single source of
+  // truth; see client/shared/tagCatalog.js). Identity/economy stays scalar:
+  // [id, name, weight, value, rarity, tags].
   const items = [
-    ['item_scrap_metal','Scrap Metal','Bent rebar and sheet aluminum.','material','metal',1.5,2,'common',1,'{}','{}','{}'],
-    ['item_ration','Vacuum Ration','Pre-Handoff emergency ration. Flavor: SAVORY.','consumable','food',0.3,8,'common',1,'{"hunger":25}','{}','{}'],
-    ['item_water_bottle','Filtered Water','Aggressively filtered water.','consumable','drink',0.5,5,'common',1,'{"thirst":40}','{}','{}'],
-    ['item_rad_pills','RadAway™','Bright orange pills. Tastes like failure and citrus.','consumable','medicine',0.1,25,'uncommon',1,'{"radiation":-20}','{}','{}'],
-    ['item_bandage','Field Bandage','Gauze and tape. Stops bleeding, eventually — not instantly, whatever the label implies.','consumable','medicine',0.2,10,'common',1,'{"hp_over_time":{"amount":18,"duration_seconds":180}}','{}','{}'],
-    ['item_medkit','Trauma Kit','Real medical supplies. Increasingly rare, increasingly suspicious about why someone is selling them.','consumable','medicine',1.2,55,'uncommon',1,'{"hp_over_time":{"amount":50,"duration_seconds":300}}','{}','{}'],
-    ['item_pipe_wrench','Pipe Wrench','Heavy. Reliable. Pre-used.','weapon','blunt',2.5,30,'common',0,'{"damage_min":4,"damage_max":9}','{"stat_str":3}','{"slot":"weapon_hand"}'],
-    ['item_rusty_knife','Rusty Knife','A kitchen knife that has seen things.','weapon','bladed',0.4,15,'common',0,'{"damage_min":3,"damage_max":7}','{}','{"slot":"weapon_hand"}'],
-    ['item_scrap_armor','Scrap Vest','Metal sheeting over a leather jacket.','armor','chest',4.0,45,'common',0,'{}','{}','{"slot":"torso"}'],
-    ['item_custodian_badge','Custodian ID Badge','Useful for bluffing Custodian checkpoints.','misc','key_item',0.05,40,'uncommon',0,'{}','{}','{}'],
-    ['item_drone_core','Drone Processing Core','Still warm. Still probably logging.','material','tech',0.8,120,'rare',0,'{}','{}','{}'],
-    ['item_architect_fragment','Architect Data Fragment','Pulses faint blue. Three factions want this.','misc','artifact',0.1,300,'very_rare',0,'{}','{}','{}'],
-    ['item_taser','Custodian Taser','Corporate-issue stun weapon.','weapon','energy',0.6,65,'uncommon',0,'{"damage_min":5,"damage_max":8,"status_chance":{"stunned":0.3}}','{"stat_agi":4}','{"slot":"weapon_hand"}'],
-    ['item_raw_meat','Raw Meat','Something used to own this. Cook before eating.','consumable','food_raw',0.6,3,'common',1,'{"hunger":15,"status_chance":{"food_poisoning":0.6}}','{}','{}'],
-    ['item_mutant_gland','Mutant Gland','Iridescent and foul. Worth money to the right people.','material','organic',0.4,35,'uncommon',1,'{}','{}','{}'],
-    ['item_credits_small','Credits (Small)','Franchise-issued digital credit chips.','currency','credits',0,0,'common',1,'{"credits":10}','{}','{}'],
-    ['item_credits_medium','Credits (Medium)','A credit chip worth more than your clothing.','currency','credits',0,0,'common',1,'{"credits":35}','{}','{}'],
-    ['item_scrap_helmet','Scrap Helmet','A motorcycle helmet with extra rivets. Visor status: optimistic.','armor','head',1.0,20,'common',0,'{}','{}','{"slot":"head"}'],
-    ['item_cargo_pants','Reinforced Cargo Pants','Pockets for days. Knees patched twice over.','armor','legs',1.5,18,'common',0,'{}','{}','{"slot":"legs"}'],
-    ['item_steel_boots','Steel-Toed Boots','Standard issue, several owners ago.','armor','feet',1.2,16,'common',0,'{}','{}','{"slot":"feet"}'],
-    ['item_rad_band','Rad-Counter Wristband','Clicks faster the worse your day is going.','misc','accessory',0.1,25,'uncommon',0,'{}','{}','{"slot":"accessory"}'],
-    ['item_work_gloves','Work Gloves','Stained in ways you choose not to think about.','armor','hands',0.3,8,'common',0,'{}','{}','{"slot":"hands"}'],
-    ['item_drink_basin_swill','Basin Swill','House drink. Nobody has ever asked what\'s in it twice.','consumable','drink',0.4,4,'common',1,'{"thirst":15,"sanity":3}','{}','{}'],
-    ['item_drink_rust_whiskey','Rust Whiskey','Tastes like it was filtered through the pipe it\'s named after. Probably was.','consumable','drink',0.4,9,'common',1,'{"thirst":10,"sanity":8,"hp":-2}','{}','{}'],
-    ['item_drink_glow_cocktail','Glow Cocktail','Faintly luminescent. The bartender swears the radiation is "mostly cosmetic."','consumable','drink',0.4,14,'uncommon',1,'{"thirst":12,"sanity":12,"radiation":4}','{}','{}'],
-    ['item_drink_embassy_reserve','Embassy Reserve','Aged in what used to be a wine cellar and is now mostly intact. The only drink in the basin served with a paper umbrella, against everyone\'s better judgment.','consumable','drink',0.4,22,'rare',1,'{"thirst":18,"sanity":18,"hp":3}','{}','{}'],
-    ['item_embassy_canapes','Embassy Canapés','Bite-sized, garnished, served on an actual plate. Nobody asks what\'s in them; the presentation is doing all the work.','consumable','food',0.2,9,'uncommon',1,'{"hunger":14,"sanity":5}','{}','{}'],
-    ['item_bar_jerky','Mystery Jerky','Labeled "MEAT-ADJACENT." Surprisingly not the worst thing on the menu.','consumable','food',0.2,6,'common',1,'{"hunger":18}','{}','{}'],
+    ['item_scrap_metal','Scrap Metal',1.5,2,'common',{ description:'Bent rebar and sheet aluminum.', material:true, stackable:true }],
+    ['item_ration','Vacuum Ration',0.3,8,'common',{ description:'Pre-Handoff emergency ration. Flavor: SAVORY.', consumable:true, stackable:true, restore_hunger:25, well_fed:true }],
+    ['item_water_bottle','Filtered Water',0.5,5,'common',{ description:'Aggressively filtered water.', consumable:true, stackable:true, restore_thirst:40, hydrating:true }],
+    ['item_rad_pills','RadAway™',0.1,25,'uncommon',{ description:'Bright orange pills. Tastes like failure and citrus.', consumable:true, stackable:true, restore_radiation:-20 }],
+    ['item_bandage','Field Bandage',0.2,10,'common',{ description:'Gauze and tape. Stops bleeding, eventually — not instantly, whatever the label implies.', consumable:true, stackable:true, heal_over_time:{ amount:18, duration_seconds:180 } }],
+    ['item_medkit','Trauma Kit',1.2,55,'uncommon',{ description:'Real medical supplies. Increasingly rare, increasingly suspicious about why someone is selling them.', consumable:true, stackable:true, heal_over_time:{ amount:50, duration_seconds:300 } }],
+    ['item_pipe_wrench','Pipe Wrench',2.5,30,'common',{ description:'Heavy. Reliable. Pre-used.', weapon:true, weapon_skill:'blunt', slot:'weapon_hand', damage:{ min:4, max:9 }, stat_bonus:{ stat_str:3 } }],
+    ['item_rusty_knife','Rusty Knife',0.4,15,'common',{ description:'A kitchen knife that has seen things.', weapon:true, weapon_skill:'bladed', slot:'weapon_hand', damage:{ min:3, max:7 } }],
+    ['item_scrap_armor','Scrap Vest',4.0,45,'common',{ description:'Metal sheeting over a leather jacket.', slot:'torso' }],
+    ['item_custodian_badge','Custodian ID Badge',0.05,40,'uncommon',{ description:'Useful for bluffing Custodian checkpoints.', misc:true }],
+    ['item_drone_core','Drone Processing Core',0.8,120,'rare',{ description:'Still warm. Still probably logging.', material:true }],
+    ['item_architect_fragment','Architect Data Fragment',0.1,300,'very_rare',{ description:'Pulses faint blue. Three factions want this.', misc:true }],
+    ['item_taser','Custodian Taser',0.6,65,'uncommon',{ description:'Corporate-issue stun weapon.', weapon:true, weapon_skill:'energy', slot:'weapon_hand', damage:{ min:5, max:8 }, status_chance:{ stunned:0.3 }, stat_bonus:{ stat_agi:4 } }],
+    ['item_raw_meat','Raw Meat',0.6,3,'common',{ description:'Something used to own this. Cook before eating.', consumable:true, stackable:true, restore_hunger:15, status_chance:{ food_poisoning:0.6 } }],
+    ['item_mutant_gland','Mutant Gland',0.4,35,'uncommon',{ description:'Iridescent and foul. Worth money to the right people.', material:true, stackable:true }],
+    ['item_credits_small','Credits (Small)',0,0,'common',{ description:'Franchise-issued digital credit chips.', currency:true, stackable:true, grants_credits:10 }],
+    ['item_credits_medium','Credits (Medium)',0,0,'common',{ description:'A credit chip worth more than your clothing.', currency:true, stackable:true, grants_credits:35 }],
+    ['item_scrap_helmet','Scrap Helmet',1.0,20,'common',{ description:'A motorcycle helmet with extra rivets. Visor status: optimistic.', slot:'head' }],
+    ['item_cargo_pants','Reinforced Cargo Pants',1.5,18,'common',{ description:'Pockets for days. Knees patched twice over.', slot:'legs' }],
+    ['item_steel_boots','Steel-Toed Boots',1.2,16,'common',{ description:'Standard issue, several owners ago.', slot:'feet' }],
+    ['item_rad_band','Rad-Counter Wristband',0.1,25,'uncommon',{ description:'Clicks faster the worse your day is going.', misc:true, slot:'accessory' }],
+    ['item_work_gloves','Work Gloves',0.3,8,'common',{ description:'Stained in ways you choose not to think about.', slot:'hands' }],
+    ['item_drink_basin_swill','Basin Swill',0.4,4,'common',{ description:"House drink. Nobody has ever asked what's in it twice.", consumable:true, stackable:true, restore_thirst:15, restore_sanity:3, hydrating:true }],
+    ['item_drink_rust_whiskey','Rust Whiskey',0.4,9,'common',{ description:"Tastes like it was filtered through the pipe it's named after. Probably was.", consumable:true, stackable:true, restore_thirst:10, restore_sanity:8, restore_hp:-2, hydrating:true }],
+    ['item_drink_glow_cocktail','Glow Cocktail',0.4,14,'uncommon',{ description:'Faintly luminescent. The bartender swears the radiation is "mostly cosmetic."', consumable:true, stackable:true, restore_thirst:12, restore_sanity:12, restore_radiation:4, hydrating:true }],
+    ['item_drink_embassy_reserve','Embassy Reserve',0.4,22,'rare',{ description:"Aged in what used to be a wine cellar and is now mostly intact. The only drink in the basin served with a paper umbrella, against everyone's better judgment.", consumable:true, stackable:true, restore_thirst:18, restore_sanity:18, restore_hp:3, hydrating:true }],
+    ['item_embassy_canapes','Embassy Canapés',0.2,9,'uncommon',{ description:"Bite-sized, garnished, served on an actual plate. Nobody asks what's in them; the presentation is doing all the work.", consumable:true, stackable:true, restore_hunger:14, restore_sanity:5, well_fed:true }],
+    ['item_bar_jerky','Mystery Jerky',0.2,6,'common',{ description:'Labeled "MEAT-ADJACENT." Surprisingly not the worst thing on the menu.', consumable:true, stackable:true, restore_hunger:18, well_fed:true }],
   ];
-  for (const [id,name,desc,type,subtype,weight,value,rarity,stackable,effects,reqs,flags] of items) {
-    await query(`INSERT INTO items (id,name,description,type,subtype,weight,value,rarity,is_stackable,effects,requirements,flags) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) ON CONFLICT (id) DO NOTHING`,
-      [id,name,desc,type,subtype,weight,value,rarity,stackable,effects,reqs,flags]);
+  for (const [id,name,weight,value,rarity,tags] of items) {
+    await query(`INSERT INTO items (id,name,weight,value,rarity,tags) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (id) DO NOTHING`,
+      [id,name,weight,value,rarity,JSON.stringify(tags)]);
   }
   console.log(`✓ Seeded ${items.length} items`);
 

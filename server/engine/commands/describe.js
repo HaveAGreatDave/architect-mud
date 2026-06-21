@@ -144,7 +144,7 @@ export async function describeZone(zone, player) {
   const others   = isDark ? [] : getZonePlayers(zone.id).filter(p => p.id !== player.id);
 
   const { rows: groundItems } = isDark ? { rows: [] } : await query(
-    `SELECT pi.*, i.name, i.type, i.rarity FROM player_inventory pi
+    `SELECT pi.*, i.name, i.rarity FROM player_inventory pi
      JOIN items i ON i.id = pi.item_id
      WHERE pi.player_id = $1`,
     [`_ground_${zone.id}`]

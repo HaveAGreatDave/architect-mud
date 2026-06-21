@@ -22,7 +22,7 @@ export async function getVendorStock(npc, playerId) {
     stock.push({
       item_id: entry.item_id,
       name: item.name,
-      description: item.description,
+      description: item.tags?.description ?? item.description ?? '',
       type: item.type,
       rarity: item.rarity,
       stock: entry.stock ?? 99,
@@ -61,7 +61,7 @@ export async function buyFromVendor(player, npc, itemId, quantity = 1) {
     [player.id, itemId]
   );
 
-  if (existing.length && item.is_stackable) {
+  if (existing.length && item.tags?.stackable) {
     await query('UPDATE player_inventory SET quantity = quantity + $1 WHERE id = $2', [quantity, existing[0].id]);
   } else {
     await query(
@@ -79,7 +79,7 @@ export async function buyFromVendor(player, npc, itemId, quantity = 1) {
 
 export async function sellToVendor(player, npc, inventoryId, quantity = 1) {
   const { rows } = await query(
-    `SELECT pi.*, i.name, i.value, i.is_quest_item FROM player_inventory pi
+    `SELECT pi.*, i.name, i.value, i.tags FROM player_inventory pi
      JOIN items i ON i.id = pi.item_id
      WHERE pi.id = $1 AND pi.player_id = $2`,
     [inventoryId, player.id]
@@ -88,7 +88,7 @@ export async function sellToVendor(player, npc, inventoryId, quantity = 1) {
   if (!rows.length) return { success: false, message: 'Item not found in your inventory.' };
   const invItem = rows[0];
 
-  if (invItem.is_quest_item) return { success: false, message: 'You can\'t sell quest items.' };
+  if (invItem.tags?.quest_item) return { success: false, message: 'You can\'t sell quest items.' };
   if (invItem.is_equipped) return { success: false, message: 'Unequip it first.' };
 
   const sellQty = Math.min(quantity, invItem.quantity);
