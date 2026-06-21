@@ -277,10 +277,17 @@ async function apiGetMap(id) {
     'SELECT id, name, parent_zone_id, entry_zone_id FROM maps WHERE parent_zone_id = ANY($1::text[])',
     [zones.map(z => z.id)]
   );
-  // Zones not yet on any map — shown in the overview's tray so they can be
-  // dragged onto this (or any) map by hand.
+  // Zones not yet placed on THIS map and not interior rooms — shown in the
+  // overview's tray so they can be dragged onto this map by hand.
+  // Includes: zones with no map_id, and zones assigned to other maps.
+  // Excludes: is_interior and is_apartment zones (they live in sub-maps).
   const { rows: unplaced } = await query(
-    `SELECT id, name, danger_rating, exits, flags FROM zones WHERE map_id IS NULL ORDER BY name`
+    `SELECT id, name, danger_rating, exits, flags FROM zones
+     WHERE (map_id IS NULL OR map_id != $1)
+       AND COALESCE((flags->>'is_interior')::boolean, false) = false
+       AND COALESCE((flags->>'is_apartment')::boolean, false) = false
+     ORDER BY name`,
+    [id]
   );
   return { status:200, body:{ map: mapRows[0], zones, children, unplaced } };
 }
@@ -476,7 +483,7 @@ async function apiGetFurniture(fullUrl) {
     : await query('SELECT * FROM furniture');
   return {status:200,body:rows};
 }
-async function apiCreateFurniture(body) {
+export async function apiCreateFurniture(body) {
   if (!body?.zone_id) return {status:400,body:{error:'zone_id is required'}};
   if (!body?.name) return {status:400,body:{error:'name is required'}};
   const id = body.id || `furniture_${Date.now()}`;

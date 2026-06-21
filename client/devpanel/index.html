@@ -1541,6 +1541,7 @@ async function saveNpc(existing) {
 let _furnitureAllItems = [];
 let _furnitureZoneNames = new Map();
 const _furnitureExpandedZones = new Set();
+const _furniturePublishedNames = new Set(); // names briefly shown as green after publish
 
 function renderFurniturePanel(data) {
   const furniture = data.furniture || [];
@@ -1580,8 +1581,10 @@ function renderFurniturePanel(data) {
         : '';
       const stagedBadge = f._staged
         ? `<span style="font-size:10px;background:rgba(245,230,66,0.12);border:1px solid var(--yellow);color:var(--yellow);padding:1px 6px;border-radius:2px;margin-left:6px;letter-spacing:0.5px">! Not Published</span>`
-        : '';
-      const nameColor = f._staged ? 'var(--yellow)' : 'var(--text-bright)';
+        : _furniturePublishedNames.has(f.name)
+          ? `<span style="font-size:10px;background:rgba(57,255,143,0.12);border:1px solid var(--accent2);color:var(--accent2);padding:1px 6px;border-radius:2px;margin-left:6px;letter-spacing:0.5px">✓ Published</span>`
+          : '';
+      const nameColor = f._staged ? 'var(--yellow)' : _furniturePublishedNames.has(f.name) ? 'var(--accent2)' : 'var(--text-bright)';
       return `<div style="display:flex;align-items:center;gap:8px;padding:5px 12px 5px 28px;border-bottom:1px solid var(--border);background:var(--bg1)">
         <div style="flex:1;min-width:0">
           <span style="color:${nameColor}">${f.name}</span>${lightBadge}${stagedBadge}
@@ -3156,11 +3159,28 @@ async function updateStagingBadge() {
 
 async function publishAll() {
   if (!confirm(`Publish all ${pendingChanges.length} staged change${pendingChanges.length !== 1 ? 's' : ''} to the live world?`)) return;
+  // Capture staged furniture names before they get cleared so we can show a green badge after reload.
+  const stagedFurnitureNames = _furnitureAllItems.filter(f => f._staged).map(f => f.name);
   const result = await API('/staging/publish', 'POST', { all: true });
   if (result.error) { toast(result.error, true); return; }
   toast(`✓ ${result.message}`);
   await updateStagingBadge();
   if (currentPanel === 'changes') loadPanel('changes');
+  // Reload furniture panel (even if not current) so fresh DB data replaces staged items.
+  if (stagedFurnitureNames.length) {
+    const freshData = await PANELS.furniture.fetch();
+    _furnitureAllItems = Array.isArray(freshData) ? freshData : (freshData.furniture || []);
+    stagedFurnitureNames.forEach(n => _furniturePublishedNames.add(n));
+    if (currentPanel === 'furniture') {
+      renderFurniturePanel({ furniture: _furnitureAllItems, zones: [..._furnitureZoneNames.entries()].map(([id, name]) => ({ id, name })) });
+    }
+    setTimeout(() => {
+      stagedFurnitureNames.forEach(n => _furniturePublishedNames.delete(n));
+      if (currentPanel === 'furniture') {
+        renderFurniturePanel({ furniture: _furnitureAllItems, zones: [..._furnitureZoneNames.entries()].map(([id, name]) => ({ id, name })) });
+      }
+    }, 6000);
+  }
 }
 
 async function rejectAll() {

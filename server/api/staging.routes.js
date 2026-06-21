@@ -8,6 +8,7 @@
 
 import { query } from '../models/db.js';
 import {
+  apiCreateFurniture,
   apiUpdateZone, apiUpdateEnemy, apiUpdateItem, apiUpdateNpc,
   apiUpdateFurniture, apiUpdateRecipe, apiUpdateMutation, apiUpdateDrug,
 } from './routes.js';
@@ -98,7 +99,17 @@ const UPDATERS = {
   drug:      (id, data) => apiUpdateDrug(id, data),
 };
 
+// Entity types that support create via staging (change_type = 'create').
+const CREATORS = {
+  furniture: (data) => apiCreateFurniture(data),
+};
+
 async function applyChange(change) {
+  if (change.change_type === 'create' && CREATORS[change.entity_type]) {
+    const result = await CREATORS[change.entity_type](change.staged_data || {});
+    if (result?.body?.error) throw new Error(result.body.error);
+    return result;
+  }
   const updater = UPDATERS[change.entity_type];
   if (!updater) throw new Error(`No publisher for entity type: ${change.entity_type}`);
   const result = await updater(change.entity_id, change.staged_data || {});
