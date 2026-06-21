@@ -348,6 +348,7 @@
   .auth-handle-field { display: none; }
   .auth-handle-field.visible { display: block; }
 </style>
+<link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
@@ -402,7 +403,7 @@
   <span class="credits-display" id="credits-display" title="Credits carried">₵ <span id="header-credits-val">0</span></span>
   <button id="settings-btn" title="Settings" aria-label="Open settings">⚙</button>
   <button id="signout-btn" title="Sign Out" aria-label="Sign out">⏻</button>
-  <button id="dev-panel-btn" onclick="window.open('/dev','_blank')" title="Open Dev Panel" style="display:none;background:#1a1a2e;border:1px solid #7c3aed;color:#7c3aed;font-family:var(--font);font-size:11px;padding:4px 10px;cursor:pointer;letter-spacing:1px;border-radius:3px">⚙ Dev</button>
+  <button id="dev-panel-btn" onclick="window.open('/dev','_blank')" title="Open Dev Panel" style="display:none;background:var(--bg3);border:1px solid var(--purple);color:var(--purple);font-family:var(--font-mono);font-size:11px;padding:4px 10px;cursor:pointer;letter-spacing:1px;border-radius:3px">⚙ Dev</button>
 </div>
 
 <div id="main">
@@ -946,7 +947,7 @@ function _renderUsersTab(log) {
     return;
   }
   log.innerHTML = '<div style="padding:8px 10px 4px;font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">Online now</div>'
-    + _onlinePlayers.map(p => `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;border-bottom:1px solid var(--border)"><span style="font-size:12px;color:var(--text)">${p.handle}</span><button onclick="openWhisperTab('${p.handle.replace(/'/g,"\\'")}')" style="background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:var(--font-mono);font-size:10px;padding:2px 8px;cursor:pointer;border-radius:2px">✉</button></div>`).join('')
+    + _onlinePlayers.map(p => `<div style="display:flex;align-items:center;padding:6px 10px;border-bottom:1px solid var(--border);cursor:pointer" onclick="openWhisperTab('${p.handle.replace(/'/g,"\\'")}')"><span style="font-size:12px;color:var(--text)">${p.handle}</span></div>`).join('')
     + '<div style="padding:6px 10px"><button onclick="_fetchOnlinePlayers()" style="width:100%;background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font-mono);font-size:10px;padding:4px;cursor:pointer;border-radius:2px">↻ Refresh</button></div>';
 }
 
