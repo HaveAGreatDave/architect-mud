@@ -2098,8 +2098,7 @@ async function renderMapsPanel(data) {
   const panel = document.getElementById('list-panel');
   if (!mapsList.length) { panel.innerHTML = '<div style="padding:24px;color:var(--text-dim)">No maps yet. Run <code>npm run db:seed</code> to create map_world.</div>'; return; }
   mapViewTab = 'exterior';
-  let target = mapOverview?.map?.id;
-  if (!target || !mapsList.find(m => m.id === target)) target = (mapsList.find(m => m.id === 'map_world') || mapsList[0]).id;
+  const target = mapsList.find(m => m.id === 'map_world')?.id || mapsList.find(m => !m.parent_zone_id)?.id || mapsList[0]?.id;
   mapExteriorMapId = target;
   await loadMapOverview(target);
 }
