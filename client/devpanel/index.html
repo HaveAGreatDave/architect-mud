@@ -2358,7 +2358,11 @@ function renderMapOverview() {
     const allExtUnplaced = [...extTray, ...noPosition].sort((a, b) => a.name.localeCompare(b.name));
     const intUnplaced = [...(o.unplacedInterior?.values() || [])];
     const extChip = z => `<span class="bigmap-tile bm-edit bm-danger-${z.danger_rating || 'safe'}" style="width:auto;height:auto;padding:4px 8px;cursor:grab;flex-shrink:0;border-color:var(--accent)" draggable="true" ondragstart="mapTrayDragStart(event,'${z.id}')" title="${z.id}">${z.name}</span>`;
-    const intChip = z => `<span class="bigmap-tile bm-edit bm-danger-${z.danger_rating || 'safe'}" style="width:auto;height:auto;padding:4px 8px;cursor:grab;flex-shrink:0;border-color:var(--accent2);color:var(--accent2)" draggable="true" ondragstart="mapInteriorTrayDragStart(event,'${z.id}')" title="${z.id}">${z.name}</span>`;
+    const intChip = z => {
+      const isBuilding = z.flags?.is_building;
+      const label = isBuilding ? `🏢 ${z.name}` : z.name;
+      return `<span class="bigmap-tile bm-edit bm-danger-${z.danger_rating || 'safe'}" style="width:auto;height:auto;padding:4px 8px;cursor:grab;flex-shrink:0;border-color:var(--accent2);color:var(--accent2)${isBuilding ? ';font-weight:600' : ''}" draggable="true" ondragstart="mapInteriorTrayDragStart(event,'${z.id}')" title="${z.id}${isBuilding ? ' (building entry)' : ''}">${label}</span>`;
+    };
     html += `<div style="padding:0 12px 14px;border-top:1px solid var(--border);margin-top:8px">
       <div style="font-size:11px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;padding-top:10px">Unplaced Exterior Zones</div>
       <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px">Drag onto an empty cell to place on the world map.</div>

@@ -502,6 +502,18 @@ async function seedAmbientEvents() {
       [theme, message, loudness, weight]
     ).catch(() => {}); // skip on duplicate/error
   }
+
+  // Backfill: any zone that is the entry_zone_id of an interior map (one that
+  // has a parent_zone_id) gets is_building:true added to its flags so it is
+  // correctly categorised as a building-type interior zone.
+  await query(`
+    UPDATE zones z
+    SET flags = COALESCE(z.flags, '{}'::jsonb) || '{"is_building": true}'::jsonb
+    FROM maps m
+    WHERE m.entry_zone_id = z.id
+      AND m.parent_zone_id IS NOT NULL
+      AND COALESCE((z.flags->>'is_building')::boolean, false) = false
+  `).catch(() => {});
 }
 
 // Only auto-run when invoked directly (npm run db:migrate), not when imported.

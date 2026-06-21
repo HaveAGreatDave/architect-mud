@@ -96,7 +96,10 @@ export function getZone(id) { return world.zones.get(id) || null; }
 // Build a small graph snapshot for the minimap: current zone + everything
 // reachable within `depth` hops, with enough info to render an ASCII grid.
 export function getMinimapData(centerZoneId, depth = 4) {
-  const visited = new Map(); // zoneId -> { zone, distance }
+  const centerZone = world.zones.get(centerZoneId);
+  const centerMapId = centerZone?.map_id || null;
+
+  const visited = new Map(); // zoneId -> distance
   const queue = [{ id: centerZoneId, distance: 0 }];
   visited.set(centerZoneId, 0);
 
@@ -106,10 +109,15 @@ export function getMinimapData(centerZoneId, depth = 4) {
     const zone = world.zones.get(id);
     if (!zone) continue;
     for (const neighborId of Object.values(zone.exits || {})) {
-      if (!visited.has(neighborId)) {
-        visited.set(neighborId, distance + 1);
-        queue.push({ id: neighborId, distance: distance + 1 });
+      if (visited.has(neighborId)) continue;
+      // Stay within the same map — prevents exterior zones bleeding into
+      // an interior minimap and vice versa.
+      if (centerMapId) {
+        const neighbor = world.zones.get(neighborId);
+        if (!neighbor || neighbor.map_id !== centerMapId) continue;
       }
+      visited.set(neighborId, distance + 1);
+      queue.push({ id: neighborId, distance: distance + 1 });
     }
   }
 

@@ -332,9 +332,11 @@ async function apiLinkInterior(body, auth) {
     interiorMap = rows[0];
   }
 
+  // Mark the entry zone as a building — it is the front door of an interior map.
+  const intFlags = JSON.stringify({ ...(intRows[0].flags || {}), is_interior: true, is_building: true });
   // Update exterior zone exits and interior zone map placement
   await query('UPDATE zones SET exits=$1 WHERE id=$2', [JSON.stringify(exits), exteriorZoneId]);
-  await query('UPDATE zones SET map_id=$1, grid_x=0, grid_y=0, grid_z=0 WHERE id=$2', [interiorMap.id, interiorZoneId]);
+  await query('UPDATE zones SET map_id=$1, grid_x=0, grid_y=0, grid_z=0, flags=$2 WHERE id=$3', [interiorMap.id, intFlags, interiorZoneId]);
   await Promise.all([reloadZone(exteriorZoneId), reloadZone(interiorZoneId)]);
 
   return { status: 200, body: { interiorMap } };
