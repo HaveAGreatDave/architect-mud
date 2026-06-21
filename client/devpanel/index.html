@@ -1457,9 +1457,29 @@ function addLootRow() {
 }
 function removeLootRow(btn) { btn.closest('.loot-row').remove(); }
 
+function lootItemList(published) {
+  // Mirror the loadPanel staging overlay so unpublished items are selectable too.
+  let items = Array.isArray(published) ? published.slice() : [];
+  if (stagingEnabled && pendingChanges.length) {
+    const staged = pendingChanges.filter(c => c.entityType === 'item');
+    const stagedById = new Map(staged.map(c => [c.entityId, c]));
+    items = items.flatMap(r => {
+      const s = stagedById.get(r.id);
+      if (s?.changeType === 'delete') return [];
+      if (s?.changeType === 'update') return [{ ...r, ...s.stagedData }];
+      return [r];
+    });
+    for (const s of staged) {
+      if (s.changeType === 'create' && !items.some(r => r.id === s.entityId)) {
+        items.push({ ...s.stagedData, id: s.entityId });
+      }
+    }
+  }
+  return items.sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+}
+
 async function enemyEditForm(rec, isNew) {
-  const items = await API('/items');
-  _lootItems = (Array.isArray(items) ? items.slice() : []).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  _lootItems = lootItemList(await API('/items'));
   const loot = Array.isArray(rec.loot_table) ? rec.loot_table : JSON.parse(rec.loot_table||'[]');
   return `
     <div class="field"><label>Enemy ID</label><input id="f-id" value="${isNew?'':rec.id}" ${!isNew?'readonly style="opacity:0.5"':''}></div>
