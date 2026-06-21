@@ -525,6 +525,37 @@ async function cmdSkills(player) {
 
 async function cmdTake(targetStr, player, broadcast) {
   if (!targetStr) return { type:'error', message:'Take what?' };
+
+  if (targetStr.toLowerCase() === 'all') {
+    const { rows: allGround } = await query(
+      `SELECT pi.*,i.name,i.is_stackable FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1`,
+      [`_ground_${player.current_zone}`]
+    );
+    if (!allGround.length) return { type:'error', message:'Nothing here to take.' };
+    const messages = [];
+    for (const ground of allGround) {
+      if (ground.is_stackable) {
+        const { rows: existing } = await query(
+          'SELECT id, quantity FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND is_equipped=0',
+          [player.id, ground.item_id]
+        );
+        if (existing.length) {
+          await query('UPDATE player_inventory SET quantity = quantity + $1 WHERE id = $2', [ground.quantity, existing[0].id]);
+          await query('DELETE FROM player_inventory WHERE id=$1', [ground.id]);
+          await awardSkillXp(player.id, 'scavenging', 2);
+          broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} picks up ${ground.name}.` }, player.id);
+          messages.push(`You pick up ${ground.name}.`);
+          continue;
+        }
+      }
+      await query('UPDATE player_inventory SET player_id=$1 WHERE id=$2', [player.id, ground.id]);
+      await awardSkillXp(player.id, 'scavenging', 2);
+      broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} picks up ${ground.name}.` }, player.id);
+      messages.push(`You pick up ${ground.name}.`);
+    }
+    return { type:'take', message:messages.join('\n') };
+  }
+
   const { rows } = await query(`SELECT pi.*,i.name,i.is_stackable FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND i.name ILIKE $2 LIMIT 1`, [`_ground_${player.current_zone}`, `%${targetStr}%`]);
   if (!rows.length) return { type:'error', message:`Can't find "${targetStr}" here.` };
   const ground = rows[0];
