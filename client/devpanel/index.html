@@ -3949,13 +3949,17 @@ function renderValidatorResults(r) {
         ? `<span style="color:var(--success)">Auto-repaired</span>`
         : `<span style="color:var(--warning)">Manual review</span>`;
       if (issue.type === 'orphaned_entity') {
-        const btn = `<button class="action-btn danger" style="margin-left:6px" onclick="deleteOrphan(${JSON.stringify(issue.entityTable)},${JSON.stringify(issue.refId)})">Delete</button>`;
+        const entityId = `${issue.entityTable}:${issue.refId}`;
+        const isStaged = pendingChanges.some(c => c.entityType === 'orphan_cleanup' && c.entityId === entityId);
+        const actionCell = isStaged
+          ? `<span style="color:var(--danger);font-size:11px">⚠ Marked for Deletion</span>`
+          : `<span style="color:var(--warning)">Manual review</span><button class="action-btn danger" style="margin-left:6px" onclick="deleteOrphan(${JSON.stringify(issue.entityTable)},${JSON.stringify(issue.refId)})">Delete</button>`;
         html += `<tr>
           <td><code>${issue.refId}</code></td>
           <td>${issue.entityTable}</td>
           <td>—</td>
           <td>${ISSUE_LABELS[issue.type]}</td>
-          <td>${status}${btn}</td>
+          <td>${actionCell}</td>
         </tr>`;
       } else {
         html += `<tr>
@@ -3981,22 +3985,41 @@ function renderValidatorResults(r) {
 }
 
 async function deleteOrphan(table, refId) {
-  if (!confirm(`Delete all ${table} records tied to zone "${refId}"?`)) return;
-  const result = await API('/worldvalidator/delete-orphan', 'POST', { table, refId });
+  const entityId = `${table}:${refId}`;
+  const result = await API('/staging/stage', 'POST', {
+    entityType: 'orphan_cleanup',
+    entityId,
+    entityName: `${table} (zone: ${refId})`,
+    changeType: 'delete',
+    method: 'DELETE',
+    apiPath: '/worldvalidator/delete-orphan',
+    requestBody: { table, refId },
+    description: `Delete orphaned ${table} records referencing non-existent zone ${refId}`,
+  });
   if (result?.error) { toast(result.error, true); return; }
-  toast(`Deleted ${result.deleted} orphaned ${table} record${result.deleted !== 1 ? 's' : ''}`);
-  runFullValidation();
+  toast('Marked for deletion — publish to apply');
+  await updateStagingBadge();
+  if (lastValidatorReport) renderValidatorResults(lastValidatorReport);
 }
 
 async function deleteAllOrphans(orphans) {
-  if (!confirm(`Delete all ${orphans.length} orphaned records across ${[...new Set(orphans.map(o => o.table))].join(', ')}?`)) return;
-  let total = 0;
+  if (!confirm(`Stage deletion of all ${orphans.length} orphaned records for publishing?`)) return;
   for (const { table, refId } of orphans) {
-    const result = await API('/worldvalidator/delete-orphan', 'POST', { table, refId });
-    if (!result?.error) total += result?.deleted || 0;
+    const entityId = `${table}:${refId}`;
+    await API('/staging/stage', 'POST', {
+      entityType: 'orphan_cleanup',
+      entityId,
+      entityName: `${table} (zone: ${refId})`,
+      changeType: 'delete',
+      method: 'DELETE',
+      apiPath: '/worldvalidator/delete-orphan',
+      requestBody: { table, refId },
+      description: `Delete orphaned ${table} records referencing non-existent zone ${refId}`,
+    });
   }
-  toast(`Deleted ${total} orphaned record${total !== 1 ? 's' : ''}`);
-  runFullValidation();
+  toast(`${orphans.length} orphan${orphans.length !== 1 ? 's' : ''} marked for deletion — publish to apply`);
+  await updateStagingBadge();
+  if (lastValidatorReport) renderValidatorResults(lastValidatorReport);
 }
 
 async function runMapGeometryValidation() {

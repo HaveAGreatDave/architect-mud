@@ -105,9 +105,31 @@ const CREATORS = {
   furniture: (data) => apiCreateFurniture(data),
 };
 
+// Allowed tables for orphan cleanup deletes. Maps table name → zone column.
+const ORPHAN_TABLES = {
+  furniture:       'zone_id',
+  npcs:            'zone_id',
+  zone_spawns:     'zone_id',
+  generators:      'zone_id',
+  power_zones:     'id',
+  lighting_states: 'zone_id',
+  windows:         'zone_interior',
+  items:           'zone_id',
+};
+
 const DELETERS = {
-  zone:      (id) => apiDeleteZone(id),
-  furniture: (id) => apiDeleteFurniture(id),
+  zone:           (id) => apiDeleteZone(id),
+  furniture:      (id) => apiDeleteFurniture(id),
+  // Orphan cleanup: entity_id is "{table}:{refId}"
+  orphan_cleanup: async (compositeId) => {
+    const sep = compositeId.indexOf(':');
+    const table = compositeId.slice(0, sep);
+    const refId = compositeId.slice(sep + 1);
+    const col = ORPHAN_TABLES[table];
+    if (!col) throw new Error(`Unknown orphan table: ${table}`);
+    const { rowCount } = await query(`DELETE FROM ${table} WHERE ${col}=$1`, [refId]);
+    return { status: 200, body: { deleted: rowCount } };
+  },
 };
 
 async function applyChange(change) {
