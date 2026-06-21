@@ -3,7 +3,7 @@ import { getZone, getMinimapData, addPlayerToZone, removePlayerFromZone } from '
 import { getZoneVisibility, getWindowsForZone } from '../environment.js';
 import { describeZone, resolveNamedDestination } from './describe.js';
 
-const RAW_DIRECTIONS = ['north', 'south', 'east', 'west', 'up', 'down'];
+const RAW_DIRECTIONS = ['north', 'south', 'east', 'west', 'up', 'down', 'in', 'out'];
 
 async function cmdLookThroughWindow(win, player) {
   if (!win.curtain_open && win.glass_state !== 'broken') {
@@ -57,7 +57,7 @@ async function cmdExamineFallback(targetStr, player) {
 }
 
 async function cmdGo(argText, player, broadcast) {
-  if (!argText) return { type: 'error', message: 'Go where? (north, south, east, west, up, down — or a building/room name)' };
+  if (!argText) return { type: 'error', message: 'Go where? (north, south, east, west, up, down, in, out — or a building/room name)' };
   if (RAW_DIRECTIONS.includes(argText)) return cmdMove(argText, player, broadcast);
   const zone = getZone(player.current_zone);
   if (!zone) return { type: 'error', message: 'Your zone is missing.' };
@@ -84,7 +84,7 @@ async function cmdMove(direction, player, broadcast) {
   player.current_zone = targetId;
   await query('UPDATE players SET current_zone=$1 WHERE id=$2', [targetId, player.id]);
 
-  const OPPOSITE = { north:'south', south:'north', east:'west', west:'east', up:'down', down:'up' };
+  const OPPOSITE = { north:'south', south:'north', east:'west', west:'east', up:'down', down:'up', in:'out', out:'in' };
   const arrivalDir = OPPOSITE[direction] || null;
 
   broadcast(zone.id, { type:'zone_event', message:`${player.handle} heads ${direction}.` }, player.id);
@@ -147,5 +147,7 @@ export const handlers = {
   u:     (args, raw, player, broadcast) => cmdMove('up', player, broadcast),
   down:  (args, raw, player, broadcast) => cmdMove('down', player, broadcast),
   d:     (args, raw, player, broadcast) => cmdMove('down', player, broadcast),
+  in:    (args, raw, player, broadcast) => cmdMove('in', player, broadcast),
+  out:   (args, raw, player, broadcast) => cmdMove('out', player, broadcast),
   map:   (args, raw, player) => cmdMap(player),
 };
