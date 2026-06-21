@@ -1616,28 +1616,38 @@ function fToggle(header) {
 
 function openFurnitureAddModal(zoneId) {
   const zoneName = _furnitureZoneNames.get(zoneId) || zoneId;
-  const opts = _furnitureAllItems
-    .filter(f => f.zone_id !== zoneId)
+
+  // Deduplicate furniture by name to show unique types
+  const seen = new Set();
+  const types = _furnitureAllItems
     .sort((a,b) => a.name.localeCompare(b.name))
-    .map(f => {
-      const cur = f.zone_id ? (_furnitureZoneNames.get(f.zone_id) || f.zone_id) : 'unplaced';
-      return `<option value="${f.id}">${f.name} (${cur})</option>`;
-    }).join('');
+    .filter(f => { if (seen.has(f.name)) return false; seen.add(f.name); return true; });
+
+  const opts = types.map(f =>
+    `<option value="${f.id}">${f.name}</option>`
+  ).join('');
 
   document.getElementById('modal-title').textContent = `Add furniture to: ${zoneName}`;
   document.getElementById('modal-body').innerHTML = opts
-    ? `<div class="field"><label>Select furniture to move here</label>
+    ? `<div class="field"><label>Furniture type to clone here</label>
         <select id="fam-pick" style="width:100%">${opts}</select></div>
-       <div style="font-size:11px;color:var(--text-dim);margin-top:4px">This reassigns the selected furniture item to this room.</div>`
-    : `<div style="color:var(--text-dim);padding:8px 0">All furniture is already in this room, or no furniture exists yet.</div>`;
+       <div style="font-size:11px;color:var(--text-dim);margin-top:4px">Creates a new copy of the selected furniture type in this room.</div>`
+    : `<div style="color:var(--text-dim);padding:8px 0">No furniture types exist yet. Create one first via the furniture panel.</div>`;
 
   document.getElementById('modal-save').style.display = opts ? '' : 'none';
   document.getElementById('modal-save').onclick = async () => {
     const id = document.getElementById('fam-pick')?.value;
     if (!id) return;
-    const r = await API(`/furniture/${id}`, 'PUT', { zone_id: zoneId });
+    const template = _furnitureAllItems.find(f => f.id === id);
+    if (!template) return;
+    const r = await API('/furniture', 'POST', {
+      zone_id: zoneId,
+      name: template.name,
+      description: template.description || '',
+      flags: template.flags || {},
+    });
     if (r?.error) { toast(r.error, true); return; }
-    toast('Furniture moved to room');
+    toast('Furniture added to room');
     closeModal();
     loadPanel('furniture');
   };
@@ -1702,11 +1712,20 @@ function openFurnitureRoomModal(zoneId) {
 
 
 function furnitureEditForm(rec, isNew) {
+  const zoneOptions = [..._furnitureZoneNames.entries()]
+    .sort((a,b) => a[1].localeCompare(b[1]))
+    .map(([id, name]) => `<option value="${id}" ${rec.zone_id===id?'selected':''}>${name} (${id})</option>`)
+    .join('');
   return `
     <div class="field"><label>Furniture ID</label><input id="f-id" value="${isNew?'':rec.id}" ${!isNew?'readonly style="opacity:0.5"':''}></div>
     <div class="field"><label>Name</label><input id="f-name" value="${rec.name||''}"></div>
     <div class="field"><label>Description</label><textarea id="f-description" rows="4">${rec.description||''}</textarea></div>
-    <div class="field"><label>Zone ID</label><input id="f-zone_id" value="${rec.zone_id||''}"></div>
+    ${!isNew ? `<div class="field"><label>Zone</label>
+      <select id="f-zone_id">
+        <option value="" ${!rec.zone_id?'selected':''}>— Unplaced —</option>
+        ${zoneOptions}
+      </select>
+    </div>` : `<input type="hidden" id="f-zone_id" value="${rec.zone_id||''}">`}
   `;
 }
 async function saveFurniture(existing) {
