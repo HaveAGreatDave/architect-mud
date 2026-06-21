@@ -2205,11 +2205,9 @@ function renderMapOverview() {
       <button class="action-btn" onclick="changeFloor(1)">▴</button>
     </div>`;
   } else {
-    const mapOptions = mapsList.map(m => `<option value="${m.id}" ${m.id === o.map.id ? 'selected' : ''}>${m.name} (${m.zone_count} zones)</option>`).join('');
     html += `<div class="map-toolbar">
-      <label>Map</label>
-      <select onchange="switchMap(this.value)">${mapOptions}</select>
-      <span style="margin-left:6px">Floor</span>
+      <span style="color:var(--text-bright);font-weight:600;font-size:13px">${o.map.name}</span>
+      <span style="margin-left:auto">Floor</span>
       <button class="action-btn" onclick="changeFloor(-1)">▾</button>
       <span style="min-width:60px;text-align:center">z = ${o.z}</span>
       <button class="action-btn" onclick="changeFloor(1)">▴</button>
@@ -2355,30 +2353,31 @@ function renderMapOverview() {
       ` : ''}
     </div>`;
   } else {
-    //  • tray       — map_id IS NULL (server-side unplaced query)
-    //  • noPosition — map_id = this map but grid_x/grid_y not set (assigned but never placed)
-    //  • disconnected — on the grid but exits = {} (wired nowhere)
-    const tray = [...o.unplaced.values()];
+    const extTray = [...o.unplaced.values()];
     const noPosition = [...o.zones.values()].filter(z => z.grid_x == null && !z.flags?.is_interior && !z.flags?.is_apartment);
     const disconnected = [...o.zones.values()].filter(z => Object.keys(z.exits || {}).length === 0 && z.grid_x != null);
-    const allUnplaced = [...tray, ...noPosition].sort((a, b) => a.name.localeCompare(b.name));
+    const allExtUnplaced = [...extTray, ...noPosition].sort((a, b) => a.name.localeCompare(b.name));
+    const intUnplaced = [...(o.unplacedInterior?.values() || [])];
+    const extChip = z => `<span class="bigmap-tile bm-edit bm-danger-${z.danger_rating || 'safe'}" style="width:auto;height:auto;padding:4px 8px;cursor:grab;flex-shrink:0;border-color:var(--accent)" draggable="true" ondragstart="mapTrayDragStart(event,'${z.id}')" title="${z.id}">${z.name}</span>`;
+    const intChip = z => `<span class="bigmap-tile bm-edit bm-danger-${z.danger_rating || 'safe'}" style="width:auto;height:auto;padding:4px 8px;cursor:grab;flex-shrink:0;border-color:var(--accent2);color:var(--accent2)" draggable="true" ondragstart="mapInteriorTrayDragStart(event,'${z.id}')" title="${z.id}">${z.name}</span>`;
     html += `<div style="padding:0 12px 14px;border-top:1px solid var(--border);margin-top:8px">
-      <div style="font-size:11px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;padding-top:10px">Unplaced Zones</div>
-      <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px">Zones with no grid position. Drag onto an empty cell to place on <strong>${o.map.name}</strong>.</div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:${disconnected.length || (o.unplacedInterior?.size > 0) ? '14px' : '0'}">${allUnplaced.length
-        ? allUnplaced.map(z => trayChip(z, 'mapTrayDragStart')).join('')
+      <div style="font-size:11px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;padding-top:10px">Unplaced Exterior Zones</div>
+      <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px">Drag onto an empty cell to place on the world map.</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">${allExtUnplaced.length
+        ? allExtUnplaced.map(extChip).join('')
         : `<span style="color:var(--text-dim);font-style:italic;font-size:11px">None.</span>`
       }</div>
       ${disconnected.length ? `
       <div style="font-size:11px;font-weight:600;color:var(--yellow);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">No Connections</div>
-      <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px">These zones are on the map grid but have no exits — they may need wiring up.</div>
+      <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px">On the map grid but have no exits — may need wiring up.</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">${disconnected.map(z => trayChip(z, 'mapTrayDragStart')).join('')}</div>
       ` : ''}
-      ${(o.unplacedInterior?.size > 0) ? `
       <div style="font-size:11px;font-weight:600;color:var(--accent2);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Unplaced Interior Zones</div>
-      <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px">Drag onto an exterior zone tile to link this interior to it.</div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap">${[...o.unplacedInterior.values()].map(z => trayChip(z, 'mapInteriorTrayDragStart')).join('')}</div>
-      ` : ''}
+      <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px">Drag onto an existing exterior zone tile to link and create an interior map.</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">${intUnplaced.length
+        ? intUnplaced.map(intChip).join('')
+        : `<span style="color:var(--text-dim);font-style:italic;font-size:11px">None.</span>`
+      }</div>
     </div>`;
   }
   panel.innerHTML = html;
@@ -2525,7 +2524,8 @@ async function linkInteriorToExterior(interiorZoneId, exteriorZoneId, dir) {
 async function switchMapTab(tab, interiorId) {
   mapViewTab = tab;
   if (tab === 'exterior') {
-    const extId = mapExteriorMapId || mapsList.find(m => !m.parent_zone_id)?.id || mapsList[0]?.id;
+    const extId = mapsList.find(m => m.id === 'map_world')?.id || mapsList.find(m => !m.parent_zone_id)?.id || mapsList[0]?.id;
+    mapExteriorMapId = extId;
     await loadMapOverview(extId);
     return;
   }
