@@ -8,7 +8,7 @@
 
 import { query } from '../models/db.js';
 import {
-  apiCreateFurniture,
+  apiCreateFurniture, apiDeleteFurniture,
   apiUpdateZone, apiUpdateEnemy, apiUpdateItem, apiUpdateNpc,
   apiUpdateFurniture, apiUpdateRecipe, apiUpdateMutation, apiUpdateDrug,
 } from './routes.js';
@@ -99,14 +99,22 @@ const UPDATERS = {
   drug:      (id, data) => apiUpdateDrug(id, data),
 };
 
-// Entity types that support create via staging (change_type = 'create').
 const CREATORS = {
   furniture: (data) => apiCreateFurniture(data),
+};
+
+const DELETERS = {
+  furniture: (id) => apiDeleteFurniture(id),
 };
 
 async function applyChange(change) {
   if (change.change_type === 'create' && CREATORS[change.entity_type]) {
     const result = await CREATORS[change.entity_type](change.staged_data || {});
+    if (result?.body?.error) throw new Error(result.body.error);
+    return result;
+  }
+  if (change.change_type === 'delete' && DELETERS[change.entity_type]) {
+    const result = await DELETERS[change.entity_type](change.entity_id);
     if (result?.body?.error) throw new Error(result.body.error);
     return result;
   }

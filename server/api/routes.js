@@ -508,7 +508,7 @@ export async function apiUpdateFurniture(id, body) {
     return {status:200,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
-async function apiDeleteFurniture(id) {
+export async function apiDeleteFurniture(id) {
   try {
     await query('DELETE FROM furniture WHERE id=$1', [id]);
     return {status:200,body:{message:'Furniture deleted'}};

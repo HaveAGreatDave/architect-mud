@@ -738,8 +738,28 @@ async function saveRecord() {
   }
 }
 
+async function deleteFurnitureStaged(id, name) {
+  if (!confirm(`Mark "${name}" for deletion? It will be removed when you publish.`)) return;
+  const prev = currentRecord;
+  currentRecord = { name }; // staging interceptor reads currentRecord.name for the entity label
+  const r = await API(`/furniture/${id}`, 'DELETE');
+  currentRecord = prev;
+  if (r?.error) { toast(r.error, true); return; }
+  const item = _furnitureAllItems.find(f => f.id === id);
+  if (item) item._markedForDeletion = true;
+  renderFurniturePanel({ furniture: _furnitureAllItems, zones: [..._furnitureZoneNames.entries()].map(([zid, zname]) => ({ id: zid, name: zname })) });
+  updateStagingBadge();
+  toast(`"${name}" marked for deletion`);
+}
+
 async function deleteRecord() {
   if (!currentRecord) return;
+  // Furniture deletes are staged — route to the staged delete path.
+  if (currentPanel === 'furniture') {
+    await deleteFurnitureStaged(currentRecord.id, currentRecord.name || currentRecord.id);
+    closeEdit();
+    return;
+  }
   let confirmMsg = `Delete ${currentRecord.name || currentRecord.id}?`;
   if (currentPanel === 'zones') {
     const childCount = allRecords.filter(z => (z.flags?.is_apartment || z.flags?.is_interior) && Object.values(z.exits || {})[0] === currentRecord.id).length;
@@ -1579,19 +1599,21 @@ function renderFurniturePanel(data) {
       const lightBadge = f.is_light
         ? `<span style="font-size:10px;background:var(--bg3);padding:1px 5px;border-radius:2px;margin-left:6px;color:${f.light_on ? 'var(--yellow)' : 'var(--text-dim)'}">💡${f.light_type||''}</span>`
         : '';
-      const stagedBadge = f._staged
-        ? `<span style="font-size:10px;background:rgba(245,230,66,0.12);border:1px solid var(--yellow);color:var(--yellow);padding:1px 6px;border-radius:2px;margin-left:6px;letter-spacing:0.5px">! Not Published</span>`
-        : _furniturePublishedNames.has(f.name)
-          ? `<span style="font-size:10px;background:rgba(57,255,143,0.12);border:1px solid var(--accent2);color:var(--accent2);padding:1px 6px;border-radius:2px;margin-left:6px;letter-spacing:0.5px">✓ Published</span>`
-          : '';
-      const nameColor = f._staged ? 'var(--yellow)' : _furniturePublishedNames.has(f.name) ? 'var(--accent2)' : 'var(--text-bright)';
+      const stagedBadge = f._markedForDeletion
+        ? `<span style="font-size:10px;background:rgba(255,59,92,0.12);border:1px solid var(--red);color:var(--red);padding:1px 6px;border-radius:2px;margin-left:6px;letter-spacing:0.5px">✕ Marked for Deletion</span>`
+        : f._staged
+          ? `<span style="font-size:10px;background:rgba(245,230,66,0.12);border:1px solid var(--yellow);color:var(--yellow);padding:1px 6px;border-radius:2px;margin-left:6px;letter-spacing:0.5px">! Not Published</span>`
+          : _furniturePublishedNames.has(f.name)
+            ? `<span style="font-size:10px;background:rgba(57,255,143,0.12);border:1px solid var(--accent2);color:var(--accent2);padding:1px 6px;border-radius:2px;margin-left:6px;letter-spacing:0.5px">✓ Published</span>`
+            : '';
+      const nameColor = f._markedForDeletion ? 'var(--red)' : f._staged ? 'var(--yellow)' : _furniturePublishedNames.has(f.name) ? 'var(--accent2)' : 'var(--text-bright)';
       return `<div style="display:flex;align-items:center;gap:8px;padding:5px 12px 5px 28px;border-bottom:1px solid var(--border);background:var(--bg1)">
         <div style="flex:1;min-width:0">
           <span style="color:${nameColor}">${f.name}</span>${lightBadge}${stagedBadge}
           ${f.description ? `<div style="font-size:11px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:500px">${f.description}</div>` : ''}
         </div>
         <button class="action-btn" style="font-size:10px;padding:2px 8px" onclick="editRecord('${f.id}')">Edit</button>
-        <button class="action-btn danger" style="font-size:10px;padding:2px 8px" onclick="deleteRecord('${f.id}')">Del</button>
+        <button class="action-btn danger" style="font-size:10px;padding:2px 8px" onclick="deleteFurnitureStaged('${f.id}','${f.name.replace(/'/g,"\\'")}')">Del</button>
       </div>`;
     }).join('');
 
@@ -1696,7 +1718,7 @@ function openFurnitureRoomModal(zoneId) {
     <td style="color:var(--text-dim);font-size:11px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.description||''}</td>
     <td style="text-align:right;white-space:nowrap">
       <button class="action-btn" style="font-size:10px;padding:2px 6px" onclick="closeModal();editRecord('${f.id}')">Edit</button>
-      <button class="action-btn danger" style="font-size:10px;padding:2px 6px;margin-left:2px" onclick="closeModal();deleteRecord('${f.id}')">Del</button>
+      <button class="action-btn danger" style="font-size:10px;padding:2px 6px;margin-left:2px" onclick="closeModal();deleteFurnitureStaged('${f.id}','${f.name.replace(/'/g,"\\'")}')">Del</button>
     </td>
   </tr>`).join('');
 
