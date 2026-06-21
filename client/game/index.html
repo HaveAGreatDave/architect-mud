@@ -1085,7 +1085,8 @@ async function openWhoModal() {
   try {
     const r = await fetch('/api/players/online');
     const data = await r.json();
-    _whoPlayers = Array.isArray(data) ? data : [];
+    const myHandle = document.getElementById('handle-display')?.textContent?.trim();
+    _whoPlayers = Array.isArray(data) ? data.filter(p => p.handle !== myHandle) : [];
   } catch { _whoPlayers = []; }
   _renderWhoList(_whoPlayers);
 }
