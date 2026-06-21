@@ -421,6 +421,7 @@
       <button class="qcmd" onclick="sendCmd('recipes')">recipes</button>
       <button class="qcmd" onclick="sendCmd('factions')">factions</button>
       <button class="qcmd" onclick="sendCmd('mutations')">mutations</button>
+      <button id="debug-whisper-btn" class="qcmd" onclick="debugFakeWhisper()" style="display:none;border-color:var(--text-dim);opacity:0.6" title="Send yourself a test whisper">⚙ test whisper</button>
     </div>
     <div id="input-area">
       <span id="prompt">&gt;</span>
@@ -1141,7 +1142,10 @@ async function whoSmite(id, handle) {
 async function whoKick(id, handle) {
   const token = sessionStorage.getItem('devpanel-token');
   if (!token) return;
-  await fetch(`/api/players/${id}/kick`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify({}), });
+  const reason = prompt(`Kick ${handle} — reason (optional):`);
+  if (reason === null) return; // cancelled
+  const adminHandle = document.getElementById('handle-display')?.textContent?.trim() || 'An administrator';
+  await fetch(`/api/players/${id}/kick`, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ reason, adminHandle }) });
 }
 
 function showColdStart() {
@@ -1409,6 +1413,12 @@ setInterval(() => {
 function showDevPanelButton() {
   const btn = document.getElementById('dev-panel-btn');
   if (btn) btn.style.display = '';
+  const dbg = document.getElementById('debug-whisper-btn');
+  if (dbg) dbg.style.display = '';
+}
+
+function debugFakeWhisper() {
+  receiveWhisper('TestUser', 'This is a fake whisper to test the chat notification system.');
 }
 
 // Pulls this zone's visibility category whenever the player arrives

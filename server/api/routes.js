@@ -9,6 +9,7 @@ import { handleEnvironmentApi } from './environment.routes.js';
 import { handleWorldValidatorApi } from './worldvalidator.routes.js';
 import { handleStagingApi } from './staging.routes.js';
 import { fireRoutes, fireHook } from '../engine/plugins.js';
+import { handlePlayerDeath } from '../engine/gameLoop.js';
 
 const hashPassword = pw => createHash('sha256').update(pw).digest('hex');
 const makeToken = (playerId, role) => Buffer.from(`${playerId}:${role}:${Date.now()}`).toString('base64');
@@ -510,10 +511,16 @@ async function apiSmitePlayer(id) {
   const {rows}=await query('SELECT handle,current_zone FROM players WHERE id=$1',[id]);
   if (!rows.length) return {status:404,body:{error:'Player not found'}};
   const {handle,current_zone}=rows[0];
-  await query('UPDATE players SET hp=0 WHERE id=$1',[id]);
-  broadcastFn(current_zone,{type:'zone_event',message:`A bolt of lightning strikes ${handle} dead.`});
-  broadcastFn(null,{type:'output',message:'<span style="color:#ff3b5c">⚡ You have been smitten by divine lightning. Everything goes white.</span>'},null,id);
-  broadcastFn(null,{type:'player_update',hp:0},null,id);
+  const player = getAllLivePlayers().find(p=>p.id===id);
+  if (!player) return {status:404,body:{error:'Player not online'}};
+
+  const zoneMsg = `<span style="color:#f5e642">⚡ THE SKY TEARS OPEN.</span> A pillar of white fire descends from nowhere and detonates directly on top of <span style="color:#ff3b5c">${handle}</span>. The ground chars. The air smells like burned ambition. <span style="color:#f5e642">${handle} is annihilated.</span>`;
+  const selfMsg = `<span style="color:#f5e642;font-weight:bold">⚡ ⚡ ⚡ THE ARCHITECT HAS NOTICED YOU. ⚡ ⚡ ⚡</span>\n<span style="color:#ff3b5c">A column of divine lightning the width of a building drops out of the sky and hits you so hard the universe briefly forgets you exist. You feel every atom in your body make a personal decision to stop cooperating.</span>\n<span style="color:#f5e642">You are dead. You have been very dead. This is perhaps the deadest anyone has ever been.</span>`;
+
+  broadcastFn(current_zone, {type:'zone_event', message:zoneMsg}, id);
+  broadcastFn(null, {type:'output', message:selfMsg}, null, id);
+
+  handlePlayerDeath(player, null);
   return {status:200,body:{smited:true,handle}};
 }
 
@@ -529,8 +536,12 @@ async function apiWhisperPlayer(id, body) {
 async function apiKickPlayer(id, body) {
   const {rows}=await query('SELECT handle FROM players WHERE id=$1',[id]);
   if (!rows.length) return {status:404,body:{error:'Player not found'}};
-  const reason = body?.reason || 'Kicked by administrator.';
-  broadcastFn(null,{type:'kicked',message:reason},null,id);
+  const adminHandle = body?.adminHandle || 'An administrator';
+  const reason = body?.reason?.trim();
+  const message = reason
+    ? `You have been kicked by ${adminHandle}. [${reason}]`
+    : `You have been kicked by ${adminHandle}.`;
+  broadcastFn(null,{type:'kicked',message},null,id);
   return {status:200,body:{kicked:true,handle:rows[0].handle}};
 }
 

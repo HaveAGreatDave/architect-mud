@@ -104,7 +104,7 @@ async function minuteTickFn() {
   }
 }
 
-function handlePlayerDeath(player, killer) {
+export function handlePlayerDeath(player, killer) {
   const msgs = [
     "You die. Statistically speaking, this was inevitable.",
     "You die. The world continues without you, which feels rude.",
