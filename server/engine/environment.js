@@ -36,6 +36,9 @@ import { schedule } from './scheduler.js';
 // The actual intervals are now managed by scheduler.js.
 const TICK_30M_MS = 30 * 60 * 1000;
 const TICK_24H_MS = 24 * 60 * 60 * 1000;
+// Boot catch-up ceiling: replay at most this many missed days after a long
+// outage so a very stale clock can't stall startup with day-by-day sims.
+const MAX_CATCHUP_DAYS = 30;
 
 const WEATHER_TYPES = ['sunny', 'cloudy', 'rain', 'fog', 'storm', 'snow'];
 
@@ -192,12 +195,32 @@ export async function initEnvironment({ query, emitHook, broadcast }) {
   await loadZonePowerAndLighting(query);
   recalcAmbientAndVisibility();
 
-  // Catch up on missed ticks after downtime, at most once each, then resume
-  // the normal interval from "now" — avoids a restart firing a storm of
-  // redundant ticks while still keeping the world from going stale.
+  // Catch up on time missed during downtime. Game time runs 1:1 with real time,
+  // so advance by the FULL elapsed interval — not a single tick. (The old
+  // once-each version under-counted: a 3-hour outage only added 30 minutes,
+  // leaving the world clock permanently behind after every cold start.)
   const now = Date.now();
-  if (now - state.lastTick24h >= TICK_24H_MS) await tick24h();
-  if (now - state.lastTick30m >= TICK_30M_MS) await tick30m();
+
+  // Whole missed days: replay one tick24h per day so the weather plugin's
+  // rolling forecast and the power sim advance day-by-day. Capped for sanity.
+  const missed24h = Math.floor((now - state.lastTick24h) / TICK_24H_MS);
+  if (missed24h > 0) {
+    for (let i = 0; i < Math.min(missed24h, MAX_CATCHUP_DAYS); i++) await tick24h();
+    state.lastTick24h = now;
+  }
+
+  // Time-of-day: jump straight to the correct minute in one step (O(1), exact
+  // for any outage length) rather than looping tick30m.
+  const missed30m = Math.floor((now - state.lastTick30m) / TICK_30M_MS);
+  if (missed30m > 0) {
+    state.minutes = (state.minutes + missed30m * 30) % (24 * 60);
+    state.lastTick30m = now;
+    recalcAmbientAndVisibility();
+    await query(
+      `UPDATE world_clock SET game_time_minutes = $1, last_tick_30m = now() WHERE id = 1`,
+      [state.minutes]
+    );
+  }
 
   scheduleTicks();
   state.ready = true;

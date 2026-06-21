@@ -1350,42 +1350,58 @@ function formatHHMM(m) {
   return `${String(h).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
 }
 
-let clientMinutes = null;   // local running clock, ticks +1 every real minute
+// Clock anchor: server time + the wall-clock instant we received it. The
+// displayed time is computed from elapsed real time, NOT by counting timer
+// fires — so a throttled/frozen background tab can't drift (it just stops
+// repainting, then shows the correct time the moment it wakes). Game time
+// runs 1:1 with real time (server tick30m = +30 game-min / 30 real-min).
+let anchorMinutes = null;   // server minutes-since-midnight at last sync
+let anchorAt = 0;           // Date.now() when that sync arrived
 let envWeatherIcon = '—';
 let envTempC = null;
 
 function updateEnvironmentHUD(env) {
   if (!env || !env.time) return;
-  clientMinutes = parseHHMM(env.time); // resync — server is authoritative
+  anchorMinutes = parseHHMM(env.time); // resync — server is authoritative
+  anchorAt = Date.now();
   envWeatherIcon = env.weatherIcon || '—';
   envTempC = env.tempC;
   renderEnvironmentHUD();
 }
 
 function renderEnvironmentHUD() {
-  if (clientMinutes === null) return;
+  if (anchorMinutes === null) return;
+  const elapsedMin = Math.floor((Date.now() - anchorAt) / 60000);
+  const nowMinutes = (anchorMinutes + elapsedMin) % (24 * 60);
   const weatherEl = document.getElementById('env-weather-icon');
   const clockEl = document.getElementById('env-clock');
   const timeIconEl = document.getElementById('env-time-icon');
   const tempEl = document.getElementById('env-temp');
   if (weatherEl) weatherEl.textContent = envWeatherIcon;
-  if (clockEl) clockEl.textContent = formatHHMM(clientMinutes);
-  if (timeIconEl) timeIconEl.textContent = timeIconForMinutes(clientMinutes);
+  if (clockEl) clockEl.textContent = formatHHMM(nowMinutes);
+  if (timeIconEl) timeIconEl.textContent = timeIconForMinutes(nowMinutes);
   if (tempEl) tempEl.textContent = envTempC !== null ? `${envTempC}°C` : '—°C';
 }
 
-// Local minute tick — keeps the clock moving between the server's 30-minute syncs.
-setInterval(() => {
-  if (clientMinutes === null) return;
-  clientMinutes = (clientMinutes + 1) % (24 * 60);
-  renderEnvironmentHUD();
-}, 60000);
-
-// Periodic resync from server every 5 minutes in case the local tick drifts.
-setInterval(() => {
-  if (clientMinutes === null) return;
+function resyncEnvironment() {
   fetch('/api/environment/state').then(r => r.json()).then(updateEnvironmentHUD).catch(() => {});
-}, 5 * 60 * 1000);
+}
+
+// Repaint trigger only — recomputes from the anchor, so irregular/throttled
+// firing can't accumulate drift.
+setInterval(renderEnvironmentHUD, 60000);
+
+// Periodic resync from server every 5 minutes as a slow correction (e.g. the
+// server caught up missed ticks after downtime).
+setInterval(() => { if (anchorMinutes !== null) resyncEnvironment(); }, 5 * 60 * 1000);
+
+// A backgrounded tab freezes its timers; the moment it regains focus, snap the
+// clock to the true server time instead of waiting up to 5 minutes.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible' || anchorMinutes === null) return;
+  renderEnvironmentHUD();
+  resyncEnvironment();
+});
 
 function showDevPanelButton() {
   const btn = document.getElementById('dev-panel-btn');
