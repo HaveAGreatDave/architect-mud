@@ -2459,7 +2459,7 @@ function renderPlayersPanel(data) {
 
   const tableRows = list => list.map(p => `<tr>
     <td style="width:14px;padding-right:0">${onlineDot(p.online)}</td>
-    <td style="font-weight:600;color:var(--text-bright)">${p.handle}</td>
+    <td style="font-weight:600;color:${ADMIN_ROLES.has(p.role)?'var(--red)':'var(--text-bright)'}">${p.handle}</td>
     <td style="color:var(--text-dim)">${p.username}</td>
     <td><span style="color:${roleColor(p.role)}">${p.role}</span></td>
     <td style="color:var(--text-dim);font-size:11px">${p.current_zone||'—'}</td>

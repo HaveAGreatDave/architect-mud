@@ -114,6 +114,7 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path.startsWith('/mutations/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteMutation(path.split('/')[2]));
   if (path==='/world/state' && method==='GET') return requireDev(auth, apiWorldState);
   if (path==='/world/reload' && method==='POST') return requireDev(auth, ()=>apiReloadZone(body));
+  if (path==='/players/online' && method==='GET') return { status:200, body: getAllLivePlayers().map(p=>({ handle: p.handle, role: p.role })) };
   if (path==='/players' && method==='GET') return requireAdmin(auth, apiGetPlayers);
   if (path.startsWith('/players/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeletePlayer(path.split('/')[2]));
   if (path.startsWith('/players/') && path.endsWith('/smite') && method==='POST') return requireAdmin(auth, ()=>apiSmitePlayer(path.split('/')[2]));
@@ -478,7 +479,7 @@ async function apiDeleteFurniture(id) {
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
 async function apiWorldState() {
-  const players = getAllLivePlayers().map(p => ({ handle: p.handle, current_zone: p.current_zone }));
+  const players = getAllLivePlayers().map(p => ({ handle: p.handle, role: p.role, current_zone: p.current_zone }));
   return {status:200,body:{zones:getAllZones(),online_players:players,live_enemies:world.enemies.size,live_corpses:world.corpses.size}};
 }
 async function apiReloadZone(body) {
