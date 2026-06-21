@@ -623,7 +623,7 @@ function renderZonesTable(records) {
   html += '<th></th></tr></thead><tbody>';
 
   const renderRow = (rec, isChild, hasKids, collapsed) => {
-    let row = `<tr class="${isChild ? 'zone-child-row' : ''}" onclick="selectRecord('${rec.id}')">`;
+    let row = `<tr class="${isChild ? 'zone-child-row' : ''}" style="cursor:pointer" onclick="editRecord('${rec.id}')">`;
     columns.forEach((col, i) => {
       const raw = rec[col.key];
       let val = col.render ? col.render(raw) : (raw ?? '—');
@@ -633,7 +633,11 @@ function renderZonesTable(records) {
       }
       row += `<td>${val}</td>`;
     });
-    row += `<td><button class="action-btn" onclick="event.stopPropagation();editRecord('${rec.id}')">Edit</button></td>`;
+    row += `<td style="white-space:nowrap">
+      <button class="action-btn" onclick="event.stopPropagation();editRecord('${rec.id}')">Edit</button>
+      <button class="action-btn" style="margin-left:3px" onclick="event.stopPropagation();cloneZoneRow('${rec.id}')">Clone</button>
+      <button class="action-btn danger" style="margin-left:3px" onclick="event.stopPropagation();deleteZoneRow('${rec.id}')">Delete</button>
+    </td>`;
     row += '</tr>';
     return row;
   };
@@ -782,6 +786,31 @@ async function deleteRecord() {
     toast(`Unexpected error: ${err.message}`, true);
     console.error('deleteRecord failed:', err);
   }
+}
+
+// Inline Delete/Clone for zones table rows — act without opening the edit panel.
+async function deleteZoneRow(id) {
+  const rec = allRecords.find(r => r.id === id);
+  if (!rec) return;
+  const childCount = allRecords.filter(z => (z.flags?.is_apartment || z.flags?.is_interior) && Object.values(z.exits || {})[0] === id).length;
+  const msg = childCount
+    ? `Delete ${rec.name || id}? This will also delete ${childCount} attached room${childCount > 1 ? 's' : ''}.`
+    : `Delete ${rec.name || id}?`;
+  if (!confirm(msg)) return;
+  const prev = currentRecord;
+  currentRecord = rec;
+  const result = await API(`/zones/${id}`, 'DELETE');
+  currentRecord = prev;
+  if (result?.error) { toast(result.error, true); return; }
+  toast(result?.message || 'Deleted');
+  await loadPanel('zones');
+}
+
+function cloneZoneRow(id) {
+  const src = allRecords.find(r => r.id === id);
+  if (!src) return;
+  currentRecord = null;
+  openEdit({ ...src, id: '', name: `${src.name} (copy)` }, true);
 }
 
 // --- Zone forms ---
