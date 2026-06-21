@@ -1575,9 +1575,13 @@ function renderFurniturePanel(data) {
       const lightBadge = f.is_light
         ? `<span style="font-size:10px;background:var(--bg3);padding:1px 5px;border-radius:2px;margin-left:6px;color:${f.light_on ? 'var(--yellow)' : 'var(--text-dim)'}">💡${f.light_type||''}</span>`
         : '';
+      const stagedBadge = f._staged
+        ? `<span style="font-size:10px;background:rgba(245,230,66,0.12);border:1px solid var(--yellow);color:var(--yellow);padding:1px 6px;border-radius:2px;margin-left:6px;letter-spacing:0.5px">! Not Published</span>`
+        : '';
+      const nameColor = f._staged ? 'var(--yellow)' : 'var(--text-bright)';
       return `<div style="display:flex;align-items:center;gap:8px;padding:5px 12px 5px 28px;border-bottom:1px solid var(--border);background:var(--bg1)">
         <div style="flex:1;min-width:0">
-          <span style="color:var(--text-bright)">${f.name}</span>${lightBadge}
+          <span style="color:${nameColor}">${f.name}</span>${lightBadge}${stagedBadge}
           ${f.description ? `<div style="font-size:11px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:500px">${f.description}</div>` : ''}
         </div>
         <button class="action-btn" style="font-size:10px;padding:2px 8px" onclick="editRecord('${f.id}')">Edit</button>
@@ -1664,7 +1668,7 @@ function openFurnitureAddModal(zoneId) {
     toast('Furniture added to room');
     closeModal();
     const newId = r.id || r.entityId || `furniture_${Date.now()}`;
-    _furnitureAllItems.push({ id: newId, zone_id: zoneId, name: template.name, description: template.description || '', flags: template.flags || {}, is_light: template.is_light || 0, light_on: template.light_on || 0, light_type: template.light_type || 'lamp' });
+    _furnitureAllItems.push({ id: newId, zone_id: zoneId, name: template.name, description: template.description || '', flags: template.flags || {}, is_light: template.is_light || 0, light_on: template.light_on || 0, light_type: template.light_type || 'lamp', _staged: true });
     _furnitureExpandedZones.add(zoneId);
     renderFurniturePanel({ furniture: _furnitureAllItems, zones: [..._furnitureZoneNames.entries()].map(([zid, zname]) => ({ id: zid, name: zname })) });
   };
@@ -1762,45 +1766,71 @@ async function saveFurniture(existing) {
 // The city is a small, fixed 10-tile grid (see seed.js's map-shrink) — a
 // hand-placed layout is simpler and more reliable here than a generic
 // auto-layout algorithm.
-const BIGMAP_LAYOUT = [
-  { id: 'zone_city_north', x: 0, y: -1 },
-  { id: 'zone_city_ne', x: 1, y: -1 },
-  { id: 'zone_badland_w_gate', x: -2, y: 0 },
-  { id: 'zone_city_west', x: -1, y: 0 },
-  { id: 'zone_start', x: 0, y: 0 },
-  { id: 'zone_city_east', x: 1, y: 0 },
-  { id: 'zone_badland_sw_outer', x: -2, y: 1 },
-  { id: 'zone_city_sw', x: -1, y: 1 },
-  { id: 'zone_city_south', x: 0, y: 1 },
-  { id: 'zone_city_se', x: 1, y: 1 },
-];
+// Dynamic map grid — reads actual grid_x/grid_y from zone records instead of
+// a hardcoded layout. Used by the bigmap overlay and Power tab.
+function buildDynamicMapGrid(zones, mode, powerById, clickable) {
+  const placed = zones.filter(z => z.grid_x != null && z.grid_y != null);
+  if (!placed.length) return '<div style="padding:12px;color:var(--text-dim)">No zones have been placed on a map yet.</div>';
 
-function buildMapGridHtml(mode, zonesById, powerById, clickable) {
-  const xs = BIGMAP_LAYOUT.map(t => t.x), ys = BIGMAP_LAYOUT.map(t => t.y);
-  const minX = Math.min(...xs), maxX = Math.max(...xs);
-  const minY = Math.min(...ys), maxY = Math.max(...ys);
-  const byCoord = new Map(BIGMAP_LAYOUT.map(t => [`${t.x},${t.y}`, t]));
-  let html = `<div style="display:grid;gap:4px;grid-template-columns:repeat(${maxX - minX + 1}, 110px)">`;
+  const xs = placed.map(z => z.grid_x), ys = placed.map(z => z.grid_y);
+  const minX = Math.min(...xs) - 1, maxX = Math.max(...xs) + 1;
+  const minY = Math.min(...ys) - 1, maxY = Math.max(...ys) + 1;
+  const byCoord = new Map(placed.map(z => [`${z.grid_x},${z.grid_y}`, z]));
+
+  const W = maxX - minX + 1, H = maxY - minY + 1;
+  const colTmpl = Array.from({ length: 2 * W - 1 }, (_, i) => i % 2 ? '12px' : '110px').join(' ');
+  const rowTmpl = Array.from({ length: 2 * H - 1 }, (_, i) => i % 2 ? '12px' : '72px').join(' ');
+  const col = x => 2 * (x - minX) + 1;
+  const row = y => 2 * (y - minY) + 1;
+
+  let html = `<div style="display:grid;grid-template-columns:${colTmpl};grid-template-rows:${rowTmpl}">`;
+
   for (let y = minY; y <= maxY; y++) {
     for (let x = minX; x <= maxX; x++) {
-      const tile = byCoord.get(`${x},${y}`);
-      if (!tile) { html += `<div class="bigmap-tile bigmap-tile-empty"></div>`; continue; }
-      const zone = zonesById.get(tile.id);
-      const name = zone ? zone.name : tile.id;
-      let cls = 'bigmap-tile';
+      const z = byCoord.get(`${x},${y}`);
+      const gs = `grid-column:${col(x)};grid-row:${row(y)}`;
+      if (!z) { html += `<div style="${gs}"></div>`; continue; }
+      const marker = z.marker ? `<span class="map-marker-badge">${z.marker}</span>` : '';
+      let cls = `bigmap-tile bm-danger-${z.danger_rating || 'safe'}`;
       let sub = '';
+      const colorStyle = z.color ? `;border-color:${z.color}` : '';
       if (mode === 'power') {
-        const p = powerById.get(tile.id);
+        const p = powerById?.get(z.id);
         const status = p ? p.status : 'unpowered';
-        cls += ` bm-power-${status}`;
-        sub = p ? `<br><span style="font-size:9px;opacity:0.8">${p.loadKw}/${p.capacityKw}kW</span>` : `<br><span style="font-size:9px;opacity:0.6">no power</span>`;
-      } else {
-        cls += ` bm-danger-${zone?.danger_rating || 'safe'}`;
+        cls = `bigmap-tile bm-power-${status}`;
+        sub = p ? `<div style="font-size:9px;opacity:0.8;margin-top:2px">${p.loadKw}/${p.capacityKw}kW</div>` : `<div style="font-size:9px;opacity:0.6;margin-top:2px">no power</div>`;
       }
-      const click = clickable ? ` onclick="bigMapTileClick('${tile.id}')"` : '';
-      html += `<div class="${cls}"${click} title="${tile.id}">${name}${sub}</div>`;
+      const click = clickable ? ` onclick="bigMapTileClick('${z.id}')"` : '';
+      html += `<div class="${cls}" style="${gs}${colorStyle}" title="${z.id}"${click}><div>${marker}${z.name}${sub}</div></div>`;
     }
   }
+
+  // Connection indicators (non-interactive — visual only)
+  for (let y = minY; y <= maxY; y++) {
+    for (let x = minX; x < maxX; x++) {
+      const a = byCoord.get(`${x},${y}`), b = byCoord.get(`${x+1},${y}`);
+      const gs = `grid-column:${col(x)+1};grid-row:${row(y)}`;
+      if (a && b) {
+        const linked = a.exits?.east === b.id || b.exits?.west === a.id;
+        html += `<div class="conn conn-h ${linked ? 'conn-linked' : 'conn-open'}" style="${gs}"><span class="ln"></span></div>`;
+      } else {
+        html += `<div class="conn conn-h" style="${gs}"></div>`;
+      }
+    }
+  }
+  for (let y = minY; y < maxY; y++) {
+    for (let x = minX; x <= maxX; x++) {
+      const a = byCoord.get(`${x},${y}`), b = byCoord.get(`${x},${y+1}`);
+      const gs = `grid-column:${col(x)};grid-row:${row(y)+1}`;
+      if (a && b) {
+        const linked = a.exits?.south === b.id || b.exits?.north === a.id;
+        html += `<div class="conn conn-v ${linked ? 'conn-linked' : 'conn-open'}" style="${gs}"><span class="ln"></span></div>`;
+      } else {
+        html += `<div class="conn conn-v" style="${gs}"></div>`;
+      }
+    }
+  }
+
   html += '</div>';
   return html;
 }
@@ -1827,9 +1857,8 @@ async function openBigMap(mode = 'zones') {
   bigMapZones = Array.isArray(zones) ? zones : [];
   bigMapPowerData = Array.isArray(powerMap) ? powerMap : [];
   document.getElementById('bigmap-title').textContent = mode === 'power' ? 'Power Grid Map' : 'City Map';
-  const zonesById = new Map(bigMapZones.map(z => [z.id, z]));
   const powerById = new Map(bigMapPowerData.map(p => [p.zoneId, p]));
-  document.getElementById('bigmap-grid').innerHTML = buildMapGridHtml(mode, zonesById, powerById, true);
+  document.getElementById('bigmap-grid').innerHTML = buildDynamicMapGrid(bigMapZones, mode, powerById, true);
   document.getElementById('bigmap-legend').innerHTML = mapLegendHtml(mode);
   document.getElementById('bigmap-overlay').classList.add('active');
 }
@@ -2067,17 +2096,18 @@ function renderMapOverview() {
   }
   html += `</div></div>`;
 
-  // Unplaced-zones tray — drag a chip onto any empty cell to place it on this
-  // map. These are zones with no grid position (disconnected/legacy content).
+  // Unplaced-zones tray — always visible so builders know where to drag new zones.
   const tray = [...o.unplaced.values()];
-  if (tray.length) {
-    html += `<div style="padding:0 12px 14px">
-      <div style="font-size:11px;color:var(--text-dim);margin-bottom:6px">Unplaced zones — drag onto an empty cell to add to <strong>${o.map.name}</strong>:</div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap">${tray.map(z =>
-        `<span class="bigmap-tile bm-edit bm-danger-${z.danger_rating || 'safe'}" style="width:auto;height:auto;padding:4px 8px;cursor:grab" draggable="true" ondragstart="mapTrayDragStart(event,'${z.id}')" title="${z.id}">${z.name}</span>`
-      ).join('')}</div>
-    </div>`;
-  }
+  html += `<div style="padding:0 12px 14px;border-top:1px solid var(--border);margin-top:8px">
+    <div style="font-size:11px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;padding-top:10px">Unplaced Zones</div>
+    <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px">Drag a zone onto any empty cell to place it on <strong>${o.map.name}</strong>. Zones appear here when created without a map position.</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">${tray.length
+      ? tray.map(z =>
+          `<span class="bigmap-tile bm-edit bm-danger-${z.danger_rating || 'safe'}" style="width:auto;height:auto;padding:4px 8px;cursor:grab" draggable="true" ondragstart="mapTrayDragStart(event,'${z.id}')" title="${z.id}">${z.name}</span>`
+        ).join('')
+      : `<span style="color:var(--text-dim);font-style:italic;font-size:11px">All zones are placed.</span>`
+    }</div>
+  </div>`;
   panel.innerHTML = html;
 }
 
@@ -2209,7 +2239,6 @@ function setPowerPanelMode(mode) {
 
 function renderPowerPanelBody() {
   const panel = document.getElementById('list-panel');
-  const zonesById = new Map(bigMapZones.map(z => [z.id, z]));
   const powerById = new Map(bigMapPowerData.map(p => [p.zoneId, p]));
 
   let html = `<div style="padding:12px">
@@ -2217,7 +2246,7 @@ function renderPowerPanelBody() {
       <button class="action-btn ${powerPanelMode==='power'?'primary':''}" onclick="setPowerPanelMode('power')">⚡ Power View</button>
       <button class="action-btn ${powerPanelMode==='zones'?'primary':''}" onclick="setPowerPanelMode('zones')">🗺 Danger View</button>
     </div>
-    ${buildMapGridHtml(powerPanelMode, zonesById, powerById, true)}
+    ${buildDynamicMapGrid(bigMapZones, powerPanelMode, powerById, true)}
     <div style="margin-top:10px;display:flex;gap:14px;flex-wrap:wrap;font-size:10px;color:var(--text-dim)">${mapLegendHtml(powerPanelMode)}</div>
   </div>`;
 
