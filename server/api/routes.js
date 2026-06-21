@@ -287,6 +287,7 @@ async function apiGetMap(id) {
      WHERE (map_id IS NULL OR map_id != $1)
        AND COALESCE((flags->>'is_interior')::boolean, false) = false
        AND COALESCE((flags->>'is_apartment')::boolean, false) = false
+       AND COALESCE((flags->>'is_building')::boolean, false) = false
      ORDER BY name`,
     [id]
   );
@@ -331,6 +332,11 @@ async function apiLinkInterior(body, auth) {
   let interiorMap;
   if (existingMaps.length) {
     interiorMap = existingMaps[0];
+    // Patch entry_zone_id if missing — old maps created before this field was standardized
+    if (!interiorMap.entry_zone_id) {
+      await query('UPDATE maps SET entry_zone_id=$1 WHERE id=$2', [interiorZoneId, interiorMap.id]);
+      interiorMap = { ...interiorMap, entry_zone_id: interiorZoneId };
+    }
   } else {
     const mapId = `map_int_${Date.now()}`;
     await query(

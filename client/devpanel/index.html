@@ -2500,7 +2500,7 @@ function mapTrayDragStart(e, id) {
 // Drag an unplaced interior zone — must be dropped onto an existing exterior tile.
 function mapInteriorTrayDragStart(e, id) {
   mapDragId = id; mapDragFromTray = true; mapDragIsInterior = true;
-  e.dataTransfer.effectAllowed = 'link';
+  e.dataTransfer.effectAllowed = 'move';
 }
 
 function openInteriorLinkModal(interiorZoneId, exteriorZoneId) {

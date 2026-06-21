@@ -503,6 +503,19 @@ async function seedAmbientEvents() {
     ).catch(() => {}); // skip on duplicate/error
   }
 
+  // Backfill: interior maps that have no entry_zone_id set — find the zone at
+  // grid 0,0,0 in that map (where apiLinkInterior always places the entry zone)
+  // and record it so the validator and unplaced-tray queries can use it.
+  await query(`
+    UPDATE maps m
+    SET entry_zone_id = z.id
+    FROM zones z
+    WHERE m.entry_zone_id IS NULL
+      AND m.parent_zone_id IS NOT NULL
+      AND z.map_id = m.id
+      AND z.grid_x = 0 AND z.grid_y = 0 AND COALESCE(z.grid_z, 0) = 0
+  `).catch(() => {});
+
   // Backfill: any zone that is the entry_zone_id of an interior map gets
   // is_building:true and world_exit_zone set to that map's parent_zone_id so
   // the validator and zone editor both have the explicit connection recorded.
