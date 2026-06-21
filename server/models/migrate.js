@@ -516,9 +516,11 @@ async function seedAmbientEvents() {
       AND z.grid_x = 0 AND z.grid_y = 0 AND COALESCE(z.grid_z, 0) = 0
   `).catch(() => {});
 
-  // Backfill: any zone that is the entry_zone_id of an interior map gets
-  // is_building:true and world_exit_zone set to that map's parent_zone_id so
-  // the validator and zone editor both have the explicit connection recorded.
+  // Backfill: any zone that is the entry_zone_id of an interior map AND is
+  // actually assigned to that map (z.map_id = m.id) gets is_building:true and
+  // world_exit_zone. The z.map_id = m.id guard prevents dirty maps rows (where
+  // entry_zone_id points to a zone that lives on a different map) from
+  // incorrectly stamping building flags onto exterior zones.
   await query(`
     UPDATE zones z
     SET flags = COALESCE(z.flags, '{}'::jsonb)
@@ -527,6 +529,7 @@ async function seedAmbientEvents() {
     FROM maps m
     WHERE m.entry_zone_id = z.id
       AND m.parent_zone_id IS NOT NULL
+      AND z.map_id = m.id
       AND (z.flags->>'world_exit_zone' IS NULL
         OR COALESCE((z.flags->>'is_building')::boolean, false) = false)
   `).catch(() => {});
