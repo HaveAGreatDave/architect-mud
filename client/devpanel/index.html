@@ -283,6 +283,38 @@
   #bigmap-legend, #power-legend { font-size: 10px; color: var(--text-dim); margin-top: 12px; display: flex; gap: 14px; flex-wrap: wrap; }
   .legend-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }
 
+  /* Maps overview editor */
+  .map-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px; border-bottom: 1px solid var(--border); }
+  .map-toolbar select, .map-toolbar input { background: var(--bg3); border: 1px solid var(--border); color: var(--text); padding: 4px 6px; border-radius: 2px; font-size: 11px; }
+  .map-validation { margin: 10px 12px; font-size: 11px; }
+  .map-validation .v-error { color: #ff3b5c; }
+  .map-validation .v-warn { color: #f5e642; }
+  .map-validation .v-ok { color: #39ff8f; }
+  .bigmap-tile.bm-edit { position: relative; }
+  .bigmap-tile.bm-broken { outline: 2px solid #ff3b5c; outline-offset: -2px; }
+  .bigmap-tile-create { width: 110px; height: 76px; border: 1px dashed var(--border); border-radius: 2px; display: flex; align-items: center; justify-content: center; color: var(--text-dim); cursor: pointer; font-size: 18px; transition: all 0.1s; }
+  .bigmap-tile-create:hover { border-color: var(--accent); color: var(--accent); }
+  .map-marker-badge { font-weight: bold; opacity: 0.85; margin-right: 3px; }
+  .map-dive-btn { position: absolute; top: 2px; right: 2px; font-size: 11px; background: var(--bg); border: 1px solid var(--border); border-radius: 2px; padding: 0 4px; cursor: pointer; color: var(--accent); }
+  .color-swatches { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 6px; }
+  .color-swatch { width: 20px; height: 20px; border-radius: 2px; border: 1px solid var(--border); cursor: pointer; }
+  .color-swatch:hover { transform: scale(1.12); }
+  /* Connection slots between adjacent map cells */
+  .conn { display: flex; align-items: center; justify-content: center; color: var(--accent); }
+  .conn-h { width: 16px; height: 76px; }
+  .conn-v { width: 110px; height: 16px; }
+  .conn-open { cursor: pointer; }
+  .conn-open .ln { background: var(--border); opacity: 0.5; }
+  .conn-open:hover .ln { background: var(--accent); opacity: 1; }
+  .conn-linked { cursor: pointer; }
+  .conn-h .ln { height: 3px; width: 100%; }
+  .conn-v .ln { width: 3px; height: 100%; }
+  .conn-linked .ln { background: var(--accent); }
+  .conn-oneway { cursor: pointer; font-size: 13px; line-height: 1; }
+  .cell-exits { font-size: 8px; letter-spacing: 1px; opacity: 0.75; margin-top: 2px; }
+  .cell-exits .ex-broken { color: #ff3b5c; opacity: 1; }
+  .cell-exits .ex-vert { color: var(--accent); }
+
   /* Settings */
   .settings-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); }
   .settings-row:last-child { border-bottom: none; }
@@ -354,6 +386,7 @@
     <div class="nav-item active" data-panel="dashboard" onclick="showPanel('dashboard')" style="border-left-color:var(--accent);color:var(--accent)">⬡ Dashboard</div>
     <div class="nav-section">World</div>
     <div class="nav-item" data-panel="zones" onclick="showPanel('zones')">🗺 Zones</div>
+    <div class="nav-item" data-panel="maps" onclick="showPanel('maps')">🧭 Maps</div>
     <div class="nav-item" data-panel="power" onclick="showPanel('power')">⚡ Power</div>
     <div class="nav-item" data-panel="enemies" onclick="showPanel('enemies')">👾 Enemies</div>
     <div class="nav-item" data-panel="items" onclick="showPanel('items')">🗡 Items</div>
@@ -689,6 +722,12 @@ const PANELS = {
     save: saveRecipe,
     delete: id => API(`/recipes/${id}`, 'DELETE'),
   },
+  maps: {
+    title: 'Maps',
+    fetch: () => API('/maps'),
+    render: renderMapsPanel,
+    noEdit: true,
+  },
   power: {
     title: 'Power Grid',
     fetch: () => API('/zones'),
@@ -959,6 +998,7 @@ async function openEdit(record, isNew) {
 function closeEdit() {
   document.getElementById('edit-panel').classList.remove('open');
   currentRecord = null;
+  if (mapZoneEditReturn) { currentPanel = 'maps'; mapZoneEditReturn = false; }
 }
 
 async function saveRecord() {
@@ -982,7 +1022,8 @@ async function saveRecord() {
         if (issues > 0) toast(`Zone saved — ${issues} exit issue(s) found (see Validator)`, true);
       }).catch(() => {});
     }
-    await loadPanel(currentPanel);
+    if (mapZoneEditReturn) applyZoneEditToMap(currentRecord?.id);
+    else await loadPanel(currentPanel);
     closeEdit();
   } catch (err) {
     toast(`Unexpected error: ${err.message}`, true);
@@ -1040,6 +1081,17 @@ async function zoneEditForm(rec, isNew) {
   const ambients = Array.isArray(rec.ambient_events) ? rec.ambient_events : [];
   const flags = rec.flags || {};
   zoneEditExitsState = { ...exits };
+  // New zones created by clicking an empty cell on the Maps overview arrive
+  // with a pending grid placement; existing zones use the in-memory map state
+  // so unsaved drag positions are reflected immediately. Fall back to server
+  // data if not on the maps panel.
+  const mapZone = mapOverview?.zones.get(rec?.id);
+  const place = (isNew && pendingZonePlacement)
+    ? { ...pendingZonePlacement }
+    : mapZone
+      ? { map_id: mapZone.map_id, grid_x: mapZone.grid_x, grid_y: mapZone.grid_y, grid_z: mapZone.grid_z ?? 0 }
+      : { map_id: rec.map_id, grid_x: rec.grid_x, grid_y: rec.grid_y, grid_z: rec.grid_z };
+  pendingZonePlacement = null;
 
   let subSectionsHtml = '<div class="zone-subsection-note">Save this zone first to add rooms, NPCs, furniture, or a generator.</div>';
   if (!isNew) {
@@ -1894,6 +1946,25 @@ function applyZoneEditToMap(zoneId) {
   renderMapOverview();
 }
 
+// Click a zone tile on the map overview to edit it in the zone editor, then
+// return to the map after saving (mapZoneEditReturn).
+async function mapTileEditClick(zoneId) {
+  closeSettingsPanel();
+  const data = await PANELS.zones.fetch();
+  allRecords = Array.isArray(data) ? data : (data.zones || []);
+  currentPanel = 'zones';
+  mapZoneEditReturn = true;
+  editRecord(zoneId);
+}
+
+// Dive into the interior map that hangs off a building zone.
+function diveInto(zoneId) {
+  if (!mapsGuard()) return;
+  const child = mapOverview.children.find(c => c.parent_zone_id === zoneId);
+  if (child) loadMapOverview(child.id);
+  else toast('No interior map hangs off this zone.', true);
+}
+
 // ─── MAPS OVERVIEW EDITOR ─────────────────────────────────────────────────
 // A grid view of one map at a time (one floor at a time), where you create
 // zones in empty cells, drag zones to re-position, draw connections between
@@ -1907,7 +1978,7 @@ const MAP_OPP = { north:'south', south:'north', east:'west', west:'east', up:'do
 let pendingZonePlacement = null;  // {map_id,grid_x,grid_y,grid_z} for a new zone
 let mapZoneEditReturn = false;    // true when zone editor was opened from the map overview
 let mapsList = [];
-let mapOverview = null;           // { map, zones:Map, unplaced:Map, children, z, dirtyPos:Set, dirtyExit:Set }
+let mapOverview = null;           // { map, zones:Map, unplaced:Map, children, z }
 let mapDragId = null;
 let mapDragFromTray = false;
 
@@ -1925,23 +1996,10 @@ function updateColorPreview() {
   el.textContent = sym;
 }
 
-function mapsDirty() { return mapOverview && (mapOverview.dirtyPos.size || mapOverview.dirtyExit.size); }
-function mapsGuard() { return !mapsDirty() || confirm('Discard unsaved layout changes?'); }
-
-function updatePublishBtn() {
-  const btn = document.getElementById('publish-btn');
-  if (!btn) return;
-  const dirty = mapsDirty();
-  btn.style.display = '';
-  btn.disabled = !dirty;
-  btn.className = dirty ? 'action-btn success' : 'action-btn';
-  btn.textContent = dirty ? 'Publish Changes *' : 'Publish Changes';
-}
-
-async function publishChanges() {
-  if (!mapsDirty()) return;
-  await saveMapLayout();
-}
+// Map layout edits (piece moves, connections) persist immediately through the
+// staging-aware API() — each change lands in the Changes panel for review and
+// publish. There is no separate map-publish step, so nothing to guard.
+function mapsGuard() { return true; }
 
 async function renderMapsPanel(data) {
   mapsList = Array.isArray(data) ? data : [];
@@ -1958,7 +2016,7 @@ async function loadMapOverview(mapId) {
   const zones = new Map((data.zones || []).map(z => [z.id, { ...z, exits: { ...(z.exits || {}) }, flags: z.flags || {}, grid_z: z.grid_z ?? 0 }]));
   const unplaced = new Map((data.unplaced || []).map(z => [z.id, { ...z, exits: { ...(z.exits || {}) }, flags: z.flags || {} }]));
   const keepZ = (mapOverview && mapOverview.map.id === mapId) ? mapOverview.z : 0;
-  mapOverview = { map: data.map, zones, unplaced, children: data.children || [], z: keepZ, dirtyPos: new Set(), dirtyExit: new Set() };
+  mapOverview = { map: data.map, zones, unplaced, children: data.children || [], z: keepZ };
   renderMapOverview();
 }
 
@@ -1986,7 +2044,6 @@ function validateMapOverview(zonesMap) {
 }
 
 function renderMapOverview() {
-  updatePublishBtn();
   const o = mapOverview;
   const panel = document.getElementById('list-panel');
   const all = [...o.zones.values()];
@@ -2151,39 +2208,51 @@ function mapTrayDragStart(e, id) {
   e.dataTransfer.effectAllowed = 'move';
 }
 
-function mapDrop(e, x, y) {
+async function mapDrop(e, x, y) {
   e.preventDefault();
   if (!mapDragId) return;
   const o = mapOverview;
   const occupied = [...o.zones.values()].find(z => (z.grid_z ?? 0) === o.z && z.grid_x === x && z.grid_y === y);
   if (occupied && occupied.id !== mapDragId) { toast('That cell is occupied.', true); mapDragId = null; return; }
-  if (mapDragFromTray) {
-    // Adopt the unplaced zone onto this map at the dropped cell.
-    const z = o.unplaced.get(mapDragId);
-    o.unplaced.delete(mapDragId);
-    o.zones.set(mapDragId, { ...z, map_id: o.map.id, grid_x: x, grid_y: y, grid_z: o.z });
-  } else {
-    const z = o.zones.get(mapDragId);
-    z.grid_x = x; z.grid_y = y; z.grid_z = o.z;
-  }
-  o.dirtyPos.add(mapDragId);
 
-  // Auto-connect to orthogonally adjacent zones on the same floor.
-  // Exits are marked dirty and will save with the layout. Remove unwanted links via the gap slots.
-  const movedZone = o.zones.get(mapDragId);
+  const draggedId = mapDragId, fromTray = mapDragFromTray;
+  mapDragId = null; mapDragFromTray = false;
+
+  if (fromTray) {
+    // Adopt the unplaced zone onto this map at the dropped cell.
+    const z = o.unplaced.get(draggedId);
+    o.unplaced.delete(draggedId);
+    o.zones.set(draggedId, { ...z, map_id: o.map.id, grid_x: x, grid_y: y, grid_z: o.z });
+  } else {
+    const z = o.zones.get(draggedId);
+    z.grid_x = x; z.grid_y = y; z.grid_z = o.z; z.map_id = o.map.id;
+  }
+
+  // Auto-connect to orthogonally adjacent zones on the same floor. Remove
+  // unwanted links afterward via the gap slots.
+  const movedZone = o.zones.get(draggedId);
+  const touched = new Set([draggedId]);
   for (const [dir, off] of Object.entries(MAP_DIR3D)) {
     if (off[2] !== 0) continue; // skip up/down — those are manual
-    const neighbor = [...o.zones.values()].find(z => z.id !== mapDragId && (z.grid_z ?? 0) === o.z && z.grid_x === x + off[0] && z.grid_y === y + off[1]);
+    const neighbor = [...o.zones.values()].find(z => z.id !== draggedId && (z.grid_z ?? 0) === o.z && z.grid_x === x + off[0] && z.grid_y === y + off[1]);
     if (!neighbor) continue;
     const opp = MAP_OPP[dir];
     movedZone.exits[dir] = neighbor.id;
-    neighbor.exits[opp] = mapDragId;
-    o.dirtyExit.add(mapDragId);
-    o.dirtyExit.add(neighbor.id);
+    neighbor.exits[opp] = draggedId;
+    touched.add(neighbor.id);
   }
 
-  mapDragId = null; mapDragFromTray = false;
   renderMapOverview();
+
+  // Persist immediately through the staging-aware API() — each touched zone's
+  // position + exits stage into the Changes panel for review/publish.
+  const results = await Promise.all([...touched].map(id => {
+    const z = o.zones.get(id);
+    return API(`/zones/${id}`, 'PUT', { grid_x: z.grid_x, grid_y: z.grid_y, grid_z: z.grid_z ?? 0, map_id: z.map_id, exits: z.exits });
+  }));
+  const failed = results.find(r => r?.error);
+  if (failed) { toast(failed.error, true); await loadMapOverview(o.map.id); return; }
+  toast('Moved ✓');
 }
 
 

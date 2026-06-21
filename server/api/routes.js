@@ -75,6 +75,8 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path==='/zones' && method==='GET') return apiGetZones();
   if (path.startsWith('/zones/') && method==='GET') return apiGetZone(path.split('/')[2]);
   if (path==='/zones' && method==='POST') return requireDev(auth, ()=>apiCreateZone(body,auth));
+  if (path==='/maps' && method==='GET') return requireDev(auth, apiGetMaps);
+  if (path.startsWith('/maps/') && method==='GET') return requireDev(auth, ()=>apiGetMap(path.split('/')[2]));
   if (path.startsWith('/zones/') && method==='PUT') return requireDev(auth, ()=>apiUpdateZone(path.split('/')[2],body));
   if (path.startsWith('/zones/') && path.endsWith('/rooms') && method==='POST') return requireDev(auth, ()=>apiAddRoom(path.split('/')[2],body));
   if (path.startsWith('/zones/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteZone(path.split('/')[2]));
