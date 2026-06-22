@@ -267,6 +267,7 @@ async function loadZonePowerAndLighting(query) {
       powerStatus: z.status,
       capacityKw: z.capacity_kw,
       loadKw: z.current_load_kw,
+      availableKw: z.available_kw,
       hasEmergencyLighting: light ? !!light.has_emergency_lighting : false,
       artificialLight: computeArtificialLight(z.status, light),
     });
@@ -461,8 +462,7 @@ async function simulatePowerNetwork(query, { weatherType }) {
     await query(`UPDATE generators SET status = $1, fuel_remaining = $2 WHERE id = $3`, [status, fuelRemaining, gen.id]);
   }
 
-  // Group zones by generator so capacity is shared across all zones on the
-  // same plant rather than each zone comparing against the full capacity alone.
+  // Group zones by generator so they share the generator's capacity pool.
   const zonesByGen = new Map();
   for (const zone of zones) {
     const key = zone.generator_id ?? '__orphan__';
@@ -474,34 +474,36 @@ async function simulatePowerNetwork(query, { weatherType }) {
     const gen = updatedStatus.get(genId);
     const genCapacity = gen ? gen.capacity_kw : 0;
 
-    // Total load drawn from this generator's capacity pool.
-    const totalLoad = genZones.reduce((s, z) => s + z.current_load_kw * loadMultiplier, 0);
+    // Total demand across all zones on this generator.
+    const totalDemand = genZones.reduce((s, z) => s + z.current_load_kw * loadMultiplier, 0);
 
-    // Equal share of generator capacity allocated to each connected zone.
-    const perZoneCapacity = genZones.length > 0 ? genCapacity / genZones.length : 0;
+    // Pro-rate available power when demand exceeds capacity; each zone gets a
+    // proportional share. When there's spare capacity, every zone gets its full
+    // demand and the remainder stays in the generator pool.
+    const supplyRatio = totalDemand > 0 ? Math.min(1, genCapacity / totalDemand) : 1;
+    const remaining = Math.max(0, genCapacity - totalDemand);
 
-    // Remaining generator capacity after subtracting all zone loads.
-    const remaining = Math.max(0, genCapacity - totalLoad);
-
-    // Persist remaining capacity on the generator row.
     if (gen) {
       await query(`UPDATE generators SET remaining_kw = $1 WHERE id = $2`, [remaining, genId]);
     }
 
     for (const zone of genZones) {
-      const load = zone.current_load_kw * loadMultiplier;
-      // Zone ratio is load vs its equal share of the generator pool.
-      const ratio = perZoneCapacity > 0 ? load / perZoneCapacity : 0;
+      const demand = zone.current_load_kw * loadMultiplier;
+      // Power delivered to this zone — drawn from the generator's pool.
+      const available = demand * supplyRatio;
 
       let status;
       if (!gen && zone.generator_id) status = 'offline'; // orphaned — generator deleted
       else if (gen && gen.status === 'offline') status = 'offline';
-      else if (ratio > POWER_BLACKOUT_RATIO) status = 'offline';
-      else if (ratio > POWER_OVERLOAD_RATIO) status = 'overloaded';
+      else if (available <= 0) status = 'offline';
+      else if (available < demand * (1 / POWER_BLACKOUT_RATIO)) status = 'offline';
+      else if (available < demand * (1 / POWER_OVERLOAD_RATIO)) status = 'overloaded';
       else status = 'powered';
 
-      await query(`UPDATE power_zones SET status = $1, capacity_kw = $2 WHERE id = $3`,
-        [status, perZoneCapacity, zone.id]);
+      // capacity_kw is the zone's own rated capacity — left untouched.
+      // available_kw is what the generator is currently delivering.
+      await query(`UPDATE power_zones SET status = $1, available_kw = $2 WHERE id = $3`,
+        [status, available, zone.id]);
     }
   }
 }
@@ -602,6 +604,7 @@ export function getPowerMap() {
     status: z.powerStatus,
     capacityKw: z.capacityKw,
     loadKw: z.loadKw,
+    availableKw: z.availableKw,
     artificialLight: z.artificialLight,
   }));
 }
