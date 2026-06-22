@@ -473,37 +473,41 @@ async function simulatePowerNetwork(query, { weatherType }) {
   for (const [genId, genZones] of zonesByGen) {
     const gen = updatedStatus.get(genId);
     const genCapacity = gen ? gen.capacity_kw : 0;
+    const zoneCount = genZones.length;
 
-    // Total demand across all zones on this generator.
-    const totalDemand = genZones.reduce((s, z) => s + z.current_load_kw * loadMultiplier, 0);
+    // Equal share of the generator's capacity allocated to each connected zone.
+    // This is what the plant "pushes" to each zone — independent of current draw.
+    const perZoneAlloc = zoneCount > 0 ? genCapacity / zoneCount : 0;
+    const totalAllocated = perZoneAlloc * zoneCount; // == genCapacity
 
-    // Pro-rate available power when demand exceeds capacity; each zone gets a
-    // proportional share. When there's spare capacity, every zone gets its full
-    // demand and the remainder stays in the generator pool.
-    const supplyRatio = totalDemand > 0 ? Math.min(1, genCapacity / totalDemand) : 1;
-    const remaining = Math.max(0, genCapacity - totalDemand);
+    // Generator remaining = capacity minus what's actually being consumed.
+    const totalLoad = genZones.reduce((s, z) => s + z.current_load_kw * loadMultiplier, 0);
+    const remaining = Math.max(0, genCapacity - totalLoad);
 
     if (gen) {
       await query(`UPDATE generators SET remaining_kw = $1 WHERE id = $2`, [remaining, genId]);
     }
 
+    // When total allocation exceeds generator capacity (shouldn't happen with equal
+    // split, but guards against manual edits), pro-rate delivery proportionally.
+    const deliveryRatio = totalAllocated > 0 ? Math.min(1, genCapacity / totalAllocated) : 0;
+
     for (const zone of genZones) {
-      const demand = zone.current_load_kw * loadMultiplier;
-      // Power delivered to this zone — drawn from the generator's pool.
-      const available = demand * supplyRatio;
+      // Power delivered = zone's allocation × delivery ratio (1.0 when healthy).
+      const available = perZoneAlloc * deliveryRatio;
 
       let status;
       if (!gen && zone.generator_id) status = 'offline'; // orphaned — generator deleted
       else if (gen && gen.status === 'offline') status = 'offline';
       else if (available <= 0) status = 'offline';
-      else if (available < demand * (1 / POWER_BLACKOUT_RATIO)) status = 'offline';
-      else if (available < demand * (1 / POWER_OVERLOAD_RATIO)) status = 'overloaded';
+      else if (available < perZoneAlloc * (1 / POWER_BLACKOUT_RATIO)) status = 'offline';
+      else if (available < perZoneAlloc * (1 / POWER_OVERLOAD_RATIO)) status = 'overloaded';
       else status = 'powered';
 
-      // capacity_kw is the zone's own rated capacity — left untouched.
-      // available_kw is what the generator is currently delivering.
-      await query(`UPDATE power_zones SET status = $1, available_kw = $2 WHERE id = $3`,
-        [status, available, zone.id]);
+      // capacity_kw = zone's equal share allocation from the generator.
+      // available_kw = what the generator is actually delivering this tick.
+      await query(`UPDATE power_zones SET status = $1, capacity_kw = $2, available_kw = $3 WHERE id = $4`,
+        [status, perZoneAlloc, available, zone.id]);
     }
   }
 }
