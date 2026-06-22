@@ -777,6 +777,7 @@ export function devFreeze(frozen) {
   return { frozen: state.frozen };
 }
 
+export async function devForceTick5()  { await tick5m();  return getHUDPayload(); }
 export async function devForceTick30() { await tick30m(); return getHUDPayload(); }
 export async function devForceTick24() { await tick24h(); return { ...getHUDPayload(), forecast: state.forecast }; }
 

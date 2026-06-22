@@ -71,6 +71,7 @@ export async function handleEnvironmentApi(path, method, body, auth) {
       if (path === '/environment/time/set') return { status: 200, body: await env.devSetTime(body || {}) };
       if (path === '/environment/time/advance') return { status: 200, body: await env.devAdvanceTime(body?.minutes) };
       if (path === '/environment/time/freeze') return { status: 200, body: env.devFreeze(body?.frozen ? 1 : 0) };
+      if (path === '/environment/tick/force5')  return { status: 200, body: await env.devForceTick5() };
       if (path === '/environment/tick/force30') return { status: 200, body: await env.devForceTick30() };
       if (path === '/environment/tick/force24') return { status: 200, body: await env.devForceTick24() };
       if (path === '/environment/weather/override') return { status: 200, body: await env.devOverrideWeather(body || {}) };

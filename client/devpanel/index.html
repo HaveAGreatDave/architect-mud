@@ -3878,11 +3878,6 @@ function renderTimeWeatherPanel(data) {
       <div style="font-size:24px;margin-bottom:4px">${f.icon||'?'}</div>
       <div style="font-size:11px;color:var(--text)">${f.weatherType||'?'}</div>
       ${f.tempC!=null?`<div style="font-size:10px;color:var(--text-dim);margin-top:2px">${f.tempC}°C</div>`:''}
-      <div style="margin-top:8px">
-        <label style="display:flex;align-items:center;justify-content:center;gap:4px;font-size:10px;color:var(--text-dim);cursor:pointer">
-          <input type="checkbox" ${f.locked?'checked':''} onchange="devLockForecastDay(${i},this.checked)" style="accent-color:var(--accent)">Lock
-        </label>
-      </div>
     </div>`).join('');
 
   panel.innerHTML = `
@@ -3910,9 +3905,16 @@ function renderTimeWeatherPanel(data) {
             <input id="tw-time" type="time" value="${timeStr}" style="margin-top:4px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:5px 8px;border-radius:2px">
           </label>
           <button class="action-btn" onclick="devApplyTime()">Apply & Sync</button>
+          <button class="action-btn" onclick="devSyncToMyClockNow()" title="Set server time to match this browser's current clock">⟳ Sync to My Clock</button>
           <button class="action-btn${env.frozen?' danger':''}" onclick="devToggleFreeze()" style="margin-left:4px">
             ${env.frozen?'▶ Unfreeze':'⏸ Freeze Time'}
           </button>
+        </div>
+        <div style="margin-top:12px;display:flex;gap:8px;align-items:center">
+          <span style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">Force Tick:</span>
+          <button class="action-btn" onclick="devForceTick('force5')" title="Run 5-minute power tick">5 min</button>
+          <button class="action-btn" onclick="devForceTick('force30')" title="Run 30-minute time/weather tick">30 min</button>
+          <button class="action-btn" onclick="devForceTick('force24')" title="Run 24-hour daily tick">24 hr</button>
         </div>
       </div>
 
@@ -3955,6 +3957,23 @@ async function devToggleFreeze() {
   const r = await API('/environment/time/freeze','POST',{frozen:!env.frozen});
   if (r.error) { toast(r.error,true); return; }
   toast(r.frozen ? 'Time frozen' : 'Time resumed');
+  loadPanel('timeweather');
+}
+
+async function devSyncToMyClockNow() {
+  const now = new Date();
+  const minutes = now.getHours() * 60 + now.getMinutes();
+  const date = now.toISOString().slice(0, 10);
+  const r = await API('/environment/time/set', 'POST', { date, minutes });
+  if (r.error) { toast(r.error, true); return; }
+  toast('Server time synced to your clock');
+  loadPanel('timeweather');
+}
+
+async function devForceTick(which) {
+  const r = await API(`/environment/tick/${which}`, 'POST', {});
+  if (r.error) { toast(r.error, true); return; }
+  toast(`${which.replace('force','').toUpperCase()} tick fired`);
   loadPanel('timeweather');
 }
 
