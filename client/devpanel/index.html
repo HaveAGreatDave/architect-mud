@@ -2736,6 +2736,8 @@ function validateMapOverview(zonesMap, knownZoneIds, interiorZoneIds) {
         continue;
       }
 
+      if (t.flags?.is_building) continue; // exits into a building entrance are valid regardless of geometry
+
       if (t.grid_x == null) {
         // Target is assigned to this map but has no grid position yet.
         errors.push({ zoneId: z.id, direction: dir, targetId: target, reason: 'unplaced-target', expectedX: null, expectedY: null, expectedZ: null });
