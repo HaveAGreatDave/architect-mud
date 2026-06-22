@@ -195,6 +195,11 @@ const handlers = {
     if (msg.player_update && state.player) { Object.assign(state.player, msg.player_update); updateVitals(state.player); }
   },
 
+  raise: (msg) => {
+    appendHtml(msg.message, 'help');
+    if (msg.player_update && state.player) { Object.assign(state.player, msg.player_update); updateVitals(state.player); }
+  },
+
   loot: (msg) => { appendHtml(msg.message, 'loot'); },
   mutation_gained: (msg) => { appendHtml(msg.message, 'combat-incoming'); },
 

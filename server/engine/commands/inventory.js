@@ -1,5 +1,4 @@
 import { query } from '../../models/db.js';
-import { awardSkillXp } from '../skills.js';
 import { useDrug } from '../drugs.js';
 import { hasTag, tagValue, hasFlag, TAG_CATALOG } from '../tags.js';
 
@@ -10,9 +9,23 @@ export const EQUIP_SLOTS = {
   weapon_hand: 'Weapon Hand', accessory: 'Accessory',
 };
 
+// Build a per-slot typed-soak structure for the player from equipped armor.
+// player.soak[slot] = { soak: { kinetic:4, ... }, flat: <legacy armor int> }.
+// Combat routes the weapon's damage_type through the struck part's slot here.
 export async function recomputeArmor(player) {
   const { rows } = await query(`SELECT i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.is_equipped=1`, [player.id]);
-  player.armor = rows.reduce((sum, r) => sum + (tagValue(r, 'armor', 0) || 0), 0);
+  const bySlot = {};
+  for (const r of rows) {
+    const slot = tagValue(r, 'slot');
+    if (!slot) continue;
+    const entry = bySlot[slot] || (bySlot[slot] = { soak: {}, flat: 0 });
+    const sm = tagValue(r, 'armor_soak');
+    if (sm && typeof sm === 'object') {
+      for (const [type, val] of Object.entries(sm)) entry.soak[type] = (entry.soak[type] || 0) + (Number(val) || 0);
+    }
+    entry.flat += tagValue(r, 'armor', 0) || 0;
+  }
+  player.soak = bySlot;
 }
 
 async function cmdInventory(player) {
@@ -76,14 +89,12 @@ async function cmdTake(targetStr, player, broadcast) {
         if (existing.length) {
           await query('UPDATE player_inventory SET quantity = quantity + $1 WHERE id = $2', [ground.quantity, existing[0].id]);
           await query('DELETE FROM player_inventory WHERE id=$1', [ground.id]);
-          await awardSkillXp(player.id, 'scavenging', 2);
           broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} picks up ${ground.name}.` }, player.id);
           messages.push(`You pick up ${ground.name}.`);
           continue;
         }
       }
       await query('UPDATE player_inventory SET player_id=$1 WHERE id=$2', [player.id, ground.id]);
-      await awardSkillXp(player.id, 'scavenging', 2);
       broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} picks up ${ground.name}.` }, player.id);
       messages.push(`You pick up ${ground.name}.`);
     }
@@ -102,14 +113,12 @@ async function cmdTake(targetStr, player, broadcast) {
     if (existing.length) {
       await query('UPDATE player_inventory SET quantity = quantity + $1 WHERE id = $2', [ground.quantity, existing[0].id]);
       await query('DELETE FROM player_inventory WHERE id=$1', [ground.id]);
-      await awardSkillXp(player.id, 'scavenging', 2);
       broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} picks up ${ground.name}.` }, player.id);
       return { type:'take', message:`You pick up ${ground.name}.` };
     }
   }
 
   await query('UPDATE player_inventory SET player_id=$1 WHERE id=$2', [player.id, ground.id]);
-  await awardSkillXp(player.id, 'scavenging', 2);
   broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} picks up ${ground.name}.` }, player.id);
   return { type:'take', message:`You pick up ${ground.name}.` };
 }
@@ -172,7 +181,6 @@ async function cmdUse(targetStr, player) {
   await query('UPDATE players SET hp=$1,hunger=$2,thirst=$3,radiation=$4,sanity=$5,credits=$6 WHERE id=$7', [player.hp,player.hunger,player.thirst,player.radiation,player.sanity,player.credits,player.id]);
   if (item.quantity > 1) await query('UPDATE player_inventory SET quantity=quantity-1 WHERE id=$1', [item.id]);
   else await query('DELETE FROM player_inventory WHERE id=$1', [item.id]);
-  await awardSkillXp(player.id, 'medicine', 1);
   return { type:'use', message:messages.join('\n'), player_update:{hp:player.hp,hunger:player.hunger,thirst:player.thirst,radiation:player.radiation,sanity:player.sanity,credits:player.credits} };
 }
 

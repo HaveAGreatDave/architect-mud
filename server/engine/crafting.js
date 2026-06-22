@@ -7,7 +7,7 @@
  * every craft attempt, refresh it whenever the dev panel publishes a change.
  */
 import { query } from '../models/db.js';
-import { awardSkillXp, skillCheck } from './skills.js';
+import { awardSkillUse, skillCheck } from './skills.js';
 
 // Quality tiers: numeric 0–4, stored as text in item flags
 export const QUALITY_TIERS = {
@@ -51,10 +51,10 @@ export async function attemptCraft(player, recipeId, stationQuality = 'none') {
 
   // Check skill requirements
   const { rows: skillRows } = await query(
-    'SELECT skill_id, rank FROM player_skills WHERE player_id = $1', [player.id]
+    'SELECT skill_id, trained FROM player_skills WHERE player_id = $1', [player.id]
   );
   const playerSkills = {};
-  for (const r of skillRows) playerSkills[r.skill_id] = r.rank;
+  for (const r of skillRows) playerSkills[r.skill_id] = r.trained || 0;
 
   for (const [skillId, minRank] of Object.entries(recipe.skill_req || {})) {
     if ((playerSkills[skillId] || 0) < minRank) {
@@ -95,7 +95,7 @@ export async function attemptCraft(player, recipeId, stationQuality = 'none') {
   const stationBonus = stationQuality === 'refined' ? 2 : stationQuality === 'pristine' ? 4 : 0;
   const finalMargin = skillResult.margin + stationBonus;
 
-  const critical = Math.random() < 0.05 + (playerSkills[recipe.skill_id] || 0) * 0.01;
+  const critical = Math.random() < 0.05 + (playerSkills[recipe.skill_id] || 0) * 0.005;
   const catastrophicFail = !skillResult.success && finalMargin < -4;
 
   if (catastrophicFail) {
@@ -130,9 +130,7 @@ export async function attemptCraft(player, recipeId, stationQuality = 'none') {
   else if (finalMargin < 0) outputQuality = 'scrap';
   if (critical) outputQuality = 'pristine'; // crits always pristine
 
-  // Award XP
-  const xpGain = recipe.base_difficulty * 5 + (skillResult.success ? 10 : 0);
-  await awardSkillXp(player.id, recipe.skill_id, xpGain);
+  await awardSkillUse(player.id, recipe.skill_id, skillResult.margin);
 
   // Insert output item — stacks onto an existing pile of the same item at
   // the same quality tier (a pristine craft and a scrap craft of the same
@@ -167,7 +165,7 @@ export async function attemptCraft(player, recipeId, stationQuality = 'none') {
     success: true,
     critical,
     outputQuality,
-    message: `${critMsg}You craft ${outputQty}x ${recipe.name} [${QUALITY_TIERS[outputQuality].label}]. (+${xpGain} ${recipe.skill_id} XP)`,
+    message: `${critMsg}You craft ${outputQty}x ${recipe.name} [${QUALITY_TIERS[outputQuality].label}].`,
     item_id: recipe.base_output.item_id,
     quantity: outputQty,
   };

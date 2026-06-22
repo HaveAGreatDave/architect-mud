@@ -46,32 +46,33 @@ function tick() {
         if (elapsedSinceAggro < firstStrikeDelay) continue;
       }
 
-      const result = enemyAttackPlayer(enemy, target);
-      if (!result) continue;
-      if (result.hit) {
-        target.hp = Math.max(0, target.hp - result.damage);
-        query('UPDATE players SET hp=$1 WHERE id=$2', [target.hp, target.id]).catch(()=>{});
-        broadcastFn(null, { type:'combat_incoming', message:result.message, damage:result.damage, hp:target.hp, hp_max:target.hp_max }, null, target.id);
-        if (target.hp <= 0) { handlePlayerDeath(target, enemy); continue; }
+      enemyAttackPlayer(enemy, target).then(result => {
+        if (!result) return;
+        if (result.hit) {
+          target.hp = Math.max(0, target.hp - result.damage);
+          query('UPDATE players SET hp=$1 WHERE id=$2', [target.hp, target.id]).catch(()=>{});
+          broadcastFn(null, { type:'combat_incoming', message:result.message, damage:result.damage, hp:target.hp, hp_max:target.hp_max }, null, target.id);
+          if (target.hp <= 0) { handlePlayerDeath(target, enemy); return; }
 
-        // Auto-retaliate: fight back rather than standing there. Stick to the
-        // target we're already fighting — a second attacker doesn't pull our
-        // focus. Only engage this attacker if we have no current target.
-        if (!isOnCooldown(target.id, 'attack')) {
-          let retaliateTarget = enemy;
-          const current = target.combatTargetId ? world.enemies.get(target.combatTargetId) : null;
-          if (current && current.zoneId === target.current_zone) retaliateTarget = current;
-          resolveAttack(target, retaliateTarget, broadcastFn)
-            .then(atkResult => {
-              if (atkResult?.type === 'combat') {
-                broadcastFn(null, { ...atkResult, auto:true }, null, target.id);
-              }
-            })
-            .catch(() => {});
+          // Auto-retaliate: fight back rather than standing there. Stick to the
+          // target we're already fighting — a second attacker doesn't pull our
+          // focus. Only engage this attacker if we have no current target.
+          if (!isOnCooldown(target.id, 'attack')) {
+            let retaliateTarget = enemy;
+            const current = target.combatTargetId ? world.enemies.get(target.combatTargetId) : null;
+            if (current && current.zoneId === target.current_zone) retaliateTarget = current;
+            resolveAttack(target, retaliateTarget, broadcastFn)
+              .then(atkResult => {
+                if (atkResult?.type === 'combat') {
+                  broadcastFn(null, { ...atkResult, auto:true }, null, target.id);
+                }
+              })
+              .catch(() => {});
+          }
+        } else {
+          broadcastFn(null, { type:'combat_miss', message:result.message }, null, enemy.targetId);
         }
-      } else {
-        broadcastFn(null, { type:'combat_miss', message:result.message }, null, enemy.targetId);
-      }
+      }).catch(() => {});
     }
   }
 

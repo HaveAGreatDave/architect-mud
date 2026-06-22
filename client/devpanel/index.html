@@ -1732,14 +1732,16 @@ async function enemyEditForm(rec, isNew) {
       <div class="field"><label>Faction</label><input id="f-faction" value="${rec.faction||''}"></div>
     </div>
     <div class="field-row">
-      <div class="field"><label>STR</label><input type="number" id="f-stat_str" value="${rec.stat_str||5}" min="1" max="20"></div>
-      <div class="field"><label>AGI</label><input type="number" id="f-stat_agi" value="${rec.stat_agi||5}" min="1" max="20"></div>
-      <div class="field"><label>END</label><input type="number" id="f-stat_end" value="${rec.stat_end||5}" min="1" max="20"></div>
+      <div class="field"><label>Brawn (STR)</label><input type="number" id="f-stat_str" value="${rec.stat_str||5}" min="1" max="20"></div>
+      <div class="field"><label>Reflexes (AGI)</label><input type="number" id="f-stat_agi" value="${rec.stat_agi||5}" min="1" max="20"></div>
+      <div class="field"><label>Endurance (END)</label><input type="number" id="f-stat_end" value="${rec.stat_end||5}" min="1" max="20"></div>
     </div>
     <div class="field-row">
       <div class="field"><label>HP Max</label><input type="number" id="f-hp_max" value="${rec.hp_max||30}"></div>
-      <div class="field"><label>Armor</label><input type="number" id="f-armor" value="${rec.armor||0}"></div>
+      <div class="field"><label>Armor (flat, legacy)</label><input type="number" id="f-armor" value="${rec.armor||0}"></div>
+      <div class="field"><label>Defense (dodge bonus)</label><input type="number" id="f-defense" value="${rec.defense||0}" min="0"></div>
     </div>
+    <div class="field"><label>Soak (JSON — per-damage-type, e.g. {"kinetic":4,"energy":1})</label><textarea id="f-soak" rows="2">${JSON.stringify(typeof rec.soak==='object'&&rec.soak!==null?rec.soak:(JSON.parse(rec.soak||'{}')), null, 2)}</textarea></div>
     <div class="field-row">
       <div class="field"><label>Dmg Min</label><input type="number" id="f-damage_min" value="${rec.damage_min||3}"></div>
       <div class="field"><label>Dmg Max</label><input type="number" id="f-damage_max" value="${rec.damage_max||7}"></div>
@@ -1918,6 +1920,8 @@ async function saveEnemy(existing) {
     stat_end: +document.getElementById('f-stat_end').value,
     hp_max: +document.getElementById('f-hp_max').value,
     armor: +document.getElementById('f-armor').value,
+    defense: +document.getElementById('f-defense').value || 0,
+    soak: JSON.parse(document.getElementById('f-soak').value || '{}'),
     damage_min: +document.getElementById('f-damage_min').value,
     damage_max: +document.getElementById('f-damage_max').value,
     xp_reward: +document.getElementById('f-xp_reward').value,

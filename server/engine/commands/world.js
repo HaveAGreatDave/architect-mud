@@ -4,6 +4,8 @@ import { getZonePowerStatus, recomputePower, recalcZoneLoad } from '../environme
 import { getPlayerSkills, SKILLS } from '../skills.js';
 import { describeZone } from './describe.js';
 import { getMinimapData, addPlayerToZone, removePlayerFromZone } from '../world.js';
+import { statCost, raiseStat, RAISABLE_STATS } from '../ip.js';
+import { ensureTunables } from '../tunables.js';
 
 async function cmdStats(player) {
   const { rows } = await query('SELECT * FROM players WHERE id=$1', [player.id]);
@@ -12,7 +14,7 @@ async function cmdStats(player) {
   const radBar = `[${'█'.repeat(Math.floor(p.radiation/10))}${'░'.repeat(10-Math.floor(p.radiation/10))}]`;
   let msg = `<span class="stats-header">${p.handle}</span> — ${p.archetype||'unknown'}\n\n`;
   msg += `HP:     ${p.hp}/${p.hp_max}\nSanity: ${p.sanity}/${p.sanity_max}\nHunger: ${p.hunger}/100\nThirst: ${p.thirst}/100\nRAD:    ${radBar} ${p.radiation}/100\n\n`;
-  msg += `STR:${p.stat_str}  AGI:${p.stat_agi}  INT:${p.stat_int}\nWIL:${p.stat_wil}  END:${p.stat_end}  CHA:${p.stat_cha}\n\nCredits: ${p.credits}`;
+  msg += `BRAWN:${p.stat_brawn}  REFL:${p.stat_reflexes}  BRNS:${p.stat_brains}\nCOOL:${p.stat_cool}  END:${p.stat_endurance}  SENS:${p.stat_senses}\n\nIP: ${p.ip||0}  Credits: ${p.credits}`;
 
   const statusFlags = [];
   if (player.sleeping) statusFlags.push('Asleep');
@@ -30,8 +32,9 @@ async function cmdSkills(player) {
   for (const cat of ['combat','survival','tech','social','arcane']) {
     msg += `<span class="skill-category">${cat.toUpperCase()}</span>\n`;
     for (const skill of Object.values(SKILLS).filter(s=>s.category===cat)) {
-      const data = skills[skill.id] || { rank:0 };
-      msg += `  ${skill.name.padEnd(20)} [${'█'.repeat(data.rank)}${'░'.repeat(10-data.rank)}] ${data.rank}/10\n`;
+      const data = skills[skill.id] || { trained:0 };
+      const bars = Math.min(10, Math.round(data.trained));
+      msg += `  ${skill.name.padEnd(20)} [${'█'.repeat(bars)}${'░'.repeat(10-bars)}] ${data.trained.toFixed(2)}/10\n`;
     }
     msg += '\n';
   }
@@ -191,7 +194,7 @@ function cmdHelp(player) {
 <span class="help-category">TRADING</span>     shop &lt;npc&gt;  |  buy &lt;item&gt;  |  sell &lt;item&gt;
 <span class="help-category">ECONOMY</span>     balance  |  deposit &lt;amt/all&gt;  |  withdraw &lt;amt/all&gt;  (ATM required)  |  steal &lt;player&gt;
 <span class="help-category">PROPERTY</span>    rent  |  lock  |  unlock  |  pick  |  upgrade lock  |  sleep
-<span class="help-category">CHARACTER</span>   stats  skills  mutations  factions
+<span class="help-category">CHARACTER</span>   stats  skills  raise [stat]  mutations  factions
 <span class="help-category">SOCIAL</span>      talk &lt;npc&gt;  |  say &lt;message&gt;  |  who  |  whisper/tell &lt;player&gt; &lt;msg&gt;
 <span class="help-category">WORLD</span>       map  |  switch &lt;light&gt;  |  turn &lt;light&gt; on/off
 <span class="help-category">INFO</span>        look  |  look &lt;me/item/player&gt;  |  examine &lt;thing&gt;  help`;
@@ -199,6 +202,37 @@ function cmdHelp(player) {
     msg += `\n<span class="help-category">ADMIN</span>      teleport &lt;zone id&gt;  (tp)`;
   }
   return { type:'help', message: msg };
+}
+
+async function cmdRaise(args, player) {
+  await ensureTunables();
+  const statName = args[0]?.toLowerCase();
+
+  const { rows } = await query(
+    'SELECT ip, stat_brawn, stat_reflexes, stat_endurance, stat_brains, stat_senses, stat_cool FROM players WHERE id=$1',
+    [player.id]
+  );
+  const p = rows[0];
+
+  if (!statName) {
+    const ip = p?.ip || 0;
+    let msg = `<span class="help-header">IMPROVEMENT POINTS — ${Math.floor(ip)} IP</span>\n\n`;
+    for (const stat of RAISABLE_STATS) {
+      const cur = p[`stat_${stat}`] || 0;
+      const cost = statCost(cur);
+      msg += `  ${stat.padEnd(12)} ${String(cur).padStart(2)}  →  ${cost} IP\n`;
+    }
+    msg += `\nUsage: raise <stat>`;
+    return { type: 'help', message: msg };
+  }
+
+  const result = await raiseStat(player.id, statName);
+  if (result.error) return { type: 'error', message: result.error };
+
+  player[result.col] = result.to;
+
+  const msg = `You invest ${result.cost} IP improving your ${result.stat} (${result.from} → ${result.to}).\nIP remaining: ${Math.floor(result.ip_remaining)}`;
+  return { type: 'raise', message: msg, player_update: { [result.col]: result.to, ip: result.ip_remaining } };
 }
 
 async function cmdOpenWindow(args, player, action) {
@@ -237,4 +271,6 @@ export const handlers = {
   tp:       (args, raw, player, broadcast) => cmdTeleport(args.join(' '), player, broadcast),
   open:     (args, raw, player) => cmdOpenWindow(args, player, 'open'),
   close:    (args, raw, player) => cmdOpenWindow(args, player, 'close'),
+  raise:    (args, raw, player) => cmdRaise(args, player),
+  ip:       (args, raw, player) => cmdRaise([], player),
 };
