@@ -2951,12 +2951,9 @@ function renderMapOverview() {
     const disconnected = [...o.zones.values()].filter(z => Object.keys(z.exits || {}).length === 0 && z.grid_x != null);
     const allExtUnplaced = [...extTray, ...noPosition].sort((a, b) => a.name.localeCompare(b.name));
     const intUnplaced = [...(o.unplacedInterior?.values() || [])];
+    const unplacedBuildings = intUnplaced.filter(z => z.flags?.is_building);
     const extChip = z => `<span class="bigmap-tile bm-edit bm-danger-${z.danger_rating || 'safe'}" style="width:auto;height:auto;padding:4px 8px;cursor:grab;flex-shrink:0;border-color:var(--accent)" draggable="true" ondragstart="mapTrayDragStart(event,'${z.id}')" title="${z.id}">${z.name}</span>`;
-    const intChip = z => {
-      const isBuilding = z.flags?.is_building;
-      const label = isBuilding ? `🏢 ${z.name}` : z.name;
-      return `<span class="bigmap-tile bm-edit bm-danger-${z.danger_rating || 'safe'}" style="width:auto;height:auto;padding:4px 8px;cursor:grab;flex-shrink:0;border-color:var(--accent2);color:var(--accent2)${isBuilding ? ';font-weight:600' : ''}" draggable="true" ondragstart="mapInteriorTrayDragStart(event,'${z.id}')" title="${z.id}${isBuilding ? ' (building entry)' : ''}">${label}</span>`;
-    };
+    const intChip = z => `<span class="bigmap-tile bm-edit bm-danger-${z.danger_rating || 'safe'}" style="width:auto;height:auto;padding:4px 8px;cursor:grab;flex-shrink:0;border-color:var(--accent2);color:var(--accent2);font-weight:600" draggable="true" ondragstart="mapInteriorTrayDragStart(event,'${z.id}')" title="${z.id}">🏢 ${z.name}</span>`;
     html += `<div style="padding:0 12px 14px;border-top:1px solid var(--border);margin-top:8px">
       <div style="font-size:11px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;padding-top:10px">Unplaced Exterior Zones</div>
       <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px">Drag onto an empty cell to place on the world map.</div>
@@ -2969,10 +2966,10 @@ function renderMapOverview() {
       <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px">On the map grid but have no exits — may need wiring up.</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">${disconnected.map(z => trayChip(z, 'mapTrayDragStart')).join('')}</div>
       ` : ''}
-      <div style="font-size:11px;font-weight:600;color:var(--accent2);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Unplaced Interior Zones</div>
+      <div style="font-size:11px;font-weight:600;color:var(--accent2);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Unplaced Buildings</div>
       <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px">Drag onto an existing exterior zone tile to link and create an interior map.</div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap">${intUnplaced.length
-        ? intUnplaced.map(intChip).join('')
+      <div style="display:flex;gap:6px;flex-wrap:wrap">${unplacedBuildings.length
+        ? unplacedBuildings.map(intChip).join('')
         : `<span style="color:var(--text-dim);font-style:italic;font-size:11px">None.</span>`
       }</div>
     </div>`;
