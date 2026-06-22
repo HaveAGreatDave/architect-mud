@@ -1,6 +1,90 @@
 # Plugin Architecture Analysis
 
-> **STATUS NOTE (2026-06-21):** This document is superseded in part. The "Phase 1" items it recommended — command registration (`registerCommand`/`fireCommand`), route registration (`registerRoutes`/`fireRoutes`), and a unified `effects.js` — are **already implemented**. See `plugins.js` and `server/engine/effects.js`. The ongoing client/content restructuring work is tracked in `docs/future_proofing.md` instead. This document remains accurate for its architecture survey but its roadmap is stale.
+> **STATUS NOTE (2026-06-22 — Second Pass):** Major portions of this roadmap are now complete. See §6 below for the full current-state audit and active remaining work. The §5 Migration Roadmap is historical; §6 is the live plan.
+
+---
+
+## 6. Second Pass — Current State (2026-06-22)
+
+### What got done
+
+**Phase 1 APIs — all shipped:**
+- `registerCommand`/`fireCommand` — command registry in `plugins.js`, checked before built-in switch
+- `registerRoutes`/`fireRoutes` — route registry in `plugins.js`, mounted from `server/api/routes.js`
+- Unified scheduler — `server/engine/scheduler.js` with named cadences (`10s`, `30s`, `45s`, `1m`, `5m`, `30m`, `24h`); the 1-second combat tick stays a raw `setInterval` per plan
+- Entity lifecycle hooks for zones: `zone.create`, `zone.update`, `zone.delete` fired from `routes.js`
+
+**Phase 2 extractions — all shipped:**
+- **Factions** → `plugins/factions/` (commands: `factions`, `rep`; engine `factions.js` remains as data service)
+- **Mutations** → `plugins/mutations/` (`tick.minute` hook + `mutations` command; engine `mutations.js` remains as cache/data service)
+- **Visibility** → `plugins/visibility/` (`zone.describeRoom` hook — new hook name vs. `zone.describeAmbient`)
+- **Weather** → `plugins/weather/` (full system, hooks: `environment.init`, `environment.advanceWeather`, `environment.recalculateForecast`; `_example-weather-retired` preserved for reference)
+- **Status Effects** → `server/engine/effects.js` (extracted from `combat.js`; `bleeding`, `burning`, `irradiated` as data defs with `applyEffect`/`tickEffects`)
+- **Zone Validator** → `plugins/zone-validator/` (hooks: `worldValidator.runFull`, `worldValidator.runZone`, `zone.create`, `zone.update` — auto-validates after map edits as requested)
+
+**New systems built right (Phase 4 style):**
+- **Sound propagation** — `server/engine/sounds.js` with BFS reach model, word-dropping attenuation, and `propagateYell`. Built as an engine utility module rather than a plugin (no commands or hooks of its own — it's called by commands.js). This is fine; `sounds.js` is a pure function library, not a gameplay system with lifecycle concerns.
+- **Tags** — `server/engine/tags.js`, wrapping `client/shared/tagCatalog.js`. Item class tags in `items.tags` JSONB; instance flags in `player_inventory.custom_data`. Not in the original analysis.
+
+**Full hook inventory as of this pass:**
+| Hook | Fired from | Consumer |
+|---|---|---|
+| `tick.minute` | `gameLoop.js` | mutations plugin |
+| `player.death` | `gameLoop.js` | (open) |
+| `zone.describeAmbient` | `gameLoop.js` | (open) |
+| `zone.describeRoom` | (commands.js presumably) | visibility plugin |
+| `zone.create` | `routes.js` | zone-validator plugin |
+| `zone.update` | `routes.js` | zone-validator plugin |
+| `zone.delete` | `routes.js` | (open) |
+| `environment.init` | `environment.js` | weather plugin |
+| `environment.advanceWeather` | `environment.js` | weather plugin |
+| `environment.recalculateForecast` | `environment.js` | weather plugin |
+| `worldValidator.runFull` | dev-panel route | zone-validator plugin |
+| `worldValidator.runZone` | dev-panel route | zone-validator plugin |
+
+---
+
+### What remains
+
+**Missing entity lifecycle hooks (§4.6 — partially done):**
+- `player.create`, `player.login`, `player.logout` — `zone.*` hooks exist but player lifecycle hooks do not. Needed by Quest systems and world events. Low effort, fire from the registration/login code paths in `routes.js`.
+
+**Phase 3 extractions — not started:**
+
+| System | Still coupled to core | What blocks extraction |
+|---|---|---|
+| **Power grid** | `environment.js` (`simulatePowerNetwork`, BFS, generator install) + `environment.routes.js` | Needs an accessor so commands.js's `switch` doesn't import `environment.js` directly; the route file already has the right shape |
+| **Lighting** | `environment.js` (`computeArtificialLight`, `lighting_states` table) + `commands.js` (`switch` command, `describeLightLevel`) | `switch` command needs to move to a plugin — command registry exists, so this is now just doing the work |
+| **Crafting** | `server/engine/crafting.js` + `commands.js` (`craft` command) | Same: move `craft` command to a plugin; `crafting.js` stays as engine service |
+| **Economy** | No `economy.js` exists; credits mutated ad hoc in ~5 files | Need `economy.js` service with `adjustCredits(player, delta, reason)` before anything can plug into it. This is a correctness risk today (nothing prevents going negative). |
+| **Inventory** | No `inventory.js` exists; `player_inventory` queried from multiple files | Same shape as Economy — consolidate into a service first, then hooks (`inventory.onAdd`/`onRemove`) become possible |
+| **Drugs** | `server/engine/drugs.js` (cache) + `commands.js` (`use`, `inject`) | Effects not yet unified with `effects.js`; drugs still apply stat deltas ad hoc. Unify drug effect application through `applyEffect` first, then the plugin extraction is low-risk |
+
+**`effects.js` unification gap:** `drugs.js` and `mutations.js` still apply their stat effects independently — `effects.js` was extracted from `combat.js` but didn't pull the drug/mutation paths in. The original Phase 2 goal was one shared applicator across all three. Still worth doing; medium effort, touches `drugs.js` and `mutations.js`.
+
+**Phase 4 greenfield (unchanged from original, none started):**
+- NPC behavior/AI tick, Quest systems, Vehicles, Cybernetics, World events, Procedural generation, Scripting systems
+
+**Dev-panel UI registration (§4.3 — still open):**
+No mechanism for plugins to add tabs or sub-sections to the dev panel without editing `devpanel.html` directly. Every new dev-panel feature still requires a core edit. This was the highest-leverage API addition identified in the original pass and remains unbuilt.
+
+---
+
+### Active roadmap (ordered by value/risk)
+
+1. **`economy.js` consolidation** — correctness risk, not just style. Write it; wire `adjustCredits` into the five places that currently hand-roll `player.credits -= cost`.
+2. **Player lifecycle hooks** (`player.create`, `player.login`, `player.logout`) — small, unlocks Quest systems and World events.
+3. **Lighting plugin** — move `switch` command out of `commands.js` using the command registry; `computeArtificialLight` and `describeLightLevel` follow. No API gaps remaining.
+4. **Crafting plugin** — move `craft` command to plugin. `crafting.js` stays as service. Low risk.
+5. **Drug effect unification** — route drug/mutation stat application through `effects.js` before extracting drugs as a plugin.
+6. **Drugs plugin** — after #5; move `use`/`inject` commands to plugin.
+7. **Dev-panel UI registration** — unblocks any plugin from adding its own panel without a core edit.
+8. **Power grid plugin** — simulation math out of `environment.js`; routes stay in core.
+9. **`inventory.js` consolidation** — prerequisite for `inventory.onAdd`/`onRemove` hooks.
+
+---
+
+> **Original analysis (2026-06-21) follows below. Accurate as architecture survey; roadmap superseded by §6 above.**
 
 ---
 
