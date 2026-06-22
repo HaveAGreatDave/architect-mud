@@ -973,138 +973,132 @@ async function zoneEditForm(rec, isNew) {
 
       <div class="zone-subsection">
         <div class="zone-subsection-header">Generator</div>
-        ${zoneGenerator ? `
-          <div class="zone-subitem-row">
-            <span>${zoneGenerator.name || zoneGenerator.id} — <span class="text-dim">${zoneGenerator.generator_type === 'city_plant' ? 'City Plant' : 'Junction Box'}, ${Number(zoneGenerator.capacity_kw).toFixed(1)}W, ${zoneGenerator.status}</span></span>
-            <span class="zone-subitem-actions">
-              <button class="action-btn danger" onclick="removeGeneratorQuick('${zoneGenerator.id}','${rec.id}')">Remove</button>
-            </span>
-          </div>
-          <div class="zone-subsection-note">Routes power from the connected city plant to every interior zone in this building (or, for a city plant, every outdoor zone on the map).</div>
-          ${zoneGenerator.generator_type === 'junction_box' ? (() => {
-            const cityGens = allGens.filter(g => g.generator_type === 'city_plant');
-            if (!cityGens.length) return '';
+        ${(() => {
+          const cityGens = allGens.filter(g => g.generator_type === 'city_plant');
+
+          // Zone already has a generator installed here
+          if (zoneGenerator) {
             const jbId = zoneGenerator.id.replace(/'/g, "\\'");
-            return `<div class="field-row" style="margin-top:8px">
-              <div class="field"><label>City Plant</label>
-                <select id="jb-city-gen-select">
-                  <option value="">— None —</option>
-                  ${cityGens.map(g => `<option value="${g.id}" ${g.id === zoneGenerator.city_generator_id ? 'selected' : ''}>${g.name || g.id} (${Number(g.capacity_kw).toFixed(0)}W)</option>`).join('')}
-                </select>
+            const cityGenDropdown = zoneGenerator.generator_type === 'junction_box' && cityGens.length
+              ? `<div class="field-row" style="margin-top:8px">
+                  <div class="field"><label>City Plant</label>
+                    <select id="jb-city-gen-select">
+                      <option value="">— None —</option>
+                      ${cityGens.map(g => `<option value="${g.id}" ${g.id === zoneGenerator.city_generator_id ? 'selected' : ''}>${g.name || g.id} (${Number(g.capacity_kw).toFixed(0)}W)</option>`).join('')}
+                    </select>
+                  </div>
+                  <div class="field" style="display:flex;align-items:flex-end">
+                    <button class="action-btn" onclick="setJunctionBoxCityGen('${jbId}','${rec.id}')">Assign</button>
+                  </div>
+                </div>`
+              : '';
+            return `
+              <div class="zone-subitem-row">
+                <span>${zoneGenerator.name || zoneGenerator.id} — <span class="text-dim">${zoneGenerator.generator_type === 'city_plant' ? 'City Plant' : 'Junction Box'}, ${Number(zoneGenerator.capacity_kw).toFixed(1)}W, ${zoneGenerator.status}</span></span>
+                <span class="zone-subitem-actions">
+                  <button class="action-btn danger" onclick="removeGeneratorQuick('${jbId}','${rec.id}')">Remove</button>
+                </span>
               </div>
-              <div class="field" style="display:flex;align-items:flex-end">
-                <button class="action-btn" onclick="setJunctionBoxCityGen('${jbId}','${rec.id}')">Assign</button>
-              </div>
-            </div>`;
-          })() : ''}
-        ` : flags.is_building ? (() => {
-          // Build a list of interior rooms connected to this building (1-2 hop BFS through interior zones)
-          const jbZoneIds = new Set(allGens.filter(g => g.generator_type === 'junction_box').map(g => g.zone_id));
-          const buildingZ = rec.grid_z ?? 0;
-          const interiorNetwork = [];
-          const visited = new Set();
-          const queue = [rec.id];
-          while (queue.length) {
-            const cur = queue.shift();
-            const curZone = allRecords.find(z => z.id === cur);
-            if (!curZone) continue;
-            for (const nId of Object.values(curZone.exits || {})) {
-              if (visited.has(nId)) continue;
-              const neighbor = allRecords.find(z => z.id === nId);
-              if (neighbor && (neighbor.flags?.is_interior || neighbor.flags?.is_apartment)) {
-                visited.add(nId);
-                interiorNetwork.push(neighbor);
-                queue.push(nId);
+              <div class="zone-subsection-note">Routes power from the connected city plant to every interior zone in this building (or, for a city plant, every outdoor zone on the map).</div>
+              ${cityGenDropdown}`;
+          }
+
+          // Building zone — show junction box install form with z-level picker
+          if (flags.is_building) {
+            const jbZoneIds = new Set(allGens.filter(g => g.generator_type === 'junction_box').map(g => g.zone_id));
+            const buildingZ = rec.grid_z ?? 0;
+            const interiorNetwork = [];
+            const visitedSet = new Set();
+            const bfsQueue = [rec.id];
+            while (bfsQueue.length) {
+              const cur = bfsQueue.shift();
+              const curZone = allRecords.find(z => z.id === cur);
+              if (!curZone) continue;
+              for (const nId of Object.values(curZone.exits || {})) {
+                if (visitedSet.has(nId)) continue;
+                const neighbor = allRecords.find(z => z.id === nId);
+                if (neighbor && (neighbor.flags?.is_interior || neighbor.flags?.is_apartment)) {
+                  visitedSet.add(nId);
+                  interiorNetwork.push(neighbor);
+                  bfsQueue.push(nId);
+                }
               }
             }
+            const byZ = new Map();
+            for (const iz of interiorNetwork) {
+              const zl = iz.grid_z ?? 0;
+              if (!byZ.has(zl)) byZ.set(zl, iz);
+            }
+            const sortedZ = [...byZ.entries()].sort(([a], [b]) => b - a);
+            const cpSelect = cityGens.length
+              ? `<div class="field"><label>City Plant</label><select id="gen-install-city-gen"><option value="">Auto (nearest)</option>${cityGens.map(g => `<option value="${g.id}">${g.name || g.id}</option>`).join('')}</select></div>`
+              : '';
+            return `
+              <div class="zone-subitem-empty">No junction box installed here.</div>
+              <div class="zone-subsection-note" style="margin-bottom:8px">Choose a floor to install in. Existing rooms are reused; new floors create a new room.</div>
+              <div class="field-row" style="margin-top:6px">
+                <div class="field"><label>Floor</label>
+                  <select id="gen-install-location" onchange="document.getElementById('gen-new-floor-row').style.display=this.value==='new'?'flex':'none'">
+                    ${sortedZ.map(([zl, iz]) => {
+                      const hasJB = jbZoneIds.has(iz.id);
+                      return hasJB
+                        ? `<option value="" disabled>Z:${zl} — ${iz.name} (junction box exists)</option>`
+                        : `<option value="existing:${iz.id}:${zl}">Z:${zl} — ${iz.name}</option>`;
+                    }).join('')}
+                    <option value="new">New floor (enter z-level below)</option>
+                  </select>
+                </div>
+                <div class="field"><label>Throughput (W)</label><input type="number" id="gen-install-capacity" placeholder="auto (100)"></div>
+              </div>
+              <div class="field-row" id="gen-new-floor-row" style="display:none">
+                <div class="field"><label>Z-level <span style="color:var(--text-dim);font-weight:400">(${buildingZ + 1} = roof, ${buildingZ - 1} = basement)</span></label><input type="number" id="gen-install-zlevel-num" value="${buildingZ + 1}"></div>
+                <div class="field"><label>Room Name</label><input id="gen-install-zonename" placeholder="${rec.name || ''} Roof"></div>
+              </div>
+              <div class="field"><label>Junction Box Name (optional)</label><input id="gen-install-name" placeholder="${rec.name || ''} Junction Box"></div>
+              ${cpSelect}
+              <button class="action-btn success" onclick='installGeneratorQuick(${JSON.stringify(rec.id)})'>Install Junction Box</button>`;
           }
-          // Group by z-level, pick first zone per z as representative
-          const byZ = new Map();
-          for (const iz of interiorNetwork) {
-            const zl = iz.grid_z ?? 0;
-            if (!byZ.has(zl)) byZ.set(zl, iz);
-          }
-          const sortedZ = [...byZ.entries()].sort(([a],[b]) => b - a); // roof first
-          const hasAnyAvailable = sortedZ.some(([,iz]) => !jbZoneIds.has(iz.id));
-          return `
-          <div class="zone-subitem-empty">No junction box installed here.</div>
-          <div class="zone-subsection-note" style="margin-bottom:8px">Choose a floor to install in. Existing rooms are reused; new floors create a new room.</div>
-          <div class="field-row" style="margin-top:6px">
-            <div class="field"><label>Floor</label>
-              <select id="gen-install-location" onchange="document.getElementById('gen-new-floor-row').style.display=this.value==='new'?'flex':'none'">
-                ${sortedZ.map(([zl, iz]) => {
-                  const hasJB = jbZoneIds.has(iz.id);
-                  return hasJB
-                    ? `<option value="" disabled>Z:${zl} — ${iz.name} (junction box exists)</option>`
-                    : `<option value="existing:${iz.id}:${zl}">Z:${zl} — ${iz.name}</option>`;
-                }).join('')}
-                <option value="new">New floor (enter z-level below)</option>
-              </select>
-            </div>
-            <div class="field"><label>Throughput (W)</label><input type="number" id="gen-install-capacity" placeholder="auto (100)"></div>
-          </div>
-          <div class="field-row" id="gen-new-floor-row" style="display:none">
-            <div class="field"><label>Z-level <span style="color:var(--text-dim);font-weight:400">(${buildingZ + 1} = roof, ${buildingZ - 1} = basement)</span></label><input type="number" id="gen-install-zlevel-num" value="${buildingZ + 1}"></div>
-            <div class="field"><label>Room Name</label><input id="gen-install-zonename" placeholder="${rec.name || ''} Roof"></div>
-          </div>
-          <div class="field">
-            <label>Junction Box Name (optional)</label>
-            <input id="gen-install-name" placeholder="${rec.name || ''} Junction Box">
-          </div>
-          ${(() => {
-            const cityGens = allGens.filter(g => g.generator_type === 'city_plant');
-            return cityGens.length ? `<div class="field"><label>City Plant</label><select id="gen-install-city-gen"><option value="">Auto (nearest)</option>${cityGens.map(g => `<option value="${g.id}">${g.name || g.id}</option>`).join('')}</select></div>` : '';
-          })()}
-          <button class="action-btn success" onclick='installGeneratorQuick(${JSON.stringify(rec.id)})'>Install Junction Box</button>`;
-        })()
-        ` : !flags.is_interior && !flags.is_apartment ? `
-          ${(() => {
-            const cityGens = allGens.filter(g => g.generator_type === 'city_plant');
-            if (zonePowerInfo) {
-              return `
-                <div class="zone-subitem-row">
+
+          // Exterior zone — show city plant info + install option
+          if (!flags.is_interior && !flags.is_apartment) {
+            const powerStatus = zonePowerInfo
+              ? `<div class="zone-subitem-row">
                   <span>Served by <strong>${zonePowerInfo.generator_name || zonePowerInfo.generator_id || 'Unknown'}</strong> — <span class="text-dim">${(zonePowerInfo.available_kw ?? 0).toFixed(1)}/${Number(zonePowerInfo.max_capacity_kw ?? 1000).toFixed(1)}W available, ${zonePowerInfo.status}</span></span>
                 </div>
-                ${cityGens.length > 1 ? `
-                  <div class="field-row" style="margin-top:8px">
-                    <div class="field"><label>Reassign to generator</label>
-                      <select id="zone-gen-reassign-select">
-                        ${cityGens.map(g => `<option value="${g.id}" ${g.id === zonePowerInfo.generator_id ? 'selected' : ''}>${g.name || g.id} (${Number(g.capacity_kw).toFixed(0)}W)</option>`).join('')}
-                      </select>
-                    </div>
-                    <div class="field" style="display:flex;align-items:flex-end">
-                      <button class="action-btn" onclick="reassignZoneGenerator('${rec.id}')">Reassign</button>
-                    </div>
+                ${cityGens.length > 1 ? `<div class="field-row" style="margin-top:8px">
+                  <div class="field"><label>Reassign to generator</label>
+                    <select id="zone-gen-reassign-select">
+                      ${cityGens.map(g => `<option value="${g.id}" ${g.id === zonePowerInfo.generator_id ? 'selected' : ''}>${g.name || g.id} (${Number(g.capacity_kw).toFixed(0)}W)</option>`).join('')}
+                    </select>
                   </div>
-                ` : ''}
-              `;
-            }
-            return `<div class="zone-subitem-empty">No power zone record — not connected to the city grid. Use Fix Zone Connections in the Power tab.</div>`;
-          })()}
-          <div class="zone-subsection-note" style="margin-bottom:8px;margin-top:6px">Install a new City Power Plant at this location.</div>
-          <div class="field-row" style="margin-top:6px">
-            <div class="field"><label>Capacity (W)</label><input type="number" id="gen-install-capacity" placeholder="auto (500000)"></div>
-          </div>
-          <div class="field"><label>Name (optional)</label><input id="gen-install-name" placeholder="${rec.name || ''} Power Plant"></div>
-          <button class="action-btn success" onclick='installGeneratorQuick(${JSON.stringify(rec.id)})'>Install City Power Plant</button>
-        ` : `
-          <div class="zone-subitem-empty">No junction box installed here.</div>
-          <div class="field-row" style="margin-top:6px">
-            <div class="field"><label>Throughput (W)</label><input type="number" id="gen-install-capacity" placeholder="auto (5000)"></div>
-          </div>
-          ${(() => {
-            const cityGens = allGens.filter(g => g.generator_type === 'city_plant');
-            return cityGens.length ? `
-              <div class="field"><label>City Plant</label>
-                <select id="gen-install-city-gen">
-                  <option value="">Auto (nearest)</option>
-                  ${cityGens.map(g => `<option value="${g.id}">${g.name || g.id}</option>`).join('')}
-                </select>
-              </div>` : '';
-          })()}
-          <div class="field"><label>Name (optional)</label><input id="gen-install-name" placeholder="${rec.name || ''} Junction Box"></div>
-          <button class="action-btn success" onclick='installGeneratorQuick(${JSON.stringify(rec.id)})'>Install Junction Box</button>
-        `}
+                  <div class="field" style="display:flex;align-items:flex-end">
+                    <button class="action-btn" onclick="reassignZoneGenerator('${rec.id}')">Reassign</button>
+                  </div>
+                </div>` : ''}`
+              : `<div class="zone-subitem-empty">No power zone record — not connected to the city grid. Use Fix Zone Connections in the Power tab.</div>`;
+            return `
+              ${powerStatus}
+              <div class="zone-subsection-note" style="margin-bottom:8px;margin-top:6px">Install a new City Power Plant at this location.</div>
+              <div class="field-row" style="margin-top:6px">
+                <div class="field"><label>Capacity (W)</label><input type="number" id="gen-install-capacity" placeholder="auto (500000)"></div>
+              </div>
+              <div class="field"><label>Name (optional)</label><input id="gen-install-name" placeholder="${rec.name || ''} Power Plant"></div>
+              <button class="action-btn success" onclick='installGeneratorQuick(${JSON.stringify(rec.id)})'>Install City Power Plant</button>`;
+          }
+
+          // Interior zone with no junction box yet
+          const cpSelect = cityGens.length
+            ? `<div class="field"><label>City Plant</label><select id="gen-install-city-gen"><option value="">Auto (nearest)</option>${cityGens.map(g => `<option value="${g.id}">${g.name || g.id}</option>`).join('')}</select></div>`
+            : '';
+          return `
+            <div class="zone-subitem-empty">No junction box installed here.</div>
+            <div class="field-row" style="margin-top:6px">
+              <div class="field"><label>Throughput (W)</label><input type="number" id="gen-install-capacity" placeholder="auto (100)"></div>
+            </div>
+            ${cpSelect}
+            <div class="field"><label>Name (optional)</label><input id="gen-install-name" placeholder="${rec.name || ''} Junction Box"></div>
+            <button class="action-btn success" onclick='installGeneratorQuick(${JSON.stringify(rec.id)})'>Install Junction Box</button>`;
+        })()}
       </div>
 
       ${flags.is_apartment ? `
