@@ -997,28 +997,66 @@ async function zoneEditForm(rec, isNew) {
               </div>
             </div>`;
           })() : ''}
-        ` : flags.is_building ? `
+        ` : flags.is_building ? (() => {
+          // Build a list of interior rooms connected to this building (1-2 hop BFS through interior zones)
+          const jbZoneIds = new Set(allGens.filter(g => g.generator_type === 'junction_box').map(g => g.zone_id));
+          const buildingZ = rec.grid_z ?? 0;
+          const interiorNetwork = [];
+          const visited = new Set();
+          const queue = [rec.id];
+          while (queue.length) {
+            const cur = queue.shift();
+            const curZone = allRecords.find(z => z.id === cur);
+            if (!curZone) continue;
+            for (const nId of Object.values(curZone.exits || {})) {
+              if (visited.has(nId)) continue;
+              const neighbor = allRecords.find(z => z.id === nId);
+              if (neighbor && (neighbor.flags?.is_interior || neighbor.flags?.is_apartment)) {
+                visited.add(nId);
+                interiorNetwork.push(neighbor);
+                queue.push(nId);
+              }
+            }
+          }
+          // Group by z-level, pick first zone per z as representative
+          const byZ = new Map();
+          for (const iz of interiorNetwork) {
+            const zl = iz.grid_z ?? 0;
+            if (!byZ.has(zl)) byZ.set(zl, iz);
+          }
+          const sortedZ = [...byZ.entries()].sort(([a],[b]) => b - a); // roof first
+          const hasAnyAvailable = sortedZ.some(([,iz]) => !jbZoneIds.has(iz.id));
+          return `
           <div class="zone-subitem-empty">No junction box installed here.</div>
-          <div class="zone-subsection-note" style="margin-bottom:8px">Installs in a roof or basement room. If an interior room already exists above/below, the junction box is placed there instead of creating a new one.</div>
+          <div class="zone-subsection-note" style="margin-bottom:8px">Choose a floor to install in. Existing rooms are reused; new floors create a new room.</div>
           <div class="field-row" style="margin-top:6px">
-            <div class="field"><label>Location</label>
-              <select id="gen-install-location">
-                ${canRoof ? `<option value="roof">${!upId ? 'Roof (new room: up)' : `Roof — ${upZone?.name || upId}`}</option>` : ''}
-                ${!canRoof && genAbove ? `<option value="" disabled style="color:var(--danger)">⚠ Junction box already in ${upZone?.name || 'room above'}</option>` : ''}
-                ${!canRoof && upId && !genAbove ? `<option value="" disabled>Up exit blocked (not an interior room)</option>` : ''}
-                ${canBasement ? `<option value="basement">${!downId ? 'Basement (new room: down)' : `Basement — ${downZone?.name || downId}`}</option>` : ''}
-                ${!canBasement && genBelow ? `<option value="" disabled style="color:var(--danger)">⚠ Junction box already in ${downZone?.name || 'room below'}</option>` : ''}
-                ${!canBasement && downId && !genBelow ? `<option value="" disabled>Down exit blocked (not an interior room)</option>` : ''}
+            <div class="field"><label>Floor</label>
+              <select id="gen-install-location" onchange="document.getElementById('gen-new-floor-row').style.display=this.value==='new'?'flex':'none'">
+                ${sortedZ.map(([zl, iz]) => {
+                  const hasJB = jbZoneIds.has(iz.id);
+                  return hasJB
+                    ? `<option value="" disabled>Z:${zl} — ${iz.name} (junction box exists)</option>`
+                    : `<option value="existing:${iz.id}:${zl}">Z:${zl} — ${iz.name}</option>`;
+                }).join('')}
+                <option value="new">New floor (enter z-level below)</option>
               </select>
             </div>
-            <div class="field"><label>Throughput (W)</label><input type="number" id="gen-install-capacity" placeholder="auto (5000)"></div>
+            <div class="field"><label>Throughput (W)</label><input type="number" id="gen-install-capacity" placeholder="auto (100)"></div>
           </div>
-          <div class="field-row">
-            <div class="field"><label>Room Name <span style="color:var(--text-dim);font-weight:400">(new rooms only)</span></label><input id="gen-install-zonename" placeholder="e.g. ${rec.name || ''} Roof"></div>
-            <div class="field"><label>Junction Box Name (optional)</label><input id="gen-install-name" placeholder="${rec.name || ''} Junction Box"></div>
+          <div class="field-row" id="gen-new-floor-row" style="display:none">
+            <div class="field"><label>Z-level <span style="color:var(--text-dim);font-weight:400">(${buildingZ + 1} = roof, ${buildingZ - 1} = basement)</span></label><input type="number" id="gen-install-zlevel-num" value="${buildingZ + 1}"></div>
+            <div class="field"><label>Room Name</label><input id="gen-install-zonename" placeholder="${rec.name || ''} Roof"></div>
           </div>
-          ${!canRoof && !canBasement ? `<div style="color:var(--danger);font-size:12px;font-weight:600;margin-bottom:6px">⚠ Junction boxes already exist in both rooms — remove one first.</div>` : ''}
-          <button class="action-btn success" onclick='installGeneratorQuick(${JSON.stringify(rec.id)})' ${!canRoof && !canBasement ? 'disabled' : ''}>Install Junction Box</button>
+          <div class="field">
+            <label>Junction Box Name (optional)</label>
+            <input id="gen-install-name" placeholder="${rec.name || ''} Junction Box">
+          </div>
+          ${(() => {
+            const cityGens = allGens.filter(g => g.generator_type === 'city_plant');
+            return cityGens.length ? `<div class="field"><label>City Plant</label><select id="gen-install-city-gen"><option value="">Auto (nearest)</option>${cityGens.map(g => `<option value="${g.id}">${g.name || g.id}</option>`).join('')}</select></div>` : '';
+          })()}
+          <button class="action-btn success" onclick='installGeneratorQuick(${JSON.stringify(rec.id)})'>Install Junction Box</button>`;
+        })()
         ` : !flags.is_interior && !flags.is_apartment ? `
           ${(() => {
             const cityGens = allGens.filter(g => g.generator_type === 'city_plant');
@@ -1290,62 +1328,65 @@ async function installGeneratorQuick(zoneId) {
 }
 
 async function _installBuildingGenerator(zoneId, rec) {
-  const locationEl = document.getElementById('gen-install-location');
-  const location = locationEl?.value;
-  if (!location) { toast('No available location — select roof or basement.', true); return; }
+  const selection = document.getElementById('gen-install-location')?.value;
+  if (!selection) { toast('Select a floor to install the junction box in.', true); return; }
 
-  const exitDir   = location === 'roof' ? 'up' : 'down';
-  const returnDir = location === 'roof' ? 'down' : 'up';
-  const genName   = document.getElementById('gen-install-name')?.value.trim();
+  const genName    = document.getElementById('gen-install-name')?.value.trim();
   const capacityKw = parseInt(document.getElementById('gen-install-capacity')?.value) || undefined;
+  const cityGeneratorId = document.getElementById('gen-install-city-gen')?.value || undefined;
   const authHeaders = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
 
-  const existingExitZoneId = (rec.exits || {})[exitDir];
   let targetZoneId;
 
-  if (existingExitZoneId) {
-    // Reuse the existing interior room — don't create a new zone.
-    targetZoneId = existingExitZoneId;
-  } else {
-    // Create a new roof/basement zone placed at Z±1 above/below the entry zone.
-    const defaultName = `${rec.name || zoneId} ${location === 'roof' ? 'Roof' : 'Basement'}`;
+  if (selection.startsWith('existing:')) {
+    // Format: "existing:<zoneId>:<z-level>"
+    targetZoneId = selection.split(':')[1];
+  } else if (selection === 'new') {
+    const newZ = parseInt(document.getElementById('gen-install-zlevel-num')?.value);
+    if (isNaN(newZ)) { toast('Enter a valid z-level number.', true); return; }
+    const currentZ = rec.grid_z ?? 0;
+    const exitDir  = newZ > currentZ ? 'up' : newZ < currentZ ? 'down' : 'in';
+    const returnDir = newZ > currentZ ? 'down' : newZ < currentZ ? 'up' : 'out';
+
+    if ((rec.exits || {})[exitDir]) {
+      toast(`The "${exitDir}" exit is already occupied — choose a different z-level.`, true);
+      return;
+    }
+
+    const defaultName = `${rec.name || zoneId} ${newZ > currentZ ? 'Roof' : 'Basement'}`;
     const zoneName = document.getElementById('gen-install-zonename')?.value.trim() || defaultName;
-    const newZoneId = `${zoneId}_${location}_${Date.now()}`;
-    const parentGridZ = rec.grid_z ?? 0;
+    const newZoneId = `${zoneId}_z${newZ}_${Date.now()}`;
+
     const createRes = await fetch('/api/zones', {
-      method: 'POST',
-      headers: authHeaders,
+      method: 'POST', headers: authHeaders,
       body: JSON.stringify({
-        id: newZoneId,
-        name: zoneName,
-        description: location === 'roof' ? `The rooftop of ${rec.name || zoneId}.` : `The basement of ${rec.name || zoneId}.`,
+        id: newZoneId, name: zoneName,
+        description: `${newZ > currentZ ? 'Rooftop' : 'Basement'} of ${rec.name || zoneId}.`,
         danger_rating: rec.danger_rating || 'medium',
         pvp_enabled: false, is_safe_zone: false,
         exits: { [returnDir]: zoneId },
         ambient_events: [], ambient_theme: 'indoors',
         flags: { is_interior: true },
         map_id: rec.map_id || null,
-        grid_x: rec.grid_x ?? 0,
-        grid_y: rec.grid_y ?? 0,
-        grid_z: location === 'roof' ? parentGridZ + 1 : parentGridZ - 1,
+        grid_x: rec.grid_x ?? 0, grid_y: rec.grid_y ?? 0, grid_z: newZ,
       }),
     });
     const createResult = await createRes.json();
-    if (createResult.error) { toast(`Failed to create ${location} zone: ${createResult.error}`, true); return; }
+    if (createResult.error) { toast(`Failed to create floor zone: ${createResult.error}`, true); return; }
     targetZoneId = newZoneId;
 
-    // Wire exit from building into new zone.
     const exitRes = await fetch(`/api/zones/${zoneId}`, {
       method: 'PUT', headers: authHeaders,
       body: JSON.stringify({ exits: { ...(rec.exits || {}), [exitDir]: newZoneId } }),
     });
     const exitResult = await exitRes.json();
-    if (exitResult.error) { toast(`Zone created but exit wiring failed: ${exitResult.error}`, true); }
+    if (exitResult.error) toast(`Zone created but exit wiring failed: ${exitResult.error}`, true);
+  } else {
+    toast('Select a valid floor.', true); return;
   }
 
   const targetZone = allRecords.find(z => z.id === targetZoneId);
   const fallbackName = targetZone?.name || `${rec.name || zoneId} Junction Box`;
-  const cityGeneratorId = document.getElementById('gen-install-city-gen')?.value || undefined;
   const genResult = await API('/environment/power/install', 'POST', {
     zoneId: targetZoneId, generatorType: 'junction_box',
     name: genName || fallbackName, capacityKw, cityGeneratorId,
@@ -2307,11 +2348,20 @@ function buildDynamicMapGrid(zones, mode, powerById, clickable) {
       const colorStyle = z.color ? `;border-color:${z.color}` : '';
       if (mode === 'power') {
         const p = powerById?.get(z.id);
-        const status = p ? p.status : 'unpowered';
-        cls = `bigmap-tile bm-power-${status}`;
-        sub = p
-          ? `<div style="font-size:9px;opacity:0.8;margin-top:2px">${(p.loadKw ?? 0).toFixed(1)}/${(p.availableKw ?? 0).toFixed(1)}W <span onclick="event.stopPropagation();editZoneMaxCapacity('${z.id}')" style="cursor:pointer;opacity:0.6" title="Edit max capacity">✏</span></div>`
-          : `<div style="font-size:9px;opacity:0.6;margin-top:2px">no power</div>`;
+        const cpGen = bigMapGenerators.find(g => g.zone_id === z.id && g.generator_type === 'city_plant');
+        if (cpGen) {
+          const used = cpGen.capacity_kw - (cpGen.remaining_kw ?? cpGen.capacity_kw);
+          const overdrawn = used > cpGen.capacity_kw;
+          const cpStatus = cpGen.status !== 'online' ? 'offline' : overdrawn ? 'overloaded' : 'powered';
+          cls = `bigmap-tile bm-power-${cpStatus}`;
+          sub = `<div style="font-size:9px;opacity:0.9;margin-top:2px">⚡ ${used.toFixed(0)}/${cpGen.capacity_kw.toFixed(0)}W</div>`;
+        } else {
+          const status = p ? p.status : 'unpowered';
+          cls = `bigmap-tile bm-power-${status}`;
+          sub = p
+            ? `<div style="font-size:9px;opacity:0.8;margin-top:2px">${(p.loadKw ?? 0).toFixed(1)}/${(p.availableKw ?? 0).toFixed(1)}W <span onclick="event.stopPropagation();editZoneMaxCapacity('${z.id}')" style="cursor:pointer;opacity:0.6" title="Edit max capacity">✏</span></div>`
+            : `<div style="font-size:9px;opacity:0.6;margin-top:2px">no power</div>`;
+        }
       }
       const click = clickable ? ` onclick="bigMapTileClick('${z.id}')"` : '';
       html += `<div class="${cls}" style="${gs}${colorStyle}" title="${z.id}"${click}><div>${marker}${z.name}${sub}</div></div>`;
@@ -2350,10 +2400,11 @@ function buildDynamicMapGrid(zones, mode, powerById, clickable) {
 
 function mapLegendHtml(mode) {
   return mode === 'power'
-    ? `<span><span class="legend-swatch" style="background:rgba(20,220,110,0.7)"></span>Powered</span>
-       <span><span class="legend-swatch" style="background:rgba(255,165,0,0.7)"></span>Overloaded</span>
-       <span><span class="legend-swatch" style="background:rgba(230,50,70,0.7)"></span>Offline</span>
-       <span><span class="legend-swatch" style="background:rgba(40,40,60,0.8)"></span>Unpowered</span>`
+    ? `<span><span class="legend-swatch" style="background:rgba(20,200,100,0.6);border:1px solid rgba(20,220,110,0.75)"></span>Powered</span>
+       <span><span class="legend-swatch" style="background:rgba(255,165,0,0.6);border:1px solid rgba(255,165,0,0.85)"></span>Overloaded</span>
+       <span><span class="legend-swatch" style="background:rgba(220,40,60,0.5);border:1px solid rgba(230,50,70,0.85)"></span>Offline</span>
+       <span><span class="legend-swatch" style="background:rgba(40,40,60,0.55);border:1px solid rgba(80,80,110,0.4)"></span>Unpowered</span>
+       <span><span class="legend-swatch" style="background:rgba(20,200,100,0.6);border:1px solid rgba(20,220,110,0.75)"></span>⚡ City Plant tile</span>`
     : `<span><span class="legend-swatch" style="background:rgba(57,255,143,0.4)"></span>Safe</span>
        <span><span class="legend-swatch" style="background:rgba(245,230,66,0.4)"></span>Low</span>
        <span><span class="legend-swatch" style="background:rgba(255,154,60,0.4)"></span>Medium</span>
@@ -2362,25 +2413,28 @@ function mapLegendHtml(mode) {
 
 let bigMapZones = [];
 let bigMapPowerData = [];
+let bigMapGenerators = [];
 let bigMapOverlayData = null;
 let bigMapOverlayZ = 0;
 let bigMapOverlayMode = 'zones';
 
 async function openBigMap(mode = 'zones') {
   bigMapOverlayMode = mode;
-  // Fetch the primary map data the same way the Maps tab does, plus power if needed.
   const calls = [API('/maps/map_world').catch(() => null)];
-  if (mode === 'power') calls.push(API('/environment/power/map').catch(() => []));
-  const [mapData, powerMap] = await Promise.all(calls);
+  if (mode === 'power') {
+    calls.push(API('/environment/power/map').catch(() => []));
+    calls.push(API('/environment/power/generators').catch(() => []));
+  }
+  const [mapData, powerMap, generators] = await Promise.all(calls);
   if (!mapData || mapData.error) { toast('Could not load map data', true); return; }
   bigMapOverlayData = {
     map: mapData.map,
     zones: new Map((mapData.zones || []).map(z => [z.id, { ...z, exits: z.exits || {}, grid_z: z.grid_z ?? 0 }])),
     children: mapData.children || [],
   };
-  // Keep bigMapZones in sync so buildDynamicMapGrid (power panel) still works.
   bigMapZones = mapData.zones || [];
   bigMapPowerData = Array.isArray(powerMap) ? powerMap : [];
+  bigMapGenerators = Array.isArray(generators) ? generators : [];
   bigMapOverlayZ = 0;
   document.getElementById('bigmap-title').textContent = mode === 'power' ? 'Power Grid' : (mapData.map?.name || 'City Map');
   renderBigMapOverlay();
@@ -2442,13 +2496,24 @@ function renderBigMapOverlay() {
 
       let cls = `bigmap-tile bm-danger-${z.danger_rating || 'safe'}`;
       let colorStyle = z.color ? `border-color:${z.color};` : '';
+      let powerSub = '';
       if (bigMapOverlayMode === 'power') {
-        const p = powerById.get(z.id);
-        cls = `bigmap-tile bm-power-${p ? p.status : 'unpowered'}`;
         colorStyle = '';
+        const p = powerById.get(z.id);
+        const cpGen = bigMapGenerators.find(g => g.zone_id === z.id && g.generator_type === 'city_plant');
+        if (cpGen) {
+          const used = cpGen.capacity_kw - (cpGen.remaining_kw ?? cpGen.capacity_kw);
+          const overdrawn = used > cpGen.capacity_kw;
+          const cpStatus = cpGen.status !== 'online' ? 'offline' : overdrawn ? 'overloaded' : 'powered';
+          cls = `bigmap-tile bm-power-${cpStatus}`;
+          powerSub = `<div style="font-size:9px;opacity:0.9;margin-top:2px">⚡ ${used.toFixed(0)}/${cpGen.capacity_kw.toFixed(0)}W</div>`;
+        } else {
+          cls = `bigmap-tile bm-power-${p ? p.status : 'unpowered'}`;
+          if (p) powerSub = `<div style="font-size:9px;opacity:0.8;margin-top:2px">${(p.loadKw??0).toFixed(1)}/${(p.availableKw??0).toFixed(1)}W</div>`;
+        }
       }
 
-      html += `<div class="${cls}" style="${gs};${colorStyle}" title="${z.id}" onclick="bigMapTileClick('${z.id}')"><div>${dive}${marker}${z.name}${exHtml}</div></div>`;
+      html += `<div class="${cls}" style="${gs};${colorStyle}" title="${z.id}" onclick="bigMapTileClick('${z.id}')"><div>${dive}${marker}${z.name}${exHtml}${powerSub}</div></div>`;
     }
   }
 
@@ -3167,26 +3232,72 @@ function renderPowerPanelBody() {
 
   html += `<div style="padding:12px"><h3 style="color:var(--accent);font-size:12px;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">Generators</h3>`;
   if (powerPanelGenerators.length) {
-    html += '<table><thead><tr><th>Name</th><th>Type</th><th>Zone</th><th>Capacity</th><th>Remaining</th><th>Status</th><th></th></tr></thead><tbody>';
-    for (const g of powerPanelGenerators) {
-      const gIdSafe = g.id.replace(/'/g, "\\'");
-      const remaining = g.remaining_kw ?? g.capacity_kw;
-      const usedKw = g.capacity_kw - remaining;
-      const pct = g.capacity_kw > 0 ? Math.round((usedKw / g.capacity_kw) * 100) : 0;
-      html += `<tr>
-        <td>${g.name || g.id}</td>
-        <td>${g.generator_type === 'city_plant' ? 'City Plant' : 'Junction Box'}</td>
-        <td>${g.zone_name || g.zone_id || '—'}</td>
-        <td>${Number(g.capacity_kw).toFixed(1)}W</td>
-        <td style="white-space:nowrap">${Number(remaining).toFixed(1)}W <span style="color:var(--text-dim);font-size:10px">(${pct}% used)</span></td>
-        <td><span class="badge badge-${g.status === 'online' ? 'safe' : 'high'}">${g.status}</span></td>
+    const cityPlants = powerPanelGenerators.filter(g => g.generator_type === 'city_plant');
+    const jbsByCity = new Map();
+    const unassignedJBs = [];
+    for (const jb of powerPanelGenerators.filter(g => g.generator_type === 'junction_box')) {
+      if (jb.city_generator_id) {
+        if (!jbsByCity.has(jb.city_generator_id)) jbsByCity.set(jb.city_generator_id, []);
+        jbsByCity.get(jb.city_generator_id).push(jb);
+      } else {
+        unassignedJBs.push(jb);
+      }
+    }
+
+    html += '<table><thead><tr><th>Name</th><th>Zone / Building</th><th>Generation / Draw</th><th>Status</th><th></th></tr></thead><tbody>';
+
+    for (const cp of cityPlants) {
+      const cpIdSafe = cp.id.replace(/'/g, "\\'");
+      const used = cp.capacity_kw - (cp.remaining_kw ?? cp.capacity_kw);
+      const pct = cp.capacity_kw > 0 ? Math.round((used / cp.capacity_kw) * 100) : 0;
+      const statusCls = cp.status === 'online' ? 'safe' : 'high';
+      html += `<tr style="background:rgba(20,200,100,0.06)">
+        <td><strong>⚡ ${cp.name || cp.id}</strong></td>
+        <td style="color:var(--text-dim)">${cp.zone_name || cp.zone_id || '—'}</td>
+        <td style="white-space:nowrap">${used.toFixed(1)} / ${Number(cp.capacity_kw).toFixed(0)}W <span style="color:var(--text-dim);font-size:10px">(${pct}%)</span></td>
+        <td><span class="badge badge-${statusCls}">${cp.status}</span></td>
         <td style="white-space:nowrap">
-          <button class="action-btn" onclick="editGeneratorCapacity('${gIdSafe}', ${g.capacity_kw})">Edit</button>
-          <button class="action-btn" style="margin-left:3px" onclick="viewGeneratorZones('${gIdSafe}')">View Zones</button>
-          <button class="action-btn danger" style="margin-left:3px" onclick="removeGeneratorFromPowerPanel('${gIdSafe}')">Remove</button>
+          <button class="action-btn" onclick="editGeneratorCapacity('${cpIdSafe}', ${cp.capacity_kw})">Edit</button>
+          <button class="action-btn" style="margin-left:3px" onclick="viewGeneratorZones('${cpIdSafe}')">Zones</button>
+          <button class="action-btn danger" style="margin-left:3px" onclick="removeGeneratorFromPowerPanel('${cpIdSafe}')">Remove</button>
         </td>
       </tr>`;
+      for (const jb of (jbsByCity.get(cp.id) || [])) {
+        const jbIdSafe = jb.id.replace(/'/g, "\\'");
+        const draw = Number(jb.zone_load_w ?? 0);
+        const jbStatusCls = jb.status === 'online' ? 'safe' : 'high';
+        html += `<tr>
+          <td style="padding-left:22px;color:var(--text-dim)">↳ ${jb.name || jb.id}</td>
+          <td style="color:var(--text-dim);font-size:11px">${jb.zone_name || jb.zone_id || '—'}</td>
+          <td style="white-space:nowrap">${draw.toFixed(1)}W draw</td>
+          <td><span class="badge badge-${jbStatusCls}">${jb.status}</span></td>
+          <td style="white-space:nowrap">
+            <button class="action-btn" onclick="editGeneratorCapacity('${jbIdSafe}', ${jb.capacity_kw})">Edit</button>
+            <button class="action-btn" style="margin-left:3px" onclick="viewGeneratorZones('${jbIdSafe}')">Zones</button>
+            <button class="action-btn danger" style="margin-left:3px" onclick="removeGeneratorFromPowerPanel('${jbIdSafe}')">Remove</button>
+          </td>
+        </tr>`;
+      }
     }
+
+    if (unassignedJBs.length) {
+      html += `<tr><td colspan="5" style="color:var(--warning);font-size:11px;padding-top:8px">⚠ Unassigned junction boxes (no city plant linked):</td></tr>`;
+      for (const jb of unassignedJBs) {
+        const jbIdSafe = jb.id.replace(/'/g, "\\'");
+        const draw = Number(jb.zone_load_w ?? 0);
+        html += `<tr>
+          <td style="padding-left:10px">${jb.name || jb.id}</td>
+          <td style="color:var(--text-dim);font-size:11px">${jb.zone_name || jb.zone_id || '—'}</td>
+          <td>${draw.toFixed(1)}W draw</td>
+          <td><span class="badge badge-high">${jb.status}</span></td>
+          <td style="white-space:nowrap">
+            <button class="action-btn" onclick="editGeneratorCapacity('${jbIdSafe}', ${jb.capacity_kw})">Edit</button>
+            <button class="action-btn danger" style="margin-left:3px" onclick="removeGeneratorFromPowerPanel('${jbIdSafe}')">Remove</button>
+          </td>
+        </tr>`;
+      }
+    }
+
     html += '</tbody></table>';
   } else {
     html += `<div style="color:var(--text-dim)">No generators installed yet — install one from a zone's editor.</div>`;
@@ -3232,7 +3343,7 @@ async function fixBuildingPowerConnections() {
   }
   if (result.needsGenerator.length) {
     for (const b of result.needsGenerator) {
-      lines.push(`⚠️ ${b.buildingName} requires a generator`);
+      lines.push(`⚠️ ${b.buildingName} has no junction box — install one from the building zone's editor`);
     }
   }
   if (result.multipleGenerators.length) {
@@ -3266,6 +3377,7 @@ async function _refreshPowerMapData() {
   ]);
   bigMapPowerData = Array.isArray(powerMap) ? powerMap : [];
   powerPanelGenerators = Array.isArray(generators) ? generators : [];
+  bigMapGenerators = powerPanelGenerators;
 }
 
 async function viewGeneratorZones(generatorId) {
