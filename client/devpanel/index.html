@@ -1512,7 +1512,56 @@ async function deleteFurnitureQuick(furnitureId, zoneId) {
 }
 
 // --- Enemy forms ---
-function enemyEditForm(rec, isNew) {
+let _lootItems = [];
+function lootItemOptions(items, selectedId) {
+  const opts = items.map(it => `<option value="${it.id}" ${it.id===selectedId?'selected':''}>${it.name} (${it.id})</option>`);
+  if (selectedId && !items.some(it => it.id===selectedId)) opts.unshift(`<option value="${selectedId}" selected>${selectedId} (missing!)</option>`);
+  return opts.join('');
+}
+function lootRow(items, entry) {
+  const e = entry || {};
+  const min = Array.isArray(e.qty) ? e.qty[0] : (e.qty ?? 1);
+  const max = Array.isArray(e.qty) ? e.qty[1] : (e.qty ?? 1);
+  const sel = e.item || '';
+  return `<div class="loot-row field-row" style="align-items:flex-end;gap:6px">
+    <div class="field" style="flex:2"><label>Item</label>
+      <select class="loot-item">${sel?'':'<option value="">— select item —</option>'}${lootItemOptions(items, sel)}</select>
+    </div>
+    <div class="field" style="flex:0 0 78px"><label>Chance %</label><input type="number" class="loot-weight" value="${e.weight ?? 100}" min="0" max="100" step="1"></div>
+    <div class="field" style="flex:0 0 62px"><label>Qty min</label><input type="number" class="loot-min" value="${min}" min="1" step="1"></div>
+    <div class="field" style="flex:0 0 62px"><label>Qty max</label><input type="number" class="loot-max" value="${max}" min="1" step="1"></div>
+    <button type="button" class="action-btn" onclick="removeLootRow(this)" style="flex:0 0 auto">×</button>
+  </div>`;
+}
+function addLootRow() {
+  document.getElementById('loot-rows').insertAdjacentHTML('beforeend', lootRow(_lootItems, {}));
+}
+function removeLootRow(btn) { btn.closest('.loot-row').remove(); }
+
+function lootItemList(published) {
+  // Mirror the loadPanel staging overlay so unpublished items are selectable too.
+  let items = Array.isArray(published) ? published.slice() : [];
+  if (stagingEnabled && pendingChanges.length) {
+    const staged = pendingChanges.filter(c => c.entityType === 'item');
+    const stagedById = new Map(staged.map(c => [c.entityId, c]));
+    items = items.flatMap(r => {
+      const s = stagedById.get(r.id);
+      if (s?.changeType === 'delete') return [];
+      if (s?.changeType === 'update') return [{ ...r, ...s.stagedData }];
+      return [r];
+    });
+    for (const s of staged) {
+      if (s.changeType === 'create' && !items.some(r => r.id === s.entityId)) {
+        items.push({ ...s.stagedData, id: s.entityId });
+      }
+    }
+  }
+  return items.sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+}
+
+async function enemyEditForm(rec, isNew) {
+  _lootItems = lootItemList(await API('/items'));
+  const loot = Array.isArray(rec.loot_table) ? rec.loot_table : JSON.parse(rec.loot_table||'[]');
   return `
     <div class="field"><label>Enemy ID</label><input id="f-id" value="${isNew?'':rec.id}" ${!isNew?'readonly style="opacity:0.5"':''}></div>
     <div class="field"><label>Name</label><input id="f-name" value="${rec.name||''}"></div>
@@ -1543,7 +1592,10 @@ function enemyEditForm(rec, isNew) {
       <div class="field"><label>XP Reward</label><input type="number" id="f-xp_reward" value="${rec.xp_reward||10}"></div>
       <div class="field"><label>Credit Reward</label><input type="number" id="f-credit_reward" value="${rec.credit_reward||0}"></div>
     </div>
-    <div class="field"><label>Loot Table (JSON array)</label><textarea id="f-loot_table" rows="5">${JSON.stringify(rec.loot_table||[], null, 2)}</textarea></div>
+    <div class="field"><label>Loot Drops</label>
+      <div id="loot-rows">${loot.map(e=>lootRow(_lootItems, e)).join('')}</div>
+      <button type="button" class="action-btn" onclick="addLootRow()" style="margin-top:6px">+ Add Drop</button>
+    </div>
     <div class="field"><label>First Strike Delay (ms) — hesitation before its first attack after aggroing. 0 = attacks immediately.</label><input type="number" id="f-first_strike_delay_ms" value="${rec.flags?.first_strike_delay_ms||0}" min="0" step="500"></div>
     <div class="field"><label>Battle Cries (one per line) — shown on its first strike</label><textarea id="f-battle_cries" rows="3">${(rec.flags?.battle_cries||[]).join('\n')}</textarea></div>
   `;
@@ -1685,8 +1737,17 @@ async function saveRecipe(existing) {
 
 async function saveEnemy(existing) {
   const isNew = !existing?.id;
-  let loot;
-  try { loot = JSON.parse(document.getElementById('f-loot_table').value); } catch { return { error: 'Loot table: invalid JSON' }; }
+  const loot = [];
+  for (const row of document.querySelectorAll('#loot-rows .loot-row')) {
+    const item = row.querySelector('.loot-item').value;
+    if (!item) continue;
+    const weight = +row.querySelector('.loot-weight').value || 0;
+    let min = +row.querySelector('.loot-min').value || 1;
+    let max = +row.querySelector('.loot-max').value || 1;
+    if (min < 1) min = 1;
+    if (max < min) max = min;
+    loot.push({ item, weight, qty: [min, max] });
+  }
   const existingFlags = existing?.flags || {};
   const cries = document.getElementById('f-battle_cries').value.split('\n').map(s=>s.trim()).filter(Boolean);
   const flags = { ...existingFlags, first_strike_delay_ms: +document.getElementById('f-first_strike_delay_ms').value || 0, battle_cries: cries };

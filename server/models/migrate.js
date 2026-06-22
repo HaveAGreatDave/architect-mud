@@ -110,8 +110,10 @@ export async function migrate() {
       condition REAL DEFAULT 1.0,
       is_equipped INTEGER DEFAULT 0,
       slot TEXT,
-      custom_data JSONB DEFAULT '{}'
+      custom_data JSONB DEFAULT '{}',
+      container_id TEXT
     );
+    ALTER TABLE player_inventory ADD COLUMN IF NOT EXISTS container_id TEXT;
 
     CREATE TABLE IF NOT EXISTS enemies (
       id TEXT PRIMARY KEY,

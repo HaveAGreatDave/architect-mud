@@ -88,6 +88,10 @@
     hydrating: { label: 'Hydrating', shape: 'flag', scope: 'class', group: 'Consumable',
       help: 'Grants the Hydrated buff (faster radiation decay) for 10 minutes.' },
 
+    // --- Container ---
+    container: { label: 'Container Capacity', shape: 'int', scope: 'class', group: 'Container',
+      help: 'Marks this item as a container. Value is the max total weight it can hold. Contents count at 75% of their weight while carried.' },
+
     // --- Instance flags (presence-only, on a carried item) ---
     broken: { label: 'Broken', shape: 'flag', scope: 'instance', group: 'Instance',
       help: 'Per-item state flag set on a carried instance.' },
