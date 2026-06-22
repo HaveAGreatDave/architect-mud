@@ -1,7 +1,6 @@
 import { query } from "../models/db.js";
 import { getApartment, setApartmentCache, getZone } from "./world.js";
 import { skillCheck, awardSkillUse } from "./skills.js";
-import { skillCheck, awardSkillXp } from "./skills.js";
 import { adjustCredits } from "./economy.js";
 
 // Picking a lock gets harder the more the owner has invested in it.
