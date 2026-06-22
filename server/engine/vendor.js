@@ -3,6 +3,7 @@
  */
 import { query } from '../models/db.js';
 import { getFactionDiscount } from './factions.js';
+import { adjustCredits } from './economy.js';
 import { randomUUID } from 'crypto';
 
 export async function getVendorStock(npc, playerId) {
@@ -47,13 +48,9 @@ export async function buyFromVendor(player, npc, itemId, quantity = 1) {
   const discount = npc.faction ? await getFactionDiscount(player.id, npc.faction) : 0;
   const price = Math.max(1, Math.round((entry.price || item.value) * (1 - discount))) * quantity;
 
-  if ((player.credits || 0) < price) {
+  if (!await adjustCredits(player, -price)) {
     return { success: false, message: `You can't afford that. Need ${price} credits, have ${player.credits || 0}.` };
   }
-
-  // Deduct credits
-  player.credits = (player.credits || 0) - price;
-  await query('UPDATE players SET credits = $1 WHERE id = $2', [player.credits, player.id]);
 
   // Add item to inventory
   const { rows: existing } = await query(
@@ -94,8 +91,7 @@ export async function sellToVendor(player, npc, inventoryId, quantity = 1) {
   const sellQty = Math.min(quantity, invItem.quantity);
   const sellPrice = Math.max(1, Math.floor(invItem.value * 0.4)) * sellQty; // 40% of value
 
-  player.credits = (player.credits || 0) + sellPrice;
-  await query('UPDATE players SET credits = $1 WHERE id = $2', [player.credits, player.id]);
+  await adjustCredits(player, sellPrice);
 
   if (invItem.quantity <= sellQty) {
     await query('DELETE FROM player_inventory WHERE id = $1', [inventoryId]);

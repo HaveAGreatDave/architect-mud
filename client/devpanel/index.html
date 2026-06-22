@@ -2463,7 +2463,10 @@ function buildDynamicMapGrid(zones, mode, powerById, clickable) {
           const totalSupply  = zoneSupply + jbSupply;
           const status = p ? p.status : 'unpowered';
           const isBrownout = totalRequest > 0 && totalSupply > 0 && totalRequest > totalSupply + 0.01;
-          cls = `bigmap-tile bm-power-${isBrownout ? 'overloaded' : status}`;
+          const effectiveStatus = isBrownout ? 'overloaded'
+            : totalRequest === 0 ? 'unpowered'
+            : status;
+          cls = `bigmap-tile bm-power-${effectiveStatus}`;
           if (totalRequest > 0) {
             const supplyStr = totalSupply > 0 ? totalSupply.toFixed(0) : '0';
             const zIdSafe = z.id.replace(/'/g, "\\'");
@@ -2517,7 +2520,7 @@ function mapLegendHtml(mode) {
        <span><span class="legend-swatch" style="background:rgba(20,200,100,0.4);border:1px solid rgba(20,220,110,0.75)"></span>Powered</span>
        <span><span class="legend-swatch" style="background:rgba(255,165,0,0.5);border:1px solid rgba(255,165,0,0.85)"></span>Overloaded</span>
        <span><span class="legend-swatch" style="background:rgba(220,40,60,0.4);border:1px solid rgba(230,50,70,0.85)"></span>Offline</span>
-       <span><span class="legend-swatch" style="background:rgba(40,40,60,0.55);border:1px solid rgba(80,80,110,0.4)"></span>Unpowered</span>`
+       <span><span class="legend-swatch" style="background:rgba(30,30,50,0.65);border:1px solid rgba(200,200,220,0.7)"></span>Unpowered</span>`
     : `<span><span class="legend-swatch" style="background:rgba(57,255,143,0.4)"></span>Safe</span>
        <span><span class="legend-swatch" style="background:rgba(245,230,66,0.4)"></span>Low</span>
        <span><span class="legend-swatch" style="background:rgba(255,154,60,0.4)"></span>Medium</span>
@@ -2616,13 +2619,14 @@ function renderBigMapOverlay() {
         const p = powerById.get(z.id);
         const cpGen = bigMapGenerators.find(g => g.zone_id === z.id && g.generator_type === 'city_plant');
         if (cpGen) {
-          const used = cpGen.capacity_kw - (cpGen.remaining_kw ?? cpGen.capacity_kw);
-          const overdrawn = used > cpGen.capacity_kw;
+          const used = Number(cpGen.total_demand_w ?? 0);
+          const overdrawn = used > Number(cpGen.capacity_kw);
           const cpStatus = Number(cpGen.capacity_kw) === 0 ? 'offline' : cpGen.status !== 'online' ? 'offline' : overdrawn ? 'overloaded' : '';
           cls = `bigmap-tile bm-power-plant${cpStatus ? ' bm-power-' + cpStatus : ''}`;
-          powerSub = `<div style="font-size:9px;opacity:0.9;margin-top:2px">⚡ ${used.toFixed(0)}/${cpGen.capacity_kw.toFixed(0)}W</div>`;
+          powerSub = `<div style="font-size:9px;opacity:0.9;margin-top:2px">⚡ ${used.toFixed(0)}/${Number(cpGen.capacity_kw).toFixed(0)}W</div>`;
         } else {
-          cls = `bigmap-tile bm-power-${p ? p.status : 'unpowered'}`;
+          const zStatus = (!p || (p.loadKw ?? 0) === 0) ? 'unpowered' : p.status;
+          cls = `bigmap-tile bm-power-${zStatus}`;
           if (p) powerSub = `<div style="font-size:9px;opacity:0.8;margin-top:2px">${(p.loadKw??0).toFixed(1)}W load / ${(p.availableKw??0).toFixed(1)}W draw</div>`;
         }
       }
@@ -3435,7 +3439,8 @@ function _buildInteriorMapHtml() {
         continue;
       }
       const pw = powerById.get(z.id);
-      const status = pw?.status || 'unpowered';
+      const rawStatus = pw?.status || 'unpowered';
+      const status = (pw?.loadKw ?? 0) === 0 ? 'unpowered' : rawStatus;
       const pwCls = STATUS_CLS[status] || 'bm-power-unpowered';
       const drawReq = pw ? Number(pw.loadKw ?? 0) : 0;
       const supply  = pw ? Number(pw.availableKw ?? 0) : 0;
@@ -3523,7 +3528,7 @@ function renderPowerPanelBody() {
 
     for (const cp of cityPlants) {
       const cpIdSafe = cp.id.replace(/'/g, "\\'");
-      const used = cp.capacity_kw - (cp.remaining_kw ?? cp.capacity_kw);
+      const used = Number(cp.total_demand_w ?? 0);
       const pct = cp.capacity_kw > 0 ? Math.round((used / cp.capacity_kw) * 100) : 0;
       const cpOn = Number(cp.capacity_kw) > 0;
       const statusCls = cpOn ? 'safe' : 'high';
@@ -3745,8 +3750,10 @@ async function toggleGeneratorPower(generatorId) {
   const result = await API(`/environment/power/generators/${encodeURIComponent(generatorId)}/toggle`, 'POST', {}).catch(e => ({ error: e.message }));
   if (result?.error) { toast(result.error, true); return; }
   toast(result.isOn ? 'Generator on' : 'Generator off');
+  await API('/environment/power/recompute', 'POST').catch(() => {});
   await _refreshPowerMapData();
   renderPowerPanelBody();
+  if (document.getElementById('bigmap-overlay')?.classList.contains('active')) renderBigMapOverlay();
 }
 
 function editGeneratorCapacity(generatorId, currentKw) {

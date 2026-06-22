@@ -438,7 +438,7 @@ async function flickerOverloadedZones() {
     ).catch(() => ({ rows: [] }));
     const nameStr = _fmtLightNames(rows.map(r => r.name));
     const pick = FLICKER_MSGS[Math.floor(Math.random() * FLICKER_MSGS.length)];
-    broadcast(zoneId, { type: 'zone_event', message: `<span class="power-flicker">${pick(nameStr)}</span>` });
+    broadcast(zoneId, { type: 'zone_event', message: `<br><span class="power-flicker">${pick(nameStr)}</span><br>` });
   }
 }
 
@@ -469,7 +469,7 @@ async function syncStreetlights(lightOn) {
     lightOn
       ? `SELECT DISTINCT zone_id FROM furniture
          WHERE light_type = 'streetlight' AND light_on = 0
-           AND zone_id IN (SELECT id FROM power_zones WHERE status = 'powered')`
+           AND zone_id IN (SELECT id FROM power_zones WHERE status IN ('powered', 'overloaded'))`
       : `SELECT DISTINCT zone_id FROM furniture
          WHERE light_type = 'streetlight' AND light_on = 1`
   ).catch(() => ({ rows: [] }));
@@ -480,7 +480,7 @@ async function syncStreetlights(lightOn) {
     await query(
       `UPDATE furniture SET light_on = 1
        WHERE light_type = 'streetlight' AND light_on = 0
-         AND zone_id IN (SELECT id FROM power_zones WHERE status = 'powered')`
+         AND zone_id IN (SELECT id FROM power_zones WHERE status IN ('powered', 'overloaded'))`
     ).catch(() => {});
   } else {
     await query(
@@ -490,8 +490,8 @@ async function syncStreetlights(lightOn) {
 
   if (broadcast) {
     const msg = lightOn
-      ? '<span class="power-restore">The streetlights flicker to life as darkness falls.</span><br>'
-      : '<span class="ambient">The streetlights dim and go dark as daylight returns.</span><br>';
+      ? '<br><span class="power-restore">The streetlights flicker to life as darkness falls.</span><br>'
+      : '<br><span class="ambient">The streetlights dim and go dark as daylight returns.</span><br>';
     for (const { zone_id } of affected) {
       broadcast(zone_id, { type: 'zone_event', message: msg, refresh: true });
     }
@@ -635,8 +635,12 @@ async function applyPowerLightEffects(query, zoneId, prevStatus, newStatus, avai
       FROM furniture WHERE zone_id=$1 AND is_light=1
     `, [zoneId]);
 
-    // Streetlights are infrastructure — exclude from brownout competition.
-    // Only player-controlled lights compete for available power.
+    // Streetlights are infrastructure — always on when dark, never compete for brownout pool.
+    const isDark = state.phase === 'night' || state.phase === 'dusk';
+    const streetlightIds = lights.filter(l => l.light_type === 'streetlight').map(l => l.id);
+    if (streetlightIds.length) {
+      await query(`UPDATE furniture SET light_on=$1, light_on_intended=NULL WHERE id=ANY($2::text[])`, [isDark ? 1 : 0, streetlightIds]);
+    }
     const wantOn = lights.filter(l => l.light_on_intended === 1 && l.light_type !== 'streetlight').sort((a, b) => a.draw_kw - b.draw_kw);
 
     let pool = available;
@@ -669,11 +673,11 @@ async function applyPowerLightEffects(query, zoneId, prevStatus, newStatus, avai
       if (forcedOff.length) {
         const nameStr = _fmtLightNames(forcedOff.map(id => lights.find(l => l.id === id)?.name).filter(Boolean));
         const s = forcedOff.length === 1;
-        broadcast(zoneId, { type: 'zone_event', message: `<span class="power-flicker">${nameStr} cut${s?'s':''} out abruptly — not enough power to keep everything on.</span><br>`, refresh: true });
+        broadcast(zoneId, { type: 'zone_event', message: `<br><span class="power-flicker">${nameStr} cut${s?'s':''} out abruptly — not enough power to keep everything on.</span><br>`, refresh: true });
       } else if (flickering.length) {
         const nameStr = _fmtLightNames(flickering.map(id => lights.find(l => l.id === id)?.name).filter(Boolean));
         const s = flickering.length === 1;
-        broadcast(zoneId, { type: 'zone_event', message: `<span class="power-flicker">${nameStr} flicker${s?'s':''} as the supply runs thin.</span><br>`, refresh: true });
+        broadcast(zoneId, { type: 'zone_event', message: `<br><span class="power-flicker">${nameStr} flicker${s?'s':''} as the supply runs thin.</span><br>`, refresh: true });
       }
     }
   } else if (nowOk && !wasOk) {
@@ -1283,13 +1287,10 @@ export async function fixZonePowerConnections() {
     SELECT z.id, z.name, z.grid_x, z.grid_y FROM zones z
     WHERE NOT COALESCE((z.flags->>'is_apartment')::boolean, false)
       AND NOT COALESCE((z.flags->>'is_interior')::boolean, false)
-      AND (
-        z.id NOT IN (SELECT id FROM power_zones)
-        OR z.id IN (
-          SELECT pz.id FROM power_zones pz
-          WHERE pz.generator_id IS NOT NULL
-            AND pz.generator_id NOT IN (SELECT id FROM generators)
-        )
+      AND z.id NOT IN (
+        SELECT pz.id FROM power_zones pz
+        WHERE pz.generator_id IS NOT NULL
+          AND pz.generator_id IN (SELECT id FROM generators)
       )
   `);
 
