@@ -192,6 +192,7 @@ export async function initEnvironment({ query, emitHook, broadcast }) {
   state.season = clockRow.season;
   state.lastTick30m = new Date(clockRow.last_tick_30m).getTime();
   state.lastTick24h = new Date(clockRow.last_tick_24h).getTime();
+  const lastTick1m = clockRow.last_tick_1m ? new Date(clockRow.last_tick_1m).getTime() : state.lastTick30m;
 
   // Weather plugin initializes the forecast via this hook. Must run before
   // loadZonePowerAndLighting + recalcAmbientAndVisibility so state.weatherType
@@ -216,15 +217,14 @@ export async function initEnvironment({ query, emitHook, broadcast }) {
     state.lastTick24h = now;
   }
 
-  // Time-of-day: jump straight to the correct minute in one step (O(1), exact
-  // for any outage length) rather than looping tick30m.
-  const missed30m = Math.floor((now - state.lastTick30m) / TICK_30M_MS);
-  if (missed30m > 0) {
-    state.minutes = (state.minutes + missed30m * 30) % (24 * 60);
-    state.lastTick30m = now;
+  // Time-of-day: jump straight to the correct minute based on elapsed real time
+  // since the last 1-minute clock tick. This is exact for any outage length.
+  const missedMinutes = Math.floor((now - lastTick1m) / 60_000);
+  if (missedMinutes > 0) {
+    state.minutes = (state.minutes + missedMinutes) % (24 * 60);
     recalcAmbientAndVisibility();
     await query(
-      `UPDATE world_clock SET game_time_minutes = $1, last_tick_30m = now() WHERE id = 1`,
+      `UPDATE world_clock SET game_time_minutes = $1, last_tick_1m = now() WHERE id = 1`,
       [state.minutes]
     );
   }
@@ -241,6 +241,7 @@ export async function initEnvironment({ query, emitHook, broadcast }) {
 function scheduleTicks() {
   if (ticksScheduled) return; // schedule() is append-only; guard against double-init
   ticksScheduled = true;
+  schedule('1m',  () => { if (!state.frozen) tick1m().catch(logError); });
   schedule('30m', () => { if (!state.frozen) tick30m().catch(logError); });
   schedule('24h', () => { if (!state.frozen) tick24h().catch(logError); });
 
@@ -378,23 +379,35 @@ function flickerOverloadedZones() {
 }
 
 // ---------------------------------------------------------------------------
+// 1-Minute Clock Tick
+// Increments game time by 1 minute, saves to DB, broadcasts to all clients.
+// ---------------------------------------------------------------------------
+
+async function tick1m() {
+  const { query, broadcast } = deps;
+  state.minutes = (state.minutes + 1) % (24 * 60);
+  await query(
+    `UPDATE world_clock SET game_time_minutes = $1, last_tick_1m = now() WHERE id = 1`,
+    [state.minutes]
+  );
+  if (broadcast) broadcast({ type: 'environment.clockTick', time: formatHHMM(state.minutes) });
+}
+
+// ---------------------------------------------------------------------------
 // 30-Minute Environmental Tick
-// World time → ambient light → visibility baseline → client clock sync
+// Ambient light → visibility baseline → streetlights → full client sync.
+// Time is already up-to-date from the 1-minute tick — do NOT add 30 here.
 // ---------------------------------------------------------------------------
 
 async function tick30m() {
   const { query, emitHook, broadcast } = deps;
 
-  state.minutes = (state.minutes + 30) % (24 * 60);
   state.lastTick30m = Date.now();
 
   const prevPhase = state.phase;
   recalcAmbientAndVisibility();
 
-  await query(
-    `UPDATE world_clock SET game_time_minutes = $1, last_tick_30m = now() WHERE id = 1`,
-    [state.minutes]
-  );
+  await query(`UPDATE world_clock SET last_tick_30m = now() WHERE id = 1`);
 
   // Street lights are city-grid infrastructure, not player-switchable —
   // they follow the day/night cycle directly rather than a room switch.

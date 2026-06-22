@@ -44,8 +44,8 @@ function renderEnvironmentHUD() {
 export function updateEnvironmentHUD(env) {
   if (!env || !env.time) return;
   clientMinutes = parseHHMM(env.time);
-  envWeatherIcon = env.weatherIcon || '—';
-  envTempC = env.tempC;
+  if (env.weatherIcon !== undefined) envWeatherIcon = env.weatherIcon || '—';
+  if (env.tempC !== undefined) envTempC = env.tempC;
   renderEnvironmentHUD();
 }
 
@@ -67,8 +67,3 @@ setInterval(() => {
   renderEnvironmentHUD();
 }, 60000);
 
-// Periodic resync every 5 minutes in case the local tick drifts.
-setInterval(() => {
-  if (clientMinutes === null) return;
-  fetch('/api/environment/state').then(r => r.json()).then(updateEnvironmentHUD).catch(() => {});
-}, 5 * 60 * 1000);

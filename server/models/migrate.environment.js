@@ -26,6 +26,8 @@ export async function migrateEnvironment(query) {
     )
   `);
 
+  await query(`ALTER TABLE world_clock ADD COLUMN IF NOT EXISTS last_tick_1m TIMESTAMPTZ NOT NULL DEFAULT now()`);
+
   await query(`
     CREATE TABLE IF NOT EXISTS weather_forecast (
       forecast_day INTEGER PRIMARY KEY,

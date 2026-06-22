@@ -196,6 +196,7 @@ const handlers = {
     closeConnection();
   },
 
+  'environment.clockTick': (msg) => { updateEnvironmentHUD(msg); },
   'environment.sync': (msg) => { updateEnvironmentHUD(msg); },
   'environment.daily': (msg) => { updateEnvironmentHUD(msg); },
   'environment.weatherOverride': (msg) => { updateEnvironmentHUD(msg); },
