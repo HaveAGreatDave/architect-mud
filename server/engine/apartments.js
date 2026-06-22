@@ -1,6 +1,6 @@
 import { query } from '../models/db.js';
 import { getApartment, setApartmentCache, getZone } from './world.js';
-import { skillCheck, awardSkillXp } from './skills.js';
+import { skillCheck, awardSkillUse } from './skills.js';
 
 // Picking a lock gets harder the more the owner has invested in it.
 // Difficulty is a flat number compared against a d10 + rank + stat-bonus roll
@@ -105,19 +105,18 @@ export async function cmdPickLock(player) {
   if (!apt.is_locked) return { type:'error', message:'It\'s already unlocked.' };
 
   const result = await skillCheck(player, 'security', apt.lock_difficulty);
-  const xpGain = result.success ? 15 : 4;
-  const rankUp = await awardSkillXp(player.id, 'security', xpGain);
 
   if (result.success) {
+    await awardSkillUse(player.id, 'security', result.margin);
     return {
       type: 'pick_success',
-      message: `You work the lock — click. It gives.${rankUp.ranked_up ? ` (Security skill up: rank ${rankUp.new_rank})` : ''}`,
-      bypassed_zone: zone.id, // caller can choose to treat the zone as unlocked for this session
+      message: `You work the lock — click. It gives.`,
+      bypassed_zone: zone.id,
     };
   }
   return {
     type: 'pick_fail',
-    message: `You work at the lock, but it holds. (rolled ${result.total} vs difficulty ${result.difficulty})${rankUp.ranked_up ? ` (Security skill up: rank ${rankUp.new_rank})` : ''}`,
+    message: `You work at the lock, but it holds. (rolled ${result.total} vs difficulty ${result.difficulty})`,
   };
 }
 

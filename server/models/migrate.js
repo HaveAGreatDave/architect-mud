@@ -342,6 +342,26 @@ export async function migrate() {
     CREATE INDEX IF NOT EXISTS idx_apartments_owner ON apartments(owner_id);
   `);
 
+  // Phase 0 — combat rework schema additions (all idempotent)
+  await query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS stat_brawn INTEGER DEFAULT 0`);
+  await query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS stat_reflexes INTEGER DEFAULT 0`);
+  await query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS stat_endurance INTEGER DEFAULT 0`);
+  await query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS stat_brains INTEGER DEFAULT 0`);
+  await query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS stat_senses INTEGER DEFAULT 0`);
+  await query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS stat_cool INTEGER DEFAULT 0`);
+  await query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS ip REAL DEFAULT 0`);
+  await query(`ALTER TABLE player_skills ADD COLUMN IF NOT EXISTS trained REAL DEFAULT 0`);
+  await query(`ALTER TABLE enemies ADD COLUMN IF NOT EXISTS defense INTEGER DEFAULT 0`);
+  await query(`ALTER TABLE enemies ADD COLUMN IF NOT EXISTS soak JSONB DEFAULT '{}'`);
+  await query(`
+    CREATE TABLE IF NOT EXISTS combat_config (
+      key TEXT PRIMARY KEY,
+      value JSONB,
+      label TEXT,
+      category TEXT
+    )
+  `);
+
   console.log('✓ Database migrated (Postgres)');
 
   await migrateItemTags();

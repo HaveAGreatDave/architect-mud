@@ -11,6 +11,8 @@ import { handleStagingApi } from './staging.routes.js';
 import { fireRoutes, fireHook } from '../engine/plugins.js';
 import { handlePlayerDeath } from '../engine/gameLoop.js';
 import { reloadWindows as reloadWindowsEnv } from '../engine/environment.js';
+import { ensureTunables } from '../engine/tunables.js';
+import { startingIp } from '../engine/ip.js';
 
 const hashPassword = pw => createHash('sha256').update(pw).digest('hex');
 const makeToken = (playerId, role) => Buffer.from(`${playerId}:${role}:${Date.now()}`).toString('base64');
@@ -145,7 +147,12 @@ async function apiRegister(body) {
   if (!username||!password||!handle) return {status:400,body:{error:'username, password, handle required'}};
   try {
     const id = randomUUID();
-    await query(`INSERT INTO players (id,username,password_hash,handle,role) VALUES ($1,$2,$3,$4,'player')`, [id,username.toLowerCase(),hashPassword(password),handle]);
+    // New survivors start with stats at 0 and a pool of IP — enough to raise
+    // every stat to the baseline target via the `raise` command. Reads the
+    // current cost curve, so the grant tracks any tunable changes.
+    await ensureTunables();
+    const ip = startingIp();
+    await query(`INSERT INTO players (id,username,password_hash,handle,role,ip) VALUES ($1,$2,$3,$4,'player',$5)`, [id,username.toLowerCase(),hashPassword(password),handle,ip]);
     // Starting kit — every new survivor begins with field bandages, so
     // there's at least one source of healing before they've found or
     // crafted anything else.
@@ -514,15 +521,15 @@ async function apiGetEnemies() { const {rows}=await query('SELECT * FROM enemies
 async function apiCreateEnemy(body) {
   const id=body.id||`enemy_${Date.now()}`;
   try {
-    await query(`INSERT INTO enemies (id,name,description,stat_str,stat_agi,stat_end,hp_max,damage_min,damage_max,armor,xp_reward,credit_reward,loot_table,behavior,faction,death_message,flags) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
-      [id,body.name,body.description,body.stat_str||5,body.stat_agi||5,body.stat_end||5,body.hp_max||30,body.damage_min||3,body.damage_max||7,body.armor||0,body.xp_reward||10,body.credit_reward||0,JSON.stringify(body.loot_table||[]),body.behavior||'aggressive',body.faction||null,body.death_message||'It dies.',JSON.stringify(body.flags||{})]);
+    await query(`INSERT INTO enemies (id,name,description,stat_str,stat_agi,stat_end,hp_max,damage_min,damage_max,armor,defense,soak,xp_reward,credit_reward,loot_table,behavior,faction,death_message,flags) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
+      [id,body.name,body.description,body.stat_str||5,body.stat_agi||5,body.stat_end||5,body.hp_max||30,body.damage_min||3,body.damage_max||7,body.armor||0,body.defense||0,JSON.stringify(body.soak||{}),body.xp_reward||10,body.credit_reward||0,JSON.stringify(body.loot_table||[]),body.behavior||'aggressive',body.faction||null,body.death_message||'It dies.',JSON.stringify(body.flags||{})]);
     return {status:201,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
 export async function apiUpdateEnemy(id,body) {
   try {
-    await query(`UPDATE enemies SET name=$1,description=$2,stat_str=$3,stat_agi=$4,stat_end=$5,hp_max=$6,damage_min=$7,damage_max=$8,armor=$9,xp_reward=$10,credit_reward=$11,loot_table=$12,behavior=$13,faction=$14,death_message=$15,flags=$16 WHERE id=$17`,
-      [body.name,body.description,body.stat_str,body.stat_agi,body.stat_end,body.hp_max,body.damage_min,body.damage_max,body.armor,body.xp_reward,body.credit_reward,JSON.stringify(body.loot_table||[]),body.behavior,body.faction,body.death_message,JSON.stringify(body.flags||{}),id]);
+    await query(`UPDATE enemies SET name=$1,description=$2,stat_str=$3,stat_agi=$4,stat_end=$5,hp_max=$6,damage_min=$7,damage_max=$8,armor=$9,defense=$10,soak=$11,xp_reward=$12,credit_reward=$13,loot_table=$14,behavior=$15,faction=$16,death_message=$17,flags=$18 WHERE id=$19`,
+      [body.name,body.description,body.stat_str,body.stat_agi,body.stat_end,body.hp_max,body.damage_min,body.damage_max,body.armor,body.defense||0,JSON.stringify(body.soak||{}),body.xp_reward,body.credit_reward,JSON.stringify(body.loot_table||[]),body.behavior,body.faction,body.death_message,JSON.stringify(body.flags||{}),id]);
     return {status:200,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }

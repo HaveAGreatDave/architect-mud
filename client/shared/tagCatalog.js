@@ -53,11 +53,13 @@
       options: ['head', 'torso', 'hands', 'legs', 'feet', 'weapon_hand', 'accessory'],
       help: 'Body slot this equips to. Presence of this tag is what makes an item equippable.' },
     armor: { label: 'Armor', shape: 'int', scope: 'class', group: 'Equipment',
-      help: 'Flat damage reduction while equipped. Stacks across all worn pieces.' },
+      help: 'Flat damage reduction while equipped. Stacks across all worn pieces (legacy; superseded by armor_soak in Phase 5).' },
+    armor_soak: { label: 'Armor Soak', shape: 'statmap', scope: 'class', group: 'Equipment',
+      help: 'Per-damage-type soak, e.g. { "kinetic": 4, "energy": 1 }. Used when this piece covers the struck body part.' },
     stat_bonus: { label: 'Stat Bonus', shape: 'statmap', scope: 'class', group: 'Equipment',
-      help: 'Passive stat bumps, e.g. { "stat_str": 3 }. Use real stat keys (stat_str/agi/int/wil/end/cha).' },
+      help: 'Passive stat bumps, e.g. { "stat_brawn": 3 }. Use new stat keys (stat_brawn/reflexes/endurance/brains/senses/cool).' },
     requires: { label: 'Requirements', shape: 'statmap', scope: 'class', group: 'Equipment',
-      help: 'Stat gates to equip, e.g. { "stat_str": 6 }. Each key must be met or exceeded.' },
+      help: 'Stat gates to equip, e.g. { "stat_brawn": 6 }. Each key must be met or exceeded.' },
 
     // --- Combat ---
     damage: { label: 'Damage', shape: 'range', scope: 'class', group: 'Combat',
@@ -65,6 +67,9 @@
     weapon_skill: { label: 'Weapon Skill', shape: 'enum', scope: 'class', group: 'Combat',
       options: ['blunt', 'bladed', 'energy'],
       help: 'Which combat skill earns XP and routes the attack.' },
+    damage_type: { label: 'Damage Type', shape: 'enum', scope: 'class', group: 'Combat',
+      options: ['kinetic', 'edged', 'energy', 'fire', 'radiation'],
+      help: 'Physical damage category. Used to index per-part armor soak on defender.' },
     status_chance: { label: 'Status Chance', shape: 'statmap', scope: 'class', group: 'Combat',
       help: 'Chance to inflict a status, e.g. { "stunned": 0.3 }.' },
 

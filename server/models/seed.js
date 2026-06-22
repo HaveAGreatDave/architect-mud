@@ -210,13 +210,13 @@ async function seed() {
     ['item_rad_pills','RadAway™',0.1,25,'uncommon',{ description:'Bright orange pills. Tastes like failure and citrus.', consumable:true, stackable:true, restore_radiation:-20 }],
     ['item_bandage','Field Bandage',0.2,10,'common',{ description:'Gauze and tape. Stops bleeding, eventually — not instantly, whatever the label implies.', consumable:true, stackable:true, heal_over_time:{ amount:18, duration_seconds:180 } }],
     ['item_medkit','Trauma Kit',1.2,55,'uncommon',{ description:'Real medical supplies. Increasingly rare, increasingly suspicious about why someone is selling them.', consumable:true, stackable:true, heal_over_time:{ amount:50, duration_seconds:300 } }],
-    ['item_pipe_wrench','Pipe Wrench',2.5,30,'common',{ description:'Heavy. Reliable. Pre-used.', weapon:true, weapon_skill:'blunt', slot:'weapon_hand', damage:{ min:4, max:9 }, stat_bonus:{ stat_str:3 } }],
+    ['item_pipe_wrench','Pipe Wrench',2.5,30,'common',{ description:'Heavy. Reliable. Pre-used.', weapon:true, weapon_skill:'blunt', slot:'weapon_hand', damage:{ min:4, max:9 }, stat_bonus:{ stat_brawn:3 } }],
     ['item_rusty_knife','Rusty Knife',0.4,15,'common',{ description:'A kitchen knife that has seen things.', weapon:true, weapon_skill:'bladed', slot:'weapon_hand', damage:{ min:3, max:7 } }],
     ['item_scrap_armor','Scrap Vest',4.0,45,'common',{ description:'Metal sheeting over a leather jacket.', slot:'torso' }],
     ['item_custodian_badge','Custodian ID Badge',0.05,40,'uncommon',{ description:'Useful for bluffing Custodian checkpoints.', misc:true }],
     ['item_drone_core','Drone Processing Core',0.8,120,'rare',{ description:'Still warm. Still probably logging.', material:true }],
     ['item_architect_fragment','Architect Data Fragment',0.1,300,'very_rare',{ description:'Pulses faint blue. Three factions want this.', misc:true }],
-    ['item_taser','Custodian Taser',0.6,65,'uncommon',{ description:'Corporate-issue stun weapon.', weapon:true, weapon_skill:'energy', slot:'weapon_hand', damage:{ min:5, max:8 }, status_chance:{ stunned:0.3 }, stat_bonus:{ stat_agi:4 } }],
+    ['item_taser','Custodian Taser',0.6,65,'uncommon',{ description:'Corporate-issue stun weapon.', weapon:true, weapon_skill:'energy', slot:'weapon_hand', damage:{ min:5, max:8 }, status_chance:{ stunned:0.3 }, stat_bonus:{ stat_reflexes:4 } }],
     ['item_raw_meat','Raw Meat',0.6,3,'common',{ description:'Something used to own this. Cook before eating.', consumable:true, stackable:true, restore_hunger:15, status_chance:{ food_poisoning:0.6 } }],
     ['item_mutant_gland','Mutant Gland',0.4,35,'uncommon',{ description:'Iridescent and foul. Worth money to the right people.', material:true, stackable:true }],
     ['item_credits_small','Credits (Small)',0,0,'common',{ description:'Franchise-issued digital credit chips.', currency:true, stackable:true, grants_credits:10 }],
@@ -232,6 +232,8 @@ async function seed() {
     ['item_drink_embassy_reserve','Embassy Reserve',0.4,22,'rare',{ description:"Aged in what used to be a wine cellar and is now mostly intact. The only drink in the basin served with a paper umbrella, against everyone's better judgment.", consumable:true, stackable:true, restore_thirst:18, restore_sanity:18, restore_hp:3, hydrating:true }],
     ['item_embassy_canapes','Embassy Canapés',0.2,9,'uncommon',{ description:"Bite-sized, garnished, served on an actual plate. Nobody asks what's in them; the presentation is doing all the work.", consumable:true, stackable:true, restore_hunger:14, restore_sanity:5, well_fed:true }],
     ['item_bar_jerky','Mystery Jerky',0.2,6,'common',{ description:'Labeled "MEAT-ADJACENT." Surprisingly not the worst thing on the menu.', consumable:true, stackable:true, restore_hunger:18, well_fed:true }],
+    ['item_riot_vest','Riot Plate Vest',5.5,140,'uncommon',{ description:'Custodian crowd-control plating. Stops bullets and blades; useless against a live wire.', slot:'torso', armor_soak:{ kinetic:6, edged:4, energy:1 } }],
+    ['item_insulated_gloves','Insulated Gauntlets',0.6,95,'uncommon',{ description:'Lineman’s gloves rated for things that arc. Padding is an afterthought.', slot:'hands', armor_soak:{ energy:5, fire:3, kinetic:1 } }],
   ];
   for (const [id,name,weight,value,rarity,tags] of items) {
     await query(`INSERT INTO items (id,name,weight,value,rarity,tags) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (id) DO NOTHING`,
@@ -371,8 +373,79 @@ async function seed() {
   await query(`INSERT INTO players (id,username,password_hash,role,handle,origin_fragment,archetype) VALUES ($1,$2,$3,'admin',$4,$5,$6) ON CONFLICT DO NOTHING`,
     [randomUUID(),'admin',hashPassword('admin123'),'The Architect','The presence that built all of this, and watches it now.','ghost']);
   console.log('✓ Created admin (admin / admin123)');
+
+  await seedCombatConfig();
+
+  // Patch: add damage_type:'kinetic' to any weapon item that doesn't have one yet.
+  await query(`
+    UPDATE items
+    SET tags = tags || '{"damage_type":"kinetic"}'::jsonb
+    WHERE tags ? 'weapon' AND NOT (tags ? 'damage_type')
+  `);
+
+  // Patch: rename old stat names inside stat_bonus tags to new names.
+  const STAT_RENAMES = { stat_str:'stat_brawn', stat_agi:'stat_reflexes', stat_int:'stat_brains', stat_wil:'stat_cool', stat_end:'stat_endurance' };
+  for (const [old, neo] of Object.entries(STAT_RENAMES)) {
+    await query(`
+      UPDATE items
+      SET tags = jsonb_set(tags - 'stat_bonus', '{stat_bonus}',
+        (tags->'stat_bonus') - $1 || jsonb_build_object($2, (tags->'stat_bonus'->$1)))
+      WHERE tags->'stat_bonus' ? $1
+    `, [old, neo]);
+  }
+
   console.log('\n✅ World seeded.');
   process.exit(0);
+}
+
+async function seedCombatConfig() {
+  const defaults = [
+    // Phase 2 — learn-by-use
+    { key:'learn_margin_scale', value:2.0, label:'Learn margin scale', category:'skills',
+      help:'Higher = sharper drop-off from peak learning rate as margin grows.' },
+    { key:'learn_max_gain', value:0.05, label:'Max trained gain per use', category:'skills',
+      help:'Largest single trained increment awarded on a barely-won check.' },
+
+    // Phase 3 — IP economy
+    { key:'ip_per_skill_point', value:1.0, label:'IP per 0.01 trained skill', category:'ip',
+      help:'Multiplier: IP minted = skillDelta * 100 * this value.' },
+    { key:'stat_cost_base', value:10, label:'Base IP cost for first stat point', category:'ip',
+      help:'Cost to raise a stat from 0→1.' },
+    { key:'stat_cost_exponent', value:1.5, label:'Stat cost exponent', category:'ip',
+      help:'Each additional point costs base * (currentValue ^ exponent).' },
+    { key:'starting_stat_target', value:3, label:'Starting stat target', category:'creation',
+      help:'New characters get enough IP to raise every stat to this value via `raise`.' },
+
+    // Phase 4 — 2d10 combat
+    { key:'to_hit_base', value:10, label:'Base to-hit target', category:'combat',
+      help:'2d10 + effectiveSkill must meet or beat dodge + this to land a hit.' },
+    { key:'dodge_base', value:5, label:'Base dodge value', category:'combat',
+      help:'Added to effectiveSkill(dodge) for the defender\'s total dodge.' },
+    { key:'crit_threshold', value:8, label:'Crit roll margin', category:'combat',
+      help:'Hit margin at or above this value triggers a critical hit.' },
+    { key:'crit_multiplier', value:1.5, label:'Crit damage multiplier', category:'combat',
+      help:'Damage is multiplied by this on a critical hit.' },
+
+    // Phase 5 — body parts & soak
+    { key:'body_part_weights', value:{"head":10,"torso":40,"left_arm":12,"right_arm":12,"left_leg":13,"right_leg":13},
+      label:'Body part hit weights', category:'combat',
+      help:'Relative frequency of each struck body part. Higher = more likely to be hit.' },
+    { key:'head_damage_multiplier', value:1.5, label:'Head damage multiplier', category:'combat',
+      help:'Damage multiplier when a head hit occurs.' },
+    { key:'soak_mismatch_factor', value:0.25, label:'Wrong-type soak factor', category:'combat',
+      help:'Fraction of armor soak that applies when damage type does not match armor type.' },
+  ];
+
+  for (const d of defaults) {
+    await query(
+      `INSERT INTO combat_config (key, value, label, category) VALUES ($1, $2, $3, $4) ON CONFLICT (key) DO NOTHING`,
+      [d.key, JSON.stringify(d.value), d.label, d.category]
+    );
+  }
+  // Retire the old point-buy budget key from any DB seeded before chargen
+  // switched to a starting-IP grant.
+  await query(`DELETE FROM combat_config WHERE key = 'stat_point_budget'`);
+  console.log(`✓ Seeded ${defaults.length} combat_config defaults`);
 }
 
 seed().catch(e => { console.error(e); process.exit(1); });

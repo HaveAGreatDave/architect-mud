@@ -1,7 +1,7 @@
 import { query } from '../../models/db.js';
 import { getZoneEnemies, getZoneCorpses, getZonePlayers } from '../world.js';
 import { playerAttackEnemy } from '../combat.js';
-import { awardSkillXp, skillCheck } from '../skills.js';
+import { awardSkillUse, skillCheck } from '../skills.js';
 import { hasTag, tagValue } from '../tags.js';
 import { randomUUID } from 'crypto';
 
@@ -9,16 +9,16 @@ export async function resolveAttack(player, target, broadcast) {
   const { rows } = await query(`SELECT i.* FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.is_equipped=1 AND jsonb_exists(i.tags,'weapon') LIMIT 1`, [player.id]);
   const equipped = rows[0];
   const dmg = equipped ? (tagValue(equipped, 'damage', {}) || {}) : {};
+  const wskill = equipped ? (tagValue(equipped, 'weapon_skill') || 'brawling') : 'brawling';
   const weaponStats = equipped
-    ? { damage_min: dmg.min, damage_max: dmg.max, status_chance: tagValue(equipped, 'status_chance') }
-    : { damage_min:2, damage_max:4 };
-  const result = playerAttackEnemy(player, target.instanceId, weaponStats);
+    ? { damage_min: dmg.min, damage_max: dmg.max, status_chance: tagValue(equipped, 'status_chance'), weapon_skill: wskill, damage_type: tagValue(equipped, 'damage_type') || 'kinetic' }
+    : { damage_min:2, damage_max:4, weapon_skill:'brawling', damage_type:'kinetic' };
+  const result = await playerAttackEnemy(player, target.instanceId, weaponStats);
   if (!result.success) return { type:'error', message:result.message };
 
   if (result.hit) {
-    const wskill = tagValue(equipped, 'weapon_skill');
     const skillId = wskill === 'bladed' ? 'bladed' : wskill === 'energy' ? 'electronics' : 'brawling';
-    await awardSkillXp(player.id, skillId, result.killed ? 15 : 5);
+    await awardSkillUse(player.id, skillId, result.margin ?? 1);
   }
 
   if (result.killed) {
@@ -98,7 +98,6 @@ async function cmdSteal(targetStr, player, broadcast) {
 
   const result = await skillCheck(player, 'deception', 7);
   const caught = !result.success;
-  await awardSkillXp(player.id, 'deception', 2);
 
   if (caught) {
     broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} tries to pick ${target.handle}'s pocket and gets caught red-handed.` }, player.id);
@@ -110,6 +109,7 @@ async function cmdSteal(targetStr, player, broadcast) {
   player.credits = (player.credits||0) + amount;
   await query('UPDATE players SET credits=$1 WHERE id=$2', [target.credits, target.id]);
   await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
+  await awardSkillUse(player.id, 'deception', result.margin);
   return { type:'steal', message:`You lift ${amount}c off ${target.handle} without them noticing a thing.`, player_update:{credits:player.credits} };
 }
 

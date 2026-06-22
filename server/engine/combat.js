@@ -1,4 +1,6 @@
 import { getEnemyInstance, removeEnemyInstance, getLivePlayer, getZonePlayers } from './world.js';
+import { effectiveSkill } from './skills.js';
+import { ensureTunables, getTunable } from './tunables.js';
 
 const COOLDOWNS = {
   attack: 3500,
@@ -27,26 +29,63 @@ export function getCooldownRemaining(playerId, action) {
   return Math.max(0, cd - elapsed);
 }
 
-// Roll attack: attacker stat vs defender. Returns { hit, damage, critical }
-export function rollAttack(attacker, defender) {
-  const hitRoll = Math.random() * 20 + attacker.stat_agi;
-  const defRoll = Math.random() * 15 + (defender.stat_agi || 5);
-  const hit = hitRoll > defRoll;
-  if (!hit) return { hit: false, damage: 0, critical: false };
-
-  const critical = Math.random() < 0.05 + (attacker.stat_str - 5) * 0.01;
-  let damage = Math.floor(
-    Math.random() * (attacker.damage_max - attacker.damage_min + 1) + attacker.damage_min
-  );
-  if (critical) damage = Math.floor(damage * 2);
-  const armor = defender.armor || 0;
-  damage = Math.max(1, damage - armor);
-
-  return { hit: true, damage, critical };
+function roll2d10() {
+  return Math.floor(Math.random() * 10) + 1 + Math.floor(Math.random() * 10) + 1;
 }
 
-// Player attacks enemy instance
-export function playerAttackEnemy(player, enemyInstanceId, weaponStats) {
+// Which equip slot covers each struck body part. Arms share the hands piece,
+// legs share the legs piece; feet has no dedicated body part in the weight table.
+const PART_TO_SLOT = {
+  head: 'head', torso: 'torso',
+  left_arm: 'hands', right_arm: 'hands',
+  left_leg: 'legs', right_leg: 'legs',
+};
+
+const PART_LABELS = {
+  head: 'head', torso: 'torso',
+  left_arm: 'left arm', right_arm: 'right arm',
+  left_leg: 'left leg', right_leg: 'right leg',
+};
+
+// Weighted pick of a struck body part (weights from tunables, ~torso-heavy).
+function rollBodyPart() {
+  const weights = getTunable('body_part_weights', { head:10, torso:40, left_arm:12, right_arm:12, left_leg:13, right_leg:13 });
+  const parts = Object.keys(weights);
+  const total = parts.reduce((s, p) => s + (weights[p] || 0), 0);
+  let roll = Math.random() * total;
+  for (const p of parts) {
+    roll -= weights[p] || 0;
+    if (roll < 0) return p;
+  }
+  return parts[parts.length - 1] || 'torso';
+}
+
+// Reduce a typed-soak map against a damage type. Matched type → full value;
+// no entry for that type → minimal reduction (best other value * mismatch factor).
+function resolveSoak(soakMap, damageType) {
+  if (!soakMap || typeof soakMap !== 'object') return 0;
+  if (damageType in soakMap) return Number(soakMap[damageType]) || 0;
+  const values = Object.values(soakMap).map(Number).filter(v => !isNaN(v));
+  if (!values.length) return 0;
+  const factor = getTunable('soak_mismatch_factor', 0.25);
+  return Math.floor(Math.max(...values) * factor);
+}
+
+// Total soak for a player on the struck part: typed armor_soak + legacy flat.
+function playerPartSoak(player, part, damageType) {
+  const entry = player.soak?.[PART_TO_SLOT[part]];
+  if (!entry) return 0;
+  return resolveSoak(entry.soak, damageType) + (entry.flat || 0);
+}
+
+// Total soak for an enemy: typed soak map if present, else flat armor fallback.
+function enemySoak(enemy, damageType) {
+  if (enemy.soak && Object.keys(enemy.soak).length) return resolveSoak(enemy.soak, damageType);
+  return enemy.armor || 0;
+}
+
+// Player attacks enemy instance. Returns { success, hit, killed, damage, critical, margin, ... }
+export async function playerAttackEnemy(player, enemyInstanceId, weaponStats) {
   if (isOnCooldown(player.id, 'attack')) {
     return { success: false, message: `You're still recovering. (${(getCooldownRemaining(player.id, 'attack') / 1000).toFixed(1)}s)` };
   }
@@ -55,20 +94,26 @@ export function playerAttackEnemy(player, enemyInstanceId, weaponStats) {
   if (!enemy) return { success: false, message: "That target is gone." };
   if (enemy.zoneId !== player.current_zone) return { success: false, message: "That target isn't here." };
 
-  const attacker = {
-    stat_agi: player.stat_agi,
-    stat_str: player.stat_str,
-    damage_min: weaponStats?.damage_min || 2,
-    damage_max: weaponStats?.damage_max || 5,
-  };
+  await ensureTunables();
 
-  const result = rollAttack(attacker, enemy);
+  const weaponSkillId = weaponStats?.weapon_skill || 'brawling';
+  const attackSkill = await effectiveSkill(player, weaponSkillId);
+
+  const dodgeBase = getTunable('dodge_base', 5);
+  const enemyDodge = dodgeBase + (enemy.defense || 0);
+
+  const roll = roll2d10();
+  const total = roll + attackSkill;
+  const margin = total - enemyDodge;
+  const hit = margin >= 0;
+
   setCooldown(player.id, 'attack');
 
-  if (!result.hit) {
+  if (!hit) {
     return {
       success: true,
       hit: false,
+      margin,
       message: `You swing at ${enemy.name} and miss. It doesn't look impressed.`,
       enemyId: enemyInstanceId,
       enemyHp: enemy.hp,
@@ -76,7 +121,22 @@ export function playerAttackEnemy(player, enemyInstanceId, weaponStats) {
     };
   }
 
-  enemy.hp -= result.damage;
+  const critThreshold = getTunable('crit_threshold', 8);
+  const critMultiplier = getTunable('crit_multiplier', 1.5);
+  const critical = margin >= critThreshold;
+
+  const damage_min = weaponStats?.damage_min || 2;
+  const damage_max = weaponStats?.damage_max || 5;
+  const damageType = weaponStats?.damage_type || 'kinetic';
+  let damage = Math.floor(Math.random() * (damage_max - damage_min + 1)) + damage_min;
+  if (critical) damage = Math.floor(damage * critMultiplier);
+
+  const part = rollBodyPart();
+  if (part === 'head') damage = Math.floor(damage * getTunable('head_damage_multiplier', 1.5));
+  damage = Math.max(1, damage - enemySoak(enemy, damageType));
+  const partLabel = PART_LABELS[part] || part;
+
+  enemy.hp -= damage;
   enemy.targetId = player.id;
 
   if (enemy.hp <= 0) {
@@ -86,11 +146,12 @@ export function playerAttackEnemy(player, enemyInstanceId, weaponStats) {
       success: true,
       hit: true,
       killed: true,
-      critical: result.critical,
-      damage: result.damage,
-      message: result.critical
-        ? `CRITICAL HIT! You deal ${result.damage} damage to ${enemy.name}. ${enemy.death_message}`
-        : `You deal ${result.damage} damage to ${enemy.name}. ${enemy.death_message}`,
+      critical,
+      damage,
+      margin,
+      message: critical
+        ? `CRITICAL HIT to the ${partLabel}! You deal ${damage} damage to ${enemy.name}. ${enemy.death_message}`
+        : `You strike ${enemy.name}'s ${partLabel} for ${damage} damage. ${enemy.death_message}`,
       loot,
       xp_reward: enemy.xp_reward,
       credit_reward: enemy.credit_reward,
@@ -102,57 +163,70 @@ export function playerAttackEnemy(player, enemyInstanceId, weaponStats) {
     success: true,
     hit: true,
     killed: false,
-    critical: result.critical,
-    damage: result.damage,
-    message: result.critical
-      ? `CRITICAL HIT! You deal ${result.damage} damage to ${enemy.name}! (${enemy.hp}/${enemy.hp_max} HP remaining)`
-      : `You deal ${result.damage} damage to ${enemy.name}. (${enemy.hp}/${enemy.hp_max} HP remaining)`,
+    critical,
+    damage,
+    margin,
+    message: critical
+      ? `CRITICAL HIT to the ${partLabel}! You deal ${damage} damage to ${enemy.name}! (${enemy.hp}/${enemy.hp_max} HP remaining)`
+      : `You strike ${enemy.name}'s ${partLabel} for ${damage} damage. (${enemy.hp}/${enemy.hp_max} HP remaining)`,
     enemyId: enemyInstanceId,
     enemyHp: enemy.hp,
     enemyHpMax: enemy.hp_max,
   };
 }
 
-// Enemy attacks player — returns damage result
-export function enemyAttackPlayer(enemy, player) {
+// Enemy attacks player — returns damage result (async: needs effectiveSkill for player dodge)
+export async function enemyAttackPlayer(enemy, player) {
   const now = Date.now();
   const attackInterval = 5000 - (enemy.stat_agi * 150);
   if (now - enemy.lastAttack < attackInterval) return null;
   const isFirstStrike = enemy.lastAttack === 0;
   enemy.lastAttack = now;
 
-  const attacker = {
-    stat_agi: enemy.stat_agi,
-    stat_str: enemy.stat_str,
-    damage_min: enemy.damage_min,
-    damage_max: enemy.damage_max,
-  };
+  await ensureTunables();
 
-  const defender = {
-    stat_agi: player.stat_agi,
-    armor: player.armor || 0,
-  };
+  // Lean-enemy: derive to-hit skill from stat_agi (no player_skills row)
+  const enemyAttackSkill = (enemy.stat_agi || 5) / 2;
 
-  // Some enemies yell something as they attack — flavor text from the
-  // enemy's flags JSON, dev-panel editable. Cry fires on the first strike
-  // (most natural — the moment they actually commit to the fight).
+  const dodgeBase = getTunable('dodge_base', 5);
+  const playerDodgeSkill = await effectiveSkill(player, 'dodge');
+  const playerDodge = dodgeBase + playerDodgeSkill;
+
+  const roll = roll2d10();
+  const total = roll + enemyAttackSkill;
+  const margin = total - playerDodge;
+  const hit = margin >= 0;
+
   const cries = enemy.flags?.battle_cries;
   const cry = (isFirstStrike && Array.isArray(cries) && cries.length)
     ? `<span class="battle-cry">${enemy.name} ${cries[Math.floor(Math.random() * cries.length)]}</span>\n`
     : '';
 
-  const result = rollAttack(attacker, defender);
-  if (!result.hit) {
+  if (!hit) {
     return { hit: false, message: `${cry}${enemy.name} attacks you and misses.` };
   }
 
+  const critThreshold = getTunable('crit_threshold', 8);
+  const critMultiplier = getTunable('crit_multiplier', 1.5);
+  const critical = margin >= critThreshold;
+
+  let damage = Math.floor(Math.random() * (enemy.damage_max - enemy.damage_min + 1)) + enemy.damage_min;
+  if (critical) damage = Math.floor(damage * critMultiplier);
+
+  const damageType = enemy.flags?.damage_type || 'kinetic';
+  const part = rollBodyPart();
+  if (part === 'head') damage = Math.floor(damage * getTunable('head_damage_multiplier', 1.5));
+  // TODO(phase5): head crit-to-stun once a turn-skip mechanic exists.
+  damage = Math.max(1, damage - playerPartSoak(player, part, damageType));
+  const partLabel = PART_LABELS[part] || part;
+
   return {
     hit: true,
-    damage: result.damage,
-    critical: result.critical,
-    message: result.critical
-      ? `${cry}CRITICAL! ${enemy.name} hits you for ${result.damage} damage!`
-      : `${cry}${enemy.name} hits you for ${result.damage} damage.`,
+    damage,
+    critical,
+    message: critical
+      ? `${cry}CRITICAL! ${enemy.name} hits your ${partLabel} for ${damage} damage!`
+      : `${cry}${enemy.name} hits your ${partLabel} for ${damage} damage.`,
   };
 }
 

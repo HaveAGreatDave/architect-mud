@@ -178,8 +178,9 @@ async function handleAuth(ws, session, msg) {
     current_zone:player.current_zone||'zone_start', anchor_zone:player.anchor_zone||'zone_start',
     hp:player.hp, hp_max:player.hp_max, sanity:player.sanity, sanity_max:player.sanity_max,
     hunger:player.hunger, thirst:player.thirst, radiation:player.radiation, credits:player.credits, bank_credits:player.bank_credits||0,
-    stat_str:player.stat_str, stat_agi:player.stat_agi, stat_int:player.stat_int,
-    stat_wil:player.stat_wil, stat_end:player.stat_end, stat_cha:player.stat_cha,
+    stat_brawn:player.stat_brawn, stat_reflexes:player.stat_reflexes, stat_endurance:player.stat_endurance,
+    stat_brains:player.stat_brains, stat_senses:player.stat_senses, stat_cool:player.stat_cool,
+    ip:player.ip||0,
     armor:0, statuses:[],
   };
   setLivePlayer(player.id, livePlayer);
@@ -236,8 +237,9 @@ async function handleAuthToken(ws, session, msg) {
     current_zone:player.current_zone||'zone_start', anchor_zone:player.anchor_zone||'zone_start',
     hp:player.hp, hp_max:player.hp_max, sanity:player.sanity, sanity_max:player.sanity_max,
     hunger:player.hunger, thirst:player.thirst, radiation:player.radiation, credits:player.credits, bank_credits:player.bank_credits||0,
-    stat_str:player.stat_str, stat_agi:player.stat_agi, stat_int:player.stat_int,
-    stat_wil:player.stat_wil, stat_end:player.stat_end, stat_cha:player.stat_cha,
+    stat_brawn:player.stat_brawn, stat_reflexes:player.stat_reflexes, stat_endurance:player.stat_endurance,
+    stat_brains:player.stat_brains, stat_senses:player.stat_senses, stat_cool:player.stat_cool,
+    ip:player.ip||0,
     armor:0, statuses:[],
   };
   setLivePlayer(player.id, livePlayer);
