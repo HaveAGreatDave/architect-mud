@@ -469,7 +469,7 @@ async function syncStreetlights(lightOn) {
     lightOn
       ? `SELECT DISTINCT zone_id FROM furniture
          WHERE light_type = 'streetlight' AND light_on = 0
-           AND zone_id IN (SELECT id FROM power_zones WHERE status = 'powered')`
+           AND zone_id IN (SELECT id FROM power_zones WHERE status IN ('powered', 'overloaded'))`
       : `SELECT DISTINCT zone_id FROM furniture
          WHERE light_type = 'streetlight' AND light_on = 1`
   ).catch(() => ({ rows: [] }));
@@ -480,7 +480,7 @@ async function syncStreetlights(lightOn) {
     await query(
       `UPDATE furniture SET light_on = 1
        WHERE light_type = 'streetlight' AND light_on = 0
-         AND zone_id IN (SELECT id FROM power_zones WHERE status = 'powered')`
+         AND zone_id IN (SELECT id FROM power_zones WHERE status IN ('powered', 'overloaded'))`
     ).catch(() => {});
   } else {
     await query(
@@ -635,8 +635,12 @@ async function applyPowerLightEffects(query, zoneId, prevStatus, newStatus, avai
       FROM furniture WHERE zone_id=$1 AND is_light=1
     `, [zoneId]);
 
-    // Streetlights are infrastructure — exclude from brownout competition.
-    // Only player-controlled lights compete for available power.
+    // Streetlights are infrastructure — always on when dark, never compete for brownout pool.
+    const isDark = state.phase === 'night' || state.phase === 'dusk';
+    const streetlightIds = lights.filter(l => l.light_type === 'streetlight').map(l => l.id);
+    if (streetlightIds.length) {
+      await query(`UPDATE furniture SET light_on=$1, light_on_intended=NULL WHERE id=ANY($2::text[])`, [isDark ? 1 : 0, streetlightIds]);
+    }
     const wantOn = lights.filter(l => l.light_on_intended === 1 && l.light_type !== 'streetlight').sort((a, b) => a.draw_kw - b.draw_kw);
 
     let pool = available;
