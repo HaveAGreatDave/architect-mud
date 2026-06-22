@@ -302,7 +302,11 @@ async function ensureClockRow(query) {
 // stored here and set via setWeatherState() — exported below.
 
 async function loadZonePowerAndLighting(query) {
-  const { rows: zones } = await query('SELECT * FROM power_zones');
+  const { rows: zones } = await query(`
+    SELECT pz.*, g.generator_type
+    FROM power_zones pz
+    LEFT JOIN generators g ON g.id = pz.generator_id
+  `);
   const { rows: lights } = await query('SELECT * FROM lighting_states');
   const lightByZone = new Map(lights.map((l) => [l.zone_id, l]));
   state.zones.clear();
@@ -313,7 +317,9 @@ async function loadZonePowerAndLighting(query) {
       capacityKw: z.capacity_kw,
       loadKw: z.current_load_kw,
       availableKw: z.available_kw,
-      maxCapacityKw: z.max_capacity_kw ?? 50,
+      maxCapacityKw: z.max_capacity_kw ?? 1000,
+      generatorId: z.generator_id,
+      generatorType: z.generator_type,
       hasEmergencyLighting: light ? !!light.has_emergency_lighting : false,
       artificialLight: computeArtificialLight(z.status, light),
     });
@@ -859,6 +865,8 @@ export function getPowerMap() {
     availableKw: z.availableKw,
     maxCapacityKw: z.maxCapacityKw,
     artificialLight: z.artificialLight,
+    generatorId: z.generatorId,
+    generatorType: z.generatorType,
   }));
 }
 
@@ -1040,8 +1048,8 @@ export async function installGenerator({ zoneId, generatorType = 'junction_box',
   const zone = zoneRows[0];
 
   const id = `gen_${zoneId}_${Date.now()}`;
-  // city_plant: 500 000 W. junction_box: 5 000 W.
-  const capacity = Number(capacityKw) || (generatorType === 'city_plant' ? 500000 : 5000);
+  // city_plant: 500 000 W. junction_box: 100 W default throughput.
+  const capacity = Number(capacityKw) || (generatorType === 'city_plant' ? 500000 : 100);
   const genName = name || (generatorType === 'city_plant' ? 'City Power Plant' : `${zone.name} Junction Box`);
 
   // Auto-assign nearest city plant for junction boxes if not specified.
@@ -1212,7 +1220,7 @@ export async function fixBuildingPowerConnections() {
     for (const id of network) visited.add(id);
 
     const { rows: gens } = await query(
-      `SELECT id, name, capacity_kw FROM generators WHERE zone_id = ANY($1::text[])`,
+      `SELECT id, name, capacity_kw FROM generators WHERE zone_id = ANY($1::text[]) AND generator_type = 'junction_box'`,
       [network]
     );
 
@@ -1302,7 +1310,10 @@ export async function setGeneratorCapacity(generatorId, capacityKw, name) {
 export async function getGeneratorsList() {
   const { query } = deps;
   const { rows } = await query(`
-    SELECT g.*, z.name as zone_name
+    SELECT g.*, z.name as zone_name,
+      COALESCE((
+        SELECT SUM(pz.current_load_kw) FROM power_zones pz WHERE pz.generator_id = g.id
+      ), 0) AS zone_load_w
     FROM generators g LEFT JOIN zones z ON z.id = g.zone_id
     ORDER BY g.generator_type, g.id
   `);
