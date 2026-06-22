@@ -3239,15 +3239,18 @@ let powerPanelGenerators = [];
 let powerPanelMode = 'power';
 let powerPanelView = 'city';   // 'city' | 'interior'
 let powerPanelBuilding = null; // selected building zone id for interior view
+let powerPanelAllZones = [];   // full zone list (for building interior search)
 
 async function renderPowerPanel(zones) {
-  const [powerMap, generators] = await Promise.all([
+  const [powerMap, generators, allZones] = await Promise.all([
     API('/environment/power/map').catch(() => []),
     API('/environment/power/generators').catch(() => []),
+    API('/zones').catch(() => []),
   ]);
   bigMapZones = Array.isArray(zones) ? zones : [];
   bigMapPowerData = Array.isArray(powerMap) ? powerMap : [];
   powerPanelGenerators = Array.isArray(generators) ? generators : [];
+  powerPanelAllZones = Array.isArray(allZones) ? allZones : [];
   powerPanelMode = 'power';
   powerPanelView = 'city';
   renderPowerPanelBody();
@@ -3269,8 +3272,8 @@ function setPowerPanelBuilding(zoneId) {
 }
 
 function _buildInteriorMapHtml() {
-  const buildings = bigMapZones.filter(z => z.flags?.is_building);
-  if (!buildings.length) return `<div style="color:var(--text-dim);padding:8px">No buildings found. Mark zones with the is_building flag.</div>`;
+  const buildings = powerPanelAllZones.filter(z => z.flags?.is_building);
+  if (!buildings.length) return `<div style="color:var(--text-dim);padding:8px">No buildings found.</div>`;
 
   const selId = powerPanelBuilding || buildings[0]?.id;
   const buildingDropdown = `<select style="margin-bottom:12px" onchange="setPowerPanelBuilding(this.value)">
@@ -3281,27 +3284,24 @@ function _buildInteriorMapHtml() {
   if (!building) return buildingDropdown;
 
   // Find all interior/apartment zones connected to this building.
-  // Interior rooms link back to the building via their exits (not always forward),
-  // so we seed from all interior zones that have any exit pointing into the building
-  // zone or another already-found interior zone, then expand outward.
+  // Interior rooms exit back to the building (not always the reverse),
+  // so expand the network by finding any interior zone with an exit into it.
   const powerById = new Map(bigMapPowerData.map(p => [p.zoneId, p]));
   const networkIds = new Set([building.id]);
-  // Keep expanding until no new zones are added
   let changed = true;
   while (changed) {
     changed = false;
-    for (const z of bigMapZones) {
+    for (const z of powerPanelAllZones) {
       if (networkIds.has(z.id)) continue;
       if (!(z.flags?.is_interior || z.flags?.is_apartment)) continue;
-      const exitTargets = Object.values(z.exits || {});
-      if (exitTargets.some(id => networkIds.has(id))) {
+      if (Object.values(z.exits || {}).some(id => networkIds.has(id))) {
         networkIds.add(z.id);
         changed = true;
       }
     }
   }
   networkIds.delete(building.id);
-  const interiorZones = bigMapZones.filter(z => networkIds.has(z.id) && (z.flags?.is_interior || z.flags?.is_apartment));
+  const interiorZones = powerPanelAllZones.filter(z => networkIds.has(z.id));
 
   if (!interiorZones.length) return buildingDropdown + `<div style="color:var(--text-dim);font-size:11px">No interior rooms connected to this building yet.</div>`;
 
