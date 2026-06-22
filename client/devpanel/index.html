@@ -2459,7 +2459,9 @@ function buildDynamicMapGrid(zones, mode, powerById, clickable) {
           const totalSupply  = zoneSupply + jbSupply;
           const status = p ? p.status : 'unpowered';
           const isBrownout = totalRequest > 0 && totalSupply > 0 && totalRequest > totalSupply + 0.01;
-          const effectiveStatus = isBrownout ? 'overloaded' : (status === 'powered' && totalRequest === 0) ? 'idle' : status;
+          const effectiveStatus = isBrownout ? 'overloaded'
+            : (totalRequest === 0 && p) ? 'idle'
+            : status;
           cls = `bigmap-tile bm-power-${effectiveStatus}`;
           if (totalRequest > 0) {
             const supplyStr = totalSupply > 0 ? totalSupply.toFixed(0) : '0';
