@@ -162,6 +162,7 @@
 <script>
 let token = null;
 let currentPanel = 'zones';
+let _panelClockInterval = null;
 let currentRecord = null;
 let allRecords = [];
 let devRole = null;
@@ -466,6 +467,7 @@ async function showPanel(name) {
 }
 
 async function loadPanel(name) {
+  if (_panelClockInterval) { clearInterval(_panelClockInterval); _panelClockInterval = null; }
   const p = PANELS[name];
   if (!p) return;
   document.getElementById('panel-title').textContent = p.title;
@@ -3922,7 +3924,7 @@ function renderTimeWeatherPanel(data) {
       <div style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:20px">
         <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:16px">Current State</div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;font-size:13px">
-          <div><div style="color:var(--text-dim);font-size:10px;margin-bottom:2px">TIME</div><div style="color:var(--text-bright);font-size:18px;font-weight:700">${timeStr}</div></div>
+          <div><div style="color:var(--text-dim);font-size:10px;margin-bottom:2px">TIME</div><div id="tw-live-clock" style="color:var(--text-bright);font-size:18px;font-weight:700">${timeStr}</div></div>
           <div><div style="color:var(--text-dim);font-size:10px;margin-bottom:2px">DATE</div><div style="color:var(--text)">${env.date||'—'}</div></div>
           <div><div style="color:var(--text-dim);font-size:10px;margin-bottom:2px">SEASON</div><div style="color:var(--text)">${env.season||'—'}</div></div>
           <div><div style="color:var(--text-dim);font-size:10px;margin-bottom:2px">WEATHER</div><div style="color:var(--text)">${env.weatherIcon||''} ${env.weatherType||'—'}</div></div>
@@ -3975,6 +3977,17 @@ function renderTimeWeatherPanel(data) {
       </div>
 
     </div>`;
+
+  // Tick the displayed clock every minute without re-fetching the panel.
+  let _twMinutes = (h => h)((() => { const [h,m] = timeStr.split(':').map(Number); return h*60+(m||0); })());
+  _panelClockInterval = setInterval(() => {
+    _twMinutes = (_twMinutes + 1) % (24 * 60);
+    const el = document.getElementById('tw-live-clock');
+    if (!el) { clearInterval(_panelClockInterval); _panelClockInterval = null; return; }
+    const hh = String(Math.floor(_twMinutes / 60)).padStart(2, '0');
+    const mm = String(_twMinutes % 60).padStart(2, '0');
+    el.textContent = `${hh}:${mm}`;
+  }, 60_000);
 }
 
 async function devApplyTime() {
