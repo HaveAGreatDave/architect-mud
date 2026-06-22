@@ -1359,6 +1359,16 @@ export async function fixBuildingPowerConnections() {
   return results;
 }
 
+export async function toggleGeneratorStatus(generatorId) {
+  const { query } = deps;
+  const { rows } = await query(`SELECT status FROM generators WHERE id=$1`, [generatorId]);
+  if (!rows.length) throw new Error(`Generator ${generatorId} not found`);
+  const newStatus = rows[0].status === 'online' ? 'offline' : 'online';
+  await query(`UPDATE generators SET status=$1 WHERE id=$2`, [newStatus, generatorId]);
+  await recomputePower();
+  return { id: generatorId, status: newStatus };
+}
+
 export async function setGeneratorCapacity(generatorId, capacityKw, name) {
   const { query } = deps;
   const kw = Math.max(0, Number(capacityKw) || 0);
