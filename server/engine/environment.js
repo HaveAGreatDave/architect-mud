@@ -400,14 +400,33 @@ async function tick5m() {
   await loadZonePowerAndLighting(query);
 }
 
+// Formats a list of light names into a readable phrase.
+function _fmtLightNames(names) {
+  if (!names.length) return 'the lights';
+  if (names.length === 1) return `the ${names[0]}`;
+  return `the ${names.slice(0, -1).map(n => n).join(', the ')} and the ${names[names.length - 1]}`;
+}
+
+const FLICKER_MSGS = [
+  n => `${n} flicker${n.startsWith('the ') ? 's' : ''} erratically as the power supply struggles.`,
+  n => `${n} stutter${n.startsWith('the ') ? 's' : ''}, casting unsteady light.`,
+  n => `${n} pulse${n.startsWith('the ') ? 's' : ''} weakly — the grid is under strain.`,
+  n => `${n} dim${n.startsWith('the ') ? 's' : ''} and brightens in an uneven rhythm.`,
+];
+
 // Sends flicker broadcasts to overloaded zones — no DB writes.
-function flickerOverloadedZones() {
-  const { broadcast } = deps;
-  if (!broadcast) return;
+async function flickerOverloadedZones() {
+  const { broadcast, query } = deps;
+  if (!broadcast || !query) return;
   for (const [zoneId, z] of state.zones) {
-    if (z.powerStatus === 'overloaded') {
-      broadcast(zoneId, { type: 'zone_event', message: '<span class="power-flicker">The lights flicker.</span>' });
-    }
+    if (z.powerStatus !== 'overloaded') continue;
+    const { rows } = await query(
+      `SELECT name FROM furniture WHERE zone_id=$1 AND is_light=1 AND light_on=1 LIMIT 3`,
+      [zoneId]
+    ).catch(() => ({ rows: [] }));
+    const nameStr = _fmtLightNames(rows.map(r => r.name));
+    const pick = FLICKER_MSGS[Math.floor(Math.random() * FLICKER_MSGS.length)];
+    broadcast(zoneId, { type: 'zone_event', message: `<span class="power-flicker">${pick(nameStr)}</span>` });
   }
 }
 
@@ -424,7 +443,7 @@ async function tick1m() {
     [state.minutes]
   );
   if (broadcast) broadcast({ type: 'environment.clockTick', time: formatHHMM(state.minutes) });
-  flickerOverloadedZones();
+  await flickerOverloadedZones();
 }
 
 // ---------------------------------------------------------------------------
@@ -527,13 +546,25 @@ async function applyPowerLightEffects(query, zoneId, prevStatus, newStatus, avai
   const nowBrown = newStatus === 'overloaded';
 
   if (nowDown) {
+    // Capture which lights are on before cutting them.
+    const { rows: activeLights } = await query(
+      `SELECT name FROM furniture WHERE zone_id=$1 AND is_light=1 AND light_on=1`,
+      [zoneId]
+    ).catch(() => ({ rows: [] }));
     // Preserve intended state before cutting everything.
     await query(`UPDATE furniture SET light_on_intended = COALESCE(light_on_intended, light_on) WHERE zone_id=$1 AND is_light=1`, [zoneId]);
     await query(`UPDATE furniture SET light_on=0 WHERE zone_id=$1 AND is_light=1`, [zoneId]);
     await query(`UPDATE power_zones SET current_load_kw=0 WHERE id=$1`, [zoneId]);
     await query(`UPDATE lighting_states SET fixture_count=0 WHERE zone_id=$1`, [zoneId]).catch(() => {});
     if (broadcast && prevStatus !== 'offline') {
-      broadcast(zoneId, { type: 'zone_event', message: '<span class="power-out">The lights cut out. Darkness.</span>' });
+      const nameStr = _fmtLightNames(activeLights.map(l => l.name));
+      const CUTOUT_MSGS = [
+        `${nameStr} cut${activeLights.length === 1 ? 's' : ''} out abruptly. Darkness.`,
+        `${nameStr} die${activeLights.length === 1 ? 's' : ''} with a sharp click as power fails.`,
+        `Power lost. ${nameStr} go${activeLights.length === 1 ? 'es' : ''} dark without warning.`,
+      ];
+      const msg = CUTOUT_MSGS[Math.floor(Math.random() * CUTOUT_MSGS.length)];
+      broadcast(zoneId, { type: 'zone_event', message: `<span class="power-out">${msg}</span>` });
     }
   } else if (nowBrown) {
     // Preserve intended state before any changes.
@@ -541,7 +572,7 @@ async function applyPowerLightEffects(query, zoneId, prevStatus, newStatus, avai
 
     // Per-device allocation: fetch all powered devices with their draw.
     const { rows: lights } = await query(`
-      SELECT id, light_on_intended,
+      SELECT id, name, light_on_intended,
         COALESCE(power_draw_kw,
           CASE light_type
             WHEN 'overhead'    THEN ${DRAW_OVERHEAD_W}
@@ -584,9 +615,13 @@ async function applyPowerLightEffects(query, zoneId, prevStatus, newStatus, avai
 
     if (broadcast) {
       if (forcedOff.length) {
-        broadcast(zoneId, { type: 'zone_event', message: '<span class="power-flicker">Some lights cut out as the grid strains under load.</span>' });
+        const nameStr = _fmtLightNames(forcedOff.map(id => lights.find(l => l.id === id)?.name).filter(Boolean));
+        const s = forcedOff.length === 1;
+        broadcast(zoneId, { type: 'zone_event', message: `<span class="power-flicker">${nameStr} cut${s?'s':''} out abruptly — not enough power to keep everything on.</span>` });
       } else if (flickering.length) {
-        broadcast(zoneId, { type: 'zone_event', message: '<span class="power-flicker">The lights flicker and dim.</span>' });
+        const nameStr = _fmtLightNames(flickering.map(id => lights.find(l => l.id === id)?.name).filter(Boolean));
+        const s = flickering.length === 1;
+        broadcast(zoneId, { type: 'zone_event', message: `<span class="power-flicker">${nameStr} flicker${s?'s':''} as the supply runs thin.</span>` });
       }
     }
   } else if (nowOk && !wasOk) {
