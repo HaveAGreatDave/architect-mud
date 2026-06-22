@@ -3306,12 +3306,15 @@ function _buildInteriorMapHtml() {
       }
     }
   }
-  networkIds.delete(building.id);
+  // Keep building entrance in the network so it shows on the grid
   const interiorZones = powerPanelAllZones.filter(z => networkIds.has(z.id));
 
-  if (!interiorZones.length) {
+  if (interiorZones.length <= 1) {
     return buildingDropdown + `<div style="color:var(--text-dim);font-size:11px">No interior rooms connected to this building yet.</div>`;
   }
+
+  // Junction box lookup by zone
+  const jbByZone = new Map(powerPanelGenerators.filter(g => g.generator_type === 'junction_box').map(g => [g.zone_id, g]));
 
   // Floor selector
   const placed = interiorZones.filter(z => z.grid_x != null);
@@ -3359,11 +3362,15 @@ function _buildInteriorMapHtml() {
       const status = pw?.status || 'unpowered';
       const pwCls = STATUS_CLS[status] || 'bm-power-unpowered';
       const load = pw ? `${Number(pw.loadKw ?? 0).toFixed(1)}/${Number(pw.maxCapacityKw ?? 0).toFixed(0)}W` : '';
+      const jb = jbByZone.get(z.id);
+      const jbIcon = jb ? `<span title="${jb.name || 'Junction Box'} — ${jb.status}" style="font-size:11px;margin-right:2px">🔌</span>` : '';
+      const isBuildingEntrance = z.flags?.is_building;
+      const entranceIcon = isBuildingEntrance ? `<span title="Building entrance" style="font-size:11px;margin-right:2px">🚪</span>` : '';
       const exitDirs = Object.keys(z.exits || {});
       const exHtml = exitDirs.length
         ? `<div class="cell-exits">${exitDirs.map(d => `<span class="${(d==='up'||d==='down') ? 'ex-vert' : ''}">${d==='up' ? '▲' : d==='down' ? '▼' : d[0].toUpperCase()}</span>`).join(' ')}</div>`
         : '';
-      gridHtml += `<div class="bigmap-tile ${pwCls}" style="${gcs}" title="${z.name} — ${status}${load ? ' ' + load : ''}" onclick="editRecord('${z.id.replace(/'/g, "\\'")}')"><div>${z.name}${exHtml}<div style="font-size:9px;opacity:0.75;margin-top:2px">${status}${load ? ' · ' + load : ''}</div></div></div>`;
+      gridHtml += `<div class="bigmap-tile ${pwCls}" style="${gcs}" title="${z.name} — ${status}${load ? ' ' + load : ''}${jb ? ' · JB: ' + (jb.name || jb.id) : ''}" onclick="editRecord('${z.id.replace(/'/g, "\\'")}')"><div>${entranceIcon}${jbIcon}${z.name}${exHtml}<div style="font-size:9px;opacity:0.75;margin-top:2px">${status}${load ? ' · ' + load : ''}</div></div></div>`;
     }
   }
 
