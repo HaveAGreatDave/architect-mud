@@ -87,8 +87,14 @@ export async function migrateEnvironment(query) {
   // power_zones.capacity_kw is overwritten by the simulation on every run — no migration needed.
   // max_capacity_kw: correct legacy 1 kW default (value = 1) to 1000 W.
   await query(`UPDATE power_zones SET max_capacity_kw = 1000 WHERE max_capacity_kw = 1`);
-  // furniture power_draw_kw is now stored in W (5, 20, 200 etc). No multiplication needed.
-  // The old * 1000 line was removed because it would corrupt new W-scale values on every restart.
+  // furniture power_draw_kw is now stored in W (5, 20, 200 etc).
+  // The old migration multiplied explicitly-set values by 1000 (e.g. 200W → 200000W).
+  // Correct any inflated light power_draw_kw: anything >= 1000W on a light is a sign it
+  // was multiplied. Safe to re-run — values < 1000 are already in the correct W range.
+  await query(`UPDATE furniture SET power_draw_kw = ROUND(power_draw_kw / 1000.0) WHERE power_draw_kw IS NOT NULL AND power_draw_kw >= 1000 AND is_light = 1`);
+  // Same for non-light electric items — threshold is higher since motors etc. can be large,
+  // but > 100 000 W per item is implausible in this game context.
+  await query(`UPDATE furniture SET power_draw_kw = ROUND(power_draw_kw / 1000.0) WHERE power_draw_kw IS NOT NULL AND power_draw_kw > 100000 AND is_light = 0`);
 
   await query(`
     CREATE TABLE IF NOT EXISTS power_zones (
