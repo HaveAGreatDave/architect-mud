@@ -429,6 +429,81 @@ async function tick24h() {
 // Power Network Simulation
 // ---------------------------------------------------------------------------
 
+// Handles light-state side-effects when a zone's power status changes.
+// prevStatus = status stored in DB before this tick; newStatus = just computed.
+async function applyPowerLightEffects(query, zoneId, prevStatus, newStatus, available, maxCap) {
+  const broadcast = deps.broadcast;
+
+  const wasOk = prevStatus === 'powered';
+  const nowOk  = newStatus === 'powered';
+  const nowDown = newStatus === 'offline';
+  const nowBrown = newStatus === 'overloaded';
+
+  // Preserve intended state on first degradation (offline or overloaded) so
+  // we can restore the player's intended switches when power returns.
+  if (nowDown || nowBrown) {
+    await query(`
+      UPDATE furniture
+      SET light_on_intended = COALESCE(light_on_intended, light_on)
+      WHERE zone_id = $1 AND is_light = 1
+    `, [zoneId]);
+  }
+
+  if (nowDown) {
+    // Force every light off and zero the zone's load.
+    await query(`UPDATE furniture SET light_on = 0 WHERE zone_id = $1 AND is_light = 1`, [zoneId]);
+    await query(`UPDATE power_zones SET current_load_kw = 0 WHERE id = $1`, [zoneId]);
+    await query(`UPDATE lighting_states SET fixture_count = 0 WHERE zone_id = $1`, [zoneId]).catch(() => {});
+    if (broadcast && prevStatus !== 'offline') {
+      broadcast(zoneId, { type: 'zone_event', message: '<span class="power-out">The lights cut out. Darkness.</span>' });
+    }
+  } else if (nowBrown) {
+    // Partial power — flicker: randomly cut lights whose individual draw
+    // exceeds their share of available power.
+    const { rows: lights } = await query(`
+      SELECT id, light_on,
+        COALESCE(power_draw_kw,
+          CASE light_type WHEN 'overhead' THEN 2 WHEN 'streetlight' THEN 3 ELSE 1 END
+        ) AS draw_kw
+      FROM furniture WHERE zone_id = $1 AND is_light = 1
+    `, [zoneId]);
+
+    const fraction = maxCap > 0 ? Math.min(1, available / maxCap) : 0;
+    let changed = false;
+    for (const light of lights) {
+      if (light.light_on) {
+        // Probability of flickering off scales with power deficit.
+        if (Math.random() > fraction) {
+          await query(`UPDATE furniture SET light_on = 0 WHERE id = $1`, [light.id]);
+          changed = true;
+        }
+      }
+    }
+    if (changed) {
+      await recalcZoneLoad(query, zoneId);
+      const { rows: lc } = await query(`SELECT COUNT(*)::int AS cnt FROM furniture WHERE zone_id=$1 AND is_light=1 AND light_on=1`, [zoneId]);
+      await query(`UPDATE lighting_states SET fixture_count=$1 WHERE zone_id=$2`, [lc[0]?.cnt || 0, zoneId]).catch(() => {});
+    }
+    if (broadcast) {
+      broadcast(zoneId, { type: 'zone_event', message: '<span class="power-flicker">The lights flicker and dim.</span>' });
+    }
+  } else if (nowOk && !wasOk) {
+    // Power restored — recover intended light states.
+    await query(`
+      UPDATE furniture
+      SET light_on = COALESCE(light_on_intended, light_on),
+          light_on_intended = NULL
+      WHERE zone_id = $1 AND is_light = 1
+    `, [zoneId]);
+    await recalcZoneLoad(query, zoneId);
+    const { rows: lc } = await query(`SELECT COUNT(*)::int AS cnt FROM furniture WHERE zone_id=$1 AND is_light=1 AND light_on=1`, [zoneId]);
+    await query(`UPDATE lighting_states SET fixture_count=$1 WHERE zone_id=$2`, [lc[0]?.cnt || 0, zoneId]).catch(() => {});
+    if (broadcast) {
+      broadcast(zoneId, { type: 'zone_event', message: '<span class="power-restore">Emergency power hums to life. The lights come back on.</span>' });
+    }
+  }
+}
+
 async function simulatePowerNetwork(query, { weatherType }) {
   const { rows: generators } = await query('SELECT * FROM generators');
   const { rows: zones } = await query('SELECT * FROM power_zones');
@@ -474,38 +549,52 @@ async function simulatePowerNetwork(query, { weatherType }) {
   for (const [genId, genZones] of zonesByGen) {
     const gen = updatedStatus.get(genId);
     const genCapacity = gen ? gen.capacity_kw : 0;
-    const zoneCount = genZones.length;
 
-    // Generator's capacity is distributed first-come-first-served up to each
-    // zone's max_capacity_kw, then remaining pool is tracked.
+    const genOffline = !gen && genZones.some(z => z.generator_id);
+
+    if (genOffline || (gen && gen.status === 'offline')) {
+      // Generator is gone or offline — all zones dark.
+      if (gen) await query(`UPDATE generators SET remaining_kw = $1 WHERE id = $2`, [0, genId]);
+      for (const zone of genZones) {
+        const cap = zone.max_capacity_kw ?? 50;
+        await query(`UPDATE power_zones SET status='offline', capacity_kw=$1, available_kw=0 WHERE id=$2`,
+          [cap, zone.id]);
+        await applyPowerLightEffects(query, zone.id, zone.status, 'offline', 0, cap);
+      }
+      continue;
+    }
+
+    // Rolling brownout distribution:
+    // Sort zones by current available_kw ascending so zones with the least
+    // power get served first from the pool. Zones that received full power
+    // last tick will have high available_kw and naturally fall to the back,
+    // cycling the brownout across the grid each tick.
+    const sorted = [...genZones].sort((a, b) => (a.available_kw ?? 0) - (b.available_kw ?? 0));
+
     let poolRemaining = genCapacity;
-    const allocations = genZones.map(zone => {
+    const allocations = sorted.map(zone => {
       const cap = zone.max_capacity_kw ?? 50;
-      const alloc = Math.min(cap, poolRemaining);
-      poolRemaining = Math.max(0, poolRemaining - alloc);
+      const alloc = Math.min(cap, Math.max(0, poolRemaining));
+      poolRemaining -= alloc;
       return { zone, alloc, cap };
     });
 
     if (gen) {
-      await query(`UPDATE generators SET remaining_kw = $1 WHERE id = $2`, [poolRemaining, genId]);
+      await query(`UPDATE generators SET remaining_kw = $1 WHERE id = $2`,
+        [Math.max(0, poolRemaining), genId]);
     }
 
     for (const { zone, alloc, cap } of allocations) {
-      const genOffline = !gen && zone.generator_id;
-      const available = (genOffline || (gen && gen.status === 'offline')) ? 0 : alloc;
-
       let status;
-      if (genOffline) status = 'offline';
-      else if (gen && gen.status === 'offline') status = 'offline';
-      else if (available <= 0) status = 'offline';
-      else if (available < cap * (1 / POWER_BLACKOUT_RATIO)) status = 'offline';
-      else if (available < cap * (1 / POWER_OVERLOAD_RATIO)) status = 'overloaded';
+      if (alloc <= 0) status = 'offline';
+      else if (alloc < cap / POWER_BLACKOUT_RATIO) status = 'offline';
+      else if (alloc < cap / POWER_OVERLOAD_RATIO) status = 'overloaded';
       else status = 'powered';
 
-      // capacity_kw = zone's equal share; available_kw = what generator delivers;
-      // max_capacity_kw untouched (user-configured ceiling).
-      await query(`UPDATE power_zones SET status = $1, capacity_kw = $2, available_kw = $3 WHERE id = $4`,
-        [status, cap, available, zone.id]);
+      await query(`UPDATE power_zones SET status=$1, capacity_kw=$2, available_kw=$3 WHERE id=$4`,
+        [status, cap, alloc, zone.id]);
+
+      await applyPowerLightEffects(query, zone.id, zone.status, status, alloc, cap);
     }
   }
 }
@@ -964,6 +1053,27 @@ export async function getGeneratorZones(generatorId) {
     ORDER BY z.name
   `, [generatorId]);
   return { generator: genRows[0], zones: rows };
+}
+
+// Sums active powered furniture in a zone and writes the result to
+// power_zones.current_load_kw. Call this whenever a light or electronic
+// is switched on or off so the power sim always has fresh load data.
+export async function recalcZoneLoad(queryFn, zoneId) {
+  const { rows } = await queryFn(`
+    SELECT COALESCE(SUM(
+      CASE
+        WHEN power_draw_kw IS NOT NULL THEN power_draw_kw
+        WHEN light_type = 'overhead'   THEN 2
+        WHEN light_type = 'streetlight' THEN 3
+        ELSE 1
+      END
+    ), 0) AS total_load
+    FROM furniture
+    WHERE zone_id = $1 AND is_light = 1 AND light_on = 1
+  `, [zoneId]);
+  const load = rows[0]?.total_load ?? 0;
+  await queryFn(`UPDATE power_zones SET current_load_kw = $1 WHERE id = $2`, [load, zoneId]);
+  return load;
 }
 
 export async function setZoneMaxCapacity(zoneId, maxCapacityKw) {
