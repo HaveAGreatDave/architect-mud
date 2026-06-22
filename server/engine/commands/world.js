@@ -128,6 +128,40 @@ async function cmdSwitch(targetStr, player) {
     : `You flip the switch. ${light.name} goes dark.` };
 }
 
+async function cmdTurn(args, player) {
+  const dir = args[args.length - 1]?.toLowerCase();
+  if (dir !== 'on' && dir !== 'off') {
+    return { type:'error', message:'Usage: turn <light name> on/off' };
+  }
+  const targetStr = args.slice(0, -1).join(' ');
+  if (!targetStr) return { type:'error', message:'Turn what? Usage: turn <light name> on/off' };
+  const { rows } = await query(`SELECT * FROM furniture WHERE zone_id=$1 AND is_light=1 AND name ILIKE $2 LIMIT 1`, [player.current_zone, `%${targetStr}%`]);
+  if (!rows.length) return { type:'error', message:`You don't see a light called "${targetStr}" here.` };
+  const light = rows[0];
+  if (light.light_type === 'streetlight') {
+    return { type:'error', message:`${light.name} is city-grid infrastructure — it comes on by itself. There's no switch out here.` };
+  }
+  const newState = dir === 'on' ? 1 : 0;
+  if (light.light_on === newState) {
+    return { type:'message', message:`${light.name} is already ${dir}.` };
+  }
+  const powerStatus = getZonePowerStatus(player.current_zone);
+  if (powerStatus === 'unpowered' && newState === 1) {
+    return { type:'error', message:`The switch clicks, but nothing happens. No power reaches this room.` };
+  }
+  await query(`UPDATE furniture SET light_on=$1 WHERE id=$2`, [newState, light.id]);
+  const { rows: countRows } = await query(
+    `SELECT COUNT(*)::int AS cnt FROM furniture WHERE zone_id=$1 AND is_light=1 AND light_on=1`,
+    [player.current_zone]
+  );
+  await query(`UPDATE lighting_states SET fixture_count=$1 WHERE zone_id=$2`, [countRows[0]?.cnt || 0, player.current_zone]).catch(()=>{});
+  await recalcZoneLoad(query, player.current_zone).catch(()=>{});
+  await recomputePower().catch(()=>{});
+  return { type:'action', message: newState
+    ? `You flip the switch. ${light.name} flickers on.`
+    : `You flip the switch. ${light.name} goes dark.` };
+}
+
 async function cmdTeleport(targetZoneId, player, broadcast) {
   if (player.role !== 'admin') return { type:'error', message:"You don't have the clearance for that." };
   if (!targetZoneId) return { type:'error', message:'Teleport where? Usage: teleport <zone id>' };
@@ -159,7 +193,7 @@ function cmdHelp(player) {
 <span class="help-category">PROPERTY</span>    rent  |  lock  |  unlock  |  pick  |  upgrade lock  |  sleep
 <span class="help-category">CHARACTER</span>   stats  skills  mutations  factions
 <span class="help-category">SOCIAL</span>      talk &lt;npc&gt;  |  say &lt;message&gt;  |  who  |  whisper/tell &lt;player&gt; &lt;msg&gt;
-<span class="help-category">WORLD</span>       map  |  switch &lt;light&gt;  (flip)
+<span class="help-category">WORLD</span>       map  |  switch &lt;light&gt;  |  turn &lt;light&gt; on/off
 <span class="help-category">INFO</span>        look  |  look &lt;me/item/player&gt;  |  examine &lt;thing&gt;  help`;
   if (player?.role === 'admin') {
     msg += `\n<span class="help-category">ADMIN</span>      teleport &lt;zone id&gt;  (tp)`;
@@ -192,6 +226,7 @@ export const handlers = {
   x:        (args, raw, player) => cmdExamine(args.join(' '), player),
   switch:   (args, raw, player) => cmdSwitch(args.join(' '), player),
   flip:     (args, raw, player) => cmdSwitch(args.join(' '), player),
+  turn:     (args, raw, player) => cmdTurn(args, player),
   stats:    (args, raw, player) => cmdStats(player),
   status:   (args, raw, player) => cmdStats(player),
   st:       (args, raw, player) => cmdStats(player),

@@ -205,6 +205,16 @@ export async function describeZone(zone, player) {
       });
       desc += `\n<span class="furniture-label">Furniture:</span> ${furnitureLinks.join(', ')}`;
     }
+    const { rows: zoneGens } = await query(
+      `SELECT name, status FROM generators WHERE zone_id=$1 AND generator_type='junction_box'`,
+      [zone.id]
+    );
+    if (zoneGens.length) {
+      const genLinks = zoneGens.map(g =>
+        `<span class="furniture-link">${g.name || 'Junction Box'}</span> <span class="text-dim">(${g.status})</span>`
+      );
+      desc += `\n<span class="furniture-label">Installed:</span> ${genLinks.join(', ')}`;
+    }
   }
   if (windows.length) {
     const windowLinks = windows.map(w => {

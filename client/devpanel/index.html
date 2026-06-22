@@ -908,6 +908,25 @@ async function zoneEditForm(rec, isNew) {
     const zoneFurniture = (Array.isArray(furnitureData) ? furnitureData : []).filter(f => f.zone_id === rec.id);
     const allGens = Array.isArray(generatorsData) ? generatorsData : [];
     const zoneGenerator = allGens.find(g => g.zone_id === rec.id) || null;
+    // For building entrance zones, find any JB installed in the interior network
+    const buildingJB = flags.is_building && !zoneGenerator ? (() => {
+      const visited = new Set();
+      const bfsQ = [rec.id];
+      while (bfsQ.length) {
+        const cur = bfsQ.shift();
+        const curZ = allRecords.find(z => z.id === cur);
+        if (!curZ) continue;
+        for (const nId of Object.values(curZ.exits || {})) {
+          if (visited.has(nId)) continue;
+          const n = allRecords.find(z => z.id === nId);
+          if (n && (n.flags?.is_interior || n.flags?.is_apartment)) {
+            visited.add(nId);
+            bfsQ.push(nId);
+          }
+        }
+      }
+      return allGens.find(g => g.generator_type === 'junction_box' && visited.has(g.zone_id)) || null;
+    })() : null;
     const upId = zoneEditExitsState['up'], downId = zoneEditExitsState['down'];
     const upZone = upId ? allRecords.find(z => z.id === upId) : null;
     const downZone = downId ? allRecords.find(z => z.id === downId) : null;
@@ -1003,8 +1022,37 @@ async function zoneEditForm(rec, isNew) {
               ${cityGenDropdown}`;
           }
 
-          // Building zone — show junction box install form with z-level picker
+          // Building zone — show connected JB if found, or the install form
           if (flags.is_building) {
+            // Show existing JB in the building's interior network
+            if (buildingJB) {
+              const jbIdSafe = buildingJB.id.replace(/'/g, "\\'");
+              const jbZone = allRecords.find(z => z.id === buildingJB.zone_id);
+              const cityGenDropdown = cityGens.length
+                ? `<div class="field-row" style="margin-top:8px">
+                    <div class="field"><label>City Plant</label>
+                      <select id="jb-city-gen-select">
+                        <option value="">— None —</option>
+                        ${cityGens.map(g => `<option value="${g.id}" ${g.id === buildingJB.city_generator_id ? 'selected' : ''}>${g.name || g.id} (${Number(g.capacity_kw).toFixed(0)}W)</option>`).join('')}
+                      </select>
+                    </div>
+                    <div class="field" style="display:flex;align-items:flex-end">
+                      <button class="action-btn" onclick="setJunctionBoxCityGen('${jbIdSafe}','${rec.id}')">Assign</button>
+                    </div>
+                  </div>`
+                : '';
+              return `
+                <div class="zone-subitem-row">
+                  <span>${buildingJB.name || buildingJB.id} — <span class="text-dim">Junction Box in ${jbZone?.name || buildingJB.zone_id}, ${Number(buildingJB.capacity_kw).toFixed(1)}W, ${buildingJB.status}</span></span>
+                  <span class="zone-subitem-actions">
+                    <button class="action-btn danger" onclick="removeGeneratorQuick('${jbIdSafe}','${rec.id}')">Remove</button>
+                  </span>
+                </div>
+                <div class="zone-subsection-note">Routes power from the connected city plant to every interior zone in this building.</div>
+                ${cityGenDropdown}`;
+            }
+
+            // No JB found — show install form with z-level picker
             const jbZoneIds = new Set(allGens.filter(g => g.generator_type === 'junction_box').map(g => g.zone_id));
             const buildingZ = rec.grid_z ?? 0;
             const interiorNetwork = [];
@@ -1029,6 +1077,9 @@ async function zoneEditForm(rec, isNew) {
               const zl = iz.grid_z ?? 0;
               if (!byZ.has(zl)) byZ.set(zl, iz);
             }
+            // Always include z+1 and z-1 as new-floor options if not already present
+            if (!byZ.has(buildingZ + 1)) byZ.set(buildingZ + 1, null);
+            if (!byZ.has(buildingZ - 1)) byZ.set(buildingZ - 1, null);
             const sortedZ = [...byZ.entries()].sort(([a], [b]) => b - a);
             const cpSelect = cityGens.length
               ? `<div class="field"><label>City Plant</label><select id="gen-install-city-gen"><option value="">Auto (nearest)</option>${cityGens.map(g => `<option value="${g.id}">${g.name || g.id}</option>`).join('')}</select></div>`
@@ -1038,20 +1089,21 @@ async function zoneEditForm(rec, isNew) {
               <div class="zone-subsection-note" style="margin-bottom:8px">Choose a floor to install in. Existing rooms are reused; new floors create a new room.</div>
               <div class="field-row" style="margin-top:6px">
                 <div class="field"><label>Floor</label>
-                  <select id="gen-install-location" onchange="document.getElementById('gen-new-floor-row').style.display=this.value==='new'?'flex':'none'">
+                  <select id="gen-install-location" onchange="document.getElementById('gen-new-floor-row').style.display=(this.value==='new'||this.value.startsWith('new:'))?'flex':'none'">
                     ${sortedZ.map(([zl, iz]) => {
+                      if (!iz) return `<option value="new:${zl}">Z:${zl} — New floor</option>`;
                       const hasJB = jbZoneIds.has(iz.id);
                       return hasJB
                         ? `<option value="" disabled>Z:${zl} — ${iz.name} (junction box exists)</option>`
                         : `<option value="existing:${iz.id}:${zl}">Z:${zl} — ${iz.name}</option>`;
                     }).join('')}
-                    <option value="new">New floor (enter z-level below)</option>
+                    <option value="new">New floor (custom z-level)</option>
                   </select>
                 </div>
                 <div class="field"><label>Throughput (W)</label><input type="number" id="gen-install-capacity" placeholder="auto (100)"></div>
               </div>
               <div class="field-row" id="gen-new-floor-row" style="display:none">
-                <div class="field"><label>Z-level <span style="color:var(--text-dim);font-weight:400">(${buildingZ + 1} = roof, ${buildingZ - 1} = basement)</span></label><input type="number" id="gen-install-zlevel-num" value="${buildingZ + 1}"></div>
+                <div class="field"><label>Z-level</label><input type="number" id="gen-install-zlevel-num" value="${buildingZ + 1}"></div>
                 <div class="field"><label>Room Name</label><input id="gen-install-zonename" placeholder="${rec.name || ''} Roof"></div>
               </div>
               <div class="field"><label>Junction Box Name (optional)</label><input id="gen-install-name" placeholder="${rec.name || ''} Junction Box"></div>
@@ -1335,8 +1387,9 @@ async function _installBuildingGenerator(zoneId, rec) {
   if (selection.startsWith('existing:')) {
     // Format: "existing:<zoneId>:<z-level>"
     targetZoneId = selection.split(':')[1];
-  } else if (selection === 'new') {
-    const newZ = parseInt(document.getElementById('gen-install-zlevel-num')?.value);
+  } else if (selection === 'new' || selection.startsWith('new:')) {
+    const prefilledZ = selection.startsWith('new:') ? parseInt(selection.split(':')[1]) : NaN;
+    const newZ = isNaN(prefilledZ) ? parseInt(document.getElementById('gen-install-zlevel-num')?.value) : prefilledZ;
     if (isNaN(newZ)) { toast('Enter a valid z-level number.', true); return; }
     const currentZ = rec.grid_z ?? 0;
     const exitDir  = newZ > currentZ ? 'up' : newZ < currentZ ? 'down' : 'in';
@@ -3184,6 +3237,8 @@ async function createZoneAt(x, y) {
 // list with quick-remove. ---
 let powerPanelGenerators = [];
 let powerPanelMode = 'power';
+let powerPanelView = 'city';   // 'city' | 'interior'
+let powerPanelBuilding = null; // selected building zone id for interior view
 
 async function renderPowerPanel(zones) {
   const [powerMap, generators] = await Promise.all([
@@ -3194,6 +3249,7 @@ async function renderPowerPanel(zones) {
   bigMapPowerData = Array.isArray(powerMap) ? powerMap : [];
   powerPanelGenerators = Array.isArray(generators) ? generators : [];
   powerPanelMode = 'power';
+  powerPanelView = 'city';
   renderPowerPanelBody();
 }
 
@@ -3202,17 +3258,117 @@ function setPowerPanelMode(mode) {
   renderPowerPanelBody();
 }
 
+function setPowerPanelView(view) {
+  powerPanelView = view;
+  renderPowerPanelBody();
+}
+
+function setPowerPanelBuilding(zoneId) {
+  powerPanelBuilding = zoneId || null;
+  renderPowerPanelBody();
+}
+
+function _buildInteriorMapHtml() {
+  const buildings = bigMapZones.filter(z => z.flags?.is_building);
+  if (!buildings.length) return `<div style="color:var(--text-dim);padding:8px">No buildings found. Mark zones with the is_building flag.</div>`;
+
+  const selId = powerPanelBuilding || buildings[0]?.id;
+  const buildingDropdown = `<select style="margin-bottom:12px" onchange="setPowerPanelBuilding(this.value)">
+    ${buildings.map(b => `<option value="${b.id}" ${b.id === selId ? 'selected' : ''}>${b.name || b.id}</option>`).join('')}
+  </select>`;
+
+  const building = buildings.find(b => b.id === selId);
+  if (!building) return buildingDropdown;
+
+  // BFS interior network from the building entrance
+  const powerById = new Map(bigMapPowerData.map(p => [p.zoneId, p]));
+  const visited = new Set();
+  const bfsQ = [building.id];
+  const interiorZones = [];
+  while (bfsQ.length) {
+    const cur = bfsQ.shift();
+    const curZ = bigMapZones.find(z => z.id === cur);
+    if (!curZ) continue;
+    for (const nId of Object.values(curZ.exits || {})) {
+      if (visited.has(nId)) continue;
+      const n = bigMapZones.find(z => z.id === nId);
+      if (n && (n.flags?.is_interior || n.flags?.is_apartment)) {
+        visited.add(nId);
+        interiorZones.push(n);
+        bfsQ.push(nId);
+      }
+    }
+  }
+
+  if (!interiorZones.length) return buildingDropdown + `<div style="color:var(--text-dim);font-size:11px">No interior rooms connected to this building yet.</div>`;
+
+  // Group by z-level, sorted roof-first
+  const byZ = new Map();
+  for (const z of interiorZones) {
+    const zl = z.grid_z ?? 0;
+    if (!byZ.has(zl)) byZ.set(zl, []);
+    byZ.get(zl).push(z);
+  }
+  const sortedZ = [...byZ.entries()].sort(([a], [b]) => b - a);
+
+  const STATUS_COLOR = {
+    powered:    'rgba(20,200,100,0.22)',
+    overloaded: 'rgba(255,165,0,0.28)',
+    offline:    'rgba(220,40,60,0.32)',
+    unpowered:  'rgba(40,40,60,0.55)',
+  };
+  const STATUS_BORDER = {
+    powered:    'rgba(20,220,110,0.75)',
+    overloaded: 'rgba(255,165,0,0.85)',
+    offline:    'rgba(230,50,70,0.85)',
+    unpowered:  'rgba(80,80,100,0.5)',
+  };
+
+  let floorsHtml = '';
+  for (const [zl, rooms] of sortedZ) {
+    floorsHtml += `<div style="margin-bottom:12px">
+      <div style="font-size:10px;color:var(--text-dim);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Floor Z:${zl}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px">`;
+    for (const room of rooms) {
+      const pw = powerById.get(room.id);
+      const status = pw?.status || 'unpowered';
+      const bg = STATUS_COLOR[status] || STATUS_COLOR.unpowered;
+      const border = STATUS_BORDER[status] || STATUS_BORDER.unpowered;
+      const load = pw ? `${Number(pw.loadKw ?? 0).toFixed(1)}/${Number(pw.maxCapacityKw ?? 0).toFixed(0)}W` : 'no power record';
+      floorsHtml += `<div title="${status} — ${load}" style="background:${bg};border:1px solid ${border};border-radius:3px;padding:4px 8px;font-size:11px;cursor:default" onclick="editRecord('${room.id.replace(/'/g,"\\'")}')">
+        ${room.name || room.id}
+        <span style="color:var(--text-dim);font-size:10px;margin-left:4px">${status}</span>
+      </div>`;
+    }
+    floorsHtml += `</div></div>`;
+  }
+
+  return buildingDropdown + floorsHtml + `<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:10px;color:var(--text-dim);margin-top:4px">
+    ${[['powered','rgba(20,200,100,0.22)','rgba(20,220,110,0.75)'],['overloaded','rgba(255,165,0,0.28)','rgba(255,165,0,0.85)'],['offline','rgba(220,40,60,0.32)','rgba(230,50,70,0.85)'],['unpowered','rgba(40,40,60,0.55)','rgba(80,80,100,0.5)']].map(([label,bg,border]) =>
+      `<span><span style="display:inline-block;width:10px;height:10px;background:${bg};border:1px solid ${border};border-radius:2px;margin-right:4px;vertical-align:middle"></span>${label}</span>`
+    ).join('')}
+  </div>`;
+}
+
 function renderPowerPanelBody() {
   const panel = document.getElementById('list-panel');
   const powerById = new Map(bigMapPowerData.map(p => [p.zoneId, p]));
 
-  let html = `<div style="padding:12px">
-    <div style="display:flex;gap:8px;margin-bottom:12px">
-      <button class="action-btn primary">⚡ Power View</button>
-    </div>
+  const tabBar = `<div style="display:flex;gap:8px;margin-bottom:12px">
+    <button class="action-btn${powerPanelView === 'city' ? ' primary' : ''}" onclick="setPowerPanelView('city')">⚡ City Grid</button>
+    <button class="action-btn${powerPanelView === 'interior' ? ' primary' : ''}" onclick="setPowerPanelView('interior')">🏢 Building Interior</button>
+  </div>`;
+
+  let html;
+  if (powerPanelView === 'interior') {
+    html = `<div style="padding:12px">${tabBar}${_buildInteriorMapHtml()}</div>`;
+  } else {
+    html = `<div style="padding:12px">
+    ${tabBar}
     ${buildDynamicMapGrid(bigMapZones, powerPanelMode, powerById, true)}
     <div style="margin-top:10px;display:flex;gap:14px;flex-wrap:wrap;font-size:10px;color:var(--text-dim)">${mapLegendHtml(powerPanelMode)}</div>
   </div>`;
+  }
 
   html += `<div style="padding:12px">
     <h3 style="color:var(--accent);font-size:12px;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">Power Tools</h3>
