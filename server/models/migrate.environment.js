@@ -97,19 +97,19 @@ export async function migrateEnvironment(query) {
   // The old migration multiplied explicitly-set values by 1000 (e.g. 200W → 200000W).
   // Correct any inflated light power_draw_kw: anything >= 1000W on a light is a sign it
   // was multiplied. Safe to re-run — values < 1000 are already in the correct W range.
-  await query(`UPDATE furniture SET power_draw_kw = ROUND(power_draw_kw / 1000.0) WHERE power_draw_kw IS NOT NULL AND power_draw_kw >= 1000 AND is_light = 1`);
+  await query(`UPDATE furniture SET power_draw_kw = ROUND(power_draw_kw / 1000.0) WHERE power_draw_kw IS NOT NULL AND power_draw_kw >= 1000 AND object_type = 'light'`);
   // Same for non-light electric items — threshold is higher since motors etc. can be large,
   // but > 100 000 W per item is implausible in this game context.
-  await query(`UPDATE furniture SET power_draw_kw = ROUND(power_draw_kw / 1000.0) WHERE power_draw_kw IS NOT NULL AND power_draw_kw > 100000 AND is_light = 0`);
+  await query(`UPDATE furniture SET power_draw_kw = ROUND(power_draw_kw / 1000.0) WHERE power_draw_kw IS NOT NULL AND power_draw_kw > 100000 AND object_type != 'light'`);
   // Ensure any furniture named like a streetlight is properly typed.
   // Catches objects created before light_type was required or with missing tags.
-  await query(`UPDATE furniture SET light_type = 'streetlight', is_light = 1 WHERE name ILIKE '%street light%' AND (light_type IS NULL OR light_type != 'streetlight')`);
+  await query(`UPDATE furniture SET light_type = 'streetlight', object_type = 'light' WHERE name ILIKE '%street light%' AND (light_type IS NULL OR light_type != 'streetlight')`);
   // Enforce canonical power draw values for all light types.
   // Streetlights are always forced to 200 W (infrastructure, not player-editable).
   // Other lights get their type default only if not already set.
   await query(`UPDATE furniture SET power_draw_kw = 200 WHERE light_type = 'streetlight'`);
-  await query(`UPDATE furniture SET power_draw_kw = 20  WHERE is_light = 1 AND light_type = 'overhead' AND power_draw_kw IS NULL`);
-  await query(`UPDATE furniture SET power_draw_kw = 5   WHERE is_light = 1 AND power_draw_kw IS NULL`);
+  await query(`UPDATE furniture SET power_draw_kw = 20  WHERE object_type = 'light' AND light_type = 'overhead' AND power_draw_kw IS NULL`);
+  await query(`UPDATE furniture SET power_draw_kw = 5   WHERE object_type = 'light' AND power_draw_kw IS NULL`);
 
   await query(`
     CREATE TABLE IF NOT EXISTS power_zones (

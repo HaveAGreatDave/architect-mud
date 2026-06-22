@@ -2265,7 +2265,7 @@ function openFurnitureAddModal(zoneId) {
       name: template.name,
       description: template.description || '',
       flags: template.flags || {},
-      is_light: template.is_light || 0,
+      object_type: template.object_type || 'furniture',
       light_type: template.light_type || null,
       light_on: 0,
       power_draw_kw: template.power_draw_kw ?? null,
@@ -2274,7 +2274,7 @@ function openFurnitureAddModal(zoneId) {
     toast('Furniture added to room');
     closeModal();
     const newId = r.id || r.entityId || `furniture_${Date.now()}`;
-    _furnitureAllItems.push({ id: newId, zone_id: zoneId, name: template.name, description: template.description || '', flags: template.flags || {}, is_light: template.is_light || 0, light_on: 0, light_type: template.light_type || null, power_draw_kw: template.power_draw_kw ?? null, _staged: true });
+    _furnitureAllItems.push({ id: newId, zone_id: zoneId, name: template.name, description: template.description || '', flags: template.flags || {}, object_type: template.object_type || 'furniture', light_on: 0, light_type: template.light_type || null, power_draw_kw: template.power_draw_kw ?? null, _staged: true });
     _furnitureExpandedZones.add(zoneId);
     renderFurniturePanel({ furniture: _furnitureAllItems, zones: [..._furnitureZoneNames.entries()].map(([zid, zname]) => ({ id: zid, name: zname })) });
     updateStagingBadge();
@@ -2354,13 +2354,18 @@ function furnitureEditForm(rec, isNew) {
         ${zoneOptions}
       </select>
     </div>` : `<input type="hidden" id="f-zone_id" value="${rec.zone_id||''}">`}
-    <div class="field"><label>Is Light</label>
-      <select id="f-is_light" onchange="const show=this.value==='1';['f-light-fields','f-lighton-field','f-powerdraw-field'].forEach(function(id){document.getElementById(id).style.display=show?'':'none';})">
-        <option value="0" ${!rec.is_light?'selected':''}>No</option>
-        <option value="1" ${rec.is_light?'selected':''}>Yes</option>
+    <div class="field"><label>Object Type</label>
+      <select id="f-object_type" onchange="const show=this.value==='light';['f-light-fields','f-lighton-field','f-powerdraw-field'].forEach(function(id){document.getElementById(id).style.display=show?'':'none';})">
+        <option value="furniture" ${(!rec.object_type||rec.object_type==='furniture')?'selected':''}>Furniture</option>
+        <option value="light" ${rec.object_type==='light'?'selected':''}>Light</option>
+        <option value="fixture" ${rec.object_type==='fixture'?'selected':''}>Fixture</option>
+        <option value="appliance" ${rec.object_type==='appliance'?'selected':''}>Appliance</option>
+        <option value="decoration" ${rec.object_type==='decoration'?'selected':''}>Decoration</option>
+        <option value="terminal" ${rec.object_type==='terminal'?'selected':''}>Terminal</option>
+        <option value="container" ${rec.object_type==='container'?'selected':''}>Container</option>
       </select>
     </div>
-    <div class="field" id="f-light-fields" style="${rec.is_light?'':'display:none'}">
+    <div class="field" id="f-light-fields" style="${rec.object_type==='light'?'':'display:none'}">
       <label>Light Type</label>
       <select id="f-light_type">
         <option value="lamp" ${rec.light_type==='lamp'?'selected':''}>Lamp</option>
@@ -2368,14 +2373,14 @@ function furnitureEditForm(rec, isNew) {
         <option value="streetlight" ${rec.light_type==='streetlight'?'selected':''}>Streetlight</option>
       </select>
     </div>
-    <div class="field" id="f-lighton-field" style="${rec.is_light?'':'display:none'}">
+    <div class="field" id="f-lighton-field" style="${rec.object_type==='light'?'':'display:none'}">
       <label>Light On</label>
       <select id="f-light_on">
         <option value="0" ${!rec.light_on?'selected':''}>Off</option>
         <option value="1" ${rec.light_on?'selected':''}>On</option>
       </select>
     </div>
-    <div class="field" id="f-powerdraw-field" style="${rec.is_light?'':'display:none'}">
+    <div class="field" id="f-powerdraw-field" style="${rec.object_type==='light'?'':'display:none'}">
       <label>Power Draw (W)</label>
       ${(() => {
         const LIGHT_DEFAULTS = { streetlight: 200, overhead: 20, lamp: 5 };
@@ -2390,13 +2395,14 @@ function furnitureEditForm(rec, isNew) {
 }
 async function saveFurniture(existing) {
   const isNew = !existing?.id;
-  const isLight = document.getElementById('f-is_light')?.value === '1';
+  const objectType = document.getElementById('f-object_type')?.value || 'furniture';
+  const isLight = objectType === 'light';
   const body = {
     name: document.getElementById('f-name').value,
     description: document.getElementById('f-description').value,
     zone_id: document.getElementById('f-zone_id').value || null,
     flags: existing?.flags || {},
-    is_light: isLight ? 1 : 0,
+    object_type: objectType,
     light_type: isLight ? (document.getElementById('f-light_type')?.value || 'lamp') : null,
     light_on: isLight ? Number(document.getElementById('f-light_on')?.value || 0) : 0,
   };

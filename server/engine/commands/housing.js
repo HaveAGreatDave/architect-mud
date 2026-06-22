@@ -37,7 +37,7 @@ async function cmdLightView(player) {
 
   const vis = getZoneVisibility(zone.id);
   const powerStatus = getZonePowerStatus(zone.id);
-  const { rows: lights } = await query('SELECT * FROM furniture WHERE zone_id=$1 AND is_light=1 ORDER BY light_type,name', [zone.id]);
+  const { rows: lights } = await query('SELECT * FROM furniture WHERE zone_id=$1 AND object_type='light' ORDER BY light_type,name', [zone.id]);
   const windows = getWindowsForZone(zone.id);
 
   const maxArtificial = powerStatus === 'powered' ? vis.artificialLight

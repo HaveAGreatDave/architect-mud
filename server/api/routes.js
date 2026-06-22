@@ -593,8 +593,9 @@ export async function apiCreateFurniture(body) {
   const id = body.id || `furniture_${Date.now()}`;
   try {
     const pdraw = body.power_draw_kw != null ? Number(body.power_draw_kw) : null;
-    await query(`INSERT INTO furniture (id,zone_id,name,description,is_light,light_on,light_type,power_draw_kw,flags) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-      [id, body.zone_id, body.name, body.description||'', body.is_light?1:0, body.light_on?1:0, body.light_type||null, pdraw, JSON.stringify(body.flags||{})]);
+    const isLight = body.object_type === 'light';
+    await query(`INSERT INTO furniture (id,zone_id,name,description,object_type,light_on,light_type,power_draw_kw,flags) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+      [id, body.zone_id, body.name, body.description||'', body.object_type||'furniture', isLight?(body.light_on?1:0):0, isLight?(body.light_type||'lamp'):null, pdraw, JSON.stringify(body.flags||{})]);
     return {status:201,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
@@ -602,10 +603,9 @@ export async function apiUpdateFurniture(id, body) {
   try {
     const sets = [], vals = [];
     let i = 1;
-    const fields = ['zone_id','name','description','light_type'];
+    const fields = ['zone_id','name','description','object_type','light_type'];
     for (const f of fields) if (body[f]!=null) { sets.push(`${f}=$${i++}`); vals.push(body[f]); }
     if (body.flags!=null) { sets.push(`flags=$${i++}`); vals.push(JSON.stringify(body.flags)); }
-    if (body.is_light!=null) { sets.push(`is_light=$${i++}`); vals.push(body.is_light?1:0); }
     if (body.light_on!=null) { sets.push(`light_on=$${i++}`); vals.push(body.light_on?1:0); }
     if (body.power_draw_kw!=null) { sets.push(`power_draw_kw=$${i++}`); vals.push(body.power_draw_kw === '' ? null : Number(body.power_draw_kw)); }
     if (!sets.length) return {status:400,body:{error:'nothing to update'}};

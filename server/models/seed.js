@@ -248,14 +248,14 @@ async function seed() {
   // since this is exactly the kind of content an admin re-seeds while
   // testing the dev panel's add/edit/delete flow.
   const furniture = [
-    ['furniture_embassy_bar_counter','zone_residential_lobby','The Embassy Lounge Bar','A scarred wooden counter beneath the brass THE EMBASSY LOUNGE sign. Lowry keeps it spotless out of sheer habit.'],
-    ['furniture_embassy_stools','zone_residential_lobby','Cracked Vinyl Stools','A half-dozen stools lined up at the counter, vinyl split and patched with duct tape. Free to sit, if you don\'t mind the wobble.'],
-    ['furniture_embassy_corkboard','zone_residential_lobby','Unit Listings Corkboard','Bolted over what used to be the concierge desk. Handwritten unit listings cover every inch, half of them crossed out and re-listed at a worse price.'],
+    ['furniture_embassy_bar_counter','zone_residential_lobby','The Embassy Lounge Bar','A scarred wooden counter beneath the brass THE EMBASSY LOUNGE sign. Lowry keeps it spotless out of sheer habit.','fixture'],
+    ['furniture_embassy_stools','zone_residential_lobby','Cracked Vinyl Stools','A half-dozen stools lined up at the counter, vinyl split and patched with duct tape. Free to sit, if you don\'t mind the wobble.','furniture'],
+    ['furniture_embassy_corkboard','zone_residential_lobby','Unit Listings Corkboard','Bolted over what used to be the concierge desk. Handwritten unit listings cover every inch, half of them crossed out and re-listed at a worse price.','fixture'],
   ];
-  for (const [id,zoneId,name,desc] of furniture) {
-    await query(`INSERT INTO furniture (id,zone_id,name,description,flags) VALUES ($1,$2,$3,$4,'{}')
-      ON CONFLICT (id) DO UPDATE SET zone_id = EXCLUDED.zone_id, name = EXCLUDED.name, description = EXCLUDED.description`,
-      [id,zoneId,name,desc]);
+  for (const [id,zoneId,name,desc,objectType] of furniture) {
+    await query(`INSERT INTO furniture (id,zone_id,name,description,flags,object_type) VALUES ($1,$2,$3,$4,'{}', $5)
+      ON CONFLICT (id) DO UPDATE SET zone_id = EXCLUDED.zone_id, name = EXCLUDED.name, description = EXCLUDED.description, object_type = EXCLUDED.object_type`,
+      [id,zoneId,name,desc,objectType]);
   }
   console.log(`✓ Seeded ${furniture.length} furniture`);
 
@@ -274,8 +274,8 @@ async function seed() {
     ['furniture_apt4_overhead','zone_apt_4','Overhead Light','A bare bulb on a pull-chain. Functional, nothing more.','overhead'],
   ];
   for (const [id,zoneId,name,desc,lightType] of lights) {
-    await query(`INSERT INTO furniture (id,zone_id,name,description,flags,is_light,light_on,light_type) VALUES ($1,$2,$3,$4,'{}',1,1,$5)
-      ON CONFLICT (id) DO UPDATE SET zone_id = EXCLUDED.zone_id, name = EXCLUDED.name, description = EXCLUDED.description, is_light = 1, light_type = EXCLUDED.light_type`,
+    await query(`INSERT INTO furniture (id,zone_id,name,description,flags,object_type,light_on,light_type) VALUES ($1,$2,$3,$4,'{}','light',1,$5)
+      ON CONFLICT (id) DO UPDATE SET zone_id = EXCLUDED.zone_id, name = EXCLUDED.name, description = EXCLUDED.description, object_type = 'light', light_type = EXCLUDED.light_type`,
       [id,zoneId,name,desc,lightType]);
   }
   console.log(`✓ Seeded ${lights.length} lights`);
@@ -290,8 +290,8 @@ async function seed() {
   for (const zoneId of outdoorZoneIds) {
     const id = `furniture_streetlight_${zoneId}`;
     await query(
-      `INSERT INTO furniture (id,zone_id,name,description,flags,is_light,light_on,light_type) VALUES ($1,$2,$3,$4,'{}',1,1,'streetlight')
-       ON CONFLICT (id) DO UPDATE SET zone_id = EXCLUDED.zone_id, is_light = 1, light_type = 'streetlight'`,
+      `INSERT INTO furniture (id,zone_id,name,description,flags,object_type,light_on,light_type) VALUES ($1,$2,$3,$4,'{}','light',1,'streetlight')
+       ON CONFLICT (id) DO UPDATE SET zone_id = EXCLUDED.zone_id, object_type = 'light', light_type = 'streetlight'`,
       [id, zoneId, 'Street Lights', 'A row of city-grid streetlights on cracked poles, wired back to the power station. No switch out here — they come on by themselves once it gets dark.']
     );
   }

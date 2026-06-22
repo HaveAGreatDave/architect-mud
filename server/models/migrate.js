@@ -168,18 +168,27 @@ export async function migrate() {
       description TEXT NOT NULL,
       flags JSONB DEFAULT '{}'
     );
-    ALTER TABLE furniture ADD COLUMN IF NOT EXISTS is_light INTEGER DEFAULT 0;
+    -- object_type classifies the furniture piece. 'light' replaces the old is_light flag.
+    -- Valid values: 'furniture', 'light', 'fixture', 'appliance', 'decoration', 'terminal', 'container'
+    ALTER TABLE furniture ADD COLUMN IF NOT EXISTS object_type TEXT DEFAULT 'furniture';
     ALTER TABLE furniture ADD COLUMN IF NOT EXISTS light_on INTEGER DEFAULT 0;
     -- 'overhead' (room's main light, switch-operated), 'lamp' (individually
     -- switched, same as overhead mechanically — distinct mainly for flavor),
     -- or 'streetlight' (outdoor, NOT player-switchable — toggled
     -- automatically at dusk/dawn by the environment system instead).
     ALTER TABLE furniture ADD COLUMN IF NOT EXISTS light_type TEXT DEFAULT 'lamp';
-    -- Power draw when active. NULL = use type default (lamp=1kW, overhead=2kW, streetlight=3kW).
+    -- Power draw when active. NULL = use type default (lamp=5W, overhead=20W, streetlight=200W).
     ALTER TABLE furniture ADD COLUMN IF NOT EXISTS power_draw_kw REAL DEFAULT NULL;
     -- Player-intended light state, preserved across power outages so lights
     -- restore correctly when power returns. NULL = not currently overridden.
     ALTER TABLE furniture ADD COLUMN IF NOT EXISTS light_on_intended INTEGER DEFAULT NULL;
+    -- Migrate legacy is_light flag to object_type if the column still exists.
+    DO $$ BEGIN
+      IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='furniture' AND column_name='is_light') THEN
+        UPDATE furniture SET object_type='light' WHERE is_light=1 AND object_type='furniture';
+        ALTER TABLE furniture DROP COLUMN is_light;
+      END IF;
+    END $$;
 
     -- Triggered sound definitions (gunshot, explosion, bark, etc.).
     -- Associated with objects/events via tags; loudness determines tile range.

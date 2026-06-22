@@ -107,7 +107,7 @@ async function cmdExamine(targetStr, player) {
 
 async function cmdSwitch(targetStr, player) {
   if (!targetStr) return { type:'error', message:'Switch what? Usage: switch <light name>' };
-  const { rows } = await query(`SELECT * FROM furniture WHERE zone_id=$1 AND is_light=1 AND name ILIKE $2 LIMIT 1`, [player.current_zone, `%${targetStr}%`]);
+  const { rows } = await query(`SELECT * FROM furniture WHERE zone_id=$1 AND object_type='light' AND name ILIKE $2 LIMIT 1`, [player.current_zone, `%${targetStr}%`]);
   if (!rows.length) return { type:'error', message:`You don't see a light called "${targetStr}" here.` };
   const light = rows[0];
   if (light.light_type === 'streetlight') {
@@ -120,7 +120,7 @@ async function cmdSwitch(targetStr, player) {
   const newState = light.light_on ? 0 : 1;
   await query(`UPDATE furniture SET light_on=$1 WHERE id=$2`, [newState, light.id]);
   const { rows: countRows } = await query(
-    `SELECT COUNT(*)::int AS cnt FROM furniture WHERE zone_id=$1 AND is_light=1 AND light_on=1`,
+    `SELECT COUNT(*)::int AS cnt FROM furniture WHERE zone_id=$1 AND object_type='light' AND light_on=1`,
     [player.current_zone]
   );
   await query(`UPDATE lighting_states SET fixture_count=$1 WHERE zone_id=$2`, [countRows[0]?.cnt || 0, player.current_zone]).catch(()=>{});
@@ -138,7 +138,7 @@ async function cmdTurn(args, player) {
   }
   const targetStr = args.slice(0, -1).join(' ');
   if (!targetStr) return { type:'error', message:'Turn what? Usage: turn <light name> on/off' };
-  const { rows } = await query(`SELECT * FROM furniture WHERE zone_id=$1 AND is_light=1 AND name ILIKE $2 LIMIT 1`, [player.current_zone, `%${targetStr}%`]);
+  const { rows } = await query(`SELECT * FROM furniture WHERE zone_id=$1 AND object_type='light' AND name ILIKE $2 LIMIT 1`, [player.current_zone, `%${targetStr}%`]);
   if (!rows.length) return { type:'error', message:`You don't see a light called "${targetStr}" here.` };
   const light = rows[0];
   if (light.light_type === 'streetlight') {
@@ -154,7 +154,7 @@ async function cmdTurn(args, player) {
   }
   await query(`UPDATE furniture SET light_on=$1 WHERE id=$2`, [newState, light.id]);
   const { rows: countRows } = await query(
-    `SELECT COUNT(*)::int AS cnt FROM furniture WHERE zone_id=$1 AND is_light=1 AND light_on=1`,
+    `SELECT COUNT(*)::int AS cnt FROM furniture WHERE zone_id=$1 AND object_type='light' AND light_on=1`,
     [player.current_zone]
   );
   await query(`UPDATE lighting_states SET fixture_count=$1 WHERE zone_id=$2`, [countRows[0]?.cnt || 0, player.current_zone]).catch(()=>{});

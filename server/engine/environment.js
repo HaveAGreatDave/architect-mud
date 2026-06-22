@@ -272,7 +272,7 @@ export async function initEnvironment({ query, emitHook, broadcast }) {
 
   // Sync streetlights to the current phase on boot (no client messages — nobody is connected yet).
   const bootLightsOn = (state.phase === 'night' || state.phase === 'dusk') ? 1 : 0;
-  await query(`UPDATE furniture SET light_on=$1 WHERE light_type='streetlight'`, [bootLightsOn]).catch(()=>{});
+  await query(`UPDATE furniture SET light_on=$1 WHERE object_type='light' AND light_type='streetlight'`, [bootLightsOn]).catch(()=>{});
   await recomputePower().catch(() => {});
 }
 
@@ -433,7 +433,7 @@ async function flickerOverloadedZones() {
   for (const [zoneId, z] of state.zones) {
     if (z.powerStatus !== 'overloaded') continue;
     const { rows } = await query(
-      `SELECT name FROM furniture WHERE zone_id=$1 AND is_light=1 AND light_on=1 LIMIT 3`,
+      `SELECT name FROM furniture WHERE zone_id=$1 AND object_type='light' AND light_on=1 LIMIT 3`,
       [zoneId]
     ).catch(() => ({ rows: [] }));
     const nameStr = _fmtLightNames(rows.map(r => r.name));
@@ -597,14 +597,14 @@ async function applyPowerLightEffects(query, zoneId, prevStatus, newStatus, avai
   if (nowDown) {
     // Capture which lights are on before cutting them.
     const { rows: activeLights } = await query(
-      `SELECT name FROM furniture WHERE zone_id=$1 AND is_light=1 AND light_on=1`,
+      `SELECT name FROM furniture WHERE zone_id=$1 AND object_type='light' AND light_on=1`,
       [zoneId]
     ).catch(() => ({ rows: [] }));
     // Preserve intended state for non-streetlights only.
     // Streetlights are managed by the day/night cycle — they don't need
     // light_on_intended because syncStreetlights sets them correctly on restore.
-    await query(`UPDATE furniture SET light_on_intended = COALESCE(light_on_intended, light_on) WHERE zone_id=$1 AND is_light=1 AND light_type != 'streetlight'`, [zoneId]);
-    await query(`UPDATE furniture SET light_on=0 WHERE zone_id=$1 AND is_light=1`, [zoneId]);
+    await query(`UPDATE furniture SET light_on_intended = COALESCE(light_on_intended, light_on) WHERE zone_id=$1 AND object_type='light' AND light_type != 'streetlight'`, [zoneId]);
+    await query(`UPDATE furniture SET light_on=0 WHERE zone_id=$1 AND object_type='light'`, [zoneId]);
     // Do NOT zero current_load_kw — demand stays constant; only available_kw=0 signals no supply.
     await query(`UPDATE lighting_states SET fixture_count=0 WHERE zone_id=$1`, [zoneId]).catch(() => {});
     if (broadcast && prevStatus !== 'offline') {
@@ -619,7 +619,7 @@ async function applyPowerLightEffects(query, zoneId, prevStatus, newStatus, avai
     }
   } else if (nowBrown) {
     // Preserve intended state before any changes.
-    await query(`UPDATE furniture SET light_on_intended = COALESCE(light_on_intended, light_on) WHERE zone_id=$1 AND is_light=1`, [zoneId]);
+    await query(`UPDATE furniture SET light_on_intended = COALESCE(light_on_intended, light_on) WHERE zone_id=$1 AND object_type='light'`, [zoneId]);
 
     // Per-device allocation: fetch all powered devices with their draw.
     const { rows: lights } = await query(`
@@ -632,7 +632,7 @@ async function applyPowerLightEffects(query, zoneId, prevStatus, newStatus, avai
             ELSE ${DRAW_DEFAULT_W}
           END
         ) AS draw_kw
-      FROM furniture WHERE zone_id=$1 AND is_light=1
+      FROM furniture WHERE zone_id=$1 AND object_type='light'
     `, [zoneId]);
 
     // Streetlights are infrastructure — always on when dark, never compete for brownout pool.
@@ -666,7 +666,7 @@ async function applyPowerLightEffects(query, zoneId, prevStatus, newStatus, avai
     }
 
     await recalcZoneLoad(query, zoneId);
-    const { rows: lc } = await query(`SELECT COUNT(*)::int AS cnt FROM furniture WHERE zone_id=$1 AND is_light=1 AND light_on=1`, [zoneId]);
+    const { rows: lc } = await query(`SELECT COUNT(*)::int AS cnt FROM furniture WHERE zone_id=$1 AND object_type='light' AND light_on=1`, [zoneId]);
     await query(`UPDATE lighting_states SET fixture_count=$1 WHERE zone_id=$2`, [lc[0]?.cnt || 0, zoneId]).catch(() => {});
 
     if (broadcast) {
@@ -686,14 +686,14 @@ async function applyPowerLightEffects(query, zoneId, prevStatus, newStatus, avai
       UPDATE furniture
       SET light_on = COALESCE(light_on_intended, light_on),
           light_on_intended = NULL
-      WHERE zone_id = $1 AND is_light = 1 AND light_type != 'streetlight'
+      WHERE zone_id = $1 AND object_type = 'light' AND light_type != 'streetlight'
     `, [zoneId]);
     // Streetlights follow the day/night cycle exclusively — set them to the
     // correct state for the current phase regardless of what light_on_intended was.
     const isDark = state.phase === 'night' || state.phase === 'dusk';
     await query(`UPDATE furniture SET light_on=$1, light_on_intended=NULL WHERE zone_id=$2 AND light_type='streetlight'`, [isDark ? 1 : 0, zoneId]);
     await recalcZoneLoad(query, zoneId);
-    const { rows: lc } = await query(`SELECT COUNT(*)::int AS cnt FROM furniture WHERE zone_id=$1 AND is_light=1 AND light_on=1`, [zoneId]);
+    const { rows: lc } = await query(`SELECT COUNT(*)::int AS cnt FROM furniture WHERE zone_id=$1 AND object_type='light' AND light_on=1`, [zoneId]);
     await query(`UPDATE lighting_states SET fixture_count=$1 WHERE zone_id=$2`, [lc[0]?.cnt || 0, zoneId]).catch(() => {});
     if (broadcast) {
       broadcast(zoneId, { type: 'zone_event', message: '<span class="power-restore">Emergency power hums to life. The lights come back on.</span><br>', refresh: true });
@@ -740,9 +740,9 @@ async function simulatePowerNetwork(query, { weatherType }) {
         ELSE ${DRAW_DEFAULT_W}
       END), 0)
       FROM furniture f WHERE f.zone_id = pz.id AND (
-        (f.is_light = 1 AND COALESCE(f.light_on_intended, f.light_on) = 1 AND f.light_type != 'streetlight') OR
-        (f.is_light = 1 AND f.light_type = 'streetlight' AND $1) OR
-        (f.is_light = 0 AND f.power_draw_kw > 0)
+        (f.object_type = 'light' AND COALESCE(f.light_on_intended, f.light_on) = 1 AND f.light_type != 'streetlight') OR
+        (f.object_type = 'light' AND f.light_type = 'streetlight' AND $1) OR
+        (f.object_type != 'light' AND f.power_draw_kw > 0)
       )
     )
   `, [isDark]);
@@ -750,7 +750,7 @@ async function simulatePowerNetwork(query, { weatherType }) {
   await query(`
     UPDATE lighting_states ls SET fixture_count = (
       SELECT COUNT(*)::int FROM furniture f
-      WHERE f.zone_id = ls.zone_id AND f.is_light = 1 AND f.light_on = 1
+      WHERE f.zone_id = ls.zone_id AND f.object_type = 'light' AND f.light_on = 1
     )
   `).catch(() => {});
   const { rows: allZones } = await query('SELECT * FROM power_zones');
@@ -1223,7 +1223,7 @@ export async function installGenerator({ zoneId, generatorType = 'junction_box',
        ON CONFLICT (id) DO UPDATE SET name=$2, source_type=$3, generator_id=$4, capacity_kw=$5`,
       [zid, zName, generatorType === 'city_plant' ? 'city_grid' : 'junction_box', id, capacity]
     );
-    const { rows: fixtureRows } = await query(`SELECT COUNT(*)::int AS cnt FROM furniture WHERE zone_id=$1 AND is_light=1`, [zid]);
+    const { rows: fixtureRows } = await query(`SELECT COUNT(*)::int AS cnt FROM furniture WHERE zone_id=$1 AND object_type='light'`, [zid]);
     await query(
       `INSERT INTO lighting_states (zone_id, has_emergency_lighting, artificial_light_level, fixture_count)
        VALUES ($1,0,0,$2)
@@ -1317,7 +1317,7 @@ export async function fixZonePowerConnections() {
        ON CONFLICT (id) DO UPDATE SET source_type='city_grid', generator_id=$3, capacity_kw=$4, max_capacity_kw=$4`,
       [zone.id, zone.name, nearest.id, nearest.capacity_kw]
     );
-    const { rows: ls } = await query(`SELECT COUNT(*)::int AS cnt FROM furniture WHERE zone_id=$1 AND is_light=1`, [zone.id]);
+    const { rows: ls } = await query(`SELECT COUNT(*)::int AS cnt FROM furniture WHERE zone_id=$1 AND object_type='light'`, [zone.id]);
     await query(
       `INSERT INTO lighting_states (zone_id, has_emergency_lighting, artificial_light_level, fixture_count)
        VALUES ($1, 0, 0, $2) ON CONFLICT (zone_id) DO UPDATE SET fixture_count=$2`,
@@ -1387,7 +1387,7 @@ export async function fixBuildingPowerConnections() {
            ON CONFLICT (id) DO UPDATE SET source_type='building_generator', generator_id=$3, capacity_kw=$4`,
           [zid, zName, gen.id, gen.capacity_kw]
         );
-        const { rows: ls } = await query(`SELECT COUNT(*)::int AS cnt FROM furniture WHERE zone_id=$1 AND is_light=1`, [zid]);
+        const { rows: ls } = await query(`SELECT COUNT(*)::int AS cnt FROM furniture WHERE zone_id=$1 AND object_type='light'`, [zid]);
         await query(
           `INSERT INTO lighting_states (zone_id, has_emergency_lighting, artificial_light_level, fixture_count)
            VALUES ($1, 0, 0, $2) ON CONFLICT (zone_id) DO UPDATE SET fixture_count=$2`,
@@ -1539,9 +1539,9 @@ export async function recalcZoneLoad(queryFn, zoneId) {
     ), 0) AS total_load
     FROM furniture
     WHERE zone_id = $1 AND (
-      (is_light = 1 AND COALESCE(light_on_intended, light_on) = 1 AND light_type != 'streetlight') OR
-      (is_light = 1 AND light_type = 'streetlight' AND $2) OR
-      (is_light = 0 AND power_draw_kw > 0)
+      (object_type = 'light' AND COALESCE(light_on_intended, light_on) = 1 AND light_type != 'streetlight') OR
+      (object_type = 'light' AND light_type = 'streetlight' AND $2) OR
+      (object_type != 'light' AND power_draw_kw > 0)
     )
   `, [zoneId, isDark]);
   const load = rows[0]?.total_load ?? 0;
