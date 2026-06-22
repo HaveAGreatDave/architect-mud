@@ -2406,7 +2406,7 @@ function buildDynamicMapGrid(zones, mode, powerById, clickable) {
           const status = p ? p.status : 'unpowered';
           cls = `bigmap-tile bm-power-${status}`;
           sub = p
-            ? `<div style="font-size:9px;opacity:0.8;margin-top:2px">${(p.loadKw ?? 0).toFixed(1)}/${(p.availableKw ?? 0).toFixed(1)}W <span onclick="event.stopPropagation();editZoneMaxCapacity('${z.id}')" style="cursor:pointer;opacity:0.6" title="Edit max capacity">✏</span></div>`
+            ? `<div style="font-size:9px;opacity:0.8;margin-top:2px">${(p.loadKw ?? 0).toFixed(1)}/${(p.maxCapacityKw ?? 1000).toFixed(0)}W <span onclick="event.stopPropagation();editZoneMaxCapacity('${z.id}')" style="cursor:pointer;opacity:0.6" title="Edit max capacity">✏</span></div>`
             : `<div style="font-size:9px;opacity:0.6;margin-top:2px">no power</div>`;
         }
       }

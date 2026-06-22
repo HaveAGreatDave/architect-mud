@@ -447,9 +447,11 @@ async function tick30m() {
   if (prevPhase !== state.phase) {
     if (state.phase === 'night' && prevPhase === 'dusk') {
       await query(`UPDATE furniture SET light_on=1 WHERE light_type='streetlight'`).catch(()=>{});
+      await recomputePower().catch(() => {});
     }
     if (state.phase === 'day' && prevPhase === 'dawn') {
       await query(`UPDATE furniture SET light_on=0 WHERE light_type='streetlight'`).catch(()=>{});
+      await recomputePower().catch(() => {});
     }
   }
 
@@ -1048,8 +1050,9 @@ export async function installGenerator({ zoneId, generatorType = 'junction_box',
   const zone = zoneRows[0];
 
   const id = `gen_${zoneId}_${Date.now()}`;
-  // city_plant: 500 000 W. junction_box: 100 W default throughput.
-  const capacity = Number(capacityKw) || (generatorType === 'city_plant' ? 500000 : 100);
+  // city_plant: 500 000 W. junction_box: 5 000 W default throughput (enough
+  // for a multi-room building with several lights).
+  const capacity = Number(capacityKw) || (generatorType === 'city_plant' ? 500000 : 5000);
   const genName = name || (generatorType === 'city_plant' ? 'City Power Plant' : `${zone.name} Junction Box`);
 
   // Auto-assign nearest city plant for junction boxes if not specified.
