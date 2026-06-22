@@ -2460,7 +2460,7 @@ function buildDynamicMapGrid(zones, mode, powerById, clickable) {
           const status = p ? p.status : 'unpowered';
           const isBrownout = totalRequest > 0 && totalSupply > 0 && totalRequest > totalSupply + 0.01;
           const effectiveStatus = isBrownout ? 'overloaded'
-            : totalRequest === 0 ? 'unpowered'
+            : (totalRequest === 0 && status !== 'offline') ? 'unpowered'
             : status;
           cls = `bigmap-tile bm-power-${effectiveStatus}`;
           if (totalRequest > 0) {
@@ -2621,7 +2621,7 @@ function renderBigMapOverlay() {
           cls = `bigmap-tile bm-power-plant${cpStatus ? ' bm-power-' + cpStatus : ''}`;
           powerSub = `<div style="font-size:9px;opacity:0.9;margin-top:2px">⚡ ${used.toFixed(0)}/${Number(cpGen.capacity_kw).toFixed(0)}W</div>`;
         } else {
-          const zStatus = (!p || (p.loadKw ?? 0) === 0) ? 'unpowered' : p.status;
+          const zStatus = (!p || ((p.loadKw ?? 0) === 0 && p.status !== 'offline')) ? 'unpowered' : p.status;
           cls = `bigmap-tile bm-power-${zStatus}`;
           if (p) powerSub = `<div style="font-size:9px;opacity:0.8;margin-top:2px">${(p.loadKw??0).toFixed(1)}W load / ${(p.availableKw??0).toFixed(1)}W draw</div>`;
         }
@@ -3436,7 +3436,7 @@ function _buildInteriorMapHtml() {
       }
       const pw = powerById.get(z.id);
       const rawStatus = pw?.status || 'unpowered';
-      const status = (pw?.loadKw ?? 0) === 0 ? 'unpowered' : rawStatus;
+      const status = ((pw?.loadKw ?? 0) === 0 && rawStatus !== 'offline') ? 'unpowered' : rawStatus;
       const pwCls = STATUS_CLS[status] || 'bm-power-unpowered';
       const drawReq = pw ? Number(pw.loadKw ?? 0) : 0;
       const supply  = pw ? Number(pw.availableKw ?? 0) : 0;

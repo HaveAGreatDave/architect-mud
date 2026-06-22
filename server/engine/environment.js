@@ -605,7 +605,7 @@ async function applyPowerLightEffects(query, zoneId, prevStatus, newStatus, avai
     // light_on_intended because syncStreetlights sets them correctly on restore.
     await query(`UPDATE furniture SET light_on_intended = COALESCE(light_on_intended, light_on) WHERE zone_id=$1 AND is_light=1 AND light_type != 'streetlight'`, [zoneId]);
     await query(`UPDATE furniture SET light_on=0 WHERE zone_id=$1 AND is_light=1`, [zoneId]);
-    await query(`UPDATE power_zones SET current_load_kw=0 WHERE id=$1`, [zoneId]);
+    // Do NOT zero current_load_kw — demand stays constant; only available_kw=0 signals no supply.
     await query(`UPDATE lighting_states SET fixture_count=0 WHERE zone_id=$1`, [zoneId]).catch(() => {});
     if (broadcast && prevStatus !== 'offline') {
       const nameStr = _fmtLightNames(activeLights.map(l => l.name));
@@ -726,7 +726,10 @@ async function simulatePowerNetwork(query, { weatherType }) {
   }
 
   // ── Phase 2: Recalculate zone loads from active furniture ────────────────
-  // Lights only draw when on; non-light electric items always draw.
+  // Streetlights are always counted as drawing power when it's dark, regardless
+  // of light_on — this prevents demand oscillation where lights turning off drops
+  // demand to 0, causing the zone to flip to 'powered' and back on every tick.
+  const isDark = state.phase === 'night' || state.phase === 'dusk';
   await query(`
     UPDATE power_zones pz SET current_load_kw = (
       SELECT COALESCE(SUM(CASE
@@ -737,11 +740,12 @@ async function simulatePowerNetwork(query, { weatherType }) {
         ELSE ${DRAW_DEFAULT_W}
       END), 0)
       FROM furniture f WHERE f.zone_id = pz.id AND (
-        (f.is_light = 1 AND f.light_on = 1) OR
+        (f.is_light = 1 AND COALESCE(f.light_on_intended, f.light_on) = 1 AND f.light_type != 'streetlight') OR
+        (f.is_light = 1 AND f.light_type = 'streetlight' AND $1) OR
         (f.is_light = 0 AND f.power_draw_kw > 0)
       )
     )
-  `);
+  `, [isDark]);
   // Sync fixture counts so visibility is always based on current light_on state.
   await query(`
     UPDATE lighting_states ls SET fixture_count = (
@@ -1517,10 +1521,12 @@ export async function getGeneratorZones(generatorId) {
   return { generator: genRows[0], zones: rows };
 }
 
-// Sums active powered furniture in a zone and writes the result to
-// power_zones.current_load_kw. Call this whenever a light or electronic
-// is switched on or off so the power sim always has fresh load data.
+// Sums intended demand for a zone and writes it to power_zones.current_load_kw.
+// Demand = COALESCE(light_on_intended, light_on) for non-streetlights (stable
+// through supply interruptions), plus streetlight draw when dark. Call this
+// whenever a light or device is toggled so the power sim has fresh demand data.
 export async function recalcZoneLoad(queryFn, zoneId) {
+  const isDark = state.phase === 'night' || state.phase === 'dusk';
   const { rows } = await queryFn(`
     SELECT COALESCE(SUM(
       CASE
@@ -1533,10 +1539,11 @@ export async function recalcZoneLoad(queryFn, zoneId) {
     ), 0) AS total_load
     FROM furniture
     WHERE zone_id = $1 AND (
-      (is_light = 1 AND light_on = 1) OR
+      (is_light = 1 AND COALESCE(light_on_intended, light_on) = 1 AND light_type != 'streetlight') OR
+      (is_light = 1 AND light_type = 'streetlight' AND $2) OR
       (is_light = 0 AND power_draw_kw > 0)
     )
-  `, [zoneId]);
+  `, [zoneId, isDark]);
   const load = rows[0]?.total_load ?? 0;
   await queryFn(`UPDATE power_zones SET current_load_kw = $1 WHERE id = $2`, [load, zoneId]);
   return load;
