@@ -3914,6 +3914,7 @@ function renderTimeWeatherPanel(data) {
   const WEATHER_TYPES = ['clear','cloudy','overcast','rain','sleet','thunderstorm','storm','snow','blizzard','fog','haze','ash'];
   const climateProfiles = data?.climateProfiles || [];
   const activeId = env.activeClimateProfileId || '';
+  window._twClimateProfiles = climateProfiles;
 
   const forecastGrid = forecast.slice(0,7).map((f,i) => `
     <div style="background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:12px;text-align:center;min-width:80px">
@@ -4159,7 +4160,8 @@ async function devSetActiveClimate() {
 }
 
 async function devRecalculateForecast() {
-  const r = await API('/environment/climate/recalculate', 'POST', {});
+  const { monthly_temp_c, monthly_precip_chance } = devReadClimateInputs();
+  const r = await API('/environment/climate/recalculate', 'POST', { monthly_temp_c, monthly_precip_chance });
   if (r.error) { toast(r.error, true); return; }
   toast('Forecast recalculated');
   loadPanel('timeweather');

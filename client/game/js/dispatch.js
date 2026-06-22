@@ -7,6 +7,7 @@ import { openDialogue, closeDialogue } from './panels/dialogue.js';
 import { renderEquipPanel } from './panels/equipment.js';
 import { receiveWhisper } from './panels/whisper.js';
 import { openLightViewDialog } from './panels/lightview.js';
+import { updateForecast } from './panels/forecast.js';
 
 const DEV_ROLES = ['admin', 'dev', 'builder', 'designer'];
 
@@ -197,8 +198,8 @@ const handlers = {
   },
 
   'environment.clockTick': (msg) => { updateEnvironmentHUD(msg); },
-  'environment.sync': (msg) => { updateEnvironmentHUD(msg); },
-  'environment.daily': (msg) => { updateEnvironmentHUD(msg); },
+  'environment.sync': (msg) => { updateEnvironmentHUD(msg); updateForecast(msg.forecast); },
+  'environment.daily': (msg) => { updateEnvironmentHUD(msg); updateForecast(msg.forecast); },
   'environment.weatherOverride': (msg) => { updateEnvironmentHUD(msg); },
 
   whisper: (msg) => { receiveWhisper(msg.from || 'Admin', msg.message); },

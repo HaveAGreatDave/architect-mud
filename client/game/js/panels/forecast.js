@@ -7,6 +7,12 @@ export function openForecast() {
     .catch(() => appendMsg('Could not reach the forecast feed.', 'error'));
 }
 
+export function updateForecast(forecast) {
+  if (!forecast?.length) return;
+  const panel = document.getElementById('forecast-panel');
+  if (panel && panel.classList.contains('active')) renderForecastPanel(forecast);
+}
+
 function renderForecastPanel(forecast) {
   const el = document.getElementById('forecast-days');
   if (!el) return;

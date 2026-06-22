@@ -493,7 +493,7 @@ async function tick24h() {
   await loadZonePowerAndLighting(query);
   recalcAmbientAndVisibility();
 
-  const payload = { ...getHUDPayload(), forecast: state.forecast };
+  const payload = { ...getHUDPayload(), forecast: getForecast() };
   if (broadcast) broadcast({ type: 'environment.daily', ...payload });
   if (emitHook) {
     await emitHook('environment.tick24h', payload);
@@ -942,9 +942,13 @@ export async function devSetActiveClimate(id) {
   return { activeClimateProfileId: id };
 }
 
-export async function devRecalculateForecast() {
+export async function devRecalculateForecast({ monthly_temp_c, monthly_precip_chance } = {}) {
   const { emitHook, broadcast } = deps;
-  if (emitHook) await emitHook('environment.recalculateForecast', { setWeatherState, climateProfile: state.activeClimateProfile, currentDate: state.date });
+  // Use profile data sent from the client if provided; otherwise fall back to active profile.
+  const climateProfile = (monthly_temp_c && monthly_precip_chance)
+    ? { monthly_temp_c, monthly_precip_chance }
+    : state.activeClimateProfile;
+  if (emitHook) await emitHook('environment.recalculateForecast', { setWeatherState, climateProfile, currentDate: state.date });
   const payload = { ...getHUDPayload(), forecast: getForecast() };
   if (broadcast) broadcast({ type: 'environment.sync', ...payload });
   return payload;

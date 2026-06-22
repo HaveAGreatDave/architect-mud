@@ -83,7 +83,7 @@ export async function handleEnvironmentApi(path, method, body, auth) {
       if (path === '/environment/time/freeze') return { status: 200, body: env.devFreeze(body?.frozen ? 1 : 0) };
       if (path === '/environment/climate/profiles' && method === 'POST') return { status: 200, body: await env.devSaveClimateProfile(body || {}) };
       if (path === '/environment/climate/active' && method === 'POST') return { status: 200, body: await env.devSetActiveClimate(body?.id || null) };
-      if (path === '/environment/climate/recalculate' && method === 'POST') return { status: 200, body: await env.devRecalculateForecast() };
+      if (path === '/environment/climate/recalculate' && method === 'POST') return { status: 200, body: await env.devRecalculateForecast(body || {}) };
       if (path.startsWith('/environment/climate/profiles/') && method === 'DELETE') {
         const id = decodeURIComponent(path.split('/')[4] || '');
         return { status: 200, body: await env.devDeleteClimateProfile(id) };
