@@ -14,7 +14,7 @@
 import { createHash } from 'node:crypto';
 import { query } from '../../server/models/db.js';
 
-const WEATHER_TYPES = ['sunny', 'cloudy', 'rain', 'fog', 'storm', 'snow'];
+const WEATHER_TYPES = ['clear','cloudy','overcast','rain','thunderstorm','storm','snow','blizzard','fog','haze','ash'];
 
 const SEASON_BY_MONTH = [
   'winter', 'winter', 'spring', 'spring', 'spring', 'summer',

@@ -40,22 +40,39 @@ const TICK_24H_MS = 24 * 60 * 60 * 1000;
 // outage so a very stale clock can't stall startup with day-by-day sims.
 const MAX_CATCHUP_DAYS = 30;
 
-const WEATHER_TYPES = ['sunny', 'cloudy', 'rain', 'fog', 'storm', 'snow'];
+const WEATHER_TYPES = ['clear','cloudy','overcast','rain','thunderstorm','storm','snow','blizzard','fog','haze','ash'];
 
 const WEATHER_ICON = {
-  sunny: '☀', cloudy: '☁', rain: '☂', fog: '▒', storm: '⚡', snow: '❄',
+  clear:       '☀',
+  cloudy:      '☁',
+  overcast:    '🌥',
+  rain:        '🌧',
+  thunderstorm:'⛈',
+  storm:       '⚡',
+  snow:        '❄',
+  blizzard:    '🌨',
+  fog:         '🌫',
+  haze:        '😶‍🌫️',
+  ash:         '🌋',
 };
 
 const WEATHER_VISIBILITY_FACTOR = {
-  sunny: 1.0, cloudy: 0.9, rain: 0.7, fog: 0.55, storm: 0.5, snow: 0.75,
+  clear:        1.0,
+  cloudy:       0.9,
+  overcast:     0.85,
+  rain:         0.7,
+  thunderstorm: 0.5,
+  storm:        0.45,
+  snow:         0.75,
+  blizzard:     0.35,
+  fog:          0.55,
+  haze:         0.65,
+  ash:          0.4,
 };
 
-// Fog is both a weather TYPE and an independent multiplicative term in the
-// GDD's visibility formula (section 7). "fog" weather sets a strong fog
-// factor; every other weather type defaults to 1.0 (no extra penalty), which
-// leaves the term available for a future patchy-fog event without
-// double-penalizing visibility today.
-const FOG_FACTOR = { fog: 0.4 };
+// Fog and haze both apply an independent multiplicative fog factor on top of
+// the weather visibility factor (GDD §7). Ash has a separate strong penalty.
+const FOG_FACTOR = { fog: 0.4, haze: 0.7, ash: 0.5 };
 const DEFAULT_FOG_FACTOR = 1.0;
 
 const SEASON_BY_MONTH = [
@@ -92,7 +109,7 @@ const state = {
   dayOfWeek: 1,             // 1=Mon..7=Sun
   season: 'spring',
   tempC: 12,
-  weatherType: 'sunny',
+  weatherType: 'clear',
   forecast: [],             // 7 entries: { forecastDay, date, weatherType, tempC, locked }
   ambientLight: 1.0,        // 0..1, recalculated every 30-min tick
   phase: 'day',

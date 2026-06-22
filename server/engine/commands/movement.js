@@ -16,7 +16,7 @@ async function cmdLookThroughWindow(win, player) {
   if (!win.zone_exterior) {
     const { getHUDPayload } = await import('../environment.js');
     const env = getHUDPayload();
-    const weatherDesc = { sunny:'clear skies', cloudy:'overcast skies', rain:'rain falling steadily', fog:'thick fog', storm:'a raging storm', snow:'snow coming down' }[env.weatherType] || env.weatherType;
+    const weatherDesc = { clear:'clear skies', cloudy:'overcast skies', overcast:'heavy overcast', rain:'rain falling steadily', thunderstorm:'a thunderstorm raging overhead', storm:'a raging storm', snow:'snow coming down', blizzard:'a blinding blizzard', fog:'thick fog rolling in', haze:'a heavy haze in the air', ash:'ash falling from the sky' }[env.weatherType] || env.weatherType;
     return { type:'examine', message:`Through ${win.name} you see ${weatherDesc} outside. It is ${env.time}, ${env.season}.${win.glass_state === 'broken' ? ' Cold air drifts in through the broken glass.' : ''}` };
   }
   const otherZone = getZone(win.zone_exterior);
