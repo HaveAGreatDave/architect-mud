@@ -163,6 +163,7 @@
 let token = null;
 let currentPanel = 'zones';
 let _panelClockInterval = null;
+let _panelClockTimeout  = null;
 let currentRecord = null;
 let allRecords = [];
 let devRole = null;
@@ -467,6 +468,7 @@ async function showPanel(name) {
 }
 
 async function loadPanel(name) {
+  if (_panelClockTimeout)  { clearTimeout(_panelClockTimeout);   _panelClockTimeout  = null; }
   if (_panelClockInterval) { clearInterval(_panelClockInterval); _panelClockInterval = null; }
   const p = PANELS[name];
   if (!p) return;
@@ -4001,15 +4003,20 @@ async function devToggleFreeze() {
 }
 
 function startPanelClock() {
+  if (_panelClockTimeout)  { clearTimeout(_panelClockTimeout);   _panelClockTimeout  = null; }
   if (_panelClockInterval) { clearInterval(_panelClockInterval); _panelClockInterval = null; }
   const tick = async () => {
     const el = document.getElementById('tw-live-clock');
-    if (!el) { clearInterval(_panelClockInterval); _panelClockInterval = null; return; }
-    const state = await API('/environment/state');
-    if (state?.time) el.textContent = state.time;
+    if (!el) {
+      clearInterval(_panelClockInterval); _panelClockInterval = null;
+      return;
+    }
+    const s = await API('/environment/state');
+    if (s?.time) el.textContent = s.time;
   };
   const secsRemaining = 60 - new Date().getSeconds();
-  setTimeout(() => {
+  _panelClockTimeout = setTimeout(() => {
+    _panelClockTimeout = null;
     tick();
     _panelClockInterval = setInterval(tick, 60_000);
   }, secsRemaining * 1000);

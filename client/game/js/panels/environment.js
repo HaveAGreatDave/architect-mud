@@ -41,12 +41,13 @@ function renderEnvironmentHUD() {
   if (tempEl)    tempEl.textContent    = envTempC !== null ? `${envTempC}°C` : '—°C';
 }
 
-export function updateEnvironmentHUD(env) {
+export function updateEnvironmentHUD(env, realign = false) {
   if (!env || !env.time) return;
   clientMinutes = parseHHMM(env.time);
   if (env.weatherIcon !== undefined) envWeatherIcon = env.weatherIcon || '—';
   if (env.tempC !== undefined) envTempC = env.tempC;
   renderEnvironmentHUD();
+  if (realign) startClientClock();
 }
 
 export function refreshZoneVisibility() {
@@ -60,16 +61,25 @@ export function refreshZoneVisibility() {
     .catch(() => {});
 }
 
-// Local minute tick — aligned to the real minute boundary so display flips
-// at :00 seconds rather than drifting from whenever the page loaded.
+// Local fallback tick — increments display between server pushes.
+// Re-aligned every time the server sends a clockTick so the two stay in step.
+let _clockTimeout  = null;
+let _clockInterval = null;
+
 function startClientClock() {
+  if (_clockTimeout)  { clearTimeout(_clockTimeout);   _clockTimeout  = null; }
+  if (_clockInterval) { clearInterval(_clockInterval); _clockInterval = null; }
   const tick = () => {
     if (clientMinutes === null) return;
     clientMinutes = (clientMinutes + 1) % (24 * 60);
     renderEnvironmentHUD();
   };
   const secsRemaining = 60 - new Date().getSeconds();
-  setTimeout(() => { tick(); setInterval(tick, 60_000); }, secsRemaining * 1000);
+  _clockTimeout = setTimeout(() => {
+    _clockTimeout = null;
+    tick();
+    _clockInterval = setInterval(tick, 60_000);
+  }, secsRemaining * 1000);
 }
 startClientClock();
 
