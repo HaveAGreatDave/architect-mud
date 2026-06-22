@@ -1374,6 +1374,9 @@ export async function getGeneratorsList() {
         SELECT SUM(pz.current_load_kw) FROM power_zones pz WHERE pz.generator_id = g.id
       ), 0) AS zone_load_w,
       COALESCE((
+        SELECT SUM(pz.available_kw) FROM power_zones pz WHERE pz.generator_id = g.id
+      ), 0) AS zone_supply_w,
+      COALESCE((
         SELECT SUM(pz.current_load_kw) FROM power_zones pz WHERE pz.generator_id = g.id
       ), 0) + COALESCE((
         SELECT SUM(pz2.current_load_kw)

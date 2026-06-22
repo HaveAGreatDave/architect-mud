@@ -2418,11 +2418,14 @@ function buildDynamicMapGrid(zones, mode, powerById, clickable) {
         } else {
           // Regular tile: Supply / Draw Request (zone + attached JBs)
           const jbs = powerJbByOutdoor.get(z.id) || [];
-          const jbRequest = jbs.reduce((s, jb) => s + Number(jb.zone_load_w ?? 0), 0);
-          const jbSupply  = jbs.reduce((s, jb) => s + Math.min(Number(jb.zone_load_w ?? 0), Number(jb.capacity_kw ?? 0)), 0);
+          // Draw Request = outdoor zone direct load + all building loads routed through JBs
+          const jbRequest  = jbs.reduce((s, jb) => s + Number(jb.zone_load_w ?? 0), 0);
           const zoneRequest = p?.loadKw ?? 0;
-          const zoneSupply  = p?.availableKw ?? 0;
           const totalRequest = zoneRequest + jbRequest;
+          // Supply = actual city plant allocation to this area:
+          //   outdoor zone supply + per-JB allocation (delivered to buildings + JB leftover)
+          const jbSupply   = jbs.reduce((s, jb) => s + Number(jb.zone_supply_w ?? 0) + Number(jb.remaining_kw ?? 0), 0);
+          const zoneSupply  = p?.availableKw ?? 0;
           const totalSupply  = zoneSupply + jbSupply;
           const status = p ? p.status : 'unpowered';
           const isBrownout = totalRequest > 0 && totalSupply > 0 && totalRequest > totalSupply + 0.01;
