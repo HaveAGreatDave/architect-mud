@@ -566,7 +566,7 @@ async function applyPowerLightEffects(query, zoneId, prevStatus, newStatus, avai
         `Power lost. ${nameStr} go${activeLights.length === 1 ? 'es' : ''} dark without warning.`,
       ];
       const msg = CUTOUT_MSGS[Math.floor(Math.random() * CUTOUT_MSGS.length)];
-      broadcast(zoneId, { type: 'zone_event', message: `<span class="power-out">${msg}</span>`, refresh: true });
+      broadcast(zoneId, { type: 'zone_event', message: `<span class="power-out">${msg}</span><br>`, refresh: true });
     }
   } else if (nowBrown) {
     // Preserve intended state before any changes.
@@ -620,11 +620,11 @@ async function applyPowerLightEffects(query, zoneId, prevStatus, newStatus, avai
       if (forcedOff.length) {
         const nameStr = _fmtLightNames(forcedOff.map(id => lights.find(l => l.id === id)?.name).filter(Boolean));
         const s = forcedOff.length === 1;
-        broadcast(zoneId, { type: 'zone_event', message: `<span class="power-flicker">${nameStr} cut${s?'s':''} out abruptly — not enough power to keep everything on.</span>`, refresh: true });
+        broadcast(zoneId, { type: 'zone_event', message: `<span class="power-flicker">${nameStr} cut${s?'s':''} out abruptly — not enough power to keep everything on.</span><br>`, refresh: true });
       } else if (flickering.length) {
         const nameStr = _fmtLightNames(flickering.map(id => lights.find(l => l.id === id)?.name).filter(Boolean));
         const s = flickering.length === 1;
-        broadcast(zoneId, { type: 'zone_event', message: `<span class="power-flicker">${nameStr} flicker${s?'s':''} as the supply runs thin.</span>`, refresh: true });
+        broadcast(zoneId, { type: 'zone_event', message: `<span class="power-flicker">${nameStr} flicker${s?'s':''} as the supply runs thin.</span><br>`, refresh: true });
       }
     }
   } else if (nowOk && !wasOk) {
@@ -644,7 +644,7 @@ async function applyPowerLightEffects(query, zoneId, prevStatus, newStatus, avai
     const { rows: lc } = await query(`SELECT COUNT(*)::int AS cnt FROM furniture WHERE zone_id=$1 AND is_light=1 AND light_on=1`, [zoneId]);
     await query(`UPDATE lighting_states SET fixture_count=$1 WHERE zone_id=$2`, [lc[0]?.cnt || 0, zoneId]).catch(() => {});
     if (broadcast) {
-      broadcast(zoneId, { type: 'zone_event', message: '<span class="power-restore">Emergency power hums to life. The lights come back on.</span>', refresh: true });
+      broadcast(zoneId, { type: 'zone_event', message: '<span class="power-restore">Emergency power hums to life. The lights come back on.</span><br>', refresh: true });
     }
   }
 }
@@ -1361,12 +1361,24 @@ export async function fixBuildingPowerConnections() {
 
 export async function toggleGeneratorStatus(generatorId) {
   const { query } = deps;
-  const { rows } = await query(`SELECT status FROM generators WHERE id=$1`, [generatorId]);
+  const { rows } = await query(`SELECT capacity_kw, flags FROM generators WHERE id=$1`, [generatorId]);
   if (!rows.length) throw new Error(`Generator ${generatorId} not found`);
-  const newStatus = rows[0].status === 'online' ? 'offline' : 'online';
-  await query(`UPDATE generators SET status=$1 WHERE id=$2`, [newStatus, generatorId]);
+  const { capacity_kw, flags } = rows[0];
+  const f = flags || {};
+  let newCapacity, newFlags;
+  if (capacity_kw > 0) {
+    // Turn off: zero out capacity, save original so toggle-on can restore it.
+    newCapacity = 0;
+    newFlags = { ...f, saved_capacity_kw: capacity_kw };
+  } else {
+    // Turn on: restore saved capacity (fall back to 3000 if no saved value).
+    newCapacity = f.saved_capacity_kw ?? 3000;
+    newFlags = { ...f };
+    delete newFlags.saved_capacity_kw;
+  }
+  await query(`UPDATE generators SET capacity_kw=$1, flags=$2::jsonb WHERE id=$3`, [newCapacity, JSON.stringify(newFlags), generatorId]);
   await recomputePower();
-  return { id: generatorId, status: newStatus };
+  return { id: generatorId, capacity_kw: newCapacity, isOn: newCapacity > 0 };
 }
 
 export async function setGeneratorCapacity(generatorId, capacityKw, name) {

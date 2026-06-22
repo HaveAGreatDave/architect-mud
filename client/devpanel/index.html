@@ -3498,7 +3498,7 @@ function renderPowerPanelBody() {
         <td style="white-space:nowrap">${used.toFixed(1)} / ${Number(cp.capacity_kw).toFixed(0)}W <span style="color:var(--text-dim);font-size:10px">(${pct}%)</span></td>
         <td><span class="badge badge-${statusCls}">${cp.status}</span></td>
         <td style="white-space:nowrap">
-          <button class="action-btn" onclick="toggleGeneratorPower('${cpIdSafe}')">${cp.status === 'online' ? 'Turn Off' : 'Turn On'}</button>
+          <button class="action-btn" onclick="toggleGeneratorPower('${cpIdSafe}')">Toggle</button>
           <button class="action-btn" style="margin-left:3px" onclick="editGeneratorCapacity('${cpIdSafe}', ${cp.capacity_kw})">Edit</button>
           <button class="action-btn" style="margin-left:3px" onclick="viewGeneratorZones('${cpIdSafe}')">Zones</button>
           <button class="action-btn danger" style="margin-left:3px" onclick="removeGeneratorFromPowerPanel('${cpIdSafe}')">Remove</button>
@@ -3514,7 +3514,7 @@ function renderPowerPanelBody() {
           <td style="white-space:nowrap">${draw.toFixed(1)}W draw</td>
           <td><span class="badge badge-${jbStatusCls}">${jb.status}</span></td>
           <td style="white-space:nowrap">
-            <button class="action-btn" onclick="toggleGeneratorPower('${jbIdSafe}')">${jb.status === 'online' ? 'Turn Off' : 'Turn On'}</button>
+            <button class="action-btn" onclick="toggleGeneratorPower('${jbIdSafe}')">Toggle</button>
             <button class="action-btn" style="margin-left:3px" onclick="editGeneratorCapacity('${jbIdSafe}', ${jb.capacity_kw})">Edit</button>
             <button class="action-btn" style="margin-left:3px" onclick="viewGeneratorZones('${jbIdSafe}')">Zones</button>
             <button class="action-btn danger" style="margin-left:3px" onclick="removeGeneratorFromPowerPanel('${jbIdSafe}')">Remove</button>
@@ -3534,7 +3534,7 @@ function renderPowerPanelBody() {
           <td>${draw.toFixed(1)}W draw</td>
           <td><span class="badge badge-high">${jb.status}</span></td>
           <td style="white-space:nowrap">
-            <button class="action-btn" onclick="toggleGeneratorPower('${jbIdSafe}')">${jb.status === 'online' ? 'Turn Off' : 'Turn On'}</button>
+            <button class="action-btn" onclick="toggleGeneratorPower('${jbIdSafe}')">Toggle</button>
             <button class="action-btn" style="margin-left:3px" onclick="editGeneratorCapacity('${jbIdSafe}', ${jb.capacity_kw})">Edit</button>
             <button class="action-btn danger" style="margin-left:3px" onclick="removeGeneratorFromPowerPanel('${jbIdSafe}')">Remove</button>
           </td>
@@ -3708,8 +3708,9 @@ async function editZoneMaxCapacity(zoneId) {
 async function toggleGeneratorPower(generatorId) {
   const result = await API(`/environment/power/generators/${encodeURIComponent(generatorId)}/toggle`, 'POST', {}).catch(e => ({ error: e.message }));
   if (result?.error) { toast(result.error, true); return; }
-  toast(`Generator ${result.status}`);
-  renderPowerPanel();
+  toast(result.isOn ? 'Generator on' : 'Generator off');
+  await _refreshPowerMapData();
+  renderPowerPanelBody();
 }
 
 function editGeneratorCapacity(generatorId, currentKw) {
