@@ -95,6 +95,12 @@ export async function migrateEnvironment(query) {
   // Same for non-light electric items — threshold is higher since motors etc. can be large,
   // but > 100 000 W per item is implausible in this game context.
   await query(`UPDATE furniture SET power_draw_kw = ROUND(power_draw_kw / 1000.0) WHERE power_draw_kw IS NOT NULL AND power_draw_kw > 100000 AND is_light = 0`);
+  // Enforce canonical power draw values for all light types.
+  // Streetlights are always forced to 200 W (infrastructure, not player-editable).
+  // Other lights get their type default only if not already set.
+  await query(`UPDATE furniture SET power_draw_kw = 200 WHERE light_type = 'streetlight'`);
+  await query(`UPDATE furniture SET power_draw_kw = 20  WHERE is_light = 1 AND light_type = 'overhead' AND power_draw_kw IS NULL`);
+  await query(`UPDATE furniture SET power_draw_kw = 5   WHERE is_light = 1 AND power_draw_kw IS NULL`);
 
   await query(`
     CREATE TABLE IF NOT EXISTS power_zones (
