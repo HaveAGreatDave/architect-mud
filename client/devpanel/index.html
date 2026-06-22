@@ -2397,25 +2397,28 @@ function buildDynamicMapGrid(zones, mode, powerById, clickable) {
         const p = powerById?.get(z.id);
         const cpGen = bigMapGenerators.find(g => g.zone_id === z.id && g.generator_type === 'city_plant');
         if (cpGen) {
-          const used = cpGen.capacity_kw - (cpGen.remaining_kw ?? cpGen.capacity_kw);
-          const overdrawn = used > cpGen.capacity_kw;
+          // Power plant tile: Draw Request / Capacity
+          const totalDemand = Number(cpGen.total_demand_w ?? 0);
+          const overdrawn = totalDemand > cpGen.capacity_kw;
           const cpStatus = cpGen.status !== 'online' ? 'offline' : overdrawn ? 'overloaded' : '';
           cls = `bigmap-tile bm-power-plant${cpStatus ? ' bm-power-' + cpStatus : ''}`;
-          sub = `<div style="font-size:13px;line-height:1;margin-top:1px">⚡</div><div style="font-size:9px;opacity:0.9">${used.toFixed(0)}/${cpGen.capacity_kw.toFixed(0)}W</div>`;
+          sub = `<div style="font-size:13px;line-height:1;margin-top:1px">⚡</div><div style="font-size:9px;opacity:0.9">${totalDemand.toFixed(0)}/${cpGen.capacity_kw.toFixed(0)}W</div>`;
         } else {
-          // Regular tile: zone draw + attached JB (building) draw / combined supply
+          // Regular tile: Supply / Draw Request (zone + attached JBs)
           const jbs = powerJbByOutdoor.get(z.id) || [];
-          const jbLoad = jbs.reduce((s, jb) => s + Number(jb.zone_load_w ?? 0), 0);
-          const jbAlloc = jbs.reduce((s, jb) => s + Math.min(Number(jb.zone_load_w ?? 0), Number(jb.capacity_kw ?? 0)), 0);
-          const zoneLoad = p?.loadKw ?? 0;
-          const totalDraw = zoneLoad + jbLoad;
-          const totalSupply = (p?.availableKw ?? 0) + jbAlloc;
+          const jbRequest = jbs.reduce((s, jb) => s + Number(jb.zone_load_w ?? 0), 0);
+          const jbSupply  = jbs.reduce((s, jb) => s + Math.min(Number(jb.zone_load_w ?? 0), Number(jb.capacity_kw ?? 0)), 0);
+          const zoneRequest = p?.loadKw ?? 0;
+          const zoneSupply  = p?.availableKw ?? 0;
+          const totalRequest = zoneRequest + jbRequest;
+          const totalSupply  = zoneSupply + jbSupply;
           const status = p ? p.status : 'unpowered';
-          const isBrownout = totalDraw > 0 && totalSupply > 0 && totalDraw > totalSupply + 0.01;
+          const isBrownout = totalRequest > 0 && totalSupply > 0 && totalRequest > totalSupply + 0.01;
           cls = `bigmap-tile bm-power-${isBrownout ? 'overloaded' : status}`;
-          if (totalDraw > 0) {
+          if (totalRequest > 0) {
+            const supplyStr = totalSupply > 0 ? totalSupply.toFixed(0) : '0';
             const zIdSafe = z.id.replace(/'/g, "\\'");
-            sub = `<div style="font-size:9px;opacity:0.8;margin-top:2px">${totalDraw.toFixed(0)}/${totalSupply > 0 ? totalSupply.toFixed(0) : totalDraw.toFixed(0)}W <span onclick="event.stopPropagation();editZoneMaxCapacity('${zIdSafe}')" style="cursor:pointer;opacity:0.6" title="Edit max capacity">✏</span></div>`;
+            sub = `<div style="font-size:9px;opacity:0.8;margin-top:2px">${supplyStr}/${totalRequest.toFixed(0)}W <span onclick="event.stopPropagation();editZoneMaxCapacity('${zIdSafe}')" style="cursor:pointer;opacity:0.6" title="Edit max capacity">✏</span></div>`;
           } else if (p) {
             const zIdSafe = z.id.replace(/'/g, "\\'");
             sub = `<div style="font-size:9px;opacity:0.5;margin-top:2px">idle <span onclick="event.stopPropagation();editZoneMaxCapacity('${zIdSafe}')" style="cursor:pointer;opacity:0.6" title="Edit max capacity">✏</span></div>`;

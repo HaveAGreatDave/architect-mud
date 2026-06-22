@@ -424,6 +424,7 @@ async function tick1m() {
     [state.minutes]
   );
   if (broadcast) broadcast({ type: 'environment.clockTick', time: formatHHMM(state.minutes) });
+  flickerOverloadedZones();
 }
 
 // ---------------------------------------------------------------------------
@@ -630,6 +631,7 @@ async function simulatePowerNetwork(query, { weatherType }) {
   }
 
   // ── Phase 2: Recalculate zone loads from active furniture ────────────────
+  // Lights only draw when on; non-light electric items always draw.
   await query(`
     UPDATE power_zones pz SET current_load_kw = (
       SELECT COALESCE(SUM(CASE
@@ -638,7 +640,10 @@ async function simulatePowerNetwork(query, { weatherType }) {
         WHEN f.light_type = 'streetlight' THEN ${DRAW_STREETLIGHT_W}
         ELSE ${DRAW_DEFAULT_W}
       END), 0)
-      FROM furniture f WHERE f.zone_id = pz.id AND f.is_light = 1 AND f.light_on = 1
+      FROM furniture f WHERE f.zone_id = pz.id AND (
+        (f.is_light = 1 AND f.light_on = 1) OR
+        (f.is_light = 0 AND f.power_draw_kw > 0)
+      )
     )
   `);
   const { rows: allZones } = await query('SELECT * FROM power_zones');
@@ -687,7 +692,8 @@ async function simulatePowerNetwork(query, { weatherType }) {
     }
 
     // Build a unified consumer list: direct outdoor zones + junction boxes.
-    // Sort ascending by demand so cheaper consumers get served first.
+    // Shuffle randomly — plant distributes in a different order each tick so
+    // brownout load rotates naturally, causing the flicker effect on equipment.
     const consumers = [
       ...directZones.map(z => ({
         kind: 'zone', id: z.id, zone: z,
@@ -699,7 +705,11 @@ async function simulatePowerNetwork(query, { weatherType }) {
         demand: jbDemand.get(jb.id) ?? 0,
         ceiling: jb.capacity_kw,
       })),
-    ].sort((a, b) => a.demand - b.demand);
+    ];
+    for (let i = consumers.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [consumers[i], consumers[j]] = [consumers[j], consumers[i]];
+    }
 
     let pool = cpSt.capacity_kw;
     for (const c of consumers) {
@@ -740,7 +750,11 @@ async function simulatePowerNetwork(query, { weatherType }) {
       continue;
     }
 
-    const sorted = [...jbZones].sort((a, b) => (a.current_load_kw ?? 0) - (b.current_load_kw ?? 0));
+    const sorted = [...jbZones];
+    for (let i = sorted.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [sorted[i], sorted[j]] = [sorted[j], sorted[i]];
+    }
     let pool = allocation;
     for (const zone of sorted) {
       const demand  = (zone.current_load_kw ?? 0) * loadMultiplier;
@@ -1316,7 +1330,14 @@ export async function getGeneratorsList() {
     SELECT g.*, z.name as zone_name,
       COALESCE((
         SELECT SUM(pz.current_load_kw) FROM power_zones pz WHERE pz.generator_id = g.id
-      ), 0) AS zone_load_w
+      ), 0) AS zone_load_w,
+      COALESCE((
+        SELECT SUM(pz.current_load_kw) FROM power_zones pz WHERE pz.generator_id = g.id
+      ), 0) + COALESCE((
+        SELECT SUM(pz2.current_load_kw)
+        FROM generators jb JOIN power_zones pz2 ON pz2.generator_id = jb.id
+        WHERE jb.city_generator_id = g.id AND jb.generator_type = 'junction_box'
+      ), 0) AS total_demand_w
     FROM generators g LEFT JOIN zones z ON z.id = g.zone_id
     ORDER BY g.generator_type, g.id
   `);
@@ -1375,7 +1396,10 @@ export async function recalcZoneLoad(queryFn, zoneId) {
       END
     ), 0) AS total_load
     FROM furniture
-    WHERE zone_id = $1 AND is_light = 1 AND light_on = 1
+    WHERE zone_id = $1 AND (
+      (is_light = 1 AND light_on = 1) OR
+      (is_light = 0 AND power_draw_kw > 0)
+    )
   `, [zoneId]);
   const load = rows[0]?.total_load ?? 0;
   await queryFn(`UPDATE power_zones SET current_load_kw = $1 WHERE id = $2`, [load, zoneId]);
