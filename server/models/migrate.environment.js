@@ -85,8 +85,14 @@ export async function migrateEnvironment(query) {
   // Correct any JBs still on kW scale (value = 5 means 5 kW).
   await query(`UPDATE generators SET capacity_kw = 5000   WHERE generator_type = 'junction_box' AND capacity_kw = 5`);
   // power_zones.capacity_kw is overwritten by the simulation on every run — no migration needed.
-  // max_capacity_kw: correct legacy 1 kW default (value = 1) to 1000 W.
-  await query(`UPDATE power_zones SET max_capacity_kw = 1000 WHERE max_capacity_kw = 1`);
+  // Set all zone max_capacity_kw to match the city plant capacity so no zone
+  // is artificially capped below what the plant can actually deliver.
+  await query(`
+    UPDATE power_zones SET max_capacity_kw = COALESCE(
+      (SELECT capacity_kw FROM generators WHERE generator_type = 'city_plant' ORDER BY id LIMIT 1),
+      3000
+    )
+  `);
   // furniture power_draw_kw is now stored in W (5, 20, 200 etc).
   // The old migration multiplied explicitly-set values by 1000 (e.g. 200W → 200000W).
   // Correct any inflated light power_draw_kw: anything >= 1000W on a light is a sign it

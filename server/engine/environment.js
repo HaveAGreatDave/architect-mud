@@ -635,6 +635,11 @@ async function applyPowerLightEffects(query, zoneId, prevStatus, newStatus, avai
           light_on_intended = NULL
       WHERE zone_id = $1 AND is_light = 1
     `, [zoneId]);
+    // Streetlights follow the day/night cycle, not player intent — turn them on
+    // immediately if it's currently dark and they just received power.
+    if (state.phase === 'night' || state.phase === 'dusk') {
+      await query(`UPDATE furniture SET light_on=1 WHERE zone_id=$1 AND light_type='streetlight'`, [zoneId]);
+    }
     await recalcZoneLoad(query, zoneId);
     const { rows: lc } = await query(`SELECT COUNT(*)::int AS cnt FROM furniture WHERE zone_id=$1 AND is_light=1 AND light_on=1`, [zoneId]);
     await query(`UPDATE lighting_states SET fixture_count=$1 WHERE zone_id=$2`, [lc[0]?.cnt || 0, zoneId]).catch(() => {});
@@ -1240,9 +1245,9 @@ export async function fixZonePowerConnections() {
     }
     if (!nearest) continue;
     await query(
-      `INSERT INTO power_zones (id, name, source_type, generator_id, capacity_kw, current_load_kw, status)
-       VALUES ($1, $2, 'city_grid', $3, $4, 0, 'powered')
-       ON CONFLICT (id) DO UPDATE SET source_type='city_grid', generator_id=$3, capacity_kw=$4`,
+      `INSERT INTO power_zones (id, name, source_type, generator_id, capacity_kw, current_load_kw, status, max_capacity_kw)
+       VALUES ($1, $2, 'city_grid', $3, $4, 0, 'powered', $4)
+       ON CONFLICT (id) DO UPDATE SET source_type='city_grid', generator_id=$3, capacity_kw=$4, max_capacity_kw=$4`,
       [zone.id, zone.name, nearest.id, nearest.capacity_kw]
     );
     const { rows: ls } = await query(`SELECT COUNT(*)::int AS cnt FROM furniture WHERE zone_id=$1 AND is_light=1`, [zone.id]);
