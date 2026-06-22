@@ -3097,14 +3097,18 @@ function renderPowerPanelBody() {
 
   html += `<div style="padding:12px"><h3 style="color:var(--accent);font-size:12px;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">Generators</h3>`;
   if (powerPanelGenerators.length) {
-    html += '<table><thead><tr><th>Name</th><th>Type</th><th>Zone</th><th>Capacity</th><th>Status</th><th></th></tr></thead><tbody>';
+    html += '<table><thead><tr><th>Name</th><th>Type</th><th>Zone</th><th>Capacity</th><th>Remaining</th><th>Status</th><th></th></tr></thead><tbody>';
     for (const g of powerPanelGenerators) {
       const gIdSafe = g.id.replace(/'/g, "\\'");
+      const remaining = g.remaining_kw ?? g.capacity_kw;
+      const usedKw = g.capacity_kw - remaining;
+      const pct = g.capacity_kw > 0 ? Math.round((usedKw / g.capacity_kw) * 100) : 0;
       html += `<tr>
         <td>${g.name || g.id}</td>
         <td>${g.generator_type === 'city_plant' ? 'City Plant' : 'Building'}</td>
         <td>${g.zone_name || g.zone_id || '—'}</td>
         <td>${g.capacity_kw}kW</td>
+        <td style="white-space:nowrap">${remaining.toFixed(1)}kW <span style="color:var(--text-dim);font-size:10px">(${pct}% used)</span></td>
         <td><span class="badge badge-${g.status === 'online' ? 'safe' : 'high'}">${g.status}</span></td>
         <td style="white-space:nowrap">
           <button class="action-btn" onclick="viewGeneratorZones('${gIdSafe}')">View Zones</button>

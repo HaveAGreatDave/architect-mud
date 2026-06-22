@@ -461,24 +461,48 @@ async function simulatePowerNetwork(query, { weatherType }) {
     await query(`UPDATE generators SET status = $1, fuel_remaining = $2 WHERE id = $3`, [status, fuelRemaining, gen.id]);
   }
 
+  // Group zones by generator so capacity is shared across all zones on the
+  // same plant rather than each zone comparing against the full capacity alone.
+  const zonesByGen = new Map();
   for (const zone of zones) {
-    const gen = updatedStatus.get(zone.generator_id);
-    // Prefer the generator's own capacity; fall back to the stored value, but
-    // treat 0 as "unknown" rather than "overloaded" so an orphaned row (gen
-    // deleted without cleaning up power_zones) doesn't black out the zone.
-    const capacity = gen ? gen.capacity_kw : (zone.capacity_kw > 0 ? zone.capacity_kw : null);
-    const load = zone.current_load_kw * loadMultiplier;
-    const ratio = capacity != null && capacity > 0 ? load / capacity : 0;
+    const key = zone.generator_id ?? '__orphan__';
+    if (!zonesByGen.has(key)) zonesByGen.set(key, []);
+    zonesByGen.get(key).push(zone);
+  }
 
-    let status;
-    if (!gen && zone.generator_id) status = 'offline'; // generator_id set but generator deleted
-    else if (gen && gen.status === 'offline') status = 'offline';
-    else if (ratio > POWER_BLACKOUT_RATIO) status = 'offline';
-    else if (ratio > POWER_OVERLOAD_RATIO) status = 'overloaded';
-    else status = 'powered';
+  for (const [genId, genZones] of zonesByGen) {
+    const gen = updatedStatus.get(genId);
+    const genCapacity = gen ? gen.capacity_kw : 0;
 
-    const syncedCapacity = gen ? gen.capacity_kw : zone.capacity_kw;
-    await query(`UPDATE power_zones SET status = $1, capacity_kw = $2 WHERE id = $3`, [status, syncedCapacity, zone.id]);
+    // Total load drawn from this generator's capacity pool.
+    const totalLoad = genZones.reduce((s, z) => s + z.current_load_kw * loadMultiplier, 0);
+
+    // Equal share of generator capacity allocated to each connected zone.
+    const perZoneCapacity = genZones.length > 0 ? genCapacity / genZones.length : 0;
+
+    // Remaining generator capacity after subtracting all zone loads.
+    const remaining = Math.max(0, genCapacity - totalLoad);
+
+    // Persist remaining capacity on the generator row.
+    if (gen) {
+      await query(`UPDATE generators SET remaining_kw = $1 WHERE id = $2`, [remaining, genId]);
+    }
+
+    for (const zone of genZones) {
+      const load = zone.current_load_kw * loadMultiplier;
+      // Zone ratio is load vs its equal share of the generator pool.
+      const ratio = perZoneCapacity > 0 ? load / perZoneCapacity : 0;
+
+      let status;
+      if (!gen && zone.generator_id) status = 'offline'; // orphaned — generator deleted
+      else if (gen && gen.status === 'offline') status = 'offline';
+      else if (ratio > POWER_BLACKOUT_RATIO) status = 'offline';
+      else if (ratio > POWER_OVERLOAD_RATIO) status = 'overloaded';
+      else status = 'powered';
+
+      await query(`UPDATE power_zones SET status = $1, capacity_kw = $2 WHERE id = $3`,
+        [status, perZoneCapacity, zone.id]);
+    }
   }
 }
 
