@@ -845,7 +845,7 @@ async function getBuildingNetwork(query, startZoneId) {
     for (const nId of neighbors) {
       if (visited.has(nId)) continue;
       const neighbor = byId.get(nId);
-      if (isInterior(neighbor) || isInterior(zone)) {
+      if (isInterior(neighbor)) {
         visited.add(nId);
         queue.push(nId);
       }
@@ -1126,6 +1126,19 @@ export async function recalcZoneLoad(queryFn, zoneId) {
   const load = rows[0]?.total_load ?? 0;
   await queryFn(`UPDATE power_zones SET current_load_kw = $1 WHERE id = $2`, [load, zoneId]);
   return load;
+}
+
+export async function reassignZoneGenerator(zoneId, generatorId) {
+  const { query } = deps;
+  const { rows: genRows } = await query('SELECT id, name, capacity_kw FROM generators WHERE id=$1', [generatorId]);
+  if (!genRows.length) throw new Error('Generator not found');
+  const gen = genRows[0];
+  await query(
+    `UPDATE power_zones SET generator_id=$1, source_type='city_grid', capacity_kw=$2 WHERE id=$3`,
+    [gen.id, gen.capacity_kw, zoneId]
+  );
+  await recomputePower();
+  return { zoneId, generatorId: gen.id, generatorName: gen.name };
 }
 
 export async function getZonePowerInfo(zoneId) {

@@ -998,14 +998,29 @@ async function zoneEditForm(rec, isNew) {
           ${!canRoof && !canBasement ? `<div style="color:var(--danger);font-size:12px;font-weight:600;margin-bottom:6px">⚠ Generators already exist in both rooms — remove one first.</div>` : ''}
           <button class="action-btn success" onclick='installGeneratorQuick(${JSON.stringify(rec.id)})' ${!canRoof && !canBasement ? 'disabled' : ''}>Install Building Generator</button>
         ` : !flags.is_interior && !flags.is_apartment ? `
-          ${zonePowerInfo ? `
-            <div class="zone-subitem-row">
-              <span>Served by <strong>${zonePowerInfo.generator_name || zonePowerInfo.generator_id || 'Unknown'}</strong> — <span class="text-dim">${(zonePowerInfo.available_kw ?? 0).toFixed(1)}/${zonePowerInfo.max_capacity_kw ?? 50}kW available, ${zonePowerInfo.status}</span></span>
-            </div>
-            <div class="zone-subsection-note">This exterior zone is powered by the city grid. Install a City Power Plant here to add a new generator to the grid.</div>
-          ` : `
-            <div class="zone-subitem-empty">No power zone record — not connected to the city grid. Use Fix Zone Connections in the Power tab.</div>
-          `}
+          ${(() => {
+            const cityGens = allGens.filter(g => g.generator_type === 'city_plant');
+            if (zonePowerInfo) {
+              return `
+                <div class="zone-subitem-row">
+                  <span>Served by <strong>${zonePowerInfo.generator_name || zonePowerInfo.generator_id || 'Unknown'}</strong> — <span class="text-dim">${(zonePowerInfo.available_kw ?? 0).toFixed(1)}/${zonePowerInfo.max_capacity_kw ?? 50}kW available, ${zonePowerInfo.status}</span></span>
+                </div>
+                ${cityGens.length > 1 ? `
+                  <div class="field-row" style="margin-top:8px">
+                    <div class="field"><label>Reassign to generator</label>
+                      <select id="zone-gen-reassign-select">
+                        ${cityGens.map(g => `<option value="${g.id}" ${g.id === zonePowerInfo.generator_id ? 'selected' : ''}>${g.name || g.id} (${g.capacity_kw}kW)</option>`).join('')}
+                      </select>
+                    </div>
+                    <div class="field" style="display:flex;align-items:flex-end">
+                      <button class="action-btn" onclick="reassignZoneGenerator('${rec.id}')">Reassign</button>
+                    </div>
+                  </div>
+                ` : ''}
+              `;
+            }
+            return `<div class="zone-subitem-empty">No power zone record — not connected to the city grid. Use Fix Zone Connections in the Power tab.</div>`;
+          })()}
           <div class="zone-subsection-note" style="margin-bottom:8px;margin-top:6px">Install a new City Power Plant at this location.</div>
           <div class="field-row" style="margin-top:6px">
             <div class="field"><label>Capacity (kW)</label><input type="number" id="gen-install-capacity" placeholder="auto (500)"></div>
@@ -1303,6 +1318,16 @@ async function _installBuildingGenerator(zoneId, rec) {
   });
   if (genResult?.error) { toast(`Generator install failed: ${genResult.error}`, true); return; }
   toast(`Generator installed — powering ${genResult.poweredZones?.length || 0} zone(s)`);
+  await refreshZoneEditPanel(zoneId);
+}
+
+async function reassignZoneGenerator(zoneId) {
+  const select = document.getElementById('zone-gen-reassign-select');
+  if (!select) return;
+  const generatorId = select.value;
+  const result = await API(`/environment/power/zones/${encodeURIComponent(zoneId)}/reassign`, 'POST', { generatorId });
+  if (result?.error) { toast(result.error, true); return; }
+  toast(`Reassigned to ${result.generatorName || generatorId}`);
   await refreshZoneEditPanel(zoneId);
 }
 
