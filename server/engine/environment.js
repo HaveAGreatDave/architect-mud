@@ -260,8 +260,7 @@ export async function initEnvironment({ query, emitHook, broadcast }) {
   scheduleTicks();
   state.ready = true;
 
-  // Sync streetlights to the current phase on boot, then recompute power so
-  // zone loads reflect the correct light_on state from the start.
+  // Sync streetlights to the current phase on boot (no client messages — nobody is connected yet).
   const bootLightsOn = (state.phase === 'night' || state.phase === 'dusk') ? 1 : 0;
   await query(`UPDATE furniture SET light_on=$1 WHERE light_type='streetlight'`, [bootLightsOn]).catch(()=>{});
   await recomputePower().catch(() => {});
@@ -449,6 +448,36 @@ async function tick1m() {
   await flickerOverloadedZones();
 }
 
+// Turn streetlights on or off in response to the day/night cycle.
+// Only powered zones get lights turned on; all zones have lights turned off.
+// Sends a zone_event message and triggers a look refresh for each affected zone.
+async function syncStreetlights(lightOn) {
+  const { query, broadcast } = deps;
+  const condition = lightOn
+    ? `f.light_type = 'streetlight' AND f.light_on = 0
+       AND EXISTS (SELECT 1 FROM power_zones pz WHERE pz.id = f.zone_id AND pz.status = 'powered')`
+    : `f.light_type = 'streetlight' AND f.light_on = 1`;
+
+  const { rows: affected } = await query(
+    `SELECT DISTINCT f.zone_id FROM furniture f WHERE ${condition}`
+  ).catch(() => ({ rows: [] }));
+
+  if (!affected.length) return;
+
+  await query(`UPDATE furniture f SET light_on = ${lightOn ? 1 : 0} WHERE ${condition}`).catch(() => {});
+
+  if (broadcast) {
+    const msg = lightOn
+      ? '<span class="power-restore">The streetlights flicker to life as darkness falls.</span><br>'
+      : '<span class="ambient">The streetlights dim and go dark as daylight returns.</span><br>';
+    for (const { zone_id } of affected) {
+      broadcast(zone_id, { type: 'zone_event', message: msg, refresh: true });
+    }
+  }
+
+  await recomputePower().catch(() => {});
+}
+
 // ---------------------------------------------------------------------------
 // 30-Minute Environmental Tick
 // Ambient light → visibility baseline → streetlights → full client sync.
@@ -465,18 +494,12 @@ async function tick30m() {
 
   await query(`UPDATE world_clock SET last_tick_30m = now() WHERE id = 1`);
 
-  // Street lights are city-grid infrastructure, not player-switchable —
-  // they follow the day/night cycle directly rather than a room switch.
+  // Street lights follow the day/night cycle automatically.
   if (prevPhase !== state.phase) {
     const nowDark = state.phase === 'night' || state.phase === 'dusk';
     const wasDark = prevPhase === 'night' || prevPhase === 'dusk';
-    if (nowDark && !wasDark) {
-      await query(`UPDATE furniture SET light_on=1 WHERE light_type='streetlight'`).catch(()=>{});
-      await recomputePower().catch(() => {});
-    } else if (!nowDark && wasDark) {
-      await query(`UPDATE furniture SET light_on=0 WHERE light_type='streetlight'`).catch(()=>{});
-      await recomputePower().catch(() => {});
-    }
+    if (nowDark && !wasDark) await syncStreetlights(true).catch(() => {});
+    else if (!nowDark && wasDark) await syncStreetlights(false).catch(() => {});
   }
 
   const payload = getHUDPayload();
@@ -952,6 +975,7 @@ export function getEnvironmentState() {
 
 export async function devSetTime({ date, minutes }) {
   const { query, broadcast } = deps;
+  const prevPhase = state.phase;
   if (date) state.date = date;
   if (minutes !== undefined) state.minutes = ((Number(minutes) % (24 * 60)) + 24 * 60) % (24 * 60);
   state.dayOfWeek = dayOfWeekFor(state.date);
@@ -960,6 +984,9 @@ export async function devSetTime({ date, minutes }) {
     `UPDATE world_clock SET game_date = $1, game_time_minutes = $2, day_of_week = $3 WHERE id = 1`,
     [state.date, state.minutes, state.dayOfWeek]
   );
+  const nowDark = state.phase === 'night' || state.phase === 'dusk';
+  const wasDark = prevPhase === 'night' || prevPhase === 'dusk';
+  if (nowDark !== wasDark) await syncStreetlights(nowDark).catch(() => {});
   const payload = getHUDPayload();
   if (broadcast) broadcast({ type: 'environment.sync', ...payload });
   return payload;
