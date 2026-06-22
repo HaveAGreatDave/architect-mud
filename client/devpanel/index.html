@@ -2346,9 +2346,16 @@ function furnitureEditForm(rec, isNew) {
         ${zoneOptions}
       </select>
     </div>` : `<input type="hidden" id="f-zone_id" value="${rec.zone_id||''}">`}
-    ${rec.is_light ? `<div class="field"><label>Power Draw (W)</label>
-      <input id="f-power_draw_kw" type="number" min="0" step="1" value="${rec.power_draw_kw ?? ''}" placeholder="Leave blank to use default for light type">
-    </div>` : ''}
+    ${rec.is_light ? (() => {
+      const LIGHT_DEFAULTS = { streetlight: 200, overhead: 20, lamp: 5 };
+      const defaultW = LIGHT_DEFAULTS[rec.light_type] ?? 5;
+      const effectiveW = rec.power_draw_kw ?? defaultW;
+      const isCustom = rec.power_draw_kw != null;
+      return `<div class="field"><label>Power Draw (W)</label>
+        <input id="f-power_draw_kw" type="number" min="0" step="1" value="${effectiveW}">
+        <div style="font-size:10px;color:var(--text-dim);margin-top:3px">${isCustom ? `Custom (system default for ${rec.light_type||'this type'}: ${defaultW}W)` : `Default for ${rec.light_type||'this type'} — clear to reset`}</div>
+      </div>`;
+    })() : ''}
   `;
 }
 async function saveFurniture(existing) {

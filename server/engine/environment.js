@@ -90,9 +90,10 @@ const STORM_GENERATOR_FAULT_CHANCE = 0.10; // per 24h tick, per non-building gen
 
 // Fixture draw values stored and compared in Watts (column still named *_kw
 // for historical reasons — the unit is W throughout the engine).
-const DRAW_OVERHEAD_W    = 100;   // 100 W fluorescent / LED panel
-const DRAW_STREETLIGHT_W = 150;   // 150 W HPS / LED streetlight
-const DRAW_DEFAULT_W     = 50;    // 50 W generic fixture
+const DRAW_OVERHEAD_W    = 20;    //  20 W overhead panel
+const DRAW_STREETLIGHT_W = 200;   // 200 W HPS / LED streetlight
+const DRAW_LAMP_W        = 5;     //   5 W bar lamp / small fixture
+const DRAW_DEFAULT_W     = 5;     //   5 W generic fixture
 
 const VISIBILITY_CLEAR = 0.6;
 const VISIBILITY_DIM = 0.35;
@@ -577,6 +578,7 @@ async function applyPowerLightEffects(query, zoneId, prevStatus, newStatus, avai
           CASE light_type
             WHEN 'overhead'    THEN ${DRAW_OVERHEAD_W}
             WHEN 'streetlight' THEN ${DRAW_STREETLIGHT_W}
+            WHEN 'lamp'        THEN ${DRAW_LAMP_W}
             ELSE ${DRAW_DEFAULT_W}
           END
         ) AS draw_kw
@@ -673,6 +675,7 @@ async function simulatePowerNetwork(query, { weatherType }) {
         WHEN f.power_draw_kw IS NOT NULL THEN f.power_draw_kw
         WHEN f.light_type = 'overhead'    THEN ${DRAW_OVERHEAD_W}
         WHEN f.light_type = 'streetlight' THEN ${DRAW_STREETLIGHT_W}
+        WHEN f.light_type = 'lamp'        THEN ${DRAW_LAMP_W}
         ELSE ${DRAW_DEFAULT_W}
       END), 0)
       FROM furniture f WHERE f.zone_id = pz.id AND (
@@ -1430,6 +1433,7 @@ export async function recalcZoneLoad(queryFn, zoneId) {
         WHEN power_draw_kw IS NOT NULL THEN power_draw_kw
         WHEN light_type = 'overhead'    THEN ${DRAW_OVERHEAD_W}
         WHEN light_type = 'streetlight' THEN ${DRAW_STREETLIGHT_W}
+        WHEN light_type = 'lamp'        THEN ${DRAW_LAMP_W}
         ELSE ${DRAW_DEFAULT_W}
       END
     ), 0) AS total_load
