@@ -3978,15 +3978,11 @@ function renderTimeWeatherPanel(data) {
 
     </div>`;
 
-  // Tick the displayed clock every minute without re-fetching the panel.
-  let _twMinutes = (h => h)((() => { const [h,m] = timeStr.split(':').map(Number); return h*60+(m||0); })());
-  _panelClockInterval = setInterval(() => {
-    _twMinutes = (_twMinutes + 1) % (24 * 60);
+  _panelClockInterval = setInterval(async () => {
     const el = document.getElementById('tw-live-clock');
     if (!el) { clearInterval(_panelClockInterval); _panelClockInterval = null; return; }
-    const hh = String(Math.floor(_twMinutes / 60)).padStart(2, '0');
-    const mm = String(_twMinutes % 60).padStart(2, '0');
-    el.textContent = `${hh}:${mm}`;
+    const state = await API('/environment/state');
+    if (state?.time) el.textContent = state.time;
   }, 60_000);
 }
 
