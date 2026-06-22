@@ -738,10 +738,34 @@ export async function removeGenerator(generatorId) {
   const { query } = deps;
   const { rows } = await query('SELECT * FROM generators WHERE id=$1', [generatorId]);
   if (!rows.length) throw new Error('Generator not found');
+  const zoneId = rows[0].zone_id;
   await query('DELETE FROM power_zones WHERE generator_id=$1', [generatorId]);
   await query('DELETE FROM generators WHERE id=$1', [generatorId]);
+  // If the generator was in a dedicated room (is_interior), and that room is
+  // now empty of content, remove it so a stale roof/basement isn't left behind.
+  if (zoneId) {
+    const [npcs, furn, otherGen] = await Promise.all([
+      query('SELECT 1 FROM npcs WHERE zone_id=$1 LIMIT 1', [zoneId]),
+      query('SELECT 1 FROM furniture WHERE zone_id=$1 LIMIT 1', [zoneId]),
+      query('SELECT 1 FROM generators WHERE zone_id=$1 LIMIT 1', [zoneId]),
+    ]);
+    const zoneRow = await query(`SELECT flags FROM zones WHERE id=$1`, [zoneId]);
+    const isInterior = zoneRow.rows[0]?.flags?.is_interior;
+    if (isInterior && !npcs.rows.length && !furn.rows.length && !otherGen.rows.length) {
+      // Remove exit from parent zones pointing at this room, then delete it.
+      const { rows: parents } = await query(
+        `SELECT id, exits FROM zones WHERE exits::text LIKE $1`, [`%${zoneId}%`]
+      );
+      for (const p of parents) {
+        const newExits = Object.fromEntries(Object.entries(p.exits || {}).filter(([, v]) => v !== zoneId));
+        await query('UPDATE zones SET exits=$1 WHERE id=$2', [JSON.stringify(newExits), p.id]);
+      }
+      await query('DELETE FROM lighting_states WHERE zone_id=$1', [zoneId]);
+      await query('DELETE FROM zones WHERE id=$1', [zoneId]);
+    }
+  }
   await recomputePower();
-  return { ok: true };
+  return { ok: true, deletedZone: zoneId };
 }
 
 export async function getGeneratorsList() {

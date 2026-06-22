@@ -365,9 +365,13 @@ async function apiLinkInterior(body, auth) {
 
   // Mark the entry zone as a building and record which exterior zone it exits to.
   const intFlags = JSON.stringify({ ...(intRows[0].flags || {}), is_interior: true, is_building: true, world_exit_zone: exteriorZoneId });
-  // Update exterior zone exits and interior zone map placement
+  // Add the return exit on the interior zone (opposite direction back to the exterior zone).
+  const OPPOSITE = { north:'south', south:'north', east:'west', west:'east', up:'down', down:'up', in:'out', out:'in' };
+  const returnDir = OPPOSITE[direction] || 'out';
+  const intExits = JSON.stringify({ ...(intRows[0].exits || {}), [returnDir]: exteriorZoneId });
+  // Update exterior zone exits and interior zone map placement + return exit.
   await query('UPDATE zones SET exits=$1 WHERE id=$2', [JSON.stringify(exits), exteriorZoneId]);
-  await query('UPDATE zones SET map_id=$1, grid_x=0, grid_y=0, grid_z=0, flags=$2 WHERE id=$3', [interiorMap.id, intFlags, interiorZoneId]);
+  await query('UPDATE zones SET map_id=$1, grid_x=0, grid_y=0, grid_z=0, flags=$2, exits=$3 WHERE id=$4', [interiorMap.id, intFlags, intExits, interiorZoneId]);
   await Promise.all([reloadZone(exteriorZoneId), reloadZone(interiorZoneId)]);
 
   return { status: 200, body: { interiorMap } };
@@ -889,28 +893,37 @@ async function apiGetWindows(fullUrl) {
     : await query('SELECT * FROM windows');
   return { status:200, body:rows };
 }
-async function apiCreateWindow(body) {
-  const id = randomUUID();
+export async function apiCreateWindow(body) {
   const { name='window', description='A window.', zone_interior, zone_exterior=null, curtain_open=1, glass_state='intact', light_transmission=0.8, visibility_transmission=0.8 } = body||{};
   if (!zone_interior) return { status:400, body:{error:'zone_interior required'} };
-  await query('INSERT INTO windows (id,name,description,zone_interior,zone_exterior,curtain_open,glass_state,light_transmission,visibility_transmission) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
-    [id,name,description,zone_interior,zone_exterior,curtain_open,glass_state,light_transmission,visibility_transmission]);
+  // Auto-generate sequential id (window1, window2, …) if not provided.
+  let id = body.id;
+  if (!id) {
+    const { rows: existing } = await query(`SELECT id FROM windows WHERE id ~ '^window[0-9]+$'`);
+    const nums = existing.map(r => parseInt(r.id.replace('window',''),10)).filter(n => !isNaN(n));
+    const next = nums.length ? Math.max(...nums) + 1 : 1;
+    id = `window${next}`;
+  }
+  // Auto-generate handle from name if not provided.
+  const handle = body.handle || name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g,'');
+  await query('INSERT INTO windows (id,name,handle,description,zone_interior,zone_exterior,curtain_open,glass_state,light_transmission,visibility_transmission) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
+    [id,name,handle,description,zone_interior,zone_exterior,curtain_open,glass_state,light_transmission,visibility_transmission]);
   await reloadWindowsEnv().catch(()=>{});
   return { status:201, body:{id} };
 }
-async function apiUpdateWindow(id, body) {
-  const { name, description, zone_interior, zone_exterior, curtain_open, glass_state, light_transmission, visibility_transmission } = body||{};
+export async function apiUpdateWindow(id, body) {
+  const { name, description, handle, zone_interior, zone_exterior, curtain_open, glass_state, light_transmission, visibility_transmission } = body||{};
   await query(`UPDATE windows SET
-    name=COALESCE($1,name), description=COALESCE($2,description),
-    zone_interior=COALESCE($3,zone_interior), zone_exterior=$4,
-    curtain_open=COALESCE($5,curtain_open), glass_state=COALESCE($6,glass_state),
-    light_transmission=COALESCE($7,light_transmission), visibility_transmission=COALESCE($8,visibility_transmission)
-    WHERE id=$9`,
-    [name,description,zone_interior,zone_exterior??null,curtain_open,glass_state,light_transmission,visibility_transmission,id]);
+    name=COALESCE($1,name), handle=COALESCE($2,handle), description=COALESCE($3,description),
+    zone_interior=COALESCE($4,zone_interior), zone_exterior=$5,
+    curtain_open=COALESCE($6,curtain_open), glass_state=COALESCE($7,glass_state),
+    light_transmission=COALESCE($8,light_transmission), visibility_transmission=COALESCE($9,visibility_transmission)
+    WHERE id=$10`,
+    [name,handle,description,zone_interior,zone_exterior??null,curtain_open,glass_state,light_transmission,visibility_transmission,id]);
   await reloadWindowsEnv().catch(()=>{});
   return { status:200, body:{updated:true} };
 }
-async function apiDeleteWindow(id) {
+export async function apiDeleteWindow(id) {
   await query('DELETE FROM windows WHERE id=$1',[id]);
   await reloadWindowsEnv().catch(()=>{});
   return { status:200, body:{deleted:true} };

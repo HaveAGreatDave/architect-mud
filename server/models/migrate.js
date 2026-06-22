@@ -213,6 +213,7 @@ export async function migrate() {
       visibility_transmission FLOAT NOT NULL DEFAULT 0.8,
       flags JSONB DEFAULT '{}'
     );
+    ALTER TABLE windows ADD COLUMN IF NOT EXISTS handle TEXT;
 
     CREATE TABLE IF NOT EXISTS factions (
       id TEXT PRIMARY KEY,

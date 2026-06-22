@@ -157,6 +157,25 @@ function cmdHelp(player) {
   return { type:'help', message: msg };
 }
 
+async function cmdOpenWindow(args, player, action) {
+  // args: [handle, 'curtains'?] or [handle]
+  if (!args.length) return { type:'error', message:`${action} what? Try: ${action} <window handle>` };
+  const handle = args[0];
+  const curtainsOnly = args[1] === 'curtains';
+  const { rows } = await query('SELECT * FROM windows WHERE zone_interior=$1 AND (handle=$2 OR id=$2)', [player.current_zone, handle]);
+  if (!rows.length) return { type:'error', message:`You don't see a window called "${handle}" here.` };
+  const win = rows[0];
+  if (action === 'open') {
+    if (win.curtain_open && !curtainsOnly) return { type:'message', message:`The curtains on ${win.name} are already open.` };
+    await query('UPDATE windows SET curtain_open=1 WHERE id=$1', [win.id]);
+    return { type:'message', message:`You open the curtains on ${win.name}.` };
+  } else {
+    if (!win.curtain_open && !curtainsOnly) return { type:'message', message:`The curtains on ${win.name} are already closed.` };
+    await query('UPDATE windows SET curtain_open=0 WHERE id=$1', [win.id]);
+    return { type:'message', message:`You draw the curtains on ${win.name}.` };
+  }
+}
+
 export const handlers = {
   examine:  (args, raw, player) => cmdExamine(args.join(' '), player),
   ex:       (args, raw, player) => cmdExamine(args.join(' '), player),
@@ -171,4 +190,6 @@ export const handlers = {
   '?':      (args, raw, player) => cmdHelp(player),
   teleport: (args, raw, player, broadcast) => cmdTeleport(args.join(' '), player, broadcast),
   tp:       (args, raw, player, broadcast) => cmdTeleport(args.join(' '), player, broadcast),
+  open:     (args, raw, player) => cmdOpenWindow(args, player, 'open'),
+  close:    (args, raw, player) => cmdOpenWindow(args, player, 'close'),
 };

@@ -7,11 +7,13 @@
 // call them inside async request handlers, never at module evaluation time).
 
 import { query } from '../models/db.js';
+import { removeGenerator } from '../engine/environment.js';
 import {
   apiCreateZone, apiDeleteZone,
   apiCreateFurniture, apiDeleteFurniture,
   apiUpdateZone, apiUpdateEnemy, apiUpdateItem, apiUpdateNpc,
   apiUpdateFurniture, apiUpdateRecipe, apiUpdateMutation, apiUpdateDrug,
+  apiCreateWindow, apiUpdateWindow, apiDeleteWindow,
 } from './routes.js';
 
 const DEV_ROLES = ['dev', 'admin', 'builder', 'designer'];
@@ -98,11 +100,13 @@ const UPDATERS = {
   recipe:    (id, data) => apiUpdateRecipe(id, data),
   mutation:  (id, data) => apiUpdateMutation(id, data),
   drug:      (id, data) => apiUpdateDrug(id, data),
+  window:    (id, data) => apiUpdateWindow(id, data),
 };
 
 const CREATORS = {
   zone:      (data) => apiCreateZone(data, null),
   furniture: (data) => apiCreateFurniture(data),
+  window:    (data) => apiCreateWindow(data),
 };
 
 // Allowed tables for orphan cleanup deletes. Maps table name → zone column.
@@ -120,6 +124,8 @@ const ORPHAN_TABLES = {
 const DELETERS = {
   zone:           (id) => apiDeleteZone(id),
   furniture:      (id) => apiDeleteFurniture(id),
+  generator:      (id) => removeGenerator(id).then(r => ({ status:200, body:r })),
+  window:         (id) => apiDeleteWindow(id),
   // Orphan cleanup: entity_id is "{table}:{refId}"
   orphan_cleanup: async (compositeId) => {
     const sep = compositeId.indexOf(':');

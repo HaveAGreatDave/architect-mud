@@ -172,6 +172,7 @@ let stagingEnabled = true;
 const STAGED_ENTITY_TYPES = {
   '/zones': 'zone', '/enemies': 'enemy', '/items': 'item', '/npcs': 'npc',
   '/furniture': 'furniture', '/recipes': 'recipe', '/mutations': 'mutation', '/drugs': 'drug',
+  '/windows': 'window',
 };
 
 function getEntityType(path) {
@@ -592,8 +593,24 @@ function renderZonesTable(records) {
   const childrenByParent = new Map();
   const childIds = new Set();
 
+  // Group interior/apartment zones under their parent building.
+  // Primary: look at building zone exits pointing to interior zones (authoritative).
   for (const z of records) {
-    if (!z.flags?.is_apartment && !z.flags?.is_interior) continue;
+    if (!z.flags?.is_building) continue;
+    for (const exitZoneId of Object.values(z.exits || {})) {
+      const exitZone = byId.get(exitZoneId);
+      if (exitZone?.flags?.is_interior || exitZone?.flags?.is_apartment) {
+        if (!childrenByParent.has(z.id)) childrenByParent.set(z.id, []);
+        if (!childIds.has(exitZoneId)) {
+          childrenByParent.get(z.id).push(exitZone);
+          childIds.add(exitZoneId);
+        }
+      }
+    }
+  }
+  // Fallback: apartment zones that weren't matched above — use their first exit as parent.
+  for (const z of records) {
+    if (childIds.has(z.id) || !z.flags?.is_apartment) continue;
     const parentId = Object.values(z.exits || {})[0];
     if (parentId && byId.has(parentId)) {
       if (!childrenByParent.has(parentId)) childrenByParent.set(parentId, []);
@@ -720,7 +737,7 @@ async function openEdit(record, isNew) {
   if (currentPanel === 'zones' && record?.id) zoneWindowsRefresh(record.id);
   // Populate world map exit dropdown if this is a building zone
   if (currentPanel === 'zones' && record?.flags?.is_building) {
-    populateWorldZonesDropdown(record.flags?.world_exit_zone);
+    toggleBuildingFields(true, record.id);
   }
 }
 
@@ -881,7 +898,17 @@ async function zoneEditForm(rec, isNew) {
     ]);
     const zoneNpcs = (Array.isArray(npcsData) ? npcsData : []).filter(n => n.zone_id === rec.id);
     const zoneFurniture = (Array.isArray(furnitureData) ? furnitureData : []).filter(f => f.zone_id === rec.id);
-    const zoneGenerator = (Array.isArray(generatorsData) ? generatorsData : []).find(g => g.zone_id === rec.id) || null;
+    const allGens = Array.isArray(generatorsData) ? generatorsData : [];
+    const zoneGenerator = allGens.find(g => g.zone_id === rec.id) || null;
+    const upId = zoneEditExitsState['up'], downId = zoneEditExitsState['down'];
+    const upZone = upId ? allRecords.find(z => z.id === upId) : null;
+    const downZone = downId ? allRecords.find(z => z.id === downId) : null;
+    const genAbove = upId ? allGens.find(g => g.zone_id === upId) : null;
+    const genBelow = downId ? allGens.find(g => g.zone_id === downId) : null;
+    const upIsInterior = !!(upZone?.flags?.is_interior || upZone?.flags?.is_building);
+    const downIsInterior = !!(downZone?.flags?.is_interior || downZone?.flags?.is_building);
+    const canRoof = !upId || (upIsInterior && !genAbove);
+    const canBasement = !downId || (downIsInterior && !genBelow);
     const apartmentRecord = (Array.isArray(apartmentsData) ? apartmentsData : []).find(a => a.zone_id === rec.id) || null;
     zoneEditNpcsCache = zoneNpcs;
     zoneEditFurnitureCache = zoneFurniture;
@@ -889,7 +916,7 @@ async function zoneEditForm(rec, isNew) {
       (z.flags?.is_apartment || z.flags?.is_interior) &&
       Object.values(z.exits || {})[0] === rec.id
     );
-    const freeDirs = ['north','south','east','west','up','down'].filter(d => !zoneEditExitsState[d]);
+    const freeDirs = ['north','south','east','west','up','down','in','out'].filter(d => !zoneEditExitsState[d]);
 
     subSectionsHtml = `
       <div class="zone-subsection">
@@ -948,22 +975,26 @@ async function zoneEditForm(rec, isNew) {
           <div class="zone-subsection-note">Powers every connected light in this building (or, for a city plant, every outdoor zone on the map).</div>
         ` : flags.is_building ? `
           <div class="zone-subitem-empty">No generator installed here.</div>
-          <div class="zone-subsection-note" style="margin-bottom:8px">A new room will be created and wired up as an exit from this building.</div>
+          <div class="zone-subsection-note" style="margin-bottom:8px">Installs in a roof or basement room. If an interior room already exists above/below, the generator is placed there instead of creating a new one.</div>
           <div class="field-row" style="margin-top:6px">
             <div class="field"><label>Location</label>
               <select id="gen-install-location">
-                ${!zoneEditExitsState['up']   ? `<option value="roof">Roof (exit: up)</option>` : ''}
-                ${!zoneEditExitsState['down'] ? `<option value="basement">Basement (exit: down)</option>` : ''}
-                ${zoneEditExitsState['up'] && zoneEditExitsState['down'] ? `<option value="" disabled>Both up and down exits are taken</option>` : ''}
+                ${canRoof ? `<option value="roof">${!upId ? 'Roof (new room: up)' : `Roof — ${upZone?.name || upId}`}</option>` : ''}
+                ${!canRoof && genAbove ? `<option value="" disabled style="color:var(--danger)">⚠ Generator already in ${upZone?.name || 'room above'}</option>` : ''}
+                ${!canRoof && upId && !genAbove ? `<option value="" disabled>Up exit blocked (not an interior room)</option>` : ''}
+                ${canBasement ? `<option value="basement">${!downId ? 'Basement (new room: down)' : `Basement — ${downZone?.name || downId}`}</option>` : ''}
+                ${!canBasement && genBelow ? `<option value="" disabled style="color:var(--danger)">⚠ Generator already in ${downZone?.name || 'room below'}</option>` : ''}
+                ${!canBasement && downId && !genBelow ? `<option value="" disabled>Down exit blocked (not an interior room)</option>` : ''}
               </select>
             </div>
             <div class="field"><label>Capacity (kW)</label><input type="number" id="gen-install-capacity" placeholder="auto (50)"></div>
           </div>
           <div class="field-row">
-            <div class="field"><label>Room Name (optional)</label><input id="gen-install-zonename" placeholder="e.g. ${rec.name || ''} Roof"></div>
+            <div class="field"><label>Room Name <span style="color:var(--text-dim);font-weight:400">(new rooms only)</span></label><input id="gen-install-zonename" placeholder="e.g. ${rec.name || ''} Roof"></div>
             <div class="field"><label>Generator Name (optional)</label><input id="gen-install-name" placeholder="${rec.name || ''} Generator"></div>
           </div>
-          <button class="action-btn success" onclick='installGeneratorQuick(${JSON.stringify(rec.id)})' ${zoneEditExitsState['up'] && zoneEditExitsState['down'] ? 'disabled title="Free up an exit first"' : ''}>Install Building Generator</button>
+          ${!canRoof && !canBasement ? `<div style="color:var(--danger);font-size:12px;font-weight:600;margin-bottom:6px">⚠ Generators already exist in both rooms — remove one first.</div>` : ''}
+          <button class="action-btn success" onclick='installGeneratorQuick(${JSON.stringify(rec.id)})' ${!canRoof && !canBasement ? 'disabled' : ''}>Install Building Generator</button>
         ` : !flags.is_interior && !flags.is_apartment ? `
           <div class="zone-subitem-empty">No generator installed here.</div>
           <div class="zone-subsection-note" style="margin-bottom:8px">Exterior zone — installs a City Power Plant that powers all outdoor zones on the map.</div>
@@ -1014,7 +1045,7 @@ async function zoneEditForm(rec, isNew) {
     <div class="checkbox-field"><input type="checkbox" id="f-pvp_enabled" ${rec.pvp_enabled?'checked':''}><label>PvP Enabled</label></div>
     <div class="checkbox-field"><input type="checkbox" id="f-is_safe_zone" ${rec.is_safe_zone?'checked':''}><label>Safe Zone (no PvP, anchor point)</label></div>
     <div class="checkbox-field"><input type="checkbox" id="f-is_apartment" ${flags.is_apartment?'checked':''}><label>Rentable Apartment (players can RENT, LOCK, SLEEP here)</label></div>
-    <div class="checkbox-field"><input type="checkbox" id="f-is_building" ${flags.is_building?'checked':''} onchange="toggleBuildingFields(this.checked)"><label>Building (appears in a "Buildings:" list and entrance-discovery text on zones that connect to it)</label></div>
+    <div class="checkbox-field"><input type="checkbox" id="f-is_building" ${flags.is_building?'checked':''} onchange="toggleBuildingFields(this.checked,${JSON.stringify(rec.id)})"><label>Building (appears in a "Buildings:" list and entrance-discovery text on zones that connect to it)</label></div>
     <div id="building-fields" style="display:${flags.is_building?'block':'none'}">
       <div class="field"><label>Building Name (optional — defaults to Zone Name if blank)</label><input id="f-building_name" value="${flags.building_name || ''}" placeholder="${rec.name || ''}"></div>
       <div class="field"><label>Building Type (controls entrance-discovery flavor text)</label>
@@ -1063,10 +1094,21 @@ async function zoneEditForm(rec, isNew) {
   `;
 }
 
-function toggleBuildingFields(show) {
+function toggleBuildingFields(show, zoneId) {
   const el = document.getElementById('building-fields');
   if (el) el.style.display = show ? 'block' : 'none';
-  if (show) populateWorldZonesDropdown(document.getElementById('f-world_exit_zone')?.value);
+  if (show) {
+    // Auto-detect the exterior zone that has an exit pointing to this building.
+    let defaultExterior = document.getElementById('f-world_exit_zone')?.value || '';
+    if (!defaultExterior && zoneId) {
+      const exteriorZone = (Array.isArray(allRecords) ? allRecords : []).find(z =>
+        !z.flags?.is_interior && !z.flags?.is_building && !z.flags?.is_apartment &&
+        z.exits && Object.values(z.exits).includes(zoneId)
+      );
+      if (exteriorZone) defaultExterior = exteriorZone.id;
+    }
+    populateWorldZonesDropdown(defaultExterior);
+  }
 }
 
 let _worldExtZonesCache = null;
@@ -1135,7 +1177,7 @@ async function refreshZoneEditPanel(zoneId) {
 // zoneEditExitsState holds the working set for whichever zone is currently
 // open; saveZone() reads from it directly.
 function renderExitsBuilder(selfId) {
-  const dirs = ['north','south','east','west','up','down'];
+  const dirs = ['north','south','east','west','up','down','in','out'];
   const freeDirs = dirs.filter(d => !zoneEditExitsState[d]);
   const zoneOptions = allRecords.filter(z => z.id !== selfId)
     .map(z => `<option value="${z.id}">${z.name} (${z.id})</option>`).join('');
@@ -1193,73 +1235,83 @@ async function installGeneratorQuick(zoneId) {
 async function _installBuildingGenerator(zoneId, rec) {
   const locationEl = document.getElementById('gen-install-location');
   const location = locationEl?.value;
-  if (!location) { toast('No available exit direction — free up "up" or "down" first.', true); return; }
+  if (!location) { toast('No available location — select roof or basement.', true); return; }
 
-  const exitDir    = location === 'roof' ? 'up' : 'down';
-  const returnDir  = location === 'roof' ? 'down' : 'up';
-  const defaultName = `${rec.name || zoneId} ${location === 'roof' ? 'Roof' : 'Basement'}`;
-  const zoneName   = document.getElementById('gen-install-zonename')?.value.trim() || defaultName;
-  const genName    = document.getElementById('gen-install-name')?.value.trim();
+  const exitDir   = location === 'roof' ? 'up' : 'down';
+  const returnDir = location === 'roof' ? 'down' : 'up';
+  const genName   = document.getElementById('gen-install-name')?.value.trim();
   const capacityKw = parseInt(document.getElementById('gen-install-capacity')?.value) || undefined;
-
-  if ((rec.exits || {})[exitDir]) {
-    toast(`The "${exitDir}" exit is already occupied — choose a different location.`, true);
-    return;
-  }
-
   const authHeaders = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
 
-  // Create roof/basement zone directly (bypass staging — generator install is immediate).
-  const newZoneId = `${zoneId}_${location}_${Date.now()}`;
-  const createRes = await fetch('/api/zones', {
-    method: 'POST',
-    headers: authHeaders,
-    body: JSON.stringify({
-      id: newZoneId,
-      name: zoneName,
-      description: location === 'roof'
-        ? `The rooftop of ${rec.name || zoneId}.`
-        : `The basement of ${rec.name || zoneId}.`,
-      danger_rating: rec.danger_rating || 'medium',
-      pvp_enabled: false,
-      is_safe_zone: false,
-      exits: { [returnDir]: zoneId },
-      ambient_events: [],
-      ambient_theme: 'indoors',
-      flags: { is_interior: true },
-      map_id: rec.map_id || null,
-      grid_x: null, grid_y: null, grid_z: 0,
-    }),
-  });
-  const createResult = await createRes.json();
-  if (createResult.error) { toast(`Failed to create ${location} zone: ${createResult.error}`, true); return; }
+  const existingExitZoneId = (rec.exits || {})[exitDir];
+  let targetZoneId;
 
-  // Wire exit from building into new zone.
-  const newExits = { ...(rec.exits || {}), [exitDir]: newZoneId };
-  const exitRes = await fetch(`/api/zones/${zoneId}`, {
-    method: 'PUT',
-    headers: authHeaders,
-    body: JSON.stringify({ exits: newExits }),
-  });
-  const exitResult = await exitRes.json();
-  if (exitResult.error) { toast(`Zone created but exit wiring failed: ${exitResult.error}`, true); }
+  if (existingExitZoneId) {
+    // Reuse the existing interior room — don't create a new zone.
+    targetZoneId = existingExitZoneId;
+  } else {
+    // Create a new roof/basement zone placed at Z±1 above/below the entry zone.
+    const defaultName = `${rec.name || zoneId} ${location === 'roof' ? 'Roof' : 'Basement'}`;
+    const zoneName = document.getElementById('gen-install-zonename')?.value.trim() || defaultName;
+    const newZoneId = `${zoneId}_${location}_${Date.now()}`;
+    const parentGridZ = rec.grid_z ?? 0;
+    const createRes = await fetch('/api/zones', {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({
+        id: newZoneId,
+        name: zoneName,
+        description: location === 'roof' ? `The rooftop of ${rec.name || zoneId}.` : `The basement of ${rec.name || zoneId}.`,
+        danger_rating: rec.danger_rating || 'medium',
+        pvp_enabled: false, is_safe_zone: false,
+        exits: { [returnDir]: zoneId },
+        ambient_events: [], ambient_theme: 'indoors',
+        flags: { is_interior: true },
+        map_id: rec.map_id || null,
+        grid_x: rec.grid_x ?? 0,
+        grid_y: rec.grid_y ?? 0,
+        grid_z: location === 'roof' ? parentGridZ + 1 : parentGridZ - 1,
+      }),
+    });
+    const createResult = await createRes.json();
+    if (createResult.error) { toast(`Failed to create ${location} zone: ${createResult.error}`, true); return; }
+    targetZoneId = newZoneId;
 
-  // Install the generator in the new room.
+    // Wire exit from building into new zone.
+    const exitRes = await fetch(`/api/zones/${zoneId}`, {
+      method: 'PUT', headers: authHeaders,
+      body: JSON.stringify({ exits: { ...(rec.exits || {}), [exitDir]: newZoneId } }),
+    });
+    const exitResult = await exitRes.json();
+    if (exitResult.error) { toast(`Zone created but exit wiring failed: ${exitResult.error}`, true); }
+  }
+
+  const targetZone = allRecords.find(z => z.id === targetZoneId);
+  const fallbackName = targetZone?.name || `${rec.name || zoneId} Generator`;
   const genResult = await API('/environment/power/install', 'POST', {
-    zoneId: newZoneId, generatorType: 'building',
-    name: genName || `${zoneName} Generator`, capacityKw,
+    zoneId: targetZoneId, generatorType: 'building',
+    name: genName || fallbackName, capacityKw,
   });
-  if (genResult?.error) { toast(`Zone created but generator install failed: ${genResult.error}`, true); return; }
-
-  toast(`Generator installed in ${zoneName} — powering ${genResult.poweredZones?.length || 0} zone(s)`);
+  if (genResult?.error) { toast(`Generator install failed: ${genResult.error}`, true); return; }
+  toast(`Generator installed — powering ${genResult.poweredZones?.length || 0} zone(s)`);
   await refreshZoneEditPanel(zoneId);
 }
 
 async function removeGeneratorQuick(generatorId, zoneId) {
-  if (!confirm('Remove this generator? Every zone it powers will go dark.')) return;
-  const result = await API(`/environment/power/generators/${generatorId}`, 'DELETE');
+  if (!confirm('Remove this generator? Stage for deletion — publish to apply.')) return;
+  const result = await API('/staging/stage', 'POST', {
+    entityType: 'generator',
+    entityId: generatorId,
+    entityName: `Generator ${generatorId}`,
+    changeType: 'delete',
+    method: 'DELETE',
+    apiPath: `/environment/power/generators/${generatorId}`,
+    requestBody: {},
+    description: `Remove generator ${generatorId} from zone ${zoneId}`,
+  });
   if (result?.error) { toast(result.error, true); return; }
-  toast('Generator removed');
+  toast('Generator marked for removal — publish to apply');
+  await updateStagingBadge();
   await refreshZoneEditPanel(zoneId);
 }
 
@@ -1379,23 +1431,52 @@ async function deleteNpcQuick(npcId, zoneId) {
 
 // Furniture
 function openAddFurnitureForm(zoneId) {
+  const allFurnitureOptions = (_furnitureAllItems || [])
+    .filter(f => f.zone_id !== zoneId)
+    .sort((a,b) => (a.name||'').localeCompare(b.name||''))
+    .map(f => `<option value="${f.id}">${f.name} (${f.zone_id})</option>`)
+    .join('');
   document.getElementById('zone-add-furniture-form').innerHTML = `
     <div class="zone-inline-form">
-      <div class="field"><label>Name</label><input id="nf-name" placeholder="e.g. Bar Counter"></div>
-      <div class="field"><label>Description</label><textarea id="nf-description" rows="3"></textarea></div>
+      <div style="display:flex;gap:12px;margin-bottom:10px">
+        <label style="cursor:pointer"><input type="radio" name="nf-mode" value="new" checked onchange="document.getElementById('nf-new-fields').style.display='';document.getElementById('nf-clone-fields').style.display='none'"> Create New</label>
+        <label style="cursor:pointer"><input type="radio" name="nf-mode" value="clone" onchange="document.getElementById('nf-new-fields').style.display='none';document.getElementById('nf-clone-fields').style.display=''"> Clone Existing</label>
+      </div>
+      <div id="nf-new-fields">
+        <div class="field"><label>Name</label><input id="nf-name" placeholder="e.g. Bar Counter"></div>
+        <div class="field"><label>Description</label><textarea id="nf-description" rows="3"></textarea></div>
+      </div>
+      <div id="nf-clone-fields" style="display:none">
+        <div class="field"><label>Clone from existing furniture</label>
+          <select id="nf-clone-source"><option value="">— pick one —</option>${allFurnitureOptions}</select>
+        </div>
+      </div>
       <div class="zone-inline-form-actions">
-        <button class="action-btn success" onclick='submitAddFurniture(${JSON.stringify(zoneId)})'>Create</button>
+        <button class="action-btn success" onclick='submitAddFurniture(${JSON.stringify(zoneId)})'>Add</button>
         <button class="action-btn" onclick="document.getElementById('zone-add-furniture-form').innerHTML=''">Cancel</button>
       </div>
     </div>`;
 }
 async function submitAddFurniture(zoneId) {
-  const name = document.getElementById('nf-name').value.trim();
-  const description = document.getElementById('nf-description').value.trim();
-  if (!name) { toast('Furniture name is required', true); return; }
-  const result = await API('/furniture', 'POST', { zone_id: zoneId, name, description, flags: {} });
+  const mode = document.querySelector('input[name="nf-mode"]:checked')?.value || 'new';
+  let body;
+  if (mode === 'clone') {
+    const sourceId = document.getElementById('nf-clone-source')?.value;
+    if (!sourceId) { toast('Pick a furniture item to clone', true); return; }
+    const source = (_furnitureAllItems || []).find(f => f.id === sourceId);
+    if (!source) { toast('Source not found', true); return; }
+    const { id: _id, zone_id: _z, ...rest } = source;
+    body = { ...rest, zone_id: zoneId };
+  } else {
+    const name = document.getElementById('nf-name').value.trim();
+    const description = document.getElementById('nf-description').value.trim();
+    if (!name) { toast('Furniture name is required', true); return; }
+    body = { zone_id: zoneId, name, description, flags: {} };
+  }
+  const result = await API('/furniture', 'POST', body);
   if (result?.error) { toast(result.error, true); return; }
-  toast('Furniture added');
+  toast('Furniture staged — publish to apply');
+  await updateStagingBadge();
   await refreshZoneEditPanel(zoneId);
 }
 function openEditFurnitureQuick(itemId) {
@@ -1781,6 +1862,28 @@ async function saveNpc(existing) {
 
 // --- Furniture panel (grouped by zone) ---
 
+function furnitureItemRow(f, paddingLeft = '28px') {
+  const lightBadge = f.is_light
+    ? `<span style="font-size:10px;background:var(--bg3);padding:1px 5px;border-radius:2px;margin-left:6px;color:${f.light_on ? 'var(--yellow)' : 'var(--text-dim)'}">💡${f.light_type||''}</span>`
+    : '';
+  const stagedBadge = f._markedForDeletion
+    ? `<span style="font-size:10px;background:rgba(255,59,92,0.12);border:1px solid var(--red);color:var(--red);padding:1px 6px;border-radius:2px;margin-left:6px;letter-spacing:0.5px">✕ Marked for Deletion</span>`
+    : f._staged
+      ? `<span style="font-size:10px;background:rgba(245,230,66,0.12);border:1px solid var(--yellow);color:var(--yellow);padding:1px 6px;border-radius:2px;margin-left:6px;letter-spacing:0.5px">! Not Published</span>`
+      : _furniturePublishedNames.has(f.name)
+        ? `<span style="font-size:10px;background:rgba(57,255,143,0.12);border:1px solid var(--accent2);color:var(--accent2);padding:1px 6px;border-radius:2px;margin-left:6px;letter-spacing:0.5px">✓ Published</span>`
+        : '';
+  const nameColor = f._markedForDeletion ? 'var(--red)' : f._staged ? 'var(--yellow)' : _furniturePublishedNames.has(f.name) ? 'var(--accent2)' : 'var(--text-bright)';
+  return `<div style="display:flex;align-items:center;gap:8px;padding:5px 12px 5px ${paddingLeft};border-bottom:1px solid var(--border);background:var(--bg1)">
+    <div style="flex:1;min-width:0">
+      <span style="color:${nameColor}">${f.name}</span>${lightBadge}${stagedBadge}
+      ${f.description ? `<div style="font-size:11px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:500px">${f.description}</div>` : ''}
+    </div>
+    <button class="action-btn" style="font-size:10px;padding:2px 8px" onclick="editRecord('${f.id}')">Edit</button>
+    <button class="action-btn danger" style="font-size:10px;padding:2px 8px" data-fid="${f.id}" data-fname="${f.name.replace(/"/g,'&quot;')}" onclick="deleteFurnitureStaged(this.dataset.fid,this.dataset.fname)">Del</button>
+  </div>`;
+}
+
 // Module-level cache so room/add modals can reference fresh data without
 // re-fetching the whole panel.
 let _furnitureAllItems = [];
@@ -1795,6 +1898,19 @@ function renderFurniturePanel(data) {
   _furnitureAllItems = furniture;
   _furnitureZoneNames = new Map(zones.map(z => [z.id, z.name]));
 
+  // Build interior-to-building mapping from zone exits.
+  // A building zone's exits may include interior zone ids.
+  const _zoneById = new Map(zones.map(z => [z.id, z]));
+  const _interiorParent = new Map(); // interiorZoneId -> buildingZoneId
+  for (const z of zones) {
+    if (z.flags?.is_building && z.exits) {
+      for (const exitZoneId of Object.values(z.exits)) {
+        const exitZone = _zoneById.get(exitZoneId);
+        if (exitZone?.flags?.is_interior) _interiorParent.set(exitZoneId, z.id);
+      }
+    }
+  }
+
   const panel = document.getElementById('list-panel');
 
   const byZone = new Map();
@@ -1804,43 +1920,55 @@ function renderFurniturePanel(data) {
     byZone.get(key).push(f);
   }
 
+  // Also include building zones as parents even if they have no furniture themselves
+  for (const [intId, bldId] of _interiorParent) {
+    if (byZone.has(intId) && !byZone.has(bldId)) byZone.set(bldId, []);
+  }
+
+  // Zones that are interior rooms and belong to a building — rendered as children
+  const _childZones = new Set(_interiorParent.keys());
+
   const zoneKeys = [...byZone.keys()].sort((a, b) => {
     if (a === '__unplaced__') return 1;
     if (b === '__unplaced__') return -1;
     return (_furnitureZoneNames.get(a) || a).localeCompare(_furnitureZoneNames.get(b) || b);
-  });
+  }).filter(zid => !_childZones.has(zid)); // child zones rendered inline under parent
 
   const sections = zoneKeys.map(zoneId => {
-    const items = byZone.get(zoneId);
+    const items = byZone.get(zoneId) || [];
     const isUnplaced = zoneId === '__unplaced__';
     const zoneName = isUnplaced ? 'Unplaced' : (_furnitureZoneNames.get(zoneId) || zoneId);
+    const zone = _zoneById.get(zoneId);
+    const isBuilding = zone?.flags?.is_building;
+
+    // Collect child interior rooms for this building
+    const childSections = isBuilding ? [..._interiorParent.entries()]
+      .filter(([, bldId]) => bldId === zoneId)
+      .map(([intId]) => {
+        const intItems = byZone.get(intId) || [];
+        if (!intItems.length) return '';
+        const intName = _furnitureZoneNames.get(intId) || intId;
+        const intRows = intItems.map(f => furnitureItemRow(f, '42px')).join('');
+        return `<div>
+          <div data-zone-id="${intId}" style="display:flex;align-items:center;gap:0;padding:5px 12px 5px 28px;background:var(--bg2);border-top:1px solid var(--border);cursor:pointer;user-select:none" onclick="fToggle(this)">
+            <span class="f-arrow" style="color:var(--text-dim);font-size:11px;width:14px;display:inline-block;flex-shrink:0">▸</span>
+            <span style="color:var(--accent);font-size:12px">↳ ${intName}</span>
+            <span style="margin-left:auto;font-size:10px;color:var(--text-dim)">${intItems.length} item${intItems.length!==1?'s':''}</span>
+            <button class="action-btn" style="font-size:10px;padding:2px 8px;margin-left:4px" onclick="event.stopPropagation();openFurnitureAddModal('${intId}')">+ Add</button>
+            <button class="action-btn" style="font-size:10px;padding:2px 8px;margin-left:4px" onclick="event.stopPropagation();openFurnitureRoomModal('${intId}')">View Room</button>
+          </div>
+          <div class="f-children" style="display:none">${intRows}</div>
+        </div>`;
+      }).join('')
+    : '';
+
 
     const headerLabel = isUnplaced
       ? `<span style="color:var(--text-dim);font-style:italic">Unplaced</span>`
       : `<span style="color:var(--cyan);font-weight:700;font-size:13px">${zoneName}</span>
          <span style="color:var(--text-dim);font-size:10px;margin-left:4px">${zoneId}</span>`;
 
-    const rows = items.map(f => {
-      const lightBadge = f.is_light
-        ? `<span style="font-size:10px;background:var(--bg3);padding:1px 5px;border-radius:2px;margin-left:6px;color:${f.light_on ? 'var(--yellow)' : 'var(--text-dim)'}">💡${f.light_type||''}</span>`
-        : '';
-      const stagedBadge = f._markedForDeletion
-        ? `<span style="font-size:10px;background:rgba(255,59,92,0.12);border:1px solid var(--red);color:var(--red);padding:1px 6px;border-radius:2px;margin-left:6px;letter-spacing:0.5px">✕ Marked for Deletion</span>`
-        : f._staged
-          ? `<span style="font-size:10px;background:rgba(245,230,66,0.12);border:1px solid var(--yellow);color:var(--yellow);padding:1px 6px;border-radius:2px;margin-left:6px;letter-spacing:0.5px">! Not Published</span>`
-          : _furniturePublishedNames.has(f.name)
-            ? `<span style="font-size:10px;background:rgba(57,255,143,0.12);border:1px solid var(--accent2);color:var(--accent2);padding:1px 6px;border-radius:2px;margin-left:6px;letter-spacing:0.5px">✓ Published</span>`
-            : '';
-      const nameColor = f._markedForDeletion ? 'var(--red)' : f._staged ? 'var(--yellow)' : _furniturePublishedNames.has(f.name) ? 'var(--accent2)' : 'var(--text-bright)';
-      return `<div style="display:flex;align-items:center;gap:8px;padding:5px 12px 5px 28px;border-bottom:1px solid var(--border);background:var(--bg1)">
-        <div style="flex:1;min-width:0">
-          <span style="color:${nameColor}">${f.name}</span>${lightBadge}${stagedBadge}
-          ${f.description ? `<div style="font-size:11px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:500px">${f.description}</div>` : ''}
-        </div>
-        <button class="action-btn" style="font-size:10px;padding:2px 8px" onclick="editRecord('${f.id}')">Edit</button>
-        <button class="action-btn danger" style="font-size:10px;padding:2px 8px" data-fid="${f.id}" data-fname="${f.name.replace(/"/g,'&quot;')}" onclick="deleteFurnitureStaged(this.dataset.fid,this.dataset.fname)">Del</button>
-      </div>`;
-    }).join('');
+    const rows = items.map(f => furnitureItemRow(f, '28px')).join('');
 
     const addBtn = !isUnplaced
       ? `<button class="action-btn" style="font-size:10px;padding:2px 8px;margin-left:8px" onclick="event.stopPropagation();openFurnitureAddModal('${zoneId}')">+ Add</button>`
@@ -1855,7 +1983,7 @@ function renderFurniturePanel(data) {
         ${addBtn}
         ${!isUnplaced ? `<button class="action-btn" style="font-size:10px;padding:2px 8px;margin-left:4px" onclick="event.stopPropagation();openFurnitureRoomModal('${zoneId}')">View Room</button>` : ''}
       </div>
-      <div class="f-children" style="display:none">${rows}</div>
+      <div class="f-children" style="display:none">${rows}${childSections}</div>
     </div>`;
   }).join('');
 
@@ -2285,8 +2413,8 @@ function diveInto(zoneId) {
 // in a working copy and are saved in one batch; broken connections block the
 // save (server is authoritative, this is the live pre-check).
 const MAP_PALETTE = ['#39ff8f','#28e5ff','#f5e642','#ff9a3c','#ff3b5c','#9b59b6','#7ed321','#888888'];
-const MAP_DIR3D = { north:[0,-1,0], south:[0,1,0], east:[1,0,0], west:[-1,0,0], up:[0,0,1], down:[0,0,-1] };
-const MAP_OPP = { north:'south', south:'north', east:'west', west:'east', up:'down', down:'up' };
+const MAP_DIR3D = { north:[0,-1,0], south:[0,1,0], east:[1,0,0], west:[-1,0,0], up:[0,0,1], down:[0,0,-1], in:[0,0,0], out:[0,0,0] };
+const MAP_OPP = { north:'south', south:'north', east:'west', west:'east', up:'down', down:'up', in:'out', out:'in' };
 
 let pendingZonePlacement = null;  // {map_id,grid_x,grid_y,grid_z} for a new zone
 let mapZoneEditReturn = false;    // true when zone editor was opened from the map overview
@@ -2888,8 +3016,7 @@ function renderPowerPanelBody() {
 
   let html = `<div style="padding:12px">
     <div style="display:flex;gap:8px;margin-bottom:12px">
-      <button class="action-btn ${powerPanelMode==='power'?'primary':''}" onclick="setPowerPanelMode('power')">⚡ Power View</button>
-      <button class="action-btn ${powerPanelMode==='zones'?'primary':''}" onclick="setPowerPanelMode('zones')">🗺 Danger View</button>
+      <button class="action-btn primary">⚡ Power View</button>
     </div>
     ${buildDynamicMapGrid(bigMapZones, powerPanelMode, powerById, true)}
     <div style="margin-top:10px;display:flex;gap:14px;flex-wrap:wrap;font-size:10px;color:var(--text-dim)">${mapLegendHtml(powerPanelMode)}</div>
@@ -3081,10 +3208,15 @@ async function zoneWindowsRefresh(zoneId) {
 }
 
 async function zoneWindowDelete(id, name, zoneId) {
-  if (!confirm(`Delete window "${name}"?`)) return;
-  const r = await API(`/windows/${id}`, 'DELETE');
+  if (!confirm(`Stage window "${name}" for deletion? Publish to apply.`)) return;
+  const r = await API('/staging/stage', 'POST', {
+    entityType: 'window', entityId: id, entityName: name,
+    changeType: 'delete', method: 'DELETE', apiPath: `/windows/${id}`,
+    requestBody: {}, description: `Delete window ${name} (${id})`,
+  });
   if (r?.error) { toast(r.error, true); return; }
-  toast(`Window "${name}" deleted`);
+  toast(`Window "${name}" staged for deletion — publish to apply`);
+  await updateStagingBadge();
   zoneWindowsRefresh(zoneId);
 }
 
@@ -3101,7 +3233,16 @@ function _openZoneWindowModal(w, zoneId) {
   const modal = document.getElementById('generic-modal');
   document.getElementById('modal-title').textContent = isNew ? 'Add Window' : `Edit: ${w.name}`;
   document.getElementById('modal-body').innerHTML = `
-    <div class="field"><label>Name</label><input id="zwm-name" value="${w.name||'window'}"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="field"><label>Object ID <span style="color:var(--text-dim);font-weight:400">(auto)</span></label>
+        <input id="zwm-id" value="${w.id||''}" placeholder="auto (window1, window2…)"></div>
+      <div class="field"><label>Display Handle <span style="color:var(--text-dim);font-weight:400">(players use this)</span></label>
+        <input id="zwm-handle" value="${w.handle||''}" placeholder="auto from name"></div>
+    </div>
+    <div class="field"><label>Name</label><input id="zwm-name" value="${w.name||'window'}" oninput="
+      const h=document.getElementById('zwm-handle');
+      if(!h._touched) h.value=this.value.toLowerCase().replace(/\\s+/g,'_').replace(/[^a-z0-9_]/g,'');
+    "></div>
     <div class="field"><label>Description</label><textarea id="zwm-desc" rows="2">${w.description||'A window.'}</textarea></div>
     <div class="field"><label>Exterior Zone ID <span style="color:var(--text-dim);font-weight:400">(leave blank = faces outdoors)</span></label>
       <input id="zwm-exterior" value="${w.zone_exterior||''}"></div>
@@ -3123,9 +3264,16 @@ function _openZoneWindowModal(w, zoneId) {
       <div class="field"><label>Visibility Transmission (0–1)</label>
         <input id="zwm-vis" type="number" min="0" max="1" step="0.05" value="${w.visibility_transmission??0.8}"></div>
     </div>`;
+  // Mark handle as manually touched if user edits it directly
+  document.getElementById('zwm-handle').addEventListener('input', function() { this._touched = true; });
   document.getElementById('modal-save').onclick = async () => {
+    const name = document.getElementById('zwm-name').value.trim();
+    const handle = document.getElementById('zwm-handle').value.trim() || undefined;
+    const customId = document.getElementById('zwm-id').value.trim() || undefined;
+    if (!name) { toast('Name is required', true); return; }
     const body = {
-      name: document.getElementById('zwm-name').value.trim(),
+      ...(customId && isNew ? { id: customId } : {}),
+      name, handle,
       description: document.getElementById('zwm-desc').value.trim(),
       zone_interior: zoneId,
       zone_exterior: document.getElementById('zwm-exterior').value.trim() || null,
@@ -3134,11 +3282,11 @@ function _openZoneWindowModal(w, zoneId) {
       light_transmission: parseFloat(document.getElementById('zwm-light').value),
       visibility_transmission: parseFloat(document.getElementById('zwm-vis').value),
     };
-    if (!body.name) { toast('Name is required', true); return; }
     const r = isNew ? await API('/windows','POST',body) : await API(`/windows/${w.id}`,'PUT',body);
     if (r?.error) { toast(r.error, true); return; }
-    toast(isNew ? 'Window added' : 'Window updated');
+    toast(isNew ? 'Window staged — publish to apply' : 'Window update staged — publish to apply');
     closeModal();
+    await updateStagingBadge();
     zoneWindowsRefresh(zoneId);
   };
   modal.style.display = 'flex';
