@@ -29,6 +29,9 @@ export async function migrateEnvironment(query) {
   await query(`ALTER TABLE world_clock ADD COLUMN IF NOT EXISTS last_tick_1m TIMESTAMPTZ NOT NULL DEFAULT now()`);
   await query(`ALTER TABLE world_clock ADD COLUMN IF NOT EXISTS active_climate_profile_id TEXT`);
 
+  // Rename legacy 'sunny' weather type to 'clear' in all stored data.
+  await query(`UPDATE weather_forecast SET weather_type = 'clear' WHERE weather_type = 'sunny'`);
+
   await query(`
     CREATE TABLE IF NOT EXISTS climate_profiles (
       id TEXT PRIMARY KEY,
