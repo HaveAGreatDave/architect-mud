@@ -79,6 +79,8 @@ export async function migrateEnvironment(query) {
   // Scale kW → W (only rows still at kW scale, i.e. < 10000 — safe because
   // real values will be 100 000+ after this migration runs).
   await query(`UPDATE generators   SET capacity_kw     = capacity_kw     * 1000 WHERE capacity_kw     < 10000`);
+  // Standardise city plant capacity to 10 000 W (old default was 500 000 W).
+  await query(`UPDATE generators SET capacity_kw = 10000 WHERE generator_type = 'city_plant' AND capacity_kw = 500000`);
   await query(`UPDATE power_zones  SET capacity_kw     = capacity_kw     * 1000 WHERE capacity_kw     < 10000`);
   await query(`UPDATE power_zones  SET max_capacity_kw = max_capacity_kw * 1000 WHERE max_capacity_kw < 10000`);
   await query(`UPDATE furniture    SET power_draw_kw   = power_draw_kw   * 1000 WHERE power_draw_kw IS NOT NULL AND power_draw_kw < 1000`);

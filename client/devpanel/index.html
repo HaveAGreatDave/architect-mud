@@ -2401,13 +2401,27 @@ function buildDynamicMapGrid(zones, mode, powerById, clickable) {
           const overdrawn = used > cpGen.capacity_kw;
           const cpStatus = cpGen.status !== 'online' ? 'offline' : overdrawn ? 'overloaded' : '';
           cls = `bigmap-tile bm-power-plant${cpStatus ? ' bm-power-' + cpStatus : ''}`;
-          sub = `<div style="font-size:9px;opacity:0.9;margin-top:2px">⚡ ${used.toFixed(0)}/${cpGen.capacity_kw.toFixed(0)}W</div>`;
+          sub = `<div style="font-size:13px;line-height:1;margin-top:1px">⚡</div><div style="font-size:9px;opacity:0.9">${used.toFixed(0)}/${cpGen.capacity_kw.toFixed(0)}W</div>`;
         } else {
+          // Regular tile: zone draw + attached JB (building) draw / combined supply
+          const jbs = powerJbByOutdoor.get(z.id) || [];
+          const jbLoad = jbs.reduce((s, jb) => s + Number(jb.zone_load_w ?? 0), 0);
+          const jbAlloc = jbs.reduce((s, jb) => s + Math.min(Number(jb.zone_load_w ?? 0), Number(jb.capacity_kw ?? 0)), 0);
+          const zoneLoad = p?.loadKw ?? 0;
+          const totalDraw = zoneLoad + jbLoad;
+          const totalSupply = (p?.availableKw ?? 0) + jbAlloc;
           const status = p ? p.status : 'unpowered';
-          cls = `bigmap-tile bm-power-${status}`;
-          sub = p
-            ? `<div style="font-size:9px;opacity:0.8;margin-top:2px">${(p.loadKw ?? 0).toFixed(1)}W load / ${(p.maxCapacityKw ?? 1000).toFixed(0)}W draw <span onclick="event.stopPropagation();editZoneMaxCapacity('${z.id}')" style="cursor:pointer;opacity:0.6" title="Edit max capacity">✏</span></div>`
-            : `<div style="font-size:9px;opacity:0.6;margin-top:2px">no power</div>`;
+          const isBrownout = totalDraw > 0 && totalSupply > 0 && totalDraw > totalSupply + 0.01;
+          cls = `bigmap-tile bm-power-${isBrownout ? 'overloaded' : status}`;
+          if (totalDraw > 0) {
+            const zIdSafe = z.id.replace(/'/g, "\\'");
+            sub = `<div style="font-size:9px;opacity:0.8;margin-top:2px">${totalDraw.toFixed(0)}/${totalSupply > 0 ? totalSupply.toFixed(0) : totalDraw.toFixed(0)}W <span onclick="event.stopPropagation();editZoneMaxCapacity('${zIdSafe}')" style="cursor:pointer;opacity:0.6" title="Edit max capacity">✏</span></div>`;
+          } else if (p) {
+            const zIdSafe = z.id.replace(/'/g, "\\'");
+            sub = `<div style="font-size:9px;opacity:0.5;margin-top:2px">idle <span onclick="event.stopPropagation();editZoneMaxCapacity('${zIdSafe}')" style="cursor:pointer;opacity:0.6" title="Edit max capacity">✏</span></div>`;
+          } else {
+            sub = `<div style="font-size:9px;opacity:0.6;margin-top:2px">no power</div>`;
+          }
         }
       }
       const click = clickable ? ` onclick="bigMapTileClick('${z.id}')"` : '';
@@ -2461,6 +2475,7 @@ function mapLegendHtml(mode) {
 let bigMapZones = [];
 let bigMapPowerData = [];
 let bigMapGenerators = [];
+let powerJbByOutdoor = new Map(); // outdoor zone id → [jb generators attached via building]
 let bigMapOverlayData = null;
 let bigMapOverlayZ = 0;
 let bigMapOverlayMode = 'zones';
@@ -3252,7 +3267,9 @@ async function renderPowerPanel(zones) {
   bigMapZones = Array.isArray(zones) ? zones : [];
   bigMapPowerData = Array.isArray(powerMap) ? powerMap : [];
   powerPanelGenerators = Array.isArray(generators) ? generators : [];
+  bigMapGenerators = powerPanelGenerators;
   powerPanelAllZones = Array.isArray(allZones) ? allZones : [];
+  powerJbByOutdoor = _buildJbByOutdoor();
   powerPanelMode = 'power';
   powerPanelView = 'city';
   renderPowerPanelBody();
@@ -3577,6 +3594,48 @@ async function _refreshPowerMapData() {
   bigMapPowerData = Array.isArray(powerMap) ? powerMap : [];
   powerPanelGenerators = Array.isArray(generators) ? generators : [];
   bigMapGenerators = powerPanelGenerators;
+  powerJbByOutdoor = _buildJbByOutdoor();
+}
+
+// Build a map: outdoor zone id → [junction box generators] for those JBs whose
+// building entrance is accessible via that outdoor zone's exits (or vice versa).
+function _buildJbByOutdoor() {
+  const result = new Map();
+  for (const jb of powerPanelGenerators) {
+    if (jb.generator_type !== 'junction_box') continue;
+    // BFS forward from JB's zone through interior/apartment zones to find building entrance
+    const seen = new Set([jb.zone_id]);
+    const queue = [jb.zone_id];
+    let entrance = null;
+    outer: while (queue.length) {
+      const cur = queue.shift();
+      const curZ = powerPanelAllZones.find(z => z.id === cur);
+      if (!curZ) continue;
+      for (const exitId of Object.values(curZ.exits || {})) {
+        if (seen.has(exitId)) continue;
+        seen.add(exitId);
+        const neighbor = powerPanelAllZones.find(z => z.id === exitId);
+        if (!neighbor) continue;
+        if (neighbor.flags?.is_building) { entrance = neighbor; break outer; }
+        if (neighbor.flags?.is_interior || neighbor.flags?.is_apartment) queue.push(exitId);
+      }
+    }
+    if (!entrance) continue;
+    // Find outdoor world-map zones connected to this building entrance
+    const addJb = ozId => {
+      if (!result.has(ozId)) result.set(ozId, []);
+      if (!result.get(ozId).find(g => g.id === jb.id)) result.get(ozId).push(jb);
+    };
+    for (const oz of bigMapZones) {
+      if (oz.flags?.is_building || oz.flags?.is_interior || oz.flags?.is_apartment) continue;
+      if (Object.values(oz.exits || {}).includes(entrance.id)) addJb(oz.id);
+    }
+    for (const exitId of Object.values(entrance.exits || {})) {
+      const oz = bigMapZones.find(z => z.id === exitId && !z.flags?.is_building && !z.flags?.is_interior && !z.flags?.is_apartment);
+      if (oz) addJb(oz.id);
+    }
+  }
+  return result;
 }
 
 async function viewGeneratorZones(generatorId) {

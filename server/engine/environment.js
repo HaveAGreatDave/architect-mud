@@ -1050,9 +1050,9 @@ export async function installGenerator({ zoneId, generatorType = 'junction_box',
   const zone = zoneRows[0];
 
   const id = `gen_${zoneId}_${Date.now()}`;
-  // city_plant: 500 000 W. junction_box: 5 000 W default throughput (enough
+  // city_plant: 10 000 W. junction_box: 5 000 W default throughput (enough
   // for a multi-room building with several lights).
-  const capacity = Number(capacityKw) || (generatorType === 'city_plant' ? 500000 : 5000);
+  const capacity = Number(capacityKw) || (generatorType === 'city_plant' ? 10000 : 5000);
   const genName = name || (generatorType === 'city_plant' ? 'City Power Plant' : `${zone.name} Junction Box`);
 
   // Auto-assign nearest city plant for junction boxes if not specified.
