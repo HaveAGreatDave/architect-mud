@@ -453,18 +453,30 @@ async function tick1m() {
 // Sends a zone_event message and triggers a look refresh for each affected zone.
 async function syncStreetlights(lightOn) {
   const { query, broadcast } = deps;
-  const condition = lightOn
-    ? `f.light_type = 'streetlight' AND f.light_on = 0
-       AND EXISTS (SELECT 1 FROM power_zones pz WHERE pz.id = f.zone_id AND pz.status = 'powered')`
-    : `f.light_type = 'streetlight' AND f.light_on = 1`;
 
+  // SELECT can use alias; UPDATE cannot in PostgreSQL — use subquery form instead.
   const { rows: affected } = await query(
-    `SELECT DISTINCT f.zone_id FROM furniture f WHERE ${condition}`
+    lightOn
+      ? `SELECT DISTINCT zone_id FROM furniture
+         WHERE light_type = 'streetlight' AND light_on = 0
+           AND zone_id IN (SELECT id FROM power_zones WHERE status = 'powered')`
+      : `SELECT DISTINCT zone_id FROM furniture
+         WHERE light_type = 'streetlight' AND light_on = 1`
   ).catch(() => ({ rows: [] }));
 
   if (!affected.length) return;
 
-  await query(`UPDATE furniture f SET light_on = ${lightOn ? 1 : 0} WHERE ${condition}`).catch(() => {});
+  if (lightOn) {
+    await query(
+      `UPDATE furniture SET light_on = 1
+       WHERE light_type = 'streetlight' AND light_on = 0
+         AND zone_id IN (SELECT id FROM power_zones WHERE status = 'powered')`
+    ).catch(() => {});
+  } else {
+    await query(
+      `UPDATE furniture SET light_on = 0 WHERE light_type = 'streetlight' AND light_on = 1`
+    ).catch(() => {});
+  }
 
   if (broadcast) {
     const msg = lightOn
@@ -474,8 +486,6 @@ async function syncStreetlights(lightOn) {
       broadcast(zone_id, { type: 'zone_event', message: msg, refresh: true });
     }
   }
-
-  await recomputePower().catch(() => {});
 }
 
 // ---------------------------------------------------------------------------
@@ -498,8 +508,10 @@ async function tick30m() {
   if (prevPhase !== state.phase) {
     const nowDark = state.phase === 'night' || state.phase === 'dusk';
     const wasDark = prevPhase === 'night' || prevPhase === 'dusk';
-    if (nowDark && !wasDark) await syncStreetlights(true).catch(() => {});
-    else if (!nowDark && wasDark) await syncStreetlights(false).catch(() => {});
+    if (nowDark !== wasDark) {
+      await syncStreetlights(nowDark).catch(() => {});
+      await recomputePower().catch(() => {});
+    }
   }
 
   const payload = getHUDPayload();
@@ -986,7 +998,10 @@ export async function devSetTime({ date, minutes }) {
   );
   const nowDark = state.phase === 'night' || state.phase === 'dusk';
   const wasDark = prevPhase === 'night' || prevPhase === 'dusk';
-  if (nowDark !== wasDark) await syncStreetlights(nowDark).catch(() => {});
+  if (nowDark !== wasDark) {
+    await syncStreetlights(nowDark).catch(() => {});
+    await recomputePower().catch(() => {});
+  }
   const payload = getHUDPayload();
   if (broadcast) broadcast({ type: 'environment.sync', ...payload });
   return payload;
