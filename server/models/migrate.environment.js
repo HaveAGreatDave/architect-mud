@@ -55,12 +55,17 @@ export async function migrateEnvironment(query) {
   await query(`ALTER TABLE generators ADD COLUMN IF NOT EXISTS name TEXT`);
   await query(`ALTER TABLE generators ADD COLUMN IF NOT EXISTS remaining_kw REAL NOT NULL DEFAULT 0`);
   await query(`ALTER TABLE power_zones ADD COLUMN IF NOT EXISTS available_kw REAL NOT NULL DEFAULT 0`);
-  await query(`ALTER TABLE power_zones ADD COLUMN IF NOT EXISTS max_capacity_kw REAL NOT NULL DEFAULT 1`);
-  // Migrate zones that still carry the old 50 kW default — realistic per-zone
-  // ceiling is 1 kW (enough for ~10 × 0.1 kW fixtures with headroom).
-  await query(`UPDATE power_zones SET max_capacity_kw = 1 WHERE max_capacity_kw = 50`);
-  // Migrate building generators that used the old 50 kW default to 5 kW.
-  await query(`UPDATE generators SET capacity_kw = 5 WHERE generator_type = 'building' AND capacity_kw = 50`);
+  await query(`ALTER TABLE power_zones ADD COLUMN IF NOT EXISTS max_capacity_kw REAL NOT NULL DEFAULT 1000`);
+  // Junction boxes route city power to buildings — they don't generate their own.
+  await query(`ALTER TABLE generators ADD COLUMN IF NOT EXISTS city_generator_id TEXT REFERENCES generators(id) ON DELETE SET NULL`);
+  // Rename building → junction_box.
+  await query(`UPDATE generators SET generator_type = 'junction_box' WHERE generator_type = 'building'`);
+  // Scale kW → W (only rows still at kW scale, i.e. < 10000 — safe because
+  // real values will be 100 000+ after this migration runs).
+  await query(`UPDATE generators   SET capacity_kw     = capacity_kw     * 1000 WHERE capacity_kw     < 10000`);
+  await query(`UPDATE power_zones  SET capacity_kw     = capacity_kw     * 1000 WHERE capacity_kw     < 10000`);
+  await query(`UPDATE power_zones  SET max_capacity_kw = max_capacity_kw * 1000 WHERE max_capacity_kw < 10000`);
+  await query(`UPDATE furniture    SET power_draw_kw   = power_draw_kw   * 1000 WHERE power_draw_kw IS NOT NULL AND power_draw_kw < 1000`);
 
   await query(`
     CREATE TABLE IF NOT EXISTS power_zones (

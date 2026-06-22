@@ -50,6 +50,10 @@ export async function handleEnvironmentApi(path, method, body, auth) {
     return { status: 200, body: await env.getGeneratorsList() };
   }
 
+  if (path === '/environment/power/city-generators' && method === 'GET') {
+    return { status: 200, body: await env.getCityGenerators() };
+  }
+
   if (path.startsWith('/environment/power/generators/') && path.endsWith('/zones') && method === 'GET') {
     const parts = path.split('/'); // ['', 'environment', 'power', 'generators', id, 'zones']
     const genId = decodeURIComponent(parts[4] || '');
@@ -96,6 +100,10 @@ export async function handleEnvironmentApi(path, method, body, auth) {
       if (path.startsWith('/environment/power/zones/') && method === 'POST') {
         const zoneId = decodeURIComponent(path.split('/')[4] || '');
         return { status: 200, body: await env.setZoneMaxCapacity(zoneId, body?.maxCapacityKw) };
+      }
+      if (path.startsWith('/environment/power/generators/') && path.endsWith('/city-generator') && method === 'POST') {
+        const genId = decodeURIComponent(path.split('/')[4] || '');
+        return { status: 200, body: await env.setJunctionBoxCityGenerator(genId, body?.cityGeneratorId) };
       }
       if (path.startsWith('/environment/power/generators/') && method === 'DELETE') {
         return { status: 200, body: await env.removeGenerator(decodeURIComponent(path.split('/')[4] || '')) };

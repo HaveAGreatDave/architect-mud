@@ -969,47 +969,63 @@ async function zoneEditForm(rec, isNew) {
         <div class="zone-subsection-header">Generator</div>
         ${zoneGenerator ? `
           <div class="zone-subitem-row">
-            <span>${zoneGenerator.name || zoneGenerator.id} — <span class="text-dim">${zoneGenerator.generator_type === 'city_plant' ? 'City Plant' : 'Building'}, ${zoneGenerator.capacity_kw}kW, ${zoneGenerator.status}</span></span>
+            <span>${zoneGenerator.name || zoneGenerator.id} — <span class="text-dim">${zoneGenerator.generator_type === 'city_plant' ? 'City Plant' : 'Junction Box'}, ${Number(zoneGenerator.capacity_kw).toFixed(1)}W, ${zoneGenerator.status}</span></span>
             <span class="zone-subitem-actions">
               <button class="action-btn danger" onclick="removeGeneratorQuick('${zoneGenerator.id}','${rec.id}')">Remove</button>
             </span>
           </div>
-          <div class="zone-subsection-note">Powers every connected light in this building (or, for a city plant, every outdoor zone on the map).</div>
+          <div class="zone-subsection-note">Routes power from the connected city plant to every interior zone in this building (or, for a city plant, every outdoor zone on the map).</div>
+          ${zoneGenerator.generator_type === 'junction_box' ? (() => {
+            const cityGens = allGens.filter(g => g.generator_type === 'city_plant');
+            if (!cityGens.length) return '';
+            const jbId = zoneGenerator.id.replace(/'/g, "\\'");
+            return `<div class="field-row" style="margin-top:8px">
+              <div class="field"><label>City Plant</label>
+                <select id="jb-city-gen-select">
+                  <option value="">— None —</option>
+                  ${cityGens.map(g => `<option value="${g.id}" ${g.id === zoneGenerator.city_generator_id ? 'selected' : ''}>${g.name || g.id} (${Number(g.capacity_kw).toFixed(0)}W)</option>`).join('')}
+                </select>
+              </div>
+              <div class="field" style="display:flex;align-items:flex-end">
+                <button class="action-btn" onclick="setJunctionBoxCityGen('${jbId}','${rec.id}')">Assign</button>
+              </div>
+            </div>`;
+          })() : ''}
         ` : flags.is_building ? `
-          <div class="zone-subitem-empty">No generator installed here.</div>
-          <div class="zone-subsection-note" style="margin-bottom:8px">Installs in a roof or basement room. If an interior room already exists above/below, the generator is placed there instead of creating a new one.</div>
+          <div class="zone-subitem-empty">No junction box installed here.</div>
+          <div class="zone-subsection-note" style="margin-bottom:8px">Installs in a roof or basement room. If an interior room already exists above/below, the junction box is placed there instead of creating a new one.</div>
           <div class="field-row" style="margin-top:6px">
             <div class="field"><label>Location</label>
               <select id="gen-install-location">
                 ${canRoof ? `<option value="roof">${!upId ? 'Roof (new room: up)' : `Roof — ${upZone?.name || upId}`}</option>` : ''}
-                ${!canRoof && genAbove ? `<option value="" disabled style="color:var(--danger)">⚠ Generator already in ${upZone?.name || 'room above'}</option>` : ''}
+                ${!canRoof && genAbove ? `<option value="" disabled style="color:var(--danger)">⚠ Junction box already in ${upZone?.name || 'room above'}</option>` : ''}
                 ${!canRoof && upId && !genAbove ? `<option value="" disabled>Up exit blocked (not an interior room)</option>` : ''}
                 ${canBasement ? `<option value="basement">${!downId ? 'Basement (new room: down)' : `Basement — ${downZone?.name || downId}`}</option>` : ''}
-                ${!canBasement && genBelow ? `<option value="" disabled style="color:var(--danger)">⚠ Generator already in ${downZone?.name || 'room below'}</option>` : ''}
+                ${!canBasement && genBelow ? `<option value="" disabled style="color:var(--danger)">⚠ Junction box already in ${downZone?.name || 'room below'}</option>` : ''}
                 ${!canBasement && downId && !genBelow ? `<option value="" disabled>Down exit blocked (not an interior room)</option>` : ''}
               </select>
             </div>
-            <div class="field"><label>Capacity (kW)</label><input type="number" id="gen-install-capacity" placeholder="auto (50)"></div>
+            <div class="field"><label>Throughput (W)</label><input type="number" id="gen-install-capacity" placeholder="auto (5000)"></div>
           </div>
           <div class="field-row">
             <div class="field"><label>Room Name <span style="color:var(--text-dim);font-weight:400">(new rooms only)</span></label><input id="gen-install-zonename" placeholder="e.g. ${rec.name || ''} Roof"></div>
-            <div class="field"><label>Generator Name (optional)</label><input id="gen-install-name" placeholder="${rec.name || ''} Generator"></div>
+            <div class="field"><label>Junction Box Name (optional)</label><input id="gen-install-name" placeholder="${rec.name || ''} Junction Box"></div>
           </div>
-          ${!canRoof && !canBasement ? `<div style="color:var(--danger);font-size:12px;font-weight:600;margin-bottom:6px">⚠ Generators already exist in both rooms — remove one first.</div>` : ''}
-          <button class="action-btn success" onclick='installGeneratorQuick(${JSON.stringify(rec.id)})' ${!canRoof && !canBasement ? 'disabled' : ''}>Install Building Generator</button>
+          ${!canRoof && !canBasement ? `<div style="color:var(--danger);font-size:12px;font-weight:600;margin-bottom:6px">⚠ Junction boxes already exist in both rooms — remove one first.</div>` : ''}
+          <button class="action-btn success" onclick='installGeneratorQuick(${JSON.stringify(rec.id)})' ${!canRoof && !canBasement ? 'disabled' : ''}>Install Junction Box</button>
         ` : !flags.is_interior && !flags.is_apartment ? `
           ${(() => {
             const cityGens = allGens.filter(g => g.generator_type === 'city_plant');
             if (zonePowerInfo) {
               return `
                 <div class="zone-subitem-row">
-                  <span>Served by <strong>${zonePowerInfo.generator_name || zonePowerInfo.generator_id || 'Unknown'}</strong> — <span class="text-dim">${(zonePowerInfo.available_kw ?? 0).toFixed(3)}/${Number(zonePowerInfo.max_capacity_kw ?? 1).toFixed(3)}kW available, ${zonePowerInfo.status}</span></span>
+                  <span>Served by <strong>${zonePowerInfo.generator_name || zonePowerInfo.generator_id || 'Unknown'}</strong> — <span class="text-dim">${(zonePowerInfo.available_kw ?? 0).toFixed(1)}/${Number(zonePowerInfo.max_capacity_kw ?? 1000).toFixed(1)}W available, ${zonePowerInfo.status}</span></span>
                 </div>
                 ${cityGens.length > 1 ? `
                   <div class="field-row" style="margin-top:8px">
                     <div class="field"><label>Reassign to generator</label>
                       <select id="zone-gen-reassign-select">
-                        ${cityGens.map(g => `<option value="${g.id}" ${g.id === zonePowerInfo.generator_id ? 'selected' : ''}>${g.name || g.id} (${g.capacity_kw}kW)</option>`).join('')}
+                        ${cityGens.map(g => `<option value="${g.id}" ${g.id === zonePowerInfo.generator_id ? 'selected' : ''}>${g.name || g.id} (${Number(g.capacity_kw).toFixed(0)}W)</option>`).join('')}
                       </select>
                     </div>
                     <div class="field" style="display:flex;align-items:flex-end">
@@ -1023,17 +1039,27 @@ async function zoneEditForm(rec, isNew) {
           })()}
           <div class="zone-subsection-note" style="margin-bottom:8px;margin-top:6px">Install a new City Power Plant at this location.</div>
           <div class="field-row" style="margin-top:6px">
-            <div class="field"><label>Capacity (kW)</label><input type="number" id="gen-install-capacity" placeholder="auto (500)"></div>
+            <div class="field"><label>Capacity (W)</label><input type="number" id="gen-install-capacity" placeholder="auto (500000)"></div>
           </div>
           <div class="field"><label>Name (optional)</label><input id="gen-install-name" placeholder="${rec.name || ''} Power Plant"></div>
           <button class="action-btn success" onclick='installGeneratorQuick(${JSON.stringify(rec.id)})'>Install City Power Plant</button>
         ` : `
-          <div class="zone-subitem-empty">No generator installed here.</div>
+          <div class="zone-subitem-empty">No junction box installed here.</div>
           <div class="field-row" style="margin-top:6px">
-            <div class="field"><label>Capacity (kW)</label><input type="number" id="gen-install-capacity" placeholder="auto (50)"></div>
+            <div class="field"><label>Throughput (W)</label><input type="number" id="gen-install-capacity" placeholder="auto (5000)"></div>
           </div>
-          <div class="field"><label>Name (optional)</label><input id="gen-install-name" placeholder="${rec.name || ''} Generator"></div>
-          <button class="action-btn success" onclick='installGeneratorQuick(${JSON.stringify(rec.id)})'>Install Generator</button>
+          ${(() => {
+            const cityGens = allGens.filter(g => g.generator_type === 'city_plant');
+            return cityGens.length ? `
+              <div class="field"><label>City Plant</label>
+                <select id="gen-install-city-gen">
+                  <option value="">Auto (nearest)</option>
+                  ${cityGens.map(g => `<option value="${g.id}">${g.name || g.id}</option>`).join('')}
+                </select>
+              </div>` : '';
+          })()}
+          <div class="field"><label>Name (optional)</label><input id="gen-install-name" placeholder="${rec.name || ''} Junction Box"></div>
+          <button class="action-btn success" onclick='installGeneratorQuick(${JSON.stringify(rec.id)})'>Install Junction Box</button>
         `}
       </div>
 
@@ -1246,11 +1272,12 @@ async function installGeneratorQuick(zoneId) {
     return;
   }
 
-  // Exterior (no interior/apartment flags) → city_plant; anything else → building type
-  const generatorType = (!flags.is_interior && !flags.is_apartment) ? 'city_plant' : 'building';
+  // Exterior (no interior/apartment flags) → city_plant; anything else → junction_box
+  const generatorType = (!flags.is_interior && !flags.is_apartment) ? 'city_plant' : 'junction_box';
   const name = document.getElementById('gen-install-name').value.trim();
   const capacityKw = parseInt(document.getElementById('gen-install-capacity').value) || undefined;
-  const result = await API('/environment/power/install', 'POST', { zoneId, generatorType, name: name || undefined, capacityKw });
+  const cityGeneratorId = document.getElementById('gen-install-city-gen')?.value || undefined;
+  const result = await API('/environment/power/install', 'POST', { zoneId, generatorType, name: name || undefined, capacityKw, cityGeneratorId });
   if (result?.error) { toast(result.error, true); return; }
   toast(`Generator installed — powering ${result.poweredZones?.length || 0} zone(s)`);
   await refreshZoneEditPanel(zoneId);
@@ -1311,13 +1338,14 @@ async function _installBuildingGenerator(zoneId, rec) {
   }
 
   const targetZone = allRecords.find(z => z.id === targetZoneId);
-  const fallbackName = targetZone?.name || `${rec.name || zoneId} Generator`;
+  const fallbackName = targetZone?.name || `${rec.name || zoneId} Junction Box`;
+  const cityGeneratorId = document.getElementById('gen-install-city-gen')?.value || undefined;
   const genResult = await API('/environment/power/install', 'POST', {
-    zoneId: targetZoneId, generatorType: 'building',
-    name: genName || fallbackName, capacityKw,
+    zoneId: targetZoneId, generatorType: 'junction_box',
+    name: genName || fallbackName, capacityKw, cityGeneratorId,
   });
-  if (genResult?.error) { toast(`Generator install failed: ${genResult.error}`, true); return; }
-  toast(`Generator installed — powering ${genResult.poweredZones?.length || 0} zone(s)`);
+  if (genResult?.error) { toast(`Junction box install failed: ${genResult.error}`, true); return; }
+  toast(`Junction box installed — powering ${genResult.poweredZones?.length || 0} zone(s)`);
   await refreshZoneEditPanel(zoneId);
 }
 
@@ -2276,7 +2304,7 @@ function buildDynamicMapGrid(zones, mode, powerById, clickable) {
         const status = p ? p.status : 'unpowered';
         cls = `bigmap-tile bm-power-${status}`;
         sub = p
-          ? `<div style="font-size:9px;opacity:0.8;margin-top:2px">${(p.loadKw ?? 0).toFixed(3)}/${(p.availableKw ?? 0).toFixed(3)}kW <span onclick="event.stopPropagation();editZoneMaxCapacity('${z.id}')" style="cursor:pointer;opacity:0.6" title="Edit max capacity">✏</span></div>`
+          ? `<div style="font-size:9px;opacity:0.8;margin-top:2px">${(p.loadKw ?? 0).toFixed(1)}/${(p.availableKw ?? 0).toFixed(1)}W <span onclick="event.stopPropagation();editZoneMaxCapacity('${z.id}')" style="cursor:pointer;opacity:0.6" title="Edit max capacity">✏</span></div>`
           : `<div style="font-size:9px;opacity:0.6;margin-top:2px">no power</div>`;
       }
       const click = clickable ? ` onclick="bigMapTileClick('${z.id}')"` : '';
@@ -3141,10 +3169,10 @@ function renderPowerPanelBody() {
       const pct = g.capacity_kw > 0 ? Math.round((usedKw / g.capacity_kw) * 100) : 0;
       html += `<tr>
         <td>${g.name || g.id}</td>
-        <td>${g.generator_type === 'city_plant' ? 'City Plant' : 'Building'}</td>
+        <td>${g.generator_type === 'city_plant' ? 'City Plant' : 'Junction Box'}</td>
         <td>${g.zone_name || g.zone_id || '—'}</td>
-        <td>${Number(g.capacity_kw).toFixed(3)}kW</td>
-        <td style="white-space:nowrap">${remaining.toFixed(3)}kW <span style="color:var(--text-dim);font-size:10px">(${pct}% used)</span></td>
+        <td>${Number(g.capacity_kw).toFixed(1)}W</td>
+        <td style="white-space:nowrap">${Number(remaining).toFixed(1)}W <span style="color:var(--text-dim);font-size:10px">(${pct}% used)</span></td>
         <td><span class="badge badge-${g.status === 'online' ? 'safe' : 'high'}">${g.status}</span></td>
         <td style="white-space:nowrap">
           <button class="action-btn" onclick="editGeneratorCapacity('${gIdSafe}', ${g.capacity_kw})">Edit</button>
@@ -3242,15 +3270,15 @@ async function viewGeneratorZones(generatorId) {
   const rows = zones.map(z => {
     const kind = z.is_interior ? 'interior' : z.is_apartment ? 'apartment' : 'outdoor';
     const col = statusColor[z.status] || 'var(--text-dim)';
-    const avail = (z.available_kw ?? 0).toFixed(3);
-    const maxCap = Number(z.max_capacity_kw ?? 1).toFixed(3);
+    const avail = (z.available_kw ?? 0).toFixed(1);
+    const maxCap = Number(z.max_capacity_kw ?? 1000).toFixed(1);
     const zIdSafe = z.id.replace(/'/g, "\\'");
     return `<tr>
       <td>${z.name || z.id}</td>
       <td style="font-size:10px;color:var(--text-dim)">${z.id}</td>
       <td>${kind}</td>
       <td style="color:${col}">${z.status}</td>
-      <td>${avail}/${maxCap}kW</td>
+      <td>${avail}/${maxCap}W</td>
       <td><button class="action-btn" style="font-size:10px;padding:1px 6px" onclick="editZoneMaxCapacity('${zIdSafe}')">✏ Max</button></td>
     </tr>`;
   }).join('');
@@ -3261,14 +3289,14 @@ async function viewGeneratorZones(generatorId) {
 }
 
 async function editZoneMaxCapacity(zoneId) {
-  const current = bigMapPowerData.find(p => p.zoneId === zoneId)?.maxCapacityKw ?? 50;
-  const input = prompt(`Max capacity (kW) for zone ${zoneId}:`, current);
+  const current = bigMapPowerData.find(p => p.zoneId === zoneId)?.maxCapacityKw ?? 1000;
+  const input = prompt(`Max capacity (W) for zone ${zoneId}:`, current);
   if (input === null) return;
   const kw = parseFloat(input);
   if (isNaN(kw) || kw < 0) { toast('Invalid capacity value', true); return; }
   const result = await API(`/environment/power/zones/${encodeURIComponent(zoneId)}`, 'POST', { maxCapacityKw: kw }).catch(e => ({ error: e.message }));
   if (result?.error) { toast(result.error, true); return; }
-  toast(`Max capacity set to ${kw}kW`);
+  toast(`Max capacity set to ${kw}W`);
   await _refreshPowerMapData();
   renderPowerPanelBody();
 }
@@ -3277,8 +3305,8 @@ function editGeneratorCapacity(generatorId, currentKw) {
   const g = powerPanelGenerators.find(g => g.id === generatorId) || {};
   document.getElementById('modal-title').textContent = `Edit Generator — ${g.name || generatorId}`;
   document.getElementById('modal-body').innerHTML = `
-    <div class="field"><label>Capacity (kW)</label>
-      <input type="number" id="gen-edit-capacity" value="${currentKw}" min="0" step="10" style="width:100%">
+    <div class="field"><label>Capacity (W)</label>
+      <input type="number" id="gen-edit-capacity" value="${currentKw}" min="0" step="100" style="width:100%">
     </div>
     <div class="field" style="margin-top:8px"><label>Name</label>
       <input type="text" id="gen-edit-name" value="${g.name || ''}" placeholder="Generator name" style="width:100%">
@@ -3298,6 +3326,14 @@ function editGeneratorCapacity(generatorId, currentKw) {
     renderPowerPanelBody();
   };
   document.getElementById('generic-modal').style.display = 'flex';
+}
+
+async function setJunctionBoxCityGen(jbId, zoneId) {
+  const cityGeneratorId = document.getElementById('jb-city-gen-select')?.value || null;
+  const result = await API(`/environment/power/generators/${encodeURIComponent(jbId)}/city-generator`, 'POST', { cityGeneratorId }).catch(e => ({ error: e.message }));
+  if (result?.error) { toast(result.error, true); return; }
+  toast(`City plant assigned`);
+  await refreshZoneEditPanel(zoneId);
 }
 
 async function removeGeneratorFromPowerPanel(generatorId) {

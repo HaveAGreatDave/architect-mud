@@ -69,11 +69,11 @@ const EMERGENCY_LIGHT_LEVEL = 0.3;   // artificial-light contribution on emergen
 const SNOW_LOAD_MULTIPLIER = 1.15;   // snow increases effective load (GDD §11: heating demand)
 const STORM_GENERATOR_FAULT_CHANCE = 0.10; // per 24h tick, per non-building generator
 
-// Realistic fixture draw values (kW). These appear in both the bulk simulation
-// UPDATE and in recalcZoneLoad — keep them in sync here rather than inline.
-const DRAW_OVERHEAD_KW    = 0.1;   // 100 W fluorescent / LED panel
-const DRAW_STREETLIGHT_KW = 0.15;  // 150 W HPS / LED streetlight
-const DRAW_DEFAULT_KW     = 0.05;  // 50 W generic fixture
+// Fixture draw values stored and compared in Watts (column still named *_kw
+// for historical reasons — the unit is W throughout the engine).
+const DRAW_OVERHEAD_W    = 100;   // 100 W fluorescent / LED panel
+const DRAW_STREETLIGHT_W = 150;   // 150 W HPS / LED streetlight
+const DRAW_DEFAULT_W     = 50;    // 50 W generic fixture
 
 const VISIBILITY_CLEAR = 0.6;
 const VISIBILITY_DIM = 0.35;
@@ -495,9 +495,9 @@ async function applyPowerLightEffects(query, zoneId, prevStatus, newStatus, avai
       SELECT id, light_on_intended,
         COALESCE(power_draw_kw,
           CASE light_type
-            WHEN 'overhead'    THEN ${DRAW_OVERHEAD_KW}
-            WHEN 'streetlight' THEN ${DRAW_STREETLIGHT_KW}
-            ELSE ${DRAW_DEFAULT_KW}
+            WHEN 'overhead'    THEN ${DRAW_OVERHEAD_W}
+            WHEN 'streetlight' THEN ${DRAW_STREETLIGHT_W}
+            ELSE ${DRAW_DEFAULT_W}
           END
         ) AS draw_kw
       FROM furniture WHERE zone_id=$1 AND is_light=1
@@ -558,127 +558,164 @@ async function applyPowerLightEffects(query, zoneId, prevStatus, newStatus, avai
 }
 
 async function simulatePowerNetwork(query, { weatherType }) {
-  const { rows: generators } = await query('SELECT * FROM generators');
-  const { rows: zones } = await query('SELECT * FROM power_zones');
-
+  const { rows: allGenerators } = await query('SELECT * FROM generators');
   const loadMultiplier = weatherType === 'snow' ? SNOW_LOAD_MULTIPLIER : 1.0;
 
-  // Compute new statuses first, then build genById from the updated values so
-  // zone status checks below use current-tick data rather than stale pre-update rows.
+  // ── Phase 1: Resolve generator statuses ─────────────────────────────────
+  // city_plant and junction_box are permanent (no fuel). Only player generators
+  // consume fuel or stay permanently offline. Storms can transiently fault
+  // city_plant and player types; junction boxes are hardwired inside buildings.
   const updatedStatus = new Map();
-
-  for (const gen of generators) {
-    // Permanent generators (building / city_plant) always start each tick online —
-    // they have no fuel and can't run dry (GDD §5.2). Flicker is transient and
-    // clears each tick unless a storm re-triggers it.
+  for (const gen of allGenerators) {
     let status = (gen.generator_type === 'player') ? gen.status : 'online';
     if (status === 'flickering') status = 'online';
     let fuelRemaining = gen.fuel_remaining;
-
-    // Only player/portable generators consume fuel — building and
-    // city-plant generators are infinite by design (GDD §5.2).
     if (gen.generator_type === 'player' && gen.fuel_type) {
       fuelRemaining = Math.max(0, fuelRemaining - gen.fuel_burn_rate * 30);
       if (fuelRemaining <= 0) status = 'offline';
     }
-
-    // Storms can transiently fault non-building generators (GDD §11).
-    if (weatherType === 'storm' && gen.generator_type !== 'building' && status !== 'offline') {
+    if (weatherType === 'storm' && gen.generator_type === 'city_plant' && status !== 'offline') {
       if (Math.random() < STORM_GENERATOR_FAULT_CHANCE) status = 'flickering';
     }
-
     updatedStatus.set(gen.id, { ...gen, status, fuel_remaining: fuelRemaining });
-    await query(`UPDATE generators SET status = $1, fuel_remaining = $2 WHERE id = $3`, [status, fuelRemaining, gen.id]);
+    await query(`UPDATE generators SET status=$1, fuel_remaining=$2 WHERE id=$3`, [status, fuelRemaining, gen.id]);
   }
 
-  // Calculate each zone's actual demand from currently-on furniture before
-  // distributing the generator pool. This replaces the static max_capacity_kw
-  // entitlement so zones only draw what their active fixtures actually need.
+  // ── Phase 2: Recalculate zone loads from active furniture ────────────────
   await query(`
-    UPDATE power_zones pz
-    SET current_load_kw = (
-      SELECT COALESCE(SUM(
-        CASE
-          WHEN f.power_draw_kw IS NOT NULL THEN f.power_draw_kw
-          WHEN f.light_type = 'overhead'    THEN ${DRAW_OVERHEAD_KW}
-          WHEN f.light_type = 'streetlight' THEN ${DRAW_STREETLIGHT_KW}
-          ELSE ${DRAW_DEFAULT_KW}
-        END
-      ), 0)
-      FROM furniture f
-      WHERE f.zone_id = pz.id AND f.is_light = 1 AND f.light_on = 1
+    UPDATE power_zones pz SET current_load_kw = (
+      SELECT COALESCE(SUM(CASE
+        WHEN f.power_draw_kw IS NOT NULL THEN f.power_draw_kw
+        WHEN f.light_type = 'overhead'    THEN ${DRAW_OVERHEAD_W}
+        WHEN f.light_type = 'streetlight' THEN ${DRAW_STREETLIGHT_W}
+        ELSE ${DRAW_DEFAULT_W}
+      END), 0)
+      FROM furniture f WHERE f.zone_id = pz.id AND f.is_light = 1 AND f.light_on = 1
     )
   `);
-  const { rows: freshZones } = await query('SELECT * FROM power_zones');
-
-  // Group zones by generator so they share the generator's capacity pool.
+  const { rows: allZones } = await query('SELECT * FROM power_zones');
   const zonesByGen = new Map();
-  for (const zone of freshZones) {
-    const key = zone.generator_id ?? '__orphan__';
+  for (const z of allZones) {
+    const key = z.generator_id ?? '__orphan__';
     if (!zonesByGen.has(key)) zonesByGen.set(key, []);
-    zonesByGen.get(key).push(zone);
+    zonesByGen.get(key).push(z);
   }
 
-  for (const [genId, genZones] of zonesByGen) {
-    const gen = updatedStatus.get(genId);
-    const genCapacity = gen ? gen.capacity_kw : 0;
+  // ── Phase 3: Calculate each junction box's aggregate demand ─────────────
+  // A junction box's "ask" to its city plant = sum of its building zone loads,
+  // capped at the junction box's own throughput rating.
+  const jbDemand = new Map(); // jbId → watts demanded from city plant
+  for (const gen of allGenerators) {
+    if (gen.generator_type !== 'junction_box') continue;
+    const jbZones = zonesByGen.get(gen.id) || [];
+    const raw = jbZones.reduce((s, z) => s + (z.current_load_kw ?? 0), 0) * loadMultiplier;
+    jbDemand.set(gen.id, Math.min(raw, gen.capacity_kw));
+  }
 
-    const genOffline = !gen && genZones.some(z => z.generator_id);
+  // ── Phase 4: City plant distributes to outdoor zones + junction boxes ────
+  const jbAlloc = new Map(); // jbId → watts allocated by city plant
+  const cityPlants = allGenerators.filter(g => g.generator_type === 'city_plant');
 
-    if (genOffline || (gen && gen.status === 'offline')) {
-      // Generator is gone or offline — all zones dark.
-      if (gen) await query(`UPDATE generators SET remaining_kw = $1 WHERE id = $2`, [0, genId]);
-      for (const zone of genZones) {
-        const cap = zone.max_capacity_kw ?? 50;
-        await query(`UPDATE power_zones SET status='offline', capacity_kw=$1, available_kw=0 WHERE id=$2`,
-          [cap, zone.id]);
-        await applyPowerLightEffects(query, zone.id, zone.status, 'offline', 0, cap);
+  for (const cp of cityPlants) {
+    const cpSt = updatedStatus.get(cp.id);
+    const directZones = zonesByGen.get(cp.id) || [];
+    const connectedJBs = allGenerators.filter(g =>
+      g.generator_type === 'junction_box' && g.city_generator_id === cp.id
+    );
+
+    if (!cpSt || cpSt.status === 'offline') {
+      // City plant down — kill everything it feeds.
+      await query(`UPDATE generators SET remaining_kw=0 WHERE id=$1`, [cp.id]);
+      for (const z of directZones) {
+        const cap = z.max_capacity_kw ?? 1000;
+        await query(`UPDATE power_zones SET status='offline', available_kw=0, capacity_kw=$1 WHERE id=$2`, [cap, z.id]);
+        await applyPowerLightEffects(query, z.id, z.status, 'offline', 0, cap);
+      }
+      for (const jb of connectedJBs) {
+        jbAlloc.set(jb.id, 0);
+        await query(`UPDATE generators SET remaining_kw=0 WHERE id=$1`, [jb.id]);
       }
       continue;
     }
 
-    // Distribute the generator pool based on actual demand rather than
-    // max entitlement. Zones with no active fixtures get 0 draw and are
-    // powered trivially. Zones with demand compete for the remaining pool.
-    // Sort by demand ascending so lighter zones are served first, preserving
-    // the brownout rotation for zones that are genuinely competing.
-    const sorted = [...genZones].sort((a, b) => (a.current_load_kw ?? 0) - (b.current_load_kw ?? 0));
+    // Build a unified consumer list: direct outdoor zones + junction boxes.
+    // Sort ascending by demand so cheaper consumers get served first.
+    const consumers = [
+      ...directZones.map(z => ({
+        kind: 'zone', id: z.id, zone: z,
+        demand: (z.current_load_kw ?? 0) * loadMultiplier,
+        ceiling: z.max_capacity_kw ?? 1000,
+      })),
+      ...connectedJBs.map(jb => ({
+        kind: 'jb', id: jb.id,
+        demand: jbDemand.get(jb.id) ?? 0,
+        ceiling: jb.capacity_kw,
+      })),
+    ].sort((a, b) => a.demand - b.demand);
 
-    let poolRemaining = genCapacity;
-    const allocations = sorted.map(zone => {
-      const demand = zone.current_load_kw ?? 0;
-      const ceiling = zone.max_capacity_kw ?? 50;
-      // A zone can only pull up to its demand (capped by its per-zone ceiling).
-      const ask = Math.min(demand, ceiling);
-      const alloc = Math.min(ask, Math.max(0, poolRemaining));
-      poolRemaining -= alloc;
-      return { zone, demand, alloc, ceiling };
-    });
+    let pool = cpSt.capacity_kw;
+    for (const c of consumers) {
+      const ask  = Math.min(c.demand, c.ceiling);
+      const alloc = Math.min(ask, Math.max(0, pool));
+      pool -= alloc;
+      if (c.kind === 'zone') {
+        const { zone, demand, ceiling } = c;
+        const status = demand === 0 ? 'powered'
+          : alloc <= 0 ? 'offline'
+          : alloc < demand ? 'overloaded'
+          : 'powered';
+        await query(`UPDATE power_zones SET status=$1, available_kw=$2, capacity_kw=$3 WHERE id=$4`,
+          [status, alloc, ceiling, zone.id]);
+        await applyPowerLightEffects(query, zone.id, zone.status, status, alloc, ceiling);
+      } else {
+        jbAlloc.set(c.id, alloc);
+        await query(`UPDATE generators SET remaining_kw=$1 WHERE id=$2`, [alloc, c.id]);
+      }
+    }
+    await query(`UPDATE generators SET remaining_kw=$1 WHERE id=$2`, [Math.max(0, pool), cp.id]);
+  }
 
-    if (gen) {
-      await query(`UPDATE generators SET remaining_kw = $1 WHERE id = $2`,
-        [Math.max(0, poolRemaining), genId]);
+  // ── Phase 5: Junction boxes distribute their city-plant allocation ───────
+  for (const gen of allGenerators) {
+    if (gen.generator_type !== 'junction_box') continue;
+    const jbSt = updatedStatus.get(gen.id);
+    const allocation = jbAlloc.get(gen.id) ?? 0;
+    const jbZones = zonesByGen.get(gen.id) || [];
+
+    if (!jbSt || jbSt.status === 'offline' || allocation <= 0) {
+      for (const z of jbZones) {
+        const cap = z.max_capacity_kw ?? 1000;
+        await query(`UPDATE power_zones SET status='offline', available_kw=0, capacity_kw=$1 WHERE id=$2`, [cap, z.id]);
+        await applyPowerLightEffects(query, z.id, z.status, 'offline', 0, cap);
+      }
+      if (jbSt) await query(`UPDATE generators SET remaining_kw=0 WHERE id=$1`, [gen.id]);
+      continue;
     }
 
-    for (const { zone, demand, alloc, ceiling } of allocations) {
-      let status;
-      if (demand === 0) {
-        // No active draw — zone is powered even if pool is exhausted.
-        status = 'powered';
-      } else if (alloc <= 0) {
-        status = 'offline';
-      } else if (alloc < demand * POWER_OVERLOAD_RATIO) {
-        // Getting less than its demand — brownout.
-        status = 'overloaded';
-      } else {
-        status = 'powered';
-      }
-
+    const sorted = [...jbZones].sort((a, b) => (a.current_load_kw ?? 0) - (b.current_load_kw ?? 0));
+    let pool = allocation;
+    for (const zone of sorted) {
+      const demand  = (zone.current_load_kw ?? 0) * loadMultiplier;
+      const ceiling = zone.max_capacity_kw ?? 1000;
+      const ask     = Math.min(demand, ceiling);
+      const alloc   = Math.min(ask, Math.max(0, pool));
+      pool -= alloc;
+      const status = demand === 0 ? 'powered'
+        : alloc <= 0 ? 'offline'
+        : alloc < demand ? 'overloaded'
+        : 'powered';
       await query(`UPDATE power_zones SET status=$1, capacity_kw=$2, available_kw=$3 WHERE id=$4`,
         [status, ceiling, alloc, zone.id]);
-
       await applyPowerLightEffects(query, zone.id, zone.status, status, alloc, ceiling);
     }
+    await query(`UPDATE generators SET remaining_kw=$1 WHERE id=$2`, [Math.max(0, pool), gen.id]);
+  }
+
+  // ── Phase 6: Orphan zones (no valid generator_id) go offline ────────────
+  for (const z of (zonesByGen.get('__orphan__') || [])) {
+    const cap = z.max_capacity_kw ?? 1000;
+    await query(`UPDATE power_zones SET status='offline', available_kw=0, capacity_kw=$1 WHERE id=$2`, [cap, z.id]);
+    await applyPowerLightEffects(query, z.id, z.status, 'offline', 0, cap);
   }
 }
 
@@ -905,7 +942,7 @@ async function getBuildingNetwork(query, startZoneId) {
   return [...visited];
 }
 
-export async function installGenerator({ zoneId, generatorType = 'building', capacityKw, name }) {
+export async function installGenerator({ zoneId, generatorType = 'junction_box', capacityKw, name, cityGeneratorId }) {
   const { query } = deps;
   if (!zoneId) throw new Error('zoneId is required');
   const { rows: zoneRows } = await query('SELECT * FROM zones WHERE id=$1', [zoneId]);
@@ -913,17 +950,32 @@ export async function installGenerator({ zoneId, generatorType = 'building', cap
   const zone = zoneRows[0];
 
   const id = `gen_${zoneId}_${Date.now()}`;
-  // city_plant: 500 kW — serves an entire district of outdoor zones with headroom.
-  // building:   5 kW  — serves a building's lighting load (50× 0.1 kW fixtures).
-  const capacity = Number(capacityKw) || (generatorType === 'city_plant' ? 500 : 5);
-  const genName = name || (generatorType === 'city_plant' ? 'City Power Plant' : `${zone.name} Generator`);
+  // city_plant: 500 000 W. junction_box: 5 000 W.
+  const capacity = Number(capacityKw) || (generatorType === 'city_plant' ? 500000 : 5000);
+  const genName = name || (generatorType === 'city_plant' ? 'City Power Plant' : `${zone.name} Junction Box`);
 
-  // Permanent generators — building and city-plant types never consume
-  // fuel (GDD §5.2), so this row never goes offline from running dry.
+  // Auto-assign nearest city plant for junction boxes if not specified.
+  let cityGenId = cityGeneratorId || null;
+  if (generatorType === 'junction_box' && !cityGenId) {
+    const { rows: cpRows } = await query(`
+      SELECT g.id, z.grid_x, z.grid_y FROM generators g
+      LEFT JOIN zones z ON z.id = g.zone_id
+      WHERE g.generator_type = 'city_plant'
+    `);
+    let nearest = null, minDist = Infinity;
+    for (const cp of cpRows) {
+      if (zone.grid_x != null && cp.grid_x != null) {
+        const d = Math.hypot(zone.grid_x - cp.grid_x, zone.grid_y - cp.grid_y);
+        if (d < minDist) { minDist = d; nearest = cp; }
+      } else if (!nearest) nearest = cp;
+    }
+    cityGenId = nearest?.id || null;
+  }
+
   await query(
-    `INSERT INTO generators (id, zone_id, name, generator_type, capacity_kw, fuel_type, fuel_remaining, fuel_burn_rate, connection_range, status)
-     VALUES ($1,$2,$3,$4,$5,NULL,0,0,0,'online')`,
-    [id, zoneId, genName, generatorType, capacity]
+    `INSERT INTO generators (id, zone_id, name, generator_type, capacity_kw, fuel_type, fuel_remaining, fuel_burn_rate, connection_range, status, city_generator_id)
+     VALUES ($1,$2,$3,$4,$5,NULL,0,0,0,'online',$6)`,
+    [id, zoneId, genName, generatorType, capacity, cityGenId]
   );
 
   const networkZoneIds = generatorType === 'city_plant'
@@ -937,7 +989,7 @@ export async function installGenerator({ zoneId, generatorType = 'building', cap
       `INSERT INTO power_zones (id, name, source_type, generator_id, capacity_kw, current_load_kw, status)
        VALUES ($1,$2,$3,$4,$5,0,'powered')
        ON CONFLICT (id) DO UPDATE SET name=$2, source_type=$3, generator_id=$4, capacity_kw=$5`,
-      [zid, zName, generatorType === 'city_plant' ? 'city_grid' : 'building_generator', id, capacity]
+      [zid, zName, generatorType === 'city_plant' ? 'city_grid' : 'junction_box', id, capacity]
     );
     const { rows: fixtureRows } = await query(`SELECT COUNT(*)::int AS cnt FROM furniture WHERE zone_id=$1 AND is_light=1`, [zid]);
     await query(
@@ -1117,6 +1169,30 @@ export async function fixBuildingPowerConnections() {
     }
   }
 
+  // Auto-assign city_generator_id to any junction box that lacks one.
+  const { rows: cityGens } = await query(`
+    SELECT g.id, z.grid_x, z.grid_y FROM generators g
+    LEFT JOIN zones z ON z.id = g.zone_id
+    WHERE g.generator_type = 'city_plant'
+  `);
+  const { rows: unlinkedJBs } = await query(`
+    SELECT g.id, g.zone_id, z.grid_x, z.grid_y FROM generators g
+    LEFT JOIN zones z ON z.id = g.zone_id
+    WHERE g.generator_type = 'junction_box' AND g.city_generator_id IS NULL
+  `);
+  for (const jb of unlinkedJBs) {
+    let nearest = null, minDist = Infinity;
+    for (const cp of cityGens) {
+      if (jb.grid_x != null && cp.grid_x != null) {
+        const d = Math.hypot(jb.grid_x - cp.grid_x, jb.grid_y - cp.grid_y);
+        if (d < minDist) { minDist = d; nearest = cp; }
+      } else if (!nearest) nearest = cp;
+    }
+    if (!nearest) continue;
+    await query(`UPDATE generators SET city_generator_id=$1 WHERE id=$2`, [nearest.id, jb.id]);
+    results.connected.push({ buildingName: jb.id, generatorName: `linked to city plant ${nearest.id}`, zonesCount: 0 });
+  }
+
   if (results.connected.length) await recomputePower();
   return results;
 }
@@ -1141,6 +1217,27 @@ export async function getGeneratorsList() {
     ORDER BY g.generator_type, g.id
   `);
   return rows;
+}
+
+export async function getCityGenerators() {
+  const { query } = deps;
+  const { rows } = await query(`
+    SELECT g.id, g.name, g.capacity_kw, g.status, z.name as zone_name
+    FROM generators g LEFT JOIN zones z ON z.id = g.zone_id
+    WHERE g.generator_type = 'city_plant'
+    ORDER BY g.id
+  `);
+  return rows;
+}
+
+export async function setJunctionBoxCityGenerator(jbId, cityGenId) {
+  const { query } = deps;
+  const { rows } = await query(
+    `UPDATE generators SET city_generator_id=$1 WHERE id=$2 AND generator_type='junction_box' RETURNING *`,
+    [cityGenId || null, jbId]
+  );
+  if (!rows.length) throw new Error('Junction box not found');
+  return rows[0];
 }
 
 export async function getGeneratorZones(generatorId) {
@@ -1168,9 +1265,9 @@ export async function recalcZoneLoad(queryFn, zoneId) {
     SELECT COALESCE(SUM(
       CASE
         WHEN power_draw_kw IS NOT NULL THEN power_draw_kw
-        WHEN light_type = 'overhead'    THEN ${DRAW_OVERHEAD_KW}
-        WHEN light_type = 'streetlight' THEN ${DRAW_STREETLIGHT_KW}
-        ELSE ${DRAW_DEFAULT_KW}
+        WHEN light_type = 'overhead'    THEN ${DRAW_OVERHEAD_W}
+        WHEN light_type = 'streetlight' THEN ${DRAW_STREETLIGHT_W}
+        ELSE ${DRAW_DEFAULT_W}
       END
     ), 0) AS total_load
     FROM furniture
