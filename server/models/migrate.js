@@ -362,6 +362,27 @@ export async function migrate() {
   await query(`ALTER TABLE player_skills ADD COLUMN IF NOT EXISTS trained REAL DEFAULT 0`);
   await query(`ALTER TABLE enemies ADD COLUMN IF NOT EXISTS defense INTEGER DEFAULT 0`);
   await query(`ALTER TABLE enemies ADD COLUMN IF NOT EXISTS soak JSONB DEFAULT '{}'`);
+
+  // 2d8 combat rework: monsters use simplified hit/dodge, a typed multi-component
+  // weapon, and per-part body_parts (each with its own typed soak).
+  await query(`ALTER TABLE enemies ADD COLUMN IF NOT EXISTS hit INTEGER DEFAULT 1`);
+  await query(`ALTER TABLE enemies ADD COLUMN IF NOT EXISTS dodge INTEGER DEFAULT 1`);
+  await query(`ALTER TABLE enemies ADD COLUMN IF NOT EXISTS weapon JSONB DEFAULT '[]'`);
+  await query(`ALTER TABLE enemies ADD COLUMN IF NOT EXISTS body_parts JSONB DEFAULT '[]'`);
+
+  // Player baseline: every stat starts at (at least) 1, and health is a flat 40.
+  // GREATEST leaves already-raised stats untouched; the HP update only catches
+  // characters still on the old 100-HP default so it won't clobber future tuning.
+  await query(`
+    UPDATE players SET
+      stat_brawn = GREATEST(stat_brawn, 1),
+      stat_reflexes = GREATEST(stat_reflexes, 1),
+      stat_endurance = GREATEST(stat_endurance, 1),
+      stat_brains = GREATEST(stat_brains, 1),
+      stat_senses = GREATEST(stat_senses, 1),
+      stat_cool = GREATEST(stat_cool, 1)
+  `);
+  await query(`UPDATE players SET hp_max = 40, hp = LEAST(hp, 40) WHERE hp_max = 100`);
   await query(`
     CREATE TABLE IF NOT EXISTS combat_config (
       key TEXT PRIMARY KEY,

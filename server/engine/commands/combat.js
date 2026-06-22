@@ -48,9 +48,6 @@ export async function resolveAttack(player, target, broadcast) {
 	}
 
 	if (result.killed) {
-		if (result.credit_reward > 0) {
-			await adjustCredits(player, result.credit_reward);
-		}
 		if (result.loot?.length) {
 			for (const drop of result.loot) {
 				await query(
@@ -87,7 +84,6 @@ export async function resolveAttack(player, target, broadcast) {
 		message: result.message,
 		killed: result.killed || false,
 		loot: result.loot,
-		xp_reward: result.xp_reward,
 	};
 }
 

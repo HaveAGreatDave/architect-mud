@@ -9,7 +9,7 @@
   h2 { color: #e8c060; font-size: 14px; margin-bottom: 10px; border-bottom: 1px solid #333; padding-bottom: 4px; }
   h3 { color: #80c0e0; font-size: 12px; margin: 10px 0 6px; }
   .root { display: grid; grid-template-columns: 220px 220px 220px 1fr; grid-template-rows: auto 1fr auto; gap: 10px; padding: 10px; height: 100vh; }
-  .panel { background: #161616; border: 1px solid #2a2a2a; border-radius: 4px; padding: 10px; overflow: hidden; }
+  .panel { background: #161616; border: 1px solid #2a2a2a; border-radius: 4px; padding: 10px; overflow: auto; }
   .panel.log-panel { grid-column: 4; grid-row: 1 / 3; display: flex; flex-direction: column; }
   .panel.controls-panel { grid-column: 1 / 5; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
   .panel.stats-panel { grid-column: 1 / 4; }
@@ -18,6 +18,7 @@
   input[type=number], input[type=range] { background: #1f1f1f; border: 1px solid #333; color: #ddd; padding: 2px 4px; width: 64px; border-radius: 2px; }
   input[type=range] { width: 90px; }
   input[type=number]:focus, input[type=range]:focus { outline: none; border-color: #555; }
+  select { background:#1f1f1f;border:1px solid #333;color:#ddd;padding:2px 4px;border-radius:2px;font-family:monospace;font-size:12px; }
   button { background: #222; border: 1px solid #444; color: #ddd; padding: 5px 12px; border-radius: 3px; cursor: pointer; font-family: monospace; font-size: 12px; }
   button:hover { background: #333; }
   button.active { background: #3a5a2a; border-color: #5a8a3a; color: #aee060; }
@@ -34,7 +35,7 @@
   .stat-item { display: flex; flex-direction: column; align-items: center; background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 3px; padding: 6px 10px; min-width: 80px; }
   .stat-item .val { color: #e8c060; font-size: 16px; font-weight: bold; }
   .stat-item .lbl { color: #666; font-size: 11px; margin-top: 2px; }
-  .derived { color: #60a8d0; font-size: 11px; margin-top: 8px; line-height: 1.8; }
+  .derived { color: #60a8d0; font-size: 11px; margin-top: 8px; line-height: 1.8; white-space: pre-line; }
   .speed-label { color: #888; font-size: 11px; margin-left: 4px; }
   .section-note { color: #555; font-size: 11px; margin-bottom: 8px; }
   .bar-wrap { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
@@ -64,7 +65,7 @@
     <label><span>dodge</span><input type="number" id="p_dodge" value="0" min="0" max="10" step="0.5"></label>
     <h3>Weapon</h3>
     <label><span>skill used</span>
-      <select id="p_weapon_skill" style="background:#1f1f1f;border:1px solid #333;color:#ddd;padding:2px 4px;border-radius:2px;font-family:monospace;font-size:12px;">
+      <select id="p_weapon_skill">
         <option value="brawling">brawling</option>
         <option value="bladed">bladed</option>
         <option value="firearms">firearms</option>
@@ -73,7 +74,7 @@
     <label><span>damage min</span><input type="number" id="p_dmg_min" value="2" min="1" max="100" step="1"></label>
     <label><span>damage max</span><input type="number" id="p_dmg_max" value="5" min="1" max="100" step="1"></label>
     <label><span>damage type</span>
-      <select id="p_dmg_type" style="background:#1f1f1f;border:1px solid #333;color:#ddd;padding:2px 4px;border-radius:2px;font-family:monospace;font-size:12px;">
+      <select id="p_dmg_type">
         <option value="kinetic">kinetic</option>
         <option value="edged">edged</option>
         <option value="energy">energy</option>
@@ -81,24 +82,27 @@
         <option value="radiation">radiation</option>
       </select>
     </label>
+    <h3>Soak (incoming, per type)</h3>
+    <div class="section-note">Reduces enemy damage of the matching type</div>
+    <label><span>kinetic soak</span><input type="number" id="p_soak_k" value="0" min="0" max="50" step="1"></label>
+    <label><span>edged soak</span><input type="number" id="p_soak_ed" value="0" min="0" max="50" step="1"></label>
+    <label><span>energy soak</span><input type="number" id="p_soak_en" value="0" min="0" max="50" step="1"></label>
     <h3>HP</h3>
-    <label><span>max HP</span><input type="number" id="p_hp_max" value="50" min="1" max="1000" step="5"></label>
+    <label><span>max HP</span><input type="number" id="p_hp_max" value="40" min="1" max="1000" step="5"></label>
     <div class="derived" id="player-derived">brawling eff: — · dodge eff: —</div>
   </div>
 
   <!-- Enemy Panel -->
   <div class="panel">
     <h2>Enemy</h2>
-    <div class="section-note">Mirrors DB enemy fields</div>
+    <div class="section-note">Mirrors DB enemy fields (hit/dodge/weapon)</div>
     <h3>Core</h3>
     <label><span>hp</span><input type="number" id="e_hp" value="30" min="1" max="10000" step="5"></label>
-    <label><span>defense</span><input type="number" id="e_defense" value="2" min="0" max="50" step="1"></label>
-    <label><span>stat_agi</span><input type="number" id="e_agi" value="5" min="0" max="20" step="1"></label>
-    <h3>Damage</h3>
-    <label><span>damage min</span><input type="number" id="e_dmg_min" value="2" min="1" max="100" step="1"></label>
-    <label><span>damage max</span><input type="number" id="e_dmg_max" value="6" min="1" max="100" step="1"></label>
-    <label><span>damage type</span>
-      <select id="e_dmg_type" style="background:#1f1f1f;border:1px solid #333;color:#ddd;padding:2px 4px;border-radius:2px;font-family:monospace;font-size:12px;">
+    <label><span>hit</span><input type="number" id="e_hit" value="1" min="0" max="50" step="1"></label>
+    <label><span>dodge</span><input type="number" id="e_dodge" value="1" min="0" max="50" step="1"></label>
+    <h3>Weapon — component 1</h3>
+    <label><span>type</span>
+      <select id="e_w1_type">
         <option value="kinetic">kinetic</option>
         <option value="edged">edged</option>
         <option value="energy">energy</option>
@@ -106,13 +110,29 @@
         <option value="radiation">radiation</option>
       </select>
     </label>
-    <h3>Armor (per slot, typed soak)</h3>
+    <label><span>min</span><input type="number" id="e_w1_min" value="2" min="0" max="100" step="1"></label>
+    <label><span>max</span><input type="number" id="e_w1_max" value="6" min="0" max="100" step="1"></label>
+    <h3>Weapon — component 2</h3>
+    <div class="section-note">min=max=0 to disable</div>
+    <label><span>type</span>
+      <select id="e_w2_type">
+        <option value="kinetic">kinetic</option>
+        <option value="edged">edged</option>
+        <option value="energy" selected>energy</option>
+        <option value="fire">fire</option>
+        <option value="radiation">radiation</option>
+      </select>
+    </label>
+    <label><span>min</span><input type="number" id="e_w2_min" value="0" min="0" max="100" step="1"></label>
+    <label><span>max</span><input type="number" id="e_w2_max" value="0" min="0" max="100" step="1"></label>
+    <h3>Body-part soak (per type)</h3>
+    <div class="section-note">Reduces your hit of the matching type (uniform across parts)</div>
     <label><span>kinetic soak</span><input type="number" id="e_soak_k" value="0" min="0" max="50" step="1"></label>
     <label><span>edged soak</span><input type="number" id="e_soak_e" value="0" min="0" max="50" step="1"></label>
     <label><span>energy soak</span><input type="number" id="e_soak_en" value="0" min="0" max="50" step="1"></label>
     <h3>Attack Speed</h3>
-    <div class="section-note">Enemy attack interval: 5000 − (agi × 150) ms</div>
-    <div class="derived" id="enemy-derived">atk interval: — · atk skill: —</div>
+    <label><span>interval (ms)</span><input type="number" id="e_atk_interval" value="4000" min="500" max="20000" step="250"></label>
+    <div class="derived" id="enemy-derived">hit: — · interval: —</div>
   </div>
 
   <!-- Tunables Panel -->
@@ -120,7 +140,7 @@
     <h2>Tunables</h2>
     <div class="section-note">Mirrors combat_config defaults</div>
     <h3>To-Hit</h3>
-    <label><span>dodge_base</span><input type="number" id="t_dodge_base" value="5" min="0" max="20" step="1"></label>
+    <div class="section-note">Swing is 2d8 − 2d8 (−14..+14). margin = hit − dodge + swing; hit if ≥ 0.</div>
     <h3>Crits</h3>
     <label><span>crit_threshold</span><input type="number" id="t_crit_thresh" value="8" min="0" max="20" step="1"></label>
     <label><span>crit_multiplier</span><input type="number" id="t_crit_mult" value="1.5" min="1" max="5" step="0.1"></label>
@@ -144,7 +164,7 @@
     <div class="bar-wrap">
       <span style="color:#aaa;width:60px;flex-shrink:0">Player</span>
       <div class="bar-bg"><div class="bar-fill hp-bar" id="player-hp-bar" style="width:100%"></div></div>
-      <span class="bar-label" id="player-hp-label">50/50</span>
+      <span class="bar-label" id="player-hp-label">40/40</span>
     </div>
     <div class="bar-wrap" style="margin-bottom:8px">
       <span style="color:#aaa;width:60px;flex-shrink:0">Enemy</span>
@@ -206,8 +226,18 @@ function effectiveSkill(player, skillId) {
   return trained + avgStat;
 }
 
-function roll2d10() {
-  return Math.ceil(Math.random() * 10) + Math.ceil(Math.random() * 10);
+function roll2d8() {
+  return Math.ceil(Math.random() * 8) + Math.ceil(Math.random() * 8);
+}
+
+// Symmetric comparison swing: 2d8 − 2d8, range −14..+14, ~40% within ±2.
+function rollSwing() {
+  return roll2d8() - roll2d8();
+}
+
+function randInt(min, max) {
+  const lo = Math.min(min, max), hi = Math.max(min, max);
+  return Math.floor(Math.random() * (hi - lo + 1)) + lo;
 }
 
 function rollBodyPart(weights) {
@@ -247,16 +277,26 @@ function getConfig() {
       dmg_max:  n('p_dmg_max'),
       dmg_type: document.getElementById('p_dmg_type').value,
     },
+    soak: {
+      kinetic: n('p_soak_k'),
+      edged:   n('p_soak_ed'),
+      energy:  n('p_soak_en'),
+    },
     hp_max: n('p_hp_max'),
     cooldown: n('t_player_cd'),
   };
+  // Enemy weapon as typed components, dropping any with no damage.
+  const weapon = [
+    { type: document.getElementById('e_w1_type').value, min: n('e_w1_min'), max: n('e_w1_max') },
+    { type: document.getElementById('e_w2_type').value, min: n('e_w2_min'), max: n('e_w2_max') },
+  ].filter(c => c.max > 0);
+  if (!weapon.length) weapon.push({ type: 'kinetic', min: 1, max: 1 });
   const enemy = {
-    hp_max:   n('e_hp'),
-    defense:  n('e_defense'),
-    stat_agi: n('e_agi'),
-    dmg_min:  n('e_dmg_min'),
-    dmg_max:  n('e_dmg_max'),
-    dmg_type: document.getElementById('e_dmg_type').value,
+    hp_max:       n('e_hp'),
+    hit:          n('e_hit'),
+    dodge:        n('e_dodge'),
+    weapon,
+    atk_interval: n('e_atk_interval'),
     soak: {
       kinetic: n('e_soak_k'),
       edged:   n('e_soak_e'),
@@ -264,7 +304,6 @@ function getConfig() {
     },
   };
   const tunables = {
-    dodge_base:    n('t_dodge_base'),
     crit_threshold: n('t_crit_thresh'),
     crit_mult:     n('t_crit_mult'),
     head_mult:     n('t_head_mult'),
@@ -283,40 +322,41 @@ function getConfig() {
 
 function playerAttack(player, enemy, tunables) {
   const attackSkill = effectiveSkill(player, player.weapon.skill);
-  const enemyDodge = tunables.dodge_base + enemy.defense;
-  const roll = roll2d10();
-  const total = roll + attackSkill;
-  const margin = total - enemyDodge;
+  const swing = rollSwing();
+  const margin = (attackSkill - enemy.dodge) + swing;
   const hit = margin >= 0;
-  if (!hit) return { hit: false, roll, attackSkill, enemyDodge, margin };
+  if (!hit) return { hit: false, swing, attackSkill, enemyDodge: enemy.dodge, margin };
 
   const critical = margin >= tunables.crit_threshold;
   const part = rollBodyPart(tunables.body_weights);
-  let dmg = Math.floor(Math.random() * (player.weapon.dmg_max - player.weapon.dmg_min + 1)) + player.weapon.dmg_min;
+  let dmg = randInt(player.weapon.dmg_min, player.weapon.dmg_max);
   if (critical) dmg = Math.floor(dmg * tunables.crit_mult);
   if (part === 'head') dmg = Math.floor(dmg * tunables.head_mult);
   const soak = resolveSoak(enemy.soak, player.weapon.dmg_type, tunables.mismatch);
   dmg = Math.max(1, dmg - soak);
-  return { hit: true, critical, part, dmg, roll, attackSkill, enemyDodge, margin };
+  return { hit: true, critical, part, dmg, swing, attackSkill, enemyDodge: enemy.dodge, margin };
 }
 
 function enemyAttack(player, enemy, tunables) {
-  const enemyAttackSkill = (enemy.stat_agi || 5) / 2;
-  const playerDodge = tunables.dodge_base + effectiveSkill(player, 'dodge');
-  const roll = roll2d10();
-  const total = roll + enemyAttackSkill;
-  const margin = total - playerDodge;
+  const playerDodge = effectiveSkill(player, 'dodge');
+  const swing = rollSwing();
+  const margin = (enemy.hit - playerDodge) + swing;
   const hit = margin >= 0;
-  if (!hit) return { hit: false, roll, enemyAttackSkill, playerDodge, margin };
+  if (!hit) return { hit: false, swing, enemyHit: enemy.hit, playerDodge, margin };
 
   const critical = margin >= tunables.crit_threshold;
   const part = rollBodyPart(tunables.body_weights);
-  let dmg = Math.floor(Math.random() * (enemy.dmg_max - enemy.dmg_min + 1)) + enemy.dmg_min;
-  if (critical) dmg = Math.floor(dmg * tunables.crit_mult);
-  if (part === 'head') dmg = Math.floor(dmg * tunables.head_mult);
-  // Players have no soak configured here (simplification — add per-slot if needed)
-  dmg = Math.max(1, dmg);
-  return { hit: true, critical, part, dmg, roll, enemyAttackSkill, playerDodge, margin };
+  const headMult = part === 'head' ? tunables.head_mult : 1;
+  // Multi-component: roll each, crit + head boost, soak by its own type, sum.
+  let total = 0;
+  for (const c of enemy.weapon) {
+    let amt = randInt(c.min, c.max);
+    if (critical) amt = Math.floor(amt * tunables.crit_mult);
+    amt = Math.floor(amt * headMult);
+    total += Math.max(0, amt - resolveSoak(player.soak, c.type, tunables.mismatch));
+  }
+  const dmg = Math.max(1, total);
+  return { hit: true, critical, part, dmg, swing, enemyHit: enemy.hit, playerDodge, margin };
 }
 
 // ─── State ──────────────────────────────────────────────────────────────────
@@ -380,19 +420,32 @@ function updateSessionStats() {
   set('s-wins', s.fights ? (s.playerWins/s.fights*100).toFixed(1)+'%' : '—');
 }
 
+// P(2d8 − 2d8 >= k) for k in −14..14, used to show expected hit chance.
+function swingAtLeast(k) {
+  if (k <= -14) return 1;
+  if (k > 14) return 0;
+  let ge = 0, total = 0;
+  for (let a = 1; a <= 8; a++) for (let b = 1; b <= 8; b++)
+    for (let c = 1; c <= 8; c++) for (let d = 1; d <= 8; d++) {
+      total++;
+      if ((a + b) - (c + d) >= k) ge++;
+    }
+  return ge / total;
+}
+
 function updateDerived() {
   const cfg = getConfig();
   const atkSkill = effectiveSkill(cfg.player, cfg.player.weapon.skill);
   const dodgeSkill = effectiveSkill(cfg.player, 'dodge');
+  const pNeed = Math.ceil(cfg.enemy.dodge - atkSkill);
   document.getElementById('player-derived').textContent =
     `${cfg.player.weapon.skill} eff: ${atkSkill.toFixed(2)}  ·  dodge eff: ${dodgeSkill.toFixed(2)}` +
-    `\nhit target: ${(cfg.tunables.dodge_base + cfg.enemy.defense).toFixed(0)}  ·  need 2d10 ≥ ${(cfg.tunables.dodge_base + cfg.enemy.defense - atkSkill).toFixed(1)}`;
+    `\nvs enemy dodge ${cfg.enemy.dodge}: need swing ≥ ${pNeed}  (${(swingAtLeast(pNeed)*100).toFixed(1)}% hit)`;
 
-  const atkInterval = Math.max(1000, 5000 - cfg.enemy.stat_agi * 150);
-  const enemyAtkSkill = cfg.enemy.stat_agi / 2;
+  const eNeed = Math.ceil(dodgeSkill - cfg.enemy.hit);
   document.getElementById('enemy-derived').textContent =
-    `atk interval: ${atkInterval}ms  ·  atk skill: ${enemyAtkSkill.toFixed(2)}` +
-    `\nhit target: ${(cfg.tunables.dodge_base + dodgeSkill).toFixed(2)}  ·  need 2d10 ≥ ${(cfg.tunables.dodge_base + dodgeSkill - enemyAtkSkill).toFixed(1)}`;
+    `hit: ${cfg.enemy.hit}  ·  interval: ${cfg.enemy.atk_interval}ms` +
+    `\nvs your dodge ${dodgeSkill.toFixed(2)}: need swing ≥ ${eNeed}  (${(swingAtLeast(eNeed)*100).toFixed(1)}% hit)`;
 
   document.getElementById('cd-preview').textContent = cfg.player.cooldown + 'ms';
 }
@@ -420,7 +473,7 @@ function startFight() {
   updateBars(cfg);
   logSep(`fight #${sessionStats.fights}`);
 
-  const atkInterval = Math.max(1000, 5000 - cfg.enemy.stat_agi * 150);
+  const atkInterval = cfg.enemy.atk_interval;
 
   // Player attack loop
   playerTimer = setInterval(() => {
@@ -429,7 +482,7 @@ function startFight() {
     const r = playerAttack(cfg.player, { ...cfg.enemy, hp: state.enemyHp }, cfg.tunables);
     sessionStats.pSwings++;
     if (!r.hit) {
-      log('log-miss', `You swing and miss. (roll ${r.roll}+${r.attackSkill.toFixed(1)}=${Math.round(r.roll+r.attackSkill)} vs ${r.enemyDodge})`);
+      log('log-miss', `You swing and miss. (skill ${r.attackSkill.toFixed(1)} − dodge ${r.enemyDodge} + swing ${r.swing} = ${r.margin.toFixed(1)})`);
     } else {
       sessionStats.pHits++;
       sessionStats.pDmgTotal += r.dmg;
@@ -439,7 +492,7 @@ function startFight() {
       if (r.critical)
         log('log-crit', `CRIT to ${PART_LABELS[r.part]} for ${r.dmg} dmg! (margin ${r.margin.toFixed(1)})`);
       else
-        log('log-hit', `Hit ${PART_LABELS[r.part]} for ${r.dmg} dmg. (roll ${r.roll}+${r.attackSkill.toFixed(1)}, margin ${r.margin.toFixed(1)})`);
+        log('log-hit', `Hit ${PART_LABELS[r.part]} for ${r.dmg} dmg. (swing ${r.swing}, margin ${r.margin.toFixed(1)})`);
       if (state.enemyHp <= 0) {
         log('log-kill', `Enemy defeated!`);
         const ttk = (Date.now() - sessionStats.fightStart) / 1000;
@@ -463,7 +516,7 @@ function startFight() {
     const r = enemyAttack(cfg.player, cfg.enemy, cfg.tunables);
     sessionStats.eSwings++;
     if (!r.hit) {
-      log('log-miss', `  Enemy swings and misses. (roll ${r.roll}+${r.enemyAttackSkill?.toFixed(1)}=${Math.round(r.roll+(r.enemyAttackSkill||0))} vs ${r.playerDodge?.toFixed(1)})`);
+      log('log-miss', `  Enemy swings and misses. (hit ${r.enemyHit} − dodge ${r.playerDodge.toFixed(1)} + swing ${r.swing} = ${r.margin.toFixed(1)})`);
     } else {
       sessionStats.eHits++;
       sessionStats.eDmgTotal += r.dmg;
@@ -530,7 +583,7 @@ function resetCombat() {
 
 function simulate(n) {
   const cfg = getConfig();
-  const atkIntervalMs = Math.max(1000, 5000 - cfg.enemy.stat_agi * 150);
+  const atkIntervalMs = cfg.enemy.atk_interval;
   const playerCdMs = cfg.player.cooldown;
 
   // local counters — don't overwrite session stats display mid-run

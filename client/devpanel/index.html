@@ -316,11 +316,9 @@ const PANELS = {
     columns: [
       { key: 'name', label: 'Name' },
       { key: 'hp_max', label: 'HP' },
-      { key: 'damage_min', label: 'Dmg Min' },
-      { key: 'damage_max', label: 'Dmg Max' },
-      { key: 'armor', label: 'Armor' },
+      { key: 'hit', label: 'Hit' },
+      { key: 'dodge', label: 'Dodge' },
       { key: 'behavior', label: 'Behavior' },
-      { key: 'xp_reward', label: 'XP' },
     ],
     editForm: enemyEditForm,
     save: saveEnemy,
@@ -1694,6 +1692,53 @@ function addLootRow() {
 }
 function removeLootRow(btn) { btn.closest('.loot-row').remove(); }
 
+// Damage types shared by weapon components and per-part soak. Mirrors the
+// item tag catalog's damage_type options.
+const ENEMY_DAMAGE_TYPES = ['kinetic','edged','energy','fire','radiation'];
+const ENEMY_BODY_PARTS = ['head','torso','left_arm','right_arm','left_leg','right_leg'];
+const DEFAULT_BODY_PART_WEIGHTS = { head:10, torso:40, left_arm:12, right_arm:12, left_leg:13, right_leg:13 };
+
+// --- Enemy weapon (typed multi-component damage) ---
+function weaponRow(comp) {
+  const c = comp || {};
+  const type = c.type || 'kinetic';
+  return `<div class="weapon-row field-row" style="align-items:flex-end;gap:6px">
+    <div class="field" style="flex:2"><label>Type</label>
+      <select class="wpn-type">${ENEMY_DAMAGE_TYPES.map(t=>`<option ${t===type?'selected':''}>${t}</option>`).join('')}</select>
+    </div>
+    <div class="field" style="flex:0 0 62px"><label>Min</label><input type="number" class="wpn-min" value="${c.min ?? 1}" min="0" step="1"></div>
+    <div class="field" style="flex:0 0 62px"><label>Max</label><input type="number" class="wpn-max" value="${c.max ?? 2}" min="0" step="1"></div>
+    <button type="button" class="action-btn" onclick="removeWeaponRow(this)" style="flex:0 0 auto">×</button>
+  </div>`;
+}
+function addWeaponRow() {
+  document.getElementById('weapon-rows').insertAdjacentHTML('beforeend', weaponRow({}));
+}
+function removeWeaponRow(btn) { btn.closest('.weapon-row').remove(); }
+
+// --- Enemy body parts (hit % + per-part typed soak) ---
+function bodyPartRow(entry) {
+  const e = entry || {};
+  const part = e.part || 'torso';
+  const soak = (e.soak && typeof e.soak === 'object') ? e.soak : {};
+  return `<div class="bodypart-row field-row" style="align-items:flex-end;gap:6px">
+    <div class="field" style="flex:0 0 110px"><label>Part</label>
+      <select class="bp-part">${ENEMY_BODY_PARTS.map(p=>`<option ${p===part?'selected':''}>${p}</option>`).join('')}</select>
+    </div>
+    <div class="field" style="flex:0 0 70px"><label>Hit %</label><input type="number" class="bp-weight" value="${e.weight ?? 10}" min="0" step="1"></div>
+    <div class="field" style="flex:2"><label>Soak (JSON, e.g. {"kinetic":3})</label><input class="bp-soak" value='${JSON.stringify(soak)}'></div>
+    <button type="button" class="action-btn" onclick="removeBodyPartRow(this)" style="flex:0 0 auto">×</button>
+  </div>`;
+}
+function addBodyPartRow() {
+  document.getElementById('bodypart-rows').insertAdjacentHTML('beforeend', bodyPartRow({}));
+}
+function removeBodyPartRow(btn) { btn.closest('.bodypart-row').remove(); }
+// Standard hit-location spread, with empty soak — the default for a new monster.
+function defaultBodyParts() {
+  return ENEMY_BODY_PARTS.map(p => ({ part: p, weight: DEFAULT_BODY_PART_WEIGHTS[p], soak: {} }));
+}
+
 function lootItemList(published) {
   // Mirror the loadPanel staging overlay so unpublished items are selectable too.
   let items = Array.isArray(published) ? published.slice() : [];
@@ -1718,6 +1763,10 @@ function lootItemList(published) {
 async function enemyEditForm(rec, isNew) {
   _lootItems = lootItemList(await API('/items'));
   const loot = Array.isArray(rec.loot_table) ? rec.loot_table : JSON.parse(rec.loot_table||'[]');
+  let weapon = Array.isArray(rec.weapon) ? rec.weapon : JSON.parse(rec.weapon||'[]');
+  if (!weapon.length) weapon = [{ type:'kinetic', min:1, max:2 }];
+  let bodyParts = Array.isArray(rec.body_parts) ? rec.body_parts : JSON.parse(rec.body_parts||'[]');
+  if (!bodyParts.length) bodyParts = defaultBodyParts();
   return `
     <div class="field"><label>Enemy ID</label><input id="f-id" value="${isNew?'':rec.id}" ${!isNew?'readonly style="opacity:0.5"':''}></div>
     <div class="field"><label>Name</label><input id="f-name" value="${rec.name||''}"></div>
@@ -1732,23 +1781,17 @@ async function enemyEditForm(rec, isNew) {
       <div class="field"><label>Faction</label><input id="f-faction" value="${rec.faction||''}"></div>
     </div>
     <div class="field-row">
-      <div class="field"><label>Brawn (STR)</label><input type="number" id="f-stat_str" value="${rec.stat_str||5}" min="1" max="20"></div>
-      <div class="field"><label>Reflexes (AGI)</label><input type="number" id="f-stat_agi" value="${rec.stat_agi||5}" min="1" max="20"></div>
-      <div class="field"><label>Endurance (END)</label><input type="number" id="f-stat_end" value="${rec.stat_end||5}" min="1" max="20"></div>
-    </div>
-    <div class="field-row">
+      <div class="field"><label>Hit (attack rating)</label><input type="number" id="f-hit" value="${rec.hit ?? 1}" min="0"></div>
+      <div class="field"><label>Dodge (defense rating)</label><input type="number" id="f-dodge" value="${rec.dodge ?? 1}" min="0"></div>
       <div class="field"><label>HP Max</label><input type="number" id="f-hp_max" value="${rec.hp_max||30}"></div>
-      <div class="field"><label>Armor (flat, legacy)</label><input type="number" id="f-armor" value="${rec.armor||0}"></div>
-      <div class="field"><label>Defense (dodge bonus)</label><input type="number" id="f-defense" value="${rec.defense||0}" min="0"></div>
     </div>
-    <div class="field"><label>Soak (JSON — per-damage-type, e.g. {"kinetic":4,"energy":1})</label><textarea id="f-soak" rows="2">${JSON.stringify(typeof rec.soak==='object'&&rec.soak!==null?rec.soak:(JSON.parse(rec.soak||'{}')), null, 2)}</textarea></div>
-    <div class="field-row">
-      <div class="field"><label>Dmg Min</label><input type="number" id="f-damage_min" value="${rec.damage_min||3}"></div>
-      <div class="field"><label>Dmg Max</label><input type="number" id="f-damage_max" value="${rec.damage_max||7}"></div>
+    <div class="field"><label>Weapon — typed damage components (e.g. 1-2 kinetic + 2-3 energy)</label>
+      <div id="weapon-rows">${weapon.map(c=>weaponRow(c)).join('')}</div>
+      <button type="button" class="action-btn" onclick="addWeaponRow()" style="margin-top:6px">+ Add Damage Type</button>
     </div>
-    <div class="field-row">
-      <div class="field"><label>XP Reward</label><input type="number" id="f-xp_reward" value="${rec.xp_reward||10}"></div>
-      <div class="field"><label>Credit Reward</label><input type="number" id="f-credit_reward" value="${rec.credit_reward||0}"></div>
+    <div class="field"><label>Body Parts — hit % and per-part soak (defaults to the standard spread)</label>
+      <div id="bodypart-rows">${bodyParts.map(e=>bodyPartRow(e)).join('')}</div>
+      <button type="button" class="action-btn" onclick="addBodyPartRow()" style="margin-top:6px">+ Add Body Part</button>
     </div>
     <div class="field"><label>Loot Drops</label>
       <div id="loot-rows">${loot.map(e=>lootRow(_lootItems, e)).join('')}</div>
@@ -1906,6 +1949,23 @@ async function saveEnemy(existing) {
     if (max < min) max = min;
     loot.push({ item, weight, qty: [min, max] });
   }
+  const weapon = [];
+  for (const row of document.querySelectorAll('#weapon-rows .weapon-row')) {
+    const type = row.querySelector('.wpn-type').value;
+    let min = +row.querySelector('.wpn-min').value || 0;
+    let max = +row.querySelector('.wpn-max').value || 0;
+    if (max < min) max = min;
+    weapon.push({ type, min, max });
+  }
+  const body_parts = [];
+  for (const row of document.querySelectorAll('#bodypart-rows .bodypart-row')) {
+    const part = row.querySelector('.bp-part').value;
+    const weight = +row.querySelector('.bp-weight').value || 0;
+    let soak;
+    try { soak = JSON.parse(row.querySelector('.bp-soak').value || '{}'); }
+    catch { return { error: `Body part ${part}: soak is invalid JSON` }; }
+    body_parts.push({ part, weight, soak });
+  }
   const existingFlags = existing?.flags || {};
   const cries = document.getElementById('f-battle_cries').value.split('\n').map(s=>s.trim()).filter(Boolean);
   const flags = { ...existingFlags, first_strike_delay_ms: +document.getElementById('f-first_strike_delay_ms').value || 0, battle_cries: cries };
@@ -1915,17 +1975,11 @@ async function saveEnemy(existing) {
     death_message: document.getElementById('f-death_message').value,
     behavior: document.getElementById('f-behavior').value,
     faction: document.getElementById('f-faction').value || null,
-    stat_str: +document.getElementById('f-stat_str').value,
-    stat_agi: +document.getElementById('f-stat_agi').value,
-    stat_end: +document.getElementById('f-stat_end').value,
+    hit: +document.getElementById('f-hit').value || 0,
+    dodge: +document.getElementById('f-dodge').value || 0,
     hp_max: +document.getElementById('f-hp_max').value,
-    armor: +document.getElementById('f-armor').value,
-    defense: +document.getElementById('f-defense').value || 0,
-    soak: JSON.parse(document.getElementById('f-soak').value || '{}'),
-    damage_min: +document.getElementById('f-damage_min').value,
-    damage_max: +document.getElementById('f-damage_max').value,
-    xp_reward: +document.getElementById('f-xp_reward').value,
-    credit_reward: +document.getElementById('f-credit_reward').value,
+    weapon,
+    body_parts,
     loot_table: loot,
     flags,
   };
