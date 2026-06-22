@@ -4003,6 +4003,7 @@ function renderTimeWeatherPanel(data) {
             <input id="tw-climate-name" type="text" placeholder="Profile name" value="${climateProfiles.find(p=>p.id===activeId)?.name||''}" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:5px 8px;border-radius:2px;width:140px">
             <button class="action-btn" onclick="devSaveClimateProfile()">Save</button>
             <button class="action-btn success" onclick="devSetActiveClimate()" title="Use this profile for weather generation">Set Active</button>
+            <button class="action-btn danger" onclick="devDeleteClimateProfile()" title="Delete this saved profile">Delete</button>
           </div>
         </div>
 
@@ -4176,10 +4177,16 @@ async function devApplyWeather() {
   loadPanel('timeweather');
 }
 
-async function devLockForecastDay(day, locked) {
-  const r = await API('/environment/forecast/lock','POST',{day,locked});
-  if (r.error) toast(r.error,true);
-  else toast(locked ? `Day ${day+1} locked` : `Day ${day+1} unlocked`);
+async function devDeleteClimateProfile() {
+  const sel = document.getElementById('tw-climate-select');
+  const id = sel?.value;
+  if (!id || id.startsWith('__')) { toast('Select a saved profile to delete', true); return; }
+  const name = window._twClimateProfiles?.find(p => p.id === id)?.name || id;
+  if (!confirm(`Delete climate profile "${name}"?`)) return;
+  const r = await API(`/environment/climate/profiles/${encodeURIComponent(id)}`, 'DELETE');
+  if (r.error) { toast(r.error, true); return; }
+  toast(`Profile "${name}" deleted`);
+  loadPanel('timeweather');
 }
 
 function renderWorldState(data) {

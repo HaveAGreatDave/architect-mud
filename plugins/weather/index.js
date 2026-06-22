@@ -1,15 +1,10 @@
 /**
  * Weather plugin — owns the 7-day deterministic forecast.
  *
- * Subscribes to two hooks from environment.js:
- *   environment.init        — load (or generate) the forecast at server boot
- *   environment.advanceWeather — shift the forecast forward one day (called
- *                               from tick24h BEFORE simulatePowerNetwork so
- *                               the new weatherType is in place for load calc)
- *
- * environment.js keeps state.weatherType / state.tempC / state.forecast as
- * readable values for the rest of the engine; this plugin writes them via
- * the setWeatherState() setter passed through each hook.
+ * Subscribes to hooks from environment.js:
+ *   environment.init             — load (or generate) forecast at boot
+ *   environment.advanceWeather   — shift forecast forward one day (tick24h)
+ *   environment.recalculateForecast — full regeneration from climate profile
  */
 import { createHash } from 'node:crypto';
 import { query } from '../../server/models/db.js';
@@ -19,7 +14,7 @@ const SEASON_BY_MONTH = [
   'summer', 'summer', 'autumn', 'autumn', 'autumn', 'winter',
 ];
 
-const SEASON_BASE_TEMP_C = { winter: 2, spring: 12, summer: 24, autumn: 11 };
+const SEASON_BASE_TEMP_C  = { winter: 2,    spring: 12, summer: 24, autumn: 11 };
 const SEASON_BASE_PRECIP  = { winter: 0.35, spring: 0.40, summer: 0.35, autumn: 0.45 };
 
 function seedFromString(str) {
@@ -46,12 +41,11 @@ function seasonForDate(dateStr) {
   return SEASON_BY_MONTH[month];
 }
 
-// Determine precipitation type from temperature.
 function precipTypeForTemp(tempC, rand) {
   const heavy = rand() < 0.25;
-  if (tempC > 3)   return heavy ? 'thunderstorm' : 'rain';
-  if (tempC > -1)  return 'sleet';
-  if (tempC > -8)  return heavy ? 'blizzard' : 'snow';
+  if (tempC > 3)  return heavy ? 'thunderstorm' : 'rain';
+  if (tempC > -1) return 'sleet';
+  if (tempC > -8) return heavy ? 'blizzard' : 'snow';
   return 'blizzard';
 }
 
@@ -63,22 +57,21 @@ function generateWeatherForDate(dateStr, climateProfile) {
   const baseTemp     = climateProfile?.monthly_temp_c?.[month]        ?? SEASON_BASE_TEMP_C[season];
   const precipChance = climateProfile?.monthly_precip_chance?.[month] ?? SEASON_BASE_PRECIP[season];
 
-  // 5% chance of extreme weather day (±20°C swing), otherwise ±10°C
+  // 5% chance of extreme day (±20°C swing), otherwise ±10°C
   const isExtreme = rand() < 0.05;
-  const variance = Math.round((rand() - 0.5) * (isExtreme ? 40 : 20));
-  const tempC = baseTemp + variance;
+  const variance  = Math.round((rand() - 0.5) * (isExtreme ? 40 : 20));
+  const tempC     = baseTemp + variance;
 
   let weatherType;
   if (rand() < precipChance) {
     weatherType = precipTypeForTemp(tempC, rand);
   } else {
-    // On dry days, higher precipitation chance = more overcast/cloudy, less clear.
-    // precipChance of 0 → always clear; 1.0 → mostly overcast.
+    // Dry days: cloudiness scales with precipChance
     const r = rand();
-    if (r < precipChance * 0.5)       weatherType = 'overcast';
-    else if (r < precipChance * 0.85) weatherType = 'cloudy';
+    if (r < precipChance * 0.5)           weatherType = 'overcast';
+    else if (r < precipChance * 0.85)     weatherType = 'cloudy';
     else if (rand() < precipChance * 0.3) weatherType = rand() < 0.5 ? 'fog' : 'haze';
-    else                               weatherType = 'clear';
+    else                                  weatherType = 'clear';
   }
 
   return { weatherType, tempC };
@@ -95,27 +88,17 @@ function toDateString(value) {
   return String(value).slice(0, 10);
 }
 
-async function regenerateFullForecast(startDate, climateProfile, overwriteUnlocked = false) {
+// Always replaces all 7 days — no locking.
+async function regenerateFullForecast(startDate, climateProfile) {
+  await query('DELETE FROM weather_forecast');
   for (let i = 0; i < 7; i++) {
     const date = addDays(startDate, i);
     const { weatherType, tempC } = generateWeatherForDate(date, climateProfile);
-    if (overwriteUnlocked) {
-      await query(
-        `INSERT INTO weather_forecast (forecast_day, game_date, weather_type, temp_c, locked)
-         VALUES ($1, $2, $3, $4, 0)
-         ON CONFLICT (forecast_day) DO UPDATE
-           SET game_date = $2, weather_type = $3, temp_c = $4
-           WHERE weather_forecast.locked = 0`,
-        [i, date, weatherType, tempC]
-      );
-    } else {
-      await query(
-        `INSERT INTO weather_forecast (forecast_day, game_date, weather_type, temp_c, locked)
-         VALUES ($1, $2, $3, $4, 0)
-         ON CONFLICT (forecast_day) DO NOTHING`,
-        [i, date, weatherType, tempC]
-      );
-    }
+    await query(
+      `INSERT INTO weather_forecast (forecast_day, game_date, weather_type, temp_c)
+       VALUES ($1, $2, $3, $4)`,
+      [i, date, weatherType, tempC]
+    );
   }
 }
 
@@ -132,7 +115,6 @@ async function loadForecast(setWeatherState, climateProfile) {
     date: toDateString(r.game_date),
     weatherType: r.weather_type,
     tempC: r.temp_c,
-    locked: !!r.locked,
   }));
   setWeatherState(forecast[0].weatherType, forecast[0].tempC, forecast);
 }
@@ -143,29 +125,28 @@ export const hooks = {
   },
 
   'environment.advanceWeather': async ({ setWeatherState, currentForecast, climateProfile }) => {
-    // Shift forecast: drop day 0, promote days 1-6, generate new day 6.
     const shifted = currentForecast.slice(1);
     const newDate = addDays(currentForecast[6].date, 1);
     const generated = generateWeatherForDate(newDate, climateProfile);
 
     const nextForecast = [
       ...shifted,
-      { date: newDate, weatherType: generated.weatherType, tempC: generated.tempC, locked: false },
-    ].map((f, i) => ({ ...f, forecastDay: i, locked: i < shifted.length ? shifted[i].locked : false }));
+      { date: newDate, weatherType: generated.weatherType, tempC: generated.tempC },
+    ].map((f, i) => ({ ...f, forecastDay: i }));
 
     await query('DELETE FROM weather_forecast');
     for (const f of nextForecast) {
       await query(
-        `INSERT INTO weather_forecast (forecast_day, game_date, weather_type, temp_c, locked)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [f.forecastDay, f.date, f.weatherType, f.tempC, f.locked ? 1 : 0]
+        `INSERT INTO weather_forecast (forecast_day, game_date, weather_type, temp_c)
+         VALUES ($1, $2, $3, $4)`,
+        [f.forecastDay, f.date, f.weatherType, f.tempC]
       );
     }
     setWeatherState(nextForecast[0].weatherType, nextForecast[0].tempC, nextForecast);
   },
 
   'environment.recalculateForecast': async ({ setWeatherState, climateProfile, currentDate }) => {
-    await regenerateFullForecast(currentDate, climateProfile, true);
+    await regenerateFullForecast(currentDate, climateProfile);
     await loadForecast(setWeatherState, climateProfile);
   },
 };

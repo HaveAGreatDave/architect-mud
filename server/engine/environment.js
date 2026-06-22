@@ -965,13 +965,6 @@ export async function devOverrideWeather({ weatherType, tempC }) {
   return getHUDPayload();
 }
 
-export async function devLockForecastDay(forecastDay, locked) {
-  const { query } = deps;
-  await query(`UPDATE weather_forecast SET locked = $1 WHERE forecast_day = $2`, [locked ? 1 : 0, forecastDay]);
-  if (state.forecast[forecastDay]) state.forecast[forecastDay].locked = !!locked;
-  return getForecast();
-}
-
 export async function devTriggerStorm() { return devOverrideWeather({ weatherType: 'storm' }); }
 export async function devTriggerSnow() { return devOverrideWeather({ weatherType: 'snow' }); }
 

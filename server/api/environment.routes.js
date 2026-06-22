@@ -94,7 +94,6 @@ export async function handleEnvironmentApi(path, method, body, auth) {
       if (path === '/environment/weather/override') return { status: 200, body: await env.devOverrideWeather(body || {}) };
       if (path === '/environment/weather/storm') return { status: 200, body: await env.devTriggerStorm() };
       if (path === '/environment/weather/snow') return { status: 200, body: await env.devTriggerSnow() };
-      if (path === '/environment/forecast/lock') return { status: 200, body: await env.devLockForecastDay(Number(body?.day), !!body?.locked) };
       if (path === '/environment/power/generator') return { status: 200, body: await env.devSpawnGenerator(body || {}) };
       if (path === '/environment/power/load') return { status: 200, body: await env.devModifyLoad(body?.zoneId, body?.loadKw) };
       if (path === '/environment/power/fail') return { status: 200, body: await env.devSimulateFailure(body?.generatorId) };
