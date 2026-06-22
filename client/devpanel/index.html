@@ -3491,12 +3491,13 @@ function renderPowerPanelBody() {
       const cpIdSafe = cp.id.replace(/'/g, "\\'");
       const used = cp.capacity_kw - (cp.remaining_kw ?? cp.capacity_kw);
       const pct = cp.capacity_kw > 0 ? Math.round((used / cp.capacity_kw) * 100) : 0;
-      const statusCls = cp.status === 'online' ? 'safe' : 'high';
+      const cpOn = Number(cp.capacity_kw) > 0;
+      const statusCls = cpOn ? 'safe' : 'high';
       html += `<tr style="background:rgba(20,200,100,0.06)">
         <td><strong>⚡ ${cp.name || cp.id}</strong></td>
         <td style="color:var(--text-dim)">${cp.zone_name || cp.zone_id || '—'}</td>
         <td style="white-space:nowrap">${used.toFixed(1)} / ${Number(cp.capacity_kw).toFixed(0)}W <span style="color:var(--text-dim);font-size:10px">(${pct}%)</span></td>
-        <td><span class="badge badge-${statusCls}">${cp.status}</span></td>
+        <td><span class="badge badge-${statusCls}">${cpOn ? 'online' : 'offline'}</span></td>
         <td style="white-space:nowrap">
           <button class="action-btn" onclick="toggleGeneratorPower('${cpIdSafe}')">Toggle</button>
           <button class="action-btn" style="margin-left:3px" onclick="editGeneratorCapacity('${cpIdSafe}', ${cp.capacity_kw})">Edit</button>
@@ -3507,12 +3508,13 @@ function renderPowerPanelBody() {
       for (const jb of (jbsByCity.get(cp.id) || [])) {
         const jbIdSafe = jb.id.replace(/'/g, "\\'");
         const draw = Number(jb.zone_load_w ?? 0);
-        const jbStatusCls = jb.status === 'online' ? 'safe' : 'high';
+        const jbOn = Number(jb.capacity_kw) > 0;
+        const jbStatusCls = jbOn ? 'safe' : 'high';
         html += `<tr>
           <td style="padding-left:22px;color:var(--text-dim)">↳ ${jb.name || jb.id}</td>
           <td style="color:var(--text-dim);font-size:11px">${jb.zone_name || jb.zone_id || '—'}</td>
           <td style="white-space:nowrap">${draw.toFixed(1)}W draw</td>
-          <td><span class="badge badge-${jbStatusCls}">${jb.status}</span></td>
+          <td><span class="badge badge-${jbStatusCls}">${jbOn ? 'online' : 'offline'}</span></td>
           <td style="white-space:nowrap">
             <button class="action-btn" onclick="toggleGeneratorPower('${jbIdSafe}')">Toggle</button>
             <button class="action-btn" style="margin-left:3px" onclick="editGeneratorCapacity('${jbIdSafe}', ${jb.capacity_kw})">Edit</button>
@@ -3532,7 +3534,7 @@ function renderPowerPanelBody() {
           <td style="padding-left:10px">${jb.name || jb.id}</td>
           <td style="color:var(--text-dim);font-size:11px">${jb.zone_name || jb.zone_id || '—'}</td>
           <td>${draw.toFixed(1)}W draw</td>
-          <td><span class="badge badge-high">${jb.status}</span></td>
+          <td><span class="badge badge-${Number(jb.capacity_kw) > 0 ? 'safe' : 'high'}">${Number(jb.capacity_kw) > 0 ? 'online' : 'offline'}</span></td>
           <td style="white-space:nowrap">
             <button class="action-btn" onclick="toggleGeneratorPower('${jbIdSafe}')">Toggle</button>
             <button class="action-btn" style="margin-left:3px" onclick="editGeneratorCapacity('${jbIdSafe}', ${jb.capacity_kw})">Edit</button>
@@ -3709,6 +3711,7 @@ async function toggleGeneratorPower(generatorId) {
   const result = await API(`/environment/power/generators/${encodeURIComponent(generatorId)}/toggle`, 'POST', {}).catch(e => ({ error: e.message }));
   if (result?.error) { toast(result.error, true); return; }
   toast(result.isOn ? 'Generator on' : 'Generator off');
+  await API('/environment/power/recompute', 'POST', {}).catch(() => {});
   await _refreshPowerMapData();
   renderPowerPanelBody();
 }

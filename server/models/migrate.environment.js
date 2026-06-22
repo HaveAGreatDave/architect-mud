@@ -82,7 +82,7 @@ export async function migrateEnvironment(query) {
   await query(`UPDATE generators SET capacity_kw = 10000  WHERE generator_type = 'city_plant' AND capacity_kw = 500000`);
   // Correct JBs accidentally multiplied by the old blanket * 1000 migration.
   await query(`UPDATE generators SET capacity_kw = 5000   WHERE generator_type = 'junction_box' AND capacity_kw = 5000000`);
-  // Correct any JBs still on kW scale (value = 5 means 5 kW).
+  // Correct any JBs still on kW scale (value = 5 means 5 kW). Skip 0 — that's a toggled-off generator.
   await query(`UPDATE generators SET capacity_kw = 5000   WHERE generator_type = 'junction_box' AND capacity_kw = 5`);
   // power_zones.capacity_kw is overwritten by the simulation on every run — no migration needed.
   // Set all zone max_capacity_kw to match the city plant capacity so no zone
