@@ -472,53 +472,64 @@ async function applyPowerLightEffects(query, zoneId, prevStatus, newStatus, avai
   const nowDown = newStatus === 'offline';
   const nowBrown = newStatus === 'overloaded';
 
-  // Preserve intended state on first degradation (offline or overloaded) so
-  // we can restore the player's intended switches when power returns.
-  if (nowDown || nowBrown) {
-    await query(`
-      UPDATE furniture
-      SET light_on_intended = COALESCE(light_on_intended, light_on)
-      WHERE zone_id = $1 AND is_light = 1
-    `, [zoneId]);
-  }
-
   if (nowDown) {
-    // Force every light off and zero the zone's load.
-    await query(`UPDATE furniture SET light_on = 0 WHERE zone_id = $1 AND is_light = 1`, [zoneId]);
-    await query(`UPDATE power_zones SET current_load_kw = 0 WHERE id = $1`, [zoneId]);
-    await query(`UPDATE lighting_states SET fixture_count = 0 WHERE zone_id = $1`, [zoneId]).catch(() => {});
+    // Preserve intended state before cutting everything.
+    await query(`UPDATE furniture SET light_on_intended = COALESCE(light_on_intended, light_on) WHERE zone_id=$1 AND is_light=1`, [zoneId]);
+    await query(`UPDATE furniture SET light_on=0 WHERE zone_id=$1 AND is_light=1`, [zoneId]);
+    await query(`UPDATE power_zones SET current_load_kw=0 WHERE id=$1`, [zoneId]);
+    await query(`UPDATE lighting_states SET fixture_count=0 WHERE zone_id=$1`, [zoneId]).catch(() => {});
     if (broadcast && prevStatus !== 'offline') {
       broadcast(zoneId, { type: 'zone_event', message: '<span class="power-out">The lights cut out. Darkness.</span>' });
     }
   } else if (nowBrown) {
-    // Partial power — flicker: randomly cut lights whose individual draw
-    // exceeds their share of available power.
+    // Preserve intended state before any changes.
+    await query(`UPDATE furniture SET light_on_intended = COALESCE(light_on_intended, light_on) WHERE zone_id=$1 AND is_light=1`, [zoneId]);
+
+    // Per-device allocation: fetch all powered devices with their draw.
     const { rows: lights } = await query(`
-      SELECT id, light_on,
+      SELECT id, light_on_intended,
         COALESCE(power_draw_kw,
           CASE light_type WHEN 'overhead' THEN 2 WHEN 'streetlight' THEN 3 ELSE 1 END
         ) AS draw_kw
-      FROM furniture WHERE zone_id = $1 AND is_light = 1
+      FROM furniture WHERE zone_id=$1 AND is_light=1
     `, [zoneId]);
 
-    const fraction = maxCap > 0 ? Math.min(1, available / maxCap) : 0;
-    let changed = false;
-    for (const light of lights) {
-      if (light.light_on) {
-        // Probability of flickering off scales with power deficit.
-        if (Math.random() > fraction) {
-          await query(`UPDATE furniture SET light_on = 0 WHERE id = $1`, [light.id]);
-          changed = true;
-        }
+    // Only devices the player intends to be on compete for available power.
+    // Sort ascending by draw — cheapest devices served first.
+    const wantOn = lights.filter(l => l.light_on_intended === 1).sort((a, b) => a.draw_kw - b.draw_kw);
+
+    let pool = available;
+    const fullyOn = [], flickering = [], forcedOff = [];
+
+    for (const light of wantOn) {
+      if (pool >= light.draw_kw) {
+        fullyOn.push(light.id);
+        pool -= light.draw_kw;
+      } else if (pool > 0) {
+        flickering.push(light.id);
+        pool = 0;
+      } else {
+        forcedOff.push(light.id);
       }
     }
-    if (changed) {
-      await recalcZoneLoad(query, zoneId);
-      const { rows: lc } = await query(`SELECT COUNT(*)::int AS cnt FROM furniture WHERE zone_id=$1 AND is_light=1 AND light_on=1`, [zoneId]);
-      await query(`UPDATE lighting_states SET fixture_count=$1 WHERE zone_id=$2`, [lc[0]?.cnt || 0, zoneId]).catch(() => {});
+
+    if (fullyOn.length)   await query(`UPDATE furniture SET light_on=1 WHERE id=ANY($1::text[])`, [fullyOn]);
+    if (forcedOff.length) await query(`UPDATE furniture SET light_on=0 WHERE id=ANY($1::text[])`, [forcedOff]);
+    // Flickering devices randomly toggle each tick.
+    for (const id of flickering) {
+      await query(`UPDATE furniture SET light_on=$1 WHERE id=$2`, [Math.random() > 0.5 ? 1 : 0, id]);
     }
+
+    await recalcZoneLoad(query, zoneId);
+    const { rows: lc } = await query(`SELECT COUNT(*)::int AS cnt FROM furniture WHERE zone_id=$1 AND is_light=1 AND light_on=1`, [zoneId]);
+    await query(`UPDATE lighting_states SET fixture_count=$1 WHERE zone_id=$2`, [lc[0]?.cnt || 0, zoneId]).catch(() => {});
+
     if (broadcast) {
-      broadcast(zoneId, { type: 'zone_event', message: '<span class="power-flicker">The lights flicker and dim.</span>' });
+      if (forcedOff.length) {
+        broadcast(zoneId, { type: 'zone_event', message: '<span class="power-flicker">Some lights cut out as the grid strains under load.</span>' });
+      } else if (flickering.length) {
+        broadcast(zoneId, { type: 'zone_event', message: '<span class="power-flicker">The lights flicker and dim.</span>' });
+      }
     }
   } else if (nowOk && !wasOk) {
     // Power restored — recover intended light states.
