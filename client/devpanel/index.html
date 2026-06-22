@@ -3237,6 +3237,7 @@ let powerPanelMode = 'power';
 let powerPanelView = 'city';   // 'city' | 'interior'
 let powerPanelBuilding = null; // selected building zone id for interior view
 let powerPanelAllZones = [];   // full zone list (for building interior search)
+let powerPanelInteriorZ = 0;  // current floor for interior map view
 
 async function renderPowerPanel(zones) {
   const [powerMap, generators, allZones] = await Promise.all([
@@ -3265,6 +3266,12 @@ function setPowerPanelView(view) {
 
 function setPowerPanelBuilding(zoneId) {
   powerPanelBuilding = zoneId || null;
+  powerPanelInteriorZ = 0;
+  renderPowerPanelBody();
+}
+
+function setPowerPanelInteriorZ(z) {
+  powerPanelInteriorZ = z;
   renderPowerPanelBody();
 }
 
@@ -3273,16 +3280,18 @@ function _buildInteriorMapHtml() {
   if (!buildings.length) return `<div style="color:var(--text-dim);padding:8px">No buildings found.</div>`;
 
   const selId = powerPanelBuilding || buildings[0]?.id;
-  const buildingDropdown = `<select style="margin-bottom:12px" onchange="setPowerPanelBuilding(this.value)">
-    ${buildings.map(b => `<option value="${b.id}" ${b.id === selId ? 'selected' : ''}>${b.name || b.id}</option>`).join('')}
-  </select>`;
+  const buildingDropdown = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+    <label style="font-size:11px;color:var(--text-dim);white-space:nowrap">Building</label>
+    <select onchange="setPowerPanelBuilding(this.value)" style="flex:1">
+      ${buildings.map(b => `<option value="${b.id}" ${b.id === selId ? 'selected' : ''}>${b.name || b.id}</option>`).join('')}
+    </select>
+  </div>`;
 
   const building = buildings.find(b => b.id === selId);
   if (!building) return buildingDropdown;
 
-  // Find all interior/apartment zones connected to this building.
-  // Interior rooms exit back to the building (not always the reverse),
-  // so expand the network by finding any interior zone with an exit into it.
+  // Expand interior network: find all interior/apartment zones that have an exit
+  // back into the already-known network (seeded from the building entrance).
   const powerById = new Map(bigMapPowerData.map(p => [p.zoneId, p]));
   const networkIds = new Set([building.id]);
   let changed = true;
@@ -3300,54 +3309,83 @@ function _buildInteriorMapHtml() {
   networkIds.delete(building.id);
   const interiorZones = powerPanelAllZones.filter(z => networkIds.has(z.id));
 
-  if (!interiorZones.length) return buildingDropdown + `<div style="color:var(--text-dim);font-size:11px">No interior rooms connected to this building yet.</div>`;
-
-  // Group by z-level, sorted roof-first
-  const byZ = new Map();
-  for (const z of interiorZones) {
-    const zl = z.grid_z ?? 0;
-    if (!byZ.has(zl)) byZ.set(zl, []);
-    byZ.get(zl).push(z);
-  }
-  const sortedZ = [...byZ.entries()].sort(([a], [b]) => b - a);
-
-  const STATUS_COLOR = {
-    powered:    'rgba(20,200,100,0.22)',
-    overloaded: 'rgba(255,165,0,0.28)',
-    offline:    'rgba(220,40,60,0.32)',
-    unpowered:  'rgba(40,40,60,0.55)',
-  };
-  const STATUS_BORDER = {
-    powered:    'rgba(20,220,110,0.75)',
-    overloaded: 'rgba(255,165,0,0.85)',
-    offline:    'rgba(230,50,70,0.85)',
-    unpowered:  'rgba(80,80,100,0.5)',
-  };
-
-  let floorsHtml = '';
-  for (const [zl, rooms] of sortedZ) {
-    floorsHtml += `<div style="margin-bottom:12px">
-      <div style="font-size:10px;color:var(--text-dim);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Floor Z:${zl}</div>
-      <div style="display:flex;flex-wrap:wrap;gap:4px">`;
-    for (const room of rooms) {
-      const pw = powerById.get(room.id);
-      const status = pw?.status || 'unpowered';
-      const bg = STATUS_COLOR[status] || STATUS_COLOR.unpowered;
-      const border = STATUS_BORDER[status] || STATUS_BORDER.unpowered;
-      const load = pw ? `${Number(pw.loadKw ?? 0).toFixed(1)}/${Number(pw.maxCapacityKw ?? 0).toFixed(0)}W` : 'no power record';
-      floorsHtml += `<div title="${status} — ${load}" style="background:${bg};border:1px solid ${border};border-radius:3px;padding:4px 8px;font-size:11px;cursor:default" onclick="editRecord('${room.id.replace(/'/g,"\\'")}')">
-        ${room.name || room.id}
-        <span style="color:var(--text-dim);font-size:10px;margin-left:4px">${status}</span>
-      </div>`;
-    }
-    floorsHtml += `</div></div>`;
+  if (!interiorZones.length) {
+    return buildingDropdown + `<div style="color:var(--text-dim);font-size:11px">No interior rooms connected to this building yet.</div>`;
   }
 
-  return buildingDropdown + floorsHtml + `<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:10px;color:var(--text-dim);margin-top:4px">
-    ${[['powered','rgba(20,200,100,0.22)','rgba(20,220,110,0.75)'],['overloaded','rgba(255,165,0,0.28)','rgba(255,165,0,0.85)'],['offline','rgba(220,40,60,0.32)','rgba(230,50,70,0.85)'],['unpowered','rgba(40,40,60,0.55)','rgba(80,80,100,0.5)']].map(([label,bg,border]) =>
-      `<span><span style="display:inline-block;width:10px;height:10px;background:${bg};border:1px solid ${border};border-radius:2px;margin-right:4px;vertical-align:middle"></span>${label}</span>`
-    ).join('')}
+  // Floor selector
+  const placed = interiorZones.filter(z => z.grid_x != null);
+  const zLevels = [...new Set(placed.map(z => z.grid_z ?? 0))].sort((a, b) => b - a);
+  const currentZ = zLevels.includes(powerPanelInteriorZ) ? powerPanelInteriorZ : (zLevels[0] ?? 0);
+
+  const floorNav = `<div style="display:flex;align-items:center;gap:6px;margin-bottom:10px">
+    <span style="font-size:11px;color:var(--text-dim)">Floor</span>
+    <button class="action-btn" onclick="setPowerPanelInteriorZ(${currentZ - 1})">▾</button>
+    <span style="min-width:60px;text-align:center;font-size:12px">z = ${currentZ}</span>
+    <button class="action-btn" onclick="setPowerPanelInteriorZ(${currentZ + 1})">▴</button>
+    ${zLevels.length > 1 ? `<span style="font-size:10px;color:var(--text-dim)">(floors: ${zLevels.join(', ')})</span>` : ''}
   </div>`;
+
+  const onFloor = placed.filter(z => (z.grid_z ?? 0) === currentZ);
+  if (!onFloor.length) {
+    return buildingDropdown + floorNav + `<div style="color:var(--text-dim);font-size:11px">No placed rooms on floor z=${currentZ}.</div>`;
+  }
+
+  // Build coordinate grid
+  const xs = onFloor.map(z => z.grid_x), ys = onFloor.map(z => z.grid_y);
+  const minX = Math.min(...xs) - 1, maxX = Math.max(...xs) + 1;
+  const minY = Math.min(...ys) - 1, maxY = Math.max(...ys) + 1;
+  const byCoord = new Map(onFloor.map(z => [`${z.grid_x},${z.grid_y}`, z]));
+
+  const W = maxX - minX + 1, H = maxY - minY + 1;
+  const colTmpl = Array.from({length: 2*W-1}, (_, i) => i % 2 ? '16px' : '110px').join(' ');
+  const rowTmpl = Array.from({length: 2*H-1}, (_, i) => i % 2 ? '16px' : '76px').join(' ');
+  const col = x => 2 * (x - minX) + 1;
+  const row = y => 2 * (y - minY) + 1;
+
+  const STATUS_CLS = { powered: 'bm-power-powered', overloaded: 'bm-power-overloaded', offline: 'bm-power-offline' };
+
+  let gridHtml = `<div style="overflow:auto"><div style="display:grid;grid-template-columns:${colTmpl};grid-template-rows:${rowTmpl}">`;
+
+  for (let y = minY; y <= maxY; y++) {
+    for (let x = minX; x <= maxX; x++) {
+      const z = byCoord.get(`${x},${y}`);
+      const gcs = `grid-column:${col(x)};grid-row:${row(y)}`;
+      if (!z) {
+        gridHtml += `<div style="${gcs};opacity:0.1" class="bigmap-tile"></div>`;
+        continue;
+      }
+      const pw = powerById.get(z.id);
+      const status = pw?.status || 'unpowered';
+      const pwCls = STATUS_CLS[status] || 'bm-power-unpowered';
+      const load = pw ? `${Number(pw.loadKw ?? 0).toFixed(1)}/${Number(pw.maxCapacityKw ?? 0).toFixed(0)}W` : '';
+      const exitDirs = Object.keys(z.exits || {});
+      const exHtml = exitDirs.length
+        ? `<div class="cell-exits">${exitDirs.map(d => `<span class="${(d==='up'||d==='down') ? 'ex-vert' : ''}">${d==='up' ? '▲' : d==='down' ? '▼' : d[0].toUpperCase()}</span>`).join(' ')}</div>`
+        : '';
+      gridHtml += `<div class="bigmap-tile ${pwCls}" style="${gcs}" title="${z.name} — ${status}${load ? ' ' + load : ''}" onclick="editRecord('${z.id.replace(/'/g, "\\'")}')"><div>${z.name}${exHtml}<div style="font-size:9px;opacity:0.75;margin-top:2px">${status}${load ? ' · ' + load : ''}</div></div></div>`;
+    }
+  }
+
+  // Connection slots
+  for (let y = minY; y <= maxY; y++) {
+    for (let x = minX; x < maxX; x++) {
+      const a = byCoord.get(`${x},${y}`), b = byCoord.get(`${x+1},${y}`);
+      const linked = a && b && (a.exits?.east === b.id || b.exits?.west === a.id);
+      gridHtml += `<div class="conn conn-h${linked ? ' conn-linked' : ''}" style="grid-column:${col(x)+1};grid-row:${row(y)}">${linked ? '<span class="ln"></span>' : ''}</div>`;
+    }
+  }
+  for (let y = minY; y < maxY; y++) {
+    for (let x = minX; x <= maxX; x++) {
+      const a = byCoord.get(`${x},${y}`), b = byCoord.get(`${x},${y+1}`);
+      const linked = a && b && (a.exits?.south === b.id || b.exits?.north === a.id);
+      gridHtml += `<div class="conn conn-v${linked ? ' conn-linked' : ''}" style="grid-column:${col(x)};grid-row:${row(y)+1}">${linked ? '<span class="ln"></span>' : ''}</div>`;
+    }
+  }
+
+  gridHtml += `</div></div>`;
+
+  return buildingDropdown + floorNav + gridHtml + `<div style="margin-top:10px;display:flex;gap:14px;flex-wrap:wrap;font-size:10px;color:var(--text-dim)">${mapLegendHtml('power')}</div>`;
 }
 
 function renderPowerPanelBody() {
