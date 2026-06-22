@@ -2715,7 +2715,7 @@ async function loadMapOverview(mapId) {
 // whose target isn't on this map are cross-map portals (exempt from geometry;
 // the server checks them for dangling). Geometry mismatch = error; missing
 // reciprocal = warning.
-function validateMapOverview(zonesMap, knownZoneIds) {
+function validateMapOverview(zonesMap, knownZoneIds, interiorZoneIds) {
   const errors = [], oneWay = [];
   for (const z of zonesMap.values()) {
     if (z.grid_x == null) continue; // unplaced source — not on the grid, skip
@@ -2727,8 +2727,9 @@ function validateMapOverview(zonesMap, knownZoneIds) {
       if (!t) {
         // Target not on this map. Cardinal exits pointing to zones that exist on another
         // map (e.g. building entrances) are valid cross-map portals — skip them.
+        // Interior/apartment zones never have a position on the exterior map — also exempt.
         // Only flag as dangling if the target zone doesn't exist anywhere.
-        if (off && !(knownZoneIds && knownZoneIds.has(target))) {
+        if (off && !(knownZoneIds && knownZoneIds.has(target)) && !(interiorZoneIds && interiorZoneIds.has(target))) {
           errors.push({ zoneId: z.id, direction: dir, targetId: target, reason: 'dangling', expectedX: null, expectedY: null, expectedZ: null });
           geomError = true;
         }
@@ -2769,7 +2770,8 @@ function renderMapOverview() {
   const floors = [...new Set(all.map(z => z.grid_z ?? 0))].sort((a, b) => a - b);
   const onFloor = all.filter(z => (z.grid_z ?? 0) === o.z && z.grid_x != null && z.grid_y != null);
   const knownZoneIds = new Set((Array.isArray(allRecords) ? allRecords : []).map(z => z.id));
-  const { errors, oneWay } = validateMapOverview(o.zones, knownZoneIds);
+  const interiorZoneIds = new Set([...o.unplacedInterior.keys()]);
+  const { errors, oneWay } = validateMapOverview(o.zones, knownZoneIds, interiorZoneIds);
   const broken = new Set(errors.map(e => e.zoneId));
   const nameOf = id => o.zones.get(id)?.name || id;
 
