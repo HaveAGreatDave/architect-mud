@@ -3978,12 +3978,7 @@ function renderTimeWeatherPanel(data) {
 
     </div>`;
 
-  _panelClockInterval = setInterval(async () => {
-    const el = document.getElementById('tw-live-clock');
-    if (!el) { clearInterval(_panelClockInterval); _panelClockInterval = null; return; }
-    const state = await API('/environment/state');
-    if (state?.time) el.textContent = state.time;
-  }, 60_000);
+  startPanelClock();
 }
 
 async function devApplyTime() {
@@ -4005,6 +4000,21 @@ async function devToggleFreeze() {
   loadPanel('timeweather');
 }
 
+function startPanelClock() {
+  if (_panelClockInterval) { clearInterval(_panelClockInterval); _panelClockInterval = null; }
+  const tick = async () => {
+    const el = document.getElementById('tw-live-clock');
+    if (!el) { clearInterval(_panelClockInterval); _panelClockInterval = null; return; }
+    const state = await API('/environment/state');
+    if (state?.time) el.textContent = state.time;
+  };
+  const secsRemaining = 60 - new Date().getSeconds();
+  setTimeout(() => {
+    tick();
+    _panelClockInterval = setInterval(tick, 60_000);
+  }, secsRemaining * 1000);
+}
+
 async function devSyncToMyClockNow() {
   const now = new Date();
   const minutes = now.getHours() * 60 + now.getMinutes();
@@ -4013,6 +4023,7 @@ async function devSyncToMyClockNow() {
   if (r.error) { toast(r.error, true); return; }
   toast('Server time synced to your clock');
   loadPanel('timeweather');
+  startPanelClock();
 }
 
 async function devForceTick(which) {
