@@ -582,8 +582,9 @@ export async function apiCreateFurniture(body) {
   if (!body?.name) return {status:400,body:{error:'name is required'}};
   const id = body.id || `furniture_${Date.now()}`;
   try {
-    await query(`INSERT INTO furniture (id,zone_id,name,description,is_light,light_on,light_type,flags) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-      [id, body.zone_id, body.name, body.description||'', body.is_light?1:0, body.light_on?1:0, body.light_type||'lamp', JSON.stringify(body.flags||{})]);
+    const pdraw = body.power_draw_kw != null ? Number(body.power_draw_kw) : null;
+    await query(`INSERT INTO furniture (id,zone_id,name,description,is_light,light_on,light_type,power_draw_kw,flags) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+      [id, body.zone_id, body.name, body.description||'', body.is_light?1:0, body.light_on?1:0, body.light_type||null, pdraw, JSON.stringify(body.flags||{})]);
     return {status:201,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
