@@ -1287,13 +1287,10 @@ export async function fixZonePowerConnections() {
     SELECT z.id, z.name, z.grid_x, z.grid_y FROM zones z
     WHERE NOT COALESCE((z.flags->>'is_apartment')::boolean, false)
       AND NOT COALESCE((z.flags->>'is_interior')::boolean, false)
-      AND (
-        z.id NOT IN (SELECT id FROM power_zones)
-        OR z.id IN (
-          SELECT pz.id FROM power_zones pz
-          WHERE pz.generator_id IS NOT NULL
-            AND pz.generator_id NOT IN (SELECT id FROM generators)
-        )
+      AND z.id NOT IN (
+        SELECT pz.id FROM power_zones pz
+        WHERE pz.generator_id IS NOT NULL
+          AND pz.generator_id IN (SELECT id FROM generators)
       )
   `);
 
