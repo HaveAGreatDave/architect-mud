@@ -11,6 +11,7 @@ Post-singularity browser MUD in the HellMOO tradition. Text-driven, real-time, b
 - [docs/design.md](docs/design.md) — game design philosophy, combat feel, skill/faction/economy systems, open design questions
 - [docs/items.md](docs/items.md) — item property reference: every `items` field, which JSON keys the engine actually reads, and the working armor format
 - [docs/hellmoo-combat-reference.md](docs/hellmoo-combat-reference.md) — reverse-engineered HellMOO stats/skills/combat/damage/NPC systems, parsed from its core db; design basis for our combat, with keep-vs-simplify notes
+- [docs/combat-and-stats-plan.md](docs/combat-and-stats-plan.md) — agreed *scope* for the reworked stats/skills/combat (HellMOO stat names, continuous skills, IP-funded stats, 2d10 to-hit, typed per-part armor soak); implementation deferred. Supersedes the Stats/Skills tables in design.md
 
 **Before touching any system, read the relevant doc section if there's one applicable to the request.** The architecture doc especially has real deployment bugs documented — don't relearn them.
 

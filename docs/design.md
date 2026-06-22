@@ -34,28 +34,35 @@ Players begin with a brief creation sequence that establishes:
 ### Starting Archetypes (Examples)
 | Archetype | Flavor | Stat Lean | Starting Skill |
 |---|---|---|---|
-| Gutter Rat | Survived by stealing and hiding | AGI / PER | Pickpocket |
-| Corpse Tech | Used to fix machines. Or people. | INT / TEC | Field Surgery |
-| True Believer | Devoted to something. Anything. | WIL / CHA | Intimidate |
-| Wrecker | Hits things. Very hard. | STR / END | Brawling |
-| Ghost | Nobody sees you coming or going | AGI / INT | Stealth |
+| Gutter Rat | Survived by stealing and hiding | reflexes / senses | Pickpocket |
+| Corpse Tech | Used to fix machines. Or people. | brains / endurance | Field Surgery |
+| True Believer | Devoted to something. Anything. | cool / brains | Intimidate |
+| Wrecker | Hits things. Very hard. | brawn / endurance | Brawling |
+| Ghost | Nobody sees you coming or going | reflexes / brains | Stealth |
 
 ---
 
 ## Stats (Light Layer)
 
-Six core stats. These set ceilings and unlock skill thresholds — they don't do the heavy lifting, skills do.
+Six core stats, using HellMOO's grounded names. These make you *generally*
+capable; skills do the heavy lifting. There is **no charisma stat** — social
+outcomes hang off skills.
 
 | Stat | Governs |
 |---|---|
-| **STR** | Melee damage, carry weight, physical checks |
-| **AGI** | Cooldown speed, dodge, stealth checks |
-| **INT** | Tech use, crafting quality, dialogue options |
-| **WIL** | Sanity resistance, addiction resistance, morale |
-| **END** | Max health, radiation resistance, hunger rate |
-| **CHA** | NPC disposition, faction rep gains, trade prices |
+| **brawn** | Melee force, carry weight, physical checks |
+| **reflexes** | Attack speed, feeds dodge |
+| **endurance** | Health pool, fatigue, feeds physical skills |
+| **brains** | Tech use, crafting quality, perception/evaluation |
+| **senses** | Detection, feeds dodge |
+| **cool** | Nerve under fire, stun/pain resistance |
 
-Stats increase very slowly — a handful of points over a full playthrough. They are not the primary progression feel.
+Stats start at **0** (new characters assign ~6 points at creation) and are raised
+slowly by spending IP — a currency minted by skill progress — at an escalating
+cost. They are not the primary progression feel.
+
+See [combat-and-stats-plan.md](combat-and-stats-plan.md) for the full scope
+(stat→skill coupling, the IP economy, per-stat secondary effects are deferred).
 
 ---
 
@@ -63,7 +70,7 @@ Stats increase very slowly — a handful of points over a full playthrough. They
 
 Skills improve by use. Do a thing, get better at it. There is no XP pool to allocate.
 
-Skills are grouped into trees but not locked — you can dabble in anything, but depth requires commitment.
+Skills are grouped into categories but not locked — you can dabble in anything, but depth requires commitment. Skills don't depend on other skills; they pull only from their governing stats.
 
 ### Skill Categories
 - **Combat** — Brawling, Bladed, Firearms, Explosives, Energy Weapons
@@ -72,7 +79,11 @@ Skills are grouped into trees but not locked — you can dabble in anything, but
 - **Social** — Persuasion, Intimidate, Deception, Faction Lore
 - **Arcane-Tech** — Architect Interface (rare, dangerous, late-game)
 
-Skill ranks: **0 (untrained) → 10 (legendary)**. Most players cap most skills at 3–5. 8+ in anything makes you famous for it.
+Skills run on a **continuous 0.00–10.00** scale (0.01 increments), improved by use
+— biggest gains come from barely winning. A skill's *effective* level adds the
+average of its governing stats on top of the trained value, which can push it past
+10. Most players cap most skills at 3–5 trained; 8+ makes you famous for it. See
+[combat-and-stats-plan.md](combat-and-stats-plan.md) for the full model.
 
 ---
 

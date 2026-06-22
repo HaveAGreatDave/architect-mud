@@ -221,6 +221,23 @@ feet, back, face, mouth, eyes, skin…). Each `body (#110)` part has `size`,
 (`wearing_on`). There's a **body/dream duality**: a creature can "die" in a
 dream/cyberspace layer (`#1837`) while its real body survives.
 
+### Hit-location selection
+An attack either targets a named part (`attack orphan head`) or rolls one via
+`creature:random_bodypart()` — a weighted hit-location table:
+```
+r = random(100); total = 0;
+for x in (this.body_parts)
+    if (r < (total = total + x.size)) return x;
+for-fallthrough → return last part
+```
+Each part's `.size` is its weight; bigger parts get hit more. The chosen part
+then drives armor coverage (`wearing_on`, via clothing `.covers`), the
+status-effect multipliers (head ×3 knockout, chest ×2 shock…), and
+`severable`/`critical` flags. **Tuning gotcha:** `random(100)` only spans 1–100,
+so the summed `.size` weights of a creature's `body_parts` should total ~100 —
+in the core db all parts default to `size 20`, so parts past the fifth are
+effectively unreachable until content sets real sizes.
+
 ### Death
 On `health ≤ 0` → `die`: disengage, drop to an **afterlife**, leave a **corpse
 (#104)**, and award XP to attackers. `xp_value` uses a **diminishing curve** — a
