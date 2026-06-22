@@ -2261,12 +2261,16 @@ function openFurnitureAddModal(zoneId) {
       name: template.name,
       description: template.description || '',
       flags: template.flags || {},
+      is_light: template.is_light || 0,
+      light_type: template.light_type || null,
+      light_on: 0,
+      power_draw_kw: template.power_draw_kw ?? null,
     });
     if (r?.error) { toast(r.error, true); return; }
     toast('Furniture added to room');
     closeModal();
     const newId = r.id || r.entityId || `furniture_${Date.now()}`;
-    _furnitureAllItems.push({ id: newId, zone_id: zoneId, name: template.name, description: template.description || '', flags: template.flags || {}, is_light: template.is_light || 0, light_on: template.light_on || 0, light_type: template.light_type || 'lamp', _staged: true });
+    _furnitureAllItems.push({ id: newId, zone_id: zoneId, name: template.name, description: template.description || '', flags: template.flags || {}, is_light: template.is_light || 0, light_on: 0, light_type: template.light_type || null, power_draw_kw: template.power_draw_kw ?? null, _staged: true });
     _furnitureExpandedZones.add(zoneId);
     renderFurniturePanel({ furniture: _furnitureAllItems, zones: [..._furnitureZoneNames.entries()].map(([zid, zname]) => ({ id: zid, name: zname })) });
     updateStagingBadge();
@@ -2346,25 +2350,59 @@ function furnitureEditForm(rec, isNew) {
         ${zoneOptions}
       </select>
     </div>` : `<input type="hidden" id="f-zone_id" value="${rec.zone_id||''}">`}
-    ${rec.is_light ? (() => {
-      const LIGHT_DEFAULTS = { streetlight: 200, overhead: 20, lamp: 5 };
-      const defaultW = LIGHT_DEFAULTS[rec.light_type] ?? 5;
-      const effectiveW = rec.power_draw_kw ?? defaultW;
-      const isCustom = rec.power_draw_kw != null;
-      return `<div class="field"><label>Power Draw (W)</label>
-        <input id="f-power_draw_kw" type="number" min="0" step="1" value="${effectiveW}">
-        <div style="font-size:10px;color:var(--text-dim);margin-top:3px">${isCustom ? `Custom (system default for ${rec.light_type||'this type'}: ${defaultW}W)` : `Default for ${rec.light_type||'this type'} — clear to reset`}</div>
-      </div>`;
-    })() : ''}
+    <div class="field"><label>Is Light</label>
+      <select id="f-is_light">
+        <option value="0" ${!rec.is_light?'selected':''}>No</option>
+        <option value="1" ${rec.is_light?'selected':''}>Yes</option>
+      </select>
+    </div>
+    <div class="field" id="f-light-fields" style="${rec.is_light?'':'display:none'}">
+      <label>Light Type</label>
+      <select id="f-light_type">
+        <option value="lamp" ${rec.light_type==='lamp'?'selected':''}>Lamp</option>
+        <option value="overhead" ${rec.light_type==='overhead'?'selected':''}>Overhead</option>
+        <option value="streetlight" ${rec.light_type==='streetlight'?'selected':''}>Streetlight</option>
+      </select>
+    </div>
+    <div class="field" id="f-lighton-field" style="${rec.is_light?'':'display:none'}">
+      <label>Light On</label>
+      <select id="f-light_on">
+        <option value="0" ${!rec.light_on?'selected':''}>Off</option>
+        <option value="1" ${rec.light_on?'selected':''}>On</option>
+      </select>
+    </div>
+    <div class="field" id="f-powerdraw-field" style="${rec.is_light?'':'display:none'}">
+      <label>Power Draw (W)</label>
+      ${(() => {
+        const LIGHT_DEFAULTS = { streetlight: 200, overhead: 20, lamp: 5 };
+        const defaultW = LIGHT_DEFAULTS[rec.light_type] ?? 5;
+        const effectiveW = rec.power_draw_kw ?? defaultW;
+        const isCustom = rec.power_draw_kw != null;
+        return `<input id="f-power_draw_kw" type="number" min="0" step="1" value="${effectiveW}">
+        <div style="font-size:10px;color:var(--text-dim);margin-top:3px">${isCustom ? `Custom (default for ${rec.light_type||'this type'}: ${defaultW}W)` : `Default for ${rec.light_type||'this type'} — clear to reset`}</div>`;
+      })()}
+    </div>
+    <script>
+      document.getElementById('f-is_light').addEventListener('change', function() {
+        const show = this.value === '1';
+        ['f-light-fields','f-lighton-field','f-powerdraw-field'].forEach(id => {
+          document.getElementById(id).style.display = show ? '' : 'none';
+        });
+      });
+    </script>
   `;
 }
 async function saveFurniture(existing) {
   const isNew = !existing?.id;
+  const isLight = document.getElementById('f-is_light')?.value === '1';
   const body = {
     name: document.getElementById('f-name').value,
     description: document.getElementById('f-description').value,
     zone_id: document.getElementById('f-zone_id').value || null,
     flags: existing?.flags || {},
+    is_light: isLight ? 1 : 0,
+    light_type: isLight ? (document.getElementById('f-light_type')?.value || 'lamp') : null,
+    light_on: isLight ? Number(document.getElementById('f-light_on')?.value || 0) : 0,
   };
   const pdEl = document.getElementById('f-power_draw_kw');
   if (pdEl) body.power_draw_kw = pdEl.value.trim() === '' ? null : Number(pdEl.value);

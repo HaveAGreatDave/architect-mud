@@ -384,11 +384,12 @@ export async function setWindowState(windowId, updates) {
 
 function computeArtificialLight(powerStatus, light) {
   if (powerStatus === 'powered') {
-    const fixtureBonus = light ? Math.min(1, (light.fixture_count || 1) / 4) : 1;
-    return clamp01(0.3 + 0.7 * fixtureBonus);
+    const fixtures = light ? (light.fixture_count || 0) : 0;
+    if (fixtures === 0) return 0.3; // powered but no lights on → dim ambient
+    // 1 fixture = 0.7 (clear), each additional adds up to 1.0 at 4+
+    return clamp01(0.6 + 0.4 * Math.min(1, fixtures / 4));
   }
   if (powerStatus === 'overloaded') return 0.6;
-  // offline
   return light && light.has_emergency_lighting ? EMERGENCY_LIGHT_LEVEL : 0.0;
 }
 
@@ -544,7 +545,7 @@ async function applyPowerLightEffects(query, zoneId, prevStatus, newStatus, avai
 
   const wasOk = prevStatus === 'powered';
   const nowOk  = newStatus === 'powered';
-  const nowDown = newStatus === 'offline';
+  const nowDown = newStatus === 'offline' || newStatus === 'unpowered';
   const nowBrown = newStatus === 'overloaded';
 
   if (nowDown) {
