@@ -3280,25 +3280,28 @@ function _buildInteriorMapHtml() {
   const building = buildings.find(b => b.id === selId);
   if (!building) return buildingDropdown;
 
-  // BFS interior network from the building entrance
+  // Find all interior/apartment zones connected to this building.
+  // Interior rooms link back to the building via their exits (not always forward),
+  // so we seed from all interior zones that have any exit pointing into the building
+  // zone or another already-found interior zone, then expand outward.
   const powerById = new Map(bigMapPowerData.map(p => [p.zoneId, p]));
-  const visited = new Set();
-  const bfsQ = [building.id];
-  const interiorZones = [];
-  while (bfsQ.length) {
-    const cur = bfsQ.shift();
-    const curZ = bigMapZones.find(z => z.id === cur);
-    if (!curZ) continue;
-    for (const nId of Object.values(curZ.exits || {})) {
-      if (visited.has(nId)) continue;
-      const n = bigMapZones.find(z => z.id === nId);
-      if (n && (n.flags?.is_interior || n.flags?.is_apartment)) {
-        visited.add(nId);
-        interiorZones.push(n);
-        bfsQ.push(nId);
+  const networkIds = new Set([building.id]);
+  // Keep expanding until no new zones are added
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const z of bigMapZones) {
+      if (networkIds.has(z.id)) continue;
+      if (!(z.flags?.is_interior || z.flags?.is_apartment)) continue;
+      const exitTargets = Object.values(z.exits || {});
+      if (exitTargets.some(id => networkIds.has(id))) {
+        networkIds.add(z.id);
+        changed = true;
       }
     }
   }
+  networkIds.delete(building.id);
+  const interiorZones = bigMapZones.filter(z => networkIds.has(z.id) && (z.flags?.is_interior || z.flags?.is_apartment));
 
   if (!interiorZones.length) return buildingDropdown + `<div style="color:var(--text-dim);font-size:11px">No interior rooms connected to this building yet.</div>`;
 
