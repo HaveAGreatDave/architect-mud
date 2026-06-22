@@ -60,10 +60,16 @@ export function refreshZoneVisibility() {
     .catch(() => {});
 }
 
-// Local minute tick — keeps the clock moving between server 30-minute syncs.
-setInterval(() => {
-  if (clientMinutes === null) return;
-  clientMinutes = (clientMinutes + 1) % (24 * 60);
-  renderEnvironmentHUD();
-}, 60000);
+// Local minute tick — aligned to the real minute boundary so display flips
+// at :00 seconds rather than drifting from whenever the page loaded.
+function startClientClock() {
+  const tick = () => {
+    if (clientMinutes === null) return;
+    clientMinutes = (clientMinutes + 1) % (24 * 60);
+    renderEnvironmentHUD();
+  };
+  const secsRemaining = 60 - new Date().getSeconds();
+  setTimeout(() => { tick(); setInterval(tick, 60_000); }, secsRemaining * 1000);
+}
+startClientClock();
 
