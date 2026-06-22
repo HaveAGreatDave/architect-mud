@@ -76,20 +76,21 @@ export async function migrateEnvironment(query) {
     )
   `);
 
-  // Seed a default city grid + plant so the power system has something to
-  // simulate out of the box, anchored to the zone already seeded by
-  // server/models/seed.js (docs/architecture.md: ATMs/zones currently start
-  // at 'zone_start' / "The Threshold"). ON CONFLICT DO NOTHING makes this
-  // safe to re-run, same convention as seed.js.
-  await query(`
-    INSERT INTO generators (id, zone_id, generator_type, capacity_kw, fuel_type, status)
-    VALUES ('city_plant', NULL, 'city_plant', 500, NULL, 'online')
-    ON CONFLICT (id) DO NOTHING
-  `);
+  // Seed a default city grid + plant only on a fresh database (no generators
+  // exist yet). Skipped on subsequent starts so manually deleted generators
+  // are not resurrected on every restart.
+  const { rows: existingGens } = await query('SELECT 1 FROM generators LIMIT 1');
+  if (!existingGens.length) {
+    await query(`
+      INSERT INTO generators (id, zone_id, generator_type, capacity_kw, fuel_type, status)
+      VALUES ('city_plant', NULL, 'city_plant', 500, NULL, 'online')
+      ON CONFLICT (id) DO NOTHING
+    `);
 
-  await query(`
-    INSERT INTO power_zones (id, name, source_type, generator_id, capacity_kw, current_load_kw, status)
-    VALUES ('zone_start', 'The Threshold', 'city_grid', 'city_plant', 500, 40, 'powered')
-    ON CONFLICT (id) DO NOTHING
-  `);
+    await query(`
+      INSERT INTO power_zones (id, name, source_type, generator_id, capacity_kw, current_load_kw, status)
+      VALUES ('zone_start', 'The Threshold', 'city_grid', 'city_plant', 500, 40, 'powered')
+      ON CONFLICT (id) DO NOTHING
+    `);
+  }
 }
