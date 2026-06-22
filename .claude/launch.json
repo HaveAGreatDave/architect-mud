@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "combat-test",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", "-p", "5555", "."],
+      "port": 5555
+    }
+  ]
+}

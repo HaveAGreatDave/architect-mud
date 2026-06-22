@@ -11,15 +11,17 @@ Post-singularity browser MUD in the HellMOO tradition. Text-driven, real-time, b
 - [docs/design.md](docs/design.md) — game design philosophy, combat feel, skill/faction/economy systems, open design questions
 - [docs/items.md](docs/items.md) — item property reference: every `items` field, which JSON keys the engine actually reads, and the working armor format
 - [docs/hellmoo-combat-reference.md](docs/hellmoo-combat-reference.md) — reverse-engineered HellMOO stats/skills/combat/damage/NPC systems, parsed from its core db; design basis for our combat, with keep-vs-simplify notes
-- [docs/combat-and-stats-plan.md](docs/combat-and-stats-plan.md) — agreed *scope* for the reworked stats/skills/combat (HellMOO stat names, continuous skills, IP-funded stats, 2d10 to-hit, typed per-part armor soak); implementation deferred. Supersedes the Stats/Skills tables in design.md
+- [docs/combat.md](docs/combat.md) — combat **as actually built** (to-hit, body parts, typed soak, cooldowns, enemy AI, loot); the running counterpart to combat-and-stats-plan.md
+- [docs/systems-survival.md](docs/systems-survival.md) — hunger/thirst, radiation, mutations, drugs, buffs, sleep, status-effect framework (as built)
+- [docs/systems-economy.md](docs/systems-economy.md) — credits/banking, vendors, factions, crafting, IP/stat-raising, housing (as built)
+- [docs/systems-world.md](docs/systems-world.md) — world state, movement, ambience, sound propagation, spawning, minimap, scheduler, tunables (as built)
 
-**Before touching any system, read the relevant doc section if there's one applicable to the request.** The architecture doc especially has real deployment bugs documented — don't relearn them.
+**Before touching any system, read the relevant doc section if there's one applicable to the request.**
 
 ## Core Architectural Rules
 
 - **Engine vs. content are separate.** The codebase is the engine. World content (zones, items, enemies, NPCs) lives in Postgres and is edited through the dev panel. Don't hardcode content into engine files.
 - **No ORM.** All queries go through the single `query()` helper in `server/models/db.js`. Keep it that way.
-- **No frameworks, no build pipeline.** Each frontend is an HTML entry point plus native ES modules in a sibling `js/` directory; shared utilities live in `client/shared/` and are served at `/shared/*`. No build step to add.
 - **Plugins for extensibility.** New behavior hooks belong in `/plugins/`, not in engine files, unless they're genuinely core.
 - **UTF-8, always.** Several files (especially `client/game/index.html`) use Unicode glyphs and box-drawing chars (`₵ ⚙ ⏻ ╱ █ ☢`). When editing, preserve UTF-8 without a BOM — never let a tool re-save as Windows-1252 or it double-encodes everything into `â•±â•²` mojibake. After editing such files, sanity-check that the glyphs are still intact.
 
@@ -30,6 +32,7 @@ Post-singularity browser MUD in the HellMOO tradition. Text-driven, real-time, b
 Don't assume. Don't hide confusion. Surface tradeoffs.
 
 Before implementing:
+
 - State your assumptions explicitly. If uncertain, ask.
 - If multiple interpretations exist, present them — don't pick silently.
 - If a simpler approach exists, say so. Push back when warranted.
@@ -51,12 +54,14 @@ Minimum code that solves the problem. Nothing speculative.
 Touch only what you must. Clean up only your own mess.
 
 When editing existing code:
+
 - Don't "improve" adjacent code, comments, or formatting.
 - Don't refactor things that aren't broken.
 - Match existing style, even if you'd do it differently.
 - If you notice unrelated dead code, mention it — don't delete it.
 
 When your changes create orphans:
+
 - Remove imports/variables/functions that YOUR changes made unused.
 - Don't remove pre-existing dead code unless asked.
 

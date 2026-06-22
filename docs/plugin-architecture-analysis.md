@@ -1,6 +1,10 @@
 # Plugin Architecture Analysis
 
 > **STATUS NOTE (2026-06-22 — Second Pass):** Major portions of this roadmap are now complete. See §6 below for the full current-state audit and active remaining work. The §5 Migration Roadmap is historical; §6 is the live plan.
+>
+> **See also** the as-built system references added 2026-06-22: [combat.md](combat.md),
+> [systems-survival.md](systems-survival.md), [systems-economy.md](systems-economy.md),
+> [systems-world.md](systems-world.md), and the [QA audit](qa-audit-2026-06.md).
 
 ---
 
