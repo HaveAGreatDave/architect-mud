@@ -260,10 +260,11 @@ export async function initEnvironment({ query, emitHook, broadcast }) {
   scheduleTicks();
   state.ready = true;
 
-  // Sync streetlights to the current phase on boot — otherwise a server
-  // restart at night would leave them off until the next dusk transition.
+  // Sync streetlights to the current phase on boot, then recompute power so
+  // zone loads reflect the correct light_on state from the start.
   const bootLightsOn = (state.phase === 'night' || state.phase === 'dusk') ? 1 : 0;
   await query(`UPDATE furniture SET light_on=$1 WHERE light_type='streetlight'`, [bootLightsOn]).catch(()=>{});
+  await recomputePower().catch(() => {});
 }
 
 function scheduleTicks() {

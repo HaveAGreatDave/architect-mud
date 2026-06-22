@@ -76,14 +76,19 @@ export async function migrateEnvironment(query) {
   await query(`ALTER TABLE generators ADD COLUMN IF NOT EXISTS city_generator_id TEXT REFERENCES generators(id) ON DELETE SET NULL`);
   // Rename building → junction_box.
   await query(`UPDATE generators SET generator_type = 'junction_box' WHERE generator_type = 'building'`);
-  // Scale kW → W (only rows still at kW scale, i.e. < 10000 — safe because
-  // real values will be 100 000+ after this migration runs).
-  await query(`UPDATE generators   SET capacity_kw     = capacity_kw     * 1000 WHERE capacity_kw     < 10000`);
-  // Standardise city plant capacity to 10 000 W (old default was 500 000 W).
-  await query(`UPDATE generators SET capacity_kw = 10000 WHERE generator_type = 'city_plant' AND capacity_kw = 500000`);
-  await query(`UPDATE power_zones  SET capacity_kw     = capacity_kw     * 1000 WHERE capacity_kw     < 10000`);
-  await query(`UPDATE power_zones  SET max_capacity_kw = max_capacity_kw * 1000 WHERE max_capacity_kw < 10000`);
-  await query(`UPDATE furniture    SET power_draw_kw   = power_draw_kw   * 1000 WHERE power_draw_kw IS NOT NULL AND power_draw_kw < 1000`);
+  // One-time kW→W correction for legacy seed values (city plant seeded at 500 kW = 500).
+  // Uses exact value matches so this never re-fires on correct W-scale data.
+  await query(`UPDATE generators SET capacity_kw = 500000 WHERE generator_type = 'city_plant' AND capacity_kw = 500`);
+  await query(`UPDATE generators SET capacity_kw = 10000  WHERE generator_type = 'city_plant' AND capacity_kw = 500000`);
+  // Correct JBs accidentally multiplied by the old blanket * 1000 migration.
+  await query(`UPDATE generators SET capacity_kw = 5000   WHERE generator_type = 'junction_box' AND capacity_kw = 5000000`);
+  // Correct any JBs still on kW scale (value = 5 means 5 kW).
+  await query(`UPDATE generators SET capacity_kw = 5000   WHERE generator_type = 'junction_box' AND capacity_kw = 5`);
+  // power_zones.capacity_kw is overwritten by the simulation on every run — no migration needed.
+  // max_capacity_kw: correct legacy 1 kW default (value = 1) to 1000 W.
+  await query(`UPDATE power_zones SET max_capacity_kw = 1000 WHERE max_capacity_kw = 1`);
+  // furniture power_draw_kw is now stored in W (5, 20, 200 etc). No multiplication needed.
+  // The old * 1000 line was removed because it would corrupt new W-scale values on every restart.
 
   await query(`
     CREATE TABLE IF NOT EXISTS power_zones (
@@ -114,13 +119,13 @@ export async function migrateEnvironment(query) {
   if (!existingGens.length) {
     await query(`
       INSERT INTO generators (id, zone_id, generator_type, capacity_kw, fuel_type, status)
-      VALUES ('city_plant', NULL, 'city_plant', 500, NULL, 'online')
+      VALUES ('city_plant', NULL, 'city_plant', 10000, NULL, 'online')
       ON CONFLICT (id) DO NOTHING
     `);
 
     await query(`
       INSERT INTO power_zones (id, name, source_type, generator_id, capacity_kw, current_load_kw, status)
-      VALUES ('zone_start', 'The Threshold', 'city_grid', 'city_plant', 500, 40, 'powered')
+      VALUES ('zone_start', 'The Threshold', 'city_grid', 'city_plant', 10000, 40, 'powered')
       ON CONFLICT (id) DO NOTHING
     `);
   }
