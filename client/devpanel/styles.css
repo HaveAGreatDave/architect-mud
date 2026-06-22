@@ -301,10 +301,10 @@
   .bigmap-tile.bm-danger-low { background: rgba(245,230,66,0.12); border-color: rgba(245,230,66,0.4); }
   .bigmap-tile.bm-danger-medium { background: rgba(255,154,60,0.14); border-color: rgba(255,154,60,0.45); }
   .bigmap-tile.bm-danger-high, .bigmap-tile.bm-danger-lethal { background: rgba(255,59,92,0.14); border-color: rgba(255,59,92,0.45); }
-  .bigmap-tile.bm-power-unpowered { background: rgba(92,92,120,0.18); border-color: var(--border); }
-  .bigmap-tile.bm-power-powered { background: rgba(40,229,255,0.14); border-color: rgba(40,229,255,0.45); }
-  .bigmap-tile.bm-power-overloaded { background: rgba(255,154,60,0.18); border-color: rgba(255,154,60,0.55); }
-  .bigmap-tile.bm-power-offline { background: rgba(255,59,92,0.18); border-color: rgba(255,59,92,0.55); }
+  .bigmap-tile.bm-power-unpowered  { background: rgba(40,40,60,0.55);    border-color: rgba(80,80,110,0.4); color: var(--text-dim); }
+  .bigmap-tile.bm-power-powered    { background: rgba(20,200,100,0.22);  border-color: rgba(20,220,110,0.75); box-shadow: 0 0 6px rgba(20,220,110,0.25); }
+  .bigmap-tile.bm-power-overloaded { background: rgba(255,165,0,0.28);   border-color: rgba(255,165,0,0.85);  box-shadow: 0 0 6px rgba(255,165,0,0.3); }
+  .bigmap-tile.bm-power-offline    { background: rgba(220,40,60,0.32);   border-color: rgba(230,50,70,0.85);  box-shadow: 0 0 6px rgba(220,40,60,0.3); }
   #bigmap-legend, #power-legend { font-size: 10px; color: var(--text-dim); margin-top: 12px; display: flex; gap: 14px; flex-wrap: wrap; }
   .legend-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }
 

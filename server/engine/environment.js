@@ -64,11 +64,16 @@ const SEASON_BY_MONTH = [
 ];
 
 
-const POWER_OVERLOAD_RATIO = 1.0;    // load/capacity above this → 'overloaded'
-const POWER_BLACKOUT_RATIO = 1.25;   // load/capacity above this → 'offline'
+const POWER_OVERLOAD_RATIO = 1.0;    // alloc < demand × this → 'overloaded'
 const EMERGENCY_LIGHT_LEVEL = 0.3;   // artificial-light contribution on emergency power only
 const SNOW_LOAD_MULTIPLIER = 1.15;   // snow increases effective load (GDD §11: heating demand)
 const STORM_GENERATOR_FAULT_CHANCE = 0.10; // per 24h tick, per non-building generator
+
+// Realistic fixture draw values (kW). These appear in both the bulk simulation
+// UPDATE and in recalcZoneLoad — keep them in sync here rather than inline.
+const DRAW_OVERHEAD_KW    = 0.1;   // 100 W fluorescent / LED panel
+const DRAW_STREETLIGHT_KW = 0.15;  // 150 W HPS / LED streetlight
+const DRAW_DEFAULT_KW     = 0.05;  // 50 W generic fixture
 
 const VISIBILITY_CLEAR = 0.6;
 const VISIBILITY_DIM = 0.35;
@@ -489,7 +494,11 @@ async function applyPowerLightEffects(query, zoneId, prevStatus, newStatus, avai
     const { rows: lights } = await query(`
       SELECT id, light_on_intended,
         COALESCE(power_draw_kw,
-          CASE light_type WHEN 'overhead' THEN 2 WHEN 'streetlight' THEN 3 ELSE 1 END
+          CASE light_type
+            WHEN 'overhead'    THEN ${DRAW_OVERHEAD_KW}
+            WHEN 'streetlight' THEN ${DRAW_STREETLIGHT_KW}
+            ELSE ${DRAW_DEFAULT_KW}
+          END
         ) AS draw_kw
       FROM furniture WHERE zone_id=$1 AND is_light=1
     `, [zoneId]);
@@ -591,9 +600,9 @@ async function simulatePowerNetwork(query, { weatherType }) {
       SELECT COALESCE(SUM(
         CASE
           WHEN f.power_draw_kw IS NOT NULL THEN f.power_draw_kw
-          WHEN f.light_type = 'overhead'    THEN 2
-          WHEN f.light_type = 'streetlight' THEN 3
-          ELSE 1
+          WHEN f.light_type = 'overhead'    THEN ${DRAW_OVERHEAD_KW}
+          WHEN f.light_type = 'streetlight' THEN ${DRAW_STREETLIGHT_KW}
+          ELSE ${DRAW_DEFAULT_KW}
         END
       ), 0)
       FROM furniture f
@@ -904,7 +913,9 @@ export async function installGenerator({ zoneId, generatorType = 'building', cap
   const zone = zoneRows[0];
 
   const id = `gen_${zoneId}_${Date.now()}`;
-  const capacity = Number(capacityKw) || (generatorType === 'city_plant' ? 500 : 50);
+  // city_plant: 500 kW — serves an entire district of outdoor zones with headroom.
+  // building:   5 kW  — serves a building's lighting load (50× 0.1 kW fixtures).
+  const capacity = Number(capacityKw) || (generatorType === 'city_plant' ? 500 : 5);
   const genName = name || (generatorType === 'city_plant' ? 'City Power Plant' : `${zone.name} Generator`);
 
   // Permanent generators — building and city-plant types never consume
@@ -1157,9 +1168,9 @@ export async function recalcZoneLoad(queryFn, zoneId) {
     SELECT COALESCE(SUM(
       CASE
         WHEN power_draw_kw IS NOT NULL THEN power_draw_kw
-        WHEN light_type = 'overhead'   THEN 2
-        WHEN light_type = 'streetlight' THEN 3
-        ELSE 1
+        WHEN light_type = 'overhead'    THEN ${DRAW_OVERHEAD_KW}
+        WHEN light_type = 'streetlight' THEN ${DRAW_STREETLIGHT_KW}
+        ELSE ${DRAW_DEFAULT_KW}
       END
     ), 0) AS total_load
     FROM furniture

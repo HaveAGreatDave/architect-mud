@@ -55,7 +55,12 @@ export async function migrateEnvironment(query) {
   await query(`ALTER TABLE generators ADD COLUMN IF NOT EXISTS name TEXT`);
   await query(`ALTER TABLE generators ADD COLUMN IF NOT EXISTS remaining_kw REAL NOT NULL DEFAULT 0`);
   await query(`ALTER TABLE power_zones ADD COLUMN IF NOT EXISTS available_kw REAL NOT NULL DEFAULT 0`);
-  await query(`ALTER TABLE power_zones ADD COLUMN IF NOT EXISTS max_capacity_kw REAL NOT NULL DEFAULT 50`);
+  await query(`ALTER TABLE power_zones ADD COLUMN IF NOT EXISTS max_capacity_kw REAL NOT NULL DEFAULT 1`);
+  // Migrate zones that still carry the old 50 kW default — realistic per-zone
+  // ceiling is 1 kW (enough for ~10 × 0.1 kW fixtures with headroom).
+  await query(`UPDATE power_zones SET max_capacity_kw = 1 WHERE max_capacity_kw = 50`);
+  // Migrate building generators that used the old 50 kW default to 5 kW.
+  await query(`UPDATE generators SET capacity_kw = 5 WHERE generator_type = 'building' AND capacity_kw = 50`);
 
   await query(`
     CREATE TABLE IF NOT EXISTS power_zones (
