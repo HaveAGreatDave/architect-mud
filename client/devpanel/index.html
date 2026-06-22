@@ -415,7 +415,7 @@ const PANELS = {
   },
   power: {
     title: 'Power Grid',
-    fetch: () => API('/zones'),
+    fetch: () => API('/maps/map_world').then(d => d?.zones || []),
     render: renderPowerPanel,
     noEdit: true,
   },

@@ -477,7 +477,8 @@ async function simulatePowerNetwork(query, { weatherType }) {
     else if (ratio > POWER_OVERLOAD_RATIO) status = 'overloaded';
     else status = 'powered';
 
-    await query(`UPDATE power_zones SET status = $1 WHERE id = $2`, [status, zone.id]);
+    const syncedCapacity = gen ? gen.capacity_kw : zone.capacity_kw;
+    await query(`UPDATE power_zones SET status = $1, capacity_kw = $2 WHERE id = $3`, [status, syncedCapacity, zone.id]);
   }
 }
 
