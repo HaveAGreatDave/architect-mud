@@ -721,6 +721,12 @@ async function seedAmbientEvents() {
       AND z.grid_x = 0 AND z.grid_y = 0 AND COALESCE(z.grid_z, 0) = 0
   `).catch(() => {});
 
+  // Rename plural light object names to singular (e.g. "Street Lights" → "Street Light").
+  await query(`
+    UPDATE furniture SET name = REGEXP_REPLACE(name, E'\\mLights\\M', 'Light', 'gi')
+    WHERE object_type = 'light' AND name ~* E'\\mLights\\M'
+  `).catch(() => {});
+
   // Cleanup: strip is_building / is_interior / world_exit_zone from any zone
   // that has those flags but is NOT the actual entry zone of an interior map it
   // belongs to. Covers zones with map_id=NULL, zones on exterior maps, and zones
