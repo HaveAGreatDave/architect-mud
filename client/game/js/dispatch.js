@@ -98,7 +98,13 @@ const handlers = {
     if (state.player && msg.player_update) { Object.assign(state.player, msg.player_update); updateVitals(state.player); }
   },
 
-  zone_event: (msg) => { appendHtml(msg.message, 'zone-event'); if (msg.refresh) setTimeout(() => sendCmdSilent('look'), 800); },
+  zone_event: (() => {
+    let _lookTimer = null;
+    return (msg) => {
+      appendHtml(msg.message, 'zone-event');
+      if (msg.refresh) { clearTimeout(_lookTimer); _lookTimer = setTimeout(() => sendCmdSilent('look'), 800); }
+    };
+  })(),
   emote: (msg) => { appendMsg(msg.message, 'zone-event'); },
   say: (msg) => { appendMsg(msg.message, 'say'); },
 

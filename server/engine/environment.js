@@ -424,20 +424,24 @@ function _pluralizeLastWord(name) {
 
 // Formats a list of light names into a readable phrase, deduplicating repeated
 // names and pluralizing them (e.g. three "overhead light" → "the overhead lights").
+// Returns { text, isSingular } — isSingular is true only when exactly one fixture.
 function _fmtLightNames(names) {
-  if (!names.length) return 'the lights';
+  if (!names.length) return { text: 'the lights', isSingular: false };
   const counts = new Map();
   for (const n of names) counts.set(n, (counts.get(n) ?? 0) + 1);
   const parts = [...counts.entries()].map(([n, c]) => `the ${c > 1 ? _pluralizeLastWord(n) : n}`);
-  if (parts.length === 1) return parts[0];
-  return `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
+  const isSingular = counts.size === 1 && [...counts.values()][0] === 1;
+  const text = parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
+  return { text, isSingular };
 }
 
+const _cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+
 const FLICKER_MSGS = [
-  n => `${n} flicker${n.startsWith('the ') ? 's' : ''} erratically as the power supply struggles.`,
-  n => `${n} stutter${n.startsWith('the ') ? 's' : ''}, casting unsteady light.`,
-  n => `${n} pulse${n.startsWith('the ') ? 's' : ''} weakly — the grid is under strain.`,
-  n => `${n} dim${n.startsWith('the ') ? 's' : ''} and brightens in an uneven rhythm.`,
+  (n, s) => `${_cap(n)} ${s ? 'flickers' : 'flicker'} erratically as the power supply struggles.`,
+  (n, s) => `${_cap(n)} ${s ? 'stutters' : 'stutter'}, casting unsteady light.`,
+  (n, s) => `${_cap(n)} ${s ? 'pulses' : 'pulse'} weakly — the grid is under strain.`,
+  (n, s) => `${_cap(n)} ${s ? 'dims' : 'dim'} and ${s ? 'brightens' : 'brighten'} in an uneven rhythm.`,
 ];
 
 // Sends flicker broadcasts to overloaded zones — no DB writes.
@@ -450,9 +454,9 @@ async function flickerOverloadedZones() {
       `SELECT name FROM furniture WHERE zone_id=$1 AND object_type='light' AND light_on=1 LIMIT 3`,
       [zoneId]
     ).catch(() => ({ rows: [] }));
-    const nameStr = _fmtLightNames(rows.map(r => r.name));
+    const { text: nameStr, isSingular } = _fmtLightNames(rows.map(r => r.name));
     const pick = FLICKER_MSGS[Math.floor(Math.random() * FLICKER_MSGS.length)];
-    broadcast(zoneId, { type: 'zone_event', message: `<br><span class="power-flicker">${pick(nameStr)}</span><br>` });
+    broadcast(zoneId, { type: 'zone_event', message: `<br><span class="power-flicker">${pick(nameStr, isSingular)}</span><br>` });
   }
 }
 
@@ -622,11 +626,11 @@ async function applyPowerLightEffects(query, zoneId, prevStatus, newStatus, avai
     // Do NOT zero current_load_kw — demand stays constant; only available_kw=0 signals no supply.
     await query(`UPDATE lighting_states SET fixture_count=0 WHERE zone_id=$1`, [zoneId]).catch(() => {});
     if (broadcast && prevStatus !== 'offline') {
-      const nameStr = _fmtLightNames(activeLights.map(l => l.name));
+      const { text: nameStr, isSingular } = _fmtLightNames(activeLights.map(l => l.name));
       const CUTOUT_MSGS = [
-        `${nameStr} cut${activeLights.length === 1 ? 's' : ''} out abruptly. Darkness.`,
-        `${nameStr} die${activeLights.length === 1 ? 's' : ''} with a sharp click as power fails.`,
-        `Power lost. ${nameStr} go${activeLights.length === 1 ? 'es' : ''} dark without warning.`,
+        `${_cap(nameStr)} ${isSingular ? 'cuts' : 'cut'} out abruptly. Darkness.`,
+        `${_cap(nameStr)} ${isSingular ? 'dies' : 'die'} with a sharp click as power fails.`,
+        `Power lost. ${nameStr} ${isSingular ? 'goes' : 'go'} dark without warning.`,
       ];
       const msg = CUTOUT_MSGS[Math.floor(Math.random() * CUTOUT_MSGS.length)];
       broadcast(zoneId, { type: 'zone_event', message: `<span class="power-out">${msg}</span><br>`, refresh: true });
@@ -685,13 +689,11 @@ async function applyPowerLightEffects(query, zoneId, prevStatus, newStatus, avai
 
     if (broadcast) {
       if (forcedOff.length) {
-        const nameStr = _fmtLightNames(forcedOff.map(id => lights.find(l => l.id === id)?.name).filter(Boolean));
-        const s = forcedOff.length === 1;
-        broadcast(zoneId, { type: 'zone_event', message: `<br><span class="power-flicker">${nameStr} cut${s?'s':''} out abruptly — not enough power to keep everything on.</span><br>`, refresh: true });
+        const { text: nameStr, isSingular } = _fmtLightNames(forcedOff.map(id => lights.find(l => l.id === id)?.name).filter(Boolean));
+        broadcast(zoneId, { type: 'zone_event', message: `<br><span class="power-flicker">${_cap(nameStr)} ${isSingular ? 'cuts' : 'cut'} out abruptly — not enough power to keep everything on.</span><br>`, refresh: true });
       } else if (flickering.length) {
-        const nameStr = _fmtLightNames(flickering.map(id => lights.find(l => l.id === id)?.name).filter(Boolean));
-        const s = flickering.length === 1;
-        broadcast(zoneId, { type: 'zone_event', message: `<br><span class="power-flicker">${nameStr} flicker${s?'s':''} as the supply runs thin.</span><br>`, refresh: true });
+        const { text: nameStr, isSingular } = _fmtLightNames(flickering.map(id => lights.find(l => l.id === id)?.name).filter(Boolean));
+        broadcast(zoneId, { type: 'zone_event', message: `<br><span class="power-flicker">${_cap(nameStr)} ${isSingular ? 'flickers' : 'flicker'} as the supply runs thin.</span><br>`, refresh: true });
       }
     }
   } else if (nowOk && !wasOk) {
