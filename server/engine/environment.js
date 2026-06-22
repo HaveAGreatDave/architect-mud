@@ -566,7 +566,7 @@ async function applyPowerLightEffects(query, zoneId, prevStatus, newStatus, avai
         `Power lost. ${nameStr} go${activeLights.length === 1 ? 'es' : ''} dark without warning.`,
       ];
       const msg = CUTOUT_MSGS[Math.floor(Math.random() * CUTOUT_MSGS.length)];
-      broadcast(zoneId, { type: 'zone_event', message: `<span class="power-out">${msg}</span>` });
+      broadcast(zoneId, { type: 'zone_event', message: `<span class="power-out">${msg}</span>`, refresh: true });
     }
   } else if (nowBrown) {
     // Preserve intended state before any changes.
@@ -620,11 +620,11 @@ async function applyPowerLightEffects(query, zoneId, prevStatus, newStatus, avai
       if (forcedOff.length) {
         const nameStr = _fmtLightNames(forcedOff.map(id => lights.find(l => l.id === id)?.name).filter(Boolean));
         const s = forcedOff.length === 1;
-        broadcast(zoneId, { type: 'zone_event', message: `<span class="power-flicker">${nameStr} cut${s?'s':''} out abruptly — not enough power to keep everything on.</span>` });
+        broadcast(zoneId, { type: 'zone_event', message: `<span class="power-flicker">${nameStr} cut${s?'s':''} out abruptly — not enough power to keep everything on.</span>`, refresh: true });
       } else if (flickering.length) {
         const nameStr = _fmtLightNames(flickering.map(id => lights.find(l => l.id === id)?.name).filter(Boolean));
         const s = flickering.length === 1;
-        broadcast(zoneId, { type: 'zone_event', message: `<span class="power-flicker">${nameStr} flicker${s?'s':''} as the supply runs thin.</span>` });
+        broadcast(zoneId, { type: 'zone_event', message: `<span class="power-flicker">${nameStr} flicker${s?'s':''} as the supply runs thin.</span>`, refresh: true });
       }
     }
   } else if (nowOk && !wasOk) {
@@ -639,7 +639,7 @@ async function applyPowerLightEffects(query, zoneId, prevStatus, newStatus, avai
     const { rows: lc } = await query(`SELECT COUNT(*)::int AS cnt FROM furniture WHERE zone_id=$1 AND is_light=1 AND light_on=1`, [zoneId]);
     await query(`UPDATE lighting_states SET fixture_count=$1 WHERE zone_id=$2`, [lc[0]?.cnt || 0, zoneId]).catch(() => {});
     if (broadcast) {
-      broadcast(zoneId, { type: 'zone_event', message: '<span class="power-restore">Emergency power hums to life. The lights come back on.</span>' });
+      broadcast(zoneId, { type: 'zone_event', message: '<span class="power-restore">Emergency power hums to life. The lights come back on.</span>', refresh: true });
     }
   }
 }

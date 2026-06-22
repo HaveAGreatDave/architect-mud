@@ -92,7 +92,7 @@ const handlers = {
     if (state.player && msg.player_update) { Object.assign(state.player, msg.player_update); updateVitals(state.player); }
   },
 
-  zone_event: (msg) => { appendMsg(msg.message, 'zone-event'); },
+  zone_event: (msg) => { appendHtml(msg.message, 'zone-event'); if (msg.refresh) sendCmdSilent('look'); },
   emote: (msg) => { appendMsg(msg.message, 'zone-event'); },
   say: (msg) => { appendMsg(msg.message, 'say'); },
 
