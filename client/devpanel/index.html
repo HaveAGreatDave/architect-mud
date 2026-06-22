@@ -2351,7 +2351,7 @@ function furnitureEditForm(rec, isNew) {
       </select>
     </div>` : `<input type="hidden" id="f-zone_id" value="${rec.zone_id||''}">`}
     <div class="field"><label>Is Light</label>
-      <select id="f-is_light">
+      <select id="f-is_light" onchange="const show=this.value==='1';['f-light-fields','f-lighton-field','f-powerdraw-field'].forEach(function(id){document.getElementById(id).style.display=show?'':'none';})">
         <option value="0" ${!rec.is_light?'selected':''}>No</option>
         <option value="1" ${rec.is_light?'selected':''}>Yes</option>
       </select>
@@ -2382,14 +2382,6 @@ function furnitureEditForm(rec, isNew) {
         <div style="font-size:10px;color:var(--text-dim);margin-top:3px">${isCustom ? `Custom (default for ${rec.light_type||'this type'}: ${defaultW}W)` : `Default for ${rec.light_type||'this type'} — clear to reset`}</div>`;
       })()}
     </div>
-    <script>
-      document.getElementById('f-is_light').addEventListener('change', function() {
-        const show = this.value === '1';
-        ['f-light-fields','f-lighton-field','f-powerdraw-field'].forEach(id => {
-          document.getElementById(id).style.display = show ? '' : 'none';
-        });
-      });
-    </script>
   `;
 }
 async function saveFurniture(existing) {
