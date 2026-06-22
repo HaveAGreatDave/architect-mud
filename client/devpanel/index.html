@@ -3090,6 +3090,7 @@ function renderPowerPanelBody() {
     <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
       <button class="action-btn" onclick="fixZonePowerConnections()">🔌 Fix Zone Connections</button>
       <button class="action-btn" onclick="fixBuildingPowerConnections()">🏢 Fix Building Connections</button>
+      <button class="action-btn" onclick="forceRecomputePower()">↺ Force Recompute</button>
     </div>
     <div id="power-tool-log" style="background:var(--bg-secondary,#111);border:1px solid var(--border,#333);border-radius:4px;padding:8px;font-size:11px;font-family:monospace;min-height:48px;max-height:200px;overflow-y:auto;color:var(--text-dim)">No tools run yet.</div>
   </div>`;
@@ -3098,13 +3099,17 @@ function renderPowerPanelBody() {
   if (powerPanelGenerators.length) {
     html += '<table><thead><tr><th>Name</th><th>Type</th><th>Zone</th><th>Capacity</th><th>Status</th><th></th></tr></thead><tbody>';
     for (const g of powerPanelGenerators) {
+      const gIdSafe = g.id.replace(/'/g, "\\'");
       html += `<tr>
         <td>${g.name || g.id}</td>
         <td>${g.generator_type === 'city_plant' ? 'City Plant' : 'Building'}</td>
         <td>${g.zone_name || g.zone_id || '—'}</td>
         <td>${g.capacity_kw}kW</td>
         <td><span class="badge badge-${g.status === 'online' ? 'safe' : 'high'}">${g.status}</span></td>
-        <td><button class="action-btn danger" onclick="removeGeneratorFromPowerPanel('${g.id}')">Remove</button></td>
+        <td style="white-space:nowrap">
+          <button class="action-btn" onclick="viewGeneratorZones('${gIdSafe}')">View Zones</button>
+          <button class="action-btn danger" style="margin-left:3px" onclick="removeGeneratorFromPowerPanel('${gIdSafe}')">Remove</button>
+        </td>
       </tr>`;
     }
     html += '</tbody></table>';
@@ -3134,16 +3139,8 @@ async function fixZonePowerConnections() {
       lines.push(`&nbsp;&nbsp;• ${z.zoneName} → ${z.generatorName}`);
     }
   }
-  powerToolLog(lines);
-  // Refresh power map
-  const [powerMap, generators] = await Promise.all([
-    API('/environment/power/map').catch(() => []),
-    API('/environment/power/generators').catch(() => []),
-  ]);
-  bigMapPowerData = Array.isArray(powerMap) ? powerMap : [];
-  powerPanelGenerators = Array.isArray(generators) ? generators : [];
+  await _refreshPowerMapData();
   renderPowerPanelBody();
-  // Re-populate log since renderPowerPanelBody resets it
   powerToolLog(lines);
 }
 
@@ -3155,7 +3152,7 @@ async function fixBuildingPowerConnections() {
   if (result.connected.length) {
     lines.push(`✅ Connected ${result.connected.length} building(s):`);
     for (const b of result.connected) {
-      lines.push(`&nbsp;&nbsp;• ${b.buildingName} → ${b.generatorName} (${b.zonesCount} zones)`);
+      lines.push(`&nbsp;&nbsp;• ${b.buildingName} → ${b.generatorName} (${b.zonesCount} zone(s) fixed)`);
     }
   }
   if (result.needsGenerator.length) {
@@ -3168,18 +3165,54 @@ async function fixBuildingPowerConnections() {
       lines.push(`❌ ${b.buildingName}: multiple generators — ${b.generators.join(', ')}`);
     }
   }
-  if (!lines.length) lines.push('✅ No interior building zones found.');
+  if (!lines.length) lines.push('✅ All buildings already correctly connected.');
   powerToolLog(lines);
   if (result.connected.length) {
-    const [powerMap, generators] = await Promise.all([
-      API('/environment/power/map').catch(() => []),
-      API('/environment/power/generators').catch(() => []),
-    ]);
-    bigMapPowerData = Array.isArray(powerMap) ? powerMap : [];
-    powerPanelGenerators = Array.isArray(generators) ? generators : [];
+    await _refreshPowerMapData();
     renderPowerPanelBody();
     powerToolLog(lines);
   }
+}
+
+async function forceRecomputePower() {
+  powerToolLog(['⏳ Recomputing power network...']);
+  const result = await API('/environment/power/recompute', 'POST').catch(e => ({ error: e.message }));
+  if (result?.error) { powerToolLog([`❌ Error: ${result.error}`]); return; }
+  await _refreshPowerMapData();
+  const lines = [`✅ Power network recomputed. ${bigMapPowerData.length} zone(s) in grid.`];
+  renderPowerPanelBody();
+  powerToolLog(lines);
+}
+
+async function _refreshPowerMapData() {
+  const [powerMap, generators] = await Promise.all([
+    API('/environment/power/map').catch(() => []),
+    API('/environment/power/generators').catch(() => []),
+  ]);
+  bigMapPowerData = Array.isArray(powerMap) ? powerMap : [];
+  powerPanelGenerators = Array.isArray(generators) ? generators : [];
+}
+
+async function viewGeneratorZones(generatorId) {
+  const result = await API(`/environment/power/generators/${encodeURIComponent(generatorId)}/zones`).catch(e => ({ error: e.message }));
+  if (result?.error) { toast(result.error, true); return; }
+  const { generator: g, zones } = result;
+  const statusColor = { powered: 'var(--green,#0f0)', overloaded: 'var(--warning,orange)', offline: 'var(--danger,#f44)' };
+  const rows = zones.map(z => {
+    const kind = z.is_interior ? 'interior' : z.is_apartment ? 'apartment' : 'outdoor';
+    const col = statusColor[z.status] || 'var(--text-dim)';
+    return `<tr>
+      <td>${z.name || z.id}</td>
+      <td style="font-size:10px;color:var(--text-dim)">${z.id}</td>
+      <td>${kind}</td>
+      <td style="color:${col}">${z.status}</td>
+      <td>${z.current_load_kw}/${z.capacity_kw}kW</td>
+    </tr>`;
+  }).join('');
+  const body = zones.length
+    ? `<table><thead><tr><th>Name</th><th>ID</th><th>Kind</th><th>Status</th><th>Load</th></tr></thead><tbody>${rows}</tbody></table>`
+    : `<div style="color:var(--text-dim);padding:8px">No zones connected to this generator.</div>`;
+  openModal(`${g.name || g.id} — ${zones.length} zone(s)`, body);
 }
 
 async function removeGeneratorFromPowerPanel(generatorId) {

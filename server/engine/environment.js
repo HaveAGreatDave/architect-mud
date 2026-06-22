@@ -463,12 +463,16 @@ async function simulatePowerNetwork(query, { weatherType }) {
 
   for (const zone of zones) {
     const gen = updatedStatus.get(zone.generator_id);
-    const capacity = gen ? gen.capacity_kw : zone.capacity_kw;
+    // Prefer the generator's own capacity; fall back to the stored value, but
+    // treat 0 as "unknown" rather than "overloaded" so an orphaned row (gen
+    // deleted without cleaning up power_zones) doesn't black out the zone.
+    const capacity = gen ? gen.capacity_kw : (zone.capacity_kw > 0 ? zone.capacity_kw : null);
     const load = zone.current_load_kw * loadMultiplier;
-    const ratio = capacity > 0 ? load / capacity : Infinity;
+    const ratio = capacity != null && capacity > 0 ? load / capacity : 0;
 
     let status;
-    if (gen && gen.status === 'offline') status = 'offline';
+    if (!gen && zone.generator_id) status = 'offline'; // generator_id set but generator deleted
+    else if (gen && gen.status === 'offline') status = 'offline';
     else if (ratio > POWER_BLACKOUT_RATIO) status = 'offline';
     else if (ratio > POWER_OVERLOAD_RATIO) status = 'overloaded';
     else status = 'powered';
@@ -872,7 +876,15 @@ export async function fixBuildingPowerConnections() {
       results.multipleGenerators.push({ buildingName, generators: gens.map(g => g.name) });
     } else {
       const gen = gens[0];
-      for (const zid of network) {
+      // Only write rows that are missing or pointing at the wrong generator.
+      const { rows: already } = await query(
+        `SELECT id FROM power_zones WHERE id = ANY($1::text[]) AND generator_id = $2`,
+        [network, gen.id]
+      );
+      const alreadyIds = new Set(already.map(r => r.id));
+      const toFix = network.filter(zid => !alreadyIds.has(zid));
+      if (toFix.length === 0) continue;
+      for (const zid of toFix) {
         const { rows: zRows } = await query('SELECT name FROM zones WHERE id=$1', [zid]);
         const zName = zRows[0]?.name || zid;
         await query(
@@ -888,7 +900,7 @@ export async function fixBuildingPowerConnections() {
           [zid, ls[0]?.cnt || 0]
         );
       }
-      results.connected.push({ buildingName, generatorName: gen.name, zonesCount: network.length });
+      results.connected.push({ buildingName, generatorName: gen.name, zonesCount: toFix.length });
     }
   }
 
@@ -904,6 +916,22 @@ export async function getGeneratorsList() {
     ORDER BY g.generator_type, g.id
   `);
   return rows;
+}
+
+export async function getGeneratorZones(generatorId) {
+  const { query } = deps;
+  const { rows: genRows } = await query('SELECT * FROM generators WHERE id=$1', [generatorId]);
+  if (!genRows.length) throw new Error('Generator not found');
+  const { rows } = await query(`
+    SELECT pz.id, pz.status, pz.capacity_kw, pz.current_load_kw, z.name, z.grid_x, z.grid_y,
+           COALESCE((z.flags->>'is_interior')::boolean, false) AS is_interior,
+           COALESCE((z.flags->>'is_apartment')::boolean, false) AS is_apartment
+    FROM power_zones pz
+    LEFT JOIN zones z ON z.id = pz.id
+    WHERE pz.generator_id = $1
+    ORDER BY z.name
+  `, [generatorId]);
+  return { generator: genRows[0], zones: rows };
 }
 
 // Re-runs the power simulation immediately (instead of waiting for the next
