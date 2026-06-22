@@ -267,6 +267,8 @@ async function loadZonePowerAndLighting(query) {
       powerStatus: z.status,
       capacityKw: z.capacity_kw,
       loadKw: z.current_load_kw,
+      availableKw: z.available_kw,
+      maxCapacityKw: z.max_capacity_kw ?? 50,
       hasEmergencyLighting: light ? !!light.has_emergency_lighting : false,
       artificialLight: computeArtificialLight(z.status, light),
     });
@@ -461,19 +463,50 @@ async function simulatePowerNetwork(query, { weatherType }) {
     await query(`UPDATE generators SET status = $1, fuel_remaining = $2 WHERE id = $3`, [status, fuelRemaining, gen.id]);
   }
 
+  // Group zones by generator so they share the generator's capacity pool.
+  const zonesByGen = new Map();
   for (const zone of zones) {
-    const gen = updatedStatus.get(zone.generator_id);
-    const capacity = gen ? gen.capacity_kw : zone.capacity_kw;
-    const load = zone.current_load_kw * loadMultiplier;
-    const ratio = capacity > 0 ? load / capacity : Infinity;
+    const key = zone.generator_id ?? '__orphan__';
+    if (!zonesByGen.has(key)) zonesByGen.set(key, []);
+    zonesByGen.get(key).push(zone);
+  }
 
-    let status;
-    if (gen && gen.status === 'offline') status = 'offline';
-    else if (ratio > POWER_BLACKOUT_RATIO) status = 'offline';
-    else if (ratio > POWER_OVERLOAD_RATIO) status = 'overloaded';
-    else status = 'powered';
+  for (const [genId, genZones] of zonesByGen) {
+    const gen = updatedStatus.get(genId);
+    const genCapacity = gen ? gen.capacity_kw : 0;
+    const zoneCount = genZones.length;
 
-    await query(`UPDATE power_zones SET status = $1 WHERE id = $2`, [status, zone.id]);
+    // Generator's capacity is distributed first-come-first-served up to each
+    // zone's max_capacity_kw, then remaining pool is tracked.
+    let poolRemaining = genCapacity;
+    const allocations = genZones.map(zone => {
+      const cap = zone.max_capacity_kw ?? 50;
+      const alloc = Math.min(cap, poolRemaining);
+      poolRemaining = Math.max(0, poolRemaining - alloc);
+      return { zone, alloc, cap };
+    });
+
+    if (gen) {
+      await query(`UPDATE generators SET remaining_kw = $1 WHERE id = $2`, [poolRemaining, genId]);
+    }
+
+    for (const { zone, alloc, cap } of allocations) {
+      const genOffline = !gen && zone.generator_id;
+      const available = (genOffline || (gen && gen.status === 'offline')) ? 0 : alloc;
+
+      let status;
+      if (genOffline) status = 'offline';
+      else if (gen && gen.status === 'offline') status = 'offline';
+      else if (available <= 0) status = 'offline';
+      else if (available < cap * (1 / POWER_BLACKOUT_RATIO)) status = 'offline';
+      else if (available < cap * (1 / POWER_OVERLOAD_RATIO)) status = 'overloaded';
+      else status = 'powered';
+
+      // capacity_kw = zone's equal share; available_kw = what generator delivers;
+      // max_capacity_kw untouched (user-configured ceiling).
+      await query(`UPDATE power_zones SET status = $1, capacity_kw = $2, available_kw = $3 WHERE id = $4`,
+        [status, cap, available, zone.id]);
+    }
   }
 }
 
@@ -573,6 +606,8 @@ export function getPowerMap() {
     status: z.powerStatus,
     capacityKw: z.capacityKw,
     loadKw: z.loadKw,
+    availableKw: z.availableKw,
+    maxCapacityKw: z.maxCapacityKw,
     artificialLight: z.artificialLight,
   }));
 }
@@ -788,7 +823,7 @@ export async function fixZonePowerConnections() {
   const { rows: cityGens } = await query(`
     SELECT g.id, g.name, g.capacity_kw, z.grid_x, z.grid_y
     FROM generators g
-    JOIN zones z ON z.id = g.zone_id
+    LEFT JOIN zones z ON z.id = g.zone_id
     WHERE g.generator_type = 'city_plant' AND g.status = 'online'
   `);
   if (!cityGens.length) throw new Error('No online city plant generators found');
@@ -872,7 +907,15 @@ export async function fixBuildingPowerConnections() {
       results.multipleGenerators.push({ buildingName, generators: gens.map(g => g.name) });
     } else {
       const gen = gens[0];
-      for (const zid of network) {
+      // Only write rows that are missing or pointing at the wrong generator.
+      const { rows: already } = await query(
+        `SELECT id FROM power_zones WHERE id = ANY($1::text[]) AND generator_id = $2`,
+        [network, gen.id]
+      );
+      const alreadyIds = new Set(already.map(r => r.id));
+      const toFix = network.filter(zid => !alreadyIds.has(zid));
+      if (toFix.length === 0) continue;
+      for (const zid of toFix) {
         const { rows: zRows } = await query('SELECT name FROM zones WHERE id=$1', [zid]);
         const zName = zRows[0]?.name || zid;
         await query(
@@ -888,7 +931,7 @@ export async function fixBuildingPowerConnections() {
           [zid, ls[0]?.cnt || 0]
         );
       }
-      results.connected.push({ buildingName, generatorName: gen.name, zonesCount: network.length });
+      results.connected.push({ buildingName, generatorName: gen.name, zonesCount: toFix.length });
     }
   }
 
@@ -904,6 +947,35 @@ export async function getGeneratorsList() {
     ORDER BY g.generator_type, g.id
   `);
   return rows;
+}
+
+export async function getGeneratorZones(generatorId) {
+  const { query } = deps;
+  const { rows: genRows } = await query('SELECT * FROM generators WHERE id=$1', [generatorId]);
+  if (!genRows.length) throw new Error('Generator not found');
+  const { rows } = await query(`
+    SELECT pz.id, pz.status, pz.capacity_kw, pz.current_load_kw, pz.available_kw,
+           pz.max_capacity_kw, z.name, z.grid_x, z.grid_y,
+           COALESCE((z.flags->>'is_interior')::boolean, false) AS is_interior,
+           COALESCE((z.flags->>'is_apartment')::boolean, false) AS is_apartment
+    FROM power_zones pz
+    LEFT JOIN zones z ON z.id = pz.id
+    WHERE pz.generator_id = $1
+    ORDER BY z.name
+  `, [generatorId]);
+  return { generator: genRows[0], zones: rows };
+}
+
+export async function setZoneMaxCapacity(zoneId, maxCapacityKw) {
+  const { query } = deps;
+  const kw = Math.max(0, Number(maxCapacityKw) || 50);
+  const { rowCount } = await query(
+    `UPDATE power_zones SET max_capacity_kw = $1 WHERE id = $2`,
+    [kw, zoneId]
+  );
+  if (!rowCount) throw new Error(`Zone ${zoneId} not found in power_zones`);
+  await recomputePower();
+  return getPowerMap().find(z => z.zoneId === zoneId);
 }
 
 // Re-runs the power simulation immediately (instead of waiting for the next

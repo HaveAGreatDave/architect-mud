@@ -45,6 +45,12 @@ export async function handleEnvironmentApi(path, method, body, auth) {
     return { status: 200, body: await env.getGeneratorsList() };
   }
 
+  if (path.startsWith('/environment/power/generators/') && path.endsWith('/zones') && method === 'GET') {
+    const parts = path.split('/'); // ['', 'environment', 'power', 'generators', id, 'zones']
+    const genId = decodeURIComponent(parts[4] || '');
+    return { status: 200, body: await env.getGeneratorZones(genId) };
+  }
+
   if (path.startsWith('/environment/visibility/') && method === 'GET') {
     const zoneId = decodeURIComponent(path.split('/')[3] || '');
     return { status: 200, body: env.getZoneVisibility(zoneId) };
@@ -72,6 +78,11 @@ export async function handleEnvironmentApi(path, method, body, auth) {
       if (path === '/environment/power/install' && method === 'POST') return { status: 200, body: await env.installGenerator(body || {}) };
       if (path === '/environment/power/fix-zones' && method === 'POST') return { status: 200, body: await env.fixZonePowerConnections() };
       if (path === '/environment/power/fix-buildings' && method === 'POST') return { status: 200, body: await env.fixBuildingPowerConnections() };
+      if (path === '/environment/power/recompute' && method === 'POST') return { status: 200, body: await env.recomputePower() };
+      if (path.startsWith('/environment/power/zones/') && method === 'POST') {
+        const zoneId = decodeURIComponent(path.split('/')[4] || '');
+        return { status: 200, body: await env.setZoneMaxCapacity(zoneId, body?.maxCapacityKw) };
+      }
       if (path.startsWith('/environment/power/generators/') && method === 'DELETE') {
         return { status: 200, body: await env.removeGenerator(decodeURIComponent(path.split('/')[4] || '')) };
       }
