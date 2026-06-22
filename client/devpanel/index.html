@@ -3113,7 +3113,8 @@ function renderPowerPanelBody() {
         <td style="white-space:nowrap">${remaining.toFixed(1)}kW <span style="color:var(--text-dim);font-size:10px">(${pct}% used)</span></td>
         <td><span class="badge badge-${g.status === 'online' ? 'safe' : 'high'}">${g.status}</span></td>
         <td style="white-space:nowrap">
-          <button class="action-btn" onclick="viewGeneratorZones('${gIdSafe}')">View Zones</button>
+          <button class="action-btn" onclick="editGeneratorCapacity('${gIdSafe}', ${g.capacity_kw})">✏ kW</button>
+          <button class="action-btn" style="margin-left:3px" onclick="viewGeneratorZones('${gIdSafe}')">View Zones</button>
           <button class="action-btn danger" style="margin-left:3px" onclick="removeGeneratorFromPowerPanel('${gIdSafe}')">Remove</button>
         </td>
       </tr>`;
@@ -3234,6 +3235,18 @@ async function editZoneMaxCapacity(zoneId) {
   const result = await API(`/environment/power/zones/${encodeURIComponent(zoneId)}`, 'POST', { maxCapacityKw: kw }).catch(e => ({ error: e.message }));
   if (result?.error) { toast(result.error, true); return; }
   toast(`Max capacity set to ${kw}kW`);
+  await _refreshPowerMapData();
+  renderPowerPanelBody();
+}
+
+async function editGeneratorCapacity(generatorId, current) {
+  const input = prompt(`Capacity (kW) for generator ${generatorId}:`, current);
+  if (input === null) return;
+  const kw = parseFloat(input);
+  if (isNaN(kw) || kw < 0) { toast('Invalid capacity value', true); return; }
+  const result = await API(`/environment/power/generators/${encodeURIComponent(generatorId)}/capacity`, 'POST', { capacityKw: kw }).catch(e => ({ error: e.message }));
+  if (result?.error) { toast(result.error, true); return; }
+  toast(`Generator capacity set to ${kw}kW`);
   await _refreshPowerMapData();
   renderPowerPanelBody();
 }

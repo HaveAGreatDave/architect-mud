@@ -238,6 +238,18 @@ function scheduleTicks() {
   ticksScheduled = true;
   schedule('30m', () => { if (!state.frozen) tick30m().catch(logError); });
   schedule('24h', () => { if (!state.frozen) tick24h().catch(logError); });
+
+  // 5-minute brownout rotation: only runs the full power redistribution when
+  // at least one zone is overloaded, so there's zero cost on a healthy grid.
+  schedule('5m', () => {
+    if (state.frozen) return;
+    const anyOverloaded = [...state.zones.values()].some(z => z.powerStatus === 'overloaded');
+    if (anyOverloaded) tick5m().catch(logError);
+  });
+
+  // 30-second flicker: pure broadcast to overloaded zones — no DB writes,
+  // just keeps the visual effect alive between redistribution ticks.
+  schedule('30s', () => { flickerOverloadedZones(); });
 }
 
 async function ensureClockRow(query) {
@@ -337,6 +349,27 @@ function computeArtificialLight(powerStatus, light) {
   if (powerStatus === 'overloaded') return 0.6;
   // offline
   return light && light.has_emergency_lighting ? EMERGENCY_LIGHT_LEVEL : 0.0;
+}
+
+// ---------------------------------------------------------------------------
+// 5-Minute Brownout Rotation Tick (only active when grid is overloaded)
+// ---------------------------------------------------------------------------
+
+async function tick5m() {
+  const { query } = deps;
+  await simulatePowerNetwork(query, { weatherType: state.weatherType });
+  await loadZonePowerAndLighting(query);
+}
+
+// Sends flicker broadcasts to overloaded zones — no DB writes.
+function flickerOverloadedZones() {
+  const { broadcast } = deps;
+  if (!broadcast) return;
+  for (const [zoneId, z] of state.zones) {
+    if (z.powerStatus === 'overloaded') {
+      broadcast(zoneId, { type: 'zone_event', message: '<span class="power-flicker">The lights flicker.</span>' });
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1026,6 +1059,18 @@ export async function fixBuildingPowerConnections() {
 
   if (results.connected.length) await recomputePower();
   return results;
+}
+
+export async function setGeneratorCapacity(generatorId, capacityKw) {
+  const { query } = deps;
+  const kw = Math.max(0, Number(capacityKw) || 0);
+  const { rowCount } = await query(
+    `UPDATE generators SET capacity_kw = $1 WHERE id = $2`,
+    [kw, generatorId]
+  );
+  if (!rowCount) throw new Error(`Generator ${generatorId} not found`);
+  await recomputePower();
+  return (await getGeneratorsList()).find(g => g.id === generatorId);
 }
 
 export async function getGeneratorsList() {
