@@ -581,7 +581,7 @@ async function applyPowerLightEffects(query, zoneId, prevStatus, newStatus, avai
 
   const wasOk = prevStatus === 'powered';
   const nowOk  = newStatus === 'powered';
-  const nowDown = newStatus === 'offline' || newStatus === 'unpowered';
+  const nowDown = newStatus === 'offline';
   const nowBrown = newStatus === 'overloaded';
 
   if (nowDown) {
@@ -764,7 +764,7 @@ async function simulatePowerNetwork(query, { weatherType }) {
       g.generator_type === 'junction_box' && g.city_generator_id === cp.id
     );
 
-    if (!cpSt || cpSt.status === 'offline') {
+    if (!cpSt || cpSt.status === 'offline' || Number(cpSt.capacity_kw) === 0) {
       // City plant down — kill everything it feeds.
       await query(`UPDATE generators SET remaining_kw=0 WHERE id=$1`, [cp.id]);
       for (const z of directZones) {
