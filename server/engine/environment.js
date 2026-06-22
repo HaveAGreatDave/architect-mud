@@ -582,9 +582,29 @@ async function simulatePowerNetwork(query, { weatherType }) {
     await query(`UPDATE generators SET status = $1, fuel_remaining = $2 WHERE id = $3`, [status, fuelRemaining, gen.id]);
   }
 
+  // Calculate each zone's actual demand from currently-on furniture before
+  // distributing the generator pool. This replaces the static max_capacity_kw
+  // entitlement so zones only draw what their active fixtures actually need.
+  await query(`
+    UPDATE power_zones pz
+    SET current_load_kw = (
+      SELECT COALESCE(SUM(
+        CASE
+          WHEN f.power_draw_kw IS NOT NULL THEN f.power_draw_kw
+          WHEN f.light_type = 'overhead'    THEN 2
+          WHEN f.light_type = 'streetlight' THEN 3
+          ELSE 1
+        END
+      ), 0)
+      FROM furniture f
+      WHERE f.zone_id = pz.id AND f.is_light = 1 AND f.light_on = 1
+    )
+  `);
+  const { rows: freshZones } = await query('SELECT * FROM power_zones');
+
   // Group zones by generator so they share the generator's capacity pool.
   const zonesByGen = new Map();
-  for (const zone of zones) {
+  for (const zone of freshZones) {
     const key = zone.generator_id ?? '__orphan__';
     if (!zonesByGen.has(key)) zonesByGen.set(key, []);
     zonesByGen.get(key).push(zone);
@@ -608,19 +628,22 @@ async function simulatePowerNetwork(query, { weatherType }) {
       continue;
     }
 
-    // Rolling brownout distribution:
-    // Sort zones by current available_kw ascending so zones with the least
-    // power get served first from the pool. Zones that received full power
-    // last tick will have high available_kw and naturally fall to the back,
-    // cycling the brownout across the grid each tick.
-    const sorted = [...genZones].sort((a, b) => (a.available_kw ?? 0) - (b.available_kw ?? 0));
+    // Distribute the generator pool based on actual demand rather than
+    // max entitlement. Zones with no active fixtures get 0 draw and are
+    // powered trivially. Zones with demand compete for the remaining pool.
+    // Sort by demand ascending so lighter zones are served first, preserving
+    // the brownout rotation for zones that are genuinely competing.
+    const sorted = [...genZones].sort((a, b) => (a.current_load_kw ?? 0) - (b.current_load_kw ?? 0));
 
     let poolRemaining = genCapacity;
     const allocations = sorted.map(zone => {
-      const cap = zone.max_capacity_kw ?? 50;
-      const alloc = Math.min(cap, Math.max(0, poolRemaining));
+      const demand = zone.current_load_kw ?? 0;
+      const ceiling = zone.max_capacity_kw ?? 50;
+      // A zone can only pull up to its demand (capped by its per-zone ceiling).
+      const ask = Math.min(demand, ceiling);
+      const alloc = Math.min(ask, Math.max(0, poolRemaining));
       poolRemaining -= alloc;
-      return { zone, alloc, cap };
+      return { zone, demand, alloc, ceiling };
     });
 
     if (gen) {
@@ -628,17 +651,24 @@ async function simulatePowerNetwork(query, { weatherType }) {
         [Math.max(0, poolRemaining), genId]);
     }
 
-    for (const { zone, alloc, cap } of allocations) {
+    for (const { zone, demand, alloc, ceiling } of allocations) {
       let status;
-      if (alloc <= 0) status = 'offline';
-      else if (alloc < cap / POWER_BLACKOUT_RATIO) status = 'offline';
-      else if (alloc < cap / POWER_OVERLOAD_RATIO) status = 'overloaded';
-      else status = 'powered';
+      if (demand === 0) {
+        // No active draw — zone is powered even if pool is exhausted.
+        status = 'powered';
+      } else if (alloc <= 0) {
+        status = 'offline';
+      } else if (alloc < demand * POWER_OVERLOAD_RATIO) {
+        // Getting less than its demand — brownout.
+        status = 'overloaded';
+      } else {
+        status = 'powered';
+      }
 
       await query(`UPDATE power_zones SET status=$1, capacity_kw=$2, available_kw=$3 WHERE id=$4`,
-        [status, cap, alloc, zone.id]);
+        [status, ceiling, alloc, zone.id]);
 
-      await applyPowerLightEffects(query, zone.id, zone.status, status, alloc, cap);
+      await applyPowerLightEffects(query, zone.id, zone.status, status, alloc, ceiling);
     }
   }
 }
