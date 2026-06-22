@@ -311,7 +311,7 @@ async function boot() {
   await loadMutations();
   await loadPlugins();
   try {
-    await initEnvironment({ query, broadcast: (payload) => broadcast(null, payload), emitHook: fireHook });
+    await initEnvironment({ query, broadcast: (zoneIdOrPayload, payload) => broadcast(payload !== undefined ? zoneIdOrPayload : null, payload !== undefined ? payload : zoneIdOrPayload), emitHook: fireHook });
   } catch (e) {
     console.error('⚠ Environment system failed to init (continuing without it — likely means `npm run db:migrate` hasn\'t been run against this database yet):', e.message);
   }
