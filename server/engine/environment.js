@@ -176,6 +176,16 @@ function phaseForMinutes(minutesOfDay) {
 
 function clamp01(n) { return Math.max(0, Math.min(1, n)); }
 
+// Diurnal temperature offset: cosine curve peaking at 2pm (+5°C above daily
+// base) and troughing at 2am (-12°C below). Amplitude = 8.5, midpoint = -3.5.
+function diurnalOffset(minutesOfDay) {
+  const peakMinute = 14 * 60; // 2 pm
+  const amplitude  = 8.5;
+  const midpoint   = -3.5;
+  const t = (minutesOfDay - peakMinute) / (24 * 60);
+  return Math.round(midpoint + amplitude * Math.cos(2 * Math.PI * t));
+}
+
 function ambientLightForMinutes(minutesOfDay) {
   const phase = phaseForMinutes(minutesOfDay);
   if (phase.name === 'day') return 1.0;
@@ -444,7 +454,7 @@ async function tick1m() {
     `UPDATE world_clock SET game_time_minutes = $1, last_tick_1m = now() WHERE id = 1`,
     [state.minutes]
   );
-  if (broadcast) broadcast({ type: 'environment.clockTick', time: formatHHMM(state.minutes) });
+  if (broadcast) broadcast({ type: 'environment.clockTick', time: formatHHMM(state.minutes), tempC: state.tempC + diurnalOffset(state.minutes) });
   await flickerOverloadedZones();
 }
 
@@ -941,8 +951,8 @@ export function getHUDPayload() {
     season: state.season,
     weatherType: state.weatherType,
     weatherIcon: WEATHER_ICON[state.weatherType],
-    tempC: state.tempC,
-    tempF: Math.round((state.tempC * 9) / 5 + 32),
+    tempC: state.tempC + diurnalOffset(state.minutes),
+    tempF: Math.round(((state.tempC + diurnalOffset(state.minutes)) * 9) / 5 + 32),
     timePhase: phase.name,
     timeIcon: phase.icon,
     frozen: state.frozen,
