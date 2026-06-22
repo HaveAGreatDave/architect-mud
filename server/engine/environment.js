@@ -739,8 +739,11 @@ async function simulatePowerNetwork(query, { weatherType }) {
     const jbSt = updatedStatus.get(gen.id);
     const allocation = jbAlloc.get(gen.id) ?? 0;
     const jbZones = zonesByGen.get(gen.id) || [];
+    const jbTotalDemand = jbDemand.get(gen.id) ?? 0;
 
-    if (!jbSt || jbSt.status === 'offline' || allocation <= 0) {
+    // Only mark building offline if the JB itself is down, or it had demand but
+    // the city plant gave it nothing. Zero allocation on zero demand = idle/powered.
+    if (!jbSt || jbSt.status === 'offline' || (jbTotalDemand > 0 && allocation <= 0)) {
       for (const z of jbZones) {
         const cap = z.max_capacity_kw ?? 1000;
         await query(`UPDATE power_zones SET status='offline', available_kw=0, capacity_kw=$1 WHERE id=$2`, [cap, z.id]);

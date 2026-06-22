@@ -3388,16 +3388,20 @@ function _buildInteriorMapHtml() {
       const pw = powerById.get(z.id);
       const status = pw?.status || 'unpowered';
       const pwCls = STATUS_CLS[status] || 'bm-power-unpowered';
-      const load = pw ? `${Number(pw.loadKw ?? 0).toFixed(1)}/${Number(pw.maxCapacityKw ?? 0).toFixed(0)}W` : '';
+      const drawReq = pw ? Number(pw.loadKw ?? 0) : 0;
+      const supply  = pw ? Number(pw.availableKw ?? 0) : 0;
+      const loadStr = drawReq > 0
+        ? `${drawReq.toFixed(0)}/${supply.toFixed(0)}W`
+        : (pw ? 'idle' : '');
       const jb = jbByZone.get(z.id);
-      const jbIcon = jb ? `<span title="${jb.name || 'Junction Box'} — ${jb.status}" style="font-size:11px;margin-right:2px">🔌</span>` : '';
+      const jbIcon = jb ? `<span title="${jb.name || 'Junction Box'} — ${jb.status}" style="font-size:11px;margin-right:2px">⚡</span>` : '';
       const isBuildingEntrance = z.flags?.is_building;
       const entranceIcon = isBuildingEntrance ? `<span title="Building entrance" style="font-size:11px;margin-right:2px">🚪</span>` : '';
       const exitDirs = Object.keys(z.exits || {});
       const exHtml = exitDirs.length
         ? `<div class="cell-exits">${exitDirs.map(d => `<span class="${(d==='up'||d==='down') ? 'ex-vert' : ''}">${d==='up' ? '▲' : d==='down' ? '▼' : d[0].toUpperCase()}</span>`).join(' ')}</div>`
         : '';
-      gridHtml += `<div class="bigmap-tile ${pwCls}" style="${gcs}" title="${z.name} — ${status}${load ? ' ' + load : ''}${jb ? ' · JB: ' + (jb.name || jb.id) : ''}" onclick="editRecord('${z.id.replace(/'/g, "\\'")}')"><div>${entranceIcon}${jbIcon}${z.name}${exHtml}<div style="font-size:9px;opacity:0.75;margin-top:2px">${status}${load ? ' · ' + load : ''}</div></div></div>`;
+      gridHtml += `<div class="bigmap-tile ${pwCls}" style="${gcs}" title="${z.name} — ${status}${loadStr ? ' ' + loadStr : ''}${jb ? ' · JB: ' + (jb.name || jb.id) : ''}" onclick="editRecord('${z.id.replace(/'/g, "\\'")}')"><div>${entranceIcon}${jbIcon}${z.name}${exHtml}<div style="font-size:9px;opacity:0.75;margin-top:2px">${status}${loadStr ? ' · ' + loadStr : ''}</div></div></div>`;
     }
   }
 
