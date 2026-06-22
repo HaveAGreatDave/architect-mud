@@ -2787,7 +2787,10 @@ function renderMapOverview() {
   const floors = [...new Set(all.map(z => z.grid_z ?? 0))].sort((a, b) => a - b);
   const onFloor = all.filter(z => (z.grid_z ?? 0) === o.z && z.grid_x != null && z.grid_y != null);
   const knownZoneIds = new Set((Array.isArray(allRecords) ? allRecords : []).map(z => z.id));
-  const interiorZoneIds = new Set([...o.unplacedInterior.keys()]);
+  const interiorZoneIds = new Set([
+    ...o.unplacedInterior.keys(),
+    ...o.children.map(c => c.entry_zone_id).filter(Boolean),
+  ]);
   const { errors, oneWay } = validateMapOverview(o.zones, knownZoneIds, interiorZoneIds);
   const broken = new Set(errors.map(e => e.zoneId));
   const nameOf = id => o.zones.get(id)?.name || id;
