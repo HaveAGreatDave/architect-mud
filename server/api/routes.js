@@ -596,6 +596,7 @@ export async function apiUpdateFurniture(id, body) {
     if (body.flags!=null) { sets.push(`flags=$${i++}`); vals.push(JSON.stringify(body.flags)); }
     if (body.is_light!=null) { sets.push(`is_light=$${i++}`); vals.push(body.is_light?1:0); }
     if (body.light_on!=null) { sets.push(`light_on=$${i++}`); vals.push(body.light_on?1:0); }
+    if (body.power_draw_kw!=null) { sets.push(`power_draw_kw=$${i++}`); vals.push(body.power_draw_kw === '' ? null : Number(body.power_draw_kw)); }
     if (!sets.length) return {status:400,body:{error:'nothing to update'}};
     vals.push(id);
     await query(`UPDATE furniture SET ${sets.join(',')} WHERE id=$${i}`, vals);

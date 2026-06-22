@@ -2346,6 +2346,9 @@ function furnitureEditForm(rec, isNew) {
         ${zoneOptions}
       </select>
     </div>` : `<input type="hidden" id="f-zone_id" value="${rec.zone_id||''}">`}
+    ${rec.is_light ? `<div class="field"><label>Power Draw (W)</label>
+      <input id="f-power_draw_kw" type="number" min="0" step="1" value="${rec.power_draw_kw ?? ''}" placeholder="Leave blank to use default for light type">
+    </div>` : ''}
   `;
 }
 async function saveFurniture(existing) {
@@ -2356,6 +2359,8 @@ async function saveFurniture(existing) {
     zone_id: document.getElementById('f-zone_id').value || null,
     flags: existing?.flags || {},
   };
+  const pdEl = document.getElementById('f-power_draw_kw');
+  if (pdEl) body.power_draw_kw = pdEl.value.trim() === '' ? null : Number(pdEl.value);
   if (isNew) { body.id = document.getElementById('f-id').value.trim(); return API('/furniture', 'POST', body); }
   return API(`/furniture/${existing.id}`, 'PUT', body);
 }
