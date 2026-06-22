@@ -468,11 +468,12 @@ async function tick30m() {
   // Street lights are city-grid infrastructure, not player-switchable —
   // they follow the day/night cycle directly rather than a room switch.
   if (prevPhase !== state.phase) {
-    if (state.phase === 'night' && prevPhase === 'dusk') {
+    const nowDark = state.phase === 'night' || state.phase === 'dusk';
+    const wasDark = prevPhase === 'night' || prevPhase === 'dusk';
+    if (nowDark && !wasDark) {
       await query(`UPDATE furniture SET light_on=1 WHERE light_type='streetlight'`).catch(()=>{});
       await recomputePower().catch(() => {});
-    }
-    if (state.phase === 'day' && prevPhase === 'dawn') {
+    } else if (!nowDark && wasDark) {
       await query(`UPDATE furniture SET light_on=0 WHERE light_type='streetlight'`).catch(()=>{});
       await recomputePower().catch(() => {});
     }
