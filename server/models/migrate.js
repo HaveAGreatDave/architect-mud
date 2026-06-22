@@ -406,7 +406,106 @@ export async function migrate() {
   console.log('✓ Staging tables migrated');
 
   await seedAmbientEvents();
+  await seedWeatherAmbients();
   console.log('✓ Ambient events seeded');
+}
+
+async function seedWeatherAmbients() {
+  // Idempotent: skip if weather themes already exist.
+  const { rows: wRows } = await query("SELECT COUNT(*) FROM global_ambient_events WHERE theme LIKE 'weather_%'");
+  if (parseInt(wRows[0].count) === 0) {
+    const weatherEvents = [
+      // Rain — wet, rhythmic, draining
+      ['weather_rain', 'Rain hammers the street in shifting curtains.',1.2,100],
+      ['weather_rain', 'Water rushes through a clogged gutter somewhere nearby.',0.8,90],
+      ['weather_rain', 'The rain intensifies briefly, then eases back.',1.0,100],
+      ['weather_rain', 'Rainwater streams off an overhang in a heavy silver sheet.',0.8,90],
+      ['weather_rain', 'Puddles spread across the pavement, joining and dividing.',0.5,80],
+      ['weather_rain', 'A drain somewhere gurgles as it struggles to keep up.',0.8,90],
+      ['weather_rain', 'The smell of wet concrete and rust hangs in the air.',0.3,70],
+
+      // Sleet — nastier than rain, sharp and miserable
+      ['weather_sleet', 'Ice pellets ping off metal surfaces in erratic bursts.',1.0,100],
+      ['weather_sleet', 'Sleet hisses against every hard surface.',1.0,100],
+      ['weather_sleet', 'The ground is treacherous — a thin skim of ice over everything.',0.5,80],
+      ['weather_sleet', 'A bitter wind drives the sleet sideways.',1.2,90],
+      ['weather_sleet', 'Sleet taps against every surface like bad static.',0.8,90],
+
+      // Thunderstorm — dramatic, loud, violent
+      ['weather_thunderstorm', 'Thunder rolls across the sky, close enough to feel.',3.0,100],
+      ['weather_thunderstorm', 'Lightning strobes through the clouds, throwing everything into sharp relief.',1.5,100],
+      ['weather_thunderstorm', 'A crack of thunder shakes the air — that one was close.',3.5,90],
+      ['weather_thunderstorm', 'Rain hammers everything flat.',2.0,100],
+      ['weather_thunderstorm', 'Lightning hits something nearby with a sharp crack and a flash.',3.0,80],
+      ['weather_thunderstorm', 'Thunder rolls through in a long, grinding wave.',3.0,90],
+      ['weather_thunderstorm', 'The storm flares white for a second, and for a moment everything casts a shadow.',1.5,80],
+
+      // Storm — structural, dangerous
+      ['weather_storm', 'Wind screams between the buildings, finding every gap.',2.5,100],
+      ['weather_storm', 'Something large gets picked up by the wind and slams into a wall.',3.0,90],
+      ['weather_storm', 'A sheet of corrugated metal tears loose somewhere and clatters away.',2.5,80],
+      ['weather_storm', 'The wind drops for a second, then slams back twice as hard.',2.0,90],
+      ['weather_storm', 'Debris skitters across the ground in sudden, sharp rushes.',1.5,90],
+      ['weather_storm', 'A sign rips free overhead and vanishes into the dark.',2.0,80],
+      ['weather_storm', 'The wind makes the structures groan.',1.5,90],
+
+      // Snow — muffled, heavy, slow
+      ['weather_snow', 'Snow falls in thick, slow flakes. Everything goes quiet.',0.5,100],
+      ['weather_snow', 'A heavy drift slides off a roof somewhere above and hits the ground.',1.5,90],
+      ['weather_snow', 'Snow muffles the city into something almost peaceful. Almost.',0.3,80],
+      ['weather_snow', 'Footprints in the snow nearby, filling in fast.',0.5,80],
+      ['weather_snow', 'Somewhere, a structure groans under the weight of accumulation.',1.2,80],
+      ['weather_snow', 'Snow hisses softly against every surface.',0.5,90],
+
+      // Blizzard — hostile, obliterating
+      ['weather_blizzard', 'The blizzard whips snow into a horizontal wall of white.',2.5,100],
+      ['weather_blizzard', 'Wind howls through every gap and crevice.',2.5,100],
+      ['weather_blizzard', 'Visibility is nearly nothing. You\'re navigating by feel.',0.5,80],
+      ['weather_blizzard', 'The cold cuts straight through everything.',0.5,80],
+      ['weather_blizzard', 'Drifts are forming fast — in an hour this will be impassable.',0.5,80],
+      ['weather_blizzard', 'A gust hits like a wall. It takes effort to stay upright.',2.0,90],
+
+      // Fog — eerie, muffled
+      ['weather_fog', 'Sound carries strangely in the fog — distant things seem close.',0.8,100],
+      ['weather_fog', 'The fog is thick enough to taste.',0.3,100],
+      ['weather_fog', 'Shapes in the fog resolve into buildings only when you\'re almost on top of them.',0.3,80],
+      ['weather_fog', 'A foghorn sounds somewhere in the grey — direction impossible to pin.',2.5,80],
+      ['weather_fog', 'Moisture condenses on every surface. Everything drips slowly.',0.5,90],
+      ['weather_fog', 'Footsteps you can\'t see echo from somewhere in the fog.',1.0,80],
+
+      // Haze — chemical, oppressive
+      ['weather_haze', 'The air tastes like metal and chemicals.',0.3,100],
+      ['weather_haze', 'Your eyes water. It\'s been worse before, but not by much.',0.3,100],
+      ['weather_haze', 'The haze gives everything a sickly orange tint.',0.3,80],
+      ['weather_haze', 'Breathing feels faintly wrong, like the air is slightly off.',0.3,90],
+      ['weather_haze', 'The horizon has vanished into a flat brown smear.',0.3,80],
+
+      // Ash — post-disaster, choking
+      ['weather_ash', 'Ash drifts down like grey snow, coating every surface.',0.5,100],
+      ['weather_ash', 'The air smells of sulfur and something burnt — organic, maybe.',0.3,100],
+      ['weather_ash', 'Ash settles on your skin. It\'s fine and dry and smells wrong.',0.3,90],
+      ['weather_ash', 'A thick layer of ash muffles footsteps, coats the ground grey.',0.5,90],
+      ['weather_ash', 'Something is still burning, somewhere upwind.',1.0,80],
+      ['weather_ash', 'The sky is the color of a dead monitor.',0.3,80],
+    ];
+
+    for (const [theme, message, loudness, weight] of weatherEvents) {
+      await query(
+        'INSERT INTO global_ambient_events (id, theme, message, loudness, weight, enabled) VALUES (gen_random_uuid()::text, $1, $2, $3, $4, 1)',
+        [theme, message, loudness, weight]
+      ).catch(() => {});
+    }
+  }
+
+  // Backfill: exterior zones that still have the default 'indoors' theme get 'city'.
+  // Interior zones (is_interior flag) are left alone.
+  await query(`
+    UPDATE zones
+    SET ambient_theme = 'city'
+    WHERE ambient_theme = 'indoors'
+      AND COALESCE((flags->>'is_interior')::boolean, false) = false
+      AND map_id IS NULL
+  `).catch(() => {});
 }
 
 // Collapse all item *behavior* into the single `tags` JSONB column. Adds the

@@ -43,6 +43,12 @@ function _switchToTab(key) {
   if (key === USERS_TAB) _fetchOnlinePlayers();
 }
 
+function _closeWhisperTab(handle) {
+  _whisperConvos.delete(handle);
+  if (_activeWhisperTab === handle) _switchToTab(USERS_TAB);
+  else { _refreshWhisperTabs(); _updateChatBadge(); }
+}
+
 function _refreshWhisperTabs() {
   const tabs = document.getElementById('whisper-tabs');
   if (!tabs) return;
@@ -58,14 +64,24 @@ function _refreshWhisperTabs() {
   for (const [handle, convo] of _whisperConvos) {
     const t = document.createElement('button');
     const active = handle === _activeWhisperTab;
-    t.style.cssText = `position:relative;background:${active?'var(--bg3)':'transparent'};border:1px solid ${active?'var(--accent)':'var(--border)'};color:${active?'var(--accent)':'var(--text-dim)'};font-family:var(--font-mono);font-size:10px;padding:3px 8px;cursor:pointer;border-radius:2px;white-space:nowrap;flex-shrink:0`;
-    t.textContent = handle;
+    t.style.cssText = `position:relative;background:${active?'var(--bg3)':'transparent'};border:1px solid ${active?'var(--accent)':'var(--border)'};color:${active?'var(--accent)':'var(--text-dim)'};font-family:var(--font-mono);font-size:10px;padding:3px 8px 3px 8px;cursor:pointer;border-radius:2px;white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:4px`;
+    const labelSpan = document.createElement('span');
+    labelSpan.textContent = handle;
+    t.appendChild(labelSpan);
     if (convo.unread > 0) {
       const pip = document.createElement('span');
       pip.textContent = '!';
       pip.style.cssText = 'position:absolute;top:-5px;right:-5px;background:var(--red);color:#fff;font-size:9px;font-weight:bold;width:12px;height:12px;border-radius:2px;display:flex;align-items:center;justify-content:center;pointer-events:none';
       t.appendChild(pip);
     }
+    const x = document.createElement('span');
+    x.textContent = '×';
+    x.title = 'Close';
+    x.style.cssText = 'font-size:12px;line-height:1;opacity:0.5;margin-left:2px;flex-shrink:0';
+    x.onmouseenter = () => { x.style.opacity = '1'; };
+    x.onmouseleave = () => { x.style.opacity = '0.5'; };
+    x.onclick = (e) => { e.stopPropagation(); _closeWhisperTab(handle); };
+    t.appendChild(x);
     t.onclick = () => openWhisperTab(handle);
     tabs.appendChild(t);
   }
@@ -162,10 +178,36 @@ function _updateChatBadge() {
   if (badge) badge.style.display = (total > 0 && !_whisperPanelVisible) ? 'flex' : 'none';
 }
 
+async function _openWhisperByHandle(handle) {
+  await _fetchOnlinePlayers();
+  const found = _onlinePlayers.find(p => p.handle.toLowerCase() === handle.toLowerCase());
+  if (!found) {
+    const log = document.getElementById('whisper-log');
+    if (log) {
+      const err = document.createElement('div');
+      err.style.cssText = 'padding:6px 0;color:var(--red);font-size:11px';
+      err.textContent = `"${handle}" is not online.`;
+      log.appendChild(err);
+      log.scrollTop = log.scrollHeight;
+    }
+    return;
+  }
+  openWhisperTab(found.handle);
+}
+
 function sendWhisperReply() {
   const input = document.getElementById('whisper-reply-input');
   const msg = input?.value?.trim();
   if (!msg || !_activeWhisperTab || _activeWhisperTab === USERS_TAB) return;
+
+  // Intercept "whisper <handle>" to open a new conversation tab.
+  const whisperCmd = msg.match(/^whisper\s+(\S+)$/i);
+  if (whisperCmd) {
+    if (input) input.value = '';
+    _openWhisperByHandle(whisperCmd[1]);
+    return;
+  }
+
   if (!_whisperConvos.has(_activeWhisperTab)) _whisperConvos.set(_activeWhisperTab, { messages: [], scrollTop: 0, unread: 0 });
   const convo = _whisperConvos.get(_activeWhisperTab);
   convo.messages.push({ from: 'You', message: msg, isMe: true, ts: Date.now() });

@@ -1,4 +1,4 @@
-import { world, tickSpawns, getRandomAmbient, getLivePlayer, getInterruptLoudness, registerInterrupt } from './world.js';
+import { world, tickSpawns, getRandomAmbient, getWeatherAmbient, getLivePlayer, getInterruptLoudness, registerInterrupt } from './world.js';
 import { propagateSound } from './sounds.js';
 import { enemyAttackPlayer, isOnCooldown } from './combat.js';
 import { tickEffects } from './effects.js';
@@ -7,6 +7,7 @@ import { tickSleep } from './apartments.js';
 import { fireHook } from './plugins.js';
 import { schedule } from './scheduler.js';
 import { query } from '../models/db.js';
+import { getEnvironmentState } from './environment.js';
 
 let broadcastFn = null;
 let minuteTick = 0;
@@ -148,7 +149,14 @@ export function handlePlayerDeath(player, killer) {
   fireHook('player.death', player, killer).catch(()=>{});
 }
 
+// Weather types that produce distinct ambient sounds outdoors.
+const WEATHER_AMBIENT_TYPES = new Set(['rain','sleet','thunderstorm','storm','snow','blizzard','fog','haze','ash']);
+
 async function ambientTick() {
+  const { weatherType } = getEnvironmentState();
+  const weatherTheme = `weather_${weatherType}`;
+  const hasWeatherSounds = WEATHER_AMBIENT_TYPES.has(weatherType);
+
   for (const [zoneId, zone] of world.zones) {
     if (zone.players.size === 0 || Math.random() > 0.4) continue;
 
@@ -169,6 +177,15 @@ async function ambientTick() {
     // Propagate with sound reach — quiet ambients stay local, louder ones spread.
     registerInterrupt(zoneId, ambient.loudness, 6000);
     propagateSound(zoneId, ambient.message, ambient.loudness, broadcastFn);
+
+    // For exterior zones during active weather, occasionally layer a weather sound.
+    const isExterior = !zone.flags?.is_interior;
+    if (isExterior && hasWeatherSounds && Math.random() < 0.4) {
+      const weatherAmbient = getWeatherAmbient(zoneId, weatherTheme);
+      if (weatherAmbient && interrupt <= weatherAmbient.loudness * 1.5) {
+        propagateSound(zoneId, weatherAmbient.message, weatherAmbient.loudness, broadcastFn);
+      }
+    }
   }
 }
 

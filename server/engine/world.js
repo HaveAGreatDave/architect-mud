@@ -274,6 +274,21 @@ export function getRandomAmbient(zoneId) {
   return { message: pick.message, loudness: pick.loudness ?? 1.0 };
 }
 
+// Returns a weather-themed ambient event for outdoor use, or null if none available.
+export function getWeatherAmbient(zoneId, weatherTheme) {
+  const pool = (globalAmbientPool[weatherTheme] || []).filter(e => e.enabled);
+  if (!pool.length) return null;
+  const recent = zoneRecentAmbients.get(zoneId) || [];
+  const fresh = pool.filter(e => !recent.includes(e.message));
+  const source = fresh.length ? fresh : pool;
+  const totalWeight = source.reduce((s, e) => s + (e.weight || 100), 0);
+  let rand = Math.random() * totalWeight;
+  let pick = source[source.length - 1];
+  for (const e of source) { rand -= (e.weight || 100); if (rand <= 0) { pick = e; break; } }
+  _trackAmbient(zoneId, pick.message, recent);
+  return { message: pick.message, loudness: pick.loudness ?? 1.0 };
+}
+
 function _trackAmbient(zoneId, message, recent) {
   const next = [...recent, message].slice(-RECENT_AMBIENT_WINDOW);
   zoneRecentAmbients.set(zoneId, next);
