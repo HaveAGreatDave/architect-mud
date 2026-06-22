@@ -63,18 +63,22 @@ function generateWeatherForDate(dateStr, climateProfile) {
   const baseTemp     = climateProfile?.monthly_temp_c?.[month]        ?? SEASON_BASE_TEMP_C[season];
   const precipChance = climateProfile?.monthly_precip_chance?.[month] ?? SEASON_BASE_PRECIP[season];
 
-  const variance = Math.round((rand() - 0.5) * 8);
+  // 5% chance of extreme weather day (±20°C swing), otherwise ±10°C
+  const isExtreme = rand() < 0.05;
+  const variance = Math.round((rand() - 0.5) * (isExtreme ? 40 : 20));
   const tempC = baseTemp + variance;
 
   let weatherType;
   if (rand() < precipChance) {
     weatherType = precipTypeForTemp(tempC, rand);
   } else {
-    // Non-precipitating: weight toward clear in summer, overcast in winter
-    const dryOptions = tempC < 0
-      ? ['cloudy', 'cloudy', 'overcast', 'clear']
-      : ['clear', 'clear', 'cloudy', 'overcast', 'fog', 'haze'];
-    weatherType = pick(rand, dryOptions);
+    // On dry days, higher precipitation chance = more overcast/cloudy, less clear.
+    // precipChance of 0 → always clear; 1.0 → mostly overcast.
+    const r = rand();
+    if (r < precipChance * 0.5)       weatherType = 'overcast';
+    else if (r < precipChance * 0.85) weatherType = 'cloudy';
+    else if (rand() < precipChance * 0.3) weatherType = rand() < 0.5 ? 'fog' : 'haze';
+    else                               weatherType = 'clear';
   }
 
   return { weatherType, tempC };

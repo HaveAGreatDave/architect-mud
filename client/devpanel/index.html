@@ -3977,7 +3977,10 @@ function renderTimeWeatherPanel(data) {
       </div>
 
       <div>
-        <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:12px">7-Day Forecast</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim)">7-Day Forecast</div>
+          <button class="action-btn" onclick="devRecalculateForecast()" title="Regenerate unlocked forecast days using the active climate profile">↻ Recalculate Forecast</button>
+        </div>
         <div style="display:flex;gap:10px;flex-wrap:wrap">${forecastGrid||'<div style="color:var(--text-dim);font-size:12px">No forecast data.</div>'}</div>
       </div>
 
@@ -3999,7 +4002,6 @@ function renderTimeWeatherPanel(data) {
             <input id="tw-climate-name" type="text" placeholder="Profile name" value="${climateProfiles.find(p=>p.id===activeId)?.name||''}" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:5px 8px;border-radius:2px;width:140px">
             <button class="action-btn" onclick="devSaveClimateProfile()">Save</button>
             <button class="action-btn success" onclick="devSetActiveClimate()" title="Use this profile for weather generation">Set Active</button>
-            <button class="action-btn" onclick="devRecalculateForecast()" title="Regenerate unlocked forecast days using this profile">↻ Recalculate Forecast</button>
           </div>
         </div>
 

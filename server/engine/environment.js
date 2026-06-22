@@ -43,7 +43,7 @@ const MAX_CATCHUP_DAYS = 30;
 const WEATHER_TYPES = ['clear','cloudy','overcast','rain','sleet','thunderstorm','storm','snow','blizzard','fog','haze','ash'];
 
 const WEATHER_ICON = {
-  clear:        '☀',
+  clear:        '☀️',
   cloudy:       '☁',
   overcast:     '🌥',
   rain:         '🌧',
@@ -943,9 +943,11 @@ export async function devSetActiveClimate(id) {
 }
 
 export async function devRecalculateForecast() {
-  const { emitHook } = deps;
+  const { emitHook, broadcast } = deps;
   if (emitHook) await emitHook('environment.recalculateForecast', { setWeatherState, climateProfile: state.activeClimateProfile, currentDate: state.date });
-  return { ...getHUDPayload(), forecast: state.forecast };
+  const payload = { ...getHUDPayload(), forecast: getForecast() };
+  if (broadcast) broadcast({ type: 'environment.sync', ...payload });
+  return payload;
 }
 
 export async function devOverrideWeather({ weatherType, tempC }) {
