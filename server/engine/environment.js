@@ -691,6 +691,13 @@ async function simulatePowerNetwork(query, { weatherType }) {
       )
     )
   `);
+  // Sync fixture counts so visibility is always based on current light_on state.
+  await query(`
+    UPDATE lighting_states ls SET fixture_count = (
+      SELECT COUNT(*)::int FROM furniture f
+      WHERE f.zone_id = ls.zone_id AND f.is_light = 1 AND f.light_on = 1
+    )
+  `).catch(() => {});
   const { rows: allZones } = await query('SELECT * FROM power_zones');
   const zonesByGen = new Map();
   for (const z of allZones) {
