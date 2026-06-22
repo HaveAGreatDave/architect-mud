@@ -41,13 +41,15 @@ function renderEnvironmentHUD() {
   if (tempEl)    tempEl.textContent    = envTempC !== null ? `${envTempC}°C` : '—°C';
 }
 
-export function updateEnvironmentHUD(env, realign = false) {
+let _lastServerTick = 0;
+
+export function updateEnvironmentHUD(env) {
   if (!env || !env.time) return;
   clientMinutes = parseHHMM(env.time);
   if (env.weatherIcon !== undefined) envWeatherIcon = env.weatherIcon || '—';
   if (env.tempC !== undefined) envTempC = env.tempC;
+  _lastServerTick = Date.now();
   renderEnvironmentHUD();
-  if (realign) startClientClock();
 }
 
 export function refreshZoneVisibility() {
@@ -61,25 +63,12 @@ export function refreshZoneVisibility() {
     .catch(() => {});
 }
 
-// Local fallback tick — increments display between server pushes.
-// Re-aligned every time the server sends a clockTick so the two stay in step.
-let _clockTimeout  = null;
-let _clockInterval = null;
-
-function startClientClock() {
-  if (_clockTimeout)  { clearTimeout(_clockTimeout);   _clockTimeout  = null; }
-  if (_clockInterval) { clearInterval(_clockInterval); _clockInterval = null; }
-  const tick = () => {
-    if (clientMinutes === null) return;
-    clientMinutes = (clientMinutes + 1) % (24 * 60);
-    renderEnvironmentHUD();
-  };
-  const secsRemaining = 60 - new Date().getSeconds();
-  _clockTimeout = setTimeout(() => {
-    _clockTimeout = null;
-    tick();
-    _clockInterval = setInterval(tick, 60_000);
-  }, secsRemaining * 1000);
-}
-startClientClock();
+// Fallback tick — only increments if the server hasn't pushed in over 90 seconds
+// (i.e. WS is disconnected). Normal operation is driven entirely by server pushes.
+setInterval(() => {
+  if (clientMinutes === null) return;
+  if (Date.now() - _lastServerTick < 90_000) return;
+  clientMinutes = (clientMinutes + 1) % (24 * 60);
+  renderEnvironmentHUD();
+}, 60_000);
 
