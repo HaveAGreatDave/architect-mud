@@ -2412,7 +2412,7 @@ function buildDynamicMapGrid(zones, mode, powerById, clickable) {
           // Power plant tile: Draw Request / Capacity
           const totalDemand = Number(cpGen.total_demand_w ?? 0);
           const overdrawn = totalDemand > cpGen.capacity_kw;
-          const cpStatus = cpGen.status !== 'online' ? 'offline' : overdrawn ? 'overloaded' : '';
+          const cpStatus = Number(cpGen.capacity_kw) === 0 ? 'offline' : cpGen.status !== 'online' ? 'offline' : overdrawn ? 'overloaded' : '';
           cls = `bigmap-tile bm-power-plant${cpStatus ? ' bm-power-' + cpStatus : ''}`;
           sub = `<div style="font-size:13px;line-height:1;margin-top:1px">⚡</div><div style="font-size:9px;opacity:0.9">${totalDemand.toFixed(0)}/${cpGen.capacity_kw.toFixed(0)}W</div>`;
         } else {
@@ -2584,7 +2584,7 @@ function renderBigMapOverlay() {
         if (cpGen) {
           const used = cpGen.capacity_kw - (cpGen.remaining_kw ?? cpGen.capacity_kw);
           const overdrawn = used > cpGen.capacity_kw;
-          const cpStatus = cpGen.status !== 'online' ? 'offline' : overdrawn ? 'overloaded' : '';
+          const cpStatus = Number(cpGen.capacity_kw) === 0 ? 'offline' : cpGen.status !== 'online' ? 'offline' : overdrawn ? 'overloaded' : '';
           cls = `bigmap-tile bm-power-plant${cpStatus ? ' bm-power-' + cpStatus : ''}`;
           powerSub = `<div style="font-size:9px;opacity:0.9;margin-top:2px">⚡ ${used.toFixed(0)}/${cpGen.capacity_kw.toFixed(0)}W</div>`;
         } else {
@@ -3711,7 +3711,6 @@ async function toggleGeneratorPower(generatorId) {
   const result = await API(`/environment/power/generators/${encodeURIComponent(generatorId)}/toggle`, 'POST', {}).catch(e => ({ error: e.message }));
   if (result?.error) { toast(result.error, true); return; }
   toast(result.isOn ? 'Generator on' : 'Generator off');
-  await API('/environment/power/recompute', 'POST', {}).catch(() => {});
   await _refreshPowerMapData();
   renderPowerPanelBody();
 }
