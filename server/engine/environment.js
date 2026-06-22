@@ -438,7 +438,7 @@ async function flickerOverloadedZones() {
     ).catch(() => ({ rows: [] }));
     const nameStr = _fmtLightNames(rows.map(r => r.name));
     const pick = FLICKER_MSGS[Math.floor(Math.random() * FLICKER_MSGS.length)];
-    broadcast(zoneId, { type: 'zone_event', message: `<span class="power-flicker">${pick(nameStr)}</span>` });
+    broadcast(zoneId, { type: 'zone_event', message: `<br><span class="power-flicker">${pick(nameStr)}</span><br>` });
   }
 }
 
@@ -490,8 +490,8 @@ async function syncStreetlights(lightOn) {
 
   if (broadcast) {
     const msg = lightOn
-      ? '<span class="power-restore">The streetlights flicker to life as darkness falls.</span><br>'
-      : '<span class="ambient">The streetlights dim and go dark as daylight returns.</span><br>';
+      ? '<br><span class="power-restore">The streetlights flicker to life as darkness falls.</span><br>'
+      : '<br><span class="ambient">The streetlights dim and go dark as daylight returns.</span><br>';
     for (const { zone_id } of affected) {
       broadcast(zone_id, { type: 'zone_event', message: msg, refresh: true });
     }
@@ -669,11 +669,11 @@ async function applyPowerLightEffects(query, zoneId, prevStatus, newStatus, avai
       if (forcedOff.length) {
         const nameStr = _fmtLightNames(forcedOff.map(id => lights.find(l => l.id === id)?.name).filter(Boolean));
         const s = forcedOff.length === 1;
-        broadcast(zoneId, { type: 'zone_event', message: `<span class="power-flicker">${nameStr} cut${s?'s':''} out abruptly — not enough power to keep everything on.</span><br>`, refresh: true });
+        broadcast(zoneId, { type: 'zone_event', message: `<br><span class="power-flicker">${nameStr} cut${s?'s':''} out abruptly — not enough power to keep everything on.</span><br>`, refresh: true });
       } else if (flickering.length) {
         const nameStr = _fmtLightNames(flickering.map(id => lights.find(l => l.id === id)?.name).filter(Boolean));
         const s = flickering.length === 1;
-        broadcast(zoneId, { type: 'zone_event', message: `<span class="power-flicker">${nameStr} flicker${s?'s':''} as the supply runs thin.</span><br>`, refresh: true });
+        broadcast(zoneId, { type: 'zone_event', message: `<br><span class="power-flicker">${nameStr} flicker${s?'s':''} as the supply runs thin.</span><br>`, refresh: true });
       }
     }
   } else if (nowOk && !wasOk) {

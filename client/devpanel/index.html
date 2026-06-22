@@ -3519,7 +3519,7 @@ function renderPowerPanelBody() {
 
     for (const cp of cityPlants) {
       const cpIdSafe = cp.id.replace(/'/g, "\\'");
-      const used = cp.capacity_kw - (cp.remaining_kw ?? cp.capacity_kw);
+      const used = Number(cp.total_demand_w ?? 0);
       const pct = cp.capacity_kw > 0 ? Math.round((used / cp.capacity_kw) * 100) : 0;
       const cpOn = Number(cp.capacity_kw) > 0;
       const statusCls = cpOn ? 'safe' : 'high';
