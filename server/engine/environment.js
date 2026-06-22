@@ -412,11 +412,25 @@ async function tick5m() {
   await loadZonePowerAndLighting(query);
 }
 
-// Formats a list of light names into a readable phrase.
+function _pluralizeLastWord(name) {
+  const words = name.split(' ');
+  const last = words[words.length - 1];
+  let plural;
+  if (/(s|sh|ch|x|z)$/i.test(last))   plural = last + 'es';
+  else if (/[^aeiou]y$/i.test(last))   plural = last.slice(0, -1) + 'ies';
+  else                                  plural = last + 's';
+  return [...words.slice(0, -1), plural].join(' ');
+}
+
+// Formats a list of light names into a readable phrase, deduplicating repeated
+// names and pluralizing them (e.g. three "overhead light" → "the overhead lights").
 function _fmtLightNames(names) {
   if (!names.length) return 'the lights';
-  if (names.length === 1) return `the ${names[0]}`;
-  return `the ${names.slice(0, -1).map(n => n).join(', the ')} and the ${names[names.length - 1]}`;
+  const counts = new Map();
+  for (const n of names) counts.set(n, (counts.get(n) ?? 0) + 1);
+  const parts = [...counts.entries()].map(([n, c]) => `the ${c > 1 ? _pluralizeLastWord(n) : n}`);
+  if (parts.length === 1) return parts[0];
+  return `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
 }
 
 const FLICKER_MSGS = [
