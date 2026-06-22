@@ -600,8 +600,10 @@ async function applyPowerLightEffects(query, zoneId, prevStatus, newStatus, avai
       `SELECT name FROM furniture WHERE zone_id=$1 AND is_light=1 AND light_on=1`,
       [zoneId]
     ).catch(() => ({ rows: [] }));
-    // Preserve intended state before cutting everything.
-    await query(`UPDATE furniture SET light_on_intended = COALESCE(light_on_intended, light_on) WHERE zone_id=$1 AND is_light=1`, [zoneId]);
+    // Preserve intended state for non-streetlights only.
+    // Streetlights are managed by the day/night cycle — they don't need
+    // light_on_intended because syncStreetlights sets them correctly on restore.
+    await query(`UPDATE furniture SET light_on_intended = COALESCE(light_on_intended, light_on) WHERE zone_id=$1 AND is_light=1 AND light_type != 'streetlight'`, [zoneId]);
     await query(`UPDATE furniture SET light_on=0 WHERE zone_id=$1 AND is_light=1`, [zoneId]);
     await query(`UPDATE power_zones SET current_load_kw=0 WHERE id=$1`, [zoneId]);
     await query(`UPDATE lighting_states SET fixture_count=0 WHERE zone_id=$1`, [zoneId]).catch(() => {});
@@ -633,9 +635,9 @@ async function applyPowerLightEffects(query, zoneId, prevStatus, newStatus, avai
       FROM furniture WHERE zone_id=$1 AND is_light=1
     `, [zoneId]);
 
-    // Only devices the player intends to be on compete for available power.
-    // Sort ascending by draw — cheapest devices served first.
-    const wantOn = lights.filter(l => l.light_on_intended === 1).sort((a, b) => a.draw_kw - b.draw_kw);
+    // Streetlights are infrastructure — exclude from brownout competition.
+    // Only player-controlled lights compete for available power.
+    const wantOn = lights.filter(l => l.light_on_intended === 1 && l.light_type !== 'streetlight').sort((a, b) => a.draw_kw - b.draw_kw);
 
     let pool = available;
     const fullyOn = [], flickering = [], forcedOff = [];
@@ -675,18 +677,17 @@ async function applyPowerLightEffects(query, zoneId, prevStatus, newStatus, avai
       }
     }
   } else if (nowOk && !wasOk) {
-    // Power restored — recover intended light states.
+    // Power restored — recover intended light states for non-streetlights.
     await query(`
       UPDATE furniture
       SET light_on = COALESCE(light_on_intended, light_on),
           light_on_intended = NULL
-      WHERE zone_id = $1 AND is_light = 1
+      WHERE zone_id = $1 AND is_light = 1 AND light_type != 'streetlight'
     `, [zoneId]);
-    // Streetlights follow the day/night cycle, not player intent — turn them on
-    // immediately if it's currently dark and they just received power.
-    if (state.phase === 'night' || state.phase === 'dusk') {
-      await query(`UPDATE furniture SET light_on=1 WHERE zone_id=$1 AND light_type='streetlight'`, [zoneId]);
-    }
+    // Streetlights follow the day/night cycle exclusively — set them to the
+    // correct state for the current phase regardless of what light_on_intended was.
+    const isDark = state.phase === 'night' || state.phase === 'dusk';
+    await query(`UPDATE furniture SET light_on=$1, light_on_intended=NULL WHERE zone_id=$2 AND light_type='streetlight'`, [isDark ? 1 : 0, zoneId]);
     await recalcZoneLoad(query, zoneId);
     const { rows: lc } = await query(`SELECT COUNT(*)::int AS cnt FROM furniture WHERE zone_id=$1 AND is_light=1 AND light_on=1`, [zoneId]);
     await query(`UPDATE lighting_states SET fixture_count=$1 WHERE zone_id=$2`, [lc[0]?.cnt || 0, zoneId]).catch(() => {});
