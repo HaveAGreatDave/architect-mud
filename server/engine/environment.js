@@ -768,6 +768,126 @@ export async function removeGenerator(generatorId) {
   return { ok: true, deletedZone: zoneId };
 }
 
+// ---------------------------------------------------------------------------
+// Power fix tools — dev panel utilities to auto-connect unlinked zones.
+// ---------------------------------------------------------------------------
+
+// Finds outdoor zones with no power_zones row and connects each to the
+// nearest city_plant generator (by Euclidean grid distance).
+export async function fixZonePowerConnections() {
+  const { query } = deps;
+
+  const { rows: cityGens } = await query(`
+    SELECT g.id, g.name, g.capacity_kw, z.grid_x, z.grid_y
+    FROM generators g
+    JOIN zones z ON z.id = g.zone_id
+    WHERE g.generator_type = 'city_plant' AND g.status = 'online'
+  `);
+  if (!cityGens.length) throw new Error('No online city plant generators found');
+
+  const { rows: unpowered } = await query(`
+    SELECT z.id, z.name, z.grid_x, z.grid_y FROM zones z
+    WHERE NOT COALESCE((z.flags->>'is_apartment')::boolean, false)
+      AND NOT COALESCE((z.flags->>'is_interior')::boolean, false)
+      AND z.id NOT IN (SELECT id FROM power_zones)
+  `);
+
+  const connected = [];
+  for (const zone of unpowered) {
+    let nearest = null;
+    let minDist = Infinity;
+    for (const gen of cityGens) {
+      if (zone.grid_x != null && zone.grid_y != null && gen.grid_x != null && gen.grid_y != null) {
+        const d = Math.hypot(zone.grid_x - gen.grid_x, zone.grid_y - gen.grid_y);
+        if (d < minDist) { minDist = d; nearest = gen; }
+      } else if (!nearest) {
+        nearest = gen;
+      }
+    }
+    if (!nearest) continue;
+    await query(
+      `INSERT INTO power_zones (id, name, source_type, generator_id, capacity_kw, current_load_kw, status)
+       VALUES ($1, $2, 'city_grid', $3, $4, 0, 'powered')
+       ON CONFLICT (id) DO UPDATE SET source_type='city_grid', generator_id=$3, capacity_kw=$4`,
+      [zone.id, zone.name, nearest.id, nearest.capacity_kw]
+    );
+    const { rows: ls } = await query(`SELECT COUNT(*)::int AS cnt FROM furniture WHERE zone_id=$1 AND is_light=1`, [zone.id]);
+    await query(
+      `INSERT INTO lighting_states (zone_id, has_emergency_lighting, artificial_light_level, fixture_count)
+       VALUES ($1, 0, 0, $2) ON CONFLICT (zone_id) DO UPDATE SET fixture_count=$2`,
+      [zone.id, ls[0]?.cnt || 0]
+    );
+    connected.push({ zoneId: zone.id, zoneName: zone.name, generatorName: nearest.name });
+  }
+
+  if (connected.length) await recomputePower();
+  return { connected };
+}
+
+// For each distinct building cluster (is_apartment/is_interior zone network),
+// checks how many generators serve it and either connects (1 gen), logs missing
+// (0 gens), or returns an error (2+ gens with both names).
+export async function fixBuildingPowerConnections() {
+  const { query } = deps;
+
+  const { rows: interiorZones } = await query(`
+    SELECT id, name FROM zones
+    WHERE COALESCE((flags->>'is_apartment')::boolean, false)
+       OR COALESCE((flags->>'is_interior')::boolean, false)
+  `);
+
+  const visited = new Set();
+  const results = { connected: [], needsGenerator: [], multipleGenerators: [] };
+
+  for (const root of interiorZones) {
+    if (visited.has(root.id)) continue;
+    const network = await getBuildingNetwork(query, root.id);
+    for (const id of network) visited.add(id);
+
+    const { rows: gens } = await query(
+      `SELECT id, name, capacity_kw FROM generators WHERE zone_id = ANY($1::text[])`,
+      [network]
+    );
+
+    // Representative name: prefer an is_building-flagged zone, else first alphabetically
+    const { rows: namedRows } = await query(
+      `SELECT name FROM zones WHERE id = ANY($1::text[])
+         AND COALESCE((flags->>'is_building')::boolean, false) = true
+       LIMIT 1`,
+      [network]
+    );
+    const buildingName = namedRows[0]?.name || root.name;
+
+    if (gens.length === 0) {
+      results.needsGenerator.push({ buildingName, rootId: root.id });
+    } else if (gens.length >= 2) {
+      results.multipleGenerators.push({ buildingName, generators: gens.map(g => g.name) });
+    } else {
+      const gen = gens[0];
+      for (const zid of network) {
+        const { rows: zRows } = await query('SELECT name FROM zones WHERE id=$1', [zid]);
+        const zName = zRows[0]?.name || zid;
+        await query(
+          `INSERT INTO power_zones (id, name, source_type, generator_id, capacity_kw, current_load_kw, status)
+           VALUES ($1, $2, 'building_generator', $3, $4, 0, 'powered')
+           ON CONFLICT (id) DO UPDATE SET source_type='building_generator', generator_id=$3, capacity_kw=$4`,
+          [zid, zName, gen.id, gen.capacity_kw]
+        );
+        const { rows: ls } = await query(`SELECT COUNT(*)::int AS cnt FROM furniture WHERE zone_id=$1 AND is_light=1`, [zid]);
+        await query(
+          `INSERT INTO lighting_states (zone_id, has_emergency_lighting, artificial_light_level, fixture_count)
+           VALUES ($1, 0, 0, $2) ON CONFLICT (zone_id) DO UPDATE SET fixture_count=$2`,
+          [zid, ls[0]?.cnt || 0]
+        );
+      }
+      results.connected.push({ buildingName, generatorName: gen.name, zonesCount: network.length });
+    }
+  }
+
+  if (results.connected.length) await recomputePower();
+  return results;
+}
+
 export async function getGeneratorsList() {
   const { query } = deps;
   const { rows } = await query(`

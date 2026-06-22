@@ -70,6 +70,8 @@ export async function handleEnvironmentApi(path, method, body, auth) {
       if (path === '/environment/power/load') return { status: 200, body: await env.devModifyLoad(body?.zoneId, body?.loadKw) };
       if (path === '/environment/power/fail') return { status: 200, body: await env.devSimulateFailure(body?.generatorId) };
       if (path === '/environment/power/install' && method === 'POST') return { status: 200, body: await env.installGenerator(body || {}) };
+      if (path === '/environment/power/fix-zones' && method === 'POST') return { status: 200, body: await env.fixZonePowerConnections() };
+      if (path === '/environment/power/fix-buildings' && method === 'POST') return { status: 200, body: await env.fixBuildingPowerConnections() };
       if (path.startsWith('/environment/power/generators/') && method === 'DELETE') {
         return { status: 200, body: await env.removeGenerator(decodeURIComponent(path.split('/')[4] || '')) };
       }

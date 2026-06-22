@@ -3083,6 +3083,15 @@ function renderPowerPanelBody() {
     <div style="margin-top:10px;display:flex;gap:14px;flex-wrap:wrap;font-size:10px;color:var(--text-dim)">${mapLegendHtml(powerPanelMode)}</div>
   </div>`;
 
+  html += `<div style="padding:12px">
+    <h3 style="color:var(--accent);font-size:12px;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">Power Tools</h3>
+    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+      <button class="action-btn" onclick="fixZonePowerConnections()">🔌 Fix Zone Connections</button>
+      <button class="action-btn" onclick="fixBuildingPowerConnections()">🏢 Fix Building Connections</button>
+    </div>
+    <div id="power-tool-log" style="background:var(--bg-secondary,#111);border:1px solid var(--border,#333);border-radius:4px;padding:8px;font-size:11px;font-family:monospace;min-height:48px;max-height:200px;overflow-y:auto;color:var(--text-dim)">No tools run yet.</div>
+  </div>`;
+
   html += `<div style="padding:12px"><h3 style="color:var(--accent);font-size:12px;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">Generators</h3>`;
   if (powerPanelGenerators.length) {
     html += '<table><thead><tr><th>Name</th><th>Type</th><th>Zone</th><th>Capacity</th><th>Status</th><th></th></tr></thead><tbody>';
@@ -3103,6 +3112,72 @@ function renderPowerPanelBody() {
   html += '</div>';
 
   panel.innerHTML = html;
+}
+
+function powerToolLog(lines) {
+  const el = document.getElementById('power-tool-log');
+  if (el) el.innerHTML = lines.map(l => `<div>${l}</div>`).join('');
+}
+
+async function fixZonePowerConnections() {
+  powerToolLog(['⏳ Checking zone power connections...']);
+  const result = await API('/environment/power/fix-zones', 'POST').catch(e => ({ error: e.message }));
+  if (result?.error) { powerToolLog([`❌ Error: ${result.error}`]); return; }
+  const lines = [];
+  if (!result.connected.length) {
+    lines.push('✅ All outdoor zones are already connected to power.');
+  } else {
+    lines.push(`✅ Connected ${result.connected.length} zone(s) to power:`);
+    for (const z of result.connected) {
+      lines.push(`&nbsp;&nbsp;• ${z.zoneName} → ${z.generatorName}`);
+    }
+  }
+  powerToolLog(lines);
+  // Refresh power map
+  const [powerMap, generators] = await Promise.all([
+    API('/environment/power/map').catch(() => []),
+    API('/environment/power/generators').catch(() => []),
+  ]);
+  bigMapPowerData = Array.isArray(powerMap) ? powerMap : [];
+  powerPanelGenerators = Array.isArray(generators) ? generators : [];
+  renderPowerPanelBody();
+  // Re-populate log since renderPowerPanelBody resets it
+  powerToolLog(lines);
+}
+
+async function fixBuildingPowerConnections() {
+  powerToolLog(['⏳ Checking building power connections...']);
+  const result = await API('/environment/power/fix-buildings', 'POST').catch(e => ({ error: e.message }));
+  if (result?.error) { powerToolLog([`❌ Error: ${result.error}`]); return; }
+  const lines = [];
+  if (result.connected.length) {
+    lines.push(`✅ Connected ${result.connected.length} building(s):`);
+    for (const b of result.connected) {
+      lines.push(`&nbsp;&nbsp;• ${b.buildingName} → ${b.generatorName} (${b.zonesCount} zones)`);
+    }
+  }
+  if (result.needsGenerator.length) {
+    for (const b of result.needsGenerator) {
+      lines.push(`⚠️ ${b.buildingName} requires a generator`);
+    }
+  }
+  if (result.multipleGenerators.length) {
+    for (const b of result.multipleGenerators) {
+      lines.push(`❌ ${b.buildingName}: multiple generators — ${b.generators.join(', ')}`);
+    }
+  }
+  if (!lines.length) lines.push('✅ No interior building zones found.');
+  powerToolLog(lines);
+  if (result.connected.length) {
+    const [powerMap, generators] = await Promise.all([
+      API('/environment/power/map').catch(() => []),
+      API('/environment/power/generators').catch(() => []),
+    ]);
+    bigMapPowerData = Array.isArray(powerMap) ? powerMap : [];
+    powerPanelGenerators = Array.isArray(generators) ? generators : [];
+    renderPowerPanelBody();
+    powerToolLog(lines);
+  }
 }
 
 async function removeGeneratorFromPowerPanel(generatorId) {
