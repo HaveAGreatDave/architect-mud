@@ -1003,7 +1003,7 @@ async function zoneEditForm(rec, isNew) {
             if (zonePowerInfo) {
               return `
                 <div class="zone-subitem-row">
-                  <span>Served by <strong>${zonePowerInfo.generator_name || zonePowerInfo.generator_id || 'Unknown'}</strong> — <span class="text-dim">${(zonePowerInfo.available_kw ?? 0).toFixed(1)}/${zonePowerInfo.max_capacity_kw ?? 50}kW available, ${zonePowerInfo.status}</span></span>
+                  <span>Served by <strong>${zonePowerInfo.generator_name || zonePowerInfo.generator_id || 'Unknown'}</strong> — <span class="text-dim">${(zonePowerInfo.available_kw ?? 0).toFixed(3)}/${Number(zonePowerInfo.max_capacity_kw ?? 1).toFixed(3)}kW available, ${zonePowerInfo.status}</span></span>
                 </div>
                 ${cityGens.length > 1 ? `
                   <div class="field-row" style="margin-top:8px">
@@ -2276,7 +2276,7 @@ function buildDynamicMapGrid(zones, mode, powerById, clickable) {
         const status = p ? p.status : 'unpowered';
         cls = `bigmap-tile bm-power-${status}`;
         sub = p
-          ? `<div style="font-size:9px;opacity:0.8;margin-top:2px">${(p.loadKw ?? 0).toFixed(1)}/${(p.availableKw ?? 0).toFixed(1)}kW <span onclick="event.stopPropagation();editZoneMaxCapacity('${z.id}')" style="cursor:pointer;opacity:0.6" title="Edit max capacity">✏</span></div>`
+          ? `<div style="font-size:9px;opacity:0.8;margin-top:2px">${(p.loadKw ?? 0).toFixed(3)}/${(p.availableKw ?? 0).toFixed(3)}kW <span onclick="event.stopPropagation();editZoneMaxCapacity('${z.id}')" style="cursor:pointer;opacity:0.6" title="Edit max capacity">✏</span></div>`
           : `<div style="font-size:9px;opacity:0.6;margin-top:2px">no power</div>`;
       }
       const click = clickable ? ` onclick="bigMapTileClick('${z.id}')"` : '';
@@ -3143,8 +3143,8 @@ function renderPowerPanelBody() {
         <td>${g.name || g.id}</td>
         <td>${g.generator_type === 'city_plant' ? 'City Plant' : 'Building'}</td>
         <td>${g.zone_name || g.zone_id || '—'}</td>
-        <td>${g.capacity_kw}kW</td>
-        <td style="white-space:nowrap">${remaining.toFixed(1)}kW <span style="color:var(--text-dim);font-size:10px">(${pct}% used)</span></td>
+        <td>${Number(g.capacity_kw).toFixed(3)}kW</td>
+        <td style="white-space:nowrap">${remaining.toFixed(3)}kW <span style="color:var(--text-dim);font-size:10px">(${pct}% used)</span></td>
         <td><span class="badge badge-${g.status === 'online' ? 'safe' : 'high'}">${g.status}</span></td>
         <td style="white-space:nowrap">
           <button class="action-btn" onclick="editGeneratorCapacity('${gIdSafe}', ${g.capacity_kw})">Edit</button>
@@ -3242,8 +3242,8 @@ async function viewGeneratorZones(generatorId) {
   const rows = zones.map(z => {
     const kind = z.is_interior ? 'interior' : z.is_apartment ? 'apartment' : 'outdoor';
     const col = statusColor[z.status] || 'var(--text-dim)';
-    const avail = (z.available_kw ?? 0).toFixed(1);
-    const maxCap = z.max_capacity_kw ?? 50;
+    const avail = (z.available_kw ?? 0).toFixed(3);
+    const maxCap = Number(z.max_capacity_kw ?? 1).toFixed(3);
     const zIdSafe = z.id.replace(/'/g, "\\'");
     return `<tr>
       <td>${z.name || z.id}</td>
