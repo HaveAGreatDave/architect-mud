@@ -1,0 +1,7 @@
+{
+  "name": "crafting",
+  "version": "1.0.0",
+  "description": "Recipe display and item crafting commands.",
+  "hooks": [],
+  "commands": ["craft", "recipes"]
+}

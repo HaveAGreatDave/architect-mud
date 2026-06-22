@@ -150,6 +150,7 @@ async function apiRegister(body) {
     // there's at least one source of healing before they've found or
     // crafted anything else.
     await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,'item_bandage',3,1.0)`, [randomUUID(), id]);
+    fireHook('player.create', { id, handle, username: username.toLowerCase(), role: 'player' }).catch(() => {});
     return {status:201,body:{token:makeToken(id,'player'),playerId:id,handle,role:'player'}};
   } catch { return {status:409,body:{error:'Username or handle already taken'}}; }
 }
@@ -159,7 +160,9 @@ async function apiLogin(body) {
   if (!username||!password) return {status:400,body:{error:'username and password required'}};
   const {rows} = await query('SELECT * FROM players WHERE username=$1',[username.toLowerCase()]);
   if (!rows.length||rows[0].password_hash!==hashPassword(password)) return {status:401,body:{error:'Invalid credentials'}};
-  return {status:200,body:{token:makeToken(rows[0].id,rows[0].role),playerId:rows[0].id,handle:rows[0].handle,role:rows[0].role}};
+  const p = rows[0];
+  fireHook('player.login', { id: p.id, handle: p.handle, role: p.role }).catch(() => {});
+  return {status:200,body:{token:makeToken(p.id,p.role),playerId:p.id,handle:p.handle,role:p.role}};
 }
 
 async function apiGetZones() { return {status:200,body:getAllZones()}; }

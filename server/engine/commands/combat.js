@@ -3,6 +3,7 @@ import { getZoneEnemies, getZoneCorpses, getZonePlayers } from '../world.js';
 import { playerAttackEnemy } from '../combat.js';
 import { awardSkillXp, skillCheck } from '../skills.js';
 import { hasTag, tagValue } from '../tags.js';
+import { adjustCredits } from '../economy.js';
 import { randomUUID } from 'crypto';
 
 export async function resolveAttack(player, target, broadcast) {
@@ -23,8 +24,7 @@ export async function resolveAttack(player, target, broadcast) {
 
   if (result.killed) {
     if (result.credit_reward > 0) {
-      player.credits = (player.credits||0) + result.credit_reward;
-      await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
+      await adjustCredits(player, result.credit_reward);
     }
     if (result.loot?.length) {
       for (const drop of result.loot) {
@@ -106,10 +106,8 @@ async function cmdSteal(targetStr, player, broadcast) {
   }
 
   const amount = Math.min(target.credits, Math.ceil(target.credits * (0.1 + Math.random()*0.2)));
-  target.credits -= amount;
-  player.credits = (player.credits||0) + amount;
-  await query('UPDATE players SET credits=$1 WHERE id=$2', [target.credits, target.id]);
-  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
+  await adjustCredits(target, -amount);
+  await adjustCredits(player, amount);
   return { type:'steal', message:`You lift ${amount}c off ${target.handle} without them noticing a thing.`, player_update:{credits:player.credits} };
 }
 

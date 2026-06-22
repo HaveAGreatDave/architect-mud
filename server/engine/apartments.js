@@ -1,6 +1,7 @@
 import { query } from '../models/db.js';
 import { getApartment, setApartmentCache, getZone } from './world.js';
 import { skillCheck, awardSkillXp } from './skills.js';
+import { adjustCredits } from './economy.js';
 
 // Picking a lock gets harder the more the owner has invested in it.
 // Difficulty is a flat number compared against a d10 + rank + stat-bonus roll
@@ -38,9 +39,8 @@ export async function cmdRent(player) {
   }
 
   const cost = apt?.rent_cost ?? 100;
-  if (player.credits < cost) return { type:'error', message:`You need ${cost}c to claim this unit. You have ${player.credits}c.` };
+  if (!await adjustCredits(player, -cost)) return { type:'error', message:`You need ${cost}c to claim this unit. You have ${player.credits}c.` };
 
-  await query('UPDATE players SET credits = credits - $1 WHERE id = $2', [cost, player.id]);
   const updated = await query(
     `INSERT INTO apartments (zone_id, owner_id, owner_handle, is_locked, lock_difficulty, rent_cost, purchased_at)
      VALUES ($1,$2,$3,0,$4,$5,EXTRACT(EPOCH FROM NOW()))
@@ -49,7 +49,6 @@ export async function cmdRent(player) {
     [zone.id, player.id, player.handle, BASE_LOCK_DIFFICULTY, cost]
   );
   setApartmentCache(zone.id, updated.rows[0]);
-  player.credits -= cost;
 
   return { type:'rent', message:`You claim ${zone.name} for ${cost}c. It's yours now. Type LOCK to secure the door when you leave.` };
 }
@@ -84,13 +83,11 @@ export async function cmdUpgradeLock(player) {
   if (apt.owner_id !== player.id) return { type:'error', message:'Not your place, not your lock.' };
   if (apt.lock_difficulty >= MAX_LOCK_DIFFICULTY) return { type:'error', message:'The lock is already as good as anyone around here can build.' };
 
-  if (player.credits < UPGRADE_COST) return { type:'error', message:`Upgrading the lock costs ${UPGRADE_COST}c. You have ${player.credits}c.` };
+  if (!await adjustCredits(player, -UPGRADE_COST)) return { type:'error', message:`Upgrading the lock costs ${UPGRADE_COST}c. You have ${player.credits}c.` };
 
-  await query('UPDATE players SET credits = credits - $1 WHERE id = $2', [UPGRADE_COST, player.id]);
   const newDifficulty = apt.lock_difficulty + 1;
   await query('UPDATE apartments SET lock_difficulty=$1 WHERE zone_id=$2', [newDifficulty, zone.id]);
   setApartmentCache(zone.id, { ...apt, lock_difficulty: newDifficulty });
-  player.credits -= UPGRADE_COST;
 
   return { type:'upgrade', message:`You reinforce the lock. (Difficulty ${apt.lock_difficulty} → ${newDifficulty}, ${UPGRADE_COST}c spent)` };
 }
