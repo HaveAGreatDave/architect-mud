@@ -890,11 +890,13 @@ async function zoneEditForm(rec, isNew) {
 
   let subSectionsHtml = '<div class="zone-subsection-note">Save this zone first to add rooms, NPCs, furniture, or a generator.</div>';
   if (!isNew) {
-    const [npcsData, furnitureData, generatorsData, apartmentsData] = await Promise.all([
+    const isExterior = !flags.is_interior && !flags.is_apartment && !flags.is_building;
+    const [npcsData, furnitureData, generatorsData, apartmentsData, zonePowerInfo] = await Promise.all([
       API('/npcs').catch(() => []),
       API('/furniture').catch(() => []),
       API('/environment/power/generators').catch(() => []),
       flags.is_apartment ? API('/apartments').catch(() => []) : Promise.resolve([]),
+      isExterior ? API(`/environment/power/zones/${encodeURIComponent(rec.id)}`).catch(() => null) : Promise.resolve(null),
     ]);
     const zoneNpcs = (Array.isArray(npcsData) ? npcsData : []).filter(n => n.zone_id === rec.id);
     const zoneFurniture = (Array.isArray(furnitureData) ? furnitureData : []).filter(f => f.zone_id === rec.id);
@@ -996,8 +998,15 @@ async function zoneEditForm(rec, isNew) {
           ${!canRoof && !canBasement ? `<div style="color:var(--danger);font-size:12px;font-weight:600;margin-bottom:6px">⚠ Generators already exist in both rooms — remove one first.</div>` : ''}
           <button class="action-btn success" onclick='installGeneratorQuick(${JSON.stringify(rec.id)})' ${!canRoof && !canBasement ? 'disabled' : ''}>Install Building Generator</button>
         ` : !flags.is_interior && !flags.is_apartment ? `
-          <div class="zone-subitem-empty">No generator installed here.</div>
-          <div class="zone-subsection-note" style="margin-bottom:8px">Exterior zone — installs a City Power Plant that powers all outdoor zones on the map.</div>
+          ${zonePowerInfo ? `
+            <div class="zone-subitem-row">
+              <span>Served by <strong>${zonePowerInfo.generator_name || zonePowerInfo.generator_id || 'Unknown'}</strong> — <span class="text-dim">${(zonePowerInfo.available_kw ?? 0).toFixed(1)}/${zonePowerInfo.max_capacity_kw ?? 50}kW available, ${zonePowerInfo.status}</span></span>
+            </div>
+            <div class="zone-subsection-note">This exterior zone is powered by the city grid. Install a City Power Plant here to add a new generator to the grid.</div>
+          ` : `
+            <div class="zone-subitem-empty">No power zone record — not connected to the city grid. Use Fix Zone Connections in the Power tab.</div>
+          `}
+          <div class="zone-subsection-note" style="margin-bottom:8px;margin-top:6px">Install a new City Power Plant at this location.</div>
           <div class="field-row" style="margin-top:6px">
             <div class="field"><label>Capacity (kW)</label><input type="number" id="gen-install-capacity" placeholder="auto (500)"></div>
           </div>
@@ -3113,7 +3122,7 @@ function renderPowerPanelBody() {
         <td style="white-space:nowrap">${remaining.toFixed(1)}kW <span style="color:var(--text-dim);font-size:10px">(${pct}% used)</span></td>
         <td><span class="badge badge-${g.status === 'online' ? 'safe' : 'high'}">${g.status}</span></td>
         <td style="white-space:nowrap">
-          <button class="action-btn" onclick="editGeneratorCapacity('${gIdSafe}', ${g.capacity_kw})">✏ kW</button>
+          <button class="action-btn" onclick="editGeneratorCapacity('${gIdSafe}', ${g.capacity_kw})">Edit</button>
           <button class="action-btn" style="margin-left:3px" onclick="viewGeneratorZones('${gIdSafe}')">View Zones</button>
           <button class="action-btn danger" style="margin-left:3px" onclick="removeGeneratorFromPowerPanel('${gIdSafe}')">Remove</button>
         </td>
@@ -3239,16 +3248,31 @@ async function editZoneMaxCapacity(zoneId) {
   renderPowerPanelBody();
 }
 
-async function editGeneratorCapacity(generatorId, current) {
-  const input = prompt(`Capacity (kW) for generator ${generatorId}:`, current);
-  if (input === null) return;
-  const kw = parseFloat(input);
-  if (isNaN(kw) || kw < 0) { toast('Invalid capacity value', true); return; }
-  const result = await API(`/environment/power/generators/${encodeURIComponent(generatorId)}/capacity`, 'POST', { capacityKw: kw }).catch(e => ({ error: e.message }));
-  if (result?.error) { toast(result.error, true); return; }
-  toast(`Generator capacity set to ${kw}kW`);
-  await _refreshPowerMapData();
-  renderPowerPanelBody();
+function editGeneratorCapacity(generatorId, currentKw) {
+  const g = powerPanelGenerators.find(g => g.id === generatorId) || {};
+  document.getElementById('modal-title').textContent = `Edit Generator — ${g.name || generatorId}`;
+  document.getElementById('modal-body').innerHTML = `
+    <div class="field"><label>Capacity (kW)</label>
+      <input type="number" id="gen-edit-capacity" value="${currentKw}" min="0" step="10" style="width:100%">
+    </div>
+    <div class="field" style="margin-top:8px"><label>Name</label>
+      <input type="text" id="gen-edit-name" value="${g.name || ''}" placeholder="Generator name" style="width:100%">
+    </div>
+  `;
+  document.getElementById('modal-save').style.display = '';
+  document.getElementById('modal-save').textContent = 'Save';
+  document.getElementById('modal-save').onclick = async () => {
+    const kw = parseFloat(document.getElementById('gen-edit-capacity').value);
+    if (isNaN(kw) || kw < 0) { toast('Invalid capacity value', true); return; }
+    const name = document.getElementById('gen-edit-name').value.trim();
+    const result = await API(`/environment/power/generators/${encodeURIComponent(generatorId)}/capacity`, 'POST', { capacityKw: kw, name: name || undefined }).catch(e => ({ error: e.message }));
+    if (result?.error) { toast(result.error, true); return; }
+    toast('Generator updated');
+    closeModal();
+    await _refreshPowerMapData();
+    renderPowerPanelBody();
+  };
+  document.getElementById('generic-modal').style.display = 'flex';
 }
 
 async function removeGeneratorFromPowerPanel(generatorId) {

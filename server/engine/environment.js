@@ -954,7 +954,14 @@ export async function fixZonePowerConnections() {
     SELECT z.id, z.name, z.grid_x, z.grid_y FROM zones z
     WHERE NOT COALESCE((z.flags->>'is_apartment')::boolean, false)
       AND NOT COALESCE((z.flags->>'is_interior')::boolean, false)
-      AND z.id NOT IN (SELECT id FROM power_zones)
+      AND (
+        z.id NOT IN (SELECT id FROM power_zones)
+        OR z.id IN (
+          SELECT pz.id FROM power_zones pz
+          WHERE pz.generator_id IS NOT NULL
+            AND pz.generator_id NOT IN (SELECT id FROM generators)
+        )
+      )
   `);
 
   const connected = [];
@@ -1061,12 +1068,12 @@ export async function fixBuildingPowerConnections() {
   return results;
 }
 
-export async function setGeneratorCapacity(generatorId, capacityKw) {
+export async function setGeneratorCapacity(generatorId, capacityKw, name) {
   const { query } = deps;
   const kw = Math.max(0, Number(capacityKw) || 0);
   const { rowCount } = await query(
-    `UPDATE generators SET capacity_kw = $1 WHERE id = $2`,
-    [kw, generatorId]
+    `UPDATE generators SET capacity_kw = $1${name ? ', name = $3' : ''} WHERE id = $2`,
+    name ? [kw, generatorId, name] : [kw, generatorId]
   );
   if (!rowCount) throw new Error(`Generator ${generatorId} not found`);
   await recomputePower();
@@ -1119,6 +1126,19 @@ export async function recalcZoneLoad(queryFn, zoneId) {
   const load = rows[0]?.total_load ?? 0;
   await queryFn(`UPDATE power_zones SET current_load_kw = $1 WHERE id = $2`, [load, zoneId]);
   return load;
+}
+
+export async function getZonePowerInfo(zoneId) {
+  const { query } = deps;
+  const { rows } = await query(`
+    SELECT pz.status, pz.capacity_kw, pz.available_kw, pz.max_capacity_kw,
+           pz.current_load_kw, pz.generator_id,
+           g.name AS generator_name, g.generator_type, g.capacity_kw AS gen_capacity_kw, g.status AS gen_status
+    FROM power_zones pz
+    LEFT JOIN generators g ON g.id = pz.generator_id
+    WHERE pz.id = $1
+  `, [zoneId]);
+  return rows[0] || null;
 }
 
 export async function setZoneMaxCapacity(zoneId, maxCapacityKw) {

@@ -41,6 +41,11 @@ export async function handleEnvironmentApi(path, method, body, auth) {
     return { status: 200, body: env.getPowerMap() };
   }
 
+  if (path.startsWith('/environment/power/zones/') && method === 'GET') {
+    const zoneId = decodeURIComponent(path.split('/')[4] || '');
+    return { status: 200, body: await env.getZonePowerInfo(zoneId) };
+  }
+
   if (path === '/environment/power/generators' && method === 'GET') {
     return { status: 200, body: await env.getGeneratorsList() };
   }
@@ -81,7 +86,7 @@ export async function handleEnvironmentApi(path, method, body, auth) {
       if (path === '/environment/power/recompute' && method === 'POST') return { status: 200, body: await env.recomputePower() };
       if (path.startsWith('/environment/power/generators/') && path.endsWith('/capacity') && method === 'POST') {
         const genId = decodeURIComponent(path.split('/')[4] || '');
-        return { status: 200, body: await env.setGeneratorCapacity(genId, body?.capacityKw) };
+        return { status: 200, body: await env.setGeneratorCapacity(genId, body?.capacityKw, body?.name) };
       }
       if (path.startsWith('/environment/power/zones/') && method === 'POST') {
         const zoneId = decodeURIComponent(path.split('/')[4] || '');
