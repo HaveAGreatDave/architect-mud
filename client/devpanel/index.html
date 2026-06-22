@@ -2241,7 +2241,9 @@ function buildDynamicMapGrid(zones, mode, powerById, clickable) {
         const p = powerById?.get(z.id);
         const status = p ? p.status : 'unpowered';
         cls = `bigmap-tile bm-power-${status}`;
-        sub = p ? `<div style="font-size:9px;opacity:0.8;margin-top:2px">${(p.availableKw ?? p.loadKw).toFixed(1)}/${p.capacityKw}kW</div>` : `<div style="font-size:9px;opacity:0.6;margin-top:2px">no power</div>`;
+        sub = p
+          ? `<div style="font-size:9px;opacity:0.8;margin-top:2px">${(p.availableKw ?? 0).toFixed(1)}/${(p.maxCapacityKw ?? 50)}kW <span onclick="event.stopPropagation();editZoneMaxCapacity('${z.id}')" style="cursor:pointer;opacity:0.6" title="Edit max capacity">✏</span></div>`
+          : `<div style="font-size:9px;opacity:0.6;margin-top:2px">no power</div>`;
       }
       const click = clickable ? ` onclick="bigMapTileClick('${z.id}')"` : '';
       html += `<div class="${cls}" style="${gs}${colorStyle}" title="${z.id}"${click}><div>${marker}${z.name}${sub}</div></div>`;
@@ -3205,18 +3207,35 @@ async function viewGeneratorZones(generatorId) {
   const rows = zones.map(z => {
     const kind = z.is_interior ? 'interior' : z.is_apartment ? 'apartment' : 'outdoor';
     const col = statusColor[z.status] || 'var(--text-dim)';
+    const avail = (z.available_kw ?? 0).toFixed(1);
+    const maxCap = z.max_capacity_kw ?? 50;
+    const zIdSafe = z.id.replace(/'/g, "\\'");
     return `<tr>
       <td>${z.name || z.id}</td>
       <td style="font-size:10px;color:var(--text-dim)">${z.id}</td>
       <td>${kind}</td>
       <td style="color:${col}">${z.status}</td>
-      <td>${z.current_load_kw}/${z.capacity_kw}kW</td>
+      <td>${avail}/${maxCap}kW</td>
+      <td><button class="action-btn" style="font-size:10px;padding:1px 6px" onclick="editZoneMaxCapacity('${zIdSafe}')">✏ Max</button></td>
     </tr>`;
   }).join('');
   const body = zones.length
-    ? `<table><thead><tr><th>Name</th><th>ID</th><th>Kind</th><th>Status</th><th>Load</th></tr></thead><tbody>${rows}</tbody></table>`
+    ? `<table><thead><tr><th>Name</th><th>ID</th><th>Kind</th><th>Status</th><th>Available/Max</th><th></th></tr></thead><tbody>${rows}</tbody></table>`
     : `<div style="color:var(--text-dim);padding:8px">No zones connected to this generator.</div>`;
   openModal(`${g.name || g.id} — ${zones.length} zone(s)`, body);
+}
+
+async function editZoneMaxCapacity(zoneId) {
+  const current = bigMapPowerData.find(p => p.zoneId === zoneId)?.maxCapacityKw ?? 50;
+  const input = prompt(`Max capacity (kW) for zone ${zoneId}:`, current);
+  if (input === null) return;
+  const kw = parseFloat(input);
+  if (isNaN(kw) || kw < 0) { toast('Invalid capacity value', true); return; }
+  const result = await API(`/environment/power/zones/${encodeURIComponent(zoneId)}`, 'POST', { maxCapacityKw: kw }).catch(e => ({ error: e.message }));
+  if (result?.error) { toast(result.error, true); return; }
+  toast(`Max capacity set to ${kw}kW`);
+  await _refreshPowerMapData();
+  renderPowerPanelBody();
 }
 
 async function removeGeneratorFromPowerPanel(generatorId) {

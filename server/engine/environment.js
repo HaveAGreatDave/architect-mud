@@ -268,6 +268,7 @@ async function loadZonePowerAndLighting(query) {
       capacityKw: z.capacity_kw,
       loadKw: z.current_load_kw,
       availableKw: z.available_kw,
+      maxCapacityKw: z.max_capacity_kw ?? 50,
       hasEmergencyLighting: light ? !!light.has_emergency_lighting : false,
       artificialLight: computeArtificialLight(z.status, light),
     });
@@ -475,39 +476,36 @@ async function simulatePowerNetwork(query, { weatherType }) {
     const genCapacity = gen ? gen.capacity_kw : 0;
     const zoneCount = genZones.length;
 
-    // Equal share of the generator's capacity allocated to each connected zone.
-    // This is what the plant "pushes" to each zone — independent of current draw.
-    const perZoneAlloc = zoneCount > 0 ? genCapacity / zoneCount : 0;
-    const totalAllocated = perZoneAlloc * zoneCount; // == genCapacity
-
-    // Generator remaining = capacity minus what's actually being consumed.
-    const totalLoad = genZones.reduce((s, z) => s + z.current_load_kw * loadMultiplier, 0);
-    const remaining = Math.max(0, genCapacity - totalLoad);
+    // Generator's capacity is distributed first-come-first-served up to each
+    // zone's max_capacity_kw, then remaining pool is tracked.
+    let poolRemaining = genCapacity;
+    const allocations = genZones.map(zone => {
+      const cap = zone.max_capacity_kw ?? 50;
+      const alloc = Math.min(cap, poolRemaining);
+      poolRemaining = Math.max(0, poolRemaining - alloc);
+      return { zone, alloc, cap };
+    });
 
     if (gen) {
-      await query(`UPDATE generators SET remaining_kw = $1 WHERE id = $2`, [remaining, genId]);
+      await query(`UPDATE generators SET remaining_kw = $1 WHERE id = $2`, [poolRemaining, genId]);
     }
 
-    // When total allocation exceeds generator capacity (shouldn't happen with equal
-    // split, but guards against manual edits), pro-rate delivery proportionally.
-    const deliveryRatio = totalAllocated > 0 ? Math.min(1, genCapacity / totalAllocated) : 0;
-
-    for (const zone of genZones) {
-      // Power delivered = zone's allocation × delivery ratio (1.0 when healthy).
-      const available = perZoneAlloc * deliveryRatio;
+    for (const { zone, alloc, cap } of allocations) {
+      const genOffline = !gen && zone.generator_id;
+      const available = (genOffline || (gen && gen.status === 'offline')) ? 0 : alloc;
 
       let status;
-      if (!gen && zone.generator_id) status = 'offline'; // orphaned — generator deleted
+      if (genOffline) status = 'offline';
       else if (gen && gen.status === 'offline') status = 'offline';
       else if (available <= 0) status = 'offline';
-      else if (available < perZoneAlloc * (1 / POWER_BLACKOUT_RATIO)) status = 'offline';
-      else if (available < perZoneAlloc * (1 / POWER_OVERLOAD_RATIO)) status = 'overloaded';
+      else if (available < cap * (1 / POWER_BLACKOUT_RATIO)) status = 'offline';
+      else if (available < cap * (1 / POWER_OVERLOAD_RATIO)) status = 'overloaded';
       else status = 'powered';
 
-      // capacity_kw = zone's equal share allocation from the generator.
-      // available_kw = what the generator is actually delivering this tick.
+      // capacity_kw = zone's equal share; available_kw = what generator delivers;
+      // max_capacity_kw untouched (user-configured ceiling).
       await query(`UPDATE power_zones SET status = $1, capacity_kw = $2, available_kw = $3 WHERE id = $4`,
-        [status, perZoneAlloc, available, zone.id]);
+        [status, cap, available, zone.id]);
     }
   }
 }
@@ -609,6 +607,7 @@ export function getPowerMap() {
     capacityKw: z.capacityKw,
     loadKw: z.loadKw,
     availableKw: z.availableKw,
+    maxCapacityKw: z.maxCapacityKw,
     artificialLight: z.artificialLight,
   }));
 }
@@ -824,7 +823,7 @@ export async function fixZonePowerConnections() {
   const { rows: cityGens } = await query(`
     SELECT g.id, g.name, g.capacity_kw, z.grid_x, z.grid_y
     FROM generators g
-    JOIN zones z ON z.id = g.zone_id
+    LEFT JOIN zones z ON z.id = g.zone_id
     WHERE g.generator_type = 'city_plant' AND g.status = 'online'
   `);
   if (!cityGens.length) throw new Error('No online city plant generators found');
@@ -955,7 +954,8 @@ export async function getGeneratorZones(generatorId) {
   const { rows: genRows } = await query('SELECT * FROM generators WHERE id=$1', [generatorId]);
   if (!genRows.length) throw new Error('Generator not found');
   const { rows } = await query(`
-    SELECT pz.id, pz.status, pz.capacity_kw, pz.current_load_kw, z.name, z.grid_x, z.grid_y,
+    SELECT pz.id, pz.status, pz.capacity_kw, pz.current_load_kw, pz.available_kw,
+           pz.max_capacity_kw, z.name, z.grid_x, z.grid_y,
            COALESCE((z.flags->>'is_interior')::boolean, false) AS is_interior,
            COALESCE((z.flags->>'is_apartment')::boolean, false) AS is_apartment
     FROM power_zones pz
@@ -964,6 +964,18 @@ export async function getGeneratorZones(generatorId) {
     ORDER BY z.name
   `, [generatorId]);
   return { generator: genRows[0], zones: rows };
+}
+
+export async function setZoneMaxCapacity(zoneId, maxCapacityKw) {
+  const { query } = deps;
+  const kw = Math.max(0, Number(maxCapacityKw) || 50);
+  const { rowCount } = await query(
+    `UPDATE power_zones SET max_capacity_kw = $1 WHERE id = $2`,
+    [kw, zoneId]
+  );
+  if (!rowCount) throw new Error(`Zone ${zoneId} not found in power_zones`);
+  await recomputePower();
+  return getPowerMap().find(z => z.zoneId === zoneId);
 }
 
 // Re-runs the power simulation immediately (instead of waiting for the next

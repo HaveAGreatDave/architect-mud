@@ -79,6 +79,10 @@ export async function handleEnvironmentApi(path, method, body, auth) {
       if (path === '/environment/power/fix-zones' && method === 'POST') return { status: 200, body: await env.fixZonePowerConnections() };
       if (path === '/environment/power/fix-buildings' && method === 'POST') return { status: 200, body: await env.fixBuildingPowerConnections() };
       if (path === '/environment/power/recompute' && method === 'POST') return { status: 200, body: await env.recomputePower() };
+      if (path.startsWith('/environment/power/zones/') && method === 'POST') {
+        const zoneId = decodeURIComponent(path.split('/')[4] || '');
+        return { status: 200, body: await env.setZoneMaxCapacity(zoneId, body?.maxCapacityKw) };
+      }
       if (path.startsWith('/environment/power/generators/') && method === 'DELETE') {
         return { status: 200, body: await env.removeGenerator(decodeURIComponent(path.split('/')[4] || '')) };
       }

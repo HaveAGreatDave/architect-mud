@@ -55,6 +55,7 @@ export async function migrateEnvironment(query) {
   await query(`ALTER TABLE generators ADD COLUMN IF NOT EXISTS name TEXT`);
   await query(`ALTER TABLE generators ADD COLUMN IF NOT EXISTS remaining_kw REAL NOT NULL DEFAULT 0`);
   await query(`ALTER TABLE power_zones ADD COLUMN IF NOT EXISTS available_kw REAL NOT NULL DEFAULT 0`);
+  await query(`ALTER TABLE power_zones ADD COLUMN IF NOT EXISTS max_capacity_kw REAL NOT NULL DEFAULT 50`);
 
   await query(`
     CREATE TABLE IF NOT EXISTS power_zones (
