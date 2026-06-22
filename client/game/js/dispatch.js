@@ -16,6 +16,7 @@ const handlers = {
   pong: () => {},
 
   auth_success: (msg) => {
+    const wasReconnect = !!state.player;
     clearTimeout(state.authTimeout);
     state.authPending = false;
     state.player = msg.player;
@@ -25,16 +26,21 @@ const handlers = {
     if (msg.env) updateEnvironmentHUD(msg.env);
     else fetch('/api/environment/state').then(r => r.json()).then(updateEnvironmentHUD).catch(() => {});
     if (msg.apiToken) sessionStorage.setItem('devpanel-token', msg.apiToken);
+    if (msg.reconnectToken) sessionStorage.setItem('reconnect-token', msg.reconnectToken);
     state.myRole = state.player.role;
     if (DEV_ROLES.includes(state.player.role)) showDevPanelButton();
+    if (wasReconnect) appendMsg('Reconnected.', 'system');
   },
 
   auth_fail: (msg) => {
     clearTimeout(state.authTimeout);
     state.authPending = false;
+    state.player = null;
+    sessionStorage.removeItem('reconnect-token');
     const submitBtn = document.getElementById('auth-submit');
     submitBtn.disabled = false;
     submitBtn.textContent = state.isRegister ? 'Register' : 'Enter';
+    document.getElementById('auth-screen').style.display = '';
     const errEl = document.getElementById('auth-error');
     errEl.textContent = msg.message;
     errEl.style.color = 'var(--red)';

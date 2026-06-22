@@ -22,8 +22,22 @@ import { initEnvironment, getHUDPayload } from './engine/environment.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
 
-const clients = new Map();       // ws -> session
-const playerSockets = new Map(); // playerId -> ws
+const clients = new Map();         // ws -> session
+const playerSockets = new Map();   // playerId -> ws
+const reconnectTokens = new Map(); // token -> { playerId, expires }
+
+function issueReconnectToken(playerId) {
+  const token = randomUUID();
+  reconnectTokens.set(token, { playerId, expires: Date.now() + 10 * 60 * 1000 });
+  return token;
+}
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [token, entry] of reconnectTokens) {
+    if (entry.expires < now) reconnectTokens.delete(token);
+  }
+}, 15 * 60 * 1000);
 
 function broadcast(zoneId, message, excludePlayerId = null, targetPlayerId = null) {
   const payload = JSON.stringify(message);
@@ -119,6 +133,7 @@ wss.on('connection', (ws) => {
     const session = clients.get(ws);
     if (msg.type === 'auth') return handleAuth(ws, session, msg);
     if (msg.type === 'auth_token') return handleAuthToken(ws, session, msg);
+    if (msg.type === 'auth_reconnect') return handleReconnect(ws, session, msg);
     if (msg.type === 'command') return handleGameCommand(ws, session, msg);
     if (msg.type === 'dialogue') return handleDialogue(ws, session, msg);
     if (msg.type === 'ping') { ws.send(JSON.stringify({ type:'pong' })); return; }
@@ -159,9 +174,30 @@ async function handleAuth(ws, session, msg) {
   if (!rows.length || rows[0].password_hash !== hash) {
     ws.send(JSON.stringify({ type:'auth_fail', message:'Invalid credentials.' })); return;
   }
-  const player = rows[0];
+  await finishAuth(ws, session, rows[0]);
+}
 
-  // Kick existing session if any
+async function handleAuthToken(ws, session, msg) {
+  const entry = consumeSwitchToken(msg.token || '');
+  if (!entry) { ws.send(JSON.stringify({ type:'auth_fail', message:'Invalid or expired switch token.' })); return; }
+  const { rows } = await query('SELECT * FROM players WHERE id=$1', [entry.playerId]);
+  if (!rows.length) { ws.send(JSON.stringify({ type:'auth_fail', message:'Player not found.' })); return; }
+  await finishAuth(ws, session, rows[0]);
+}
+
+async function handleReconnect(ws, session, msg) {
+  const entry = reconnectTokens.get(msg.token || '');
+  if (!entry || entry.expires < Date.now()) {
+    reconnectTokens.delete(msg.token || '');
+    ws.send(JSON.stringify({ type:'auth_fail', message:'Session expired. Please log in again.' })); return;
+  }
+  reconnectTokens.delete(msg.token); // one-time use
+  const { rows } = await query('SELECT * FROM players WHERE id=$1', [entry.playerId]);
+  if (!rows.length) { ws.send(JSON.stringify({ type:'auth_fail', message:'Player not found.' })); return; }
+  await finishAuth(ws, session, rows[0]);
+}
+
+async function finishAuth(ws, session, player) {
   const existingWs = playerSockets.get(player.id);
   if (existingWs && existingWs !== ws) {
     existingWs.send(JSON.stringify({ type:'kicked', message:'You logged in from another location.' }));
@@ -194,7 +230,8 @@ async function handleAuth(ws, session, msg) {
   const apiToken = DEV_ROLES.includes(player.role)
     ? Buffer.from(`${player.id}:${player.role}:${Date.now()}`).toString('base64')
     : null;
-  ws.send(JSON.stringify({ type:'auth_success', player:livePlayer, env: envHUD, apiToken }));
+  const reconnectToken = issueReconnectToken(player.id);
+  ws.send(JSON.stringify({ type:'auth_success', player:livePlayer, env:envHUD, apiToken, reconnectToken }));
 
   const zone = getZone(livePlayer.current_zone);
   if (zone) {
@@ -211,50 +248,6 @@ async function handleAuth(ws, session, msg) {
       ws.send(JSON.stringify({ type:'move', message: describeVoidTeleport() + await describeZone(startZone, livePlayer), zone:'zone_start', minimap: getMinimapData('zone_start') }));
       broadcast('zone_start', { type:'zone_event', message:`${player.handle} flickers into existence out of nowhere.` }, player.id);
     }
-  }
-}
-
-async function handleAuthToken(ws, session, msg) {
-  const entry = consumeSwitchToken(msg.token || '');
-  if (!entry) { ws.send(JSON.stringify({ type:'auth_fail', message:'Invalid or expired switch token.' })); return; }
-  const { rows } = await query('SELECT * FROM players WHERE id=$1', [entry.playerId]);
-  if (!rows.length) { ws.send(JSON.stringify({ type:'auth_fail', message:'Player not found.' })); return; }
-  // Reuse the main auth flow by delegating to handleAuth with fabricated credentials.
-  // Easier: just duplicate the session setup inline since we already verified identity.
-  const player = rows[0];
-  const existingWs = playerSockets.get(player.id);
-  if (existingWs && existingWs !== ws) {
-    existingWs.send(JSON.stringify({ type:'kicked', message:'You logged in from another location.' }));
-    existingWs.close();
-  }
-  session.playerId = player.id;
-  session.handle = player.handle;
-  session.role = player.role;
-  playerSockets.set(player.id, ws);
-  const livePlayer = {
-    id:player.id, handle:player.handle, role:player.role,
-    current_zone:player.current_zone||'zone_start', anchor_zone:player.anchor_zone||'zone_start',
-    hp:player.hp, hp_max:player.hp_max, sanity:player.sanity, sanity_max:player.sanity_max,
-    hunger:player.hunger, thirst:player.thirst, radiation:player.radiation, credits:player.credits, bank_credits:player.bank_credits||0,
-    stat_str:player.stat_str, stat_agi:player.stat_agi, stat_int:player.stat_int,
-    stat_wil:player.stat_wil, stat_end:player.stat_end, stat_cha:player.stat_cha,
-    armor:0, statuses:[],
-  };
-  setLivePlayer(player.id, livePlayer);
-  await recomputeArmor(livePlayer);
-  addPlayerToZone(player.id, livePlayer.current_zone);
-  await query('UPDATE players SET last_seen=EXTRACT(EPOCH FROM NOW()) WHERE id=$1', [player.id]);
-  broadcast(livePlayer.current_zone, { type:'zone_event', message:`${player.handle} has arrived.` }, player.id);
-  let envHUD = null;
-  try { envHUD = getHUDPayload(); } catch {}
-  const DEV_ROLES2 = ['admin', 'dev', 'builder', 'designer'];
-  const apiToken2 = DEV_ROLES2.includes(player.role)
-    ? Buffer.from(`${player.id}:${player.role}:${Date.now()}`).toString('base64')
-    : null;
-  ws.send(JSON.stringify({ type:'auth_success', player:livePlayer, env: envHUD, apiToken: apiToken2 }));
-  const zone = getZone(livePlayer.current_zone);
-  if (zone) {
-    ws.send(JSON.stringify({ type:'look', message: await describeZone(zone, livePlayer), minimap: getMinimapData(zone.id) }));
   }
 }
 

@@ -15,12 +15,18 @@ export function initNet(messageHandler) {
     onOpen() {
       setConnStatus('online', 'CONNECTED');
       hideColdStart();
-      if (state.player) appendMsg(`Connected to ARCHITECT as ${state.player.handle}.`, 'system');
-      else appendMsg('Connected to ARCHITECT. Login or register to enter.', 'system');
-      const switchToken = sessionStorage.getItem('game-switch-token');
-      if (switchToken && !state.player) {
-        sessionStorage.removeItem('game-switch-token');
-        _connection.send({ type: 'auth_token', token: switchToken });
+      const reconnectToken = sessionStorage.getItem('reconnect-token');
+      if (reconnectToken && state.player) {
+        // Silent reconnect — token validated server-side; auth_success or auth_fail follows
+        _connection.send({ type: 'auth_reconnect', token: reconnectToken });
+      } else {
+        if (state.player) appendMsg(`Connected to ARCHITECT as ${state.player.handle}.`, 'system');
+        else appendMsg('Connected to ARCHITECT. Login or register to enter.', 'system');
+        const switchToken = sessionStorage.getItem('game-switch-token');
+        if (switchToken && !state.player) {
+          sessionStorage.removeItem('game-switch-token');
+          _connection.send({ type: 'auth_token', token: switchToken });
+        }
       }
     },
     onClose() {
