@@ -40,20 +40,21 @@ const TICK_24H_MS = 24 * 60 * 60 * 1000;
 // outage so a very stale clock can't stall startup with day-by-day sims.
 const MAX_CATCHUP_DAYS = 30;
 
-const WEATHER_TYPES = ['clear','cloudy','overcast','rain','thunderstorm','storm','snow','blizzard','fog','haze','ash'];
+const WEATHER_TYPES = ['clear','cloudy','overcast','rain','sleet','thunderstorm','storm','snow','blizzard','fog','haze','ash'];
 
 const WEATHER_ICON = {
-  clear:       '☀',
-  cloudy:      '☁',
-  overcast:    '🌥',
-  rain:        '🌧',
-  thunderstorm:'⛈',
-  storm:       '⚡',
-  snow:        '❄',
-  blizzard:    '🌨',
-  fog:         '🌫',
-  haze:        '😶‍🌫️',
-  ash:         '🌋',
+  clear:        '☀',
+  cloudy:       '☁',
+  overcast:     '🌥',
+  rain:         '🌧',
+  sleet:        '🌨',
+  thunderstorm: '⛈',
+  storm:        '⚡',
+  snow:         '❄',
+  blizzard:     '🌨',
+  fog:          '🌫',
+  haze:         '😶‍🌫️',
+  ash:          '🌋',
 };
 
 const WEATHER_VISIBILITY_FACTOR = {
@@ -61,6 +62,7 @@ const WEATHER_VISIBILITY_FACTOR = {
   cloudy:       0.9,
   overcast:     0.85,
   rain:         0.7,
+  sleet:        0.65,
   thunderstorm: 0.5,
   storm:        0.45,
   snow:         0.75,
@@ -70,8 +72,8 @@ const WEATHER_VISIBILITY_FACTOR = {
   ash:          0.4,
 };
 
-// Fog and haze both apply an independent multiplicative fog factor on top of
-// the weather visibility factor (GDD §7). Ash has a separate strong penalty.
+// Fog and haze apply an independent multiplicative fog factor on top of the
+// weather visibility factor (GDD §7). Ash has a separate strong penalty.
 const FOG_FACTOR = { fog: 0.4, haze: 0.7, ash: 0.5 };
 const DEFAULT_FOG_FACTOR = 1.0;
 
@@ -117,6 +119,8 @@ const state = {
   windows: [],              // all window rows from DB, refreshed on init and mutation
   lastTick30m: 0,
   lastTick24h: 0,
+  activeClimateProfileId: null,
+  activeClimateProfile: null,  // { monthly_temp_c: [...12], monthly_precip_chance: [...12] }
 };
 
 let deps = { query: null, emitHook: null, broadcast: null };
@@ -211,10 +215,16 @@ export async function initEnvironment({ query, emitHook, broadcast }) {
   state.lastTick24h = new Date(clockRow.last_tick_24h).getTime();
   const lastTick1m = clockRow.last_tick_1m ? new Date(clockRow.last_tick_1m).getTime() : state.lastTick30m;
 
+  state.activeClimateProfileId = clockRow.active_climate_profile_id || null;
+  if (state.activeClimateProfileId) {
+    const { rows: cpRows } = await query('SELECT * FROM climate_profiles WHERE id = $1', [state.activeClimateProfileId]);
+    if (cpRows[0]) state.activeClimateProfile = { monthly_temp_c: cpRows[0].monthly_temp_c, monthly_precip_chance: cpRows[0].monthly_precip_chance };
+  }
+
   // Weather plugin initializes the forecast via this hook. Must run before
   // loadZonePowerAndLighting + recalcAmbientAndVisibility so state.weatherType
   // is populated when those functions read it.
-  if (emitHook) await emitHook('environment.init', { setWeatherState });
+  if (emitHook) await emitHook('environment.init', { setWeatherState, climateProfile: state.activeClimateProfile });
 
   await loadZonePowerAndLighting(query);
   await loadWindows(query);
@@ -478,7 +488,7 @@ async function tick24h() {
   // Weather plugin advances the forecast and updates state.weatherType/tempC
   // via setWeatherState() BEFORE simulatePowerNetwork reads weatherType for
   // snow-load calculations.
-  if (emitHook) await emitHook('environment.advanceWeather', { setWeatherState, currentForecast: state.forecast, currentDate: state.date });
+  if (emitHook) await emitHook('environment.advanceWeather', { setWeatherState, currentForecast: state.forecast, currentDate: state.date, climateProfile: state.activeClimateProfile });
   await simulatePowerNetwork(query, { weatherType: state.weatherType });
   await loadZonePowerAndLighting(query);
   recalcAmbientAndVisibility();
@@ -823,6 +833,7 @@ export function getHUDPayload() {
     timePhase: phase.name,
     timeIcon: phase.icon,
     frozen: state.frozen,
+    activeClimateProfileId: state.activeClimateProfileId,
   };
 }
 
@@ -886,6 +897,56 @@ export function devFreeze(frozen) {
 export async function devForceTick5()  { await tick5m();  return getHUDPayload(); }
 export async function devForceTick30() { await tick30m(); return getHUDPayload(); }
 export async function devForceTick24() { await tick24h(); return { ...getHUDPayload(), forecast: state.forecast }; }
+
+export async function devGetClimateProfiles() {
+  const { rows } = await deps.query('SELECT * FROM climate_profiles ORDER BY name ASC');
+  return rows.map(r => ({ id: r.id, name: r.name, monthly_temp_c: r.monthly_temp_c, monthly_precip_chance: r.monthly_precip_chance }));
+}
+
+export async function devSaveClimateProfile({ id, name, monthly_temp_c, monthly_precip_chance }) {
+  const { query } = deps;
+  if (!id) id = `climate_${Date.now()}`;
+  if (!name) throw new Error('Profile name required');
+  await query(
+    `INSERT INTO climate_profiles (id, name, monthly_temp_c, monthly_precip_chance)
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT (id) DO UPDATE SET name = $2, monthly_temp_c = $3, monthly_precip_chance = $4`,
+    [id, name, JSON.stringify(monthly_temp_c), JSON.stringify(monthly_precip_chance)]
+  );
+  return { id, name, monthly_temp_c, monthly_precip_chance };
+}
+
+export async function devDeleteClimateProfile(id) {
+  await deps.query('DELETE FROM climate_profiles WHERE id = $1', [id]);
+  if (state.activeClimateProfileId === id) {
+    state.activeClimateProfileId = null;
+    state.activeClimateProfile = null;
+    await deps.query('UPDATE world_clock SET active_climate_profile_id = NULL WHERE id = 1');
+  }
+  return { ok: true };
+}
+
+export async function devSetActiveClimate(id) {
+  const { query } = deps;
+  if (!id) {
+    state.activeClimateProfileId = null;
+    state.activeClimateProfile = null;
+    await query('UPDATE world_clock SET active_climate_profile_id = NULL WHERE id = 1');
+    return { activeClimateProfileId: null };
+  }
+  const { rows } = await query('SELECT * FROM climate_profiles WHERE id = $1', [id]);
+  if (!rows[0]) throw new Error('Climate profile not found');
+  state.activeClimateProfileId = id;
+  state.activeClimateProfile = { monthly_temp_c: rows[0].monthly_temp_c, monthly_precip_chance: rows[0].monthly_precip_chance };
+  await query('UPDATE world_clock SET active_climate_profile_id = $1 WHERE id = 1', [id]);
+  return { activeClimateProfileId: id };
+}
+
+export async function devRecalculateForecast() {
+  const { emitHook } = deps;
+  if (emitHook) await emitHook('environment.recalculateForecast', { setWeatherState, climateProfile: state.activeClimateProfile, currentDate: state.date });
+  return { ...getHUDPayload(), forecast: state.forecast };
+}
 
 export async function devOverrideWeather({ weatherType, tempC }) {
   const { query, broadcast } = deps;

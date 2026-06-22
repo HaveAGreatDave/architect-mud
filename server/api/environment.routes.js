@@ -37,6 +37,12 @@ export async function handleEnvironmentApi(path, method, body, auth) {
     return { status: 200, body: env.getForecast() };
   }
 
+  if (path === '/environment/climate/profiles' && method === 'GET') {
+    const denied = requireDevAuth(auth);
+    if (denied) return denied;
+    return { status: 200, body: await env.devGetClimateProfiles() };
+  }
+
   if (path === '/environment/power/map' && method === 'GET') {
     return { status: 200, body: env.getPowerMap() };
   }
@@ -75,6 +81,13 @@ export async function handleEnvironmentApi(path, method, body, auth) {
       if (path === '/environment/time/set') return { status: 200, body: await env.devSetTime(body || {}) };
       if (path === '/environment/time/advance') return { status: 200, body: await env.devAdvanceTime(body?.minutes) };
       if (path === '/environment/time/freeze') return { status: 200, body: env.devFreeze(body?.frozen ? 1 : 0) };
+      if (path === '/environment/climate/profiles' && method === 'POST') return { status: 200, body: await env.devSaveClimateProfile(body || {}) };
+      if (path === '/environment/climate/active' && method === 'POST') return { status: 200, body: await env.devSetActiveClimate(body?.id || null) };
+      if (path === '/environment/climate/recalculate' && method === 'POST') return { status: 200, body: await env.devRecalculateForecast() };
+      if (path.startsWith('/environment/climate/profiles/') && method === 'DELETE') {
+        const id = decodeURIComponent(path.split('/')[4] || '');
+        return { status: 200, body: await env.devDeleteClimateProfile(id) };
+      }
       if (path === '/environment/tick/force5')  return { status: 200, body: await env.devForceTick5() };
       if (path === '/environment/tick/force30') return { status: 200, body: await env.devForceTick30() };
       if (path === '/environment/tick/force24') return { status: 200, body: await env.devForceTick24() };

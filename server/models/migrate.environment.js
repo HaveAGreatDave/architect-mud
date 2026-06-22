@@ -27,6 +27,17 @@ export async function migrateEnvironment(query) {
   `);
 
   await query(`ALTER TABLE world_clock ADD COLUMN IF NOT EXISTS last_tick_1m TIMESTAMPTZ NOT NULL DEFAULT now()`);
+  await query(`ALTER TABLE world_clock ADD COLUMN IF NOT EXISTS active_climate_profile_id TEXT`);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS climate_profiles (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      monthly_temp_c JSONB NOT NULL DEFAULT '[]',
+      monthly_precip_chance JSONB NOT NULL DEFAULT '[]',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+  `);
 
   await query(`
     CREATE TABLE IF NOT EXISTS weather_forecast (

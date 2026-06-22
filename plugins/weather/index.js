@@ -14,14 +14,13 @@
 import { createHash } from 'node:crypto';
 import { query } from '../../server/models/db.js';
 
-const WEATHER_TYPES = ['clear','cloudy','overcast','rain','thunderstorm','storm','snow','blizzard','fog','haze','ash'];
-
 const SEASON_BY_MONTH = [
   'winter', 'winter', 'spring', 'spring', 'spring', 'summer',
   'summer', 'summer', 'autumn', 'autumn', 'autumn', 'winter',
 ];
 
 const SEASON_BASE_TEMP_C = { winter: 2, spring: 12, summer: 24, autumn: 11 };
+const SEASON_BASE_PRECIP  = { winter: 0.35, spring: 0.40, summer: 0.35, autumn: 0.45 };
 
 function seedFromString(str) {
   const hash = createHash('sha256').update(str).digest();
@@ -47,14 +46,38 @@ function seasonForDate(dateStr) {
   return SEASON_BY_MONTH[month];
 }
 
-function generateWeatherForDate(dateStr) {
+// Determine precipitation type from temperature.
+function precipTypeForTemp(tempC, rand) {
+  const heavy = rand() < 0.25;
+  if (tempC > 3)   return heavy ? 'thunderstorm' : 'rain';
+  if (tempC > -1)  return 'sleet';
+  if (tempC > -8)  return heavy ? 'blizzard' : 'snow';
+  return 'blizzard';
+}
+
+function generateWeatherForDate(dateStr, climateProfile) {
   const rand = mulberry32(seedFromString(`weather:${dateStr}`));
+  const month = Number(dateStr.slice(5, 7)) - 1;
   const season = seasonForDate(dateStr);
-  const candidates = WEATHER_TYPES.filter(w => w !== 'snow' || season === 'winter' || season === 'autumn');
-  const weatherType = pick(rand, candidates);
-  const base = SEASON_BASE_TEMP_C[season];
+
+  const baseTemp     = climateProfile?.monthly_temp_c?.[month]        ?? SEASON_BASE_TEMP_C[season];
+  const precipChance = climateProfile?.monthly_precip_chance?.[month] ?? SEASON_BASE_PRECIP[season];
+
   const variance = Math.round((rand() - 0.5) * 8);
-  return { weatherType, tempC: base + variance };
+  const tempC = baseTemp + variance;
+
+  let weatherType;
+  if (rand() < precipChance) {
+    weatherType = precipTypeForTemp(tempC, rand);
+  } else {
+    // Non-precipitating: weight toward clear in summer, overcast in winter
+    const dryOptions = tempC < 0
+      ? ['cloudy', 'cloudy', 'overcast', 'clear']
+      : ['clear', 'clear', 'cloudy', 'overcast', 'fog', 'haze'];
+    weatherType = pick(rand, dryOptions);
+  }
+
+  return { weatherType, tempC };
 }
 
 function addDays(dateStr, days) {
@@ -68,25 +91,36 @@ function toDateString(value) {
   return String(value).slice(0, 10);
 }
 
-async function regenerateFullForecast(startDate) {
+async function regenerateFullForecast(startDate, climateProfile, overwriteUnlocked = false) {
   for (let i = 0; i < 7; i++) {
     const date = addDays(startDate, i);
-    const { weatherType, tempC } = generateWeatherForDate(date);
-    await query(
-      `INSERT INTO weather_forecast (forecast_day, game_date, weather_type, temp_c, locked)
-       VALUES ($1, $2, $3, $4, 0)
-       ON CONFLICT (forecast_day) DO NOTHING`,
-      [i, date, weatherType, tempC]
-    );
+    const { weatherType, tempC } = generateWeatherForDate(date, climateProfile);
+    if (overwriteUnlocked) {
+      await query(
+        `INSERT INTO weather_forecast (forecast_day, game_date, weather_type, temp_c, locked)
+         VALUES ($1, $2, $3, $4, 0)
+         ON CONFLICT (forecast_day) DO UPDATE
+           SET game_date = $2, weather_type = $3, temp_c = $4
+           WHERE weather_forecast.locked = 0`,
+        [i, date, weatherType, tempC]
+      );
+    } else {
+      await query(
+        `INSERT INTO weather_forecast (forecast_day, game_date, weather_type, temp_c, locked)
+         VALUES ($1, $2, $3, $4, 0)
+         ON CONFLICT (forecast_day) DO NOTHING`,
+        [i, date, weatherType, tempC]
+      );
+    }
   }
 }
 
-async function loadForecast(setWeatherState) {
+async function loadForecast(setWeatherState, climateProfile) {
   let { rows } = await query('SELECT * FROM weather_forecast ORDER BY forecast_day ASC');
   if (rows.length === 0) {
     const { rows: clockRows } = await query('SELECT game_date FROM world_clock WHERE id = 1');
     const startDate = clockRows[0] ? toDateString(clockRows[0].game_date) : new Date().toISOString().slice(0, 10);
-    await regenerateFullForecast(startDate);
+    await regenerateFullForecast(startDate, climateProfile);
     ({ rows } = await query('SELECT * FROM weather_forecast ORDER BY forecast_day ASC'));
   }
   const forecast = rows.map(r => ({
@@ -100,17 +134,15 @@ async function loadForecast(setWeatherState) {
 }
 
 export const hooks = {
-  'environment.init': async ({ setWeatherState }) => {
-    await loadForecast(setWeatherState);
+  'environment.init': async ({ setWeatherState, climateProfile }) => {
+    await loadForecast(setWeatherState, climateProfile);
   },
 
-  'environment.advanceWeather': async ({ setWeatherState, currentForecast }) => {
+  'environment.advanceWeather': async ({ setWeatherState, currentForecast, climateProfile }) => {
     // Shift forecast: drop day 0, promote days 1-6, generate new day 6.
-    // A locked day keeps its stored values through exactly one shift, then
-    // the lock clears — GDD §4.3.
     const shifted = currentForecast.slice(1);
     const newDate = addDays(currentForecast[6].date, 1);
-    const generated = generateWeatherForDate(newDate);
+    const generated = generateWeatherForDate(newDate, climateProfile);
 
     const nextForecast = [
       ...shifted,
@@ -126,5 +158,10 @@ export const hooks = {
       );
     }
     setWeatherState(nextForecast[0].weatherType, nextForecast[0].tempC, nextForecast);
+  },
+
+  'environment.recalculateForecast': async ({ setWeatherState, climateProfile, currentDate }) => {
+    await regenerateFullForecast(currentDate, climateProfile, true);
+    await loadForecast(setWeatherState, climateProfile);
   },
 };
