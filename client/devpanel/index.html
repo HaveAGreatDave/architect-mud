@@ -890,11 +890,13 @@ async function zoneEditForm(rec, isNew) {
 
   let subSectionsHtml = '<div class="zone-subsection-note">Save this zone first to add rooms, NPCs, furniture, or a generator.</div>';
   if (!isNew) {
-    const [npcsData, furnitureData, generatorsData, apartmentsData] = await Promise.all([
+    const isExterior = !flags.is_interior && !flags.is_apartment && !flags.is_building;
+    const [npcsData, furnitureData, generatorsData, apartmentsData, zonePowerInfo] = await Promise.all([
       API('/npcs').catch(() => []),
       API('/furniture').catch(() => []),
       API('/environment/power/generators').catch(() => []),
       flags.is_apartment ? API('/apartments').catch(() => []) : Promise.resolve([]),
+      isExterior ? API(`/environment/power/zones/${encodeURIComponent(rec.id)}`).catch(() => null) : Promise.resolve(null),
     ]);
     const zoneNpcs = (Array.isArray(npcsData) ? npcsData : []).filter(n => n.zone_id === rec.id);
     const zoneFurniture = (Array.isArray(furnitureData) ? furnitureData : []).filter(f => f.zone_id === rec.id);
@@ -996,8 +998,30 @@ async function zoneEditForm(rec, isNew) {
           ${!canRoof && !canBasement ? `<div style="color:var(--danger);font-size:12px;font-weight:600;margin-bottom:6px">⚠ Generators already exist in both rooms — remove one first.</div>` : ''}
           <button class="action-btn success" onclick='installGeneratorQuick(${JSON.stringify(rec.id)})' ${!canRoof && !canBasement ? 'disabled' : ''}>Install Building Generator</button>
         ` : !flags.is_interior && !flags.is_apartment ? `
-          <div class="zone-subitem-empty">No generator installed here.</div>
-          <div class="zone-subsection-note" style="margin-bottom:8px">Exterior zone — installs a City Power Plant that powers all outdoor zones on the map.</div>
+          ${(() => {
+            const cityGens = allGens.filter(g => g.generator_type === 'city_plant');
+            if (zonePowerInfo) {
+              return `
+                <div class="zone-subitem-row">
+                  <span>Served by <strong>${zonePowerInfo.generator_name || zonePowerInfo.generator_id || 'Unknown'}</strong> — <span class="text-dim">${(zonePowerInfo.available_kw ?? 0).toFixed(3)}/${Number(zonePowerInfo.max_capacity_kw ?? 1).toFixed(3)}kW available, ${zonePowerInfo.status}</span></span>
+                </div>
+                ${cityGens.length > 1 ? `
+                  <div class="field-row" style="margin-top:8px">
+                    <div class="field"><label>Reassign to generator</label>
+                      <select id="zone-gen-reassign-select">
+                        ${cityGens.map(g => `<option value="${g.id}" ${g.id === zonePowerInfo.generator_id ? 'selected' : ''}>${g.name || g.id} (${g.capacity_kw}kW)</option>`).join('')}
+                      </select>
+                    </div>
+                    <div class="field" style="display:flex;align-items:flex-end">
+                      <button class="action-btn" onclick="reassignZoneGenerator('${rec.id}')">Reassign</button>
+                    </div>
+                  </div>
+                ` : ''}
+              `;
+            }
+            return `<div class="zone-subitem-empty">No power zone record — not connected to the city grid. Use Fix Zone Connections in the Power tab.</div>`;
+          })()}
+          <div class="zone-subsection-note" style="margin-bottom:8px;margin-top:6px">Install a new City Power Plant at this location.</div>
           <div class="field-row" style="margin-top:6px">
             <div class="field"><label>Capacity (kW)</label><input type="number" id="gen-install-capacity" placeholder="auto (500)"></div>
           </div>
@@ -1294,6 +1318,16 @@ async function _installBuildingGenerator(zoneId, rec) {
   });
   if (genResult?.error) { toast(`Generator install failed: ${genResult.error}`, true); return; }
   toast(`Generator installed — powering ${genResult.poweredZones?.length || 0} zone(s)`);
+  await refreshZoneEditPanel(zoneId);
+}
+
+async function reassignZoneGenerator(zoneId) {
+  const select = document.getElementById('zone-gen-reassign-select');
+  if (!select) return;
+  const generatorId = select.value;
+  const result = await API(`/environment/power/zones/${encodeURIComponent(zoneId)}/reassign`, 'POST', { generatorId });
+  if (result?.error) { toast(result.error, true); return; }
+  toast(`Reassigned to ${result.generatorName || generatorId}`);
   await refreshZoneEditPanel(zoneId);
 }
 
@@ -2242,7 +2276,7 @@ function buildDynamicMapGrid(zones, mode, powerById, clickable) {
         const status = p ? p.status : 'unpowered';
         cls = `bigmap-tile bm-power-${status}`;
         sub = p
-          ? `<div style="font-size:9px;opacity:0.8;margin-top:2px">${(p.availableKw ?? 0).toFixed(1)}/${(p.maxCapacityKw ?? 50)}kW <span onclick="event.stopPropagation();editZoneMaxCapacity('${z.id}')" style="cursor:pointer;opacity:0.6" title="Edit max capacity">✏</span></div>`
+          ? `<div style="font-size:9px;opacity:0.8;margin-top:2px">${(p.loadKw ?? 0).toFixed(3)}/${(p.availableKw ?? 0).toFixed(3)}kW <span onclick="event.stopPropagation();editZoneMaxCapacity('${z.id}')" style="cursor:pointer;opacity:0.6" title="Edit max capacity">✏</span></div>`
           : `<div style="font-size:9px;opacity:0.6;margin-top:2px">no power</div>`;
       }
       const click = clickable ? ` onclick="bigMapTileClick('${z.id}')"` : '';
@@ -2282,10 +2316,10 @@ function buildDynamicMapGrid(zones, mode, powerById, clickable) {
 
 function mapLegendHtml(mode) {
   return mode === 'power'
-    ? `<span><span class="legend-swatch" style="background:rgba(40,229,255,0.4)"></span>Powered</span>
-       <span><span class="legend-swatch" style="background:rgba(255,154,60,0.4)"></span>Overloaded</span>
-       <span><span class="legend-swatch" style="background:rgba(255,59,92,0.4)"></span>Offline</span>
-       <span><span class="legend-swatch" style="background:rgba(92,92,120,0.4)"></span>Unpowered</span>`
+    ? `<span><span class="legend-swatch" style="background:rgba(20,220,110,0.7)"></span>Powered</span>
+       <span><span class="legend-swatch" style="background:rgba(255,165,0,0.7)"></span>Overloaded</span>
+       <span><span class="legend-swatch" style="background:rgba(230,50,70,0.7)"></span>Offline</span>
+       <span><span class="legend-swatch" style="background:rgba(40,40,60,0.8)"></span>Unpowered</span>`
     : `<span><span class="legend-swatch" style="background:rgba(57,255,143,0.4)"></span>Safe</span>
        <span><span class="legend-swatch" style="background:rgba(245,230,66,0.4)"></span>Low</span>
        <span><span class="legend-swatch" style="background:rgba(255,154,60,0.4)"></span>Medium</span>
@@ -3109,11 +3143,12 @@ function renderPowerPanelBody() {
         <td>${g.name || g.id}</td>
         <td>${g.generator_type === 'city_plant' ? 'City Plant' : 'Building'}</td>
         <td>${g.zone_name || g.zone_id || '—'}</td>
-        <td>${g.capacity_kw}kW</td>
-        <td style="white-space:nowrap">${remaining.toFixed(1)}kW <span style="color:var(--text-dim);font-size:10px">(${pct}% used)</span></td>
+        <td>${Number(g.capacity_kw).toFixed(3)}kW</td>
+        <td style="white-space:nowrap">${remaining.toFixed(3)}kW <span style="color:var(--text-dim);font-size:10px">(${pct}% used)</span></td>
         <td><span class="badge badge-${g.status === 'online' ? 'safe' : 'high'}">${g.status}</span></td>
         <td style="white-space:nowrap">
-          <button class="action-btn" onclick="viewGeneratorZones('${gIdSafe}')">View Zones</button>
+          <button class="action-btn" onclick="editGeneratorCapacity('${gIdSafe}', ${g.capacity_kw})">Edit</button>
+          <button class="action-btn" style="margin-left:3px" onclick="viewGeneratorZones('${gIdSafe}')">View Zones</button>
           <button class="action-btn danger" style="margin-left:3px" onclick="removeGeneratorFromPowerPanel('${gIdSafe}')">Remove</button>
         </td>
       </tr>`;
@@ -3207,8 +3242,8 @@ async function viewGeneratorZones(generatorId) {
   const rows = zones.map(z => {
     const kind = z.is_interior ? 'interior' : z.is_apartment ? 'apartment' : 'outdoor';
     const col = statusColor[z.status] || 'var(--text-dim)';
-    const avail = (z.available_kw ?? 0).toFixed(1);
-    const maxCap = z.max_capacity_kw ?? 50;
+    const avail = (z.available_kw ?? 0).toFixed(3);
+    const maxCap = Number(z.max_capacity_kw ?? 1).toFixed(3);
     const zIdSafe = z.id.replace(/'/g, "\\'");
     return `<tr>
       <td>${z.name || z.id}</td>
@@ -3236,6 +3271,33 @@ async function editZoneMaxCapacity(zoneId) {
   toast(`Max capacity set to ${kw}kW`);
   await _refreshPowerMapData();
   renderPowerPanelBody();
+}
+
+function editGeneratorCapacity(generatorId, currentKw) {
+  const g = powerPanelGenerators.find(g => g.id === generatorId) || {};
+  document.getElementById('modal-title').textContent = `Edit Generator — ${g.name || generatorId}`;
+  document.getElementById('modal-body').innerHTML = `
+    <div class="field"><label>Capacity (kW)</label>
+      <input type="number" id="gen-edit-capacity" value="${currentKw}" min="0" step="10" style="width:100%">
+    </div>
+    <div class="field" style="margin-top:8px"><label>Name</label>
+      <input type="text" id="gen-edit-name" value="${g.name || ''}" placeholder="Generator name" style="width:100%">
+    </div>
+  `;
+  document.getElementById('modal-save').style.display = '';
+  document.getElementById('modal-save').textContent = 'Save';
+  document.getElementById('modal-save').onclick = async () => {
+    const kw = parseFloat(document.getElementById('gen-edit-capacity').value);
+    if (isNaN(kw) || kw < 0) { toast('Invalid capacity value', true); return; }
+    const name = document.getElementById('gen-edit-name').value.trim();
+    const result = await API(`/environment/power/generators/${encodeURIComponent(generatorId)}/capacity`, 'POST', { capacityKw: kw, name: name || undefined }).catch(e => ({ error: e.message }));
+    if (result?.error) { toast(result.error, true); return; }
+    toast('Generator updated');
+    closeModal();
+    await _refreshPowerMapData();
+    renderPowerPanelBody();
+  };
+  document.getElementById('generic-modal').style.display = 'flex';
 }
 
 async function removeGeneratorFromPowerPanel(generatorId) {
@@ -3816,11 +3878,6 @@ function renderTimeWeatherPanel(data) {
       <div style="font-size:24px;margin-bottom:4px">${f.icon||'?'}</div>
       <div style="font-size:11px;color:var(--text)">${f.weatherType||'?'}</div>
       ${f.tempC!=null?`<div style="font-size:10px;color:var(--text-dim);margin-top:2px">${f.tempC}°C</div>`:''}
-      <div style="margin-top:8px">
-        <label style="display:flex;align-items:center;justify-content:center;gap:4px;font-size:10px;color:var(--text-dim);cursor:pointer">
-          <input type="checkbox" ${f.locked?'checked':''} onchange="devLockForecastDay(${i},this.checked)" style="accent-color:var(--accent)">Lock
-        </label>
-      </div>
     </div>`).join('');
 
   panel.innerHTML = `
@@ -3848,9 +3905,16 @@ function renderTimeWeatherPanel(data) {
             <input id="tw-time" type="time" value="${timeStr}" style="margin-top:4px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:5px 8px;border-radius:2px">
           </label>
           <button class="action-btn" onclick="devApplyTime()">Apply & Sync</button>
+          <button class="action-btn" onclick="devSyncToMyClockNow()" title="Set server time to match this browser's current clock">⟳ Sync to My Clock</button>
           <button class="action-btn${env.frozen?' danger':''}" onclick="devToggleFreeze()" style="margin-left:4px">
             ${env.frozen?'▶ Unfreeze':'⏸ Freeze Time'}
           </button>
+        </div>
+        <div style="margin-top:12px;display:flex;gap:8px;align-items:center">
+          <span style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">Force Tick:</span>
+          <button class="action-btn" onclick="devForceTick('force5')" title="Run 5-minute power tick">5 min</button>
+          <button class="action-btn" onclick="devForceTick('force30')" title="Run 30-minute time/weather tick">30 min</button>
+          <button class="action-btn" onclick="devForceTick('force24')" title="Run 24-hour daily tick">24 hr</button>
         </div>
       </div>
 
@@ -3893,6 +3957,23 @@ async function devToggleFreeze() {
   const r = await API('/environment/time/freeze','POST',{frozen:!env.frozen});
   if (r.error) { toast(r.error,true); return; }
   toast(r.frozen ? 'Time frozen' : 'Time resumed');
+  loadPanel('timeweather');
+}
+
+async function devSyncToMyClockNow() {
+  const now = new Date();
+  const minutes = now.getHours() * 60 + now.getMinutes();
+  const date = now.toISOString().slice(0, 10);
+  const r = await API('/environment/time/set', 'POST', { date, minutes });
+  if (r.error) { toast(r.error, true); return; }
+  toast('Server time synced to your clock');
+  loadPanel('timeweather');
+}
+
+async function devForceTick(which) {
+  const r = await API(`/environment/tick/${which}`, 'POST', {});
+  if (r.error) { toast(r.error, true); return; }
+  toast(`${which.replace('force','').toUpperCase()} tick fired`);
   loadPanel('timeweather');
 }
 

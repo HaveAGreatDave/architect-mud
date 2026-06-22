@@ -1,6 +1,6 @@
 import { query } from '../../models/db.js';
 import { getZone, getZoneEnemies, getZoneNpcs, getZonePlayers } from '../world.js';
-import { getZonePowerStatus, recomputePower } from '../environment.js';
+import { getZonePowerStatus, recomputePower, recalcZoneLoad } from '../environment.js';
 import { getPlayerSkills, SKILLS } from '../skills.js';
 import { describeZone } from './describe.js';
 import { getMinimapData, addPlayerToZone, removePlayerFromZone } from '../world.js';
@@ -121,6 +121,7 @@ async function cmdSwitch(targetStr, player) {
     [player.current_zone]
   );
   await query(`UPDATE lighting_states SET fixture_count=$1 WHERE zone_id=$2`, [countRows[0]?.cnt || 0, player.current_zone]).catch(()=>{});
+  await recalcZoneLoad(query, player.current_zone).catch(()=>{});
   await recomputePower().catch(()=>{});
   return { type:'action', message: newState
     ? `You flip the switch. ${light.name} flickers on.`

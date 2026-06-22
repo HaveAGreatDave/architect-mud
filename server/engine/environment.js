@@ -64,11 +64,16 @@ const SEASON_BY_MONTH = [
 ];
 
 
-const POWER_OVERLOAD_RATIO = 1.0;    // load/capacity above this → 'overloaded'
-const POWER_BLACKOUT_RATIO = 1.25;   // load/capacity above this → 'offline'
+const POWER_OVERLOAD_RATIO = 1.0;    // alloc < demand × this → 'overloaded'
 const EMERGENCY_LIGHT_LEVEL = 0.3;   // artificial-light contribution on emergency power only
 const SNOW_LOAD_MULTIPLIER = 1.15;   // snow increases effective load (GDD §11: heating demand)
 const STORM_GENERATOR_FAULT_CHANCE = 0.10; // per 24h tick, per non-building generator
+
+// Realistic fixture draw values (kW). These appear in both the bulk simulation
+// UPDATE and in recalcZoneLoad — keep them in sync here rather than inline.
+const DRAW_OVERHEAD_KW    = 0.1;   // 100 W fluorescent / LED panel
+const DRAW_STREETLIGHT_KW = 0.15;  // 150 W HPS / LED streetlight
+const DRAW_DEFAULT_KW     = 0.05;  // 50 W generic fixture
 
 const VISIBILITY_CLEAR = 0.6;
 const VISIBILITY_DIM = 0.35;
@@ -238,6 +243,18 @@ function scheduleTicks() {
   ticksScheduled = true;
   schedule('30m', () => { if (!state.frozen) tick30m().catch(logError); });
   schedule('24h', () => { if (!state.frozen) tick24h().catch(logError); });
+
+  // 5-minute brownout rotation: only runs the full power redistribution when
+  // at least one zone is overloaded, so there's zero cost on a healthy grid.
+  schedule('5m', () => {
+    if (state.frozen) return;
+    const anyOverloaded = [...state.zones.values()].some(z => z.powerStatus === 'overloaded');
+    if (anyOverloaded) tick5m().catch(logError);
+  });
+
+  // 30-second flicker: pure broadcast to overloaded zones — no DB writes,
+  // just keeps the visual effect alive between redistribution ticks.
+  schedule('30s', () => { flickerOverloadedZones(); });
 }
 
 async function ensureClockRow(query) {
@@ -340,6 +357,27 @@ function computeArtificialLight(powerStatus, light) {
 }
 
 // ---------------------------------------------------------------------------
+// 5-Minute Brownout Rotation Tick (only active when grid is overloaded)
+// ---------------------------------------------------------------------------
+
+async function tick5m() {
+  const { query } = deps;
+  await simulatePowerNetwork(query, { weatherType: state.weatherType });
+  await loadZonePowerAndLighting(query);
+}
+
+// Sends flicker broadcasts to overloaded zones — no DB writes.
+function flickerOverloadedZones() {
+  const { broadcast } = deps;
+  if (!broadcast) return;
+  for (const [zoneId, z] of state.zones) {
+    if (z.powerStatus === 'overloaded') {
+      broadcast(zoneId, { type: 'zone_event', message: '<span class="power-flicker">The lights flicker.</span>' });
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // 30-Minute Environmental Tick
 // World time → ambient light → visibility baseline → client clock sync
 // ---------------------------------------------------------------------------
@@ -429,6 +467,96 @@ async function tick24h() {
 // Power Network Simulation
 // ---------------------------------------------------------------------------
 
+// Handles light-state side-effects when a zone's power status changes.
+// prevStatus = status stored in DB before this tick; newStatus = just computed.
+async function applyPowerLightEffects(query, zoneId, prevStatus, newStatus, available, maxCap) {
+  const broadcast = deps.broadcast;
+
+  const wasOk = prevStatus === 'powered';
+  const nowOk  = newStatus === 'powered';
+  const nowDown = newStatus === 'offline';
+  const nowBrown = newStatus === 'overloaded';
+
+  if (nowDown) {
+    // Preserve intended state before cutting everything.
+    await query(`UPDATE furniture SET light_on_intended = COALESCE(light_on_intended, light_on) WHERE zone_id=$1 AND is_light=1`, [zoneId]);
+    await query(`UPDATE furniture SET light_on=0 WHERE zone_id=$1 AND is_light=1`, [zoneId]);
+    await query(`UPDATE power_zones SET current_load_kw=0 WHERE id=$1`, [zoneId]);
+    await query(`UPDATE lighting_states SET fixture_count=0 WHERE zone_id=$1`, [zoneId]).catch(() => {});
+    if (broadcast && prevStatus !== 'offline') {
+      broadcast(zoneId, { type: 'zone_event', message: '<span class="power-out">The lights cut out. Darkness.</span>' });
+    }
+  } else if (nowBrown) {
+    // Preserve intended state before any changes.
+    await query(`UPDATE furniture SET light_on_intended = COALESCE(light_on_intended, light_on) WHERE zone_id=$1 AND is_light=1`, [zoneId]);
+
+    // Per-device allocation: fetch all powered devices with their draw.
+    const { rows: lights } = await query(`
+      SELECT id, light_on_intended,
+        COALESCE(power_draw_kw,
+          CASE light_type
+            WHEN 'overhead'    THEN ${DRAW_OVERHEAD_KW}
+            WHEN 'streetlight' THEN ${DRAW_STREETLIGHT_KW}
+            ELSE ${DRAW_DEFAULT_KW}
+          END
+        ) AS draw_kw
+      FROM furniture WHERE zone_id=$1 AND is_light=1
+    `, [zoneId]);
+
+    // Only devices the player intends to be on compete for available power.
+    // Sort ascending by draw — cheapest devices served first.
+    const wantOn = lights.filter(l => l.light_on_intended === 1).sort((a, b) => a.draw_kw - b.draw_kw);
+
+    let pool = available;
+    const fullyOn = [], flickering = [], forcedOff = [];
+
+    for (const light of wantOn) {
+      if (pool >= light.draw_kw) {
+        fullyOn.push(light.id);
+        pool -= light.draw_kw;
+      } else if (pool > 0) {
+        flickering.push(light.id);
+        pool = 0;
+      } else {
+        forcedOff.push(light.id);
+      }
+    }
+
+    if (fullyOn.length)   await query(`UPDATE furniture SET light_on=1 WHERE id=ANY($1::text[])`, [fullyOn]);
+    if (forcedOff.length) await query(`UPDATE furniture SET light_on=0 WHERE id=ANY($1::text[])`, [forcedOff]);
+    // Flickering devices randomly toggle each tick.
+    for (const id of flickering) {
+      await query(`UPDATE furniture SET light_on=$1 WHERE id=$2`, [Math.random() > 0.5 ? 1 : 0, id]);
+    }
+
+    await recalcZoneLoad(query, zoneId);
+    const { rows: lc } = await query(`SELECT COUNT(*)::int AS cnt FROM furniture WHERE zone_id=$1 AND is_light=1 AND light_on=1`, [zoneId]);
+    await query(`UPDATE lighting_states SET fixture_count=$1 WHERE zone_id=$2`, [lc[0]?.cnt || 0, zoneId]).catch(() => {});
+
+    if (broadcast) {
+      if (forcedOff.length) {
+        broadcast(zoneId, { type: 'zone_event', message: '<span class="power-flicker">Some lights cut out as the grid strains under load.</span>' });
+      } else if (flickering.length) {
+        broadcast(zoneId, { type: 'zone_event', message: '<span class="power-flicker">The lights flicker and dim.</span>' });
+      }
+    }
+  } else if (nowOk && !wasOk) {
+    // Power restored — recover intended light states.
+    await query(`
+      UPDATE furniture
+      SET light_on = COALESCE(light_on_intended, light_on),
+          light_on_intended = NULL
+      WHERE zone_id = $1 AND is_light = 1
+    `, [zoneId]);
+    await recalcZoneLoad(query, zoneId);
+    const { rows: lc } = await query(`SELECT COUNT(*)::int AS cnt FROM furniture WHERE zone_id=$1 AND is_light=1 AND light_on=1`, [zoneId]);
+    await query(`UPDATE lighting_states SET fixture_count=$1 WHERE zone_id=$2`, [lc[0]?.cnt || 0, zoneId]).catch(() => {});
+    if (broadcast) {
+      broadcast(zoneId, { type: 'zone_event', message: '<span class="power-restore">Emergency power hums to life. The lights come back on.</span>' });
+    }
+  }
+}
+
 async function simulatePowerNetwork(query, { weatherType }) {
   const { rows: generators } = await query('SELECT * FROM generators');
   const { rows: zones } = await query('SELECT * FROM power_zones');
@@ -463,9 +591,29 @@ async function simulatePowerNetwork(query, { weatherType }) {
     await query(`UPDATE generators SET status = $1, fuel_remaining = $2 WHERE id = $3`, [status, fuelRemaining, gen.id]);
   }
 
+  // Calculate each zone's actual demand from currently-on furniture before
+  // distributing the generator pool. This replaces the static max_capacity_kw
+  // entitlement so zones only draw what their active fixtures actually need.
+  await query(`
+    UPDATE power_zones pz
+    SET current_load_kw = (
+      SELECT COALESCE(SUM(
+        CASE
+          WHEN f.power_draw_kw IS NOT NULL THEN f.power_draw_kw
+          WHEN f.light_type = 'overhead'    THEN ${DRAW_OVERHEAD_KW}
+          WHEN f.light_type = 'streetlight' THEN ${DRAW_STREETLIGHT_KW}
+          ELSE ${DRAW_DEFAULT_KW}
+        END
+      ), 0)
+      FROM furniture f
+      WHERE f.zone_id = pz.id AND f.is_light = 1 AND f.light_on = 1
+    )
+  `);
+  const { rows: freshZones } = await query('SELECT * FROM power_zones');
+
   // Group zones by generator so they share the generator's capacity pool.
   const zonesByGen = new Map();
-  for (const zone of zones) {
+  for (const zone of freshZones) {
     const key = zone.generator_id ?? '__orphan__';
     if (!zonesByGen.has(key)) zonesByGen.set(key, []);
     zonesByGen.get(key).push(zone);
@@ -474,38 +622,62 @@ async function simulatePowerNetwork(query, { weatherType }) {
   for (const [genId, genZones] of zonesByGen) {
     const gen = updatedStatus.get(genId);
     const genCapacity = gen ? gen.capacity_kw : 0;
-    const zoneCount = genZones.length;
 
-    // Generator's capacity is distributed first-come-first-served up to each
-    // zone's max_capacity_kw, then remaining pool is tracked.
+    const genOffline = !gen && genZones.some(z => z.generator_id);
+
+    if (genOffline || (gen && gen.status === 'offline')) {
+      // Generator is gone or offline — all zones dark.
+      if (gen) await query(`UPDATE generators SET remaining_kw = $1 WHERE id = $2`, [0, genId]);
+      for (const zone of genZones) {
+        const cap = zone.max_capacity_kw ?? 50;
+        await query(`UPDATE power_zones SET status='offline', capacity_kw=$1, available_kw=0 WHERE id=$2`,
+          [cap, zone.id]);
+        await applyPowerLightEffects(query, zone.id, zone.status, 'offline', 0, cap);
+      }
+      continue;
+    }
+
+    // Distribute the generator pool based on actual demand rather than
+    // max entitlement. Zones with no active fixtures get 0 draw and are
+    // powered trivially. Zones with demand compete for the remaining pool.
+    // Sort by demand ascending so lighter zones are served first, preserving
+    // the brownout rotation for zones that are genuinely competing.
+    const sorted = [...genZones].sort((a, b) => (a.current_load_kw ?? 0) - (b.current_load_kw ?? 0));
+
     let poolRemaining = genCapacity;
-    const allocations = genZones.map(zone => {
-      const cap = zone.max_capacity_kw ?? 50;
-      const alloc = Math.min(cap, poolRemaining);
-      poolRemaining = Math.max(0, poolRemaining - alloc);
-      return { zone, alloc, cap };
+    const allocations = sorted.map(zone => {
+      const demand = zone.current_load_kw ?? 0;
+      const ceiling = zone.max_capacity_kw ?? 50;
+      // A zone can only pull up to its demand (capped by its per-zone ceiling).
+      const ask = Math.min(demand, ceiling);
+      const alloc = Math.min(ask, Math.max(0, poolRemaining));
+      poolRemaining -= alloc;
+      return { zone, demand, alloc, ceiling };
     });
 
     if (gen) {
-      await query(`UPDATE generators SET remaining_kw = $1 WHERE id = $2`, [poolRemaining, genId]);
+      await query(`UPDATE generators SET remaining_kw = $1 WHERE id = $2`,
+        [Math.max(0, poolRemaining), genId]);
     }
 
-    for (const { zone, alloc, cap } of allocations) {
-      const genOffline = !gen && zone.generator_id;
-      const available = (genOffline || (gen && gen.status === 'offline')) ? 0 : alloc;
-
+    for (const { zone, demand, alloc, ceiling } of allocations) {
       let status;
-      if (genOffline) status = 'offline';
-      else if (gen && gen.status === 'offline') status = 'offline';
-      else if (available <= 0) status = 'offline';
-      else if (available < cap * (1 / POWER_BLACKOUT_RATIO)) status = 'offline';
-      else if (available < cap * (1 / POWER_OVERLOAD_RATIO)) status = 'overloaded';
-      else status = 'powered';
+      if (demand === 0) {
+        // No active draw — zone is powered even if pool is exhausted.
+        status = 'powered';
+      } else if (alloc <= 0) {
+        status = 'offline';
+      } else if (alloc < demand * POWER_OVERLOAD_RATIO) {
+        // Getting less than its demand — brownout.
+        status = 'overloaded';
+      } else {
+        status = 'powered';
+      }
 
-      // capacity_kw = zone's equal share; available_kw = what generator delivers;
-      // max_capacity_kw untouched (user-configured ceiling).
-      await query(`UPDATE power_zones SET status = $1, capacity_kw = $2, available_kw = $3 WHERE id = $4`,
-        [status, cap, available, zone.id]);
+      await query(`UPDATE power_zones SET status=$1, capacity_kw=$2, available_kw=$3 WHERE id=$4`,
+        [status, ceiling, alloc, zone.id]);
+
+      await applyPowerLightEffects(query, zone.id, zone.status, status, alloc, ceiling);
     }
   }
 }
@@ -644,6 +816,7 @@ export function devFreeze(frozen) {
   return { frozen: state.frozen };
 }
 
+export async function devForceTick5()  { await tick5m();  return getHUDPayload(); }
 export async function devForceTick30() { await tick30m(); return getHUDPayload(); }
 export async function devForceTick24() { await tick24h(); return { ...getHUDPayload(), forecast: state.forecast }; }
 
@@ -723,7 +896,7 @@ async function getBuildingNetwork(query, startZoneId) {
     for (const nId of neighbors) {
       if (visited.has(nId)) continue;
       const neighbor = byId.get(nId);
-      if (isInterior(neighbor) || isInterior(zone)) {
+      if (isInterior(neighbor)) {
         visited.add(nId);
         queue.push(nId);
       }
@@ -740,7 +913,9 @@ export async function installGenerator({ zoneId, generatorType = 'building', cap
   const zone = zoneRows[0];
 
   const id = `gen_${zoneId}_${Date.now()}`;
-  const capacity = Number(capacityKw) || (generatorType === 'city_plant' ? 500 : 50);
+  // city_plant: 500 kW — serves an entire district of outdoor zones with headroom.
+  // building:   5 kW  — serves a building's lighting load (50× 0.1 kW fixtures).
+  const capacity = Number(capacityKw) || (generatorType === 'city_plant' ? 500 : 5);
   const genName = name || (generatorType === 'city_plant' ? 'City Power Plant' : `${zone.name} Generator`);
 
   // Permanent generators — building and city-plant types never consume
@@ -832,7 +1007,14 @@ export async function fixZonePowerConnections() {
     SELECT z.id, z.name, z.grid_x, z.grid_y FROM zones z
     WHERE NOT COALESCE((z.flags->>'is_apartment')::boolean, false)
       AND NOT COALESCE((z.flags->>'is_interior')::boolean, false)
-      AND z.id NOT IN (SELECT id FROM power_zones)
+      AND (
+        z.id NOT IN (SELECT id FROM power_zones)
+        OR z.id IN (
+          SELECT pz.id FROM power_zones pz
+          WHERE pz.generator_id IS NOT NULL
+            AND pz.generator_id NOT IN (SELECT id FROM generators)
+        )
+      )
   `);
 
   const connected = [];
@@ -939,6 +1121,18 @@ export async function fixBuildingPowerConnections() {
   return results;
 }
 
+export async function setGeneratorCapacity(generatorId, capacityKw, name) {
+  const { query } = deps;
+  const kw = Math.max(0, Number(capacityKw) || 0);
+  const { rowCount } = await query(
+    `UPDATE generators SET capacity_kw = $1${name ? ', name = $3' : ''} WHERE id = $2`,
+    name ? [kw, generatorId, name] : [kw, generatorId]
+  );
+  if (!rowCount) throw new Error(`Generator ${generatorId} not found`);
+  await recomputePower();
+  return (await getGeneratorsList()).find(g => g.id === generatorId);
+}
+
 export async function getGeneratorsList() {
   const { query } = deps;
   const { rows } = await query(`
@@ -964,6 +1158,53 @@ export async function getGeneratorZones(generatorId) {
     ORDER BY z.name
   `, [generatorId]);
   return { generator: genRows[0], zones: rows };
+}
+
+// Sums active powered furniture in a zone and writes the result to
+// power_zones.current_load_kw. Call this whenever a light or electronic
+// is switched on or off so the power sim always has fresh load data.
+export async function recalcZoneLoad(queryFn, zoneId) {
+  const { rows } = await queryFn(`
+    SELECT COALESCE(SUM(
+      CASE
+        WHEN power_draw_kw IS NOT NULL THEN power_draw_kw
+        WHEN light_type = 'overhead'    THEN ${DRAW_OVERHEAD_KW}
+        WHEN light_type = 'streetlight' THEN ${DRAW_STREETLIGHT_KW}
+        ELSE ${DRAW_DEFAULT_KW}
+      END
+    ), 0) AS total_load
+    FROM furniture
+    WHERE zone_id = $1 AND is_light = 1 AND light_on = 1
+  `, [zoneId]);
+  const load = rows[0]?.total_load ?? 0;
+  await queryFn(`UPDATE power_zones SET current_load_kw = $1 WHERE id = $2`, [load, zoneId]);
+  return load;
+}
+
+export async function reassignZoneGenerator(zoneId, generatorId) {
+  const { query } = deps;
+  const { rows: genRows } = await query('SELECT id, name, capacity_kw FROM generators WHERE id=$1', [generatorId]);
+  if (!genRows.length) throw new Error('Generator not found');
+  const gen = genRows[0];
+  await query(
+    `UPDATE power_zones SET generator_id=$1, source_type='city_grid', capacity_kw=$2 WHERE id=$3`,
+    [gen.id, gen.capacity_kw, zoneId]
+  );
+  await recomputePower();
+  return { zoneId, generatorId: gen.id, generatorName: gen.name };
+}
+
+export async function getZonePowerInfo(zoneId) {
+  const { query } = deps;
+  const { rows } = await query(`
+    SELECT pz.status, pz.capacity_kw, pz.available_kw, pz.max_capacity_kw,
+           pz.current_load_kw, pz.generator_id,
+           g.name AS generator_name, g.generator_type, g.capacity_kw AS gen_capacity_kw, g.status AS gen_status
+    FROM power_zones pz
+    LEFT JOIN generators g ON g.id = pz.generator_id
+    WHERE pz.id = $1
+  `, [zoneId]);
+  return rows[0] || null;
 }
 
 export async function setZoneMaxCapacity(zoneId, maxCapacityKw) {

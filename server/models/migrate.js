@@ -175,6 +175,11 @@ export async function migrate() {
     -- or 'streetlight' (outdoor, NOT player-switchable — toggled
     -- automatically at dusk/dawn by the environment system instead).
     ALTER TABLE furniture ADD COLUMN IF NOT EXISTS light_type TEXT DEFAULT 'lamp';
+    -- Power draw when active. NULL = use type default (lamp=1kW, overhead=2kW, streetlight=3kW).
+    ALTER TABLE furniture ADD COLUMN IF NOT EXISTS power_draw_kw REAL DEFAULT NULL;
+    -- Player-intended light state, preserved across power outages so lights
+    -- restore correctly when power returns. NULL = not currently overridden.
+    ALTER TABLE furniture ADD COLUMN IF NOT EXISTS light_on_intended INTEGER DEFAULT NULL;
 
     -- Triggered sound definitions (gunshot, explosion, bark, etc.).
     -- Associated with objects/events via tags; loudness determines tile range.

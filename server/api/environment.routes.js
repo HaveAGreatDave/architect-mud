@@ -41,6 +41,11 @@ export async function handleEnvironmentApi(path, method, body, auth) {
     return { status: 200, body: env.getPowerMap() };
   }
 
+  if (path.startsWith('/environment/power/zones/') && method === 'GET') {
+    const zoneId = decodeURIComponent(path.split('/')[4] || '');
+    return { status: 200, body: await env.getZonePowerInfo(zoneId) };
+  }
+
   if (path === '/environment/power/generators' && method === 'GET') {
     return { status: 200, body: await env.getGeneratorsList() };
   }
@@ -66,6 +71,7 @@ export async function handleEnvironmentApi(path, method, body, auth) {
       if (path === '/environment/time/set') return { status: 200, body: await env.devSetTime(body || {}) };
       if (path === '/environment/time/advance') return { status: 200, body: await env.devAdvanceTime(body?.minutes) };
       if (path === '/environment/time/freeze') return { status: 200, body: env.devFreeze(body?.frozen ? 1 : 0) };
+      if (path === '/environment/tick/force5')  return { status: 200, body: await env.devForceTick5() };
       if (path === '/environment/tick/force30') return { status: 200, body: await env.devForceTick30() };
       if (path === '/environment/tick/force24') return { status: 200, body: await env.devForceTick24() };
       if (path === '/environment/weather/override') return { status: 200, body: await env.devOverrideWeather(body || {}) };
@@ -79,6 +85,14 @@ export async function handleEnvironmentApi(path, method, body, auth) {
       if (path === '/environment/power/fix-zones' && method === 'POST') return { status: 200, body: await env.fixZonePowerConnections() };
       if (path === '/environment/power/fix-buildings' && method === 'POST') return { status: 200, body: await env.fixBuildingPowerConnections() };
       if (path === '/environment/power/recompute' && method === 'POST') return { status: 200, body: await env.recomputePower() };
+      if (path.startsWith('/environment/power/generators/') && path.endsWith('/capacity') && method === 'POST') {
+        const genId = decodeURIComponent(path.split('/')[4] || '');
+        return { status: 200, body: await env.setGeneratorCapacity(genId, body?.capacityKw, body?.name) };
+      }
+      if (path.startsWith('/environment/power/zones/') && path.endsWith('/reassign') && method === 'POST') {
+        const zoneId = decodeURIComponent(path.split('/')[4] || '');
+        return { status: 200, body: await env.reassignZoneGenerator(zoneId, body?.generatorId) };
+      }
       if (path.startsWith('/environment/power/zones/') && method === 'POST') {
         const zoneId = decodeURIComponent(path.split('/')[4] || '');
         return { status: 200, body: await env.setZoneMaxCapacity(zoneId, body?.maxCapacityKw) };
