@@ -433,8 +433,16 @@ async function simulatePowerNetwork(query, { weatherType }) {
 
   const loadMultiplier = weatherType === 'snow' ? SNOW_LOAD_MULTIPLIER : 1.0;
 
+  // Compute new statuses first, then build genById from the updated values so
+  // zone status checks below use current-tick data rather than stale pre-update rows.
+  const updatedStatus = new Map();
+
   for (const gen of generators) {
-    let status = gen.status === 'flickering' ? 'online' : gen.status; // flicker is transient, clears each tick unless re-triggered
+    // Permanent generators (building / city_plant) always start each tick online —
+    // they have no fuel and can't run dry (GDD §5.2). Flicker is transient and
+    // clears each tick unless a storm re-triggers it.
+    let status = (gen.generator_type === 'player') ? gen.status : 'online';
+    if (status === 'flickering') status = 'online';
     let fuelRemaining = gen.fuel_remaining;
 
     // Only player/portable generators consume fuel — building and
@@ -449,12 +457,12 @@ async function simulatePowerNetwork(query, { weatherType }) {
       if (Math.random() < STORM_GENERATOR_FAULT_CHANCE) status = 'flickering';
     }
 
+    updatedStatus.set(gen.id, { ...gen, status, fuel_remaining: fuelRemaining });
     await query(`UPDATE generators SET status = $1, fuel_remaining = $2 WHERE id = $3`, [status, fuelRemaining, gen.id]);
   }
 
-  const genById = new Map(generators.map((g) => [g.id, g]));
   for (const zone of zones) {
-    const gen = genById.get(zone.generator_id);
+    const gen = updatedStatus.get(zone.generator_id);
     const capacity = gen ? gen.capacity_kw : zone.capacity_kw;
     const load = zone.current_load_kw * loadMultiplier;
     const ratio = capacity > 0 ? load / capacity : Infinity;
