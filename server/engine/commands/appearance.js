@@ -220,9 +220,14 @@ async function cmdMorphex(args, raw, player) {
 
 export const handlers = {
   use: async (args, raw, player) => {
+    // Only intercept if any word in args matches a machine name
     const target = args.join(' ').toLowerCase();
     if (!MACHINE_NAMES.some(n => target.includes(n))) return null;
-    return cmdMorphex([], raw, player);
+    // Machine name matched — own the command from here, no fallthrough
+    if (!await getMachine(player.current_zone)) {
+      return { type: 'error', message: `There's no MORPHEX 9000 terminal here.` };
+    }
+    return buildPanelData(player);
   },
   morphex:  (args, raw, player) => cmdMorphex(args, raw, player),
   makeover: (args, raw, player) => cmdMorphex(args, raw, player),
