@@ -20,7 +20,7 @@ async function cmdMis(args, player, broadcast) {
   if (sub === 'on') {
     if (!isMisServerEnabled()) return { type:'error', message:`MIS is not enabled on this server.` };
     if (isMisActive(player)) return { type:'output', message:`MIS is already active.` };
-    player.mis_enabled = 1;
+    player.mis_enabled = 0;
     await query('UPDATE players SET mis_enabled=1 WHERE id=$1', [player.id]);
     // Tutorial + self-examination
     const { physicalDescription } = await import('../appearance.js');
