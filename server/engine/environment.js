@@ -1174,6 +1174,10 @@ export async function devOverrideWeather({ weatherType, tempC, precipChance }) {
   if (tempC !== undefined) state.tempC = Number(tempC);
   await query(`UPDATE weather_forecast SET weather_type = $1, temp_c = $2 WHERE forecast_day = 0`, [weatherType, state.tempC]);
   state.forecast[0] = { ...state.forecast[0], weatherType, tempC: state.tempC, ...(precipChance !== undefined ? { precipChance: Number(precipChance) } : {}) };
+  // Clear any active precipitation so current state immediately reflects the override.
+  state.currentPrecip = 'none';
+  state.precipIntensity = 'none';
+  state.precipRate = 0;
   if (broadcast) broadcast({ type: 'environment.weatherOverride', ...getHUDPayload() });
   return getHUDPayload();
 }
