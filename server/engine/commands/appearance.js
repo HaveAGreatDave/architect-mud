@@ -1,9 +1,9 @@
 /**
  * Cosmetic machine (MORPHEX 9000) interaction handler.
- * Free first change ever; 10₵ per attribute after. Genital size: 5₵/unit (MIS only).
+ * Free first change; 10₵ per attribute after. Genital size: 5₵/unit (MIS only).
  *
  * Usage:
- *   morphex                       — show menu
+ *   morphex                       — open BioSculpt panel
  *   morphex sex <male|female>     — sex reassignment
  *   morphex hair color <color>    — change hair color
  *   morphex hair length <length>  — change hair length
@@ -16,8 +16,7 @@
  */
 import { query } from '../../models/db.js';
 import { randomAppearance } from '../appearance.js';
-import { isMisServerEnabled, isMisActive } from '../mis.js';
-import { randomUUID } from 'crypto';
+import { isMisActive } from '../mis.js';
 
 const HAIR_COLORS  = ['black','dark brown','brown','auburn','dirty blonde','blonde','red','grey','white','silver','dyed blue','dyed green','dyed purple','dyed red'];
 const HAIR_LENGTHS = ['shaved','short','medium','long','very_long'];
@@ -36,8 +35,29 @@ async function getMachine(zoneId) {
   return rows[0] || null;
 }
 
+function buildPanelData(player, toast = null) {
+  return {
+    type: 'morphex_panel',
+    data: {
+      biological_sex:      player.biological_sex || 'male',
+      hair_style:          player.hair_style || 'short',
+      hair_length:         player.hair_length || 'short',
+      hair_color:          player.hair_color || 'brown',
+      eye_color:           player.eye_color || 'brown',
+      height_cm:           player.height_cm || 170,
+      weight_kg:           player.weight_kg || 70,
+      appearance_free_used:player.appearance_free_used || 0,
+      credits:             player.credits || 0,
+      mis_active:          isMisActive(player),
+      appearance_data:     player.appearance_data || {},
+      erect:               player.erect || 0,
+      toast,
+    },
+    player_update: { credits: player.credits },
+  };
+}
+
 function chargeCheck(player) {
-  // Returns { ok, cost } — free if first ever change, else 10₵.
   if (!player.appearance_free_used) return { ok: true, cost: 0 };
   const cost = 10;
   if ((player.credits || 0) < cost) return { ok: false, cost };
@@ -50,79 +70,32 @@ async function applyCharge(player, cost) {
   await query('UPDATE players SET appearance_free_used=1, credits=$1 WHERE id=$2', [player.credits, player.id]);
 }
 
-function morphexMenu(player) {
-  const isMis = isMisActive(player);
-  const p = player;
-  const current = [
-    `sex: ${p.biological_sex || 'unknown'}`,
-    `hair: ${p.hair_style || '?'} ${p.hair_color || '?'} (${p.hair_length || '?'})`,
-    `eyes: ${p.eye_color || '?'}`,
-    `height: ${p.height_cm || '?'}cm`,
-    `weight: ${p.weight_kg || '?'}kg`,
-  ].join(' | ');
-
-  const freeNote = p.appearance_free_used
-    ? `<span style="color:var(--text-dim)">10₵ per modification.</span>`
-    : `<span style="color:var(--accent)">First modification: FREE.</span>`;
-
-  let menu = `<span style="color:var(--accent)">MORPHEX 9000 BioSculpt Terminal</span>\n` +
-    `<span style="color:var(--text-dim)">${current}</span>\n\n` +
-    `${freeNote}\n\n` +
-    `<span style="color:var(--text-dim)">morphex sex &lt;male|female&gt;</span>     — sex reassignment\n` +
-    `<span style="color:var(--text-dim)">morphex hair color &lt;color&gt;</span>    — change hair color\n` +
-    `<span style="color:var(--text-dim)">morphex hair length &lt;length&gt;</span>  — change hair length\n` +
-    `<span style="color:var(--text-dim)">morphex hair style &lt;style&gt;</span>    — change hair style\n` +
-    `<span style="color:var(--text-dim)">morphex eye color &lt;color&gt;</span>     — change eye color\n` +
-    `<span style="color:var(--text-dim)">morphex height &lt;cm&gt;</span>           — height (150–210)\n` +
-    `<span style="color:var(--text-dim)">morphex weight &lt;kg&gt;</span>           — weight (40–150)\n`;
-
-  if (isMis) {
-    menu += `\n<span style="color:var(--text-dim)">morphex penis &lt;cm&gt;</span>            — penis length (5₵/cm)\n` +
-      `<span style="color:var(--text-dim)">morphex breast &lt;size&gt;</span>          — breast size (5₵/tier)\n`;
-  }
-
-  menu += `\nHair colors: ${HAIR_COLORS.join(', ')}\n` +
-    `Hair styles: ${HAIR_STYLES.join(', ')}\n` +
-    `Hair lengths: ${HAIR_LENGTHS.join(', ')}\n` +
-    `Eye colors: ${EYE_COLORS.join(', ')}`;
-
-  if (isMis) {
-    menu += `\nBreast sizes: ${BREAST_SIZES.join(', ')}`;
-  }
-
-  return { type: 'output', message: menu };
-}
-
 async function cmdMorphex(args, raw, player) {
-  // Check targeting by name if args provided
-  if (args.length && !MACHINE_NAMES.some(n => [args[0], args.slice(0,2).join(' ')].includes(n))) {
-    // Not targeting the machine by name — check if first arg is a sub-command
-    const sub = args[0]?.toLowerCase();
-    const validSubs = ['sex','hair','eye','height','weight','penis','breast'];
-    if (!validSubs.includes(sub)) return null; // not our command
+  // If args start with a machine name, strip it
+  let remaining = args;
+  if (remaining.length && MACHINE_NAMES.some(n => n === remaining.slice(0, n.split(' ').length).join(' '))) {
+    remaining = remaining.slice(1);
   }
 
   if (!await getMachine(player.current_zone)) return null;
 
-  // No sub-command → show menu
-  if (!args.length || MACHINE_NAMES.some(n => args.join(' ').toLowerCase() === n)) {
-    return morphexMenu(player);
-  }
+  const sub = remaining[0]?.toLowerCase();
+  const rest = remaining.slice(1);
 
-  const sub = args[0].toLowerCase();
-  const rest = args.slice(1);
+  // No sub-command → open panel
+  if (!sub) return buildPanelData(player);
 
   // sex reassignment
   if (sub === 'sex') {
     const newSex = rest[0]?.toLowerCase();
     if (newSex !== 'male' && newSex !== 'female') {
-      return { type: 'error', message: `Usage: morphex sex <male|female>` };
+      return buildPanelData(player, 'Usage: morphex sex male / morphex sex female');
     }
     if (player.biological_sex === newSex) {
-      return { type: 'output', message: `The machine scans you and reports: you're already ${newSex}.` };
+      return buildPanelData(player, `Already ${newSex}.`);
     }
     const { ok, cost } = chargeCheck(player);
-    if (!ok) return { type: 'error', message: `Insufficient funds — 10₵ required. You have ${player.credits||0}₵.` };
+    if (!ok) return buildPanelData(player, `Insufficient funds — 10₵ required. You have ${player.credits || 0}₵.`);
 
     const newApp = randomAppearance(newSex);
     player.biological_sex = newSex;
@@ -131,123 +104,118 @@ async function cmdMorphex(args, raw, player) {
     await query('UPDATE players SET biological_sex=$1, appearance_data=$2 WHERE id=$3',
       [newSex, JSON.stringify(newApp.appearance_data), player.id]);
 
-    const costMsg = cost === 0 ? `(complimentary first session)` : `(-${cost}₵)`;
-    return {
-      type: 'output',
-      message: `The MORPHEX 9000 reconfigures. You step out biologically ${newSex}. ${costMsg}`,
-      player_update: { credits: player.credits },
-    };
+    const costMsg = cost === 0 ? ' (complimentary)' : ` (-${cost}₵)`;
+    return buildPanelData(player, `Reconfigured to ${newSex}.${costMsg}`);
   }
 
-  // hair color / hair length / hair style
+  // hair
   if (sub === 'hair') {
     const attr = rest[0]?.toLowerCase();
     const val  = rest.slice(1).join(' ').toLowerCase();
-    if (!attr || !val) return { type: 'error', message: `Usage: morphex hair color|length|style <value>` };
+    if (!attr || !val) return buildPanelData(player, 'Usage: morphex hair color|length|style <value>');
 
     if (attr === 'color') {
-      if (!HAIR_COLORS.includes(val)) return { type: 'error', message: `Unknown hair color. Options: ${HAIR_COLORS.join(', ')}` };
+      if (!HAIR_COLORS.includes(val)) return buildPanelData(player, `Unknown color: ${val}`);
       const { ok, cost } = chargeCheck(player);
-      if (!ok) return { type: 'error', message: `Insufficient funds — 10₵ required.` };
+      if (!ok) return buildPanelData(player, `Insufficient funds — 10₵ required.`);
       player.hair_color = val;
       await applyCharge(player, cost);
       await query('UPDATE players SET hair_color=$1 WHERE id=$2', [val, player.id]);
-      return { type: 'output', message: `Done. Your hair is now ${val}. ${cost ? `(-${cost}₵)` : '(free)'}`, player_update: { credits: player.credits } };
+      return buildPanelData(player, `Hair color → ${val}.${cost ? ` (-${cost}₵)` : ' (free)'}`);
     }
     if (attr === 'length') {
-      if (!HAIR_LENGTHS.includes(val)) return { type: 'error', message: `Unknown length. Options: ${HAIR_LENGTHS.join(', ')}` };
+      if (!HAIR_LENGTHS.includes(val)) return buildPanelData(player, `Unknown length: ${val}`);
       const { ok, cost } = chargeCheck(player);
-      if (!ok) return { type: 'error', message: `Insufficient funds — 10₵ required.` };
+      if (!ok) return buildPanelData(player, `Insufficient funds — 10₵ required.`);
       player.hair_length = val;
       await applyCharge(player, cost);
       await query('UPDATE players SET hair_length=$1 WHERE id=$2', [val, player.id]);
-      return { type: 'output', message: `Done. Hair length adjusted to ${val}. ${cost ? `(-${cost}₵)` : '(free)'}`, player_update: { credits: player.credits } };
+      return buildPanelData(player, `Hair length → ${val}.${cost ? ` (-${cost}₵)` : ' (free)'}`);
     }
     if (attr === 'style') {
-      if (!HAIR_STYLES.includes(val)) return { type: 'error', message: `Unknown style. Options: ${HAIR_STYLES.join(', ')}` };
+      if (!HAIR_STYLES.includes(val)) return buildPanelData(player, `Unknown style: ${val}`);
       const { ok, cost } = chargeCheck(player);
-      if (!ok) return { type: 'error', message: `Insufficient funds — 10₵ required.` };
+      if (!ok) return buildPanelData(player, `Insufficient funds — 10₵ required.`);
       player.hair_style = val;
       await applyCharge(player, cost);
       await query('UPDATE players SET hair_style=$1 WHERE id=$2', [val, player.id]);
-      return { type: 'output', message: `Done. Hair styled to ${val}. ${cost ? `(-${cost}₵)` : '(free)'}`, player_update: { credits: player.credits } };
+      return buildPanelData(player, `Hair style → ${val}.${cost ? ` (-${cost}₵)` : ' (free)'}`);
     }
-    return { type: 'error', message: `Usage: morphex hair color|length|style <value>` };
+    return buildPanelData(player, 'Usage: morphex hair color|length|style <value>');
   }
 
   // eye color
   if (sub === 'eye') {
     const val = (rest[0]?.toLowerCase() === 'color' ? rest.slice(1) : rest).join(' ').toLowerCase();
-    if (!EYE_COLORS.includes(val)) return { type: 'error', message: `Unknown eye color. Options: ${EYE_COLORS.join(', ')}` };
+    if (!EYE_COLORS.includes(val)) return buildPanelData(player, `Unknown eye color: ${val}`);
     const { ok, cost } = chargeCheck(player);
-    if (!ok) return { type: 'error', message: `Insufficient funds — 10₵ required.` };
+    if (!ok) return buildPanelData(player, `Insufficient funds — 10₵ required.`);
     player.eye_color = val;
     await applyCharge(player, cost);
     await query('UPDATE players SET eye_color=$1 WHERE id=$2', [val, player.id]);
-    return { type: 'output', message: `Done. Your eyes are now ${val}. ${cost ? `(-${cost}₵)` : '(free)'}`, player_update: { credits: player.credits } };
+    return buildPanelData(player, `Eye color → ${val}.${cost ? ` (-${cost}₵)` : ' (free)'}`);
   }
 
   // height
   if (sub === 'height') {
     const cm = parseInt(rest[0]);
-    if (isNaN(cm) || cm < 150 || cm > 210) return { type: 'error', message: `Height must be 150–210cm.` };
+    if (isNaN(cm) || cm < 150 || cm > 210) return buildPanelData(player, 'Height must be 150–210cm.');
     const { ok, cost } = chargeCheck(player);
-    if (!ok) return { type: 'error', message: `Insufficient funds — 10₵ required.` };
+    if (!ok) return buildPanelData(player, `Insufficient funds — 10₵ required.`);
     player.height_cm = cm;
     await applyCharge(player, cost);
     await query('UPDATE players SET height_cm=$1 WHERE id=$2', [cm, player.id]);
-    return { type: 'output', message: `Done. Height adjusted to ${cm}cm. ${cost ? `(-${cost}₵)` : '(free)'}`, player_update: { credits: player.credits } };
+    return buildPanelData(player, `Height → ${cm}cm.${cost ? ` (-${cost}₵)` : ' (free)'}`);
   }
 
   // weight
   if (sub === 'weight') {
     const kg = parseInt(rest[0]);
-    if (isNaN(kg) || kg < 40 || kg > 150) return { type: 'error', message: `Weight must be 40–150kg.` };
+    if (isNaN(kg) || kg < 40 || kg > 150) return buildPanelData(player, 'Weight must be 40–150kg.');
     const { ok, cost } = chargeCheck(player);
-    if (!ok) return { type: 'error', message: `Insufficient funds — 10₵ required.` };
+    if (!ok) return buildPanelData(player, `Insufficient funds — 10₵ required.`);
     player.weight_kg = kg;
     await applyCharge(player, cost);
     await query('UPDATE players SET weight_kg=$1 WHERE id=$2', [kg, player.id]);
-    return { type: 'output', message: `Done. Weight adjusted to ${kg}kg. ${cost ? `(-${cost}₵)` : '(free)'}`, player_update: { credits: player.credits } };
+    return buildPanelData(player, `Weight → ${kg}kg.${cost ? ` (-${cost}₵)` : ' (free)'}`);
   }
 
   // penis — MIS only
   if (sub === 'penis') {
-    if (!isMisActive(player)) return { type: 'error', message: `That option isn't available.` };
-    if (player.biological_sex !== 'male') return { type: 'error', message: `Not applicable.` };
+    if (!isMisActive(player)) return buildPanelData(player, `That option isn't available.`);
+    if (player.biological_sex !== 'male') return buildPanelData(player, 'Not applicable.');
     const targetCm = parseInt(rest[0]);
-    if (isNaN(targetCm) || targetCm < 5 || targetCm > 30) return { type: 'error', message: `Enter a target length in cm (5–30).` };
+    if (isNaN(targetCm) || targetCm < 5 || targetCm > 30) return buildPanelData(player, 'Enter a target length in cm (5–30).');
     const appData = player.appearance_data || {};
-    const current = appData.penis_length_cm || 12;
-    const delta = Math.abs(targetCm - current);
+    const delta = Math.abs(targetCm - (appData.penis_length_cm || 12));
     const totalCost = Math.max(5, delta * 5);
-    if ((player.credits || 0) < totalCost) return { type: 'error', message: `Costs 5₵/cm — ${totalCost}₵ total. You have ${player.credits||0}₵.` };
+    if ((player.credits || 0) < totalCost) return buildPanelData(player, `Costs 5₵/cm — ${totalCost}₵ total. You have ${player.credits || 0}₵.`);
     appData.penis_length_cm = targetCm;
     player.appearance_data = appData;
     player.credits = (player.credits || 0) - totalCost;
     await query('UPDATE players SET appearance_data=$1, credits=$2 WHERE id=$3', [JSON.stringify(appData), player.credits, player.id]);
-    return { type: 'output', message: `Done. (-${totalCost}₵)`, player_update: { credits: player.credits } };
+    return buildPanelData(player, `Adjusted. (-${totalCost}₵)`);
   }
 
   // breast — MIS only
   if (sub === 'breast') {
-    if (!isMisActive(player)) return { type: 'error', message: `That option isn't available.` };
-    if (player.biological_sex !== 'female') return { type: 'error', message: `Not applicable.` };
+    if (!isMisActive(player)) return buildPanelData(player, `That option isn't available.`);
+    if (player.biological_sex !== 'female') return buildPanelData(player, 'Not applicable.');
     const targetSize = rest.join(' ').toLowerCase();
-    if (BREAST_MAP[targetSize] === undefined) return { type: 'error', message: `Valid sizes: ${BREAST_SIZES.join(', ')}` };
+    if (BREAST_MAP[targetSize] === undefined) return buildPanelData(player, `Valid sizes: ${BREAST_SIZES.join(', ')}`);
     const appData = player.appearance_data || {};
-    const current = BREAST_MAP[appData.breast_size || 'medium'] ?? 2;
-    const delta = Math.abs(BREAST_MAP[targetSize] - current);
+    const delta = Math.abs(BREAST_MAP[targetSize] - (BREAST_MAP[appData.breast_size || 'medium'] ?? 2));
     const totalCost = Math.max(5, delta * 5);
-    if ((player.credits || 0) < totalCost) return { type: 'error', message: `Costs 5₵/tier — ${totalCost}₵ total. You have ${player.credits||0}₵.` };
+    if ((player.credits || 0) < totalCost) return buildPanelData(player, `Costs 5₵/tier — ${totalCost}₵ total. You have ${player.credits || 0}₵.`);
     appData.breast_size = targetSize;
     player.appearance_data = appData;
     player.credits = (player.credits || 0) - totalCost;
     await query('UPDATE players SET appearance_data=$1, credits=$2 WHERE id=$3', [JSON.stringify(appData), player.credits, player.id]);
-    return { type: 'output', message: `Done. (-${totalCost}₵)`, player_update: { credits: player.credits } };
+    return buildPanelData(player, `Adjusted. (-${totalCost}₵)`);
   }
 
-  return morphexMenu(player);
+  // Unknown sub-command — just open the panel
+  return buildPanelData(player);
 }
 
 export const handlers = {

@@ -7,6 +7,7 @@ import { openDialogue, closeDialogue, openShop } from './panels/dialogue.js';
 import { renderEquipPanel } from './panels/equipment.js';
 import { receiveWhisper } from './panels/whisper.js';
 import { openLightViewDialog } from './panels/lightview.js';
+import { openMorphexPanel } from './panels/morphex.js';
 import { updateForecast } from './panels/forecast.js';
 
 const DEV_ROLES = ['admin', 'dev', 'builder', 'designer'];
@@ -231,6 +232,7 @@ const handlers = {
 
   whisper: (msg) => { receiveWhisper(msg.from || 'Admin', msg.message); },
   lightview: (msg) => { openLightViewDialog(msg); },
+  morphex_panel: (msg) => { openMorphexPanel(msg.data); },
 };
 
 export function handleServerMsg(msg) {
