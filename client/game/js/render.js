@@ -26,6 +26,7 @@ export function updateVitals(p) {
   setBar('san', p.sanity, p.sanity_max || 100);
   setBar('hun', p.hunger, 100);
   setBar('thi', p.thirst, 100);
+  setBar('sta', p.stamina, p.stamina_max || 100);
   setBar('rad', p.radiation, 100, true);
   if (p.credits !== undefined) {
     const el = document.getElementById('header-credits-val');

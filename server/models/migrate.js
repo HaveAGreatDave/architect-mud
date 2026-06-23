@@ -351,6 +351,11 @@ export async function migrate() {
     CREATE INDEX IF NOT EXISTS idx_apartments_owner ON apartments(owner_id);
   `);
 
+  // Stamina + body temperature columns
+  await query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS stamina INTEGER DEFAULT 100`);
+  await query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS stamina_max INTEGER DEFAULT 100`);
+  await query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS body_temp_c REAL DEFAULT 37.0`);
+
   // Phase 0 — combat rework schema additions (all idempotent)
   await query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS stat_brawn INTEGER DEFAULT 0`);
   await query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS stat_reflexes INTEGER DEFAULT 0`);

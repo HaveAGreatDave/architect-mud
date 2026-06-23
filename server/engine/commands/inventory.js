@@ -28,6 +28,13 @@ export async function recomputeArmor(player) {
   player.soak = bySlot;
 }
 
+export async function recomputeInsulation(player) {
+  const { rows } = await query(`SELECT i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.is_equipped=1`, [player.id]);
+  let total = 0;
+  for (const r of rows) total += tagValue(r, 'insulation', 0) || 0;
+  player.insulation = total;
+}
+
 async function cmdInventory(player) {
   const { rows } = await query(`SELECT pi.*,i.name,i.rarity,i.tags,i.weight FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL ORDER BY i.name`, [player.id]);
   if (!rows.length) return { type:'inventory', message:'Your inventory is empty.', items:[] };

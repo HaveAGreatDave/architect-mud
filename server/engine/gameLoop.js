@@ -128,17 +128,19 @@ export function handlePlayerDeath(player, killer) {
   player.hunger = 100;
   player.thirst = 100;
   player.radiation = 0;
+  player.stamina = player.stamina_max ?? 100;
+  player.body_temp_c = 37.0;
   player.sleeping = null;
 
   broadcastFn(null, {
     type:'player_death',
     message:`\n<span class="death-message">☠ ${msg}${killerMsg}</span>\n<span class="clone-vat-message">A vending-machine-shaped cloning vat hums, dispenses a fresh you, and prints a receipt nobody asked for. Everything you knew, you still know. Everything that hurt, doesn't anymore.</span>`,
     respawn_zone: respawnZone,
-    player_update: { hp:player.hp, sanity:player.sanity, hunger:player.hunger, thirst:player.thirst, radiation:player.radiation },
+    player_update: { hp:player.hp, sanity:player.sanity, hunger:player.hunger, thirst:player.thirst, radiation:player.radiation, stamina:player.stamina, body_temp_c:player.body_temp_c },
   }, null, player.id);
 
-  query('UPDATE players SET hp=$1, sanity=$2, hunger=$3, thirst=$4, radiation=$5, current_zone=anchor_zone WHERE id=$6',
-    [player.hp, player.sanity, player.hunger, player.thirst, player.radiation, player.id]).catch(()=>{});
+  query('UPDATE players SET hp=$1, sanity=$2, hunger=$3, thirst=$4, radiation=$5, stamina=$6, body_temp_c=$7, current_zone=anchor_zone WHERE id=$8',
+    [player.hp, player.sanity, player.hunger, player.thirst, player.radiation, player.stamina, player.body_temp_c, player.id]).catch(()=>{});
 
   // Move player back to anchor in memory
   for (const [,zone] of world.zones) zone.players.delete(player.id);
@@ -197,6 +199,54 @@ async function ambientTick() {
 const THIRST_DECAY_INTERVAL_MIN = 3;  // 1 point per 3 min → 100 pts / 5 hours
 const HUNGER_DECAY_INTERVAL_MIN = 4;  // 1 point per 4 min → 100 pts / ~6.7 hours
 
+// Returns a multiplier (0.0–1.0) for stamina regen based on body temperature.
+// Comfortable range (36–38°C) = full regen; further from it = reduced regen.
+function tempRegenMultiplier(tempC) {
+  if (tempC >= 36 && tempC <= 38) return 1.0;
+  if (tempC >= 34 && tempC < 36) return 0.8;  // slightly cold
+  if (tempC >= 30 && tempC < 34) return 0.6;  // cold
+  if (tempC > 38 && tempC <= 40) return 1.0;  // slightly hot — regen unaffected
+  if (tempC > 40 && tempC <= 42) return 0.8;  // hot
+  return 0.0; // freezing (<30) or overheating (>42) — no passive regen
+}
+
+// Returns a flavor message for the given temp band, or null if comfortable.
+// Only fires at certain tick counts to avoid spam.
+function tempFlavorMessage(tempC, tick) {
+  if (tempC >= 36 && tempC <= 38) return null;
+  // slightly cold: every 5 ticks
+  if (tempC >= 34 && tempC < 36 && tick % 5 === 0) {
+    const msgs = ['You feel chilly.', 'A cold draft finds its way through your clothing.', 'You pull your clothes tighter against the chill.'];
+    return msgs[tick % msgs.length];
+  }
+  // cold: every 4 ticks
+  if (tempC >= 30 && tempC < 34 && tick % 4 === 0) {
+    const msgs = ['You begin to shiver.', 'The cold is getting to you.', 'Your breath fogs in the air.', 'Your fingers are going numb.'];
+    return msgs[tick % msgs.length];
+  }
+  // freezing: every 3 ticks
+  if (tempC < 30 && tick % 3 === 0) {
+    const msgs = ['You feel dangerously cold. (-1 HP)', 'The cold is killing you. (-1 HP)', 'You can barely feel your extremities. (-1 HP)'];
+    return msgs[tick % msgs.length];
+  }
+  // slightly hot: every 6 ticks
+  if (tempC > 38 && tempC <= 40 && tick % 6 === 0) {
+    const msgs = ['You feel uncomfortably warm.', 'Sweat beads on your skin.', 'The heat is oppressive.'];
+    return msgs[tick % msgs.length];
+  }
+  // hot: every 4 ticks
+  if (tempC > 40 && tempC <= 42 && tick % 4 === 0) {
+    const msgs = ['The heat is draining you.', 'You\'re sweating through your clothes.', 'The heat makes it hard to breathe.'];
+    return msgs[tick % msgs.length];
+  }
+  // overheating: every 3 ticks
+  if (tempC > 42 && tick % 3 === 0) {
+    const msgs = ['The desert heat is becoming unbearable. (-1 HP)', 'You are overheating. (-1 HP)', 'Heat exhaustion sets in. (-1 HP)'];
+    return msgs[tick % msgs.length];
+  }
+  return null;
+}
+
 async function resourceTick() {
   for (const [playerId, player] of world.players) {
     if (player.sleeping) {
@@ -247,10 +297,55 @@ async function resourceTick() {
       player.wellFedUntil = null;
     }
 
-    if (hpChanged) await query('UPDATE players SET hunger=$1,thirst=$2,hp=$3 WHERE id=$4', [player.hunger,player.thirst,player.hp,playerId]);
-    else await query('UPDATE players SET hunger=$1,thirst=$2 WHERE id=$3', [player.hunger,player.thirst,playerId]);
+    // --- Body temperature drift ---
+    const envState = getEnvironmentState();
+    const zone = world.zones.get(player.current_zone);
+    const tempOffset = zone?.flags?.temp_offset || 0;
+    const rawAmbient = (envState.tempC ?? 18) + tempOffset;
+    // Interior zones are climate-controlled — clamp to a temperate range.
+    const effectiveAmbient = zone?.flags?.is_interior
+      ? Math.max(15, Math.min(25, rawAmbient))
+      : rawAmbient;
+    const insulation = player.insulation || 0;
+    // Drift rate: 0.5°C/tick at insulation=0, down to ~0.05 at insulation=180+
+    const driftRate = Math.max(0.05, 0.5 * (1 - insulation / 200));
+    const delta = effectiveAmbient - (player.body_temp_c ?? 37.0);
+    player.body_temp_c = Math.round(((player.body_temp_c ?? 37.0) + Math.sign(delta) * Math.min(Math.abs(delta), driftRate)) * 10) / 10;
 
-    if (messages.length) broadcastFn(null, { type:'resource_tick', messages, player_update:{hunger:player.hunger,thirst:player.thirst,hp:player.hp} }, null, playerId);
+    // Temperature effects
+    const tempC = player.body_temp_c;
+    const isFreezing = tempC < 30;
+    const isOverheating = tempC > 42;
+    const isHot = tempC > 40 && tempC <= 42;
+
+    if (isFreezing || isOverheating) {
+      player.hp = Math.max(0, player.hp - 1);
+      hpChanged = true;
+    }
+    // Hot: increased thirst drain (50% extra chance each tick)
+    if (isHot && Math.random() < 0.5) {
+      player.thirst = Math.max(0, player.thirst - 1);
+    }
+
+    const flavorMsg = tempFlavorMessage(tempC, player._tickCounter);
+    if (flavorMsg) messages.push(flavorMsg);
+
+    // --- Stamina regen/drain ---
+    const staminaMax = player.stamina_max ?? 100;
+    player.stamina = player.stamina ?? staminaMax;
+    if (isFreezing || isOverheating) {
+      // Extreme temps drain stamina
+      player.stamina = Math.max(0, player.stamina - 2);
+    } else if (player.stamina < staminaMax) {
+      // Passive regen, reduced by temperature penalty
+      const regen = Math.max(0, Math.floor(2 * tempRegenMultiplier(tempC)));
+      if (regen > 0) player.stamina = Math.min(staminaMax, player.stamina + regen);
+    }
+
+    await query('UPDATE players SET hunger=$1,thirst=$2,hp=$3,stamina=$4,body_temp_c=$5 WHERE id=$6',
+      [player.hunger, player.thirst, player.hp, player.stamina, player.body_temp_c, playerId]);
+
+    if (messages.length) broadcastFn(null, { type:'resource_tick', messages, player_update:{hunger:player.hunger,thirst:player.thirst,hp:player.hp,stamina:player.stamina,body_temp_c:player.body_temp_c} }, null, playerId);
 
     if (player.hp <= 0) handlePlayerDeath(player, null);
   }

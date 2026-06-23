@@ -417,6 +417,7 @@
   .vital-hunger .vital-bar { background: var(--yellow); }
   .vital-thirst .vital-bar { background: var(--cyan); }
   .vital-radiation .vital-bar { background: var(--orange); }
+  .vital-stamina .vital-bar { background: var(--accent); }
   .vital-bar.low { background: var(--red); }
 
   /* Zone info */

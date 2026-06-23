@@ -245,7 +245,9 @@ async function seed() {
     ['item_embassy_canapes','Embassy Canapés',0.2,9,'uncommon',{ description:"Bite-sized, garnished, served on an actual plate. Nobody asks what's in them; the presentation is doing all the work.", consumable:true, stackable:true, restore_hunger:14, restore_sanity:5, well_fed:true }],
     ['item_bar_jerky','Mystery Jerky',0.2,6,'common',{ description:'Labeled "MEAT-ADJACENT." Surprisingly not the worst thing on the menu.', consumable:true, stackable:true, restore_hunger:18, well_fed:true }],
     ['item_riot_vest','Riot Plate Vest',5.5,140,'uncommon',{ description:'Custodian crowd-control plating. Stops bullets and blades; useless against a live wire.', slot:'torso', armor_soak:{ kinetic:6, edged:4, energy:1 } }],
-    ['item_insulated_gloves','Insulated Gauntlets',0.6,95,'uncommon',{ description:'Lineman’s gloves rated for things that arc. Padding is an afterthought.', slot:'hands', armor_soak:{ energy:5, fire:3, kinetic:1 } }],
+    [‘item_insulated_gloves’,’Insulated Gauntlets’,0.6,95,’uncommon’,{ description:’Lineman’s gloves rated for things that arc. Padding is an afterthought.’, slot:’hands’, armor_soak:{ energy:5, fire:3, kinetic:1 } }],
+    [‘item_basic_shirt’,’Basic Shirt’,0.3,2,’common’,{ description:’Plain cotton. Not stylish. Not armored. Keeps the wind out, mostly.’, slot:’torso’, armor:1, insulation:8 }],
+    [‘item_basic_pants’,’Basic Pants’,0.5,2,’common’,{ description:’Durable work trousers. Two functional pockets.’, slot:’legs’, armor:1, insulation:10 }],
   ];
   for (const [id,name,weight,value,rarity,tags] of items) {
     await query(`INSERT INTO items (id,name,weight,value,rarity,tags) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (id) DO NOTHING`,

@@ -56,6 +56,8 @@
       help: 'Flat damage reduction while equipped. Stacks across all worn pieces (legacy; superseded by armor_soak in Phase 5).' },
     armor_soak: { label: 'Armor Soak', shape: 'statmap', scope: 'class', group: 'Equipment',
       help: 'Per-damage-type soak, e.g. { "kinetic": 4, "energy": 1 }. Used when this piece covers the struck body part.' },
+    insulation: { label: 'Insulation', shape: 'int', scope: 'class', group: 'Equipment',
+      help: 'Thermal insulation value. Higher values slow body-temperature drift toward ambient. Stacks across all equipped clothing.' },
     stat_bonus: { label: 'Stat Bonus', shape: 'statmap', scope: 'class', group: 'Equipment',
       help: 'Passive stat bumps, e.g. { "stat_brawn": 3 }. Use new stat keys (stat_brawn/reflexes/endurance/brains/senses/cool).' },
     requires: { label: 'Requirements', shape: 'statmap', scope: 'class', group: 'Equipment',

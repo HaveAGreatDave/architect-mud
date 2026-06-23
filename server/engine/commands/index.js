@@ -8,7 +8,7 @@ import { handlers as worldHandlers } from './world.js';
 import { fireCommand } from '../plugins.js';
 
 export { describeZone, describeVoidTeleport } from './describe.js';
-export { recomputeArmor, EQUIP_SLOTS } from './inventory.js';
+export { recomputeArmor, recomputeInsulation, EQUIP_SLOTS } from './inventory.js';
 export { resolveAttack } from './combat.js';
 
 const builtins = new Map([

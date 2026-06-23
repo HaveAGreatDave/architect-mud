@@ -20,6 +20,7 @@ import {
 	describeZone,
 	describeVoidTeleport,
 	recomputeArmor,
+	recomputeInsulation,
 } from "./engine/commands/index.js";
 import { startGameLoop } from "./engine/gameLoop.js";
 import { loadPlugins, fireHook } from "./engine/plugins.js";
@@ -391,9 +392,14 @@ async function finishAuth(ws, session, player) {
 		ip: player.ip || 0,
 		armor: 0,
 		statuses: [],
+		stamina: player.stamina ?? 100,
+		stamina_max: player.stamina_max ?? 100,
+		body_temp_c: player.body_temp_c ?? 37.0,
+		insulation: 0,
 	};
 	setLivePlayer(player.id, livePlayer);
 	await recomputeArmor(livePlayer);
+	await recomputeInsulation(livePlayer);
 	addPlayerToZone(player.id, livePlayer.current_zone);
 	await query(
 		"UPDATE players SET last_seen=EXTRACT(EPOCH FROM NOW()) WHERE id=$1",
@@ -497,6 +503,10 @@ async function handleGameCommand(ws, session, msg) {
 					...result.player_update,
 				}),
 			);
+		if (result.type === 'equip') {
+			await recomputeArmor(player);
+			await recomputeInsulation(player);
+		}
 	}
 }
 

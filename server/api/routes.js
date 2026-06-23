@@ -161,6 +161,8 @@ async function apiRegister(body) {
     // there's at least one source of healing before they've found or
     // crafted anything else.
     await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,'item_bandage',3,1.0)`, [randomUUID(), id]);
+    await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,is_equipped,slot) VALUES ($1,$2,'item_basic_shirt',1,1.0,1,'torso')`, [randomUUID(), id]);
+    await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,is_equipped,slot) VALUES ($1,$2,'item_basic_pants',1,1.0,1,'legs')`, [randomUUID(), id]);
     fireHook('player.create', { id, handle, username: username.toLowerCase(), role: 'player' }).catch(() => {});
     return {status:201,body:{token:makeToken(id,'player'),playerId:id,handle,role:'player'}};
   } catch { return {status:409,body:{error:'Username or handle already taken'}}; }
