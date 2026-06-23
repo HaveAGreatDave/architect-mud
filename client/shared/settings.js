@@ -78,11 +78,19 @@ export function initSettingsUI(settings, saveAndApply, { getOrigin, saveOrigin, 
     }
     document.getElementById('settings-panel').classList.add('active');
   });
-  document.getElementById('settings-close').addEventListener('click', () => {
+  function closeSettings() {
     document.getElementById('settings-panel').classList.remove('active');
-  });
+    // Reset debug panel back to decoy so it's hidden on next open
+    const decoy = document.getElementById('debug-decoy');
+    const label = document.getElementById('debug-label');
+    const input = document.getElementById('settings-debug');
+    if (decoy) decoy.style.display = '';
+    if (label) label.style.display = 'none';
+    if (input) input.style.display = 'none';
+  }
+  document.getElementById('settings-close').addEventListener('click', closeSettings);
   document.getElementById('settings-panel').addEventListener('click', (e) => {
-    if (e.target.id === 'settings-panel') document.getElementById('settings-panel').classList.remove('active');
+    if (e.target.id === 'settings-panel') closeSettings();
   });
 
   document.getElementById('map-close').addEventListener('click', () => {
