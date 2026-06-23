@@ -21,7 +21,10 @@ export function initNet(messageHandler) {
         _connection.send({ type: 'auth_reconnect', token: reconnectToken });
       } else {
         if (state.player) appendMsg(`Connected to ARCHITECT as ${state.player.handle}.`, 'system');
-        else appendMsg('Connected to ARCHITECT. Login or register to enter.', 'system');
+        else if (!sessionStorage.getItem('welcome-shown')) {
+          sessionStorage.setItem('welcome-shown', '1');
+          appendMsg('Welcome to ARCHITECT.', 'system');
+        }
         const switchToken = sessionStorage.getItem('game-switch-token');
         if (switchToken && !state.player) {
           sessionStorage.removeItem('game-switch-token');

@@ -75,6 +75,7 @@ document.querySelector('.qcmd[data-open-equip]')?.addEventListener('click', () =
   import('./panels/equipment.js').then(m => m.openEquipPanel());
 });
 document.getElementById('debug-whisper-btn')?.addEventListener('click', debugFakeWhisper);
+document.getElementById('open-map-btn')?.addEventListener('click', () => sendCmd('map'));
 
 // Mobile minimap tab + drag
 const mobileMapTab = document.getElementById('mobile-map-tab');

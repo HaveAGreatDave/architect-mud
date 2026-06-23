@@ -624,13 +624,14 @@
   .map-room {
     font-weight: bold;
     border-radius: 2px;
+    border: 1px solid transparent;
     color: var(--text);
   }
-  .map-room.danger-safe { background: rgba(80,180,100,0.22); }
-  .map-room.danger-low { background: rgba(210,190,60,0.22); }
-  .map-room.danger-medium { background: rgba(220,140,50,0.25); }
-  .map-room.danger-high, .map-room.danger-lethal { background: rgba(200,60,60,0.25); }
-  .map-room.map-styled { background: none; }
+  .map-room.danger-safe { background: rgba(35,100,55,0.45); border-color: rgba(80,180,100,0.55); }
+  .map-room.danger-low { background: rgba(115,100,20,0.45); border-color: rgba(210,190,60,0.55); }
+  .map-room.danger-medium { background: rgba(125,75,20,0.50); border-color: rgba(220,140,50,0.60); }
+  .map-room.danger-high, .map-room.danger-lethal { background: rgba(115,30,30,0.50); border-color: rgba(200,60,60,0.60); }
+  .map-room.map-styled { background: none; border-color: transparent; }
   .map-room.map-current { color: var(--accent); background: none; }
 
   #map-legend {
@@ -657,10 +658,10 @@
     border-radius: 2px;
     white-space: pre;
   }
-  .map-leg-sym.danger-safe { background: rgba(80,180,100,0.22); }
-  .map-leg-sym.danger-low { background: rgba(210,190,60,0.22); }
-  .map-leg-sym.danger-medium { background: rgba(220,140,50,0.25); }
-  .map-leg-sym.danger-high, .map-leg-sym.danger-lethal { background: rgba(200,60,60,0.25); }
+  .map-leg-sym.danger-safe { background: rgba(35,100,55,0.45); border: 1px solid rgba(80,180,100,0.55); }
+  .map-leg-sym.danger-low { background: rgba(115,100,20,0.45); border: 1px solid rgba(210,190,60,0.55); }
+  .map-leg-sym.danger-medium { background: rgba(125,75,20,0.50); border: 1px solid rgba(220,140,50,0.60); }
+  .map-leg-sym.danger-high, .map-leg-sym.danger-lethal { background: rgba(115,30,30,0.50); border: 1px solid rgba(200,60,60,0.60); }
   .map-leg-sym.map-styled { background: none; }
   .map-leg-sym.map-current { color: var(--accent); background: none; }
 
