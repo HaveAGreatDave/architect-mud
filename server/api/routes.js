@@ -86,7 +86,9 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path.startsWith('/zones/') && path.endsWith('/rooms') && method==='POST') return requireDev(auth, ()=>apiAddRoom(path.split('/')[2],body));
   if (path.startsWith('/zones/') && path.endsWith('/spawns') && method==='GET') return requireDev(auth, ()=>apiGetZoneSpawns(path.split('/')[2]));
   if (path.startsWith('/zones/') && path.endsWith('/spawns') && method==='POST') return requireDev(auth, ()=>apiAddZoneSpawn(path.split('/')[2],body));
+  if (path.startsWith('/zones/') && path.endsWith('/live-enemies') && method==='GET') return requireDev(auth, ()=>apiGetZoneLiveEnemies(path.split('/')[2]));
   if (path.startsWith('/spawns/') && method==='DELETE') return requireDev(auth, ()=>apiDeleteZoneSpawn(path.split('/')[2]));
+  if (path.startsWith('/live-enemies/') && method==='DELETE') return requireDev(auth, ()=>apiDespawnEnemy(path.split('/')[2]));
   if (path.startsWith('/zones/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteZone(path.split('/')[2]));
   if (path==='/enemies' && method==='GET') return requireDev(auth, apiGetEnemies);
   if (path==='/enemies' && method==='POST') return requireDev(auth, ()=>apiCreateEnemy(body));
@@ -549,6 +551,22 @@ async function apiDeleteZoneSpawn(id) {
     await query('DELETE FROM zone_spawns WHERE id=$1', [id]);
     return { status:200, body:{ message:'Spawn removed' } };
   } catch(e) { return { status:400, body:{ error:e.message } }; }
+}
+function apiGetZoneLiveEnemies(zoneId) {
+  const zone = world.zones.get(zoneId);
+  if (!zone) return { status:404, body:{ error:'Zone not found' } };
+  const instances = [...zone.enemies]
+    .map(id => world.enemies.get(id))
+    .filter(Boolean)
+    .map(e => ({ instanceId: e.instanceId, templateId: e.templateId, name: e.name, hp: e.hp, hp_max: e.hp_max, zoneId: e.zoneId }));
+  return { status:200, body: instances };
+}
+function apiDespawnEnemy(instanceId) {
+  const enemy = world.enemies.get(instanceId);
+  if (!enemy) return { status:404, body:{ error:'Instance not found' } };
+  world.zones.get(enemy.zoneId)?.enemies.delete(instanceId);
+  world.enemies.delete(instanceId);
+  return { status:200, body:{ message:'Enemy despawned' } };
 }
 async function apiGetEnemies() { const {rows}=await query('SELECT * FROM enemies'); return {status:200,body:rows}; }
 async function apiCreateEnemy(body) {

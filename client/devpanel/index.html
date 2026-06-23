@@ -976,7 +976,7 @@ async function zoneEditForm(rec, isNew) {
   let subSectionsHtml = '<div class="zone-subsection-note">Save this zone first to add rooms, NPCs, furniture, or a generator.</div>';
   if (!isNew) {
     const isExterior = !flags.is_interior && !flags.is_apartment && !flags.is_building;
-    const [npcsData, furnitureData, generatorsData, apartmentsData, zonePowerInfo, spawnsData, enemiesData] = await Promise.all([
+    const [npcsData, furnitureData, generatorsData, apartmentsData, zonePowerInfo, spawnsData, enemiesData, liveEnemiesData] = await Promise.all([
       API('/npcs').catch(() => []),
       API('/furniture').catch(() => []),
       API('/environment/power/generators').catch(() => []),
@@ -984,9 +984,11 @@ async function zoneEditForm(rec, isNew) {
       isExterior ? API(`/environment/power/zones/${encodeURIComponent(rec.id)}`).catch(() => null) : Promise.resolve(null),
       API(`/zones/${encodeURIComponent(rec.id)}/spawns`).catch(() => []),
       API('/enemies').catch(() => []),
+      API(`/zones/${encodeURIComponent(rec.id)}/live-enemies`).catch(() => []),
     ]);
     const zoneNpcs = (Array.isArray(npcsData) ? npcsData : []).filter(n => n.zone_id === rec.id);
     const zoneSpawns = Array.isArray(spawnsData) ? spawnsData : [];
+    const zoneLiveEnemies = Array.isArray(liveEnemiesData) ? liveEnemiesData : [];
     const allEnemies = Array.isArray(enemiesData) ? enemiesData : [];
     const allFurniture = Array.isArray(furnitureData) ? furnitureData : [];
     if (allFurniture.length) _furnitureAllItems = allFurniture; // populate cache for clone dropdown
@@ -1065,6 +1067,7 @@ async function zoneEditForm(rec, isNew) {
 
       <div class="zone-subsection">
         <div class="zone-subsection-header">Enemies <span class="zone-subsection-count">${zoneSpawns.length}</span></div>
+        <div style="color:var(--text-dim);font-size:11px;margin-bottom:4px">Spawn templates</div>
         <div id="zone-spawns-list">${zoneSpawns.length ? zoneSpawns.map(s => `
           <div class="zone-subitem-row" id="spawn-row-${s.id}">
             <span>${s.enemy_name} <span style="color:var(--text-dim);font-size:11px">×${s.max_count} · wt:${s.spawn_weight} · ${s.respawn_seconds}s</span></span>
@@ -1074,6 +1077,15 @@ async function zoneEditForm(rec, isNew) {
           </div>`).join('') : '<div class="zone-subitem-empty">No enemies spawn here.</div>'}</div>
         <div id="zone-add-spawn-form"></div>
         <button class="action-btn success" style="margin-top:6px" onclick='openAddSpawnForm(${JSON.stringify(rec.id)})'>+ Add Enemy</button>
+        <div style="color:var(--text-dim);font-size:11px;margin:10px 0 4px">Live instances <span style="color:var(--text-dim)">(${zoneLiveEnemies.length} active)</span></div>
+        <div id="zone-live-enemies-list">${zoneLiveEnemies.length ? zoneLiveEnemies.map(e => `
+          <div class="zone-subitem-row" id="live-enemy-row-${e.instanceId}">
+            <span>${e.name} <span style="color:var(--text-dim);font-size:11px">${e.hp}/${e.hp_max} HP · <span style="color:var(--text-dim);font-family:monospace">${e.instanceId}</span></span></span>
+            <span class="zone-subitem-actions">
+              <button class="action-btn danger" onclick="despawnLiveEnemy('${e.instanceId}','${rec.id}')">Despawn</button>
+            </span>
+          </div>`).join('') : '<div class="zone-subitem-empty">No live enemies here right now.</div>'}</div>
+        <button class="action-btn" style="margin-top:4px" onclick='refreshLiveEnemies(${JSON.stringify(rec.id)})'>↻ Refresh</button>
       </div>
 
       <div class="zone-subsection">
@@ -1716,6 +1728,26 @@ async function submitAddSpawn(zoneId) {
   if (result?.error) { toast(result.error, true); return; }
   toast('Enemy spawn added');
   await refreshZoneEditPanel(zoneId);
+}
+async function despawnLiveEnemy(instanceId, zoneId) {
+  if (!confirm('Despawn this enemy instance?')) return;
+  const result = await API(`/live-enemies/${encodeURIComponent(instanceId)}`, 'DELETE');
+  if (result?.error) { toast(result.error, true); return; }
+  toast('Enemy despawned');
+  await refreshLiveEnemies(zoneId);
+}
+async function refreshLiveEnemies(zoneId) {
+  const data = await API(`/zones/${encodeURIComponent(zoneId)}/live-enemies`).catch(() => []);
+  const enemies = Array.isArray(data) ? data : [];
+  const container = document.getElementById('zone-live-enemies-list');
+  if (!container) return;
+  container.innerHTML = enemies.length ? enemies.map(e => `
+    <div class="zone-subitem-row" id="live-enemy-row-${e.instanceId}">
+      <span>${e.name} <span style="color:var(--text-dim);font-size:11px">${e.hp}/${e.hp_max} HP · <span style="color:var(--text-dim);font-family:monospace">${e.instanceId}</span></span></span>
+      <span class="zone-subitem-actions">
+        <button class="action-btn danger" onclick="despawnLiveEnemy('${e.instanceId}','${zoneId}')">Despawn</button>
+      </span>
+    </div>`).join('') : '<div class="zone-subitem-empty">No live enemies here right now.</div>';
 }
 async function deleteSpawnQuick(spawnId, zoneId) {
   if (!confirm('Remove this enemy spawn?')) return;
