@@ -750,6 +750,7 @@ function closeEdit() {
   document.getElementById('edit-panel').classList.remove('open');
   currentRecord = null;
   if (mapZoneEditReturn) { currentPanel = 'maps'; mapZoneEditReturn = false; }
+  if (zoneEnemyEditReturn) { currentPanel = 'zones'; activatePanelNav('zones'); zoneEnemyEditReturn = null; }
 }
 
 async function saveRecord() {
@@ -774,6 +775,7 @@ async function saveRecord() {
       }).catch(() => {});
     }
     if (mapZoneEditReturn) applyZoneEditToMap(currentRecord?.id);
+    else if (zoneEnemyEditReturn) await refreshEnemiesSection(zoneEnemyEditReturn);
     else await loadPanel(currentPanel);
     closeEdit();
   } catch (err) {
@@ -1073,7 +1075,8 @@ async function zoneEditForm(rec, isNew) {
         <div id="zone-add-spawn-form"></div>
         <div style="display:flex;gap:6px;margin-top:6px">
           <button class="action-btn success" onclick='openAddSpawnForm(${JSON.stringify(rec.id)})'>+ Add Enemy</button>
-          <button class="action-btn danger" style="margin-left:auto" onclick='despawnAllEnemies()'>Despawn All</button>
+          <button class="action-btn danger" style="margin-left:auto" onclick='despawnAllZoneEnemies(${JSON.stringify(rec.id)})'>Despawn All</button>
+          <button class="action-btn danger" onclick='deleteAllZoneSpawns(${JSON.stringify(rec.id)})'>Delete All</button>
         </div>
       </div>
 
@@ -1750,12 +1753,13 @@ async function refreshEnemiesSection(zoneId) {
   if (header) header.textContent = spawns.length;
 }
 async function openEditEnemyInline(enemyId) {
-  await loadPanel('enemies');
+  const enemies = await API('/enemies');
+  const rec = Array.isArray(enemies) ? enemies.find(e => e.id === enemyId) : null;
+  if (!rec) { toast('Enemy not found', true); return; }
+  zoneEnemyEditReturn = zoneEditCurrentZoneId;
   currentPanel = 'enemies';
-  activatePanelNav('enemies');
-  closeEdit();
-  const rec = allRecords.find(r => r.id === enemyId);
-  if (rec) openEdit(rec, false);
+  currentRecord = rec;
+  openEdit(rec, false);
 }
 function confirmDeleteSpawn(spawnId, zoneId) {
   const row = document.getElementById(`spawn-row-${spawnId}`);
@@ -1786,6 +1790,26 @@ async function despawnAllEnemies() {
   if (result?.error) { toast(result.error, true); return; }
   toast(result.message || 'All enemies despawned');
   if (zoneEditCurrentZoneId) await refreshEnemiesSection(zoneEditCurrentZoneId);
+}
+async function despawnAllZoneEnemies(zoneId) {
+  const liveData = await API(`/zones/${encodeURIComponent(zoneId)}/live-enemies`).catch(() => []);
+  const live = Array.isArray(liveData) ? liveData : [];
+  await Promise.all(live.map(e => API(`/live-enemies/${e.id}`, 'DELETE').catch(() => {})));
+  toast(`Despawned ${live.length} enem${live.length === 1 ? 'y' : 'ies'}`);
+  await refreshEnemiesSection(zoneId);
+}
+async function deleteAllZoneSpawns(zoneId) {
+  if (!confirm('Delete all enemy spawns from this zone? This cannot be undone.')) return;
+  const [spawnsData, liveData] = await Promise.all([
+    API(`/zones/${encodeURIComponent(zoneId)}/spawns`).catch(() => []),
+    API(`/zones/${encodeURIComponent(zoneId)}/live-enemies`).catch(() => []),
+  ]);
+  const spawns = Array.isArray(spawnsData) ? spawnsData : [];
+  const live = Array.isArray(liveData) ? liveData : [];
+  await Promise.all(live.map(e => API(`/live-enemies/${e.id}`, 'DELETE').catch(() => {})));
+  await Promise.all(spawns.map(s => API(`/spawns/${encodeURIComponent(s.id)}`, 'DELETE').catch(() => {})));
+  toast(`Deleted ${spawns.length} spawn${spawns.length === 1 ? '' : 's'}`);
+  await refreshEnemiesSection(zoneId);
 }
 
 // Furniture
