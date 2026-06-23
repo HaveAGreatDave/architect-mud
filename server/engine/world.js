@@ -147,7 +147,7 @@ export function getAllZones() {
     id: z.id, name: z.name, description: z.description,
     danger_rating: z.danger_rating, pvp_enabled: z.pvp_enabled,
     radiation_level: z.radiation_level, is_safe_zone: z.is_safe_zone,
-    exits: z.exits, ambient_events: z.ambient_events, flags: z.flags,
+    exits: z.exits, ambient_events: z.ambient_events, ambient_theme: z.ambient_theme, flags: z.flags,
     map_id: z.map_id, grid_x: z.grid_x, grid_y: z.grid_y, grid_z: z.grid_z,
     marker: z.marker, color: z.color, bg_color: z.bg_color,
     player_count: z.players.size, enemy_count: z.enemies.size,

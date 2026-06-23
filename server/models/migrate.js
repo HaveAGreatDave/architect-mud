@@ -533,6 +533,14 @@ async function seedWeatherAmbients() {
       AND COALESCE((flags->>'is_interior')::boolean, false) = false
       AND map_id IS NULL
   `).catch(() => {});
+
+  // Any zone with a street light gets the city ambient theme.
+  await query(`
+    UPDATE zones
+    SET ambient_theme = 'city'
+    WHERE id IN (SELECT DISTINCT zone_id FROM furniture WHERE light_type = 'streetlight')
+      AND ambient_theme != 'city'
+  `).catch(() => {});
 }
 
 // Collapse all item *behavior* into the single `tags` JSONB column. Adds the
