@@ -23,9 +23,25 @@ function buildDesc(kg, cm) {
   return 'heavyset';
 }
 
+function cmToImperial(cm) {
+  const totalIn = cm / 2.54;
+  const feet = Math.floor(totalIn / 12);
+  const inches = Math.round(totalIn % 12);
+  return { feet, inches };
+}
+
+function imperialToCm(feet, inches) {
+  return Math.round((parseInt(feet) * 12 + parseInt(inches)) * 2.54);
+}
+
+function kgToLbs(kg) { return Math.round(kg / 0.453592); }
+function lbsToKg(lbs) { return Math.round(lbs * 0.453592); }
+
 let _modal = null;
+let _currentData = null;
 
 export function openMorphexPanel(data) {
+  _currentData = data;
   if (!_modal) {
     _modal = document.createElement('div');
     _modal.id = 'morphex-modal';
@@ -50,12 +66,8 @@ function _sel(id, options, selected) {
   return `<select id="${id}" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font-mono);font-size:11px;padding:4px 6px;width:100%;box-sizing:border-box">${opts}</select>`;
 }
 
-function _numInput(id, value, min, max) {
-  return `<input id="${id}" type="number" min="${min}" max="${max}" value="${value}" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font-mono);font-size:11px;padding:4px 6px;width:100%;box-sizing:border-box">`;
-}
-
-function _applyBtn(cmd) {
-  return `<button data-mx-apply="${cmd}" style="background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:var(--font-mono);font-size:10px;padding:4px 10px;cursor:pointer;border-radius:2px;white-space:nowrap">Apply</button>`;
+function _numInput(id, value, min, max, step) {
+  return `<input id="${id}" type="number" min="${min}" max="${max}" step="${step||1}" value="${value}" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font-mono);font-size:11px;padding:4px 6px;width:100%;box-sizing:border-box">`;
 }
 
 function _statRow(label, value, dim = false) {
@@ -65,11 +77,10 @@ function _statRow(label, value, dim = false) {
   </div>`;
 }
 
-function _modRow(label, control, applyCmd) {
-  return `<div style="display:grid;grid-template-columns:85px 1fr auto;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--bg3)">
+function _modRow(label, control) {
+  return `<div style="display:grid;grid-template-columns:85px 1fr;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--bg3)">
     <span style="color:var(--text-dim);font-size:11px">${label}</span>
     ${control}
-    ${_applyBtn(applyCmd)}
   </div>`;
 }
 
@@ -89,12 +100,15 @@ function _render(d) {
   const ec     = d.eye_color   || 'brown';
   const isFree = !d.appearance_free_used;
 
+  const imp = cmToImperial(h);
+  const lbs = kgToLbs(w);
+
   // ── Character sheet ──────────────────────────────────────────
   let sheet = [
     _statRow('Sex',    sex.charAt(0).toUpperCase() + sex.slice(1)),
-    _statRow('Height', `${h}cm — ${heightDesc(h)}`),
+    _statRow('Height', `${imp.feet}'${imp.inches}" — ${heightDesc(h)}`),
     _statRow('Build',  buildDesc(w, h)),
-    _statRow('Weight', `${w}kg`),
+    _statRow('Weight', `${lbs} lbs`),
     _statRow('Hair',   `${hs}, ${hl}, ${hc}`),
     _statRow('Eyes',   ec),
   ].join('');
@@ -102,7 +116,7 @@ function _render(d) {
   if (isMis) {
     if (sex === 'male') {
       sheet += _sectionHeader('Biological');
-      sheet += _statRow('Penis',    `${app.penis_length_cm || 13}cm length, ${app.penis_girth_cm || 1.3}cm girth`);
+      sheet += _statRow('Penis',    `${app.penis_length_cm || 13}cm, ${app.penis_girth_cm || 1.3}cm girth`);
       sheet += _statRow('Testicles', app.testicle_size || 'average');
       sheet += _statRow('State',    d.erect ? 'erect' : 'flaccid', true);
     } else {
@@ -127,26 +141,33 @@ function _render(d) {
     </label>
   </div>`;
 
+  const heightControl = `<div style="display:flex;gap:6px;align-items:center">
+    ${_numInput('mx-feet', imp.feet, 4, 7)} <span style="color:var(--text-dim);font-size:11px">ft</span>
+    ${_numInput('mx-inches', imp.inches, 0, 11)} <span style="color:var(--text-dim);font-size:11px">in</span>
+  </div>`;
+
   let mods = [
     _sectionHeader('Appearance'),
-    _modRow('Sex',         sexControl,                                             'sex'),
-    _modRow('Hair Color',  _sel('mx-hc', HAIR_COLORS, hc),                        'hair color'),
-    _modRow('Hair Length', _sel('mx-hl', HAIR_LENGTHS, hl),                       'hair length'),
-    _modRow('Hair Style',  _sel('mx-hs', HAIR_STYLES, hs),                        'hair style'),
-    _modRow('Eye Color',   _sel('mx-ec', EYE_COLORS, ec),                         'eye color'),
-    _modRow('Height (cm)', _numInput('mx-height', h, 150, 210),                   'height'),
-    _modRow('Weight (kg)', _numInput('mx-weight', w, 40, 150),                    'weight'),
+    _modRow('Sex',         sexControl),
+    _modRow('Hair Color',  _sel('mx-hc', HAIR_COLORS, hc)),
+    _modRow('Hair Length', _sel('mx-hl', HAIR_LENGTHS, hl)),
+    _modRow('Hair Style',  _sel('mx-hs', HAIR_STYLES, hs)),
+    _modRow('Eye Color',   _sel('mx-ec', EYE_COLORS, ec)),
+    _modRow('Height',      heightControl),
+    _modRow('Weight (lbs)',_numInput('mx-lbs', lbs, 88, 330)),
   ].join('');
 
   if (isMis) {
     if (sex === 'male') {
       mods += _sectionHeader('Biological — 5₵/cm');
-      mods += _modRow('Penis (cm)', _numInput('mx-penis', app.penis_length_cm || 13, 5, 30), 'penis');
+      mods += _modRow('Penis (cm)', _numInput('mx-penis', app.penis_length_cm || 13, 5, 30));
     } else {
       mods += _sectionHeader('Biological — 5₵/tier');
-      mods += _modRow('Breast Size', _sel('mx-breast', BREAST_SIZES, app.breast_size || 'medium'), 'breast');
+      mods += _modRow('Breast Size', _sel('mx-breast', BREAST_SIZES, app.breast_size || 'medium'));
     }
   }
+
+  const applyBtnStyle = 'background:var(--accent);border:none;color:var(--bg);font-family:var(--font-mono);font-size:12px;font-weight:bold;padding:8px 24px;cursor:pointer;border-radius:2px;letter-spacing:1px';
 
   // ── Full modal HTML ───────────────────────────────────────────
   _modal.innerHTML = `
@@ -178,8 +199,9 @@ function _render(d) {
 
     </div>
 
-    <div id="mx-toast" style="padding:8px 16px;border-top:1px solid var(--border);font-size:11px;color:var(--accent);min-height:30px;display:flex;align-items:center">
-      ${d.toast ? `<span>${d.toast}</span>` : ''}
+    <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px">
+      <div id="mx-toast" style="font-size:11px;color:var(--accent);flex:1">${d.toast || ''}</div>
+      <button id="mx-apply" style="${applyBtnStyle}">Apply Changes</button>
     </div>
 
   </div>`;
@@ -187,33 +209,56 @@ function _render(d) {
   // ── Events ────────────────────────────────────────────────────
   document.getElementById('mx-close').addEventListener('click', _close);
 
-  _modal.firstElementChild.addEventListener('click', e => {
-    const btn = e.target.closest('button[data-mx-apply]');
-    if (!btn) return;
-    const which = btn.dataset.mxApply;
-    let cmd = null;
+  document.getElementById('mx-apply').addEventListener('click', () => {
+    const d = _currentData;
+    if (!d) return;
+    const cmds = [];
 
-    if (which === 'sex') {
-      const v = _modal.querySelector('input[name="mx-sex"]:checked')?.value;
-      if (v) cmd = `morphex sex ${v}`;
-    } else if (which === 'hair color') {
-      cmd = `morphex hair color ${document.getElementById('mx-hc').value}`;
-    } else if (which === 'hair length') {
-      cmd = `morphex hair length ${document.getElementById('mx-hl').value}`;
-    } else if (which === 'hair style') {
-      cmd = `morphex hair style ${document.getElementById('mx-hs').value}`;
-    } else if (which === 'eye color') {
-      cmd = `morphex eye color ${document.getElementById('mx-ec').value}`;
-    } else if (which === 'height') {
-      cmd = `morphex height ${document.getElementById('mx-height').value}`;
-    } else if (which === 'weight') {
-      cmd = `morphex weight ${document.getElementById('mx-weight').value}`;
-    } else if (which === 'penis') {
-      cmd = `morphex penis ${document.getElementById('mx-penis').value}`;
-    } else if (which === 'breast') {
-      cmd = `morphex breast ${document.getElementById('mx-breast').value}`;
+    const newSex = _modal.querySelector('input[name="mx-sex"]:checked')?.value;
+    if (newSex && newSex !== d.biological_sex) cmds.push(`morphex sex ${newSex}`);
+
+    const newHc = document.getElementById('mx-hc')?.value;
+    if (newHc && newHc !== d.hair_color) cmds.push(`morphex hair color ${newHc}`);
+
+    const newHl = document.getElementById('mx-hl')?.value;
+    if (newHl && newHl !== d.hair_length) cmds.push(`morphex hair length ${newHl}`);
+
+    const newHs = document.getElementById('mx-hs')?.value;
+    if (newHs && newHs !== d.hair_style) cmds.push(`morphex hair style ${newHs}`);
+
+    const newEc = document.getElementById('mx-ec')?.value;
+    if (newEc && newEc !== d.eye_color) cmds.push(`morphex eye color ${newEc}`);
+
+    const feet = document.getElementById('mx-feet')?.value;
+    const inches = document.getElementById('mx-inches')?.value;
+    if (feet !== undefined && inches !== undefined) {
+      const newCm = imperialToCm(feet, inches);
+      if (newCm !== (d.height_cm || 170)) cmds.push(`morphex height ${newCm}`);
     }
 
-    if (cmd) sendCmdSilent(cmd);
+    const lbsVal = document.getElementById('mx-lbs')?.value;
+    if (lbsVal !== undefined) {
+      const newKg = lbsToKg(parseInt(lbsVal));
+      if (newKg !== (d.weight_kg || 70)) cmds.push(`morphex weight ${newKg}`);
+    }
+
+    const app = d.appearance_data || {};
+    if (d.mis_active) {
+      if (d.biological_sex === 'male') {
+        const newPenis = parseInt(document.getElementById('mx-penis')?.value);
+        if (!isNaN(newPenis) && newPenis !== (app.penis_length_cm || 13)) cmds.push(`morphex penis ${newPenis}`);
+      } else {
+        const newBreast = document.getElementById('mx-breast')?.value;
+        if (newBreast && newBreast !== (app.breast_size || 'medium')) cmds.push(`morphex breast ${newBreast}`);
+      }
+    }
+
+    if (!cmds.length) {
+      document.getElementById('mx-toast').textContent = 'No changes detected.';
+      return;
+    }
+
+    document.getElementById('mx-toast').textContent = 'Applying…';
+    for (const cmd of cmds) sendCmdSilent(cmd);
   });
 }
