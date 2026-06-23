@@ -43,25 +43,44 @@ const MAX_CATCHUP_DAYS = 30;
 const WEATHER_TYPES = ['clear','cloudy','overcast','rain','sleet','thunderstorm','storm','snow','blizzard','fog','haze','ash'];
 const PRECIP_FORECAST_TYPES = new Set(['rain','thunderstorm','storm','sleet','snow','blizzard']);
 
-// Intensity label lookup — mirrors the table in plugins/clothing-wetness/index.js.
-// Derived from precipRate (0.1–1.0) at display time so rate and label are always in sync.
-const RAIN_INTENSITY_LABELS = new Map([
-  [0.1, 'mist'],           [0.2, 'light drizzle'],  [0.3, 'light rain'],
-  [0.4, 'steady rain'],    [0.5, 'moderate rain'],   [0.6, 'heavy rain'],
-  [0.7, 'very heavy rain'],[0.8, 'storm'],            [0.9, 'severe storm'],
-  [1.0, 'extreme deluge'],
-]);
-const SNOW_INTENSITY_LABELS = new Map([
-  [0.1, 'light flurries'],     [0.2, 'scattered snow'],       [0.3, 'steady snowfall'],
-  [0.4, 'moderate snow'],      [0.5, 'accumulating snow'],     [0.6, 'thick snowfall'],
-  [0.7, 'wind-blown snow'],    [0.8, 'blizzard conditions'],   [0.9, 'whiteout blizzard'],
-  [1.0, 'severe whiteout blizzard'],
-]);
+// Intensity tables — mirrors plugins/clothing-wetness/index.js.
+// Used both for label lookup (rate→label) and random picking during precip rolls.
+const RAIN_INTENSITY_TABLE = [
+  { label: 'mist',                   rate: 0.1 }, { label: 'light drizzle',          rate: 0.2 },
+  { label: 'light rain',             rate: 0.3 }, { label: 'steady rain',             rate: 0.4 },
+  { label: 'moderate rain',          rate: 0.5 }, { label: 'heavy rain',              rate: 0.6 },
+  { label: 'very heavy rain',        rate: 0.7 }, { label: 'storm',                   rate: 0.8 },
+  { label: 'severe storm',           rate: 0.9 }, { label: 'extreme deluge',          rate: 1.0 },
+];
+const SNOW_INTENSITY_TABLE = [
+  { label: 'light flurries',         rate: 0.1 }, { label: 'scattered snow',          rate: 0.2 },
+  { label: 'steady snowfall',        rate: 0.3 }, { label: 'moderate snow',           rate: 0.4 },
+  { label: 'accumulating snow',      rate: 0.5 }, { label: 'thick snowfall',          rate: 0.6 },
+  { label: 'wind-blown snow',        rate: 0.7 }, { label: 'blizzard conditions',     rate: 0.8 },
+  { label: 'whiteout blizzard',      rate: 0.9 }, { label: 'severe whiteout blizzard',rate: 1.0 },
+];
+const RAIN_INTENSITY_LABELS = new Map(RAIN_INTENSITY_TABLE.map(e => [e.rate, e.label]));
+const SNOW_INTENSITY_LABELS = new Map(SNOW_INTENSITY_TABLE.map(e => [e.rate, e.label]));
+
 function currentIntensityLabel() {
   if (!state.precipRate || state.precipRate <= 0 || state.currentPrecip === 'none') return '';
   const rate = Math.round(state.precipRate * 10) / 10;
   const map = state.currentPrecip === 'snow' ? SNOW_INTENSITY_LABELS : RAIN_INTENSITY_LABELS;
   return map.get(rate) ?? '';
+}
+
+// Roll for precipitation and set current state immediately.
+// precipChance is 0–1. Called on day advance, recalculate, and weather override.
+export function rollAndSetCurrentPrecip(weatherType, tempC, precipChance) {
+  if (Math.random() < (precipChance ?? 0.05)) {
+    const precipType = (weatherType === 'snow' || weatherType === 'blizzard') ? 'snow'
+      : tempC <= 1 ? 'snow' : 'rain';
+    const table = precipType === 'snow' ? SNOW_INTENSITY_TABLE : RAIN_INTENSITY_TABLE;
+    const { label, rate } = table[Math.floor(Math.random() * table.length)];
+    setCurrentPrecip(precipType, label, rate);
+  } else {
+    setCurrentPrecip('none', 'none', 0);
+  }
 }
 
 const WEATHER_ICON = {
@@ -615,7 +634,7 @@ async function tick24h() {
   // Weather plugin advances the forecast and updates state.weatherType/tempC
   // via setWeatherState() BEFORE simulatePowerNetwork reads weatherType for
   // snow-load calculations.
-  if (emitHook) await emitHook('environment.advanceWeather', { setWeatherState, currentForecast: state.forecast, currentDate: state.date, climateProfile: state.activeClimateProfile });
+  if (emitHook) await emitHook('environment.advanceWeather', { setWeatherState, rollAndSetCurrentPrecip, getHUDPayload, broadcast, currentForecast: state.forecast, currentDate: state.date, climateProfile: state.activeClimateProfile });
   await simulatePowerNetwork(query, { weatherType: state.weatherType });
   await loadZonePowerAndLighting(query);
   recalcAmbientAndVisibility();
@@ -1182,11 +1201,8 @@ export async function devRecalculateForecast({ monthly_temp_c, monthly_precip_ch
     ? { monthly_temp_c, monthly_precip_chance }
     : state.activeClimateProfile;
   if (emitHook) await emitHook('environment.recalculateForecast', { setWeatherState, climateProfile, currentDate: state.date });
-  // Reset precip state and re-roll so current conditions reflect the new forecast.
-  state.currentPrecip = 'none';
-  state.precipIntensity = 'none';
-  state.precipRate = 0;
-  if (emitHook) await emitHook('environment.tick30m', { weatherType: state.weatherType, tempC: state.tempC + diurnalOffset(state.minutes), setCurrentPrecip, getHUDPayload, broadcast });
+  // Re-roll current precip against the newly forecasted precipChance.
+  rollAndSetCurrentPrecip(state.weatherType, state.tempC + diurnalOffset(state.minutes), state.forecast[0]?.precipChance ?? 0.05);
   const payload = { ...getHUDPayload(), forecast: getForecast() };
   if (broadcast) broadcast({ type: 'environment.sync', ...payload });
   return payload;
@@ -1201,12 +1217,8 @@ export async function devOverrideWeather({ weatherType, tempC, precipChance }) {
   if (tempC !== undefined) state.tempC = Number(tempC) - diurnalOffset(state.minutes);
   await query(`UPDATE weather_forecast SET weather_type = $1, temp_c = $2 WHERE forecast_day = 0`, [weatherType, state.tempC]);
   state.forecast[0] = { ...state.forecast[0], weatherType, tempC: state.tempC, ...(precipChance !== undefined ? { precipChance: Number(precipChance) } : {}) };
-  // Reset precip, then immediately run the 30m precip roll so current state
-  // reflects whether it's actually raining/snowing under the new weather type.
-  state.currentPrecip = 'none';
-  state.precipIntensity = 'none';
-  state.precipRate = 0;
-  if (emitHook) await emitHook('environment.tick30m', { weatherType, tempC: state.tempC + diurnalOffset(state.minutes), setCurrentPrecip, getHUDPayload, broadcast });
+  // Roll current precip against the new precipChance, replacing whatever was active.
+  rollAndSetCurrentPrecip(weatherType, state.tempC + diurnalOffset(state.minutes), Number(precipChance ?? state.forecast[0]?.precipChance ?? 0.05));
   if (broadcast) broadcast({ type: 'environment.weatherOverride', ...getHUDPayload() });
   return getHUDPayload();
 }

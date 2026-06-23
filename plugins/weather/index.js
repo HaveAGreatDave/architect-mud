@@ -129,14 +129,14 @@ export const hooks = {
     await loadForecast(setWeatherState, climateProfile);
   },
 
-  'environment.advanceWeather': async ({ setWeatherState, currentForecast, climateProfile }) => {
+  'environment.advanceWeather': async ({ setWeatherState, rollAndSetCurrentPrecip, getHUDPayload, broadcast, currentForecast, climateProfile }) => {
     const shifted = currentForecast.slice(1);
     const newDate = addDays(currentForecast[6].date, 1);
     const generated = generateWeatherForDate(newDate, climateProfile);
 
     const nextForecast = [
       ...shifted,
-      { date: newDate, weatherType: generated.weatherType, tempC: generated.tempC },
+      { date: newDate, weatherType: generated.weatherType, tempC: generated.tempC, precipChance: generated.precipChance },
     ].map((f, i) => ({ ...f, forecastDay: i }));
 
     await query('DELETE FROM weather_forecast');
@@ -148,6 +148,9 @@ export const hooks = {
       );
     }
     setWeatherState(nextForecast[0].weatherType, nextForecast[0].tempC, nextForecast);
+    // Roll current precip against the new day's forecasted precipChance.
+    rollAndSetCurrentPrecip(nextForecast[0].weatherType, nextForecast[0].tempC, nextForecast[0].precipChance ?? 0.05);
+    if (broadcast) broadcast({ type: 'environment.sync', ...getHUDPayload() });
   },
 
   'environment.recalculateForecast': async ({ setWeatherState, climateProfile, currentDate }) => {
