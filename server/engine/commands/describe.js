@@ -130,8 +130,30 @@ export async function describeZone(zone, player) {
     const windowHint = windows.length
       ? ` You can barely make out the outline of ${windows.length === 1 ? 'a window' : 'some windows'} — ${windows.some(w => w.curtain_open) ? 'no light comes through' : 'the curtains are drawn'}.`
       : '';
-    return `\n<span class="zone-name">${zone.name}</span>\n` +
+    const { buildings, rooms, plain } = getConnectedDestinations(zone);
+    let darkDesc = `\n<span class="zone-name">${zone.name}</span>\n` +
       `<span class="light-level light-dark">It is completely dark here. You can't make out your surroundings.${windowHint}</span>`;
+    if (plain.length) {
+      const exitLinks = plain.map(dir =>
+        `<span class="action-link exit-link" data-action="go" data-target="${dir}" title="Go ${dir}">${dir}</span>`
+      );
+      darkDesc += `\n\n<span class="exits-label">Exits:</span> ${exitLinks.join(', ')}`;
+    }
+    if (buildings.length) {
+      const rows = buildings.map(b => {
+        const dirLabel = b.direction.charAt(0).toUpperCase() + b.direction.slice(1);
+        return `<div class="building-row"><span class="dir-tag">[${dirLabel}]</span> <span class="action-link building-link" data-action="go" data-target="${b.direction}" title="Enter ${b.name}">${b.name}</span></div>`;
+      });
+      darkDesc += `\n<span class="buildings-label">Buildings:</span>${rows.join('')}`;
+    }
+    if (rooms.length) {
+      const rows = rooms.map(r => {
+        const dirLabel = r.direction.charAt(0).toUpperCase() + r.direction.slice(1);
+        return `<div class="room-row"><span class="dir-tag">[${dirLabel}]</span> <span class="action-link room-nav-link" data-action="go" data-target="${r.direction}" title="Go to ${r.name}">${r.name}</span></div>`;
+      });
+      darkDesc += `\n<span class="rooms-label">Rooms:</span>${rows.join('')}`;
+    }
+    return darkDesc;
   }
 
   const isDark = vis.category === 'dark';
