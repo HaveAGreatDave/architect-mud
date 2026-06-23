@@ -44,7 +44,6 @@
   <span class="auth-status" id="auth-badge">NOT AUTHENTICATED</span>
   <div id="header-actions" style="display:flex;gap:6px;align-items:center">
     <button id="dev-settings-btn" onclick="openSettingsPanel()" title="Settings" style="background:transparent;border:1px solid var(--border);color:var(--text-dim);font-size:14px;width:28px;height:28px;cursor:pointer;border-radius:2px;transition:all 0.15s;line-height:1;font-family:var(--font)" onmouseover="this.style.cssText+=';border-color:var(--accent);color:var(--accent)'" onmouseout="this.style.cssText+=';border-color:var(--border);color:var(--text-dim)'">⚙</button>
-    <button id="play-btn" onclick="launchPlayerClient()" title="Open game client as this account" style="display:none;background:color-mix(in srgb,var(--success) 15%,transparent);border:1px solid var(--success);color:var(--success);font-family:monospace;font-size:11px;padding:4px 10px;cursor:pointer;letter-spacing:1px;border-radius:3px">🎮 Play</button>
     <button class="action-btn" onclick="refreshWorld()">↻ Refresh</button>
     <button class="action-btn" id="ghost-btn" onclick="openGhostMode()" style="display:none">👻 Ghost Mode</button>
     <div style="width:1px;height:20px;background:var(--border);margin:0 4px"></div>
@@ -53,6 +52,7 @@
     </button>
     <button class="action-btn danger" id="reject-all-btn" onclick="rejectAll()" style="display:none">Reject All</button>
     <button onclick="devpanelLogout()" title="Sign Out" style="background:transparent;border:1px solid var(--red);color:var(--red);font-size:14px;width:28px;height:28px;cursor:pointer;border-radius:2px;line-height:1;font-family:var(--font)">⏻</button>
+    <button id="play-btn" onclick="launchPlayerClient()" title="Open game client as this account" style="display:none;background:color-mix(in srgb,var(--success) 15%,transparent);border:1px solid var(--success);color:var(--success);font-family:monospace;font-size:11px;padding:4px 10px;cursor:pointer;letter-spacing:1px;border-radius:3px">🎮 Play</button>
   </div>
 </div>
 
