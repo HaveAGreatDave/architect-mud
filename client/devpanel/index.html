@@ -9,6 +9,23 @@
 </head>
 <body>
 
+<!-- GHOST MODE MODAL -->
+<div id="ghost-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:500;align-items:center;justify-content:center">
+  <div style="background:var(--bg2);border:1px solid var(--accent);padding:24px;width:420px;max-width:94vw;border-radius:3px;display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <span style="color:var(--accent);font-size:13px;letter-spacing:2px;text-transform:uppercase">👻 Ghost Mode</span>
+      <button onclick="closeGhostModal()" style="background:transparent;border:1px solid var(--border);color:var(--text-dim);width:26px;height:26px;cursor:pointer;border-radius:2px;font-size:13px">✕</button>
+    </div>
+    <p style="color:var(--text-dim);font-size:12px;margin:0">Select a zone. The dev panel will close and you'll be dropped into the game at that location.</p>
+    <input id="ghost-zone-filter" type="text" placeholder="Filter zones…" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:6px 10px;outline:none;border-radius:2px;width:100%;box-sizing:border-box">
+    <select id="ghost-zone-select" size="10" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:4px;border-radius:2px;width:100%;box-sizing:border-box;outline:none"></select>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button onclick="closeGhostModal()" class="action-btn">Cancel</button>
+      <button onclick="confirmGhostMode()" class="action-btn primary">Enter Zone →</button>
+    </div>
+  </div>
+</div>
+
 <!-- AUTH OVERLAY -->
 <div id="auth-overlay">
   <div class="auth-card">
@@ -168,6 +185,7 @@ let currentRecord = null;
 let allRecords = [];
 let devRole = null;
 let devHandle = null;
+let devPlayerId = null;
 let stagingEnabled = true;
 
 // Entity paths eligible for staging — maps path prefix to entity type label.
@@ -259,6 +277,7 @@ async function devLogin() {
   token = data.token;
   devRole = data.role;
   devHandle = data.handle;
+  devPlayerId = data.playerId;
   document.getElementById('auth-overlay').classList.add('hidden');
   document.getElementById('auth-badge').textContent = `${data.handle} [${data.role}]`;
   document.getElementById('auth-badge').className = 'auth-status ok';
@@ -277,7 +296,7 @@ document.getElementById('dev-password').addEventListener('keydown', e => { if(e.
   const stored = sessionStorage.getItem('devpanel-token');
   if (!stored) return;
   let role = '', handle = '';
-  try { [, role] = atob(stored).split(':'); } catch { return; }
+  try { [devPlayerId, role] = atob(stored).split(':'); } catch { return; }
   if (!['admin','dev','builder','designer'].includes(role)) return;
   token = stored;
   devRole = role;
@@ -5258,10 +5277,51 @@ function startWorldStatePolling() {
   }, 10000);
 }
 
-function openGhostMode() {
-  const zone = prompt('Enter zone ID to observe:');
-  if (!zone) return;
-  toast(`Ghost mode: observing ${zone}`);
+async function openGhostMode() {
+  if (!devPlayerId) { toast('Not logged in', true); return; }
+  const zones = await API('/zones');
+  if (!Array.isArray(zones) || !zones.length) { toast('Could not load zones', true); return; }
+
+  const modal = document.getElementById('ghost-modal');
+  const select = document.getElementById('ghost-zone-select');
+  const filter = document.getElementById('ghost-zone-filter');
+
+  const sorted = [...zones].sort((a, b) => a.name.localeCompare(b.name));
+
+  function populateSelect(list) {
+    select.innerHTML = list.map(z =>
+      `<option value="${z.id}">${z.name} [${z.id}]</option>`
+    ).join('');
+  }
+  populateSelect(sorted);
+  filter.value = '';
+  filter.oninput = () => {
+    const q = filter.value.toLowerCase();
+    populateSelect(q ? sorted.filter(z => z.name.toLowerCase().includes(q) || z.id.toLowerCase().includes(q)) : sorted);
+  };
+  filter.onkeydown = e => {
+    if (e.key === 'Escape') closeGhostModal();
+    if (e.key === 'Enter') confirmGhostMode();
+  };
+
+  modal.style.display = 'flex';
+  filter.focus();
+}
+
+async function confirmGhostMode() {
+  const select = document.getElementById('ghost-zone-select');
+  const zoneId = select.value;
+  if (!zoneId) { toast('Select a zone first', true); return; }
+  closeGhostModal();
+
+  const res = await directAPI(`/players/${devPlayerId}/teleport`, 'POST', { zoneId });
+  if (res.error) { toast(`Teleport failed: ${res.error}`, true); return; }
+
+  await launchPlayerClient();
+}
+
+function closeGhostModal() {
+  document.getElementById('ghost-modal').style.display = 'none';
 }
 
 function showPlayButton() {
