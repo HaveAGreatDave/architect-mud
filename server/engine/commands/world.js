@@ -157,13 +157,22 @@ async function cmdExamine(targetStr, player) {
   if (furnitureRows.length) {
     const f = furnitureRows[0];
     let msg = `${f.name}\n${f.description}`;
-    if (f.object_type === 'light') {
-      msg += f.light_type === 'streetlight'
-        ? `\n<span class="light-state ${f.light_on ? 'light-on' : 'light-off'}">Currently ${f.light_on ? 'lit' : 'dark'} — city-grid controlled, no switch out here.</span>`
-        : `\n<span class="light-state ${f.light_on ? 'light-on' : 'light-off'}">Currently ${f.light_on ? 'on' : 'off'}. There's a switch.</span>`;
-    }
     const interactions = f.flags?.interactions || [];
-    if (interactions.length) {
+    if (f.object_type === 'light') {
+      if (f.light_type === 'streetlight') {
+        msg += `\n<span class="light-state ${f.light_on ? 'light-on' : 'light-off'}">Currently ${f.light_on ? 'lit' : 'dark'} — city-grid controlled, no switch out here.</span>`;
+      } else {
+        msg += `\n<span class="light-state ${f.light_on ? 'light-on' : 'light-off'}">Currently ${f.light_on ? 'on' : 'off'}.</span>`;
+        if (interactions.includes('switch')) {
+          const n = f.name.toLowerCase();
+          const toggleLink = `<span class="action-link" data-action="switch" data-target="${n}">switch</span>`;
+          const turnLink = f.light_on
+            ? `<span class="action-link" data-action="turn" data-target="${n} off">turn off</span>`
+            : `<span class="action-link" data-action="turn" data-target="${n} on">turn on</span>`;
+          msg += `\n<span class="text-dim">Actions:</span> ${toggleLink}  ${turnLink}`;
+        }
+      }
+    } else if (interactions.length) {
       const links = interactions.map(ix =>
         `<span class="action-link" data-action="${ix}" data-target="on ${f.name.toLowerCase()}">${ix}</span>`
       ).join('  ');

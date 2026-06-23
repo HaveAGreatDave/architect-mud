@@ -323,8 +323,8 @@ async function seed() {
     ['furniture_apt4_overhead','zone_apt_4','Overhead Light','A bare bulb on a pull-chain. Functional, nothing more.','overhead'],
   ];
   for (const [id,zoneId,name,desc,lightType] of lights) {
-    await query(`INSERT INTO furniture (id,zone_id,name,description,flags,object_type,light_on,light_type) VALUES ($1,$2,$3,$4,'{}','light',1,$5)
-      ON CONFLICT (id) DO UPDATE SET zone_id = EXCLUDED.zone_id, name = EXCLUDED.name, description = EXCLUDED.description, object_type = 'light', light_type = EXCLUDED.light_type`,
+    await query(`INSERT INTO furniture (id,zone_id,name,description,flags,object_type,light_on,light_type) VALUES ($1,$2,$3,$4,'{"interactions":["switch"]}','light',1,$5)
+      ON CONFLICT (id) DO UPDATE SET zone_id = EXCLUDED.zone_id, name = EXCLUDED.name, description = EXCLUDED.description, object_type = 'light', light_type = EXCLUDED.light_type, flags = '{"interactions":["switch"]}'`,
       [id,zoneId,name,desc,lightType]);
   }
   console.log(`✓ Seeded ${lights.length} lights`);
