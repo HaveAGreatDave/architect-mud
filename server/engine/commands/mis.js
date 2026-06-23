@@ -8,7 +8,7 @@
 import { query } from '../../models/db.js';
 import { isMisServerEnabled, isMisActive, addHorniness, washEjaculate, MIS_TUTORIAL } from '../mis.js';
 import { getZonePlayers, getZoneNpcs } from '../world.js';
-
+	
 function misGate(player) {
   if (!isMisServerEnabled()) return { type:'error', message:`That feature isn't available on this server.` };
   if (!isMisActive(player)) return { type:'error', message:`MIS is not enabled. Use the debug field in settings.` };
