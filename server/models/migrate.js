@@ -432,11 +432,15 @@ export async function migrate() {
   `);
   console.log('✓ Staging tables migrated');
 
-  // Starter clothing — ensure shoes exist and all three starter items have gets_wet.
+  // Starter clothing — ensure all three items exist, then stamp current tags onto them.
   await query(`
-    INSERT INTO items (id, name, weight, value, rarity, tags)
-    VALUES ('item_basic_shoes', 'Basic Shoes', 0.6, 2, 'common',
-      '{"description":"Canvas sneakers, well broken-in. The left sole is starting to peel.","slot":"feet","armor":1,"insulation":3,"gets_wet":true}'::jsonb)
+    INSERT INTO items (id, name, weight, value, rarity, tags) VALUES
+      ('item_basic_shirt', 'Basic T-Shirt', 0.3, 2, 'common',
+        '{"description":"Plain white cotton. Worn, faded, and slightly too large. Does almost nothing.","slot":"torso","armor":1,"insulation":5,"gets_wet":true,"auto_equip":true}'::jsonb),
+      ('item_basic_pants', 'Basic Pants', 0.5, 2, 'common',
+        '{"description":"Gray work trousers, a little threadbare at the knees. They fit. That''s about all they do.","slot":"legs","armor":1,"insulation":8,"gets_wet":true,"auto_equip":true}'::jsonb),
+      ('item_basic_shoes', 'Basic Shoes', 0.6, 2, 'common',
+        '{"description":"Canvas sneakers, well broken-in. The left sole is starting to peel.","slot":"feet","armor":1,"insulation":3,"gets_wet":true,"auto_equip":true}'::jsonb)
     ON CONFLICT (id) DO NOTHING
   `);
   await query(`
