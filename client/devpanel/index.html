@@ -178,7 +178,7 @@
 <script src="/shared/tagCatalog.js"></script>
 <script>
 let token = null;
-let currentPanel = 'zones';
+let currentPanel = 'dashboard';
 let _panelClockInterval = null;
 let _panelClockTimeout  = null;
 let currentRecord = null;
@@ -304,6 +304,8 @@ document.getElementById('dev-password').addEventListener('keydown', e => { if(e.
   document.getElementById('auth-badge').textContent = `[${role}]`;
   document.getElementById('auth-badge').className = 'auth-status ok';
   if (['admin','dev'].includes(role)) document.getElementById('ghost-btn').style.display = '';
+  currentPanel = 'dashboard';
+  activatePanelNav('dashboard');
   loadPanel('dashboard');
   startWorldStatePolling();
   updateStagingBadge();

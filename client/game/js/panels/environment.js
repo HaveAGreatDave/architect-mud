@@ -31,14 +31,23 @@ let envTempC = null;
 let envCurrentWeatherType = null;
 let envCurrentPrecipIntensity = null;
 
+function bodyFeelLabel(tempC) {
+  if (tempC === null) return '';
+  if (tempC <= 0)  return 'Freezing';
+  if (tempC <= 8)  return 'Cold';
+  if (tempC <= 15) return 'Chilly';
+  if (tempC <= 24) return 'Comfortable';
+  if (tempC <= 30) return 'Warm';
+  if (tempC <= 37) return 'Hot';
+  return 'Overheating';
+}
+
 function renderEnvironmentHUD() {
   if (clientMinutes === null) return;
   const timeStr = formatHHMM(clientMinutes);
   const timeIcon = timeIconForMinutes(clientMinutes);
   const tempStr = envTempC !== null ? `${envTempC}°C` : '—°C';
-  const weatherLabel = envCurrentWeatherType
-    ? envCurrentWeatherType.charAt(0).toUpperCase() + envCurrentWeatherType.slice(1)
-    : '';
+  const feelStr = bodyFeelLabel(envTempC);
   const precipLabel = envCurrentPrecipIntensity && envCurrentPrecipIntensity !== 'none'
     ? envCurrentPrecipIntensity.charAt(0).toUpperCase() + envCurrentPrecipIntensity.slice(1)
     : '';
@@ -47,13 +56,13 @@ function renderEnvironmentHUD() {
     const c  = document.getElementById(`env-clock${suffix}`);
     const t  = document.getElementById(`env-time-icon${suffix}`);
     const p  = document.getElementById(`env-temp${suffix}`);
-    const wl = document.getElementById(`env-weather-type${suffix}`);
+    const bf = document.getElementById(`env-body-feel${suffix}`);
     const pl = document.getElementById(`env-precip-intensity${suffix}`);
     if (w)  w.textContent  = envWeatherIcon;
     if (c)  c.textContent  = timeStr;
     if (t)  t.textContent  = timeIcon;
     if (p)  p.textContent  = tempStr;
-    if (wl) wl.textContent = weatherLabel;
+    if (bf) bf.textContent = feelStr;
     if (pl) pl.textContent = precipLabel;
   }
 }
