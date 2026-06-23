@@ -113,18 +113,18 @@ function _render(d) {
     _statRow('Eyes',   ec),
   ].join('');
 
-  if (isMis) {
-    if (sex === 'male') {
-      sheet += _sectionHeader('Biological');
-      sheet += _statRow('Penis',    `${app.penis_length_cm || 13}cm, ${app.penis_girth_cm || 1.3}cm girth`);
-      sheet += _statRow('Testicles', app.testicle_size || 'average');
-      sheet += _statRow('State',    d.erect ? 'erect' : 'flaccid', true);
-    } else {
-      sheet += _sectionHeader('Biological');
-      sheet += _statRow('Breasts',  app.breast_size || 'medium');
-      sheet += _statRow('Labia',    app.labia_style || 'average');
-    }
-  }
+//  if (isMis) {
+//   if (sex === 'male') {
+//      sheet += _sectionHeader('Biological');
+//      sheet += _statRow('Penis',    `${app.penis_length_cm || 13}cm, ${app.penis_girth_cm || 1.3}cm girth`);
+//      sheet += _statRow('Testicles', app.testicle_size || 'average');
+//      sheet += _statRow('State',    d.erect ? 'erect' : 'flaccid', true);
+//    } else {
+//      sheet += _sectionHeader('Biological');
+//     sheet += _statRow('Breasts',  app.breast_size || 'medium');
+//      sheet += _statRow('Labia',    app.labia_style || 'average');
+//    }
+//  }
 
   const balanceColor = (d.credits || 0) >= 10 ? 'var(--green)' : 'var(--red)';
   const freeTag = isFree
