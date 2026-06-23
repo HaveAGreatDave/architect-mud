@@ -213,9 +213,10 @@ async function apiEmailHint(username) {
 
 async function apiForgotPassword(body) {
   const { email } = body||{};
+  console.log('[forgot-password] request for email:', email);
   if (!email) return { status:400, body:{ error:'email required' } };
   const { rows } = await query('SELECT id FROM players WHERE email=$1', [email.toLowerCase().trim()]);
-  // Always return the same message to avoid email enumeration
+  console.log('[forgot-password] db lookup rows:', rows.length);
   if (rows.length) {
     const playerId = rows[0].id;
     await query('UPDATE password_reset_tokens SET used=TRUE WHERE player_id=$1 AND used=FALSE', [playerId]);
