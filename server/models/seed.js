@@ -342,7 +342,7 @@ async function seed() {
       VALUES ($1, $2, $3, $4, $5, $6, 'powered')
       ON CONFLICT (id) DO UPDATE SET name = $2, source_type = $3, generator_id = $4, capacity_kw = $5
     `, [zoneId, zoneRow?.name || zoneId, sourceType, generatorId, capacityKw, loadKw]);
-    const { rows: fixtureRows } = await query(`SELECT COUNT(*)::int AS cnt FROM furniture WHERE zone_id=$1 AND is_light=1`, [zoneId]);
+    const { rows: fixtureRows } = await query(`SELECT COUNT(*)::int AS cnt FROM furniture WHERE zone_id=$1 AND object_type='light'`, [zoneId]);
     await query(`
       INSERT INTO lighting_states (zone_id, has_emergency_lighting, artificial_light_level, fixture_count)
       VALUES ($1, 0, 0, $2)
@@ -428,7 +428,7 @@ async function seed() {
     await query(`
       UPDATE items
       SET tags = jsonb_set(tags - 'stat_bonus', '{stat_bonus}',
-        (tags->'stat_bonus') - $1 || jsonb_build_object($2, (tags->'stat_bonus'->$1)))
+        (tags->'stat_bonus') - $1 || jsonb_build_object($2::text, (tags->'stat_bonus'->$1)))
       WHERE tags->'stat_bonus' ? $1
     `, [old, neo]);
   }
