@@ -97,7 +97,7 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path.startsWith('/npcs/') && method==='PUT') return requireDev(auth, ()=>apiUpdateNpc(path.split('/')[2],body));
   if (path.startsWith('/npcs/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteNpc(path.split('/')[2]));
   if (path==='/furniture' && method==='GET') return requireDev(auth, ()=>apiGetFurniture(url));
-  if (path==='/furniture/bulk/streetlights' && method==='POST') return requireDev(auth, apiBulkAddStreetlights);
+  if (path==='/furniture/bulk/streetlights' && method==='POST') return requireDev(auth, ()=>apiBulkAddStreetlights(auth));
   if (path==='/furniture' && method==='POST') return requireDev(auth, ()=>apiCreateFurniture(body));
   if (path.startsWith('/furniture/') && method==='PUT') return requireDev(auth, ()=>apiUpdateFurniture(path.split('/')[2],body));
   if (path.startsWith('/furniture/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteFurniture(path.split('/')[2]));
@@ -621,31 +621,38 @@ export async function apiDeleteFurniture(id) {
     return {status:200,body:{message:'Furniture deleted'}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
-async function apiBulkAddStreetlights() {
+async function apiBulkAddStreetlights(auth) {
   const { rows: templates } = await query(
     `SELECT * FROM furniture WHERE object_type='light' AND light_type='streetlight' LIMIT 1`
   );
-  if (!templates.length) return { status:400, body:{ error:'No existing streetlight found to use as template. Add one manually first.' } };
-  const t = templates[0];
+  const t = templates[0] || { name: 'Street Light', description: 'A tall metal post topped with a flickering sodium lamp.', object_type: 'light', light_type: 'streetlight', power_draw_kw: 0.2, flags: {} };
   const { rows: zones } = await query(`
-    SELECT z.id FROM zones z
+    SELECT z.id, z.name FROM zones z
     WHERE NOT COALESCE((z.flags->>'is_interior')::boolean, false)
       AND NOT COALESCE((z.flags->>'is_apartment')::boolean, false)
       AND NOT COALESCE((z.flags->>'is_building')::boolean, false)
       AND z.id NOT IN (
         SELECT DISTINCT zone_id FROM furniture WHERE light_type='streetlight'
       )
+      AND z.id NOT IN (
+        SELECT entity_id FROM staged_changes WHERE entity_type='furniture' AND staged_data::jsonb->>'light_type'='streetlight'
+      )
   `);
+  const { rows: authorRows } = await query('SELECT handle FROM players WHERE id=$1', [auth?.playerId]).catch(() => ({ rows: [] }));
+  const author = authorRows[0]?.handle || auth?.playerId || 'system';
   let added = 0;
   for (const zone of zones) {
-    await query(
-      `INSERT INTO furniture (id,zone_id,name,description,object_type,light_on,light_type,power_draw_kw,flags)
-       VALUES ($1,$2,$3,$4,$5,0,$6,$7,$8) ON CONFLICT (id) DO NOTHING`,
-      [`furn_sl_${zone.id}`, zone.id, t.name, t.description, t.object_type, t.light_type, t.power_draw_kw, JSON.stringify(t.flags||{})]
+    const furnitureId = `furn_sl_${zone.id}`;
+    const requestBody = { id: furnitureId, zone_id: zone.id, name: t.name, description: t.description, object_type: t.object_type, light_type: t.light_type, light_on: 0, power_draw_kw: t.power_draw_kw, flags: t.flags || {} };
+    await query(`
+      INSERT INTO staged_changes (id, entity_type, entity_id, entity_name, change_type, method, api_path, staged_data, description, author, staged_at)
+      VALUES (gen_random_uuid()::text, 'furniture', $1, $2, 'create', 'POST', '/furniture', $3, $4, $5, NOW())
+      ON CONFLICT (entity_type, entity_id) DO NOTHING`,
+      [furnitureId, t.name, JSON.stringify(requestBody), `Add street light to ${zone.name || zone.id}`, author]
     );
     added++;
   }
-  return { status:200, body:{ added, message:`Street Light added to ${added} outdoor zone${added===1?'':'s'}.` } };
+  return { status:200, body:{ added, message:`${added} street light${added===1?'':'s'} staged — publish to apply.` } };
 }
 async function apiWorldState() {
   const players = getAllLivePlayers().map(p => ({ handle: p.handle, role: p.role, current_zone: p.current_zone }));
