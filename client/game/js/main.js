@@ -72,63 +72,44 @@ const mobileMapTab = document.getElementById('mobile-map-tab');
 const mobileMapPanel = document.getElementById('mobile-minimap-panel');
 const mobileMapClose = document.getElementById('mobile-map-close');
 
-function openMobileMap() {
-  // Position near right edge on first open
-  if (!mobileMapPanel.style.left) {
-    const r = mobileMapPanel.getBoundingClientRect();
-    mobileMapPanel.style.left = (window.innerWidth - r.width - 2) + 'px';
-    mobileMapPanel.style.top = Math.round((window.innerHeight - r.height) / 2) + 'px';
-  }
+mobileMapTab?.addEventListener('click', () => {
   mobileMapPanel.classList.add('open');
   mobileMapPanel.setAttribute('aria-hidden', 'false');
-  // Recompute position after open since size is now known
-  requestAnimationFrame(() => {
-    if (!mobileMapPanel._placed) {
-      mobileMapPanel._placed = true;
+  // Place near right edge on first open (needs to be visible to measure)
+  if (!mobileMapPanel._placed) {
+    mobileMapPanel._placed = true;
+    requestAnimationFrame(() => {
       const r = mobileMapPanel.getBoundingClientRect();
       mobileMapPanel.style.left = (window.innerWidth - r.width - 2) + 'px';
       mobileMapPanel.style.top = Math.round((window.innerHeight - r.height) / 2) + 'px';
-    }
-  });
-}
+    });
+  }
+});
 
-mobileMapTab?.addEventListener('click', openMobileMap);
 mobileMapClose?.addEventListener('click', () => {
   mobileMapPanel.classList.remove('open');
   mobileMapPanel.setAttribute('aria-hidden', 'true');
 });
 
-// Drag to move
+// Drag
 if (mobileMapPanel) {
-  let dragging = false, startX = 0, startY = 0, origLeft = 0, origTop = 0;
+  let dragOffsetX = 0, dragOffsetY = 0;
 
   mobileMapPanel.addEventListener('pointerdown', (e) => {
     if (e.target === mobileMapClose) return;
-    dragging = true;
-    startX = e.clientX;
-    startY = e.clientY;
     const r = mobileMapPanel.getBoundingClientRect();
-    origLeft = r.left;
-    origTop = r.top;
+    dragOffsetX = e.clientX - r.left;
+    dragOffsetY = e.clientY - r.top;
     mobileMapPanel.setPointerCapture(e.pointerId);
-    mobileMapPanel.style.cursor = 'grabbing';
-    e.preventDefault();
   });
 
   mobileMapPanel.addEventListener('pointermove', (e) => {
-    if (!dragging) return;
-    const dx = e.clientX - startX;
-    const dy = e.clientY - startY;
+    if (!mobileMapPanel.hasPointerCapture(e.pointerId)) return;
     const r = mobileMapPanel.getBoundingClientRect();
-    const newLeft = Math.max(0, Math.min(window.innerWidth - r.width, origLeft + dx));
-    const newTop = Math.max(0, Math.min(window.innerHeight - r.height, origTop + dy));
+    const newLeft = Math.max(0, Math.min(window.innerWidth - r.width, e.clientX - dragOffsetX));
+    const newTop = Math.max(0, Math.min(window.innerHeight - r.height, e.clientY - dragOffsetY));
     mobileMapPanel.style.left = newLeft + 'px';
     mobileMapPanel.style.top = newTop + 'px';
-  });
-
-  mobileMapPanel.addEventListener('pointerup', () => {
-    dragging = false;
-    mobileMapPanel.style.cursor = '';
   });
 }
 
