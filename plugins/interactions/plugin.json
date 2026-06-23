@@ -1,0 +1,12 @@
+{
+  "name": "interactions",
+  "version": "1.0.0",
+  "description": "Immersive action layer: posture, emotes, observation, furniture, and social interactions.",
+  "hooks": [],
+  "commands": [
+    "sit", "stand", "lie", "kneel", "stretch", "wave", "shrug", "point",
+    "smile", "frown", "laugh", "cry", "sigh", "nod", "shake", "dance", "pace",
+    "greet", "follow", "reflect", "examine"
+  ],
+  "routePrefix": "/api/interactions"
+}

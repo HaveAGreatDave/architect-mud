@@ -1,6 +1,6 @@
 import { query } from '../../models/db.js';
 import { getZone, getMinimapData, addPlayerToZone, removePlayerFromZone } from '../world.js';
-import { getZoneVisibility, getWindowsForZone } from '../environment.js';
+import { getZoneVisibility, getWindowsForZone, getEnvironmentState } from '../environment.js';
 import { describeZone, resolveNamedDestination } from './describe.js';
 
 const RAW_DIRECTIONS = ['north', 'south', 'east', 'west', 'up', 'down', 'in', 'out'];
@@ -28,7 +28,65 @@ async function cmdLookThroughWindow(win, player) {
   return { type:'examine', message:`Through ${win.name} you can see into <span style="color:var(--accent)">${otherZone.name}</span>:\n${otherZone.description}` };
 }
 
+function cmdLookSky(player) {
+  let env;
+  try { env = getEnvironmentState(); } catch { env = {}; }
+  const vis = getZoneVisibility(player.current_zone);
+  if (vis.category === 'pitch_dark') return { type: 'examine', message: "It's too dark to see the sky." };
+  const weatherLines = {
+    clear: 'The sky is clear, a vast expanse stretching overhead.',
+    cloudy: 'Clouds drift across the sky, patchy and slow.',
+    overcast: 'A heavy overcast blankets everything above, flat and grey.',
+    rain: 'Dark clouds hang low, rain falling steadily from them.',
+    sleet: 'An ugly mix of sleet and rain falls from a leaden sky.',
+    thunderstorm: 'Angry storm clouds roil overhead, lit from within by lightning.',
+    storm: 'The sky is a churning mass of dark cloud. The storm is fierce.',
+    snow: 'Pale grey clouds fill the sky, sending snow drifting down.',
+    blizzard: 'A white-grey wall of blowing snow swallows the sky entirely.',
+    fog: 'Thick fog diffuses what little light there is. The sky is invisible.',
+    haze: 'A dirty haze sits over everything, muting the sky to a dull brown-grey.',
+    ash: 'Ash falls from a rust-coloured sky. The air tastes of smoke.',
+  };
+  const base = weatherLines[env.weatherType] || 'You look up at the sky.';
+  const timeNote = env.timePhase ? ` It is ${env.timePhase}.` : '';
+  const tempNote = env.tempC !== undefined ? ` The temperature is ${Math.round(env.tempC)}°C.` : '';
+  return { type: 'examine', message: base + timeNote + tempNote };
+}
+
+async function cmdLookGround(player) {
+  const vis = getZoneVisibility(player.current_zone);
+  if (vis.category === 'pitch_dark') return { type: 'examine', message: "It's too dark to make out the ground." };
+  const zone = getZone(player.current_zone);
+  const base = zone ? `You look at the ground around you in ${zone.name}.` : 'You look at the ground.';
+  const { rows } = await query(
+    `SELECT pi.id, i.name, i.rarity FROM player_inventory pi
+     JOIN items i ON i.id = pi.item_id
+     WHERE pi.player_id = $1 AND pi.container_id IS NULL LIMIT 10`,
+    [`_ground_${player.current_zone}`]
+  );
+  if (!rows.length) return { type: 'examine', message: `${base} Nothing of note lies here.` };
+  const itemList = rows.map(r => r.name).join(', ');
+  return { type: 'examine', message: `${base} On the ground: ${itemList}.` };
+}
+
+function cmdLookDistance(player) {
+  const vis = getZoneVisibility(player.current_zone);
+  if (vis.category === 'pitch_dark') return { type: 'examine', message: "It's too dark to make out anything in the distance." };
+  const zone = getZone(player.current_zone);
+  if (!zone) return { type: 'examine', message: 'You see nothing in the distance.' };
+  const exits = Object.entries(zone.exits || {});
+  if (!exits.length) return { type: 'examine', message: 'No obvious exits lead away from here.' };
+  const parts = exits.map(([dir, id]) => {
+    const z = getZone(id);
+    return z ? `to the ${dir}: ${z.name}` : `to the ${dir}: somewhere`;
+  });
+  return { type: 'examine', message: `Looking into the distance you can make out — ${parts.join('; ')}.` };
+}
+
 async function cmdLook(player, targetStr) {
+  if (targetStr === 'sky' || targetStr === 'up') return cmdLookSky(player);
+  if (targetStr === 'ground' || targetStr === 'down') return cmdLookGround(player);
+  if (targetStr === 'distance' || targetStr === 'out') return cmdLookDistance(player);
   if (!targetStr || targetStr === 'room' || targetStr === 'around') {
     const zone = getZone(player.current_zone);
     if (!zone) return { type:'error', message:'You are nowhere. This is a bug.' };

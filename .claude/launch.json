@@ -6,6 +6,12 @@
       "runtimeExecutable": "npx",
       "runtimeArgs": ["serve", "-p", "5555", "."],
       "port": 5555
+    },
+    {
+      "name": "game-server",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["server/index.js"],
+      "port": 3000
     }
   ]
 }

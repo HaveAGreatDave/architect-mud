@@ -15,6 +15,9 @@ function cmdTalk(targetStr, player) {
 
 function cmdSay(text, player, broadcast) {
   if (!text) return { type:'error', message:'Say what?' };
+  if (text.length >= 3 && text === text.toUpperCase() && /[A-Z]/.test(text)) {
+    return cmdYell(text, player, broadcast);
+  }
   broadcast(player.current_zone, { type:'say', message:`${player.handle} says: "${text}"` }, null);
   return { type:'say', message:`You say: "${text}"` };
 }
