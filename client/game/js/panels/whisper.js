@@ -246,7 +246,7 @@ export function initWhisperPanel() {
   const panel = document.getElementById('whisper-panel');
   let dragging = false, ox = 0, oy = 0;
   dragHandle.addEventListener('mousedown', e => {
-    if (e.target.closest('#whisper-tabs') || e.target.closest('button[data-close]')) return;
+    if (e.target.tagName === 'BUTTON') return;
     dragging = true;
     const r = panel.getBoundingClientRect();
     ox = e.clientX - r.left;
