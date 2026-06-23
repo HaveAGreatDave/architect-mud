@@ -43,6 +43,21 @@ let _currentData = null;
 export function openMorphexPanel(data) {
   _currentData = data;
 
+  const sex = data.biological_sex || 'male';
+  const isMis = data.mis_active || 0;
+  const app = data.appearance_data || {};
+  let mods = '';
+
+  if (isMis) {
+    if (sex === 'male') {
+      mods += _sectionHeader('Biological — 5₵/cm');
+      mods += _modRow('Penis (cm)', _numInput('mx-penis', app.penis_length_cm || 13, 5, 30));
+    } else {
+      mods += _sectionHeader('Biological — 5₵/tier');
+      mods += _modRow('Breast Size', _sel('mx-breast', BREAST_SIZES, app.breast_size || 'medium'));
+    }
+  }
+
   if (!_modal) {
     _modal = document.createElement('div');
     _modal.id = 'morphex-modal';
