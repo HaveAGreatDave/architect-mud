@@ -43,6 +43,27 @@ const MAX_CATCHUP_DAYS = 30;
 const WEATHER_TYPES = ['clear','cloudy','overcast','rain','sleet','thunderstorm','storm','snow','blizzard','fog','haze','ash'];
 const PRECIP_FORECAST_TYPES = new Set(['rain','thunderstorm','storm','sleet','snow','blizzard']);
 
+// Intensity label lookup — mirrors the table in plugins/clothing-wetness/index.js.
+// Derived from precipRate (0.1–1.0) at display time so rate and label are always in sync.
+const RAIN_INTENSITY_LABELS = new Map([
+  [0.1, 'mist'],           [0.2, 'light drizzle'],  [0.3, 'light rain'],
+  [0.4, 'steady rain'],    [0.5, 'moderate rain'],   [0.6, 'heavy rain'],
+  [0.7, 'very heavy rain'],[0.8, 'storm'],            [0.9, 'severe storm'],
+  [1.0, 'extreme deluge'],
+]);
+const SNOW_INTENSITY_LABELS = new Map([
+  [0.1, 'light flurries'],     [0.2, 'scattered snow'],       [0.3, 'steady snowfall'],
+  [0.4, 'moderate snow'],      [0.5, 'accumulating snow'],     [0.6, 'thick snowfall'],
+  [0.7, 'wind-blown snow'],    [0.8, 'blizzard conditions'],   [0.9, 'whiteout blizzard'],
+  [1.0, 'severe whiteout blizzard'],
+]);
+function currentIntensityLabel() {
+  if (!state.precipRate || state.precipRate <= 0 || state.currentPrecip === 'none') return '';
+  const rate = Math.round(state.precipRate * 10) / 10;
+  const map = state.currentPrecip === 'snow' ? SNOW_INTENSITY_LABELS : RAIN_INTENSITY_LABELS;
+  return map.get(rate) ?? '';
+}
+
 const WEATHER_ICON = {
   clear:        '☀️',
   cloudy:       '☁',
@@ -124,7 +145,7 @@ const state = {
   activeClimateProfileId: null,
   activeClimateProfile: null,  // { monthly_temp_c: [...12], monthly_precip_chance: [...12] }
   currentPrecip: 'none',       // 'none' | 'rain' | 'snow' — live state, updated each 30-min tick
-  precipIntensity: 'none',     // 'none' | 'light' | 'medium' | 'heavy'
+  precipIntensity: 'none',     // stored label (unused for display — currentIntensityLabel() derives from precipRate)
   precipRate: 0,               // wetness gain per item per minute (0 when dry)
 };
 
@@ -483,7 +504,7 @@ async function tick1m() {
     `UPDATE world_clock SET game_time_minutes = $1, last_tick_1m = now() WHERE id = 1`,
     [state.minutes]
   );
-  if (broadcast) broadcast({ type: 'environment.clockTick', time: formatHHMM(state.minutes), tempC: state.tempC + diurnalOffset(state.minutes), currentWeatherType: state.currentPrecip === 'none' ? state.weatherType : state.currentPrecip, currentIntensity: state.precipIntensity !== 'none' ? state.precipIntensity : '' });
+  if (broadcast) broadcast({ type: 'environment.clockTick', time: formatHHMM(state.minutes), tempC: state.tempC + diurnalOffset(state.minutes), currentWeatherType: state.currentPrecip !== 'none' ? state.currentPrecip : (PRECIP_FORECAST_TYPES.has(state.weatherType) ? 'cloudy' : state.weatherType), currentIntensity: currentIntensityLabel() });
   await flickerOverloadedZones();
 }
 
@@ -1007,7 +1028,7 @@ export function getHUDPayload() {
     currentWeatherIcon: WEATHER_ICON[state.currentPrecip !== 'none'
       ? state.currentPrecip
       : (PRECIP_FORECAST_TYPES.has(state.weatherType) ? 'cloudy' : state.weatherType)],
-    currentIntensity: state.precipIntensity !== 'none' ? state.precipIntensity : '',
+    currentIntensity: currentIntensityLabel(),
   };
 }
 
