@@ -178,10 +178,10 @@ export function doAuth() {
 }
 
 export async function doForgotPassword() {
-  const email = state.send_password || document.getElementById('forgot-email').value.trim();
+  const email = state.send_password;
   const msgEl = document.getElementById('forgot-message');
   const btn   = document.getElementById('forgot-submit');
-  if (!email) { msgEl.textContent = 'Email required.'; msgEl.style.color = 'var(--red)'; return; }
+  if (!email) { msgEl.textContent = 'That email address is not associated with that username.'; msgEl.style.color = 'var(--red)'; return; }
   btn.disabled = true;
   btn.textContent = 'Sending...';
   try {
