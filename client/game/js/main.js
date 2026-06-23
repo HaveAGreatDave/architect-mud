@@ -63,26 +63,37 @@ document.getElementById('auth-toggle-link').addEventListener('click', () => {
   document.getElementById('auth-submit').textContent = state.isRegister ? 'Register' : 'Enter';
 });
 
-// Forgot password — draggable window
+function _makeDraggable(window, handle) {
+  let ox = 0, oy = 0;
+  handle.addEventListener('pointerdown', e => {
+    if (e.target.tagName === 'BUTTON') return;
+    const r = window.getBoundingClientRect();
+    ox = e.clientX - r.left; oy = e.clientY - r.top;
+    window.style.transform = 'none';
+    handle.setPointerCapture(e.pointerId);
+    handle.style.cursor = 'grabbing';
+    e.preventDefault();
+  });
+  handle.addEventListener('pointermove', e => {
+    if (!handle.hasPointerCapture(e.pointerId)) return;
+    const x = Math.max(0, Math.min(globalThis.innerWidth  - window.offsetWidth,  e.clientX - ox));
+    const y = Math.max(0, Math.min(globalThis.innerHeight - window.offsetHeight, e.clientY - oy));
+    window.style.left = x + 'px'; window.style.top = y + 'px';
+  });
+  handle.addEventListener('pointerup', () => { handle.style.cursor = 'grab'; });
+}
+
+// Forgot password window
 const _forgotWindow = document.getElementById('forgot-window');
-const _forgotHandle = document.getElementById('forgot-drag-handle');
-let _fwOx = 0, _fwOy = 0;
-_forgotHandle.addEventListener('pointerdown', e => {
-  if (e.target.tagName === 'BUTTON') return;
-  const r = _forgotWindow.getBoundingClientRect();
-  _fwOx = e.clientX - r.left; _fwOy = e.clientY - r.top;
-  _forgotWindow.style.transform = 'none';
-  _forgotHandle.setPointerCapture(e.pointerId);
-  _forgotHandle.style.cursor = 'grabbing';
-  e.preventDefault();
-});
-_forgotHandle.addEventListener('pointermove', e => {
-  if (!_forgotHandle.hasPointerCapture(e.pointerId)) return;
-  const x = Math.max(0, Math.min(window.innerWidth  - _forgotWindow.offsetWidth,  e.clientX - _fwOx));
-  const y = Math.max(0, Math.min(window.innerHeight - _forgotWindow.offsetHeight, e.clientY - _fwOy));
-  _forgotWindow.style.left = x + 'px'; _forgotWindow.style.top = y + 'px';
-});
-_forgotHandle.addEventListener('pointerup', e => { _forgotHandle.style.cursor = 'grab'; });
+_makeDraggable(_forgotWindow, document.getElementById('forgot-drag-handle'));
+
+function fetchEmailForUsername(username) {
+  if (!username) { document.getElementById('forgot-email').value = ''; return; }
+  fetch(`/api/auth/email-hint?username=${encodeURIComponent(username)}`)
+    .then(r => r.json())
+    .then(data => { document.getElementById('forgot-email').value = data.email || ''; })
+    .catch(() => {});
+}
 
 function openForgotWindow() {
   document.getElementById('forgot-message').textContent = '';
@@ -93,12 +104,7 @@ function openForgotWindow() {
   _forgotWindow.style.top = '20%';
   const username = document.getElementById('auth-username').value.trim();
   document.getElementById('forgot-username').value = username;
-  if (username) {
-    fetch(`/api/auth/email-hint?username=${encodeURIComponent(username)}`)
-      .then(r => r.json())
-      .then(data => { document.getElementById('forgot-email').value = data.email || ''; })
-      .catch(() => {});
-  }
+  fetchEmailForUsername(username);
 }
 
 document.getElementById('auth-forgot-link').addEventListener('click', openForgotWindow);
@@ -106,18 +112,28 @@ document.getElementById('forgot-close-btn').addEventListener('click', () => { _f
 document.getElementById('forgot-submit').addEventListener('click', doForgotPassword);
 document.getElementById('forgot-email').addEventListener('keydown', e => { if (e.key === 'Enter') doForgotPassword(); });
 
-// Reset password flow — detect token in URL
+// Look up email whenever username is typed in the forgot window
+let _forgotUsernameTimer = null;
+document.getElementById('forgot-username').addEventListener('input', e => {
+  clearTimeout(_forgotUsernameTimer);
+  _forgotUsernameTimer = setTimeout(() => fetchEmailForUsername(e.target.value.trim()), 400);
+});
+
+// Reset password window
+const _resetWindow = document.getElementById('reset-screen');
+_makeDraggable(_resetWindow, document.getElementById('reset-drag-handle'));
+document.getElementById('reset-close-btn').addEventListener('click', () => {
+  _resetWindow.style.display = 'none';
+  history.replaceState({}, '', location.pathname);
+});
+
+// Detect reset token in URL
 const _resetToken = new URLSearchParams(location.search).get('reset_token');
 if (_resetToken) {
   document.getElementById('auth-screen').style.display = 'none';
-  document.getElementById('reset-screen').style.display = '';
+  _resetWindow.style.display = '';
 }
 document.getElementById('reset-submit').addEventListener('click', () => doResetPassword(_resetToken));
-document.getElementById('reset-back-link').addEventListener('click', () => {
-  document.getElementById('reset-screen').style.display = 'none';
-  document.getElementById('auth-screen').style.display = '';
-  history.replaceState({}, '', location.pathname);
-});
 
 // Command input
 initInput();

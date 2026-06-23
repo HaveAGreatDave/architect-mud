@@ -94,7 +94,7 @@
 			<div style="padding:16px;display:flex;flex-direction:column;gap:12px">
 				<div class="auth-field" style="margin:0">
 					<label>Username</label>
-					<input type="text" id="forgot-username" readonly style="width:100%;box-sizing:border-box;opacity:0.6;cursor:default" />
+					<input type="text" id="forgot-username" placeholder="enter your username" style="width:100%;box-sizing:border-box" />
 				</div>
 				<div class="auth-field" style="margin:0">
 					<label>Email address</label>
@@ -105,23 +105,23 @@
 			</div>
 		</div>
 
-		<!-- RESET PASSWORD SCREEN -->
-		<div id="reset-screen" style="display:none">
-			<div id="auth-box">
-				<div class="tagline">Reset Password</div>
-				<div class="auth-field">
+		<!-- RESET PASSWORD WINDOW (draggable) -->
+		<div id="reset-screen" style="display:none;position:fixed;top:20%;left:50%;transform:translateX(-50%);z-index:300;background:var(--bg2);border:1px solid var(--accent);width:340px;max-width:94vw;box-shadow:0 4px 32px rgba(0,0,0,0.6)">
+			<div id="reset-drag-handle" style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border);cursor:grab;user-select:none">
+				<span style="color:var(--accent);font-size:11px;letter-spacing:2px;text-transform:uppercase">Reset Password</span>
+				<button id="reset-close-btn" style="background:transparent;border:1px solid var(--border);color:var(--text-dim);width:22px;height:22px;cursor:pointer;font-size:11px;line-height:1;font-family:var(--font)">✕</button>
+			</div>
+			<div style="padding:16px;display:flex;flex-direction:column;gap:12px">
+				<div class="auth-field" style="margin:0">
 					<label>New Password</label>
-					<input type="password" id="reset-password" placeholder="new password (min 8 chars)" autocomplete="new-password" />
+					<input type="password" id="reset-password" placeholder="new password (min 8 chars)" autocomplete="new-password" style="width:100%;box-sizing:border-box" />
 				</div>
-				<div class="auth-field">
+				<div class="auth-field" style="margin:0">
 					<label>Confirm Password</label>
-					<input type="password" id="reset-password-confirm" placeholder="confirm password" />
+					<input type="password" id="reset-password-confirm" placeholder="confirm password" style="width:100%;box-sizing:border-box" />
 				</div>
-				<button class="auth-btn" id="reset-submit">Set New Password</button>
-				<div class="auth-error" id="reset-error"></div>
-				<div class="auth-toggle">
-					<a id="reset-back-link" style="cursor:pointer">Back to Login</a>
-				</div>
+				<button class="auth-btn" id="reset-submit" style="margin:0">Set New Password</button>
+				<div class="auth-error" id="reset-error" style="margin:0"></div>
 			</div>
 		</div>
 
