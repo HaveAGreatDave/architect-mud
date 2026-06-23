@@ -119,6 +119,7 @@ function fetchEmailForUsername(username) {
 function openForgotWindow() {
   document.getElementById('forgot-message').textContent = '';
   document.getElementById('forgot-email').value = '';
+  state.send_password = '';
   document.getElementById('forgot-username-error').style.display = 'none';
   document.getElementById('forgot-submit').disabled = true;
   _forgotWindow.style.display = '';
