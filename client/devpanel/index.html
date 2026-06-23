@@ -2791,6 +2791,18 @@ function furnitureEditForm(rec, isNew) {
         <div style="font-size:10px;color:var(--text-dim);margin-top:3px">${isCustom ? `Custom (default for ${rec.light_type||'this type'}: ${defaultLm} lm)` : `Default for ${rec.light_type||'this type'} — clear to reset`}<br>lamp≈400 lm · overhead≈1200 lm · streetlight≈8000 lm</div>`;
       })()}
     </div>
+    <div class="field">
+      <label>Interactions</label>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;padding:6px 0">
+        ${['sit','lie','lean'].map(i => {
+          const checked = (rec.flags?.interactions || []).includes(i) ? 'checked' : '';
+          return `<label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;font-weight:normal">
+            <input type="checkbox" id="f-ix-${i}" ${checked} style="accent-color:var(--accent)"> ${i}
+          </label>`;
+        }).join('')}
+      </div>
+      <div style="font-size:10px;color:var(--text-dim);margin-top:2px">Which commands players can use on this piece of furniture.</div>
+    </div>
   `;
 }
 async function saveFurniture(existing) {
@@ -2801,7 +2813,7 @@ async function saveFurniture(existing) {
     name: document.getElementById('f-name').value,
     description: document.getElementById('f-description').value,
     zone_id: document.getElementById('f-zone_id').value || null,
-    flags: existing?.flags || {},
+    flags: { ...(existing?.flags || {}), interactions: ['sit','lie','lean'].filter(i => document.getElementById(`f-ix-${i}`)?.checked) },
     object_type: objectType,
     light_type: isLight ? (document.getElementById('f-light_type')?.value || 'lamp') : null,
     light_on: isLight ? Number(document.getElementById('f-light_on')?.value || 0) : 0,
