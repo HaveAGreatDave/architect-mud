@@ -142,6 +142,7 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path==='/world/reload' && method==='POST') return requireDev(auth, ()=>apiReloadZone(body));
   if (path==='/players/online' && method==='GET') return { status:200, body: getAllLivePlayers().map(p=>({ id: p.id, handle: p.handle, role: p.role, current_zone: p.current_zone })) };
   if (path==='/players' && method==='GET') return requireAdmin(auth, apiGetPlayers);
+  if (path.startsWith('/players/') && method==='PUT' && !path.endsWith('/role') && !path.endsWith('/kick') && !path.endsWith('/teleport')) return requireAdmin(auth, ()=>apiUpdatePlayer(path.split('/')[2], body));
   if (path.startsWith('/players/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeletePlayer(path.split('/')[2]));
   if (path.startsWith('/players/') && path.endsWith('/smite') && method==='POST') return requireAdmin(auth, ()=>apiSmitePlayer(path.split('/')[2]));
   if (path.startsWith('/players/') && path.endsWith('/whisper') && method==='POST') return requireAdmin(auth, ()=>apiWhisperPlayer(path.split('/')[2], body));
@@ -764,9 +765,49 @@ async function apiReloadZone(body) {
   return {status:200,body:{message:`Zone ${body.zone_id} reloaded`}};
 }
 async function apiGetPlayers() {
-  const {rows}=await query('SELECT id,username,handle,role,current_zone,credits,created_at,last_seen FROM players');
+  const {rows}=await query(`SELECT id,username,handle,role,current_zone,anchor_zone,credits,bank_credits,
+    hp,hp_max,sanity,sanity_max,hunger,thirst,radiation,stamina,stamina_max,body_temp_c,
+    stat_brawn,stat_reflexes,stat_endurance,stat_brains,stat_senses,stat_cool,ip,
+    origin_fragment,archetype,visibly_mutated,offline_sleeping,created_at,last_seen FROM players`);
   const online = new Set(getAllLivePlayers().map(p=>p.id));
   return {status:200,body:rows.map(r=>({...r,online:online.has(r.id)}))};
+}
+
+async function apiUpdatePlayer(id, body) {
+  const EDITABLE = [
+    'handle','username','role','current_zone','anchor_zone',
+    'credits','bank_credits','hp','hp_max','sanity','sanity_max',
+    'hunger','thirst','radiation','stamina','stamina_max','body_temp_c',
+    'stat_brawn','stat_reflexes','stat_endurance','stat_brains','stat_senses','stat_cool','ip',
+    'origin_fragment','archetype','visibly_mutated',
+  ];
+  const {rows:existing}=await query('SELECT * FROM players WHERE id=$1',[id]);
+  if (!existing.length) return {status:404,body:{error:'Player not found'}};
+
+  const sets=[]; const vals=[];
+  for (const key of EDITABLE) {
+    if (!(key in body)) continue;
+    sets.push(`${key}=$${vals.length+1}`);
+    vals.push(body[key]);
+  }
+  if (!sets.length) return {status:400,body:{error:'No editable fields provided'}};
+  vals.push(id);
+  const {rows}=await query(`UPDATE players SET ${sets.join(',')} WHERE id=$${vals.length} RETURNING *`,vals);
+  const updated=rows[0];
+
+  // Sync live player object if online
+  const live=getAllLivePlayers().find(p=>p.id===id);
+  if (live) {
+    const LIVE_FIELDS=['handle','role','current_zone','anchor_zone','credits','bank_credits',
+      'hp','hp_max','sanity','sanity_max','hunger','thirst','radiation','stamina','stamina_max',
+      'body_temp_c','stat_brawn','stat_reflexes','stat_endurance','stat_brains','stat_senses','stat_cool','ip',
+      'origin_fragment','archetype','visibly_mutated'];
+    for (const f of LIVE_FIELDS) if (f in body) live[f]=updated[f];
+    broadcastFn(null,{type:'player_update',hp:live.hp,hp_max:live.hp_max,sanity:live.sanity,
+      sanity_max:live.sanity_max,hunger:live.hunger,thirst:live.thirst,radiation:live.radiation,
+      credits:live.credits,stamina:live.stamina,stamina_max:live.stamina_max},null,id);
+  }
+  return {status:200,body:{updated:true,player:updated}};
 }
 
 async function apiDeletePlayer(id) {
