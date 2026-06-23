@@ -1057,7 +1057,7 @@ async function seedAmbientEvents() {
 
   // Password reset infrastructure
   await query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS email TEXT`);
-  await query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_players_email ON players(email) WHERE email IS NOT NULL`);
+  await query(`DROP INDEX IF EXISTS idx_players_email`);
   await query(`
     CREATE TABLE IF NOT EXISTS password_reset_tokens (
       id         TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
