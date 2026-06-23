@@ -10,7 +10,7 @@ import { handleWorldValidatorApi } from './worldvalidator.routes.js';
 import { handleStagingApi } from './staging.routes.js';
 import { fireRoutes, fireHook } from '../engine/plugins.js';
 import { handlePlayerDeath } from '../engine/gameLoop.js';
-import { reloadWindows as reloadWindowsEnv } from '../engine/environment.js';
+import { reloadWindows as reloadWindowsEnv, recomputePower } from '../engine/environment.js';
 import { ensureTunables } from '../engine/tunables.js';
 import { startingIp } from '../engine/ip.js';
 
@@ -647,6 +647,7 @@ export async function apiUpdateFurniture(id, body) {
       const zid = updated[0].zone_id;
       const { rows: lc } = await query(`SELECT COUNT(*)::int AS cnt, COALESCE(SUM(COALESCE(lumen_output,0)),0)::int AS lm FROM furniture WHERE zone_id=$1 AND object_type='light' AND light_on=1`, [zid]);
       await query(`UPDATE lighting_states SET fixture_count=$1, total_lumens=$2 WHERE zone_id=$3`, [lc[0]?.cnt||0, lc[0]?.lm||0, zid]).catch(()=>{});
+      await recomputePower().catch(()=>{});
     }
     return {status:200,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
