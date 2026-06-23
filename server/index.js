@@ -401,6 +401,8 @@ async function finishAuth(ws, session, player) {
 		stamina_max: player.stamina_max ?? 100,
 		body_temp_c: player.body_temp_c ?? 37.0,
 		insulation: 0,
+		wetness: 0,
+		_prevWetness: 0,
 	};
 	setLivePlayer(player.id, livePlayer);
 	await recomputeArmor(livePlayer);

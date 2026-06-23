@@ -314,11 +314,32 @@ async function resourceTick() {
     const effectiveAmbient = zone?.flags?.is_interior
       ? Math.max(15, Math.min(25, rawAmbient))
       : rawAmbient;
-    const insulation = player.insulation || 0;
-    // Drift rate: 0.5°C/tick at insulation=0, down to ~0.05 at insulation=180+
-    const driftRate = Math.max(0.05, 0.5 * (1 - insulation / 200));
-    const delta = effectiveAmbient - (player.body_temp_c ?? 37.0);
-    player.body_temp_c = Math.round(((player.body_temp_c ?? 37.0) + Math.sign(delta) * Math.min(Math.abs(delta), driftRate)) * 10) / 10;
+
+    // Effective temperature = ambient + clothing insulation (insulation in °C offset).
+    const effectiveTemp = effectiveAmbient + (player.insulation || 0);
+    const playerWetness = player.wetness ?? 0;
+    const DELTA_TIME = 60; // seconds per tick
+
+    // Cooling: body loses heat when effective temp is below the cooling threshold.
+    // Wet clothing lowers the threshold and amplifies the rate.
+    const coolingThreshold = playerWetness === 0 ? 25 : playerWetness < 100 ? 28 : 31;
+    if (effectiveTemp < coolingThreshold) {
+      const diff    = coolingThreshold - effectiveTemp;
+      const wetMult = 1 + (playerWetness / 100);
+      player.body_temp_c = (player.body_temp_c ?? 37.0) - (0.0008 + diff * 0.00015) * wetMult * DELTA_TIME;
+    }
+
+    // Heating: body gains heat when effective temp is above the heating threshold.
+    // Wet clothing slows overheating via evaporative cooling (clamped at 30% reduction).
+    const heatingThreshold = playerWetness === 0 ? 34 : 35;
+    if (effectiveTemp > heatingThreshold) {
+      const diff    = effectiveTemp - heatingThreshold;
+      const wetMult = Math.max(0.70, 1 - playerWetness * 0.003);
+      player.body_temp_c = (player.body_temp_c ?? 37.0) + (0.0008 + diff * 0.00015) * wetMult * DELTA_TIME;
+    }
+
+    // Clamp to survivable range; prevents runaway values on extreme ticks.
+    player.body_temp_c = Math.round(Math.max(25, Math.min(45, player.body_temp_c ?? 37.0)) * 10) / 10;
 
     // Temperature effects
     const tempC = player.body_temp_c;

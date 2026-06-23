@@ -122,6 +122,9 @@ const state = {
   lastTick24h: 0,
   activeClimateProfileId: null,
   activeClimateProfile: null,  // { monthly_temp_c: [...12], monthly_precip_chance: [...12] }
+  currentPrecip: 'none',       // 'none' | 'rain' | 'snow' — live state, updated each 30-min tick
+  precipIntensity: 'none',     // 'none' | 'light' | 'medium' | 'heavy'
+  precipRate: 0,               // wetness gain per item per minute (0 when dry)
 };
 
 let deps = { query: null, emitHook: null, broadcast: null };
@@ -235,7 +238,7 @@ export async function initEnvironment({ query, emitHook, broadcast }) {
   // Weather plugin initializes the forecast via this hook. Must run before
   // loadZonePowerAndLighting + recalcAmbientAndVisibility so state.weatherType
   // is populated when those functions read it.
-  if (emitHook) await emitHook('environment.init', { setWeatherState, climateProfile: state.activeClimateProfile });
+  if (emitHook) await emitHook('environment.init', { setWeatherState, setCurrentPrecip, climateProfile: state.activeClimateProfile });
 
   await loadZonePowerAndLighting(query);
   await loadWindows(query);
@@ -553,7 +556,7 @@ async function tick30m() {
   if (broadcast) broadcast({ type: 'environment.sync', ...payload });
 
   if (emitHook) {
-    await emitHook('environment.tick30m', payload);
+    await emitHook('environment.tick30m', { ...payload, setCurrentPrecip, getHUDPayload, broadcast });
     if (prevPhase !== state.phase) {
       if (state.phase === 'day' && prevPhase === 'dawn') await emitHook('environment.sunrise', payload);
       if (state.phase === 'night' && prevPhase === 'dusk') await emitHook('environment.sunset', payload);
@@ -997,6 +1000,8 @@ export function getHUDPayload() {
     timeIcon: phase.icon,
     frozen: state.frozen,
     activeClimateProfileId: state.activeClimateProfileId,
+    currentWeatherType: state.currentPrecip === 'none' ? state.weatherType : state.currentPrecip,
+    currentPrecipIntensity: state.precipIntensity,
   };
 }
 
@@ -1011,6 +1016,14 @@ export function setWeatherState(weatherType, tempC, forecast) {
   if (weatherType !== undefined) state.weatherType = weatherType;
   if (tempC !== undefined) state.tempC = tempC;
   if (forecast !== undefined) state.forecast = forecast;
+}
+
+// Setter used by the clothing-wetness plugin to update live precipitation state.
+// Separate from the daily forecast weatherType — this changes every 30-min tick.
+export function setCurrentPrecip(type, intensity, rate) {
+  state.currentPrecip   = type      ?? 'none';
+  state.precipIntensity = intensity ?? 'none';
+  state.precipRate      = rate      ?? 0;
 }
 
 const WEATHER_DESCRIPTIONS = {
@@ -1050,7 +1063,7 @@ export function getPowerMap() {
 }
 
 export function getEnvironmentState() {
-  return { ...getHUDPayload(), ambientLight: state.ambientLight, forecast: getForecast(), powerMap: getPowerMap() };
+  return { ...getHUDPayload(), ambientLight: state.ambientLight, forecast: getForecast(), powerMap: getPowerMap(), precipRate: state.precipRate, currentPrecip: state.currentPrecip };
 }
 
 // ---------------------------------------------------------------------------

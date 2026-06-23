@@ -292,6 +292,8 @@
   #env-hud-sidebar .env-icon { font-size: 15px; }
   #env-hud-sidebar .env-clock { color: var(--text-bright); font-weight: bold; letter-spacing: 0.5px; }
   #env-hud-sidebar .env-temp { color: var(--cyan); margin-left: auto; }
+  #env-hud-sidebar .env-weather-label { color: var(--text); font-size: 11px; }
+  #env-hud-sidebar .env-precip-label { color: var(--blue); font-size: 11px; }
 
   /* Forecast panel — mirrors the dialogue panel's modal pattern */
   #forecast-panel {
@@ -1037,6 +1039,8 @@
   #mobile-env .env-clock { color: var(--text-bright); font-weight: bold; font-size: 11px; }
   #mobile-env .env-temp { color: var(--cyan); font-size: 10px; }
   #mobile-env .env-icon { font-size: 13px; }
+  #mobile-env .env-weather-label { color: var(--text); font-size: 9px; }
+  #mobile-env .env-precip-label { color: var(--blue); font-size: 9px; }
 
   #mobile-chat-btn {
     background: transparent;

@@ -28,21 +28,33 @@ function formatHHMM(m) {
 let clientMinutes = null;
 let envWeatherIcon = '—';
 let envTempC = null;
+let envCurrentWeatherType = null;
+let envCurrentPrecipIntensity = null;
 
 function renderEnvironmentHUD() {
   if (clientMinutes === null) return;
   const timeStr = formatHHMM(clientMinutes);
   const timeIcon = timeIconForMinutes(clientMinutes);
   const tempStr = envTempC !== null ? `${envTempC}°C` : '—°C';
+  const weatherLabel = envCurrentWeatherType
+    ? envCurrentWeatherType.charAt(0).toUpperCase() + envCurrentWeatherType.slice(1)
+    : '';
+  const precipLabel = envCurrentPrecipIntensity && envCurrentPrecipIntensity !== 'none'
+    ? envCurrentPrecipIntensity.charAt(0).toUpperCase() + envCurrentPrecipIntensity.slice(1)
+    : '';
   for (const suffix of ['', '-m']) {
-    const w = document.getElementById(`env-weather-icon${suffix}`);
-    const c = document.getElementById(`env-clock${suffix}`);
-    const t = document.getElementById(`env-time-icon${suffix}`);
-    const p = document.getElementById(`env-temp${suffix}`);
-    if (w) w.textContent = envWeatherIcon;
-    if (c) c.textContent = timeStr;
-    if (t) t.textContent = timeIcon;
-    if (p) p.textContent = tempStr;
+    const w  = document.getElementById(`env-weather-icon${suffix}`);
+    const c  = document.getElementById(`env-clock${suffix}`);
+    const t  = document.getElementById(`env-time-icon${suffix}`);
+    const p  = document.getElementById(`env-temp${suffix}`);
+    const wl = document.getElementById(`env-weather-type${suffix}`);
+    const pl = document.getElementById(`env-precip-intensity${suffix}`);
+    if (w)  w.textContent  = envWeatherIcon;
+    if (c)  c.textContent  = timeStr;
+    if (t)  t.textContent  = timeIcon;
+    if (p)  p.textContent  = tempStr;
+    if (wl) wl.textContent = weatherLabel;
+    if (pl) pl.textContent = precipLabel;
   }
 }
 
@@ -53,6 +65,8 @@ export function updateEnvironmentHUD(env) {
   clientMinutes = parseHHMM(env.time);
   if (env.weatherIcon !== undefined) envWeatherIcon = env.weatherIcon || '—';
   if (env.tempC !== undefined) envTempC = env.tempC;
+  if (env.currentWeatherType !== undefined) envCurrentWeatherType = env.currentWeatherType;
+  if (env.currentPrecipIntensity !== undefined) envCurrentPrecipIntensity = env.currentPrecipIntensity;
   _lastServerTick = Date.now();
   renderEnvironmentHUD();
 }
