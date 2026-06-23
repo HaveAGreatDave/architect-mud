@@ -41,6 +41,7 @@ const TICK_24H_MS = 24 * 60 * 60 * 1000;
 const MAX_CATCHUP_DAYS = 30;
 
 const WEATHER_TYPES = ['clear','cloudy','overcast','rain','sleet','thunderstorm','storm','snow','blizzard','fog','haze','ash'];
+const PRECIP_FORECAST_TYPES = new Set(['rain','thunderstorm','storm','sleet','snow','blizzard']);
 
 const WEATHER_ICON = {
   clear:        '☀️',
@@ -1000,7 +1001,12 @@ export function getHUDPayload() {
     timeIcon: phase.icon,
     frozen: state.frozen,
     activeClimateProfileId: state.activeClimateProfileId,
-    currentWeatherType: state.currentPrecip === 'none' ? state.weatherType : state.currentPrecip,
+    currentWeatherType: state.currentPrecip !== 'none'
+      ? state.currentPrecip
+      : (PRECIP_FORECAST_TYPES.has(state.weatherType) ? 'cloudy' : state.weatherType),
+    currentWeatherIcon: WEATHER_ICON[state.currentPrecip !== 'none'
+      ? state.currentPrecip
+      : (PRECIP_FORECAST_TYPES.has(state.weatherType) ? 'cloudy' : state.weatherType)],
     currentPrecipIntensity: state.precipIntensity,
   };
 }

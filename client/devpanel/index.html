@@ -4778,7 +4778,7 @@ function renderTimeWeatherPanel(data) {
           <div><div style="color:var(--text-dim);font-size:10px;margin-bottom:2px">TIME</div><div id="tw-live-clock" style="color:var(--text-bright);font-size:18px;font-weight:700">${timeStr}</div></div>
           <div><div style="color:var(--text-dim);font-size:10px;margin-bottom:2px">DATE</div><div style="color:var(--text)">${env.date||'—'}</div></div>
           <div><div style="color:var(--text-dim);font-size:10px;margin-bottom:2px">SEASON</div><div style="color:var(--text)">${env.season||'—'}</div></div>
-          <div><div style="color:var(--text-dim);font-size:10px;margin-bottom:2px">WEATHER</div><div style="color:var(--text)">${env.weatherIcon||''} ${env.weatherType||'—'}</div></div>
+          <div><div style="color:var(--text-dim);font-size:10px;margin-bottom:2px">WEATHER</div><div style="color:var(--text)">${env.currentWeatherIcon||''} ${env.currentWeatherType||'—'}</div>${env.currentWeatherType!==env.weatherType?`<div style="color:var(--text-dim);font-size:10px;margin-top:2px">forecast: ${env.weatherType}</div>`:''}</div>
           <div><div style="color:var(--text-dim);font-size:10px;margin-bottom:2px">TEMPERATURE</div><div style="color:var(--text)">${env.tempC!=null?env.tempC+'°C':'—'}</div></div>
           <div><div style="color:var(--text-dim);font-size:10px;margin-bottom:2px">STATUS</div><div style="color:${env.frozen?'var(--red)':'var(--accent2)'}">${env.frozen?'⏸ Frozen':'▶ Running'}</div></div>
         </div>
