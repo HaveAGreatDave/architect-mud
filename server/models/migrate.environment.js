@@ -110,6 +110,11 @@ export async function migrateEnvironment(query) {
   await query(`UPDATE furniture SET power_draw_kw = 200 WHERE light_type = 'streetlight'`);
   await query(`UPDATE furniture SET power_draw_kw = 20  WHERE object_type = 'light' AND light_type = 'overhead' AND power_draw_kw IS NULL`);
   await query(`UPDATE furniture SET power_draw_kw = 5   WHERE object_type = 'light' AND power_draw_kw IS NULL`);
+  // Add lumen_output to furniture and back-fill defaults per light type.
+  await query(`ALTER TABLE furniture ADD COLUMN IF NOT EXISTS lumen_output INTEGER`);
+  await query(`UPDATE furniture SET lumen_output = 8000 WHERE object_type = 'light' AND light_type = 'streetlight' AND lumen_output IS NULL`);
+  await query(`UPDATE furniture SET lumen_output = 1200 WHERE object_type = 'light' AND light_type = 'overhead'   AND lumen_output IS NULL`);
+  await query(`UPDATE furniture SET lumen_output = 400  WHERE object_type = 'light' AND lumen_output IS NULL`);
 
   await query(`
     CREATE TABLE IF NOT EXISTS power_zones (
@@ -132,6 +137,7 @@ export async function migrateEnvironment(query) {
       fixture_count INTEGER NOT NULL DEFAULT 0
     )
   `);
+  await query(`ALTER TABLE lighting_states ADD COLUMN IF NOT EXISTS total_lumens INTEGER NOT NULL DEFAULT 0`);
 
   // Seed a default city grid + plant only on a fresh database (no generators
   // exist yet). Skipped on subsequent starts so manually deleted generators

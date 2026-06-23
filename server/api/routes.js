@@ -622,8 +622,9 @@ export async function apiCreateFurniture(body) {
   try {
     const pdraw = body.power_draw_kw != null ? Number(body.power_draw_kw) : null;
     const isLight = body.object_type === 'light';
-    await query(`INSERT INTO furniture (id,zone_id,name,description,object_type,light_on,light_type,power_draw_kw,flags) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-      [id, body.zone_id, body.name, body.description||'', body.object_type||'furniture', isLight?(body.light_on?1:0):0, isLight?(body.light_type||'lamp'):null, pdraw, JSON.stringify(body.flags||{})]);
+    const lumenOut = isLight && body.lumen_output != null ? Number(body.lumen_output) : null;
+    await query(`INSERT INTO furniture (id,zone_id,name,description,object_type,light_on,light_type,power_draw_kw,lumen_output,flags) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+      [id, body.zone_id, body.name, body.description||'', body.object_type||'furniture', isLight?(body.light_on?1:0):0, isLight?(body.light_type||'lamp'):null, pdraw, lumenOut, JSON.stringify(body.flags||{})]);
     return {status:201,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
@@ -636,6 +637,7 @@ export async function apiUpdateFurniture(id, body) {
     if (body.flags!=null) { sets.push(`flags=$${i++}`); vals.push(JSON.stringify(body.flags)); }
     if (body.light_on!=null) { sets.push(`light_on=$${i++}`); vals.push(body.light_on?1:0); }
     if (body.power_draw_kw!=null) { sets.push(`power_draw_kw=$${i++}`); vals.push(body.power_draw_kw === '' ? null : Number(body.power_draw_kw)); }
+    if (body.lumen_output!=null) { sets.push(`lumen_output=$${i++}`); vals.push(body.lumen_output === '' ? null : Number(body.lumen_output)); }
     if (!sets.length) return {status:400,body:{error:'nothing to update'}};
     vals.push(id);
     await query(`UPDATE furniture SET ${sets.join(',')} WHERE id=$${i}`, vals);
@@ -652,7 +654,7 @@ async function apiBulkAddStreetlights(auth) {
   const { rows: templates } = await query(
     `SELECT * FROM furniture WHERE object_type='light' AND light_type='streetlight' LIMIT 1`
   );
-  const t = templates[0] || { name: 'Street Light', description: 'A tall metal post topped with a flickering sodium lamp.', object_type: 'light', light_type: 'streetlight', power_draw_kw: 0.2, flags: {} };
+  const t = templates[0] || { name: 'Street Light', description: 'A tall metal post topped with a flickering sodium lamp.', object_type: 'light', light_type: 'streetlight', power_draw_kw: 200, lumen_output: 8000, flags: {} };
   const { rows: zones } = await query(`
     SELECT z.id, z.name FROM zones z
     WHERE NOT COALESCE((z.flags->>'is_interior')::boolean, false)
@@ -670,7 +672,7 @@ async function apiBulkAddStreetlights(auth) {
   let added = 0;
   for (const zone of zones) {
     const furnitureId = `furn_sl_${zone.id}`;
-    const requestBody = { id: furnitureId, zone_id: zone.id, name: t.name, description: t.description, object_type: t.object_type, light_type: t.light_type, light_on: 0, power_draw_kw: t.power_draw_kw, flags: t.flags || {} };
+    const requestBody = { id: furnitureId, zone_id: zone.id, name: t.name, description: t.description, object_type: t.object_type, light_type: t.light_type, light_on: 0, power_draw_kw: t.power_draw_kw, lumen_output: t.lumen_output ?? 8000, flags: t.flags || {} };
     await query(`
       INSERT INTO staged_changes (id, entity_type, entity_id, entity_name, change_type, method, api_path, staged_data, description, author, staged_at)
       VALUES (gen_random_uuid()::text, 'furniture', $1, $2, 'create', 'POST', '/furniture', $3, $4, $5, NOW())

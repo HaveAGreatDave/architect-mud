@@ -342,12 +342,12 @@ async function seed() {
       VALUES ($1, $2, $3, $4, $5, $6, 'powered')
       ON CONFLICT (id) DO UPDATE SET name = $2, source_type = $3, generator_id = $4, capacity_kw = $5
     `, [zoneId, zoneRow?.name || zoneId, sourceType, generatorId, capacityKw, loadKw]);
-    const { rows: fixtureRows } = await query(`SELECT COUNT(*)::int AS cnt FROM furniture WHERE zone_id=$1 AND object_type='light'`, [zoneId]);
+    const { rows: fixtureRows } = await query(`SELECT COUNT(*)::int AS cnt, COALESCE(SUM(COALESCE(lumen_output,0)),0)::int AS lm FROM furniture WHERE zone_id=$1 AND object_type='light'`, [zoneId]);
     await query(`
-      INSERT INTO lighting_states (zone_id, has_emergency_lighting, artificial_light_level, fixture_count)
-      VALUES ($1, 0, 0, $2)
-      ON CONFLICT (zone_id) DO UPDATE SET fixture_count = $2
-    `, [zoneId, fixtureRows[0]?.cnt || 0]);
+      INSERT INTO lighting_states (zone_id, has_emergency_lighting, artificial_light_level, fixture_count, total_lumens)
+      VALUES ($1, 0, 0, $2, $3)
+      ON CONFLICT (zone_id) DO UPDATE SET fixture_count = $2, total_lumens = $3
+    `, [zoneId, fixtureRows[0]?.cnt || 0, fixtureRows[0]?.lm || 0]);
   }
   for (const zoneId of outdoorZoneIds) await seedPowerZone(zoneId, 'city_plant', 'city_grid', 500, 12);
   const embassyZoneIds = ['zone_residential_lobby','zone_apt_1','zone_apt_2','zone_apt_3','zone_apt_4'];

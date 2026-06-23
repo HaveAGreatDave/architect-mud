@@ -2574,7 +2574,7 @@ function furnitureEditForm(rec, isNew) {
       </select>
     </div>` : `<input type="hidden" id="f-zone_id" value="${rec.zone_id||''}">`}
     <div class="field"><label>Object Type</label>
-      <select id="f-object_type" onchange="const show=this.value==='light';['f-light-fields','f-lighton-field','f-powerdraw-field'].forEach(function(id){document.getElementById(id).style.display=show?'':'none';})">
+      <select id="f-object_type" onchange="const show=this.value==='light';['f-light-fields','f-lighton-field','f-powerdraw-field','f-lumens-field'].forEach(function(id){document.getElementById(id).style.display=show?'':'none';})">
         <option value="furniture" ${(!rec.object_type||rec.object_type==='furniture')?'selected':''}>Furniture</option>
         <option value="light" ${rec.object_type==='light'?'selected':''}>Light</option>
         <option value="fixture" ${rec.object_type==='fixture'?'selected':''}>Fixture</option>
@@ -2610,6 +2610,17 @@ function furnitureEditForm(rec, isNew) {
         <div style="font-size:10px;color:var(--text-dim);margin-top:3px">${isCustom ? `Custom (default for ${rec.light_type||'this type'}: ${defaultW}W)` : `Default for ${rec.light_type||'this type'} — clear to reset`}</div>`;
       })()}
     </div>
+    <div class="field" id="f-lumens-field" style="${rec.object_type==='light'?'':'display:none'}">
+      <label>Lumen Output</label>
+      ${(() => {
+        const LUMEN_DEFAULTS = { streetlight: 8000, overhead: 1200, lamp: 400 };
+        const defaultLm = LUMEN_DEFAULTS[rec.light_type] ?? 400;
+        const effectiveLm = rec.lumen_output ?? defaultLm;
+        const isCustom = rec.lumen_output != null;
+        return `<input id="f-lumen_output" type="number" min="0" step="50" value="${effectiveLm}">
+        <div style="font-size:10px;color:var(--text-dim);margin-top:3px">${isCustom ? `Custom (default for ${rec.light_type||'this type'}: ${defaultLm} lm)` : `Default for ${rec.light_type||'this type'} — clear to reset`}<br>lamp≈400 lm · overhead≈1200 lm · streetlight≈8000 lm</div>`;
+      })()}
+    </div>
   `;
 }
 async function saveFurniture(existing) {
@@ -2627,6 +2638,8 @@ async function saveFurniture(existing) {
   };
   const pdEl = document.getElementById('f-power_draw_kw');
   if (pdEl) body.power_draw_kw = pdEl.value.trim() === '' ? null : Number(pdEl.value);
+  const lmEl = document.getElementById('f-lumen_output');
+  if (lmEl) body.lumen_output = lmEl.value.trim() === '' ? null : Number(lmEl.value);
   if (isNew) { body.id = document.getElementById('f-id').value.trim(); return API('/furniture', 'POST', body); }
   return API(`/furniture/${existing.id}`, 'PUT', body);
 }

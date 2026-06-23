@@ -120,10 +120,10 @@ async function cmdSwitch(targetStr, player) {
   const newState = light.light_on ? 0 : 1;
   await query(`UPDATE furniture SET light_on=$1 WHERE id=$2`, [newState, light.id]);
   const { rows: countRows } = await query(
-    `SELECT COUNT(*)::int AS cnt FROM furniture WHERE zone_id=$1 AND object_type='light' AND light_on=1`,
+    `SELECT COUNT(*)::int AS cnt, COALESCE(SUM(COALESCE(lumen_output,0)),0)::int AS lm FROM furniture WHERE zone_id=$1 AND object_type='light' AND light_on=1`,
     [player.current_zone]
   );
-  await query(`UPDATE lighting_states SET fixture_count=$1 WHERE zone_id=$2`, [countRows[0]?.cnt || 0, player.current_zone]).catch(()=>{});
+  await query(`UPDATE lighting_states SET fixture_count=$1, total_lumens=$2 WHERE zone_id=$3`, [countRows[0]?.cnt || 0, countRows[0]?.lm || 0, player.current_zone]).catch(()=>{});
   await recalcZoneLoad(query, player.current_zone).catch(()=>{});
   await recomputePower().catch(()=>{});
   return { type:'action', message: newState
@@ -154,10 +154,10 @@ async function cmdTurn(args, player) {
   }
   await query(`UPDATE furniture SET light_on=$1 WHERE id=$2`, [newState, light.id]);
   const { rows: countRows } = await query(
-    `SELECT COUNT(*)::int AS cnt FROM furniture WHERE zone_id=$1 AND object_type='light' AND light_on=1`,
+    `SELECT COUNT(*)::int AS cnt, COALESCE(SUM(COALESCE(lumen_output,0)),0)::int AS lm FROM furniture WHERE zone_id=$1 AND object_type='light' AND light_on=1`,
     [player.current_zone]
   );
-  await query(`UPDATE lighting_states SET fixture_count=$1 WHERE zone_id=$2`, [countRows[0]?.cnt || 0, player.current_zone]).catch(()=>{});
+  await query(`UPDATE lighting_states SET fixture_count=$1, total_lumens=$2 WHERE zone_id=$3`, [countRows[0]?.cnt || 0, countRows[0]?.lm || 0, player.current_zone]).catch(()=>{});
   await recalcZoneLoad(query, player.current_zone).catch(()=>{});
   await recomputePower().catch(()=>{});
   return { type:'action', message: newState

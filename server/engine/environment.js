@@ -391,12 +391,16 @@ export async function setWindowState(windowId, updates) {
   return w;
 }
 
+// Lumen thresholds for the log curve. 400 lm (1 lamp) → ~0.64 (just clear);
+// 1200 lm (1 overhead) → ~0.73; 8000 lm (streetlight) → ~0.95; 12000+ → 1.0.
+const LUMEN_LOG_SCALE = 400;
+const LUMEN_LOG_SAT   = 12000;
+
 function computeArtificialLight(powerStatus, light) {
   if (powerStatus === 'powered') {
-    const fixtures = light ? (light.fixture_count || 0) : 0;
-    if (fixtures === 0) return 0.3; // powered but no lights on → dim ambient
-    // 1 fixture = 0.7 (clear), each additional adds up to 1.0 at 4+
-    return clamp01(0.6 + 0.4 * Math.min(1, fixtures / 4));
+    const lumens = light ? (light.total_lumens || 0) : 0;
+    if (lumens === 0) return 0.3; // powered but no lights on → dim ambient
+    return clamp01(0.55 + 0.45 * Math.log(1 + lumens / LUMEN_LOG_SCALE) / Math.log(1 + LUMEN_LOG_SAT / LUMEN_LOG_SCALE));
   }
   if (powerStatus === 'overloaded') return 0.6;
   return light && light.has_emergency_lighting ? EMERGENCY_LIGHT_LEVEL : 0.0;
@@ -624,7 +628,7 @@ async function applyPowerLightEffects(query, zoneId, prevStatus, newStatus, avai
     await query(`UPDATE furniture SET light_on_intended = COALESCE(light_on_intended, light_on) WHERE zone_id=$1 AND object_type='light' AND light_type != 'streetlight'`, [zoneId]);
     await query(`UPDATE furniture SET light_on=0 WHERE zone_id=$1 AND object_type='light'`, [zoneId]);
     // Do NOT zero current_load_kw — demand stays constant; only available_kw=0 signals no supply.
-    await query(`UPDATE lighting_states SET fixture_count=0 WHERE zone_id=$1`, [zoneId]).catch(() => {});
+    await query(`UPDATE lighting_states SET fixture_count=0, total_lumens=0 WHERE zone_id=$1`, [zoneId]).catch(() => {});
     if (broadcast && prevStatus !== 'offline') {
       const { text: nameStr, isSingular } = _fmtLightNames(activeLights.map(l => l.name));
       const CUTOUT_MSGS = [
@@ -684,8 +688,8 @@ async function applyPowerLightEffects(query, zoneId, prevStatus, newStatus, avai
     }
 
     await recalcZoneLoad(query, zoneId);
-    const { rows: lc } = await query(`SELECT COUNT(*)::int AS cnt FROM furniture WHERE zone_id=$1 AND object_type='light' AND light_on=1`, [zoneId]);
-    await query(`UPDATE lighting_states SET fixture_count=$1 WHERE zone_id=$2`, [lc[0]?.cnt || 0, zoneId]).catch(() => {});
+    const { rows: lc } = await query(`SELECT COUNT(*)::int AS cnt, COALESCE(SUM(COALESCE(lumen_output,0)),0)::int AS lm FROM furniture WHERE zone_id=$1 AND object_type='light' AND light_on=1`, [zoneId]);
+    await query(`UPDATE lighting_states SET fixture_count=$1, total_lumens=$2 WHERE zone_id=$3`, [lc[0]?.cnt || 0, lc[0]?.lm || 0, zoneId]).catch(() => {});
 
     if (broadcast) {
       if (forcedOff.length) {
@@ -709,8 +713,8 @@ async function applyPowerLightEffects(query, zoneId, prevStatus, newStatus, avai
     const isDark = state.phase === 'night' || state.phase === 'dusk';
     await query(`UPDATE furniture SET light_on=$1, light_on_intended=NULL WHERE zone_id=$2 AND light_type='streetlight'`, [isDark ? 1 : 0, zoneId]);
     await recalcZoneLoad(query, zoneId);
-    const { rows: lc } = await query(`SELECT COUNT(*)::int AS cnt FROM furniture WHERE zone_id=$1 AND object_type='light' AND light_on=1`, [zoneId]);
-    await query(`UPDATE lighting_states SET fixture_count=$1 WHERE zone_id=$2`, [lc[0]?.cnt || 0, zoneId]).catch(() => {});
+    const { rows: lc2 } = await query(`SELECT COUNT(*)::int AS cnt, COALESCE(SUM(COALESCE(lumen_output,0)),0)::int AS lm FROM furniture WHERE zone_id=$1 AND object_type='light' AND light_on=1`, [zoneId]);
+    await query(`UPDATE lighting_states SET fixture_count=$1, total_lumens=$2 WHERE zone_id=$3`, [lc2[0]?.cnt || 0, lc2[0]?.lm || 0, zoneId]).catch(() => {});
     if (broadcast) {
       broadcast(zoneId, { type: 'zone_event', message: '<span class="power-restore">Emergency power hums to life. The lights come back on.</span><br>', refresh: true });
     }
@@ -762,12 +766,20 @@ async function simulatePowerNetwork(query, { weatherType }) {
       )
     )
   `, [isDark]);
-  // Sync fixture counts so visibility is always based on current light_on state.
+  // Sync fixture counts and total lumens so visibility is always based on current light_on state.
   await query(`
-    UPDATE lighting_states ls SET fixture_count = (
-      SELECT COUNT(*)::int FROM furniture f
-      WHERE f.zone_id = ls.zone_id AND f.object_type = 'light' AND f.light_on = 1
-    )
+    UPDATE lighting_states ls
+    SET fixture_count = sub.cnt,
+        total_lumens  = sub.lm
+    FROM (
+      SELECT zone_id,
+             COUNT(*)::int AS cnt,
+             COALESCE(SUM(COALESCE(lumen_output, 0)), 0)::int AS lm
+      FROM furniture
+      WHERE object_type = 'light' AND light_on = 1
+      GROUP BY zone_id
+    ) sub
+    WHERE ls.zone_id = sub.zone_id
   `).catch(() => {});
   const { rows: allZones } = await query('SELECT * FROM power_zones');
   const zonesByGen = new Map();
@@ -1261,12 +1273,12 @@ export async function installGenerator({ zoneId, generatorType = 'junction_box',
        ON CONFLICT (id) DO UPDATE SET name=$2, source_type=$3, generator_id=$4, capacity_kw=$5`,
       [zid, zName, generatorType === 'city_plant' ? 'city_grid' : 'junction_box', id, capacity]
     );
-    const { rows: fixtureRows } = await query(`SELECT COUNT(*)::int AS cnt FROM furniture WHERE zone_id=$1 AND object_type='light'`, [zid]);
+    const { rows: fixtureRows } = await query(`SELECT COUNT(*)::int AS cnt, COALESCE(SUM(COALESCE(lumen_output,0)),0)::int AS lm FROM furniture WHERE zone_id=$1 AND object_type='light'`, [zid]);
     await query(
-      `INSERT INTO lighting_states (zone_id, has_emergency_lighting, artificial_light_level, fixture_count)
-       VALUES ($1,0,0,$2)
-       ON CONFLICT (zone_id) DO UPDATE SET fixture_count=$2`,
-      [zid, fixtureRows[0]?.cnt || 0]
+      `INSERT INTO lighting_states (zone_id, has_emergency_lighting, artificial_light_level, fixture_count, total_lumens)
+       VALUES ($1,0,0,$2,$3)
+       ON CONFLICT (zone_id) DO UPDATE SET fixture_count=$2, total_lumens=$3`,
+      [zid, fixtureRows[0]?.cnt || 0, fixtureRows[0]?.lm || 0]
     );
   }
 
@@ -1355,11 +1367,11 @@ export async function fixZonePowerConnections() {
        ON CONFLICT (id) DO UPDATE SET source_type='city_grid', generator_id=$3, capacity_kw=$4, max_capacity_kw=$4`,
       [zone.id, zone.name, nearest.id, nearest.capacity_kw]
     );
-    const { rows: ls } = await query(`SELECT COUNT(*)::int AS cnt FROM furniture WHERE zone_id=$1 AND object_type='light'`, [zone.id]);
+    const { rows: ls } = await query(`SELECT COUNT(*)::int AS cnt, COALESCE(SUM(COALESCE(lumen_output,0)),0)::int AS lm FROM furniture WHERE zone_id=$1 AND object_type='light'`, [zone.id]);
     await query(
-      `INSERT INTO lighting_states (zone_id, has_emergency_lighting, artificial_light_level, fixture_count)
-       VALUES ($1, 0, 0, $2) ON CONFLICT (zone_id) DO UPDATE SET fixture_count=$2`,
-      [zone.id, ls[0]?.cnt || 0]
+      `INSERT INTO lighting_states (zone_id, has_emergency_lighting, artificial_light_level, fixture_count, total_lumens)
+       VALUES ($1, 0, 0, $2, $3) ON CONFLICT (zone_id) DO UPDATE SET fixture_count=$2, total_lumens=$3`,
+      [zone.id, ls[0]?.cnt || 0, ls[0]?.lm || 0]
     );
     connected.push({ zoneId: zone.id, zoneName: zone.name, generatorName: nearest.name });
   }
@@ -1425,11 +1437,11 @@ export async function fixBuildingPowerConnections() {
            ON CONFLICT (id) DO UPDATE SET source_type='building_generator', generator_id=$3, capacity_kw=$4`,
           [zid, zName, gen.id, gen.capacity_kw]
         );
-        const { rows: ls } = await query(`SELECT COUNT(*)::int AS cnt FROM furniture WHERE zone_id=$1 AND object_type='light'`, [zid]);
+        const { rows: ls } = await query(`SELECT COUNT(*)::int AS cnt, COALESCE(SUM(COALESCE(lumen_output,0)),0)::int AS lm FROM furniture WHERE zone_id=$1 AND object_type='light'`, [zid]);
         await query(
-          `INSERT INTO lighting_states (zone_id, has_emergency_lighting, artificial_light_level, fixture_count)
-           VALUES ($1, 0, 0, $2) ON CONFLICT (zone_id) DO UPDATE SET fixture_count=$2`,
-          [zid, ls[0]?.cnt || 0]
+          `INSERT INTO lighting_states (zone_id, has_emergency_lighting, artificial_light_level, fixture_count, total_lumens)
+           VALUES ($1, 0, 0, $2, $3) ON CONFLICT (zone_id) DO UPDATE SET fixture_count=$2, total_lumens=$3`,
+          [zid, ls[0]?.cnt || 0, ls[0]?.lm || 0]
         );
       }
       results.connected.push({ buildingName, generatorName: gen.name, zonesCount: toFix.length });
