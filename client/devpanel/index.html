@@ -189,7 +189,7 @@ const API = async (path, method = 'GET', body = null) => {
 
   // Intercept entity writes and route them to staging.
   // Excluded: sub-resource operations (rooms, build) and complex multi-step paths.
-  const STAGING_EXCLUDED = [/\/zones\/[^/]+\/rooms/, /\/apartments\/build/, /\/apartments\//];
+  const STAGING_EXCLUDED = [/\/zones\/[^/]+\/rooms/, /\/apartments\/build/, /\/apartments\//, /\/furniture\/bulk/];
   const entityType = getEntityType(path);
   const excluded = STAGING_EXCLUDED.some(re => re.test(path));
   if (stagingEnabled && entityType && !excluded && ['POST', 'PUT', 'DELETE'].includes(method)) {
