@@ -450,26 +450,41 @@ export async function migrate() {
   `);
   console.log('✓ Starter clothing migrated');
 
-  // Give starter clothing to any player who has none of the three items.
-  // Covers accounts created during the registration bug window. Idempotent —
-  // the WHERE NOT EXISTS check prevents duplicates on re-run.
+  // Back-fill starter clothing for players who are missing any of the three items,
+  // then equip them into the correct slot if that slot is free.
   for (const [itemId, slot] of [
     ['item_basic_shirt', 'torso'],
     ['item_basic_pants', 'legs'],
     ['item_basic_shoes', 'feet'],
   ]) {
+    // Insert the item (unequipped) for any player who doesn't have it yet.
     await query(`
       INSERT INTO player_inventory (id, player_id, item_id, quantity, condition, is_equipped, slot)
       SELECT gen_random_uuid()::text, p.id, $1, 1, 1.0, 0, null
       FROM players p
       WHERE p.role = 'player'
+        AND EXISTS (SELECT 1 FROM items WHERE id = $1)
         AND NOT EXISTS (
           SELECT 1 FROM player_inventory pi
           WHERE pi.player_id = p.id AND pi.item_id = $1
         )
     `, [itemId]);
+
+    // Equip that item into its slot for players whose slot is currently empty.
+    await query(`
+      UPDATE player_inventory pi
+      SET is_equipped = 1, slot = $2
+      WHERE pi.item_id = $1
+        AND pi.is_equipped = 0
+        AND NOT EXISTS (
+          SELECT 1 FROM player_inventory occupied
+          WHERE occupied.player_id = pi.player_id
+            AND occupied.is_equipped = 1
+            AND occupied.slot = $2
+        )
+    `, [itemId, slot]);
   }
-  console.log('✓ Starter clothing back-filled for itemless players');
+  console.log('✓ Starter clothing back-filled and equipped for existing players');
 
   await seedAmbientEvents();
   await seedWeatherAmbients();
