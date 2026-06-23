@@ -4863,7 +4863,7 @@ function renderTimeWeatherPanel(data) {
             <input id="tw-temp" type="number" value="${env.tempC??20}" style="margin-top:4px;width:80px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:5px 8px;border-radius:2px">
           </label>
           <label style="font-size:12px;color:var(--text-dim)">Precip Chance (%)<br>
-            <input id="tw-precip" type="number" min="0" max="100" value="${Math.round((WEATHER_PRECIP_CHANCE[forecast[0]?.weatherType]??0.05)*100)}" style="margin-top:4px;width:80px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:5px 8px;border-radius:2px">
+            <input id="tw-precip" type="number" min="0" max="100" value="${Math.round((forecast[0]?.precipChance ?? WEATHER_PRECIP_CHANCE[forecast[0]?.weatherType] ?? 0.05)*100)}" style="margin-top:4px;width:80px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:5px 8px;border-radius:2px">
           </label>
           <button class="action-btn" onclick="devApplyWeather()">Apply</button>
         </div>
