@@ -582,7 +582,96 @@ export async function migrate() {
     `);
   }
 
+  // Toilet and sink furniture in zone_start
+  await query(`
+    INSERT INTO furniture (id, zone_id, name, description, object_type, flags) VALUES
+      ('furniture_toilet_start', 'zone_start',
+        'Toilet',
+        'A standard-issue institutional toilet. It works. That''s the most you can say about it.',
+        'toilet',
+        '{"interactions":["flush"]}'::jsonb),
+      ('furniture_sink_start', 'zone_start',
+        'Sink',
+        'A wall-mounted sink with cold running water and a bar of grey soap of uncertain age.',
+        'sink',
+        '{"interactions":["wash hands"]}'::jsonb)
+    ON CONFLICT (id) DO NOTHING
+  `);
+
   console.log('✓ Biological accuracy systems migrated');
+
+  // Rename: zone_start (The Threshold) → zone_threshold
+  //         zone_clone_facility → zone_start (cloning facility becomes the true start)
+  // Idempotent: only runs while zone_start is still named "The Threshold"
+  await query(`
+    DO $$ BEGIN
+      IF EXISTS (SELECT 1 FROM zones WHERE id = 'zone_start' AND name LIKE '%Threshold%')
+         AND EXISTS (SELECT 1 FROM zones WHERE id = 'zone_clone_facility') THEN
+
+        -- Move MORPHEX to clone facility BEFORE the rename so it lands in new zone_start
+        UPDATE furniture SET zone_id = 'zone_clone_facility' WHERE id = 'furniture_morphex_start';
+
+        -- ── PHASE 1: zone_start → zone_threshold ──────────────────────────────
+        INSERT INTO zones (id, name, description, danger_rating, pvp_enabled, radiation_level,
+                           light_level, is_safe_zone, ambient_events, exits, flags,
+                           created_by, updated_at, map_id, grid_x, grid_y, grid_z,
+                           marker, color, bg_color, ambient_theme)
+        SELECT 'zone_threshold', name, description, danger_rating, pvp_enabled, radiation_level,
+               light_level, is_safe_zone, ambient_events, exits, flags,
+               created_by, updated_at, map_id, grid_x, grid_y, grid_z,
+               marker, color, bg_color, ambient_theme
+        FROM zones WHERE id = 'zone_start';
+
+        UPDATE players     SET current_zone   = 'zone_threshold' WHERE current_zone   = 'zone_start';
+        UPDATE players     SET anchor_zone    = 'zone_threshold' WHERE anchor_zone    = 'zone_start';
+        UPDATE zone_spawns SET zone_id        = 'zone_threshold' WHERE zone_id        = 'zone_start';
+        UPDATE furniture   SET zone_id        = 'zone_threshold' WHERE zone_id        = 'zone_start';
+        UPDATE windows     SET zone_interior  = 'zone_threshold' WHERE zone_interior  = 'zone_start';
+        UPDATE windows     SET zone_exterior  = 'zone_threshold' WHERE zone_exterior  = 'zone_start';
+        UPDATE generators  SET zone_id        = 'zone_threshold' WHERE zone_id        = 'zone_start';
+        UPDATE apartments  SET zone_id        = 'zone_threshold' WHERE zone_id        = 'zone_start';
+        UPDATE maps        SET entry_zone_id  = 'zone_threshold' WHERE entry_zone_id  = 'zone_start';
+        UPDATE maps        SET parent_zone_id = 'zone_threshold' WHERE parent_zone_id = 'zone_start';
+        -- Replace "zone_start" values in exits JSON across all zones
+        UPDATE zones SET exits = (
+          SELECT jsonb_object_agg(k, CASE WHEN v = 'zone_start' THEN 'zone_threshold' ELSE v END)
+          FROM jsonb_each_text(exits) t(k, v)
+        ) WHERE exits::text LIKE '%"zone_start"%';
+
+        DELETE FROM zones WHERE id = 'zone_start';
+
+        -- ── PHASE 2: zone_clone_facility → zone_start ─────────────────────────
+        INSERT INTO zones (id, name, description, danger_rating, pvp_enabled, radiation_level,
+                           light_level, is_safe_zone, ambient_events, exits, flags,
+                           created_by, updated_at, map_id, grid_x, grid_y, grid_z,
+                           marker, color, bg_color, ambient_theme)
+        SELECT 'zone_start', name, description, danger_rating, pvp_enabled, radiation_level,
+               light_level, is_safe_zone, ambient_events, exits, flags,
+               created_by, updated_at, map_id, grid_x, grid_y, grid_z,
+               marker, color, bg_color, ambient_theme
+        FROM zones WHERE id = 'zone_clone_facility';
+
+        UPDATE players     SET current_zone   = 'zone_start' WHERE current_zone   = 'zone_clone_facility';
+        UPDATE players     SET anchor_zone    = 'zone_start' WHERE anchor_zone    = 'zone_clone_facility';
+        UPDATE zone_spawns SET zone_id        = 'zone_start' WHERE zone_id        = 'zone_clone_facility';
+        UPDATE furniture   SET zone_id        = 'zone_start' WHERE zone_id        = 'zone_clone_facility';
+        UPDATE windows     SET zone_interior  = 'zone_start' WHERE zone_interior  = 'zone_clone_facility';
+        UPDATE windows     SET zone_exterior  = 'zone_start' WHERE zone_exterior  = 'zone_clone_facility';
+        UPDATE generators  SET zone_id        = 'zone_start' WHERE zone_id        = 'zone_clone_facility';
+        UPDATE apartments  SET zone_id        = 'zone_start' WHERE zone_id        = 'zone_clone_facility';
+        UPDATE maps        SET entry_zone_id  = 'zone_start' WHERE entry_zone_id  = 'zone_clone_facility';
+        UPDATE maps        SET parent_zone_id = 'zone_start' WHERE parent_zone_id = 'zone_clone_facility';
+        UPDATE zones SET exits = (
+          SELECT jsonb_object_agg(k, CASE WHEN v = 'zone_clone_facility' THEN 'zone_start' ELSE v END)
+          FROM jsonb_each_text(exits) t(k, v)
+        ) WHERE exits::text LIKE '%"zone_clone_facility"%';
+
+        DELETE FROM zones WHERE id = 'zone_clone_facility';
+
+      END IF;
+    END $$;
+  `);
+  console.log('✓ Zone rename: clone facility → zone_start, threshold → zone_threshold');
 
   await seedAmbientEvents();
   await seedWeatherAmbients();

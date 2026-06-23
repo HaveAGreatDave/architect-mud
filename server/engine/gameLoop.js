@@ -1,4 +1,5 @@
 import { world, tickSpawns, getRandomAmbient, getWeatherAmbient, getLivePlayer, getInterruptLoudness, registerInterrupt, createCorpse } from './world.js';
+import { randomUUID } from 'crypto';
 import { propagateSound } from './sounds.js';
 import { enemyAttackPlayer, isOnCooldown } from './combat.js';
 import { tickEffects } from './effects.js';
@@ -157,6 +158,24 @@ export function handlePlayerDeath(player, killer) {
   for (const [,zone] of world.zones) zone.players.delete(player.id);
   world.zones.get(respawnZone)?.players.add(player.id);
   player.current_zone = respawnZone;
+
+  // Equip fresh underwear — fresh clone, fresh start
+  const sex = player.biological_sex || 'male';
+  if (sex === 'male') {
+    query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,is_equipped,slot)
+           SELECT $1,$2,i.id,1,1.0,1,'legs' FROM items i WHERE i.id='item_underwear_male'
+           AND NOT EXISTS (SELECT 1 FROM player_inventory WHERE player_id=$2 AND item_id='item_underwear_male' AND is_equipped=1)`,
+      [randomUUID(), player.id]).catch(() => {});
+  } else {
+    query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,is_equipped,slot)
+           SELECT $1,$2,i.id,1,1.0,1,'torso' FROM items i WHERE i.id='item_underwear_female_top'
+           AND NOT EXISTS (SELECT 1 FROM player_inventory WHERE player_id=$2 AND item_id='item_underwear_female_top' AND is_equipped=1)`,
+      [randomUUID(), player.id]).catch(() => {});
+    query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,is_equipped,slot)
+           SELECT $1,$2,i.id,1,1.0,1,'legs' FROM items i WHERE i.id='item_underwear_female_bottom'
+           AND NOT EXISTS (SELECT 1 FROM player_inventory WHERE player_id=$2 AND item_id='item_underwear_female_bottom' AND is_equipped=1)`,
+      [randomUUID(), player.id]).catch(() => {});
+  }
 
   // Fire hook
   fireHook('player.death', player, killer).catch(()=>{});

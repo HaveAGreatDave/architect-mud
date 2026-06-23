@@ -237,21 +237,53 @@ async function cmdInsert(args, raw, player, broadcast) {
   return { type:'output', message: `You press your ${what} into ${locationName}.` };
 }
 
-async function cmdWash(args, raw, player) {
-  // Requires water item in inventory
+async function cmdWashHands(player) {
   const { rows } = await query(
-    `SELECT pi.id, pi.quantity FROM player_inventory pi
-     JOIN items i ON i.id=pi.item_id
-     WHERE pi.player_id=$1 AND (i.tags->>'restore_thirst' IS NOT NULL OR i.name ILIKE '%water%') LIMIT 1`,
-    [player.id]
+    `SELECT id FROM furniture WHERE zone_id=$1 AND object_type='sink' LIMIT 1`,
+    [player.current_zone]
   );
-  if (!rows.length) return { type:'error', message:`You need water to wash yourself.` };
+  if (!rows.length) return { type:'error', message:`There's no sink here.` };
+
+  let msg = `You wash your hands at the sink.`;
+  if (isMisActive(player)) {
+    const washed = await washEjaculate(player);
+    if (washed) msg = `You wash your hands and clean yourself up at the sink.`;
+  }
+  return { type:'output', message: msg };
+}
+
+async function cmdWash(args, raw, player) {
+  if (args[0] === 'hands') return cmdWashHands(player);
+
+  // Accepts: a sink in the zone OR a water item in inventory
+  const { rows: sinkRows } = await query(
+    `SELECT id FROM furniture WHERE zone_id=$1 AND object_type='sink' LIMIT 1`,
+    [player.current_zone]
+  );
+  const hasSink = sinkRows.length > 0;
+
+  let waterRow = null;
+  if (!hasSink) {
+    const { rows } = await query(
+      `SELECT pi.id, pi.quantity FROM player_inventory pi
+       JOIN items i ON i.id=pi.item_id
+       WHERE pi.player_id=$1 AND (i.tags->>'restore_thirst' IS NOT NULL OR i.name ILIKE '%water%') LIMIT 1`,
+      [player.id]
+    );
+    if (!rows.length) return { type:'error', message:`You need a sink or water to wash yourself.` };
+    waterRow = rows[0];
+  }
+
   const washed = await washEjaculate(player);
   if (!washed) return { type:'output', message:`You're already clean.` };
-  // Consume the water
-  if (rows[0].quantity > 1) await query('UPDATE player_inventory SET quantity=quantity-1 WHERE id=$1', [rows[0].id]);
-  else await query('DELETE FROM player_inventory WHERE id=$1', [rows[0].id]);
-  return { type:'output', message:`You use the water to clean yourself off. Better.` };
+
+  if (waterRow) {
+    if (waterRow.quantity > 1) await query('UPDATE player_inventory SET quantity=quantity-1 WHERE id=$1', [waterRow.id]);
+    else await query('DELETE FROM player_inventory WHERE id=$1', [waterRow.id]);
+  }
+
+  const src = hasSink ? `the sink` : `the water`;
+  return { type:'output', message:`You use ${src} to clean yourself off. Better.` };
 }
 
 export const handlers = {

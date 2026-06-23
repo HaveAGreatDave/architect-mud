@@ -1,190 +1,262 @@
 /**
  * Cosmetic machine (MORPHEX 9000) interaction handler.
- * Triggered by: use morphex, use makeover, use biosculpt
+ * Free first change ever; 10₵ per attribute after. Genital size: 5₵/unit (MIS only).
  *
- * Free first session per player. 50₵ after. Genital size adjustments: 5₵/unit.
- * Multi-step: the server sends a structured prompt and the client responds.
+ * Usage:
+ *   morphex                       — show menu
+ *   morphex sex <male|female>     — sex reassignment
+ *   morphex hair color <color>    — change hair color
+ *   morphex hair length <length>  — change hair length
+ *   morphex hair style <style>    — change hair style
+ *   morphex eye color <color>     — change eye color
+ *   morphex height <cm>           — change height (150–210)
+ *   morphex weight <kg>           — change weight (40–150)
+ *   morphex penis <cm>            — set penis length (MIS only, 5₵/cm delta)
+ *   morphex breast <size>         — set breast size (MIS only, 5₵/tier delta)
  */
 import { query } from '../../models/db.js';
 import { randomAppearance } from '../appearance.js';
-import { isMisServerEnabled } from '../mis.js';
+import { isMisServerEnabled, isMisActive } from '../mis.js';
+import { randomUUID } from 'crypto';
+
+const HAIR_COLORS  = ['black','dark brown','brown','auburn','dirty blonde','blonde','red','grey','white','silver','dyed blue','dyed green','dyed purple','dyed red'];
+const HAIR_LENGTHS = ['shaved','short','medium','long','very_long'];
+const HAIR_STYLES  = ['short','long','mohawk','shaved','dreadlocks','braided','messy','slicked-back','curly','wavy'];
+const EYE_COLORS   = ['brown','dark brown','blue','light blue','green','hazel','grey','amber'];
+const BREAST_SIZES = ['flat','small','medium','large','very large'];
+const BREAST_MAP   = { flat:0, small:1, medium:2, large:3, 'very large':4 };
 
 const MACHINE_NAMES = ['morphex', 'biosculpt', 'makeover', 'morphex 9000'];
 
-async function cmdUseCosmeticMachine(args, raw, player) {
-  // Check if we're targeting the machine by name
-  const target = args.join(' ').toLowerCase();
-  if (target && !MACHINE_NAMES.some(n => target.includes(n))) return null; // not our target
-
-  // Check if there's a cosmetic machine in this zone
-  const { rows: machines } = await query(
+async function getMachine(zoneId) {
+  const { rows } = await query(
     `SELECT id FROM furniture WHERE zone_id=$1 AND object_type='cosmetic_machine' LIMIT 1`,
-    [player.current_zone]
+    [zoneId]
   );
-  if (!machines.length) return null; // no machine here, let other handlers try
+  return rows[0] || null;
+}
 
-  const isFree = !player.appearance_free_used;
-  const cost = isFree ? 0 : 50;
+function chargeCheck(player) {
+  // Returns { ok, cost } — free if first ever change, else 10₵.
+  if (!player.appearance_free_used) return { ok: true, cost: 0 };
+  const cost = 10;
+  if ((player.credits || 0) < cost) return { ok: false, cost };
+  return { ok: true, cost };
+}
 
-  if (!isFree && (player.credits || 0) < cost) {
+async function applyCharge(player, cost) {
+  player.appearance_free_used = 1;
+  player.credits = (player.credits || 0) - cost;
+  await query('UPDATE players SET appearance_free_used=1, credits=$1 WHERE id=$2', [player.credits, player.id]);
+}
+
+function morphexMenu(player) {
+  const isMis = isMisActive(player);
+  const p = player;
+  const current = [
+    `sex: ${p.biological_sex || 'unknown'}`,
+    `hair: ${p.hair_style || '?'} ${p.hair_color || '?'} (${p.hair_length || '?'})`,
+    `eyes: ${p.eye_color || '?'}`,
+    `height: ${p.height_cm || '?'}cm`,
+    `weight: ${p.weight_kg || '?'}kg`,
+  ].join(' | ');
+
+  const freeNote = p.appearance_free_used
+    ? `<span style="color:var(--text-dim)">10₵ per modification.</span>`
+    : `<span style="color:var(--accent)">First modification: FREE.</span>`;
+
+  let menu = `<span style="color:var(--accent)">MORPHEX 9000 BioSculpt Terminal</span>\n` +
+    `<span style="color:var(--text-dim)">${current}</span>\n\n` +
+    `${freeNote}\n\n` +
+    `<span style="color:var(--text-dim)">morphex sex &lt;male|female&gt;</span>     — sex reassignment\n` +
+    `<span style="color:var(--text-dim)">morphex hair color &lt;color&gt;</span>    — change hair color\n` +
+    `<span style="color:var(--text-dim)">morphex hair length &lt;length&gt;</span>  — change hair length\n` +
+    `<span style="color:var(--text-dim)">morphex hair style &lt;style&gt;</span>    — change hair style\n` +
+    `<span style="color:var(--text-dim)">morphex eye color &lt;color&gt;</span>     — change eye color\n` +
+    `<span style="color:var(--text-dim)">morphex height &lt;cm&gt;</span>           — height (150–210)\n` +
+    `<span style="color:var(--text-dim)">morphex weight &lt;kg&gt;</span>           — weight (40–150)\n`;
+
+  if (isMis) {
+    menu += `\n<span style="color:var(--text-dim)">morphex penis &lt;cm&gt;</span>            — penis length (5₵/cm)\n` +
+      `<span style="color:var(--text-dim)">morphex breast &lt;size&gt;</span>          — breast size (5₵/tier)\n`;
+  }
+
+  menu += `\nHair colors: ${HAIR_COLORS.join(', ')}\n` +
+    `Hair styles: ${HAIR_STYLES.join(', ')}\n` +
+    `Hair lengths: ${HAIR_LENGTHS.join(', ')}\n` +
+    `Eye colors: ${EYE_COLORS.join(', ')}`;
+
+  if (isMis) {
+    menu += `\nBreast sizes: ${BREAST_SIZES.join(', ')}`;
+  }
+
+  return { type: 'output', message: menu };
+}
+
+async function cmdMorphex(args, raw, player) {
+  // Check targeting by name if args provided
+  if (args.length && !MACHINE_NAMES.some(n => [args[0], args.slice(0,2).join(' ')].includes(n))) {
+    // Not targeting the machine by name — check if first arg is a sub-command
+    const sub = args[0]?.toLowerCase();
+    const validSubs = ['sex','hair','eye','height','weight','penis','breast'];
+    if (!validSubs.includes(sub)) return null; // not our command
+  }
+
+  if (!await getMachine(player.current_zone)) return null;
+
+  // No sub-command → show menu
+  if (!args.length || MACHINE_NAMES.some(n => args.join(' ').toLowerCase() === n)) {
+    return morphexMenu(player);
+  }
+
+  const sub = args[0].toLowerCase();
+  const rest = args.slice(1);
+
+  // sex reassignment
+  if (sub === 'sex') {
+    const newSex = rest[0]?.toLowerCase();
+    if (newSex !== 'male' && newSex !== 'female') {
+      return { type: 'error', message: `Usage: morphex sex <male|female>` };
+    }
+    if (player.biological_sex === newSex) {
+      return { type: 'output', message: `The machine scans you and reports: you're already ${newSex}.` };
+    }
+    const { ok, cost } = chargeCheck(player);
+    if (!ok) return { type: 'error', message: `Insufficient funds — 10₵ required. You have ${player.credits||0}₵.` };
+
+    const newApp = randomAppearance(newSex);
+    player.biological_sex = newSex;
+    player.appearance_data = newApp.appearance_data;
+    await applyCharge(player, cost);
+    await query('UPDATE players SET biological_sex=$1, appearance_data=$2 WHERE id=$3',
+      [newSex, JSON.stringify(newApp.appearance_data), player.id]);
+
+    const costMsg = cost === 0 ? `(complimentary first session)` : `(-${cost}₵)`;
     return {
       type: 'output',
-      message: `The MORPHEX 9000 flashes: <span style="color:var(--red)">INSUFFICIENT FUNDS — 50₵ REQUIRED.</span> You only have ${player.credits||0}₵.`,
+      message: `The MORPHEX 9000 reconfigures. You step out biologically ${newSex}. ${costMsg}`,
+      player_update: { credits: player.credits },
     };
   }
 
-  // Generate a new appearance preserving sex unless they'll change it
-  const newAppearance = randomAppearance(player.biological_sex || 'male');
+  // hair color / hair length / hair style
+  if (sub === 'hair') {
+    const attr = rest[0]?.toLowerCase();
+    const val  = rest.slice(1).join(' ').toLowerCase();
+    if (!attr || !val) return { type: 'error', message: `Usage: morphex hair color|length|style <value>` };
 
-  // Apply
-  player.hair_style   = newAppearance.hair_style;
-  player.hair_length  = newAppearance.hair_length;
-  player.hair_color   = newAppearance.hair_color;
-  player.eye_color    = newAppearance.eye_color;
-  player.height_cm    = newAppearance.height_cm;
-  player.weight_kg    = newAppearance.weight_kg;
-  player.appearance_free_used = 1;
-
-  const updates = {
-    hair_style:   newAppearance.hair_style,
-    hair_length:  newAppearance.hair_length,
-    hair_color:   newAppearance.hair_color,
-    eye_color:    newAppearance.eye_color,
-    height_cm:    newAppearance.height_cm,
-    weight_kg:    newAppearance.weight_kg,
-    appearance_free_used: 1,
-  };
-
-  if (!isFree) {
-    player.credits = (player.credits || 0) - cost;
-    updates.credits = player.credits;
+    if (attr === 'color') {
+      if (!HAIR_COLORS.includes(val)) return { type: 'error', message: `Unknown hair color. Options: ${HAIR_COLORS.join(', ')}` };
+      const { ok, cost } = chargeCheck(player);
+      if (!ok) return { type: 'error', message: `Insufficient funds — 10₵ required.` };
+      player.hair_color = val;
+      await applyCharge(player, cost);
+      await query('UPDATE players SET hair_color=$1 WHERE id=$2', [val, player.id]);
+      return { type: 'output', message: `Done. Your hair is now ${val}. ${cost ? `(-${cost}₵)` : '(free)'}`, player_update: { credits: player.credits } };
+    }
+    if (attr === 'length') {
+      if (!HAIR_LENGTHS.includes(val)) return { type: 'error', message: `Unknown length. Options: ${HAIR_LENGTHS.join(', ')}` };
+      const { ok, cost } = chargeCheck(player);
+      if (!ok) return { type: 'error', message: `Insufficient funds — 10₵ required.` };
+      player.hair_length = val;
+      await applyCharge(player, cost);
+      await query('UPDATE players SET hair_length=$1 WHERE id=$2', [val, player.id]);
+      return { type: 'output', message: `Done. Hair length adjusted to ${val}. ${cost ? `(-${cost}₵)` : '(free)'}`, player_update: { credits: player.credits } };
+    }
+    if (attr === 'style') {
+      if (!HAIR_STYLES.includes(val)) return { type: 'error', message: `Unknown style. Options: ${HAIR_STYLES.join(', ')}` };
+      const { ok, cost } = chargeCheck(player);
+      if (!ok) return { type: 'error', message: `Insufficient funds — 10₵ required.` };
+      player.hair_style = val;
+      await applyCharge(player, cost);
+      await query('UPDATE players SET hair_style=$1 WHERE id=$2', [val, player.id]);
+      return { type: 'output', message: `Done. Hair styled to ${val}. ${cost ? `(-${cost}₵)` : '(free)'}`, player_update: { credits: player.credits } };
+    }
+    return { type: 'error', message: `Usage: morphex hair color|length|style <value>` };
   }
 
-  const keys = Object.keys(updates);
-  const sets = keys.map((k, i) => `${k}=$${i+1}`).join(',');
-  const vals = [...keys.map(k => updates[k]), player.id];
-  await query(`UPDATE players SET ${sets} WHERE id=$${vals.length}`, vals);
-
-  const costMsg = isFree
-    ? `<span style="color:var(--accent)">COMPLIMENTARY SESSION — first visit free.</span>`
-    : `<span style="color:var(--text-dim)">50₵ charged. Balance: ${player.credits}₵.</span>`;
-
-  const sexNote = isMisServerEnabled()
-    ? `\n<span style="color:var(--text-dim)">Sex change and genital size adjustments are available — ask staff or use the terminal's advanced menu (if unlocked).</span>`
-    : '';
-
-  return {
-    type: 'output',
-    message: `The MORPHEX 9000 hums to life. You step into the scanner pod.\n\n` +
-      `${costMsg}\n\n` +
-      `The machine works quickly. When the pod hisses open you feel different — you ARE different.\n\n` +
-      `<span style="color:var(--text-dim)">New appearance:</span>\n` +
-      `${newAppearance.hair_style} ${newAppearance.hair_color} hair (${newAppearance.hair_length}), ` +
-      `${newAppearance.eye_color} eyes, ${newAppearance.height_cm}cm, ${newAppearance.weight_kg}kg.` +
-      sexNote,
-    player_update: { credits: player.credits },
-  };
-}
-
-// Sex change — separate command, costs 50₵ (or free if first use still available)
-async function cmdChangeSex(args, raw, player) {
-  const { rows: machines } = await query(
-    `SELECT id FROM furniture WHERE zone_id=$1 AND object_type='cosmetic_machine' LIMIT 1`,
-    [player.current_zone]
-  );
-  if (!machines.length) return { type:'error', message:`There's no cosmetic terminal here.` };
-
-  const newSex = args[0]?.toLowerCase();
-  if (newSex !== 'male' && newSex !== 'female') {
-    return { type:'error', message:`Usage: changesex male / changesex female` };
-  }
-  if (player.biological_sex === newSex) {
-    return { type:'output', message:`You're already ${newSex}. The machine shrugs.` };
+  // eye color
+  if (sub === 'eye') {
+    const val = (rest[0]?.toLowerCase() === 'color' ? rest.slice(1) : rest).join(' ').toLowerCase();
+    if (!EYE_COLORS.includes(val)) return { type: 'error', message: `Unknown eye color. Options: ${EYE_COLORS.join(', ')}` };
+    const { ok, cost } = chargeCheck(player);
+    if (!ok) return { type: 'error', message: `Insufficient funds — 10₵ required.` };
+    player.eye_color = val;
+    await applyCharge(player, cost);
+    await query('UPDATE players SET eye_color=$1 WHERE id=$2', [val, player.id]);
+    return { type: 'output', message: `Done. Your eyes are now ${val}. ${cost ? `(-${cost}₵)` : '(free)'}`, player_update: { credits: player.credits } };
   }
 
-  const isFree = !player.appearance_free_used;
-  const cost = isFree ? 0 : 50;
-  if (!isFree && (player.credits || 0) < cost) {
-    return { type:'error', message:`Not enough credits. Sex reassignment costs 50₵. You have ${player.credits||0}₵.` };
+  // height
+  if (sub === 'height') {
+    const cm = parseInt(rest[0]);
+    if (isNaN(cm) || cm < 150 || cm > 210) return { type: 'error', message: `Height must be 150–210cm.` };
+    const { ok, cost } = chargeCheck(player);
+    if (!ok) return { type: 'error', message: `Insufficient funds — 10₵ required.` };
+    player.height_cm = cm;
+    await applyCharge(player, cost);
+    await query('UPDATE players SET height_cm=$1 WHERE id=$2', [cm, player.id]);
+    return { type: 'output', message: `Done. Height adjusted to ${cm}cm. ${cost ? `(-${cost}₵)` : '(free)'}`, player_update: { credits: player.credits } };
   }
 
-  // Generate new genital appearance
-  const newApp = randomAppearance(newSex);
-  player.biological_sex = newSex;
-  player.appearance_data = newApp.appearance_data;
-  player.appearance_free_used = 1;
-  if (!isFree) player.credits = (player.credits || 0) - cost;
-
-  await query(
-    'UPDATE players SET biological_sex=$1, appearance_data=$2, appearance_free_used=1, credits=$3 WHERE id=$4',
-    [newSex, JSON.stringify(newApp.appearance_data), player.credits, player.id]
-  );
-
-  return {
-    type: 'output',
-    message: `The MORPHEX 9000 goes quiet for a long moment, then: <span style="color:var(--accent)">RECONFIGURATION COMPLETE.</span>\n` +
-      `You step out different. You're now biologically ${newSex}.`,
-    player_update: { credits: player.credits },
-  };
-}
-
-// Genital size adjustment — 5₵ per unit
-async function cmdAdjustSize(args, raw, player) {
-  if (!isMisServerEnabled()) return { type:'error', message:`That feature isn't available.` };
-  const { rows: machines } = await query(
-    `SELECT id FROM furniture WHERE zone_id=$1 AND object_type='cosmetic_machine' LIMIT 1`,
-    [player.current_zone]
-  );
-  if (!machines.length) return { type:'error', message:`There's no cosmetic terminal here.` };
-
-  // args: "size penis 2" or "size breast large"
-  if (args.length < 2) return { type:'error', message:`Usage: adjustsize <attribute> <amount>` };
-  const attr = args[0].toLowerCase();
-  const val = args[1];
-
-  const appData = player.appearance_data || {};
-
-  let costUnits = 1;
-  let changed = false;
-
-  if (attr === 'penis' && player.biological_sex === 'male') {
-    const delta = parseInt(val);
-    if (isNaN(delta) || delta < 1 || delta > 10) return { type:'error', message:`Enter a size increase of 1–10 cm.` };
-    costUnits = delta;
-    const totalCost = costUnits * 5;
-    if ((player.credits || 0) < totalCost) return { type:'error', message:`Costs 5₵/cm. That's ${totalCost}₵ — you have ${player.credits||0}₵.` };
-    appData.penis_length_cm = (appData.penis_length_cm || 12) + delta;
-    player.credits -= totalCost;
-    changed = true;
-    await query('UPDATE players SET appearance_data=$1, credits=$2 WHERE id=$3', [JSON.stringify(appData), player.credits, player.id]);
-    return { type:'output', message:`Done. The machine hums approvingly. (-${totalCost}₵)`, player_update: { credits: player.credits } };
+  // weight
+  if (sub === 'weight') {
+    const kg = parseInt(rest[0]);
+    if (isNaN(kg) || kg < 40 || kg > 150) return { type: 'error', message: `Weight must be 40–150kg.` };
+    const { ok, cost } = chargeCheck(player);
+    if (!ok) return { type: 'error', message: `Insufficient funds — 10₵ required.` };
+    player.weight_kg = kg;
+    await applyCharge(player, cost);
+    await query('UPDATE players SET weight_kg=$1 WHERE id=$2', [kg, player.id]);
+    return { type: 'output', message: `Done. Weight adjusted to ${kg}kg. ${cost ? `(-${cost}₵)` : '(free)'}`, player_update: { credits: player.credits } };
   }
 
-  if (attr === 'breast' && player.biological_sex === 'female') {
-    const sizeMap = { flat:0, small:1, medium:2, large:3, 'very large':4 };
-    const current = sizeMap[appData.breast_size || 'medium'] || 2;
-    const targetKey = val.toLowerCase();
-    const targetVal = sizeMap[targetKey];
-    if (targetVal === undefined) return { type:'error', message:`Valid sizes: flat, small, medium, large, "very large"` };
-    const delta = Math.max(0, targetVal - current);
+  // penis — MIS only
+  if (sub === 'penis') {
+    if (!isMisActive(player)) return { type: 'error', message: `That option isn't available.` };
+    if (player.biological_sex !== 'male') return { type: 'error', message: `Not applicable.` };
+    const targetCm = parseInt(rest[0]);
+    if (isNaN(targetCm) || targetCm < 5 || targetCm > 30) return { type: 'error', message: `Enter a target length in cm (5–30).` };
+    const appData = player.appearance_data || {};
+    const current = appData.penis_length_cm || 12;
+    const delta = Math.abs(targetCm - current);
     const totalCost = Math.max(5, delta * 5);
-    if ((player.credits || 0) < totalCost) return { type:'error', message:`Costs 5₵/size. That's ${totalCost}₵ — you have ${player.credits||0}₵.` };
-    appData.breast_size = targetKey;
-    player.credits -= totalCost;
+    if ((player.credits || 0) < totalCost) return { type: 'error', message: `Costs 5₵/cm — ${totalCost}₵ total. You have ${player.credits||0}₵.` };
+    appData.penis_length_cm = targetCm;
+    player.appearance_data = appData;
+    player.credits = (player.credits || 0) - totalCost;
     await query('UPDATE players SET appearance_data=$1, credits=$2 WHERE id=$3', [JSON.stringify(appData), player.credits, player.id]);
-    return { type:'output', message:`Done. The machine does something you'd rather not think about. (-${totalCost}₵)`, player_update: { credits: player.credits } };
+    return { type: 'output', message: `Done. (-${totalCost}₵)`, player_update: { credits: player.credits } };
   }
 
-  return { type:'error', message:`Can't adjust that, or wrong sex for that attribute.` };
+  // breast — MIS only
+  if (sub === 'breast') {
+    if (!isMisActive(player)) return { type: 'error', message: `That option isn't available.` };
+    if (player.biological_sex !== 'female') return { type: 'error', message: `Not applicable.` };
+    const targetSize = rest.join(' ').toLowerCase();
+    if (BREAST_MAP[targetSize] === undefined) return { type: 'error', message: `Valid sizes: ${BREAST_SIZES.join(', ')}` };
+    const appData = player.appearance_data || {};
+    const current = BREAST_MAP[appData.breast_size || 'medium'] ?? 2;
+    const delta = Math.abs(BREAST_MAP[targetSize] - current);
+    const totalCost = Math.max(5, delta * 5);
+    if ((player.credits || 0) < totalCost) return { type: 'error', message: `Costs 5₵/tier — ${totalCost}₵ total. You have ${player.credits||0}₵.` };
+    appData.breast_size = targetSize;
+    player.appearance_data = appData;
+    player.credits = (player.credits || 0) - totalCost;
+    await query('UPDATE players SET appearance_data=$1, credits=$2 WHERE id=$3', [JSON.stringify(appData), player.credits, player.id]);
+    return { type: 'output', message: `Done. (-${totalCost}₵)`, player_update: { credits: player.credits } };
+  }
+
+  return morphexMenu(player);
 }
 
 export const handlers = {
-  use: async (args, raw, player, broadcast) => {
-    const result = await cmdUseCosmeticMachine(args, raw, player);
-    return result; // null means not our target — index.js will try other handlers
+  use: async (args, raw, player) => {
+    const target = args.join(' ').toLowerCase();
+    if (!MACHINE_NAMES.some(n => target.includes(n))) return null;
+    return cmdMorphex([], raw, player);
   },
-  morphex:    (args, raw, player) => cmdUseCosmeticMachine([], raw, player),
-  makeover:   (args, raw, player) => cmdUseCosmeticMachine([], raw, player),
-  changesex:  (args, raw, player) => cmdChangeSex(args, raw, player),
-  adjustsize: (args, raw, player) => cmdAdjustSize(args, raw, player),
+  morphex:  (args, raw, player) => cmdMorphex(args, raw, player),
+  makeover: (args, raw, player) => cmdMorphex(args, raw, player),
+  biosculpt:(args, raw, player) => cmdMorphex(args, raw, player),
 };

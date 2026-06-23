@@ -6,7 +6,7 @@ import { describeZone } from './describe.js';
 import { getMinimapData, addPlayerToZone, removePlayerFromZone } from '../world.js';
 import { statCost, raiseStat, RAISABLE_STATS } from '../ip.js';
 import { ensureTunables } from '../tunables.js';
-import { physicalDescription, ejaculateDescription } from '../appearance.js';
+import { physicalDescription, ejaculateDescription, describeGenitals } from '../appearance.js';
 import { isMisActive, erectionVisibilityNote, nippleVisibilityNote } from '../mis.js';
 
 async function cmdStats(player) {
@@ -114,6 +114,8 @@ async function describePlayerAppearance(target, isSelf) {
 
     // MIS-gated details when naked
     if (isMisActive(target)) {
+      const genitalDesc = describeGenitals(target, isSelf);
+      if (genitalDesc) msg += `\n${genitalDesc}`;
       const envState = getEnvironmentState();
       const nippleNote = nippleVisibilityNote(target, false, envState.tempC);
       if (nippleNote) msg += `\n${nippleNote}`;
