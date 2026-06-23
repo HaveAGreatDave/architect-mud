@@ -192,7 +192,7 @@ export function removeEnemyInstance(id) {
   world.enemies.delete(id);
 }
 
-function spawnEnemySync(template, zoneId) {
+export function spawnEnemySync(template, zoneId) {
   const id = `ei_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
   const flags = template.flags || {};
   const instance = {

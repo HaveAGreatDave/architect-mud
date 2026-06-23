@@ -1,5 +1,5 @@
 import { query } from '../models/db.js';
-import { reloadZone, getAllZones, world, getAllLivePlayers, getZone, addPlayerToZone, removePlayerFromZone, getMinimapData, reloadGlobalAmbients } from '../engine/world.js';
+import { reloadZone, getAllZones, world, getAllLivePlayers, getZone, addPlayerToZone, removePlayerFromZone, getMinimapData, reloadGlobalAmbients, spawnEnemySync } from '../engine/world.js';
 import { describeZone, describeVoidTeleport } from '../engine/commands/index.js';
 import { loadRecipes } from '../engine/crafting.js';
 import { loadDrugs } from '../engine/drugs.js';
@@ -86,7 +86,9 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path.startsWith('/zones/') && path.endsWith('/spawns') && method==='GET') return requireDev(auth, ()=>apiGetZoneSpawns(path.split('/')[2]));
   if (path.startsWith('/zones/') && path.endsWith('/spawns') && method==='POST') return requireDev(auth, ()=>apiAddZoneSpawn(path.split('/')[2],body));
   if (path.startsWith('/zones/') && path.endsWith('/live-enemies') && method==='GET') return requireDev(auth, ()=>apiGetZoneLiveEnemies(path.split('/')[2]));
+  if (path.startsWith('/zones/') && path.endsWith('/live-enemies') && method==='POST') return requireDev(auth, ()=>apiSpawnLiveEnemy(path.split('/')[2], body));
   if (path.startsWith('/zones/') && method==='GET') return apiGetZone(path.split('/')[2]);
+  if (path==='/spawns' && method==='POST') return requireDev(auth, ()=>apiCreateSpawn(body));
   if (path.startsWith('/spawns/') && method==='DELETE') return requireDev(auth, ()=>apiDeleteZoneSpawn(path.split('/')[2]));
   if (path.startsWith('/live-enemies/') && method==='DELETE') return requireDev(auth, ()=>apiDespawnEnemy(path.split('/')[2]));
   if (path.startsWith('/zones/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteZone(path.split('/')[2]));
@@ -530,11 +532,35 @@ async function apiAddZoneSpawn(zoneId, body) {
     return { status:201, body:{ id } };
   } catch(e) { return { status:400, body:{ error:e.message } }; }
 }
-async function apiDeleteZoneSpawn(id) {
+export async function apiCreateSpawn(body) {
+  if (!body?.enemy_id || !body?.zone_id) return { status:400, body:{ error:'enemy_id and zone_id are required' } };
+  const { zone_id, enemy_id, max_count=1, spawn_weight=100, respawn_seconds=300 } = body;
+  const id = `spawn_${zone_id}_${enemy_id}_${Date.now()}`;
+  try {
+    await query(
+      `INSERT INTO zone_spawns (id,zone_id,enemy_id,max_count,spawn_weight,respawn_seconds) VALUES ($1,$2,$3,$4,$5,$6)`,
+      [id, zone_id, enemy_id, max_count, spawn_weight, respawn_seconds]
+    );
+    // Register in world spawn timers so the enemy respawns without a server restart
+    world.spawnTimers.set(id, { id, zone_id, enemy_id, max_count, spawn_weight, respawn_seconds, nextSpawn: Date.now() });
+    const { rows } = await query(`SELECT zs.*, e.name AS enemy_name FROM zone_spawns zs JOIN enemies e ON e.id=zs.enemy_id WHERE zs.id=$1`, [id]);
+    return { status:201, body: rows[0] || { id } };
+  } catch(e) { return { status:400, body:{ error:e.message } }; }
+}
+export async function apiDeleteZoneSpawn(id) {
   try {
     await query('DELETE FROM zone_spawns WHERE id=$1', [id]);
+    world.spawnTimers.delete(id);
     return { status:200, body:{ message:'Spawn removed' } };
   } catch(e) { return { status:400, body:{ error:e.message } }; }
+}
+async function apiSpawnLiveEnemy(zoneId, body) {
+  if (!body?.enemy_id) return { status:400, body:{ error:'enemy_id is required' } };
+  const { rows } = await query('SELECT * FROM enemies WHERE id=$1', [body.enemy_id]);
+  if (!rows.length) return { status:404, body:{ error:'Enemy template not found' } };
+  if (!world.zones.has(zoneId)) return { status:404, body:{ error:'Zone not loaded' } };
+  const instance = spawnEnemySync(rows[0], zoneId);
+  return { status:201, body:{ instanceId: instance.instanceId, name: instance.name, hp: instance.hp, hp_max: instance.hp_max } };
 }
 function apiGetZoneLiveEnemies(zoneId) {
   const zone = world.zones.get(zoneId);
