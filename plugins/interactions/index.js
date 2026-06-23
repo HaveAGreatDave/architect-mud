@@ -250,6 +250,43 @@ function cmdPace(args, raw, player, broadcast) {
 }
 
 // ---------------------------------------------------------------------------
+// Lean
+// ---------------------------------------------------------------------------
+
+async function cmdLean(args, raw, player, broadcast) {
+  const { env, vis } = getCtx(player);
+  const mod = envMod(env, vis);
+  const target = stripPrep(args, ['on', 'against', 'at']);
+  if (target) {
+    const { rows } = await query(
+      `SELECT * FROM furniture WHERE zone_id=$1 AND name ILIKE $2 LIMIT 1`,
+      [player.current_zone, `%${target}%`]
+    );
+    if (!rows.length) return { type: 'emote', message: `There is no ${target} here.` };
+    const interactions = rows[0].flags?.interactions || [];
+    if (!interactions.includes('lean')) return { type: 'emote', message: `You can't lean on the ${rows[0].name}.` };
+    return doEmote(
+      `You lean against the ${rows[0].name}${mod}.`,
+      `${player.handle} leans against the ${rows[0].name}.`,
+      player, broadcast
+    );
+  }
+  // Find any leanable surface
+  const { rows } = await query(
+    `SELECT name FROM furniture WHERE zone_id=$1 AND flags @> '{"interactions":["lean"]}'::jsonb LIMIT 1`,
+    [player.current_zone]
+  );
+  if (rows.length) {
+    return doEmote(
+      `You lean against the ${rows[0].name}${mod}.`,
+      `${player.handle} leans against the ${rows[0].name}.`,
+      player, broadcast
+    );
+  }
+  return doEmote(`You lean against the wall${mod}.`, `${player.handle} leans against the wall.`, player, broadcast);
+}
+
+// ---------------------------------------------------------------------------
 // Social actions
 // ---------------------------------------------------------------------------
 
@@ -382,4 +419,5 @@ export const commands = {
   follow:  cmdFollow,
   reflect: cmdReflect,
   examine: cmdExamine,
+  lean:    cmdLean,
 };

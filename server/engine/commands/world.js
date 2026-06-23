@@ -157,10 +157,17 @@ async function cmdExamine(targetStr, player) {
   if (furnitureRows.length) {
     const f = furnitureRows[0];
     let msg = `${f.name}\n${f.description}`;
-    if (f.is_light) {
+    if (f.object_type === 'light') {
       msg += f.light_type === 'streetlight'
         ? `\n<span class="light-state ${f.light_on ? 'light-on' : 'light-off'}">Currently ${f.light_on ? 'lit' : 'dark'} — city-grid controlled, no switch out here.</span>`
         : `\n<span class="light-state ${f.light_on ? 'light-on' : 'light-off'}">Currently ${f.light_on ? 'on' : 'off'}. There's a switch.</span>`;
+    }
+    const interactions = f.flags?.interactions || [];
+    if (interactions.length) {
+      const links = interactions.map(ix =>
+        `<span class="action-link" data-action="${ix}" data-target="on ${f.name.toLowerCase()}">${ix}</span>`
+      ).join('  ');
+      msg += `\n<span class="text-dim">Actions:</span> ${links}`;
     }
     return { type:'examine', message: msg };
   }
