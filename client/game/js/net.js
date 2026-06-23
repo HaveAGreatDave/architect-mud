@@ -82,6 +82,24 @@ export function closeConnection() {
   _connection?.close();
 }
 
+export function attemptAutoReauth() {
+  const reconnectToken = sessionStorage.getItem('reconnect-token');
+  if (reconnectToken && state.player) {
+    _connection?.send({ type: 'auth_reconnect', token: reconnectToken });
+    return;
+  }
+  // Fall back to stored credentials if available
+  const username = localStorage.getItem('mud_remember_user');
+  const password = localStorage.getItem('mud_remember_pass');
+  if (username && password) {
+    _connection?.send({ type: 'auth', username, password });
+    return;
+  }
+  // No credentials available — show auth screen so the user can log in manually
+  state.player = null;
+  document.getElementById('auth-screen').style.display = '';
+}
+
 export function doAuth() {
   const username = document.getElementById('auth-username').value.trim();
   const password = document.getElementById('auth-password').value;

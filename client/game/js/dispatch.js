@@ -1,6 +1,6 @@
 import { state } from './state.js';
 import { appendMsg, appendHtml, updateVitals, parseZoneInfo, showDevPanelButton } from './render.js';
-import { sendCmd, sendCmdSilent, closeConnection } from './net.js';
+import { sendCmd, sendCmdSilent, closeConnection, attemptAutoReauth } from './net.js';
 import { renderMinimap, openMapPopup } from './panels/minimap.js';
 import { updateEnvironmentHUD, refreshZoneVisibility } from './panels/environment.js';
 import { openDialogue, closeDialogue, openShop } from './panels/dialogue.js';
@@ -170,7 +170,14 @@ const handlers = {
     if (state.player) { Object.assign(state.player, msg); updateVitals(state.player); }
   },
 
-  error: (msg) => { appendMsg(msg.message, 'error'); },
+  error: (msg) => {
+    if (msg.message === 'Session lost. Refresh and reconnect.') {
+      appendMsg('Session lost — reconnecting...', 'system');
+      attemptAutoReauth();
+      return;
+    }
+    appendMsg(msg.message, 'error');
+  },
 
   craft: (msg) => {
     appendHtml(msg.message, 'loot');

@@ -240,29 +240,35 @@ wss.on("connection", (ws) => {
 	ws.on("close", async () => {
 		const session = clients.get(ws);
 		if (session?.playerId) {
+			// Only clean up if this socket is still the active one for this player.
+			// If a reconnect already ran finishAuth, playerSockets has been updated
+			// to the new socket — don't undo that by removing the live player here.
+			const isActiveSocket = playerSockets.get(session.playerId) === ws;
 			const player = getLivePlayer(session.playerId);
-			if (player) {
-				removePlayerFromZone(session.playerId, player.current_zone);
-				broadcast(
-					player.current_zone,
-					{
-						type: "zone_event",
-						message: `${session.handle} has fallen asleep.`,
-					},
-					session.playerId,
-				);
-				await query(
-					"UPDATE players SET last_seen=EXTRACT(EPOCH FROM NOW()), current_zone=$1, offline_sleeping=TRUE WHERE id=$2",
-					[player.current_zone, session.playerId],
-				).catch(() => {});
-			} else {
-				await query(
-					"UPDATE players SET last_seen=EXTRACT(EPOCH FROM NOW()), offline_sleeping=TRUE WHERE id=$1",
-					[session.playerId],
-				).catch(() => {});
+			if (isActiveSocket) {
+				if (player) {
+					removePlayerFromZone(session.playerId, player.current_zone);
+					broadcast(
+						player.current_zone,
+						{
+							type: "zone_event",
+							message: `${session.handle} has fallen asleep.`,
+						},
+						session.playerId,
+					);
+					await query(
+						"UPDATE players SET last_seen=EXTRACT(EPOCH FROM NOW()), current_zone=$1, offline_sleeping=TRUE WHERE id=$2",
+						[player.current_zone, session.playerId],
+					).catch(() => {});
+				} else {
+					await query(
+						"UPDATE players SET last_seen=EXTRACT(EPOCH FROM NOW()), offline_sleeping=TRUE WHERE id=$1",
+						[session.playerId],
+					).catch(() => {});
+				}
+				playerSockets.delete(session.playerId);
+				removeLivePlayer(session.playerId);
 			}
-			playerSockets.delete(session.playerId);
-			removeLivePlayer(session.playerId);
 		}
 		clients.delete(ws);
 	});
