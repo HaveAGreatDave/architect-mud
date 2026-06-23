@@ -127,6 +127,37 @@ if (mobileMapPanel) {
 // Mobile chat button
 document.getElementById('mobile-chat-btn')?.addEventListener('click', toggleWhisperPanel);
 
+// Mobile output scroll — touchstart/move on #output scrolls it, ignoring
+// touches that begin on the map tab button or the minimap panel.
+{
+  const output = document.getElementById('output');
+  let scrollTouchId = null;
+  let scrollStartY = 0;
+  let scrollStartTop = 0;
+
+  output.addEventListener('touchstart', (e) => {
+    const touch = e.changedTouches[0];
+    const hit = document.elementFromPoint(touch.clientX, touch.clientY);
+    if (mobileMapTab?.contains(hit) || mobileMapPanel?.contains(hit)) return;
+    scrollTouchId = touch.identifier;
+    scrollStartY = touch.clientY;
+    scrollStartTop = output.scrollTop;
+  }, { passive: true });
+
+  output.addEventListener('touchmove', (e) => {
+    if (scrollTouchId === null) return;
+    const touch = [...e.changedTouches].find(t => t.identifier === scrollTouchId);
+    if (!touch) return;
+    output.scrollTop = scrollStartTop - (touch.clientY - scrollStartY);
+  }, { passive: true });
+
+  output.addEventListener('touchend', (e) => {
+    if ([...e.changedTouches].some(t => t.identifier === scrollTouchId)) {
+      scrollTouchId = null;
+    }
+  }, { passive: true });
+}
+
 // Output: click .action-link nodes to auto-run command
 document.getElementById('output').addEventListener('click', (e) => {
   const el = e.target.closest('.action-link');
