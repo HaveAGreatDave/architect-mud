@@ -174,7 +174,7 @@ let stagingEnabled = true;
 const STAGED_ENTITY_TYPES = {
   '/zones': 'zone', '/enemies': 'enemy', '/items': 'item', '/npcs': 'npc',
   '/furniture': 'furniture', '/recipes': 'recipe', '/mutations': 'mutation', '/drugs': 'drug',
-  '/windows': 'window', '/spawns': 'spawn',
+  '/windows': 'window',
 };
 
 function getEntityType(path) {
@@ -526,8 +526,8 @@ async function loadPanel(name) {
     ? [...p.columns, {
         key: '_stagingStatus', label: 'Status',
         render: v => v === 'pending delete'
-          ? `<span style="color:var(--danger);font-size:11px">⚠ ${v}</span>`
-          : v ? `<span style="color:var(--warning);font-size:11px">● ${v}</span>` : '',
+          ? `<span style="color:var(--danger);font-size:11px">!Marked for Deletion</span>`
+          : v ? `<span style="color:var(--warning);font-size:11px">!Not Published</span>` : '',
       }]
     : p.columns;
 
@@ -658,9 +658,8 @@ function renderZonesTable(records) {
 
   const stagingBadge = s => {
     if (!s) return '';
-    if (s === 'pending delete') return `<span style="color:var(--danger);font-size:11px">⚠ Marked for Deletion</span>`;
-    if (s === 'new (staged)') return `<span style="color:var(--warning);font-size:11px">● Not Published</span>`;
-    return `<span style="color:var(--warning);font-size:11px">● ${s}</span>`;
+    if (s === 'pending delete') return `<span style="color:var(--danger);font-size:11px">!Marked for Deletion</span>`;
+    return `<span style="color:var(--warning);font-size:11px">!Not Published</span>`;
   };
 
   const renderRow = (rec, isChild, hasKids, collapsed) => {
@@ -1740,11 +1739,9 @@ async function submitAddSpawn(zoneId) {
   if (!enemy_id) { toast('Pick an enemy', true); return; }
   const max_count = parseInt(document.getElementById('ns-max').value) || 1;
   const respawn_seconds = parseInt(document.getElementById('ns-respawn').value) || 300;
-  // Stage the spawn record (goes through publish pipeline)
-  const result = await API('/spawns', 'POST', { zone_id: zoneId, enemy_id, max_count, spawn_weight: 100, respawn_seconds });
+  const result = await directAPI('/spawns', 'POST', { zone_id: zoneId, enemy_id, max_count, spawn_weight: 100, respawn_seconds });
   if (result?.error) { toast(result.error, true); return; }
-  // Immediately create a live instance (bypasses staging — live world action)
-  await API(`/zones/${encodeURIComponent(zoneId)}/live-enemies`, 'POST', { enemy_id });
+  await directAPI(`/zones/${encodeURIComponent(zoneId)}/live-enemies`, 'POST', { enemy_id });
   document.getElementById('zone-add-spawn-form').innerHTML = '';
   toast('Enemy added');
   await refreshEnemiesSection(zoneId);
@@ -1789,8 +1786,7 @@ async function deleteSpawnQuick(spawnId, zoneId) {
       await API(`/live-enemies/${encodeURIComponent(e.instanceId)}`, 'DELETE');
     }
   }
-  // Stage the spawn record deletion
-  const result = await API(`/spawns/${encodeURIComponent(spawnId)}`, 'DELETE');
+  const result = await directAPI(`/spawns/${encodeURIComponent(spawnId)}`, 'DELETE');
   if (result?.error) { toast(result.error, true); return; }
   toast('Enemy removed');
   await refreshEnemiesSection(zoneId);
