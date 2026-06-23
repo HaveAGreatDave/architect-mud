@@ -4,7 +4,6 @@ const HAIR_COLORS  = ['black','dark brown','brown','auburn','dirty blonde','blon
 const HAIR_LENGTHS = ['shaved','short','medium','long','very_long'];
 const HAIR_STYLES  = ['short','long','mohawk','shaved','dreadlocks','braided','messy','slicked-back','curly','wavy'];
 const EYE_COLORS   = ['brown','dark brown','blue','light blue','green','hazel','grey','amber'];
-const BREAST_SIZES = ['flat','small','medium','large','very large'];
 
 function heightDesc(cm) {
   if (cm < 158) return 'short';
