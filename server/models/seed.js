@@ -262,20 +262,48 @@ async function seed() {
   // mentions are now individually examine-able. Idempotent (DO UPDATE)
   // since this is exactly the kind of content an admin re-seeds while
   // testing the dev panel's add/edit/delete flow.
+  // furniture.flags.interactions defines which player interaction commands apply.
+  // Valid values: "sit" (can sit on/at it), "lie" (can lie on it), "lean" (can lean against it).
+  // Empty array = examine-only (no posture interactions).
   const furniture = [
-    ['furniture_poster_combat','zone_clone_facility','Reconstitution Notice — Combat','Laminated government-issue. PHYSICAL CONFLICT IS LIKELY reads the header, with the weary authority of a sign that gave up being alarming years ago. Lists the basics: type ATTACK <target> or click an enemy to engage. You swing automatically once combat starts — don\'t spam the button. Watch HP. When it hits zero, you come back here.','fixture'],
-    ['furniture_poster_movement','zone_clone_facility','Reconstitution Notice — Navigation','COLDWATER BASIN IS LARGE AND MOSTLY HOSTILE, says the header. Movement commands: NORTH, SOUTH, EAST, WEST, UP, DOWN — or click the exit buttons in your HUD. GO <name> works for named buildings. The minimap in the corner updates as you explore. Exits listed in room descriptions are the only ways through.','fixture'],
-    ['furniture_poster_economy','zone_clone_facility','Reconstitution Notice — Economy','CREDITS ARE THE BASIN\'S CURRENCY. Earn them from loot, vendors, and quests. BALANCE shows your current total. BUY and SELL work at vendor NPCs. The Franchise ATM at Threshold Plaza handles deposits and withdrawals. Housing costs credits — RENT a unit at the Embassy Hotel to get a safe place to sleep.','fixture'],
-    ['furniture_poster_survival','zone_clone_facility','Reconstitution Notice — Survival','FOUR BARS CAN KILL YOU reads the header, in what was probably meant to be an encouraging font. HP: take damage, it drops — bandages and medkits restore it. Hunger and Thirst drain over time; eat and drink. Radiation accumulates in high-RAD zones; RadAway treats it. Sanity degrades under stress; food, rest, and substances help. All four bottoming out causes death. You\'ve now been briefed.','fixture'],
-    ['furniture_poster_systems','zone_clone_facility','Reconstitution Notice — Systems Overview','A dense wall chart covering factions (Custodians, Breakers, Archivists, Franchise, Glitch), crafting (CRAFT in your inventory), skill advancement (use skills to improve them), mutations (radiation exposure, not recommended), apartments (private, lockable, sleep-safe), and the Architect (unknown, omnipresent, the reason any of this infrastructure still works). A footnote: THIS FACILITY IS MAINTAINED BY THE ARCHITECT. DO NOT ASK HOW.','fixture'],
-    ['furniture_embassy_bar_counter','zone_residential_lobby','The Embassy Lounge Bar','A scarred wooden counter beneath the brass THE EMBASSY LOUNGE sign. Lowry keeps it spotless out of sheer habit.','fixture'],
-    ['furniture_embassy_stools','zone_residential_lobby','Cracked Vinyl Stools','A half-dozen stools lined up at the counter, vinyl split and patched with duct tape. Free to sit, if you don\'t mind the wobble.','furniture'],
-    ['furniture_embassy_corkboard','zone_residential_lobby','Unit Listings Corkboard','Bolted over what used to be the concierge desk. Handwritten unit listings cover every inch, half of them crossed out and re-listed at a worse price.','fixture'],
+    ['furniture_poster_combat','zone_clone_facility','Reconstitution Notice — Combat','Laminated government-issue. PHYSICAL CONFLICT IS LIKELY reads the header, with the weary authority of a sign that gave up being alarming years ago. Lists the basics: type ATTACK <target> or click an enemy to engage. You swing automatically once combat starts — don\'t spam the button. Watch HP. When it hits zero, you come back here.','fixture',[]],
+    ['furniture_poster_movement','zone_clone_facility','Reconstitution Notice — Navigation','COLDWATER BASIN IS LARGE AND MOSTLY HOSTILE, says the header. Movement commands: NORTH, SOUTH, EAST, WEST, UP, DOWN — or click the exit buttons in your HUD. GO <name> works for named buildings. The minimap in the corner updates as you explore. Exits listed in room descriptions are the only ways through.','fixture',[]],
+    ['furniture_poster_economy','zone_clone_facility','Reconstitution Notice — Economy','CREDITS ARE THE BASIN\'S CURRENCY. Earn them from loot, vendors, and quests. BALANCE shows your current total. BUY and SELL work at vendor NPCs. The Franchise ATM at Threshold Plaza handles deposits and withdrawals. Housing costs credits — RENT a unit at the Embassy Hotel to get a safe place to sleep.','fixture',[]],
+    ['furniture_poster_survival','zone_clone_facility','Reconstitution Notice — Survival','FOUR BARS CAN KILL YOU reads the header, in what was probably meant to be an encouraging font. HP: take damage, it drops — bandages and medkits restore it. Hunger and Thirst drain over time; eat and drink. Radiation accumulates in high-RAD zones; RadAway treats it. Sanity degrades under stress; food, rest, and substances help. All four bottoming out causes death. You\'ve now been briefed.','fixture',[]],
+    ['furniture_poster_systems','zone_clone_facility','Reconstitution Notice — Systems Overview','A dense wall chart covering factions (Custodians, Breakers, Archivists, Franchise, Glitch), crafting (CRAFT in your inventory), skill advancement (use skills to improve them), mutations (radiation exposure, not recommended), apartments (private, lockable, sleep-safe), and the Architect (unknown, omnipresent, the reason any of this infrastructure still works). A footnote: THIS FACILITY IS MAINTAINED BY THE ARCHITECT. DO NOT ASK HOW.','fixture',[]],
+    ['furniture_embassy_bar_counter','zone_residential_lobby','The Embassy Lounge Bar','A scarred wooden counter beneath the brass THE EMBASSY LOUNGE sign. Lowry keeps it spotless out of sheer habit.','fixture',['lean']],
+    ['furniture_embassy_stools','zone_residential_lobby','Cracked Vinyl Stools','A half-dozen stools lined up at the counter, vinyl split and patched with duct tape. Free to sit, if you don\'t mind the wobble.','furniture',['sit']],
+    ['furniture_embassy_corkboard','zone_residential_lobby','Unit Listings Corkboard','Bolted over what used to be the concierge desk. Handwritten unit listings cover every inch, half of them crossed out and re-listed at a worse price.','fixture',[]],
+
+    // Unit 1A — small studio, mattress and hot plate already mentioned in description
+    ['furniture_apt1_mattress','zone_apt_1','Worn Mattress','A thin foam mattress directly on the floor, a single flat pillow crushed at one end. It\'s seen better decades. Still beats the street.','furniture',['sit','lie']],
+    ['furniture_apt1_hotplate','zone_apt_1','Hot Plate','A two-burner electric hot plate plugged into the wall near the door. One burner glows red when switched on. The other has been dead for a while.','fixture',[]],
+    ['furniture_apt1_crate','zone_apt_1','Wooden Crate','A salvaged shipping crate pressed into service as a side table and spare seat. FRAGILE is stenciled on the side, which stopped being relevant some time ago.','furniture',['sit','lean']],
+
+    // Unit 1B — corner unit, boarded windows, faded beach poster
+    ['furniture_apt2_cot','zone_apt_2','Metal-Framed Cot','A narrow army-surplus cot with a thin mattress and a wool blanket folded at the foot. Functional, if not comfortable.','furniture',['sit','lie']],
+    ['furniture_apt2_poster','zone_apt_2','Faded Travel Poster','A glossy travel poster, sun-bleached to pastel. A beach. Palm trees. A slogan that has faded to illegibility. Whoever left it here was thinking of somewhere else.','fixture',[]],
+    ['furniture_apt2_crate','zone_apt_2','Plastic Storage Crate','A heavy-duty plastic crate — the kind you find in a demolished warehouse — doing duty as a bedside table. A candle stub sits on top of it.','furniture',['sit','lean']],
+
+    // Unit 1C — narrow and tidy, bed and shelving
+    ['furniture_apt3_bed','zone_apt_3','Iron-Frame Single Bed','A narrow iron-frame bed, neatly made with hospital corners. The mattress is thin but the sheets are clean. Whoever lived here took care of things.','furniture',['sit','lie']],
+    ['furniture_apt3_shelves','zone_apt_3','Metal Shelving Unit','Floor-to-ceiling metal shelving, everything on it arranged by size. Whatever was here has been taken. The organisation left behind.','fixture',['lean']],
+    ['furniture_apt3_chair','zone_apt_3','Folding Chair','A plain metal folding chair, closed and leaning against the shelving. It unfolds to a serviceable seat.','furniture',['sit']],
+
+    // Unit 1D — larger, pacing space, COUNT YOUR DAYS graffiti
+    ['furniture_apt4_armchair','zone_apt_4','Salvaged Armchair','A wide, low armchair, upholstery worn smooth at the arms. Something lumpy is stuffed into the left cushion. You decide not to investigate.','furniture',['sit']],
+    ['furniture_apt4_table','zone_apt_4','Scratched Coffee Table','A low table, every inch of the surface covered in scratches, gouges, and initials. Someone used it as a workbench. Someone else used it as a target.','furniture',['lean']],
+    ['furniture_apt4_graffiti','zone_apt_4','Graffiti: COUNT YOUR DAYS','Scratched directly into the inside of the door, deep enough that it can\'t be painted over. COUNT YOUR DAYS. Below it, someone has scratched a smaller reply: I DID. STILL HERE.','fixture',[]],
+
+    // Embassy Basement — utility storage
+    ['furniture_basement_racks','zone_residential_lobby_z-1_1782105292491','Rusted Storage Racks','Floor-to-ceiling metal shelving bolted to the far wall. Most shelves are empty; the rest hold broken equipment, unmarked boxes, and things that stopped being useful before anyone thought to throw them out.','fixture',['lean']],
+    ['furniture_basement_chair','zone_residential_lobby_z-1_1782105292491','Broken Office Chair','A wheeled office chair with a cracked backrest and one arm missing. It still rolls, barely, and takes your weight if you sit carefully.','furniture',['sit']],
+    ['furniture_basement_cabinet','zone_residential_lobby_z-1_1782105292491','Utility Cabinet','A heavy steel cabinet bolted to the wall beside the breaker box. Padlocked. The padlock is old enough that it\'s probably more rust than mechanism.','fixture',[]],
   ];
-  for (const [id,zoneId,name,desc,objectType] of furniture) {
-    await query(`INSERT INTO furniture (id,zone_id,name,description,flags,object_type) VALUES ($1,$2,$3,$4,'{}', $5)
-      ON CONFLICT (id) DO UPDATE SET zone_id = EXCLUDED.zone_id, name = EXCLUDED.name, description = EXCLUDED.description, object_type = EXCLUDED.object_type`,
-      [id,zoneId,name,desc,objectType]);
+  for (const [id,zoneId,name,desc,objectType,interactions] of furniture) {
+    await query(`INSERT INTO furniture (id,zone_id,name,description,flags,object_type) VALUES ($1,$2,$3,$4,$5,$6)
+      ON CONFLICT (id) DO UPDATE SET zone_id = EXCLUDED.zone_id, name = EXCLUDED.name, description = EXCLUDED.description, object_type = EXCLUDED.object_type, flags = EXCLUDED.flags`,
+      [id,zoneId,name,desc,JSON.stringify({ interactions }),objectType]);
   }
   console.log(`✓ Seeded ${furniture.length} furniture`);
 

@@ -7,6 +7,5 @@
     "sit", "stand", "lie", "kneel", "stretch", "wave", "shrug", "point",
     "smile", "frown", "laugh", "cry", "sigh", "nod", "shake", "dance", "pace",
     "greet", "follow", "reflect", "examine"
-  ],
-  "routePrefix": "/api/interactions"
+  ]
 }

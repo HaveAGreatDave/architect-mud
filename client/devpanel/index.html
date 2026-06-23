@@ -71,7 +71,6 @@
     <div class="nav-item" data-panel="mutations" onclick="showPanel('mutations')">☢ Mutations</div>
     <div class="nav-item" data-panel="drugs" onclick="showPanel('drugs')">💊 Drugs</div>
     <div class="nav-item" data-panel="sounds" onclick="showPanel('sounds')">🔊 Sounds</div>
-    <div class="nav-item" data-panel="interactions" onclick="showPanel('interactions')">🎭 Interactions</div>
     <div class="nav-section">Server</div>
     <div class="nav-item" data-panel="worldstate" onclick="showPanel('worldstate')">📡 World State</div>
     <div class="nav-item" data-panel="timeweather" onclick="showPanel('timeweather')">🕐 Time & Weather</div>
@@ -475,12 +474,6 @@ const PANELS = {
     fetch: () => API('/staging/pending'),
     noEdit: true,
     render: renderChangesPanel,
-  },
-  interactions: {
-    title: 'Interactions',
-    fetch: () => API('/zones'),
-    noEdit: true,
-    render: renderInteractionsPanel,
   },
 };
 
@@ -5823,132 +5816,6 @@ function toast(msg, isError = false) {
   setTimeout(() => el.classList.remove('visible'), 2500);
 }
 
-// ---------------------------------------------------------------------------
-// Interactions panel
-// ---------------------------------------------------------------------------
-
-async function renderInteractionsPanel(zonesData) {
-  const panel = document.getElementById('list-panel');
-  const zones = Array.isArray(zonesData) ? zonesData : [];
-  zones.sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id));
-  const zoneOptions = zones.map(z => `<option value="${z.id}">${z.name} (${z.id})</option>`).join('');
-
-  const weatherTypes = ['clear','cloudy','overcast','rain','sleet','thunderstorm','storm','snow','blizzard','fog','haze','ash'];
-  const visCategories = ['clear','dim','dark','pitch_dark'];
-
-  panel.innerHTML = `
-    <div style="padding:20px;max-width:860px;display:flex;flex-direction:column;gap:20px">
-
-      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:3px;padding:16px">
-        <div style="color:var(--accent);font-size:11px;letter-spacing:2px;text-transform:uppercase;margin-bottom:12px">Command Tester</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
-          <div>
-            <label style="font-size:11px;color:var(--text-dim);display:block;margin-bottom:4px">Command</label>
-            <input id="ix-cmd" type="text" placeholder="e.g. sit, dance, look sky, wave at Guard" value="dance"
-              style="background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:6px 10px;outline:none;border-radius:2px;width:100%;box-sizing:border-box">
-          </div>
-          <div>
-            <label style="font-size:11px;color:var(--text-dim);display:block;margin-bottom:4px">Zone</label>
-            <select id="ix-zone" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:6px 10px;outline:none;border-radius:2px;width:100%;box-sizing:border-box">
-              ${zoneOptions}
-            </select>
-          </div>
-          <div>
-            <label style="font-size:11px;color:var(--text-dim);display:block;margin-bottom:4px">Weather Override</label>
-            <select id="ix-weather" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:6px 10px;outline:none;border-radius:2px;width:100%;box-sizing:border-box">
-              ${weatherTypes.map(w => `<option value="${w}">${w}</option>`).join('')}
-            </select>
-          </div>
-          <div>
-            <label style="font-size:11px;color:var(--text-dim);display:block;margin-bottom:4px">Visibility Override</label>
-            <select id="ix-vis" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:6px 10px;outline:none;border-radius:2px;width:100%;box-sizing:border-box">
-              ${visCategories.map(v => `<option value="${v}">${v}</option>`).join('')}
-            </select>
-          </div>
-        </div>
-        <button class="action-btn primary" onclick="runInteractionTest()">▶ Run Test</button>
-        <div id="ix-result" style="margin-top:14px;display:none">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div>
-              <div style="font-size:10px;color:var(--text-dim);margin-bottom:4px;letter-spacing:1px;text-transform:uppercase">Player sees</div>
-              <div id="ix-self" style="background:var(--bg3);border:1px solid var(--border);padding:10px;border-radius:2px;font-size:12px;min-height:40px;color:var(--text)"></div>
-            </div>
-            <div>
-              <div style="font-size:10px;color:var(--text-dim);margin-bottom:4px;letter-spacing:1px;text-transform:uppercase">Zone sees</div>
-              <div id="ix-zone-msg" style="background:var(--bg3);border:1px solid var(--border);padding:10px;border-radius:2px;font-size:12px;min-height:40px;color:var(--text)"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:3px;padding:16px">
-        <div style="color:var(--accent);font-size:11px;letter-spacing:2px;text-transform:uppercase;margin-bottom:12px">Furniture Interaction Map</div>
-        <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
-          <select id="ix-furn-zone" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:6px 10px;outline:none;border-radius:2px;flex:1;box-sizing:border-box">
-            ${zoneOptions}
-          </select>
-          <button class="action-btn" onclick="loadFurnitureInteractions()">Load</button>
-        </div>
-        <div id="ix-furn-result" style="color:var(--text-dim);font-size:12px">Select a zone and click Load.</div>
-      </div>
-
-    </div>
-  `;
-}
-
-async function runInteractionTest() {
-  const command = document.getElementById('ix-cmd').value.trim();
-  const zoneId = document.getElementById('ix-zone').value;
-  const weatherOverride = document.getElementById('ix-weather').value;
-  const visibilityOverride = document.getElementById('ix-vis').value;
-  if (!command) return;
-
-  const result = document.getElementById('ix-result');
-  result.style.display = 'none';
-
-  const data = await fetch('/api/interactions/test', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ command, zoneId, weatherOverride, visibilityOverride }),
-  }).then(r => r.json());
-
-  result.style.display = '';
-  document.getElementById('ix-self').textContent = data.selfMessage ?? data.error ?? '(no output)';
-  document.getElementById('ix-zone-msg').textContent = data.zoneMessage ?? '(no zone broadcast)';
-}
-
-async function loadFurnitureInteractions() {
-  const zoneId = document.getElementById('ix-furn-zone').value;
-  const el = document.getElementById('ix-furn-result');
-  el.innerHTML = 'Loading…';
-  const data = await fetch(`/api/interactions/furniture/${zoneId}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  }).then(r => r.json());
-
-  if (!Array.isArray(data) || !data.length) {
-    el.innerHTML = '<span style="color:var(--text-dim)">No furniture in this zone.</span>';
-    return;
-  }
-
-  const rows = data.map(f => `
-    <tr onclick="void(0)" style="cursor:default">
-      <td>${f.name}</td>
-      <td style="color:var(--text-dim)">${f.object_type || 'furniture'}</td>
-      <td>${f.responds_to?.length ? f.responds_to.map(i => `<code style="background:var(--bg3);padding:1px 5px;border-radius:2px;font-size:11px">${i}</code>`).join(' ') : '<span style="color:var(--text-dim)">—</span>'}</td>
-      <td style="font-size:11px;color:var(--text-dim);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${JSON.stringify(f.flags || {})}</td>
-    </tr>`).join('');
-
-  el.innerHTML = `
-    <table style="width:100%;border-collapse:collapse;font-size:12px">
-      <thead><tr style="color:var(--text-dim);text-align:left;border-bottom:1px solid var(--border)">
-        <th style="padding:6px 8px">Name</th>
-        <th style="padding:6px 8px">Type</th>
-        <th style="padding:6px 8px">Responds To</th>
-        <th style="padding:6px 8px">Flags</th>
-      </tr></thead>
-      <tbody>${rows}</tbody>
-    </table>`;
-}
 </script>
 </body>
 </html>
