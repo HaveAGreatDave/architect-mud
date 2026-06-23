@@ -43,7 +43,8 @@ async function cmdSit(args, raw, player, broadcast) {
   const mod = envMod(env, vis);
 
   const target = stripPrep(args, ['on', 'at', 'in']);
-  if (target) {
+  const floorTarget = ['floor', 'ground', 'down'].includes(target?.toLowerCase());
+  if (target && !floorTarget) {
     const { rows } = await query(
       `SELECT * FROM furniture WHERE zone_id=$1 AND name ILIKE $2 LIMIT 1`,
       [player.current_zone, `%${target}%`]

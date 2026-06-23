@@ -165,11 +165,10 @@ async function cmdExamine(targetStr, player) {
         msg += `\n<span class="light-state ${f.light_on ? 'light-on' : 'light-off'}">Currently ${f.light_on ? 'on' : 'off'}.</span>`;
         if (interactions.includes('switch')) {
           const n = f.name.toLowerCase();
-          const toggleLink = `<span class="action-link" data-action="switch" data-target="${n}">switch</span>`;
-          const turnLink = f.light_on
-            ? `<span class="action-link" data-action="turn" data-target="${n} off">turn off</span>`
-            : `<span class="action-link" data-action="turn" data-target="${n} on">turn on</span>`;
-          msg += `\n<span class="text-dim">Actions:</span> ${toggleLink}  ${turnLink}`;
+          const stateDir = f.light_on ? 'off' : 'on';
+          const switchLink = `<span class="action-link" data-action="switch" data-target="${stateDir} ${n}">switch ${stateDir}</span>`;
+          const turnLink = `<span class="action-link" data-action="turn" data-target="${stateDir} ${n}">turn ${stateDir}</span>`;
+          msg += `\n<span class="text-dim">Actions:</span> ${switchLink}  ${turnLink}`;
         }
       }
     } else if (interactions.length) {
@@ -228,9 +227,18 @@ async function cmdExamine(targetStr, player) {
 }
 
 async function cmdSwitch(targetStr, player) {
-  if (!targetStr) return { type:'error', message:'Switch what? Usage: switch <light name>' };
-  const { rows } = await query(`SELECT * FROM furniture WHERE zone_id=$1 AND object_type='light' AND name ILIKE $2 LIMIT 1`, [player.current_zone, `%${targetStr}%`]);
-  if (!rows.length) return { type:'error', message:`You don't see a light called "${targetStr}" here.` };
+  if (!targetStr) return { type:'error', message:'Usage: switch on/off <light name>' };
+  const words = targetStr.split(' ');
+  const first = words[0].toLowerCase();
+  let dir = null;
+  let nameStr = targetStr;
+  if (first === 'on' || first === 'off') {
+    dir = first;
+    nameStr = words.slice(1).join(' ');
+  }
+  if (!nameStr) return { type:'error', message:'Usage: switch on/off <light name>' };
+  const { rows } = await query(`SELECT * FROM furniture WHERE zone_id=$1 AND object_type='light' AND name ILIKE $2 LIMIT 1`, [player.current_zone, `%${nameStr}%`]);
+  if (!rows.length) return { type:'error', message:`You don't see a light called "${nameStr}" here.` };
   const light = rows[0];
   if (light.light_type === 'streetlight') {
     return { type:'error', message:`${light.name} is city-grid infrastructure — it comes on by itself once it gets dark. There's no switch out here.` };
@@ -239,7 +247,10 @@ async function cmdSwitch(targetStr, player) {
   if (powerStatus === 'unpowered') {
     return { type:'error', message:`The switch clicks, but nothing happens. No power reaches this room.` };
   }
-  const newState = light.light_on ? 0 : 1;
+  const newState = dir ? (dir === 'on' ? 1 : 0) : (light.light_on ? 0 : 1);
+  if (light.light_on === newState) {
+    return { type:'message', message:`${light.name} is already ${newState ? 'on' : 'off'}.` };
+  }
   await query(`UPDATE furniture SET light_on=$1 WHERE id=$2`, [newState, light.id]);
   const { rows: countRows } = await query(
     `SELECT COUNT(*)::int AS cnt, COALESCE(SUM(COALESCE(lumen_output,0)),0)::int AS lm FROM furniture WHERE zone_id=$1 AND object_type='light' AND light_on=1`,
@@ -254,12 +265,13 @@ async function cmdSwitch(targetStr, player) {
 }
 
 async function cmdTurn(args, player) {
-  const dir = args[args.length - 1]?.toLowerCase();
-  if (dir !== 'on' && dir !== 'off') {
-    return { type:'error', message:'Usage: turn <light name> on/off' };
+  const first = args[0]?.toLowerCase();
+  if (first !== 'on' && first !== 'off') {
+    return { type:'error', message:'Usage: turn on/off <light name>' };
   }
-  const targetStr = args.slice(0, -1).join(' ');
-  if (!targetStr) return { type:'error', message:'Turn what? Usage: turn <light name> on/off' };
+  const dir = first;
+  const targetStr = args.slice(1).join(' ');
+  if (!targetStr) return { type:'error', message:'Usage: turn on/off <light name>' };
   const { rows } = await query(`SELECT * FROM furniture WHERE zone_id=$1 AND object_type='light' AND name ILIKE $2 LIMIT 1`, [player.current_zone, `%${targetStr}%`]);
   if (!rows.length) return { type:'error', message:`You don't see a light called "${targetStr}" here.` };
   const light = rows[0];
@@ -318,7 +330,11 @@ function cmdHelp(player) {
 <span class="help-category">PROPERTY</span>    rent  |  lock  |  unlock  |  pick  |  upgrade lock  |  sleep
 <span class="help-category">CHARACTER</span>   stats  skills  raise [stat]  mutations  factions
 <span class="help-category">SOCIAL</span>      talk &lt;npc&gt;  |  say &lt;message&gt;  |  who  |  whisper/tell &lt;player&gt; &lt;msg&gt;
-<span class="help-category">WORLD</span>       map  |  switch &lt;light&gt;  |  turn &lt;light&gt; on/off
+<span class="help-category">WORLD</span>       map  |  switch on/off &lt;light&gt;  |  turn on/off &lt;light&gt;
+<span class="help-category">POSTURE</span>     sit  |  sit on &lt;furniture/floor&gt;  |  lie  |  lie on &lt;furniture&gt;  |  kneel  |  stand
+<span class="help-category">EMOTES</span>      smile  frown  laugh  cry  sigh  nod  shake  dance  pace  stretch  wave  shrug  point
+<span class="help-category">INTERACT</span>    lean on &lt;furniture&gt;  |  greet [player]  |  follow &lt;player&gt;  |  reflect
+<span class="help-category">OBSERVE</span>     look sky  |  look ground  |  look distance  |  examine surroundings
 <span class="help-category">INFO</span>        look  |  look &lt;me/item/player&gt;  |  examine &lt;thing&gt;  help`;
   if (player?.role === 'admin') {
     msg += `\n<span class="help-category">ADMIN</span>      teleport &lt;zone id&gt;  (tp)`;
