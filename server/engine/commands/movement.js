@@ -1,5 +1,5 @@
 import { query } from '../../models/db.js';
-import { getZone, getMinimapData, addPlayerToZone, removePlayerFromZone } from '../world.js';
+import { getZone, getMinimapData, addPlayerToZone, removePlayerFromZone, getDoorForExit, setDoorCache } from '../world.js';
 import { getZoneVisibility, getWindowsForZone, getEnvironmentState } from '../environment.js';
 import { describeZone, resolveNamedDestination } from './describe.js';
 
@@ -155,6 +155,17 @@ async function cmdMove(direction, player, broadcast) {
   if (!targetId) return { type:'error', message:`No exit to the ${direction}.` };
   const targetZone = getZone(targetId);
   if (!targetZone) return { type:'error', message:'That exit leads nowhere yet.' };
+
+  const door = getDoorForExit(zone.id, direction);
+  if (door && door.hp > 0) {
+    if (door.is_locked) return { type:'error', message:`The door to the ${direction} is locked.` };
+    if (!door.is_open) {
+      door.is_open = 1;
+      setDoorCache(door.id, door);
+      await query('UPDATE doors SET is_open=1 WHERE id=$1', [door.id]);
+      broadcast(zone.id, { type:'zone_event', message:`${player.handle} opens the door and heads ${direction}.` }, player.id);
+    }
+  }
 
   removePlayerFromZone(player.id, player.current_zone);
   addPlayerToZone(player.id, targetId);

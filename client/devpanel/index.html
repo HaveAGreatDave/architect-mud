@@ -1006,7 +1006,7 @@ async function zoneEditForm(rec, isNew) {
   let subSectionsHtml = '<div class="zone-subsection-note">Save this zone first to add rooms, NPCs, furniture, or a generator.</div>';
   if (!isNew) {
     const isExterior = !flags.is_interior && !flags.is_apartment && !flags.is_building;
-    const [npcsData, furnitureData, generatorsData, apartmentsData, zonePowerInfo, spawnsData, enemiesData, liveEnemiesData] = await Promise.all([
+    const [npcsData, furnitureData, generatorsData, apartmentsData, zonePowerInfo, spawnsData, enemiesData, liveEnemiesData, doorsData] = await Promise.all([
       API('/npcs').catch(() => []),
       API('/furniture').catch(() => []),
       API('/environment/power/generators').catch(() => []),
@@ -1015,7 +1015,9 @@ async function zoneEditForm(rec, isNew) {
       API(`/zones/${encodeURIComponent(rec.id)}/spawns`).catch(() => []),
       API('/enemies').catch(() => []),
       API(`/zones/${encodeURIComponent(rec.id)}/live-enemies`).catch(() => []),
+      API(`/zones/${encodeURIComponent(rec.id)}/doors`).catch(() => []),
     ]);
+    const zoneDoors = Array.isArray(doorsData) ? doorsData : [];
     const zoneNpcs = (Array.isArray(npcsData) ? npcsData : []).filter(n => n.zone_id === rec.id);
     const zoneSpawns = Array.isArray(spawnsData) ? spawnsData : [];
     const zoneLiveEnemies = Array.isArray(liveEnemiesData) ? liveEnemiesData : [];
@@ -1094,6 +1096,39 @@ async function zoneEditForm(rec, isNew) {
           </div>`).join('') : '<div class="zone-subitem-empty">No NPCs here.</div>'}</div>
         <div id="zone-add-npc-form"></div>
         <button class="action-btn success" style="margin-top:6px" onclick='openAddNpcForm(${JSON.stringify(rec.id)})'>+ Add NPC</button>
+      </div>
+
+      <div class="zone-subsection">
+        <div class="zone-subsection-header">Doors <span class="zone-subsection-count">${zoneDoors.length}</span></div>
+        <div id="zone-doors-list">${zoneDoors.length ? zoneDoors.map(d => {
+          const installed = !!(d.zone_id && d.exit_dir);
+          const statusIcon = installed ? '<span style="color:var(--accent2)">✓</span>' : '<span style="color:var(--red)">✗</span>';
+          return `<div class="zone-subitem-row" id="door-row-${d.id}">
+            <span style="display:flex;align-items:center;gap:6px">${statusIcon} <strong>${d.id}</strong> <span style="color:var(--text-dim);font-size:11px">${d.door_type} · ${d.exit_dir||'unassigned'} · ${d.hp}/${d.hp_max} HP${d.is_locked?' · 🔒':''}</span></span>
+            <span class="zone-subitem-actions">
+              <button class="action-btn danger" onclick="deleteDoorQuick('${d.id}','${rec.id}')">Delete</button>
+            </span>
+          </div>`;
+        }).join('') : '<div class="zone-subitem-empty">No doors here.</div>'}</div>
+        <div id="zone-add-door-form" style="margin-top:6px">
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            <select id="door-type-select" style="flex:1;min-width:100px">
+              <option value="basic">Basic (1000 HP)</option>
+              <option value="shoddy">Shoddy (300 HP, no lock)</option>
+              <option value="blast">Blast Door (5000 HP)</option>
+            </select>
+            <select id="door-exit-select" style="flex:1;min-width:100px">
+              ${(() => {
+                const usedDirs = new Set(zoneDoors.map(d => d.exit_dir));
+                const availableExits = Object.keys(zoneEditExitsState).filter(d => zoneEditExitsState[d] && !usedDirs.has(d));
+                return availableExits.length
+                  ? availableExits.map(d => `<option value="${d}">${d}</option>`).join('')
+                  : '<option value="">No free exits</option>';
+              })()}
+            </select>
+            <button class="action-btn success" onclick='submitAddDoor(${JSON.stringify(rec.id)})'>Install Door</button>
+          </div>
+        </div>
       </div>
 
       <div class="zone-subsection">
@@ -1714,6 +1749,24 @@ async function deleteNpcQuick(npcId, zoneId) {
   const result = await API(`/npcs/${npcId}`, 'DELETE');
   if (result?.error) { toast(result.error, true); return; }
   toast(result.message || 'NPC deleted');
+  await refreshZoneEditPanel(zoneId);
+}
+
+// Doors
+async function submitAddDoor(zoneId) {
+  const doorType = document.getElementById('door-type-select')?.value;
+  const exitDir = document.getElementById('door-exit-select')?.value;
+  if (!exitDir) { toast('No free exits to install a door on', true); return; }
+  const result = await API('/doors', 'POST', { zone_id: zoneId, exit_dir: exitDir, door_type: doorType });
+  if (result?.error) { toast(result.error, true); return; }
+  toast('Door installed');
+  await refreshZoneEditPanel(zoneId);
+}
+async function deleteDoorQuick(doorId, zoneId) {
+  if (!confirm('Delete this door?')) return;
+  const result = await API(`/doors/${doorId}`, 'DELETE');
+  if (result?.error) { toast(result.error, true); return; }
+  toast('Door removed');
   await refreshZoneEditPanel(zoneId);
 }
 
@@ -2421,7 +2474,12 @@ function npcEditForm(rec, isNew) {
         ${['friendly','neutral','hostile','fearful'].map(d=>`<option ${rec.disposition===d?'selected':''}>${d}</option>`).join('')}
       </select>
     </div>
-    <div class="checkbox-field"><input type="checkbox" id="f-wanders" ${rec.wanders?'checked':''}><label>Wanders between zones</label></div>
+    <div class="checkbox-field"><input type="checkbox" id="f-wanders" ${rec.wanders?'checked':''} onchange="document.getElementById('f-wander_zones-wrap').style.display=this.checked?'':'none'"><label>Wanders between zones</label></div>
+    <div class="field" id="f-wander_zones-wrap" style="${rec.wanders?'':'display:none'}">
+      <label>Permitted Wander Zones (one zone ID per line)</label>
+      <textarea id="f-wander_zones" rows="4" placeholder="Leave blank to wander to adjacent zones only">${(Array.isArray(rec.wander_zones)?rec.wander_zones:JSON.parse(rec.wander_zones||'[]')).join('\n')}</textarea>
+      <div class="zone-subsection-note">Current zone is always included at runtime.</div>
+    </div>
     <div class="field"><label>Dialogue Tree (JSON)</label><textarea id="f-dialogue_tree" rows="10">${JSON.stringify(tree, null, 2)}</textarea></div>
     <div class="field"><label>Vendor Inventory (JSON array)</label><textarea id="f-vendor_inventory" rows="5">${JSON.stringify(vendor, null, 2)}</textarea></div>
   `;
@@ -2432,6 +2490,8 @@ async function saveNpc(existing) {
   let tree, vendor;
   try { tree = JSON.parse(document.getElementById('f-dialogue_tree').value); } catch { return { error: 'Dialogue tree: invalid JSON' }; }
   try { vendor = JSON.parse(document.getElementById('f-vendor_inventory').value); } catch { return { error: 'Vendor inventory: invalid JSON' }; }
+  const wanderZonesRaw = document.getElementById('f-wander_zones')?.value || '';
+  const wander_zones = wanderZonesRaw.split('\n').map(s => s.trim()).filter(Boolean);
   const body = {
     name: document.getElementById('f-name').value,
     description: document.getElementById('f-description').value,
@@ -2439,6 +2499,7 @@ async function saveNpc(existing) {
     faction: document.getElementById('f-faction').value || null,
     disposition: document.getElementById('f-disposition').value,
     wanders: document.getElementById('f-wanders').checked,
+    wander_zones,
     dialogue_tree: tree,
     vendor_inventory: vendor,
     flags: {},

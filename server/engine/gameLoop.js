@@ -24,6 +24,7 @@ export function startGameLoop(broadcast) {
   schedule('10s', () => tickSpawns());
   schedule('30s', cleanCorpses);
   schedule('1m', rentCollectionTick);
+  schedule('1m', npcWanderTick);
   console.log('✓ Game loop started');
 }
 
@@ -409,6 +410,28 @@ async function resourceTick() {
       player.horniness = Math.max(0, player.horniness - 1);
       await query('UPDATE players SET horniness=$1 WHERE id=$2', [player.horniness, playerId]);
     }
+  }
+}
+
+async function npcWanderTick() {
+  for (const [id, npc] of world.npcs) {
+    if (!npc.wanders) continue;
+    if (Math.random() > 0.2) continue; // ~20% chance per minute → wanders roughly every 5 min
+    const permitted = Array.isArray(npc.wander_zones) && npc.wander_zones.length ? npc.wander_zones : null;
+    let candidates;
+    if (permitted) {
+      candidates = permitted.filter(z => z !== npc.zone_id);
+    } else {
+      const zone = world.zones.get(npc.zone_id);
+      candidates = zone ? Object.values(zone.exits || {}) : [];
+    }
+    if (!candidates.length) continue;
+    const dest = candidates[Math.floor(Math.random() * candidates.length)];
+    // Update zone NPC sets
+    world.zones.get(npc.zone_id)?.npcs.delete(id);
+    npc.zone_id = dest;
+    world.zones.get(dest)?.npcs.add(id);
+    await query('UPDATE npcs SET zone_id=$1 WHERE id=$2', [dest, id]).catch(() => {});
   }
 }
 

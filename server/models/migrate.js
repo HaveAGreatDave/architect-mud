@@ -231,6 +231,21 @@ export async function migrate() {
     );
     ALTER TABLE windows ADD COLUMN IF NOT EXISTS handle TEXT;
 
+    CREATE TABLE IF NOT EXISTS doors (
+      id TEXT PRIMARY KEY,
+      zone_id TEXT NOT NULL,
+      exit_dir TEXT NOT NULL,
+      door_type TEXT DEFAULT 'basic',
+      is_open INTEGER DEFAULT 0,
+      is_locked INTEGER DEFAULT 0,
+      hp INTEGER DEFAULT 1000,
+      hp_max INTEGER DEFAULT 1000,
+      hololock_difficulty INTEGER DEFAULT 5,
+      flags JSONB DEFAULT '{}'
+    );
+
+    ALTER TABLE npcs ADD COLUMN IF NOT EXISTS wander_zones JSONB DEFAULT '[]';
+
     CREATE TABLE IF NOT EXISTS factions (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,

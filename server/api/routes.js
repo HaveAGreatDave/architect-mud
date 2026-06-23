@@ -1,5 +1,5 @@
 import { query } from '../models/db.js';
-import { reloadZone, getAllZones, world, getAllLivePlayers, getZone, addPlayerToZone, removePlayerFromZone, getMinimapData, reloadGlobalAmbients, spawnEnemySync } from '../engine/world.js';
+import { reloadZone, getAllZones, world, getAllLivePlayers, getZone, addPlayerToZone, removePlayerFromZone, getMinimapData, reloadGlobalAmbients, spawnEnemySync, setDoorCache, deleteDoorCache, getZoneDoors } from '../engine/world.js';
 import { describeZone, describeVoidTeleport } from '../engine/commands/index.js';
 import { loadRecipes } from '../engine/crafting.js';
 import { loadDrugs } from '../engine/drugs.js';
@@ -135,6 +135,11 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path==='/windows' && method==='POST') return requireDev(auth, ()=>apiCreateWindow(body));
   if (path.startsWith('/windows/') && method==='PUT') return requireDev(auth, ()=>apiUpdateWindow(path.split('/')[2],body));
   if (path.startsWith('/windows/') && method==='DELETE') return requireDev(auth, ()=>apiDeleteWindow(path.split('/')[2]));
+  if (path==='/doors' && method==='GET') return requireDev(auth, apiGetDoors);
+  if (path==='/doors' && method==='POST') return requireDev(auth, ()=>apiCreateDoor(body));
+  if (path.startsWith('/doors/') && method==='PUT') return requireDev(auth, ()=>apiUpdateDoor(path.split('/')[2],body));
+  if (path.startsWith('/doors/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteDoor(path.split('/')[2]));
+  if (path.match(/^\/zones\/[^/]+\/doors$/) && method==='GET') return requireDev(auth, ()=>apiGetZoneDoors(path.split('/')[2]));
   if (path==='/ambient-events' && method==='GET') return requireDev(auth, ()=>apiGetAmbientEvents(url));
   if (path==='/ambient-events' && method==='POST') return requireDev(auth, ()=>apiCreateAmbientEvent(body));
   if (path.startsWith('/ambient-events/') && method==='PUT') return requireDev(auth, ()=>apiUpdateAmbientEvent(path.split('/')[2],body));
@@ -713,15 +718,19 @@ async function apiGetNpcs() { const {rows}=await query('SELECT * FROM npcs'); re
 async function apiCreateNpc(body) {
   const id=body.id||`npc_${Date.now()}`;
   try {
-    await query(`INSERT INTO npcs (id,name,description,zone_id,faction,disposition,dialogue_tree,vendor_inventory,wanders,flags) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-      [id,body.name,body.description,body.zone_id||null,body.faction||null,body.disposition||'neutral',JSON.stringify(body.dialogue_tree||{}),JSON.stringify(body.vendor_inventory||[]),body.wanders?1:0,JSON.stringify(body.flags||{})]);
+    await query(`INSERT INTO npcs (id,name,description,zone_id,faction,disposition,dialogue_tree,vendor_inventory,wanders,wander_zones,flags) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+      [id,body.name,body.description,body.zone_id||null,body.faction||null,body.disposition||'neutral',JSON.stringify(body.dialogue_tree||{}),JSON.stringify(body.vendor_inventory||[]),body.wanders?1:0,JSON.stringify(body.wander_zones||[]),JSON.stringify(body.flags||{})]);
     return {status:201,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
 export async function apiUpdateNpc(id,body) {
   try {
-    await query(`UPDATE npcs SET name=$1,description=$2,zone_id=$3,faction=$4,disposition=$5,dialogue_tree=$6,vendor_inventory=$7,wanders=$8,flags=$9 WHERE id=$10`,
-      [body.name,body.description,body.zone_id,body.faction,body.disposition,JSON.stringify(body.dialogue_tree||{}),JSON.stringify(body.vendor_inventory||[]),body.wanders?1:0,JSON.stringify(body.flags||{}),id]);
+    await query(`UPDATE npcs SET name=$1,description=$2,zone_id=$3,faction=$4,disposition=$5,dialogue_tree=$6,vendor_inventory=$7,wanders=$8,wander_zones=$9,flags=$10 WHERE id=$11`,
+      [body.name,body.description,body.zone_id,body.faction,body.disposition,JSON.stringify(body.dialogue_tree||{}),JSON.stringify(body.vendor_inventory||[]),body.wanders?1:0,JSON.stringify(body.wander_zones||[]),JSON.stringify(body.flags||{}),id]);
+    // Update in-memory cache
+    const { world: w } = await import('../engine/world.js');
+    const existing = w.npcs.get(id);
+    if (existing) Object.assign(existing, { name:body.name, description:body.description, zone_id:body.zone_id, faction:body.faction, disposition:body.disposition, dialogue_tree:body.dialogue_tree||{}, vendor_inventory:body.vendor_inventory||[], wanders:body.wanders?1:0, wander_zones:body.wander_zones||[], flags:body.flags||{} });
     return {status:200,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
@@ -1182,6 +1191,59 @@ export async function apiDeleteWindow(id) {
   await query('DELETE FROM windows WHERE id=$1',[id]);
   await reloadWindowsEnv().catch(()=>{});
   return { status:200, body:{deleted:true} };
+}
+
+// --- Doors ---
+const DOOR_DEFAULTS = {
+  basic: { hp: 1000, hp_max: 1000, hololock_difficulty: 5 },
+  shoddy: { hp: 300, hp_max: 300, hololock_difficulty: 0 },
+  blast: { hp: 5000, hp_max: 5000, hololock_difficulty: 20 },
+};
+
+async function apiGetDoors() {
+  const { rows } = await query('SELECT * FROM doors');
+  return { status:200, body:rows };
+}
+
+async function apiGetZoneDoors(zoneId) {
+  const doors = getZoneDoors(decodeURIComponent(zoneId));
+  return { status:200, body:doors };
+}
+
+async function apiCreateDoor(body) {
+  const { rows: countRows } = await query('SELECT COUNT(*) FROM doors');
+  const id = `door_${parseInt(countRows[0].count) + 1}`;
+  const type = body.door_type || 'basic';
+  const defaults = DOOR_DEFAULTS[type] || DOOR_DEFAULTS.basic;
+  try {
+    await query(
+      `INSERT INTO doors (id,zone_id,exit_dir,door_type,is_open,is_locked,hp,hp_max,hololock_difficulty,flags) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+      [id, body.zone_id, body.exit_dir, type, 0, 0, defaults.hp, defaults.hp_max, defaults.hololock_difficulty, JSON.stringify(body.flags||{})]
+    );
+    const door = { id, zone_id: body.zone_id, exit_dir: body.exit_dir, door_type: type, is_open: 0, is_locked: 0, hp: defaults.hp, hp_max: defaults.hp_max, hololock_difficulty: defaults.hololock_difficulty, flags: body.flags||{} };
+    setDoorCache(id, door);
+    return { status:201, body:{id} };
+  } catch(e) { return { status:400, body:{error:e.message} }; }
+}
+
+async function apiUpdateDoor(id, body) {
+  try {
+    await query(
+      `UPDATE doors SET zone_id=$1,exit_dir=$2,door_type=$3,is_open=$4,is_locked=$5,hp=$6,hp_max=$7,hololock_difficulty=$8,flags=$9 WHERE id=$10`,
+      [body.zone_id, body.exit_dir, body.door_type, body.is_open?1:0, body.is_locked?1:0, body.hp, body.hp_max, body.hololock_difficulty, JSON.stringify(body.flags||{}), id]
+    );
+    const door = { id, ...body, flags: body.flags||{} };
+    setDoorCache(id, door);
+    return { status:200, body:{id} };
+  } catch(e) { return { status:400, body:{error:e.message} }; }
+}
+
+async function apiDeleteDoor(id) {
+  try {
+    await query('DELETE FROM doors WHERE id=$1', [id]);
+    deleteDoorCache(id);
+    return { status:200, body:{deleted:true} };
+  } catch(e) { return { status:400, body:{error:e.message} }; }
 }
 
 // --- Global Ambient Events ---

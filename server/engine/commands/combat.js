@@ -95,6 +95,10 @@ export async function resolveAttack(player, target, broadcast) {
 
 async function cmdAttack(targetStr, player, broadcast) {
 	if (!targetStr) return { type: "error", message: "Attack what?" };
+	if (targetStr === 'door' || targetStr.startsWith('door ')) {
+		const { cmdAttackDoor } = await import('./doors.js');
+		return cmdAttackDoor(targetStr.replace(/^door\s*/,'').trim(), player, broadcast);
+	}
 	const enemies = getZoneEnemies(player.current_zone);
 	if (!enemies.length)
 		return { type: "error", message: "Nothing to attack here." };

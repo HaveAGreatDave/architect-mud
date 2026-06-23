@@ -8,6 +8,7 @@ import { handlers as worldHandlers } from './world.js';
 import { handlers as bodilyHandlers } from './bodily.js';
 import { handlers as misHandlers } from './mis.js';
 import { handlers as appearanceHandlers } from './appearance.js';
+import { handlers as doorHandlers } from './doors.js';
 import { fireCommand } from '../plugins.js';
 
 export { describeZone, describeVoidTeleport } from './describe.js';
@@ -47,6 +48,13 @@ export async function handleCommand(input, player, broadcast) {
 
   const pluginResult = await fireCommand(cmd, args, raw, player, broadcast);
   if (pluginResult !== undefined) return pluginResult;
+
+  // Door pre-intercept: open/close/lock/unlock door <dir> — falls through if args[0] !== 'door'
+  const doorHandler = doorHandlers[cmd];
+  if (doorHandler) {
+    const doorResult = await doorHandler(args, raw, player, broadcast);
+    if (doorResult !== undefined) return doorResult;
+  }
 
   // Cosmetic machine pre-intercepts `use` before inventory gets it
   if (cmd === 'use' && appearanceUseHandler) {

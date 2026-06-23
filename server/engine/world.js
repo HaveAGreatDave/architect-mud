@@ -9,6 +9,7 @@ const world = {
   corpses: new Map(),
   spawnTimers: new Map(),
   apartments: new Map(), // zoneId -> apartment row
+  doors: new Map(),      // id -> door row
 };
 
 // Global ambient event pool, keyed by theme.
@@ -27,7 +28,8 @@ export async function initWorld() {
   await loadSpawnTemplates();
   await loadApartments();
   await loadGlobalAmbients();
-  console.log(`✓ World loaded: ${world.zones.size} zones, ${world.npcs.size} NPCs, ${world.apartments.size} apartments`);
+  await loadDoors();
+  console.log(`✓ World loaded: ${world.zones.size} zones, ${world.npcs.size} NPCs, ${world.apartments.size} apartments, ${world.doors.size} doors`);
 }
 
 async function loadGlobalAmbients() {
@@ -66,6 +68,7 @@ async function loadNpcs() {
       ...npc,
       dialogue_tree: npc.dialogue_tree || {},
       vendor_inventory: npc.vendor_inventory || [],
+      wander_zones: npc.wander_zones || [],
       flags: npc.flags || {},
     });
     if (npc.zone_id && world.zones.has(npc.zone_id)) {
@@ -87,6 +90,20 @@ async function loadApartments() {
     world.apartments.set(apt.zone_id, apt);
   }
 }
+
+async function loadDoors() {
+  const { rows } = await query('SELECT * FROM doors').catch(() => ({ rows: [] }));
+  world.doors.clear();
+  for (const door of rows) {
+    world.doors.set(door.id, { ...door, flags: door.flags || {} });
+  }
+}
+
+export function getDoorById(id) { return world.doors.get(id) || null; }
+export function getZoneDoors(zoneId) { return [...world.doors.values()].filter(d => d.zone_id === zoneId); }
+export function getDoorForExit(zoneId, exitDir) { return [...world.doors.values()].find(d => d.zone_id === zoneId && d.exit_dir === exitDir) || null; }
+export function setDoorCache(id, door) { world.doors.set(id, door); }
+export function deleteDoorCache(id) { world.doors.delete(id); }
 
 export function getApartment(zoneId) { return world.apartments.get(zoneId) || null; }
 export function setApartmentCache(zoneId, apt) { world.apartments.set(zoneId, apt); }
