@@ -954,6 +954,7 @@ let zoneEditNpcsCache = [];
 let zoneEditFurnitureCache = [];
 let zoneEditSpawnsCache = [];
 let zoneEditAllEnemiesCache = [];
+let zoneEditCurrentZoneId = null;
 let zoneEditExitsState = {};
 
 async function zoneEditForm(rec, isNew) {
@@ -1028,6 +1029,7 @@ async function zoneEditForm(rec, isNew) {
     zoneEditFurnitureCache = zoneFurniture;
     zoneEditSpawnsCache = zoneSpawns;
     zoneEditAllEnemiesCache = allEnemies;
+    zoneEditCurrentZoneId = rec.id;
     const childRooms = allRecords.filter(z =>
       (z.flags?.is_apartment || z.flags?.is_interior) &&
       Object.values(z.exits || {})[0] === rec.id
@@ -1069,7 +1071,10 @@ async function zoneEditForm(rec, isNew) {
         <div class="zone-subsection-header">Enemies <span class="zone-subsection-count">${zoneSpawns.length}</span></div>
         <div id="zone-enemies-list">${renderEnemyRows(zoneSpawns, zoneLiveEnemies, rec.id)}</div>
         <div id="zone-add-spawn-form"></div>
-        <button class="action-btn success" style="margin-top:6px" onclick='openAddSpawnForm(${JSON.stringify(rec.id)})'>+ Add Enemy</button>
+        <div style="display:flex;gap:6px;margin-top:6px">
+          <button class="action-btn success" onclick='openAddSpawnForm(${JSON.stringify(rec.id)})'>+ Add Enemy</button>
+          <button class="action-btn danger" style="margin-left:auto" onclick='despawnAllEnemies()'>Despawn All</button>
+        </div>
       </div>
 
       <div class="zone-subsection">
@@ -1775,6 +1780,12 @@ async function deleteSpawnQuick(spawnId, zoneId) {
   if (result?.error) { toast(result.error, true); return; }
   toast('Enemy removed');
   await refreshEnemiesSection(zoneId);
+}
+async function despawnAllEnemies() {
+  const result = await API('/live-enemies/despawn-all', 'POST');
+  if (result?.error) { toast(result.error, true); return; }
+  toast(result.message || 'All enemies despawned');
+  if (zoneEditCurrentZoneId) await refreshEnemiesSection(zoneEditCurrentZoneId);
 }
 
 // Furniture

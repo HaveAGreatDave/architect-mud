@@ -90,6 +90,7 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path.startsWith('/zones/') && method==='GET') return apiGetZone(path.split('/')[2]);
   if (path==='/spawns' && method==='POST') return requireDev(auth, ()=>apiCreateSpawn(body));
   if (path.startsWith('/spawns/') && method==='DELETE') return requireDev(auth, ()=>apiDeleteZoneSpawn(path.split('/')[2]));
+  if (path==='/live-enemies/despawn-all' && method==='POST') return requireAdmin(auth, ()=>apiDespawnAllEnemies());
   if (path.startsWith('/live-enemies/') && method==='DELETE') return requireDev(auth, ()=>apiDespawnEnemy(path.split('/')[2]));
   if (path.startsWith('/zones/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteZone(path.split('/')[2]));
   if (path==='/enemies' && method==='GET') return requireDev(auth, apiGetEnemies);
@@ -558,7 +559,18 @@ async function apiSpawnLiveEnemy(zoneId, body) {
   if (!body?.enemy_id) return { status:400, body:{ error:'enemy_id is required' } };
   const { rows } = await query('SELECT * FROM enemies WHERE id=$1', [body.enemy_id]);
   if (!rows.length) return { status:404, body:{ error:'Enemy template not found' } };
-  if (!world.zones.has(zoneId)) return { status:404, body:{ error:'Zone not loaded' } };
+  const zone = world.zones.get(zoneId);
+  if (!zone) return { status:404, body:{ error:'Zone not loaded' } };
+  // Respect max_count — look up the spawn record for this template in this zone
+  const { rows: spawnRows } = await query(
+    'SELECT max_count FROM zone_spawns WHERE zone_id=$1 AND enemy_id=$2 ORDER BY max_count DESC LIMIT 1',
+    [zoneId, body.enemy_id]
+  );
+  const maxCount = spawnRows[0]?.max_count ?? 1;
+  const currentCount = [...zone.enemies].filter(id => world.enemies.get(id)?.templateId === body.enemy_id).length;
+  if (currentCount >= maxCount) {
+    return { status:200, body:{ skipped: true, message: `Already at max_count (${maxCount}) for this zone` } };
+  }
   const instance = spawnEnemySync(rows[0], zoneId);
   return { status:201, body:{ instanceId: instance.instanceId, name: instance.name, hp: instance.hp, hp_max: instance.hp_max } };
 }
@@ -577,6 +589,15 @@ function apiDespawnEnemy(instanceId) {
   world.zones.get(enemy.zoneId)?.enemies.delete(instanceId);
   world.enemies.delete(instanceId);
   return { status:200, body:{ message:'Enemy despawned' } };
+}
+function apiDespawnAllEnemies() {
+  let count = 0;
+  for (const [instanceId, enemy] of world.enemies) {
+    world.zones.get(enemy.zoneId)?.enemies.delete(instanceId);
+    world.enemies.delete(instanceId);
+    count++;
+  }
+  return { status:200, body:{ message:`Despawned ${count} enemies` } };
 }
 async function apiGetEnemies() { const {rows}=await query('SELECT * FROM enemies'); return {status:200,body:rows}; }
 async function apiCreateEnemy(body) {
