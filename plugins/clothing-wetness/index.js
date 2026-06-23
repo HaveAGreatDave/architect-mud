@@ -2,69 +2,18 @@
  * Clothing Wetness Plugin
  *
  * Hooks:
- *   environment.tick30m — rolls for precipitation start/stop based on daily forecast
- *   tick.minute         — updates per-item wetness and player.wetness for all online players
+ *   tick.minute — increases wetness on equipped wettable items when precipRate > 0,
+ *                 dries them when indoors or when precipitation has stopped.
  */
 import { query } from '../../server/models/db.js';
 import { hasTag } from '../../server/engine/tags.js';
 import { getEnvironmentState } from '../../server/engine/environment.js';
 import { getAllLivePlayers, getZone } from '../../server/engine/world.js';
 
-// Derived precipitation chance from the daily forecast weather type.
-// The daily forecast says what kind of day it is; the 30-min tick decides
-// whether precipitation is falling right now.
-const PRECIP_CHANCE = {
-  rain:          0.70,
-  thunderstorm:  0.70,
-  storm:         0.70,
-  sleet:         0.70,
-  snow:          0.70,
-  blizzard:      0.70,
-  overcast:      0.25,
-  cloudy:        0.10,
-  clear:         0.03,
-  fog:           0.03,
-  haze:          0.03,
-  ash:           0.03,
-};
-
-// precipRate is a 0.0–1.0 value. Labels are looked up at display time via
-// intensityLabel(). Wetness delta per minute = precipRate * MAX_WETNESS_RATE.
-const MAX_WETNESS_RATE = 35; // wetness units/min at precipRate 1.0 (~3 min to fully soak)
-
-const RAIN_INTENSITIES = [
-  { label: 'mist',                   rate: 0.1 },
-  { label: 'light drizzle',          rate: 0.2 },
-  { label: 'light rain',             rate: 0.3 },
-  { label: 'steady rain',            rate: 0.4 },
-  { label: 'moderate rain',          rate: 0.5 },
-  { label: 'heavy rain',             rate: 0.6 },
-  { label: 'very heavy rain',        rate: 0.7 },
-  { label: 'storm',                  rate: 0.8 },
-  { label: 'severe storm',           rate: 0.9 },
-  { label: 'extreme deluge',         rate: 1.0 },
-];
-const SNOW_INTENSITIES = [
-  { label: 'light flurries',         rate: 0.1 },
-  { label: 'scattered snow',         rate: 0.2 },
-  { label: 'steady snowfall',        rate: 0.3 },
-  { label: 'moderate snow',          rate: 0.4 },
-  { label: 'accumulating snow',      rate: 0.5 },
-  { label: 'thick snowfall',         rate: 0.6 },
-  { label: 'wind-blown snow',        rate: 0.7 },
-  { label: 'blizzard conditions',    rate: 0.8 },
-  { label: 'whiteout blizzard',      rate: 0.9 },
-  { label: 'severe whiteout blizzard', rate: 1.0 },
-];
-
-// Returns the intensity label for a given precipType and precipRate.
-function intensityLabel(precipType, precipRate) {
-  if (!precipRate || precipRate <= 0) return 'clear';
-  const table = (precipType === 'snow') ? SNOW_INTENSITIES : RAIN_INTENSITIES;
-  // Find exact match, or nearest
-  const entry = table.find(e => Math.abs(e.rate - precipRate) < 0.001) ?? table[0];
-  return entry.label;
-}
+// precipRate is set by the environment system (0.1–1.0 when raining, 0 when dry).
+// Wetness increases by precipRate * 12 per minute, capped at 100.
+// At 0.1 (drizzle) ~83 min to soak; at 1.0 (deluge) ~8 min.
+const WETNESS_RATE_SCALE = 12;
 
 // Wetness thresholds for player broadcast messages.
 // Each entry: { value, risingMsg, fallingMsg }
@@ -76,38 +25,9 @@ const WETNESS_THRESHOLDS = [
 ];
 const DRY_MSG = "You're completely dry.";
 
-function pickIntensity(intensities) {
-  return intensities[Math.floor(Math.random() * intensities.length)];
-}
-
 export const hooks = {
-  // Roll for precipitation every 30 minutes. If it starts, pick an intensity
-  // and broadcast a HUD update. If it stops, clear the state and broadcast.
-  'environment.tick30m': async ({ weatherType, tempC, setCurrentPrecip, getHUDPayload, broadcast }) => {
-    const envState = getEnvironmentState();
-    const precipOverride = envState.forecast?.[0]?.precipChance;
-    const chance = precipOverride !== undefined ? precipOverride : (PRECIP_CHANCE[weatherType] ?? 0.05);
-    // Roll out of 100 — rain/snow if roll < chance (both expressed as 0–1 fractions)
-    const roll = Math.random();
-    const isCurrentlyPrecipitating = envState.currentPrecip !== 'none';
-
-    if (roll < chance && !isCurrentlyPrecipitating) {
-      // Derive precip type from the forecast weatherType, fall back to temperature
-      let precipType;
-      if (weatherType === 'snow' || weatherType === 'blizzard') precipType = 'snow';
-      else if (weatherType === 'sleet')                          precipType = tempC <= 1 ? 'snow' : 'rain';
-      else                                                        precipType = tempC <= 1 ? 'snow' : 'rain';
-      const { label, rate } = pickIntensity(precipType === 'snow' ? SNOW_INTENSITIES : RAIN_INTENSITIES);
-      setCurrentPrecip(precipType, intensityLabel(precipType, rate), rate);
-      if (broadcast) broadcast({ type: 'environment.sync', ...getHUDPayload() });
-    } else if (roll >= chance && isCurrentlyPrecipitating) {
-      setCurrentPrecip('none', 'none', 0);
-      if (broadcast) broadcast({ type: 'environment.sync', ...getHUDPayload() });
-    }
-  },
-
-  // Update wetness on every equipped wettable item for every online player,
-  // then compute player.wetness (average) and send threshold messages.
+  // Increase wetness on equipped wettable items each minute when precipRate > 0,
+  // dry them when indoors or precipitation has stopped.
   'tick.minute': async ({ broadcast }) => {
     const env = getEnvironmentState();
     const { precipRate } = env;
@@ -138,7 +58,7 @@ export const hooks = {
       let totalWetness = 0;
       for (const item of wettable) {
         const prev = item.custom_data?.wetness ?? 0;
-        let next = isRaining ? prev + precipRate * MAX_WETNESS_RATE : prev - dryRate;
+        let next = isRaining ? prev + precipRate * WETNESS_RATE_SCALE : prev - dryRate;
         next = Math.max(0, Math.min(100, next));
         totalWetness += next;
 

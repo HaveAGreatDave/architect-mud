@@ -69,17 +69,29 @@ function currentIntensityLabel() {
   return map.get(rate) ?? '';
 }
 
+// Triangular distribution: mode at (0.1 + chance * 0.9), full range [0.1, 1.0].
+// High-chance days cluster toward heavy intensity but can still produce a drizzle;
+// low-chance days cluster light but can spike to a deluge.
+export function precipRateFromChance(chance) {
+  const min = 0.1, max = 1.0;
+  const mode = min + chance * (max - min);
+  const u = Math.random();
+  const fc = (mode - min) / (max - min);
+  return u < fc
+    ? min + Math.sqrt(u * (max - min) * (mode - min))
+    : max - Math.sqrt((1 - u) * (max - min) * (max - mode));
+}
+
 // Roll for precipitation and set current state immediately.
 // precipChance is 0–1. Called on day advance, recalculate, and weather override.
 export function rollAndSetCurrentPrecip(weatherType, tempC, precipChance) {
-  if (Math.random() < (precipChance ?? 0.05)) {
+  const chance = precipChance ?? 0.05;
+  if (Math.random() < chance) {
     const precipType = (weatherType === 'snow' || weatherType === 'blizzard') ? 'snow'
       : tempC <= 1 ? 'snow' : 'rain';
-    const table = precipType === 'snow' ? SNOW_INTENSITY_TABLE : RAIN_INTENSITY_TABLE;
-    const { label, rate } = table[Math.floor(Math.random() * table.length)];
-    setCurrentPrecip(precipType, label, rate);
+    setCurrentPrecip(precipType, precipRateFromChance(chance));
   } else {
-    setCurrentPrecip('none', 'none', 0);
+    setCurrentPrecip('none', 0);
   }
 }
 
@@ -164,8 +176,7 @@ const state = {
   activeClimateProfileId: null,
   activeClimateProfile: null,  // { monthly_temp_c: [...12], monthly_precip_chance: [...12] }
   currentPrecip: 'none',       // 'none' | 'rain' | 'snow' — live state, updated each 30-min tick
-  precipIntensity: 'none',     // stored label (unused for display — currentIntensityLabel() derives from precipRate)
-  precipRate: 0,               // wetness gain per item per minute (0 when dry)
+  precipRate: 0,               // 0.1–1.0 intensity scale; 0 when dry. Label derived via currentIntensityLabel().
 };
 
 let deps = { query: null, emitHook: null, broadcast: null };
@@ -591,6 +602,17 @@ async function tick30m() {
       await syncStreetlights(nowDark).catch(() => {});
       await recomputePower().catch(() => {});
     }
+  }
+
+  // Precipitation roll: start if dry and roll wins; stop if raining and roll loses.
+  const precipChance = state.forecast[0]?.precipChance ?? 0.05;
+  const precipRoll = Math.random();
+  if (precipRoll < precipChance && state.currentPrecip === 'none') {
+    const precipType = (state.weatherType === 'snow' || state.weatherType === 'blizzard') ? 'snow'
+      : state.tempC <= 1 ? 'snow' : 'rain';
+    setCurrentPrecip(precipType, precipRateFromChance(precipChance));
+  } else if (precipRoll >= precipChance && state.currentPrecip !== 'none') {
+    setCurrentPrecip('none', 0);
   }
 
   const payload = getHUDPayload();
@@ -1066,10 +1088,9 @@ export function setWeatherState(weatherType, tempC, forecast) {
 
 // Setter used by the clothing-wetness plugin to update live precipitation state.
 // Separate from the daily forecast weatherType — this changes every 30-min tick.
-export function setCurrentPrecip(type, intensity, rate) {
-  state.currentPrecip   = type      ?? 'none';
-  state.precipIntensity = intensity ?? 'none';
-  state.precipRate      = rate      ?? 0;
+export function setCurrentPrecip(type, rate) {
+  state.currentPrecip = type ?? 'none';
+  state.precipRate    = rate ?? 0;
 }
 
 const WEATHER_DESCRIPTIONS = {
