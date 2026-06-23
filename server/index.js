@@ -247,17 +247,22 @@ wss.on("connection", (ws) => {
 					player.current_zone,
 					{
 						type: "zone_event",
-						message: `${session.handle} has disconnected.`,
+						message: `${session.handle} has fallen asleep.`,
 					},
 					session.playerId,
 				);
+				await query(
+					"UPDATE players SET last_seen=EXTRACT(EPOCH FROM NOW()), current_zone=$1, offline_sleeping=TRUE WHERE id=$2",
+					[player.current_zone, session.playerId],
+				).catch(() => {});
+			} else {
+				await query(
+					"UPDATE players SET last_seen=EXTRACT(EPOCH FROM NOW()), offline_sleeping=TRUE WHERE id=$1",
+					[session.playerId],
+				).catch(() => {});
 			}
 			playerSockets.delete(session.playerId);
 			removeLivePlayer(session.playerId);
-			await query(
-				"UPDATE players SET last_seen=EXTRACT(EPOCH FROM NOW()) WHERE id=$1",
-				[session.playerId],
-			).catch(() => {});
 		}
 		clients.delete(ws);
 	});
@@ -402,7 +407,7 @@ async function finishAuth(ws, session, player) {
 	await recomputeInsulation(livePlayer);
 	addPlayerToZone(player.id, livePlayer.current_zone);
 	await query(
-		"UPDATE players SET last_seen=EXTRACT(EPOCH FROM NOW()) WHERE id=$1",
+		"UPDATE players SET last_seen=EXTRACT(EPOCH FROM NOW()), offline_sleeping=FALSE WHERE id=$1",
 		[player.id],
 	);
 

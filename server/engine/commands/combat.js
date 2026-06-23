@@ -1,5 +1,5 @@
 import { query } from "../../models/db.js";
-import { getZoneEnemies, getZoneCorpses, getZonePlayers } from "../world.js";
+import { getZoneEnemies, getZoneCorpses, getZonePlayers, createCorpse } from "../world.js";
 import { playerAttackEnemy } from "../combat.js";
 import { awardSkillUse, skillCheck } from "../skills.js";
 import { hasTag, tagValue } from "../tags.js";
@@ -61,6 +61,12 @@ export async function resolveAttack(player, target, broadcast) {
 				);
 			}
 		}
+		createCorpse({
+			id: `corpse_${result.enemyId || randomUUID()}`,
+			name: `${target.name}'s corpse`,
+			zoneId: player.current_zone,
+			expiresAt: Date.now() + 60 * 60 * 1000,
+		});
 		broadcast(
 			player.current_zone,
 			{

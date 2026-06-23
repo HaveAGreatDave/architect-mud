@@ -388,6 +388,7 @@ export async function migrate() {
       stat_cool = GREATEST(stat_cool, 1)
   `);
   await query(`UPDATE players SET hp_max = 40, hp = LEAST(hp, 40) WHERE hp_max = 100`);
+  await query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS offline_sleeping BOOLEAN DEFAULT FALSE`);
   await query(`
     CREATE TABLE IF NOT EXISTS combat_config (
       key TEXT PRIMARY KEY,

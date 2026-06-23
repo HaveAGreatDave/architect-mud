@@ -165,6 +165,11 @@ export async function describeZone(zone, player) {
   const corpses  = isDark ? [] : getZoneCorpses(zone.id);
   const others   = isDark ? [] : getZonePlayers(zone.id).filter(p => p.id !== player.id);
 
+  const { rows: sleepingBodies } = isDark ? { rows: [] } : await query(
+    `SELECT handle FROM players WHERE offline_sleeping=TRUE AND current_zone=$1`,
+    [zone.id]
+  );
+
   const { rows: groundItems } = isDark ? { rows: [] } : await query(
     `SELECT pi.*, i.name, i.rarity FROM player_inventory pi
      JOIN items i ON i.id = pi.item_id
@@ -280,6 +285,12 @@ export async function describeZone(zone, player) {
       `<span class="action-link player-link" data-action="examine" data-target="${p.handle}" title="Look at ${p.handle}">${p.handle}</span>`
     );
     desc += `\n<span class="players-label">Also here:</span> ${playerLinks.join(', ')}`;
+  }
+  if (sleepingBodies.length) {
+    const bodyLinks = sleepingBodies.map(p =>
+      `<span class="action-link player-link" data-action="examine" data-target="${p.handle}" title="Look at ${p.handle}">${p.handle} <span class="text-dim">(sleeping)</span></span>`
+    );
+    desc += `\n<span class="players-label">Sleeping here:</span> ${bodyLinks.join(', ')}`;
   }
   if (npcs.length) {
     if (isDark) {
