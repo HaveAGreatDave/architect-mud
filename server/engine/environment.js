@@ -483,7 +483,7 @@ async function tick1m() {
     `UPDATE world_clock SET game_time_minutes = $1, last_tick_1m = now() WHERE id = 1`,
     [state.minutes]
   );
-  if (broadcast) broadcast({ type: 'environment.clockTick', time: formatHHMM(state.minutes), tempC: state.tempC + diurnalOffset(state.minutes) });
+  if (broadcast) broadcast({ type: 'environment.clockTick', time: formatHHMM(state.minutes), tempC: state.tempC + diurnalOffset(state.minutes), currentWeatherType: state.currentPrecip === 'none' ? state.weatherType : state.currentPrecip, currentPrecipIntensity: state.precipIntensity });
   await flickerOverloadedZones();
 }
 
