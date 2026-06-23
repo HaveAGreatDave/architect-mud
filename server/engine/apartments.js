@@ -72,9 +72,10 @@ export async function cmdRent(player) {
 	);
 	setApartmentCache(zone.id, updated.rows[0]);
 
+	const rentedDate = new Date(now * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 	return {
 		type: "rent",
-		message: `Congratulations, ${player.handle}. You are now the proud tenant of <span style="color:var(--accent)">${zone.name}</span> in ${buildingName}.\n\nWeekly rent: <span style="color:var(--yellow)">${cost}c</span>, due every 7 days. Type LOCK to secure the door when you leave. Type UNRENT if you ever want to give the place up.`,
+		message: `Congratulations — you are the proud new owner of <span style="color:var(--accent)">${zone.name}</span>!\n\nWeekly rent of <span style="color:var(--yellow)">${cost}c</span> will be collected every 7 days from ${rentedDate}. Type LOCK to secure the door when you leave. Type UNRENT to give the place up.`,
 	};
 }
 
@@ -89,11 +90,12 @@ export async function cmdUnrent(player) {
 	if (apt.owner_id !== player.id)
 		return { type: "error", message: "This isn't your place to give up." };
 
+	const cost = apt.rent_cost ?? 100;
 	await releaseApartment(apt, zone.id);
 
 	return {
 		type: "unrent",
-		message: `You hand back the keys to ${zone.name}. It's no longer yours. Your weekly bills have been reduced by ${cost}c.`,
+		message: `<span style="color:var(--accent)">${zone.name}</span> has been vacated. You've handed back the keys — the unit is no longer yours. Your weekly bills have been reduced by <span style="color:var(--yellow)">${cost}c</span>.`,
 	};
 }
 
@@ -346,6 +348,25 @@ export async function tickSleep(player) {
 			thirst: player.thirst,
 		},
 	};
+}
+
+export function describeRentStatus(zone, player) {
+	if (!isApartmentZone(zone)) return '';
+	const apt = getApartment(zone.id);
+	if (!apt?.owner_id || apt.owner_id !== player.id) return '';
+	const cost = apt.rent_cost ?? 100;
+	const now = Date.now();
+	const rentedAt = apt.date_rented * 1000;
+	const daysSince = Math.floor((now - rentedAt) / 86400000);
+	const daysUntilNext = 7 - (daysSince % 7);
+	const nextDue = new Date(rentedAt + (Math.floor(daysSince / 7) + 1) * 7 * 86400000);
+	const nextDueStr = nextDue.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+	const urgency = daysUntilNext <= 1
+		? `<span style="color:var(--red)">due tomorrow</span>`
+		: daysUntilNext <= 3
+			? `<span style="color:var(--yellow)">${daysUntilNext} days</span>`
+			: `${daysUntilNext} days`;
+	return `\n<span class="text-dim">Rent: <span style="color:var(--yellow)">${cost}c</span> due ${nextDueStr} (${urgency}).</span>`;
 }
 
 export async function describeApartmentStatus(zone) {

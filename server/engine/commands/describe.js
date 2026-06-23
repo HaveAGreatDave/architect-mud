@@ -2,7 +2,7 @@ import { query } from '../../models/db.js';
 import { getZone, getZoneEnemies, getZoneNpcs, getZoneCorpses, getZonePlayers } from '../world.js';
 import { getZoneVisibility, getWindowsForZone, getWeatherDescription } from '../environment.js';
 import { getCustodianOutcastResponse } from '../mutations.js';
-import { describeApartmentStatus } from '../apartments.js';
+import { describeApartmentStatus, describeRentStatus } from '../apartments.js';
 import { fireHook } from '../plugins.js';
 
 const turretCooldowns = new Map();
@@ -203,6 +203,7 @@ export async function describeZone(zone, player) {
   }
   desc += `\n${zoneDesc}${weatherLine}${describeBuildingDiscovery(buildings)}`;
   desc += await describeApartmentStatus(zone);
+  desc += describeRentStatus(zone, player);
 
   const outcastResponse = getCustodianOutcastResponse(zone, player);
   if (outcastResponse) {
