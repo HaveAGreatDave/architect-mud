@@ -662,7 +662,7 @@ async function apiBulkAddStreetlights(auth) {
         SELECT DISTINCT zone_id FROM furniture WHERE light_type='streetlight'
       )
       AND z.id NOT IN (
-        SELECT entity_id FROM staged_changes WHERE entity_type='furniture' AND staged_data::jsonb->>'light_type'='streetlight'
+        SELECT staged_data::jsonb->>'zone_id' FROM staged_changes WHERE entity_type='furniture' AND staged_data::jsonb->>'light_type'='streetlight'
       )
   `);
   const { rows: authorRows } = await query('SELECT handle FROM players WHERE id=$1', [auth?.playerId]).catch(() => ({ rows: [] }));
