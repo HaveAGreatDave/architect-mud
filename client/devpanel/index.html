@@ -31,10 +31,10 @@
     <button class="action-btn" onclick="refreshWorld()">↻ Refresh</button>
     <button class="action-btn" id="ghost-btn" onclick="openGhostMode()" style="display:none">👻 Ghost Mode</button>
     <div style="width:1px;height:20px;background:var(--border);margin:0 4px"></div>
-    <button class="action-btn success" id="publish-all-btn" onclick="publishAll()" style="display:none">
+    <button class="action-btn success" id="publish-all-btn" onclick="publishAll()" disabled>
       Publish All <span id="staging-badge" style="background:var(--accent2);color:var(--bg);border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px">0</span>
     </button>
-    <button class="action-btn danger" id="reject-all-btn" onclick="rejectAll()" style="display:none">Reject All</button>
+    <button class="action-btn danger" id="reject-all-btn" onclick="rejectAll()" disabled>Reject All</button>
   </div>
 </div>
 
@@ -2435,6 +2435,7 @@ async function bulkAddStreetlights() {
   } else {
     toast(result.message || `Added street lights to ${result.added} zones`);
     if (result_el) result_el.textContent = result.message || `Done — ${result.added} added`;
+    await updateStagingBadge();
     await loadPanel('furniture');
   }
 }
@@ -4976,8 +4977,8 @@ async function updateStagingBadge() {
   const publishBtn = document.getElementById('publish-all-btn');
   const rejectBtn = document.getElementById('reject-all-btn');
   if (badge) badge.textContent = count;
-  if (publishBtn) publishBtn.style.display = count > 0 ? '' : 'none';
-  if (rejectBtn) rejectBtn.style.display = count > 0 ? '' : 'none';
+  if (publishBtn) publishBtn.disabled = count === 0;
+  if (rejectBtn) rejectBtn.disabled = count === 0;
   const navItem = document.getElementById('changes-nav-item');
   if (navItem) navItem.textContent = count > 0 ? `📋 Changes (${count})` : '📋 Changes';
 }
