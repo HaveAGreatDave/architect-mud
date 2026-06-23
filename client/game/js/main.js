@@ -1,4 +1,4 @@
-import { loadSettings, saveSettings, applySettings, initSettingsUI, SETTINGS_KEY } from '/shared/settings.js';
+import { loadSettings, saveSettings, applySettings, initSettingsUI, listenForSettingsChanges, SETTINGS_KEY } from '/shared/settings.js';
 import { initNet, setWhoModalHandler, sendCmd, doAuth, doForgotPassword, doResetPassword, closeConnection } from './net.js';
 import { handleServerMsg } from './dispatch.js';
 import { state } from './state.js';
@@ -18,6 +18,7 @@ if (!localStorage.getItem(SETTINGS_KEY) && _isMobile) {
 }
 
 applySettings(settings);
+listenForSettingsChanges(applySettings);
 // saveAndApply is called after settings.js mutates the settings object in-place
 initSettingsUI(settings, () => { saveSettings(settings); applySettings(settings); }, {
   sendCmd,

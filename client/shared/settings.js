@@ -93,4 +93,11 @@ export function initSettingsUI(settings, saveAndApply, { getOrigin, saveOrigin, 
   });
 }
 
+export function listenForSettingsChanges(applyFn) {
+  window.addEventListener('storage', e => {
+    if (e.key !== SETTINGS_KEY) return;
+    applyFn(loadSettings());
+  });
+}
+
 export { SETTINGS_KEY };

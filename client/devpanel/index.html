@@ -4289,9 +4289,9 @@ function closeModal() {
   _editingPlayerOriginal = null;
 }
 
-const DEV_SETTINGS_KEY = 'devpanel_settings';
-function loadDevSettings() { try { return JSON.parse(localStorage.getItem(DEV_SETTINGS_KEY) || '{}'); } catch { return {}; } }
-function saveDevSettings(s) { try { localStorage.setItem(DEV_SETTINGS_KEY, JSON.stringify(s)); } catch {} }
+const SHARED_SETTINGS_KEY = 'architect_settings';
+function loadDevSettings() { try { return JSON.parse(localStorage.getItem(SHARED_SETTINGS_KEY) || '{}'); } catch { return {}; } }
+function saveDevSettings(s) { try { const merged = { ...loadDevSettings(), ...s }; localStorage.setItem(SHARED_SETTINGS_KEY, JSON.stringify(merged)); } catch {} }
 let devSettings = loadDevSettings();
 
 function applyDevSettings() {
@@ -4302,6 +4302,12 @@ function applyDevSettings() {
   });
 }
 applyDevSettings();
+
+window.addEventListener('storage', e => {
+  if (e.key !== SHARED_SETTINGS_KEY) return;
+  devSettings = loadDevSettings();
+  applyDevSettings();
+});
 
 document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('#dev-opt-theme .dev-settings-opt').forEach(btn => {
