@@ -6,8 +6,7 @@
  * Players opt in via the hidden debug code in client settings (MISON64).
  */
 import { query } from '../models/db.js';
-mis_enabled='false' 
-let serverMisEnabled = true; // default open; DB overrides at load
+let serverMisEnabled = false// default open; DB overrides at load
 
 export async function loadMisSettings() {
   const { rows } = await query(`SELECT value FROM server_settings WHERE key='mis_enabled'`);
