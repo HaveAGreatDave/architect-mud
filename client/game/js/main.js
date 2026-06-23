@@ -63,15 +63,53 @@ document.getElementById('auth-toggle-link').addEventListener('click', () => {
   document.getElementById('auth-submit').textContent = state.isRegister ? 'Register' : 'Enter';
 });
 
-// Forgot password flow
-document.getElementById('auth-forgot-link').addEventListener('click', () => {
-  document.getElementById('auth-screen').style.display = 'none';
-  document.getElementById('forgot-screen').style.display = '';
+// Forgot password — draggable window
+const _forgotWindow = document.getElementById('forgot-window');
+const _forgotHandle = document.getElementById('forgot-drag-handle');
+let _fwOx = 0, _fwOy = 0;
+_forgotHandle.addEventListener('pointerdown', e => {
+  if (e.target.tagName === 'BUTTON') return;
+  const r = _forgotWindow.getBoundingClientRect();
+  _fwOx = e.clientX - r.left; _fwOy = e.clientY - r.top;
+  _forgotWindow.style.transform = 'none';
+  _forgotHandle.setPointerCapture(e.pointerId);
+  _forgotHandle.style.cursor = 'grabbing';
+  e.preventDefault();
 });
-document.getElementById('forgot-back-link').addEventListener('click', () => {
-  document.getElementById('forgot-screen').style.display = 'none';
-  document.getElementById('auth-screen').style.display = '';
+_forgotHandle.addEventListener('pointermove', e => {
+  if (!_forgotHandle.hasPointerCapture(e.pointerId)) return;
+  const x = Math.max(0, Math.min(window.innerWidth  - _forgotWindow.offsetWidth,  e.clientX - _fwOx));
+  const y = Math.max(0, Math.min(window.innerHeight - _forgotWindow.offsetHeight, e.clientY - _fwOy));
+  _forgotWindow.style.left = x + 'px'; _forgotWindow.style.top = y + 'px';
 });
+_forgotHandle.addEventListener('pointerup', e => { _forgotHandle.style.cursor = 'grab'; });
+
+function openForgotWindow() {
+  const hintLine = document.getElementById('forgot-hint-line');
+  document.getElementById('forgot-message').textContent = '';
+  document.getElementById('forgot-email').value = '';
+  hintLine.style.display = 'none';
+  _forgotWindow.style.display = '';
+  // Reset position to center
+  _forgotWindow.style.transform = 'translateX(-50%)';
+  _forgotWindow.style.left = '50%';
+  _forgotWindow.style.top = '20%';
+  // Try to pre-fill email from username
+  const username = document.getElementById('auth-username').value.trim();
+  if (username) {
+    fetch(`/api/auth/email-hint?username=${encodeURIComponent(username)}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.hint) {
+          hintLine.textContent = `Registered email on file: ${data.hint}`;
+          hintLine.style.display = '';
+        }
+      }).catch(() => {});
+  }
+}
+
+document.getElementById('auth-forgot-link').addEventListener('click', openForgotWindow);
+document.getElementById('forgot-close-btn').addEventListener('click', () => { _forgotWindow.style.display = 'none'; });
 document.getElementById('forgot-submit').addEventListener('click', doForgotPassword);
 document.getElementById('forgot-email').addEventListener('keydown', e => { if (e.key === 'Enter') doForgotPassword(); });
 

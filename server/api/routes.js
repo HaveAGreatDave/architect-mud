@@ -71,6 +71,7 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path==='/auth/login' && method==='POST') return apiLogin(body);
   if (path==='/auth/forgot-password' && method==='POST') return apiForgotPassword(body);
   if (path==='/auth/reset-password'  && method==='POST') return apiResetPassword(body);
+  if (path.startsWith('/auth/email-hint') && method==='GET') return apiEmailHint(new URL('http://x'+path).searchParams.get('username'));
   if (path==='/auth/gen-switch-token' && method==='POST') {
     if (!auth || !['dev','admin','builder','designer'].includes(auth.role)) return { status:403, body:{error:'Dev access required'} };
     const { rows } = await query('SELECT id, username, handle, role FROM players WHERE id=$1', [auth.playerId]);
@@ -201,6 +202,18 @@ async function apiLogin(body) {
   const p = rows[0];
   fireHook('player.login', { id: p.id, handle: p.handle, role: p.role }).catch(() => {});
   return {status:200,body:{token:makeToken(p.id,p.role),playerId:p.id,handle:p.handle,role:p.role}};
+}
+
+async function apiEmailHint(username) {
+  if (!username) return { status:400, body:{ hint: '' } };
+  const { rows } = await query('SELECT email FROM players WHERE username=$1', [username.toLowerCase().trim()]);
+  if (!rows.length || !rows[0].email) return { status:200, body:{ hint: '' } };
+  const email = rows[0].email;
+  const [local, domain] = email.split('@');
+  const hint = local.length <= 2
+    ? `${local[0]}***@${domain}`
+    : `${local[0]}${'*'.repeat(local.length - 2)}${local[local.length - 1]}@${domain}`;
+  return { status:200, body:{ hint } };
 }
 
 async function apiForgotPassword(body) {

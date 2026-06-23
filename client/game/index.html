@@ -85,19 +85,20 @@
 			</div>
 		</div>
 
-		<!-- FORGOT PASSWORD SCREEN -->
-		<div id="forgot-screen" style="display:none">
-			<div id="auth-box">
-				<div class="tagline">Forgot Password</div>
-				<div class="auth-field">
+		<!-- FORGOT PASSWORD WINDOW (draggable) -->
+		<div id="forgot-window" style="display:none;position:fixed;top:20%;left:50%;transform:translateX(-50%);z-index:300;background:var(--bg2);border:1px solid var(--accent);width:340px;max-width:94vw;box-shadow:0 4px 32px rgba(0,0,0,0.6)">
+			<div id="forgot-drag-handle" style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border);cursor:grab;user-select:none">
+				<span style="color:var(--accent);font-size:11px;letter-spacing:2px;text-transform:uppercase">Forgot Password</span>
+				<button id="forgot-close-btn" style="background:transparent;border:1px solid var(--border);color:var(--text-dim);width:22px;height:22px;cursor:pointer;font-size:11px;line-height:1;font-family:var(--font)">✕</button>
+			</div>
+			<div style="padding:16px;display:flex;flex-direction:column;gap:12px">
+				<div id="forgot-hint-line" style="font-size:11px;color:var(--text-dim);display:none"></div>
+				<div class="auth-field" style="margin:0">
 					<label>Email address</label>
-					<input type="email" id="forgot-email" placeholder="your@email.com" autocomplete="email" />
+					<input type="email" id="forgot-email" placeholder="your@email.com" autocomplete="email" style="width:100%;box-sizing:border-box" />
 				</div>
-				<button class="auth-btn" id="forgot-submit">Send Reset Link</button>
-				<div class="auth-error" id="forgot-message"></div>
-				<div class="auth-toggle">
-					<a id="forgot-back-link" style="cursor:pointer">Back to Login</a>
-				</div>
+				<button class="auth-btn" id="forgot-submit" style="margin:0">Send Reset Link</button>
+				<div class="auth-error" id="forgot-message" style="margin:0"></div>
 			</div>
 		</div>
 
