@@ -3,6 +3,16 @@ import { getApartment, setApartmentCache, getZone } from "./world.js";
 import { skillCheck, awardSkillUse } from "./skills.js";
 import { adjustCredits } from "./economy.js";
 
+// Resolve the building name for an apartment zone by following its exits back
+// to a lobby (the first exit that points to a non-apartment zone).
+function getBuildingName(zone) {
+  for (const linkedId of Object.values(zone.exits || {})) {
+    const linked = getZone(linkedId);
+    if (linked && !linked.flags?.is_apartment) return linked.name;
+  }
+  return null;
+}
+
 // Picking a lock gets harder the more the owner has invested in it.
 // Difficulty is a flat number compared against a d10 + rank + stat-bonus roll
 // (see skills.js:skillCheck) — same shape as every other check in the game.
@@ -50,19 +60,50 @@ export async function cmdRent(player) {
 			message: `You need ${cost}c to claim this unit. You have ${player.credits}c.`,
 		};
 
+	const buildingName = getBuildingName(zone) ?? 'the building';
+	const now = Math.floor(Date.now() / 1000);
+
 	const updated = await query(
-		`INSERT INTO apartments (zone_id, owner_id, owner_handle, is_locked, lock_difficulty, rent_cost, purchased_at)
-     VALUES ($1,$2,$3,0,$4,$5,EXTRACT(EPOCH FROM NOW()))
-     ON CONFLICT (zone_id) DO UPDATE SET owner_id=$2, owner_handle=$3, is_locked=0, lock_difficulty=$4, purchased_at=EXTRACT(EPOCH FROM NOW())
+		`INSERT INTO apartments (zone_id, owner_id, owner_handle, is_locked, lock_difficulty, rent_cost, purchased_at, date_rented, building_name)
+     VALUES ($1,$2,$3,0,$4,$5,$6,$6,$7)
+     ON CONFLICT (zone_id) DO UPDATE SET owner_id=$2, owner_handle=$3, is_locked=0, lock_difficulty=$4, purchased_at=$6, date_rented=$6, building_name=$7
      RETURNING *`,
-		[zone.id, player.id, player.handle, BASE_LOCK_DIFFICULTY, cost],
+		[zone.id, player.id, player.handle, BASE_LOCK_DIFFICULTY, cost, now, buildingName],
 	);
 	setApartmentCache(zone.id, updated.rows[0]);
 
 	return {
 		type: "rent",
-		message: `You claim ${zone.name} for ${cost}c. It's yours now. Type LOCK to secure the door when you leave.`,
+		message: `Congratulations, ${player.handle}. You are now the proud tenant of <span style="color:var(--accent)">${zone.name}</span> in ${buildingName}.\n\nWeekly rent: <span style="color:var(--yellow)">${cost}c</span>, due every 7 days. Type LOCK to secure the door when you leave. Type UNRENT if you ever want to give the place up.`,
 	};
+}
+
+export async function cmdUnrent(player) {
+	const zone = getZone(player.current_zone);
+	if (!isApartmentZone(zone))
+		return { type: "error", message: "There is nothing to unrent here." };
+
+	const apt = getApartment(zone.id);
+	if (!apt?.owner_id)
+		return { type: "error", message: "Nobody owns this unit." };
+	if (apt.owner_id !== player.id)
+		return { type: "error", message: "This isn't your place to give up." };
+
+	await releaseApartment(apt, zone.id);
+
+	return {
+		type: "unrent",
+		message: `You hand back the keys to ${zone.name}. It's no longer yours. Your weekly bills have been reduced by ${cost}c.`,
+	};
+}
+
+// Shared teardown used by both cmdUnrent and the rent-collection tick.
+export async function releaseApartment(apt, zoneId) {
+	const updated = await query(
+		`UPDATE apartments SET owner_id=NULL, owner_handle=NULL, is_locked=0, date_rented=NULL, building_name=NULL WHERE zone_id=$1 RETURNING *`,
+		[zoneId],
+	);
+	setApartmentCache(zoneId, updated.rows[0]);
 }
 
 export async function cmdLockDoor(player, wantLocked) {
@@ -311,8 +352,9 @@ export async function describeApartmentStatus(zone) {
 	if (!isApartmentZone(zone)) return "";
 	const apt = getApartment(zone.id);
 	if (!apt?.owner_id) {
-		return `\n<span class="apartment-label">This unit is unowned.</span> (RENT to claim it for ${apt?.rent_cost ?? 100}c)`;
+		return `\n<span class="apartment-label">This unit is unowned.</span> (RENT to claim it for ${apt?.rent_cost ?? 100}c/week)`;
 	}
 	const lockState = apt.is_locked ? "locked" : "unlocked";
-	return `\n<span class="apartment-label">Owned by ${apt.owner_handle}.</span> The door is ${lockState}. (Lock difficulty: ${apt.lock_difficulty})`;
+	const rentedDate = apt.date_rented ? new Date(apt.date_rented * 1000).toLocaleDateString() : '?';
+	return `\n<span class="apartment-label">Owner: ${apt.owner_handle}.</span> The door is ${lockState}. Rented since ${rentedDate}. (UNRENT to vacate)`;
 }

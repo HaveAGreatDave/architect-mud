@@ -393,6 +393,8 @@ export async function migrate() {
   await query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS origin_fragment TEXT`);
   await query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS archetype TEXT`);
   await query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS visibly_mutated INTEGER DEFAULT 0`);
+  await query(`ALTER TABLE apartments ADD COLUMN IF NOT EXISTS date_rented BIGINT`);
+  await query(`ALTER TABLE apartments ADD COLUMN IF NOT EXISTS building_name TEXT`);
   await query(`
     CREATE TABLE IF NOT EXISTS combat_config (
       key TEXT PRIMARY KEY,

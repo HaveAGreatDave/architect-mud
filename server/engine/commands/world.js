@@ -41,12 +41,102 @@ async function cmdSkills(player) {
   return { type:'skills', message:msg };
 }
 
+const BODY_SLOTS = ['head','torso','hands','legs','feet'];
+
+async function describePlayerAppearance(target, isSelf) {
+  const { rows: equipped } = await query(
+    `SELECT i.name, i.tags FROM player_inventory pi
+     JOIN items i ON i.id = pi.item_id
+     WHERE pi.player_id=$1 AND pi.is_equipped=1`,
+    [target.id]
+  );
+
+  // For each body slot, pick the outermost equipped item (highest allowed_layer_range.max).
+  const bySlot = {};
+  for (const row of equipped) {
+    const slot = row.tags?.slot;
+    if (!slot) continue;
+    const lr = row.tags?.allowed_layer_range;
+    const layerMax = (lr && typeof lr === 'object') ? (lr.max || 0) : 99;
+    if (!bySlot[slot] || layerMax > bySlot[slot].layerMax) {
+      bySlot[slot] = { name: row.name, layerMax };
+    }
+  }
+
+  const handle = target.handle;
+  const origin = target.origin_fragment || '';
+  const mutated = target.visibly_mutated;
+  const pronoun = isSelf ? 'You are' : `${handle} is`;
+  const theyPossessive = isSelf ? 'your' : 'their';
+
+  const bodyPieces = BODY_SLOTS.filter(s => bySlot[s]).map(s => {
+    const labels = { head:'head', torso:'torso', hands:'hands', legs:'legs', feet:'feet' };
+    return `${bySlot[labels[s]].name} on ${theyPossessive} ${s}`;
+  });
+  const weapon = bySlot['weapon_hand'];
+  const accessory = bySlot['accessory'];
+
+  let header = isSelf
+    ? `<span class="player-name">You</span>`
+    : `<span class="player-name">${handle}</span>`;
+
+  let msg = `${header}\n`;
+  if (origin && !isSelf) msg += `${origin}\n`;
+  if (mutated) msg += `<span class="mutation-tag">Something about ${isSelf ? 'you' : 'them'} isn't quite human anymore.</span>\n`;
+
+  if (!bodyPieces.length && !weapon && !accessory) {
+    // Naked
+    const nakedLines = isSelf
+      ? [
+          `You have nothing on. Not a thread. You are, in the technical sense, naked.`,
+          `You're wearing exactly nothing. It's a look. A bold one.`,
+          `You are completely undressed. Whether that's a statement or an oversight isn't clear.`,
+        ]
+      : [
+          `${handle} is wearing nothing. Absolutely nothing. You respect the commitment.`,
+          `${handle} has nothing on. Not a stitch. You make a note of this and move on.`,
+          `${handle} is completely undressed. They seem unbothered by it.`,
+        ];
+    msg += nakedLines[Math.floor(Math.random() * nakedLines.length)];
+    return msg;
+  }
+
+  // Build the clothing sentence
+  const clothingParts = [];
+  if (bodyPieces.length) clothingParts.push(bodyPieces.join(', '));
+
+  if (clothingParts.length) {
+    const intro = isSelf ? 'You\'re wearing' : `${handle} is wearing`;
+    msg += `${intro} ${clothingParts.join('; ')}.`;
+  }
+
+  if (weapon) {
+    const holdLine = isSelf ? `You're carrying ${weapon.name}.` : `${handle} is carrying ${weapon.name}.`;
+    msg += ` ${holdLine}`;
+  }
+
+  if (accessory) {
+    const accLine = isSelf ? `You have ${accessory.name} on you.` : `${handle} has ${accessory.name} on them.`;
+    msg += ` ${accLine}`;
+  }
+
+  return msg.trim();
+}
+
 async function cmdExamine(targetStr, player) {
   if (!targetStr || targetStr === 'room') {
     const zone = getZone(player.current_zone);
     if (!zone) return { type:'error', message:'You are nowhere. This is a bug.' };
     return { type:'look', message: await describeZone(zone, player), minimap: getMinimapData(player.current_zone) };
   }
+
+  const t = targetStr.toLowerCase();
+
+  // Self-look
+  if (t === 'me' || t === 'myself' || t === 'self') {
+    return { type:'examine', message: await describePlayerAppearance(player, true) };
+  }
+
   const { rows } = await query(`SELECT pi.id AS inv_id, i.* FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND i.name ILIKE $2 LIMIT 1`, [player.id, `%${targetStr}%`]);
   if (rows.length) {
     const it = rows[0];
@@ -90,18 +180,28 @@ async function cmdExamine(targetStr, player) {
     return { type:'examine', message: msg };
   }
   const enemies = getZoneEnemies(player.current_zone);
-  const enemy = enemies.find(e=>e.name.toLowerCase().includes(targetStr));
+  const enemy = enemies.find(e=>e.name.toLowerCase().includes(t));
   if (enemy) return { type:'examine', message:`${enemy.name}\n${enemy.description}\nHP: ${enemy.hp}/${enemy.hp_max}` };
   const npcs = getZoneNpcs(player.current_zone);
-  const npc = npcs.find(n=>n.name.toLowerCase().includes(targetStr));
+  const npc = npcs.find(n=>n.name.toLowerCase().includes(t));
   if (npc) return { type:'examine', message:`${npc.name}\n${npc.description}` };
+
+  // Other players in zone + sleeping
   const others = getZonePlayers(player.current_zone).filter(p => p.id !== player.id);
-  const target = others.find(p => p.handle.toLowerCase().includes(targetStr));
-  if (target) {
-    let msg = `${target.handle}\n${target.origin_fragment || 'A survivor. They give nothing else away.'}`;
-    if (target.visibly_mutated) msg += `\n<span class="mutation-tag">Something about them isn't quite human anymore.</span>`;
-    return { type:'examine', message: msg };
+  const targetPlayer = others.find(p => p.handle.toLowerCase().includes(t));
+  if (targetPlayer) {
+    return { type:'examine', message: await describePlayerAppearance(targetPlayer, false) };
   }
+  const { rows: sleepers } = await query(
+    `SELECT * FROM players WHERE LOWER(handle) LIKE $1 AND current_zone=$2 AND offline_sleeping=TRUE LIMIT 1`,
+    [`%${t}%`, player.current_zone]
+  );
+  if (sleepers.length) {
+    const s = sleepers[0];
+    const app = await describePlayerAppearance(s, false);
+    return { type:'examine', message: app + `\n<span class="text-dim">(${s.handle} is asleep.)</span>` };
+  }
+
   return { type:'error', message:`You don't see "${targetStr}" here.` };
 }
 

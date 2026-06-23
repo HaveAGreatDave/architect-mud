@@ -2,7 +2,10 @@ import { state } from '../state.js';
 import { sendCmdSilent } from '../net.js';
 
 const EQUIP_SLOT_NAMES = ['head','torso','hands','weapon_hand','legs','feet','accessory'];
+const LAYER_NAMES = ['', 'Skin', 'Base', 'Mid', 'Outer', 'Shell'];
 let equipDraggedId = null;
+let currentLayer = 1;
+let lastItems = [];
 
 export function openEquipPanel() {
   import('../net.js').then(m => m.sendCmd('inventory'));
@@ -12,7 +15,28 @@ export function closeEquipPanel() {
   document.getElementById('equip-panel').classList.remove('active');
 }
 
+function itemLayerRange(item) {
+  const lr = (item.tags || {}).allowed_layer_range;
+  if (lr && typeof lr === 'object') return lr;
+  return null;
+}
+
+function itemMatchesLayer(item, layer) {
+  const lr = itemLayerRange(item);
+  if (!lr) return true;
+  return layer >= lr.min && layer <= lr.max;
+}
+
+function updateLayerDisplay() {
+  document.getElementById('equip-layer-name').textContent = `Layer ${currentLayer} — ${LAYER_NAMES[currentLayer]}`;
+}
+
+function rerenderLayer() { renderEquipPanel(lastItems); }
+
 export function renderEquipPanel(items) {
+  lastItems = items;
+  updateLayerDisplay();
+
   for (const slotName of EQUIP_SLOT_NAMES) {
     const slotEl = document.querySelector(`.equip-slot[data-slot="${slotName}"] .equip-slot-item`);
     if (slotEl) {
@@ -28,7 +52,8 @@ export function renderEquipPanel(items) {
     if (item.is_equipped && item.slot) {
       const slotEl = document.querySelector(`.equip-slot[data-slot="${item.slot}"] .equip-slot-item`);
       if (slotEl) {
-        slotEl.className = 'equip-slot-item filled';
+        const inLayer = itemMatchesLayer(item, currentLayer);
+        slotEl.className = 'equip-slot-item filled' + (inLayer ? '' : ' off-layer');
         slotEl.textContent = item.name + (item.quantity > 1 ? ` x${item.quantity}` : '');
         slotEl.setAttribute('draggable', 'true');
         slotEl.setAttribute('data-id', item.id);
@@ -46,8 +71,9 @@ export function renderEquipPanel(items) {
   for (const item of unequipped) {
     const tags = item.tags || {};
     const equippable = !!tags.slot;
+    const inLayer = itemMatchesLayer(item, currentLayer);
     const card = document.createElement('div');
-    card.className = 'equip-item-card' + (equippable ? ' equippable' : '');
+    card.className = 'equip-item-card' + (equippable ? ' equippable' : '') + (inLayer ? '' : ' off-layer');
     card.setAttribute('draggable', 'true');
     card.setAttribute('data-id', item.id);
     const qty = item.quantity > 1 ? ` x${item.quantity}` : '';
@@ -73,6 +99,20 @@ export function initEquipPanel() {
   document.getElementById('equip-panel').addEventListener('click', (e) => {
     if (e.target.id === 'equip-panel') closeEquipPanel();
   });
+
+  const btnUp = document.getElementById('equip-layer-up');
+  const btnDown = document.getElementById('equip-layer-down');
+  function updateLayerButtons() {
+    btnUp.disabled = currentLayer >= 5;
+    btnDown.disabled = currentLayer <= 1;
+  }
+  btnUp.addEventListener('click', () => {
+    if (currentLayer < 5) { currentLayer++; updateLayerDisplay(); updateLayerButtons(); rerenderLayer(); }
+  });
+  btnDown.addEventListener('click', () => {
+    if (currentLayer > 1) { currentLayer--; updateLayerDisplay(); updateLayerButtons(); rerenderLayer(); }
+  });
+  updateLayerButtons();
 
   document.querySelectorAll('.equip-slot').forEach(slotEl => {
     slotEl.addEventListener('dragover', e => e.preventDefault());

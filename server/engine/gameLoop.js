@@ -3,7 +3,7 @@ import { propagateSound } from './sounds.js';
 import { enemyAttackPlayer, isOnCooldown } from './combat.js';
 import { tickEffects } from './effects.js';
 import { resolveAttack } from './commands/index.js';
-import { tickSleep } from './apartments.js';
+import { tickSleep, releaseApartment } from './apartments.js';
 import { fireHook } from './plugins.js';
 import { schedule } from './scheduler.js';
 import { query } from '../models/db.js';
@@ -20,6 +20,7 @@ export function startGameLoop(broadcast) {
   schedule('1m', resourceTick);
   schedule('10s', () => tickSpawns());
   schedule('30s', cleanCorpses);
+  schedule('1m', rentCollectionTick);
   console.log('✓ Game loop started');
 }
 
@@ -386,6 +387,77 @@ function cleanCorpses() {
     if (corpse.expiresAt < now) {
       world.zones.get(corpse.zoneId)?.corpses.delete(id);
       world.corpses.delete(id);
+    }
+  }
+}
+
+// Runs every real-world minute. Collects weekly rent from apartment owners
+// on the same day-of-month they first rented (or +7 days, clamped to the
+// same month/year). Evicts automatically if they can't pay.
+async function rentCollectionTick() {
+  const now = new Date();
+  const todayDay   = now.getDate();
+  const todayMonth = now.getMonth();
+  const todayYear  = now.getFullYear();
+  const todayHour  = now.getHours();
+  const todayMin   = now.getMinutes();
+
+  // Only fire once per day, at midnight (00:00).
+  if (todayHour !== 0 || todayMin !== 0) return;
+
+  const { rows: apts } = await query(
+    `SELECT * FROM apartments WHERE owner_id IS NOT NULL AND date_rented IS NOT NULL`
+  );
+
+  for (const apt of apts) {
+    const rented = new Date(apt.date_rented * 1000);
+    const rentedDay   = rented.getDate();
+    const rentedMonth = rented.getMonth();
+    const rentedYear  = rented.getFullYear();
+
+    // Due on the same calendar day-of-month as when rented, 7 days later.
+    // Only collect if we're in the same month+year and the day matches day+7,
+    // or if the rent date was in a prior month and today's day matches.
+    const daysDiff = Math.round((now - rented) / (1000 * 60 * 60 * 24));
+    if (daysDiff === 0 || daysDiff % 7 !== 0) continue;
+
+    const cost = apt.rent_cost ?? 100;
+    const roomName     = apt.zone_id;   // will be replaced by zone name below
+    const buildingName = apt.building_name ?? 'the building';
+
+    // Get the zone name for the message
+    const { rows: zoneRows } = await query('SELECT name FROM zones WHERE id=$1', [apt.zone_id]);
+    const zoneName = zoneRows[0]?.name ?? apt.zone_id;
+
+    // Check if player has enough credits
+    const { rows: playerRows } = await query('SELECT id,credits,handle FROM players WHERE id=$1', [apt.owner_id]);
+    if (!playerRows.length) {
+      // Player deleted — release the apartment
+      await releaseApartment(apt, apt.zone_id);
+      continue;
+    }
+    const p = playerRows[0];
+
+    if (p.credits < cost) {
+      // Can't pay — evict
+      await releaseApartment(apt, apt.zone_id);
+      broadcastFn(null, {
+        type: 'output',
+        message: `<span style="color:var(--red)">EVICTION NOTICE — You couldn't cover the ${cost}c weekly rent for <em>${zoneName}</em> in ${buildingName}. Your lease has been terminated and the unit re-listed. Next time, keep some credits on hand.</span>`,
+      }, null, p.id);
+      continue;
+    }
+
+    // Deduct rent
+    await query('UPDATE players SET credits=credits-$1 WHERE id=$2', [cost, p.id]);
+    const live = getLivePlayer(p.id);
+    if (live) {
+      live.credits = Math.max(0, live.credits - cost);
+      broadcastFn(null, {
+        type: 'output',
+        message: `<span style="color:var(--yellow)">RENT COLLECTED — ${cost}c deducted for <em>${zoneName}</em> in ${buildingName}. Remaining credits: ${live.credits}c.</span>`,
+        player_update: { credits: live.credits },
+      }, null, p.id);
     }
   }
 }

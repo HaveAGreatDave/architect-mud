@@ -1,7 +1,7 @@
 import { query } from '../../models/db.js';
 import { getZone } from '../world.js';
 import { getZonePowerStatus, getZoneVisibility, setWindowState, getWindowsForZone } from '../environment.js';
-import { cmdRent, cmdLockDoor, cmdUpgradeLock, cmdPickLock, cmdSleep } from '../apartments.js';
+import { cmdRent, cmdUnrent, cmdLockDoor, cmdUpgradeLock, cmdPickLock, cmdSleep } from '../apartments.js';
 
 const STAFF_ROLES = new Set(['admin','dev','builder','designer']);
 
@@ -63,6 +63,8 @@ async function cmdLightView(player) {
 
 export const handlers = {
   rent:      (args, raw, player) => cmdRent(player),
+  unrent:    (args, raw, player) => cmdUnrent(player),
+  vacate:    (args, raw, player) => cmdUnrent(player),
   lock:      (args, raw, player) => cmdLockDoor(player, true),
   unlock:    (args, raw, player) => cmdLockDoor(player, false),
   pick:      (args, raw, player) => cmdPickLock(player),
