@@ -12,6 +12,7 @@
     "db:reset-chars": "node server/models/reset-chars.js"
   },
   "dependencies": {
+    "@getbrevo/brevo": "^5.0.4",
     "dotenv": "^16.4.5",
     "jsonwebtoken": "^9.0.2",
     "nodemailer": "^9.0.1",
