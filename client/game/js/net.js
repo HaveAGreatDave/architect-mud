@@ -109,8 +109,10 @@ export function doAuth() {
 
   if (state.authPending) return;
 
+  const email = document.getElementById('auth-email').value.trim();
   if (!username || !password) { errEl.textContent = 'Username and password required.'; errEl.style.color = ''; return; }
   if (state.isRegister && !handle) { errEl.textContent = 'Handle required.'; errEl.style.color = ''; return; }
+  if (state.isRegister && !email) { errEl.textContent = 'Email required.'; errEl.style.color = ''; return; }
 
   if (_connection?.isConnecting()) {
     errEl.textContent = 'Still connecting to server... try again in a moment.';
@@ -150,7 +152,7 @@ export function doAuth() {
     fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password, handle, biological_sex }),
+      body: JSON.stringify({ username, password, handle, biological_sex, email }),
     }).then(r => r.json()).then(data => {
       if (data.error) {
         clearTimeout(state.authTimeout);
@@ -173,6 +175,63 @@ export function doAuth() {
   } else {
     _connection.send({ type: 'auth', username, password });
   }
+}
+
+export async function doForgotPassword() {
+  const email = document.getElementById('forgot-email').value.trim();
+  const msgEl = document.getElementById('forgot-message');
+  const btn   = document.getElementById('forgot-submit');
+  if (!email) { msgEl.textContent = 'Email required.'; msgEl.style.color = 'var(--red)'; return; }
+  btn.disabled = true;
+  btn.textContent = 'Sending...';
+  try {
+    const data = await fetch('/api/auth/forgot-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    }).then(r => r.json());
+    msgEl.textContent = data.message || 'Check your email.';
+    msgEl.style.color = 'var(--accent)';
+  } catch {
+    msgEl.textContent = 'Request failed. Try again.';
+    msgEl.style.color = 'var(--red)';
+  }
+  btn.disabled = false;
+  btn.textContent = 'Send Reset Link';
+}
+
+export async function doResetPassword(token) {
+  const pw    = document.getElementById('reset-password').value;
+  const pw2   = document.getElementById('reset-password-confirm').value;
+  const errEl = document.getElementById('reset-error');
+  const btn   = document.getElementById('reset-submit');
+  if (!pw || pw !== pw2) { errEl.textContent = 'Passwords do not match.'; errEl.style.color = 'var(--red)'; return; }
+  btn.disabled = true;
+  btn.textContent = 'Saving...';
+  try {
+    const data = await fetch('/api/auth/reset-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, password: pw }),
+    }).then(r => r.json());
+    if (data.error) {
+      errEl.textContent = data.error;
+      errEl.style.color = 'var(--red)';
+    } else {
+      errEl.textContent = data.message;
+      errEl.style.color = 'var(--accent)';
+      setTimeout(() => {
+        document.getElementById('reset-screen').style.display = 'none';
+        document.getElementById('auth-screen').style.display = '';
+        history.replaceState({}, '', location.pathname);
+      }, 2000);
+    }
+  } catch {
+    errEl.textContent = 'Request failed.';
+    errEl.style.color = 'var(--red)';
+  }
+  btn.disabled = false;
+  btn.textContent = 'Set New Password';
 }
 
 export function setConnStatus(stateStr, text) {

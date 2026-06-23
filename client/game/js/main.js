@@ -1,5 +1,5 @@
 import { loadSettings, saveSettings, applySettings, initSettingsUI, SETTINGS_KEY } from '/shared/settings.js';
-import { initNet, setWhoModalHandler, sendCmd, doAuth, closeConnection } from './net.js';
+import { initNet, setWhoModalHandler, sendCmd, doAuth, doForgotPassword, doResetPassword, closeConnection } from './net.js';
 import { handleServerMsg } from './dispatch.js';
 import { state } from './state.js';
 import { initInput } from './input.js';
@@ -56,9 +56,36 @@ document.getElementById('auth-toggle-link').addEventListener('click', () => {
   state.isRegister = !state.isRegister;
   document.getElementById('handle-field').classList.toggle('visible', state.isRegister);
   document.getElementById('sex-field').style.display = state.isRegister ? '' : 'none';
+  document.getElementById('email-field').style.display = state.isRegister ? '' : 'none';
+  document.getElementById('forgot-link-wrap').style.display = state.isRegister ? 'none' : '';
   document.getElementById('auth-toggle-text').textContent = state.isRegister ? 'Have an account?' : 'No account?';
   document.getElementById('auth-toggle-link').textContent = state.isRegister ? 'Login' : 'Register';
   document.getElementById('auth-submit').textContent = state.isRegister ? 'Register' : 'Enter';
+});
+
+// Forgot password flow
+document.getElementById('auth-forgot-link').addEventListener('click', () => {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('forgot-screen').style.display = '';
+});
+document.getElementById('forgot-back-link').addEventListener('click', () => {
+  document.getElementById('forgot-screen').style.display = 'none';
+  document.getElementById('auth-screen').style.display = '';
+});
+document.getElementById('forgot-submit').addEventListener('click', doForgotPassword);
+document.getElementById('forgot-email').addEventListener('keydown', e => { if (e.key === 'Enter') doForgotPassword(); });
+
+// Reset password flow — detect token in URL
+const _resetToken = new URLSearchParams(location.search).get('reset_token');
+if (_resetToken) {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('reset-screen').style.display = '';
+}
+document.getElementById('reset-submit').addEventListener('click', () => doResetPassword(_resetToken));
+document.getElementById('reset-back-link').addEventListener('click', () => {
+  document.getElementById('reset-screen').style.display = 'none';
+  document.getElementById('auth-screen').style.display = '';
+  history.replaceState({}, '', location.pathname);
 });
 
 // Command input

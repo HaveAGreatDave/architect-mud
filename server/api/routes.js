@@ -4,7 +4,8 @@ import { describeZone, describeVoidTeleport } from '../engine/commands/index.js'
 import { loadRecipes } from '../engine/crafting.js';
 import { loadDrugs } from '../engine/drugs.js';
 import { loadMutations } from '../engine/mutations.js';
-import { randomUUID, createHash } from 'crypto';
+import { randomUUID, createHash, randomBytes } from 'crypto';
+import { sendPasswordResetEmail } from '../mailer.js';
 import { randomAppearance } from '../engine/appearance.js';
 import { handleEnvironmentApi } from './environment.routes.js';
 import { handleWorldValidatorApi } from './worldvalidator.routes.js';
@@ -68,6 +69,8 @@ export async function handleApiRequest(url, method, body, headers) {
 
   if (path==='/auth/register' && method==='POST') return apiRegister(body);
   if (path==='/auth/login' && method==='POST') return apiLogin(body);
+  if (path==='/auth/forgot-password' && method==='POST') return apiForgotPassword(body);
+  if (path==='/auth/reset-password'  && method==='POST') return apiResetPassword(body);
   if (path==='/auth/gen-switch-token' && method==='POST') {
     if (!auth || !['dev','admin','builder','designer'].includes(auth.role)) return { status:403, body:{error:'Dev access required'} };
     const { rows } = await query('SELECT id, username, handle, role FROM players WHERE id=$1', [auth.playerId]);
@@ -155,8 +158,8 @@ export async function handleApiRequest(url, method, body, headers) {
 }
 
 async function apiRegister(body) {
-  const {username,password,handle} = body||{};
-  if (!username||!password||!handle) return {status:400,body:{error:'username, password, handle required'}};
+  const {username,password,handle,email} = body||{};
+  if (!username||!password||!handle||!email) return {status:400,body:{error:'username, password, handle, email required'}};
   const biological_sex = (body.biological_sex === 'female') ? 'female' : 'male';
   try {
     const id = randomUUID();
@@ -166,11 +169,11 @@ async function apiRegister(body) {
     await query(
       `INSERT INTO players
         (id,username,password_hash,handle,role,ip,hp,hp_max,stat_brawn,stat_reflexes,stat_endurance,stat_brains,stat_senses,stat_cool,
-         biological_sex,hair_style,hair_length,hair_color,eye_color,height_cm,weight_kg,appearance_data)
-       VALUES ($1,$2,$3,$4,'player',$5,40,40,1,1,1,1,1,1,$6,$7,$8,$9,$10,$11,$12,$13)`,
+         biological_sex,hair_style,hair_length,hair_color,eye_color,height_cm,weight_kg,appearance_data,email)
+       VALUES ($1,$2,$3,$4,'player',$5,40,40,1,1,1,1,1,1,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
       [id, username.toLowerCase(), hashPassword(password), handle, ip,
        biological_sex, app.hair_style, app.hair_length, app.hair_color, app.eye_color,
-       app.height_cm, app.weight_kg, JSON.stringify(app.appearance_data)]
+       app.height_cm, app.weight_kg, JSON.stringify(app.appearance_data), email.toLowerCase().trim()]
     );
     // Starting kit — bandages always
     await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,'item_bandage',3,1.0)`, [randomUUID(), id]);
@@ -198,6 +201,42 @@ async function apiLogin(body) {
   const p = rows[0];
   fireHook('player.login', { id: p.id, handle: p.handle, role: p.role }).catch(() => {});
   return {status:200,body:{token:makeToken(p.id,p.role),playerId:p.id,handle:p.handle,role:p.role}};
+}
+
+async function apiForgotPassword(body) {
+  const { email } = body||{};
+  if (!email) return { status:400, body:{ error:'email required' } };
+  const { rows } = await query('SELECT id FROM players WHERE email=$1', [email.toLowerCase().trim()]);
+  // Always return the same message to avoid email enumeration
+  if (rows.length) {
+    const playerId = rows[0].id;
+    await query('UPDATE password_reset_tokens SET used=TRUE WHERE player_id=$1 AND used=FALSE', [playerId]);
+    const token = randomBytes(32).toString('hex');
+    const expiresAt = Date.now() + 60 * 60 * 1000;
+    await query(
+      'INSERT INTO password_reset_tokens (player_id, token, expires_at, used) VALUES ($1,$2,$3,FALSE)',
+      [playerId, token, expiresAt]
+    );
+    const resetUrl = `${process.env.CLIENT_BASE_URL || 'http://localhost:3000'}/game?reset_token=${token}`;
+    sendPasswordResetEmail(email.toLowerCase().trim(), resetUrl).catch(e => {
+      console.error('[forgot-password] email send failed:', e.message);
+    });
+  }
+  return { status:200, body:{ message:'If that email is registered, a reset link has been sent.' } };
+}
+
+async function apiResetPassword(body) {
+  const { token, password } = body||{};
+  if (!token || !password) return { status:400, body:{ error:'token and password required' } };
+  if (password.length < 8) return { status:400, body:{ error:'Password must be at least 8 characters.' } };
+  const { rows } = await query('SELECT * FROM password_reset_tokens WHERE token=$1', [token]);
+  if (!rows.length) return { status:400, body:{ error:'Invalid or expired reset link.' } };
+  const row = rows[0];
+  if (row.used)                    return { status:400, body:{ error:'This reset link has already been used.' } };
+  if (Date.now() > row.expires_at) return { status:400, body:{ error:'This reset link has expired.' } };
+  await query('UPDATE players SET password_hash=$1 WHERE id=$2', [hashPassword(password), row.player_id]);
+  await query('UPDATE password_reset_tokens SET used=TRUE WHERE id=$1', [row.id]);
+  return { status:200, body:{ message:'Password updated. You can now log in.' } };
 }
 
 async function apiGetZones() { return {status:200,body:getAllZones()}; }

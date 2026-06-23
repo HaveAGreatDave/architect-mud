@@ -1039,6 +1039,21 @@ async function seedAmbientEvents() {
       AND (z.flags->>'world_exit_zone' IS NULL
         OR COALESCE((z.flags->>'is_building')::boolean, false) = false)
   `).catch(() => {});
+
+  // Password reset infrastructure
+  await query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS email TEXT`);
+  await query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_players_email ON players(email) WHERE email IS NOT NULL`);
+  await query(`
+    CREATE TABLE IF NOT EXISTS password_reset_tokens (
+      id         TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+      player_id  TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+      token      TEXT NOT NULL UNIQUE,
+      expires_at BIGINT NOT NULL,
+      used       BOOLEAN NOT NULL DEFAULT FALSE
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_prt_token ON password_reset_tokens(token)`);
+  console.log('✓ Password reset tables migrated');
 }
 
 // Only auto-run when invoked directly (npm run db:migrate), not when imported.

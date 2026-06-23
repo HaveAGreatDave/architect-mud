@@ -44,6 +44,14 @@
 						<label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="radio" name="auth-sex" id="auth-sex-female" value="female" /> Female</label>
 					</div>
 				</div>
+				<div class="auth-field" id="email-field" style="display:none">
+					<label>Email</label>
+					<input
+						type="email"
+						id="auth-email"
+						placeholder="your@email.com"
+						autocomplete="email" />
+				</div>
 				<div class="auth-field">
 					<label>Username</label>
 					<input
@@ -70,6 +78,45 @@
 				<div class="auth-toggle">
 					<span id="auth-toggle-text">No account?</span>
 					<a id="auth-toggle-link">Register</a>
+				</div>
+				<div id="forgot-link-wrap" style="margin-top:6px;text-align:center">
+					<a id="auth-forgot-link" style="cursor:pointer;font-size:11px;color:var(--text-dim)">Forgot password?</a>
+				</div>
+			</div>
+		</div>
+
+		<!-- FORGOT PASSWORD SCREEN -->
+		<div id="forgot-screen" style="display:none">
+			<div id="auth-box">
+				<div class="tagline">Forgot Password</div>
+				<div class="auth-field">
+					<label>Email address</label>
+					<input type="email" id="forgot-email" placeholder="your@email.com" autocomplete="email" />
+				</div>
+				<button class="auth-btn" id="forgot-submit">Send Reset Link</button>
+				<div class="auth-error" id="forgot-message"></div>
+				<div class="auth-toggle">
+					<a id="forgot-back-link" style="cursor:pointer">Back to Login</a>
+				</div>
+			</div>
+		</div>
+
+		<!-- RESET PASSWORD SCREEN -->
+		<div id="reset-screen" style="display:none">
+			<div id="auth-box">
+				<div class="tagline">Reset Password</div>
+				<div class="auth-field">
+					<label>New Password</label>
+					<input type="password" id="reset-password" placeholder="new password (min 8 chars)" autocomplete="new-password" />
+				</div>
+				<div class="auth-field">
+					<label>Confirm Password</label>
+					<input type="password" id="reset-password-confirm" placeholder="confirm password" />
+				</div>
+				<button class="auth-btn" id="reset-submit">Set New Password</button>
+				<div class="auth-error" id="reset-error"></div>
+				<div class="auth-toggle">
+					<a id="reset-back-link" style="cursor:pointer">Back to Login</a>
 				</div>
 			</div>
 		</div>
