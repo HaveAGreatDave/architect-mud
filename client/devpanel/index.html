@@ -2966,6 +2966,7 @@ let mapViewTab = 'exterior';      // 'exterior' | 'interior'
 let mapExteriorMapId = null;      // last-loaded exterior map id, so we can return from interior view
 let mapSelectedInteriorId = null;
 let mapInteriorsList = [];        // interior maps (parent_zone_id != null)
+let _exteriorBuildingZones = [];  // building zones from the exterior map, for interior tab dropdown
 
 function setZoneColor(c) { const el = document.getElementById('f-color'); if (el) { el.value = c; updateColorPreview(); } }
 function setBgColor(c) { const el = document.getElementById('f-bg_color'); if (el) { el.value = c; updateColorPreview(); } }
@@ -3004,6 +3005,9 @@ async function loadMapOverview(mapId) {
   const unplacedInterior = new Map((data.unplacedInterior || []).map(z => [z.id, { ...z, exits: { ...(z.exits || {}) }, flags: z.flags || {} }]));
   const keepZ = (mapOverview && mapOverview.map.id === mapId) ? mapOverview.z : 0;
   mapOverview = { map: data.map, zones, unplaced, unplacedInterior, children: data.children || [], z: keepZ };
+  if (!data.map.parent_zone_id) {
+    _exteriorBuildingZones = (data.zones || []).filter(z => z.flags?.is_building);
+  }
   renderMapOverview();
 }
 
@@ -3095,8 +3099,14 @@ function renderMapOverview() {
 
   if (mapViewTab === 'interior') {
     const intMaps = mapsList.filter(m => m.parent_zone_id);
-    const intOpts = intMaps.length
-      ? intMaps.map(m => `<option value="${m.id}" ${m.id === mapSelectedInteriorId ? 'selected' : ''}>${m.name}</option>`).join('')
+    const intBuildingIds = new Set(intMaps.map(m => m.parent_zone_id));
+    const unmappedBuildings = _exteriorBuildingZones.filter(z => !intBuildingIds.has(z.id));
+    const allIntOpts = [
+      ...intMaps.map(m => `<option value="${m.id}" ${m.id === mapSelectedInteriorId ? 'selected' : ''}>${m.name}</option>`),
+      ...unmappedBuildings.map(z => `<option value="bz:${z.id}" ${'bz:'+z.id === mapSelectedInteriorId ? 'selected' : ''}>${z.name}</option>`),
+    ];
+    const intOpts = allIntOpts.length
+      ? allIntOpts.join('')
       : `<option value="">— no interiors yet —</option>`;
     html += `<div class="map-toolbar">
       <label>Interior</label>
@@ -3445,13 +3455,16 @@ async function switchMapTab(tab, interiorId) {
     mapsList = Array.isArray(mapsData) ? mapsData : [];
   }
   const intMaps = mapsList.filter(m => m.parent_zone_id);
+  const intBuildingIds = new Set(intMaps.map(m => m.parent_zone_id));
+  const unmappedBuildings = _exteriorBuildingZones.filter(z => !intBuildingIds.has(z.id));
+  const allIntIds = [...intMaps.map(m => m.id), ...unmappedBuildings.map(z => 'bz:' + z.id)];
   if (interiorId) {
     mapSelectedInteriorId = interiorId;
-  } else if (!mapSelectedInteriorId || !intMaps.find(m => m.id === mapSelectedInteriorId)) {
-    mapSelectedInteriorId = intMaps[0]?.id || null;
+  } else if (!mapSelectedInteriorId || !allIntIds.includes(mapSelectedInteriorId)) {
+    mapSelectedInteriorId = allIntIds[0] || null;
   }
   if (mapSelectedInteriorId) {
-    await loadMapOverview(mapSelectedInteriorId);
+    await switchInteriorMap(mapSelectedInteriorId);
   } else {
     // No interiors exist — show placeholder using existing mapOverview (exterior data)
     renderMapOverview();
@@ -3460,6 +3473,16 @@ async function switchMapTab(tab, interiorId) {
 
 async function switchInteriorMap(id) {
   mapSelectedInteriorId = id;
+  if (id.startsWith('bz:')) {
+    const zoneId = id.slice(3);
+    const bz = _exteriorBuildingZones.find(z => z.id === zoneId);
+    if (bz) {
+      const pseudoZone = { ...bz, grid_x: 0, grid_y: 0, grid_z: 0, map_id: id };
+      mapOverview = { map: { id, name: bz.name + ' (Interior)', parent_zone_id: bz.id }, zones: new Map([[zoneId, pseudoZone]]), unplaced: new Map(), unplacedInterior: new Map(), children: [], z: 0 };
+      renderMapOverview();
+    }
+    return;
+  }
   await loadMapOverview(id);
 }
 
@@ -3614,7 +3637,7 @@ function _buildInteriorMapHtml() {
   // Keep building entrance in the network so it shows on the grid
   const interiorZones = powerPanelAllZones.filter(z => networkIds.has(z.id));
 
-  if (interiorZones.length <= 1) {
+  if (interiorZones.length === 0) {
     return buildingDropdown + `<div style="color:var(--text-dim);font-size:11px">No interior rooms connected to this building yet.</div>`;
   }
 
