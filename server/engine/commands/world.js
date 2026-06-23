@@ -42,7 +42,13 @@ async function cmdSkills(player) {
 }
 
 const BODY_SLOTS = ['head','torso','hands','legs','feet'];
-function article(name) { return /^[aeiou]/i.test(name) ? 'an' : 'a'; }
+// Returns name lowercased, preceded by "a"/"an" unless the last word is plural (ends in s, not ss).
+function withArticle(name) {
+  const n = name.toLowerCase();
+  const lastWord = n.trim().split(/\s+/).pop();
+  if (/s$/i.test(lastWord) && !/ss$/i.test(lastWord)) return n;
+  return (/^[aeiou]/.test(n) ? 'an ' : 'a ') + n;
+}
 
 async function describePlayerAppearance(target, isSelf) {
   const { rows: equipped } = await query(
@@ -69,7 +75,7 @@ async function describePlayerAppearance(target, isSelf) {
   const mutated = target.visibly_mutated;
 
   const bodyPieces = BODY_SLOTS.filter(s => bySlot[s]).map(s =>
-    `${article(bySlot[s].name)} ${bySlot[s].name} on ${isSelf ? 'your' : 'their'} ${s}`
+    `${withArticle(bySlot[s].name)} on ${isSelf ? 'your' : 'their'} ${s}`
   );
   const weapon = bySlot['weapon_hand'];
   const accessory = bySlot['accessory'];
@@ -104,21 +110,19 @@ async function describePlayerAppearance(target, isSelf) {
     return theyVerb;
   }
 
-  const lc = s => s.charAt(0).toLowerCase() + s.slice(1);
   const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
 
   if (bodyPieces.length) {
-    const pieces = bodyPieces.map(lc).join(', ');
-    sentences.push(cap(`${subject('is wearing', 'they are wearing', 'you are wearing')} ${pieces}.`));
+    sentences.push(cap(`${subject('is wearing', 'they are wearing', 'you are wearing')} ${bodyPieces.join(', ')}.`));
   }
 
   if (weapon) {
-    sentences.push(cap(`${subject('is carrying', 'they are carrying', 'you are carrying')} ${article(weapon.name)} ${lc(weapon.name)}.`));
+    sentences.push(cap(`${subject('is carrying', 'they are carrying', 'you are carrying')} ${withArticle(weapon.name)}.`));
   }
 
   if (accessory) {
     const place = isSelf ? 'on you' : 'on them';
-    sentences.push(cap(`${subject('has', 'they have', 'you have')} ${article(accessory.name)} ${lc(accessory.name)} ${place}.`));
+    sentences.push(cap(`${subject('has', 'they have', 'you have')} ${withArticle(accessory.name)} ${place}.`));
   }
 
   msg += sentences.join(' ');
