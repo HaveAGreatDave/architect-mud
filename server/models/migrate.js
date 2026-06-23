@@ -432,6 +432,20 @@ export async function migrate() {
   `);
   console.log('✓ Staging tables migrated');
 
+  // Starter clothing — ensure shoes exist and all three starter items have gets_wet.
+  await query(`
+    INSERT INTO items (id, name, weight, value, rarity, tags)
+    VALUES ('item_basic_shoes', 'Basic Shoes', 0.6, 2, 'common',
+      '{"description":"Canvas sneakers, well broken-in. The left sole is starting to peel.","slot":"feet","armor":1,"insulation":3,"gets_wet":true}'::jsonb)
+    ON CONFLICT (id) DO NOTHING
+  `);
+  await query(`
+    UPDATE items SET tags = tags || '{"gets_wet":true}'::jsonb
+    WHERE id IN ('item_basic_shirt','item_basic_pants','item_basic_shoes')
+      AND NOT (tags ? 'gets_wet')
+  `);
+  console.log('✓ Starter clothing migrated');
+
   await seedAmbientEvents();
   await seedWeatherAmbients();
   console.log('✓ Ambient events seeded');
