@@ -71,7 +71,7 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path==='/auth/login' && method==='POST') return apiLogin(body);
   if (path==='/auth/forgot-password' && method==='POST') return apiForgotPassword(body);
   if (path==='/auth/reset-password'  && method==='POST') return apiResetPassword(body);
-  if (path.startsWith('/auth/email-hint') && method==='GET') return apiEmailHint(new URL('http://x'+path).searchParams.get('username'));
+  if (path.startsWith('/auth/email-hint') && method==='GET') return apiEmailHint(new URL('http://x'+url).searchParams.get('username'));
   if (path==='/auth/gen-switch-token' && method==='POST') {
     if (!auth || !['dev','admin','builder','designer'].includes(auth.role)) return { status:403, body:{error:'Dev access required'} };
     const { rows } = await query('SELECT id, username, handle, role FROM players WHERE id=$1', [auth.playerId]);
