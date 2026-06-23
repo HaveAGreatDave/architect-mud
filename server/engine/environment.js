@@ -483,7 +483,7 @@ async function tick1m() {
     `UPDATE world_clock SET game_time_minutes = $1, last_tick_1m = now() WHERE id = 1`,
     [state.minutes]
   );
-  if (broadcast) broadcast({ type: 'environment.clockTick', time: formatHHMM(state.minutes), tempC: state.tempC + diurnalOffset(state.minutes), currentWeatherType: state.currentPrecip === 'none' ? state.weatherType : state.currentPrecip, currentPrecipIntensity: state.precipIntensity });
+  if (broadcast) broadcast({ type: 'environment.clockTick', time: formatHHMM(state.minutes), tempC: state.tempC + diurnalOffset(state.minutes), currentWeatherType: state.currentPrecip === 'none' ? state.weatherType : state.currentPrecip, currentIntensity: state.precipIntensity !== 'none' ? state.precipIntensity : '' });
   await flickerOverloadedZones();
 }
 
@@ -1157,11 +1157,15 @@ export async function devSetActiveClimate(id) {
 
 export async function devRecalculateForecast({ monthly_temp_c, monthly_precip_chance } = {}) {
   const { emitHook, broadcast } = deps;
-  // Use profile data sent from the client if provided; otherwise fall back to active profile.
   const climateProfile = (monthly_temp_c && monthly_precip_chance)
     ? { monthly_temp_c, monthly_precip_chance }
     : state.activeClimateProfile;
   if (emitHook) await emitHook('environment.recalculateForecast', { setWeatherState, climateProfile, currentDate: state.date });
+  // Reset precip state and re-roll so current conditions reflect the new forecast.
+  state.currentPrecip = 'none';
+  state.precipIntensity = 'none';
+  state.precipRate = 0;
+  if (emitHook) await emitHook('environment.tick30m', { weatherType: state.weatherType, tempC: state.tempC + diurnalOffset(state.minutes), setCurrentPrecip, getHUDPayload, broadcast });
   const payload = { ...getHUDPayload(), forecast: getForecast() };
   if (broadcast) broadcast({ type: 'environment.sync', ...payload });
   return payload;
