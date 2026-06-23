@@ -60,17 +60,20 @@ export const hooks = {
     const envState = getEnvironmentState();
     const precipOverride = envState.forecast?.[0]?.precipChance;
     const chance = precipOverride !== undefined ? precipOverride : (PRECIP_CHANCE[weatherType] ?? 0.05);
+    // Roll out of 100 — rain/snow if roll < chance (both expressed as 0–1 fractions)
     const roll = Math.random();
     const isCurrentlyPrecipitating = envState.currentPrecip !== 'none';
 
     if (roll < chance && !isCurrentlyPrecipitating) {
-      // Precipitation begins
-      const precipType = tempC > 1 ? 'rain' : 'snow';
-      const { label, rate } = pickIntensity(precipType === 'rain' ? RAIN_INTENSITIES : SNOW_INTENSITIES);
+      // Derive precip type from the forecast weatherType first, fall back to temperature
+      let precipType;
+      if (weatherType === 'snow' || weatherType === 'blizzard') precipType = 'snow';
+      else if (weatherType === 'sleet')                          precipType = tempC <= 1 ? 'snow' : 'rain';
+      else                                                        precipType = tempC <= 1 ? 'snow' : 'rain';
+      const { label, rate } = pickIntensity(precipType === 'snow' ? SNOW_INTENSITIES : RAIN_INTENSITIES);
       setCurrentPrecip(precipType, label, rate);
       if (broadcast) broadcast({ type: 'environment.sync', ...getHUDPayload() });
     } else if (roll >= chance && isCurrentlyPrecipitating) {
-      // Precipitation ends
       setCurrentPrecip('none', 'none', 0);
       if (broadcast) broadcast({ type: 'environment.sync', ...getHUDPayload() });
     }

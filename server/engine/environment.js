@@ -1007,7 +1007,7 @@ export function getHUDPayload() {
     currentWeatherIcon: WEATHER_ICON[state.currentPrecip !== 'none'
       ? state.currentPrecip
       : (PRECIP_FORECAST_TYPES.has(state.weatherType) ? 'cloudy' : state.weatherType)],
-    currentPrecipIntensity: state.precipIntensity,
+    currentIntensity: state.precipIntensity !== 'none' ? state.precipIntensity : '',
   };
 }
 

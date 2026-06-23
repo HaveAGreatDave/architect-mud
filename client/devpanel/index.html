@@ -4823,6 +4823,7 @@ function renderTimeWeatherPanel(data) {
           <div><div style="color:var(--text-dim);font-size:10px;margin-bottom:2px">SEASON</div><div style="color:var(--text)">${env.season||'—'}</div></div>
           <div><div style="color:var(--text-dim);font-size:10px;margin-bottom:2px">WEATHER</div><div style="color:var(--text)">${env.currentWeatherIcon||''} ${env.currentWeatherType||'—'}</div>${env.currentWeatherType!==env.weatherType?`<div style="color:var(--text-dim);font-size:10px;margin-top:2px">forecast: ${env.weatherType}</div>`:''}</div>
           <div><div style="color:var(--text-dim);font-size:10px;margin-bottom:2px">TEMPERATURE</div><div style="color:var(--text)">${env.tempC!=null?env.tempC+'°C':'—'}</div></div>
+          <div><div style="color:var(--text-dim);font-size:10px;margin-bottom:2px">INTENSITY</div><div style="color:var(--text)">${env.currentIntensity||'—'}</div></div>
           <div><div style="color:var(--text-dim);font-size:10px;margin-bottom:2px">STATUS</div><div style="color:${env.frozen?'var(--red)':'var(--accent2)'}">${env.frozen?'⏸ Frozen':'▶ Running'}</div></div>
         </div>
       </div>
@@ -5060,9 +5061,13 @@ async function devRecalculateForecast() {
 }
 
 async function devApplyWeather() {
-  const weatherType = document.getElementById('tw-weather').value;
+  let weatherType = document.getElementById('tw-weather').value;
   const tempC = Number(document.getElementById('tw-temp').value);
   const precipChance = Math.min(1, Math.max(0, Number(document.getElementById('tw-precip').value) / 100));
+  if (precipChance >= 0.70) {
+    weatherType = tempC <= 1 ? 'snow' : 'rain';
+    document.getElementById('tw-weather').value = weatherType;
+  }
   const r = await API('/environment/weather/override','POST',{weatherType,tempC,precipChance});
   if (r.error) { toast(r.error,true); return; }
   toast('Weather updated');

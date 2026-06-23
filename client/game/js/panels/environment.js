@@ -66,7 +66,7 @@ export function updateEnvironmentHUD(env) {
   if (env.weatherIcon !== undefined) envWeatherIcon = env.weatherIcon || '—';
   if (env.tempC !== undefined) envTempC = env.tempC;
   if (env.currentWeatherType !== undefined) envCurrentWeatherType = env.currentWeatherType;
-  if (env.currentPrecipIntensity !== undefined) envCurrentPrecipIntensity = env.currentPrecipIntensity;
+  if (env.currentIntensity !== undefined) envCurrentPrecipIntensity = env.currentIntensity;
   _lastServerTick = Date.now();
   renderEnvironmentHUD();
 }
