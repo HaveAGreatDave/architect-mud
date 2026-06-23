@@ -1,18 +1,12 @@
-import nodemailer from 'nodemailer';
-
-const transport = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: parseInt(process.env.SMTP_PORT || '587'),
-  secure: process.env.SMTP_PORT === '465',
-  auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-});
+import { BrevoClient } from '@getbrevo/brevo';
 
 export async function sendPasswordResetEmail(toEmail, resetUrl) {
-  await transport.sendMail({
-    from: process.env.SMTP_FROM,
-    to: toEmail,
+  const client = new BrevoClient({ apiKey: process.env.BREVO_API_KEY });
+  await client.transactionalEmails.sendTransacEmail({
+    sender: { name: 'ARCHITECT', email: process.env.SMTP_FROM_EMAIL },
+    to: [{ email: toEmail }],
     subject: 'ARCHITECT — Password Reset',
-    text: `Reset link (expires in 1 hour):\n${resetUrl}\n\nIf you didn't request this, ignore this email.`,
-    html: `<p>You requested a password reset for your ARCHITECT account.</p><p><a href="${resetUrl}">Reset your password</a> (expires in 1 hour)</p><p>If you didn't request this, ignore this email.</p>`,
+    textContent: `Reset link (expires in 1 hour):\n${resetUrl}\n\nIf you didn't request this, ignore this email.`,
+    htmlContent: `<p>You requested a password reset for your ARCHITECT account.</p><p><a href="${resetUrl}">Reset your password</a> (expires in 1 hour)</p><p>If you didn't request this, ignore this email.</p>`,
   });
 }
