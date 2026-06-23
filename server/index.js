@@ -35,6 +35,7 @@ import {
 import { startKeepalive } from "./keepalive.js";
 import { query } from "./models/db.js";
 import { migrate } from "./models/migrate.js";
+import { loadMisSettings } from "./engine/mis.js";
 
 import { initEnvironment, getHUDPayload } from "./engine/environment.js";
 
@@ -413,6 +414,8 @@ async function finishAuth(ws, session, player) {
 		handle: player.handle,
 		role: player.role,
 		origin_fragment: player.origin_fragment || 'A survivor. Still standing, somehow.',
+		archetype: player.archetype || null,
+		visibly_mutated: player.visibly_mutated || 0,
 		current_zone: player.current_zone || "zone_start",
 		anchor_zone: player.anchor_zone || "zone_start",
 		hp: player.hp,
@@ -439,6 +442,22 @@ async function finishAuth(ws, session, player) {
 		insulation: 0,
 		wetness: 0,
 		_prevWetness: 0,
+		// Appearance & biological systems
+		biological_sex: player.biological_sex || 'male',
+		hair_style: player.hair_style || 'short',
+		hair_length: player.hair_length || 'short',
+		hair_color: player.hair_color || 'brown',
+		eye_color: player.eye_color || 'brown',
+		height_cm: player.height_cm || 170,
+		weight_kg: player.weight_kg || 70,
+		appearance_free_used: player.appearance_free_used || 0,
+		appearance_data: player.appearance_data || {},
+		mis_enabled: player.mis_enabled || 0,
+		horniness: player.horniness || 0,
+		erect: player.erect || 0,
+		digestive_load: player.digestive_load || 0,
+		hydration_load: player.hydration_load || 0,
+		clothing_contamination: player.clothing_contamination || {},
 	};
 	setLivePlayer(player.id, livePlayer);
 	await autoEquipOnLogin(player.id);
@@ -656,6 +675,7 @@ async function boot() {
 	console.log("\n⚙  Booting ARCHITECT MUD...");
 	await migrate();
 	setBroadcast(broadcast);
+	await loadMisSettings();
 	await initWorld();
 	await loadRecipes();
 	await loadDrugs();

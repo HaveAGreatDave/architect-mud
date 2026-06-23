@@ -1,6 +1,7 @@
 import { query } from '../../models/db.js';
 import { useDrug } from '../drugs.js';
 import { hasTag, tagValue, hasFlag, TAG_CATALOG } from '../tags.js';
+import { foodLoad, drinkLoad } from '../bodily.js';
 
 const INSTANCE_FLAGS = Object.keys(TAG_CATALOG).filter(n => TAG_CATALOG[n].scope === 'instance');
 
@@ -164,8 +165,16 @@ async function cmdUse(targetStr, player) {
   const t = item.tags || {};
   const messages = [`You use ${item.name}.`];
   if (t.restore_hp) { player.hp = Math.min(player.hp_max, player.hp+t.restore_hp); messages.push(`+${t.restore_hp} HP.`); }
-  if (t.restore_hunger) { player.hunger = Math.min(100, player.hunger+t.restore_hunger); messages.push(`+${t.restore_hunger} Hunger.`); }
-  if (t.restore_thirst) { player.thirst = Math.min(100, player.thirst+t.restore_thirst); messages.push(`+${t.restore_thirst} Thirst.`); }
+  if (t.restore_hunger) {
+    player.hunger = Math.min(100, player.hunger+t.restore_hunger);
+    messages.push(`+${t.restore_hunger} Hunger.`);
+    player.digestive_load = Math.min(120, (player.digestive_load || 0) + foodLoad(t.restore_hunger));
+  }
+  if (t.restore_thirst) {
+    player.thirst = Math.min(100, player.thirst+t.restore_thirst);
+    messages.push(`+${t.restore_thirst} Thirst.`);
+    player.hydration_load = Math.min(120, (player.hydration_load || 0) + drinkLoad(t.restore_thirst));
+  }
   if (t.restore_radiation) { player.radiation = Math.max(0, player.radiation+t.restore_radiation); messages.push(`${t.restore_radiation} Radiation.`); }
   if (t.restore_sanity) { player.sanity = Math.min(player.sanity_max, Math.max(0, player.sanity+t.restore_sanity)); messages.push(`${t.restore_sanity>0?'+':''}${t.restore_sanity} Sanity.`); }
   if (t.grants_credits) { player.credits = (player.credits||0)+t.grants_credits; messages.push(`+${t.grants_credits} credits.`); }
@@ -185,7 +194,8 @@ async function cmdUse(targetStr, player) {
     player.hydratedUntil = Date.now() + 10 * 60 * 1000;
     messages.push(`Hydrated: radiation clears faster for a while.`);
   }
-  await query('UPDATE players SET hp=$1,hunger=$2,thirst=$3,radiation=$4,sanity=$5,credits=$6 WHERE id=$7', [player.hp,player.hunger,player.thirst,player.radiation,player.sanity,player.credits,player.id]);
+  await query('UPDATE players SET hp=$1,hunger=$2,thirst=$3,radiation=$4,sanity=$5,credits=$6,digestive_load=$7,hydration_load=$8 WHERE id=$9',
+    [player.hp,player.hunger,player.thirst,player.radiation,player.sanity,player.credits,player.digestive_load||0,player.hydration_load||0,player.id]);
   if (item.quantity > 1) await query('UPDATE player_inventory SET quantity=quantity-1 WHERE id=$1', [item.id]);
   else await query('DELETE FROM player_inventory WHERE id=$1', [item.id]);
   return { type:'use', message:messages.join('\n'), player_update:{hp:player.hp,hunger:player.hunger,thirst:player.thirst,radiation:player.radiation,sanity:player.sanity,credits:player.credits} };

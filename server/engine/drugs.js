@@ -65,6 +65,9 @@ function applyEffects(player, effects, message) {
   if (effects.hunger) statUpdates.hunger = Math.max(0, Math.min(100, player.hunger + effects.hunger));
   if (effects.thirst) statUpdates.thirst = Math.max(0, Math.min(100, player.thirst + effects.thirst));
   if (effects.radiation) statUpdates.radiation = Math.max(0, Math.min(100, (player.radiation||0) + effects.radiation));
+  if (effects.horniness_increase) {
+    statUpdates.horniness = Math.min(120, (player.horniness || 0) + effects.horniness_increase);
+  }
 
   for (const [k, v] of Object.entries(statUpdates)) player[k] = v;
 

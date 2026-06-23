@@ -5,6 +5,7 @@ import { loadRecipes } from '../engine/crafting.js';
 import { loadDrugs } from '../engine/drugs.js';
 import { loadMutations } from '../engine/mutations.js';
 import { randomUUID, createHash } from 'crypto';
+import { randomAppearance } from '../engine/appearance.js';
 import { handleEnvironmentApi } from './environment.routes.js';
 import { handleWorldValidatorApi } from './worldvalidator.routes.js';
 import { handleStagingApi } from './staging.routes.js';
@@ -156,28 +157,33 @@ export async function handleApiRequest(url, method, body, headers) {
 async function apiRegister(body) {
   const {username,password,handle} = body||{};
   if (!username||!password||!handle) return {status:400,body:{error:'username, password, handle required'}};
+  const biological_sex = (body.biological_sex === 'female') ? 'female' : 'male';
   try {
     const id = randomUUID();
-    // New survivors start with every stat at 1, 40 HP, and a pool of IP —
-    // enough to raise stats further toward the baseline target via the `raise`
-    // command. Reads the current cost curve, so the grant tracks tunable changes.
     await ensureTunables();
     const ip = startingIp();
-    await query(`INSERT INTO players (id,username,password_hash,handle,role,ip,hp,hp_max,stat_brawn,stat_reflexes,stat_endurance,stat_brains,stat_senses,stat_cool) VALUES ($1,$2,$3,$4,'player',$5,40,40,1,1,1,1,1,1)`, [id,username.toLowerCase(),hashPassword(password),handle,ip]);
-    // Starting kit — every new survivor begins with field bandages, so
-    // there's at least one source of healing before they've found or
-    // crafted anything else.
+    const app = randomAppearance(biological_sex);
+    await query(
+      `INSERT INTO players
+        (id,username,password_hash,handle,role,ip,hp,hp_max,stat_brawn,stat_reflexes,stat_endurance,stat_brains,stat_senses,stat_cool,
+         biological_sex,hair_style,hair_length,hair_color,eye_color,height_cm,weight_kg,appearance_data)
+       VALUES ($1,$2,$3,$4,'player',$5,40,40,1,1,1,1,1,1,$6,$7,$8,$9,$10,$11,$12,$13)`,
+      [id, username.toLowerCase(), hashPassword(password), handle, ip,
+       biological_sex, app.hair_style, app.hair_length, app.hair_color, app.eye_color,
+       app.height_cm, app.weight_kg, JSON.stringify(app.appearance_data)]
+    );
+    // Starting kit — bandages always
     await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,'item_bandage',3,1.0)`, [randomUUID(), id]);
-    // Use INSERT...SELECT so missing items are silently skipped rather than
-    // throwing an FK violation that would abort the whole registration.
-    await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,is_equipped,slot) SELECT $1,$2,i.id,1,1.0,1,'torso' FROM items i WHERE i.id='item_basic_shirt'`, [randomUUID(), id]);
-    await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,is_equipped,slot) SELECT $1,$2,i.id,1,1.0,1,'legs'  FROM items i WHERE i.id='item_basic_pants'`,  [randomUUID(), id]);
-    await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,is_equipped,slot) SELECT $1,$2,i.id,1,1.0,1,'feet'  FROM items i WHERE i.id='item_basic_shoes'`,  [randomUUID(), id]);
+    // New characters start with underwear only (not full clothing)
+    if (biological_sex === 'male') {
+      await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,is_equipped,slot) SELECT $1,$2,i.id,1,1.0,1,'legs' FROM items i WHERE i.id='item_underwear_male'`, [randomUUID(), id]);
+    } else {
+      await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,is_equipped,slot) SELECT $1,$2,i.id,1,1.0,1,'torso' FROM items i WHERE i.id='item_underwear_female_top'`, [randomUUID(), id]);
+      await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,is_equipped,slot) SELECT $1,$2,i.id,1,1.0,1,'legs'  FROM items i WHERE i.id='item_underwear_female_bottom'`, [randomUUID(), id]);
+    }
     fireHook('player.create', { id, handle, username: username.toLowerCase(), role: 'player' }).catch(() => {});
     return {status:201,body:{token:makeToken(id,'player'),playerId:id,handle,role:'player'}};
   } catch(e) {
-    // Only swallow unique-constraint violations (duplicate username/handle).
-    // Re-throw anything else so registration errors are visible.
     if (e.code === '23505') return {status:409,body:{error:'Username or handle already taken'}};
     console.error('[register] unexpected error:', e.message);
     return {status:500,body:{error:'Registration failed. Please try again.'}};

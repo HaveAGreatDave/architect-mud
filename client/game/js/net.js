@@ -146,10 +146,11 @@ export function doAuth() {
   }, 10000);
 
   if (state.isRegister) {
+    const biological_sex = document.querySelector('input[name="auth-sex"]:checked')?.value || 'male';
     fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password, handle }),
+      body: JSON.stringify({ username, password, handle, biological_sex }),
     }).then(r => r.json()).then(data => {
       if (data.error) {
         clearTimeout(state.authTimeout);

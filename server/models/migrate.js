@@ -515,6 +515,75 @@ export async function migrate() {
   }
   console.log('✓ Clothing/armor layer data stamped');
 
+  // Biological accuracy systems
+  await query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS biological_sex TEXT DEFAULT 'male'`);
+  await query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS hair_style TEXT DEFAULT 'short'`);
+  await query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS hair_length TEXT DEFAULT 'short'`);
+  await query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS hair_color TEXT DEFAULT 'brown'`);
+  await query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS eye_color TEXT DEFAULT 'brown'`);
+  await query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS height_cm INTEGER DEFAULT 170`);
+  await query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS weight_kg REAL DEFAULT 70.0`);
+  await query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS appearance_free_used INTEGER DEFAULT 0`);
+  await query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS mis_enabled INTEGER DEFAULT 0`);
+  await query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS horniness INTEGER DEFAULT 0`);
+  await query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS erect INTEGER DEFAULT 0`);
+  await query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS digestive_load REAL DEFAULT 0`);
+  await query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS hydration_load REAL DEFAULT 0`);
+  await query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS appearance_data JSONB DEFAULT '{}'`);
+  await query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS clothing_contamination JSONB DEFAULT '{}'`);
+  await query(`
+    CREATE TABLE IF NOT EXISTS server_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    )
+  `);
+  await query(`INSERT INTO server_settings (key, value) VALUES ('mis_enabled', 'true') ON CONFLICT DO NOTHING`);
+
+  // Back-fill appearance for existing players who have no biological_sex set
+  await query(`UPDATE players SET biological_sex='male' WHERE biological_sex IS NULL OR biological_sex=''`);
+  await query(`
+    UPDATE players SET
+      hair_style = CASE WHEN hair_style IS NULL OR hair_style='' THEN 'short' ELSE hair_style END,
+      hair_length = CASE WHEN hair_length IS NULL OR hair_length='' THEN 'short' ELSE hair_length END,
+      hair_color = CASE WHEN hair_color IS NULL OR hair_color='' THEN 'brown' ELSE hair_color END,
+      eye_color = CASE WHEN eye_color IS NULL OR eye_color='' THEN 'brown' ELSE eye_color END,
+      height_cm = CASE WHEN height_cm IS NULL OR height_cm=0 THEN 175 ELSE height_cm END,
+      weight_kg = CASE WHEN weight_kg IS NULL OR weight_kg=0 THEN 75 ELSE weight_kg END
+  `);
+
+  // Underwear items for new character starting kit
+  await query(`
+    INSERT INTO items (id, name, description, type, weight, value, rarity, tags) VALUES
+      ('item_underwear_male', 'Boxers', 'Plain cotton boxers. Not much, but it''s something.', 'clothing', 0.1, 1, 'common',
+        '{"slot":"legs","armor":0,"insulation":1,"allowed_layer_range":{"min":0,"max":1},"bulkiness":1,"underwear":true}'::jsonb),
+      ('item_underwear_female_top', 'Bra', 'A plain bra. It does what it''s supposed to do.', 'clothing', 0.1, 1, 'common',
+        '{"slot":"torso","armor":0,"insulation":1,"allowed_layer_range":{"min":0,"max":1},"bulkiness":1,"underwear":true}'::jsonb),
+      ('item_underwear_female_bottom', 'Panties', 'Plain cotton underwear.', 'clothing', 0.1, 1, 'common',
+        '{"slot":"legs","armor":0,"insulation":1,"allowed_layer_range":{"min":0,"max":1},"bulkiness":1,"underwear":true}'::jsonb)
+    ON CONFLICT (id) DO NOTHING
+  `);
+
+  // MORPHEX 9000 cosmetic terminal — seeded into zone_start
+  // Only insert if no cosmetic_machine furniture already exists there
+  const { rows: existingMorphex } = await query(
+    `SELECT id FROM furniture WHERE zone_id='zone_start' AND object_type='cosmetic_machine' LIMIT 1`
+  );
+  if (!existingMorphex.length) {
+    await query(`
+      INSERT INTO furniture (id, zone_id, name, description, object_type, flags)
+      VALUES (
+        'furniture_morphex_start',
+        'zone_start',
+        'MORPHEX 9000 BioSculpt Terminal',
+        'A sleek chrome kiosk humming with quiet menace. Its screen displays a rotating holographic body with the tagline: "YOU, BUT BETTER. OR DIFFERENT. WE DON''T JUDGE." A small plaque reads: First session complimentary. Genital augmentation: 5₵/unit.',
+        'cosmetic_machine',
+        '{"interactions":["use"]}'::jsonb
+      ) ON CONFLICT (id) DO NOTHING
+    `);
+  }
+
+  console.log('✓ Biological accuracy systems migrated');
+
   await seedAmbientEvents();
   await seedWeatherAmbients();
   console.log('✓ Ambient events seeded');

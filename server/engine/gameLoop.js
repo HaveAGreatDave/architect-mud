@@ -8,6 +8,8 @@ import { fireHook } from './plugins.js';
 import { schedule } from './scheduler.js';
 import { query } from '../models/db.js';
 import { getEnvironmentState } from './environment.js';
+import { tickBodily } from './bodily.js';
+import { addHorniness } from './mis.js';
 
 let broadcastFn = null;
 let minuteTick = 0;
@@ -378,6 +380,16 @@ async function resourceTick() {
     if (messages.length) broadcastFn(null, { type:'resource_tick', messages, player_update:{hunger:player.hunger,thirst:player.thirst,hp:player.hp,stamina:player.stamina,body_temp_c:player.body_temp_c} }, null, playerId);
 
     if (player.hp <= 0) handlePlayerDeath(player, null);
+
+    // Bodily pressure tick
+    const bodilyMsgs = await tickBodily(player, broadcastFn);
+    if (bodilyMsgs.length) broadcastFn(null, { type:'resource_tick', messages: bodilyMsgs }, null, playerId);
+
+    // Slow passive horniness decay (−1 per tick if above 0 and not active)
+    if ((player.horniness || 0) > 0) {
+      player.horniness = Math.max(0, player.horniness - 1);
+      await query('UPDATE players SET horniness=$1 WHERE id=$2', [player.horniness, playerId]);
+    }
   }
 }
 

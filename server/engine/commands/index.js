@@ -5,11 +5,18 @@ import { handlers as socialHandlers } from './social.js';
 import { handlers as economyHandlers } from './economy.js';
 import { handlers as housingHandlers } from './housing.js';
 import { handlers as worldHandlers } from './world.js';
+import { handlers as bodilyHandlers } from './bodily.js';
+import { handlers as misHandlers } from './mis.js';
+import { handlers as appearanceHandlers } from './appearance.js';
 import { fireCommand } from '../plugins.js';
 
 export { describeZone, describeVoidTeleport } from './describe.js';
 export { recomputeArmor, recomputeInsulation, EQUIP_SLOTS } from './inventory.js';
 export { resolveAttack } from './combat.js';
+
+// Appearance handlers: `use` returns null when not targeting a cosmetic machine.
+// Strip it out here so we can try it as a pre-pass before falling back to inventory.
+const { use: appearanceUseHandler, ...appearanceOtherHandlers } = appearanceHandlers;
 
 const builtins = new Map([
   ...Object.entries(moveHandlers),
@@ -19,6 +26,9 @@ const builtins = new Map([
   ...Object.entries(economyHandlers),
   ...Object.entries(housingHandlers),
   ...Object.entries(worldHandlers),
+  ...Object.entries(bodilyHandlers),
+  ...Object.entries(misHandlers),
+  ...Object.entries(appearanceOtherHandlers),
 ]);
 
 export async function handleCommand(input, player, broadcast) {
@@ -37,6 +47,12 @@ export async function handleCommand(input, player, broadcast) {
 
   const pluginResult = await fireCommand(cmd, args, raw, player, broadcast);
   if (pluginResult !== undefined) return pluginResult;
+
+  // Cosmetic machine pre-intercepts `use` before inventory gets it
+  if (cmd === 'use' && appearanceUseHandler) {
+    const appResult = await appearanceUseHandler(args, raw, player, broadcast);
+    if (appResult !== null) return appResult;
+  }
 
   const handler = builtins.get(cmd);
   if (handler) return handler(args, raw, player, broadcast);

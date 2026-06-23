@@ -20,6 +20,7 @@ if (!localStorage.getItem(SETTINGS_KEY) && _isMobile) {
 applySettings(settings);
 // saveAndApply is called after settings.js mutates the settings object in-place
 initSettingsUI(settings, () => { saveSettings(settings); applySettings(settings); }, {
+  sendCmd,
   getOrigin: () => state.player?.origin_fragment || '',
   saveOrigin: async (text) => {
     const token = sessionStorage.getItem('devpanel-token');
@@ -54,6 +55,7 @@ document.getElementById('auth-handle').addEventListener('keydown', e => { if (e.
 document.getElementById('auth-toggle-link').addEventListener('click', () => {
   state.isRegister = !state.isRegister;
   document.getElementById('handle-field').classList.toggle('visible', state.isRegister);
+  document.getElementById('sex-field').style.display = state.isRegister ? '' : 'none';
   document.getElementById('auth-toggle-text').textContent = state.isRegister ? 'Have an account?' : 'No account?';
   document.getElementById('auth-toggle-link').textContent = state.isRegister ? 'Login' : 'Register';
   document.getElementById('auth-submit').textContent = state.isRegister ? 'Register' : 'Enter';

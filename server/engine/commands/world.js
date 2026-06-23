@@ -1,11 +1,13 @@
 import { query } from '../../models/db.js';
 import { getZone, getZoneEnemies, getZoneNpcs, getZonePlayers } from '../world.js';
-import { getZonePowerStatus, recomputePower, recalcZoneLoad } from '../environment.js';
+import { getZonePowerStatus, recomputePower, recalcZoneLoad, getEnvironmentState } from '../environment.js';
 import { getPlayerSkills, SKILLS } from '../skills.js';
 import { describeZone } from './describe.js';
 import { getMinimapData, addPlayerToZone, removePlayerFromZone } from '../world.js';
 import { statCost, raiseStat, RAISABLE_STATS } from '../ip.js';
 import { ensureTunables } from '../tunables.js';
+import { physicalDescription, ejaculateDescription } from '../appearance.js';
+import { isMisActive, erectionVisibilityNote, nippleVisibilityNote } from '../mis.js';
 
 async function cmdStats(player) {
   const { rows } = await query('SELECT * FROM players WHERE id=$1', [player.id]);
@@ -66,7 +68,7 @@ async function describePlayerAppearance(target, isSelf) {
     const lr = row.tags?.allowed_layer_range;
     const layerMax = (lr && typeof lr === 'object') ? (lr.max || 0) : 99;
     if (!bySlot[slot] || layerMax > bySlot[slot].layerMax) {
-      bySlot[slot] = { name: row.name, layerMax };
+      bySlot[slot] = { name: row.name, layerMax, tags: row.tags };
     }
   }
 
@@ -80,9 +82,21 @@ async function describePlayerAppearance(target, isSelf) {
   const weapon = bySlot['weapon_hand'];
   const accessory = bySlot['accessory'];
 
+  // Physical appearance line (new)
+  const physLine = physicalDescription(target, isSelf);
+
   const DEFAULT_ORIGIN = 'A survivor. Still standing, somehow.';
   let msg = `${origin || DEFAULT_ORIGIN}\n`;
+  if (physLine) msg += `${physLine}\n`;
   if (mutated) msg += `<span class="mutation-tag">Something about ${isSelf ? 'you' : 'them'} isn't quite human anymore.</span>\n`;
+
+  // Clothing contamination
+  const contamination = target.clothing_contamination || {};
+  const stainedSlots = Object.keys(contamination).filter(k => contamination[k] && bySlot[k]);
+  if (stainedSlots.length) {
+    const slotList = stainedSlots.map(s => `${bySlot[s].name} (${s})`).join(', ');
+    msg += `<span style="color:var(--red)">Stained: ${slotList}.</span>\n`;
+  }
 
   if (!bodyPieces.length && !weapon && !accessory) {
     const nakedLines = isSelf
@@ -97,6 +111,16 @@ async function describePlayerAppearance(target, isSelf) {
           `${handle} is completely undressed. They seem unbothered by it.`,
         ];
     msg += nakedLines[Math.floor(Math.random() * nakedLines.length)];
+
+    // MIS-gated details when naked
+    if (isMisActive(target)) {
+      const envState = getEnvironmentState();
+      const nippleNote = nippleVisibilityNote(target, false, envState.tempC);
+      if (nippleNote) msg += `\n${nippleNote}`;
+      const ejacNote = ejaculateDescription(target, isSelf, new Set());
+      if (ejacNote) msg += `\n${ejacNote}`;
+    }
+
     return msg.trim();
   }
 
@@ -126,6 +150,27 @@ async function describePlayerAppearance(target, isSelf) {
   }
 
   msg += sentences.join(' ');
+
+  // MIS-gated details for clothed players
+  if (isMisActive(target)) {
+    const coveredSlots = new Set(Object.keys(bySlot));
+    const envState = getEnvironmentState();
+    // Erection visible through tight clothing
+    const tightSlots = new Set(
+      Object.entries(bySlot).filter(([,v]) => v.tags?.bulkiness <= 2).map(([k]) => k)
+    );
+    const erectNote = erectionVisibilityNote(target, tightSlots);
+    if (erectNote) msg += `\n${erectNote}`;
+    // Nipple hardness if torso slot is only covered by thin layer
+    const torsoItem = bySlot['torso'];
+    const thinTorso = torsoItem && (torsoItem.tags?.bulkiness || 99) <= 1;
+    const nippleNote = nippleVisibilityNote(target, !thinTorso, envState.tempC);
+    if (nippleNote) msg += `\n${nippleNote}`;
+    // Ejaculate on exposed skin
+    const ejacNote = ejaculateDescription(target, isSelf, coveredSlots);
+    if (ejacNote) msg += `\n${ejacNote}`;
+  }
+
   return msg.trim();
 }
 
