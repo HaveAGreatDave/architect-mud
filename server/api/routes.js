@@ -641,6 +641,13 @@ export async function apiUpdateFurniture(id, body) {
     if (!sets.length) return {status:400,body:{error:'nothing to update'}};
     vals.push(id);
     await query(`UPDATE furniture SET ${sets.join(',')} WHERE id=$${i}`, vals);
+    // Resync total_lumens for this zone if the row is a light.
+    const { rows: updated } = await query(`SELECT zone_id FROM furniture WHERE id=$1 AND object_type='light'`, [id]);
+    if (updated[0]?.zone_id) {
+      const zid = updated[0].zone_id;
+      const { rows: lc } = await query(`SELECT COUNT(*)::int AS cnt, COALESCE(SUM(COALESCE(lumen_output,0)),0)::int AS lm FROM furniture WHERE zone_id=$1 AND object_type='light' AND light_on=1`, [zid]);
+      await query(`UPDATE lighting_states SET fixture_count=$1, total_lumens=$2 WHERE zone_id=$3`, [lc[0]?.cnt||0, lc[0]?.lm||0, zid]).catch(()=>{});
+    }
     return {status:200,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
