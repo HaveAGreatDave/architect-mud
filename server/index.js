@@ -229,6 +229,7 @@ wss.on("connection", (ws) => {
 			return handleReconnect(ws, session, msg);
 		if (msg.type === "command") return handleGameCommand(ws, session, msg);
 		if (msg.type === "dialogue") return handleDialogue(ws, session, msg);
+		if (msg.type === "buy_npc") return handleBuyFromNpc(ws, session, msg);
 		if (msg.type === "ping") {
 			ws.send(JSON.stringify({ type: "pong" }));
 			return;
@@ -507,6 +508,20 @@ async function handleDialogue(ws, session, msg) {
 		return;
 	}
 	const npc = rows[0];
+
+	if (msg.choice === "__shop__") {
+		const player = getLivePlayer(session.playerId);
+		if (!player) return;
+		if (!npc.vendor_inventory?.length) {
+			ws.send(JSON.stringify({ type: "error", message: `${npc.name} has nothing to sell.` }));
+			return;
+		}
+		const { getVendorStock } = await import("./engine/vendor.js");
+		const stock = await getVendorStock(npc, session.playerId);
+		ws.send(JSON.stringify({ type: "dialogue_shop", npcId: npc.id, npcName: npc.name, stock, credits: player.credits }));
+		return;
+	}
+
 	const node = (npc.dialogue_tree || {})[msg.choice];
 	if (!node) {
 		ws.send(
@@ -548,6 +563,30 @@ async function handleDialogue(ws, session, msg) {
 			options: node.options || [],
 		}),
 	);
+}
+
+async function handleBuyFromNpc(ws, session, msg) {
+	if (!session.playerId) return;
+	const player = getLivePlayer(session.playerId);
+	if (!player) return;
+	const { rows } = await query("SELECT * FROM npcs WHERE id=$1", [msg.npcId]);
+	if (!rows.length) { ws.send(JSON.stringify({ type: "error", message: "NPC not found." })); return; }
+	const npc = rows[0];
+	const { buyFromVendor, getVendorStock } = await import("./engine/vendor.js");
+	const result = await buyFromVendor(player, npc, msg.itemId, 1);
+	const stock = await getVendorStock(npc, session.playerId);
+	ws.send(JSON.stringify({
+		type: "dialogue_shop",
+		npcId: npc.id,
+		npcName: npc.name,
+		stock,
+		credits: player.credits,
+		buyResult: result.message,
+		buySuccess: result.success,
+	}));
+	if (result.success) {
+		ws.send(JSON.stringify({ type: "player_update", credits: player.credits }));
+	}
 }
 
 // Safety net: a bug in any single request handler should never be able

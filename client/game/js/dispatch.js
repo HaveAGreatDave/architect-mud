@@ -3,7 +3,7 @@ import { appendMsg, appendHtml, updateVitals, parseZoneInfo, showDevPanelButton 
 import { sendCmd, sendCmdSilent, closeConnection } from './net.js';
 import { renderMinimap, openMapPopup } from './panels/minimap.js';
 import { updateEnvironmentHUD, refreshZoneVisibility } from './panels/environment.js';
-import { openDialogue, closeDialogue } from './panels/dialogue.js';
+import { openDialogue, closeDialogue, openShop } from './panels/dialogue.js';
 import { renderEquipPanel } from './panels/equipment.js';
 import { receiveWhisper } from './panels/whisper.js';
 import { openLightViewDialog } from './panels/lightview.js';
@@ -147,6 +147,7 @@ const handlers = {
   },
 
   dialogue: (msg) => { openDialogue(msg); },
+  dialogue_shop: (msg) => { openShop(msg); },
 
   dialogue_end: (msg) => {
     closeDialogue();

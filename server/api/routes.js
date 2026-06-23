@@ -97,6 +97,7 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path.startsWith('/npcs/') && method==='PUT') return requireDev(auth, ()=>apiUpdateNpc(path.split('/')[2],body));
   if (path.startsWith('/npcs/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteNpc(path.split('/')[2]));
   if (path==='/furniture' && method==='GET') return requireDev(auth, ()=>apiGetFurniture(url));
+  if (path==='/furniture/bulk/streetlights' && method==='POST') return requireDev(auth, apiBulkAddStreetlights);
   if (path==='/furniture' && method==='POST') return requireDev(auth, ()=>apiCreateFurniture(body));
   if (path.startsWith('/furniture/') && method==='PUT') return requireDev(auth, ()=>apiUpdateFurniture(path.split('/')[2],body));
   if (path.startsWith('/furniture/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteFurniture(path.split('/')[2]));
@@ -619,6 +620,32 @@ export async function apiDeleteFurniture(id) {
     await query('DELETE FROM furniture WHERE id=$1', [id]);
     return {status:200,body:{message:'Furniture deleted'}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
+}
+async function apiBulkAddStreetlights() {
+  const { rows: templates } = await query(
+    `SELECT * FROM furniture WHERE object_type='light' AND light_type='streetlight' LIMIT 1`
+  );
+  if (!templates.length) return { status:400, body:{ error:'No existing streetlight found to use as template. Add one manually first.' } };
+  const t = templates[0];
+  const { rows: zones } = await query(`
+    SELECT z.id FROM zones z
+    WHERE NOT COALESCE((z.flags->>'is_interior')::boolean, false)
+      AND NOT COALESCE((z.flags->>'is_apartment')::boolean, false)
+      AND NOT COALESCE((z.flags->>'is_building')::boolean, false)
+      AND z.id NOT IN (
+        SELECT DISTINCT zone_id FROM furniture WHERE light_type='streetlight'
+      )
+  `);
+  let added = 0;
+  for (const zone of zones) {
+    await query(
+      `INSERT INTO furniture (id,zone_id,name,description,object_type,light_on,light_type,power_draw_kw,flags)
+       VALUES ($1,$2,$3,$4,$5,0,$6,$7,$8) ON CONFLICT (id) DO NOTHING`,
+      [`furn_sl_${zone.id}`, zone.id, t.name, t.description, t.object_type, t.light_type, t.power_draw_kw, JSON.stringify(t.flags||{})]
+    );
+    added++;
+  }
+  return { status:200, body:{ added, message:`Street Light added to ${added} outdoor zone${added===1?'':'s'}.` } };
 }
 async function apiWorldState() {
   const players = getAllLivePlayers().map(p => ({ handle: p.handle, role: p.role, current_zone: p.current_zone }));

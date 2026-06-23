@@ -1,6 +1,6 @@
 import { query } from '../../models/db.js';
 import { getZone, getZoneEnemies, getZoneNpcs, getZoneCorpses, getZonePlayers } from '../world.js';
-import { getZoneVisibility, getWindowsForZone } from '../environment.js';
+import { getZoneVisibility, getWindowsForZone, getWeatherDescription } from '../environment.js';
 import { getCustodianOutcastResponse } from '../mutations.js';
 import { describeApartmentStatus } from '../apartments.js';
 import { fireHook } from '../plugins.js';
@@ -167,7 +167,12 @@ export async function describeZone(zone, player) {
   const zoneDesc = isDim
     ? (zone.description.split(/(?<=[.!?])\s+/)[0] || zone.description)
     : zone.description;
-  desc += `\n${zoneDesc}${describeBuildingDiscovery(buildings)}`;
+  let weatherLine = '';
+  if (!isInteriorZone(zone) && vis.category !== 'pitch_dark' && vis.category !== 'dark') {
+    const wd = getWeatherDescription();
+    if (wd) weatherLine = ` ${wd}`;
+  }
+  desc += `\n${zoneDesc}${weatherLine}${describeBuildingDiscovery(buildings)}`;
   desc += await describeApartmentStatus(zone);
 
   const outcastResponse = getCustodianOutcastResponse(zone, player);

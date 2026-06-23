@@ -998,6 +998,28 @@ export function setWeatherState(weatherType, tempC, forecast) {
   if (forecast !== undefined) state.forecast = forecast;
 }
 
+const WEATHER_DESCRIPTIONS = {
+  clear:        ['The sky above is open and clear.', 'A crisp stillness hangs in the air.', 'Pale light cuts through the haze overhead.'],
+  cloudy:       ['Broken clouds drift across the sky.', 'Grey-white clouds roll overhead.'],
+  overcast:     ['Heavy cloud cover blankets the sky, diffusing what little light reaches the street.', 'The sky is a flat, featureless grey.'],
+  rain:         ['Rain falls in a steady drizzle, pooling in the cracks of the pavement.', 'The hiss of rain fills the air.', 'Gutters run with dark water.'],
+  sleet:        ['Freezing sleet pelts down, stinging exposed skin.', 'Half-frozen rain rattles against every surface.'],
+  thunderstorm: ['Thunder rolls in distant waves overhead.', 'Lightning fractures the sky — a thunderstorm rages.', 'The air smells of ozone. Thunder follows every flicker of lightning.'],
+  storm:        ['Wind howls between the buildings, carrying debris.', 'A violent storm tears through the area.', 'The force of the wind makes every step an effort.'],
+  snow:         ["Snow falls quietly, softening the city's sharp edges.", 'A thin coat of snow covers everything in sight.', 'Snowflakes spiral down through the amber glow of the streetlights.'],
+  blizzard:     ['A blizzard rages, cutting visibility to almost nothing.', 'Snow and wind form a near-solid wall of white.'],
+  fog:          ['Thick fog clings to the streets, muffling sound and swallowing distance.', 'Visibility is poor. Shapes dissolve into grey at any distance.'],
+  haze:         ['A chemical haze hangs low over the street, yellow-brown and faintly acrid.', 'The air tastes of something industrial. A murky haze obscures the skyline.'],
+  ash:          ['Grey ash drifts down from somewhere upwind, coating every surface.', 'A fine layer of ash has settled over everything. The air smells of burning.'],
+};
+
+export function getWeatherDescription() {
+  if (!state.ready) return null;
+  const descs = WEATHER_DESCRIPTIONS[state.weatherType];
+  if (!descs?.length) return null;
+  return descs[Math.floor(Math.random() * descs.length)];
+}
+
 export function getPowerMap() {
   return [...state.zones.entries()].map(([zoneId, z]) => ({
     zoneId,

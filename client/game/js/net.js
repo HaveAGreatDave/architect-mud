@@ -71,6 +71,10 @@ export function sendDialogue(npcId, choice) {
   _connection?.send({ type: 'dialogue', npcId, choice });
 }
 
+export function buyFromNpc(npcId, itemId) {
+  _connection?.send({ type: 'buy_npc', npcId, itemId });
+}
+
 export function closeConnection() {
   _connection?.close();
 }

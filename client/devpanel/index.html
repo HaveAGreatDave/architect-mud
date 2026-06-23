@@ -348,6 +348,7 @@ const PANELS = {
       { key: 'faction', label: 'Faction' },
       { key: 'disposition', label: 'Disposition' },
     ],
+    render: renderNpcsPanel,
     editForm: npcEditForm,
     save: saveNpc,
     delete: id => API(`/npcs/${id}`, 'DELETE'),
@@ -815,7 +816,12 @@ async function deleteRecord() {
   try {
     const result = await p.delete(currentRecord.id);
     if (result?.error) { toast(result.error, true); return; }
-    toast(result?.message || 'Deleted');
+    if (result?.staged) {
+      toast('Marked for deletion — publish to apply');
+      await updateStagingBadge();
+    } else {
+      toast(result?.message || 'Deleted');
+    }
     await loadPanel(currentPanel);
     closeEdit();
   } catch (err) {
@@ -852,6 +858,79 @@ function cloneZoneRow(id) {
   if (!src) return;
   currentRecord = null;
   openEdit({ ...src, id: '', name: `${src.name} (copy)` }, true);
+}
+
+async function deleteNpcRow(id) {
+  const rec = allRecords.find(r => r.id === id);
+  if (!rec || rec._stagingStatus === 'pending delete') return;
+  if (!confirm(`Delete ${rec.name || id}?`)) return;
+  const prev = currentRecord;
+  currentRecord = rec;
+  const result = await API(`/npcs/${id}`, 'DELETE');
+  currentRecord = prev;
+  if (result?.error) { toast(result.error, true); return; }
+  if (result?.staged) {
+    toast('Marked for deletion — publish to apply');
+    await updateStagingBadge();
+  } else {
+    toast(result?.message || 'Deleted');
+  }
+  await loadPanel('npcs');
+}
+
+function renderNpcsPanel(data) {
+  const records = Array.isArray(data) ? data : [];
+  allRecords = records;
+  const panel = document.getElementById('list-panel');
+  if (!records.length) { panel.innerHTML = '<div style="padding:24px;color:var(--text-dim)">No NPCs found.</div>'; return; }
+
+  const columns = PANELS.npcs.columns;
+  const hasStagedRows = records.some(r => r._stagingStatus);
+  let html = '<table><thead><tr>';
+  for (const col of columns) {
+    const isSorted = sortState.key === col.key;
+    const arrow = isSorted ? (sortState.dir === 1 ? ' ▲' : ' ▼') : '';
+    html += `<th class="sortable-col${isSorted?' sorted':''}" onclick="sortTableBy('${col.key}')">${col.label}${arrow}</th>`;
+  }
+  if (hasStagedRows) html += '<th>Status</th>';
+  html += '<th></th></tr></thead><tbody>';
+
+  let sorted = records;
+  if (sortState.key) {
+    sorted = [...records].sort((a, b) => {
+      let av = a[sortState.key], bv = b[sortState.key];
+      if (av == null) av = ''; if (bv == null) bv = '';
+      if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * sortState.dir;
+      return String(av).localeCompare(String(bv)) * sortState.dir;
+    });
+  }
+
+  for (const rec of sorted) {
+    const isPendingDelete = rec._stagingStatus === 'pending delete';
+    const rowStyle = isPendingDelete
+      ? 'cursor:pointer;opacity:0.6;text-decoration:line-through'
+      : rec._stagingStatus ? 'cursor:pointer;border-left:3px solid var(--warning)' : 'cursor:pointer';
+    html += `<tr style="${rowStyle}" onclick="editRecord('${rec.id}')">`;
+    for (const col of columns) {
+      const raw = rec[col.key];
+      const val = col.render ? col.render(raw) : (raw ?? '—');
+      html += `<td>${val}</td>`;
+    }
+    if (hasStagedRows) {
+      const s = rec._stagingStatus;
+      const badge = s === 'pending delete'
+        ? `<span style="color:var(--danger);font-size:11px">⚠ ${s}</span>`
+        : s ? `<span style="color:var(--warning);font-size:11px">● ${s}</span>` : '';
+      html += `<td>${badge}</td>`;
+    }
+    html += `<td style="white-space:nowrap">
+      <button class="action-btn" onclick="event.stopPropagation();editRecord('${rec.id}')">Edit</button>
+      ${isPendingDelete ? '' : `<button class="action-btn danger" style="margin-left:3px" onclick="event.stopPropagation();deleteNpcRow('${rec.id}')">Delete</button>`}
+    </td>`;
+    html += '</tr>';
+  }
+  html += '</tbody></table>';
+  panel.innerHTML = html;
 }
 
 // --- Zone forms ---
@@ -2262,9 +2341,13 @@ function renderFurniturePanel(data) {
     </div>`;
   }).join('');
 
-  panel.innerHTML = furniture.length
+  const streetlightsToolbar = `<div style="padding:8px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px">
+    <button class="action-btn" onclick="bulkAddStreetlights()" title="Add a Street Light to every outdoor city zone that doesn't have one yet">🔦 Add Street Lights to All City Tiles</button>
+    <span id="streetlights-result" style="font-size:11px;color:var(--text-dim)"></span>
+  </div>`;
+  panel.innerHTML = streetlightsToolbar + (furniture.length
     ? sections
-    : '<div style="padding:24px;color:var(--text-dim)">No furniture found.</div>';
+    : '<div style="padding:24px;color:var(--text-dim)">No furniture found.</div>');
 
   for (const zid of _furnitureExpandedZones) {
     const header = panel.querySelector(`[data-zone-id="${zid}"]`);
@@ -2272,6 +2355,22 @@ function renderFurniturePanel(data) {
       header.nextElementSibling.style.display = 'block';
       header.querySelector('.f-arrow').textContent = '▾';
     }
+  }
+}
+
+async function bulkAddStreetlights() {
+  const btn = document.querySelector('button[onclick="bulkAddStreetlights()"]');
+  const result_el = document.getElementById('streetlights-result');
+  if (btn) { btn.disabled = true; btn.textContent = 'Working...'; }
+  const result = await API('/furniture/bulk/streetlights', 'POST');
+  if (btn) { btn.disabled = false; btn.textContent = '🔦 Add Street Lights to All City Tiles'; }
+  if (result?.error) {
+    toast(result.error, true);
+    if (result_el) result_el.textContent = result.error;
+  } else {
+    toast(result.message || `Added street lights to ${result.added} zones`);
+    if (result_el) result_el.textContent = result.message || `Done — ${result.added} added`;
+    await loadPanel('furniture');
   }
 }
 

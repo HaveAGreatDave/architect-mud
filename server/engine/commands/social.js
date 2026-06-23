@@ -7,8 +7,10 @@ function cmdTalk(targetStr, player) {
   const npc = npcs.find(n => n.name.toLowerCase().includes(targetStr));
   if (!npc) return { type:'error', message:`Can't find "${targetStr}" here.` };
   const root = npc.dialogue_tree?.root;
-  if (!root) return { type:'talk', message:`${npc.name} doesn't want to talk.` };
-  return { type:'dialogue', npcId:npc.id, npcName:npc.name, node:'root', text:root.text, options:root.options||[] };
+  const options = [...(root?.options || [])];
+  if (npc.vendor_inventory?.length) options.push({ label: 'Browse your wares.', next: '__shop__' });
+  if (!root && !options.length) return { type:'talk', message:`${npc.name} doesn't want to talk.` };
+  return { type:'dialogue', npcId:npc.id, npcName:npc.name, node:'root', text:root?.text || `${npc.name} glances up at you.`, options };
 }
 
 function cmdSay(text, player, broadcast) {
