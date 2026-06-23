@@ -28,16 +28,43 @@ const PRECIP_CHANCE = {
   ash:           0.03,
 };
 
-const RAIN_INTENSITIES  = [
-  { label: 'light',  rate: 8  },
-  { label: 'medium', rate: 18 },
-  { label: 'heavy',  rate: 35 },
+// precipRate is a 0.0–1.0 value. Labels are looked up at display time via
+// intensityLabel(). Wetness delta per minute = precipRate * MAX_WETNESS_RATE.
+const MAX_WETNESS_RATE = 35; // wetness units/min at precipRate 1.0 (~3 min to fully soak)
+
+const RAIN_INTENSITIES = [
+  { label: 'mist',                   rate: 0.1 },
+  { label: 'light drizzle',          rate: 0.2 },
+  { label: 'light rain',             rate: 0.3 },
+  { label: 'steady rain',            rate: 0.4 },
+  { label: 'moderate rain',          rate: 0.5 },
+  { label: 'heavy rain',             rate: 0.6 },
+  { label: 'very heavy rain',        rate: 0.7 },
+  { label: 'storm',                  rate: 0.8 },
+  { label: 'severe storm',           rate: 0.9 },
+  { label: 'extreme deluge',         rate: 1.0 },
 ];
-const SNOW_INTENSITIES  = [
-  { label: 'light',  rate: 3  },
-  { label: 'medium', rate: 8  },
-  { label: 'heavy',  rate: 15 },
+const SNOW_INTENSITIES = [
+  { label: 'light flurries',         rate: 0.1 },
+  { label: 'scattered snow',         rate: 0.2 },
+  { label: 'steady snowfall',        rate: 0.3 },
+  { label: 'moderate snow',          rate: 0.4 },
+  { label: 'accumulating snow',      rate: 0.5 },
+  { label: 'thick snowfall',         rate: 0.6 },
+  { label: 'wind-blown snow',        rate: 0.7 },
+  { label: 'blizzard conditions',    rate: 0.8 },
+  { label: 'whiteout blizzard',      rate: 0.9 },
+  { label: 'severe whiteout blizzard', rate: 1.0 },
 ];
+
+// Returns the intensity label for a given precipType and precipRate.
+function intensityLabel(precipType, precipRate) {
+  if (!precipRate || precipRate <= 0) return 'clear';
+  const table = (precipType === 'snow') ? SNOW_INTENSITIES : RAIN_INTENSITIES;
+  // Find exact match, or nearest
+  const entry = table.find(e => Math.abs(e.rate - precipRate) < 0.001) ?? table[0];
+  return entry.label;
+}
 
 // Wetness thresholds for player broadcast messages.
 // Each entry: { value, risingMsg, fallingMsg }
@@ -65,13 +92,13 @@ export const hooks = {
     const isCurrentlyPrecipitating = envState.currentPrecip !== 'none';
 
     if (roll < chance && !isCurrentlyPrecipitating) {
-      // Derive precip type from the forecast weatherType first, fall back to temperature
+      // Derive precip type from the forecast weatherType, fall back to temperature
       let precipType;
       if (weatherType === 'snow' || weatherType === 'blizzard') precipType = 'snow';
       else if (weatherType === 'sleet')                          precipType = tempC <= 1 ? 'snow' : 'rain';
       else                                                        precipType = tempC <= 1 ? 'snow' : 'rain';
       const { label, rate } = pickIntensity(precipType === 'snow' ? SNOW_INTENSITIES : RAIN_INTENSITIES);
-      setCurrentPrecip(precipType, label, rate);
+      setCurrentPrecip(precipType, intensityLabel(precipType, rate), rate);
       if (broadcast) broadcast({ type: 'environment.sync', ...getHUDPayload() });
     } else if (roll >= chance && isCurrentlyPrecipitating) {
       setCurrentPrecip('none', 'none', 0);
@@ -111,7 +138,7 @@ export const hooks = {
       let totalWetness = 0;
       for (const item of wettable) {
         const prev = item.custom_data?.wetness ?? 0;
-        let next = isRaining ? prev + precipRate : prev - dryRate;
+        let next = isRaining ? prev + precipRate * MAX_WETNESS_RATE : prev - dryRate;
         next = Math.max(0, Math.min(100, next));
         totalWetness += next;
 
