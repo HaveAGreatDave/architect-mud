@@ -138,6 +138,18 @@ export async function migrateEnvironment(query) {
     )
   `);
   await query(`ALTER TABLE lighting_states ADD COLUMN IF NOT EXISTS total_lumens INTEGER NOT NULL DEFAULT 0`);
+  // Back-fill total_lumens from currently-on lights so existing zones don't start at 0.
+  await query(`
+    UPDATE lighting_states ls
+    SET total_lumens = sub.lm
+    FROM (
+      SELECT zone_id, COALESCE(SUM(COALESCE(lumen_output, 0)), 0)::int AS lm
+      FROM furniture
+      WHERE object_type = 'light' AND light_on = 1
+      GROUP BY zone_id
+    ) sub
+    WHERE ls.zone_id = sub.zone_id AND ls.total_lumens = 0
+  `);
 
   // Seed a default city grid + plant only on a fresh database (no generators
   // exist yet). Skipped on subsequent starts so manually deleted generators
