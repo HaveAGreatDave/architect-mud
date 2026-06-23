@@ -32,6 +32,22 @@ function cmdLookSky(player) {
   let env;
   try { env = getEnvironmentState(); } catch { env = {}; }
   const vis = getZoneVisibility(player.current_zone);
+
+  const zone = getZone(player.current_zone);
+  const isIndoor = !!(zone?.flags?.is_interior || zone?.flags?.is_apartment);
+  if (isIndoor) {
+    const ceilingLines = [
+      "You stare at the ceiling. It stares back. Neither of you blink.",
+      "It's a ceiling. Flat. Featureless. Deeply unimpressive. You've seen better.",
+      "You look up. Ceiling. No sky. This is what happens when you live indoors.",
+      "The ceiling offers no weather information. It is simply there, being a ceiling.",
+      "You crane your neck upward. Yep. That's a ceiling alright. Mystery solved.",
+      "Sky unavailable in this location. Please proceed to an exit and try again.",
+      "A ceiling. Possibly the same ceiling as before. You can't be sure.",
+    ];
+    return { type: 'examine', message: ceilingLines[Math.floor(Math.random() * ceilingLines.length)] };
+  }
+
   if (vis.category === 'pitch_dark') return { type: 'examine', message: "It's too dark to see the sky." };
   const weatherLines = {
     clear: 'The sky is clear, a vast expanse stretching overhead.',
