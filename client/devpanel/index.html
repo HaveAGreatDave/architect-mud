@@ -306,10 +306,7 @@ document.getElementById('dev-password').addEventListener('keydown', e => { if(e.
   if (['admin','dev'].includes(role)) document.getElementById('ghost-btn').style.display = '';
   currentPanel = 'dashboard';
   activatePanelNav('dashboard');
-  loadPanel('dashboard');
-  startWorldStatePolling();
-  updateStagingBadge();
-  showPlayButton();
+  setTimeout(() => { loadPanel('dashboard'); startWorldStatePolling(); updateStagingBadge(); showPlayButton(); }, 0);
 })();
 
 // Panel management

@@ -16,7 +16,7 @@ export async function loadMisSettings() {
 export function isMisServerEnabled() { return serverMisEnabled; }
 
 export function isMisActive(player) {
-  return serverMisEnabled && (player.mis_enabled === 1 || player.mis_enabled === true);
+  return player.mis_enabled === 1 || player.mis_enabled === true;
 }
 
 // Increase horniness and handle thresholds.

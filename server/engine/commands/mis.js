@@ -6,11 +6,10 @@
  * Players opt in by typing MISON64 in the client settings debug field.
  */
 import { query } from '../../models/db.js';
-import { isMisServerEnabled, isMisActive, addHorniness, washEjaculate, MIS_TUTORIAL } from '../mis.js';
+import { isMisActive, addHorniness, washEjaculate, MIS_TUTORIAL } from '../mis.js';
 import { getZonePlayers, getZoneNpcs } from '../world.js';
 	
 function misGate(player) {
-  if (!isMisServerEnabled()) return { type:'error', message:`That feature isn't available on this server.` };
   if (!isMisActive(player)) return { type:'error', message:`MIS is not enabled. Use the debug field in settings.` };
   return null;
 }
@@ -18,7 +17,6 @@ function misGate(player) {
 async function cmdMis(args, player, broadcast) {
   const sub = (args[0] || '').toLowerCase();
   if (sub === 'on') {
-    if (!isMisServerEnabled()) return { type:'error', message:`MIS is not enabled on this server.` };
     if (isMisActive(player)) return { type:'output', message:`MIS is already active.` };
     player.mis_enabled = 0;
     await query('UPDATE players SET mis_enabled=1 WHERE id=$1', [player.id]);
