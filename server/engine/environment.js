@@ -1168,16 +1168,20 @@ export async function devRecalculateForecast({ monthly_temp_c, monthly_precip_ch
 }
 
 export async function devOverrideWeather({ weatherType, tempC, precipChance }) {
-  const { query, broadcast } = deps;
+  const { query, broadcast, emitHook } = deps;
   if (!WEATHER_TYPES.includes(weatherType)) throw new Error(`Unknown weather type: ${weatherType}`);
   state.weatherType = weatherType;
-  if (tempC !== undefined) state.tempC = Number(tempC);
+  // tempC from the client is already offset-adjusted (getHUDPayload adds diurnalOffset).
+  // Strip the offset before storing so the base value stays stable across applies.
+  if (tempC !== undefined) state.tempC = Number(tempC) - diurnalOffset(state.minutes);
   await query(`UPDATE weather_forecast SET weather_type = $1, temp_c = $2 WHERE forecast_day = 0`, [weatherType, state.tempC]);
   state.forecast[0] = { ...state.forecast[0], weatherType, tempC: state.tempC, ...(precipChance !== undefined ? { precipChance: Number(precipChance) } : {}) };
-  // Clear any active precipitation so current state immediately reflects the override.
+  // Reset precip, then immediately run the 30m precip roll so current state
+  // reflects whether it's actually raining/snowing under the new weather type.
   state.currentPrecip = 'none';
   state.precipIntensity = 'none';
   state.precipRate = 0;
+  if (emitHook) await emitHook('environment.tick30m', { weatherType, tempC: state.tempC + diurnalOffset(state.minutes), setCurrentPrecip, getHUDPayload, broadcast });
   if (broadcast) broadcast({ type: 'environment.weatherOverride', ...getHUDPayload() });
   return getHUDPayload();
 }

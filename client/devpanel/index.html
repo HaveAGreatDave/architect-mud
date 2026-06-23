@@ -239,6 +239,15 @@ const API = async (path, method = 'GET', body = null) => {
   return data;
 };
 
+// Direct API call that bypasses the staging pipeline — for immediate live-world actions.
+const directAPI = (path, method = 'GET', body = null) => {
+  const opts = { method, headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) } };
+  if (body) opts.body = JSON.stringify(body);
+  return fetch(`/api${path}`, opts)
+    .then(r => r.json())
+    .catch(err => ({ error: err.message }));
+};
+
 async function devLogin() {
   const username = document.getElementById('dev-username').value;
   const password = document.getElementById('dev-password').value;
@@ -1075,7 +1084,8 @@ async function zoneEditForm(rec, isNew) {
         <div id="zone-add-spawn-form"></div>
         <div style="display:flex;gap:6px;margin-top:6px">
           <button class="action-btn success" onclick='openAddSpawnForm(${JSON.stringify(rec.id)})'>+ Add Enemy</button>
-          <button class="action-btn danger" style="margin-left:auto" onclick='despawnAllZoneEnemies(${JSON.stringify(rec.id)})'>Despawn All</button>
+          <button class="action-btn" style="margin-left:auto" onclick='respawnAllZoneEnemies(${JSON.stringify(rec.id)})'>Respawn All</button>
+          <button class="action-btn danger" onclick='despawnAllZoneEnemies(${JSON.stringify(rec.id)})'>Despawn All</button>
           <button class="action-btn danger" onclick='deleteAllZoneSpawns(${JSON.stringify(rec.id)})'>Delete All</button>
         </div>
       </div>
@@ -1792,22 +1802,30 @@ async function despawnAllEnemies() {
   if (zoneEditCurrentZoneId) await refreshEnemiesSection(zoneEditCurrentZoneId);
 }
 async function despawnAllZoneEnemies(zoneId) {
-  const liveData = await API(`/zones/${encodeURIComponent(zoneId)}/live-enemies`).catch(() => []);
+  const liveData = await directAPI(`/zones/${encodeURIComponent(zoneId)}/live-enemies`);
   const live = Array.isArray(liveData) ? liveData : [];
-  await Promise.all(live.map(e => API(`/live-enemies/${e.id}`, 'DELETE').catch(() => {})));
+  await Promise.all(live.map(e => directAPI(`/live-enemies/${e.id}`, 'DELETE')));
   toast(`Despawned ${live.length} enem${live.length === 1 ? 'y' : 'ies'}`);
+  await refreshEnemiesSection(zoneId);
+}
+async function respawnAllZoneEnemies(zoneId) {
+  const spawnsData = await directAPI(`/zones/${encodeURIComponent(zoneId)}/spawns`);
+  const spawns = Array.isArray(spawnsData) ? spawnsData : [];
+  const results = await Promise.all(spawns.map(s => directAPI(`/zones/${encodeURIComponent(zoneId)}/live-enemies`, 'POST', { enemy_id: s.enemy_id })));
+  const spawned = results.filter(r => !r?.skipped && !r?.error).length;
+  toast(`Spawned ${spawned} enem${spawned === 1 ? 'y' : 'ies'}`);
   await refreshEnemiesSection(zoneId);
 }
 async function deleteAllZoneSpawns(zoneId) {
   if (!confirm('Delete all enemy spawns from this zone? This cannot be undone.')) return;
   const [spawnsData, liveData] = await Promise.all([
-    API(`/zones/${encodeURIComponent(zoneId)}/spawns`).catch(() => []),
-    API(`/zones/${encodeURIComponent(zoneId)}/live-enemies`).catch(() => []),
+    directAPI(`/zones/${encodeURIComponent(zoneId)}/spawns`),
+    directAPI(`/zones/${encodeURIComponent(zoneId)}/live-enemies`),
   ]);
   const spawns = Array.isArray(spawnsData) ? spawnsData : [];
   const live = Array.isArray(liveData) ? liveData : [];
-  await Promise.all(live.map(e => API(`/live-enemies/${e.id}`, 'DELETE').catch(() => {})));
-  await Promise.all(spawns.map(s => API(`/spawns/${encodeURIComponent(s.id)}`, 'DELETE').catch(() => {})));
+  await Promise.all(live.map(e => directAPI(`/live-enemies/${e.id}`, 'DELETE')));
+  await Promise.all(spawns.map(s => directAPI(`/spawns/${encodeURIComponent(s.id)}`, 'DELETE')));
   toast(`Deleted ${spawns.length} spawn${spawns.length === 1 ? '' : 's'}`);
   await refreshEnemiesSection(zoneId);
 }
