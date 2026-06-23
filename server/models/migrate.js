@@ -440,9 +440,13 @@ export async function migrate() {
     ON CONFLICT (id) DO NOTHING
   `);
   await query(`
-    UPDATE items SET tags = tags || '{"gets_wet":true}'::jsonb
+    UPDATE items SET
+      tags = tags || '{"gets_wet":true,"auto_equip":true}'::jsonb,
+      name = CASE id
+        WHEN 'item_basic_shirt' THEN 'Basic T-Shirt'
+        ELSE name
+      END
     WHERE id IN ('item_basic_shirt','item_basic_pants','item_basic_shoes')
-      AND NOT (tags ? 'gets_wet')
   `);
   console.log('✓ Starter clothing migrated');
 

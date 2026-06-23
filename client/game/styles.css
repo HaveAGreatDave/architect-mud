@@ -682,8 +682,8 @@
     background: var(--bg2);
     border: 1px solid var(--accent);
     padding: 20px;
-    max-width: 700px;
-    width: 92%;
+    max-width: 820px;
+    width: 94%;
     border-radius: 2px;
     max-height: 88vh;
     display: flex;
@@ -699,12 +699,33 @@
 
   #equip-body { display: flex; gap: 18px; overflow: hidden; flex: 1; min-height: 0; }
 
+  .equip-section-label {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+
+  #equip-doll-col {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  #equip-backpack-col {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
   #equip-doll {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 8px;
     width: 240px;
-    flex-shrink: 0;
     align-content: start;
   }
   .equip-slot {
@@ -737,6 +758,7 @@
   #equip-inv-list {
     flex: 1;
     overflow-y: auto;
+    min-height: 0;
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
     gap: 8px;
@@ -765,6 +787,8 @@
   @media (max-width: 720px) {
     #equip-body { flex-direction: column; overflow-y: auto; }
     #equip-doll { width: 100%; }
+    #equip-doll-col, #equip-backpack-col { width: 100%; }
+    #equip-backpack-col { overflow: visible; }
   }
 
   .settings-opt {

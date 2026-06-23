@@ -356,6 +356,35 @@ async function handleReconnect(ws, session, msg) {
 	await finishAuth(ws, session, rows[0]);
 }
 
+// Equip any unequipped items tagged auto_equip into their designated slot,
+// provided that slot is currently empty. Runs at login to recover from
+// partial registration failures and to handle items given while offline.
+async function autoEquipOnLogin(playerId) {
+	const { rows: unequipped } = await query(
+		`SELECT pi.id, i.tags->>'slot' AS slot
+		 FROM player_inventory pi JOIN items i ON i.id = pi.item_id
+		 WHERE pi.player_id = $1 AND pi.is_equipped = 0
+		   AND (i.tags->>'auto_equip')::boolean = true
+		   AND i.tags ? 'slot'`,
+		[playerId],
+	);
+	if (!unequipped.length) return;
+	const { rows: occupied } = await query(
+		`SELECT slot FROM player_inventory WHERE player_id = $1 AND is_equipped = 1`,
+		[playerId],
+	);
+	const occupiedSlots = new Set(occupied.map((r) => r.slot));
+	for (const item of unequipped) {
+		if (item.slot && !occupiedSlots.has(item.slot)) {
+			await query(
+				`UPDATE player_inventory SET is_equipped = 1, slot = $1 WHERE id = $2`,
+				[item.slot, item.id],
+			);
+			occupiedSlots.add(item.slot);
+		}
+	}
+}
+
 async function finishAuth(ws, session, player) {
 	const existingWs = playerSockets.get(player.id);
 	if (existingWs && existingWs !== ws) {
@@ -405,6 +434,7 @@ async function finishAuth(ws, session, player) {
 		_prevWetness: 0,
 	};
 	setLivePlayer(player.id, livePlayer);
+	await autoEquipOnLogin(player.id);
 	await recomputeArmor(livePlayer);
 	await recomputeInsulation(livePlayer);
 	addPlayerToZone(player.id, livePlayer.current_zone);

@@ -598,68 +598,74 @@
 					<button id="equip-close" aria-label="Close">✕</button>
 				</div>
 				<div id="equip-body">
-					<div id="equip-doll">
-						<div
-							class="equip-slot"
-							data-slot="head"
-							ondragover="event.preventDefault()"
-							ondrop="onSlotDrop(event, 'head')">
-							<span class="equip-slot-label">Head</span>
-							<div class="equip-slot-item"></div>
-						</div>
-						<div
-							class="equip-slot"
-							data-slot="torso"
-							ondragover="event.preventDefault()"
-							ondrop="onSlotDrop(event, 'torso')">
-							<span class="equip-slot-label">Torso</span>
-							<div class="equip-slot-item"></div>
-						</div>
-						<div
-							class="equip-slot"
-							data-slot="hands"
-							ondragover="event.preventDefault()"
-							ondrop="onSlotDrop(event, 'hands')">
-							<span class="equip-slot-label">Hands</span>
-							<div class="equip-slot-item"></div>
-						</div>
-						<div
-							class="equip-slot"
-							data-slot="weapon_hand"
-							ondragover="event.preventDefault()"
-							ondrop="onSlotDrop(event, 'weapon_hand')">
-							<span class="equip-slot-label">Weapon</span>
-							<div class="equip-slot-item"></div>
-						</div>
-						<div
-							class="equip-slot"
-							data-slot="legs"
-							ondragover="event.preventDefault()"
-							ondrop="onSlotDrop(event, 'legs')">
-							<span class="equip-slot-label">Legs</span>
-							<div class="equip-slot-item"></div>
-						</div>
-						<div
-							class="equip-slot"
-							data-slot="feet"
-							ondragover="event.preventDefault()"
-							ondrop="onSlotDrop(event, 'feet')">
-							<span class="equip-slot-label">Feet</span>
-							<div class="equip-slot-item"></div>
-						</div>
-						<div
-							class="equip-slot"
-							data-slot="accessory"
-							ondragover="event.preventDefault()"
-							ondrop="onSlotDrop(event, 'accessory')">
-							<span class="equip-slot-label">Accessory</span>
-							<div class="equip-slot-item"></div>
+					<div id="equip-doll-col">
+						<div class="equip-section-label">Equipped</div>
+						<div id="equip-doll">
+							<div
+								class="equip-slot"
+								data-slot="head"
+								ondragover="event.preventDefault()"
+								ondrop="onSlotDrop(event, 'head')">
+								<span class="equip-slot-label">Head</span>
+								<div class="equip-slot-item"></div>
+							</div>
+							<div
+								class="equip-slot"
+								data-slot="torso"
+								ondragover="event.preventDefault()"
+								ondrop="onSlotDrop(event, 'torso')">
+								<span class="equip-slot-label">Torso</span>
+								<div class="equip-slot-item"></div>
+							</div>
+							<div
+								class="equip-slot"
+								data-slot="hands"
+								ondragover="event.preventDefault()"
+								ondrop="onSlotDrop(event, 'hands')">
+								<span class="equip-slot-label">Hands</span>
+								<div class="equip-slot-item"></div>
+							</div>
+							<div
+								class="equip-slot"
+								data-slot="weapon_hand"
+								ondragover="event.preventDefault()"
+								ondrop="onSlotDrop(event, 'weapon_hand')">
+								<span class="equip-slot-label">Weapon</span>
+								<div class="equip-slot-item"></div>
+							</div>
+							<div
+								class="equip-slot"
+								data-slot="legs"
+								ondragover="event.preventDefault()"
+								ondrop="onSlotDrop(event, 'legs')">
+								<span class="equip-slot-label">Legs</span>
+								<div class="equip-slot-item"></div>
+							</div>
+							<div
+								class="equip-slot"
+								data-slot="feet"
+								ondragover="event.preventDefault()"
+								ondrop="onSlotDrop(event, 'feet')">
+								<span class="equip-slot-label">Feet</span>
+								<div class="equip-slot-item"></div>
+							</div>
+							<div
+								class="equip-slot"
+								data-slot="accessory"
+								ondragover="event.preventDefault()"
+								ondrop="onSlotDrop(event, 'accessory')">
+								<span class="equip-slot-label">Accessory</span>
+								<div class="equip-slot-item"></div>
+							</div>
 						</div>
 					</div>
-					<div
-						id="equip-inv-list"
-						ondragover="event.preventDefault()"
-						ondrop="onInvListDrop(event)"></div>
+					<div id="equip-backpack-col">
+						<div class="equip-section-label">Backpack</div>
+						<div
+							id="equip-inv-list"
+							ondragover="event.preventDefault()"
+							ondrop="onInvListDrop(event)"></div>
+					</div>
 				</div>
 				<div id="equip-credits">
 					Credits: <span id="equip-credits-val">0</span>

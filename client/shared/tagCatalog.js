@@ -60,6 +60,8 @@
       help: 'Thermal insulation in °C. Added to ambient temperature to determine effective temperature for body heat calculations. Stacks across all equipped clothing.' },
     gets_wet: { label: 'Gets Wet', shape: 'flag', scope: 'class', group: 'Equipment',
       help: 'Accumulates wetness (0–100) when worn in rain or snow. Wet clothing lowers cooling thresholds and speeds heat loss.' },
+    auto_equip: { label: 'Auto-Equip', shape: 'flag', scope: 'class', group: 'Equipment',
+      help: 'When obtained, this item automatically equips to its designated slot if that slot is empty.' },
     stat_bonus: { label: 'Stat Bonus', shape: 'statmap', scope: 'class', group: 'Equipment',
       help: 'Passive stat bumps, e.g. { "stat_brawn": 3 }. Use new stat keys (stat_brawn/reflexes/endurance/brains/senses/cool).' },
     requires: { label: 'Requirements', shape: 'statmap', scope: 'class', group: 'Equipment',
