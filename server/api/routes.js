@@ -84,6 +84,9 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path.startsWith('/maps/') && method==='GET') return requireDev(auth, ()=>apiGetMap(path.split('/')[2]));
   if (path.startsWith('/zones/') && method==='PUT') return requireDev(auth, ()=>apiUpdateZone(path.split('/')[2],body));
   if (path.startsWith('/zones/') && path.endsWith('/rooms') && method==='POST') return requireDev(auth, ()=>apiAddRoom(path.split('/')[2],body));
+  if (path.startsWith('/zones/') && path.endsWith('/spawns') && method==='GET') return requireDev(auth, ()=>apiGetZoneSpawns(path.split('/')[2]));
+  if (path.startsWith('/zones/') && path.endsWith('/spawns') && method==='POST') return requireDev(auth, ()=>apiAddZoneSpawn(path.split('/')[2],body));
+  if (path.startsWith('/spawns/') && method==='DELETE') return requireDev(auth, ()=>apiDeleteZoneSpawn(path.split('/')[2]));
   if (path.startsWith('/zones/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteZone(path.split('/')[2]));
   if (path==='/enemies' && method==='GET') return requireDev(auth, apiGetEnemies);
   if (path==='/enemies' && method==='POST') return requireDev(auth, ()=>apiCreateEnemy(body));
@@ -520,6 +523,30 @@ export async function apiDeleteZone(id) {
     fireHook('zone.delete', id, allDeletedIds).catch(() => {});
     return {status:200,body:{message: children.length ? `Zone deleted (and ${children.length} attached room${children.length>1?'s':''})` : 'Zone deleted'}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
+}
+async function apiGetZoneSpawns(zoneId) {
+  const { rows } = await query(
+    `SELECT zs.*, e.name AS enemy_name FROM zone_spawns zs JOIN enemies e ON e.id = zs.enemy_id WHERE zs.zone_id=$1 ORDER BY e.name`,
+    [zoneId]
+  );
+  return { status:200, body:rows };
+}
+async function apiAddZoneSpawn(zoneId, body) {
+  if (!body?.enemy_id) return { status:400, body:{ error:'enemy_id is required' } };
+  const id = `spawn_${zoneId}_${body.enemy_id}_${Date.now()}`;
+  try {
+    await query(
+      `INSERT INTO zone_spawns (id,zone_id,enemy_id,max_count,spawn_weight,respawn_seconds) VALUES ($1,$2,$3,$4,$5,$6)`,
+      [id, zoneId, body.enemy_id, body.max_count??1, body.spawn_weight??100, body.respawn_seconds??300]
+    );
+    return { status:201, body:{ id } };
+  } catch(e) { return { status:400, body:{ error:e.message } }; }
+}
+async function apiDeleteZoneSpawn(id) {
+  try {
+    await query('DELETE FROM zone_spawns WHERE id=$1', [id]);
+    return { status:200, body:{ message:'Spawn removed' } };
+  } catch(e) { return { status:400, body:{ error:e.message } }; }
 }
 async function apiGetEnemies() { const {rows}=await query('SELECT * FROM enemies'); return {status:200,body:rows}; }
 async function apiCreateEnemy(body) {

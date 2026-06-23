@@ -952,6 +952,8 @@ const BUILDING_TYPES = [
 // the page.
 let zoneEditNpcsCache = [];
 let zoneEditFurnitureCache = [];
+let zoneEditSpawnsCache = [];
+let zoneEditAllEnemiesCache = [];
 let zoneEditExitsState = {};
 
 async function zoneEditForm(rec, isNew) {
@@ -974,14 +976,18 @@ async function zoneEditForm(rec, isNew) {
   let subSectionsHtml = '<div class="zone-subsection-note">Save this zone first to add rooms, NPCs, furniture, or a generator.</div>';
   if (!isNew) {
     const isExterior = !flags.is_interior && !flags.is_apartment && !flags.is_building;
-    const [npcsData, furnitureData, generatorsData, apartmentsData, zonePowerInfo] = await Promise.all([
+    const [npcsData, furnitureData, generatorsData, apartmentsData, zonePowerInfo, spawnsData, enemiesData] = await Promise.all([
       API('/npcs').catch(() => []),
       API('/furniture').catch(() => []),
       API('/environment/power/generators').catch(() => []),
       flags.is_apartment ? API('/apartments').catch(() => []) : Promise.resolve([]),
       isExterior ? API(`/environment/power/zones/${encodeURIComponent(rec.id)}`).catch(() => null) : Promise.resolve(null),
+      API(`/zones/${encodeURIComponent(rec.id)}/spawns`).catch(() => []),
+      API('/enemies').catch(() => []),
     ]);
     const zoneNpcs = (Array.isArray(npcsData) ? npcsData : []).filter(n => n.zone_id === rec.id);
+    const zoneSpawns = Array.isArray(spawnsData) ? spawnsData : [];
+    const allEnemies = Array.isArray(enemiesData) ? enemiesData : [];
     const allFurniture = Array.isArray(furnitureData) ? furnitureData : [];
     if (allFurniture.length) _furnitureAllItems = allFurniture; // populate cache for clone dropdown
     const zoneFurniture = allFurniture.filter(f => f.zone_id === rec.id);
@@ -1018,6 +1024,8 @@ async function zoneEditForm(rec, isNew) {
     const apartmentRecord = (Array.isArray(apartmentsData) ? apartmentsData : []).find(a => a.zone_id === rec.id) || null;
     zoneEditNpcsCache = zoneNpcs;
     zoneEditFurnitureCache = zoneFurniture;
+    zoneEditSpawnsCache = zoneSpawns;
+    zoneEditAllEnemiesCache = allEnemies;
     const childRooms = allRecords.filter(z =>
       (z.flags?.is_apartment || z.flags?.is_interior) &&
       Object.values(z.exits || {})[0] === rec.id
@@ -1053,6 +1061,19 @@ async function zoneEditForm(rec, isNew) {
           </div>`).join('') : '<div class="zone-subitem-empty">No NPCs here.</div>'}</div>
         <div id="zone-add-npc-form"></div>
         <button class="action-btn success" style="margin-top:6px" onclick='openAddNpcForm(${JSON.stringify(rec.id)})'>+ Add NPC</button>
+      </div>
+
+      <div class="zone-subsection">
+        <div class="zone-subsection-header">Enemies <span class="zone-subsection-count">${zoneSpawns.length}</span></div>
+        <div id="zone-spawns-list">${zoneSpawns.length ? zoneSpawns.map(s => `
+          <div class="zone-subitem-row" id="spawn-row-${s.id}">
+            <span>${s.enemy_name} <span style="color:var(--text-dim);font-size:11px">×${s.max_count} · wt:${s.spawn_weight} · ${s.respawn_seconds}s</span></span>
+            <span class="zone-subitem-actions">
+              <button class="action-btn danger" onclick="deleteSpawnQuick('${s.id}','${rec.id}')">Remove</button>
+            </span>
+          </div>`).join('') : '<div class="zone-subitem-empty">No enemies spawn here.</div>'}</div>
+        <div id="zone-add-spawn-form"></div>
+        <button class="action-btn success" style="margin-top:6px" onclick='openAddSpawnForm(${JSON.stringify(rec.id)})'>+ Add Enemy</button>
       </div>
 
       <div class="zone-subsection">
@@ -1661,6 +1682,46 @@ async function deleteNpcQuick(npcId, zoneId) {
   const result = await API(`/npcs/${npcId}`, 'DELETE');
   if (result?.error) { toast(result.error, true); return; }
   toast(result.message || 'NPC deleted');
+  await refreshZoneEditPanel(zoneId);
+}
+
+// Enemies / spawns
+function openAddSpawnForm(zoneId) {
+  const options = zoneEditAllEnemiesCache
+    .slice().sort((a,b) => (a.name||'').localeCompare(b.name||''))
+    .map(e => `<option value="${e.id}">${e.name}</option>`).join('');
+  document.getElementById('zone-add-spawn-form').innerHTML = `
+    <div class="zone-inline-form">
+      <div class="field"><label>Enemy</label>
+        <select id="ns-enemy">${options || '<option value="">— no enemies defined —</option>'}</select>
+      </div>
+      <div class="field-row" style="gap:8px">
+        <div class="field"><label>Max Count</label><input id="ns-max" type="number" value="1" min="1" style="width:70px"></div>
+        <div class="field"><label>Weight</label><input id="ns-weight" type="number" value="100" min="1" style="width:70px"></div>
+        <div class="field"><label>Respawn (s)</label><input id="ns-respawn" type="number" value="300" min="1" style="width:80px"></div>
+      </div>
+      <div class="zone-inline-form-actions">
+        <button class="action-btn success" onclick='submitAddSpawn(${JSON.stringify(zoneId)})'>Add</button>
+        <button class="action-btn" onclick="document.getElementById('zone-add-spawn-form').innerHTML=''">Cancel</button>
+      </div>
+    </div>`;
+}
+async function submitAddSpawn(zoneId) {
+  const enemy_id = document.getElementById('ns-enemy')?.value;
+  if (!enemy_id) { toast('Pick an enemy', true); return; }
+  const max_count = parseInt(document.getElementById('ns-max').value) || 1;
+  const spawn_weight = parseInt(document.getElementById('ns-weight').value) || 100;
+  const respawn_seconds = parseInt(document.getElementById('ns-respawn').value) || 300;
+  const result = await API(`/zones/${encodeURIComponent(zoneId)}/spawns`, 'POST', { enemy_id, max_count, spawn_weight, respawn_seconds });
+  if (result?.error) { toast(result.error, true); return; }
+  toast('Enemy spawn added');
+  await refreshZoneEditPanel(zoneId);
+}
+async function deleteSpawnQuick(spawnId, zoneId) {
+  if (!confirm('Remove this enemy spawn?')) return;
+  const result = await API(`/spawns/${encodeURIComponent(spawnId)}`, 'DELETE');
+  if (result?.error) { toast(result.error, true); return; }
+  toast('Spawn removed');
   await refreshZoneEditPanel(zoneId);
 }
 
