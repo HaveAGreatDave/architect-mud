@@ -3091,6 +3091,7 @@ const MAP_OPP = { north:'south', south:'north', east:'west', west:'east', up:'do
 
 let pendingZonePlacement = null;  // {map_id,grid_x,grid_y,grid_z} for a new zone
 let mapZoneEditReturn = false;    // true when zone editor was opened from the map overview
+let zoneEnemyEditReturn = null;   // zoneId when enemy editor was opened from zone edit panel
 let mapsList = [];
 let mapOverview = null;           // { map, zones:Map, unplaced:Map, unplacedInterior:Map, children, z }
 let mapDragId = null;
