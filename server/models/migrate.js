@@ -450,6 +450,27 @@ export async function migrate() {
   `);
   console.log('✓ Starter clothing migrated');
 
+  // Give starter clothing to any player who has none of the three items.
+  // Covers accounts created during the registration bug window. Idempotent —
+  // the WHERE NOT EXISTS check prevents duplicates on re-run.
+  for (const [itemId, slot] of [
+    ['item_basic_shirt', 'torso'],
+    ['item_basic_pants', 'legs'],
+    ['item_basic_shoes', 'feet'],
+  ]) {
+    await query(`
+      INSERT INTO player_inventory (id, player_id, item_id, quantity, condition, is_equipped, slot)
+      SELECT gen_random_uuid()::text, p.id, $1, 1, 1.0, 0, null
+      FROM players p
+      WHERE p.role = 'player'
+        AND NOT EXISTS (
+          SELECT 1 FROM player_inventory pi
+          WHERE pi.player_id = p.id AND pi.item_id = $1
+        )
+    `, [itemId]);
+  }
+  console.log('✓ Starter clothing back-filled for itemless players');
+
   await seedAmbientEvents();
   await seedWeatherAmbients();
   console.log('✓ Ambient events seeded');

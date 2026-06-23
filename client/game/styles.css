@@ -715,10 +715,12 @@
 
   #equip-backpack-col {
     flex: 1;
-    min-width: 0;
+    min-width: 160px;
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    border-left: 1px solid var(--border);
+    padding-left: 18px;
   }
 
   #equip-doll {
@@ -779,6 +781,7 @@
   .equip-item-card .eic-name { color: var(--text-bright); display: block; margin-bottom: 2px; }
   .equip-item-card .eic-meta { color: var(--text-dim); font-size: 10px; }
   .equip-item-card.equippable { border-left: 3px solid var(--cyan); }
+  #equip-inv-list:empty::after { content: '(nothing here)'; color: var(--text-dim); font-style: italic; font-size: 11px; padding: 4px; display: block; }
   .equip-item-card.is-equipped { border-left: 3px solid var(--green); }
 
   #equip-credits { margin-top: 12px; font-size: 12px; color: var(--text-dim); text-align: right; }
