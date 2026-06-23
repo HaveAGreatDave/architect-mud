@@ -40,9 +40,7 @@ async function cmdLook(player, targetStr) {
     return cmdLookInContainer(inMatch[1], player);
   }
   if (targetStr === 'me' || targetStr === 'self' || targetStr === 'myself') {
-    let msg = `${player.handle}\n${player.origin_fragment || 'A survivor. Still standing, somehow.'}`;
-    if (player.visibly_mutated) msg += `\n<span class="mutation-tag">Whatever's changed about you, it shows.</span>`;
-    return { type:'examine', message: msg };
+    return cmdExamineFallback(targetStr, player);
   }
   const throughMatch = targetStr.match(/^(?:through\s+)?(.+)$/i);
   const windowTarget = throughMatch?.[1] || targetStr;

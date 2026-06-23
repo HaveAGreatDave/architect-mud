@@ -141,6 +141,7 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path==='/world/state' && method==='GET') return requireDev(auth, apiWorldState);
   if (path==='/world/reload' && method==='POST') return requireDev(auth, ()=>apiReloadZone(body));
   if (path==='/players/online' && method==='GET') return { status:200, body: getAllLivePlayers().map(p=>({ id: p.id, handle: p.handle, role: p.role, current_zone: p.current_zone })) };
+  if (path==='/players/me/profile' && method==='PUT') return apiUpdateOwnProfile(auth, body);
   if (path==='/players' && method==='GET') return requireAdmin(auth, apiGetPlayers);
   if (path.startsWith('/players/') && method==='PUT' && !path.endsWith('/role') && !path.endsWith('/kick') && !path.endsWith('/teleport')) return requireAdmin(auth, ()=>apiUpdatePlayer(path.split('/')[2], body));
   if (path.startsWith('/players/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeletePlayer(path.split('/')[2]));
@@ -881,6 +882,15 @@ async function apiTeleportPlayer(id, body) {
   broadcastFn(null,{type:'move',message:`<span style="color:var(--cyan)">An unseen force picks you up and deposits you elsewhere.</span>\n\n${lookMsg}`,zone:zoneId,minimap:getMinimapData(zoneId)},null,id);
   broadcastFn(zoneId,{type:'zone_event',message:`${handle} materialises out of thin air.`},id);
   return {status:200,body:{teleported:true,handle,zoneId}};
+}
+
+async function apiUpdateOwnProfile(auth, body) {
+  if (!auth?.playerId) return {status:401,body:{error:'Not authenticated'}};
+  const text = (body?.origin_fragment ?? '').toString().trim().slice(0, 200);
+  await query('UPDATE players SET origin_fragment=$1 WHERE id=$2', [text || null, auth.playerId]);
+  const live = getAllLivePlayers().find(p => p.id === auth.playerId);
+  if (live) live.origin_fragment = text || 'A survivor. Still standing, somehow.';
+  return {status:200,body:{updated:true}};
 }
 
 async function apiSetPlayerRole(id, body) {

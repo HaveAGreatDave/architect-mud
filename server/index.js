@@ -412,6 +412,7 @@ async function finishAuth(ws, session, player) {
 		id: player.id,
 		handle: player.handle,
 		role: player.role,
+		origin_fragment: player.origin_fragment || 'A survivor. Still standing, somehow.',
 		current_zone: player.current_zone || "zone_start",
 		anchor_zone: player.anchor_zone || "zone_start",
 		hp: player.hp,

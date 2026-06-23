@@ -74,13 +74,9 @@ async function describePlayerAppearance(target, isSelf) {
   const weapon = bySlot['weapon_hand'];
   const accessory = bySlot['accessory'];
 
-  let msg = '';
-  if (!isSelf) {
-    if (origin) msg += `${origin}\n`;
-    if (mutated) msg += `<span class="mutation-tag">Something about them isn't quite human anymore.</span>\n`;
-  } else {
-    if (mutated) msg += `<span class="mutation-tag">Something about you isn't quite human anymore.</span>\n`;
-  }
+  const DEFAULT_ORIGIN = 'A survivor. Still standing, somehow.';
+  let msg = `${origin || DEFAULT_ORIGIN}\n`;
+  if (mutated) msg += `<span class="mutation-tag">Something about ${isSelf ? 'you' : 'them'} isn't quite human anymore.</span>\n`;
 
   if (!bodyPieces.length && !weapon && !accessory) {
     const nakedLines = isSelf
@@ -101,22 +97,28 @@ async function describePlayerAppearance(target, isSelf) {
   const sentences = [];
   let namedUsed = false;
 
-  function nameOrThey(nameForm, theyForm) {
-    if (isSelf) return nameForm;
-    if (!namedUsed) { namedUsed = true; return `${handle} ${nameForm}`; }
-    return theyForm;
+  // First sentence uses "Name is ...", subsequent use "They are ..." / "You are ..."
+  function subject(nameVerb, theyVerb, youVerb) {
+    if (isSelf) return youVerb;
+    if (!namedUsed) { namedUsed = true; return `${handle} ${nameVerb}`; }
+    return theyVerb;
   }
 
+  const lc = s => s.charAt(0).toLowerCase() + s.slice(1);
+  const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+
   if (bodyPieces.length) {
-    sentences.push(`${nameOrThey('are wearing', 'They are wearing')} ${bodyPieces.join(', ')}.`);
+    const pieces = bodyPieces.map(lc).join(', ');
+    sentences.push(cap(`${subject('is wearing', 'they are wearing', 'you are wearing')} ${pieces}.`));
   }
 
   if (weapon) {
-    sentences.push(`${nameOrThey('are carrying', 'They are carrying')} ${article(weapon.name)} ${weapon.name}.`);
+    sentences.push(cap(`${subject('is carrying', 'they are carrying', 'you are carrying')} ${article(weapon.name)} ${lc(weapon.name)}.`));
   }
 
   if (accessory) {
-    sentences.push(`${nameOrThey('have', 'They have')} ${article(accessory.name)} ${accessory.name} ${isSelf ? 'on you' : 'on them'}.`);
+    const place = isSelf ? 'on you' : 'on them';
+    sentences.push(cap(`${subject('has', 'they have', 'you have')} ${article(accessory.name)} ${lc(accessory.name)} ${place}.`));
   }
 
   msg += sentences.join(' ');

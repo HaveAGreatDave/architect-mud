@@ -30,7 +30,7 @@ export function applySettings(settings) {
   }
 }
 
-export function initSettingsUI(settings, saveAndApply) {
+export function initSettingsUI(settings, saveAndApply, { getOrigin, saveOrigin } = {}) {
   document.querySelectorAll('#opt-theme .settings-opt').forEach(btn => {
     btn.addEventListener('click', () => { settings.theme = btn.dataset.value; saveAndApply(); });
   });
@@ -41,7 +41,24 @@ export function initSettingsUI(settings, saveAndApply) {
     btn.addEventListener('click', () => { settings.density = btn.dataset.value; saveAndApply(); });
   });
 
+  const originArea = document.getElementById('settings-origin');
+  const originCounter = document.getElementById('settings-origin-counter');
+  const originSave = document.getElementById('settings-origin-save');
+  if (originArea && originCounter) {
+    originArea.addEventListener('input', () => {
+      originCounter.textContent = `${originArea.value.length} / 200`;
+    });
+  }
+  if (originSave && saveOrigin) {
+    originSave.addEventListener('click', () => saveOrigin(originArea.value.trim()));
+  }
+
   document.getElementById('settings-btn').addEventListener('click', () => {
+    if (originArea && getOrigin) {
+      const val = getOrigin();
+      originArea.value = val;
+      originCounter.textContent = `${val.length} / 200`;
+    }
     document.getElementById('settings-panel').classList.add('active');
   });
   document.getElementById('settings-close').addEventListener('click', () => {

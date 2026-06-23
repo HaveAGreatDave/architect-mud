@@ -19,7 +19,19 @@ if (!localStorage.getItem(SETTINGS_KEY) && _isMobile) {
 
 applySettings(settings);
 // saveAndApply is called after settings.js mutates the settings object in-place
-initSettingsUI(settings, () => { saveSettings(settings); applySettings(settings); });
+initSettingsUI(settings, () => { saveSettings(settings); applySettings(settings); }, {
+  getOrigin: () => state.player?.origin_fragment || '',
+  saveOrigin: async (text) => {
+    const token = sessionStorage.getItem('devpanel-token');
+    const res = await fetch('/api/players/me/profile', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify({ origin_fragment: text }),
+    }).then(r => r.json()).catch(() => ({ error: 'Request failed' }));
+    if (res.error) { alert(res.error); return; }
+    if (state.player) state.player.origin_fragment = text || 'A survivor. Still standing, somehow.';
+  },
+});
 
 // Net / WebSocket
 initNet(handleServerMsg);
