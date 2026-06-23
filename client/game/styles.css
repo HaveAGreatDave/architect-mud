@@ -467,8 +467,8 @@
 
   #signout-btn {
     background: transparent;
-    border: 1px solid var(--border);
-    color: var(--text-dim);
+    border: 1px solid var(--red);
+    color: var(--red);
     font-size: 14px;
     width: 28px;
     height: 28px;
@@ -478,7 +478,7 @@
     line-height: 1;
     margin-left: 6px;
   }
-  #signout-btn:hover { border-color: var(--red); color: var(--red); }
+  #signout-btn:hover { opacity: 0.7; }
 
   /* Clickable nouns in room text — exits, items, NPCs, enemies, corpses.
      Underlined and colored by category so it's clear what kind of thing
