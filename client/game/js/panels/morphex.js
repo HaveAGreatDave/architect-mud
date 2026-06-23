@@ -157,16 +157,6 @@ function _render(d) {
     _modRow('Weight (lbs)',_numInput('mx-lbs', lbs, 88, 330)),
   ].join('');
 
-  if (isMis) {
-    if (sex === 'male') {
-      mods += _sectionHeader('Biological — 5₵/cm');
-      mods += _modRow('Penis (cm)', _numInput('mx-penis', app.penis_length_cm || 13, 5, 30));
-    } else {
-      mods += _sectionHeader('Biological — 5₵/tier');
-      mods += _modRow('Breast Size', _sel('mx-breast', BREAST_SIZES, app.breast_size || 'medium'));
-    }
-  }
-
   const applyBtnStyle = 'background:var(--accent);border:none;color:var(--bg);font-family:var(--font-mono);font-size:12px;font-weight:bold;padding:8px 24px;cursor:pointer;border-radius:2px;letter-spacing:1px';
 
   // ── Full modal HTML ───────────────────────────────────────────
