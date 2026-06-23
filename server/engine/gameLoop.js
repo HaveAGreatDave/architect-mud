@@ -1,4 +1,4 @@
-import { world, tickSpawns, getRandomAmbient, getWeatherAmbient, getLivePlayer, getInterruptLoudness, registerInterrupt } from './world.js';
+import { world, tickSpawns, getRandomAmbient, getWeatherAmbient, getLivePlayer, getInterruptLoudness, registerInterrupt, createCorpse } from './world.js';
 import { propagateSound } from './sounds.js';
 import { enemyAttackPlayer, isOnCooldown } from './combat.js';
 import { tickEffects } from './effects.js';
@@ -119,6 +119,14 @@ export function handlePlayerDeath(player, killer) {
   const msg = msgs[Math.floor(Math.random() * msgs.length)];
   const killerMsg = killer ? ` Killed by: ${killer.name}.` : '';
   const respawnZone = player.anchor_zone || 'zone_start';
+  const deathZone = player.current_zone;
+
+  createCorpse({
+    id: `corpse_player_${player.id}_${Date.now()}`,
+    name: `${player.handle}'s corpse`,
+    zoneId: deathZone,
+    expiresAt: Date.now() + 60 * 60 * 1000,
+  });
 
   // Full restore on respawn — you come out of the vat whole, not wounded.
   // Skills/rank/xp live in a separate table untouched by any of this, so
