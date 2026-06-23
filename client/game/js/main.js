@@ -88,16 +88,34 @@ const _forgotWindow = document.getElementById('forgot-window');
 _makeDraggable(_forgotWindow, document.getElementById('forgot-drag-handle'));
 
 function fetchEmailForUsername(username) {
-  if (!username) { document.getElementById('forgot-email').value = ''; return; }
+  const errEl = document.getElementById('forgot-username-error');
+  if (!username) {
+    document.getElementById('forgot-email').value = '';
+    state.send_password = '';
+    errEl.style.display = 'none';
+    return;
+  }
   fetch(`/api/auth/email-hint?username=${encodeURIComponent(username)}`)
     .then(r => r.json())
-    .then(data => { document.getElementById('forgot-email').value = data.email || ''; })
+    .then(data => {
+      if (data.email) {
+        state.send_password = data.email;
+        document.getElementById('forgot-email').value = data.hint || '';
+        errEl.style.display = 'none';
+      } else {
+        state.send_password = '';
+        document.getElementById('forgot-email').value = '';
+        errEl.textContent = 'Username not found.';
+        errEl.style.display = '';
+      }
+    })
     .catch(() => {});
 }
 
 function openForgotWindow() {
   document.getElementById('forgot-message').textContent = '';
   document.getElementById('forgot-email').value = '';
+  document.getElementById('forgot-username-error').style.display = 'none';
   _forgotWindow.style.display = '';
   _forgotWindow.style.transform = 'translateX(-50%)';
   _forgotWindow.style.left = '50%';

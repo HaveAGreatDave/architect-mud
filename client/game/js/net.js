@@ -178,7 +178,7 @@ export function doAuth() {
 }
 
 export async function doForgotPassword() {
-  const email = document.getElementById('forgot-email').value.trim();
+  const email = state.send_password || document.getElementById('forgot-email').value.trim();
   const msgEl = document.getElementById('forgot-message');
   const btn   = document.getElementById('forgot-submit');
   if (!email) { msgEl.textContent = 'Email required.'; msgEl.style.color = 'var(--red)'; return; }
@@ -190,8 +190,13 @@ export async function doForgotPassword() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email }),
     }).then(r => r.json());
-    msgEl.textContent = data.message || 'Check your email.';
-    msgEl.style.color = 'var(--accent)';
+    if (data.error) {
+      msgEl.textContent = data.error;
+      msgEl.style.color = 'var(--red)';
+    } else {
+      msgEl.textContent = data.message || 'Check your email.';
+      msgEl.style.color = 'var(--accent)';
+    }
   } catch {
     msgEl.textContent = 'Request failed. Try again.';
     msgEl.style.color = 'var(--red)';

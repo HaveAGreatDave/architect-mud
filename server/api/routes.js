@@ -207,10 +207,11 @@ async function apiLogin(body) {
 async function apiEmailHint(username) {
   if (!username) return { status:200, body:{ email: '' } };
   const { rows } = await query('SELECT email FROM players WHERE username=$1', [username.toLowerCase().trim()]);
-  if (!rows.length || !rows[0].email) return { status:200, body:{ email: '' } };
-  const [local, domain] = rows[0].email.split('@');
+  if (!rows.length || !rows[0].email) return { status:200, body:{ hint: '', email: '' } };
+  const real = rows[0].email;
+  const [local, domain] = real.split('@');
   const hint = local.length <= 4 ? '*'.repeat(local.length) : local.slice(0,2) + '*'.repeat(local.length - 4) + local.slice(-2);
-  return { status:200, body:{ email: `${hint}@${domain}` } };
+  return { status:200, body:{ hint: `${hint}@${domain}`, email: real } };
 }
 
 async function apiForgotPassword(body) {
@@ -219,23 +220,22 @@ async function apiForgotPassword(body) {
   if (!email) return { status:400, body:{ error:'email required' } };
   const { rows } = await query('SELECT id FROM players WHERE email=$1', [email.toLowerCase().trim()]);
   console.log('[forgot-password] db lookup rows:', rows.length);
-  if (rows.length) {
-    const playerId = rows[0].id;
-    await query('UPDATE password_reset_tokens SET used=TRUE WHERE player_id=$1 AND used=FALSE', [playerId]);
-    const token = randomBytes(32).toString('hex');
-    const expiresAt = Date.now() + 60 * 60 * 1000;
-    await query(
-      'INSERT INTO password_reset_tokens (player_id, token, expires_at, used) VALUES ($1,$2,$3,FALSE)',
-      [playerId, token, expiresAt]
-    );
-    const resetUrl = `${process.env.CLIENT_BASE_URL || 'http://localhost:3000'}/game?reset_token=${token}`;
-    sendPasswordResetEmail(email.toLowerCase().trim(), resetUrl).then(() => {
-      console.log('[forgot-password] email sent OK to:', email.toLowerCase().trim());
-    }).catch(e => {
-      console.error('[forgot-password] email send failed:', e.message, JSON.stringify(e.response || e.responseCode || ''));
-    });
-  }
-  return { status:200, body:{ message:'If that email is registered, a reset link has been sent.' } };
+  if (!rows.length) return { status:404, body:{ error:'No account found with that email address.' } };
+  const playerId = rows[0].id;
+  await query('UPDATE password_reset_tokens SET used=TRUE WHERE player_id=$1 AND used=FALSE', [playerId]);
+  const token = randomBytes(32).toString('hex');
+  const expiresAt = Date.now() + 60 * 60 * 1000;
+  await query(
+    'INSERT INTO password_reset_tokens (player_id, token, expires_at, used) VALUES ($1,$2,$3,FALSE)',
+    [playerId, token, expiresAt]
+  );
+  const resetUrl = `${process.env.CLIENT_BASE_URL || 'http://localhost:3000'}/game?reset_token=${token}`;
+  sendPasswordResetEmail(email.toLowerCase().trim(), resetUrl).then(() => {
+    console.log('[forgot-password] email sent OK to:', email.toLowerCase().trim());
+  }).catch(e => {
+    console.error('[forgot-password] email send failed:', e.message, JSON.stringify(e.response || e.responseCode || ''));
+  });
+  return { status:200, body:{ message:'Reset link sent. Check your email.' } };
 }
 
 async function apiResetPassword(body) {

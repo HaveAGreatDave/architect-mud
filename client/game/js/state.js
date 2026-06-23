@@ -9,4 +9,5 @@ export const state = {
   authPending: false,
   authTimeout: null,
   myRole: 'player',
+  send_password: '',
 };
