@@ -314,15 +314,17 @@ async function ensureClockRow(query) {
 
 async function loadZonePowerAndLighting(query) {
   const { rows: zones } = await query(`
-    SELECT pz.*, g.generator_type
+    SELECT pz.*, g.generator_type, z.flags AS zone_flags
     FROM power_zones pz
     LEFT JOIN generators g ON g.id = pz.generator_id
+    LEFT JOIN zones z ON z.id = pz.id
   `);
   const { rows: lights } = await query('SELECT * FROM lighting_states');
   const lightByZone = new Map(lights.map((l) => [l.zone_id, l]));
   state.zones.clear();
   for (const z of zones) {
     const light = lightByZone.get(z.id);
+    const zf = z.zone_flags || {};
     state.zones.set(z.id, {
       powerStatus: z.status,
       capacityKw: z.capacity_kw,
@@ -333,6 +335,7 @@ async function loadZonePowerAndLighting(query) {
       generatorType: z.generator_type,
       hasEmergencyLighting: light ? !!light.has_emergency_lighting : false,
       artificialLight: computeArtificialLight(z.status, light),
+      flags: zf,
     });
   }
 }

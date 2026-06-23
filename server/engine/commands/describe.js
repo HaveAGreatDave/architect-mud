@@ -164,7 +164,11 @@ export async function describeZone(zone, player) {
   if (zone.pvp_enabled) desc += ` <span class="pvp-warning">⚔ PVP</span>`;
   const roomDesc = await fireHook('zone.describeRoom', zone);
   if (roomDesc) desc += `\n${roomDesc}`;
-  const zoneDesc = zone.description;
+  // Truncate description based on light level — less light, fewer details.
+  const sentences = zone.description.match(/[^.!?]+[.!?]+(\s|$)/g) || [zone.description];
+  const zoneDesc = isDark
+    ? sentences[0].trim()
+    : (isDim ? sentences.slice(0, 2).join(' ').trim() : zone.description);
   let weatherLine = '';
   if (!isInteriorZone(zone) && vis.category !== 'pitch_dark' && vis.category !== 'dark') {
     const wd = getWeatherDescription();
