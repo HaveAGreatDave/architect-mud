@@ -102,6 +102,15 @@ export function doAuth() {
     return;
   }
 
+  const remember = document.getElementById('auth-remember').checked;
+  if (remember) {
+    localStorage.setItem('mud_remember_user', username);
+    localStorage.setItem('mud_remember_pass', password);
+  } else {
+    localStorage.removeItem('mud_remember_user');
+    localStorage.removeItem('mud_remember_pass');
+  }
+
   errEl.textContent = '';
   state.authPending = true;
   submitBtn.disabled = true;

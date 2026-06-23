@@ -17,6 +17,7 @@ async function seed() {
     { id: 'zone_badland_w_gate', name: 'The Rust Quarter West', description: 'Industrial wasteland at the western edge. Enormous processing facilities stand half-collapsed, ground stained in colors that don\'t occur in nature. The last buffer between the city and whatever the basin becomes past it.', danger_rating: 'medium', pvp_enabled: 1, radiation_level: 15, is_safe_zone: 0, exits: { south: 'zone_badland_sw_outer', east: 'zone_city_west', west: 'zone_powerplant' }, ambient_events: ["A Geiger counter ticks somewhere nearby, the rhythm wrong for the environment.", "The ruins groan. Structural settling, probably."] },
     { id: 'zone_powerplant', name: 'Coldwater Power Station', description: 'One of the few pieces of pre-Handoff infrastructure that never stopped running. A squat concrete building humming with a sound that never quite stops, vibrating up through the soles of your boots. Warning placards, faded but legible, cover every surface. Whatever\'s turning inside has been turning since before anyone currently alive in the basin was born, and shows no sign of needing fuel, maintenance, or permission to keep doing it.', danger_rating: 'medium', pvp_enabled: 1, radiation_level: 8, is_safe_zone: 0, exits: { east: 'zone_badland_w_gate' }, ambient_events: ["The hum changes pitch for a moment, then settles back.", "Somewhere inside, something massive and patient keeps turning."], flags: { is_building: true, building_name: 'Coldwater Power Station', building_type: 'powerplant' } },
     { id: 'zone_badland_sw_outer', name: 'The Static Wood', description: 'What used to be a park. The trees are still there. They are not doing well — bark peeling back to reveal something too smooth underneath. Past here, the basin stops pretending to be a city at all.', danger_rating: 'low', pvp_enabled: 1, radiation_level: 5, is_safe_zone: 0, exits: { north: 'zone_badland_w_gate' }, ambient_events: ["A branch creaks overhead with no wind to move it.", "The grass here is the wrong shade of green, uniformly."] },
+    { id: 'zone_clone_facility', name: 'Coldwater Clone Facility', description: 'Aseptic white tile floor that has long since gone grey at the grout lines. Vat chambers run along both walls — human-sized cylinders of cloudy fluid, most occupied, all humming at a frequency just below the threshold of comfort. Overhead fluorescents pulse with slow, clinical regularity. Somewhere in the walls, a machine breathes. This is where you come from. Every time.', danger_rating: 'safe', pvp_enabled: 0, radiation_level: 0, is_safe_zone: 1, exits: { south: 'zone_city_north' }, ambient_events: ["A vat releases a slow bubble. Something shifts inside.", "The reconstitution system cycles — a low harmonic you feel more than hear.", "A printer somewhere spits out a receipt. Nobody comes to collect it."], flags: { is_building: true, building_name: 'Coldwater Clone Facility', building_type: 'clone_facility' } },
 
     { id: 'zone_residential_lobby', name: 'Embassy Hotel & Bar — Lobby', description: 'A converted hotel lobby, marble floors gone dull under a permanent film of dust, repurposed into the basin\'s closest thing to real estate. A corkboard by the door — bolted over what used to be the concierge desk — is covered in handwritten unit listings, half of them crossed out. Along one wall, a bar still operates under a brass sign reading THE EMBASSY LOUNGE — a half-dozen cracked vinyl stools lined up at the counter, free to sit if you don\'t mind the wobble. Lowry stands behind it, polishing a glass that was already clean. The building still has working locks upstairs, which around here makes it valuable.', danger_rating: 'safe', pvp_enabled: 0, radiation_level: 0, is_safe_zone: 1, exits: { up: 'zone_city_west', north: 'zone_apt_1', south: 'zone_apt_2', east: 'zone_apt_3', west: 'zone_apt_4' }, ambient_events: ["Someone argues with the building's old intercom system, which only ever says \"PLEASE HOLD.\"", "A hand-written sign reads: UNITS AVAILABLE. ASK ABOUT OUR LOCKS.", "A bellhop cart, empty, still makes its rounds on a track nobody's maintained in years."], flags: { is_building: true, building_name: 'Embassy Hotel & Bar', building_type: 'hotel' } },
     { id: 'zone_apt_1', name: 'Unit 1A', description: 'A small studio with a mattress, a hot plate, and a window that doesn\'t open. It\'s not much, but the door locks, and around here that\'s everything.', danger_rating: 'safe', pvp_enabled: 0, radiation_level: 0, is_safe_zone: 1, exits: { south: 'zone_residential_lobby' }, ambient_events: ["Pipes knock somewhere in the walls. The building is old but it holds."], flags: { is_apartment: true } },
@@ -63,6 +64,17 @@ async function seed() {
   await query(`UPDATE players SET current_zone = 'zone_start' WHERE current_zone = ANY($1::text[])`, [removedZoneIds]);
   const { rowCount: removedZoneCount } = await query(`DELETE FROM zones WHERE id = ANY($1::text[])`, [removedZoneIds]);
   if (removedZoneCount) console.log(`✓ Map shrink: removed ${removedZoneCount} old zones`);
+
+  // Clone Facility: wire zone_city_north's north exit to the new zone,
+  // only if nothing is already using that direction.
+  await query(`UPDATE zones SET exits = exits || '{"north":"zone_clone_facility"}'::jsonb WHERE id = 'zone_city_north' AND NOT (exits ? 'north')`);
+
+  // Clone Facility: make it the default spawn and respawn zone for new
+  // players. Players with an anchor still pointing at zone_start are
+  // migrated forward; anyone who explicitly set a different anchor is left alone.
+  await query(`ALTER TABLE players ALTER COLUMN current_zone SET DEFAULT 'zone_clone_facility'`).catch(()=>{});
+  await query(`ALTER TABLE players ALTER COLUMN anchor_zone SET DEFAULT 'zone_clone_facility'`).catch(()=>{});
+  await query(`UPDATE players SET anchor_zone = 'zone_clone_facility' WHERE anchor_zone = 'zone_start'`);
 
   // zone_start: drop its old 'down' exit to the lobby (only if it's still
   // pointing there — leaves it alone if a dev already repointed it by hand),
@@ -248,6 +260,11 @@ async function seed() {
   // since this is exactly the kind of content an admin re-seeds while
   // testing the dev panel's add/edit/delete flow.
   const furniture = [
+    ['furniture_poster_combat','zone_clone_facility','Reconstitution Notice — Combat','Laminated government-issue. PHYSICAL CONFLICT IS LIKELY reads the header, with the weary authority of a sign that gave up being alarming years ago. Lists the basics: type ATTACK <target> or click an enemy to engage. You swing automatically once combat starts — don\'t spam the button. Watch HP. When it hits zero, you come back here.','fixture'],
+    ['furniture_poster_movement','zone_clone_facility','Reconstitution Notice — Navigation','COLDWATER BASIN IS LARGE AND MOSTLY HOSTILE, says the header. Movement commands: NORTH, SOUTH, EAST, WEST, UP, DOWN — or click the exit buttons in your HUD. GO <name> works for named buildings. The minimap in the corner updates as you explore. Exits listed in room descriptions are the only ways through.','fixture'],
+    ['furniture_poster_economy','zone_clone_facility','Reconstitution Notice — Economy','CREDITS ARE THE BASIN\'S CURRENCY. Earn them from loot, vendors, and quests. BALANCE shows your current total. BUY and SELL work at vendor NPCs. The Franchise ATM at Threshold Plaza handles deposits and withdrawals. Housing costs credits — RENT a unit at the Embassy Hotel to get a safe place to sleep.','fixture'],
+    ['furniture_poster_survival','zone_clone_facility','Reconstitution Notice — Survival','FOUR BARS CAN KILL YOU reads the header, in what was probably meant to be an encouraging font. HP: take damage, it drops — bandages and medkits restore it. Hunger and Thirst drain over time; eat and drink. Radiation accumulates in high-RAD zones; RadAway treats it. Sanity degrades under stress; food, rest, and substances help. All four bottoming out causes death. You\'ve now been briefed.','fixture'],
+    ['furniture_poster_systems','zone_clone_facility','Reconstitution Notice — Systems Overview','A dense wall chart covering factions (Custodians, Breakers, Archivists, Franchise, Glitch), crafting (CRAFT in your inventory), skill advancement (use skills to improve them), mutations (radiation exposure, not recommended), apartments (private, lockable, sleep-safe), and the Architect (unknown, omnipresent, the reason any of this infrastructure still works). A footnote: THIS FACILITY IS MAINTAINED BY THE ARCHITECT. DO NOT ASK HOW.','fixture'],
     ['furniture_embassy_bar_counter','zone_residential_lobby','The Embassy Lounge Bar','A scarred wooden counter beneath the brass THE EMBASSY LOUNGE sign. Lowry keeps it spotless out of sheer habit.','fixture'],
     ['furniture_embassy_stools','zone_residential_lobby','Cracked Vinyl Stools','A half-dozen stools lined up at the counter, vinyl split and patched with duct tape. Free to sit, if you don\'t mind the wobble.','furniture'],
     ['furniture_embassy_corkboard','zone_residential_lobby','Unit Listings Corkboard','Bolted over what used to be the concierge desk. Handwritten unit listings cover every inch, half of them crossed out and re-listed at a worse price.','fixture'],
@@ -266,6 +283,7 @@ async function seed() {
   // generators below starting in the running state; environment.js
   // re-syncs street lights to the actual current time on every boot.
   const lights = [
+    ['furniture_clone_facility_overhead','zone_clone_facility','Facility Overhead Lights','Banks of fluorescent lights mounted in waterproof housings. They never turn off. They have never turned off.','overhead'],
     ['furniture_embassy_overhead','zone_residential_lobby','Lobby Overhead Lights','A row of caged fluorescent fixtures along the ceiling, humming faintly. A switch by the door controls them.','overhead'],
     ['furniture_embassy_bar_lamp','zone_residential_lobby','Bar Lamp','A small brass lamp at the end of the counter — the one bit of lighting in the room that isn\'t fluorescent.','lamp'],
     ['furniture_apt1_overhead','zone_apt_1','Overhead Light','A bare bulb on a pull-chain. Functional, nothing more.','overhead'],
@@ -311,6 +329,11 @@ async function seed() {
     VALUES ('gen_embassy', 'zone_residential_lobby', 'Embassy Backup Generator', 'building', 50, NULL, 0, 0, 0, 'online')
     ON CONFLICT (id) DO UPDATE SET zone_id = 'zone_residential_lobby', name = 'Embassy Backup Generator', status = 'online'
   `);
+  await query(`
+    INSERT INTO generators (id, zone_id, name, generator_type, capacity_kw, fuel_type, fuel_remaining, fuel_burn_rate, connection_range, status)
+    VALUES ('gen_clone_facility', 'zone_clone_facility', 'Clone Facility Power Core', 'building', 100, NULL, 0, 0, 0, 'online')
+    ON CONFLICT (id) DO UPDATE SET zone_id = 'zone_clone_facility', name = 'Clone Facility Power Core', status = 'online'
+  `);
 
   async function seedPowerZone(zoneId, generatorId, sourceType, capacityKw, loadKw) {
     const zoneRow = zones.find(z => z.id === zoneId);
@@ -329,7 +352,8 @@ async function seed() {
   for (const zoneId of outdoorZoneIds) await seedPowerZone(zoneId, 'city_plant', 'city_grid', 500, 12);
   const embassyZoneIds = ['zone_residential_lobby','zone_apt_1','zone_apt_2','zone_apt_3','zone_apt_4'];
   for (const zoneId of embassyZoneIds) await seedPowerZone(zoneId, 'gen_embassy', 'building_generator', 50, 8);
-  console.log(`✓ Power grid: city plant covering ${outdoorZoneIds.length} zones, Embassy generator covering ${embassyZoneIds.length} zones`);
+  await seedPowerZone('zone_clone_facility', 'gen_clone_facility', 'building_generator', 100, 20);
+  console.log(`✓ Power grid: city plant covering ${outdoorZoneIds.length} zones, Embassy generator covering ${embassyZoneIds.length} zones, clone facility on dedicated core`);
 
   // NPC
   await query(`INSERT INTO npcs (id,name,description,zone_id,faction,disposition,dialogue_tree,vendor_inventory,wanders,flags) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT (id) DO NOTHING`, [
@@ -367,7 +391,22 @@ async function seed() {
     JSON.stringify([{item_id:'item_drink_embassy_reserve',price:22,stock:15},{item_id:'item_drink_basin_swill',price:4,stock:99},{item_id:'item_embassy_canapes',price:9,stock:25}]),
     0, '{}'
   ]);
-  console.log('✓ Seeded 3 NPCs');
+  await query(`INSERT INTO npcs (id,name,description,zone_id,faction,disposition,dialogue_tree,vendor_inventory,wanders,flags) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT (id) DO NOTHING`, [
+    'npc_angus','Angus','A compact, unhurried figure in a facility technician\'s coat — clean, which is either encouraging or suspicious. He\'s been here since before anyone can remember, and he gives the impression that he will be here after. He\'s seen every possible version of this conversation and is still, inexplicably, cheerful about it.','zone_clone_facility',null,'friendly',
+    JSON.stringify({
+      root: { text: "There you are. The vat said you\'d be confused — it always does. I\'m Angus. I maintain the facility, answer first questions, and occasionally mop up. What do you need to know?", options: [{label:"Where am I, exactly?",next:'where'},{label:"What do I do now?",next:'what_now'},{label:"How does combat work?",next:'combat'},{label:"What about hunger and thirst?",next:'survival'},{label:"Who are the factions?",next:'factions'},{label:"How do credits work?",next:'economy'},{label:"What are mutations?",next:'mutations'},{label:"I think I\'ve got it.",next:null}] },
+      where: { text: "You\'re in the Coldwater Clone Facility — the reconstitution hub for the basin. When you die out there, one of those vats catches you and prints a fresh copy. Memory intact, skills intact, the thing that makes you you: intact. The body is a formality at this point.\n\nSouth of here is Threshold Plaza North, then Threshold Plaza itself — the basin\'s central square. That\'s where most things begin.", options:[{label:"What do I do now?",next:'what_now'},{label:"Back",next:'root'}] },
+      what_now: { text: "Head south to Threshold Plaza. Talk to Reg — she\'s the one who looks like she\'s seen everything twice and is tired of both times. She\'ll get you started.\n\nBeyond that: explore, scavenge, fight things that need fighting, buy or craft gear, maybe rent an apartment. The basin is large and most of it is trying to kill you. Standard post-apocalypse.\n\nThe posters on the wall here cover the basics if you want a written briefing. I\'ll be here for questions.", options:[{label:"How does combat work?",next:'combat'},{label:"Back",next:'root'}] },
+      combat: { text: "Type ATTACK followed by a target name — or click the enemy if you prefer. Once you\'re in a fight, you swing automatically; you don\'t need to keep typing attack. You can also flee if it\'s going badly.\n\nYour HP is the number that matters most. It hits zero, you come back here. Skills improve through use — the more you fight, the better you get at fighting.\n\nPay attention to damage types and armor. A kinetic weapon against energy-rated armor is doing a fraction of what it should.", options:[{label:"What about survival?",next:'survival'},{label:"Back",next:'root'}] },
+      survival: { text: "Four bars. HP you know. The other three:\n\nHunger and Thirst drain slowly over time. Food and water are available from vendors and loot — don\'t let them hit zero, because starvation does real damage.\n\nRadiation accumulates if you spend time in hot zones. It doesn\'t hurt immediately, but high totals cause mutations, and not all mutations are good news. RadAway treats it. The Rust Quarter is the worst offender.\n\nSanity is the quiet one. It drops under stress — combat, radiation, certain events. Food, rest, and the right substances help. Let it bottom out and things get strange.", options:[{label:"What are mutations?",next:'mutations'},{label:"Back",next:'root'}] },
+      mutations: { text: "Radiation exposure above certain thresholds can trigger mutations — the body adapting to an environment it was never designed for. Some are useful. Extra eye, iron stomach, rad absorption. Some are strictly problems. Weeping sores, tremor hands.\n\nThey\'re semi-random based on your radiation level and threshold. You can\'t choose them, but you can influence the odds by managing your rad exposure. Or not managing it, if you\'re curious.", options:[{label:"Who are the factions?",next:'factions'},{label:"Back",next:'root'}] },
+      factions: { text: "Five groups worth knowing:\n\nCustodians — former corporate employees who decided the Architect is divine. They control checkpoints and enforce their version of order. Territorial.\n\nBreakers — they want to destroy all remaining technology. That includes, technically, this facility. Don\'t mention that to them.\n\nArchivists — knowledge collectors working out of the underground tunnels. Neutral, strange, occasionally useful.\n\nThe Franchise — commerce empire built on pre-Handoff retail infrastructure. If something is for sale, they\'re involved.\n\nThe Glitch — hackers and post-Handoff mystics who believe the Architect can be communicated with. They\'re probably wrong. Probably.", options:[{label:"How do credits work?",next:'economy'},{label:"Back",next:'root'}] },
+      economy: { text: "Credits are the basin\'s currency — Franchise-issued, universally accepted. You earn them from loot, combat, and trade.\n\nBUY and SELL work with vendor NPCs. The ATM at Threshold Plaza handles deposits and withdrawals — DEPOSIT and WITHDRAW, BALANCE to check your total.\n\nWhen you have enough, consider renting an apartment at the Embassy Hotel. It\'s a locked room with a real bed. That matters for sleep and storage. RENT at the front desk.", options:[{label:"I think I\'ve got it.",next:null},{label:"Back",next:'root'}] },
+    }),
+    JSON.stringify([]),
+    0, '{}'
+  ]);
+  console.log('✓ Seeded 4 NPCs');
 
   // Admin account
   await query(`INSERT INTO players (id,username,password_hash,role,handle,origin_fragment,archetype) VALUES ($1,$2,$3,'admin',$4,$5,$6) ON CONFLICT DO NOTHING`,

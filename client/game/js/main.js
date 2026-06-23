@@ -25,7 +25,15 @@ initSettingsUI(settings, () => { saveSettings(settings); applySettings(settings)
 initNet(handleServerMsg);
 setWhoModalHandler(openWhoModal);
 
-// Auth form
+// Auth form — restore remembered credentials
+const _savedUser = localStorage.getItem('mud_remember_user');
+const _savedPass = localStorage.getItem('mud_remember_pass');
+if (_savedUser && _savedPass) {
+  document.getElementById('auth-username').value = _savedUser;
+  document.getElementById('auth-password').value = _savedPass;
+  document.getElementById('auth-remember').checked = true;
+}
+
 document.getElementById('auth-submit').addEventListener('click', doAuth);
 document.getElementById('auth-password').addEventListener('keydown', e => { if (e.key === 'Enter') doAuth(); });
 document.getElementById('auth-username').addEventListener('keydown', e => { if (e.key === 'Enter') doAuth(); });
