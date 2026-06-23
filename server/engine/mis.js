@@ -122,16 +122,21 @@ export const MIS_TUTORIAL = `<span style="color:var(--accent)">— MATURE INTERA
 
 You've unlocked biological realism mode. This system simulates the body honestly — not to titillate, but because bodies are part of survival. Think of it as the same candor the game applies to violence.
 
-<span style="color:var(--text-dim)">COMMANDS:</span>
-  touch &lt;target&gt; [body part]   — physical contact
-  kiss &lt;target&gt;               — affection
-  lick &lt;target&gt; [body part]   — oral contact
-  fondle &lt;target&gt;             — breast contact
-  stroke                        — solo stimulation
-  masturbate                    — same as stroke
-  suck &lt;target&gt;               — oral sex
-  insert &lt;body part&gt; into &lt;target/location&gt; — penetration
-  wash                          — clean yourself with water
+<span style="color:var(--text-dim)">SOLO:</span>
+  stroke / masturbate / jerkoff / rubself / fingerself
+
+<span style="color:var(--text-dim)">WITH OTHERS:</span>
+  touch &lt;target&gt; [body part]
+  kiss / lick / fondle &lt;target&gt;
+  suck &lt;target&gt;
+  handjob / hj &lt;target&gt;
+  blowjob / bj &lt;target&gt;
+  fuck &lt;target&gt; [in mouth / pussy / ass]
+  sex / screw / rail / bang / breed &lt;target&gt; [in ...]
+  insert &lt;body part&gt; into &lt;target&gt;
+
+<span style="color:var(--text-dim)">OTHER:</span>
+  wash   — clean yourself with water
 
 Most acts restore sanity. Arousal builds over time and resets naturally.
 Type <span style="color:var(--accent)">examine me</span> to see your current state.

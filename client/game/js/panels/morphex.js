@@ -4,7 +4,7 @@ const HAIR_COLORS  = ['black','dark brown','brown','auburn','dirty blonde','blon
 const HAIR_LENGTHS = ['shaved','short','medium','long','very_long'];
 const HAIR_STYLES  = ['short','long','mohawk','shaved','dreadlocks','braided','messy','slicked-back','curly','wavy'];
 const EYE_COLORS   = ['brown','dark brown','blue','light blue','green','hazel','grey','amber'];
-const BREAST_SIZES = ['flat','small','medium','large','very large'];  
+const BREAST_SIZES = ['flat','small','medium','large','very large'];
 
 function heightDesc(cm) {
   if (cm < 158) return 'short';
@@ -42,22 +42,6 @@ let _currentData = null;
 
 export function openMorphexPanel(data) {
   _currentData = data;
-
-  const sex = data.biological_sex || 'male';
-  const isMis = data.mis_active || 0;
-  const app = data.appearance_data || {};
-  let mods = '';
-
-  if (isMis) {
-    if (sex === 'male') {
-      mods += _sectionHeader('Biological — 5₵/cm');
-      mods += _modRow('Length (cm)', _numInput('mx-penis', app.penis_length_cm || 13, 7, 21));
-      mods += _modRow('Girth (cm)',  _numInput('mx-girth', app.penis_girth_cm || 12, 6, 18, 0.5));
-    } else {
-      mods += _sectionHeader('Biological — 5₵/tier');
-      mods += _modRow('Breast Size', _sel('mx-breast', BREAST_SIZES, app.breast_size || 'medium'));
-    }
-  }
 
   if (!_modal) {
     _modal = document.createElement('div');
@@ -173,6 +157,17 @@ function _render(d) {
     _modRow('Height',      heightControl),
     _modRow('Weight (lbs)',_numInput('mx-lbs', lbs, 88, 330)),
   ].join('');
+
+  if (isMis) {
+    if (sex === 'male') {
+      mods += _sectionHeader('Biological — 5₵/cm');
+      mods += _modRow('Length (cm)', _numInput('mx-penis', app.penis_length_cm || 13, 7, 21));
+      mods += _modRow('Girth (cm)',  _numInput('mx-girth', app.penis_girth_cm || 12, 6, 18, 0.5));
+    } else {
+      mods += _sectionHeader('Biological — 5₵/tier');
+      mods += _modRow('Breast Size', _sel('mx-breast', BREAST_SIZES, app.breast_size || 'medium'));
+    }
+  }
 
   const applyBtnStyle = 'background:var(--accent);border:none;color:var(--bg);font-family:var(--font-mono);font-size:12px;font-weight:bold;padding:8px 24px;cursor:pointer;border-radius:2px;letter-spacing:1px';
 

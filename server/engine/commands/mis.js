@@ -8,7 +8,7 @@
 import { query } from '../../models/db.js';
 import { isMisActive, addHorniness, washEjaculate, MIS_TUTORIAL } from '../mis.js';
 import { getZonePlayers, getZoneNpcs } from '../world.js';
-	
+
 function misGate(player) {
   if (!isMisActive(player)) return { type:'error', message:`MIS is not enabled. Use the debug field in settings.` };
   return null;
@@ -20,7 +20,6 @@ async function cmdMis(args, player, broadcast) {
     if (isMisActive(player)) return { type:'output', message:`MIS is already active.` };
     player.mis_enabled = 1;
     await query('UPDATE players SET mis_enabled=1 WHERE id=$1', [player.id]);
-    // Tutorial + self-examination
     const { physicalDescription } = await import('../appearance.js');
     const selfDesc = physicalDescription(player, true) || '';
     return { type:'output', message: MIS_TUTORIAL + (selfDesc ? `\n\n${selfDesc}` : '') };
@@ -51,8 +50,13 @@ function targetName(res) {
   return res.type === 'player' ? res.target.handle : res.target.name;
 }
 
-// Generic act handler: pick a description, add horniness, restore sanity
-async function actHandler({ player, broadcast, rawArgs, defaultPart, actVerb, selfMessages, targetMessages, horninessGain, sanityGain = 5 }) {
+function pickMsg(pool, vars) {
+  const tpl = pool[Math.floor(Math.random() * pool.length)];
+  return tpl.replace(/\{(\w+)\}/g, (_, k) => vars[k] || k);
+}
+
+// Generic act handler for touching/kissing/etc. — resolves target or defaults to self
+async function actHandler({ player, broadcast, rawArgs, defaultPart, selfMessages, targetMessages, horninessGain, sanityGain = 5 }) {
   const gate = misGate(player);
   if (gate) return gate;
 
@@ -60,7 +64,6 @@ async function actHandler({ player, broadcast, rawArgs, defaultPart, actVerb, se
   let targetStr = args;
   let part = defaultPart;
 
-  // "touch breasts" → self; "touch bob chest" → target=bob part=chest
   const words = args.split(/\s+/);
   const firstWord = words[0] || '';
 
@@ -70,7 +73,6 @@ async function actHandler({ player, broadcast, rawArgs, defaultPart, actVerb, se
   const matchedName = allNames.find(n => firstWord.startsWith(n.split(' ')[0]));
 
   if (!matchedName && words.length === 1) {
-    // Could be a body part on self
     part = firstWord || defaultPart;
     targetStr = '';
   } else if (matchedName) {
@@ -79,15 +81,13 @@ async function actHandler({ player, broadcast, rawArgs, defaultPart, actVerb, se
   }
 
   if (!targetStr || targetStr === 'me' || targetStr === 'myself') {
-    // Self act
     const msgs = await addHorniness(player, Math.floor(horninessGain * 0.6), broadcast);
     if (sanityGain) {
       player.sanity = Math.min(player.sanity_max || 100, (player.sanity || 50) + sanityGain);
       await query('UPDATE players SET sanity=$1 WHERE id=$2', [player.sanity, player.id]);
     }
-    const selfMsg = pickMsg(selfMessages, { part });
     if (msgs.length) broadcast(null, { type:'resource_tick', messages: msgs }, null, player.id);
-    return { type:'output', message: selfMsg };
+    return { type:'output', message: pickMsg(selfMessages, { part }) };
   }
 
   const res = resolveTarget(targetStr, player);
@@ -98,7 +98,6 @@ async function actHandler({ player, broadcast, rawArgs, defaultPart, actVerb, se
   if (res.type === 'player' && isMisActive(res.target)) {
     const targetMsgs = await addHorniness(res.target, Math.floor(horninessGain * 0.8), broadcast);
     if (targetMsgs.length) broadcast(null, { type:'resource_tick', messages: targetMsgs }, null, res.target.id);
-    // Notify target
     broadcast(null, { type:'output', message: pickMsg(targetMessages || selfMessages, { part, actor: player.handle }) }, null, res.target.id);
   }
   if (sanityGain) {
@@ -110,18 +109,12 @@ async function actHandler({ player, broadcast, rawArgs, defaultPart, actVerb, se
   return { type:'output', message: pickMsg(targetMessages || selfMessages, { part, actor: player.handle, name }) };
 }
 
-function pickMsg(pool, vars) {
-  const tpl = pool[Math.floor(Math.random() * pool.length)];
-  return tpl.replace(/\{(\w+)\}/g, (_, k) => vars[k] || k);
-}
-
 // --- Command implementations ---
 
 async function cmdTouch(args, raw, player, broadcast) {
   return actHandler({
     player, broadcast, rawArgs: args,
     defaultPart: 'body',
-    actVerb: 'touch',
     selfMessages: [
       `You run your hands over your own {part}.`,
       `You touch your {part}, feeling the warmth of skin.`,
@@ -143,6 +136,7 @@ async function cmdKiss(args, raw, player, broadcast) {
     targetMessages: [
       `You kiss {name}.`,
       `You lean in and kiss {name} softly.`,
+      `You press your lips against {name}'s.`,
     ],
     horninessGain: 6,
     sanityGain: 5,
@@ -180,14 +174,34 @@ async function cmdFondle(args, raw, player, broadcast) {
   });
 }
 
-async function cmdStroke(args, raw, player, broadcast) {
+// Masturbation — sex-aware messages, supports aliases (stroke, rub, finger, jerk, etc.)
+async function cmdMasturbate(args, raw, player, broadcast) {
   const gate = misGate(player);
   if (gate) return gate;
-  const msgs = await addHorniness(player, 18, broadcast);
+
+  const isMale = player.biological_sex === 'male';
+
+  const maleMessages = [
+    `You wrap your hand around your cock and stroke slowly.`,
+    `You pull your dick out and jerk off, tension building with each stroke.`,
+    `You rub your cock until the pressure builds to a point you can't ignore.`,
+    `You take yourself in hand and stroke steadily, breath quickening.`,
+    `You fist your cock and work it until your legs go weak.`,
+  ];
+  const femaleMessages = [
+    `You slide your fingers between your legs and rub slowly.`,
+    `You press your fingers against your pussy and work yourself in slow circles.`,
+    `You slip two fingers inside yourself, curling them just right.`,
+    `You rub your clit until your thighs tighten around your hand.`,
+    `You finger yourself quietly, biting your lip against the sound.`,
+  ];
+
+  const msgs = await addHorniness(player, 20, broadcast);
   player.sanity = Math.min(player.sanity_max || 100, (player.sanity || 50) + 6);
   await query('UPDATE players SET sanity=$1 WHERE id=$2', [player.sanity, player.id]);
   if (msgs.length) broadcast(null, { type:'resource_tick', messages: msgs }, null, player.id);
-  return { type:'output', message: `You take a private moment. The tension eases, slightly.` };
+  const pool = isMale ? maleMessages : femaleMessages;
+  return { type:'output', message: pool[Math.floor(Math.random() * pool.length)] };
 }
 
 async function cmdSuck(args, raw, player, broadcast) {
@@ -204,11 +218,111 @@ async function cmdSuck(args, raw, player, broadcast) {
   });
 }
 
+// Penetrative sex — fuck <target> [in mouth/pussy/ass/vagina/asshole]
+// Also handles blowjob <target>, handjob <target> as shortcuts
+async function cmdFuck(args, raw, player, broadcast) {
+  const gate = misGate(player);
+  if (gate) return gate;
+
+  // Parse target and optional location: "fuck bob in ass" / "fuck alice in mouth"
+  const str = raw.replace(/^(?:fuck|sex|screw|rail|bang|breed)\s*/i, '').trim();
+  const inMatch = str.match(/^(.+?)\s+in\s+(.+)$/i);
+  let targetStr = inMatch ? inMatch[1].trim() : str;
+  const rawLocation = (inMatch ? inMatch[2].trim() : '').toLowerCase();
+
+  // Normalise location
+  const MOUTH_WORDS  = ['mouth', 'face', 'throat', 'blowjob', 'oral', 'bj'];
+  const PUSSY_WORDS  = ['pussy', 'vagina', 'cunt', 'vag'];
+  const ASS_WORDS    = ['ass', 'asshole', 'anus', 'butt', 'rear', 'anal'];
+
+  let location = 'default';
+  if (MOUTH_WORDS.some(w => rawLocation.includes(w)))  location = 'mouth';
+  else if (PUSSY_WORDS.some(w => rawLocation.includes(w))) location = 'pussy';
+  else if (ASS_WORDS.some(w => rawLocation.includes(w)))   location = 'ass';
+
+  if (!targetStr) return { type:'error', message:`Usage: fuck <target> [in mouth/pussy/ass]` };
+
+  const res = resolveTarget(targetStr, player);
+  if (!res) return { type:'error', message:`You don't see "${targetStr}" here.` };
+  const name = targetName(res);
+
+  const isMale    = player.biological_sex === 'male';
+  const isFemale  = player.biological_sex === 'female';
+  const targetSex = res.type === 'player' ? res.target.biological_sex : null;
+
+  // Build message pairs [actorMsg, targetMsg]
+  const MOUTH_MSGS = [
+    [`You push your ${isMale ? 'cock' : 'fingers'} into ${name}'s mouth.`,  `${player.handle} pushes their ${isMale ? 'cock' : 'fingers'} into your mouth.`],
+    [`${name} opens their mouth and you slide right in.`,                    `${player.handle} slides into your open mouth.`],
+    [`You grip ${name}'s head and fuck their throat.`,                        `${player.handle} grips your head and uses your throat.`],
+  ];
+  const PUSSY_MSGS = [
+    [`You thrust into ${name}'s pussy, wet and tight around you.`,           `${player.handle} pushes inside you.`],
+    [`You spread ${name}'s legs and slide in deep.`,                          `${player.handle} spreads your legs and fills you.`],
+    [`You fuck ${name} until the headboard rattles.`,                         `${player.handle} fucks you until you can't think straight.`],
+  ];
+  const ASS_MSGS = [
+    [`You press against ${name}'s ass and push inside.`,                      `${player.handle} presses into your ass.`],
+    [`You grip ${name}'s hips and fuck their ass hard.`,                      `${player.handle} grips your hips and takes your ass.`],
+    [`You slide into ${name}'s asshole and set a rhythm.`,                    `${player.handle} slides into your ass and finds a rhythm.`],
+  ];
+  const DEFAULT_MSGS = [
+    [`You and ${name} have sex.`,                                              `${player.handle} fucks you.`],
+    [`You pull ${name} close and take what you want.`,                         `${player.handle} pulls you close.`],
+  ];
+
+  const pool = location === 'mouth' ? MOUTH_MSGS
+             : location === 'pussy' ? PUSSY_MSGS
+             : location === 'ass'   ? ASS_MSGS
+             : DEFAULT_MSGS;
+
+  const [actorMsg, targetMsg] = pool[Math.floor(Math.random() * pool.length)];
+
+  const msgs = await addHorniness(player, 25, broadcast);
+  player.sanity = Math.min(player.sanity_max || 100, (player.sanity || 50) + 10);
+  await query('UPDATE players SET sanity=$1 WHERE id=$2', [player.sanity, player.id]);
+
+  if (res.type === 'player' && isMisActive(res.target)) {
+    const targetMsgs = await addHorniness(res.target, 20, broadcast);
+    if (targetMsgs.length) broadcast(null, { type:'resource_tick', messages: targetMsgs }, null, res.target.id);
+    res.target.sanity = Math.min(res.target.sanity_max || 100, (res.target.sanity || 50) + 10);
+    await query('UPDATE players SET sanity=$1 WHERE id=$2', [res.target.sanity, res.target.id]);
+    broadcast(null, { type:'output', message: targetMsg }, null, res.target.id);
+  }
+
+  if (msgs.length) broadcast(null, { type:'resource_tick', messages: msgs }, null, player.id);
+  broadcast(player.current_zone, { type:'zone_event', message: `${player.handle} and ${name} are having sex.` }, player.id, res.type === 'player' ? res.target.id : null);
+  return { type:'output', message: actorMsg };
+}
+
+// Blowjob shortcut: blowjob <target> → fuck <target> in mouth
+async function cmdBlowjob(args, raw, player, broadcast) {
+  const target = args.join(' ');
+  if (!target) return { type:'error', message:`Usage: blowjob <target>` };
+  return cmdFuck(args, `fuck ${target} in mouth`, player, broadcast);
+}
+
+// Handjob shortcut
+async function cmdHandjob(args, raw, player, broadcast) {
+  return actHandler({
+    player, broadcast, rawArgs: args,
+    defaultPart: 'cock',
+    selfMessages: [`You work your own {part} with your hand.`],
+    targetMessages: [
+      `You wrap your hand around {name}'s {part} and stroke.`,
+      `You give {name} a slow, deliberate handjob.`,
+      `Your hand finds {name}'s {part} and gets to work.`,
+    ],
+    horninessGain: 16,
+    sanityGain: 6,
+  });
+}
+
+// Generic insert command (lower-level, kept for flexibility)
 async function cmdInsert(args, raw, player, broadcast) {
   const gate = misGate(player);
   if (gate) return gate;
 
-  // Parse: "insert <what> into <target/location>"
   const str = raw.replace(/^insert\s+/i, '');
   const intoIdx = str.toLowerCase().indexOf(' into ');
   if (intoIdx === -1) return { type:'error', message:`Usage: insert <body part> into <target or location>` };
@@ -253,7 +367,6 @@ async function cmdWashHands(player) {
 async function cmdWash(args, raw, player) {
   if (args[0] === 'hands') return cmdWashHands(player);
 
-  // Accepts: a sink in the zone OR a water item in inventory
   const { rows: sinkRows } = await query(
     `SELECT id FROM furniture WHERE zone_id=$1 AND object_type='sink' LIMIT 1`,
     [player.current_zone]
@@ -291,9 +404,23 @@ export const handlers = {
   kiss:       (args, raw, player, broadcast) => cmdKiss(args, raw, player, broadcast),
   lick:       (args, raw, player, broadcast) => cmdLick(args, raw, player, broadcast),
   fondle:     (args, raw, player, broadcast) => cmdFondle(args, raw, player, broadcast),
-  stroke:     (args, raw, player, broadcast) => cmdStroke(args, raw, player, broadcast),
-  masturbate: (args, raw, player, broadcast) => cmdStroke(args, raw, player, broadcast),
+  stroke:     (args, raw, player, broadcast) => cmdMasturbate(args, raw, player, broadcast),
+  masturbate: (args, raw, player, broadcast) => cmdMasturbate(args, raw, player, broadcast),
+  jerkoff:    (args, raw, player, broadcast) => cmdMasturbate(args, raw, player, broadcast),
+  jackoff:    (args, raw, player, broadcast) => cmdMasturbate(args, raw, player, broadcast),
+  rubself:    (args, raw, player, broadcast) => cmdMasturbate(args, raw, player, broadcast),
+  fingerself: (args, raw, player, broadcast) => cmdMasturbate(args, raw, player, broadcast),
   suck:       (args, raw, player, broadcast) => cmdSuck(args, raw, player, broadcast),
+  fuck:       (args, raw, player, broadcast) => cmdFuck(args, raw, player, broadcast),
+  sex:        (args, raw, player, broadcast) => cmdFuck(args, raw, player, broadcast),
+  screw:      (args, raw, player, broadcast) => cmdFuck(args, raw, player, broadcast),
+  rail:       (args, raw, player, broadcast) => cmdFuck(args, raw, player, broadcast),
+  bang:       (args, raw, player, broadcast) => cmdFuck(args, raw, player, broadcast),
+  breed:      (args, raw, player, broadcast) => cmdFuck(args, raw, player, broadcast),
+  blowjob:    (args, raw, player, broadcast) => cmdBlowjob(args, raw, player, broadcast),
+  bj:         (args, raw, player, broadcast) => cmdBlowjob(args, raw, player, broadcast),
+  handjob:    (args, raw, player, broadcast) => cmdHandjob(args, raw, player, broadcast),
+  hj:         (args, raw, player, broadcast) => cmdHandjob(args, raw, player, broadcast),
   insert:     (args, raw, player, broadcast) => cmdInsert(args, raw, player, broadcast),
   wash:       (args, raw, player)            => cmdWash(args, raw, player),
 };
