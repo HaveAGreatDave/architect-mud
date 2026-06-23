@@ -74,7 +74,7 @@ function generateWeatherForDate(dateStr, climateProfile) {
     else                                  weatherType = 'clear';
   }
 
-  return { weatherType, tempC };
+  return { weatherType, tempC, precipChance };
 }
 
 function addDays(dateStr, days) {
@@ -110,12 +110,17 @@ async function loadForecast(setWeatherState, climateProfile) {
     await regenerateFullForecast(startDate, climateProfile);
     ({ rows } = await query('SELECT * FROM weather_forecast ORDER BY forecast_day ASC'));
   }
-  const forecast = rows.map(r => ({
-    forecastDay: r.forecast_day,
-    date: toDateString(r.game_date),
-    weatherType: r.weather_type,
-    tempC: r.temp_c,
-  }));
+  const forecast = rows.map(r => {
+    const date = toDateString(r.game_date);
+    const { precipChance } = generateWeatherForDate(date, climateProfile);
+    return {
+      forecastDay: r.forecast_day,
+      date,
+      weatherType: r.weather_type,
+      tempC: r.temp_c,
+      precipChance,
+    };
+  });
   setWeatherState(forecast[0].weatherType, forecast[0].tempC, forecast);
 }
 
