@@ -327,14 +327,7 @@ const PANELS = {
   items: {
     title: 'Items',
     fetch: () => API('/items'),
-    columns: [
-      { key: 'name', label: 'Name' },
-      { key: 'type', label: 'Type' },
-      { key: 'subtype', label: 'Subtype' },
-      { key: 'rarity', label: 'Rarity' },
-      { key: 'weight', label: 'Weight' },
-      { key: 'value', label: 'Value' },
-    ],
+    render: renderItemsPanel,
     editForm: itemEditForm,
     save: saveItem,
     delete: id => API(`/items/${id}`, 'DELETE'),
@@ -588,6 +581,13 @@ function toggleBuildingCollapse(id) {
   if (collapsedBuildings.has(id)) collapsedBuildings.delete(id);
   else collapsedBuildings.add(id);
   renderZonesTable(allRecords);
+}
+
+const collapsedItemTypes = new Set();
+function toggleItemTypeCollapse(type) {
+  if (collapsedItemTypes.has(type)) collapsedItemTypes.delete(type);
+  else collapsedItemTypes.add(type);
+  renderItemsPanel();
 }
 
 function renderZonesTable(records) {
@@ -2259,6 +2259,56 @@ function readItemTag(rowEl) {
   }
 }
 
+function renderItemsPanel() {
+  const panel = document.getElementById('list-panel');
+  const records = allRecords;
+  if (!records.length) {
+    panel.innerHTML = '<div style="padding:24px;color:var(--text-dim)">No items found.</div>';
+    return;
+  }
+
+  const cols = [
+    { key: 'name', label: 'Name' },
+    { key: 'subtype', label: 'Subtype' },
+    { key: 'rarity', label: 'Rarity' },
+    { key: 'weight', label: 'Weight' },
+    { key: 'value', label: 'Value' },
+  ];
+
+  const byType = new Map();
+  for (const r of records) {
+    const t = r.type || '(none)';
+    if (!byType.has(t)) byType.set(t, []);
+    byType.get(t).push(r);
+  }
+
+  let html = '';
+  for (const [type, items] of [...byType.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+    const collapsed = collapsedItemTypes.has(type);
+    const typeSafe = type.replace(/'/g, "\\'");
+    html += `<div class="item-section">
+      <div class="item-type-hdr" onclick="toggleItemTypeCollapse('${typeSafe}')">
+        <span class="item-type-hdr-arrow">${collapsed ? '▶' : '▼'}</span>
+        <span class="item-type-hdr-label">${type}</span>
+        <span class="item-type-hdr-count">${items.length}</span>
+      </div>`;
+    if (!collapsed) {
+      html += '<table><thead><tr>';
+      for (const col of cols) html += `<th>${col.label}</th>`;
+      html += '<th></th></tr></thead><tbody>';
+      for (const rec of [...items].sort((a, b) => (a.name || '').localeCompare(b.name || ''))) {
+        const idSafe = rec.id.replace(/'/g, "\\'");
+        html += `<tr onclick="selectRecord('${idSafe}')">`;
+        for (const col of cols) html += `<td>${rec[col.key] ?? '—'}</td>`;
+        html += `<td><button class="action-btn" onclick="event.stopPropagation();editRecord('${idSafe}')">Edit</button></td></tr>`;
+      }
+      html += '</tbody></table>';
+    }
+    html += '</div>';
+  }
+  panel.innerHTML = html;
+}
+
 function itemEditForm(rec, isNew) {
   const tags = (rec.tags && typeof rec.tags === 'object') ? rec.tags : JSON.parse(rec.tags||'{}');
   const tagNames = Object.keys(tags).filter(n => n !== 'description' && TAG_CATALOG[n]);
@@ -2737,9 +2787,9 @@ function buildDynamicMapGrid(zones, mode, powerById, clickable) {
       const gs = `grid-column:${col(x)};grid-row:${row(y)}`;
       if (!z) { html += `<div style="${gs}"></div>`; continue; }
       const marker = z.marker ? `<span class="map-marker-badge">${z.marker}</span>` : '';
-      let cls = `bigmap-tile bm-danger-${z.danger_rating || 'safe'}`;
+      let cls = 'bigmap-tile';
       let sub = '';
-      const colorStyle = z.color ? `;border-color:${z.color}` : '';
+      const colorStyle = zoneColorStyle(z.color);
       if (mode === 'power') {
         const p = powerById?.get(z.id);
         const cpGen = bigMapGenerators.find(g => g.zone_id === z.id && g.generator_type === 'city_plant');
@@ -2813,6 +2863,16 @@ function buildDynamicMapGrid(zones, mode, powerById, clickable) {
 
   html += '</div>';
   return html;
+}
+
+function zoneColorStyle(color) {
+  if (!color) return '';
+  const hex = color.replace('#', '');
+  if (hex.length !== 6) return `;border-color:${color}`;
+  const r = parseInt(hex.slice(0, 2), 16), g = parseInt(hex.slice(2, 4), 16), b = parseInt(hex.slice(4, 6), 16);
+  const bg = `rgb(${Math.round(r*0.35)},${Math.round(g*0.35)},${Math.round(b*0.35)})`;
+  const br = `rgb(${Math.min(255,Math.round(r+(255-r)*0.65))},${Math.min(255,Math.round(g+(255-g)*0.65))},${Math.min(255,Math.round(b+(255-b)*0.65))})`;
+  return `;background:${bg};border-color:${br}`;
 }
 
 function mapLegendHtml(mode) {
@@ -2912,8 +2972,8 @@ function renderBigMapOverlay() {
           }).join(' ')}</div>`
         : '';
 
-      let cls = `bigmap-tile bm-danger-${z.danger_rating || 'safe'}`;
-      let colorStyle = z.color ? `border-color:${z.color};` : '';
+      let cls = 'bigmap-tile';
+      let colorStyle = zoneColorStyle(z.color);
       let powerSub = '';
       if (bigMapOverlayMode === 'power') {
         colorStyle = '';
@@ -2932,7 +2992,7 @@ function renderBigMapOverlay() {
         }
       }
 
-      html += `<div class="${cls}" style="${gs};${colorStyle}" title="${z.id}" onclick="bigMapTileClick('${z.id}')"><div>${dive}${marker}${z.name}${exHtml}${powerSub}</div></div>`;
+      html += `<div class="${cls}" style="${gs}${colorStyle}" title="${z.id}" onclick="bigMapTileClick('${z.id}')"><div>${dive}${marker}${z.name}${exHtml}${powerSub}</div></div>`;
     }
   }
 
@@ -3283,9 +3343,9 @@ function renderMapOverview() {
         html += `<div class="bigmap-tile-create" ${cellStyle(x, y)} data-map-cell="${x},${y}" ondragover="event.preventDefault()" onclick="createZoneAt(${x},${y})">+</div>`;
         continue;
       }
-      let cls = `bigmap-tile bm-edit bm-danger-${z.danger_rating || 'safe'}`;
+      let cls = 'bigmap-tile bm-edit';
       if (broken.has(z.id)) cls += ' bm-broken';
-      const colorStyle = z.color ? `;border-color:${z.color}` : '';
+      const colorStyle = zoneColorStyle(z.color);
       const child = o.children.find(c => c.parent_zone_id === z.id);
       const dive = child ? `<span class="map-dive-btn" title="Dive into ${child.name}" onclick="event.stopPropagation();diveInto('${z.id}')">⤵</span>` : '';
       const marker = z.marker ? `<span class="map-marker-badge">${z.marker}</span>` : '';
@@ -3323,7 +3383,7 @@ function renderMapOverview() {
   html += `</div></div>`;
 
   // Unplaced-zones tray:
-  const trayChip = (z, dragFn) => `<span class="bigmap-tile bm-edit bm-danger-${z.danger_rating || 'safe'}" style="width:auto;height:auto;padding:4px 8px;cursor:grab;flex-shrink:0" draggable="true" ondragstart="${dragFn}(event,'${z.id}')" title="${z.id}">${z.name}</span>`;
+  const trayChip = (z, dragFn) => `<span class="bigmap-tile bm-edit" style="width:auto;height:auto;padding:4px 8px;cursor:grab;flex-shrink:0${zoneColorStyle(z.color)}" draggable="true" ondragstart="${dragFn}(event,'${z.id}')" title="${z.id}">${z.name}</span>`;
 
   if (mapViewTab === 'interior') {
     // Interior tray: rooms with no grid position OR no exits established
@@ -3343,8 +3403,8 @@ function renderMapOverview() {
     const allExtUnplaced = [...extTray, ...noPosition].sort((a, b) => a.name.localeCompare(b.name));
     const intUnplaced = [...(o.unplacedInterior?.values() || [])];
     const unplacedBuildings = intUnplaced.filter(z => z.flags?.is_building);
-    const extChip = z => `<span class="bigmap-tile bm-edit bm-danger-${z.danger_rating || 'safe'}" style="width:auto;height:auto;padding:4px 8px;cursor:grab;flex-shrink:0;border-color:var(--accent)" draggable="true" ondragstart="mapTrayDragStart(event,'${z.id}')" title="${z.id}">${z.name}</span>`;
-    const intChip = z => `<span class="bigmap-tile bm-edit bm-danger-${z.danger_rating || 'safe'}" style="width:auto;height:auto;padding:4px 8px;cursor:grab;flex-shrink:0;border-color:var(--accent2);color:var(--accent2);font-weight:600" draggable="true" ondragstart="mapInteriorTrayDragStart(event,'${z.id}')" title="${z.id}">🏢 ${z.name}</span>`;
+    const extChip = z => `<span class="bigmap-tile bm-edit" style="width:auto;height:auto;padding:4px 8px;cursor:grab;flex-shrink:0${zoneColorStyle(z.color)};border-color:var(--accent)" draggable="true" ondragstart="mapTrayDragStart(event,'${z.id}')" title="${z.id}">${z.name}</span>`;
+    const intChip = z => `<span class="bigmap-tile bm-edit" style="width:auto;height:auto;padding:4px 8px;cursor:grab;flex-shrink:0${zoneColorStyle(z.color)};border-color:var(--accent2);color:var(--accent2);font-weight:600" draggable="true" ondragstart="mapInteriorTrayDragStart(event,'${z.id}')" title="${z.id}">🏢 ${z.name}</span>`;
     html += `<div style="padding:0 12px 14px;border-top:1px solid var(--border);margin-top:8px">
       <div style="font-size:11px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;padding-top:10px">Unplaced Exterior Zones</div>
       <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px">Drag onto an empty cell to place on the world map.</div>

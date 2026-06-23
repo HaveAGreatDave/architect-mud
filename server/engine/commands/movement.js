@@ -126,7 +126,7 @@ async function cmdMap(player) {
     }
     return {
       id: z.id, x: z.grid_x, y: z.grid_y, name: z.name,
-      danger: z.danger_rating || 'safe', marker: z.marker || null,
+      danger: z.danger_rating || null, marker: z.marker || null,
       color: z.color || null, bg_color: z.bg_color || null,
       exits: links, isCurrent: z.id === player.current_zone,
     };
