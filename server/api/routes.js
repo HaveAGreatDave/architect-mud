@@ -226,10 +226,11 @@ async function apiForgotPassword(body) {
       [playerId, token, expiresAt]
     );
     const resetUrl = `${process.env.CLIENT_BASE_URL || 'http://localhost:3000'}/game?reset_token=${token}`;
-    sendPasswordResetEmail(email.toLowerCase().trim(), resetUrl).catch(e => {
-      console.error('[forgot-password] email send failed:', e.message, e.response || '');
+    sendPasswordResetEmail(email.toLowerCase().trim(), resetUrl).then(() => {
+      console.log('[forgot-password] email sent OK to:', email.toLowerCase().trim());
+    }).catch(e => {
+      console.error('[forgot-password] email send failed:', e.message, JSON.stringify(e.response || e.responseCode || ''));
     });
-    console.log('[forgot-password] reset email queued for:', email.toLowerCase().trim(), 'url:', resetUrl);
   }
   return { status:200, body:{ message:'If that email is registered, a reset link has been sent.' } };
 }
