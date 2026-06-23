@@ -1072,7 +1072,7 @@ async function zoneEditForm(rec, isNew) {
           <div class="zone-subitem-row" id="spawn-row-${s.id}">
             <span>${s.enemy_name} <span style="color:var(--text-dim);font-size:11px">×${s.max_count} · wt:${s.spawn_weight} · ${s.respawn_seconds}s</span></span>
             <span class="zone-subitem-actions">
-              <button class="action-btn danger" onclick="deleteSpawnQuick('${s.id}','${rec.id}')">Remove</button>
+              <button class="action-btn danger" onclick="confirmDeleteSpawn('${s.id}','${rec.id}')">Remove</button>
             </span>
           </div>`).join('') : '<div class="zone-subitem-empty">No enemies spawn here.</div>'}</div>
         <div id="zone-add-spawn-form"></div>
@@ -1082,7 +1082,7 @@ async function zoneEditForm(rec, isNew) {
           <div class="zone-subitem-row" id="live-enemy-row-${e.instanceId}">
             <span>${e.name} <span style="color:var(--text-dim);font-size:11px">${e.hp}/${e.hp_max} HP · <span style="color:var(--text-dim);font-family:monospace">${e.instanceId}</span></span></span>
             <span class="zone-subitem-actions">
-              <button class="action-btn danger" onclick="despawnLiveEnemy('${e.instanceId}','${rec.id}')">Despawn</button>
+              <button class="action-btn danger" onclick="confirmDespawnLiveEnemy('${e.instanceId}','${rec.id}')">Despawn</button>
             </span>
           </div>`).join('') : '<div class="zone-subitem-empty">No live enemies here right now.</div>'}</div>
         <button class="action-btn" style="margin-top:4px" onclick='refreshLiveEnemies(${JSON.stringify(rec.id)})'>↻ Refresh</button>
@@ -1729,8 +1729,15 @@ async function submitAddSpawn(zoneId) {
   toast('Enemy spawn added');
   await refreshZoneEditPanel(zoneId);
 }
+function confirmDespawnLiveEnemy(instanceId, zoneId) {
+  const row = document.getElementById(`live-enemy-row-${instanceId}`);
+  if (!row) return;
+  const actions = row.querySelector('.zone-subitem-actions');
+  actions.innerHTML = `<span style="color:var(--text-dim);font-size:11px">Sure?</span>
+    <button class="action-btn danger" onclick="despawnLiveEnemy('${instanceId}','${zoneId}')">Yes</button>
+    <button class="action-btn" onclick="refreshLiveEnemies('${zoneId}')">No</button>`;
+}
 async function despawnLiveEnemy(instanceId, zoneId) {
-  if (!confirm('Despawn this enemy instance?')) return;
   const result = await API(`/live-enemies/${encodeURIComponent(instanceId)}`, 'DELETE');
   if (result?.error) { toast(result.error, true); return; }
   toast('Enemy despawned');
@@ -1745,12 +1752,19 @@ async function refreshLiveEnemies(zoneId) {
     <div class="zone-subitem-row" id="live-enemy-row-${e.instanceId}">
       <span>${e.name} <span style="color:var(--text-dim);font-size:11px">${e.hp}/${e.hp_max} HP · <span style="color:var(--text-dim);font-family:monospace">${e.instanceId}</span></span></span>
       <span class="zone-subitem-actions">
-        <button class="action-btn danger" onclick="despawnLiveEnemy('${e.instanceId}','${zoneId}')">Despawn</button>
+        <button class="action-btn danger" onclick="confirmDespawnLiveEnemy('${e.instanceId}','${zoneId}')">Despawn</button>
       </span>
     </div>`).join('') : '<div class="zone-subitem-empty">No live enemies here right now.</div>';
 }
+function confirmDeleteSpawn(spawnId, zoneId) {
+  const row = document.getElementById(`spawn-row-${spawnId}`);
+  if (!row) return;
+  const actions = row.querySelector('.zone-subitem-actions');
+  actions.innerHTML = `<span style="color:var(--text-dim);font-size:11px">Sure?</span>
+    <button class="action-btn danger" onclick="deleteSpawnQuick('${spawnId}','${zoneId}')">Yes</button>
+    <button class="action-btn" onclick="refreshZoneEditPanel('${zoneId}')">No</button>`;
+}
 async function deleteSpawnQuick(spawnId, zoneId) {
-  if (!confirm('Remove this enemy spawn?')) return;
   const result = await API(`/spawns/${encodeURIComponent(spawnId)}`, 'DELETE');
   if (result?.error) { toast(result.error, true); return; }
   toast('Spawn removed');
