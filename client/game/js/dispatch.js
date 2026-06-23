@@ -21,6 +21,8 @@ const handlers = {
     state.authPending = false;
     state.player = msg.player;
     document.getElementById('auth-screen').style.display = 'none';
+    const bmcBtn = document.getElementById('bmc-btn');
+    if (bmcBtn) bmcBtn.style.display = 'none';
     document.getElementById('handle-display').textContent = state.player.handle;
     updateVitals(state.player);
     if (msg.env) updateEnvironmentHUD(msg.env);
