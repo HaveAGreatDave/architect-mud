@@ -3075,7 +3075,9 @@ function renderMapOverview() {
   const interiorZoneIds = new Set([
     ...o.unplacedInterior.keys(),
     ...o.children.map(c => c.entry_zone_id).filter(Boolean),
-  ]);
+    // For interior maps: the parent exterior zone is a valid exit target even though it lives on the world map.
+    o.map?.parent_zone_id,
+  ].filter(Boolean));
   const { errors, oneWay } = validateMapOverview(o.zones, knownZoneIds, interiorZoneIds);
   const broken = new Set(errors.map(e => e.zoneId));
   const nameOf = id => o.zones.get(id)?.name || id;
