@@ -330,7 +330,10 @@ async function apiGetMap(id) {
       )
     ORDER BY name
   `);
-  return { status:200, body:{ map: mapRows[0], zones, children, unplaced, unplacedInterior } };
+  const { rows: buildingZoneRows } = await query(
+    `SELECT id FROM zones WHERE COALESCE((flags->>'is_building')::boolean, false) = true`
+  );
+  return { status:200, body:{ map: mapRows[0], zones, children, unplaced, unplacedInterior, buildingZoneIds: buildingZoneRows.map(z => z.id) } };
 }
 
 // Links an interior zone to an exterior zone: adds the exit, finds or creates

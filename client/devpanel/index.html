@@ -2814,9 +2814,7 @@ function buildDynamicMapGrid(zones, mode, powerById, clickable) {
           const totalSupply  = zoneSupply + jbSupply;
           const status = p ? p.status : 'unpowered';
           const isBrownout = totalRequest > 0 && totalSupply > 0 && totalRequest > totalSupply + 0.01;
-          const effectiveStatus = isBrownout ? 'overloaded'
-            : (totalRequest === 0 && status !== 'offline') ? 'unpowered'
-            : status;
+          const effectiveStatus = isBrownout ? 'overloaded' : status;
           cls = `bigmap-tile bm-power-${effectiveStatus}`;
           if (totalRequest > 0) {
             const supplyStr = totalSupply > 0 ? totalSupply.toFixed(0) : '0';
@@ -2881,7 +2879,7 @@ function mapLegendHtml(mode) {
        <span><span class="legend-swatch" style="background:rgba(20,200,100,0.4);border:1px solid rgba(20,220,110,0.75)"></span>Powered</span>
        <span><span class="legend-swatch" style="background:rgba(255,165,0,0.5);border:1px solid rgba(255,165,0,0.85)"></span>Overloaded</span>
        <span><span class="legend-swatch" style="background:rgba(220,40,60,0.4);border:1px solid rgba(230,50,70,0.85)"></span>Offline</span>
-       <span><span class="legend-swatch" style="background:rgba(30,30,50,0.65);border:1px solid rgba(200,200,220,0.7)"></span>Unpowered</span>`
+       <span><span class="legend-swatch" style="background:rgba(40,40,60,0.55);border:1px solid rgba(80,80,110,0.4)"></span>Unpowered</span>`
     : `<span><span class="legend-swatch" style="background:rgba(57,255,143,0.4)"></span>Safe</span>
        <span><span class="legend-swatch" style="background:rgba(245,230,66,0.4)"></span>Low</span>
        <span><span class="legend-swatch" style="background:rgba(255,154,60,0.4)"></span>Medium</span>
@@ -2986,7 +2984,7 @@ function renderBigMapOverlay() {
           cls = `bigmap-tile bm-power-plant${cpStatus ? ' bm-power-' + cpStatus : ''}`;
           powerSub = `<div style="font-size:9px;opacity:0.9;margin-top:2px">⚡ ${used.toFixed(0)}/${Number(cpGen.capacity_kw).toFixed(0)}W</div>`;
         } else {
-          const zStatus = (!p || ((p.loadKw ?? 0) === 0 && p.status !== 'offline')) ? 'unpowered' : p.status;
+          const zStatus = p ? p.status : 'unpowered';
           cls = `bigmap-tile bm-power-${zStatus}`;
           if (p) powerSub = `<div style="font-size:9px;opacity:0.8;margin-top:2px">${(p.loadKw??0).toFixed(1)}W load / ${(p.availableKw??0).toFixed(1)}W draw</div>`;
         }
@@ -3140,7 +3138,7 @@ async function loadMapOverview(mapId) {
   const unplaced = new Map((data.unplaced || []).map(z => [z.id, { ...z, exits: { ...(z.exits || {}) }, flags: z.flags || {} }]));
   const unplacedInterior = new Map((data.unplacedInterior || []).map(z => [z.id, { ...z, exits: { ...(z.exits || {}) }, flags: z.flags || {} }]));
   const keepZ = (mapOverview && mapOverview.map.id === mapId) ? mapOverview.z : 0;
-  mapOverview = { map: data.map, zones, unplaced, unplacedInterior, children: data.children || [], z: keepZ };
+  mapOverview = { map: data.map, zones, unplaced, unplacedInterior, children: data.children || [], buildingZoneIds: data.buildingZoneIds || [], z: keepZ };
   if (!data.map.parent_zone_id) {
     _exteriorBuildingZones = (data.zones || []).filter(z => z.flags?.is_building);
   }
@@ -3211,8 +3209,8 @@ function renderMapOverview() {
   const interiorZoneIds = new Set([
     ...o.unplacedInterior.keys(),
     ...o.children.map(c => c.entry_zone_id).filter(Boolean),
-    // For interior maps: the parent exterior zone is a valid exit target even though it lives on the world map.
-    o.map?.parent_zone_id,
+    ...(o.buildingZoneIds || []),
+    o.map?.parent_zone_id,  // interior maps: parent exterior zone is a valid cross-map exit target
   ].filter(Boolean));
   const { errors, oneWay } = validateMapOverview(o.zones, knownZoneIds, interiorZoneIds);
   const broken = new Set(errors.map(e => e.zoneId));
@@ -5506,7 +5504,13 @@ async function runMapGeometryValidation() {
   const knownZoneIds = new Set(zoneNames.keys());
   for (const { map, data } of allMapData) {
     const zonesMap = new Map((data.zones || []).map(z => [z.id, { ...z, exits: z.exits || {} }]));
-    const { errors, oneWay } = validateMapOverview(zonesMap, knownZoneIds);
+    const interiorZoneIds = new Set([
+      ...(data.unplacedInterior || []).map(z => z.id),
+      ...(data.children || []).map(c => c.entry_zone_id).filter(Boolean),
+      ...(data.buildingZoneIds || []),
+      data.map?.parent_zone_id,
+    ].filter(Boolean));
+    const { errors, oneWay } = validateMapOverview(zonesMap, knownZoneIds, interiorZoneIds);
     errors.forEach(e => {
       const cellOccupied = e.reason === 'geometry' && [...zonesMap.values()].some(z =>
         z.grid_x === e.expectedX && z.grid_y === e.expectedY && (z.grid_z ?? 0) === e.expectedZ);
