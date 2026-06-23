@@ -490,6 +490,25 @@ export async function migrate() {
   }
   console.log('✓ Starter clothing back-filled and equipped for existing players');
 
+  // Stamp bulkiness + allowed_layer_range onto every clothing/armor item.
+  // Also back-fills armor values on pieces that were missing them.
+  const layerPatches = [
+    ['item_basic_shirt',    '{"bulkiness":1,"allowed_layer_range":{"min":1,"max":2}}'],
+    ['item_basic_pants',    '{"bulkiness":1,"allowed_layer_range":{"min":1,"max":2}}'],
+    ['item_basic_shoes',    '{"bulkiness":1,"allowed_layer_range":{"min":1,"max":3}}'],
+    ['item_work_gloves',    '{"bulkiness":1,"allowed_layer_range":{"min":1,"max":3}}'],
+    ['item_cargo_pants',    '{"armor":1,"bulkiness":2,"allowed_layer_range":{"min":2,"max":4}}'],
+    ['item_steel_boots',    '{"armor":1,"bulkiness":3,"allowed_layer_range":{"min":2,"max":4}}'],
+    ['item_scrap_helmet',   '{"armor":2,"bulkiness":3,"allowed_layer_range":{"min":3,"max":5}}'],
+    ['item_scrap_armor',    '{"armor":3,"bulkiness":4,"allowed_layer_range":{"min":4,"max":5}}'],
+    ['item_insulated_gloves','{"bulkiness":3,"allowed_layer_range":{"min":3,"max":5}}'],
+    ['item_riot_vest',      '{"bulkiness":5,"allowed_layer_range":{"min":4,"max":5}}'],
+  ];
+  for (const [id, patch] of layerPatches) {
+    await query(`UPDATE items SET tags = tags || $2::jsonb WHERE id = $1`, [id, patch]);
+  }
+  console.log('✓ Clothing/armor layer data stamped');
+
   await seedAmbientEvents();
   await seedWeatherAmbients();
   console.log('✓ Ambient events seeded');

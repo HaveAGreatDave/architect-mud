@@ -58,7 +58,8 @@ export const hooks = {
   // and broadcast a HUD update. If it stops, clear the state and broadcast.
   'environment.tick30m': async ({ weatherType, tempC, setCurrentPrecip, getHUDPayload, broadcast }) => {
     const envState = getEnvironmentState();
-    const chance = PRECIP_CHANCE[weatherType] ?? 0.05;
+    const precipOverride = envState.forecast?.[0]?.precipChance;
+    const chance = precipOverride !== undefined ? precipOverride : (PRECIP_CHANCE[weatherType] ?? 0.05);
     const roll = Math.random();
     const isCurrentlyPrecipitating = envState.currentPrecip !== 'none';
 

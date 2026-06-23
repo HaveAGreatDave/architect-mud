@@ -1161,13 +1161,13 @@ export async function devRecalculateForecast({ monthly_temp_c, monthly_precip_ch
   return payload;
 }
 
-export async function devOverrideWeather({ weatherType, tempC }) {
+export async function devOverrideWeather({ weatherType, tempC, precipChance }) {
   const { query, broadcast } = deps;
   if (!WEATHER_TYPES.includes(weatherType)) throw new Error(`Unknown weather type: ${weatherType}`);
   state.weatherType = weatherType;
   if (tempC !== undefined) state.tempC = Number(tempC);
   await query(`UPDATE weather_forecast SET weather_type = $1, temp_c = $2 WHERE forecast_day = 0`, [weatherType, state.tempC]);
-  state.forecast[0] = { ...state.forecast[0], weatherType, tempC: state.tempC };
+  state.forecast[0] = { ...state.forecast[0], weatherType, tempC: state.tempC, ...(precipChance !== undefined ? { precipChance: Number(precipChance) } : {}) };
   if (broadcast) broadcast({ type: 'environment.weatherOverride', ...getHUDPayload() });
   return getHUDPayload();
 }
