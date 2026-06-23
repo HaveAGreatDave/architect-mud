@@ -21,10 +21,13 @@ function itemLayerRange(item) {
   return null;
 }
 
-function itemMatchesLayer(item, layer) {
+// Returns 'bright' | 'dim' | 'hidden'
+function itemLayerVisibility(item, layer) {
   const lr = itemLayerRange(item);
-  if (!lr) return true;
-  return layer >= lr.min && layer <= lr.max;
+  if (!lr) return 'bright';
+  if (layer === lr.max) return 'bright';
+  if (layer >= lr.min && layer < lr.max) return 'dim';
+  return 'hidden';
 }
 
 function updateLayerDisplay() {
@@ -52,8 +55,8 @@ export function renderEquipPanel(items) {
     if (item.is_equipped && item.slot) {
       const slotEl = document.querySelector(`.equip-slot[data-slot="${item.slot}"] .equip-slot-item`);
       if (slotEl) {
-        const inLayer = itemMatchesLayer(item, currentLayer);
-        slotEl.className = 'equip-slot-item filled' + (inLayer ? '' : ' off-layer');
+        const vis = itemLayerVisibility(item, currentLayer);
+        slotEl.className = 'equip-slot-item filled layer-' + vis;
         slotEl.textContent = item.name + (item.quantity > 1 ? ` x${item.quantity}` : '');
         slotEl.setAttribute('draggable', 'true');
         slotEl.setAttribute('data-id', item.id);
@@ -71,9 +74,10 @@ export function renderEquipPanel(items) {
   for (const item of unequipped) {
     const tags = item.tags || {};
     const equippable = !!tags.slot;
-    const inLayer = itemMatchesLayer(item, currentLayer);
+    const vis = itemLayerVisibility(item, currentLayer);
     const card = document.createElement('div');
-    card.className = 'equip-item-card' + (equippable ? ' equippable' : '') + (inLayer ? '' : ' off-layer');
+    card.className = 'equip-item-card' + (equippable ? ' equippable' : '') + ' layer-' + vis;
+    if (vis === 'hidden') card.setAttribute('aria-hidden', 'true');
     card.setAttribute('draggable', 'true');
     card.setAttribute('data-id', item.id);
     const qty = item.quantity > 1 ? ` x${item.quantity}` : '';

@@ -734,8 +734,12 @@
   #equip-layer-arrows button:hover { border-color: var(--accent); color: var(--accent); }
   #equip-layer-arrows button:disabled { opacity: 0.3; cursor: default; }
 
-  .equip-slot-item.off-layer { opacity: 0.35; }
-  .equip-item-card.off-layer { opacity: 0.35; }
+  .equip-slot-item.layer-bright,
+  .equip-item-card.layer-bright { opacity: 1; }
+  .equip-slot-item.layer-dim,
+  .equip-item-card.layer-dim { opacity: 0.35; }
+  .equip-slot-item.layer-hidden,
+  .equip-item-card.layer-hidden { display: none; }
 
   #equip-doll-col {
     flex-shrink: 0;
