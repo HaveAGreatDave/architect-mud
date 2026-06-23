@@ -208,7 +208,9 @@ async function apiEmailHint(username) {
   if (!username) return { status:200, body:{ email: '' } };
   const { rows } = await query('SELECT email FROM players WHERE username=$1', [username.toLowerCase().trim()]);
   if (!rows.length || !rows[0].email) return { status:200, body:{ email: '' } };
-  return { status:200, body:{ email: rows[0].email } };
+  const [local, domain] = rows[0].email.split('@');
+  const hint = local.length <= 4 ? '*'.repeat(local.length) : local.slice(0,2) + '*'.repeat(local.length - 4) + local.slice(-2);
+  return { status:200, body:{ email: `${hint}@${domain}` } };
 }
 
 async function apiForgotPassword(body) {
