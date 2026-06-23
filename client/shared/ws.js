@@ -5,6 +5,7 @@ export function connectWS(url, { onOpen, onClose, onColdStart, onMessage }) {
   let reconnectDelay = 1000;
   let coldStartTimer = null;
   let pingInterval = null;
+  let permanent = false;
 
   function connect() {
     ws = new WebSocket(url);
@@ -20,6 +21,7 @@ export function connectWS(url, { onOpen, onClose, onColdStart, onMessage }) {
     };
 
     ws.onclose = () => {
+      if (permanent) return;
       coldStartTimer = setTimeout(() => { coldStartTimer = null; onColdStart?.(true); }, 5000);
       reconnectDelay = Math.min(reconnectDelay * 1.5, 15000);
       setTimeout(connect, reconnectDelay);
@@ -37,6 +39,6 @@ export function connectWS(url, { onOpen, onClose, onColdStart, onMessage }) {
     send: (obj) => { if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj)); },
     isOpen: () => ws?.readyState === WebSocket.OPEN,
     isConnecting: () => ws?.readyState === WebSocket.CONNECTING,
-    close: () => ws?.close(),
+    close: () => { permanent = true; ws?.close(); },
   };
 }
