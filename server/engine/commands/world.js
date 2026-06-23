@@ -42,6 +42,7 @@ async function cmdSkills(player) {
 }
 
 const BODY_SLOTS = ['head','torso','hands','legs','feet'];
+function article(name) { return /^[aeiou]/i.test(name) ? 'an' : 'a'; }
 
 async function describePlayerAppearance(target, isSelf) {
   const { rows: equipped } = await query(
@@ -66,26 +67,22 @@ async function describePlayerAppearance(target, isSelf) {
   const handle = target.handle;
   const origin = target.origin_fragment || '';
   const mutated = target.visibly_mutated;
-  const pronoun = isSelf ? 'You are' : `${handle} is`;
-  const theyPossessive = isSelf ? 'your' : 'their';
 
-  const bodyPieces = BODY_SLOTS.filter(s => bySlot[s]).map(s => {
-    const labels = { head:'head', torso:'torso', hands:'hands', legs:'legs', feet:'feet' };
-    return `${bySlot[labels[s]].name} on ${theyPossessive} ${s}`;
-  });
+  const bodyPieces = BODY_SLOTS.filter(s => bySlot[s]).map(s =>
+    `${article(bySlot[s].name)} ${bySlot[s].name} on ${isSelf ? 'your' : 'their'} ${s}`
+  );
   const weapon = bySlot['weapon_hand'];
   const accessory = bySlot['accessory'];
 
-  let header = isSelf
-    ? `<span class="player-name">You</span>`
-    : `<span class="player-name">${handle}</span>`;
-
-  let msg = `${header}\n`;
-  if (origin && !isSelf) msg += `${origin}\n`;
-  if (mutated) msg += `<span class="mutation-tag">Something about ${isSelf ? 'you' : 'them'} isn't quite human anymore.</span>\n`;
+  let msg = '';
+  if (!isSelf) {
+    if (origin) msg += `${origin}\n`;
+    if (mutated) msg += `<span class="mutation-tag">Something about them isn't quite human anymore.</span>\n`;
+  } else {
+    if (mutated) msg += `<span class="mutation-tag">Something about you isn't quite human anymore.</span>\n`;
+  }
 
   if (!bodyPieces.length && !weapon && !accessory) {
-    // Naked
     const nakedLines = isSelf
       ? [
           `You have nothing on. Not a thread. You are, in the technical sense, naked.`,
@@ -98,28 +95,31 @@ async function describePlayerAppearance(target, isSelf) {
           `${handle} is completely undressed. They seem unbothered by it.`,
         ];
     msg += nakedLines[Math.floor(Math.random() * nakedLines.length)];
-    return msg;
+    return msg.trim();
   }
 
-  // Build the clothing sentence
-  const clothingParts = [];
-  if (bodyPieces.length) clothingParts.push(bodyPieces.join(', '));
+  const sentences = [];
+  let namedUsed = false;
 
-  if (clothingParts.length) {
-    const intro = isSelf ? 'You\'re wearing' : `${handle} is wearing`;
-    msg += `${intro} ${clothingParts.join('; ')}.`;
+  function nameOrThey(nameForm, theyForm) {
+    if (isSelf) return nameForm;
+    if (!namedUsed) { namedUsed = true; return `${handle} ${nameForm}`; }
+    return theyForm;
+  }
+
+  if (bodyPieces.length) {
+    sentences.push(`${nameOrThey('are wearing', 'They are wearing')} ${bodyPieces.join(', ')}.`);
   }
 
   if (weapon) {
-    const holdLine = isSelf ? `You're carrying ${weapon.name}.` : `${handle} is carrying ${weapon.name}.`;
-    msg += ` ${holdLine}`;
+    sentences.push(`${nameOrThey('are carrying', 'They are carrying')} ${article(weapon.name)} ${weapon.name}.`);
   }
 
   if (accessory) {
-    const accLine = isSelf ? `You have ${accessory.name} on you.` : `${handle} has ${accessory.name} on them.`;
-    msg += ` ${accLine}`;
+    sentences.push(`${nameOrThey('have', 'They have')} ${article(accessory.name)} ${accessory.name} ${isSelf ? 'on you' : 'on them'}.`);
   }
 
+  msg += sentences.join(' ');
   return msg.trim();
 }
 
