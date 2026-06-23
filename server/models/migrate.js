@@ -389,6 +389,10 @@ export async function migrate() {
   `);
   await query(`UPDATE players SET hp_max = 40, hp = LEAST(hp, 40) WHERE hp_max = 100`);
   await query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS offline_sleeping BOOLEAN DEFAULT FALSE`);
+  await query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS bank_credits INTEGER DEFAULT 0`);
+  await query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS origin_fragment TEXT`);
+  await query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS archetype TEXT`);
+  await query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS visibly_mutated INTEGER DEFAULT 0`);
   await query(`
     CREATE TABLE IF NOT EXISTS combat_config (
       key TEXT PRIMARY KEY,
