@@ -31,14 +31,19 @@ let envTempC = null;
 
 function renderEnvironmentHUD() {
   if (clientMinutes === null) return;
-  const weatherEl = document.getElementById('env-weather-icon');
-  const clockEl   = document.getElementById('env-clock');
-  const timeIconEl = document.getElementById('env-time-icon');
-  const tempEl    = document.getElementById('env-temp');
-  if (weatherEl) weatherEl.textContent = envWeatherIcon;
-  if (clockEl)   clockEl.textContent   = formatHHMM(clientMinutes);
-  if (timeIconEl) timeIconEl.textContent = timeIconForMinutes(clientMinutes);
-  if (tempEl)    tempEl.textContent    = envTempC !== null ? `${envTempC}°C` : '—°C';
+  const timeStr = formatHHMM(clientMinutes);
+  const timeIcon = timeIconForMinutes(clientMinutes);
+  const tempStr = envTempC !== null ? `${envTempC}°C` : '—°C';
+  for (const suffix of ['', '-m']) {
+    const w = document.getElementById(`env-weather-icon${suffix}`);
+    const c = document.getElementById(`env-clock${suffix}`);
+    const t = document.getElementById(`env-time-icon${suffix}`);
+    const p = document.getElementById(`env-temp${suffix}`);
+    if (w) w.textContent = envWeatherIcon;
+    if (c) c.textContent = timeStr;
+    if (t) t.textContent = timeIcon;
+    if (p) p.textContent = tempStr;
+  }
 }
 
 let _lastServerTick = 0;

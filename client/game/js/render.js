@@ -35,13 +35,13 @@ export function updateVitals(p) {
 
 function setBar(id, val, max, inverse = false) {
   const pct = Math.max(0, Math.min(100, (val / max) * 100));
-  const bar = document.getElementById(`${id}-bar`);
-  const valEl = document.getElementById(`${id}-val`);
-  if (bar) {
-    bar.style.width = pct + '%';
-    bar.classList.toggle('low', inverse ? pct > 60 : pct < 25);
+  const low = inverse ? pct > 60 : pct < 25;
+  for (const suffix of ['', '-m']) {
+    const bar = document.getElementById(`${id}-bar${suffix}`);
+    const valEl = document.getElementById(`${id}-val${suffix}`);
+    if (bar) { bar.style.width = pct + '%'; bar.classList.toggle('low', low); }
+    if (valEl) valEl.textContent = Math.round(val);
   }
-  if (valEl) valEl.textContent = Math.round(val);
 }
 
 export function parseZoneInfo(html) {

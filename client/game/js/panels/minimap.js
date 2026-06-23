@@ -64,6 +64,8 @@ export function renderMinimap(nodes) {
     html += '<br>';
   }
   grid.innerHTML = html;
+  const mob = document.getElementById('minimap-grid-mob');
+  if (mob) mob.innerHTML = html;
 }
 
 export function openMapPopup(tiles) {

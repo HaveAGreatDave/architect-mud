@@ -6,7 +6,7 @@ import { initInput } from './input.js';
 import { initEquipPanel } from './panels/equipment.js';
 import { initDialogue } from './panels/dialogue.js';
 import { initForecast } from './panels/forecast.js';
-import { initWhisperPanel, debugFakeWhisper } from './panels/whisper.js';
+import { initWhisperPanel, debugFakeWhisper, toggleWhisperPanel } from './panels/whisper.js';
 import { initWho, openWhoModal } from './panels/who.js';
 
 // Settings
@@ -66,6 +66,22 @@ document.querySelector('.qcmd[data-open-equip]')?.addEventListener('click', () =
   import('./panels/equipment.js').then(m => m.openEquipPanel());
 });
 document.getElementById('debug-whisper-btn')?.addEventListener('click', debugFakeWhisper);
+
+// Mobile minimap tab
+const mobileMapTab = document.getElementById('mobile-map-tab');
+const mobileMapPanel = document.getElementById('mobile-minimap-panel');
+const mobileMapClose = document.getElementById('mobile-map-close');
+mobileMapTab?.addEventListener('click', () => {
+  mobileMapPanel.classList.add('open');
+  mobileMapPanel.setAttribute('aria-hidden', 'false');
+});
+mobileMapClose?.addEventListener('click', () => {
+  mobileMapPanel.classList.remove('open');
+  mobileMapPanel.setAttribute('aria-hidden', 'true');
+});
+
+// Mobile chat button
+document.getElementById('mobile-chat-btn')?.addEventListener('click', toggleWhisperPanel);
 
 // Output: click .action-link nodes to auto-run command
 document.getElementById('output').addEventListener('click', (e) => {

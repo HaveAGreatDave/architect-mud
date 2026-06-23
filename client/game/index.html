@@ -105,6 +105,39 @@
 			</button>
 		</div>
 
+		<!-- MOBILE HUD STRIP (compact mode only) -->
+		<div id="mobile-hud">
+			<div id="mobile-vitals">
+				<div class="mob-vital vital-hp" title="HP">
+					<span class="mob-vital-lbl">HP</span>
+					<div class="mob-vital-bar-bg"><div class="vital-bar" id="hp-bar-m" style="width:100%"></div></div>
+					<span class="mob-vital-val" id="hp-val-m">—</span>
+				</div>
+				<div class="mob-vital vital-sanity" title="Sanity">
+					<span class="mob-vital-lbl">SAN</span>
+					<div class="mob-vital-bar-bg"><div class="vital-bar" id="san-bar-m" style="width:100%"></div></div>
+					<span class="mob-vital-val" id="san-val-m">—</span>
+				</div>
+				<div class="mob-vital vital-hunger" title="Hunger">
+					<span class="mob-vital-lbl">HUN</span>
+					<div class="mob-vital-bar-bg"><div class="vital-bar" id="hun-bar-m" style="width:100%"></div></div>
+					<span class="mob-vital-val" id="hun-val-m">—</span>
+				</div>
+				<div class="mob-vital vital-thirst" title="Thirst">
+					<span class="mob-vital-lbl">THI</span>
+					<div class="mob-vital-bar-bg"><div class="vital-bar" id="thi-bar-m" style="width:100%"></div></div>
+					<span class="mob-vital-val" id="thi-val-m">—</span>
+				</div>
+			</div>
+			<div id="mobile-env" title="View 7-day forecast">
+				<span class="env-icon" id="env-weather-icon-m">—</span>
+				<span class="env-clock" id="env-clock-m">—:—</span>
+				<span class="env-icon" id="env-time-icon-m"></span>
+				<span class="env-temp" id="env-temp-m">—°C</span>
+			</div>
+			<button id="mobile-chat-btn" title="Toggle chat">💬<span id="mobile-chat-badge" style="display:none"> !</span></button>
+		</div>
+
 		<div id="main">
 			<div id="output-container">
 				<div id="output"></div>
@@ -644,6 +677,16 @@
 					[ Close ]
 				</button>
 			</div>
+		</div>
+
+		<!-- MOBILE MINIMAP SLIDE-OUT (compact mode only) -->
+		<button id="mobile-map-tab" aria-label="Toggle minimap">⊞</button>
+		<div id="mobile-minimap-panel" aria-hidden="true">
+			<div id="mobile-minimap-inner">
+				<div class="sidebar-label" style="margin-bottom:6px">Map</div>
+				<div id="minimap-grid-mob">—</div>
+			</div>
+			<button id="mobile-map-close" aria-label="Close map">✕</button>
 		</div>
 
 		<script type="module" src="js/main.js"></script>

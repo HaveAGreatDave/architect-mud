@@ -36,6 +36,7 @@ export function initForecast() {
     if (e.target.id === 'forecast-panel') closeForecast();
   });
   document.getElementById('env-hud-sidebar').addEventListener('click', openForecast);
+  document.getElementById('mobile-env')?.addEventListener('click', openForecast);
   // Wire static close button inside forecast-panel
   document.querySelectorAll('#forecast-panel .dialogue-opt').forEach(btn => {
     if (btn.textContent.trim().includes('Close')) btn.addEventListener('click', closeForecast);
