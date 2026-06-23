@@ -67,18 +67,70 @@ document.querySelector('.qcmd[data-open-equip]')?.addEventListener('click', () =
 });
 document.getElementById('debug-whisper-btn')?.addEventListener('click', debugFakeWhisper);
 
-// Mobile minimap tab
+// Mobile minimap tab + drag
 const mobileMapTab = document.getElementById('mobile-map-tab');
 const mobileMapPanel = document.getElementById('mobile-minimap-panel');
 const mobileMapClose = document.getElementById('mobile-map-close');
-mobileMapTab?.addEventListener('click', () => {
+
+function openMobileMap() {
+  // Position near right edge on first open
+  if (!mobileMapPanel.style.left) {
+    const r = mobileMapPanel.getBoundingClientRect();
+    mobileMapPanel.style.left = (window.innerWidth - r.width - 2) + 'px';
+    mobileMapPanel.style.top = Math.round((window.innerHeight - r.height) / 2) + 'px';
+  }
   mobileMapPanel.classList.add('open');
   mobileMapPanel.setAttribute('aria-hidden', 'false');
-});
+  // Recompute position after open since size is now known
+  requestAnimationFrame(() => {
+    if (!mobileMapPanel._placed) {
+      mobileMapPanel._placed = true;
+      const r = mobileMapPanel.getBoundingClientRect();
+      mobileMapPanel.style.left = (window.innerWidth - r.width - 2) + 'px';
+      mobileMapPanel.style.top = Math.round((window.innerHeight - r.height) / 2) + 'px';
+    }
+  });
+}
+
+mobileMapTab?.addEventListener('click', openMobileMap);
 mobileMapClose?.addEventListener('click', () => {
   mobileMapPanel.classList.remove('open');
   mobileMapPanel.setAttribute('aria-hidden', 'true');
 });
+
+// Drag to move
+if (mobileMapPanel) {
+  let dragging = false, startX = 0, startY = 0, origLeft = 0, origTop = 0;
+
+  mobileMapPanel.addEventListener('pointerdown', (e) => {
+    if (e.target === mobileMapClose) return;
+    dragging = true;
+    startX = e.clientX;
+    startY = e.clientY;
+    const r = mobileMapPanel.getBoundingClientRect();
+    origLeft = r.left;
+    origTop = r.top;
+    mobileMapPanel.setPointerCapture(e.pointerId);
+    mobileMapPanel.style.cursor = 'grabbing';
+    e.preventDefault();
+  });
+
+  mobileMapPanel.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    const r = mobileMapPanel.getBoundingClientRect();
+    const newLeft = Math.max(0, Math.min(window.innerWidth - r.width, origLeft + dx));
+    const newTop = Math.max(0, Math.min(window.innerHeight - r.height, origTop + dy));
+    mobileMapPanel.style.left = newLeft + 'px';
+    mobileMapPanel.style.top = newTop + 'px';
+  });
+
+  mobileMapPanel.addEventListener('pointerup', () => {
+    dragging = false;
+    mobileMapPanel.style.cursor = '';
+  });
+}
 
 // Mobile chat button
 document.getElementById('mobile-chat-btn')?.addEventListener('click', toggleWhisperPanel);
