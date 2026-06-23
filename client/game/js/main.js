@@ -11,7 +11,8 @@ import { initWho, openWhoModal } from './panels/who.js';
 
 // Settings
 const settings = loadSettings();
-if (!localStorage.getItem(SETTINGS_KEY) && window.innerWidth < 720) {
+const _isMobile = /Android|iPhone|iPad|iPod|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 720;
+if (!localStorage.getItem(SETTINGS_KEY) && _isMobile) {
   settings.density = 'compact';
   settings.fontSize = '16';
 }
@@ -97,6 +98,7 @@ if (mobileMapPanel) {
 
   mobileMapPanel.addEventListener('pointerdown', (e) => {
     if (e.target === mobileMapClose) return;
+    e.preventDefault();
     const r = mobileMapPanel.getBoundingClientRect();
     dragOffsetX = e.clientX - r.left;
     dragOffsetY = e.clientY - r.top;

@@ -244,22 +244,22 @@ export function initWhisperPanel() {
 
   const dragHandle = document.getElementById('whisper-drag-handle');
   const panel = document.getElementById('whisper-panel');
-  let dragging = false, ox = 0, oy = 0;
-  dragHandle.addEventListener('mousedown', e => {
+  let ox = 0, oy = 0;
+  dragHandle.addEventListener('pointerdown', e => {
     if (e.target.tagName === 'BUTTON') return;
-    dragging = true;
     const r = panel.getBoundingClientRect();
     ox = e.clientX - r.left;
     oy = e.clientY - r.top;
+    dragHandle.setPointerCapture(e.pointerId);
     dragHandle.style.cursor = 'grabbing';
     e.preventDefault();
   });
-  document.addEventListener('mousemove', e => {
-    if (!dragging) return;
-    let x = Math.max(0, Math.min(window.innerWidth  - panel.offsetWidth,  e.clientX - ox));
-    let y = Math.max(0, Math.min(window.innerHeight - panel.offsetHeight, e.clientY - oy));
+  dragHandle.addEventListener('pointermove', e => {
+    if (!dragHandle.hasPointerCapture(e.pointerId)) return;
+    const x = Math.max(0, Math.min(window.innerWidth  - panel.offsetWidth,  e.clientX - ox));
+    const y = Math.max(0, Math.min(window.innerHeight - panel.offsetHeight, e.clientY - oy));
     panel.style.left = x + 'px'; panel.style.top = y + 'px';
     panel.style.right = 'auto'; panel.style.bottom = 'auto';
   });
-  document.addEventListener('mouseup', () => { dragging = false; dragHandle.style.cursor = 'grab'; });
+  dragHandle.addEventListener('pointerup', () => { dragHandle.style.cursor = 'grab'; });
 }

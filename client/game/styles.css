@@ -156,6 +156,56 @@
     #auth-title { font-size: 7px; letter-spacing: 0; }
   }
 
+  /* Auth screen — compact/mobile overrides */
+  [data-density="compact"] #auth-screen {
+    align-items: flex-start;
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  [data-density="compact"] #auth-box {
+    width: 100vw;
+    max-width: 100vw;
+    min-height: 100dvh;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 24px 20px 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  [data-density="compact"] #auth-ascii {
+    font-size: 8px;
+    margin-bottom: 10px;
+  }
+
+  [data-density="compact"] #auth-title {
+    font-size: 6px;
+    letter-spacing: 0;
+    margin-bottom: 4px;
+  }
+
+  [data-density="compact"] #auth-box .tagline {
+    font-size: 12px;
+    margin-bottom: 28px;
+  }
+
+  [data-density="compact"] .auth-field {
+    margin-bottom: 18px;
+  }
+
+  [data-density="compact"] .auth-field input {
+    font-size: 16px; /* prevents iOS zoom on focus */
+    padding: 12px 12px;
+  }
+
+  [data-density="compact"] .auth-btn {
+    font-size: 15px;
+    padding: 14px;
+    margin-top: 4px;
+  }
+
   /* ─── OUTPUT PANE ─── */
   #output-container {
     display: flex;
@@ -1036,6 +1086,7 @@
     border-radius: 4px;
     z-index: 95;
     cursor: grab;
+    touch-action: none;
     flex-direction: column;
     align-items: center;
     padding: 6px 8px 8px;
