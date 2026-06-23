@@ -4,6 +4,7 @@ const HAIR_COLORS  = ['black','dark brown','brown','auburn','dirty blonde','blon
 const HAIR_LENGTHS = ['shaved','short','medium','long','very_long'];
 const HAIR_STYLES  = ['short','long','mohawk','shaved','dreadlocks','braided','messy','slicked-back','curly','wavy'];
 const EYE_COLORS   = ['brown','dark brown','blue','light blue','green','hazel','grey','amber'];
+const BREAST_SIZES = ['flat','small','medium','large','very large'];  
 
 function heightDesc(cm) {
   if (cm < 158) return 'short';
@@ -41,6 +42,17 @@ let _currentData = null;
 
 export function openMorphexPanel(data) {
   _currentData = data;
+
+
+  if (isMis) {
+    if (sex === 'male') {
+      mods += _sectionHeader('Biological — 5₵/cm');
+      mods += _modRow('Penis (cm)', _numInput('mx-penis', app.penis_length_cm || 13, 5, 30));
+    } else {
+      mods += _sectionHeader('Biological — 5₵/tier');
+      mods += _modRow('Breast Size', _sel('mx-breast', BREAST_SIZES, app.breast_size || 'medium'));
+    }
+  }
   if (!_modal) {
     _modal = document.createElement('div');
     _modal.id = 'morphex-modal';
