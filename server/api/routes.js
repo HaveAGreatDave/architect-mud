@@ -205,15 +205,10 @@ async function apiLogin(body) {
 }
 
 async function apiEmailHint(username) {
-  if (!username) return { status:400, body:{ hint: '' } };
+  if (!username) return { status:200, body:{ email: '' } };
   const { rows } = await query('SELECT email FROM players WHERE username=$1', [username.toLowerCase().trim()]);
-  if (!rows.length || !rows[0].email) return { status:200, body:{ hint: '' } };
-  const email = rows[0].email;
-  const [local, domain] = email.split('@');
-  const hint = local.length <= 2
-    ? `${local[0]}***@${domain}`
-    : `${local[0]}${'*'.repeat(local.length - 2)}${local[local.length - 1]}@${domain}`;
-  return { status:200, body:{ hint } };
+  if (!rows.length || !rows[0].email) return { status:200, body:{ email: '' } };
+  return { status:200, body:{ email: rows[0].email } };
 }
 
 async function apiForgotPassword(body) {

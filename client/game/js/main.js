@@ -85,26 +85,19 @@ _forgotHandle.addEventListener('pointermove', e => {
 _forgotHandle.addEventListener('pointerup', e => { _forgotHandle.style.cursor = 'grab'; });
 
 function openForgotWindow() {
-  const hintLine = document.getElementById('forgot-hint-line');
   document.getElementById('forgot-message').textContent = '';
   document.getElementById('forgot-email').value = '';
-  hintLine.style.display = 'none';
   _forgotWindow.style.display = '';
-  // Reset position to center
   _forgotWindow.style.transform = 'translateX(-50%)';
   _forgotWindow.style.left = '50%';
   _forgotWindow.style.top = '20%';
-  // Try to pre-fill email from username
   const username = document.getElementById('auth-username').value.trim();
+  document.getElementById('forgot-username').value = username;
   if (username) {
     fetch(`/api/auth/email-hint?username=${encodeURIComponent(username)}`)
       .then(r => r.json())
-      .then(data => {
-        if (data.hint) {
-          hintLine.textContent = `Registered email on file: ${data.hint}`;
-          hintLine.style.display = '';
-        }
-      }).catch(() => {});
+      .then(data => { document.getElementById('forgot-email').value = data.email || ''; })
+      .catch(() => {});
   }
 }
 

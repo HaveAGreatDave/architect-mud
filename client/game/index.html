@@ -92,7 +92,10 @@
 				<button id="forgot-close-btn" style="background:transparent;border:1px solid var(--border);color:var(--text-dim);width:22px;height:22px;cursor:pointer;font-size:11px;line-height:1;font-family:var(--font)">✕</button>
 			</div>
 			<div style="padding:16px;display:flex;flex-direction:column;gap:12px">
-				<div id="forgot-hint-line" style="font-size:11px;color:var(--text-dim);display:none"></div>
+				<div class="auth-field" style="margin:0">
+					<label>Username</label>
+					<input type="text" id="forgot-username" readonly style="width:100%;box-sizing:border-box;opacity:0.6;cursor:default" />
+				</div>
 				<div class="auth-field" style="margin:0">
 					<label>Email address</label>
 					<input type="email" id="forgot-email" placeholder="your@email.com" autocomplete="email" style="width:100%;box-sizing:border-box" />
