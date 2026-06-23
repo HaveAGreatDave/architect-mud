@@ -982,7 +982,9 @@ async function zoneEditForm(rec, isNew) {
       isExterior ? API(`/environment/power/zones/${encodeURIComponent(rec.id)}`).catch(() => null) : Promise.resolve(null),
     ]);
     const zoneNpcs = (Array.isArray(npcsData) ? npcsData : []).filter(n => n.zone_id === rec.id);
-    const zoneFurniture = (Array.isArray(furnitureData) ? furnitureData : []).filter(f => f.zone_id === rec.id);
+    const allFurniture = Array.isArray(furnitureData) ? furnitureData : [];
+    if (allFurniture.length) _furnitureAllItems = allFurniture; // populate cache for clone dropdown
+    const zoneFurniture = allFurniture.filter(f => f.zone_id === rec.id);
     const allGens = Array.isArray(generatorsData) ? generatorsData : [];
     const zoneGenerator = allGens.find(g => g.zone_id === rec.id) || null;
     // For building entrance zones, find any JB installed in the interior network
@@ -2268,6 +2270,8 @@ function renderFurniturePanel(data) {
   const panel = document.getElementById('list-panel');
 
   const byZone = new Map();
+  // Seed every zone so empty rooms appear
+  for (const z of zones) byZone.set(z.id, []);
   for (const f of furniture) {
     const key = f.zone_id || '__unplaced__';
     if (!byZone.has(key)) byZone.set(key, []);
