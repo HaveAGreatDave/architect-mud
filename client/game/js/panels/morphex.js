@@ -51,7 +51,8 @@ export function openMorphexPanel(data) {
   if (isMis) {
     if (sex === 'male') {
       mods += _sectionHeader('Biological — 5₵/cm');
-      mods += _modRow('Penis (cm)', _numInput('mx-penis', app.penis_length_cm || 13, 5, 30));
+      mods += _modRow('Length (cm)', _numInput('mx-penis', app.penis_length_cm || 13, 7, 21));
+      mods += _modRow('Girth (cm)',  _numInput('mx-girth', app.penis_girth_cm || 12, 6, 18, 0.5));
     } else {
       mods += _sectionHeader('Biological — 5₵/tier');
       mods += _modRow('Breast Size', _sel('mx-breast', BREAST_SIZES, app.breast_size || 'medium'));
@@ -132,7 +133,7 @@ function _render(d) {
   if (isMis) {
     if (sex === 'male') {
       sheet += _sectionHeader('Biological');
-      sheet += _statRow('Penis',     `${app.penis_length_cm || 13}cm, ${app.penis_girth_cm || 1.3}cm girth`);
+      sheet += _statRow('Penis',     `${app.penis_length_cm || 13}cm, ${app.penis_girth_cm || 12}cm girth`);
       sheet += _statRow('Testicles', app.testicle_size || 'average');
       sheet += _statRow('State',     d.erect ? 'erect' : 'flaccid', true);
     } else {
@@ -253,6 +254,8 @@ function _render(d) {
       if (d.biological_sex === 'male') {
         const newPenis = parseInt(document.getElementById('mx-penis')?.value);
         if (!isNaN(newPenis) && newPenis !== (app.penis_length_cm || 13)) cmds.push(`morphex penis ${newPenis}`);
+        const newGirth = parseFloat(document.getElementById('mx-girth')?.value);
+        if (!isNaN(newGirth) && newGirth !== (app.penis_girth_cm || 12)) cmds.push(`morphex girth ${newGirth}`);
       } else {
         const newBreast = document.getElementById('mx-breast')?.value;
         if (newBreast && newBreast !== (app.breast_size || 'medium')) cmds.push(`morphex breast ${newBreast}`);

@@ -48,11 +48,19 @@ export function randomAppearance(sex) {
   const bmi = randInRange(18, 28);
   const weight_kg = Math.round(bmi * Math.pow(height_cm / 100, 2));
 
-  // Genital appearance — sizes stored internally, never shown unless MIS active
+  // Genital appearance — sizes stored internally, never shown unless MIS active.
+  // Length: Gaussian around 13cm (10–16 typical), ~10% chance of outlier (7–9 or 17–21).
+  // Girth: circumference in cm, Gaussian around 12cm (10–14 typical).
+  function genLength() {
+    const roll = Math.random();
+    if (roll < 0.07) return randInRange(7, 9);   // small outlier
+    if (roll < 0.14) return randInRange(17, 21);  // large outlier
+    return randInRange(10, 16);                    // typical majority
+  }
   const appearance_data = isMale
     ? {
-        penis_length_cm: randInRange(9, 18),
-        penis_girth_cm: Math.round((randInRange(10, 16)) / 10 * 10) / 10,
+        penis_length_cm: genLength(),
+        penis_girth_cm: Math.round(randInRange(10, 14) * 10) / 10,
         testicle_size: pick(['average', 'average', 'large', 'small']),
         ejaculate_state: null,
       }

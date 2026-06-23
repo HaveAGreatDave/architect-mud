@@ -197,6 +197,23 @@ async function cmdMorphex(args, raw, player) {
     return buildPanelData(player, `Adjusted. (-${totalCost}₵)`);
   }
 
+  // girth — MIS only
+  if (sub === 'girth') {
+    if (!isMisActive(player)) return buildPanelData(player, `That option isn't available.`);
+    if (player.biological_sex !== 'male') return buildPanelData(player, 'Not applicable.');
+    const targetCm = parseFloat(rest[0]);
+    if (isNaN(targetCm) || targetCm < 6 || targetCm > 18) return buildPanelData(player, 'Enter a target girth in cm (6–18).');
+    const appData = player.appearance_data || {};
+    const delta = Math.abs(targetCm - (appData.penis_girth_cm || 12));
+    const totalCost = Math.max(5, Math.round(delta) * 5);
+    if ((player.credits || 0) < totalCost) return buildPanelData(player, `Costs 5₵/cm — ${totalCost}₵ total. You have ${player.credits || 0}₵.`);
+    appData.penis_girth_cm = Math.round(targetCm * 10) / 10;
+    player.appearance_data = appData;
+    player.credits = (player.credits || 0) - totalCost;
+    await query('UPDATE players SET appearance_data=$1, credits=$2 WHERE id=$3', [JSON.stringify(appData), player.credits, player.id]);
+    return buildPanelData(player, `Adjusted. (-${totalCost}₵)`);
+  }
+
   // breast — MIS only
   if (sub === 'breast') {
     if (!isMisActive(player)) return buildPanelData(player, `That option isn't available.`);

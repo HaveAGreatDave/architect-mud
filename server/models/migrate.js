@@ -554,6 +554,28 @@ export async function migrate() {
   `);
   await query(`INSERT INTO server_settings (key, value) VALUES ('mis_enabled', 'true') ON CONFLICT DO NOTHING`);
 
+  // Normalise genital appearance_data to realistic ranges.
+  // Old length range was 9–18 uniform; old girth was stored as ~1.0–1.6 (broken unit).
+  // New: length 7–21cm, girth 6–18cm (circumference). Cap outliers and fix broken girth values.
+  await query(`
+    UPDATE players
+    SET appearance_data = jsonb_strip_nulls(appearance_data || jsonb_build_object(
+      'penis_length_cm', CASE
+        WHEN (appearance_data->>'penis_length_cm')::numeric > 21 THEN 16
+        WHEN (appearance_data->>'penis_length_cm')::numeric < 7  THEN 10
+        ELSE (appearance_data->>'penis_length_cm')::numeric
+      END,
+      'penis_girth_cm', CASE
+        WHEN (appearance_data->>'penis_girth_cm')::numeric < 6 THEN 12
+        WHEN (appearance_data->>'penis_girth_cm')::numeric > 18 THEN 13
+        ELSE (appearance_data->>'penis_girth_cm')::numeric
+      END
+    ))
+    WHERE biological_sex = 'male'
+      AND appearance_data IS NOT NULL
+      AND appearance_data != '{}'
+  `);
+
   // Back-fill appearance for existing players who have no biological_sex set
   await query(`UPDATE players SET biological_sex='male' WHERE biological_sex IS NULL OR biological_sex=''`);
   await query(`
