@@ -279,8 +279,8 @@
   /* ─── ENVIRONMENT HUD ─── */
   #env-hud-sidebar {
     display: flex;
-    align-items: center;
-    gap: 8px;
+    flex-direction: column;
+    gap: 2px;
     font-size: 13px;
     color: var(--text);
     cursor: pointer;
@@ -288,6 +288,12 @@
     border-radius: 2px;
     transition: background 0.15s;
   }
+  #env-hud-sidebar .env-hud-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  #env-hud-sidebar .env-hud-weather { font-size: 11px; }
   #env-hud-sidebar:hover { background: var(--bg3); }
   #env-hud-sidebar .env-icon { font-size: 15px; }
   #env-hud-sidebar .env-clock { color: var(--text-bright); font-weight: bold; letter-spacing: 0.5px; }
