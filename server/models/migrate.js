@@ -1091,6 +1091,65 @@ async function seedAmbientEvents() {
   `);
   await query(`CREATE INDEX IF NOT EXISTS idx_prt_token ON password_reset_tokens(token)`);
   console.log('✓ Password reset tables migrated');
+
+  // Fix: zone_start (cloning facility) was accidentally linked as an interior
+  // to the Embassy's exterior zone, placing it on the Embassy interior map at
+  // (0,0,0) — the same cell as zone_residential_lobby. This removes zone_start
+  // from the interior map, restores lobby as the map's entry zone, and removes
+  // any exterior exit that was pointing to zone_start instead of the lobby.
+  await query(`
+    DO $$
+    DECLARE
+      rec RECORD;
+      ext_zone_id TEXT;
+      dir_key TEXT;
+    BEGIN
+      SELECT z.map_id, z.flags->>'world_exit_zone' AS ext_id
+      INTO rec
+      FROM zones z
+      JOIN maps m ON m.id = z.map_id
+      WHERE z.id = 'zone_start'
+        AND z.map_id IS NOT NULL
+        AND m.parent_zone_id IS NOT NULL;
+
+      IF rec IS NULL THEN
+        RAISE NOTICE 'zone_start fix: zone_start is not on an interior map, nothing to do';
+        RETURN;
+      END IF;
+
+      ext_zone_id := rec.ext_id;
+
+      -- Detach zone_start from the interior map
+      UPDATE zones SET
+        map_id  = NULL,
+        grid_x  = NULL,
+        grid_y  = NULL,
+        grid_z  = NULL,
+        flags   = (COALESCE(flags, '{}'::jsonb)) - 'is_interior' - 'world_exit_zone'
+      WHERE id = 'zone_start';
+
+      -- Remove the out/return exit from zone_start back to the exterior
+      UPDATE zones SET exits = exits - 'out'
+      WHERE id = 'zone_start' AND (exits ? 'out');
+
+      -- Restore the interior map's entry_zone_id to the lobby
+      UPDATE maps SET entry_zone_id = 'zone_residential_lobby'
+      WHERE id = rec.map_id AND entry_zone_id = 'zone_start';
+
+      -- Remove the exterior zone's exit that was pointing to zone_start
+      IF ext_zone_id IS NOT NULL THEN
+        UPDATE zones SET exits = (
+          SELECT COALESCE(jsonb_object_agg(k, v), '{}'::jsonb)
+          FROM jsonb_each_text(exits) t(k, v)
+          WHERE v != 'zone_start'
+        )
+        WHERE id = ext_zone_id AND exits::text LIKE '%zone_start%';
+      END IF;
+
+      RAISE NOTICE 'zone_start fix: detached from map %, exterior zone %', rec.map_id, ext_zone_id;
+    END $$;
+  `).catch(e => console.warn('zone_start interior fix skipped:', e.message));
+  console.log('✓ zone_start interior link fix applied');
 }
 
 // Only auto-run when invoked directly (npm run db:migrate), not when imported.
