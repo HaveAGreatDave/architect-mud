@@ -191,30 +191,71 @@ async function cmdMove(direction, player, broadcast) {
   return { type:'move', message:await describeZone(targetZone, player), zone:targetId, radiation_gain:radGain, minimap: getMinimapData(targetId) };
 }
 
+const MAP_DIR_OFFSET = { north:[0,-1], south:[0,1], east:[1,0], west:[-1,0] };
+
 async function cmdMap(player) {
   const { getAllZones } = await import('../world.js');
   const current = getZone(player.current_zone);
-  if (!current || !current.map_id || current.grid_x == null || current.grid_y == null) {
-    return { type:'map', tiles: [] };
+  if (!current) return { type:'map', tiles: [] };
+
+  // Placed zone: show all rooms on the same map/floor using grid coords.
+  if (current.map_id && current.grid_x != null && current.grid_y != null) {
+    const currentZ = current.grid_z ?? 0;
+    const onMap = getAllZones().filter(z =>
+      z.map_id === current.map_id &&
+      (z.grid_z ?? 0) === currentZ &&
+      z.grid_x != null && z.grid_y != null);
+    const placed = new Set(onMap.map(z => z.id));
+    const tiles = onMap.map(z => {
+      const links = {};
+      for (const [dir, target] of Object.entries(z.exits || {})) {
+        if (placed.has(target)) links[dir] = target;
+      }
+      return {
+        id: z.id, x: z.grid_x, y: z.grid_y, name: z.name,
+        danger: z.danger_rating || null, marker: z.marker || null,
+        color: z.color || null, bg_color: z.bg_color || null,
+        exits: links, isCurrent: z.id === player.current_zone,
+      };
+    });
+    return { type:'map', tiles };
   }
-  const currentZ = current.grid_z ?? 0;
-  const onMap = getAllZones().filter(z =>
-    z.map_id === current.map_id &&
-    (z.grid_z ?? 0) === currentZ &&
-    z.grid_x != null && z.grid_y != null);
-  const placed = new Set(onMap.map(z => z.id));
-  const tiles = onMap.map(z => {
-    const links = {};
-    for (const [dir, target] of Object.entries(z.exits || {})) {
-      if (placed.has(target)) links[dir] = target;
+
+  // Unplaced zone: BFS outward up to 8 hops using cardinal exits to compute a virtual grid.
+  const coords = new Map([[player.current_zone, [0, 0]]]);
+  const dist = new Map([[player.current_zone, 0]]);
+  const queue = [player.current_zone];
+  while (queue.length) {
+    const id = queue.shift();
+    if (dist.get(id) >= 8) continue;
+    const zone = getZone(id);
+    if (!zone) continue;
+    const [cx, cy] = coords.get(id);
+    for (const [dir, targetId] of Object.entries(zone.exits || {})) {
+      if (coords.has(targetId)) continue;
+      const off = MAP_DIR_OFFSET[dir];
+      if (!off) continue;
+      coords.set(targetId, [cx + off[0], cy + off[1]]);
+      dist.set(targetId, dist.get(id) + 1);
+      queue.push(targetId);
     }
-    return {
-      id: z.id, x: z.grid_x, y: z.grid_y, name: z.name,
-      danger: z.danger_rating || null, marker: z.marker || null,
-      color: z.color || null, bg_color: z.bg_color || null,
-      exits: links, isCurrent: z.id === player.current_zone,
-    };
-  });
+  }
+  const visited = new Set(coords.keys());
+  const tiles = [];
+  for (const [id, [x, y]] of coords) {
+    const zone = getZone(id);
+    if (!zone) continue;
+    const links = {};
+    for (const [dir, target] of Object.entries(zone.exits || {})) {
+      if (visited.has(target) && MAP_DIR_OFFSET[dir]) links[dir] = target;
+    }
+    tiles.push({
+      id, x, y, name: zone.name,
+      danger: zone.danger_rating || null, marker: zone.marker || null,
+      color: zone.color || null, bg_color: zone.bg_color || null,
+      exits: links, isCurrent: id === player.current_zone,
+    });
+  }
   return { type:'map', tiles };
 }
 

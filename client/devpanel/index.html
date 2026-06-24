@@ -3285,16 +3285,18 @@ async function renderMapsPanel(data) {
   mapsList = Array.isArray(data) ? data : [];
   const panel = document.getElementById('list-panel');
   if (!mapsList.length) { panel.innerHTML = '<div style="padding:24px;color:var(--text-dim)">No maps yet. Run <code>npm run db:seed</code> to create map_world.</div>'; return; }
-  // If we were previously on an interior map, restore that view instead of resetting to exterior.
-  const intMaps = mapsList.filter(m => m.parent_zone_id);
-  if (mapViewTab === 'interior' && mapSelectedInteriorId && intMaps.find(m => m.id === mapSelectedInteriorId)) {
-    await switchInteriorMap(mapSelectedInteriorId);
-    return;
-  }
-  mapViewTab = 'exterior';
   const target = mapsList.find(m => m.id === 'map_world')?.id || mapsList.find(m => !m.parent_zone_id)?.id || mapsList[0]?.id;
   mapExteriorMapId = target;
+  // Always load exterior first — this populates _exteriorBuildingZones which the interior
+  // tab dropdown needs to list unmapped buildings. Set tab to exterior so renderMapOverview
+  // renders the exterior grid, then switch to interior if we were previously there.
+  const restoreInteriorId = mapViewTab === 'interior' ? mapSelectedInteriorId : null;
+  mapViewTab = 'exterior';
   await loadMapOverview(target);
+  if (restoreInteriorId && mapsList.find(m => m.id === restoreInteriorId && m.parent_zone_id)) {
+    mapViewTab = 'interior';
+    await switchInteriorMap(restoreInteriorId);
+  }
 }
 
 async function loadMapOverview(mapId) {
