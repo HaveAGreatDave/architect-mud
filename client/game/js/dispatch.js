@@ -230,6 +230,8 @@ const handlers = {
   'environment.daily': (msg) => { updateEnvironmentHUD(msg); updateForecast(msg.forecast); },
   'environment.weatherOverride': (msg) => { updateEnvironmentHUD(msg); },
 
+  output: (msg) => { appendHtml(msg.message, 'help'); },
+
   whisper: (msg) => { receiveWhisper(msg.from || 'Admin', msg.message); },
   lightview: (msg) => { openLightViewDialog(msg); },
   morphex_panel: (msg) => { openMorphexPanel(msg.data); },

@@ -197,9 +197,10 @@ async function cmdMap(player) {
   if (!current || !current.map_id || current.grid_x == null || current.grid_y == null) {
     return { type:'map', tiles: [] };
   }
+  const currentZ = current.grid_z ?? 0;
   const onMap = getAllZones().filter(z =>
     z.map_id === current.map_id &&
-    z.grid_z === current.grid_z &&
+    (z.grid_z ?? 0) === currentZ &&
     z.grid_x != null && z.grid_y != null);
   const placed = new Set(onMap.map(z => z.id));
   const tiles = onMap.map(z => {
