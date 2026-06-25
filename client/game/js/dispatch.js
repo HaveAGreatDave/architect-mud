@@ -6,6 +6,7 @@ import { updateEnvironmentHUD, refreshZoneVisibility } from './panels/environmen
 import { openDialogue, closeDialogue, openShop } from './panels/dialogue.js';
 import { renderEquipPanel } from './panels/equipment.js';
 import { receiveWhisper } from './panels/whisper.js';
+import { openContainerPanel, refreshContainerPanel, getActiveContainerId } from './panels/container.js';
 import { openLightViewDialog } from './panels/lightview.js';
 import { openMorphexPanel } from './panels/morphex.js';
 import { updateForecast } from './panels/forecast.js';
@@ -114,6 +115,24 @@ const handlers = {
   inventory: (msg) => {
     renderEquipPanel(msg.items || []);
     document.getElementById('equip-panel').classList.add('active');
+  },
+
+  container_view: (msg) => {
+    openContainerPanel(msg);
+  },
+
+  stow: (msg) => {
+    appendHtml(msg.message, 'help');
+    const cid = getActiveContainerId();
+    if (cid) sendCmdSilent(`opencontainer ${cid}`);
+    else if (document.getElementById('equip-panel').classList.contains('active')) sendCmdSilent('inventory');
+  },
+
+  pull: (msg) => {
+    appendHtml(msg.message, 'help');
+    const cid = getActiveContainerId();
+    if (cid) sendCmdSilent(`opencontainer ${cid}`);
+    else if (document.getElementById('equip-panel').classList.contains('active')) sendCmdSilent('inventory');
   },
 
   stats: (msg) => {

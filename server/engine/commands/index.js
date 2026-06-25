@@ -1,6 +1,6 @@
 import { handlers as moveHandlers } from './movement.js';
 import { handlers as combatHandlers } from './combat.js';
-import { handlers as invHandlers } from './inventory.js';
+import { handlers as invHandlers, cmdOpenContainer } from './inventory.js';
 import { handlers as socialHandlers } from './social.js';
 import { handlers as economyHandlers } from './economy.js';
 import { handlers as housingHandlers } from './housing.js';
@@ -57,6 +57,12 @@ export async function handleCommand(input, player, broadcast) {
   if (doorHandler) {
     const doorResult = await doorHandler(args, raw, player, broadcast);
     if (doorResult !== undefined) return doorResult;
+  }
+
+  // Container pre-intercept: open <container name> — falls through if no matching container
+  if (cmd === 'open') {
+    const containerResult = await cmdOpenContainer(args.join(' '), player);
+    if (containerResult !== null) return containerResult;
   }
 
   // Cosmetic machine pre-intercepts `use` before inventory gets it

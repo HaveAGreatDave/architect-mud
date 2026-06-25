@@ -298,6 +298,81 @@ async function describeContainer(container) {
   return msg;
 }
 
+async function buildContainerView(containerId, player) {
+  const { rows: cRows } = await query(`SELECT pi.*,i.name,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.id=$1`, [containerId]);
+  if (!cRows.length) return { type:'error', message:'Container not found.' };
+  const container = cRows[0];
+  const cap = tagValue(container, 'container', 0);
+  const used = await containerContentsWeight(container.id);
+  const { rows: invItems } = await query(`SELECT pi.*,i.name,i.rarity,i.tags,i.weight FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND pi.is_equipped=0 ORDER BY i.name`, [player.id]);
+  const { rows: containerItems } = await query(`SELECT pi.*,i.name,i.rarity,i.tags,i.weight FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.container_id=$1 ORDER BY i.name`, [container.id]);
+  return { type:'container_view', containerId: container.id, containerName: container.name, capacity: cap, usedWeight: round1(used), invItems, containerItems };
+}
+
+async function cmdOpenContainer(nameStr, player) {
+  if (!nameStr) return null;
+  const container = await resolveContainer(nameStr, player);
+  if (!container || container === 'ambiguous') return null;
+  return buildContainerView(container.id, player);
+}
+
+async function cmdOpenContainerById(idStr, player) {
+  const id = parseInt(idStr, 10);
+  if (!id) return { type:'error', message:'Invalid container id.' };
+  return buildContainerView(id, player);
+}
+
+async function cmdStowById(argStr, player) {
+  const [invRowId, containerRowId] = argStr.trim().split(/\s+/);
+  const { rows: itemRows } = await query(`SELECT pi.*,i.name,i.tags,i.weight FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.id=$1 AND pi.player_id=$2 AND pi.container_id IS NULL AND NOT jsonb_exists(i.tags,'quest_item')`, [invRowId, player.id]);
+  if (!itemRows.length) return { type:'error', message:'Item not found in your inventory.' };
+  const item = itemRows[0];
+
+  const { rows: cRows } = await query(`SELECT pi.*,i.name,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.id=$1 AND pi.player_id IN ($2,$3) AND pi.container_id IS NULL AND jsonb_exists(i.tags,'container')`, [containerRowId, player.id, `_ground_${player.current_zone}`]);
+  if (!cRows.length) return { type:'error', message:'Container not found.' };
+  const container = cRows[0];
+  if (item.id === container.id) return { type:'error', message:`Can't put ${container.name} inside itself.` };
+  if (hasTag(item, 'container')) return { type:'error', message:`Can't stow a container inside another container.` };
+
+  const cap = tagValue(container, 'container', 0);
+  const used = await containerContentsWeight(container.id);
+  const adding = (item.weight || 0) * item.quantity;
+  if (used + adding > cap) return { type:'error', message:`${container.name} is full (${round1(used)}/${cap}).` };
+
+  if (hasTag(item, 'stackable')) {
+    const { rows: existing } = await query('SELECT id FROM player_inventory WHERE container_id=$1 AND item_id=$2 LIMIT 1', [container.id, item.item_id]);
+    if (existing.length) {
+      await query('UPDATE player_inventory SET quantity=quantity+$1 WHERE id=$2', [item.quantity, existing[0].id]);
+      await query('DELETE FROM player_inventory WHERE id=$1', [item.id]);
+      return buildContainerView(container.id, player);
+    }
+  }
+  await query('UPDATE player_inventory SET container_id=$1, is_equipped=0, slot=NULL WHERE id=$2', [container.id, item.id]);
+  return buildContainerView(container.id, player);
+}
+
+async function cmdPullById(idStr, player) {
+  const { rows } = await query(`SELECT pi.*,i.name,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.id=$1 AND pi.container_id IS NOT NULL`, [idStr]);
+  if (!rows.length) return { type:'error', message:'Item not found.' };
+  const item = rows[0];
+  const containerId = item.container_id;
+
+  const { rows: cRows } = await query(`SELECT player_id FROM player_inventory WHERE id=$1`, [containerId]);
+  if (!cRows.length) return { type:'error', message:'Container not found.' };
+  if (cRows[0].player_id !== player.id && cRows[0].player_id !== `_ground_${player.current_zone}`) return { type:'error', message:'Not your container.' };
+
+  if (hasTag(item, 'stackable')) {
+    const { rows: existing } = await query('SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND container_id IS NULL AND is_equipped=0 LIMIT 1', [player.id, item.item_id]);
+    if (existing.length) {
+      await query('UPDATE player_inventory SET quantity=quantity+$1 WHERE id=$2', [item.quantity, existing[0].id]);
+      await query('DELETE FROM player_inventory WHERE id=$1', [item.id]);
+      return buildContainerView(containerId, player);
+    }
+  }
+  await query('UPDATE player_inventory SET container_id=NULL, player_id=$1 WHERE id=$2', [player.id, item.id]);
+  return buildContainerView(containerId, player);
+}
+
 async function cmdStow(argStr, player) {
   if (!argStr) return { type:'error', message:'Stow what?' };
   const [itemPart, containerPart] = splitOn(argStr, ' in ');
@@ -394,7 +469,11 @@ export const handlers = {
   unequipid: (args, raw, player) => cmdUnequipById(args[0], player),
   stow:  (args, raw, player) => cmdStow(args.join(' '), player),
   put:   (args, raw, player) => cmdStow(args.join(' '), player),
+  throw: (args, raw, player) => cmdStow(args.join(' '), player),
   pull:  (args, raw, player) => cmdPull(args.join(' '), player),
+  stowid: (args, raw, player) => cmdStowById(args.join(' '), player),
+  pullid: (args, raw, player) => cmdPullById(args[0], player),
+  opencontainer: (args, raw, player) => cmdOpenContainerById(args[0], player),
 };
 
-export { cmdLookInContainer, describeContainer };
+export { cmdLookInContainer, describeContainer, cmdOpenContainer };

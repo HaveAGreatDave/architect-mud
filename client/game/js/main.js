@@ -4,6 +4,7 @@ import { handleServerMsg } from './dispatch.js';
 import { state } from './state.js';
 import { initInput } from './input.js';
 import { initEquipPanel } from './panels/equipment.js';
+import { initContainerPanel } from './panels/container.js';
 import { initDialogue } from './panels/dialogue.js';
 import { initForecast } from './panels/forecast.js';
 import { initWhisperPanel, debugFakeWhisper, toggleWhisperPanel } from './panels/whisper.js';
@@ -180,6 +181,7 @@ initInput();
 
 // Panels
 initEquipPanel();
+initContainerPanel();
 initDialogue();
 initForecast();
 initWhisperPanel();
