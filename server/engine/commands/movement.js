@@ -191,7 +191,9 @@ async function cmdMove(direction, player, broadcast) {
       await query('UPDATE players SET radiation=$1 WHERE id=$2', [player.radiation, player.id]);
     }
   }
-  return { type:'move', message:await describeZone(targetZone, player), zone:targetId, radiation_gain:radGain, minimap: getMinimapData(targetId) };
+  const zoneDesc = await describeZone(targetZone, player);
+  const moveMsg = doorWasClosed ? `You open the door and head ${direction}.\n${zoneDesc}` : zoneDesc;
+  return { type:'move', message:moveMsg, zone:targetId, radiation_gain:radGain, minimap: getMinimapData(targetId) };
 }
 
 const MAP_DIR_OFFSET = { north:[0,-1], south:[0,1], east:[1,0], west:[-1,0] };
