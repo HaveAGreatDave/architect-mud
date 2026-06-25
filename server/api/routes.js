@@ -337,9 +337,24 @@ async function apiAddRoom(parentZoneId, body) {
   const roomExits = { [OPPOSITE[direction]]: parentZoneId };
 
   try {
+    // Find or create the interior map for the parent zone
+    const { rows: existingMaps } = await query(
+      'SELECT id FROM maps WHERE parent_zone_id=$1 LIMIT 1', [parentZoneId]
+    );
+    let mapId;
+    if (existingMaps.length) {
+      mapId = existingMaps[0].id;
+    } else {
+      mapId = `map_int_${Date.now()}`;
+      await query(
+        `INSERT INTO maps (id, name, parent_zone_id, entry_zone_id) VALUES ($1,$2,$3,$4)`,
+        [mapId, parent.name + ' — Interior', parentZoneId, roomId]
+      );
+    }
+
     await query(
-      `INSERT INTO zones (id,name,description,danger_rating,pvp_enabled,radiation_level,is_safe_zone,exits,ambient_events,flags) VALUES ($1,$2,$3,$4,0,0,1,$5,$6,$7)`,
-      [roomId, name, description || 'A small room.', parent.danger_rating || 'safe', JSON.stringify(roomExits), JSON.stringify([]), JSON.stringify({ is_interior: true })]
+      `INSERT INTO zones (id,name,description,danger_rating,pvp_enabled,radiation_level,is_safe_zone,exits,ambient_events,flags,map_id) VALUES ($1,$2,$3,$4,0,0,1,$5,$6,$7,$8)`,
+      [roomId, name, description || 'A small room.', parent.danger_rating || 'safe', JSON.stringify(roomExits), JSON.stringify([]), JSON.stringify({ is_interior: true }), mapId]
     );
     const updatedParentExits = { ...parentExits, [direction]: roomId };
     await query('UPDATE zones SET exits=$1 WHERE id=$2', [JSON.stringify(updatedParentExits), parentZoneId]);
@@ -554,6 +569,21 @@ async function rescueDisplacedPlayers(deletedZoneIds) {
 export async function apiDeleteZone(id) {
   if (id==='zone_start') return {status:400,body:{error:'Cannot delete spawn zone'}};
   try {
+    // If deleting an individual interior/apartment room, track its parent so we
+    // can clean up the interior map if no rooms remain after deletion.
+    const { rows: deletedRows } = await query('SELECT flags, exits FROM zones WHERE id=$1', [id]);
+    const deletedFlags = deletedRows[0]?.flags || {};
+    let roomParentId = null;
+    if (deletedFlags.is_interior || deletedFlags.is_apartment) {
+      const { rows: parentRows } = await query(
+        `SELECT id FROM zones WHERE EXISTS (SELECT 1 FROM jsonb_each_text(exits) e WHERE e.value = $1)
+         AND NOT COALESCE((flags->>'is_interior')::boolean, false)
+         AND NOT COALESCE((flags->>'is_apartment')::boolean, false)`,
+        [id]
+      );
+      roomParentId = parentRows[0]?.id || null;
+    }
+
     // Cascade: any zone flagged is_apartment OR is_interior whose exits
     // lead back to this one is a room belonging to this building (same
     // linkage the dev panel uses to nest them under it, and the same
@@ -587,6 +617,19 @@ export async function apiDeleteZone(id) {
     // Clean up any interior maps whose entry zone or parent exterior zone was just deleted.
     // Zones placed on those maps become unlinked but are left intact for manual cleanup.
     await query('DELETE FROM maps WHERE entry_zone_id=$1 OR parent_zone_id=$1', [id]);
+    // If we deleted an individual room, clean up the parent's interior map if no rooms remain.
+    if (roomParentId) {
+      const { rows: remaining } = await query(
+        `SELECT 1 FROM zones
+         WHERE (COALESCE((flags->>'is_interior')::boolean,false) OR COALESCE((flags->>'is_apartment')::boolean,false))
+           AND EXISTS (SELECT 1 FROM jsonb_each_text(exits) e WHERE e.value = $1)
+         LIMIT 1`,
+        [roomParentId]
+      );
+      if (!remaining.length) {
+        await query('DELETE FROM maps WHERE parent_zone_id=$1', [roomParentId]);
+      }
+    }
     await rescueDisplacedPlayers(allDeletedIds);
     fireHook('zone.delete', id, allDeletedIds).catch(() => {});
     return {status:200,body:{message: children.length ? `Zone deleted (and ${children.length} attached room${children.length>1?'s':''})` : 'Zone deleted'}};
