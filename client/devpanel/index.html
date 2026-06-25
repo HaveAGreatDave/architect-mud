@@ -1373,11 +1373,17 @@ async function zoneEditForm(rec, isNew) {
       <div class="field"><label>Map Marker (≤2 chars)</label><input id="f-marker" maxlength="2" value="${rec.marker || ''}" placeholder="e.g. ⌂" oninput="updateColorPreview()"></div>
       <div class="field"><label>Map Color (text)</label>
         <div class="color-swatches">${MAP_PALETTE.map(c => `<span class="color-swatch" style="background:${c}" title="${c}" onclick="setZoneColor('${c}')"></span>`).join('')}<span class="color-swatch" style="background:transparent;border-style:dashed" title="clear" onclick="setZoneColor('')"></span></div>
-        <input id="f-color" value="${rec.color || ''}" placeholder="#rrggbb (blank = danger color)" oninput="updateColorPreview()">
+        <div style="display:flex;gap:4px;align-items:center">
+          <input id="f-color" value="${rec.color || ''}" placeholder="#rrggbb (blank = danger color)" oninput="syncColorWheel('f-color','f-color-wheel');updateColorPreview()" style="flex:1">
+          <input type="color" id="f-color-wheel" value="${rec.color || '#ffffff'}" oninput="setZoneColor(this.value)" style="width:28px;height:28px;padding:1px;border:1px solid var(--border);background:var(--bg3);cursor:pointer;flex-shrink:0">
+        </div>
       </div>
       <div class="field"><label>Map BG Color</label>
         <div class="color-swatches">${MAP_PALETTE.map(c => `<span class="color-swatch" style="background:${c}" title="${c}" onclick="setBgColor('${c}')"></span>`).join('')}<span class="color-swatch" style="background:transparent;border-style:dashed" title="clear" onclick="setBgColor('')"></span></div>
-        <input id="f-bg_color" value="${rec.bg_color || ''}" placeholder="#rrggbb (blank = transparent)" oninput="updateColorPreview()">
+        <div style="display:flex;gap:4px;align-items:center">
+          <input id="f-bg_color" value="${rec.bg_color || ''}" placeholder="#rrggbb (blank = transparent)" oninput="syncColorWheel('f-bg_color','f-bg-wheel');updateColorPreview()" style="flex:1">
+          <input type="color" id="f-bg-wheel" value="${rec.bg_color || '#000000'}" oninput="setBgColor(this.value)" style="width:28px;height:28px;padding:1px;border:1px solid var(--border);background:var(--bg3);cursor:pointer;flex-shrink:0">
+        </div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding-bottom:8px;flex-shrink:0">
         <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:4px">Preview</div>
@@ -3307,8 +3313,21 @@ let mapSelectedInteriorId = null;
 let mapInteriorsList = [];        // interior maps (parent_zone_id != null)
 let _exteriorBuildingZones = [];  // building zones from the exterior map, for interior tab dropdown
 
-function setZoneColor(c) { const el = document.getElementById('f-color'); if (el) { el.value = c; updateColorPreview(); } }
-function setBgColor(c) { const el = document.getElementById('f-bg_color'); if (el) { el.value = c; updateColorPreview(); } }
+function syncColorWheel(fieldId, wheelId) {
+  const field = document.getElementById(fieldId);
+  const wheel = document.getElementById(wheelId);
+  if (!field || !wheel) return;
+  const v = field.value.trim();
+  if (/^#[0-9a-fA-F]{6}$/.test(v)) wheel.value = v;
+}
+function setZoneColor(c) {
+  const el = document.getElementById('f-color');
+  if (el) { el.value = c; syncColorWheel('f-color','f-color-wheel'); updateColorPreview(); }
+}
+function setBgColor(c) {
+  const el = document.getElementById('f-bg_color');
+  if (el) { el.value = c; syncColorWheel('f-bg_color','f-bg-wheel'); updateColorPreview(); }
+}
 function updateColorPreview() {
   const el = document.getElementById('color-preview');
   if (!el) return;

@@ -1,5 +1,14 @@
 // Sidebar minimap (5×5 BFS/grid) and the full-screen map popup.
 
+function luminanceTextColor(hex) {
+  const h = hex.replace('#', '');
+  if (h.length !== 6) return null;
+  const r = parseInt(h.slice(0,2),16), g = parseInt(h.slice(2,4),16), b = parseInt(h.slice(4,6),16);
+  const lum = (0.299*r + 0.587*g + 0.114*b) / 255;
+  const t = Math.round((1 - lum) * 255);
+  return `rgb(${t},${t},${t})`;
+}
+
 export function renderMinimap(nodes) {
   const grid = document.getElementById('minimap-grid');
   if (!nodes || !nodes.length) { grid.textContent = '(unmapped)'; return; }
@@ -56,7 +65,8 @@ export function renderMinimap(nodes) {
         : (node.is_safe_zone ? '◆ ' : (node.pvp_enabled ? '✕ ' : '○ '));
       const styles = [];
       if (node.bg_color) styles.push(`background:${node.bg_color}`);
-      if (node.color) styles.push(`color:${node.color}`);
+      const textColor = node.color || (node.bg_color ? luminanceTextColor(node.bg_color) : null);
+      if (textColor) styles.push(`color:${textColor}`);
       const styleAttr = styles.length ? ` style="${styles.join(';')}"` : '';
       const cls = `mm-cell ${node.color || node.bg_color ? 'mm-zone' : (dangerClass[node.danger_rating] || 'mm-zone')}`;
       html += `<span class="${cls}"${styleAttr} title="${node.name}">${sym}</span>`;
@@ -129,7 +139,8 @@ export function openMapPopup(tiles) {
       const t = it.tile;
       const styles = [];
       if (t.bg_color) styles.push(`background:${t.bg_color}`);
-      if (t.color) styles.push(`color:${t.color}`);
+      const tColor = t.color || (t.bg_color ? luminanceTextColor(t.bg_color) : null);
+      if (tColor) styles.push(`color:${tColor}`);
       const cls = `map-c map-room danger-${t.danger || 'safe'}` +
         (t.isCurrent ? ' map-current' : '') +
         (t.bg_color || t.color ? ' map-styled' : '');
@@ -144,7 +155,8 @@ export function openMapPopup(tiles) {
     if (t.isCurrent) continue;
     const styles = [];
     if (t.bg_color) styles.push(`background:${t.bg_color}`);
-    if (t.color) styles.push(`color:${t.color}`);
+    const legColor = t.color || (t.bg_color ? luminanceTextColor(t.bg_color) : null);
+    if (legColor) styles.push(`color:${legColor}`);
     const cls = `map-leg-sym danger-${t.danger || 'safe'}` + (t.bg_color || t.color ? ' map-styled' : '');
     const style = styles.length ? ` style="${styles.join(';')}"` : '';
     leg += `<div class="map-leg-row"><span class="${cls}"${style}>${symFor(t)}</span> ${t.name}</div>`;
