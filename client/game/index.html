@@ -419,42 +419,59 @@
 				flex-direction: column;
 				box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
 			">
+			<!-- Grip row — only this row is the drag handle -->
 			<div
 				id="whisper-drag-handle"
 				style="
-					padding: 6px 10px;
+					padding: 4px 8px;
 					border-bottom: 1px solid var(--border);
 					display: flex;
 					align-items: center;
-					justify-content: space-between;
 					flex-shrink: 0;
 					cursor: grab;
 					user-select: none;
 				">
-				<div
-					id="whisper-tabs"
-					style="
-						display: flex;
-						gap: 2px;
-						overflow-x: auto;
-						flex: 1;
-						min-width: 0;
-					"></div>
+				<span style="flex:1;font-size:10px;color:var(--text-dim);font-family:var(--font-mono);letter-spacing:1px;pointer-events:none">CHAT</span>
 				<button
 					data-close
 					style="
 						flex-shrink: 0;
-						background: none;
-						border: none;
-						color: var(--text-dim);
+						background: transparent;
+						border: 1px solid var(--red);
+						color: var(--red);
 						cursor: pointer;
 						font-size: 13px;
 						line-height: 1;
 						font-family: var(--font-mono);
-						margin-left: 6px;
+						width: 20px;
+						height: 20px;
+						padding: 0;
+						border-radius: 2px;
+						display: flex;
+						align-items: center;
+						justify-content: center;
 					">
 					✕
 				</button>
+			</div>
+			<!-- Tabs row — not part of the drag handle -->
+			<div style="
+				display: flex;
+				padding: 4px 8px;
+				border-bottom: 1px solid var(--border);
+				flex-shrink: 0;
+				min-width: 0;
+			">
+				<div
+					id="whisper-tabs"
+					style="
+						display: flex;
+						gap: 4px;
+						overflow-x: auto;
+						flex: 1;
+						min-width: 0;
+						align-items: center;
+					"></div>
 			</div>
 			<div
 				id="whisper-log"

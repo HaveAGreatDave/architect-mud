@@ -2,7 +2,11 @@ import { sendCmdSilent } from '../net.js';
 import { state } from '../state.js';
 
 const USERS_TAB = '__users__';
+const ZOTNET_TAB = '__zotnet__';
 const WHISPER_MAX_MSGS = 100;
+const ADMIN_ROLES = new Set(['admin', 'dev', 'builder', 'designer']);
+
+function isAdmin() { return ADMIN_ROLES.has(state.myRole); }
 
 let _whisperPanelVisible = false;
 let _activeWhisperTab = USERS_TAB;
@@ -61,6 +65,10 @@ function _refreshWhisperTabs() {
     tabs.appendChild(t);
   };
   mkTab('Users', _activeWhisperTab === USERS_TAB, 'var(--purple)', () => _switchToTab(USERS_TAB));
+  if (isAdmin()) {
+    if (!_whisperConvos.has(ZOTNET_TAB)) _whisperConvos.set(ZOTNET_TAB, { messages: [], scrollTop: 0, unread: 0 });
+    mkTab('#zotnet', _activeWhisperTab === ZOTNET_TAB, 'var(--yellow)', () => _switchToTab(ZOTNET_TAB));
+  }
   for (const [handle, convo] of _whisperConvos) {
     const active = handle === _activeWhisperTab;
     const borderColor = active ? 'var(--accent)' : 'var(--border)';
@@ -234,6 +242,12 @@ function sendWhisperReply() {
     return;
   }
 
+  if (_activeWhisperTab === ZOTNET_TAB) {
+    sendCmdSilent(`zotnet ${msg}`);
+    if (input) input.value = '';
+    return;
+  }
+
   if (!_whisperConvos.has(_activeWhisperTab)) _whisperConvos.set(_activeWhisperTab, { messages: [], scrollTop: 0, unread: 0 });
   const convo = _whisperConvos.get(_activeWhisperTab);
   convo.messages.push({ from: 'You', message: msg, isMe: true, ts: Date.now() });
@@ -247,6 +261,24 @@ function sendWhisperReply() {
 
 export function debugFakeWhisper() {
   receiveWhisper('TestUser', 'This is a fake whisper to test the chat notification system.');
+}
+
+export function receiveZotnet(from, message) {
+  if (!_whisperConvos.has(ZOTNET_TAB)) _whisperConvos.set(ZOTNET_TAB, { messages: [], scrollTop: 0, unread: 0 });
+  const convo = _whisperConvos.get(ZOTNET_TAB);
+  convo.messages.push({ from, message, isMe: false, ts: Date.now() });
+  if (convo.messages.length > WHISPER_MAX_MSGS) convo.messages.shift();
+  if (_whisperPanelVisible && _activeWhisperTab === ZOTNET_TAB) {
+    _renderWhisperLog();
+    const log = document.getElementById('whisper-log');
+    const nearBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 60;
+    if (nearBottom) { log.scrollTop = log.scrollHeight; document.getElementById('whisper-new-msgs').style.display = 'none'; }
+    else document.getElementById('whisper-new-msgs').style.display = 'block';
+  } else {
+    convo.unread++;
+    _updateChatBadge();
+    if (_whisperPanelVisible) _refreshWhisperTabs();
+  }
 }
 
 export function initWhisperPanel() {
@@ -272,8 +304,7 @@ export function initWhisperPanel() {
   const panel = document.getElementById('whisper-panel');
   let dragState = null;
   dragHandle.addEventListener('pointerdown', e => {
-    // Never intercept clicks inside the tabs bar or on any button.
-    if (e.target.closest('#whisper-tabs') || e.target.closest('button')) return;
+    if (e.target.closest('button')) return;
     const r = panel.getBoundingClientRect();
     // Record intent but do NOT capture yet — capturing here breaks button clicks.
     dragState = { pointerId: e.pointerId, ox: e.clientX - r.left, oy: e.clientY - r.top, startTime: Date.now(), captured: false };
