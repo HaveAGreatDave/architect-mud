@@ -25,6 +25,7 @@ export function startGameLoop(broadcast) {
   schedule('30s', cleanCorpses);
   schedule('1m', rentCollectionTick);
   schedule('1m', npcWanderTick);
+  schedule('24h', cleanGroundItems);
   console.log('✓ Game loop started');
 }
 
@@ -448,6 +449,26 @@ function cleanCorpses() {
       world.corpses.delete(id);
     }
   }
+}
+
+// Runs every 24 hours. Deletes items left on the ground in non-apartment zones
+// (or unrented apartment zones). Rented apartments keep their floor items.
+async function cleanGroundItems() {
+  // Get all rented apartment zone IDs so we can exempt them.
+  const { rows: rented } = await query(
+    `SELECT zone_id FROM apartments WHERE owner_id IS NOT NULL`
+  );
+  const rentedZoneIds = new Set(rented.map(r => r.zone_id));
+
+  // player_id for ground items is '_ground_<zone_id>'.
+  // Delete any ground items whose zone is not a rented apartment.
+  const { rowCount } = await query(`
+    DELETE FROM player_inventory
+    WHERE player_id LIKE '_ground_%'
+      AND NOT (substring(player_id FROM 9) = ANY($1::text[]))
+  `, [rentedZoneIds.size ? [...rentedZoneIds] : ['__none__']]);
+
+  if (rowCount > 0) console.log(`[cleanGroundItems] Removed ${rowCount} ground item(s).`);
 }
 
 // Runs every real-world minute. Collects weekly rent from apartment owners
