@@ -3,7 +3,7 @@
  * and helpers for building physical description text.
  */
 
-const HAIR_STYLES = ['short', 'long', 'mohawk', 'shaved', 'dreadlocks', 'braided', 'messy', 'slicked-back', 'curly', 'wavy'];
+const HAIR_STYLES = ['mohawk', 'shaved', 'dreadlocks', 'braided', 'messy', 'slicked-back', 'curly', 'wavy', 'undercut', 'fade', 'afro', 'cornrows', 'pompadour', 'pixie'];
 const HAIR_LENGTHS = {
   shaved: 'shaved',
   short: 'short',
@@ -18,14 +18,18 @@ const EYE_COLORS = ['brown', 'dark brown', 'blue', 'light blue', 'green', 'hazel
 const STYLE_LENGTHS = {
   shaved:        ['shaved'],
   mohawk:        ['short', 'medium'],
-  short:         ['short'],
   messy:         ['short', 'medium'],
   'slicked-back':['short', 'medium'],
   curly:         ['short', 'medium', 'long'],
   wavy:          ['medium', 'long'],
-  long:          ['long', 'very_long'],
   braided:       ['long', 'very_long'],
   dreadlocks:    ['medium', 'long', 'very_long'],
+  undercut:      ['short', 'medium'],
+  fade:          ['short'],
+  afro:          ['short', 'medium'],
+  cornrows:      ['short', 'medium', 'long'],
+  pompadour:     ['medium'],
+  pixie:         ['short'],
 };
 
 function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }

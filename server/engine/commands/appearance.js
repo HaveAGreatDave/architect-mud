@@ -20,7 +20,7 @@ import { isMisActive } from '../mis.js';
 
 const HAIR_COLORS  = ['black','dark brown','brown','auburn','dirty blonde','blonde','red','grey','white','silver','dyed blue','dyed green','dyed purple','dyed red'];
 const HAIR_LENGTHS = ['shaved','short','medium','long','very_long'];
-const HAIR_STYLES  = ['short','long','mohawk','shaved','dreadlocks','braided','messy','slicked-back','curly','wavy'];
+const HAIR_STYLES  = ['mohawk','shaved','dreadlocks','braided','messy','slicked-back','curly','wavy','undercut','fade','afro','cornrows','pompadour','pixie'];
 const EYE_COLORS   = ['brown','dark brown','blue','light blue','green','hazel','grey','amber'];
 const BREAST_SIZES = ['flat','small','medium','large','very large'];
 const BREAST_MAP   = { flat:0, small:1, medium:2, large:3, 'very large':4 };
