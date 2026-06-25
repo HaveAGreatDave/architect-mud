@@ -3552,8 +3552,11 @@ function renderMapOverview() {
   const trayChip = (z, dragFn) => `<span class="bigmap-tile bm-edit" style="width:auto;height:auto;padding:4px 8px;cursor:grab;flex-shrink:0${zoneColorStyle(z.color)}" draggable="true" ondragstart="${dragFn}(event,'${z.id}')" title="${z.id}">${z.name}</span>`;
 
   if (mapViewTab === 'interior') {
-    // Interior tray: rooms with no grid position OR no exits established
-    const needsAttention = [...o.zones.values()].filter(z => z.grid_x == null || Object.keys(z.exits || {}).length === 0);
+    // Interior tray: rooms with no grid position OR no exits established,
+    // plus any interior/apartment rooms that aren't on any map at all.
+    const onMap = [...o.zones.values()].filter(z => z.grid_x == null || Object.keys(z.exits || {}).length === 0);
+    const orphaned = [...(o.unplacedInterior?.values() || [])].filter(z => !z.flags?.is_building && !o.zones.has(z.id));
+    const needsAttention = [...onMap, ...orphaned];
     html += `<div style="padding:0 12px 14px;border-top:1px solid var(--border);margin-top:8px">
       <div style="font-size:11px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;padding-top:10px">Unplaced / No Exits</div>
       <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px">Rooms with no grid position or no exits. Drag unplaced rooms onto an empty cell to place.</div>
