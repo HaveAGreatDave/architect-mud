@@ -1319,21 +1319,17 @@ export async function devOverrideWeather({ weatherType, tempC, precipChance }) {
 }
 
 export async function devClearWeatherOverride() {
-  const { query, broadcast } = deps;
+  const { query, broadcast, emitHook } = deps;
   if (!state.weatherOverrideActive) return getHUDPayload();
-  const backup = state.weatherOverrideBackup;
   state.weatherOverrideActive = false;
   state.weatherOverrideBackup = null;
   await query(`UPDATE world_clock SET weather_override_active = FALSE, weather_override_backup = NULL WHERE id = 1`);
-  if (backup) {
-    state.weatherType = backup.weatherType;
-    state.tempC = backup.tempC;
-    await query(`UPDATE weather_forecast SET weather_type = $1, temp_c = $2 WHERE forecast_day = 0`, [backup.weatherType, backup.tempC]);
-    state.forecast[0] = { ...state.forecast[0], weatherType: backup.weatherType, tempC: backup.tempC, precipChance: backup.precipChance };
-    rollAndSetCurrentPrecip(backup.weatherType, backup.tempC + diurnalOffset(state.minutes), backup.precipChance);
-  }
-  if (broadcast) broadcast({ type: 'environment.weatherOverride', ...getHUDPayload() });
-  return getHUDPayload();
+  // Recalculate forecast so state reflects real forecast values (not the backed-up override values).
+  if (emitHook) await emitHook('environment.recalculateForecast', { setWeatherState, climateProfile: state.activeClimateProfile, currentDate: state.date });
+  rollAndSetCurrentPrecip(state.weatherType, state.tempC + diurnalOffset(state.minutes), state.forecast[0]?.precipChance ?? 0.05);
+  const payload = { ...getHUDPayload(), forecast: getForecast() };
+  if (broadcast) broadcast({ type: 'environment.sync', ...payload });
+  return payload;
 }
 
 export async function devTriggerStorm() { return devOverrideWeather({ weatherType: 'storm' }); }
