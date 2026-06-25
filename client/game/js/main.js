@@ -205,8 +205,8 @@ document.querySelector('.qcmd[data-open-equip]')?.addEventListener('click', () =
 document.getElementById('debug-whisper-btn')?.addEventListener('click', debugFakeWhisper);
 document.getElementById('open-map-btn')?.addEventListener('click', () => sendCmd('map'));
 
-// Mobile minimap tab + drag
-const mobileMapTab = document.getElementById('mobile-map-tab');
+// Mobile minimap button + drag
+const mobileMapTab = document.getElementById('mobile-map-btn');
 const mobileMapPanel = document.getElementById('mobile-minimap-panel');
 const mobileMapClose = document.getElementById('mobile-map-close');
 

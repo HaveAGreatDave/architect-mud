@@ -140,15 +140,15 @@
     display: none;
   }
 
-  /* Narrow viewport — stack sidebar below the output instead of beside it */
+  /* Narrow viewport — hide sidebar, keep full-height layout in viewport */
   @media (max-width: 720px) {
     #main {
       grid-template-columns: 1fr;
-      grid-template-rows: 1fr auto;
-      overflow-y: auto;
+      grid-template-rows: 1fr;
+      overflow: hidden;
     }
-    #output-container { border-right: none; border-bottom: 1px solid var(--border); min-height: 50vh; }
-    #sidebar { overflow-y: visible; max-height: 40vh; }
+    #output-container { border-right: none; }
+    #sidebar { display: none; }
     #header .logo { font-size: 13px; letter-spacing: 2px; }
     #quick-cmds { overflow-x: auto; flex-wrap: nowrap; }
     #auth-box { width: 95vw; padding: 18px 14px 24px; }
@@ -1136,36 +1136,20 @@
   }
   #mobile-chat-btn:hover { border-color: var(--accent); color: var(--accent); }
 
-  /* ─── MOBILE MINIMAP SLIDE-OUT ─── */
-  #mobile-map-tab {
-    display: none;
-  }
-
-  [data-density="compact"] #mobile-map-tab {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: fixed;
-    right: 0;
-    top: 50%;
-    transform: translateY(-50%);
-    z-index: 90;
-    background: var(--bg2);
+  /* ─── MOBILE MAP BUTTON ─── */
+  #mobile-map-btn {
+    background: transparent;
     border: 1px solid var(--border);
-    border-right: none;
-    border-radius: 4px 0 0 4px;
     color: var(--text-dim);
     font-family: var(--font-mono);
-    font-size: 16px;
-    width: 28px;
-    height: 48px;
+    font-size: 14px;
+    padding: 3px 7px;
     cursor: pointer;
-    transition: background 0.15s, color 0.15s;
+    border-radius: 2px;
+    flex-shrink: 0;
+    transition: all 0.15s;
   }
-  [data-density="compact"] #mobile-map-tab:hover {
-    background: var(--bg3);
-    color: var(--accent);
-  }
+  #mobile-map-btn:hover { border-color: var(--accent); color: var(--accent); }
 
   #mobile-minimap-panel {
     display: none;
