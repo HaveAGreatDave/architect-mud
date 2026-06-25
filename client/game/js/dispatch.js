@@ -5,7 +5,7 @@ import { renderMinimap, openMapPopup } from './panels/minimap.js';
 import { updateEnvironmentHUD, refreshZoneVisibility } from './panels/environment.js';
 import { openDialogue, closeDialogue, openShop } from './panels/dialogue.js';
 import { renderEquipPanel } from './panels/equipment.js';
-import { receiveWhisper, sentWhisper, receiveZotnet } from './panels/whisper.js';
+import { receiveWhisper, sentWhisper, receiveAdminChat } from './panels/whisper.js';
 import { openContainerPanel, refreshContainerPanel, getActiveContainerId } from './panels/container.js';
 import { openLightViewDialog } from './panels/lightview.js';
 import { openMorphexPanel } from './panels/morphex.js';
@@ -258,7 +258,7 @@ const handlers = {
 
   whisper: (msg) => { receiveWhisper(msg.from || 'Admin', msg.message); },
   whisper_sent: (msg) => { sentWhisper(msg.to, msg.message); },
-  zotnet: (msg) => { receiveZotnet(msg.from, msg.message); },
+  adminchat: (msg) => { receiveAdminChat(msg.from, msg.message); },
   lightview: (msg) => { openLightViewDialog(msg); refreshZoneVisibility(); },
   morphex_panel: (msg) => { openMorphexPanel(msg.data); },
 };

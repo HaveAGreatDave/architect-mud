@@ -2,7 +2,7 @@ import { sendCmdSilent } from '../net.js';
 import { state } from '../state.js';
 
 const USERS_TAB = '__users__';
-const ZOTNET_TAB = '__zotnet__';
+const ADMIN_CHAT_TAB = '__adminchat__';
 const WHISPER_MAX_MSGS = 100;
 const ADMIN_ROLES = new Set(['admin', 'dev', 'builder', 'designer']);
 
@@ -66,10 +66,11 @@ function _refreshWhisperTabs() {
   };
   mkTab('Users', _activeWhisperTab === USERS_TAB, 'var(--purple)', () => _switchToTab(USERS_TAB));
   if (isAdmin()) {
-    if (!_whisperConvos.has(ZOTNET_TAB)) _whisperConvos.set(ZOTNET_TAB, { messages: [], scrollTop: 0, unread: 0 });
-    mkTab('#zotnet', _activeWhisperTab === ZOTNET_TAB, 'var(--yellow)', () => _switchToTab(ZOTNET_TAB));
+    if (!_whisperConvos.has(ADMIN_CHAT_TAB)) _whisperConvos.set(ADMIN_CHAT_TAB, { messages: [], scrollTop: 0, unread: 0 });
+    mkTab('arcnet', _activeWhisperTab === ADMIN_CHAT_TAB, 'var(--yellow)', () => _switchToTab(ADMIN_CHAT_TAB));
   }
   for (const [handle, convo] of _whisperConvos) {
+    if (handle === ADMIN_CHAT_TAB) continue;
     const active = handle === _activeWhisperTab;
     const borderColor = active ? 'var(--accent)' : 'var(--border)';
     const textColor   = active ? 'var(--accent)' : 'var(--text-dim)';
@@ -242,8 +243,8 @@ function sendWhisperReply() {
     return;
   }
 
-  if (_activeWhisperTab === ZOTNET_TAB) {
-    sendCmdSilent(`zotnet ${msg}`);
+  if (_activeWhisperTab === ADMIN_CHAT_TAB) {
+    sendCmdSilent(`adminchat ${msg}`);
     if (input) input.value = '';
     return;
   }
@@ -263,12 +264,12 @@ export function debugFakeWhisper() {
   receiveWhisper('TestUser', 'This is a fake whisper to test the chat notification system.');
 }
 
-export function receiveZotnet(from, message) {
-  if (!_whisperConvos.has(ZOTNET_TAB)) _whisperConvos.set(ZOTNET_TAB, { messages: [], scrollTop: 0, unread: 0 });
-  const convo = _whisperConvos.get(ZOTNET_TAB);
+export function receiveAdminChat(from, message) {
+  if (!_whisperConvos.has(ADMIN_CHAT_TAB)) _whisperConvos.set(ADMIN_CHAT_TAB, { messages: [], scrollTop: 0, unread: 0 });
+  const convo = _whisperConvos.get(ADMIN_CHAT_TAB);
   convo.messages.push({ from, message, isMe: false, ts: Date.now() });
   if (convo.messages.length > WHISPER_MAX_MSGS) convo.messages.shift();
-  if (_whisperPanelVisible && _activeWhisperTab === ZOTNET_TAB) {
+  if (_whisperPanelVisible && _activeWhisperTab === ADMIN_CHAT_TAB) {
     _renderWhisperLog();
     const log = document.getElementById('whisper-log');
     const nearBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 60;

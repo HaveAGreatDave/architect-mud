@@ -43,12 +43,12 @@ function cmdWhisper(args, raw, player, broadcast) {
 
 const ADMIN_ROLES = new Set(['admin', 'dev', 'builder', 'designer']);
 
-function cmdZotnet(text, player, broadcast) {
+function cmdAdminChat(text, player, broadcast) {
   if (!ADMIN_ROLES.has(player.role)) return { type: 'error', message: 'Access denied.' };
   if (!text.trim()) return { type: 'error', message: 'Say something on #zotnet.' };
   const admins = getAllLivePlayers().filter(p => ADMIN_ROLES.has(p.role));
   for (const admin of admins) {
-    broadcast(null, { type: 'zotnet', from: player.handle, message: text.trim() }, null, admin.id);
+    broadcast(null, { type: 'adminchat', from: player.handle, message: text.trim() }, null, admin.id);
   }
   return null;
 }
@@ -80,6 +80,6 @@ export const handlers = {
   tell:    (args, raw, player, broadcast) => cmdWhisper(args, raw, player, broadcast),
   t:       (args, raw, player, broadcast) => cmdWhisper(args, raw, player, broadcast),
   who:     () => cmdWho(),
-  zotnet:  (args, raw, player, broadcast) => cmdZotnet(raw.replace(/^zotnet\s*/i, ''), player, broadcast),
+  adminchat: (args, raw, player, broadcast) => cmdAdminChat(raw.replace(/^adminchat\s*/i, ''), player, broadcast),
   obama:   (args, raw, player, broadcast) => cmdObama(args.join(' '), player, broadcast),
 };
