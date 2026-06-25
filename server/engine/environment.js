@@ -1335,6 +1335,17 @@ export async function devClearWeatherOverride() {
 export async function devTriggerStorm() { return devOverrideWeather({ weatherType: 'storm' }); }
 export async function devTriggerSnow() { return devOverrideWeather({ weatherType: 'snow' }); }
 
+export function devResetBuildingTemps() {
+  let count = 0;
+  for (const [zoneId, z] of state.zones) {
+    if (isIndoorZone(z)) {
+      state.zoneTemps.set(zoneId, 20);
+      count++;
+    }
+  }
+  return { reset: count };
+}
+
 export async function devSpawnGenerator({ id, zoneId, generatorType, capacityKw, fuelType, fuelRemaining, fuelBurnRate, connectionRange }) {
   const { query } = deps;
   await query(
