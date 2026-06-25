@@ -83,7 +83,7 @@ export function renderEquipPanel(items) {
     card.setAttribute('data-id', item.id);
     const qty = item.quantity > 1 ? ` x${item.quantity}` : '';
     const slotLabel = tags.slot ? ` · ${tags.slot.replace('_',' ')}` : '';
-    card.innerHTML = `<span class="eic-name">${item.name}${qty}</span><span class="eic-meta">${item.rarity || ''}${slotLabel}</span><button class="eic-drop-btn" title="Drop on ground">↓</button>`;
+    card.innerHTML = `<span class="eic-name">${item.name}${qty}</span><span class="eic-meta">${item.rarity || ''}${slotLabel}</span><button class="eic-drop-btn" title="Drop on ground">drop</button>`;
     card.ondragstart = (e) => onItemDragStart(e, item.id);
     card.ondragend = () => card.classList.remove('dragging');
     if (equippable) card.onclick = () => sendCmdSilent(`equipid ${item.id}`);

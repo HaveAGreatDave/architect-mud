@@ -922,22 +922,19 @@
   .equip-item-card .eic-meta { color: var(--text-dim); font-size: 10px; }
   .eic-drop-btn {
     display: none;
-    position: absolute;
-    top: 4px;
-    right: 4px;
+    margin-top: 6px;
     background: transparent;
     border: 1px solid var(--border);
     color: var(--text-dim);
-    width: 18px;
-    height: 18px;
-    font-size: 10px;
-    line-height: 1;
-    padding: 0;
+    font-size: 9px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 2px 6px;
     cursor: pointer;
     border-radius: 2px;
+    width: 100%;
   }
-  .eic-drop-btn:hover { border-color: var(--red); color: var(--red); }
-  .equip-item-card { position: relative; }
+  .eic-drop-btn:hover { border-color: var(--red); color: var(--red); background: rgba(255,60,60,0.06); }
   .equip-item-card:hover .eic-drop-btn { display: block; }
   .equip-item-card.equippable { border-left: 3px solid var(--cyan); }
   #equip-inv-list:empty::after { content: '(nothing here)'; color: var(--text-dim); font-style: italic; font-size: 11px; padding: 4px; display: block; }

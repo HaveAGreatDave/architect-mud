@@ -126,7 +126,12 @@ const handlers = {
   help: (msg) => { appendHtml(msg.message, 'help'); },
   examine: (msg) => { appendHtml(msg.message, 'help'); },
   take: (msg) => { appendHtml(msg.message, 'help'); },
-  drop: (msg) => { appendHtml(msg.message, 'help'); },
+  drop: (msg) => {
+    appendHtml(msg.message, 'help');
+    if (document.getElementById('equip-panel').classList.contains('active')) {
+      sendCmdSilent('inventory');
+    }
+  },
   action: (msg) => { appendHtml(msg.message, 'help'); },
   balance: (msg) => { appendHtml(msg.message, 'help'); },
   recipes: (msg) => { appendHtml(msg.message, 'help'); },
