@@ -32,6 +32,17 @@ export function updateVitals(p) {
     const el = document.getElementById('header-credits-val');
     if (el) el.textContent = p.credits;
   }
+  // Horniness bar — only visible when MIS is active
+  if (p.mis_enabled !== undefined) {
+    const show = p.mis_enabled === 1 || p.mis_enabled === true;
+    for (const id of ['horny-bar-wrap', 'horny-bar-wrap-m']) {
+      const el = document.getElementById(id);
+      if (el) el.style.display = show ? '' : 'none';
+    }
+  }
+  if (p.horniness !== undefined) {
+    setBar('hor', p.horniness, 100);
+  }
 }
 
 function setBar(id, val, max, inverse = false) {

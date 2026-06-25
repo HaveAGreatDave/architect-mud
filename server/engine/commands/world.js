@@ -52,7 +52,7 @@ function withArticle(name) {
   return (/^[aeiou]/.test(n) ? 'an ' : 'a ') + n;
 }
 
-async function describePlayerAppearance(target, isSelf) {
+async function describePlayerAppearance(target, isSelf, viewer = null) {
   const { rows: equipped } = await query(
     `SELECT i.name, i.tags FROM player_inventory pi
      JOIN items i ON i.id = pi.item_id
@@ -60,11 +60,14 @@ async function describePlayerAppearance(target, isSelf) {
     [target.id]
   );
 
+  // Count items per slot (for erection layer visibility)
+  const layerCounts = {};
   // For each body slot, pick the outermost equipped item (highest allowed_layer_range.max).
   const bySlot = {};
   for (const row of equipped) {
     const slot = row.tags?.slot;
     if (!slot) continue;
+    layerCounts[slot] = (layerCounts[slot] || 0) + 1;
     const lr = row.tags?.allowed_layer_range;
     const layerMax = (lr && typeof lr === 'object') ? (lr.max || 0) : 99;
     if (!bySlot[slot] || layerMax > bySlot[slot].layerMax) {
@@ -113,14 +116,17 @@ async function describePlayerAppearance(target, isSelf) {
     msg += nakedLines[Math.floor(Math.random() * nakedLines.length)];
 
     // MIS-gated details when naked
+    const viewerForMis = viewer || (isSelf ? target : null);
     if (isMisActive(target)) {
       const genitalDesc = describeGenitals(target, isSelf);
       if (genitalDesc) msg += `\n${genitalDesc}`;
+      const ejacNote = ejaculateDescription(target, isSelf, new Set());
+      if (ejacNote) msg += `\n${ejacNote}`;
+    }
+    if (viewerForMis && isMisActive(viewerForMis)) {
       const envState = getEnvironmentState();
       const nippleNote = nippleVisibilityNote(target, false, envState.tempC);
       if (nippleNote) msg += `\n${nippleNote}`;
-      const ejacNote = ejaculateDescription(target, isSelf, new Set());
-      if (ejacNote) msg += `\n${ejacNote}`;
     }
 
     return msg.trim();
@@ -154,23 +160,27 @@ async function describePlayerAppearance(target, isSelf) {
   msg += sentences.join(' ');
 
   // MIS-gated details for clothed players
+  const coveredSlots = new Set(Object.keys(bySlot));
+  const viewerMis = (viewer && isMisActive(viewer)) || isSelf && isMisActive(target);
   if (isMisActive(target)) {
-    const coveredSlots = new Set(Object.keys(bySlot));
+    // Ejaculate visible on exposed skin regardless of viewer MIS
+    const ejacNote = ejaculateDescription(target, isSelf, coveredSlots);
+    if (ejacNote) msg += `\n${ejacNote}`;
+  }
+  if (viewerMis) {
     const envState = getEnvironmentState();
-    // Erection visible through tight clothing
+    // Erection visible through ≤3 layers of tight clothing
     const tightSlots = new Set(
       Object.entries(bySlot).filter(([,v]) => v.tags?.bulkiness <= 2).map(([k]) => k)
     );
-    const erectNote = erectionVisibilityNote(target, tightSlots);
+    const legsLayerCount = layerCounts['legs'] || 0;
+    const erectNote = erectionVisibilityNote(target, tightSlots, legsLayerCount);
     if (erectNote) msg += `\n${erectNote}`;
     // Nipple hardness if torso slot is only covered by thin layer
     const torsoItem = bySlot['torso'];
     const thinTorso = torsoItem && (torsoItem.tags?.bulkiness || 99) <= 1;
     const nippleNote = nippleVisibilityNote(target, !thinTorso, envState.tempC);
     if (nippleNote) msg += `\n${nippleNote}`;
-    // Ejaculate on exposed skin
-    const ejacNote = ejaculateDescription(target, isSelf, coveredSlots);
-    if (ejacNote) msg += `\n${ejacNote}`;
   }
 
   return msg.trim();
@@ -187,7 +197,7 @@ async function cmdExamine(targetStr, player) {
 
   // Self-look
   if (t === 'me' || t === 'myself' || t === 'self') {
-    return { type:'examine', message: await describePlayerAppearance(player, true) };
+    return { type:'examine', message: await describePlayerAppearance(player, true, player) };
   }
 
   const { rows } = await query(`SELECT pi.id AS inv_id, i.* FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND i.name ILIKE $2 LIMIT 1`, [player.id, `%${targetStr}%`]);
@@ -258,7 +268,7 @@ async function cmdExamine(targetStr, player) {
   const others = getZonePlayers(player.current_zone).filter(p => p.id !== player.id);
   const targetPlayer = others.find(p => p.handle.toLowerCase().includes(t));
   if (targetPlayer) {
-    return { type:'examine', message: await describePlayerAppearance(targetPlayer, false) };
+    return { type:'examine', message: await describePlayerAppearance(targetPlayer, false, player) };
   }
   const { rows: sleepers } = await query(
     `SELECT * FROM players WHERE LOWER(handle) LIKE $1 AND current_zone=$2 AND offline_sleeping=TRUE LIMIT 1`,
@@ -266,7 +276,7 @@ async function cmdExamine(targetStr, player) {
   );
   if (sleepers.length) {
     const s = sleepers[0];
-    const app = await describePlayerAppearance(s, false);
+    const app = await describePlayerAppearance(s, false, player);
     return { type:'examine', message: app + `\n<span class="text-dim">(${s.handle} is asleep.)</span>` };
   }
 

@@ -405,10 +405,15 @@ async function resourceTick() {
     const bodilyMsgs = await tickBodily(player, broadcastFn);
     if (bodilyMsgs.length) broadcastFn(null, { type:'resource_tick', messages: bodilyMsgs }, null, playerId);
 
-    // Slow passive horniness decay (−1 per tick if above 0 and not active)
+    // Horniness decay — only starts 5 minutes after last increase
     if ((player.horniness || 0) > 0) {
-      player.horniness = Math.max(0, player.horniness - 1);
-      await query('UPDATE players SET horniness=$1 WHERE id=$2', [player.horniness, playerId]);
+      const lastIncrease = player.horniness_last_increased || 0;
+      const decayDelayMs = 5 * 60 * 1000;
+      if (!lastIncrease || (Date.now() - lastIncrease) >= decayDelayMs) {
+        player.horniness = Math.max(0, player.horniness - 1);
+        await query('UPDATE players SET horniness=$1 WHERE id=$2', [player.horniness, playerId]);
+        broadcastFn(null, { type:'resource_tick', messages: [], player_update: { horniness: player.horniness, mis_enabled: player.mis_enabled } }, null, playerId);
+      }
     }
   }
 }
