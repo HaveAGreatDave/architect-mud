@@ -292,6 +292,9 @@ export async function initEnvironment({ query, emitHook, broadcast }) {
   state.lastTick24h = new Date(clockRow.last_tick_24h).getTime();
   const lastTick1m = clockRow.last_tick_1m ? new Date(clockRow.last_tick_1m).getTime() : state.lastTick30m;
 
+  state.weatherOverrideActive = clockRow.weather_override_active || false;
+  state.weatherOverrideBackup = clockRow.weather_override_backup || null;
+
   state.activeClimateProfileId = clockRow.active_climate_profile_id || null;
   if (state.activeClimateProfileId) {
     const { rows: cpRows } = await query('SELECT * FROM climate_profiles WHERE id = $1', [state.activeClimateProfileId]);
@@ -1306,6 +1309,8 @@ export async function devOverrideWeather({ weatherType, tempC, precipChance }) {
   // Strip the offset before storing so the base value stays stable across applies.
   if (tempC !== undefined) state.tempC = Number(tempC) - diurnalOffset(state.minutes);
   await query(`UPDATE weather_forecast SET weather_type = $1, temp_c = $2 WHERE forecast_day = 0`, [weatherType, state.tempC]);
+  await query(`UPDATE world_clock SET weather_override_active = TRUE, weather_override_backup = $1 WHERE id = 1`,
+    [JSON.stringify(state.weatherOverrideBackup)]);
   state.forecast[0] = { ...state.forecast[0], weatherType, tempC: state.tempC, ...(precipChance !== undefined ? { precipChance: Number(precipChance) } : {}) };
   // Roll current precip against the new precipChance, replacing whatever was active.
   rollAndSetCurrentPrecip(weatherType, state.tempC + diurnalOffset(state.minutes), Number(precipChance ?? state.forecast[0]?.precipChance ?? 0.05));
@@ -1319,6 +1324,7 @@ export async function devClearWeatherOverride() {
   const backup = state.weatherOverrideBackup;
   state.weatherOverrideActive = false;
   state.weatherOverrideBackup = null;
+  await query(`UPDATE world_clock SET weather_override_active = FALSE, weather_override_backup = NULL WHERE id = 1`);
   if (backup) {
     state.weatherType = backup.weatherType;
     state.tempC = backup.tempC;

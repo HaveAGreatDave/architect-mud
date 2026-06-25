@@ -251,30 +251,30 @@ function tempFlavorMessage(tempC, tick) {
     const msgs = ['You feel chilly.', 'A cold draft finds its way through your clothing.', 'You pull your clothes tighter against the chill.'];
     return msgs[tick % msgs.length];
   }
-  // cold: every tick (-1 HP)
-  if (tempC >= 30 && tempC < 34) {
-    const msgs = ['You begin to shiver. (-1 HP)', 'The cold is getting to you. (-1 HP)', 'Your breath fogs in the air. (-1 HP)', 'Your fingers are going numb. (-1 HP)'];
-    return msgs[tick % msgs.length];
+  // cold: every 5 ticks (-5 HP)
+  if (tempC >= 30 && tempC < 34 && tick % 5 === 0) {
+    const msgs = ['You begin to shiver. (-5 HP)', 'The cold is getting to you. (-5 HP)', 'Your breath fogs in the air. (-5 HP)', 'Your fingers are going numb. (-5 HP)'];
+    return msgs[(tick / 5) % msgs.length];
   }
-  // freezing: every tick (-2 HP)
-  if (tempC < 30) {
-    const msgs = ['You feel dangerously cold. (-2 HP)', 'The cold is killing you. (-2 HP)', 'You can barely feel your extremities. (-2 HP)'];
-    return msgs[tick % msgs.length];
+  // freezing: every 5 ticks (-10 HP)
+  if (tempC < 30 && tick % 5 === 0) {
+    const msgs = ['You feel dangerously cold. (-10 HP)', 'The cold is killing you. (-10 HP)', 'You can barely feel your extremities. (-10 HP)'];
+    return msgs[(tick / 5) % msgs.length];
   }
   // slightly hot: every 6 ticks
   if (tempC > 38 && tempC <= 40 && tick % 6 === 0) {
     const msgs = ['You feel uncomfortably warm.', 'Sweat beads on your skin.', 'The heat is oppressive.'];
     return msgs[tick % msgs.length];
   }
-  // hot: every tick (-1 HP)
-  if (tempC > 40 && tempC <= 42) {
-    const msgs = ['The heat is draining you. (-1 HP)', 'You\'re sweating through your clothes. (-1 HP)', 'The heat makes it hard to breathe. (-1 HP)'];
-    return msgs[tick % msgs.length];
+  // hot: every 5 ticks (-5 HP)
+  if (tempC > 40 && tempC <= 42 && tick % 5 === 0) {
+    const msgs = ['The heat is draining you. (-5 HP)', 'You\'re sweating through your clothes. (-5 HP)', 'The heat makes it hard to breathe. (-5 HP)'];
+    return msgs[(tick / 5) % msgs.length];
   }
-  // overheating: every tick (-2 HP)
-  if (tempC > 42) {
-    const msgs = ['The desert heat is becoming unbearable. (-2 HP)', 'You are overheating. (-2 HP)', 'Heat exhaustion sets in. (-2 HP)'];
-    return msgs[tick % msgs.length];
+  // overheating: every 5 ticks (-10 HP)
+  if (tempC > 42 && tick % 5 === 0) {
+    const msgs = ['The desert heat is becoming unbearable. (-10 HP)', 'You are overheating. (-10 HP)', 'Heat exhaustion sets in. (-10 HP)'];
+    return msgs[(tick / 5) % msgs.length];
   }
   return null;
 }
@@ -372,12 +372,14 @@ async function resourceTick() {
     const isOverheating = tempC > 42;
     const isHot = tempC > 40 && tempC <= 42;
 
-    if (isFreezing || isOverheating) {
-      player.hp = Math.max(0, player.hp - 2);
-      hpChanged = true;
-    } else if (isCold || isHot) {
-      player.hp = Math.max(0, player.hp - 1);
-      hpChanged = true;
+    if (player._tickCounter % 5 === 0) {
+      if (isFreezing || isOverheating) {
+        player.hp = Math.max(0, player.hp - 10);
+        hpChanged = true;
+      } else if (isCold || isHot) {
+        player.hp = Math.max(0, player.hp - 5);
+        hpChanged = true;
+      }
     }
     // Hot/overheating: increased thirst drain
     if ((isHot || isOverheating) && Math.random() < 0.5) {

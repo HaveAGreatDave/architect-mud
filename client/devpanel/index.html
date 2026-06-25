@@ -3107,6 +3107,14 @@ function buildDynamicMapGrid(zones, mode, powerById, clickable) {
   return html;
 }
 
+function luminanceTextColor(bgHex) {
+  const hex = (bgHex || '').replace('#', '');
+  if (hex.length !== 6) return '#eeeeee';
+  const r = parseInt(hex.slice(0,2),16), g = parseInt(hex.slice(2,4),16), b = parseInt(hex.slice(4,6),16);
+  const lum = (0.299*r + 0.587*g + 0.114*b) / 255;
+  return lum > 0.5 ? '#111111' : '#eeeeee';
+}
+
 function zoneColorStyle(colorOrZone, _unused) {
   // Accept either a zone object {color, bg_color} or a legacy bare color string.
   const zone = (colorOrZone && typeof colorOrZone === 'object') ? colorOrZone : { color: colorOrZone };
@@ -5281,7 +5289,7 @@ function renderTimeWeatherPanel(data) {
           <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim)">Override Weather</div>
           ${env.weatherOverrideActive
             ? `<div style="display:flex;align-items:center;gap:10px">
-                <span style="font-size:11px;color:var(--yellow);background:rgba(255,200,0,0.08);border:1px solid var(--yellow);border-radius:3px;padding:3px 8px">⚠ Override Active: ${env.currentWeatherType || env.weatherType}, ${env.tempC != null ? env.tempC + '°C' : '—'}</span>
+                <span style="font-size:11px;color:${luminanceTextColor('c89200')};background:#c89200;border:1px solid #a87800;border-radius:3px;padding:3px 8px">⚠ Override Active: ${env.currentWeatherType || env.weatherType}, ${env.tempC != null ? env.tempC + '°C' : '—'}</span>
                 <button class="action-btn danger" onclick="devClearWeatherOverride()">Disable Override</button>
               </div>`
             : `<span style="font-size:11px;color:var(--text-dim)">Following forecast</span>`}
