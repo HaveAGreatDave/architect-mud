@@ -78,6 +78,7 @@ export function updateEnvironmentHUD(env) {
   if (env.currentIntensity !== undefined) envCurrentPrecipIntensity = env.currentIntensity;
   _lastServerTick = Date.now();
   renderEnvironmentHUD();
+  refreshZoneVisibility();
 }
 
 export function refreshZoneVisibility() {
