@@ -3052,11 +3052,7 @@ function buildDynamicMapGrid(zones, mode, powerById, clickable) {
       }
       const click = clickable ? ` onclick="bigMapTileClick('${z.id}')"` : '';
       let tileStyle = mode === 'power' ? gs : gs + colorStyle;
-      if (powerStatus) {
-        const POWER_STATUS_RGB = { powered:[20,200,100], overloaded:[255,165,0], offline:[220,40,60], unpowered:[30,30,50], plant:[80,160,255] };
-        const [r,g,b] = POWER_STATUS_RGB[powerStatus] || POWER_STATUS_RGB.unpowered;
-        tileStyle += `;color:rgb(240,240,240)`;
-      }
+      if (powerStatus) tileStyle += `;color:${powerTileTextColor(powerStatus)}`;
       html += `<div class="${cls}" style="${tileStyle}" title="${z.id}"${click}><div>${marker}${z.name}${sub}</div></div>`;
     }
   }
@@ -4502,12 +4498,40 @@ function loadDevSettings() { try { return JSON.parse(localStorage.getItem(SHARED
 function saveDevSettings(s) { try { const merged = { ...loadDevSettings(), ...s }; localStorage.setItem(SHARED_SETTINGS_KEY, JSON.stringify(merged)); } catch {} }
 let devSettings = loadDevSettings();
 
+const POWER_STATUS_RGBA = {
+  powered:   [20,  200, 100, 0.22],
+  overloaded:[255, 165, 0,   0.28],
+  offline:   [220, 40,  60,  0.32],
+  unpowered: [30,  30,  50,  0.65],
+  plant:     [80,  160, 255, 0.28],
+};
+
+function powerTileTextColor(status) {
+  const [sr, sg, sb, sa] = POWER_STATUS_RGBA[status] || POWER_STATUS_RGBA.unpowered;
+  const bgCss = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+  const bh = bgCss.replace('#', '');
+  const br = parseInt(bh.slice(0,2),16), bg = parseInt(bh.slice(2,4),16), bb = parseInt(bh.slice(4,6),16);
+  const r = sr * sa + br * (1 - sa);
+  const g = sg * sa + bg * (1 - sa);
+  const b = sb * sa + bb * (1 - sa);
+  const lum = (0.299*r + 0.587*g + 0.114*b) / 255;
+  return lum < 0.5 ? 'rgb(240,240,240)' : 'rgb(20,20,20)';
+}
+
+function repaintPowerTileColors() {
+  document.querySelectorAll('.bigmap-tile[class*="bm-power-"]').forEach(tile => {
+    const match = tile.className.match(/bm-power-(\w+)/);
+    if (match) tile.style.color = powerTileTextColor(match[1]);
+  });
+}
+
 function applyDevSettings() {
   const theme = devSettings.theme || 'dark';
   document.documentElement.setAttribute('data-theme', theme);
   document.querySelectorAll('.dev-settings-opt').forEach(btn => {
     btn.classList.toggle('selected', btn.dataset.value === theme);
   });
+  repaintPowerTileColors();
 }
 applyDevSettings();
 
