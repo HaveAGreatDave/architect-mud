@@ -87,11 +87,58 @@ export function renderEquipPanel(items) {
     card.ondragstart = (e) => onItemDragStart(e, item.id);
     card.ondragend = () => card.classList.remove('dragging');
     if (equippable) card.onclick = () => sendCmdSilent(`equipid ${item.id}`);
-    card.querySelector('.eic-drop-btn').onclick = (e) => { e.stopPropagation(); sendCmdSilent(`dropid ${item.id}`); };
+    card.querySelector('.eic-drop-btn').onclick = (e) => { e.stopPropagation(); dropItem(item); };
     list.appendChild(card);
   }
 
   document.getElementById('equip-credits-val').textContent = (state.player && state.player.credits) || 0;
+}
+
+function showDropQtyDialog(item, onConfirm) {
+  let overlay = document.getElementById('drop-qty-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'drop-qty-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:600;display:flex;align-items:center;justify-content:center';
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.style.display = 'none'; });
+    document.body.appendChild(overlay);
+  }
+  const btnStyle = (color) => `background:transparent;border:1px solid ${color};color:${color};font-family:var(--font-mono);font-size:11px;padding:4px 14px;cursor:pointer;border-radius:2px`;
+  overlay.innerHTML = `
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:2px;padding:20px;width:260px;font-family:var(--font-mono)">
+      <div style="font-size:11px;color:var(--accent);text-transform:uppercase;letter-spacing:2px;margin-bottom:14px">Drop Item</div>
+      <div style="font-size:12px;color:var(--text-bright);margin-bottom:2px">${item.name}</div>
+      <div style="font-size:11px;color:var(--text-dim);margin-bottom:12px">You have ${item.quantity}. How many to drop?</div>
+      <input id="drop-qty-input" type="number" min="1" max="${item.quantity}" value="${item.quantity}"
+        style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text-bright);font-family:var(--font-mono);font-size:14px;padding:6px 8px;box-sizing:border-box;margin-bottom:14px;border-radius:2px">
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button id="drop-qty-cancel" style="${btnStyle('var(--text-dim)')}">Cancel</button>
+        <button id="drop-qty-confirm" style="${btnStyle('var(--red)')}">Drop</button>
+      </div>
+    </div>`;
+  overlay.style.display = 'flex';
+
+  const input = document.getElementById('drop-qty-input');
+  input.select();
+  input.focus();
+
+  function doConfirm() {
+    const qty = Math.min(Math.max(1, parseInt(input.value) || 1), item.quantity);
+    overlay.style.display = 'none';
+    onConfirm(qty);
+  }
+
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') doConfirm(); if (e.key === 'Escape') { overlay.style.display = 'none'; } });
+  document.getElementById('drop-qty-cancel').addEventListener('click', () => { overlay.style.display = 'none'; });
+  document.getElementById('drop-qty-confirm').addEventListener('click', doConfirm);
+}
+
+function dropItem(item) {
+  if (item.quantity > 1) {
+    showDropQtyDialog(item, qty => sendCmdSilent(`dropid ${item.id} ${qty}`));
+  } else {
+    sendCmdSilent(`dropid ${item.id}`);
+  }
 }
 
 function onItemDragStart(e, id) {
@@ -145,7 +192,9 @@ export function initEquipPanel() {
   // Drop outside any valid target → drop item on the ground.
   document.addEventListener('dragend', () => {
     if (!dragHandled && equipDraggedId) {
-      sendCmdSilent(`dropid ${equipDraggedId}`);
+      const item = lastItems.find(i => i.id == equipDraggedId);
+      if (item) dropItem(item);
+      else sendCmdSilent(`dropid ${equipDraggedId}`);
     }
     equipDraggedId = null;
     dragHandled = false;

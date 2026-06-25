@@ -140,13 +140,21 @@ async function cmdDrop(targetStr, player, broadcast) {
   return { type:'drop', message:`You drop ${rows[0].name}.` };
 }
 
-async function cmdDropById(inventoryId, player, broadcast) {
+async function cmdDropById(inventoryId, player, broadcast, qty) {
   if (!inventoryId) return { type:'error', message:'Nothing to drop.' };
   const { rows } = await query(`SELECT pi.*,i.name FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.id=$1 AND pi.player_id=$2 AND NOT jsonb_exists(i.tags,'quest_item') LIMIT 1`, [inventoryId, player.id]);
   if (!rows.length) return { type:'error', message:`Can't drop that.` };
-  await query('UPDATE player_inventory SET player_id=$1, is_equipped=0, slot=NULL, container_id=NULL WHERE id=$2', [`_ground_${player.current_zone}`, rows[0].id]);
-  broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} drops ${rows[0].name}.` }, player.id);
-  return { type:'drop', message:`You drop ${rows[0].name}.` };
+  const item = rows[0];
+  const dropQty = (qty && qty > 0 && qty < item.quantity) ? qty : item.quantity;
+  if (dropQty < item.quantity) {
+    await query('UPDATE player_inventory SET quantity=quantity-$1 WHERE id=$2', [dropQty, item.id]);
+    await query('INSERT INTO player_inventory (player_id,item_id,quantity,is_equipped) VALUES ($1,$2,$3,0)', [`_ground_${player.current_zone}`, item.item_id, dropQty]);
+  } else {
+    await query('UPDATE player_inventory SET player_id=$1, is_equipped=0, slot=NULL, container_id=NULL WHERE id=$2', [`_ground_${player.current_zone}`, item.id]);
+  }
+  const qtyStr = dropQty > 1 ? ` x${dropQty}` : '';
+  broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} drops ${item.name}${qtyStr}.` }, player.id);
+  return { type:'drop', message:`You drop ${item.name}${qtyStr}.` };
 }
 
 async function cmdUse(targetStr, player) {
@@ -457,7 +465,7 @@ export const handlers = {
   take: (args, raw, player, broadcast) => cmdTake(args.join(' '), player, broadcast),
   get:  (args, raw, player, broadcast) => cmdTake(args.join(' '), player, broadcast),
   drop: (args, raw, player, broadcast) => cmdDrop(args.join(' '), player, broadcast),
-  dropid: (args, raw, player, broadcast) => cmdDropById(args[0], player, broadcast),
+  dropid: (args, raw, player, broadcast) => cmdDropById(args[0], player, broadcast, parseInt(args[1]) || 0),
   use:   (args, raw, player) => cmdUse(args.join(' '), player),
   eat:   (args, raw, player) => cmdUse(args.join(' '), player),
   drink: (args, raw, player) => cmdUse(args.join(' '), player),
