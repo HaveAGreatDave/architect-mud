@@ -85,8 +85,11 @@ export function refreshZoneVisibility() {
   fetch(`/api/environment/visibility/${encodeURIComponent(state.currentZone)}`)
     .then(r => r.json())
     .then(v => {
-      document.body.classList.toggle('env-vis-dim', v.category === 'dim');
-      document.body.classList.toggle('env-vis-dark', v.category === 'dark');
+      const vis = Math.max(0, Math.min(1, v.visibility ?? 1));
+      const brightness = 0.5 + 0.5 * vis;
+      const contrast   = 0.85 + 0.15 * vis;
+      const el = document.getElementById('output-container');
+      if (el) el.style.filter = `brightness(${brightness.toFixed(3)}) contrast(${contrast.toFixed(3)})`;
     })
     .catch(() => {});
 }

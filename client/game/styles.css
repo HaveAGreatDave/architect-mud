@@ -439,12 +439,10 @@
   .forecast-day-row .fd-weather { color: var(--text-dim); flex: 1; text-transform: capitalize; }
   .forecast-day-row .fd-temp { color: var(--cyan); font-weight: bold; }
 
-  /* Visibility dimming — a cosmetic overlay on the output pane only, driven
-     by GDD §7's visibility category for the player's current zone. Never
-     alters game text/logic, just how it reads on screen. */
+  /* Visibility dimming — filter is set inline by refreshZoneVisibility() using
+     the zone's 0–1 visibility float. Full light = brightness(1) contrast(1);
+     pitch dark = brightness(0.5) contrast(0.85); always legible. */
   #output-container { transition: filter 0.6s ease; }
-  body.env-vis-dim #output-container { filter: brightness(0.88) contrast(0.95); }
-  body.env-vis-dark #output-container { filter: brightness(0.7) contrast(0.9) saturate(0.85); }
 
   /* ─── INPUT BAR ─── */
   #input-area {
