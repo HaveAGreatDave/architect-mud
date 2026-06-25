@@ -3027,9 +3027,13 @@ function zoneColorStyle(color) {
   const hex = color.replace('#', '');
   if (hex.length !== 6) return `;border-color:${color}`;
   const r = parseInt(hex.slice(0, 2), 16), g = parseInt(hex.slice(2, 4), 16), b = parseInt(hex.slice(4, 6), 16);
-  const bg = `rgb(${Math.round(r*0.35)},${Math.round(g*0.35)},${Math.round(b*0.35)})`;
+  const bgR = Math.round(r*0.35), bgG = Math.round(g*0.35), bgB = Math.round(b*0.35);
+  const bg = `rgb(${bgR},${bgG},${bgB})`;
   const br = `rgb(${Math.min(255,Math.round(r+(255-r)*0.65))},${Math.min(255,Math.round(g+(255-g)*0.65))},${Math.min(255,Math.round(b+(255-b)*0.65))})`;
-  return `;background:${bg};border-color:${br}`;
+  // Perceived luminance of the bg, then invert for text: dark bg → light text, light bg → dark text.
+  const lum = (0.299*bgR + 0.587*bgG + 0.114*bgB) / 255;
+  const t = Math.round((1 - lum) * 255);
+  return `;background:${bg};border-color:${br};color:rgb(${t},${t},${t})`;
 }
 
 function mapLegendHtml(mode) {
