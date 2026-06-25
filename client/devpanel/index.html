@@ -3048,7 +3048,8 @@ function buildDynamicMapGrid(zones, mode, powerById, clickable) {
         }
       }
       const click = clickable ? ` onclick="bigMapTileClick('${z.id}')"` : '';
-      html += `<div class="${cls}" style="${gs}${colorStyle}" title="${z.id}"${click}><div>${marker}${z.name}${sub}</div></div>`;
+      const tileStyle = mode === 'power' ? gs : gs + colorStyle;
+      html += `<div class="${cls}" style="${tileStyle}" title="${z.id}"${click}><div>${marker}${z.name}${sub}</div></div>`;
     }
   }
 
