@@ -337,24 +337,34 @@ async function apiAddRoom(parentZoneId, body) {
   const roomExits = { [OPPOSITE[direction]]: parentZoneId };
 
   try {
-    // Find or create the interior map for the parent zone
+    // Find or create the interior map for the parent zone.
+    // The first room placed on a new map gets coordinates (0,0,0) — it's the entry point.
+    // Additional rooms are left unplaced so the dev can drag them into position manually.
     const { rows: existingMaps } = await query(
       'SELECT id FROM maps WHERE parent_zone_id=$1 LIMIT 1', [parentZoneId]
     );
-    let mapId;
+    let mapId, isFirstRoom;
     if (existingMaps.length) {
       mapId = existingMaps[0].id;
+      const { rows: placedRooms } = await query(
+        'SELECT 1 FROM zones WHERE map_id=$1 AND grid_x IS NOT NULL LIMIT 1', [mapId]
+      );
+      isFirstRoom = placedRooms.length === 0;
     } else {
       mapId = `map_int_${Date.now()}`;
       await query(
         `INSERT INTO maps (id, name, parent_zone_id, entry_zone_id) VALUES ($1,$2,$3,$4)`,
         [mapId, parent.name + ' — Interior', parentZoneId, roomId]
       );
+      isFirstRoom = true;
     }
 
     await query(
-      `INSERT INTO zones (id,name,description,danger_rating,pvp_enabled,radiation_level,is_safe_zone,exits,ambient_events,flags,map_id) VALUES ($1,$2,$3,$4,0,0,1,$5,$6,$7,$8)`,
-      [roomId, name, description || 'A small room.', parent.danger_rating || 'safe', JSON.stringify(roomExits), JSON.stringify([]), JSON.stringify({ is_interior: true }), mapId]
+      `INSERT INTO zones (id,name,description,danger_rating,pvp_enabled,radiation_level,is_safe_zone,exits,ambient_events,flags,map_id,grid_x,grid_y,grid_z)
+       VALUES ($1,$2,$3,$4,0,0,1,$5,$6,$7,$8,$9,$10,$11)`,
+      [roomId, name, description || 'A small room.', parent.danger_rating || 'safe',
+       JSON.stringify(roomExits), JSON.stringify([]), JSON.stringify({ is_interior: true }),
+       mapId, isFirstRoom ? 0 : null, isFirstRoom ? 0 : null, 0]
     );
     const updatedParentExits = { ...parentExits, [direction]: roomId };
     await query('UPDATE zones SET exits=$1 WHERE id=$2', [JSON.stringify(updatedParentExits), parentZoneId]);
