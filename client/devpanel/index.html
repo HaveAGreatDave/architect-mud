@@ -161,12 +161,16 @@
   <div class="modal-card" style="width:360px">
     <h2 style="color:var(--accent);letter-spacing:2px;text-transform:uppercase;font-size:14px;margin-bottom:18px">Settings</h2>
     <div style="margin-bottom:18px">
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:8px">Theme</div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap" id="dev-opt-theme">
-        <button class="dev-settings-opt" data-value="dark">Dark</button>
-        <button class="dev-settings-opt" data-value="light">Light</button>
-        <button class="dev-settings-opt" data-value="contrast">High Contrast</button>
-      </div>
+      <label for="dev-opt-theme" style="display:block;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:8px">Theme</label>
+      <select id="dev-opt-theme" class="settings-select">
+        <option value="dark">Dark (Default)</option>
+        <option value="light">Light</option>
+        <option value="contrast">High Contrast</option>
+        <option value="phosphor">Phosphor Green</option>
+        <option value="synthwave">Synthwave</option>
+        <option value="bloodmoon">Blood Moon</option>
+        <option value="slate">Slate</option>
+      </select>
     </div>
     <div class="settings-row">
       <span>Session</span>
@@ -4528,9 +4532,8 @@ function repaintPowerTileColors() {
 function applyDevSettings() {
   const theme = devSettings.theme || 'dark';
   document.documentElement.setAttribute('data-theme', theme);
-  document.querySelectorAll('.dev-settings-opt').forEach(btn => {
-    btn.classList.toggle('selected', btn.dataset.value === theme);
-  });
+  const sel = document.getElementById('dev-opt-theme');
+  if (sel) sel.value = theme;
   repaintPowerTileColors();
 }
 applyDevSettings();
@@ -4542,13 +4545,14 @@ window.addEventListener('storage', e => {
 });
 
 document.addEventListener('DOMContentLoaded', () => {
-  document.querySelectorAll('#dev-opt-theme .dev-settings-opt').forEach(btn => {
-    btn.addEventListener('click', () => {
-      devSettings.theme = btn.dataset.value;
+  const sel = document.getElementById('dev-opt-theme');
+  if (sel) {
+    sel.addEventListener('change', () => {
+      devSettings.theme = sel.value;
       saveDevSettings(devSettings);
       applyDevSettings();
     });
-  });
+  }
 });
 function devpanelLogout() {
   if (!confirm('Log out of the dev panel?')) return;
