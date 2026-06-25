@@ -189,7 +189,7 @@ export function initEquipPanel() {
     equipDraggedId = null;
   });
 
-  // Drop outside any valid target → drop item on the ground.
+  // Drop outside any valid target → same behaviour as the drop button (prompt for stacks).
   document.addEventListener('dragend', () => {
     if (!dragHandled && equipDraggedId) {
       const item = lastItems.find(i => i.id == equipDraggedId);
