@@ -5289,7 +5289,7 @@ function renderTimeWeatherPanel(data) {
           <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim)">Override Weather</div>
           ${env.weatherOverrideActive
             ? `<div style="display:flex;align-items:center;gap:10px">
-                <span style="font-size:11px;color:var(--yellow);background:color-mix(in srgb,var(--yellow) 12%,transparent);border:1px solid var(--yellow);border-radius:3px;padding:3px 8px">⚠ Override Active: ${env.currentWeatherType || env.weatherType}, ${env.tempC != null ? env.tempC + '°C' : '—'}</span>
+                <span style="font-size:11px;color:${luminanceTextColor(getComputedStyle(document.documentElement).getPropertyValue('--yellow').trim().replace('#',''))};background:var(--yellow);border:1px solid var(--yellow);border-radius:3px;padding:3px 8px">⚠ Override Active: ${env.currentWeatherType || env.weatherType}, ${env.tempC != null ? env.tempC + '°C' : '—'}</span>
                 <button class="action-btn danger" onclick="devClearWeatherOverride()">Disable Override</button>
               </div>`
             : `<span style="font-size:11px;color:var(--text-dim)">Following forecast</span>`}
