@@ -304,17 +304,19 @@ export function initWhisperPanel() {
   const dragHandle = document.getElementById('whisper-drag-handle');
   const panel = document.getElementById('whisper-panel');
   let dragState = null;
+
+  // Only the grip bar initiates drag — not buttons inside it.
   dragHandle.addEventListener('pointerdown', e => {
     if (e.target.closest('button')) return;
     const r = panel.getBoundingClientRect();
-    // Record intent but do NOT capture yet — capturing here breaks button clicks.
     dragState = { pointerId: e.pointerId, ox: e.clientX - r.left, oy: e.clientY - r.top, startTime: Date.now(), captured: false };
   });
-  dragHandle.addEventListener('pointermove', e => {
+
+  // Listen on document so fast moves off the bar don't drop the drag.
+  document.addEventListener('pointermove', e => {
     if (!dragState || dragState.pointerId !== e.pointerId) return;
     if (!dragState.captured) {
-      if (Date.now() - dragState.startTime < 600) return;
-      // Capture only after the hold threshold — valid to call from pointermove.
+      if (Date.now() - dragState.startTime < 100) return;
       dragHandle.setPointerCapture(e.pointerId);
       dragState.captured = true;
       dragHandle.style.cursor = 'grabbing';
@@ -324,7 +326,7 @@ export function initWhisperPanel() {
     panel.style.left = x + 'px'; panel.style.top = y + 'px';
     panel.style.right = 'auto'; panel.style.bottom = 'auto';
   });
-  // Clean up on the document so a release outside the handle never leaves dragState stale.
+
   document.addEventListener('pointerup',     e => { if (dragState && dragState.pointerId === e.pointerId) { dragState = null; dragHandle.style.cursor = 'grab'; } });
   document.addEventListener('pointercancel', e => { if (dragState && dragState.pointerId === e.pointerId) { dragState = null; dragHandle.style.cursor = 'grab'; } });
 }
