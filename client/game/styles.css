@@ -142,6 +142,7 @@
 
   /* Narrow viewport — hide sidebar, keep full-height layout in viewport */
   @media (max-width: 720px) {
+    body { height: 100dvh; }
     #main {
       grid-template-columns: 1fr;
       grid-template-rows: 1fr;
@@ -149,7 +150,15 @@
     }
     #output-container { border-right: none; }
     #sidebar { display: none; }
-    #header .logo { font-size: 13px; letter-spacing: 2px; }
+
+    /* Header: compress so all items fit on one line */
+    #header { padding: 4px 8px; gap: 6px; flex-wrap: nowrap; overflow: hidden; }
+    #header .logo { font-size: 11px; letter-spacing: 1px; flex-shrink: 0; }
+    #header .conn-status { font-size: 10px; flex-shrink: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #header .handle-display { font-size: 11px; flex-shrink: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-left: auto; }
+    #header .credits-display { font-size: 11px; padding: 1px 5px; flex-shrink: 0; }
+    #settings-btn, #signout-btn { font-size: 13px; width: 24px; height: 24px; flex-shrink: 0; }
+
     #quick-cmds { overflow-x: auto; flex-wrap: nowrap; }
     #auth-box { width: 95vw; padding: 18px 14px 24px; }
     #auth-ascii { font-size: 9px; }
