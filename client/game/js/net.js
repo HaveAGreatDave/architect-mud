@@ -17,8 +17,7 @@ export function initNet(messageHandler) {
       hideColdStart();
       const signedOut = sessionStorage.getItem('signed-out');
       if (signedOut) {
-        sessionStorage.removeItem('signed-out');
-        // Show auth screen — don't auto-login
+        // Show auth screen — don't auto-login; flag cleared on auth_success
         document.getElementById('auth-screen').style.display = 'flex';
         return;
       }

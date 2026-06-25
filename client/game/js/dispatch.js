@@ -18,6 +18,7 @@ const handlers = {
   pong: () => {},
 
   auth_success: (msg) => {
+    sessionStorage.removeItem('signed-out');
     const wasReconnect = !!state.player;
     clearTimeout(state.authTimeout);
     state.authPending = false;
