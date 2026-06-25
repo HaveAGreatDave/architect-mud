@@ -2995,7 +2995,7 @@ function buildDynamicMapGrid(zones, mode, powerById, clickable) {
       const marker = z.marker ? `<span class="map-marker-badge">${z.marker}</span>` : '';
       let cls = 'bigmap-tile';
       let sub = '';
-      const colorStyle = zoneColorStyle(z.color);
+      const colorStyle = zoneColorStyle(z);
       if (mode === 'power') {
         const p = powerById?.get(z.id);
         const cpGen = bigMapGenerators.find(g => g.zone_id === z.id && g.generator_type === 'city_plant');
@@ -3069,18 +3069,29 @@ function buildDynamicMapGrid(zones, mode, powerById, clickable) {
   return html;
 }
 
-function zoneColorStyle(color) {
-  if (!color) return '';
-  const hex = color.replace('#', '');
-  if (hex.length !== 6) return `;border-color:${color}`;
-  const r = parseInt(hex.slice(0, 2), 16), g = parseInt(hex.slice(2, 4), 16), b = parseInt(hex.slice(4, 6), 16);
-  const bgR = Math.round(r*0.35), bgG = Math.round(g*0.35), bgB = Math.round(b*0.35);
-  const bg = `rgb(${bgR},${bgG},${bgB})`;
-  const br = `rgb(${Math.min(255,Math.round(r+(255-r)*0.65))},${Math.min(255,Math.round(g+(255-g)*0.65))},${Math.min(255,Math.round(b+(255-b)*0.65))})`;
-  // Perceived luminance of the bg, then invert for text: dark bg → light text, light bg → dark text.
-  const lum = (0.299*bgR + 0.587*bgG + 0.114*bgB) / 255;
-  const t = Math.round((1 - lum) * 255);
-  return `;background:${bg};border-color:${br};color:rgb(${t},${t},${t})`;
+function zoneColorStyle(colorOrZone, _unused) {
+  // Accept either a zone object {color, bg_color} or a legacy bare color string.
+  const zone = (colorOrZone && typeof colorOrZone === 'object') ? colorOrZone : { color: colorOrZone };
+  const bgHex = (zone.bg_color || '').replace('#', '');
+  const fgHex = (zone.color || '').replace('#', '');
+  if (!bgHex && !fgHex) return '';
+  let parts = [];
+  if (bgHex && bgHex.length === 6) {
+    const r = parseInt(bgHex.slice(0,2),16), g = parseInt(bgHex.slice(2,4),16), b = parseInt(bgHex.slice(4,6),16);
+    parts.push(`background:#${bgHex}`);
+    const br = `rgb(${Math.min(255,Math.round(r+(255-r)*0.5))},${Math.min(255,Math.round(g+(255-g)*0.5))},${Math.min(255,Math.round(b+(255-b)*0.5))})`;
+    parts.push(`border-color:${br}`);
+    if (!fgHex || fgHex.length !== 6) {
+      // Auto text color from luminance of bg
+      const lum = (0.299*r + 0.587*g + 0.114*b) / 255;
+      const t = Math.round((1 - lum) * 255);
+      parts.push(`color:rgb(${t},${t},${t})`);
+    }
+  }
+  if (fgHex && fgHex.length === 6) {
+    parts.push(`color:#${fgHex}`);
+  }
+  return ';' + parts.join(';');
 }
 
 function mapLegendHtml(mode) {
@@ -3181,7 +3192,7 @@ function renderBigMapOverlay() {
         : '';
 
       let cls = 'bigmap-tile';
-      let colorStyle = zoneColorStyle(z.color);
+      let colorStyle = zoneColorStyle(z);
       let powerSub = '';
       if (bigMapOverlayMode === 'power') {
         colorStyle = '';
@@ -3575,7 +3586,7 @@ function renderMapOverview() {
       }
       let cls = 'bigmap-tile bm-edit';
       if (broken.has(z.id)) cls += ' bm-broken';
-      const colorStyle = zoneColorStyle(z.color);
+      const colorStyle = zoneColorStyle(z);
       const child = o.children.find(c => c.parent_zone_id === z.id);
       const dive = child ? `<span class="map-dive-btn" title="Dive into ${child.name}" onclick="event.stopPropagation();diveInto('${z.id}')">⤵</span>` : '';
       const marker = z.marker ? `<span class="map-marker-badge">${z.marker}</span>` : '';
@@ -3613,7 +3624,7 @@ function renderMapOverview() {
   html += `</div></div>`;
 
   // Unplaced-zones tray:
-  const trayChip = (z, dragFn) => `<span class="bigmap-tile bm-edit" style="width:auto;height:auto;padding:4px 8px;cursor:grab;flex-shrink:0${zoneColorStyle(z.color)}" draggable="true" ondragstart="${dragFn}(event,'${z.id}')" title="${z.id}">${z.name}</span>`;
+  const trayChip = (z, dragFn) => `<span class="bigmap-tile bm-edit" style="width:auto;height:auto;padding:4px 8px;cursor:grab;flex-shrink:0${zoneColorStyle(z)}" draggable="true" ondragstart="${dragFn}(event,'${z.id}')" title="${z.id}">${z.name}</span>`;
 
   if (mapViewTab === 'interior') {
     // Interior tray: rooms with no grid position OR no exits established,
@@ -3639,9 +3650,9 @@ function renderMapOverview() {
     const intUnplaced = [...(o.unplacedInterior?.values() || [])];
     const unplacedBuildings = intUnplaced.filter(z => z.flags?.is_building);
     const orphanedRooms = intUnplaced.filter(z => !z.flags?.is_building);
-    const extChip = z => `<span class="bigmap-tile bm-edit" style="width:auto;height:auto;padding:4px 8px;cursor:grab;flex-shrink:0${zoneColorStyle(z.color)};border-color:var(--accent)" draggable="true" ondragstart="mapTrayDragStart(event,'${z.id}')" title="${z.id}">${z.name}</span>`;
-    const intChip = z => `<span class="bigmap-tile bm-edit" style="width:auto;height:auto;padding:4px 8px;cursor:grab;flex-shrink:0${zoneColorStyle(z.color)};border-color:var(--accent2);color:var(--accent2);font-weight:600" draggable="true" ondragstart="mapInteriorTrayDragStart(event,'${z.id}')" title="${z.id}">🏢 ${z.name}</span>`;
-    const roomChip = z => `<span class="bigmap-tile bm-edit" style="width:auto;height:auto;padding:4px 8px;cursor:pointer;flex-shrink:0${zoneColorStyle(z.color)};border-color:var(--yellow);color:var(--yellow)" onclick="mapTileEditClick('${z.id}')" title="${z.id}">🚪 ${z.name}</span>`;
+    const extChip = z => `<span class="bigmap-tile bm-edit" style="width:auto;height:auto;padding:4px 8px;cursor:grab;flex-shrink:0${zoneColorStyle(z)};border-color:var(--accent)" draggable="true" ondragstart="mapTrayDragStart(event,'${z.id}')" title="${z.id}">${z.name}</span>`;
+    const intChip = z => `<span class="bigmap-tile bm-edit" style="width:auto;height:auto;padding:4px 8px;cursor:grab;flex-shrink:0${zoneColorStyle(z)};border-color:var(--accent2);color:var(--accent2);font-weight:600" draggable="true" ondragstart="mapInteriorTrayDragStart(event,'${z.id}')" title="${z.id}">🏢 ${z.name}</span>`;
+    const roomChip = z => `<span class="bigmap-tile bm-edit" style="width:auto;height:auto;padding:4px 8px;cursor:pointer;flex-shrink:0${zoneColorStyle(z)};border-color:var(--yellow);color:var(--yellow)" onclick="mapTileEditClick('${z.id}')" title="${z.id}">🚪 ${z.name}</span>`;
     html += `<div style="padding:0 12px 14px;border-top:1px solid var(--border);margin-top:8px">
       <div style="font-size:11px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;padding-top:10px">Unplaced Exterior Zones</div>
       <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px">Drag onto an empty cell to place on the world map.</div>
