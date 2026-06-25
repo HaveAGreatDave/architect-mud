@@ -157,13 +157,13 @@ function cmdStretch(args, raw, player, broadcast) {
   return doEmote(`You stretch out${postureNote}${mod}.`, `${player.handle} stretches.`, player, broadcast);
 }
 
-function cmdWave(args, raw, player, broadcast) {
+async function cmdWave(args, raw, player, broadcast) {
   const { vis } = getCtx(player);
   if (vis.category === 'pitch_dark') return { type: 'emote', message: "You wave, though no one can see it in the dark." };
   const target = stripPrep(args, ['at', 'to', 'toward']);
   if (target) {
-    const found = findTargetInZone(target, player);
-    if (!found) return { type: 'emote', message: `You don't see anyone called "${target}" here.` };
+    const found = await findTargetInZone(target, player);
+    if (!found) return { type: 'error', message: `You don't see anyone called "${target}" here.` };
     return doEmote(`You wave at ${found}.`, `${player.handle} waves at ${found}.`, player, broadcast);
   }
   return doEmote('You wave.', `${player.handle} waves.`, player, broadcast);
@@ -173,12 +173,12 @@ function cmdShrug(args, raw, player, broadcast) {
   return doEmote('You shrug.', `${player.handle} shrugs.`, player, broadcast);
 }
 
-function cmdPoint(args, raw, player, broadcast) {
+async function cmdPoint(args, raw, player, broadcast) {
   const { vis } = getCtx(player);
   if (vis.category === 'pitch_dark') return { type: 'emote', message: "You point at nothing in particular — it's too dark to see anything." };
   const target = stripPrep(args, ['at', 'to', 'toward']);
   if (target) {
-    const found = findTargetInZone(target, player);
+    const found = await findTargetInZone(target, player);
     if (found) return doEmote(`You point at ${found}.`, `${player.handle} points at ${found}.`, player, broadcast);
     return doEmote(`You point toward ${target}.`, `${player.handle} points toward ${target}.`, player, broadcast);
   }
@@ -211,10 +211,10 @@ function cmdSigh(args, raw, player, broadcast) {
   return doEmote('You sigh.', `${player.handle} sighs.`, player, broadcast);
 }
 
-function cmdNod(args, raw, player, broadcast) {
+async function cmdNod(args, raw, player, broadcast) {
   const target = stripPrep(args, ['at', 'to']);
   if (target) {
-    const found = findTargetInZone(target, player);
+    const found = await findTargetInZone(target, player);
     if (found) return doEmote(`You nod at ${found}.`, `${player.handle} nods at ${found}.`, player, broadcast);
   }
   return doEmote('You nod.', `${player.handle} nods.`, player, broadcast);
@@ -291,23 +291,23 @@ async function cmdLean(args, raw, player, broadcast) {
 // Social actions
 // ---------------------------------------------------------------------------
 
-function cmdGreet(args, raw, player, broadcast) {
+async function cmdGreet(args, raw, player, broadcast) {
   const { vis } = getCtx(player);
   if (vis.category === 'pitch_dark') return { type: 'emote', message: "You call out a greeting into the darkness." };
   const target = args.join(' ').trim();
   if (target) {
-    const found = findTargetInZone(target, player);
-    if (!found) return { type: 'emote', message: `You don't see anyone called "${target}" here.` };
+    const found = await findTargetInZone(target, player);
+    if (!found) return { type: 'error', message: `You don't see anyone called "${target}" here.` };
     return doEmote(`You greet ${found} with a nod.`, `${player.handle} greets ${found}.`, player, broadcast);
   }
   return doEmote('You look around and offer a general greeting.', `${player.handle} offers a general greeting.`, player, broadcast);
 }
 
-function cmdFollow(args, raw, player, broadcast) {
+async function cmdFollow(args, raw, player, broadcast) {
   const target = args.join(' ').trim();
-  if (!target) return { type: 'emote', message: 'Follow whom?' };
-  const found = findTargetInZone(target, player);
-  if (!found) return { type: 'emote', message: `You don't see anyone called "${target}" here.` };
+  if (!target) return { type: 'error', message: 'Follow whom?' };
+  const found = await findTargetInZone(target, player);
+  if (!found) return { type: 'error', message: `You don't see anyone called "${target}" here.` };
   return doEmote(`You fall into step behind ${found}.`, `${player.handle} falls into step behind ${found}.`, player, broadcast);
 }
 
@@ -384,13 +384,18 @@ function stripPrep(args, preps) {
   return args.join(' ').trim();
 }
 
-function findTargetInZone(target, player) {
+async function findTargetInZone(target, player) {
   const lower = target.toLowerCase();
   const p = getZonePlayers(player.current_zone).filter(p => p.id !== player.id)
     .find(p => p.handle.toLowerCase().includes(lower));
   if (p) return p.handle;
   const n = getZoneNpcs(player.current_zone).find(n => n.name.toLowerCase().includes(lower));
   if (n) return n.name;
+  const { rows } = await query(
+    `SELECT handle FROM players WHERE LOWER(handle) LIKE $1 AND current_zone=$2 AND offline_sleeping=TRUE LIMIT 1`,
+    [`%${lower}%`, player.current_zone]
+  );
+  if (rows.length) return rows[0].handle;
   return null;
 }
 
