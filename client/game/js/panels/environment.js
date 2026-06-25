@@ -70,15 +70,24 @@ function renderEnvironmentHUD() {
 let _lastServerTick = 0;
 
 export function updateEnvironmentHUD(env) {
-  if (!env || !env.time) return;
-  clientMinutes = parseHHMM(env.time);
+  if (!env) return;
+  if (env.time) clientMinutes = parseHHMM(env.time);
+  if (clientMinutes === null) return; // not ready yet
   if (env.weatherIcon !== undefined) envWeatherIcon = env.weatherIcon || '—';
   if (env.tempC !== undefined) envTempC = env.tempC;
   if (env.currentWeatherType !== undefined) envCurrentWeatherType = env.currentWeatherType;
   if (env.currentIntensity !== undefined) envCurrentPrecipIntensity = env.currentIntensity;
   _lastServerTick = Date.now();
   renderEnvironmentHUD();
-  refreshZoneVisibility();
+  if (env.time) refreshZoneVisibility();
+}
+
+// Called every minute with the zone's current indoor temperature.
+// Overwrites the outdoor temp shown in the HUD when the player is indoors.
+export function updateZoneTempHUD(tempC) {
+  if (clientMinutes === null) return;
+  envTempC = tempC;
+  renderEnvironmentHUD();
 }
 
 export function refreshZoneVisibility() {

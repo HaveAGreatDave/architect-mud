@@ -2,7 +2,7 @@ import { state } from './state.js';
 import { appendMsg, appendHtml, updateVitals, parseZoneInfo, showDevPanelButton } from './render.js';
 import { sendCmd, sendCmdSilent, closeConnection, attemptAutoReauth } from './net.js';
 import { renderMinimap, openMapPopup } from './panels/minimap.js';
-import { updateEnvironmentHUD, refreshZoneVisibility } from './panels/environment.js';
+import { updateEnvironmentHUD, updateZoneTempHUD, refreshZoneVisibility } from './panels/environment.js';
 import { openDialogue, closeDialogue, openShop } from './panels/dialogue.js';
 import { renderEquipPanel } from './panels/equipment.js';
 import { receiveWhisper, sentWhisper, receiveChannelMsg, initChannels } from './panels/whisper.js';
@@ -251,6 +251,7 @@ const handlers = {
   },
 
   'environment.clockTick': (msg) => { updateEnvironmentHUD(msg); },
+  'environment.zoneTempTick': (msg) => { updateZoneTempHUD(msg.tempC); },
   'environment.sync': (msg) => { updateEnvironmentHUD(msg); updateForecast(msg.forecast); },
   'environment.daily': (msg) => { updateEnvironmentHUD(msg); updateForecast(msg.forecast); },
   'environment.weatherOverride': (msg) => { updateEnvironmentHUD(msg); },
