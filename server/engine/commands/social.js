@@ -1,5 +1,6 @@
 import { getAllLivePlayers, getZonePlayers, getZoneNpcs } from '../world.js';
 import { propagateYell } from '../sounds.js';
+import { canAccessChannel, broadcastToChannel } from '../channels.js';
 
 function cmdTalk(targetStr, player) {
   if (!targetStr) return { type:'error', message:'Talk to whom?' };
@@ -29,8 +30,21 @@ function cmdYell(text, player, broadcast) {
 }
 
 function cmdWhisper(args, raw, player, broadcast) {
-  if (!args.length) return { type:'error', message:'Usage: whisper <player> <message>' };
+  if (!args.length) return { type:'error', message:'Usage: whisper <player|#channel> <message>' };
   const afterCmd = raw.replace(/^\S+\s+/, '');
+  const targetWord = args[0];
+
+  // Channel whisper: target starts with #
+  if (targetWord.startsWith('#')) {
+    const channelId = targetWord.toLowerCase();
+    const msgText = afterCmd.slice(targetWord.length).trim();
+    if (!msgText) return { type:'error', message:`Usage: whisper ${channelId} <message>` };
+    if (!canAccessChannel(channelId, player)) return { type:'error', message:`No such channel: ${channelId}` };
+    broadcastToChannel(channelId, { type:'channel_msg', channel: channelId, from: player.handle, message: msgText }, broadcast);
+    return null;
+  }
+
+  // Player whisper
   const livePlayers = getAllLivePlayers().filter(p => p.id !== player.id);
   const sorted = livePlayers.slice().sort((a,b) => b.handle.length - a.handle.length);
   const target = sorted.find(p => afterCmd.toLowerCase().startsWith(p.handle.toLowerCase()));
@@ -39,18 +53,6 @@ function cmdWhisper(args, raw, player, broadcast) {
   if (!msgText) return { type:'error', message:'Usage: whisper <player> <message>' };
   broadcast(null, { type:'whisper', from: player.handle, message: msgText }, null, target.id);
   return { type:'whisper_sent', to: target.handle, message: msgText };
-}
-
-const ADMIN_ROLES = new Set(['admin', 'dev', 'builder', 'designer']);
-
-function cmdAdminChat(text, player, broadcast) {
-  if (!ADMIN_ROLES.has(player.role)) return { type: 'error', message: 'Access denied.' };
-  if (!text.trim()) return { type: 'error', message: 'Say something on #zotnet.' };
-  const admins = getAllLivePlayers().filter(p => ADMIN_ROLES.has(p.role));
-  for (const admin of admins) {
-    broadcast(null, { type: 'adminchat', from: player.handle, message: text.trim() }, null, admin.id);
-  }
-  return null;
 }
 
 async function cmdWho() {
@@ -80,6 +82,5 @@ export const handlers = {
   tell:    (args, raw, player, broadcast) => cmdWhisper(args, raw, player, broadcast),
   t:       (args, raw, player, broadcast) => cmdWhisper(args, raw, player, broadcast),
   who:     () => cmdWho(),
-  adminchat: (args, raw, player, broadcast) => cmdAdminChat(raw.replace(/^adminchat\s*/i, ''), player, broadcast),
   obama:   (args, raw, player, broadcast) => cmdObama(args.join(' '), player, broadcast),
 };

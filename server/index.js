@@ -38,6 +38,7 @@ import { migrate } from "./models/migrate.js";
 import { loadMisSettings } from "./engine/mis.js";
 
 import { initEnvironment, getHUDPayload } from "./engine/environment.js";
+import { getPlayerChannels } from "./engine/channels.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
@@ -492,6 +493,7 @@ async function finishAuth(ws, session, player) {
 			env: envHUD,
 			apiToken,
 			reconnectToken,
+			channels: getPlayerChannels(livePlayer),
 		}),
 	);
 
