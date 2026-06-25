@@ -17,10 +17,23 @@ if (!localStorage.getItem(SETTINGS_KEY) && _isMobile) {
   settings.fontSize = '16';
 }
 
+// In compact mode, override --font-size-base to fit the actual viewport rather than
+// using the stored fontSize value (which was picked for a different screen size).
+function applyMobileScale() {
+  if (settings.density !== 'compact') return;
+  // ~28px of content per character column fits comfortably; clamp between 10–18px.
+  const byWidth = Math.floor(window.innerWidth / 28);
+  const sz = Math.max(10, Math.min(18, byWidth));
+  document.documentElement.style.setProperty('--font-size-base', sz + 'px');
+}
+
 applySettings(settings);
-listenForSettingsChanges(applySettings);
+applyMobileScale();
+window.addEventListener('resize', applyMobileScale);
+
+listenForSettingsChanges((s) => { applySettings(s); applyMobileScale(); });
 // saveAndApply is called after settings.js mutates the settings object in-place
-initSettingsUI(settings, () => { saveSettings(settings); applySettings(settings); }, {
+initSettingsUI(settings, () => { saveSettings(settings); applySettings(settings); applyMobileScale(); }, {
   sendCmd,
   getOrigin: () => state.player?.origin_fragment || '',
   saveOrigin: async (text) => {
