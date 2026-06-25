@@ -1463,6 +1463,11 @@ async function saveZone(existing) {
     is_interior: document.getElementById('f-is_interior').checked,
   };
 
+  const rawMapId = document.getElementById('f-map_id')?.value;
+  const rawGridX = document.getElementById('f-grid_x')?.value;
+  const rawGridY = document.getElementById('f-grid_y')?.value;
+  const rawGridZ = document.getElementById('f-grid_z')?.value;
+
   const body = {
     name: document.getElementById('f-name').value,
     description: document.getElementById('f-description').value,
@@ -1475,6 +1480,11 @@ async function saveZone(existing) {
     color: document.getElementById('f-color').value.trim() || null,
     bg_color: document.getElementById('f-bg_color').value.trim() || null,
   };
+
+  if (rawMapId) body.map_id = rawMapId;
+  if (rawGridX !== '' && rawGridX != null) body.grid_x = parseInt(rawGridX);
+  if (rawGridY !== '' && rawGridY != null) body.grid_y = parseInt(rawGridY);
+  if (rawGridZ !== '' && rawGridZ != null) body.grid_z = parseInt(rawGridZ);
 
   if (isNew) { body.id = id; return API('/zones', 'POST', body); }
   else return API(`/zones/${existing.id}`, 'PUT', body);
