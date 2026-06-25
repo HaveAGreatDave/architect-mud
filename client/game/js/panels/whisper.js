@@ -68,12 +68,8 @@ function _refreshWhisperTabs() {
     const bg          = active ? 'var(--bg3)' : 'transparent';
 
     const wrap = document.createElement('div');
-    wrap.style.cssText = `display:inline-flex;align-items:stretch;flex-shrink:0;position:relative`;
-
-    const labelBtn = document.createElement('button');
-    labelBtn.style.cssText = `background:${bg};border:1px solid ${borderColor};color:${textColor};font-family:var(--font-mono);font-size:10px;padding:3px 8px;cursor:pointer;border-radius:2px;white-space:nowrap`;
-    labelBtn.textContent = handle;
-    labelBtn.addEventListener('click', () => openWhisperTab(handle));
+    wrap.style.cssText = `display:inline-flex;align-items:center;gap:5px;flex-shrink:0;position:relative;background:${bg};border:1px solid ${borderColor};border-radius:2px;padding:2px 4px 2px 8px;cursor:pointer`;
+    wrap.addEventListener('click', () => openWhisperTab(handle));
 
     if (convo.unread > 0) {
       const pip = document.createElement('span');
@@ -82,15 +78,19 @@ function _refreshWhisperTabs() {
       wrap.appendChild(pip);
     }
 
+    const label = document.createElement('span');
+    label.style.cssText = `color:${textColor};font-family:var(--font-mono);font-size:10px;white-space:nowrap`;
+    label.textContent = handle;
+
     const closeBtn = document.createElement('button');
     closeBtn.textContent = '×';
     closeBtn.title = 'Close tab';
-    closeBtn.style.cssText = `background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font-mono);font-size:13px;line-height:1;width:20px;height:20px;padding:0;cursor:pointer;border-radius:2px;display:flex;align-items:center;justify-content:center;flex-shrink:0;align-self:center;margin-left:3px`;
+    closeBtn.style.cssText = `background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font-mono);font-size:11px;line-height:1;width:16px;height:16px;padding:0;cursor:pointer;border-radius:2px;display:flex;align-items:center;justify-content:center;flex-shrink:0`;
     closeBtn.addEventListener('mouseenter', () => { closeBtn.style.borderColor = 'var(--red)'; closeBtn.style.color = 'var(--red)'; });
     closeBtn.addEventListener('mouseleave', () => { closeBtn.style.borderColor = 'var(--border)'; closeBtn.style.color = 'var(--text-dim)'; });
-    closeBtn.addEventListener('click', () => _closeWhisperTab(handle));
+    closeBtn.addEventListener('click', e => { e.stopPropagation(); _closeWhisperTab(handle); });
 
-    wrap.appendChild(labelBtn);
+    wrap.appendChild(label);
     wrap.appendChild(closeBtn);
     tabs.appendChild(wrap);
   }
