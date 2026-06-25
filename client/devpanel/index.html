@@ -980,6 +980,7 @@ const BUILDING_TYPES = [
 // a name or description would prematurely close the attribute and break
 // the page.
 let zoneEditNpcsCache = [];
+let zoneEditAllNpcsCache = [];
 let zoneEditFurnitureCache = [];
 let zoneEditSpawnsCache = [];
 let zoneEditAllEnemiesCache = [];
@@ -1057,6 +1058,7 @@ async function zoneEditForm(rec, isNew) {
     const canBasement = !downId || (downIsInterior && !genBelow);
     const apartmentRecord = (Array.isArray(apartmentsData) ? apartmentsData : []).find(a => a.zone_id === rec.id) || null;
     zoneEditNpcsCache = zoneNpcs;
+    zoneEditAllNpcsCache = Array.isArray(npcsData) ? npcsData : [];
     zoneEditFurnitureCache = zoneFurniture;
     zoneEditSpawnsCache = zoneSpawns;
     zoneEditAllEnemiesCache = allEnemies;
@@ -1095,7 +1097,10 @@ async function zoneEditForm(rec, isNew) {
             </span>
           </div>`).join('') : '<div class="zone-subitem-empty">No NPCs here.</div>'}</div>
         <div id="zone-add-npc-form"></div>
-        <button class="action-btn success" style="margin-top:6px" onclick='openAddNpcForm(${JSON.stringify(rec.id)})'>+ Add NPC</button>
+        <div style="display:flex;gap:6px;margin-top:6px">
+          <button class="action-btn success" onclick='openAddNpcForm(${JSON.stringify(rec.id)})'>+ New NPC</button>
+          <button class="action-btn" onclick='openAddExistingNpcForm(${JSON.stringify(rec.id)})'>+ Add Existing</button>
+        </div>
       </div>
 
       <div class="zone-subsection">
@@ -1706,6 +1711,42 @@ async function submitAddNpc(zoneId) {
   const result = await API('/npcs', 'POST', { zone_id: zoneId, name, description, disposition, faction: null, dialogue_tree: {}, vendor_inventory: [], wanders: false, flags: {} });
   if (result?.error) { toast(result.error, true); return; }
   toast('NPC added');
+  await refreshZoneEditPanel(zoneId);
+}
+function openAddExistingNpcForm(zoneId) {
+  const available = zoneEditAllNpcsCache.filter(n => n.zone_id !== zoneId);
+  const container = document.getElementById('zone-add-npc-form');
+  if (!available.length) {
+    container.innerHTML = `<div class="zone-inline-form"><div class="zone-subsection-note">No other NPCs available to move here.</div><div class="zone-inline-form-actions"><button class="action-btn" onclick="document.getElementById('zone-add-npc-form').innerHTML=''">Cancel</button></div></div>`;
+    return;
+  }
+  container.innerHTML = `
+    <div class="zone-inline-form">
+      <div class="field"><label>NPC</label>
+        <select id="existing-npc-select">
+          ${available.map(n => `<option value="${n.id}">${n.name}${n.zone_id ? ` (from ${n.zone_id})` : ''}</option>`).join('')}
+        </select>
+      </div>
+      <div class="zone-inline-form-actions">
+        <button class="action-btn success" onclick='submitAddExistingNpc(${JSON.stringify(zoneId)})'>Move Here</button>
+        <button class="action-btn" onclick="document.getElementById('zone-add-npc-form').innerHTML=''">Cancel</button>
+      </div>
+    </div>`;
+}
+async function submitAddExistingNpc(zoneId) {
+  const sel = document.getElementById('existing-npc-select');
+  const npcId = sel?.value;
+  if (!npcId) return;
+  const npc = zoneEditAllNpcsCache.find(n => n.id === npcId);
+  if (!npc) return;
+  const result = await API(`/npcs/${npcId}`, 'PUT', {
+    name: npc.name, description: npc.description, disposition: npc.disposition,
+    zone_id: zoneId, faction: npc.faction,
+    dialogue_tree: npc.dialogue_tree || {}, vendor_inventory: npc.vendor_inventory || [],
+    wanders: npc.wanders, flags: npc.flags || {},
+  });
+  if (result?.error) { toast(result.error, true); return; }
+  toast(`${npc.name} moved to this zone`);
   await refreshZoneEditPanel(zoneId);
 }
 function openEditNpcQuick(npcId) {
