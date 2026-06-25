@@ -219,6 +219,19 @@ async function cmdUse(targetStr, player) {
   return { type:'use', message:messages.join('\n'), player_update:{hp:player.hp,hunger:player.hunger,thirst:player.thirst,radiation:player.radiation,sanity:player.sanity,credits:player.credits} };
 }
 
+async function resolveEquipLayer(player, slot, item) {
+  const lr = tagValue(item, 'allowed_layer_range') || { min: 1, max: 1 };
+  const { rows } = await query(
+    'SELECT layer FROM player_inventory WHERE player_id=$1 AND slot=$2 AND is_equipped=1',
+    [player.id, slot]
+  );
+  const occupied = new Set(rows.map(r => r.layer || 1));
+  for (let l = lr.max; l >= lr.min; l--) {
+    if (!occupied.has(l)) return l;
+  }
+  return lr.max; // all layers taken — displace the top one
+}
+
 async function cmdEquip(targetStr, player) {
   if (!targetStr) return { type:'error', message:'Equip what?' };
   const { rows } = await query(`SELECT pi.*,i.name,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND i.name ILIKE $2 AND jsonb_exists(i.tags,'slot') LIMIT 1`, [player.id, `%${targetStr}%`]);
@@ -231,8 +244,9 @@ async function cmdEquip(targetStr, player) {
   const slotName = tagValue(item, 'slot');
   const slot = EQUIP_SLOTS[slotName] ? slotName : null;
   if (!slot) return { type:'error', message:`${item.name} doesn't have a valid equip slot configured.` };
-  await query('UPDATE player_inventory SET is_equipped=0 WHERE player_id=$1 AND slot=$2', [player.id, slot]);
-  await query('UPDATE player_inventory SET is_equipped=1,slot=$1 WHERE id=$2', [slot, item.id]);
+  const layer = await resolveEquipLayer(player, slot, item);
+  await query('UPDATE player_inventory SET is_equipped=0, slot=NULL, layer=NULL WHERE player_id=$1 AND slot=$2 AND layer=$3', [player.id, slot, layer]);
+  await query('UPDATE player_inventory SET is_equipped=1,slot=$1,layer=$2 WHERE id=$3', [slot, layer, item.id]);
   return { type:'equip', message:`You equip ${item.name}.`, slot };
 }
 
@@ -256,8 +270,9 @@ async function cmdEquipById(inventoryId, player) {
   const slotName = tagValue(item, 'slot');
   const slot = EQUIP_SLOTS[slotName] ? slotName : null;
   if (!slot) return { type:'error', message:`${item.name} doesn't have a valid equip slot configured.` };
-  await query('UPDATE player_inventory SET is_equipped=0 WHERE player_id=$1 AND slot=$2', [player.id, slot]);
-  await query('UPDATE player_inventory SET is_equipped=1,slot=$1 WHERE id=$2', [slot, item.id]);
+  const layer = await resolveEquipLayer(player, slot, item);
+  await query('UPDATE player_inventory SET is_equipped=0, slot=NULL, layer=NULL WHERE player_id=$1 AND slot=$2 AND layer=$3', [player.id, slot, layer]);
+  await query('UPDATE player_inventory SET is_equipped=1,slot=$1,layer=$2 WHERE id=$3', [slot, layer, item.id]);
   return { type:'equip', message:`You equip ${item.name}.`, slot };
 }
 

@@ -51,22 +51,38 @@ export function renderEquipPanel(items) {
     }
   }
 
+  // For slots with multiple layers, show the item at currentLayer if present,
+  // otherwise the highest-layer item at or below currentLayer.
+  const equippedBySlot = {};
   const unequipped = [];
   for (const item of items) {
     if (item.is_equipped && item.slot) {
-      const slotEl = document.querySelector(`.equip-slot[data-slot="${item.slot}"] .equip-slot-item`);
-      if (slotEl) {
-        const vis = itemLayerVisibility(item, currentLayer);
-        slotEl.className = 'equip-slot-item filled layer-' + vis;
-        slotEl.textContent = item.name + (item.quantity > 1 ? ` x${item.quantity}` : '');
-        slotEl.setAttribute('draggable', 'true');
-        slotEl.setAttribute('data-id', item.id);
-        slotEl.ondragstart = (e) => onItemDragStart(e, item.id);
-        slotEl.onclick = () => sendCmdSilent(`unequipid ${item.id}`);
-        slotEl.title = 'Click or drag out to unequip';
+      const layer = item.layer || 1;
+      const prev = equippedBySlot[item.slot];
+      // prefer exact match at currentLayer; otherwise highest layer ≤ currentLayer
+      if (!prev) {
+        equippedBySlot[item.slot] = item;
+      } else if (layer === currentLayer) {
+        equippedBySlot[item.slot] = item;
+      } else if (prev.layer !== currentLayer && layer <= currentLayer && layer > (prev.layer || 1)) {
+        equippedBySlot[item.slot] = item;
       }
     } else {
       unequipped.push(item);
+    }
+  }
+
+  for (const [slotName, item] of Object.entries(equippedBySlot)) {
+    const slotEl = document.querySelector(`.equip-slot[data-slot="${slotName}"] .equip-slot-item`);
+    if (slotEl) {
+      const vis = itemLayerVisibility(item, currentLayer);
+      slotEl.className = 'equip-slot-item filled layer-' + vis;
+      slotEl.textContent = item.name + (item.quantity > 1 ? ` x${item.quantity}` : '');
+      slotEl.setAttribute('draggable', 'true');
+      slotEl.setAttribute('data-id', item.id);
+      slotEl.ondragstart = (e) => onItemDragStart(e, item.id);
+      slotEl.onclick = () => sendCmdSilent(`unequipid ${item.id}`);
+      slotEl.title = 'Click or drag out to unequip';
     }
   }
 
