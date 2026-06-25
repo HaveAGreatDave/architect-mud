@@ -190,7 +190,7 @@ async function cmdExamine(targetStr, player) {
   if (!targetStr || targetStr === 'room') {
     const zone = getZone(player.current_zone);
     if (!zone) return { type:'error', message:'You are nowhere. This is a bug.' };
-    return { type:'look', message: await describeZone(zone, player), minimap: getMinimapData(player.current_zone) };
+    return { type:'look', message: await describeZone(zone, player), zone: zone.id, minimap: getMinimapData(player.current_zone) };
   }
 
   const t = targetStr.toLowerCase();

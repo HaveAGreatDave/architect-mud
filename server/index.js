@@ -501,6 +501,7 @@ async function finishAuth(ws, session, player) {
 			JSON.stringify({
 				type: "look",
 				message: await describeZone(zone, livePlayer),
+				zone: zone.id,
 				minimap: getMinimapData(zone.id),
 			}),
 		);

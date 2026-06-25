@@ -106,7 +106,7 @@ async function cmdLook(player, targetStr) {
   if (!targetStr || targetStr === 'room' || targetStr === 'around') {
     const zone = getZone(player.current_zone);
     if (!zone) return { type:'error', message:'You are nowhere. This is a bug.' };
-    return { type:'look', message: await describeZone(zone, player), minimap: getMinimapData(zone.id) };
+    return { type:'look', message: await describeZone(zone, player), zone: zone.id, minimap: getMinimapData(zone.id) };
   }
   const inMatch = targetStr.match(/^in\s+(.+)$/i);
   if (inMatch) {
