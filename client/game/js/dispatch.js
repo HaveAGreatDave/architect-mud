@@ -67,6 +67,7 @@ const handlers = {
     if (msg.radiation_gain > 0) appendMsg(`☢ +${msg.radiation_gain} radiation absorbed.`, 'system');
     if (state.player) { state.player.radiation = Math.min(100, (state.player.radiation || 0) + (msg.radiation_gain || 0)); updateVitals(state.player); }
     if (msg.minimap) renderMinimap(msg.minimap);
+    if (msg.tempC !== undefined) updateZoneTempHUD(msg.tempC);
     refreshZoneVisibility();
   },
 

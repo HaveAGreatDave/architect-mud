@@ -37,7 +37,7 @@ import { query } from "./models/db.js";
 import { migrate } from "./models/migrate.js";
 import { loadMisSettings } from "./engine/mis.js";
 
-import { initEnvironment, getHUDPayload } from "./engine/environment.js";
+import { initEnvironment, getHUDPayload, getZoneTemperature } from "./engine/environment.js";
 import { getPlayerChannels } from "./engine/channels.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -477,7 +477,7 @@ async function finishAuth(ws, session, player) {
 	);
 	let envHUD = null;
 	try {
-		envHUD = getHUDPayload();
+		envHUD = { ...getHUDPayload(), tempC: getZoneTemperature(livePlayer.current_zone) };
 	} catch {}
 	const DEV_ROLES = ["admin", "dev", "builder", "designer"];
 	const apiToken = DEV_ROLES.includes(player.role)

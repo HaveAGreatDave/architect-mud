@@ -1,6 +1,6 @@
 import { query } from '../../models/db.js';
 import { getZone, getMinimapData, addPlayerToZone, removePlayerFromZone, getDoorForExit, setDoorCache } from '../world.js';
-import { getZoneVisibility, getWindowsForZone, getEnvironmentState } from '../environment.js';
+import { getZoneVisibility, getWindowsForZone, getEnvironmentState, getZoneTemperature } from '../environment.js';
 import { describeZone, resolveNamedDestination } from './describe.js';
 
 const RAW_DIRECTIONS = ['north', 'south', 'east', 'west', 'up', 'down', 'in', 'out', 'exit'];
@@ -224,7 +224,7 @@ async function cmdMove(direction, player, broadcast) {
     : doorWasClosed
       ? `You open the door and head ${direction}.\n${zoneDesc}`
       : zoneDesc;
-  return { type:'move', message:moveMsg, zone:targetId, radiation_gain:radGain, minimap: getMinimapData(targetId) };
+  return { type:'move', message:moveMsg, zone:targetId, radiation_gain:radGain, minimap: getMinimapData(targetId), tempC: getZoneTemperature(targetId) };
 }
 
 const MAP_DIR_OFFSET = { north:[0,-1], south:[0,1], east:[1,0], west:[-1,0] };
