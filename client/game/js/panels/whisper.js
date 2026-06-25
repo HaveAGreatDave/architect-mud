@@ -114,11 +114,16 @@ function _renderUsersTab(log) {
   log.innerHTML = '<div style="padding:8px 10px 4px;font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">Online now</div>'
     + (_onlinePlayers.length
       ? _onlinePlayers.map(p => {
-          const h = p.handle.replace(/'/g,"\\'");
-          return `<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 10px;border-bottom:1px solid var(--border)"><span style="font-size:12px;color:var(--text)">${p.handle}</span><button onclick="openWhisperTab('${h}')" title="Whisper ${p.handle}" style="background:transparent;border:none;color:var(--accent);font-size:13px;cursor:pointer;padding:0 2px;line-height:1">💬</button></div>`;
+          const h = p.handle.replace(/"/g, '&quot;');
+          return `<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 10px;border-bottom:1px solid var(--border)"><span style="font-size:12px;color:var(--text)">${p.handle}</span><button data-whisper="${h}" title="Whisper ${p.handle}" style="background:transparent;border:none;color:var(--accent);font-size:13px;cursor:pointer;padding:0 2px;line-height:1">💬</button></div>`;
         }).join('')
       : '<div style="padding:10px 10px;color:var(--text-dim);font-size:11px">No other players online.</div>')
-    + '<div style="padding:6px 10px"><button onclick="_fetchOnlinePlayers()" style="width:100%;background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font-mono);font-size:10px;padding:4px;cursor:pointer;border-radius:2px">↻ Refresh</button></div>';
+    + '<div style="padding:6px 10px"><button data-refresh-online style="width:100%;background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font-mono);font-size:10px;padding:4px;cursor:pointer;border-radius:2px">↻ Refresh</button></div>';
+
+  log.querySelectorAll('[data-whisper]').forEach(btn => {
+    btn.addEventListener('click', () => openWhisperTab(btn.dataset.whisper));
+  });
+  log.querySelector('[data-refresh-online]')?.addEventListener('click', _fetchOnlinePlayers);
 }
 
 async function _fetchOnlinePlayers() {
