@@ -38,7 +38,7 @@ function cmdWhisper(args, raw, player, broadcast) {
   const msgText = afterCmd.slice(target.handle.length).trim();
   if (!msgText) return { type:'error', message:'Usage: whisper <player> <message>' };
   broadcast(null, { type:'whisper', from: player.handle, message: msgText }, null, target.id);
-  return { type:'output', message:`<span style="color:var(--purple)">You whisper to ${target.handle}: "${msgText}"</span>` };
+  return { type:'whisper_sent', to: target.handle, message: msgText };
 }
 
 async function cmdWho() {

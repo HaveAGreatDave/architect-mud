@@ -161,6 +161,18 @@ function whisperScrollToBottom() {
   document.getElementById('whisper-new-msgs').style.display = 'none';
 }
 
+export function sentWhisper(handle, message) {
+  if (!_whisperConvos.has(handle)) {
+    _whisperConvos.set(handle, { messages: [], scrollTop: 0, unread: 0 });
+  }
+  const convo = _whisperConvos.get(handle);
+  convo.messages.push({ from: 'You', message, isMe: true, ts: Date.now() });
+  if (convo.messages.length > WHISPER_MAX_MSGS) convo.messages.shift();
+  openWhisperTab(handle);
+  const log = document.getElementById('whisper-log');
+  if (log) log.scrollTop = log.scrollHeight;
+}
+
 export function receiveWhisper(from, message) {
   if (!_whisperConvos.has(from)) _whisperConvos.set(from, { messages: [], scrollTop: 0, unread: 0 });
   const convo = _whisperConvos.get(from);

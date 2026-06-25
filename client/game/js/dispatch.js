@@ -5,7 +5,7 @@ import { renderMinimap, openMapPopup } from './panels/minimap.js';
 import { updateEnvironmentHUD, refreshZoneVisibility } from './panels/environment.js';
 import { openDialogue, closeDialogue, openShop } from './panels/dialogue.js';
 import { renderEquipPanel } from './panels/equipment.js';
-import { receiveWhisper } from './panels/whisper.js';
+import { receiveWhisper, sentWhisper } from './panels/whisper.js';
 import { openContainerPanel, refreshContainerPanel, getActiveContainerId } from './panels/container.js';
 import { openLightViewDialog } from './panels/lightview.js';
 import { openMorphexPanel } from './panels/morphex.js';
@@ -257,6 +257,7 @@ const handlers = {
   output: (msg) => { appendHtml(msg.message, 'help'); },
 
   whisper: (msg) => { receiveWhisper(msg.from || 'Admin', msg.message); },
+  whisper_sent: (msg) => { sentWhisper(msg.to, msg.message); },
   lightview: (msg) => { openLightViewDialog(msg); refreshZoneVisibility(); },
   morphex_panel: (msg) => { openMorphexPanel(msg.data); },
 };
