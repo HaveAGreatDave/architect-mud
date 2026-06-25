@@ -151,7 +151,14 @@ async function cmdMove(direction, player, broadcast) {
   if (!direction) return { type:'error', message:'Go where? (north, south, east, west, up, down)' };
   const zone = getZone(player.current_zone);
   if (!zone) return { type:'error', message:'Your zone is missing.' };
-  const targetId = zone.exits[direction];
+  let targetId = zone.exits[direction];
+  if (!targetId && (direction === 'in' || direction === 'out')) {
+    const exitEntries = Object.entries(zone.exits || {});
+    if (exitEntries.length === 1) {
+      direction = exitEntries[0][0];
+      targetId = exitEntries[0][1];
+    }
+  }
   if (!targetId) return { type:'error', message:`No exit to the ${direction}.` };
   const targetZone = getZone(targetId);
   if (!targetZone) return { type:'error', message:'That exit leads nowhere yet.' };
