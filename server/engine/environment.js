@@ -177,6 +177,8 @@ const state = {
   activeClimateProfile: null,  // { monthly_temp_c: [...12], monthly_precip_chance: [...12] }
   currentPrecip: 'none',       // 'none' | 'rain' | 'snow' — live state, updated each 30-min tick
   precipRate: 0,               // 0.1–1.0 intensity scale; 0 when dry. Label derived via currentIntensityLabel().
+  weatherOverrideActive: false, // true while a dev has manually forced weather outside the forecast
+  weatherOverrideBackup: null,  // { weatherType, tempC, precipChance } — pre-override forecast day 0 values
 };
 
 let deps = { query: null, emitHook: null, broadcast: null };
@@ -1062,6 +1064,7 @@ export function getHUDPayload() {
     timePhase: phase.name,
     timeIcon: phase.icon,
     frozen: state.frozen,
+    weatherOverrideActive: state.weatherOverrideActive,
     activeClimateProfileId: state.activeClimateProfileId,
     currentWeatherType: state.currentPrecip !== 'none'
       ? state.currentPrecip
@@ -1232,6 +1235,10 @@ export async function devRecalculateForecast({ monthly_temp_c, monthly_precip_ch
 export async function devOverrideWeather({ weatherType, tempC, precipChance }) {
   const { query, broadcast, emitHook } = deps;
   if (!WEATHER_TYPES.includes(weatherType)) throw new Error(`Unknown weather type: ${weatherType}`);
+  if (!state.weatherOverrideActive) {
+    state.weatherOverrideBackup = { weatherType: state.weatherType, tempC: state.tempC, precipChance: state.forecast[0]?.precipChance ?? 0.05 };
+  }
+  state.weatherOverrideActive = true;
   state.weatherType = weatherType;
   // tempC from the client is already offset-adjusted (getHUDPayload adds diurnalOffset).
   // Strip the offset before storing so the base value stays stable across applies.
@@ -1240,6 +1247,23 @@ export async function devOverrideWeather({ weatherType, tempC, precipChance }) {
   state.forecast[0] = { ...state.forecast[0], weatherType, tempC: state.tempC, ...(precipChance !== undefined ? { precipChance: Number(precipChance) } : {}) };
   // Roll current precip against the new precipChance, replacing whatever was active.
   rollAndSetCurrentPrecip(weatherType, state.tempC + diurnalOffset(state.minutes), Number(precipChance ?? state.forecast[0]?.precipChance ?? 0.05));
+  if (broadcast) broadcast({ type: 'environment.weatherOverride', ...getHUDPayload() });
+  return getHUDPayload();
+}
+
+export async function devClearWeatherOverride() {
+  const { query, broadcast } = deps;
+  if (!state.weatherOverrideActive) return getHUDPayload();
+  const backup = state.weatherOverrideBackup;
+  state.weatherOverrideActive = false;
+  state.weatherOverrideBackup = null;
+  if (backup) {
+    state.weatherType = backup.weatherType;
+    state.tempC = backup.tempC;
+    await query(`UPDATE weather_forecast SET weather_type = $1, temp_c = $2 WHERE forecast_day = 0`, [backup.weatherType, backup.tempC]);
+    state.forecast[0] = { ...state.forecast[0], weatherType: backup.weatherType, tempC: backup.tempC, precipChance: backup.precipChance };
+    rollAndSetCurrentPrecip(backup.weatherType, backup.tempC + diurnalOffset(state.minutes), backup.precipChance);
+  }
   if (broadcast) broadcast({ type: 'environment.weatherOverride', ...getHUDPayload() });
   return getHUDPayload();
 }
