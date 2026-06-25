@@ -316,7 +316,7 @@ async function cmdSwitch(targetStr, player) {
   await query(`UPDATE lighting_states SET fixture_count=$1, total_lumens=$2 WHERE zone_id=$3`, [countRows[0]?.cnt || 0, countRows[0]?.lm || 0, player.current_zone]).catch(()=>{});
   await recalcZoneLoad(query, player.current_zone).catch(()=>{});
   await recomputePower().catch(()=>{});
-  return { type:'action', message: newState
+  return { type:'action', triggerLook: true, message: newState
     ? `You flip the switch. ${light.name} flickers on.`
     : `You flip the switch. ${light.name} goes dark.` };
 }
@@ -351,7 +351,7 @@ async function cmdTurn(args, player) {
   await query(`UPDATE lighting_states SET fixture_count=$1, total_lumens=$2 WHERE zone_id=$3`, [countRows[0]?.cnt || 0, countRows[0]?.lm || 0, player.current_zone]).catch(()=>{});
   await recalcZoneLoad(query, player.current_zone).catch(()=>{});
   await recomputePower().catch(()=>{});
-  return { type:'action', message: newState
+  return { type:'action', triggerLook: true, message: newState
     ? `You flip the switch. ${light.name} flickers on.`
     : `You flip the switch. ${light.name} goes dark.` };
 }

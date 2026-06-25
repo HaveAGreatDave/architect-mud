@@ -759,15 +759,15 @@ async function apiGetItems() { const {rows}=await query('SELECT * FROM items'); 
 async function apiCreateItem(body) {
   const id=body.id||`item_${Date.now()}`;
   try {
-    await query(`INSERT INTO items (id,name,weight,value,rarity,tags) VALUES ($1,$2,$3,$4,$5,$6)`,
-      [id,body.name,body.weight||1,body.value||0,body.rarity||'common',JSON.stringify(body.tags||{})]);
+    await query(`INSERT INTO items (id,name,type,weight,value,rarity,tags) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [id,body.name,body.type||null,body.weight||1,body.value||0,body.rarity||'common',JSON.stringify(body.tags||{})]);
     return {status:201,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
 export async function apiUpdateItem(id,body) {
   try {
-    await query(`UPDATE items SET name=$1,weight=$2,value=$3,rarity=$4,tags=$5 WHERE id=$6`,
-      [body.name,body.weight,body.value,body.rarity,JSON.stringify(body.tags||{}),id]);
+    await query(`UPDATE items SET name=$1,type=$2,weight=$3,value=$4,rarity=$5,tags=$6 WHERE id=$7`,
+      [body.name,body.type||null,body.weight,body.value,body.rarity,JSON.stringify(body.tags||{}),id]);
     return {status:200,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }

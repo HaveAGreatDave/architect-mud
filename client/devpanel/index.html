@@ -557,7 +557,7 @@ async function loadPanel(name) {
     return;
   }
 
-  allRecords = Array.isArray(data) ? data : (data.zones || []);
+  allRecords = Array.isArray(data) ? data : (data.furniture || data.zones || []);
 
   // Overlay pending staged changes — must happen before any render path so
   // panels with custom renderers (Zones, Maps, Furniture) still reflect staged edits.
@@ -582,7 +582,11 @@ async function loadPanel(name) {
   }
 
   if (p.render) {
-    p.render(data);
+    // Pass merged allRecords back into structured data so custom renderers see staged items.
+    const mergedData = Array.isArray(data) ? allRecords
+      : data.furniture ? { ...data, furniture: allRecords }
+      : data;
+    p.render(mergedData);
     return;
   }
 
@@ -2562,9 +2566,14 @@ function itemEditForm(rec, isNew) {
     <div class="field"><label>Item ID</label><input id="f-id" value="${isNew?'':rec.id}" ${!isNew?'readonly style="opacity:0.5"':''}></div>
     <div class="field"><label>Name</label><input id="f-name" value="${rec.name||''}"></div>
     <div class="field-row">
+      <div class="field"><label>Type</label>
+        <select id="f-type">${['','weapon','clothing','armor','consumable','drug','material','currency','misc'].map(t=>`<option value="${t}" ${(rec.type||'')===(t)?'selected':''}>${t||'— none —'}</option>`).join('')}</select>
+      </div>
       <div class="field"><label>Rarity</label>
         <select id="f-rarity">${['common','uncommon','rare','very_rare','legendary'].map(r=>`<option ${rec.rarity===r?'selected':''}>${r}</option>`).join('')}</select>
       </div>
+    </div>
+    <div class="field-row">
       <div class="field"><label>Weight</label><input type="number" id="f-weight" value="${rec.weight||1}" step="0.1"></div>
       <div class="field"><label>Value</label><input type="number" id="f-value" value="${rec.value||0}"></div>
     </div>
@@ -2584,6 +2593,7 @@ async function saveItem(existing) {
   } catch (e) { return { error: e.message }; }
   const body = {
     name: document.getElementById('f-name').value,
+    type: document.getElementById('f-type').value || null,
     rarity: document.getElementById('f-rarity').value,
     weight: parseFloat(document.getElementById('f-weight').value)||1,
     value: +document.getElementById('f-value').value,

@@ -153,7 +153,10 @@ const handlers = {
       sendCmdSilent('inventory');
     }
   },
-  action: (msg) => { appendHtml(msg.message, 'help'); },
+  action: (msg) => {
+    appendHtml(msg.message, 'help');
+    if (msg.triggerLook) sendCmdSilent('look');
+  },
   balance: (msg) => { appendHtml(msg.message, 'help'); },
   recipes: (msg) => { appendHtml(msg.message, 'help'); },
   mutations: (msg) => { appendHtml(msg.message, 'help'); },
