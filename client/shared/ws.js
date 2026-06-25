@@ -1,6 +1,6 @@
 // Parameterized WebSocket wrapper with auto-reconnect, exponential backoff,
 // client-side ping keepalive, and a cold-start notification hook.
-export function connectWS(url, { onOpen, onClose, onColdStart, onMessage }) {
+export function connectWS(url, { onOpen, onClose, onRetry, onColdStart, onMessage }) {
   let ws = null;
   let reconnectDelay = 1000;
   let coldStartTimer = null;
@@ -24,8 +24,9 @@ export function connectWS(url, { onOpen, onClose, onColdStart, onMessage }) {
       if (permanent) return;
       coldStartTimer = setTimeout(() => { coldStartTimer = null; onColdStart?.(true); }, 5000);
       reconnectDelay = Math.min(reconnectDelay * 1.5, 15000);
-      setTimeout(connect, reconnectDelay);
       onClose?.();
+      onRetry?.();
+      setTimeout(connect, reconnectDelay);
     };
 
     ws.onmessage = (e) => {

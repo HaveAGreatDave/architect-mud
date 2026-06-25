@@ -13,7 +13,7 @@ export function initNet(messageHandler) {
   _messageHandler = messageHandler;
   _connection = connectWS(WS_URL, {
     onOpen() {
-      setConnStatus('online', 'CONNECTED');
+      setConnStatus('online');
       hideColdStart();
       const reconnectToken = sessionStorage.getItem('reconnect-token');
       if (reconnectToken && state.player) {
@@ -39,8 +39,11 @@ export function initNet(messageHandler) {
         }
       }
     },
+    onRetry() {
+      setConnStatus('reconnecting');
+    },
     onClose() {
-      setConnStatus('offline', 'DISCONNECTED');
+      setConnStatus('offline');
       if (state.authPending) {
         clearTimeout(state.authTimeout);
         state.authPending = false;
@@ -246,10 +249,14 @@ export async function doResetPassword(token) {
   btn.textContent = 'Set New Password';
 }
 
-export function setConnStatus(stateStr, text) {
+const CONN_ICONS = { online: '●', reconnecting: '◌', offline: '●' };
+const CONN_TITLES = { online: 'Connected', reconnecting: 'Reconnecting…', offline: 'Disconnected' };
+
+export function setConnStatus(stateStr) {
   const el = document.getElementById('conn-status');
   el.className = `conn-status ${stateStr}`;
-  el.textContent = text;
+  el.textContent = CONN_ICONS[stateStr] ?? '●';
+  el.title = CONN_TITLES[stateStr] ?? '';
 }
 
 function showColdStart() {

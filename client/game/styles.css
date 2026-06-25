@@ -178,11 +178,15 @@
   }
 
   #header .conn-status {
-    font-size: 11px;
-    color: var(--text-dim);
+    font-size: 14px;
+    line-height: 1;
+    flex-shrink: 0;
+    cursor: default;
   }
   #header .conn-status.online { color: var(--green); }
   #header .conn-status.offline { color: var(--red); }
+  #header .conn-status.reconnecting { color: var(--orange); animation: conn-pulse 1s ease-in-out infinite; }
+  @keyframes conn-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
 
   #header .handle-display {
     margin-left: auto;
