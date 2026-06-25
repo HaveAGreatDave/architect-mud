@@ -62,28 +62,37 @@ function _refreshWhisperTabs() {
   };
   mkTab('Users', _activeWhisperTab === USERS_TAB, 'var(--purple)', () => _switchToTab(USERS_TAB));
   for (const [handle, convo] of _whisperConvos) {
-    const t = document.createElement('button');
     const active = handle === _activeWhisperTab;
-    t.style.cssText = `position:relative;background:${active?'var(--bg3)':'transparent'};border:1px solid ${active?'var(--accent)':'var(--border)'};color:${active?'var(--accent)':'var(--text-dim)'};font-family:var(--font-mono);font-size:10px;padding:3px 8px 3px 8px;cursor:pointer;border-radius:2px;white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:4px`;
-    const labelSpan = document.createElement('span');
-    labelSpan.textContent = handle;
-    t.appendChild(labelSpan);
+    const borderColor = active ? 'var(--accent)' : 'var(--border)';
+    const textColor   = active ? 'var(--accent)' : 'var(--text-dim)';
+    const bg          = active ? 'var(--bg3)' : 'transparent';
+
+    const wrap = document.createElement('div');
+    wrap.style.cssText = `display:inline-flex;align-items:stretch;flex-shrink:0;position:relative`;
+
+    const labelBtn = document.createElement('button');
+    labelBtn.style.cssText = `background:${bg};border:1px solid ${borderColor};border-right:none;color:${textColor};font-family:var(--font-mono);font-size:10px;padding:3px 8px;cursor:pointer;border-radius:2px 0 0 2px;white-space:nowrap`;
+    labelBtn.textContent = handle;
+    labelBtn.addEventListener('click', () => openWhisperTab(handle));
+
     if (convo.unread > 0) {
       const pip = document.createElement('span');
       pip.textContent = '!';
-      pip.style.cssText = 'position:absolute;top:-5px;right:-5px;background:var(--red);color:#fff;font-size:9px;font-weight:bold;width:12px;height:12px;border-radius:2px;display:flex;align-items:center;justify-content:center;pointer-events:none';
-      t.appendChild(pip);
+      pip.style.cssText = 'position:absolute;top:-5px;left:-5px;background:var(--red);color:#fff;font-size:9px;font-weight:bold;width:12px;height:12px;border-radius:2px;display:flex;align-items:center;justify-content:center;pointer-events:none';
+      wrap.appendChild(pip);
     }
-    const x = document.createElement('span');
-    x.textContent = '×';
-    x.title = 'Close';
-    x.style.cssText = 'font-size:12px;line-height:1;opacity:0.5;margin-left:2px;flex-shrink:0';
-    x.onmouseenter = () => { x.style.opacity = '1'; };
-    x.onmouseleave = () => { x.style.opacity = '0.5'; };
-    x.onclick = (e) => { e.stopPropagation(); _closeWhisperTab(handle); };
-    t.appendChild(x);
-    t.onclick = () => openWhisperTab(handle);
-    tabs.appendChild(t);
+
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = '×';
+    closeBtn.title = 'Close tab';
+    closeBtn.style.cssText = `background:${bg};border:1px solid ${borderColor};color:var(--text-dim);font-family:var(--font-mono);font-size:13px;line-height:1;padding:0 5px;cursor:pointer;border-radius:0 2px 2px 0;display:flex;align-items:center;justify-content:center`;
+    closeBtn.addEventListener('mouseenter', () => { closeBtn.style.borderColor = 'var(--red)'; closeBtn.style.color = 'var(--red)'; });
+    closeBtn.addEventListener('mouseleave', () => { closeBtn.style.borderColor = borderColor; closeBtn.style.color = 'var(--text-dim)'; });
+    closeBtn.addEventListener('click', () => _closeWhisperTab(handle));
+
+    wrap.appendChild(labelBtn);
+    wrap.appendChild(closeBtn);
+    tabs.appendChild(wrap);
   }
 }
 
