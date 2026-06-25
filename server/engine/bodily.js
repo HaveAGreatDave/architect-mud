@@ -94,10 +94,26 @@ async function involuntaryBladderRelease(player, broadcastFn) {
 }
 
 // Actual relief — called by pee/poop commands
-export async function relieveBladder(player, hasFacility, broadcast) {
+// target: optional { type: 'toilet'|'ground'|'player'|'furniture', name: string, target: playerObj }
+export async function relieveBladder(player, hasFacility, broadcast, target = null) {
   if ((player.thirst || 0) === 0) {
     return { ok: false, message: `You're too dehydrated. There's nothing to release.` };
   }
+
+  // Pissing on a player
+  if (target?.type === 'player') {
+    const tp = target.target;
+    const reduction = 55;
+    player.hydration_load = Math.max(0, (player.hydration_load || 0) - reduction);
+    await query('UPDATE players SET hydration_load=$1 WHERE id=$2', [player.hydration_load, player.id]);
+    broadcast(player.current_zone, {
+      type: 'zone_event',
+      message: `${player.handle} pisses on ${tp.handle}.`,
+    }, player.id, tp.id);
+    broadcast(null, { type: 'output', message: `${player.handle} pisses on you.` }, null, tp.id);
+    return { ok: true, message: `You piss on ${tp.handle}.` };
+  }
+
   const covered = await equippedSlotsFor(player, ['legs']);
   let stained = false;
   if (!hasFacility && covered.length) {
@@ -109,22 +125,48 @@ export async function relieveBladder(player, hasFacility, broadcast) {
   await query('UPDATE players SET hydration_load=$1 WHERE id=$2', [player.hydration_load, player.id]);
 
   if (hasFacility) {
-    return { ok: true, message: `You use the facilities. Relief washes over you.`, private: true };
+    return { ok: true, message: pick(TOILET_PEE_MSGS), private: true };
   }
-  const zoneMsg = `A stream hits the ground nearby.`;
-  broadcast(player.current_zone, { type:'zone_event', message: zoneMsg }, player.id);
+  broadcast(player.current_zone, { type:'zone_event', message: `A stream hits the ground nearby.` }, player.id);
   return {
     ok: true,
     message: stained
       ? `You go where you stand. Your ${covered[0] || 'clothing'} absorbs most of it.`
-      : `You relieve yourself on the ground.`,
+      : pick(GROUND_PEE_MSGS),
   };
 }
 
-export async function relieveBowels(player, hasFacility, broadcast) {
+export async function relieveBowels(player, hasFacility, broadcast, target = null) {
   if ((player.hunger || 0) === 0) {
     return { ok: false, message: `You haven't eaten enough to produce anything.` };
   }
+
+  // Shitting on a player (must be lying/sleeping)
+  if (target?.type === 'player') {
+    const tp = target.target;
+    const reduction = 60;
+    player.digestive_load = Math.max(0, (player.digestive_load || 0) - reduction);
+    await query('UPDATE players SET digestive_load=$1 WHERE id=$2', [player.digestive_load, player.id]);
+    broadcast(player.current_zone, {
+      type: 'zone_event',
+      message: `${player.handle} squats over ${tp.handle} and shits on them.`,
+    }, player.id, tp.id);
+    broadcast(null, { type: 'output', message: `${player.handle} squats over you and shits on you.` }, null, tp.id);
+    return { ok: true, message: `You squat over ${tp.handle} and do it. That's a statement.` };
+  }
+
+  // Shitting on furniture
+  if (target?.type === 'furniture') {
+    const reduction = 60;
+    player.digestive_load = Math.max(0, (player.digestive_load || 0) - reduction);
+    await query('UPDATE players SET digestive_load=$1 WHERE id=$2', [player.digestive_load, player.id]);
+    broadcast(player.current_zone, {
+      type: 'zone_event',
+      message: `The smell of something biological hits the air near the ${target.name}.`,
+    }, player.id);
+    return { ok: true, message: `You squat over the ${target.name} and relieve yourself on it. It needed that.` };
+  }
+
   const covered = await equippedSlotsFor(player, ['legs']);
   let stained = false;
   if (!hasFacility && covered.length) {
@@ -136,17 +178,37 @@ export async function relieveBowels(player, hasFacility, broadcast) {
   await query('UPDATE players SET digestive_load=$1 WHERE id=$2', [player.digestive_load, player.id]);
 
   if (hasFacility) {
-    return { ok: true, message: `You use the facilities. A profound sense of relief.`, private: true };
+    return { ok: true, message: pick(TOILET_POOP_MSGS), private: true };
   }
-  const zoneMsg = `The smell of something biological drifts through the air.`;
-  broadcast(player.current_zone, { type:'zone_event', message: zoneMsg }, player.id);
+  broadcast(player.current_zone, { type:'zone_event', message: `The smell of something biological drifts through the air.` }, player.id);
   return {
     ok: true,
     message: stained
       ? `You go where you stand. Your clothing is stained. Dignity: impacted.`
-      : `You squat and take care of business on the ground. No one can judge you. (You can judge yourself.)`,
+      : pick(GROUND_POOP_MSGS),
   };
 }
+
+const TOILET_PEE_MSGS = [
+  `You use the toilet. Relief washes over you.`,
+  `You sit down and handle your business. Much better.`,
+  `A long, satisfying stream. You feel significantly lighter.`,
+];
+const TOILET_POOP_MSGS = [
+  `You take care of business. A profound sense of relief.`,
+  `You use the facilities. The weight of the world, literally, lifts.`,
+  `Done. You feel like a new person. Marginally.`,
+];
+const GROUND_PEE_MSGS = [
+  `You relieve yourself on the ground.`,
+  `You piss where you stand. No ceremony.`,
+  `A long stream hits the concrete. Better out than in.`,
+];
+const GROUND_POOP_MSGS = [
+  `You squat and take care of business on the ground. No one can judge you. (You can judge yourself.)`,
+  `You find a spot, crouch, and handle it. Desperate times.`,
+  `You take a shit on the ground. The post-singularity hasn't improved this experience.`,
+];
 
 function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 

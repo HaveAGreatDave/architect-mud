@@ -7,7 +7,7 @@ import { getMinimapData, addPlayerToZone, removePlayerFromZone } from '../world.
 import { statCost, raiseStat, RAISABLE_STATS } from '../ip.js';
 import { ensureTunables } from '../tunables.js';
 import { physicalDescription, ejaculateDescription, describeGenitals } from '../appearance.js';
-import { isMisActive, erectionVisibilityNote, nippleVisibilityNote } from '../mis.js';
+import { isMisActive, isAttractedTo, addHorniness, erectionVisibilityNote, breastVisibilityNote } from '../mis.js';
 
 async function cmdStats(player) {
   const { rows } = await query('SELECT * FROM players WHERE id=$1', [player.id]);
@@ -52,7 +52,7 @@ function withArticle(name) {
   return (/^[aeiou]/.test(n) ? 'an ' : 'a ') + n;
 }
 
-async function describePlayerAppearance(target, isSelf, viewer = null) {
+async function describePlayerAppearance(target, isSelf, viewer = null, broadcast = null) {
   const { rows: equipped } = await query(
     `SELECT i.name, i.tags FROM player_inventory pi
      JOIN items i ON i.id = pi.item_id
@@ -125,8 +125,14 @@ async function describePlayerAppearance(target, isSelf, viewer = null) {
     }
     if (viewerForMis && isMisActive(viewerForMis)) {
       const envState = getEnvironmentState();
-      const nippleNote = nippleVisibilityNote(target, false, envState.tempC);
-      if (nippleNote) msg += `\n${nippleNote}`;
+      const breastNote = breastVisibilityNote(target, 0, 0, 0, null, envState.tempC);
+      if (breastNote) msg += `\n${breastNote}`;
+    }
+
+    // Arousal on examine: viewer sees naked target they're attracted to
+    if (!isSelf && viewer && isMisActive(viewer) && isAttractedTo(viewer, target) && broadcast) {
+      const arouseMsgs = await addHorniness(viewer, 8, broadcast);
+      if (arouseMsgs.length) broadcast(null, { type:'resource_tick', messages: arouseMsgs, player_update: { horniness: viewer.horniness } }, null, viewer.id);
     }
 
     return msg.trim();
@@ -176,17 +182,29 @@ async function describePlayerAppearance(target, isSelf, viewer = null) {
     const legsLayerCount = layerCounts['legs'] || 0;
     const erectNote = erectionVisibilityNote(target, tightSlots, legsLayerCount);
     if (erectNote) msg += `\n${erectNote}`;
-    // Nipple hardness if torso slot is only covered by thin layer
+
+    // Breast/nipple visibility for females
+    const torsoLayerCount = layerCounts['torso'] || 0;
     const torsoItem = bySlot['torso'];
-    const thinTorso = torsoItem && (torsoItem.tags?.bulkiness || 99) <= 1;
-    const nippleNote = nippleVisibilityNote(target, !thinTorso, envState.tempC);
-    if (nippleNote) msg += `\n${nippleNote}`;
+    const outermostBulkiness = torsoItem?.tags?.bulkiness || 0;
+    const outermostLayerMax = torsoItem?.tags?.allowed_layer_range?.max ?? 99;
+    const breastNote = breastVisibilityNote(target, torsoLayerCount, outermostBulkiness, outermostLayerMax, torsoItem?.name, envState.tempC);
+    if (breastNote) msg += `\n${breastNote}`;
+
+    // Arousal on examine: visible erection or nipples on attracted viewer
+    if (!isSelf && viewer && isMisActive(viewer) && isAttractedTo(viewer, target) && broadcast) {
+      const visibleSex = erectNote || breastNote;
+      if (visibleSex) {
+        const arouseMsgs = await addHorniness(viewer, 5, broadcast);
+        if (arouseMsgs.length) broadcast(null, { type:'resource_tick', messages: arouseMsgs, player_update: { horniness: viewer.horniness } }, null, viewer.id);
+      }
+    }
   }
 
   return msg.trim();
 }
 
-async function cmdExamine(targetStr, player) {
+async function cmdExamine(targetStr, player, broadcast) {
   if (!targetStr || targetStr === 'room') {
     const zone = getZone(player.current_zone);
     if (!zone) return { type:'error', message:'You are nowhere. This is a bug.' };
@@ -197,7 +215,7 @@ async function cmdExamine(targetStr, player) {
 
   // Self-look
   if (t === 'me' || t === 'myself' || t === 'self') {
-    return { type:'examine', message: await describePlayerAppearance(player, true, player) };
+    return { type:'examine', message: await describePlayerAppearance(player, true, player, broadcast) };
   }
 
   const { rows } = await query(`SELECT pi.id AS inv_id, i.* FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND i.name ILIKE $2 LIMIT 1`, [player.id, `%${targetStr}%`]);
@@ -268,7 +286,7 @@ async function cmdExamine(targetStr, player) {
   const others = getZonePlayers(player.current_zone).filter(p => p.id !== player.id);
   const targetPlayer = others.find(p => p.handle.toLowerCase().includes(t));
   if (targetPlayer) {
-    return { type:'examine', message: await describePlayerAppearance(targetPlayer, false, player) };
+    return { type:'examine', message: await describePlayerAppearance(targetPlayer, false, player, broadcast) };
   }
   const { rows: sleepers } = await query(
     `SELECT * FROM players WHERE LOWER(handle) LIKE $1 AND current_zone=$2 AND offline_sleeping=TRUE LIMIT 1`,
@@ -276,7 +294,7 @@ async function cmdExamine(targetStr, player) {
   );
   if (sleepers.length) {
     const s = sleepers[0];
-    const app = await describePlayerAppearance(s, false, player);
+    const app = await describePlayerAppearance(s, false, player, broadcast);
     return { type:'examine', message: app + `\n<span class="text-dim">(${s.handle} is asleep.)</span>` };
   }
 
@@ -450,9 +468,9 @@ async function cmdOpenWindow(args, player, action) {
 }
 
 export const handlers = {
-  examine:  (args, raw, player) => cmdExamine(args.join(' '), player),
-  ex:       (args, raw, player) => cmdExamine(args.join(' '), player),
-  x:        (args, raw, player) => cmdExamine(args.join(' '), player),
+  examine:  (args, raw, player, broadcast) => cmdExamine(args.join(' '), player, broadcast),
+  ex:       (args, raw, player, broadcast) => cmdExamine(args.join(' '), player, broadcast),
+  x:        (args, raw, player, broadcast) => cmdExamine(args.join(' '), player, broadcast),
   switch:   (args, raw, player) => cmdSwitch(args.join(' '), player),
   flip:     (args, raw, player) => cmdSwitch(args.join(' '), player),
   turn:     (args, raw, player) => cmdTurn(args, player),

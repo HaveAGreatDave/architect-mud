@@ -175,11 +175,12 @@ async function apiRegister(body) {
     await query(
       `INSERT INTO players
         (id,username,password_hash,handle,role,ip,hp,hp_max,stat_brawn,stat_reflexes,stat_endurance,stat_brains,stat_senses,stat_cool,
-         biological_sex,hair_style,hair_length,hair_color,eye_color,height_cm,weight_kg,appearance_data,email)
-       VALUES ($1,$2,$3,$4,'player',$5,40,40,1,1,1,1,1,1,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+         biological_sex,hair_style,hair_length,hair_color,eye_color,height_cm,weight_kg,appearance_data,email,sexuality)
+       VALUES ($1,$2,$3,$4,'player',$5,40,40,1,1,1,1,1,1,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
       [id, username.toLowerCase(), hashPassword(password), handle, ip,
        biological_sex, app.hair_style, app.hair_length, app.hair_color, app.eye_color,
-       app.height_cm, app.weight_kg, JSON.stringify(app.appearance_data), email.toLowerCase().trim()]
+       app.height_cm, app.weight_kg, JSON.stringify(app.appearance_data), email.toLowerCase().trim(),
+       biological_sex === 'male' ? 'Female' : 'Male']
     );
     // Starting kit — bandages always
     await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,'item_bandage',3,1.0)`, [randomUUID(), id]);

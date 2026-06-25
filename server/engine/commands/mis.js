@@ -7,11 +7,11 @@
  */
 import { query } from '../../models/db.js';
 import {
-  isMisActive, addHorniness, washEjaculate, MIS_TUTORIAL,
+  isMisActive, isAttractedTo, addHorniness, washEjaculate, MIS_TUTORIAL,
   startMisEvent, stopMisEvent, hasMisEvent,
   triggerClimax, triggerGroundClimax,
   MASTURBATE_EVENT_MALE, MASTURBATE_EVENT_FEMALE,
-  FUCK_EVENT_MSGS, EJACULATE_ZONE_MSGS,
+  FUCK_EVENT_MSGS, FUCK_EVENT_PLAYER_MSGS, FUCK_EVENT_TARGET_MSGS, EJACULATE_ZONE_MSGS,
 } from '../mis.js';
 import { getZonePlayers, getZoneNpcs, getLivePlayer } from '../world.js';
 
@@ -63,7 +63,8 @@ function pickMsg(pool, vars) {
 }
 
 // Generic act handler for touching/kissing/etc. — resolves target or defaults to self
-async function actHandler({ player, broadcast, rawArgs, defaultPart, selfMessages, targetMessages, horninessGain, sanityGain = 5 }) {
+// targetReceives: messages shown to the target player (from their POV, using {actor} for the acting player)
+async function actHandler({ player, broadcast, rawArgs, defaultPart, selfMessages, targetMessages, targetReceives, horninessGain, sanityGain = 5 }) {
   const gate = misGate(player);
   if (gate) return gate;
 
@@ -71,20 +72,26 @@ async function actHandler({ player, broadcast, rawArgs, defaultPart, selfMessage
   let targetStr = args;
   let part = defaultPart;
 
-  const words = args.split(/\s+/);
-  const firstWord = words[0] || '';
+  // Accept "target's part" (apostrophe form) as well as "target part"
+  const apostropheMatch = args.match(/^(.+?)'s\s+(.+)$/i);
+  if (apostropheMatch) {
+    targetStr = apostropheMatch[1].trim();
+    part = apostropheMatch[2].trim();
+  } else {
+    const words = args.split(/\s+/);
+    const firstWord = words[0] || '';
+    const others = getZonePlayers(player.current_zone).filter(p => p.id !== player.id);
+    const npcs = getZoneNpcs(player.current_zone);
+    const allNames = [...others.map(p => p.handle.toLowerCase()), ...npcs.map(n => n.name.toLowerCase())];
+    const matchedName = allNames.find(n => firstWord.startsWith(n.split(' ')[0]));
 
-  const others = getZonePlayers(player.current_zone).filter(p => p.id !== player.id);
-  const npcs = getZoneNpcs(player.current_zone);
-  const allNames = [...others.map(p => p.handle.toLowerCase()), ...npcs.map(n => n.name.toLowerCase())];
-  const matchedName = allNames.find(n => firstWord.startsWith(n.split(' ')[0]));
-
-  if (!matchedName && words.length === 1) {
-    part = firstWord || defaultPart;
-    targetStr = '';
-  } else if (matchedName) {
-    targetStr = firstWord;
-    part = words.slice(1).join(' ') || defaultPart;
+    if (!matchedName && words.length === 1) {
+      part = firstWord || defaultPart;
+      targetStr = '';
+    } else if (matchedName) {
+      targetStr = firstWord;
+      part = words.slice(1).join(' ') || defaultPart;
+    }
   }
 
   if (!targetStr || targetStr === 'me' || targetStr === 'myself') {
@@ -103,9 +110,15 @@ async function actHandler({ player, broadcast, rawArgs, defaultPart, selfMessage
 
   const msgs = await addHorniness(player, horninessGain, broadcast);
   if (res.type === 'player' && isMisActive(res.target)) {
-    const targetMsgs = await addHorniness(res.target, Math.floor(horninessGain * 0.8), broadcast);
-    if (targetMsgs.length) broadcast(null, { type:'resource_tick', messages: targetMsgs }, null, res.target.id);
-    broadcast(null, { type:'output', message: pickMsg(targetMessages || selfMessages, { part, actor: player.handle }) }, null, res.target.id);
+    // Target only gets arousal if they're attracted to the actor's sex
+    if (isAttractedTo(res.target, player)) {
+      const targetMsgs = await addHorniness(res.target, Math.floor(horninessGain * 0.8), broadcast);
+      if (targetMsgs.length) broadcast(null, { type:'resource_tick', messages: targetMsgs }, null, res.target.id);
+    }
+    const targetPool = targetReceives || targetMessages;
+    if (targetPool) {
+      broadcast(null, { type:'output', message: pickMsg(targetPool, { part, actor: player.handle }) }, null, res.target.id);
+    }
   }
   if (sanityGain) {
     player.sanity = Math.min(player.sanity_max || 100, (player.sanity || 50) + sanityGain);
@@ -130,6 +143,10 @@ async function cmdTouch(args, raw, player, broadcast) {
       `You reach out and touch {name}'s {part}.`,
       `Your hand finds {name}'s {part}.`,
     ],
+    targetReceives: [
+      `{actor} reaches out and touches your {part}.`,
+      `{actor}'s hand finds your {part}.`,
+    ],
     horninessGain: 8,
     sanityGain: 3,
   });
@@ -149,6 +166,12 @@ async function cmdSqueeze(args, raw, player, broadcast) {
       `You reach out and give {name}'s {part} a slow squeeze.`,
       `Your grip finds {name}'s {part} and tightens.`,
     ],
+    targetReceives: [
+      `{actor} grabs your {part} and squeezes.`,
+      `{actor} closes their hand around your {part} firmly.`,
+      `{actor} gives your {part} a slow, deliberate squeeze.`,
+      `{actor}'s grip finds your {part} and tightens.`,
+    ],
     horninessGain: 12,
     sanityGain: 4,
   });
@@ -164,6 +187,11 @@ async function cmdKiss(args, raw, player, broadcast) {
       `You lean in and kiss {name} softly.`,
       `You press your lips against {name}'s.`,
     ],
+    targetReceives: [
+      `{actor} kisses you.`,
+      `{actor} leans in and kisses you softly.`,
+      `{actor} presses their lips against yours.`,
+    ],
     horninessGain: 6,
     sanityGain: 5,
   });
@@ -177,6 +205,10 @@ async function cmdLick(args, raw, player, broadcast) {
     targetMessages: [
       `You drag your tongue slowly across {name}'s {part}.`,
       `You lick {name}'s {part}.`,
+    ],
+    targetReceives: [
+      `{actor} drags their tongue slowly across your {part}.`,
+      `{actor} licks your {part}.`,
     ],
     horninessGain: 12,
     sanityGain: 5,
@@ -197,6 +229,12 @@ async function cmdFondle(args, raw, player, broadcast) {
       `Your hands find {name}'s {part} and squeeze gently.`,
       `You fondle {name}'s {part} slowly.`,
       `You reach in and grope {name}'s {part} with purpose.`,
+    ],
+    targetReceives: [
+      `{actor} cups your {part} with both hands.`,
+      `{actor}'s hands find your {part} and squeeze gently.`,
+      `{actor} fondles your {part} slowly.`,
+      `{actor} reaches in and gropes your {part} with purpose.`,
     ],
     horninessGain: 15,
     sanityGain: 5,
@@ -272,7 +310,41 @@ async function cmdMasturbate(args, raw, player, broadcast) {
   }
 
   const isMale = player.biological_sex === 'male';
-  const startMsgs = isMale
+
+  // Check clothing layers on legs slot
+  const { rows: legItems } = await query(
+    `SELECT i.name, i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id
+     WHERE pi.player_id=$1 AND pi.is_equipped=1 AND pi.slot='legs'`,
+    [player.id]
+  );
+  const legLayers = legItems.length;
+  const maxBulkiness = legItems.reduce((m, r) => Math.max(m, r.tags?.bulkiness || 0), 0);
+  const outerName = legLayers ? legItems[legItems.length - 1].name : null;
+
+  // Block if too many layers or very bulky outer layer
+  if (legLayers > 2 || (legLayers > 0 && maxBulkiness >= 5)) {
+    return { type:'error', message:`Too much clothing in the way.` };
+  }
+
+  // Arousal rate scales down with layers/bulkiness
+  // 0 layers: 18/tick, 1 thin: 12, 1 medium: 9, 1 bulky: 6, 2 thin: 6, 2 medium: 4
+  let arousalPerTick = 18;
+  if (legLayers === 1) arousalPerTick = maxBulkiness <= 1 ? 12 : maxBulkiness <= 2 ? 9 : 6;
+  else if (legLayers === 2) arousalPerTick = maxBulkiness <= 1 ? 6 : 4;
+
+  const clothedMaleMsgs = outerName ? [
+    `You rub yourself through your ${outerName}, working up a rhythm.`,
+    `You press your hand against your ${outerName} and start moving it.`,
+    `You stroke yourself through the fabric of your ${outerName}.`,
+    `You grind your hand against yourself through your ${outerName}.`,
+  ] : [];
+  const clothedFemaleMsgs = outerName ? [
+    `You press your fingers against yourself through your ${outerName}.`,
+    `You rub between your legs through your ${outerName}.`,
+    `You work your hand against yourself through the fabric of your ${outerName}.`,
+  ] : [];
+
+  const nakedStartMsgs = isMale
     ? [
         `You wrap your hand around your cock and start stroking.`,
         `You pull yourself out and begin jerking off slowly.`,
@@ -284,9 +356,14 @@ async function cmdMasturbate(args, raw, player, broadcast) {
         `You start working your fingers in slow circles.`,
       ];
 
+  const startMsgs = legLayers > 0
+    ? (isMale ? clothedMaleMsgs : clothedFemaleMsgs)
+    : nakedStartMsgs;
+
   const startMsg = startMsgs[Math.floor(Math.random() * startMsgs.length)];
   const eventPool = isMale ? MASTURBATE_EVENT_MALE : MASTURBATE_EVENT_FEMALE;
   const playerId = player.id;
+  const tickArousal = arousalPerTick;
 
   startMisEvent(playerId, async () => {
     const live = getLivePlayer(playerId);
@@ -311,7 +388,7 @@ async function cmdMasturbate(args, raw, player, broadcast) {
     const zoneMsg = eventPool[Math.floor(Math.random() * eventPool.length)].replace('{name}', live.handle);
     broadcast(live.current_zone, { type: 'zone_event', message: zoneMsg }, live.id);
 
-    const climaxMsgs = await addHorniness(live, 18, broadcast);
+    const climaxMsgs = await addHorniness(live, tickArousal, broadcast);
     broadcast(null, {
       type: 'resource_tick',
       messages: climaxMsgs,
@@ -381,7 +458,13 @@ async function cmdSuck(args, raw, player, broadcast) {
     selfMessages: [`You suck on your own {part}.`],
     targetMessages: [
       `You take {name}'s {part} into your mouth.`,
-      `Your mouth finds {name}'s {part}.`,
+      `Your mouth works over {name}'s {part}.`,
+      `You wrap your lips around {name}'s {part}.`,
+    ],
+    targetReceives: [
+      `{actor} takes your {part} into their mouth.`,
+      `{actor}'s mouth works over your {part}.`,
+      `{actor} wraps their lips around your {part}.`,
     ],
     horninessGain: 18,
     sanityGain: 8,
@@ -412,6 +495,35 @@ async function cmdFuck(args, raw, player, broadcast) {
   if (hasMisEvent(player.id)) {
     stopMisEvent(player.id);
     return { type:'output', message:`You stop.` };
+  }
+
+  // Penetrative sex requires naked legs (mouth is fine either way)
+  if (location !== 'mouth') {
+    const { rows: legItems } = await query(
+      `SELECT i.name FROM player_inventory pi JOIN items i ON i.id=pi.item_id
+       WHERE pi.player_id=$1 AND pi.is_equipped=1 AND pi.slot='legs' LIMIT 1`,
+      [player.id]
+    );
+    if (legItems.length) {
+      // Grind instead of penetrate
+      const res2 = resolveTarget(targetStr, player);
+      if (!res2) return { type:'error', message:`You don't see "${targetStr}" here.` };
+      const name2 = targetName(res2);
+      const grindMsgs = [
+        `You pull ${name2} close and grind your hips against them. Your ${legItems[0].name} is very much in the way.`,
+        `You press yourself against ${name2} and roll your hips, rubbing through your ${legItems[0].name}.`,
+        `You and ${name2} grind together through your clothing, working up a rhythm.`,
+      ];
+      const msgs = await addHorniness(player, 12, broadcast);
+      if (msgs.length) broadcast(null, { type:'resource_tick', messages: msgs, player_update: { horniness: player.horniness } }, null, player.id);
+      if (res2.type === 'player' && isMisActive(res2.target) && isAttractedTo(res2.target, player)) {
+        const tmsg = await addHorniness(res2.target, 10, broadcast);
+        if (tmsg.length) broadcast(null, { type:'resource_tick', messages: tmsg, player_update: { horniness: res2.target.horniness } }, null, res2.target.id);
+        broadcast(null, { type:'output', message: `${player.handle} grinds against you.` }, null, res2.target.id);
+      }
+      broadcast(player.current_zone, { type:'zone_event', message: `${player.handle} and ${name2} grind against each other.` }, player.id, res2.type === 'player' ? res2.target.id : null);
+      return { type:'output', message: grindMsgs[Math.floor(Math.random() * grindMsgs.length)] };
+    }
   }
 
   const res = resolveTarget(targetStr, player);
@@ -464,7 +576,9 @@ async function cmdFuck(args, raw, player, broadcast) {
   // Start ongoing event
   const playerId = player.id;
   const targetId = res.type === 'player' ? res.target.id : null;
-  const eventPool = FUCK_EVENT_MSGS[location] || FUCK_EVENT_MSGS.default;
+  const zonePool = FUCK_EVENT_MSGS[location] || FUCK_EVENT_MSGS.default;
+  const actorPool = FUCK_EVENT_PLAYER_MSGS[location] || FUCK_EVENT_PLAYER_MSGS.default;
+  const targetPool = FUCK_EVENT_TARGET_MSGS[location] || FUCK_EVENT_TARGET_MSGS.default;
   const ejacPart = location === 'mouth' ? 'throat' : location === 'ass' ? 'ass' : location === 'pussy' ? 'pussy' : 'body';
 
   startMisEvent(playerId, async () => {
@@ -474,14 +588,14 @@ async function cmdFuck(args, raw, player, broadcast) {
     if (live.horniness >= 100) {
       stopMisEvent(playerId);
       const climaxMsgs = await triggerClimax(live, broadcast, ejacPart);
-      const zonePool = EJACULATE_ZONE_MSGS.into_player;
+      const ejacZonePool = EJACULATE_ZONE_MSGS.into_player;
       broadcast(live.current_zone, {
         type: 'zone_event',
-        message: zonePool[Math.floor(Math.random() * zonePool.length)]
-          .replace('{name}', live.handle)
-          .replace('{target}', name)
-          .replace('{part}', ejacPart),
-      }, live.id);
+        message: ejacZonePool[Math.floor(Math.random() * ejacZonePool.length)]
+          .replace(/\{name\}/g, live.handle)
+          .replace(/\{target\}/g, name)
+          .replace(/\{part\}/g, ejacPart),
+      }, live.id, targetId || undefined);
       broadcast(null, {
         type: 'resource_tick',
         messages: climaxMsgs,
@@ -499,9 +613,16 @@ async function cmdFuck(args, raw, player, broadcast) {
       return;
     }
 
-    const tpl = eventPool[Math.floor(Math.random() * eventPool.length)];
-    const zoneMsg = tpl.replace('{name}', live.handle).replace('{target}', name);
-    broadcast(live.current_zone, { type: 'zone_event', message: zoneMsg }, live.id);
+    const zoneTpl = zonePool[Math.floor(Math.random() * zonePool.length)];
+    const zoneMsg = zoneTpl.replace(/\{name\}/g, live.handle).replace(/\{target\}/g, name);
+    broadcast(live.current_zone, { type: 'zone_event', message: zoneMsg }, live.id, targetId || undefined);
+
+    // Private message to actor
+    const actorTpl = actorPool[Math.floor(Math.random() * actorPool.length)];
+    broadcast(null, {
+      type: 'output',
+      message: actorTpl.replace(/\{target\}/g, name),
+    }, null, playerId);
 
     const climaxMsgs = await addHorniness(live, 18, broadcast);
     broadcast(null, {
@@ -513,12 +634,21 @@ async function cmdFuck(args, raw, player, broadcast) {
     if (targetId) {
       const liveTarget = getLivePlayer(targetId);
       if (liveTarget && isMisActive(liveTarget)) {
-        const targetClimaxMsgs = await addHorniness(liveTarget, 14, broadcast);
+        // Private message to target
+        const targetTpl = targetPool[Math.floor(Math.random() * targetPool.length)];
         broadcast(null, {
-          type: 'resource_tick',
-          messages: targetClimaxMsgs,
-          player_update: { horniness: liveTarget.horniness },
+          type: 'output',
+          message: targetTpl.replace(/\{name\}/g, live.handle),
         }, null, targetId);
+
+        if (isAttractedTo(liveTarget, live)) {
+          const targetClimaxMsgs = await addHorniness(liveTarget, 14, broadcast);
+          broadcast(null, {
+            type: 'resource_tick',
+            messages: targetClimaxMsgs,
+            player_update: { horniness: liveTarget.horniness },
+          }, null, targetId);
+        }
       }
     }
   });
@@ -530,6 +660,16 @@ async function cmdFuck(args, raw, player, broadcast) {
 async function cmdEjaculate(args, raw, player, broadcast) {
   const gate = misGate(player);
   if (gate) return gate;
+
+  // Women can't ejaculate on command — only passive release at horniness 100
+  if (player.biological_sex === 'female') {
+    return { type:'error', message:`That's not how your body works.` };
+  }
+
+  // Must be at least 50% aroused to ejaculate
+  if ((player.horniness || 0) < 50) {
+    return { type:'error', message:`You're not worked up enough for that.` };
+  }
 
   stopMisEvent(player.id); // cancel any ongoing event
 
@@ -564,16 +704,19 @@ async function cmdEjaculate(args, raw, player, broadcast) {
     player.erect = 0;
     player.sanity = Math.min(player.sanity_max || 100, (player.sanity || 50) + 10);
     player.horniness_last_increased = null;
-    await query('UPDATE players SET horniness=$1, erect=$2, sanity=$3 WHERE id=$4',
-      [player.horniness, player.erect, player.sanity, player.id]);
+    // Mark residue on player's penis
+    if (!player.appearance_data) player.appearance_data = {};
+    player.appearance_data.ejaculate_state = { locations: ['penis'] };
+    await query('UPDATE players SET horniness=$1, erect=$2, sanity=$3, appearance_data=$4 WHERE id=$5',
+      [player.horniness, player.erect, player.sanity, JSON.stringify(player.appearance_data), player.id]);
 
     const zonePool = EJACULATE_ZONE_MSGS.on_player;
     broadcast(player.current_zone, {
       type: 'zone_event',
       message: zonePool[Math.floor(Math.random() * zonePool.length)]
-        .replace('{name}', player.handle)
-        .replace('{target}', name)
-        .replace('{part}', part),
+        .replace(/\{name\}/g, player.handle)
+        .replace(/\{target\}/g, name)
+        .replace(/\{part\}/g, part),
     }, player.id, res.type === 'player' ? res.target.id : null);
 
     if (res.type === 'player') {
@@ -641,6 +784,80 @@ async function cmdEjaculate(args, raw, player, broadcast) {
   return { type:'output', message: `You come on the ground.` };
 }
 
+// Eat out — cunnilingus or rimjob. Player gains small arousal, target gains a lot.
+async function cmdEatOut(args, raw, player, broadcast) {
+  const gate = misGate(player);
+  if (gate) return gate;
+
+  // Parse: eat out <target>'s [pussy|ass] OR eat out <target> [pussy|ass]
+  const str = raw.replace(/^eat\s+out\s*/i, '').trim();
+  const apostropheMatch = str.match(/^(.+?)'s\s+(pussy|ass|cunt|vagina|anus|asshole)$/i);
+  let targetStr, part;
+  if (apostropheMatch) {
+    targetStr = apostropheMatch[1].trim();
+    part = apostropheMatch[2].toLowerCase();
+  } else {
+    const words = str.split(/\s+/);
+    targetStr = words[0] || '';
+    part = words.slice(1).join(' ').toLowerCase() || 'pussy';
+  }
+  const isPussy = /pussy|cunt|vagina/.test(part);
+  const partLabel = isPussy ? 'pussy' : 'ass';
+
+  if (!targetStr) return { type:'error', message:`Usage: eat out <target>'s [pussy/ass]` };
+
+  const res = resolveTarget(targetStr, player);
+  if (!res) return { type:'error', message:`You don't see "${targetStr}" here.` };
+  const name = targetName(res);
+
+  const actorMsgs = isPussy ? [
+    `You get between ${name}'s legs and go down on them.`,
+    `You bury your face in ${name}'s pussy and get to work.`,
+    `You drag your tongue through ${name}'s folds slowly.`,
+    `You eat ${name} out with focused, deliberate attention.`,
+  ] : [
+    `You press your face into ${name}'s ass and get to work.`,
+    `Your tongue works at ${name}'s ass with slow, deliberate strokes.`,
+    `You rim ${name} thoroughly.`,
+  ];
+
+  const targetReceiveMsgs = isPussy ? [
+    `${player.handle} gets between your legs and goes down on you.`,
+    `${player.handle} buries their face in your pussy.`,
+    `${player.handle}'s tongue drags through you slowly.`,
+    `${player.handle} eats you out with focused attention.`,
+  ] : [
+    `${player.handle} presses their face into your ass.`,
+    `${player.handle}'s tongue works at your ass with deliberate strokes.`,
+    `${player.handle} rims you thoroughly.`,
+  ];
+
+  const actorMsg = actorMsgs[Math.floor(Math.random() * actorMsgs.length)];
+
+  // Player gains small arousal; target gains a lot
+  const actorMsgs2 = await addHorniness(player, 8, broadcast);
+  player.sanity = Math.min(player.sanity_max || 100, (player.sanity || 50) + 5);
+  await query('UPDATE players SET sanity=$1 WHERE id=$2', [player.sanity, player.id]);
+  if (actorMsgs2.length) broadcast(null, { type:'resource_tick', messages: actorMsgs2, player_update: { horniness: player.horniness } }, null, player.id);
+
+  if (res.type === 'player' && isMisActive(res.target)) {
+    if (isAttractedTo(res.target, player)) {
+      const targetArousals = await addHorniness(res.target, 22, broadcast);
+      if (targetArousals.length) broadcast(null, { type:'resource_tick', messages: targetArousals, player_update: { horniness: res.target.horniness } }, null, res.target.id);
+    }
+    broadcast(null, { type:'output', message: targetReceiveMsgs[Math.floor(Math.random() * targetReceiveMsgs.length)] }, null, res.target.id);
+    res.target.sanity = Math.min(res.target.sanity_max || 100, (res.target.sanity || 50) + 10);
+    await query('UPDATE players SET sanity=$1 WHERE id=$2', [res.target.sanity, res.target.id]);
+  }
+
+  broadcast(player.current_zone, {
+    type: 'zone_event',
+    message: `${player.handle} goes down on ${name}.`,
+  }, player.id, res.type === 'player' ? res.target.id : null);
+
+  return { type:'output', message: actorMsg };
+}
+
 // Blowjob shortcut: blowjob <target> → fuck <target> in mouth
 async function cmdBlowjob(args, raw, player, broadcast) {
   const target = args.join(' ');
@@ -659,40 +876,14 @@ async function cmdHandjob(args, raw, player, broadcast) {
       `You give {name} a slow, deliberate handjob.`,
       `Your hand finds {name}'s {part} and gets to work.`,
     ],
+    targetReceives: [
+      `{actor} wraps their hand around your {part} and strokes.`,
+      `{actor} gives you a slow, deliberate handjob.`,
+      `{actor}'s hand finds your {part} and gets to work.`,
+    ],
     horninessGain: 16,
     sanityGain: 6,
   });
-}
-
-// Generic insert command
-async function cmdInsert(args, raw, player, broadcast) {
-  const gate = misGate(player);
-  if (gate) return gate;
-
-  const str = raw.replace(/^insert\s+/i, '');
-  const intoIdx = str.toLowerCase().indexOf(' into ');
-  if (intoIdx === -1) return { type:'error', message:`Usage: insert <body part> into <target or location>` };
-
-  const what = str.slice(0, intoIdx).trim();
-  const where = str.slice(intoIdx + 6).trim();
-
-  const res = resolveTarget(where, player);
-  const locationName = res ? targetName(res) : where;
-
-  const msgs = await addHorniness(player, 22, broadcast);
-  player.sanity = Math.min(player.sanity_max || 100, (player.sanity || 50) + 10);
-  await query('UPDATE players SET sanity=$1 WHERE id=$2', [player.sanity, player.id]);
-
-  if (res?.type === 'player' && isMisActive(res.target)) {
-    const targetMsgs = await addHorniness(res.target, 18, broadcast);
-    if (targetMsgs.length) broadcast(null, { type:'resource_tick', messages: targetMsgs }, null, res.target.id);
-    broadcast(null, { type:'output', message: `${player.handle} pushes their ${what} inside you.` }, null, res.target.id);
-    res.target.sanity = Math.min(res.target.sanity_max || 100, (res.target.sanity || 50) + 10);
-    await query('UPDATE players SET sanity=$1 WHERE id=$2', [res.target.sanity, res.target.id]);
-  }
-  if (msgs.length) broadcast(null, { type:'resource_tick', messages: msgs }, null, player.id);
-  if (res) broadcast(player.current_zone, { type:'zone_event', message: `${player.handle} and ${locationName} are having sex.` }, player.id, res.type === 'player' ? res.target.id : null);
-  return { type:'output', message: `You press your ${what} into ${locationName}.` };
 }
 
 async function cmdWashHands(player) {
@@ -769,7 +960,6 @@ export const handlers = {
   bj:           (args, raw, player, broadcast) => cmdBlowjob(args, raw, player, broadcast),
   handjob:      (args, raw, player, broadcast) => cmdHandjob(args, raw, player, broadcast),
   hj:           (args, raw, player, broadcast) => cmdHandjob(args, raw, player, broadcast),
-  insert:       (args, raw, player, broadcast) => cmdInsert(args, raw, player, broadcast),
   ejaculate:    (args, raw, player, broadcast) => cmdEjaculate(args, raw, player, broadcast),
   cum:          (args, raw, player, broadcast) => cmdEjaculate(args, raw, player, broadcast),
   come:         (args, raw, player, broadcast) => cmdEjaculate(args, raw, player, broadcast),
@@ -779,4 +969,9 @@ export const handlers = {
 // "jerk off on" needs special routing — handled in command index by checking raw input
 export function handleJerkOffOn(args, raw, player, broadcast) {
   return cmdJerkOffOn(args, raw, player, broadcast);
+}
+
+// "eat out" needs special routing — two-word command
+export function handleEatOut(args, raw, player, broadcast) {
+  return cmdEatOut(args, raw, player, broadcast);
 }

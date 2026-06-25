@@ -19,6 +19,18 @@ export function isMisActive(player) {
   return player.mis_enabled === 1 || player.mis_enabled === true;
 }
 
+// Returns true if `viewer` is attracted to the biological sex of `target`.
+// sexuality values: 'Male', 'Female', 'Male and Female'
+export function isAttractedTo(viewer, target) {
+  if (!viewer || !target) return false;
+  const sex = target.biological_sex; // 'male' or 'female'
+  const sexuality = viewer.sexuality || 'Male';
+  if (sexuality === 'Male and Female') return true;
+  if (sex === 'male'   && sexuality === 'Male')   return true;
+  if (sex === 'female' && sexuality === 'Female') return true;
+  return false;
+}
+
 // Ongoing event intervals (masturbation, fucking) keyed by player ID
 const MIS_EVENTS = new Map();
 
@@ -83,10 +95,12 @@ export async function triggerClimax(player, broadcast, location = null) {
 
   if (!player.appearance_data) player.appearance_data = {};
   if (player.biological_sex === 'male') {
-    const ejacLoc = location ? [location] : ['torso', 'hands'];
+    // Penis always gets residue; add the target location too if on/in someone
+    const ejacLoc = location ? ['penis', location] : ['torso', 'hands', 'penis'];
     player.appearance_data.ejaculate_state = { locations: ejacLoc };
   } else {
-    const ejacLoc = location ? [location] : ['legs'];
+    // Female passive climax — fluid on legs, not depositable on others
+    const ejacLoc = ['legs'];
     player.appearance_data.ejaculate_state = { locations: ejacLoc };
   }
 
@@ -137,15 +151,60 @@ export function erectionVisibilityNote(player, tightSlots, layerCount) {
   return null;
 }
 
-// Nipple visibility note for females
-export function nippleVisibilityNote(player, coveredTorso, tempC) {
+// Breast + nipple visibility note for females.
+// torsoLayerCount: number of equipped torso items
+// outermostBulkiness: bulkiness value of outermost torso layer (0 if none)
+// outermostLayerMax: allowed_layer_range.max of outermost item (1 = bra, 2+ = clothing)
+// outermostName: display name of outermost torso item
+export function breastVisibilityNote(player, torsoLayerCount, outermostBulkiness, outermostLayerMax, outermostName, tempC) {
   if (!isMisActive(player)) return null;
   if (player.biological_sex !== 'female') return null;
-  if (coveredTorso) return null;
-  if ((player.horniness || 0) >= 65 || (tempC !== undefined && tempC < 10)) {
-    return `Her nipples are visibly hard.`;
+
+  const data = player.appearance_data || {};
+  const size = data.breast_size || 'medium';
+  const hard = (player.horniness || 0) >= 65 || (tempC !== undefined && tempC < 10);
+
+  if (torsoLayerCount === 0) {
+    // Naked chest — add nipple state (breasts described by describeGenitals)
+    const NIPPLE_HARD = [`Her nipples are hard.`, `Her nipples stand out, stiff.`, `Her nipples are visibly erect.`];
+    const NIPPLE_SOFT = [`Her nipples are soft.`, `Her nipples are relaxed.`];
+    const pool = hard ? NIPPLE_HARD : NIPPLE_SOFT;
+    return pool[Math.floor(Math.random() * pool.length)];
   }
+
+  if (torsoLayerCount === 1 && outermostLayerMax <= 1) {
+    // Bra only — describe breast fullness
+    const FILL = {
+      flat:         `Her chest barely fills the bra, which sits loosely.`,
+      small:        `Her breasts sit neatly in the bra.`,
+      medium:       `Her breasts fill out the bra nicely.`,
+      large:        `Her breasts press against the bra, filling it out.`,
+      'very large': `Her breasts strain against the bra, barely contained.`,
+    };
+    const fill = FILL[size] || FILL.medium;
+    if (hard) {
+      const NOTE = [`Her nipples press visibly against the fabric.`, `Hard nipples show through the thin material.`];
+      return `${fill} ${NOTE[Math.floor(Math.random() * NOTE.length)]}`;
+    }
+    return fill;
+  }
+
+  // Clothed: nipples show through 1 thin layer (bulkiness ≤ 2) or 2 very thin layers (≤ 1)
+  const visible = (torsoLayerCount === 1 && outermostBulkiness <= 2) ||
+                  (torsoLayerCount === 2 && outermostBulkiness <= 1);
+  if (visible && hard) {
+    const label = outermostName || 'fabric';
+    const NOTE = [`Her nipples are visible through the ${label}.`, `Hard nipples press against the ${label}.`];
+    return NOTE[Math.floor(Math.random() * NOTE.length)];
+  }
+
   return null;
+}
+
+// Keep old name as alias for compatibility with any remaining call sites
+export function nippleVisibilityNote(player, coveredTorso, tempC) {
+  if (coveredTorso) return null;
+  return breastVisibilityNote(player, 0, 0, 0, null, tempC);
 }
 
 const HORNY_MESSAGES = [
@@ -187,9 +246,55 @@ export const MASTURBATE_EVENT_FEMALE = [
 ];
 
 // Ongoing fucking event messages by location
+export const FUCK_EVENT_PLAYER_MSGS = {
+  mouth: [
+    `You keep going, using {target}'s mouth.`,
+    `You pump into {target}'s throat, setting a rhythm.`,
+    `You grip {target}'s head and keep fucking their face.`,
+    `{target} gags slightly as you keep going.`,
+  ],
+  pussy: [
+    `You thrust into {target} harder.`,
+    `You drive into {target}'s pussy, deep and insistent.`,
+    `You pick up the pace, fucking {target} harder.`,
+    `You and {target} keep going, completely absorbed.`,
+  ],
+  ass: [
+    `You pump into {target}'s ass in a grinding rhythm.`,
+    `You drive deep into {target} and keep going.`,
+    `You set a harder pace, buried in {target}'s ass.`,
+  ],
+  default: [
+    `You keep going, fucking {target} with increasing urgency.`,
+    `You and {target} go at it steadily.`,
+  ],
+};
+
+export const FUCK_EVENT_TARGET_MSGS = {
+  mouth: [
+    `{name} keeps going, using your mouth.`,
+    `{name} pumps into your throat.`,
+    `{name} grips your head and keeps going.`,
+    `You gag slightly as {name} keeps going.`,
+  ],
+  pussy: [
+    `{name} drives into your pussy harder.`,
+    `{name} thrusts into you with building intensity.`,
+    `{name} picks up the pace, fucking you harder.`,
+  ],
+  ass: [
+    `{name} pumps into your ass in a grinding rhythm.`,
+    `{name} drives deep and keeps going.`,
+    `{name} sets a harder pace in your ass.`,
+  ],
+  default: [
+    `{name} keeps fucking you with increasing urgency.`,
+    `You and {name} keep going.`,
+  ],
+};
+
 export const FUCK_EVENT_MSGS = {
   mouth: [
-    `{name} and {target} continue — {name} using {target}'s mouth.`,
     `{name} pumps into {target}'s throat, setting a rhythm.`,
     `{name} grips {target}'s head, fucking their face steadily.`,
     `{target} gags slightly as {name} keeps going.`,
@@ -245,24 +350,24 @@ You've unlocked biological realism mode. This system simulates the body honestly
 <span style="color:var(--text-dim)">SOLO:</span>
   stroke / masturbate / jerkoff / rubself / fingerself
   jerk off on &lt;target&gt;
-  ejaculate / cum [on &lt;target&gt;/ground/&lt;furniture&gt;]
+  ejaculate / cum [on &lt;target&gt;'s &lt;part&gt; / ground / &lt;furniture&gt;]  (requires 50%+ arousal; males only)
 
 <span style="color:var(--text-dim)">WITH OTHERS:</span>
-  touch &lt;target&gt; [body part]
-  squeeze &lt;target&gt; [body part]
-  kiss / lick / fondle &lt;target&gt;
+  touch / squeeze / fondle / lick &lt;target&gt;'s &lt;body part&gt;
+  kiss &lt;target&gt;
   slap &lt;target&gt;'s &lt;body part&gt;
-  suck &lt;target&gt;
+  suck &lt;target&gt;'s &lt;body part&gt;
   handjob / hj &lt;target&gt;
   blowjob / bj &lt;target&gt;
+  eat out &lt;target&gt;'s [pussy / ass]
   fuck &lt;target&gt; [in mouth / pussy / ass]
   sex / screw / rail / bang / breed &lt;target&gt; [in ...]
-  insert &lt;body part&gt; into &lt;target&gt;
 
 <span style="color:var(--text-dim)">OTHER:</span>
   wash   — clean yourself with water
 
 Most acts restore sanity. Arousal builds during events and peaks at climax.
+Penetrative sex requires naked legs — clothed players grind instead.
 Type <span style="color:var(--accent)">examine me</span> to see your current state.
 
 <span style="color:var(--text-dim)">Type MIS OFF in the debug field to disable.</span>`;

@@ -636,6 +636,11 @@ export async function migrate() {
     ON CONFLICT (id) DO NOTHING
   `);
 
+  // Sexuality field for arousal filtering
+  await query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS sexuality TEXT DEFAULT 'Male'`);
+  // All existing players attracted to males
+  await query(`UPDATE players SET sexuality='Male' WHERE sexuality IS NULL OR sexuality=''`);
+
   console.log('✓ Biological accuracy systems migrated');
 
   // Rename: zone_start (The Threshold) → zone_threshold

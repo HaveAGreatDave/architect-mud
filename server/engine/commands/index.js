@@ -6,7 +6,7 @@ import { handlers as economyHandlers } from './economy.js';
 import { handlers as housingHandlers } from './housing.js';
 import { handlers as worldHandlers } from './world.js';
 import { handlers as bodilyHandlers } from './bodily.js';
-import { handlers as misHandlers, handleJerkOffOn } from './mis.js';
+import { handlers as misHandlers, handleJerkOffOn, handleEatOut } from './mis.js';
 import { handlers as appearanceHandlers } from './appearance.js';
 import { handlers as doorHandlers } from './doors.js';
 import { fireCommand } from '../plugins.js';
@@ -48,6 +48,7 @@ export async function handleCommand(input, player, broadcast) {
 
   // Multi-word MIS commands
   if (/^jerk\s+off\s+on\b/i.test(raw)) return handleJerkOffOn(args, raw, player, broadcast);
+  if (/^eat\s+out\b/i.test(raw)) return handleEatOut(args, raw, player, broadcast);
 
   const pluginResult = await fireCommand(cmd, args, raw, player, broadcast);
   if (pluginResult !== undefined) return pluginResult;

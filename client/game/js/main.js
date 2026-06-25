@@ -74,7 +74,8 @@ document.getElementById('auth-handle').addEventListener('keydown', e => { if (e.
 document.getElementById('auth-toggle-link').addEventListener('click', () => {
   state.isRegister = !state.isRegister;
   document.getElementById('handle-field').classList.toggle('visible', state.isRegister);
-  document.getElementById('sex-field').style.display = state.isRegister ? '' : 'none';
+  const misOn = !!localStorage.getItem('mis_client_enabled');
+  document.getElementById('sex-field').style.display = (state.isRegister && misOn) ? '' : 'none';
   document.getElementById('email-field').style.display = state.isRegister ? '' : 'none';
   document.getElementById('forgot-link-wrap').style.display = state.isRegister ? 'none' : '';
   document.getElementById('auth-toggle-text').textContent = state.isRegister ? 'Have an account?' : 'No account?';
@@ -195,6 +196,10 @@ document.getElementById('signout-btn').addEventListener('click', () => {
     "Sign out?\n\nYour body stays asleep exactly where you log out — it will remain in the world, vulnerable to anyone who finds it, until you return.\n\nMake sure you're somewhere safe (your apartment, locked) before signing out."
   );
   if (!confirmed) return;
+  // Flag to prevent auto-login on next page load
+  sessionStorage.setItem('signed-out', '1');
+  sessionStorage.removeItem('reconnect-token');
+  sessionStorage.removeItem('game-switch-token');
   closeConnection();
   location.reload();
 });

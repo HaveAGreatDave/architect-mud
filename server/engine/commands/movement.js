@@ -99,7 +99,7 @@ function cmdLookDistance(player) {
   return { type: 'examine', message: `Looking into the distance you can make out — ${parts.join('; ')}.` };
 }
 
-async function cmdLook(player, targetStr) {
+async function cmdLook(player, targetStr, broadcast) {
   if (targetStr === 'sky' || targetStr === 'up') return cmdLookSky(player);
   if (targetStr === 'ground' || targetStr === 'down') return cmdLookGround(player);
   if (targetStr === 'distance' || targetStr === 'out') return cmdLookDistance(player);
@@ -114,7 +114,7 @@ async function cmdLook(player, targetStr) {
     return cmdLookInContainer(inMatch[1], player);
   }
   if (targetStr === 'me' || targetStr === 'self' || targetStr === 'myself') {
-    return cmdExamineFallback(targetStr, player);
+    return cmdExamineFallback(targetStr, player, broadcast);
   }
   const throughMatch = targetStr.match(/^(?:through\s+)?(.+)$/i);
   const windowTarget = throughMatch?.[1] || targetStr;
@@ -124,13 +124,13 @@ async function cmdLook(player, targetStr) {
     if (!win) return { type:'examine', message:`You don't see a window here.` };
     return cmdLookThroughWindow(win, player);
   }
-  return cmdExamineFallback(targetStr, player);
+  return cmdExamineFallback(targetStr, player, broadcast);
 }
 
 // Thin fallback so "look <thing>" works without a circular import with world.js
-async function cmdExamineFallback(targetStr, player) {
+async function cmdExamineFallback(targetStr, player, broadcast) {
   const { handlers: worldH } = await import('./world.js');
-  return worldH.examine([targetStr], `examine ${targetStr}`, player, () => {});
+  return worldH.examine([targetStr], `examine ${targetStr}`, player, broadcast || (() => {}));
 }
 
 async function cmdGo(argText, player, broadcast) {
@@ -296,8 +296,8 @@ async function cmdMap(player) {
 }
 
 export const handlers = {
-  look:  (args, raw, player, broadcast) => cmdLook(player, args.length ? args.join(' ') : undefined),
-  l:     (args, raw, player, broadcast) => cmdLook(player, args.length ? args.join(' ') : undefined),
+  look:  (args, raw, player, broadcast) => cmdLook(player, args.length ? args.join(' ') : undefined, broadcast),
+  l:     (args, raw, player, broadcast) => cmdLook(player, args.length ? args.join(' ') : undefined, broadcast),
   go:    (args, raw, player, broadcast) => cmdGo(args.join(' '), player, broadcast),
   move:  (args, raw, player, broadcast) => cmdGo(args.join(' '), player, broadcast),
   enter: (args, raw, player, broadcast) => cmdGo(args.join(' '), player, broadcast),

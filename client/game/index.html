@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 	<head>
 		<meta charset="UTF-8" />
@@ -8,7 +8,7 @@
 		<script>
 			// Auto-login is in flight when remembered credentials exist — hide the
 			// auth screen before first paint so it never flashes on refresh.
-			if (localStorage.getItem('mud_remember_user') && localStorage.getItem('mud_remember_pass')) {
+			if (localStorage.getItem('mud_remember_user') && localStorage.getItem('mud_remember_pass') && !sessionStorage.getItem('signed-out')) {
 				document.write('<style>#auth-screen{display:none}</style>');
 			}
 		</script>

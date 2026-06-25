@@ -15,6 +15,13 @@ export function initNet(messageHandler) {
     onOpen() {
       setConnStatus('online');
       hideColdStart();
+      const signedOut = sessionStorage.getItem('signed-out');
+      if (signedOut) {
+        sessionStorage.removeItem('signed-out');
+        // Show auth screen — don't auto-login
+        document.getElementById('auth-screen').style.display = 'flex';
+        return;
+      }
       const reconnectToken = sessionStorage.getItem('reconnect-token');
       if (reconnectToken && state.player) {
         // Silent reconnect — token validated server-side; auth_success or auth_fail follows
