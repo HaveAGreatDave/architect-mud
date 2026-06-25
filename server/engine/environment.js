@@ -136,6 +136,14 @@ const SEASON_BY_MONTH = [
 ];
 
 
+// Indoor zone temperature simulation.
+// When powered, HVAC drives zone temp toward 20°C at ~0.5°C/min (reaches
+// target from 0°C in ~40 minutes). Without power, passive conduction
+// drifts the zone toward outdoor temp at ~0.1°C/min (slow, insulated bleed).
+const INDOOR_HVAC_TARGET_C         = 20;
+const INDOOR_HVAC_RATE_PER_MIN     = 0.5;
+const INDOOR_PASSIVE_RATE_PER_MIN  = 0.1;
+
 const POWER_OVERLOAD_RATIO = 1.0;    // alloc < demand × this → 'overloaded'
 const EMERGENCY_LIGHT_LEVEL = 0.3;   // artificial-light contribution on emergency power only
 const SNOW_LOAD_MULTIPLIER = 1.15;   // snow increases effective load (GDD §11: heating demand)
@@ -170,6 +178,7 @@ const state = {
   ambientLight: 1.0,        // 0..1, recalculated every 30-min tick
   phase: 'day',
   zones: new Map(),         // zoneId -> { powerStatus, capacityKw, loadKw, hasEmergencyLighting, artificialLight }
+  zoneTemps: new Map(),     // zoneId -> current indoor tempC (indoor zones only; outdoor zones use global state.tempC)
   windows: [],              // all window rows from DB, refreshed on init and mutation
   lastTick30m: 0,
   lastTick24h: 0,
@@ -297,6 +306,7 @@ export async function initEnvironment({ query, emitHook, broadcast }) {
   await loadZonePowerAndLighting(query);
   await loadWindows(query);
   recalcAmbientAndVisibility();
+  initIndoorTemps();
 
   // Catch up on time missed during downtime. Game time runs 1:1 with real time,
   // so advance by the FULL elapsed interval — not a single tick. (The old
@@ -467,6 +477,40 @@ function computeArtificialLight(powerStatus, light) {
 }
 
 // ---------------------------------------------------------------------------
+// Indoor Temperature Simulation
+// ---------------------------------------------------------------------------
+
+function isIndoorZone(z) {
+  return !!(z?.flags?.is_interior || z?.flags?.is_apartment);
+}
+
+// Seed indoor zones that have no entry yet with the current outdoor temp.
+// Safe to call repeatedly — skips zones already tracked.
+function initIndoorTemps() {
+  const outdoorTemp = state.tempC + diurnalOffset(state.minutes);
+  for (const [zoneId, z] of state.zones) {
+    if (isIndoorZone(z) && !state.zoneTemps.has(zoneId)) {
+      state.zoneTemps.set(zoneId, outdoorTemp);
+    }
+  }
+}
+
+// Called every 1-minute tick. Steps each indoor zone one minute toward its target.
+function stepIndoorTemps() {
+  const outdoorTemp = state.tempC + diurnalOffset(state.minutes);
+  for (const [zoneId, z] of state.zones) {
+    if (!isIndoorZone(z)) continue;
+    const current = state.zoneTemps.get(zoneId) ?? outdoorTemp;
+    const powered = z.powerStatus === 'powered' || z.powerStatus === 'overloaded';
+    const target  = powered ? INDOOR_HVAC_TARGET_C : outdoorTemp;
+    const rate    = powered ? INDOOR_HVAC_RATE_PER_MIN : INDOOR_PASSIVE_RATE_PER_MIN;
+    const diff    = target - current;
+    const step    = Math.sign(diff) * Math.min(Math.abs(diff), rate);
+    state.zoneTemps.set(zoneId, Math.round((current + step) * 10) / 10);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // 5-Minute Brownout Rotation Tick (only active when grid is overloaded)
 // ---------------------------------------------------------------------------
 
@@ -536,7 +580,14 @@ async function tick1m() {
     `UPDATE world_clock SET game_time_minutes = $1, last_tick_1m = now() WHERE id = 1`,
     [state.minutes]
   );
-  if (broadcast) broadcast({ type: 'environment.clockTick', time: formatHHMM(state.minutes), tempC: state.tempC + diurnalOffset(state.minutes), currentWeatherType: state.currentPrecip !== 'none' ? state.currentPrecip : (PRECIP_FORECAST_TYPES.has(state.weatherType) ? 'cloudy' : state.weatherType), currentIntensity: currentIntensityLabel() });
+  stepIndoorTemps();
+  if (broadcast) {
+    broadcast({ type: 'environment.clockTick', time: formatHHMM(state.minutes), tempC: state.tempC + diurnalOffset(state.minutes), currentWeatherType: state.currentPrecip !== 'none' ? state.currentPrecip : (PRECIP_FORECAST_TYPES.has(state.weatherType) ? 'cloudy' : state.weatherType), currentIntensity: currentIntensityLabel() });
+    // Per-zone indoor temp broadcasts so indoor HUDs stay current.
+    for (const [zoneId, tempC] of state.zoneTemps) {
+      broadcast(zoneId, { type: 'environment.zoneTempTick', tempC });
+    }
+  }
   await flickerOverloadedZones();
 }
 
@@ -1116,6 +1167,17 @@ export function getWeatherDescription() {
   const descs = WEATHER_DESCRIPTIONS[state.weatherType];
   if (!descs?.length) return null;
   return descs[Math.floor(Math.random() * descs.length)];
+}
+
+// Returns the effective temperature for a zone. Indoor zones (is_interior /
+// is_apartment) return their HVAC-simulated temp; outdoor zones return the
+// global outdoor temp with diurnal offset.
+export function getZoneTemperature(zoneId) {
+  const z = state.zones.get(zoneId);
+  if (isIndoorZone(z) && state.zoneTemps.has(zoneId)) {
+    return state.zoneTemps.get(zoneId);
+  }
+  return state.tempC + diurnalOffset(state.minutes);
 }
 
 export function getPowerMap() {
