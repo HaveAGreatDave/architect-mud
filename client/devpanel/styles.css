@@ -13,9 +13,10 @@
     --yellow: #f5e642;
     --cyan: #28e5ff;
     --font: 'Lucida Console', 'Lucida Sans Typewriter', 'Monaco', 'Consolas', monospace;
+    --font-size-base: 13px;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 13px; height: 100vh; display: flex; flex-direction: column; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: var(--font-size-base); height: 100vh; display: flex; flex-direction: column; }
 
   /* Header */
   #header {

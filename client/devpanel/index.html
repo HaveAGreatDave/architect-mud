@@ -172,6 +172,22 @@
         <option value="slate">Slate</option>
       </select>
     </div>
+    <div style="margin-bottom:18px">
+      <label style="display:block;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:8px">Font Size</label>
+      <div style="display:flex;gap:6px;flex-wrap:wrap" id="dev-opt-fontsize">
+        <button class="dev-settings-opt" data-value="12">Small</button>
+        <button class="dev-settings-opt" data-value="13">Medium</button>
+        <button class="dev-settings-opt" data-value="16">Large</button>
+        <button class="dev-settings-opt" data-value="19">X-Large</button>
+      </div>
+    </div>
+    <div style="margin-bottom:18px">
+      <label style="display:block;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:8px">Display</label>
+      <div style="display:flex;gap:6px;flex-wrap:wrap" id="dev-opt-density">
+        <button class="dev-settings-opt" data-value="comfortable">Comfortable (Desktop)</button>
+        <button class="dev-settings-opt" data-value="compact">Compact (Mobile)</button>
+      </div>
+    </div>
     <div class="settings-row">
       <span>Session</span>
       <button class="action-btn danger" onclick="devpanelLogout()">Log Out</button>
@@ -4531,9 +4547,23 @@ function repaintPowerTileColors() {
 
 function applyDevSettings() {
   const theme = devSettings.theme || 'dark';
+  const fontSize = devSettings.fontSize || '13';
+  const density = devSettings.density || 'comfortable';
+
   document.documentElement.setAttribute('data-theme', theme);
-  const sel = document.getElementById('dev-opt-theme');
-  if (sel) sel.value = theme;
+  document.documentElement.setAttribute('data-density', density);
+  document.documentElement.style.setProperty('--font-size-base', fontSize + 'px');
+
+  const themeSel = document.getElementById('dev-opt-theme');
+  if (themeSel) themeSel.value = theme;
+
+  document.querySelectorAll('#dev-opt-fontsize .dev-settings-opt').forEach(btn => {
+    btn.classList.toggle('selected', btn.dataset.value === String(fontSize));
+  });
+  document.querySelectorAll('#dev-opt-density .dev-settings-opt').forEach(btn => {
+    btn.classList.toggle('selected', btn.dataset.value === density);
+  });
+
   repaintPowerTileColors();
 }
 applyDevSettings();
@@ -4545,14 +4575,30 @@ window.addEventListener('storage', e => {
 });
 
 document.addEventListener('DOMContentLoaded', () => {
-  const sel = document.getElementById('dev-opt-theme');
-  if (sel) {
-    sel.addEventListener('change', () => {
-      devSettings.theme = sel.value;
+  const themeSel = document.getElementById('dev-opt-theme');
+  if (themeSel) {
+    themeSel.addEventListener('change', () => {
+      devSettings.theme = themeSel.value;
       saveDevSettings(devSettings);
       applyDevSettings();
     });
   }
+
+  document.querySelectorAll('#dev-opt-fontsize .dev-settings-opt').forEach(btn => {
+    btn.addEventListener('click', () => {
+      devSettings.fontSize = btn.dataset.value;
+      saveDevSettings(devSettings);
+      applyDevSettings();
+    });
+  });
+
+  document.querySelectorAll('#dev-opt-density .dev-settings-opt').forEach(btn => {
+    btn.addEventListener('click', () => {
+      devSettings.density = btn.dataset.value;
+      saveDevSettings(devSettings);
+      applyDevSettings();
+    });
+  });
 });
 function devpanelLogout() {
   if (!confirm('Log out of the dev panel?')) return;
