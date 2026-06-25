@@ -71,7 +71,7 @@ function _refreshWhisperTabs() {
     wrap.style.cssText = `display:inline-flex;align-items:stretch;flex-shrink:0;position:relative`;
 
     const labelBtn = document.createElement('button');
-    labelBtn.style.cssText = `background:${bg};border:1px solid ${borderColor};border-right:none;color:${textColor};font-family:var(--font-mono);font-size:10px;padding:3px 8px;cursor:pointer;border-radius:2px 0 0 2px;white-space:nowrap`;
+    labelBtn.style.cssText = `background:${bg};border:1px solid ${borderColor};color:${textColor};font-family:var(--font-mono);font-size:10px;padding:3px 8px;cursor:pointer;border-radius:2px;white-space:nowrap`;
     labelBtn.textContent = handle;
     labelBtn.addEventListener('click', () => openWhisperTab(handle));
 
@@ -85,9 +85,9 @@ function _refreshWhisperTabs() {
     const closeBtn = document.createElement('button');
     closeBtn.textContent = '×';
     closeBtn.title = 'Close tab';
-    closeBtn.style.cssText = `background:${bg};border:1px solid ${borderColor};color:var(--text-dim);font-family:var(--font-mono);font-size:13px;line-height:1;padding:0 5px;cursor:pointer;border-radius:0 2px 2px 0;display:flex;align-items:center;justify-content:center`;
+    closeBtn.style.cssText = `background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font-mono);font-size:13px;line-height:1;width:20px;height:20px;padding:0;cursor:pointer;border-radius:2px;display:flex;align-items:center;justify-content:center;flex-shrink:0;align-self:center;margin-left:3px`;
     closeBtn.addEventListener('mouseenter', () => { closeBtn.style.borderColor = 'var(--red)'; closeBtn.style.color = 'var(--red)'; });
-    closeBtn.addEventListener('mouseleave', () => { closeBtn.style.borderColor = borderColor; closeBtn.style.color = 'var(--text-dim)'; });
+    closeBtn.addEventListener('mouseleave', () => { closeBtn.style.borderColor = 'var(--border)'; closeBtn.style.color = 'var(--text-dim)'; });
     closeBtn.addEventListener('click', () => _closeWhisperTab(handle));
 
     wrap.appendChild(labelBtn);
@@ -272,16 +272,19 @@ export function initWhisperPanel() {
   const panel = document.getElementById('whisper-panel');
   let dragState = null;
   dragHandle.addEventListener('pointerdown', e => {
-    if (e.target.tagName === 'BUTTON') return;
+    // Never intercept clicks inside the tabs bar or on any button.
+    if (e.target.closest('#whisper-tabs') || e.target.closest('button')) return;
     const r = panel.getBoundingClientRect();
-    dragHandle.setPointerCapture(e.pointerId);
-    dragState = { ox: e.clientX - r.left, oy: e.clientY - r.top, startTime: Date.now(), active: false };
+    // Record intent but do NOT capture yet — capturing here breaks button clicks.
+    dragState = { pointerId: e.pointerId, ox: e.clientX - r.left, oy: e.clientY - r.top, startTime: Date.now(), captured: false };
   });
   dragHandle.addEventListener('pointermove', e => {
-    if (!dragState || !dragHandle.hasPointerCapture(e.pointerId)) return;
-    if (!dragState.active) {
-      if (Date.now() - dragState.startTime < 200) return;
-      dragState.active = true;
+    if (!dragState || dragState.pointerId !== e.pointerId) return;
+    if (!dragState.captured) {
+      if (Date.now() - dragState.startTime < 600) return;
+      // Capture only after the hold threshold — valid to call from pointermove.
+      dragHandle.setPointerCapture(e.pointerId);
+      dragState.captured = true;
       dragHandle.style.cursor = 'grabbing';
     }
     const x = Math.max(0, Math.min(window.innerWidth  - panel.offsetWidth,  e.clientX - dragState.ox));
@@ -289,6 +292,7 @@ export function initWhisperPanel() {
     panel.style.left = x + 'px'; panel.style.top = y + 'px';
     panel.style.right = 'auto'; panel.style.bottom = 'auto';
   });
-  dragHandle.addEventListener('pointerup', () => { dragState = null; dragHandle.style.cursor = 'grab'; });
-  dragHandle.addEventListener('pointercancel', () => { dragState = null; dragHandle.style.cursor = 'grab'; });
+  // Clean up on the document so a release outside the handle never leaves dragState stale.
+  document.addEventListener('pointerup',     e => { if (dragState && dragState.pointerId === e.pointerId) { dragState = null; dragHandle.style.cursor = 'grab'; } });
+  document.addEventListener('pointercancel', e => { if (dragState && dragState.pointerId === e.pointerId) { dragState = null; dragHandle.style.cursor = 'grab'; } });
 }
