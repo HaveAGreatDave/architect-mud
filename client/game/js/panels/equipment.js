@@ -102,7 +102,7 @@ export function renderEquipPanel(items) {
     card.innerHTML = `<span class="eic-name">${item.name}${qty}</span><span class="eic-meta">${item.rarity || ''}${slotLabel}</span><button class="eic-drop-btn" title="Drop on ground"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="1" width="6" height="4" rx="0.5" stroke="currentColor" stroke-width="1.3"/><line x1="7" y1="5" x2="7" y2="8.5" stroke="currentColor" stroke-width="1.3"/><path d="M4.5 7.5 L7 10.5 L9.5 7.5" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linejoin="round" stroke-linecap="round"/><line x1="2" y1="13" x2="12" y2="13" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></button>`;
     card.ondragstart = (e) => onItemDragStart(e, item.id);
     card.ondragend = () => card.classList.remove('dragging');
-    if (equippable) card.onclick = () => sendCmdSilent(`equipid ${item.id}`);
+    if (equippable) card.onclick = () => sendCmdSilent(`equipid ${item.id} ${currentLayer}`);
     card.querySelector('.eic-drop-btn').onclick = (e) => { e.stopPropagation(); dropItem(item); };
     list.appendChild(card);
   }
@@ -190,7 +190,7 @@ export function initEquipPanel() {
       e.preventDefault();
       dragHandled = true;
       slotEl.classList.remove('drag-over');
-      if (equipDraggedId) sendCmdSilent(`equipid ${equipDraggedId}`);
+      if (equipDraggedId) sendCmdSilent(`equipid ${equipDraggedId} ${currentLayer}`);
       equipDraggedId = null;
     });
     slotEl.addEventListener('dragenter', () => slotEl.classList.add('drag-over'));
