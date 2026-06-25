@@ -5281,7 +5281,7 @@ function renderTimeWeatherPanel(data) {
           <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim)">Override Weather</div>
           ${env.weatherOverrideActive
             ? `<div style="display:flex;align-items:center;gap:10px">
-                <span style="font-size:11px;color:var(--yellow);background:rgba(255,200,0,0.08);border:1px solid var(--yellow);border-radius:3px;padding:3px 8px">⚠ Override Active: ${env.weatherType}, ${env.tempC != null ? env.tempC + '°C' : '—'}</span>
+                <span style="font-size:11px;color:var(--yellow);background:rgba(255,200,0,0.08);border:1px solid var(--yellow);border-radius:3px;padding:3px 8px">⚠ Override Active: ${env.currentWeatherType || env.weatherType}, ${env.tempC != null ? env.tempC + '°C' : '—'}</span>
                 <button class="action-btn danger" onclick="devClearWeatherOverride()">Disable Override</button>
               </div>`
             : `<span style="font-size:11px;color:var(--text-dim)">Following forecast</span>`}
@@ -5289,7 +5289,7 @@ function renderTimeWeatherPanel(data) {
         <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
           <label style="font-size:12px;color:var(--text-dim)">Type<br>
             <select id="tw-weather" onchange="document.getElementById('tw-precip').value=Math.round((WEATHER_PRECIP_CHANCE[this.value]??0.05)*100)" style="margin-top:4px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:5px 8px;border-radius:2px">
-              ${WEATHER_TYPES.map(w=>`<option value="${w}"${env.weatherType===w?' selected':''}>${w}</option>`).join('')}
+              ${WEATHER_TYPES.map(w=>`<option value="${w}"${(env.currentWeatherType||env.weatherType)===w?' selected':''}>${w}</option>`).join('')}
             </select>
           </label>
           <label style="font-size:12px;color:var(--text-dim)">Temperature (°C)<br>
