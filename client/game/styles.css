@@ -922,20 +922,24 @@
   .equip-item-card .eic-meta { color: var(--text-dim); font-size: 10px; }
   .eic-drop-btn {
     display: none;
-    margin-top: 6px;
+    position: absolute;
+    top: 5px;
+    right: 5px;
     background: transparent;
     border: 1px solid var(--border);
     color: var(--text-dim);
-    font-size: 9px;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    padding: 2px 6px;
+    width: 22px;
+    height: 22px;
+    padding: 0;
     cursor: pointer;
     border-radius: 2px;
-    width: 100%;
+    line-height: 0;
+    align-items: center;
+    justify-content: center;
   }
-  .eic-drop-btn:hover { border-color: var(--red); color: var(--red); background: rgba(255,60,60,0.06); }
-  .equip-item-card:hover .eic-drop-btn { display: block; }
+  .eic-drop-btn:hover { border-color: var(--red); color: var(--red); background: rgba(255,60,60,0.07); }
+  .equip-item-card { position: relative; }
+  .equip-item-card:hover .eic-drop-btn { display: flex; }
   .equip-item-card.equippable { border-left: 3px solid var(--cyan); }
   #equip-inv-list:empty::after { content: '(nothing here)'; color: var(--text-dim); font-style: italic; font-size: 11px; padding: 4px; display: block; }
   .equip-item-card.is-equipped { border-left: 3px solid var(--green); }
