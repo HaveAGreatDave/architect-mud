@@ -29,6 +29,13 @@ export function initNet(messageHandler) {
         if (switchToken && !state.player) {
           sessionStorage.removeItem('game-switch-token');
           _connection.send({ type: 'auth_token', token: switchToken });
+        } else if (!state.player) {
+          // Auto-login with remembered credentials
+          const username = localStorage.getItem('mud_remember_user');
+          const password = localStorage.getItem('mud_remember_pass');
+          if (username && password) {
+            _connection.send({ type: 'auth', username, password });
+          }
         }
       }
     },
@@ -97,7 +104,7 @@ export function attemptAutoReauth() {
   }
   // No credentials available — show auth screen so the user can log in manually
   state.player = null;
-  document.getElementById('auth-screen').style.display = '';
+  document.getElementById('auth-screen').style.display = 'flex';
 }
 
 export function doAuth() {
@@ -227,7 +234,7 @@ export async function doResetPassword(token) {
       errEl.style.color = 'var(--accent)';
       setTimeout(() => {
         document.getElementById('reset-screen').style.display = 'none';
-        document.getElementById('auth-screen').style.display = '';
+        document.getElementById('auth-screen').style.display = 'flex';
         history.replaceState({}, '', location.pathname);
       }, 2000);
     }

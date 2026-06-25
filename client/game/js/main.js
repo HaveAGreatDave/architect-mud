@@ -46,6 +46,8 @@ if (_savedUser && _savedPass) {
   document.getElementById('auth-username').value = _savedUser;
   document.getElementById('auth-password').value = _savedPass;
   document.getElementById('auth-remember').checked = true;
+  // Auto-login is in flight (see net.js onOpen) — hide the form to avoid a flash
+  document.getElementById('auth-screen').style.display = 'none';
 }
 
 document.getElementById('auth-submit').addEventListener('click', doAuth);
