@@ -135,7 +135,16 @@ async function cmdDrop(targetStr, player, broadcast) {
   if (!targetStr) return { type:'error', message:'Drop what?' };
   const { rows } = await query(`SELECT pi.*,i.name FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND i.name ILIKE $2 AND NOT jsonb_exists(i.tags,'quest_item') LIMIT 1`, [player.id, `%${targetStr}%`]);
   if (!rows.length) return { type:'error', message:`You don't have "${targetStr}".` };
-  await query('UPDATE player_inventory SET player_id=$1 WHERE id=$2', [`_ground_${player.current_zone}`, rows[0].id]);
+  await query('UPDATE player_inventory SET player_id=$1, is_equipped=0, slot=NULL, container_id=NULL WHERE id=$2', [`_ground_${player.current_zone}`, rows[0].id]);
+  broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} drops ${rows[0].name}.` }, player.id);
+  return { type:'drop', message:`You drop ${rows[0].name}.` };
+}
+
+async function cmdDropById(inventoryId, player, broadcast) {
+  if (!inventoryId) return { type:'error', message:'Nothing to drop.' };
+  const { rows } = await query(`SELECT pi.*,i.name FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.id=$1 AND pi.player_id=$2 AND NOT jsonb_exists(i.tags,'quest_item') LIMIT 1`, [inventoryId, player.id]);
+  if (!rows.length) return { type:'error', message:`Can't drop that.` };
+  await query('UPDATE player_inventory SET player_id=$1, is_equipped=0, slot=NULL, container_id=NULL WHERE id=$2', [`_ground_${player.current_zone}`, rows[0].id]);
   broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} drops ${rows[0].name}.` }, player.id);
   return { type:'drop', message:`You drop ${rows[0].name}.` };
 }
@@ -293,6 +302,21 @@ async function cmdStow(argStr, player) {
   if (!argStr) return { type:'error', message:'Stow what?' };
   const [itemPart, containerPart] = splitOn(argStr, ' in ');
   if (!itemPart) return { type:'error', message:'Stow what?' };
+
+  // Check for trash bin furniture before normal container resolution.
+  if (containerPart) {
+    const { rows: trashRows } = await query(
+      `SELECT id,name FROM furniture WHERE zone_id=$1 AND name ILIKE $2 AND flags->>'trash_bin'='true' LIMIT 1`,
+      [player.current_zone, `%${containerPart}%`]
+    );
+    if (trashRows.length) {
+      const { rows: itemRows } = await query(`SELECT pi.*,i.name FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND i.name ILIKE $2 AND NOT jsonb_exists(i.tags,'quest_item') LIMIT 1`, [player.id, `%${itemPart}%`]);
+      if (!itemRows.length) return { type:'error', message:`You don't have "${itemPart}".` };
+      await query('DELETE FROM player_inventory WHERE id=$1', [itemRows[0].id]);
+      return { type:'stow', message:`You throw ${itemRows[0].name} in the ${trashRows[0].name}. It's gone.` };
+    }
+  }
+
   const container = await resolveContainer(containerPart, player);
   if (container === 'ambiguous') return { type:'error', message:`Which container? Try "stow <item> in <name>".` };
   if (!container) return { type:'error', message:`You don't see a container${containerPart?` matching "${containerPart}"`:''} here.` };
@@ -358,6 +382,7 @@ export const handlers = {
   take: (args, raw, player, broadcast) => cmdTake(args.join(' '), player, broadcast),
   get:  (args, raw, player, broadcast) => cmdTake(args.join(' '), player, broadcast),
   drop: (args, raw, player, broadcast) => cmdDrop(args.join(' '), player, broadcast),
+  dropid: (args, raw, player, broadcast) => cmdDropById(args[0], player, broadcast),
   use:   (args, raw, player) => cmdUse(args.join(' '), player),
   eat:   (args, raw, player) => cmdUse(args.join(' '), player),
   drink: (args, raw, player) => cmdUse(args.join(' '), player),

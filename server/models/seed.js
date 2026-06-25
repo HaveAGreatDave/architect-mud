@@ -311,6 +311,20 @@ async function seed() {
   }
   console.log(`✓ Seeded ${furniture.length} furniture`);
 
+  // Trash bins — container-type furniture that destroys items placed inside.
+  const trashBins = [
+    ['furniture_threshold_trashbin', 'zone_threshold', 'Trash Bin', 'A dented metal waste bin bolted to the wall. Anything you put in it is gone. That\'s the point.'],
+    ['furniture_lobby_trashbin', 'zone_residential_lobby', 'Trash Bin', 'A battered plastic bin by the entrance. The lid is missing. Everything inside is gone within the hour — or whenever someone feels like it.'],
+  ];
+  for (const [id, zoneId, name, desc] of trashBins) {
+    await query(
+      `INSERT INTO furniture (id,zone_id,name,description,flags,object_type) VALUES ($1,$2,$3,$4,$5,'container')
+       ON CONFLICT (id) DO UPDATE SET zone_id=EXCLUDED.zone_id, name=EXCLUDED.name, description=EXCLUDED.description, object_type='container', flags=EXCLUDED.flags`,
+      [id, zoneId, name, desc, JSON.stringify({ trash_bin: true, interactions: [] })]
+    );
+  }
+  console.log(`✓ Seeded ${trashBins.length} trash bins`);
+
   // Lights — overhead lights and lamps are player-switchable (the "switch"
   // command, room by room); street lights are NOT — they're city-grid
   // infrastructure that follows the day/night cycle automatically instead

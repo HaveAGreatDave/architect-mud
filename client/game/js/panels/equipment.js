@@ -4,6 +4,7 @@ import { sendCmdSilent } from '../net.js';
 const EQUIP_SLOT_NAMES = ['head','torso','hands','weapon_hand','legs','feet','accessory'];
 const LAYER_NAMES = ['', 'Skin', 'Base', 'Mid', 'Outer', 'Shell'];
 let equipDraggedId = null;
+let dragHandled = false;
 let currentLayer = 1;
 let lastItems = [];
 
@@ -82,10 +83,11 @@ export function renderEquipPanel(items) {
     card.setAttribute('data-id', item.id);
     const qty = item.quantity > 1 ? ` x${item.quantity}` : '';
     const slotLabel = tags.slot ? ` · ${tags.slot.replace('_',' ')}` : '';
-    card.innerHTML = `<span class="eic-name">${item.name}${qty}</span><span class="eic-meta">${item.rarity || ''}${slotLabel}</span>`;
+    card.innerHTML = `<span class="eic-name">${item.name}${qty}</span><span class="eic-meta">${item.rarity || ''}${slotLabel}</span><button class="eic-drop-btn" title="Drop on ground">↓</button>`;
     card.ondragstart = (e) => onItemDragStart(e, item.id);
     card.ondragend = () => card.classList.remove('dragging');
     if (equippable) card.onclick = () => sendCmdSilent(`equipid ${item.id}`);
+    card.querySelector('.eic-drop-btn').onclick = (e) => { e.stopPropagation(); sendCmdSilent(`dropid ${item.id}`); };
     list.appendChild(card);
   }
 
@@ -94,6 +96,7 @@ export function renderEquipPanel(items) {
 
 function onItemDragStart(e, id) {
   equipDraggedId = id;
+  dragHandled = false;
   e.target.classList.add('dragging');
   e.dataTransfer.effectAllowed = 'move';
 }
@@ -122,6 +125,7 @@ export function initEquipPanel() {
     slotEl.addEventListener('dragover', e => e.preventDefault());
     slotEl.addEventListener('drop', (e) => {
       e.preventDefault();
+      dragHandled = true;
       slotEl.classList.remove('drag-over');
       if (equipDraggedId) sendCmdSilent(`equipid ${equipDraggedId}`);
       equipDraggedId = null;
@@ -133,7 +137,17 @@ export function initEquipPanel() {
   document.getElementById('equip-inv-list').addEventListener('dragover', e => e.preventDefault());
   document.getElementById('equip-inv-list').addEventListener('drop', (e) => {
     e.preventDefault();
+    dragHandled = true;
     if (equipDraggedId) sendCmdSilent(`unequipid ${equipDraggedId}`);
     equipDraggedId = null;
+  });
+
+  // Drop outside any valid target → drop item on the ground.
+  document.addEventListener('dragend', () => {
+    if (!dragHandled && equipDraggedId) {
+      sendCmdSilent(`dropid ${equipDraggedId}`);
+    }
+    equipDraggedId = null;
+    dragHandled = false;
   });
 }
