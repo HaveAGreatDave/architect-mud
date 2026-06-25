@@ -3055,9 +3055,7 @@ function buildDynamicMapGrid(zones, mode, powerById, clickable) {
       if (powerStatus) {
         const POWER_STATUS_RGB = { powered:[20,200,100], overloaded:[255,165,0], offline:[220,40,60], unpowered:[30,30,50], plant:[80,160,255] };
         const [r,g,b] = POWER_STATUS_RGB[powerStatus] || POWER_STATUS_RGB.unpowered;
-        const lum = (0.299*r + 0.587*g + 0.114*b) / 255;
-        const t = lum < 0.5 ? 240 : 20;
-        tileStyle += `;color:rgb(${t},${t},${t})`;
+        tileStyle += `;color:rgb(240,240,240)`;
       }
       html += `<div class="${cls}" style="${tileStyle}" title="${z.id}"${click}><div>${marker}${z.name}${sub}</div></div>`;
     }
