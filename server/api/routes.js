@@ -768,7 +768,7 @@ export async function apiUpdateItem(id,body) {
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
 async function apiGetNpcs() { const {rows}=await query('SELECT * FROM npcs'); return {status:200,body:rows}; }
-async function apiCreateNpc(body) {
+export async function apiCreateNpc(body) {
   const id=body.id||`npc_${Date.now()}`;
   try {
     await query(`INSERT INTO npcs (id,name,description,zone_id,faction,disposition,dialogue_tree,vendor_inventory,wanders,wander_zones,flags) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
