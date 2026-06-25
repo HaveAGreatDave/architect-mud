@@ -3,7 +3,7 @@ import { getZone, getMinimapData, addPlayerToZone, removePlayerFromZone, getDoor
 import { getZoneVisibility, getWindowsForZone, getEnvironmentState } from '../environment.js';
 import { describeZone, resolveNamedDestination } from './describe.js';
 
-const RAW_DIRECTIONS = ['north', 'south', 'east', 'west', 'up', 'down', 'in', 'out'];
+const RAW_DIRECTIONS = ['north', 'south', 'east', 'west', 'up', 'down', 'in', 'out', 'exit'];
 
 async function cmdLookThroughWindow(win, player) {
   if (!win.curtain_open && win.glass_state !== 'broken') {
@@ -152,7 +152,7 @@ async function cmdMove(direction, player, broadcast) {
   const zone = getZone(player.current_zone);
   if (!zone) return { type:'error', message:'Your zone is missing.' };
   let targetId = zone.exits[direction];
-  if (!targetId && (direction === 'in' || direction === 'out')) {
+  if (!targetId && (direction === 'in' || direction === 'out' || direction === 'exit')) {
     const exitEntries = Object.entries(zone.exits || {});
     if (exitEntries.length === 1) {
       direction = exitEntries[0][0];
@@ -315,5 +315,6 @@ export const handlers = {
   d:     (args, raw, player, broadcast) => cmdMove('down', player, broadcast),
   in:    (args, raw, player, broadcast) => cmdMove('in', player, broadcast),
   out:   (args, raw, player, broadcast) => cmdMove('out', player, broadcast),
+  exit:  (args, raw, player, broadcast) => cmdMove('exit', player, broadcast),
   map:   (args, raw, player) => cmdMap(player),
 };
