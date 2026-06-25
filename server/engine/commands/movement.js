@@ -157,9 +157,25 @@ async function cmdMove(direction, player, broadcast) {
   if (!targetZone) return { type:'error', message:'That exit leads nowhere yet.' };
 
   let doorWasClosed = false;
+  let doorWasLocked = false;
   const door = getDoorForExit(zone.id, direction);
   if (door && door.hp > 0) {
-    if (door.is_locked) return { type:'error', message:`The door to the ${direction} is locked.` };
+    if (door.is_locked) {
+      const isAdmin = player.role === 'admin' || player.role === 'dev';
+      let canUnlock = isAdmin;
+      if (!canUnlock) {
+        const { rows } = await query(
+          'SELECT 1 FROM apartments WHERE zone_id=ANY($1) AND owner_id=$2',
+          [[zone.id, targetId], player.id]
+        );
+        canUnlock = rows.length > 0;
+      }
+      if (!canUnlock) return { type:'error', message:`The door to the ${direction} is locked.` };
+      doorWasLocked = true;
+      await query('UPDATE doors SET is_locked=0 WHERE id=$1', [door.id]);
+      door.is_locked = 0;
+      setDoorCache(door.id, door);
+    }
     if (!door.is_open) {
       doorWasClosed = true;
       door.is_open = 1;
@@ -176,12 +192,16 @@ async function cmdMove(direction, player, broadcast) {
   const OPPOSITE = { north:'south', south:'north', east:'west', west:'east', up:'down', down:'up', in:'out', out:'in' };
   const arrivalDir = OPPOSITE[direction] || null;
 
-  broadcast(zone.id, { type:'zone_event', message: doorWasClosed
-    ? `${player.handle} opens the door and heads ${direction}.`
-    : `${player.handle} heads ${direction}.` }, player.id);
-  broadcast(targetId, { type:'zone_event', message: doorWasClosed
+  const departMsg = doorWasLocked
+    ? `The Hololock emits a soft chime. ${player.handle} opens the door and heads ${direction}.`
+    : doorWasClosed
+      ? `${player.handle} opens the door and heads ${direction}.`
+      : `${player.handle} heads ${direction}.`;
+  const arriveMsg = (doorWasLocked || doorWasClosed)
     ? (arrivalDir ? `${player.handle} comes through the door from the ${arrivalDir}.` : `${player.handle} comes through the door.`)
-    : (arrivalDir ? `${player.handle} arrives from the ${arrivalDir}.` : `${player.handle} arrives.`) }, player.id);
+    : (arrivalDir ? `${player.handle} arrives from the ${arrivalDir}.` : `${player.handle} arrives.`);
+  broadcast(zone.id, { type:'zone_event', message: departMsg }, player.id);
+  broadcast(targetId, { type:'zone_event', message: arriveMsg }, player.id);
 
   let radGain = 0;
   if (targetZone.radiation_level > 0) {
@@ -192,7 +212,11 @@ async function cmdMove(direction, player, broadcast) {
     }
   }
   const zoneDesc = await describeZone(targetZone, player);
-  const moveMsg = doorWasClosed ? `You open the door and head ${direction}.\n${zoneDesc}` : zoneDesc;
+  const moveMsg = doorWasLocked
+    ? `The Hololock chimes as you unlock and open the door, heading ${direction}.\n${zoneDesc}`
+    : doorWasClosed
+      ? `You open the door and head ${direction}.\n${zoneDesc}`
+      : zoneDesc;
   return { type:'move', message:moveMsg, zone:targetId, radiation_gain:radGain, minimap: getMinimapData(targetId) };
 }
 
