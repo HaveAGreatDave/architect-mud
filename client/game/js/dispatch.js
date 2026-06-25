@@ -233,7 +233,7 @@ const handlers = {
   output: (msg) => { appendHtml(msg.message, 'help'); },
 
   whisper: (msg) => { receiveWhisper(msg.from || 'Admin', msg.message); },
-  lightview: (msg) => { openLightViewDialog(msg); },
+  lightview: (msg) => { openLightViewDialog(msg); refreshZoneVisibility(); },
   morphex_panel: (msg) => { openMorphexPanel(msg.data); },
 };
 
