@@ -270,22 +270,25 @@ export function initWhisperPanel() {
 
   const dragHandle = document.getElementById('whisper-drag-handle');
   const panel = document.getElementById('whisper-panel');
-  let ox = 0, oy = 0;
+  let dragState = null;
   dragHandle.addEventListener('pointerdown', e => {
     if (e.target.tagName === 'BUTTON') return;
     const r = panel.getBoundingClientRect();
-    ox = e.clientX - r.left;
-    oy = e.clientY - r.top;
     dragHandle.setPointerCapture(e.pointerId);
-    dragHandle.style.cursor = 'grabbing';
-    e.preventDefault();
+    dragState = { ox: e.clientX - r.left, oy: e.clientY - r.top, startTime: Date.now(), active: false };
   });
   dragHandle.addEventListener('pointermove', e => {
-    if (!dragHandle.hasPointerCapture(e.pointerId)) return;
-    const x = Math.max(0, Math.min(window.innerWidth  - panel.offsetWidth,  e.clientX - ox));
-    const y = Math.max(0, Math.min(window.innerHeight - panel.offsetHeight, e.clientY - oy));
+    if (!dragState || !dragHandle.hasPointerCapture(e.pointerId)) return;
+    if (!dragState.active) {
+      if (Date.now() - dragState.startTime < 200) return;
+      dragState.active = true;
+      dragHandle.style.cursor = 'grabbing';
+    }
+    const x = Math.max(0, Math.min(window.innerWidth  - panel.offsetWidth,  e.clientX - dragState.ox));
+    const y = Math.max(0, Math.min(window.innerHeight - panel.offsetHeight, e.clientY - dragState.oy));
     panel.style.left = x + 'px'; panel.style.top = y + 'px';
     panel.style.right = 'auto'; panel.style.bottom = 'auto';
   });
-  dragHandle.addEventListener('pointerup', () => { dragHandle.style.cursor = 'grab'; });
+  dragHandle.addEventListener('pointerup', () => { dragState = null; dragHandle.style.cursor = 'grab'; });
+  dragHandle.addEventListener('pointercancel', () => { dragState = null; dragHandle.style.cursor = 'grab'; });
 }
