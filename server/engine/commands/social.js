@@ -18,7 +18,7 @@ function cmdSay(text, player, broadcast) {
   if (text.length >= 3 && text === text.toUpperCase() && /[A-Z]/.test(text)) {
     return cmdYell(text, player, broadcast);
   }
-  broadcast(player.current_zone, { type:'say', message:`${player.handle} says: "${text}"` }, null);
+  broadcast(player.current_zone, { type:'say', message:`${player.handle} says: "${text}"` }, player.id);
   return { type:'say', message:`You say: "${text}"` };
 }
 
