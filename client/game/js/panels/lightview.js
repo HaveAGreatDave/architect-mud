@@ -148,7 +148,8 @@ function _renderLightView(modal, d) {
     if (btn.dataset.lvAddWindow !== undefined) { _lvInlineForm('window', null); return; }
     if (btn.dataset.lvToggleLight !== undefined) {
       await _lvAPI(`/furniture/${btn.dataset.lvToggleLight}`, 'PUT', { light_on: parseInt(btn.dataset.lvState) });
-      sendCmdSilent('lightview'); return;
+      sendCmdSilent('lightview');
+      sendCmdSilent('look'); return;
     }
     if (btn.dataset.lvDeleteLight !== undefined) {
       if (!confirm('Delete this light fixture?')) return;

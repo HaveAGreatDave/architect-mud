@@ -372,14 +372,9 @@ async function resourceTick() {
     const isOverheating = tempC > 42;
     const isHot = tempC > 40 && tempC <= 42;
 
-    if (player._tickCounter % 5 === 0) {
-      if (isFreezing || isOverheating) {
-        player.hp = Math.max(0, player.hp - 10);
-        hpChanged = true;
-      } else if (isCold || isHot) {
-        player.hp = Math.max(0, player.hp - 5);
-        hpChanged = true;
-      }
+    if (player._tickCounter % 5 === 0 && (isFreezing || isOverheating)) {
+      player.hp = Math.max(0, player.hp - 10);
+      hpChanged = true;
     }
     // Hot/overheating: increased thirst drain
     if ((isHot || isOverheating) && Math.random() < 0.5) {
