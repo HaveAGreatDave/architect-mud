@@ -1151,14 +1151,28 @@ async function seedAmbientEvents() {
   `).catch(e => console.warn('zone_start interior fix skipped:', e.message));
   console.log('✓ zone_start interior link fix applied');
 
-  // Franchise Strip (zone_city_west) entrances: force correct exits to the
-  // Embassy lobby (down) and Clone Facility (in), and ensure east → Threshold.
-  await query(`UPDATE zones SET exits = exits || '{"down":"zone_residential_lobby","in":"zone_start","east":"zone_threshold"}'::jsonb WHERE id = 'zone_city_west'`);
-  // Clone Facility (zone_start): add 'out' exit back to Franchise Strip and
-  // ensure building flags so it appears in the buildings list.
-  await query(`UPDATE zones SET exits = exits || '{"out":"zone_city_west"}'::jsonb, flags = flags || '{"is_building":true,"building_name":"Coldwater Clone Facility","building_type":"clone_facility"}'::jsonb WHERE id = 'zone_start'`);
-  // Embassy lobby: ensure building flags are set.
-  await query(`UPDATE zones SET flags = flags || '{"is_building":true,"building_name":"Embassy Hotel & Bar","building_type":"hotel"}'::jsonb WHERE id = 'zone_residential_lobby'`);
+  // Franchise Strip (zone_city_west): strip any is_interior/is_building flag
+  // that may have been set accidentally (it is a street zone, not a building),
+  // then force the correct exits: down→Embassy, in→Clone Facility, east→Threshold.
+  await query(`
+    UPDATE zones SET
+      flags = (COALESCE(flags, '{}') - 'is_interior' - 'is_building' - 'world_exit_zone'),
+      exits = COALESCE(exits, '{}') || '{"down":"zone_residential_lobby","in":"zone_start","east":"zone_threshold"}'::jsonb
+    WHERE id = 'zone_city_west'
+  `);
+  // Clone Facility (zone_start): force is_building flag and add 'out'→Franchise Strip.
+  await query(`
+    UPDATE zones SET
+      flags = COALESCE(flags, '{}') || '{"is_building":true,"building_name":"Coldwater Clone Facility","building_type":"clone_facility"}'::jsonb,
+      exits = COALESCE(exits, '{}') || '{"out":"zone_city_west"}'::jsonb
+    WHERE id = 'zone_start'
+  `);
+  // Embassy lobby: force is_building flag.
+  await query(`
+    UPDATE zones SET
+      flags = COALESCE(flags, '{}') || '{"is_building":true,"building_name":"Embassy Hotel & Bar","building_type":"hotel"}'::jsonb
+    WHERE id = 'zone_residential_lobby'
+  `);
   console.log('✓ Franchise Strip entrances to Embassy and Clone Facility fixed');
 }
 
