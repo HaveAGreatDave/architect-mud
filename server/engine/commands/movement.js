@@ -156,14 +156,15 @@ async function cmdMove(direction, player, broadcast) {
   const targetZone = getZone(targetId);
   if (!targetZone) return { type:'error', message:'That exit leads nowhere yet.' };
 
+  let doorWasClosed = false;
   const door = getDoorForExit(zone.id, direction);
   if (door && door.hp > 0) {
     if (door.is_locked) return { type:'error', message:`The door to the ${direction} is locked.` };
     if (!door.is_open) {
+      doorWasClosed = true;
       door.is_open = 1;
       setDoorCache(door.id, door);
       await query('UPDATE doors SET is_open=1 WHERE id=$1', [door.id]);
-      broadcast(zone.id, { type:'zone_event', message:`${player.handle} opens the door and heads ${direction}.` }, player.id);
     }
   }
 
@@ -175,10 +176,12 @@ async function cmdMove(direction, player, broadcast) {
   const OPPOSITE = { north:'south', south:'north', east:'west', west:'east', up:'down', down:'up', in:'out', out:'in' };
   const arrivalDir = OPPOSITE[direction] || null;
 
-  broadcast(zone.id, { type:'zone_event', message:`${player.handle} heads ${direction}.` }, player.id);
-  broadcast(targetId, { type:'zone_event', message: arrivalDir
-    ? `${player.handle} arrives from the ${arrivalDir}.`
-    : `${player.handle} arrives.` }, player.id);
+  broadcast(zone.id, { type:'zone_event', message: doorWasClosed
+    ? `${player.handle} opens the door and heads ${direction}.`
+    : `${player.handle} heads ${direction}.` }, player.id);
+  broadcast(targetId, { type:'zone_event', message: doorWasClosed
+    ? (arrivalDir ? `${player.handle} comes through the door from the ${arrivalDir}.` : `${player.handle} comes through the door.`)
+    : (arrivalDir ? `${player.handle} arrives from the ${arrivalDir}.` : `${player.handle} arrives.`) }, player.id);
 
   let radGain = 0;
   if (targetZone.radiation_level > 0) {
