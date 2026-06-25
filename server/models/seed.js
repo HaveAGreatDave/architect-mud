@@ -7,7 +7,7 @@ async function seed() {
   // Zones
   const zones = [
     { id: 'zone_threshold', name: 'The Threshold', description: 'The dead center of Coldwater Basin. A transit hub turned town square. WELCOME TO COLDWATER BASIN reads a banner half-eaten by something. POPULATION: SURVIVING is spraypainted beneath it. A battered Franchise ATM hums against one wall, somehow still online. This is where everyone ends up eventually.', danger_rating: 'safe', pvp_enabled: 0, radiation_level: 0, is_safe_zone: 1, exits: { north: 'zone_city_north', south: 'zone_city_south', east: 'zone_city_east', west: 'zone_city_west' }, ambient_events: ["A ragged figure catches your eye and immediately looks away.", "Somewhere, a fast food jingle loops on a dying speaker."], flags: { has_atm: true } },
-    { id: 'zone_city_west', name: 'Franchise Strip', description: 'Pre-Handoff retail storefronts, repurposed and argued over for years. Big box skeletons and drive-through lanes now used as livestock pens, retrofitted for survival.', danger_rating: 'safe', pvp_enabled: 0, radiation_level: 0, is_safe_zone: 1, exits: { south: 'zone_city_sw', east: 'zone_start', west: 'zone_badland_w_gate', down: 'zone_residential_lobby' }, ambient_events: ["A vendor shouts: \"AUTHENTIC PRE-HANDOFF CANNED GOODS. ONLY SLIGHTLY EXPIRED.\"", "Two people argue about whether the Architect controls the weather."] },
+    { id: 'zone_city_west', name: 'Franchise Strip', description: 'Pre-Handoff retail storefronts, repurposed and argued over for years. Big box skeletons and drive-through lanes now used as livestock pens, retrofitted for survival.', danger_rating: 'safe', pvp_enabled: 0, radiation_level: 0, is_safe_zone: 1, exits: { in: 'zone_start', south: 'zone_city_sw', east: 'zone_threshold', west: 'zone_badland_w_gate', down: 'zone_residential_lobby' }, ambient_events: ["A vendor shouts: \"AUTHENTIC PRE-HANDOFF CANNED GOODS. ONLY SLIGHTLY EXPIRED.\"", "Two people argue about whether the Architect controls the weather."] },
     { id: 'zone_city_north', name: 'Threshold Plaza North', description: 'A cracked concrete plaza ringed by dead streetlights still standing at attention. This is the northern gate into Coldwater proper — the LED departure boards here flicker through routes that no longer run anywhere.', danger_rating: 'safe', pvp_enabled: 0, radiation_level: 0, is_safe_zone: 1, exits: { south: 'zone_start', east: 'zone_city_ne' }, ambient_events: ["A drone hums overhead, chassis stenciled with a faded corporate logo.", "The departure board flickers: COLDWATER → DENVER → [SIGNAL LOST]."], flags: { custodian_controlled: true, has_turrets: true } },
     { id: 'zone_city_ne', name: 'Custodian Row', description: 'Corporate spires, mostly empty, partially maintained by Custodians who still believe someone is watching the quarterly numbers.', danger_rating: 'safe', pvp_enabled: 0, radiation_level: 0, is_safe_zone: 1, exits: { south: 'zone_city_east', west: 'zone_city_north' }, ambient_events: ["A Custodian in ill-fitting corporate attire hands out pamphlets nobody reads.", "An elevator chimes on a floor that no longer exists."], flags: { custodian_controlled: true } },
     { id: 'zone_city_east', name: 'The Loading Bay', description: 'A vast warehouse complex The Franchise uses as a distribution hub. Forklifts move between shelves stacked to the ceiling. Everything here has a SKU.', danger_rating: 'safe', pvp_enabled: 0, radiation_level: 0, is_safe_zone: 1, exits: { north: 'zone_city_ne', south: 'zone_city_se', west: 'zone_start' }, ambient_events: ["An autonomous forklift nearly runs you over. It has a smiley face sticker.", "\"CUSTOMER SATISFACTION IS OUR PRIORITY,\" the speakers insist, less and less convincingly."] },
@@ -82,9 +82,14 @@ async function seed() {
   await query(`UPDATE zones SET exits = exits - 'down' WHERE id = 'zone_start' AND exits->>'down' = 'zone_residential_lobby'`);
   await query(`UPDATE zones SET exits = exits - 'up' WHERE id = 'zone_start' AND exits->>'up' = 'zone_embassy_lobby'`);
 
-  // zone_city_west (Franchise Strip): add the new 'down' exit, only if
-  // nothing's already using that direction.
-  await query(`UPDATE zones SET exits = exits || '{"down":"zone_residential_lobby"}'::jsonb WHERE id = 'zone_city_west' AND NOT (exits ? 'down')`);
+  // zone_city_west (Franchise Strip): force the 'down' exit to Embassy lobby
+  // and the 'north' exit to Clone Facility (zone_start). Both are set
+  // unconditionally so stale or missing exits are always corrected.
+  await query(`UPDATE zones SET exits = exits || '{"down":"zone_residential_lobby","in":"zone_start","east":"zone_threshold"}'::jsonb WHERE id = 'zone_city_west'`);
+
+  // zone_start (Clone Facility): ensure building flags are set so it appears
+  // in the buildings list when standing in Franchise Strip.
+  await query(`UPDATE zones SET flags = flags || '{"is_building":true,"building_name":"Coldwater Clone Facility","building_type":"clone_facility"}'::jsonb WHERE id = 'zone_start'`);
 
   // zone_residential_lobby: repoint 'up' from the Threshold to Franchise
   // Strip, and sync name/description/flags in case this zone already
