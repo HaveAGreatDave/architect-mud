@@ -3554,6 +3554,8 @@ function renderMapOverview() {
   if (mapViewTab === 'interior') {
     // Interior tray: rooms with no grid position OR no exits established,
     // plus any interior/apartment rooms that aren't on any map at all.
+    // Rooms in o.zones with no grid position are already map-assigned — drag them
+    // with mapDragStart (repositioning flow) not mapTrayDragStart (tray/unplaced flow).
     const onMap = [...o.zones.values()].filter(z => z.grid_x == null || Object.keys(z.exits || {}).length === 0);
     const orphaned = [...(o.unplacedInterior?.values() || [])].filter(z => !z.flags?.is_building && !o.zones.has(z.id));
     const needsAttention = [...onMap, ...orphaned];
@@ -3561,7 +3563,7 @@ function renderMapOverview() {
       <div style="font-size:11px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;padding-top:10px">Unplaced / No Exits</div>
       <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px">Rooms with no grid position or no exits. Drag unplaced rooms onto an empty cell to place.</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap">${needsAttention.length
-        ? needsAttention.map(z => trayChip(z, 'mapTrayDragStart')).join('')
+        ? needsAttention.map(z => trayChip(z, o.zones.has(z.id) ? 'mapDragStart' : 'mapTrayDragStart')).join('')
         : `<span style="color:var(--text-dim);font-style:italic;font-size:11px">None — all rooms are placed and connected.</span>`
       }</div>
     </div>`;
