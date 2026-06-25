@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { query } from '../../models/db.js';
 import { useDrug } from '../drugs.js';
 import { hasTag, tagValue, hasFlag, TAG_CATALOG } from '../tags.js';
@@ -148,7 +149,7 @@ async function cmdDropById(inventoryId, player, broadcast, qty) {
   const dropQty = (qty && qty > 0 && qty < item.quantity) ? qty : item.quantity;
   if (dropQty < item.quantity) {
     await query('UPDATE player_inventory SET quantity=quantity-$1 WHERE id=$2', [dropQty, item.id]);
-    await query('INSERT INTO player_inventory (player_id,item_id,quantity,is_equipped) VALUES ($1,$2,$3,0)', [`_ground_${player.current_zone}`, item.item_id, dropQty]);
+    await query('INSERT INTO player_inventory (id,player_id,item_id,quantity,is_equipped) VALUES ($1,$2,$3,$4,0)', [randomUUID(), `_ground_${player.current_zone}`, item.item_id, dropQty]);
   } else {
     await query('UPDATE player_inventory SET player_id=$1, is_equipped=0, slot=NULL, container_id=NULL WHERE id=$2', [`_ground_${player.current_zone}`, item.id]);
   }
