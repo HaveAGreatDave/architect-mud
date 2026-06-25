@@ -320,9 +320,9 @@ export async function apiUpdateZone(id,body) {
 // single-room counterpart to apiBuildApartmentBlock's 4-unit version.
 // Used by the Zone Editor's "+ Add Room" button.
 async function apiAddRoom(parentZoneId, body) {
-  const { direction, name, description } = body || {};
+  const { direction, name, description, is_building } = body || {};
   if (!direction || !name) return { status:400, body:{error:'direction and name are required'} };
-  const OPPOSITE = { north:'south', south:'north', east:'west', west:'east', up:'down', down:'up' };
+  const OPPOSITE = { north:'south', south:'north', east:'west', west:'east', up:'down', down:'up', in:'out', out:'in' };
   if (!OPPOSITE[direction]) return { status:400, body:{error:`Invalid direction "${direction}"`} };
 
   const { rows: parentRows } = await query('SELECT * FROM zones WHERE id=$1', [parentZoneId]);
@@ -363,7 +363,7 @@ async function apiAddRoom(parentZoneId, body) {
       `INSERT INTO zones (id,name,description,danger_rating,pvp_enabled,radiation_level,is_safe_zone,exits,ambient_events,flags,map_id,grid_x,grid_y,grid_z)
        VALUES ($1,$2,$3,$4,0,0,1,$5,$6,$7,$8,$9,$10,$11)`,
       [roomId, name, description || 'A small room.', parent.danger_rating || 'safe',
-       JSON.stringify(roomExits), JSON.stringify([]), JSON.stringify({ is_interior: true }),
+       JSON.stringify(roomExits), JSON.stringify([]), JSON.stringify(is_building ? { is_building: true } : { is_interior: true }),
        mapId, isFirstRoom ? 0 : null, isFirstRoom ? 0 : null, 0]
     );
     const updatedParentExits = { ...parentExits, [direction]: roomId };
@@ -372,7 +372,7 @@ async function apiAddRoom(parentZoneId, body) {
     await reloadZone(parentZoneId);
     await reloadZone(roomId);
 
-    return { status:201, body:{ id: roomId, message:`Room "${name}" added ${direction} of ${parent.name}` } };
+    return { status:201, body:{ id: roomId, message:`${is_building ? 'Building' : 'Room'} "${name}" added ${direction} of ${parent.name}` } };
   } catch(e) { return { status:400, body:{error:e.message} }; }
 }
 

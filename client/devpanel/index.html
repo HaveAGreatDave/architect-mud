@@ -1067,7 +1067,8 @@ async function zoneEditForm(rec, isNew) {
       (z.flags?.is_apartment || z.flags?.is_interior) &&
       Object.values(z.exits || {})[0] === rec.id
     );
-    const freeDirs = ['north','south','east','west','up','down','in','out'].filter(d => !zoneEditExitsState[d]);
+    const isExteriorZone = !flags.is_interior && !flags.is_apartment && !flags.is_building;
+    const freeDirs = (isExteriorZone ? ['in','out','up','down'] : ['north','south','east','west','up','down','in','out']).filter(d => !zoneEditExitsState[d]);
 
     subSectionsHtml = `
       <div class="zone-subsection">
@@ -1082,8 +1083,8 @@ async function zoneEditForm(rec, isNew) {
           </div>`).join('') : '<div class="zone-subitem-empty">No rooms yet.</div>'}</div>
         <div id="zone-add-room-form"></div>
         ${freeDirs.length
-          ? `<button class="action-btn success" style="margin-top:6px" onclick='openAddRoomForm(${JSON.stringify(rec.id)}, ${JSON.stringify(freeDirs)})'>+ Add Room</button>`
-          : `<div class="zone-subitem-empty">All directions are already in use — free one up in Exits above to add another room.</div>`}
+          ? `<button class="action-btn success" style="margin-top:6px" onclick='openAddRoomForm(${JSON.stringify(rec.id)}, ${JSON.stringify(freeDirs)}, ${isExteriorZone})'>+ Add Building</button>`
+          : `<div class="zone-subitem-empty">All directions are already in use — free one up in Exits above to add another building.</div>`}
       </div>
 
       <div class="zone-subsection">
@@ -1375,14 +1376,14 @@ async function zoneEditForm(rec, isNew) {
         <div class="color-swatches">${MAP_PALETTE.map(c => `<span class="color-swatch" style="background:${c}" title="${c}" onclick="setZoneColor('${c}')"></span>`).join('')}<span class="color-swatch" style="background:transparent;border-style:dashed" title="clear" onclick="setZoneColor('')"></span></div>
         <div style="display:flex;gap:4px;align-items:center">
           <input id="f-color" value="${rec.color || ''}" placeholder="#rrggbb (blank = danger color)" oninput="syncColorWheel('f-color','f-color-wheel');updateColorPreview()" style="flex:1">
-          <input type="color" id="f-color-wheel" value="${rec.color || '#ffffff'}" oninput="setZoneColor(this.value)" style="width:28px;height:28px;padding:1px;border:1px solid var(--border);background:var(--bg3);cursor:pointer;flex-shrink:0">
+          <input type="color" id="f-color-wheel" value="${rec.color || '#ffffff'}" onchange="setZoneColor(this.value)" style="width:28px;height:28px;padding:1px;border:1px solid var(--border);background:var(--bg3);cursor:pointer;flex-shrink:0">
         </div>
       </div>
       <div class="field"><label>Map BG Color</label>
         <div class="color-swatches">${MAP_PALETTE.map(c => `<span class="color-swatch" style="background:${c}" title="${c}" onclick="setBgColor('${c}')"></span>`).join('')}<span class="color-swatch" style="background:transparent;border-style:dashed" title="clear" onclick="setBgColor('')"></span></div>
         <div style="display:flex;gap:4px;align-items:center">
           <input id="f-bg_color" value="${rec.bg_color || ''}" placeholder="#rrggbb (blank = transparent)" oninput="syncColorWheel('f-bg_color','f-bg-wheel');updateColorPreview()" style="flex:1">
-          <input type="color" id="f-bg-wheel" value="${rec.bg_color || '#000000'}" oninput="setBgColor(this.value)" style="width:28px;height:28px;padding:1px;border:1px solid var(--border);background:var(--bg3);cursor:pointer;flex-shrink:0">
+          <input type="color" id="f-bg-wheel" value="${rec.bg_color || '#000000'}" onchange="setBgColor(this.value)" style="width:28px;height:28px;padding:1px;border:1px solid var(--border);background:var(--bg3);cursor:pointer;flex-shrink:0">
         </div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding-bottom:8px;flex-shrink:0">
@@ -1663,26 +1664,28 @@ async function saveApartmentDetailsQuick(zoneId) {
 }
 
 // Rooms
-function openAddRoomForm(zoneId, freeDirs) {
+function openAddRoomForm(zoneId, freeDirs, isBuilding) {
+  const label = isBuilding ? 'Building Name' : 'Room Name';
+  const placeholder = isBuilding ? 'e.g. Rusty Bar' : 'e.g. Kitchen';
   document.getElementById('zone-add-room-form').innerHTML = `
     <div class="zone-inline-form">
       <div class="field"><label>Direction</label><select id="nr-direction">${freeDirs.map(d=>`<option>${d}</option>`).join('')}</select></div>
-      <div class="field"><label>Room Name</label><input id="nr-name" placeholder="e.g. Kitchen"></div>
+      <div class="field"><label>${label}</label><input id="nr-name" placeholder="${placeholder}"></div>
       <div class="field"><label>Description</label><textarea id="nr-description" rows="3" placeholder="A small room."></textarea></div>
       <div class="zone-inline-form-actions">
-        <button class="action-btn success" onclick='submitAddRoom(${JSON.stringify(zoneId)})'>Create</button>
+        <button class="action-btn success" onclick='submitAddRoom(${JSON.stringify(zoneId)}, ${!!isBuilding})'>Create</button>
         <button class="action-btn" onclick="document.getElementById('zone-add-room-form').innerHTML=''">Cancel</button>
       </div>
     </div>`;
 }
-async function submitAddRoom(zoneId) {
+async function submitAddRoom(zoneId, isBuilding) {
   const direction = document.getElementById('nr-direction').value;
   const name = document.getElementById('nr-name').value.trim();
   const description = document.getElementById('nr-description').value.trim();
-  if (!name) { toast('Room name is required', true); return; }
-  const result = await API(`/zones/${zoneId}/rooms`, 'POST', { direction, name, description });
+  if (!name) { toast('Name is required', true); return; }
+  const result = await API(`/zones/${zoneId}/rooms`, 'POST', { direction, name, description, is_building: isBuilding });
   if (result?.error) { toast(result.error, true); return; }
-  toast(result.message || 'Room added');
+  toast(result.message || (isBuilding ? 'Building added' : 'Room added'));
   await refreshZoneEditPanel(zoneId);
 }
 async function deleteRoomQuick(roomId, parentZoneId) {
