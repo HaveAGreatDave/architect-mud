@@ -20,7 +20,10 @@ export function applySettings(settings) {
   document.documentElement.setAttribute('data-density', settings.density);
   document.documentElement.style.setProperty('--font-size-base', settings.fontSize + 'px');
 
-  for (const group of ['theme', 'fontsize', 'density']) {
+  const themeSelect = document.getElementById('opt-theme');
+  if (themeSelect) themeSelect.value = settings.theme;
+
+  for (const group of ['fontsize', 'density']) {
     const container = document.getElementById(`opt-${group}`);
     if (!container) continue;
     const key = group === 'fontsize' ? 'fontSize' : group;
@@ -31,9 +34,10 @@ export function applySettings(settings) {
 }
 
 export function initSettingsUI(settings, saveAndApply, { getOrigin, saveOrigin, sendCmd } = {}) {
-  document.querySelectorAll('#opt-theme .settings-opt').forEach(btn => {
-    btn.addEventListener('click', () => { settings.theme = btn.dataset.value; saveAndApply(); });
-  });
+  const themeSelect = document.getElementById('opt-theme');
+  if (themeSelect) {
+    themeSelect.addEventListener('change', () => { settings.theme = themeSelect.value; saveAndApply(); });
+  }
   document.querySelectorAll('#opt-fontsize .settings-opt').forEach(btn => {
     btn.addEventListener('click', () => { settings.fontSize = btn.dataset.value; saveAndApply(); });
   });

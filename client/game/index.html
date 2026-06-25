@@ -615,18 +615,16 @@
 				<h2>Settings</h2>
 
 				<div class="settings-group">
-					<label class="group-label">Theme</label>
-					<div class="settings-options" id="opt-theme">
-						<button class="settings-opt" data-value="dark">
-							Dark
-						</button>
-						<button class="settings-opt" data-value="light">
-							Light
-						</button>
-						<button class="settings-opt" data-value="contrast">
-							High Contrast
-						</button>
-					</div>
+					<label class="group-label" for="opt-theme">Theme</label>
+					<select id="opt-theme" class="settings-select">
+						<option value="dark">Dark (Default)</option>
+						<option value="light">Light</option>
+						<option value="contrast">High Contrast</option>
+						<option value="phosphor">Phosphor Green</option>
+						<option value="synthwave">Synthwave</option>
+						<option value="bloodmoon">Blood Moon</option>
+						<option value="slate">Slate</option>
+					</select>
 				</div>
 
 				<div class="settings-group">

@@ -58,6 +58,82 @@
     --purple: #d050ff;
   }
 
+  /* Phosphor — classic green-on-black CRT terminal */
+  [data-theme="phosphor"] {
+    --bg: #010e01;
+    --bg2: #031503;
+    --bg3: #061e06;
+    --border: #0f4010;
+    --text: #33ff33;
+    --text-dim: #1a8c1a;
+    --text-bright: #80ff80;
+    --accent: #00ff41;
+    --accent-dim: #003310;
+    --green: #00ff41;
+    --red: #ff4444;
+    --orange: #ffaa00;
+    --yellow: #ccff00;
+    --cyan: #00ffcc;
+    --purple: #88ff44;
+  }
+
+  /* Synthwave — deep navy, neon pink and cyan */
+  [data-theme="synthwave"] {
+    --bg: #0d0221;
+    --bg2: #130330;
+    --bg3: #1a0540;
+    --border: #3d1466;
+    --text: #e0d0ff;
+    --text-dim: #9070c0;
+    --text-bright: #ffffff;
+    --accent: #ff2bff;
+    --accent-dim: #5a005a;
+    --green: #00ffaa;
+    --red: #ff3355;
+    --orange: #ff8c00;
+    --yellow: #ffe066;
+    --cyan: #00e5ff;
+    --purple: #cc66ff;
+  }
+
+  /* Blood Moon — dark red atmosphere, crimson accents */
+  [data-theme="bloodmoon"] {
+    --bg: #0d0101;
+    --bg2: #160303;
+    --bg3: #200505;
+    --border: #4a0c0c;
+    --text: #f0c8b0;
+    --text-dim: #9a6050;
+    --text-bright: #ffe8d8;
+    --accent: #ff2200;
+    --accent-dim: #5c0800;
+    --green: #88dd44;
+    --red: #ff4422;
+    --orange: #ff7722;
+    --yellow: #ffdd44;
+    --cyan: #ff9966;
+    --purple: #dd44aa;
+  }
+
+  /* Slate — cool charcoal, electric blue-green */
+  [data-theme="slate"] {
+    --bg: #0e1117;
+    --bg2: #161b24;
+    --bg3: #1e2530;
+    --border: #2e3a4a;
+    --text: #c8d8e8;
+    --text-dim: #6a8aaa;
+    --text-bright: #eaf4ff;
+    --accent: #38b2f0;
+    --accent-dim: #0a3050;
+    --green: #4ed8a0;
+    --red: #f05858;
+    --orange: #f0a040;
+    --yellow: #f0e050;
+    --cyan: #38e8e8;
+    --purple: #a878f0;
+  }
+
   /* Compact density — used on mobile/desktop "compact" display mode */
   [data-density="compact"] {
     --density-padding: 8px;
@@ -855,6 +931,27 @@
     #equip-doll-col, #equip-backpack-col { width: 100%; }
     #equip-backpack-col { overflow: visible; }
   }
+
+  .settings-select {
+    width: 100%;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 7px 10px;
+    cursor: pointer;
+    border-radius: 2px;
+    outline: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238888a8'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 28px;
+    transition: border-color 0.15s;
+  }
+  .settings-select:hover, .settings-select:focus { border-color: var(--accent); }
+  .settings-select option { background: var(--bg2); color: var(--text); }
 
   .settings-opt {
     background: var(--bg3);
