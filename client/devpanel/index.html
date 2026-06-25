@@ -3009,6 +3009,7 @@ function buildDynamicMapGrid(zones, mode, powerById, clickable) {
       let cls = 'bigmap-tile';
       let sub = '';
       const colorStyle = zoneColorStyle(z);
+      let powerStatus = null;
       if (mode === 'power') {
         const p = powerById?.get(z.id);
         const cpGen = bigMapGenerators.find(g => g.zone_id === z.id && g.generator_type === 'city_plant');
@@ -3018,6 +3019,7 @@ function buildDynamicMapGrid(zones, mode, powerById, clickable) {
           const overdrawn = totalDemand > cpGen.capacity_kw;
           const cpStatus = Number(cpGen.capacity_kw) === 0 ? 'offline' : cpGen.status !== 'online' ? 'offline' : overdrawn ? 'overloaded' : '';
           cls = `bigmap-tile bm-power-plant${cpStatus ? ' bm-power-' + cpStatus : ''}`;
+          powerStatus = cpStatus || 'plant';
           sub = `<div style="font-size:13px;line-height:1;margin-top:1px">⚡</div><div style="font-size:9px;opacity:0.9">${totalDemand.toFixed(0)}/${cpGen.capacity_kw.toFixed(0)}W</div>`;
         } else {
           // Regular tile: Supply / Draw Request (zone + attached JBs)
@@ -3035,6 +3037,7 @@ function buildDynamicMapGrid(zones, mode, powerById, clickable) {
           const isBrownout = totalRequest > 0 && totalSupply > 0 && totalRequest > totalSupply + 0.01;
           const effectiveStatus = isBrownout ? 'overloaded' : status;
           cls = `bigmap-tile bm-power-${effectiveStatus}`;
+          powerStatus = effectiveStatus;
           if (totalRequest > 0) {
             const supplyStr = totalSupply > 0 ? totalSupply.toFixed(0) : '0';
             const zIdSafe = z.id.replace(/'/g, "\\'");
@@ -3049,14 +3052,12 @@ function buildDynamicMapGrid(zones, mode, powerById, clickable) {
       }
       const click = clickable ? ` onclick="bigMapTileClick('${z.id}')"` : '';
       let tileStyle = mode === 'power' ? gs : gs + colorStyle;
-      if (mode === 'power' && z.bg_color) {
-        const bh = z.bg_color.replace('#', '');
-        if (bh.length === 6) {
-          const r = parseInt(bh.slice(0,2),16), g = parseInt(bh.slice(2,4),16), b = parseInt(bh.slice(4,6),16);
-          const lum = (0.299*r + 0.587*g + 0.114*b) / 255;
-          const t = Math.round((1 - lum) * 255);
-          tileStyle += `;color:rgb(${t},${t},${t})`;
-        }
+      if (powerStatus) {
+        const POWER_STATUS_RGB = { powered:[20,200,100], overloaded:[255,165,0], offline:[220,40,60], unpowered:[30,30,50], plant:[80,160,255] };
+        const [r,g,b] = POWER_STATUS_RGB[powerStatus] || POWER_STATUS_RGB.unpowered;
+        const lum = (0.299*r + 0.587*g + 0.114*b) / 255;
+        const t = Math.round((1 - lum) * 255);
+        tileStyle += `;color:rgb(${t},${t},${t})`;
       }
       html += `<div class="${cls}" style="${tileStyle}" title="${z.id}"${click}><div>${marker}${z.name}${sub}</div></div>`;
     }
