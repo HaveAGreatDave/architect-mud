@@ -1,4 +1,4 @@
-import { loadSettings, saveSettings, applySettings, initSettingsUI, listenForSettingsChanges, SETTINGS_KEY } from '/shared/settings.js';
+import { loadSettings, saveSettings, applySettings, initSettingsUI, initThemeEditorOverlay, listenForSettingsChanges, SETTINGS_KEY } from '/shared/settings.js';
 import { initNet, setWhoModalHandler, sendCmd, doAuth, doForgotPassword, doResetPassword, closeConnection } from './net.js';
 import { handleServerMsg } from './dispatch.js';
 import { state } from './state.js';
@@ -48,6 +48,8 @@ initSettingsUI(settings, () => { saveSettings(settings); applySettings(settings)
     if (state.player) state.player.origin_fragment = text || 'A survivor. Still standing, somehow.';
   },
 });
+
+initThemeEditorOverlay();
 
 // Net / WebSocket
 initNet(handleServerMsg);

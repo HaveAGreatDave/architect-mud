@@ -206,6 +206,10 @@
       <div style="font-size:12px;font-weight:bold;color:var(--accent);text-transform:uppercase;letter-spacing:2px">🎨 Theme Editor</div>
       <button onclick="closeThemeEditor()" style="background:none;border:none;color:var(--text-dim);font-size:18px;cursor:pointer;line-height:1;padding:0 2px">✕</button>
     </div>
+    <div style="padding:8px 18px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;flex-shrink:0">
+      <label style="font-size:11px;color:var(--text-dim);white-space:nowrap">Base:</label>
+      <select id="theme-editor-base" onchange="_loadBaseTheme(this.value)" style="flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:4px 6px;border-radius:2px"></select>
+    </div>
     <div id="theme-editor-rows" style="padding:14px 18px;display:flex;flex-direction:column;gap:6px;overflow-y:auto"></div>
     <div style="padding:10px 18px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center;flex-shrink:0">
       <input id="theme-editor-name" type="text" placeholder="Theme name…" style="flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:5px 8px;border-radius:2px">
@@ -213,7 +217,7 @@
       <button class="action-btn danger" id="theme-editor-delete-btn" onclick="deleteCustomTheme()" style="display:none">Delete</button>
     </div>
     <div style="padding:10px 18px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:space-between;flex-shrink:0">
-      <button class="action-btn danger" onclick="resetThemeColors()">Reset to Defaults</button>
+      <button class="action-btn danger" onclick="resetThemeColors()">Reset to Base</button>
       <button class="action-btn" onclick="closeThemeEditor()">Close</button>
     </div>
   </div>
@@ -4619,6 +4623,27 @@ function applyDevSettings() {
 
   repaintPowerTileColors();
 }
+// Must be defined before applyDevSettings() is called (const is not hoisted)
+let _themeEditorEditingId = null;
+
+const THEME_COLOR_VARS = [
+  { v: '--bg',          label: 'Background (deep)',      desc: 'Page / outermost background' },
+  { v: '--bg2',         label: 'Background (panels)',    desc: 'Cards, modals, sidebar' },
+  { v: '--bg3',         label: 'Background (inputs)',    desc: 'Inputs, tables, inner fills' },
+  { v: '--border',      label: 'Border',                 desc: 'Dividers and outlines' },
+  { v: '--text',        label: 'Body text',              desc: 'Default readable text' },
+  { v: '--text-dim',    label: 'Muted text',             desc: 'Labels, placeholders, secondary' },
+  { v: '--text-bright', label: 'Bright text',            desc: 'Headings, emphasis' },
+  { v: '--accent',      label: 'Accent',                 desc: 'Primary highlight / interactive' },
+  { v: '--accent-dim',  label: 'Accent (dim)',           desc: 'Accent fills and hover states' },
+  { v: '--green',       label: 'Green',                  desc: 'Success, online, powered' },
+  { v: '--red',         label: 'Red',                    desc: 'Danger, errors, offline' },
+  { v: '--orange',      label: 'Orange',                 desc: 'Warnings, overload' },
+  { v: '--yellow',      label: 'Yellow',                 desc: 'Caution, highlights' },
+  { v: '--cyan',        label: 'Cyan',                   desc: 'Info, links, window light' },
+  { v: '--purple',      label: 'Purple',                 desc: 'Special, lore, mutations' },
+];
+
 applyDevSettings();
 
 window.addEventListener('storage', e => {
@@ -4664,23 +4689,6 @@ function devpanelLogout() {
 }
 
 // --- Theme Editor ---
-const THEME_COLOR_VARS = [
-  { v: '--bg',          label: 'Background (deep)',      desc: 'Page / outermost background' },
-  { v: '--bg2',         label: 'Background (panels)',    desc: 'Cards, modals, sidebar' },
-  { v: '--bg3',         label: 'Background (inputs)',    desc: 'Inputs, tables, inner fills' },
-  { v: '--border',      label: 'Border',                 desc: 'Dividers and outlines' },
-  { v: '--text',        label: 'Body text',              desc: 'Default readable text' },
-  { v: '--text-dim',    label: 'Muted text',             desc: 'Labels, placeholders, secondary' },
-  { v: '--text-bright', label: 'Bright text',            desc: 'Headings, emphasis' },
-  { v: '--accent',      label: 'Accent',                 desc: 'Primary highlight / interactive' },
-  { v: '--accent-dim',  label: 'Accent (dim)',           desc: 'Accent fills and hover states' },
-  { v: '--green',       label: 'Green',                  desc: 'Success, online, powered' },
-  { v: '--red',         label: 'Red',                    desc: 'Danger, errors, offline' },
-  { v: '--orange',      label: 'Orange',                 desc: 'Warnings, overload' },
-  { v: '--yellow',      label: 'Yellow',                 desc: 'Caution, highlights' },
-  { v: '--cyan',        label: 'Cyan',                   desc: 'Info, links, window light' },
-  { v: '--purple',      label: 'Purple',                 desc: 'Special, lore, mutations' },
-];
 
 function _themeEditorCurrentValue(v) {
   const custom = (devSettings.customColors || {})[v];
@@ -4688,16 +4696,60 @@ function _themeEditorCurrentValue(v) {
   return getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 }
 
-function openThemeEditor() {
-  const overlay = document.getElementById('theme-editor-overlay');
-  overlay.style.display = 'flex';
-  _renderThemeEditorRows();
-  const themeId = devSettings.theme || 'dark';
+function _getBuiltinThemeColors(themeId) {
+  const el = document.createElement('div');
+  el.setAttribute('data-theme', themeId);
+  el.style.cssText = 'position:absolute;visibility:hidden;pointer-events:none;left:-9999px';
+  document.body.appendChild(el);
+  const cs = getComputedStyle(el);
+  const fallback = getComputedStyle(document.documentElement);
+  const colors = {};
+  THEME_COLOR_VARS.forEach(({ v }) => {
+    colors[v] = cs.getPropertyValue(v).trim() || fallback.getPropertyValue(v).trim();
+  });
+  document.body.removeChild(el);
+  return colors;
+}
+
+function _populateThemeEditorDropdown() {
+  const sel = document.getElementById('theme-editor-base');
+  if (!sel) return;
+  const custom = devSettings.customThemes || [];
+  const builtins = [
+    ['dark','Dark (Default)'],['light','Light'],['contrast','High Contrast'],
+    ['phosphor','Phosphor Green'],['synthwave','Synthwave'],['bloodmoon','Blood Moon'],['slate','Slate'],
+  ];
+  sel.innerHTML = builtins.map(([v,l]) => `<option value="${v}">${l}</option>`).join('') +
+    (custom.length ? `<optgroup label="Custom Themes">${custom.map(t => `<option value="${t.id}">${t.name}</option>`).join('')}</optgroup>` : '');
+}
+
+function _loadBaseTheme(themeId) {
+  _themeEditorEditingId = themeId;
   const customTheme = (devSettings.customThemes || []).find(t => t.id === themeId);
+  const colors = customTheme ? { ...customTheme.colors } : _getBuiltinThemeColors(themeId);
+  const editColors = {};
+  THEME_COLOR_VARS.forEach(({ v }) => {
+    const val = colors[v] || '';
+    editColors[v] = val;
+    if (val) document.documentElement.style.setProperty(v, val);
+    else document.documentElement.style.removeProperty(v);
+  });
+  devSettings.customColors = editColors;
+  saveDevSettings(devSettings);
   const nameEl = document.getElementById('theme-editor-name');
   const delBtn = document.getElementById('theme-editor-delete-btn');
   if (nameEl) nameEl.value = customTheme ? customTheme.name : '';
   if (delBtn) delBtn.style.display = customTheme ? '' : 'none';
+  _renderThemeEditorRows();
+}
+
+function openThemeEditor() {
+  const overlay = document.getElementById('theme-editor-overlay');
+  overlay.style.display = 'flex';
+  _populateThemeEditorDropdown();
+  const themeId = devSettings.theme || 'dark';
+  document.getElementById('theme-editor-base').value = themeId;
+  _loadBaseTheme(themeId);
 }
 
 function saveAsCustomTheme() {
@@ -4705,12 +4757,9 @@ function saveAsCustomTheme() {
   const name = nameEl ? nameEl.value.trim() : '';
   if (!name) { toast('Enter a theme name first', true); return; }
   const colors = {};
-  THEME_COLOR_VARS.forEach(({ v }) => {
-    colors[v] = _themeEditorCurrentValue(v);
-  });
+  THEME_COLOR_VARS.forEach(({ v }) => { colors[v] = _themeEditorCurrentValue(v); });
   if (!devSettings.customThemes) devSettings.customThemes = [];
-  const themeId = devSettings.theme || 'dark';
-  const existing = devSettings.customThemes.find(t => t.id === themeId);
+  const existing = devSettings.customThemes.find(t => t.id === _themeEditorEditingId);
   if (existing) {
     existing.name = name;
     existing.colors = colors;
@@ -4718,38 +4767,43 @@ function saveAsCustomTheme() {
     const id = 'cthm_' + Date.now();
     devSettings.customThemes.push({ id, name, colors });
     devSettings.theme = id;
+    _themeEditorEditingId = id;
   }
   devSettings.customColors = {};
   saveDevSettings(devSettings);
   applyDevSettings();
+  _populateThemeEditorDropdown();
+  document.getElementById('theme-editor-base').value = _themeEditorEditingId;
   const delBtn = document.getElementById('theme-editor-delete-btn');
   if (delBtn) delBtn.style.display = '';
   toast('Theme saved: ' + name);
 }
 
 function deleteCustomTheme() {
-  const themeId = devSettings.theme || '';
   const customThemes = devSettings.customThemes || [];
-  const idx = customThemes.findIndex(t => t.id === themeId);
+  const idx = customThemes.findIndex(t => t.id === _themeEditorEditingId);
   if (idx === -1) return;
   const name = customThemes[idx].name;
   if (!confirm(`Delete custom theme "${name}"?`)) return;
   customThemes.splice(idx, 1);
   devSettings.customThemes = customThemes;
-  devSettings.theme = 'dark';
+  if (devSettings.theme === _themeEditorEditingId) devSettings.theme = 'dark';
   devSettings.customColors = {};
   saveDevSettings(devSettings);
   applyDevSettings();
-  const nameEl = document.getElementById('theme-editor-name');
-  const delBtn = document.getElementById('theme-editor-delete-btn');
-  if (nameEl) nameEl.value = '';
-  if (delBtn) delBtn.style.display = 'none';
-  _renderThemeEditorRows();
+  _themeEditorEditingId = null;
+  _populateThemeEditorDropdown();
+  const nextId = devSettings.theme || 'dark';
+  document.getElementById('theme-editor-base').value = nextId;
+  _loadBaseTheme(nextId);
   toast(`Theme "${name}" deleted`);
 }
 
 function closeThemeEditor() {
   document.getElementById('theme-editor-overlay').style.display = 'none';
+  devSettings.customColors = {};
+  saveDevSettings(devSettings);
+  applyDevSettings();
 }
 
 function _renderThemeEditorRows() {
@@ -4801,11 +4855,8 @@ function _applyThemeColorLive(safe, varName, val) {
 }
 
 function resetThemeColors() {
-  devSettings.customColors = {};
-  saveDevSettings(devSettings);
-  // Clear all inline overrides so the data-theme stylesheet takes over
-  THEME_COLOR_VARS.forEach(({ v }) => document.documentElement.style.removeProperty(v));
-  _renderThemeEditorRows();
+  const baseId = document.getElementById('theme-editor-base')?.value || 'dark';
+  _loadBaseTheme(baseId);
 }
 
 // --- World state ---
