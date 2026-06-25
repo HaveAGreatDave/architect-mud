@@ -271,6 +271,18 @@
   .death-message { color: var(--red); font-size: 13px; }
   .clone-vat-message { color: var(--text-dim); font-style: italic; font-size: 12px; }
   .battle-cry { color: var(--orange); font-style: italic; }
+  /* Inline combat markup (see server/engine/combat.js) */
+  .hit-part { color: var(--cyan); }
+  .dmg-dealt, .dmg-taken { color: var(--text-bright); font-weight: bold; }
+  .dmg-type { color: var(--purple); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
+  .crit-tag { color: var(--yellow); font-weight: bold; }
+  .crit-tag-in { color: var(--text-bright); font-weight: bold; letter-spacing: 1px; }
+  .hpbar { font-family: var(--font-mono); letter-spacing: -1px; }
+  .hpbar.hp-high { color: var(--green); }
+  .hpbar.hp-mid { color: var(--yellow); }
+  .hpbar.hp-low { color: var(--red); }
+  .hp-count { color: var(--text-dim); font-size: 12px; }
+  .hpbar-label { color: var(--accent); font-weight: bold; }
   .mutation-tag { color: var(--purple); font-style: italic; }
   .overdose-warning, .turret-warning { color: var(--red); font-weight: 600; }
   .addiction-warning, .outcast-warning { color: var(--orange); font-style: italic; }

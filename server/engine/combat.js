@@ -60,6 +60,34 @@ const PART_LABELS = {
   left_leg: 'left leg', right_leg: 'right leg',
 };
 
+// ── Inline combat markup ──────────────────────────────────────────────
+// Combat lines render via innerHTML on the client, so we wrap the variable
+// bits in semantic spans (styled in client/game/styles.css). The text HP bar
+// uses block glyphs (UTF-8) and a tier class so it recolours green→yellow→red.
+const HP_BAR_SEGMENTS = 10;
+
+function hpBar(hp, max) {
+  hp = Math.max(0, hp);
+  const ratio = max > 0 ? hp / max : 0;
+  const filled = Math.round(HP_BAR_SEGMENTS * ratio);
+  const bar = '█'.repeat(filled) + '░'.repeat(HP_BAR_SEGMENTS - filled);
+  const tier = ratio > 0.5 ? 'high' : ratio > 0.25 ? 'mid' : 'low';
+  return { bar, tier, hp, max };
+}
+
+// Trailing HP readout for the enemy you just struck (the enemy's name already
+// appears earlier in the line, so no extra owner label is needed).
+function enemyHpTag(enemy) {
+  const { bar, tier, hp, max } = hpBar(enemy.hp, enemy.hp_max);
+  return ` <span class="hpbar hp-${tier}">[${bar}]</span> <span class="hp-count">${hp}/${max}</span>`;
+}
+
+// Trailing HP readout for your own health on incoming hits.
+function selfHpTag(hp, max) {
+  const { bar, tier, hp: shown, max: cap } = hpBar(hp, max);
+  return ` <span class="hpbar hp-${tier}">[${bar}]</span> <span class="hp-count">${shown}/${cap}</span>`;
+}
+
 // Weighted pick of a struck body part. Pass explicit weights (e.g. a monster's
 // per-part hit %) or fall back to the global tunable default (~torso-heavy).
 function rollBodyPart(customWeights) {
@@ -197,8 +225,8 @@ export async function playerAttackEnemy(player, enemyInstanceId, weaponStats) {
       damage,
       margin,
       message: critical
-        ? `CRITICAL HIT to the ${partLabel}! You deal ${damage} damage to ${enemy.name}. ${enemy.death_message}`
-        : `You strike ${enemy.name}'s ${partLabel} for ${damage} damage. ${enemy.death_message}`,
+        ? `<span class="crit-tag">CRITICAL HIT</span> to the <span class="hit-part">${partLabel}</span>! You deal <span class="dmg-dealt">${damage}</span> <span class="dmg-type">${damageType}</span> to ${enemy.name}. ${enemy.death_message}`
+        : `You strike ${enemy.name}'s <span class="hit-part">${partLabel}</span> for <span class="dmg-dealt">${damage}</span> <span class="dmg-type">${damageType}</span>. ${enemy.death_message}`,
       loot,
       enemyId: enemyInstanceId,
     };
@@ -212,8 +240,8 @@ export async function playerAttackEnemy(player, enemyInstanceId, weaponStats) {
     damage,
     margin,
     message: critical
-      ? `CRITICAL HIT to the ${partLabel}! You deal ${damage} damage to ${enemy.name}! (${enemy.hp}/${enemy.hp_max} HP remaining)`
-      : `You strike ${enemy.name}'s ${partLabel} for ${damage} damage. (${enemy.hp}/${enemy.hp_max} HP remaining)`,
+      ? `<span class="crit-tag">CRITICAL HIT</span> to the <span class="hit-part">${partLabel}</span>! You deal <span class="dmg-dealt">${damage}</span> <span class="dmg-type">${damageType}</span> to ${enemy.name}!${enemyHpTag(enemy)}`
+      : `You strike ${enemy.name}'s <span class="hit-part">${partLabel}</span> for <span class="dmg-dealt">${damage}</span> <span class="dmg-type">${damageType}</span>.${enemyHpTag(enemy)}`,
     enemyId: enemyInstanceId,
     enemyHp: enemy.hp,
     enemyHpMax: enemy.hp_max,
@@ -251,6 +279,7 @@ export async function enemyAttackPlayer(enemy, player) {
   // struck part's matching armor type, then sum. Crit and head bonuses apply
   // to every component before its own soak.
   const components = enemyWeaponComponents(enemy);
+  const damageTypes = [...new Set(components.map(c => c.type))].join('/');
   const part = rollBodyPart();
   const headMult = part === 'head' ? getTunable('head_damage_multiplier', 1.5) : 1;
   // TODO(phase5): head crit-to-stun once a turn-skip mechanic exists.
@@ -263,14 +292,17 @@ export async function enemyAttackPlayer(enemy, player) {
   }
   const damage = Math.max(1, total);
   const partLabel = PART_LABELS[part] || part;
+  // player.hp is still pre-damage here; gameLoop decrements it after this
+  // returns, so the bar reflects the same value the client receives as `hp`.
+  const selfHp = selfHpTag(player.hp - damage, player.hp_max);
 
   return {
     hit: true,
     damage,
     critical,
     message: critical
-      ? `${cry}CRITICAL! ${enemy.name} hits your ${partLabel} for ${damage} damage!`
-      : `${cry}${enemy.name} hits your ${partLabel} for ${damage} damage.`,
+      ? `${cry}<span class="crit-tag-in">CRITICAL!</span> ${enemy.name} hits your <span class="hit-part">${partLabel}</span> for <span class="dmg-taken">${damage}</span> <span class="dmg-type">${damageTypes}</span>!${selfHp}`
+      : `${cry}${enemy.name} hits your <span class="hit-part">${partLabel}</span> for <span class="dmg-taken">${damage}</span> <span class="dmg-type">${damageTypes}</span>.${selfHp}`,
   };
 }
 
