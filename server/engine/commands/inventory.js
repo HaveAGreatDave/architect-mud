@@ -428,7 +428,7 @@ async function cmdStow(argStr, player) {
   // Check for trash bin furniture before normal container resolution.
   if (containerPart) {
     const { rows: trashRows } = await query(
-      `SELECT id,name FROM furniture WHERE zone_id=$1 AND name ILIKE $2 AND flags->>'trash_bin'='true' LIMIT 1`,
+      `SELECT id,name FROM furniture WHERE zone_id=$1 AND name ILIKE $2 AND (object_type='container' OR flags->>'trash_bin'='true') LIMIT 1`,
       [player.current_zone, `%${containerPart}%`]
     );
     if (trashRows.length) {

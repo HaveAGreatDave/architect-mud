@@ -252,6 +252,10 @@ async function cmdExamine(targetStr, player, broadcast) {
           msg += `\n<span class="text-dim">Actions:</span> ${switchLink}  ${turnLink}`;
         }
       }
+    } else if (f.object_type === 'container') {
+      const n = f.name.toLowerCase();
+      const openLink = `<span class="action-link" data-action="open" data-target="${n}">open</span>`;
+      msg += `\n<span class="text-dim">Actions:</span> ${openLink}`;
     } else if (interactions.length) {
       const links = interactions.map(ix =>
         `<span class="action-link" data-action="${ix}" data-target="on ${f.name.toLowerCase()}">${ix}</span>`
@@ -454,6 +458,20 @@ async function cmdRaise(args, player) {
   return { type: 'raise', message: msg, player_update: { [result.col]: result.to, ip: result.ip_remaining } };
 }
 
+async function cmdOpen(args, player) {
+  const targetStr = args.join(' ');
+  // Furniture container (e.g. trash bin) — a one-way disposal, no stored contents.
+  const { rows } = await query(
+    `SELECT name FROM furniture WHERE zone_id=$1 AND object_type='container' AND name ILIKE $2 LIMIT 1`,
+    [player.current_zone, `%${targetStr}%`]
+  );
+  if (rows.length) {
+    const n = rows[0].name;
+    return { type:'examine', message:`You flip open the ${n}. It's a one-way disposal — throw things in with "throw <item> in ${n.toLowerCase()}" and they're gone for good.` };
+  }
+  return cmdOpenWindow(args, player, 'open');
+}
+
 async function cmdOpenWindow(args, player, action) {
   // args: [handle, 'curtains'?] or [handle]
   if (!args.length) return { type:'error', message:`${action} what? Try: ${action} <window handle>` };
@@ -485,7 +503,7 @@ export const handlers = {
   '?':      (args, raw, player) => cmdHelp(player),
   teleport: (args, raw, player, broadcast) => cmdTeleport(args.join(' '), player, broadcast),
   tp:       (args, raw, player, broadcast) => cmdTeleport(args.join(' '), player, broadcast),
-  open:     (args, raw, player) => cmdOpenWindow(args, player, 'open'),
+  open:     (args, raw, player) => cmdOpen(args, player),
   close:    (args, raw, player) => cmdOpenWindow(args, player, 'close'),
   raise:    (args, raw, player) => cmdRaise(args, player),
   ip:       (args, raw, player) => cmdRaise([], player),
