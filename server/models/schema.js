@@ -249,7 +249,6 @@ export const SCHEMA_SQL = `
     exit_dir TEXT NOT NULL,
     door_type TEXT DEFAULT 'basic',
     is_open INTEGER DEFAULT 0,
-    is_locked INTEGER DEFAULT 0,
     hp INTEGER DEFAULT 1000,
     hp_max INTEGER DEFAULT 1000,
     hololock_difficulty INTEGER DEFAULT 5,

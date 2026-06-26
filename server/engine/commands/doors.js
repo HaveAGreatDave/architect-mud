@@ -153,8 +153,8 @@ export async function cmdAttackDoor(dirStr, player, broadcast) {
   broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} attacks the door.` }, player.id);
 
   if (door.hp <= 0) {
-    await query('UPDATE doors SET hp=0,is_open=1,is_locked=0,lock_state=NULL WHERE id=$1', [door.id]);
-    Object.assign(door, { hp: 0, is_open: 1, is_locked: 0, lock_state: null });
+    await query('UPDATE doors SET hp=0,is_open=1,lock_state=NULL WHERE id=$1', [door.id]);
+    Object.assign(door, { hp: 0, is_open: 1, lock_state: null });
     setDoorCache(door.id, door);
     broadcast(player.current_zone, { type:'zone_event', message:'The door splinters apart!' }, player.id);
     propagateSound(player.current_zone, 'You hear a door being smashed apart nearby.', 2.5, broadcast);
