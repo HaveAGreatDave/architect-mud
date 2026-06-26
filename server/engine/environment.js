@@ -1612,7 +1612,6 @@ export async function fixBuildingPowerConnections() {
       );
       const alreadyIds = new Set(already.map(r => r.id));
       const toFix = network.filter(zid => !alreadyIds.has(zid));
-      if (toFix.length === 0) continue;
       for (const zid of toFix) {
         const { rows: zRows } = await query('SELECT name FROM zones WHERE id=$1', [zid]);
         const zName = zRows[0]?.name || zid;
@@ -1622,6 +1621,9 @@ export async function fixBuildingPowerConnections() {
            ON CONFLICT (id) DO UPDATE SET source_type='building_generator', generator_id=$3, capacity_kw=$4`,
           [zid, zName, gen.id, gen.capacity_kw]
         );
+      }
+      // Always sync lighting_states for every zone in the network.
+      for (const zid of network) {
         const { rows: ls } = await query(`SELECT COUNT(*)::int AS cnt, COALESCE(SUM(COALESCE(lumen_output,0)),0)::int AS lm FROM furniture WHERE zone_id=$1 AND object_type='light'`, [zid]);
         await query(
           `INSERT INTO lighting_states (zone_id, has_emergency_lighting, artificial_light_level, fixture_count, total_lumens)
@@ -1629,7 +1631,7 @@ export async function fixBuildingPowerConnections() {
           [zid, ls[0]?.cnt || 0, ls[0]?.lm || 0]
         );
       }
-      results.connected.push({ buildingName, generatorName: gen.name, zonesCount: toFix.length });
+      if (toFix.length > 0) results.connected.push({ buildingName, generatorName: gen.name, zonesCount: toFix.length });
     }
   }
 
@@ -1782,6 +1784,29 @@ export async function recalcZoneLoad(queryFn, zoneId) {
   const load = rows[0]?.total_load ?? 0;
   await queryFn(`UPDATE power_zones SET current_load_kw = $1 WHERE id = $2`, [load, zoneId]);
   return load;
+}
+
+export async function assignZoneToJunctionBox(zoneId, generatorId) {
+  const { query } = deps;
+  const { rows: genRows } = await query(`SELECT id, name, capacity_kw FROM generators WHERE id=$1 AND generator_type='junction_box'`, [generatorId]);
+  if (!genRows.length) throw new Error('Junction box not found');
+  const gen = genRows[0];
+  const { rows: zRows } = await query('SELECT name FROM zones WHERE id=$1', [zoneId]);
+  if (!zRows.length) throw new Error('Zone not found');
+  await query(
+    `INSERT INTO power_zones (id, name, source_type, generator_id, capacity_kw, current_load_kw, status)
+     VALUES ($1, $2, 'building_generator', $3, $4, 0, 'powered')
+     ON CONFLICT (id) DO UPDATE SET source_type='building_generator', generator_id=$3, capacity_kw=$4`,
+    [zoneId, zRows[0].name, gen.id, gen.capacity_kw]
+  );
+  const { rows: ls } = await query(`SELECT COUNT(*)::int AS cnt, COALESCE(SUM(COALESCE(lumen_output,0)),0)::int AS lm FROM furniture WHERE zone_id=$1 AND object_type='light'`, [zoneId]);
+  await query(
+    `INSERT INTO lighting_states (zone_id, has_emergency_lighting, artificial_light_level, fixture_count, total_lumens)
+     VALUES ($1, 0, 0, $2, $3) ON CONFLICT (zone_id) DO UPDATE SET fixture_count=$2, total_lumens=$3`,
+    [zoneId, ls[0]?.cnt || 0, ls[0]?.lm || 0]
+  );
+  await recomputePower();
+  return { zoneId, generatorId: gen.id, generatorName: gen.name };
 }
 
 export async function reassignZoneGenerator(zoneId, generatorId) {

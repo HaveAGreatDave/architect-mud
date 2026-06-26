@@ -1405,11 +1405,28 @@ async function zoneEditForm(rec, isNew) {
           }
 
           // Interior zone with no junction box yet
+          const existingJBs = allGens.filter(g => g.generator_type === 'junction_box');
+          const jbAssignDropdown = existingJBs.length
+            ? `<div class="zone-subsection-note" style="margin-top:8px">Assign to an existing junction box:</div>
+               <div class="field-row" style="margin-top:4px">
+                 <div class="field"><label>Junction Box</label>
+                   <select id="assign-jb-select">
+                     <option value="">— Select —</option>
+                     ${existingJBs.map(g => `<option value="${g.id}">${g.name || g.id} (${Number(g.capacity_kw).toFixed(0)}W)</option>`).join('')}
+                   </select>
+                 </div>
+                 <div class="field" style="display:flex;align-items:flex-end">
+                   <button class="action-btn" onclick='assignRoomToJB(${JSON.stringify(rec.id)})'>Assign</button>
+                 </div>
+               </div>
+               <div class="zone-subsection-note" style="margin:6px 0 4px">— or install a new one —</div>`
+            : '';
           const cpSelect = cityGens.length
             ? `<div class="field"><label>City Plant</label><select id="gen-install-city-gen"><option value="">Auto (nearest)</option>${cityGens.map(g => `<option value="${g.id}">${g.name || g.id}</option>`).join('')}</select></div>`
             : '';
           return `
             <div class="zone-subitem-empty">No junction box installed here.</div>
+            ${jbAssignDropdown}
             <div class="field-row" style="margin-top:6px">
               <div class="field"><label>Throughput (W)</label><input type="number" id="gen-install-capacity" placeholder="auto (100)"></div>
             </div>
@@ -3451,6 +3468,15 @@ function furnitureEditForm(rec, isNew) {
     </div>
   `;
 }
+async function assignRoomToJB(zoneId) {
+  const genId = document.getElementById('assign-jb-select')?.value;
+  if (!genId) { toast('Select a junction box first.', true); return; }
+  const result = await API(`/environment/power/zones/${encodeURIComponent(zoneId)}/assign-jb`, 'POST', { generatorId: genId }).catch(e => ({ error: e.message }));
+  if (result?.error) { toast(result.error, true); return; }
+  toast(`Assigned to ${result.generatorName}.`);
+  editRecord(zoneId);
+}
+
 async function saveFurniture(existing) {
   const isNew = !existing?.id;
   const objectType = document.getElementById('f-object_type')?.value || 'furniture';
@@ -3468,8 +3494,11 @@ async function saveFurniture(existing) {
   if (pdEl) body.power_draw_kw = pdEl.value.trim() === '' ? null : Number(pdEl.value);
   const lmEl = document.getElementById('f-lumen_output');
   if (lmEl) body.lumen_output = lmEl.value.trim() === '' ? null : Number(lmEl.value);
-  if (isNew) { body.id = document.getElementById('f-id').value.trim(); return API('/furniture', 'POST', body); }
-  return API(`/furniture/${existing.id}`, 'PUT', body);
+  let result;
+  if (isNew) { body.id = document.getElementById('f-id').value.trim(); result = await API('/furniture', 'POST', body); }
+  else { result = await API(`/furniture/${existing.id}`, 'PUT', body); }
+  if (isLight) API('/environment/power/fix-buildings', 'POST').catch(() => {});
+  return result;
 }
 
 // --- Big Map (shared grid layout + renderer for both the Zones screen's

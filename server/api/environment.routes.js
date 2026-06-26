@@ -115,6 +115,10 @@ export async function handleEnvironmentApi(path, method, body, auth) {
         const zoneId = decodeURIComponent(path.split('/')[4] || '');
         return { status: 200, body: await env.reassignZoneGenerator(zoneId, body?.generatorId) };
       }
+      if (path.startsWith('/environment/power/zones/') && path.endsWith('/assign-jb') && method === 'POST') {
+        const zoneId = decodeURIComponent(path.split('/')[4] || '');
+        return { status: 200, body: await env.assignZoneToJunctionBox(zoneId, body?.generatorId) };
+      }
       if (path.startsWith('/environment/power/zones/') && method === 'POST') {
         const zoneId = decodeURIComponent(path.split('/')[4] || '');
         return { status: 200, body: await env.setZoneMaxCapacity(zoneId, body?.maxCapacityKw) };
