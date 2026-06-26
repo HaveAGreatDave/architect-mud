@@ -15,6 +15,7 @@ Post-singularity browser MUD in the HellMOO tradition. Text-driven, real-time, b
 - [docs/systems-survival.md](docs/systems-survival.md) — hunger/thirst, radiation, mutations, drugs, buffs, sleep, status-effect framework (as built)
 - [docs/systems-economy.md](docs/systems-economy.md) — credits/banking, vendors, factions, crafting, IP/stat-raising, housing (as built)
 - [docs/systems-world.md](docs/systems-world.md) — world state, movement, ambience, sound propagation, spawning, minimap, scheduler, tunables (as built)
+- [docs/devpanel-js.md](docs/devpanel-js.md) — dev panel JS file reference: what each script in `client/devpanel/js/` holds, which functions live where, and the load-order contract
 
 **Before touching any system, read the relevant doc section if there's one applicable to the request.**
 
