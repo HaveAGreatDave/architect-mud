@@ -10,8 +10,7 @@ Post-singularity browser MUD in the HellMOO tradition. Text-driven, real-time, b
 - [docs/architecture.md](docs/architecture.md) — stack decisions, repo structure, data flows, DB schema, lessons learned from deployment bugs
 - [docs/design.md](docs/design.md) — game design philosophy, combat feel, skill/faction/economy systems, open design questions
 - [docs/items.md](docs/items.md) — item property reference: every `items` field, which JSON keys the engine actually reads, and the working armor format
-- [docs/hellmoo-combat-reference.md](docs/hellmoo-combat-reference.md) — reverse-engineered HellMOO stats/skills/combat/damage/NPC systems, parsed from its core db; design basis for our combat, with keep-vs-simplify notes
-- [docs/combat.md](docs/combat.md) — combat **as actually built** (to-hit, body parts, typed soak, cooldowns, enemy AI, loot); the running counterpart to combat-and-stats-plan.md
+- [docs/combat.md](docs/combat.md) — combat **as actually built** (to-hit, body parts, typed soak, cooldowns, enemy AI, loot); the authoritative running source on the combat system
 - [docs/systems-survival.md](docs/systems-survival.md) — hunger/thirst, radiation, mutations, drugs, buffs, sleep, status-effect framework (as built)
 - [docs/systems-economy.md](docs/systems-economy.md) — credits/banking, vendors, factions, crafting, IP/stat-raising, housing (as built)
 - [docs/systems-world.md](docs/systems-world.md) — world state, movement, ambience, sound propagation, spawning, minimap, scheduler, tunables (as built)
@@ -23,10 +22,10 @@ Post-singularity browser MUD in the HellMOO tradition. Text-driven, real-time, b
 - **Engine vs. content are separate.** The codebase is the engine. World content (zones, items, enemies, NPCs) lives in Postgres and is edited through the dev panel. Don't hardcode content into engine files.
 - **No ORM.** All queries go through the single `query()` helper in `server/models/db.js`. Keep it that way.
 - **No startup migrations. Schema and content are managed deliberately, never on boot.**
-  - **Schema** is the single source of truth in `server/models/schema.js` (`SCHEMA_SQL`, idempotent DDL). Apply it with `npm run db:schema`. The server does **not** create or alter tables at startup.
-  - **Content** belongs to production. A fresh database is populated by restoring a `.sql` dump exported from the dev panel (`/dev` → Power Tools → *Database Backup* → Export). Restore via `psql -f` or `npm run db:restore -- dump.sql`. There is no checked-in `seed.js` and no boot-time content rewriting (the old startup `migrate()` was removed precisely because it disrupted dev by mutating content on every restart).
-  - **To change the schema:** run a deliberate one-shot script once against production, **and** edit `SCHEMA_SQL` to match. Never add an auto-run migration. Because the export reuses `SCHEMA_SQL`, backups stay in sync automatically — no separate bookkeeping.
-  - The export deliberately excludes player/runtime rows (accounts, inventory, password hashes); it carries schema + world content only.
+    - **Schema** is the single source of truth in `server/models/schema.js` (`SCHEMA_SQL`, idempotent DDL). Apply it with `npm run db:schema`.
+    - **Content** belongs to production. A fresh database is populated by restoring a `.sql` dump exported from the dev panel (`/dev` → Power Tools → _Database Backup_ → Export). Restore via `psql -f` or `npm run db:restore -- dump.sql`. There is no checked-in `seed.js` and no boot-time content rewriting (the old startup `migrate()` was removed precisely because it disrupted dev by mutating content on every restart).
+    - **To change the schema:** run a deliberate one-shot script once against production, **and** edit `SCHEMA_SQL` to match. Never add an auto-run migration. Because the export reuses `SCHEMA_SQL`, backups stay in sync automatically — no separate bookkeeping.
+    - The export deliberately excludes player/runtime rows (accounts, inventory, password hashes); it carries schema + world content only.
 - **Plugins for extensibility.** New behavior hooks belong in `/plugins/`, not in engine files, unless they're genuinely core.
 - **UTF-8, always.** Several files (especially `client/game/index.html`) use Unicode glyphs and box-drawing chars (`₵ ⚙ ⏻ ╱ █ ☢`). When editing, preserve UTF-8 without a BOM — never let a tool re-save as Windows-1252 or it double-encodes everything into `â•±â•²` mojibake. After editing such files, sanity-check that the glyphs are still intact.
 

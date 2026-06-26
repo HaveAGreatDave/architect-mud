@@ -6,13 +6,16 @@ A single long-lived Node.js process. It owns everything: HTTP file serving, WebS
 
 On startup (`boot()` in `index.js`), it runs in order:
 
-1. `migrate()` — ensures the schema exists
+1. `loadMisSettings()` — loads miscellaneous server settings from the DB
 2. `initWorld()` — loads zones, NPCs, spawn templates, and apartments from Postgres into memory
 3. `loadRecipes()` / `loadDrugs()` / `loadMutations()` — loads content definitions into memory
 4. `loadPlugins()` — scans `/plugins/` and wires up hook/command/route registrations
-5. `initEnvironment()` — loads the game clock and weather state, fires `environment.init` hooks
+5. `initEnvironment()` — loads the game clock and weather state, fires `environment.init` hooks (non-fatal if schema not yet applied)
 6. `startGameLoop()` — starts all the timed intervals
-7. HTTP server listens
+7. `startKeepalive()` — begins pinging Render and Supabase every 10 minutes
+8. HTTP server listens
+
+**Note:** there is no `migrate()` call at startup. The server never touches the schema on boot — schema changes are applied deliberately with `npm run db:schema`.
 
 ---
 

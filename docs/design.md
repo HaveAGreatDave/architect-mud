@@ -61,8 +61,7 @@ Stats start at **0** (new characters assign ~6 points at creation) and are raise
 slowly by spending IP — a currency minted by skill progress — at an escalating
 cost. They are not the primary progression feel.
 
-See [combat-and-stats-plan.md](combat-and-stats-plan.md) for the full scope
-(stat→skill coupling, the IP economy, per-stat secondary effects are deferred).
+See [combat.md](combat.md) for the implemented system.
 
 ---
 
@@ -83,7 +82,7 @@ Skills run on a **continuous 0.00–10.00** scale (0.01 increments), improved by
 — biggest gains come from barely winning. A skill's *effective* level adds the
 average of its governing stats on top of the trained value, which can push it past
 10. Most players cap most skills at 3–5 trained; 8+ makes you famous for it. See
-[combat-and-stats-plan.md](combat-and-stats-plan.md) for the full model.
+[combat.md](combat.md) for the implemented skill-check model.
 
 ---
 
