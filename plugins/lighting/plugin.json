@@ -1,0 +1,8 @@
+{
+  "name": "lighting",
+  "version": "1.0.0",
+  "description": "Lighting domain: SWITCH/FLIP/TURN specialized actions for switchable light furniture.",
+  "hooks": [],
+  "commands": [],
+  "specializedActions": ["switch", "flip", "turn"]
+}

@@ -24,6 +24,7 @@ import {
 } from "./engine/commands/index.js";
 import { startGameLoop } from "./engine/gameLoop.js";
 import { loadPlugins, fireHook } from "./engine/plugins.js";
+import { emit } from "./engine/events.js";
 import { loadRecipes } from "./engine/crafting.js";
 import { loadDrugs } from "./engine/drugs.js";
 import { loadMutations } from "./engine/mutations.js";
@@ -268,6 +269,7 @@ wss.on("connection", (ws) => {
 						[session.playerId],
 					).catch(() => {});
 				}
+				emit('player.logout', { id: session.playerId, handle: session.handle });
 				playerSockets.delete(session.playerId);
 				removeLivePlayer(session.playerId);
 			}
@@ -461,6 +463,7 @@ async function finishAuth(ws, session, player) {
 		clothing_contamination: player.clothing_contamination || {},
 	};
 	setLivePlayer(player.id, livePlayer);
+	emit('player.login', { id: player.id, handle: player.handle, role: player.role });
 	await autoEquipOnLogin(player.id);
 	await recomputeArmor(livePlayer);
 	await recomputeInsulation(livePlayer);

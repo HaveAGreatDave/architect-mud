@@ -11,7 +11,7 @@ import { removeGenerator } from '../engine/environment.js';
 import {
   apiCreateZone, apiDeleteZone,
   apiCreateFurniture, apiDeleteFurniture,
-  apiCreateNpc,
+  apiCreateNpc, apiCreateItem,
   apiUpdateZone, apiUpdateEnemy, apiUpdateItem, apiUpdateNpc,
   apiUpdateFurniture, apiUpdateRecipe, apiUpdateMutation, apiUpdateDrug,
   apiCreateWindow, apiUpdateWindow, apiDeleteWindow,
@@ -107,6 +107,7 @@ const UPDATERS = {
 
 const CREATORS = {
   zone:      (data) => apiCreateZone(data, null),
+  item:      (data) => apiCreateItem(data),
   npc:       (data) => apiCreateNpc(data),
   furniture: (data) => apiCreateFurniture(data),
   window:    (data) => apiCreateWindow(data),

@@ -1,8 +1,9 @@
-import { randomUUID } from 'crypto';
 import { query } from '../../models/db.js';
 import { useDrug } from '../drugs.js';
 import { hasTag, tagValue, hasFlag, TAG_CATALOG } from '../tags.js';
 import { foodLoad, drinkLoad } from '../bodily.js';
+import { dispatchAction } from '../actions.js';
+import { getZonePlayers } from '../world.js';
 
 const INSTANCE_FLAGS = Object.keys(TAG_CATALOG).filter(n => TAG_CATALOG[n].scope === 'instance');
 
@@ -90,72 +91,39 @@ async function cmdTake(targetStr, player, broadcast) {
     if (!allGround.length) return { type:'error', message:'Nothing here to take.' };
     const messages = [];
     for (const ground of allGround) {
-      if (hasTag(ground, 'stackable')) {
-        const { rows: existing } = await query(
-          'SELECT id, quantity FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND is_equipped=0',
-          [player.id, ground.item_id]
-        );
-        if (existing.length) {
-          await query('UPDATE player_inventory SET quantity = quantity + $1 WHERE id = $2', [ground.quantity, existing[0].id]);
-          await query('DELETE FROM player_inventory WHERE id=$1', [ground.id]);
-          broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} picks up ${ground.name}.` }, player.id);
-          messages.push(`You pick up ${ground.name}.`);
-          continue;
-        }
-      }
-      await query('UPDATE player_inventory SET player_id=$1 WHERE id=$2', [player.id, ground.id]);
-      broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} picks up ${ground.name}.` }, player.id);
-      messages.push(`You pick up ${ground.name}.`);
+      const r = await dispatchAction({ type:'TAKE', actor: player, params: { row: ground }, context: { broadcast } });
+      messages.push(r.message);
     }
     return { type:'take', message:messages.join('\n') };
   }
 
   const { rows } = await query(`SELECT pi.*,i.name,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND i.name ILIKE $2 LIMIT 1`, [`_ground_${player.current_zone}`, `%${targetStr}%`]);
   if (!rows.length) return { type:'error', message:`Can't find "${targetStr}" here.` };
-  const ground = rows[0];
-
-  if (hasTag(ground, 'stackable')) {
-    const { rows: existing } = await query(
-      'SELECT id, quantity FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND is_equipped=0',
-      [player.id, ground.item_id]
-    );
-    if (existing.length) {
-      await query('UPDATE player_inventory SET quantity = quantity + $1 WHERE id = $2', [ground.quantity, existing[0].id]);
-      await query('DELETE FROM player_inventory WHERE id=$1', [ground.id]);
-      broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} picks up ${ground.name}.` }, player.id);
-      return { type:'take', message:`You pick up ${ground.name}.` };
-    }
-  }
-
-  await query('UPDATE player_inventory SET player_id=$1 WHERE id=$2', [player.id, ground.id]);
-  broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} picks up ${ground.name}.` }, player.id);
-  return { type:'take', message:`You pick up ${ground.name}.` };
+  return dispatchAction({ type:'TAKE', actor: player, params: { row: rows[0] }, context: { broadcast } });
 }
 
 async function cmdDrop(targetStr, player, broadcast) {
   if (!targetStr) return { type:'error', message:'Drop what?' };
   const { rows } = await query(`SELECT pi.*,i.name FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND i.name ILIKE $2 AND NOT jsonb_exists(i.tags,'quest_item') LIMIT 1`, [player.id, `%${targetStr}%`]);
   if (!rows.length) return { type:'error', message:`You don't have "${targetStr}".` };
-  await query('UPDATE player_inventory SET player_id=$1, is_equipped=0, slot=NULL, container_id=NULL WHERE id=$2', [`_ground_${player.current_zone}`, rows[0].id]);
-  broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} drops ${rows[0].name}.` }, player.id);
-  return { type:'drop', message:`You drop ${rows[0].name}.` };
+  return dispatchAction({ type:'DROP', actor: player, params: { row: rows[0] }, context: { broadcast } });
 }
 
 async function cmdDropById(inventoryId, player, broadcast, qty) {
   if (!inventoryId) return { type:'error', message:'Nothing to drop.' };
   const { rows } = await query(`SELECT pi.*,i.name FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.id=$1 AND pi.player_id=$2 AND NOT jsonb_exists(i.tags,'quest_item') LIMIT 1`, [inventoryId, player.id]);
   if (!rows.length) return { type:'error', message:`Can't drop that.` };
-  const item = rows[0];
-  const dropQty = (qty && qty > 0 && qty < item.quantity) ? qty : item.quantity;
-  if (dropQty < item.quantity) {
-    await query('UPDATE player_inventory SET quantity=quantity-$1 WHERE id=$2', [dropQty, item.id]);
-    await query('INSERT INTO player_inventory (id,player_id,item_id,quantity,is_equipped) VALUES ($1,$2,$3,$4,0)', [randomUUID(), `_ground_${player.current_zone}`, item.item_id, dropQty]);
-  } else {
-    await query('UPDATE player_inventory SET player_id=$1, is_equipped=0, slot=NULL, container_id=NULL WHERE id=$2', [`_ground_${player.current_zone}`, item.id]);
-  }
-  const qtyStr = dropQty > 1 ? ` x${dropQty}` : '';
-  broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} drops ${item.name}${qtyStr}.` }, player.id);
-  return { type:'drop', message:`You drop ${item.name}${qtyStr}.` };
+  return dispatchAction({ type:'DROP', actor: player, params: { row: rows[0], qty }, context: { broadcast } });
+}
+
+async function cmdGive(argStr, player, broadcast) {
+  const [itemPart, who] = splitOn(argStr, ' to ');
+  if (!itemPart || !who) return { type:'error', message:'Usage: give <item> to <player>.' };
+  const target = getZonePlayers(player.current_zone).find(p => p.id !== player.id && p.handle.toLowerCase().includes(who.toLowerCase()));
+  if (!target) return { type:'error', message:`There's no "${who}" here to give to.` };
+  const { rows } = await query(`SELECT pi.*,i.name,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND pi.is_equipped=0 AND i.name ILIKE $2 AND NOT jsonb_exists(i.tags,'quest_item') LIMIT 1`, [player.id, `%${itemPart}%`]);
+  if (!rows.length) return { type:'error', message:`You don't have "${itemPart}".` };
+  return dispatchAction({ type:'GIVE', actor: player, params: { row: rows[0], toPlayer: target }, context: { broadcast } });
 }
 
 async function cmdUse(targetStr, player) {
@@ -238,17 +206,14 @@ async function cmdEquip(targetStr, player) {
   const slot = EQUIP_SLOTS[slotName] ? slotName : null;
   if (!slot) return { type:'error', message:`${item.name} doesn't have a valid equip slot configured.` };
   const layer = resolveEquipLayer(item);
-  await query('UPDATE player_inventory SET is_equipped=0, slot=NULL, layer=NULL WHERE player_id=$1 AND slot=$2 AND layer=$3', [player.id, slot, layer]);
-  await query('UPDATE player_inventory SET is_equipped=1,slot=$1,layer=$2 WHERE id=$3', [slot, layer, item.id]);
-  return { type:'equip', message:`You equip ${item.name}.`, slot };
+  return dispatchAction({ type:'EQUIP', actor: player, params: { row: item, slot, layer } });
 }
 
 async function cmdUnequip(targetStr, player) {
   if (!targetStr) return { type:'error', message:'Unequip what?' };
   const { rows } = await query(`SELECT pi.*,i.name FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.is_equipped=1 AND i.name ILIKE $2 LIMIT 1`, [player.id, `%${targetStr}%`]);
   if (!rows.length) return { type:'error', message:`You don't have "${targetStr}" equipped.` };
-  await query('UPDATE player_inventory SET is_equipped=0 WHERE id=$1', [rows[0].id]);
-  return { type:'equip', message:`You unequip ${rows[0].name}.` };
+  return dispatchAction({ type:'UNEQUIP', actor: player, params: { row: rows[0] } });
 }
 
 async function cmdEquipById(inventoryId, player, requestedLayer) {
@@ -264,17 +229,14 @@ async function cmdEquipById(inventoryId, player, requestedLayer) {
   const slot = EQUIP_SLOTS[slotName] ? slotName : null;
   if (!slot) return { type:'error', message:`${item.name} doesn't have a valid equip slot configured.` };
   const layer = resolveEquipLayer(item, requestedLayer);
-  await query('UPDATE player_inventory SET is_equipped=0, slot=NULL, layer=NULL WHERE player_id=$1 AND slot=$2 AND layer=$3', [player.id, slot, layer]);
-  await query('UPDATE player_inventory SET is_equipped=1,slot=$1,layer=$2 WHERE id=$3', [slot, layer, item.id]);
-  return { type:'equip', message:`You equip ${item.name}.`, slot };
+  return dispatchAction({ type:'EQUIP', actor: player, params: { row: item, slot, layer } });
 }
 
 async function cmdUnequipById(inventoryId, player) {
   if (!inventoryId) return { type:'error', message:'Nothing selected to unequip.' };
   const { rows } = await query(`SELECT pi.*,i.name FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.id=$1 AND pi.player_id=$2 AND pi.is_equipped=1 LIMIT 1`, [inventoryId, player.id]);
   if (!rows.length) return { type:'error', message:`That isn't equipped.` };
-  await query('UPDATE player_inventory SET is_equipped=0 WHERE id=$1', [rows[0].id]);
-  return { type:'equip', message:`You unequip ${rows[0].name}.` };
+  return dispatchAction({ type:'UNEQUIP', actor: player, params: { row: rows[0] } });
 }
 
 // Find a container the player can reach: their inventory first, then the ground.
@@ -475,6 +437,7 @@ export const handlers = {
   get:  (args, raw, player, broadcast) => cmdTake(args.join(' '), player, broadcast),
   drop: (args, raw, player, broadcast) => cmdDrop(args.join(' '), player, broadcast),
   dropid: (args, raw, player, broadcast) => cmdDropById(args[0], player, broadcast, parseInt(args[1]) || 0),
+  give: (args, raw, player, broadcast) => cmdGive(args.join(' '), player, broadcast),
   use:   (args, raw, player) => cmdUse(args.join(' '), player),
   eat:   (args, raw, player) => cmdUse(args.join(' '), player),
   drink: (args, raw, player) => cmdUse(args.join(' '), player),
@@ -493,4 +456,4 @@ export const handlers = {
   opencontainer: (args, raw, player) => cmdOpenContainerById(args[0], player),
 };
 
-export { cmdLookInContainer, describeContainer, cmdOpenContainer };
+export { cmdLookInContainer, describeContainer, cmdOpenContainer, cmdUse };

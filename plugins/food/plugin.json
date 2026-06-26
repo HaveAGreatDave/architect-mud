@@ -1,0 +1,8 @@
+{
+  "name": "food",
+  "version": "1.0.0",
+  "description": "Food domain: the EAT specialized action, gated on the consumable tag.",
+  "hooks": [],
+  "commands": [],
+  "specializedActions": ["eat"]
+}
