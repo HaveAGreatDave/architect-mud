@@ -170,15 +170,11 @@ async function cmdMove(direction, player, broadcast) {
   let door = getDoorForExit(zone.id, direction) || getDoorForExit(targetId, OPPOSITE[direction]) || null;
   if (door && door.hp > 0) {
     if (door.lock_state === 'locked') {
-      const isAdmin = player.role === 'admin' || player.role === 'dev';
-      let canUnlock = isAdmin;
-      if (!canUnlock) {
-        const { rows } = await query(
-          'SELECT 1 FROM apartments WHERE zone_id=ANY($1) AND owner_id=$2',
-          [[zone.id, targetId, door.zone_id], player.id]
-        );
-        canUnlock = rows.length > 0;
-      }
+      const { rows: aptRows } = await query(
+        'SELECT 1 FROM apartments WHERE zone_id=$1 AND owner_id=$2',
+        [door.zone_id, player.id]
+      );
+      const canUnlock = aptRows.length > 0;
       if (!canUnlock) return { type:'error', message:`The door to the ${direction} is locked.` };
       doorWasLocked = true;
       // Don't clear lock_state — owner bypasses the lock but the door stays locked

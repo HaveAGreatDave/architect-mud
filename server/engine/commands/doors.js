@@ -80,13 +80,10 @@ async function cmdLockDoor(args, raw, player, broadcast) {
   if (!lockTag) return { type:'error', message:"This door has no lock." };
   if (door.lock_state === 'locked') return { type:'error', message:'The lock is already engaged.' };
 
-  const isAdmin = player.role === 'admin' || player.role === 'dev';
-  if (!isAdmin) {
-    const targetZoneId = getZone(door.zone_id)?.exits?.[door.exit_dir] ?? null;
-    const zonesToCheck = [door.zone_id, targetZoneId].filter(Boolean);
+  {
     const { rows } = await query(
-      'SELECT 1 FROM apartments WHERE zone_id=ANY($1) AND owner_id=$2',
-      [zonesToCheck, player.id]
+      'SELECT 1 FROM apartments WHERE zone_id=$1 AND owner_id=$2',
+      [door.zone_id, player.id]
     );
     if (!rows.length) return { type:'error', message:'The lock does not recognize your credentials.' };
   }
@@ -112,13 +109,10 @@ async function cmdUnlockDoor(args, raw, player, broadcast) {
   if (!lockTag) return { type:'error', message:"This door has no lock." };
   if (door.lock_state !== 'locked') return { type:'error', message:'The door is not locked.' };
 
-  const isAdmin = player.role === 'admin' || player.role === 'dev';
-  if (!isAdmin) {
-    const targetZoneId = getZone(door.zone_id)?.exits?.[door.exit_dir] ?? null;
-    const zonesToCheck = [door.zone_id, targetZoneId].filter(Boolean);
+  {
     const { rows } = await query(
-      'SELECT 1 FROM apartments WHERE zone_id=ANY($1) AND owner_id=$2',
-      [zonesToCheck, player.id]
+      'SELECT 1 FROM apartments WHERE zone_id=$1 AND owner_id=$2',
+      [door.zone_id, player.id]
     );
     if (!rows.length) return { type:'error', message:'The lock does not recognize your credentials.' };
   }
