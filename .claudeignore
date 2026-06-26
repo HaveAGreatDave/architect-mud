@@ -1,0 +1,29 @@
+# .claudeignore
+
+node_modules/
+
+# Secrets
+
+.env
+.env.local
+.env.production
+_.pem
+_.key
+secrets.json
+
+# Logs
+
+\*.log
+logs/
+
+# Database files
+
+_.sqlite
+_.db
+dump.sql
+
+# Reference Docs
+
+docs/reference/
+docs/temp/
+docs/adr/

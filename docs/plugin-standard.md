@@ -2,7 +2,7 @@
 
 Every plugin in `/plugins/<name>/` is a self-describing unit. This document defines the manifest
 schema, the required README, and the doc-generation convention adopted in the 2026 architecture
-rework. See [CONTEXT.md](../CONTEXT.md) for the meaning of Action / Event / Hook / Tag.
+rework. See [docs/adr/](adr/) for the architectural decisions that define Action / Event / Hook / Tag.
 
 ## Files
 

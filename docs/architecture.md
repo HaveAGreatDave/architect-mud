@@ -44,7 +44,15 @@ The server **does not** touch the schema or world content on boot. The two are m
 │   ├── engine/
 │   │   ├── gameLoop.js       # Tick system: combat tick, minute tick, ambient tick, spawn tick
 │   │   ├── combat.js         # Combat resolution, cooldowns, enemy attack timers
-│   │   ├── commands.js       # Command parser/dispatcher, room description rendering
+│   │   ├── commands/         # Command parser/dispatcher — index.js + per-domain files
+│   │   │   ├── index.js      #   Entry point: routes commands to domain handlers + plugin commands
+│   │   │   ├── combat.js     #   Attack, flee, steal
+│   │   │   ├── describe.js   #   Room description renderer, look/examine
+│   │   │   ├── movement.js   #   Move, go (named destinations)
+│   │   │   ├── inventory.js  #   Take, drop, use, equip, craft; recomputeArmor
+│   │   │   ├── housing.js    #   Rent, lock, pick, upgrade lock, sleep
+│   │   │   ├── social.js     #   Say, yell, whisper, talk, who
+│   │   │   └── world.js      #   Map, stats, skills, help, switch/flip, open/close windows
 │   │   ├── world.js          # In-memory zone/entity cache, DB is still source of truth
 │   │   ├── environment.js    # Time/calendar, weather, ambient + artificial light, power grid simulation
 │   │   ├── skills.js         # Skill definitions, XP/rank curve, generic skillCheck()
@@ -53,12 +61,19 @@ The server **does not** touch the schema or world content on boot. The two are m
 │   │   ├── factions.js       # Reputation tiers and effects
 │   │   ├── vendor.js         # Buy/sell with faction rep discounts
 │   │   ├── apartments.js     # Property ownership, locks, lockpicking, safe sleep
+│   │   ├── actions.js        # Canonical mutation path: registerAction / dispatchAction
+│   │   ├── events.js         # In-process event bus: on / emit
+│   │   ├── tags.js           # Tag helpers (hasTag, tagValue) + re-exports TAG_CATALOG
+│   │   ├── flags.js          # Player/zone/world flag store + evalConditions
+│   │   ├── graph.js          # Shared graph engine for graph-structured dialogue/scripting
 │   │   └── plugins.js        # Hook-based plugin loader
 │   ├── models/
 │   │   ├── db.js             # pg.Pool connection, single query() export
 │   │   ├── schema.js         # SCHEMA_SQL — the single source of schema truth; `npm run db:schema`
 │   │   ├── restore.js        # Apply an exported .sql dump; `npm run db:restore -- dump.sql`
-│   │   └── rename-admin.js   # One-off helper for already-seeded DBs
+│   │   └── temp/             # One-off utility scripts — safe to delete once used
+│   │       ├── rename-admin.js   # Renames admin handle to "The Architect" on pre-existing DBs
+│   │       └── reset-chars.js    # Resets character stats for combat-rework rollout
 │   └── api/
 │       ├── routes.js              # REST endpoints for the dev panel (zones/enemies/items/npcs/apartments/world state)
 │       ├── backup.routes.js       # GET /admin/export-dump — full schema+content SQL dump (admin only)
@@ -66,14 +81,26 @@ The server **does not** touch the schema or world content on boot. The two are m
 │       └── worldvalidator.routes.js  # REST endpoint that fires the zone-validator plugin's hooks
 ├── client/
 │   ├── game/index.html       # Player client — single file, no framework, no build step
-│   └── devpanel/index.html   # Dev panel — same approach
+│   ├── devpanel/index.html   # Dev panel — same approach
+│   └── shared/
+│       └── tagCatalog.js     # Single source of truth for item tag definitions — read by both client and server
 ├── plugins/
-│   ├── factions/             # Faction reputation display commands (factions/rep)
-│   ├── mutations/            # Mutation display command + radiation-tick mutation check
-│   ├── visibility/           # Room description light-level injection (zone.describeRoom)
-│   └── weather/              # Deterministic 7-day weather forecast (environment.init + environment.advanceWeather)
-├── render.yaml                # Render free-plan service config
-└── .env.example
+│   ├── factions/             # Faction rep display (`factions`/`rep` commands)
+│   ├── mutations/            # Mutation display + radiation-tick mutation check (`mutations` command)
+│   ├── weather/              # Deterministic 7-day seeded weather forecast (environment.init + advanceWeather)
+│   ├── zone-validator/       # World integrity checks + broken exit repair (worldValidator hooks)
+│   ├── crafting/             # Recipe display and crafting (`craft`, `recipes` commands)
+│   ├── quests/               # Quest lifecycle (START_QUEST/TURN_IN actions, objective tracking, `quests` command)
+│   ├── interactions/         # Posture, emotes, social gestures (`sit`, `wave`, `examine`, etc.)
+│   ├── container/            # Container items — open/stow/pull via the OPEN specialized action
+│   ├── doors/                # Door open/close/lock/unlock specialized actions
+│   ├── weapon/               # ATTACK specialized action (player attack path)
+│   ├── food/                 # EAT specialized action for consumable-tagged items
+│   ├── drugs/                # USE/INJECT specialized actions for drug-tagged items
+│   ├── lighting/             # SWITCH/FLIP/TURN specialized actions for light fixtures
+│   ├── clothing-wetness/     # Per-item wetness from rain/snow + temperature effects
+│   └── visibility/           # (stub — registered but currently empty; was zone.describeRoom hook)
+└── render.yaml                # Render free-plan service config
 ```
 
 There is no `/data/` JSON directory and no separate seed-from-JSON pipeline. World content lives only in Postgres (production is the source of truth) and is edited through the dev panel. A fresh database is populated by restoring a `.sql` dump exported from the dev panel — not from a checked-in seed file. (Historically content lived as JS literals in a `seed.js`; that drifted from the live DB and was retired in favor of export/restore.)
@@ -149,7 +176,7 @@ The world-building interface. Accessible only to accounts with `role: dev`/`admi
 - **Standalone Apartments tab** — removed. Apartment-specific fields (owner, lock state/difficulty, rent) moved into the Zone Editor's Apartment Details sub-section, and the old 4-unit batch-builder UI was dropped as redundant with adding rooms one at a time and checking the apartment flag. The underlying `apiBuildApartmentBlock` route still exists server-side but isn't surfaced in the UI.
 
 ### Not built (originally planned, deprioritized)
-- Quest editor — no quest system exists yet
+- Quest editor in the dev panel UI — quests are authored via the REST API (`/quests` CRUD, owned by the quests plugin) but there's no visual editor tab in `devpanel/index.html` yet
 - Loot table editor as a separate named-table concept — loot tables are inlined per-enemy/per-item instead
 - Ghost mode — no invisible/invulnerable admin walk-through mode
 - Multi-builder conflict detection / presence indicators — single-admin assumption in practice so far
@@ -273,35 +300,50 @@ These are real bugs hit during deployment, kept here so they don't get relearned
 
 ## Plugin System
 
-The loader itself (`plugins.js`) is unchanged from the original design — a file-drop manifest + `index.js` exporting a `hooks` object, scanned once at boot, no core code touched to add one. Two plugins exist now instead of one:
+The loader itself (`plugins.js`) is a file-drop manifest + `index.js` exporting `hooks`, `commands`, and optionally `routeHandler`. Plugins can also register Actions and subscribe to Events imperatively in their `index.js`. 15 plugins exist:
 
 ```
 /plugins/
-  ├── factions/           # Player faction reputation display (factions/rep commands)
-  ├── mutations/          # Radiation mutation system: display command + tick.minute check
-  ├── visibility/         # Injects ambient light/visibility text into room descriptions
-  │                       # via zone.describeRoom hook
-  └── weather/            # Deterministic 7-day seeded weather forecast. Owns the
-                          # weather_forecast table; subscribes to environment.init (boot
-                          # load) and environment.advanceWeather (daily forecast shift).
-                          # Replaced example-weather (retired) and the forecast logic
-                          # that previously lived inside environment.js.
+  ├── factions/           # Faction rep display (factions/rep commands)
+  ├── mutations/          # Radiation mutation system: mutations command + tick.minute check
+  ├── weather/            # 7-day seeded weather forecast (environment.init + advanceWeather hooks)
+  ├── zone-validator/     # World integrity: validates zone exits, repairs broken ones on save
+  ├── crafting/           # Item crafting (craft, recipes commands)
+  ├── quests/             # Quest lifecycle: START_QUEST/ADVANCE/COMPLETE/TURN_IN actions,
+  │                       # event-driven objective tracking, quests/quest/ql commands, dev CRUD
+  ├── interactions/       # Posture + emotes: sit, stand, lie, wave, examine, etc.
+  ├── container/          # Container items — OPEN specialized action gated on container tag
+  ├── doors/              # Door OPEN/CLOSE/LOCK/UNLOCK specialized actions
+  ├── weapon/             # ATTACK specialized action (player combat path)
+  ├── food/               # EAT specialized action gated on consumable tag
+  ├── drugs/              # USE/INJECT specialized actions gated on drug tag
+  ├── lighting/           # SWITCH/FLIP/TURN specialized actions for light fixtures
+  ├── clothing-wetness/   # Per-item wetness from rain/snow + body temperature effects
+  └── visibility/         # (stub — registered, currently empty; intended zone.describeRoom hook)
 ```
 
 ```javascript
-// plugin.json
+// plugin.json (quests as example of richer manifest)
 {
-  "name": "weather-system",
+  "name": "quests",
   "version": "1.0.0",
-  "hooks": ["tick.minute", "player.enterZone", "zone.describeAmbient"]
+  "description": "Quest domain: lifecycle Actions plus event-driven objective tracking.",
+  "commands": ["quests", "quest", "ql"],
+  "routePrefix": "/quests",
+  "actions": { "registers": ["START_QUEST", "ADVANCE", "COMPLETE", "TURN_IN"] },
+  "events": {
+    "emits": ["quest.started", "quest.advanced", "quest.completed", "quest.turned_in"],
+    "consumes": ["enemy.killed", "item.given", "zone.entered"]
+  }
 }
 
 // index.js
-export const hooks = {
-  "tick.minute": (world) => { /* update weather state */ },
-  "player.enterZone": (player, zone) => { /* apply weather effects */ },
-  "zone.describeAmbient": (zone) => "A cold wind cuts through the ruins."
-}
+export const commands = {
+  "quests": (args, raw, player) => { /* render quest log */ },
+};
+export const routeHandler = (path, method, body, auth) => { /* dev CRUD */ };
+// Actions registered imperatively at module load via registerAction(...)
+// Events subscribed at module load via on('enemy.killed', handler)
 ```
 
 | Hook | Fires When |
@@ -357,10 +399,9 @@ Render free Web Service, not a VPS:
 
 ## Open Architecture Questions
 
-- Quest system — not yet designed in code, only in `design.md`
 - Should the in-memory world cache eventually move to Redis if multiple server instances are ever needed? (Not a problem yet — Render free tier is a single instance.)
 - Apartment storage (a per-unit inventory) is a natural next step but not built — currently apartments only gate sleep and provide a locked room, no item storage.
 - Rate limiting strategy for the WebSocket server under real concurrent load has not been tested past a handful of simultaneous connections.
-- `gameLoop.js` and `environment.js` run independent `setInterval` schedulers against the same DB pool with nothing coordinating them — works today at this scale, but a unified scheduler is the prerequisite for most of the plugin-extraction work in `docs/plugin-architecture-analysis.md`.
-- No command-registration or dev-panel-UI-registration API exists yet — every gameplay system built so far (including the power grid and the zone validator) had to hand-edit `commands.js` and/or `devpanel.html` directly. Identified as the highest-leverage missing extension point; not yet built.
+- `gameLoop.js` and `environment.js` run independent `setInterval` schedulers against the same DB pool with nothing coordinating them — works today at this scale, but a unified scheduler is the prerequisite for most of the plugin-extraction work in `docs/reference/plugin-architecture-analysis.md`.
+- No dev-panel-UI-registration API exists yet — a new gameplay system that wants its own editor tab still requires editing `devpanel/index.html` directly.
 - Should darkness/unpowered visibility ever gate gameplay (hidden exits, items, NPCs) beyond the current flavor-text-only treatment? Deliberately deferred when the power/lighting system was built.
