@@ -73,9 +73,10 @@ export async function cmdRent(player) {
 	setApartmentCache(zone.id, updated.rows[0]);
 
 	const rentedDate = new Date(now * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+	const nextDueDate = new Date((now + 7 * 86400) * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 	return {
 		type: "rent",
-		message: `Congratulations — you are the proud new owner of <span style="color:var(--accent)">${zone.name}</span>!\n\nWeekly rent of <span style="color:var(--yellow)">${cost}c</span> will be collected every 7 days from ${rentedDate}. Type LOCK to secure the door when you leave. Type UNRENT to give the place up.`,
+		message: `Congratulations — you are the proud new owner of <span style="color:var(--accent)">${zone.name}</span>!\n\n<span class="text-dim">Rented:</span> ${rentedDate}\n<span class="text-dim">Weekly rent:</span> <span style="color:var(--yellow)">${cost}c</span>\n<span class="text-dim">First payment due:</span> ${nextDueDate}\n\nType LOCK to secure the door when you leave. Type UNRENT to give the place up.`,
 	};
 }
 
@@ -91,11 +92,14 @@ export async function cmdUnrent(player) {
 		return { type: "error", message: "This isn't your place to give up." };
 
 	const cost = apt.rent_cost ?? 100;
+	const rentedDate = apt.date_rented
+		? new Date(apt.date_rented * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+		: 'unknown';
 	await releaseApartment(apt, zone.id);
 
 	return {
 		type: "unrent",
-		message: `<span style="color:var(--accent)">${zone.name}</span> has been vacated. You've handed back the keys — the unit is no longer yours. Your weekly bills have been reduced by <span style="color:var(--yellow)">${cost}c</span>.`,
+		message: `<span style="color:var(--accent)">${zone.name}</span> has been vacated. You've handed back the keys — the unit is no longer yours.\n\n<span class="text-dim">Rented since:</span> ${rentedDate}\n<span class="text-dim">Weekly rent saved:</span> <span style="color:var(--yellow)">${cost}c</span>\n\nNo further payments will be collected.`,
 	};
 }
 

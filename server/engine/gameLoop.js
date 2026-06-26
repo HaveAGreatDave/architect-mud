@@ -158,6 +158,8 @@ export function handlePlayerDeath(player, killer) {
   player.radiation = 0;
   player.stamina = player.stamina_max ?? 100;
   player.body_temp_c = 37.0;
+  player.clothing_contamination = {};
+  player._dangerousTempTicks = 0;
   player.sleeping = null;
   player.combatTargetId = null;
 
@@ -168,8 +170,8 @@ export function handlePlayerDeath(player, killer) {
     player_update: { hp:player.hp, sanity:player.sanity, hunger:player.hunger, thirst:player.thirst, radiation:player.radiation, stamina:player.stamina, body_temp_c:player.body_temp_c },
   }, null, player.id);
 
-  query('UPDATE players SET hp=$1, sanity=$2, hunger=$3, thirst=$4, radiation=$5, stamina=$6, body_temp_c=$7, current_zone=anchor_zone WHERE id=$8',
-    [player.hp, player.sanity, player.hunger, player.thirst, player.radiation, player.stamina, player.body_temp_c, player.id]).catch(()=>{});
+  query('UPDATE players SET hp=$1, sanity=$2, hunger=$3, thirst=$4, radiation=$5, stamina=$6, body_temp_c=$7, clothing_contamination=$8, current_zone=anchor_zone WHERE id=$9',
+    [player.hp, player.sanity, player.hunger, player.thirst, player.radiation, player.stamina, player.body_temp_c, JSON.stringify({}), player.id]).catch(()=>{});
 
   // Move player back to anchor in memory
   for (const [,zone] of world.zones) zone.players.delete(player.id);
@@ -387,7 +389,15 @@ async function resourceTick() {
     const isOverheating = tempC > 42;
     const isHot = tempC > 40 && tempC <= 42;
 
-    if (player._tickCounter % 5 === 0 && (isFreezing || isOverheating)) {
+    // Sustained dangerous temperature causes HP loss only after ~12 minutes of
+    // continuous exposure — short spells in the cold/heat don't immediately kill.
+    const isDangerous = isFreezing || isOverheating;
+    if (isDangerous) {
+      player._dangerousTempTicks = (player._dangerousTempTicks ?? 0) + 1;
+    } else {
+      player._dangerousTempTicks = 0;
+    }
+    if (isDangerous && player._dangerousTempTicks >= 12) {
       player.hp = Math.max(0, player.hp - 10);
       hpChanged = true;
     }

@@ -239,7 +239,7 @@ export const SCHEMA_SQL = `
     visibility_transmission FLOAT NOT NULL DEFAULT 0.8,
     flags JSONB DEFAULT '{}'
   );
-  ALTER TABLE doors ADD COLUMN IF NOT EXISTS tags JSONB DEFAULT '[]';
+  ALTER TABLE doors ADD COLUMN IF NOT EXISTS tags JSONB DEFAULT '{}';
   ALTER TABLE doors ADD COLUMN IF NOT EXISTS lock_state TEXT DEFAULT NULL;
   UPDATE doors SET is_open=0 WHERE is_open IS NULL;
   ALTER TABLE doors ALTER COLUMN is_open SET NOT NULL;
