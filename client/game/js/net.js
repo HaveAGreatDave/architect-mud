@@ -165,10 +165,15 @@ export function doAuth() {
 
   if (state.isRegister) {
     const biological_sex = document.querySelector('input[name="auth-sex"]:checked')?.value || 'male';
+    const sexualityRaw = document.querySelector('input[name="auth-sexuality"]:checked')?.value || 'straight';
+    let sexuality;
+    if (sexualityRaw === 'bisexual') sexuality = 'Male and Female';
+    else if (sexualityRaw === 'homosexual') sexuality = biological_sex === 'male' ? 'Male' : 'Female';
+    else sexuality = biological_sex === 'male' ? 'Female' : 'Male';
     fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password, handle, biological_sex, email }),
+      body: JSON.stringify({ username, password, handle, biological_sex, email, sexuality }),
     }).then(r => r.json()).then(data => {
       if (data.error) {
         clearTimeout(state.authTimeout);
