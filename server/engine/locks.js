@@ -23,3 +23,7 @@ export function registerLockType(shortName, { tagType, kitTag, defaults, authFn 
 export function getLockType(shortName) {
   return lockTypeRegistry.get(shortName) ?? null;
 }
+
+export function getAllLockTypes() {
+  return [...lockTypeRegistry.entries()].map(([name, cfg]) => ({ name, ...cfg }));
+}

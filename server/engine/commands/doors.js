@@ -1,6 +1,6 @@
 import { query } from '../../models/db.js';
 import { getDoorForExit, getZoneDoors, setDoorCache, getZone, world } from '../world.js';
-import { resolveLockAuth, getLockType } from '../locks.js';
+import { resolveLockAuth, getLockType, getAllLockTypes } from '../locks.js';
 import { propagateSound } from '../sounds.js';
 import { isOnCooldown, setCooldown, getCooldownRemaining } from '../combat.js';
 import { tagValue, tagsOf } from '../tags.js';
@@ -178,12 +178,39 @@ function doorPrePass(fn) {
 }
 
 // install hololock [dir] | install keycardlock [dir]
+// Also handles bare "install door [dir]" or "install [dir]" by auto-detecting
+// the lock type from whatever kit the player is carrying.
 async function cmdInstallLock(args, raw, player, broadcast) {
-  const lockShortName = args[0];
-  const config = getLockType(lockShortName);
-  if (!config) return undefined; // not our verb
+  let lockShortName = args[0];
+  let config = getLockType(lockShortName);
+  let dirArgs = args.slice(1); // args after the lock type
 
-  const door = resolveDoor(args.slice(1), player);
+  // No recognised lock type — strip noise words and auto-detect from inventory.
+  if (!config) {
+    const allTypes = getAllLockTypes();
+    const { rows: kitRows } = await query(
+      `SELECT i.tags FROM player_inventory pi JOIN items i ON i.id = pi.item_id WHERE pi.player_id=$1`,
+      [player.id]
+    );
+    const carrying = allTypes.filter(t => kitRows.some(r => r.tags && r.tags[t.kitTag] !== undefined));
+    if (carrying.length === 0) return undefined; // no kits at all — not our verb
+    if (carrying.length > 1) {
+      // Resolve the door first so we know the direction for the choice links.
+      const choiceDoor = resolveDoor(args, player);
+      const dir = choiceDoor && choiceDoor !== 'ambiguous' ? choiceDoor.exit_dir : '';
+      const links = carrying.map(t =>
+        `<span class="action-link" data-action="install" data-target="${t.name}${dir ? ' ' + dir : ''}">${t.name}</span>`
+      ).join('  ');
+      return { type: 'output', message: `What do you want to install?\n${links}` };
+    }
+    lockShortName = carrying[0].name;
+    config = carrying[0];
+    // The unrecognised first arg ('door', 'lock', a direction, etc.) may still
+    // contain the direction — keep everything as potential dir args.
+    dirArgs = args;
+  }
+
+  const door = resolveDoor(dirArgs, player);
   if (!door) return { type:'error', message:'No door here to install a lock on.' };
   if (door === 'ambiguous') return { type:'error', message:'Multiple doors here — specify a direction.' };
   if (door.hp <= 0) return { type:'error', message:'That door is destroyed.' };
@@ -248,11 +275,16 @@ async function cmdInstallLock(args, raw, player, broadcast) {
   return { type:'output', message:`You install the ${lockShortName} on the door.${extra}` };
 }
 
-// uninstall lock [dir]
+// uninstall lock [dir] | uninstall door [dir] | uninstall [dir]
 async function cmdUninstallLock(args, raw, player, broadcast) {
-  if (args[0] !== 'lock') return undefined;
+  let dirArgs = args;
+  if (args[0] === 'lock' || args[0] === 'door') {
+    dirArgs = args.slice(1);
+  } else if (args[0] && !DIRECTIONS.includes(args[0])) {
+    return undefined; // not our verb
+  }
 
-  const door = resolveDoor(args.slice(1), player);
+  const door = resolveDoor(dirArgs, player);
   if (!door) return { type:'error', message:'No door here.' };
   if (door === 'ambiguous') return { type:'error', message:'Multiple doors here — specify a direction.' };
   if (door.hp <= 0) return { type:'error', message:'That door is destroyed.' };

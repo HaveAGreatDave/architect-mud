@@ -1145,7 +1145,40 @@ async function zoneEditForm(rec, isNew) {
     const isExteriorZone = !flags.is_interior && !flags.is_apartment && !flags.is_building;
     const freeDirs = (isExteriorZone ? ['in','out','up','down'] : ['north','south','east','west','up','down','in','out']).filter(d => !zoneEditExitsState[d]);
 
+    const _dUsedDirs = new Set(zoneDoors.map(d => d.exit_dir));
+    const _dAvailExits = Object.keys(zoneEditExitsState).filter(d => zoneEditExitsState[d] && !_dUsedDirs.has(d));
     subSectionsHtml = `
+      <div class="zone-subsection">
+        <div class="zone-subsection-header">Doors <span class="zone-subsection-count" id="zone-doors-count">${zoneDoors.length}</span></div>
+        <div id="zone-doors-list">${zoneDoors.length ? zoneDoors.map(d => {
+          const dTagObj = (d.tags && !Array.isArray(d.tags)) ? d.tags : {};
+          const dLockKey = Object.keys(dTagObj).find(k => k.startsWith('lock:'));
+          const dLockTag = dLockKey ? { type: dLockKey, ...dTagObj[dLockKey] } : null;
+          const dLockLabel = dLockTag
+            ? (dLockTag.type === 'lock:keycardlock' ? `keycardlock${d.lock_state === 'locked' ? ' 🔒' : ''}` : `hololock diff:${dLockTag.difficulty}${d.lock_state === 'locked' ? ' 🔒' : ''}`)
+            : 'no lock';
+          const dIdSafe = d.id.replace(/'/g, "\\'");
+          return `<div class="zone-subitem-row" id="door-row-${d.id}">
+            <span style="display:flex;align-items:center;gap:6px"><strong>${d.name || d.id}</strong> <span style="color:var(--text-dim);font-size:11px">${d.door_type} · ${d.exit_dir||'?'} · ${d.hp}/${d.hp_max}HP · ${dLockLabel}</span></span>
+            <span class="zone-subitem-actions">
+              <button class="action-btn" onclick="openEditDoorDialog('${dIdSafe}','${rec.id}')" style="padding:2px 8px;font-size:11px">Edit</button>
+              <button class="action-btn danger" onclick="deleteDoorQuick('${dIdSafe}','${rec.id}')" style="padding:2px 8px;font-size:14px;font-weight:bold">−</button>
+            </span>
+          </div>`;
+        }).join('') : '<div class="zone-subitem-empty">No doors here.</div>'}</div>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:6px">
+          <select id="door-type-select" style="flex:1;min-width:100px">
+            <option value="basic">Basic (1000 HP)</option>
+            <option value="shoddy">Shoddy (300 HP)</option>
+            <option value="blast">Blast Door (5000 HP)</option>
+          </select>
+          <select id="door-exit-select" style="flex:1;min-width:100px">
+            ${_dAvailExits.length ? _dAvailExits.map(d => `<option value="${d}">${d}</option>`).join('') : '<option value="">No free exits</option>'}
+          </select>
+          <button class="action-btn success" onclick='submitAddDoor(${JSON.stringify(rec.id)})'>Install Door</button>
+        </div>
+      </div>
+
       <div class="zone-subsection">
         <div class="zone-subsection-header">Rooms <span class="zone-subsection-count">${childRooms.length}</span></div>
         <div id="zone-rooms-list">${childRooms.length ? childRooms.map(r => `
@@ -1466,40 +1499,6 @@ async function zoneEditForm(rec, isNew) {
     <input type="hidden" id="f-grid_y" value="${place.grid_y ?? ''}">
     <input type="hidden" id="f-grid_z" value="${place.grid_z ?? ''}">
     <div class="field"><label>Exits</label><div id="exits-builder-body">${renderExitsBuilder(rec.id)}</div></div>
-    ${!isNew ? (() => {
-      const _dUsedDirs = new Set(zoneDoors.map(d => d.exit_dir));
-      const _dAvailExits = Object.keys(zoneEditExitsState).filter(d => zoneEditExitsState[d] && !_dUsedDirs.has(d));
-      return `<div class="zone-subsection" style="margin:8px 0">
-        <div class="zone-subsection-header">Doors <span class="zone-subsection-count" id="zone-doors-count">${zoneDoors.length}</span></div>
-        <div id="zone-doors-list">${zoneDoors.length ? zoneDoors.map(d => {
-          const dTagObj = (d.tags && !Array.isArray(d.tags)) ? d.tags : {};
-          const dLockKey = Object.keys(dTagObj).find(k => k.startsWith('lock:'));
-          const dLockTag = dLockKey ? { type: dLockKey, ...dTagObj[dLockKey] } : null;
-          const dLockLabel = dLockTag
-            ? (dLockTag.type === 'lock:keycardlock' ? `keycardlock${d.lock_state === 'locked' ? ' 🔒' : ''}` : `hololock diff:${dLockTag.difficulty}${d.lock_state === 'locked' ? ' 🔒' : ''}`)
-            : 'no lock';
-          const dIdSafe = d.id.replace(/'/g, "\\'");
-          return `<div class="zone-subitem-row" id="door-row-${d.id}">
-            <span style="display:flex;align-items:center;gap:6px"><strong>${d.name || d.id}</strong> <span style="color:var(--text-dim);font-size:11px">${d.door_type} · ${d.exit_dir||'?'} · ${d.hp}/${d.hp_max}HP · ${dLockLabel}</span></span>
-            <span class="zone-subitem-actions">
-              <button class="action-btn" onclick="openEditDoorDialog('${dIdSafe}','${rec.id}')" style="padding:2px 8px;font-size:11px">Edit</button>
-              <button class="action-btn danger" onclick="deleteDoorQuick('${dIdSafe}','${rec.id}')" style="padding:2px 8px;font-size:14px;font-weight:bold">−</button>
-            </span>
-          </div>`;
-        }).join('') : '<div class="zone-subitem-empty">No doors here.</div>'}</div>
-        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:6px">
-          <select id="door-type-select" style="flex:1;min-width:100px">
-            <option value="basic">Basic (1000 HP)</option>
-            <option value="shoddy">Shoddy (300 HP)</option>
-            <option value="blast">Blast Door (5000 HP)</option>
-          </select>
-          <select id="door-exit-select" style="flex:1;min-width:100px">
-            ${_dAvailExits.length ? _dAvailExits.map(d => `<option value="${d}">${d}</option>`).join('') : '<option value="">No free exits</option>'}
-          </select>
-          <button class="action-btn success" onclick='submitAddDoor(${JSON.stringify(rec.id)})'>Install Door</button>
-        </div>
-      </div>`;
-    })() : ''}
     <div class="field"><label>Ambient Theme <span style="color:var(--text-dim);font-weight:400">(global pool fallback theme)</span></label>
       <select id="f-ambient_theme">${AMBIENT_THEMES.map(t=>`<option value="${t}" ${(rec.ambient_theme||'indoors')===t?'selected':''}>${t.charAt(0).toUpperCase()+t.slice(1)}</option>`).join('')}</select>
     </div>
