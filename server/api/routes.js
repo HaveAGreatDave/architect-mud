@@ -761,7 +761,7 @@ async function apiDeleteEnemy(id) {
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
 async function apiGetItems() { const {rows}=await query('SELECT * FROM items'); return {status:200,body:rows}; }
-async function apiCreateItem(body) {
+export async function apiCreateItem(body) {
   const id=body.id||`item_${Date.now()}`;
   try {
     await query(`INSERT INTO items (id,name,type,weight,value,rarity,tags) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
