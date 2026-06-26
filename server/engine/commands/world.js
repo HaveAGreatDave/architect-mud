@@ -115,16 +115,14 @@ async function describePlayerAppearance(target, isSelf, viewer = null, broadcast
         ];
     msg += nakedLines[Math.floor(Math.random() * nakedLines.length)];
 
-    // MIS-gated details when naked
-    const viewerForMis = viewer || (isSelf ? target : null);
-    if (isMisActive(target)) {
+    // MIS details when naked — gated on viewer's MIS (or self's MIS for self-look)
+    const viewerForMis = isSelf ? target : (viewer || null);
+    if (viewerForMis && isMisActive(viewerForMis)) {
+      const envState = getEnvironmentState();
       const genitalDesc = describeGenitals(target, isSelf);
       if (genitalDesc) msg += `\n${genitalDesc}`;
       const ejacNote = ejaculateDescription(target, isSelf, new Set());
       if (ejacNote) msg += `\n${ejacNote}`;
-    }
-    if (viewerForMis && isMisActive(viewerForMis)) {
-      const envState = getEnvironmentState();
       const breastNote = breastVisibilityNote(target, 0, 0, 0, null, envState.tempC);
       if (breastNote) msg += `\n${breastNote}`;
     }
@@ -165,15 +163,12 @@ async function describePlayerAppearance(target, isSelf, viewer = null, broadcast
 
   msg += sentences.join(' ');
 
-  // MIS-gated details for clothed players
+  // MIS-gated details for clothed players — all gated on viewer's (or self's) MIS
   const coveredSlots = new Set(Object.keys(bySlot));
-  const viewerMis = (viewer && isMisActive(viewer)) || isSelf && isMisActive(target);
-  if (isMisActive(target)) {
-    // Ejaculate visible on exposed skin regardless of viewer MIS
+  const viewerMis = isSelf ? isMisActive(target) : (viewer && isMisActive(viewer));
+  if (viewerMis) {
     const ejacNote = ejaculateDescription(target, isSelf, coveredSlots);
     if (ejacNote) msg += `\n${ejacNote}`;
-  }
-  if (viewerMis) {
     const envState = getEnvironmentState();
     // Erection visible through ≤3 layers of tight clothing
     const tightSlots = new Set(
