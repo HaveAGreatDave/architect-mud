@@ -268,14 +268,14 @@ function tempFlavorMessage(tempC, tick) {
     const msgs = ['You feel chilly.', 'A cold draft finds its way through your clothing.', 'You pull your clothes tighter against the chill.'];
     return msgs[tick % msgs.length];
   }
-  // cold: every 5 ticks (-5 HP)
+  // cold: every 5 ticks
   if (tempC >= 30 && tempC < 34 && tick % 5 === 0) {
-    const msgs = ['You begin to shiver. (-5 HP)', 'The cold is getting to you. (-5 HP)', 'Your breath fogs in the air. (-5 HP)', 'Your fingers are going numb. (-5 HP)'];
+    const msgs = ['You begin to shiver.', 'The cold is getting to you.', 'Your breath fogs in the air.', 'Your fingers are going numb.'];
     return msgs[(tick / 5) % msgs.length];
   }
-  // freezing: every 5 ticks (-10 HP)
+  // freezing: every 5 ticks (-10 HP once sustained)
   if (tempC < 30 && tick % 5 === 0) {
-    const msgs = ['You feel dangerously cold. (-10 HP)', 'The cold is killing you. (-10 HP)', 'You can barely feel your extremities. (-10 HP)'];
+    const msgs = ['You feel dangerously cold.', 'The cold is killing you.', 'You can barely feel your extremities.'];
     return msgs[(tick / 5) % msgs.length];
   }
   // slightly hot: every 6 ticks
@@ -283,14 +283,14 @@ function tempFlavorMessage(tempC, tick) {
     const msgs = ['You feel uncomfortably warm.', 'Sweat beads on your skin.', 'The heat is oppressive.'];
     return msgs[tick % msgs.length];
   }
-  // hot: every 5 ticks (-5 HP)
+  // hot: every 5 ticks
   if (tempC > 40 && tempC <= 42 && tick % 5 === 0) {
-    const msgs = ['The heat is draining you. (-5 HP)', 'You\'re sweating through your clothes. (-5 HP)', 'The heat makes it hard to breathe. (-5 HP)'];
+    const msgs = ['The heat is draining you.', 'You\'re sweating through your clothes.', 'The heat makes it hard to breathe.'];
     return msgs[(tick / 5) % msgs.length];
   }
-  // overheating: every 5 ticks (-10 HP)
+  // overheating: every 5 ticks (-10 HP once sustained)
   if (tempC > 42 && tick % 5 === 0) {
-    const msgs = ['The desert heat is becoming unbearable. (-10 HP)', 'You are overheating. (-10 HP)', 'Heat exhaustion sets in. (-10 HP)'];
+    const msgs = ['The heat is becoming unbearable.', 'You are overheating.', 'Heat exhaustion is setting in.'];
     return msgs[(tick / 5) % msgs.length];
   }
   return null;
@@ -361,22 +361,24 @@ async function resourceTick() {
     const playerWetness = player.wetness ?? 0;
     const DELTA_TIME = 60; // seconds per tick
 
-    // Cooling: body loses heat when effective temp is below the cooling threshold.
-    // Wet clothing lowers the threshold and amplifies the rate.
-    const coolingThreshold = playerWetness === 0 ? 25 : playerWetness < 100 ? 28 : 31;
-    if (effectiveTemp < coolingThreshold) {
-      const diff    = coolingThreshold - effectiveTemp;
-      const wetMult = 1 + (playerWetness / 100);
-      player.body_temp_c = (player.body_temp_c ?? 37.0) - (0.0008 + diff * 0.00015) * wetMult * DELTA_TIME;
-    }
-
-    // Heating: body gains heat when effective temp is above the heating threshold.
-    // Wet clothing slows overheating via evaporative cooling (clamped at 30% reduction).
-    const heatingThreshold = playerWetness === 0 ? 34 : 35;
-    if (effectiveTemp > heatingThreshold) {
-      const diff    = effectiveTemp - heatingThreshold;
-      const wetMult = Math.max(0.70, 1 - playerWetness * 0.003);
-      player.body_temp_c = (player.body_temp_c ?? 37.0) + (0.0008 + diff * 0.00015) * wetMult * DELTA_TIME;
+    // Body temp drifts toward zone temperature. Neutral point is 20°C for a
+    // naked player — no drift at 20°C, increasing rate as you deviate further.
+    // Rate = 0.001 * |diff|^1.5 °C/min, so each 10°C step meaningfully
+    // accelerates change (e.g. diff=10 → 0.032°C/min; diff=30 → 0.164°C/min).
+    const NEUTRAL_TEMP = 20;
+    const tempDrift = effectiveTemp - NEUTRAL_TEMP;
+    if (tempDrift !== 0) {
+      const absDiff = Math.abs(tempDrift);
+      const baseDrift = 0.001 * Math.pow(absDiff, 1.5); // °C per minute
+      if (tempDrift < 0) {
+        // Cooling — wet clothing accelerates heat loss
+        const wetMult = 1 + (playerWetness / 100);
+        player.body_temp_c = (player.body_temp_c ?? 37.0) - baseDrift * wetMult;
+      } else {
+        // Heating — wet clothing slows heat gain via evaporative cooling
+        const wetMult = Math.max(0.70, 1 - playerWetness * 0.003);
+        player.body_temp_c = (player.body_temp_c ?? 37.0) + baseDrift * wetMult;
+      }
     }
 
     // Clamp to survivable range; prevents runaway values on extreme ticks.
@@ -389,15 +391,15 @@ async function resourceTick() {
     const isOverheating = tempC > 42;
     const isHot = tempC > 40 && tempC <= 42;
 
-    // Sustained dangerous temperature causes HP loss only after ~12 minutes of
-    // continuous exposure — short spells in the cold/heat don't immediately kill.
+    // Sustained dangerous temperature causes HP loss only after 20 minutes of
+    // continuous exposure — short spells in the extreme cold/heat don't kill.
     const isDangerous = isFreezing || isOverheating;
     if (isDangerous) {
       player._dangerousTempTicks = (player._dangerousTempTicks ?? 0) + 1;
     } else {
       player._dangerousTempTicks = 0;
     }
-    if (isDangerous && player._dangerousTempTicks >= 12) {
+    if (isDangerous && player._dangerousTempTicks >= 5) {
       player.hp = Math.max(0, player.hp - 10);
       hpChanged = true;
     }
