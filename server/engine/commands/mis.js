@@ -53,6 +53,17 @@ function resolveTarget(nameStr, player) {
   return null;
 }
 
+// Resolve target and check MIS opt-in for player targets.
+// Returns { res } on success or { error } string on failure.
+function resolveTargetMis(nameStr, player) {
+  const res = resolveTarget(nameStr, player);
+  if (!res) return { error: `You don't see "${nameStr}" here.` };
+  if (res.type === 'player' && !isMisActive(res.target)) {
+    return { error: `${res.target.handle} hasn't enabled MIS.` };
+  }
+  return { res };
+}
+
 function targetName(res) {
   return res.type === 'player' ? res.target.handle : res.target.name;
 }
@@ -104,8 +115,8 @@ async function actHandler({ player, broadcast, rawArgs, defaultPart, selfMessage
     return { type:'output', message: pickMsg(selfMessages, { part }) };
   }
 
-  const res = resolveTarget(targetStr, player);
-  if (!res) return { type:'error', message:`You don't see "${targetStr}" here.` };
+  const { res, error } = resolveTargetMis(targetStr, player);
+  if (error) return { type:'error', message: error };
   const name = targetName(res);
 
   const msgs = await addHorniness(player, horninessGain, broadcast);
@@ -262,8 +273,8 @@ async function cmdSlap(args, raw, player, broadcast) {
 
   if (!targetStr) return { type:'error', message:`Usage: slap <target>'s <body part>` };
 
-  const res = resolveTarget(targetStr, player);
-  if (!res) return { type:'error', message:`You don't see "${targetStr}" here.` };
+  const { res, error } = resolveTargetMis(targetStr, player);
+  if (error) return { type:'error', message: error };
   const name = targetName(res);
 
   const actorMsgs = [
@@ -410,8 +421,8 @@ async function cmdJerkOffOn(args, raw, player, broadcast) {
   const str = raw.replace(/^(?:jerk(?:\s+off)?(?:\s+on)?|jackoff\s+on?)\s*/i, '').trim();
   if (!str) return { type:'error', message:`Usage: jerk off on <target>` };
 
-  const res = resolveTarget(str, player);
-  if (!res) return { type:'error', message:`You don't see "${str}" here.` };
+  const { res, error } = resolveTargetMis(str, player);
+  if (error) return { type:'error', message: error };
   const name = targetName(res);
   const isMale = player.biological_sex === 'male';
 
@@ -506,8 +517,8 @@ async function cmdFuck(args, raw, player, broadcast) {
     );
     if (legItems.length) {
       // Grind instead of penetrate
-      const res2 = resolveTarget(targetStr, player);
-      if (!res2) return { type:'error', message:`You don't see "${targetStr}" here.` };
+      const { res: res2, error: err2 } = resolveTargetMis(targetStr, player);
+      if (err2) return { type:'error', message: err2 };
       const name2 = targetName(res2);
       const grindMsgs = [
         `You pull ${name2} close and grind your hips against them. Your ${legItems[0].name} is very much in the way.`,
@@ -526,8 +537,8 @@ async function cmdFuck(args, raw, player, broadcast) {
     }
   }
 
-  const res = resolveTarget(targetStr, player);
-  if (!res) return { type:'error', message:`You don't see "${targetStr}" here.` };
+  const { res, error } = resolveTargetMis(targetStr, player);
+  if (error) return { type:'error', message: error };
   const name = targetName(res);
   const isMale = player.biological_sex === 'male';
 
@@ -696,8 +707,8 @@ async function cmdEjaculate(args, raw, player, broadcast) {
   if (playerPartMatch) {
     const targetStr = playerPartMatch[1].trim();
     const part = playerPartMatch[2].trim();
-    const res = resolveTarget(targetStr, player);
-    if (!res) return { type:'error', message:`You don't see "${targetStr}" here.` };
+    const { res, error } = resolveTargetMis(targetStr, player);
+    if (error) return { type:'error', message: error };
     const name = targetName(res);
 
     player.horniness = 0;
@@ -806,8 +817,8 @@ async function cmdEatOut(args, raw, player, broadcast) {
 
   if (!targetStr) return { type:'error', message:`Usage: eat out <target>'s [pussy/ass]` };
 
-  const res = resolveTarget(targetStr, player);
-  if (!res) return { type:'error', message:`You don't see "${targetStr}" here.` };
+  const { res, error } = resolveTargetMis(targetStr, player);
+  if (error) return { type:'error', message: error };
   const name = targetName(res);
 
   const actorMsgs = isPussy ? [
