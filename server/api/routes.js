@@ -1285,9 +1285,9 @@ export async function apiDeleteWindow(id) {
 
 // --- Doors ---
 const DOOR_DEFAULTS = {
-  basic: { hp: 1000, hp_max: 1000, hololock_difficulty: 5 },
-  shoddy: { hp: 300, hp_max: 300, hololock_difficulty: 0 },
-  blast: { hp: 5000, hp_max: 5000, hololock_difficulty: 20 },
+  basic: { hp: 1000, hp_max: 1000 },
+  shoddy: { hp: 300, hp_max: 300 },
+  blast: { hp: 5000, hp_max: 5000 },
 };
 
 async function apiGetDoors() {
@@ -1305,12 +1305,14 @@ async function apiCreateDoor(body) {
   const id = `door_${parseInt(countRows[0].count) + 1}`;
   const type = body.door_type || 'basic';
   const defaults = DOOR_DEFAULTS[type] || DOOR_DEFAULTS.basic;
+  const tags = body.tags ?? [];
+  const lock_state = body.lock_state ?? null;
   try {
     await query(
-      `INSERT INTO doors (id,zone_id,exit_dir,door_type,is_open,is_locked,hp,hp_max,hololock_difficulty,flags) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-      [id, body.zone_id, body.exit_dir, type, 0, 0, defaults.hp, defaults.hp_max, defaults.hololock_difficulty, JSON.stringify(body.flags||{})]
+      `INSERT INTO doors (id,zone_id,exit_dir,door_type,is_open,is_locked,hp,hp_max,flags,tags,lock_state) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+      [id, body.zone_id, body.exit_dir, type, 0, 0, defaults.hp, defaults.hp_max, JSON.stringify(body.flags||{}), JSON.stringify(tags), lock_state]
     );
-    const door = { id, zone_id: body.zone_id, exit_dir: body.exit_dir, door_type: type, is_open: 0, is_locked: 0, hp: defaults.hp, hp_max: defaults.hp_max, hololock_difficulty: defaults.hololock_difficulty, flags: body.flags||{} };
+    const door = { id, zone_id: body.zone_id, exit_dir: body.exit_dir, door_type: type, is_open: 0, is_locked: 0, hp: defaults.hp, hp_max: defaults.hp_max, flags: body.flags||{}, tags, lock_state };
     setDoorCache(id, door);
     return { status:201, body:{id} };
   } catch(e) { return { status:400, body:{error:e.message} }; }
@@ -1318,11 +1320,13 @@ async function apiCreateDoor(body) {
 
 async function apiUpdateDoor(id, body) {
   try {
+    const tags = body.tags ?? [];
+    const lock_state = body.lock_state ?? null;
     await query(
-      `UPDATE doors SET zone_id=$1,exit_dir=$2,door_type=$3,is_open=$4,is_locked=$5,hp=$6,hp_max=$7,hololock_difficulty=$8,flags=$9 WHERE id=$10`,
-      [body.zone_id, body.exit_dir, body.door_type, body.is_open?1:0, body.is_locked?1:0, body.hp, body.hp_max, body.hololock_difficulty, JSON.stringify(body.flags||{}), id]
+      `UPDATE doors SET zone_id=$1,exit_dir=$2,door_type=$3,is_open=$4,is_locked=$5,hp=$6,hp_max=$7,flags=$8,tags=$9,lock_state=$10 WHERE id=$11`,
+      [body.zone_id, body.exit_dir, body.door_type, body.is_open?1:0, body.is_locked?1:0, body.hp, body.hp_max, JSON.stringify(body.flags||{}), JSON.stringify(tags), lock_state, id]
     );
-    const door = { id, ...body, flags: body.flags||{} };
+    const door = { id, ...body, flags: body.flags||{}, tags, lock_state };
     setDoorCache(id, door);
     return { status:200, body:{id} };
   } catch(e) { return { status:400, body:{error:e.message} }; }

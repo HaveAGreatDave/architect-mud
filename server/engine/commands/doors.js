@@ -15,6 +15,10 @@ function resolveDoor(args, player) {
   return null;
 }
 
+function getLockTag(door) {
+  return (door.tags ?? []).find(t => t.type?.startsWith('lock:')) ?? null;
+}
+
 async function updateDoor(door, changes) {
   Object.assign(door, changes);
   setDoorCache(door.id, door);
@@ -29,7 +33,7 @@ async function cmdOpenDoor(args, raw, player, broadcast) {
   if (door === 'ambiguous') return { type:'error', message:'Multiple doors here — specify a direction (e.g. open door north).' };
   if (door.hp <= 0) return { type:'error', message:'That door is destroyed.' };
   if (door.is_open) return { type:'error', message:'The door is already open.' };
-  if (door.is_locked) return { type:'error', message:'The door is locked.' };
+  if (door.lock_state === 'locked') return { type:'error', message:'The door is locked.' };
   await updateDoor(door, { is_open: 1 });
   broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} opens the door.` }, player.id);
   return { type:'output', message:'You open the door.' };
@@ -51,12 +55,13 @@ async function cmdLockDoor(args, raw, player, broadcast) {
   if (!door) return null;
   if (door === 'ambiguous') return { type:'error', message:'Multiple doors here — specify a direction (e.g. lock door north).' };
   if (door.hp <= 0) return { type:'error', message:'That door is destroyed.' };
-  if (door.door_type === 'shoddy') return { type:'error', message:"This door doesn't have a Hololock." };
+  const lockTag = getLockTag(door);
+  if (!lockTag) return { type:'error', message:"This door has no lock." };
   if (door.is_open) return { type:'error', message:'Close the door first.' };
-  if (door.is_locked) return { type:'error', message:'The Hololock is already engaged.' };
-  await updateDoor(door, { is_locked: 1 });
-  broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} locks the Hololock.` }, player.id);
-  return { type:'output', message:'You lock the Hololock.' };
+  if (door.lock_state === 'locked') return { type:'error', message:'The lock is already engaged.' };
+  await updateDoor(door, { lock_state: 'locked' });
+  broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} locks the door.` }, player.id);
+  return { type:'output', message: lockTag.messages?.lock ?? 'You lock the door.' };
 }
 
 async function cmdUnlockDoor(args, raw, player, broadcast) {
@@ -64,18 +69,19 @@ async function cmdUnlockDoor(args, raw, player, broadcast) {
   if (!door) return null;
   if (door === 'ambiguous') return { type:'error', message:'Multiple doors here — specify a direction (e.g. unlock door north).' };
   if (door.hp <= 0) return { type:'error', message:'That door is destroyed.' };
-  if (door.door_type === 'shoddy') return { type:'error', message:"This door doesn't have a Hololock." };
-  if (!door.is_locked) return { type:'error', message:'The door is not locked.' };
+  const lockTag = getLockTag(door);
+  if (!lockTag) return { type:'error', message:"This door has no lock." };
+  if (door.lock_state !== 'locked') return { type:'error', message:'The door is not locked.' };
 
   const isAdmin = player.role === 'admin' || player.role === 'dev';
   if (!isAdmin) {
     const { rows } = await query('SELECT 1 FROM apartments WHERE zone_id=$1 AND owner_id=$2', [player.current_zone, player.id]);
-    if (!rows.length) return { type:'error', message:'The Hololock does not recognize your credentials.' };
+    if (!rows.length) return { type:'error', message:'The lock does not recognize your credentials.' };
   }
 
-  await updateDoor(door, { is_locked: 0 });
-  broadcast(player.current_zone, { type:'zone_event', message:'The Hololock emits a soft electronic chime as the door unlocks.' }, player.id);
-  return { type:'output', message:'The Hololock emits a soft electronic chime as it unlocks.' };
+  await updateDoor(door, { lock_state: 'unlocked' });
+  broadcast(player.current_zone, { type:'zone_event', message:'The lock disengages.' }, player.id);
+  return { type:'output', message: lockTag.messages?.unlock ?? 'The lock disengages.' };
 }
 
 export async function cmdAttackDoor(dirStr, player, broadcast) {
@@ -109,8 +115,8 @@ export async function cmdAttackDoor(dirStr, player, broadcast) {
   broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} attacks the door.` }, player.id);
 
   if (door.hp <= 0) {
-    await query('UPDATE doors SET hp=0,is_open=1,is_locked=0 WHERE id=$1', [door.id]);
-    Object.assign(door, { hp: 0, is_open: 1, is_locked: 0 });
+    await query('UPDATE doors SET hp=0,is_open=1,is_locked=0,lock_state=NULL WHERE id=$1', [door.id]);
+    Object.assign(door, { hp: 0, is_open: 1, is_locked: 0, lock_state: null });
     setDoorCache(door.id, door);
     broadcast(player.current_zone, { type:'zone_event', message:'The door splinters apart!' }, player.id);
     propagateSound(player.current_zone, 'You hear a door being smashed apart nearby.', 2.5, broadcast);

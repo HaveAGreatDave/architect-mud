@@ -167,7 +167,7 @@ async function cmdMove(direction, player, broadcast) {
   let doorWasLocked = false;
   const door = getDoorForExit(zone.id, direction);
   if (door && door.hp > 0) {
-    if (door.is_locked) {
+    if (door.lock_state === 'locked') {
       const isAdmin = player.role === 'admin' || player.role === 'dev';
       let canUnlock = isAdmin;
       if (!canUnlock) {
@@ -179,8 +179,8 @@ async function cmdMove(direction, player, broadcast) {
       }
       if (!canUnlock) return { type:'error', message:`The door to the ${direction} is locked.` };
       doorWasLocked = true;
-      await query('UPDATE doors SET is_locked=0 WHERE id=$1', [door.id]);
-      door.is_locked = 0;
+      await query('UPDATE doors SET lock_state=$1 WHERE id=$2', ['unlocked', door.id]);
+      door.lock_state = 'unlocked';
       setDoorCache(door.id, door);
     }
     if (!door.is_open) {
