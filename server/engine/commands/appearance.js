@@ -17,6 +17,7 @@
 import { query } from '../../models/db.js';
 import { randomAppearance } from '../appearance.js';
 import { isMisActive } from '../mis.js';
+import { adjustCredits } from '../economy.js';
 
 const HAIR_COLORS  = ['black','dark brown','brown','auburn','dirty blonde','blonde','red','grey','white','silver','dyed blue','dyed green','dyed purple','dyed red'];
 const HAIR_LENGTHS = ['shaved','short','medium','long','very_long'];
@@ -66,8 +67,8 @@ function chargeCheck(player) {
 
 async function applyCharge(player, cost) {
   player.appearance_free_used = 1;
-  player.credits = (player.credits || 0) - cost;
-  await query('UPDATE players SET appearance_free_used=1, credits=$1 WHERE id=$2', [player.credits, player.id]);
+  if (cost > 0) await adjustCredits(player, -cost);
+  await query('UPDATE players SET appearance_free_used=1 WHERE id=$1', [player.id]);
 }
 
 async function cmdMorphex(args, raw, player) {
@@ -192,8 +193,8 @@ async function cmdMorphex(args, raw, player) {
     if ((player.credits || 0) < totalCost) return buildPanelData(player, `Costs 5₵/cm — ${totalCost}₵ total. You have ${player.credits || 0}₵.`);
     appData.penis_length_cm = targetCm;
     player.appearance_data = appData;
-    player.credits = (player.credits || 0) - totalCost;
-    await query('UPDATE players SET appearance_data=$1, credits=$2 WHERE id=$3', [JSON.stringify(appData), player.credits, player.id]);
+    await adjustCredits(player, -totalCost);
+    await query('UPDATE players SET appearance_data=$1 WHERE id=$2', [JSON.stringify(appData), player.id]);
     return buildPanelData(player, `Adjusted. (-${totalCost}₵)`);
   }
 
@@ -209,8 +210,8 @@ async function cmdMorphex(args, raw, player) {
     if ((player.credits || 0) < totalCost) return buildPanelData(player, `Costs 5₵/cm — ${totalCost}₵ total. You have ${player.credits || 0}₵.`);
     appData.penis_girth_cm = Math.round(targetCm * 10) / 10;
     player.appearance_data = appData;
-    player.credits = (player.credits || 0) - totalCost;
-    await query('UPDATE players SET appearance_data=$1, credits=$2 WHERE id=$3', [JSON.stringify(appData), player.credits, player.id]);
+    await adjustCredits(player, -totalCost);
+    await query('UPDATE players SET appearance_data=$1 WHERE id=$2', [JSON.stringify(appData), player.id]);
     return buildPanelData(player, `Adjusted. (-${totalCost}₵)`);
   }
 
@@ -226,8 +227,8 @@ async function cmdMorphex(args, raw, player) {
     if ((player.credits || 0) < totalCost) return buildPanelData(player, `Costs 5₵/tier — ${totalCost}₵ total. You have ${player.credits || 0}₵.`);
     appData.breast_size = targetSize;
     player.appearance_data = appData;
-    player.credits = (player.credits || 0) - totalCost;
-    await query('UPDATE players SET appearance_data=$1, credits=$2 WHERE id=$3', [JSON.stringify(appData), player.credits, player.id]);
+    await adjustCredits(player, -totalCost);
+    await query('UPDATE players SET appearance_data=$1 WHERE id=$2', [JSON.stringify(appData), player.id]);
     return buildPanelData(player, `Adjusted. (-${totalCost}₵)`);
   }
 

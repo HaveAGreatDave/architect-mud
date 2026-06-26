@@ -11,6 +11,7 @@ import { handleEnvironmentApi } from './environment.routes.js';
 import { handleWorldValidatorApi } from './worldvalidator.routes.js';
 import { handleStagingApi } from './staging.routes.js';
 import { fireRoutes, fireHook } from '../engine/plugins.js';
+import { emit } from '../engine/events.js';
 import { handlePlayerDeath } from '../engine/gameLoop.js';
 import { reloadWindows as reloadWindowsEnv, recomputePower } from '../engine/environment.js';
 import { ensureTunables } from '../engine/tunables.js';
@@ -196,6 +197,7 @@ async function apiRegister(body) {
     await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,is_equipped,slot) SELECT $1,$2,i.id,1,1.0,1,'legs'  FROM items i WHERE i.id='item_basic_pants'`, [randomUUID(), id]);
     await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,is_equipped,slot) SELECT $1,$2,i.id,1,1.0,1,'feet'  FROM items i WHERE i.id='item_basic_shoes'`, [randomUUID(), id]);
     fireHook('player.create', { id, handle, username: username.toLowerCase(), role: 'player' }).catch(() => {});
+    emit('player.created', { id, handle, username: username.toLowerCase(), role: 'player' });
     return {status:201,body:{token:makeToken(id,'player'),playerId:id,handle,role:'player'}};
   } catch(e) {
     if (e.code === '23505') return {status:409,body:{error:'Username or handle already taken'}};
@@ -211,6 +213,7 @@ async function apiLogin(body) {
   if (!rows.length||rows[0].password_hash!==hashPassword(password)) return {status:401,body:{error:'Invalid credentials'}};
   const p = rows[0];
   fireHook('player.login', { id: p.id, handle: p.handle, role: p.role }).catch(() => {});
+  emit('player.login', { id: p.id, handle: p.handle, role: p.role });
   return {status:200,body:{token:makeToken(p.id,p.role),playerId:p.id,handle:p.handle,role:p.role}};
 }
 
@@ -289,6 +292,7 @@ export async function apiCreateZone(body,auth) {
     if (body.flags?.is_apartment) await ensureApartmentRow(id);
     await reloadZone(id);
     fireHook('zone.create', id, body).catch(() => {});
+    emit('zone.created', { id, body });
     return {status:201,body:{id,message:'Zone created and live'}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
@@ -316,6 +320,7 @@ export async function apiUpdateZone(id,body) {
     if (body.flags?.is_apartment) await ensureApartmentRow(id);
     await reloadZone(id);
     fireHook('zone.update', id, body).catch(() => {});
+    emit('zone.updated', { id, body });
     return {status:200,body:{id,message:'Zone updated and live'}};
   } catch(e) {
     return {status:400,body:{error:e.message}};
@@ -647,6 +652,7 @@ export async function apiDeleteZone(id) {
     }
     await rescueDisplacedPlayers(allDeletedIds);
     fireHook('zone.delete', id, allDeletedIds).catch(() => {});
+    emit('zone.deleted', { id, allDeletedIds });
     return {status:200,body:{message: children.length ? `Zone deleted (and ${children.length} attached room${children.length>1?'s':''})` : 'Zone deleted'}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }

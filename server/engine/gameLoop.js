@@ -6,6 +6,7 @@ import { tickEffects } from './effects.js';
 import { resolveAttack } from './commands/index.js';
 import { tickSleep, releaseApartment } from './apartments.js';
 import { fireHook } from './plugins.js';
+import { emit } from './events.js';
 import { schedule } from './scheduler.js';
 import { query } from '../models/db.js';
 import { getEnvironmentState } from './environment.js';
@@ -96,6 +97,7 @@ function tick() {
 async function minuteTickFn() {
   minuteTick++;
   await fireHook('tick.minute', { broadcast: broadcastFn });
+  emit('tick.minute', { broadcast: broadcastFn });
 
   for (const [playerId, player] of world.players) {
     // Radiation decay: -1 per minute naturally, -2 per minute while hydrated
@@ -179,8 +181,8 @@ export function handlePlayerDeath(player, killer) {
       [randomUUID(), player.id]).catch(() => {});
   }
 
-  // Fire hook
   fireHook('player.death', player, killer).catch(()=>{});
+  emit('player.death', { player, killer });
 }
 
 // Weather types that produce distinct ambient sounds outdoors.

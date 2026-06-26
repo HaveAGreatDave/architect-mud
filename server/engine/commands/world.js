@@ -8,6 +8,7 @@ import { statCost, raiseStat, RAISABLE_STATS } from '../ip.js';
 import { ensureTunables } from '../tunables.js';
 import { physicalDescription, ejaculateDescription, describeGenitals } from '../appearance.js';
 import { isMisActive, isAttractedTo, addHorniness, erectionVisibilityNote, breastVisibilityNote, NIPPLE_HARD, NIPPLE_SOFT } from '../mis.js';
+import { availableActions } from '../specializedActions.js';
 
 async function cmdStats(player) {
   const { rows } = await query('SELECT * FROM players WHERE id=$1', [player.id]);
@@ -223,6 +224,13 @@ async function cmdExamine(targetStr, player, broadcast) {
     if (it.tags && Object.prototype.hasOwnProperty.call(it.tags, 'container')) {
       const { describeContainer } = await import('./inventory.js');
       msg += `\n\n${await describeContainer({ id: it.inv_id, name: it.name, tags: it.tags })}`;
+    }
+    const acts = availableActions(it);
+    if (acts.length) {
+      const links = acts.map(v =>
+        `<span class="action-link" data-action="${v}" data-target="${it.name}">${v}</span>`
+      ).join('  ');
+      msg += `\n<span class="text-dim">Actions:</span> ${links}`;
     }
     return { type:'examine', message: msg };
   }
@@ -469,9 +477,6 @@ export const handlers = {
   examine:  (args, raw, player, broadcast) => cmdExamine(args.join(' '), player, broadcast),
   ex:       (args, raw, player, broadcast) => cmdExamine(args.join(' '), player, broadcast),
   x:        (args, raw, player, broadcast) => cmdExamine(args.join(' '), player, broadcast),
-  switch:   (args, raw, player) => cmdSwitch(args.join(' '), player),
-  flip:     (args, raw, player) => cmdSwitch(args.join(' '), player),
-  turn:     (args, raw, player) => cmdTurn(args, player),
   stats:    (args, raw, player) => cmdStats(player),
   status:   (args, raw, player) => cmdStats(player),
   st:       (args, raw, player) => cmdStats(player),
@@ -485,3 +490,7 @@ export const handlers = {
   raise:    (args, raw, player) => cmdRaise(args, player),
   ip:       (args, raw, player) => cmdRaise([], player),
 };
+
+// Lighting controls are owned by the lighting plugin (registered as specialized
+// actions); exported here so that plugin can delegate to the engine logic.
+export { cmdSwitch, cmdTurn };

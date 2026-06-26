@@ -1,6 +1,6 @@
 import { handlers as moveHandlers } from './movement.js';
 import { handlers as combatHandlers } from './combat.js';
-import { handlers as invHandlers, cmdOpenContainer } from './inventory.js';
+import { handlers as invHandlers } from './inventory.js';
 import { handlers as socialHandlers } from './social.js';
 import { handlers as economyHandlers } from './economy.js';
 import { handlers as housingHandlers } from './housing.js';
@@ -8,8 +8,8 @@ import { handlers as worldHandlers } from './world.js';
 import { handlers as bodilyHandlers } from './bodily.js';
 import { handlers as misHandlers, handleJerkOffOn, handleEatOut } from './mis.js';
 import { handlers as appearanceHandlers } from './appearance.js';
-import { handlers as doorHandlers } from './doors.js';
 import { fireCommand } from '../plugins.js';
+import { fireSpecializedAction } from '../specializedActions.js';
 
 export { describeZone, describeVoidTeleport } from './describe.js';
 export { recomputeArmor, recomputeInsulation, EQUIP_SLOTS } from './inventory.js';
@@ -53,18 +53,11 @@ export async function handleCommand(input, player, broadcast) {
   const pluginResult = await fireCommand(cmd, args, raw, player, broadcast);
   if (pluginResult !== undefined) return pluginResult;
 
-  // Door pre-intercept: open/close/lock/unlock door <dir> — falls through if args[0] !== 'door'
-  const doorHandler = doorHandlers[cmd];
-  if (doorHandler) {
-    const doorResult = await doorHandler(args, raw, player, broadcast);
-    if (doorResult !== undefined) return doorResult;
-  }
-
-  // Container pre-intercept: open <container name> — falls through if no matching container
-  if (cmd === 'open') {
-    const containerResult = await cmdOpenContainer(args.join(' '), player);
-    if (containerResult !== null) return containerResult;
-  }
+  // Tag-gated specialized actions (doors, containers, food, weapons, …). Each
+  // handler self-resolves its target and returns undefined to fall through to
+  // the built-in handler below — keeping every verb playable mid-port.
+  const specialResult = await fireSpecializedAction(cmd, args, raw, player, broadcast);
+  if (specialResult !== undefined) return specialResult;
 
   // Cosmetic machine pre-intercepts `use` before inventory gets it
   if (cmd === 'use' && appearanceUseHandler) {

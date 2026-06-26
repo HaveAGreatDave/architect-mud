@@ -1,0 +1,8 @@
+{
+  "name": "drugs",
+  "version": "1.0.0",
+  "description": "Drug domain: USE and INJECT specialized actions, gated on the drug tag.",
+  "hooks": [],
+  "commands": [],
+  "specializedActions": ["use", "inject"]
+}

@@ -1,0 +1,8 @@
+{
+  "name": "container",
+  "version": "1.0.0",
+  "description": "Container domain: the OPEN specialized action, gated on the container tag.",
+  "hooks": [],
+  "commands": [],
+  "specializedActions": ["open"]
+}

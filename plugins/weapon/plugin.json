@@ -1,0 +1,8 @@
+{
+  "name": "weapon",
+  "version": "1.0.0",
+  "description": "Weapon domain: the ATTACK specialized action (player path), dispatched as an ATTACK Action.",
+  "hooks": [],
+  "commands": [],
+  "specializedActions": ["attack", "kill", "k"]
+}

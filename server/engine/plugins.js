@@ -11,6 +11,7 @@ import { readdir, readFile } from 'fs/promises';
 import { join, dirname } from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { existsSync } from 'fs';
+import { registerSpecializedAction } from './specializedActions.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PLUGINS_DIR = join(__dirname, '../../plugins');
@@ -51,8 +52,9 @@ export async function loadPlugins() {
       const hasHooks = mod.hooks && typeof mod.hooks === 'object';
       const hasCommands = mod.commands && typeof mod.commands === 'object';
       const hasRoute = manifest.routePrefix && typeof mod.routeHandler === 'function';
-      if (!hasHooks && !hasCommands && !hasRoute) {
-        console.warn(`  Plugin ${dir.name}: no hooks, commands, or routeHandler export, skipping`);
+      const hasSpecialized = Array.isArray(mod.specializedActions) && mod.specializedActions.length > 0;
+      if (!hasHooks && !hasCommands && !hasRoute && !hasSpecialized) {
+        console.warn(`  Plugin ${dir.name}: no hooks, commands, routeHandler, or specializedActions export, skipping`);
         continue;
       }
 
@@ -79,7 +81,15 @@ export async function loadPlugins() {
         routeHandlers.push({ prefix: manifest.routePrefix, handler: mod.routeHandler });
       }
 
-      loadedPlugins.push({ name: manifest.name || dir.name, version: manifest.version || '?', hooks: manifest.hooks || [], commands: manifest.commands || [] });
+      // Wire up tag-gated specialized actions.
+      // Plugin exports { specializedActions: [{ verb, requiredTag?, handler }] }
+      if (hasSpecialized) {
+        for (const sa of mod.specializedActions) {
+          registerSpecializedAction({ ...sa, pluginName: manifest.name || dir.name });
+        }
+      }
+
+      loadedPlugins.push({ name: manifest.name || dir.name, version: manifest.version || '?', hooks: manifest.hooks || [], commands: manifest.commands || [], specializedActions: hasSpecialized ? mod.specializedActions.map(s => s.verb) : [] });
       console.log(`  ✓ Plugin: ${manifest.name} v${manifest.version}`);
     } catch (e) {
       console.error(`  ✗ Plugin ${dir.name} failed to load: ${e.message}`);
