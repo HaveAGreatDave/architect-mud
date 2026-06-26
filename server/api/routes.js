@@ -1334,8 +1334,8 @@ async function apiCreateKeycard(doorId, body) {
 }
 
 async function apiCreateDoor(body) {
-  const { rows: countRows } = await query('SELECT COUNT(*) FROM doors');
-  const id = `door_${parseInt(countRows[0].count) + 1}`;
+  const { rows: maxRows } = await query(`SELECT COALESCE(MAX(CAST(SUBSTRING(id FROM 6) AS INTEGER)), 0) AS max FROM doors WHERE id ~ '^door_[0-9]+$'`);
+  const id = `door_${maxRows[0].max + 1}`;
   const type = body.door_type || 'basic';
   const defaults = DOOR_DEFAULTS[type] || DOOR_DEFAULTS.basic;
   const tags = body.tags ?? [];
