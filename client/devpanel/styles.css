@@ -93,7 +93,7 @@
   th.sortable-col { cursor: pointer; user-select: none; transition: color 0.15s; }
   th.sortable-col:hover { color: var(--accent); }
   th.sortable-col.sorted { color: var(--accent); }
-  td { padding: 8px 12px; border-bottom: 1px solid var(--bg3); vertical-align: top; }
+  td { padding: 8px 12px; border-bottom: 1px solid var(--bg3); vertical-align: middle; }
   .zone-child-row td { background: var(--bg2); color: var(--text-dim); }
   .zone-child-indent { color: var(--text-dim); margin-right: 4px; }
   tr:hover td { background: var(--bg2); }
