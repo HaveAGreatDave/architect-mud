@@ -1,5 +1,5 @@
 import { query } from '../../models/db.js';
-import { getZone, getZoneEnemies, getZoneNpcs, getZonePlayers, getDoorForExit } from '../world.js';
+import { getZone, getZoneEnemies, getZoneNpcs, getZonePlayers, getDoorForExit, getZoneDoors } from '../world.js';
 import { getLockTagPublic } from './doors.js';
 import { getZonePowerStatus, recomputePower, recalcZoneLoad, getEnvironmentState } from '../environment.js';
 import { getPlayerSkills, SKILLS } from '../skills.js';
@@ -305,9 +305,29 @@ async function cmdExamine(targetStr, player, broadcast) {
     return { type:'examine', message: app + `\n<span class="text-dim">(${s.handle} is asleep.)</span>` };
   }
 
-  // Door examination: "examine north", "examine door north", "examine north door"
+  // Door examination: "examine door", "examine north", "examine door north", "examine north door"
   const EXAM_DIRS = ['north','south','east','west','up','down','in','out'];
   const EXAM_OPP  = { north:'south', south:'north', east:'west', west:'east', up:'down', down:'up', in:'out', out:'in' };
+
+  function describeDoor(examDoor, dirHint) {
+    const lockTag  = getLockTagPublic(examDoor);
+    const hpLine   = examDoor.hp <= 0 ? 'destroyed' : `${examDoor.hp}/${examDoor.hp_max} HP`;
+    const stateStr = examDoor.hp > 0 ? (examDoor.is_open ? 'open' : 'closed') : '';
+    const lockStr  = lockTag
+      ? ` · ${lockTag.type.replace('lock:', '')} [${examDoor.lock_state ?? 'no state'}]`
+      : ' · no lock';
+    let msg = `${examDoor.name || 'Door'} (${examDoor.door_type})\n${hpLine}${stateStr ? `, ${stateStr}` : ''}${lockStr}`;
+    const acts = examDoor.hp > 0 ? ['open', 'close'] : [];
+    if (lockTag && examDoor.hp > 0) acts.push('lock', 'unlock');
+    if (!lockTag && examDoor.hp > 0) acts.push('install');
+    if (lockTag && examDoor.hp > 0) acts.push('uninstall');
+    if (acts.length && dirHint) {
+      const links = acts.map(v => `<span class="action-link" data-action="${v}" data-target="door ${dirHint}">${v}</span>`).join('  ');
+      msg += `\n<span class="text-dim">Actions:</span> ${links}`;
+    }
+    return { type: 'examine', message: msg };
+  }
+
   const examDir = EXAM_DIRS.find(d => t === d || t === `door ${d}` || t === `${d} door`);
   if (examDir) {
     const zone = getZone(player.current_zone);
@@ -316,23 +336,23 @@ async function cmdExamine(targetStr, player, broadcast) {
       const targetId = zone?.exits?.[examDir];
       if (targetId) examDoor = getDoorForExit(targetId, EXAM_OPP[examDir]) || null;
     }
-    if (examDoor) {
-      const lockTag = getLockTagPublic(examDoor);
-      const hpLine  = examDoor.hp <= 0 ? 'destroyed' : `${examDoor.hp}/${examDoor.hp_max} HP`;
-      const stateStr = examDoor.hp > 0 ? (examDoor.is_open ? 'open' : 'closed') : '';
-      const lockStr  = lockTag
-        ? ` · ${lockTag.type.replace('lock:', '')} [${examDoor.lock_state ?? 'no state'}]`
-        : ' · no lock';
-      let msg = `${examDoor.name || 'Door'} (${examDoor.door_type})\n${hpLine}${stateStr ? `, ${stateStr}` : ''}${lockStr}`;
-      const acts = examDoor.hp > 0 ? ['open', 'close'] : [];
-      if (lockTag && examDoor.hp > 0) acts.push('lock', 'unlock');
-      if (!lockTag && examDoor.hp > 0) acts.push('install');
-      if (lockTag && examDoor.hp > 0) acts.push('uninstall');
-      if (acts.length) {
-        const links = acts.map(v => `<span class="action-link" data-action="${v}" data-target="door ${examDir}">${v}</span>`).join('  ');
-        msg += `\n<span class="text-dim">Actions:</span> ${links}`;
-      }
-      return { type: 'examine', message: msg };
+    if (examDoor) return describeDoor(examDoor, examDir);
+  }
+
+  if (t === 'door') {
+    const zone = getZone(player.current_zone);
+    const local = getZoneDoors(player.current_zone);
+    const farSide = [];
+    for (const [dir, targetId] of Object.entries(zone?.exits || {})) {
+      const d = getDoorForExit(targetId, EXAM_OPP[dir]);
+      if (d && !local.find(x => x.id === d.id)) farSide.push({ door: d, dir });
+    }
+    const localWithDir = local.map(d => ({ door: d, dir: d.exit_dir }));
+    const all = [...localWithDir, ...farSide];
+    if (all.length === 1) return describeDoor(all[0].door, all[0].dir);
+    if (all.length > 1) {
+      const dirs = all.map(e => e.dir).join(', ');
+      return { type: 'error', message: `Multiple doors here — specify a direction (${dirs}).` };
     }
   }
 
