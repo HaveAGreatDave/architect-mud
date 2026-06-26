@@ -73,6 +73,7 @@
     <div class="nav-item" data-panel="mutations" onclick="showPanel('mutations')">☢ Mutations</div>
     <div class="nav-item" data-panel="drugs" onclick="showPanel('drugs')">💊 Drugs</div>
     <div class="nav-item" data-panel="sounds" onclick="showPanel('sounds')">🔊 Sounds</div>
+    <div class="nav-item" data-panel="tags" onclick="showPanel('tags')">🏷 Tags</div>
     <div class="nav-section">Server</div>
     <div class="nav-item" data-panel="worldstate" onclick="showPanel('worldstate')">📡 World State</div>
     <div class="nav-item" data-panel="timeweather" onclick="showPanel('timeweather')">🕐 Time & Weather</div>
@@ -462,6 +463,12 @@ const PANELS = {
     fetch: () => Promise.all([API('/sounds'), API('/ambient-events')]).then(([s, a]) => ({ sounds: s, ambients: a })),
     noEdit: true,
     render: renderSoundsPanel,
+  },
+  tags: {
+    title: 'Tag Catalog',
+    fetch: () => API('/tag-catalog'),
+    noEdit: true,
+    render: renderTagsPanel,
   },
   recipes: {
     title: 'Recipes',
@@ -1209,6 +1216,16 @@ async function zoneEditForm(rec, isNew) {
             <button class="action-btn success" onclick='submitAddDoor(${JSON.stringify(rec.id)})'>Install Door</button>
           </div>
         </div>
+      </div>
+
+      <div class="zone-subsection">
+        <div class="zone-subsection-header">Spawn Item</div>
+        <div style="display:flex;gap:6px;align-items:center;padding-top:4px;flex-wrap:wrap">
+          <input id="spawn-item-id" placeholder="item_id" style="flex:1;min-width:120px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:4px 8px;outline:none">
+          <input id="spawn-qty" type="number" value="1" min="1" style="width:52px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:4px;outline:none;text-align:center">
+          <button class="action-btn success" onclick="spawnItemInZone('${rec.id}')">Spawn</button>
+        </div>
+        <div id="spawn-feedback" style="font-size:11px;margin-top:4px;color:var(--text-dim);min-height:14px"></div>
       </div>
 
       <div class="zone-subsection">
@@ -2023,6 +2040,176 @@ async function deleteDoorQuick(doorId, zoneId) {
   if (result?.error) { toast(result.error, true); return; }
   toast('Door removed');
   await refreshDoorList(zoneId);
+}
+
+async function spawnItemInZone(zoneId) {
+  const itemId = document.getElementById('spawn-item-id')?.value?.trim();
+  const qty    = parseInt(document.getElementById('spawn-qty')?.value, 10) || 1;
+  const fb     = document.getElementById('spawn-feedback');
+  if (!itemId) { if (fb) fb.textContent = 'Enter an item_id first.'; return; }
+  const r = await API('/spawn', 'POST', { item_id: itemId, zone_id: zoneId, quantity: qty });
+  if (r?.error) {
+    if (fb) fb.textContent = r.error;
+    toast(r.error, true);
+  } else {
+    if (fb) fb.textContent = `${itemId} ×${qty} spawned in zone.`;
+    toast(`Spawned ${itemId} ×${qty}`);
+  }
+}
+
+// Tag Catalog panel
+function renderTagsPanel(catalog) {
+  const SHAPES = ['text','flag','int','enum','range','hot','statmap'];
+  const SCOPES = ['class','instance'];
+  let _catalog = catalog && typeof catalog === 'object' ? { ...catalog } : {};
+  let _sortKey = 'key';
+  let _sortDir = 1;
+
+  function buildRows() {
+    return Object.entries(_catalog)
+      .map(([k, v]) => ({ key: k, ...(v || {}) }))
+      .sort((a, b) => {
+        const av = (a[_sortKey] ?? '').toString().toLowerCase();
+        const bv = (b[_sortKey] ?? '').toString().toLowerCase();
+        return av < bv ? -_sortDir : av > bv ? _sortDir : 0;
+      });
+  }
+
+  function th(key, label) {
+    const arrow = _sortKey === key ? (_sortDir === 1 ? ' ▲' : ' ▼') : '';
+    return `<th style="cursor:pointer;user-select:none;white-space:nowrap" onclick="tagSortBy('${key}')">${label}${arrow}</th>`;
+  }
+
+  function escVal(s) { return (s ?? '').toString().replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+
+  function render() {
+    const rows = buildRows();
+    window._tagRows    = rows;
+    window._tagCatalog = _catalog;
+    document.getElementById('list-panel').innerHTML = `
+      <div style="padding:12px;overflow-x:auto">
+        <table class="data-table" style="width:100%;border-collapse:collapse">
+          <thead><tr>
+            ${th('key','Key')}
+            ${th('label','Label')}
+            ${th('shape','Shape')}
+            ${th('scope','Scope')}
+            ${th('group','Group')}
+            <th>Help</th>
+            <th style="width:60px"></th>
+          </tr></thead>
+          <tbody>
+            ${rows.map((r, i) => `
+              <tr id="tag-row-${i}">
+                <td><code style="font-size:11px">${escVal(r.key)}</code></td>
+                <td>${escVal(r.label)}</td>
+                <td><span class="badge">${escVal(r.shape)}</span></td>
+                <td style="color:var(--text-dim);font-size:11px">${escVal(r.scope)}</td>
+                <td style="color:var(--text-dim);font-size:11px">${escVal(r.group)}</td>
+                <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:var(--text-dim)" title="${escVal(r.help)}">${escVal(r.help)}</td>
+                <td><button class="action-btn" style="font-size:11px;padding:2px 6px" onclick="tagEditRow(${i})">Edit</button></td>
+              </tr>
+              <tr id="tag-edit-${i}" style="display:none;background:var(--bg3)">
+                <td colspan="7" style="padding:10px">
+                  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:6px">
+                    <div class="field"><label>Label</label><input id="te-label-${i}" value="${escVal(r.label)}"></div>
+                    <div class="field"><label>Shape</label>
+                      <select id="te-shape-${i}">
+                        ${SHAPES.map(s=>`<option value="${s}"${r.shape===s?' selected':''}>${s}</option>`).join('')}
+                      </select>
+                    </div>
+                    <div class="field"><label>Scope</label>
+                      <select id="te-scope-${i}">
+                        ${SCOPES.map(s=>`<option value="${s}"${r.scope===s?' selected':''}>${s}</option>`).join('')}
+                      </select>
+                    </div>
+                    <div class="field"><label>Group</label><input id="te-group-${i}" value="${escVal(r.group)}"></div>
+                  </div>
+                  <div class="field"><label>Help</label><input id="te-help-${i}" value="${escVal(r.help)}" style="width:100%"></div>
+                  <div style="display:flex;gap:6px;margin-top:8px">
+                    <button class="action-btn success" onclick="tagSaveRow(${i})">Save</button>
+                    <button class="action-btn danger" onclick="tagDeleteRow(${i})">Delete</button>
+                    <button class="action-btn" onclick="tagCancelRow(${i})">Cancel</button>
+                  </div>
+                </td>
+              </tr>`).join('')}
+          </tbody>
+          <tfoot>
+            <tr><td colspan="7" style="padding:10px;background:var(--bg2)">
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:8px;margin-bottom:6px">
+                <div class="field"><label>Key</label><input id="ta-key" placeholder="namespace:name"></div>
+                <div class="field"><label>Label</label><input id="ta-label" placeholder="Human label"></div>
+                <div class="field"><label>Shape</label>
+                  <select id="ta-shape">${SHAPES.map(s=>`<option value="${s}">${s}</option>`).join('')}</select>
+                </div>
+                <div class="field"><label>Scope</label>
+                  <select id="ta-scope">${SCOPES.map(s=>`<option value="${s}">${s}</option>`).join('')}</select>
+                </div>
+                <div class="field"><label>Group</label><input id="ta-group" placeholder="Core"></div>
+              </div>
+              <div class="field"><label>Help</label><input id="ta-help" placeholder="What this tag does..." style="width:100%"></div>
+              <button class="action-btn success" style="margin-top:8px" onclick="tagAddNew()">+ Add Tag</button>
+            </td></tr>
+          </tfoot>
+        </table>
+      </div>`;
+  }
+
+  window.tagSortBy = function(key) {
+    if (_sortKey === key) _sortDir = -_sortDir; else { _sortKey = key; _sortDir = 1; }
+    render();
+  };
+  window.tagEditRow = function(i) {
+    const el = document.getElementById(`tag-edit-${i}`);
+    if (el) el.style.display = el.style.display === 'none' ? 'table-row' : 'none';
+  };
+  window.tagCancelRow = function(i) {
+    const el = document.getElementById(`tag-edit-${i}`);
+    if (el) el.style.display = 'none';
+  };
+  window.tagSaveRow = async function(i) {
+    const rows = window._tagRows;
+    const key = rows[i].key;
+    const label = document.getElementById(`te-label-${i}`)?.value ?? '';
+    const shape = document.getElementById(`te-shape-${i}`)?.value ?? 'flag';
+    const scope = document.getElementById(`te-scope-${i}`)?.value ?? 'class';
+    const group = document.getElementById(`te-group-${i}`)?.value ?? '';
+    const help  = document.getElementById(`te-help-${i}`)?.value ?? '';
+    window._tagCatalog[key] = { ...(window._tagCatalog[key] || {}), label, shape, scope, group, help };
+    const r = await API('/tag-catalog', 'PUT', window._tagCatalog);
+    if (r?.error) { toast(r.error, true); return; }
+    toast('Tag saved');
+    _catalog = { ...window._tagCatalog };
+    render();
+  };
+  window.tagDeleteRow = async function(i) {
+    const key = window._tagRows[i].key;
+    if (!confirm(`Delete tag "${key}" from the catalog? Existing items with this tag are unaffected.`)) return;
+    delete window._tagCatalog[key];
+    const r = await API('/tag-catalog', 'PUT', window._tagCatalog);
+    if (r?.error) { toast(r.error, true); return; }
+    toast(`"${key}" removed from catalog`);
+    _catalog = { ...window._tagCatalog };
+    render();
+  };
+  window.tagAddNew = async function() {
+    const key   = document.getElementById('ta-key')?.value?.trim();
+    const label = document.getElementById('ta-label')?.value ?? '';
+    const shape = document.getElementById('ta-shape')?.value ?? 'flag';
+    const scope = document.getElementById('ta-scope')?.value ?? 'class';
+    const group = document.getElementById('ta-group')?.value ?? '';
+    const help  = document.getElementById('ta-help')?.value ?? '';
+    if (!key) { toast('Key is required', true); return; }
+    if (window._tagCatalog[key]) { toast(`"${key}" already exists`, true); return; }
+    window._tagCatalog[key] = { label, shape, scope, group, help };
+    const r = await API('/tag-catalog', 'PUT', window._tagCatalog);
+    if (r?.error) { toast(r.error, true); return; }
+    toast(`"${key}" added to catalog`);
+    _catalog = { ...window._tagCatalog };
+    render();
+  };
+
+  render();
 }
 
 // Enemies / spawns

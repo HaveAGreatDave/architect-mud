@@ -8,8 +8,10 @@
 import { handlers as doorHandlers } from '../../server/engine/commands/doors.js';
 
 export const specializedActions = [
-  { verb: 'open',   handler: doorHandlers.open },
-  { verb: 'close',  handler: doorHandlers.close },
-  { verb: 'lock',   requiredTag: 'lockable', handler: doorHandlers.lock },
-  { verb: 'unlock', requiredTag: 'lockable', handler: doorHandlers.unlock },
+  { verb: 'open',      handler: doorHandlers.open },
+  { verb: 'close',     handler: doorHandlers.close },
+  { verb: 'lock',      requiredTag: 'lockable', handler: doorHandlers.lock },
+  { verb: 'unlock',    requiredTag: 'lockable', handler: doorHandlers.unlock },
+  { verb: 'install',   handler: doorHandlers.install },
+  { verb: 'uninstall', handler: doorHandlers.uninstall },
 ];

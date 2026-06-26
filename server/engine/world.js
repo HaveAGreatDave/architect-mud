@@ -98,7 +98,7 @@ async function loadDoors() {
     const tags = Array.isArray(door.tags) ? door.tags : [];
     const lockTags = tags.filter(t => t.type?.startsWith('lock:'));
     if (lockTags.length > 1) console.warn(`[doors] ${door.id} has ${lockTags.length} lock tags — using first`);
-    world.doors.set(door.id, { ...door, flags: door.flags || {}, tags });
+    world.doors.set(door.id, { ...door, flags: door.flags || {}, tags, is_open: door.is_open ?? 0 });
   }
 }
 
