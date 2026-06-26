@@ -14,7 +14,7 @@
 | **Transport** | `ws` (raw WebSocket) | Real-time bidirectional communication |
 | **Frontend** | Vanilla JS, single-file HTML | Player client + Dev panel — no build step |
 | **Database** | PostgreSQL via Supabase (free tier) | Persistent world state, players, items — single source of truth |
-| **Query layer** | `pg` (node-postgres), raw SQL | No ORM — schema is hand-written in `migrate.js` |
+| **Query layer** | `pg` (node-postgres), raw SQL | No ORM — schema is hand-written in `schema.js` |
 | **Auth** | JWT (`jsonwebtoken`) + SHA-256 password hashing | Player accounts, dev/admin roles |
 | **Hosting** | Render (free Web Service tier) | Node server, auto-deploys on git push |
 
@@ -22,7 +22,15 @@
 
 The original plan considered SQLite for local dev and a VPS for production. That changed early: the build environment has no local network access, so any local-only database needed to also work over the network from the first line of code, which meant going straight to Postgres rather than maintaining two schemas. Supabase's free tier provided that without cost. Render was chosen over Vercel/Netlify/Cloudflare (serverless — no persistent WebSocket support) and over Railway (no permanent free tier) specifically because it supports long-lived WebSocket connections on its free plan.
 
-No ORM was used. The schema is small enough that hand-written SQL in `migrate.js` is easier to read and debug than a generated layer, and every query in the codebase is a plain parameterized `pg` call through a single `query()` helper in `models/db.js`.
+No ORM was used. The schema is small enough that hand-written SQL in `schema.js` is easier to read and debug than a generated layer, and every query in the codebase is a plain parameterized `pg` call through a single `query()` helper in `models/db.js`.
+
+### Schema and content lifecycle (no startup migrations)
+
+The server **does not** touch the schema or world content on boot. The two are managed separately and deliberately:
+
+- **Schema** lives entirely in `server/models/schema.js` as the exported `SCHEMA_SQL` string (idempotent DDL). Apply it with `npm run db:schema`. The same string is reused by the dev-panel export, so a backup always carries the schema that fits its data.
+- **Content** is owned by production. The dev-panel export (`/dev` → Power Tools → *Database Backup*) emits a full `.sql` dump (schema + world content, no player/PII rows). Restore it into a fresh DB with `psql -f` or `npm run db:restore -- dump.sql` to seed local/offline dev or recover a backup.
+- **Schema changes** are made by a one-shot script run once against production, plus a matching edit to `SCHEMA_SQL`. There is no auto-run migration path — this is what keeps dev from being disrupted by content-rewriting code firing on every restart (the reason the old startup `migrate()` was removed).
 
 ---
 
@@ -48,12 +56,12 @@ No ORM was used. The schema is small enough that hand-written SQL in `migrate.js
 │   │   └── plugins.js        # Hook-based plugin loader
 │   ├── models/
 │   │   ├── db.js             # pg.Pool connection, single query() export
-│   │   ├── migrate.js        # Full schema, idempotent (CREATE TABLE IF NOT EXISTS)
-│   │   ├── migrate.environment.js  # Schema for world_clock/weather_forecast/generators/power_zones/lighting_states
-│   │   ├── seed.js           # World content: zones, items, enemies, NPCs, factions, power grid
-│   │   └── rename-admin.js   # One-off migration helper for already-seeded DBs
+│   │   ├── schema.js         # SCHEMA_SQL — the single source of schema truth; `npm run db:schema`
+│   │   ├── restore.js        # Apply an exported .sql dump; `npm run db:restore -- dump.sql`
+│   │   └── rename-admin.js   # One-off helper for already-seeded DBs
 │   └── api/
 │       ├── routes.js              # REST endpoints for the dev panel (zones/enemies/items/npcs/apartments/world state)
+│       ├── backup.routes.js       # GET /admin/export-dump — full schema+content SQL dump (admin only)
 │       ├── environment.routes.js  # REST endpoints for time/weather/power dev tools, mounted from routes.js
 │       └── worldvalidator.routes.js  # REST endpoint that fires the zone-validator plugin's hooks
 ├── client/
@@ -68,7 +76,7 @@ No ORM was used. The schema is small enough that hand-written SQL in `migrate.js
 └── .env.example
 ```
 
-There is no `/data/` JSON directory and no separate seed-from-JSON pipeline. World content lives directly as JS object literals inside `seed.js`, which is run once against a fresh database; after that, the database is the only source of truth and further edits go through the dev panel, not the seed file. The seed file is only re-run for entirely new content (e.g. adding a new zone wave), using `ON CONFLICT DO NOTHING`/`DO UPDATE` so re-running it is always safe against an already-populated database.
+There is no `/data/` JSON directory and no separate seed-from-JSON pipeline. World content lives only in Postgres (production is the source of truth) and is edited through the dev panel. A fresh database is populated by restoring a `.sql` dump exported from the dev panel — not from a checked-in seed file. (Historically content lived as JS literals in a `seed.js`; that drifted from the live DB and was retired in favor of export/restore.)
 
 ---
 
@@ -207,7 +215,7 @@ world_events      -- log of significant events
 player_corpses    -- lootable death drops, expire after 10 minutes
 apartments        -- zone_id (PK), owner_id, owner_handle, is_locked, lock_difficulty, rent_cost
 
--- Environment system (server/models/migrate.environment.js)
+-- Environment system (schema in server/models/schema.js)
 world_clock       -- single-row clock: game_date, game_time_minutes, day_of_week, season, last tick timestamps
 weather_forecast  -- 7-day deterministic seeded forecast
 generators        -- id, zone_id, name, generator_type (building/city_plant/player), capacity_kw, status; only
@@ -326,8 +334,8 @@ cp .env.example .env
 # Set DATABASE_URL to your Supabase pooler string (or local Postgres)
 
 npm install
-npm run db:migrate
-npm run db:seed
+npm run db:schema                          # create the schema
+npm run db:restore -- architect-dump.sql   # load content from a dev-panel export
 npm run dev
 ```
 

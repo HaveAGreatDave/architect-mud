@@ -11,11 +11,9 @@
 //
 //   await initEnvironment({ query, emitHook, broadcast: broadcastAll });
 //
-// Run the matching migration once before first boot — call this from inside
-// the existing migrate() in server/models/migrate.js:
-//
-//   import { migrateEnvironment } from './migrate.environment.js';
-//   await migrateEnvironment(query);
+// The environment tables (world_clock, generators, power_zones, weather_*,
+// lighting_states) are part of SCHEMA_SQL in server/models/schema.js. Apply
+// the schema once before first boot with `npm run db:schema`.
 //
 // Mount the dev-panel/API routes — see server/api/environment.routes.js for
 // the matching dispatcher and its own integration comment.

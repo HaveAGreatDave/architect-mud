@@ -6055,6 +6055,13 @@ function renderChangesPanel(data) {
       </div>`;
   }
 
+  // Database backup / export
+  html += `<div style="margin-top:28px">
+    <div style="font-size:13px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">Database Backup</div>
+    <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px">Download a full SQL dump (schema + world content) of the live database — a backup, or a seed for a local/offline dev database (<code>psql "$DATABASE_URL" -f dump.sql</code> or <code>npm run db:restore -- dump.sql</code>).</div>
+    <button class="action-btn" onclick="exportDatabaseDump()">⬇ Export Database (.sql)</button>
+  </div>`;
+
   // Deployment history
   html += `<div style="margin-top:28px">
     <div style="font-size:13px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">Recent Deployments</div>
@@ -6382,6 +6389,18 @@ async function vFixGeometry(zoneId, x, y, z, mapId) {
   if (r?.error) { toast(r.error, true); return; }
   updateStagingBadge(); toast('Zone moved to correct position');
   runMapGeometryValidation();
+}
+
+async function exportDatabaseDump() {
+  toast('Building database dump…');
+  const res = await API('/admin/export-dump');
+  if (!res || !res.sql) { toast('Export failed (admin only)', true); return; }
+  const blob = new Blob([res.sql], { type: 'application/sql' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `architect-dump-${Date.now()}.sql`; a.click();
+  URL.revokeObjectURL(url);
+  toast('Database dump downloaded');
 }
 
 function exportValidatorReport() {

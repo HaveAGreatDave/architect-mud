@@ -6,8 +6,8 @@
   "scripts": {
     "dev": "node --watch server/index.js",
     "start": "node server/index.js",
-    "db:migrate": "node server/models/migrate.js",
-    "db:seed": "node server/models/seed.js",
+    "db:schema": "node server/models/schema.js",
+    "db:restore": "node server/models/restore.js",
     "db:rename-admin": "node server/models/rename-admin.js",
     "db:reset-chars": "node server/models/reset-chars.js"
   },

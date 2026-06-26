@@ -10,6 +10,7 @@ import { randomAppearance } from '../engine/appearance.js';
 import { handleEnvironmentApi } from './environment.routes.js';
 import { handleWorldValidatorApi } from './worldvalidator.routes.js';
 import { handleStagingApi } from './staging.routes.js';
+import { handleBackupApi } from './backup.routes.js';
 import { fireRoutes, fireHook } from '../engine/plugins.js';
 import { handlePlayerDeath } from '../engine/gameLoop.js';
 import { reloadWindows as reloadWindowsEnv, recomputePower } from '../engine/environment.js';
@@ -63,6 +64,9 @@ export async function handleApiRequest(url, method, body, headers) {
 
   const stagingResult = await handleStagingApi(path, method, body, auth);
   if (stagingResult) return stagingResult;
+
+  const backupResult = await handleBackupApi(path, method, body, auth);
+  if (backupResult) return backupResult;
 
   const pluginResult = await fireRoutes(path, method, body, auth);
   if (pluginResult) return pluginResult;

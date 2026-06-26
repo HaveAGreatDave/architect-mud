@@ -35,7 +35,6 @@ import {
 } from "./api/routes.js";
 import { startKeepalive } from "./keepalive.js";
 import { query } from "./models/db.js";
-import { migrate } from "./models/migrate.js";
 import { loadMisSettings } from "./engine/mis.js";
 
 import { initEnvironment, getHUDPayload, getZoneTemperature } from "./engine/environment.js";
@@ -679,7 +678,6 @@ process.on("unhandledRejection", (err) => {
 
 async function boot() {
 	console.log("\n⚙  Booting ARCHITECT MUD...");
-	await migrate();
 	setBroadcast(broadcast);
 	await loadMisSettings();
 	await initWorld();
@@ -699,7 +697,7 @@ async function boot() {
 		});
 	} catch (e) {
 		console.error(
-			"⚠ Environment system failed to init (continuing without it — likely means `npm run db:migrate` hasn't been run against this database yet):",
+			"⚠ Environment system failed to init (continuing without it — likely means `npm run db:schema` hasn't been run against this database yet):",
 			e.message,
 		);
 	}

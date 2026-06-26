@@ -58,9 +58,9 @@ git push -u origin main
 
 **Renaming the service:** Render's dashboard "Name" field is a display label and does not always update the live `onrender.com` subdomain if the service already has one assigned. If you need a different URL, the most reliable path is creating a new Web Service with the name you want from the start, pointing it at the same repo and the same `DATABASE_URL`, then deleting the old one.
 
-### 4 — Seed the database
+### 4 — Set up the database
 
-The migrate/seed scripts need to run somewhere that can reach Supabase — Render's free tier doesn't include shell access, so run them from your own machine instead:
+The schema script needs to run somewhere that can reach Supabase — Render's free tier doesn't include shell access, so run it from your own machine instead:
 
 ```bash
 # On your local machine, in the project folder
@@ -68,9 +68,13 @@ cp .env.example .env
 # Edit .env and paste in the same DATABASE_URL from step 1
 
 npm install
-npm run db:migrate
-npm run db:seed
+npm run db:schema     # creates all tables (idempotent, safe to re-run)
 ```
+
+`db:schema` only creates the schema — it does **not** load world content. To populate
+a fresh database with content, restore a dump exported from an existing world (see
+[Database & Backups](#database--backups) below). The server **does not** touch the
+schema or content on boot; both are applied deliberately.
 
 **Windows users:** if `npm` fails with "running scripts is disabled on this system," that's PowerShell's execution policy blocking it (not a Node problem). Fix with:
 ```powershell
@@ -96,13 +100,69 @@ cp .env.example .env
 # Edit .env and set DATABASE_URL (the pooler string works fine locally too)
 
 npm install
-npm run db:migrate
-npm run db:seed
+npm run db:schema                          # create the schema
+npm run db:restore -- architect-dump.sql   # load content from a production dump
 npm run dev
 ```
 
 - Player: http://localhost:3000
 - Dev panel: http://localhost:3000/dev
+
+---
+
+## Database & Backups
+
+Production is the source of truth for all world content. The schema and content
+are managed separately and deliberately — **nothing runs at server startup**.
+
+- **Schema** lives in one place: `server/models/schema.js` (`SCHEMA_SQL`). Apply it
+  with `npm run db:schema`. It is idempotent (`CREATE TABLE IF NOT EXISTS` /
+  `ADD COLUMN IF NOT EXISTS`), so re-running is always safe.
+- **Backups / content snapshots**: in the dev panel (`/dev` → sidebar **Server → 📋 Changes**
+  → **Database Backup** section), click **⬇ Export Database (.sql)** (admin only). This
+  downloads a full, self-contained SQL dump — the current schema **plus** all world content
+  (zones, items, enemies, NPCs, furniture, factions, recipes, etc.). Player/runtime rows
+  (accounts, inventory, password hashes) are intentionally excluded.
+
+### Seeding a local dev database from a production dump
+
+The exported `.sql` is self-contained: it carries the schema (`CREATE TABLE IF NOT EXISTS …`)
+**and** the content (`INSERT …`), wrapped in `BEGIN/COMMIT`. Restoring it into an empty
+database is the entire seed step — you don't need to run `db:schema` first.
+
+1. **Export** from the live panel (see above). You get `architect-dump-<timestamp>.sql`.
+2. **Point `.env` at your *local* database**, not production:
+   ```
+   DATABASE_URL=postgres://localhost:5432/architect_dev
+   ```
+3. **Restore** — either is equivalent:
+   ```bash
+   # Option A — psql (fastest, if installed)
+   psql "postgres://localhost:5432/architect_dev" -f ~/Downloads/architect-dump-<timestamp>.sql
+
+   # Option B — npm script (no psql needed; uses DATABASE_URL from .env)
+   npm run db:restore -- ~/Downloads/architect-dump-<timestamp>.sql
+   ```
+4. **Run it:** `npm run dev`. Your local world now matches production as of the export.
+
+Notes:
+- Only **world content** is seeded — **not** player accounts/inventory. Your local DB starts
+  with the world but no characters; register a fresh one (or your admin) locally.
+- **Re-running is safe but not a reset.** Inserts use `ON CONFLICT DO NOTHING`, so a second
+  restore won't duplicate or overwrite rows. To get an exact fresh copy after mucking up local
+  content, drop/recreate the database first, then restore into the empty DB.
+- **To refresh local from prod later,** just export again and restore again into a clean DB.
+
+### Changing the schema
+
+There are no startup migrations. To change the schema:
+
+1. Write a deliberate one-shot script (not committed to any boot path, not auto-run)
+   and run it once against production.
+2. Edit `SCHEMA_SQL` in `server/models/schema.js` to match.
+
+Because the export reuses `SCHEMA_SQL`, the next backup automatically carries the new
+schema — there is no separate step to keep them in sync.
 
 ---
 
@@ -147,7 +207,7 @@ Exits, NPCs, enemies, corpses, and ground items are also clickable directly in t
 
 ## The World
 
-The world is currently a compact **16-zone** map (it was deliberately shrunk from an earlier 5×5 grid down to a tight, fully-populated core — see the map-shrink note in `seed.js`). It breaks down as:
+The world is currently a compact **16-zone** map (it was deliberately shrunk from an earlier 5×5 grid down to a tight, fully-populated core). It breaks down as:
 
 - **Safe city core (Coldwater Basin)** — 8 connected PvP-off zones with zero enemy spawns: The Threshold (`zone_start`, the hub) plus Threshold Plaza North, Custodian Row, The Loading Bay, The Clinic Block, The Sprawl Gate, The Under Entrance, and the Franchise Strip. This is where players gather and interact.
 - **Badlands** — 2 dangerous zones beyond the western city gate: The Rust Quarter West (`medium`, the buffer where enemies spawn) and The Static Wood (`low`) past it. PvP is on out here.
