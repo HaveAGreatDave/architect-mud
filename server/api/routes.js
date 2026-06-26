@@ -96,6 +96,7 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path.startsWith('/zones/') && path.endsWith('/spawns') && method==='POST') return requireDev(auth, ()=>apiAddZoneSpawn(path.split('/')[2],body));
   if (path.startsWith('/zones/') && path.endsWith('/live-enemies') && method==='GET') return requireDev(auth, ()=>apiGetZoneLiveEnemies(path.split('/')[2]));
   if (path.startsWith('/zones/') && path.endsWith('/live-enemies') && method==='POST') return requireDev(auth, ()=>apiSpawnLiveEnemy(path.split('/')[2], body));
+  if (path.startsWith('/zones/') && path.endsWith('/doors') && method==='GET') return requireDev(auth, ()=>apiGetZoneDoors(path.split('/')[2]));
   if (path.startsWith('/zones/') && method==='GET') return apiGetZone(path.split('/')[2]);
   if (path==='/spawns' && method==='POST') return requireDev(auth, ()=>apiCreateSpawn(body));
   if (path.startsWith('/spawns/') && method==='DELETE') return requireDev(auth, ()=>apiDeleteZoneSpawn(path.split('/')[2]));
