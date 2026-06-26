@@ -198,11 +198,10 @@ async function apiRegister(body) {
     fireHook('player.create', { id, handle, username: username.toLowerCase(), role: 'player' }).catch(() => {});
     return {status:201,body:{token:makeToken(id,'player'),playerId:id,handle,role:'player'}};
   } catch(e) {
-    if (e.code === '23505') return {status:409,body:{error:'Username or handle already taken'}};
-    console.error('[register] unexpected error:', e.message);
-    return {status:500,body:{error:'Registration failed. Please try again.'}};
+	if (e.code === '23505') {
+  	 console.error('[register DUPLICATE ERROR]', e.detail || e.message);
+ 	 return { status: 409, body: { error: e.detail || e.message } };
   }
-}
 
 async function apiLogin(body) {
   const {username,password} = body||{};
