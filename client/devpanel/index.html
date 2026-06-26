@@ -1913,7 +1913,7 @@ async function refreshDoorList(zoneId) {
               <option value="lock:hololock" ${lockTag?.type==='lock:hololock'?'selected':''}>hololock</option>
             </select>
           </label>
-          <span id="lock-opts-${d.id}" style="${!lockTag?'display:none':''}display:contents">
+          <span id="lock-opts-${d.id}" style="display:${lockTag?'contents':'none'}">
             <label>Difficulty <input id="lock-diff-${d.id}" type="number" min="1" max="20" value="${lockTag?.difficulty??5}" style="width:46px;margin-left:4px"></label>
             <label style="display:flex;align-items:center;gap:4px"><input id="lock-hack-${d.id}" type="checkbox" ${lockTag?.canHack?'checked':''}> can hack</label>
           </span>
