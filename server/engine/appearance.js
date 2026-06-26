@@ -71,6 +71,8 @@ export function randomAppearance(sex) {
     : {
         breast_size: pick(['flat', 'small', 'medium', 'large', 'very large']),
         labia_style: pick(['average', 'prominent', 'tucked']),
+        ass_size: pick(['flat', 'small', 'average', 'round', 'large', 'enormous']),
+        vagina_tightness: pick(['tight', 'average', 'loose']),
         ejaculate_state: null,
       };
 
@@ -134,8 +136,34 @@ export function describeGenitals(player, isSelf) {
   if (sex === 'female') {
     const breastSize = data.breast_size || 'small';
     const labia = data.labia_style || 'average';
-    const labiaWord = labia === 'tucked' ? 'neatly tucked' : labia === 'prominent' ? 'prominent' : 'average';
-    return `${sub} breasts are ${breastSize}. ${sub} labia are ${labiaWord}.`;
+    const assSize = data.ass_size || 'average';
+
+    const BREAST_DESC = {
+      flat:         [`${sub} chest is flat — aerodynamic, efficient, no complaints from physics.`, `${sub} breasts are essentially theoretical at this point. They're there. Probably.`],
+      small:        [`${sub} breasts are small and sit high — perky in a way that feels almost smug.`, `${sub} breasts are modest in size but make no apologies about it.`],
+      medium:       [`${sub} breasts are a solid medium — the kind that fit a bra without a fight.`, `${sub} breasts are average in the most satisfying possible sense of the word.`],
+      large:        [`${sub} breasts are large and full, the kind that arrive in a room a moment before she does.`, `${sub} breasts are generously sized — gravity is aware of them.`],
+      'very large': [`${sub} breasts are enormous, frankly. They've got their own gravitational pull.`, `${sub} breasts are massive. Structurally impressive. An engineering concern.`],
+    };
+    const ASS_DESC = {
+      flat:     [`${sub} ass is completely flat — it's less of an ass and more of a suggestion.`, `${sub} rear end is aerodynamically optimized. No drag. No drama.`],
+      small:    [`${sub} ass is small and tight — compact, unassuming, quietly excellent.`, `${sub} backside is modest in scope but well-formed.`],
+      average:  [`${sub} ass is average — a solid, dependable rear with no outstanding grievances.`, `${sub} ass occupies exactly the expected amount of space. Respectable.`],
+      round:    [`${sub} ass is round and full, the kind you notice leaving before you notice arriving.`, `${sub} rear is notably round — geometrically satisfying.`],
+      large:    [`${sub} ass is large and pronounced, a presence unto itself.`, `${sub} backside is generous — substantial enough to have its own agenda.`],
+      enormous: [`${sub} ass is enormous. It is doing a lot. It is, arguably, doing too much.`, `${sub} rear end is massive — a geographical feature more than a body part.`],
+    };
+    const LABIA_DESC = {
+      average:   `${sub} labia is average.`,
+      prominent: `${sub} labia is prominent — it makes itself known.`,
+      tucked:    `${sub} labia is neatly tucked.`,
+    };
+
+    const breastLine = (BREAST_DESC[breastSize] || BREAST_DESC.medium)[Math.floor(Math.random() * 2)];
+    const assLine    = (ASS_DESC[assSize]        || ASS_DESC.average  )[Math.floor(Math.random() * 2)];
+    const labiaLine  = LABIA_DESC[labia] || LABIA_DESC.average;
+
+    return `${breastLine} ${assLine} ${labiaLine}`;
   }
 
   return null;

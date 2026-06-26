@@ -175,15 +175,15 @@ export function breastVisibilityNote(player, torsoLayerCount, outermostBulkiness
   if (torsoLayerCount === 1 && outermostLayerMax <= 1) {
     // Bra only — describe breast fullness
     const FILL = {
-      flat:         `Her chest barely fills the bra, which sits loosely.`,
-      small:        `Her breasts sit neatly in the bra.`,
-      medium:       `Her breasts fill out the bra nicely.`,
-      large:        `Her breasts press against the bra, filling it out.`,
-      'very large': `Her breasts strain against the bra, barely contained.`,
+      flat:         `Her chest barely registers in the bra. The bra is doing charity work.`,
+      small:        `Her breasts sit neatly in the bra — no complaints from either party.`,
+      medium:       `Her breasts fill out the bra in a satisfying, uneventful way.`,
+      large:        `Her breasts press against the bra with some conviction.`,
+      'very large': `Her breasts are straining the bra's structural integrity. It's doing its best.`,
     };
     const fill = FILL[size] || FILL.medium;
     if (hard) {
-      const NOTE = [`Her nipples press visibly against the fabric.`, `Hard nipples show through the thin material.`];
+      const NOTE = [`Her nipples press visibly against the fabric.`, `Hard nipples push through the thin material, undeniable.`];
       return `${fill} ${NOTE[Math.floor(Math.random() * NOTE.length)]}`;
     }
     return fill;
