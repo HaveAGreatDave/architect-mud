@@ -39,6 +39,25 @@ function resolveDoor(args, player) {
 function getLockTag(door) {
   return (door.tags ?? []).find(t => t.type?.startsWith('lock:')) ?? null;
 }
+export { getLockTag as getLockTagPublic };
+
+// Returns true if player is authorised to operate this lock.
+// Dispatch on lockTag.type so each lock variant enforces its own rule.
+export async function checkLockAuth(lockTag, door, player) {
+  switch (lockTag.type) {
+    case 'lock:hololock': {
+      const { rows } = await query(
+        'SELECT 1 FROM apartments WHERE zone_id=$1 AND owner_id=$2',
+        [door.zone_id, player.id]
+      );
+      return rows.length > 0;
+    }
+    // case 'lock:keylock': check player inventory for lockTag.keyItemId
+    // case 'lock:biometric': check lockTag.permissions.authorizedUsers
+    default:
+      return false;
+  }
+}
 
 async function updateDoor(door, changes) {
   Object.assign(door, changes);
@@ -80,13 +99,7 @@ async function cmdLockDoor(args, raw, player, broadcast) {
   if (!lockTag) return { type:'error', message:"This door has no lock." };
   if (door.lock_state === 'locked') return { type:'error', message:'The lock is already engaged.' };
 
-  {
-    const { rows } = await query(
-      'SELECT 1 FROM apartments WHERE zone_id=$1 AND owner_id=$2',
-      [door.zone_id, player.id]
-    );
-    if (!rows.length) return { type:'error', message:'The lock does not recognize your credentials.' };
-  }
+  if (!await checkLockAuth(lockTag, door, player)) return { type:'error', message: lockTag.messages?.denied ?? 'The lock does not recognize your credentials.' };
 
   // Auto-close the door before locking if it's open
   if (door.is_open) {
@@ -109,13 +122,7 @@ async function cmdUnlockDoor(args, raw, player, broadcast) {
   if (!lockTag) return { type:'error', message:"This door has no lock." };
   if (door.lock_state !== 'locked') return { type:'error', message:'The door is not locked.' };
 
-  {
-    const { rows } = await query(
-      'SELECT 1 FROM apartments WHERE zone_id=$1 AND owner_id=$2',
-      [door.zone_id, player.id]
-    );
-    if (!rows.length) return { type:'error', message:'The lock does not recognize your credentials.' };
-  }
+  if (!await checkLockAuth(lockTag, door, player)) return { type:'error', message: lockTag.messages?.denied ?? 'The lock does not recognize your credentials.' };
 
   await updateDoor(door, { lock_state: 'unlocked' });
   broadcast(player.current_zone, { type:'zone_event', message:'The lock disengages.' }, player.id);

@@ -2,6 +2,7 @@ import { query } from '../../models/db.js';
 import { getZone, getMinimapData, addPlayerToZone, removePlayerFromZone, getDoorForExit, setDoorCache } from '../world.js';
 import { getZoneVisibility, getWindowsForZone, getEnvironmentState, getZoneTemperature } from '../environment.js';
 import { describeZone, resolveNamedDestination } from './describe.js';
+import { checkLockAuth, getLockTagPublic } from './doors.js';
 
 const RAW_DIRECTIONS = ['north', 'south', 'east', 'west', 'up', 'down', 'in', 'out', 'exit'];
 
@@ -170,14 +171,10 @@ async function cmdMove(direction, player, broadcast) {
   let door = getDoorForExit(zone.id, direction) || getDoorForExit(targetId, OPPOSITE[direction]) || null;
   if (door && door.hp > 0) {
     if (door.lock_state === 'locked') {
-      const { rows: aptRows } = await query(
-        'SELECT 1 FROM apartments WHERE zone_id=$1 AND owner_id=$2',
-        [door.zone_id, player.id]
-      );
-      const canUnlock = aptRows.length > 0;
-      if (!canUnlock) return { type:'error', message:`The door to the ${direction} is locked.` };
+      const lockTag = getLockTagPublic(door);
+      const canPass = lockTag && await checkLockAuth(lockTag, door, player);
+      if (!canPass) return { type:'error', message:`The door to the ${direction} is locked.` };
       doorWasLocked = true;
-      // Don't clear lock_state — owner bypasses the lock but the door stays locked
     }
     if (!door.is_open) {
       doorWasClosed = true;
@@ -233,7 +230,9 @@ async function cmdMove(direction, player, broadcast) {
     }
   }
   const zoneDesc = await describeZone(targetZone, player);
-  const doorClose = (hadDoor && doorWasClosed) ? '\nThe door swings closed behind you.' : '';
+  const doorClose = (hadDoor && doorWasClosed)
+    ? (doorWasLocked ? '\nThe door swings closed and locks behind you.' : '\nThe door swings closed behind you.')
+    : '';
   const moveMsg = doorWasLocked
     ? `The Hololock chimes as you pass through the door, heading ${direction}.\n${zoneDesc}${doorClose}`
     : doorWasClosed
