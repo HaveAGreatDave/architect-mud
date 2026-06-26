@@ -73,11 +73,11 @@ function renderItemsPanel() {
   }
 
   const cols = [
-    { key: 'name', label: 'Name' },
-    { key: 'subtype', label: 'Subtype' },
-    { key: 'rarity', label: 'Rarity' },
-    { key: 'weight', label: 'Weight' },
-    { key: 'value', label: 'Value' },
+    { key: 'name', label: 'Name', width: '35%' },
+    { key: 'subtype', label: 'Subtype', width: '20%' },
+    { key: 'rarity', label: 'Rarity', width: '15%' },
+    { key: 'weight', label: 'Weight', width: '10%' },
+    { key: 'value', label: 'Value', width: '10%' },
   ];
 
   const byType = new Map();
@@ -98,13 +98,16 @@ function renderItemsPanel() {
         <span class="item-type-hdr-count">${items.length}</span>
       </div>`;
     if (!collapsed) {
-      html += '<table><thead><tr>';
-      for (const col of cols) html += `<th>${col.label}</th>`;
-      html += '<th></th></tr></thead><tbody>';
+      html += '<table style="table-layout:fixed"><thead><tr>';
+      for (const col of cols) html += `<th style="width:${col.width}">${col.label}</th>`;
+      html += '<th style="width:10%"></th></tr></thead><tbody>';
       for (const rec of [...items].sort((a, b) => (a.name || '').localeCompare(b.name || ''))) {
         const idSafe = rec.id.replace(/'/g, "\\'");
         html += `<tr onclick="selectRecord('${idSafe}')">`;
-        for (const col of cols) html += `<td>${rec[col.key] ?? '—'}</td>`;
+        for (const col of cols) {
+          const val = col.key === 'name' ? `${rec.name ?? '—'} <span style="color:var(--text-dim);font-size:10px">(${rec.id})</span>` : (rec[col.key] ?? '—');
+          html += `<td>${val}</td>`;
+        }
         html += `<td><button class="action-btn" onclick="event.stopPropagation();editRecord('${idSafe}')">Edit</button></td></tr>`;
       }
       html += '</tbody></table>';
