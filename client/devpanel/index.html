@@ -2032,12 +2032,9 @@ async function openEditDoorDialog(doorId, zoneId) {
           <div class="field" style="margin-top:6px"><label>Keycard Item ID</label><input id="de-keycard-id" value="${lockTag?.keyItemId||''}" placeholder="auto-created if blank"></div>
         </div>
       </div>
-      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px">
-        <button class="action-btn" onclick="closeModal()">Cancel</button>
-        <button class="action-btn success" onclick="saveDoorEdit('${doorId.replace(/'/g,"\\'")}','${zoneId.replace(/'/g,"\\'")}')">Save</button>
-      </div>
     </div>
   `);
+  document.getElementById('modal-save').onclick = () => saveDoorEdit(doorId, zoneId);
 }
 
 function onEditDoorLockTypeChange() {
