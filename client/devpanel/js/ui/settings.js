@@ -1,0 +1,271 @@
+const SHARED_SETTINGS_KEY = 'architect_settings';
+function loadDevSettings() { try { return JSON.parse(localStorage.getItem(SHARED_SETTINGS_KEY) || '{}'); } catch { return {}; } }
+function saveDevSettings(s) { try { const merged = { ...loadDevSettings(), ...s }; localStorage.setItem(SHARED_SETTINGS_KEY, JSON.stringify(merged)); } catch {} }
+let devSettings = loadDevSettings();
+
+const POWER_STATUS_RGBA = {
+  powered:   [20,  200, 100, 0.22],
+  overloaded:[255, 165, 0,   0.28],
+  offline:   [220, 40,  60,  0.32],
+  unpowered: [30,  30,  50,  0.65],
+  plant:     [80,  160, 255, 0.28],
+};
+
+function powerTileTextColor(status) {
+  const [sr, sg, sb, sa] = POWER_STATUS_RGBA[status] || POWER_STATUS_RGBA.unpowered;
+  const bgCss = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+  const bh = bgCss.replace('#', '');
+  const br = parseInt(bh.slice(0,2),16), bg = parseInt(bh.slice(2,4),16), bb = parseInt(bh.slice(4,6),16);
+  const r = sr * sa + br * (1 - sa);
+  const g = sg * sa + bg * (1 - sa);
+  const b = sb * sa + bb * (1 - sa);
+  const lum = (0.299*r + 0.587*g + 0.114*b) / 255;
+  return lum < 0.5 ? 'rgb(240,240,240)' : 'rgb(20,20,20)';
+}
+
+function repaintPowerTileColors() {
+  document.querySelectorAll('.bigmap-tile[class*="bm-power-"]').forEach(tile => {
+    const match = tile.className.match(/bm-power-(\w+)/);
+    if (match) tile.style.color = powerTileTextColor(match[1]);
+  });
+}
+
+const BUILTIN_THEME_VALUES = ['dark','light','contrast','phosphor','synthwave','bloodmoon','slate'];
+
+function populateThemeDropdown() {
+  const sel = document.getElementById('dev-opt-theme');
+  if (!sel) return;
+  const custom = (devSettings.customThemes || []);
+  const builtins = [
+    ['dark','Dark (Default)'],['light','Light'],['contrast','High Contrast'],
+    ['phosphor','Phosphor Green'],['synthwave','Synthwave'],['bloodmoon','Blood Moon'],['slate','Slate'],
+  ];
+  sel.innerHTML = builtins.map(([v,l]) => `<option value="${v}">${l}</option>`).join('') +
+    (custom.length ? `<optgroup label="Custom Themes">${custom.map(t =>
+      `<option value="${t.id}">${t.name}</option>`).join('')}</optgroup>` : '');
+  sel.value = devSettings.theme || 'dark';
+}
+
+function applyDevSettings() {
+  const themeId = devSettings.theme || 'dark';
+  const fontSize = devSettings.fontSize || '13';
+  const density = devSettings.density || 'comfortable';
+
+  const customTheme = (devSettings.customThemes || []).find(t => t.id === themeId);
+  document.documentElement.setAttribute('data-theme', customTheme ? 'dark' : themeId);
+  document.documentElement.setAttribute('data-density', density);
+  document.documentElement.style.setProperty('--font-size-base', fontSize + 'px');
+
+  populateThemeDropdown();
+
+  document.querySelectorAll('#dev-opt-fontsize .dev-settings-opt').forEach(btn => {
+    btn.classList.toggle('selected', btn.dataset.value === String(fontSize));
+  });
+  document.querySelectorAll('#dev-opt-density .dev-settings-opt').forEach(btn => {
+    btn.classList.toggle('selected', btn.dataset.value === density);
+  });
+
+  const colors = customTheme ? customTheme.colors : (devSettings.customColors || {});
+  THEME_COLOR_VARS.forEach(({ v }) => {
+    if (colors[v]) document.documentElement.style.setProperty(v, colors[v]);
+    else document.documentElement.style.removeProperty(v);
+  });
+
+  repaintPowerTileColors();
+}
+// Must be defined before applyDevSettings() is called (const is not hoisted)
+let _themeEditorEditingId = null;
+
+const THEME_COLOR_VARS = [
+  { v: '--bg',          label: 'Background (deep)',      desc: 'Page / outermost background' },
+  { v: '--bg2',         label: 'Background (panels)',    desc: 'Cards, modals, sidebar' },
+  { v: '--bg3',         label: 'Background (inputs)',    desc: 'Inputs, tables, inner fills' },
+  { v: '--border',      label: 'Border',                 desc: 'Dividers and outlines' },
+  { v: '--text',        label: 'Body text',              desc: 'Default readable text' },
+  { v: '--text-dim',    label: 'Muted text',             desc: 'Labels, placeholders, secondary' },
+  { v: '--text-bright', label: 'Bright text',            desc: 'Headings, emphasis' },
+  { v: '--accent',      label: 'Accent',                 desc: 'Primary highlight / interactive' },
+  { v: '--accent-dim',  label: 'Accent (dim)',           desc: 'Accent fills and hover states' },
+  { v: '--green',       label: 'Green',                  desc: 'Success, online, powered' },
+  { v: '--red',         label: 'Red',                    desc: 'Danger, errors, offline' },
+  { v: '--orange',      label: 'Orange',                 desc: 'Warnings, overload' },
+  { v: '--yellow',      label: 'Yellow',                 desc: 'Caution, highlights' },
+  { v: '--cyan',        label: 'Cyan',                   desc: 'Info, links, window light' },
+  { v: '--purple',      label: 'Purple',                 desc: 'Special, lore, mutations' },
+];
+
+
+// --- Theme Editor ---
+
+function _themeEditorCurrentValue(v) {
+  const custom = (devSettings.customColors || {})[v];
+  if (custom) return custom;
+  return getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+}
+
+function _getBuiltinThemeColors(themeId) {
+  const el = document.createElement('div');
+  el.setAttribute('data-theme', themeId);
+  el.style.cssText = 'position:absolute;visibility:hidden;pointer-events:none;left:-9999px';
+  document.body.appendChild(el);
+  const cs = getComputedStyle(el);
+  const fallback = getComputedStyle(document.documentElement);
+  const colors = {};
+  THEME_COLOR_VARS.forEach(({ v }) => {
+    colors[v] = cs.getPropertyValue(v).trim() || fallback.getPropertyValue(v).trim();
+  });
+  document.body.removeChild(el);
+  return colors;
+}
+
+function _populateThemeEditorDropdown() {
+  const sel = document.getElementById('theme-editor-base');
+  if (!sel) return;
+  const custom = devSettings.customThemes || [];
+  const builtins = [
+    ['dark','Dark (Default)'],['light','Light'],['contrast','High Contrast'],
+    ['phosphor','Phosphor Green'],['synthwave','Synthwave'],['bloodmoon','Blood Moon'],['slate','Slate'],
+  ];
+  sel.innerHTML = builtins.map(([v,l]) => `<option value="${v}">${l}</option>`).join('') +
+    (custom.length ? `<optgroup label="Custom Themes">${custom.map(t => `<option value="${t.id}">${t.name}</option>`).join('')}</optgroup>` : '');
+}
+
+function _loadBaseTheme(themeId) {
+  _themeEditorEditingId = themeId;
+  const customTheme = (devSettings.customThemes || []).find(t => t.id === themeId);
+  const colors = customTheme ? { ...customTheme.colors } : _getBuiltinThemeColors(themeId);
+  const editColors = {};
+  THEME_COLOR_VARS.forEach(({ v }) => {
+    const val = colors[v] || '';
+    editColors[v] = val;
+    if (val) document.documentElement.style.setProperty(v, val);
+    else document.documentElement.style.removeProperty(v);
+  });
+  devSettings.customColors = editColors;
+  saveDevSettings(devSettings);
+  const nameEl = document.getElementById('theme-editor-name');
+  const delBtn = document.getElementById('theme-editor-delete-btn');
+  if (nameEl) nameEl.value = customTheme ? customTheme.name : '';
+  if (delBtn) delBtn.style.display = customTheme ? '' : 'none';
+  _renderThemeEditorRows();
+}
+
+function openThemeEditor() {
+  const overlay = document.getElementById('theme-editor-overlay');
+  overlay.style.display = 'flex';
+  _populateThemeEditorDropdown();
+  const themeId = devSettings.theme || 'dark';
+  document.getElementById('theme-editor-base').value = themeId;
+  _loadBaseTheme(themeId);
+}
+
+function saveAsCustomTheme() {
+  const nameEl = document.getElementById('theme-editor-name');
+  const name = nameEl ? nameEl.value.trim() : '';
+  if (!name) { toast('Enter a theme name first', true); return; }
+  const colors = {};
+  THEME_COLOR_VARS.forEach(({ v }) => { colors[v] = _themeEditorCurrentValue(v); });
+  if (!devSettings.customThemes) devSettings.customThemes = [];
+  const existing = devSettings.customThemes.find(t => t.id === _themeEditorEditingId);
+  if (existing) {
+    existing.name = name;
+    existing.colors = colors;
+  } else {
+    const id = 'cthm_' + Date.now();
+    devSettings.customThemes.push({ id, name, colors });
+    devSettings.theme = id;
+    _themeEditorEditingId = id;
+  }
+  devSettings.customColors = {};
+  saveDevSettings(devSettings);
+  applyDevSettings();
+  _populateThemeEditorDropdown();
+  document.getElementById('theme-editor-base').value = _themeEditorEditingId;
+  const delBtn = document.getElementById('theme-editor-delete-btn');
+  if (delBtn) delBtn.style.display = '';
+  toast('Theme saved: ' + name);
+}
+
+function deleteCustomTheme() {
+  const customThemes = devSettings.customThemes || [];
+  const idx = customThemes.findIndex(t => t.id === _themeEditorEditingId);
+  if (idx === -1) return;
+  const name = customThemes[idx].name;
+  if (!confirm(`Delete custom theme "${name}"?`)) return;
+  customThemes.splice(idx, 1);
+  devSettings.customThemes = customThemes;
+  if (devSettings.theme === _themeEditorEditingId) devSettings.theme = 'dark';
+  devSettings.customColors = {};
+  saveDevSettings(devSettings);
+  applyDevSettings();
+  _themeEditorEditingId = null;
+  _populateThemeEditorDropdown();
+  const nextId = devSettings.theme || 'dark';
+  document.getElementById('theme-editor-base').value = nextId;
+  _loadBaseTheme(nextId);
+  toast(`Theme "${name}" deleted`);
+}
+
+function closeThemeEditor() {
+  document.getElementById('theme-editor-overlay').style.display = 'none';
+  devSettings.customColors = {};
+  saveDevSettings(devSettings);
+  applyDevSettings();
+}
+
+function _renderThemeEditorRows() {
+  const container = document.getElementById('theme-editor-rows');
+  container.innerHTML = THEME_COLOR_VARS.map(({ v, label, desc }) => {
+    const val = _themeEditorCurrentValue(v);
+    const hex = val.startsWith('#') ? val : val;
+    const safe = v.replace(/[^a-z-]/g, '');
+    return `<div style="display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)">
+      <div>
+        <div style="font-size:12px;color:var(--text)">${label}</div>
+        <div style="font-size:10px;color:var(--text-dim)">${desc}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <input type="text" id="tce-hex-${safe}" value="${hex}" maxlength="7"
+          style="width:76px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:4px 6px;border-radius:2px;letter-spacing:1px"
+          oninput="onThemeColorHexInput('${safe}','${v}',this.value)">
+      </div>
+      <div style="position:relative;width:28px;height:28px">
+        <div id="tce-swatch-${safe}" onclick="document.getElementById('tce-picker-${safe}').click()"
+          style="width:28px;height:28px;border-radius:3px;border:1px solid var(--border);cursor:pointer;background:${hex}"></div>
+        <input type="color" id="tce-picker-${safe}" value="${hex.startsWith('#') ? hex : '#888888'}"
+          style="position:absolute;opacity:0;width:0;height:0;pointer-events:none"
+          oninput="onThemeColorPickerInput('${safe}','${v}',this.value)">
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function onThemeColorHexInput(safe, varName, raw) {
+  const val = raw.startsWith('#') ? raw : '#' + raw;
+  if (!/^#[0-9a-fA-F]{6}$/.test(val)) return;
+  _applyThemeColorLive(safe, varName, val);
+}
+
+function onThemeColorPickerInput(safe, varName, val) {
+  const hexEl = document.getElementById('tce-hex-' + safe);
+  if (hexEl) hexEl.value = val;
+  _applyThemeColorLive(safe, varName, val);
+}
+
+function _applyThemeColorLive(safe, varName, val) {
+  document.documentElement.style.setProperty(varName, val);
+  const swatch = document.getElementById('tce-swatch-' + safe);
+  if (swatch) swatch.style.background = val;
+  if (!devSettings.customColors) devSettings.customColors = {};
+  devSettings.customColors[varName] = val;
+  saveDevSettings(devSettings);
+}
+
+function resetThemeColors() {
+  const baseId = document.getElementById('theme-editor-base')?.value || 'dark';
+  _loadBaseTheme(baseId);
+}
+
+// --- World state ---
+// --- Dashboard ---
+

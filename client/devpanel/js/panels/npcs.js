@@ -1,0 +1,128 @@
+async function deleteNpcRow(id) {
+  const rec = allRecords.find(r => r.id === id);
+  if (!rec || rec._stagingStatus === 'pending delete') return;
+  if (!confirm(`Delete ${rec.name || id}?`)) return;
+  const prev = currentRecord;
+  currentRecord = rec;
+  const result = await API(`/npcs/${id}`, 'DELETE');
+  currentRecord = prev;
+  if (result?.error) { toast(result.error, true); return; }
+  if (result?.staged) {
+    toast('Marked for deletion — publish to apply');
+    await updateStagingBadge();
+  } else {
+    toast(result?.message || 'Deleted');
+  }
+  await loadPanel('npcs');
+}
+
+function renderNpcsPanel(data) {
+  const records = Array.isArray(data) ? data : [];
+  allRecords = records;
+  const panel = document.getElementById('list-panel');
+  if (!records.length) { panel.innerHTML = '<div style="padding:24px;color:var(--text-dim)">No NPCs found.</div>'; return; }
+
+  const columns = PANELS.npcs.columns;
+  const hasStagedRows = records.some(r => r._stagingStatus);
+  let html = '<table><thead><tr>';
+  for (const col of columns) {
+    const isSorted = sortState.key === col.key;
+    const arrow = isSorted ? (sortState.dir === 1 ? ' ▲' : ' ▼') : '';
+    html += `<th class="sortable-col${isSorted?' sorted':''}" onclick="sortTableBy('${col.key}')">${col.label}${arrow}</th>`;
+  }
+  if (hasStagedRows) html += '<th>Status</th>';
+  html += '<th></th></tr></thead><tbody>';
+
+  let sorted = records;
+  if (sortState.key) {
+    sorted = [...records].sort((a, b) => {
+      let av = a[sortState.key], bv = b[sortState.key];
+      if (av == null) av = ''; if (bv == null) bv = '';
+      if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * sortState.dir;
+      return String(av).localeCompare(String(bv)) * sortState.dir;
+    });
+  }
+
+  for (const rec of sorted) {
+    const isPendingDelete = rec._stagingStatus === 'pending delete';
+    const rowStyle = isPendingDelete
+      ? 'cursor:pointer;opacity:0.6;text-decoration:line-through'
+      : rec._stagingStatus ? 'cursor:pointer;border-left:3px solid var(--warning)' : 'cursor:pointer';
+    html += `<tr style="${rowStyle}" onclick="editRecord('${rec.id}')">`;
+    for (const col of columns) {
+      const raw = rec[col.key];
+      const val = col.render ? col.render(raw) : (raw ?? '—');
+      html += `<td>${val}</td>`;
+    }
+    if (hasStagedRows) {
+      const s = rec._stagingStatus;
+      const badge = s === 'pending delete'
+        ? `<span style="color:var(--danger);font-size:11px">⚠ ${s}</span>`
+        : s ? `<span style="color:var(--warning);font-size:11px">● ${s}</span>` : '';
+      html += `<td>${badge}</td>`;
+    }
+    html += `<td style="white-space:nowrap">
+      <button class="action-btn" onclick="event.stopPropagation();editRecord('${rec.id}')">Edit</button>
+      ${isPendingDelete ? '' : `<button class="action-btn danger" style="margin-left:3px" onclick="event.stopPropagation();deleteNpcRow('${rec.id}')">Delete</button>`}
+    </td>`;
+    html += '</tr>';
+  }
+  html += '</tbody></table>';
+  panel.innerHTML = html;
+}
+
+// --- Zone forms ---
+// Controls which entrance-discovery flavor-text bank a building uses
+// (server-side bank lives in commands.js, keyed by the same ids).
+function npcEditForm(rec, isNew) {
+  const tree = typeof rec.dialogue_tree === 'object' ? rec.dialogue_tree : JSON.parse(rec.dialogue_tree||'{}');
+  const vendor = Array.isArray(rec.vendor_inventory) ? rec.vendor_inventory : JSON.parse(rec.vendor_inventory||'[]');
+  return `
+    <div class="field"><label>NPC ID</label><input id="f-id" value="${isNew?'':rec.id}" ${!isNew?'readonly style="opacity:0.5"':''}></div>
+    <div class="field"><label>Name</label><input id="f-name" value="${rec.name||''}"></div>
+    <div class="field"><label>Description</label><textarea id="f-description">${rec.description||''}</textarea></div>
+    <div class="field-row">
+      <div class="field"><label>Zone ID</label><input id="f-zone_id" value="${rec.zone_id||''}"></div>
+      <div class="field"><label>Faction</label><input id="f-faction" value="${rec.faction||''}"></div>
+    </div>
+    <div class="field"><label>Disposition</label>
+      <select id="f-disposition">
+        ${['friendly','neutral','hostile','fearful'].map(d=>`<option ${rec.disposition===d?'selected':''}>${d}</option>`).join('')}
+      </select>
+    </div>
+    <div class="checkbox-field"><input type="checkbox" id="f-wanders" ${rec.wanders?'checked':''} onchange="document.getElementById('f-wander_zones-wrap').style.display=this.checked?'':'none'"><label>Wanders between zones</label></div>
+    <div class="field" id="f-wander_zones-wrap" style="${rec.wanders?'':'display:none'}">
+      <label>Permitted Wander Zones (one zone ID per line)</label>
+      <textarea id="f-wander_zones" rows="4" placeholder="Leave blank to wander to adjacent zones only">${(Array.isArray(rec.wander_zones)?rec.wander_zones:JSON.parse(rec.wander_zones||'[]')).join('\n')}</textarea>
+      <div class="zone-subsection-note">Current zone is always included at runtime.</div>
+    </div>
+    <div class="field"><label>Dialogue Tree (JSON)</label><textarea id="f-dialogue_tree" rows="10">${JSON.stringify(tree, null, 2)}</textarea></div>
+    <div class="field"><label>Vendor Inventory (JSON array)</label><textarea id="f-vendor_inventory" rows="5">${JSON.stringify(vendor, null, 2)}</textarea></div>
+  `;
+}
+
+async function saveNpc(existing) {
+  const isNew = !existing?.id;
+  let tree, vendor;
+  try { tree = JSON.parse(document.getElementById('f-dialogue_tree').value); } catch { return { error: 'Dialogue tree: invalid JSON' }; }
+  try { vendor = JSON.parse(document.getElementById('f-vendor_inventory').value); } catch { return { error: 'Vendor inventory: invalid JSON' }; }
+  const wanderZonesRaw = document.getElementById('f-wander_zones')?.value || '';
+  const wander_zones = wanderZonesRaw.split('\n').map(s => s.trim()).filter(Boolean);
+  const body = {
+    name: document.getElementById('f-name').value,
+    description: document.getElementById('f-description').value,
+    zone_id: document.getElementById('f-zone_id').value || null,
+    faction: document.getElementById('f-faction').value || null,
+    disposition: document.getElementById('f-disposition').value,
+    wanders: document.getElementById('f-wanders').checked,
+    wander_zones,
+    dialogue_tree: tree,
+    vendor_inventory: vendor,
+    flags: {},
+  };
+  if (isNew) { body.id = document.getElementById('f-id').value.trim(); return API('/npcs', 'POST', body); }
+  return API(`/npcs/${existing.id}`, 'PUT', body);
+}
+
+// --- Furniture panel (grouped by zone) ---
+
