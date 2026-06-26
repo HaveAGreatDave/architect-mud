@@ -5,6 +5,9 @@ import { loadRecipes } from '../engine/crafting.js';
 import { loadDrugs } from '../engine/drugs.js';
 import { loadMutations } from '../engine/mutations.js';
 import { randomUUID, createHash, randomBytes } from 'crypto';
+import { readFileSync, writeFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import vm from 'vm';
 import { sendPasswordResetEmail } from '../mailer.js';
 import { randomAppearance } from '../engine/appearance.js';
 import { handleEnvironmentApi } from './environment.routes.js';
@@ -19,6 +22,7 @@ import { startingIp } from '../engine/ip.js';
 
 const hashPassword = pw => createHash('sha256').update(pw).digest('hex');
 const makeToken = (playerId, role) => Buffer.from(`${playerId}:${role}:${Date.now()}`).toString('base64');
+const CATALOG_PATH = fileURLToPath(new URL('../../client/shared/tagCatalog.js', import.meta.url));
 
 // Short-lived one-time tokens for admin ↔ client switching (max 60 seconds).
 const switchTokens = new Map(); // token → { playerId, username, role, handle, expires }
@@ -169,6 +173,9 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path.startsWith('/players/') && path.endsWith('/role') && method==='PUT') return requireAdmin(auth, ()=>apiSetPlayerRole(path.split('/')[2], body));
   if (path.startsWith('/players/') && path.endsWith('/kick') && method==='POST') return requireAdmin(auth, ()=>apiKickPlayer(path.split('/')[2], body));
   if (path.startsWith('/players/') && path.endsWith('/teleport') && method==='POST') return requireAdmin(auth, ()=>apiTeleportPlayer(path.split('/')[2], body));
+  if (path==='/tag-catalog' && method==='GET') return requireDev(auth, apiGetTagCatalog);
+  if (path==='/tag-catalog' && method==='PUT') return requireDev(auth, ()=>apiPutTagCatalog(body));
+  if (path==='/spawn' && method==='POST') return requireDev(auth, ()=>apiSpawnItem(body));
   return { status:404, body:{error:'Not found'} };
 }
 
@@ -1436,4 +1443,30 @@ async function apiUpdateSound(id, body) {
 async function apiDeleteSound(id) {
   await query('DELETE FROM sounds WHERE id=$1',[id]);
   return { status:200, body:{deleted:true} };
+}
+
+async function apiGetTagCatalog() {
+  const src = readFileSync(CATALOG_PATH, 'utf8');
+  const ctx = { globalThis: {} };
+  vm.runInNewContext(src, ctx);
+  return { status:200, body: ctx.globalThis.TAG_CATALOG ?? {} };
+}
+
+async function apiPutTagCatalog(body) {
+  if (!body || typeof body !== 'object') return { status:400, body:{ error:'Expected catalog object' } };
+  const src = `(function(global){\n  var TAG_CATALOG = ${JSON.stringify(body, null, 2)};\n  global.TAG_CATALOG = TAG_CATALOG;\n})(typeof window !== 'undefined' ? window : globalThis);\n`;
+  writeFileSync(CATALOG_PATH, src, 'utf8');
+  globalThis.TAG_CATALOG = body;
+  return { status:200, body:{ ok:true } };
+}
+
+async function apiSpawnItem(body) {
+  const { item_id, zone_id, quantity = 1 } = body || {};
+  if (!item_id || !zone_id) return { status:400, body:{ error:'item_id and zone_id required' } };
+  const { rows } = await query('SELECT id FROM items WHERE id=$1', [item_id]);
+  if (!rows.length) return { status:404, body:{ error:`No item "${item_id}"` } };
+  const invId = `inv_spawn_${Date.now()}_${Math.random().toString(36).slice(2,6)}`;
+  await query('INSERT INTO player_inventory (id,player_id,item_id,quantity) VALUES ($1,$2,$3,$4)',
+    [invId, `_ground_${zone_id}`, item_id, quantity]);
+  return { status:201, body:{ ok:true } };
 }

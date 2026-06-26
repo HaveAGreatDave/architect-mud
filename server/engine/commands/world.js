@@ -1,5 +1,6 @@
 import { query } from '../../models/db.js';
-import { getZone, getZoneEnemies, getZoneNpcs, getZonePlayers } from '../world.js';
+import { getZone, getZoneEnemies, getZoneNpcs, getZonePlayers, getDoorForExit } from '../world.js';
+import { getLockTagPublic } from './doors.js';
 import { getZonePowerStatus, recomputePower, recalcZoneLoad, getEnvironmentState } from '../environment.js';
 import { getPlayerSkills, SKILLS } from '../skills.js';
 import { describeZone } from './describe.js';
@@ -304,7 +305,51 @@ async function cmdExamine(targetStr, player, broadcast) {
     return { type:'examine', message: app + `\n<span class="text-dim">(${s.handle} is asleep.)</span>` };
   }
 
+  // Door examination: "examine north", "examine door north", "examine north door"
+  const EXAM_DIRS = ['north','south','east','west','up','down','in','out'];
+  const EXAM_OPP  = { north:'south', south:'north', east:'west', west:'east', up:'down', down:'up', in:'out', out:'in' };
+  const examDir = EXAM_DIRS.find(d => t === d || t === `door ${d}` || t === `${d} door`);
+  if (examDir) {
+    const zone = getZone(player.current_zone);
+    let examDoor = getDoorForExit(player.current_zone, examDir);
+    if (!examDoor) {
+      const targetId = zone?.exits?.[examDir];
+      if (targetId) examDoor = getDoorForExit(targetId, EXAM_OPP[examDir]) || null;
+    }
+    if (examDoor) {
+      const lockTag = getLockTagPublic(examDoor);
+      const hpLine  = examDoor.hp <= 0 ? 'destroyed' : `${examDoor.hp}/${examDoor.hp_max} HP`;
+      const stateStr = examDoor.hp > 0 ? (examDoor.is_open ? 'open' : 'closed') : '';
+      const lockStr  = lockTag
+        ? ` · ${lockTag.type.replace('lock:', '')} [${examDoor.lock_state ?? 'no state'}]`
+        : ' · no lock';
+      let msg = `${examDoor.name || 'Door'} (${examDoor.door_type})\n${hpLine}${stateStr ? `, ${stateStr}` : ''}${lockStr}`;
+      const acts = examDoor.hp > 0 ? ['open', 'close'] : [];
+      if (lockTag && examDoor.hp > 0) acts.push('lock', 'unlock');
+      if (!lockTag && examDoor.hp > 0) acts.push('install');
+      if (lockTag && examDoor.hp > 0) acts.push('uninstall');
+      if (acts.length) {
+        const links = acts.map(v => `<span class="action-link" data-action="${v}" data-target="door ${examDir}">${v}</span>`).join('  ');
+        msg += `\n<span class="text-dim">Actions:</span> ${links}`;
+      }
+      return { type: 'examine', message: msg };
+    }
+  }
+
   return { type:'error', message:`You don't see "${targetStr}" here.` };
+}
+
+async function cmdSpawn(args, player) {
+  if (!['admin', 'dev'].includes(player.role)) return { type: 'error', message: 'Access denied.' };
+  const [itemId, zoneArg] = args;
+  if (!itemId) return { type: 'error', message: 'Usage: spawn <item_id> [zone_id|here]' };
+  const zoneId = (!zoneArg || zoneArg === 'here') ? player.current_zone : zoneArg;
+  const { rows } = await query('SELECT id FROM items WHERE id=$1', [itemId]);
+  if (!rows.length) return { type: 'error', message: `No item "${itemId}".` };
+  const invId = `inv_spawn_${Date.now()}`;
+  await query('INSERT INTO player_inventory (id,player_id,item_id,quantity) VALUES ($1,$2,$3,1)',
+    [invId, `_ground_${zoneId}`, itemId]);
+  return { type: 'output', message: `Spawned ${itemId} in ${zoneId}.` };
 }
 
 async function cmdSwitch(targetStr, player) {
@@ -489,6 +534,7 @@ export const handlers = {
   close:    (args, raw, player) => cmdOpenWindow(args, player, 'close'),
   raise:    (args, raw, player) => cmdRaise(args, player),
   ip:       (args, raw, player) => cmdRaise([], player),
+  spawn:    (args, raw, player) => cmdSpawn(args, player),
 };
 
 // Lighting controls are owned by the lighting plugin (registered as specialized
