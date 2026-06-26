@@ -372,61 +372,17 @@ async function cmdSpawn(args, player) {
   return { type: 'output', message: `Spawned ${itemId} in ${zoneId}.` };
 }
 
-async function cmdSwitch(targetStr, player) {
-  if (!targetStr) return { type:'error', message:'Usage: switch on/off <light name>' };
-  const words = targetStr.split(' ');
-  const first = words[0].toLowerCase();
-  let dir = null;
-  let nameStr = targetStr;
-  if (first === 'on' || first === 'off') {
-    dir = first;
-    nameStr = words.slice(1).join(' ');
-  }
-  if (!nameStr) return { type:'error', message:'Usage: switch on/off <light name>' };
+async function applyLightSwitch(nameStr, dir, player) {
+  if (!nameStr) return { type:'error', message:'Specify a light name.' };
   const { rows } = await query(`SELECT * FROM furniture WHERE zone_id=$1 AND object_type='light' AND name ILIKE $2 LIMIT 1`, [player.current_zone, `%${nameStr}%`]);
   if (!rows.length) return { type:'error', message:`You don't see a light called "${nameStr}" here.` };
   const light = rows[0];
   if (light.light_type === 'streetlight') {
     return { type:'error', message:`${light.name} is city-grid infrastructure — it comes on by itself once it gets dark. There's no switch out here.` };
   }
-  const powerStatus = getZonePowerStatus(player.current_zone);
-  if (powerStatus === 'unpowered') {
-    return { type:'error', message:`The switch clicks, but nothing happens. No power reaches this room.` };
-  }
   const newState = dir ? (dir === 'on' ? 1 : 0) : (light.light_on ? 0 : 1);
   if (light.light_on === newState) {
     return { type:'message', message:`${light.name} is already ${newState ? 'on' : 'off'}.` };
-  }
-  await query(`UPDATE furniture SET light_on=$1 WHERE id=$2`, [newState, light.id]);
-  const { rows: countRows } = await query(
-    `SELECT COUNT(*)::int AS cnt, COALESCE(SUM(COALESCE(lumen_output,0)),0)::int AS lm FROM furniture WHERE zone_id=$1 AND object_type='light' AND light_on=1`,
-    [player.current_zone]
-  );
-  await query(`UPDATE lighting_states SET fixture_count=$1, total_lumens=$2 WHERE zone_id=$3`, [countRows[0]?.cnt || 0, countRows[0]?.lm || 0, player.current_zone]).catch(()=>{});
-  await recalcZoneLoad(query, player.current_zone).catch(()=>{});
-  await recomputePower().catch(()=>{});
-  return { type:'action', triggerLook: true, message: newState
-    ? `You flip the switch. ${light.name} flickers on.`
-    : `You flip the switch. ${light.name} goes dark.` };
-}
-
-async function cmdTurn(args, player) {
-  const first = args[0]?.toLowerCase();
-  if (first !== 'on' && first !== 'off') {
-    return { type:'error', message:'Usage: turn on/off <light name>' };
-  }
-  const dir = first;
-  const targetStr = args.slice(1).join(' ');
-  if (!targetStr) return { type:'error', message:'Usage: turn on/off <light name>' };
-  const { rows } = await query(`SELECT * FROM furniture WHERE zone_id=$1 AND object_type='light' AND name ILIKE $2 LIMIT 1`, [player.current_zone, `%${targetStr}%`]);
-  if (!rows.length) return { type:'error', message:`You don't see a light called "${targetStr}" here.` };
-  const light = rows[0];
-  if (light.light_type === 'streetlight') {
-    return { type:'error', message:`${light.name} is city-grid infrastructure — it comes on by itself. There's no switch out here.` };
-  }
-  const newState = dir === 'on' ? 1 : 0;
-  if (light.light_on === newState) {
-    return { type:'message', message:`${light.name} is already ${dir}.` };
   }
   const powerStatus = getZonePowerStatus(player.current_zone);
   if (powerStatus === 'unpowered' && newState === 1) {
@@ -440,9 +396,49 @@ async function cmdTurn(args, player) {
   await query(`UPDATE lighting_states SET fixture_count=$1, total_lumens=$2 WHERE zone_id=$3`, [countRows[0]?.cnt || 0, countRows[0]?.lm || 0, player.current_zone]).catch(()=>{});
   await recalcZoneLoad(query, player.current_zone).catch(()=>{});
   await recomputePower().catch(()=>{});
-  return { type:'action', triggerLook: true, message: newState
+  const flipMsg = newState
     ? `You flip the switch. ${light.name} flickers on.`
-    : `You flip the switch. ${light.name} goes dark.` };
+    : `You flip the switch. ${light.name} goes dark.`;
+  const zone = getZone(player.current_zone);
+  const lookMsg = await describeZone(zone, player);
+  return { type:'look', message:`${flipMsg}\n\n${lookMsg}`, zone: player.current_zone, minimap: getMinimapData(player.current_zone) };
+}
+
+// "switch on/off <name>" or "switch <name> on/off" or "switch <name>" (toggle)
+async function cmdSwitch(targetStr, player) {
+  if (!targetStr) return { type:'error', message:'Usage: switch on/off <light name>' };
+  const words = targetStr.split(' ');
+  const first = words[0].toLowerCase();
+  const last  = words[words.length - 1].toLowerCase();
+  let dir = null;
+  let nameStr;
+  if (first === 'on' || first === 'off') {
+    dir = first;
+    nameStr = words.slice(1).join(' ');
+  } else if (last === 'on' || last === 'off') {
+    dir = last;
+    nameStr = words.slice(0, -1).join(' ');
+  } else {
+    nameStr = targetStr; // no direction — toggle
+  }
+  return applyLightSwitch(nameStr, dir, player);
+}
+
+// "turn on/off <name>" or "turn <name> on/off"
+async function cmdTurn(args, player) {
+  const first = args[0]?.toLowerCase();
+  const last  = args[args.length - 1]?.toLowerCase();
+  let dir, nameStr;
+  if (first === 'on' || first === 'off') {
+    dir = first;
+    nameStr = args.slice(1).join(' ');
+  } else if (last === 'on' || last === 'off') {
+    dir = last;
+    nameStr = args.slice(0, -1).join(' ');
+  } else {
+    return { type:'error', message:'Usage: turn on/off <light name> — or — turn <light name> on/off' };
+  }
+  return applyLightSwitch(nameStr, dir, player);
 }
 
 async function cmdTeleport(targetZoneId, player, broadcast) {
