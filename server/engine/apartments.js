@@ -1,5 +1,5 @@
 import { query } from "../models/db.js";
-import { getApartment, setApartmentCache, getZone } from "./world.js";
+import { getApartment, setApartmentCache, getZone, world, setDoorCache } from "./world.js";
 import { skillCheck, awardSkillUse } from "./skills.js";
 import { adjustCredits } from "./economy.js";
 
@@ -138,6 +138,20 @@ export async function cmdLockDoor(player, wantLocked) {
 		zone.id,
 	]);
 	setApartmentCache(zone.id, { ...apt, is_locked: newState });
+
+	// Sync the physical door's lock_state
+	const newLockState = wantLocked ? 'locked' : 'unlocked';
+	for (const door of world.doors.values()) {
+		const doorZone = world.zones.get(door.zone_id);
+		const targetId = doorZone?.exits?.[door.exit_dir];
+		if (door.zone_id === zone.id || targetId === zone.id) {
+			const hasMissingLockTag = (door.tags ?? []).some(t => t.type?.startsWith('lock:'));
+			if (!hasMissingLockTag) continue;
+			await query('UPDATE doors SET lock_state=$1 WHERE id=$2', [newLockState, door.id]);
+			door.lock_state = newLockState;
+			setDoorCache(door.id, door);
+		}
+	}
 
 	return {
 		type: "lock",

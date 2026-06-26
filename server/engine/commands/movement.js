@@ -179,9 +179,7 @@ async function cmdMove(direction, player, broadcast) {
       }
       if (!canUnlock) return { type:'error', message:`The door to the ${direction} is locked.` };
       doorWasLocked = true;
-      await query('UPDATE doors SET lock_state=$1 WHERE id=$2', ['unlocked', door.id]);
-      door.lock_state = 'unlocked';
-      setDoorCache(door.id, door);
+      // Don't clear lock_state — owner bypasses the lock but the door stays locked
     }
     if (!door.is_open) {
       doorWasClosed = true;
@@ -200,6 +198,7 @@ async function cmdMove(direction, player, broadcast) {
   const OPPOSITE = { north:'south', south:'north', east:'west', west:'east', up:'down', down:'up', in:'out', out:'in' };
   const arrivalDir = OPPOSITE[direction] || null;
 
+  const hadDoor = !!(door && door.hp > 0);
   const departMsg = doorWasLocked
     ? `The Hololock emits a soft chime. ${player.handle} opens the door and heads ${direction}.`
     : doorWasClosed
@@ -210,6 +209,15 @@ async function cmdMove(direction, player, broadcast) {
     : (arrivalDir ? `${player.handle} arrives from the ${arrivalDir}.` : `${player.handle} arrives.`);
   broadcast(zone.id, { type:'zone_event', message: departMsg }, player.id);
   broadcast(targetId, { type:'zone_event', message: arriveMsg }, player.id);
+
+  // Close the door behind the player if it was closed before they walked through
+  if (hadDoor && doorWasClosed) {
+    door.is_open = 0;
+    setDoorCache(door.id, door);
+    await query('UPDATE doors SET is_open=0 WHERE id=$1', [door.id]);
+    broadcast(zone.id, { type:'zone_event', message:'The door swings closed.' });
+    broadcast(targetId, { type:'zone_event', message:'The door swings closed.' });
+  }
 
   let radGain = 0;
   if (targetZone.radiation_level > 0) {

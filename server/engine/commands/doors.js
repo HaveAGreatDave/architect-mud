@@ -77,10 +77,28 @@ async function cmdLockDoor(args, raw, player, broadcast) {
   if (door.hp <= 0) return { type:'error', message:'That door is destroyed.' };
   const lockTag = getLockTag(door);
   if (!lockTag) return { type:'error', message:"This door has no lock." };
-  if (door.is_open) return { type:'error', message:'Close the door first.' };
   if (door.lock_state === 'locked') return { type:'error', message:'The lock is already engaged.' };
+
+  const isAdmin = player.role === 'admin' || player.role === 'dev';
+  if (!isAdmin) {
+    const targetZoneId = getZone(door.zone_id)?.exits?.[door.exit_dir] ?? null;
+    const zonesToCheck = [door.zone_id, targetZoneId].filter(Boolean);
+    const { rows } = await query(
+      'SELECT 1 FROM apartments WHERE zone_id=ANY($1) AND owner_id=$2',
+      [zonesToCheck, player.id]
+    );
+    if (!rows.length) return { type:'error', message:'The lock does not recognize your credentials.' };
+  }
+
+  // Auto-close the door before locking if it's open
+  if (door.is_open) {
+    await updateDoor(door, { is_open: 0 });
+    broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} closes and locks the door.` }, player.id);
+  } else {
+    broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} locks the door.` }, player.id);
+  }
+
   await updateDoor(door, { lock_state: 'locked' });
-  broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} locks the door.` }, player.id);
   return { type:'output', message: lockTag.messages?.lock ?? 'You lock the door.' };
 }
 
