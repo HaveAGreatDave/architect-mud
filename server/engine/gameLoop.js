@@ -399,7 +399,7 @@ async function resourceTick() {
     } else {
       player._dangerousTempTicks = 0;
     }
-    if (isDangerous && player._dangerousTempTicks >= 20) {
+    if (isDangerous && player._dangerousTempTicks >= 5) {
       player.hp = Math.max(0, player.hp - 10);
       hpChanged = true;
     }
