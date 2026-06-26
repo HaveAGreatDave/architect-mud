@@ -11,13 +11,13 @@
  * effect and reads the global. Both land on `globalThis.TAG_CATALOG`.
  *
  * shape — drives the dev-panel input widget and serialization:
- * text    free text (textarea)
- * flag    valueless marker (stored as `true`)
- * int     integer
- * enum    one of `options`
- * range   { min, max }
- * hot     heal-over-time { amount, duration_seconds }
- * statmap JSON object of key -> number (small JSON textarea)
+ *   text    free text (textarea)
+ *   flag    valueless marker (stored as `true`)
+ *   int     integer
+ *   enum    one of `options`
+ *   range   { min, max }
+ *   hot     heal-over-time { amount, duration_seconds }
+ *   statmap JSON object of key -> number (small JSON textarea)
  *
  * scope — 'class' tags live on the item template (items.tags); 'instance' tags
  * are presence-only flags on a carried item (player_inventory.custom_data).
@@ -107,11 +107,19 @@
     container: { label: 'Container Capacity', shape: 'int', scope: 'class', group: 'Container',
       help: 'Marks this item as a container. Value is the max total weight it can hold. Contents count at 75% of their weight while carried.' },
 
+    // --- Locks ---
+    "lock:hololock": { label: 'Holographic Lock', shape: 'statmap', scope: 'class', group: 'Hardware', help: 'Electronic holographic authorization matrix.', install_lock: 'installHoloLock', uninstall_lock: 'uninstallHoloLock' },
+    "lock:keycardlock": { label: 'Magnetic Keycard Reader', shape: 'statmap', scope: 'class', group: 'Hardware', help: 'Magnetic reader checking passcode clearance profiles.', install_lock: 'installKeycardLock', uninstall_lock: 'uninstallKeycardLock' },
+
+    // --- Installation Kits ---
+    "lockkit:hololock": { label: 'Hololock Installation Kit', shape: 'flag', scope: 'class', group: 'Tools', help: 'Consumable installation kit used to deploy a holographic lock setup onto a door or frame.' },
+    "lockkit:keycardlock": { label: 'Keycard Lock Installation Kit', shape: 'flag', scope: 'class', group: 'Tools', help: 'Consumable installation kit used to deploy a magnetic keycard reader onto a door or frame.' },
+
     // --- Instance flags (presence-only, on a carried item) ---
     broken: { label: 'Broken', shape: 'flag', scope: 'instance', group: 'Instance',
       help: 'Per-item state flag set on a carried instance.' },
     cursed: { label: 'Cursed', shape: 'flag', scope: 'instance', group: 'Instance',
-      help: 'Per-item state flag set on a carried instance.' }
+      help: 'Per-item state flag set on a carried instance.' },
   };
 
   global.TAG_CATALOG = TAG_CATALOG;
