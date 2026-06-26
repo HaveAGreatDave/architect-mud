@@ -4,6 +4,7 @@ import { getZoneVisibility, getWindowsForZone, getWeatherDescription } from '../
 import { getCustodianOutcastResponse } from '../mutations.js';
 import { describeApartmentStatus, describeRentStatus } from '../apartments.js';
 import { fireHook } from '../plugins.js';
+import { hasTag } from '../tags.js';
 
 const turretCooldowns = new Map();
 
@@ -171,7 +172,7 @@ export async function describeZone(zone, player) {
   );
 
   const { rows: groundItems } = isDark ? { rows: [] } : await query(
-    `SELECT pi.*, i.name, i.rarity FROM player_inventory pi
+    `SELECT pi.*, i.name, i.rarity, i.tags FROM player_inventory pi
      JOIN items i ON i.id = pi.item_id
      WHERE pi.player_id = $1 AND pi.container_id IS NULL`,
     [`_ground_${zone.id}`]
@@ -224,9 +225,28 @@ export async function describeZone(zone, player) {
     if (isDim) {
       desc += ` Something is lying on the ground nearby.`;
     } else {
-      const itemMentions = groundItems.map(item => {
+      // Group stackable items of the same type into a single "Nx name" mention;
+      // non-stackable items are listed individually.
+      const stacks = new Map();
+      const mentions = [];
+      for (const item of groundItems) {
+        if (hasTag(item, 'stackable')) {
+          const existing = stacks.get(item.item_id);
+          if (existing) {
+            existing.qty += item.quantity;
+            continue;
+          }
+          const entry = { item, qty: item.quantity };
+          stacks.set(item.item_id, entry);
+          mentions.push(entry);
+        } else {
+          mentions.push({ item, qty: 1 });
+        }
+      }
+      const itemMentions = mentions.map(({ item, qty }) => {
         const rarityClass = `item-rarity-${item.rarity}`;
-        return `<span class="action-link room-item ${rarityClass}" data-action="take" data-target="${item.name}" title="Take ${item.name}">${item.name}</span>`;
+        const label = qty > 1 ? `${qty}x ${item.name}` : item.name;
+        return `<span class="action-link room-item ${rarityClass}" data-action="take" data-target="${item.name}" title="Take ${item.name}">${label}</span>`;
       });
       desc += ` Lying here: ${itemMentions.join(', ')}.`;
     }

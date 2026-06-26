@@ -68,6 +68,16 @@ export async function resolveAttack(player, target, broadcast) {
 					],
 				);
 			}
+			// Enrich loot with display names so the client can show
+			// "2x raw meat" with clickable take links instead of raw item ids.
+			const { rows: nameRows } = await query(
+				"SELECT id, name FROM items WHERE id = ANY($1)",
+				[result.loot.map((d) => d.item_id)],
+			);
+			const nameById = new Map(nameRows.map((r) => [r.id, r.name]));
+			for (const drop of result.loot) {
+				drop.name = nameById.get(drop.item_id) || drop.item_id;
+			}
 		}
 		createCorpse({
 			id: `corpse_${result.enemyId || randomUUID()}`,

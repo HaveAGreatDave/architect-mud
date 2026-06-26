@@ -75,7 +75,12 @@ const handlers = {
   combat: (msg) => {
     appendHtml(msg.message, msg.killed ? 'loot' : 'combat');
     if (msg.killed && msg.loot?.length) {
-      appendMsg(`Loot: ${msg.loot.map(l => `${l.item_id} x${l.quantity}`).join(', ')}`, 'loot');
+      const links = msg.loot.map(l => {
+        const name = l.name || l.item_id;
+        const label = l.quantity > 1 ? `${l.quantity}x ${name}` : name;
+        return `<span class="action-link room-item" data-action="take" data-target="${name}" title="Take ${name}">${label}</span>`;
+      });
+      appendHtml(`Loot: ${links.join(', ')}`, 'loot');
     }
   },
 
