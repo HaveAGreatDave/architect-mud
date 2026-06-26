@@ -146,6 +146,7 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path.startsWith('/windows/') && method==='DELETE') return requireDev(auth, ()=>apiDeleteWindow(path.split('/')[2]));
   if (path==='/doors' && method==='GET') return requireDev(auth, apiGetDoors);
   if (path==='/doors' && method==='POST') return requireDev(auth, ()=>apiCreateDoor(body));
+  if (path.startsWith('/doors/') && path.endsWith('/keycard') && method==='POST') return requireDev(auth, ()=>apiCreateKeycard(path.split('/')[2], body));
   if (path.startsWith('/doors/') && method==='PUT') return requireDev(auth, ()=>apiUpdateDoor(path.split('/')[2],body));
   if (path.startsWith('/doors/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteDoor(path.split('/')[2]));
   if (path==='/ambient-events' && method==='GET') return requireDev(auth, ()=>apiGetAmbientEvents(url));
@@ -1305,6 +1306,24 @@ async function apiGetZoneDoors(zoneId) {
     [id]
   );
   return { status:200, body:rows };
+}
+
+async function apiCreateKeycard(doorId, body) {
+  const id = `keycard_${doorId}`;
+  const zoneName = body.zone_name || 'Unknown Room';
+  // Idempotent: if this keycard already exists, return it without recreating
+  const { rows: existing } = await query('SELECT id FROM items WHERE id=$1', [id]);
+  if (existing.length) return { status:200, body:{ id } };
+  const name = `Keycard — ${zoneName}`;
+  const description = `A slim obsidian card, its surface threaded with bioluminescent circuitry that pulses faintly when held. The access signature encoded in its memory is keyed exclusively to the reader on ${zoneName}'s door — swipe it anywhere else and it's just a pretty piece of plastic.`;
+  try {
+    await query(
+      `INSERT INTO items (id, name, description, type, subtype, weight, value, rarity, is_stackable, is_unique, flags)
+       VALUES ($1,$2,$3,'key','keycard',0.05,0,'rare',0,1,$4)`,
+      [id, name, description, JSON.stringify({ keycard_for_door: doorId })]
+    );
+    return { status:201, body:{ id } };
+  } catch(e) { return { status:400, body:{ error:e.message } }; }
 }
 
 async function apiCreateDoor(body) {

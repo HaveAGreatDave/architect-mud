@@ -833,6 +833,8 @@ async function openEdit(record, isNew) {
   if (currentPanel === 'scripts') renderScriptEditor();
   // Populate zone windows sub-section after DOM is ready
   if (currentPanel === 'zones' && record?.id) zoneWindowsRefresh(record.id);
+  // Populate door list with the up-to-date template (initial render uses stale inline template)
+  if (currentPanel === 'zones' && record?.id) refreshDoorList(record.id);
   // Populate world map exit dropdown if this is a building zone
   if (currentPanel === 'zones' && record?.flags?.is_building) {
     toggleBuildingFields(true, record.id);
@@ -1896,7 +1898,11 @@ async function refreshDoorList(zoneId) {
     const installed = !!(d.zone_id && d.exit_dir);
     const statusIcon = installed ? '<span style="color:var(--accent2)">✓</span>' : '<span style="color:var(--red)">✗</span>';
     const lockTag = (d.tags||[]).find(t=>t.type&&t.type.startsWith('lock:'));
-    const lockLabel = lockTag ? `${lockTag.type} (diff ${lockTag.difficulty})${d.lock_state==='locked'?' · locked':''}` : 'no lock';
+    const lockLabel = lockTag
+      ? (lockTag.type === 'lock:keycardlock'
+          ? `${lockTag.type} · key: ${lockTag.keyItemId||'?'}${d.lock_state==='locked'?' · locked':''}`
+          : `${lockTag.type} (diff ${lockTag.difficulty})${d.lock_state==='locked'?' · locked':''}`)
+      : 'no lock';
     return `<div id="door-row-${d.id}">
       <div class="zone-subitem-row">
         <span style="display:flex;align-items:center;gap:6px">${statusIcon} <strong>${d.id}</strong> <span style="color:var(--text-dim);font-size:11px">${d.door_type} · ${d.exit_dir||'unassigned'} · ${d.hp}/${d.hp_max} HP · ${lockLabel}</span></span>
@@ -1911,6 +1917,7 @@ async function refreshDoorList(zoneId) {
             <select id="lock-type-${d.id}" onchange="onLockTypeChange('${d.id}')" style="margin-left:4px">
               <option value="none" ${!lockTag?'selected':''}>none</option>
               <option value="lock:hololock" ${lockTag?.type==='lock:hololock'?'selected':''}>hololock</option>
+              <option value="lock:keycardlock" ${lockTag?.type==='lock:keycardlock'?'selected':''}>keycardlock</option>
             </select>
           </label>
           <span id="lock-opts-${d.id}" style="display:${lockTag?'contents':'none'}">
@@ -1951,8 +1958,23 @@ function toggleLockEditor(doorId) {
 function onLockTypeChange(doorId) {
   const type = document.getElementById(`lock-type-${doorId}`)?.value;
   const opts = document.getElementById(`lock-opts-${doorId}`);
-  if (opts) opts.style.display = type === 'none' ? 'none' : 'contents';
+  if (opts) opts.style.display = (type === 'none' || type === 'lock:keycardlock') ? 'none' : 'contents';
 }
+
+const LOCK_MESSAGES = {
+  'lock:hololock': {
+    lock: 'The hololock hums as it engages.',
+    unlock: 'The hololock disengages with a soft click.',
+    denied: 'The hololock does not recognize your credentials.',
+    hackSuccess: 'You bypass the hololock\'s security matrix.',
+    hackFail: 'The hololock resists your intrusion.'
+  },
+  'lock:keycardlock': {
+    lock: 'The keycard reader beeps twice as the lock engages.',
+    unlock: 'The keycard reader flashes green. The lock disengages.',
+    denied: 'The keycard reader flashes red. Access denied.'
+  }
+};
 
 async function saveDoorLock(doorId, zoneId) {
   const type = document.getElementById(`lock-type-${doorId}`)?.value;
@@ -1961,25 +1983,34 @@ async function saveDoorLock(doorId, zoneId) {
   if (!door) { toast('Door not found', true); return; }
   let tags = (door.tags||[]).filter(t => !t.type?.startsWith('lock:'));
   let lock_state = null;
+
   if (type !== 'none') {
-    const difficulty = Math.max(1, Math.min(20, parseInt(document.getElementById(`lock-diff-${doorId}`)?.value) || 5));
-    const canHack = document.getElementById(`lock-hack-${doorId}`)?.checked ?? false;
-    tags = [...tags, {
-      type,
-      difficulty,
-      canHack,
-      requiresItem: false,
-      permissions: { ownerId: null, authorizedUsers: [] },
-      messages: {
-        lock: 'The hololock hums as it engages.',
-        unlock: 'The hololock disengages with a soft click.',
-        hackSuccess: 'You bypass the hololock\'s security matrix.',
-        hackFail: 'The hololock resists your intrusion.'
-      },
-      handlers: { onLock: 'default_lock_handler', onUnlock: 'default_unlock_handler', onHack: 'default_hack_handler' }
-    }];
+    const existingLockTag = (door.tags||[]).find(t => t.type === type);
+    let newTag = { type, messages: LOCK_MESSAGES[type] || {}, handlers: { onLock: 'default_lock_handler', onUnlock: 'default_unlock_handler' } };
+
+    if (type === 'lock:keycardlock') {
+      // Reuse existing keyItemId if switching back to keycardlock on same door
+      let keyItemId = existingLockTag?.keyItemId;
+      if (!keyItemId) {
+        const zone = await API(`/zones/${encodeURIComponent(zoneId)}`).catch(() => null);
+        const zoneName = zone?.name || zoneId;
+        const res = await API(`/doors/${doorId}/keycard`, 'POST', { zone_name: zoneName });
+        if (res?.error) { toast('Failed to create keycard: ' + res.error, true); return; }
+        keyItemId = res.id;
+        toast(`Keycard item created: ${keyItemId}`);
+      }
+      newTag.keyItemId = keyItemId;
+    } else {
+      const difficulty = Math.max(1, Math.min(20, parseInt(document.getElementById(`lock-diff-${doorId}`)?.value) || 5));
+      const canHack = document.getElementById(`lock-hack-${doorId}`)?.checked ?? false;
+      newTag.difficulty = difficulty;
+      newTag.canHack = canHack;
+    }
+
+    tags = [...tags, newTag];
     lock_state = 'unlocked';
   }
+
   const result = await API(`/doors/${doorId}`, 'PUT', { ...door, tags, lock_state });
   if (result?.error) { toast(result.error, true); return; }
   toast(type === 'none' ? 'Lock removed' : `${type} saved`);

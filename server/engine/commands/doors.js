@@ -52,7 +52,14 @@ export async function checkLockAuth(lockTag, door, player) {
       );
       return rows.length > 0;
     }
-    // case 'lock:keylock': check player inventory for lockTag.keyItemId
+    case 'lock:keycardlock': {
+      if (!lockTag.keyItemId) return false;
+      const { rows } = await query(
+        'SELECT 1 FROM player_inventory WHERE player_id=$1 AND item_id=$2 LIMIT 1',
+        [player.id, lockTag.keyItemId]
+      );
+      return rows.length > 0;
+    }
     // case 'lock:biometric': check lockTag.permissions.authorizedUsers
     default:
       return false;
