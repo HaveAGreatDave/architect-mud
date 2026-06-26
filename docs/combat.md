@@ -119,9 +119,8 @@ enemy behaviour:
    at the attacker.
 
 > **Known issues** (see the QA report): the attack-interval formula has no lower clamp (`stat_agi ≥ 34`
-> ⇒ attacks every tick); the auto-retaliate "stick to current target" branch reads `target.combatTargetId`,
-> which is never assigned anywhere, so it always retaliates against the most recent attacker; and
-> `handlePlayerDeath` has no re-entrancy guard, so two same-tick lethal hits can run respawn twice.
+> ⇒ attacks every tick); and `handlePlayerDeath` has no re-entrancy guard, so two same-tick lethal hits
+> can run respawn twice. (`combatTargetId` tracking and retaliation focus-lock are now fixed.)
 
 ## On kill
 

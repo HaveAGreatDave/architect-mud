@@ -62,25 +62,37 @@ function tick() {
           broadcastFn(null, { type:'combat_incoming', message:result.message, damage:result.damage, hp:target.hp, hp_max:target.hp_max }, null, target.id);
           if (target.hp <= 0) { handlePlayerDeath(target, enemy); return; }
 
-          // Auto-retaliate: fight back rather than standing there. Stick to the
-          // target we're already fighting — a second attacker doesn't pull our
-          // focus. Only engage this attacker if we have no current target.
-          if (!isOnCooldown(target.id, 'attack')) {
-            let retaliateTarget = enemy;
-            const current = target.combatTargetId ? world.enemies.get(target.combatTargetId) : null;
-            if (current && current.zoneId === target.current_zone) retaliateTarget = current;
-            resolveAttack(target, retaliateTarget, broadcastFn)
-              .then(atkResult => {
-                if (atkResult?.type === 'combat') {
-                  broadcastFn(null, { ...atkResult, auto:true }, null, target.id);
-                }
-              })
-              .catch(() => {});
-          }
+          // Retaliation: start attacking the attacker only if not already engaged.
+          // The player auto-attack loop in tick() sustains combat from here on.
+          const currentCombatEnemy = target.combatTargetId ? world.enemies.get(target.combatTargetId) : null;
+          const currentTargetAlive = currentCombatEnemy && currentCombatEnemy.zoneId === target.current_zone;
+          if (!currentTargetAlive) target.combatTargetId = enemy.instanceId;
         } else {
           broadcastFn(null, { type:'combat_miss', message:result.message }, null, enemy.targetId);
         }
       }).catch(() => {});
+    }
+  }
+
+  // Player auto-attack: sustain combat against combatTargetId each tick
+  for (const [playerId, player] of world.players) {
+    if (!player.combatTargetId) continue;
+    const combatEnemy = world.enemies.get(player.combatTargetId);
+    if (!combatEnemy || combatEnemy.zoneId !== player.current_zone) {
+      player.combatTargetId = null;
+      continue;
+    }
+    if (!isOnCooldown(playerId, 'attack')) {
+      resolveAttack(player, combatEnemy, broadcastFn)
+        .then(atkResult => {
+          if (atkResult?.type === 'combat') {
+            broadcastFn(null, { ...atkResult, auto: true }, null, playerId);
+          } else {
+            // Target gone (killed by another player, etc.) — stop
+            player.combatTargetId = null;
+          }
+        })
+        .catch(() => {});
     }
   }
 
@@ -147,6 +159,7 @@ export function handlePlayerDeath(player, killer) {
   player.stamina = player.stamina_max ?? 100;
   player.body_temp_c = 37.0;
   player.sleeping = null;
+  player.combatTargetId = null;
 
   broadcastFn(null, {
     type:'player_death',

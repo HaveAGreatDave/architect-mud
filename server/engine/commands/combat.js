@@ -1,6 +1,6 @@
 import { query } from "../../models/db.js";
 import { getZoneEnemies, getZoneCorpses, getZonePlayers, createCorpse } from "../world.js";
-import { playerAttackEnemy } from "../combat.js";
+import { playerAttackEnemy, isOnCooldown } from "../combat.js";
 import { awardSkillUse, skillCheck } from "../skills.js";
 import { hasTag, tagValue } from "../tags.js";
 import { adjustCredits } from "../economy.js";
@@ -49,13 +49,13 @@ export async function resolveAttack(player, target, broadcast) {
 	}
 
 	// Emit the player→enemy outcome here — the single chokepoint every player
-	// swing passes through, manual `kill` *and* the raw-tick auto-retaliation in
-	// gameLoop.js. (The enemy's own attacks stay raw and emit nothing.) Quest
-	// objective tracking and other Event subscribers hang off enemy.killed.
+	// swing passes through: manual `attack`/`kill` and the auto-attack loop in
+	// gameLoop.js. Quest objective tracking hangs off enemy.killed/enemy.attacked.
 	if (result.killed) emit("enemy.killed", { actor: player, enemy: target });
 	else emit("enemy.attacked", { actor: player, enemy: target });
 
 	if (result.killed) {
+		player.combatTargetId = null;
 		if (result.loot?.length) {
 			for (const drop of result.loot) {
 				await query(
@@ -115,6 +115,14 @@ async function cmdAttack(targetStr, player, broadcast) {
 	);
 	if (!target)
 		return { type: "error", message: `Can't find "${targetStr}" here.` };
+
+	// On cooldown: switch target for next swing instead of erroring
+	if (isOnCooldown(player.id, 'attack')) {
+		player.combatTargetId = target.instanceId;
+		return { type: "output", message: `Switching target to ${target.name}.` };
+	}
+
+	player.combatTargetId = target.instanceId;
 	return resolveAttack(player, target, broadcast);
 }
 
@@ -230,6 +238,13 @@ async function cmdSteal(targetStr, player, broadcast) {
 	};
 }
 
+function cmdStop(player) {
+	if (!player.combatTargetId)
+		return { type: "output", message: "You aren't attacking anything." };
+	player.combatTargetId = null;
+	return { type: "output", message: "You disengage." };
+}
+
 export const handlers = {
 	attack: (args, raw, player, broadcast) =>
 		cmdAttack(args.join(" "), player, broadcast),
@@ -237,6 +252,8 @@ export const handlers = {
 		cmdAttack(args.join(" "), player, broadcast),
 	k: (args, raw, player, broadcast) =>
 		cmdAttack(args.join(" "), player, broadcast),
+	stop: (args, raw, player) => cmdStop(player),
+	disengage: (args, raw, player) => cmdStop(player),
 	loot: (args, raw, player, broadcast) =>
 		cmdLootCorpse(args.join(" "), player, broadcast),
 	steal: (args, raw, player, broadcast) =>

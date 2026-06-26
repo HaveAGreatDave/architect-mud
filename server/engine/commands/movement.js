@@ -194,6 +194,7 @@ async function cmdMove(direction, player, broadcast) {
   removePlayerFromZone(player.id, player.current_zone);
   addPlayerToZone(player.id, targetId);
   player.current_zone = targetId;
+  player.combatTargetId = null;
   await query('UPDATE players SET current_zone=$1 WHERE id=$2', [targetId, player.id]);
 
   const OPPOSITE = { north:'south', south:'north', east:'west', west:'east', up:'down', down:'up', in:'out', out:'in' };
