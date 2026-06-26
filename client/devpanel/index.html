@@ -1180,47 +1180,6 @@ async function zoneEditForm(rec, isNew) {
       </div>
 
       <div class="zone-subsection">
-        <div class="zone-subsection-header">Doors <span class="zone-subsection-count">${zoneDoors.length}</span></div>
-        <div id="zone-doors-list">${zoneDoors.length ? zoneDoors.map(d => {
-          const installed = !!(d.zone_id && d.exit_dir);
-          const statusIcon = installed ? '<span style="color:var(--accent2)">✓</span>' : '<span style="color:var(--red)">✗</span>';
-          const dTagObj = (d.tags && !Array.isArray(d.tags)) ? d.tags : {};
-          const dLockKey = Object.keys(dTagObj).find(k=>k.startsWith('lock:'));
-          const dLockTag = dLockKey ? { type: dLockKey, ...dTagObj[dLockKey] } : null;
-          const dLockLabel = dLockTag ? `${dLockTag.type} (diff ${dLockTag.difficulty})${d.lock_state==='locked'?' · 🔒':''}` : 'no lock';
-          return `<div class="zone-subitem-row" id="door-row-${d.id}">
-            <span style="display:flex;align-items:center;gap:6px">${statusIcon} <strong>${d.id}</strong> <span style="color:var(--text-dim);font-size:11px">${d.door_type} · ${d.exit_dir||'unassigned'} · ${d.hp}/${d.hp_max} HP · ${dLockLabel}</span></span>
-            <span class="zone-subitem-actions">
-              ${dLockTag
-                ? `<button class="action-btn" onclick="removeDoorLock('${d.id}','${rec.id}')" style="min-width:28px;padding:2px 6px;font-size:11px">-lock</button>`
-                : `<button class="action-btn" onclick="addDoorLock('${d.id}','${rec.id}')" style="min-width:28px;padding:2px 6px;font-size:11px">+lock</button>`
-              }
-              <button class="action-btn danger" onclick="deleteDoorQuick('${d.id}','${rec.id}')" title="Remove door" style="min-width:28px;padding:2px 8px;font-size:14px;font-weight:bold">−</button>
-            </span>
-          </div>`;
-        }).join('') : '<div class="zone-subitem-empty">No doors here.</div>'}</div>
-        <div id="zone-add-door-form" style="margin-top:6px">
-          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-            <select id="door-type-select" style="flex:1;min-width:100px">
-              <option value="basic">Basic (1000 HP)</option>
-              <option value="shoddy">Shoddy (300 HP, no lock)</option>
-              <option value="blast">Blast Door (5000 HP)</option>
-            </select>
-            <select id="door-exit-select" style="flex:1;min-width:100px">
-              ${(() => {
-                const usedDirs = new Set(zoneDoors.map(d => d.exit_dir));
-                const availableExits = Object.keys(zoneEditExitsState).filter(d => zoneEditExitsState[d] && !usedDirs.has(d));
-                return availableExits.length
-                  ? availableExits.map(d => `<option value="${d}">${d}</option>`).join('')
-                  : '<option value="">No free exits</option>';
-              })()}
-            </select>
-            <button class="action-btn success" onclick='submitAddDoor(${JSON.stringify(rec.id)})'>Install Door</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="zone-subsection">
         <div class="zone-subsection-header">Spawn Item</div>
         <div style="display:flex;gap:6px;align-items:center;padding-top:4px;flex-wrap:wrap">
           <input id="spawn-item-id" placeholder="item_id" style="flex:1;min-width:120px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:4px 8px;outline:none">
@@ -1507,6 +1466,40 @@ async function zoneEditForm(rec, isNew) {
     <input type="hidden" id="f-grid_y" value="${place.grid_y ?? ''}">
     <input type="hidden" id="f-grid_z" value="${place.grid_z ?? ''}">
     <div class="field"><label>Exits</label><div id="exits-builder-body">${renderExitsBuilder(rec.id)}</div></div>
+    ${!isNew ? (() => {
+      const _dUsedDirs = new Set(zoneDoors.map(d => d.exit_dir));
+      const _dAvailExits = Object.keys(zoneEditExitsState).filter(d => zoneEditExitsState[d] && !_dUsedDirs.has(d));
+      return `<div class="zone-subsection" style="margin:8px 0">
+        <div class="zone-subsection-header">Doors <span class="zone-subsection-count" id="zone-doors-count">${zoneDoors.length}</span></div>
+        <div id="zone-doors-list">${zoneDoors.length ? zoneDoors.map(d => {
+          const dTagObj = (d.tags && !Array.isArray(d.tags)) ? d.tags : {};
+          const dLockKey = Object.keys(dTagObj).find(k => k.startsWith('lock:'));
+          const dLockTag = dLockKey ? { type: dLockKey, ...dTagObj[dLockKey] } : null;
+          const dLockLabel = dLockTag
+            ? (dLockTag.type === 'lock:keycardlock' ? `keycardlock${d.lock_state === 'locked' ? ' 🔒' : ''}` : `hololock diff:${dLockTag.difficulty}${d.lock_state === 'locked' ? ' 🔒' : ''}`)
+            : 'no lock';
+          const dIdSafe = d.id.replace(/'/g, "\\'");
+          return `<div class="zone-subitem-row" id="door-row-${d.id}">
+            <span style="display:flex;align-items:center;gap:6px"><strong>${d.name || d.id}</strong> <span style="color:var(--text-dim);font-size:11px">${d.door_type} · ${d.exit_dir||'?'} · ${d.hp}/${d.hp_max}HP · ${dLockLabel}</span></span>
+            <span class="zone-subitem-actions">
+              <button class="action-btn" onclick="openEditDoorDialog('${dIdSafe}','${rec.id}')" style="padding:2px 8px;font-size:11px">Edit</button>
+              <button class="action-btn danger" onclick="deleteDoorQuick('${dIdSafe}','${rec.id}')" style="padding:2px 8px;font-size:14px;font-weight:bold">−</button>
+            </span>
+          </div>`;
+        }).join('') : '<div class="zone-subitem-empty">No doors here.</div>'}</div>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:6px">
+          <select id="door-type-select" style="flex:1;min-width:100px">
+            <option value="basic">Basic (1000 HP)</option>
+            <option value="shoddy">Shoddy (300 HP)</option>
+            <option value="blast">Blast Door (5000 HP)</option>
+          </select>
+          <select id="door-exit-select" style="flex:1;min-width:100px">
+            ${_dAvailExits.length ? _dAvailExits.map(d => `<option value="${d}">${d}</option>`).join('') : '<option value="">No free exits</option>'}
+          </select>
+          <button class="action-btn success" onclick='submitAddDoor(${JSON.stringify(rec.id)})'>Install Door</button>
+        </div>
+      </div>`;
+    })() : ''}
     <div class="field"><label>Ambient Theme <span style="color:var(--text-dim);font-weight:400">(global pool fallback theme)</span></label>
       <select id="f-ambient_theme">${AMBIENT_THEMES.map(t=>`<option value="${t}" ${(rec.ambient_theme||'indoors')===t?'selected':''}>${t.charAt(0).toUpperCase()+t.slice(1)}</option>`).join('')}</select>
     </div>
@@ -1929,42 +1922,24 @@ async function refreshDoorList(zoneId) {
   const header = document.querySelector('.zone-subsection-header .zone-subsection-count');
   if (!list) return;
 
-  if (header) header.textContent = doors.length;
+  const countEl = document.getElementById('zone-doors-count');
+  if (countEl) countEl.textContent = doors.length;
   list.innerHTML = doors.length ? doors.map(d => {
-    const installed = !!(d.zone_id && d.exit_dir);
-    const statusIcon = installed ? '<span style="color:var(--accent2)">✓</span>' : '<span style="color:var(--red)">✗</span>';
     const dTags = (d.tags && !Array.isArray(d.tags)) ? d.tags : {};
-    const dLockKey = Object.keys(dTags).find(k=>k.startsWith('lock:'));
+    const dLockKey = Object.keys(dTags).find(k => k.startsWith('lock:'));
     const lockTag = dLockKey ? { type: dLockKey, ...dTags[dLockKey] } : null;
     const lockLabel = lockTag
       ? (lockTag.type === 'lock:keycardlock'
-          ? `${lockTag.type} · key: ${lockTag.keyItemId||'?'}${d.lock_state==='locked'?' · locked':''}`
-          : `${lockTag.type} (diff ${lockTag.difficulty})${d.lock_state==='locked'?' · locked':''}`)
+          ? `keycardlock${d.lock_state === 'locked' ? ' 🔒' : ''}`
+          : `hololock diff:${lockTag.difficulty}${d.lock_state === 'locked' ? ' 🔒' : ''}`)
       : 'no lock';
-    return `<div id="door-row-${d.id}">
-      <div class="zone-subitem-row">
-        <span style="display:flex;align-items:center;gap:6px">${statusIcon} <strong>${d.id}</strong> <span style="color:var(--text-dim);font-size:11px">${d.door_type} · ${d.exit_dir||'unassigned'} · ${d.hp}/${d.hp_max} HP · ${lockLabel}</span></span>
-        <span class="zone-subitem-actions">
-          <button class="action-btn" onclick="toggleLockEditor('${d.id}')" style="padding:2px 6px;font-size:11px">lock ▾</button>
-          <button class="action-btn danger" onclick="deleteDoorQuick('${d.id}','${zoneId}')" title="Remove door" style="min-width:28px;padding:2px 8px;font-size:14px;font-weight:bold">−</button>
-        </span>
-      </div>
-      <div id="lock-editor-${d.id}" style="display:none;padding:6px 10px 8px 22px;background:var(--bg2);border-top:1px solid var(--border);font-size:12px">
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-          <label>Type
-            <select id="lock-type-${d.id}" onchange="onLockTypeChange('${d.id}')" style="margin-left:4px">
-              <option value="none" ${!lockTag?'selected':''}>none</option>
-              <option value="lock:hololock" ${lockTag?.type==='lock:hololock'?'selected':''}>hololock</option>
-              <option value="lock:keycardlock" ${lockTag?.type==='lock:keycardlock'?'selected':''}>keycardlock</option>
-            </select>
-          </label>
-          <span id="lock-opts-${d.id}" style="display:${lockTag?'contents':'none'}">
-            <label>Difficulty <input id="lock-diff-${d.id}" type="number" min="1" max="20" value="${lockTag?.difficulty??5}" style="width:46px;margin-left:4px"></label>
-            <label style="display:flex;align-items:center;gap:4px"><input id="lock-hack-${d.id}" type="checkbox" ${lockTag?.canHack?'checked':''}> can hack</label>
-          </span>
-          <button class="action-btn" onclick="saveDoorLock('${d.id}','${zoneId}')" style="padding:2px 8px">Save</button>
-        </div>
-      </div>
+    const dIdSafe = d.id.replace(/'/g, "\\'");
+    return `<div class="zone-subitem-row" id="door-row-${d.id}">
+      <span style="display:flex;align-items:center;gap:6px"><strong>${d.name || d.id}</strong> <span style="color:var(--text-dim);font-size:11px">${d.door_type} · ${d.exit_dir||'?'} · ${d.hp}/${d.hp_max}HP · ${lockLabel}</span></span>
+      <span class="zone-subitem-actions">
+        <button class="action-btn" onclick="openEditDoorDialog('${dIdSafe}','${zoneId}')" style="padding:2px 8px;font-size:11px">Edit</button>
+        <button class="action-btn danger" onclick="deleteDoorQuick('${dIdSafe}','${zoneId}')" style="padding:2px 8px;font-size:14px;font-weight:bold">−</button>
+      </span>
     </div>`;
   }).join('') : '<div class="zone-subitem-empty">No doors here.</div>';
 
@@ -1988,17 +1963,6 @@ async function submitAddDoor(zoneId) {
   toast('Door installed');
   await refreshDoorList(zoneId);
 }
-function toggleLockEditor(doorId) {
-  const el = document.getElementById(`lock-editor-${doorId}`);
-  if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
-}
-
-function onLockTypeChange(doorId) {
-  const type = document.getElementById(`lock-type-${doorId}`)?.value;
-  const opts = document.getElementById(`lock-opts-${doorId}`);
-  if (opts) opts.style.display = (type === 'none' || type === 'lock:keycardlock') ? 'none' : 'contents';
-}
-
 const LOCK_MESSAGES = {
   'lock:hololock': {
     lock: 'The hololock hums as it engages.',
@@ -2014,44 +1978,117 @@ const LOCK_MESSAGES = {
   }
 };
 
-async function saveDoorLock(doorId, zoneId) {
-  const type = document.getElementById(`lock-type-${doorId}`)?.value;
+const DOOR_TYPE_OPTIONS = [
+  { value: 'basic',  label: 'Basic',     hp: 1000 },
+  { value: 'shoddy', label: 'Shoddy',    hp: 300  },
+  { value: 'blast',  label: 'Blast Door', hp: 5000 },
+];
+
+async function openEditDoorDialog(doorId, zoneId) {
   const doors = await API(`/zones/${encodeURIComponent(zoneId)}/doors`).catch(() => []);
   const door = doors.find(d => d.id === doorId);
   if (!door) { toast('Door not found', true); return; }
+
+  const tagObj = (door.tags && !Array.isArray(door.tags)) ? door.tags : {};
+  const lockKey = Object.keys(tagObj).find(k => k.startsWith('lock:'));
+  const lockTag = lockKey ? { type: lockKey, ...tagObj[lockKey] } : null;
+  const curLockType = lockTag?.type || 'none';
+
+  const typeOpts = DOOR_TYPE_OPTIONS.map(o =>
+    `<option value="${o.value}" ${door.door_type === o.value ? 'selected' : ''}>${o.label} (${o.hp} HP)</option>`
+  ).join('');
+
+  const lockStateOpts = ['unlocked','locked'].map(s =>
+    `<option value="${s}" ${door.lock_state === s ? 'selected' : ''}>${s}</option>`
+  ).join('');
+
+  openModal(`Edit Door — ${door.name || door.id}`, `
+    <div style="display:flex;flex-direction:column;gap:10px;min-width:320px">
+      <div class="field"><label>Name</label><input id="de-name" value="${(door.name || '').replace(/"/g,'&quot;')}" placeholder="${door.id}"></div>
+      <div class="field-row">
+        <div class="field"><label>Type</label><select id="de-type">${typeOpts}</select></div>
+        <div class="field"><label>HP</label><input id="de-hp" type="number" min="1" value="${door.hp}" style="width:80px"></div>
+        <div class="field"><label>Max HP</label><input id="de-hpmax" type="number" min="1" value="${door.hp_max}" style="width:80px"></div>
+      </div>
+      <div style="border-top:1px solid var(--border);padding-top:10px">
+        <div class="field-row" style="align-items:flex-end;gap:10px">
+          <div class="field"><label>Lock Type</label>
+            <select id="de-lock-type" onchange="onEditDoorLockTypeChange()">
+              <option value="none" ${curLockType==='none'?'selected':''}>None</option>
+              <option value="lock:hololock" ${curLockType==='lock:hololock'?'selected':''}>Hololock</option>
+              <option value="lock:keycardlock" ${curLockType==='lock:keycardlock'?'selected':''}>Keycard Lock</option>
+            </select>
+          </div>
+          <div class="field" id="de-lock-state-field" style="${curLockType==='none'?'display:none':''}">
+            <label>Lock State</label><select id="de-lock-state">${lockStateOpts}</select>
+          </div>
+        </div>
+        <div id="de-hololock-opts" style="${curLockType==='lock:hololock'?'':'display:none'}">
+          <div class="field-row" style="margin-top:6px">
+            <div class="field"><label>Difficulty (1–20)</label><input id="de-lock-diff" type="number" min="1" max="20" value="${lockTag?.difficulty ?? 5}" style="width:70px"></div>
+            <div class="checkbox-field" style="align-self:flex-end;padding-bottom:6px"><input type="checkbox" id="de-lock-hack" ${lockTag?.canHack?'checked':''}><label>Can hack</label></div>
+          </div>
+        </div>
+        <div id="de-keycard-opts" style="${curLockType==='lock:keycardlock'?'':'display:none'}">
+          <div class="field" style="margin-top:6px"><label>Keycard Item ID</label><input id="de-keycard-id" value="${lockTag?.keyItemId||''}" placeholder="auto-created if blank"></div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px">
+        <button class="action-btn" onclick="closeModal()">Cancel</button>
+        <button class="action-btn success" onclick="saveDoorEdit('${doorId.replace(/'/g,"\\'")}','${zoneId.replace(/'/g,"\\'")}')">Save</button>
+      </div>
+    </div>
+  `);
+}
+
+function onEditDoorLockTypeChange() {
+  const type = document.getElementById('de-lock-type')?.value;
+  document.getElementById('de-hololock-opts').style.display = type === 'lock:hololock' ? '' : 'none';
+  document.getElementById('de-keycard-opts').style.display = type === 'lock:keycardlock' ? '' : 'none';
+  document.getElementById('de-lock-state-field').style.display = type === 'none' ? 'none' : '';
+}
+
+async function saveDoorEdit(doorId, zoneId) {
+  const doors = await API(`/zones/${encodeURIComponent(zoneId)}/doors`).catch(() => []);
+  const door = doors.find(d => d.id === doorId);
+  if (!door) { toast('Door not found', true); return; }
+
+  const name = document.getElementById('de-name').value.trim() || null;
+  const door_type = document.getElementById('de-type').value;
+  const hp = parseInt(document.getElementById('de-hp').value) || door.hp;
+  const hp_max = parseInt(document.getElementById('de-hpmax').value) || door.hp_max;
+  const lockType = document.getElementById('de-lock-type').value;
+
   const existingTagObj = (door.tags && !Array.isArray(door.tags)) ? door.tags : {};
-  // Strip any existing lock key
   const tags = Object.fromEntries(Object.entries(existingTagObj).filter(([k]) => !k.startsWith('lock:')));
   let lock_state = null;
 
-  if (type !== 'none') {
-    const existingLockData = existingTagObj[type];
-    const lockData = { messages: LOCK_MESSAGES[type] || {} };
+  if (lockType !== 'none') {
+    const existingLockData = existingTagObj[lockType];
+    const lockData = { messages: LOCK_MESSAGES[lockType] || {} };
 
-    if (type === 'lock:keycardlock') {
-      // Reuse existing keyItemId if switching back to keycardlock on same door
-      let keyItemId = existingLockData?.keyItemId;
+    if (lockType === 'lock:keycardlock') {
+      let keyItemId = document.getElementById('de-keycard-id').value.trim() || existingLockData?.keyItemId;
       if (!keyItemId) {
         const zone = await API(`/zones/${encodeURIComponent(zoneId)}`).catch(() => null);
-        const zoneName = zone?.name || zoneId;
-        const res = await API(`/doors/${doorId}/keycard`, 'POST', { zone_name: zoneName });
+        const res = await API(`/doors/${doorId}/keycard`, 'POST', { zone_name: zone?.name || zoneId });
         if (res?.error) { toast('Failed to create keycard: ' + res.error, true); return; }
         keyItemId = res.id;
-        toast(`Keycard item created: ${keyItemId}`);
       }
       lockData.keyItemId = keyItemId;
     } else {
-      lockData.difficulty = Math.max(1, Math.min(20, parseInt(document.getElementById(`lock-diff-${doorId}`)?.value) || 5));
-      lockData.canHack = document.getElementById(`lock-hack-${doorId}`)?.checked ?? false;
+      lockData.difficulty = Math.max(1, Math.min(20, parseInt(document.getElementById('de-lock-diff').value) || 5));
+      lockData.canHack = document.getElementById('de-lock-hack').checked;
     }
 
-    tags[type] = lockData;
-    lock_state = 'unlocked';
+    tags[lockType] = lockData;
+    lock_state = document.getElementById('de-lock-state').value;
   }
 
-  const result = await API(`/doors/${doorId}`, 'PUT', { ...door, tags, lock_state });
+  const result = await API(`/doors/${doorId}`, 'PUT', { ...door, name, door_type, hp, hp_max, tags, lock_state });
   if (result?.error) { toast(result.error, true); return; }
-  toast(type === 'none' ? 'Lock removed' : `${type} saved`);
+  toast('Door saved');
+  closeModal();
   await refreshDoorList(zoneId);
 }
 

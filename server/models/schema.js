@@ -258,6 +258,7 @@ export const SCHEMA_SQL = `
     flags JSONB DEFAULT '{}'
   );
 
+  ALTER TABLE doors ADD COLUMN IF NOT EXISTS name TEXT DEFAULT NULL;
   ALTER TABLE npcs ADD COLUMN IF NOT EXISTS wander_zones JSONB DEFAULT '[]';
 
   CREATE TABLE IF NOT EXISTS factions (

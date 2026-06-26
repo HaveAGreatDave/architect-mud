@@ -184,11 +184,14 @@ async function cmdInstallLock(args, raw, player, broadcast) {
   if (door.hp <= 0) return { type:'error', message:'That door is destroyed.' };
   if (getLockTag(door)) return { type:'error', message:'This door already has a lock. Uninstall it first.' };
 
-  const { rows: aptRows } = await query(
-    'SELECT 1 FROM apartments WHERE zone_id=$1 AND owner_id=$2',
-    [door.zone_id, player.id]
-  );
-  if (!aptRows.length) return { type:'error', message:"You don't own this room." };
+  const isAdmin = ['admin', 'dev'].includes(player.role);
+  if (!isAdmin) {
+    const { rows: aptRows } = await query(
+      'SELECT 1 FROM apartments WHERE zone_id=$1 AND owner_id=$2',
+      [door.zone_id, player.id]
+    );
+    if (!aptRows.length) return { type:'error', message:"You don't own this room." };
+  }
 
   // Find the kit by its lockkit tag instead of hardcoded item ID
   const { rows: kitRows } = await query(
