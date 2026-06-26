@@ -1184,7 +1184,9 @@ async function zoneEditForm(rec, isNew) {
         <div id="zone-doors-list">${zoneDoors.length ? zoneDoors.map(d => {
           const installed = !!(d.zone_id && d.exit_dir);
           const statusIcon = installed ? '<span style="color:var(--accent2)">✓</span>' : '<span style="color:var(--red)">✗</span>';
-          const dLockTag = (d.tags||[]).find(t=>t.type&&t.type.startsWith('lock:'));
+          const dTagObj = (d.tags && !Array.isArray(d.tags)) ? d.tags : {};
+          const dLockKey = Object.keys(dTagObj).find(k=>k.startsWith('lock:'));
+          const dLockTag = dLockKey ? { type: dLockKey, ...dTagObj[dLockKey] } : null;
           const dLockLabel = dLockTag ? `${dLockTag.type} (diff ${dLockTag.difficulty})${d.lock_state==='locked'?' · 🔒':''}` : 'no lock';
           return `<div class="zone-subitem-row" id="door-row-${d.id}">
             <span style="display:flex;align-items:center;gap:6px">${statusIcon} <strong>${d.id}</strong> <span style="color:var(--text-dim);font-size:11px">${d.door_type} · ${d.exit_dir||'unassigned'} · ${d.hp}/${d.hp_max} HP · ${dLockLabel}</span></span>
@@ -1914,7 +1916,9 @@ async function refreshDoorList(zoneId) {
   list.innerHTML = doors.length ? doors.map(d => {
     const installed = !!(d.zone_id && d.exit_dir);
     const statusIcon = installed ? '<span style="color:var(--accent2)">✓</span>' : '<span style="color:var(--red)">✗</span>';
-    const lockTag = (d.tags||[]).find(t=>t.type&&t.type.startsWith('lock:'));
+    const dTags = (d.tags && !Array.isArray(d.tags)) ? d.tags : {};
+    const dLockKey = Object.keys(dTags).find(k=>k.startsWith('lock:'));
+    const lockTag = dLockKey ? { type: dLockKey, ...dTags[dLockKey] } : null;
     const lockLabel = lockTag
       ? (lockTag.type === 'lock:keycardlock'
           ? `${lockTag.type} · key: ${lockTag.keyItemId||'?'}${d.lock_state==='locked'?' · locked':''}`
@@ -1998,16 +2002,18 @@ async function saveDoorLock(doorId, zoneId) {
   const doors = await API(`/zones/${encodeURIComponent(zoneId)}/doors`).catch(() => []);
   const door = doors.find(d => d.id === doorId);
   if (!door) { toast('Door not found', true); return; }
-  let tags = (door.tags||[]).filter(t => !t.type?.startsWith('lock:'));
+  const existingTagObj = (door.tags && !Array.isArray(door.tags)) ? door.tags : {};
+  // Strip any existing lock key
+  const tags = Object.fromEntries(Object.entries(existingTagObj).filter(([k]) => !k.startsWith('lock:')));
   let lock_state = null;
 
   if (type !== 'none') {
-    const existingLockTag = (door.tags||[]).find(t => t.type === type);
-    let newTag = { type, messages: LOCK_MESSAGES[type] || {}, handlers: { onLock: 'default_lock_handler', onUnlock: 'default_unlock_handler' } };
+    const existingLockData = existingTagObj[type];
+    const lockData = { messages: LOCK_MESSAGES[type] || {} };
 
     if (type === 'lock:keycardlock') {
       // Reuse existing keyItemId if switching back to keycardlock on same door
-      let keyItemId = existingLockTag?.keyItemId;
+      let keyItemId = existingLockData?.keyItemId;
       if (!keyItemId) {
         const zone = await API(`/zones/${encodeURIComponent(zoneId)}`).catch(() => null);
         const zoneName = zone?.name || zoneId;
@@ -2016,15 +2022,13 @@ async function saveDoorLock(doorId, zoneId) {
         keyItemId = res.id;
         toast(`Keycard item created: ${keyItemId}`);
       }
-      newTag.keyItemId = keyItemId;
+      lockData.keyItemId = keyItemId;
     } else {
-      const difficulty = Math.max(1, Math.min(20, parseInt(document.getElementById(`lock-diff-${doorId}`)?.value) || 5));
-      const canHack = document.getElementById(`lock-hack-${doorId}`)?.checked ?? false;
-      newTag.difficulty = difficulty;
-      newTag.canHack = canHack;
+      lockData.difficulty = Math.max(1, Math.min(20, parseInt(document.getElementById(`lock-diff-${doorId}`)?.value) || 5));
+      lockData.canHack = document.getElementById(`lock-hack-${doorId}`)?.checked ?? false;
     }
 
-    tags = [...tags, newTag];
+    tags[type] = lockData;
     lock_state = 'unlocked';
   }
 
@@ -2100,10 +2104,7 @@ function renderTagsPanel(catalog) {
           <select id="td-scope">${SCOPES.map(s=>`<option value="${s}"${r?.scope===s?' selected':''}>${s}</option>`).join('')}</select>
         </div>
       </div>
-      <div class="field" style="margin-bottom:8px"><label>Help</label><input id="td-help" value="${escVal(r?.help ?? '')}" placeholder="What this tag does..." style="width:100%"></div>
-      <div class="field"><label>Extra properties <span style="font-weight:normal;color:var(--text-dim)">(JSON — options, install_lock, etc.)</span></label>
-        <textarea id="td-extra" style="width:100%;height:72px;font-size:11px;font-family:monospace;background:var(--bg1);border:1px solid var(--border);color:var(--text);padding:4px;box-sizing:border-box;border-radius:3px" placeholder="{}">${escVal(xj)}</textarea>
-      </div>`;
+      <div class="field"><label>Help</label><input id="td-help" value="${escVal(r?.help ?? '')}" placeholder="What this tag does..." style="width:100%"></div>`;
   }
 
   function readDialogFields() {
@@ -2112,10 +2113,7 @@ function renderTagsPanel(catalog) {
     const scope = document.getElementById('td-scope')?.value ?? 'class';
     const group = document.getElementById('td-group')?.value ?? '';
     const help  = document.getElementById('td-help')?.value ?? '';
-    const extraRaw = document.getElementById('td-extra')?.value?.trim() || '{}';
-    let extra = {};
-    try { extra = JSON.parse(extraRaw); } catch(e) { toast('Extra properties: invalid JSON', true); return null; }
-    return { label, shape, scope, group, help, extra };
+    return { label, shape, scope, group, help };
   }
 
   function render() {
@@ -2174,8 +2172,8 @@ function renderTagsPanel(catalog) {
     const key = window._tagRows[i].key;
     const fields = readDialogFields();
     if (!fields) return;
-    const { label, shape, scope, group, help, extra } = fields;
-    window._tagCatalog[key] = { ...extra, label, shape, scope, group, help };
+    const { label, shape, scope, group, help } = fields;
+    window._tagCatalog[key] = { label, shape, scope, group, help };
     const r = await API('/tag-catalog', 'PUT', window._tagCatalog);
     if (r?.error) { toast(r.error, true); return; }
     toast('Tag saved');
@@ -2214,8 +2212,8 @@ function renderTagsPanel(catalog) {
     if (window._tagCatalog[key]) { toast(`"${key}" already exists`, true); return; }
     const fields = readDialogFields();
     if (!fields) return;
-    const { label, shape, scope, group, help, extra } = fields;
-    window._tagCatalog[key] = { ...extra, label, shape, scope, group, help };
+    const { label, shape, scope, group, help } = fields;
+    window._tagCatalog[key] = { label, shape, scope, group, help };
     const r = await API('/tag-catalog', 'PUT', window._tagCatalog);
     if (r?.error) { toast(r.error, true); return; }
     toast(`"${key}" added to catalog`);
