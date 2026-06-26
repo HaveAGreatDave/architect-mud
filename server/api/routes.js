@@ -148,7 +148,6 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path==='/doors' && method==='POST') return requireDev(auth, ()=>apiCreateDoor(body));
   if (path.startsWith('/doors/') && method==='PUT') return requireDev(auth, ()=>apiUpdateDoor(path.split('/')[2],body));
   if (path.startsWith('/doors/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteDoor(path.split('/')[2]));
-  if (path.match(/^\/zones\/[^/]+\/doors$/) && method==='GET') return requireDev(auth, ()=>apiGetZoneDoors(path.split('/')[2]));
   if (path==='/ambient-events' && method==='GET') return requireDev(auth, ()=>apiGetAmbientEvents(url));
   if (path==='/ambient-events' && method==='POST') return requireDev(auth, ()=>apiCreateAmbientEvent(body));
   if (path.startsWith('/ambient-events/') && method==='PUT') return requireDev(auth, ()=>apiUpdateAmbientEvent(path.split('/')[2],body));
