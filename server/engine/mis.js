@@ -165,9 +165,18 @@ export function breastVisibilityNote(player, torsoLayerCount, outermostBulkiness
   const hard = (player.horniness || 0) >= 65 || (tempC !== undefined && tempC < 10);
 
   if (torsoLayerCount === 0) {
-    // Naked chest — add nipple state (breasts described by describeGenitals)
-    const NIPPLE_HARD = [`Her nipples are hard.`, `Her nipples stand out, stiff.`, `Her nipples are visibly erect.`];
-    const NIPPLE_SOFT = [`Her nipples are soft.`, `Her nipples are relaxed.`];
+    // Naked chest — nipple state only (breasts described by describeGenitals)
+    const NIPPLE_HARD = [
+      `Her nipples are hard — fully committed to the bit.`,
+      `Her nipples are erect, standing at attention like they got a memo.`,
+      `Her nipples are stiff. They have strong opinions about this situation.`,
+      `Her nipples are visibly hard. They're not subtle about it.`,
+    ];
+    const NIPPLE_SOFT = [
+      `Her nipples are soft and relaxed, unbothered by everything.`,
+      `Her nipples are at ease. No complaints. No agenda.`,
+      `Her nipples are soft — at rest, diplomatically neutral.`,
+    ];
     const pool = hard ? NIPPLE_HARD : NIPPLE_SOFT;
     return pool[Math.floor(Math.random() * pool.length)];
   }

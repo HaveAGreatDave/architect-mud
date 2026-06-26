@@ -641,6 +641,18 @@ export async function migrate() {
   // All existing players attracted to males
   await query(`UPDATE players SET sexuality='Male' WHERE sexuality IS NULL OR sexuality=''`);
 
+  // Back-fill ass_size and vagina_tightness for existing female players missing them
+  await query(`
+    UPDATE players
+    SET appearance_data = appearance_data || jsonb_build_object(
+      'ass_size', (ARRAY['flat','small','average','round','large','enormous'])[floor(random()*6)::int + 1],
+      'vagina_tightness', (ARRAY['tight','average','loose'])[floor(random()*3)::int + 1]
+    )
+    WHERE biological_sex = 'female'
+      AND appearance_data IS NOT NULL
+      AND (appearance_data->>'ass_size' IS NULL OR appearance_data->>'vagina_tightness' IS NULL)
+  `);
+
   console.log('✓ Biological accuracy systems migrated');
 
   // Rename: zone_start (The Threshold) → zone_threshold
