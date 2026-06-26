@@ -193,8 +193,10 @@ async function cmdMove(direction, player, broadcast) {
   const arrivalDir = OPPOSITE[direction] || null;
 
   const hadDoor = !!(door && door.hp > 0);
+  const lockTag = hadDoor ? getLockTagPublic(door) : null;
+
   const departMsg = doorWasLocked
-    ? `The Hololock emits a soft chime. ${player.handle} opens the door and heads ${direction}.`
+    ? `The lock disengages. ${player.handle} opens the door and heads ${direction}.`
     : doorWasClosed
       ? `${player.handle} opens the door and heads ${direction}.`
       : `${player.handle} heads ${direction}.`;
@@ -230,14 +232,18 @@ async function cmdMove(direction, player, broadcast) {
     }
   }
   const zoneDesc = await describeZone(targetZone, player);
-  const doorClose = (hadDoor && doorWasClosed)
-    ? (doorWasLocked ? '\nThe door swings closed and locks behind you.' : '\nThe door swings closed behind you.')
-    : '';
-  const moveMsg = doorWasLocked
-    ? `The Hololock chimes as you pass through the door, heading ${direction}.\n${zoneDesc}${doorClose}`
-    : doorWasClosed
-      ? `You open the door and head ${direction}.\n${zoneDesc}${doorClose}`
-      : zoneDesc;
+
+  let moveMsg;
+  if (doorWasLocked) {
+    const unlockMsg = lockTag?.messages?.unlock ?? 'The lock disengages.';
+    const closeMsg = doorWasClosed ? '\nThe door swings closed and locks behind you.' : '';
+    moveMsg = `${unlockMsg}\nYou open the door and head ${direction}.\n${zoneDesc}${closeMsg}`;
+  } else if (doorWasClosed) {
+    moveMsg = `You open the door and head ${direction}.\n${zoneDesc}\nThe door swings closed behind you.`;
+  } else {
+    moveMsg = zoneDesc;
+  }
+
   return { type:'move', message:moveMsg, zone:targetId, radiation_gain:radGain, minimap: getMinimapData(targetId), tempC: getZoneTemperature(targetId) };
 }
 
