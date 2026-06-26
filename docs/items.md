@@ -46,7 +46,8 @@ each tag does, so nothing gets silently forgotten as the list grows.
 tag name → `{ label, shape, scope, group, help, options? }`. It is the single
 source of truth: the dev panel builds its editor widgets from it, and the
 engine reads behavior through `server/engine/tags.js` (`hasTag`, `tagValue`,
-`hasFlag`, and a re-export of the catalog).
+`hasFlag`, and a re-export of the catalog). See [tags.md](tags.md) for the full
+tag model and the rationale behind it.
 
 `shape` drives both the editor widget and how the value is stored:
 
