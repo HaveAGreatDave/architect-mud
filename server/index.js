@@ -39,6 +39,7 @@ import {
 	consumeSwitchToken,
 } from "./api/routes.js";
 import { startKeepalive } from "./keepalive.js";
+import { setBroadcast as setMessagingBroadcast } from "./engine/messaging.js";
 import { query } from "./models/db.js";
 import { loadMisSettings } from "./engine/mis.js";
 
@@ -697,6 +698,7 @@ process.on("unhandledRejection", (err) => {
 async function boot() {
 	console.log("\n⚙  Booting ARCHITECT MUD...");
 	setBroadcast(broadcast);
+	setMessagingBroadcast(broadcast);
 	await loadMisSettings();
 	await initWorld();
 	await loadRecipes();

@@ -127,12 +127,9 @@ registerAction({
     if (!enemies.length) return { type:'error', message:'Nothing to attack here.' };
     const target = enemies.find(e => e.name.toLowerCase().includes(params.targetStr));
     if (!target) return { type:'error', message:`Can't find "${params.targetStr}" here.` };
-    const result = await resolveAttack(actor, target, context.broadcast);
-    if (result.type !== 'error') {
-      if (result.killed) emit('enemy.killed', { actor, enemy: target });
-      else emit('enemy.attacked', { actor, enemy: target });
-    }
-    return result;
+    // resolveAttack emits enemy.killed / enemy.attacked itself — it's the shared
+    // chokepoint for the command path and the raw-tick retaliation path.
+    return resolveAttack(actor, target, context.broadcast);
   },
 });
 

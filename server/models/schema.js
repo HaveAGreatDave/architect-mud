@@ -574,6 +574,34 @@ export const SCHEMA_SQL = `
     graph JSONB NOT NULL DEFAULT '{}',
     updated_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
   );
+
+  -- ── Quests (Phase 5: quest plugin) ─────────────────────────────────────────
+  -- A Quest is a goal whose objectives advance by the quest plugin subscribing to
+  -- Events (enemy.killed, item.given, zone.entered) — the give/kill/move code never
+  -- references quests (CONTEXT.md). 'objectives' is a JSONB array of
+  --   { type: 'kill'|'give'|'visit', target?, item_id?, zone?, count?, desc }
+  -- and 'rewards' is { credits?, items?:[{item_id,quantity}], flags?:[{scope,flag,value}] }.
+  CREATE TABLE IF NOT EXISTS quests (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT DEFAULT '',
+    objectives JSONB NOT NULL DEFAULT '[]',
+    rewards JSONB NOT NULL DEFAULT '{}',
+    repeatable INTEGER NOT NULL DEFAULT 0,
+    updated_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
+  );
+
+  -- Per-player quest state. 'progress' is an integer array index-aligned to the
+  -- quest's objectives. status: active → completed (all objectives met) → turned_in.
+  CREATE TABLE IF NOT EXISTS player_quests (
+    player_id TEXT NOT NULL,
+    quest_id TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'active',
+    progress JSONB NOT NULL DEFAULT '[]',
+    started_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW()),
+    updated_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW()),
+    PRIMARY KEY (player_id, quest_id)
+  );
 `;
 
 export async function applySchema() {

@@ -1,0 +1,18 @@
+{
+  "name": "quests",
+  "version": "1.0.0",
+  "description": "Quest domain: lifecycle Actions plus event-driven objective tracking.",
+  "commands": ["quests", "quest", "ql"],
+  "hooks": [],
+  "routePrefix": "/quests",
+  "actions": {
+    "registers": ["START_QUEST", "ADVANCE", "COMPLETE", "TURN_IN"],
+    "tagGated": []
+  },
+  "events": {
+    "emits": ["quest.started", "quest.advanced", "quest.completed", "quest.turned_in"],
+    "consumes": ["enemy.killed", "item.given", "zone.entered"]
+  },
+  "dependencies": ["economy"],
+  "dataSchema": ["quests", "player_quests"]
+}

@@ -4,6 +4,7 @@ import { playerAttackEnemy } from "../combat.js";
 import { awardSkillUse, skillCheck } from "../skills.js";
 import { hasTag, tagValue } from "../tags.js";
 import { adjustCredits } from "../economy.js";
+import { emit } from "../events.js";
 import { randomUUID } from "crypto";
 
 export async function resolveAttack(player, target, broadcast) {
@@ -46,6 +47,13 @@ export async function resolveAttack(player, target, broadcast) {
 					: "brawling";
 		await awardSkillUse(player.id, skillId, result.margin ?? 1);
 	}
+
+	// Emit the player→enemy outcome here — the single chokepoint every player
+	// swing passes through, manual `kill` *and* the raw-tick auto-retaliation in
+	// gameLoop.js. (The enemy's own attacks stay raw and emit nothing.) Quest
+	// objective tracking and other Event subscribers hang off enemy.killed.
+	if (result.killed) emit("enemy.killed", { actor: player, enemy: target });
+	else emit("enemy.attacked", { actor: player, enemy: target });
 
 	if (result.killed) {
 		if (result.loot?.length) {
