@@ -91,7 +91,8 @@ async function cmdLockDoor(args, raw, player, broadcast) {
   if (!lockTag) return { type:'error', message:"This door has no lock." };
   if (door.lock_state === 'locked') return { type:'error', message:'The lock is already engaged.' };
 
-  if (!await checkLockAuth(lockTag, door, player)) return { type:'error', message: lockTag.messages?.denied ?? 'The lock does not recognize your credentials.' };
+  if (!['admin', 'dev'].includes(player.role) && !await checkLockAuth(lockTag, door, player))
+    return { type:'error', message: lockTag.messages?.denied ?? 'The lock does not recognize your credentials.' };
 
   // Auto-close the door before locking if it's open
   if (door.is_open) {
@@ -114,7 +115,8 @@ async function cmdUnlockDoor(args, raw, player, broadcast) {
   if (!lockTag) return { type:'error', message:"This door has no lock." };
   if (door.lock_state !== 'locked') return { type:'error', message:'The door is not locked.' };
 
-  if (!await checkLockAuth(lockTag, door, player)) return { type:'error', message: lockTag.messages?.denied ?? 'The lock does not recognize your credentials.' };
+  if (!['admin', 'dev'].includes(player.role) && !await checkLockAuth(lockTag, door, player))
+    return { type:'error', message: lockTag.messages?.denied ?? 'The lock does not recognize your credentials.' };
 
   await updateDoor(door, { lock_state: 'unlocked' });
   broadcast(player.current_zone, { type:'zone_event', message:'The lock disengages.' }, player.id);
