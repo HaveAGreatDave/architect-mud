@@ -7,8 +7,8 @@
  */
 import { cmdOpenContainer } from '../../server/engine/commands/inventory.js';
 
-async function open(args, raw, player) {
-  const result = await cmdOpenContainer(args.join(' '), player);
+async function open(args, raw, player, broadcast) {
+  const result = await cmdOpenContainer(args.join(' '), player, broadcast);
   return result === null ? undefined : result;
 }
 

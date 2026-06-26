@@ -18,8 +18,16 @@ export function refreshContainerPanel(data) {
 }
 
 export function closeContainerPanel() {
+  const cid = activeContainerId;
   document.getElementById('container-panel').classList.remove('active');
   activeContainerId = null;
+  if (cid) sendCmdSilent(`closecontainer ${cid}`);
+}
+
+export function showContainerNotify(msg) {
+  const el = document.getElementById('container-notify');
+  if (!el) return;
+  el.textContent = msg;
 }
 
 export function getActiveContainerId() { return activeContainerId; }
@@ -28,7 +36,9 @@ function renderContainerPanel(data) {
   document.getElementById('container-title').textContent = data.containerName;
   document.getElementById('container-contents-label').textContent = data.containerName;
   document.getElementById('container-capacity').textContent =
-    `Capacity: ${data.usedWeight} / ${data.capacity}`;
+    `Capacity: ${data.usedWeight}kg / ${data.capacity}kg`;
+  const notify = document.getElementById('container-notify');
+  if (notify) notify.textContent = data.notify || '';
 
   renderList('container-inv-list', data.invItems || [], 'inv', data.containerId);
   renderList('container-contents-list', data.containerItems || [], 'contents', data.containerId);
@@ -44,7 +54,8 @@ function renderList(listId, items, source, containerId) {
     card.setAttribute('data-id', item.id);
     card.setAttribute('data-source', source);
     const qty = item.quantity > 1 ? ` x${item.quantity}` : '';
-    card.innerHTML = `<span class="ctr-name">${item.name}${qty}</span><span class="ctr-meta">${item.rarity || ''}</span>`;
+    const wt = item.weight != null ? ` ${item.weight}kg` : '';
+    card.innerHTML = `<span class="ctr-name">${item.name}${qty}</span><span class="ctr-meta">${item.rarity || ''}${wt}</span>`;
 
     if (source === 'inv') {
       const btn = document.createElement('button');
