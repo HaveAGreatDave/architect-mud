@@ -1,5 +1,5 @@
 import { query } from '../../models/db.js';
-import { getDoorForExit, getZoneDoors, setDoorCache } from '../world.js';
+import { getDoorForExit, getZoneDoors, setDoorCache, getZone } from '../world.js';
 import { propagateSound } from '../sounds.js';
 import { isOnCooldown, setCooldown, getCooldownRemaining } from '../combat.js';
 import { tagValue } from '../tags.js';
@@ -75,7 +75,12 @@ async function cmdUnlockDoor(args, raw, player, broadcast) {
 
   const isAdmin = player.role === 'admin' || player.role === 'dev';
   if (!isAdmin) {
-    const { rows } = await query('SELECT 1 FROM apartments WHERE zone_id=$1 AND owner_id=$2', [player.current_zone, player.id]);
+    const targetZoneId = getZone(door.zone_id)?.exits?.[door.exit_dir] ?? null;
+    const zonesToCheck = [door.zone_id, targetZoneId].filter(Boolean);
+    const { rows } = await query(
+      'SELECT 1 FROM apartments WHERE zone_id=ANY($1) AND owner_id=$2',
+      [zonesToCheck, player.id]
+    );
     if (!rows.length) return { type:'error', message:'The lock does not recognize your credentials.' };
   }
 
