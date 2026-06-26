@@ -95,7 +95,10 @@ async function loadDoors() {
   const { rows } = await query('SELECT * FROM doors').catch(() => ({ rows: [] }));
   world.doors.clear();
   for (const door of rows) {
-    world.doors.set(door.id, { ...door, flags: door.flags || {} });
+    const tags = Array.isArray(door.tags) ? door.tags : [];
+    const lockTags = tags.filter(t => t.type?.startsWith('lock:'));
+    if (lockTags.length > 1) console.warn(`[doors] ${door.id} has ${lockTags.length} lock tags — using first`);
+    world.doors.set(door.id, { ...door, flags: door.flags || {}, tags });
   }
 }
 

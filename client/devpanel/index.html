@@ -1175,9 +1175,15 @@ async function zoneEditForm(rec, isNew) {
         <div id="zone-doors-list">${zoneDoors.length ? zoneDoors.map(d => {
           const installed = !!(d.zone_id && d.exit_dir);
           const statusIcon = installed ? '<span style="color:var(--accent2)">✓</span>' : '<span style="color:var(--red)">✗</span>';
+          const dLockTag = (d.tags||[]).find(t=>t.type&&t.type.startsWith('lock:'));
+          const dLockLabel = dLockTag ? `${dLockTag.type} (diff ${dLockTag.difficulty})${d.lock_state==='locked'?' · 🔒':''}` : 'no lock';
           return `<div class="zone-subitem-row" id="door-row-${d.id}">
-            <span style="display:flex;align-items:center;gap:6px">${statusIcon} <strong>${d.id}</strong> <span style="color:var(--text-dim);font-size:11px">${d.door_type} · ${d.exit_dir||'unassigned'} · ${d.hp}/${d.hp_max} HP${d.is_locked?' · 🔒':''}</span></span>
+            <span style="display:flex;align-items:center;gap:6px">${statusIcon} <strong>${d.id}</strong> <span style="color:var(--text-dim);font-size:11px">${d.door_type} · ${d.exit_dir||'unassigned'} · ${d.hp}/${d.hp_max} HP · ${dLockLabel}</span></span>
             <span class="zone-subitem-actions">
+              ${dLockTag
+                ? `<button class="action-btn" onclick="removeDoorLock('${d.id}','${rec.id}')" style="min-width:28px;padding:2px 6px;font-size:11px">-lock</button>`
+                : `<button class="action-btn" onclick="addDoorLock('${d.id}','${rec.id}')" style="min-width:28px;padding:2px 6px;font-size:11px">+lock</button>`
+              }
               <button class="action-btn danger" onclick="deleteDoorQuick('${d.id}','${rec.id}')" title="Remove door" style="min-width:28px;padding:2px 8px;font-size:14px;font-weight:bold">−</button>
             </span>
           </div>`;
@@ -1889,9 +1895,15 @@ async function refreshDoorList(zoneId) {
   list.innerHTML = doors.length ? doors.map(d => {
     const installed = !!(d.zone_id && d.exit_dir);
     const statusIcon = installed ? '<span style="color:var(--accent2)">✓</span>' : '<span style="color:var(--red)">✗</span>';
+    const lockTag = (d.tags||[]).find(t=>t.type&&t.type.startsWith('lock:'));
+    const lockLabel = lockTag ? `${lockTag.type} (diff ${lockTag.difficulty})${d.lock_state==='locked'?' · 🔒':''}` : 'no lock';
     return `<div class="zone-subitem-row" id="door-row-${d.id}">
-      <span style="display:flex;align-items:center;gap:6px">${statusIcon} <strong>${d.id}</strong> <span style="color:var(--text-dim);font-size:11px">${d.door_type} · ${d.exit_dir||'unassigned'} · ${d.hp}/${d.hp_max} HP${d.is_locked?' · 🔒':''}</span></span>
+      <span style="display:flex;align-items:center;gap:6px">${statusIcon} <strong>${d.id}</strong> <span style="color:var(--text-dim);font-size:11px">${d.door_type} · ${d.exit_dir||'unassigned'} · ${d.hp}/${d.hp_max} HP · ${lockLabel}</span></span>
       <span class="zone-subitem-actions">
+        ${lockTag
+          ? `<button class="action-btn" onclick="removeDoorLock('${d.id}','${zoneId}')" style="padding:2px 6px;font-size:11px">-lock</button>`
+          : `<button class="action-btn" onclick="addDoorLock('${d.id}','${zoneId}')" style="padding:2px 6px;font-size:11px">+lock</button>`
+        }
         <button class="action-btn danger" onclick="deleteDoorQuick('${d.id}','${zoneId}')" title="Remove door" style="min-width:28px;padding:2px 8px;font-size:14px;font-weight:bold">−</button>
       </span>
     </div>`;
@@ -1917,6 +1929,47 @@ async function submitAddDoor(zoneId) {
   toast('Door installed');
   await refreshDoorList(zoneId);
 }
+async function addDoorLock(doorId, zoneId) {
+  const diffStr = prompt('Hololock difficulty (1-20):', '5');
+  if (diffStr === null) return;
+  const difficulty = Math.max(1, Math.min(20, parseInt(diffStr) || 5));
+  const canHack = confirm('Allow hacking?');
+  const doors = await API(`/zones/${encodeURIComponent(zoneId)}/doors`).catch(() => []);
+  const door = doors.find(d => d.id === doorId);
+  if (!door) { toast('Door not found', true); return; }
+  const newTag = {
+    type: 'lock:hololock',
+    difficulty,
+    canHack,
+    requiresItem: false,
+    permissions: { ownerId: null, authorizedUsers: [] },
+    messages: {
+      lock: 'The hololock hums as it engages.',
+      unlock: 'The hololock disengages with a soft click.',
+      hackSuccess: 'You bypass the hololock\'s security matrix.',
+      hackFail: 'The hololock resists your intrusion.'
+    },
+    handlers: { onLock: 'default_lock_handler', onUnlock: 'default_unlock_handler', onHack: 'default_hack_handler' }
+  };
+  const tags = [...(door.tags||[]).filter(t=>!t.type?.startsWith('lock:')), newTag];
+  const result = await API(`/doors/${doorId}`, 'PUT', { ...door, tags, lock_state: 'unlocked' });
+  if (result?.error) { toast(result.error, true); return; }
+  toast('Hololock installed');
+  await refreshDoorList(zoneId);
+}
+
+async function removeDoorLock(doorId, zoneId) {
+  if (!confirm('Remove lock from this door?')) return;
+  const doors = await API(`/zones/${encodeURIComponent(zoneId)}/doors`).catch(() => []);
+  const door = doors.find(d => d.id === doorId);
+  if (!door) { toast('Door not found', true); return; }
+  const tags = (door.tags||[]).filter(t=>!t.type?.startsWith('lock:'));
+  const result = await API(`/doors/${doorId}`, 'PUT', { ...door, tags, lock_state: null });
+  if (result?.error) { toast(result.error, true); return; }
+  toast('Lock removed');
+  await refreshDoorList(zoneId);
+}
+
 async function deleteDoorQuick(doorId, zoneId) {
   if (!confirm('Remove this door?')) return;
   const result = await API(`/doors/${doorId}`, 'DELETE');

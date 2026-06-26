@@ -1,18 +1,42 @@
 import { query } from '../../models/db.js';
-import { getDoorForExit, getZoneDoors, setDoorCache } from '../world.js';
+import { getDoorForExit, getZoneDoors, setDoorCache, getZone, world } from '../world.js';
 import { propagateSound } from '../sounds.js';
 import { isOnCooldown, setCooldown, getCooldownRemaining } from '../combat.js';
 import { tagValue } from '../tags.js';
 
 const DIRECTIONS = ['north','south','east','west','up','down','in','out'];
+const OPPOSITE = { north:'south', south:'north', east:'west', west:'east', up:'down', down:'up', in:'out', out:'in' };
+
+function findDoorEitherSide(zoneId, dir) {
+  // Door in this zone going that direction
+  const direct = getDoorForExit(zoneId, dir);
+  if (direct) return direct;
+  // Door in the adjacent zone going the opposite direction (player is on the far side)
+  const zone = getZone(zoneId);
+  const targetId = zone?.exits?.[dir];
+  if (!targetId) return null;
+  return getDoorForExit(targetId, OPPOSITE[dir]) || null;
+}
 
 function resolveDoor(args, player) {
   const dir = args.find(a => DIRECTIONS.includes(a));
-  if (dir) return getDoorForExit(player.current_zone, dir);
-  const zoneDoors = getZoneDoors(player.current_zone);
-  if (zoneDoors.length === 1) return zoneDoors[0];
-  if (zoneDoors.length > 1) return 'ambiguous';
+  if (dir) return findDoorEitherSide(player.current_zone, dir);
+  // No direction given — collect all doors touching this zone
+  const local = getZoneDoors(player.current_zone);
+  const zone = getZone(player.current_zone);
+  const farSide = [];
+  for (const [exitDir, targetId] of Object.entries(zone?.exits || {})) {
+    const d = getDoorForExit(targetId, OPPOSITE[exitDir]);
+    if (d && !local.find(x => x.id === d.id)) farSide.push(d);
+  }
+  const all = [...local, ...farSide];
+  if (all.length === 1) return all[0];
+  if (all.length > 1) return 'ambiguous';
   return null;
+}
+
+function getLockTag(door) {
+  return (door.tags ?? []).find(t => t.type?.startsWith('lock:')) ?? null;
 }
 
 async function updateDoor(door, changes) {
@@ -29,7 +53,7 @@ async function cmdOpenDoor(args, raw, player, broadcast) {
   if (door === 'ambiguous') return { type:'error', message:'Multiple doors here — specify a direction (e.g. open door north).' };
   if (door.hp <= 0) return { type:'error', message:'That door is destroyed.' };
   if (door.is_open) return { type:'error', message:'The door is already open.' };
-  if (door.is_locked) return { type:'error', message:'The door is locked.' };
+  if (door.lock_state === 'locked') return { type:'error', message:'The door is locked.' };
   await updateDoor(door, { is_open: 1 });
   broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} opens the door.` }, player.id);
   return { type:'output', message:'You open the door.' };
@@ -51,12 +75,31 @@ async function cmdLockDoor(args, raw, player, broadcast) {
   if (!door) return null;
   if (door === 'ambiguous') return { type:'error', message:'Multiple doors here — specify a direction (e.g. lock door north).' };
   if (door.hp <= 0) return { type:'error', message:'That door is destroyed.' };
-  if (door.door_type === 'shoddy') return { type:'error', message:"This door doesn't have a Hololock." };
-  if (door.is_open) return { type:'error', message:'Close the door first.' };
-  if (door.is_locked) return { type:'error', message:'The Hololock is already engaged.' };
-  await updateDoor(door, { is_locked: 1 });
-  broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} locks the Hololock.` }, player.id);
-  return { type:'output', message:'You lock the Hololock.' };
+  const lockTag = getLockTag(door);
+  if (!lockTag) return { type:'error', message:"This door has no lock." };
+  if (door.lock_state === 'locked') return { type:'error', message:'The lock is already engaged.' };
+
+  const isAdmin = player.role === 'admin' || player.role === 'dev';
+  if (!isAdmin) {
+    const targetZoneId = getZone(door.zone_id)?.exits?.[door.exit_dir] ?? null;
+    const zonesToCheck = [door.zone_id, targetZoneId].filter(Boolean);
+    const { rows } = await query(
+      'SELECT 1 FROM apartments WHERE zone_id=ANY($1) AND owner_id=$2',
+      [zonesToCheck, player.id]
+    );
+    if (!rows.length) return { type:'error', message:'The lock does not recognize your credentials.' };
+  }
+
+  // Auto-close the door before locking if it's open
+  if (door.is_open) {
+    await updateDoor(door, { is_open: 0 });
+    broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} closes and locks the door.` }, player.id);
+  } else {
+    broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} locks the door.` }, player.id);
+  }
+
+  await updateDoor(door, { lock_state: 'locked' });
+  return { type:'output', message: lockTag.messages?.lock ?? 'You lock the door.' };
 }
 
 async function cmdUnlockDoor(args, raw, player, broadcast) {
@@ -64,18 +107,24 @@ async function cmdUnlockDoor(args, raw, player, broadcast) {
   if (!door) return null;
   if (door === 'ambiguous') return { type:'error', message:'Multiple doors here — specify a direction (e.g. unlock door north).' };
   if (door.hp <= 0) return { type:'error', message:'That door is destroyed.' };
-  if (door.door_type === 'shoddy') return { type:'error', message:"This door doesn't have a Hololock." };
-  if (!door.is_locked) return { type:'error', message:'The door is not locked.' };
+  const lockTag = getLockTag(door);
+  if (!lockTag) return { type:'error', message:"This door has no lock." };
+  if (door.lock_state !== 'locked') return { type:'error', message:'The door is not locked.' };
 
   const isAdmin = player.role === 'admin' || player.role === 'dev';
   if (!isAdmin) {
-    const { rows } = await query('SELECT 1 FROM apartments WHERE zone_id=$1 AND owner_id=$2', [player.current_zone, player.id]);
-    if (!rows.length) return { type:'error', message:'The Hololock does not recognize your credentials.' };
+    const targetZoneId = getZone(door.zone_id)?.exits?.[door.exit_dir] ?? null;
+    const zonesToCheck = [door.zone_id, targetZoneId].filter(Boolean);
+    const { rows } = await query(
+      'SELECT 1 FROM apartments WHERE zone_id=ANY($1) AND owner_id=$2',
+      [zonesToCheck, player.id]
+    );
+    if (!rows.length) return { type:'error', message:'The lock does not recognize your credentials.' };
   }
 
-  await updateDoor(door, { is_locked: 0 });
-  broadcast(player.current_zone, { type:'zone_event', message:'The Hololock emits a soft electronic chime as the door unlocks.' }, player.id);
-  return { type:'output', message:'The Hololock emits a soft electronic chime as it unlocks.' };
+  await updateDoor(door, { lock_state: 'unlocked' });
+  broadcast(player.current_zone, { type:'zone_event', message:'The lock disengages.' }, player.id);
+  return { type:'output', message: lockTag.messages?.unlock ?? 'The lock disengages.' };
 }
 
 export async function cmdAttackDoor(dirStr, player, broadcast) {
@@ -109,8 +158,8 @@ export async function cmdAttackDoor(dirStr, player, broadcast) {
   broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} attacks the door.` }, player.id);
 
   if (door.hp <= 0) {
-    await query('UPDATE doors SET hp=0,is_open=1,is_locked=0 WHERE id=$1', [door.id]);
-    Object.assign(door, { hp: 0, is_open: 1, is_locked: 0 });
+    await query('UPDATE doors SET hp=0,is_open=1,is_locked=0,lock_state=NULL WHERE id=$1', [door.id]);
+    Object.assign(door, { hp: 0, is_open: 1, is_locked: 0, lock_state: null });
     setDoorCache(door.id, door);
     broadcast(player.current_zone, { type:'zone_event', message:'The door splinters apart!' }, player.id);
     propagateSound(player.current_zone, 'You hear a door being smashed apart nearby.', 2.5, broadcast);
