@@ -6,7 +6,7 @@ import { updateEnvironmentHUD, updateZoneTempHUD, refreshZoneVisibility } from '
 import { openDialogue, closeDialogue, openShop } from './panels/dialogue.js';
 import { renderEquipPanel } from './panels/equipment.js';
 import { receiveWhisper, sentWhisper, receiveChannelMsg, initChannels } from './panels/whisper.js';
-import { openContainerPanel, refreshContainerPanel, getActiveContainerId } from './panels/container.js';
+import { openContainerPanel, refreshContainerPanel, getActiveContainerId, showContainerNotify } from './panels/container.js';
 import { openLightViewDialog } from './panels/lightview.js';
 import { openMorphexPanel } from './panels/morphex.js';
 import { updateForecast } from './panels/forecast.js';
@@ -121,7 +121,12 @@ const handlers = {
   },
 
   container_view: (msg) => {
+    if (msg.mainMsg) appendHtml(msg.mainMsg, 'help');
     openContainerPanel(msg);
+  },
+
+  container_error: (msg) => {
+    showContainerNotify(msg.message);
   },
 
   stow: (msg) => {

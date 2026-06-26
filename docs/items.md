@@ -171,6 +171,41 @@ fill; `stow <item> [in <container>]` (alias `put`) moves an inventory item in
 `take <item> from <container>`) moves it back out. All resolve a container in
 the player's inventory or on the ground.
 
+**Two flavors of command — name-resolved vs. by-id.** The text verbs above
+(`open`/`stow`/`pull`/`look in`) fuzzy-match a container *by name*. The panel UI
+instead drives a parallel set of *by-id* verbs that take a `player_inventory`
+row id: `opencontainer <id>`, `closecontainer <id>`, `stowid <invId> <ctrId>`,
+`pullid <id>`. These ids are **TEXT UUIDs** — pass them straight to the query,
+never `parseInt()` them (see *Lessons Learned* in `architecture.md`).
+
+**Capacity is weight, in kg.** The `container` tag value is a max *weight*, not a
+slot count. The panel shows `usedWeight / capacity` in kg and lists each item's
+own weight. When a multi-quantity stackable would overflow, `stowid` does a
+**partial fill** — it stows `floor((cap - used) / itemWeight)` of them and leaves
+the rest in inventory, surfacing a `notify` line ("Stowed 7x … — bag is now
+full.") rather than rejecting the whole stack.
+
+**Where messages go.** Container actions distinguish three audiences:
+- **The panel** (in-panel `notify` line, never the main feed): capacity/full
+  errors and partial-fill notices. These return `{ type: 'container_error' }`
+  or set `notify` on the `container_view`, and the client renders them in the
+  `#container-notify` strip so management feedback stays with the management UI.
+- **The actor's main feed** (`mainMsg` on the `container_view`, or a plain
+  `action`/message result): "You open/close/rummage through a …". Refresh-only
+  rebuilds of the view (the silent `opencontainer <id>` after a stow) carry no
+  `mainMsg`, so the feed isn't spammed on every shuffle.
+- **The zone** (`broadcast(... type:'zone_event' ...)`, excluding the actor):
+  others see "Bob opens/closes/rummages through a …". The *contents* are never
+  broadcast — only that someone rummaged. To avoid spam, the per-stow/pull
+  "rummages through" line (both the broadcast and the actor's `mainMsg`) is
+  **throttled to once per 30s per player**; open and close always fire.
+
+**Articles.** Container messages prepend "a"/"an" via a *case-preserving*
+`withArticle()` local to `commands/inventory.js` ("a Trash Bag"). This is
+deliberately distinct from the `withArticle()` in `commands/world.js`, which
+*lowercases* ("a trash bag") for appearance descriptions. Two helpers, two
+casing conventions — don't assume they're interchangeable.
+
 ## Drugs
 
 A `drug`-tagged item is only half the definition. The mechanical half lives in
