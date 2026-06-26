@@ -163,12 +163,17 @@ export async function cmdAttackDoor(dirStr, player, broadcast) {
   return { type:'combat', message:`You hit the door for ${damage} damage. (${door.hp}/${door.hp_max} HP remaining)` };
 }
 
-// These handlers return null when "door" isn't the target so the dispatcher
-// can fall through to the next registered handler (housing, apartments, etc.).
+// These handlers activate when args starts with "door", a bare direction,
+// or no args at all if there is exactly one door in the zone.
+// Returning undefined falls through to the next handler (e.g. apartment lock).
 function doorPrePass(fn) {
   return (args, raw, player, broadcast) => {
-    if (args[0] !== 'door') return undefined;
-    return fn(args.slice(1), raw, player, broadcast);
+    if (args[0] === 'door') return fn(args.slice(1), raw, player, broadcast);
+    if (DIRECTIONS.includes(args[0])) return fn(args, raw, player, broadcast);
+    // Bare command — only intercept if there's exactly one door here.
+    const door = resolveDoor([], player);
+    if (!door || door === 'ambiguous') return undefined;
+    return fn(args, raw, player, broadcast);
   };
 }
 
@@ -256,11 +261,13 @@ async function cmdUninstallLock(args, raw, player, broadcast) {
   if (!lockTag) return { type:'error', message:'This door has no lock to remove.' };
   if (door.lock_state === 'locked') return { type:'error', message:'Unlock the door before removing the lock.' };
 
-  const { rows: aptRows } = await query(
-    'SELECT 1 FROM apartments WHERE zone_id=$1 AND owner_id=$2',
-    [door.zone_id, player.id]
-  );
-  if (!aptRows.length) return { type:'error', message:"You don't own this room." };
+  if (!['admin', 'dev'].includes(player.role)) {
+    const { rows: aptRows } = await query(
+      'SELECT 1 FROM apartments WHERE zone_id=$1 AND owner_id=$2',
+      [door.zone_id, player.id]
+    );
+    if (!aptRows.length) return { type:'error', message:"You don't own this room." };
+  }
 
   // Remove the lock tag key from the door's tags object
   const { [lockTag.type]: _, ...newTags } = (door.tags || {});
