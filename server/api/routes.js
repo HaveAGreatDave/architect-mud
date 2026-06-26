@@ -1297,18 +1297,16 @@ async function apiGetDoors() {
 
 async function apiGetZoneDoors(zoneId) {
   const id = decodeURIComponent(zoneId);
-  const doors = getZoneDoors(id);
-  // Also include doors from adjacent zones that exit into this zone
-  const allZones = getAllZones();
-  for (const zone of allZones) {
-    if (zone.id === id) continue;
-    for (const [dir, targetId] of Object.entries(zone.exits || {})) {
-      if (targetId !== id) continue;
-      const door = [...(world.doors.values())].find(d => d.zone_id === zone.id && d.exit_dir === dir);
-      if (door && !doors.find(d => d.id === door.id)) doors.push(door);
+  const result = [];
+  for (const door of world.doors.values()) {
+    if (door.zone_id === id) {
+      result.push(door);
+    } else {
+      const doorZone = world.zones.get(door.zone_id);
+      if (doorZone?.exits?.[door.exit_dir] === id) result.push(door);
     }
   }
-  return { status:200, body:doors };
+  return { status:200, body:result };
 }
 
 async function apiCreateDoor(body) {

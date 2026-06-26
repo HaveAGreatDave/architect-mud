@@ -1,17 +1,37 @@
 import { query } from '../../models/db.js';
-import { getDoorForExit, getZoneDoors, setDoorCache, getZone } from '../world.js';
+import { getDoorForExit, getZoneDoors, setDoorCache, getZone, world } from '../world.js';
 import { propagateSound } from '../sounds.js';
 import { isOnCooldown, setCooldown, getCooldownRemaining } from '../combat.js';
 import { tagValue } from '../tags.js';
 
 const DIRECTIONS = ['north','south','east','west','up','down','in','out'];
+const OPPOSITE = { north:'south', south:'north', east:'west', west:'east', up:'down', down:'up', in:'out', out:'in' };
+
+function findDoorEitherSide(zoneId, dir) {
+  // Door in this zone going that direction
+  const direct = getDoorForExit(zoneId, dir);
+  if (direct) return direct;
+  // Door in the adjacent zone going the opposite direction (player is on the far side)
+  const zone = getZone(zoneId);
+  const targetId = zone?.exits?.[dir];
+  if (!targetId) return null;
+  return getDoorForExit(targetId, OPPOSITE[dir]) || null;
+}
 
 function resolveDoor(args, player) {
   const dir = args.find(a => DIRECTIONS.includes(a));
-  if (dir) return getDoorForExit(player.current_zone, dir);
-  const zoneDoors = getZoneDoors(player.current_zone);
-  if (zoneDoors.length === 1) return zoneDoors[0];
-  if (zoneDoors.length > 1) return 'ambiguous';
+  if (dir) return findDoorEitherSide(player.current_zone, dir);
+  // No direction given — collect all doors touching this zone
+  const local = getZoneDoors(player.current_zone);
+  const zone = getZone(player.current_zone);
+  const farSide = [];
+  for (const [exitDir, targetId] of Object.entries(zone?.exits || {})) {
+    const d = getDoorForExit(targetId, OPPOSITE[exitDir]);
+    if (d && !local.find(x => x.id === d.id)) farSide.push(d);
+  }
+  const all = [...local, ...farSide];
+  if (all.length === 1) return all[0];
+  if (all.length > 1) return 'ambiguous';
   return null;
 }
 
