@@ -458,16 +458,16 @@ export async function migrate() {
   await query(`
     INSERT INTO items (id, name, weight, value, rarity, tags) VALUES
       ('item_basic_shirt', 'Basic T-Shirt', 0.3, 2, 'common',
-        '{"description":"Plain white cotton. Worn, faded, and slightly too large. Does almost nothing.","slot":"torso","armor":1,"insulation":5,"gets_wet":true,"auto_equip":true}'::jsonb),
+        '{"description":"Plain white cotton. Worn, faded, and slightly too large. Does almost nothing.","slot":"torso","armor":1,"insulation":5,"gets_wet":true}'::jsonb),
       ('item_basic_pants', 'Basic Pants', 0.5, 2, 'common',
-        '{"description":"Gray work trousers, a little threadbare at the knees. They fit. That''s about all they do.","slot":"legs","armor":1,"insulation":8,"gets_wet":true,"auto_equip":true}'::jsonb),
+        '{"description":"Gray work trousers, a little threadbare at the knees. They fit. That''s about all they do.","slot":"legs","armor":1,"insulation":8,"gets_wet":true}'::jsonb),
       ('item_basic_shoes', 'Basic Shoes', 0.6, 2, 'common',
-        '{"description":"Canvas sneakers, well broken-in. The left sole is starting to peel.","slot":"feet","armor":1,"insulation":3,"gets_wet":true,"auto_equip":true}'::jsonb)
+        '{"description":"Canvas sneakers, well broken-in. The left sole is starting to peel.","slot":"feet","armor":1,"insulation":3,"gets_wet":true}'::jsonb)
     ON CONFLICT (id) DO NOTHING
   `);
   await query(`
     UPDATE items SET
-      tags = tags || '{"gets_wet":true,"auto_equip":true}'::jsonb,
+      tags = (tags - 'auto_equip') || '{"gets_wet":true}'::jsonb,
       name = CASE id
         WHEN 'item_basic_shirt' THEN 'Basic T-Shirt'
         ELSE name

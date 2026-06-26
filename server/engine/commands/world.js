@@ -7,7 +7,7 @@ import { getMinimapData, addPlayerToZone, removePlayerFromZone } from '../world.
 import { statCost, raiseStat, RAISABLE_STATS } from '../ip.js';
 import { ensureTunables } from '../tunables.js';
 import { physicalDescription, ejaculateDescription, describeGenitals } from '../appearance.js';
-import { isMisActive, isAttractedTo, addHorniness, erectionVisibilityNote, breastVisibilityNote } from '../mis.js';
+import { isMisActive, isAttractedTo, addHorniness, erectionVisibilityNote, breastVisibilityNote, NIPPLE_HARD, NIPPLE_SOFT } from '../mis.js';
 
 async function cmdStats(player) {
   const { rows } = await query('SELECT * FROM players WHERE id=$1', [player.id]);
@@ -123,8 +123,11 @@ async function describePlayerAppearance(target, isSelf, viewer = null, broadcast
       if (genitalDesc) msg += `\n${genitalDesc}`;
       const ejacNote = ejaculateDescription(target, isSelf, new Set());
       if (ejacNote) msg += `\n${ejacNote}`;
-      const breastNote = breastVisibilityNote(target, 0, 0, 0, null, envState.tempC);
-      if (breastNote) msg += `\n${breastNote}`;
+      if (target.biological_sex === 'female') {
+        const hard = (target.horniness || 0) >= 65 || (envState.tempC !== undefined && envState.tempC < 10);
+        const pool = hard ? NIPPLE_HARD : NIPPLE_SOFT;
+        msg += `\n${pool[Math.floor(Math.random() * pool.length)]}`;
+      }
     }
 
     // Arousal on examine: viewer sees naked target they're attracted to
