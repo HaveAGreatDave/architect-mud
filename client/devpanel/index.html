@@ -2087,12 +2087,46 @@ function renderTagsPanel(catalog) {
     return Object.keys(obj).length ? JSON.stringify(obj, null, 2) : '';
   }
 
+  function tagDialogForm(r) {
+    const xj = r ? rowExtraJson(r) : '';
+    return `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <div class="field"><label>Label</label><input id="td-label" value="${escVal(r?.label ?? '')}"></div>
+        <div class="field"><label>Group</label><input id="td-group" value="${escVal(r?.group ?? '')}" placeholder="Core"></div>
+        <div class="field"><label>Shape</label>
+          <select id="td-shape">${SHAPES.map(s=>`<option value="${s}"${r?.shape===s?' selected':''}>${s}</option>`).join('')}</select>
+        </div>
+        <div class="field"><label>Scope</label>
+          <select id="td-scope">${SCOPES.map(s=>`<option value="${s}"${r?.scope===s?' selected':''}>${s}</option>`).join('')}</select>
+        </div>
+      </div>
+      <div class="field" style="margin-bottom:8px"><label>Help</label><input id="td-help" value="${escVal(r?.help ?? '')}" placeholder="What this tag does..." style="width:100%"></div>
+      <div class="field"><label>Extra properties <span style="font-weight:normal;color:var(--text-dim)">(JSON — options, install_lock, etc.)</span></label>
+        <textarea id="td-extra" style="width:100%;height:72px;font-size:11px;font-family:monospace;background:var(--bg1);border:1px solid var(--border);color:var(--text);padding:4px;box-sizing:border-box;border-radius:3px" placeholder="{}">${escVal(xj)}</textarea>
+      </div>`;
+  }
+
+  function readDialogFields() {
+    const label = document.getElementById('td-label')?.value ?? '';
+    const shape = document.getElementById('td-shape')?.value ?? 'flag';
+    const scope = document.getElementById('td-scope')?.value ?? 'class';
+    const group = document.getElementById('td-group')?.value ?? '';
+    const help  = document.getElementById('td-help')?.value ?? '';
+    const extraRaw = document.getElementById('td-extra')?.value?.trim() || '{}';
+    let extra = {};
+    try { extra = JSON.parse(extraRaw); } catch(e) { toast('Extra properties: invalid JSON', true); return null; }
+    return { label, shape, scope, group, help, extra };
+  }
+
   function render() {
     const rows = buildRows();
     window._tagRows    = rows;
     window._tagCatalog = _catalog;
     document.getElementById('list-panel').innerHTML = `
       <div style="padding:12px;overflow-x:auto">
+        <div style="margin-bottom:10px">
+          <button class="action-btn success" onclick="tagShowAdd()">+ New Tag</button>
+        </div>
         <table class="data-table" style="width:100%;border-collapse:collapse">
           <thead><tr>
             ${th('key','Key')}
@@ -2101,63 +2135,23 @@ function renderTagsPanel(catalog) {
             ${th('scope','Scope')}
             ${th('group','Group')}
             <th>Help</th>
-            <th style="width:60px"></th>
+            <th style="width:80px"></th>
           </tr></thead>
           <tbody>
             ${rows.map((r, i) => `
-              <tr id="tag-row-${i}">
+              <tr>
                 <td><code style="font-size:11px">${escVal(r.key)}</code></td>
                 <td>${escVal(r.label)}</td>
                 <td><span class="badge">${escVal(r.shape)}</span></td>
                 <td style="color:var(--text-dim);font-size:11px">${escVal(r.scope)}</td>
                 <td style="color:var(--text-dim);font-size:11px">${escVal(r.group)}</td>
                 <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:var(--text-dim)" title="${escVal(r.help)}">${escVal(r.help)}</td>
-                <td><button class="action-btn" style="font-size:11px;padding:2px 6px" onclick="tagEditRow(${i})">Edit</button></td>
-              </tr>
-              <tr id="tag-edit-${i}" style="display:none;background:var(--bg3)">
-                <td colspan="7" style="padding:10px">
-                  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:6px">
-                    <div class="field"><label>Label</label><input id="te-label-${i}" value="${escVal(r.label)}"></div>
-                    <div class="field"><label>Shape</label>
-                      <select id="te-shape-${i}">
-                        ${SHAPES.map(s=>`<option value="${s}"${r.shape===s?' selected':''}>${s}</option>`).join('')}
-                      </select>
-                    </div>
-                    <div class="field"><label>Scope</label>
-                      <select id="te-scope-${i}">
-                        ${SCOPES.map(s=>`<option value="${s}"${r.scope===s?' selected':''}>${s}</option>`).join('')}
-                      </select>
-                    </div>
-                    <div class="field"><label>Group</label><input id="te-group-${i}" value="${escVal(r.group)}"></div>
-                  </div>
-                  <div class="field"><label>Help</label><input id="te-help-${i}" value="${escVal(r.help)}" style="width:100%"></div>
-                  ${(() => { const xj = rowExtraJson(r); return `<div class="field" style="margin-top:6px"><label>Extra properties <span style="font-weight:normal;color:var(--text-dim)">(JSON — options, install_lock, etc.)</span></label><textarea id="te-extra-${i}" style="width:100%;height:60px;font-size:11px;font-family:monospace;background:var(--bg1);border:1px solid var(--border);color:var(--text);padding:4px;box-sizing:border-box;border-radius:3px" placeholder="{}">${escVal(xj)}</textarea></div>`; })()}
-                  <div style="display:flex;gap:6px;margin-top:8px">
-                    <button class="action-btn success" onclick="tagSaveRow(${i})">Save</button>
-                    <button class="action-btn danger" onclick="tagDeleteRow(${i})">Delete</button>
-                    <button class="action-btn" onclick="tagCancelRow(${i})">Cancel</button>
-                  </div>
+                <td style="white-space:nowrap">
+                  <button class="action-btn" style="font-size:11px;padding:2px 6px" onclick="tagEditRow(${i})">Edit</button>
+                  <button class="action-btn danger" style="font-size:11px;padding:2px 6px;margin-left:3px" onclick="tagDeleteRow(${i})">Del</button>
                 </td>
               </tr>`).join('')}
           </tbody>
-          <tfoot>
-            <tr><td colspan="7" style="padding:10px;background:var(--bg2)">
-              <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:8px;margin-bottom:6px">
-                <div class="field"><label>Key</label><input id="ta-key" placeholder="namespace:name"></div>
-                <div class="field"><label>Label</label><input id="ta-label" placeholder="Human label"></div>
-                <div class="field"><label>Shape</label>
-                  <select id="ta-shape">${SHAPES.map(s=>`<option value="${s}">${s}</option>`).join('')}</select>
-                </div>
-                <div class="field"><label>Scope</label>
-                  <select id="ta-scope">${SCOPES.map(s=>`<option value="${s}">${s}</option>`).join('')}</select>
-                </div>
-                <div class="field"><label>Group</label><input id="ta-group" placeholder="Core"></div>
-              </div>
-              <div class="field"><label>Help</label><input id="ta-help" placeholder="What this tag does..." style="width:100%"></div>
-              <div class="field" style="margin-top:6px"><label>Extra properties <span style="font-weight:normal;color:var(--text-dim)">(JSON — options, install_lock, etc.)</span></label><textarea id="ta-extra" style="width:100%;height:52px;font-size:11px;font-family:monospace;background:var(--bg1);border:1px solid var(--border);color:var(--text);padding:4px;box-sizing:border-box;border-radius:3px" placeholder="{}"></textarea></div>
-              <button class="action-btn success" style="margin-top:8px" onclick="tagAddNew()">+ Add Tag</button>
-            </td></tr>
-          </tfoot>
         </table>
       </div>`;
   }
@@ -2166,32 +2160,30 @@ function renderTagsPanel(catalog) {
     if (_sortKey === key) _sortDir = -_sortDir; else { _sortKey = key; _sortDir = 1; }
     render();
   };
+
   window.tagEditRow = function(i) {
-    const el = document.getElementById(`tag-edit-${i}`);
-    if (el) el.style.display = el.style.display === 'none' ? 'table-row' : 'none';
+    const r = window._tagRows[i];
+    document.getElementById('modal-title').textContent = `Edit Tag: ${r.key}`;
+    document.getElementById('modal-body').innerHTML = tagDialogForm(r);
+    document.getElementById('modal-save').onclick = () => window.tagSaveRow(i);
+    document.getElementById('generic-modal').style.display = 'flex';
+    document.getElementById('td-label')?.focus();
   };
-  window.tagCancelRow = function(i) {
-    const el = document.getElementById(`tag-edit-${i}`);
-    if (el) el.style.display = 'none';
-  };
+
   window.tagSaveRow = async function(i) {
-    const rows = window._tagRows;
-    const key = rows[i].key;
-    const label = document.getElementById(`te-label-${i}`)?.value ?? '';
-    const shape = document.getElementById(`te-shape-${i}`)?.value ?? 'flag';
-    const scope = document.getElementById(`te-scope-${i}`)?.value ?? 'class';
-    const group = document.getElementById(`te-group-${i}`)?.value ?? '';
-    const help  = document.getElementById(`te-help-${i}`)?.value ?? '';
-    const extraRaw = document.getElementById(`te-extra-${i}`)?.value?.trim() || '{}';
-    let extra = {};
-    try { extra = JSON.parse(extraRaw); } catch(e) { toast('Extra properties: invalid JSON', true); return; }
+    const key = window._tagRows[i].key;
+    const fields = readDialogFields();
+    if (!fields) return;
+    const { label, shape, scope, group, help, extra } = fields;
     window._tagCatalog[key] = { ...extra, label, shape, scope, group, help };
     const r = await API('/tag-catalog', 'PUT', window._tagCatalog);
     if (r?.error) { toast(r.error, true); return; }
     toast('Tag saved');
+    closeModal();
     _catalog = { ...window._tagCatalog };
     render();
   };
+
   window.tagDeleteRow = async function(i) {
     const key = window._tagRows[i].key;
     if (!confirm(`Delete tag "${key}" from the catalog? Existing items with this tag are unaffected.`)) return;
@@ -2202,22 +2194,32 @@ function renderTagsPanel(catalog) {
     _catalog = { ...window._tagCatalog };
     render();
   };
+
+  window.tagShowAdd = function() {
+    document.getElementById('modal-title').textContent = 'New Tag';
+    document.getElementById('modal-body').innerHTML = `
+      <div class="field" style="margin-bottom:8px">
+        <label>Key <span style="font-weight:normal;color:var(--text-dim)">(namespace:name)</span></label>
+        <input id="td-key" placeholder="lock:newtype" style="width:100%">
+      </div>
+      ${tagDialogForm(null)}`;
+    document.getElementById('modal-save').onclick = window.tagAddNew;
+    document.getElementById('generic-modal').style.display = 'flex';
+    document.getElementById('td-key')?.focus();
+  };
+
   window.tagAddNew = async function() {
-    const key   = document.getElementById('ta-key')?.value?.trim();
-    const label = document.getElementById('ta-label')?.value ?? '';
-    const shape = document.getElementById('ta-shape')?.value ?? 'flag';
-    const scope = document.getElementById('ta-scope')?.value ?? 'class';
-    const group = document.getElementById('ta-group')?.value ?? '';
-    const help  = document.getElementById('ta-help')?.value ?? '';
-    const extraRaw = document.getElementById('ta-extra')?.value?.trim() || '{}';
-    let extra = {};
-    try { extra = JSON.parse(extraRaw); } catch(e) { toast('Extra properties: invalid JSON', true); return; }
+    const key = document.getElementById('td-key')?.value?.trim();
     if (!key) { toast('Key is required', true); return; }
     if (window._tagCatalog[key]) { toast(`"${key}" already exists`, true); return; }
+    const fields = readDialogFields();
+    if (!fields) return;
+    const { label, shape, scope, group, help, extra } = fields;
     window._tagCatalog[key] = { ...extra, label, shape, scope, group, help };
     const r = await API('/tag-catalog', 'PUT', window._tagCatalog);
     if (r?.error) { toast(r.error, true); return; }
     toast(`"${key}" added to catalog`);
+    closeModal();
     _catalog = { ...window._tagCatalog };
     render();
   };
