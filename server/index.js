@@ -25,6 +25,11 @@ import {
 import { startGameLoop } from "./engine/gameLoop.js";
 import { loadPlugins, fireHook } from "./engine/plugins.js";
 import { emit } from "./engine/events.js";
+import { dispatchAction } from "./engine/actions.js";
+// Side-effect imports: register the Flag store and graph-engine Actions
+// (SET_FLAG, CLEAR_FLAG, GRANT_ITEM, TELEPORT, EXECUTE_SCRIPT, …) at boot.
+import { evalConditions } from "./engine/flags.js";
+import "./engine/graph.js";
 import { loadRecipes } from "./engine/crafting.js";
 import { loadDrugs } from "./engine/drugs.js";
 import { loadMutations } from "./engine/mutations.js";
@@ -611,24 +616,37 @@ async function handleDialogue(ws, session, msg) {
 		return;
 	}
 
-	let grantMessage = "";
+	const player = getLivePlayer(session.playerId);
+
+	// Run the node's Actions (Phase 4). Each is dispatched through the canonical
+	// Action path; `grants_item` is kept as a legacy shorthand for GRANT_ITEM.
+	const actions = [...(node.actions || [])];
 	if (node.grants_item?.item_id) {
-		const { item_id, quantity = 1 } = node.grants_item;
-		const { rows: already } = await query(
-			"SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2",
-			[session.playerId, item_id],
-		);
-		if (!already.length) {
-			await query(
-				"INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,$3,$4,1.0)",
-				[randomUUID(), session.playerId, item_id, quantity],
-			);
-			const { rows: itemRows } = await query(
-				"SELECT name FROM items WHERE id=$1",
-				[item_id],
-			);
-			grantMessage = `\n\n<span class="item-grant">You receive: ${itemRows[0]?.name || item_id}${quantity > 1 ? ` x${quantity}` : ""}.</span>`;
+		actions.push({ action: "GRANT_ITEM", params: { item_id: node.grants_item.item_id, quantity: node.grants_item.quantity || 1 } });
+	}
+	let appendMessage = "";
+	if (player) {
+		for (const a of actions) {
+			if (!a?.action) continue;
+			const result = await dispatchAction({
+				type: a.action,
+				actor: player,
+				params: a.params || {},
+				context: { broadcast },
+			});
+			if (result?.type === "grant" && result.granted) {
+				appendMessage += `\n\n<span class="item-grant">You receive: ${result.name}${result.quantity > 1 ? ` x${result.quantity}` : ""}.</span>`;
+			} else if (result?.type === "error") {
+				console.warn(`[dialogue] action ${a.action} failed: ${result.message}`);
+			}
 		}
+	}
+
+	// Condition-gate options against the player's Flags.
+	const options = [];
+	for (const opt of node.options || []) {
+		if (player && !(await evalConditions(opt.conditions || opt.condition, player))) continue;
+		options.push(opt);
 	}
 
 	ws.send(
@@ -637,8 +655,8 @@ async function handleDialogue(ws, session, msg) {
 			npcId: msg.npcId,
 			npcName: npc.name,
 			node: msg.choice,
-			text: node.text + grantMessage,
-			options: node.options || [],
+			text: node.text + appendMessage,
+			options,
 		}),
 	);
 }

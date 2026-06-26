@@ -123,6 +123,10 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path==='/recipes' && method==='POST') return requireDev(auth, ()=>apiCreateRecipe(body));
   if (path.startsWith('/recipes/') && method==='PUT') return requireDev(auth, ()=>apiUpdateRecipe(path.split('/')[2],body));
   if (path.startsWith('/recipes/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteRecipe(path.split('/')[2]));
+  if (path==='/scripts' && method==='GET') return requireDev(auth, apiGetScripts);
+  if (path==='/scripts' && method==='POST') return requireDev(auth, ()=>apiCreateScript(body));
+  if (path.startsWith('/scripts/') && method==='PUT') return requireDev(auth, ()=>apiUpdateScript(path.split('/')[2],body));
+  if (path.startsWith('/scripts/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteScript(path.split('/')[2]));
   if (path==='/apartments' && method==='GET') return requireDev(auth, apiGetApartments);
   if (path==='/apartments/build' && method==='POST') return requireDev(auth, ()=>apiBuildApartmentBlock(body));
   if (path.startsWith('/apartments/') && method==='PUT') return requireDev(auth, ()=>apiUpdateApartment(path.split('/')[2],body));
@@ -1207,6 +1211,30 @@ async function apiDeleteRecipe(id) {
   try {
     await query('DELETE FROM recipes WHERE id=$1',[id]);
     await loadRecipes();
+    return {status:200,body:{message:'Deleted'}};
+  } catch(e) { return {status:400,body:{error:e.message}}; }
+}
+
+// --- Scripts (shared graph assets, Phase 4) ---
+async function apiGetScripts() { const {rows}=await query('SELECT * FROM scripts ORDER BY name'); return {status:200,body:rows}; }
+async function apiCreateScript(body) {
+  const id=body.id||`script_${Date.now()}`;
+  try {
+    await query('INSERT INTO scripts (id,name,description,graph,updated_at) VALUES ($1,$2,$3,$4,EXTRACT(EPOCH FROM NOW()))',
+      [id,body.name||'Untitled Script',body.description||'',JSON.stringify(body.graph||{})]);
+    return {status:201,body:{id}};
+  } catch(e) { return {status:400,body:{error:e.message}}; }
+}
+async function apiUpdateScript(id,body) {
+  try {
+    await query('UPDATE scripts SET name=$1,description=$2,graph=$3,updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$4',
+      [body.name||'Untitled Script',body.description||'',JSON.stringify(body.graph||{}),id]);
+    return {status:200,body:{id}};
+  } catch(e) { return {status:400,body:{error:e.message}}; }
+}
+async function apiDeleteScript(id) {
+  try {
+    await query('DELETE FROM scripts WHERE id=$1',[id]);
     return {status:200,body:{message:'Deleted'}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }

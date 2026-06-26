@@ -1,14 +1,20 @@
 import { getAllLivePlayers, getZonePlayers, getZoneNpcs } from '../world.js';
 import { propagateYell } from '../sounds.js';
 import { canAccessChannel, broadcastToChannel } from '../channels.js';
+import { evalConditions } from '../flags.js';
 
-function cmdTalk(targetStr, player) {
+async function cmdTalk(targetStr, player) {
   if (!targetStr) return { type:'error', message:'Talk to whom?' };
   const npcs = getZoneNpcs(player.current_zone);
   const npc = npcs.find(n => n.name.toLowerCase().includes(targetStr));
   if (!npc) return { type:'error', message:`Can't find "${targetStr}" here.` };
   const root = npc.dialogue_tree?.root;
-  const options = [...(root?.options || [])];
+  // Condition-gate root options against the player's Flags (Phase 4).
+  const options = [];
+  for (const opt of (root?.options || [])) {
+    if (!(await evalConditions(opt.conditions || opt.condition, player))) continue;
+    options.push(opt);
+  }
   if (npc.vendor_inventory?.length) options.push({ label: 'Browse your wares.', next: '__shop__' });
   if (!root && !options.length) return { type:'talk', message:`${npc.name} doesn't want to talk.` };
   return { type:'dialogue', npcId:npc.id, npcName:npc.name, node:'root', text:root?.text || `${npc.name} glances up at you.`, options };

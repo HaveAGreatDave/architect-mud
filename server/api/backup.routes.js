@@ -19,6 +19,7 @@ const CONTENT_TABLES = [
   'npcs', 'furniture', 'doors', 'windows', 'sounds', 'global_ambient_events',
   'loot_tables', 'recipes', 'drugs', 'mutations', 'combat_config',
   'apartments', 'generators', 'power_zones', 'climate_profiles',
+  'scripts',
 ];
 
 export async function handleBackupApi(path, method, body, auth) {

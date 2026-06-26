@@ -69,6 +69,7 @@
     <div class="nav-item" data-panel="npcs" onclick="showPanel('npcs')">🧑 NPCs</div>
     <div class="nav-item" data-panel="furniture" onclick="showPanel('furniture')">🪑 Furniture</div>
     <div class="nav-item" data-panel="recipes" onclick="showPanel('recipes')">⚗ Recipes</div>
+    <div class="nav-item" data-panel="scripts" onclick="showPanel('scripts')">⎇ Scripts</div>
     <div class="nav-item" data-panel="mutations" onclick="showPanel('mutations')">☢ Mutations</div>
     <div class="nav-item" data-panel="drugs" onclick="showPanel('drugs')">💊 Drugs</div>
     <div class="nav-item" data-panel="sounds" onclick="showPanel('sounds')">🔊 Sounds</div>
@@ -476,6 +477,18 @@ const PANELS = {
     save: saveRecipe,
     delete: id => API(`/recipes/${id}`, 'DELETE'),
   },
+  scripts: {
+    title: 'Scripts',
+    fetch: () => API('/scripts'),
+    columns: [
+      { key: 'name', label: 'Name' },
+      { key: 'description', label: 'Description' },
+      { key: 'graph', label: 'Nodes', render: g => Object.keys((typeof g === 'object' ? g : JSON.parse(g||'{}')).nodes || {}).length },
+    ],
+    editForm: scriptEditForm,
+    save: saveScript,
+    delete: id => API(`/scripts/${id}`, 'DELETE'),
+  },
   maps: {
     title: 'Maps',
     fetch: () => API('/maps'),
@@ -816,6 +829,8 @@ async function openEdit(record, isNew) {
   document.getElementById('delete-btn').style.display = isNew ? 'none' : '';
   document.getElementById('edit-body').innerHTML = '<div style="padding:24px;color:var(--text-dim)">Loading...</div>';
   document.getElementById('edit-body').innerHTML = await p.editForm(record, isNew);
+  // Populate the script node editor after DOM is ready
+  if (currentPanel === 'scripts') renderScriptEditor();
   // Populate zone windows sub-section after DOM is ready
   if (currentPanel === 'zones' && record?.id) zoneWindowsRefresh(record.id);
   // Populate world map exit dropdown if this is a building zone
@@ -2389,6 +2404,130 @@ async function saveRecipe(existing) {
   };
   if (isNew) { body.id = document.getElementById('f-id').value.trim(); return API('/recipes', 'POST', body); }
   return API(`/recipes/${existing.id}`, 'PUT', body);
+}
+
+// ── Script node editor (Phase 4: shared graph) ──────────────────────────────
+// Edits the exact JSON the graph runtime executes:
+//   { start, nodes: { id: { type, ...fields } } }
+// The node list is the source of truth; a raw-JSON box mirrors it for power use.
+let _scriptGraph = { start: '', nodes: {} };
+
+const SCRIPT_NODE_TYPES = ['action', 'setflag', 'condition', 'say', 'wait', 'script'];
+
+function scriptEditForm(rec, isNew) {
+  const g = (rec.graph && typeof rec.graph === 'object') ? rec.graph : JSON.parse(rec.graph || '{}');
+  _scriptGraph = { start: g.start || '', nodes: g.nodes || {} };
+  return `
+    <div class="field"><label>Script ID</label><input id="f-id" value="${isNew?'':rec.id}" ${!isNew?'readonly style="opacity:0.5"':''} placeholder="script_my_thing"></div>
+    <div class="field"><label>Name</label><input id="f-name" value="${rec.name||''}"></div>
+    <div class="field"><label>Description</label><textarea id="f-description" rows="2">${rec.description||''}</textarea></div>
+    <div class="field"><label>Start Node</label><select id="f-start" onchange="_scriptGraph.start=this.value"></select></div>
+    <div class="field"><label>Nodes</label>
+      <div id="script-nodes"></div>
+      <button type="button" class="action-btn" onclick="addScriptNode()">+ Add Node</button>
+    </div>
+    <div class="field"><label>Raw Graph JSON (mirror)</label>
+      <textarea id="f-graph-json" rows="6" onchange="applyScriptJSON(this.value)"></textarea>
+    </div>
+  `;
+}
+
+function renderScriptEditor() {
+  const startSel = document.getElementById('f-start');
+  if (!startSel) return;
+  const ids = Object.keys(_scriptGraph.nodes);
+  startSel.innerHTML = ids.map(id => `<option value="${id}" ${id===_scriptGraph.start?'selected':''}>${id}</option>`).join('') || '<option value="">— no nodes —</option>';
+  startSel.value = _scriptGraph.start || ids[0] || '';
+
+  const cont = document.getElementById('script-nodes');
+  cont.innerHTML = ids.map(id => renderScriptNode(id, _scriptGraph.nodes[id])).join('') ||
+    '<div style="color:var(--text-dim);font-size:12px;padding:4px 0">No nodes yet.</div>';
+  syncScriptJSON();
+}
+
+function nodeIdOptions(selected) {
+  return ['<option value="">— end —</option>', ...Object.keys(_scriptGraph.nodes).map(id =>
+    `<option value="${id}" ${id===selected?'selected':''}>${id}</option>`)].join('');
+}
+
+function renderScriptNode(id, node) {
+  const set = `onchange="setNodeField('${id}',this.dataset.k,this.value)"`;
+  const typeSel = SCRIPT_NODE_TYPES.map(t => `<option value="${t}" ${t===node.type?'selected':''}>${t}</option>`).join('');
+  let body = '';
+  if (node.type === 'action') {
+    body = `
+      <input data-k="action" ${set} value="${node.action||''}" placeholder="ACTION e.g. GRANT_ITEM" style="width:100%;margin-bottom:4px">
+      <textarea data-k="params" onchange="setNodeJSON('${id}','params',this.value)" rows="2" placeholder='{"item_id":"item_x"}' style="width:100%;margin-bottom:4px">${JSON.stringify(node.params||{})}</textarea>`;
+  } else if (node.type === 'setflag') {
+    body = `
+      <select data-k="scope" ${set} style="margin-bottom:4px"><option value="player" ${node.scope!=='world'?'selected':''}>player</option><option value="world" ${node.scope==='world'?'selected':''}>world</option></select>
+      <select data-k="op" ${set} style="margin-bottom:4px"><option value="set" ${node.op!=='clear'?'selected':''}>set</option><option value="clear" ${node.op==='clear'?'selected':''}>clear</option></select>
+      <input data-k="flag" ${set} value="${node.flag||''}" placeholder="flag key" style="margin-bottom:4px">
+      <input data-k="value" ${set} value="${node.value??''}" placeholder="value (default true)" style="margin-bottom:4px">`;
+  } else if (node.type === 'condition') {
+    body = `
+      <textarea data-k="condition" onchange="setNodeJSON('${id}','condition',this.value)" rows="2" placeholder='{"flag":"met_bob","op":"set"}' style="width:100%;margin-bottom:4px">${JSON.stringify(node.condition||{})}</textarea>
+      <label style="font-size:11px">if true →</label><select data-k="ifTrue" ${set} style="margin-bottom:4px">${nodeIdOptions(node.ifTrue)}</select>
+      <label style="font-size:11px">if false →</label><select data-k="ifFalse" ${set} style="margin-bottom:4px">${nodeIdOptions(node.ifFalse)}</select>`;
+  } else if (node.type === 'say') {
+    body = `<textarea data-k="text" ${set} rows="2" placeholder="line shown to the player" style="width:100%;margin-bottom:4px">${node.text||''}</textarea>`;
+  } else if (node.type === 'wait') {
+    body = `<input data-k="seconds" ${set} type="number" value="${node.seconds||0}" placeholder="seconds" style="margin-bottom:4px">`;
+  } else if (node.type === 'script') {
+    body = `<input data-k="scriptId" ${set} value="${node.scriptId||''}" placeholder="script_id to run" style="margin-bottom:4px">`;
+  }
+  const nextField = (node.type === 'condition') ? '' :
+    `<label style="font-size:11px">next →</label><select data-k="next" ${set}>${nodeIdOptions(node.next)}</select>`;
+  return `
+    <div style="border:1px solid var(--border);border-radius:3px;padding:8px;margin-bottom:6px">
+      <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+        <strong style="font-family:monospace">${id}</strong>
+        <select onchange="changeNodeType('${id}',this.value)">${typeSel}</select>
+        <button type="button" class="action-btn" style="margin-left:auto" onclick="deleteScriptNode('${id}')">✕</button>
+      </div>
+      ${body}${nextField}
+    </div>`;
+}
+
+function setNodeField(id, k, v) { _scriptGraph.nodes[id][k] = v; syncScriptJSON(); }
+function setNodeJSON(id, k, v) {
+  try { _scriptGraph.nodes[id][k] = JSON.parse(v || (k==='params'?'{}':'{}')); syncScriptJSON(); }
+  catch { toast(`${k}: invalid JSON`, true); }
+}
+function changeNodeType(id, type) { _scriptGraph.nodes[id] = { type }; renderScriptEditor(); }
+function addScriptNode() {
+  let n = 1; while (_scriptGraph.nodes['n'+n]) n++;
+  const id = 'n'+n;
+  _scriptGraph.nodes[id] = { type: 'action' };
+  if (!_scriptGraph.start) _scriptGraph.start = id;
+  renderScriptEditor();
+}
+function deleteScriptNode(id) {
+  delete _scriptGraph.nodes[id];
+  if (_scriptGraph.start === id) _scriptGraph.start = Object.keys(_scriptGraph.nodes)[0] || '';
+  renderScriptEditor();
+}
+function syncScriptJSON() {
+  const ta = document.getElementById('f-graph-json');
+  if (ta) ta.value = JSON.stringify(_scriptGraph, null, 2);
+}
+function applyScriptJSON(v) {
+  try {
+    const g = JSON.parse(v);
+    _scriptGraph = { start: g.start || '', nodes: g.nodes || {} };
+    renderScriptEditor();
+  } catch { toast('Graph JSON: invalid', true); }
+}
+
+async function saveScript(existing) {
+  const isNew = !existing?.id;
+  const body = {
+    name: document.getElementById('f-name').value || 'Untitled Script',
+    description: document.getElementById('f-description').value || '',
+    graph: _scriptGraph,
+  };
+  if (isNew) { body.id = document.getElementById('f-id').value.trim() || undefined; return API('/scripts', 'POST', body); }
+  return API(`/scripts/${existing.id}`, 'PUT', body);
 }
 
 async function saveEnemy(existing) {

@@ -217,6 +217,15 @@ const handlers = {
     if (msg.player_update && state.player) { Object.assign(state.player, msg.player_update); updateVitals(state.player); }
   },
 
+  // Server-directed request to open a client UI (dialogue "Open Bank/Storage/
+  // Crafting" Actions). Known panels run their own command; otherwise note it.
+  open_ui: (msg) => {
+    closeDialogue();
+    const cmd = { bank: 'balance', crafting: 'recipes' }[msg.ui];
+    if (cmd) sendCmd(cmd);
+    else appendMsg(`(${msg.ui} interface requested)`, 'system');
+  },
+
   buy: (msg) => {
     appendHtml(msg.message, 'loot');
     if (msg.player_update && state.player) { Object.assign(state.player, msg.player_update); updateVitals(state.player); }

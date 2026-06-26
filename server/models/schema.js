@@ -544,6 +544,36 @@ export const SCHEMA_SQL = `
     fixture_count INTEGER NOT NULL DEFAULT 0
   );
   ALTER TABLE lighting_states ADD COLUMN IF NOT EXISTS total_lumens INTEGER NOT NULL DEFAULT 0;
+
+  -- ── Flag store + Script graphs (Phase 4: graph engine) ─────────────────────
+  -- Flags are persisted conditional state read by Conditions in Dialogue,
+  -- Scripts, and Quests. NOT the legacy 'flags' JSONB tag bag (see ADR-0003 /
+  -- CONTEXT.md). Player-scoped flags key off the player; world flags are global.
+  -- Values are stored as TEXT; numeric comparisons coerce at eval time.
+  CREATE TABLE IF NOT EXISTS player_flags (
+    player_id TEXT NOT NULL,
+    flag_key TEXT NOT NULL,
+    flag_value TEXT NOT NULL DEFAULT 'true',
+    updated_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW()),
+    PRIMARY KEY (player_id, flag_key)
+  );
+  CREATE TABLE IF NOT EXISTS world_flags (
+    flag_key TEXT PRIMARY KEY,
+    flag_value TEXT NOT NULL DEFAULT 'true',
+    updated_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
+  );
+
+  -- Reusable Script graph assets. The 'graph' JSONB is the exact node format the
+  -- shared graph runtime (server/engine/graph.js) executes — hand-authorable, and
+  -- edited by the devpanel node editor. Dialogue stays on npcs.dialogue_tree; both
+  -- run through the same engine.
+  CREATE TABLE IF NOT EXISTS scripts (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT,
+    graph JSONB NOT NULL DEFAULT '{}',
+    updated_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
+  );
 `;
 
 export async function applySchema() {
