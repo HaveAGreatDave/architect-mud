@@ -8,10 +8,11 @@ const DIRECTIONS = ['north','south','east','west','up','down','in','out'];
 const OPPOSITE = { north:'south', south:'north', east:'west', west:'east', up:'down', down:'up', in:'out', out:'in' };
 
 function findDoorEitherSide(zoneId, dir) {
-  // Door in this zone going that direction
+  // Door in this zone going that direction (player is on the source side)
   const direct = getDoorForExit(zoneId, dir);
   if (direct) return direct;
-  // Door in the adjacent zone going the opposite direction (player is on the far side)
+  // Door in the target zone going the opposite direction (door is installed on the far side)
+  // e.g. apt door goes south to lobby; from lobby going north, find getDoorForExit(apt, 'south')
   const zone = getZone(zoneId);
   const targetId = zone?.exits?.[dir];
   if (!targetId) return null;

@@ -163,9 +163,11 @@ async function cmdMove(direction, player, broadcast) {
   const targetZone = getZone(targetId);
   if (!targetZone) return { type:'error', message:'That exit leads nowhere yet.' };
 
+  const OPPOSITE = { north:'south', south:'north', east:'west', west:'east', up:'down', down:'up', in:'out', out:'in' };
   let doorWasClosed = false;
   let doorWasLocked = false;
-  const door = getDoorForExit(zone.id, direction);
+  // Door may be on either side: in this zone going out, or in the target zone going back
+  let door = getDoorForExit(zone.id, direction) || getDoorForExit(targetId, OPPOSITE[direction]) || null;
   if (door && door.hp > 0) {
     if (door.lock_state === 'locked') {
       const isAdmin = player.role === 'admin' || player.role === 'dev';
@@ -173,7 +175,7 @@ async function cmdMove(direction, player, broadcast) {
       if (!canUnlock) {
         const { rows } = await query(
           'SELECT 1 FROM apartments WHERE zone_id=ANY($1) AND owner_id=$2',
-          [[zone.id, targetId], player.id]
+          [[zone.id, targetId, door.zone_id], player.id]
         );
         canUnlock = rows.length > 0;
       }
@@ -195,7 +197,6 @@ async function cmdMove(direction, player, broadcast) {
   player.combatTargetId = null;
   await query('UPDATE players SET current_zone=$1 WHERE id=$2', [targetId, player.id]);
 
-  const OPPOSITE = { north:'south', south:'north', east:'west', west:'east', up:'down', down:'up', in:'out', out:'in' };
   const arrivalDir = OPPOSITE[direction] || null;
 
   const hadDoor = !!(door && door.hp > 0);
@@ -210,13 +211,13 @@ async function cmdMove(direction, player, broadcast) {
   broadcast(zone.id, { type:'zone_event', message: departMsg }, player.id);
   broadcast(targetId, { type:'zone_event', message: arriveMsg }, player.id);
 
-  // Close the door behind the player if it was closed before they walked through
+  // Close the door behind the player
   if (hadDoor && doorWasClosed) {
     door.is_open = 0;
     setDoorCache(door.id, door);
     await query('UPDATE doors SET is_open=0 WHERE id=$1', [door.id]);
-    broadcast(zone.id, { type:'zone_event', message:'The door swings closed.' });
-    broadcast(targetId, { type:'zone_event', message:'The door swings closed.' });
+    broadcast(zone.id, { type:'zone_event', message:'The door swings closed.' }, player.id);
+    broadcast(targetId, { type:'zone_event', message:'The door swings closed.' }, player.id);
   }
 
   let radGain = 0;
@@ -228,10 +229,11 @@ async function cmdMove(direction, player, broadcast) {
     }
   }
   const zoneDesc = await describeZone(targetZone, player);
+  const doorClose = (hadDoor && doorWasClosed) ? '\nThe door swings closed behind you.' : '';
   const moveMsg = doorWasLocked
-    ? `The Hololock chimes as you unlock and open the door, heading ${direction}.\n${zoneDesc}`
+    ? `The Hololock chimes as you pass through the door, heading ${direction}.\n${zoneDesc}${doorClose}`
     : doorWasClosed
-      ? `You open the door and head ${direction}.\n${zoneDesc}`
+      ? `You open the door and head ${direction}.\n${zoneDesc}${doorClose}`
       : zoneDesc;
   return { type:'move', message:moveMsg, zone:targetId, radiation_gain:radGain, minimap: getMinimapData(targetId), tempC: getZoneTemperature(targetId) };
 }
