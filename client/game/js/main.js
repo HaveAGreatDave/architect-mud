@@ -75,7 +75,8 @@ document.getElementById('auth-toggle-link').addEventListener('click', () => {
   state.isRegister = !state.isRegister;
   document.getElementById('handle-field').classList.toggle('visible', state.isRegister);
   const misOn = !!localStorage.getItem('mis_client_enabled');
-  document.getElementById('sex-field').style.display = (state.isRegister && misOn) ? '' : 'none';
+  document.getElementById('sex-field').style.display = state.isRegister ? '' : 'none';
+  document.getElementById('sexuality-field').style.display = (state.isRegister && misOn) ? '' : 'none';
   document.getElementById('email-field').style.display = state.isRegister ? '' : 'none';
   document.getElementById('forgot-link-wrap').style.display = state.isRegister ? 'none' : '';
   document.getElementById('auth-toggle-text').textContent = state.isRegister ? 'Have an account?' : 'No account?';

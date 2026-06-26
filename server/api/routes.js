@@ -180,7 +180,7 @@ async function apiRegister(body) {
       [id, username.toLowerCase(), hashPassword(password), handle, ip,
        biological_sex, app.hair_style, app.hair_length, app.hair_color, app.eye_color,
        app.height_cm, app.weight_kg, JSON.stringify(app.appearance_data), email.toLowerCase().trim(),
-       biological_sex === 'male' ? 'Female' : 'Male']
+       body.sexuality || (biological_sex === 'male' ? 'Female' : 'Male')]
     );
     // Starting kit — bandages always
     await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,'item_bandage',3,1.0)`, [randomUUID(), id]);
