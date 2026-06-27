@@ -74,28 +74,43 @@ function _applyMotdSubstitutions(template, handle, dynamicText) {
   return text;
 }
 
+function _fitPanelToMotd() {
+  if (_windowSize === 'large') return;
+  requestAnimationFrame(() => {
+    const log   = document.getElementById('whisper-log');
+    const panel = document.getElementById('whisper-panel');
+    if (!log || !panel || _activeWhisperTab !== '#system') return;
+    const pre = log.querySelector('pre');
+    if (!pre) return;
+    // pre.scrollWidth = natural rendered width even if container clips it
+    const targetW = pre.scrollWidth + 22; // 10+10px log padding + 2px border
+    const w = Math.min(Math.max(targetW, 180), Math.floor(window.innerWidth * 0.95));
+    panel.style.width = w + 'px';
+  });
+}
+
 function _setSystemMOTD(renderedText) {
   const channelId = '#system';
   if (!_whisperConvos.has(channelId)) _whisperConvos.set(channelId, { messages: [], scrollTop: 0, unread: 0 });
-  const convo    = _whisperConvos.get(channelId);
-  const isFirst  = convo.messages.length === 0;
-  // Replace all messages with just the MOTD (it's the only content in #system)
+  const convo   = _whisperConvos.get(channelId);
+  const isFirst = convo.messages.length === 0;
   convo.messages = [{
     from: 'SYSTEM',
     message: `<pre style="font-family:var(--font-mono);white-space:pre;margin:0;line-height:1.3;tab-size:4">${_esc(renderedText)}</pre>`,
     isMe: false,
     ts: Date.now(),
   }];
-  convo.unread = 0;
+  convo.unread    = 0;
+  convo.scrollTop = 0;
   if (isFirst) {
     openWhisperTab(channelId);
-  } else if (_whisperPanelVisible && _activeWhisperTab === channelId) {
+  } else if (_activeWhisperTab === channelId) {
+    // Re-render immediately whenever #system is active, panel open or closed
     _renderWhisperLog();
     const log = document.getElementById('whisper-log');
     if (log) log.scrollTop = 0;
+    _fitPanelToMotd();
   } else {
-    convo.unread = 1;
-    _updateChatBadge();
     if (_whisperPanelVisible) _refreshWhisperTabs();
   }
 }
@@ -199,6 +214,7 @@ export function openWhisperTab(handle) {
     _applyTextSize();
   }
   if (!_isSystemOnly(handle)) document.getElementById('whisper-reply-input')?.focus();
+  if (handle === '#system') _fitPanelToMotd();
   _updateChatBadge();
 }
 
@@ -320,8 +336,10 @@ function _renderWhisperLog() {
     entry.innerHTML = `<div style="color:${nameColor};margin-bottom:2px;font-style:${m.isMe?'italic':''}">${m.from}</div><div style="color:var(--text)">${m.message}</div>`;
     log.appendChild(entry);
   }
-  log.scrollTop = convo.scrollTop || log.scrollHeight;
+  // Use ?? so scrollTop=0 (MOTD top) is respected; fall back to bottom for chat
+  log.scrollTop = convo.scrollTop != null ? convo.scrollTop : log.scrollHeight;
   _checkWhisperScroll();
+  if (_activeWhisperTab === '#system') _fitPanelToMotd();
 }
 
 function _renderUsersTab(log) {
