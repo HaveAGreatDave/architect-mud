@@ -76,7 +76,7 @@ function renderItemsPanel() {
     { key: 'name', label: 'Name', width: '35%' },
     { key: 'subtype', label: 'Subtype', width: '20%' },
     { key: 'rarity', label: 'Rarity', width: '15%' },
-    { key: 'weight', label: 'Weight', width: '10%' },
+    { key: 'weight', label: 'Weight (g)', width: '10%' },
     { key: 'value', label: 'Value', width: '10%' },
   ];
 
@@ -184,7 +184,7 @@ function itemEditForm(rec, isNew) {
       </div>
     </div>
     <div class="field-row">
-      <div class="field"><label>Weight</label><input type="number" id="f-weight" value="${rec.weight||1}" step="0.1"></div>
+      <div class="field"><label>Weight (g)</label><input type="number" id="f-weight" value="${rec.weight||1000}" step="1"></div>
       <div class="field"><label>Value</label><input type="number" id="f-value" value="${rec.value||0}"></div>
     </div>
     <div class="field"><label>Description</label><textarea id="f-description" rows="3">${tags.description||''}</textarea></div>
@@ -208,7 +208,7 @@ async function saveItem(existing) {
     name: document.getElementById('f-name').value,
     type: document.getElementById('f-type').value || null,
     rarity: document.getElementById('f-rarity').value,
-    weight: parseFloat(document.getElementById('f-weight').value)||1,
+    weight: parseInt(document.getElementById('f-weight').value)||1000,
     value: +document.getElementById('f-value').value,
     tags,
     supertags,

@@ -790,7 +790,7 @@ export async function apiCreateItem(body) {
   const id=body.id||`item_${Date.now()}`;
   try {
     await query(`INSERT INTO items (id,name,type,weight,value,rarity,tags) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-      [id,body.name,body.type||null,body.weight||1,body.value||0,body.rarity||'common',JSON.stringify(itemTagsFor(body))]);
+      [id,body.name,body.type||null,body.weight||1000,body.value||0,body.rarity||'common',JSON.stringify(itemTagsFor(body))]);
     return {status:201,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }

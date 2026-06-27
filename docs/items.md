@@ -27,7 +27,7 @@ each tag does, so nothing gets silently forgotten as the list grows.
 |---|---|---|
 | `id` | TEXT PK | e.g. `item_scrap_armor` |
 | `name` | TEXT | Display name. Commands fuzzy-match on this (`ILIKE %name%`). |
-| `weight` | REAL | Carry weight. Currently informational. |
+| `weight` | REAL | Carry weight, **in grams**. Default 1000 (1kg). Displayed as `g` below 1000g, else `kg` (e.g. `750g`, `1.5kg`). |
 | `value` | INTEGER | Base price; vendors mark up/down from this. |
 | `rarity` | TEXT | `common` / `uncommon` / `rare` / `very_rare`. Flavor + loot tuning. |
 | `tags` | JSONB | **Everything the item *does*.** A map of tag name → value. |
@@ -179,9 +179,9 @@ row id: `opencontainer <id>`, `closecontainer <id>`, `stowid <invId> <ctrId>`,
 `pullid <id>`. These ids are **TEXT UUIDs** — pass them straight to the query,
 never `parseInt()` them (see *Lessons Learned* in `architecture.md`).
 
-**Capacity is weight, in kg.** The `container` tag value is a max *weight*, not a
-slot count. The panel shows `usedWeight / capacity` in kg and lists each item's
-own weight. When a multi-quantity stackable would overflow, `stowid` does a
+**Capacity is weight, in grams.** The `container` tag value is a max *weight*, not a
+slot count. The panel shows `usedWeight / capacity` (formatted `g`/`kg`) and lists each item's
+own weight. Furniture containers default to 60000 (60kg) when unset. When a multi-quantity stackable would overflow, `stowid` does a
 **partial fill** — it stows `floor((cap - used) / itemWeight)` of them and leaves
 the rest in inventory, surfacing a `notify` line ("Stowed 7x … — bag is now
 full.") rather than rejecting the whole stack.

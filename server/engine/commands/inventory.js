@@ -61,17 +61,24 @@ async function cmdInventory(player) {
     let container = '';
     if (hasTag(item, 'container')) {
       const used = await containerContentsWeight(item.id);
-      container = ` <span class="equipped">[${round1(used)}/${tagValue(item, 'container', 0)}]</span>`;
+      container = ` <span class="equipped">[${formatWeight(used)}/${formatWeight(tagValue(item, 'container', 0))}]</span>`;
     }
     msg += `  ${item.name}${item.quantity>1?` x${item.quantity}`:''}${quality}${instFlags}${container}${eq} — <span class="item-rarity-${item.rarity}">${item.rarity}</span>\n`;
   }
   const weight = await computeCarriedWeight(player);
-  msg += `\nWeight: ${round1(weight)}`;
+  msg += `\nWeight: ${formatWeight(weight)}`;
   msg += `\nCredits: ${player.credits||0}`;
   return { type:'inventory', message:msg, items:rows };
 }
 
 function round1(n) { return Math.round(n * 10) / 10; }
+
+// Format a weight given in grams: "750g" below 1000g, "1.5kg" at/above (trailing .0 trimmed).
+export function formatWeight(g) {
+  g = Number(g) || 0;
+  if (g < 1000) return `${Math.round(g)}g`;
+  return `${(Math.round(g / 100) / 10).toString()}kg`;
+}
 
 // Prepend "a"/"an" to a name, preserving its original casing. Skips the article
 // when the name reads as plural (ends in s, but not ss).
@@ -306,9 +313,9 @@ async function loadContainerById(id, player) {
   return null;
 }
 
-// Container capacity in kg. Furniture containers default to 60 when unset.
+// Container capacity in grams. Furniture containers default to 60000 (60kg) when unset.
 function containerCapacity(container) {
-  return tagValue(container, 'container', container.kind === 'furniture' ? 60 : 0);
+  return tagValue(container, 'container', container.kind === 'furniture' ? 60000 : 0);
 }
 
 async function cmdLookInContainer(nameStr, player) {
@@ -322,7 +329,7 @@ async function describeContainer(container) {
   const cap = tagValue(container, 'container', 0);
   const { rows } = await query(`SELECT pi.quantity,i.name FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.container_id=$1 ORDER BY i.name`, [container.id]);
   const used = await containerContentsWeight(container.id);
-  let msg = `${container.name} (Capacity: ${round1(used)}/${cap})`;
+  let msg = `${container.name} (Capacity: ${formatWeight(used)}/${formatWeight(cap)})`;
   if (!rows.length) { msg += `\n  It's empty.`; return msg; }
   for (const r of rows) msg += `\n  ${r.name}${r.quantity>1?` x${r.quantity}`:''}`;
   return msg;
@@ -414,7 +421,7 @@ async function cmdStowById(argStr, player, broadcast) {
         return view;
       }
     }
-    return { type:'container_error', message:`${container.name} is full (${round1(used)}/${cap}kg).` };
+    return { type:'container_error', message:`${container.name} is full (${formatWeight(used)}/${formatWeight(cap)}).` };
   }
 
   if (hasTag(item, 'stackable')) {
@@ -494,7 +501,7 @@ async function cmdStow(argStr, player) {
   const cap = tagValue(container, 'container', 0);
   const used = await containerContentsWeight(container.id);
   const adding = (item.weight || 0) * item.quantity;
-  if (used + adding > cap) return { type:'error', message:`${container.name} can't hold that — ${round1(used)}/${cap} used, ${item.name} weighs ${round1(adding)}.` };
+  if (used + adding > cap) return { type:'error', message:`${container.name} can't hold that — ${formatWeight(used)}/${formatWeight(cap)} used, ${item.name} weighs ${formatWeight(adding)}.` };
 
   if (hasTag(item, 'stackable')) {
     const { rows: existing } = await query('SELECT id FROM player_inventory WHERE container_id=$1 AND item_id=$2 LIMIT 1', [container.id, item.item_id]);

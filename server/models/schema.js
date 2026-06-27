@@ -105,7 +105,7 @@ export const SCHEMA_SQL = `
     description TEXT NOT NULL,
     type TEXT NOT NULL,
     subtype TEXT,
-    weight REAL DEFAULT 1.0,
+    weight REAL DEFAULT 1000,
     value INTEGER DEFAULT 0,
     rarity TEXT DEFAULT 'common',
     is_stackable INTEGER DEFAULT 0,

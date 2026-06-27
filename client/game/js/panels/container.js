@@ -32,11 +32,18 @@ export function showContainerNotify(msg) {
 
 export function getActiveContainerId() { return activeContainerId; }
 
+// Format a weight given in grams: "750g" below 1000g, "1.5kg" at/above (trailing .0 trimmed).
+function formatWeight(g) {
+  g = Number(g) || 0;
+  if (g < 1000) return `${Math.round(g)}g`;
+  return `${(Math.round(g / 100) / 10).toString()}kg`;
+}
+
 function renderContainerPanel(data) {
   document.getElementById('container-title').textContent = data.containerName;
   document.getElementById('container-contents-label').textContent = data.containerName;
   document.getElementById('container-capacity').textContent =
-    `Capacity: ${data.usedWeight}kg / ${data.capacity}kg`;
+    `Capacity: ${formatWeight(data.usedWeight)} / ${formatWeight(data.capacity)}`;
   const notify = document.getElementById('container-notify');
   if (notify) notify.textContent = data.notify || '';
 
@@ -54,7 +61,7 @@ function renderList(listId, items, source, containerId) {
     card.setAttribute('data-id', item.id);
     card.setAttribute('data-source', source);
     const qty = item.quantity > 1 ? ` x${item.quantity}` : '';
-    const wt = item.weight != null ? ` ${item.weight}kg` : '';
+    const wt = item.weight != null ? ` ${formatWeight(item.weight)}` : '';
     card.innerHTML = `<span class="ctr-name">${item.name}${qty}</span><span class="ctr-meta">${item.rarity || ''}${wt}</span>`;
 
     if (source === 'inv') {
