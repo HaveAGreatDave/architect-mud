@@ -11,15 +11,6 @@
 			if (localStorage.getItem('mud_remember_user') && localStorage.getItem('mud_remember_pass') && !sessionStorage.getItem('signed-out')) {
 				document.write('<style>#auth-screen{display:none}</style>');
 			}
-			// Apply sidebar position before first paint to avoid layout flash.
-			(function() {
-				try {
-					var s = JSON.parse(localStorage.getItem('architect_settings') || '{}');
-					document.documentElement.setAttribute('data-sidebar', s.sidebarPosition || 'left');
-				} catch(e) {
-					document.documentElement.setAttribute('data-sidebar', 'left');
-				}
-			})();
 		</script>
 	</head>
 	<body>
@@ -225,43 +216,7 @@
 			<button id="mobile-map-btn" title="Toggle minimap">🗺</button>
 		</div>
 
-		<div id="main">
-			<div id="output-container">
-				<div id="output"></div>
-				<div id="quick-cmds">
-					<button class="qcmd" data-cmd="look">look</button>
-					<button class="qcmd" data-open-equip>inv</button>
-					<button class="qcmd" data-cmd="stats">stats</button>
-					<button class="qcmd" data-cmd="skills">skills</button>
-					<button class="qcmd" data-cmd="who">who</button>
-					<button class="qcmd" data-cmd="help">help</button>
-					<button class="qcmd" data-cmd="recipes">recipes</button>
-					<button class="qcmd" data-cmd="factions">factions</button>
-					<button class="qcmd" data-cmd="mutations">mutations</button>
-					<button class="qcmd" id="open-map-btn">map</button>
-					<button
-						id="debug-whisper-btn"
-						class="qcmd"
-						style="
-							display: none;
-							border-color: var(--text-dim);
-							opacity: 0.6;
-						"
-						title="Send yourself a test whisper">
-						⚙ test whisper
-					</button>
-				</div>
-				<div id="input-area">
-					<span id="prompt">&gt;</span>
-					<input
-						type="text"
-						id="cmd-input"
-						placeholder="Type a command..."
-						autocomplete="off"
-						spellcheck="false" />
-				</div>
-			</div>
-
+		<div id="main" style="grid-template-columns: 240px 1fr;">
 			<div id="sidebar">
 				<div class="sidebar-section" id="minimap-section">
 					<div class="sidebar-label">Map</div>
@@ -419,6 +374,43 @@
 					</div>
 				</div>
 			</div>
+
+			<div id="output-container" style="border-left: 1px solid var(--border);">
+				<div id="output"></div>
+				<div id="quick-cmds">
+					<button class="qcmd" data-cmd="look">look</button>
+					<button class="qcmd" data-open-equip>inv</button>
+					<button class="qcmd" data-cmd="stats">stats</button>
+					<button class="qcmd" data-cmd="skills">skills</button>
+					<button class="qcmd" data-cmd="who">who</button>
+					<button class="qcmd" data-cmd="help">help</button>
+					<button class="qcmd" data-cmd="recipes">recipes</button>
+					<button class="qcmd" data-cmd="factions">factions</button>
+					<button class="qcmd" data-cmd="mutations">mutations</button>
+					<button class="qcmd" id="open-map-btn">map</button>
+					<button
+						id="debug-whisper-btn"
+						class="qcmd"
+						style="
+							display: none;
+							border-color: var(--text-dim);
+							opacity: 0.6;
+						"
+						title="Send yourself a test whisper">
+						⚙ test whisper
+					</button>
+				</div>
+				<div id="input-area">
+					<span id="prompt">&gt;</span>
+					<input
+						type="text"
+						id="cmd-input"
+						placeholder="Type a command..."
+						autocomplete="off"
+						spellcheck="false" />
+				</div>
+			</div>
+
 		</div>
 
 		<!-- WHISPER PANEL (tabbed, draggable) -->
@@ -729,18 +721,6 @@
 						</button>
 						<button class="settings-opt" data-value="compact">
 							Compact (Mobile)
-						</button>
-					</div>
-				</div>
-
-				<div class="settings-group">
-					<label class="group-label">Layout</label>
-					<div class="settings-options" id="opt-sidebar">
-						<button class="settings-opt" data-value="left">
-							Sidebar Left
-						</button>
-						<button class="settings-opt" data-value="right">
-							Sidebar Right
 						</button>
 					</div>
 				</div>

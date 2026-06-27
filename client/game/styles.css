@@ -207,10 +207,22 @@
   /* ─── MAIN LAYOUT ─── */
   #main {
     display: grid;
-    grid-template-columns: 1fr 240px;
+    grid-template-columns: 240px 1fr;
     flex: 1;
     overflow: hidden;
   }
+
+  /* Sidebar left (default): sidebar in column 1, output in column 2.
+     grid-row: 1 is required on both — without it the auto-placement cursor
+     advances past row 1 after placing #output-container (first in DOM) at
+     col 2, causing #sidebar to land in row 2 instead of beside it. */
+  #sidebar { grid-column: 1; grid-row: 1; }
+  #output-container { grid-column: 2; grid-row: 1; border-left: 1px solid var(--border); }
+
+  /* Sidebar right: swap columns */
+  [data-sidebar="right"] #main { grid-template-columns: 1fr 240px; }
+  [data-sidebar="right"] #sidebar { grid-column: 2; }
+  [data-sidebar="right"] #output-container { grid-column: 1; border-left: none; border-right: 1px solid var(--border); }
 
   [data-density="compact"] #main {
     grid-template-columns: 1fr;
@@ -300,7 +312,6 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    border-right: 1px solid var(--border);
   }
 
   #output {

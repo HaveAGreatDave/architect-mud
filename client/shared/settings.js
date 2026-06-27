@@ -1,5 +1,5 @@
 const SETTINGS_KEY = 'architect_settings';
-const DEFAULT_SETTINGS = { theme: 'dark', fontSize: '14', density: 'comfortable' };
+const DEFAULT_SETTINGS = { theme: 'dark', fontSize: '14', density: 'comfortable', sidebarPosition: 'left' };
 
 export { SETTINGS_KEY };
 
@@ -72,6 +72,7 @@ export function applySettings(settings) {
   const customTheme = (settings.customThemes || []).find(t => t.id === settings.theme);
   document.documentElement.setAttribute('data-theme', customTheme ? 'dark' : (settings.theme || 'dark'));
   document.documentElement.setAttribute('data-density', settings.density || 'comfortable');
+  document.documentElement.setAttribute('data-sidebar', settings.sidebarPosition || 'left');
   document.documentElement.style.setProperty('--font-size-base', (settings.fontSize || '14') + 'px');
 
   // Apply active custom theme colors, or any in-progress editor colors
@@ -83,10 +84,10 @@ export function applySettings(settings) {
 
   _populateThemeDropdown(settings);
 
-  for (const group of ['fontsize', 'density']) {
+  for (const group of ['fontsize', 'density', 'sidebar']) {
     const container = document.getElementById(`opt-${group}`);
     if (!container) continue;
-    const key = group === 'fontsize' ? 'fontSize' : group;
+    const key = group === 'fontsize' ? 'fontSize' : group === 'sidebar' ? 'sidebarPosition' : group;
     container.querySelectorAll('.settings-opt').forEach(btn => {
       btn.classList.toggle('selected', btn.dataset.value === String(settings[key]));
     });
@@ -111,6 +112,9 @@ export function initSettingsUI(settings, saveAndApply, { getOrigin, saveOrigin, 
   });
   document.querySelectorAll('#opt-density .settings-opt').forEach(btn => {
     btn.addEventListener('click', () => { settings.density = btn.dataset.value; saveAndApply(); });
+  });
+  document.querySelectorAll('#opt-sidebar .settings-opt').forEach(btn => {
+    btn.addEventListener('click', () => { settings.sidebarPosition = btn.dataset.value; saveAndApply(); });
   });
 
   const originArea = document.getElementById('settings-origin');
