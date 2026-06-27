@@ -322,11 +322,11 @@
     border-bottom: 1px solid var(--border);
     display: flex;
     flex-direction: column;
-    justify-content: flex-end;
   }
 
   #area-content {
     flex: 0 0 auto;
+    margin-top: auto;
     white-space: pre-wrap;
     word-break: break-word;
   }
