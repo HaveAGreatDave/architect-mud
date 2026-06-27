@@ -444,7 +444,7 @@ async function resourceTick() {
     // Light clothing brings neutral closer to 20°C; heavy clothing pushes it higher.
     // Rate = 0.002 * |diff|^1.75 °C/min, so each 10°C step meaningfully
     // accelerates change (e.g. diff=10 → 0.063°C/min; diff=20 → 0.19°C/min).
-    const NEUTRAL_TEMP = 32;
+    const NEUTRAL_TEMP = 35;
     const tempDrift = effectiveTemp - NEUTRAL_TEMP;
     if (tempDrift !== 0) {
       const absDiff = Math.abs(tempDrift);
