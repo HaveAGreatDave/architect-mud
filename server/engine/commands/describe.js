@@ -32,10 +32,17 @@ function getConnectedDestinations(zone) {
     } else if (currentIsInterior && targetZone && isInteriorZone(targetZone)) {
       rooms.push({ direction, targetId, name: targetZone.name });
     } else {
-      plain.push(direction);
+      plain.push({ direction, targetId, name: targetZone?.name || null });
     }
   }
   return { buildings, rooms, plain };
+}
+
+// Inline "[Direction] Name" link — Name is the clickable piece, click goes that way.
+function destLink(direction, name, cls) {
+  const dirLabel = direction.charAt(0).toUpperCase() + direction.slice(1);
+  const label = name || dirLabel;
+  return `<span class="dir-tag">[${dirLabel}]</span> <span class="action-link ${cls}" data-action="go" data-target="${direction}" title="Go ${direction}">${label}</span>`;
 }
 
 const DIRECTION_PHRASE = { north:'to the north', south:'to the south', east:'to the east', west:'to the west', up:'above', down:'below' };
@@ -135,24 +142,17 @@ export async function describeZone(zone, player) {
     let darkDesc = `\n<span class="zone-name">${zone.name}</span>\n` +
       `<span class="light-level light-dark">It is completely dark here. You can't make out your surroundings.${windowHint}</span>`;
     if (plain.length) {
-      const exitLinks = plain.map(dir =>
-        `<span class="action-link exit-link" data-action="go" data-target="${dir}" title="Go ${dir}">${dir}</span>`
-      );
+      // In pitch dark you can feel for openings but can't read where they lead.
+      const exitLinks = plain.map(p => destLink(p.direction, null, 'exit-link'));
       darkDesc += `\n\n<span class="exits-label">Exits:</span> ${exitLinks.join(', ')}`;
     }
     if (buildings.length) {
-      const rows = buildings.map(b => {
-        const dirLabel = b.direction.charAt(0).toUpperCase() + b.direction.slice(1);
-        return `<div class="building-row"><span class="dir-tag">[${dirLabel}]</span> <span class="action-link building-link" data-action="go" data-target="${b.direction}" title="Enter ${b.name}">${b.name}</span></div>`;
-      });
-      darkDesc += `\n<span class="buildings-label">Buildings:</span>${rows.join('')}`;
+      const links = buildings.map(b => destLink(b.direction, b.name, 'building-link'));
+      darkDesc += `\n<span class="buildings-label">Buildings:</span> ${links.join(', ')}`;
     }
     if (rooms.length) {
-      const rows = rooms.map(r => {
-        const dirLabel = r.direction.charAt(0).toUpperCase() + r.direction.slice(1);
-        return `<div class="room-row"><span class="dir-tag">[${dirLabel}]</span> <span class="action-link room-nav-link" data-action="go" data-target="${r.direction}" title="Go to ${r.name}">${r.name}</span></div>`;
-      });
-      darkDesc += `\n<span class="rooms-label">Rooms:</span>${rows.join('')}`;
+      const links = rooms.map(r => destLink(r.direction, r.name, 'room-nav-link'));
+      darkDesc += `\n<span class="rooms-label">Rooms:</span> ${links.join(', ')}`;
     }
     return darkDesc;
   }
@@ -248,7 +248,7 @@ export async function describeZone(zone, player) {
         const label = qty > 1 ? `${qty}x ${item.name}` : item.name;
         return `<span class="action-link room-item ${rarityClass}" data-action="take" data-target="${item.name}" title="Take ${item.name}">${label}</span>`;
       });
-      desc += ` Lying here: ${itemMentions.join(', ')}.`;
+      desc += `\n<span class="items-label">Lying here:</span> ${itemMentions.join(', ')}`;
     }
   }
 
@@ -280,27 +280,7 @@ export async function describeZone(zone, player) {
     desc += `\n<span class="furniture-label">Windows:</span> ${windowLinks.join(', ')}`;
   }
 
-  desc += `\n`;
-  if (plain.length) {
-    const exitLinks = plain.map(dir =>
-      `<span class="action-link exit-link" data-action="go" data-target="${dir}" title="Go ${dir}">${dir}</span>`
-    );
-    desc += `\n<span class="exits-label">Exits:</span> ${exitLinks.join(', ')}`;
-  }
-  if (buildings.length) {
-    const rows = buildings.map(b => {
-      const dirLabel = b.direction.charAt(0).toUpperCase() + b.direction.slice(1);
-      return `<div class="building-row"><span class="dir-tag">[${dirLabel}]</span> <span class="action-link building-link" data-action="go" data-target="${b.direction}" title="Enter ${b.name}">${b.name}</span></div>`;
-    });
-    desc += `\n<span class="buildings-label">Buildings:</span>${rows.join('')}`;
-  }
-  if (rooms.length) {
-    const rows = rooms.map(r => {
-      const dirLabel = r.direction.charAt(0).toUpperCase() + r.direction.slice(1);
-      return `<div class="room-row"><span class="dir-tag">[${dirLabel}]</span> <span class="action-link room-nav-link" data-action="go" data-target="${r.direction}" title="Go to ${r.name}">${r.name}</span></div>`;
-    });
-    desc += `\n<span class="rooms-label">Rooms:</span>${rows.join('')}`;
-  }
+  if (others.length || sleepingBodies.length || npcs.length || enemies.length || corpses.length) desc += `\n`;
   if (others.length) {
     const playerLinks = others.map(p =>
       `<span class="action-link player-link" data-action="examine" data-target="${p.handle}" title="Look at ${p.handle}">${p.handle}</span>`
@@ -335,6 +315,19 @@ export async function describeZone(zone, player) {
       `<span class="action-link corpse-link" data-action="loot" data-target="${c.name}" title="Loot ${c.name}">${c.name}</span>`
     );
     desc += `\n<span class="corpses-label">Corpses:</span> ${corpseLinks.join(', ')}`;
+  }
+  if (plain.length || buildings.length || rooms.length) desc += `\n`;
+  if (plain.length) {
+    const exitLinks = plain.map(p => destLink(p.direction, p.name, 'exit-link'));
+    desc += `\n<span class="exits-label">Exits:</span> ${exitLinks.join(', ')}`;
+  }
+  if (buildings.length) {
+    const links = buildings.map(b => destLink(b.direction, b.name, 'building-link'));
+    desc += `\n<span class="buildings-label">Buildings:</span> ${links.join(', ')}`;
+  }
+  if (rooms.length) {
+    const links = rooms.map(r => destLink(r.direction, r.name, 'room-nav-link'));
+    desc += `\n<span class="rooms-label">Rooms:</span> ${links.join(', ')}`;
   }
   return desc;
 }

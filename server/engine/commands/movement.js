@@ -203,8 +203,8 @@ async function cmdMove(direction, player, broadcast) {
   const arriveMsg = (doorWasLocked || doorWasClosed)
     ? (arrivalDir ? `${player.handle} comes through the door from the ${arrivalDir}.` : `${player.handle} comes through the door.`)
     : (arrivalDir ? `${player.handle} arrives from the ${arrivalDir}.` : `${player.handle} arrives.`);
-  broadcast(zone.id, { type:'zone_event', message: departMsg }, player.id);
-  broadcast(targetId, { type:'zone_event', message: arriveMsg }, player.id);
+  broadcast(zone.id, { type:'zone_event', message: departMsg, refresh: true }, player.id);
+  broadcast(targetId, { type:'zone_event', message: arriveMsg, refresh: true }, player.id);
 
   // Close (and re-lock if locked) the door behind the player
   if (hadDoor && doorWasClosed) {
@@ -233,18 +233,16 @@ async function cmdMove(direction, player, broadcast) {
   }
   const zoneDesc = await describeZone(targetZone, player);
 
-  let moveMsg;
+  let narration;
   if (doorWasLocked) {
     const unlockMsg = lockTag?.messages?.unlock ?? 'The lock disengages.';
     const closeMsg = doorWasClosed ? '\nThe door swings closed and locks behind you.' : '';
-    moveMsg = `${unlockMsg}\nYou open the door and head ${direction}.\n${zoneDesc}${closeMsg}`;
+    narration = `${unlockMsg}\nYou open the door and head ${direction}.${closeMsg}`;
   } else if (doorWasClosed) {
-    moveMsg = `You open the door and head ${direction}.\n${zoneDesc}\nThe door swings closed behind you.`;
-  } else {
-    moveMsg = zoneDesc;
+    narration = `You open the door and head ${direction}.\nThe door swings closed behind you.`;
   }
 
-  return { type:'move', message:moveMsg, zone:targetId, radiation_gain:radGain, minimap: getMinimapData(targetId), tempC: getZoneTemperature(targetId) };
+  return { type:'move', message:zoneDesc, narration, zone:targetId, radiation_gain:radGain, minimap: getMinimapData(targetId), tempC: getZoneTemperature(targetId) };
 }
 
 const MAP_DIR_OFFSET = { north:[0,-1], south:[0,1], east:[1,0], west:[-1,0] };

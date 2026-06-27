@@ -62,7 +62,7 @@ registerAction({
   handler: async ({ actor, params, context, emit }) => {
     const { row } = params;
     await inv.pickUp(row, actor);
-    context.broadcast?.(actor.current_zone, { type:'zone_event', message:`${actor.handle} picks up ${row.name}.` }, actor.id);
+    context.broadcast?.(actor.current_zone, { type:'zone_event', message:`${actor.handle} picks up ${row.name}.`, refresh: true }, actor.id);
     emit('item.taken', { actor, item: row, zone: actor.current_zone });
     emit('inventory.changed', { actor, zone: actor.current_zone });
     return { type:'take', message:`You pick up ${row.name}.` };
@@ -76,7 +76,7 @@ registerAction({
     const explicit = params.qty != null;
     const dropQty = await inv.dropToGround(row, actor.current_zone, params.qty);
     const qtyStr = (explicit && dropQty > 1) ? ` x${dropQty}` : '';
-    context.broadcast?.(actor.current_zone, { type:'zone_event', message:`${actor.handle} drops ${row.name}${qtyStr}.` }, actor.id);
+    context.broadcast?.(actor.current_zone, { type:'zone_event', message:`${actor.handle} drops ${row.name}${qtyStr}.`, refresh: true }, actor.id);
     emit('item.dropped', { actor, item: row, zone: actor.current_zone });
     emit('inventory.changed', { actor, zone: actor.current_zone });
     return { type:'drop', message:`You drop ${row.name}${qtyStr}.` };

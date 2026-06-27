@@ -1,5 +1,5 @@
 import { state } from './state.js';
-import { appendMsg, appendHtml, updateVitals, parseZoneInfo, showDevPanelButton } from './render.js';
+import { appendMsg, appendHtml, updateVitals, parseZoneInfo, showDevPanelButton, setAreaPane, clearActivity } from './render.js';
 import { sendCmd, sendCmdSilent, closeConnection, attemptAutoReauth } from './net.js';
 import { renderMinimap, openMapPopup } from './panels/minimap.js';
 import { updateEnvironmentHUD, updateZoneTempHUD, refreshZoneVisibility } from './panels/environment.js';
@@ -54,8 +54,7 @@ const handlers = {
   },
 
   look: (msg) => {
-    appendMsg('─'.repeat(50), 'separator');
-    appendHtml(msg.message, 'look');
+    setAreaPane(msg.message);
     if (msg.zone) state.currentZone = msg.zone;
     parseZoneInfo(msg.message);
     if (msg.minimap) renderMinimap(msg.minimap);
@@ -63,7 +62,9 @@ const handlers = {
   },
 
   move: (msg) => {
-    appendHtml(msg.message, 'look');
+    clearActivity();
+    setAreaPane(msg.message);
+    if (msg.narration) appendHtml(msg.narration, 'system');
     state.currentZone = msg.zone;
     parseZoneInfo(msg.message);
     if (msg.radiation_gain > 0) appendMsg(`☢ +${msg.radiation_gain} radiation absorbed.`, 'system');
@@ -83,6 +84,7 @@ const handlers = {
       });
       appendHtml(`Loot: ${links.join(', ')}`, 'loot');
     }
+    if (msg.killed) sendCmdSilent('look');
   },
 
   combat_incoming: (msg) => {
@@ -166,9 +168,10 @@ const handlers = {
   who: (msg) => { appendHtml(msg.message, 'help'); },
   help: (msg) => { appendHtml(msg.message, 'help'); },
   examine: (msg) => { appendHtml(msg.message, 'help'); },
-  take: (msg) => { appendHtml(msg.message, 'help'); },
+  take: (msg) => { appendHtml(msg.message, 'help'); sendCmdSilent('look'); },
   drop: (msg) => {
     appendHtml(msg.message, 'help');
+    sendCmdSilent('look');
     if (document.getElementById('equip-panel').classList.contains('active')) {
       sendCmdSilent('inventory');
     }
