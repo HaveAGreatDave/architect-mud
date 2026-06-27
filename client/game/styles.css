@@ -2351,8 +2351,9 @@ body {
 	inset: 0;
 	background: rgba(0, 0, 0, 0.75);
 	z-index: 100;
-	align-items: center;
+	align-items: flex-start;
 	justify-content: center;
+	padding-top: 4vh;
 }
 #dialogue-panel.active {
 	display: flex;
@@ -2361,28 +2362,58 @@ body {
 #dialogue-box {
 	background: var(--bg2);
 	border: 1px solid var(--accent);
-	padding: 24px;
-	max-width: 540px;
-	width: 90%;
+	padding: 10px 12px;
+	width: 95vw;
+	max-width: 95vw;
+	max-height: 92vh;
 	border-radius: 2px;
+	display: flex;
+	flex-direction: column;
+	box-sizing: border-box;
+}
+#dialogue-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 8px;
+	flex-shrink: 0;
 }
 #dialogue-npc-name {
 	color: var(--accent);
 	font-weight: bold;
-	margin-bottom: 12px;
 	text-transform: uppercase;
 	letter-spacing: 1px;
 }
+#dialogue-close {
+	background: none;
+	border: 1px solid var(--border);
+	color: var(--text-dim);
+	font-family: var(--font-mono);
+	font-size: 16px;
+	line-height: 1;
+	padding: 2px 7px;
+	cursor: pointer;
+	border-radius: 2px;
+	flex-shrink: 0;
+}
+#dialogue-close:hover {
+	border-color: var(--accent);
+	color: var(--accent);
+}
 #dialogue-text {
 	color: var(--text-bright);
-	margin-bottom: 16px;
+	margin-bottom: 10px;
 	line-height: 1.6;
 	white-space: pre-wrap;
+	overflow-y: auto;
+	flex: 1;
+	min-height: 0;
 }
 #dialogue-options {
 	display: flex;
 	flex-direction: column;
 	gap: 6px;
+	flex-shrink: 0;
 }
 .dialogue-opt {
 	background: var(--bg3);
@@ -2399,6 +2430,59 @@ body {
 .dialogue-opt:hover {
 	border-color: var(--accent);
 	color: var(--accent);
+}
+
+/* Shop layout */
+.shop-body {
+	font-size: 11px;
+}
+.shop-credits {
+	margin-bottom: 6px;
+	color: var(--text-dim);
+}
+.shop-result {
+	margin-bottom: 6px;
+}
+.shop-item {
+	border: 1px solid var(--border);
+	padding: 5px 8px;
+	margin-bottom: 4px;
+	border-radius: 2px;
+}
+.shop-item-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+}
+.shop-item-name {
+	font-weight: bold;
+	font-size: 11px;
+}
+.shop-buy-btn {
+	padding: 2px 8px !important;
+	font-size: 10px !important;
+	flex-shrink: 0;
+}
+.shop-discount {
+	font-size: 10px;
+	color: var(--green, #4ade80);
+}
+.shop-item-desc {
+	font-size: 10px;
+	color: var(--text-dim);
+	margin-top: 2px;
+}
+.shop-pager {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-top: 6px;
+	flex-shrink: 0;
+}
+.shop-page-label {
+	color: var(--text-dim);
+	font-size: 11px;
 }
 
 /* Auth screen */
