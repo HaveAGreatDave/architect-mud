@@ -171,14 +171,6 @@ async function _initMotdEditor() {
   toggleSmall?.addEventListener('click',  () => _setView('small'));
   readonlyBtn?.addEventListener('click',  _toggleReadonly);
 
-  function _applySpaceAdjustment(template, dynamicText) {
-    const removal = Math.max(0, 14 - dynamicText.length);
-    return template.replace(/<player name>( *)/g, (_, spaces) => {
-      const keep = Math.max(0, spaces.length - removal);
-      return '<player name>' + spaces.slice(0, keep);
-    });
-  }
-
   function _showStatus(msg, ok = true) {
     if (!status) return;
     status.textContent  = msg;
@@ -187,14 +179,9 @@ async function _initMotdEditor() {
   }
 
   saveBtn.addEventListener('click', async () => {
-    // Capture current edit state into local store
     if (!_readonly && editor) _motd[_view] = editor.value;
     const dyn = dynamicBox?.value ?? '';
-
-    // Only save the currently-viewed template + dynamic text.
-    // Sending only the current view key means the other two slots are untouched in DB.
-    const adjusted = _applySpaceAdjustment(_motd[_view] || '', dyn);
-    const body = { [_view]: adjusted, dynamic: dyn };
+    const body = { big: _motd.big, medium: _motd.medium, small: _motd.small, dynamic: dyn };
 
     saveBtn.disabled = true;
     try {
@@ -205,11 +192,8 @@ async function _initMotdEditor() {
       });
       const d = await r.json();
       if (d.ok) {
-        _motd[_view] = adjusted;
         _motd.dynamic = dyn;
-        _setEditorContent(adjusted); // reflect adjusted template back in editor
-        _updateEditor();
-        _showStatus(`✓ Saved (${_view})`);
+        _showStatus('✓ Saved (all)');
       } else {
         _showStatus(d.error || 'Error', false);
       }
@@ -220,11 +204,14 @@ async function _initMotdEditor() {
   pushBtn.addEventListener('click', async () => {
     pushBtn.disabled = true;
     try {
+      const dyn = dynamicBox?.value ?? '';
       const r = await fetch('/api/motd/push', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${TOKEN()}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${TOKEN()}` },
+        body: JSON.stringify({ dynamic: dyn }),
       });
       const d = await r.json();
+      if (d.ok) _motd.dynamic = dyn;
       _showStatus(d.ok ? '✓ Pushed to all players' : (d.error || 'Error'), d.ok);
     } catch { _showStatus('Network error', false); }
     pushBtn.disabled = false;

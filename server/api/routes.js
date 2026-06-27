@@ -183,7 +183,7 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path==='/spawn' && method==='POST') return requireDev(auth, ()=>apiSpawnItem(body));
   if (path==='/motd' && method==='GET') return requireDev(auth, apiGetMotd);
   if (path==='/motd' && method==='PUT') return requireDev(auth, ()=>apiSetMotd(body));
-  if (path==='/motd/push' && method==='POST') return requireDev(auth, apiPushMotd);
+  if (path==='/motd/push' && method==='POST') return requireDev(auth, () => apiPushMotd(body));
   return { status:404, body:{error:'Not found'} };
 }
 
@@ -1523,7 +1523,9 @@ async function apiSetMotd(body) {
   return { status:200, body:{ ok:true } };
 }
 
-async function apiPushMotd() {
+async function apiPushMotd(body) {
+  const { dynamic: dyn } = body || {};
+  if (typeof dyn === 'string') await saveMotd({ dynamic: dyn });
   const data = await getMotd();
   if (broadcastFn) broadcastFn(null, { type:'motd', ...data });
   return { status:200, body:{ ok:true } };

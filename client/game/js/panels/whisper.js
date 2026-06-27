@@ -64,42 +64,33 @@ function _applyMotdSubstitutions(template, handle, dynamicText) {
   text = text.replace(/<player name>( *)/g, (_, spaces) => handle + spaces);
   text = text.replace(/<date>/g, date);
 
-  // <dynamic text> substitution: trim trailing spaces to compensate for length,
-  // and word-wrap with matching right-border character if the text overflows.
+  // <dynamic text> substitution: replace placeholder, preserving line width.
+  // totalSpace = placeholder width (14) + trailing spaces — the full chars available for dyn.
+  // Word-wraps onto continuation lines (║-indented) when dyn exceeds totalSpace.
   text = text.replace(/^(.*?)<dynamic text>( *)(║?)$/gm, (_, prefix, spaces, rborder) => {
-    const budget = spaces.length;
+    const totalSpace = spaces.length + 14;
     const dyn = dynamicText || '';
 
-    // The placeholder '<dynamic text>' is 14 chars. After substituting dyn we add
-    // those 14 chars back as an explicit gap, keeping the right ║ column-aligned.
-    // Wrap when dyn wouldn't leave room for the 14-char buffer before the border.
-    const GAP = 14; // '<dynamic text>' is 14 chars; always add 14 to keep line width
-
-    if (dyn.length <= budget) {
-      // Fits on one line: dyn + 14-char gap + remaining template spaces + border
-      return prefix + dyn + ' '.repeat(GAP) + spaces.slice(dyn.length) + rborder;
+    if (!rborder || dyn.length <= totalSpace) {
+      return prefix + dyn + ' '.repeat(Math.max(0, totalSpace - dyn.length)) + rborder;
     }
 
-    // Overflows — word-wrap. Continuation lines get ║ on both sides.
-    if (!rborder) return prefix + dyn;
-
-    // Continuation left: ║ + spaces matching the original prefix indent
+    // Word-wrap: continuation lines left-indent to match prefix depth
     const contLeft = rborder + ' '.repeat(prefix.length - 1);
     const words = dyn.split(' ');
     const lines = [];
     let cur = '';
     for (const w of words) {
       const test = cur ? cur + ' ' + w : w;
-      if (test.length > budget) { if (cur) lines.push(cur); cur = w; }
+      if (test.length > totalSpace) { if (cur) lines.push(cur); cur = w; }
       else cur = test;
     }
     if (cur) lines.push(cur);
-    if (!lines.length) return prefix + ' '.repeat(GAP) + spaces + rborder;
+    if (!lines.length) return prefix + ' '.repeat(totalSpace) + rborder;
 
     return lines.map((l, i) => {
-      // chunk + 14-char gap + full budget padding = original line width on every line
-      const pad = ' '.repeat(Math.max(0, budget - l.length));
-      return (i === 0 ? prefix : contLeft) + l + ' '.repeat(GAP) + pad + rborder;
+      const pad = ' '.repeat(Math.max(0, totalSpace - l.length));
+      return (i === 0 ? prefix : contLeft) + l + pad + rborder;
     }).join('\n');
   });
 
