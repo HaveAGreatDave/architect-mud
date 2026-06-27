@@ -10,4 +10,5 @@ export const state = {
   authTimeout: null,
   myRole: 'player',
   send_password: '',
+  echoNextLook: false,
 };

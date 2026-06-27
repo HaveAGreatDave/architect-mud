@@ -56,6 +56,7 @@ const handlers = {
 
   look: (msg) => {
     setAreaPane(msg.message);
+    if (state.echoNextLook) { appendHtml(msg.message, 'help'); state.echoNextLook = false; }
     if (msg.zone) state.currentZone = msg.zone;
     parseZoneInfo(msg.message);
     if (msg.minimap) renderMinimap(msg.minimap);
