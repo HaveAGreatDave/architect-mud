@@ -75,12 +75,14 @@ function _applyMotdSubstitutions(template, handle, dynamicText) {
       return prefix + dyn + spaces.slice(dyn.length) + rborder;
     }
 
-    // Too long — word-wrap into continuation lines aligned under the same indent
-    if (!rborder) return prefix + dyn; // no border to align against, just sub
+    // Too long — word-wrap. Continuation lines get ║ on both sides.
+    if (!rborder) return prefix + dyn;
 
-    const indent = ' '.repeat(prefix.length);
-    const words  = dyn.split(' ');
-    const lines  = [];
+    // Continuation left = ║ + spaces matching the prefix indent
+    // (prefix[0] is ║, rest are spaces/text we replace with spaces)
+    const contLeft = rborder + ' '.repeat(prefix.length - 1);
+    const words = dyn.split(' ');
+    const lines = [];
     let cur = '';
     for (const w of words) {
       const test = cur ? cur + ' ' + w : w;
@@ -92,7 +94,7 @@ function _applyMotdSubstitutions(template, handle, dynamicText) {
 
     return lines.map((l, i) => {
       const pad = ' '.repeat(Math.max(0, budget - l.length));
-      return (i === 0 ? prefix : indent) + l + pad + rborder;
+      return (i === 0 ? prefix : contLeft) + l + pad + rborder;
     }).join('\n');
   });
 
@@ -167,7 +169,7 @@ function _rerenderMotd() {
 
 export function receiveMOTD(msg) {
   _motdData = { big: msg.big || '', medium: msg.medium || '', small: msg.small || '', dynamic: msg.dynamic || '' };
-  _measureMotdWidths();
+  _measureMotdDims();
   _applyWindowSize(); // update panel width now that widths are known
   _rerenderMotd();
 }
@@ -177,32 +179,20 @@ export function receiveMOTD(msg) {
 function _applyWindowSize() {
   const panel = document.getElementById('whisper-panel');
   if (!panel) return;
-  if (_windowSize === 'large') {
-    const oc = document.getElementById('output-container');
-    if (!oc) return;
-    const r = oc.getBoundingClientRect();
-    panel.style.left         = r.left + 'px';
-    panel.style.top          = r.top + 'px';
-    panel.style.width        = r.width + 'px';
-    panel.style.height       = r.height + 'px';
-    panel.style.right        = 'auto';
-    panel.style.bottom       = 'auto';
-    panel.style.borderRadius = '0';
-  } else {
-    // Width comes from the pre-measured MOTD width for this size; height is fixed.
-    const motdKey    = _selectMotdSize(); // 'big' | 'medium' | 'small'
-    const measuredW  = _motdWidths[motdKey] || 0;
-    const fallbackW  = _windowSize === 'medium' ? 500 : 300;
-    const w = Math.min(Math.max(measuredW || fallbackW, 150), Math.floor(window.innerWidth * 0.95));
-    const h = PANEL_HEIGHTS[_windowSize];
-    panel.style.width        = w + 'px';
-    panel.style.height       = h + 'px';
-    panel.style.right        = '8px';
-    panel.style.bottom       = '8px';
-    panel.style.left         = 'auto';
-    panel.style.top          = 'auto';
-    panel.style.borderRadius = '4px';
-  }
+  // All three sizes fit to their MOTD dimensions; no fullscreen mode.
+  const motdKey = _selectMotdSize(); // 'big' | 'medium' | 'small'
+  const dims    = _motdDims[motdKey];
+  const fallbackW = { small: 300, medium: 500, large: 700 }[_windowSize];
+  const fallbackH = { small: 340, medium: 480, large: 600 }[_windowSize];
+  const maxW = Math.floor(window.innerWidth  * 0.95);
+  const maxH = Math.floor(window.innerHeight * 0.92);
+  panel.style.width        = Math.min(Math.max(dims?.w || fallbackW, 150), maxW) + 'px';
+  panel.style.height       = Math.min(Math.max(dims?.h || fallbackH, 150), maxH) + 'px';
+  panel.style.right        = '8px';
+  panel.style.bottom       = '8px';
+  panel.style.left         = 'auto';
+  panel.style.top          = 'auto';
+  panel.style.borderRadius = '4px';
   _refreshCogMenu();
 }
 
@@ -613,7 +603,7 @@ export function initWhisperPanel() {
         _textSize = btn.dataset.txtsize;
         _saveSettings();
         _applyTextSize();
-        _measureMotdWidths(); // font size changed → widths change
+        _measureMotdDims(); // font size changed → widths change
         _applyWindowSize();
         _rerenderMotd();
         cogMenu.style.display = 'none';
@@ -621,13 +611,11 @@ export function initWhisperPanel() {
     });
   }
 
-  // Drag (disabled in large mode)
   const dragHandle = document.getElementById('whisper-drag-handle');
   const panel      = document.getElementById('whisper-panel');
   let dragState = null;
 
   dragHandle.addEventListener('pointerdown', e => {
-    if (_windowSize === 'large') return;
     if (e.target.closest('button') || e.target.closest('#whisper-cog-menu')) return;
     const r = panel.getBoundingClientRect();
     dragState = { pointerId: e.pointerId, ox: e.clientX - r.left, oy: e.clientY - r.top, startTime: Date.now(), captured: false };
@@ -652,8 +640,4 @@ export function initWhisperPanel() {
   document.addEventListener('pointerup',     e => { if (dragState && dragState.pointerId === e.pointerId) { dragState = null; dragHandle.style.cursor = 'grab'; } });
   document.addEventListener('pointercancel', e => { if (dragState && dragState.pointerId === e.pointerId) { dragState = null; dragHandle.style.cursor = 'grab'; } });
 
-  // Re-position large panel on resize
-  window.addEventListener('resize', () => {
-    if (_windowSize === 'large' && _whisperPanelVisible) _applyWindowSize();
-  });
 }
