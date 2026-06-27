@@ -1,6 +1,6 @@
 # Dev Panel JS Reference
 
-The dev panel (`/dev`) is served from `client/devpanel/`. Its JavaScript lives in `client/devpanel/js/` as 27 plain classic scripts loaded in a fixed order by `index.html`. All scripts share one global scope — no modules, no bundler.
+The dev panel (`/dev`) is served from `client/devpanel/`. Its JavaScript lives in `client/devpanel/js/` as 28 plain classic scripts loaded in a fixed order by `index.html`. All scripts share one global scope — no modules, no bundler.
 
 See `client/devpanel/js/README.md` for the load-order contract.
 
@@ -33,7 +33,7 @@ The shared list/edit lifecycle that every panel rides on:
 ### `panels.js`
 The central dispatch table and panel lifecycle. **Must load after all `panels/*` and `ui/*` files** because the `PANELS` object literal evaluates function references at construction time.
 
-- **`PANELS`** — one entry per nav section (dashboard, zones, maps, power, enemies, items, npcs, furniture, recipes, scripts, mutations, drugs, sounds, tags, worldstate, timeweather, players, validator, changes). Each entry declares `title`, `fetch`, optional `columns`, `editForm`, `save`, `delete`, and `render`.
+- **`PANELS`** — one entry per nav section (dashboard, zones, maps, power, enemies, items, npcs, furniture, recipes, scripts, quests, mutations, drugs, sounds, tags, worldstate, timeweather, players, validator, changes). Each entry declares `title`, `fetch`, optional `columns`, `editForm`, `save`, `delete`, and `render`.
 - `activatePanelNav(name)` — highlights the active nav item.
 - `showPanel(name)` / `loadPanel(name)` — fetch data, call the panel's render function, wire up the toolbar.
 
@@ -149,6 +149,11 @@ Thin editors for mutations, drugs, and recipes — all follow the same pattern o
 - `mutationEditForm(rec, isNew)` / `saveMutation(existing)`
 - `drugEditForm(rec, isNew)` / `saveDrug(existing)`
 - `recipeEditForm(rec, isNew)` / `saveRecipe(existing)`
+
+### `quests.js`
+Thin editor for the `quests` table (consumed by the quests plugin). Objectives and rewards are edited as raw JSON, matching the simple-entities pattern.
+
+- `questEditForm(rec, isNew)` / `saveQuest(existing)`
 
 ### `scripts.js`
 The NPC/world script graph editor.

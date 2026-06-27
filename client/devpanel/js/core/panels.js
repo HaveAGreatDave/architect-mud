@@ -125,6 +125,19 @@ const PANELS = {
     save: saveRecipe,
     delete: id => API(`/recipes/${id}`, 'DELETE'),
   },
+  quests: {
+    title: 'Quests',
+    fetch: () => API('/quests'),
+    columns: [
+      { key: 'name', label: 'Name' },
+      { key: 'id', label: 'Quest ID', render: v => `<code style="font-size:11px;color:var(--text-dim)">${v}</code>` },
+      { key: 'objectives', label: 'Objectives', render: v => (Array.isArray(v) ? v : JSON.parse(v||'[]')).length },
+      { key: 'repeatable', label: 'Repeatable', render: v => v ? '↻' : '' },
+    ],
+    editForm: questEditForm,
+    save: saveQuest,
+    delete: id => API(`/quests/${id}`, 'DELETE'),
+  },
   scripts: {
     title: 'Scripts',
     fetch: () => API('/scripts'),
