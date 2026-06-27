@@ -30,7 +30,7 @@ export function startGameLoop(broadcast) {
   console.log('✓ Game loop started');
 }
 
-function tick() {
+async function tick() {
   // Enemy AI
   for (const [instanceId, enemy] of world.enemies) {
     if (!enemy.targetId) {
@@ -54,13 +54,13 @@ function tick() {
         if (elapsedSinceAggro < firstStrikeDelay) continue;
       }
 
-      enemyAttackPlayer(enemy, target).then(result => {
+      enemyAttackPlayer(enemy, target).then(async result => {
         if (!result) return;
         if (result.hit) {
           target.hp = Math.max(0, target.hp - result.damage);
           query('UPDATE players SET hp=$1 WHERE id=$2', [target.hp, target.id]).catch(()=>{});
           broadcastFn(null, { type:'combat_incoming', message:result.message, damage:result.damage, hp:target.hp, hp_max:target.hp_max }, null, target.id);
-          if (target.hp <= 0) { handlePlayerDeath(target, enemy); return; }
+          if (target.hp <= 0) { await handlePlayerDeath(target, enemy); return; }
 
           // Retaliation: start attacking the attacker only if not already engaged.
           // The player auto-attack loop in tick() sustains combat from here on.
@@ -101,7 +101,7 @@ function tick() {
     const messages = tickEffects(player);
     if (messages.length) {
       broadcastFn(null, { type:'status_tick', messages }, null, playerId);
-      if (player.hp <= 0) handlePlayerDeath(player, null);
+      if (player.hp <= 0) await handlePlayerDeath(player, null);
     }
   }
 }
@@ -127,7 +127,7 @@ async function minuteTickFn() {
   }
 }
 
-export function handlePlayerDeath(player, killer) {
+export async function handlePlayerDeath(player, killer) {
   const msgs = [
     "You die. Statistically speaking, this was inevitable.",
     "You die. The world continues without you, which feels rude.",
@@ -141,12 +141,25 @@ export function handlePlayerDeath(player, killer) {
   const respawnZone = player.anchor_zone || 'zone_start';
   const deathZone = player.current_zone;
 
-  createCorpse({
-    id: `corpse_player_${player.id}_${Date.now()}`,
-    name: `${player.handle}'s corpse`,
-    zoneId: deathZone,
-    expiresAt: Date.now() + 60 * 60 * 1000,
-  });
+  const corpseId = `corpse_player_${player.id}_${Date.now()}`;
+  const corpseName = `${player.handle}'s corpse`;
+  const expiresAt = Date.now() + 60 * 60 * 1000;
+
+  // Strip all non-quest items into the corpse (flatten container nesting)
+  await query(
+    `UPDATE player_inventory pi SET player_id=$1, is_equipped=0, slot=NULL, layer=NULL, container_id=NULL
+     FROM items i WHERE i.id=pi.item_id AND pi.player_id=$2
+     AND NOT (i.tags @> '{"quest_item":true}')`,
+    [corpseId, player.id]
+  ).catch(() => {});
+
+  // Persist corpse so it survives server restart
+  await query(
+    `INSERT INTO player_corpses (id, player_id, zone_id, death_message, expires_at) VALUES ($1, $2, $3, $4, $5)`,
+    [corpseId, player.id, deathZone, corpseName, expiresAt]
+  ).catch(() => {});
+
+  createCorpse({ id: corpseId, name: corpseName, zoneId: deathZone, expiresAt });
 
   // Full restore on respawn — you come out of the vat whole, not wounded.
   // Skills/rank/xp live in a separate table untouched by any of this, so
@@ -169,6 +182,10 @@ export function handlePlayerDeath(player, killer) {
     respawn_zone: respawnZone,
     player_update: { hp:player.hp, sanity:player.sanity, hunger:player.hunger, thirst:player.thirst, radiation:player.radiation, stamina:player.stamina, body_temp_c:player.body_temp_c },
   }, null, player.id);
+
+  // Notify others in the zone that a corpse has appeared
+  const corpseLink = `<span class="action-link corpse-link" data-action="loot" data-target="${corpseId}" title="Loot ${corpseName}">${corpseName}</span>`;
+  broadcastFn(deathZone, { type:'zone_event', message:`${player.handle} has died. ${corpseLink}`, refresh: true }, player.id);
 
   query('UPDATE players SET hp=$1, sanity=$2, hunger=$3, thirst=$4, radiation=$5, stamina=$6, body_temp_c=$7, clothing_contamination=$8, current_zone=anchor_zone WHERE id=$9',
     [player.hp, player.sanity, player.hunger, player.thirst, player.radiation, player.stamina, player.body_temp_c, JSON.stringify({}), player.id]).catch(()=>{});
@@ -510,7 +527,7 @@ async function resourceTick() {
     const bodyTempChanged = player.body_temp_c !== prevBodyTemp;
     if (messages.length || bodyTempChanged) broadcastFn(null, { type:'resource_tick', messages, player_update:{hunger:player.hunger,thirst:player.thirst,hp:player.hp,stamina:player.stamina,body_temp_c:player.body_temp_c} }, null, playerId);
 
-    if (player.hp <= 0) handlePlayerDeath(player, null);
+    if (player.hp <= 0) await handlePlayerDeath(player, null);
 
     // Bodily pressure tick
     const bodilyMsgs = await tickBodily(player, broadcastFn);

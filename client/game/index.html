@@ -1533,15 +1533,20 @@
 			</div>
 		</div>
 
-		<!-- LOOT PANEL (corpse — pull-only) -->
+		<!-- LOOT PANEL (corpse) -->
 		<div id="loot-panel">
-			<div id="container-box">
-				<div id="container-header">
+			<div id="loot-box">
+				<div id="loot-header">
 					<h2 id="loot-title">Corpse</h2>
 					<button id="loot-close" aria-label="Close">✕</button>
 				</div>
 				<div id="loot-notify"></div>
-				<div id="container-body">
+				<div id="loot-body">
+					<div class="container-col" id="loot-inv-col">
+						<div class="container-section-label">Your Inventory</div>
+						<div id="loot-inv-list"></div>
+					</div>
+					<div id="loot-divider">⇄</div>
 					<div class="container-col" id="loot-contents-col">
 						<div
 							class="container-section-label"

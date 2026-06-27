@@ -29,7 +29,22 @@ export async function initWorld() {
   await loadApartments();
   await loadGlobalAmbients();
   await loadDoors();
+  await loadPlayerCorpses();
   console.log(`✓ World loaded: ${world.zones.size} zones, ${world.npcs.size} NPCs, ${world.apartments.size} apartments, ${world.doors.size} doors`);
+}
+
+export async function loadPlayerCorpses() {
+  const now = Date.now();
+  const { rows } = await query(
+    `SELECT id, zone_id, death_message, expires_at FROM player_corpses WHERE expires_at > $1`,
+    [now]
+  ).catch(() => ({ rows: [] }));
+  for (const row of rows) {
+    const c = { id: row.id, name: row.death_message, zoneId: row.zone_id, expiresAt: Number(row.expires_at) };
+    world.corpses.set(c.id, c);
+    world.zones.get(c.zoneId)?.corpses.add(c.id);
+  }
+  if (rows.length) console.log(`✓ Restored ${rows.length} player corpse(s) from DB`);
 }
 
 async function loadGlobalAmbients() {
@@ -275,6 +290,7 @@ export async function removeCorpse(id) {
   world.zones.get(c.zoneId)?.corpses.delete(id);
   world.corpses.delete(id);
   await query('DELETE FROM player_inventory WHERE player_id=$1', [id]);
+  await query('DELETE FROM player_corpses WHERE id=$1', [id]).catch(() => {});
 }
 
 // Returns { message, loudness } or null.

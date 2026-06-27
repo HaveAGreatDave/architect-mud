@@ -737,10 +737,13 @@ async function boot() {
 	setMessagingBroadcast(broadcast);
 	await loadMisSettings();
 	await initWorld();
-	// Corpses are in-memory and don't survive a restart, so sweep any loot rows
-	// still owned by a (now-gone) corpse. Also retires legacy _corpse_<zone> pools.
+	// Sweep loot for monster corpses (not persisted) and expired player corpses.
+	// Player corpses loaded by initWorld() keep their player_inventory rows.
 	await query(
-		`DELETE FROM player_inventory WHERE player_id LIKE 'corpse_%' OR player_id LIKE '_corpse_%'`,
+		`DELETE FROM player_inventory
+		 WHERE (player_id LIKE 'corpse_%' OR player_id LIKE '_corpse_%')
+		 AND player_id NOT IN (SELECT id FROM player_corpses WHERE expires_at > $1)`,
+		[Date.now()],
 	).catch(() => {});
 	await loadRecipes();
 	await loadDrugs();

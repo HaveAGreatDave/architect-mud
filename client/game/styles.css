@@ -2029,8 +2029,63 @@ body {
 #loot-panel.active {
 	display: flex;
 }
-#loot-panel #container-box {
-	max-width: 420px;
+#loot-box {
+	background: var(--bg2);
+	border: 1px solid var(--cyan);
+	padding: 20px;
+	width: 94%;
+	max-width: 720px;
+	border-radius: 2px;
+	max-height: 88vh;
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+#loot-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+#loot-header h2 {
+	color: var(--cyan);
+	font-size: 14px;
+	letter-spacing: 2px;
+	text-transform: uppercase;
+	margin: 0;
+}
+#loot-body {
+	display: flex;
+	gap: 0;
+	overflow: hidden;
+	flex: 1;
+	min-height: 0;
+}
+#loot-divider {
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+	font-size: 18px;
+	color: var(--text-dim);
+	padding: 0 4px;
+}
+#loot-contents-col {
+	padding-left: 14px;
+}
+#loot-inv-list,
+#loot-contents-list {
+	flex: 1;
+	overflow-y: auto;
+	min-height: 80px;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	padding: 4px;
+	border: 1px dashed transparent;
+	border-radius: 3px;
+}
+#loot-inv-list.ctr-drag-over {
+	border-color: var(--cyan);
+	background: rgba(40, 229, 255, 0.05);
 }
 #loot-notify {
 	font-size: 11px;

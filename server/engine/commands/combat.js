@@ -148,14 +148,22 @@ async function corpseLootRows(corpseId) {
 	return rows;
 }
 
-async function buildLootView(corpse) {
+async function buildLootView(corpse, player) {
 	const items = await corpseLootRows(corpse.id);
+	const { rows: invItems } = await query(
+		`SELECT pi.id,pi.item_id,pi.quantity,i.name,i.rarity,i.weight,i.tags
+		 FROM player_inventory pi JOIN items i ON i.id=pi.item_id
+		 WHERE pi.player_id=$1 AND pi.container_id IS NULL AND pi.is_equipped=0
+		 ORDER BY i.name`,
+		[player.id],
+	);
 	return {
 		type: "loot_view",
 		corpseId: corpse.id,
 		corpseName: corpse.name,
 		butcherable: (corpse.butcher_table || []).length > 0,
 		items,
+		invItems,
 	};
 }
 
@@ -204,7 +212,7 @@ async function cmdLootCorpse(targetStr, player, broadcast) {
 	const corpse = resolveCorpse(targetStr, player);
 	if (!corpse) return { type: "error", message: "No corpse to loot here." };
 	const items = await corpseLootRows(corpse.id);
-	if (items.length) return buildLootView(corpse);
+	if (items.length) return buildLootView(corpse, player);
 	if ((corpse.butcher_table || []).length)
 		return cmdButcher(corpse.id, player, broadcast);
 	return { type: "error", message: "Nothing left here." };
@@ -222,7 +230,7 @@ async function cmdLootId(args, player) {
 	);
 	if (!rows.length) return { type: "error", message: "It's already gone." };
 	const name = await giveRowToPlayer(rows[0], player);
-	const view = await buildLootView(corpse);
+	const view = await buildLootView(corpse, player);
 	view.mainMsg = `You take ${name}.`;
 	return view;
 }
