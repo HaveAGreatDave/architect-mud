@@ -342,8 +342,11 @@
     scroll-behavior: smooth;
     display: flex;
     flex-direction: column;
-    justify-content: flex-end;
   }
+
+  /* Bottom-align messages when sparse without clipping overflow — using
+     justify-content:flex-end here breaks upward scrolling once the log fills. */
+  #output > :first-child { margin-top: auto; }
 
   #output::-webkit-scrollbar { width: 6px; }
   #output::-webkit-scrollbar-track { background: var(--bg2); }
