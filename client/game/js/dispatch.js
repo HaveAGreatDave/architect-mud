@@ -97,6 +97,7 @@ const handlers = {
     setTimeout(() => { sendCmd('look'); }, 1500);
   },
 
+  system: (msg) => { appendMsg(msg.message, 'system'); },
   ambient: (msg) => { appendHtml(msg.message, 'ambient'); },
   sleep: (msg) => { appendMsg(msg.message, 'system'); },
 
