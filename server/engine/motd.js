@@ -140,19 +140,19 @@ export async function getMotd() {
   const { rows } = await query("SELECT key, value FROM server_settings WHERE key IN ('motd_big','motd_medium','motd_small','motd_dynamic')").catch(() => ({ rows: [] }));
   const map = Object.fromEntries(rows.map(r => [r.key, r.value]));
   return {
-    big:     map.motd_big     ?? DEFAULT_BIG,
-    medium:  map.motd_medium  ?? DEFAULT_MEDIUM,
-    small:   map.motd_small   ?? DEFAULT_SMALL,
+    big:     map.motd_big     || DEFAULT_BIG,
+    medium:  map.motd_medium  || DEFAULT_MEDIUM,
+    small:   map.motd_small   || DEFAULT_SMALL,
     dynamic: map.motd_dynamic ?? '',
   };
 }
 
 export async function saveMotd({ big, medium, small, dynamic: dyn }) {
   const updates = [];
-  if (typeof big    === 'string') updates.push(['motd_big',     big]);
-  if (typeof medium === 'string') updates.push(['motd_medium',  medium]);
-  if (typeof small  === 'string') updates.push(['motd_small',   small]);
-  if (typeof dyn    === 'string') updates.push(['motd_dynamic', dyn]);
+  if (big)    updates.push(['motd_big',     big]);
+  if (medium) updates.push(['motd_medium',  medium]);
+  if (small)  updates.push(['motd_small',   small]);
+  if (typeof dyn === 'string') updates.push(['motd_dynamic', dyn]);
   for (const [key, value] of updates) {
     await query("INSERT INTO server_settings (key,value) VALUES ($1,$2) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value", [key, value]);
   }

@@ -396,8 +396,8 @@
   .item-rarity-very_rare { color: var(--purple); }
   .skill-category { color: var(--accent-dim); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
   .help-category { color: var(--accent); }
-  .death-message { color: var(--red); }
-  .clone-vat-message { color: var(--text-dim); font-style: italic; }
+  .death-message { color: var(--red); font-size: var(--font-size-base); }
+  .clone-vat-message { color: var(--text-dim); font-style: italic; font-size: var(--font-size-base); }
   .battle-cry { color: var(--orange); font-style: italic; }
   /* Inline combat markup (see server/engine/combat.js) */
   .hit-part { color: var(--cyan); }

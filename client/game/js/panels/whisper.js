@@ -143,7 +143,7 @@ function _setSystemMOTD(renderedText) {
 function _rerenderMotd() {
   if (!_motdData) return;
   const size     = _selectMotdSize();
-  const template = _motdData[size] || _motdData.medium || _motdData.big || _motdData.small || '';
+  const template = _motdData[size] || '';
   if (!template) return;
   const handle = document.getElementById('handle-display')?.textContent?.trim() || 'Player';
   const text   = _applyMotdSubstitutions(template, handle, _motdData.dynamic || '');

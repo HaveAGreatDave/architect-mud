@@ -188,30 +188,28 @@ async function _initMotdEditor() {
   }
 
   saveBtn.addEventListener('click', async () => {
-    // Capture current edit state
+    // Capture current edit state into local store
     if (!_readonly && editor) _motd[_view] = editor.value;
     const dyn = dynamicBox?.value ?? '';
 
-    // Apply whitespace adjustment to all templates
-    const adjusted = {
-      big:     _applySpaceAdjustment(_motd.big,    dyn),
-      medium:  _applySpaceAdjustment(_motd.medium, dyn),
-      small:   _applySpaceAdjustment(_motd.small,  dyn),
-      dynamic: dyn,
-    };
+    // Only save the currently-viewed template + dynamic text.
+    // Sending only the current view key means the other two slots are untouched in DB.
+    const adjusted = _applySpaceAdjustment(_motd[_view] || '', dyn);
+    const body = { [_view]: adjusted, dynamic: dyn };
 
     saveBtn.disabled = true;
     try {
       const r = await fetch('/api/motd', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${TOKEN()}` },
-        body: JSON.stringify(adjusted),
+        body: JSON.stringify(body),
       });
       const d = await r.json();
       if (d.ok) {
-        _motd = { ...adjusted };
+        _motd[_view] = adjusted;
+        _motd.dynamic = dyn;
         _updateEditor();
-        _showStatus('✓ Saved');
+        _showStatus(`✓ Saved (${_view})`);
       } else {
         _showStatus(d.error || 'Error', false);
       }
