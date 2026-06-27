@@ -311,3 +311,107 @@ function handleActionLinkClick(e) {
 }
 document.getElementById('output').addEventListener('click', handleActionLinkClick);
 document.getElementById('area-pane').addEventListener('click', handleActionLinkClick);
+
+// Look pane / output pane resize handle
+(function () {
+  const handle = document.getElementById('look-resize-handle');
+  const resetBtn = document.getElementById('look-resize-reset');
+  const pane = document.getElementById('area-pane');
+  const container = document.getElementById('output-container');
+  const STORAGE_KEY = 'lookPaneHeight';
+
+  function setManual(heightPx) {
+    pane.style.height = heightPx + 'px';
+    pane.style.maxHeight = '';
+    handle.classList.add('manual');
+    localStorage.setItem(STORAGE_KEY, heightPx + 'px');
+  }
+
+  function setAuto() {
+    pane.style.height = '';
+    pane.style.maxHeight = '';
+    handle.classList.remove('manual');
+    localStorage.removeItem(STORAGE_KEY);
+  }
+
+  // Restore saved manual height, or start in auto mode
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (saved) {
+    pane.style.height = saved;
+    handle.classList.add('manual');
+  }
+
+  // In auto mode, reset to auto on each content update so the pane re-fits
+  pane.addEventListener('contentupdate', () => {
+    if (!handle.classList.contains('manual')) {
+      pane.style.height = '';
+    }
+  });
+
+  resetBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    setAuto();
+  });
+
+  handle.addEventListener('dblclick', () => setAuto());
+
+  let startY, startH;
+
+  handle.addEventListener('mousedown', (e) => {
+    if (e.target === resetBtn) return;
+    startY = e.clientY;
+    startH = pane.getBoundingClientRect().height;
+    handle.classList.add('dragging');
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'ns-resize';
+
+    function onMove(e) {
+      const delta = e.clientY - startY;
+      const containerH = container.getBoundingClientRect().height;
+      const newH = Math.min(containerH - 80, Math.max(40, startH + delta));
+      pane.style.height = newH + 'px';
+      pane.style.maxHeight = '';
+    }
+
+    function onUp() {
+      handle.classList.remove('dragging');
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+      handle.classList.add('manual');
+      localStorage.setItem(STORAGE_KEY, pane.style.height);
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    }
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+
+  // Touch support
+  handle.addEventListener('touchstart', (e) => {
+    const t = e.touches[0];
+    startY = t.clientY;
+    startH = pane.getBoundingClientRect().height;
+    handle.classList.add('dragging');
+
+    function onMove(e) {
+      const t = e.touches[0];
+      const delta = t.clientY - startY;
+      const containerH = container.getBoundingClientRect().height;
+      const newH = Math.min(containerH - 80, Math.max(40, startH + delta));
+      pane.style.height = newH + 'px';
+      pane.style.maxHeight = '';
+    }
+
+    function onEnd() {
+      handle.classList.remove('dragging');
+      handle.classList.add('manual');
+      localStorage.setItem(STORAGE_KEY, pane.style.height);
+      handle.removeEventListener('touchmove', onMove);
+      handle.removeEventListener('touchend', onEnd);
+    }
+
+    handle.addEventListener('touchmove', onMove, { passive: true });
+    handle.addEventListener('touchend', onEnd);
+  }, { passive: true });
+})();

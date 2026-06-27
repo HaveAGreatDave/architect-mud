@@ -487,12 +487,54 @@
 
   #area-pane {
     flex: 0 0 auto;
-    max-height: 38%;
+    max-height: 65%;
     overflow-y: auto;
     padding: 12px var(--density-padding);
-    border-bottom: 2px solid var(--border);
     display: flex;
     flex-direction: column;
+  }
+
+  #look-resize-handle {
+    flex: 0 0 6px;
+    background: var(--border);
+    cursor: ns-resize;
+    transition: background 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    overflow: visible;
+    position: relative;
+  }
+  #look-resize-handle:hover,
+  #look-resize-handle.dragging {
+    background: var(--accent);
+  }
+
+  #look-resize-reset {
+    display: none;
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 9px;
+    color: var(--text-dim);
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    padding: 1px 5px;
+    border-radius: 2px;
+    cursor: pointer;
+    user-select: none;
+    line-height: 1.4;
+    z-index: 1;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  #look-resize-handle.manual #look-resize-reset {
+    display: block;
+  }
+  #look-resize-reset:hover {
+    color: var(--accent);
+    border-color: var(--accent);
   }
 
   #area-content {

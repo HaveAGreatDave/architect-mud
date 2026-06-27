@@ -19,6 +19,7 @@ export function appendHtml(html, cls = '') {
 
 export function setAreaPane(html) {
   document.getElementById('area-content').innerHTML = html;
+  document.getElementById('area-pane').dispatchEvent(new CustomEvent('contentupdate'));
 }
 
 export function scrollOutput() {
