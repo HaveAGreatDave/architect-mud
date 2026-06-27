@@ -80,7 +80,9 @@ function sortWorldStateBy(key) {
 function filterTable() {
   const q = document.getElementById('search-input').value.toLowerCase();
   const p = PANELS[currentPanel];
-  if (!p || !p.columns) return;
+  if (!p) return;
+  if (p.filter) { p.filter(q); return; }
+  if (!p.columns) return;
   const filtered = allRecords.filter(r =>
     Object.values(r).some(v => String(v).toLowerCase().includes(q))
   );

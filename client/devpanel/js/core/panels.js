@@ -67,6 +67,7 @@ const PANELS = {
     title: 'Furniture',
     fetch: () => Promise.all([API('/furniture'), API('/zones')]).then(([f, z]) => ({ furniture: Array.isArray(f) ? f : [], zones: Array.isArray(z) ? z : [] })),
     render: renderFurniturePanel,
+    filter: filterFurniture,
     editForm: furnitureEditForm,
     save: saveFurniture,
     delete: id => API(`/furniture/${id}`, 'DELETE'),

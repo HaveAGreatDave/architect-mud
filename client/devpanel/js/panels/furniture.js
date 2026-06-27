@@ -387,6 +387,34 @@ async function saveFurniture(existing) {
   return result;
 }
 
+function filterFurniture(q) {
+  const zonesArr = [..._furnitureZoneNames.entries()].map(([id, name]) => ({ id, name }));
+  if (!q) {
+    renderFurniturePanel({ furniture: _furnitureAllItems, zones: zonesArr });
+    return;
+  }
+  const matches = _furnitureAllItems.filter(f =>
+    f.name.toLowerCase().includes(q) || (f.description || '').toLowerCase().includes(q)
+  );
+  const panel = document.getElementById('list-panel');
+  if (!matches.length) {
+    panel.innerHTML = '<div style="padding:24px;color:var(--text-dim)">No furniture matching search.</div>';
+    return;
+  }
+  panel.innerHTML = matches.map(f => {
+    const zoneName = f.zone_id ? (_furnitureZoneNames.get(f.zone_id) || f.zone_id) : 'Unplaced';
+    return `<div style="display:flex;align-items:center;gap:8px;padding:5px 12px;border-bottom:1px solid var(--border);background:var(--bg1)">
+      <div style="flex:1;min-width:0">
+        <span style="color:var(--text-bright)">${f.name}</span>
+        <span style="font-size:10px;color:var(--text-dim);margin-left:8px">${zoneName}</span>
+        ${f.description ? `<div style="font-size:11px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:500px">${f.description}</div>` : ''}
+      </div>
+      <button class="action-btn" style="font-size:10px;padding:2px 8px" onclick="editRecord('${f.id}')">Edit</button>
+      <button class="action-btn danger" style="font-size:10px;padding:2px 8px" data-fid="${f.id}" data-fname="${f.name.replace(/"/g,'&quot;')}" onclick="deleteFurnitureStaged(this.dataset.fid,this.dataset.fname)">Del</button>
+    </div>`;
+  }).join('');
+}
+
 // --- Big Map (shared grid layout + renderer for both the Zones screen's
 // popup and the embedded Power tab view) ---
 // The city is a small, fixed 10-tile grid (see seed.js's map-shrink) — a
