@@ -100,6 +100,13 @@ const handlers = {
   system: (msg) => { appendMsg(msg.message, 'system'); },
   ambient: (msg) => { appendHtml(msg.message, 'ambient'); },
   sleep: (msg) => { appendMsg(msg.message, 'system'); },
+  rent:         (msg) => { appendHtml(msg.message, 'help'); },
+  unrent:       (msg) => { appendHtml(msg.message, 'help'); },
+  lock:         (msg) => { appendMsg(msg.message, 'system'); },
+  unlock:       (msg) => { appendMsg(msg.message, 'system'); },
+  upgrade:      (msg) => { appendMsg(msg.message, 'system'); },
+  pick_success: (msg) => { appendMsg(msg.message, 'system'); },
+  pick_fail:    (msg) => { appendMsg(msg.message, 'system'); },
 
   sleep_tick: (msg) => {
     appendMsg(msg.message, 'system');

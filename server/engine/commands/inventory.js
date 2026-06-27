@@ -208,9 +208,14 @@ async function cmdUse(targetStr, player) {
 }
 
 function resolveEquipLayer(item, requestedLayer) {
-  return (requestedLayer && Number.isInteger(requestedLayer) && requestedLayer >= 1 && requestedLayer <= 5)
+  const lr = tagValue(item, 'allowed_layer_range');
+  const minLayer = (lr && typeof lr === 'object' && lr.min) ? lr.min : 1;
+  const maxLayer = (lr && typeof lr === 'object' && lr.max) ? lr.max : 5;
+  const layer = (requestedLayer && Number.isInteger(requestedLayer) && requestedLayer >= 1 && requestedLayer <= 5)
     ? requestedLayer
     : (tagValue(item, 'layer') || 1);
+  if (layer < minLayer || layer > maxLayer) return { error: `${item.name} can only be worn on layer${minLayer === maxLayer ? ` ${minLayer}` : `s ${minLayer}–${maxLayer}`}.` };
+  return { layer };
 }
 
 async function cmdEquip(targetStr, player) {
@@ -225,7 +230,8 @@ async function cmdEquip(targetStr, player) {
   const slotName = tagValue(item, 'slot');
   const slot = EQUIP_SLOTS[slotName] ? slotName : null;
   if (!slot) return { type:'error', message:`${item.name} doesn't have a valid equip slot configured.` };
-  const layer = resolveEquipLayer(item);
+  const { layer, error } = resolveEquipLayer(item);
+  if (error) return { type:'error', message: error };
   return dispatchAction({ type:'EQUIP', actor: player, params: { row: item, slot, layer } });
 }
 
@@ -248,7 +254,8 @@ async function cmdEquipById(inventoryId, player, requestedLayer) {
   const slotName = tagValue(item, 'slot');
   const slot = EQUIP_SLOTS[slotName] ? slotName : null;
   if (!slot) return { type:'error', message:`${item.name} doesn't have a valid equip slot configured.` };
-  const layer = resolveEquipLayer(item, requestedLayer);
+  const { layer, error } = resolveEquipLayer(item, requestedLayer);
+  if (error) return { type:'error', message: error };
   return dispatchAction({ type:'EQUIP', actor: player, params: { row: item, slot, layer } });
 }
 

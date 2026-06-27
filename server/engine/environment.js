@@ -482,7 +482,7 @@ function computeArtificialLight(powerStatus, light) {
 // ---------------------------------------------------------------------------
 
 function isIndoorZone(z) {
-  return !!(z?.flags?.is_interior || z?.flags?.is_apartment);
+  return !!(z?.flags?.is_interior || z?.flags?.is_apartment || z?.flags?.is_building);
 }
 
 // Seed indoor zones that have no entry yet with the current outdoor temp.
@@ -1067,7 +1067,7 @@ export function getZoneVisibility(zoneId) {
   // ambient directly — only through windows. Exterior zones use global ambient.
   const hasWindows = state.windows.some(w => w.zone_interior === zoneId);
   const windowLight = hasWindows ? getWindowLightContribution(zoneId) : 0;
-  const isInterior = !!(zone && (zone.flags?.is_interior || zone.flags?.is_apartment));
+  const isInterior = !!(zone && (zone.flags?.is_interior || zone.flags?.is_apartment || zone.flags?.is_building));
   const ambientContrib = isInterior ? windowLight : state.ambientLight;
 
   const effectiveLight = Math.max(ambientContrib, artificial);
