@@ -27,7 +27,8 @@ export function openShop(msg) {
   state.currentNpcId = msg.npcId;
   document.getElementById('dialogue-npc-name').textContent = msg.npcName;
 
-  let html = `<div style="margin-bottom:10px;color:var(--text-dim);font-size:12px">Credits: <span style="color:var(--accent2);font-weight:bold">${msg.credits ?? 0}₵</span></div>`;
+  let html = `<div style="white-space:normal">`;
+  html += `<div style="margin-bottom:10px;color:var(--text-dim);font-size:12px">Credits: <span style="color:var(--accent2);font-weight:bold">${msg.credits ?? 0}₵</span></div>`;
   if (msg.buyResult) {
     const color = msg.buySuccess ? 'var(--green, #4ade80)' : 'var(--red)';
     html += `<div style="margin-bottom:10px;font-size:12px;color:${color}">${msg.buyResult}</div>`;
@@ -46,6 +47,7 @@ export function openShop(msg) {
   } else {
     html += '<div style="color:var(--text-dim)">Nothing in stock.</div>';
   }
+  html += `</div>`;
 
   document.getElementById('dialogue-text').innerHTML = html;
 
