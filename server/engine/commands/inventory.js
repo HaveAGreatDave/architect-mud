@@ -287,6 +287,30 @@ async function resolveContainer(nameStr, player) {
   return rows.length === 1 ? rows[0] : (rows.length === 0 ? null : 'ambiguous');
 }
 
+// Resolve a container by id from either source: an item the player carries / on
+// the ground, or a furniture container in the player's current zone. Returns a
+// normalized { id, name, tags, kind, isTrash } (tags = item tags or furniture
+// flags, so tagValue/hasTag work the same way), or null.
+async function loadContainerById(id, player) {
+  const { rows } = await query(
+    `SELECT pi.id,i.name,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id
+     WHERE pi.id=$1 AND pi.player_id IN ($2,$3) AND pi.container_id IS NULL AND jsonb_exists(i.tags,'container')`,
+    [id, player.id, `_ground_${player.current_zone}`]
+  );
+  if (rows.length) return { id: rows[0].id, name: rows[0].name, tags: rows[0].tags, kind: 'item', isTrash: false };
+  const { rows: fRows } = await query(
+    `SELECT id,name,flags FROM furniture WHERE id=$1 AND zone_id=$2 AND object_type='container'`,
+    [id, player.current_zone]
+  );
+  if (fRows.length) return { id: fRows[0].id, name: fRows[0].name, tags: fRows[0].flags, kind: 'furniture', isTrash: fRows[0].flags?.trash_bin === true };
+  return null;
+}
+
+// Container capacity in kg. Furniture containers default to 60 when unset.
+function containerCapacity(container) {
+  return tagValue(container, 'container', container.kind === 'furniture' ? 60 : 0);
+}
+
 async function cmdLookInContainer(nameStr, player) {
   const container = await resolveContainer(nameStr, player);
   if (container === 'ambiguous') return { type:'error', message:`Which container? Try "look in <name>".` };
@@ -305,10 +329,9 @@ async function describeContainer(container) {
 }
 
 async function buildContainerView(containerId, player) {
-  const { rows: cRows } = await query(`SELECT pi.*,i.name,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.id=$1`, [containerId]);
-  if (!cRows.length) return { type:'error', message:'Container not found.' };
-  const container = cRows[0];
-  const cap = tagValue(container, 'container', 0);
+  const container = await loadContainerById(containerId, player);
+  if (!container) return { type:'error', message:'Container not found.' };
+  const cap = containerCapacity(container);
   const used = await containerContentsWeight(container.id);
   const { rows: invItems } = await query(`SELECT pi.*,i.name,i.rarity,i.tags,i.weight FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND pi.is_equipped=0 ORDER BY i.name`, [player.id]);
   const { rows: containerItems } = await query(`SELECT pi.*,i.name,i.rarity,i.tags,i.weight FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.container_id=$1 ORDER BY i.name`, [container.id]);
@@ -317,8 +340,17 @@ async function buildContainerView(containerId, player) {
 
 async function cmdOpenContainer(nameStr, player, broadcast) {
   if (!nameStr) return null;
-  const container = await resolveContainer(nameStr, player);
-  if (!container || container === 'ambiguous') return null;
+  let container = await resolveContainer(nameStr, player);
+  if (container === 'ambiguous') return null;
+  if (!container) {
+    // No item container matched — try a furniture container in this zone.
+    const { rows } = await query(
+      `SELECT id FROM furniture WHERE zone_id=$1 AND object_type='container' AND name ILIKE $2 LIMIT 1`,
+      [player.current_zone, `%${nameStr}%`]
+    );
+    if (!rows.length) return null;
+    container = { id: rows[0].id };
+  }
   const view = await buildContainerView(container.id, player);
   if (view.type === 'container_view') {
     view.mainMsg = `You open ${withArticle(view.containerName)}.`;
@@ -334,9 +366,14 @@ async function cmdOpenContainerById(idStr, player) {
 
 async function cmdCloseContainer(idStr, player, broadcast) {
   if (!idStr) return null;
-  const { rows } = await query(`SELECT i.name FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.id=$1`, [idStr]);
-  if (!rows.length) return null;
-  const name = rows[0].name;
+  const container = await loadContainerById(idStr, player);
+  if (!container) return null;
+  const name = container.name;
+  if (container.kind === 'furniture' && container.isTrash) {
+    await query('DELETE FROM player_inventory WHERE container_id=$1', [container.id]);
+    broadcast?.(player.current_zone, { type: 'zone_event', message: `The ${name.toLowerCase()} grinds and swallows its contents with a wet CRUNCH.` });
+    return { type: 'action', message: `You slam the ${name.toLowerCase()} shut. It grinds its contents into slurry — gone for good.` };
+  }
   broadcast?.(player.current_zone, { type: 'zone_event', message: `${player.handle} closes ${withArticle(name)}.` }, player.id);
   return { type: 'action', message: `You close ${withArticle(name)}.` };
 }
@@ -347,13 +384,12 @@ async function cmdStowById(argStr, player, broadcast) {
   if (!itemRows.length) return { type:'container_error', message:'Item not found in your inventory.' };
   const item = itemRows[0];
 
-  const { rows: cRows } = await query(`SELECT pi.*,i.name,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.id=$1 AND pi.player_id IN ($2,$3) AND pi.container_id IS NULL AND jsonb_exists(i.tags,'container')`, [containerRowId, player.id, `_ground_${player.current_zone}`]);
-  if (!cRows.length) return { type:'container_error', message:'Container not found.' };
-  const container = cRows[0];
+  const container = await loadContainerById(containerRowId, player);
+  if (!container) return { type:'container_error', message:'Container not found.' };
   if (item.id === container.id) return { type:'container_error', message:`Can't put ${container.name} inside itself.` };
   if (hasTag(item, 'container')) return { type:'container_error', message:`Can't stow a container inside another container.` };
 
-  const cap = tagValue(container, 'container', 0);
+  const cap = containerCapacity(container);
   const used = await containerContentsWeight(container.id);
   const itemWeight = item.weight || 0;
   const adding = itemWeight * item.quantity;
@@ -405,25 +441,24 @@ async function cmdPullById(idStr, player, broadcast) {
   const item = rows[0];
   const containerId = item.container_id;
 
-  const { rows: cRows } = await query(`SELECT pi.player_id,i.name FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.id=$1`, [containerId]);
-  if (!cRows.length) return { type:'container_error', message:'Container not found.' };
-  if (cRows[0].player_id !== player.id && cRows[0].player_id !== `_ground_${player.current_zone}`) return { type:'container_error', message:'Not your container.' };
+  const container = await loadContainerById(containerId, player);
+  if (!container) return { type:'container_error', message:'Not your container.' };
 
   if (hasTag(item, 'stackable')) {
     const { rows: existing } = await query('SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND container_id IS NULL AND is_equipped=0 LIMIT 1', [player.id, item.item_id]);
     if (existing.length) {
       await query('UPDATE player_inventory SET quantity=quantity+$1 WHERE id=$2', [item.quantity, existing[0].id]);
       await query('DELETE FROM player_inventory WHERE id=$1', [item.id]);
-      const pe1 = throttledContainerBroadcast(player, broadcast, cRows[0].name);
+      const pe1 = throttledContainerBroadcast(player, broadcast, container.name);
       const pv1 = await buildContainerView(containerId, player);
-      if (pe1) pv1.mainMsg = `You rummage through ${withArticle(cRows[0].name)}.`;
+      if (pe1) pv1.mainMsg = `You rummage through ${withArticle(container.name)}.`;
       return pv1;
     }
   }
   await query('UPDATE player_inventory SET container_id=NULL, player_id=$1 WHERE id=$2', [player.id, item.id]);
-  const pe2 = throttledContainerBroadcast(player, broadcast, cRows[0].name);
+  const pe2 = throttledContainerBroadcast(player, broadcast, container.name);
   const pv2 = await buildContainerView(containerId, player);
-  if (pe2) pv2.mainMsg = `You rummage through ${withArticle(cRows[0].name)}.`;
+  if (pe2) pv2.mainMsg = `You rummage through ${withArticle(container.name)}.`;
   return pv2;
 }
 

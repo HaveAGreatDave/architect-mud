@@ -520,16 +520,9 @@ async function cmdRaise(args, player) {
 }
 
 async function cmdOpen(args, player) {
-  const targetStr = args.join(' ');
-  // Furniture container (e.g. trash bin) — a one-way disposal, no stored contents.
-  const { rows } = await query(
-    `SELECT name FROM furniture WHERE zone_id=$1 AND object_type='container' AND name ILIKE $2 LIMIT 1`,
-    [player.current_zone, `%${targetStr}%`]
-  );
-  if (rows.length) {
-    const n = rows[0].name;
-    return { type:'examine', message:`You flip open the ${n}. It's a one-way disposal — throw things in with "throw <item> in ${n.toLowerCase()}" and they're gone for good.` };
-  }
+  // Furniture containers (e.g. the trash bin) are handled by the container
+  // plugin's tag-gated `open` action, which runs before this built-in. What
+  // reaches here is the window case.
   return cmdOpenWindow(args, player, 'open');
 }
 
