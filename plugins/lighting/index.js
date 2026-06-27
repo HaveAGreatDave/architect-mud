@@ -7,8 +7,8 @@
  */
 import { cmdSwitch, cmdTurn } from '../../server/engine/commands/world.js';
 
-const doSwitch = (args, raw, player) => cmdSwitch(args.join(' '), player);
-const doTurn = (args, raw, player) => cmdTurn(args, player);
+const doSwitch = (args, raw, player, broadcast) => cmdSwitch(args.join(' '), player, broadcast);
+const doTurn = (args, raw, player, broadcast) => cmdTurn(args, player, broadcast);
 
 export const specializedActions = [
   { verb: 'switch', requiredTag: 'switch', handler: doSwitch },
