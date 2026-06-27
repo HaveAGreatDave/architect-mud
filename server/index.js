@@ -400,6 +400,21 @@ async function autoEquipOnLogin(playerId) {
 	}
 }
 
+function loginBodyTempMessage(tempC) {
+	if (tempC === null || tempC === undefined) return null;
+	if (tempC >= 36 && tempC <= 38) return null;
+	// Cold side
+	if (tempC < 30)  return 'You are in the grip of hypothermia. Your body is shutting down.';
+	if (tempC < 32)  return 'Your core is dangerously cold. Find warmth immediately.';
+	if (tempC < 34)  return 'You\'re shivering. You need to warm up.';
+	if (tempC < 36)  return 'You feel a little chilly.';
+	// Hot side
+	if (tempC > 42)  return 'You are in the grip of heat stroke. You are dying.';
+	if (tempC > 41)  return 'Your body is overheating badly.';
+	if (tempC > 39)  return 'The heat is getting to you. Find shade and water.';
+	return 'You feel uncomfortably warm.';
+}
+
 async function finishAuth(ws, session, player) {
 	const existingWs = playerSockets.get(player.id);
 	if (existingWs && existingWs !== ws) {
@@ -505,6 +520,7 @@ async function finishAuth(ws, session, player) {
 		}),
 	);
 
+	const bodyTempLoginMsg = loginBodyTempMessage(livePlayer.body_temp_c);
 	const zone = getZone(livePlayer.current_zone);
 	if (zone) {
 		ws.send(
@@ -515,6 +531,7 @@ async function finishAuth(ws, session, player) {
 				minimap: getMinimapData(zone.id),
 			}),
 		);
+		if (bodyTempLoginMsg) ws.send(JSON.stringify({ type: 'system', message: bodyTempLoginMsg }));
 	} else {
 		// Their stored zone was deleted while they were offline — the live
 		// rescue in routes.js only catches players connected at deletion time,
@@ -545,6 +562,7 @@ async function finishAuth(ws, session, player) {
 				},
 				player.id,
 			);
+			if (bodyTempLoginMsg) ws.send(JSON.stringify({ type: 'system', message: bodyTempLoginMsg }));
 		}
 	}
 }

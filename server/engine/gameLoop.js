@@ -263,36 +263,117 @@ function tempRegenMultiplier(tempC) {
 // Only fires at certain tick counts to avoid spam.
 function tempFlavorMessage(tempC, tick) {
   if (tempC >= 36 && tempC <= 38) return null;
-  // slightly cold: every 5 ticks
-  if (tempC >= 34 && tempC < 36 && tick % 5 === 0) {
-    const msgs = ['You feel chilly.', 'A cold draft finds its way through your clothing.', 'You pull your clothes tighter against the chill.'];
-    return msgs[tick % msgs.length];
+
+  // slightly chilly (36–34°C): every 6 ticks
+  if (tempC >= 34 && tempC < 36 && tick % 6 === 0) {
+    const msgs = [
+      'You feel a little chilly.',
+      'A cold draft finds its way through your clothing.',
+      'You pull your clothes tighter against the chill.',
+      'The air has a bite to it.',
+      'You rub your hands together for warmth.',
+      'Your skin prickles with cold.',
+    ];
+    return msgs[(tick / 6) % msgs.length | 0];
   }
-  // cold: every 5 ticks
-  if (tempC >= 30 && tempC < 34 && tick % 5 === 0) {
-    const msgs = ['You begin to shiver.', 'The cold is getting to you.', 'Your breath fogs in the air.', 'Your fingers are going numb.'];
-    return msgs[(tick / 5) % msgs.length];
+
+  // cold (34–32°C): every 5 ticks
+  if (tempC >= 32 && tempC < 34 && tick % 5 === 0) {
+    const msgs = [
+      'You begin to shiver.',
+      'The cold is getting to you.',
+      'Your breath fogs in the air.',
+      'Your fingers are going numb.',
+      'You stamp your feet trying to stay warm.',
+      'The chill has settled deep into your bones.',
+      'Your teeth chatter involuntarily.',
+    ];
+    return msgs[(tick / 5) % msgs.length | 0];
   }
-  // freezing: every 5 ticks (-10 HP once sustained)
-  if (tempC < 30 && tick % 5 === 0) {
-    const msgs = ['You feel dangerously cold.', 'The cold is killing you.', 'You can barely feel your extremities.'];
-    return msgs[(tick / 5) % msgs.length];
+
+  // very cold (32–30°C): every 4 ticks — escalating, approaching danger
+  if (tempC >= 30 && tempC < 32 && tick % 4 === 0) {
+    const msgs = [
+      'Your shivering is getting violent.',
+      'You can barely feel your hands anymore.',
+      'Your core is struggling to stay warm.',
+      'Everything feels heavy and slow in the cold.',
+      'The cold is making it hard to think straight.',
+      'Your lips are going blue.',
+      'You desperately need to find warmth.',
+    ];
+    return msgs[(tick / 4) % msgs.length | 0];
   }
-  // slightly hot: every 6 ticks
-  if (tempC > 38 && tempC <= 40 && tick % 6 === 0) {
-    const msgs = ['You feel uncomfortably warm.', 'Sweat beads on your skin.', 'The heat is oppressive.'];
-    return msgs[tick % msgs.length];
+
+  // freezing (< 30°C): every 4 ticks — dangerous, HP draining
+  if (tempC < 30 && tick % 4 === 0) {
+    const msgs = [
+      'You feel dangerously cold. Your body is shutting down.',
+      'Hypothermia is setting in. You need warmth NOW.',
+      'You can barely feel your extremities. This is how people die.',
+      'Your vision is narrowing at the edges. The cold is killing you.',
+      'Uncontrollable shaking wracks your body.',
+      'You can\'t stop shivering. Your muscles are giving out.',
+      'The cold has become a physical weight pressing down on you.',
+      'Your thoughts are fragmenting. Warmth. You need warmth.',
+    ];
+    return msgs[(tick / 4) % msgs.length | 0];
   }
-  // hot: every 5 ticks
-  if (tempC > 40 && tempC <= 42 && tick % 5 === 0) {
-    const msgs = ['The heat is draining you.', 'You\'re sweating through your clothes.', 'The heat makes it hard to breathe.'];
-    return msgs[(tick / 5) % msgs.length];
+
+  // slightly warm (38–39°C): every 6 ticks
+  if (tempC > 38 && tempC <= 39 && tick % 6 === 0) {
+    const msgs = [
+      'You feel uncomfortably warm.',
+      'Sweat beads on your skin.',
+      'The heat is oppressive.',
+      'You fan yourself uselessly.',
+      'Your shirt is sticking to your back.',
+      'The air feels thick and hot.',
+    ];
+    return msgs[(tick / 6) % msgs.length | 0];
   }
-  // overheating: every 5 ticks (-10 HP once sustained)
-  if (tempC > 42 && tick % 5 === 0) {
-    const msgs = ['The heat is becoming unbearable.', 'You are overheating.', 'Heat exhaustion is setting in.'];
-    return msgs[(tick / 5) % msgs.length];
+
+  // hot (39–41°C): every 5 ticks
+  if (tempC > 39 && tempC <= 41 && tick % 5 === 0) {
+    const msgs = [
+      'The heat is draining you.',
+      'You\'re sweating through your clothes.',
+      'The heat makes it hard to breathe.',
+      'Your head is starting to throb.',
+      'Salt stings your eyes as sweat pours down your face.',
+      'Everything smells like hot asphalt and misery.',
+      'You need water — a lot of it, soon.',
+    ];
+    return msgs[(tick / 5) % msgs.length | 0];
   }
+
+  // very hot (41–42°C): every 4 ticks — escalating, approaching danger
+  if (tempC > 41 && tempC <= 42 && tick % 4 === 0) {
+    const msgs = [
+      'Your skin feels like it\'s on fire.',
+      'The heat is making you dizzy.',
+      'You can\'t seem to sweat fast enough.',
+      'Your pulse is pounding in your temples.',
+      'The world swims unpleasantly in the heat haze.',
+      'You urgently need shade and water.',
+    ];
+    return msgs[(tick / 4) % msgs.length | 0];
+  }
+
+  // overheating (> 42°C): every 4 ticks — dangerous, HP draining
+  if (tempC > 42 && tick % 4 === 0) {
+    const msgs = [
+      'The heat is becoming unbearable. Your organs are cooking.',
+      'Heat stroke. This is what heat stroke feels like.',
+      'You\'re not sweating anymore. That\'s very bad.',
+      'Your vision pulses with your heartbeat. The heat is killing you.',
+      'You can barely stand. The heat is consuming you.',
+      'Everything is white and burning.',
+      'Core temperature critical. You are dying.',
+    ];
+    return msgs[(tick / 4) % msgs.length | 0];
+  }
+
   return null;
 }
 
@@ -402,6 +483,8 @@ async function resourceTick() {
     if (isDangerous && player._dangerousTempTicks >= 5) {
       player.hp = Math.max(0, player.hp - 10);
       hpChanged = true;
+      if (isFreezing) messages.push(`Hypothermia is damaging your body. (-10 HP) [${player.hp}/${player.hp_max ?? 100} HP]`);
+      else messages.push(`Heat stroke is damaging your body. (-10 HP) [${player.hp}/${player.hp_max ?? 100} HP]`);
     }
     // Hot/overheating: increased thirst drain
     if ((isHot || isOverheating) && Math.random() < 0.5) {

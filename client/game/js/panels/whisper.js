@@ -156,8 +156,7 @@ function _renderWhisperLog() {
     const entry = document.createElement('div');
     entry.style.cssText = 'padding:4px 0;border-bottom:1px solid var(--border)';
     const nameColor = m.isMe ? 'var(--text-dim)' : 'var(--purple)';
-    const msgColor  = m.isMe ? 'var(--text-dim)' : 'var(--text)';
-    entry.innerHTML = `<div style="font-size:10px;color:${nameColor};margin-bottom:2px;font-style:${m.isMe?'italic':''}">${m.from}</div><div style="color:${msgColor}">${m.message}</div>`;
+    entry.innerHTML = `<div style="font-size:10px;color:${nameColor};margin-bottom:2px;font-style:${m.isMe?'italic':''}">${m.from}</div><div style="color:var(--text)">${m.message}</div>`;
     log.appendChild(entry);
   }
   log.scrollTop = convo.scrollTop || log.scrollHeight;
