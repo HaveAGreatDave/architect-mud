@@ -1,5 +1,5 @@
 import { query } from '../../models/db.js';
-import { getZone, getZoneEnemies, getZoneNpcs, getZoneCorpses, getZonePlayers } from '../world.js';
+import { getZone, getZoneEnemies, getZoneNpcs, getZoneCorpses, getZonePlayers, getDoorForExit } from '../world.js';
 import { getZoneVisibility, getWindowsForZone, getWeatherDescription } from '../environment.js';
 import { getCustodianOutcastResponse } from '../mutations.js';
 import { describeApartmentStatus, describeRentStatus } from '../apartments.js';
@@ -143,7 +143,15 @@ export async function describeZone(zone, player) {
       `<span class="light-level light-dark">It is completely dark here. You can't make out your surroundings.${windowHint}</span>`;
     if (plain.length) {
       // In pitch dark you can feel for openings but can't read where they lead.
-      const exitLinks = plain.map(p => destLink(p.direction, null, 'exit-link'));
+      const exitLinks = plain.map(p => {
+        const door = getDoorForExit(zone.id, p.direction);
+        if (door && !door.is_open && door.hp > 0) {
+          const dirLabel = p.direction.charAt(0).toUpperCase() + p.direction.slice(1);
+          const doorName = door.name || 'Door';
+          return `<span class="dir-tag">[${dirLabel}]</span> <span class="action-link door-link" data-action="open" data-target="door ${p.direction}" title="Open ${doorName}">${doorName}</span>`;
+        }
+        return destLink(p.direction, null, 'exit-link');
+      });
       darkDesc += `\n\n<span class="exits-label">Exits:</span> ${exitLinks.join(', ')}`;
     }
     if (buildings.length) {
@@ -318,7 +326,15 @@ export async function describeZone(zone, player) {
   }
   if (plain.length || buildings.length || rooms.length) desc += `\n`;
   if (plain.length) {
-    const exitLinks = plain.map(p => destLink(p.direction, p.name, 'exit-link'));
+    const exitLinks = plain.map(p => {
+      const door = getDoorForExit(zone.id, p.direction);
+      if (door && !door.is_open && door.hp > 0) {
+        const dirLabel = p.direction.charAt(0).toUpperCase() + p.direction.slice(1);
+        const doorName = door.name || 'Door';
+        return `<span class="dir-tag">[${dirLabel}]</span> <span class="action-link door-link" data-action="open" data-target="door ${p.direction}" title="Open ${doorName}">${doorName}</span>`;
+      }
+      return destLink(p.direction, p.name, 'exit-link');
+    });
     desc += `\n<span class="exits-label">Exits:</span> ${exitLinks.join(', ')}`;
   }
   if (buildings.length) {
