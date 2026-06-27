@@ -421,7 +421,7 @@ async function applyLightSwitch(nameStr, dir, player) {
     : `You flip the switch. ${light.name} goes dark.`;
   const zone = getZone(player.current_zone);
   const lookMsg = await describeZone(zone, player);
-  return { type:'look', message:`${flipMsg}\n\n${lookMsg}`, zone: player.current_zone, minimap: getMinimapData(player.current_zone) };
+  return { type:'look', message: lookMsg, notify: flipMsg, zone: player.current_zone, minimap: getMinimapData(player.current_zone) };
 }
 
 // "switch on/off <name>" or "switch <name> on/off" or "switch <name>" (toggle)

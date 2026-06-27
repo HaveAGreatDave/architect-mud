@@ -55,6 +55,7 @@ const handlers = {
   },
 
   look: (msg) => {
+    if (msg.notify) appendMsg(msg.notify, 'system');
     setAreaPane(msg.message);
     if (state.echoNextLook) { appendMsg('You look around.', 'system'); state.echoNextLook = false; }
     if (msg.zone) state.currentZone = msg.zone;
