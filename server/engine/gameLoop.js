@@ -440,10 +440,11 @@ async function resourceTick() {
     const DELTA_TIME = 60; // seconds per tick
 
     // Body temp drifts toward zone temperature. Neutral point is 20°C for a
-    // naked player — no drift at 20°C, increasing rate as you deviate further.
-    // Rate = 0.001 * |diff|^1.5 °C/min, so each 10°C step meaningfully
-    // accelerates change (e.g. diff=10 → 0.032°C/min; diff=30 → 0.164°C/min).
-    const NEUTRAL_TEMP = 20;
+    // naked player — no drift at 32°C (human thermoneutral zone naked is ~30-32°C).
+    // Light clothing brings neutral closer to 20°C; heavy clothing pushes it higher.
+    // Rate = 0.002 * |diff|^1.75 °C/min, so each 10°C step meaningfully
+    // accelerates change (e.g. diff=10 → 0.063°C/min; diff=20 → 0.19°C/min).
+    const NEUTRAL_TEMP = 32;
     const tempDrift = effectiveTemp - NEUTRAL_TEMP;
     if (tempDrift !== 0) {
       const absDiff = Math.abs(tempDrift);
