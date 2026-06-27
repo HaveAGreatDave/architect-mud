@@ -160,7 +160,10 @@ async function cmdMove(direction, player, broadcast) {
       targetId = exitEntries[0][1];
     }
   }
-  if (!targetId) return { type:'error', message:`No exit to the ${direction}.` };
+  if (!targetId) {
+    const cardinal = ['north', 'south', 'east', 'west'].includes(direction);
+    return { type:'error', message: cardinal ? `No exit to the ${direction}.` : `No exit ${direction}.` };
+  }
   const targetZone = getZone(targetId);
   if (!targetZone) return { type:'error', message:'That exit leads nowhere yet.' };
 
