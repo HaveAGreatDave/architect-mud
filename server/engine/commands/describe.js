@@ -45,7 +45,7 @@ function destLink(direction, name, cls) {
   return `<span class="dir-tag">[${dirLabel}]</span> <span class="action-link ${cls}" data-action="go" data-target="${direction}" title="Go ${direction}">${label}</span>`;
 }
 
-const DIRECTION_PHRASE = { north:'to the north', south:'to the south', east:'to the east', west:'to the west', up:'above', down:'below' };
+const DIRECTION_PHRASE = { north:'to the north', south:'to the south', east:'to the east', west:'to the west', up:'above', down:'below', in:'nearby' };
 
 const BUILDING_FLAVOR_TEMPLATES = [
   (name, dirPhrase) => `The entrance to ${name} is ${dirPhrase}.`,
