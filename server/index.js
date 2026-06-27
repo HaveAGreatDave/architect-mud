@@ -44,7 +44,7 @@ import { query } from "./models/db.js";
 import { loadMisSettings } from "./engine/mis.js";
 
 import { initEnvironment, getHUDPayload, getZoneTemperature } from "./engine/environment.js";
-import { getPlayerChannels } from "./engine/channels.js";
+import { getPlayerChannels, getChannelHistory } from "./engine/channels.js";
 import { getMotd } from "./engine/motd.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -520,6 +520,15 @@ async function finishAuth(ws, session, player) {
 			channels: getPlayerChannels(livePlayer),
 		}),
 	);
+
+	try {
+		const history = await getChannelHistory(livePlayer);
+		if (Object.keys(history).length) {
+			ws.send(JSON.stringify({ type: "channel_history", history }));
+		}
+	} catch (err) {
+		console.error("channel history load failed:", err.message);
+	}
 
 	// Send all three MOTD templates to client; client picks size based on its settings
 	try {

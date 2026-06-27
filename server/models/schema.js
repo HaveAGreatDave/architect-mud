@@ -609,6 +609,17 @@ export const SCHEMA_SQL = `
     updated_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW()),
     PRIMARY KEY (player_id, quest_id)
   );
+
+  -- Channel chat history (arcnet etc). Runtime data: schema is exported, rows are not.
+  -- Only the most recent messages per channel are retained; older rows are pruned.
+  CREATE TABLE IF NOT EXISTS channel_messages (
+    id         BIGSERIAL PRIMARY KEY,
+    channel_id TEXT NOT NULL,
+    from_handle TEXT NOT NULL,
+    message    TEXT NOT NULL,
+    created_at BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())
+  );
+  CREATE INDEX IF NOT EXISTS idx_channel_messages_channel ON channel_messages(channel_id, id);
 `;
 
 export async function applySchema() {

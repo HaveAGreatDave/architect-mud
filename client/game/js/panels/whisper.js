@@ -467,6 +467,18 @@ export function receiveWhisper(from, message) {
   }
 }
 
+// Replay stored channel history on login. history: { channelId: [{from, message, ts}, ...] }
+export function initChannelHistory(history) {
+  for (const [channelId, messages] of Object.entries(history || {})) {
+    if (!_whisperConvos.has(channelId)) _whisperConvos.set(channelId, { messages: [], scrollTop: 0, unread: 0 });
+    const convo = _whisperConvos.get(channelId);
+    convo.messages = (messages || []).slice(-WHISPER_MAX_MSGS).map(m => ({
+      from: m.from, message: m.message, isMe: false, ts: m.ts,
+    }));
+    if (_activeWhisperTab === channelId) _renderWhisperLog();
+  }
+}
+
 export function receiveChannelMsg(channelId, from, message) {
   if (!_whisperConvos.has(channelId)) _whisperConvos.set(channelId, { messages: [], scrollTop: 0, unread: 0 });
   const convo = _whisperConvos.get(channelId);
