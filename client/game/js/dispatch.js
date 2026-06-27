@@ -5,6 +5,7 @@ import { renderMinimap, openMapPopup } from './panels/minimap.js';
 import { updateEnvironmentHUD, updateZoneTempHUD, refreshZoneVisibility } from './panels/environment.js';
 import { openDialogue, closeDialogue, openShop } from './panels/dialogue.js';
 import { renderEquipPanel } from './panels/equipment.js';
+import { renderRecipesPanel } from './panels/recipes.js';
 import { receiveWhisper, sentWhisper, receiveChannelMsg, initChannels } from './panels/whisper.js';
 import { openContainerPanel, refreshContainerPanel, getActiveContainerId, showContainerNotify } from './panels/container.js';
 import { openLightViewDialog } from './panels/lightview.js';
@@ -177,7 +178,10 @@ const handlers = {
     if (msg.triggerLook) sendCmdSilent('look');
   },
   balance: (msg) => { appendHtml(msg.message, 'help'); },
-  recipes: (msg) => { appendHtml(msg.message, 'help'); },
+  recipes: (msg) => {
+    renderRecipesPanel(msg.recipes || []);
+    document.getElementById('recipes-panel').classList.add('active');
+  },
   mutations: (msg) => { appendHtml(msg.message, 'help'); },
   factions: (msg) => { appendHtml(msg.message, 'help'); },
   shop: (msg) => { appendHtml(msg.message, 'help'); },
@@ -228,11 +232,13 @@ const handlers = {
       return;
     }
     appendMsg(msg.message, 'error');
+    if (document.getElementById('recipes-panel').classList.contains('active')) sendCmdSilent('recipes');
   },
 
   craft: (msg) => {
     appendHtml(msg.message, 'loot');
     if (msg.player_update && state.player) { Object.assign(state.player, msg.player_update); updateVitals(state.player); }
+    if (document.getElementById('recipes-panel').classList.contains('active')) sendCmdSilent('recipes');
   },
 
   // Server-directed request to open a client UI (dialogue "Open Bank/Storage/

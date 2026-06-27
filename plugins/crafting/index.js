@@ -1,31 +1,74 @@
 import { query } from '../../server/models/db.js';
-import { getAvailableRecipes, attemptCraft } from '../../server/engine/crafting.js';
+import { getAvailableRecipes, attemptCraft, findRecipeByName } from '../../server/engine/crafting.js';
 
 async function cmdRecipes(args, raw, player) {
-  const { rows: skillRows } = await query('SELECT skill_id, rank FROM player_skills WHERE player_id = $1', [player.id]);
+  const { rows: skillRows } = await query('SELECT skill_id, trained FROM player_skills WHERE player_id = $1', [player.id]);
   const skills = {};
-  for (const r of skillRows) skills[r.skill_id] = r.rank;
+  for (const r of skillRows) skills[r.skill_id] = r.trained || 0;
   const available = getAvailableRecipes(skills);
-  if (!available.length) return { type:'recipes', message:'You don\'t know any recipes yet.' };
-  let msg = '<span class="skills-header">KNOWN RECIPES</span>\n\n';
-  const byCategory = {};
-  for (const r of available) { if (!byCategory[r.category]) byCategory[r.category]=[]; byCategory[r.category].push(r); }
-  for (const [cat, recipes] of Object.entries(byCategory)) {
-    msg += `<span class="skill-category">${cat.toUpperCase()}</span>\n`;
-    for (const r of recipes) {
-      const station = r.requires_station ? ` [needs: ${r.requires_station.replace(/_/g,' ')}]` : '';
-      msg += `  <span class="exits-label">${r.id}</span> — ${r.name}${station}\n    ${r.description}\n`;
-    }
-    msg += '\n';
+  if (!available.length) return { type:'recipes', recipes:[] };
+
+  // Resolve item names for outputs + ingredients in a single query.
+  const itemIds = new Set();
+  for (const r of available) {
+    if (r.base_output?.item_id) itemIds.add(r.base_output.item_id);
+    for (const ing of (r.ingredients || [])) if (ing.item_id) itemIds.add(ing.item_id);
   }
-  msg += 'Use: <span class="equipped">craft &lt;recipe_id&gt;</span>';
-  return { type:'recipes', message:msg };
+  const idList = [...itemIds];
+  const nameById = {};
+  if (idList.length) {
+    const { rows: itemRows } = await query('SELECT id, name FROM items WHERE id = ANY($1)', [idList]);
+    for (const it of itemRows) nameById[it.id] = it.name;
+  }
+
+  // How many of each ingredient the player currently holds.
+  const haveByItem = {};
+  if (idList.length) {
+    const { rows: invRows } = await query(
+      'SELECT item_id, SUM(quantity) AS qty FROM player_inventory WHERE player_id = $1 AND item_id = ANY($2) GROUP BY item_id',
+      [player.id, idList]
+    );
+    for (const r of invRows) haveByItem[r.item_id] = Number(r.qty) || 0;
+  }
+
+  const recipes = available.map(r => {
+    const ingredients = (r.ingredients || [])
+      .filter(ing => ing.quantity > 0)
+      .map(ing => ({
+        name: nameById[ing.item_id] || ing.item_id,
+        need: ing.quantity,
+        have: haveByItem[ing.item_id] || 0,
+      }));
+    let craftable = true;
+    let reason = null;
+    if (r.requires_station) {
+      craftable = false;
+      reason = `needs ${r.requires_station.replace(/_/g, ' ')}`;
+    } else {
+      const missing = ingredients.find(ing => ing.have < ing.need);
+      if (missing) { craftable = false; reason = `missing ${missing.name}`; }
+    }
+    return {
+      name: r.name,
+      description: r.description,
+      skill_id: r.skill_id,
+      category: r.category,
+      station: r.requires_station || null,
+      output: { name: nameById[r.base_output?.item_id] || r.base_output?.item_id, quantity: r.base_output?.quantity || 1 },
+      ingredients,
+      craftable,
+      reason,
+    };
+  });
+  return { type:'recipes', recipes };
 }
 
 async function cmdCraft(args, raw, player) {
-  const recipeId = args.join('_');
-  if (!recipeId) return { type:'error', message:'Craft what? Use RECIPES to see available recipes.' };
-  const result = await attemptCraft(player, recipeId);
+  const wanted = args.join(' ').trim();
+  if (!wanted) return { type:'error', message:'Craft what? Use RECIPES to see available recipes.' };
+  const recipe = findRecipeByName(wanted);
+  if (!recipe) return { type:'error', message:'Unknown recipe.' };
+  const result = await attemptCraft(player, recipe.id);
   return { type:result.success ? 'craft' : 'error', message:result.message };
 }
 

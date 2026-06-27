@@ -41,6 +41,14 @@ export async function loadRecipes() {
 
 export function getRecipeCache() { return RECIPE_CACHE; }
 
+// Resolve a recipe by its player-facing name (case-insensitive). Recipe IDs
+// are an internal detail and never shown to players — they craft by name.
+export function findRecipeByName(name) {
+  const wanted = (name || '').trim().toLowerCase();
+  if (!wanted) return null;
+  return Object.values(RECIPE_CACHE).find(r => (r.name || '').toLowerCase() === wanted) || null;
+}
+
 /**
  * Attempt to craft a recipe.
  * Returns { success, message, output?, critical? }

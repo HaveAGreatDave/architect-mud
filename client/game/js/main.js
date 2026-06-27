@@ -4,6 +4,7 @@ import { handleServerMsg } from './dispatch.js';
 import { state } from './state.js';
 import { initInput } from './input.js';
 import { initEquipPanel } from './panels/equipment.js';
+import { initRecipesPanel } from './panels/recipes.js';
 import { initContainerPanel } from './panels/container.js';
 import { initDialogue } from './panels/dialogue.js';
 import { initForecast } from './panels/forecast.js';
@@ -185,6 +186,7 @@ initInput();
 
 // Panels
 initEquipPanel();
+initRecipesPanel();
 initContainerPanel();
 initDialogue();
 initForecast();
