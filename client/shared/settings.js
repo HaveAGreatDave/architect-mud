@@ -4,12 +4,12 @@ const DEFAULT_SETTINGS = { theme: 'dark', fontSize: '14', density: 'comfortable'
 export { SETTINGS_KEY };
 
 const LIGHT_THEMES = [
-  ['light','Parchment'],['arctic','Arctic'],['solar','Solar'],
-  ['mint','Mint'],['lavender','Lavender'],['fog','Fog'],
+  ['light','Parchment'],['inkwell','Inkwell'],['studio','Studio'],
+  ['arctic','Arctic'],['solar','Solar'],['mint','Mint'],['lavender','Lavender'],['fog','Fog'],
 ];
 const DARK_THEMES = [
-  ['dark','Void'],['contrast','Terminal'],
-  ['phosphor','Phosphor Green'],['synthwave','Synthwave'],['bloodmoon','Blood Moon'],['slate','Slate'],
+  ['dark','Void'],['eclipse','Eclipse'],['iron','Iron'],
+  ['contrast','Terminal'],['phosphor','Phosphor Green'],['synthwave','Synthwave'],['bloodmoon','Blood Moon'],['slate','Slate'],
 ];
 const BUILTIN_THEMES = [...LIGHT_THEMES, ...DARK_THEMES];
 

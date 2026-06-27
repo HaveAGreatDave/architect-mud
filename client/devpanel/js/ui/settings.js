@@ -31,12 +31,12 @@ function repaintPowerTileColors() {
 }
 
 const LIGHT_THEMES = [
-  ['light','Parchment'],['arctic','Arctic'],['solar','Solar'],
-  ['mint','Mint'],['lavender','Lavender'],['fog','Fog'],
+  ['light','Parchment'],['inkwell','Inkwell'],['studio','Studio'],
+  ['arctic','Arctic'],['solar','Solar'],['mint','Mint'],['lavender','Lavender'],['fog','Fog'],
 ];
 const DARK_THEMES = [
-  ['dark','Void'],['contrast','Terminal'],
-  ['phosphor','Phosphor Green'],['synthwave','Synthwave'],['bloodmoon','Blood Moon'],['slate','Slate'],
+  ['dark','Void'],['eclipse','Eclipse'],['iron','Iron'],
+  ['contrast','Terminal'],['phosphor','Phosphor Green'],['synthwave','Synthwave'],['bloodmoon','Blood Moon'],['slate','Slate'],
 ];
 const BUILTIN_THEME_VALUES = [...LIGHT_THEMES, ...DARK_THEMES].map(([v]) => v);
 

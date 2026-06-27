@@ -134,6 +134,44 @@
     --purple: #6838a8;
   }
 
+  /* Inkwell — crisp neutral white, crimson accent, full editorial spectrum */
+  [data-theme="inkwell"] {
+    --bg: #f8f8f6;
+    --bg2: #f0f0ec;
+    --bg3: #e4e4de;
+    --border: #c0c0b8;
+    --text: #1a1a18;
+    --text-dim: #706868;
+    --text-bright: #000000;
+    --accent: #d42040;
+    --accent-dim: #fcccd4;
+    --green: #208040;
+    --red: #cc1020;
+    --orange: #c86010;
+    --yellow: #9a8800;
+    --cyan: #1088a0;
+    --purple: #7020b0;
+  }
+
+  /* Studio — cool neutral white, emerald accent, clean modern spectrum */
+  [data-theme="studio"] {
+    --bg: #f4f6f8;
+    --bg2: #eaeef2;
+    --bg3: #dee4ea;
+    --border: #b4bec8;
+    --text: #181e28;
+    --text-dim: #587080;
+    --text-bright: #081018;
+    --accent: #0d7a50;
+    --accent-dim: #c0e8d8;
+    --green: #1a8848;
+    --red: #cc1828;
+    --orange: #c87018;
+    --yellow: #8a8800;
+    --cyan: #1080b0;
+    --purple: #6828c0;
+  }
+
   /* High contrast — pure black/white, amber accent (classic terminal phosphor) */
   [data-theme="contrast"] {
     --bg: #000000;
@@ -227,6 +265,44 @@
     --yellow: #f0e050;
     --cyan: #38e8e8;
     --purple: #a878f0;
+  }
+
+  /* Eclipse — warm near-black base, copper accent, full vivid spectrum */
+  [data-theme="eclipse"] {
+    --bg: #0a0808;
+    --bg2: #130e0e;
+    --bg3: #1c1616;
+    --border: #302828;
+    --text: #e8d8d0;
+    --text-dim: #907870;
+    --text-bright: #fff8f0;
+    --accent: #ff8040;
+    --accent-dim: #501808;
+    --green: #44e880;
+    --red: #ff3355;
+    --orange: #ff9922;
+    --yellow: #ffdd44;
+    --cyan: #22ccff;
+    --purple: #cc44ff;
+  }
+
+  /* Iron — deep navy-black base, blazing orange accent, full vivid spectrum */
+  [data-theme="iron"] {
+    --bg: #080c10;
+    --bg2: #101820;
+    --bg3: #182030;
+    --border: #283848;
+    --text: #d0e0f0;
+    --text-dim: #6088b0;
+    --text-bright: #f0f8ff;
+    --accent: #ff7020;
+    --accent-dim: #501800;
+    --green: #40e890;
+    --red: #ff4055;
+    --orange: #ff8830;
+    --yellow: #ffe040;
+    --cyan: #20ddff;
+    --purple: #c040ff;
   }
 
   /* Compact density — used on mobile/desktop "compact" display mode */
