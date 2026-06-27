@@ -439,25 +439,23 @@ async function resourceTick() {
     const playerWetness = player.wetness ?? 0;
     const DELTA_TIME = 60; // seconds per tick
 
-    // Body temp drifts toward zone temperature. Neutral point is 20°C for a
-    // naked player — no drift at 32°C (human thermoneutral zone naked is ~30-32°C).
-    // Light clothing brings neutral closer to 20°C; heavy clothing pushes it higher.
-    // Rate = 0.002 * |diff|^1.75 °C/min, so each 10°C step meaningfully
-    // accelerates change (e.g. diff=10 → 0.063°C/min; diff=20 → 0.19°C/min).
-    const NEUTRAL_TEMP = 35;
-    const tempDrift = effectiveTemp - NEUTRAL_TEMP;
-    if (tempDrift !== 0) {
-      const absDiff = Math.abs(tempDrift);
+    // Comfort zone: effectiveTemp between 10°C and 35°C causes no body temp drift.
+    // Below 10°C → cooling; above 35°C → heating.
+    // Rate = 0.002 * |diff|^1.75 °C/min (e.g. diff=10 → 0.063°C/min; diff=20 → 0.19°C/min).
+    const COLD_THRESHOLD = 10;
+    const HOT_THRESHOLD = 35;
+    const cooling = effectiveTemp < COLD_THRESHOLD;
+    const heating = effectiveTemp > HOT_THRESHOLD;
+    if (cooling) {
+      const absDiff = COLD_THRESHOLD - effectiveTemp;
       const baseDrift = 0.002 * Math.pow(absDiff, 1.75); // °C per minute
-      if (tempDrift < 0) {
-        // Cooling — wet clothing accelerates heat loss
-        const wetMult = 1 + (playerWetness / 100);
-        player.body_temp_c = (player.body_temp_c ?? 37.0) - baseDrift * wetMult;
-      } else {
-        // Heating — wet clothing slows heat gain via evaporative cooling
-        const wetMult = Math.max(0.70, 1 - playerWetness * 0.003);
-        player.body_temp_c = (player.body_temp_c ?? 37.0) + baseDrift * wetMult;
-      }
+      const wetMult = 1 + (playerWetness / 100);
+      player.body_temp_c = (player.body_temp_c ?? 37.0) - baseDrift * wetMult;
+    } else if (heating) {
+      const absDiff = effectiveTemp - HOT_THRESHOLD;
+      const baseDrift = 0.002 * Math.pow(absDiff, 1.75); // °C per minute
+      const wetMult = Math.max(0.70, 1 - playerWetness * 0.003);
+      player.body_temp_c = (player.body_temp_c ?? 37.0) + baseDrift * wetMult;
     }
 
     // Clamp to survivable range; prevents runaway values on extreme ticks.
