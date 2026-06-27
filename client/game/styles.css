@@ -492,6 +492,7 @@
     padding: 12px var(--density-padding);
     display: flex;
     flex-direction: column;
+    background: var(--bg);
   }
 
   #look-resize-handle {
@@ -539,7 +540,6 @@
 
   #area-content {
     flex: 0 0 auto;
-    margin-top: auto;
     white-space: pre-wrap;
     word-break: break-word;
   }
@@ -555,6 +555,7 @@
     scroll-behavior: smooth;
     display: flex;
     flex-direction: column;
+    background: var(--bg);
   }
 
   /* Bottom-align messages when sparse without clipping overflow — using
@@ -691,9 +692,9 @@
   .forecast-day-row .fd-weather { color: var(--text-dim); flex: 1; text-transform: capitalize; }
   .forecast-day-row .fd-temp { color: var(--cyan); font-weight: bold; }
 
-  /* Visibility dimming — filter: brightness() is set inline on #area-pane and
-     #output only. Backgrounds are never touched. vis >= 0.6 (VISIBILITY_CLEAR)
-     clears the filter; below that brightness scales down to 0.2 at pitch dark. */
+  /* Visibility dimming — filter: brightness() on #area-pane and #output.
+     Both have explicit background: var(--bg) so the background is inside the
+     filter and dims too (critical for light themes). vis >= 0.6 clears it. */
   #area-pane, #output { transition: filter 0.6s ease; }
 
   /* ─── INPUT BAR ─── */
