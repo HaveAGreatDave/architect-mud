@@ -233,13 +233,16 @@ async function cmdMove(direction, player, broadcast) {
   }
   const zoneDesc = await describeZone(targetZone, player);
 
+  const destName = targetZone.name;
   let narration;
   if (doorWasLocked) {
     const unlockMsg = lockTag?.messages?.unlock ?? 'The lock disengages.';
-    const closeMsg = doorWasClosed ? '\nThe door swings closed and locks behind you.' : '';
-    narration = `${unlockMsg}\nYou open the door and head ${direction}.${closeMsg}`;
+    const closeMsg = doorWasClosed ? ' It swings closed and locks behind you.' : '';
+    narration = `→ ${unlockMsg} You open the door ${direction} into ${destName}.${closeMsg}`;
   } else if (doorWasClosed) {
-    narration = `You open the door and head ${direction}.\nThe door swings closed behind you.`;
+    narration = `→ You open the door ${direction} into ${destName}. It swings closed behind you.`;
+  } else {
+    narration = `→ You head ${direction} to ${destName}.`;
   }
 
   return { type:'move', message:zoneDesc, narration, zone:targetId, radiation_gain:radGain, minimap: getMinimapData(targetId), tempC: getZoneTemperature(targetId) };

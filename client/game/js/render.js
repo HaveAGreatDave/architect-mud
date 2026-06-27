@@ -21,10 +21,6 @@ export function setAreaPane(html) {
   document.getElementById('area-pane').innerHTML = html;
 }
 
-export function clearActivity() {
-  document.getElementById('output').innerHTML = '';
-}
-
 export function scrollOutput() {
   const out = document.getElementById('output');
   out.scrollTop = out.scrollHeight;

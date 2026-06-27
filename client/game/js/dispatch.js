@@ -1,5 +1,5 @@
 import { state } from './state.js';
-import { appendMsg, appendHtml, updateVitals, parseZoneInfo, showDevPanelButton, setAreaPane, clearActivity } from './render.js';
+import { appendMsg, appendHtml, updateVitals, parseZoneInfo, showDevPanelButton, setAreaPane } from './render.js';
 import { sendCmd, sendCmdSilent, closeConnection, attemptAutoReauth } from './net.js';
 import { renderMinimap, openMapPopup } from './panels/minimap.js';
 import { updateEnvironmentHUD, updateZoneTempHUD, refreshZoneVisibility } from './panels/environment.js';
@@ -62,9 +62,8 @@ const handlers = {
   },
 
   move: (msg) => {
-    clearActivity();
     setAreaPane(msg.message);
-    if (msg.narration) appendHtml(msg.narration, 'system');
+    if (msg.narration) appendHtml(msg.narration, 'move');
     state.currentZone = msg.zone;
     parseZoneInfo(msg.message);
     if (msg.radiation_gain > 0) appendMsg(`☢ +${msg.radiation_gain} radiation absorbed.`, 'system');

@@ -345,6 +345,7 @@
   .msg-system { color: var(--text-dim); font-style: italic; }
   .msg-echo { color: var(--text-dim); opacity: 0.75; }
   .msg-look { color: var(--text-bright); }
+  .msg-move { color: var(--cyan); opacity: 0.85; }
   .msg-combat { color: var(--orange); }
   .msg-combat-incoming { color: var(--red); }
   .msg-death { color: var(--red); font-weight: bold; }
