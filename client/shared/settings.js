@@ -1,5 +1,5 @@
 const SETTINGS_KEY = 'architect_settings';
-const DEFAULT_SETTINGS = { theme: 'dark', fontSize: '14', density: 'comfortable', sidebarPosition: 'left' };
+const DEFAULT_SETTINGS = { theme: 'dark', fontSize: '14', density: 'comfortable', sidebarPosition: 'left', motion: 'on' };
 
 export { SETTINGS_KEY };
 
@@ -80,6 +80,7 @@ export function applySettings(settings) {
   document.documentElement.setAttribute('data-theme', customTheme ? 'dark' : (settings.theme || 'dark'));
   document.documentElement.setAttribute('data-density', settings.density || 'comfortable');
   document.documentElement.setAttribute('data-sidebar', settings.sidebarPosition || 'left');
+  document.documentElement.setAttribute('data-motion', settings.motion || 'on');
   document.documentElement.style.setProperty('--font-size-base', (settings.fontSize || '14') + 'px');
 
   // Apply active custom theme colors, or any in-progress editor colors
@@ -91,7 +92,7 @@ export function applySettings(settings) {
 
   _populateThemeDropdown(settings);
 
-  for (const group of ['fontsize', 'density', 'sidebar']) {
+  for (const group of ['fontsize', 'density', 'sidebar', 'motion']) {
     const container = document.getElementById(`opt-${group}`);
     if (!container) continue;
     const key = group === 'fontsize' ? 'fontSize' : group === 'sidebar' ? 'sidebarPosition' : group;
@@ -122,6 +123,9 @@ export function initSettingsUI(settings, saveAndApply, { getOrigin, saveOrigin, 
   });
   document.querySelectorAll('#opt-sidebar .settings-opt').forEach(btn => {
     btn.addEventListener('click', () => { settings.sidebarPosition = btn.dataset.value; saveAndApply(); });
+  });
+  document.querySelectorAll('#opt-motion .settings-opt').forEach(btn => {
+    btn.addEventListener('click', () => { settings.motion = btn.dataset.value; saveAndApply(); });
   });
 
   const originArea = document.getElementById('settings-origin');

@@ -23,7 +23,7 @@ const AREA_SLIDE = { north:[0,-1], south:[0,1], east:[1,0], west:[-1,0] };
 export function setAreaPane(html, direction) {
   const el = document.getElementById('area-content');
   el.innerHTML = html;
-  if (el.animate) {
+  if (el.animate && document.documentElement.getAttribute('data-motion') !== 'off') {
     const off = AREA_SLIDE[direction] || [0, 1];
     el.animate(
       [{ opacity: 0, transform: `translate(${off[0] * 10}px, ${off[1] * 10}px)` },

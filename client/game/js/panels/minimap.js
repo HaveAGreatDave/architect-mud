@@ -15,6 +15,7 @@ function luminanceTextColor(hex) {
 const MM_SLIDE = { north:[0,-1], south:[0,1], east:[1,0], west:[-1,0] };
 
 function slideMinimap(direction) {
+  if (document.documentElement.getAttribute('data-motion') === 'off') return;
   const off = MM_SLIDE[direction];
   if (!off) return;
   for (const id of ['minimap-grid', 'minimap-grid-mob']) {
