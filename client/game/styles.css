@@ -692,8 +692,8 @@
   .forecast-day-row .fd-temp { color: var(--cyan); font-weight: bold; }
 
   /* Visibility dimming — filter: brightness() is set inline on #area-pane and
-     #output only. Backgrounds are never touched. vis >= 0.85 clears the filter;
-     below that brightness scales from 1.0 down to 0.1 at pitch dark. */
+     #output only. Backgrounds are never touched. vis >= 0.6 (VISIBILITY_CLEAR)
+     clears the filter; below that brightness scales down to 0.2 at pitch dark. */
   #area-pane, #output { transition: filter 0.6s ease; }
 
   /* ─── INPUT BAR ─── */
