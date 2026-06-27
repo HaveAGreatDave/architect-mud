@@ -307,7 +307,9 @@ function handleActionLinkClick(e) {
   const action = el.dataset.action;
   const target = el.dataset.target;
   if (!action || !target) return;
-  sendCmd(`${action} ${target.toLowerCase()}`);
+  const cmd = `${action} ${target.toLowerCase()}`;
+  const label = el.dataset.label;
+  sendCmd(cmd, label ? `${action} ${label}` : undefined);
 }
 document.getElementById('output').addEventListener('click', handleActionLinkClick);
 document.getElementById('area-pane').addEventListener('click', handleActionLinkClick);

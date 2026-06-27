@@ -74,14 +74,14 @@ export function initNet(messageHandler) {
 
 export function setWhoModalHandler(fn) { _whoModalHandler = fn; }
 
-export function sendCmd(cmd) {
+export function sendCmd(cmd, displayText) {
   if (!_connection?.isOpen()) return;
   if (cmd.trim().toLowerCase() === 'who' && _whoModalHandler) { _whoModalHandler(); return; }
   // Explicit user look should echo the room description into the scrolling log,
   // not just refresh the top area pane. Silent looks (combat/move refresh) use
   // sendCmdSilent and never set this flag.
   if (/^(l|look)(\s+(room|around))?$/.test(cmd.trim().toLowerCase())) state.echoNextLook = true;
-  appendMsg(`> ${cmd}`, 'echo');
+  appendMsg(`> ${displayText || cmd}`, 'echo');
   _connection.send({ type: 'command', command: cmd });
 }
 

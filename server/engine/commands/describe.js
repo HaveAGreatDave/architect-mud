@@ -325,7 +325,7 @@ export async function describeZone(zone, player) {
   }
   if (corpses.length) {
     const corpseLinks = corpses.map(c =>
-      `<span class="action-link corpse-link" data-action="loot" data-target="${c.id}" title="Loot ${c.name}">${c.name}</span>`
+      `<span class="action-link corpse-link" data-action="loot" data-target="${c.id}" data-label="${c.name}" title="Loot ${c.name}">${c.name}</span>`
     );
     desc += `\n<span class="corpses-label">Corpses:</span> ${corpseLinks.join(', ')}`;
   }

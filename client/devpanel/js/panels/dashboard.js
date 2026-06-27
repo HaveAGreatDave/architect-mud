@@ -57,7 +57,7 @@ function renderDashboard(data) {
           <textarea id="activity-log-box"
             readonly
             spellcheck="false"
-            style="width:100%;height:760px;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font-mono);font-size:11px;padding:10px;box-sizing:border-box;resize:none;border-radius:2px;line-height:1.52;white-space:pre;overflow:auto;word-wrap:normal;overflow-wrap:normal"
+            style="width:100%;height:360px;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font-mono);font-size:11px;padding:10px;box-sizing:border-box;resize:none;border-radius:2px;line-height:1.52;white-space:pre;overflow:auto;word-wrap:normal;overflow-wrap:normal"
             placeholder="Loading…"></textarea>
         </div>
       </div>

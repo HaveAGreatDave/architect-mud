@@ -76,7 +76,7 @@ export async function resolveAttack(player, target, broadcast) {
 			butcher_table: result.butcher_table || [],
 			butcher_difficulty: result.butcher_difficulty ?? 5,
 		});
-		const corpseLink = `<span class="action-link corpse-link" data-action="loot" data-target="${corpseId}" title="Loot ${target.name}'s corpse">${target.name}'s corpse</span>`;
+		const corpseLink = `<span class="action-link corpse-link" data-action="loot" data-target="${corpseId}" data-label="${target.name}'s corpse" title="Loot ${target.name}'s corpse">${target.name}'s corpse</span>`;
 		broadcast(
 			player.current_zone,
 			{

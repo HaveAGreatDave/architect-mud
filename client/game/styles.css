@@ -2071,6 +2071,10 @@ body {
 #loot-contents-col {
 	padding-left: 14px;
 }
+#loot-inv-list {
+	border: 1px dashed var(--border);
+	border-radius: 3px;
+}
 #loot-inv-list,
 #loot-contents-list {
 	flex: 1;

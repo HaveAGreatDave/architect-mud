@@ -184,7 +184,7 @@ export async function handlePlayerDeath(player, killer) {
   }, null, player.id);
 
   // Notify others in the zone that a corpse has appeared
-  const corpseLink = `<span class="action-link corpse-link" data-action="loot" data-target="${corpseId}" title="Loot ${corpseName}">${corpseName}</span>`;
+  const corpseLink = `<span class="action-link corpse-link" data-action="loot" data-target="${corpseId}" data-label="${corpseName}" title="Loot ${corpseName}">${corpseName}</span>`;
   broadcastFn(deathZone, { type:'zone_event', message:`${player.handle} has died. ${corpseLink}`, refresh: true }, player.id);
 
   query('UPDATE players SET hp=$1, sanity=$2, hunger=$3, thirst=$4, radiation=$5, stamina=$6, body_temp_c=$7, clothing_contamination=$8, current_zone=anchor_zone WHERE id=$9',
