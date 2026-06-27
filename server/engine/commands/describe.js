@@ -139,7 +139,7 @@ export async function describeZone(zone, player) {
       ? ` You can barely make out the outline of ${windows.length === 1 ? 'a window' : 'some windows'} — ${windows.some(w => w.curtain_open) ? 'no light comes through' : 'the curtains are drawn'}.`
       : '';
     const { buildings, rooms, plain } = getConnectedDestinations(zone);
-    let darkDesc = `\n<span class="zone-name">${zone.name}</span>\n` +
+    let darkDesc = `<span class="zone-name">${zone.name}</span>\n` +
       `<span class="light-level light-dark">It is completely dark here. You can't make out your surroundings.${windowHint}</span>`;
     if (plain.length) {
       // In pitch dark you can feel for openings but can't read where they lead.
@@ -181,7 +181,7 @@ export async function describeZone(zone, player) {
   const { rows: furniture } = isDark ? { rows: [] } : await query('SELECT * FROM furniture WHERE zone_id = $1', [zone.id]);
   const windows = getWindowsForZone(zone.id);
 
-  let desc = `\n<span class="zone-name">${zone.name}</span>\n`;
+  let desc = `<span class="zone-name">${zone.name}</span>\n`;
   if (vis.category === 'dark') {
     desc += `<span class="light-level light-dark">It's very dark. You can barely make out your surroundings.</span>\n`;
   } else if (vis.category === 'dim') {

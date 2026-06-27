@@ -298,12 +298,14 @@ document.getElementById('mobile-chat-btn')?.addEventListener('click', toggleWhis
   }, { passive: true });
 }
 
-// Output: click .action-link nodes to auto-run command
-document.getElementById('output').addEventListener('click', (e) => {
+// Output / area pane: click .action-link nodes to auto-run command
+function handleActionLinkClick(e) {
   const el = e.target.closest('.action-link');
   if (!el) return;
   const action = el.dataset.action;
   const target = el.dataset.target;
   if (!action || !target) return;
   sendCmd(`${action} ${target.toLowerCase()}`);
-});
+}
+document.getElementById('output').addEventListener('click', handleActionLinkClick);
+document.getElementById('area-pane').addEventListener('click', handleActionLinkClick);
