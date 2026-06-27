@@ -327,11 +327,37 @@ export function debugFakeWhisper() {
   receiveWhisper('TestUser', 'This is a fake whisper to test the chat notification system.');
 }
 
+const SMALL_W = 300, SMALL_H = 340;
+const LARGE_SCALE = 2;
+
+let _whisperScale = 1;
+
+function _applyWhisperScale(large) {
+  _whisperScale = large ? LARGE_SCALE : 1;
+  const panel   = document.getElementById('whisper-panel');
+  const content = document.getElementById('whisper-content');
+  const btnS    = document.getElementById('whisper-scale-small');
+  const btnL    = document.getElementById('whisper-scale-large');
+
+  panel.style.width  = (SMALL_W * _whisperScale) + 'px';
+  panel.style.height = (SMALL_H * _whisperScale) + 'px';
+  content.style.zoom = large ? LARGE_SCALE : 1;
+
+  btnS.style.background   = large ? 'transparent' : 'var(--bg3)';
+  btnS.style.borderColor  = large ? 'var(--border)' : 'var(--accent)';
+  btnS.style.color        = large ? 'var(--text-dim)' : 'var(--accent)';
+  btnL.style.background   = large ? 'var(--bg3)' : 'transparent';
+  btnL.style.borderColor  = large ? 'var(--accent)' : 'var(--border)';
+  btnL.style.color        = large ? 'var(--accent)' : 'var(--text-dim)';
+}
+
 export function initWhisperPanel() {
   document.getElementById('chat-toggle-btn').addEventListener('click', toggleWhisperPanel);
   document.getElementById('whisper-reply-input').addEventListener('keydown', e => {
     if (e.key === 'Enter') sendWhisperReply();
   });
+  document.getElementById('whisper-scale-small').addEventListener('click', e => { e.stopPropagation(); _applyWhisperScale(false); });
+  document.getElementById('whisper-scale-large').addEventListener('click', e => { e.stopPropagation(); _applyWhisperScale(true); });
   // Wire close (✕) button in whisper panel header
   document.querySelectorAll('#whisper-panel button').forEach(btn => {
     if (btn.textContent.trim() === '✕') btn.addEventListener('click', toggleWhisperPanel);
