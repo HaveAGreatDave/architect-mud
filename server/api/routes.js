@@ -202,15 +202,15 @@ async function apiRegister(body) {
     await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,'item_bandage',3,1.0)`, [randomUUID(), id]);
     // Underwear by sex
     if (biological_sex === 'male') {
-      await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,is_equipped,slot) SELECT $1,$2,i.id,1,1.0,1,'legs' FROM items i WHERE i.id='item_underwear_male'`, [randomUUID(), id]);
+      await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,is_equipped,slot,layer) SELECT $1,$2,i.id,1,1.0,1,'legs',1 FROM items i WHERE i.id='item_underwear_male'`, [randomUUID(), id]);
     } else {
-      await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,is_equipped,slot) SELECT $1,$2,i.id,1,1.0,1,'torso' FROM items i WHERE i.id='item_underwear_female_top'`, [randomUUID(), id]);
-      await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,is_equipped,slot) SELECT $1,$2,i.id,1,1.0,1,'legs'  FROM items i WHERE i.id='item_underwear_female_bottom'`, [randomUUID(), id]);
+      await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,is_equipped,slot,layer) SELECT $1,$2,i.id,1,1.0,1,'torso',1 FROM items i WHERE i.id='item_underwear_female_top'`, [randomUUID(), id]);
+      await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,is_equipped,slot,layer) SELECT $1,$2,i.id,1,1.0,1,'legs',1  FROM items i WHERE i.id='item_underwear_female_bottom'`, [randomUUID(), id]);
     }
-    // T-shirt, pants, shoes for everyone
-    await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,is_equipped,slot) SELECT $1,$2,i.id,1,1.0,1,'torso' FROM items i WHERE i.id='item_basic_shirt'`, [randomUUID(), id]);
-    await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,is_equipped,slot) SELECT $1,$2,i.id,1,1.0,1,'legs'  FROM items i WHERE i.id='item_basic_pants'`, [randomUUID(), id]);
-    await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,is_equipped,slot) SELECT $1,$2,i.id,1,1.0,1,'feet'  FROM items i WHERE i.id='item_basic_shoes'`, [randomUUID(), id]);
+    // T-shirt, pants, shoes for everyone — layer 2 over underwear
+    await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,is_equipped,slot,layer) SELECT $1,$2,i.id,1,1.0,1,'torso',2 FROM items i WHERE i.id='item_basic_shirt'`, [randomUUID(), id]);
+    await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,is_equipped,slot,layer) SELECT $1,$2,i.id,1,1.0,1,'legs',2  FROM items i WHERE i.id='item_basic_pants'`, [randomUUID(), id]);
+    await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,is_equipped,slot,layer) SELECT $1,$2,i.id,1,1.0,1,'feet',2  FROM items i WHERE i.id='item_basic_shoes'`, [randomUUID(), id]);
     fireHook('player.create', { id, handle, username: username.toLowerCase(), role: 'player' }).catch(() => {});
     return {status:201,body:{token:makeToken(id,'player'),playerId:id,handle,role:'player'}};
   } catch(e) {

@@ -9,7 +9,7 @@ import { fireHook } from './plugins.js';
 import { emit } from './events.js';
 import { schedule } from './scheduler.js';
 import { query } from '../models/db.js';
-import { getEnvironmentState } from './environment.js';
+import { getEnvironmentState, getZoneTemperature } from './environment.js';
 import { tickBodily } from './bodily.js';
 import { addHorniness } from './mis.js';
 
@@ -178,22 +178,22 @@ export function handlePlayerDeath(player, killer) {
   world.zones.get(respawnZone)?.players.add(player.id);
   player.current_zone = respawnZone;
 
-  // Equip fresh underwear — fresh clone, fresh start
+  // Equip fresh underwear (layer 1) and basic clothing (layer 2) on respawn
   const sex = player.biological_sex || 'male';
-  if (sex === 'male') {
-    query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,is_equipped,slot)
-           SELECT $1,$2,i.id,1,1.0,1,'legs' FROM items i WHERE i.id='item_underwear_male'
-           AND NOT EXISTS (SELECT 1 FROM player_inventory WHERE player_id=$2 AND item_id='item_underwear_male' AND is_equipped=1)`,
-      [randomUUID(), player.id]).catch(() => {});
-  } else {
-    query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,is_equipped,slot)
-           SELECT $1,$2,i.id,1,1.0,1,'torso' FROM items i WHERE i.id='item_underwear_female_top'
-           AND NOT EXISTS (SELECT 1 FROM player_inventory WHERE player_id=$2 AND item_id='item_underwear_female_top' AND is_equipped=1)`,
-      [randomUUID(), player.id]).catch(() => {});
-    query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,is_equipped,slot)
-           SELECT $1,$2,i.id,1,1.0,1,'legs' FROM items i WHERE i.id='item_underwear_female_bottom'
-           AND NOT EXISTS (SELECT 1 FROM player_inventory WHERE player_id=$2 AND item_id='item_underwear_female_bottom' AND is_equipped=1)`,
-      [randomUUID(), player.id]).catch(() => {});
+  const underwear = sex === 'male'
+    ? [['item_underwear_male', 'legs']]
+    : [['item_underwear_female_top', 'torso'], ['item_underwear_female_bottom', 'legs']];
+  for (const [itemId, slot] of underwear) {
+    query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,is_equipped,slot,layer)
+           SELECT $1,$2,i.id,1,1.0,1,$3,1 FROM items i WHERE i.id=$4
+           AND NOT EXISTS (SELECT 1 FROM player_inventory WHERE player_id=$2 AND item_id=$4 AND is_equipped=1)`,
+      [randomUUID(), player.id, slot, itemId]).catch(() => {});
+  }
+  for (const [itemId, slot] of [['item_basic_shirt','torso'],['item_basic_pants','legs'],['item_basic_shoes','feet']]) {
+    query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,is_equipped,slot,layer)
+           SELECT $1,$2,i.id,1,1.0,1,$3,2 FROM items i WHERE i.id=$4
+           AND NOT EXISTS (SELECT 1 FROM player_inventory WHERE player_id=$2 AND item_id=$4 AND is_equipped=1)`,
+      [randomUUID(), player.id, slot, itemId]).catch(() => {});
   }
 
   fireHook('player.death', player, killer).catch(()=>{});
@@ -428,14 +428,11 @@ async function resourceTick() {
     }
 
     // --- Body temperature drift ---
-    const envState = getEnvironmentState();
+    const prevBodyTemp = player.body_temp_c ?? 37.0;
     const zone = world.zones.get(player.current_zone);
     const tempOffset = zone?.flags?.temp_offset || 0;
-    const rawAmbient = (envState.tempC ?? 18) + tempOffset;
-    // Interior zones are climate-controlled — clamp to a temperate range.
-    const effectiveAmbient = zone?.flags?.is_interior
-      ? Math.max(15, Math.min(25, rawAmbient))
-      : rawAmbient;
+    const rawAmbient = getZoneTemperature(player.current_zone) + tempOffset;
+    const effectiveAmbient = rawAmbient;
 
     // Effective temperature = ambient + clothing insulation (insulation in °C offset).
     const effectiveTemp = effectiveAmbient + (player.insulation || 0);
@@ -510,7 +507,8 @@ async function resourceTick() {
     await query('UPDATE players SET hunger=$1,thirst=$2,hp=$3,stamina=$4,body_temp_c=$5 WHERE id=$6',
       [player.hunger, player.thirst, player.hp, player.stamina, player.body_temp_c, playerId]);
 
-    if (messages.length) broadcastFn(null, { type:'resource_tick', messages, player_update:{hunger:player.hunger,thirst:player.thirst,hp:player.hp,stamina:player.stamina,body_temp_c:player.body_temp_c} }, null, playerId);
+    const bodyTempChanged = player.body_temp_c !== prevBodyTemp;
+    if (messages.length || bodyTempChanged) broadcastFn(null, { type:'resource_tick', messages, player_update:{hunger:player.hunger,thirst:player.thirst,hp:player.hp,stamina:player.stamina,body_temp_c:player.body_temp_c} }, null, playerId);
 
     if (player.hp <= 0) handlePlayerDeath(player, null);
 
