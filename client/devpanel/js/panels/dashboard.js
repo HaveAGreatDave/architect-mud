@@ -49,8 +49,11 @@ function renderDashboard(data) {
       ${forecastHtml}
 
       <div style="margin-top:28px">
-        <div style="font-size:13px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">Message of the Day</div>
-        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:16px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+          <div style="font-size:13px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">Message of the Day</div>
+          <button id="motd-collapse-btn" onclick="(function(){var b=document.getElementById('motd-section-body');var btn=document.getElementById('motd-collapse-btn');var hidden=b.style.display==='none';b.style.display=hidden?'':'none';btn.textContent=hidden?'Hide':'Show';})()" style="background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font-mono);font-size:10px;padding:2px 8px;cursor:pointer;border-radius:2px">Hide</button>
+        </div>
+        <div id="motd-section-body" style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:16px">
 
           <!-- Top bar: size toggle + read-only toggle -->
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
@@ -65,27 +68,30 @@ function renderDashboard(data) {
             </div>
           </div>
 
-          <!-- MOTD text editor -->
+          <!-- MOTD Template editor -->
+          <div style="font-size:11px;font-weight:600;color:var(--text-dim);margin-bottom:6px;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:1px">MOTD Template</div>
           <textarea id="motd-editor"
             readonly
             spellcheck="false"
             style="width:100%;height:360px;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font-mono);font-size:11px;padding:10px;box-sizing:border-box;resize:vertical;border-radius:2px;line-height:1.3;white-space:pre;overflow:auto;word-wrap:normal;overflow-wrap:normal"
             placeholder="Loading…"></textarea>
+          <div style="margin-top:8px">
+            <button id="motd-save-btn" style="background:var(--accent);border:none;color:#000;font-family:var(--font-mono);font-size:11px;font-weight:600;padding:6px 18px;cursor:pointer;border-radius:2px">Save</button>
+          </div>
 
           <!-- Dynamic text editor -->
           <div style="margin-top:14px">
             <div style="font-size:11px;font-weight:600;color:var(--text-dim);margin-bottom:6px;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:1px">Dynamic Text <span style="font-weight:400;color:var(--text-dim);font-size:10px">(replaces &lt;dynamic text&gt; in all sizes)</span></div>
-            <textarea id="motd-dynamic"
-              spellcheck="false"
-              style="width:100%;height:60px;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font-mono);font-size:11px;padding:8px 10px;box-sizing:border-box;resize:vertical;border-radius:2px;line-height:1.4"
-              placeholder="e.g. Systems are online."></textarea>
-          </div>
-
-          <!-- Action buttons -->
-          <div style="display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap">
-            <button id="motd-save-btn" style="background:var(--accent);border:none;color:#000;font-family:var(--font-mono);font-size:11px;font-weight:600;padding:6px 18px;cursor:pointer;border-radius:2px">Save</button>
-            <button id="motd-push-btn" style="background:transparent;border:1px solid var(--purple);color:var(--purple);font-family:var(--font-mono);font-size:11px;padding:6px 18px;cursor:pointer;border-radius:2px">Push MOTD</button>
-            <span id="motd-status" style="font-size:11px;color:var(--text-dim)"></span>
+            <div style="display:flex;align-items:flex-start;gap:8px">
+              <textarea id="motd-dynamic"
+                spellcheck="false"
+                style="flex:1;height:60px;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font-mono);font-size:11px;padding:8px 10px;box-sizing:border-box;resize:vertical;border-radius:2px;line-height:1.4"
+                placeholder="e.g. Systems are online."></textarea>
+              <div style="display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding-top:2px">
+                <button id="motd-push-btn" style="background:var(--purple);border:none;color:#fff;font-family:var(--font-mono);font-size:11px;font-weight:600;padding:6px 16px;cursor:pointer;border-radius:2px;white-space:nowrap">Send</button>
+                <span id="motd-status" style="font-size:10px;color:var(--text-dim)"></span>
+              </div>
+            </div>
           </div>
 
         </div>
