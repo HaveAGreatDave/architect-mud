@@ -190,9 +190,9 @@ async function apiRegister(body) {
     const app = randomAppearance(biological_sex);
     await query(
       `INSERT INTO players
-        (id,username,password_hash,handle,role,ip,hp,hp_max,stat_brawn,stat_reflexes,stat_endurance,stat_brains,stat_senses,stat_cool,
+        (id,username,password_hash,handle,role,ip,hp,hp_max,stat_brawn,stat_reflexes,stat_endurance,stat_brains,stat_cool,
          biological_sex,hair_style,hair_length,hair_color,eye_color,height_cm,weight_kg,appearance_data,email,sexuality)
-       VALUES ($1,$2,$3,$4,'player',$5,40,40,1,1,1,1,1,1,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+       VALUES ($1,$2,$3,$4,'player',$5,40,40,1,1,1,1,1,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
       [id, username.toLowerCase(), hashPassword(password), handle, ip,
        biological_sex, app.hair_style, app.hair_length, app.hair_color, app.eye_color,
        app.height_cm, app.weight_kg, JSON.stringify(app.appearance_data), email.toLowerCase().trim(),
@@ -909,7 +909,7 @@ async function apiReloadZone(body) {
 async function apiGetPlayers() {
   const {rows}=await query(`SELECT id,username,handle,role,current_zone,anchor_zone,credits,bank_credits,
     hp,hp_max,sanity,sanity_max,hunger,thirst,radiation,stamina,stamina_max,body_temp_c,
-    stat_brawn,stat_reflexes,stat_endurance,stat_brains,stat_senses,stat_cool,ip,
+    stat_brawn,stat_reflexes,stat_endurance,stat_brains,stat_cool,ip,
     origin_fragment,archetype,visibly_mutated,offline_sleeping,created_at,last_seen FROM players`);
   const online = new Set(getAllLivePlayers().map(p=>p.id));
   return {status:200,body:rows.map(r=>({...r,online:online.has(r.id)}))};
@@ -920,7 +920,7 @@ async function apiUpdatePlayer(id, body) {
     'handle','username','role','current_zone','anchor_zone',
     'credits','bank_credits','hp','hp_max','sanity','sanity_max',
     'hunger','thirst','radiation','stamina','stamina_max','body_temp_c',
-    'stat_brawn','stat_reflexes','stat_endurance','stat_brains','stat_senses','stat_cool','ip',
+    'stat_brawn','stat_reflexes','stat_endurance','stat_brains','stat_cool','ip',
     'origin_fragment','archetype','visibly_mutated',
   ];
   const {rows:existing}=await query('SELECT * FROM players WHERE id=$1',[id]);
@@ -942,7 +942,7 @@ async function apiUpdatePlayer(id, body) {
   if (live) {
     const LIVE_FIELDS=['handle','role','current_zone','anchor_zone','credits','bank_credits',
       'hp','hp_max','sanity','sanity_max','hunger','thirst','radiation','stamina','stamina_max',
-      'body_temp_c','stat_brawn','stat_reflexes','stat_endurance','stat_brains','stat_senses','stat_cool','ip',
+      'body_temp_c','stat_brawn','stat_reflexes','stat_endurance','stat_brains','stat_cool','ip',
       'origin_fragment','archetype','visibly_mutated'];
     for (const f of LIVE_FIELDS) if (f in body) live[f]=updated[f];
     broadcastFn(null,{type:'player_update',hp:live.hp,hp_max:live.hp_max,sanity:live.sanity,

@@ -67,7 +67,7 @@
     auto_equip: { label: 'Auto-Equip', shape: 'flag', scope: 'class', group: 'Equipment',
       help: 'When obtained, this item automatically equips to its designated slot if that slot is empty.' },
     stat_bonus: { label: 'Stat Bonus', shape: 'statmap', scope: 'class', group: 'Equipment',
-      help: 'Passive stat bumps, e.g. { "stat_brawn": 3 }. Use new stat keys (stat_brawn/reflexes/endurance/brains/senses/cool).' },
+      help: 'Passive stat bumps, e.g. { "stat_brawn": 3 }. Use new stat keys (stat_brawn/reflexes/endurance/brains/cool).' },
     requires: { label: 'Requirements', shape: 'statmap', scope: 'class', group: 'Equipment',
       help: 'Stat gates to equip, e.g. { "stat_brawn": 6 }. Each key must be met or exceeded.' },
 

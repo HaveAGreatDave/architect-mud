@@ -85,7 +85,7 @@ credits, failure broadcasts a public "caught red-handed" event. Uses `adjustCred
   most IP.
 - **Stat cost curve:** `statCost(current) = ceil(stat_cost_base × current^stat_cost_exponent)`
   (defaults base 10, exponent 1.5). Raising 0→1 costs 10; 9→10 costs ~310.
-- **Raisable stats:** brawn, reflexes, endurance, brains, senses, cool. `raise <stat>` spends IP and
+- **Raisable stats:** brawn, reflexes, endurance, brains, cool. `raise <stat>` spends IP and
   bumps the stat by 1; `raise`/`ip` with no arg shows current values and costs.
 - **Starting IP:** `startingIp(target=3)` grants enough to buy every stat from 0 to the baseline target
   at character creation.

@@ -18,7 +18,7 @@ async function cmdStats(player) {
   const radBar = `[${'█'.repeat(Math.floor(p.radiation/10))}${'░'.repeat(10-Math.floor(p.radiation/10))}]`;
   let msg = `<span class="stats-header">${p.handle}</span> — ${p.archetype||'unknown'}\n\n`;
   msg += `HP:     ${p.hp}/${p.hp_max}\nSanity: ${p.sanity}/${p.sanity_max}\nHunger: ${p.hunger}/100\nThirst: ${p.thirst}/100\nRAD:    ${radBar} ${p.radiation}/100\n\n`;
-  msg += `BRAWN:${p.stat_brawn}  REFL:${p.stat_reflexes}  BRNS:${p.stat_brains}\nCOOL:${p.stat_cool}  END:${p.stat_endurance}  SENS:${p.stat_senses}\n\nIP: ${p.ip||0}  Credits: ${p.credits}`;
+  msg += `BRAWN:${p.stat_brawn}  REFL:${p.stat_reflexes}  BRNS:${p.stat_brains}\nCOOL:${p.stat_cool}  END:${p.stat_endurance}\n\nIP: ${p.ip||0}  Credits: ${p.credits}`;
 
   const statusFlags = [];
   if (player.sleeping) statusFlags.push('Asleep');
@@ -493,7 +493,7 @@ async function cmdRaise(args, player) {
   const statName = args[0]?.toLowerCase();
 
   const { rows } = await query(
-    'SELECT ip, stat_brawn, stat_reflexes, stat_endurance, stat_brains, stat_senses, stat_cool FROM players WHERE id=$1',
+    'SELECT ip, stat_brawn, stat_reflexes, stat_endurance, stat_brains, stat_cool FROM players WHERE id=$1',
     [player.id]
   );
   const p = rows[0];

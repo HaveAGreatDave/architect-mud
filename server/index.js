@@ -454,7 +454,6 @@ async function finishAuth(ws, session, player) {
 		stat_reflexes: player.stat_reflexes,
 		stat_endurance: player.stat_endurance,
 		stat_brains: player.stat_brains,
-		stat_senses: player.stat_senses,
 		stat_cool: player.stat_cool,
 		ip: player.ip || 0,
 		armor: 0,
