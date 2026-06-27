@@ -17,11 +17,10 @@ let _windowSize = 'small';   // 'small' | 'medium' | 'large'
 let _textSize   = 'medium';  // 'small' | 'medium' | 'large'
 
 // Stored MOTD data received from server (raw templates + dynamic text)
-let _motdData   = null;
-let _motdWidths = {}; // { big: px, medium: px, small: px } — cached from off-screen measure
+let _motdData = null;
+let _motdDims = {}; // { big:{w,h}, medium:{w,h}, small:{w,h} } — cached from off-screen measure
 
-const PANEL_HEIGHTS = { small: 340, medium: 480 };
-const FONT_SIZES    = { small: '5pt', medium: '8pt', large: '11pt' };
+const FONT_SIZES = { small: '5pt', medium: '8pt', large: '11pt' };
 
 function _loadSettings() {
   try {
@@ -100,10 +99,10 @@ function _applyMotdSubstitutions(template, handle, dynamicText) {
   return text;
 }
 
-// Render each MOTD into a hidden off-screen element to measure its natural width,
-// then cache in _motdWidths so _applyWindowSize can set the panel width immediately
-// without waiting for #system to be the active tab.
-function _measureMotdWidths() {
+// Render each MOTD off-screen to measure natural width + height.
+// Cached in _motdDims so _applyWindowSize can size the panel immediately,
+// even when #system is not the active tab.
+function _measureMotdDims() {
   if (!_motdData) return;
   const handle = document.getElementById('handle-display')?.textContent?.trim() || 'Player';
   const fs     = FONT_SIZES[_textSize];
@@ -114,13 +113,17 @@ function _measureMotdWidths() {
 
   for (const size of ['big', 'medium', 'small']) {
     const template = _motdData[size] || '';
-    if (!template) { _motdWidths[size] = 0; continue; }
+    if (!template) { _motdDims[size] = { w: 0, h: 0 }; continue; }
     const rendered = _applyMotdSubstitutions(template, handle, _motdData.dynamic || '');
     const pre = document.createElement('pre');
     pre.style.cssText = `font-family:var(--font-mono);white-space:pre;margin:0;line-height:1.3;font-size:${fs}`;
     pre.textContent = rendered;
     host.appendChild(pre);
-    _motdWidths[size] = Math.ceil(pre.getBoundingClientRect().width) + 22; // +10+10px padding +2px border
+    const rect = pre.getBoundingClientRect();
+    _motdDims[size] = {
+      w: Math.ceil(rect.width)  + 22, // +10+10px log padding +2px border
+      h: Math.ceil(rect.height) + 22,
+    };
     host.removeChild(pre);
   }
 
