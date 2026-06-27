@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'url';
-import { query } from './db.js';
-import { ensureTunables } from '../engine/tunables.js';
-import { startingIp } from '../engine/ip.js';
+import { query } from '../db.js';
+import { ensureTunables } from '../../engine/tunables.js';
+import { startingIp } from '../../engine/ip.js';
 
 // One-time character reset for the combat rework.
 // Zeros the new stat columns, clears skill rows, restores HP to max, and grants
@@ -19,7 +19,6 @@ async function resetChars() {
         stat_reflexes  = 0,
         stat_endurance = 0,
         stat_brains    = 0,
-        stat_senses    = 0,
         stat_cool      = 0,
         ip             = $1,
         hp             = hp_max

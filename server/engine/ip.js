@@ -17,7 +17,7 @@ export function statCost(currentValue) {
   return Math.ceil(base * Math.pow(Math.max(1, currentValue), exp));
 }
 
-export const RAISABLE_STATS = ['brawn', 'reflexes', 'endurance', 'brains', 'senses', 'cool'];
+export const RAISABLE_STATS = ['brawn', 'reflexes', 'endurance', 'brains', 'cool'];
 
 // Total IP needed to raise every stat from 0 to `target`, on the current cost
 // curve. Granted at character creation (and to wiped existing characters) so a
@@ -37,7 +37,7 @@ export async function raiseStat(playerId, statName) {
   }
   const col = `stat_${statName}`;
   const { rows } = await query(
-    `SELECT ip, stat_brawn, stat_reflexes, stat_endurance, stat_brains, stat_senses, stat_cool FROM players WHERE id=$1`,
+    `SELECT ip, stat_brawn, stat_reflexes, stat_endurance, stat_brains, stat_cool FROM players WHERE id=$1`,
     [playerId]
   );
   if (!rows.length) return { error: 'Player not found.' };

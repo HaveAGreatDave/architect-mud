@@ -34,7 +34,7 @@ Players begin with a brief creation sequence that establishes:
 ### Starting Archetypes (Examples)
 | Archetype | Flavor | Stat Lean | Starting Skill |
 |---|---|---|---|
-| Gutter Rat | Survived by stealing and hiding | reflexes / senses | Pickpocket |
+| Gutter Rat | Survived by stealing and hiding | reflexes / cool | Pickpocket |
 | Corpse Tech | Used to fix machines. Or people. | brains / endurance | Field Surgery |
 | True Believer | Devoted to something. Anything. | cool / brains | Intimidate |
 | Wrecker | Hits things. Very hard. | brawn / endurance | Brawling |
@@ -44,7 +44,7 @@ Players begin with a brief creation sequence that establishes:
 
 ## Stats (Light Layer)
 
-Six core stats, using HellMOO's grounded names. These make you *generally*
+Five core stats, using HellMOO's grounded names. These make you *generally*
 capable; skills do the heavy lifting. There is **no charisma stat** — social
 outcomes hang off skills.
 
@@ -54,7 +54,6 @@ outcomes hang off skills.
 | **reflexes** | Attack speed, feeds dodge |
 | **endurance** | Health pool, fatigue, feeds physical skills |
 | **brains** | Tech use, crafting quality, perception/evaluation |
-| **senses** | Detection, feeds dodge |
 | **cool** | Nerve under fire, stun/pain resistance |
 
 Stats start at **0** (new characters assign ~6 points at creation) and are raised

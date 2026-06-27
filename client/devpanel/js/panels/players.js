@@ -119,7 +119,7 @@ async function openPlayerEdit(id) {
     )}
     ${section('Stats',
       row3(field('Brawn','stat_brawn','number'), field('Reflexes','stat_reflexes','number'), field('Endurance','stat_endurance','number')) +
-      row3(field('Brains','stat_brains','number'), field('Senses','stat_senses','number'), field('Cool','stat_cool','number')) +
+      row3(field('Brains','stat_brains','number'), field('Cool','stat_cool','number')) +
       field('IP','ip','number')
     )}
     ${section('Economy',
@@ -157,7 +157,7 @@ async function savePlayerEdit() {
   const id = _editingPlayerId;
   if (!id) return;
   const NUM = ['hp','hp_max','sanity','sanity_max','hunger','thirst','radiation','stamina','stamina_max',
-    'body_temp_c','stat_brawn','stat_reflexes','stat_endurance','stat_brains','stat_senses','stat_cool',
+    'body_temp_c','stat_brawn','stat_reflexes','stat_endurance','stat_brains','stat_cool',
     'ip','credits','bank_credits'];
   const BOOL = ['visibly_mutated','offline_sleeping'];
   const TEXT = ['handle','username','role','current_zone','anchor_zone','origin_fragment','archetype'];
