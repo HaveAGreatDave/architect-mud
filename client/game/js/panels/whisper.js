@@ -17,10 +17,11 @@ let _windowSize = 'small';   // 'small' | 'medium' | 'large'
 let _textSize   = 'medium';  // 'small' | 'medium' | 'large'
 
 // Stored MOTD data received from server (raw templates + dynamic text)
-let _motdData = null;
+let _motdData   = null;
+let _motdWidths = {}; // { big: px, medium: px, small: px } — cached from off-screen measure
 
-const PANEL_SIZES = { small: [300, 340], medium: [500, 480] };
-const FONT_SIZES  = { small: '5pt', medium: '8pt', large: '11pt' };
+const PANEL_HEIGHTS = { small: 340, medium: 480 };
+const FONT_SIZES    = { small: '5pt', medium: '8pt', large: '11pt' };
 
 function _loadSettings() {
   try {
@@ -99,19 +100,31 @@ function _applyMotdSubstitutions(template, handle, dynamicText) {
   return text;
 }
 
-function _fitPanelToMotd() {
-  if (_windowSize === 'large') return;
-  const log   = document.getElementById('whisper-log');
-  const panel = document.getElementById('whisper-panel');
-  if (!log || !panel || _activeWhisperTab !== '#system') return;
-  const pre = log.querySelector('pre');
-  if (!pre) return;
-  // Temporarily unconstrain so getBoundingClientRect() forces a reflow at
-  // natural content width, not whatever the panel's current clipped width is.
-  panel.style.width = '9999px';
-  const contentW = pre.getBoundingClientRect().width;
-  const targetW  = Math.ceil(contentW) + 22; // 10+10px log padding + 2px border
-  panel.style.width = Math.min(Math.max(targetW, 150), Math.floor(window.innerWidth * 0.95)) + 'px';
+// Render each MOTD into a hidden off-screen element to measure its natural width,
+// then cache in _motdWidths so _applyWindowSize can set the panel width immediately
+// without waiting for #system to be the active tab.
+function _measureMotdWidths() {
+  if (!_motdData) return;
+  const handle = document.getElementById('handle-display')?.textContent?.trim() || 'Player';
+  const fs     = FONT_SIZES[_textSize];
+
+  const host = document.createElement('div');
+  host.style.cssText = 'position:fixed;top:-9999px;left:0;visibility:hidden;pointer-events:none;width:max-content';
+  document.body.appendChild(host);
+
+  for (const size of ['big', 'medium', 'small']) {
+    const template = _motdData[size] || '';
+    if (!template) { _motdWidths[size] = 0; continue; }
+    const rendered = _applyMotdSubstitutions(template, handle, _motdData.dynamic || '');
+    const pre = document.createElement('pre');
+    pre.style.cssText = `font-family:var(--font-mono);white-space:pre;margin:0;line-height:1.3;font-size:${fs}`;
+    pre.textContent = rendered;
+    host.appendChild(pre);
+    _motdWidths[size] = Math.ceil(pre.getBoundingClientRect().width) + 22; // +10+10px padding +2px border
+    host.removeChild(pre);
+  }
+
+  document.body.removeChild(host);
 }
 
 function _setSystemMOTD(renderedText) {
@@ -134,7 +147,6 @@ function _setSystemMOTD(renderedText) {
     _renderWhisperLog();
     const log = document.getElementById('whisper-log');
     if (log) log.scrollTop = 0;
-    _fitPanelToMotd();
   } else {
     if (_whisperPanelVisible) _refreshWhisperTabs();
   }
@@ -152,6 +164,8 @@ function _rerenderMotd() {
 
 export function receiveMOTD(msg) {
   _motdData = { big: msg.big || '', medium: msg.medium || '', small: msg.small || '', dynamic: msg.dynamic || '' };
+  _measureMotdWidths();
+  _applyWindowSize(); // update panel width now that widths are known
   _rerenderMotd();
 }
 
@@ -172,7 +186,12 @@ function _applyWindowSize() {
     panel.style.bottom       = 'auto';
     panel.style.borderRadius = '0';
   } else {
-    const [w, h] = PANEL_SIZES[_windowSize];
+    // Width comes from the pre-measured MOTD width for this size; height is fixed.
+    const motdKey    = _selectMotdSize(); // 'big' | 'medium' | 'small'
+    const measuredW  = _motdWidths[motdKey] || 0;
+    const fallbackW  = _windowSize === 'medium' ? 500 : 300;
+    const w = Math.min(Math.max(measuredW || fallbackW, 150), Math.floor(window.innerWidth * 0.95));
+    const h = PANEL_HEIGHTS[_windowSize];
     panel.style.width        = w + 'px';
     panel.style.height       = h + 'px';
     panel.style.right        = '8px';
@@ -239,7 +258,6 @@ export function openWhisperTab(handle) {
     _applyTextSize();
   }
   if (!_isSystemOnly(handle)) document.getElementById('whisper-reply-input')?.focus();
-  if (handle === '#system') _fitPanelToMotd();
   _updateChatBadge();
 }
 
@@ -367,7 +385,6 @@ function _renderWhisperLog() {
   // Use ?? so scrollTop=0 (MOTD top) is respected; fall back to bottom for chat
   log.scrollTop = convo.scrollTop != null ? convo.scrollTop : log.scrollHeight;
   _checkWhisperScroll();
-  if (_activeWhisperTab === '#system') _fitPanelToMotd();
 }
 
 function _renderUsersTab(log) {
@@ -593,6 +610,8 @@ export function initWhisperPanel() {
         _textSize = btn.dataset.txtsize;
         _saveSettings();
         _applyTextSize();
+        _measureMotdWidths(); // font size changed → widths change
+        _applyWindowSize();
         _rerenderMotd();
         cogMenu.style.display = 'none';
       });
