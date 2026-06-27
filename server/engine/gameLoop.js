@@ -9,7 +9,7 @@ import { fireHook } from './plugins.js';
 import { emit } from './events.js';
 import { schedule } from './scheduler.js';
 import { query } from '../models/db.js';
-import { getEnvironmentState } from './environment.js';
+import { getEnvironmentState, getZoneTemperature } from './environment.js';
 import { tickBodily } from './bodily.js';
 import { addHorniness } from './mis.js';
 
@@ -428,14 +428,10 @@ async function resourceTick() {
     }
 
     // --- Body temperature drift ---
-    const envState = getEnvironmentState();
     const zone = world.zones.get(player.current_zone);
     const tempOffset = zone?.flags?.temp_offset || 0;
-    const rawAmbient = (envState.tempC ?? 18) + tempOffset;
-    // Interior zones are climate-controlled — clamp to a temperate range.
-    const effectiveAmbient = zone?.flags?.is_interior
-      ? Math.max(15, Math.min(25, rawAmbient))
-      : rawAmbient;
+    const rawAmbient = getZoneTemperature(player.current_zone) + tempOffset;
+    const effectiveAmbient = rawAmbient;
 
     // Effective temperature = ambient + clothing insulation (insulation in °C offset).
     const effectiveTemp = effectiveAmbient + (player.insulation || 0);
