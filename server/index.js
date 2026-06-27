@@ -45,6 +45,7 @@ import { loadMisSettings } from "./engine/mis.js";
 
 import { initEnvironment, getHUDPayload, getZoneTemperature } from "./engine/environment.js";
 import { getPlayerChannels } from "./engine/channels.js";
+import { getMotd } from "./engine/motd.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
@@ -520,22 +521,10 @@ async function finishAuth(ws, session, player) {
 		}),
 	);
 
-	// Send MOTD to #system channel
+	// Send all three MOTD templates to client; client picks size based on its settings
 	try {
-		const { rows: motdRows } = await query("SELECT value FROM server_settings WHERE key='motd'");
-		const motdRaw = motdRows[0]?.value || '';
-		if (motdRaw) {
-			const now = new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
-			const motdText = motdRaw
-				.replace(/<dynamic current date>/g, now)
-				.replace(/<player name>/g, livePlayer.handle);
-			ws.send(JSON.stringify({
-				type: 'channel_msg',
-				channel: '#system',
-				from: 'SYSTEM',
-				message: `<pre style="font-family:var(--font-mono);font-size:11px;white-space:pre-wrap;margin:0;color:var(--text)">${motdText.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</pre>`,
-			}));
-		}
+		const motd = await getMotd();
+		ws.send(JSON.stringify({ type: 'motd', ...motd }));
 	} catch {}
 
 	const bodyTempLoginMsg = loginBodyTempMessage(livePlayer.body_temp_c);

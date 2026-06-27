@@ -6,7 +6,7 @@ import { updateEnvironmentHUD, updateZoneTempHUD, refreshZoneVisibility } from '
 import { openDialogue, closeDialogue, openShop } from './panels/dialogue.js';
 import { renderEquipPanel } from './panels/equipment.js';
 import { renderRecipesPanel } from './panels/recipes.js';
-import { receiveWhisper, sentWhisper, receiveChannelMsg, initChannels } from './panels/whisper.js';
+import { receiveWhisper, sentWhisper, receiveChannelMsg, initChannels, receiveMOTD } from './panels/whisper.js';
 import { openContainerPanel, refreshContainerPanel, getActiveContainerId, showContainerNotify } from './panels/container.js';
 import { openLootPanel, closeLootPanel } from './panels/loot.js';
 import { openLightViewDialog } from './panels/lightview.js';
@@ -304,6 +304,7 @@ const handlers = {
   whisper: (msg) => { receiveWhisper(msg.from || 'Admin', msg.message); },
   whisper_sent: (msg) => { sentWhisper(msg.to, msg.message); },
   channel_msg: (msg) => { receiveChannelMsg(msg.channel, msg.from, msg.message); },
+  motd: (msg) => { receiveMOTD(msg); },
   lightview: (msg) => { openLightViewDialog(msg); refreshZoneVisibility(); },
   morphex_panel: (msg) => { openMorphexPanel(msg.data); },
 };

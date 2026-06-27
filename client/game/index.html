@@ -454,35 +454,14 @@
 				<span style="flex:1;font-size:10px;color:var(--text-dim);font-family:var(--font-mono);letter-spacing:1px;pointer-events:none">CHAT</span>
 				<div style="display:flex;gap:4px;align-items:center;flex-shrink:0">
 					<button
-						id="whisper-scale-small"
-						title="Small"
-						style="
-							background: var(--bg3);
-							border: 1px solid var(--accent);
-							color: var(--accent);
-							cursor: pointer;
-							font-size: 11px;
-							line-height: 1;
-							font-family: var(--font-mono);
-							width: 20px;
-							height: 20px;
-							padding: 0;
-							border-radius: 2px;
-							display: flex;
-							align-items: center;
-							justify-content: center;
-						">
-						⊟
-					</button>
-					<button
-						id="whisper-scale-large"
-						title="Large"
+						id="whisper-cog-btn"
+						title="Chat settings"
 						style="
 							background: transparent;
 							border: 1px solid var(--border);
 							color: var(--text-dim);
 							cursor: pointer;
-							font-size: 11px;
+							font-size: 13px;
 							line-height: 1;
 							font-family: var(--font-mono);
 							width: 20px;
@@ -493,7 +472,7 @@
 							align-items: center;
 							justify-content: center;
 						">
-						⊞
+						⚙
 					</button>
 					<button
 						data-close
@@ -518,7 +497,22 @@
 					</button>
 				</div>
 			</div>
-			<!-- Scalable content wrapper -->
+			<!-- Settings cog dropdown -->
+			<div id="whisper-cog-menu" style="display:none;position:absolute;top:34px;right:0;z-index:200;background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:12px 14px;font-family:var(--font-mono);min-width:176px;box-shadow:0 4px 16px rgba(0,0,0,0.6)">
+				<div style="font-size:9px;color:var(--text-dim);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px">Window Size</div>
+				<div style="display:flex;gap:4px;margin-bottom:12px">
+					<button data-winsize="small"  style="flex:1;background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font-mono);font-size:10px;padding:5px 2px;cursor:pointer;border-radius:2px">Small</button>
+					<button data-winsize="medium" style="flex:1;background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font-mono);font-size:10px;padding:5px 2px;cursor:pointer;border-radius:2px">Med</button>
+					<button data-winsize="large"  style="flex:1;background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font-mono);font-size:10px;padding:5px 2px;cursor:pointer;border-radius:2px">Full</button>
+				</div>
+				<div style="font-size:9px;color:var(--text-dim);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px">Text Size</div>
+				<div style="display:flex;gap:4px">
+					<button data-txtsize="small"  style="flex:1;background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font-mono);font-size:10px;padding:5px 2px;cursor:pointer;border-radius:2px">S</button>
+					<button data-txtsize="medium" style="flex:1;background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font-mono);font-size:10px;padding:5px 2px;cursor:pointer;border-radius:2px">M</button>
+					<button data-txtsize="large"  style="flex:1;background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font-mono);font-size:10px;padding:5px 2px;cursor:pointer;border-radius:2px">L</button>
+				</div>
+			</div>
+			<!-- Content wrapper -->
 			<div id="whisper-content" style="display:flex;flex-direction:column;flex:1;min-height:0;transform-origin:top left;">
 			<!-- Tabs row — not part of the drag handle -->
 			<div style="

@@ -4,13 +4,35 @@ import { state } from '../state.js';
 const USERS_TAB = '__users__';
 const WHISPER_MAX_MSGS = 100;
 
-// Channels the server told us this player has access to: id -> { id, permanent }
+// Channels the server told us this player has access to: id -> { id, permanent, systemOnly }
 const _channels = new Map();
 
 let _whisperPanelVisible = false;
 let _activeWhisperTab = USERS_TAB;
 const _whisperConvos = new Map();
 let _onlinePlayers = [];
+
+// Window/text size settings
+let _windowSize = 'small';   // 'small' | 'medium' | 'large'
+let _textSize   = 'medium';  // 'small' | 'medium' | 'large'
+
+// Stored MOTD data received from server (raw templates + dynamic text)
+let _motdData = null;
+
+const PANEL_SIZES = { small: [300, 340], medium: [500, 480] };
+const FONT_SIZES  = { small: '5pt', medium: '8pt', large: '11pt' };
+
+function _loadSettings() {
+  try {
+    const s = JSON.parse(localStorage.getItem('whisper_settings') || '{}');
+    if (['small','medium','large'].includes(s.windowSize)) _windowSize = s.windowSize;
+    if (['small','medium','large'].includes(s.textSize))   _textSize   = s.textSize;
+  } catch {}
+}
+
+function _saveSettings() {
+  try { localStorage.setItem('whisper_settings', JSON.stringify({ windowSize: _windowSize, textSize: _textSize })); } catch {}
+}
 
 export function initChannels(channelList) {
   for (const ch of (channelList || [])) {
@@ -23,11 +45,140 @@ function _isSystemOnly(tabKey) {
   return _channels.has(tabKey) && _channels.get(tabKey).systemOnly;
 }
 
+// ── MOTD ──────────────────────────────────────────────────────────────────────
+
+function _selectMotdSize() {
+  const w = _windowSize, t = _textSize;
+  if (w === 'large'  && t === 'small')                      return 'big';
+  if (w === 'large')                                        return 'medium';
+  if (w === 'medium' && t === 'large')                      return 'small';
+  if (w === 'medium')                                       return 'medium';
+  return 'small';
+}
+
+function _esc(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function _applyMotdSubstitutions(template, handle, dynamicText) {
+  const date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  const spaceRemoval = Math.max(0, 14 - dynamicText.length);
+  let text = template;
+  // Adjust trailing spaces after <player name> then substitute
+  text = text.replace(/<player name>( *)/g, (_, spaces) => {
+    const keep = Math.max(0, spaces.length - spaceRemoval);
+    return handle + spaces.slice(0, keep);
+  });
+  text = text.replace(/<date>/g, date);
+  text = text.replace(/<dynamic text>/g, dynamicText);
+  return text;
+}
+
+function _setSystemMOTD(renderedText) {
+  const channelId = '#system';
+  if (!_whisperConvos.has(channelId)) _whisperConvos.set(channelId, { messages: [], scrollTop: 0, unread: 0 });
+  const convo    = _whisperConvos.get(channelId);
+  const isFirst  = convo.messages.length === 0;
+  // Replace all messages with just the MOTD (it's the only content in #system)
+  convo.messages = [{
+    from: 'SYSTEM',
+    message: `<pre style="font-family:var(--font-mono);white-space:pre;margin:0;line-height:1.3;tab-size:4">${_esc(renderedText)}</pre>`,
+    isMe: false,
+    ts: Date.now(),
+  }];
+  convo.unread = 0;
+  if (isFirst) {
+    openWhisperTab(channelId);
+  } else if (_whisperPanelVisible && _activeWhisperTab === channelId) {
+    _renderWhisperLog();
+    const log = document.getElementById('whisper-log');
+    if (log) log.scrollTop = 0;
+  } else {
+    convo.unread = 1;
+    _updateChatBadge();
+    if (_whisperPanelVisible) _refreshWhisperTabs();
+  }
+}
+
+function _rerenderMotd() {
+  if (!_motdData) return;
+  const size     = _selectMotdSize();
+  const template = _motdData[size] || _motdData.medium || _motdData.big || _motdData.small || '';
+  if (!template) return;
+  const handle = document.getElementById('handle-display')?.textContent?.trim() || 'Player';
+  const text   = _applyMotdSubstitutions(template, handle, _motdData.dynamic || '');
+  _setSystemMOTD(text);
+}
+
+export function receiveMOTD(msg) {
+  _motdData = { big: msg.big || '', medium: msg.medium || '', small: msg.small || '', dynamic: msg.dynamic || '' };
+  _rerenderMotd();
+}
+
+// ── PANEL SIZE / TEXT SIZE ────────────────────────────────────────────────────
+
+function _applyWindowSize() {
+  const panel = document.getElementById('whisper-panel');
+  if (!panel) return;
+  if (_windowSize === 'large') {
+    const oc = document.getElementById('output-container');
+    if (!oc) return;
+    const r = oc.getBoundingClientRect();
+    panel.style.left         = r.left + 'px';
+    panel.style.top          = r.top + 'px';
+    panel.style.width        = r.width + 'px';
+    panel.style.height       = r.height + 'px';
+    panel.style.right        = 'auto';
+    panel.style.bottom       = 'auto';
+    panel.style.borderRadius = '0';
+  } else {
+    const [w, h] = PANEL_SIZES[_windowSize];
+    panel.style.width        = w + 'px';
+    panel.style.height       = h + 'px';
+    panel.style.right        = '8px';
+    panel.style.bottom       = '8px';
+    panel.style.left         = 'auto';
+    panel.style.top          = 'auto';
+    panel.style.borderRadius = '4px';
+  }
+  _refreshCogMenu();
+}
+
+function _applyTextSize() {
+  const fs  = FONT_SIZES[_textSize];
+  const log = document.getElementById('whisper-log');
+  if (log) log.style.fontSize = fs;
+  const inp = document.getElementById('whisper-reply-input');
+  if (inp) inp.style.fontSize = fs;
+  _refreshCogMenu();
+}
+
+function _refreshCogMenu() {
+  const menu = document.getElementById('whisper-cog-menu');
+  if (!menu) return;
+  menu.querySelectorAll('[data-winsize]').forEach(btn => {
+    const active = btn.dataset.winsize === _windowSize;
+    btn.style.background   = active ? 'var(--bg3)'    : 'transparent';
+    btn.style.borderColor  = active ? 'var(--accent)' : 'var(--border)';
+    btn.style.color        = active ? 'var(--accent)' : 'var(--text-dim)';
+  });
+  menu.querySelectorAll('[data-txtsize]').forEach(btn => {
+    const active = btn.dataset.txtsize === _textSize;
+    btn.style.background   = active ? 'var(--bg3)'    : 'transparent';
+    btn.style.borderColor  = active ? 'var(--accent)' : 'var(--border)';
+    btn.style.color        = active ? 'var(--accent)' : 'var(--text-dim)';
+  });
+}
+
+// ── PANEL TOGGLE / TAB OPEN ───────────────────────────────────────────────────
+
 export function toggleWhisperPanel() {
   _whisperPanelVisible = !_whisperPanelVisible;
   const panel = document.getElementById('whisper-panel');
   panel.style.display = _whisperPanelVisible ? 'flex' : 'none';
   if (_whisperPanelVisible) {
+    _applyWindowSize();
+    _applyTextSize();
     _switchToTab(_activeWhisperTab);
     if (_activeWhisperTab !== USERS_TAB) document.getElementById('whisper-reply-input')?.focus();
   }
@@ -42,9 +193,12 @@ export function openWhisperTab(handle) {
   _switchToTab(handle);
   if (!_whisperPanelVisible) {
     _whisperPanelVisible = true;
-    document.getElementById('whisper-panel').style.display = 'flex';
+    const panel = document.getElementById('whisper-panel');
+    panel.style.display = 'flex';
+    _applyWindowSize();
+    _applyTextSize();
   }
-  document.getElementById('whisper-reply-input')?.focus();
+  if (!_isSystemOnly(handle)) document.getElementById('whisper-reply-input')?.focus();
   _updateChatBadge();
 }
 
@@ -58,13 +212,14 @@ function _switchToTab(key) {
 }
 
 function _closeWhisperTab(handle) {
-  // Permanent channels cannot be closed.
   if (_channels.has(handle) && _channels.get(handle).permanent) return;
   _whisperConvos.delete(handle);
   _channels.delete(handle);
   if (_activeWhisperTab === handle) _switchToTab(USERS_TAB);
   else { _refreshWhisperTabs(); _updateChatBadge(); }
 }
+
+// ── TABS ──────────────────────────────────────────────────────────────────────
 
 function _refreshWhisperTabs() {
   const tabs = document.getElementById('whisper-tabs');
@@ -115,7 +270,7 @@ function _refreshWhisperTabs() {
 
   mkSimpleTab('Users', _activeWhisperTab === USERS_TAB, 'var(--purple)', () => _switchToTab(USERS_TAB));
 
-  // Channel tabs — permanent ones use simple tab (no close), others get close button.
+  // Channel tabs
   for (const [id, ch] of _channels) {
     const active = _activeWhisperTab === id;
     const convo  = _whisperConvos.get(id);
@@ -137,13 +292,15 @@ function _refreshWhisperTabs() {
     }
   }
 
-  // Player whisper tabs.
+  // Player whisper tabs
   for (const [handle] of _whisperConvos) {
     if (_channels.has(handle)) continue;
     const active = handle === _activeWhisperTab;
     mkClosableTab(handle, handle, active, () => openWhisperTab(handle), () => _closeWhisperTab(handle));
   }
 }
+
+// ── LOG RENDER ────────────────────────────────────────────────────────────────
 
 function _renderWhisperLog() {
   const log = document.getElementById('whisper-log');
@@ -160,7 +317,7 @@ function _renderWhisperLog() {
     const entry = document.createElement('div');
     entry.style.cssText = 'padding:4px 0;border-bottom:1px solid var(--border)';
     const nameColor = m.isMe ? 'var(--text-dim)' : 'var(--purple)';
-    entry.innerHTML = `<div style="font-size:10px;color:${nameColor};margin-bottom:2px;font-style:${m.isMe?'italic':''}">${m.from}</div><div style="color:var(--text)">${m.message}</div>`;
+    entry.innerHTML = `<div style="color:${nameColor};margin-bottom:2px;font-style:${m.isMe?'italic':''}">${m.from}</div><div style="color:var(--text)">${m.message}</div>`;
     log.appendChild(entry);
   }
   log.scrollTop = convo.scrollTop || log.scrollHeight;
@@ -198,6 +355,8 @@ function _renderUsersTab(log) {
   log.querySelector('[data-refresh-online]')?.addEventListener('click', _fetchOnlinePlayers);
 }
 
+// ── ONLINE PLAYERS ────────────────────────────────────────────────────────────
+
 async function _fetchOnlinePlayers() {
   try {
     const r = await fetch('/api/players/online');
@@ -210,8 +369,10 @@ async function _fetchOnlinePlayers() {
   }
 }
 
+// ── SCROLL ────────────────────────────────────────────────────────────────────
+
 function _checkWhisperScroll() {
-  const log = document.getElementById('whisper-log');
+  const log  = document.getElementById('whisper-log');
   const pill = document.getElementById('whisper-new-msgs');
   if (!log || !pill) return;
   const nearBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 60;
@@ -224,10 +385,10 @@ function whisperScrollToBottom() {
   document.getElementById('whisper-new-msgs').style.display = 'none';
 }
 
+// ── SEND / RECEIVE ────────────────────────────────────────────────────────────
+
 export function sentWhisper(handle, message) {
-  if (!_whisperConvos.has(handle)) {
-    _whisperConvos.set(handle, { messages: [], scrollTop: 0, unread: 0 });
-  }
+  if (!_whisperConvos.has(handle)) _whisperConvos.set(handle, { messages: [], scrollTop: 0, unread: 0 });
   const convo = _whisperConvos.get(handle);
   convo.messages.push({ from: 'You', message, isMe: true, ts: Date.now() });
   if (convo.messages.length > WHISPER_MAX_MSGS) convo.messages.shift();
@@ -255,18 +416,10 @@ export function receiveWhisper(from, message) {
 }
 
 export function receiveChannelMsg(channelId, from, message) {
-  const isFirstMsg = !_whisperConvos.has(channelId) || _whisperConvos.get(channelId).messages.length === 0;
   if (!_whisperConvos.has(channelId)) _whisperConvos.set(channelId, { messages: [], scrollTop: 0, unread: 0 });
   const convo = _whisperConvos.get(channelId);
   convo.messages.push({ from, message, isMe: false, ts: Date.now() });
   if (convo.messages.length > WHISPER_MAX_MSGS) convo.messages.shift();
-
-  // Auto-open #system on first message (MOTD on login)
-  if (isFirstMsg && _isSystemOnly(channelId)) {
-    openWhisperTab(channelId);
-    return;
-  }
-
   if (_whisperPanelVisible && _activeWhisperTab === channelId) {
     _renderWhisperLog();
     const log = document.getElementById('whisper-log');
@@ -280,6 +433,8 @@ export function receiveChannelMsg(channelId, from, message) {
   }
 }
 
+// ── BADGE ─────────────────────────────────────────────────────────────────────
+
 function _updateChatBadge() {
   let total = 0;
   for (const c of _whisperConvos.values()) total += c.unread;
@@ -287,11 +442,13 @@ function _updateChatBadge() {
   if (btn) {
     btn.textContent = '💬 Chat';
     btn.style.borderColor = total > 0 ? 'var(--red)' : '';
-    btn.style.color = total > 0 ? 'var(--red)' : '';
+    btn.style.color       = total > 0 ? 'var(--red)' : '';
   }
   const badge = document.getElementById('chat-notif-badge');
   if (badge) badge.style.display = (total > 0 && !_whisperPanelVisible) ? 'flex' : 'none';
 }
+
+// ── SEND REPLY ────────────────────────────────────────────────────────────────
 
 async function _openWhisperByHandle(handle) {
   await _fetchOnlinePlayers();
@@ -312,10 +469,9 @@ async function _openWhisperByHandle(handle) {
 
 function sendWhisperReply() {
   const input = document.getElementById('whisper-reply-input');
-  const msg = input?.value?.trim();
+  const msg   = input?.value?.trim();
   if (!msg || !_activeWhisperTab || _activeWhisperTab === USERS_TAB) return;
 
-  // Intercept "whisper <handle>" typed inside a tab to open a new convo.
   const whisperCmd = msg.match(/^whisper\s+(\S+)$/i);
   if (whisperCmd) {
     if (input) input.value = '';
@@ -323,15 +479,13 @@ function sendWhisperReply() {
     return;
   }
 
-  // Channel tab: send via whisper command; message arrives back via channel_msg broadcast.
   if (_channels.has(_activeWhisperTab)) {
-    if (_isSystemOnly(_activeWhisperTab)) return; // system-only channel, no player input
+    if (_isSystemOnly(_activeWhisperTab)) return;
     sendCmdSilent(`whisper ${_activeWhisperTab} ${msg}`);
     if (input) input.value = '';
     return;
   }
 
-  // Player whisper tab: send to server; whisper_sent response will add the message via sentWhisper.
   sendCmdSilent(`whisper ${_activeWhisperTab} ${msg}`);
   if (input) input.value = '';
 }
@@ -340,64 +494,77 @@ export function debugFakeWhisper() {
   receiveWhisper('TestUser', 'This is a fake whisper to test the chat notification system.');
 }
 
-const SMALL_W = 300, SMALL_H = 340;
-const LARGE_SCALE = 2;
-
-let _whisperScale = 1;
-
-function _applyWhisperScale(large) {
-  _whisperScale = large ? LARGE_SCALE : 1;
-  const panel   = document.getElementById('whisper-panel');
-  const content = document.getElementById('whisper-content');
-  const btnS    = document.getElementById('whisper-scale-small');
-  const btnL    = document.getElementById('whisper-scale-large');
-
-  panel.style.width  = (SMALL_W * _whisperScale) + 'px';
-  panel.style.height = (SMALL_H * _whisperScale) + 'px';
-  content.style.zoom = large ? LARGE_SCALE : 1;
-
-  btnS.style.background   = large ? 'transparent' : 'var(--bg3)';
-  btnS.style.borderColor  = large ? 'var(--border)' : 'var(--accent)';
-  btnS.style.color        = large ? 'var(--text-dim)' : 'var(--accent)';
-  btnL.style.background   = large ? 'var(--bg3)' : 'transparent';
-  btnL.style.borderColor  = large ? 'var(--accent)' : 'var(--border)';
-  btnL.style.color        = large ? 'var(--accent)' : 'var(--text-dim)';
-}
+// ── INIT ──────────────────────────────────────────────────────────────────────
 
 export function initWhisperPanel() {
+  _loadSettings();
+
   document.getElementById('chat-toggle-btn').addEventListener('click', toggleWhisperPanel);
   document.getElementById('whisper-reply-input').addEventListener('keydown', e => {
     if (e.key === 'Enter') sendWhisperReply();
   });
-  document.getElementById('whisper-scale-small').addEventListener('click', e => { e.stopPropagation(); _applyWhisperScale(false); });
-  document.getElementById('whisper-scale-large').addEventListener('click', e => { e.stopPropagation(); _applyWhisperScale(true); });
-  // Wire close (✕) button in whisper panel header
+
+  // Close (✕) button
   document.querySelectorAll('#whisper-panel button').forEach(btn => {
     if (btn.textContent.trim() === '✕') btn.addEventListener('click', toggleWhisperPanel);
   });
+
   document.querySelector('#whisper-footer button')?.addEventListener('click', sendWhisperReply);
   document.getElementById('whisper-new-msgs').addEventListener('click', whisperScrollToBottom);
 
   document.getElementById('whisper-log').addEventListener('scroll', () => {
     if (!_activeWhisperTab || _activeWhisperTab === USERS_TAB) return;
-    const log = document.getElementById('whisper-log');
+    const log   = document.getElementById('whisper-log');
     const convo = _whisperConvos.get(_activeWhisperTab);
     if (convo) convo.scrollTop = log.scrollTop;
     _checkWhisperScroll();
   });
 
+  // Cog menu
+  const cogBtn  = document.getElementById('whisper-cog-btn');
+  const cogMenu = document.getElementById('whisper-cog-menu');
+  if (cogBtn && cogMenu) {
+    cogBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      const open = cogMenu.style.display !== 'none';
+      cogMenu.style.display = open ? 'none' : 'block';
+      if (!open) _refreshCogMenu();
+    });
+    document.addEventListener('click', e => {
+      if (!cogMenu.contains(e.target) && e.target !== cogBtn) cogMenu.style.display = 'none';
+    });
+    cogMenu.querySelectorAll('[data-winsize]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        _windowSize = btn.dataset.winsize;
+        _saveSettings();
+        _applyWindowSize();
+        _rerenderMotd();
+        cogMenu.style.display = 'none';
+      });
+    });
+    cogMenu.querySelectorAll('[data-txtsize]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        _textSize = btn.dataset.txtsize;
+        _saveSettings();
+        _applyTextSize();
+        _rerenderMotd();
+        cogMenu.style.display = 'none';
+      });
+    });
+  }
+
+  // Drag (disabled in large mode)
   const dragHandle = document.getElementById('whisper-drag-handle');
-  const panel = document.getElementById('whisper-panel');
+  const panel      = document.getElementById('whisper-panel');
   let dragState = null;
 
-  // Only the grip bar initiates drag — not buttons inside it.
   dragHandle.addEventListener('pointerdown', e => {
-    if (e.target.closest('button')) return;
+    if (_windowSize === 'large') return;
+    if (e.target.closest('button') || e.target.closest('#whisper-cog-menu')) return;
     const r = panel.getBoundingClientRect();
     dragState = { pointerId: e.pointerId, ox: e.clientX - r.left, oy: e.clientY - r.top, startTime: Date.now(), captured: false };
   });
 
-  // Listen on document so fast moves off the bar don't drop the drag.
   document.addEventListener('pointermove', e => {
     if (!dragState || dragState.pointerId !== e.pointerId) return;
     if (!dragState.captured) {
@@ -408,10 +575,17 @@ export function initWhisperPanel() {
     }
     const x = Math.max(0, Math.min(window.innerWidth  - panel.offsetWidth,  e.clientX - dragState.ox));
     const y = Math.max(0, Math.min(window.innerHeight - panel.offsetHeight, e.clientY - dragState.oy));
-    panel.style.left = x + 'px'; panel.style.top = y + 'px';
-    panel.style.right = 'auto'; panel.style.bottom = 'auto';
+    panel.style.left   = x + 'px';
+    panel.style.top    = y + 'px';
+    panel.style.right  = 'auto';
+    panel.style.bottom = 'auto';
   });
 
   document.addEventListener('pointerup',     e => { if (dragState && dragState.pointerId === e.pointerId) { dragState = null; dragHandle.style.cursor = 'grab'; } });
   document.addEventListener('pointercancel', e => { if (dragState && dragState.pointerId === e.pointerId) { dragState = null; dragHandle.style.cursor = 'grab'; } });
+
+  // Re-position large panel on resize
+  window.addEventListener('resize', () => {
+    if (_windowSize === 'large' && _whisperPanelVisible) _applyWindowSize();
+  });
 }

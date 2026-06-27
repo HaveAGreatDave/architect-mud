@@ -20,6 +20,7 @@ import { reloadWindows as reloadWindowsEnv, recomputePower } from '../engine/env
 import { ensureTunables } from '../engine/tunables.js';
 import { startingIp } from '../engine/ip.js';
 import { materializeItemTags, ownTags, superKeys } from '../engine/supertags.js';
+import { getMotd, saveMotd } from '../engine/motd.js';
 
 const hashPassword = pw => createHash('sha256').update(pw).digest('hex');
 const makeToken = (playerId, role) => Buffer.from(`${playerId}:${role}:${Date.now()}`).toString('base64');
@@ -180,8 +181,9 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path==='/tag-supertags' && method==='GET') return requireDev(auth, apiGetSupertags);
   if (path==='/tag-supertags' && method==='PUT') return requireDev(auth, ()=>apiPutSupertags(body));
   if (path==='/spawn' && method==='POST') return requireDev(auth, ()=>apiSpawnItem(body));
-  if (path==='/motd' && method==='GET') return apiGetMotd();
+  if (path==='/motd' && method==='GET') return requireDev(auth, apiGetMotd);
   if (path==='/motd' && method==='PUT') return requireDev(auth, ()=>apiSetMotd(body));
+  if (path==='/motd/push' && method==='POST') return requireDev(auth, apiPushMotd);
   return { status:404, body:{error:'Not found'} };
 }
 
@@ -1510,13 +1512,19 @@ async function apiSpawnItem(body) {
 }
 
 async function apiGetMotd() {
-  const { rows } = await query("SELECT value FROM server_settings WHERE key='motd'");
-  return { status:200, body:{ motd: rows[0]?.value || '' } };
+  const data = await getMotd();
+  return { status:200, body: data };
 }
 
 async function apiSetMotd(body) {
-  const { motd } = body || {};
-  if (typeof motd !== 'string') return { status:400, body:{ error:'motd string required' } };
-  await query("INSERT INTO server_settings (key,value) VALUES ('motd',$1) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value", [motd]);
+  const { big, medium, small, dynamic: dyn } = body || {};
+  if ([big, medium, small, dyn].every(v => v === undefined)) return { status:400, body:{ error:'No valid fields' } };
+  await saveMotd({ big, medium, small, dynamic: dyn });
+  return { status:200, body:{ ok:true } };
+}
+
+async function apiPushMotd() {
+  const data = await getMotd();
+  if (broadcastFn) broadcastFn(null, { type:'motd', ...data });
   return { status:200, body:{ ok:true } };
 }
