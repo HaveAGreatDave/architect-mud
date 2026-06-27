@@ -319,14 +319,7 @@ function sendWhisperReply() {
     return;
   }
 
-  // Player whisper tab: add locally, send to server.
-  if (!_whisperConvos.has(_activeWhisperTab)) _whisperConvos.set(_activeWhisperTab, { messages: [], scrollTop: 0, unread: 0 });
-  const convo = _whisperConvos.get(_activeWhisperTab);
-  convo.messages.push({ from: 'You', message: msg, isMe: true, ts: Date.now() });
-  if (convo.messages.length > WHISPER_MAX_MSGS) convo.messages.shift();
-  _renderWhisperLog();
-  const log = document.getElementById('whisper-log');
-  if (log) log.scrollTop = log.scrollHeight;
+  // Player whisper tab: send to server; whisper_sent response will add the message via sentWhisper.
   sendCmdSilent(`whisper ${_activeWhisperTab} ${msg}`);
   if (input) input.value = '';
 }
