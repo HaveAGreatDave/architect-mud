@@ -428,6 +428,7 @@ async function resourceTick() {
     }
 
     // --- Body temperature drift ---
+    const prevBodyTemp = player.body_temp_c ?? 37.0;
     const zone = world.zones.get(player.current_zone);
     const tempOffset = zone?.flags?.temp_offset || 0;
     const rawAmbient = getZoneTemperature(player.current_zone) + tempOffset;
@@ -506,7 +507,8 @@ async function resourceTick() {
     await query('UPDATE players SET hunger=$1,thirst=$2,hp=$3,stamina=$4,body_temp_c=$5 WHERE id=$6',
       [player.hunger, player.thirst, player.hp, player.stamina, player.body_temp_c, playerId]);
 
-    if (messages.length) broadcastFn(null, { type:'resource_tick', messages, player_update:{hunger:player.hunger,thirst:player.thirst,hp:player.hp,stamina:player.stamina,body_temp_c:player.body_temp_c} }, null, playerId);
+    const bodyTempChanged = player.body_temp_c !== prevBodyTemp;
+    if (messages.length || bodyTempChanged) broadcastFn(null, { type:'resource_tick', messages, player_update:{hunger:player.hunger,thirst:player.thirst,hp:player.hp,stamina:player.stamina,body_temp_c:player.body_temp_c} }, null, playerId);
 
     if (player.hp <= 0) handlePlayerDeath(player, null);
 
