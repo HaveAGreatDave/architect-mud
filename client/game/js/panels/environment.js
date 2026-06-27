@@ -111,8 +111,8 @@ export function refreshZoneVisibility() {
     .then(r => r.json())
     .then(v => {
       const vis = Math.max(0, Math.min(1, v.visibility ?? 1));
-      const brightness = 0.35 + 0.85 * vis;
-      const contrast   = 0.7 + 0.4 * vis;
+      const brightness = 0.15 + 0.85 * vis;
+      const contrast   = 0.45 + 0.55 * vis;
       const el = document.getElementById('output-container');
       if (el) el.style.filter = `brightness(${brightness.toFixed(3)}) contrast(${contrast.toFixed(3)})`;
     })
