@@ -48,11 +48,8 @@ function _isSystemOnly(tabKey) {
 // ── MOTD ──────────────────────────────────────────────────────────────────────
 
 function _selectMotdSize() {
-  const w = _windowSize, t = _textSize;
-  if (w === 'large'  && t === 'small')                      return 'big';
-  if (w === 'large')                                        return 'medium';
-  if (w === 'medium' && t === 'large')                      return 'small';
-  if (w === 'medium')                                       return 'medium';
+  if (_windowSize === 'large')  return 'big';
+  if (_windowSize === 'medium') return 'medium';
   return 'small';
 }
 
@@ -62,15 +59,43 @@ function _esc(s) {
 
 function _applyMotdSubstitutions(template, handle, dynamicText) {
   const date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-  const spaceRemoval = Math.max(0, 14 - dynamicText.length);
   let text = template;
-  // Adjust trailing spaces after <player name> then substitute
-  text = text.replace(/<player name>( *)/g, (_, spaces) => {
-    const keep = Math.max(0, spaces.length - spaceRemoval);
-    return handle + spaces.slice(0, keep);
-  });
+
+  text = text.replace(/<player name>( *)/g, (_, spaces) => handle + spaces);
   text = text.replace(/<date>/g, date);
-  text = text.replace(/<dynamic text>/g, dynamicText);
+
+  // <dynamic text> substitution: trim trailing spaces to compensate for length,
+  // and word-wrap with matching right-border character if the text overflows.
+  text = text.replace(/^(.*?)<dynamic text>( *)(║?)$/gm, (_, prefix, spaces, rborder) => {
+    const budget = spaces.length;
+    const dyn = dynamicText || '';
+
+    if (dyn.length <= budget) {
+      // Fits: replace placeholder and trim that many trailing spaces
+      return prefix + dyn + spaces.slice(dyn.length) + rborder;
+    }
+
+    // Too long — word-wrap into continuation lines aligned under the same indent
+    if (!rborder) return prefix + dyn; // no border to align against, just sub
+
+    const indent = ' '.repeat(prefix.length);
+    const words  = dyn.split(' ');
+    const lines  = [];
+    let cur = '';
+    for (const w of words) {
+      const test = cur ? cur + ' ' + w : w;
+      if (test.length > budget) { if (cur) lines.push(cur); cur = w; }
+      else cur = test;
+    }
+    if (cur) lines.push(cur);
+    if (!lines.length) return prefix + rborder;
+
+    return lines.map((l, i) => {
+      const pad = ' '.repeat(Math.max(0, budget - l.length));
+      return (i === 0 ? prefix : indent) + l + pad + rborder;
+    }).join('\n');
+  });
+
   return text;
 }
 
@@ -220,6 +245,9 @@ export function openWhisperTab(handle) {
 
 function _switchToTab(key) {
   _activeWhisperTab = key;
+  const convo = _whisperConvos.get(key);
+  if (convo) convo.unread = 0;
+  _updateChatBadge();
   _refreshWhisperTabs();
   _renderWhisperLog();
   const footer = document.getElementById('whisper-footer');
