@@ -2430,12 +2430,13 @@ body {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	margin-bottom: 8px;
+	margin-bottom: 6px;
 	flex-shrink: 0;
 }
 #dialogue-npc-name {
 	color: var(--accent);
 	font-weight: bold;
+	font-size: 11px;
 	text-transform: uppercase;
 	letter-spacing: 1px;
 }
@@ -2444,9 +2445,9 @@ body {
 	border: 1px solid var(--border);
 	color: var(--text-dim);
 	font-family: var(--font-mono);
-	font-size: 16px;
+	font-size: 14px;
 	line-height: 1;
-	padding: 2px 7px;
+	padding: 1px 6px;
 	cursor: pointer;
 	border-radius: 2px;
 	flex-shrink: 0;
@@ -2457,8 +2458,9 @@ body {
 }
 #dialogue-text {
 	color: var(--text-bright);
-	margin-bottom: 10px;
-	line-height: 1.6;
+	margin-bottom: 8px;
+	font-size: 11px;
+	line-height: 1.45;
 	white-space: pre-wrap;
 	overflow-y: auto;
 	flex: 1;
@@ -2467,7 +2469,7 @@ body {
 #dialogue-options {
 	display: flex;
 	flex-direction: column;
-	gap: 6px;
+	gap: 4px;
 	flex-shrink: 0;
 }
 .dialogue-opt {
@@ -2475,8 +2477,8 @@ body {
 	border: 1px solid var(--border);
 	color: var(--text);
 	font-family: var(--font-mono);
-	font-size: 13px;
-	padding: 8px 12px;
+	font-size: 11px;
+	padding: 5px 10px;
 	cursor: pointer;
 	text-align: left;
 	border-radius: 2px;
@@ -2485,6 +2487,11 @@ body {
 .dialogue-opt:hover {
 	border-color: var(--accent);
 	color: var(--accent);
+}
+.dialogue-opt-branch {
+	color: var(--accent);
+	margin-right: 4px;
+	font-style: normal;
 }
 
 /* Shop layout */

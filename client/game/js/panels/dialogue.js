@@ -4,6 +4,12 @@ import { sendDialogue, buyFromNpc } from '../net.js';
 const ITEMS_PER_PAGE = 10;
 let shopState = null; // { msg, page }
 
+function formatOptionLabel(raw) {
+  const stripped = raw.replace(/^\[gated\]\s*/i, '');
+  const wasGated = stripped !== raw;
+  return { label: stripped, gated: wasGated };
+}
+
 export function openDialogue(msg) {
   state.currentNpcId = msg.npcId;
   shopState = null;
@@ -13,9 +19,14 @@ export function openDialogue(msg) {
   opts.innerHTML = '';
   for (const opt of (msg.options || [])) {
     if (!opt.next) continue;
+    const { label, gated } = formatOptionLabel(opt.label);
     const btn = document.createElement('button');
     btn.className = 'dialogue-opt';
-    btn.textContent = opt.label;
+    if (gated) {
+      btn.innerHTML = `<span class="dialogue-opt-branch">↳</span>${label}`;
+    } else {
+      btn.textContent = label;
+    }
     btn.onclick = () => sendDialogue(state.currentNpcId, opt.next);
     opts.appendChild(btn);
   }
