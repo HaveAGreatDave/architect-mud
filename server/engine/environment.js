@@ -135,11 +135,12 @@ const SEASON_BY_MONTH = [
 
 
 // Indoor zone temperature simulation.
-// When powered, HVAC drives zone temp toward 20°C at ~0.5°C/min (reaches
-// target from 0°C in ~40 minutes). Without power, passive conduction
-// drifts the zone toward outdoor temp at ~0.1°C/min (slow, insulated bleed).
+// When powered, HVAC drives zone temp toward 20°C at 2°C/min in either
+// direction (cools if above 20, heats if below — reaches target in ~10 min
+// from an extreme). Without power, passive conduction drifts the zone toward
+// outdoor temp at ~0.1°C/min (slow, insulated bleed).
 const INDOOR_HVAC_TARGET_C         = 20;
-const INDOOR_HVAC_RATE_PER_MIN     = 0.5;
+const INDOOR_HVAC_RATE_PER_MIN     = 2.0;
 const INDOOR_PASSIVE_RATE_PER_MIN  = 0.1;
 
 const POWER_OVERLOAD_RATIO = 1.0;    // alloc < demand × this → 'overloaded'
