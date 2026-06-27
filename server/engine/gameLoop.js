@@ -8,7 +8,7 @@ import { tickSleep, releaseApartment } from './apartments.js';
 import { fireHook } from './plugins.js';
 import { emit } from './events.js';
 import { schedule } from './scheduler.js';
-import { query } from '../models/db.js';
+import { query, logActivity } from '../models/db.js';
 import { getEnvironmentState, getZoneTemperature } from './environment.js';
 import { tickBodily } from './bodily.js';
 import { addHorniness } from './mis.js';
@@ -196,6 +196,7 @@ export function handlePlayerDeath(player, killer) {
       [randomUUID(), player.id, slot, itemId]).catch(() => {});
   }
 
+  logActivity('death', player.handle);
   fireHook('player.death', player, killer).catch(()=>{});
   emit('player.death', { player, killer });
 }

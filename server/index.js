@@ -40,7 +40,7 @@ import {
 } from "./api/routes.js";
 import { startKeepalive } from "./keepalive.js";
 import { setBroadcast as setMessagingBroadcast } from "./engine/messaging.js";
-import { query } from "./models/db.js";
+import { query, logActivity } from "./models/db.js";
 import { loadMisSettings } from "./engine/mis.js";
 
 import { initEnvironment, getHUDPayload, getZoneTemperature } from "./engine/environment.js";
@@ -276,6 +276,7 @@ wss.on("connection", (ws) => {
 					).catch(() => {});
 				}
 				emit('player.logout', { id: session.playerId, handle: session.handle });
+				logActivity('disconnect', session.handle);
 				playerSockets.delete(session.playerId);
 				removeLivePlayer(session.playerId);
 			}
@@ -485,6 +486,7 @@ async function finishAuth(ws, session, player) {
 	};
 	setLivePlayer(player.id, livePlayer);
 	emit('player.login', { id: player.id, handle: player.handle, role: player.role });
+	logActivity('connect', player.handle);
 	await autoEquipOnLogin(player.id);
 	await recomputeArmor(livePlayer);
 	await recomputeInsulation(livePlayer);

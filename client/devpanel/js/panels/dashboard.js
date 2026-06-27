@@ -90,9 +90,22 @@ function renderDashboard(data) {
 
         </div>
       </div>
+
+      <div style="margin-top:28px">
+        <div style="font-size:13px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">Server Activity Log</div>
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:16px">
+          <textarea id="activity-log-box"
+            readonly
+            spellcheck="false"
+            style="width:100%;height:760px;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font-mono);font-size:11px;padding:10px;box-sizing:border-box;resize:none;border-radius:2px;line-height:1.52;white-space:pre;overflow:auto;word-wrap:normal;overflow-wrap:normal"
+            placeholder="Loading…"></textarea>
+        </div>
+      </div>
+
     </div>`;
 
   _initMotdEditor();
+  _initActivityLog();
 }
 
 // ── MOTD editor logic ────────────────────────────────────────────────────────
@@ -228,6 +241,28 @@ async function _initMotdEditor() {
     _updateEditor();
   } catch {
     if (editor) editor.placeholder = 'Failed to load MOTD.';
+  }
+}
+
+async function _initActivityLog() {
+  const box = document.getElementById('activity-log-box');
+  if (!box) return;
+  const TOKEN = () => sessionStorage.getItem('devpanel-token');
+  try {
+    const r = await fetch('/api/server-activity-log', { headers: { Authorization: `Bearer ${TOKEN()}` } });
+    const d = await r.json();
+    if (!d.rows || !d.rows.length) { box.value = '(no activity yet)'; return; }
+    const lines = d.rows.map(row => {
+      const ts = new Date(row.occurred_at).toLocaleString();
+      if (row.event_type === 'connect')    return `[${ts}] *** ${row.handle} Connects`;
+      if (row.event_type === 'disconnect') return `[${ts}] *** ${row.handle} Disconnects`;
+      if (row.event_type === 'death')      return `[${ts}] ${row.handle} Dies`;
+      if (row.event_type === 'kick')       return `[${ts}] ${row.handle} was kicked by ${row.admin_handle || 'An administrator'}`;
+      return `[${ts}] ${row.event_type}: ${row.handle}`;
+    });
+    box.value = lines.join('\n');
+  } catch {
+    box.value = 'Failed to load activity log.';
   }
 }
 

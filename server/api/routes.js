@@ -1,4 +1,4 @@
-import { query } from '../models/db.js';
+import { query, logActivity } from '../models/db.js';
 import { reloadZone, getAllZones, world, getAllLivePlayers, getZone, addPlayerToZone, removePlayerFromZone, getMinimapData, reloadGlobalAmbients, spawnEnemySync, setDoorCache, deleteDoorCache, getZoneDoors } from '../engine/world.js';
 import { describeZone, describeVoidTeleport } from '../engine/commands/index.js';
 import { loadRecipes } from '../engine/crafting.js';
@@ -164,6 +164,7 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path==='/sounds' && method==='POST') return requireDev(auth, ()=>apiCreateSound(body));
   if (path.startsWith('/sounds/') && method==='PUT') return requireDev(auth, ()=>apiUpdateSound(path.split('/')[2],body));
   if (path.startsWith('/sounds/') && method==='DELETE') return requireDev(auth, ()=>apiDeleteSound(path.split('/')[2]));
+  if (path==='/server-activity-log' && method==='GET') return requireDev(auth, apiGetActivityLog);
   if (path==='/world/state' && method==='GET') return requireDev(auth, apiWorldState);
   if (path==='/world/reload' && method==='POST') return requireDev(auth, ()=>apiReloadZone(body));
   if (path==='/players/online' && method==='GET') return { status:200, body: getAllLivePlayers().map(p=>({ id: p.id, handle: p.handle, role: p.role, current_zone: p.current_zone })) };
@@ -912,6 +913,10 @@ async function apiBulkAddStreetlights(auth) {
   }
   return { status:200, body:{ added, message:`${added} street light${added===1?'':'s'} staged — publish to apply.` } };
 }
+async function apiGetActivityLog() {
+  const {rows} = await query(`SELECT event_type, handle, admin_handle, occurred_at FROM server_activity_log ORDER BY occurred_at DESC LIMIT 50`);
+  return {status:200, body:{rows}};
+}
 async function apiWorldState() {
   const players = getAllLivePlayers().map(p => ({ handle: p.handle, role: p.role, current_zone: p.current_zone }));
   return {status:200,body:{zones:getAllZones(),online_players:players,live_enemies:world.enemies.size,live_corpses:world.corpses.size}};
@@ -1015,6 +1020,7 @@ async function apiKickPlayer(id, body) {
     ? `You have been kicked by ${adminHandle}. [${reason}]`
     : `You have been kicked by ${adminHandle}.`;
   broadcastFn(null,{type:'kicked',message},null,id);
+  logActivity('kick', rows[0].handle, body?.adminHandle || 'An administrator');
   return {status:200,body:{kicked:true,handle:rows[0].handle}};
 }
 

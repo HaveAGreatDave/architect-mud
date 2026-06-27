@@ -25,6 +25,16 @@ export async function query(text, params) {
   }
 }
 
+// Log a server activity event. Caps the table at 500 rows automatically.
+export async function logActivity(eventType, handle, adminHandle = null) {
+  query(
+    `INSERT INTO server_activity_log (event_type, handle, admin_handle) VALUES ($1, $2, $3)`,
+    [eventType, handle, adminHandle]
+  ).then(() =>
+    query(`DELETE FROM server_activity_log WHERE id NOT IN (SELECT id FROM server_activity_log ORDER BY occurred_at DESC LIMIT 500)`)
+  ).catch(() => {});
+}
+
 // For transactions
 export async function getClient() {
   return pool.connect();

@@ -620,6 +620,16 @@ export const SCHEMA_SQL = `
     created_at BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())
   );
   CREATE INDEX IF NOT EXISTS idx_channel_messages_channel ON channel_messages(channel_id, id);
+
+  -- Server activity log (connects, disconnects, deaths, kicks). Capped at 500 rows.
+  CREATE TABLE IF NOT EXISTS server_activity_log (
+    id         BIGSERIAL PRIMARY KEY,
+    event_type TEXT NOT NULL,
+    handle     TEXT NOT NULL,
+    admin_handle TEXT,
+    occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  CREATE INDEX IF NOT EXISTS idx_server_activity_log_time ON server_activity_log(occurred_at DESC);
 `;
 
 export async function applySchema() {
