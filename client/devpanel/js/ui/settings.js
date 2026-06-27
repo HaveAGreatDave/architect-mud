@@ -30,17 +30,23 @@ function repaintPowerTileColors() {
   });
 }
 
-const BUILTIN_THEME_VALUES = ['dark','light','contrast','phosphor','synthwave','bloodmoon','slate'];
+const LIGHT_THEMES = [
+  ['light','Parchment'],['arctic','Arctic'],['solar','Solar'],
+  ['mint','Mint'],['lavender','Lavender'],['fog','Fog'],
+];
+const DARK_THEMES = [
+  ['dark','Void'],['contrast','Terminal'],
+  ['phosphor','Phosphor Green'],['synthwave','Synthwave'],['bloodmoon','Blood Moon'],['slate','Slate'],
+];
+const BUILTIN_THEME_VALUES = [...LIGHT_THEMES, ...DARK_THEMES].map(([v]) => v);
 
 function populateThemeDropdown() {
   const sel = document.getElementById('dev-opt-theme');
   if (!sel) return;
   const custom = (devSettings.customThemes || []);
-  const builtins = [
-    ['dark','Dark (Default)'],['light','Light'],['contrast','High Contrast'],
-    ['phosphor','Phosphor Green'],['synthwave','Synthwave'],['bloodmoon','Blood Moon'],['slate','Slate'],
-  ];
-  sel.innerHTML = builtins.map(([v,l]) => `<option value="${v}">${l}</option>`).join('') +
+  const lightOpts = LIGHT_THEMES.map(([v,l]) => `<option value="${v}">${l}</option>`).join('');
+  const darkOpts = DARK_THEMES.map(([v,l]) => `<option value="${v}">${l}</option>`).join('');
+  sel.innerHTML = `<optgroup label="Light Themes">${lightOpts}</optgroup><optgroup label="Dark Themes">${darkOpts}</optgroup>` +
     (custom.length ? `<optgroup label="Custom Themes">${custom.map(t =>
       `<option value="${t.id}">${t.name}</option>`).join('')}</optgroup>` : '');
   sel.value = devSettings.theme || 'dark';

@@ -3,10 +3,15 @@ const DEFAULT_SETTINGS = { theme: 'dark', fontSize: '14', density: 'comfortable'
 
 export { SETTINGS_KEY };
 
-const BUILTIN_THEMES = [
-  ['dark','Dark (Default)'],['light','Light'],['contrast','High Contrast'],
+const LIGHT_THEMES = [
+  ['light','Parchment'],['arctic','Arctic'],['solar','Solar'],
+  ['mint','Mint'],['lavender','Lavender'],['fog','Fog'],
+];
+const DARK_THEMES = [
+  ['dark','Void'],['contrast','Terminal'],
   ['phosphor','Phosphor Green'],['synthwave','Synthwave'],['bloodmoon','Blood Moon'],['slate','Slate'],
 ];
+const BUILTIN_THEMES = [...LIGHT_THEMES, ...DARK_THEMES];
 
 const THEME_COLOR_VARS = [
   { v: '--bg',          label: 'Background (deep)',      desc: 'Page / outermost background' },
@@ -63,7 +68,9 @@ function _populateThemeDropdown(settings) {
   const sel = document.getElementById('opt-theme');
   if (!sel) return;
   const custom = settings.customThemes || [];
-  sel.innerHTML = BUILTIN_THEMES.map(([v, l]) => `<option value="${v}">${l}</option>`).join('') +
+  const lightOpts = LIGHT_THEMES.map(([v, l]) => `<option value="${v}">${l}</option>`).join('');
+  const darkOpts = DARK_THEMES.map(([v, l]) => `<option value="${v}">${l}</option>`).join('');
+  sel.innerHTML = `<optgroup label="Light Themes">${lightOpts}</optgroup><optgroup label="Dark Themes">${darkOpts}</optgroup>` +
     (custom.length ? `<optgroup label="Custom">${custom.map(t => `<option value="${t.id}">${t.name}</option>`).join('')}</optgroup>` : '');
   sel.value = settings.theme || 'dark';
 }
@@ -205,7 +212,9 @@ function _tePopulateBaseDropdown() {
   const sel = document.getElementById('te-base-select');
   if (!sel) return;
   const custom = _teSettings.customThemes || [];
-  sel.innerHTML = BUILTIN_THEMES.map(([v, l]) => `<option value="${v}">${l}</option>`).join('') +
+  const lightOpts = LIGHT_THEMES.map(([v, l]) => `<option value="${v}">${l}</option>`).join('');
+  const darkOpts = DARK_THEMES.map(([v, l]) => `<option value="${v}">${l}</option>`).join('');
+  sel.innerHTML = `<optgroup label="Light Themes">${lightOpts}</optgroup><optgroup label="Dark Themes">${darkOpts}</optgroup>` +
     (custom.length ? `<optgroup label="Custom Themes">${custom.map(t => `<option value="${t.id}">${t.name}</option>`).join('')}</optgroup>` : '');
 }
 

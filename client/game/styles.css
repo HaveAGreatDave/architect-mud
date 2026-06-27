@@ -20,7 +20,7 @@
     --density-gap: 8px;
   }
 
-  /* Light theme — same accent family for brand continuity, warm paper background */
+  /* Parchment — warm paper background, same accent family for brand continuity */
   [data-theme="light"] {
     --bg: #f4f2ed;
     --bg2: #e9e6de;
@@ -37,6 +37,101 @@
     --yellow: #9c8a1a;
     --cyan: #1c717d;
     --purple: #7b3f99;
+  }
+
+  /* Arctic — crisp winter white, ice-blue accent */
+  [data-theme="arctic"] {
+    --bg: #f0f5fc;
+    --bg2: #e2eaf6;
+    --bg3: #d4e0f0;
+    --border: #a8c0de;
+    --text: #1c2e4a;
+    --text-dim: #5878a0;
+    --text-bright: #08182e;
+    --accent: #1a60d0;
+    --accent-dim: #bcd4f0;
+    --green: #1a7a40;
+    --red: #b82020;
+    --orange: #c05818;
+    --yellow: #8a7000;
+    --cyan: #1890a0;
+    --purple: #6030a8;
+  }
+
+  /* Solar — warm cream, amber/gold accent */
+  [data-theme="solar"] {
+    --bg: #fdf6e8;
+    --bg2: #f5eccc;
+    --bg3: #ecd8b0;
+    --border: #c8a870;
+    --text: #3c2c10;
+    --text-dim: #8a7050;
+    --text-bright: #1a1008;
+    --accent: #c07000;
+    --accent-dim: #f8e4b0;
+    --green: #287040;
+    --red: #b82020;
+    --orange: #c05810;
+    --yellow: #8a7000;
+    --cyan: #1878a0;
+    --purple: #7030a0;
+  }
+
+  /* Mint — clean white, fresh green accent */
+  [data-theme="mint"] {
+    --bg: #f0faf4;
+    --bg2: #e0f4e8;
+    --bg3: #ccecda;
+    --border: #90d0a8;
+    --text: #1a3028;
+    --text-dim: #508070;
+    --text-bright: #081818;
+    --accent: #1a9050;
+    --accent-dim: #b0e8cc;
+    --green: #148040;
+    --red: #b82030;
+    --orange: #c05818;
+    --yellow: #7a7800;
+    --cyan: #0888a0;
+    --purple: #7030a0;
+  }
+
+  /* Lavender — soft lilac background, violet accent */
+  [data-theme="lavender"] {
+    --bg: #f5f2fc;
+    --bg2: #ede8f8;
+    --bg3: #e2dcf4;
+    --border: #b8a8d8;
+    --text: #2a1e48;
+    --text-dim: #7060a0;
+    --text-bright: #100a30;
+    --accent: #5030b0;
+    --accent-dim: #d0c4f0;
+    --green: #287050;
+    --red: #b02030;
+    --orange: #b86010;
+    --yellow: #7a7000;
+    --cyan: #1070a8;
+    --purple: #5828a0;
+  }
+
+  /* Fog — cool neutral gray, steel-blue accent */
+  [data-theme="fog"] {
+    --bg: #f2f4f6;
+    --bg2: #e4e8ec;
+    --bg3: #d4d8de;
+    --border: #a8b0bc;
+    --text: #1e2530;
+    --text-dim: #60708a;
+    --text-bright: #0a1018;
+    --accent: #2878a8;
+    --accent-dim: #b8d4e8;
+    --green: #1e7848;
+    --red: #b82828;
+    --orange: #b86018;
+    --yellow: #7a7000;
+    --cyan: #1888a0;
+    --purple: #6838a8;
   }
 
   /* High contrast — pure black/white, amber accent (classic terminal phosphor) */
