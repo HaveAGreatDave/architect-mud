@@ -111,9 +111,12 @@ export function refreshZoneVisibility() {
     .then(r => r.json())
     .then(v => {
       const vis = Math.max(0, Math.min(1, v.visibility ?? 1));
-      // Treat vis >= 0.85 as fully lit — well-lit indoor zones rarely hit 1.0 exactly.
-      const t = Math.min(1, vis / 0.85);
-      const brightness = t >= 1 ? '' : `brightness(${(0.1 + 0.9 * t).toFixed(3)})`;
+      // VISIBILITY_CLEAR on the server is 0.6 — any zone at or above that is
+      // considered well-lit, so clear the filter entirely to preserve theme colors.
+      // Below 0.6, remap 0→0.6 to t=0→1 and dim text down to 0.2 at pitch dark.
+      const brightness = vis >= 0.6
+        ? ''
+        : `brightness(${(0.2 + 0.8 * (vis / 0.6)).toFixed(3)})`;
       for (const id of ['area-pane', 'output']) {
         const el = document.getElementById(id);
         if (el) el.style.filter = brightness;

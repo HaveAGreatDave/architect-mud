@@ -392,7 +392,7 @@ async function cmdSpawnEnemy(args, player) {
   return { type: 'output', message: `Spawned ${instance.name} (${instance.instanceId}) in ${zoneId}.` };
 }
 
-async function applyLightSwitch(nameStr, dir, player) {
+async function applyLightSwitch(nameStr, dir, player, broadcast) {
   if (!nameStr) return { type:'error', message:'Specify a light name.' };
   const { rows } = await query(`SELECT * FROM furniture WHERE zone_id=$1 AND object_type='light' AND name ILIKE $2 LIMIT 1`, [player.current_zone, `%${nameStr}%`]);
   if (!rows.length) return { type:'error', message:`You don't see a light called "${nameStr}" here.` };
@@ -419,13 +419,17 @@ async function applyLightSwitch(nameStr, dir, player) {
   const flipMsg = newState
     ? `You flip the switch. ${light.name} flickers on.`
     : `You flip the switch. ${light.name} goes dark.`;
+  const otherMsg = newState
+    ? `${light.name} flickers on.`
+    : `${light.name} goes dark.`;
+  if (broadcast) broadcast(player.current_zone, { type: 'zone_event', message: otherMsg, refresh: true }, player.id);
   const zone = getZone(player.current_zone);
   const lookMsg = await describeZone(zone, player);
   return { type:'look', message: lookMsg, notify: flipMsg, zone: player.current_zone, minimap: getMinimapData(player.current_zone) };
 }
 
 // "switch on/off <name>" or "switch <name> on/off" or "switch <name>" (toggle)
-async function cmdSwitch(targetStr, player) {
+async function cmdSwitch(targetStr, player, broadcast) {
   if (!targetStr) return { type:'error', message:'Usage: switch on/off <light name>' };
   const words = targetStr.split(' ');
   const first = words[0].toLowerCase();
@@ -441,11 +445,11 @@ async function cmdSwitch(targetStr, player) {
   } else {
     nameStr = targetStr; // no direction — toggle
   }
-  return applyLightSwitch(nameStr, dir, player);
+  return applyLightSwitch(nameStr, dir, player, broadcast);
 }
 
 // "turn on/off <name>" or "turn <name> on/off"
-async function cmdTurn(args, player) {
+async function cmdTurn(args, player, broadcast) {
   const first = args[0]?.toLowerCase();
   const last  = args[args.length - 1]?.toLowerCase();
   let dir, nameStr;
@@ -458,7 +462,7 @@ async function cmdTurn(args, player) {
   } else {
     return { type:'error', message:'Usage: turn on/off <light name> — or — turn <light name> on/off' };
   }
-  return applyLightSwitch(nameStr, dir, player);
+  return applyLightSwitch(nameStr, dir, player, broadcast);
 }
 
 async function cmdTeleport(targetZoneId, player, broadcast) {
