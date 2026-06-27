@@ -255,10 +255,18 @@ export function receiveWhisper(from, message) {
 }
 
 export function receiveChannelMsg(channelId, from, message) {
+  const isFirstMsg = !_whisperConvos.has(channelId) || _whisperConvos.get(channelId).messages.length === 0;
   if (!_whisperConvos.has(channelId)) _whisperConvos.set(channelId, { messages: [], scrollTop: 0, unread: 0 });
   const convo = _whisperConvos.get(channelId);
   convo.messages.push({ from, message, isMe: false, ts: Date.now() });
   if (convo.messages.length > WHISPER_MAX_MSGS) convo.messages.shift();
+
+  // Auto-open #system on first message (MOTD on login)
+  if (isFirstMsg && _isSystemOnly(channelId)) {
+    openWhisperTab(channelId);
+    return;
+  }
+
   if (_whisperPanelVisible && _activeWhisperTab === channelId) {
     _renderWhisperLog();
     const log = document.getElementById('whisper-log');
