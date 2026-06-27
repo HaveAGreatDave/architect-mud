@@ -196,6 +196,14 @@ export function handlePlayerDeath(player, killer) {
       [randomUUID(), player.id]).catch(() => {});
   }
 
+  // Equip basic clothing on respawn if not already wearing it
+  for (const [itemId, slot] of [['item_basic_shirt','torso'],['item_basic_pants','legs'],['item_basic_shoes','feet']]) {
+    query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,is_equipped,slot,layer)
+           SELECT $1,$2,i.id,1,1.0,1,$3,1 FROM items i WHERE i.id=$4
+           AND NOT EXISTS (SELECT 1 FROM player_inventory WHERE player_id=$2 AND item_id=$4 AND is_equipped=1)`,
+      [randomUUID(), player.id, slot, itemId]).catch(() => {});
+  }
+
   fireHook('player.death', player, killer).catch(()=>{});
   emit('player.death', { player, killer });
 }
