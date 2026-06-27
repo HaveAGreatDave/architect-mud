@@ -111,19 +111,12 @@ export function refreshZoneVisibility() {
     .then(r => r.json())
     .then(v => {
       const vis = Math.max(0, Math.min(1, v.visibility ?? 1));
-      const el = document.getElementById('output-container');
-      if (!el) return;
       // Treat vis >= 0.85 as fully lit — well-lit indoor zones rarely hit 1.0 exactly.
-      if (vis >= 0.85) {
-        el.style.filter = '';
-      } else {
-        // Remap so vis=0.85 → t=1 (neutral), vis=0 → t=0 (pitch dark).
-        const t = vis / 0.85;
-        // brightness: dims the scene; contrast >1 pushes text away from midgray,
-        // preserving readability as the background darkens.
-        const brightness = 0.1 + 0.9 * t;
-        const contrast   = 1 + 0.3 * (1 - t);
-        el.style.filter = `brightness(${brightness.toFixed(3)}) contrast(${contrast.toFixed(3)})`;
+      const t = Math.min(1, vis / 0.85);
+      const brightness = t >= 1 ? '' : `brightness(${(0.1 + 0.9 * t).toFixed(3)})`;
+      for (const id of ['area-pane', 'output']) {
+        const el = document.getElementById(id);
+        if (el) el.style.filter = brightness;
       }
     })
     .catch(() => {});
