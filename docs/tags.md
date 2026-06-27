@@ -69,6 +69,37 @@ Class tags are a JSON object keyed by tag name → secondary attribute; `true` f
 | `stat_bonus` | `{stat_*:int}` | `stat_modifiers` |
 | `broken`/`cursed` (instance) | `true` | new presence flags in `custom_data` |
 
+## Supertags (tags-of-tags)
+
+> **Status (as built, 2026-06).** Added after the original tag system shipped.
+
+A **supertag** is a named bundle of catalog tags — a reusable "class" of item. A
+`weapon` supertag might carry `{ weapon:true, slot:"weapon_hand", weapon_skill:"blunt" }`
+so every weapon is configured the same way. Supertags are edited in the dev panel's
+**Tags** screen (Supertags section) and live in `client/shared/tagSupertags.js`
+(`globalThis.TAG_SUPERTAGS`), a dual-mode file mirroring `tagCatalog.js`. Routes
+`GET`/`PUT /tag-supertags` read/write it.
+
+**Live reference, materialized for SQL.** Applying a supertag to an item flattens
+its member tags onto the item's stored `tags` object, so the engine's existing reads
+— both `tagsOf()` and SQL gates like `jsonb_exists(i.tags,'weapon')` — work with **no
+special casing**. Provenance is recorded in two bookkeeping keys so the link stays live:
+
+- `__super` — array of applied supertag keys
+- `__own` — the item's own authored tags (always win over supertag-supplied members)
+
+Editing a supertag (`PUT /tag-supertags`) re-materializes every item whose `tags`
+contains `__super` (`materializeItemTags` in `server/engine/supertags.js`): each item is
+re-derived from `__own` + the current supertag members, so removed members drop and
+added members appear. Items with no supertags store flat tags with no bookkeeping keys —
+identical to the pre-supertag format, so nothing migrates. `tagsOf()` strips `__super`/
+`__own` so they never surface as phantom tags.
+
+Item writes (`apiCreateItem`/`apiUpdateItem`) take authored tags in `body.tags` and
+applied supertag keys in `body.supertags`, and call `materializeItemTags` to build the
+stored object. The dev-panel item editor edits only `__own` (the tag rows) and shows
+applied supertags as inherited chips.
+
 ## Approach
 
 ### Shared catalog — single source of truth

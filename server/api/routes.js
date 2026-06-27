@@ -19,10 +19,12 @@ import { handlePlayerDeath } from '../engine/gameLoop.js';
 import { reloadWindows as reloadWindowsEnv, recomputePower } from '../engine/environment.js';
 import { ensureTunables } from '../engine/tunables.js';
 import { startingIp } from '../engine/ip.js';
+import { materializeItemTags, ownTags, superKeys } from '../engine/supertags.js';
 
 const hashPassword = pw => createHash('sha256').update(pw).digest('hex');
 const makeToken = (playerId, role) => Buffer.from(`${playerId}:${role}:${Date.now()}`).toString('base64');
 const CATALOG_PATH = fileURLToPath(new URL('../../client/shared/tagCatalog.js', import.meta.url));
+const SUPERTAGS_PATH = fileURLToPath(new URL('../../client/shared/tagSupertags.js', import.meta.url));
 
 // Short-lived one-time tokens for admin ↔ client switching (max 60 seconds).
 const switchTokens = new Map(); // token → { playerId, username, role, handle, expires }
@@ -175,6 +177,8 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path.startsWith('/players/') && path.endsWith('/teleport') && method==='POST') return requireAdmin(auth, ()=>apiTeleportPlayer(path.split('/')[2], body));
   if (path==='/tag-catalog' && method==='GET') return requireDev(auth, apiGetTagCatalog);
   if (path==='/tag-catalog' && method==='PUT') return requireDev(auth, ()=>apiPutTagCatalog(body));
+  if (path==='/tag-supertags' && method==='GET') return requireDev(auth, apiGetSupertags);
+  if (path==='/tag-supertags' && method==='PUT') return requireDev(auth, ()=>apiPutSupertags(body));
   if (path==='/spawn' && method==='POST') return requireDev(auth, ()=>apiSpawnItem(body));
   return { status:404, body:{error:'Not found'} };
 }
@@ -773,18 +777,25 @@ async function apiDeleteEnemy(id) {
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
 async function apiGetItems() { const {rows}=await query('SELECT * FROM items'); return {status:200,body:rows}; }
+// Flatten authored tags + applied supertags into the stored `tags` object. The
+// client sends authored tags in `body.tags` and applied supertag keys in
+// `body.supertags`; replayed/legacy bodies are handled via the bookkeeping keys.
+function itemTagsFor(body) {
+  const keys = Array.isArray(body.supertags) ? body.supertags : superKeys(body.tags);
+  return materializeItemTags(ownTags(body.tags), keys);
+}
 export async function apiCreateItem(body) {
   const id=body.id||`item_${Date.now()}`;
   try {
     await query(`INSERT INTO items (id,name,type,weight,value,rarity,tags) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-      [id,body.name,body.type||null,body.weight||1,body.value||0,body.rarity||'common',JSON.stringify(body.tags||{})]);
+      [id,body.name,body.type||null,body.weight||1,body.value||0,body.rarity||'common',JSON.stringify(itemTagsFor(body))]);
     return {status:201,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
 export async function apiUpdateItem(id,body) {
   try {
     await query(`UPDATE items SET name=$1,type=$2,weight=$3,value=$4,rarity=$5,tags=$6 WHERE id=$7`,
-      [body.name,body.type||null,body.weight,body.value,body.rarity,JSON.stringify(body.tags||{}),id]);
+      [body.name,body.type||null,body.weight,body.value,body.rarity,JSON.stringify(itemTagsFor(body)),id]);
     return {status:200,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
@@ -1458,6 +1469,31 @@ async function apiPutTagCatalog(body) {
   writeFileSync(CATALOG_PATH, src, 'utf8');
   globalThis.TAG_CATALOG = body;
   return { status:200, body:{ ok:true } };
+}
+
+async function apiGetSupertags() {
+  const src = readFileSync(SUPERTAGS_PATH, 'utf8');
+  const ctx = { globalThis: {} };
+  vm.runInNewContext(src, ctx);
+  return { status:200, body: ctx.globalThis.TAG_SUPERTAGS ?? {} };
+}
+
+async function apiPutSupertags(body) {
+  if (!body || typeof body !== 'object') return { status:400, body:{ error:'Expected supertags object' } };
+  const src = `(function(global){\n  var TAG_SUPERTAGS = ${JSON.stringify(body, null, 2)};\n  global.TAG_SUPERTAGS = TAG_SUPERTAGS;\n})(typeof window !== 'undefined' ? window : globalThis);\n`;
+  writeFileSync(SUPERTAGS_PATH, src, 'utf8');
+  globalThis.TAG_SUPERTAGS = body;
+  // Live reference: re-materialize every item that references any supertag so a
+  // supertag edit propagates to all its items. Re-deriving each item from its own
+  // authored tags (__own) + current supertag members also drops members removed
+  // from the supertag and picks up newly added ones.
+  const { rows } = await query(`SELECT id, tags FROM items WHERE jsonb_exists(tags, '__super')`);
+  for (const r of rows) {
+    const tags = r.tags && typeof r.tags === 'object' ? r.tags : {};
+    const next = materializeItemTags(ownTags(tags), superKeys(tags), body);
+    await query('UPDATE items SET tags=$1 WHERE id=$2', [JSON.stringify(next), r.id]);
+  }
+  return { status:200, body:{ ok:true, rematerialized: rows.length } };
 }
 
 async function apiSpawnItem(body) {

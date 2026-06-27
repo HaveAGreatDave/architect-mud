@@ -12,8 +12,15 @@ export const TAG_CATALOG = globalThis.TAG_CATALOG;
 // legacy `flags` JSONB column. Reading both here lets the tag mechanism (and the
 // specialized-action registry) treat every Entity uniformly. (ADR-0003)
 export function tagsOf(entity) {
-  const bag = entity?.tags || entity?.flags;
+  let bag = entity?.tags || entity?.flags;
   if (!bag) return {};
+  // Items with supertags carry bookkeeping keys (__super / __own) alongside their
+  // flattened effective tags. Hide them so they never surface as phantom tags.
+  if (bag.__super || bag.__own) {
+    bag = { ...bag };
+    delete bag.__super;
+    delete bag.__own;
+  }
   // Furniture stores its interactable verbs as a `flags.interactions` array
   // (e.g. ['switch','sit']). Surface each entry as a present tag so furniture is
   // tag-driven like every other Entity and the specialized-action registry can

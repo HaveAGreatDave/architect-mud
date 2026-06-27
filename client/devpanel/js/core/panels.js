@@ -107,7 +107,7 @@ const PANELS = {
   },
   tags: {
     title: 'Tag Catalog',
-    fetch: () => API('/tag-catalog'),
+    fetch: async () => ({ catalog: await API('/tag-catalog'), supertags: await API('/tag-supertags') }),
     noEdit: true,
     render: renderTagsPanel,
   },

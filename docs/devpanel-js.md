@@ -231,7 +231,10 @@ The Zone Validator panel (data integrity checks).
 - `toggleValidatorAutoRun()`, `exportValidatorReport()`.
 
 ### `tags.js`
-`renderTagsPanel(catalog)` — the Tag Catalog panel. Renders the full tag list and an inline editor for adding/updating/deleting tag definitions (label, shape, scope, group, help text).
+`renderTagsPanel(data)` — the Tag Catalog panel. `data` is `{ catalog, supertags }`. Two sections:
+
+- **Tags**: the full tag list with an inline editor for adding/updating/deleting tag definitions (label, shape, scope, group, help text), persisted via `PUT /tag-catalog`.
+- **Supertags**: reusable bundles of tags ("classes" of items, e.g. a `weapon` supertag). Add/edit/delete supertags, each with a label/group/help and a member-tag builder that reuses the item editor's `itemTagWidget`/`readItemTag`. Persisted via `PUT /tag-supertags`, which re-materializes every item that references the edited supertag (live reference). Member-tag widgets read from the global `TAG_CATALOG`; the supertag registry is the global `TAG_SUPERTAGS` (loaded from `/shared/tagSupertags.js`).
 
 ### `dashboard.js`
 `renderDashboard(data)` — the landing screen shown on login. Displays server health, online player count, recent changes, and quick-links to the most-used panels.

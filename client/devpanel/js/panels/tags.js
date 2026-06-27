@@ -1,4 +1,6 @@
-function renderTagsPanel(catalog) {
+function renderTagsPanel(data) {
+  const catalog = data?.catalog ?? data;
+  const supertags = data?.supertags ?? {};
   const SHAPES = ['text','flag','int','enum','range','hot','statmap'];
   const SCOPES = ['class','instance'];
   let _catalog = catalog && typeof catalog === 'object' ? { ...catalog } : {};
@@ -56,8 +58,9 @@ function renderTagsPanel(catalog) {
     const rows = buildRows();
     window._tagRows    = rows;
     window._tagCatalog = _catalog;
-    document.getElementById('list-panel').innerHTML = `
+    document.getElementById('tag-catalog-section').innerHTML = `
       <div style="padding:12px;overflow-x:auto">
+        <h3 style="margin:0 0 10px">Tags</h3>
         <div style="margin-bottom:10px">
           <button class="action-btn success" onclick="tagShowAdd()">+ New Tag</button>
         </div>
@@ -158,7 +161,188 @@ function renderTagsPanel(catalog) {
     render();
   };
 
+  // ---- Supertags (reusable bundles of tags) ----
+  let _supers = supertags && typeof supertags === 'object' ? { ...supertags } : {};
+
+  function memberSummary(members) {
+    const ks = Object.keys(members || {});
+    if (!ks.length) return '<span style="color:var(--text-dim)">no member tags</span>';
+    return ks.map(k => `<code style="font-size:11px">${escVal(k)}</code>`).join(' ');
+  }
+
+  function renderSupers() {
+    const keys = Object.keys(_supers).sort();
+    window._superDefs = _supers;
+    document.getElementById('tag-supertag-section').innerHTML = `
+      <div style="padding:12px;overflow-x:auto;border-top:1px solid var(--border);margin-top:12px">
+        <h3 style="margin:0 0 4px">Supertags</h3>
+        <div class="zone-subsection-note" style="margin-bottom:10px">Bundles of tags applied as a unit, e.g. a <code>weapon</code> supertag carrying its slot and combat tags. Applying one to an item stamps its members; editing a supertag re-applies it to every item using it.</div>
+        <div style="margin-bottom:10px">
+          <button class="action-btn success" onclick="superShowAdd()">+ New Supertag</button>
+        </div>
+        <table class="data-table" style="width:100%;border-collapse:collapse">
+          <thead><tr>
+            <th style="white-space:nowrap">Key</th>
+            <th>Label</th>
+            <th>Group</th>
+            <th>Member tags</th>
+            <th style="width:80px"></th>
+          </tr></thead>
+          <tbody>
+            ${keys.length ? keys.map(k => {
+              const s = _supers[k] || {};
+              return `<tr>
+                <td><code style="font-size:11px">${escVal(k)}</code></td>
+                <td>${escVal(s.label)}</td>
+                <td style="color:var(--text-dim);font-size:11px">${escVal(s.group)}</td>
+                <td>${memberSummary(s.members)}</td>
+                <td style="white-space:nowrap">
+                  <button class="action-btn" style="font-size:11px;padding:2px 6px" onclick="superEditRow('${escVal(k)}')">Edit</button>
+                  <button class="action-btn danger" style="font-size:11px;padding:2px 6px;margin-left:3px" onclick="superDeleteRow('${escVal(k)}')">Del</button>
+                </td>
+              </tr>`;
+            }).join('') : '<tr><td colspan="5" style="color:var(--text-dim);padding:8px">No supertags yet.</td></tr>'}
+          </tbody>
+        </table>
+      </div>`;
+  }
+
+  function superMemberPickerHtml() {
+    const present = [...document.querySelectorAll('#super-members .tag-row')].map(r => r.dataset.tag);
+    const groups = {};
+    for (const [name, def] of Object.entries(TAG_CATALOG)) {
+      if (def.scope !== 'class' || name === 'description' || present.includes(name)) continue;
+      (groups[def.group] = groups[def.group] || []).push([name, def]);
+    }
+    const optgroups = Object.entries(groups).map(([g, list]) =>
+      `<optgroup label="${g}">${list.map(([n, d]) => `<option value="${n}">${d.label}</option>`).join('')}</optgroup>`).join('');
+    return `<div class="field-row" style="align-items:flex-end">
+      <div class="field"><label>Add member tag</label><select id="super-add-member">${optgroups}</select></div>
+      <button type="button" class="action-btn" onclick="superAddMember()">Add</button>
+    </div>`;
+  }
+
+  function superMemberRow(name, value) {
+    const def = TAG_CATALOG[name];
+    if (!def) return '';
+    return `<div class="field tag-row" data-tag="${name}">
+      <label>${def.label}<button type="button" onclick="superRemoveMember(this)" style="float:right;background:none;border:none;color:inherit;cursor:pointer;font-size:15px;line-height:1">×</button></label>
+      ${itemTagWidget(name, value)}
+      <div class="zone-subsection-note">${def.help}</div>
+    </div>`;
+  }
+
+  function superDialogForm(s) {
+    const members = (s && s.members) || {};
+    const rows = Object.keys(members).filter(n => TAG_CATALOG[n]).map(n => superMemberRow(n, members[n])).join('');
+    return `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <div class="field"><label>Label</label><input id="sd-label" value="${escVal(s?.label ?? '')}"></div>
+        <div class="field"><label>Group</label><input id="sd-group" value="${escVal(s?.group ?? '')}" placeholder="Classes"></div>
+      </div>
+      <div class="field" style="margin-bottom:8px"><label>Help</label><input id="sd-help" value="${escVal(s?.help ?? '')}" placeholder="What this class of item is..." style="width:100%"></div>
+      <label style="display:block;margin-bottom:4px">Member tags</label>
+      <div id="super-members">${rows}</div>
+      <div id="super-member-picker">${superMemberPickerHtml()}</div>`;
+  }
+
+  function readSuperMembers() {
+    const members = {};
+    for (const row of document.querySelectorAll('#super-members .tag-row')) members[row.dataset.tag] = readItemTag(row);
+    return members;
+  }
+
+  window.superAddMember = function() {
+    const name = document.getElementById('super-add-member')?.value;
+    if (!name) return;
+    const def = TAG_CATALOG[name];
+    const defaults = { flag:true, int:0, enum:def.options?.[0], range:{min:0,max:0}, hot:{amount:0,duration_seconds:0}, statmap:{}, text:'' };
+    document.getElementById('super-members').insertAdjacentHTML('beforeend', superMemberRow(name, defaults[def.shape]));
+    document.getElementById('super-member-picker').innerHTML = superMemberPickerHtml();
+  };
+
+  window.superRemoveMember = function(btn) {
+    btn.closest('.tag-row').remove();
+    document.getElementById('super-member-picker').innerHTML = superMemberPickerHtml();
+  };
+
+  async function commitSupers() {
+    const r = await API('/tag-supertags', 'PUT', _supers);
+    if (r?.error) { toast(r.error, true); return false; }
+    return true;
+  }
+
+  window.superShowAdd = function() {
+    document.getElementById('modal-title').textContent = 'New Supertag';
+    document.getElementById('modal-body').innerHTML = `
+      <div class="field" style="margin-bottom:8px">
+        <label>Key <span style="font-weight:normal;color:var(--text-dim)">(short name, e.g. weapon)</span></label>
+        <input id="sd-key" placeholder="weapon" style="width:100%">
+      </div>
+      ${superDialogForm(null)}`;
+    document.getElementById('modal-save').onclick = window.superAddNew;
+    document.getElementById('generic-modal').style.display = 'flex';
+    document.getElementById('sd-key')?.focus();
+  };
+
+  window.superEditRow = function(key) {
+    const s = _supers[key];
+    document.getElementById('modal-title').textContent = `Edit Supertag: ${key}`;
+    document.getElementById('modal-body').innerHTML = superDialogForm(s);
+    document.getElementById('modal-save').onclick = () => window.superSaveRow(key);
+    document.getElementById('generic-modal').style.display = 'flex';
+    document.getElementById('sd-label')?.focus();
+  };
+
+  function readSuperFields() {
+    let members;
+    try { members = readSuperMembers(); } catch (e) { toast(e.message, true); return null; }
+    return {
+      label: document.getElementById('sd-label')?.value ?? '',
+      group: document.getElementById('sd-group')?.value ?? '',
+      help:  document.getElementById('sd-help')?.value ?? '',
+      members,
+    };
+  }
+
+  window.superAddNew = async function() {
+    const key = document.getElementById('sd-key')?.value?.trim();
+    if (!key) { toast('Key is required', true); return; }
+    if (_supers[key]) { toast(`"${key}" already exists`, true); return; }
+    const fields = readSuperFields();
+    if (!fields) return;
+    _supers[key] = fields;
+    if (!await commitSupers()) { delete _supers[key]; return; }
+    toast(`"${key}" added`);
+    closeModal();
+    renderSupers();
+  };
+
+  window.superSaveRow = async function(key) {
+    const fields = readSuperFields();
+    if (!fields) return;
+    const prev = _supers[key];
+    _supers[key] = fields;
+    const r = await API('/tag-supertags', 'PUT', _supers);
+    if (r?.error) { _supers[key] = prev; toast(r.error, true); return; }
+    toast(r?.rematerialized ? `Saved — ${r.rematerialized} item(s) updated` : 'Supertag saved');
+    closeModal();
+    renderSupers();
+  };
+
+  window.superDeleteRow = async function(key) {
+    if (!confirm(`Delete supertag "${key}"? Items already stamped keep their tags but lose the live link.`)) return;
+    const prev = _supers[key];
+    delete _supers[key];
+    if (!await commitSupers()) { _supers[key] = prev; return; }
+    toast(`"${key}" deleted`);
+    renderSupers();
+  };
+
+  document.getElementById('list-panel').innerHTML =
+    '<div id="tag-catalog-section"></div><div id="tag-supertag-section"></div>';
   render();
+  renderSupers();
 }
 
 // Enemies / spawns
