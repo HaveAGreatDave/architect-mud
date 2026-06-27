@@ -101,17 +101,17 @@ function _applyMotdSubstitutions(template, handle, dynamicText) {
 
 function _fitPanelToMotd() {
   if (_windowSize === 'large') return;
-  requestAnimationFrame(() => {
-    const log   = document.getElementById('whisper-log');
-    const panel = document.getElementById('whisper-panel');
-    if (!log || !panel || _activeWhisperTab !== '#system') return;
-    const pre = log.querySelector('pre');
-    if (!pre) return;
-    // pre.scrollWidth = natural rendered width even if container clips it
-    const targetW = pre.scrollWidth + 22; // 10+10px log padding + 2px border
-    const w = Math.min(Math.max(targetW, 180), Math.floor(window.innerWidth * 0.95));
-    panel.style.width = w + 'px';
-  });
+  const log   = document.getElementById('whisper-log');
+  const panel = document.getElementById('whisper-panel');
+  if (!log || !panel || _activeWhisperTab !== '#system') return;
+  const pre = log.querySelector('pre');
+  if (!pre) return;
+  // Temporarily unconstrain so getBoundingClientRect() forces a reflow at
+  // natural content width, not whatever the panel's current clipped width is.
+  panel.style.width = '9999px';
+  const contentW = pre.getBoundingClientRect().width;
+  const targetW  = Math.ceil(contentW) + 22; // 10+10px log padding + 2px border
+  panel.style.width = Math.min(Math.max(targetW, 150), Math.floor(window.innerWidth * 0.95)) + 'px';
 }
 
 function _setSystemMOTD(renderedText) {
