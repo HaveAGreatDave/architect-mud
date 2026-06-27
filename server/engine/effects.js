@@ -28,11 +28,6 @@ const EFFECT_DEFS = {
       return 'Radiation courses through you. (+2 RAD)';
     },
   },
-  // Cosmetic only — flavor from a botched butchering. No mechanical effect.
-  covered_in_blood: {
-    label: 'Covered in blood',
-    onTick() { return null; },
-  },
 };
 
 // Apply (or refresh) a timed status effect on a player.

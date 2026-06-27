@@ -439,6 +439,7 @@ async function finishAuth(ws, session, player) {
 		origin_fragment: player.origin_fragment || 'A survivor. Still standing, somehow.',
 		archetype: player.archetype || null,
 		visibly_mutated: player.visibly_mutated || 0,
+		covered_in_blood: player.covered_in_blood || 0,
 		current_zone: player.current_zone || "zone_start",
 		anchor_zone: player.anchor_zone || "zone_start",
 		hp: player.hp,

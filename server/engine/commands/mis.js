@@ -934,7 +934,13 @@ async function cmdWash(args, raw, player) {
   }
 
   const washed = await washEjaculate(player);
-  if (!washed) return { type:'output', message:`You're already clean.` };
+  let bloodWashed = false;
+  if (player.covered_in_blood) {
+    player.covered_in_blood = 0;
+    await query('UPDATE players SET covered_in_blood=0 WHERE id=$1', [player.id]);
+    bloodWashed = true;
+  }
+  if (!washed && !bloodWashed) return { type:'output', message:`You're already clean.` };
 
   if (waterRow) {
     if (waterRow.quantity > 1) await query('UPDATE player_inventory SET quantity=quantity-1 WHERE id=$1', [waterRow.id]);
@@ -942,7 +948,10 @@ async function cmdWash(args, raw, player) {
   }
 
   const src = hasSink ? `the sink` : `the water`;
-  return { type:'output', message:`You use ${src} to clean yourself off. Better.` };
+  const msg = bloodWashed
+    ? `You use ${src} to scrub the blood off. Better.`
+    : `You use ${src} to clean yourself off. Better.`;
+  return { type:'output', message: msg };
 }
 
 export const handlers = {

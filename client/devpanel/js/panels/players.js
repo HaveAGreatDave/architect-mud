@@ -126,7 +126,8 @@ async function openPlayerEdit(id) {
       row2(field('Credits','credits','number'), field('Bank Credits','bank_credits','number'))
     )}
     ${section('Flags',
-      row2(field('Visibly Mutated','visibly_mutated','checkbox'), field('Offline Sleeping','offline_sleeping','checkbox'))
+      row2(field('Visibly Mutated','visibly_mutated','checkbox'), field('Offline Sleeping','offline_sleeping','checkbox')) +
+      row2(field('Covered in Blood','covered_in_blood','checkbox'), '')
     )}
     <div style="font-size:10px;color:var(--text-dim);margin-top:12px">
       Created: ${p.created_at ? new Date(p.created_at*1000).toLocaleString() : '—'} &nbsp;|&nbsp;
@@ -159,7 +160,7 @@ async function savePlayerEdit() {
   const NUM = ['hp','hp_max','sanity','sanity_max','hunger','thirst','radiation','stamina','stamina_max',
     'body_temp_c','stat_brawn','stat_reflexes','stat_endurance','stat_brains','stat_cool',
     'ip','credits','bank_credits'];
-  const BOOL = ['visibly_mutated','offline_sleeping'];
+  const BOOL = ['visibly_mutated','offline_sleeping','covered_in_blood'];
   const TEXT = ['handle','username','role','current_zone','anchor_zone','origin_fragment','archetype'];
   const body = {};
   for (const k of TEXT) { const el=document.getElementById(`pe-${k}`); if (el) body[k]=el.value.trim(); }

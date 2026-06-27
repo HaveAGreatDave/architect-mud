@@ -934,7 +934,7 @@ async function apiUpdatePlayer(id, body) {
     'credits','bank_credits','hp','hp_max','sanity','sanity_max',
     'hunger','thirst','radiation','stamina','stamina_max','body_temp_c',
     'stat_brawn','stat_reflexes','stat_endurance','stat_brains','stat_cool','ip',
-    'origin_fragment','archetype','visibly_mutated',
+    'origin_fragment','archetype','visibly_mutated','covered_in_blood',
   ];
   const {rows:existing}=await query('SELECT * FROM players WHERE id=$1',[id]);
   if (!existing.length) return {status:404,body:{error:'Player not found'}};
@@ -956,7 +956,7 @@ async function apiUpdatePlayer(id, body) {
     const LIVE_FIELDS=['handle','role','current_zone','anchor_zone','credits','bank_credits',
       'hp','hp_max','sanity','sanity_max','hunger','thirst','radiation','stamina','stamina_max',
       'body_temp_c','stat_brawn','stat_reflexes','stat_endurance','stat_brains','stat_cool','ip',
-      'origin_fragment','archetype','visibly_mutated'];
+      'origin_fragment','archetype','visibly_mutated','covered_in_blood'];
     for (const f of LIVE_FIELDS) if (f in body) live[f]=updated[f];
     broadcastFn(null,{type:'player_update',hp:live.hp,hp_max:live.hp_max,sanity:live.sanity,
       sanity_max:live.sanity_max,hunger:live.hunger,thirst:live.thirst,radiation:live.radiation,

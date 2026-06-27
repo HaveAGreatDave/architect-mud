@@ -409,6 +409,7 @@ export const SCHEMA_SQL = `
   ALTER TABLE players ADD COLUMN IF NOT EXISTS origin_fragment TEXT;
   ALTER TABLE players ADD COLUMN IF NOT EXISTS archetype TEXT;
   ALTER TABLE players ADD COLUMN IF NOT EXISTS visibly_mutated INTEGER DEFAULT 0;
+  ALTER TABLE players ADD COLUMN IF NOT EXISTS covered_in_blood INTEGER DEFAULT 0;
 
   CREATE TABLE IF NOT EXISTS combat_config (
     key TEXT PRIMARY KEY,

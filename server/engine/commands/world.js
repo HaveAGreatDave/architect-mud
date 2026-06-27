@@ -26,6 +26,7 @@ async function cmdStats(player) {
   if (player.healOverTime?.length) statusFlags.push(`Healing (${player.healOverTime.reduce((s,h)=>s+h.perTick*h.ticksRemaining,0)} HP over ${Math.max(...player.healOverTime.map(h=>h.ticksRemaining))}m)`);
   if (player.wellFedUntil && Date.now() < player.wellFedUntil) statusFlags.push('Well-Fed');
   if (player.hydratedUntil && Date.now() < player.hydratedUntil) statusFlags.push('Hydrated');
+  if (p.covered_in_blood) statusFlags.push('Covered in blood');
   statusFlags.push(...statusLabels(player));
   if (statusFlags.length) msg += `\n\n<span class="status-flags">${statusFlags.join(' · ')}</span>`;
 
@@ -96,6 +97,7 @@ async function describePlayerAppearance(target, isSelf, viewer = null, broadcast
   let msg = `${origin || DEFAULT_ORIGIN}\n`;
   if (physLine) msg += `${physLine}\n`;
   if (mutated) msg += `<span class="mutation-tag">Something about ${isSelf ? 'you' : 'them'} isn't quite human anymore.</span>\n`;
+  if (target.covered_in_blood) msg += `<span style="color:var(--red)">${isSelf ? 'You are' : 'They are'} covered in blood.</span>\n`;
 
   // Clothing contamination
   const contamination = target.clothing_contamination || {};

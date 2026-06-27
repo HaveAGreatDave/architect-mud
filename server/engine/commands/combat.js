@@ -3,12 +3,9 @@ import { getZoneEnemies, getZoneCorpses, getZonePlayers, createCorpse, getCorpse
 import { playerAttackEnemy, isOnCooldown } from "../combat.js";
 import { awardSkillUse, skillCheck } from "../skills.js";
 import { hasTag, tagValue } from "../tags.js";
-import { applyEffect } from "../effects.js";
 import { adjustCredits } from "../economy.js";
 import { emit } from "../events.js";
 import { randomUUID } from "crypto";
-
-const BLOOD_DURATION = 120; // ticks (~2 min) of cosmetic covered_in_blood
 
 export async function resolveAttack(player, target, broadcast) {
 	const { rows } = await query(
@@ -293,7 +290,10 @@ async function cmdButcher(targetStr, player, broadcast) {
 		}
 	}
 
-	if (ruined.length) applyEffect(player, "covered_in_blood", BLOOD_DURATION);
+	if (ruined.length) {
+		player.covered_in_blood = 1;
+		await query("UPDATE players SET covered_in_blood=1 WHERE id=$1", [player.id]);
+	}
 	await removeCorpse(corpse.id);
 	broadcast(
 		player.current_zone,
