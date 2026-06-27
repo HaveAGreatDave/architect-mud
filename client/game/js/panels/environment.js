@@ -30,6 +30,7 @@ let envWeatherIcon = '—';
 let envTempC = null;
 let envCurrentWeatherType = null;
 let envCurrentPrecipIntensity = null;
+let envBodyTempC = null;
 
 function bodyFeelLabel(tempC) {
   if (tempC === null) return '';
@@ -57,12 +58,21 @@ function renderEnvironmentHUD() {
     const t  = document.getElementById(`env-time-icon${suffix}`);
     const p  = document.getElementById(`env-temp${suffix}`);
     const bf = document.getElementById(`env-body-feel${suffix}`);
+    const bt = document.getElementById(`env-body-temp${suffix}`);
     const pl = document.getElementById(`env-precip-intensity${suffix}`);
     if (w)  w.textContent  = envWeatherIcon;
     if (c)  c.textContent  = timeStr;
     if (t)  t.textContent  = timeIcon;
     if (p)  p.textContent  = tempStr;
     if (bf) bf.textContent = feelStr;
+    if (bt) {
+      if (envBodyTempC !== null) {
+        bt.textContent = `🌡 ${envBodyTempC.toFixed(1)}°C`;
+        bt.style.display = '';
+      } else {
+        bt.style.display = 'none';
+      }
+    }
     if (pl) pl.textContent = precipLabel;
   }
 }
@@ -80,6 +90,11 @@ export function updateEnvironmentHUD(env) {
   _lastServerTick = Date.now();
   renderEnvironmentHUD();
   if (env.time) refreshZoneVisibility();
+}
+
+export function updateBodyTempHUD(tempC) {
+  envBodyTempC = tempC;
+  renderEnvironmentHUD();
 }
 
 // Called every minute with the zone's current indoor temperature.

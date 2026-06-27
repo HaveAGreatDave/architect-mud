@@ -1,4 +1,5 @@
 import { state } from './state.js';
+import { updateBodyTempHUD } from './panels/environment.js';
 
 export function appendMsg(text, cls = '') {
   const el = document.createElement('div');
@@ -42,6 +43,9 @@ export function updateVitals(p) {
   }
   if (p.horniness !== undefined) {
     setBar('hor', p.horniness, 100);
+  }
+  if (p.body_temp_c !== undefined) {
+    updateBodyTempHUD(p.body_temp_c);
   }
 }
 
