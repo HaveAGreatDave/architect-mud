@@ -8,16 +8,28 @@
 		<script>
 			// Auto-login is in flight when remembered credentials exist — hide the
 			// auth screen before first paint so it never flashes on refresh.
-			if (localStorage.getItem('mud_remember_user') && localStorage.getItem('mud_remember_pass') && !sessionStorage.getItem('signed-out')) {
-				document.write('<style>#auth-screen{display:none}</style>');
+			if (
+				localStorage.getItem("mud_remember_user") &&
+				localStorage.getItem("mud_remember_pass") &&
+				!sessionStorage.getItem("signed-out")
+			) {
+				document.write("<style>#auth-screen{display:none}</style>");
 			}
 			// Apply sidebar position before first paint to avoid layout flash.
-			(function() {
+			(function () {
 				try {
-					var s = JSON.parse(localStorage.getItem('architect_settings') || '{}');
-					document.documentElement.setAttribute('data-sidebar', s.sidebarPosition || 'left');
-				} catch(e) {
-					document.documentElement.setAttribute('data-sidebar', 'left');
+					var s = JSON.parse(
+						localStorage.getItem("architect_settings") || "{}",
+					);
+					document.documentElement.setAttribute(
+						"data-sidebar",
+						s.sidebarPosition || "left",
+					);
+				} catch (e) {
+					document.documentElement.setAttribute(
+						"data-sidebar",
+						"left",
+					);
 				}
 			})();
 		</script>
@@ -53,22 +65,89 @@
 						placeholder="How will you be known?"
 						maxlength="24" />
 				</div>
-				<div class="auth-field" id="sex-field" style="display:none">
+				<div class="auth-field" id="sex-field" style="display: none">
 					<label>Biological Sex</label>
-					<div style="display:flex;gap:16px;margin-top:4px">
-						<label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="radio" name="auth-sex" id="auth-sex-male" value="male" checked /> Male</label>
-						<label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="radio" name="auth-sex" id="auth-sex-female" value="female" /> Female</label>
+					<div style="display: flex; gap: 16px; margin-top: 4px">
+						<label
+							style="
+								display: flex;
+								align-items: center;
+								gap: 6px;
+								cursor: pointer;
+							"
+							><input
+								type="radio"
+								name="auth-sex"
+								id="auth-sex-male"
+								value="male"
+								checked />
+							Male</label
+						>
+						<label
+							style="
+								display: flex;
+								align-items: center;
+								gap: 6px;
+								cursor: pointer;
+							"
+							><input
+								type="radio"
+								name="auth-sex"
+								id="auth-sex-female"
+								value="female" />
+							Female</label
+						>
 					</div>
 				</div>
-				<div class="auth-field" id="sexuality-field" style="display:none">
+				<div
+					class="auth-field"
+					id="sexuality-field"
+					style="display: none">
 					<label>Sexuality</label>
-					<div style="display:flex;gap:16px;margin-top:4px">
-						<label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="radio" name="auth-sexuality" value="straight" checked /> Straight</label>
-						<label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="radio" name="auth-sexuality" value="homosexual" /> Homosexual</label>
-						<label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="radio" name="auth-sexuality" value="bisexual" /> Bisexual</label>
+					<div style="display: flex; gap: 16px; margin-top: 4px">
+						<label
+							style="
+								display: flex;
+								align-items: center;
+								gap: 6px;
+								cursor: pointer;
+							"
+							><input
+								type="radio"
+								name="auth-sexuality"
+								value="straight"
+								checked />
+							Straight</label
+						>
+						<label
+							style="
+								display: flex;
+								align-items: center;
+								gap: 6px;
+								cursor: pointer;
+							"
+							><input
+								type="radio"
+								name="auth-sexuality"
+								value="homosexual" />
+							Homosexual</label
+						>
+						<label
+							style="
+								display: flex;
+								align-items: center;
+								gap: 6px;
+								cursor: pointer;
+							"
+							><input
+								type="radio"
+								name="auth-sexuality"
+								value="bisexual" />
+							Bisexual</label
+						>
 					</div>
 				</div>
-				<div class="auth-field" id="email-field" style="display:none">
+				<div class="auth-field" id="email-field" style="display: none">
 					<label>Email</label>
 					<input
 						type="email"
@@ -94,7 +173,10 @@
 				</div>
 
 				<div class="auth-field auth-remember">
-					<label><input type="checkbox" id="auth-remember" /> Remember me</label>
+					<label
+						><input type="checkbox" id="auth-remember" /> Remember
+						me</label
+					>
 				</div>
 
 				<button class="auth-btn" id="auth-submit">Enter</button>
@@ -103,57 +185,211 @@
 					<span id="auth-toggle-text">No account?</span>
 					<a id="auth-toggle-link">Register</a>
 				</div>
-				<div id="forgot-link-wrap" style="margin-top:6px;text-align:center">
-					<a id="auth-forgot-link" style="cursor:pointer;font-size:11px;color:var(--text-dim)">Forgot password?</a>
+				<div
+					id="forgot-link-wrap"
+					style="margin-top: 6px; text-align: center">
+					<a
+						id="auth-forgot-link"
+						style="
+							cursor: pointer;
+							font-size: 11px;
+							color: var(--text-dim);
+						"
+						>Forgot password?</a
+					>
 				</div>
 			</div>
 		</div>
 
 		<!-- FORGOT PASSWORD WINDOW (draggable) -->
-		<div id="forgot-window" style="display:none;position:fixed;top:20%;left:50%;transform:translateX(-50%);z-index:300;background:var(--bg2);border:1px solid var(--accent);width:340px;max-width:94vw;box-shadow:0 4px 32px rgba(0,0,0,0.6)">
-			<div id="forgot-drag-handle" style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border);cursor:grab;user-select:none">
-				<span style="color:var(--accent);font-size:11px;letter-spacing:2px;text-transform:uppercase">Forgot Password</span>
-				<button id="forgot-close-btn" style="background:transparent;border:1px solid var(--border);color:var(--text-dim);width:22px;height:22px;cursor:pointer;font-size:11px;line-height:1;font-family:var(--font)">✕</button>
+		<div
+			id="forgot-window"
+			style="
+				display: none;
+				position: fixed;
+				top: 20%;
+				left: 50%;
+				transform: translateX(-50%);
+				z-index: 300;
+				background: var(--bg2);
+				border: 1px solid var(--accent);
+				width: 340px;
+				max-width: 94vw;
+				box-shadow: 0 4px 32px rgba(0, 0, 0, 0.6);
+			">
+			<div
+				id="forgot-drag-handle"
+				style="
+					display: flex;
+					justify-content: space-between;
+					align-items: center;
+					padding: 10px 14px;
+					border-bottom: 1px solid var(--border);
+					cursor: grab;
+					user-select: none;
+				">
+				<span
+					style="
+						color: var(--accent);
+						font-size: 11px;
+						letter-spacing: 2px;
+						text-transform: uppercase;
+					"
+					>Forgot Password</span
+				>
+				<button
+					id="forgot-close-btn"
+					style="
+						background: transparent;
+						border: 1px solid var(--border);
+						color: var(--text-dim);
+						width: 22px;
+						height: 22px;
+						cursor: pointer;
+						font-size: 11px;
+						line-height: 1;
+						font-family: var(--font);
+					">
+					✕
+				</button>
 			</div>
-			<div style="padding:16px;display:flex;flex-direction:column;gap:12px">
-				<div class="auth-field" style="margin:0">
+			<div
+				style="
+					padding: 16px;
+					display: flex;
+					flex-direction: column;
+					gap: 12px;
+				">
+				<div class="auth-field" style="margin: 0">
 					<label>Username</label>
-					<input type="text" id="forgot-username" placeholder="enter your username" style="width:100%;box-sizing:border-box" />
-					<div id="forgot-username-error" style="color:var(--red);font-size:11px;margin-top:4px;display:none"></div>
+					<input
+						type="text"
+						id="forgot-username"
+						placeholder="enter your username"
+						style="width: 100%; box-sizing: border-box" />
+					<div
+						id="forgot-username-error"
+						style="
+							color: var(--red);
+							font-size: 11px;
+							margin-top: 4px;
+							display: none;
+						"></div>
 				</div>
-				<div class="auth-field" style="margin:0">
+				<div class="auth-field" style="margin: 0">
 					<label>Email address</label>
-					<input type="email" id="forgot-email" placeholder="your@email.com" autocomplete="email" style="width:100%;box-sizing:border-box" />
+					<input
+						type="email"
+						id="forgot-email"
+						placeholder="your@email.com"
+						autocomplete="email"
+						style="width: 100%; box-sizing: border-box" />
 				</div>
-				<button class="auth-btn" id="forgot-submit" style="margin:0">Send Reset Link</button>
-				<div class="auth-error" id="forgot-message" style="margin:0"></div>
+				<button class="auth-btn" id="forgot-submit" style="margin: 0">
+					Send Reset Link
+				</button>
+				<div
+					class="auth-error"
+					id="forgot-message"
+					style="margin: 0"></div>
 			</div>
 		</div>
 
 		<!-- RESET PASSWORD WINDOW (draggable) -->
-		<div id="reset-screen" style="display:none;position:fixed;top:20%;left:50%;transform:translateX(-50%);z-index:300;background:var(--bg2);border:1px solid var(--accent);width:340px;max-width:94vw;box-shadow:0 4px 32px rgba(0,0,0,0.6)">
-			<div id="reset-drag-handle" style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border);cursor:grab;user-select:none">
-				<span style="color:var(--accent);font-size:11px;letter-spacing:2px;text-transform:uppercase">Reset Password</span>
-				<button id="reset-close-btn" style="background:transparent;border:1px solid var(--border);color:var(--text-dim);width:22px;height:22px;cursor:pointer;font-size:11px;line-height:1;font-family:var(--font)">✕</button>
+		<div
+			id="reset-screen"
+			style="
+				display: none;
+				position: fixed;
+				top: 20%;
+				left: 50%;
+				transform: translateX(-50%);
+				z-index: 300;
+				background: var(--bg2);
+				border: 1px solid var(--accent);
+				width: 340px;
+				max-width: 94vw;
+				box-shadow: 0 4px 32px rgba(0, 0, 0, 0.6);
+			">
+			<div
+				id="reset-drag-handle"
+				style="
+					display: flex;
+					justify-content: space-between;
+					align-items: center;
+					padding: 10px 14px;
+					border-bottom: 1px solid var(--border);
+					cursor: grab;
+					user-select: none;
+				">
+				<span
+					style="
+						color: var(--accent);
+						font-size: 11px;
+						letter-spacing: 2px;
+						text-transform: uppercase;
+					"
+					>Reset Password</span
+				>
+				<button
+					id="reset-close-btn"
+					style="
+						background: transparent;
+						border: 1px solid var(--border);
+						color: var(--text-dim);
+						width: 22px;
+						height: 22px;
+						cursor: pointer;
+						font-size: 11px;
+						line-height: 1;
+						font-family: var(--font);
+					">
+					✕
+				</button>
 			</div>
-			<div style="padding:16px;display:flex;flex-direction:column;gap:12px">
-				<div class="auth-field" style="margin:0">
+			<div
+				style="
+					padding: 16px;
+					display: flex;
+					flex-direction: column;
+					gap: 12px;
+				">
+				<div class="auth-field" style="margin: 0">
 					<label>New Password</label>
-					<input type="password" id="reset-password" placeholder="new password (min 8 chars)" autocomplete="new-password" style="width:100%;box-sizing:border-box" />
+					<input
+						type="password"
+						id="reset-password"
+						placeholder="new password (min 8 chars)"
+						autocomplete="new-password"
+						style="width: 100%; box-sizing: border-box" />
 				</div>
-				<div class="auth-field" style="margin:0">
+				<div class="auth-field" style="margin: 0">
 					<label>Confirm Password</label>
-					<input type="password" id="reset-password-confirm" placeholder="confirm password" style="width:100%;box-sizing:border-box" />
+					<input
+						type="password"
+						id="reset-password-confirm"
+						placeholder="confirm password"
+						style="width: 100%; box-sizing: border-box" />
 				</div>
-				<button class="auth-btn" id="reset-submit" style="margin:0">Set New Password</button>
-				<div class="auth-error" id="reset-error" style="margin:0"></div>
+				<button class="auth-btn" id="reset-submit" style="margin: 0">
+					Set New Password
+				</button>
+				<div
+					class="auth-error"
+					id="reset-error"
+					style="margin: 0"></div>
 			</div>
 		</div>
 
 		<!-- MAIN UI -->
 		<div id="header">
 			<span class="logo">ARCHITECT</span>
-			<span class="conn-status offline" id="conn-status" title="Disconnected">●</span>
+			<span
+				class="conn-status offline"
+				id="conn-status"
+				title="Disconnected"
+				>●</span
+			>
 			<span class="handle-display" id="handle-display"></span>
 			<span
 				class="credits-display"
@@ -172,7 +408,7 @@
 			</button>
 			<button
 				id="dev-panel-btn"
-				onclick="window.location.href='/dev'"
+				onclick="window.location.href = '/dev'"
 				title="Open Dev Panel"
 				style="
 					display: none;
@@ -194,22 +430,56 @@
 		<div id="mobile-hud">
 			<div id="mobile-vitals">
 				<div class="mob-bar-bg vital-hp" title="HP">
-					<div class="vital-bar mob-bar-fill" id="hp-bar-m" style="width:100%"><span class="mob-bar-val" id="hp-val-m"></span></div>
+					<div
+						class="vital-bar mob-bar-fill"
+						id="hp-bar-m"
+						style="width: 100%">
+						<span class="mob-bar-val" id="hp-val-m"></span>
+					</div>
 				</div>
 				<div class="mob-bar-bg vital-sanity" title="Sanity">
-					<div class="vital-bar mob-bar-fill" id="san-bar-m" style="width:100%"><span class="mob-bar-val" id="san-val-m"></span></div>
+					<div
+						class="vital-bar mob-bar-fill"
+						id="san-bar-m"
+						style="width: 100%">
+						<span class="mob-bar-val" id="san-val-m"></span>
+					</div>
 				</div>
 				<div class="mob-bar-bg vital-hunger" title="Hunger">
-					<div class="vital-bar mob-bar-fill" id="hun-bar-m" style="width:100%"><span class="mob-bar-val" id="hun-val-m"></span></div>
+					<div
+						class="vital-bar mob-bar-fill"
+						id="hun-bar-m"
+						style="width: 100%">
+						<span class="mob-bar-val" id="hun-val-m"></span>
+					</div>
 				</div>
 				<div class="mob-bar-bg vital-thirst" title="Thirst">
-					<div class="vital-bar mob-bar-fill" id="thi-bar-m" style="width:100%"><span class="mob-bar-val" id="thi-val-m"></span></div>
+					<div
+						class="vital-bar mob-bar-fill"
+						id="thi-bar-m"
+						style="width: 100%">
+						<span class="mob-bar-val" id="thi-val-m"></span>
+					</div>
 				</div>
 				<div class="mob-bar-bg vital-stamina" title="Stamina">
-					<div class="vital-bar mob-bar-fill" id="sta-bar-m" style="width:100%"><span class="mob-bar-val" id="sta-val-m"></span></div>
+					<div
+						class="vital-bar mob-bar-fill"
+						id="sta-bar-m"
+						style="width: 100%">
+						<span class="mob-bar-val" id="sta-val-m"></span>
+					</div>
 				</div>
-				<div class="mob-bar-bg vital-horny" title="Horny" id="horny-bar-wrap-m" style="display:none">
-					<div class="vital-bar mob-bar-fill" id="hor-bar-m" style="width:0%"><span class="mob-bar-val" id="hor-val-m"></span></div>
+				<div
+					class="mob-bar-bg vital-horny"
+					title="Horny"
+					id="horny-bar-wrap-m"
+					style="display: none">
+					<div
+						class="vital-bar mob-bar-fill"
+						id="hor-bar-m"
+						style="width: 0%">
+						<span class="mob-bar-val" id="hor-val-m"></span>
+					</div>
 				</div>
 			</div>
 			<div id="mobile-env" title="View 7-day forecast">
@@ -218,20 +488,32 @@
 				<span class="env-icon" id="env-time-icon-m"></span>
 				<span class="env-temp" id="env-temp-m">—°C</span>
 				<span class="env-body-feel" id="env-body-feel-m"></span>
-				<span class="env-body-temp" id="env-body-temp-m" style="display:none"></span>
-				<span class="env-precip-label" id="env-precip-intensity-m"></span>
+				<span
+					class="env-body-temp"
+					id="env-body-temp-m"
+					style="display: none"></span>
+				<span
+					class="env-precip-label"
+					id="env-precip-intensity-m"></span>
 			</div>
-			<button id="mobile-chat-btn" title="Toggle chat">💬<span id="mobile-chat-badge" style="display:none"> !</span></button>
+			<button id="mobile-chat-btn" title="Toggle chat">
+				💬<span id="mobile-chat-badge" style="display: none"> !</span>
+			</button>
 			<button id="mobile-map-btn" title="Toggle minimap">🗺</button>
 		</div>
 
 		<div id="main">
 			<div id="output-container">
 				<div id="area-pane"><div id="area-content"></div></div>
-				<div id="look-resize-handle"><span id="look-resize-reset" title="Double-click or click to reset to auto-fit">reset</span></div>
+				<div id="look-resize-handle">
+					<span
+						id="look-resize-reset"
+						title="Double-click or click to reset to auto-fit"
+						>reset</span
+					>
+				</div>
 				<div id="output"></div>
 				<div id="quick-cmds">
-					<button class="qcmd" data-cmd="look">look</button>
 					<button class="qcmd" data-open-equip>inv</button>
 					<button class="qcmd" data-cmd="stats">stats</button>
 					<button class="qcmd" data-cmd="skills">skills</button>
@@ -241,17 +523,6 @@
 					<button class="qcmd" data-cmd="factions">factions</button>
 					<button class="qcmd" data-cmd="mutations">mutations</button>
 					<button class="qcmd" id="open-map-btn">map</button>
-					<button
-						id="debug-whisper-btn"
-						class="qcmd"
-						style="
-							display: none;
-							border-color: var(--text-dim);
-							opacity: 0.6;
-						"
-						title="Send yourself a test whisper">
-						⚙ test whisper
-					</button>
 				</div>
 				<div id="input-area">
 					<span id="prompt">&gt;</span>
@@ -338,7 +609,10 @@
 								style="width: 0%"></div>
 						</div>
 					</div>
-					<div class="vital vital-horny" id="horny-bar-wrap" style="display:none">
+					<div
+						class="vital vital-horny"
+						id="horny-bar-wrap"
+						style="display: none">
 						<div class="vital-label">
 							<span>Horny</span><span id="hor-val">—</span>
 						</div>
@@ -366,10 +640,19 @@
 							<span class="env-temp" id="env-temp">—°C</span>
 						</div>
 						<div class="env-hud-row env-hud-weather">
-							<span class="env-icon" id="env-weather-icon">—</span>
-							<span class="env-body-feel" id="env-body-feel"></span>
-							<span class="env-body-temp" id="env-body-temp" style="display:none"></span>
-							<span class="env-precip-label" id="env-precip-intensity"></span>
+							<span class="env-icon" id="env-weather-icon"
+								>—</span
+							>
+							<span
+								class="env-body-feel"
+								id="env-body-feel"></span>
+							<span
+								class="env-body-temp"
+								id="env-body-temp"
+								style="display: none"></span>
+							<span
+								class="env-precip-label"
+								id="env-precip-intensity"></span>
 						</div>
 					</div>
 				</div>
@@ -452,8 +735,24 @@
 					cursor: grab;
 					user-select: none;
 				">
-				<span style="flex:1;font-size:10px;color:var(--text-dim);font-family:var(--font-mono);letter-spacing:1px;pointer-events:none">CHAT</span>
-				<div style="display:flex;gap:4px;align-items:center;flex-shrink:0">
+				<span
+					style="
+						flex: 1;
+						font-size: 10px;
+						color: var(--text-dim);
+						font-family: var(--font-mono);
+						letter-spacing: 1px;
+						pointer-events: none;
+					"
+					>CHAT</span
+				>
+				<div
+					style="
+						display: flex;
+						gap: 4px;
+						align-items: center;
+						flex-shrink: 0;
+					">
 					<button
 						id="whisper-cog-btn"
 						title="Chat settings"
@@ -499,110 +798,237 @@
 				</div>
 			</div>
 			<!-- Settings cog dropdown -->
-			<div id="whisper-cog-menu" style="display:none;position:absolute;top:34px;right:0;z-index:200;background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:12px 14px;font-family:var(--font-mono);min-width:176px;box-shadow:0 4px 16px rgba(0,0,0,0.6)">
-				<div style="font-size:9px;color:var(--text-dim);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px">Window Size</div>
-				<div style="display:flex;gap:4px;margin-bottom:12px">
-					<button data-winsize="small"  style="flex:1;background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font-mono);font-size:10px;padding:5px 2px;cursor:pointer;border-radius:2px">Small</button>
-					<button data-winsize="medium" style="flex:1;background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font-mono);font-size:10px;padding:5px 2px;cursor:pointer;border-radius:2px">Med</button>
-					<button data-winsize="large"  style="flex:1;background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font-mono);font-size:10px;padding:5px 2px;cursor:pointer;border-radius:2px">Full</button>
-				</div>
-				<div style="font-size:9px;color:var(--text-dim);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px">Text Size</div>
-				<div style="display:flex;gap:4px">
-					<button data-txtsize="small"  style="flex:1;background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font-mono);font-size:10px;padding:5px 2px;cursor:pointer;border-radius:2px">S</button>
-					<button data-txtsize="medium" style="flex:1;background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font-mono);font-size:10px;padding:5px 2px;cursor:pointer;border-radius:2px">M</button>
-					<button data-txtsize="large"  style="flex:1;background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font-mono);font-size:10px;padding:5px 2px;cursor:pointer;border-radius:2px">L</button>
-				</div>
-			</div>
-			<!-- Content wrapper -->
-			<div id="whisper-content" style="display:flex;flex-direction:column;flex:1;min-height:0;transform-origin:top left;">
-			<!-- Tabs row — not part of the drag handle -->
-			<div style="
-				display: flex;
-				padding: 4px 8px;
-				border-bottom: 1px solid var(--border);
-				flex-shrink: 0;
-				min-width: 0;
-			">
-				<div
-					id="whisper-tabs"
-					style="
-						display: flex;
-						gap: 4px;
-						overflow-x: auto;
-						flex: 1;
-						min-width: 0;
-						align-items: center;
-					"></div>
-			</div>
 			<div
-				id="whisper-log"
-				style="
-					flex: 1;
-					overflow-y: scroll;
-					padding: 10px;
-					font-size: 12px;
-					display: flex;
-					flex-direction: column;
-					gap: 4px;
-					position: relative;
-				"></div>
-			<div
-				id="whisper-new-msgs"
+				id="whisper-cog-menu"
 				style="
 					display: none;
 					position: absolute;
-					bottom: 50px;
-					right: 8px;
-					background: var(--accent);
-					color: #fff;
-					font-size: 10px;
-					padding: 3px 8px;
-					border-radius: 10px;
-					cursor: pointer;
-					z-index: 101;
+					top: 34px;
+					right: 0;
+					z-index: 200;
+					background: var(--bg2);
+					border: 1px solid var(--border);
+					border-radius: 4px;
+					padding: 12px 14px;
+					font-family: var(--font-mono);
+					min-width: 176px;
+					box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
 				">
-				New messages ↓
+				<div
+					style="
+						font-size: 9px;
+						color: var(--text-dim);
+						margin-bottom: 6px;
+						text-transform: uppercase;
+						letter-spacing: 1px;
+					">
+					Window Size
+				</div>
+				<div style="display: flex; gap: 4px; margin-bottom: 12px">
+					<button
+						data-winsize="small"
+						style="
+							flex: 1;
+							background: transparent;
+							border: 1px solid var(--border);
+							color: var(--text-dim);
+							font-family: var(--font-mono);
+							font-size: 10px;
+							padding: 5px 2px;
+							cursor: pointer;
+							border-radius: 2px;
+						">
+						Small
+					</button>
+					<button
+						data-winsize="medium"
+						style="
+							flex: 1;
+							background: transparent;
+							border: 1px solid var(--border);
+							color: var(--text-dim);
+							font-family: var(--font-mono);
+							font-size: 10px;
+							padding: 5px 2px;
+							cursor: pointer;
+							border-radius: 2px;
+						">
+						Med
+					</button>
+					<button
+						data-winsize="large"
+						style="
+							flex: 1;
+							background: transparent;
+							border: 1px solid var(--border);
+							color: var(--text-dim);
+							font-family: var(--font-mono);
+							font-size: 10px;
+							padding: 5px 2px;
+							cursor: pointer;
+							border-radius: 2px;
+						">
+						Full
+					</button>
+				</div>
+				<div
+					style="
+						font-size: 9px;
+						color: var(--text-dim);
+						margin-bottom: 6px;
+						text-transform: uppercase;
+						letter-spacing: 1px;
+					">
+					Text Size
+				</div>
+				<div style="display: flex; gap: 4px">
+					<button
+						data-txtsize="small"
+						style="
+							flex: 1;
+							background: transparent;
+							border: 1px solid var(--border);
+							color: var(--text-dim);
+							font-family: var(--font-mono);
+							font-size: 10px;
+							padding: 5px 2px;
+							cursor: pointer;
+							border-radius: 2px;
+						">
+						S
+					</button>
+					<button
+						data-txtsize="medium"
+						style="
+							flex: 1;
+							background: transparent;
+							border: 1px solid var(--border);
+							color: var(--text-dim);
+							font-family: var(--font-mono);
+							font-size: 10px;
+							padding: 5px 2px;
+							cursor: pointer;
+							border-radius: 2px;
+						">
+						M
+					</button>
+					<button
+						data-txtsize="large"
+						style="
+							flex: 1;
+							background: transparent;
+							border: 1px solid var(--border);
+							color: var(--text-dim);
+							font-family: var(--font-mono);
+							font-size: 10px;
+							padding: 5px 2px;
+							cursor: pointer;
+							border-radius: 2px;
+						">
+						L
+					</button>
+				</div>
 			</div>
+			<!-- Content wrapper -->
 			<div
-				id="whisper-footer"
+				id="whisper-content"
 				style="
-					display: none;
-					padding: 8px;
-					border-top: 1px solid var(--border);
-					gap: 6px;
-					flex-shrink: 0;
+					display: flex;
+					flex-direction: column;
+					flex: 1;
+					min-height: 0;
+					transform-origin: top left;
 				">
-				<input
-					id="whisper-reply-input"
-					type="text"
-					placeholder="Reply…"
+				<!-- Tabs row — not part of the drag handle -->
+				<div
+					style="
+						display: flex;
+						padding: 4px 8px;
+						border-bottom: 1px solid var(--border);
+						flex-shrink: 0;
+						min-width: 0;
+					">
+					<div
+						id="whisper-tabs"
+						style="
+							display: flex;
+							gap: 4px;
+							overflow-x: auto;
+							flex: 1;
+							min-width: 0;
+							align-items: center;
+						"></div>
+				</div>
+				<div
+					id="whisper-log"
 					style="
 						flex: 1;
-						background: var(--bg3);
-						border: 1px solid var(--border);
-						color: var(--text);
-						font-family: var(--font-mono);
+						overflow-y: scroll;
+						padding: 10px;
 						font-size: 12px;
-						padding: 5px 8px;
-						outline: none;
-						border-radius: 2px;
-					" />
-				<button
+						display: flex;
+						flex-direction: column;
+						gap: 4px;
+						position: relative;
+					"></div>
+				<div
+					id="whisper-new-msgs"
 					style="
-						background: transparent;
-						border: 1px solid var(--accent);
-						color: var(--accent);
-						font-family: var(--font-mono);
-						font-size: 11px;
-						padding: 5px 10px;
+						display: none;
+						position: absolute;
+						bottom: 50px;
+						right: 8px;
+						background: var(--accent);
+						color: #fff;
+						font-size: 10px;
+						padding: 3px 8px;
+						border-radius: 10px;
 						cursor: pointer;
-						border-radius: 2px;
-						white-space: nowrap;
+						z-index: 101;
 					">
-					Send
-				</button>
+					New messages ↓
+				</div>
+				<div
+					id="whisper-footer"
+					style="
+						display: none;
+						padding: 8px;
+						border-top: 1px solid var(--border);
+						gap: 6px;
+						flex-shrink: 0;
+					">
+					<input
+						id="whisper-reply-input"
+						type="text"
+						placeholder="Reply…"
+						style="
+							flex: 1;
+							background: var(--bg3);
+							border: 1px solid var(--border);
+							color: var(--text);
+							font-family: var(--font-mono);
+							font-size: 12px;
+							padding: 5px 8px;
+							outline: none;
+							border-radius: 2px;
+						" />
+					<button
+						style="
+							background: transparent;
+							border: 1px solid var(--accent);
+							color: var(--accent);
+							font-family: var(--font-mono);
+							font-size: 11px;
+							padding: 5px 10px;
+							cursor: pointer;
+							border-radius: 2px;
+							white-space: nowrap;
+						">
+						Send
+					</button>
+				</div>
 			</div>
-			</div><!-- /whisper-content -->
+			<!-- /whisper-content -->
 		</div>
 
 		<!-- WHO DIALOG -->
@@ -693,9 +1119,28 @@
 
 				<div class="settings-group">
 					<label class="group-label" for="opt-theme">Theme</label>
-					<div style="display:flex;gap:8px;align-items:center">
-						<select id="opt-theme" class="settings-select" style="flex:1"></select>
-						<button id="theme-edit-btn" style="background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font);font-size:11px;padding:4px 10px;cursor:pointer;border-radius:2px;white-space:nowrap;flex-shrink:0" title="Open theme editor">Edit</button>
+					<div style="display: flex; gap: 8px; align-items: center">
+						<select
+							id="opt-theme"
+							class="settings-select"
+							style="flex: 1"></select>
+						<button
+							id="theme-edit-btn"
+							style="
+								background: transparent;
+								border: 1px solid var(--border);
+								color: var(--text-dim);
+								font-family: var(--font);
+								font-size: 11px;
+								padding: 4px 10px;
+								cursor: pointer;
+								border-radius: 2px;
+								white-space: nowrap;
+								flex-shrink: 0;
+							"
+							title="Open theme editor">
+							Edit
+						</button>
 					</div>
 				</div>
 
@@ -754,34 +1199,112 @@
 				</div>
 
 				<div class="settings-group">
-					<label class="group-label" for="settings-origin">Description</label>
-					<textarea id="settings-origin" maxlength="200" rows="3" placeholder="A survivor. Still standing, somehow." style="width:100%;box-sizing:border-box;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:8px;resize:vertical;border-radius:2px;outline:none"></textarea>
-					<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
-						<span id="settings-origin-counter" style="font-size:10px;color:var(--text-dim)">0 / 200</span>
-						<button id="settings-origin-save" style="background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:var(--font);font-size:11px;padding:4px 12px;cursor:pointer;border-radius:2px;letter-spacing:1px">Save</button>
+					<label class="group-label" for="settings-origin"
+						>Description</label
+					>
+					<textarea
+						id="settings-origin"
+						maxlength="200"
+						rows="3"
+						placeholder="A survivor. Still standing, somehow."
+						style="
+							width: 100%;
+							box-sizing: border-box;
+							background: var(--bg3);
+							border: 1px solid var(--border);
+							color: var(--text);
+							font-family: var(--font);
+							font-size: 12px;
+							padding: 8px;
+							resize: vertical;
+							border-radius: 2px;
+							outline: none;
+						"></textarea>
+					<div
+						style="
+							display: flex;
+							justify-content: space-between;
+							align-items: center;
+							margin-top: 6px;
+						">
+						<span
+							id="settings-origin-counter"
+							style="font-size: 10px; color: var(--text-dim)"
+							>0 / 200</span
+						>
+						<button
+							id="settings-origin-save"
+							style="
+								background: transparent;
+								border: 1px solid var(--accent);
+								color: var(--accent);
+								font-family: var(--font);
+								font-size: 11px;
+								padding: 4px 12px;
+								cursor: pointer;
+								border-radius: 2px;
+								letter-spacing: 1px;
+							">
+							Save
+						</button>
 					</div>
 				</div>
 
 				<div class="settings-group" id="debug-group">
-					<div id="debug-decoy" style="width:100%;height:32px;background:var(--bg2);border-radius:2px;cursor:default;user-select:none;" title=""></div>
-					<label class="group-label" for="settings-debug" id="debug-label" style="display:none">Debug</label>
-					<input type="text" id="settings-debug" autocomplete="off" style="display:none;width:100%;box-sizing:border-box;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:6px 8px;border-radius:2px;outline:none" />
+					<div
+						id="debug-decoy"
+						style="
+							width: 100%;
+							height: 32px;
+							background: var(--bg2);
+							border-radius: 2px;
+							cursor: default;
+							user-select: none;
+						"
+						title=""></div>
+					<label
+						class="group-label"
+						for="settings-debug"
+						id="debug-label"
+						style="display: none"
+						>Debug</label
+					>
+					<input
+						type="text"
+						id="settings-debug"
+						autocomplete="off"
+						style="
+							display: none;
+							width: 100%;
+							box-sizing: border-box;
+							background: var(--bg3);
+							border: 1px solid var(--border);
+							color: var(--text);
+							font-family: var(--font);
+							font-size: 12px;
+							padding: 6px 8px;
+							border-radius: 2px;
+							outline: none;
+						" />
 				</div>
 				<script>
-					(function(){
-						var decoy=document.getElementById('debug-decoy');
-						var label=document.getElementById('debug-label');
-						var input=document.getElementById('settings-debug');
-						var clicks=0,timer=null;
-						decoy.addEventListener('click',function(){
+					(function () {
+						var decoy = document.getElementById("debug-decoy");
+						var label = document.getElementById("debug-label");
+						var input = document.getElementById("settings-debug");
+						var clicks = 0,
+							timer = null;
+						decoy.addEventListener("click", function () {
 							clicks++;
-							if(timer)clearTimeout(timer);
-							timer=setTimeout(function(){clicks=0;},400);
-							if(clicks>=3){
-								clicks=0;
-								decoy.style.display='none';
-								label.style.display='';
-								input.style.display='';
+							if (timer) clearTimeout(timer);
+							timer = setTimeout(function () {
+								clicks = 0;
+							}, 400);
+							if (clicks >= 3) {
+								clicks = 0;
+								decoy.style.display = "none";
+								label.style.display = "";
+								input.style.display = "";
 								input.focus();
 							}
 						});
@@ -792,25 +1315,191 @@
 		</div>
 
 		<!-- THEME EDITOR OVERLAY -->
-		<div id="theme-editor-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:700;align-items:center;justify-content:center">
-			<div style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;width:480px;max-height:88vh;display:flex;flex-direction:column;font-family:var(--font)">
-				<div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
-					<div style="font-size:12px;font-weight:bold;color:var(--accent);text-transform:uppercase;letter-spacing:2px">Theme Editor</div>
-					<button id="te-close-btn" style="background:none;border:none;color:var(--text-dim);font-size:18px;cursor:pointer;line-height:1;padding:0 2px">✕</button>
+		<div
+			id="theme-editor-overlay"
+			style="
+				display: none;
+				position: fixed;
+				inset: 0;
+				background: rgba(0, 0, 0, 0.75);
+				z-index: 700;
+				align-items: center;
+				justify-content: center;
+			">
+			<div
+				style="
+					background: var(--bg2);
+					border: 1px solid var(--border);
+					border-radius: 4px;
+					width: 480px;
+					max-height: 88vh;
+					display: flex;
+					flex-direction: column;
+					font-family: var(--font);
+				">
+				<div
+					style="
+						padding: 14px 18px;
+						border-bottom: 1px solid var(--border);
+						display: flex;
+						justify-content: space-between;
+						align-items: center;
+						flex-shrink: 0;
+					">
+					<div
+						style="
+							font-size: 12px;
+							font-weight: bold;
+							color: var(--accent);
+							text-transform: uppercase;
+							letter-spacing: 2px;
+						">
+						Theme Editor
+					</div>
+					<button
+						id="te-close-btn"
+						style="
+							background: none;
+							border: none;
+							color: var(--text-dim);
+							font-size: 18px;
+							cursor: pointer;
+							line-height: 1;
+							padding: 0 2px;
+						">
+						✕
+					</button>
 				</div>
-				<div style="padding:8px 18px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;flex-shrink:0">
-					<label style="font-size:11px;color:var(--text-dim);white-space:nowrap">Base:</label>
-					<select id="te-base-select" style="flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:4px 6px;border-radius:2px"></select>
+				<div
+					style="
+						padding: 8px 18px;
+						border-bottom: 1px solid var(--border);
+						display: flex;
+						gap: 8px;
+						align-items: center;
+						flex-shrink: 0;
+					">
+					<label
+						style="
+							font-size: 11px;
+							color: var(--text-dim);
+							white-space: nowrap;
+						"
+						>Base:</label
+					>
+					<select
+						id="te-base-select"
+						style="
+							flex: 1;
+							background: var(--bg3);
+							border: 1px solid var(--border);
+							color: var(--text);
+							font-family: var(--font);
+							font-size: 12px;
+							padding: 4px 6px;
+							border-radius: 2px;
+						"></select>
 				</div>
-				<div id="theme-editor-rows" style="padding:14px 18px;display:flex;flex-direction:column;gap:6px;overflow-y:auto"></div>
-				<div style="padding:10px 18px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center;flex-shrink:0">
-					<input id="te-name" type="text" placeholder="Theme name…" style="flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:5px 8px;border-radius:2px">
-					<button id="te-save-btn" style="background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:var(--font);font-size:11px;padding:4px 12px;cursor:pointer;border-radius:2px;letter-spacing:1px">Save Theme</button>
-					<button id="te-delete-btn" style="display:none;background:transparent;border:1px solid var(--red);color:var(--red);font-family:var(--font);font-size:11px;padding:4px 10px;cursor:pointer;border-radius:2px">Delete</button>
+				<div
+					id="theme-editor-rows"
+					style="
+						padding: 14px 18px;
+						display: flex;
+						flex-direction: column;
+						gap: 6px;
+						overflow-y: auto;
+					"></div>
+				<div
+					style="
+						padding: 10px 18px;
+						border-top: 1px solid var(--border);
+						display: flex;
+						gap: 8px;
+						align-items: center;
+						flex-shrink: 0;
+					">
+					<input
+						id="te-name"
+						type="text"
+						placeholder="Theme name…"
+						style="
+							flex: 1;
+							background: var(--bg3);
+							border: 1px solid var(--border);
+							color: var(--text);
+							font-family: var(--font);
+							font-size: 12px;
+							padding: 5px 8px;
+							border-radius: 2px;
+						" />
+					<button
+						id="te-save-btn"
+						style="
+							background: transparent;
+							border: 1px solid var(--accent);
+							color: var(--accent);
+							font-family: var(--font);
+							font-size: 11px;
+							padding: 4px 12px;
+							cursor: pointer;
+							border-radius: 2px;
+							letter-spacing: 1px;
+						">
+						Save Theme
+					</button>
+					<button
+						id="te-delete-btn"
+						style="
+							display: none;
+							background: transparent;
+							border: 1px solid var(--red);
+							color: var(--red);
+							font-family: var(--font);
+							font-size: 11px;
+							padding: 4px 10px;
+							cursor: pointer;
+							border-radius: 2px;
+						">
+						Delete
+					</button>
 				</div>
-				<div style="padding:10px 18px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:space-between;flex-shrink:0">
-					<button id="te-reset-btn" style="background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font);font-size:11px;padding:4px 10px;cursor:pointer;border-radius:2px">Reset to Base</button>
-					<button id="te-close-btn2" style="background:transparent;border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:11px;padding:4px 12px;cursor:pointer;border-radius:2px">Close</button>
+				<div
+					style="
+						padding: 10px 18px;
+						border-top: 1px solid var(--border);
+						display: flex;
+						gap: 8px;
+						justify-content: space-between;
+						flex-shrink: 0;
+					">
+					<button
+						id="te-reset-btn"
+						style="
+							background: transparent;
+							border: 1px solid var(--border);
+							color: var(--text-dim);
+							font-family: var(--font);
+							font-size: 11px;
+							padding: 4px 10px;
+							cursor: pointer;
+							border-radius: 2px;
+						">
+						Reset to Base
+					</button>
+					<button
+						id="te-close-btn2"
+						style="
+							background: transparent;
+							border: 1px solid var(--border);
+							color: var(--text);
+							font-family: var(--font);
+							font-size: 11px;
+							padding: 4px 12px;
+							cursor: pointer;
+							border-radius: 2px;
+						">
+						Close
+					</button>
 				</div>
 			</div>
 		</div>
@@ -838,12 +1527,18 @@
 				<div id="container-notify"></div>
 				<div id="container-body">
 					<div class="container-col" id="container-inv-col">
-						<div class="container-section-label">Your Inventory</div>
+						<div class="container-section-label">
+							Your Inventory
+						</div>
 						<div id="container-inv-list"></div>
 					</div>
 					<div id="container-divider">⇄</div>
 					<div class="container-col" id="container-contents-col">
-						<div class="container-section-label" id="container-contents-label">Container</div>
+						<div
+							class="container-section-label"
+							id="container-contents-label">
+							Container
+						</div>
 						<div id="container-contents-list"></div>
 					</div>
 				</div>
@@ -860,7 +1555,11 @@
 				<div id="loot-notify"></div>
 				<div id="container-body">
 					<div class="container-col" id="loot-contents-col">
-						<div class="container-section-label" id="loot-contents-label">Corpse</div>
+						<div
+							class="container-section-label"
+							id="loot-contents-label">
+							Corpse
+						</div>
 						<div id="loot-contents-list"></div>
 					</div>
 				</div>
@@ -883,8 +1582,16 @@
 						<div id="equip-layer-header">
 							<span id="equip-layer-name">Layer 1 — Skin</span>
 							<div id="equip-layer-arrows">
-								<button id="equip-layer-up" title="Higher layer">▲</button>
-								<button id="equip-layer-down" title="Lower layer">▼</button>
+								<button
+									id="equip-layer-up"
+									title="Higher layer">
+									▲
+								</button>
+								<button
+									id="equip-layer-down"
+									title="Lower layer">
+									▼
+								</button>
 							</div>
 						</div>
 						<div class="equip-section-label">Equipped</div>
@@ -1009,6 +1716,30 @@
 
 		<script type="module" src="js/main.js"></script>
 
-		<a id="bmc-btn" href="https://buymeacoffee.com/haveagreatdave" target="_blank" rel="noopener noreferrer" title="Buy me a coffee" style="position:fixed;bottom:16px;right:16px;display:flex;align-items:center;justify-content:center;width:44px;height:44px;background:#000;border:2px solid #f5c518;border-radius:4px;text-decoration:none;z-index:200;font-size:22px;line-height:1;">&#x2615;</a>
+		<a
+			id="bmc-btn"
+			href="https://buymeacoffee.com/haveagreatdave"
+			target="_blank"
+			rel="noopener noreferrer"
+			title="Buy me a coffee"
+			style="
+				position: fixed;
+				bottom: 16px;
+				right: 16px;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				width: 44px;
+				height: 44px;
+				background: #000;
+				border: 2px solid #f5c518;
+				border-radius: 4px;
+				text-decoration: none;
+				z-index: 200;
+				font-size: 22px;
+				line-height: 1;
+			"
+			>&#x2615;</a
+		>
 	</body>
 </html>
