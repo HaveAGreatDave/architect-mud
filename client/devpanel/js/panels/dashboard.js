@@ -137,35 +137,34 @@ async function _initMotdEditor() {
     return (_motd[view] || '').replace(/<dynamic text>/g, dyn || '[dynamic text]');
   }
 
+  function _setEditorContent(text) {
+    if (!editor) return;
+    editor.value = text != null ? text : (_motd[_view] || '');
+  }
+
   function _updateEditor() {
     if (!editor) return;
-    editor.value    = _readonly ? _getPreview(_view) : (_motd[_view] || '');
     editor.readOnly = _readonly;
     editor.style.color       = _readonly ? 'var(--text-dim)' : 'var(--text)';
     editor.style.borderColor = _readonly ? 'var(--border)' : 'var(--accent)';
   }
 
   function _setView(v) {
-    // Save current edits before switching if in edit mode
     if (!_readonly && editor) _motd[_view] = editor.value;
     _view = v;
     _refreshToggleBtns();
+    _setEditorContent();
     _updateEditor();
   }
 
   function _toggleReadonly() {
-    if (!_readonly && editor) _motd[_view] = editor.value; // save before locking
+    if (!_readonly && editor) _motd[_view] = editor.value;
     _readonly = !_readonly;
     readonlyBtn.textContent  = _readonly ? 'ON' : 'OFF';
     readonlyBtn.style.borderColor = _readonly ? 'var(--accent)' : 'var(--yellow)';
     readonlyBtn.style.color       = _readonly ? 'var(--accent)' : 'var(--yellow)';
-    _updateEditor();
+    _updateEditor(); // only toggles editability — content unchanged
   }
-
-  // Update preview when dynamic text box changes (only in readonly mode)
-  dynamicBox?.addEventListener('input', () => {
-    if (_readonly) _updateEditor();
-  });
 
   toggleBig?.addEventListener('click',    () => _setView('big'));
   toggleMedium?.addEventListener('click', () => _setView('medium'));
@@ -208,6 +207,7 @@ async function _initMotdEditor() {
       if (d.ok) {
         _motd[_view] = adjusted;
         _motd.dynamic = dyn;
+        _setEditorContent(adjusted); // reflect adjusted template back in editor
         _updateEditor();
         _showStatus(`✓ Saved (${_view})`);
       } else {
@@ -237,6 +237,7 @@ async function _initMotdEditor() {
     _motd = { big: d.big || '', medium: d.medium || '', small: d.small || '', dynamic: d.dynamic || '' };
     if (dynamicBox) dynamicBox.value = _motd.dynamic;
     _refreshToggleBtns();
+    _setEditorContent();
     _updateEditor();
   } catch {
     if (editor) editor.placeholder = 'Failed to load MOTD.';
