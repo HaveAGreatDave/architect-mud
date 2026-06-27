@@ -50,6 +50,20 @@ function renderDashboard(data) {
 
       <div style="margin-top:28px">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+          <div style="font-size:13px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">Server Activity Log</div>
+          <button id="log-collapse-btn" onclick="(function(){var b=document.getElementById('log-section-body');var btn=document.getElementById('log-collapse-btn');var hidden=b.style.display==='none';b.style.display=hidden?'':'none';btn.textContent=hidden?'Hide':'Show';})()" style="background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font-mono);font-size:10px;padding:2px 8px;cursor:pointer;border-radius:2px">Hide</button>
+        </div>
+        <div id="log-section-body" style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:16px">
+          <textarea id="activity-log-box"
+            readonly
+            spellcheck="false"
+            style="width:100%;height:760px;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font-mono);font-size:11px;padding:10px;box-sizing:border-box;resize:none;border-radius:2px;line-height:1.52;white-space:pre;overflow:auto;word-wrap:normal;overflow-wrap:normal"
+            placeholder="Loading…"></textarea>
+        </div>
+      </div>
+
+      <div style="margin-top:28px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
           <div style="font-size:13px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">Message of the Day</div>
           <button id="motd-collapse-btn" onclick="(function(){var b=document.getElementById('motd-section-body');var btn=document.getElementById('motd-collapse-btn');var hidden=b.style.display==='none';b.style.display=hidden?'':'none';btn.textContent=hidden?'Hide':'Show';})()" style="background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font-mono);font-size:10px;padding:2px 8px;cursor:pointer;border-radius:2px">Hide</button>
         </div>
@@ -88,23 +102,12 @@ function renderDashboard(data) {
                 style="flex:1;height:60px;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font-mono);font-size:11px;padding:8px 10px;box-sizing:border-box;resize:vertical;border-radius:2px;line-height:1.4"
                 placeholder="e.g. Systems are online."></textarea>
               <div style="display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding-top:2px">
-                <button id="motd-push-btn" style="background:var(--purple);border:none;color:#fff;font-family:var(--font-mono);font-size:11px;font-weight:600;padding:6px 16px;cursor:pointer;border-radius:2px;white-space:nowrap">Send</button>
+                <button id="motd-push-btn" style="background:var(--accent);border:none;color:#000;font-family:var(--font-mono);font-size:11px;font-weight:600;padding:6px 18px;cursor:pointer;border-radius:2px;white-space:nowrap">Send</button>
                 <span id="motd-status" style="font-size:10px;color:var(--text-dim)"></span>
               </div>
             </div>
           </div>
 
-        </div>
-      </div>
-
-      <div style="margin-top:28px">
-        <div style="font-size:13px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">Server Activity Log</div>
-        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:16px">
-          <textarea id="activity-log-box"
-            readonly
-            spellcheck="false"
-            style="width:100%;height:760px;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font-mono);font-size:11px;padding:10px;box-sizing:border-box;resize:none;border-radius:2px;line-height:1.52;white-space:pre;overflow:auto;word-wrap:normal;overflow-wrap:normal"
-            placeholder="Loading…"></textarea>
         </div>
       </div>
 
