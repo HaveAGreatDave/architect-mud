@@ -123,7 +123,7 @@ async function launchPlayerClient() {
     const res = await API('/auth/gen-switch-token', 'POST');
     if (res.error) { toast(res.error, true); return; }
     sessionStorage.setItem('game-switch-token', res.token);
-    window.open('/', '_blank');
+    window.location.href = '/';
   } catch (err) {
     toast('Failed to generate switch token', true);
   }
