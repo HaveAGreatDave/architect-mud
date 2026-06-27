@@ -483,6 +483,8 @@ async function resourceTick() {
     if (isDangerous && player._dangerousTempTicks >= 5) {
       player.hp = Math.max(0, player.hp - 10);
       hpChanged = true;
+      if (isFreezing) messages.push(`Hypothermia is damaging your body. (-10 HP) [${player.hp}/${player.hp_max ?? 100} HP]`);
+      else messages.push(`Heat stroke is damaging your body. (-10 HP) [${player.hp}/${player.hp_max ?? 100} HP]`);
     }
     // Hot/overheating: increased thirst drain
     if ((isHot || isOverheating) && Math.random() < 0.5) {
