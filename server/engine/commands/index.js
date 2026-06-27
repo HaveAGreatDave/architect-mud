@@ -10,6 +10,7 @@ import { handlers as misHandlers, handleJerkOffOn, handleEatOut } from './mis.js
 import { handlers as appearanceHandlers } from './appearance.js';
 import { fireCommand } from '../plugins.js';
 import { fireSpecializedAction } from '../specializedActions.js';
+import { getSelectionState, advanceSelectionState, formatSelectionPage } from '../sift.js';
 
 export { describeZone, describeVoidTeleport } from './describe.js';
 export { recomputeArmor, recomputeInsulation, EQUIP_SLOTS } from './inventory.js';
@@ -35,6 +36,35 @@ const builtins = new Map([
 export async function handleCommand(input, player, broadcast) {
   const raw = input.trim();
   if (!raw) return null;
+
+  // SIFT selection-state intercept — runs before all routing.
+  const _sel = getSelectionState(player.id);
+  if (_sel) {
+    const adv = advanceSelectionState(player.id, raw);
+    if (!adv) {
+      // State expired — fall through to normal pipeline
+    } else if (adv.type === 'cancel') {
+      return { type: 'output', message: 'Selection cancelled.' };
+    } else if (adv.type === 'page') {
+      return { type: 'output', message: formatSelectionPage(adv.state) };
+    } else if (adv.type === 'selected') {
+      const { verb, dispatchType, dispatchParam } = _sel.context;
+      if (dispatchType && dispatchParam) {
+        const { dispatchAction } = await import('../actions.js');
+        return dispatchAction({
+          type: dispatchType,
+          actor: player,
+          params: { [dispatchParam]: adv.candidate },
+          context: { broadcast },
+        });
+      }
+      const handler = builtins.get(verb);
+      if (handler) return handler([adv.candidate.name.toLowerCase()], `${verb} ${adv.candidate.name}`, player, broadcast);
+      return { type: 'error', message: 'Selection handler lost.' };
+    }
+    // adv.type === 'refine': fall through — treat as fresh command
+  }
+
   const parts = raw.toLowerCase().split(/\s+/);
   const cmd = parts[0];
   const args = parts.slice(1);

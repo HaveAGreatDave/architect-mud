@@ -1,6 +1,7 @@
 import { query } from "../../models/db.js";
 import { getZoneEnemies, getZoneCorpses, getZonePlayers, createCorpse, getCorpse, removeCorpse } from "../world.js";
 import { playerAttackEnemy, isOnCooldown } from "../combat.js";
+import { resolveForCommand } from "../sift.js";
 import { awardSkillUse, skillCheck } from "../skills.js";
 import { hasTag, tagValue, isStackable } from "../tags.js";
 import { adjustCredits } from "../economy.js";
@@ -113,11 +114,10 @@ async function cmdAttack(targetStr, player, broadcast) {
 	const enemies = getZoneEnemies(player.current_zone);
 	if (!enemies.length)
 		return { type: "error", message: "Nothing to attack here." };
-	const target = enemies.find((e) =>
-		e.name.toLowerCase().includes(targetStr),
-	);
-	if (!target)
+	const result = resolveForCommand(targetStr, enemies, player, { verb: 'attack', combatScope: true });
+	if (result.type === 'none')
 		return { type: "error", message: `Can't find "${targetStr}" here.` };
+	const target = result.candidate;
 
 	// On cooldown: switch target for next swing instead of erroring
 	if (isOnCooldown(player.id, 'attack')) {

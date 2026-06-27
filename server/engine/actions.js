@@ -7,6 +7,7 @@ import { emit, on } from './events.js';
 import * as inv from './inventory.js';
 import { getZoneEnemies } from './world.js';
 import { resolveAttack } from './commands/combat.js';
+import { resolveForCommand } from './sift.js';
 
 // type -> { type, requiredTag?, validate?, handler }
 const registry = new Map();
@@ -125,8 +126,9 @@ registerAction({
   handler: async ({ actor, params, context, emit }) => {
     const enemies = getZoneEnemies(actor.current_zone);
     if (!enemies.length) return { type:'error', message:'Nothing to attack here.' };
-    const target = enemies.find(e => e.name.toLowerCase().includes(params.targetStr));
-    if (!target) return { type:'error', message:`Can't find "${params.targetStr}" here.` };
+    const result = resolveForCommand(params.targetStr, enemies, actor, { verb: 'attack', combatScope: true });
+    if (result.type === 'none') return { type:'error', message:`Can't find "${params.targetStr}" here.` };
+    const target = result.candidate;
     // resolveAttack emits enemy.killed / enemy.attacked itself — it's the shared
     // chokepoint for the command path and the raw-tick retaliation path.
     return resolveAttack(actor, target, context.broadcast);

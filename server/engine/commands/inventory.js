@@ -5,6 +5,7 @@ import { hasTag, tagValue, hasFlag, isStackable, TAG_CATALOG } from '../tags.js'
 import { foodLoad, drinkLoad } from '../bodily.js';
 import { dispatchAction } from '../actions.js';
 import { getZonePlayers } from '../world.js';
+import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../sift.js';
 
 // Throttle: only broadcast "rummages in container" once per 30s per player.
 const _ctrBroadcastTs = new Map();
@@ -124,16 +125,34 @@ async function cmdTake(targetStr, player, broadcast) {
     return { type:'take', message:messages.join('\n') };
   }
 
-  const { rows } = await query(`SELECT pi.*,i.name,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND i.name ILIKE $2 LIMIT 1`, [`_ground_${player.current_zone}`, `%${targetStr}%`]);
-  if (!rows.length) return { type:'error', message:`Can't find "${targetStr}" here.` };
-  return dispatchAction({ type:'TAKE', actor: player, params: { row: rows[0] }, context: { broadcast } });
+  const { rows } = await query(
+    `SELECT pi.*,i.name,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL`,
+    [`_ground_${player.current_zone}`]
+  );
+  if (!rows.length) return { type:'error', message:`Nothing here to take.` };
+  const sift = siftResolve(targetStr, rows, { verb: 'take' });
+  if (sift.type === 'none') return { type:'error', message:`Can't find "${targetStr}" here.` };
+  if (sift.type === 'ambiguous') {
+    createSelectionState(player.id, sift.candidates, { verb: 'take', dispatchType: 'TAKE', dispatchParam: 'row' });
+    return { type:'output', message: formatSelectionPage({ allCandidates: sift.candidates, visibleIndex: 0, pageSize: 5 }) };
+  }
+  return dispatchAction({ type:'TAKE', actor: player, params: { row: sift.candidate }, context: { broadcast } });
 }
 
 async function cmdDrop(targetStr, player, broadcast) {
   if (!targetStr) return { type:'error', message:'Drop what?' };
-  const { rows } = await query(`SELECT pi.*,i.name FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND i.name ILIKE $2 AND NOT jsonb_exists(i.tags,'quest_item') LIMIT 1`, [player.id, `%${targetStr}%`]);
-  if (!rows.length) return { type:'error', message:`You don't have "${targetStr}".` };
-  return dispatchAction({ type:'DROP', actor: player, params: { row: rows[0] }, context: { broadcast } });
+  const { rows } = await query(
+    `SELECT pi.*,i.name FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND NOT jsonb_exists(i.tags,'quest_item')`,
+    [player.id]
+  );
+  if (!rows.length) return { type:'error', message:`You don't have anything to drop.` };
+  const sift = siftResolve(targetStr, rows, { verb: 'drop' });
+  if (sift.type === 'none') return { type:'error', message:`You don't have "${targetStr}".` };
+  if (sift.type === 'ambiguous') {
+    createSelectionState(player.id, sift.candidates, { verb: 'drop', dispatchType: 'DROP', dispatchParam: 'row' });
+    return { type:'output', message: formatSelectionPage({ allCandidates: sift.candidates, visibleIndex: 0, pageSize: 5 }) };
+  }
+  return dispatchAction({ type:'DROP', actor: player, params: { row: sift.candidate }, context: { broadcast } });
 }
 
 async function cmdDropById(inventoryId, player, broadcast, qty) {
