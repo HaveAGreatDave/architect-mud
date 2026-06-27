@@ -17,8 +17,20 @@ export function appendHtml(html, cls = '') {
   scrollOutput();
 }
 
-export function setAreaPane(html) {
-  document.getElementById('area-content').innerHTML = html;
+// New room text enters in the direction of travel so a move reads as a step.
+const AREA_SLIDE = { north:[0,-1], south:[0,1], east:[1,0], west:[-1,0] };
+
+export function setAreaPane(html, direction) {
+  const el = document.getElementById('area-content');
+  el.innerHTML = html;
+  if (el.animate) {
+    const off = AREA_SLIDE[direction] || [0, 1];
+    el.animate(
+      [{ opacity: 0, transform: `translate(${off[0] * 10}px, ${off[1] * 10}px)` },
+       { opacity: 1, transform: 'translate(0, 0)' }],
+      { duration: 220, easing: 'ease-out' }
+    );
+  }
   document.getElementById('area-pane').dispatchEvent(new CustomEvent('contentupdate'));
 }
 

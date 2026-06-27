@@ -9,7 +9,25 @@ function luminanceTextColor(hex) {
   return `rgb(${t},${t},${t})`;
 }
 
-export function renderMinimap(nodes) {
+// Slide the minimap in the direction of travel so a move reads as movement
+// rather than a hard swap. Offset is one cell; the new frame starts shifted
+// toward where you came from and slides to center (camera-follow feel).
+const MM_SLIDE = { north:[0,-1], south:[0,1], east:[1,0], west:[-1,0] };
+
+function slideMinimap(direction) {
+  const off = MM_SLIDE[direction];
+  if (!off) return;
+  for (const id of ['minimap-grid', 'minimap-grid-mob']) {
+    const el = document.getElementById(id);
+    if (!el || !el.animate) continue;
+    el.animate(
+      [{ transform: `translate(${off[0] * 1.6}em, ${off[1] * 1.6}em)` }, { transform: 'translate(0, 0)' }],
+      { duration: 180, easing: 'ease-out' }
+    );
+  }
+}
+
+export function renderMinimap(nodes, direction) {
   const grid = document.getElementById('minimap-grid');
   if (!nodes || !nodes.length) { grid.textContent = '(unmapped)'; return; }
 
@@ -76,6 +94,7 @@ export function renderMinimap(nodes) {
   grid.innerHTML = html;
   const mob = document.getElementById('minimap-grid-mob');
   if (mob) mob.innerHTML = html;
+  if (direction) slideMinimap(direction);
 }
 
 export function openMapPopup(tiles) {

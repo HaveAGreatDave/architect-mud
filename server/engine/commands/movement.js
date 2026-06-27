@@ -248,7 +248,7 @@ async function cmdMove(direction, player, broadcast) {
     narration = `→ You head ${direction} to ${destName}.`;
   }
 
-  return { type:'move', message:zoneDesc, narration, zone:targetId, radiation_gain:radGain, minimap: getMinimapData(targetId), tempC: getZoneTemperature(targetId) };
+  return { type:'move', message:zoneDesc, narration, zone:targetId, direction, radiation_gain:radGain, minimap: getMinimapData(targetId), tempC: getZoneTemperature(targetId) };
 }
 
 const MAP_DIR_OFFSET = { north:[0,-1], south:[0,1], east:[1,0], west:[-1,0] };
