@@ -19,6 +19,10 @@ export function initChannels(channelList) {
   }
 }
 
+function _isSystemOnly(tabKey) {
+  return _channels.has(tabKey) && _channels.get(tabKey).systemOnly;
+}
+
 export function toggleWhisperPanel() {
   _whisperPanelVisible = !_whisperPanelVisible;
   const panel = document.getElementById('whisper-panel');
@@ -49,7 +53,7 @@ function _switchToTab(key) {
   _refreshWhisperTabs();
   _renderWhisperLog();
   const footer = document.getElementById('whisper-footer');
-  if (footer) footer.style.display = key === USERS_TAB ? 'none' : 'flex';
+  if (footer) footer.style.display = (key === USERS_TAB || _isSystemOnly(key)) ? 'none' : 'flex';
   if (key === USERS_TAB) _fetchOnlinePlayers();
 }
 
@@ -313,6 +317,7 @@ function sendWhisperReply() {
 
   // Channel tab: send via whisper command; message arrives back via channel_msg broadcast.
   if (_channels.has(_activeWhisperTab)) {
+    if (_isSystemOnly(_activeWhisperTab)) return; // system-only channel, no player input
     sendCmdSilent(`whisper ${_activeWhisperTab} ${msg}`);
     if (input) input.value = '';
     return;

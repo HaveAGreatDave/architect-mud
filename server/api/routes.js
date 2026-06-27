@@ -176,6 +176,8 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path==='/tag-catalog' && method==='GET') return requireDev(auth, apiGetTagCatalog);
   if (path==='/tag-catalog' && method==='PUT') return requireDev(auth, ()=>apiPutTagCatalog(body));
   if (path==='/spawn' && method==='POST') return requireDev(auth, ()=>apiSpawnItem(body));
+  if (path==='/motd' && method==='GET') return apiGetMotd();
+  if (path==='/motd' && method==='PUT') return requireDev(auth, ()=>apiSetMotd(body));
   return { status:404, body:{error:'Not found'} };
 }
 
@@ -1469,4 +1471,16 @@ async function apiSpawnItem(body) {
   await query('INSERT INTO player_inventory (id,player_id,item_id,quantity) VALUES ($1,$2,$3,$4)',
     [invId, `_ground_${zone_id}`, item_id, quantity]);
   return { status:201, body:{ ok:true } };
+}
+
+async function apiGetMotd() {
+  const { rows } = await query("SELECT value FROM server_settings WHERE key='motd'");
+  return { status:200, body:{ motd: rows[0]?.value || '' } };
+}
+
+async function apiSetMotd(body) {
+  const { motd } = body || {};
+  if (typeof motd !== 'string') return { status:400, body:{ error:'motd string required' } };
+  await query("INSERT INTO server_settings (key,value) VALUES ('motd',$1) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value", [motd]);
+  return { status:200, body:{ ok:true } };
 }
