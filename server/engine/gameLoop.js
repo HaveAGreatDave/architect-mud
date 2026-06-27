@@ -1,4 +1,4 @@
-import { world, tickSpawns, getRandomAmbient, getWeatherAmbient, getLivePlayer, getInterruptLoudness, registerInterrupt, createCorpse } from './world.js';
+import { world, tickSpawns, getRandomAmbient, getWeatherAmbient, getLivePlayer, getInterruptLoudness, registerInterrupt, createCorpse, removeCorpse } from './world.js';
 import { randomUUID } from 'crypto';
 import { propagateSound } from './sounds.js';
 import { enemyAttackPlayer, isOnCooldown } from './combat.js';
@@ -551,13 +551,10 @@ async function npcWanderTick() {
   }
 }
 
-function cleanCorpses() {
+async function cleanCorpses() {
   const now = Date.now();
   for (const [id, corpse] of world.corpses) {
-    if (corpse.expiresAt < now) {
-      world.zones.get(corpse.zoneId)?.corpses.delete(id);
-      world.corpses.delete(id);
-    }
+    if (corpse.expiresAt < now) await removeCorpse(id);
   }
 }
 

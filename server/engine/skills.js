@@ -12,6 +12,7 @@ export const SKILLS = {
   cooking:     { id:'cooking',     name:'Cooking',     category:'survival', stats:['stat_brains'] },
   medicine:    { id:'medicine',    name:'Medicine',    category:'survival', stats:['stat_brains','stat_reflexes'] },
   navigation:  { id:'navigation',  name:'Navigation',  category:'survival', stats:['stat_brains','stat_reflexes'] },
+  butchering:  { id:'butchering',  name:'Butchering',  category:'survival', stats:['stat_endurance','stat_cool'] },
   hacking:     { id:'hacking',     name:'Hacking',     category:'tech',     stats:['stat_brains'] },
   electronics: { id:'electronics', name:'Electronics', category:'tech',     stats:['stat_brains'] },
   fabrication: { id:'fabrication', name:'Fabrication', category:'tech',     stats:['stat_brains'] },

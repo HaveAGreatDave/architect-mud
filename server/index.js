@@ -736,6 +736,11 @@ async function boot() {
 	setMessagingBroadcast(broadcast);
 	await loadMisSettings();
 	await initWorld();
+	// Corpses are in-memory and don't survive a restart, so sweep any loot rows
+	// still owned by a (now-gone) corpse. Also retires legacy _corpse_<zone> pools.
+	await query(
+		`DELETE FROM player_inventory WHERE player_id LIKE 'corpse_%' OR player_id LIKE '_corpse_%'`,
+	).catch(() => {});
 	await loadRecipes();
 	await loadDrugs();
 	await loadMutations();

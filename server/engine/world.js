@@ -226,6 +226,8 @@ export function spawnEnemySync(template, zoneId) {
     damage_min: template.damage_min, damage_max: template.damage_max,
     armor: template.armor, soak: template.soak || {},
     loot_table: template.loot_table || [],
+    butcher_table: Array.isArray(template.butcher_table) ? template.butcher_table : [],
+    butcher_difficulty: template.butcher_difficulty ?? 5,
     behavior: template.behavior, faction: template.faction,
     death_message: template.death_message, flags,
     zoneId, targetId: null, lastAttack: 0, statuses: [],
@@ -261,6 +263,18 @@ export async function tickSpawns() {
 export function createCorpse(c) {
   world.corpses.set(c.id, c);
   world.zones.get(c.zoneId)?.corpses.add(c.id);
+}
+
+export function getCorpse(id) { return world.corpses.get(id) || null; }
+
+// Remove a corpse from the world and delete any loot rows owned by it so the
+// DB doesn't accumulate orphaned _corpse loot. Called on loot/butcher and expiry.
+export async function removeCorpse(id) {
+  const c = world.corpses.get(id);
+  if (!c) return;
+  world.zones.get(c.zoneId)?.corpses.delete(id);
+  world.corpses.delete(id);
+  await query('DELETE FROM player_inventory WHERE player_id=$1', [id]);
 }
 
 // Returns { message, loudness } or null.

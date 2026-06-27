@@ -1,5 +1,5 @@
 import { query } from '../../models/db.js';
-import { getZone, getZoneEnemies, getZoneNpcs, getZonePlayers, getDoorForExit, getZoneDoors } from '../world.js';
+import { getZone, getZoneEnemies, getZoneNpcs, getZonePlayers, getDoorForExit, getZoneDoors, spawnEnemySync, world } from '../world.js';
 import { getLockTagPublic } from './doors.js';
 import { getZonePowerStatus, recomputePower, recalcZoneLoad, getEnvironmentState } from '../environment.js';
 import { getPlayerSkills, SKILLS } from '../skills.js';
@@ -10,6 +10,7 @@ import { ensureTunables } from '../tunables.js';
 import { physicalDescription, ejaculateDescription, describeGenitals } from '../appearance.js';
 import { isMisActive, isAttractedTo, addHorniness, erectionVisibilityNote, breastVisibilityNote, NIPPLE_HARD, NIPPLE_SOFT } from '../mis.js';
 import { availableActions } from '../specializedActions.js';
+import { statusLabels } from '../effects.js';
 
 async function cmdStats(player) {
   const { rows } = await query('SELECT * FROM players WHERE id=$1', [player.id]);
@@ -25,6 +26,7 @@ async function cmdStats(player) {
   if (player.healOverTime?.length) statusFlags.push(`Healing (${player.healOverTime.reduce((s,h)=>s+h.perTick*h.ticksRemaining,0)} HP over ${Math.max(...player.healOverTime.map(h=>h.ticksRemaining))}m)`);
   if (player.wellFedUntil && Date.now() < player.wellFedUntil) statusFlags.push('Well-Fed');
   if (player.hydratedUntil && Date.now() < player.hydratedUntil) statusFlags.push('Hydrated');
+  statusFlags.push(...statusLabels(player));
   if (statusFlags.length) msg += `\n\n<span class="status-flags">${statusFlags.join(' · ')}</span>`;
 
   return { type:'stats', message:msg, player:p };
@@ -376,6 +378,18 @@ async function cmdSpawn(args, player) {
   return { type: 'output', message: `Spawned ${itemId} in ${zoneId}.` };
 }
 
+async function cmdSpawnEnemy(args, player) {
+  if (!['admin', 'dev'].includes(player.role)) return { type: 'error', message: 'Access denied.' };
+  const [enemyId, zoneArg] = args;
+  if (!enemyId) return { type: 'error', message: 'Usage: spawnenemy <enemy_id> [zone_id|here]' };
+  const zoneId = (!zoneArg || zoneArg === 'here') ? player.current_zone : zoneArg;
+  if (!world.zones.get(zoneId)) return { type: 'error', message: `Zone "${zoneId}" is not loaded.` };
+  const { rows } = await query('SELECT * FROM enemies WHERE id=$1', [enemyId]);
+  if (!rows.length) return { type: 'error', message: `No enemy template "${enemyId}".` };
+  const instance = spawnEnemySync(rows[0], zoneId);
+  return { type: 'output', message: `Spawned ${instance.name} (${instance.instanceId}) in ${zoneId}.` };
+}
+
 async function applyLightSwitch(nameStr, dir, player) {
   if (!nameStr) return { type:'error', message:'Specify a light name.' };
   const { rows } = await query(`SELECT * FROM furniture WHERE zone_id=$1 AND object_type='light' AND name ILIKE $2 LIMIT 1`, [player.current_zone, `%${nameStr}%`]);
@@ -483,7 +497,7 @@ function cmdHelp(player) {
 <span class="help-category">OBSERVE</span>     look sky  |  look ground  |  look distance  |  examine surroundings
 <span class="help-category">INFO</span>        look  |  look &lt;me/item/player&gt;  |  examine &lt;thing&gt;  help`;
   if (player?.role === 'admin') {
-    msg += `\n<span class="help-category">ADMIN</span>      teleport &lt;zone id&gt;  (tp)`;
+    msg += `\n<span class="help-category">ADMIN</span>      teleport &lt;zone id&gt;  (tp)  |  spawn &lt;item id&gt; [zone|here]  |  spawnenemy &lt;enemy id&gt; [zone|here]`;
   }
   return { type:'help', message: msg };
 }
@@ -562,6 +576,7 @@ export const handlers = {
   raise:    (args, raw, player) => cmdRaise(args, player),
   ip:       (args, raw, player) => cmdRaise([], player),
   spawn:    (args, raw, player) => cmdSpawn(args, player),
+  spawnenemy: (args, raw, player) => cmdSpawnEnemy(args, player),
 };
 
 // Lighting controls are owned by the lighting plugin (registered as specialized

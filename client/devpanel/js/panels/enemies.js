@@ -152,6 +152,28 @@ function addLootRow() {
 }
 function removeLootRow(btn) { btn.closest('.loot-row').remove(); }
 
+// Butcher table — same shape as loot, but rolled per-item against the body's
+// butcher difficulty when a player butchers the corpse.
+function butcherRow(items, entry) {
+  const e = entry || {};
+  const min = Array.isArray(e.qty) ? e.qty[0] : (e.qty ?? 1);
+  const max = Array.isArray(e.qty) ? e.qty[1] : (e.qty ?? 1);
+  const sel = e.item || '';
+  return `<div class="butcher-row field-row" style="align-items:flex-end;gap:6px">
+    <div class="field" style="flex:2"><label>Item</label>
+      <select class="butcher-item">${sel?'':'<option value="">— select item —</option>'}${lootItemOptions(items, sel)}</select>
+    </div>
+    <div class="field" style="flex:0 0 78px"><label>Chance %</label><input type="number" class="butcher-weight" value="${e.weight ?? 100}" min="0" max="100" step="1"></div>
+    <div class="field" style="flex:0 0 62px"><label>Qty min</label><input type="number" class="butcher-min" value="${min}" min="1" step="1"></div>
+    <div class="field" style="flex:0 0 62px"><label>Qty max</label><input type="number" class="butcher-max" value="${max}" min="1" step="1"></div>
+    <button type="button" class="action-btn" onclick="removeButcherRow(this)" style="flex:0 0 auto">×</button>
+  </div>`;
+}
+function addButcherRow() {
+  document.getElementById('butcher-rows').insertAdjacentHTML('beforeend', butcherRow(_lootItems, {}));
+}
+function removeButcherRow(btn) { btn.closest('.butcher-row').remove(); }
+
 // Damage types shared by weapon components and per-part soak. Mirrors the
 // item tag catalog's damage_type options.
 const ENEMY_DAMAGE_TYPES = ['kinetic','edged','energy','fire','radiation'];
@@ -227,6 +249,7 @@ async function enemyEditForm(rec, isNew) {
   if (!weapon.length) weapon = [{ type:'kinetic', min:1, max:2 }];
   let bodyParts = Array.isArray(rec.body_parts) ? rec.body_parts : JSON.parse(rec.body_parts||'[]');
   if (!bodyParts.length) bodyParts = defaultBodyParts();
+  const butcher = Array.isArray(rec.butcher_table) ? rec.butcher_table : JSON.parse(rec.butcher_table||'[]');
   return `
     <div class="field"><label>Enemy ID</label><input id="f-id" value="${isNew?'':rec.id}" ${!isNew?'readonly style="opacity:0.5"':''}></div>
     <div class="field"><label>Name</label><input id="f-name" value="${rec.name||''}"></div>
@@ -257,6 +280,11 @@ async function enemyEditForm(rec, isNew) {
       <div id="loot-rows">${loot.map(e=>lootRow(_lootItems, e)).join('')}</div>
       <button type="button" class="action-btn" onclick="addLootRow()" style="margin-top:6px">+ Add Drop</button>
     </div>
+    <div class="field"><label>Butcher Difficulty — skill check target for each carve (0 = trivial). Leave the table empty to make this enemy non-butcherable.</label><input type="number" id="f-butcher_difficulty" value="${rec.butcher_difficulty ?? 5}" min="0" step="1"></div>
+    <div class="field"><label>Butcher Drops — carved with the Butchering skill (knife required)</label>
+      <div id="butcher-rows">${butcher.map(e=>butcherRow(_lootItems, e)).join('')}</div>
+      <button type="button" class="action-btn" onclick="addButcherRow()" style="margin-top:6px">+ Add Butcher Drop</button>
+    </div>
     <div class="field"><label>First Strike Delay (ms) — hesitation before its first attack after aggroing. 0 = attacks immediately.</label><input type="number" id="f-first_strike_delay_ms" value="${rec.flags?.first_strike_delay_ms||0}" min="0" step="500"></div>
     <div class="field"><label>Battle Cries (one per line) — shown on its first strike</label><textarea id="f-battle_cries" rows="3">${(rec.flags?.battle_cries||[]).join('\n')}</textarea></div>
   `;
@@ -275,6 +303,17 @@ async function saveEnemy(existing) {
     if (min < 1) min = 1;
     if (max < min) max = min;
     loot.push({ item, weight, qty: [min, max] });
+  }
+  const butcher_table = [];
+  for (const row of document.querySelectorAll('#butcher-rows .butcher-row')) {
+    const item = row.querySelector('.butcher-item').value;
+    if (!item) continue;
+    const weight = +row.querySelector('.butcher-weight').value || 0;
+    let min = +row.querySelector('.butcher-min').value || 1;
+    let max = +row.querySelector('.butcher-max').value || 1;
+    if (min < 1) min = 1;
+    if (max < min) max = min;
+    butcher_table.push({ item, weight, qty: [min, max] });
   }
   const weapon = [];
   for (const row of document.querySelectorAll('#weapon-rows .weapon-row')) {
@@ -308,6 +347,8 @@ async function saveEnemy(existing) {
     weapon,
     body_parts,
     loot_table: loot,
+    butcher_table,
+    butcher_difficulty: +document.getElementById('f-butcher_difficulty').value || 0,
     flags,
   };
   if (isNew) { body.id = document.getElementById('f-id').value.trim(); return API('/enemies', 'POST', body); }

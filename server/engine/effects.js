@@ -28,6 +28,11 @@ const EFFECT_DEFS = {
       return 'Radiation courses through you. (+2 RAD)';
     },
   },
+  // Cosmetic only — flavor from a botched butchering. No mechanical effect.
+  covered_in_blood: {
+    label: 'Covered in blood',
+    onTick() { return null; },
+  },
 };
 
 // Apply (or refresh) a timed status effect on a player.
@@ -39,6 +44,11 @@ export function applyEffect(player, name, duration) {
   } else {
     player.statuses.push({ name, duration });
   }
+}
+
+// Display labels for a player's active effects (for the `stats` status line).
+export function statusLabels(player) {
+  return (player.statuses || []).map(s => EFFECT_DEFS[s.name]?.label).filter(Boolean);
 }
 
 // Tick all active effects. Returns an array of message strings for broadcast.

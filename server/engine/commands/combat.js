@@ -1,11 +1,14 @@
 import { query } from "../../models/db.js";
-import { getZoneEnemies, getZoneCorpses, getZonePlayers, createCorpse } from "../world.js";
+import { getZoneEnemies, getZoneCorpses, getZonePlayers, createCorpse, getCorpse, removeCorpse } from "../world.js";
 import { playerAttackEnemy, isOnCooldown } from "../combat.js";
 import { awardSkillUse, skillCheck } from "../skills.js";
 import { hasTag, tagValue } from "../tags.js";
+import { applyEffect } from "../effects.js";
 import { adjustCredits } from "../economy.js";
 import { emit } from "../events.js";
 import { randomUUID } from "crypto";
+
+const BLOOD_DURATION = 120; // ticks (~2 min) of cosmetic covered_in_blood
 
 export async function resolveAttack(player, target, broadcast) {
 	const { rows } = await query(
@@ -56,44 +59,36 @@ export async function resolveAttack(player, target, broadcast) {
 
 	if (result.killed) {
 		player.combatTargetId = null;
+		const corpseId = `corpse_${result.enemyId || randomUUID()}`;
+		// Loot now stays ON the corpse (owner = corpseId) until a player loots it,
+		// instead of dropping to the zone ground.
 		if (result.loot?.length) {
 			for (const drop of result.loot) {
 				await query(
 					"INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,$3,$4,0.8)",
-					[
-						randomUUID(),
-						`_ground_${player.current_zone}`,
-						drop.item_id,
-						drop.quantity,
-					],
+					[randomUUID(), corpseId, drop.item_id, drop.quantity],
 				);
-			}
-			// Enrich loot with display names so the client can show
-			// "2x raw meat" with clickable take links instead of raw item ids.
-			const { rows: nameRows } = await query(
-				"SELECT id, name FROM items WHERE id = ANY($1)",
-				[result.loot.map((d) => d.item_id)],
-			);
-			const nameById = new Map(nameRows.map((r) => [r.id, r.name]));
-			for (const drop of result.loot) {
-				drop.name = nameById.get(drop.item_id) || drop.item_id;
 			}
 		}
 		createCorpse({
-			id: `corpse_${result.enemyId || randomUUID()}`,
+			id: corpseId,
 			name: `${target.name}'s corpse`,
 			zoneId: player.current_zone,
 			expiresAt: Date.now() + 60 * 60 * 1000,
+			butcher_table: result.butcher_table || [],
+			butcher_difficulty: result.butcher_difficulty ?? 5,
 		});
+		const corpseLink = `<span class="action-link corpse-link" data-action="loot" data-target="${corpseId}" title="Loot ${target.name}'s corpse">${target.name}'s corpse</span>`;
 		broadcast(
 			player.current_zone,
 			{
 				type: "zone_event",
-				message: `${player.handle} kills ${target.name}.`,
+				message: `${target.name} has fallen. ${corpseLink}`,
 				refresh: true,
 			},
 			player.id,
 		);
+		result.corpseLink = corpseLink;
 	} else {
 		broadcast(
 			player.current_zone,
@@ -108,7 +103,7 @@ export async function resolveAttack(player, target, broadcast) {
 		type: "combat",
 		message: result.message,
 		killed: result.killed || false,
-		loot: result.loot,
+		corpseLink: result.corpseLink || null,
 	};
 }
 
@@ -137,51 +132,180 @@ async function cmdAttack(targetStr, player, broadcast) {
 	return resolveAttack(player, target, broadcast);
 }
 
-async function cmdLootCorpse(targetStr, player, broadcast) {
+// Resolve a corpse in the player's current zone by id (preferred, from a click)
+// or by a substring of its name (typed command).
+function resolveCorpse(targetStr, player) {
+	const direct = getCorpse(targetStr);
+	if (direct && direct.zoneId === player.current_zone) return direct;
 	const corpses = getZoneCorpses(player.current_zone);
-	if (!corpses.length)
-		return { type: "error", message: "No corpses to loot here." };
-	const { rows } = await query(
-		`SELECT pi.*,i.name,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1`,
-		[`_corpse_${player.current_zone}`],
-	);
-	if (!rows.length)
-		return { type: "error", message: "Nothing left to loot." };
+	if (!targetStr) return corpses.length === 1 ? corpses[0] : null;
+	const t = targetStr.toLowerCase();
+	return corpses.find((c) => c.name.toLowerCase().includes(t)) || null;
+}
 
-	const looted = [];
-	for (const item of rows) {
-		if (hasTag(item, "stackable")) {
-			const { rows: existing } = await query(
-				"SELECT id, quantity FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND is_equipped=0",
-				[player.id, item.item_id],
+async function corpseLootRows(corpseId) {
+	const { rows } = await query(
+		`SELECT pi.id,pi.item_id,pi.quantity,i.name,i.rarity,i.weight,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 ORDER BY i.name`,
+		[corpseId],
+	);
+	return rows;
+}
+
+async function buildLootView(corpse) {
+	const items = await corpseLootRows(corpse.id);
+	return {
+		type: "loot_view",
+		corpseId: corpse.id,
+		corpseName: corpse.name,
+		butcherable: (corpse.butcher_table || []).length > 0,
+		items,
+	};
+}
+
+// Move one inventory row to a player, stacking onto an existing stack when the
+// item is stackable. Returns the item's display name.
+async function giveRowToPlayer(item, player) {
+	if (hasTag(item, "stackable")) {
+		const { rows: existing } = await query(
+			"SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND is_equipped=0 AND container_id IS NULL",
+			[player.id, item.item_id],
+		);
+		if (existing.length) {
+			await query(
+				"UPDATE player_inventory SET quantity = quantity + $1 WHERE id = $2",
+				[item.quantity, existing[0].id],
 			);
+			await query("DELETE FROM player_inventory WHERE id=$1", [item.id]);
+			return item.name;
+		}
+	}
+	await query("UPDATE player_inventory SET player_id=$1 WHERE id=$2", [
+		player.id,
+		item.id,
+	]);
+	return item.name;
+}
+
+// Router for `loot <corpse>` (and corpse clicks): open the loot GUI if there's
+// loot, butcher directly if empty-but-butcherable, else nothing. Also handles
+// the by-hand form `loot <item> from <target>` to pull a single item.
+async function cmdLootCorpse(targetStr, player, broadcast) {
+	const fromMatch = targetStr.match(/^(.*?)\s+from\s+(.+)$/i);
+	if (fromMatch) {
+		const [, itemStr, corpseStr] = fromMatch;
+		const corpse = resolveCorpse(corpseStr.trim(), player);
+		if (!corpse) return { type: "error", message: "No corpse to loot here." };
+		const items = await corpseLootRows(corpse.id);
+		const match = items.find((r) =>
+			r.name.toLowerCase().includes(itemStr.trim().toLowerCase()),
+		);
+		if (!match)
+			return { type: "error", message: `No "${itemStr.trim()}" on ${corpse.name}.` };
+		const name = await giveRowToPlayer(match, player);
+		return { type: "loot", message: `You loot ${name} from ${corpse.name}.` };
+	}
+	const corpse = resolveCorpse(targetStr, player);
+	if (!corpse) return { type: "error", message: "No corpse to loot here." };
+	const items = await corpseLootRows(corpse.id);
+	if (items.length) return buildLootView(corpse);
+	if ((corpse.butcher_table || []).length)
+		return cmdButcher(corpse.id, player, broadcast);
+	return { type: "error", message: "Nothing left here." };
+}
+
+// Pull a single item from a corpse into inventory (GUI take button).
+async function cmdLootId(args, player) {
+	const [invId, corpseId] = args;
+	const corpse = corpseId ? getCorpse(corpseId) : null;
+	if (!corpse || corpse.zoneId !== player.current_zone)
+		return { type: "error", message: "That corpse is gone." };
+	const { rows } = await query(
+		`SELECT pi.id,pi.item_id,pi.quantity,i.name,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.id=$1 AND pi.player_id=$2`,
+		[invId, corpseId],
+	);
+	if (!rows.length) return { type: "error", message: "It's already gone." };
+	const name = await giveRowToPlayer(rows[0], player);
+	const view = await buildLootView(corpse);
+	view.mainMsg = `You take ${name}.`;
+	return view;
+}
+
+async function cmdButcher(targetStr, player, broadcast) {
+	const corpse = resolveCorpse(targetStr, player);
+	if (!corpse) return { type: "error", message: "No corpse to butcher here." };
+	const table = corpse.butcher_table || [];
+	if (!table.length)
+		return { type: "error", message: `${corpse.name} can't be butchered.` };
+	const { rows: tools } = await query(
+		`SELECT i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND jsonb_exists(i.tags,'butchering') LIMIT 1`,
+		[player.id],
+	);
+	if (!tools.length)
+		return {
+			type: "error",
+			message: "You need a butchering tool (a knife will do) to do that.",
+		};
+
+	const difficulty = corpse.butcher_difficulty ?? 5;
+	const ids = table.map((e) => e.item);
+	const { rows: itemRows } = await query(
+		"SELECT id,name,rarity,tags FROM items WHERE id = ANY($1)",
+		[ids],
+	);
+	const itemById = new Map(itemRows.map((r) => [r.id, r]));
+
+	const carved = [];
+	const ruined = [];
+	for (const entry of table) {
+		const meta = itemById.get(entry.item);
+		const itemName = meta?.name || entry.item;
+		const check = await skillCheck(player, "butchering", difficulty);
+		await awardSkillUse(player.id, "butchering", check.margin);
+		if (check.success) {
+			const qty = Array.isArray(entry.qty)
+				? Math.floor(Math.random() * (entry.qty[1] - entry.qty[0] + 1)) +
+					entry.qty[0]
+				: entry.qty || 1;
+			const { rows: existing } = hasTag(meta, "stackable")
+				? await query(
+						"SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND is_equipped=0 AND container_id IS NULL LIMIT 1",
+						[player.id, entry.item],
+					)
+				: { rows: [] };
 			if (existing.length) {
 				await query(
 					"UPDATE player_inventory SET quantity = quantity + $1 WHERE id = $2",
-					[item.quantity, existing[0].id],
+					[qty, existing[0].id],
 				);
-				await query("DELETE FROM player_inventory WHERE id=$1", [
-					item.id,
-				]);
-				looted.push(item.name);
-				continue;
+			} else {
+				await query(
+					"INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,$3,$4,1.0)",
+					[randomUUID(), player.id, entry.item, qty],
+				);
 			}
+			const label = qty > 1 ? `${qty}x ${itemName}` : itemName;
+			const rarity = meta?.rarity || "common";
+			carved.push(
+				`<span class="action-link room-item item-rarity-${rarity}" data-action="examine" data-target="${itemName}" title="Examine ${itemName}">${label}</span>`,
+			);
+		} else {
+			ruined.push(itemName);
 		}
-		await query("UPDATE player_inventory SET player_id=$1 WHERE id=$2", [
-			player.id,
-			item.id,
-		]);
-		looted.push(item.name);
 	}
+
+	if (ruined.length) applyEffect(player, "covered_in_blood", BLOOD_DURATION);
+	await removeCorpse(corpse.id);
 	broadcast(
 		player.current_zone,
-		{ type: "zone_event", message: `${player.handle} loots a corpse.` },
+		{ type: "zone_event", message: `${player.handle} butchers ${corpse.name}.`, refresh: true },
 		player.id,
 	);
-	return {
-		type: "loot",
-		message: `You loot the corpse: ${looted.join(", ")}.`,
-	};
+
+	let message = `You butcher ${corpse.name}.`;
+	if (carved.length) message += `\nYou carve free: ${carved.join(", ")}.`;
+	if (ruined.length) message += `\nYou botch and ruin: ${ruined.join(", ")}.`;
+	if (ruined.length) message += `\nYou're covered in blood.`;
+	return { type: "loot", message, closeLoot: true };
 }
 
 const STEAL_COOLDOWN_MS = 60000;
@@ -267,6 +391,10 @@ export const handlers = {
 	disengage: (args, raw, player) => cmdStop(player),
 	loot: (args, raw, player, broadcast) =>
 		cmdLootCorpse(args.join(" "), player, broadcast),
+	lootid: (args, raw, player) => cmdLootId(args, player),
+	butcher: (args, raw, player, broadcast) =>
+		cmdButcher(args.join(" "), player, broadcast),
+	closeloot: () => null,
 	steal: (args, raw, player, broadcast) =>
 		cmdSteal(args.join(" "), player, broadcast),
 };

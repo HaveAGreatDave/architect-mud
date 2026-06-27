@@ -82,6 +82,8 @@
       help: 'Physical damage category. Used to index per-part armor soak on defender.' },
     status_chance: { label: 'Status Chance', shape: 'statmap', scope: 'class', group: 'Combat',
       help: 'Chance to inflict a status, e.g. { "stunned": 0.3 }.' },
+    butchering: { label: 'Butchering Tool', shape: 'flag', scope: 'class', group: 'Combat',
+      help: 'Carrying any item with this tag lets you butcher corpses (knives, blades, etc.).' },
 
     // --- Consumable effects ---
     restore_hp: { label: 'Restore HP', shape: 'int', scope: 'class', group: 'Consumable',

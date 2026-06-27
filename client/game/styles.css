@@ -1078,6 +1078,38 @@
     justify-content: center;
   }
   #container-panel.active { display: flex; }
+  #loot-panel {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    z-index: 150;
+    align-items: center;
+    justify-content: center;
+  }
+  #loot-panel.active { display: flex; }
+  #loot-panel #container-box { max-width: 420px; }
+  #loot-notify { font-size: 11px; color: var(--yellow, #c8a000); text-align: center; min-height: 14px; }
+  #loot-close {
+    background: transparent; border: 1px solid var(--border); color: var(--text-dim);
+    width: 26px; height: 26px; cursor: pointer; border-radius: 2px;
+  }
+  #loot-close:hover { border-color: var(--red); color: var(--red); }
+  #loot-footer { display: flex; justify-content: flex-end; gap: 8px; }
+  .loot-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 6px 14px;
+    cursor: pointer;
+    border-radius: 2px;
+  }
+  .loot-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+  #loot-butcher { border-color: var(--red); color: var(--red); }
+  #loot-butcher:hover { border-color: var(--red); color: var(--text); background: var(--red); }
   #container-box {
     background: var(--bg2);
     border: 1px solid var(--cyan);

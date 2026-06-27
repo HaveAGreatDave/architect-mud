@@ -229,6 +229,8 @@ export async function playerAttackEnemy(player, enemyInstanceId, weaponStats) {
         : `You strike ${enemy.name}'s <span class="hit-part">${partLabel}</span> for <span class="dmg-dealt">${damage}</span> <span class="dmg-type">${damageType}</span>. ${enemy.death_message}`,
       loot,
       enemyId: enemyInstanceId,
+      butcher_table: enemy.butcher_table || [],
+      butcher_difficulty: enemy.butcher_difficulty ?? 5,
     };
   }
 

@@ -8,6 +8,7 @@ import { renderEquipPanel } from './panels/equipment.js';
 import { renderRecipesPanel } from './panels/recipes.js';
 import { receiveWhisper, sentWhisper, receiveChannelMsg, initChannels } from './panels/whisper.js';
 import { openContainerPanel, refreshContainerPanel, getActiveContainerId, showContainerNotify } from './panels/container.js';
+import { openLootPanel, closeLootPanel } from './panels/loot.js';
 import { openLightViewDialog } from './panels/lightview.js';
 import { openMorphexPanel } from './panels/morphex.js';
 import { updateForecast } from './panels/forecast.js';
@@ -75,14 +76,7 @@ const handlers = {
 
   combat: (msg) => {
     appendHtml(msg.message, msg.killed ? 'loot' : 'combat');
-    if (msg.killed && msg.loot?.length) {
-      const links = msg.loot.map(l => {
-        const name = l.name || l.item_id;
-        const label = l.quantity > 1 ? `${l.quantity}x ${name}` : name;
-        return `<span class="action-link room-item" data-action="take" data-target="${name}" title="Take ${name}">${label}</span>`;
-      });
-      appendHtml(`Loot: ${links.join(', ')}`, 'loot');
-    }
+    if (msg.killed && msg.corpseLink) appendHtml(`${msg.corpseLink}`, 'loot');
     if (msg.killed) sendCmdSilent('look');
   },
 
@@ -138,6 +132,11 @@ const handlers = {
   container_view: (msg) => {
     if (msg.mainMsg) appendHtml(msg.mainMsg, 'help');
     openContainerPanel(msg);
+  },
+
+  loot_view: (msg) => {
+    if (msg.mainMsg) appendHtml(msg.mainMsg, 'help');
+    openLootPanel(msg);
   },
 
   container_error: (msg) => {
@@ -282,7 +281,10 @@ const handlers = {
     if (msg.player_update && state.player) { Object.assign(state.player, msg.player_update); updateVitals(state.player); }
   },
 
-  loot: (msg) => { appendHtml(msg.message, 'loot'); },
+  loot: (msg) => {
+    appendHtml(msg.message, 'loot');
+    if (msg.closeLoot) { closeLootPanel(); sendCmdSilent('look'); }
+  },
   mutation_gained: (msg) => { appendHtml(msg.message, 'combat-incoming'); },
 
   kicked: (msg) => {

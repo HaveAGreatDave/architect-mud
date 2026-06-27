@@ -760,15 +760,15 @@ async function apiGetEnemies() { const {rows}=await query('SELECT * FROM enemies
 async function apiCreateEnemy(body) {
   const id=body.id||`enemy_${Date.now()}`;
   try {
-    await query(`INSERT INTO enemies (id,name,description,hit,dodge,hp_max,weapon,body_parts,loot_table,behavior,faction,death_message,flags) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
-      [id,body.name,body.description,body.hit??1,body.dodge??1,body.hp_max||30,JSON.stringify(body.weapon||[]),JSON.stringify(body.body_parts||[]),JSON.stringify(body.loot_table||[]),body.behavior||'aggressive',body.faction||null,body.death_message||'It dies.',JSON.stringify(body.flags||{})]);
+    await query(`INSERT INTO enemies (id,name,description,hit,dodge,hp_max,weapon,body_parts,loot_table,butcher_table,butcher_difficulty,behavior,faction,death_message,flags) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+      [id,body.name,body.description,body.hit??1,body.dodge??1,body.hp_max||30,JSON.stringify(body.weapon||[]),JSON.stringify(body.body_parts||[]),JSON.stringify(body.loot_table||[]),JSON.stringify(body.butcher_table||[]),body.butcher_difficulty??5,body.behavior||'aggressive',body.faction||null,body.death_message||'It dies.',JSON.stringify(body.flags||{})]);
     return {status:201,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
 export async function apiUpdateEnemy(id,body) {
   try {
-    await query(`UPDATE enemies SET name=$1,description=$2,hit=$3,dodge=$4,hp_max=$5,weapon=$6,body_parts=$7,loot_table=$8,behavior=$9,faction=$10,death_message=$11,flags=$12 WHERE id=$13`,
-      [body.name,body.description,body.hit??1,body.dodge??1,body.hp_max,JSON.stringify(body.weapon||[]),JSON.stringify(body.body_parts||[]),JSON.stringify(body.loot_table||[]),body.behavior,body.faction,body.death_message,JSON.stringify(body.flags||{}),id]);
+    await query(`UPDATE enemies SET name=$1,description=$2,hit=$3,dodge=$4,hp_max=$5,weapon=$6,body_parts=$7,loot_table=$8,butcher_table=$9,butcher_difficulty=$10,behavior=$11,faction=$12,death_message=$13,flags=$14 WHERE id=$15`,
+      [body.name,body.description,body.hit??1,body.dodge??1,body.hp_max,JSON.stringify(body.weapon||[]),JSON.stringify(body.body_parts||[]),JSON.stringify(body.loot_table||[]),JSON.stringify(body.butcher_table||[]),body.butcher_difficulty??5,body.behavior,body.faction,body.death_message,JSON.stringify(body.flags||{}),id]);
     return {status:200,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
