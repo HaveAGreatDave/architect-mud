@@ -46,7 +46,22 @@ function renderDashboard(data) {
 
       <div style="font-size:13px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">7-Day Forecast</div>
       ${forecastHtml}
+
+      <div style="margin-top:28px">
+        <div style="font-size:13px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">Message of the Day</div>
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:16px">
+          <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px">Shown to all players on login via #system channel. Use <code style="color:var(--accent)">&lt;dynamic current date&gt;</code> and <code style="color:var(--accent)">&lt;player name&gt;</code> as placeholders.</div>
+          <textarea id="motd-editor" spellcheck="false" style="width:100%;height:320px;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font-mono);font-size:11px;padding:10px;box-sizing:border-box;resize:vertical;border-radius:2px;line-height:1.4" placeholder="Loading…"></textarea>
+          <div style="display:flex;align-items:center;gap:10px;margin-top:10px">
+            <button id="motd-save-btn" style="background:var(--accent);border:none;color:#000;font-family:var(--font-mono);font-size:11px;font-weight:600;padding:6px 18px;cursor:pointer;border-radius:2px">Save MOTD</button>
+            <span id="motd-status" style="font-size:11px;color:var(--text-dim)"></span>
+          </div>
+        </div>
+      </div>
     </div>`;
+
+  // Load and wire MOTD editor
+  _initMotdEditor();
 }
 
 // --- Players panel ---

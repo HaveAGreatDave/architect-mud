@@ -19,6 +19,10 @@ export function initChannels(channelList) {
   }
 }
 
+function _isSystemOnly(tabKey) {
+  return _channels.has(tabKey) && _channels.get(tabKey).systemOnly;
+}
+
 export function toggleWhisperPanel() {
   _whisperPanelVisible = !_whisperPanelVisible;
   const panel = document.getElementById('whisper-panel');
@@ -49,7 +53,7 @@ function _switchToTab(key) {
   _refreshWhisperTabs();
   _renderWhisperLog();
   const footer = document.getElementById('whisper-footer');
-  if (footer) footer.style.display = key === USERS_TAB ? 'none' : 'flex';
+  if (footer) footer.style.display = (key === USERS_TAB || _isSystemOnly(key)) ? 'none' : 'flex';
   if (key === USERS_TAB) _fetchOnlinePlayers();
 }
 
@@ -251,10 +255,18 @@ export function receiveWhisper(from, message) {
 }
 
 export function receiveChannelMsg(channelId, from, message) {
+  const isFirstMsg = !_whisperConvos.has(channelId) || _whisperConvos.get(channelId).messages.length === 0;
   if (!_whisperConvos.has(channelId)) _whisperConvos.set(channelId, { messages: [], scrollTop: 0, unread: 0 });
   const convo = _whisperConvos.get(channelId);
   convo.messages.push({ from, message, isMe: false, ts: Date.now() });
   if (convo.messages.length > WHISPER_MAX_MSGS) convo.messages.shift();
+
+  // Auto-open #system on first message (MOTD on login)
+  if (isFirstMsg && _isSystemOnly(channelId)) {
+    openWhisperTab(channelId);
+    return;
+  }
+
   if (_whisperPanelVisible && _activeWhisperTab === channelId) {
     _renderWhisperLog();
     const log = document.getElementById('whisper-log');
@@ -313,6 +325,7 @@ function sendWhisperReply() {
 
   // Channel tab: send via whisper command; message arrives back via channel_msg broadcast.
   if (_channels.has(_activeWhisperTab)) {
+    if (_isSystemOnly(_activeWhisperTab)) return; // system-only channel, no player input
     sendCmdSilent(`whisper ${_activeWhisperTab} ${msg}`);
     if (input) input.value = '';
     return;

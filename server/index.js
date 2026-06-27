@@ -519,6 +519,24 @@ async function finishAuth(ws, session, player) {
 		}),
 	);
 
+	// Send MOTD to #system channel
+	try {
+		const { rows: motdRows } = await query("SELECT value FROM server_settings WHERE key='motd'");
+		const motdRaw = motdRows[0]?.value || '';
+		if (motdRaw) {
+			const now = new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
+			const motdText = motdRaw
+				.replace(/<dynamic current date>/g, now)
+				.replace(/<player name>/g, livePlayer.handle);
+			ws.send(JSON.stringify({
+				type: 'channel_msg',
+				channel: '#system',
+				from: 'SYSTEM',
+				message: `<pre style="font-family:var(--font-mono);font-size:11px;white-space:pre-wrap;margin:0;color:var(--text)">${motdText.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</pre>`,
+			}));
+		}
+	} catch {}
+
 	const bodyTempLoginMsg = loginBodyTempMessage(livePlayer.body_temp_c);
 	const zone = getZone(livePlayer.current_zone);
 	if (zone) {
