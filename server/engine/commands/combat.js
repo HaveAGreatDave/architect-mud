@@ -2,7 +2,7 @@ import { query } from "../../models/db.js";
 import { getZoneEnemies, getZoneCorpses, getZonePlayers, createCorpse, getCorpse, removeCorpse } from "../world.js";
 import { playerAttackEnemy, isOnCooldown } from "../combat.js";
 import { awardSkillUse, skillCheck } from "../skills.js";
-import { hasTag, tagValue } from "../tags.js";
+import { hasTag, tagValue, isStackable } from "../tags.js";
 import { adjustCredits } from "../economy.js";
 import { emit } from "../events.js";
 import { randomUUID } from "crypto";
@@ -162,7 +162,7 @@ async function buildLootView(corpse) {
 // Move one inventory row to a player, stacking onto an existing stack when the
 // item is stackable. Returns the item's display name.
 async function giveRowToPlayer(item, player) {
-	if (hasTag(item, "stackable")) {
+	if (isStackable(item)) {
 		const { rows: existing } = await query(
 			"SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND is_equipped=0 AND container_id IS NULL",
 			[player.id, item.item_id],
@@ -263,7 +263,7 @@ async function cmdButcher(targetStr, player, broadcast) {
 				? Math.floor(Math.random() * (entry.qty[1] - entry.qty[0] + 1)) +
 					entry.qty[0]
 				: entry.qty || 1;
-			const { rows: existing } = hasTag(meta, "stackable")
+			const { rows: existing } = isStackable(meta)
 				? await query(
 						"SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND is_equipped=0 AND container_id IS NULL LIMIT 1",
 						[player.id, entry.item],

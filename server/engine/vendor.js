@@ -5,6 +5,7 @@ import { query } from '../models/db.js';
 import { getFactionDiscount } from './factions.js';
 import { adjustCredits } from './economy.js';
 import { randomUUID } from 'crypto';
+import { isStackable } from './tags.js';
 
 export async function getVendorStock(npc, playerId) {
   if (!npc.vendor_inventory?.length) return [];
@@ -58,7 +59,7 @@ export async function buyFromVendor(player, npc, itemId, quantity = 1) {
     [player.id, itemId]
   );
 
-  if (existing.length && item.tags?.stackable) {
+  if (existing.length && isStackable(item)) {
     await query('UPDATE player_inventory SET quantity = quantity + $1 WHERE id = $2', [quantity, existing[0].id]);
   } else {
     await query(

@@ -52,9 +52,8 @@ Class tags are a JSON object keyed by tag name → secondary attribute; `true` f
 | `consumable` | `true` | `type='consumable'` (use gate) |
 | `material`/`currency`/`misc` | `true` | `type` markers (filtering/flavor) |
 | `drug` | `true` | `type='drug'` (visibility; routing still via `drugs` join) |
-| `stackable` | `true` | `is_stackable` |
 | `quest_item` | `true` | `is_quest_item` |
-| `unique` | `true` | `is_unique` |
+| `unique` | `true` | `is_unique`; prevents stacking (items stack by default) |
 | `slot` | enum (`head`/`torso`/`hands`/`legs`/`feet`/`weapon_hand`/`accessory`) | `flags.slot` (+ weapon fallback made explicit); presence = equippable |
 | `damage` | `{min,max}` | `effects.damage_min/max` |
 | `weapon_skill` | enum (`blunt`/`bladed`/`energy`) | `subtype` → combat skill routing |
@@ -109,10 +108,10 @@ New helper `server/engine/tags.js` imports the catalog (relative import from `cl
 
 ### Engine cutover (read behavior from `tags`)
 Replace column reads with tag reads across the behavior touchpoints. Pattern: SELECT `i.tags` instead of the legacy columns; branch in JS, or gate in SQL with `jsonb_exists(i.tags,'<name>')` / `i.tags ->> '<key>'` (avoid the bare `?` operator — it collides with node-pg placeholders). Representative changes:
-- `server/engine/commands/inventory.js` — `recomputeArmor` sums `tags.armor`; `cmdInventory` reads instance flags; `cmdTake`/`cmdDrop` use `tags.stackable` / `NOT jsonb_exists(i.tags,'quest_item')`; `cmdUse` gates on `jsonb_exists(i.tags,'consumable')` and reads `restore_*`/`heal_over_time`/`well_fed`/`hydrating`; `cmdEquip*` gate on `jsonb_exists(i.tags,'slot')`, read `tags.requires` and `tags.slot`.
+- `server/engine/commands/inventory.js` — `recomputeArmor` sums `tags.armor`; `cmdInventory` reads instance flags; `cmdTake`/`cmdDrop` stack via `isStackable()` (default unless `tags.unique`) / `NOT jsonb_exists(i.tags,'quest_item')`; `cmdUse` gates on `jsonb_exists(i.tags,'consumable')` and reads `restore_*`/`heal_over_time`/`well_fed`/`hydrating`; `cmdEquip*` gate on `jsonb_exists(i.tags,'slot')`, read `tags.requires` and `tags.slot`.
 - `server/engine/commands/combat.js` — weapon lookup gates on `jsonb_exists(i.tags,'weapon')`; reads `tags.damage` and `tags.weapon_skill`. (`rollAttack` in `server/engine/combat.js` is field-agnostic — unchanged.)
-- `server/engine/vendor.js` — sell quest-block via `tags.quest_item`; buy stack via `tags.stackable`.
-- `server/engine/crafting.js` — output stacking reads `tags.stackable`; `custom_data` quality match unchanged.
+- `server/engine/vendor.js` — sell quest-block via `tags.quest_item`; buy stack via `isStackable()` (default unless `tags.unique`).
+- `server/engine/crafting.js` — output stacking via `isStackable()` (default unless `tags.unique`); `custom_data` quality match unchanged.
 
 ### Dev panel
 Rewrite `itemEditForm` and `saveItem` in `client/devpanel/index.html` (~1439–1489); add `<script src="/shared/tagCatalog.js"></script>` before the main script (~line 158). Layout:

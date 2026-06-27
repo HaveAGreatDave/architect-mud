@@ -71,9 +71,8 @@ tag model and the rationale behind it.
 | Tag | Shape | What it does |
 |---|---|---|
 | `description` | text | Shown on examine / look. Always present in the editor. |
-| `stackable` | flag | Merges into one quantity row instead of duplicate rows. |
 | `quest_item` | flag | Cannot be dropped or sold. |
-| `unique` | flag | Reserved marker; not enforced yet. |
+| `unique` | flag | Prevents stacking. Items merge into one quantity row by default; tag Unique to keep each as its own row. |
 | `weapon` | flag | Marks the combat weapon. The equipped item with this tag is used when you attack. |
 | `consumable` | flag | Usable via `use`/`eat`/`drink`; gates the consumable path. |
 | `drug` | flag | Drug marker (visibility/flavor). Mechanics still come from the `drugs` table joined by `item_id`. |
@@ -126,10 +125,10 @@ and left untouched.
 { "description":"A motorcycle helmet with extra rivets.", "slot":"head" }
 
 // Gradual heal — Trauma Kit
-{ "consumable":true, "stackable":true, "heal_over_time":{"amount":50,"duration_seconds":300} }
+{ "consumable":true, "heal_over_time":{"amount":50,"duration_seconds":300} }
 
 // Drink (auto Hydrated buff) — Glow Cocktail
-{ "consumable":true, "stackable":true, "restore_thirst":12, "restore_sanity":12,
+{ "consumable":true, "restore_thirst":12, "restore_sanity":12,
   "restore_radiation":4, "hydrating":true }
 
 // Accessory — Rad-Counter Wristband

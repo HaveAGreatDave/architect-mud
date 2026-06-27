@@ -4,7 +4,7 @@ import { getZoneVisibility, getWindowsForZone, getWeatherDescription } from '../
 import { getCustodianOutcastResponse } from '../mutations.js';
 import { describeApartmentStatus, describeRentStatus } from '../apartments.js';
 import { fireHook } from '../plugins.js';
-import { hasTag } from '../tags.js';
+import { isStackable } from '../tags.js';
 
 const turretCooldowns = new Map();
 
@@ -238,7 +238,7 @@ export async function describeZone(zone, player) {
       const stacks = new Map();
       const mentions = [];
       for (const item of groundItems) {
-        if (hasTag(item, 'stackable')) {
+        if (isStackable(item)) {
           const existing = stacks.get(item.item_id);
           if (existing) {
             existing.qty += item.quantity;

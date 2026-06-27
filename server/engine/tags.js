@@ -39,6 +39,11 @@ export function hasTag(item, name) {
   return Object.prototype.hasOwnProperty.call(tags, name);
 }
 
+// Items stack by default; the `unique` tag opts an item out of stacking.
+export function isStackable(item) {
+  return !hasTag(item, 'unique');
+}
+
 export function tagValue(item, name, fallback = undefined) {
   const tags = tagsOf(item);
   if (Object.prototype.hasOwnProperty.call(tags, name)) return tags[name];

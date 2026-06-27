@@ -1342,7 +1342,7 @@ async function apiCreateKeycard(doorId, body) {
     await query(
       `INSERT INTO items (id, name, description, type, subtype, weight, value, rarity, is_stackable, is_unique, flags)
        VALUES ($1,$2,$3,'key','keycard',0.05,0,'rare',0,1,$4)`,
-      [id, name, description, JSON.stringify({ keycard_for_door: doorId })]
+      [id, name, description, JSON.stringify({ keycard_for_door: doorId, unique: true })]
     );
     return { status:201, body:{ id } };
   } catch(e) { return { status:400, body:{ error:e.message } }; }

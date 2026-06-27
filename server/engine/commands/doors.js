@@ -251,7 +251,7 @@ async function cmdInstallLock(args, raw, player, broadcast) {
          VALUES ($1,$2,$3,'key','keycard',0.05,0,'rare',0,1,$4)`,
         [keycardId, `Keycard — ${zoneName}`,
          `A slim obsidian card threaded with bioluminescent circuitry. Its access signature is keyed exclusively to the reader on ${zoneName}'s door.`,
-         JSON.stringify({ keycard_for_door: door.id })]
+         JSON.stringify({ keycard_for_door: door.id, unique: true })]
       );
     }
     lockData.keyItemId = keycardId;

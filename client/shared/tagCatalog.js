@@ -27,12 +27,10 @@
     // --- Core / identity ---
     description: { label: 'Description', shape: 'text', scope: 'class', group: 'Core',
       help: 'Free text shown on examine / look <item>.' },
-    stackable: { label: 'Stackable', shape: 'flag', scope: 'class', group: 'Core',
-      help: 'Merges into a single quantity row instead of duplicate rows.' },
     quest_item: { label: 'Quest Item', shape: 'flag', scope: 'class', group: 'Core',
       help: 'Cannot be dropped or sold.' },
     unique: { label: 'Unique', shape: 'flag', scope: 'class', group: 'Core',
-      help: 'Reserved marker; not enforced in engine logic yet.' },
+      help: 'Prevents stacking. Items stack by default; tag an item Unique to keep each as its own row.' },
 
     // --- Type markers (filtering / flavor / routing) ---
     weapon: { label: 'Weapon', shape: 'flag', scope: 'class', group: 'Type',

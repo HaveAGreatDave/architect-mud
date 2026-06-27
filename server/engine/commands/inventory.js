@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto';
 import { query } from '../../models/db.js';
 import { useDrug } from '../drugs.js';
-import { hasTag, tagValue, hasFlag, TAG_CATALOG } from '../tags.js';
+import { hasTag, tagValue, hasFlag, isStackable, TAG_CATALOG } from '../tags.js';
 import { foodLoad, drinkLoad } from '../bodily.js';
 import { dispatchAction } from '../actions.js';
 import { getZonePlayers } from '../world.js';
@@ -403,7 +403,7 @@ async function cmdStowById(argStr, player, broadcast) {
 
   if (used + adding > cap) {
     // Partial fill: for stackable multi-quantity items, stow as many as fit.
-    if (hasTag(item, 'stackable') && itemWeight > 0 && item.quantity > 1) {
+    if (isStackable(item) && itemWeight > 0 && item.quantity > 1) {
       const canFit = Math.floor((cap - used) / itemWeight);
       if (canFit > 0) {
         const { rows: existing } = await query('SELECT id FROM player_inventory WHERE container_id=$1 AND item_id=$2 LIMIT 1', [container.id, item.item_id]);
@@ -424,7 +424,7 @@ async function cmdStowById(argStr, player, broadcast) {
     return { type:'container_error', message:`${container.name} is full (${formatWeight(used)}/${formatWeight(cap)}).` };
   }
 
-  if (hasTag(item, 'stackable')) {
+  if (isStackable(item)) {
     const { rows: existing } = await query('SELECT id FROM player_inventory WHERE container_id=$1 AND item_id=$2 LIMIT 1', [container.id, item.item_id]);
     if (existing.length) {
       await query('UPDATE player_inventory SET quantity=quantity+$1 WHERE id=$2', [item.quantity, existing[0].id]);
@@ -451,7 +451,7 @@ async function cmdPullById(idStr, player, broadcast) {
   const container = await loadContainerById(containerId, player);
   if (!container) return { type:'container_error', message:'Not your container.' };
 
-  if (hasTag(item, 'stackable')) {
+  if (isStackable(item)) {
     const { rows: existing } = await query('SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND container_id IS NULL AND is_equipped=0 LIMIT 1', [player.id, item.item_id]);
     if (existing.length) {
       await query('UPDATE player_inventory SET quantity=quantity+$1 WHERE id=$2', [item.quantity, existing[0].id]);
@@ -503,7 +503,7 @@ async function cmdStow(argStr, player) {
   const adding = (item.weight || 0) * item.quantity;
   if (used + adding > cap) return { type:'error', message:`${container.name} can't hold that — ${formatWeight(used)}/${formatWeight(cap)} used, ${item.name} weighs ${formatWeight(adding)}.` };
 
-  if (hasTag(item, 'stackable')) {
+  if (isStackable(item)) {
     const { rows: existing } = await query('SELECT id FROM player_inventory WHERE container_id=$1 AND item_id=$2 LIMIT 1', [container.id, item.item_id]);
     if (existing.length) {
       await query('UPDATE player_inventory SET quantity=quantity+$1 WHERE id=$2', [item.quantity, existing[0].id]);
@@ -527,7 +527,7 @@ async function cmdPull(argStr, player) {
   if (!rows.length) return { type:'error', message:`There's no "${itemPart}" in ${container.name}.` };
   const item = rows[0];
 
-  if (hasTag(item, 'stackable')) {
+  if (isStackable(item)) {
     const { rows: existing } = await query('SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND container_id IS NULL AND is_equipped=0 LIMIT 1', [player.id, item.item_id]);
     if (existing.length) {
       await query('UPDATE player_inventory SET quantity=quantity+$1 WHERE id=$2', [item.quantity, existing[0].id]);

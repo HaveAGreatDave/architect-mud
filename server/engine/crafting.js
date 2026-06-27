@@ -8,6 +8,7 @@
  */
 import { query } from '../models/db.js';
 import { awardSkillUse, skillCheck } from './skills.js';
+import { isStackable } from './tags.js';
 
 // Quality tiers: numeric 0–4, stored as text in item flags
 export const QUALITY_TIERS = {
@@ -148,7 +149,7 @@ export async function attemptCraft(player, recipeId, stationQuality = 'none') {
   const customData = { quality: outputQuality };
 
   const { rows: outputItemRows } = await query('SELECT tags FROM items WHERE id=$1', [recipe.base_output.item_id]);
-  const outputIsStackable = outputItemRows[0]?.tags?.stackable;
+  const outputIsStackable = outputItemRows[0] ? isStackable(outputItemRows[0]) : false;
 
   let existingStack = [];
   if (outputIsStackable) {
