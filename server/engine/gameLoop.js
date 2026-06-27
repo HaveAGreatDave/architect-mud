@@ -178,28 +178,20 @@ export function handlePlayerDeath(player, killer) {
   world.zones.get(respawnZone)?.players.add(player.id);
   player.current_zone = respawnZone;
 
-  // Equip fresh underwear — fresh clone, fresh start
+  // Equip fresh underwear (layer 1) and basic clothing (layer 2) on respawn
   const sex = player.biological_sex || 'male';
-  if (sex === 'male') {
-    query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,is_equipped,slot)
-           SELECT $1,$2,i.id,1,1.0,1,'legs' FROM items i WHERE i.id='item_underwear_male'
-           AND NOT EXISTS (SELECT 1 FROM player_inventory WHERE player_id=$2 AND item_id='item_underwear_male' AND is_equipped=1)`,
-      [randomUUID(), player.id]).catch(() => {});
-  } else {
-    query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,is_equipped,slot)
-           SELECT $1,$2,i.id,1,1.0,1,'torso' FROM items i WHERE i.id='item_underwear_female_top'
-           AND NOT EXISTS (SELECT 1 FROM player_inventory WHERE player_id=$2 AND item_id='item_underwear_female_top' AND is_equipped=1)`,
-      [randomUUID(), player.id]).catch(() => {});
-    query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,is_equipped,slot)
-           SELECT $1,$2,i.id,1,1.0,1,'legs' FROM items i WHERE i.id='item_underwear_female_bottom'
-           AND NOT EXISTS (SELECT 1 FROM player_inventory WHERE player_id=$2 AND item_id='item_underwear_female_bottom' AND is_equipped=1)`,
-      [randomUUID(), player.id]).catch(() => {});
-  }
-
-  // Equip basic clothing on respawn if not already wearing it
-  for (const [itemId, slot] of [['item_basic_shirt','torso'],['item_basic_pants','legs'],['item_basic_shoes','feet']]) {
+  const underwear = sex === 'male'
+    ? [['item_underwear_male', 'legs']]
+    : [['item_underwear_female_top', 'torso'], ['item_underwear_female_bottom', 'legs']];
+  for (const [itemId, slot] of underwear) {
     query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,is_equipped,slot,layer)
            SELECT $1,$2,i.id,1,1.0,1,$3,1 FROM items i WHERE i.id=$4
+           AND NOT EXISTS (SELECT 1 FROM player_inventory WHERE player_id=$2 AND item_id=$4 AND is_equipped=1)`,
+      [randomUUID(), player.id, slot, itemId]).catch(() => {});
+  }
+  for (const [itemId, slot] of [['item_basic_shirt','torso'],['item_basic_pants','legs'],['item_basic_shoes','feet']]) {
+    query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,is_equipped,slot,layer)
+           SELECT $1,$2,i.id,1,1.0,1,$3,2 FROM items i WHERE i.id=$4
            AND NOT EXISTS (SELECT 1 FROM player_inventory WHERE player_id=$2 AND item_id=$4 AND is_equipped=1)`,
       [randomUUID(), player.id, slot, itemId]).catch(() => {});
   }
