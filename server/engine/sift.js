@@ -81,6 +81,11 @@ export function resolve(query, candidates, context = {}) {
   if (!scored.length) return { type: 'none' };
   if (scored.length === 1 || scored[0].score - scored[1].score >= 8)
     return { type: 'match', candidate: scored[0].candidate, score: scored[0].score };
+  // Identical names at the top score are interchangeable — pick the first one silently.
+  const topScore = scored[0].score;
+  const topName = scored[0].candidate.name.toLowerCase();
+  if (scored.every(s => s.score < topScore || s.candidate.name.toLowerCase() === topName))
+    return { type: 'match', candidate: scored[0].candidate, score: topScore };
   return { type: 'ambiguous', candidates: scored.map(s => s.candidate) };
 }
 
