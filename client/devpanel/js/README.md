@@ -32,6 +32,6 @@ because those functions are only *called* at runtime after login.
 - `ui/` — `modal.js` (generic modal + `toast`), `settings.js` (settings + theme editor),
   `whisper.js` (whisper chat).
 - `panels/` — one file per dev-panel section (zones, zone-subeditors, enemies, items,
-  npcs, furniture, simple-entities, scripts, maps, power, sounds, players, timeweather,
-  worldstate, validator, tags, dashboard).
+  npcs, furniture, simple-entities, scripts, quests, maps, power, sounds, players,
+  timeweather, worldstate, validator, tags, dashboard).
 - `bootstrap.js` — all immediately-executing startup code; **loaded last**.
