@@ -369,7 +369,7 @@ async function resourceTick() {
     const tempDrift = effectiveTemp - NEUTRAL_TEMP;
     if (tempDrift !== 0) {
       const absDiff = Math.abs(tempDrift);
-      const baseDrift = 0.001 * Math.pow(absDiff, 1.5); // °C per minute
+      const baseDrift = 0.002 * Math.pow(absDiff, 1.75); // °C per minute
       if (tempDrift < 0) {
         // Cooling — wet clothing accelerates heat loss
         const wetMult = 1 + (playerWetness / 100);
