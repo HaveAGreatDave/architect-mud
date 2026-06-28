@@ -128,11 +128,9 @@ function _populateThemeEditorDropdown() {
   const sel = document.getElementById('theme-editor-base');
   if (!sel) return;
   const custom = devSettings.customThemes || [];
-  const builtins = [
-    ['dark','Dark (Default)'],['light','Light'],['contrast','High Contrast'],
-    ['phosphor','Phosphor Green'],['synthwave','Synthwave'],['bloodmoon','Blood Moon'],['slate','Slate'],
-  ];
-  sel.innerHTML = builtins.map(([v,l]) => `<option value="${v}">${l}</option>`).join('') +
+  const lightOpts = LIGHT_THEMES.map(([v,l]) => `<option value="${v}">${l}</option>`).join('');
+  const darkOpts  = DARK_THEMES.map(([v,l])  => `<option value="${v}">${l}</option>`).join('');
+  sel.innerHTML = `<optgroup label="Light Themes">${lightOpts}</optgroup><optgroup label="Dark Themes">${darkOpts}</optgroup>` +
     (custom.length ? `<optgroup label="Custom Themes">${custom.map(t => `<option value="${t.id}">${t.name}</option>`).join('')}</optgroup>` : '');
 }
 
