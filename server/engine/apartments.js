@@ -294,8 +294,8 @@ export async function cmdLockDoor(player, wantLocked) {
 		const doorZone = world.zones.get(door.zone_id);
 		const targetId = doorZone?.exits?.[door.exit_dir];
 		if (door.zone_id === zone.id || targetId === zone.id) {
-			const hasMissingLockTag = (door.tags ?? []).some(t => t.type?.startsWith('lock:'));
-			if (!hasMissingLockTag) continue;
+			const hasLockTag = Object.keys(door.tags || {}).some(k => k.startsWith('lock:'));
+			if (!hasLockTag) continue;
 			await query('UPDATE doors SET lock_state=$1 WHERE id=$2', [newLockState, door.id]);
 			door.lock_state = newLockState;
 			setDoorCache(door.id, door);
