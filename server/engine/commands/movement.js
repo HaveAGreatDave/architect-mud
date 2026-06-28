@@ -1,5 +1,5 @@
 import { query } from '../../models/db.js';
-import { getZone, getMinimapData, addPlayerToZone, removePlayerFromZone, getDoorForExit, setDoorCache, getAllLivePlayers } from '../world.js';
+import { getZone, getMinimapData, addPlayerToZone, removePlayerFromZone, getDoorForExit, setDoorCache, getAllLivePlayers, getLivePlayer } from '../world.js';
 import { getZoneVisibility, getWindowsForZone, getEnvironmentState, getZoneTemperature } from '../environment.js';
 import { describeZone, resolveNamedDestination } from './describe.js';
 import { checkLockAuth, getLockTagPublic } from './doors.js';
@@ -194,6 +194,14 @@ async function cmdMove(direction, player, broadcast) {
   addPlayerToZone(player.id, targetId);
   player.current_zone = targetId;
   player.combatTargetId = null;
+  if (player.pvpTargetId) {
+    const opponent = getLivePlayer(player.pvpTargetId);
+    if (opponent) {
+      opponent.pvpTargetId = null;
+      broadcast(null, { type: 'output', message: `${player.handle} flees the fight. Combat ends.` }, null, opponent.id);
+    }
+    player.pvpTargetId = null;
+  }
   await query('UPDATE players SET current_zone=$1 WHERE id=$2', [targetId, player.id]);
 
   const arrivalDir = OPPOSITE[direction] || null;

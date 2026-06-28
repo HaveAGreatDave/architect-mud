@@ -79,8 +79,8 @@ function renderContainerPanel(data) {
   const notify = document.getElementById('container-notify');
   if (notify) notify.textContent = data.notify || '';
 
-  const invItems = data.invItems || [];
-  const containerItems = data.containerItems || [];
+  const invItems = (data.invItems || []).filter(i => i.id !== data.containerId);
+  const containerItems = (data.containerItems || []).filter(i => i.id !== data.containerId);
 
   renderList('container-inv-list', invItems, 'inv', data.containerId);
   renderList('container-contents-list', containerItems, 'contents', data.containerId);

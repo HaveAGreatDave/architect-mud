@@ -1,5 +1,5 @@
 import { query } from "../../models/db.js";
-import { getZoneEnemies, getZoneCorpses, getZonePlayers, createCorpse, getCorpse, removeCorpse } from "../world.js";
+import { getZoneEnemies, getZoneCorpses, getZonePlayers, getLivePlayer, createCorpse, getCorpse, removeCorpse } from "../world.js";
 import { playerAttackEnemy, isOnCooldown, setCooldown, getCooldownRemaining } from "../combat.js";
 import { resolveForCommand, resolve as siftResolve, createSelectionState, formatSelectionPage } from "../sift.js";
 import { awardSkillUse, skillCheck } from "../skills.js";
@@ -197,8 +197,21 @@ export async function cmdAttack(targetStr, player, broadcast) {
 
 	if (targetIsLive) targetPlayer.hp = newHp;
 	await query(`UPDATE players SET hp=$1 WHERE id=$2`, [newHp, targetPlayer.id]);
+
+	player.pvpTargetId = targetPlayer.id;
+	if (targetIsLive) {
+		targetPlayer.pvpTargetId = player.id;
+		broadcast(null, {
+			type: 'combat_incoming',
+			message: `${player.handle} attacks you for <span class="dmg-taken">${damage}</span> damage.`,
+			damage,
+			hp: newHp,
+			hp_max: targetPlayer.hp_max ?? 100,
+		}, null, targetPlayer.id);
+	}
+
 	broadcast(player.current_zone, { type: "zone_event", message: `${player.handle} attacks ${targetPlayer.handle}.` }, player.id);
-	return { type: "combat", message: `You hit ${targetPlayer.handle} for ${damage} damage.`, killed: false };
+	return { type: "combat", message: `You hit ${targetPlayer.handle} for <span class="dmg-dealt">${damage}</span> damage.`, killed: false };
 }
 
 // Resolve a corpse in the player's current zone by id (preferred, from a click)
@@ -541,9 +554,17 @@ async function cmdSteal(targetStr, player, broadcast) {
 	};
 }
 
-function cmdStop(player) {
-	if (!player.combatTargetId)
+function cmdStop(player, broadcast) {
+	if (!player.combatTargetId && !player.pvpTargetId)
 		return { type: "output", message: "You aren't attacking anything." };
+	if (player.pvpTargetId) {
+		const opponent = getLivePlayer(player.pvpTargetId);
+		if (opponent) {
+			opponent.pvpTargetId = null;
+			broadcast(null, { type: 'output', message: `${player.handle} disengages. Combat ends.` }, null, opponent.id);
+		}
+		player.pvpTargetId = null;
+	}
 	player.combatTargetId = null;
 	return { type: "output", message: "You disengage." };
 }
@@ -555,8 +576,8 @@ export const handlers = {
 		cmdAttack(args.join(" "), player, broadcast),
 	k: (args, raw, player, broadcast) =>
 		cmdAttack(args.join(" "), player, broadcast),
-	stop: (args, raw, player) => cmdStop(player),
-	disengage: (args, raw, player) => cmdStop(player),
+	stop: (args, raw, player, broadcast) => cmdStop(player, broadcast),
+	disengage: (args, raw, player, broadcast) => cmdStop(player, broadcast),
 	loot: (args, raw, player, broadcast) =>
 		cmdLootCorpse(args.join(" "), player, broadcast),
 	lootid: (args, raw, player) => cmdLootId(args, player),

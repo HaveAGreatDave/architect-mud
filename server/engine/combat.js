@@ -1,6 +1,7 @@
 import { getEnemyInstance, removeEnemyInstance, getLivePlayer, getZonePlayers } from './world.js';
 import { effectiveSkill } from './skills.js';
 import { ensureTunables, getTunable } from './tunables.js';
+import { query } from '../models/db.js';
 
 const COOLDOWNS = {
   attack: 3500,
@@ -322,3 +323,64 @@ function resolveEnemyLoot(enemy) {
 }
 
 // tickStatuses has moved to server/engine/effects.js as tickEffects.
+
+// One PvP attack tick: attacker swings at defender using the full combat system.
+// Returns { hit, killed, attackerMsg, defenderMsg, damage?, defenderHp?, defenderHpMax? }
+// or null when on cooldown or defender already dead.
+export async function pvpSwing(attacker, defender) {
+  if (defender.hp <= 0) return null;
+  if (isOnCooldown(attacker.id, 'attack')) return null;
+  setCooldown(attacker.id, 'attack');
+  await ensureTunables();
+
+  const { rows } = await query(
+    `SELECT i.* FROM player_inventory pi JOIN items i ON i.id=pi.item_id
+     WHERE pi.player_id=$1 AND pi.is_equipped=1 AND jsonb_exists(i.tags,'weapon') LIMIT 1`,
+    [attacker.id]
+  );
+  const equipped = rows[0];
+  const dmg = equipped?.tags?.damage || {};
+  const weaponSkill = equipped?.tags?.weapon_skill || 'brawling';
+  const damageType = equipped?.tags?.damage_type || 'kinetic';
+  const damage_min = dmg.min ?? 2;
+  const damage_max = dmg.max ?? 4;
+
+  const attackSkill = await effectiveSkill(attacker, weaponSkill);
+  const defDodge = await effectiveSkill(defender, 'dodge');
+  const margin = (attackSkill - defDodge) + rollSwing();
+  const hit = margin >= 0;
+
+  if (!hit) {
+    return {
+      hit: false,
+      killed: false,
+      attackerMsg: `You swing at ${defender.handle} and miss.`,
+      defenderMsg: `${attacker.handle} swings at you and misses.`,
+    };
+  }
+
+  const critical = margin >= getTunable('crit_threshold', 8);
+  const part = rollBodyPart();
+  const partLabel = PART_LABELS[part] || part;
+  const headMult = part === 'head' ? getTunable('head_damage_multiplier', 1.5) : 1;
+
+  let damage = randInt(damage_min, damage_max);
+  if (critical) damage = Math.floor(damage * getTunable('crit_multiplier', 1.5));
+  damage = Math.floor(damage * headMult);
+  damage = Math.max(1, damage - playerPartSoak(defender, part, damageType));
+
+  defender.hp = Math.max(0, defender.hp - damage);
+  await query('UPDATE players SET hp=$1 WHERE id=$2', [defender.hp, defender.id]);
+
+  const killed = defender.hp <= 0;
+  const defHpTag = killed ? '' : selfHpTag(defender.hp, defender.hp_max);
+
+  const attackerMsg = critical
+    ? `<span class="crit-tag">CRITICAL HIT</span> to ${defender.handle}'s <span class="hit-part">${partLabel}</span>! You deal <span class="dmg-dealt">${damage}</span> <span class="dmg-type">${damageType}</span>.`
+    : `You hit ${defender.handle}'s <span class="hit-part">${partLabel}</span> for <span class="dmg-dealt">${damage}</span> <span class="dmg-type">${damageType}</span>.`;
+  const defenderMsg = critical
+    ? `<span class="crit-tag-in">CRITICAL!</span> ${attacker.handle} hits your <span class="hit-part">${partLabel}</span> for <span class="dmg-taken">${damage}</span> <span class="dmg-type">${damageType}</span>!${defHpTag}`
+    : `${attacker.handle} hits your <span class="hit-part">${partLabel}</span> for <span class="dmg-taken">${damage}</span> <span class="dmg-type">${damageType}</span>.${defHpTag}`;
+
+  return { hit: true, killed, damage, attackerMsg, defenderMsg, defenderHp: defender.hp, defenderHpMax: defender.hp_max };
+}

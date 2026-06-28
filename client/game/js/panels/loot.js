@@ -135,8 +135,8 @@ function renderLootPanel(data) {
   document.getElementById('loot-contents-label').textContent = data.corpseName;
   document.getElementById('loot-notify').textContent = data.notify || '';
 
-  const corpseItems = data.items || [];
-  const invItems = data.invItems || [];
+  const corpseItems = (data.items || []).filter(i => i.id !== data.corpseId);
+  const invItems = (data.invItems || []).filter(i => i.id !== data.corpseId);
 
   const corpseList = document.getElementById('loot-contents-list');
   corpseList.innerHTML = '';

@@ -1,7 +1,7 @@
 import { world, tickSpawns, getRandomAmbient, getWeatherAmbient, getLivePlayer, getInterruptLoudness, registerInterrupt, createCorpse, removeCorpse } from './world.js';
 import { randomUUID } from 'crypto';
 import { propagateSound } from './sounds.js';
-import { enemyAttackPlayer, isOnCooldown } from './combat.js';
+import { enemyAttackPlayer, isOnCooldown, pvpSwing } from './combat.js';
 import { tickEffects } from './effects.js';
 import { resolveAttack } from './commands/index.js';
 import { tickSleep, releaseApartment } from './apartments.js';
@@ -96,6 +96,32 @@ async function tick() {
     }
   }
 
+  // PvP auto-attack: sustain combat between players each tick
+  for (const [playerId, player] of world.players) {
+    if (!player.pvpTargetId) continue;
+    const pvpTarget = getLivePlayer(player.pvpTargetId);
+    if (!pvpTarget || pvpTarget.current_zone !== player.current_zone) {
+      if (pvpTarget) {
+        pvpTarget.pvpTargetId = null;
+        broadcastFn(null, { type: 'output', message: `${player.handle} has left. Combat ends.` }, null, pvpTarget.id);
+      }
+      broadcastFn(null, { type: 'output', message: 'Your opponent has left. Combat ends.' }, null, playerId);
+      player.pvpTargetId = null;
+      continue;
+    }
+    if (isOnCooldown(playerId, 'attack')) continue;
+    pvpSwing(player, pvpTarget).then(async result => {
+      if (!result) return;
+      broadcastFn(null, { type: 'combat', message: result.attackerMsg, auto: true }, null, playerId);
+      broadcastFn(null, { type: 'combat_incoming', message: result.defenderMsg, damage: result.damage || 0, hp: result.defenderHp, hp_max: result.defenderHpMax }, null, pvpTarget.id);
+      if (result.killed) {
+        player.pvpTargetId = null;
+        pvpTarget.pvpTargetId = null;
+        await handlePlayerDeath(pvpTarget, player);
+      }
+    }).catch(() => {});
+  }
+
   // Status effects
   for (const [playerId, player] of world.players) {
     const messages = tickEffects(player);
@@ -175,6 +201,7 @@ export async function handlePlayerDeath(player, killer) {
   player._dangerousTempTicks = 0;
   player.sleeping = null;
   player.combatTargetId = null;
+  player.pvpTargetId = null;
 
   broadcastFn(null, {
     type:'player_death',
