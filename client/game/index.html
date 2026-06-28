@@ -1313,9 +1313,11 @@
 							var sent = window._sendRaw && window._sendRaw({ type: 'mis_toggle', enable: checkbox.checked });
 							if (sent) {
 								updateSliderVisual(checkbox.checked);
+								status.style.color = 'var(--text-dim)';
 								status.textContent = checkbox.checked ? 'Mature content enabled.' : 'Mature content disabled.';
 							} else {
 								checkbox.checked = !checkbox.checked;
+								status.style.color = 'var(--text-dim)';
 								status.textContent = 'Not connected.';
 							}
 						});
@@ -1324,6 +1326,10 @@
 						document.addEventListener('mis_state_update', function(e) {
 							checkbox.checked = !!e.detail.enabled;
 							updateSliderVisual(checkbox.checked);
+							if (e.detail.server_disabled) {
+								status.style.color = 'var(--error, #c44)';
+								status.textContent = 'MIS not enabled on server.';
+							}
 						});
 					})();
 				</script>

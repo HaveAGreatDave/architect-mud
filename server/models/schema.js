@@ -150,6 +150,7 @@ export const SCHEMA_SQL = `
     death_message TEXT,
     flags JSONB DEFAULT '{}'
   );
+  ALTER TABLE enemies ADD COLUMN IF NOT EXISTS behaviour_graph JSONB DEFAULT '{}';
 
   CREATE TABLE IF NOT EXISTS zone_spawns (
     id TEXT PRIMARY KEY,
@@ -172,6 +173,7 @@ export const SCHEMA_SQL = `
     wanders INTEGER DEFAULT 0,
     flags JSONB DEFAULT '{}'
   );
+  ALTER TABLE npcs ADD COLUMN IF NOT EXISTS behaviour_graph JSONB DEFAULT '{}';
 
   -- Non-takeable scenery (bar counters, stools, beds, tables...). Distinct
   -- from items: items live in player_inventory (including the

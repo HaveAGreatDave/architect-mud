@@ -840,15 +840,15 @@ async function apiGetEnemies() { const {rows}=await query('SELECT * FROM enemies
 async function apiCreateEnemy(body) {
   const id=body.id||`enemy_${Date.now()}`;
   try {
-    await query(`INSERT INTO enemies (id,name,description,hit,dodge,hp_max,weapon,body_parts,loot_table,butcher_table,butcher_difficulty,behavior,faction,death_message,flags) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
-      [id,body.name,body.description,body.hit??1,body.dodge??1,body.hp_max||30,JSON.stringify(body.weapon||[]),JSON.stringify(body.body_parts||[]),JSON.stringify(body.loot_table||[]),JSON.stringify(body.butcher_table||[]),body.butcher_difficulty??5,body.behavior||'aggressive',body.faction||null,body.death_message||'It dies.',JSON.stringify(body.flags||{})]);
+    await query(`INSERT INTO enemies (id,name,description,hit,dodge,hp_max,weapon,body_parts,loot_table,butcher_table,butcher_difficulty,behavior,faction,death_message,flags,behaviour_graph) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
+      [id,body.name,body.description,body.hit??1,body.dodge??1,body.hp_max||30,JSON.stringify(body.weapon||[]),JSON.stringify(body.body_parts||[]),JSON.stringify(body.loot_table||[]),JSON.stringify(body.butcher_table||[]),body.butcher_difficulty??5,body.behavior||'aggressive',body.faction||null,body.death_message||'It dies.',JSON.stringify(body.flags||{}),JSON.stringify(body.behaviour_graph||{})]);
     return {status:201,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
 export async function apiUpdateEnemy(id,body) {
   try {
-    await query(`UPDATE enemies SET name=$1,description=$2,hit=$3,dodge=$4,hp_max=$5,weapon=$6,body_parts=$7,loot_table=$8,butcher_table=$9,butcher_difficulty=$10,behavior=$11,faction=$12,death_message=$13,flags=$14 WHERE id=$15`,
-      [body.name,body.description,body.hit??1,body.dodge??1,body.hp_max,JSON.stringify(body.weapon||[]),JSON.stringify(body.body_parts||[]),JSON.stringify(body.loot_table||[]),JSON.stringify(body.butcher_table||[]),body.butcher_difficulty??5,body.behavior,body.faction,body.death_message,JSON.stringify(body.flags||{}),id]);
+    await query(`UPDATE enemies SET name=$1,description=$2,hit=$3,dodge=$4,hp_max=$5,weapon=$6,body_parts=$7,loot_table=$8,butcher_table=$9,butcher_difficulty=$10,behavior=$11,faction=$12,death_message=$13,flags=$14,behaviour_graph=$15 WHERE id=$16`,
+      [body.name,body.description,body.hit??1,body.dodge??1,body.hp_max,JSON.stringify(body.weapon||[]),JSON.stringify(body.body_parts||[]),JSON.stringify(body.loot_table||[]),JSON.stringify(body.butcher_table||[]),body.butcher_difficulty??5,body.behavior,body.faction,body.death_message,JSON.stringify(body.flags||{}),JSON.stringify(body.behaviour_graph||{}),id]);
     return {status:200,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
@@ -885,19 +885,19 @@ async function apiGetNpcs() { const {rows}=await query('SELECT * FROM npcs'); re
 export async function apiCreateNpc(body) {
   const id=body.id||`npc_${Date.now()}`;
   try {
-    await query(`INSERT INTO npcs (id,name,description,zone_id,faction,disposition,dialogue_tree,vendor_inventory,wanders,wander_zones,flags) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
-      [id,body.name,body.description,body.zone_id||null,body.faction||null,body.disposition||'neutral',JSON.stringify(body.dialogue_tree||{}),JSON.stringify(body.vendor_inventory||[]),body.wanders?1:0,JSON.stringify(body.wander_zones||[]),JSON.stringify(body.flags||{})]);
+    await query(`INSERT INTO npcs (id,name,description,zone_id,faction,disposition,dialogue_tree,vendor_inventory,wanders,wander_zones,flags,behaviour_graph) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+      [id,body.name,body.description,body.zone_id||null,body.faction||null,body.disposition||'neutral',JSON.stringify(body.dialogue_tree||{}),JSON.stringify(body.vendor_inventory||[]),body.wanders?1:0,JSON.stringify(body.wander_zones||[]),JSON.stringify(body.flags||{}),JSON.stringify(body.behaviour_graph||{})]);
     return {status:201,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
 export async function apiUpdateNpc(id,body) {
   try {
-    await query(`UPDATE npcs SET name=$1,description=$2,zone_id=$3,faction=$4,disposition=$5,dialogue_tree=$6,vendor_inventory=$7,wanders=$8,wander_zones=$9,flags=$10 WHERE id=$11`,
-      [body.name,body.description,body.zone_id,body.faction,body.disposition,JSON.stringify(body.dialogue_tree||{}),JSON.stringify(body.vendor_inventory||[]),body.wanders?1:0,JSON.stringify(body.wander_zones||[]),JSON.stringify(body.flags||{}),id]);
+    await query(`UPDATE npcs SET name=$1,description=$2,zone_id=$3,faction=$4,disposition=$5,dialogue_tree=$6,vendor_inventory=$7,wanders=$8,wander_zones=$9,flags=$10,behaviour_graph=$11 WHERE id=$12`,
+      [body.name,body.description,body.zone_id,body.faction,body.disposition,JSON.stringify(body.dialogue_tree||{}),JSON.stringify(body.vendor_inventory||[]),body.wanders?1:0,JSON.stringify(body.wander_zones||[]),JSON.stringify(body.flags||{}),JSON.stringify(body.behaviour_graph||{}),id]);
     // Update in-memory cache
     const { world: w } = await import('../engine/world.js');
     const existing = w.npcs.get(id);
-    if (existing) Object.assign(existing, { name:body.name, description:body.description, zone_id:body.zone_id, faction:body.faction, disposition:body.disposition, dialogue_tree:body.dialogue_tree||{}, vendor_inventory:body.vendor_inventory||[], wanders:body.wanders?1:0, wander_zones:body.wander_zones||[], flags:body.flags||{} });
+    if (existing) Object.assign(existing, { name:body.name, description:body.description, zone_id:body.zone_id, faction:body.faction, disposition:body.disposition, dialogue_tree:body.dialogue_tree||{}, vendor_inventory:body.vendor_inventory||[], wanders:body.wanders?1:0, wander_zones:body.wander_zones||[], flags:body.flags||{}, behaviour_graph:body.behaviour_graph||{} });
     return {status:200,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }

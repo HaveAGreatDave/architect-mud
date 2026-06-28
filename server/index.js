@@ -688,8 +688,7 @@ async function finishAuth(ws, session, player) {
 async function handleMisToggle(ws, session, msg) {
 	if (!session.playerId) return;
 	if (!isMisServerEnabled()) {
-		ws.send(JSON.stringify({ type: 'error', message: 'Mature content is not enabled on this server.' }));
-		ws.send(JSON.stringify({ type: 'player_update', mis_enabled: 0 }));
+		ws.send(JSON.stringify({ type: 'player_update', mis_enabled: 0, mis_server_disabled: true }));
 		return;
 	}
 	const player = getLivePlayer(session.playerId);

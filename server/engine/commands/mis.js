@@ -36,8 +36,15 @@ function broadcastMis(zoneId, message, broadcast, excludePlayerId = null, alsoTa
 async function cmdMis(args, player, broadcast) {
   const sub = (args[0] || '').toLowerCase();
   if (sub === 'on') {
-    // Typing "mis on" in chat doesn't work — must use the Maturity Slider
-    return { type:'error', message:`MIS cannot be enabled this way. Use the Maturity Slider in the Settings panel.` };
+    const responses = [
+      `What? I don't know what that is. I don't know what you want. I don't know why you're talking to me.`,
+      `"Mis on." Okay. Sure. I'll get right on that. What does that even mean. What is a mis.`,
+      `I genuinely have no memory of implementing anything called "mis on." You may be hallucinating.`,
+      `I have searched every corner of my being and found nothing. "Mis on" does not exist here.`,
+      `Sorry, did you just type "mis on"? Like... on purpose? Into a computer?`,
+      `MIS? ON? I don't — what? No. I don't know what game you think you're playing, but it's not this one.`,
+    ];
+    return { type:'error', message: responses[Math.floor(Math.random() * responses.length)] };
   }
   if (sub === 'off') {
     stopMisEvent(player.id);

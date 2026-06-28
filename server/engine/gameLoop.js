@@ -2,6 +2,7 @@ import { world, tickSpawns, getRandomAmbient, getWeatherAmbient, getLivePlayer, 
 import { randomUUID } from 'crypto';
 import { propagateSound } from './sounds.js';
 import { enemyAttackPlayer, isOnCooldown, pvpSwing } from './combat.js';
+import { tickEntityAI } from './ai-behaviour.js';
 import { offlineSleepSwing } from './commands/combat.js';
 import { tickEffects } from './effects.js';
 import { resolveAttack } from './commands/index.js';
@@ -33,6 +34,13 @@ export function startGameLoop(broadcast) {
 async function tick() {
   // Enemy AI
   for (const [instanceId, enemy] of world.enemies) {
+    if (enemy.behaviour_graph?._start) {
+      // Behaviour graph drives this enemy — delegate to AI runtime.
+      tickEntityAI(enemy, { broadcast: broadcastFn, query }).catch(() => {});
+      continue;
+    }
+
+    // Hardcoded fallback for enemies without a behaviour graph.
     if (!enemy.targetId) {
       const zone = world.zones.get(enemy.zoneId);
       if (!zone || zone.players.size === 0) continue;
@@ -589,6 +597,13 @@ async function resourceTick() {
 
 async function npcWanderTick() {
   for (const [id, npc] of world.npcs) {
+    if (npc.behaviour_graph?._start) {
+      // Behaviour graph drives this NPC — delegate to AI runtime.
+      await tickEntityAI(npc, { broadcast: broadcastFn, query }).catch(() => {});
+      continue;
+    }
+
+    // Hardcoded fallback wander for NPCs without a behaviour graph.
     if (!npc.wanders) continue;
     if (Math.random() > 0.2) continue; // ~20% chance per minute → wanders roughly every 5 min
     const permitted = Array.isArray(npc.wander_zones) && npc.wander_zones.length ? npc.wander_zones : null;

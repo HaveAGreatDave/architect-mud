@@ -1,4 +1,5 @@
 import { query } from '../models/db.js';
+import { initBlackboard } from './ai-behaviour.js';
 
 // In-memory world state — same as before, DB is source of truth
 const world = {
@@ -85,7 +86,9 @@ async function loadNpcs() {
       dialogue_tree: npc.dialogue_tree || {},
       vendor_inventory: npc.vendor_inventory || [],
       wander_zones: npc.wander_zones || [],
+      behaviour_graph: npc.behaviour_graph || {},
       flags: npc.flags || {},
+      _ai: initBlackboard(),
     });
     if (npc.zone_id && world.zones.has(npc.zone_id)) {
       world.zones.get(npc.zone_id).npcs.add(npc.id);
@@ -246,11 +249,13 @@ export function spawnEnemySync(template, zoneId) {
     butcher_difficulty: template.butcher_difficulty ?? 5,
     behavior: template.behavior, faction: template.faction,
     death_message: template.death_message, flags,
+    behaviour_graph: template.behaviour_graph || {},
     zoneId, targetId: null, lastAttack: 0, statuses: [],
     // Lore-appropriate enemies (skittish scavengers, slow lumbering mutants)
     // hesitate before their FIRST attack after aggroing — set the moment they
     // acquire a target, checked separately from the normal attack-interval pace.
     aggroedAt: null,
+    _ai: initBlackboard(),
   };
   world.enemies.set(id, instance);
   world.zones.get(zoneId)?.enemies.add(id);

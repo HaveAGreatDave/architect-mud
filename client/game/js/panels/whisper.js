@@ -5,7 +5,7 @@ import { parseMarkup, expandTokens, MARKUP_HELP_HTML, STATUS_TEMPLATE } from '..
 const USERS_TAB = '__users__';
 const WHISPER_MAX_MSGS = 100;
 const WHISPER_CONVO_KEY = 'whisper_convos';
-const WHISPER_PERSIST_MAX = 50;
+const WHISPER_PERSIST_MAX = 100;
 
 // Channels the server told us this player has access to: id -> { id, permanent, systemOnly }
 const _channels = new Map();
