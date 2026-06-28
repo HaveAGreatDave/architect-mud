@@ -994,6 +994,42 @@ body {
 	text-transform: uppercase;
 	letter-spacing: 1px;
 }
+#forecast-today {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	margin-bottom: 14px;
+	padding-bottom: 12px;
+	border-bottom: 1px solid var(--border);
+}
+#forecast-today .ft-row {
+	display: flex;
+	gap: 10px;
+	font-size: 13px;
+}
+#forecast-today .ft-label {
+	color: var(--text-dim);
+	width: 56px;
+	flex-shrink: 0;
+}
+#forecast-today .ft-val {
+	color: var(--text);
+	text-transform: capitalize;
+}
+#forecast-today .ft-temp {
+	color: var(--cyan);
+	font-weight: bold;
+}
+#forecast-today .ft-precip {
+	color: var(--blue);
+}
+#forecast-section-label {
+	color: var(--text-dim);
+	font-size: 10px;
+	text-transform: uppercase;
+	letter-spacing: 1px;
+	margin-bottom: 8px;
+}
 #forecast-days {
 	display: flex;
 	flex-direction: column;
@@ -3025,12 +3061,28 @@ body {
 	min-width: 0;
 }
 
+.mob-bar-row {
+	display: flex;
+	align-items: center;
+	gap: 3px;
+}
+
+.mob-bar-label {
+	font-size: 8px;
+	color: var(--text-dim);
+	width: 14px;
+	flex-shrink: 0;
+	line-height: 1;
+	letter-spacing: 0.3px;
+}
+
 .mob-bar-bg {
 	position: relative;
 	background: var(--bg3);
 	height: 10px;
 	border-radius: 1px;
 	overflow: hidden;
+	flex: 1;
 }
 
 .mob-bar-fill {
@@ -3044,7 +3096,7 @@ body {
 }
 
 .mob-bar-val {
-	font-size: 7px;
+	font-size: 9px;
 	color: rgba(0, 0, 0, 0.7);
 	line-height: 1;
 	pointer-events: none;
@@ -3059,16 +3111,13 @@ body {
 	flex-shrink: 0;
 	color: var(--text);
 	cursor: pointer;
-	padding: 2px 4px;
+	padding: 2px 6px;
 	border-radius: 2px;
+	border: 1px solid var(--border);
+	background: var(--bg2);
 }
 #mobile-env:hover {
 	background: var(--bg3);
-}
-#mobile-env .env-clock {
-	color: var(--text-bright);
-	font-weight: bold;
-	font-size: 11px;
 }
 #mobile-env .env-temp {
 	color: var(--cyan);
@@ -3076,14 +3125,6 @@ body {
 }
 #mobile-env .env-icon {
 	font-size: 13px;
-}
-#mobile-env .env-weather-label {
-	color: var(--text);
-	font-size: 9px;
-}
-#mobile-env .env-precip-label {
-	color: var(--blue);
-	font-size: 9px;
 }
 
 #mobile-chat-btn {

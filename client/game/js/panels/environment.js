@@ -137,6 +137,20 @@ export function refreshZoneVisibility() {
     .catch(() => {});
 }
 
+export function getEnvSnapshot() {
+  if (clientMinutes === null) return null;
+  return {
+    time: formatHHMM(clientMinutes),
+    timeIcon: timeIconForMinutes(clientMinutes),
+    weatherIcon: envWeatherIcon,
+    tempC: envTempC,
+    bodyTempC: envBodyTempC,
+    precipIntensity: envCurrentPrecipIntensity,
+    weatherType: envCurrentWeatherType,
+    bodyFeel: bodyFeelLabel(envTempC),
+  };
+}
+
 // Fallback tick — only increments if the server hasn't pushed in over 90 seconds
 // (i.e. WS is disconnected). Normal operation is driven entirely by server pushes.
 setInterval(() => {

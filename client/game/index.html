@@ -431,72 +431,71 @@
 		<!-- MOBILE HUD STRIP (compact mode only) -->
 		<div id="mobile-hud">
 			<div id="mobile-vitals">
-				<div class="mob-bar-bg vital-hp" title="HP">
-					<div
-						class="vital-bar mob-bar-fill"
-						id="hp-bar-m"
-						style="width: 100%">
-						<span class="mob-bar-val" id="hp-val-m"></span>
+				<div class="mob-bar-row">
+					<span class="mob-bar-label">HP</span>
+					<div class="mob-bar-bg vital-hp" title="HP">
+						<div class="vital-bar mob-bar-fill" id="hp-bar-m" style="width: 100%">
+							<span class="mob-bar-val" id="hp-val-m"></span>
+						</div>
 					</div>
 				</div>
-				<div class="mob-bar-bg vital-sanity" title="Sanity">
-					<div
-						class="vital-bar mob-bar-fill"
-						id="san-bar-m"
-						style="width: 100%">
-						<span class="mob-bar-val" id="san-val-m"></span>
+				<div class="mob-bar-row">
+					<span class="mob-bar-label">SA</span>
+					<div class="mob-bar-bg vital-sanity" title="Sanity">
+						<div class="vital-bar mob-bar-fill" id="san-bar-m" style="width: 100%">
+							<span class="mob-bar-val" id="san-val-m"></span>
+						</div>
 					</div>
 				</div>
-				<div class="mob-bar-bg vital-hunger" title="Hunger">
-					<div
-						class="vital-bar mob-bar-fill"
-						id="hun-bar-m"
-						style="width: 100%">
-						<span class="mob-bar-val" id="hun-val-m"></span>
+				<div class="mob-bar-row">
+					<span class="mob-bar-label">HU</span>
+					<div class="mob-bar-bg vital-hunger" title="Hunger">
+						<div class="vital-bar mob-bar-fill" id="hun-bar-m" style="width: 100%">
+							<span class="mob-bar-val" id="hun-val-m"></span>
+						</div>
 					</div>
 				</div>
-				<div class="mob-bar-bg vital-thirst" title="Thirst">
-					<div
-						class="vital-bar mob-bar-fill"
-						id="thi-bar-m"
-						style="width: 100%">
-						<span class="mob-bar-val" id="thi-val-m"></span>
+				<div class="mob-bar-row">
+					<span class="mob-bar-label">TH</span>
+					<div class="mob-bar-bg vital-thirst" title="Thirst">
+						<div class="vital-bar mob-bar-fill" id="thi-bar-m" style="width: 100%">
+							<span class="mob-bar-val" id="thi-val-m"></span>
+						</div>
 					</div>
 				</div>
-				<div class="mob-bar-bg vital-stamina" title="Stamina">
-					<div
-						class="vital-bar mob-bar-fill"
-						id="sta-bar-m"
-						style="width: 100%">
-						<span class="mob-bar-val" id="sta-val-m"></span>
+				<div class="mob-bar-row">
+					<span class="mob-bar-label">ST</span>
+					<div class="mob-bar-bg vital-stamina" title="Stamina">
+						<div class="vital-bar mob-bar-fill" id="sta-bar-m" style="width: 100%">
+							<span class="mob-bar-val" id="sta-val-m"></span>
+						</div>
 					</div>
 				</div>
-				<div
-					class="mob-bar-bg vital-horny"
-					title="Horny"
-					id="horny-bar-wrap-m"
-					style="display: none">
-					<div
-						class="vital-bar mob-bar-fill"
-						id="hor-bar-m"
-						style="width: 0%">
-						<span class="mob-bar-val" id="hor-val-m"></span>
+				<div class="mob-bar-row">
+					<span class="mob-bar-label">RA</span>
+					<div class="mob-bar-bg vital-radiation" title="Radiation">
+						<div class="vital-bar mob-bar-fill" id="rad-bar-m" style="width: 0%">
+							<span class="mob-bar-val" id="rad-val-m"></span>
+						</div>
+					</div>
+				</div>
+				<div class="mob-bar-row" id="horny-bar-wrap-m" style="display: none">
+					<span class="mob-bar-label">HO</span>
+					<div class="mob-bar-bg vital-horny" title="Horny">
+						<div class="vital-bar mob-bar-fill" id="hor-bar-m" style="width: 0%">
+							<span class="mob-bar-val" id="hor-val-m"></span>
+						</div>
 					</div>
 				</div>
 			</div>
-			<div id="mobile-env" title="View 7-day forecast">
+			<div id="mobile-env" title="View weather & forecast">
 				<span class="env-icon" id="env-weather-icon-m">—</span>
-				<span class="env-clock" id="env-clock-m">—:—</span>
-				<span class="env-icon" id="env-time-icon-m"></span>
 				<span class="env-temp" id="env-temp-m">—°C</span>
-				<span class="env-body-feel" id="env-body-feel-m"></span>
-				<span
-					class="env-body-temp"
-					id="env-body-temp-m"
-					style="display: none"></span>
-				<span
-					class="env-precip-label"
-					id="env-precip-intensity-m"></span>
+				<span id="env-clock-m" style="display:none"></span>
+				<span id="env-time-icon-m" style="display:none"></span>
+				<span id="env-body-feel-m" style="display:none"></span>
+				<span id="env-body-temp-m" style="display:none"></span>
+				<span id="env-precip-intensity-m" style="display:none"></span>
 			</div>
 			<button id="mobile-chat-btn" title="Toggle chat">
 				💬<span id="mobile-chat-badge" style="display: none"> !</span>
@@ -1682,7 +1681,9 @@
 		<!-- FORECAST PANEL -->
 		<div id="forecast-panel">
 			<div id="forecast-box">
-				<div id="forecast-header">7-Day Forecast</div>
+				<div id="forecast-header">Weather</div>
+				<div id="forecast-today"></div>
+				<div id="forecast-section-label">7-Day Forecast</div>
 				<div id="forecast-days"></div>
 				<button
 					class="dialogue-opt"

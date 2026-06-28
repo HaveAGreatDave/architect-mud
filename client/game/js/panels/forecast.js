@@ -1,20 +1,42 @@
 import { appendMsg } from '../render.js';
-import { formatTemp } from '/shared/settings.js';
+import { formatTemp, formatTempPrecise } from '/shared/settings.js';
+import { getEnvSnapshot } from './environment.js';
 
 export function openForecast() {
+  renderForecastToday();
+  document.getElementById('forecast-panel').classList.add('active');
   fetch('/api/environment/forecast')
     .then(r => r.json())
-    .then(renderForecastPanel)
+    .then(renderForecastDays)
     .catch(() => appendMsg('Could not reach the forecast feed.', 'error'));
 }
 
 export function updateForecast(forecast) {
   if (!forecast?.length) return;
   const panel = document.getElementById('forecast-panel');
-  if (panel && panel.classList.contains('active')) renderForecastPanel(forecast);
+  if (panel && panel.classList.contains('active')) renderForecastDays(forecast);
 }
 
-function renderForecastPanel(forecast) {
+function renderForecastToday() {
+  const el = document.getElementById('forecast-today');
+  if (!el) return;
+  const env = getEnvSnapshot();
+  if (!env) { el.innerHTML = ''; return; }
+  const precipStr = env.precipIntensity && env.precipIntensity !== 'none'
+    ? env.precipIntensity.charAt(0).toUpperCase() + env.precipIntensity.slice(1)
+    : '';
+  const weatherLabel = (env.weatherType || '').replace(/_/g, ' ');
+  el.innerHTML = `
+    <div class="ft-row"><span class="ft-label">Time</span><span class="ft-val">${env.timeIcon} ${env.time}</span></div>
+    ${weatherLabel ? `<div class="ft-row"><span class="ft-label">Weather</span><span class="ft-val">${env.weatherIcon} ${weatherLabel}</span></div>` : ''}
+    <div class="ft-row"><span class="ft-label">Temp</span><span class="ft-val ft-temp">${formatTemp(env.tempC)}</span></div>
+    ${env.bodyFeel ? `<div class="ft-row"><span class="ft-label">Feels</span><span class="ft-val">${env.bodyFeel}</span></div>` : ''}
+    ${precipStr ? `<div class="ft-row"><span class="ft-label">Precip</span><span class="ft-val ft-precip">${precipStr}</span></div>` : ''}
+    ${env.bodyTempC !== null ? `<div class="ft-row"><span class="ft-label">Body</span><span class="ft-val">\u{1F321} ${formatTempPrecise(env.bodyTempC)}</span></div>` : ''}
+  `;
+}
+
+function renderForecastDays(forecast) {
   const el = document.getElementById('forecast-days');
   if (!el) return;
   el.innerHTML = (forecast || []).map((f, i) => `
@@ -25,7 +47,6 @@ function renderForecastPanel(forecast) {
       <span class="fd-temp">${formatTemp(f.tempC)}</span>
     </div>
   `).join('');
-  document.getElementById('forecast-panel').classList.add('active');
 }
 
 export function closeForecast() {
