@@ -61,7 +61,7 @@ export async function tickBodily(player, broadcastFn, zoneBroadcastFn) {
   return messages;
 }
 
-async function stainClothing(player, slots, type) {
+export async function stainClothing(player, slots, type) {
   const contamination = player.clothing_contamination || {};
   for (const slot of slots) contamination[slot] = type;
   player.clothing_contamination = contamination;

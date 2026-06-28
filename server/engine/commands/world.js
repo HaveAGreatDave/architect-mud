@@ -58,6 +58,20 @@ function withArticle(name) {
 }
 
 const STAIN_DESCS = {
+  blood: {
+    self: [
+      (item) => `Your ${item} is smeared with blood. Most of it isn't yours.`,
+      (item) => `Your ${item} has blood on it. The butchering didn't go cleanly.`,
+      (item) => `There are dark stains across your ${item}. Occupational hazard.`,
+      (item) => `Your ${item} is marked with blood. You've been at work.`,
+    ],
+    other: [
+      (item) => `Their ${item} is stained with blood. They've been busy.`,
+      (item) => `There's dried blood on their ${item}. You decide not to ask how it got there.`,
+      (item) => `Their ${item} bears blood stains. Fresh enough to be interesting.`,
+      (item) => `Blood has dried into their ${item}. It wasn't a clean job.`,
+    ],
+  },
   urine: {
     self: [
       (item) => `Your ${item} has a damp patch that tells a story you'd rather not tell.`,

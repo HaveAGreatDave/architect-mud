@@ -7,6 +7,7 @@ import { hasTag, tagValue, isStackable } from "../tags.js";
 import { adjustCredits } from "../economy.js";
 import { emit } from "../events.js";
 import { randomUUID } from "crypto";
+import { stainClothing } from "../bodily.js";
 
 export async function resolveAttack(player, target, broadcast) {
 	const { rows } = await query(
@@ -401,6 +402,12 @@ async function cmdButcher(targetStr, player, broadcast) {
 	if (ruined.length) {
 		player.covered_in_blood = 1;
 		await query("UPDATE players SET covered_in_blood=1 WHERE id=$1", [player.id]);
+		const { rows: stainRows } = await query(
+			`SELECT pi.slot FROM player_inventory pi WHERE pi.player_id=$1 AND pi.is_equipped=1 AND pi.slot = ANY($2)`,
+			[player.id, ['torso', 'hands', 'legs']],
+		);
+		const slotsToStain = stainRows.map(r => r.slot);
+		if (slotsToStain.length) await stainClothing(player, slotsToStain, 'blood');
 	}
 	await removeCorpse(corpse.id);
 	broadcast(
