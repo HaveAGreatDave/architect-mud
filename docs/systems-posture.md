@@ -47,6 +47,7 @@ sittingOn })`:
 | **Stand on zone change** | `commands/movement.js` `cmdMove` | Moving zones forces standing + clears `sittingOn`. |
 | **Reset on death/respawn** | `gameLoop.js` death handler | `posture = "standing"`, `sittingOn = null`. |
 | **Look/examine description** | `commands/world.js` `describePlayerAppearance` | If `target.posture === "sitting"`, append `"<X> is sitting on the <furniture|ground>."` |
+| **`poop on <player>` gate (MIS)** | `commands/bodily.js` `cmdPoop` | Target must be sleeping/offline-sleeping or `posture === "lying"`. |
 
 ## Tunables
 
@@ -60,3 +61,8 @@ plugin never set. Because [plugins win command dispatch](plugins.md#-command-pre
 the engine's `bodily.js` `sit` handler (which set `player.sitting`) was dead code — so HP never
 regenerated and nothing stood the player up. The fix unified everything onto `player.posture`. If you
 add a posture-aware behaviour, key it off `player.posture`, and add a row to the table above.
+
+A later audit removed the last remnants of that split: `bodily.js` still carried dead `cmdSit`/
+`cmdStand` handlers (registered as `sit`/`stand` but never reached, since the plugin wins dispatch)
+that read/wrote the dead `player.sitting` boolean — both deleted. The `poop on <player>` gate also
+read a never-written `tp.lying` boolean; it now reads `tp.posture === "lying"`.

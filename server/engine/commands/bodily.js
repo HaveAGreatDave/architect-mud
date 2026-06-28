@@ -68,7 +68,7 @@ async function cmdPoop(args, player, broadcast) {
     if (!isMisActive(player)) return { type:'error', message:`That requires MIS to be enabled.` };
     // Target must be sleeping or lying down
     const tp = target.target;
-    if (!tp.sleeping && !tp.offline_sleeping && !tp.lying) {
+    if (!tp.sleeping && !tp.offline_sleeping && tp.posture !== 'lying') {
       return { type:'error', message:`${tp.handle || 'They'} would have to be lying down for that.` };
     }
     const result = await relieveBowels(player, false, broadcast, target);
@@ -163,25 +163,6 @@ export async function bodilyUseHandler(args, raw, player) {
   return null; // fall through to inventory use
 }
 
-async function cmdSit(player) {
-  if (player.combatTargetId || player.pvpTargetId) {
-    return { type: 'error', message: `You can't sit while in combat.` };
-  }
-  if (player.sitting) {
-    return { type: 'output', message: `You're already sitting.` };
-  }
-  player.sitting = true;
-  return { type: 'output', message: `You sit down and let your muscles relax.` };
-}
-
-async function cmdStand(player) {
-  if (!player.sitting) {
-    return { type: 'output', message: `You're already standing.` };
-  }
-  player.sitting = false;
-  return { type: 'output', message: `You stand up.` };
-}
-
 export const handlers = {
   pee:      (args, raw, player, broadcast) => cmdPee(args, player, broadcast),
   urinate:  (args, raw, player, broadcast) => cmdPee(args, player, broadcast),
@@ -190,6 +171,4 @@ export const handlers = {
   defecate: (args, raw, player, broadcast) => cmdPoop(args, player, broadcast),
   shit:     (args, raw, player, broadcast) => cmdPoop(args, player, broadcast),
   flush:    (args, raw, player)            => cmdFlush(args, player),
-  sit:      (args, raw, player)            => cmdSit(player),
-  stand:    (args, raw, player)            => cmdStand(player),
 };
