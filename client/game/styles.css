@@ -1737,6 +1737,21 @@ body {
 .equip-item-card.layer-hidden {
 	display: none;
 }
+.equip-item-card.layer-incompat {
+	opacity: 0.45;
+}
+.eic-layer-icon {
+	font-size: 10px;
+	font-weight: bold;
+	margin-right: 3px;
+	display: inline;
+}
+.eic-layer-icon.compat {
+	color: var(--green, #4caf50);
+}
+.eic-layer-icon.incompat {
+	color: var(--red, #e53935);
+}
 
 #equip-doll-col {
 	flex-shrink: 0;
