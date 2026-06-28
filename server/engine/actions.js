@@ -5,9 +5,6 @@
  */
 import { emit, on } from './events.js';
 import * as inv from './inventory.js';
-import { getZoneEnemies } from './world.js';
-import { resolveAttack } from './commands/combat.js';
-import { resolveForCommand } from './sift.js';
 
 // type -> { type, requiredTag?, validate?, handler }
 const registry = new Map();
@@ -125,15 +122,9 @@ registerAction({
 // routes through the dispatcher (ADR-0001 — latency-critical hot path).
 registerAction({
   type: 'ATTACK',
-  handler: async ({ actor, params, context, emit }) => {
-    const enemies = getZoneEnemies(actor.current_zone);
-    if (!enemies.length) return { type:'error', message:'Nothing to attack here.' };
-    const result = resolveForCommand(params.targetStr, enemies, actor, { verb: 'attack', combatScope: true });
-    if (result.type === 'none') return { type:'error', message:`Can't find "${params.targetStr}" here.` };
-    const target = result.candidate;
-    // resolveAttack emits enemy.killed / enemy.attacked itself — it's the shared
-    // chokepoint for the command path and the raw-tick retaliation path.
-    return resolveAttack(actor, target, context.broadcast);
+  handler: async ({ actor, params, context }) => {
+    const { cmdAttack } = await import('./commands/combat.js');
+    return cmdAttack(params.targetStr, actor, context.broadcast);
   },
 });
 
