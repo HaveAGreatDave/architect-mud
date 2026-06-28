@@ -92,6 +92,9 @@ export function initLootPanel() {
   document.getElementById('loot-butcher').addEventListener('click', () => {
     if (activeCorpseId) sendCmdSilent(`butcher ${activeCorpseId}`);
   });
+  document.getElementById('loot-take-all').addEventListener('click', () => {
+    if (activeCorpseId) sendCmdSilent(`lootall ${activeCorpseId}`);
+  });
 
   // Drop corpse item onto inventory column → take it
   const invList = document.getElementById('loot-inv-list');

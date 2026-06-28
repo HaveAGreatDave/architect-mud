@@ -2204,6 +2204,15 @@ body {
 	color: var(--text);
 	background: var(--red);
 }
+.loot-btn-take-all {
+	border-color: var(--green);
+	color: var(--green);
+}
+.loot-btn-take-all:hover {
+	border-color: var(--green);
+	color: var(--bg);
+	background: var(--green);
+}
 #container-box {
 	background: var(--bg2);
 	border: 1px solid var(--cyan);

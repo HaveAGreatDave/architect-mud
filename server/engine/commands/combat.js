@@ -212,10 +212,32 @@ async function cmdLootCorpse(targetStr, player, broadcast) {
 	const corpse = resolveCorpse(targetStr, player);
 	if (!corpse) return { type: "error", message: "No corpse to loot here." };
 	const items = await corpseLootRows(corpse.id);
-	if (items.length) return buildLootView(corpse, player);
-	if ((corpse.butcher_table || []).length)
+	if (!items.length && (corpse.butcher_table || []).length)
 		return cmdButcher(corpse.id, player, broadcast);
-	return { type: "error", message: "Nothing left here." };
+	// Always open the loot dialog — even if empty, so the player sees the state.
+	return buildLootView(corpse, player);
+}
+
+// Take every item from a corpse at once.
+async function cmdLootAll(args, player) {
+	const corpseId = args[0];
+	const corpse = corpseId ? getCorpse(corpseId) : null;
+	if (!corpse || corpse.zoneId !== player.current_zone)
+		return { type: "error", message: "That corpse is gone." };
+	const items = await corpseLootRows(corpse.id);
+	if (!items.length) {
+		const view = await buildLootView(corpse, player);
+		view.notify = "Nothing left to take.";
+		return view;
+	}
+	let taken = 0;
+	for (const item of items) {
+		await giveRowToPlayer(item, player);
+		taken++;
+	}
+	const view = await buildLootView(corpse, player);
+	view.notify = `${taken} item${taken !== 1 ? 's' : ''} transferred to inventory.`;
+	return view;
 }
 
 // Pull a single item from a corpse into inventory (GUI take button).
@@ -400,6 +422,7 @@ export const handlers = {
 	loot: (args, raw, player, broadcast) =>
 		cmdLootCorpse(args.join(" "), player, broadcast),
 	lootid: (args, raw, player) => cmdLootId(args, player),
+	lootall: (args, raw, player) => cmdLootAll(args, player),
 	butcher: (args, raw, player, broadcast) =>
 		cmdButcher(args.join(" "), player, broadcast),
 	closeloot: () => null,
