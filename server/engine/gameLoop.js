@@ -15,6 +15,9 @@ import { getEnvironmentState, getZoneTemperature } from './environment.js';
 import { tickBodily } from './bodily.js';
 import { addHorniness } from './mis.js';
 
+// HP restored per sitting tick (every 15 seconds)
+const SIT_REGEN_HP = 5;
+
 let broadcastFn = null;
 let minuteTick = 0;
 
@@ -26,6 +29,7 @@ export function startGameLoop(broadcast) {
   schedule('30s', stormTick);
   schedule('1m', resourceTick);
   schedule('10s', () => tickSpawns());
+  schedule('15s', sittingRegenTick);
   schedule('1m', rentCollectionTick);
   schedule('1m', npcWanderTick);
   schedule('24h', dailyMaintenance);
@@ -65,6 +69,10 @@ async function tick() {
 
       enemyAttackPlayer(enemy, target).then(async result => {
         if (!result) return;
+        if (target.sitting) {
+          target.sitting = false;
+          broadcastFn(null, { type: 'output', message: `You scramble to your feet as the attack comes in!` }, null, target.id);
+        }
         if (result.hit) {
           target.hp = Math.max(0, target.hp - result.damage);
           query('UPDATE players SET hp=$1 WHERE id=$2', [target.hp, target.id]).catch(()=>{});
@@ -222,6 +230,7 @@ export async function handlePlayerDeath(player, killer) {
   player.clothing_contamination = {};
   player._dangerousTempTicks = 0;
   player.sleeping = null;
+  player.sitting = false;
   player.combatTargetId = null;
   player.pvpTargetId = null;
   player.offlinePvpTargetId = null;
@@ -642,6 +651,34 @@ async function resourceTick() {
         broadcastFn(null, { type:'resource_tick', messages: [], player_update: { horniness: player.horniness, mis_enabled: player.mis_enabled } }, null, playerId);
       }
     }
+  }
+}
+
+const SIT_REGEN_MESSAGES = [
+  `You relax and feel your body knitting itself back together.`,
+  `The rest does you good. Your wounds feel a little less severe.`,
+  `Sitting quietly, you feel some of the damage fading.`,
+  `Your body takes advantage of the pause to recover.`,
+  `A moment of stillness. You feel marginally less terrible.`,
+];
+
+async function sittingRegenTick() {
+  for (const [playerId, player] of world.players) {
+    if (!player.sitting) continue;
+    if (player.combatTargetId || player.pvpTargetId) {
+      player.sitting = false;
+      continue;
+    }
+    if (player.hp >= player.hp_max) continue;
+    const healed = Math.min(SIT_REGEN_HP, player.hp_max - player.hp);
+    player.hp += healed;
+    await query('UPDATE players SET hp=$1 WHERE id=$2', [player.hp, player.id]).catch(() => {});
+    const msg = SIT_REGEN_MESSAGES[Math.floor(Math.random() * SIT_REGEN_MESSAGES.length)];
+    broadcastFn(null, {
+      type: 'resource_tick',
+      messages: [`${msg} (+${healed} HP)`],
+      player_update: { hp: player.hp },
+    }, null, playerId);
   }
 }
 
