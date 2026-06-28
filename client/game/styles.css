@@ -1179,14 +1179,17 @@ body {
 	z-index: 100;
 }
 
-/* Spacer that fills remaining sidebar height so the full bar is a drop target */
+/* Spacer at the bottom of the sidebar — small fixed zone for drop targeting only.
+   flex: 0 so user-created spacers can fill remaining height without competition. */
 .sidebar-drop-end {
 	display: none;
-	flex: 1;
-	min-height: 40px;
 }
 #sidebar.drag-mode .sidebar-drop-end {
 	display: block;
+	flex: 0 0 auto;
+	min-height: 48px;
+	border-top: 1px dashed var(--border);
+	opacity: 0.4;
 }
 
 /* Reset sidebar order button in settings */
