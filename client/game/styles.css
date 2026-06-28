@@ -400,6 +400,7 @@ body {
 #main {
 	display: grid;
 	grid-template-columns: 240px 1fr;
+	grid-template-rows: 1fr;
 	flex: 1;
 	overflow: hidden;
 }
