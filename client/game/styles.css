@@ -3153,3 +3153,14 @@ body {
 #mobile-map-close:hover {
 	color: var(--red);
 }
+
+#whisper-log::-webkit-scrollbar {
+	width: 6px;
+}
+#whisper-log::-webkit-scrollbar-track {
+	background: var(--bg2);
+}
+#whisper-log::-webkit-scrollbar-thumb {
+	background: var(--border);
+	border-radius: 3px;
+}

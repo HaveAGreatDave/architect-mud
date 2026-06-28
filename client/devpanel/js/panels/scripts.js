@@ -1,52 +1,30 @@
 let _scriptGraph = { start: '', nodes: {} };
-let _scriptsVineEditor = null;
-let _scriptsViewMode = 'visual';
 
 const SCRIPT_NODE_TYPES = ['action', 'setflag', 'condition', 'say', 'wait', 'script'];
 
 function scriptEditForm(rec, isNew) {
   const g = (rec.graph && typeof rec.graph === 'object') ? rec.graph : JSON.parse(rec.graph || '{}');
   _scriptGraph = { start: g.start || '', nodes: g.nodes || {} };
-  _scriptsViewMode = 'visual';
   return `
     <div class="field"><label>Script ID</label><input id="f-id" value="${isNew?'':rec.id}" ${!isNew?'readonly style="opacity:0.5"':''} placeholder="script_my_thing"></div>
     <div class="field"><label>Name</label><input id="f-name" value="${rec.name||''}"></div>
     <div class="field"><label>Description</label><textarea id="f-description" rows="2">${rec.description||''}</textarea></div>
-    <div style="display:flex;gap:6px;margin-bottom:10px">
-      <button type="button" id="vine-toggle-visual" class="action-btn primary" onclick="scriptsToggleView('visual')">🌿 Visual</button>
-      <button type="button" id="vine-toggle-form" class="action-btn" onclick="scriptsToggleView('form')">📋 Form</button>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <label style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim)">Script Graph</label>
+      <button type="button" class="action-btn" onclick="scriptsOpenVine()">🌿 Visual Editor</button>
     </div>
-    <div id="scripts-vine-container" style="height:480px;border:1px solid var(--border);border-radius:2px;margin-bottom:8px"></div>
-    <div id="scripts-form-container" style="display:none">
-      <div class="field"><label>Start Node</label><select id="f-start" onchange="_scriptGraph.start=this.value"></select></div>
-      <div class="field"><label>Nodes</label>
-        <div id="script-nodes"></div>
-        <button type="button" class="action-btn" onclick="addScriptNode()">+ Add Node</button>
-      </div>
-      <div class="field"><label>Raw Graph JSON (mirror)</label>
-        <textarea id="f-graph-json" rows="6" onchange="applyScriptJSON(this.value)"></textarea>
-      </div>
+    <div class="field"><label>Start Node</label><select id="f-start" onchange="_scriptGraph.start=this.value"></select></div>
+    <div class="field"><label>Nodes</label>
+      <div id="script-nodes"></div>
+      <button type="button" class="action-btn" onclick="addScriptNode()">+ Add Node</button>
+    </div>
+    <div class="field"><label>Raw Graph JSON</label>
+      <textarea id="f-graph-json" rows="6" onchange="applyScriptJSON(this.value)"></textarea>
     </div>
   `;
 }
 
 function renderScriptEditor() {
-  // Initialize VINE visual editor on first call (table.js calls this after DOM insertion).
-  const vineContainer = document.getElementById('scripts-vine-container');
-  if (vineContainer && typeof VineEditor !== 'undefined' && typeof VineScriptSchema !== 'undefined') {
-    if (!_scriptsVineEditor) {
-      _scriptsVineEditor = new VineEditor(vineContainer, VineScriptSchema);
-      window._vineActiveEditor = _scriptsVineEditor;
-      _scriptsVineEditor.on('change', () => {
-        const g = _scriptsVineEditor.save();
-        _scriptGraph = VineScriptSchema.toScriptGraph(g);
-        syncScriptJSON();
-      });
-    }
-    _scriptsVineEditor.load(VineScriptSchema.fromScriptGraph(_scriptGraph));
-  }
-
-  // Populate form editor (hidden by default; shown when toggled).
   const startSel = document.getElementById('f-start');
   if (!startSel) return;
   const ids = Object.keys(_scriptGraph.nodes);
@@ -61,48 +39,18 @@ function renderScriptEditor() {
   syncScriptJSON();
 }
 
-function scriptsToggleView(mode) {
-  _scriptsViewMode = mode;
-  const vineContainer = document.getElementById('scripts-vine-container');
-  const formContainer = document.getElementById('scripts-form-container');
-  const visualBtn = document.getElementById('vine-toggle-visual');
-  const formBtn = document.getElementById('vine-toggle-form');
-  if (!vineContainer || !formContainer) return;
-
-  if (mode === 'visual') {
-    vineContainer.style.display = '';
-    formContainer.style.display = 'none';
-    if (visualBtn) { visualBtn.className = 'action-btn primary'; }
-    if (formBtn) { formBtn.className = 'action-btn'; }
-    // Sync form → VINE
-    if (_scriptsVineEditor) {
-      _scriptsVineEditor.load(VineScriptSchema.fromScriptGraph(_scriptGraph));
+function scriptsOpenVine() {
+  const graphData = VineScriptSchema.fromScriptGraph(_scriptGraph);
+  vineModalOpen(
+    `Script: ${currentRecord?.name || currentRecord?.id || 'Script'}`,
+    VineScriptSchema,
+    graphData,
+    (savedGraph) => {
+      _scriptGraph = VineScriptSchema.toScriptGraph(savedGraph);
+      renderScriptEditor();
+      toast('Script graph saved — click Save to persist.');
     }
-  } else {
-    vineContainer.style.display = 'none';
-    formContainer.style.display = '';
-    if (visualBtn) { visualBtn.className = 'action-btn'; }
-    if (formBtn) { formBtn.className = 'action-btn primary'; }
-    // Sync VINE → form
-    if (_scriptsVineEditor) {
-      _scriptGraph = VineScriptSchema.toScriptGraph(_scriptsVineEditor.save());
-    }
-    renderScriptFormOnly();
-  }
-}
-
-function renderScriptFormOnly() {
-  const startSel = document.getElementById('f-start');
-  if (!startSel) return;
-  const ids = Object.keys(_scriptGraph.nodes);
-  startSel.innerHTML = ids.map(id => `<option value="${id}" ${id===_scriptGraph.start?'selected':''}>${id}</option>`).join('') || '<option value="">— no nodes —</option>';
-  startSel.value = _scriptGraph.start || ids[0] || '';
-  const cont = document.getElementById('script-nodes');
-  if (cont) {
-    cont.innerHTML = ids.map(id => renderScriptNode(id, _scriptGraph.nodes[id])).join('') ||
-      '<div style="color:var(--text-dim);font-size:12px;padding:4px 0">No nodes yet.</div>';
-  }
-  syncScriptJSON();
+  );
 }
 
 function nodeIdOptions(selected) {
@@ -181,10 +129,6 @@ function applyScriptJSON(v) {
 
 async function saveScript(existing) {
   const isNew = !existing?.id;
-  // Sync from whichever view is active.
-  if (_scriptsVineEditor && _scriptsViewMode === 'visual') {
-    _scriptGraph = VineScriptSchema.toScriptGraph(_scriptsVineEditor.save());
-  }
   const body = {
     name: document.getElementById('f-name').value || 'Untitled Script',
     description: document.getElementById('f-description').value || '',
@@ -193,4 +137,3 @@ async function saveScript(existing) {
   if (isNew) { body.id = document.getElementById('f-id').value.trim() || undefined; return API('/scripts', 'POST', body); }
   return API(`/scripts/${existing.id}`, 'PUT', body);
 }
-
