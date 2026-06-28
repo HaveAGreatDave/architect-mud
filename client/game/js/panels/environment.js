@@ -44,7 +44,7 @@ function bodyFeelLabel(tempC) {
   return 'Overheating';
 }
 
-function renderEnvironmentHUD() {
+export function renderEnvironmentHUD() {
   if (clientMinutes === null) return;
   const timeStr = formatHHMM(clientMinutes);
   const timeIcon = timeIconForMinutes(clientMinutes);
