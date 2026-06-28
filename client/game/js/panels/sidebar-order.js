@@ -77,23 +77,13 @@ function onDragEnd() {
   dragSrc = null;
 }
 
-// Returns true if clientY falls inside any visible section (excluding dragSrc).
-function overSection(clientY) {
-  const sections = document.querySelectorAll('#sidebar .sidebar-section');
-  for (const sec of sections) {
-    if (sec === dragSrc) continue;
-    const r = sec.getBoundingClientRect();
-    if (clientY >= r.top && clientY <= r.bottom) return true;
-  }
-  return false;
-}
-
 // Find the section to insert before based on cursor Y (null = end).
+// Sections are split at their midpoint: upper half → insert before, lower half → insert after.
 function getInsertionTarget(clientY) {
   const sections = [...document.querySelectorAll('#sidebar .sidebar-section')].filter(s => s !== dragSrc);
   for (const sec of sections) {
     const r = sec.getBoundingClientRect();
-    if (clientY < r.top) return sec;
+    if (clientY < r.top + r.height / 2) return sec;
   }
   return null;
 }
@@ -101,14 +91,6 @@ function getInsertionTarget(clientY) {
 function onSidebarDragOver(e) {
   if (!dragSrc) return;
   e.preventDefault();
-
-  if (overSection(e.clientY)) {
-    e.dataTransfer.dropEffect = 'none';
-    hideDropIndicator();
-    insertBefore = null;
-    return;
-  }
-
   e.dataTransfer.dropEffect = 'move';
   insertBefore = getInsertionTarget(e.clientY);
   showDropIndicator(e.clientY);
@@ -122,7 +104,7 @@ function onSidebarDragLeave(e) {
 
 function onSidebarDrop(e) {
   e.preventDefault();
-  if (!dragSrc || overSection(e.clientY)) return;
+  if (!dragSrc) return;
   hideDropIndicator();
   const target = insertBefore;
   insertBefore = null;
