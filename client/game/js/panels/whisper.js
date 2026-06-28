@@ -46,22 +46,30 @@ function _saveConvos() {
     }
     if (Object.keys(toSave).length === 0) return;
     localStorage.setItem(WHISPER_CONVO_KEY, JSON.stringify(toSave));
-    console.log('[whisper] saved convos:', Object.keys(toSave));
   } catch (e) {
     console.error('[whisper] save failed:', e);
   }
 }
 
+function _restoreOrCreate(handle) {
+  try {
+    const saved = JSON.parse(localStorage.getItem(WHISPER_CONVO_KEY) || '{}');
+    const messages = saved[handle];
+    if (Array.isArray(messages) && messages.length > 0) {
+      return { messages, scrollTop: 999999, unread: 0 };
+    }
+  } catch {}
+  return { messages: [], scrollTop: 0, unread: 0 };
+}
+
 function _loadConvos() {
   try {
     const raw = localStorage.getItem(WHISPER_CONVO_KEY);
-    console.log('[whisper] loading convos, raw key present:', raw !== null);
     const saved = JSON.parse(raw || '{}');
     for (const [handle, messages] of Object.entries(saved)) {
       if (!Array.isArray(messages) || messages.length === 0) continue;
       _whisperConvos.set(handle, { messages, scrollTop: 999999, unread: 0 });
     }
-    console.log('[whisper] loaded handles:', [..._whisperConvos.keys()]);
   } catch (e) {
     console.error('[whisper] load failed:', e);
   }
@@ -277,7 +285,7 @@ export function toggleWhisperPanel() {
 
 export function openWhisperTab(handle) {
   if (!_whisperConvos.has(handle)) {
-    _whisperConvos.set(handle, { messages: [], scrollTop: 0, unread: 0 });
+    _whisperConvos.set(handle, _restoreOrCreate(handle));
   }
   _whisperConvos.get(handle).unread = 0;
   _switchToTab(handle);
@@ -488,7 +496,7 @@ function whisperScrollToBottom() {
 // ── SEND / RECEIVE ────────────────────────────────────────────────────────────
 
 export function sentWhisper(handle, message) {
-  if (!_whisperConvos.has(handle)) _whisperConvos.set(handle, { messages: [], scrollTop: 0, unread: 0 });
+  if (!_whisperConvos.has(handle)) _whisperConvos.set(handle, _restoreOrCreate(handle));
   const convo = _whisperConvos.get(handle);
   convo.messages.push({ from: 'You', message, isMe: true, ts: Date.now() });
   if (convo.messages.length > WHISPER_MAX_MSGS) convo.messages.shift();
@@ -499,7 +507,7 @@ export function sentWhisper(handle, message) {
 }
 
 export function receiveWhisper(from, message) {
-  if (!_whisperConvos.has(from)) _whisperConvos.set(from, { messages: [], scrollTop: 0, unread: 0 });
+  if (!_whisperConvos.has(from)) _whisperConvos.set(from, _restoreOrCreate(from));
   const convo = _whisperConvos.get(from);
   convo.messages.push({ from, message, isMe: false, ts: Date.now() });
   if (convo.messages.length > WHISPER_MAX_MSGS) convo.messages.shift();
