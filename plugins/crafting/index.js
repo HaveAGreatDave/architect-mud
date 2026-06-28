@@ -2,9 +2,9 @@ import { query } from '../../server/models/db.js';
 import { getAvailableRecipes, attemptCraft, findRecipeByName } from '../../server/engine/crafting.js';
 
 async function cmdRecipes(args, raw, player) {
-  const { rows: skillRows } = await query('SELECT skill_id, trained FROM player_skills WHERE player_id = $1', [player.id]);
+  const { rows: skillRows } = await query('SELECT skill_id, ip FROM player_skills WHERE player_id = $1', [player.id]);
   const skills = {};
-  for (const r of skillRows) skills[r.skill_id] = r.trained || 0;
+  for (const r of skillRows) skills[r.skill_id] = Math.floor((r.ip || 0) / 100);
   const available = getAvailableRecipes(skills);
   if (!available.length) return { type:'recipes', recipes:[] };
 
