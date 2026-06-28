@@ -97,7 +97,7 @@ const VineEdges = {
         grad.setAttribute('x2', x2); grad.setAttribute('y2', y2);
         const b0 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
         b0.setAttribute('offset', '0%');
-        b0.style.stopColor = 'var(--accent3)';
+        b0.style.stopColor = 'var(--cyan)';
         const b1 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
         b1.setAttribute('offset', '100%');
         b1.style.stopColor = 'var(--red)';
