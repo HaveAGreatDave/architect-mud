@@ -1,7 +1,6 @@
 import { query } from '../../models/db.js';
-import { getZone, getZoneNpcs } from '../world.js';
+import { getZoneNpcs } from '../world.js';
 import { getVendorStock, buyFromVendor, sellToVendor } from '../vendor.js';
-import { transferCredits } from '../economy.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../sift.js';
 
 async function cmdShop(npcName, player) {
@@ -60,30 +59,10 @@ async function cmdBalance(player) {
   return { type:'balance', message:`Carried: ${player.credits||0}c\nBanked: ${player.bank_credits||0}c` };
 }
 
-async function cmdDeposit(amountStr, player) {
-  const zone = getZone(player.current_zone);
-  if (!zone?.flags?.has_atm) return { type:'error', message:'There\'s no ATM here.' };
-  const amount = amountStr === 'all' ? (player.credits||0) : parseInt(amountStr, 10);
-  if (!amount || amount <= 0) return { type:'error', message:'Deposit how much? Try "deposit 50" or "deposit all".' };
-  if (!await transferCredits(player, amount, 'deposit')) return { type:'error', message:`You only have ${player.credits||0} credits on you.` };
-  return { type:'deposit', message:`You deposit ${amount}c. Carried: ${player.credits}c · Banked: ${player.bank_credits}c`, player_update:{credits:player.credits, bank_credits:player.bank_credits} };
-}
-
-async function cmdWithdraw(amountStr, player) {
-  const zone = getZone(player.current_zone);
-  if (!zone?.flags?.has_atm) return { type:'error', message:'There\'s no ATM here.' };
-  const amount = amountStr === 'all' ? (player.bank_credits||0) : parseInt(amountStr, 10);
-  if (!amount || amount <= 0) return { type:'error', message:'Withdraw how much? Try "withdraw 50" or "withdraw all".' };
-  if (!await transferCredits(player, amount, 'withdraw')) return { type:'error', message:`You only have ${player.bank_credits||0} credits banked.` };
-  return { type:'withdraw', message:`You withdraw ${amount}c. Carried: ${player.credits}c · Banked: ${player.bank_credits}c`, player_update:{credits:player.credits, bank_credits:player.bank_credits} };
-}
-
 export const handlers = {
   shop:    (args, raw, player) => cmdShop(args.join(' '), player),
   browse:  (args, raw, player) => cmdShop(args.join(' '), player),
   buy:     (args, raw, player) => cmdBuy(args, player),
   sell:    (args, raw, player) => cmdSell(args, player),
   balance: (args, raw, player) => cmdBalance(player),
-  deposit:  (args, raw, player) => cmdDeposit(args[0], player),
-  withdraw: (args, raw, player) => cmdWithdraw(args[0], player),
 };
