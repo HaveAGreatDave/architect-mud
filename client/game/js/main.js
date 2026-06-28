@@ -13,7 +13,7 @@ import { initForecast } from './panels/forecast.js';
 import { initWhisperPanel, debugFakeWhisper, toggleWhisperPanel } from './panels/whisper.js';
 import { initWho, openWhoModal } from './panels/who.js';
 import { initSidebarOrder } from './panels/sidebar-order.js';
-import { renderEnvironmentHUD } from './panels/environment.js';
+import { refreshTempDisplay } from './panels/environment.js';
 
 // Settings
 const settings = loadSettings();
@@ -39,7 +39,7 @@ window.addEventListener('resize', applyMobileScale);
 
 listenForSettingsChanges((s) => { applySettings(s); applyMobileScale(); });
 // saveAndApply is called after settings.js mutates the settings object in-place
-initSettingsUI(settings, () => { saveSettings(settings); applySettings(settings); applyMobileScale(); renderEnvironmentHUD(); }, {
+initSettingsUI(settings, () => { saveSettings(settings); applySettings(settings); applyMobileScale(); refreshTempDisplay(); }, {
   sendCmd,
   notify: (msg) => appendMsg(msg, 'system'),
   getOrigin: () => state.player?.origin_fragment || '',

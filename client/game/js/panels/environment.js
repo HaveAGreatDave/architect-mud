@@ -44,7 +44,7 @@ function bodyFeelLabel(tempC) {
   return 'Overheating';
 }
 
-export function renderEnvironmentHUD() {
+function renderEnvironmentHUD() {
   if (clientMinutes === null) return;
   const timeStr = formatHHMM(clientMinutes);
   const timeIcon = timeIconForMinutes(clientMinutes);
@@ -91,6 +91,17 @@ export function updateEnvironmentHUD(env) {
   _lastServerTick = Date.now();
   renderEnvironmentHUD();
   if (env.time) refreshZoneVisibility();
+}
+
+export function refreshTempDisplay() {
+  const tempStr = envTempC !== null ? formatTemp(envTempC) : null;
+  if (tempStr === null) return;
+  for (const suffix of ['', '-m']) {
+    const p  = document.getElementById(`env-temp${suffix}`);
+    const bt = document.getElementById(`env-body-temp${suffix}`);
+    if (p) p.textContent = tempStr;
+    if (bt && envBodyTempC !== null) bt.textContent = `🌡 ${formatTempPrecise(envBodyTempC)}`;
+  }
 }
 
 export function updateBodyTempHUD(tempC) {
