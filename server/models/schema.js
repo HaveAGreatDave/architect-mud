@@ -714,6 +714,33 @@ export const SCHEMA_SQL = `
 
   CREATE INDEX IF NOT EXISTS idx_media_playlist_channel ON media_channel_playlist(channel_id, start_time);
   CREATE INDEX IF NOT EXISTS idx_media_cameras_zone ON media_cameras(zone_id);
+
+  -- ── ATM system ──────────────────────────────────────────────────────────────
+  -- ATM networks define the banking faction: fee rates, withdrawal limits,
+  -- faction rep gates, and UI accent color.
+  CREATE TABLE IF NOT EXISTS atm_networks (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    color TEXT DEFAULT '#00ff88',
+    fee_rate NUMERIC DEFAULT 0.0,
+    withdrawal_limit INTEGER DEFAULT 500,
+    min_faction_rep INTEGER DEFAULT -200,
+    faction_id TEXT DEFAULT NULL
+  );
+
+  -- ATM units link to furniture rows (id matches furniture.id).
+  -- cash_stock is the physical cash cassette; drained by withdrawals, replenished
+  -- by the scheduled tick up to cash_max.
+  CREATE TABLE IF NOT EXISTS atm_units (
+    id TEXT PRIMARY KEY,
+    network_id TEXT REFERENCES atm_networks(id),
+    cash_stock INTEGER DEFAULT 5000,
+    cash_max INTEGER DEFAULT 5000,
+    replenish_interval_hours INTEGER DEFAULT 6,
+    last_replenish BIGINT DEFAULT 0,
+    hack_difficulty INTEGER DEFAULT 5,
+    is_broken INTEGER DEFAULT 0
+  );
 `;
 
 export async function applySchema() {

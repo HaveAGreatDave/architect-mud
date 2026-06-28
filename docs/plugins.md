@@ -44,6 +44,7 @@ To list what's actually registered at runtime: `getRegisteredCommands()` in `plu
 | **visibility** | Ambient light/visibility text in room descriptions | — | hook `zone.describeRoom` |
 | **weather** | Seeded 7-day forecast; owns `weather_forecast` table | — | tick |
 | **zone-validator** | Zone exit-connectivity integrity checks | — | startup/validation |
+| **atm** | ATM terminals — power-aware, faction-networked, hackable, finite cash stock | `atm deposit withdraw jack` | USE specialized action (tag `atm`); replenish tick every 5 min |
 
 A plugin with no player verbs and no specialized actions integrates purely through **hooks**
 (request/response into engine flows) or **ticks** (scheduler cadences).
