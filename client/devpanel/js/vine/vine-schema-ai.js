@@ -5,8 +5,22 @@ function _escAI(s) {
   return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-const _AI_AI_IS = 'width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:4px 6px;box-sizing:border-box;border-radius:2px';
-const _AI_AI_LS = 'font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);display:block;margin-bottom:3px';
+const _AI_IS = 'width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:4px 6px;box-sizing:border-box;border-radius:2px';
+const _AI_LS = 'font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);display:block;margin-bottom:3px';
+
+function _aiHelpBox(nodeId, desc, example) {
+  const boxId = `ai-help-${nodeId}`;
+  return `
+    <div style="margin-bottom:10px">
+      <button onclick="(function(b){var d=document.getElementById('${boxId}');var open=d.style.display==='block';d.style.display=open?'none':'block';b.style.color=open?'var(--text-dim)':'var(--accent)';b.style.borderColor=open?'var(--border)':'var(--accent)'})(this)"
+              style="background:none;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font);font-size:10px;padding:1px 7px;cursor:pointer;border-radius:2px;letter-spacing:1px">?</button>
+      <div id="${boxId}" style="display:none;margin-top:6px;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:2px;font-size:11px;line-height:1.5">
+        <div style="color:var(--text);margin-bottom:6px">${desc}</div>
+        ${example ? `<div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:3px">Example</div>
+        <pre style="margin:0;font-size:10px;color:var(--accent2);font-family:var(--font);white-space:pre-wrap;word-break:break-all">${_escAI(example)}</pre>` : ''}
+      </div>
+    </div>`;
+}
 
 function _aiField(label, inputHtml) {
   return `<div style="margin-bottom:8px"><label style="${_AI_LS}">${label}</label>${inputHtml}</div>`;
@@ -198,7 +212,9 @@ const _aiNodeDefs = {
     defaultData: {},
     renderBody: () => `<div style="font-size:11px;color:var(--accent);letter-spacing:1px">↳ ENTRY</div>`,
     getOutPorts: () => [{ key: 'next', label: 'next' }],
-    renderProperties: () => `<div style="color:var(--text-dim);font-size:12px">Entry point. Connect to the first node to evaluate each tick.</div>`,
+    renderProperties: (n, ed, id) => `
+      ${_aiHelpBox(id, 'Entry point for the behaviour graph. The AI walks from here every tick. There can only be one Start node — connect its output to the first condition or action you want evaluated.', null)}
+      <div style="color:var(--text-dim);font-size:12px">Connect to the first node to evaluate each tick.</div>`,
   },
 
   condition: {
@@ -215,6 +231,10 @@ const _aiNodeDefs = {
         `<option value="${c.type}" ${c.type === n.data.condition_type ? 'selected' : ''}>${c.label}</option>`
       ).join('');
       return `
+        ${_aiHelpBox(id,
+          'Evaluates a condition each tick and routes down "if true" or "if false". Conditions never execute game logic — they only check state.',
+          'HAS_TARGET → if true: ATTACK\n            → if false: ACQUIRE_TARGET\n\nHP_BELOW (pct: 25) → if true: FLEE\n                   → if false: ATTACK'
+        )}
         ${_aiField('Condition Type', `<select data-vine-field="data.condition_type" style="${_AI_IS}" id="ai-cond-type-${id}">${condOpts}</select>`)}
         <div id="ai-cond-params-${id}"></div>
       `;
@@ -252,6 +272,10 @@ const _aiNodeDefs = {
         `<option value="${a.type}" ${a.type === n.data.action_type ? 'selected' : ''}>${a.label}</option>`
       ).join('');
       return `
+        ${_aiHelpBox(id,
+          'Executes one game action, then stops graph evaluation for this tick. The "next" port runs on the following tick if the graph reaches this node again.',
+          'PATROL  — move through a list of zone IDs step by step\nATTACK  — strike current target using normal combat\nSAY     — broadcast a message to the zone\nFLEE    — move away from target\'s zone\nCALL_BACKUP — alert nearby same-faction entities'
+        )}
         ${_aiField('Action Type', `<select data-vine-field="data.action_type" style="${_AI_IS}" id="ai-act-type-${id}">${actOpts}</select>`)}
         <div id="ai-act-params-${id}"></div>
       `;
@@ -282,7 +306,10 @@ const _aiNodeDefs = {
     renderBody: (n) => `<div style="font-size:11px;color:var(--text-dim)">${n.data.seconds || 0}s pause</div>`,
     getOutPorts: () => [{ key: 'next', label: 'next' }],
     renderProperties: (n, ed, id) => `
-      <div style="color:var(--text-dim);font-size:12px;margin-bottom:8px">Suspend AI evaluation for N seconds, then continue. Useful after SAY or ATTACK to pace behavior.</div>
+      ${_aiHelpBox(id,
+        'Suspends this entity\'s AI graph for N seconds. The graph will not be walked again until the timer expires. Useful for pacing SAY messages, adding a delay between attacks, or making patrol stops feel natural.',
+        'seconds: 10\n\n→ entity pauses at current waypoint for 10s before continuing'
+      )}
       ${_aiField('Seconds', `<input data-vine-field="data.seconds" data-vine-type="number" type="number" min="0" step="1" value="${n.data.seconds || 0}" style="${_AI_IS}">`)}
     `,
   },
@@ -303,7 +330,10 @@ const _aiNodeDefs = {
       }));
     },
     renderProperties: (n, ed, id) => `
-      <div style="color:var(--text-dim);font-size:12px;margin-bottom:8px">Picks one branch at random each tick, weighted by the branch's weight value.</div>
+      ${_aiHelpBox(id,
+        'Picks one output branch at random each tick. Weights are relative — a branch with weight 3 is three times as likely to be chosen as one with weight 1. Use this to add unpredictability: idle vs. wander vs. say something.',
+        'Branch 0 (weight 3) → IDLE\nBranch 1 (weight 1) → SAY "..."\nBranch 2 (weight 1) → PATROL\n\n→ 60% idle, 20% say, 20% patrol'
+      )}
       <div id="ai-branches-${id}"></div>
     `,
     afterRenderProperties(propsEl, node, editor, nodeId) {
