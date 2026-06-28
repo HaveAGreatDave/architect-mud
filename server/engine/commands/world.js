@@ -590,6 +590,14 @@ async function cmdTurn(args, player, broadcast) {
   return applyLightSwitch(nameStr, dir, player, broadcast);
 }
 
+function cmdCorpses(player) {
+  if (player.role !== 'admin') return { type:'error', message:"You don't have the clearance for that." };
+  const list = [...world.corpses.values()];
+  if (!list.length) return { type:'system', message:'No corpses on the map.' };
+  const lines = list.map(c => `  ${c.name.padEnd(30)} zone: ${c.zoneId}`).join('\n');
+  return { type:'system', message:`<span class="help-header">CORPSES (${list.length})</span>\n${lines}` };
+}
+
 async function cmdTeleport(targetZoneId, player, broadcast) {
   if (player.role !== 'admin') return { type:'error', message:"You don't have the clearance for that." };
   if (!targetZoneId) return { type:'error', message:'Teleport where? Usage: teleport <zone id>' };
@@ -675,6 +683,7 @@ export const handlers = {
   skills:   (args, raw, player) => cmdSkills(player),
   help:     (args, raw, player) => cmdHelp(player),
   '?':      (args, raw, player) => cmdHelp(player),
+  corpses:  (args, raw, player) => cmdCorpses(player),
   teleport: (args, raw, player, broadcast) => cmdTeleport(args.join(' '), player, broadcast),
   tp:       (args, raw, player, broadcast) => cmdTeleport(args.join(' '), player, broadcast),
   raise:    (args, raw, player) => cmdRaise(args, player),

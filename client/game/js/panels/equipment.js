@@ -62,14 +62,8 @@ export function renderEquipPanel(items) {
   const unequipped = [];
   for (const item of items) {
     if (item.is_equipped && item.slot) {
-      const layer = item.layer || 1;
-      const prev = equippedBySlot[item.slot];
-      // prefer exact match at currentLayer; otherwise highest layer ≤ currentLayer
-      if (!prev) {
-        equippedBySlot[item.slot] = item;
-      } else if (layer === currentLayer) {
-        equippedBySlot[item.slot] = item;
-      } else if (prev.layer !== currentLayer && layer <= currentLayer && layer > (prev.layer || 1)) {
+      // Only show the item in the slot if it's on the current layer exactly
+      if ((item.layer || 1) === currentLayer) {
         equippedBySlot[item.slot] = item;
       }
     } else {
@@ -80,8 +74,7 @@ export function renderEquipPanel(items) {
   for (const [slotName, item] of Object.entries(equippedBySlot)) {
     const slotEl = document.querySelector(`.equip-slot[data-slot="${slotName}"] .equip-slot-item`);
     if (slotEl) {
-      const vis = itemLayerVisibility(item, currentLayer);
-      slotEl.className = 'equip-slot-item filled layer-' + vis;
+      slotEl.className = 'equip-slot-item filled';
       slotEl.textContent = item.name + (item.quantity > 1 ? ` x${item.quantity}` : '');
       slotEl.setAttribute('draggable', 'true');
       slotEl.setAttribute('data-id', item.id);

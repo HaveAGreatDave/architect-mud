@@ -1,4 +1,4 @@
-import { getAllLivePlayers, getZonePlayers, getZoneNpcs } from '../world.js';
+import { getAllLivePlayers, getZonePlayers, getZoneNpcs, getZoneEnemies } from '../world.js';
 import { propagateYell } from '../sounds.js';
 import { canAccessChannel, broadcastToChannel } from '../channels.js';
 import { evalConditions } from '../flags.js';
@@ -75,6 +75,52 @@ async function cmdWho() {
   return { type:'who', message:msg };
 }
 
+const ANIMAL_KEYWORDS = ['cat', 'dog', 'kitten', 'puppy', 'hound', 'feline', 'canine', 'wolf', 'fox', 'rabbit', 'rat', 'bird', 'parrot', 'snake', 'lizard'];
+
+function isAnimal(name) {
+  const lower = name.toLowerCase();
+  return ANIMAL_KEYWORDS.some(k => lower.includes(k));
+}
+
+function cmdPet(targetStr, player, broadcast) {
+  if (!targetStr) return { type: 'error', message: 'Pet what?' };
+
+  const npcs    = getZoneNpcs(player.current_zone).map(n => ({ ...n, _kind: 'npc' }));
+  const enemies = getZoneEnemies(player.current_zone).map(e => ({ ...e, _kind: 'enemy' }));
+  const animals = [...npcs, ...enemies].filter(e => isAnimal(e.name));
+
+  if (!animals.length) return { type: 'error', message: "There's nothing here worth petting." };
+
+  const r = siftResolve(targetStr, animals);
+  if (r.type === 'none')      return { type: 'error', message: `Can't find "${targetStr}" here.` };
+  if (r.type === 'ambiguous') {
+    createSelectionState(player.id, r.candidates, { verb: 'pet' });
+    return { type: 'output', message: formatSelectionPage({ allCandidates: r.candidates, visibleIndex: 0, pageSize: 5 }) };
+  }
+
+  const target = r.candidate;
+
+  if (target._kind === 'enemy') {
+    // Emit a battlecry and bump threat level by 3 (≈ +15% aggro chance)
+    const cries = target.flags?.battle_cries;
+    if (Array.isArray(cries) && cries.length) {
+      const cry = cries[Math.floor(Math.random() * cries.length)]
+        .replace(/\$enemy/g, target.name)
+        .replace(/\$player/g, player.handle);
+      broadcast(player.current_zone, { type: 'output', message: `<span class="battle-cry">${cry}</span>` });
+    } else {
+      broadcast(player.current_zone, { type: 'output', message: `${target.name} snaps angrily at your hand!` });
+    }
+    target._threatLevel = (target._threatLevel || 0) + 3;
+    broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} reaches out to pet ${target.name}. Bad idea.` }, player.id);
+    return { type: 'output', message: `You reach out to pet ${target.name}. It does not appreciate this.` };
+  }
+
+  // NPC animal — wholesome
+  broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} pets ${target.name}.` }, player.id);
+  return { type: 'output', message: `You pet ${target.name}. It seems to enjoy the attention.` };
+}
+
 function cmdObama(targetStr, player, broadcast) {
   if (!targetStr) return { type:'error', message:'Fist bump whom?' };
   const others = getZonePlayers(player.current_zone).filter(p => p.id !== player.id);
@@ -101,4 +147,5 @@ export const handlers = {
   t:       (args, raw, player, broadcast) => cmdWhisper(args, raw, player, broadcast),
   who:     () => cmdWho(),
   obama:   (args, raw, player, broadcast) => cmdObama(args.join(' '), player, broadcast),
+  pet:     (args, raw, player, broadcast) => cmdPet(args.join(' '), player, broadcast),
 };
