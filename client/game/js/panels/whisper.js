@@ -161,6 +161,7 @@ function _setSystemMOTD(renderedText) {
     from: 'SYSTEM',
     message: `<pre style="font-family:var(--font-mono);white-space:pre;margin:0;line-height:1.3;tab-size:4">${_esc(renderedText)}</pre>`,
     isMe: false,
+    isHtml: true,
     ts: Date.now(),
   }];
   convo.unread    = 0;
@@ -393,7 +394,8 @@ function _renderWhisperLog() {
     const entry = document.createElement('div');
     entry.style.cssText = 'padding:4px 0;border-bottom:1px solid var(--border)';
     const nameColor = m.isMe ? 'var(--text-dim)' : 'var(--purple)';
-    entry.innerHTML = `<div style="color:${nameColor};margin-bottom:2px;font-style:${m.isMe?'italic':''}">${_esc(m.from)}</div><div style="color:var(--text)">${parseMarkup(m.message)}</div>`;
+    const body = m.isHtml ? m.message : parseMarkup(m.message);
+    entry.innerHTML = `<div style="color:${nameColor};margin-bottom:2px;font-style:${m.isMe?'italic':''}">${_esc(m.from)}</div><div style="color:var(--text)">${body}</div>`;
     log.appendChild(entry);
   }
   // Use ?? so scrollTop=0 (MOTD top) is respected; fall back to bottom for chat
