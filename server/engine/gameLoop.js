@@ -71,6 +71,7 @@ async function tick() {
         if (!result) return;
         if (target.sitting) {
           target.sitting = false;
+          target.sittingOn = null;
           broadcastFn(null, { type: 'output', message: `You scramble to your feet as the attack comes in!` }, null, target.id);
         }
         if (result.hit) {
@@ -129,6 +130,11 @@ async function tick() {
     if (isOnCooldown(playerId, 'attack')) continue;
     pvpSwing(player, pvpTarget).then(async result => {
       if (!result) return;
+      if (pvpTarget.sitting) {
+        pvpTarget.sitting = false;
+        pvpTarget.sittingOn = null;
+        broadcastFn(null, { type: 'output', message: `You scramble to your feet as the attack comes in!` }, null, pvpTarget.id);
+      }
       broadcastFn(null, { type: 'combat', message: result.attackerMsg, auto: true }, null, playerId);
       broadcastFn(null, { type: 'combat_incoming', message: result.defenderMsg, damage: result.damage || 0, hp: result.defenderHp, hp_max: result.defenderHpMax }, null, pvpTarget.id);
       if (result.killed) {
@@ -231,6 +237,7 @@ export async function handlePlayerDeath(player, killer) {
   player._dangerousTempTicks = 0;
   player.sleeping = null;
   player.sitting = false;
+  player.sittingOn = null;
   player.combatTargetId = null;
   player.pvpTargetId = null;
   player.offlinePvpTargetId = null;
@@ -667,6 +674,7 @@ async function sittingRegenTick() {
     if (!player.sitting) continue;
     if (player.combatTargetId || player.pvpTargetId) {
       player.sitting = false;
+      player.sittingOn = null;
       continue;
     }
     if (player.hp >= player.hp_max) continue;
