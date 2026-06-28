@@ -57,6 +57,44 @@ function withArticle(name) {
   return (/^[aeiou]/.test(n) ? 'an ' : 'a ') + n;
 }
 
+const STAIN_DESCS = {
+  urine: {
+    self: [
+      (item) => `Your ${item} has a damp patch that tells a story you'd rather not tell.`,
+      (item) => `Your ${item} is stained with what is, let's be honest, urine. Yours.`,
+      (item) => `Your ${item} carries the unmistakable evidence of a close call that wasn't close enough.`,
+      (item) => `There's a spreading wet stain on your ${item}. The smell confirms your worst suspicions about yourself.`,
+    ],
+    other: [
+      (item) => `Their ${item} is damp in a way that suggests a deeply personal failure.`,
+      (item) => `There's a suspicious wet stain on their ${item}. You make a mental note not to ask.`,
+      (item) => `Their ${item} bears what appears to be a urine stain. You respect their journey.`,
+      (item) => `Something has gone badly wrong with their ${item}. Specifically: a urine situation.`,
+    ],
+  },
+  feces: {
+    self: [
+      (item) => `Your ${item} is stained in a way that represents a genuine low point.`,
+      (item) => `Your ${item} has been through something. Something biological. Something final.`,
+      (item) => `There's a stain on your ${item} that no amount of eye contact will make the other person ignore.`,
+      (item) => `Your ${item} has been compromised. The word "compromised" is doing a lot of work here.`,
+    ],
+    other: [
+      (item) => `Their ${item} is stained in a way you weren't prepared for. Nobody warned you.`,
+      (item) => `Something has happened to their ${item}. Something that can't be taken back.`,
+      (item) => `Their ${item} carries the evidence of a catastrophic personal incident. You maintain eye contact.`,
+      (item) => `There is a stain on their ${item} that recontextualizes everything about this encounter.`,
+    ],
+  },
+};
+
+function stainDescription(type, itemName, isSelf) {
+  const bucket = STAIN_DESCS[type];
+  if (!bucket) return `${isSelf ? 'Your' : 'Their'} ${itemName} is stained with something unpleasant.`;
+  const pool = isSelf ? bucket.self : bucket.other;
+  return pool[Math.floor(Math.random() * pool.length)](itemName);
+}
+
 async function describePlayerAppearance(target, isSelf, viewer = null, broadcast = null) {
   const { rows: equipped } = await query(
     `SELECT i.name, i.tags FROM player_inventory pi
@@ -103,8 +141,12 @@ async function describePlayerAppearance(target, isSelf, viewer = null, broadcast
   const contamination = target.clothing_contamination || {};
   const stainedSlots = Object.keys(contamination).filter(k => contamination[k] && bySlot[k]);
   if (stainedSlots.length) {
-    const slotList = stainedSlots.map(s => `${bySlot[s].name} (${s})`).join(', ');
-    msg += `<span style="color:var(--red)">Stained: ${slotList}.</span>\n`;
+    for (const slot of stainedSlots) {
+      const itemName = bySlot[slot].name;
+      const type = contamination[slot];
+      const line = stainDescription(type, itemName, isSelf);
+      msg += `<span style="color:var(--yellow)">${line}</span>\n`;
+    }
   }
 
   if (!bodyPieces.length && !weapon && !accessory) {

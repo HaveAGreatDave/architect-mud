@@ -61,9 +61,9 @@ export async function tickBodily(player, broadcastFn, zoneBroadcastFn) {
   return messages;
 }
 
-async function stainClothing(player, slots) {
+async function stainClothing(player, slots, type) {
   const contamination = player.clothing_contamination || {};
-  for (const slot of slots) contamination[slot] = true;
+  for (const slot of slots) contamination[slot] = type;
   player.clothing_contamination = contamination;
   await query('UPDATE players SET clothing_contamination=$1 WHERE id=$2',
     [JSON.stringify(contamination), player.id]);
@@ -79,7 +79,7 @@ async function equippedSlotsFor(player, slotNames) {
 
 async function involuntaryBowelRelease(player, broadcastFn) {
   const coveredSlots = await equippedSlotsFor(player, ['legs']);
-  if (coveredSlots.length) await stainClothing(player, coveredSlots);
+  if (coveredSlots.length) await stainClothing(player, coveredSlots, 'feces');
   broadcastFn(player.current_zone, { type:'zone_event', message:`Something smells suddenly and sharply wrong nearby.` }, player.id);
   player.digestive_load = 0;
   return `<span style="color:var(--red)">Your body gives out. You lose control entirely. Your clothing is stained. The world will notice.</span>`;
@@ -87,7 +87,7 @@ async function involuntaryBowelRelease(player, broadcastFn) {
 
 async function involuntaryBladderRelease(player, broadcastFn) {
   const coveredSlots = await equippedSlotsFor(player, ['legs']);
-  if (coveredSlots.length) await stainClothing(player, coveredSlots);
+  if (coveredSlots.length) await stainClothing(player, coveredSlots, 'urine');
   broadcastFn(player.current_zone, { type:'zone_event', message:`A small puddle spreads near someone's feet.` }, player.id);
   player.hydration_load = 0;
   return `<span style="color:var(--red)">You can't hold it any longer. It just… happens. Your clothing is wet. You stand very still for a moment.</span>`;
@@ -117,7 +117,7 @@ export async function relieveBladder(player, hasFacility, broadcast, target = nu
   const covered = await equippedSlotsFor(player, ['legs']);
   let stained = false;
   if (!hasFacility && covered.length) {
-    await stainClothing(player, covered);
+    await stainClothing(player, covered, 'urine');
     stained = true;
   }
   const reduction = hasFacility ? 65 : 55;
@@ -170,7 +170,7 @@ export async function relieveBowels(player, hasFacility, broadcast, target = nul
   const covered = await equippedSlotsFor(player, ['legs']);
   let stained = false;
   if (!hasFacility && covered.length) {
-    await stainClothing(player, covered);
+    await stainClothing(player, covered, 'feces');
     stained = true;
   }
   const reduction = hasFacility ? 75 : 60;
