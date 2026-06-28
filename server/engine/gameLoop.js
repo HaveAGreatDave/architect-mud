@@ -27,6 +27,7 @@ export function startGameLoop(broadcast) {
   schedule('1m', rentCollectionTick);
   schedule('1m', npcWanderTick);
   schedule('24h', cleanGroundItems);
+  schedule('24h', cleanZoneStains);
   console.log('✓ Game loop started');
 }
 
@@ -154,6 +155,12 @@ async function minuteTickFn() {
 }
 
 export async function handlePlayerDeath(player, killer) {
+  player.deaths = (player.deaths || 0) + 1;
+  query('UPDATE players SET deaths=deaths+1 WHERE id=$1', [player.id]).catch(() => {});
+  if (killer && killer.id) {
+    killer.player_kills = (killer.player_kills || 0) + 1;
+    query('UPDATE players SET player_kills=player_kills+1 WHERE id=$1', [killer.id]).catch(() => {});
+  }
   const msgs = [
     "You die. Statistically speaking, this was inevitable.",
     "You die. The world continues without you, which feels rude.",
@@ -620,6 +627,13 @@ async function cleanGroundItems() {
   `, [rentedZoneIds.size ? [...rentedZoneIds] : ['__none__']]);
 
   if (rowCount > 0) console.log(`[cleanGroundItems] Removed ${rowCount} ground item(s).`);
+}
+
+// Runs every 24 hours. Clears all stains from zone floors.
+async function cleanZoneStains() {
+  const { rowCount } = await query(`UPDATE zones SET stains='{}' WHERE stains != '{}'`);
+  for (const zone of world.zones.values()) zone.stains = {};
+  if (rowCount > 0) console.log(`[cleanZoneStains] Cleared stains from ${rowCount} zone(s).`);
 }
 
 // Runs every real-world minute. Collects weekly rent from apartment owners

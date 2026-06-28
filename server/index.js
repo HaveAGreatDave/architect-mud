@@ -573,6 +573,9 @@ async function finishAuth(ws, session, player) {
 		digestive_load: player.digestive_load || 0,
 		hydration_load: player.hydration_load || 0,
 		clothing_contamination: player.clothing_contamination || {},
+		mob_kills: player.mob_kills || 0,
+		player_kills: player.player_kills || 0,
+		deaths: player.deaths || 0,
 	};
 	setLivePlayer(player.id, livePlayer);
 	emit('player.login', { id: player.id, handle: player.handle, role: player.role });

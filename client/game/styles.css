@@ -1642,6 +1642,7 @@ body {
 	max-width: 820px;
 	width: 94%;
 	border-radius: 2px;
+	height: 80vh;
 	max-height: 88vh;
 	display: flex;
 	flex-direction: column;
@@ -2147,6 +2148,7 @@ body {
 	width: 94%;
 	max-width: 720px;
 	border-radius: 2px;
+	height: 80vh;
 	max-height: 88vh;
 	display: flex;
 	flex-direction: column;
@@ -2300,6 +2302,7 @@ body {
 	width: 94%;
 	max-width: 720px;
 	border-radius: 2px;
+	height: 80vh;
 	max-height: 88vh;
 	display: flex;
 	flex-direction: column;

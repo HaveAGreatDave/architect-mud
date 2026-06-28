@@ -229,6 +229,21 @@ export async function describeZone(zone, player) {
     }
   }
 
+  const zoneStains = zone.stains || {};
+  const stainEntries = Object.entries(zoneStains).filter(([, count]) => count > 0);
+  if (stainEntries.length && !isDark) {
+    const ZONE_STAIN_DESCS = {
+      urine:  (n) => n > 1 ? `The floor is wet in several places. The smell confirms it.` : `There's a wet patch on the floor. The smell tells the story.`,
+      feces:  (n) => n > 1 ? `The floor is fouled in multiple spots. The smell is significant.` : `Something has been deposited on the floor here. The smell is notable.`,
+      blood:  (n) => n > 1 ? `Dark stains are smeared across the floor in several places.` : `There's a dark stain on the floor.`,
+      ejaculate: (n) => n > 1 ? `There are dried white stains on the floor. Several of them.` : `There's a dried white stain on the floor.`,
+    };
+    for (const [type, count] of stainEntries) {
+      const fn = ZONE_STAIN_DESCS[type];
+      if (fn) desc += `\n<span style="color:var(--yellow)">${fn(count)}</span>`;
+    }
+  }
+
   if (groundItems.length) {
     if (isDim) {
       desc += ` Something is lying on the ground nearby.`;

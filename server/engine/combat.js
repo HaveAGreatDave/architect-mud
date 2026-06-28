@@ -216,6 +216,8 @@ export async function playerAttackEnemy(player, enemyInstanceId, weaponStats) {
   enemy.targetId = player.id;
 
   if (enemy.hp <= 0) {
+    player.mob_kills = (player.mob_kills || 0) + 1;
+    query('UPDATE players SET mob_kills=mob_kills+1 WHERE id=$1', [player.id]).catch(() => {});
     const loot = resolveEnemyLoot(enemy);
     removeEnemyInstance(enemyInstanceId);
     return {

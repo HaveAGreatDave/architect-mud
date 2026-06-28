@@ -465,6 +465,8 @@ export const SCHEMA_SQL = `
   ALTER TABLE players ADD COLUMN IF NOT EXISTS clothing_contamination JSONB DEFAULT '{}';
   ALTER TABLE players ADD COLUMN IF NOT EXISTS sexuality TEXT DEFAULT 'Male';
 
+  ALTER TABLE zones ADD COLUMN IF NOT EXISTS stains JSONB DEFAULT '{}';
+
   CREATE TABLE IF NOT EXISTS server_settings (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
@@ -630,6 +632,11 @@ export const SCHEMA_SQL = `
     occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
   CREATE INDEX IF NOT EXISTS idx_server_activity_log_time ON server_activity_log(occurred_at DESC);
+
+  -- Kill / death counters
+  ALTER TABLE players ADD COLUMN IF NOT EXISTS mob_kills INTEGER DEFAULT 0;
+  ALTER TABLE players ADD COLUMN IF NOT EXISTS player_kills INTEGER DEFAULT 0;
+  ALTER TABLE players ADD COLUMN IF NOT EXISTS deaths INTEGER DEFAULT 0;
 `;
 
 export async function applySchema() {

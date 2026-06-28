@@ -143,8 +143,8 @@ function _measureMotdDims() {
     host.appendChild(pre);
     const rect = pre.getBoundingClientRect();
     _motdDims[size] = {
-      w: Math.ceil(rect.width)  + 22, // +10+10px log padding +2px border
-      h: Math.ceil(rect.height) + 22,
+      w: Math.ceil(rect.width)  + 40, // +10+10px log padding +2px border +17px scrollbar
+      h: Math.ceil(rect.height) + 82, // +10+10px log padding +2px border +26px drag handle +34px tabs row
     };
     host.removeChild(pre);
   }
@@ -653,18 +653,15 @@ export function initWhisperPanel() {
 
   dragHandle.addEventListener('pointerdown', e => {
     if (e.target.closest('button') || e.target.closest('#whisper-cog-menu')) return;
+    e.preventDefault();
     const r = panel.getBoundingClientRect();
-    dragState = { pointerId: e.pointerId, ox: e.clientX - r.left, oy: e.clientY - r.top, startTime: Date.now(), captured: false };
+    dragState = { pointerId: e.pointerId, ox: e.clientX - r.left, oy: e.clientY - r.top };
+    dragHandle.setPointerCapture(e.pointerId);
+    dragHandle.style.cursor = 'grabbing';
   });
 
-  document.addEventListener('pointermove', e => {
+  dragHandle.addEventListener('pointermove', e => {
     if (!dragState || dragState.pointerId !== e.pointerId) return;
-    if (!dragState.captured) {
-      if (Date.now() - dragState.startTime < 100) return;
-      dragHandle.setPointerCapture(e.pointerId);
-      dragState.captured = true;
-      dragHandle.style.cursor = 'grabbing';
-    }
     const x = Math.max(0, Math.min(window.innerWidth  - panel.offsetWidth,  e.clientX - dragState.ox));
     const y = Math.max(0, Math.min(window.innerHeight - panel.offsetHeight, e.clientY - dragState.oy));
     panel.style.left   = x + 'px';

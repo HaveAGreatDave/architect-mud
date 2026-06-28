@@ -68,6 +68,7 @@ async function loadZones() {
       exits: zone.exits || {},
       ambient_events: zone.ambient_events || [],
       flags: zone.flags || {},
+      stains: zone.stains || {},
       players: new Set(),
       enemies: new Set(),
       npcs: new Set(),

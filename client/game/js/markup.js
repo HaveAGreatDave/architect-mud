@@ -15,9 +15,12 @@ const TOKEN_MAP = {
   $credits: () => state.player?.credits != null ? state.player.credits : null,
   $ip:      () => state.player?.ip      != null ? state.player.ip      : null,
   $zone:    () => document.getElementById('zone-name-display')?.textContent?.trim() || null,
+  $mk:      () => state.player?.mob_kills    != null ? state.player.mob_kills    : null,
+  $pk:      () => state.player?.player_kills != null ? state.player.player_kills : null,
+  $deaths:  () => state.player?.deaths       != null ? state.player.deaths       : null,
 };
 
-const TOKEN_PATTERN = /\$(?:name|maxhp|hp|san|rad|temp|credits|ip|zone)\b/gi;
+const TOKEN_PATTERN = /\$(?:name|maxhp|hp|san|rad|temp|credits|ip|zone|mk|pk|deaths)\b/gi;
 
 const ALLOWED_COLORS = new Set([
   'red','green','blue','yellow','orange','purple','pink','cyan','white','gray','grey',

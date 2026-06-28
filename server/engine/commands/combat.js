@@ -204,7 +204,9 @@ export async function cmdAttack(targetStr, player, broadcast) {
 				[corpseId, targetPlayer.id, player.current_zone, corpseName, expiresAt],
 			).catch(() => {});
 			createCorpse({ id: corpseId, name: corpseName, zoneId: player.current_zone, expiresAt });
-			await query(`UPDATE players SET hp=$1, current_zone=anchor_zone WHERE id=$2`, [targetPlayer.hp_max ?? 100, targetPlayer.id]);
+			await query(`UPDATE players SET hp=$1, current_zone=anchor_zone, deaths=deaths+1 WHERE id=$2`, [targetPlayer.hp_max ?? 100, targetPlayer.id]);
+			player.player_kills = (player.player_kills || 0) + 1;
+			query('UPDATE players SET player_kills=player_kills+1 WHERE id=$1', [player.id]).catch(() => {});
 			const corpseLink = `<span class="action-link corpse-link" data-action="loot" data-target="${corpseId}" data-label="${corpseName}" title="Loot ${corpseName}">${corpseName}</span>`;
 			broadcast(player.current_zone, { type: "zone_event", message: `${targetPlayer.handle} has died. ${corpseLink}`, refresh: true }, player.id);
 			return { type: "combat", message: `You kill ${targetPlayer.handle}. ${corpseLink}`, killed: true, corpseLink };
@@ -236,7 +238,7 @@ async function corpseLootRows(corpseId) {
 	return rows;
 }
 
-async function buildLootView(corpse, player) {
+export async function buildLootView(corpse, player) {
 	const items = await corpseLootRows(corpse.id);
 	const { rows: invItems } = await query(
 		`SELECT pi.id,pi.item_id,pi.quantity,i.name,i.rarity,i.weight,i.tags
@@ -326,7 +328,7 @@ async function cmdLootCorpse(targetStr, player, broadcast) {
 }
 
 // Resolve a corpse by ID, falling back to a sleeping/offline player in the same zone.
-async function resolveCorpseOrPlayer(corpseId, player) {
+export async function resolveCorpseOrPlayer(corpseId, player) {
 	const corpse = corpseId ? getCorpse(corpseId) : null;
 	if (corpse) return corpse;
 	// Check if it's a sleeping/offline player still in the zone

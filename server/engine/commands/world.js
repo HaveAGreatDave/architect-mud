@@ -174,11 +174,13 @@ async function describePlayerAppearance(target, isSelf, viewer = null, broadcast
 
   // Clothing contamination
   const contamination = target.clothing_contamination || {};
+  const viewerMis = viewer ? isMisActive(viewer) : false;
   const stainedSlots = Object.keys(contamination).filter(k => contamination[k] && bySlot[k]);
   if (stainedSlots.length) {
     for (const slot of stainedSlots) {
-      const itemName = bySlot[slot].name;
       const type = contamination[slot];
+      if (type === 'ejaculate' && !viewerMis) continue;
+      const itemName = bySlot[slot].name;
       const line = stainDescription(type, itemName, isSelf);
       msg += `<span style="color:var(--yellow)">${line}</span>\n`;
     }

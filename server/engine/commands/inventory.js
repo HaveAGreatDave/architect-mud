@@ -6,6 +6,7 @@ import { foodLoad, drinkLoad } from '../bodily.js';
 import { dispatchAction } from '../actions.js';
 import { getZonePlayers } from '../world.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../sift.js';
+import { resolveCorpseOrPlayer, buildLootView } from './combat.js';
 
 // Throttle: only broadcast "rummages in container" once per 30s per player.
 const _ctrBroadcastTs = new Map();
@@ -414,7 +415,37 @@ async function cmdStowById(argStr, player, broadcast) {
   const item = itemRows[0];
 
   const container = await loadContainerById(containerRowId, player);
-  if (!container) return { type:'container_error', message:'Container not found.' };
+  if (!container) {
+    // Fall back to corpse stow: move item from player inv onto a corpse
+    const corpse = await resolveCorpseOrPlayer(containerRowId, player);
+    if (!corpse || corpse.zoneId !== player.current_zone) return { type:'container_error', message:'Container not found.' };
+    const reqQty = qtyStr && /^\d+$/.test(qtyStr) ? parseInt(qtyStr, 10) : null;
+    const moveQty = (reqQty && reqQty > 0 && reqQty < item.quantity && isStackable(item)) ? reqQty : null;
+    if (moveQty) {
+      const { rows: ex } = await query('SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND container_id IS NULL LIMIT 1', [corpse.id, item.item_id]);
+      if (ex.length) {
+        await query('UPDATE player_inventory SET quantity=quantity+$1 WHERE id=$2', [moveQty, ex[0].id]);
+      } else {
+        await query('INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,$3,$4,1.0)', [randomUUID(), corpse.id, item.item_id, moveQty]);
+      }
+      await query('UPDATE player_inventory SET quantity=quantity-$1 WHERE id=$2', [moveQty, item.id]);
+    } else {
+      if (isStackable(item)) {
+        const { rows: ex } = await query('SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND container_id IS NULL LIMIT 1', [corpse.id, item.item_id]);
+        if (ex.length) {
+          await query('UPDATE player_inventory SET quantity=quantity+$1 WHERE id=$2', [item.quantity, ex[0].id]);
+          await query('DELETE FROM player_inventory WHERE id=$1', [item.id]);
+        } else {
+          await query('UPDATE player_inventory SET player_id=$1, container_id=NULL, is_equipped=0, slot=NULL WHERE id=$2', [corpse.id, item.id]);
+        }
+      } else {
+        await query('UPDATE player_inventory SET player_id=$1, container_id=NULL, is_equipped=0, slot=NULL WHERE id=$2', [corpse.id, item.id]);
+      }
+    }
+    const view = await buildLootView(corpse, player);
+    view.mainMsg = `You drop ${item.name} on ${corpse.name}.`;
+    return view;
+  }
   if (item.id === container.id) return { type:'container_error', message:`Can't put ${container.name} inside itself.` };
   if (hasTag(item, 'container')) return { type:'container_error', message:`Can't stow a container inside another container.` };
 

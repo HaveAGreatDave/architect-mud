@@ -4,6 +4,7 @@
  * Threshold messages fire at ~80%+; involuntary release at >110.
  */
 import { query } from '../models/db.js';
+import { world } from './world.js';
 
 // How much load consuming food/drink adds.
 // Scales with restore value: eating something with +25 hunger adds ~12 load.
@@ -69,6 +70,14 @@ export async function stainClothing(player, slots, type) {
     [JSON.stringify(contamination), player.id]);
 }
 
+export async function stainZone(zoneId, type) {
+  const zone = world.zones.get(zoneId);
+  if (!zone) return;
+  zone.stains = zone.stains || {};
+  zone.stains[type] = (zone.stains[type] || 0) + 1;
+  await query('UPDATE zones SET stains=$1 WHERE id=$2', [JSON.stringify(zone.stains), zoneId]);
+}
+
 async function equippedSlotsFor(player, slotNames) {
   const { rows } = await query(
     `SELECT pi.slot FROM player_inventory pi WHERE pi.player_id=$1 AND pi.is_equipped=1 AND pi.slot = ANY($2)`,
@@ -80,6 +89,7 @@ async function equippedSlotsFor(player, slotNames) {
 async function involuntaryBowelRelease(player, broadcastFn) {
   const coveredSlots = await equippedSlotsFor(player, ['legs']);
   if (coveredSlots.length) await stainClothing(player, coveredSlots, 'feces');
+  await stainZone(player.current_zone, 'feces');
   broadcastFn(player.current_zone, { type:'zone_event', message:`Something smells suddenly and sharply wrong nearby.` }, player.id);
   player.digestive_load = 0;
   return `<span style="color:var(--red)">Your body gives out. You lose control entirely. Your clothing is stained. The world will notice.</span>`;
@@ -88,6 +98,7 @@ async function involuntaryBowelRelease(player, broadcastFn) {
 async function involuntaryBladderRelease(player, broadcastFn) {
   const coveredSlots = await equippedSlotsFor(player, ['legs']);
   if (coveredSlots.length) await stainClothing(player, coveredSlots, 'urine');
+  await stainZone(player.current_zone, 'urine');
   broadcastFn(player.current_zone, { type:'zone_event', message:`A small puddle spreads near someone's feet.` }, player.id);
   player.hydration_load = 0;
   return `<span style="color:var(--red)">You can't hold it any longer. It just… happens. Your clothing is wet. You stand very still for a moment.</span>`;
@@ -127,6 +138,7 @@ export async function relieveBladder(player, hasFacility, broadcast, target = nu
   if (hasFacility) {
     return { ok: true, message: pick(TOILET_PEE_MSGS), private: true };
   }
+  await stainZone(player.current_zone, 'urine');
   broadcast(player.current_zone, { type:'zone_event', message: `A stream hits the ground nearby.` }, player.id);
   return {
     ok: true,
@@ -180,6 +192,7 @@ export async function relieveBowels(player, hasFacility, broadcast, target = nul
   if (hasFacility) {
     return { ok: true, message: pick(TOILET_POOP_MSGS), private: true };
   }
+  await stainZone(player.current_zone, 'feces');
   broadcast(player.current_zone, { type:'zone_event', message: `The smell of something biological drifts through the air.` }, player.id);
   return {
     ok: true,
