@@ -73,6 +73,7 @@ export async function handleCommand(input, player, broadcast) {
   if (player.sleeping && cmd !== 'sleep' && cmd !== 'rest') {
     const wasHome = player.sleeping.reason === 'home';
     player.sleeping = null;
+    player.posture = 'standing';
     const WAKE_MESSAGES = [
       'jolts awake, eyes wild.',
       'snaps awake with a grunt.',

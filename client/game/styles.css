@@ -3256,21 +3256,16 @@ body {
 	z-index: 101;
 }
 #whisper-scroll-bottom {
-	display: none;
-	position: absolute;
-	bottom: 36px;
-	right: 2px;
-	background: var(--bg3);
+	background: transparent;
 	border: 1px solid var(--border);
 	color: var(--text-dim);
-	font-size: 11px;
-	width: 18px;
-	height: 18px;
-	padding: 0;
+	font-size: 14px;
+	padding: 3px 7px;
 	cursor: pointer;
 	border-radius: 2px;
+	flex-shrink: 0;
 	line-height: 1;
-	z-index: 101;
+	margin-left: 4px;
 }
 #whisper-log::-webkit-scrollbar {
 	width: 6px;

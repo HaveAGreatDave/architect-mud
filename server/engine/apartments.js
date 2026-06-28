@@ -451,6 +451,8 @@ export async function cmdSleep(player, broadcastFn) {
 		reason: elig.reason,
 		minutesSlept: 0,
 	};
+	player.posture = 'lying';
+	player.sittingOn = null;
 
 	let selfMsg, roomMsg;
 	if (lieSpot) {
@@ -494,13 +496,18 @@ export async function cmdSleep(player, broadcastFn) {
 
 	broadcastFn(player.current_zone, { type: 'zone_event', message: roomMsg }, player.id);
 
+	let extra = '';
 	if (elig.reason === "home") {
-		await activateForcefield(player, broadcastFn);
+		if (player.home_zone === player.current_zone) {
+			await activateForcefield(player, broadcastFn);
+		} else {
+			extra = '\n<span class="text-dim">◈ HoloLock unbound — type <strong>.home</strong> here to enable the forcefield when you sleep.</span>';
+		}
 	}
 
 	return {
 		type: "sleep",
-		message: `${selfMsg}\n\nYou'll rest gradually while you're out — send any command to wake up early.`,
+		message: `${selfMsg}\n\nYou'll rest gradually while you're out — send any command to wake up early.${extra}`,
 	};
 }
 
@@ -559,6 +566,7 @@ export async function tickSleep(player, broadcastFn) {
 				? "Your stomach and throat wake you up before you starve in your sleep."
 				: "You wake up, having slept as long as your body will allow in one go.";
 		player.sleeping = null;
+		player.posture = 'standing';
 		await deactivateForcefield(player.id, player.home_zone, broadcastFn);
 		return {
 			type: "sleep_end",
