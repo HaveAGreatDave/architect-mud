@@ -79,7 +79,7 @@ export async function cmdGhostHaunt(targetHandle, session, broadcast) {
   const target = getAllLivePlayers().find(p => p.handle.toLowerCase() === targetHandle.toLowerCase());
   if (!target) return { type: 'ghost_error', message: `${targetHandle} is not online.` };
   const hauntMsg = HAUNT_MESSAGES[Math.floor(Math.random() * HAUNT_MESSAGES.length)];
-  broadcast(null, { type: 'system', message: `<span style="color:#9f7aea;font-style:italic">${hauntMsg}</span>` }, null, target.id);
+  broadcast(null, { type: 'ambient', message: `<span style="color:#9f7aea;font-style:italic">${hauntMsg}</span>` }, null, target.id);
   await query('UPDATE players SET sanity = GREATEST(0, sanity - 10) WHERE id=$1', [target.id]);
   if (target.sanity !== undefined) target.sanity = Math.max(0, target.sanity - 10);
   return { type: 'ghost_haunt_result', message: `Phantom sent to ${target.handle}.` };
