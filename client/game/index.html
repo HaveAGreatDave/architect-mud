@@ -488,19 +488,23 @@
 					</div>
 				</div>
 			</div>
-			<div id="mobile-env" title="View weather & forecast">
-				<span class="env-icon" id="env-weather-icon-m">—</span>
-				<span class="env-temp" id="env-temp-m">—°C</span>
-				<span id="env-clock-m" style="display:none"></span>
-				<span id="env-time-icon-m" style="display:none"></span>
-				<span id="env-body-feel-m" style="display:none"></span>
-				<span id="env-body-temp-m" style="display:none"></span>
-				<span id="env-precip-intensity-m" style="display:none"></span>
+			<div id="mob-btn-stack">
+				<div id="mobile-env" title="View weather & forecast">
+					<span class="env-icon" id="env-weather-icon-m">—</span>
+					<span class="env-temp" id="env-temp-m">—°C</span>
+					<span id="env-clock-m" style="display:none"></span>
+					<span id="env-time-icon-m" style="display:none"></span>
+					<span id="env-body-feel-m" style="display:none"></span>
+					<span id="env-body-temp-m" style="display:none"></span>
+					<span id="env-precip-intensity-m" style="display:none"></span>
+				</div>
+				<div id="mob-chat-map">
+					<button id="mobile-chat-btn" title="Toggle chat">
+						💬<span id="mobile-chat-badge" style="display: none"> !</span>
+					</button>
+					<button id="mobile-map-btn" title="Toggle minimap">🗺</button>
+				</div>
 			</div>
-			<button id="mobile-chat-btn" title="Toggle chat">
-				💬<span id="mobile-chat-badge" style="display: none"> !</span>
-			</button>
-			<button id="mobile-map-btn" title="Toggle minimap">🗺</button>
 		</div>
 
 		<div id="main">
@@ -657,6 +661,10 @@
 							<span
 								class="env-precip-label"
 								id="env-precip-intensity"></span>
+						</div>
+						<div class="env-hud-row env-hud-weather">
+							<span id="env-light-icon" style="font-size: 10px; color: var(--text-dim)">●</span>
+							<span id="env-light-label" style="color: var(--text-dim)">—</span>
 						</div>
 					</div>
 				</div>
