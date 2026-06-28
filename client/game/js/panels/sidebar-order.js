@@ -3,6 +3,7 @@ const DEFAULT_ORDER = ['minimap-section', 'vitals-section', 'location-section', 
 
 let locked = true;
 let dragSrc = null;
+let insertBefore = null; // the section to insert before (null = end)
 
 export function initSidebarOrder() {
   applyOrder(loadOrder());
@@ -26,10 +27,10 @@ function saveOrder() {
 }
 
 function applyOrder(order) {
-  const sidebar = document.getElementById('sidebar');
+  const dropEnd = document.getElementById('sidebar-drop-end');
   order.forEach(id => {
     const el = document.getElementById(id);
-    if (el) sidebar.appendChild(el);
+    if (el) dropEnd.before(el);
   });
 }
 
@@ -71,17 +72,28 @@ function onDragStart(e) {
 
 function onDragEnd() {
   this.classList.remove('dragging');
-  clearDropIndicators();
+  hideDropIndicator();
+  insertBefore = null;
   dragSrc = null;
 }
 
-// Find the section immediately after the cursor Y position.
-// Returns null to mean "insert at end".
+// Returns true if clientY falls inside any visible section (excluding dragSrc).
+function overSection(clientY) {
+  const sections = document.querySelectorAll('#sidebar .sidebar-section');
+  for (const sec of sections) {
+    if (sec === dragSrc) continue;
+    const r = sec.getBoundingClientRect();
+    if (clientY >= r.top && clientY <= r.bottom) return true;
+  }
+  return false;
+}
+
+// Find the section to insert before based on cursor Y (null = end).
 function getInsertionTarget(clientY) {
   const sections = [...document.querySelectorAll('#sidebar .sidebar-section')].filter(s => s !== dragSrc);
   for (const sec of sections) {
-    const rect = sec.getBoundingClientRect();
-    if (clientY < rect.bottom) return sec;
+    const r = sec.getBoundingClientRect();
+    if (clientY < r.top) return sec;
   }
   return null;
 }
@@ -89,29 +101,57 @@ function getInsertionTarget(clientY) {
 function onSidebarDragOver(e) {
   if (!dragSrc) return;
   e.preventDefault();
+
+  if (overSection(e.clientY)) {
+    e.dataTransfer.dropEffect = 'none';
+    hideDropIndicator();
+    insertBefore = null;
+    return;
+  }
+
   e.dataTransfer.dropEffect = 'move';
-  clearDropIndicators();
-  const target = getInsertionTarget(e.clientY);
-  if (target) target.classList.add('drop-before');
-  else document.getElementById('sidebar-drop-end')?.classList.add('drop-active');
+  insertBefore = getInsertionTarget(e.clientY);
+  showDropIndicator(e.clientY);
 }
 
 function onSidebarDragLeave(e) {
   if (e.currentTarget.contains(e.relatedTarget)) return;
-  clearDropIndicators();
+  hideDropIndicator();
+  insertBefore = null;
 }
 
 function onSidebarDrop(e) {
   e.preventDefault();
-  if (!dragSrc) return;
-  const target = getInsertionTarget(e.clientY);
-  clearDropIndicators();
-  if (target && target !== dragSrc) target.before(dragSrc);
-  else if (!target) document.getElementById('sidebar-drop-end').before(dragSrc);
+  if (!dragSrc || overSection(e.clientY)) return;
+  hideDropIndicator();
+  const target = insertBefore;
+  insertBefore = null;
+  if (target) target.before(dragSrc);
+  else document.getElementById('sidebar-drop-end').before(dragSrc);
   saveOrder();
 }
 
-function clearDropIndicators() {
-  document.querySelectorAll('.sidebar-section.drop-before').forEach(el => el.classList.remove('drop-before'));
-  document.getElementById('sidebar-drop-end')?.classList.remove('drop-active');
+// --- indicator element ---
+
+function getIndicator() {
+  let el = document.getElementById('sidebar-drop-indicator');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'sidebar-drop-indicator';
+    document.getElementById('sidebar').appendChild(el);
+  }
+  return el;
+}
+
+function showDropIndicator(clientY) {
+  const sidebar = document.getElementById('sidebar');
+  const sidebarRect = sidebar.getBoundingClientRect();
+  const el = getIndicator();
+  el.style.top = (clientY - sidebarRect.top) + 'px';
+  el.style.display = 'block';
+}
+
+function hideDropIndicator() {
+  const el = document.getElementById('sidebar-drop-indicator');
+  if (el) el.style.display = 'none';
 }

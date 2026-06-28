@@ -1162,16 +1162,17 @@ body {
 	opacity: 0.4;
 }
 
-/* Drop target indicators */
-.sidebar-section.drop-before {
-	outline: 2px solid var(--accent);
-	outline-offset: -2px;
-	box-shadow: inset 0 3px 0 0 var(--accent);
-}
-.sidebar-section.drop-after {
-	outline: 2px solid var(--accent);
-	outline-offset: -2px;
-	box-shadow: inset 0 -3px 0 0 var(--accent);
+/* Drop position indicator — floats at cursor Y in empty sidebar space */
+#sidebar-drop-indicator {
+	display: none;
+	position: absolute;
+	left: 4px;
+	right: 4px;
+	height: 0;
+	border-top: 2px solid var(--accent);
+	box-shadow: 0 0 6px var(--accent);
+	pointer-events: none;
+	z-index: 100;
 }
 
 /* Drop zone at bottom of sidebar for placing sections at the end */
