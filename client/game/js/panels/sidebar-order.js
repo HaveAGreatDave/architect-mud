@@ -3,7 +3,6 @@ const DEFAULT_ORDER = ['minimap-section', 'vitals-section', 'location-section', 
 
 let locked = true;
 let dragSrc = null;
-let grabOffsetY = 0;
 let insertBefore = null;
 
 export function initSidebarOrder() {
@@ -67,7 +66,6 @@ function detachDragHandlers(el) {
 
 function onDragStart(e) {
   dragSrc = this;
-  grabOffsetY = e.offsetY;
   e.dataTransfer.effectAllowed = 'move';
   this.classList.add('dragging');
 }
@@ -79,26 +77,13 @@ function onDragEnd() {
   dragSrc = null;
 }
 
-// Ghost top = cursor Y minus the point where the user grabbed the element,
-// clamped so the ghost stays inside the sidebar.
-function ghostTop(clientY) {
-  const sidebar = document.getElementById('sidebar');
-  const sr = sidebar.getBoundingClientRect();
-  const gh = dragSrc.offsetHeight;
-  const raw = clientY - sr.top - grabOffsetY;
-  return Math.max(0, Math.min(raw, sr.height - gh));
-}
-
-// Insert before the first section whose midpoint is below the ghost's midpoint.
+// Find insertion target using raw cursor Y — no ghost-height clamping that
+// prevents dropping past the last section when the dragged element is tall.
 function getInsertionTarget(clientY) {
-  const sidebar = document.getElementById('sidebar');
-  const sr = sidebar.getBoundingClientRect();
-  const gh = dragSrc.offsetHeight;
-  const ghostMid = sr.top + ghostTop(clientY) + gh / 2;
   const sections = [...document.querySelectorAll('#sidebar .sidebar-section')].filter(s => s !== dragSrc);
   for (const sec of sections) {
     const r = sec.getBoundingClientRect();
-    if (ghostMid < r.top + r.height / 2) return sec;
+    if (clientY < r.top + r.height / 2) return sec;
   }
   return null;
 }
@@ -108,7 +93,7 @@ function onSidebarDragOver(e) {
   e.preventDefault();
   e.dataTransfer.dropEffect = 'move';
   insertBefore = getInsertionTarget(e.clientY);
-  showDropIndicator(e.clientY);
+  showDropIndicator();
 }
 
 function onSidebarDragLeave(e) {
@@ -140,10 +125,23 @@ function getIndicator() {
   return el;
 }
 
-function showDropIndicator(clientY) {
+// Show a thin line at the insertion point rather than a same-size ghost box.
+// insertBefore is already set when this is called.
+function showDropIndicator() {
   const el = getIndicator();
-  el.style.top = ghostTop(clientY) + 'px';
-  el.style.height = dragSrc.offsetHeight + 'px';
+  const sidebar = document.getElementById('sidebar');
+  const sr = sidebar.getBoundingClientRect();
+
+  let lineY;
+  if (insertBefore) {
+    lineY = insertBefore.getBoundingClientRect().top - sr.top;
+  } else {
+    const sections = [...document.querySelectorAll('#sidebar .sidebar-section')].filter(s => s !== dragSrc);
+    const last = sections[sections.length - 1];
+    lineY = last ? last.getBoundingClientRect().bottom - sr.top : 0;
+  }
+
+  el.style.top = lineY + 'px';
   el.style.display = 'block';
 }
 

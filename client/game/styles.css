@@ -1166,21 +1166,20 @@ body {
 	opacity: 0.4;
 }
 
-/* Ghost outline showing where the dragged section will land */
+/* Thin line showing where the dragged section will land */
 #sidebar-drop-indicator {
 	display: none;
 	position: absolute;
-	left: 4px;
-	right: 4px;
-	border: 2px solid var(--accent);
+	left: 0;
+	right: 0;
+	height: 2px;
+	background: var(--accent);
 	box-shadow: 0 0 8px var(--accent);
-	border-radius: 2px;
 	pointer-events: none;
 	z-index: 100;
-	box-sizing: border-box;
 }
 
-/* Drop zone at bottom of sidebar for placing sections at the end */
+/* Spacer that fills remaining sidebar height so the full bar is a drop target */
 .sidebar-drop-end {
 	display: none;
 	flex: 1;
@@ -1188,11 +1187,6 @@ body {
 }
 #sidebar.drag-mode .sidebar-drop-end {
 	display: block;
-}
-.sidebar-drop-end.drop-active {
-	outline: 2px dashed var(--accent);
-	outline-offset: -4px;
-	border-radius: 2px;
 }
 
 /* Reset sidebar order button in settings */
