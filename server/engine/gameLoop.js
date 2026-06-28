@@ -28,7 +28,7 @@ export function startGameLoop(broadcast) {
   schedule('45s', ambientTick);
   schedule('30s', stormTick);
   schedule('1m', resourceTick);
-  schedule('10s', () => tickSpawns());
+  schedule('10s', () => tickSpawns(broadcastFn));
   schedule('15s', sittingRegenTick);
   schedule('1m', rentCollectionTick);
   schedule('1m', npcWanderTick);

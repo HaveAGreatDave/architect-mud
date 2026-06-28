@@ -261,7 +261,7 @@ export function spawnEnemySync(template, zoneId) {
   return instance;
 }
 
-export async function tickSpawns() {
+export async function tickSpawns(broadcast) {
   const now = Date.now();
   const { rows } = await query(`
     SELECT e.*, zs.id as spawn_id, zs.zone_id, zs.max_count, zs.spawn_weight, zs.respawn_seconds
@@ -274,7 +274,10 @@ export async function tickSpawns() {
     if (!zone) continue;
     const count = [...zone.enemies].filter(eid => world.enemies.get(eid)?.templateId === t.id).length;
     if (count < t.max_count && Math.random() * 100 < t.spawn_weight) {
-      spawnEnemySync(t, t.zone_id);
+      const instance = spawnEnemySync(t, t.zone_id);
+      if (broadcast && zone.players.size > 0) {
+        broadcast(t.zone_id, { type: 'zone_event', message: `A ${instance.name} appears.`, refresh: true });
+      }
     }
     world.spawnTimers.set(t.spawn_id, { ...timer, nextSpawn: now + t.respawn_seconds * 1000 });
   }
