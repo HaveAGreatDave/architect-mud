@@ -323,7 +323,15 @@ async function cmdLootAll(args, player) {
 
 // Pull a single item from a corpse into inventory (GUI take button).
 async function cmdLootId(args, player) {
-	const [invId, corpseId, ...nameParts] = args;
+	const [invId, corpseId, ...rest] = args;
+	// Optional qty as third arg (numeric); remaining args are corpseName for error messages
+	let qty = null;
+	let nameParts = rest;
+	if (rest.length && /^\d+$/.test(rest[0])) {
+		qty = parseInt(rest[0], 10);
+		nameParts = rest.slice(1);
+	}
+
 	const corpse = corpseId ? getCorpse(corpseId) : null;
 	if (!corpse || corpse.zoneId !== player.current_zone) {
 		const label = nameParts.join(' ') || 'That corpse';
@@ -334,9 +342,31 @@ async function cmdLootId(args, player) {
 		[invId, corpseId],
 	);
 	if (!rows.length) return { type: "error", message: "It's already gone." };
-	const name = await giveRowToPlayer(rows[0], player);
+	const row = rows[0];
+
+	// Partial take: split the stack if a valid qty less than the full amount was given
+	const takeQty = (qty && qty > 0 && qty < row.quantity) ? qty : null;
+	let name;
+	if (takeQty) {
+		if (isStackable(row)) {
+			const { rows: existing } = await query(
+				'SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND is_equipped=0 AND container_id IS NULL',
+				[player.id, row.item_id],
+			);
+			if (existing.length) {
+				await query('UPDATE player_inventory SET quantity=quantity+$1 WHERE id=$2', [takeQty, existing[0].id]);
+			} else {
+				await query('INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,$3,$4,1.0)', [randomUUID(), player.id, row.item_id, takeQty]);
+			}
+			await query('UPDATE player_inventory SET quantity=quantity-$1 WHERE id=$2', [takeQty, row.id]);
+		}
+		name = row.name;
+	} else {
+		name = await giveRowToPlayer(row, player);
+	}
+
 	const view = await buildLootView(corpse, player);
-	view.mainMsg = `You take ${name}.`;
+	view.mainMsg = `You take ${takeQty ? takeQty + 'x ' : ''}${name}.`;
 	return view;
 }
 

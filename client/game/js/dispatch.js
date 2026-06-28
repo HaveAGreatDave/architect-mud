@@ -226,6 +226,9 @@ const handlers = {
 
   player_update: (msg) => {
     if (state.player) { Object.assign(state.player, msg); updateVitals(state.player); }
+    if (msg.mis_enabled !== undefined) {
+      document.dispatchEvent(new CustomEvent('mis_state_update', { detail: { enabled: msg.mis_enabled } }));
+    }
   },
 
   error: (msg) => {

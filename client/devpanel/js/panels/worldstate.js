@@ -53,6 +53,24 @@ async function reloadZone(id) {
 
 async function refreshWorld() { loadPanel(currentPanel); }
 
+async function initMisToggle() {
+  const toggle = document.getElementById('mis-server-toggle');
+  if (!toggle) return;
+  try {
+    const data = await API('/mis/status');
+    toggle.checked = !!data.enabled;
+  } catch(e) { /* non-fatal */ }
+  toggle.addEventListener('change', async () => {
+    try {
+      await API('/mis/toggle', 'POST', { enable: toggle.checked });
+      toast(`MIS ${toggle.checked ? 'enabled' : 'disabled'}`);
+    } catch(e) {
+      toast('MIS toggle failed', true);
+      toggle.checked = !toggle.checked;
+    }
+  });
+}
+
 function startWorldStatePolling() {
   setInterval(async () => {
     const data = await API('/world/state');

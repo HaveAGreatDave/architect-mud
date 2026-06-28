@@ -2423,6 +2423,55 @@ body {
 	display: block;
 }
 
+/* Quantity split dialog */
+.qty-dialog-overlay {
+	position: fixed;
+	inset: 0;
+	background: rgba(0,0,0,0.6);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 9999;
+}
+.qty-dialog {
+	background: var(--bg2, #1a1a1a);
+	border: 1px solid var(--border, #333);
+	padding: 18px 22px;
+	min-width: 200px;
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+.qty-dialog-label {
+	color: var(--fg, #ccc);
+	font-size: 0.9em;
+}
+.qty-dialog-input {
+	background: var(--bg, #111);
+	border: 1px solid var(--border, #444);
+	color: var(--fg, #ccc);
+	padding: 4px 8px;
+	font-size: 1em;
+	width: 100%;
+	box-sizing: border-box;
+}
+.qty-dialog-btns {
+	display: flex;
+	gap: 8px;
+}
+.qty-dialog-ok,
+.qty-dialog-cancel {
+	flex: 1;
+	padding: 5px 0;
+	background: none;
+	border: 1px solid var(--border, #444);
+	color: var(--fg, #ccc);
+	cursor: pointer;
+	font-size: 0.85em;
+}
+.qty-dialog-ok:hover { border-color: var(--cyan, #0ff); color: var(--cyan, #0ff); }
+.qty-dialog-cancel:hover { border-color: var(--red, #f44); color: var(--red, #f44); }
+
 @media (max-width: 600px) {
 	#container-body {
 		flex-direction: column;

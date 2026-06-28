@@ -1257,9 +1257,9 @@
 					</div>
 				</div>
 
-				<div class="settings-group" id="debug-group">
+				<div class="settings-group" id="maturity-group">
 					<div
-						id="debug-decoy"
+						id="maturity-decoy"
 						style="
 							width: 100%;
 							height: 32px;
@@ -1269,51 +1269,61 @@
 							user-select: none;
 						"
 						title=""></div>
-					<label
-						class="group-label"
-						for="settings-debug"
-						id="debug-label"
-						style="display: none"
-						>Debug</label
-					>
-					<input
-						type="text"
-						id="settings-debug"
-						autocomplete="off"
-						style="
-							display: none;
-							width: 100%;
-							box-sizing: border-box;
-							background: var(--bg3);
-							border: 1px solid var(--border);
-							color: var(--text);
-							font-family: var(--font);
-							font-size: 12px;
-							padding: 6px 8px;
-							border-radius: 2px;
-							outline: none;
-						" />
+					<div id="maturity-reveal" style="display:none">
+						<label class="group-label">Mature Content</label>
+						<div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px">
+							<span style="font-size:12px;color:var(--text-dim)">MIS</span>
+							<label style="position:relative;display:inline-block;width:36px;height:20px">
+								<input type="checkbox" id="settings-mis" style="opacity:0;width:0;height:0">
+								<span id="mis-slider-track" style="position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:var(--border);border-radius:10px;transition:.2s"></span>
+								<span id="mis-slider-thumb" style="position:absolute;content:'';height:14px;width:14px;left:3px;bottom:3px;background:var(--text-dim);border-radius:50%;transition:.2s;pointer-events:none"></span>
+							</label>
+						</div>
+						<div id="maturity-status" style="font-size:11px;color:var(--text-dim);margin-top:4px"></div>
+					</div>
 				</div>
 				<script>
 					(function () {
-						var decoy = document.getElementById("debug-decoy");
-						var label = document.getElementById("debug-label");
-						var input = document.getElementById("settings-debug");
-						var clicks = 0,
-							timer = null;
+						var decoy = document.getElementById("maturity-decoy");
+						var reveal = document.getElementById("maturity-reveal");
+						var checkbox = document.getElementById("settings-mis");
+						var track = document.getElementById("mis-slider-track");
+						var thumb = document.getElementById("mis-slider-thumb");
+						var status = document.getElementById("maturity-status");
+						var clicks = 0, timer = null;
+
+						function updateSliderVisual(checked) {
+							track.style.background = checked ? 'var(--accent)' : 'var(--border)';
+							thumb.style.left = checked ? '19px' : '3px';
+							thumb.style.background = checked ? '#000' : 'var(--text-dim)';
+						}
+
 						decoy.addEventListener("click", function () {
 							clicks++;
 							if (timer) clearTimeout(timer);
-							timer = setTimeout(function () {
-								clicks = 0;
-							}, 400);
+							timer = setTimeout(function () { clicks = 0; }, 400);
 							if (clicks >= 3) {
 								clicks = 0;
 								decoy.style.display = "none";
-								label.style.display = "";
-								input.style.display = "";
-								input.focus();
+								reveal.style.display = "";
 							}
+						});
+
+						checkbox.addEventListener("change", function () {
+							if (typeof ws !== 'undefined' && ws && ws.readyState === 1) {
+								ws.send(JSON.stringify({ type: 'mis_toggle', enable: checkbox.checked }));
+								updateSliderVisual(checkbox.checked);
+								status.textContent = checkbox.checked ? 'Mature content enabled.' : 'Mature content disabled.';
+							} else {
+								checkbox.checked = !checkbox.checked;
+								status.textContent = 'Not connected.';
+							}
+						});
+
+						// Sync state when player_update arrives
+						document.addEventListener('mis_state_update', function(e) {
+							checkbox.checked = !!e.detail.enabled;
+							updateSliderVisual(checkbox.checked);
 						});
 					})();
 				</script>

@@ -21,6 +21,7 @@ import { ensureTunables } from '../engine/tunables.js';
 import { startingIp } from '../engine/ip.js';
 import { materializeItemTags, ownTags, superKeys } from '../engine/supertags.js';
 import { getMotd, saveMotd } from '../engine/motd.js';
+import { isMisServerEnabled, setServerMisEnabled } from '../engine/mis.js';
 
 const hashPassword = pw => createHash('sha256').update(pw).digest('hex');
 const makeToken = (playerId, role) => Buffer.from(`${playerId}:${role}:${Date.now()}`).toString('base64');
@@ -80,6 +81,17 @@ export async function handleApiRequest(url, method, body, headers) {
 
   const pluginResult = await fireRoutes(path, method, body, auth);
   if (pluginResult) return pluginResult;
+
+  if (path==='/mis/status' && method==='GET') {
+    if (!auth || !['dev','admin','builder','designer'].includes(auth.role)) return { status:403, body:{error:'Dev access required'} };
+    return { status:200, body:{ enabled: isMisServerEnabled() } };
+  }
+  if (path==='/mis/toggle' && method==='POST') {
+    if (!auth || !['dev','admin','builder','designer'].includes(auth.role)) return { status:403, body:{error:'Dev access required'} };
+    const enable = !!body?.enable;
+    await setServerMisEnabled(enable);
+    return { status:200, body:{ enabled: enable } };
+  }
 
   if (path==='/auth/register' && method==='POST') return apiRegister(body);
   if (path==='/auth/login' && method==='POST') return apiLogin(body);

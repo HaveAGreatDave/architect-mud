@@ -25,6 +25,7 @@ const HAIR_STYLES  = ['mohawk','shaved','dreadlocks','braided','messy','slicked-
 const EYE_COLORS   = ['brown','dark brown','blue','light blue','green','hazel','grey','amber'];
 const BREAST_SIZES = ['flat','small','medium','large','very large'];
 const BREAST_MAP   = { flat:0, small:1, medium:2, large:3, 'very large':4 };
+const TESTICLE_SIZES = ['small','average','large','very large'];
 
 const MACHINE_NAMES = ['morphex', 'biosculpt', 'makeover', 'morphex 9000'];
 
@@ -198,21 +199,20 @@ async function cmdMorphex(args, raw, player) {
     return buildPanelData(player, `Adjusted. (-${totalCost}₵)`);
   }
 
-  // girth — MIS only
-  if (sub === 'girth') {
+  // testicle size — MIS only
+  if (sub === 'testicle' || sub === 'balls') {
     if (!isMisActive(player)) return buildPanelData(player, `That option isn't available.`);
     if (player.biological_sex !== 'male') return buildPanelData(player, 'Not applicable.');
-    const targetCm = parseFloat(rest[0]);
-    if (isNaN(targetCm) || targetCm < 6 || targetCm > 18) return buildPanelData(player, 'Enter a target girth in cm (6–18).');
+    const targetSize = rest.join(' ').toLowerCase();
+    if (!TESTICLE_SIZES.includes(targetSize)) return buildPanelData(player, `Valid sizes: ${TESTICLE_SIZES.join(', ')}`);
+    const { ok, cost } = chargeCheck(player);
+    if (!ok) return buildPanelData(player, `Insufficient funds — 10₵ required.`);
     const appData = player.appearance_data || {};
-    const delta = Math.abs(targetCm - (appData.penis_girth_cm || 12));
-    const totalCost = Math.max(5, Math.round(delta) * 5);
-    if ((player.credits || 0) < totalCost) return buildPanelData(player, `Costs 5₵/cm — ${totalCost}₵ total. You have ${player.credits || 0}₵.`);
-    appData.penis_girth_cm = Math.round(targetCm * 10) / 10;
+    appData.testicle_size = targetSize;
     player.appearance_data = appData;
-    await adjustCredits(player, -totalCost);
+    await applyCharge(player, cost);
     await query('UPDATE players SET appearance_data=$1 WHERE id=$2', [JSON.stringify(appData), player.id]);
-    return buildPanelData(player, `Adjusted. (-${totalCost}₵)`);
+    return buildPanelData(player, `Adjusted. ${cost ? `(-${cost}₵)` : '(free)'}`);
   }
 
   // breast — MIS only

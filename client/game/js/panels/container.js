@@ -2,6 +2,7 @@ import { sendCmdSilent } from '../net.js';
 
 let containerDraggedId = null;
 let containerDragSource = null; // 'inv' or 'contents'
+let containerDraggedQty = 1;
 let dragHandled = false;
 let activeContainerId = null;
 
@@ -32,11 +33,43 @@ export function showContainerNotify(msg) {
 
 export function getActiveContainerId() { return activeContainerId; }
 
-// Format a weight given in grams: "750g" below 1000g, "1.5kg" at/above (trailing .0 trimmed).
 function formatWeight(g) {
   g = Number(g) || 0;
   if (g < 1000) return `${Math.round(g)}g`;
   return `${(Math.round(g / 100) / 10).toString()}kg`;
+}
+
+// Resolve to qty or null (cancelled). Skips dialog for non-stacked items.
+function promptQty(max, action) {
+  if (max <= 1) return Promise.resolve(max);
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.className = 'qty-dialog-overlay';
+    overlay.innerHTML = `
+      <div class="qty-dialog">
+        <div class="qty-dialog-label">How many? (1–${max})</div>
+        <input class="qty-dialog-input" type="number" min="1" max="${max}" value="${max}">
+        <div class="qty-dialog-btns">
+          <button class="qty-dialog-ok">${action || 'Move'}</button>
+          <button class="qty-dialog-cancel">Cancel</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    const input = overlay.querySelector('.qty-dialog-input');
+    input.focus();
+    input.select();
+    const finish = (qty) => { overlay.remove(); resolve(qty); };
+    overlay.querySelector('.qty-dialog-ok').onclick = () => {
+      const v = Math.min(max, Math.max(1, parseInt(input.value, 10) || 1));
+      finish(v);
+    };
+    overlay.querySelector('.qty-dialog-cancel').onclick = () => finish(null);
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') overlay.querySelector('.qty-dialog-ok').click();
+      if (e.key === 'Escape') finish(null);
+    });
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) finish(null); });
+  });
 }
 
 function renderContainerPanel(data) {
@@ -69,20 +102,35 @@ function renderList(listId, items, source, containerId) {
       btn.className = 'ctr-action-btn';
       btn.textContent = 'stow';
       btn.title = 'Put into container';
-      btn.onclick = (e) => { e.stopPropagation(); sendCmdSilent(`stowid ${item.id} ${containerId}`); };
+      btn.onclick = async (e) => {
+        e.stopPropagation();
+        const qty = await promptQty(item.quantity, 'Stow');
+        if (qty != null) {
+          const qtyPart = item.quantity > 1 ? ` ${qty}` : '';
+          sendCmdSilent(`stowid ${item.id} ${containerId}${qtyPart}`);
+        }
+      };
       card.appendChild(btn);
     } else {
       const btn = document.createElement('button');
       btn.className = 'ctr-action-btn';
       btn.textContent = 'take';
       btn.title = 'Take from container';
-      btn.onclick = (e) => { e.stopPropagation(); sendCmdSilent(`pullid ${item.id}`); };
+      btn.onclick = async (e) => {
+        e.stopPropagation();
+        const qty = await promptQty(item.quantity, 'Take');
+        if (qty != null) {
+          const qtyPart = item.quantity > 1 ? ` ${qty}` : '';
+          sendCmdSilent(`pullid ${item.id}${qtyPart}`);
+        }
+      };
       card.appendChild(btn);
     }
 
     card.ondragstart = (e) => {
       containerDraggedId = item.id;
       containerDragSource = source;
+      containerDraggedQty = item.quantity;
       dragHandled = false;
       card.classList.add('dragging');
       e.dataTransfer.effectAllowed = 'move';
@@ -105,33 +153,50 @@ export function initContainerPanel() {
   contentsList.addEventListener('dragover', (e) => e.preventDefault());
   contentsList.addEventListener('dragenter', () => contentsList.classList.add('ctr-drag-over'));
   contentsList.addEventListener('dragleave', () => contentsList.classList.remove('ctr-drag-over'));
-  contentsList.addEventListener('drop', (e) => {
+  contentsList.addEventListener('drop', async (e) => {
     e.preventDefault();
     contentsList.classList.remove('ctr-drag-over');
     dragHandled = true;
     if (containerDraggedId && containerDragSource === 'inv' && activeContainerId) {
-      sendCmdSilent(`stowid ${containerDraggedId} ${activeContainerId}`);
+      const dragId = containerDraggedId;
+      const dragQty = containerDraggedQty;
+      containerDraggedId = null;
+      const qty = await promptQty(dragQty, 'Stow');
+      if (qty != null) {
+        const qtyPart = dragQty > 1 ? ` ${qty}` : '';
+        sendCmdSilent(`stowid ${dragId} ${activeContainerId}${qtyPart}`);
+      }
+    } else {
+      containerDraggedId = null;
     }
-    containerDraggedId = null;
   });
 
   // Drop onto inv list → pull
   invList.addEventListener('dragover', (e) => e.preventDefault());
   invList.addEventListener('dragenter', () => invList.classList.add('ctr-drag-over'));
   invList.addEventListener('dragleave', () => invList.classList.remove('ctr-drag-over'));
-  invList.addEventListener('drop', (e) => {
+  invList.addEventListener('drop', async (e) => {
     e.preventDefault();
     invList.classList.remove('ctr-drag-over');
     dragHandled = true;
     if (containerDraggedId && containerDragSource === 'contents') {
-      sendCmdSilent(`pullid ${containerDraggedId}`);
+      const dragId = containerDraggedId;
+      const dragQty = containerDraggedQty;
+      containerDraggedId = null;
+      const qty = await promptQty(dragQty, 'Take');
+      if (qty != null) {
+        const qtyPart = dragQty > 1 ? ` ${qty}` : '';
+        sendCmdSilent(`pullid ${dragId}${qtyPart}`);
+      }
+    } else {
+      containerDraggedId = null;
     }
-    containerDraggedId = null;
   });
 
   document.addEventListener('dragend', () => {
     dragHandled = false;
     containerDraggedId = null;
     containerDragSource = null;
+    containerDraggedQty = 1;
   });
 }

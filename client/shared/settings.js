@@ -170,22 +170,6 @@ export function initSettingsUI(settings, saveAndApply, { getOrigin, saveOrigin, 
     originSave.addEventListener('click', () => saveOrigin(originArea.value.trim()));
   }
 
-  // Hidden debug field — MISON64 / MISOFF64
-  const debugInput = document.getElementById('settings-debug');
-  if (debugInput && sendCmd) {
-    debugInput.addEventListener('keydown', (e) => {
-      if (e.key !== 'Enter') return;
-      const val = debugInput.value.trim().toUpperCase();
-      debugInput.value = '';
-      if (val === 'MISON64') {
-        localStorage.setItem('mis_client_enabled', '1');
-        sendCmd('mis on');
-      } else if (val === 'MISOFF64') {
-        localStorage.removeItem('mis_client_enabled');
-        sendCmd('mis off');
-      }
-    });
-  }
 
   document.getElementById('settings-btn').addEventListener('click', () => {
     if (originArea && getOrigin) {

@@ -43,7 +43,7 @@ import { cmdGhostLook, cmdGhostMove, cmdGhostHaunt } from "./engine/commands/gho
 import { startKeepalive } from "./keepalive.js";
 import { setBroadcast as setMessagingBroadcast } from "./engine/messaging.js";
 import { query, logActivity } from "./models/db.js";
-import { loadMisSettings } from "./engine/mis.js";
+import { loadMisSettings, isMisServerEnabled } from "./engine/mis.js";
 
 import { initEnvironment, getHUDPayload, getZoneTemperature } from "./engine/environment.js";
 import { getPlayerChannels, getChannelHistory } from "./engine/channels.js";
@@ -259,6 +259,7 @@ wss.on("connection", (ws) => {
 			ws.send(JSON.stringify({ type: "pong" }));
 			return;
 		}
+		if (msg.type === "mis_toggle") return handleMisToggle(ws, session, msg);
 	});
 
 	ws.on("close", async () => {
@@ -638,6 +639,37 @@ async function finishAuth(ws, session, player) {
 	}
 }
 
+
+async function handleMisToggle(ws, session, msg) {
+	if (!session.playerId) return;
+	if (!isMisServerEnabled()) {
+		ws.send(JSON.stringify({ type: 'error', message: 'Mature content is not enabled on this server.' }));
+		return;
+	}
+	const player = getLivePlayer(session.playerId);
+	if (!player) return;
+	const enable = !!msg.enable;
+	player.mis_enabled = enable ? 1 : 0;
+	player.horniness = enable ? (player.horniness || 0) : 0;
+	player.erect = enable ? (player.erect || 0) : 0;
+	if (!enable) {
+		const { stopMisEvent } = await import('./engine/mis.js');
+		stopMisEvent(player.id);
+	}
+	await query('UPDATE players SET mis_enabled=$1, horniness=$2, erect=$3 WHERE id=$4',
+		[player.mis_enabled, player.horniness, player.erect, player.id]);
+	ws.send(JSON.stringify({
+		type: 'player_update',
+		mis_enabled: player.mis_enabled,
+		horniness: player.horniness,
+	}));
+	if (enable) {
+		const { MIS_TUTORIAL } = await import('./engine/mis.js');
+		ws.send(JSON.stringify({ type: 'output', message: MIS_TUTORIAL }));
+	} else {
+		ws.send(JSON.stringify({ type: 'output', message: 'MIS disabled.' }));
+	}
+}
 
 async function handleGameCommand(ws, session, msg) {
 	if (!session.playerId) {

@@ -275,10 +275,10 @@ export const MASTURBATE_EVENT_FEMALE = [
 // Ongoing fucking event messages by location
 export const FUCK_EVENT_PLAYER_MSGS = {
   mouth: [
-    `You keep going, using {target}'s mouth.`,
-    `You pump into {target}'s throat, setting a rhythm.`,
-    `You grip {target}'s head and keep fucking their face.`,
-    `{target} gags slightly as you keep going.`,
+    `You keep going, using your mouth on {target}'s cock.`,
+    `You pump {target}'s cock down your throat, setting a rhythm.`,
+    `{target} grips your head and keeps fucking your face.`,
+    `You gag slightly as {target} keeps going.`,
   ],
   pussy: [
     `You thrust into {target} harder.`,

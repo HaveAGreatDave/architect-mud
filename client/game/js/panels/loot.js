@@ -4,6 +4,7 @@ let activeCorpseId = null;
 let activeCorpseName = null;
 let lootDraggedId = null;
 let lootDraggedCorpseId = null;
+let lootDraggedQty = 1;
 
 export function openLootPanel(data) {
   activeCorpseId = data.corpseId;
@@ -35,6 +36,45 @@ function formatWeight(g) {
   return `${(Math.round(g / 100) / 10).toString()}kg`;
 }
 
+// Resolve to qty or null (cancelled). Skips dialog for non-stacked items.
+function promptQty(max) {
+  if (max <= 1) return Promise.resolve(max);
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.className = 'qty-dialog-overlay';
+    overlay.innerHTML = `
+      <div class="qty-dialog">
+        <div class="qty-dialog-label">How many? (1–${max})</div>
+        <input class="qty-dialog-input" type="number" min="1" max="${max}" value="${max}">
+        <div class="qty-dialog-btns">
+          <button class="qty-dialog-ok">Take</button>
+          <button class="qty-dialog-cancel">Cancel</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    const input = overlay.querySelector('.qty-dialog-input');
+    input.focus();
+    input.select();
+    const finish = (qty) => { overlay.remove(); resolve(qty); };
+    overlay.querySelector('.qty-dialog-ok').onclick = () => {
+      const v = Math.min(max, Math.max(1, parseInt(input.value, 10) || 1));
+      finish(v);
+    };
+    overlay.querySelector('.qty-dialog-cancel').onclick = () => finish(null);
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') overlay.querySelector('.qty-dialog-ok').click();
+      if (e.key === 'Escape') finish(null);
+    });
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) finish(null); });
+  });
+}
+
+function lootCmd(itemId, corpseId, qty) {
+  const name = activeCorpseName ? ' ' + activeCorpseName : '';
+  const qtyPart = qty != null ? ` ${qty}` : '';
+  sendCmdSilent(`lootid ${itemId} ${corpseId}${qtyPart}${name}`);
+}
+
 function buildItemCard(item, source, corpseId) {
   const card = document.createElement('div');
   card.className = 'ctr-item-card';
@@ -49,14 +89,19 @@ function buildItemCard(item, source, corpseId) {
     btn.className = 'ctr-action-btn';
     btn.textContent = 'take';
     btn.title = 'Take from corpse';
-    btn.onclick = (e) => { e.stopPropagation(); sendCmdSilent(`lootid ${item.id} ${corpseId}${activeCorpseName ? ' ' + activeCorpseName : ''}`); };
+    btn.onclick = async (e) => {
+      e.stopPropagation();
+      const qty = await promptQty(item.quantity);
+      if (qty != null) lootCmd(item.id, corpseId, item.quantity > 1 ? qty : null);
+    };
     card.appendChild(btn);
     card.ondragstart = (e) => {
       lootDraggedId = item.id;
       lootDraggedCorpseId = corpseId;
+      lootDraggedQty = item.quantity;
       e.dataTransfer.effectAllowed = 'move';
     };
-    card.ondragend = () => { lootDraggedId = null; lootDraggedCorpseId = null; };
+    card.ondragend = () => { lootDraggedId = null; lootDraggedCorpseId = null; lootDraggedQty = 1; };
   }
   return card;
 }
@@ -128,13 +173,18 @@ export function initLootPanel() {
   invList.addEventListener('dragover', (e) => e.preventDefault());
   invList.addEventListener('dragenter', () => invList.classList.add('ctr-drag-over'));
   invList.addEventListener('dragleave', () => invList.classList.remove('ctr-drag-over'));
-  invList.addEventListener('drop', (e) => {
+  invList.addEventListener('drop', async (e) => {
     e.preventDefault();
     invList.classList.remove('ctr-drag-over');
     if (lootDraggedId && lootDraggedCorpseId) {
-      sendCmdSilent(`lootid ${lootDraggedId} ${lootDraggedCorpseId}${activeCorpseName ? ' ' + activeCorpseName : ''}`);
+      const dragId = lootDraggedId;
+      const dragCorpseId = lootDraggedCorpseId;
+      const dragQty = lootDraggedQty;
+      lootDraggedId = null;
+      lootDraggedCorpseId = null;
+      lootDraggedQty = 1;
+      const qty = await promptQty(dragQty);
+      if (qty != null) lootCmd(dragId, dragCorpseId, dragQty > 1 ? qty : null);
     }
-    lootDraggedId = null;
-    lootDraggedCorpseId = null;
   });
 }

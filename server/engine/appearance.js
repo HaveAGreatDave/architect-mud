@@ -124,13 +124,20 @@ export function describeGenitals(player, isSelf) {
 
   if (sex === 'male') {
     const len = data.penis_length_cm || 13;
-    const girth = data.penis_girth_cm || 1.3;
     const testes = data.testicle_size || 'average';
+    const assSize = data.ass_size || 'average';
     const erect = player.erect ? 'erect' : 'flaccid';
     const sizeWord = len <= 11 ? 'small' : len <= 14 ? 'average-sized' : len <= 17 ? 'large' : 'very large';
-    const girthWord = girth < 1.2 ? 'thin' : girth > 1.5 ? 'thick' : 'average girth';
-    const testesNote = testes !== 'average' ? ` ${sub.toLowerCase()} testicles are ${testes}.` : '';
-    return `${sub} penis is ${sizeWord} and ${erect}, ${girthWord}.${testesNote}`;
+    const testesNote = testes !== 'average' ? ` ${sub} testicles are ${testes}.` : '';
+    const MALE_ASS = {
+      flat:    [`${sub} ass is completely flat — barely a suggestion.`, `${sub} rear is aerodynamically optimized.`],
+      small:   [`${sub} ass is small and tight — compact, quietly functional.`, `${sub} backside is modest but well-formed.`],
+      average: [`${sub} ass is average — a solid, dependable rear.`, `${sub} ass occupies exactly the expected amount of space.`],
+      round:   [`${sub} ass is notably round — more than you'd expect.`, `${sub} rear is surprisingly full and round.`],
+      large:   [`${sub} ass is large and pronounced. It has opinions.`, `${sub} backside is substantial — it makes itself known.`],
+    };
+    const assLine = (MALE_ASS[assSize] || MALE_ASS.average)[Math.floor(Math.random() * 2)];
+    return `${sub} penis is ${sizeWord} and ${erect}.${testesNote} ${assLine}`;
   }
 
   if (sex === 'female') {

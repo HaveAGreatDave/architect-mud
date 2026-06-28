@@ -3,12 +3,12 @@
  * and the wash command.
  *
  * All sexual commands require: server MIS enabled AND player.mis_enabled=1.
- * Players opt in by typing MISON64 in the client settings debug field.
+ * Players opt in via the hidden Maturity Slider in client settings.
  */
 import { query } from '../../models/db.js';
 import {
   isMisActive, isAttractedTo, addHorniness, washEjaculate, MIS_TUTORIAL,
-  startMisEvent, stopMisEvent, hasMisEvent,
+  startMisEvent, stopMisEvent, hasMisEvent, getMisEventMeta,
   triggerClimax, triggerGroundClimax,
   MASTURBATE_EVENT_MALE, MASTURBATE_EVENT_FEMALE,
   FUCK_EVENT_MSGS, FUCK_EVENT_PLAYER_MSGS, FUCK_EVENT_TARGET_MSGS, EJACULATE_ZONE_MSGS,
@@ -16,19 +16,24 @@ import {
 import { getZonePlayers, getZoneNpcs, getLivePlayer } from '../world.js';
 
 function misGate(player) {
-  if (!isMisActive(player)) return { type:'error', message:`MIS is not enabled. Use the debug field in settings.` };
+  if (!isMisActive(player)) return { type:'error', message:`MIS is not enabled. Enable it via the Maturity Slider in settings.` };
   return null;
+}
+
+// Broadcast a zone event only to players who have MIS enabled
+function broadcastMis(zoneId, message, broadcast, excludePlayerId = null, alsoTargetId = null) {
+  for (const p of getZonePlayers(zoneId)) {
+    if (p.id === excludePlayerId) continue;
+    if (alsoTargetId && p.id === alsoTargetId) continue; // target gets their own message
+    if (isMisActive(p)) broadcast(null, message, null, p.id);
+  }
 }
 
 async function cmdMis(args, player, broadcast) {
   const sub = (args[0] || '').toLowerCase();
   if (sub === 'on') {
-    if (isMisActive(player)) return { type:'output', message:`MIS is already active.` };
-    player.mis_enabled = 1;
-    await query('UPDATE players SET mis_enabled=1 WHERE id=$1', [player.id]);
-    const { physicalDescription } = await import('../appearance.js');
-    const selfDesc = physicalDescription(player, true) || '';
-    return { type:'output', message: MIS_TUTORIAL + (selfDesc ? `\n\n${selfDesc}` : ''), player_update: { mis_enabled: 1, horniness: player.horniness || 0 } };
+    // Typing "mis on" in chat doesn't work — must use the Maturity Slider
+    return { type:'error', message:`MIS cannot be enabled this way. Use the Maturity Slider in the Settings panel.` };
   }
   if (sub === 'off') {
     stopMisEvent(player.id);
@@ -38,34 +43,38 @@ async function cmdMis(args, player, broadcast) {
     await query('UPDATE players SET mis_enabled=0, horniness=0, erect=0 WHERE id=$1', [player.id]);
     return { type:'output', message:`MIS disabled.`, player_update: { mis_enabled: 0, horniness: 0 } };
   }
-  return { type:'error', message:`Usage: mis on / mis off` };
+  return { type:'error', message:`Usage: mis off` };
 }
 
-// Resolve a target (player or NPC) in the current zone by name fragment
+// Stop the current repeating MIS action
+async function cmdStop(args, player) {
+  if (!hasMisEvent(player.id)) return { type:'output', message:`You aren't doing anything to stop.` };
+  const meta = stopMisEvent(player.id);
+  if (meta?.action) {
+    const suffix = meta.target ? `ing ${meta.target}` : `ing`;
+    return { type:'output', message:`Stopped ${meta.action}${suffix}.` };
+  }
+  return { type:'output', message:`You stop.` };
+}
+
+// Resolve players only (no NPCs for MIS)
 function resolveTarget(nameStr, player) {
   const t = nameStr.toLowerCase();
   const others = getZonePlayers(player.current_zone).filter(p => p.id !== player.id);
-  const targetPlayer = others.find(p => p.handle.toLowerCase().includes(t));
-  if (targetPlayer) return { type: 'player', target: targetPlayer };
-  const npcs = getZoneNpcs(player.current_zone);
-  const npc = npcs.find(n => n.name.toLowerCase().includes(t));
-  if (npc) return { type: 'npc', target: npc };
-  return null;
+  return others.find(p => p.handle.toLowerCase().includes(t)) || null;
 }
 
-// Resolve target and check MIS opt-in for player targets.
+// Resolve player target and check MIS opt-in.
 // Returns { res } on success or { error } string on failure.
 function resolveTargetMis(nameStr, player) {
-  const res = resolveTarget(nameStr, player);
-  if (!res) return { error: `You don't see "${nameStr}" here.` };
-  if (res.type === 'player' && !isMisActive(res.target)) {
-    return { error: `${res.target.handle} hasn't enabled MIS.` };
-  }
-  return { res };
+  const target = resolveTarget(nameStr, player);
+  if (!target) return { error: `You don't see "${nameStr}" here.` };
+  if (!isMisActive(target)) return { error: `${target.handle} hasn't enabled MIS.` };
+  return { res: { type: 'player', target } };
 }
 
 function targetName(res) {
-  return res.type === 'player' ? res.target.handle : res.target.name;
+  return res.target.handle;
 }
 
 function pickMsg(pool, vars) {
@@ -136,7 +145,7 @@ async function actHandler({ player, broadcast, rawArgs, defaultPart, selfMessage
     await query('UPDATE players SET sanity=$1 WHERE id=$2', [player.sanity, player.id]);
   }
   if (msgs.length) broadcast(null, { type:'resource_tick', messages: msgs }, null, player.id);
-  broadcast(player.current_zone, { type:'zone_event', message: `${player.handle} and ${name} are getting intimate.` }, player.id, res.type === 'player' ? res.target.id : null);
+  broadcastMis(player.current_zone, { type:'zone_event', message: `${player.handle} and ${name} are getting intimate.` }, broadcast, player.id, res.target.id);
   return { type:'output', message: pickMsg(targetMessages || selfMessages, { part, actor: player.handle, name }) };
 }
 
@@ -302,10 +311,10 @@ async function cmdSlap(args, raw, player, broadcast) {
     }, null, res.target.id);
   }
 
-  broadcast(player.current_zone, {
+  broadcastMis(player.current_zone, {
     type:'zone_event',
     message: `${player.handle} slaps ${name}'s ${part}.`,
-  }, player.id, res.type === 'player' ? res.target.id : null);
+  }, broadcast, player.id, res.target.id);
 
   return { type:'output', message: actorMsgs[Math.floor(Math.random() * actorMsgs.length)] };
 }
@@ -316,8 +325,8 @@ async function cmdMasturbate(args, raw, player, broadcast) {
   if (gate) return gate;
 
   if (hasMisEvent(player.id)) {
-    stopMisEvent(player.id);
-    return { type:'output', message:`You stop.` };
+    const meta = stopMisEvent(player.id);
+    return { type:'output', message: meta?.action ? `Stopped ${meta.action}ing.` : `You stop.` };
   }
 
   const isMale = player.biological_sex === 'male';
@@ -384,10 +393,10 @@ async function cmdMasturbate(args, raw, player, broadcast) {
       stopMisEvent(playerId);
       const msg = await triggerGroundClimax(live);
       const zoneMsgs = EJACULATE_ZONE_MSGS.ground;
-      broadcast(live.current_zone, {
-        type: 'zone_event',
-        message: zoneMsgs[Math.floor(Math.random() * zoneMsgs.length)].replace('{name}', live.handle),
-      }, live.id);
+      const zoneText = zoneMsgs[Math.floor(Math.random() * zoneMsgs.length)].replace('{name}', live.handle);
+      broadcastMis(live.current_zone, { type: 'zone_event', message: zoneText }, broadcast, live.id);
+      // Player sees the zone message too
+      broadcast(null, { type: 'zone_event', message: zoneText }, null, playerId);
       broadcast(null, {
         type: 'resource_tick',
         messages: msg,
@@ -397,7 +406,9 @@ async function cmdMasturbate(args, raw, player, broadcast) {
     }
 
     const zoneMsg = eventPool[Math.floor(Math.random() * eventPool.length)].replace('{name}', live.handle);
-    broadcast(live.current_zone, { type: 'zone_event', message: zoneMsg }, live.id);
+    broadcastMis(live.current_zone, { type: 'zone_event', message: zoneMsg }, broadcast, live.id);
+    // Player sees their own zone message
+    broadcast(null, { type: 'zone_event', message: zoneMsg }, null, playerId);
 
     const climaxMsgs = await addHorniness(live, tickArousal, broadcast);
     broadcast(null, {
@@ -405,7 +416,7 @@ async function cmdMasturbate(args, raw, player, broadcast) {
       messages: climaxMsgs,
       player_update: { horniness: live.horniness, erect: live.erect, sanity: live.sanity },
     }, null, playerId);
-  });
+  }, 8000, { action: 'masturbat' });
 
   const msgs = await addHorniness(player, 10, broadcast);
   if (msgs.length) broadcast(null, { type:'resource_tick', messages: msgs, player_update: { horniness: player.horniness } }, null, player.id);
@@ -504,8 +515,8 @@ async function cmdFuck(args, raw, player, broadcast) {
   if (!targetStr) return { type:'error', message:`Usage: fuck <target> [in mouth/pussy/ass]` };
 
   if (hasMisEvent(player.id)) {
-    stopMisEvent(player.id);
-    return { type:'output', message:`You stop.` };
+    const meta = stopMisEvent(player.id);
+    return { type:'output', message: meta?.action ? `Stopped ${meta.action}ing${meta.target ? ` ${meta.target}` : ''}.` : `You stop.` };
   }
 
   // Penetrative sex requires naked legs (mouth is fine either way)
@@ -582,11 +593,11 @@ async function cmdFuck(args, raw, player, broadcast) {
   }
 
   if (msgs.length) broadcast(null, { type:'resource_tick', messages: msgs, player_update: { horniness: player.horniness } }, null, player.id);
-  broadcast(player.current_zone, { type:'zone_event', message: `${player.handle} and ${name} start having sex.` }, player.id, res.type === 'player' ? res.target.id : null);
+  broadcastMis(player.current_zone, { type:'zone_event', message: `${player.handle} and ${name} start having sex.` }, broadcast, player.id, res.target.id);
 
   // Start ongoing event
   const playerId = player.id;
-  const targetId = res.type === 'player' ? res.target.id : null;
+  const targetId = res.target.id;
   const zonePool = FUCK_EVENT_MSGS[location] || FUCK_EVENT_MSGS.default;
   const actorPool = FUCK_EVENT_PLAYER_MSGS[location] || FUCK_EVENT_PLAYER_MSGS.default;
   const targetPool = FUCK_EVENT_TARGET_MSGS[location] || FUCK_EVENT_TARGET_MSGS.default;
@@ -600,13 +611,11 @@ async function cmdFuck(args, raw, player, broadcast) {
       stopMisEvent(playerId);
       const climaxMsgs = await triggerClimax(live, broadcast, ejacPart);
       const ejacZonePool = EJACULATE_ZONE_MSGS.into_player;
-      broadcast(live.current_zone, {
-        type: 'zone_event',
-        message: ejacZonePool[Math.floor(Math.random() * ejacZonePool.length)]
-          .replace(/\{name\}/g, live.handle)
-          .replace(/\{target\}/g, name)
-          .replace(/\{part\}/g, ejacPart),
-      }, live.id, targetId || undefined);
+      const ejacText = ejacZonePool[Math.floor(Math.random() * ejacZonePool.length)]
+        .replace(/\{name\}/g, live.handle)
+        .replace(/\{target\}/g, name)
+        .replace(/\{part\}/g, ejacPart);
+      broadcastMis(live.current_zone, { type: 'zone_event', message: ejacText }, broadcast, live.id, targetId);
       broadcast(null, {
         type: 'resource_tick',
         messages: climaxMsgs,
@@ -626,7 +635,7 @@ async function cmdFuck(args, raw, player, broadcast) {
 
     const zoneTpl = zonePool[Math.floor(Math.random() * zonePool.length)];
     const zoneMsg = zoneTpl.replace(/\{name\}/g, live.handle).replace(/\{target\}/g, name);
-    broadcast(live.current_zone, { type: 'zone_event', message: zoneMsg }, live.id, targetId || undefined);
+    broadcastMis(live.current_zone, { type: 'zone_event', message: zoneMsg }, broadcast, live.id, targetId);
 
     // Private message to actor
     const actorTpl = actorPool[Math.floor(Math.random() * actorPool.length)];
@@ -662,7 +671,7 @@ async function cmdFuck(args, raw, player, broadcast) {
         }
       }
     }
-  });
+  }, 8000, { action: 'fuck', target: name });
 
   return { type:'output', message: actorMsg };
 }
@@ -869,10 +878,18 @@ async function cmdEatOut(args, raw, player, broadcast) {
   return { type:'output', message: actorMsg };
 }
 
-// Blowjob shortcut: blowjob <target> → fuck <target> in mouth
+// Blowjob: if actor is female performing on a male, route to suck cock
 async function cmdBlowjob(args, raw, player, broadcast) {
   const target = args.join(' ');
   if (!target) return { type:'error', message:`Usage: blowjob <target>` };
+  // Female actor giving blowjob to male target → suck cock
+  if (player.biological_sex === 'female') {
+    const { res, error } = resolveTargetMis(target, player);
+    if (error) return { type:'error', message: error };
+    if (res.target.biological_sex === 'male') {
+      return cmdSuck([`${res.target.handle}'s`, 'cock'], raw, player, broadcast);
+    }
+  }
   return cmdFuck(args, `fuck ${target} in mouth`, player, broadcast);
 }
 
@@ -956,6 +973,7 @@ async function cmdWash(args, raw, player) {
 
 export const handlers = {
   mis:          (args, raw, player, broadcast) => cmdMis(args, player, broadcast),
+  stop:         (args, raw, player)            => cmdStop(args, player),
   touch:        (args, raw, player, broadcast) => cmdTouch(args, raw, player, broadcast),
   grope:        (args, raw, player, broadcast) => cmdTouch(args, raw, player, broadcast),
   squeeze:      (args, raw, player, broadcast) => cmdSqueeze(args, raw, player, broadcast),

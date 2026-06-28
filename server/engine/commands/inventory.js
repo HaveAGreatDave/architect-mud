@@ -405,7 +405,7 @@ async function cmdCloseContainer(idStr, player, broadcast) {
 }
 
 async function cmdStowById(argStr, player, broadcast) {
-  const [invRowId, containerRowId] = argStr.trim().split(/\s+/);
+  const [invRowId, containerRowId, qtyStr] = argStr.trim().split(/\s+/);
   const { rows: itemRows } = await query(`SELECT pi.*,i.name,i.tags,i.weight FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.id=$1 AND pi.player_id=$2 AND pi.container_id IS NULL AND NOT jsonb_exists(i.tags,'quest_item')`, [invRowId, player.id]);
   if (!itemRows.length) return { type:'container_error', message:'Item not found in your inventory.' };
   const item = itemRows[0];
@@ -414,6 +414,28 @@ async function cmdStowById(argStr, player, broadcast) {
   if (!container) return { type:'container_error', message:'Container not found.' };
   if (item.id === container.id) return { type:'container_error', message:`Can't put ${container.name} inside itself.` };
   if (hasTag(item, 'container')) return { type:'container_error', message:`Can't stow a container inside another container.` };
+
+  // Partial stow: only move the requested qty when less than the full stack
+  const reqQty = qtyStr && /^\d+$/.test(qtyStr) ? parseInt(qtyStr, 10) : null;
+  if (reqQty && reqQty > 0 && reqQty < item.quantity && isStackable(item)) {
+    const cap0 = containerCapacity(container);
+    const used0 = await containerContentsWeight(container.id);
+    const iw = item.weight || 0;
+    const canFit = iw > 0 ? Math.min(reqQty, Math.floor((cap0 - used0) / iw)) : reqQty;
+    if (canFit <= 0) return { type:'container_error', message:`${container.name} is full.` };
+    const { rows: ex0 } = await query('SELECT id FROM player_inventory WHERE container_id=$1 AND item_id=$2 LIMIT 1', [container.id, item.item_id]);
+    if (ex0.length) {
+      await query('UPDATE player_inventory SET quantity=quantity+$1 WHERE id=$2', [canFit, ex0[0].id]);
+      await query('UPDATE player_inventory SET quantity=quantity-$1 WHERE id=$2', [canFit, item.id]);
+    } else {
+      await query('INSERT INTO player_inventory (id,player_id,item_id,quantity,container_id,condition) VALUES ($1,$2,$3,$4,$5,1.0)', [randomUUID(), player.id, item.item_id, canFit, container.id]);
+      await query('UPDATE player_inventory SET quantity=quantity-$1 WHERE id=$2', [canFit, item.id]);
+    }
+    const echoed0 = throttledContainerBroadcast(player, broadcast, container.name);
+    const view0 = await buildContainerView(container.id, player);
+    if (echoed0) view0.mainMsg = `You rummage through ${withArticle(container.name)}.`;
+    return view0;
+  }
 
   const cap = containerCapacity(container);
   const used = await containerContentsWeight(container.id);
@@ -461,7 +483,7 @@ async function cmdStowById(argStr, player, broadcast) {
   return view2;
 }
 
-async function cmdPullById(idStr, player, broadcast) {
+async function cmdPullById(idStr, qtyStr, player, broadcast) {
   const { rows } = await query(`SELECT pi.*,i.name,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.id=$1 AND pi.container_id IS NOT NULL`, [idStr]);
   if (!rows.length) return { type:'container_error', message:'Item not found.' };
   const item = rows[0];
@@ -469,6 +491,23 @@ async function cmdPullById(idStr, player, broadcast) {
 
   const container = await loadContainerById(containerId, player);
   if (!container) return { type:'container_error', message:'Not your container.' };
+
+  // Partial pull: only move the requested qty when less than the full stack
+  const reqQty = qtyStr && /^\d+$/.test(qtyStr) ? parseInt(qtyStr, 10) : null;
+  const takeQty = (reqQty && reqQty > 0 && reqQty < item.quantity) ? reqQty : null;
+  if (takeQty && isStackable(item)) {
+    const { rows: exPull } = await query('SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND container_id IS NULL AND is_equipped=0 LIMIT 1', [player.id, item.item_id]);
+    if (exPull.length) {
+      await query('UPDATE player_inventory SET quantity=quantity+$1 WHERE id=$2', [takeQty, exPull[0].id]);
+    } else {
+      await query('INSERT INTO player_inventory (id,player_id,item_id,quantity,condition) VALUES ($1,$2,$3,$4,1.0)', [randomUUID(), player.id, item.item_id, takeQty]);
+    }
+    await query('UPDATE player_inventory SET quantity=quantity-$1 WHERE id=$2', [takeQty, item.id]);
+    const pePart = throttledContainerBroadcast(player, broadcast, container.name);
+    const pvPart = await buildContainerView(containerId, player);
+    if (pePart) pvPart.mainMsg = `You rummage through ${withArticle(container.name)}.`;
+    return pvPart;
+  }
 
   if (isStackable(item)) {
     const { rows: existing } = await query('SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND container_id IS NULL AND is_equipped=0 LIMIT 1', [player.id, item.item_id]);
@@ -588,7 +627,7 @@ export const handlers = {
   throw: (args, raw, player) => cmdStow(args.join(' '), player),
   pull:  (args, raw, player) => cmdPull(args.join(' '), player),
   stowid: (args, raw, player, broadcast) => cmdStowById(args.join(' '), player, broadcast),
-  pullid: (args, raw, player, broadcast) => cmdPullById(args[0], player, broadcast),
+  pullid: (args, raw, player, broadcast) => cmdPullById(args[0], args[1], player, broadcast),
   opencontainer: (args, raw, player) => cmdOpenContainerById(args[0], player),
   closecontainer: (args, raw, player, broadcast) => cmdCloseContainer(args[0], player, broadcast),
 };
