@@ -1148,10 +1148,6 @@ body {
 	right: 4px;
 }
 
-/* Chat floats to bottom when locked */
-#sidebar:not(.drag-mode) #chat-section {
-	margin-top: auto;
-}
 
 /* Drag mode: sections get grab cursor */
 #sidebar.drag-mode .sidebar-section {
