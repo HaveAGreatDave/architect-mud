@@ -177,6 +177,7 @@ export function initSettingsUI(settings, saveAndApply, { getOrigin, saveOrigin, 
       originArea.value = val;
       originCounter.textContent = `${val.length} / 200`;
     }
+    applySettings(settings);
     document.getElementById('settings-panel').classList.add('active');
   });
   function closeSettings() {

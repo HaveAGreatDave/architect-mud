@@ -1,6 +1,6 @@
 import { loadSettings, saveSettings, applySettings, initSettingsUI, initThemeEditorOverlay, listenForSettingsChanges, SETTINGS_KEY } from '/shared/settings.js';
 import { appendMsg } from './render.js';
-import { initNet, setWhoModalHandler, sendCmd, doAuth, doForgotPassword, doResetPassword, closeConnection } from './net.js';
+import { initNet, setWhoModalHandler, sendCmd, doAuth, doForgotPassword, doResetPassword, closeConnection, sendRaw } from './net.js';
 import { handleServerMsg } from './dispatch.js';
 import { state } from './state.js';
 import { initInput } from './input.js';
@@ -222,6 +222,7 @@ document.querySelector('.qcmd[data-open-equip]')?.addEventListener('click', () =
   import('./panels/equipment.js').then(m => m.openEquipPanel());
 });
 document.getElementById('debug-whisper-btn')?.addEventListener('click', debugFakeWhisper);
+window._sendRaw = sendRaw;
 document.getElementById('open-map-btn')?.addEventListener('click', () => sendCmd('map'));
 
 // Mobile minimap button + drag
