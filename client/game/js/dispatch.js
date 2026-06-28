@@ -6,7 +6,7 @@ import { updateEnvironmentHUD, updateZoneTempHUD, refreshZoneVisibility } from '
 import { openDialogue, closeDialogue, openShop } from './panels/dialogue.js';
 import { renderEquipPanel } from './panels/equipment.js';
 import { renderRecipesPanel } from './panels/recipes.js';
-import { receiveWhisper, sentWhisper, receiveChannelMsg, initChannels, initChannelHistory, receiveMOTD } from './panels/whisper.js';
+import { receiveWhisper, sentWhisper, receiveChannelMsg, initChannels, initChannelHistory, receiveMOTD, refreshOnlinePlayers } from './panels/whisper.js';
 import { openContainerPanel, refreshContainerPanel, getActiveContainerId, showContainerNotify } from './panels/container.js';
 import { openLootPanel, closeLootPanel } from './panels/loot.js';
 import { openLightViewDialog } from './panels/lightview.js';
@@ -306,6 +306,7 @@ const handlers = {
 
   output: (msg) => { appendHtml(msg.message, 'help'); },
 
+  online_change: () => { refreshOnlinePlayers(); },
   whisper: (msg) => { receiveWhisper(msg.from || 'Admin', msg.message); },
   whisper_sent: (msg) => { sentWhisper(msg.to, msg.message); },
   channel_msg: (msg) => { receiveChannelMsg(msg.channel, msg.from, msg.message); },

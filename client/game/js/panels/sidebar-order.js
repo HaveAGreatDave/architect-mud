@@ -124,19 +124,6 @@ function onDragEnd() {
   dragSrc = null;
 }
 
-function findPrevSection(items, fromIndex) {
-  for (let i = fromIndex - 1; i >= 0; i--) {
-    if (items[i].classList.contains('sidebar-section')) return items[i];
-  }
-  return null;
-}
-
-function findNextSection(items, fromIndex) {
-  for (let i = fromIndex + 1; i < items.length; i++) {
-    if (items[i].classList.contains('sidebar-section')) return items[i];
-  }
-  return null;
-}
 
 function computeDropInfo(clientY) {
   const sidebar = document.getElementById('sidebar');
@@ -156,6 +143,7 @@ function computeDropInfo(clientY) {
     if (clientY > r.bottom) continue;
 
     if (el.classList.contains('sidebar-section')) {
+      // Snap to before/after only when cursor is actually over a section
       if (clientY <= r.top + r.height / 2) {
         return {kind: 'before', el, lineY: r.top - sr.top};
       }
@@ -163,23 +151,9 @@ function computeDropInfo(clientY) {
     }
 
     if (el.classList.contains('sidebar-spacer')) {
-      const inUpperHalf = r.height > 0 && (clientY - r.top) / r.height <= 0.5;
-      const prevSec = findPrevSection(items, i);
-      const nextSec = findNextSection(items, i);
-
-      if (inUpperHalf && prevSec) {
-        const pr = prevSec.getBoundingClientRect();
-        return {kind: 'after', el: prevSec, lineY: pr.bottom - sr.top};
-      }
-      if (nextSec) {
-        const nr = nextSec.getBoundingClientRect();
-        return {kind: 'before', el: nextSec, lineY: nr.top - sr.top};
-      }
-      if (prevSec) {
-        const pr = prevSec.getBoundingClientRect();
-        return {kind: 'after', el: prevSec, lineY: pr.bottom - sr.top};
-      }
-      return {kind: 'end', lineY: r.bottom - sr.top};
+      // Free drop in spacer — split it at the cursor position
+      const frac = r.height > 0 ? (clientY - r.top) / r.height : 0.5;
+      return {kind: 'split-spacer', el, frac, lineY: clientY - sr.top};
     }
   }
 
@@ -192,6 +166,13 @@ function executeDrop(info) {
     info.el.before(dragSrc);
   } else if (info.kind === 'after') {
     info.el.after(dragSrc);
+  } else if (info.kind === 'split-spacer') {
+    const totalFlex = parseFloat(info.el.style.flexGrow) || 1;
+    const topFlex = totalFlex * info.frac;
+    const botFlex = totalFlex * (1 - info.frac);
+    const topSpacer = makeSpacer(topFlex);
+    const botSpacer = makeSpacer(botFlex);
+    info.el.replaceWith(topSpacer, dragSrc, botSpacer);
   } else {
     dropEnd.before(makeSpacer(1000));
     dropEnd.before(dragSrc);
@@ -205,7 +186,7 @@ function onSidebarDragOver(e) {
   e.dataTransfer.dropEffect = 'move';
   lastClientY = e.clientY;
   dropInfo = computeDropInfo(e.clientY);
-  showDropIndicator(dropInfo.lineY, dropInfo.kind !== 'end');
+  showDropIndicator(dropInfo.lineY, dropInfo.kind === 'before' || dropInfo.kind === 'after');
 }
 
 function onSidebarDragLeave(e) {

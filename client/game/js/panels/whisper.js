@@ -44,8 +44,9 @@ function _saveConvos() {
       if (_channels.has(handle) || handle === USERS_TAB) continue;
       toSave[handle] = convo.messages.slice(-WHISPER_PERSIST_MAX);
     }
+    if (Object.keys(toSave).length === 0) return;
     localStorage.setItem(WHISPER_CONVO_KEY, JSON.stringify(toSave));
-    console.debug('[whisper] saved convos:', Object.keys(toSave));
+    console.log('[whisper] saved convos:', Object.keys(toSave));
   } catch (e) {
     console.error('[whisper] save failed:', e);
   }
@@ -54,13 +55,13 @@ function _saveConvos() {
 function _loadConvos() {
   try {
     const raw = localStorage.getItem(WHISPER_CONVO_KEY);
-    console.debug('[whisper] loading convos, raw key present:', raw !== null);
+    console.log('[whisper] loading convos, raw key present:', raw !== null);
     const saved = JSON.parse(raw || '{}');
     for (const [handle, messages] of Object.entries(saved)) {
       if (!Array.isArray(messages) || messages.length === 0) continue;
       _whisperConvos.set(handle, { messages, scrollTop: 999999, unread: 0 });
     }
-    console.debug('[whisper] loaded handles:', [..._whisperConvos.keys()]);
+    console.log('[whisper] loaded handles:', [..._whisperConvos.keys()]);
   } catch (e) {
     console.error('[whisper] load failed:', e);
   }
@@ -305,9 +306,9 @@ function _switchToTab(key) {
 
 function _closeWhisperTab(handle) {
   if (_channels.has(handle) && _channels.get(handle).permanent) return;
+  _saveConvos();
   _whisperConvos.delete(handle);
   _channels.delete(handle);
-  _saveConvos();
   if (_activeWhisperTab === handle) _switchToTab(USERS_TAB);
   else { _refreshWhisperTabs(); _updateChatBadge(); }
 }
@@ -451,6 +452,10 @@ function _renderUsersTab(log) {
 }
 
 // ── ONLINE PLAYERS ────────────────────────────────────────────────────────────
+
+export async function refreshOnlinePlayers() {
+  await _fetchOnlinePlayers();
+}
 
 async function _fetchOnlinePlayers() {
   try {
