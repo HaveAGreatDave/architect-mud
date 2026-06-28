@@ -39,7 +39,7 @@ import {
 	consumeSwitchToken,
 	setGhostTokenStore,
 } from "./api/routes.js";
-import { cmdGhostLook, cmdGhostMove, cmdGhostHaunt } from "./engine/commands/ghost.js";
+import { cmdGhostLook, cmdGhostMove, cmdGhostHaunt, makeGhostBroadcast } from "./engine/commands/ghost.js";
 import { startKeepalive } from "./keepalive.js";
 import { setBroadcast as setMessagingBroadcast } from "./engine/messaging.js";
 import { query, logActivity } from "./models/db.js";
@@ -388,7 +388,8 @@ async function handleGhostCommand(ws, session, msg) {
 	// everything else — run through the full command engine at the ghost's zone
 	const livePlayer = getLivePlayer(session.playerId);
 	const ghostPlayer = { ...(livePlayer || {}), id: session.playerId, handle: session.handle, current_zone: session.ghostZoneId };
-	const result = await handleCommand(raw, ghostPlayer, broadcast);
+	const ghostBroadcast = makeGhostBroadcast(broadcast, session.playerId);
+	const result = await handleCommand(raw, ghostPlayer, ghostBroadcast);
 	if (result) ws.send(JSON.stringify(result));
 }
 

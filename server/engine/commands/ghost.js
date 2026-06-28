@@ -13,6 +13,44 @@ const HAUNT_MESSAGES = [
   'You hear your name spoken softly, just once, in a voice you don\'t recognise. Nobody is there.',
 ];
 
+const GHOST_AMBIENT_MESSAGES = [
+  'A presence moves through the room. You see nothing.',
+  'Something stirs in the air, restless and unseen.',
+  'The hairs on your arms stand up for no reason you can explain.',
+  'A faint disturbance ripples through the space around you.',
+  'The shadows seem to shift, as if something passed through them.',
+  'An inexplicable chill settles over the area.',
+  'You feel briefly, intensely observed. The feeling passes.',
+  'The air pressure changes for just a moment, then returns to normal.',
+  'Something brushes past you. There is nothing there.',
+  'A low, sourceless sound — less heard than felt — moves through the room.',
+  'The light flickers almost imperceptibly.',
+  'The silence thickens for a moment before easing.',
+  'You sense a presence just beyond the edge of perception.',
+  'An old instinct fires: run. Then it subsides. Nothing is there.',
+  'The atmosphere shifts, as if the room is holding its breath.',
+];
+
+function randomGhostAmbient() {
+  return GHOST_AMBIENT_MESSAGES[Math.floor(Math.random() * GHOST_AMBIENT_MESSAGES.length)];
+}
+
+// Wraps the real broadcast so any zone-visible action by a ghost reaches
+// other players only as an anonymous eerie disturbance — no name, no details.
+export function makeGhostBroadcast(realBroadcast, ghostPlayerId) {
+  return function ghostBroadcast(zoneId, msg, excludePlayerId, targetPlayerId) {
+    // Targeted messages (whispers etc.) — suppress entirely for ghosts.
+    if (targetPlayerId && targetPlayerId !== ghostPlayerId) return;
+    // Zone-wide action by the ghost: replace content with eerie feeling.
+    if (zoneId && excludePlayerId === ghostPlayerId) {
+      realBroadcast(zoneId, { type: 'zone_event', message: randomGhostAmbient() }, ghostPlayerId);
+      return;
+    }
+    // Anything else (e.g. broadcast TO the ghost themselves) passes through.
+    realBroadcast(zoneId, msg, excludePlayerId, targetPlayerId);
+  };
+}
+
 export async function cmdGhostLook(session) {
   const zone = getZone(session.ghostZoneId);
   if (!zone) return { type: 'ghost_error', message: 'Zone not found.' };
