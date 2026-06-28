@@ -101,7 +101,9 @@ function toggleWhisperPanel() {
 }
 
 function openWhisper(id, handle) {
-  _getConvo(handle).unread = 0;
+  const convo = _getConvo(handle);
+  convo.unread = 0;
+  convo.playerId = id;  // cache so send doesn't need to re-fetch
   _switchTab(handle);
   if (!_panelOpen) {
     _panelOpen = true;
@@ -252,15 +254,10 @@ async function _sendMessage() {
     return;
   }
 
-  // DM
-  const player = _onlinePlayers.find(p => p.handle === _activeTab);
-  if (!player) {
-    await _fetchOnline();
-    const found = _onlinePlayers.find(p => p.handle === _activeTab);
-    if (!found) { toast(`${_activeTab} is not online.`, true); return; }
-  }
-  const pid = _onlinePlayers.find(p => p.handle === _activeTab)?.id;
-  if (!pid) { toast('Player not found.', true); return; }
+  // DM — use cached player ID from when the tab was opened, fall back to online list
+  const convo = _getConvo(_activeTab);
+  const pid = convo.playerId || _onlinePlayers.find(p => p.handle === _activeTab)?.id;
+  if (!pid) { toast(`${_activeTab} is not online.`, true); return; }
   const r = await API(`/players/${pid}/whisper`, 'POST', { message: msg });
   if (r?.error) { toast(r.error, true); return; }
   const convo = _getConvo(_activeTab);
