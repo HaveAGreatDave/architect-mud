@@ -320,6 +320,7 @@ const THUNDER_MESSAGES = [
 
 // Fires lightning flashes and thunder messages to outdoor players during storms.
 // Runs every 30s; each zone has a random chance of a strike per tick.
+// Very rarely (1 in 500 per zone per tick) a player in that zone is struck and killed.
 async function stormTick() {
   const { weatherType } = getEnvironmentState();
   if (!STORM_WEATHER_TYPES.has(weatherType)) return;
@@ -331,6 +332,21 @@ async function stormTick() {
 
     // Send lightning flash to all players in zone
     broadcastFn(zoneId, { type: 'lightning' });
+
+    // Very rare: one player in the zone gets struck by lightning (1 in 500 per flash)
+    if (Math.random() < 1 / 500) {
+      const playerIds = [...zone.players];
+      const victimId = playerIds[Math.floor(Math.random() * playerIds.length)];
+      const victim = getLivePlayer(victimId);
+      if (victim && !victim.sleeping) {
+        broadcastFn(null, {
+          type: 'output',
+          message: `<span class="death-message">⚡ ⚡ ⚡ LIGHTNING STRIKES! ⚡ ⚡ ⚡\nA blinding bolt of lightning tears through the sky and strikes you squarely. Thunder explodes overhead as the world disappears in a flash of searing white.</span>`,
+        }, null, victim.id);
+        broadcastFn(zoneId, { type: 'zone_event', message: `A bolt of lightning strikes ${victim.handle} dead.` }, victim.id);
+        await handlePlayerDeath(victim, null);
+      }
+    }
 
     // Thunder follows 0.5–3s later (simulated with a small delay)
     const delay = 500 + Math.random() * 2500;
