@@ -382,21 +382,12 @@ class VineEditor {
       }
     }
 
-    // ── 5. Assign pixel positions, spreading to fill the visible canvas area.
-    const numCols = maxLayer + 1;
-    const maxRows = Math.max(...cols.map(c => c.length), 1);
-    const OX = 60, OY = 60, MARGIN = 80;
-    const areaW = this._area.clientWidth  / this._view.scale;
-    const areaH = this._area.clientHeight / this._view.scale;
-    const COL_W = Math.max(300, (areaW - OX * 2 - MARGIN) / numCols);
-    const ROW_H = Math.max(160, (areaH - OY * 2 - MARGIN) / maxRows);
-
+    // ── 5. Assign pixel positions.
+    const COL_W = 320, ROW_H = 180, OX = 40, OY = 60;
     for (const id of ids) {
       nodes[id].x = layer[id] * COL_W + OX;
       nodes[id].y = rank[id]  * ROW_H + OY;
     }
-
-    this._view = { x: 20, y: 20, scale: 1 };
     this._renderAll();
     requestAnimationFrame(() => this._renderEdges());
     this._fire('change');
