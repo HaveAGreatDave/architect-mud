@@ -446,6 +446,19 @@ export async function cmdSleep(player, broadcastFn) {
 	};
 }
 
+const SLEEP_NOISES = [
+	{ self: 'You snore loudly.', room: (h) => `${h} snores loudly.` },
+	{ self: 'You let out a long, rattling snore.', room: (h) => `${h} lets out a long, rattling snore.` },
+	{ self: 'You mumble something in your sleep.', room: (h) => `${h} mumbles something unintelligible.` },
+	{ self: 'You twitch in your sleep.', room: (h) => `${h} twitches in their sleep.` },
+	{ self: 'You grind your teeth.', room: (h) => `${h} grinds their teeth loudly.` },
+	{ self: 'You drool a little. Peacefully.', room: (h) => `${h} drools in their sleep.` },
+	{ self: 'You murmur something about credits.', room: (h) => `${h} murmurs something about credits.` },
+	{ self: 'You whimper quietly.', room: (h) => `${h} whimpers quietly in their sleep.` },
+	{ self: 'You fart in your sleep. Blissfully unaware.', room: (h) => `${h} farts in their sleep.` },
+	{ self: 'You roll over with a grunt.', room: (h) => `${h} rolls over with a grunt.` },
+];
+
 // Called once per minute (gameLoop's resourceTick cadence) for every
 // currently-sleeping player. Restores a slice of missing HP/sanity, drains
 // hunger/thirst at the (slower-than-awake) sleep rate, and auto-wakes the
@@ -469,6 +482,12 @@ export async function tickSleep(player, broadcastFn) {
 		"UPDATE players SET hp=$1, sanity=$2, hunger=$3, thirst=$4 WHERE id=$5",
 		[player.hp, player.sanity, player.hunger, player.thirst, player.id],
 	);
+
+	if (Math.random() < 0.25) {
+		const noise = SLEEP_NOISES[Math.floor(Math.random() * SLEEP_NOISES.length)];
+		broadcastFn(null, { type: 'output', message: `<em>${noise.self}</em>` }, null, player.id);
+		broadcastFn(player.current_zone, { type: 'zone_event', message: `<em>${noise.room(player.handle)}</em>` }, player.id);
+	}
 
 	const fullyRested =
 		player.hp >= player.hp_max && player.sanity >= player.sanity_max;

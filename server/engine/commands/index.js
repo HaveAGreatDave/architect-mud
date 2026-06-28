@@ -9,6 +9,7 @@ import { handlers as bodilyHandlers } from './bodily.js';
 import { handlers as misHandlers, handleJerkOffOn, handleEatOut } from './mis.js';
 import { handlers as appearanceHandlers } from './appearance.js';
 import { fireCommand } from '../plugins.js';
+import { deactivateForcefield } from '../apartments.js';
 import { fireSpecializedAction } from '../specializedActions.js';
 import { getSelectionState, advanceSelectionState, formatSelectionPage } from '../sift.js';
 
@@ -70,9 +71,20 @@ export async function handleCommand(input, player, broadcast) {
   const args = parts.slice(1);
 
   if (player.sleeping && cmd !== 'sleep' && cmd !== 'rest') {
+    const wasHome = player.sleeping.reason === 'home';
     player.sleeping = null;
+    const WAKE_MESSAGES = [
+      'jolts awake, eyes wild.',
+      'snaps awake with a grunt.',
+      'wakes with a start, disoriented.',
+      'lurches upright, suddenly conscious.',
+      'stirs and opens their eyes.',
+    ];
+    const roomMsg = WAKE_MESSAGES[Math.floor(Math.random() * WAKE_MESSAGES.length)];
+    broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} ${roomMsg}` }, player.id);
+    if (wasHome) await deactivateForcefield(player.id, player.home_zone, broadcast);
     const result = await handleCommand(input, player, broadcast);
-    if (result) result.message = `You wake up.\n\n${result.message}`;
+    if (result) result.message = `You wake up.\n\n${result.message ?? ''}`.trimEnd();
     return result;
   }
 
