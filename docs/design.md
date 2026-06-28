@@ -57,7 +57,7 @@ outcomes hang off skills.
 | **cool** | Nerve under fire, stun/pain resistance |
 
 Stats start at **0** (new characters assign ~6 points at creation) and are raised
-slowly by spending IP — a currency minted by skill progress — at an escalating
+slowly by spending XP — earned 1:1 from the IP your skills mint — at an escalating
 cost. They are not the primary progression feel.
 
 See [combat.md](combat.md) for the implemented system.
@@ -66,7 +66,8 @@ See [combat.md](combat.md) for the implemented system.
 
 ## Skills (Primary Progression)
 
-Skills improve by use. Do a thing, get better at it. There is no XP pool to allocate.
+Skills improve by use. Do a thing, get better at it. Skills aren't bought from a pool — only stats
+are (with XP). Each skill use can mint IP into that skill, and 100 IP = one skill level.
 
 Skills are grouped into categories but not locked — you can dabble in anything, but depth requires commitment. Skills don't depend on other skills; they pull only from their governing stats.
 
@@ -77,11 +78,10 @@ Skills are grouped into categories but not locked — you can dabble in anything
 - **Social** — Persuasion, Intimidate, Deception, Faction Lore
 - **Arcane-Tech** — Architect Interface (rare, dangerous, late-game)
 
-Skills run on a **continuous 0.00–10.00** scale (0.01 increments), improved by use
-— biggest gains come from barely winning. A skill's *effective* level adds the
-average of its governing stats on top of the trained value, which can push it past
-10. Most players cap most skills at 3–5 trained; 8+ makes you famous for it. See
-[combat.md](combat.md) for the implemented skill-check model.
+Skills run on a **0–10** level scale, where level = `floor(IP / 100)` and IP is minted by use —
+biggest gains (best award odds) come from barely winning. A skill's *effective* level adds the
+average of its governing stats on top, which can push it past 10. Most players cap most skills at
+3–5; 8+ makes you famous for it. See [combat.md](combat.md) for the implemented skill-check model.
 
 ---
 

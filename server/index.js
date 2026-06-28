@@ -25,6 +25,7 @@ import {
 import { startGameLoop } from "./engine/gameLoop.js";
 import { loadPlugins, fireHook } from "./engine/plugins.js";
 import { emit } from "./engine/events.js";
+import { getNetXp } from "./engine/ip.js";
 import { dispatchAction } from "./engine/actions.js";
 // Side-effect imports: register the Flag store and graph-engine Actions
 // (SET_FLAG, CLEAR_FLAG, GRANT_ITEM, TELEPORT, EXECUTE_SCRIPT, …) at boot.
@@ -551,7 +552,8 @@ async function finishAuth(ws, session, player) {
 		stat_endurance: player.stat_endurance,
 		stat_brains: player.stat_brains,
 		stat_cool: player.stat_cool,
-		ip: player.ip || 0,
+		xp: 0,
+		total_xp: 0,
 		armor: 0,
 		statuses: [],
 		stamina: player.stamina ?? 100,
@@ -581,6 +583,9 @@ async function finishAuth(ws, session, player) {
 		deaths: player.deaths || 0,
 		home_zone: player.home_zone || null,
 	};
+	const { total: totalXp, net: netXp } = await getNetXp(player.id);
+	livePlayer.xp = Math.floor(netXp);
+	livePlayer.total_xp = totalXp;
 	setLivePlayer(player.id, livePlayer);
 	emit('player.login', { id: player.id, handle: player.handle, role: player.role });
 	logActivity('connect', player.handle);

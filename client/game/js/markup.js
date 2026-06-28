@@ -45,7 +45,8 @@ const TOKEN_MAP = {
   $rad:     () => state.player?.radiation != null ? Math.round(state.player.radiation) : null,
   $temp:    () => state.player?.body_temp_c != null ? state.player.body_temp_c.toFixed(1) + '°C' : null,
   $credits: () => state.player?.credits   != null ? state.player.credits   : null,
-  $ip:      () => state.player?.ip        != null ? state.player.ip        : null,
+  $xp:      () => state.player?.xp        != null ? state.player.xp        : null,
+  $ip:      () => state.player?.xp        != null ? state.player.xp        : null,
   $zone:    () => document.getElementById('zone-name-display')?.textContent?.trim() || null,
   $weapon:  () => getEquippedWeaponName() || 'bare hands',
   $wet:     () => state.player ? _levelLabel(state.player.wetness ?? 0, WETNESS_LABELS) : null,
@@ -66,7 +67,7 @@ const TOKEN_MAP = {
   $stamina: () => state.player?.stamina     != null ? Math.round(state.player.stamina) : null,
 };
 
-const TOKEN_PATTERN = /\$(?:name|maxhp|hp|san|rad|temp|credits|ip|zone|weapon|wet|horny|home|kills|deaths|pkills|hunger|thirst|stamina)\b/gi;
+const TOKEN_PATTERN = /\$(?:name|maxhp|hp|san|rad|temp|credits|xp|ip|zone|weapon|wet|horny|home|kills|deaths|pkills|hunger|thirst|stamina)\b/gi;
 
 // Expand $tokens against the current player state. Returns plain text (still needs HTML escaping).
 // Call this at send time so the sender's values are embedded in the message.
@@ -146,7 +147,7 @@ export function parseMarkup(raw) {
 
 // ── Help text & status template ────────────────────────────────────────────────
 
-export const STATUS_TEMPLATE = '[b][color=#00ffff][system]ARCHITECT LIVE STATS[/system][/color][/b]  |  [player]$name[/player]  |  [u]ZONE:$zone[/u]  |  HP:[color=red]$hp/$maxhp[/color]  |  SAN:[i]$san[/i]  |  RAD:[s]$rad[/s]  |  TEMP:[b]$temp[/b]  |  CREDITS:[color=#00ff99]$credits[/color]  |  IP:$ip  |  [item]$weapon[/item] ACTIVE';
+export const STATUS_TEMPLATE = '[b][color=#00ffff][system]ARCHITECT LIVE STATS[/system][/color][/b]  |  [player]$name[/player]  |  [u]ZONE:$zone[/u]  |  HP:[color=red]$hp/$maxhp[/color]  |  SAN:[i]$san[/i]  |  RAD:[s]$rad[/s]  |  TEMP:[b]$temp[/b]  |  CREDITS:[color=#00ff99]$credits[/color]  |  XP:$xp  |  [item]$weapon[/item] ACTIVE';
 
 export const MARKUP_HELP_HTML = `
 <div style="font-family:var(--font-mono);font-size:12px;line-height:1.8;color:var(--text)">
@@ -176,7 +177,7 @@ export const MARKUP_HELP_HTML = `
   <div><span style="color:var(--yellow);min-width:230px;display:inline-block">$rad</span> radiation level</div>
   <div><span style="color:var(--yellow);min-width:230px;display:inline-block">$temp</span> body temperature</div>
   <div><span style="color:var(--yellow);min-width:230px;display:inline-block">$credits</span> credits on hand</div>
-  <div><span style="color:var(--yellow);min-width:230px;display:inline-block">$ip</span> improvement points</div>
+  <div><span style="color:var(--yellow);min-width:230px;display:inline-block">$xp</span> spendable experience</div>
   <div><span style="color:var(--yellow);min-width:230px;display:inline-block">$zone</span> current location</div>
   <div><span style="color:var(--yellow);min-width:230px;display:inline-block">$weapon</span> equipped weapon</div>
   <div><span style="color:var(--yellow);min-width:230px;display:inline-block">$wet</span> wetness description</div>

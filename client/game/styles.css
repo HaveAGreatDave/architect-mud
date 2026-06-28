@@ -842,6 +842,10 @@ body {
 .help-category {
 	color: var(--accent);
 }
+.ip-gain {
+	color: var(--green);
+	font-weight: bold;
+}
 .death-message {
 	color: var(--red);
 	font-size: var(--font-size-base);

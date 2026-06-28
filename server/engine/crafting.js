@@ -60,10 +60,10 @@ export async function attemptCraft(player, recipeId, stationQuality = 'none') {
 
   // Check skill requirements
   const { rows: skillRows } = await query(
-    'SELECT skill_id, trained FROM player_skills WHERE player_id = $1', [player.id]
+    'SELECT skill_id, ip FROM player_skills WHERE player_id = $1', [player.id]
   );
   const playerSkills = {};
-  for (const r of skillRows) playerSkills[r.skill_id] = r.trained || 0;
+  for (const r of skillRows) playerSkills[r.skill_id] = Math.floor((r.ip || 0) / 100);
 
   for (const [skillId, minRank] of Object.entries(recipe.skill_req || {})) {
     if ((playerSkills[skillId] || 0) < minRank) {

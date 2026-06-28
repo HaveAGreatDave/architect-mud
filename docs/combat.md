@@ -22,7 +22,7 @@ hit = margin >= 0
 - **Player → enemy:** `attackerHit = effectiveSkill(player, weaponSkill)`; `defenderDodge = enemy.dodge`.
 - **Enemy → player:** `attackerHit = enemy.hit`; `defenderDodge = effectiveSkill(player, 'dodge')`.
 
-`effectiveSkill = trained (0–10) + average of the skill's governing stats` (`skills.js`). It can exceed 10.
+`effectiveSkill = skill level (floor(player_skills.ip/100), 0–10) + average of the skill's governing stats` (`skills.js`). It can exceed 10.
 There is no `dodge_base` term any more — `dodge`/`effectiveSkill('dodge')` is the whole defense value.
 Monsters use a simplified pair of integer ratings, `hit` and `dodge` (both default 1); their old
 `stat_str/stat_agi/stat_end` columns are no longer read.
@@ -131,8 +131,10 @@ enemy behaviour:
   drops on the **ground**, picked up with `take`),
 - broadcasts a zone kill event.
 
-`xp_reward` and `credit_reward` no longer apply — there is no XP stat (advancement is IP, minted
-from skill use), and kills grant no direct credits. Both fields are dropped from the dev panel and
+`xp_reward` and `credit_reward` no longer apply — enemies grant no direct XP or credits on death.
+(Advancement comes from *using* skills: IP earned per skill use, and 1 XP per IP — see
+[systems-economy.md](systems-economy.md). A future quest reward could grant XP directly via `grantXp`,
+but the `enemies.xp_reward` column is not that path.) Both fields are dropped from the dev panel and
 no longer read by the engine; the columns linger in the DB but are vestigial.
 
 > **Disconnected system:** enemies do **not** create corpses. `createCorpse()` ([world.js](../server/engine/world.js))
@@ -145,7 +147,8 @@ no longer read by the engine; the columns linger in the DB but are vestigial.
 On a hit, `resolveAttack` awards skill use. **Note:** it remaps the weapon skill to one of
 `bladed` / `electronics` (when `weapon_skill === 'energy'`) / `brawling` — so `firearms` and
 `explosives` are never trained through attacks even if a weapon declares them. `awardSkillUse`
-(`skills.js`) gives the most growth on a barely-won check (margin ≈ 0) and mints IP from the gain.
+(`skills.js`) rolls for an IP award on a successful hit — best odds on a barely-won check (margin ≈ 0),
+falling off as the margin grows — and on a hit adds 1 IP to the skill (`awardIp`).
 
 ## Status effects (defined but inert)
 
@@ -164,5 +167,5 @@ you the run, not your progress.
 
 ## Player baseline
 
-New survivors start with every stat at **1** (raised further with IP via `raise`) and a flat **40 HP**
+New survivors start with every stat at **1** (raised further with XP via `raise`) and a flat **40 HP**
 (`hp_max`). The migration floors all existing characters' stats at 1 and resets 100-HP characters to 40.
