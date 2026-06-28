@@ -5,6 +5,7 @@
 (function () {
   let ghostWs = null;
   let currentGhostZoneId = null;
+  let playersRefreshTimer = null;
 
   function injectStyles() {
     if (document.getElementById('ghost-mode-styles')) return;
@@ -52,9 +53,83 @@
       }
       #ghost-body {
         display: flex;
+        flex-direction: row;
+        flex: 1;
+        overflow: hidden;
+      }
+      #ghost-main {
+        display: flex;
         flex-direction: column;
         flex: 1;
         overflow: hidden;
+        min-width: 0;
+      }
+
+      /* ── Online players sidebar ── */
+      #ghost-players-sidebar {
+        flex: 0 0 160px;
+        display: flex;
+        flex-direction: column;
+        border-left: 1px solid #7c3aed44;
+        background: color-mix(in srgb, var(--bg, #05050a) 96%, #7c3aed 4%);
+        overflow: hidden;
+      }
+      #ghost-players-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 6px 10px;
+        border-bottom: 1px solid #7c3aed33;
+        font-size: 10px;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        color: #a78bfa;
+        flex-shrink: 0;
+      }
+      #ghost-players-refresh {
+        background: transparent;
+        border: none;
+        color: #7c3aed;
+        cursor: pointer;
+        font-size: 13px;
+        line-height: 1;
+        padding: 0 2px;
+      }
+      #ghost-players-refresh:hover { color: #a78bfa; }
+      #ghost-players-list {
+        flex: 1;
+        overflow-y: auto;
+        padding: 4px 0;
+      }
+      #ghost-players-list::-webkit-scrollbar { width: 4px; }
+      #ghost-players-list::-webkit-scrollbar-track { background: transparent; }
+      #ghost-players-list::-webkit-scrollbar-thumb { background: #7c3aed44; border-radius: 2px; }
+      .ghost-player-entry {
+        padding: 5px 10px;
+        cursor: pointer;
+        font-size: 12px;
+        color: var(--text, #e8e8f5);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .ghost-player-entry:hover {
+        background: #7c3aed22;
+        color: #a78bfa;
+      }
+      .ghost-player-zone {
+        display: block;
+        font-size: 10px;
+        color: var(--text-dim, #8888a8);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      #ghost-players-empty {
+        padding: 10px;
+        font-size: 11px;
+        color: var(--text-dim, #8888a8);
+        font-style: italic;
       }
 
       /* ── Area pane (top): auto-sizes to content, max 50% of dialog height ── */
@@ -281,11 +356,20 @@
         </div>
       </div>
       <div id="ghost-body">
-        <div id="ghost-area-pane">
-          <div id="ghost-area-content"><span style="color:#7c3aed88;font-style:italic">Entering zone...</span></div>
+        <div id="ghost-main">
+          <div id="ghost-area-pane">
+            <div id="ghost-area-content"><span style="color:#7c3aed88;font-style:italic">Entering zone...</span></div>
+          </div>
+          <div id="ghost-resize-handle"><span id="ghost-resize-reset">auto</span></div>
+          <div id="ghost-feed"></div>
         </div>
-        <div id="ghost-resize-handle"><span id="ghost-resize-reset">auto</span></div>
-        <div id="ghost-feed"></div>
+        <div id="ghost-players-sidebar">
+          <div id="ghost-players-header">
+            <span>Online</span>
+            <button id="ghost-players-refresh" title="Refresh player list">↻</button>
+          </div>
+          <div id="ghost-players-list"><div id="ghost-players-empty">No players online.</div></div>
+        </div>
       </div>
       <div id="ghost-input-row">
         <input id="ghost-cmd" type="text" placeholder="Any game command — plus haunt &lt;player&gt;" autocomplete="off" spellcheck="false">
@@ -295,6 +379,7 @@
     document.body.appendChild(dialog);
 
     setupResizeHandle();
+    setupPlayersPanel();
 
     document.getElementById('ghost-cmd').addEventListener('keydown', e => {
       if (e.key === 'Enter') sendGhostCommand();
@@ -308,7 +393,7 @@
     const handle   = document.getElementById('ghost-resize-handle');
     const resetBtn = document.getElementById('ghost-resize-reset');
     const pane     = document.getElementById('ghost-area-pane');
-    const body     = document.getElementById('ghost-body');
+    const body     = document.getElementById('ghost-main');
 
     function setAuto() {
       pane.style.height = '';
@@ -354,6 +439,54 @@
       document.addEventListener('mousemove', onMove);
       document.addEventListener('mouseup', onUp);
     });
+  }
+
+  function setupPlayersPanel() {
+    document.getElementById('ghost-players-refresh').addEventListener('click', loadOnlinePlayers);
+    loadOnlinePlayers();
+    playersRefreshTimer = setInterval(loadOnlinePlayers, 15000);
+  }
+
+  async function loadOnlinePlayers() {
+    const list = document.getElementById('ghost-players-list');
+    if (!list) return;
+    list.innerHTML = '<div id="ghost-players-empty" style="padding:10px;font-size:11px;color:var(--text-dim,#8888a8);font-style:italic">Loading...</div>';
+
+    const res = await directAPI('/players/online', 'GET').catch(() => null);
+    if (!list.isConnected) return; // dialog closed while loading
+    if (!res || res.error || !Array.isArray(res)) {
+      list.innerHTML = '<div id="ghost-players-empty" style="padding:10px;font-size:11px;color:var(--red,#ff3b5c)">Failed to load.</div>';
+      return;
+    }
+
+    const players = res.filter(p => p.role !== 'admin');
+    if (!players.length) {
+      list.innerHTML = '<div id="ghost-players-empty" style="padding:10px;font-size:11px;color:var(--text-dim,#8888a8);font-style:italic">No players online.</div>';
+      return;
+    }
+
+    list.innerHTML = '';
+    for (const p of players) {
+      const entry = document.createElement('div');
+      entry.className = 'ghost-player-entry';
+      entry.title = `Jump to ${p.handle}'s zone`;
+      entry.innerHTML = `${p.handle}<span class="ghost-player-zone">${p.current_zone || '—'}</span>`;
+      entry.addEventListener('click', () => jumpToPlayerZone(p));
+      list.appendChild(entry);
+    }
+  }
+
+  function jumpToPlayerZone(player) {
+    if (!ghostWs || ghostWs.readyState !== WebSocket.OPEN) {
+      appendFeed('Not connected.', 'msg-error');
+      return;
+    }
+    if (!player.current_zone) {
+      appendFeed(`${player.handle} has no known zone.`, 'msg-error');
+      return;
+    }
+    ghostWs.send(JSON.stringify({ type: 'ghost_jump', zoneId: player.current_zone }));
+    appendFeed(`Jumping to ${player.handle}'s location...`, 'msg-info');
   }
 
   function makeDraggable(el, handle) {
@@ -553,6 +686,7 @@
 
   function closeGhostDialog() {
     if (ghostWs) { ghostWs.close(); ghostWs = null; }
+    if (playersRefreshTimer) { clearInterval(playersRefreshTimer); playersRefreshTimer = null; }
     const dialog = document.getElementById('ghost-dialog');
     if (dialog) dialog.remove();
     currentGhostZoneId = null;

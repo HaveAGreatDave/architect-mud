@@ -255,6 +255,7 @@ wss.on("connection", (ws) => {
 		if (msg.type === "buy_npc") return handleBuyFromNpc(ws, session, msg);
 		if (msg.type === "auth_ghost") return handleGhostAuth(ws, session, msg);
 		if (msg.type === "ghost_command") return handleGhostCommand(ws, session, msg);
+		if (msg.type === "ghost_jump") return handleGhostJump(ws, session, msg);
 		if (msg.type === "ping") {
 			ws.send(JSON.stringify({ type: "pong" }));
 			return;
@@ -736,6 +737,17 @@ async function handleGameCommand(ws, session, msg) {
 			await recomputeInsulation(player);
 		}
 	}
+}
+
+async function handleGhostJump(ws, session, msg) {
+	if (!session.isGhost) return;
+	const { zoneId } = msg;
+	if (!zoneId) return;
+	const zone = getZone(zoneId);
+	if (!zone) { ws.send(JSON.stringify({ type: 'ghost_error', message: 'Zone not found.' })); return; }
+	session.ghostZoneId = zoneId;
+	const lookResult = await cmdGhostLook(session);
+	ws.send(JSON.stringify(lookResult));
 }
 
 async function handleDialogue(ws, session, msg) {

@@ -38,6 +38,10 @@ function closeWhisper() {
   if (btn) btn.style.color = '';
 }
 
+function _esc(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 async function sendWhisper() {
   const input = document.getElementById('whisper-input');
   const msg = input.value.trim();
@@ -47,7 +51,7 @@ async function sendWhisper() {
   const log = document.getElementById('whisper-log');
   const entry = document.createElement('div');
   entry.style.cssText = 'font-size:12px;padding:4px 0;border-bottom:1px solid var(--border)';
-  entry.innerHTML = `<div style="font-size:10px;color:var(--text-dim);margin-bottom:2px">You → ${_whisperTargetHandle}</div>${msg}`;
+  entry.innerHTML = `<div style="font-size:10px;color:var(--text-dim);margin-bottom:2px">You → ${_esc(_whisperTargetHandle)}</div>${_esc(msg)}`;
   log.appendChild(entry);
   log.scrollTop = log.scrollHeight;
   input.value = '';

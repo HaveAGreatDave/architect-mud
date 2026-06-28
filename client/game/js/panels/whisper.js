@@ -392,7 +392,7 @@ function _renderWhisperLog() {
     const entry = document.createElement('div');
     entry.style.cssText = 'padding:4px 0;border-bottom:1px solid var(--border)';
     const nameColor = m.isMe ? 'var(--text-dim)' : 'var(--purple)';
-    entry.innerHTML = `<div style="color:${nameColor};margin-bottom:2px;font-style:${m.isMe?'italic':''}">${m.from}</div><div style="color:var(--text)">${m.message}</div>`;
+    entry.innerHTML = `<div style="color:${nameColor};margin-bottom:2px;font-style:${m.isMe?'italic':''}">${_esc(m.from)}</div><div style="color:var(--text)">${_esc(m.message)}</div>`;
     log.appendChild(entry);
   }
   // Use ?? so scrollTop=0 (MOTD top) is respected; fall back to bottom for chat
@@ -415,7 +415,7 @@ function _renderUsersTab(log) {
     + (_onlinePlayers.length
       ? _onlinePlayers.map(p => {
           const h = p.handle.replace(/"/g, '&quot;');
-          return `<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 10px;border-bottom:1px solid var(--border)"><span style="font-size:12px;color:var(--text)">${p.handle}</span><button data-whisper="${h}" title="Whisper ${p.handle}" style="background:transparent;border:none;color:var(--accent);font-size:13px;cursor:pointer;padding:0 2px;line-height:1">💬</button></div>`;
+          return `<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 10px;border-bottom:1px solid var(--border)"><span style="font-size:12px;color:var(--text)">${_esc(p.handle)}</span><button data-whisper="${h}" title="Whisper ${_esc(p.handle)}" style="background:transparent;border:none;color:var(--accent);font-size:13px;cursor:pointer;padding:0 2px;line-height:1">💬</button></div>`;
         }).join('')
       : '<div style="padding:10px 10px;color:var(--text-dim);font-size:11px">No other players online.</div>')
     + '<div style="padding:6px 10px"><button data-refresh-online style="width:100%;background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font-mono);font-size:10px;padding:4px;cursor:pointer;border-radius:2px">↻ Refresh</button></div>';
