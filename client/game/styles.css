@@ -1183,17 +1183,13 @@ body {
 	box-shadow: 0 0 10px var(--accent), 0 0 4px var(--accent);
 }
 
-/* Spacer at the bottom of the sidebar — small fixed zone for drop targeting only.
-   flex: 0 so user-created spacers can fill remaining height without competition. */
+/* DOM anchor for drop insertion — zero height always so lock/unlock never shifts layout */
 .sidebar-drop-end {
-	display: none;
-}
-#sidebar.drag-mode .sidebar-drop-end {
 	display: block;
-	flex: 0 0 auto;
-	min-height: 48px;
-	border-top: 1px dashed var(--border);
-	opacity: 0.4;
+	flex: none;
+	height: 0;
+	min-height: 0;
+	overflow: hidden;
 }
 
 /* Reset sidebar order button in settings */
