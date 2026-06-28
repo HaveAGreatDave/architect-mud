@@ -190,6 +190,24 @@ const PANELS = {
     noEdit: true,
     render: renderValidatorPanel,
   },
+  broadcasts: {
+    title: 'Broadcasts',
+    fetch: async () => {
+      const [broadcasts, channels] = await Promise.all([
+        directAPI('/broadcast/broadcasts'),
+        directAPI('/broadcast/channels'),
+      ]);
+      return { broadcasts: Array.isArray(broadcasts) ? broadcasts : [], channels: Array.isArray(channels) ? channels : [] };
+    },
+    noEdit: true,
+    render: renderBroadcastsPanel,
+  },
+  channels: {
+    title: 'Channels',
+    fetch: () => directAPI('/broadcast/channels'),
+    noEdit: true,
+    render: renderChannelsPanel,
+  },
   changes: {
     title: 'Changes',
     fetch: () => API('/staging/pending'),

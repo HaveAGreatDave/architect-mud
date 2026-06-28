@@ -115,6 +115,15 @@
     "lockkit:hololock": { label: 'Hololock Installation Kit', shape: 'flag', scope: 'class', group: 'Tools', help: 'Consumable installation kit used to deploy a holographic lock setup onto a door or frame.' },
     "lockkit:keycardlock": { label: 'Keycard Lock Installation Kit', shape: 'flag', scope: 'class', group: 'Tools', help: 'Consumable installation kit used to deploy a magnetic keycard reader onto a door or frame.' },
 
+    // --- Broadcast ---
+    broadcast_receiver: { label: 'Broadcast Receiver', shape: 'flag', scope: 'class', group: 'Broadcast',
+      help: 'Item or furniture can be tuned to a broadcast channel.' },
+    broadcast_transmitter: { label: 'Broadcast Transmitter', shape: 'flag', scope: 'class', group: 'Broadcast',
+      help: 'Item or furniture is a camera or microphone (broadcast source).' },
+    broadcast_device_type: { label: 'Device Type', shape: 'enum', scope: 'class', group: 'Broadcast',
+      options: ['tv', 'radio', 'security_monitor', 'portable_monitor', 'camera'],
+      help: 'Controls how broadcast content is formatted for this device.' },
+
     // --- Instance flags (presence-only, on a carried item) ---
     broken: { label: 'Broken', shape: 'flag', scope: 'instance', group: 'Instance',
       help: 'Per-item state flag set on a carried instance.' },
