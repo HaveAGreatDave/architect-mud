@@ -314,7 +314,6 @@ async function _sendMessage() {
   if (!pid) { toast(`${_activeTab} is not online.`, true); return; }
   const r = await API(`/players/${pid}/whisper`, 'POST', { message: msg });
   if (r?.error) { toast(r.error, true); return; }
-  const convo = _getConvo(_activeTab);
   convo.messages.push({ from: _myHandle || 'Admin', message: msg });
   input.value = '';
   _renderLog();

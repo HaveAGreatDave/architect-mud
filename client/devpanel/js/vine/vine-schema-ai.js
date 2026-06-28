@@ -5,25 +5,25 @@ function _escAI(s) {
   return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-const _IS = 'width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:4px 6px;box-sizing:border-box;border-radius:2px';
-const _LS = 'font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);display:block;margin-bottom:3px';
+const _AI_AI_IS = 'width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:4px 6px;box-sizing:border-box;border-radius:2px';
+const _AI_AI_LS = 'font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);display:block;margin-bottom:3px';
 
 function _aiField(label, inputHtml) {
-  return `<div style="margin-bottom:8px"><label style="${_LS}">${label}</label>${inputHtml}</div>`;
+  return `<div style="margin-bottom:8px"><label style="${_AI_LS}">${label}</label>${inputHtml}</div>`;
 }
 
 function _aiInput(field, value, placeholder, type) {
   const t = type || 'text';
-  return `<input data-vine-field="${field}" ${t !== 'text' ? `data-vine-type="${t}" type="${t}"` : ''} value="${_escAI(value)}" placeholder="${placeholder || ''}" style="${_IS}">`;
+  return `<input data-vine-field="${field}" ${t !== 'text' ? `data-vine-type="${t}" type="${t}"` : ''} value="${_escAI(value)}" placeholder="${placeholder || ''}" style="${_AI_IS}">`;
 }
 
 function _aiTextarea(field, value, rows) {
-  return `<textarea data-vine-field="${field}" data-vine-type="json" rows="${rows || 3}" style="${_IS};resize:vertical;font-size:11px">${_escAI(typeof value === 'object' ? JSON.stringify(value, null, 2) : (value || ''))}</textarea>`;
+  return `<textarea data-vine-field="${field}" data-vine-type="json" rows="${rows || 3}" style="${_AI_IS};resize:vertical;font-size:11px">${_escAI(typeof value === 'object' ? JSON.stringify(value, null, 2) : (value || ''))}</textarea>`;
 }
 
 function _aiSelect(field, options, current) {
   const opts = options.map(o => `<option value="${o}" ${o === current ? 'selected' : ''}>${o}</option>`).join('');
-  return `<select data-vine-field="${field}" style="${_IS}">${opts}</select>`;
+  return `<select data-vine-field="${field}" style="${_AI_IS}">${opts}</select>`;
 }
 
 // ── Condition type catalogue ──────────────────────────────────────────────────
@@ -94,13 +94,13 @@ function _renderParamFields(container, catalogue, typeKey, dataObj, onChange) {
       inp.onchange = () => { (dataObj.params = dataObj.params || {})[p.key] = inp.checked; onChange(); };
     } else if (p.type === 'select') {
       inp = document.createElement('select');
-      inp.style.cssText = _IS;
+      inp.style.cssText = _AI_IS;
       const cur = dataObj.params?.[p.key] ?? p.default ?? (p.options || [])[0];
       inp.innerHTML = (p.options || []).map(o => `<option value="${o}" ${o === cur ? 'selected' : ''}>${o}</option>`).join('');
       inp.onchange = () => { (dataObj.params = dataObj.params || {})[p.key] = inp.value; onChange(); };
     } else if (p.type === 'json') {
       inp = document.createElement('textarea');
-      inp.style.cssText = _IS + ';resize:vertical;font-size:10px;height:44px';
+      inp.style.cssText = _AI_IS + ';resize:vertical;font-size:10px;height:44px';
       const cur = dataObj.params?.[p.key] ?? p.default ?? [];
       inp.value = typeof cur === 'string' ? cur : JSON.stringify(cur, null, 2);
       inp.onchange = () => {
@@ -109,7 +109,7 @@ function _renderParamFields(container, catalogue, typeKey, dataObj, onChange) {
     } else {
       inp = document.createElement('input');
       inp.type = p.type === 'number' ? 'number' : 'text';
-      inp.style.cssText = _IS;
+      inp.style.cssText = _AI_IS;
       inp.value = dataObj.params?.[p.key] ?? p.default ?? '';
       if (p.type === 'number') inp.step = 'any';
       inp.oninput = () => {
@@ -155,7 +155,7 @@ function _buildBranchEditor(container, node, editor, nodeId) {
       wInp.type = 'number';
       wInp.min = '1';
       wInp.step = '1';
-      wInp.style.cssText = _IS + ';width:60px;flex-shrink:0';
+      wInp.style.cssText = _AI_IS + ';width:60px;flex-shrink:0';
       wInp.value = b.weight ?? 1;
       wInp.oninput = () => { b.weight = Math.max(1, parseInt(wInp.value) || 1); onChange(); };
 
@@ -215,7 +215,7 @@ const _aiNodeDefs = {
         `<option value="${c.type}" ${c.type === n.data.condition_type ? 'selected' : ''}>${c.label}</option>`
       ).join('');
       return `
-        ${_aiField('Condition Type', `<select data-vine-field="data.condition_type" style="${_IS}" id="ai-cond-type-${id}">${condOpts}</select>`)}
+        ${_aiField('Condition Type', `<select data-vine-field="data.condition_type" style="${_AI_IS}" id="ai-cond-type-${id}">${condOpts}</select>`)}
         <div id="ai-cond-params-${id}"></div>
       `;
     },
@@ -252,7 +252,7 @@ const _aiNodeDefs = {
         `<option value="${a.type}" ${a.type === n.data.action_type ? 'selected' : ''}>${a.label}</option>`
       ).join('');
       return `
-        ${_aiField('Action Type', `<select data-vine-field="data.action_type" style="${_IS}" id="ai-act-type-${id}">${actOpts}</select>`)}
+        ${_aiField('Action Type', `<select data-vine-field="data.action_type" style="${_AI_IS}" id="ai-act-type-${id}">${actOpts}</select>`)}
         <div id="ai-act-params-${id}"></div>
       `;
     },
@@ -283,7 +283,7 @@ const _aiNodeDefs = {
     getOutPorts: () => [{ key: 'next', label: 'next' }],
     renderProperties: (n, ed, id) => `
       <div style="color:var(--text-dim);font-size:12px;margin-bottom:8px">Suspend AI evaluation for N seconds, then continue. Useful after SAY or ATTACK to pace behavior.</div>
-      ${_aiField('Seconds', `<input data-vine-field="data.seconds" data-vine-type="number" type="number" min="0" step="1" value="${n.data.seconds || 0}" style="${_IS}">`)}
+      ${_aiField('Seconds', `<input data-vine-field="data.seconds" data-vine-type="number" type="number" min="0" step="1" value="${n.data.seconds || 0}" style="${_AI_IS}">`)}
     `,
   },
 
