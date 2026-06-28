@@ -228,6 +228,7 @@ async function cmdMove(direction, player, broadcast) {
   player.current_zone = targetId;
   player.combatTargetId = null;
   player.sitting = false;
+  player.sittingOn = null;
   if (player.pvpTargetId) {
     const opponent = getLivePlayer(player.pvpTargetId);
     if (opponent) {

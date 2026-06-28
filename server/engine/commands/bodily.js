@@ -163,15 +163,38 @@ export async function bodilyUseHandler(args, raw, player) {
   return null; // fall through to inventory use
 }
 
-async function cmdSit(player) {
+async function cmdSit(args, player) {
   if (player.combatTargetId || player.pvpTargetId) {
     return { type: 'error', message: `You can't sit while in combat.` };
   }
+
+  const targetStr = args.filter(a => a !== 'on').join(' ').trim();
+
+  // Sitting on a named piece of furniture — the furniture must allow 'sit'.
+  if (targetStr) {
+    const { rows } = await query(
+      `SELECT * FROM furniture WHERE zone_id=$1 AND name ILIKE $2 LIMIT 1`,
+      [player.current_zone, `%${targetStr}%`]
+    );
+    const f = rows[0];
+    if (!f) return { type: 'error', message: `There's no "${targetStr}" here to sit on.` };
+    if (!f.flags?.interactions?.includes?.('sit')) {
+      return { type: 'error', message: `You can't sit on the ${f.name}.` };
+    }
+    if (player.sitting && player.sittingOn === f.name) {
+      return { type: 'output', message: `You're already sitting on the ${f.name}.` };
+    }
+    player.sitting = true;
+    player.sittingOn = f.name;
+    return { type: 'output', message: `You sit down on the ${f.name} and let your muscles relax.` };
+  }
+
   if (player.sitting) {
     return { type: 'output', message: `You're already sitting.` };
   }
   player.sitting = true;
-  return { type: 'output', message: `You sit down and let your muscles relax.` };
+  player.sittingOn = null;
+  return { type: 'output', message: `You sit down on the ground and let your muscles relax.` };
 }
 
 async function cmdStand(player) {
@@ -179,6 +202,7 @@ async function cmdStand(player) {
     return { type: 'output', message: `You're already standing.` };
   }
   player.sitting = false;
+  player.sittingOn = null;
   return { type: 'output', message: `You stand up.` };
 }
 
@@ -190,6 +214,6 @@ export const handlers = {
   defecate: (args, raw, player, broadcast) => cmdPoop(args, player, broadcast),
   shit:     (args, raw, player, broadcast) => cmdPoop(args, player, broadcast),
   flush:    (args, raw, player)            => cmdFlush(args, player),
-  sit:      (args, raw, player)            => cmdSit(player),
+  sit:      (args, raw, player)            => cmdSit(args, player),
   stand:    (args, raw, player)            => cmdStand(player),
 };

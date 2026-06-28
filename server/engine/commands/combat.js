@@ -108,6 +108,7 @@ export async function resolveAttack(player, target, broadcast) {
 
 export async function cmdAttack(targetStr, player, broadcast) {
 	if (!targetStr) return { type: "error", message: "Attack what?" };
+	if (player.sitting) { player.sitting = false; player.sittingOn = null; }
 	if (targetStr === 'door' || targetStr.startsWith('door ')) {
 		const { cmdAttackDoor } = await import('./doors.js');
 		return cmdAttackDoor(targetStr.replace(/^door\s*/,'').trim(), player, broadcast);
