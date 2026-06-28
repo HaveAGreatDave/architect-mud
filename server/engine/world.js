@@ -87,7 +87,7 @@ async function loadNpcs() {
       wander_zones: npc.wander_zones || [],
       behaviour_graph: npc.behaviour_graph || {},
       flags: npc.flags || {},
-      _ai: { waitUntil: null, patrolPath: [], patrolTarget: null, patrolMode: 'walk', patrolIndex: 0, alertCooldown: 0, lastSay: 0, flags: {} },
+      _ai: { currentNode: null, waitUntil: null, patrolPath: [], patrolTarget: null, patrolMode: 'walk', patrolIndex: 0, alertCooldown: 0, lastSay: 0, flags: {} },
     });
     if (npc.zone_id && world.zones.has(npc.zone_id)) {
       world.zones.get(npc.zone_id).npcs.add(npc.id);
@@ -254,7 +254,7 @@ export function spawnEnemySync(template, zoneId) {
     // hesitate before their FIRST attack after aggroing — set the moment they
     // acquire a target, checked separately from the normal attack-interval pace.
     aggroedAt: null,
-    _ai: { waitUntil: null, patrolPath: [], patrolTarget: null, patrolMode: 'walk', patrolIndex: 0, alertCooldown: 0, lastSay: 0, flags: {} },
+    _ai: { currentNode: null, waitUntil: null, patrolPath: [], patrolTarget: null, patrolMode: 'walk', patrolIndex: 0, alertCooldown: 0, lastSay: 0, flags: {} },
   };
   world.enemies.set(id, instance);
   world.zones.get(zoneId)?.enemies.add(id);

@@ -7,6 +7,7 @@ import { getEnvironmentState } from './environment.js';
 
 export function initBlackboard() {
   return {
+    currentNode:  null,  // persistent execution cursor — resume point for next tick
     waitUntil:    null,  // timestamp — WAIT node suspend
     patrolTarget: null,  // zone_id currently walking toward
     patrolPath:   [],    // remaining BFS path steps
@@ -213,6 +214,7 @@ async function execAction(node, entity, ctx) {
         if (!isEnemy(entity) && query) {
           query('UPDATE npcs SET zone_id=$1 WHERE id=$2', [nextZone, entity.id]).catch(() => {});
         }
+        return 'RUNNING'; // still en route — stay at PATROL node next tick
       }
       break;
     }
@@ -326,18 +328,18 @@ export async function tickEntityAI(entity, ctx) {
   const ai = entity._ai;
   if (!ai) return;
 
-  // Check if suspended in a WAIT
+  // Check if suspended in a WAIT — currentNode already points to the resume target
   if (ai.waitUntil && Date.now() < ai.waitUntil) return;
   ai.waitUntil = null;
-
-  // Handle ongoing patrol (patrolPath already computed, just need to step)
-  // Patrol is handled inside execAction('PATROL') per tick — no special resume needed.
 
   const nodes = graph.nodes;
   if (!nodes) return;
   const edges = graph.edges || [];
 
-  let nodeId = graph._start;
+  // Resume from cursor if set, else restart from _start
+  let nodeId = ai.currentNode || graph._start;
+  ai.currentNode = null; // clear — will be re-set if execution suspends
+
   let steps = 0;
 
   while (nodeId && steps++ < MAX_STEPS) {
@@ -355,15 +357,26 @@ export async function tickEntityAI(entity, ctx) {
         break;
       }
 
-      case 'action':
-        await execAction(node, entity, ctx);
-        return; // one action per tick
+      case 'action': {
+        const result = await execAction(node, entity, ctx);
+        // RUNNING: stay at this node next tick. Otherwise advance cursor.
+        ai.currentNode = (result === 'RUNNING')
+          ? nodeId
+          : resolveEdge(edges, nodeId, 'next');
+        return;
+      }
 
       case 'wait': {
         const seconds = node.data?.seconds ?? 1;
         ai.waitUntil = Date.now() + seconds * 1000;
-        nodeId = resolveEdge(edges, nodeId, 'next');
-        return; // suspend until wait expires
+        ai.currentNode = resolveEdge(edges, nodeId, 'next'); // resume here after wait
+        return;
+      }
+
+      case 'loop': {
+        // Explicit jump — follow 'next' edge or fall back to _start
+        nodeId = resolveEdge(edges, nodeId, 'next') || graph._start;
+        break;
       }
 
       case 'random': {
@@ -384,4 +397,5 @@ export async function tickEntityAI(entity, ctx) {
         nodeId = null;
     }
   }
+  // Natural end or MAX_STEPS — currentNode stays null, next tick restarts from _start
 }

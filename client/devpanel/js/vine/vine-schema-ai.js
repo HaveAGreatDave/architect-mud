@@ -389,6 +389,20 @@ const _aiNodeDefs = {
     `,
   },
 
+  loop: {
+    label: 'Loop',
+    color: '#446644',
+    defaultData: {},
+    renderBody: () => `<div style="font-size:11px;color:var(--accent);letter-spacing:1px">↺ LOOP</div>`,
+    getOutPorts: () => [{ key: 'next', label: 'next' }],
+    renderProperties: (n, ed, id) => `
+      ${_aiHelpBox(id,
+        'Jumps to the connected node — or back to Start if unconnected — without stopping execution. Use this at the end of a branch to cycle the graph rather than ending it. Graphs without a Loop node end naturally after the last action, then restart next tick.',
+        'PATROL → Loop → (back to Start)\n\nAttack → Loop\nPatrol → Loop\n→ both branches cycle back to Start each tick,\n  re-evaluating conditions every time'
+      )}
+      <div style="color:var(--text-dim);font-size:12px">Connect to the node you want to jump to, or leave unconnected to jump to Start.</div>`,
+  },
+
   random: {
     label: 'Random Branch',
     color: '#886644',

@@ -12,6 +12,7 @@ Each entity (enemy or NPC) that has a `behaviour_graph` gets a **blackboard** �
 
 ```js
 {
+  currentNode:  null,   // execution cursor — node ID to resume from next tick (null = restart from _start)
   waitUntil:    null,   // timestamp — entity is suspended until this time
   patrolTarget: null,   // zone_id currently walking toward
   patrolPath:   [],     // remaining BFS path steps to patrolTarget
@@ -30,9 +31,12 @@ Each entity (enemy or NPC) that has a `behaviour_graph` gets a **blackboard** �
 `tickEntityAI(entity, ctx)` is called each second (via `gameLoop.js`) for every live enemy and NPC that has a `behaviour_graph`. It:
 
 1. Returns immediately if `ai.waitUntil` is in the future (WAIT node suspension).
-2. Walks the graph from `_start`, up to 50 steps.
-3. Stops at the first `action` node it reaches and executes it (one action per tick).
-4. WAIT nodes also stop the walk and set `ai.waitUntil`.
+2. Resumes from `ai.currentNode` if set, otherwise restarts from `_start`.
+3. Walks the graph up to 50 steps.
+4. Stops at the first `action` node, executes it, and saves the cursor to the next node.
+5. WAIT nodes stop the walk, set `ai.waitUntil`, and save the cursor to the node after WAIT.
+
+Execution is **stateful**: `ai.currentNode` persists between ticks so sequential graphs (`ATTACK → WAIT → SAY`) execute in order. When `ai.currentNode` is null (natural end or graph restart), the next tick starts from `_start`.
 
 `ctx` carries `{ broadcast, query }`.
 
@@ -87,7 +91,7 @@ Out ports: `ifTrue`, `ifFalse`.
 
 ### `action`
 
-Executes one action and stops the tick. Out port: `next` (not followed — next tick restarts from `_start`).
+Executes one action and stops the tick. The cursor is saved to the `next` port's target so the following tick resumes from there rather than restarting from `_start`. If the action returns `'RUNNING'` (currently only PATROL walk mode does this), the cursor stays at the action node and it re-executes next tick.
 
 **Data:** `{ action_type, params }`
 
@@ -106,9 +110,15 @@ Executes one action and stops the tick. Out port: `next` (not followed — next 
 
 ### `wait`
 
-Suspends the entity for N seconds. On the next tick after `waitUntil` expires, the graph restarts from `_start` (not from the node after `wait`).
+Suspends the entity for N seconds. The cursor is saved to the `next` port's target; when the timer expires the graph resumes from that node rather than restarting from `_start`.
 
-**Data:** `{ seconds }` — Out port: `next` (also not followed for the same reason).
+**Data:** `{ seconds }` — Out port: `next`.
+
+### `loop`
+
+Jumps to the connected node (via `next`) without stopping execution. If unconnected, jumps back to `_start`. Use this at the end of a branch to cycle the graph and re-evaluate conditions each tick, instead of relying on the implicit restart when a graph ends naturally.
+
+**Data:** none — Out port: `next`.
 
 ### `random`
 
