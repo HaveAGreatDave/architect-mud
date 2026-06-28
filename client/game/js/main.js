@@ -14,6 +14,7 @@ import { initWhisperPanel, debugFakeWhisper, toggleWhisperPanel } from './panels
 import { initWho, openWhoModal } from './panels/who.js';
 import { initSidebarOrder } from './panels/sidebar-order.js';
 import { refreshTempDisplay } from './panels/environment.js';
+import { initAtmPanel } from './panels/atm.js';
 
 // Settings
 const settings = loadSettings();
@@ -199,6 +200,7 @@ initDialogue();
 initForecast();
 initWhisperPanel();
 initWho();
+initAtmPanel();
 
 // Wire signout
 document.getElementById('signout-btn').addEventListener('click', () => {

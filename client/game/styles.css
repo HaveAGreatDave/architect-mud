@@ -3277,3 +3277,217 @@ body {
 	background: var(--border);
 	border-radius: 3px;
 }
+
+/* ── ATM Panel ── */
+#atm-panel {
+	display: none;
+	position: fixed;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.88);
+	z-index: 200;
+	align-items: center;
+	justify-content: center;
+}
+#atm-panel.active {
+	display: flex;
+}
+#atm-box {
+	background: #000;
+	border: 2px solid #00ff88;
+	box-shadow: 0 0 40px rgba(0, 255, 136, 0.35), inset 0 0 80px rgba(0, 0, 0, 0.95);
+	font-family: 'Courier New', Courier, monospace;
+	color: #00ff88;
+	min-width: 340px;
+	max-width: 400px;
+	width: 100%;
+	padding: 22px 24px 18px;
+	position: relative;
+	/* CRT scanlines */
+	background-image: repeating-linear-gradient(
+		0deg,
+		transparent,
+		transparent 3px,
+		rgba(0, 0, 0, 0.12) 3px,
+		rgba(0, 0, 0, 0.12) 4px
+	);
+}
+#atm-close {
+	position: absolute;
+	top: 10px;
+	right: 12px;
+	background: none;
+	border: none;
+	color: #00ff88;
+	font-size: 14px;
+	cursor: pointer;
+	opacity: 0.6;
+	padding: 2px 6px;
+	font-family: inherit;
+}
+#atm-close:hover { opacity: 1; }
+#atm-header {
+	text-align: center;
+	margin-bottom: 16px;
+	padding-bottom: 12px;
+	border-bottom: 1px solid rgba(0, 255, 136, 0.3);
+}
+.atm-logo {
+	font-size: 11px;
+	letter-spacing: 4px;
+	opacity: 0.5;
+	margin-bottom: 4px;
+}
+#atm-network-name {
+	font-size: 17px;
+	font-weight: bold;
+	letter-spacing: 2px;
+	animation: atm-flicker 8s infinite;
+}
+.atm-subtitle {
+	font-size: 9px;
+	letter-spacing: 3px;
+	opacity: 0.45;
+	margin-top: 3px;
+}
+@keyframes atm-flicker {
+	0%, 92%, 94%, 96%, 100% { opacity: 1; }
+	93% { opacity: 0.7; }
+	95% { opacity: 0.9; }
+}
+#atm-status-block {
+	margin-bottom: 14px;
+}
+.atm-status-row {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin-bottom: 6px;
+	font-size: 11px;
+}
+.atm-label {
+	width: 54px;
+	opacity: 0.55;
+	letter-spacing: 1px;
+	flex-shrink: 0;
+}
+.atm-value {
+	font-size: 11px;
+	letter-spacing: 1px;
+}
+.atm-online { color: #00ff88; }
+.atm-offline { color: #ff3b5c; animation: none; }
+.atm-bar-wrap {
+	flex: 1;
+	height: 7px;
+	background: rgba(0, 255, 136, 0.12);
+	border: 1px solid rgba(0, 255, 136, 0.3);
+}
+.atm-bar-fill {
+	height: 100%;
+	background: #00ff88;
+	width: 100%;
+	transition: width 0.4s;
+}
+.atm-bar-fill.atm-bar-low { background: #ff3b5c; }
+#atm-cash-label {
+	min-width: 100px;
+	text-align: right;
+}
+.atm-divider {
+	font-size: 9px;
+	letter-spacing: 1px;
+	opacity: 0.35;
+	margin: 10px 0 8px;
+}
+#atm-balance-block {
+	margin-bottom: 14px;
+}
+.atm-balance-row {
+	display: flex;
+	justify-content: space-between;
+	align-items: baseline;
+	margin-bottom: 5px;
+}
+.atm-amount {
+	font-size: 16px;
+	font-weight: bold;
+	letter-spacing: 1px;
+}
+#atm-tx-block {
+	margin-bottom: 10px;
+}
+.atm-tx-row {
+	display: flex;
+	gap: 8px;
+	margin-bottom: 8px;
+}
+#atm-amount {
+	flex: 1;
+	background: rgba(0, 255, 136, 0.07);
+	border: 1px solid rgba(0, 255, 136, 0.4);
+	color: #00ff88;
+	font-family: inherit;
+	font-size: 13px;
+	padding: 6px 10px;
+	outline: none;
+	letter-spacing: 1px;
+	min-width: 0;
+}
+#atm-amount::placeholder { color: rgba(0, 255, 136, 0.3); }
+#atm-amount:focus { border-color: #00ff88; background: rgba(0, 255, 136, 0.1); }
+/* Chrome/Safari number input arrows */
+#atm-amount::-webkit-outer-spin-button,
+#atm-amount::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.atm-btn {
+	flex: 1;
+	background: transparent;
+	border: 1px solid rgba(0, 255, 136, 0.5);
+	color: #00ff88;
+	font-family: inherit;
+	font-size: 11px;
+	letter-spacing: 2px;
+	padding: 7px 4px;
+	cursor: pointer;
+	transition: background 0.15s, border-color 0.15s;
+}
+.atm-btn:hover:not(:disabled) {
+	background: rgba(0, 255, 136, 0.15);
+	border-color: #00ff88;
+}
+.atm-btn:disabled {
+	opacity: 0.3;
+	cursor: not-allowed;
+}
+.atm-btn-small {
+	background: transparent;
+	border: 1px solid rgba(0, 255, 136, 0.35);
+	color: rgba(0, 255, 136, 0.6);
+	font-family: inherit;
+	font-size: 9px;
+	letter-spacing: 1px;
+	padding: 4px 8px;
+	cursor: pointer;
+	white-space: nowrap;
+}
+.atm-btn-small:hover { border-color: #00ff88; color: #00ff88; }
+.atm-fee {
+	font-size: 10px;
+	opacity: 0.5;
+	letter-spacing: 1px;
+	margin-top: 2px;
+}
+#atm-hack-wrap {
+	text-align: center;
+}
+.atm-btn-danger {
+	color: #ff3b5c;
+	border-color: rgba(255, 59, 92, 0.4);
+	letter-spacing: 3px;
+	font-size: 11px;
+	width: 100%;
+}
+.atm-btn-danger:hover:not(:disabled) {
+	background: rgba(255, 59, 92, 0.12);
+	border-color: #ff3b5c;
+}
+.atm-btn-danger:disabled { opacity: 0.25; }

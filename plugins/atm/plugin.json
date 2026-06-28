@@ -1,0 +1,8 @@
+{
+  "name": "atm",
+  "version": "1.0.0",
+  "description": "ATM terminals — power-aware, faction-networked, hackable cash dispensers with finite stock.",
+  "commands": ["atm", "deposit", "withdraw", "jack"],
+  "specializedActions": [{ "verb": "use", "requiredTag": "atm" }],
+  "routePrefix": "/atm"
+}

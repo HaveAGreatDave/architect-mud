@@ -1699,6 +1699,56 @@
 			<div id="minimap-grid-mob">—</div>
 		</div>
 
+		<!-- ATM PANEL -->
+		<div id="atm-panel">
+			<div id="atm-box">
+				<button id="atm-close" aria-label="Close">✕</button>
+				<div id="atm-header">
+					<div class="atm-logo">▌ ATM ▐</div>
+					<div id="atm-network-name">CENTRAL BANK</div>
+					<div class="atm-subtitle">AUTOMATED TRANSACTION MACHINE</div>
+				</div>
+				<div id="atm-status-block">
+					<div class="atm-status-row">
+						<span class="atm-label">POWER</span>
+						<span id="atm-power-status" class="atm-value atm-online">ONLINE</span>
+					</div>
+					<div class="atm-status-row">
+						<span class="atm-label">CASH</span>
+						<div class="atm-bar-wrap"><div id="atm-cash-bar" class="atm-bar-fill"></div></div>
+						<span id="atm-cash-label" class="atm-value">5000c / 5000c</span>
+					</div>
+				</div>
+				<div class="atm-divider">── ACCOUNT ─────────────────────────</div>
+				<div id="atm-balance-block">
+					<div class="atm-balance-row">
+						<span class="atm-label">CARRIED</span>
+						<span id="atm-carried" class="atm-amount">₵ 0</span>
+					</div>
+					<div class="atm-balance-row">
+						<span class="atm-label">BANKED</span>
+						<span id="atm-banked" class="atm-amount">₵ 0</span>
+					</div>
+				</div>
+				<div class="atm-divider">── TRANSACTION ─────────────────────</div>
+				<div id="atm-tx-block">
+					<div class="atm-tx-row">
+						<input id="atm-amount" type="number" min="1" placeholder="AMOUNT" autocomplete="off">
+						<button id="atm-max-btn" class="atm-btn-small">MAX</button>
+					</div>
+					<div class="atm-tx-row">
+						<button id="atm-deposit-btn" class="atm-btn">DEPOSIT</button>
+						<button id="atm-withdraw-btn" class="atm-btn">WITHDRAW</button>
+					</div>
+					<div id="atm-fee-info" class="atm-fee"></div>
+				</div>
+				<div class="atm-divider">────────────────────────────────────</div>
+				<div id="atm-hack-wrap">
+					<button id="atm-jack-btn" class="atm-btn atm-btn-danger">▌ JACK TERMINAL ▐</button>
+				</div>
+			</div>
+		</div>
+
 		<div id="lightning-overlay" style="
 			pointer-events:none;
 			position:fixed;inset:0;

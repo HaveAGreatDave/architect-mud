@@ -12,6 +12,7 @@ import { openLootPanel, closeLootPanel } from './panels/loot.js';
 import { openLightViewDialog } from './panels/lightview.js';
 import { openMorphexPanel } from './panels/morphex.js';
 import { updateForecast } from './panels/forecast.js';
+import { openAtmPanel, closeAtmPanel, updateAtmPanel } from './panels/atm.js';
 
 const DEV_ROLES = ['admin', 'dev', 'builder', 'designer'];
 
@@ -270,11 +271,13 @@ const handlers = {
   deposit: (msg) => {
     appendHtml(msg.message, 'loot');
     if (msg.player_update && state.player) { Object.assign(state.player, msg.player_update); updateVitals(state.player); }
+    if (msg.atm_cash_stock != null) updateAtmPanel({ cashStock: msg.atm_cash_stock, ...msg.player_update });
   },
 
   withdraw: (msg) => {
     appendHtml(msg.message, 'loot');
     if (msg.player_update && state.player) { Object.assign(state.player, msg.player_update); updateVitals(state.player); }
+    if (msg.atm_cash_stock != null) updateAtmPanel({ cashStock: msg.atm_cash_stock, ...msg.player_update });
   },
 
   steal: (msg) => {
@@ -316,6 +319,7 @@ const handlers = {
   motd: (msg) => { receiveMOTD(msg); },
   lightview: (msg) => { openLightViewDialog(msg); refreshZoneVisibility(); },
   morphex_panel: (msg) => { openMorphexPanel(msg.data); },
+  atm_panel: (msg) => { openAtmPanel(msg); },
 };
 
 export function handleServerMsg(msg) {
