@@ -231,7 +231,7 @@ async function cmdMove(direction, player, broadcast) {
   player.posture = 'standing';
   player.sittingOn = null;
   if (wasSitting) {
-    broadcast(null, { type: 'output', message: 'You stand up.' }, null, player.id);
+    broadcast(null, { type: 'emote', message: 'You stand up.' }, null, player.id);
     broadcast(oldZoneId, { type: 'zone_event', message: `${player.handle} stands up.` }, player.id);
   }
   if (player.pvpTargetId) {
