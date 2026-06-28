@@ -172,9 +172,11 @@ async function describePlayerAppearance(target, isSelf, viewer = null, broadcast
   if (mutated) msg += `<span class="mutation-tag">Something about ${isSelf ? 'you' : 'them'} isn't quite human anymore.</span>\n`;
   if (target.covered_in_blood) msg += `<span style="color:var(--red)">${isSelf ? 'You are' : 'They are'} covered in blood.</span>\n`;
 
+  // MIS gate — used for ejaculate stains and MIS-gated body details below
+  const viewerMis = isSelf ? isMisActive(target) : (viewer && isMisActive(viewer));
+
   // Clothing contamination
   const contamination = target.clothing_contamination || {};
-  const viewerMis = viewer ? isMisActive(viewer) : false;
   const stainedSlots = Object.keys(contamination).filter(k => contamination[k] && bySlot[k]);
   if (stainedSlots.length) {
     for (const slot of stainedSlots) {
@@ -255,7 +257,6 @@ async function describePlayerAppearance(target, isSelf, viewer = null, broadcast
 
   // MIS-gated details for clothed players — all gated on viewer's (or self's) MIS
   const coveredSlots = new Set(Object.keys(bySlot));
-  const viewerMis = isSelf ? isMisActive(target) : (viewer && isMisActive(viewer));
   if (viewerMis) {
     const ejacNote = ejaculateDescription(target, isSelf, coveredSlots);
     if (ejacNote) msg += `\n${ejacNote}`;
