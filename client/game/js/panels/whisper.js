@@ -1,6 +1,6 @@
 import { sendCmdSilent } from '../net.js';
 import { state } from '../state.js';
-import { parseMarkup } from '../markup.js';
+import { parseMarkup, expandTokens, MARKUP_HELP_HTML, STATUS_TEMPLATE } from '../markup.js';
 
 const USERS_TAB = '__users__';
 const WHISPER_MAX_MSGS = 100;
@@ -573,6 +573,18 @@ function sendWhisperReply() {
   const msg   = input?.value?.trim();
   if (!msg || !_activeWhisperTab || _activeWhisperTab === USERS_TAB) return;
 
+  // Client-only commands
+  if (msg.toLowerCase() === '.markup') {
+    if (input) input.value = '';
+    appendToWhisperLog(MARKUP_HELP_HTML);
+    return;
+  }
+  if (msg.toLowerCase() === '.status') {
+    if (input) input.value = '';
+    sendToActiveTab(STATUS_TEMPLATE);
+    return;
+  }
+
   const whisperCmd = msg.match(/^whisper\s+(\S+)$/i);
   if (whisperCmd) {
     if (input) input.value = '';
@@ -580,19 +592,44 @@ function sendWhisperReply() {
     return;
   }
 
+  // Expand $tokens at send time so recipients see the sender's values
+  const expanded = expandTokens(msg);
+
   if (_channels.has(_activeWhisperTab)) {
     if (_isSystemOnly(_activeWhisperTab)) return;
-    sendCmdSilent(`whisper ${_activeWhisperTab} ${msg}`);
+    sendCmdSilent(`whisper ${_activeWhisperTab} ${expanded}`);
     if (input) input.value = '';
     return;
   }
 
-  sendCmdSilent(`whisper ${_activeWhisperTab} ${msg}`);
+  sendCmdSilent(`whisper ${_activeWhisperTab} ${expanded}`);
   if (input) input.value = '';
 }
 
 export function debugFakeWhisper() {
   receiveWhisper('TestUser', 'This is a fake whisper to test the chat notification system.');
+}
+
+// Append raw HTML into the active whisper tab. Returns true if it rendered, false if no tab is open.
+export function appendToWhisperLog(html) {
+  if (_activeWhisperTab === USERS_TAB || !_whisperConvos.has(_activeWhisperTab)) return false;
+  const log = document.getElementById('whisper-log');
+  if (!log) return false;
+  const div = document.createElement('div');
+  div.style.cssText = 'padding:4px 0;border-bottom:1px solid var(--border)';
+  div.innerHTML = html;
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+  return true;
+}
+
+// Send text to the active whisper/channel tab (tokens expanded at call time).
+export function sendToActiveTab(text) {
+  if (!_activeWhisperTab || _activeWhisperTab === USERS_TAB) return false;
+  if (_isSystemOnly(_activeWhisperTab)) return false;
+  const expanded = expandTokens(text);
+  sendCmdSilent(`whisper ${_activeWhisperTab} ${expanded}`);
+  return true;
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
@@ -611,7 +648,66 @@ export function initWhisperPanel() {
     if (btn.textContent.trim() === '✕') btn.addEventListener('click', toggleWhisperPanel);
   });
 
-  document.querySelector('#whisper-footer button')?.addEventListener('click', sendWhisperReply);
+  const footer   = document.getElementById('whisper-footer');
+  const sendBtn  = footer?.querySelector('button');
+  sendBtn?.addEventListener('click', sendWhisperReply);
+
+  // ── Emoji picker ──────────────────────────────────────────────────────────────
+  const EMOJIS = [
+    '😂','💀','🔥','⚡','☢️','💉','🩸','🗡️',
+    '💣','🤡','😈','👿','🤖','👾','🧠','👁️',
+    '🤢','😤','😭','💯','🤙','👋','🫡','❤️',
+    '✨','💥','🎯','🏚️','💊','🚬','🍺','💰',
+  ];
+
+  const emojiBtn = document.createElement('button');
+  emojiBtn.textContent = '😊';
+  emojiBtn.title = 'Insert emoji';
+  emojiBtn.style.cssText = 'background:transparent;border:1px solid var(--border);color:var(--text);font-size:14px;padding:3px 7px;cursor:pointer;border-radius:2px;flex-shrink:0;line-height:1';
+
+  const emojiPicker = document.createElement('div');
+  emojiPicker.style.cssText = [
+    'display:none;position:absolute;bottom:calc(100% + 4px);right:0',
+    'background:var(--bg2);border:1px solid var(--border);border-radius:4px',
+    'padding:6px;display:none;gap:4px;flex-wrap:wrap;width:220px',
+    'z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,.4)',
+  ].join(';');
+
+  for (const emoji of EMOJIS) {
+    const btn = document.createElement('button');
+    btn.textContent = emoji;
+    btn.style.cssText = 'background:transparent;border:none;font-size:18px;cursor:pointer;padding:2px;border-radius:2px;line-height:1';
+    btn.addEventListener('mouseenter', () => { btn.style.background = 'var(--bg3)'; });
+    btn.addEventListener('mouseleave', () => { btn.style.background = 'transparent'; });
+    btn.addEventListener('click', () => {
+      const inp = document.getElementById('whisper-reply-input');
+      if (!inp) return;
+      const start = inp.selectionStart ?? inp.value.length;
+      const end   = inp.selectionEnd   ?? inp.value.length;
+      inp.value = inp.value.slice(0, start) + emoji + inp.value.slice(end);
+      inp.selectionStart = inp.selectionEnd = start + emoji.length;
+      inp.focus();
+      emojiPicker.style.display = 'none';
+    });
+    emojiPicker.appendChild(btn);
+  }
+
+  const emojiWrap = document.createElement('div');
+  emojiWrap.style.cssText = 'position:relative;flex-shrink:0';
+  emojiWrap.appendChild(emojiBtn);
+  emojiWrap.appendChild(emojiPicker);
+
+  emojiBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    const open = emojiPicker.style.display !== 'none';
+    emojiPicker.style.display = open ? 'none' : 'flex';
+  });
+  document.addEventListener('click', e => {
+    if (!emojiWrap.contains(e.target)) emojiPicker.style.display = 'none';
+  });
+
+  if (sendBtn) footer.insertBefore(emojiWrap, sendBtn);
+  else footer?.appendChild(emojiWrap);
   document.getElementById('whisper-new-msgs').addEventListener('click', whisperScrollToBottom);
 
   document.getElementById('whisper-log').addEventListener('scroll', () => {

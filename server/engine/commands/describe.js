@@ -2,7 +2,7 @@ import { query } from '../../models/db.js';
 import { getZone, getZoneEnemies, getZoneNpcs, getZoneCorpses, getZonePlayers, getDoorForExit } from '../world.js';
 import { getZoneVisibility, getWindowsForZone, getWeatherDescription } from '../environment.js';
 import { getCustodianOutcastResponse } from '../mutations.js';
-import { describeApartmentStatus, describeRentStatus } from '../apartments.js';
+import { describeApartmentStatus, describeRentStatus, describeDoorForcefield } from '../apartments.js';
 import { fireHook } from '../plugins.js';
 import { isStackable } from '../tags.js';
 
@@ -351,7 +351,7 @@ export async function describeZone(zone, player) {
       if (door && !door.is_open && door.hp > 0) {
         const dirLabel = p.direction.charAt(0).toUpperCase() + p.direction.slice(1);
         const doorName = door.name || 'Door';
-        return `<span class="dir-tag">[${dirLabel}]</span> <span class="action-link door-link" data-action="open" data-target="door ${p.direction}" title="Open ${doorName}">${doorName}</span>`;
+        return `<span class="dir-tag">[${dirLabel}]</span> <span class="action-link door-link" data-action="open" data-target="door ${p.direction}" title="Open ${doorName}">${doorName}</span>${describeDoorForcefield(door)}`;
       }
       return destLink(p.direction, p.name, 'exit-link');
     });

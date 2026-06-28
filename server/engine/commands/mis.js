@@ -16,8 +16,11 @@ import {
 import { getZonePlayers, getZoneNpcs, getLivePlayer } from '../world.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../sift.js';
 
-function misGate(player) {
-  if (!isMisActive(player)) return { type:'error', message:`MIS is not enabled. Enable it via the Maturity Slider in settings.` };
+function misGate(player, raw) {
+  if (!isMisActive(player)) {
+    const cmd = (raw || '').split(/\s+/)[0] || '';
+    return { type:'error', message:`Unknown command: "${cmd}". Type HELP for commands.` };
+  }
   return null;
 }
 
@@ -93,7 +96,7 @@ function pickMsg(pool, vars) {
 // Generic act handler for touching/kissing/etc. — resolves target or defaults to self
 // targetReceives: messages shown to the target player (from their POV, using {actor} for the acting player)
 async function actHandler({ player, broadcast, rawArgs, defaultPart, selfMessages, targetMessages, targetReceives, horninessGain, sanityGain = 5, verb }) {
-  const gate = misGate(player);
+  const gate = misGate(player, verb);
   if (gate) return gate;
 
   const args = rawArgs.join(' ');
@@ -207,6 +210,23 @@ async function cmdSqueeze(args, raw, player, broadcast) {
 }
 
 async function cmdKiss(args, raw, player, broadcast) {
+  if (!isMisActive(player)) {
+    const targetStr = args.join(' ').trim();
+    if (!targetStr) return { type:'error', message:`Usage: kiss <target>` };
+    const sr = resolveTarget(targetStr, player);
+    if (sr.type === 'none') return { type:'error', message:`You don't see "${targetStr}" here.` };
+    if (sr.type === 'ambiguous') {
+      createSelectionState(player.id, sr.candidates, { verb: 'kiss' });
+      return { type:'output', message: formatSelectionPage({ allCandidates: sr.candidates, visibleIndex: 0, pageSize: 5 }) };
+    }
+    const name = sr.candidate.handle;
+    broadcast(null, { type:'output', message: `${player.handle} kisses you.` }, null, sr.candidate.id);
+    for (const p of getZonePlayers(player.current_zone)) {
+      if (p.id === player.id || p.id === sr.candidate.id) continue;
+      broadcast(null, { type:'zone_event', message: `${player.handle} kisses ${name}.` }, null, p.id);
+    }
+    return { type:'output', message: `You kiss ${name}.` };
+  }
   return actHandler({
     player, broadcast, rawArgs: args, verb: 'kiss',
     defaultPart: 'lips',
@@ -270,10 +290,31 @@ async function cmdFondle(args, raw, player, broadcast) {
   });
 }
 
-// slap <player>'s <body part>
+// slap <player> [body part] — body part targeting only available with MIS active
 async function cmdSlap(args, raw, player, broadcast) {
-  // Parse "slap <name>'s <part>" or "slap <name> <part>"
   const str = raw.replace(/^slap\s*/i, '').trim();
+
+  if (!isMisActive(player)) {
+    // Trout slap — no body part targeting
+    const targetStr = str.split(/\s+/)[0] || '';
+    if (!targetStr) return { type:'error', message:`Usage: slap <target>` };
+    const sr = resolveTarget(targetStr, player);
+    if (sr.type === 'none') return { type:'error', message:`You don't see "${targetStr}" here.` };
+    if (sr.type === 'ambiguous') {
+      createSelectionState(player.id, sr.candidates, { verb: 'slap' });
+      return { type:'output', message: formatSelectionPage({ allCandidates: sr.candidates, visibleIndex: 0, pageSize: 5 }) };
+    }
+    const target = sr.candidate;
+    const name = target.handle;
+    broadcast(null, { type:'output', message: `${player.handle} slaps you around a bit with a large trout.` }, null, target.id);
+    for (const p of getZonePlayers(player.current_zone)) {
+      if (p.id === player.id || p.id === target.id) continue;
+      broadcast(null, { type:'zone_event', message: `${player.handle} slaps ${name} around a bit with a large trout.` }, null, p.id);
+    }
+    return { type:'output', message: `You slap ${name} around a bit with a large trout.` };
+  }
+
+  // MIS active — body part targeting
   const apostropheMatch = str.match(/^(.+?)'s\s+(.+)$/i);
   let targetStr, part;
   if (apostropheMatch) {
@@ -309,10 +350,8 @@ async function cmdSlap(args, raw, player, broadcast) {
     `${player.handle} gives your ${part} a sharp slap.`,
   ];
 
-  if (isMisActive(player)) {
-    const msgs = await addHorniness(player, 10, broadcast);
-    if (msgs.length) broadcast(null, { type:'resource_tick', messages: msgs }, null, player.id);
-  }
+  const msgs = await addHorniness(player, 10, broadcast);
+  if (msgs.length) broadcast(null, { type:'resource_tick', messages: msgs }, null, player.id);
 
   if (isMisActive(target)) {
     const targetMsgs = await addHorniness(target, 8, broadcast);
@@ -334,7 +373,7 @@ async function cmdSlap(args, raw, player, broadcast) {
 
 // Masturbation — ongoing event version
 async function cmdMasturbate(args, raw, player, broadcast) {
-  const gate = misGate(player);
+  const gate = misGate(player, raw);
   if (gate) return gate;
 
   if (hasMisEvent(player.id)) {
@@ -439,7 +478,7 @@ async function cmdMasturbate(args, raw, player, broadcast) {
 
 // jerk off on <target> — masturbate against/on someone
 async function cmdJerkOffOn(args, raw, player, broadcast) {
-  const gate = misGate(player);
+  const gate = misGate(player, raw);
   if (gate) return gate;
 
   const str = raw.replace(/^(?:jerk(?:\s+off)?(?:\s+on)?|jackoff\s+on?)\s*/i, '').trim();
@@ -509,7 +548,7 @@ async function cmdSuck(args, raw, player, broadcast) {
 
 // Penetrative sex — ongoing event version
 async function cmdFuck(args, raw, player, broadcast) {
-  const gate = misGate(player);
+  const gate = misGate(player, raw);
   if (gate) return gate;
 
   const str = raw.replace(/^(?:fuck|sex|screw|rail|bang|breed)\s*/i, '').trim();
@@ -694,7 +733,7 @@ async function cmdFuck(args, raw, player, broadcast) {
 
 // ejaculate / cum [on <target>'s <part> | on <furniture> | on ground | (no arg = ground)]
 async function cmdEjaculate(args, raw, player, broadcast) {
-  const gate = misGate(player);
+  const gate = misGate(player, raw);
   if (gate) return gate;
 
   // Women can't ejaculate on command — only passive release at horniness 100
@@ -823,7 +862,7 @@ async function cmdEjaculate(args, raw, player, broadcast) {
 
 // Eat out — cunnilingus or rimjob. Player gains small arousal, target gains a lot.
 async function cmdEatOut(args, raw, player, broadcast) {
-  const gate = misGate(player);
+  const gate = misGate(player, raw);
   if (gate) return gate;
 
   // Parse: eat out <target>'s [pussy|ass] OR eat out <target> [pussy|ass]

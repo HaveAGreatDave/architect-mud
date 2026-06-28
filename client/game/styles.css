@@ -1153,6 +1153,9 @@ body {
 	color: var(--accent2);
 	background: var(--bg2);
 }
+[data-sidebar="right"] .sidebar-header {
+	justify-content: flex-end;
+}
 
 
 /* Drag mode: sections get grab cursor */
@@ -2988,6 +2991,11 @@ body {
 	80% {
 		transform: rotateY(0deg);
 	}
+}
+
+@keyframes blink {
+	0%, 100% { opacity: 1; }
+	50%       { opacity: 0; }
 }
 
 /* ─── MOBILE HUD STRIP ─── */

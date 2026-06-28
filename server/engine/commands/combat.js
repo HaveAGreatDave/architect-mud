@@ -1,5 +1,5 @@
 import { query } from "../../models/db.js";
-import { getZoneEnemies, getZoneCorpses, getZonePlayers, getLivePlayer, createCorpse, getCorpse, removeCorpse } from "../world.js";
+import { getZoneEnemies, getZoneCorpses, getZonePlayers, getLivePlayer, createCorpse, getCorpse, removeCorpse, getApartment } from "../world.js";
 import { playerAttackEnemy, isOnCooldown, setCooldown, getCooldownRemaining, pvpSwingSleeping } from "../combat.js";
 import { resolveForCommand, resolve as siftResolve, createSelectionState, formatSelectionPage } from "../sift.js";
 import { awardSkillUse, skillCheck } from "../skills.js";
@@ -171,6 +171,11 @@ export async function cmdAttack(targetStr, player, broadcast) {
 	}
 
 	// Offline sleeping player: start a one-sided auto-attack loop.
+	const offlineApt = getApartment(targetPlayer.current_zone);
+	if (offlineApt?.forcefield_active) {
+		return { type: "error", message: `A quantum forcefield crackles between you and ${targetPlayer.handle}. You can't reach them.` };
+	}
+
 	if (isOnCooldown(player.id, 'attack'))
 		return { type: "error", message: `You're still recovering. (${(getCooldownRemaining(player.id, 'attack') / 1000).toFixed(1)}s)` };
 
@@ -186,6 +191,14 @@ async function offlineSleepSwing(attacker, targetId, broadcast) {
 	const { rows } = await query(`SELECT * FROM players WHERE id=$1`, [targetId]);
 	if (!rows.length) { attacker.offlinePvpTargetId = null; return; }
 	const target = rows[0];
+
+	// Forcefield protection: abort attack and notify attacker.
+	const protectedApt = getApartment(target.current_zone);
+	if (protectedApt?.forcefield_active) {
+		attacker.offlinePvpTargetId = null;
+		broadcast(null, { type: 'output', message: `A quantum forcefield repels your attack. ${target.handle} is protected.` }, null, attacker.id);
+		return;
+	}
 
 	// If target came online, switch to mutual PvP.
 	const liveTarget = getLivePlayer(targetId);
@@ -218,7 +231,7 @@ async function offlineSleepSwing(attacker, targetId, broadcast) {
 		const corpseId = `corpse_player_${target.id}_${Date.now()}`;
 		const corpseName = `${target.handle}'s corpse`;
 		const expiresAt = Date.now() + 60 * 60 * 1000;
-		await query(`UPDATE players SET hp=0, offline_sleeping=FALSE WHERE id=$1`, [target.id]);
+		await query(`UPDATE players SET hp=0, offline_sleeping=FALSE, died_offline=TRUE WHERE id=$1`, [target.id]);
 		await query(
 			`UPDATE player_inventory pi SET player_id=$1, is_equipped=0, slot=NULL, layer=NULL, container_id=NULL
 			 FROM items i WHERE i.id=pi.item_id AND pi.player_id=$2
@@ -346,6 +359,10 @@ async function cmdLootCorpse(targetStr, player, broadcast) {
 		if (rows.length) targetPlayer = rows[0];
 	}
 	if (!targetPlayer) return { type: "error", message: "No corpse to loot here." };
+	const lootProtectedApt = getApartment(player.current_zone);
+	if (lootProtectedApt?.forcefield_active) {
+		return { type: "error", message: `A quantum forcefield crackles between you and ${targetPlayer.handle}. You can't touch them.` };
+	}
 	return buildLootView({ id: targetPlayer.id, name: targetPlayer.handle, butcher_table: [] }, player);
 }
 

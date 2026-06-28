@@ -8,6 +8,11 @@ let dragHandled = false;
 let currentLayer = 1;
 let lastItems = [];
 
+export function getEquippedWeaponName() {
+  const w = lastItems.find(item => item.is_equipped && item.slot === 'weapon_hand');
+  return w?.name || null;
+}
+
 export function openEquipPanel() {
   import('../net.js').then(m => m.sendCmd('inventory'));
 }

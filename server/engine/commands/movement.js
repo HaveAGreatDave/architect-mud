@@ -1,5 +1,5 @@
 import { query } from '../../models/db.js';
-import { getZone, getMinimapData, addPlayerToZone, removePlayerFromZone, getDoorForExit, setDoorCache, getAllLivePlayers, getLivePlayer } from '../world.js';
+import { getZone, getMinimapData, addPlayerToZone, removePlayerFromZone, getDoorForExit, setDoorCache, getAllLivePlayers, getLivePlayer, getZoneEnemies } from '../world.js';
 import { getZoneVisibility, getWindowsForZone, getEnvironmentState, getZoneTemperature } from '../environment.js';
 import { describeZone, resolveNamedDestination } from './describe.js';
 import { checkLockAuth, getLockTagPublic } from './doors.js';
@@ -148,6 +148,39 @@ async function cmdGo(argText, player, broadcast) {
   return cmdMove(argText, player, broadcast);
 }
 
+function buildBattleCryMessages(enemies, playerHandle) {
+  // Group enemies by templateId, keeping one representative per type
+  const byType = new Map();
+  for (const e of enemies) {
+    if (!byType.has(e.templateId)) byType.set(e.templateId, { enemy: e, count: 0 });
+    byType.get(e.templateId).count++;
+  }
+
+  const lines = [];
+  for (const { enemy, count } of byType.values()) {
+    const cries = enemy.flags?.battle_cries;
+    if (!Array.isArray(cries) || !cries.length) continue;
+    const cry = cries[Math.floor(Math.random() * cries.length)];
+    const plural = count > 1;
+    const typeName = plural ? `${enemy.name}s` : enemy.name;
+
+    // Replace $enemy and $player tokens, then fix possessives
+    const forPlayer = cry
+      .replace(/\$enemy/g, typeName)
+      .replace(/\$player/g, 'you')
+      .replace(/\b[Hh]is\b|\b[Hh]ers\b|\b[Ii]ts\b/g, m => plural ? (m[0] === m[0].toUpperCase() ? 'Their' : 'their') : m)
+      .replace(/\b[Hh]er\b/g, m => plural ? (m[0] === m[0].toUpperCase() ? 'Their' : 'their') : m);
+    const forBystander = cry
+      .replace(/\$enemy/g, typeName)
+      .replace(/\$player/g, playerHandle)
+      .replace(/\b[Hh]is\b|\b[Hh]ers\b|\b[Ii]ts\b/g, m => plural ? (m[0] === m[0].toUpperCase() ? 'Their' : 'their') : m)
+      .replace(/\b[Hh]er\b/g, m => plural ? (m[0] === m[0].toUpperCase() ? 'Their' : 'their') : m);
+
+    lines.push({ forPlayer, forBystander });
+  }
+  return lines;
+}
+
 async function cmdMove(direction, player, broadcast) {
   if (!direction) return { type:'error', message:'Go where? (north, south, east, west, up, down)' };
   const zone = getZone(player.current_zone);
@@ -259,8 +292,19 @@ async function cmdMove(direction, player, broadcast) {
     narration = `→ You head ${direction} to ${destName}.`;
   }
 
+  // Battle cries: one per enemy type in the destination zone
+  const arrivedEnemies = getZoneEnemies(targetId);
+  if (arrivedEnemies.length) {
+    const cryLines = buildBattleCryMessages(arrivedEnemies, player.handle);
+    for (const { forPlayer, forBystander } of cryLines) {
+      broadcast(null, { type: 'zone_event', message: `<span class="battle-cry">${forPlayer}</span>` }, null, player.id);
+      broadcast(targetId, { type: 'zone_event', message: `<span class="battle-cry">${forBystander}</span>` }, player.id);
+    }
+  }
+
   for (const follower of followers) {
-    await cmdMove(direction, follower, broadcast);
+    const followerResult = await cmdMove(direction, follower, broadcast);
+    if (followerResult) broadcast(null, followerResult, null, follower.id);
   }
 
   return { type:'move', message:zoneDesc, narration, zone:targetId, direction, radiation_gain:radGain, minimap: getMinimapData(targetId), tempC: getZoneTemperature(targetId) };

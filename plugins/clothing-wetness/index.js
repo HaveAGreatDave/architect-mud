@@ -7,13 +7,21 @@
  */
 import { query } from '../../server/models/db.js';
 import { hasTag } from '../../server/engine/tags.js';
-import { getEnvironmentState } from '../../server/engine/environment.js';
+import { getEnvironmentState, getZoneTemperature } from '../../server/engine/environment.js';
 import { getAllLivePlayers, getZone } from '../../server/engine/world.js';
 
-// precipRate is set by the environment system (0.1–1.0 when raining, 0 when dry).
-// Wetness increases by precipRate * 12 per minute, capped at 100.
-// At 0.1 (drizzle) ~83 min to soak; at 1.0 (deluge) ~8 min.
-const WETNESS_RATE_SCALE = 12;
+// precipRate is set by the environment system (0.1–1.0 when raining/snowing, 0 when dry).
+// Rain: wetness += precipRate * 12 per minute. At 0.1 ~83 min to soak; at 1.0 ~8 min.
+// Snow: wetness += precipRate * 6 per minute (frozen — melts slower). At 0.1 ~167 min; at 1.0 ~17 min.
+const RAIN_RATE_SCALE = 12;
+const SNOW_RATE_SCALE = 6;
+
+// Drying: base rate 2/min outdoors, 3/min indoors.
+// Multiplied by a temperature factor: every 10°C above 15°C adds 50% more drying speed.
+// e.g. 15°C → 1×, 25°C → 1.5×, 35°C → 2×, 45°C → 2.5×
+function dryMultiplier(tempC) {
+  return 1 + Math.max(0, tempC - 15) / 20;
+}
 
 // Wetness thresholds for player broadcast messages.
 // Each entry: { value, risingMsg, fallingMsg }
@@ -38,8 +46,11 @@ export const hooks = {
 
       const zone = getZone(player.current_zone);
       const isIndoors = zone?.flags?.is_interior ?? false;
-      const isRaining = precipRate > 0 && !isIndoors;
-      const dryRate   = isIndoors ? 3 : 2;
+      const isPrecipitating = precipRate > 0 && !isIndoors;
+      const isSnow = env.currentPrecip === 'snow';
+      const zoneTemp = getZoneTemperature(player.current_zone);
+      const baseDryRate = isIndoors ? 3 : 2;
+      const dryRate = baseDryRate * dryMultiplier(zoneTemp);
 
       // Fetch all equipped items that can get wet
       const { rows } = await query(
@@ -58,7 +69,10 @@ export const hooks = {
       let totalWetness = 0;
       for (const item of wettable) {
         const prev = item.custom_data?.wetness ?? 0;
-        let next = isRaining ? prev + precipRate * WETNESS_RATE_SCALE : prev - dryRate;
+        const wettingRate = isPrecipitating
+          ? precipRate * (isSnow ? SNOW_RATE_SCALE : RAIN_RATE_SCALE)
+          : 0;
+        let next = isPrecipitating ? prev + wettingRate : prev - dryRate;
         next = Math.max(0, Math.min(100, next));
         totalWetness += next;
 
@@ -92,8 +106,9 @@ export const hooks = {
 
       player._prevWetness = newWetness;
 
-      if (messages.length && broadcast) {
-        broadcast(null, { type: 'resource_tick', messages, player_update: {} }, null, playerId);
+      const wetnessChanged = Math.round(newWetness) !== Math.round(prevWetness);
+      if ((messages.length || wetnessChanged) && broadcast) {
+        broadcast(null, { type: 'resource_tick', messages, player_update: { wetness: Math.round(newWetness) } }, null, playerId);
       }
     }
   },

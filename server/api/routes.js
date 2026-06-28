@@ -127,10 +127,13 @@ export async function handleApiRequest(url, method, body, headers) {
     return { status:200, body:{ token } };
   }
   if (path==='/ghost/token' && method==='POST') {
-    return requireAdmin(auth, () => {
-      const { zoneId } = body || {};
-      if (!zoneId) return { status:400, body:{ error:'zoneId required' } };
+    return requireAdmin(auth, async () => {
+      const { zoneId: requestedZoneId } = body || {};
+      if (!requestedZoneId) return { status:400, body:{ error:'zoneId required' } };
       if (!storeGhostTokenFn) return { status:503, body:{ error:'Ghost token store not ready' } };
+      // If this admin has a home set, teleport their ghost there instead.
+      const { rows: pRows } = await query('SELECT home_zone FROM players WHERE id=$1', [auth.playerId]);
+      const zoneId = pRows[0]?.home_zone || requestedZoneId;
       const token = randomUUID();
       storeGhostTokenFn(token, auth.playerId, zoneId);
       return { status:200, body:{ token } };

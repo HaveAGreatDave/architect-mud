@@ -3,6 +3,128 @@ import { getApartment, setApartmentCache, getZone, world, setDoorCache } from ".
 import { skillCheck, awardSkillUse } from "./skills.js";
 import { adjustCredits } from "./economy.js";
 
+const HOME_TUTORIAL = `<span style="color:var(--accent)">◈ HOLOLOCK BOUND ◈</span>
+
+Your HoloLock is now bound to your biometric signature. Here's what that means:
+
+<span style="color:var(--yellow)">While you are offline or sleeping in this room:</span>
+  • A <span style="color:var(--cyan)">quantum forcefield</span> activates around the unit, visible to anyone present.
+  • All doors to this room lock automatically and become <span style="color:var(--red)">unhackable</span>.
+  • No one can attack or loot you while the field is active.
+  • The HoloLock begins to glow — a visible deterrent to anyone who looks at the door.
+
+The forcefield drops the moment you reconnect or wake up.
+`;
+
+export async function cmdSetHome(player) {
+	const zone = getZone(player.current_zone);
+	if (!isApartmentZone(zone))
+		return { type: 'error', message: 'You can only set home in an apartment you own.' };
+
+	const apt = getApartment(zone.id);
+	if (!apt?.owner_id || apt.owner_id !== player.id)
+		return { type: 'error', message: "This isn't your place. You can't bind the HoloLock here." };
+
+	const isFirstTime = !player.home_zone;
+	player.home_zone = zone.id;
+	await query('UPDATE players SET home_zone=$1 WHERE id=$2', [zone.id, player.id]);
+
+	if (isFirstTime) {
+		return {
+			type: 'output',
+			message: `${HOME_TUTORIAL}\n<span style="color:var(--accent)">Home set: ${zone.name}</span>`,
+		};
+	}
+	return { type: 'output', message: `<span style="color:var(--accent)">Home set: ${zone.name}</span>` };
+}
+
+// Activate the forcefield for a player's home zone.
+// broadcastFn is the server-level broadcast(zoneId, msg, excludeId) function.
+export async function activateForcefield(player, broadcastFn) {
+	const zoneId = player.home_zone;
+	if (!zoneId || player.current_zone !== zoneId) return;
+
+	const apt = getApartment(zoneId);
+	if (!apt?.owner_id || apt.owner_id !== player.id) return;
+	if (apt.forcefield_active) return; // already active
+
+	await query('UPDATE apartments SET forcefield_active=1 WHERE zone_id=$1', [zoneId]);
+	setApartmentCache(zoneId, { ...apt, forcefield_active: 1 });
+
+	// Lock all doors to/from this zone that have a lock tag and set forcefield_locked.
+	for (const door of world.doors.values()) {
+		const doorZone = world.zones.get(door.zone_id);
+		const targetId = doorZone?.exits?.[door.exit_dir];
+		if (door.zone_id !== zoneId && targetId !== zoneId) continue;
+		if (!(door.tags ?? []).some(t => t.type?.startsWith('lock:'))) continue;
+		await query("UPDATE doors SET lock_state='locked', forcefield_locked=1 WHERE id=$1", [door.id]);
+		door.lock_state = 'locked';
+		door.forcefield_locked = 1;
+		setDoorCache(door.id, door);
+	}
+
+	if (broadcastFn) {
+		broadcastFn(zoneId, {
+			type: 'zone_event',
+			message: `<span style="color:var(--cyan)">A low hum fills the air as ${player.handle}'s HoloLock pulses with blue light. A <strong>quantum forcefield</strong> shimmers into existence around the unit — ${player.handle} is protected.</span>`,
+		});
+		broadcastFn(zoneId, { type: 'sound', sound: 'hololock_activate' });
+	}
+}
+
+// Deactivate the forcefield when the player comes back online or wakes up.
+const FORCEFIELD_DOWN_BYSTANDER = [
+	(handle) => `<span style="color:var(--cyan)">The field around ${handle}'s unit collapses with a sharp crack. The HoloLock dims to black. The door is just a door again.</span>`,
+	(handle) => `<span style="color:var(--cyan)">A low whine drops in pitch and cuts out. The quantum barrier sealing ${handle}'s unit unravels — threads of blue light dissolving into nothing.</span>`,
+	(handle) => `<span style="color:var(--cyan)">The shimmer around ${handle}'s door snaps off like a switch being thrown. The HoloLock's pulse slows, steadies, and goes dark.</span>`,
+	(handle) => `<span style="color:var(--cyan)">Static crackles across the surface of the field protecting ${handle}'s unit, then — silence. The glow dies. Whatever was in there is awake again.</span>`,
+	(handle) => `<span style="color:var(--cyan)">${handle}'s HoloLock shudders once, twice, then goes cold. The forcefield peels back like a heat-haze and is gone.</span>`,
+];
+
+const FORCEFIELD_DOWN_OWNER = [
+	`<span style="color:var(--cyan)">◈ Your HoloLock disengages. The forcefield drops. You're back in the world.</span>`,
+	`<span style="color:var(--cyan)">◈ Biometric resync confirmed. The quantum barrier dissolves. HoloLock standing by.</span>`,
+	`<span style="color:var(--cyan)">◈ The field collapses as you surface. HoloLock dark. You're exposed again — stay sharp.</span>`,
+	`<span style="color:var(--cyan)">◈ Presence detected. Forcefield terminated. Your HoloLock is back to idle.</span>`,
+	`<span style="color:var(--cyan)">◈ Signal restored. The barrier peels back. HoloLock offline — you're on your own now.</span>`,
+];
+
+export async function deactivateForcefield(playerId, zoneId, broadcastFn) {
+	if (!zoneId) return;
+	const apt = getApartment(zoneId);
+	if (!apt || !apt.forcefield_active) return;
+
+	// Need the owner's handle for bystander messages.
+	const { rows: pRows } = await query('SELECT handle FROM players WHERE id=$1', [playerId]);
+	const handle = pRows[0]?.handle ?? 'Someone';
+
+	await query('UPDATE apartments SET forcefield_active=0 WHERE zone_id=$1', [zoneId]);
+	setApartmentCache(zoneId, { ...apt, forcefield_active: 0 });
+
+	// Release forcefield-locked doors; respect the apartment's own lock state.
+	const wantLocked = apt.is_locked ? 'locked' : 'unlocked';
+	for (const door of world.doors.values()) {
+		if (!door.forcefield_locked) continue;
+		const doorZone = world.zones.get(door.zone_id);
+		const targetId = doorZone?.exits?.[door.exit_dir];
+		if (door.zone_id !== zoneId && targetId !== zoneId) continue;
+		await query('UPDATE doors SET lock_state=$1, forcefield_locked=0 WHERE id=$2', [wantLocked, door.id]);
+		door.lock_state = wantLocked;
+		door.forcefield_locked = 0;
+		setDoorCache(door.id, door);
+	}
+
+	if (broadcastFn) {
+		const bystanderMsg = FORCEFIELD_DOWN_BYSTANDER[Math.floor(Math.random() * FORCEFIELD_DOWN_BYSTANDER.length)](handle);
+		const ownerMsg = FORCEFIELD_DOWN_OWNER[Math.floor(Math.random() * FORCEFIELD_DOWN_OWNER.length)];
+		// Bystanders see the field collapse from outside.
+		broadcastFn(zoneId, { type: 'zone_event', message: bystanderMsg }, playerId);
+		// Owner gets a personal confirmation.
+		broadcastFn(null, { type: 'output', message: ownerMsg }, null, playerId);
+		broadcastFn(zoneId, { type: 'sound', sound: 'hololock_deactivate' });
+	}
+}
+
 // Resolve the building name for an apartment zone by following its exits back
 // to a lobby (the first exit that points to a non-apartment zone).
 function getBuildingName(zone) {
@@ -276,7 +398,7 @@ export function getSleepEligibility(player, zone) {
 	return { canSleep: false, reason: "unsafe" };
 }
 
-export async function cmdSleep(player) {
+export async function cmdSleep(player, broadcastFn) {
 	if (player.sleeping)
 		return {
 			type: "error",
@@ -314,6 +436,10 @@ export async function cmdSleep(player) {
 			? "You lie down behind your own locked door and let your guard down, finally."
 			: "You catch a rough, watchful sleep. Better than nothing.";
 
+	if (elig.reason === "home") {
+		await activateForcefield(player, broadcastFn);
+	}
+
 	return {
 		type: "sleep",
 		message: `${flavor} You'll rest gradually while you're out — send any command to wake up early.`,
@@ -325,7 +451,7 @@ export async function cmdSleep(player) {
 // hunger/thirst at the (slower-than-awake) sleep rate, and auto-wakes the
 // player on any of: fully rested, hunger/thirst about to run out, or the
 // safety cap on how long a single sleep can run uninterrupted.
-export async function tickSleep(player) {
+export async function tickSleep(player, broadcastFn) {
 	if (!player.sleeping) return null;
 	const { restore } = player.sleeping;
 
@@ -356,6 +482,7 @@ export async function tickSleep(player) {
 				? "Your stomach and throat wake you up before you starve in your sleep."
 				: "You wake up, having slept as long as your body will allow in one go.";
 		player.sleeping = null;
+		await deactivateForcefield(player.id, player.home_zone, broadcastFn);
 		return {
 			type: "sleep_end",
 			message: reason,
@@ -407,5 +534,14 @@ export async function describeApartmentStatus(zone) {
 	}
 	const lockState = apt.is_locked ? "locked" : "unlocked";
 	const rentedDate = apt.date_rented ? new Date(apt.date_rented * 1000).toLocaleDateString() : '?';
-	return `\n<span class="apartment-label">Owner: ${apt.owner_handle}.</span> The door is ${lockState}. Rented since ${rentedDate}. (UNRENT to vacate)`;
+	let status = `\n<span class="apartment-label">Owner: ${apt.owner_handle}.</span> The door is ${lockState}. Rented since ${rentedDate}. (UNRENT to vacate)`;
+	if (apt.forcefield_active) {
+		status += `\n<span style="color:var(--cyan)">◈ A <strong>quantum forcefield</strong> crackles faintly around this unit. The HoloLock pulses with a cold blue glow. Whoever lives here is inside — and unreachable.</span>`;
+	}
+	return status;
+}
+
+export function describeDoorForcefield(door) {
+	if (!door?.forcefield_locked) return '';
+	return ` <span style="color:var(--cyan)">[The HoloLock is glowing — a quantum forcefield secures this door.]</span>`;
 }

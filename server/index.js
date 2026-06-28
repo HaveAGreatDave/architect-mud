@@ -40,6 +40,7 @@ import {
 	setGhostTokenStore,
 } from "./api/routes.js";
 import { cmdGhostLook, cmdGhostMove, cmdGhostHaunt, makeGhostBroadcast } from "./engine/commands/ghost.js";
+import { activateForcefield, deactivateForcefield } from "./engine/apartments.js";
 import { startKeepalive } from "./keepalive.js";
 import { setBroadcast as setMessagingBroadcast } from "./engine/messaging.js";
 import { query, logActivity } from "./models/db.js";
@@ -284,6 +285,7 @@ wss.on("connection", (ws) => {
 						},
 						session.playerId,
 					);
+					await activateForcefield(player, broadcast);
 					await query(
 						"UPDATE players SET last_seen=EXTRACT(EPOCH FROM NOW()), current_zone=$1, offline_sleeping=TRUE WHERE id=$2",
 						[player.current_zone, session.playerId],
@@ -576,16 +578,19 @@ async function finishAuth(ws, session, player) {
 		mob_kills: player.mob_kills || 0,
 		player_kills: player.player_kills || 0,
 		deaths: player.deaths || 0,
+		home_zone: player.home_zone || null,
 	};
 	setLivePlayer(player.id, livePlayer);
 	emit('player.login', { id: player.id, handle: player.handle, role: player.role });
 	logActivity('connect', player.handle);
+	await deactivateForcefield(player.id, livePlayer.home_zone, broadcast);
 	await autoEquipOnLogin(player.id);
 	await recomputeArmor(livePlayer);
 	await recomputeInsulation(livePlayer);
 	addPlayerToZone(player.id, livePlayer.current_zone);
+	const diedOffline = player.died_offline;
 	await query(
-		"UPDATE players SET last_seen=EXTRACT(EPOCH FROM NOW()), offline_sleeping=FALSE WHERE id=$1",
+		"UPDATE players SET last_seen=EXTRACT(EPOCH FROM NOW()), offline_sleeping=FALSE, died_offline=FALSE WHERE id=$1",
 		[player.id],
 	);
 
@@ -643,6 +648,7 @@ async function finishAuth(ws, session, player) {
 			}),
 		);
 		if (bodyTempLoginMsg) ws.send(JSON.stringify({ type: 'system', message: bodyTempLoginMsg }));
+		if (diedOffline) ws.send(JSON.stringify({ type: 'player_death', message: `\n<span class="death-message">☠ You were murdered in your sleep. You wake up somewhere else, someone else's problem.</span>\n<span class="clone-vat-message">A vending-machine-shaped cloning vat hums, dispenses a fresh you, and prints a receipt nobody asked for. Everything you knew, you still know. Everything that hurt, doesn't anymore.</span>` }));
 	} else {
 		// Their stored zone was deleted while they were offline — the live
 		// rescue in routes.js only catches players connected at deletion time,
@@ -683,6 +689,7 @@ async function handleMisToggle(ws, session, msg) {
 	if (!session.playerId) return;
 	if (!isMisServerEnabled()) {
 		ws.send(JSON.stringify({ type: 'error', message: 'Mature content is not enabled on this server.' }));
+		ws.send(JSON.stringify({ type: 'player_update', mis_enabled: 0 }));
 		return;
 	}
 	const player = getLivePlayer(session.playerId);

@@ -24,11 +24,9 @@ export function startGameLoop(broadcast) {
   schedule('45s', ambientTick);
   schedule('1m', resourceTick);
   schedule('10s', () => tickSpawns());
-  schedule('30s', cleanCorpses);
   schedule('1m', rentCollectionTick);
   schedule('1m', npcWanderTick);
-  schedule('24h', cleanGroundItems);
-  schedule('24h', cleanZoneStains);
+  schedule('24h', dailyMaintenance);
   console.log('✓ Game loop started');
 }
 
@@ -441,7 +439,7 @@ function tempFlavorMessage(tempC, tick) {
 async function resourceTick() {
   for (const [playerId, player] of world.players) {
     if (player.sleeping) {
-      const result = await tickSleep(player);
+      const result = await tickSleep(player, broadcastFn);
       if (result) broadcastFn(null, result, null, playerId);
       continue;
     }
@@ -611,38 +609,33 @@ async function npcWanderTick() {
   }
 }
 
-async function cleanCorpses() {
-  const now = Date.now();
-  for (const [id, corpse] of world.corpses) {
-    if (corpse.expiresAt < now) await removeCorpse(id);
-  }
-}
+// Runs every 24 hours (and on devpanel force-tick). Clears all corpses,
+// ground items outside rented apartments, and zone stains.
+export async function dailyMaintenance() {
+  // --- Corpses (player + monster) ---
+  // Remove all in-memory corpses and their DB records.
+  for (const [id] of world.corpses) await removeCorpse(id);
+  // removeCorpse may not purge player_corpses rows; do it explicitly.
+  await query(`DELETE FROM player_corpses`).catch(() => {});
+  // Also wipe inventory owned by any corpse pseudo-player that removeCorpse left behind.
+  await query(`DELETE FROM player_inventory WHERE player_id LIKE 'corpse_%'`).catch(() => {});
 
-// Runs every 24 hours. Deletes items left on the ground in non-apartment zones
-// (or unrented apartment zones). Rented apartments keep their floor items.
-async function cleanGroundItems() {
-  // Get all rented apartment zone IDs so we can exempt them.
+  // --- Ground items (non-apartment zones) ---
   const { rows: rented } = await query(
     `SELECT zone_id FROM apartments WHERE owner_id IS NOT NULL`
   );
   const rentedZoneIds = new Set(rented.map(r => r.zone_id));
-
-  // player_id for ground items is '_ground_<zone_id>'.
-  // Delete any ground items whose zone is not a rented apartment.
-  const { rowCount } = await query(`
+  const { rowCount: itemsRemoved } = await query(`
     DELETE FROM player_inventory
     WHERE player_id LIKE '_ground_%'
       AND NOT (substring(player_id FROM 9) = ANY($1::text[]))
   `, [rentedZoneIds.size ? [...rentedZoneIds] : ['__none__']]);
+  if (itemsRemoved > 0) console.log(`[dailyMaintenance] Removed ${itemsRemoved} ground item(s).`);
 
-  if (rowCount > 0) console.log(`[cleanGroundItems] Removed ${rowCount} ground item(s).`);
-}
-
-// Runs every 24 hours. Clears all stains from zone floors.
-async function cleanZoneStains() {
-  const { rowCount } = await query(`UPDATE zones SET stains='{}' WHERE stains != '{}'`);
+  // --- Zone stains ---
+  const { rowCount: stainsCleared } = await query(`UPDATE zones SET stains='{}' WHERE stains != '{}'`);
   for (const zone of world.zones.values()) zone.stains = {};
-  if (rowCount > 0) console.log(`[cleanZoneStains] Cleared stains from ${rowCount} zone(s).`);
+  if (stainsCleared > 0) console.log(`[dailyMaintenance] Cleared stains from ${stainsCleared} zone(s).`);
 }
 
 // Runs every real-world minute. Collects weekly rent from apartment owners

@@ -8,7 +8,7 @@ const CHANNELS = [
 ];
 
 let _panelOpen = false;
-let _activeTab = USERS_TAB;
+let _activeTab = '#system';
 const _convos = new Map(); // tabKey → { messages: [], unread: 0 }
 let _onlinePlayers = [];
 let _pollTimer = null;
@@ -63,6 +63,56 @@ function _startPoll() {
 
 function _stopPoll() {
   if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+}
+
+// ── MOTD ──────────────────────────────────────────────────────────────────────
+
+function _applyMotdSubstitutions(template, handle, dynamicText) {
+  const date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  let text = template;
+  text = text.replace(/<player name>( *)/g, (_, spaces) => handle + spaces);
+  text = text.replace(/<date>/g, date);
+  text = text.replace(/^(.*?)<dynamic text>( *)(║?)$/gm, (_, prefix, spaces, rborder) => {
+    const totalSpace = spaces.length + 14;
+    const dyn = dynamicText || '';
+    if (!rborder || dyn.length <= totalSpace) {
+      return prefix + dyn + ' '.repeat(Math.max(0, totalSpace - dyn.length)) + rborder;
+    }
+    const contLeft = rborder + ' '.repeat(prefix.length - 1);
+    const words = dyn.split(' ');
+    const lines = [];
+    let cur = '';
+    for (const w of words) {
+      const test = cur ? cur + ' ' + w : w;
+      if (test.length > totalSpace) { if (cur) lines.push(cur); cur = w; }
+      else cur = test;
+    }
+    if (cur) lines.push(cur);
+    if (!lines.length) return prefix + ' '.repeat(totalSpace) + rborder;
+    return lines.map((l, i) => {
+      const pad = ' '.repeat(Math.max(0, totalSpace - l.length));
+      return (i === 0 ? prefix : contLeft) + l + pad + rborder;
+    }).join('\n');
+  });
+  return text;
+}
+
+async function _loadMotd() {
+  try {
+    const data = await API('/motd');
+    if (!data || data.error) return;
+    const template = data.small || data.medium || data.big || '';
+    if (!template) return;
+    const rendered = _applyMotdSubstitutions(template, _myHandle || 'Admin', data.dynamic || '');
+    const convo = _getConvo('#system');
+    convo.messages = [{
+      from: 'SYSTEM',
+      message: rendered,
+      isMOTD: true,
+      ts: Date.now(),
+    }];
+    if (_panelOpen && _activeTab === '#system') _renderLog();
+  } catch {}
 }
 
 // ── Channel history on open ───────────────────────────────────────────────────
@@ -212,7 +262,11 @@ function _renderLog() {
   for (const m of convo.messages) {
     const el = document.createElement('div');
     el.style.cssText = 'padding:4px 0;border-bottom:1px solid var(--border)';
-    el.innerHTML = `<div style="font-size:10px;color:var(--text-dim);margin-bottom:2px">${_esc(m.from)}</div><div style="color:var(--text)">${_esc(m.message)}</div>`;
+    if (m.isMOTD) {
+      el.innerHTML = `<pre style="font-family:var(--font-mono);white-space:pre;margin:0;line-height:1.3;tab-size:4;color:var(--text);font-size:9pt">${_esc(m.message)}</pre>`;
+    } else {
+      el.innerHTML = `<div style="font-size:10px;color:var(--text-dim);margin-bottom:2px">${_esc(m.from)}</div><div style="color:var(--text)">${_esc(m.message)}</div>`;
+    }
     log.appendChild(el);
   }
   log.scrollTop = log.scrollHeight;
@@ -328,6 +382,7 @@ function initWhisperPanel() {
   document.addEventListener('pointerup', _endDrag);
   document.addEventListener('pointercancel', _endDrag);
 
+  _loadMotd();
   _loadChannelHistory();
   _sendPresence();
   setInterval(_sendPresence, 2 * 60 * 1000);

@@ -87,8 +87,26 @@ const VineEdges = {
         const drop = Math.max(120, Math.abs(y2 - y1) * 0.5 + 80);
         const bottomY = Math.max(y1, y2) + drop;
         d = `M ${x1},${y1} C ${x1},${bottomY} ${x2},${bottomY} ${x2},${y2}`;
-        color      = 'var(--accent3)';
-        hoverColor = 'var(--accent3)';
+
+        // Gradient: accent3 (orange) at output/source → red at input/destination
+        const gradId = `veg-${gradIdx++}`;
+        const grad = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
+        grad.setAttribute('id', gradId);
+        grad.setAttribute('gradientUnits', 'userSpaceOnUse');
+        grad.setAttribute('x1', x1); grad.setAttribute('y1', y1);
+        grad.setAttribute('x2', x2); grad.setAttribute('y2', y2);
+        const b0 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+        b0.setAttribute('offset', '0%');
+        b0.style.stopColor = 'var(--accent3)';
+        const b1 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+        b1.setAttribute('offset', '100%');
+        b1.style.stopColor = 'var(--red)';
+        grad.appendChild(b0);
+        grad.appendChild(b1);
+        defs.appendChild(grad);
+
+        color      = `url(#${gradId})`;
+        hoverColor = 'var(--warning, #e0c040)';
       } else {
         // ── Forward edge ──────────────────────────────────────────────────────
         // Horizontal S-curve. If the path would pass through an intermediate

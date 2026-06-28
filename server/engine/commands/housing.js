@@ -1,7 +1,7 @@
 import { query } from '../../models/db.js';
 import { getZone } from '../world.js';
 import { getZonePowerStatus, getZoneVisibility, setWindowState, getWindowsForZone } from '../environment.js';
-import { cmdRent, cmdUnrent, cmdLockDoor, cmdUpgradeLock, cmdPickLock, cmdSleep } from '../apartments.js';
+import { cmdRent, cmdUnrent, cmdLockDoor, cmdUpgradeLock, cmdPickLock, cmdSleep, cmdSetHome } from '../apartments.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../sift.js';
 
 const STAFF_ROLES = new Set(['admin','dev','builder','designer']);
@@ -82,12 +82,13 @@ export const handlers = {
   unlock:    (args, raw, player) => cmdLockDoor(player, false),
   pick:      (args, raw, player) => cmdPickLock(player),
   picklock:  (args, raw, player) => cmdPickLock(player),
-  sleep:     (args, raw, player) => cmdSleep(player),
-  rest:      (args, raw, player) => cmdSleep(player),
+  sleep:     (args, raw, player, broadcast) => cmdSleep(player, broadcast),
+  rest:      (args, raw, player, broadcast) => cmdSleep(player, broadcast),
   upgrade: (args, raw, player) => {
     if (args[0] === 'lock') return cmdUpgradeLock(player);
     return { type:'error', message:'Upgrade what? Try "upgrade lock".' };
   },
+  '.home': (args, raw, player) => cmdSetHome(player),
   open:  (args, raw, player) => cmdCurtain(args.join(' '), player, true),
   close: (args, raw, player) => cmdCurtain(args.join(' '), player, false),
   draw:  (args, raw, player) => cmdCurtain(args.join(' ') || 'curtains', player, false),
