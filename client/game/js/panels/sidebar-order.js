@@ -3,7 +3,8 @@ const DEFAULT_ORDER = ['minimap-section', 'vitals-section', 'location-section', 
 
 let locked = true;
 let dragSrc = null;
-let insertBefore = null; // the section to insert before (null = end)
+let grabOffsetY = 0;
+let insertBefore = null;
 
 export function initSidebarOrder() {
   applyOrder(loadOrder());
@@ -66,6 +67,7 @@ function detachDragHandlers(el) {
 
 function onDragStart(e) {
   dragSrc = this;
+  grabOffsetY = e.offsetY;
   e.dataTransfer.effectAllowed = 'move';
   this.classList.add('dragging');
 }
@@ -77,13 +79,26 @@ function onDragEnd() {
   dragSrc = null;
 }
 
-// Find the section to insert before based on cursor Y (null = end).
-// Sections are split at their midpoint: upper half → insert before, lower half → insert after.
+// Ghost top = cursor Y minus the point where the user grabbed the element,
+// clamped so the ghost stays inside the sidebar.
+function ghostTop(clientY) {
+  const sidebar = document.getElementById('sidebar');
+  const sr = sidebar.getBoundingClientRect();
+  const gh = dragSrc.offsetHeight;
+  const raw = clientY - sr.top - grabOffsetY;
+  return Math.max(0, Math.min(raw, sr.height - gh));
+}
+
+// Insert before the first section whose midpoint is below the ghost's midpoint.
 function getInsertionTarget(clientY) {
+  const sidebar = document.getElementById('sidebar');
+  const sr = sidebar.getBoundingClientRect();
+  const gh = dragSrc.offsetHeight;
+  const ghostMid = sr.top + ghostTop(clientY) + gh / 2;
   const sections = [...document.querySelectorAll('#sidebar .sidebar-section')].filter(s => s !== dragSrc);
   for (const sec of sections) {
     const r = sec.getBoundingClientRect();
-    if (clientY < r.top + r.height / 2) return sec;
+    if (ghostMid < r.top + r.height / 2) return sec;
   }
   return null;
 }
@@ -126,10 +141,9 @@ function getIndicator() {
 }
 
 function showDropIndicator(clientY) {
-  const sidebar = document.getElementById('sidebar');
-  const sidebarRect = sidebar.getBoundingClientRect();
   const el = getIndicator();
-  el.style.top = (clientY - sidebarRect.top) + 'px';
+  el.style.top = ghostTop(clientY) + 'px';
+  el.style.height = dragSrc.offsetHeight + 'px';
   el.style.display = 'block';
 }
 

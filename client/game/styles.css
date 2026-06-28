@@ -1162,17 +1162,18 @@ body {
 	opacity: 0.4;
 }
 
-/* Drop position indicator — floats at cursor Y in empty sidebar space */
+/* Ghost outline showing where the dragged section will land */
 #sidebar-drop-indicator {
 	display: none;
 	position: absolute;
 	left: 4px;
 	right: 4px;
-	height: 0;
-	border-top: 2px solid var(--accent);
-	box-shadow: 0 0 6px var(--accent);
+	border: 2px solid var(--accent);
+	box-shadow: 0 0 8px var(--accent);
+	border-radius: 2px;
 	pointer-events: none;
 	z-index: 100;
+	box-sizing: border-box;
 }
 
 /* Drop zone at bottom of sidebar for placing sections at the end */

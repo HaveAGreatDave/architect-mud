@@ -1,6 +1,6 @@
 import { query } from "../../models/db.js";
 import { getZoneEnemies, getZoneCorpses, getZonePlayers, createCorpse, getCorpse, removeCorpse } from "../world.js";
-import { playerAttackEnemy, isOnCooldown } from "../combat.js";
+import { playerAttackEnemy, isOnCooldown, setCooldown, getCooldownRemaining } from "../combat.js";
 import { resolveForCommand } from "../sift.js";
 import { awardSkillUse, skillCheck } from "../skills.js";
 import { hasTag, tagValue, isStackable } from "../tags.js";
@@ -112,21 +112,86 @@ async function cmdAttack(targetStr, player, broadcast) {
 		return cmdAttackDoor(targetStr.replace(/^door\s*/,'').trim(), player, broadcast);
 	}
 	const enemies = getZoneEnemies(player.current_zone);
-	if (!enemies.length)
-		return { type: "error", message: "Nothing to attack here." };
-	const result = resolveForCommand(targetStr, enemies, player, { verb: 'attack', combatScope: true });
-	if (result.type === 'none')
-		return { type: "error", message: `Can't find "${targetStr}" here.` };
-	const target = result.candidate;
+	const result = enemies.length
+		? resolveForCommand(targetStr, enemies, player, { verb: 'attack', combatScope: true })
+		: { type: 'none' };
 
-	// On cooldown: switch target for next swing instead of erroring
-	if (isOnCooldown(player.id, 'attack')) {
+	if (result.type !== 'none') {
+		const target = result.candidate;
+		if (isOnCooldown(player.id, 'attack')) {
+			player.combatTargetId = target.instanceId;
+			return { type: "output", message: `Switching target to ${target.name}.` };
+		}
 		player.combatTargetId = target.instanceId;
-		return { type: "output", message: `Switching target to ${target.name}.` };
+		return resolveAttack(player, target, broadcast);
 	}
 
-	player.combatTargetId = target.instanceId;
-	return resolveAttack(player, target, broadcast);
+	// No enemy matched — check for a player in the zone (live first, then offline)
+	const liveOthers = getZonePlayers(player.current_zone).filter((p) => p.id !== player.id);
+	let targetPlayer = liveOthers.find((p) => p.handle.toLowerCase().includes(targetStr.toLowerCase())) || null;
+	let targetIsLive = !!targetPlayer;
+	if (!targetPlayer) {
+		const { rows } = await query(
+			`SELECT * FROM players WHERE LOWER(handle) LIKE $1 AND current_zone=$2 AND id!=$3 LIMIT 1`,
+			[`%${targetStr.toLowerCase()}%`, player.current_zone, player.id],
+		);
+		if (rows.length) targetPlayer = rows[0];
+	}
+	if (!targetPlayer)
+		return { type: "error", message: `Can't find "${targetStr}" here.` };
+
+	if (isOnCooldown(player.id, 'attack'))
+		return { type: "error", message: `You're still recovering. (${(getCooldownRemaining(player.id, 'attack') / 1000).toFixed(1)}s)` };
+
+	const { rows: wpRows } = await query(
+		`SELECT i.* FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.is_equipped=1 AND jsonb_exists(i.tags,'weapon') LIMIT 1`,
+		[player.id],
+	);
+	const equipped = wpRows[0];
+	const dmg = equipped ? tagValue(equipped, "damage", {}) || {} : {};
+	const min = dmg.min ?? 2;
+	const max = dmg.max ?? 4;
+	const damage = Math.max(1, Math.floor(Math.random() * (max - min + 1)) + min);
+
+	const currentHp = targetIsLive ? targetPlayer.hp : (targetPlayer.hp ?? targetPlayer.hp_max ?? 100);
+	const newHp = currentHp - damage;
+	setCooldown(player.id, 'attack');
+
+	if (newHp <= 0) {
+		const { getLivePlayer } = await import("../world.js");
+		const { handlePlayerDeath } = await import("../gameLoop.js");
+		const livePlayer = targetIsLive ? targetPlayer : getLivePlayer(targetPlayer.id);
+		if (livePlayer) {
+			livePlayer.hp = 0;
+			await handlePlayerDeath(livePlayer, player);
+		} else {
+			const corpseId = `corpse_player_${targetPlayer.id}_${Date.now()}`;
+			const corpseName = `${targetPlayer.handle}'s corpse`;
+			const expiresAt = Date.now() + 60 * 60 * 1000;
+			await query(`UPDATE players SET hp=0, offline_sleeping=FALSE WHERE id=$1`, [targetPlayer.id]);
+			await query(
+				`UPDATE player_inventory pi SET player_id=$1, is_equipped=0, slot=NULL, layer=NULL, container_id=NULL
+				 FROM items i WHERE i.id=pi.item_id AND pi.player_id=$2
+				 AND NOT (i.tags @> '{"quest_item":true}')`,
+				[corpseId, targetPlayer.id],
+			).catch(() => {});
+			await query(
+				`INSERT INTO player_corpses (id, player_id, zone_id, death_message, expires_at) VALUES ($1, $2, $3, $4, $5)`,
+				[corpseId, targetPlayer.id, player.current_zone, corpseName, expiresAt],
+			).catch(() => {});
+			createCorpse({ id: corpseId, name: corpseName, zoneId: player.current_zone, expiresAt });
+			await query(`UPDATE players SET hp=$1, current_zone=anchor_zone WHERE id=$2`, [targetPlayer.hp_max ?? 100, targetPlayer.id]);
+			const corpseLink = `<span class="action-link corpse-link" data-action="loot" data-target="${corpseId}" data-label="${corpseName}" title="Loot ${corpseName}">${corpseName}</span>`;
+			broadcast(player.current_zone, { type: "zone_event", message: `${targetPlayer.handle} has died. ${corpseLink}`, refresh: true }, player.id);
+			return { type: "combat", message: `You kill ${targetPlayer.handle}. ${corpseLink}`, killed: true, corpseLink };
+		}
+		return { type: "combat", message: `You kill ${targetPlayer.handle}.`, killed: true };
+	}
+
+	if (targetIsLive) targetPlayer.hp = newHp;
+	await query(`UPDATE players SET hp=$1 WHERE id=$2`, [newHp, targetPlayer.id]);
+	broadcast(player.current_zone, { type: "zone_event", message: `${player.handle} attacks ${targetPlayer.handle}.` }, player.id);
+	return { type: "combat", message: `You hit ${targetPlayer.handle} for ${damage} damage.`, killed: false };
 }
 
 // Resolve a corpse in the player's current zone by id (preferred, from a click)
@@ -210,12 +275,25 @@ async function cmdLootCorpse(targetStr, player, broadcast) {
 		return { type: "loot", message: `You loot ${name} from ${corpse.name}.` };
 	}
 	const corpse = resolveCorpse(targetStr, player);
-	if (!corpse) return { type: "error", message: "No corpse to loot here." };
-	const items = await corpseLootRows(corpse.id);
-	if (!items.length && (corpse.butcher_table || []).length)
-		return cmdButcher(corpse.id, player, broadcast);
-	// Always open the loot dialog — even if empty, so the player sees the state.
-	return buildLootView(corpse, player);
+	if (corpse) {
+		const items = await corpseLootRows(corpse.id);
+		if (!items.length && (corpse.butcher_table || []).length)
+			return cmdButcher(corpse.id, player, broadcast);
+		return buildLootView(corpse, player);
+	}
+
+	// No corpse — check for a player in the zone (live first, then offline)
+	const liveOthers = getZonePlayers(player.current_zone).filter((p) => p.id !== player.id);
+	let targetPlayer = liveOthers.find((p) => p.handle.toLowerCase().includes(targetStr.toLowerCase())) || null;
+	if (!targetPlayer) {
+		const { rows } = await query(
+			`SELECT id, handle FROM players WHERE LOWER(handle) LIKE $1 AND current_zone=$2 AND id!=$3 LIMIT 1`,
+			[`%${targetStr.toLowerCase()}%`, player.current_zone, player.id],
+		);
+		if (rows.length) targetPlayer = rows[0];
+	}
+	if (!targetPlayer) return { type: "error", message: "No corpse to loot here." };
+	return buildLootView({ id: targetPlayer.id, name: targetPlayer.handle, butcher_table: [] }, player);
 }
 
 // Take every item from a corpse at once.
@@ -343,11 +421,6 @@ const stealCooldowns = new Map();
 
 async function cmdSteal(targetStr, player, broadcast) {
 	if (!targetStr) return { type: "error", message: "Steal from whom?" };
-	const { getZone } = await import("../world.js");
-	const zone = getZone(player.current_zone);
-	if (zone?.is_safe_zone)
-		return { type: "error", message: "Too many witnesses. Not here." };
-
 	const last = stealCooldowns.get(player.id) || 0;
 	if (Date.now() - last < STEAL_COOLDOWN_MS) {
 		return {
@@ -356,48 +429,30 @@ async function cmdSteal(targetStr, player, broadcast) {
 		};
 	}
 
-	const others = getZonePlayers(player.current_zone).filter(
-		(p) => p.id !== player.id,
-	);
-	let target = others.find((p) =>
-		p.handle.toLowerCase().includes(targetStr.toLowerCase()),
-	);
-	let targetSleeping = false;
+	const liveOthers = getZonePlayers(player.current_zone).filter((p) => p.id !== player.id);
+	let target = liveOthers.find((p) => p.handle.toLowerCase().includes(targetStr.toLowerCase())) || null;
 	if (!target) {
 		const { rows } = await query(
-			`SELECT * FROM players WHERE LOWER(handle) LIKE $1 AND current_zone=$2 AND offline_sleeping=TRUE LIMIT 1`,
-			[`%${targetStr.toLowerCase()}%`, player.current_zone],
+			`SELECT * FROM players WHERE LOWER(handle) LIKE $1 AND current_zone=$2 AND id!=$3 LIMIT 1`,
+			[`%${targetStr.toLowerCase()}%`, player.current_zone, player.id],
 		);
-		if (rows.length) { target = rows[0]; targetSleeping = true; }
+		if (rows.length) target = rows[0];
 	}
 	if (!target)
 		return { type: "error", message: `Can't find "${targetStr}" here.` };
 
 	stealCooldowns.set(player.id, Date.now());
 	if ((target.credits || 0) <= 0)
-		return {
-			type: "error",
-			message: `${target.handle} isn't carrying any credits.`,
-		};
+		return { type: "error", message: `${target.handle} isn't carrying any credits.` };
 
-	if (!targetSleeping) {
-		const result = await skillCheck(player, "deception", 7);
-		const caught = !result.success;
-
-		if (caught) {
-			broadcast(
-				player.current_zone,
-				{
-					type: "zone_event",
-					message: `${player.handle} tries to pick ${target.handle}'s pocket and gets caught red-handed.`,
-				},
-				player.id,
-			);
-			return {
-				type: "error",
-				message: `You go for ${target.handle}'s pocket. They notice immediately. Everyone noticed, actually.`,
-			};
-		}
+	const result = await skillCheck(player, "deception", 7);
+	if (!result.success) {
+		broadcast(
+			player.current_zone,
+			{ type: "zone_event", message: `${player.handle} tries to pick ${target.handle}'s pocket and gets caught red-handed.` },
+			player.id,
+		);
+		return { type: "error", message: `You go for ${target.handle}'s pocket. They notice immediately. Everyone noticed, actually.` };
 	}
 
 	const amount = Math.min(
@@ -408,9 +463,7 @@ async function cmdSteal(targetStr, player, broadcast) {
 	await adjustCredits(player, amount);
 	return {
 		type: "steal",
-		message: targetSleeping
-			? `You rifle through ${target.handle}'s pockets while they sleep. ${amount}c richer.`
-			: `You lift ${amount}c off ${target.handle} without them noticing a thing.`,
+		message: `You lift ${amount}c off ${target.handle} without them noticing a thing.`,
 		player_update: { credits: player.credits },
 	};
 }
