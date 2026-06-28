@@ -302,9 +302,7 @@ export async function describeZone(zone, player) {
   }
   if (sleepingBodies.length) {
     const bodyLinks = sleepingBodies.map(p =>
-      `<span class="action-link player-link" data-action="examine" data-target="${p.handle}" title="Look at ${p.handle}">${p.handle} <span class="text-dim">(sleeping)</span></span>` +
-      ` <span class="action-link" data-action="loot" data-target="${p.handle}" title="Loot ${p.handle}">[loot]</span>` +
-      ` <span class="action-link" data-action="attack" data-target="${p.handle}" title="Attack ${p.handle}">[attack]</span>`
+      `<span class="action-link player-link" data-action="examine" data-target="${p.handle}" title="Look at ${p.handle}">${p.handle} <span class="text-dim">(sleeping)</span></span>`
     );
     desc += `\n<span class="players-label">Sleeping here:</span> ${bodyLinks.join(', ')}`;
   }

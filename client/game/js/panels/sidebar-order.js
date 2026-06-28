@@ -19,7 +19,6 @@ function loadLayout() {
   try {
     const raw = JSON.parse(localStorage.getItem(ORDER_KEY));
     if (!raw) return null;
-    // backwards compat: old format was plain array of id strings
     if (typeof raw[0] === 'string') return raw.map(id => ({type: 'section', id}));
     return raw;
   } catch { return null; }
@@ -60,7 +59,6 @@ function applyLayout(items) {
       }
     }
   }
-  // Place any sections missing from saved layout at the end
   for (const id of DEFAULT_ORDER) {
     if (!placed.has(id)) {
       const el = document.getElementById(id);
@@ -113,12 +111,24 @@ function onDragEnd() {
   dragSrc = null;
 }
 
+function findPrevSection(items, fromIndex) {
+  for (let i = fromIndex - 1; i >= 0; i--) {
+    if (items[i].classList.contains('sidebar-section')) return items[i];
+  }
+  return null;
+}
+
+function findNextSection(items, fromIndex) {
+  for (let i = fromIndex + 1; i < items.length; i++) {
+    if (items[i].classList.contains('sidebar-section')) return items[i];
+  }
+  return null;
+}
+
 // Compute where a drop at clientY should land.
-// Returns one of:
-//   {kind:'before', el, lineY}        — insert before a section
-//   {kind:'after',  el, lineY}        — insert after a section
-//   {kind:'spacer', el, frac, flex, lineY} — split an existing spacer
-//   {kind:'end',    lineY}            — drop in the empty tail zone
+// Over a section  → snap to its top (before) or bottom (after) based on which half the cursor is in.
+// Over a spacer   → snap to the nearest section boundary (no free-floating in gaps).
+// In the tail zone → free-float; will create a spacer to push section to that position.
 function computeDropInfo(clientY) {
   const sidebar = document.getElementById('sidebar');
   const dropEnd = document.getElementById('sidebar-drop-end');
@@ -131,7 +141,8 @@ function computeDropInfo(clientY) {
     el.id !== 'sidebar-drop-indicator'
   );
 
-  for (const el of items) {
+  for (let i = 0; i < items.length; i++) {
+    const el = items[i];
     const r = el.getBoundingClientRect();
     if (clientY > r.bottom) continue;
 
@@ -143,13 +154,28 @@ function computeDropInfo(clientY) {
     }
 
     if (el.classList.contains('sidebar-spacer')) {
-      const frac = r.height > 0 ? (clientY - r.top) / r.height : 0.5;
-      const flex = parseFloat(el.style.flexGrow) || 1;
-      return {kind: 'spacer', el, frac, flex, lineY: clientY - sr.top};
+      // Snap to the nearest section boundary rather than free-floating inside the gap.
+      const inUpperHalf = r.height > 0 && (clientY - r.top) / r.height <= 0.5;
+      const prevSec = findPrevSection(items, i);
+      const nextSec = findNextSection(items, i);
+
+      if (inUpperHalf && prevSec) {
+        const pr = prevSec.getBoundingClientRect();
+        return {kind: 'after', el: prevSec, lineY: pr.bottom - sr.top};
+      }
+      if (nextSec) {
+        const nr = nextSec.getBoundingClientRect();
+        return {kind: 'before', el: nextSec, lineY: nr.top - sr.top};
+      }
+      if (prevSec) {
+        const pr = prevSec.getBoundingClientRect();
+        return {kind: 'after', el: prevSec, lineY: pr.bottom - sr.top};
+      }
+      return {kind: 'end', lineY: r.bottom - sr.top};
     }
   }
 
-  // Cursor is in the empty tail zone (sidebar-drop-end area)
+  // Cursor is past all elements — free-float in the tail zone
   return {kind: 'end', lineY: clientY - sr.top};
 }
 
@@ -180,18 +206,8 @@ function onSidebarDrop(e) {
     info.el.before(dragSrc);
   } else if (info.kind === 'after') {
     info.el.after(dragSrc);
-  } else if (info.kind === 'spacer') {
-    // Split the spacer at the cursor position
-    const {el, frac, flex} = info;
-    const topFlex = flex * frac;
-    const botFlex = flex * (1 - frac);
-    if (topFlex > 0.05) el.before(makeSpacer(topFlex));
-    el.before(dragSrc);
-    if (botFlex > 0.05) el.before(makeSpacer(botFlex));
-    el.remove();
   } else {
-    // 'end' — user dropped in the empty zone; push section to the visual bottom
-    // Use a large flex value so this spacer dominates any others and fills the gap
+    // 'end' — dropped in the tail zone; push section to the visual bottom with a spacer
     dropEnd.before(makeSpacer(1000));
     dropEnd.before(dragSrc);
   }
@@ -200,9 +216,11 @@ function onSidebarDrop(e) {
   saveLayout();
 }
 
-// Merge spacers that are adjacent in the DOM (no elements between them)
+// Merge adjacent spacers; remove spacers that have no section after them (trailing gaps are redundant).
 function cleanupSpacers() {
   const sidebar = document.getElementById('sidebar');
+
+  // Merge adjacent spacers
   let prev = null;
   [...sidebar.querySelectorAll('.sidebar-spacer')].forEach(sp => {
     if (prev && prev.nextElementSibling === sp) {
@@ -211,6 +229,13 @@ function cleanupSpacers() {
     } else {
       prev = sp;
     }
+  });
+
+  // Remove spacers with no section following them — they're just trailing dead space
+  [...sidebar.querySelectorAll('.sidebar-spacer')].forEach(sp => {
+    let next = sp.nextElementSibling;
+    while (next && !next.classList.contains('sidebar-section')) next = next.nextElementSibling;
+    if (!next) sp.remove();
   });
 }
 

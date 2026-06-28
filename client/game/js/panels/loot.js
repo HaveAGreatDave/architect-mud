@@ -1,11 +1,13 @@
 import { sendCmdSilent } from '../net.js';
 
 let activeCorpseId = null;
+let activeCorpseName = null;
 let lootDraggedId = null;
 let lootDraggedCorpseId = null;
 
 export function openLootPanel(data) {
   activeCorpseId = data.corpseId;
+  activeCorpseName = data.corpseName || null;
   renderLootPanel(data);
   document.getElementById('loot-panel').classList.add('active');
 }
@@ -13,6 +15,7 @@ export function openLootPanel(data) {
 export function refreshLootPanel(data) {
   if (!document.getElementById('loot-panel').classList.contains('active')) return;
   activeCorpseId = data.corpseId;
+  activeCorpseName = data.corpseName || null;
   renderLootPanel(data);
 }
 
@@ -20,6 +23,7 @@ export function closeLootPanel() {
   const cid = activeCorpseId;
   document.getElementById('loot-panel').classList.remove('active');
   activeCorpseId = null;
+  activeCorpseName = null;
   if (cid) sendCmdSilent(`closeloot ${cid}`);
 }
 
@@ -45,7 +49,7 @@ function buildItemCard(item, source, corpseId) {
     btn.className = 'ctr-action-btn';
     btn.textContent = 'take';
     btn.title = 'Take from corpse';
-    btn.onclick = (e) => { e.stopPropagation(); sendCmdSilent(`lootid ${item.id} ${corpseId}`); };
+    btn.onclick = (e) => { e.stopPropagation(); sendCmdSilent(`lootid ${item.id} ${corpseId}${activeCorpseName ? ' ' + activeCorpseName : ''}`); };
     card.appendChild(btn);
     card.ondragstart = (e) => {
       lootDraggedId = item.id;
@@ -95,10 +99,10 @@ export function initLootPanel() {
     if (activeCorpseId) sendCmdSilent(`butcher ${activeCorpseId}`);
   });
   document.getElementById('loot-take-all').addEventListener('click', () => {
-    if (activeCorpseId) sendCmdSilent(`lootall ${activeCorpseId}`);
+    if (activeCorpseId) sendCmdSilent(`lootall ${activeCorpseId}${activeCorpseName ? ' ' + activeCorpseName : ''}`);
   });
   document.getElementById('loot-transfer-all').addEventListener('click', () => {
-    if (activeCorpseId) sendCmdSilent(`lootall ${activeCorpseId}`);
+    if (activeCorpseId) sendCmdSilent(`lootall ${activeCorpseId}${activeCorpseName ? ' ' + activeCorpseName : ''}`);
   });
 
   // Drag corpse item (left) → drop on inventory (right) → take it
@@ -110,7 +114,7 @@ export function initLootPanel() {
     e.preventDefault();
     invList.classList.remove('ctr-drag-over');
     if (lootDraggedId && lootDraggedCorpseId) {
-      sendCmdSilent(`lootid ${lootDraggedId} ${lootDraggedCorpseId}`);
+      sendCmdSilent(`lootid ${lootDraggedId} ${lootDraggedCorpseId}${activeCorpseName ? ' ' + activeCorpseName : ''}`);
     }
     lootDraggedId = null;
     lootDraggedCorpseId = null;

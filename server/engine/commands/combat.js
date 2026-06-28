@@ -301,8 +301,10 @@ async function cmdLootCorpse(targetStr, player, broadcast) {
 async function cmdLootAll(args, player) {
 	const corpseId = args[0];
 	const corpse = corpseId ? getCorpse(corpseId) : null;
-	if (!corpse || corpse.zoneId !== player.current_zone)
-		return { type: "error", message: "That corpse is gone." };
+	if (!corpse || corpse.zoneId !== player.current_zone) {
+		const label = args.slice(1).join(' ') || 'That corpse';
+		return { type: "error", message: `${label} is gone.` };
+	}
 	const items = await corpseLootRows(corpse.id);
 	if (!items.length) {
 		const view = await buildLootView(corpse, player);
@@ -321,10 +323,12 @@ async function cmdLootAll(args, player) {
 
 // Pull a single item from a corpse into inventory (GUI take button).
 async function cmdLootId(args, player) {
-	const [invId, corpseId] = args;
+	const [invId, corpseId, ...nameParts] = args;
 	const corpse = corpseId ? getCorpse(corpseId) : null;
-	if (!corpse || corpse.zoneId !== player.current_zone)
-		return { type: "error", message: "That corpse is gone." };
+	if (!corpse || corpse.zoneId !== player.current_zone) {
+		const label = nameParts.join(' ') || 'That corpse';
+		return { type: "error", message: `${label} is gone.` };
+	}
 	const { rows } = await query(
 		`SELECT pi.id,pi.item_id,pi.quantity,i.name,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.id=$1 AND pi.player_id=$2`,
 		[invId, corpseId],
