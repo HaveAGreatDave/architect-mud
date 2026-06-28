@@ -1099,6 +1099,7 @@ body {
 	flex-direction: column;
 	overflow: hidden;
 	background: var(--bg2);
+	position: relative;
 }
 
 .sidebar-section {
@@ -1114,23 +1115,32 @@ body {
 	margin-bottom: 8px;
 }
 
-/* Sidebar lock/unlock toggle */
+/* Sidebar lock/unlock toggle — floats at the outer edge */
 .sidebar-lock-btn {
-	display: block;
-	width: 100%;
-	background: transparent;
-	border: none;
-	border-bottom: 1px solid var(--border);
+	position: absolute;
+	top: 6px;
+	left: 4px;
+	width: 22px;
+	height: 22px;
+	background: var(--bg3);
+	border: 1px solid var(--border);
+	border-radius: 3px;
 	color: var(--text-dim);
-	font-size: 13px;
-	padding: 4px 0;
-	cursor: pointer;
+	font-size: 12px;
+	padding: 0;
+	line-height: 22px;
 	text-align: center;
-	transition: background 0.1s;
-	flex-shrink: 0;
+	cursor: pointer;
+	z-index: 5;
+	transition: border-color 0.1s, color 0.1s;
 }
 .sidebar-lock-btn:hover {
-	background: var(--bg3);
+	border-color: var(--accent);
+	color: var(--accent);
+}
+[data-sidebar="right"] .sidebar-lock-btn {
+	left: auto;
+	right: 4px;
 }
 
 /* Chat floats to bottom when locked */
@@ -1161,6 +1171,21 @@ body {
 	outline: 2px solid var(--accent);
 	outline-offset: -2px;
 	box-shadow: inset 0 -3px 0 0 var(--accent);
+}
+
+/* Drop zone at bottom of sidebar for placing sections at the end */
+.sidebar-drop-end {
+	display: none;
+	flex: 1;
+	min-height: 40px;
+}
+#sidebar.drag-mode .sidebar-drop-end {
+	display: block;
+}
+.sidebar-drop-end.drop-active {
+	outline: 2px dashed var(--accent);
+	outline-offset: -4px;
+	border-radius: 2px;
 }
 
 /* Reset sidebar order button in settings */
@@ -2135,6 +2160,26 @@ body {
 }
 #loot-contents-col {
 	padding-left: 14px;
+}
+.loot-col-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+#loot-transfer-all {
+	background: transparent;
+	border: 1px solid var(--border);
+	color: var(--text-dim);
+	font-size: 13px;
+	line-height: 1;
+	padding: 1px 5px;
+	cursor: pointer;
+	border-radius: 2px;
+	flex-shrink: 0;
+}
+#loot-transfer-all:hover {
+	border-color: var(--green);
+	color: var(--green);
 }
 #loot-inv-list {
 	border: 1px dashed var(--border);

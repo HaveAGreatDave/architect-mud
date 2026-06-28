@@ -62,6 +62,7 @@ function renderLootPanel(data) {
   document.getElementById('loot-contents-label').textContent = data.corpseName;
   document.getElementById('loot-notify').textContent = data.notify || '';
 
+  // Left column: corpse contents
   const corpseList = document.getElementById('loot-contents-list');
   corpseList.innerHTML = '';
   for (const item of data.items || []) {
@@ -74,6 +75,7 @@ function renderLootPanel(data) {
     corpseList.appendChild(empty);
   }
 
+  // Right column: player inventory
   const invList = document.getElementById('loot-inv-list');
   invList.innerHTML = '';
   for (const item of data.invItems || []) {
@@ -95,8 +97,11 @@ export function initLootPanel() {
   document.getElementById('loot-take-all').addEventListener('click', () => {
     if (activeCorpseId) sendCmdSilent(`lootall ${activeCorpseId}`);
   });
+  document.getElementById('loot-transfer-all').addEventListener('click', () => {
+    if (activeCorpseId) sendCmdSilent(`lootall ${activeCorpseId}`);
+  });
 
-  // Drop corpse item onto inventory column → take it
+  // Drag corpse item (left) → drop on inventory (right) → take it
   const invList = document.getElementById('loot-inv-list');
   invList.addEventListener('dragover', (e) => e.preventDefault());
   invList.addEventListener('dragenter', () => invList.classList.add('ctr-drag-over'));

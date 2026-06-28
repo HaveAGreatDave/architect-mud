@@ -8,6 +8,23 @@ export function initSidebarOrder() {
   applyOrder(loadOrder());
   document.getElementById('sidebar-lock-btn').addEventListener('click', toggleLock);
   document.getElementById('sidebar-reset-btn')?.addEventListener('click', resetOrder);
+
+  const dropEnd = document.getElementById('sidebar-drop-end');
+  dropEnd.addEventListener('dragover', (e) => {
+    if (!dragSrc) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    clearDropIndicators();
+    dropEnd.classList.add('drop-active');
+  });
+  dropEnd.addEventListener('dragleave', () => dropEnd.classList.remove('drop-active'));
+  dropEnd.addEventListener('drop', (e) => {
+    e.preventDefault();
+    if (!dragSrc) return;
+    dropEnd.classList.remove('drop-active');
+    dropEnd.before(dragSrc);
+    saveOrder();
+  });
 }
 
 function loadOrder() {
@@ -104,4 +121,5 @@ function clearDropIndicators() {
   document.querySelectorAll('.sidebar-section.drop-before, .sidebar-section.drop-after').forEach(el => {
     el.classList.remove('drop-before', 'drop-after');
   });
+  document.getElementById('sidebar-drop-end')?.classList.remove('drop-active');
 }
