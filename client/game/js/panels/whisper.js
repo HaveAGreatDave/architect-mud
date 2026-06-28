@@ -3,6 +3,8 @@ import { state } from '../state.js';
 
 const USERS_TAB = '__users__';
 const WHISPER_MAX_MSGS = 100;
+const WHISPER_CONVO_KEY = 'whisper_convos';
+const WHISPER_PERSIST_MAX = 50;
 
 // Channels the server told us this player has access to: id -> { id, permanent, systemOnly }
 const _channels = new Map();
@@ -32,6 +34,27 @@ function _loadSettings() {
 
 function _saveSettings() {
   try { localStorage.setItem('whisper_settings', JSON.stringify({ windowSize: _windowSize, textSize: _textSize })); } catch {}
+}
+
+function _saveConvos() {
+  try {
+    const toSave = {};
+    for (const [handle, convo] of _whisperConvos) {
+      if (_channels.has(handle) || handle === USERS_TAB) continue;
+      toSave[handle] = convo.messages.slice(-WHISPER_PERSIST_MAX);
+    }
+    localStorage.setItem(WHISPER_CONVO_KEY, JSON.stringify(toSave));
+  } catch {}
+}
+
+function _loadConvos() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(WHISPER_CONVO_KEY) || '{}');
+    for (const [handle, messages] of Object.entries(saved)) {
+      if (!Array.isArray(messages) || messages.length === 0) continue;
+      _whisperConvos.set(handle, { messages, scrollTop: 999999, unread: 0 });
+    }
+  } catch {}
 }
 
 export function initChannels(channelList) {
@@ -266,6 +289,7 @@ function _closeWhisperTab(handle) {
   if (_channels.has(handle) && _channels.get(handle).permanent) return;
   _whisperConvos.delete(handle);
   _channels.delete(handle);
+  _saveConvos();
   if (_activeWhisperTab === handle) _switchToTab(USERS_TAB);
   else { _refreshWhisperTabs(); _updateChatBadge(); }
 }
@@ -444,6 +468,7 @@ export function sentWhisper(handle, message) {
   const convo = _whisperConvos.get(handle);
   convo.messages.push({ from: 'You', message, isMe: true, ts: Date.now() });
   if (convo.messages.length > WHISPER_MAX_MSGS) convo.messages.shift();
+  _saveConvos();
   openWhisperTab(handle);
   const log = document.getElementById('whisper-log');
   if (log) log.scrollTop = log.scrollHeight;
@@ -454,6 +479,7 @@ export function receiveWhisper(from, message) {
   const convo = _whisperConvos.get(from);
   convo.messages.push({ from, message, isMe: false, ts: Date.now() });
   if (convo.messages.length > WHISPER_MAX_MSGS) convo.messages.shift();
+  _saveConvos();
   if (_whisperPanelVisible && _activeWhisperTab === from) {
     _renderWhisperLog();
     const log = document.getElementById('whisper-log');
@@ -562,6 +588,7 @@ export function debugFakeWhisper() {
 
 export function initWhisperPanel() {
   _loadSettings();
+  _loadConvos();
 
   document.getElementById('chat-toggle-btn').addEventListener('click', toggleWhisperPanel);
   document.getElementById('whisper-reply-input').addEventListener('keydown', e => {
