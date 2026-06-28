@@ -107,8 +107,8 @@ async function tick() {
 
       enemyAttackPlayer(enemy, target).then(async result => {
         if (!result) return;
-        if (target.sitting) {
-          target.sitting = false;
+        if (target.posture === 'sitting') {
+          target.posture = 'standing';
           target.sittingOn = null;
           broadcastFn(null, { type: 'output', message: `You scramble to your feet as the attack comes in!` }, null, target.id);
         }
@@ -168,8 +168,8 @@ async function tick() {
     if (isOnCooldown(playerId, 'attack')) continue;
     pvpSwing(player, pvpTarget).then(async result => {
       if (!result) return;
-      if (pvpTarget.sitting) {
-        pvpTarget.sitting = false;
+      if (pvpTarget.posture === 'sitting') {
+        pvpTarget.posture = 'standing';
         pvpTarget.sittingOn = null;
         broadcastFn(null, { type: 'output', message: `You scramble to your feet as the attack comes in!` }, null, pvpTarget.id);
       }
@@ -274,7 +274,7 @@ export async function handlePlayerDeath(player, killer) {
   player.clothing_contamination = {};
   player._dangerousTempTicks = 0;
   player.sleeping = null;
-  player.sitting = false;
+  player.posture = 'standing';
   player.sittingOn = null;
   player.combatTargetId = null;
   player.pvpTargetId = null;
@@ -709,9 +709,9 @@ const SIT_REGEN_MESSAGES = [
 
 async function sittingRegenTick() {
   for (const [playerId, player] of world.players) {
-    if (!player.sitting) continue;
+    if (player.posture !== 'sitting') continue;
     if (player.combatTargetId || player.pvpTargetId) {
-      player.sitting = false;
+      player.posture = 'standing';
       player.sittingOn = null;
       continue;
     }

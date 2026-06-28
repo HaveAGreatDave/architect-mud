@@ -19,8 +19,13 @@ Post-singularity browser MUD in the HellMOO tradition. Text-driven, real-time, b
 - [docs/commands.md](docs/commands.md) — command dispatch pipeline, SIFT/FATE target resolution system, rules for using SIFT in new commands, and per-domain targeting reference
 - [docs/scripting.md](docs/scripting.md) — action registry (registerAction/dispatchAction), event bus (on/emit), flag store (getFlag/setFlag/evalConditions), and script graph runner (runGraph); the mutation path all content flows through
 - [docs/ai-behaviour.md](docs/ai-behaviour.md) — VINE-powered behaviour trees for enemies and NPCs; node types, condition/action catalogue, blackboard, pathfinding
+- [docs/plugins.md](docs/plugins.md) — **plugin index**: which plugin owns each verb/mechanic, and the command-precedence rule (plugins win over engine builtins). Check this before editing any player command.
+- [docs/systems-posture.md](docs/systems-posture.md) — posture/sitting (split engine+plugin system): the `player.posture`/`sittingOn` contract, HP regen, stand-up triggers, look description (as built)
+- [docs/audits/source-of-truth-audit.md](docs/audits/source-of-truth-audit.md) — reusable prompt to audit engine-vs-plugin duplicate/split sources of truth (the bug class behind the posture break)
 
 **Before touching any system, read the relevant doc section if there's one applicable to the request.**
+
+**Before editing any player command, check [docs/plugins.md](docs/plugins.md) first** — a plugin may already own that verb, in which case the engine handler for it is dead code.
 
 ## Core Architectural Rules
 

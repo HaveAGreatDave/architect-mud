@@ -88,7 +88,7 @@ async function cmdSit(args, raw, player, broadcast) {
 				type: "emote",
 				message: `You are already sitting on the ${rows[0].name}.`,
 			};
-		setLivePlayer(player.id, { ...player, posture: "sitting" });
+		setLivePlayer(player.id, { ...player, posture: "sitting", sittingOn: rows[0].name });
 		return doEmote(
 			`You settle onto the ${rows[0].name}${mod}.`,
 			`${player.handle} settles onto the ${rows[0].name}.`,
@@ -106,7 +106,7 @@ async function cmdSit(args, raw, player, broadcast) {
 		[player.current_zone],
 	);
 	if (chairs.length) {
-		setLivePlayer(player.id, { ...player, posture: "sitting" });
+		setLivePlayer(player.id, { ...player, posture: "sitting", sittingOn: chairs[0].name });
 		return doEmote(
 			`You sit down on the ${chairs[0].name}${mod}.`,
 			`${player.handle} sits down on the ${chairs[0].name}.`,
@@ -116,7 +116,7 @@ async function cmdSit(args, raw, player, broadcast) {
 	}
 
 	// Bare floor sit
-	setLivePlayer(player.id, { ...player, posture: "sitting" });
+	setLivePlayer(player.id, { ...player, posture: "sitting", sittingOn: null });
 	return doEmote(
 		`You sit down on the ground${mod}.`,
 		`${player.handle} sits down.`,
@@ -148,7 +148,7 @@ async function cmdLie(args, raw, player, broadcast) {
 				type: "emote",
 				message: `You are already lying on the ${rows[0].name}.`,
 			};
-		setLivePlayer(player.id, { ...player, posture: "lying" });
+		setLivePlayer(player.id, { ...player, posture: "lying", sittingOn: null });
 		return doEmote(
 			`You lie down on the ${rows[0].name}${mod}.`,
 			`${player.handle} lies down on the ${rows[0].name}.`,
@@ -166,7 +166,7 @@ async function cmdLie(args, raw, player, broadcast) {
 		[player.current_zone],
 	);
 	if (beds.length) {
-		setLivePlayer(player.id, { ...player, posture: "lying" });
+		setLivePlayer(player.id, { ...player, posture: "lying", sittingOn: null });
 		return doEmote(
 			`You lie down on the ${beds[0].name}${mod}.`,
 			`${player.handle} lies down on the ${beds[0].name}.`,
@@ -175,7 +175,7 @@ async function cmdLie(args, raw, player, broadcast) {
 		);
 	}
 
-	setLivePlayer(player.id, { ...player, posture: "lying" });
+	setLivePlayer(player.id, { ...player, posture: "lying", sittingOn: null });
 	return doEmote(
 		`You lie down on the ground${mod}.`,
 		`${player.handle} lies down.`,
@@ -187,7 +187,7 @@ async function cmdLie(args, raw, player, broadcast) {
 function cmdStand(args, raw, player, broadcast) {
 	if (posture(player) === "standing")
 		return { type: "emote", message: "You are already standing." };
-	setLivePlayer(player.id, { ...player, posture: "standing" });
+	setLivePlayer(player.id, { ...player, posture: "standing", sittingOn: null });
 	return doEmote(
 		"You stand up.",
 		`${player.handle} stands up.`,
@@ -201,7 +201,7 @@ function cmdKneel(args, raw, player, broadcast) {
 	const mod = envMod(env, vis);
 	if (posture(player) === "kneeling")
 		return { type: "emote", message: "You are already kneeling." };
-	setLivePlayer(player.id, { ...player, posture: "kneeling" });
+	setLivePlayer(player.id, { ...player, posture: "kneeling", sittingOn: null });
 	return doEmote(
 		`You kneel down${mod}.`,
 		`${player.handle} kneels down.`,
@@ -389,7 +389,7 @@ function cmdPace(args, raw, player, broadcast) {
 	const [self, zone] =
 		PACE_VARIANTS[Math.floor(Math.random() * PACE_VARIANTS.length)];
 	if (posture(player) !== "standing")
-		setLivePlayer(player.id, { ...player, posture: "standing" });
+		setLivePlayer(player.id, { ...player, posture: "standing", sittingOn: null });
 	return doEmote(
 		`You ${self}`,
 		`${player.handle} ${zone}`,

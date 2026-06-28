@@ -1,0 +1,57 @@
+# Plugins — Index
+
+Every folder in `/plugins/<name>/` is a self-contained unit (manifest + `index.js`). This is the
+fast lookup: **which plugin owns a given verb or mechanic, and how it hooks into the engine.** For the
+manifest schema and README convention, see [plugin-standard.md](plugin-standard.md). For the load
+mechanism, see `server/engine/plugins.js`.
+
+## ⚠️ Command precedence — plugins win over engine builtins
+
+This is the single most important thing to know before editing any player command. The dispatch order
+in `server/engine/commands/index.js` (`handleCommand`) is:
+
+1. SIFT selection-state intercept
+2. **`fireCommand(cmd, …)` — plugin-registered commands** ← runs first
+3. `fireSpecializedAction(cmd, …)` — tag-gated specialized actions (also plugins)
+4. `use` cosmetic-machine pre-intercept
+5. **`builtins.get(cmd)` — engine handlers** in `server/engine/commands/*.js` ← runs last
+
+So if a plugin registers a verb (e.g. `sit`), the matching handler in `server/engine/commands/*.js`
+is **dead code** — it never executes. A verb can have an engine handler *and* a plugin handler; the
+plugin always wins. When a command "doesn't behave like the engine code says," check the plugin
+registry **first**. (This exact trap caused the posture/HP-regen bug — see
+[systems-posture.md](systems-posture.md).)
+
+To list what's actually registered at runtime: `getRegisteredCommands()` in `plugins.js`.
+
+## Plugin catalogue
+
+| Plugin | Owns | Player verbs | Engine surface |
+|---|---|---|---|
+| **interactions** | Posture (sit/stand/lie/kneel), emotes, social actions, furniture interaction, `examine surroundings` | `sit stand lie kneel stretch wave shrug point smile frown laugh cry sigh nod shake dance pace greet follow reflect examine lean` | Sets `player.posture` + `player.sittingOn` via `setLivePlayer`. Engine reacts (HP regen, stand-on-attack/move) — see [systems-posture.md](systems-posture.md) |
+| **crafting** | Recipe display & item crafting | `craft recipes` | — |
+| **factions** | Faction reputation display | `factions rep` | — |
+| **mutations** | Radiation-triggered mutations | `mutations` | tick check |
+| **quests** | Quest lifecycle + objective tracking | `quests quest ql` | Actions + event consumers; owns `quests`, `player_quests` tables |
+| **dev-tools** | Admin/dev utilities | `.dresscyd` | admin-only |
+| **container** | OPEN on containers | — | specialized action (tag-gated) |
+| **doors** | OPEN/CLOSE/LOCK/UNLOCK | — | specialized actions (tag-gated) |
+| **drugs** | USE/INJECT | — | specialized actions (tag-gated) |
+| **food** | EAT | — | specialized action (tag-gated) |
+| **lighting** | SWITCH/FLIP/TURN on switchable lights | — | specialized actions (tag-gated) |
+| **weapon** | ATTACK (player path) | — | specialized action (tag-gated) |
+| **clothing-wetness** | Per-item wetness from rain/snow, body-temp effect | — | tick + hook |
+| **visibility** | Ambient light/visibility text in room descriptions | — | hook `zone.describeRoom` |
+| **weather** | Seeded 7-day forecast; owns `weather_forecast` table | — | tick |
+| **zone-validator** | Zone exit-connectivity integrity checks | — | startup/validation |
+
+A plugin with no player verbs and no specialized actions integrates purely through **hooks**
+(request/response into engine flows) or **ticks** (scheduler cadences).
+
+## When a system spans engine and plugin
+
+Some mechanics are split: a plugin owns the **state** (what the player typed sets it) and the engine
+owns the **reactions** (loops, combat, movement that read it). Posture is the canonical example. When
+that happens, the plugin and engine **must agree on the field name and shape** — a mismatch makes one
+half silently dead. Document the contract in the relevant `docs/systems-*.md` and run the
+[source-of-truth audit](audits/source-of-truth-audit.md) when in doubt.

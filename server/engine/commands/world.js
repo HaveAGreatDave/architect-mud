@@ -174,7 +174,7 @@ async function describePlayerAppearance(target, isSelf, viewer = null, broadcast
   const DEFAULT_ORIGIN = 'A survivor. Still standing, somehow.';
   let msg = `${origin || DEFAULT_ORIGIN}\n`;
   if (physLine) msg += `${physLine}\n`;
-  if (target.sitting) {
+  if (target.posture === 'sitting') {
     const where = target.sittingOn ? `the ${target.sittingOn}` : 'the ground';
     msg += `${isSelf ? 'You are' : `${handle} is`} sitting on ${where}.\n`;
   }
