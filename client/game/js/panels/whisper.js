@@ -606,15 +606,9 @@ async function _fetchOnlinePlayers() {
 function _checkWhisperScroll() {
 	const log = document.getElementById("whisper-log");
 	const pill = document.getElementById("whisper-new-msgs");
-	const scrollBtn = document.getElementById("whisper-scroll-bottom");
 	if (!log || !pill) return;
 	const nearBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 60;
 	if (nearBottom) pill.style.display = "none";
-	if (scrollBtn)
-		scrollBtn.style.display =
-			_activeWhisperTab && _activeWhisperTab !== USERS_TAB && !nearBottom
-				? "block"
-				: "none";
 }
 
 function whisperScrollToBottom() {

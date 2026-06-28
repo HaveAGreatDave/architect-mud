@@ -643,6 +643,77 @@ export const SCHEMA_SQL = `
   ALTER TABLE players ADD COLUMN IF NOT EXISTS mob_kills INTEGER DEFAULT 0;
   ALTER TABLE players ADD COLUMN IF NOT EXISTS player_kills INTEGER DEFAULT 0;
   ALTER TABLE players ADD COLUMN IF NOT EXISTS deaths INTEGER DEFAULT 0;
+
+  -- ── Broadcast system ────────────────────────────────────────────────────────
+  -- Reusable media content assets (scripted shows, recorded footage, news templates).
+  -- playback_mode: scripted | dynamic_news | live_camera | recorded
+  -- messages: [{ text: '...' }, ...] — delivered sequentially at message_interval.
+  -- override_duration: if set, supersedes (message_count × message_interval).
+  CREATE TABLE IF NOT EXISTS media_broadcasts (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT DEFAULT '',
+    category TEXT DEFAULT 'general',
+    tags JSONB DEFAULT '[]',
+    playback_mode TEXT DEFAULT 'scripted',
+    messages JSONB DEFAULT '[]',
+    message_interval REAL DEFAULT 5,
+    override_duration REAL,
+    loop INTEGER DEFAULT 0,
+    enabled INTEGER DEFAULT 1,
+    created_by TEXT,
+    updated_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
+  );
+
+  -- Broadcast channels (TV/radio stations). Devices tune to a channel number.
+  -- channel_type: playlist | news | mixed | live | emergency
+  -- idle_broadcast_id: played when no playlist item covers the current time.
+  -- news_categories: JSONB array of category strings the channel covers.
+  CREATE TABLE IF NOT EXISTS media_channels (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    number INTEGER UNIQUE,
+    description TEXT DEFAULT '',
+    enabled INTEGER DEFAULT 1,
+    loop_playlist INTEGER DEFAULT 1,
+    priority INTEGER DEFAULT 0,
+    channel_type TEXT DEFAULT 'playlist',
+    idle_broadcast_id TEXT REFERENCES media_broadcasts(id),
+    news_categories JSONB DEFAULT '[]',
+    updated_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
+  );
+
+  -- Playlist timeline items. start_time is seconds from the start of the loop.
+  -- duration_override replaces the broadcast's calculated duration for this slot.
+  CREATE TABLE IF NOT EXISTS media_channel_playlist (
+    id TEXT PRIMARY KEY,
+    channel_id TEXT NOT NULL REFERENCES media_channels(id) ON DELETE CASCADE,
+    broadcast_id TEXT NOT NULL REFERENCES media_broadcasts(id) ON DELETE CASCADE,
+    start_time INTEGER NOT NULL DEFAULT 0,
+    duration_override REAL,
+    priority INTEGER DEFAULT 0,
+    conditions JSONB DEFAULT '[]'
+  );
+
+  -- Camera placement and state. Cameras are independent of channels; channels
+  -- reference cameras for live/recorded feeds.
+  -- recording_buffer: [{ ts, text }, ...] capped at storage_limit entries.
+  CREATE TABLE IF NOT EXISTS media_cameras (
+    id TEXT PRIMARY KEY,
+    zone_id TEXT REFERENCES zones(id),
+    direction TEXT DEFAULT 'north',
+    is_powered INTEGER DEFAULT 1,
+    is_recording INTEGER DEFAULT 0,
+    is_streaming INTEGER DEFAULT 0,
+    streaming_channel_id TEXT REFERENCES media_channels(id),
+    recording_buffer JSONB DEFAULT '[]',
+    storage_limit INTEGER DEFAULT 200,
+    permissions TEXT DEFAULT 'public',
+    flags JSONB DEFAULT '{}'
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_media_playlist_channel ON media_channel_playlist(channel_id, start_time);
+  CREATE INDEX IF NOT EXISTS idx_media_cameras_zone ON media_cameras(zone_id);
 `;
 
 export async function applySchema() {
