@@ -400,6 +400,8 @@ async function cmdCloseContainer(idStr, player, broadcast) {
   if (!container) return null;
   const name = container.name;
   if (container.kind === 'furniture' && container.isTrash) {
+    // Cascade: delete contents of any containers inside the trash bin before deleting the containers themselves
+    await query('DELETE FROM player_inventory WHERE container_id IN (SELECT id FROM player_inventory WHERE container_id=$1)', [container.id]);
     await query('DELETE FROM player_inventory WHERE container_id=$1', [container.id]);
     broadcast?.(player.current_zone, { type: 'zone_event', message: `The ${name.toLowerCase()} grinds and swallows its contents with a wet CRUNCH.` });
     return { type: 'action', message: `You slam the ${name.toLowerCase()} shut. It grinds its contents into slurry — gone for good.` };
@@ -447,7 +449,10 @@ async function cmdStowById(argStr, player, broadcast) {
     return view;
   }
   if (item.id === container.id) return { type:'container_error', message:`Can't put ${container.name} inside itself.` };
-  if (hasTag(item, 'container')) return { type:'container_error', message:`Can't stow a container inside another container.` };
+  if (hasTag(item, 'container') && !container.isTrash) {
+    const { rows: innerItems } = await query('SELECT 1 FROM player_inventory WHERE container_id=$1 LIMIT 1', [item.id]);
+    if (innerItems.length) return { type:'container_error', message:`Empty the ${item.name} first.` };
+  }
 
   // Partial stow: only move the requested qty when less than the full stack
   const reqQty = qtyStr && /^\d+$/.test(qtyStr) ? parseInt(qtyStr, 10) : null;
@@ -575,6 +580,7 @@ async function cmdStow(argStr, player) {
     if (trashRows.length) {
       const { rows: itemRows } = await query(`SELECT pi.*,i.name FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND i.name ILIKE $2 AND NOT jsonb_exists(i.tags,'quest_item') LIMIT 1`, [player.id, `%${itemPart}%`]);
       if (!itemRows.length) return { type:'error', message:`You don't have "${itemPart}".` };
+      await query('DELETE FROM player_inventory WHERE container_id=$1', [itemRows[0].id]);
       await query('DELETE FROM player_inventory WHERE id=$1', [itemRows[0].id]);
       return { type:'stow', message:`You throw ${itemRows[0].name} in the ${trashRows[0].name}. It's gone.` };
     }
@@ -588,7 +594,10 @@ async function cmdStow(argStr, player) {
   if (!rows.length) return { type:'error', message:`You don't have "${itemPart}" to stow.` };
   const item = rows[0];
   if (item.id === container.id) return { type:'error', message:`You can't put ${container.name} inside itself.` };
-  if (hasTag(item, 'container')) return { type:'error', message:`You can't stow a container inside another container.` };
+  if (hasTag(item, 'container')) {
+    const { rows: innerItems } = await query('SELECT 1 FROM player_inventory WHERE container_id=$1 LIMIT 1', [item.id]);
+    if (innerItems.length) return { type:'error', message:`Empty the ${item.name} first.` };
+  }
 
   const cap = tagValue(container, 'container', 0);
   const used = await containerContentsWeight(container.id);
