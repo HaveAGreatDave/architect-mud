@@ -366,7 +366,9 @@ async function cmdExamine(targetStr, player, broadcast) {
   if (sleepers.length) {
     const s = sleepers[0];
     const app = await describePlayerAppearance(s, false, player, broadcast);
-    return { type:'examine', message: app + `\n<span class="text-dim">(${s.handle} is asleep.)</span>` };
+    const lootLink = `<span class="action-link" data-action="loot" data-target="${s.handle}" title="Loot ${s.handle}">loot</span>`;
+    const attackLink = `<span class="action-link" data-action="attack" data-target="${s.handle}" title="Attack ${s.handle}">attack</span>`;
+    return { type:'examine', message: app + `\n<span class="text-dim">(${s.handle} is asleep.)</span>\n<span class="text-dim">Actions:</span> ${lootLink}  ${attackLink}` };
   }
 
   // Door examination: "examine door", "examine north", "examine door north", "examine north door"
