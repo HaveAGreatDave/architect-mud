@@ -59,7 +59,7 @@ function _restoreOrCreate(handle) {
       return { messages, scrollTop: 999999, unread: 0 };
     }
   } catch {}
-  return { messages: [], scrollTop: 0, unread: 0 };
+  return { messages: [], scrollTop: 999999, unread: 0 };
 }
 
 function _loadConvos() {
@@ -78,7 +78,7 @@ function _loadConvos() {
 export function initChannels(channelList) {
   for (const ch of (channelList || [])) {
     _channels.set(ch.id, ch);
-    if (!_whisperConvos.has(ch.id)) _whisperConvos.set(ch.id, { messages: [], scrollTop: 0, unread: 0 });
+    if (!_whisperConvos.has(ch.id)) _whisperConvos.set(ch.id, { messages: [], scrollTop: 999999, unread: 0 });
   }
 }
 
@@ -530,7 +530,7 @@ export function receiveWhisper(from, message) {
 // Replay stored channel history on login. history: { channelId: [{from, message, ts}, ...] }
 export function initChannelHistory(history) {
   for (const [channelId, messages] of Object.entries(history || {})) {
-    if (!_whisperConvos.has(channelId)) _whisperConvos.set(channelId, { messages: [], scrollTop: 0, unread: 0 });
+    if (!_whisperConvos.has(channelId)) _whisperConvos.set(channelId, { messages: [], scrollTop: 999999, unread: 0 });
     const convo = _whisperConvos.get(channelId);
     convo.messages = (messages || []).slice(-WHISPER_MAX_MSGS).map(m => ({
       from: m.from, message: m.message, isMe: false, ts: m.ts,
@@ -540,7 +540,7 @@ export function initChannelHistory(history) {
 }
 
 export function receiveChannelMsg(channelId, from, message) {
-  if (!_whisperConvos.has(channelId)) _whisperConvos.set(channelId, { messages: [], scrollTop: 0, unread: 0 });
+  if (!_whisperConvos.has(channelId)) _whisperConvos.set(channelId, { messages: [], scrollTop: 999999, unread: 0 });
   const convo = _whisperConvos.get(channelId);
   convo.messages.push({ from, message, isMe: false, ts: Date.now() });
   if (convo.messages.length > WHISPER_MAX_MSGS) convo.messages.shift();
@@ -622,11 +622,15 @@ function sendWhisperReply() {
     if (_isSystemOnly(_activeWhisperTab)) return;
     sendCmdSilent(`whisper ${_activeWhisperTab} ${expanded}`);
     if (input) input.value = '';
+    const log = document.getElementById('whisper-log');
+    if (log) log.scrollTop = log.scrollHeight;
     return;
   }
 
   sendCmdSilent(`whisper ${_activeWhisperTab} ${expanded}`);
   if (input) input.value = '';
+  const log = document.getElementById('whisper-log');
+  if (log) log.scrollTop = log.scrollHeight;
 }
 
 export function debugFakeWhisper() {
