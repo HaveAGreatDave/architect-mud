@@ -84,6 +84,7 @@ class VineEditor {
     this._toolbar.appendChild(mkBtn('+', 'Zoom in (Ctrl+=)', () => this._adjustZoom(0.15)));
     this._toolbar.appendChild(mkBtn('↩', 'Undo (Ctrl+Z)', () => { if (this._history.undo()) this._renderAll(); }));
     this._toolbar.appendChild(mkBtn('↪', 'Redo (Ctrl+Y)', () => { if (this._history.redo()) this._renderAll(); }));
+    this._toolbar.appendChild(mkBtn('⟳ Auto-layout', 'Arrange nodes left-to-right, minimise crossings', () => this._autoLayout()));
 
     this._hideWiresBtn = mkBtn('Hide Wires', 'Toggle connection visibility', () => {
       this._edgesHidden = !this._edgesHidden;
@@ -274,6 +275,115 @@ class VineEditor {
 
   _removeNodeDOM(id) {
     this._canvas.querySelector(`[data-vine-id="${id}"]`)?.remove();
+  }
+
+  // ── Auto-layout (Sugiyama-lite) ────────────────────────────────────────────
+
+  _autoLayout() {
+    const nodes = this.graph.nodes;
+    const edges = this.graph.edges;
+    const ids = Object.keys(nodes);
+    if (!ids.length) return;
+
+    // Snapshot positions for undo.
+    const before = {};
+    for (const id of ids) before[id] = { x: nodes[id].x, y: nodes[id].y };
+
+    // ── 1. Detect back edges (cycles) via DFS so they don't distort layering.
+    const visited = new Set();
+    const onStack = new Set();
+    const backEdges = new Set();
+    const dfs = (id) => {
+      visited.add(id); onStack.add(id);
+      for (const e of edges) {
+        if (e.fromNode !== id) continue;
+        if (onStack.has(e.toNode)) { backEdges.add(e); continue; }
+        if (!visited.has(e.toNode)) dfs(e.toNode);
+      }
+      onStack.delete(id);
+    };
+    for (const id of ids) { if (!visited.has(id)) dfs(id); }
+
+    // ── 2. Longest-path layer assignment (gives inputs-left, outputs-right).
+    const layer = {};
+    const inDeg = {};
+    const fwdOut = {}; // forward adjacency only
+    for (const id of ids) { inDeg[id] = 0; fwdOut[id] = []; }
+    for (const e of edges) {
+      if (!backEdges.has(e) && ids.includes(e.fromNode) && ids.includes(e.toNode)) {
+        fwdOut[e.fromNode].push(e.toNode);
+        inDeg[e.toNode]++;
+      }
+    }
+
+    // Kahn's topological BFS, tracking longest path to each node.
+    const queue = ids.filter(id => inDeg[id] === 0);
+    for (const id of queue) layer[id] = 0;
+    const q = [...queue];
+    while (q.length) {
+      const id = q.shift();
+      for (const to of fwdOut[id]) {
+        layer[to] = Math.max(layer[to] ?? 0, layer[id] + 1);
+        if (--inDeg[to] === 0) q.push(to);
+      }
+    }
+    // Anything left unassigned (pure cycle, no source) gets layer 0.
+    for (const id of ids) { if (layer[id] == null) layer[id] = 0; }
+
+    // ── 3. Group nodes into columns.
+    const maxLayer = Math.max(...ids.map(id => layer[id]));
+    const cols = Array.from({ length: maxLayer + 1 }, () => []);
+    for (const id of ids) cols[layer[id]].push(id);
+
+    // ── 4. Barycenter cross-minimisation (3 forward + 3 backward sweeps).
+    // rank[id] = fractional position within its column (for barycenter calc).
+    const rank = {};
+    for (const col of cols) col.forEach((id, i) => rank[id] = i);
+
+    const barycenter = (id, srcLayer) => {
+      const preds = edges
+        .filter(e => !backEdges.has(e) && e.toNode === id && layer[e.fromNode] === srcLayer)
+        .map(e => rank[e.fromNode]);
+      const succs = edges
+        .filter(e => !backEdges.has(e) && e.fromNode === id && layer[e.toNode] === srcLayer)
+        .map(e => rank[e.toNode]);
+      const all = [...preds, ...succs];
+      return all.length ? all.reduce((a, b) => a + b, 0) / all.length : rank[id];
+    };
+
+    for (let pass = 0; pass < 3; pass++) {
+      // Forward sweep
+      for (let l = 1; l <= maxLayer; l++) {
+        cols[l].sort((a, b) => barycenter(a, l - 1) - barycenter(b, l - 1));
+        cols[l].forEach((id, i) => rank[id] = i);
+      }
+      // Backward sweep
+      for (let l = maxLayer - 1; l >= 0; l--) {
+        cols[l].sort((a, b) => barycenter(a, l + 1) - barycenter(b, l + 1));
+        cols[l].forEach((id, i) => rank[id] = i);
+      }
+    }
+
+    // ── 5. Assign pixel positions.
+    const COL_W = 320, ROW_H = 180, OX = 40, OY = 60;
+    for (const id of ids) {
+      nodes[id].x = layer[id] * COL_W + OX;
+      nodes[id].y = rank[id]  * ROW_H + OY;
+    }
+
+    this._renderAll();
+    requestAnimationFrame(() => this._renderEdges());
+    this._fire('change');
+
+    // Push undo record after render so positions are stable.
+    const after = {};
+    for (const id of ids) after[id] = { x: nodes[id].x, y: nodes[id].y };
+    this._history.push({
+      undo: () => {
+        for (const id of ids) { if (nodes[id]) { nodes[id].x = before[id].x; nodes[id].y = before[id].y; } }
+        this._renderAll(); requestAnimationFrame(() => this._renderEdges());
+      },
+    });
   }
 
   // ── Rendering ──────────────────────────────────────────────────────────────
