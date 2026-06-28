@@ -3,20 +3,26 @@
  * climax events, and shared helpers for MIS commands.
  *
  * Gated: server setting mis_enabled='true' AND player.mis_enabled=1.
- * Players opt in via the hidden debug code in client settings (MISON64).
+ * Players opt in via the hidden Maturity Slider in client settings.
  */
 import { query } from '../models/db.js';
-let serverMisEnabled = false// default open; DB overrides at load
+let serverMisEnabled = false; // default; DB overrides at load
 
 export async function loadMisSettings() {
   const { rows } = await query(`SELECT value FROM server_settings WHERE key='mis_enabled'`);
-  serverMisEnabled = rows.length ? rows[0].value === 'true' : true;
+  serverMisEnabled = rows.length ? rows[0].value === 'true' : false;
 }
 
 export function isMisServerEnabled() { return serverMisEnabled; }
 
+export async function setServerMisEnabled(enabled) {
+  serverMisEnabled = !!enabled;
+  const val = serverMisEnabled ? 'true' : 'false';
+  await query(`INSERT INTO server_settings (key,value) VALUES ('mis_enabled',$1) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value`, [val]);
+}
+
 export function isMisActive(player) {
-  return player.mis_enabled === 1 || player.mis_enabled === true;
+  return serverMisEnabled && (player.mis_enabled === 1 || player.mis_enabled === true);
 }
 
 // Returns true if `viewer` is attracted to the biological sex of `target`.
@@ -31,13 +37,15 @@ export function isAttractedTo(viewer, target) {
   return false;
 }
 
-// Ongoing event intervals (masturbation, fucking) keyed by player ID
-const MIS_EVENTS = new Map();
+// Ongoing event intervals (masturbation, fucking, etc.) keyed by player ID
+const MIS_EVENTS = new Map();   // playerId → intervalId
+const MIS_EVENT_META = new Map(); // playerId → { action, target }
 
-export function startMisEvent(playerId, intervalFn, intervalMs = 8000) {
+export function startMisEvent(playerId, intervalFn, intervalMs = 8000, meta = {}) {
   stopMisEvent(playerId);
   const id = setInterval(intervalFn, intervalMs);
   MIS_EVENTS.set(playerId, id);
+  MIS_EVENT_META.set(playerId, meta);
 }
 
 export function stopMisEvent(playerId) {
@@ -46,11 +54,19 @@ export function stopMisEvent(playerId) {
     clearInterval(id);
     MIS_EVENTS.delete(playerId);
   }
+  const meta = MIS_EVENT_META.get(playerId);
+  MIS_EVENT_META.delete(playerId);
+  return meta || null;
 }
 
 export function hasMisEvent(playerId) {
   return MIS_EVENTS.has(playerId);
 }
+
+export function getMisEventMeta(playerId) {
+  return MIS_EVENT_META.get(playerId) || null;
+}
+
 
 // Increase horniness and handle thresholds.
 // Returns an array of messages to send privately to the player.
@@ -174,7 +190,8 @@ export function breastVisibilityNote(player, torsoLayerCount, outermostBulkiness
 
   const data = player.appearance_data || {};
   const size = data.breast_size || 'medium';
-  const hard = (player.horniness || 0) >= 65 || (tempC !== undefined && tempC < 10);
+  // Horniness >30 overrides temperature for nipple hardness
+  const hard = (player.horniness || 0) > 30 || (tempC !== undefined && tempC < 10);
 
   if (torsoLayerCount === 0) {
     // Naked chest — nipple state only (breasts described by describeGenitals)

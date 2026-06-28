@@ -88,16 +88,36 @@ const STAIN_DESCS = {
   },
   feces: {
     self: [
-      (item) => `Your ${item} is stained in a way that represents a genuine low point.`,
-      (item) => `Your ${item} has been through something. Something biological. Something final.`,
-      (item) => `There's a stain on your ${item} that no amount of eye contact will make the other person ignore.`,
-      (item) => `Your ${item} has been compromised. The word "compromised" is doing a lot of work here.`,
+      (item) => `Your ${item} is shit stained. A genuine low point in your personal history.`,
+      (item) => `Your ${item} is shit stained. Something biological. Something final. Something yours.`,
+      (item) => `There's a shit stain on your ${item} that no amount of eye contact will make the other person ignore.`,
+      (item) => `Your ${item} is shit stained. The word "compromised" is doing a lot of work here.`,
     ],
     other: [
-      (item) => `Their ${item} is stained in a way you weren't prepared for. Nobody warned you.`,
-      (item) => `Something has happened to their ${item}. Something that can't be taken back.`,
-      (item) => `Their ${item} carries the evidence of a catastrophic personal incident. You maintain eye contact.`,
-      (item) => `There is a stain on their ${item} that recontextualizes everything about this encounter.`,
+      (item) => `Their ${item} is shit stained. You weren't prepared for this. Nobody warned you.`,
+      (item) => `Their ${item} is shit stained. Something that can't be taken back.`,
+      (item) => `Their ${item} is shit stained. You maintain eye contact. You say nothing.`,
+      (item) => `There is a shit stain on their ${item} that recontextualizes everything about this encounter.`,
+    ],
+  },
+  ejaculate: {
+    self: [
+      (item) => `Your ${item} has a sticky white stain on it. You know what it is.`,
+      (item) => `There's dried white fluid on your ${item}. Unmistakably sticky.`,
+    ],
+    other: [
+      (item) => `Their ${item} has a sticky white stain on it. You don't comment on it.`,
+      (item) => `There's visible dried white fluid on their ${item}. You note it and move on.`,
+    ],
+  },
+  dirt: {
+    self: [
+      (item) => `Your ${item} is dirt stained. You've been somewhere the ground didn't care about you.`,
+      (item) => `Your ${item} is filthy — dirt stained from wherever you've been crawling.`,
+    ],
+    other: [
+      (item) => `Their ${item} is dirt stained. They've been somewhere unpleasant recently.`,
+      (item) => `Dirt is ground into their ${item}. The ground won this round.`,
     ],
   },
 };
@@ -186,9 +206,11 @@ async function describePlayerAppearance(target, isSelf, viewer = null, broadcast
       const ejacNote = ejaculateDescription(target, isSelf, new Set());
       if (ejacNote) msg += `\n${ejacNote}`;
       if (target.biological_sex === 'female') {
-        const hard = (target.horniness || 0) >= 65 || (envState.tempC !== undefined && envState.tempC < 10);
-        const pool = hard ? NIPPLE_HARD : NIPPLE_SOFT;
-        msg += `\n${pool[Math.floor(Math.random() * pool.length)]}`;
+        const hard = (target.horniness || 0) > 30 || (envState.tempC !== undefined && envState.tempC < 10);
+        const nipplePool = hard
+          ? (isSelf ? NIPPLE_HARD.map(s => s.replace(/^Her /i, 'Your ')) : NIPPLE_HARD)
+          : (isSelf ? NIPPLE_SOFT.map(s => s.replace(/^Her /i, 'Your ')) : NIPPLE_SOFT);
+        msg += `\n${nipplePool[Math.floor(Math.random() * nipplePool.length)]}`;
       }
     }
 
@@ -249,11 +271,29 @@ async function describePlayerAppearance(target, isSelf, viewer = null, broadcast
     const outermostBulkiness = torsoItem?.tags?.bulkiness || 0;
     const outermostLayerMax = torsoItem?.tags?.allowed_layer_range?.max ?? 99;
     const breastNote = breastVisibilityNote(target, torsoLayerCount, outermostBulkiness, outermostLayerMax, torsoItem?.name, envState.tempC);
-    if (breastNote) msg += `\n${breastNote}`;
+    if (breastNote) {
+      const breastNoteFixed = isSelf ? breastNote.replace(/\bHer\b/g, 'Your').replace(/\bher\b/g, 'your') : breastNote;
+      msg += `\n${breastNoteFixed}`;
+    }
+
+    // Show genitals/ass when legs are naked (no leg layer)
+    if (legsLayerCount === 0) {
+      const genitalDesc = describeGenitals(target, isSelf);
+      if (genitalDesc) msg += `\n${genitalDesc}`;
+    }
+
+    // Show nipple state for females when torso is naked
+    if (target.biological_sex === 'female' && torsoLayerCount === 0) {
+      const hard = (target.horniness || 0) > 30 || (envState.tempC !== undefined && envState.tempC < 10);
+      const nipplePool = hard
+        ? (isSelf ? NIPPLE_HARD.map(s => s.replace(/^Her /i, 'Your ')) : NIPPLE_HARD)
+        : (isSelf ? NIPPLE_SOFT.map(s => s.replace(/^Her /i, 'Your ')) : NIPPLE_SOFT);
+      msg += `\n${nipplePool[Math.floor(Math.random() * nipplePool.length)]}`;
+    }
 
     // Arousal on examine: visible erection or nipples on attracted viewer
     if (!isSelf && viewer && isMisActive(viewer) && isAttractedTo(viewer, target) && broadcast) {
-      const visibleSex = erectNote || breastNote;
+      const visibleSex = erectNote || breastNote || (legsLayerCount === 0 ? describeGenitals(target, false) : null);
       if (visibleSex) {
         const arouseMsgs = await addHorniness(viewer, 5, broadcast);
         if (arouseMsgs.length) broadcast(null, { type:'resource_tick', messages: arouseMsgs, player_update: { horniness: viewer.horniness } }, null, viewer.id);
@@ -597,31 +637,6 @@ async function cmdRaise(args, player) {
   return { type: 'raise', message: msg, player_update: { [result.col]: result.to, ip: result.ip_remaining } };
 }
 
-async function cmdOpen(args, player) {
-  // Furniture containers (e.g. the trash bin) are handled by the container
-  // plugin's tag-gated `open` action, which runs before this built-in. What
-  // reaches here is the window case.
-  return cmdOpenWindow(args, player, 'open');
-}
-
-async function cmdOpenWindow(args, player, action) {
-  // args: [handle, 'curtains'?] or [handle]
-  if (!args.length) return { type:'error', message:`${action} what? Try: ${action} <window handle>` };
-  const handle = args[0];
-  const curtainsOnly = args[1] === 'curtains';
-  const { rows } = await query('SELECT * FROM windows WHERE zone_interior=$1 AND (handle=$2 OR id=$2)', [player.current_zone, handle]);
-  if (!rows.length) return { type:'error', message:`You don't see a window called "${handle}" here.` };
-  const win = rows[0];
-  if (action === 'open') {
-    if (win.curtain_open && !curtainsOnly) return { type:'message', message:`The curtains on ${win.name} are already open.` };
-    await query('UPDATE windows SET curtain_open=1 WHERE id=$1', [win.id]);
-    return { type:'message', message:`You open the curtains on ${win.name}.` };
-  } else {
-    if (!win.curtain_open && !curtainsOnly) return { type:'message', message:`The curtains on ${win.name} are already closed.` };
-    await query('UPDATE windows SET curtain_open=0 WHERE id=$1', [win.id]);
-    return { type:'message', message:`You draw the curtains on ${win.name}.` };
-  }
-}
 
 export const handlers = {
   examine:  (args, raw, player, broadcast) => cmdExamine(args.join(' '), player, broadcast),
@@ -635,8 +650,6 @@ export const handlers = {
   '?':      (args, raw, player) => cmdHelp(player),
   teleport: (args, raw, player, broadcast) => cmdTeleport(args.join(' '), player, broadcast),
   tp:       (args, raw, player, broadcast) => cmdTeleport(args.join(' '), player, broadcast),
-  open:     (args, raw, player) => cmdOpen(args, player),
-  close:    (args, raw, player) => cmdOpenWindow(args, player, 'close'),
   raise:    (args, raw, player) => cmdRaise(args, player),
   ip:       (args, raw, player) => cmdRaise([], player),
   spawn:    (args, raw, player) => cmdSpawn(args, player),

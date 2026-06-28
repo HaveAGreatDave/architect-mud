@@ -64,8 +64,8 @@ export function randomAppearance(sex) {
   const appearance_data = isMale
     ? {
         penis_length_cm: genLength(),
-        penis_girth_cm: Math.round(randInRange(10, 14) * 10) / 10,
-        testicle_size: pick(['average', 'average', 'large', 'small']),
+        testicle_size: pick(['small', 'average', 'average', 'large', 'very large']),
+        ass_size: pick(['flat', 'small', 'average', 'round', 'large']),
         ejaculate_state: null,
       }
     : {
