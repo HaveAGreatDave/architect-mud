@@ -18,6 +18,7 @@ async function devLogin() {
   startWorldStatePolling();
   updateStagingBadge();
   showPlayButton();
+  initWhisperPanel();
 }
 
 function devpanelLogout() {

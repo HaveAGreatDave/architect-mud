@@ -22,6 +22,25 @@ import { startingIp } from '../engine/ip.js';
 import { materializeItemTags, ownTags, superKeys } from '../engine/supertags.js';
 import { getMotd, saveMotd } from '../engine/motd.js';
 import { isMisServerEnabled, setServerMisEnabled } from '../engine/mis.js';
+import { canAccessChannel, broadcastToChannel, getChannelMessagesSince } from '../engine/channels.js';
+
+// Devpanel admin presence: playerId → { handle, role, ts }
+const devPresence = new Map();
+const DEV_PRESENCE_TTL = 5 * 60 * 1000; // 5 minutes
+
+export function updateDevPresence(playerId, handle, role) {
+  devPresence.set(playerId, { handle, role, ts: Date.now() });
+}
+
+function getActiveDevAdmins() {
+  const now = Date.now();
+  const active = [];
+  for (const [id, entry] of devPresence) {
+    if (now - entry.ts < DEV_PRESENCE_TTL) active.push({ id, handle: entry.handle, role: entry.role });
+    else devPresence.delete(id);
+  }
+  return active;
+}
 
 const hashPassword = pw => createHash('sha256').update(pw).digest('hex');
 const makeToken = (playerId, role) => Buffer.from(`${playerId}:${role}:${Date.now()}`).toString('base64');
@@ -192,7 +211,37 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path==='/server-activity-log' && method==='GET') return requireDev(auth, apiGetActivityLog);
   if (path==='/world/state' && method==='GET') return requireDev(auth, apiWorldState);
   if (path==='/world/reload' && method==='POST') return requireDev(auth, ()=>apiReloadZone(body));
-  if (path==='/players/online' && method==='GET') return { status:200, body: getAllLivePlayers().map(p=>({ id: p.id, handle: p.handle, role: p.role, current_zone: p.current_zone })) };
+  if (path==='/players/online' && method==='GET') {
+    const live = getAllLivePlayers().map(p => ({ id: p.id, handle: p.handle, role: p.role, current_zone: p.current_zone }));
+    const liveIds = new Set(live.map(p => p.id));
+    const devAdmins = getActiveDevAdmins().filter(a => !liveIds.has(a.id)).map(a => ({ id: a.id, handle: a.handle, role: a.role, current_zone: null }));
+    return { status: 200, body: [...live, ...devAdmins] };
+  }
+  if (path==='/admin/presence' && method==='POST') {
+    if (!auth) return { status:401, body:{error:'Unauthorized'} };
+    const { handle } = body || {};
+    if (handle) updateDevPresence(auth.playerId, handle, auth.role);
+    return { status:200, body:{ok:true} };
+  }
+  if (path==='/channels/messages' && method==='GET') {
+    if (!auth || !['admin','dev','builder','designer'].includes(auth.role)) return { status:403, body:{error:'Forbidden'} };
+    const params = new URLSearchParams(url.replace(/^[^?]*\??/,''));
+    const since = parseFloat(params.get('since') || '0') / 1000;
+    const fakePlayer = { role: auth.role };
+    const msgs = await getChannelMessagesSince(fakePlayer, since);
+    return { status:200, body: msgs };
+  }
+  if (path.startsWith('/channels/') && path.endsWith('/message') && method==='POST') {
+    if (!auth || !['admin','dev','builder','designer'].includes(auth.role)) return { status:403, body:{error:'Forbidden'} };
+    const channelId = '#' + path.split('/')[2].replace(/^#/,'');
+    const { message, handle } = body || {};
+    if (!message || !handle) return { status:400, body:{error:'Missing message or handle'} };
+    const fakePlayer = { role: auth.role };
+    if (!canAccessChannel(channelId, fakePlayer)) return { status:403, body:{error:'No access to channel'} };
+    if (!broadcastFn) return { status:503, body:{error:'Server not ready'} };
+    broadcastToChannel(channelId, { type:'channel_msg', channel: channelId, from: handle, message }, broadcastFn);
+    return { status:200, body:{ok:true} };
+  }
   if (path==='/players/me/profile' && method==='PUT') return apiUpdateOwnProfile(auth, body);
   if (path==='/players' && method==='GET') return requireAdmin(auth, apiGetPlayers);
   if (path.startsWith('/players/') && method==='PUT' && !path.endsWith('/role') && !path.endsWith('/kick') && !path.endsWith('/teleport')) return requireAdmin(auth, ()=>apiUpdatePlayer(path.split('/')[2], body));

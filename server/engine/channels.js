@@ -8,7 +8,7 @@ const ADMIN_ROLES = new Set(['admin', 'dev', 'builder', 'designer']);
 
 // Channel definitions. Each entry has: id, permanent, systemOnly, isMember(player) -> bool.
 // systemOnly: true means players cannot send to this channel; only the server can.
-const CHANNEL_DEFS = {
+export const CHANNEL_DEFS = {
   '#system': {
     id: '#system',
     permanent: true,
@@ -45,6 +45,28 @@ export function broadcastToChannel(channelId, msg, broadcast) {
     storeChannelMessage(def.id, msg.from, msg.message);
   }
   return true;
+}
+
+// Return messages posted after `since` (epoch seconds) for channels the player can access.
+// Shape: { '#arcnet': [{ from, message, ts }, ...] }
+export async function getChannelMessagesSince(player, since) {
+  const channelIds = Object.values(CHANNEL_DEFS)
+    .filter(c => !c.systemOnly && c.isMember(player))
+    .map(c => c.id);
+  if (!channelIds.length) return {};
+  const { rows } = await query(
+    `SELECT channel_id, from_handle, message, created_at
+       FROM channel_messages
+      WHERE channel_id = ANY($1) AND created_at > $2
+      ORDER BY created_at ASC`,
+    [channelIds, Math.floor(since || 0)],
+  );
+  const out = {};
+  for (const id of channelIds) out[id] = [];
+  for (const r of rows) {
+    out[r.channel_id].push({ from: r.from_handle, message: r.message, ts: Number(r.created_at) * 1000 });
+  }
+  return out;
 }
 
 // Insert a message and prune the channel back to HISTORY_LIMIT rows.
