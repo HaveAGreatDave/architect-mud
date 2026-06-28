@@ -428,7 +428,7 @@ function _checkWhisperScroll() {
   const pill = document.getElementById('whisper-new-msgs');
   if (!log || !pill) return;
   const nearBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 60;
-  pill.style.display = nearBottom ? 'none' : 'block';
+  if (nearBottom) pill.style.display = 'none';
 }
 
 function whisperScrollToBottom() {
