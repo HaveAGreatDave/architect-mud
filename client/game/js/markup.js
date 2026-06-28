@@ -1,6 +1,24 @@
 // Custom BBCode-style markup parser for in-game chat.
 // Always HTML-escapes input first, then applies tag substitutions — never trusts raw input.
 
+import { state } from './state.js';
+
+// Variable tokens resolved against reader's client state at render time.
+// All values are treated as plain text (no HTML injection possible).
+const TOKEN_MAP = {
+  $name:    () => state.player?.handle,
+  $hp:      () => state.player?.hp      != null ? Math.round(state.player.hp)      : null,
+  $maxhp:   () => state.player?.hp_max  != null ? Math.round(state.player.hp_max)  : null,
+  $san:     () => state.player?.sanity  != null ? Math.round(state.player.sanity)  : null,
+  $rad:     () => state.player?.radiation != null ? Math.round(state.player.radiation) : null,
+  $temp:    () => state.player?.body_temp_c != null ? state.player.body_temp_c.toFixed(1) + '°C' : null,
+  $credits: () => state.player?.credits != null ? state.player.credits : null,
+  $ip:      () => state.player?.ip      != null ? state.player.ip      : null,
+  $zone:    () => document.getElementById('zone-name-display')?.textContent?.trim() || null,
+};
+
+const TOKEN_PATTERN = /\$(?:name|maxhp|hp|san|rad|temp|credits|ip|zone)\b/gi;
+
 const ALLOWED_COLORS = new Set([
   'red','green','blue','yellow','orange','purple','pink','cyan','white','gray','grey',
   'lime','teal','maroon','navy','olive','silver','aqua','fuchsia','black',
@@ -28,8 +46,15 @@ function _safeColor(raw) {
 //   [item]name[/item]       → yellow (like item names)
 //   [system]text[/system]   → dim gray
 export function parseMarkup(raw) {
-  // Step 1: escape all HTML — nothing from user input can become a tag
-  let s = _esc(raw);
+  // Step 1: expand $tokens before escaping so values are also escaped
+  let s = String(raw).replace(TOKEN_PATTERN, match => {
+    const key = match.toLowerCase();
+    const val = TOKEN_MAP[key]?.();
+    return val != null ? String(val) : match;
+  });
+
+  // Step 2: escape all HTML — nothing from user input can become a tag
+  s = _esc(s);
 
   // Step 2: apply BBCode substitutions on the escaped string
   s = s.replace(/\[b\]([\s\S]*?)\[\/b\]/gi,  '<strong>$1</strong>');

@@ -13,7 +13,16 @@ const MARKUP_HELP = `
   <div><span style="color:var(--yellow);min-width:220px;display:inline-block">[player]Name[/player]</span> <span style="color:var(--purple)">player name style</span></div>
   <div><span style="color:var(--yellow);min-width:220px;display:inline-block">[item]Sword[/item]</span> <span style="color:var(--yellow)">item name style</span></div>
   <div><span style="color:var(--yellow);min-width:220px;display:inline-block">[system]text[/system]</span> <span style="color:var(--text-dim)">system text style</span></div>
-  <div style="color:var(--text-dim);margin-top:4px;font-size:11px">Markup applies in whisper and channel messages only.</div>
+  <div style="color:var(--accent);margin-top:6px;margin-bottom:2px">── Variables (your stats at send time) ──</div>
+  <div><span style="color:var(--yellow);min-width:220px;display:inline-block">$name</span> your handle</div>
+  <div><span style="color:var(--yellow);min-width:220px;display:inline-block">$hp / $maxhp</span> current &amp; max health</div>
+  <div><span style="color:var(--yellow);min-width:220px;display:inline-block">$san</span> sanity</div>
+  <div><span style="color:var(--yellow);min-width:220px;display:inline-block">$rad</span> radiation level</div>
+  <div><span style="color:var(--yellow);min-width:220px;display:inline-block">$temp</span> body temperature</div>
+  <div><span style="color:var(--yellow);min-width:220px;display:inline-block">$credits</span> credits on hand</div>
+  <div><span style="color:var(--yellow);min-width:220px;display:inline-block">$ip</span> improvement points</div>
+  <div><span style="color:var(--yellow);min-width:220px;display:inline-block">$zone</span> current location name</div>
+  <div style="color:var(--text-dim);margin-top:4px;font-size:11px">Markup and variables apply in whisper and channel messages only.</div>
 </div>`.trim();
 
 function handleClientCommand(cmd) {
