@@ -159,65 +159,100 @@ export async function cmdAttack(targetStr, player, broadcast) {
 			return { type: "error", message: `You're still recovering. (${(getCooldownRemaining(player.id, 'attack') / 1000).toFixed(1)}s)` };
 		player.pvpTargetId = targetPlayer.id;
 		targetPlayer.pvpTargetId = player.id;
-		broadcast(null, { type: 'output', message: `${player.handle} is attacking you!` }, null, targetPlayer.id);
+		if (targetPlayer.sleeping) {
+			// Wake the sleeping player so they can fight back.
+			targetPlayer.sleeping = null;
+			broadcast(null, { type: 'output', message: `${player.handle} attacks you, jolting you awake!` }, null, targetPlayer.id);
+		} else {
+			broadcast(null, { type: 'output', message: `${player.handle} is attacking you!` }, null, targetPlayer.id);
+		}
 		broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} engages ${targetPlayer.handle} in combat!` }, player.id, null, targetPlayer.id);
 		return { type: "combat", message: `You close in on ${targetPlayer.handle}. Combat begins.` };
 	}
 
-	// Offline / sleeping player: deal a single direct hit (no auto-attack loop).
+	// Offline sleeping player: start a one-sided auto-attack loop.
 	if (isOnCooldown(player.id, 'attack'))
 		return { type: "error", message: `You're still recovering. (${(getCooldownRemaining(player.id, 'attack') / 1000).toFixed(1)}s)` };
 
+	if (player.offlinePvpTargetId === targetPlayer.id)
+		return { type: "output", message: `You're already attacking ${targetPlayer.handle}.` };
+
+	player.offlinePvpTargetId = targetPlayer.id;
+	broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} attacks ${targetPlayer.handle} in their sleep!` }, player.id);
+	return { type: "combat", message: `You begin attacking ${targetPlayer.handle} while they sleep.` };
+}
+
+async function offlineSleepSwing(attacker, targetId, broadcast) {
+	const { rows } = await query(`SELECT * FROM players WHERE id=$1`, [targetId]);
+	if (!rows.length) { attacker.offlinePvpTargetId = null; return; }
+	const target = rows[0];
+
+	// If target came online, switch to mutual PvP.
+	const liveTarget = getLivePlayer(targetId);
+	if (liveTarget) {
+		attacker.offlinePvpTargetId = null;
+		attacker.pvpTargetId = liveTarget.id;
+		liveTarget.pvpTargetId = attacker.id;
+		if (liveTarget.sleeping) liveTarget.sleeping = null;
+		broadcast(null, { type: 'output', message: `${attacker.handle} attacks you, jolting you awake!` }, null, liveTarget.id);
+		broadcast(attacker.current_zone, { type: 'zone_event', message: `${attacker.handle} engages ${liveTarget.handle} in combat!` }, attacker.id, null, liveTarget.id);
+		broadcast(null, { type: 'combat', message: `${liveTarget.handle} woke up — combat begins!` }, null, attacker.id);
+		return;
+	}
+
+	if (target.current_zone !== attacker.current_zone) {
+		attacker.offlinePvpTargetId = null;
+		broadcast(null, { type: 'output', message: `${target.handle} is no longer here. Combat ends.` }, null, attacker.id);
+		return;
+	}
+
 	const { rows: wpRows } = await query(
 		`SELECT i.* FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.is_equipped=1 AND jsonb_exists(i.tags,'weapon') LIMIT 1`,
-		[player.id],
+		[attacker.id],
 	);
 	const equipped = wpRows[0];
 	const dmg = equipped ? tagValue(equipped, "damage", {}) || {} : {};
 	const min = dmg.min ?? 2;
 	const max = dmg.max ?? 4;
 	const damage = Math.max(1, Math.floor(Math.random() * (max - min + 1)) + min);
+	setCooldown(attacker.id, 'attack');
 
-	const currentHp = targetPlayer.hp ?? targetPlayer.hp_max ?? 100;
+	const currentHp = target.hp ?? target.hp_max ?? 100;
 	const newHp = Math.max(0, currentHp - damage);
-	setCooldown(player.id, 'attack');
 
 	if (newHp <= 0) {
+		attacker.offlinePvpTargetId = null;
 		const { handlePlayerDeath } = await import("../gameLoop.js");
-		const livePlayer = getLivePlayer(targetPlayer.id);
-		if (livePlayer) {
-			livePlayer.hp = 0;
-			await handlePlayerDeath(livePlayer, player);
-		} else {
-			const corpseId = `corpse_player_${targetPlayer.id}_${Date.now()}`;
-			const corpseName = `${targetPlayer.handle}'s corpse`;
-			const expiresAt = Date.now() + 60 * 60 * 1000;
-			await query(`UPDATE players SET hp=0, offline_sleeping=FALSE WHERE id=$1`, [targetPlayer.id]);
-			await query(
-				`UPDATE player_inventory pi SET player_id=$1, is_equipped=0, slot=NULL, layer=NULL, container_id=NULL
-				 FROM items i WHERE i.id=pi.item_id AND pi.player_id=$2
-				 AND NOT (i.tags @> '{"quest_item":true}')`,
-				[corpseId, targetPlayer.id],
-			).catch(() => {});
-			await query(
-				`INSERT INTO player_corpses (id, player_id, zone_id, death_message, expires_at) VALUES ($1, $2, $3, $4, $5)`,
-				[corpseId, targetPlayer.id, player.current_zone, corpseName, expiresAt],
-			).catch(() => {});
-			createCorpse({ id: corpseId, name: corpseName, zoneId: player.current_zone, expiresAt });
-			await query(`UPDATE players SET hp=$1, current_zone=anchor_zone, deaths=deaths+1 WHERE id=$2`, [targetPlayer.hp_max ?? 100, targetPlayer.id]);
-			player.player_kills = (player.player_kills || 0) + 1;
-			query('UPDATE players SET player_kills=player_kills+1 WHERE id=$1', [player.id]).catch(() => {});
-			const corpseLink = `<span class="action-link corpse-link" data-action="loot" data-target="${corpseId}" data-label="${corpseName}" title="Loot ${corpseName}">${corpseName}</span>`;
-			broadcast(player.current_zone, { type: "zone_event", message: `${targetPlayer.handle} has died. ${corpseLink}`, refresh: true }, player.id);
-			return { type: "combat", message: `You kill ${targetPlayer.handle}. ${corpseLink}`, killed: true, corpseLink };
-		}
-		return { type: "combat", message: `You kill ${targetPlayer.handle}.`, killed: true };
+		const corpseId = `corpse_player_${target.id}_${Date.now()}`;
+		const corpseName = `${target.handle}'s corpse`;
+		const expiresAt = Date.now() + 60 * 60 * 1000;
+		await query(`UPDATE players SET hp=0, offline_sleeping=FALSE WHERE id=$1`, [target.id]);
+		await query(
+			`UPDATE player_inventory pi SET player_id=$1, is_equipped=0, slot=NULL, layer=NULL, container_id=NULL
+			 FROM items i WHERE i.id=pi.item_id AND pi.player_id=$2
+			 AND NOT (i.tags @> '{"quest_item":true}')`,
+			[corpseId, target.id],
+		).catch(() => {});
+		await query(
+			`INSERT INTO player_corpses (id, player_id, zone_id, death_message, expires_at) VALUES ($1, $2, $3, $4, $5)`,
+			[corpseId, target.id, attacker.current_zone, corpseName, expiresAt],
+		).catch(() => {});
+		createCorpse({ id: corpseId, name: corpseName, zoneId: attacker.current_zone, expiresAt });
+		await query(`UPDATE players SET hp=$1, current_zone=anchor_zone, deaths=deaths+1 WHERE id=$2`, [target.hp_max ?? 100, target.id]);
+		attacker.player_kills = (attacker.player_kills || 0) + 1;
+		query('UPDATE players SET player_kills=player_kills+1 WHERE id=$1', [attacker.id]).catch(() => {});
+		const corpseLink = `<span class="action-link corpse-link" data-action="loot" data-target="${corpseId}" data-label="${corpseName}" title="Loot ${corpseName}">${corpseName}</span>`;
+		broadcast(attacker.current_zone, { type: "zone_event", message: `${target.handle} has died. ${corpseLink}`, refresh: true }, attacker.id);
+		broadcast(null, { type: "combat", message: `You kill ${target.handle}. ${corpseLink}`, killed: true, auto: true }, null, attacker.id);
+		return;
 	}
 
-	await query(`UPDATE players SET hp=$1 WHERE id=$2`, [newHp, targetPlayer.id]);
-	broadcast(player.current_zone, { type: "zone_event", message: `${player.handle} attacks ${targetPlayer.handle}.` }, player.id);
-	return { type: "combat", message: `You hit ${targetPlayer.handle} for ${damage} damage.`, killed: false };
+	await query(`UPDATE players SET hp=$1 WHERE id=$2`, [newHp, target.id]);
+	broadcast(attacker.current_zone, { type: "zone_event", message: `${attacker.handle} attacks ${target.handle} in their sleep.` }, attacker.id);
+	broadcast(null, { type: "combat", message: `You hit ${target.handle}'s sleeping body for ${damage} damage.`, auto: true }, null, attacker.id);
 }
+
+export { offlineSleepSwing };
 
 // Resolve a corpse in the player's current zone by id (preferred, from a click)
 // or by a substring of its name (typed command).

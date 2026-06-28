@@ -2,6 +2,7 @@ import { world, tickSpawns, getRandomAmbient, getWeatherAmbient, getLivePlayer, 
 import { randomUUID } from 'crypto';
 import { propagateSound } from './sounds.js';
 import { enemyAttackPlayer, isOnCooldown, pvpSwing } from './combat.js';
+import { offlineSleepSwing } from './commands/combat.js';
 import { tickEffects } from './effects.js';
 import { resolveAttack } from './commands/index.js';
 import { tickSleep, releaseApartment } from './apartments.js';
@@ -123,6 +124,13 @@ async function tick() {
     }).catch(() => {});
   }
 
+  // One-sided auto-attack against offline sleeping players
+  for (const [playerId, player] of world.players) {
+    if (!player.offlinePvpTargetId) continue;
+    if (isOnCooldown(playerId, 'attack')) continue;
+    offlineSleepSwing(player, player.offlinePvpTargetId, broadcastFn).catch(() => {});
+  }
+
   // Status effects
   for (const [playerId, player] of world.players) {
     const messages = tickEffects(player);
@@ -209,6 +217,7 @@ export async function handlePlayerDeath(player, killer) {
   player.sleeping = null;
   player.combatTargetId = null;
   player.pvpTargetId = null;
+  player.offlinePvpTargetId = null;
 
   broadcastFn(null, {
     type:'player_death',
