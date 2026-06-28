@@ -772,6 +772,43 @@ async function handleDialogue(ws, session, msg) {
 		return;
 	}
 
+	const player = getLivePlayer(session.playerId);
+
+	// Execute option-level actions if the player clicked a specific option
+	// from the previous node (identified by optionIndex in the incoming message).
+	let appendMessage = "";
+	if (player && msg.optionIndex != null && session.dialogueNode) {
+		const prevNode = (npc.dialogue_tree || {})[session.dialogueNode];
+		if (prevNode) {
+			// Re-filter previous node's options to match what the client saw.
+			const filteredOpts = [];
+			for (const opt of prevNode.options || []) {
+				if (!(await evalConditions(opt.conditions || opt.condition, player))) continue;
+				filteredOpts.push(opt);
+			}
+			const clickedOpt = filteredOpts[msg.optionIndex];
+			if (clickedOpt?.actions?.length) {
+				for (const a of clickedOpt.actions) {
+					if (!a?.action) continue;
+					const result = await dispatchAction({
+						type: a.action,
+						actor: player,
+						params: a.params || {},
+						context: { broadcast },
+					});
+					if (result?.type === "grant" && result.granted) {
+						appendMessage += `\n\n<span class="item-grant">You receive: ${result.name}${result.quantity > 1 ? ` x${result.quantity}` : ""}.</span>`;
+					} else if (result?.type === "goto_node" && result.node) {
+						// GOTO_NODE from an option action overrides the destination.
+						msg.choice = result.node;
+					} else if (result?.type === "error") {
+						console.warn(`[dialogue] option action ${a.action} failed: ${result.message}`);
+					}
+				}
+			}
+		}
+	}
+
 	const node = (npc.dialogue_tree || {})[msg.choice];
 	if (!node) {
 		ws.send(
@@ -783,15 +820,12 @@ async function handleDialogue(ws, session, msg) {
 		return;
 	}
 
-	const player = getLivePlayer(session.playerId);
-
 	// Run the node's Actions (Phase 4). Each is dispatched through the canonical
 	// Action path; `grants_item` is kept as a legacy shorthand for GRANT_ITEM.
 	const actions = [...(node.actions || [])];
 	if (node.grants_item?.item_id) {
 		actions.push({ action: "GRANT_ITEM", params: { item_id: node.grants_item.item_id, quantity: node.grants_item.quantity || 1 } });
 	}
-	let appendMessage = "";
 	if (player) {
 		for (const a of actions) {
 			if (!a?.action) continue;
@@ -815,6 +849,10 @@ async function handleDialogue(ws, session, msg) {
 		if (player && !(await evalConditions(opt.conditions || opt.condition, player))) continue;
 		options.push(opt);
 	}
+
+	// Track the current node in session so option-level actions can be resolved
+	// on the player's next dialogue message.
+	session.dialogueNode = msg.choice;
 
 	ws.send(
 		JSON.stringify({

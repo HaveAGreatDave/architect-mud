@@ -256,3 +256,73 @@ registerAction({
     return { type: 'script', scriptId: scriptId || null };
   },
 });
+
+// Open an NPC's vendor shop (dialogue "Open Shop").
+registerAction({
+  type: 'OPEN_SHOP',
+  handler: async ({ actor, params, context }) => {
+    const { npcId } = params;
+    if (!npcId) return { type: 'error', message: 'OPEN_SHOP requires npcId.' };
+    const { rows } = await query('SELECT * FROM npcs WHERE id=$1', [npcId]);
+    if (!rows.length) return { type: 'error', message: `NPC not found: ${npcId}` };
+    const npc = rows[0];
+    if (!npc.vendor_inventory?.length) return { type: 'error', message: `${npc.name} has nothing to sell.` };
+    const { getVendorStock } = await import('./vendor.js');
+    const stock = await getVendorStock(npc, actor.id);
+    context?.broadcast?.(null, { type: 'dialogue_shop', npcId: npc.id, npcName: npc.name, stock, credits: actor.credits }, null, actor.id);
+    return { type: 'open_shop', npcId };
+  },
+});
+
+// Convenience aliases for the OPEN_UI action — builders see named actions.
+registerAction({
+  type: 'OPEN_BANK',
+  handler: async ({ actor, context }) => {
+    context?.broadcast?.(null, { type: 'open_ui', ui: 'bank' }, null, actor.id);
+    return { type: 'open_ui', ui: 'bank' };
+  },
+});
+
+registerAction({
+  type: 'OPEN_STORAGE',
+  handler: async ({ actor, params, context }) => {
+    context?.broadcast?.(null, { type: 'open_ui', ui: 'storage', storageId: params.storageId || null }, null, actor.id);
+    return { type: 'open_ui', ui: 'storage' };
+  },
+});
+
+registerAction({
+  type: 'OPEN_CRAFTING',
+  handler: async ({ actor, params, context }) => {
+    context?.broadcast?.(null, { type: 'open_ui', ui: 'crafting', stationId: params.stationId || null }, null, actor.id);
+    return { type: 'open_ui', ui: 'crafting' };
+  },
+});
+
+// Alias for TELEPORT with a builder-friendlier param name.
+registerAction({
+  type: 'TELEPORT_PLAYER',
+  handler: async ({ actor, params, context }) => {
+    return dispatchAction({ type: 'TELEPORT', actor, params: { zone_id: params.destination || params.zone_id }, context });
+  },
+});
+
+// End the current dialogue session.
+registerAction({
+  type: 'END_CONVERSATION',
+  handler: async ({ actor, params, context }) => {
+    context?.broadcast?.(null, { type: 'dialogue_end', message: params.message || '' }, null, actor.id);
+    return { type: 'dialogue_end' };
+  },
+});
+
+// Redirect dialogue to a specific node (usable from option actions or scripts).
+// Returns a goto_node result that handleDialogue picks up to override navigation.
+registerAction({
+  type: 'GOTO_NODE',
+  handler: async ({ params }) => {
+    const { node } = params;
+    if (!node) return { type: 'error', message: 'GOTO_NODE requires a node.' };
+    return { type: 'goto_node', node };
+  },
+});

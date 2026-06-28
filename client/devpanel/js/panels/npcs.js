@@ -96,7 +96,13 @@ function npcEditForm(rec, isNew) {
       <textarea id="f-wander_zones" rows="4" placeholder="Leave blank to wander to adjacent zones only">${(Array.isArray(rec.wander_zones)?rec.wander_zones:JSON.parse(rec.wander_zones||'[]')).join('\n')}</textarea>
       <div class="zone-subsection-note">Current zone is always included at runtime.</div>
     </div>
-    <div class="field"><label>Dialogue Tree (JSON)</label><textarea id="f-dialogue_tree" rows="10">${JSON.stringify(tree, null, 2)}</textarea></div>
+    <div class="field">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <label>Dialogue Tree (JSON)</label>
+        <button type="button" class="action-btn" onclick="npcOpenVine()">🌿 Visual Editor</button>
+      </div>
+      <textarea id="f-dialogue_tree" rows="10">${JSON.stringify(tree, null, 2)}</textarea>
+    </div>
     <div class="field"><label>Vendor Inventory (JSON array)</label><textarea id="f-vendor_inventory" rows="5">${JSON.stringify(vendor, null, 2)}</textarea></div>
   `;
 }
@@ -122,6 +128,23 @@ async function saveNpc(existing) {
   };
   if (isNew) { body.id = document.getElementById('f-id').value.trim(); return API('/npcs', 'POST', body); }
   return API(`/npcs/${existing.id}`, 'PUT', body);
+}
+
+function npcOpenVine() {
+  let tree;
+  try { tree = JSON.parse(document.getElementById('f-dialogue_tree').value || '{}'); }
+  catch { toast('Dialogue tree: invalid JSON — fix it before opening the visual editor.', true); return; }
+  const graphData = VineDialogueSchema.fromDialogueTree(tree);
+  vineModalOpen(
+    `Dialogue: ${currentRecord?.name || 'NPC'}`,
+    VineDialogueSchema,
+    graphData,
+    (savedGraph) => {
+      const treeOut = VineDialogueSchema.toDialogueTree(savedGraph);
+      document.getElementById('f-dialogue_tree').value = JSON.stringify(treeOut, null, 2);
+      toast('Dialogue saved to form — click Save to persist.');
+    }
+  );
 }
 
 // --- Furniture panel (grouped by zone) ---

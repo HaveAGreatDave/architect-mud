@@ -130,6 +130,17 @@
 
 <div class="msg-toast" id="toast"></div>
 
+<!-- VINE MODAL (full-screen visual dialogue editor) -->
+<div id="vine-modal" style="display:none;position:fixed;inset:0;z-index:600;background:var(--bg);flex-direction:column">
+  <div style="display:flex;gap:8px;padding:8px 12px;border-bottom:1px solid var(--border);align-items:center;flex-shrink:0;background:var(--bg2)">
+    <span style="font-size:11px;text-transform:uppercase;letter-spacing:2px;color:var(--accent)">🌿 VINE</span>
+    <span id="vine-modal-title" style="font-weight:bold;flex:1;color:var(--text)"></span>
+    <button class="action-btn" onclick="vineModalSave()">💾 Save &amp; Close</button>
+    <button class="action-btn" onclick="vineModalClose()">✕ Discard</button>
+  </div>
+  <div id="vine-modal-body" style="flex:1;overflow:hidden;min-height:0"></div>
+</div>
+
 <!-- BIG MAP -->
 <div id="bigmap-overlay" onclick="if(event.target===this) closeBigMap()">
   <div class="modal-card bigmap-modal">
@@ -233,6 +244,12 @@
   </div>
 </div>
 
+<script src="/dev/js/vine/vine-action-types.js"></script>
+<script src="/dev/js/vine/vine-history.js"></script>
+<script src="/dev/js/vine/vine-edges.js"></script>
+<script src="/dev/js/vine/vine-core.js"></script>
+<script src="/dev/js/vine/vine-schema-dialogue.js"></script>
+<script src="/dev/js/vine/vine-schema-script.js"></script>
 <script src="/shared/tagCatalog.js"></script>
 <script src="/shared/tagSupertags.js"></script>
 <script src="/dev/js/core/state.js"></script>

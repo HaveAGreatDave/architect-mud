@@ -90,8 +90,8 @@ export function sendCmdSilent(cmd) {
   _connection.send({ type: 'command', command: cmd });
 }
 
-export function sendDialogue(npcId, choice) {
-  _connection?.send({ type: 'dialogue', npcId, choice });
+export function sendDialogue(npcId, choice, optionIndex) {
+  _connection?.send({ type: 'dialogue', npcId, choice, optionIndex: optionIndex ?? null });
 }
 
 export function buyFromNpc(npcId, itemId) {

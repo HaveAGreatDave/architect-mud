@@ -17,9 +17,11 @@ export function openDialogue(msg) {
   document.getElementById('dialogue-text').innerHTML = msg.text;
   const opts = document.getElementById('dialogue-options');
   opts.innerHTML = '';
-  for (const opt of (msg.options || [])) {
+  for (let i = 0; i < (msg.options || []).length; i++) {
+    const opt = msg.options[i];
     if (!opt.next) continue;
-    const { label, gated } = formatOptionLabel(opt.label);
+    const rawLabel = opt.text || opt.label || '';
+    const { label, gated } = formatOptionLabel(rawLabel);
     const btn = document.createElement('button');
     btn.className = 'dialogue-opt';
     if (gated) {
@@ -27,7 +29,7 @@ export function openDialogue(msg) {
     } else {
       btn.textContent = label;
     }
-    btn.onclick = () => sendDialogue(state.currentNpcId, opt.next);
+    btn.onclick = () => sendDialogue(state.currentNpcId, opt.next, i);
     opts.appendChild(btn);
   }
   document.getElementById('dialogue-panel').classList.add('active');

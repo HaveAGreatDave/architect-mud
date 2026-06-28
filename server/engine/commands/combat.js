@@ -147,6 +147,20 @@ export async function cmdAttack(targetStr, player, broadcast) {
 	if (!targetPlayer)
 		return { type: "error", message: `Can't find "${targetStr}" here.` };
 
+	// Live player: engage mutual auto-attack — pvpSwing handles all actual hits.
+	if (targetIsLive) {
+		if (player.pvpTargetId === targetPlayer.id)
+			return { type: "output", message: `You're already fighting ${targetPlayer.handle}.` };
+		if (isOnCooldown(player.id, 'attack'))
+			return { type: "error", message: `You're still recovering. (${(getCooldownRemaining(player.id, 'attack') / 1000).toFixed(1)}s)` };
+		player.pvpTargetId = targetPlayer.id;
+		targetPlayer.pvpTargetId = player.id;
+		broadcast(null, { type: 'output', message: `${player.handle} is attacking you!` }, null, targetPlayer.id);
+		broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} engages ${targetPlayer.handle} in combat!` }, player.id);
+		return { type: "combat", message: `You close in on ${targetPlayer.handle}. Combat begins.` };
+	}
+
+	// Offline / sleeping player: deal a single direct hit (no auto-attack loop).
 	if (isOnCooldown(player.id, 'attack'))
 		return { type: "error", message: `You're still recovering. (${(getCooldownRemaining(player.id, 'attack') / 1000).toFixed(1)}s)` };
 
@@ -160,14 +174,13 @@ export async function cmdAttack(targetStr, player, broadcast) {
 	const max = dmg.max ?? 4;
 	const damage = Math.max(1, Math.floor(Math.random() * (max - min + 1)) + min);
 
-	const currentHp = targetIsLive ? targetPlayer.hp : (targetPlayer.hp ?? targetPlayer.hp_max ?? 100);
-	const newHp = currentHp - damage;
+	const currentHp = targetPlayer.hp ?? targetPlayer.hp_max ?? 100;
+	const newHp = Math.max(0, currentHp - damage);
 	setCooldown(player.id, 'attack');
 
 	if (newHp <= 0) {
-		const { getLivePlayer } = await import("../world.js");
 		const { handlePlayerDeath } = await import("../gameLoop.js");
-		const livePlayer = targetIsLive ? targetPlayer : getLivePlayer(targetPlayer.id);
+		const livePlayer = getLivePlayer(targetPlayer.id);
 		if (livePlayer) {
 			livePlayer.hp = 0;
 			await handlePlayerDeath(livePlayer, player);
@@ -195,23 +208,9 @@ export async function cmdAttack(targetStr, player, broadcast) {
 		return { type: "combat", message: `You kill ${targetPlayer.handle}.`, killed: true };
 	}
 
-	if (targetIsLive) targetPlayer.hp = newHp;
 	await query(`UPDATE players SET hp=$1 WHERE id=$2`, [newHp, targetPlayer.id]);
-
-	player.pvpTargetId = targetPlayer.id;
-	if (targetIsLive) {
-		targetPlayer.pvpTargetId = player.id;
-		broadcast(null, {
-			type: 'combat_incoming',
-			message: `${player.handle} attacks you for <span class="dmg-taken">${damage}</span> damage.`,
-			damage,
-			hp: newHp,
-			hp_max: targetPlayer.hp_max ?? 100,
-		}, null, targetPlayer.id);
-	}
-
 	broadcast(player.current_zone, { type: "zone_event", message: `${player.handle} attacks ${targetPlayer.handle}.` }, player.id);
-	return { type: "combat", message: `You hit ${targetPlayer.handle} for <span class="dmg-dealt">${damage}</span> damage.`, killed: false };
+	return { type: "combat", message: `You hit ${targetPlayer.handle} for ${damage} damage.`, killed: false };
 }
 
 // Resolve a corpse in the player's current zone by id (preferred, from a click)

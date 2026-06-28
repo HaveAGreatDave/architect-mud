@@ -328,7 +328,7 @@ function resolveEnemyLoot(enemy) {
 // Returns { hit, killed, attackerMsg, defenderMsg, damage?, defenderHp?, defenderHpMax? }
 // or null when on cooldown or defender already dead.
 export async function pvpSwing(attacker, defender) {
-  if (defender.hp <= 0) return null;
+  if ((defender.hp ?? defender.hp_max ?? 100) <= 0) return null;
   if (isOnCooldown(attacker.id, 'attack')) return null;
   setCooldown(attacker.id, 'attack');
   await ensureTunables();
@@ -369,11 +369,13 @@ export async function pvpSwing(attacker, defender) {
   damage = Math.floor(damage * headMult);
   damage = Math.max(1, damage - playerPartSoak(defender, part, damageType));
 
-  defender.hp = Math.max(0, defender.hp - damage);
+  const defHpBefore = defender.hp ?? defender.hp_max ?? 100;
+  defender.hp = Math.max(0, defHpBefore - damage);
+  const defHpMax = defender.hp_max ?? 100;
   await query('UPDATE players SET hp=$1 WHERE id=$2', [defender.hp, defender.id]);
 
   const killed = defender.hp <= 0;
-  const defHpTag = killed ? '' : selfHpTag(defender.hp, defender.hp_max);
+  const defHpTag = killed ? '' : selfHpTag(defender.hp, defHpMax);
 
   const attackerMsg = critical
     ? `<span class="crit-tag">CRITICAL HIT</span> to ${defender.handle}'s <span class="hit-part">${partLabel}</span>! You deal <span class="dmg-dealt">${damage}</span> <span class="dmg-type">${damageType}</span>.`
@@ -382,5 +384,5 @@ export async function pvpSwing(attacker, defender) {
     ? `<span class="crit-tag-in">CRITICAL!</span> ${attacker.handle} hits your <span class="hit-part">${partLabel}</span> for <span class="dmg-taken">${damage}</span> <span class="dmg-type">${damageType}</span>!${defHpTag}`
     : `${attacker.handle} hits your <span class="hit-part">${partLabel}</span> for <span class="dmg-taken">${damage}</span> <span class="dmg-type">${damageType}</span>.${defHpTag}`;
 
-  return { hit: true, killed, damage, attackerMsg, defenderMsg, defenderHp: defender.hp, defenderHpMax: defender.hp_max };
+  return { hit: true, killed, damage, attackerMsg, defenderMsg, defenderHp: defender.hp, defenderHpMax: defHpMax };
 }
