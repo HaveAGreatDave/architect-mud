@@ -263,12 +263,8 @@ async function cmdFondle(args, raw, player, broadcast) {
 
 // slap <player>'s <body part>
 async function cmdSlap(args, raw, player, broadcast) {
-  const gate = misGate(player);
-  if (gate) return gate;
-
   // Parse "slap <name>'s <part>" or "slap <name> <part>"
   const str = raw.replace(/^slap\s*/i, '').trim();
-  // Try "name's part" form first
   const apostropheMatch = str.match(/^(.+?)'s\s+(.+)$/i);
   let targetStr, part;
   if (apostropheMatch) {
@@ -282,9 +278,9 @@ async function cmdSlap(args, raw, player, broadcast) {
 
   if (!targetStr) return { type:'error', message:`Usage: slap <target>'s <body part>` };
 
-  const { res, error } = resolveTargetMis(targetStr, player);
-  if (error) return { type:'error', message: error };
-  const name = targetName(res);
+  const target = resolveTarget(targetStr, player);
+  if (!target) return { type:'error', message:`You don't see "${targetStr}" here.` };
+  const name = target.handle;
 
   const actorMsgs = [
     `You slap ${name}'s ${part}. The sound carries.`,
@@ -299,22 +295,25 @@ async function cmdSlap(args, raw, player, broadcast) {
     `${player.handle} gives your ${part} a sharp slap.`,
   ];
 
-  const msgs = await addHorniness(player, 10, broadcast);
-  if (msgs.length) broadcast(null, { type:'resource_tick', messages: msgs }, null, player.id);
-
-  if (res.type === 'player' && isMisActive(res.target)) {
-    const targetMsgs = await addHorniness(res.target, 8, broadcast);
-    if (targetMsgs.length) broadcast(null, { type:'resource_tick', messages: targetMsgs }, null, res.target.id);
-    broadcast(null, {
-      type:'output',
-      message: targetMsgPool[Math.floor(Math.random() * targetMsgPool.length)],
-    }, null, res.target.id);
+  if (isMisActive(player)) {
+    const msgs = await addHorniness(player, 10, broadcast);
+    if (msgs.length) broadcast(null, { type:'resource_tick', messages: msgs }, null, player.id);
   }
 
-  broadcastMis(player.current_zone, {
-    type:'zone_event',
-    message: `${player.handle} slaps ${name}'s ${part}.`,
-  }, broadcast, player.id, res.target.id);
+  if (isMisActive(target)) {
+    const targetMsgs = await addHorniness(target, 8, broadcast);
+    if (targetMsgs.length) broadcast(null, { type:'resource_tick', messages: targetMsgs }, null, target.id);
+  }
+
+  broadcast(null, {
+    type:'output',
+    message: targetMsgPool[Math.floor(Math.random() * targetMsgPool.length)],
+  }, null, target.id);
+
+  for (const p of getZonePlayers(player.current_zone)) {
+    if (p.id === player.id || p.id === target.id) continue;
+    broadcast(null, { type:'zone_event', message: `${player.handle} slaps ${name}'s ${part}.` }, null, p.id);
+  }
 
   return { type:'output', message: actorMsgs[Math.floor(Math.random() * actorMsgs.length)] };
 }

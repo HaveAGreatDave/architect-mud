@@ -133,8 +133,6 @@ async function _initMotdEditor() {
   let _readonly = true;
   let _motd     = { big: '', medium: '', small: '', dynamic: '' };
 
-  const TOKEN = () => sessionStorage.getItem('devpanel-token');
-
   const btnStyle = (active) => {
     if (active) {
       return 'var(--bg3)';
@@ -204,73 +202,52 @@ async function _initMotdEditor() {
     const body = { big: _motd.big, medium: _motd.medium, small: _motd.small, dynamic: dyn };
 
     saveBtn.disabled = true;
-    try {
-      const r = await fetch('/api/motd', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${TOKEN()}` },
-        body: JSON.stringify(body),
-      });
-      const d = await r.json();
-      if (d.ok) {
-        _motd.dynamic = dyn;
-        _showStatus('✓ Saved (all)');
-      } else {
-        _showStatus(d.error || 'Error', false);
-      }
-    } catch { _showStatus('Network error', false); }
+    const d = await directAPI('/motd', 'PUT', body);
+    if (d.ok) {
+      _motd.dynamic = dyn;
+      _showStatus('✓ Saved (all)');
+    } else {
+      _showStatus(d.error || 'Error', false);
+    }
     saveBtn.disabled = false;
   });
 
   pushBtn.addEventListener('click', async () => {
     pushBtn.disabled = true;
-    try {
-      const dyn = dynamicBox?.value ?? '';
-      const r = await fetch('/api/motd/push', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${TOKEN()}` },
-        body: JSON.stringify({ dynamic: dyn }),
-      });
-      const d = await r.json();
-      if (d.ok) _motd.dynamic = dyn;
-      _showStatus(d.ok ? '✓ Pushed to all players' : (d.error || 'Error'), d.ok);
-    } catch { _showStatus('Network error', false); }
+    const dyn = dynamicBox?.value ?? '';
+    const d = await directAPI('/motd/push', 'POST', { dynamic: dyn });
+    if (d.ok) _motd.dynamic = dyn;
+    _showStatus(d.ok ? '✓ Pushed to all players' : (d.error || 'Error'), d.ok);
     pushBtn.disabled = false;
   });
 
   // Load from server
-  try {
-    const r = await fetch('/api/motd', { headers: { Authorization: `Bearer ${TOKEN()}` } });
-    const d = await r.json();
+  const d = await directAPI('/motd');
+  if (d.error) {
+    if (editor) editor.placeholder = 'Failed to load MOTD.';
+  } else {
     _motd = { big: d.big || '', medium: d.medium || '', small: d.small || '', dynamic: d.dynamic || '' };
     if (dynamicBox) dynamicBox.value = _motd.dynamic;
     _refreshToggleBtns();
     _setEditorContent();
     _updateEditor();
-  } catch {
-    if (editor) editor.placeholder = 'Failed to load MOTD.';
   }
 }
 
 async function _initActivityLog() {
   const box = document.getElementById('activity-log-box');
   if (!box) return;
-  const TOKEN = () => sessionStorage.getItem('devpanel-token');
-  try {
-    const r = await fetch('/api/server-activity-log', { headers: { Authorization: `Bearer ${TOKEN()}` } });
-    const d = await r.json();
-    if (!d.rows || !d.rows.length) { box.value = '(no activity yet)'; return; }
-    const lines = d.rows.map(row => {
-      const ts = new Date(row.occurred_at).toLocaleString();
-      if (row.event_type === 'connect')    return `[${ts}] *** ${row.handle} Connects`;
-      if (row.event_type === 'disconnect') return `[${ts}] *** ${row.handle} Disconnects`;
-      if (row.event_type === 'death')      return `[${ts}] ${row.handle} Dies`;
-      if (row.event_type === 'kick')       return `[${ts}] ${row.handle} was kicked by ${row.admin_handle || 'An administrator'}`;
-      return `[${ts}] ${row.event_type}: ${row.handle}`;
-    });
-    box.value = lines.join('\n');
-  } catch {
-    box.value = 'Failed to load activity log.';
-  }
+  const d = await directAPI('/server-activity-log');
+  if (d.error || !d.rows?.length) { box.value = d.error ? 'Failed to load activity log.' : '(no activity yet)'; return; }
+  const lines = d.rows.map(row => {
+    const ts = new Date(row.occurred_at).toLocaleString();
+    if (row.event_type === 'connect')    return `[${ts}] *** ${row.handle} Connects`;
+    if (row.event_type === 'disconnect') return `[${ts}] *** ${row.handle} Disconnects`;
+    if (row.event_type === 'death')      return `[${ts}] ${row.handle} Dies`;
+    if (row.event_type === 'kick')       return `[${ts}] ${row.handle} was kicked by ${row.admin_handle || 'An administrator'}`;
+    return `[${ts}] ${row.event_type}: ${row.handle}`;
+  });
+  box.value = lines.join('\n');
 }
 
 // --- Players panel ---

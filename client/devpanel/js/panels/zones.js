@@ -759,8 +759,6 @@ async function _installBuildingGenerator(zoneId, rec) {
   const genName    = document.getElementById('gen-install-name')?.value.trim();
   const capacityKw = parseInt(document.getElementById('gen-install-capacity')?.value) || undefined;
   const cityGeneratorId = document.getElementById('gen-install-city-gen')?.value || undefined;
-  const authHeaders = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
-
   let targetZoneId;
 
   if (selection.startsWith('existing:')) {
@@ -783,29 +781,23 @@ async function _installBuildingGenerator(zoneId, rec) {
     const zoneName = document.getElementById('gen-install-zonename')?.value.trim() || defaultName;
     const newZoneId = `${zoneId}_z${newZ}_${Date.now()}`;
 
-    const createRes = await fetch('/api/zones', {
-      method: 'POST', headers: authHeaders,
-      body: JSON.stringify({
-        id: newZoneId, name: zoneName,
-        description: `${newZ > currentZ ? 'Rooftop' : 'Basement'} of ${rec.name || zoneId}.`,
-        danger_rating: rec.danger_rating || 'medium',
-        pvp_enabled: false, is_safe_zone: false,
-        exits: { [returnDir]: zoneId },
-        ambient_events: [], ambient_theme: 'indoors',
-        flags: { is_interior: true },
-        map_id: rec.map_id || null,
-        grid_x: rec.grid_x ?? 0, grid_y: rec.grid_y ?? 0, grid_z: newZ,
-      }),
+    // Use directAPI — the power install step runs immediately (not staged), so the
+    // new zone must exist live before we wire exits and attach the junction box.
+    const createResult = await directAPI('/zones', 'POST', {
+      id: newZoneId, name: zoneName,
+      description: `${newZ > currentZ ? 'Rooftop' : 'Basement'} of ${rec.name || zoneId}.`,
+      danger_rating: rec.danger_rating || 'medium',
+      pvp_enabled: false, is_safe_zone: false,
+      exits: { [returnDir]: zoneId },
+      ambient_events: [], ambient_theme: 'indoors',
+      flags: { is_interior: true },
+      map_id: rec.map_id || null,
+      grid_x: rec.grid_x ?? 0, grid_y: rec.grid_y ?? 0, grid_z: newZ,
     });
-    const createResult = await createRes.json();
     if (createResult.error) { toast(`Failed to create floor zone: ${createResult.error}`, true); return; }
     targetZoneId = newZoneId;
 
-    const exitRes = await fetch(`/api/zones/${zoneId}`, {
-      method: 'PUT', headers: authHeaders,
-      body: JSON.stringify({ exits: { ...(rec.exits || {}), [exitDir]: newZoneId } }),
-    });
-    const exitResult = await exitRes.json();
+    const exitResult = await directAPI(`/zones/${zoneId}`, 'PUT', { exits: { ...(rec.exits || {}), [exitDir]: newZoneId } });
     if (exitResult.error) toast(`Zone created but exit wiring failed: ${exitResult.error}`, true);
   } else {
     toast('Select a valid floor.', true); return;
