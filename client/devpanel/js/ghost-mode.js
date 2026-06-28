@@ -13,26 +13,26 @@
     style.textContent = `
       #ghost-dialog {
         position: fixed;
-        top: 60px;
-        right: 20px;
-        width: 540px;
-        max-width: calc(100vw - 40px);
-        max-height: calc(100vh - 80px);
-        background: color-mix(in srgb, var(--bg) 92%, #7c3aed 8%);
+        top: 50px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: min(1000px, calc(100vw - 40px));
+        height: min(720px, calc(100vh - 70px));
+        background: var(--bg, #05050a);
         border: 1px solid #7c3aed;
         border-radius: 4px;
         display: flex;
         flex-direction: column;
         z-index: 600;
-        font-family: var(--font);
-        font-size: 12px;
-        box-shadow: 0 8px 32px rgba(124,58,237,0.25);
+        font-family: var(--font, 'Courier New', monospace);
+        font-size: 13px;
+        box-shadow: 0 8px 32px rgba(124,58,237,0.35);
       }
       #ghost-dialog-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 8px 12px;
+        padding: 8px 14px;
         border-bottom: 1px solid #7c3aed44;
         color: #a78bfa;
         font-size: 11px;
@@ -41,46 +41,88 @@
         cursor: move;
         user-select: none;
         flex-shrink: 0;
+        background: color-mix(in srgb, var(--bg, #05050a) 90%, #7c3aed 10%);
+        border-radius: 4px 4px 0 0;
       }
       #ghost-zone-label {
-        color: var(--text);
+        color: var(--text, #e8e8f5);
         text-transform: none;
         letter-spacing: 0;
-        font-size: 12px;
+        font-size: 13px;
       }
+      #ghost-body {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        overflow: hidden;
+      }
+      /* Top pane: zone look / description */
+      #ghost-area-pane {
+        flex: 0 0 220px;
+        overflow-y: auto;
+        padding: 10px 14px;
+        background: var(--bg, #05050a);
+        color: var(--text-bright, #ffffff);
+        white-space: pre-wrap;
+        word-break: break-word;
+        line-height: 1.55;
+        font-size: 13px;
+      }
+      #ghost-area-pane::-webkit-scrollbar { width: 5px; }
+      #ghost-area-pane::-webkit-scrollbar-track { background: var(--bg2, #0d0d16); }
+      #ghost-area-pane::-webkit-scrollbar-thumb { background: #7c3aed55; border-radius: 3px; }
+      /* Resize handle */
+      #ghost-resize-handle {
+        flex: 0 0 5px;
+        background: #7c3aed33;
+        cursor: ns-resize;
+        transition: background 0.15s;
+      }
+      #ghost-resize-handle:hover,
+      #ghost-resize-handle.dragging {
+        background: #7c3aed;
+      }
+      /* Bottom pane: event log */
       #ghost-feed {
         flex: 1;
         overflow-y: auto;
-        padding: 10px 12px;
-        min-height: 280px;
-        max-height: 420px;
+        padding: 10px 14px;
         display: flex;
         flex-direction: column;
-        gap: 4px;
+        background: var(--bg, #05050a);
         line-height: 1.5;
       }
-      .ghost-msg { color: var(--text-dim); }
-      .ghost-msg.ghost-look { color: var(--text); }
-      .ghost-msg.ghost-event { color: #6b7280; font-style: italic; }
-      .ghost-msg.ghost-say { color: #d1fae5; }
-      .ghost-msg.ghost-system { color: #9f7aea; }
-      .ghost-msg.ghost-error { color: var(--red); }
-      .ghost-msg.ghost-info { color: #a78bfa; }
+      #ghost-feed > :first-child { margin-top: auto; }
+      #ghost-feed::-webkit-scrollbar { width: 5px; }
+      #ghost-feed::-webkit-scrollbar-track { background: var(--bg2, #0d0d16); }
+      #ghost-feed::-webkit-scrollbar-thumb { background: #7c3aed55; border-radius: 3px; }
+      .ghost-msg {
+        padding: 2px 0;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      .ghost-msg.ghost-event   { color: var(--text-dim, #8888a8); font-style: italic; }
+      .ghost-msg.ghost-say     { color: var(--cyan, #28e5ff); }
+      .ghost-msg.ghost-system  { color: var(--text-dim, #8888a8); font-style: italic; }
+      .ghost-msg.ghost-output  { color: var(--text, #e8e8f5); }
+      .ghost-msg.ghost-error   { color: var(--red, #ff3b5c); }
+      .ghost-msg.ghost-info    { color: #a78bfa; }
       #ghost-input-row {
         display: flex;
         gap: 6px;
-        padding: 8px 12px;
+        padding: 8px 14px;
         border-top: 1px solid #7c3aed44;
         flex-shrink: 0;
+        background: color-mix(in srgb, var(--bg, #05050a) 95%, #7c3aed 5%);
       }
       #ghost-cmd {
         flex: 1;
-        background: var(--bg3);
+        background: var(--bg3, #15151f);
         border: 1px solid #7c3aed66;
-        color: var(--text);
-        font-family: var(--font);
-        font-size: 12px;
-        padding: 5px 8px;
+        color: var(--text, #e8e8f5);
+        font-family: var(--font, 'Courier New', monospace);
+        font-size: 13px;
+        padding: 6px 10px;
         outline: none;
         border-radius: 2px;
       }
@@ -113,7 +155,11 @@
           <button class="action-btn danger" onclick="closeGhostDialog()">✕ Exit</button>
         </div>
       </div>
-      <div id="ghost-feed"></div>
+      <div id="ghost-body">
+        <div id="ghost-area-pane"><span style="color:#7c3aed88;font-style:italic">Entering zone...</span></div>
+        <div id="ghost-resize-handle"></div>
+        <div id="ghost-feed"></div>
+      </div>
       <div id="ghost-input-row">
         <input id="ghost-cmd" type="text" placeholder="look · go north · haunt &lt;player&gt;" autocomplete="off" spellcheck="false">
         <button class="action-btn" onclick="sendGhostCommand()">Send</button>
@@ -127,19 +173,45 @@
     document.getElementById('ghost-cmd').focus();
 
     makeDraggable(dialog, document.getElementById('ghost-dialog-header'));
+    makeResizable(
+      document.getElementById('ghost-resize-handle'),
+      document.getElementById('ghost-area-pane')
+    );
   }
 
   function makeDraggable(el, handle) {
     let ox = 0, oy = 0;
     handle.addEventListener('mousedown', e => {
+      // don't interfere with button clicks inside the header
+      if (e.target.tagName === 'BUTTON') return;
+      el.style.transform = 'none';
       ox = e.clientX - el.getBoundingClientRect().left;
       oy = e.clientY - el.getBoundingClientRect().top;
       function onMove(e) {
         el.style.left = (e.clientX - ox) + 'px';
         el.style.top  = (e.clientY - oy) + 'px';
-        el.style.right = 'auto';
       }
       function onUp() {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      }
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  }
+
+  function makeResizable(handle, pane) {
+    handle.addEventListener('mousedown', e => {
+      e.preventDefault();
+      handle.classList.add('dragging');
+      const startY = e.clientY;
+      const startH = pane.getBoundingClientRect().height;
+      function onMove(e) {
+        const newH = Math.max(80, Math.min(startH + (e.clientY - startY), 560));
+        pane.style.flex = `0 0 ${newH}px`;
+      }
+      function onUp() {
+        handle.classList.remove('dragging');
         document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup', onUp);
       }
@@ -221,7 +293,7 @@
         const label = document.getElementById('ghost-zone-label');
         if (label) label.textContent = msg.zoneName || msg.zone || '';
         if (msg.zone) currentGhostZoneId = msg.zone;
-        appendFeed(msg.message, 'ghost-look', true);
+        setAreaPane(msg.message);
         break;
       }
       case 'ghost_haunt_result':
@@ -240,9 +312,16 @@
         if (msg.message) appendFeed(msg.message, 'ghost-system', true);
         break;
       case 'output':
-        if (msg.message) appendFeed(msg.message, 'ghost-msg', true);
+        if (msg.message) appendFeed(msg.message, 'ghost-output', true);
         break;
     }
+  }
+
+  function setAreaPane(html) {
+    const pane = document.getElementById('ghost-area-pane');
+    if (!pane) return;
+    pane.innerHTML = html || '';
+    pane.scrollTop = 0;
   }
 
   function appendFeed(html, cls, isHtml) {
