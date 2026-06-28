@@ -26,6 +26,20 @@ function _select(field, options, current) {
   return `<select data-vine-field="${field}" style="${_inputStyle}">${opts}</select>`;
 }
 
+function _helpBox(nodeId, desc, example) {
+  const boxId = `vine-help-${nodeId}`;
+  return `
+    <div style="margin-bottom:10px">
+      <button onclick="(function(b){var d=document.getElementById('${boxId}');var open=d.style.display==='block';d.style.display=open?'none':'block';b.style.color=open?'var(--text-dim)':'var(--accent)';b.style.borderColor=open?'var(--border)':'var(--accent)'})(this)"
+              style="background:none;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font);font-size:10px;padding:1px 7px;cursor:pointer;border-radius:2px;letter-spacing:1px">?</button>
+      <div id="${boxId}" style="display:none;margin-top:6px;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:2px;font-size:11px;line-height:1.5">
+        <div style="color:var(--text);margin-bottom:6px">${desc}</div>
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:3px">Example</div>
+        <pre style="margin:0;font-size:10px;color:var(--accent2);font-family:var(--font);white-space:pre-wrap;word-break:break-all">${_escHtmlS(example)}</pre>
+      </div>
+    </div>`;
+}
+
 function _actionTypeOptions(current) {
   const types = (window.VineActionTypes || []).map(a =>
     `<option value="${a.type}" ${a.type === current ? 'selected' : ''}>${a.label} (${a.type})</option>`
@@ -41,6 +55,10 @@ const _scriptNodeDefs = {
     renderBody: (n) => `<div style="font-size:11px;color:var(--accent)">${_escHtmlS(n.data.action || '(no action)')}</div>`,
     getOutPorts: () => [{ key: 'next', label: 'next' }],
     renderProperties: (n, ed, id) => `
+      ${_helpBox(id,
+        'Runs a single game action when execution reaches this node. Pick the type from the dropdown, then fill in its parameters.',
+        'action: GRANT_ITEM\nparams: { "item_id": "medkit", "quantity": 1, "once": true }'
+      )}
       ${_field('Action Type', `<select data-vine-field="data.action" style="${_inputStyle}">${_actionTypeOptions(n.data.action)}</select>`)}
       ${_field('Params (JSON)', _textarea('data.params', JSON.stringify(n.data.params || {}, null, 2), 4, 'json'))}
     `,
@@ -52,6 +70,10 @@ const _scriptNodeDefs = {
     renderBody: (n) => `<div style="font-size:11px;color:var(--text-dim)">${_escHtmlS(n.data.scope)}.${_escHtmlS(n.data.flag)} = ${_escHtmlS(n.data.value)}</div>`,
     getOutPorts: () => [{ key: 'next', label: 'next' }],
     renderProperties: (n, ed, id) => `
+      ${_helpBox(id,
+        'Sets or clears a named flag on a player or the world. Use flags to track quest state, NPC encounters, and world events. Condition nodes read these flags to branch logic.',
+        'scope: player\nop: set\nflag: met_detective\nvalue: true'
+      )}
       ${_field('Scope', _select('data.scope', ['player', 'world'], n.data.scope))}
       ${_field('Operation', _select('data.op', ['set', 'clear'], n.data.op))}
       ${_field('Flag Key', _textInput('data.flag', n.data.flag, 'flag_name'))}
@@ -65,8 +87,11 @@ const _scriptNodeDefs = {
     renderBody: (n) => `<div style="font-size:11px;color:var(--text-dim)">${_escHtmlS(JSON.stringify(n.data.condition || {}))}</div>`,
     getOutPorts: () => [{ key: 'ifTrue', label: 'if true' }, { key: 'ifFalse', label: 'if false' }],
     renderProperties: (n, ed, id) => `
+      ${_helpBox(id,
+        'Checks a flag and routes execution down the "if true" or "if false" output. Connect two separate branches to those ports. Supported ops: "set" (flag exists/is truthy), "clear" (flag absent/falsy).',
+        '{ "flag": "met_detective", "op": "set" }\n\n→ if true:  detective already met\n→ if false: first encounter'
+      )}
       ${_field('Condition (JSON)', _textarea('data.condition', JSON.stringify(n.data.condition || {}, null, 2), 4, 'json'))}
-      <div style="font-size:10px;color:var(--text-dim)">Example: <code style="font-size:10px">{"flag":"met_bob","op":"set"}</code></div>
     `,
   },
   say: {
@@ -76,6 +101,10 @@ const _scriptNodeDefs = {
     renderBody: (n) => `<div style="font-size:11px;color:var(--text)">${_escHtmlS((n.data.text || '').slice(0, 60))}</div>`,
     getOutPorts: () => [{ key: 'next', label: 'next' }],
     renderProperties: (n, ed, id) => `
+      ${_helpBox(id,
+        'Sends a line of text to the player\'s feed. Execution continues immediately to the next node — use a Wait node after if you want a pause before the next message.',
+        'The alarm blares overhead.\nSomething is very wrong.'
+      )}
       ${_field('Text', _textarea('data.text', n.data.text, 3))}
     `,
   },
@@ -86,6 +115,10 @@ const _scriptNodeDefs = {
     renderBody: (n) => `<div style="font-size:11px;color:var(--text-dim)">${n.data.seconds || 0}s</div>`,
     getOutPorts: () => [{ key: 'next', label: 'next' }],
     renderProperties: (n, ed, id) => `
+      ${_helpBox(id,
+        'Pauses script execution for the given number of seconds, then continues to the next node. Useful for pacing Say messages or delaying an action after a trigger.',
+        'seconds: 2.5\n\n→ waits 2.5 seconds, then continues'
+      )}
       ${_field('Seconds', `<input data-vine-field="data.seconds" data-vine-type="number" type="number" min="0" step="0.5" value="${n.data.seconds || 0}" style="${_inputStyle}">`)}
     `,
   },
@@ -96,6 +129,10 @@ const _scriptNodeDefs = {
     renderBody: (n) => `<div style="font-size:11px;color:var(--text-dim)">${_escHtmlS(n.data.scriptId || '(no script)')}</div>`,
     getOutPorts: () => [{ key: 'next', label: 'next' }],
     renderProperties: (n, ed, id) => `
+      ${_helpBox(id,
+        'Runs another script by ID as a sub-routine, waits for it to finish, then continues from the "next" port. Good for reusable sequences — e.g. a shared "give starter loot" script called from multiple quest triggers.',
+        'scriptId: give_starting_gear\n\n→ runs that script fully, then continues'
+      )}
       ${_field('Script ID', _textInput('data.scriptId', n.data.scriptId, 'script_id'))}
     `,
   },

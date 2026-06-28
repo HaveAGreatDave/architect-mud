@@ -34,6 +34,22 @@ function _autoLayout(tree) {
   return pos;
 }
 
+// ── Help box ─────────────────────────────────────────────────────────────────
+
+function _dialogueHelpBox(nodeId, desc, example) {
+  const boxId = `vine-help-${nodeId}`;
+  return `
+    <div style="margin-bottom:10px">
+      <button onclick="(function(b){var d=document.getElementById('${boxId}');var open=d.style.display==='block';d.style.display=open?'none':'block';b.style.color=open?'var(--text-dim)':'var(--accent)';b.style.borderColor=open?'var(--border)':'var(--accent)'})(this)"
+              style="background:none;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font);font-size:10px;padding:1px 7px;cursor:pointer;border-radius:2px;letter-spacing:1px">?</button>
+      <div id="${boxId}" style="display:none;margin-top:6px;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:2px;font-size:11px;line-height:1.5">
+        <div style="color:var(--text);margin-bottom:6px">${desc}</div>
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:3px">Example</div>
+        <pre style="margin:0;font-size:10px;color:var(--accent2);font-family:var(--font);white-space:pre-wrap;word-break:break-all">${_escHtml(example)}</pre>
+      </div>
+    </div>`;
+}
+
 // ── Shared style constants ────────────────────────────────────────────────────
 
 const _IS = 'width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:4px 6px;box-sizing:border-box;border-radius:2px';
@@ -285,6 +301,10 @@ window.VineDialogueSchema = {
 
       renderProperties(node, editor, nodeId) {
         return `
+          ${_dialogueHelpBox(nodeId,
+            'One beat of NPC dialogue. The NPC Text is what the character says. Each Option is a choice shown to the player — draw an edge from an option\'s output port to the next dialogue node. Node Actions fire the moment this node is entered, before the player sees the text.',
+            'NPC Text: "You look lost, stranger."\n\nOption 1: "I\'m looking for the docks."  → node: give_directions\nOption 2: "None of your business."     → node: npc_offended\n\nNode Action: SET_FLAG  flag=met_harker'
+          )}
           <div style="margin-bottom:12px">
             <label style="${_LS}">NPC Text</label>
             <textarea data-vine-field="data.text" data-vine-instant rows="5"
