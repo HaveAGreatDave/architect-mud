@@ -77,6 +77,7 @@ function renderNpcsPanel(data) {
 function npcEditForm(rec, isNew) {
   const tree = typeof rec.dialogue_tree === 'object' ? rec.dialogue_tree : JSON.parse(rec.dialogue_tree||'{}');
   const vendor = Array.isArray(rec.vendor_inventory) ? rec.vendor_inventory : JSON.parse(rec.vendor_inventory||'[]');
+  const behaviourGraph = typeof rec.behaviour_graph === 'object' ? rec.behaviour_graph : JSON.parse(rec.behaviour_graph||'{}');
   return `
     <div class="field"><label>NPC ID</label><input id="f-id" value="${isNew?'':rec.id}" ${!isNew?'readonly style="opacity:0.5"':''}></div>
     <div class="field"><label>Name</label><input id="f-name" value="${rec.name||''}"></div>
@@ -104,14 +105,22 @@ function npcEditForm(rec, isNew) {
       <textarea id="f-dialogue_tree" rows="10">${JSON.stringify(tree, null, 2)}</textarea>
     </div>
     <div class="field"><label>Vendor Inventory (JSON array)</label><textarea id="f-vendor_inventory" rows="5">${JSON.stringify(vendor, null, 2)}</textarea></div>
+    <div class="field">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <label>AI Behaviour Graph (JSON) — overrides random wander when set</label>
+        <button type="button" class="action-btn" onclick="npcOpenVineAI()">🌿 AI Behaviour</button>
+      </div>
+      <textarea id="f-behaviour_graph" rows="6">${JSON.stringify(behaviourGraph, null, 2)}</textarea>
+    </div>
   `;
 }
 
 async function saveNpc(existing) {
   const isNew = !existing?.id;
-  let tree, vendor;
+  let tree, vendor, behaviour_graph;
   try { tree = JSON.parse(document.getElementById('f-dialogue_tree').value); } catch { return { error: 'Dialogue tree: invalid JSON' }; }
   try { vendor = JSON.parse(document.getElementById('f-vendor_inventory').value); } catch { return { error: 'Vendor inventory: invalid JSON' }; }
+  try { behaviour_graph = JSON.parse(document.getElementById('f-behaviour_graph')?.value || '{}'); } catch { return { error: 'Behaviour graph: invalid JSON' }; }
   const wanderZonesRaw = document.getElementById('f-wander_zones')?.value || '';
   const wander_zones = wanderZonesRaw.split('\n').map(s => s.trim()).filter(Boolean);
   const body = {
@@ -124,6 +133,7 @@ async function saveNpc(existing) {
     wander_zones,
     dialogue_tree: tree,
     vendor_inventory: vendor,
+    behaviour_graph,
     flags: {},
   };
   if (isNew) { body.id = document.getElementById('f-id').value.trim(); return API('/npcs', 'POST', body); }
@@ -143,6 +153,23 @@ function npcOpenVine() {
       const treeOut = VineDialogueSchema.toDialogueTree(savedGraph);
       document.getElementById('f-dialogue_tree').value = JSON.stringify(treeOut, null, 2);
       toast('Dialogue saved to form — click Save to persist.');
+    }
+  );
+}
+
+function npcOpenVineAI() {
+  let graph;
+  try { graph = JSON.parse(document.getElementById('f-behaviour_graph').value || '{}'); }
+  catch { toast('Behaviour graph: invalid JSON — fix it before opening the visual editor.', true); return; }
+  const graphData = VineAISchema.fromAiGraph(graph);
+  vineModalOpen(
+    `AI Behaviour: ${currentRecord?.name || 'NPC'}`,
+    VineAISchema,
+    graphData,
+    (savedGraph) => {
+      const out = VineAISchema.toAiGraph(savedGraph);
+      document.getElementById('f-behaviour_graph').value = JSON.stringify(out, null, 2);
+      toast('Behaviour graph saved to form — click Save to persist.');
     }
   );
 }

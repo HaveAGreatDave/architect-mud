@@ -242,6 +242,26 @@ function lootItemList(published) {
   return items.sort((a,b)=>(a.name||'').localeCompare(b.name||''));
 }
 
+let _enemyBehaviourGraph = {};
+
+function enemyOpenVineAI() {
+  let graph;
+  try { graph = JSON.parse(document.getElementById('f-behaviour_graph').value || '{}'); }
+  catch { toast('Behaviour graph: invalid JSON — fix it before opening the visual editor.', true); return; }
+  const graphData = VineAISchema.fromAiGraph(graph);
+  vineModalOpen(
+    `AI Behaviour: ${currentRecord?.name || 'Enemy'}`,
+    VineAISchema,
+    graphData,
+    (savedGraph) => {
+      const out = VineAISchema.toAiGraph(savedGraph);
+      _enemyBehaviourGraph = out;
+      document.getElementById('f-behaviour_graph').value = JSON.stringify(out, null, 2);
+      toast('Behaviour graph saved to form — click Save to persist.');
+    }
+  );
+}
+
 async function enemyEditForm(rec, isNew) {
   _lootItems = lootItemList(await API('/items'));
   const loot = Array.isArray(rec.loot_table) ? rec.loot_table : JSON.parse(rec.loot_table||'[]');
@@ -250,6 +270,8 @@ async function enemyEditForm(rec, isNew) {
   let bodyParts = Array.isArray(rec.body_parts) ? rec.body_parts : JSON.parse(rec.body_parts||'[]');
   if (!bodyParts.length) bodyParts = defaultBodyParts();
   const butcher = Array.isArray(rec.butcher_table) ? rec.butcher_table : JSON.parse(rec.butcher_table||'[]');
+  const behaviourGraph = typeof rec.behaviour_graph === 'object' ? rec.behaviour_graph : JSON.parse(rec.behaviour_graph||'{}');
+  _enemyBehaviourGraph = behaviourGraph;
   return `
     <div class="field"><label>Enemy ID</label><input id="f-id" value="${isNew?'':rec.id}" ${!isNew?'readonly style="opacity:0.5"':''}></div>
     <div class="field"><label>Name</label><input id="f-name" value="${rec.name||''}"></div>
@@ -287,6 +309,13 @@ async function enemyEditForm(rec, isNew) {
     </div>
     <div class="field"><label>First Strike Delay (ms) — hesitation before its first attack after aggroing. 0 = attacks immediately.</label><input type="number" id="f-first_strike_delay_ms" value="${rec.flags?.first_strike_delay_ms||0}" min="0" step="500"></div>
     <div class="field"><label>Battle Cries (one per line) — shown on its first strike</label><textarea id="f-battle_cries" rows="3">${(rec.flags?.battle_cries||[]).join('\n')}</textarea></div>
+    <div class="field">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <label>AI Behaviour Graph (JSON) — leave empty to use hardcoded behavior field above</label>
+        <button type="button" class="action-btn" onclick="enemyOpenVineAI()">🌿 AI Behaviour</button>
+      </div>
+      <textarea id="f-behaviour_graph" rows="6">${JSON.stringify(behaviourGraph, null, 2)}</textarea>
+    </div>
   `;
 }
 
@@ -335,6 +364,9 @@ async function saveEnemy(existing) {
   const existingFlags = existing?.flags || {};
   const cries = document.getElementById('f-battle_cries').value.split('\n').map(s=>s.trim()).filter(Boolean);
   const flags = { ...existingFlags, first_strike_delay_ms: +document.getElementById('f-first_strike_delay_ms').value || 0, battle_cries: cries };
+  let behaviour_graph = {};
+  try { behaviour_graph = JSON.parse(document.getElementById('f-behaviour_graph')?.value || '{}'); }
+  catch { return { error: 'Behaviour graph: invalid JSON' }; }
   const body = {
     name: document.getElementById('f-name').value,
     description: document.getElementById('f-description').value,
@@ -350,6 +382,7 @@ async function saveEnemy(existing) {
     butcher_table,
     butcher_difficulty: +document.getElementById('f-butcher_difficulty').value || 0,
     flags,
+    behaviour_graph,
   };
   if (isNew) { body.id = document.getElementById('f-id').value.trim(); return API('/enemies', 'POST', body); }
   return API(`/enemies/${existing.id}`, 'PUT', body);
