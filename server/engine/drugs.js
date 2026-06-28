@@ -4,6 +4,7 @@
  * caching pattern: DB is source of truth, cached in memory at boot.
  */
 import { query } from '../models/db.js';
+import { foodLoad, drinkLoad } from './bodily.js';
 
 let DRUG_CACHE = {};
 
@@ -62,8 +63,14 @@ function applyEffects(player, effects, message) {
   const statUpdates = {};
   if (effects.hp) statUpdates.hp = Math.max(0, Math.min(player.hp_max, player.hp + effects.hp));
   if (effects.sanity) statUpdates.sanity = Math.max(0, Math.min(player.sanity_max, player.sanity + effects.sanity));
-  if (effects.hunger) statUpdates.hunger = Math.max(0, Math.min(100, player.hunger + effects.hunger));
-  if (effects.thirst) statUpdates.thirst = Math.max(0, Math.min(100, player.thirst + effects.thirst));
+  if (effects.hunger) {
+    statUpdates.hunger = Math.max(0, Math.min(100, player.hunger + effects.hunger));
+    if (effects.hunger > 0) statUpdates.digestive_load = Math.min(120, (player.digestive_load || 0) + foodLoad(effects.hunger));
+  }
+  if (effects.thirst) {
+    statUpdates.thirst = Math.max(0, Math.min(100, player.thirst + effects.thirst));
+    if (effects.thirst > 0) statUpdates.hydration_load = Math.min(120, (player.hydration_load || 0) + drinkLoad(effects.thirst));
+  }
   if (effects.radiation) statUpdates.radiation = Math.max(0, Math.min(100, (player.radiation||0) + effects.radiation));
   if (effects.horniness_increase) {
     statUpdates.horniness = Math.min(120, (player.horniness || 0) + effects.horniness_increase);
