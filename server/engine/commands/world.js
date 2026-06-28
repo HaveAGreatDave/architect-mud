@@ -408,7 +408,12 @@ async function cmdExamine(targetStr, player, broadcast) {
     const c = er.candidate;
     if (c._examType === 'enemy') return { type:'examine', message:`${c.name}\n${c.description}\nHP: ${c.hp}/${c.hp_max}` };
     if (c._examType === 'npc')   return { type:'examine', message:`${c.name}\n${c.description}` };
-    if (c._examType === 'player') return { type:'examine', message: await describePlayerAppearance(c, false, player, broadcast) };
+    if (c._examType === 'player') {
+      const app = await describePlayerAppearance(c, false, player, broadcast);
+      const stealLink  = `<span class="action-link" data-action="steal" data-target="${c.handle}" title="Steal from ${c.handle}">steal</span>`;
+      const attackLink = `<span class="action-link" data-action="attack" data-target="${c.handle}" title="Attack ${c.handle}">attack</span>`;
+      return { type:'examine', message: app + `\n<span class="text-dim">Actions:</span> ${stealLink}  ${attackLink}` };
+    }
   }
   // No live entity matched — check sleeping/offline players
   const { rows: sleepers } = await query(
