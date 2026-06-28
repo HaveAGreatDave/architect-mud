@@ -16,7 +16,7 @@
       <span style="color:var(--accent);font-size:13px;letter-spacing:2px;text-transform:uppercase">👻 Ghost Mode</span>
       <button onclick="closeGhostModal()" style="background:transparent;border:1px solid var(--border);color:var(--text-dim);width:26px;height:26px;cursor:pointer;border-radius:2px;font-size:13px">✕</button>
     </div>
-    <p style="color:var(--text-dim);font-size:12px;margin:0">Select a zone. The dev panel will close and you'll be dropped into the game at that location.</p>
+    <p style="color:var(--text-dim);font-size:12px;margin:0">Select a zone to observe as a ghost. You will not appear to other players. Use <em>Materialize</em> in the ghost window to enter as your character.</p>
     <input id="ghost-zone-filter" type="text" placeholder="Filter zones…" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:6px 10px;outline:none;border-radius:2px;width:100%;box-sizing:border-box">
     <select id="ghost-zone-select" size="10" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:4px;border-radius:2px;width:100%;box-sizing:border-box;outline:none"></select>
     <div style="display:flex;gap:8px;justify-content:flex-end">
@@ -250,6 +250,7 @@
 <script src="/dev/js/ui/whisper.js"></script>
 <script src="/dev/js/panels/timeweather.js"></script>
 <script src="/dev/js/panels/worldstate.js"></script>
+<script src="/dev/js/ghost-mode.js"></script>
 <script src="/dev/js/panels/validator.js"></script>
 <script src="/dev/js/core/staging.js"></script>
 <script src="/dev/js/panels/tags.js"></script>

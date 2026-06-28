@@ -2,22 +2,35 @@ import { query } from '../../models/db.js';
 import { getZone } from '../world.js';
 import { getZonePowerStatus, getZoneVisibility, setWindowState, getWindowsForZone } from '../environment.js';
 import { cmdRent, cmdUnrent, cmdLockDoor, cmdUpgradeLock, cmdPickLock, cmdSleep } from '../apartments.js';
+import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../sift.js';
 
 const STAFF_ROLES = new Set(['admin','dev','builder','designer']);
 
 async function cmdCurtain(targetStr, player, open) {
-  const normalised = targetStr.replace(/^curtains?\s*/i, '').trim() || targetStr.replace(/\s*curtains?$/i, '').trim();
   const windows = getWindowsForZone(player.current_zone);
-  const win = windows.find(w =>
-    !normalised || w.name.toLowerCase().includes(normalised.toLowerCase()) ||
-    /^curtains?$/i.test(targetStr)
-  );
-  if (!win) {
-    if (/^curtains?$/i.test(targetStr) || windows.length) {
-      return { type:'error', message: windows.length ? `Which window? Try "open ${windows[0].name} curtain".` : `There are no windows here.` };
+  if (!windows.length) return { type:'error', message:'There are no windows here.' };
+
+  // Strip generic noise words to get a window-specific query
+  const query = targetStr.replace(/\b(curtains?|windows?)\b/gi, '').trim();
+
+  let win;
+  if (!query) {
+    if (windows.length === 1) {
+      win = windows[0];
+    } else {
+      createSelectionState(player.id, windows, { verb: open ? 'open' : 'close' });
+      return { type:'output', message: formatSelectionPage({ allCandidates: windows, visibleIndex: 0, pageSize: 5 }) };
     }
-    return { type:'error', message:`You can't ${open ? 'open' : 'close'} that.` };
+  } else {
+    const sift = siftResolve(query, windows);
+    if (sift.type === 'none') return { type:'error', message:`No window matching "${query}" here.` };
+    if (sift.type === 'ambiguous') {
+      createSelectionState(player.id, sift.candidates, { verb: open ? 'open' : 'close' });
+      return { type:'output', message: formatSelectionPage({ allCandidates: sift.candidates, visibleIndex: 0, pageSize: 5 }) };
+    }
+    win = sift.candidate;
   }
+
   if (win.glass_state === 'broken') {
     return { type:'examine', message:`The curtains of ${win.name} are already compromised — the glass is broken.` };
   }
@@ -77,5 +90,6 @@ export const handlers = {
   },
   open:  (args, raw, player) => cmdCurtain(args.join(' '), player, true),
   close: (args, raw, player) => cmdCurtain(args.join(' '), player, false),
+  draw:  (args, raw, player) => cmdCurtain(args.join(' ') || 'curtains', player, false),
   lightview: (args, raw, player) => cmdLightView(player),
 };

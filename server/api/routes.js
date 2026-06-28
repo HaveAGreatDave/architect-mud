@@ -41,6 +41,9 @@ export function consumeSwitchToken(token) {
 // function through every single handler call.
 let broadcastFn = null;
 export function setBroadcast(fn) { broadcastFn = fn; }
+
+let storeGhostTokenFn = null;
+export function setGhostTokenStore(fn) { storeGhostTokenFn = fn; }
 function verifyToken(headers) {
   const token = (headers?.authorization||'').replace('Bearer ','');
   if (!token) return null;
@@ -91,6 +94,16 @@ export async function handleApiRequest(url, method, body, headers) {
     const token = randomUUID();
     switchTokens.set(token, { playerId: p.id, username: p.username, role: p.role, handle: p.handle, expires: Date.now() + 60_000 });
     return { status:200, body:{ token } };
+  }
+  if (path==='/ghost/token' && method==='POST') {
+    return requireAdmin(auth, () => {
+      const { zoneId } = body || {};
+      if (!zoneId) return { status:400, body:{ error:'zoneId required' } };
+      if (!storeGhostTokenFn) return { status:503, body:{ error:'Ghost token store not ready' } };
+      const token = randomUUID();
+      storeGhostTokenFn(token, auth.playerId, zoneId);
+      return { status:200, body:{ token } };
+    });
   }
   if (path==='/zones' && method==='GET') return apiGetZones();
   if (path==='/zones' && method==='POST') return requireDev(auth, ()=>apiCreateZone(body,auth));

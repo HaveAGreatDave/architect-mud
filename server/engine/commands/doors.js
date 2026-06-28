@@ -7,6 +7,7 @@ import { tagValue, tagsOf } from '../tags.js';
 
 const DIRECTIONS = ['north','south','east','west','up','down','in','out'];
 const OPPOSITE = { north:'south', south:'north', east:'west', west:'east', up:'down', down:'up', in:'out', out:'in' };
+const WINDOW_WORDS = new Set(['window', 'windows', 'curtain', 'curtains']);
 
 function findDoorEitherSide(zoneId, dir) {
   // Door in this zone going that direction (player is on the source side)
@@ -172,6 +173,7 @@ function doorPrePass(fn) {
   return (args, raw, player, broadcast) => {
     if (args[0] === 'door') return fn(args.slice(1), raw, player, broadcast);
     if (DIRECTIONS.includes(args[0])) return fn(args, raw, player, broadcast);
+    if (WINDOW_WORDS.has(args[0])) return undefined;
     // Bare command — only intercept if there's exactly one door here.
     const door = resolveDoor([], player);
     if (!door || door === 'ambiguous') return undefined;

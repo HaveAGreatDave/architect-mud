@@ -101,11 +101,7 @@ async function confirmGhostMode() {
   const zoneId = select.value;
   if (!zoneId) { toast('Select a zone first', true); return; }
   closeGhostModal();
-
-  const res = await directAPI(`/players/${devPlayerId}/teleport`, 'POST', { zoneId });
-  if (res.error) { toast(`Teleport failed: ${res.error}`, true); return; }
-
-  await launchPlayerClient();
+  openGhostDialog(zoneId);
 }
 
 function closeGhostModal() {

@@ -37,7 +37,9 @@ import {
 	handleApiRequest,
 	setBroadcast,
 	consumeSwitchToken,
+	setGhostTokenStore,
 } from "./api/routes.js";
+import { cmdGhostLook, cmdGhostMove, cmdGhostHaunt } from "./engine/commands/ghost.js";
 import { startKeepalive } from "./keepalive.js";
 import { setBroadcast as setMessagingBroadcast } from "./engine/messaging.js";
 import { query, logActivity } from "./models/db.js";
@@ -53,6 +55,7 @@ const PORT = process.env.PORT || 3000;
 const clients = new Map(); // ws -> session
 const playerSockets = new Map(); // playerId -> ws
 const reconnectTokens = new Map(); // token -> { playerId, expires }
+const ghostTokens = new Map(); // token -> { playerId, zoneId, expires }
 
 function issueReconnectToken(playerId) {
 	const token = randomUUID();
@@ -69,9 +72,16 @@ setInterval(
 		for (const [token, entry] of reconnectTokens) {
 			if (entry.expires < now) reconnectTokens.delete(token);
 		}
+		for (const [token, entry] of ghostTokens) {
+			if (entry.expires < now) ghostTokens.delete(token);
+		}
 	},
 	15 * 60 * 1000,
 );
+
+setGhostTokenStore((token, playerId, zoneId) => {
+	ghostTokens.set(token, { playerId, zoneId, expires: Date.now() + 2 * 60 * 1000 });
+});
 
 function broadcast(
 	zoneId,
@@ -86,9 +96,12 @@ function broadcast(
 		return;
 	}
 	for (const [ws, session] of clients) {
-		if (ws.readyState !== 1 || session.isGhost) continue;
+		if (ws.readyState !== 1) continue;
 		if (excludePlayerId && session.playerId === excludePlayerId) continue;
-		if (zoneId) {
+		if (session.isGhost) {
+			// Ghost only receives broadcasts for its watched zone; skip global ones
+			if (!zoneId || session.ghostZoneId !== zoneId) continue;
+		} else if (zoneId) {
 			const p = getLivePlayer(session.playerId);
 			if (!p || p.current_zone !== zoneId) continue;
 		}
@@ -240,6 +253,8 @@ wss.on("connection", (ws) => {
 		if (msg.type === "command") return handleGameCommand(ws, session, msg);
 		if (msg.type === "dialogue") return handleDialogue(ws, session, msg);
 		if (msg.type === "buy_npc") return handleBuyFromNpc(ws, session, msg);
+		if (msg.type === "auth_ghost") return handleGhostAuth(ws, session, msg);
+		if (msg.type === "ghost_command") return handleGhostCommand(ws, session, msg);
 		if (msg.type === "ping") {
 			ws.send(JSON.stringify({ type: "pong" }));
 			return;
@@ -305,6 +320,44 @@ const heartbeat = setInterval(() => {
 }, 30000);
 
 wss.on("close", () => clearInterval(heartbeat));
+
+async function handleGhostAuth(ws, session, msg) {
+	const entry = ghostTokens.get(msg.token || '');
+	if (!entry || entry.expires < Date.now()) {
+		ghostTokens.delete(msg.token || '');
+		ws.send(JSON.stringify({ type: 'ghost_auth_fail', message: 'Invalid or expired ghost token.' }));
+		return;
+	}
+	ghostTokens.delete(msg.token);
+	const { rows } = await query('SELECT handle FROM players WHERE id=$1', [entry.playerId]);
+	if (!rows.length) {
+		ws.send(JSON.stringify({ type: 'ghost_auth_fail', message: 'Player not found.' }));
+		return;
+	}
+	session.isGhost = true;
+	session.ghostZoneId = entry.zoneId;
+	session.playerId = entry.playerId;
+	session.handle = rows[0].handle;
+	ws.send(JSON.stringify({ type: 'ghost_auth_success' }));
+	const lookResult = await cmdGhostLook(session);
+	ws.send(JSON.stringify(lookResult));
+}
+
+async function handleGhostCommand(ws, session, msg) {
+	if (!session.isGhost) return;
+	let result;
+	const { command, direction, target } = msg;
+	if (command === 'look') {
+		result = await cmdGhostLook(session);
+	} else if (command === 'move' && direction) {
+		result = await cmdGhostMove(direction, session);
+	} else if (command === 'haunt' && target) {
+		result = await cmdGhostHaunt(target, session, broadcast);
+	} else {
+		result = { type: 'ghost_error', message: 'Unknown command.' };
+	}
+	ws.send(JSON.stringify(result));
+}
 
 async function handleAuth(ws, session, msg) {
 	const hash = createHash("sha256")
