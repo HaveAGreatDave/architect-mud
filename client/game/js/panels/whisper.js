@@ -165,7 +165,7 @@ function _setSystemMOTD(renderedText) {
   convo.unread    = 0;
   convo.scrollTop = 0;
   if (isFirst) {
-    openWhisperTab(channelId);
+    _activeWhisperTab = channelId; // default to #system when panel is opened, but don't open it
   } else if (_activeWhisperTab === channelId) {
     // Re-render immediately whenever #system is active, panel open or closed
     _renderWhisperLog();
