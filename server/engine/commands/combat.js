@@ -244,6 +244,25 @@ async function offlineSleepSwing(attacker, targetId, broadcast) {
 		).catch(() => {});
 		createCorpse({ id: corpseId, name: corpseName, zoneId: attacker.current_zone, expiresAt });
 		await query(`UPDATE players SET hp=$1, current_zone=anchor_zone, deaths=deaths+1 WHERE id=$2`, [target.hp_max ?? 100, target.id]);
+
+		// Give starter clothes just like the live-death path does
+		const sex = target.biological_sex || 'male';
+		const underwear = sex === 'male'
+			? [['item_underwear_male', 'legs']]
+			: [['item_underwear_female_top', 'torso'], ['item_underwear_female_bottom', 'legs']];
+		for (const [itemId, slot] of underwear) {
+			query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,is_equipped,slot,layer)
+			       SELECT $1,$2,i.id,1,1.0,1,$3,1 FROM items i WHERE i.id=$4
+			       AND NOT EXISTS (SELECT 1 FROM player_inventory WHERE player_id=$2 AND item_id=$4 AND is_equipped=1)`,
+				[randomUUID(), target.id, slot, itemId]).catch(() => {});
+		}
+		for (const [itemId, slot] of [['item_basic_shirt','torso'],['item_basic_pants','legs'],['item_basic_shoes','feet']]) {
+			query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,is_equipped,slot,layer)
+			       SELECT $1,$2,i.id,1,1.0,1,$3,2 FROM items i WHERE i.id=$4
+			       AND NOT EXISTS (SELECT 1 FROM player_inventory WHERE player_id=$2 AND item_id=$4 AND is_equipped=1)`,
+				[randomUUID(), target.id, slot, itemId]).catch(() => {});
+		}
+
 		attacker.player_kills = (attacker.player_kills || 0) + 1;
 		query('UPDATE players SET player_kills=player_kills+1 WHERE id=$1', [attacker.id]).catch(() => {});
 		const corpseLink = `<span class="action-link corpse-link" data-action="loot" data-target="${corpseId}" data-label="${corpseName}" title="Loot ${corpseName}">${corpseName}</span>`;
