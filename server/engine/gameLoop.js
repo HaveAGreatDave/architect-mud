@@ -39,6 +39,44 @@ export function startGameLoop(broadcast) {
 async function tick() {
   // Enemy AI
   for (const [instanceId, enemy] of world.enemies) {
+    // Ambient threat escalation — runs for all enemies when no target yet
+    if (!enemy.targetId) {
+      const zone = world.zones.get(enemy.zoneId);
+      if (zone && zone.players.size > 0) {
+        const now = Date.now();
+        if (!enemy._lastThreatTick || now - enemy._lastThreatTick >= 5000) {
+          enemy._lastThreatTick = now;
+          enemy._threatLevel = (enemy._threatLevel || 0) + 1;
+
+          // Battlecry — cycle through the enemy's configured cries
+          const cries = enemy.flags?.battle_cries;
+          if (Array.isArray(cries) && cries.length) {
+            const randomPlayer = getLivePlayer([...zone.players][Math.floor(Math.random() * zone.players.size)]);
+            const cry = cries[Math.floor(Math.random() * cries.length)]
+              .replace(/\$enemy/g, enemy.name)
+              .replace(/\$player/g, randomPlayer?.handle || 'you');
+            broadcastFn(enemy.zoneId, { type: 'output', message: `<span class="battle-cry">${cry}</span>` });
+          }
+
+          // Escalating aggro roll — chance grows 5% per 5-second tick
+          const canAggro = enemy.behavior === 'aggressive' || enemy.behavior === 'territorial' || enemy.behaviour_graph?._start;
+          if (canAggro && Math.random() < Math.min(enemy._threatLevel * 0.05, 0.95)) {
+            const playerIds = [...zone.players];
+            enemy.targetId = playerIds[Math.floor(Math.random() * playerIds.length)];
+            enemy.aggroedAt = now;
+          }
+        }
+      } else {
+        // No players in zone — reset threat counter
+        enemy._threatLevel = 0;
+        enemy._lastThreatTick = null;
+      }
+    } else {
+      // In combat — reset threat so it starts fresh if they drop target later
+      enemy._threatLevel = 0;
+      enemy._lastThreatTick = null;
+    }
+
     if (enemy.behaviour_graph?._start) {
       // Behaviour graph drives this enemy — delegate to AI runtime.
       tickEntityAI(enemy, { broadcast: broadcastFn, query }).catch(() => {});
@@ -49,7 +87,7 @@ async function tick() {
     if (!enemy.targetId) {
       const zone = world.zones.get(enemy.zoneId);
       if (!zone || zone.players.size === 0) continue;
-      if (enemy.behavior === 'aggressive' || enemy.behavior === 'territorial') {
+      if (!enemy.targetId && (enemy.behavior === 'aggressive' || enemy.behavior === 'territorial')) {
         enemy.targetId = [...zone.players][Math.floor(Math.random() * zone.players.size)];
         enemy.aggroedAt = Date.now();
       }
