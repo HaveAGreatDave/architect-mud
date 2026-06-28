@@ -135,14 +135,18 @@ export async function cmdAttack(targetStr, player, broadcast) {
 		createSelectionState(player.id, atkr.candidates, { verb: 'attack' });
 		return { type: 'output', message: formatSelectionPage({ allCandidates: atkr.candidates, visibleIndex: 0, pageSize: 5 }) };
 	}
-	let targetPlayer = atkr.type === 'match' ? atkr.candidate : null;
+	let targetPlayer = atkr.type === 'match' ? (getLivePlayer(atkr.candidate.id) || atkr.candidate) : null;
 	let targetIsLive = !!targetPlayer;
 	if (!targetPlayer) {
 		const { rows } = await query(
 			`SELECT * FROM players WHERE LOWER(handle) LIKE $1 AND current_zone=$2 AND id!=$3 LIMIT 1`,
 			[`%${targetStr.toLowerCase()}%`, player.current_zone, player.id],
 		);
-		if (rows.length) targetPlayer = rows[0];
+		if (rows.length) {
+			const live = getLivePlayer(rows[0].id);
+			targetPlayer = live || rows[0];
+			targetIsLive = !!live;
+		}
 	}
 	if (!targetPlayer)
 		return { type: "error", message: `Can't find "${targetStr}" here.` };
