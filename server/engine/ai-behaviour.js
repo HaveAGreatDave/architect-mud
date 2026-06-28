@@ -52,6 +52,37 @@ function resolveEdge(edges, fromNode, fromPort) {
   return edges.find(e => e.fromNode === fromNode && e.fromPort === fromPort)?.toNode || null;
 }
 
+// Convert DB-format graph (inline connections + flat data) to runtime format
+// (edges array + node.data). Called once per entity and cached on the object.
+// DB format from toAiGraph: { _start, nodes: { id: { type, condition_type, next, ... } } }
+// Runtime format:           { _start, nodes: { id: { type, data: {...} } }, edges: [...] }
+function normalizeGraph(graph) {
+  if (!graph || !graph.nodes) return graph;
+  if (graph._normalized) return graph;
+
+  const edges = [];
+  const nodes = {};
+
+  for (const [id, node] of Object.entries(graph.nodes)) {
+    const { type, next, ifTrue, ifFalse, _vine, ...fields } = node;
+
+    if (next)    edges.push({ fromNode: id, fromPort: 'next',    toNode: next });
+    if (ifTrue)  edges.push({ fromNode: id, fromPort: 'ifTrue',  toNode: ifTrue });
+    if (ifFalse) edges.push({ fromNode: id, fromPort: 'ifFalse', toNode: ifFalse });
+
+    for (const k of Object.keys(fields)) {
+      if (k.startsWith('branch_') && fields[k]) {
+        edges.push({ fromNode: id, fromPort: k, toNode: fields[k] });
+        delete fields[k];
+      }
+    }
+
+    nodes[id] = { type: type || 'action', data: fields };
+  }
+
+  return { _start: graph._start, nodes, edges, _normalized: true };
+}
+
 // ── Condition evaluation ──────────────────────────────────────────────────────
 
 function evalCondition(node, entity) {
@@ -322,6 +353,10 @@ async function execAction(node, entity, ctx) {
 const MAX_STEPS = 50;
 
 export async function tickEntityAI(entity, ctx) {
+  // Normalize DB format (inline connections + flat data) to runtime format on first tick
+  if (entity.behaviour_graph && !entity.behaviour_graph._normalized) {
+    entity.behaviour_graph = normalizeGraph(entity.behaviour_graph);
+  }
   const graph = entity.behaviour_graph;
   if (!graph || !graph._start) return;
 
