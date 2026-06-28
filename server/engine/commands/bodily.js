@@ -163,6 +163,25 @@ export async function bodilyUseHandler(args, raw, player) {
   return null; // fall through to inventory use
 }
 
+async function cmdSit(player) {
+  if (player.combatTargetId || player.pvpTargetId) {
+    return { type: 'error', message: `You can't sit while in combat.` };
+  }
+  if (player.sitting) {
+    return { type: 'output', message: `You're already sitting.` };
+  }
+  player.sitting = true;
+  return { type: 'output', message: `You sit down and let your muscles relax.` };
+}
+
+async function cmdStand(player) {
+  if (!player.sitting) {
+    return { type: 'output', message: `You're already standing.` };
+  }
+  player.sitting = false;
+  return { type: 'output', message: `You stand up.` };
+}
+
 export const handlers = {
   pee:      (args, raw, player, broadcast) => cmdPee(args, player, broadcast),
   urinate:  (args, raw, player, broadcast) => cmdPee(args, player, broadcast),
@@ -171,5 +190,6 @@ export const handlers = {
   defecate: (args, raw, player, broadcast) => cmdPoop(args, player, broadcast),
   shit:     (args, raw, player, broadcast) => cmdPoop(args, player, broadcast),
   flush:    (args, raw, player)            => cmdFlush(args, player),
-  sit:      (args, raw, player)            => cmdUseToilet(player).then(r => r || { type:'output', message:`There's nothing to sit on here.` }),
+  sit:      (args, raw, player)            => cmdSit(player),
+  stand:    (args, raw, player)            => cmdStand(player),
 };
