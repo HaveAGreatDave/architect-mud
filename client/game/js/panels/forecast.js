@@ -1,4 +1,5 @@
 import { appendMsg } from '../render.js';
+import { formatTemp } from '/shared/settings.js';
 
 export function openForecast() {
   fetch('/api/environment/forecast')
@@ -21,7 +22,7 @@ function renderForecastPanel(forecast) {
       <span class="fd-label">${i === 0 ? 'Today' : (f.date || '').slice(5) || `+${i}`}</span>
       <span class="fd-icon">${f.icon || ''}</span>
       <span class="fd-weather">${(f.weatherType || '').replace('_', ' ')}</span>
-      <span class="fd-temp">${f.tempC}°C</span>
+      <span class="fd-temp">${formatTemp(f.tempC)}</span>
     </div>
   `).join('');
   document.getElementById('forecast-panel').classList.add('active');

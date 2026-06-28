@@ -1,4 +1,5 @@
 import { loadSettings, saveSettings, applySettings, initSettingsUI, initThemeEditorOverlay, listenForSettingsChanges, SETTINGS_KEY } from '/shared/settings.js';
+import { appendMsg } from './render.js';
 import { initNet, setWhoModalHandler, sendCmd, doAuth, doForgotPassword, doResetPassword, closeConnection } from './net.js';
 import { handleServerMsg } from './dispatch.js';
 import { state } from './state.js';
@@ -39,6 +40,7 @@ listenForSettingsChanges((s) => { applySettings(s); applyMobileScale(); });
 // saveAndApply is called after settings.js mutates the settings object in-place
 initSettingsUI(settings, () => { saveSettings(settings); applySettings(settings); applyMobileScale(); }, {
   sendCmd,
+  notify: (msg) => appendMsg(msg, 'system'),
   getOrigin: () => state.player?.origin_fragment || '',
   saveOrigin: async (text) => {
     const token = sessionStorage.getItem('devpanel-token');

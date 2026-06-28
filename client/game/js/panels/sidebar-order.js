@@ -55,6 +55,7 @@ function toggleLock() {
   const btn = document.getElementById('sidebar-lock-btn');
   const sidebar = document.getElementById('sidebar');
   btn.textContent = locked ? '🔒' : '🔓';
+  btn.classList.toggle('unlocked', !locked);
   btn.title = locked ? 'Unlock to reorder sidebar sections' : 'Lock sidebar order';
   sidebar.classList.toggle('drag-mode', !locked);
   sidebar.querySelectorAll('.sidebar-section').forEach(sec => {

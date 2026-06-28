@@ -1120,15 +1120,15 @@ body {
 	position: absolute;
 	top: 6px;
 	left: 4px;
-	width: 22px;
-	height: 22px;
+	width: 28px;
+	height: 28px;
 	background: var(--bg3);
 	border: 1px solid var(--border);
 	border-radius: 3px;
 	color: var(--text-dim);
-	font-size: 12px;
+	font-size: 16px;
 	padding: 0;
-	line-height: 22px;
+	line-height: 28px;
 	text-align: center;
 	cursor: pointer;
 	z-index: 5;
@@ -1137,6 +1137,11 @@ body {
 .sidebar-lock-btn:hover {
 	border-color: var(--accent);
 	color: var(--accent);
+}
+.sidebar-lock-btn.unlocked {
+	border-color: var(--accent2);
+	color: var(--accent2);
+	background: var(--bg2);
 }
 [data-sidebar="right"] .sidebar-lock-btn {
 	left: auto;

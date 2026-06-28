@@ -1,4 +1,5 @@
 import { state } from '../state.js';
+import { formatTemp, formatTempPrecise } from '/shared/settings.js';
 
 const DAY_PHASES_CLIENT = [
   { name: 'dawn',  start: 5 * 60,  end: 7 * 60,  icon: '🌅' },
@@ -47,7 +48,7 @@ function renderEnvironmentHUD() {
   if (clientMinutes === null) return;
   const timeStr = formatHHMM(clientMinutes);
   const timeIcon = timeIconForMinutes(clientMinutes);
-  const tempStr = envTempC !== null ? `${envTempC}°C` : '—°C';
+  const tempStr = envTempC !== null ? formatTemp(envTempC) : '—';
   const feelStr = bodyFeelLabel(envTempC);
   const precipLabel = envCurrentPrecipIntensity && envCurrentPrecipIntensity !== 'none'
     ? envCurrentPrecipIntensity.charAt(0).toUpperCase() + envCurrentPrecipIntensity.slice(1)
@@ -67,7 +68,7 @@ function renderEnvironmentHUD() {
     if (bf) bf.textContent = feelStr;
     if (bt) {
       if (envBodyTempC !== null) {
-        bt.textContent = `🌡 ${envBodyTempC.toFixed(1)}°C`;
+        bt.textContent = `🌡 ${formatTempPrecise(envBodyTempC)}`;
         bt.style.display = '';
       } else {
         bt.style.display = 'none';

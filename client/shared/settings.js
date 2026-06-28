@@ -1,5 +1,25 @@
 const SETTINGS_KEY = 'architect_settings';
-const DEFAULT_SETTINGS = { theme: 'dark', fontSize: '14', density: 'comfortable', sidebarPosition: 'left', motion: 'on' };
+const DEFAULT_SETTINGS = { theme: 'dark', fontSize: '14', density: 'comfortable', sidebarPosition: 'left', motion: 'on', tempUnit: 'C' };
+
+export function formatTemp(tempC) {
+  if (tempC === null || tempC === undefined) return null;
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    const unit = raw ? (JSON.parse(raw).tempUnit || 'C') : 'C';
+    if (unit === 'F') return `${Math.round(tempC * 9 / 5 + 32)}°F`;
+  } catch {}
+  return `${tempC}°C`;
+}
+
+export function formatTempPrecise(tempC, decimals = 1) {
+  if (tempC === null || tempC === undefined) return null;
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    const unit = raw ? (JSON.parse(raw).tempUnit || 'C') : 'C';
+    if (unit === 'F') return `${(tempC * 9 / 5 + 32).toFixed(decimals)}°F`;
+  } catch {}
+  return `${tempC.toFixed(decimals)}°C`;
+}
 
 export { SETTINGS_KEY };
 
@@ -92,17 +112,17 @@ export function applySettings(settings) {
 
   _populateThemeDropdown(settings);
 
-  for (const group of ['fontsize', 'density', 'sidebar', 'motion']) {
+  for (const group of ['fontsize', 'density', 'sidebar', 'motion', 'tempunit']) {
     const container = document.getElementById(`opt-${group}`);
     if (!container) continue;
-    const key = group === 'fontsize' ? 'fontSize' : group === 'sidebar' ? 'sidebarPosition' : group;
+    const key = group === 'fontsize' ? 'fontSize' : group === 'sidebar' ? 'sidebarPosition' : group === 'tempunit' ? 'tempUnit' : group;
     container.querySelectorAll('.settings-opt').forEach(btn => {
       btn.classList.toggle('selected', btn.dataset.value === String(settings[key]));
     });
   }
 }
 
-export function initSettingsUI(settings, saveAndApply, { getOrigin, saveOrigin, sendCmd } = {}) {
+export function initSettingsUI(settings, saveAndApply, { getOrigin, saveOrigin, sendCmd, notify } = {}) {
   const themeSelect = document.getElementById('opt-theme');
   if (themeSelect) {
     themeSelect.addEventListener('change', () => {
@@ -126,6 +146,16 @@ export function initSettingsUI(settings, saveAndApply, { getOrigin, saveOrigin, 
   });
   document.querySelectorAll('#opt-motion .settings-opt').forEach(btn => {
     btn.addEventListener('click', () => { settings.motion = btn.dataset.value; saveAndApply(); });
+  });
+  document.querySelectorAll('#opt-tempunit .settings-opt').forEach(btn => {
+    btn.addEventListener('click', () => {
+      settings.tempUnit = btn.dataset.value;
+      saveAndApply();
+      if (notify) {
+        const label = btn.dataset.value === 'F' ? 'F°reedom' : 'C°ommunism';
+        notify(`${label} units enabled!`);
+      }
+    });
   });
 
   const originArea = document.getElementById('settings-origin');
