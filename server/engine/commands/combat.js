@@ -359,9 +359,17 @@ async function cmdSteal(targetStr, player, broadcast) {
 	const others = getZonePlayers(player.current_zone).filter(
 		(p) => p.id !== player.id,
 	);
-	const target = others.find((p) =>
+	let target = others.find((p) =>
 		p.handle.toLowerCase().includes(targetStr.toLowerCase()),
 	);
+	let targetSleeping = false;
+	if (!target) {
+		const { rows } = await query(
+			`SELECT * FROM players WHERE LOWER(handle) LIKE $1 AND current_zone=$2 AND offline_sleeping=TRUE LIMIT 1`,
+			[`%${targetStr.toLowerCase()}%`, player.current_zone],
+		);
+		if (rows.length) { target = rows[0]; targetSleeping = true; }
+	}
 	if (!target)
 		return { type: "error", message: `Can't find "${targetStr}" here.` };
 
@@ -372,22 +380,24 @@ async function cmdSteal(targetStr, player, broadcast) {
 			message: `${target.handle} isn't carrying any credits.`,
 		};
 
-	const result = await skillCheck(player, "deception", 7);
-	const caught = !result.success;
+	if (!targetSleeping) {
+		const result = await skillCheck(player, "deception", 7);
+		const caught = !result.success;
 
-	if (caught) {
-		broadcast(
-			player.current_zone,
-			{
-				type: "zone_event",
-				message: `${player.handle} tries to pick ${target.handle}'s pocket and gets caught red-handed.`,
-			},
-			player.id,
-		);
-		return {
-			type: "error",
-			message: `You go for ${target.handle}'s pocket. They notice immediately. Everyone noticed, actually.`,
-		};
+		if (caught) {
+			broadcast(
+				player.current_zone,
+				{
+					type: "zone_event",
+					message: `${player.handle} tries to pick ${target.handle}'s pocket and gets caught red-handed.`,
+				},
+				player.id,
+			);
+			return {
+				type: "error",
+				message: `You go for ${target.handle}'s pocket. They notice immediately. Everyone noticed, actually.`,
+			};
+		}
 	}
 
 	const amount = Math.min(
@@ -398,7 +408,9 @@ async function cmdSteal(targetStr, player, broadcast) {
 	await adjustCredits(player, amount);
 	return {
 		type: "steal",
-		message: `You lift ${amount}c off ${target.handle} without them noticing a thing.`,
+		message: targetSleeping
+			? `You rifle through ${target.handle}'s pockets while they sleep. ${amount}c richer.`
+			: `You lift ${amount}c off ${target.handle} without them noticing a thing.`,
 		player_update: { credits: player.credits },
 	};
 }
