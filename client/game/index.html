@@ -536,12 +536,13 @@
 			</div>
 
 			<div id="sidebar">
+				<button id="sidebar-lock-btn" class="sidebar-lock-btn" title="Unlock to reorder sidebar sections">🔒</button>
 				<div class="sidebar-section" id="minimap-section">
 					<div class="sidebar-label">Map</div>
 					<div id="minimap-grid">—</div>
 				</div>
 
-				<div class="sidebar-section">
+				<div class="sidebar-section" id="vitals-section">
 					<div class="sidebar-label">Vitals</div>
 					<div class="vital vital-hp">
 						<div class="vital-label">
@@ -625,7 +626,7 @@
 					</div>
 				</div>
 
-				<div class="sidebar-section">
+				<div class="sidebar-section" id="location-section">
 					<div class="sidebar-label">Location</div>
 					<div id="zone-name-display">—</div>
 					<div id="exits-display"></div>
@@ -671,8 +672,8 @@
 
 				<div
 					class="sidebar-section"
+					id="chat-section"
 					style="
-						margin-top: auto;
 						padding-top: 8px;
 						border-top: 1px solid var(--border);
 					">
@@ -1170,6 +1171,9 @@
 						</button>
 						<button class="settings-opt" data-value="right">
 							Sidebar Right
+						</button>
+						<button id="sidebar-reset-btn" class="sidebar-reset-btn">
+							Reset Order
 						</button>
 					</div>
 				</div>

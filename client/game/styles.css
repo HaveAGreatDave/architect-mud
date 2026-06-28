@@ -1114,6 +1114,71 @@ body {
 	margin-bottom: 8px;
 }
 
+/* Sidebar lock/unlock toggle */
+.sidebar-lock-btn {
+	display: block;
+	width: 100%;
+	background: transparent;
+	border: none;
+	border-bottom: 1px solid var(--border);
+	color: var(--text-dim);
+	font-size: 13px;
+	padding: 4px 0;
+	cursor: pointer;
+	text-align: center;
+	transition: background 0.1s;
+	flex-shrink: 0;
+}
+.sidebar-lock-btn:hover {
+	background: var(--bg3);
+}
+
+/* Chat floats to bottom when locked */
+#sidebar:not(.drag-mode) #chat-section {
+	margin-top: auto;
+}
+
+/* Drag mode: sections get grab cursor */
+#sidebar.drag-mode .sidebar-section {
+	cursor: grab;
+}
+#sidebar.drag-mode .sidebar-section:active {
+	cursor: grabbing;
+}
+
+/* Dragged section goes semi-transparent */
+.sidebar-section.dragging {
+	opacity: 0.4;
+}
+
+/* Drop target indicators */
+.sidebar-section.drop-before {
+	outline: 2px solid var(--accent);
+	outline-offset: -2px;
+	box-shadow: inset 0 3px 0 0 var(--accent);
+}
+.sidebar-section.drop-after {
+	outline: 2px solid var(--accent);
+	outline-offset: -2px;
+	box-shadow: inset 0 -3px 0 0 var(--accent);
+}
+
+/* Reset sidebar order button in settings */
+.sidebar-reset-btn {
+	background: transparent;
+	border: 1px solid var(--border);
+	color: var(--text-dim);
+	font-family: var(--font);
+	font-size: 11px;
+	padding: 4px 10px;
+	cursor: pointer;
+	border-radius: 2px;
+}
+.sidebar-reset-btn:hover {
+	border-color: var(--accent);
+	color: var(--accent);
+}
+
 /* Vitals bars */
 .vital {
 	margin-bottom: 6px;

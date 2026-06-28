@@ -11,6 +11,7 @@ import { initDialogue } from './panels/dialogue.js';
 import { initForecast } from './panels/forecast.js';
 import { initWhisperPanel, debugFakeWhisper, toggleWhisperPanel } from './panels/whisper.js';
 import { initWho, openWhoModal } from './panels/who.js';
+import { initSidebarOrder } from './panels/sidebar-order.js';
 
 // Settings
 const settings = loadSettings();
@@ -52,6 +53,7 @@ initSettingsUI(settings, () => { saveSettings(settings); applySettings(settings)
 });
 
 initThemeEditorOverlay();
+initSidebarOrder();
 
 // Net / WebSocket
 initNet(handleServerMsg);
