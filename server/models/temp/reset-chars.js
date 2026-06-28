@@ -12,7 +12,8 @@ import { startingIp } from '../../engine/ip.js';
 // Guard: only runs when invoked directly (npm run db:reset-chars).
 async function resetChars() {
   await ensureTunables();
-  const ip = startingIp();
+  // Stats reset to 0, so bonus_xp is just startingIp (no baseline stats to cover).
+  const bonusXp = startingIp();
   const { rowCount } = await query(`
     UPDATE players
     SET stat_brawn     = 0,
@@ -20,11 +21,11 @@ async function resetChars() {
         stat_endurance = 0,
         stat_brains    = 0,
         stat_cool      = 0,
-        ip             = $1,
+        bonus_xp       = $1,
         hp             = hp_max
     WHERE role != 'admin'
-  `, [ip]);
-  console.log(`✓ Reset stats/hp and granted ${ip} IP to ${rowCount} player(s)`);
+  `, [bonusXp]);
+  console.log(`✓ Reset stats/hp and granted ${bonusXp} XP to ${rowCount} player(s)`);
 
   const { rowCount: skillCount } = await query(`
     DELETE FROM player_skills ps

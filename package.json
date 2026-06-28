@@ -9,7 +9,8 @@
     "db:schema": "node server/models/schema.js",
     "db:restore": "node server/models/restore.js",
     "db:rename-admin": "node server/models/temp/rename-admin.js",
-    "db:reset-chars": "node server/models/temp/reset-chars.js"
+    "db:reset-chars": "node server/models/temp/reset-chars.js",
+    "db:migrate-xp": "node server/models/temp/migrate-xp.js"
   },
   "dependencies": {
     "@getbrevo/brevo": "^5.0.4",

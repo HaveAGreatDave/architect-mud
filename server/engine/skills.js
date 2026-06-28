@@ -1,6 +1,6 @@
 import { query } from '../models/db.js';
-import { ensureTunables, getTunable } from './tunables.js';
-import { mintIp } from './ip.js';
+import { awardIp } from './ip.js';
+import { sendToPlayer } from './messaging.js';
 
 export const SKILLS = {
   brawling:    { id:'brawling',    name:'Brawling',    category:'combat',   stats:['stat_brawn','stat_reflexes'] },
@@ -25,17 +25,17 @@ export const SKILLS = {
   architect_interface: { id:'architect_interface', name:'Architect Interface', category:'arcane', stats:['stat_brains','stat_cool'] },
 };
 
-// trained (0–10) + average of governing stats. Can exceed 10.
+// skill level (floor(ip/100), 0–10) + average of governing stats. Can exceed 10.
 export async function effectiveSkill(player, skillId) {
   const skill = SKILLS[skillId];
   if (!skill) return 0;
   const { rows } = await query(
-    'SELECT trained FROM player_skills WHERE player_id=$1 AND skill_id=$2',
+    'SELECT ip FROM player_skills WHERE player_id=$1 AND skill_id=$2',
     [player.id, skillId]
   );
-  const trained = rows[0]?.trained || 0;
+  const level = Math.floor((rows[0]?.ip || 0) / 100);
   const avgStat = skill.stats.reduce((sum, s) => sum + (player[s] || 0), 0) / skill.stats.length;
-  return trained + avgStat;
+  return level + avgStat;
 }
 
 export async function skillCheck(player, skillId, difficulty = 5) {
@@ -46,43 +46,28 @@ export async function skillCheck(player, skillId, difficulty = 5) {
   return { success: total >= difficulty, roll, total, difficulty, margin };
 }
 
-// Award skill growth on successful use. Gain is highest on a barely-won check
-// (margin ≈ 0) and falls off as the margin grows. Returns { trained_delta }.
+// Roll for an IP award on a successful skill use (binary, barely-won = best odds).
+// On a hit, award 1 IP to the skill and notify the player in the main pane.
 export async function awardSkillUse(playerId, skillId, margin = 0) {
-  await ensureTunables();
-  const maxGain = getTunable('learn_max_gain', 0.05);
-  const marginScale = getTunable('learn_margin_scale', 2.0);
-  const gain = maxGain / (1 + Math.max(0, margin) * marginScale);
+  const { awarded, leveledUp } = await awardIp(playerId, skillId, margin);
+  if (!awarded) return { awarded: 0 };
 
-  const { rows } = await query(
-    'SELECT trained FROM player_skills WHERE player_id=$1 AND skill_id=$2',
-    [playerId, skillId]
-  );
-  const current = rows[0]?.trained ?? 0;
-  if (current >= 10) return { trained_delta: 0 };
-
-  const newTrained = Math.min(10, current + gain);
-  const delta = newTrained - current;
-
-  if (!rows.length) {
-    await query(
-      'INSERT INTO player_skills (player_id, skill_id, trained) VALUES ($1,$2,$3)',
-      [playerId, skillId, newTrained]
+  const name = SKILLS[skillId]?.name || skillId;
+  sendToPlayer(playerId, { type: 'output', message: `<span class="ip-gain">+1 IP — ${name}</span>` });
+  if (leveledUp) {
+    const { rows } = await query(
+      'SELECT ip FROM player_skills WHERE player_id=$1 AND skill_id=$2',
+      [playerId, skillId]
     );
-  } else {
-    await query(
-      'UPDATE player_skills SET trained=$1 WHERE player_id=$2 AND skill_id=$3',
-      [newTrained, playerId, skillId]
-    );
+    const level = Math.floor((rows[0]?.ip || 0) / 100);
+    sendToPlayer(playerId, { type: 'output', message: `<span class="ip-gain">Your ${name} skill rises to level ${level}.</span>` });
   }
-
-  const ip_minted = await mintIp(playerId, delta);
-  return { trained_delta: delta, ip_minted };
+  return { awarded };
 }
 
 export async function getPlayerSkills(playerId) {
-  const { rows } = await query('SELECT skill_id, trained FROM player_skills WHERE player_id=$1', [playerId]);
+  const { rows } = await query('SELECT skill_id, ip FROM player_skills WHERE player_id=$1', [playerId]);
   const result = {};
-  for (const row of rows) result[row.skill_id] = { trained: row.trained || 0 };
+  for (const row of rows) result[row.skill_id] = { level: Math.floor((row.ip || 0) / 100), ip: row.ip || 0 };
   return result;
 }

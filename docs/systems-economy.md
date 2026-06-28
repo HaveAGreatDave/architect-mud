@@ -61,8 +61,8 @@ credits, failure broadcasts a public "caught red-handed" event. Uses `adjustCred
 [crafting.js](../server/engine/crafting.js) + the [crafting plugin](../plugins/crafting/index.js)
 (`craft`, `recipes` commands). Recipes are dev-panel editable, cached at boot.
 
-- **Skill gate:** each recipe's `skill_req` (skill → min rank) is checked against the player's trained
-  skills before crafting.
+- **Skill gate:** each recipe's `skill_req` (skill → min rank) is checked against the player's skill
+  levels (`floor(player_skills.ip / 100)`) before crafting.
 - **Station gate:** `requires_station` recipes need a matching station (`stationQuality !== 'none'`).
 - **Resolution:** a `skillCheck` against `base_difficulty`, plus a station bonus (refined +2, pristine +4).
   Output quality from final margin: `<0` scrap, `≥3` refined, `≥6` pristine; crits always pristine and
@@ -71,24 +71,38 @@ credits, failure broadcasts a public "caught red-handed" event. Uses `adjustCred
 - **Quality tiers** (`QUALITY_TIERS`): scrap 0.5× → common 1.0× → refined 1.5× → pristine 2.0× →
   architect-grade 3.0× (a multiplier on output stats; tier is stored in the item instance's `custom_data`).
 
-> **Known bug:** the `recipes` command queries `SELECT skill_id, rank FROM player_skills`, but the live
-> skill column is `trained` (the `rank` column is legacy/dead). So `recipes` reads every skill as 0 and
-> hides any recipe with a non-zero skill requirement — yet `craft` (which reads `trained` correctly) will
-> still make it. See the QA report.
+> **Known bug:** the `recipes` command (crafting plugin) still reads the dead `trained` column, which is
+> frozen at its pre-IP/XP-migration value. The live skill metric is now `player_skills.ip`
+> (level = `floor(ip/100)`), which `craft` reads correctly. So `recipes` can hide recipes whose skill
+> requirement you actually meet — yet `craft` will still make them. See the QA report.
 
-## IP & raising stats
+## IP, XP & raising stats
 
-[ip.js](../server/engine/ip.js). IP is the single advancement currency.
+[ip.js](../server/engine/ip.js). Two linked currencies: **IP** advances individual skills, and **XP**
+(earned 1:1 from IP) is spent on stats. Both are stored as whole numbers — every account's Total XP
+must be a round number.
 
-- **Minting:** `awardSkillUse` (on a successful skill use) → `mintIp(playerId, skillDelta)` =
-  `skillDelta × 100 × ip_per_skill_point`. A barely-won check grants the most skill growth, hence the
-  most IP.
+- **IP award (binary roll):** on a *successful* skill use, `awardSkillUse` → `awardIp(playerId,
+  skillId, margin)` rolls **once**: `chance = ip_award_base_chance / (1 + max(0, margin) ×
+  ip_award_margin_scale)`. A barely-won check (margin ≈ 0) has the best odds; the chance falls off as
+  the margin grows. On a hit, exactly **1 IP** is added to that skill (`player_skills.ip`), capped at
+  1000. Each award shows a `+1 IP` line in the main pane, plus a skill-level-up line at every 100
+  boundary.
+- **Skill level** = `floor(player_skills.ip / 100)`, 0–10. Feeds `effectiveSkill` (level + avg of the
+  skill's governing stats). The old fractional `trained` column is vestigial.
+- **XP model:** 1 IP silently grants 1 XP. **Total XP** is never stored — it's computed as
+  `SUM(player_skills.ip) + players.bonus_xp`, so it can only ever grow. `bonus_xp` holds non-skill XP:
+  the starting grant, and future sources (e.g. a one-time quest reward via `grantXp`).
+- **Net XP** (the spendable amount shown to players) = `Total XP − statSpent`, where `statSpent` is the
+  cumulative curve cost to reach the current stat levels. Raising a stat raises `statSpent`, which
+  lowers Net — nothing is decremented, so Total XP is unchanged. If the cost curve is later retuned,
+  Net can rise or **go negative**.
 - **Stat cost curve:** `statCost(current) = ceil(stat_cost_base × current^stat_cost_exponent)`
-  (defaults base 10, exponent 1.5). Raising 0→1 costs 10; 9→10 costs ~310.
-- **Raisable stats:** brawn, reflexes, endurance, brains, cool. `raise <stat>` spends IP and
-  bumps the stat by 1; `raise`/`ip` with no arg shows current values and costs.
-- **Starting IP:** `startingIp(target=3)` grants enough to buy every stat from 0 to the baseline target
-  at character creation.
+  (defaults base 10, exponent 1.5). Raising 0→1 costs 10 XP; 9→10 costs ~310 XP.
+- **Raisable stats:** brawn, reflexes, endurance, brains, cool. `raise <stat>` spends Net XP and
+  bumps the stat by 1; `raise`/`xp`/`ip` with no arg shows current values and costs.
+- **Starting XP:** new characters get `startingIp(target=3)` plus the cost of their baseline stats
+  (which begin at 1) granted into `bonus_xp`, so Net XP at creation equals the old IP grant.
 
 ## Housing & apartments
 

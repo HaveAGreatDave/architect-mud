@@ -5,7 +5,7 @@ import { getZonePowerStatus, recomputePower, recalcZoneLoad, getEnvironmentState
 import { getPlayerSkills, SKILLS } from '../skills.js';
 import { describeZone } from './describe.js';
 import { getMinimapData, addPlayerToZone, removePlayerFromZone } from '../world.js';
-import { statCost, raiseStat, RAISABLE_STATS } from '../ip.js';
+import { statCost, raiseStat, RAISABLE_STATS, getNetXp } from '../ip.js';
 import { ensureTunables } from '../tunables.js';
 import { physicalDescription, ejaculateDescription, describeGenitals } from '../appearance.js';
 import { isMisActive, isAttractedTo, addHorniness, erectionVisibilityNote, breastVisibilityNote, NIPPLE_HARD, NIPPLE_SOFT } from '../mis.js';
@@ -20,7 +20,8 @@ async function cmdStats(player) {
   const radBar = `[${'█'.repeat(Math.floor(p.radiation/10))}${'░'.repeat(10-Math.floor(p.radiation/10))}]`;
   let msg = `<span class="stats-header">${p.handle}</span> — ${p.archetype||'unknown'}\n\n`;
   msg += `HP:     ${p.hp}/${p.hp_max}\nSanity: ${p.sanity}/${p.sanity_max}\nHunger: ${p.hunger}/100\nThirst: ${p.thirst}/100\nRAD:    ${radBar} ${p.radiation}/100\n\n`;
-  msg += `BRAWN:${p.stat_brawn}  REFL:${p.stat_reflexes}  BRNS:${p.stat_brains}\nCOOL:${p.stat_cool}  END:${p.stat_endurance}\n\nIP: ${p.ip||0}  Credits: ${p.credits}`;
+  const { total, net } = await getNetXp(player.id);
+  msg += `BRAWN:${p.stat_brawn}  REFL:${p.stat_reflexes}  BRNS:${p.stat_brains}\nCOOL:${p.stat_cool}  END:${p.stat_endurance}\n\nXP: ${Math.floor(net)} (Total: ${total})  Credits: ${p.credits}`;
 
   const statusFlags = [];
   if (player.sleeping) statusFlags.push('Asleep');
@@ -40,9 +41,9 @@ async function cmdSkills(player) {
   for (const cat of ['combat','survival','tech','social','arcane']) {
     msg += `<span class="skill-category">${cat.toUpperCase()}</span>\n`;
     for (const skill of Object.values(SKILLS).filter(s=>s.category===cat)) {
-      const data = skills[skill.id] || { trained:0 };
-      const bars = Math.min(10, Math.round(data.trained));
-      msg += `  ${skill.name.padEnd(20)} [${'█'.repeat(bars)}${'░'.repeat(10-bars)}] ${data.trained.toFixed(2)}/10\n`;
+      const data = skills[skill.id] || { level:0, ip:0 };
+      const bars = Math.min(10, data.level);
+      msg += `  ${skill.name.padEnd(20)} [${'█'.repeat(bars)}${'░'.repeat(10-bars)}] ${data.level}/10 (${data.ip} IP)\n`;
     }
     msg += '\n';
   }
@@ -633,18 +634,18 @@ async function cmdRaise(args, player) {
   const statName = args[0]?.toLowerCase();
 
   const { rows } = await query(
-    'SELECT ip, stat_brawn, stat_reflexes, stat_endurance, stat_brains, stat_cool FROM players WHERE id=$1',
+    'SELECT stat_brawn, stat_reflexes, stat_endurance, stat_brains, stat_cool FROM players WHERE id=$1',
     [player.id]
   );
   const p = rows[0];
 
   if (!statName) {
-    const ip = p?.ip || 0;
-    let msg = `<span class="help-header">IMPROVEMENT POINTS — ${Math.floor(ip)} IP</span>\n\n`;
+    const { net } = await getNetXp(player.id);
+    let msg = `<span class="help-header">EXPERIENCE — ${Math.floor(net)} XP available</span>\n\n`;
     for (const stat of RAISABLE_STATS) {
       const cur = p[`stat_${stat}`] || 0;
       const cost = statCost(cur);
-      msg += `  ${stat.padEnd(12)} ${String(cur).padStart(2)}  →  ${cost} IP\n`;
+      msg += `  ${stat.padEnd(12)} ${String(cur).padStart(2)}  →  ${cost} XP\n`;
     }
     msg += `\nUsage: raise <stat>`;
     return { type: 'help', message: msg };
@@ -655,8 +656,8 @@ async function cmdRaise(args, player) {
 
   player[result.col] = result.to;
 
-  const msg = `You invest ${result.cost} IP improving your ${result.stat} (${result.from} → ${result.to}).\nIP remaining: ${Math.floor(result.ip_remaining)}`;
-  return { type: 'raise', message: msg, player_update: { [result.col]: result.to, ip: result.ip_remaining } };
+  const msg = `You invest ${result.cost} XP improving your ${result.stat} (${result.from} → ${result.to}).\nXP remaining: ${Math.floor(result.net_remaining)}`;
+  return { type: 'raise', message: msg, player_update: { [result.col]: result.to } };
 }
 
 
@@ -674,6 +675,7 @@ export const handlers = {
   tp:       (args, raw, player, broadcast) => cmdTeleport(args.join(' '), player, broadcast),
   raise:    (args, raw, player) => cmdRaise(args, player),
   ip:       (args, raw, player) => cmdRaise([], player),
+  xp:       (args, raw, player) => cmdRaise([], player),
   spawn:    (args, raw, player) => cmdSpawn(args, player),
   spawnenemy: (args, raw, player) => cmdSpawnEnemy(args, player),
 };

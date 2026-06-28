@@ -18,7 +18,7 @@ import { fireRoutes, fireHook } from '../engine/plugins.js';
 import { handlePlayerDeath } from '../engine/gameLoop.js';
 import { reloadWindows as reloadWindowsEnv, recomputePower } from '../engine/environment.js';
 import { ensureTunables } from '../engine/tunables.js';
-import { startingIp } from '../engine/ip.js';
+import { startingIp, statCost, RAISABLE_STATS } from '../engine/ip.js';
 import { materializeItemTags, ownTags, superKeys } from '../engine/supertags.js';
 import { getMotd, saveMotd } from '../engine/motd.js';
 import { isMisServerEnabled, setServerMisEnabled } from '../engine/mis.js';
@@ -273,14 +273,17 @@ async function apiRegister(body) {
   try {
     const id = randomUUID();
     await ensureTunables();
-    const ip = startingIp();
+    // Starting XP into bonus_xp: enough to raise all stats to the baseline target
+    // (startingIp), plus the cost of the five stats that begin at 1 — so Net XP
+    // after creation equals startingIp (the same spendable as the old IP grant).
+    const bonusXp = startingIp() + RAISABLE_STATS.length * statCost(0);
     const app = randomAppearance(biological_sex);
     await query(
       `INSERT INTO players
-        (id,username,password_hash,handle,role,ip,hp,hp_max,stat_brawn,stat_reflexes,stat_endurance,stat_brains,stat_cool,
+        (id,username,password_hash,handle,role,bonus_xp,hp,hp_max,stat_brawn,stat_reflexes,stat_endurance,stat_brains,stat_cool,
          biological_sex,hair_style,hair_length,hair_color,eye_color,height_cm,weight_kg,appearance_data,email,sexuality)
        VALUES ($1,$2,$3,$4,'player',$5,40,40,1,1,1,1,1,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
-      [id, username.toLowerCase(), hashPassword(password), handle, ip,
+      [id, username.toLowerCase(), hashPassword(password), handle, bonusXp,
        biological_sex, app.hair_style, app.hair_length, app.hair_color, app.eye_color,
        app.height_cm, app.weight_kg, JSON.stringify(app.appearance_data), email.toLowerCase().trim(),
        body.sexuality || (biological_sex === 'male' ? 'Female' : 'Male')]
@@ -1023,7 +1026,7 @@ async function apiReloadZone(body) {
 async function apiGetPlayers() {
   const {rows}=await query(`SELECT id,username,handle,role,current_zone,anchor_zone,credits,bank_credits,
     hp,hp_max,sanity,sanity_max,hunger,thirst,radiation,stamina,stamina_max,body_temp_c,
-    stat_brawn,stat_reflexes,stat_endurance,stat_brains,stat_cool,ip,
+    stat_brawn,stat_reflexes,stat_endurance,stat_brains,stat_cool,bonus_xp,
     origin_fragment,archetype,visibly_mutated,offline_sleeping,created_at,last_seen FROM players`);
   const online = new Set(getAllLivePlayers().map(p=>p.id));
   return {status:200,body:rows.map(r=>({...r,online:online.has(r.id)}))};
@@ -1034,7 +1037,7 @@ async function apiUpdatePlayer(id, body) {
     'handle','username','role','current_zone','anchor_zone',
     'credits','bank_credits','hp','hp_max','sanity','sanity_max',
     'hunger','thirst','radiation','stamina','stamina_max','body_temp_c',
-    'stat_brawn','stat_reflexes','stat_endurance','stat_brains','stat_cool','ip',
+    'stat_brawn','stat_reflexes','stat_endurance','stat_brains','stat_cool','bonus_xp',
     'origin_fragment','archetype','visibly_mutated','covered_in_blood',
   ];
   const {rows:existing}=await query('SELECT * FROM players WHERE id=$1',[id]);
@@ -1056,7 +1059,7 @@ async function apiUpdatePlayer(id, body) {
   if (live) {
     const LIVE_FIELDS=['handle','role','current_zone','anchor_zone','credits','bank_credits',
       'hp','hp_max','sanity','sanity_max','hunger','thirst','radiation','stamina','stamina_max',
-      'body_temp_c','stat_brawn','stat_reflexes','stat_endurance','stat_brains','stat_cool','ip',
+      'body_temp_c','stat_brawn','stat_reflexes','stat_endurance','stat_brains','stat_cool','bonus_xp',
       'origin_fragment','archetype','visibly_mutated','covered_in_blood'];
     for (const f of LIVE_FIELDS) if (f in body) live[f]=updated[f];
     broadcastFn(null,{type:'player_update',hp:live.hp,hp_max:live.hp_max,sanity:live.sanity,

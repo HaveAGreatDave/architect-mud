@@ -76,7 +76,7 @@ The server **does not** touch the schema or world content on boot. The two are m
 │   │   ├── effects.js        # Timed status effects framework (applyEffect, tickEffects)
 │   │   ├── bodily.js         # Digestive/bladder pressure system (tickBodily)
 │   │   ├── appearance.js     # Character appearance generation + description helpers
-│   │   ├── ip.js             # Improvement points: mintIp, raiseStat, statCost
+│   │   ├── ip.js             # IP/XP: awardIp roll, raiseStat (spends Net XP), statCost, grantXp
 │   │   ├── mis.js            # Mature Interaction System — gated by server + player opt-in
 │   │   └── plugins.js        # Hook-based plugin loader
 │   ├── models/
