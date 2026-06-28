@@ -11,6 +11,7 @@ import { physicalDescription, ejaculateDescription, describeGenitals } from '../
 import { isMisActive, isAttractedTo, addHorniness, erectionVisibilityNote, breastVisibilityNote, NIPPLE_HARD, NIPPLE_SOFT } from '../mis.js';
 import { availableActions } from '../specializedActions.js';
 import { statusLabels } from '../effects.js';
+import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../sift.js';
 
 async function cmdStats(player) {
   const { rows } = await query('SELECT * FROM players WHERE id=$1', [player.id]);
@@ -386,19 +387,27 @@ async function cmdExamine(targetStr, player, broadcast) {
     if (totalLoad > gen.capacity_kw) msg += `\n<span class="generator-overload">⚠ OVERLOADED — drawing more than rated capacity.</span>`;
     return { type:'examine', message: msg };
   }
+  // Zone entities: enemies, NPCs, live players — combined SIFT pool
   const enemies = getZoneEnemies(player.current_zone);
-  const enemy = enemies.find(e=>e.name.toLowerCase().includes(t));
-  if (enemy) return { type:'examine', message:`${enemy.name}\n${enemy.description}\nHP: ${enemy.hp}/${enemy.hp_max}` };
   const npcs = getZoneNpcs(player.current_zone);
-  const npc = npcs.find(n=>n.name.toLowerCase().includes(t));
-  if (npc) return { type:'examine', message:`${npc.name}\n${npc.description}` };
-
-  // Other players in zone + sleeping
   const others = getZonePlayers(player.current_zone).filter(p => p.id !== player.id);
-  const targetPlayer = others.find(p => p.handle.toLowerCase().includes(t));
-  if (targetPlayer) {
-    return { type:'examine', message: await describePlayerAppearance(targetPlayer, false, player, broadcast) };
+  const zoneEntities = [
+    ...enemies.map(e => ({ ...e, _examType: 'enemy' })),
+    ...npcs.map(n => ({ ...n, _examType: 'npc' })),
+    ...others.map(p => ({ ...p, name: p.handle, _examType: 'player' })),
+  ];
+  const er = siftResolve(t, zoneEntities);
+  if (er.type === 'ambiguous') {
+    createSelectionState(player.id, er.candidates, { verb: 'examine' });
+    return { type:'output', message: formatSelectionPage({ allCandidates: er.candidates, visibleIndex: 0, pageSize: 5 }) };
   }
+  if (er.type === 'match') {
+    const c = er.candidate;
+    if (c._examType === 'enemy') return { type:'examine', message:`${c.name}\n${c.description}\nHP: ${c.hp}/${c.hp_max}` };
+    if (c._examType === 'npc')   return { type:'examine', message:`${c.name}\n${c.description}` };
+    if (c._examType === 'player') return { type:'examine', message: await describePlayerAppearance(c, false, player, broadcast) };
+  }
+  // No live entity matched — check sleeping/offline players
   const { rows: sleepers } = await query(
     `SELECT * FROM players WHERE LOWER(handle) LIKE $1 AND current_zone=$2 AND offline_sleeping=TRUE LIMIT 1`,
     [`%${t}%`, player.current_zone]

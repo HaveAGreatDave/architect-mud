@@ -165,8 +165,11 @@ async function cmdDropById(inventoryId, player, broadcast, qty) {
 async function cmdGive(argStr, player, broadcast) {
   const [itemPart, who] = splitOn(argStr, ' to ');
   if (!itemPart || !who) return { type:'error', message:'Usage: give <item> to <player>.' };
-  const target = getZonePlayers(player.current_zone).find(p => p.id !== player.id && p.handle.toLowerCase().includes(who.toLowerCase()));
-  if (!target) return { type:'error', message:`There's no "${who}" here to give to.` };
+  const givePool = getZonePlayers(player.current_zone).filter(p => p.id !== player.id).map(p => ({ ...p, name: p.handle }));
+  const gr = siftResolve(who, givePool);
+  if (gr.type === 'none') return { type:'error', message:`There's no "${who}" here to give to.` };
+  if (gr.type === 'ambiguous') return { type:'error', message:`Multiple people match "${who}" — be more specific.` };
+  const target = gr.candidate;
   const { rows } = await query(`SELECT pi.*,i.name,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND pi.is_equipped=0 AND i.name ILIKE $2 AND NOT jsonb_exists(i.tags,'quest_item') LIMIT 1`, [player.id, `%${itemPart}%`]);
   if (!rows.length) return { type:'error', message:`You don't have "${itemPart}".` };
   return dispatchAction({ type:'GIVE', actor: player, params: { row: rows[0], toPlayer: target }, context: { broadcast } });

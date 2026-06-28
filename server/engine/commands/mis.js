@@ -14,6 +14,7 @@ import {
   FUCK_EVENT_MSGS, FUCK_EVENT_PLAYER_MSGS, FUCK_EVENT_TARGET_MSGS, EJACULATE_ZONE_MSGS,
 } from '../mis.js';
 import { getZonePlayers, getZoneNpcs, getLivePlayer } from '../world.js';
+import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../sift.js';
 
 function misGate(player) {
   if (!isMisActive(player)) return { type:'error', message:`MIS is not enabled. Enable it via the Maturity Slider in settings.` };
@@ -57,18 +58,25 @@ async function cmdStop(args, player) {
   return { type:'output', message:`You stop.` };
 }
 
-// Resolve players only (no NPCs for MIS)
+// Resolve players only (no NPCs for MIS) — returns SIFT result
 function resolveTarget(nameStr, player) {
-  const t = nameStr.toLowerCase();
   const others = getZonePlayers(player.current_zone).filter(p => p.id !== player.id);
-  return others.find(p => p.handle.toLowerCase().includes(t)) || null;
+  return siftResolve(nameStr, others.map(p => ({ ...p, name: p.handle })));
 }
 
 // Resolve player target and check MIS opt-in.
-// Returns { res } on success or { error } string on failure.
-function resolveTargetMis(nameStr, player) {
-  const target = resolveTarget(nameStr, player);
-  if (!target) return { error: `You don't see "${nameStr}" here.` };
+// Returns { res } on success, { error } on failure, or { ambiguous } when disambiguation is needed.
+function resolveTargetMis(nameStr, player, verb) {
+  const r = resolveTarget(nameStr, player);
+  if (r.type === 'none') return { error: `You don't see "${nameStr}" here.` };
+  if (r.type === 'ambiguous') {
+    if (verb) {
+      createSelectionState(player.id, r.candidates, { verb });
+      return { ambiguous: { type:'output', message: formatSelectionPage({ allCandidates: r.candidates, visibleIndex: 0, pageSize: 5 }) } };
+    }
+    return { error: `Multiple people match — be more specific.` };
+  }
+  const target = r.candidate;
   if (!isMisActive(target)) return { error: `${target.handle} hasn't enabled MIS.` };
   return { res: { type: 'player', target } };
 }
@@ -84,7 +92,7 @@ function pickMsg(pool, vars) {
 
 // Generic act handler for touching/kissing/etc. — resolves target or defaults to self
 // targetReceives: messages shown to the target player (from their POV, using {actor} for the acting player)
-async function actHandler({ player, broadcast, rawArgs, defaultPart, selfMessages, targetMessages, targetReceives, horninessGain, sanityGain = 5 }) {
+async function actHandler({ player, broadcast, rawArgs, defaultPart, selfMessages, targetMessages, targetReceives, horninessGain, sanityGain = 5, verb }) {
   const gate = misGate(player);
   if (gate) return gate;
 
@@ -124,7 +132,8 @@ async function actHandler({ player, broadcast, rawArgs, defaultPart, selfMessage
     return { type:'output', message: pickMsg(selfMessages, { part }) };
   }
 
-  const { res, error } = resolveTargetMis(targetStr, player);
+  const { res, error, ambiguous } = resolveTargetMis(targetStr, player, verb);
+  if (ambiguous) return ambiguous;
   if (error) return { type:'error', message: error };
   const name = targetName(res);
 
@@ -153,7 +162,7 @@ async function actHandler({ player, broadcast, rawArgs, defaultPart, selfMessage
 
 async function cmdTouch(args, raw, player, broadcast) {
   return actHandler({
-    player, broadcast, rawArgs: args,
+    player, broadcast, rawArgs: args, verb: 'touch',
     defaultPart: 'body',
     selfMessages: [
       `You run your hands over your own {part}.`,
@@ -174,7 +183,7 @@ async function cmdTouch(args, raw, player, broadcast) {
 
 async function cmdSqueeze(args, raw, player, broadcast) {
   return actHandler({
-    player, broadcast, rawArgs: args,
+    player, broadcast, rawArgs: args, verb: 'squeeze',
     defaultPart: 'body',
     selfMessages: [
       `You squeeze your own {part} in your hand.`,
@@ -199,7 +208,7 @@ async function cmdSqueeze(args, raw, player, broadcast) {
 
 async function cmdKiss(args, raw, player, broadcast) {
   return actHandler({
-    player, broadcast, rawArgs: args,
+    player, broadcast, rawArgs: args, verb: 'kiss',
     defaultPart: 'lips',
     selfMessages: [`You kiss the back of your own hand. Charming.`],
     targetMessages: [
@@ -219,7 +228,7 @@ async function cmdKiss(args, raw, player, broadcast) {
 
 async function cmdLick(args, raw, player, broadcast) {
   return actHandler({
-    player, broadcast, rawArgs: args,
+    player, broadcast, rawArgs: args, verb: 'lick',
     defaultPart: 'neck',
     selfMessages: [`You lick your own {part}. No judgement.`],
     targetMessages: [
@@ -237,7 +246,7 @@ async function cmdLick(args, raw, player, broadcast) {
 
 async function cmdFondle(args, raw, player, broadcast) {
   return actHandler({
-    player, broadcast, rawArgs: args,
+    player, broadcast, rawArgs: args, verb: 'fondle',
     defaultPart: 'chest',
     selfMessages: [
       `You cup your own chest in your hands.`,
@@ -278,8 +287,13 @@ async function cmdSlap(args, raw, player, broadcast) {
 
   if (!targetStr) return { type:'error', message:`Usage: slap <target>'s <body part>` };
 
-  const target = resolveTarget(targetStr, player);
-  if (!target) return { type:'error', message:`You don't see "${targetStr}" here.` };
+  const sr = resolveTarget(targetStr, player);
+  if (sr.type === 'none') return { type:'error', message:`You don't see "${targetStr}" here.` };
+  if (sr.type === 'ambiguous') {
+    createSelectionState(player.id, sr.candidates, { verb: 'slap' });
+    return { type:'output', message: formatSelectionPage({ allCandidates: sr.candidates, visibleIndex: 0, pageSize: 5 }) };
+  }
+  const target = sr.candidate;
   const name = target.handle;
 
   const actorMsgs = [
@@ -431,7 +445,8 @@ async function cmdJerkOffOn(args, raw, player, broadcast) {
   const str = raw.replace(/^(?:jerk(?:\s+off)?(?:\s+on)?|jackoff\s+on?)\s*/i, '').trim();
   if (!str) return { type:'error', message:`Usage: jerk off on <target>` };
 
-  const { res, error } = resolveTargetMis(str, player);
+  const { res, error, ambiguous } = resolveTargetMis(str, player);
+  if (ambiguous) return ambiguous;
   if (error) return { type:'error', message: error };
   const name = targetName(res);
   const isMale = player.biological_sex === 'male';
@@ -474,7 +489,7 @@ async function cmdJerkOffOn(args, raw, player, broadcast) {
 
 async function cmdSuck(args, raw, player, broadcast) {
   return actHandler({
-    player, broadcast, rawArgs: args,
+    player, broadcast, rawArgs: args, verb: 'suck',
     defaultPart: 'fingers',
     selfMessages: [`You suck on your own {part}.`],
     targetMessages: [
@@ -527,7 +542,8 @@ async function cmdFuck(args, raw, player, broadcast) {
     );
     if (legItems.length) {
       // Grind instead of penetrate
-      const { res: res2, error: err2 } = resolveTargetMis(targetStr, player);
+      const { res: res2, error: err2, ambiguous: amb2 } = resolveTargetMis(targetStr, player, 'fuck');
+      if (amb2) return amb2;
       if (err2) return { type:'error', message: err2 };
       const name2 = targetName(res2);
       const grindMsgs = [
@@ -547,7 +563,8 @@ async function cmdFuck(args, raw, player, broadcast) {
     }
   }
 
-  const { res, error } = resolveTargetMis(targetStr, player);
+  const { res, error, ambiguous } = resolveTargetMis(targetStr, player, 'fuck');
+  if (ambiguous) return ambiguous;
   if (error) return { type:'error', message: error };
   const name = targetName(res);
   const isMale = player.biological_sex === 'male';
@@ -715,7 +732,8 @@ async function cmdEjaculate(args, raw, player, broadcast) {
   if (playerPartMatch) {
     const targetStr = playerPartMatch[1].trim();
     const part = playerPartMatch[2].trim();
-    const { res, error } = resolveTargetMis(targetStr, player);
+    const { res, error, ambiguous } = resolveTargetMis(targetStr, player, 'ejaculate');
+    if (ambiguous) return ambiguous;
     if (error) return { type:'error', message: error };
     const name = targetName(res);
 
@@ -825,7 +843,8 @@ async function cmdEatOut(args, raw, player, broadcast) {
 
   if (!targetStr) return { type:'error', message:`Usage: eat out <target>'s [pussy/ass]` };
 
-  const { res, error } = resolveTargetMis(targetStr, player);
+  const { res, error, ambiguous } = resolveTargetMis(targetStr, player);
+  if (ambiguous) return ambiguous;
   if (error) return { type:'error', message: error };
   const name = targetName(res);
 
@@ -883,7 +902,8 @@ async function cmdBlowjob(args, raw, player, broadcast) {
   if (!target) return { type:'error', message:`Usage: blowjob <target>` };
   // Female actor giving blowjob to male target → suck cock
   if (player.biological_sex === 'female') {
-    const { res, error } = resolveTargetMis(target, player);
+    const { res, error, ambiguous } = resolveTargetMis(target, player, 'blowjob');
+    if (ambiguous) return ambiguous;
     if (error) return { type:'error', message: error };
     if (res.target.biological_sex === 'male') {
       return cmdSuck([`${res.target.handle}'s`, 'cock'], raw, player, broadcast);
@@ -895,7 +915,7 @@ async function cmdBlowjob(args, raw, player, broadcast) {
 // Handjob shortcut
 async function cmdHandjob(args, raw, player, broadcast) {
   return actHandler({
-    player, broadcast, rawArgs: args,
+    player, broadcast, rawArgs: args, verb: 'handjob',
     defaultPart: 'cock',
     selfMessages: [`You work your own {part} with your hand.`],
     targetMessages: [

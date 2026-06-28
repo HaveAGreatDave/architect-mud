@@ -1,7 +1,7 @@
 import { query } from "../../models/db.js";
 import { getZoneEnemies, getZoneCorpses, getZonePlayers, createCorpse, getCorpse, removeCorpse } from "../world.js";
 import { playerAttackEnemy, isOnCooldown, setCooldown, getCooldownRemaining } from "../combat.js";
-import { resolveForCommand } from "../sift.js";
+import { resolveForCommand, resolve as siftResolve, createSelectionState, formatSelectionPage } from "../sift.js";
 import { awardSkillUse, skillCheck } from "../skills.js";
 import { hasTag, tagValue, isStackable } from "../tags.js";
 import { adjustCredits } from "../economy.js";
@@ -129,7 +129,13 @@ async function cmdAttack(targetStr, player, broadcast) {
 
 	// No enemy matched — check for a player in the zone (live first, then offline)
 	const liveOthers = getZonePlayers(player.current_zone).filter((p) => p.id !== player.id);
-	let targetPlayer = liveOthers.find((p) => p.handle.toLowerCase().includes(targetStr.toLowerCase())) || null;
+	const attackPool = liveOthers.map(p => ({ ...p, name: p.handle }));
+	const atkr = siftResolve(targetStr, attackPool);
+	if (atkr.type === 'ambiguous') {
+		createSelectionState(player.id, atkr.candidates, { verb: 'attack' });
+		return { type: 'output', message: formatSelectionPage({ allCandidates: atkr.candidates, visibleIndex: 0, pageSize: 5 }) };
+	}
+	let targetPlayer = atkr.type === 'match' ? atkr.candidate : null;
 	let targetIsLive = !!targetPlayer;
 	if (!targetPlayer) {
 		const { rows } = await query(
@@ -285,7 +291,13 @@ async function cmdLootCorpse(targetStr, player, broadcast) {
 
 	// No corpse — check for a player in the zone (live first, then offline)
 	const liveOthers = getZonePlayers(player.current_zone).filter((p) => p.id !== player.id);
-	let targetPlayer = liveOthers.find((p) => p.handle.toLowerCase().includes(targetStr.toLowerCase())) || null;
+	const lootPool = liveOthers.map(p => ({ ...p, name: p.handle }));
+	const lootr = siftResolve(targetStr, lootPool);
+	if (lootr.type === 'ambiguous') {
+		createSelectionState(player.id, lootr.candidates, { verb: 'loot' });
+		return { type: 'output', message: formatSelectionPage({ allCandidates: lootr.candidates, visibleIndex: 0, pageSize: 5 }) };
+	}
+	let targetPlayer = lootr.type === 'match' ? lootr.candidate : null;
 	if (!targetPlayer) {
 		const { rows } = await query(
 			`SELECT id, handle FROM players WHERE LOWER(handle) LIKE $1 AND current_zone=$2 AND id!=$3 LIMIT 1`,
@@ -485,7 +497,13 @@ async function cmdSteal(targetStr, player, broadcast) {
 	}
 
 	const liveOthers = getZonePlayers(player.current_zone).filter((p) => p.id !== player.id);
-	let target = liveOthers.find((p) => p.handle.toLowerCase().includes(targetStr.toLowerCase())) || null;
+	const stealPool = liveOthers.map(p => ({ ...p, name: p.handle }));
+	const stlr = siftResolve(targetStr, stealPool);
+	if (stlr.type === 'ambiguous') {
+		createSelectionState(player.id, stlr.candidates, { verb: 'steal' });
+		return { type: 'output', message: formatSelectionPage({ allCandidates: stlr.candidates, visibleIndex: 0, pageSize: 5 }) };
+	}
+	let target = stlr.type === 'match' ? stlr.candidate : null;
 	if (!target) {
 		const { rows } = await query(
 			`SELECT * FROM players WHERE LOWER(handle) LIKE $1 AND current_zone=$2 AND id!=$3 LIMIT 1`,

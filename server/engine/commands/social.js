@@ -2,12 +2,18 @@ import { getAllLivePlayers, getZonePlayers, getZoneNpcs } from '../world.js';
 import { propagateYell } from '../sounds.js';
 import { canAccessChannel, broadcastToChannel } from '../channels.js';
 import { evalConditions } from '../flags.js';
+import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../sift.js';
 
 async function cmdTalk(targetStr, player) {
   if (!targetStr) return { type:'error', message:'Talk to whom?' };
   const npcs = getZoneNpcs(player.current_zone);
-  const npc = npcs.find(n => n.name.toLowerCase().includes(targetStr));
-  if (!npc) return { type:'error', message:`Can't find "${targetStr}" here.` };
+  const r = siftResolve(targetStr, npcs);
+  if (r.type === 'none') return { type:'error', message:`Can't find "${targetStr}" here.` };
+  if (r.type === 'ambiguous') {
+    createSelectionState(player.id, r.candidates, { verb: 'talk' });
+    return { type:'output', message: formatSelectionPage({ allCandidates: r.candidates, visibleIndex: 0, pageSize: 5 }) };
+  }
+  const npc = r.candidate;
   const root = npc.dialogue_tree?.root;
   // Condition-gate root options against the player's Flags (Phase 4).
   const options = [];
@@ -72,8 +78,14 @@ async function cmdWho() {
 function cmdObama(targetStr, player, broadcast) {
   if (!targetStr) return { type:'error', message:'Fist bump whom?' };
   const others = getZonePlayers(player.current_zone).filter(p => p.id !== player.id);
-  const target = others.find(p => p.handle.toLowerCase().includes(targetStr));
-  if (!target) return { type:'error', message:`Can't find "${targetStr}" here to fist bump.` };
+  const candidates = others.map(p => ({ ...p, name: p.handle }));
+  const r = siftResolve(targetStr, candidates);
+  if (r.type === 'none') return { type:'error', message:`Can't find "${targetStr}" here to fist bump.` };
+  if (r.type === 'ambiguous') {
+    createSelectionState(player.id, r.candidates, { verb: 'obama' });
+    return { type:'output', message: formatSelectionPage({ allCandidates: r.candidates, visibleIndex: 0, pageSize: 5 }) };
+  }
+  const target = r.candidate;
   broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} fist bumps ${target.handle}. Yes, we can.` }, null);
   return { type:'emote', message:`You fist bump ${target.handle}.` };
 }

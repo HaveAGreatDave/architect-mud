@@ -2,12 +2,18 @@ import { query } from '../../models/db.js';
 import { getZone, getZoneNpcs } from '../world.js';
 import { getVendorStock, buyFromVendor, sellToVendor } from '../vendor.js';
 import { transferCredits } from '../economy.js';
+import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../sift.js';
 
 async function cmdShop(npcName, player) {
   if (!npcName) return { type:'error', message:'Browse whose shop? (shop <npc name>)' };
   const npcs = getZoneNpcs(player.current_zone);
-  const npc = npcs.find(n => n.name.toLowerCase().includes(npcName));
-  if (!npc) return { type:'error', message:`Can't find "${npcName}" here.` };
+  const r = siftResolve(npcName, npcs);
+  if (r.type === 'none') return { type:'error', message:`Can't find "${npcName}" here.` };
+  if (r.type === 'ambiguous') {
+    createSelectionState(player.id, r.candidates, { verb: 'shop' });
+    return { type:'output', message: formatSelectionPage({ allCandidates: r.candidates, visibleIndex: 0, pageSize: 5 }) };
+  }
+  const npc = r.candidate;
   if (!npc.vendor_inventory?.length) return { type:'error', message:`${npc.name} isn't a vendor.` };
   const stock = await getVendorStock(npc, player.id);
   if (!stock.length) return { type:'error', message:`${npc.name} is out of stock.` };
@@ -27,8 +33,13 @@ async function cmdBuy(args, player) {
   const vendor = npcs.find(n => n.vendor_inventory?.length);
   if (!vendor) return { type:'error', message:'No vendor here.' };
   const stock = await getVendorStock(vendor, player.id);
-  const item = stock.find(s => s.name.toLowerCase().includes(itemName));
-  if (!item) return { type:'error', message:`"${itemName}" isn't available here.` };
+  const br = siftResolve(itemName, stock);
+  if (br.type === 'none') return { type:'error', message:`"${itemName}" isn't available here.` };
+  if (br.type === 'ambiguous') {
+    createSelectionState(player.id, br.candidates, { verb: 'buy' });
+    return { type:'output', message: formatSelectionPage({ allCandidates: br.candidates, visibleIndex: 0, pageSize: 5 }) };
+  }
+  const item = br.candidate;
   const result = await buyFromVendor(player, vendor, item.item_id, 1);
   return { type:result.success?'buy':'error', message:result.message, player_update:{credits:player.credits} };
 }

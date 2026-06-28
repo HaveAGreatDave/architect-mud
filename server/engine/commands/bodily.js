@@ -2,6 +2,7 @@ import { query } from '../../models/db.js';
 import { relieveBladder, relieveBowels } from '../bodily.js';
 import { isMisActive } from '../mis.js';
 import { getZonePlayers } from '../world.js';
+import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../sift.js';
 
 async function hasFacilityNearby(zoneId) {
   const { rows } = await query(
@@ -12,15 +13,20 @@ async function hasFacilityNearby(zoneId) {
 }
 
 // Resolve an optional target from raw command args (e.g. "pee on alice" / "shit on bed")
-async function resolveBodilyTarget(args, raw, player) {
+async function resolveBodilyTarget(args, raw, player, verb) {
   // Expect "on <name>" or just no args
   const str = args.join(' ').replace(/^on\s+/i, '').trim();
   if (!str) return null;
 
-  // Check for player target in zone
+  // Check for player target in zone using SIFT
   const others = getZonePlayers(player.current_zone).filter(p => p.id !== player.id);
-  const targetPlayer = others.find(p => p.handle.toLowerCase().includes(str.toLowerCase()));
-  if (targetPlayer) return { type: 'player', target: targetPlayer };
+  const candidates = others.map(p => ({ ...p, name: p.handle }));
+  const r = siftResolve(str, candidates);
+  if (r.type === 'ambiguous') {
+    createSelectionState(player.id, r.candidates, { verb });
+    return { type: 'ambiguous', selection: formatSelectionPage({ allCandidates: r.candidates, visibleIndex: 0, pageSize: 5 }) };
+  }
+  if (r.type === 'match') return { type: 'player', target: r.candidate };
 
   // Check for sleeping body
   const { rows: sleepers } = await query(
@@ -41,7 +47,8 @@ async function resolveBodilyTarget(args, raw, player) {
 
 async function cmdPee(args, player, broadcast) {
   // Check for "on <target>" — MIS required for on-player targeting
-  const target = await resolveBodilyTarget(args, null, player);
+  const target = await resolveBodilyTarget(args, null, player, 'pee');
+  if (target?.type === 'ambiguous') return { type:'output', message: target.selection };
   if (target?.type === 'player') {
     if (!isMisActive(player)) return { type:'error', message:`That requires MIS to be enabled.` };
     const hasFacility = false;
@@ -55,7 +62,8 @@ async function cmdPee(args, player, broadcast) {
 
 async function cmdPoop(args, player, broadcast) {
   // Check for "on <target>" — MIS required for on-player targeting
-  const target = await resolveBodilyTarget(args, null, player);
+  const target = await resolveBodilyTarget(args, null, player, 'poop');
+  if (target?.type === 'ambiguous') return { type:'output', message: target.selection };
   if (target?.type === 'player') {
     if (!isMisActive(player)) return { type:'error', message:`That requires MIS to be enabled.` };
     // Target must be sleeping or lying down
