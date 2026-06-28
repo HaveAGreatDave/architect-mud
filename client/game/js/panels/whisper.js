@@ -1,5 +1,6 @@
 import { sendCmdSilent } from '../net.js';
 import { state } from '../state.js';
+import { parseMarkup } from '../markup.js';
 
 const USERS_TAB = '__users__';
 const WHISPER_MAX_MSGS = 100;
@@ -392,7 +393,7 @@ function _renderWhisperLog() {
     const entry = document.createElement('div');
     entry.style.cssText = 'padding:4px 0;border-bottom:1px solid var(--border)';
     const nameColor = m.isMe ? 'var(--text-dim)' : 'var(--purple)';
-    entry.innerHTML = `<div style="color:${nameColor};margin-bottom:2px;font-style:${m.isMe?'italic':''}">${_esc(m.from)}</div><div style="color:var(--text)">${_esc(m.message)}</div>`;
+    entry.innerHTML = `<div style="color:${nameColor};margin-bottom:2px;font-style:${m.isMe?'italic':''}">${_esc(m.from)}</div><div style="color:var(--text)">${parseMarkup(m.message)}</div>`;
     log.appendChild(entry);
   }
   // Use ?? so scrollTop=0 (MOTD top) is respected; fall back to bottom for chat
