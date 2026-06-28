@@ -227,8 +227,13 @@ async function cmdMove(direction, player, broadcast) {
   addPlayerToZone(player.id, targetId);
   player.current_zone = targetId;
   player.combatTargetId = null;
+  const wasSitting = player.posture === 'sitting';
   player.posture = 'standing';
   player.sittingOn = null;
+  if (wasSitting) {
+    broadcast(null, { type: 'output', message: 'You stand up.' }, null, player.id);
+    broadcast(oldZoneId, { type: 'zone_event', message: `${player.handle} stands up.` }, player.id);
+  }
   if (player.pvpTargetId) {
     const opponent = getLivePlayer(player.pvpTargetId);
     if (opponent) {
