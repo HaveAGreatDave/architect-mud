@@ -13,18 +13,34 @@ function luminanceTextColor(hex) {
 // rather than a hard swap. Offset is one cell; the new frame starts shifted
 // toward where you came from and slides to center (camera-follow feel).
 const MM_SLIDE = { north:[0,-1], south:[0,1], east:[1,0], west:[-1,0] };
+// Scale for z-transitions: up feels like rising (expand), down like descending (contract).
+const MM_SCALE = { up: 1.18, down: 0.82 };
 
 function slideMinimap(direction) {
   if (document.documentElement.getAttribute('data-motion') === 'off') return;
-  const off = MM_SLIDE[direction];
-  if (!off) return;
   for (const id of ['minimap-grid', 'minimap-grid-mob']) {
     const el = document.getElementById(id);
     if (!el || !el.animate) continue;
-    el.animate(
-      [{ transform: `translate(${off[0] * 1.6}em, ${off[1] * 1.6}em)` }, { transform: 'translate(0, 0)' }],
-      { duration: 180, easing: 'ease-out' }
-    );
+    const off = MM_SLIDE[direction];
+    if (off) {
+      el.animate(
+        [{ transform: `translate(${off[0] * 1.6}em, ${off[1] * 1.6}em)` }, { transform: 'translate(0, 0)' }],
+        { duration: 180, easing: 'ease-out' }
+      );
+    } else if (MM_SCALE[direction]) {
+      // Z-level shift: fade+scale from the departure state into the new floor.
+      const s = MM_SCALE[direction];
+      el.animate(
+        [{ opacity: 0, transform: `scale(${s})` }, { opacity: 1, transform: 'scale(1)' }],
+        { duration: 220, easing: 'ease-out' }
+      );
+    } else if (direction === 'in' || direction === 'out') {
+      // Portal/building transition: quick opacity dip.
+      el.animate(
+        [{ opacity: 0 }, { opacity: 1 }],
+        { duration: 200, easing: 'ease-in-out' }
+      );
+    }
   }
 }
 

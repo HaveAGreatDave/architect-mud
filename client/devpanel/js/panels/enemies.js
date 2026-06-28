@@ -9,10 +9,33 @@ function renderEnemyRows(spawns, liveEnemies, zoneId) {
       <span>${s.enemy_name}${liveTag} <span style="color:var(--text-dim);font-size:11px">· ×${s.max_count} · ${s.respawn_seconds}s respawn</span></span>
       <span class="zone-subitem-actions">
         <button class="action-btn" onclick="openEditEnemyInline('${s.enemy_id}')">Edit</button>
+        <button class="action-btn" onclick="openEditSpawnInline('${s.id}','${zoneId}',${s.max_count},${s.respawn_seconds})">Spawn</button>
         <button class="action-btn danger" onclick="confirmDeleteSpawn('${s.id}','${zoneId}')">Remove</button>
       </span>
     </div>`;
   }).join('');
+}
+function openEditSpawnInline(spawnId, zoneId, maxCount, respawnSeconds) {
+  const row = document.getElementById(`spawn-row-${spawnId}`);
+  if (!row) return;
+  const actions = row.querySelector('.zone-subitem-actions');
+  actions.innerHTML = `
+    <label style="font-size:11px;color:var(--text-dim)">×</label>
+    <input type="number" id="es-max-${spawnId}" value="${maxCount}" min="1" style="width:46px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:2px 4px;outline:none">
+    <label style="font-size:11px;color:var(--text-dim)">s</label>
+    <input type="number" id="es-resp-${spawnId}" value="${respawnSeconds}" min="1" style="width:58px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:2px 4px;outline:none">
+    <button class="action-btn success" onclick="saveSpawnInline('${spawnId}','${zoneId}')">Save</button>
+    <button class="action-btn" onclick="refreshEnemiesSection('${zoneId}')">Cancel</button>`;
+}
+async function saveSpawnInline(spawnId, zoneId) {
+  const max_count = parseInt(document.getElementById(`es-max-${spawnId}`)?.value);
+  const respawn_seconds = parseInt(document.getElementById(`es-resp-${spawnId}`)?.value);
+  if (!max_count || max_count < 1) { toast('Max count must be >= 1', true); return; }
+  if (!respawn_seconds || respawn_seconds < 1) { toast('Respawn must be >= 1s', true); return; }
+  const result = await directAPI(`/spawns/${encodeURIComponent(spawnId)}`, 'PUT', { max_count, respawn_seconds });
+  if (result?.error) { toast(result.error, true); return; }
+  toast('Spawn updated');
+  await refreshEnemiesSection(zoneId);
 }
 function openAddSpawnForm(zoneId) {
   const options = zoneEditAllEnemiesCache

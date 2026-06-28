@@ -153,6 +153,7 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path.startsWith('/zones/') && path.endsWith('/doors') && method==='GET') return requireDev(auth, ()=>apiGetZoneDoors(path.split('/')[2]));
   if (path.startsWith('/zones/') && method==='GET') return apiGetZone(path.split('/')[2]);
   if (path==='/spawns' && method==='POST') return requireDev(auth, ()=>apiCreateSpawn(body));
+  if (path.startsWith('/spawns/') && method==='PUT') return requireDev(auth, ()=>apiUpdateSpawn(path.split('/')[2],body));
   if (path.startsWith('/spawns/') && method==='DELETE') return requireDev(auth, ()=>apiDeleteZoneSpawn(path.split('/')[2]));
   if (path==='/live-enemies/despawn-all' && method==='POST') return requireAdmin(auth, ()=>apiDespawnAllEnemies());
   if (path.startsWith('/live-enemies/') && method==='DELETE') return requireDev(auth, ()=>apiDespawnEnemy(path.split('/')[2]));
@@ -783,6 +784,22 @@ export async function apiCreateSpawn(body) {
     world.spawnTimers.set(id, { id, zone_id, enemy_id, max_count, spawn_weight, respawn_seconds, nextSpawn: Date.now() });
     const { rows } = await query(`SELECT zs.*, e.name AS enemy_name FROM zone_spawns zs JOIN enemies e ON e.id=zs.enemy_id WHERE zs.id=$1`, [id]);
     return { status:201, body: rows[0] || { id } };
+  } catch(e) { return { status:400, body:{ error:e.message } }; }
+}
+async function apiUpdateSpawn(id, body) {
+  const max_count = parseInt(body.max_count);
+  const respawn_seconds = parseInt(body.respawn_seconds);
+  if (isNaN(max_count) || max_count < 1) return { status:400, body:{ error:'max_count must be >= 1' } };
+  if (isNaN(respawn_seconds) || respawn_seconds < 1) return { status:400, body:{ error:'respawn_seconds must be >= 1' } };
+  try {
+    const { rows } = await query(
+      'UPDATE zone_spawns SET max_count=$1, respawn_seconds=$2 WHERE id=$3 RETURNING *',
+      [max_count, respawn_seconds, id]
+    );
+    if (!rows.length) return { status:404, body:{ error:'Spawn not found' } };
+    const timer = world.spawnTimers.get(id);
+    if (timer) world.spawnTimers.set(id, { ...timer, max_count, respawn_seconds });
+    return { status:200, body: rows[0] };
   } catch(e) { return { status:400, body:{ error:e.message } }; }
 }
 export async function apiDeleteZoneSpawn(id) {
