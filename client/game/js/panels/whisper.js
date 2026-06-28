@@ -44,9 +44,9 @@ function _saveConvos() {
       if (_channels.has(handle) || handle === USERS_TAB) continue;
       toSave[handle] = convo.messages.slice(-WHISPER_PERSIST_MAX);
     }
+    if (Object.keys(toSave).length === 0) return;
     localStorage.setItem(WHISPER_CONVO_KEY, JSON.stringify(toSave));
     console.log('[whisper] saved convos:', Object.keys(toSave));
-    if (Object.keys(toSave).length === 0) console.trace('[whisper] saved EMPTY — caller:');
   } catch (e) {
     console.error('[whisper] save failed:', e);
   }
