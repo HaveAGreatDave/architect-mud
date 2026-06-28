@@ -14,6 +14,7 @@ import {
   FUCK_EVENT_MSGS, FUCK_EVENT_PLAYER_MSGS, FUCK_EVENT_TARGET_MSGS, EJACULATE_ZONE_MSGS,
 } from '../mis.js';
 import { getZonePlayers, getZoneNpcs, getLivePlayer } from '../world.js';
+import { stainZone, stainClothing } from '../bodily.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../sift.js';
 
 function misGate(player, raw) {
@@ -451,6 +452,7 @@ async function cmdMasturbate(args, raw, player, broadcast) {
     if (live.horniness >= 100) {
       stopMisEvent(playerId);
       const msg = await triggerGroundClimax(live);
+      await stainZone(live.current_zone, 'ejaculate');
       const zoneMsgs = EJACULATE_ZONE_MSGS.ground;
       const zoneText = zoneMsgs[Math.floor(Math.random() * zoneMsgs.length)].replace('{name}', live.handle);
       broadcastMis(live.current_zone, { type: 'zone_event', message: zoneText }, broadcast, live.id);
@@ -760,6 +762,7 @@ async function cmdEjaculate(args, raw, player, broadcast) {
   // No argument or "on ground" / "on floor"
   if (!str || /^on\s+(?:the\s+)?(?:ground|floor)$/.test(str)) {
     const msg = await triggerGroundClimax(player);
+    await stainZone(player.current_zone, 'ejaculate');
     const zonePool = EJACULATE_ZONE_MSGS.ground;
     broadcast(player.current_zone, {
       type: 'zone_event',
@@ -787,11 +790,21 @@ async function cmdEjaculate(args, raw, player, broadcast) {
     player.erect = 0;
     player.sanity = Math.min(player.sanity_max || 100, (player.sanity || 50) + 10);
     player.horniness_last_increased = null;
-    // Mark residue on player's penis
+    // Mark residue on actor's penis
     if (!player.appearance_data) player.appearance_data = {};
     player.appearance_data.ejaculate_state = { locations: ['penis'] };
     await query('UPDATE players SET horniness=$1, erect=$2, sanity=$3, appearance_data=$4 WHERE id=$5',
       [player.horniness, player.erect, player.sanity, JSON.stringify(player.appearance_data), player.id]);
+
+    // Stain target's clothing at the named body part slot, and the zone
+    if (res.type === 'player') {
+      const tgt = res.target;
+      if (!tgt.appearance_data) tgt.appearance_data = {};
+      tgt.appearance_data.ejaculate_state = { locations: [part] };
+      await query('UPDATE players SET appearance_data=$1 WHERE id=$2', [JSON.stringify(tgt.appearance_data), tgt.id]);
+      await stainClothing(tgt, [part], 'ejaculate');
+    }
+    await stainZone(player.current_zone, 'ejaculate');
 
     const zonePool = EJACULATE_ZONE_MSGS.on_player;
     broadcast(player.current_zone, {
@@ -836,6 +849,8 @@ async function cmdEjaculate(args, raw, player, broadcast) {
     await query('UPDATE players SET horniness=$1, erect=$2, sanity=$3 WHERE id=$4',
       [player.horniness, player.erect, player.sanity, player.id]);
 
+    await stainZone(player.current_zone, 'ejaculate');
+
     const zonePool = EJACULATE_ZONE_MSGS.furniture;
     broadcast(player.current_zone, {
       type: 'zone_event',
@@ -855,6 +870,7 @@ async function cmdEjaculate(args, raw, player, broadcast) {
 
   // Fallback — treat as ejaculate on ground
   const msg = await triggerGroundClimax(player);
+  await stainZone(player.current_zone, 'ejaculate');
   broadcast(player.current_zone, {
     type: 'zone_event',
     message: EJACULATE_ZONE_MSGS.ground[0].replace('{name}', player.handle),
