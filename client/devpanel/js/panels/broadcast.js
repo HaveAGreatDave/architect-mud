@@ -9,6 +9,7 @@ const BROADCAST_MODES = ['scripted','dynamic_news','live_camera','recorded'];
 let _broadcastList = [];
 let _broadcastEditTarget = null;
 let _broadcastMessages = [];
+let _broadcastGraph = null; // VINE graph data for scripted/news modes
 
 // ── Panel render ─────────────────────────────────────────────────────────────
 
@@ -68,6 +69,7 @@ function openBroadcastModal(rec, isNew) {
   _broadcastMessages = rec && Array.isArray(rec.messages)
     ? rec.messages.map(m => typeof m === 'string' ? m : (m.text || ''))
     : [];
+  _broadcastGraph = rec?.broadcast_graph || null;
 
   const modeOptions = BROADCAST_MODES.map(m =>
     `<option value="${m}"${(rec?.playback_mode || 'scripted') === m ? ' selected' : ''}>${m.replace(/_/g,' ')}</option>`
@@ -120,8 +122,12 @@ function openBroadcastModal(rec, isNew) {
           <div>
             <span style="font-size:11px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:1px">Message Sequence</span>
             <span id="bc-dur-label" style="font-size:10px;color:var(--text-dim);margin-left:8px"></span>
+            <span id="bc-graph-badge" style="display:none;font-size:10px;color:var(--cyan);margin-left:8px;background:var(--bg);border:1px solid var(--cyan);padding:1px 6px;border-radius:2px">VINE graph</span>
           </div>
-          <button class="action-btn" style="font-size:10px;padding:3px 8px" onclick="bcAddMessage()">+ Add Message</button>
+          <div style="display:flex;gap:6px">
+            <button class="action-btn" style="font-size:10px;padding:3px 8px" onclick="broadcastOpenVine()" title="Open VINE graph editor">⬡ VINE</button>
+            <button class="action-btn" style="font-size:10px;padding:3px 8px" onclick="bcAddMessage()">+ Add Message</button>
+          </div>
         </div>
         <div id="bc-msg-list" style="padding:8px;display:flex;flex-direction:column;gap:4px;max-height:220px;overflow-y:auto">
           <!-- rendered by renderBcMessages() -->
@@ -140,6 +146,8 @@ function openBroadcastModal(rec, isNew) {
 }
 
 function renderBcMessages() {
+  const badge = document.getElementById('bc-graph-badge');
+  if (badge) badge.style.display = _broadcastGraph ? 'inline' : 'none';
   const list = document.getElementById('bc-msg-list');
   if (!list) return;
   if (!_broadcastMessages.length) {
@@ -198,6 +206,21 @@ function bcMoveMessage(i, dir) {
   renderBcMessages();
 }
 
+function broadcastOpenVine() {
+  if (typeof VineBroadcastSchema === 'undefined') {
+    toast('VINE broadcast schema not loaded.', true); return;
+  }
+  const graphData = _broadcastGraph
+    ? VineBroadcastSchema.fromBroadcastGraph(_broadcastGraph)
+    : { nodes:{}, edges:[], _start:'' };
+  const name = document.getElementById('bc-name')?.value?.trim() || 'Broadcast';
+  vineModalOpen(`VINE — ${name}`, VineBroadcastSchema, graphData, (vineGraph) => {
+    _broadcastGraph = VineBroadcastSchema.toBroadcastGraph(vineGraph);
+    renderBcMessages();
+    toast('Graph saved.');
+  });
+}
+
 async function saveBroadcast() {
   const name = document.getElementById('bc-name')?.value?.trim();
   if (!name) { toast('Name is required.', true); return; }
@@ -212,6 +235,7 @@ async function saveBroadcast() {
     loop: document.getElementById('bc-loop')?.checked ? 1 : 0,
     enabled: document.getElementById('bc-enabled')?.checked ? 1 : 0,
     messages: _broadcastMessages.map(t => ({ text: t })),
+    broadcast_graph: _broadcastGraph || null,
   };
 
   const isNew = !_broadcastEditTarget;

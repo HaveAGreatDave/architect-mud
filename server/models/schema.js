@@ -662,8 +662,10 @@ export const SCHEMA_SQL = `
     loop INTEGER DEFAULT 0,
     enabled INTEGER DEFAULT 1,
     created_by TEXT,
-    updated_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
+    updated_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW()),
+    broadcast_graph JSONB
   );
+  ALTER TABLE media_broadcasts ADD COLUMN IF NOT EXISTS broadcast_graph JSONB;
 
   -- Broadcast channels (TV/radio stations). Devices tune to a channel number.
   -- channel_type: playlist | news | mixed | live | emergency

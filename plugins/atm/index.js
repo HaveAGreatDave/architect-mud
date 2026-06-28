@@ -274,7 +274,7 @@ export const routeHandler = async (path, method, body, auth) => {
 
   try {
     // ── Units ────────────────────────────────────────────────────────────────
-    if (resource === 'units' || resource === undefined) {
+    if (resource === 'units') {
       if (!id && method === 'GET') {
         const { rows } = await query(`
           SELECT f.id, f.name AS atm_name, f.zone_id,

@@ -1,9 +1,11 @@
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
-import { getZonePlayers, getZone, getZoneNpcs, getZoneEnemies } from '../../server/engine/world.js';
+import { world, getZonePlayers, getZone, getZoneNpcs, getZoneEnemies } from '../../server/engine/world.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { on, emit } from '../../server/engine/events.js';
 import { registerAction } from '../../server/engine/actions.js';
+import { registerViewerChecker } from '../../server/engine/broadcast-bridge.js';
+import { getEnvironmentState } from '../../server/engine/environment.js';
 
 // ── In-memory state ──────────────────────────────────────────────────────────
 
@@ -67,7 +69,7 @@ async function loadChannelRuntimes() {
         WHERE c.enabled = 1 ORDER BY c.number`
     );
     const { rows: playlist } = await query(
-      `SELECT p.*, b.playback_mode, b.messages, b.message_interval, b.override_duration, b.loop
+      `SELECT p.*, b.playback_mode, b.messages, b.message_interval, b.override_duration, b.loop, b.broadcast_graph
          FROM media_channel_playlist p
          JOIN media_broadcasts b ON b.id = p.broadcast_id
         ORDER BY p.channel_id, p.start_time`
@@ -85,6 +87,14 @@ async function loadChannelRuntimes() {
     for (const item of playlist) {
       if (!playlistByChannel.has(item.channel_id)) playlistByChannel.set(item.channel_id, []);
       const dur = item.duration_override || broadcastDuration(item);
+      let broadcastGraph = item.broadcast_graph;
+      if (broadcastGraph && typeof broadcastGraph === 'object') {
+        broadcastGraph = _normalizeBroadcastGraph({ ...broadcastGraph, _broadcastId: item.broadcast_id });
+      } else if (typeof broadcastGraph === 'string') {
+        try { broadcastGraph = _normalizeBroadcastGraph({ ...JSON.parse(broadcastGraph), _broadcastId: item.broadcast_id }); } catch { broadcastGraph = null; }
+      } else {
+        broadcastGraph = null;
+      }
       playlistByChannel.get(item.channel_id).push({
         id: item.id,
         broadcastId: item.broadcast_id,
@@ -94,6 +104,7 @@ async function loadChannelRuntimes() {
         messages: Array.isArray(item.messages) ? item.messages : (item.messages ? JSON.parse(item.messages) : []),
         message_interval: item.message_interval || 5,
         loop: item.loop,
+        broadcastGraph,
       });
     }
 
@@ -115,6 +126,7 @@ async function loadChannelRuntimes() {
         camera: cameraByChannel.get(ch.id) || null,
         loopOriginMs: Date.now(),
         lastMsgKey: '',
+        graphBlackboard: { currentNode: null, waitUntil: null, npcAnchor: null, activeBroadcastId: null },
       });
       newsQueue.set(ch.id, []);
     }
@@ -177,8 +189,11 @@ function buildCameraSnapshot(zoneId) {
 async function getCurrentMessage(state, nowMs) {
   const { channelType, playlist, totalDuration, idleBroadcast, newsCategories, camera, loopOriginMs } = state;
 
-  // Dynamic news channels: pop from queue
+  // Dynamic news channels: pop from queue — but if a VINE-graph item is active, let the graph manage it
   if (channelType === 'news') {
+    const elapsed = playlist.length && totalDuration > 0 ? ((nowMs - loopOriginMs) / 1000) % totalDuration : -1;
+    const activeItem = elapsed >= 0 ? playlist.find(i => elapsed >= i.startTime && elapsed < i.startTime + i.duration) : null;
+    if (activeItem?.broadcastGraph) return tickBroadcastGraph(state.channelId, activeItem.broadcastGraph, state, nowMs);
     const q = newsQueue.get(state.channelId) || [];
     const item = q.shift();
     return item ? { text: item.text, key: `news:${item.ts}` } : null;
@@ -215,7 +230,11 @@ async function getCurrentMessage(state, nowMs) {
         }
         return null;
       }
-      // scripted
+      // VINE graph (scripted/news with broadcast_graph) — walker manages its own timing
+      if (item.broadcastGraph) {
+        return tickBroadcastGraph(state.channelId, item.broadcastGraph, state, nowMs);
+      }
+      // scripted flat list
       const segElapsed = elapsed - item.startTime;
       const result = getScriptedMessage(item.messages, item.message_interval, segElapsed);
       if (result) return { text: result.text, key: `${item.broadcastId}:${result.idx}` };
@@ -267,7 +286,7 @@ async function broadcastTick() {
       if (!formatted) continue;
 
       for (const player of players) {
-        sendToPlayer(player.id, { type: 'broadcast', message: formatted, channel: channelId });
+        sendToPlayer(player.id, { type: 'broadcast', message: formatted, channel: channelId, style: result.style || 'raw' });
       }
       emit('broadcast.message', { channelId, zoneId, text: result.text });
     }
@@ -280,10 +299,11 @@ function enqueueNews(category, text, priority = 'normal') {
   for (const [channelId, state] of channelRuntime) {
     if (!state.newsCategories.includes(category) && state.channelType !== 'news') continue;
     const q = newsQueue.get(channelId) || [];
+    const item = { text, category, priority, ts: Date.now() };
     if (priority === 'critical') {
-      q.unshift({ text, priority, ts: Date.now() });
+      q.unshift(item);
     } else {
-      q.push({ text, priority, ts: Date.now() });
+      q.push(item);
     }
     newsQueue.set(channelId, q);
   }
@@ -308,6 +328,225 @@ on('flag.set', ({ flag, value }) => {
 on('zone.entered', ({ actor, zone }) => {
   if (!actor || !zone) return;
 });
+
+// NPC hosts send to a channel's queue via the BROADCAST_SAY AI action
+on('npc.broadcast_say', ({ channel_id, text }) => {
+  if (!channel_id || !text) return;
+  const q = newsQueue.get(channel_id) || [];
+  q.push({ text, category: 'npc', priority: 'normal', ts: Date.now() });
+  newsQueue.set(channel_id, q);
+});
+
+// Register viewer checker so AI CHANNEL_HAS_VIEWERS condition can query synchronously
+registerViewerChecker((channelId) => {
+  for (const [zoneId, channelMap] of zoneTunings) {
+    if (channelMap.has(channelId) && getZonePlayers(zoneId).length > 0) return true;
+  }
+  return false;
+});
+
+// ── Graph walker (VINE broadcast graphs) ─────────────────────────────────────
+
+function _resolveEdge(edges, fromNode, fromPort) {
+  return edges.find(e => e.fromNode === fromNode && e.fromPort === fromPort)?.toNode || null;
+}
+
+function _normalizeBroadcastGraph(graph) {
+  if (!graph || !graph.nodes || graph._normalized) return graph;
+  const edges = [];
+  const nodes = {};
+  for (const [id, node] of Object.entries(graph.nodes)) {
+    const { type, next, ifTrue, ifFalse, _vine, ...fields } = node;
+    if (next)    edges.push({ fromNode: id, fromPort: 'next',    toNode: next });
+    if (ifTrue)  edges.push({ fromNode: id, fromPort: 'ifTrue',  toNode: ifTrue });
+    if (ifFalse) edges.push({ fromNode: id, fromPort: 'ifFalse', toNode: ifFalse });
+    for (const k of Object.keys(fields)) {
+      if (k.startsWith('branch_') && fields[k]) {
+        edges.push({ fromNode: id, fromPort: k, toNode: fields[k] });
+        delete fields[k];
+      }
+    }
+    nodes[id] = { type: type || 'say', data: fields };
+  }
+  return { _start: graph._start, nodes, edges, _normalized: true };
+}
+
+function _evalBroadcastCondition(node, channelId, nowMs) {
+  const { condition_type: type, params = {} } = node.data;
+  switch (type) {
+    case 'IS_DAYTIME': {
+      const { timePhase } = getEnvironmentState();
+      return timePhase === 'day' || timePhase === 'dawn' || timePhase === 'dusk';
+    }
+    case 'FLAG_SET': {
+      // Synchronous world-flag check (best-effort from DB cache not available here; use channel blackboard flag)
+      return false; // async world flags not feasible in sync tick; use SET_FLAG to track state
+    }
+    case 'VIEWERS_PRESENT': {
+      const id = params.channel_id || channelId;
+      for (const [zoneId, channelMap] of zoneTunings) {
+        if (channelMap.has(id) && getZonePlayers(zoneId).length > 0) return true;
+      }
+      return false;
+    }
+    case 'NEWS_AVAILABLE': {
+      const q = newsQueue.get(channelId) || [];
+      if (!params.category) return q.length > 0;
+      return q.some(i => i.category === params.category);
+    }
+    case 'HOUR_RANGE': {
+      const { hour } = getEnvironmentState();
+      if (hour == null) return false;
+      const from = params.from ?? 0;
+      const to = params.to ?? 23;
+      return from <= to ? (hour >= from && hour <= to) : (hour >= from || hour <= to);
+    }
+    case 'RANDOM_CHANCE':
+      return Math.random() < (params.chance ?? 0.5);
+    default:
+      return false;
+  }
+}
+
+// Walk the VINE graph for one tick. Returns { text, key, style } or null.
+function tickBroadcastGraph(channelId, graph, state, nowMs) {
+  if (!state.graphBlackboard) return null;
+  const bb = state.graphBlackboard;
+
+  // Reset blackboard if a different broadcast is now active
+  if (bb.activeBroadcastId !== graph._broadcastId) {
+    bb.currentNode = null;
+    bb.waitUntil = null;
+    bb.npcAnchor = null;
+    bb.activeBroadcastId = graph._broadcastId;
+  }
+
+  if (bb.waitUntil && nowMs < bb.waitUntil) return null;
+  bb.waitUntil = null;
+
+  const nodes = graph.nodes;
+  const edges = graph.edges || [];
+  let nodeId = bb.currentNode || graph._start;
+  bb.currentNode = null;
+
+  let steps = 0;
+  while (nodeId && steps++ < 50) {
+    const node = nodes[nodeId];
+    if (!node) break;
+
+    switch (node.type) {
+      case 'start':
+        nodeId = _resolveEdge(edges, nodeId, 'next');
+        break;
+
+      case 'say': {
+        const raw = node.data?.text || '';
+        const style = node.data?.style || 'raw';
+        const voice = bb.npcAnchor ? `[${bb.npcAnchor}] ` : '';
+        const text = style === 'ticker' ? `>> ${voice}${raw} <<` : `${voice}${raw}`;
+        bb.currentNode = _resolveEdge(edges, nodeId, 'next');
+        return { text, key: `graph:${channelId}:${nodeId}:${nowMs}`, style };
+      }
+
+      case 'ticker': {
+        const text = `>> ${node.data?.text || ''} <<`;
+        bb.currentNode = _resolveEdge(edges, nodeId, 'next');
+        return { text, key: `ticker:${channelId}:${nodeId}`, style: 'ticker' };
+      }
+
+      case 'npc_anchor': {
+        const npc = world.npcs?.get(node.data?.npc_id);
+        bb.npcAnchor = npc?.name || node.data?.npc_id || null;
+        nodeId = _resolveEdge(edges, nodeId, 'next');
+        break;
+      }
+
+      case 'inject_news': {
+        const cat = node.data?.category;
+        const q = newsQueue.get(channelId) || [];
+        const idx = cat ? q.findIndex(i => i.category === cat) : 0;
+        let text = node.data?.fallback_text || null;
+        if (idx >= 0) {
+          text = q[idx].text;
+          q.splice(idx, 1);
+          newsQueue.set(channelId, q);
+        }
+        bb.currentNode = _resolveEdge(edges, nodeId, 'next');
+        if (text) return { text, key: `inject:${channelId}:${nowMs}`, style: 'raw' };
+        nodeId = bb.currentNode; // no item — skip
+        break;
+      }
+
+      case 'camera_cut': {
+        const zoneId = node.data?.zone_id;
+        const label = node.data?.label || zoneId;
+        const snap = zoneId ? buildCameraSnapshot(zoneId) : null;
+        bb.currentNode = _resolveEdge(edges, nodeId, 'next');
+        if (snap) return { text: `[CAM: ${label}] ${snap}`, key: `cam:${channelId}:${zoneId}:${nowMs}`, style: 'raw' };
+        nodeId = bb.currentNode;
+        break;
+      }
+
+      case 'break': {
+        // Natural interruption point — drain queued item if available
+        const q = newsQueue.get(channelId) || [];
+        if (q.length) {
+          const item = q.shift();
+          newsQueue.set(channelId, q);
+          bb.currentNode = _resolveEdge(edges, nodeId, 'next');
+          return { text: item.text, key: `break:${channelId}:${item.ts}`, style: 'raw' };
+        }
+        nodeId = _resolveEdge(edges, nodeId, 'next');
+        break;
+      }
+
+      case 'condition': {
+        const result = _evalBroadcastCondition(node, channelId, nowMs);
+        nodeId = _resolveEdge(edges, nodeId, result ? 'ifTrue' : 'ifFalse');
+        break;
+      }
+
+      case 'wait': {
+        const seconds = node.data?.seconds ?? 5;
+        bb.waitUntil = nowMs + seconds * 1000;
+        bb.currentNode = _resolveEdge(edges, nodeId, 'next');
+        return null;
+      }
+
+      case 'loop':
+        nodeId = _resolveEdge(edges, nodeId, 'next') || graph._start;
+        break;
+
+      case 'random': {
+        const branches = node.data?.branches || [];
+        if (!branches.length) { nodeId = null; break; }
+        const total = branches.reduce((s, b) => s + (b.weight ?? 1), 0);
+        let roll = Math.random() * total;
+        let chosen = 0;
+        for (let i = 0; i < branches.length; i++) {
+          roll -= branches[i].weight ?? 1;
+          if (roll <= 0) { chosen = i; break; }
+        }
+        nodeId = _resolveEdge(edges, nodeId, `branch_${chosen}`);
+        break;
+      }
+
+      case 'set_flag': {
+        const { flag, value } = node.data || {};
+        if (flag) query(
+          `INSERT INTO world_flags (key,value,updated_at) VALUES ($1,$2,NOW()) ON CONFLICT (key) DO UPDATE SET value=$2,updated_at=NOW()`,
+          [flag, value ?? 'true']
+        ).catch(() => {});
+        nodeId = _resolveEdge(edges, nodeId, 'next');
+        break;
+      }
+
+      default:
+        nodeId = null;
+    }
+  }
+  return null;
+}
 
 // ── Actions ──────────────────────────────────────────────────────────────────
 
@@ -494,27 +733,29 @@ export const routeHandler = async (path, method, body, auth) => {
       }
       if (!id && method === 'POST') {
         const bid = body.id || `bc_${Date.now()}`;
+        const graph = body.broadcast_graph ? JSON.stringify(body.broadcast_graph) : null;
         await query(
-          `INSERT INTO media_broadcasts (id,name,description,category,tags,playback_mode,messages,message_interval,override_duration,loop,enabled,created_by,updated_at)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,EXTRACT(EPOCH FROM NOW()))`,
+          `INSERT INTO media_broadcasts (id,name,description,category,tags,playback_mode,messages,message_interval,override_duration,loop,enabled,created_by,updated_at,broadcast_graph)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,EXTRACT(EPOCH FROM NOW()),$13)`,
           [bid, body.name || 'Untitled', body.description || '', body.category || 'general',
            JSON.stringify(body.tags || []), body.playback_mode || 'scripted',
            JSON.stringify(body.messages || []), body.message_interval || 5,
            body.override_duration || null, body.loop ? 1 : 0, body.enabled !== false ? 1 : 0,
-           auth?.playerId || 'unknown']
+           auth?.playerId || 'unknown', graph]
         );
         await loadChannelRuntimes();
         return { status: 201, body: { id: bid } };
       }
       if (id && method === 'PUT') {
+        const graph = body.broadcast_graph ? JSON.stringify(body.broadcast_graph) : null;
         await query(
           `UPDATE media_broadcasts SET name=$1,description=$2,category=$3,tags=$4,playback_mode=$5,
-           messages=$6,message_interval=$7,override_duration=$8,loop=$9,enabled=$10,
-           updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$11`,
-          [body.name || 'Untitled', body.description || '', body.category || 'general',
-           JSON.stringify(body.tags || []), body.playback_mode || 'scripted',
-           JSON.stringify(body.messages || []), body.message_interval || 5,
-           body.override_duration || null, body.loop ? 1 : 0, body.enabled !== false ? 1 : 0, id]
+           messages=$6,message_interval=$7,override_duration=$8,loop=$9,enabled=$10,broadcast_graph=$11,
+           updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$12`,
+          [body.name||'Untitled', body.description||'', body.category||'general',
+           JSON.stringify(body.tags||[]), body.playback_mode||'scripted',
+           JSON.stringify(body.messages||[]), body.message_interval||5,
+           body.override_duration||null, body.loop?1:0, body.enabled!==false?1:0, graph, id]
         );
         await loadChannelRuntimes();
         return { status: 200, body: { id } };

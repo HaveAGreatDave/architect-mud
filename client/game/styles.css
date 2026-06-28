@@ -713,6 +713,14 @@ body {
 	padding-left: 8px;
 	margin-left: 2px;
 }
+.msg-broadcast-ticker {
+	color: var(--accent);
+	letter-spacing: 0.5px;
+	font-style: italic;
+	border-left: 2px solid var(--accent);
+	padding-left: 8px;
+	margin-left: 2px;
+}
 .msg-say {
 	color: var(--cyan);
 }

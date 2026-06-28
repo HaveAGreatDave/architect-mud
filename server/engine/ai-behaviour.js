@@ -2,6 +2,8 @@ import { world, getLivePlayer, getDoorForExit, setDoorCache } from './world.js';
 import { findPath, getZonesInRadius } from './pathfinding.js';
 import { enemyAttackPlayer } from './combat.js';
 import { getEnvironmentState } from './environment.js';
+import { emit } from './events.js';
+import { hasChannelViewers } from './broadcast-bridge.js';
 
 // ── Blackboard ────────────────────────────────────────────────────────────────
 
@@ -182,6 +184,9 @@ function evalCondition(node, entity) {
       const { timePhase } = getEnvironmentState();
       return timePhase === 'day' || timePhase === 'dawn' || timePhase === 'dusk';
     }
+
+    case 'CHANNEL_HAS_VIEWERS':
+      return hasChannelViewers(params.channel_id);
 
     default:
       return false;
@@ -392,6 +397,13 @@ async function execAction(node, entity, ctx) {
 
     case 'IDLE':
       break;
+
+    case 'BROADCAST_SAY': {
+      const { channel_id, text } = params;
+      if (!text || !channel_id) break;
+      emit('npc.broadcast_say', { entity, channel_id, text: `[${entity.name}] ${text}` });
+      break;
+    }
 
     case 'SET_FLAG': {
       if (!ai) break;

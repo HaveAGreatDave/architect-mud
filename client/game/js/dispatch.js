@@ -96,7 +96,7 @@ const handlers = {
     setTimeout(() => { sendCmd('look'); }, 1500);
   },
 
-  broadcast: (msg) => { appendMsg(msg.message, 'broadcast'); },
+  broadcast: (msg) => { appendMsg(msg.message, msg.style === 'ticker' ? 'broadcast-ticker' : 'broadcast'); },
   system: (msg) => { appendMsg(msg.message, 'system'); },
   ambient: (msg) => { appendHtml(msg.message, 'ambient'); },
   sleep: (msg) => { appendHtml(msg.message, 'system'); },

@@ -162,6 +162,12 @@ const PANELS = {
     render: renderPowerPanel,
     noEdit: true,
   },
+  bank: {
+    title: 'Bank & ATMs',
+    fetch: () => Promise.resolve({}),
+    noEdit: true,
+    render: renderBankPanel,
+  },
   worldstate: {
     title: 'World State',
     fetch: () => API('/world/state'),

@@ -53,6 +53,7 @@ const AI_CONDITIONS = [
   { type: 'FLAG_SET',         label: 'Flag Is Set',             params: [{ key: 'flag',    label: 'Flag key',          type: 'text',   default: '' }, { key: 'scope', label: 'Scope', type: 'select', options: ['world', 'self'], default: 'self' }] },
   { type: 'RANDOM_CHANCE',    label: 'Random Chance',           params: [{ key: 'chance',  label: 'Probability 0–1',   type: 'number', default: 0.5 }] },
   { type: 'IS_DAYTIME',       label: 'Is Daytime',              params: [] },
+  { type: 'CHANNEL_HAS_VIEWERS', label: 'Channel Has Viewers', params: [{ key: 'channel_id', label: 'Channel ID', type: 'text', default: '' }] },
 ];
 
 // ── Action type catalogue ─────────────────────────────────────────────────────
@@ -82,6 +83,10 @@ const AI_ACTIONS = [
     { key: 'flag',  label: 'Flag key', type: 'text',   default: '' },
     { key: 'value', label: 'Value',    type: 'text',   default: 'true' },
     { key: 'scope', label: 'Scope',    type: 'select', options: ['world', 'self'], default: 'self' },
+  ]},
+  { type: 'BROADCAST_SAY', label: 'Broadcast Say', params: [
+    { key: 'channel_id', label: 'Channel ID', type: 'text',   default: '' },
+    { key: 'text',       label: 'Text',       type: 'text',   default: '' },
   ]},
 ];
 
