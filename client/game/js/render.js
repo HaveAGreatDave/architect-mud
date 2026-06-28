@@ -83,20 +83,20 @@ export function parseZoneInfo(html) {
   const zoneName = tmp.querySelector('.zone-name')?.textContent;
   if (zoneName) document.getElementById('zone-name-display').textContent = zoneName;
 
-  const text = tmp.textContent;
-  const exitsMatch = text.match(/Exits:\s*([^\n]+)/);
   const exitsEl = document.getElementById('exits-display');
   exitsEl.innerHTML = '';
-  if (exitsMatch) {
-    const dirs = exitsMatch[1].split(',').map(s => s.trim()).filter(Boolean);
-    for (const dir of dirs) {
-      const btn = document.createElement('button');
-      btn.className = 'exit-btn';
-      btn.textContent = dir;
-      const cmd = dir.replace(/^\[|\]$/g, '');
-      btn.onclick = () => import('./net.js').then(m => m.sendCmd(cmd));
-      exitsEl.appendChild(btn);
-    }
+  const exitLinks = tmp.querySelectorAll('.action-link.exit-link, .action-link.building-link, .action-link.room-nav-link');
+  for (const link of exitLinks) {
+    const cmd = link.dataset.target;
+    if (!cmd) continue;
+    const dirTag = link.previousElementSibling?.classList.contains('dir-tag')
+      ? link.previousElementSibling.textContent.replace(/^\[|\]$/g, '')
+      : cmd;
+    const btn = document.createElement('button');
+    btn.className = 'exit-btn';
+    btn.textContent = dirTag;
+    btn.onclick = () => import('./net.js').then(m => m.sendCmd(cmd));
+    exitsEl.appendChild(btn);
   }
 }
 

@@ -1119,11 +1119,18 @@ body {
 	margin-bottom: 8px;
 }
 
-/* Sidebar lock/unlock toggle — floats at the outer edge */
+/* Fixed header bar — holds the lock button, cannot receive drops */
+.sidebar-header {
+	flex: none;
+	display: flex;
+	align-items: center;
+	padding: 4px 6px;
+	background: var(--bg2);
+	border-bottom: 1px solid var(--border);
+	z-index: 5;
+}
+
 .sidebar-lock-btn {
-	position: absolute;
-	top: 6px;
-	left: 4px;
 	width: 28px;
 	height: 28px;
 	background: var(--bg3);
@@ -1135,7 +1142,6 @@ body {
 	line-height: 28px;
 	text-align: center;
 	cursor: pointer;
-	z-index: 5;
 	transition: border-color 0.1s, color 0.1s;
 }
 .sidebar-lock-btn:hover {
@@ -1146,10 +1152,6 @@ body {
 	border-color: var(--accent2);
 	color: var(--accent2);
 	background: var(--bg2);
-}
-[data-sidebar="right"] .sidebar-lock-btn {
-	left: auto;
-	right: 4px;
 }
 
 

@@ -146,7 +146,7 @@ function computeDropInfo(clientY) {
   const items = [...sidebar.children].filter(el =>
     el !== dragSrc &&
     el !== dropEnd &&
-    el.id !== 'sidebar-lock-btn' &&
+    !el.classList.contains('sidebar-header') &&
     el.id !== 'sidebar-drop-indicator'
   );
 
