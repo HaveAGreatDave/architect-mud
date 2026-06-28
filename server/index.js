@@ -298,6 +298,7 @@ wss.on("connection", (ws) => {
 				}
 				emit('player.logout', { id: session.playerId, handle: session.handle });
 				logActivity('disconnect', session.handle);
+				broadcast(null, { type: 'online_change' });
 				playerSockets.delete(session.playerId);
 				removeLivePlayer(session.playerId);
 			}
@@ -583,6 +584,7 @@ async function finishAuth(ws, session, player) {
 	setLivePlayer(player.id, livePlayer);
 	emit('player.login', { id: player.id, handle: player.handle, role: player.role });
 	logActivity('connect', player.handle);
+	broadcast(null, { type: 'online_change' });
 	await deactivateForcefield(player.id, livePlayer.home_zone, broadcast);
 	await autoEquipOnLogin(player.id);
 	await recomputeArmor(livePlayer);
