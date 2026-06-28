@@ -279,6 +279,10 @@ export function toggleWhisperPanel() {
     _applyTextSize();
     _switchToTab(_activeWhisperTab);
     if (_activeWhisperTab !== USERS_TAB) document.getElementById('whisper-reply-input')?.focus();
+    setTimeout(() => {
+      const log = document.getElementById('whisper-log');
+      if (log) { log.scrollTop = log.scrollHeight; _checkWhisperScroll(); }
+    }, 0);
   }
   _updateChatBadge();
 }
@@ -295,6 +299,10 @@ export function openWhisperTab(handle) {
     panel.style.display = 'flex';
     _applyWindowSize();
     _applyTextSize();
+    setTimeout(() => {
+      const log = document.getElementById('whisper-log');
+      if (log) { log.scrollTop = log.scrollHeight; _checkWhisperScroll(); }
+    }, 0);
   }
   if (!_isSystemOnly(handle)) document.getElementById('whisper-reply-input')?.focus();
   _updateChatBadge();
@@ -328,66 +336,52 @@ function _refreshWhisperTabs() {
   if (!tabs) return;
   tabs.innerHTML = '';
 
-  const mkSimpleTab = (label, active, color, onClick) => {
+  const mkSimpleTab = (label, active, colorClass, onClick) => {
     const t = document.createElement('button');
-    t.style.cssText = `background:${active?'var(--bg3)':'transparent'};border:1px solid ${active?color:'var(--border)'};color:${active?color:'var(--text-dim)'};font-family:var(--font-mono);font-size:10px;padding:3px 8px;cursor:pointer;border-radius:2px;white-space:nowrap;flex-shrink:0`;
+    t.className = `whisper-tab${active ? ` active ${colorClass}` : ''}`;
     t.textContent = label;
     t.onclick = onClick;
     tabs.appendChild(t);
   };
 
+  const mkPip = () => {
+    const pip = document.createElement('span');
+    pip.className = 'whisper-tab-pip';
+    pip.textContent = '!';
+    return pip;
+  };
+
   const mkClosableTab = (label, handle, active, onOpen, onClose) => {
-    const borderColor = active ? 'var(--accent)' : 'var(--border)';
-    const textColor   = active ? 'var(--accent)' : 'var(--text-dim)';
-    const bg          = active ? 'var(--bg3)' : 'transparent';
-    const convo       = _whisperConvos.get(handle);
-
+    const convo = _whisperConvos.get(handle);
     const wrap = document.createElement('div');
-    wrap.style.cssText = `display:inline-flex;align-items:center;gap:5px;flex-shrink:0;position:relative;background:${bg};border:1px solid ${borderColor};border-radius:2px;padding:2px 4px 2px 8px;cursor:pointer`;
+    wrap.className = `whisper-tab-wrap${active ? ' active' : ''}`;
     wrap.addEventListener('click', onOpen);
-
-    if (convo?.unread > 0) {
-      const pip = document.createElement('span');
-      pip.textContent = '!';
-      pip.style.cssText = 'position:absolute;top:-5px;left:-5px;background:var(--red);color:#fff;font-size:9px;font-weight:bold;width:12px;height:12px;border-radius:2px;display:flex;align-items:center;justify-content:center;pointer-events:none';
-      wrap.appendChild(pip);
-    }
-
+    if (convo?.unread > 0) wrap.appendChild(mkPip());
     const labelSpan = document.createElement('span');
-    labelSpan.style.cssText = `color:${textColor};font-family:var(--font-mono);font-size:10px;white-space:nowrap`;
+    labelSpan.className = 'whisper-tab-label';
     labelSpan.textContent = label;
-
     const closeBtn = document.createElement('button');
+    closeBtn.className = 'whisper-tab-close';
     closeBtn.textContent = '×';
     closeBtn.title = 'Close tab';
-    closeBtn.style.cssText = `background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font-mono);font-size:11px;line-height:1;width:16px;height:16px;padding:0;cursor:pointer;border-radius:2px;display:flex;align-items:center;justify-content:center;flex-shrink:0`;
-    closeBtn.addEventListener('mouseenter', () => { closeBtn.style.borderColor = 'var(--red)'; closeBtn.style.color = 'var(--red)'; });
-    closeBtn.addEventListener('mouseleave', () => { closeBtn.style.borderColor = 'var(--border)'; closeBtn.style.color = 'var(--text-dim)'; });
     closeBtn.addEventListener('click', e => { e.stopPropagation(); onClose(); });
-
     wrap.appendChild(labelSpan);
     wrap.appendChild(closeBtn);
     tabs.appendChild(wrap);
   };
 
-  mkSimpleTab('Users', _activeWhisperTab === USERS_TAB, 'var(--purple)', () => _switchToTab(USERS_TAB));
+  mkSimpleTab('Users', _activeWhisperTab === USERS_TAB, 'tab-purple', () => _switchToTab(USERS_TAB));
 
   // Channel tabs
   for (const [id, ch] of _channels) {
     const active = _activeWhisperTab === id;
     const convo  = _whisperConvos.get(id);
     if (ch.permanent) {
-      const color = active ? 'var(--yellow)' : 'var(--border)';
       const t = document.createElement('button');
-      t.style.cssText = `position:relative;background:${active?'var(--bg3)':'transparent'};border:1px solid ${color};color:${active?'var(--yellow)':'var(--text-dim)'};font-family:var(--font-mono);font-size:10px;padding:3px 8px;cursor:pointer;border-radius:2px;white-space:nowrap;flex-shrink:0`;
+      t.className = `whisper-tab${active ? ' active tab-yellow' : ''}`;
       t.textContent = id;
       t.onclick = () => _switchToTab(id);
-      if (convo?.unread > 0) {
-        const pip = document.createElement('span');
-        pip.textContent = '!';
-        pip.style.cssText = 'position:absolute;top:-5px;left:-5px;background:var(--red);color:#fff;font-size:9px;font-weight:bold;width:12px;height:12px;border-radius:2px;display:flex;align-items:center;justify-content:center;pointer-events:none';
-        t.appendChild(pip);
-      }
+      if (convo?.unread > 0) t.appendChild(mkPip());
       tabs.appendChild(t);
     } else {
       mkClosableTab(id, id, active, () => openWhisperTab(id), () => _closeWhisperTab(id));
@@ -414,6 +408,9 @@ function _renderWhisperLog() {
   }
   const convo = _whisperConvos.get(_activeWhisperTab);
   if (!convo) return;
+  // Capture scroll target before innerHTML reset — clearing the DOM resets scrollTop to 0
+  // and fires a scroll event that overwrites convo.scrollTop before we can restore it.
+  const targetScroll = convo.scrollTop != null ? convo.scrollTop : log.scrollHeight;
   log.innerHTML = '';
   for (const m of convo.messages) {
     const entry = document.createElement('div');
@@ -424,7 +421,7 @@ function _renderWhisperLog() {
     log.appendChild(entry);
   }
   // Use ?? so scrollTop=0 (MOTD top) is respected; fall back to bottom for chat
-  log.scrollTop = convo.scrollTop != null ? convo.scrollTop : log.scrollHeight;
+  log.scrollTop = targetScroll > 9000 ? log.scrollHeight : targetScroll;
   _checkWhisperScroll();
 }
 

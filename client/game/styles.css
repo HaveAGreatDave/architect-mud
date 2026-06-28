@@ -3166,6 +3166,106 @@ body {
 	color: var(--red);
 }
 
+.whisper-tab {
+	background: transparent;
+	border: 1px solid var(--border);
+	color: var(--text-dim);
+	font-family: var(--font-mono);
+	font-size: 10px;
+	padding: 3px 8px;
+	cursor: pointer;
+	border-radius: 2px;
+	white-space: nowrap;
+	flex-shrink: 0;
+	position: relative;
+}
+.whisper-tab.active { background: var(--bg3); }
+.whisper-tab.active.tab-purple { border-color: var(--purple); color: var(--purple); }
+.whisper-tab.active.tab-yellow { border-color: var(--yellow); color: var(--yellow); }
+.whisper-tab-wrap {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	flex-shrink: 0;
+	position: relative;
+	background: transparent;
+	border: 1px solid var(--border);
+	border-radius: 2px;
+	padding: 2px 4px 2px 8px;
+	cursor: pointer;
+}
+.whisper-tab-wrap.active { background: var(--bg3); border-color: var(--accent); }
+.whisper-tab-wrap.active .whisper-tab-label { color: var(--accent); }
+.whisper-tab-label {
+	color: var(--text-dim);
+	font-family: var(--font-mono);
+	font-size: 10px;
+	white-space: nowrap;
+}
+.whisper-tab-pip {
+	position: absolute;
+	top: -5px;
+	left: -5px;
+	background: var(--red);
+	color: #fff;
+	font-size: 9px;
+	font-weight: bold;
+	width: 12px;
+	height: 12px;
+	border-radius: 2px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	pointer-events: none;
+}
+.whisper-tab-close {
+	background: transparent;
+	border: 1px solid var(--border);
+	color: var(--text-dim);
+	font-family: var(--font-mono);
+	font-size: 11px;
+	line-height: 1;
+	width: 16px;
+	height: 16px;
+	padding: 0;
+	cursor: pointer;
+	border-radius: 2px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+}
+.whisper-tab-close:hover { border-color: var(--red); color: var(--red); }
+#whisper-new-msgs {
+	display: none;
+	position: absolute;
+	bottom: 50px;
+	right: 8px;
+	background: var(--accent);
+	color: #fff;
+	font-size: 10px;
+	padding: 3px 8px;
+	border-radius: 10px;
+	cursor: pointer;
+	z-index: 101;
+}
+#whisper-scroll-bottom {
+	display: none;
+	position: absolute;
+	bottom: 36px;
+	right: 2px;
+	background: var(--bg3);
+	border: 1px solid var(--border);
+	color: var(--text-dim);
+	font-size: 11px;
+	width: 18px;
+	height: 18px;
+	padding: 0;
+	cursor: pointer;
+	border-radius: 2px;
+	line-height: 1;
+	z-index: 101;
+}
 #whisper-log::-webkit-scrollbar {
 	width: 6px;
 }
