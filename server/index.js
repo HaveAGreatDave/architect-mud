@@ -88,6 +88,7 @@ function broadcast(
 	message,
 	excludePlayerId = null,
 	targetPlayerId = null,
+	excludePlayerId2 = null,
 ) {
 	const payload = JSON.stringify(message);
 	if (targetPlayerId) {
@@ -98,6 +99,7 @@ function broadcast(
 	for (const [ws, session] of clients) {
 		if (ws.readyState !== 1) continue;
 		if (excludePlayerId && session.playerId === excludePlayerId) continue;
+		if (excludePlayerId2 && session.playerId === excludePlayerId2) continue;
 		if (session.isGhost) {
 			// Ghost only receives broadcasts for its watched zone; skip global ones
 			if (!zoneId || session.ghostZoneId !== zoneId) continue;

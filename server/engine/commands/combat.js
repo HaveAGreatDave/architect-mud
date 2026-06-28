@@ -160,7 +160,7 @@ export async function cmdAttack(targetStr, player, broadcast) {
 		player.pvpTargetId = targetPlayer.id;
 		targetPlayer.pvpTargetId = player.id;
 		broadcast(null, { type: 'output', message: `${player.handle} is attacking you!` }, null, targetPlayer.id);
-		broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} engages ${targetPlayer.handle} in combat!` }, player.id);
+		broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} engages ${targetPlayer.handle} in combat!` }, player.id, null, targetPlayer.id);
 		return { type: "combat", message: `You close in on ${targetPlayer.handle}. Combat begins.` };
 	}
 
