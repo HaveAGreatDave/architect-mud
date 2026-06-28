@@ -33,9 +33,26 @@ function itemAddTagPicker(presentNames) {
   </div>`;
 }
 
+function itemTagChips(present) {
+  if (!present.length) return '<span style="color:var(--text-dim);font-size:11px">No tags attached.</span>';
+  return present.map(n => {
+    const def = TAG_CATALOG[n];
+    const label = def ? def.label : n;
+    return `<span onclick="removeItemTagByName('${n}')" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:12px;background:var(--bg-alt,rgba(255,255,255,0.08));border:1px solid var(--border,rgba(255,255,255,0.15));font-size:11px;cursor:pointer;user-select:none" title="Click to remove">${label} <span style="opacity:0.6">×</span></span>`;
+  }).join('');
+}
+
+function refreshItemTagChips() {
+  const el = document.getElementById('item-tag-chips');
+  if (!el) return;
+  const present = [...document.querySelectorAll('#item-tags .tag-row')].map(r => r.dataset.tag);
+  el.innerHTML = itemTagChips(present);
+}
+
 function refreshItemTagPicker() {
   const present = [...document.querySelectorAll('#item-tags .tag-row')].map(r => r.dataset.tag);
   document.getElementById('item-add-tag-picker').innerHTML = itemAddTagPicker(present);
+  refreshItemTagChips();
 }
 
 function addItemTag() {
@@ -50,6 +67,11 @@ function addItemTag() {
 function removeItemTag(btn) {
   btn.closest('.tag-row').remove();
   refreshItemTagPicker();
+}
+
+function removeItemTagByName(name) {
+  const row = document.querySelector(`#item-tags .tag-row[data-tag="${name}"]`);
+  if (row) { row.remove(); refreshItemTagPicker(); }
 }
 
 function readItemTag(rowEl) {
@@ -192,6 +214,10 @@ function itemEditForm(rec, isNew) {
     <div id="item-supertag-picker">${itemSupertagPicker(superApplied)}</div>
     <div id="item-tags">${tagNames.map(n => itemTagRow(n, tags[n])).join('')}</div>
     <div id="item-add-tag-picker">${itemAddTagPicker(tagNames)}</div>
+    <div class="field" style="margin-top:8px">
+      <label style="font-size:11px;opacity:0.6;text-transform:uppercase;letter-spacing:0.05em">Attached Tags</label>
+      <div id="item-tag-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">${itemTagChips(tagNames)}</div>
+    </div>
   `;
 }
 
