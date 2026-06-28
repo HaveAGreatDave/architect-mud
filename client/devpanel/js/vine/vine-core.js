@@ -43,6 +43,22 @@ class VineEditor {
     this._svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     this._svg.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:1';
 
+    // Persistent gradient for the temp wire drawn while dragging a connection.
+    const wireDefs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+    this._wireGrad = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
+    this._wireGrad.setAttribute('id', 'vine-wire-grad');
+    this._wireGrad.setAttribute('gradientUnits', 'userSpaceOnUse');
+    const wg0 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+    wg0.setAttribute('offset', '0%');
+    wg0.style.stopColor = 'var(--accent2)';
+    const wg1 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+    wg1.setAttribute('offset', '100%');
+    wg1.style.stopColor = 'var(--accent3)';
+    this._wireGrad.appendChild(wg0);
+    this._wireGrad.appendChild(wg1);
+    wireDefs.appendChild(this._wireGrad);
+    this._svg.appendChild(wireDefs);
+
     // Toolbar (on top of SVG)
     this._toolbar = document.createElement('div');
     this._toolbar.style.cssText = 'position:absolute;top:8px;left:8px;z-index:30;display:flex;gap:4px;flex-wrap:wrap;max-width:calc(100% - 290px)';
@@ -166,6 +182,8 @@ class VineEditor {
         const x2 = e.clientX - sr.left;
         const y2 = e.clientY - sr.top;
         this._wire.path.setAttribute('d', VineEdges.bezier(x1, y1, x2, y2));
+        this._wireGrad.setAttribute('x1', x1); this._wireGrad.setAttribute('y1', y1);
+        this._wireGrad.setAttribute('x2', x2); this._wireGrad.setAttribute('y2', y2);
       }
     });
 
@@ -364,13 +382,21 @@ class VineEditor {
       }
     }
 
-    // ── 5. Assign pixel positions.
-    const COL_W = 320, ROW_H = 180, OX = 40, OY = 60;
+    // ── 5. Assign pixel positions, spreading to fill the visible canvas area.
+    const numCols = maxLayer + 1;
+    const maxRows = Math.max(...cols.map(c => c.length), 1);
+    const OX = 60, OY = 60, MARGIN = 80;
+    const areaW = this._area.clientWidth  / this._view.scale;
+    const areaH = this._area.clientHeight / this._view.scale;
+    const COL_W = Math.max(300, (areaW - OX * 2 - MARGIN) / numCols);
+    const ROW_H = Math.max(160, (areaH - OY * 2 - MARGIN) / maxRows);
+
     for (const id of ids) {
       nodes[id].x = layer[id] * COL_W + OX;
       nodes[id].y = rank[id]  * ROW_H + OY;
     }
 
+    this._view = { x: 20, y: 20, scale: 1 };
     this._renderAll();
     requestAnimationFrame(() => this._renderEdges());
     this._fire('change');
@@ -510,7 +536,7 @@ class VineEditor {
   _startWire(fromNode, fromPort, anchorEl) {
     if (this._wire) this._cancelWire();
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    path.style.cssText = 'stroke:var(--accent);stroke-width:2;fill:none;stroke-dasharray:5 3;pointer-events:none';
+    path.style.cssText = 'stroke:url(#vine-wire-grad);stroke-width:2;fill:none;stroke-dasharray:5 3;pointer-events:none';
     this._svg.appendChild(path);
     this._wire = { fromNode, fromPort, anchorEl, path };
   }
