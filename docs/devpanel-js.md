@@ -188,6 +188,29 @@ The Power Grid panel.
 - **Internal helpers**: `_refreshPowerMapData()`, `_buildJbByOutdoor()`.
 - Holds `powerPanelGenerators`, `powerPanelMode`, `powerPanelView`, `powerPanelBuilding`, `powerJbByOutdoor`.
 
+### `broadcast.js`
+The Broadcasts panel — list and modal editor for `media_broadcasts` assets.
+
+- **Panel render**: `renderBroadcastsPanel(data)` — table of broadcasts with name, category, playback mode, calculated duration. `data` contains both `broadcasts` and `channels` (channels are available for the channel editor but the broadcasts panel only uses broadcasts).
+- **Modal**: `openBroadcastModal(rec, isNew)` — metadata fields plus a flat message sequence builder with move/delete/add rows and a live duration preview.
+- **VINE**: `broadcastOpenVine()` — opens the VINE broadcast graph editor (`VineBroadcastSchema`). A "VINE graph" badge appears when a graph is attached. Graph stored in `_broadcastGraph`.
+- **Save**: `saveBroadcast()` — POST/PUT to `/broadcast/broadcasts/:id`, includes `broadcast_graph`.
+- **Delete**: `deleteBroadcast(id, name)` — confirmation + DELETE.
+- **Clone**: `cloneBroadcast(rec)` — POST with a new id.
+- State globals: `_broadcastList`, `_broadcastEditTarget`, `_broadcastMessages`, `_broadcastGraph`.
+- Constants: `BROADCAST_CATEGORIES`, `BROADCAST_MODES`.
+
+### `broadcast-channel.js`
+The Channels panel — list and visual timeline editor for `media_channels` and their playlists.
+
+- **Panel render**: `renderChannelsPanel(data)` — channel list with number, name, type, item count.
+- **Timeline editor**: horizontal scrollable canvas with absolutely-positioned items (`start_time × scale`). Drag to reposition (snaps 30 s); resize via right-edge drag; drag from library pane to create new items.
+- **Library**: left pane lists `_channelBroadcasts` as draggable assets.
+- **Cameras section**: lists cameras for this channel; edit, clear buffer, convert to broadcast.
+- **Save**: posts metadata to `/broadcast/channels/:id`, then replaces playlist via `PUT /broadcast/channels/:id/playlist`.
+- State globals: `_channelList`, `_channelPlaylist`, `_channelBroadcasts`, `_tlScale`, `_tlLoopDuration`, `_tlDragging`, `_tlResizing`.
+- Helper: `escHtml2()` — local escaping helper (avoids colliding with `broadcast.js`'s `escHtml()`).
+
 ### `sounds.js`
 The Sounds & Ambience panel.
 

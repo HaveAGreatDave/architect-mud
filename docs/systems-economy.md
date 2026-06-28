@@ -13,11 +13,24 @@ negative" invariant lives in one place.
 
 - **`adjustCredits(player, delta)`** — returns `false` (no-op) if it would push carried credits below 0.
 - **`transferCredits(player, amount, type)`** — moves between `credits` (carried) and `bank_credits`
-  (banked). `deposit`/`withdraw` commands require the zone flag `has_atm`; both accept a number or `all`.
+  (banked). Both accept a number or `all`. The primary path is through the ATM plugin (see below); the engine's `transferCredits` handles only the credit ledger movement, not power/faction/stock checks.
 
 > **Note:** `adjustCredits` and `transferCredits` write directly with the single `query()` helper — no
 > transaction wraps the debit + the follow-on inventory write in `buy`/`sell`/`craft`. See the QA report
 > (non-atomic economy mutations).
+
+## ATM terminals
+
+`deposit`, `withdraw`, and `jack` are owned by the **atm plugin** ([plugins/atm/index.js](../plugins/atm/index.js)), not engine builtins. Full details in [docs/systems-atm.md](systems-atm.md). Summary:
+
+- ATMs are **furniture items** with the `atm` flag. A corresponding `atm_units` row tracks `cash_stock`, `network_id`, `hack_difficulty`, and `is_broken`.
+- **Networks** (`atm_networks`) define `fee_rate`, `withdrawal_limit`, faction rep gates, and the UI accent colour.
+- **`deposit`**: moves carried → banked; increases `cash_stock` (machine fills up).
+- **`withdraw`**: moves banked → carried; drains `cash_stock`; fee deducted from bank, only raw amount reaches player.
+- **`jack`**: hacking skill check vs `hack_difficulty`; success empties `cash_stock` into player's carry and breaks the machine; failure sets a 5-minute in-memory lockout.
+- **Power**: all operations check `isZonePowered()` — ATMs go dark when the zone loses power.
+- **Replenish tick**: every 5 minutes the plugin refills ATMs whose `replenish_interval_hours` has elapsed.
+- **Legacy fallback**: zones with only `zone.flags.has_atm` (no furniture) still work for basic deposit/withdraw with no power, faction, or stock checks.
 
 ## Vendors
 

@@ -268,6 +268,50 @@ The active editor instance is also exposed at `window._vineActiveEditor` for con
 
 ---
 
+## Broadcast Schema (`vine-schema-broadcast.js`)
+
+Node types for the visual broadcast script editor. Saved to `media_broadcasts.broadcast_graph`.
+
+### Node types
+
+| Type | Out ports | Purpose |
+|---|---|---|
+| `start` | `next` | Entry point. One per graph. |
+| `say` | `next` | Push a line to viewers. Stops execution for this tick. `style: raw\|ticker`. |
+| `ticker` | `next` | Push `>> text <<` formatted ticker line. |
+| `npc_anchor` | `next` | Set the active NPC voice — prefixes say nodes with `[NPC Name]`. |
+| `inject_news` | `next` | Pull from news queue (category-filtered); fallback text if queue empty. |
+| `camera_cut` | `next` | Read a live zone description, push as `[CAM: label] …`. |
+| `break` | `next` | Natural cut-point; drains news queue inline. Lets urgent news interrupt a show cleanly. |
+| `condition` | `ifTrue`, `ifFalse` | Branch on a world condition (synchronous). |
+| `wait` | `next` | Pause N seconds for this channel only. |
+| `loop` | `next` | Jump to connected node, or `_start` if unconnected. |
+| `random` | N branch ports | Weighted random branch. |
+| `set_flag` | `next` | Set a world flag. |
+
+Conditions available: `IS_DAYTIME`, `VIEWERS_PRESENT`, `NEWS_AVAILABLE`, `HOUR_RANGE`, `RANDOM_CHANCE`.
+
+### Conversion helpers
+
+```js
+VineBroadcastSchema.fromBroadcastGraph(dbGraph)  // DB JSONB → VINE graph
+VineBroadcastSchema.toBroadcastGraph(vineGraph)   // VINE graph → DB JSONB
+```
+
+Auto-layout runs when a graph has no `_vine` position data. See [`docs/systems-broadcast.md`](systems-broadcast.md) for the full runtime description.
+
+---
+
+## AI Schema additions (`vine-schema-ai.js`)
+
+Two entries were added to the AI catalogue to support broadcast-aware NPC behaviour:
+
+**Condition:** `CHANNEL_HAS_VIEWERS` — params: `channel_id`. Synchronous check via `broadcast-bridge.js`.
+
+**Action:** `BROADCAST_SAY` — params: `channel_id`, `text`. Emits `npc.broadcast_say`; the broadcast plugin queues the text on the target channel.
+
+---
+
 ## Adding a New Schema
 
 1. Create `client/devpanel/js/vine/vine-schema-yourtype.js`.
