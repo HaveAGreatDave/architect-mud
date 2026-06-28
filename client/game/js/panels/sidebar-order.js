@@ -4,6 +4,8 @@ const DEFAULT_ORDER = ['minimap-section', 'vitals-section', 'location-section', 
 let locked = true;
 let dragSrc = null;
 let dropInfo = null;
+let lastClientY = null;
+let dropped = false; // true once onSidebarDrop fires, so onDragEnd doesn't double-execute
 
 export function initSidebarOrder() {
   applyLayout(loadLayout());
@@ -100,6 +102,7 @@ function detachDragHandlers(el) {
 
 function onDragStart(e) {
   dragSrc = this;
+  dropped = false;
   e.dataTransfer.effectAllowed = 'move';
   this.classList.add('dragging');
 }
@@ -107,7 +110,17 @@ function onDragStart(e) {
 function onDragEnd() {
   this.classList.remove('dragging');
   hideDropIndicator();
+
+  // If the cursor slipped off a vertical edge, dropInfo was clamped in dragleave.
+  // Execute that clamped drop now (only if onSidebarDrop didn't already handle it).
+  if (!dropped && dropInfo) {
+    executeDrop(dropInfo);
+    saveLayout();
+  }
+
+  dropped = false;
   dropInfo = null;
+  lastClientY = null;
   dragSrc = null;
 }
 
@@ -125,10 +138,6 @@ function findNextSection(items, fromIndex) {
   return null;
 }
 
-// Compute where a drop at clientY should land.
-// Over a section  → snap to its top (before) or bottom (after) based on which half the cursor is in.
-// Over a spacer   → snap to the nearest section boundary (no free-floating in gaps).
-// In the tail zone → free-float; will create a spacer to push section to that position.
 function computeDropInfo(clientY) {
   const sidebar = document.getElementById('sidebar');
   const dropEnd = document.getElementById('sidebar-drop-end');
@@ -154,7 +163,6 @@ function computeDropInfo(clientY) {
     }
 
     if (el.classList.contains('sidebar-spacer')) {
-      // Snap to the nearest section boundary rather than free-floating inside the gap.
       const inUpperHalf = r.height > 0 && (clientY - r.top) / r.height <= 0.5;
       const prevSec = findPrevSection(items, i);
       const nextSec = findNextSection(items, i);
@@ -175,48 +183,67 @@ function computeDropInfo(clientY) {
     }
   }
 
-  // Cursor is past all elements — free-float in the tail zone
   return {kind: 'end', lineY: clientY - sr.top};
+}
+
+function executeDrop(info) {
+  const dropEnd = document.getElementById('sidebar-drop-end');
+  if (info.kind === 'before') {
+    info.el.before(dragSrc);
+  } else if (info.kind === 'after') {
+    info.el.after(dragSrc);
+  } else {
+    dropEnd.before(makeSpacer(1000));
+    dropEnd.before(dragSrc);
+  }
+  cleanupSpacers();
 }
 
 function onSidebarDragOver(e) {
   if (!dragSrc) return;
   e.preventDefault();
   e.dataTransfer.dropEffect = 'move';
+  lastClientY = e.clientY;
   dropInfo = computeDropInfo(e.clientY);
-  showDropIndicator(dropInfo.lineY);
+  showDropIndicator(dropInfo.lineY, dropInfo.kind !== 'end');
 }
 
 function onSidebarDragLeave(e) {
   if (e.currentTarget.contains(e.relatedTarget)) return;
+
+  const sidebar = document.getElementById('sidebar');
+  const sr = sidebar.getBoundingClientRect();
+
+  // Clamp to top/bottom if cursor exited via a vertical edge so the drop still
+  // fires at the boundary when the user releases outside the sidebar.
+  // Side exits (left/right) cancel the pending drop.
+  if (lastClientY !== null) {
+    if (lastClientY >= sr.bottom) {
+      dropInfo = computeDropInfo(sr.bottom); // snaps to 'end'
+    } else if (lastClientY <= sr.top) {
+      dropInfo = computeDropInfo(sr.top);    // snaps to before first section
+    } else {
+      dropInfo = null; // side exit — cancel
+    }
+  } else {
+    dropInfo = null;
+  }
+
   hideDropIndicator();
-  dropInfo = null;
 }
 
 function onSidebarDrop(e) {
   e.preventDefault();
   if (!dragSrc || !dropInfo) return;
   hideDropIndicator();
+  dropped = true;
 
   const info = dropInfo;
   dropInfo = null;
-  const dropEnd = document.getElementById('sidebar-drop-end');
-
-  if (info.kind === 'before') {
-    info.el.before(dragSrc);
-  } else if (info.kind === 'after') {
-    info.el.after(dragSrc);
-  } else {
-    // 'end' — dropped in the tail zone; push section to the visual bottom with a spacer
-    dropEnd.before(makeSpacer(1000));
-    dropEnd.before(dragSrc);
-  }
-
-  cleanupSpacers();
+  executeDrop(info);
   saveLayout();
 }
 
-// Merge adjacent spacers; remove spacers that have no section after them (trailing gaps are redundant).
 function cleanupSpacers() {
   const sidebar = document.getElementById('sidebar');
 
@@ -231,7 +258,7 @@ function cleanupSpacers() {
     }
   });
 
-  // Remove spacers with no section following them — they're just trailing dead space
+  // Remove spacers with no section following them (trailing gaps are redundant)
   [...sidebar.querySelectorAll('.sidebar-spacer')].forEach(sp => {
     let next = sp.nextElementSibling;
     while (next && !next.classList.contains('sidebar-section')) next = next.nextElementSibling;
@@ -239,7 +266,7 @@ function cleanupSpacers() {
   });
 }
 
-// --- drop indicator (thin horizontal line) ---
+// --- drop indicator ---
 
 function getIndicator() {
   let el = document.getElementById('sidebar-drop-indicator');
@@ -251,10 +278,11 @@ function getIndicator() {
   return el;
 }
 
-function showDropIndicator(lineY) {
+function showDropIndicator(lineY, snapping) {
   const el = getIndicator();
   el.style.top = lineY + 'px';
   el.style.display = 'block';
+  el.classList.toggle('snapping', snapping);
 }
 
 function hideDropIndicator() {

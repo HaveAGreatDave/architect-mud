@@ -1173,10 +1173,14 @@ body {
 	left: 0;
 	right: 0;
 	height: 2px;
-	background: var(--accent);
-	box-shadow: 0 0 8px var(--accent);
+	background: var(--text-dim);
 	pointer-events: none;
 	z-index: 100;
+	transition: background 0.08s, box-shadow 0.08s;
+}
+#sidebar-drop-indicator.snapping {
+	background: var(--accent);
+	box-shadow: 0 0 10px var(--accent), 0 0 4px var(--accent);
 }
 
 /* Spacer at the bottom of the sidebar — small fixed zone for drop targeting only.

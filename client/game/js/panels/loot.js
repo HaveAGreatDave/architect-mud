@@ -89,6 +89,24 @@ function renderLootPanel(data) {
   document.getElementById('loot-butcher').style.display = data.butcherable ? '' : 'none';
 }
 
+function moveAllLootToInv() {
+  const corpseList = document.getElementById('loot-contents-list');
+  const invList = document.getElementById('loot-inv-list');
+  const cards = [...corpseList.querySelectorAll('.ctr-item-card')];
+  for (const card of cards) {
+    card.querySelector('.ctr-action-btn')?.remove();
+    card.removeAttribute('draggable');
+    invList.appendChild(card);
+  }
+  if (cards.length) {
+    corpseList.innerHTML = '';
+    const empty = document.createElement('div');
+    empty.className = 'ctr-meta';
+    empty.textContent = 'Nothing left to loot.';
+    corpseList.appendChild(empty);
+  }
+}
+
 export function initLootPanel() {
   document.getElementById('loot-close').addEventListener('click', closeLootPanel);
   document.getElementById('loot-close-btn').addEventListener('click', closeLootPanel);
@@ -99,10 +117,10 @@ export function initLootPanel() {
     if (activeCorpseId) sendCmdSilent(`butcher ${activeCorpseId}`);
   });
   document.getElementById('loot-take-all').addEventListener('click', () => {
-    if (activeCorpseId) sendCmdSilent(`lootall ${activeCorpseId}${activeCorpseName ? ' ' + activeCorpseName : ''}`);
+    if (activeCorpseId) { moveAllLootToInv(); sendCmdSilent(`lootall ${activeCorpseId}${activeCorpseName ? ' ' + activeCorpseName : ''}`); }
   });
   document.getElementById('loot-transfer-all').addEventListener('click', () => {
-    if (activeCorpseId) sendCmdSilent(`lootall ${activeCorpseId}${activeCorpseName ? ' ' + activeCorpseName : ''}`);
+    if (activeCorpseId) { moveAllLootToInv(); sendCmdSilent(`lootall ${activeCorpseId}${activeCorpseName ? ' ' + activeCorpseName : ''}`); }
   });
 
   // Drag corpse item (left) → drop on inventory (right) → take it

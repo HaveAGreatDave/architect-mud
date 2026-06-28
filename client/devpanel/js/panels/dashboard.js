@@ -96,15 +96,13 @@ function renderDashboard(data) {
           <!-- Dynamic text editor -->
           <div style="margin-top:14px">
             <div style="font-size:11px;font-weight:600;color:var(--text-dim);margin-bottom:6px;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:1px">Dynamic Text <span style="font-weight:400;color:var(--text-dim);font-size:10px">(replaces &lt;dynamic text&gt; in all sizes)</span></div>
-            <div style="display:flex;align-items:flex-start;gap:8px">
-              <textarea id="motd-dynamic"
-                spellcheck="false"
-                style="flex:1;height:60px;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font-mono);font-size:11px;padding:8px 10px;box-sizing:border-box;resize:vertical;border-radius:2px;line-height:1.4"
-                placeholder="e.g. Systems are online."></textarea>
-              <div style="display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding-top:2px">
-                <button id="motd-push-btn" style="background:var(--accent);border:none;color:#000;font-family:var(--font-mono);font-size:11px;font-weight:600;padding:6px 18px;cursor:pointer;border-radius:2px;white-space:nowrap">Send</button>
-                <span id="motd-status" style="font-size:10px;color:var(--text-dim)"></span>
-              </div>
+            <textarea id="motd-dynamic"
+              spellcheck="false"
+              style="width:100%;height:60px;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--font-mono);font-size:11px;padding:8px 10px;box-sizing:border-box;resize:vertical;border-radius:2px;line-height:1.4"
+              placeholder="e.g. Systems are online."></textarea>
+            <div style="margin-top:8px">
+              <button id="motd-push-btn" style="background:var(--accent);border:none;color:#000;font-family:var(--font-mono);font-size:11px;font-weight:600;padding:6px 18px;cursor:pointer;border-radius:2px">Send</button>
+              <span id="motd-status" style="font-size:10px;color:var(--text-dim);margin-left:10px"></span>
             </div>
           </div>
 
