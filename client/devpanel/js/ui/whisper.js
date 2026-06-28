@@ -300,6 +300,37 @@ function initWhisperPanel() {
   });
   document.getElementById('whisper-send-btn')?.addEventListener('click', _sendMessage);
 
+  // Close button
+  document.querySelector('#whisper-panel [data-close]')?.addEventListener('click', closeWhisper);
+
+  // Drag
+  const dragHandle = document.getElementById('whisper-drag-handle');
+  const panel = document.getElementById('whisper-panel');
+  let dragState = null;
+
+  dragHandle.addEventListener('pointerdown', e => {
+    if (e.target.closest('button')) return;
+    e.preventDefault();
+    const r = panel.getBoundingClientRect();
+    dragState = { pointerId: e.pointerId, ox: e.clientX - r.left, oy: e.clientY - r.top };
+    dragHandle.setPointerCapture(e.pointerId);
+    dragHandle.style.cursor = 'grabbing';
+  });
+
+  dragHandle.addEventListener('pointermove', e => {
+    if (!dragState || dragState.pointerId !== e.pointerId) return;
+    const x = Math.max(0, Math.min(window.innerWidth  - panel.offsetWidth,  e.clientX - dragState.ox));
+    const y = Math.max(0, Math.min(window.innerHeight - panel.offsetHeight, e.clientY - dragState.oy));
+    panel.style.left   = x + 'px';
+    panel.style.top    = y + 'px';
+    panel.style.right  = 'auto';
+    panel.style.bottom = 'auto';
+  });
+
+  const _endDrag = e => { if (dragState && dragState.pointerId === e.pointerId) { dragState = null; dragHandle.style.cursor = 'grab'; } };
+  document.addEventListener('pointerup', _endDrag);
+  document.addEventListener('pointercancel', _endDrag);
+
   _loadChannelHistory();
   _sendPresence();
   setInterval(_sendPresence, 2 * 60 * 1000);

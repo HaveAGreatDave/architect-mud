@@ -15,6 +15,7 @@ class VineEditor {
     this._drag = null;      // { nodeId, startX, startY, origX, origY }
     this._pan = null;       // { startX, startY, viewX, viewY }
     this._wire = null;      // { fromNode, fromPort, path }
+    this._edgesHidden = false;
     this._keyHandler = this._onKey.bind(this);
     this._setupDOM();
     this._bindWorkspace();
@@ -37,10 +38,10 @@ class VineEditor {
 
     this._canvas = document.createElement('div');
     this._canvas.className = 'vine-canvas';
-    this._canvas.style.cssText = 'position:absolute;top:0;left:0;transform-origin:0 0;z-index:1';
+    this._canvas.style.cssText = 'position:absolute;top:0;left:0;transform-origin:0 0;z-index:2';
 
     this._svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    this._svg.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:2';
+    this._svg.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:1';
 
     // Toolbar (on top of SVG)
     this._toolbar = document.createElement('div');
@@ -83,6 +84,13 @@ class VineEditor {
     this._toolbar.appendChild(mkBtn('+', 'Zoom in (Ctrl+=)', () => this._adjustZoom(0.15)));
     this._toolbar.appendChild(mkBtn('↩', 'Undo (Ctrl+Z)', () => { if (this._history.undo()) this._renderAll(); }));
     this._toolbar.appendChild(mkBtn('↪', 'Redo (Ctrl+Y)', () => { if (this._history.redo()) this._renderAll(); }));
+
+    this._hideWiresBtn = mkBtn('Hide Wires', 'Toggle connection visibility', () => {
+      this._edgesHidden = !this._edgesHidden;
+      this._hideWiresBtn.textContent = this._edgesHidden ? 'Show Wires' : 'Hide Wires';
+      this._renderEdges();
+    });
+    this._toolbar.appendChild(this._hideWiresBtn);
   }
 
   // ── Pan / Zoom ─────────────────────────────────────────────────────────────
@@ -175,6 +183,10 @@ class VineEditor {
           });
           this._fire('change');
         }
+        // Restore normal layering: nodes (canvas z-index:2) above edges (svg z-index:1)
+        this._svg.style.zIndex = '1';
+        const draggedEl = this._canvas.querySelector(`[data-vine-id="${id}"]`);
+        if (draggedEl) draggedEl.style.zIndex = '';
         this._drag = null;
         return;
       }
@@ -345,6 +357,9 @@ class VineEditor {
       e.stopPropagation();
       const node = this.graph.nodes[id];
       this._drag = { nodeId: id, startX: e.clientX, startY: e.clientY, origX: node.x, origY: node.y };
+      // Lift SVG above all nodes, and dragged node above SVG so its connections are visible over siblings
+      this._svg.style.zIndex = '3';
+      el.style.zIndex = '4';
     });
 
     // Delete button
@@ -377,7 +392,7 @@ class VineEditor {
       this.graph.edges = this.graph.edges.filter(e => e !== edge);
       this._renderEdges();
       this._fire('change');
-    });
+    }, this._edgesHidden);
   }
 
   // ── Wire (edge drawing) ────────────────────────────────────────────────────
@@ -464,6 +479,9 @@ class VineEditor {
         if (newId && newId !== id) this._renameNode(id, newId);
       });
     }
+
+    // Let the schema build complex interactive UI now that the DOM exists
+    if (def?.afterRenderProperties) def.afterRenderProperties(this._props, node, this, id);
 
     // Field bindings: data-vine-field="data.foo" with optional data-vine-type="json|number|boolean"
     this._props.querySelectorAll('[data-vine-field]').forEach(input => {

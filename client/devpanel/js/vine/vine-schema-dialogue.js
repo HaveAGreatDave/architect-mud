@@ -34,6 +34,226 @@ function _autoLayout(tree) {
   return pos;
 }
 
+// ── Shared style constants ────────────────────────────────────────────────────
+
+const _IS = 'width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:4px 6px;box-sizing:border-box;border-radius:2px';
+const _LS = 'font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);display:block;margin-bottom:3px';
+
+// ── Actions editor ─────────────────────────────────────────────────────────────
+// Renders a list of action cards into `container`. Calls `onChange` on every mutation.
+
+function _buildActionsEditor(container, actions, onChange) {
+  container.innerHTML = '';
+  const list = document.createElement('div');
+  list.style.cssText = 'display:flex;flex-direction:column;gap:5px';
+
+  const render = () => {
+    list.innerHTML = '';
+    actions.forEach((action, i) => {
+      const def = (window.VineActionTypes || []).find(a => a.type === action.action);
+
+      const card = document.createElement('div');
+      card.style.cssText = 'background:var(--bg);border:1px solid var(--border);border-radius:2px;padding:6px';
+
+      // Type row
+      const typeRow = document.createElement('div');
+      typeRow.style.cssText = 'display:flex;gap:4px;align-items:center;margin-bottom:5px';
+
+      const sel = document.createElement('select');
+      sel.style.cssText = _IS + ';flex:1';
+      sel.innerHTML = `<option value="">— action type —</option>` +
+        (window.VineActionTypes || []).map(a =>
+          `<option value="${a.type}" ${a.type === action.action ? 'selected' : ''}>${a.label}</option>`
+        ).join('');
+      sel.onchange = () => {
+        const newDef = (window.VineActionTypes || []).find(a => a.type === sel.value);
+        actions[i] = { action: sel.value };
+        if (newDef) for (const p of newDef.params) { if (p.default != null) actions[i][p.key] = p.default; }
+        onChange(); render();
+      };
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'action-btn danger';
+      delBtn.style.cssText = 'flex-shrink:0;padding:2px 6px;font-size:11px';
+      delBtn.textContent = '✕';
+      delBtn.onclick = () => { actions.splice(i, 1); onChange(); render(); };
+
+      typeRow.appendChild(sel);
+      typeRow.appendChild(delBtn);
+      card.appendChild(typeRow);
+
+      // Param fields
+      if (def) {
+        for (const p of def.params) {
+          const row = document.createElement('div');
+          row.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:3px';
+
+          const lbl = document.createElement('label');
+          lbl.style.cssText = 'font-size:10px;color:var(--text-dim);min-width:72px;flex-shrink:0';
+          lbl.textContent = p.label;
+
+          let inp;
+          if (p.type === 'boolean') {
+            inp = document.createElement('input');
+            inp.type = 'checkbox';
+            inp.checked = action[p.key] ?? p.default ?? false;
+            inp.onchange = () => { action[p.key] = inp.checked; onChange(); };
+          } else if (p.type === 'select') {
+            inp = document.createElement('select');
+            inp.style.cssText = _IS;
+            inp.innerHTML = (p.options || []).map(o =>
+              `<option value="${o}" ${o === (action[p.key] ?? p.default) ? 'selected' : ''}>${o}</option>`
+            ).join('');
+            inp.onchange = () => { action[p.key] = inp.value; onChange(); };
+          } else if (p.type === 'json') {
+            inp = document.createElement('textarea');
+            inp.style.cssText = _IS + ';resize:vertical;font-size:10px;height:38px';
+            inp.value = typeof action[p.key] === 'object'
+              ? JSON.stringify(action[p.key], null, 2)
+              : (action[p.key] ?? p.default ?? '{}');
+            inp.onchange = () => { try { action[p.key] = JSON.parse(inp.value); onChange(); } catch {} };
+          } else {
+            inp = document.createElement('input');
+            inp.type = p.type === 'number' ? 'number' : 'text';
+            inp.style.cssText = _IS;
+            inp.value = action[p.key] ?? p.default ?? '';
+            inp.oninput = () => { action[p.key] = p.type === 'number' ? Number(inp.value) : inp.value; onChange(); };
+          }
+
+          row.appendChild(lbl);
+          row.appendChild(inp);
+          card.appendChild(row);
+        }
+      }
+
+      list.appendChild(card);
+    });
+
+    const addBtn = document.createElement('button');
+    addBtn.className = 'action-btn';
+    addBtn.style.cssText = 'font-size:11px;width:100%;margin-top:2px';
+    addBtn.textContent = '+ Add Action';
+    addBtn.onclick = () => { actions.push({ action: '' }); onChange(); render(); };
+    list.appendChild(addBtn);
+  };
+
+  render();
+  container.appendChild(list);
+}
+
+// ── Options editor ─────────────────────────────────────────────────────────────
+// Renders a list of option cards into `container`.
+
+function _buildOptionsEditor(container, node, editor, nodeId) {
+  const options = node.data.options || (node.data.options = []);
+
+  const onChange = () => {
+    editor._refreshNodeDisplay(nodeId);
+    editor._renderEdges();
+    editor._fire('change');
+  };
+
+  const render = () => {
+    container.innerHTML = '';
+    const list = document.createElement('div');
+    list.style.cssText = 'display:flex;flex-direction:column;gap:8px';
+
+    options.forEach((opt, i) => {
+      const card = document.createElement('div');
+      card.style.cssText = 'background:var(--bg2);border:1px solid var(--border);border-radius:2px;padding:8px';
+
+      // Header: label + move + delete
+      const hdr = document.createElement('div');
+      hdr.style.cssText = 'display:flex;align-items:center;gap:4px;margin-bottom:6px';
+
+      const title = document.createElement('span');
+      title.style.cssText = 'font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);flex:1';
+      title.textContent = `Option ${i + 1}`;
+
+      const mkMoveBtn = (label, disabled, fn) => {
+        const b = document.createElement('button');
+        b.className = 'action-btn';
+        b.style.cssText = 'padding:1px 5px;font-size:10px';
+        b.textContent = label;
+        b.disabled = disabled;
+        b.onclick = fn;
+        return b;
+      };
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'action-btn danger';
+      delBtn.style.cssText = 'padding:1px 5px;font-size:10px';
+      delBtn.textContent = '✕';
+      delBtn.onclick = () => { options.splice(i, 1); onChange(); render(); };
+
+      hdr.appendChild(title);
+      hdr.appendChild(mkMoveBtn('↑', i === 0, () => { [options[i-1], options[i]] = [options[i], options[i-1]]; onChange(); render(); }));
+      hdr.appendChild(mkMoveBtn('↓', i === options.length - 1, () => { [options[i], options[i+1]] = [options[i+1], options[i]]; onChange(); render(); }));
+      hdr.appendChild(delBtn);
+      card.appendChild(hdr);
+
+      // Text
+      const textInp = document.createElement('input');
+      textInp.style.cssText = _IS + ';margin-bottom:5px';
+      textInp.placeholder = 'Choice text shown to player…';
+      textInp.value = opt.text || opt.label || '';
+      textInp.oninput = () => { opt.text = textInp.value; onChange(); };
+      card.appendChild(textInp);
+
+      // Enabled
+      const enabledRow = document.createElement('div');
+      enabledRow.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:6px';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = opt.enabled !== false;
+      cb.onchange = () => { opt.enabled = cb.checked; onChange(); };
+      const cbLbl = document.createElement('label');
+      cbLbl.style.cssText = 'font-size:11px;color:var(--text-dim);cursor:pointer';
+      cbLbl.textContent = 'Enabled';
+      cbLbl.onclick = () => { cb.checked = !cb.checked; opt.enabled = cb.checked; onChange(); };
+      enabledRow.appendChild(cb);
+      enabledRow.appendChild(cbLbl);
+      card.appendChild(enabledRow);
+
+      // Conditions (JSON — stays raw; complex flag expressions)
+      const condLbl = document.createElement('label');
+      condLbl.style.cssText = _LS;
+      condLbl.textContent = 'Conditions (JSON)';
+      const condTA = document.createElement('textarea');
+      condTA.style.cssText = _IS + ';resize:vertical;font-size:10px;height:44px';
+      condTA.value = JSON.stringify(opt.conditions || [], null, 2);
+      condTA.onchange = () => { try { opt.conditions = JSON.parse(condTA.value); onChange(); } catch {} };
+      card.appendChild(condLbl);
+      card.appendChild(condTA);
+
+      // Actions for this option
+      const actLbl = document.createElement('div');
+      actLbl.style.cssText = _LS + ';margin-top:6px';
+      actLbl.textContent = 'Actions';
+      card.appendChild(actLbl);
+      if (!opt.actions) opt.actions = [];
+      const actContainer = document.createElement('div');
+      card.appendChild(actContainer);
+      _buildActionsEditor(actContainer, opt.actions, onChange);
+
+      list.appendChild(card);
+    });
+
+    const addBtn = document.createElement('button');
+    addBtn.className = 'action-btn';
+    addBtn.style.cssText = 'font-size:11px;width:100%;margin-top:2px';
+    addBtn.textContent = '+ Add Option';
+    addBtn.onclick = () => { options.push({ text: '', enabled: true, actions: [] }); onChange(); render(); };
+    list.appendChild(addBtn);
+
+    container.appendChild(list);
+  };
+
+  render();
+}
+
+// ── Schema definition ─────────────────────────────────────────────────────────
+
 window.VineDialogueSchema = {
   nodeTypes: {
     dialogue: {
@@ -64,43 +284,35 @@ window.VineDialogueSchema = {
       },
 
       renderProperties(node, editor, nodeId) {
-        const data = node.data;
-        const optsJson = JSON.stringify(
-          (data.options || []).map(o => {
-            const { next, ...rest } = o; // strip 'next' — connections are drawn
-            return rest;
-          }),
-          null, 2
-        );
-        const actionsJson = JSON.stringify(data.actions || [], null, 2);
-        const inputStyle = 'width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:5px;box-sizing:border-box;border-radius:2px';
         return `
           <div style="margin-bottom:12px">
-            <label style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);display:block;margin-bottom:4px">NPC Text</label>
+            <label style="${_LS}">NPC Text</label>
             <textarea data-vine-field="data.text" data-vine-instant rows="5"
-                      style="${inputStyle};resize:vertical">${_escHtml(data.text || '')}</textarea>
+                      style="${_IS};resize:vertical">${_escHtml(node.data.text || '')}</textarea>
           </div>
-          <div style="margin-bottom:12px">
-            <label style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);display:block;margin-bottom:4px">
-              Options (JSON — omit "next", draw connections instead)
-            </label>
-            <textarea data-vine-field="data.options" data-vine-type="json" rows="10"
-                      style="${inputStyle};resize:vertical;font-size:11px">${_escHtml(optsJson)}</textarea>
-            <div style="font-size:10px;color:var(--text-dim);margin-top:3px">
-              Each option: <code style="font-size:10px">{"text":"…","conditions":[],"actions":[],"enabled":true}</code>
-            </div>
+          <div style="margin-bottom:4px">
+            <label style="${_LS}">Player Options</label>
+            <div id="vine-dp-options"></div>
           </div>
           <div>
-            <label style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);display:block;margin-bottom:4px">
-              Node Actions (fire on enter)
-            </label>
-            <textarea data-vine-field="data.actions" data-vine-type="json" rows="5"
-                      style="${inputStyle};resize:vertical;font-size:11px">${_escHtml(actionsJson)}</textarea>
-            <div style="font-size:10px;color:var(--text-dim);margin-top:3px">
-              Each action: <code style="font-size:10px">{"action":"GRANT_ITEM","params":{"item_id":"…"}}</code>
-            </div>
+            <label style="${_LS}">Node Actions <span style="font-weight:normal;text-transform:none;letter-spacing:0">(fire on enter)</span></label>
+            <div id="vine-dp-node-actions"></div>
           </div>
         `;
+      },
+
+      afterRenderProperties(propsEl, node, editor, nodeId) {
+        const optContainer = propsEl.querySelector('#vine-dp-options');
+        if (optContainer) _buildOptionsEditor(optContainer, node, editor, nodeId);
+
+        const actContainer = propsEl.querySelector('#vine-dp-node-actions');
+        if (actContainer) {
+          if (!node.data.actions) node.data.actions = [];
+          _buildActionsEditor(actContainer, node.data.actions, () => {
+            editor._refreshNodeDisplay(nodeId);
+            editor._fire('change');
+          });
+        }
       },
     },
   },
