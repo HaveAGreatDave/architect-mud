@@ -2264,6 +2264,20 @@ body {
 	color: var(--bg);
 	background: var(--green);
 }
+.loot-btn-stow-all {
+	border-color: var(--cyan);
+	color: var(--cyan);
+}
+.loot-btn-stow-all:hover {
+	border-color: var(--cyan);
+	color: var(--bg);
+	background: var(--cyan);
+}
+#container-footer {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+}
 #container-box {
 	background: var(--bg2);
 	border: 1px solid var(--cyan);

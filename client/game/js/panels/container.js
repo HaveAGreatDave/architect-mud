@@ -39,7 +39,6 @@ function formatWeight(g) {
   return `${(Math.round(g / 100) / 10).toString()}kg`;
 }
 
-// Resolve to qty or null (cancelled). Skips dialog for non-stacked items.
 function promptQty(max, action) {
   if (max <= 1) return Promise.resolve(max);
   return new Promise((resolve) => {
@@ -50,7 +49,7 @@ function promptQty(max, action) {
         <div class="qty-dialog-label">How many? (1–${max})</div>
         <input class="qty-dialog-input" type="number" min="1" max="${max}" value="${max}">
         <div class="qty-dialog-btns">
-          <button class="qty-dialog-ok">${action || 'Move'}</button>
+          <button class="qty-dialog-ok">${action || 'OK'}</button>
           <button class="qty-dialog-cancel">Cancel</button>
         </div>
       </div>`;
@@ -80,8 +79,14 @@ function renderContainerPanel(data) {
   const notify = document.getElementById('container-notify');
   if (notify) notify.textContent = data.notify || '';
 
-  renderList('container-inv-list', data.invItems || [], 'inv', data.containerId);
-  renderList('container-contents-list', data.containerItems || [], 'contents', data.containerId);
+  const invItems = data.invItems || [];
+  const containerItems = data.containerItems || [];
+
+  renderList('container-inv-list', invItems, 'inv', data.containerId);
+  renderList('container-contents-list', containerItems, 'contents', data.containerId);
+
+  document.getElementById('container-stow-all').style.display = invItems.length ? '' : 'none';
+  document.getElementById('container-take-all').style.display = containerItems.length ? '' : 'none';
 }
 
 function renderList(listId, items, source, containerId) {
@@ -142,14 +147,30 @@ function renderList(listId, items, source, containerId) {
 
 export function initContainerPanel() {
   document.getElementById('container-close').addEventListener('click', closeContainerPanel);
+  document.getElementById('container-close-btn').addEventListener('click', closeContainerPanel);
   document.getElementById('container-panel').addEventListener('click', (e) => {
     if (e.target.id === 'container-panel') closeContainerPanel();
+  });
+
+  document.getElementById('container-stow-all').addEventListener('click', () => {
+    if (!activeContainerId) return;
+    const cards = document.getElementById('container-inv-list').querySelectorAll('.ctr-item-card');
+    for (const card of cards) {
+      sendCmdSilent(`stowid ${card.getAttribute('data-id')} ${activeContainerId}`);
+    }
+  });
+
+  document.getElementById('container-take-all').addEventListener('click', () => {
+    if (!activeContainerId) return;
+    const cards = document.getElementById('container-contents-list').querySelectorAll('.ctr-item-card');
+    for (const card of cards) {
+      sendCmdSilent(`pullid ${card.getAttribute('data-id')}`);
+    }
   });
 
   const invList = document.getElementById('container-inv-list');
   const contentsList = document.getElementById('container-contents-list');
 
-  // Drop onto contents list → stow
   contentsList.addEventListener('dragover', (e) => e.preventDefault());
   contentsList.addEventListener('dragenter', () => contentsList.classList.add('ctr-drag-over'));
   contentsList.addEventListener('dragleave', () => contentsList.classList.remove('ctr-drag-over'));
@@ -171,7 +192,6 @@ export function initContainerPanel() {
     }
   });
 
-  // Drop onto inv list → pull
   invList.addEventListener('dragover', (e) => e.preventDefault());
   invList.addEventListener('dragenter', () => invList.classList.add('ctr-drag-over'));
   invList.addEventListener('dragleave', () => invList.classList.remove('ctr-drag-over'));

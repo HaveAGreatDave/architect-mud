@@ -288,7 +288,7 @@
         <div id="ghost-feed"></div>
       </div>
       <div id="ghost-input-row">
-        <input id="ghost-cmd" type="text" placeholder="look · go north · haunt &lt;player&gt;" autocomplete="off" spellcheck="false">
+        <input id="ghost-cmd" type="text" placeholder="Any game command — plus haunt &lt;player&gt;" autocomplete="off" spellcheck="false">
         <button class="action-btn" onclick="sendGhostCommand()">Send</button>
       </div>
     `;
@@ -400,9 +400,6 @@
     });
   }
 
-  const DIRECTIONS = new Set(['north','south','east','west','up','down','in','out','n','s','e','w','u','d']);
-  const DIR_EXPAND = { n:'north', s:'south', e:'east', w:'west', u:'up', d:'down' };
-
   function sendGhostCommand() {
     const input = document.getElementById('ghost-cmd');
     if (!input) return;
@@ -415,61 +412,110 @@
       return;
     }
 
-    const lower = raw.toLowerCase();
-    if (lower === 'look' || lower === 'l') {
-      ghostWs.send(JSON.stringify({ type: 'ghost_command', command: 'look' }));
-      return;
-    }
-    if (lower.startsWith('go ')) {
-      const dir = DIR_EXPAND[lower.slice(3)] || lower.slice(3);
-      ghostWs.send(JSON.stringify({ type: 'ghost_command', command: 'move', direction: dir }));
-      return;
-    }
-    if (DIRECTIONS.has(lower)) {
-      const dir = DIR_EXPAND[lower] || lower;
-      ghostWs.send(JSON.stringify({ type: 'ghost_command', command: 'move', direction: dir }));
-      return;
-    }
-    if (lower.startsWith('haunt ')) {
-      const target = raw.slice(6).trim();
-      if (target) ghostWs.send(JSON.stringify({ type: 'ghost_command', command: 'haunt', target }));
-      return;
-    }
-    appendFeed(`Unknown: ${raw}. Try: look, go &lt;dir&gt;, haunt &lt;player&gt;`, 'msg-error');
+    ghostWs.send(JSON.stringify({ type: 'ghost_command', command: raw }));
   }
 
   function handleGhostMessage(msg) {
     switch (msg.type) {
-      case 'ghost_auth_success':
-        break; // look result follows immediately
+      // ── Ghost-specific ──────────────────────────────────────────────
+      case 'ghost_auth_success': break; // look follows immediately
       case 'ghost_auth_fail':
-        appendFeed(msg.message || 'Auth failed.', 'msg-error');
-        break;
-      case 'ghost_look': {
+        appendFeed(msg.message || 'Auth failed.', 'msg-error'); break;
+      case 'ghost_look':
+      case 'look': {
         const label = document.getElementById('ghost-zone-label');
-        if (label) label.textContent = msg.zoneName || msg.zone || '';
+        if (label && (msg.zoneName || msg.zone)) label.textContent = msg.zoneName || msg.zone;
         if (msg.zone) currentGhostZoneId = msg.zone;
         setAreaContent(msg.message);
         break;
       }
+      case 'move':
+        if (msg.zone) currentGhostZoneId = msg.zone;
+        setAreaContent(msg.message);
+        if (msg.narration) appendFeed(msg.narration, 'msg-move', true);
+        break;
       case 'ghost_haunt_result':
-        appendFeed(msg.message, 'msg-info', true);
-        break;
+        appendFeed(msg.message, 'msg-info', true); break;
       case 'ghost_error':
-        appendFeed(msg.message, 'msg-error');
-        break;
+        appendFeed(msg.message || 'Error.', 'msg-error'); break;
+
+      // ── Broadcast / ambient ─────────────────────────────────────────
       case 'zone_event':
-        if (msg.message) appendFeed(msg.message, 'msg-zone-event', true);
-        break;
+      case 'emote':
+        if (msg.message) appendFeed(msg.message, 'msg-zone-event', true); break;
+      case 'ambient':
+        if (msg.message) appendFeed(msg.message, 'msg-ambient', true); break;
       case 'say':
-        if (msg.message) appendFeed(msg.message, 'msg-say', true);
-        break;
+        if (msg.message) appendFeed(msg.message, 'msg-say', true); break;
+
+      // ── System / status ─────────────────────────────────────────────
       case 'system':
-        if (msg.message) appendFeed(msg.message, 'msg-system', true);
-        break;
+      case 'sleep':
+      case 'sleep_tick':
+      case 'sleep_end':
+      case 'lock':
+      case 'unlock':
+      case 'upgrade':
+      case 'pick_success':
+      case 'pick_fail':
+        if (msg.message) appendFeed(msg.message, 'msg-system', true); break;
+
+      // ── Combat ──────────────────────────────────────────────────────
+      case 'combat':
+        if (msg.message) appendFeed(msg.message, 'msg-combat', true); break;
+      case 'combat_incoming':
+        if (msg.message) appendFeed(msg.message, 'msg-combat-incoming', true); break;
+      case 'combat_miss':
+        if (msg.message) appendFeed(msg.message, 'msg-system', true); break;
+      case 'player_death':
+        if (msg.message) appendFeed(msg.message, 'msg-death', true); break;
+      case 'mutation_gained':
+        if (msg.message) appendFeed(msg.message, 'msg-combat-incoming', true); break;
+      case 'status_tick':
+        for (const m of (msg.messages || [])) appendFeed(m, 'msg-combat-incoming', true); break;
+
+      // ── General output ──────────────────────────────────────────────
       case 'output':
-        if (msg.message) appendFeed(msg.message, 'msg-output', true);
-        break;
+      case 'examine':
+      case 'stats':
+      case 'skills':
+      case 'who':
+      case 'help':
+      case 'balance':
+      case 'mutations':
+      case 'factions':
+      case 'shop':
+      case 'rent':
+      case 'unrent':
+      case 'action':
+      case 'raise':
+        if (msg.message) appendFeed(msg.message, 'msg-output', true); break;
+
+      // ── Inventory / items ────────────────────────────────────────────
+      case 'take':
+      case 'drop':
+      case 'stow':
+      case 'pull':
+      case 'loot':
+      case 'equip':
+      case 'use':
+      case 'craft':
+      case 'buy':
+      case 'sell':
+      case 'deposit':
+      case 'withdraw':
+      case 'steal':
+        if (msg.message) appendFeed(msg.message, 'msg-loot', true); break;
+
+      // ── Error ────────────────────────────────────────────────────────
+      case 'error':
+        if (msg.message) appendFeed(msg.message, 'msg-error', true); break;
+
+      // ── Whispers ─────────────────────────────────────────────────────
+      case 'whisper':
+        appendFeed(`[whisper from ${msg.from || '?'}] ${msg.message}`, 'msg-say', true); break;
+      case 'whisper_sent':
+        appendFeed(`[whisper to ${msg.to}] ${msg.message}`, 'msg-system', true); break;
     }
   }
 

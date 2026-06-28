@@ -344,20 +344,52 @@ async function handleGhostAuth(ws, session, msg) {
 	ws.send(JSON.stringify(lookResult));
 }
 
+const GHOST_MOVE_VERBS = new Set(['go','move','enter']);
+const GHOST_DIRECTIONS = new Set(['north','south','east','west','up','down','in','out','exit','n','s','e','w','u','d']);
+const GHOST_DIR_EXPAND = { n:'north', s:'south', e:'east', w:'west', u:'up', d:'down' };
+
 async function handleGhostCommand(ws, session, msg) {
 	if (!session.isGhost) return;
-	let result;
-	const { command, direction, target } = msg;
-	if (command === 'look') {
-		result = await cmdGhostLook(session);
-	} else if (command === 'move' && direction) {
-		result = await cmdGhostMove(direction, session);
-	} else if (command === 'haunt' && target) {
-		result = await cmdGhostHaunt(target, session, broadcast);
-	} else {
-		result = { type: 'ghost_error', message: 'Unknown command.' };
+	const raw = (msg.command || '').trim();
+	if (!raw) return;
+	const lower = raw.toLowerCase();
+	const parts = lower.split(/\s+/);
+	const verb = parts[0];
+	const rest = parts.slice(1).join(' ');
+
+	// look
+	if (verb === 'look' || verb === 'l') {
+		const result = await cmdGhostLook(session);
+		ws.send(JSON.stringify(result));
+		return;
 	}
-	ws.send(JSON.stringify(result));
+
+	// movement — route through ghost move so session.ghostZoneId stays in sync
+	if (GHOST_DIRECTIONS.has(verb)) {
+		const dir = GHOST_DIR_EXPAND[verb] || verb;
+		const result = await cmdGhostMove(dir, session);
+		ws.send(JSON.stringify(result));
+		return;
+	}
+	if (GHOST_MOVE_VERBS.has(verb) && rest) {
+		const dir = GHOST_DIR_EXPAND[rest] || rest;
+		const result = await cmdGhostMove(dir, session);
+		ws.send(JSON.stringify(result));
+		return;
+	}
+
+	// haunt
+	if (verb === 'haunt' && rest) {
+		const result = await cmdGhostHaunt(raw.slice(6).trim(), session, broadcast);
+		ws.send(JSON.stringify(result));
+		return;
+	}
+
+	// everything else — run through the full command engine at the ghost's zone
+	const livePlayer = getLivePlayer(session.playerId);
+	const ghostPlayer = { ...(livePlayer || {}), id: session.playerId, handle: session.handle, current_zone: session.ghostZoneId };
+	const result = await handleCommand(raw, ghostPlayer, broadcast);
+	if (result) ws.send(JSON.stringify(result));
 }
 
 async function handleAuth(ws, session, msg) {
