@@ -505,7 +505,7 @@ async function cmdSpawn(args, player) {
   return { type: 'output', message: `Spawned ${itemId} in ${zoneId}.` };
 }
 
-async function cmdSpawnEnemy(args, player) {
+async function cmdSpawnEnemy(args, player, broadcast) {
   if (!['admin', 'dev'].includes(player.role)) return { type: 'error', message: 'Access denied.' };
   const [enemyId, zoneArg] = args;
   if (!enemyId) return { type: 'error', message: 'Usage: spawnenemy <enemy_id> [zone_id|here]' };
@@ -514,6 +514,7 @@ async function cmdSpawnEnemy(args, player) {
   const { rows } = await query('SELECT * FROM enemies WHERE id=$1', [enemyId]);
   if (!rows.length) return { type: 'error', message: `No enemy template "${enemyId}".` };
   const instance = spawnEnemySync(rows[0], zoneId);
+  broadcast?.(zoneId, { type: 'zone_event', message: `A ${instance.name} appears.`, refresh: true });
   return { type: 'output', message: `Spawned ${instance.name} (${instance.instanceId}) in ${zoneId}.` };
 }
 
@@ -690,7 +691,7 @@ export const handlers = {
   ip:       (args, raw, player) => cmdRaise([], player),
   xp:       (args, raw, player) => cmdRaise([], player),
   spawn:    (args, raw, player) => cmdSpawn(args, player),
-  spawnenemy: (args, raw, player) => cmdSpawnEnemy(args, player),
+  spawnenemy: (args, raw, player, broadcast) => cmdSpawnEnemy(args, player, broadcast),
 };
 
 // Lighting controls are owned by the lighting plugin (registered as specialized

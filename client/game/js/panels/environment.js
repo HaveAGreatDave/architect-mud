@@ -133,8 +133,33 @@ export function refreshZoneVisibility() {
         const el = document.getElementById(id);
         if (el) el.style.filter = brightness;
       }
+      const LIGHT_CATS = {
+        pitch_dark: { label: 'Pitch Dark', color: 'var(--text-dim)' },
+        dark:       { label: 'Dark',       color: 'var(--red)' },
+        dim:        { label: 'Dim',        color: 'var(--yellow)' },
+        clear:      { label: 'Well Lit',   color: 'var(--green)' },
+      };
+      const lc = LIGHT_CATS[v.category] || LIGHT_CATS.clear;
+      const iconEl = document.getElementById('env-light-icon');
+      const labelEl = document.getElementById('env-light-label');
+      if (iconEl) iconEl.style.color = lc.color;
+      if (labelEl) { labelEl.textContent = lc.label; labelEl.style.color = lc.color; }
     })
     .catch(() => {});
+}
+
+export function getEnvSnapshot() {
+  if (clientMinutes === null) return null;
+  return {
+    time: formatHHMM(clientMinutes),
+    timeIcon: timeIconForMinutes(clientMinutes),
+    weatherIcon: envWeatherIcon,
+    tempC: envTempC,
+    bodyTempC: envBodyTempC,
+    precipIntensity: envCurrentPrecipIntensity,
+    weatherType: envCurrentWeatherType,
+    bodyFeel: bodyFeelLabel(envTempC),
+  };
 }
 
 // Fallback tick — only increments if the server hasn't pushed in over 90 seconds
