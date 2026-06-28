@@ -269,7 +269,7 @@ export async function enemyAttackPlayer(enemy, player) {
 
   const cries = enemy.flags?.battle_cries;
   const cry = (isFirstStrike && Array.isArray(cries) && cries.length)
-    ? `<span class="battle-cry">${enemy.name} ${cries[Math.floor(Math.random() * cries.length)]}</span>\n`
+    ? `<span class="battle-cry">${cries[Math.floor(Math.random() * cries.length)].replace(/\$enemy/g, enemy.name).replace(/\$player/g, player.handle)}</span>\n`
     : '';
 
   if (!hit) {
@@ -425,9 +425,10 @@ export async function pvpSwingSleeping(attacker, defender) {
 
   const killed = newHp <= 0;
 
+  const hpReadout = killed ? '' : enemyHpTag({ hp: newHp, hp_max: defHpMax });
   const attackerMsg = critical
-    ? `<span class="crit-tag">CRITICAL HIT</span> to ${defender.handle}'s <span class="hit-part">${partLabel}</span>! You deal <span class="dmg-dealt">${damage}</span> <span class="dmg-type">${damageType}</span>.`
-    : `You hit ${defender.handle}'s <span class="hit-part">${partLabel}</span> for <span class="dmg-dealt">${damage}</span> <span class="dmg-type">${damageType}</span>.`;
+    ? `<span class="crit-tag">CRITICAL HIT</span> to ${defender.handle}'s <span class="hit-part">${partLabel}</span>! You deal <span class="dmg-dealt">${damage}</span> <span class="dmg-type">${damageType}</span>.${hpReadout}`
+    : `You hit ${defender.handle}'s <span class="hit-part">${partLabel}</span> for <span class="dmg-dealt">${damage}</span> <span class="dmg-type">${damageType}</span>.${hpReadout}`;
 
   return { hit: true, killed, damage, attackerMsg, defenderHp: newHp, defenderHpMax: defHpMax };
 }

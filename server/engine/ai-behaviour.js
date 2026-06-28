@@ -1,4 +1,4 @@
-import { world, getLivePlayer } from './world.js';
+import { world, getLivePlayer, getDoorForExit, setDoorCache } from './world.js';
 import { findPath, getZonesInRadius } from './pathfinding.js';
 import { enemyAttackPlayer } from './combat.js';
 import { getEnvironmentState } from './environment.js';
@@ -29,22 +29,74 @@ function isEnemy(entity) {
   return entity.instanceId != null;
 }
 
-function moveEntity(entity, newZoneId, broadcast) {
+const OPPOSITE_DIR = { north:'south', south:'north', east:'west', west:'east', up:'down', down:'up', in:'out', out:'in' };
+
+// Returns true if the move succeeded, false if blocked by a locked door.
+function moveEntity(entity, newZoneId, broadcast, query) {
   const oldZoneId = entityZone(entity);
-  if (oldZoneId === newZoneId) return;
+  if (oldZoneId === newZoneId) return true;
+
+  const departDir = exitDirection(oldZoneId, newZoneId);
+
+  // ── Door handling ────────────────────────────────────────────────────────────
+  let doorWasClosed = false;
+  if (departDir) {
+    const door = getDoorForExit(oldZoneId, departDir)
+              || getDoorForExit(newZoneId, OPPOSITE_DIR[departDir])
+              || null;
+
+    if (door && door.hp > 0) {
+      if (door.lock_state === 'locked') return false; // blocked — entity can't pass
+
+      if (!door.is_open) {
+        doorWasClosed = true;
+        door.is_open = 1;
+        setDoorCache(door.id, door);
+        if (query) query('UPDATE doors SET is_open=1 WHERE id=$1', [door.id]).catch(() => {});
+        broadcast(oldZoneId, { type: 'zone_event', message: `${entity.name} opens the door.` });
+      }
+    }
+  }
+  // ────────────────────────────────────────────────────────────────────────────
+
+  const arriveDir = exitDirection(newZoneId, oldZoneId);
+  const departMsg = departDir ? `${entity.name} heads ${departDir}.` : `${entity.name} leaves.`;
+  const arriveFrom = arriveDir === 'up' ? 'below' : arriveDir === 'down' ? 'above' : arriveDir ? `the ${arriveDir}` : null;
+  const arriveMsg = arriveFrom ? `${entity.name} arrives from ${arriveFrom}.` : `${entity.name} arrives.`;
 
   if (isEnemy(entity)) {
     world.zones.get(oldZoneId)?.enemies.delete(entity.instanceId);
     entity.zoneId = newZoneId;
     world.zones.get(newZoneId)?.enemies.add(entity.instanceId);
-    // Broadcast arrival so players can see the entity
-    broadcast(newZoneId, { type: 'zone_event', message: `${entity.name} arrives.`, refresh: true });
-    broadcast(oldZoneId, { type: 'zone_event', message: `${entity.name} leaves.`, refresh: true });
+    broadcast(newZoneId, { type: 'zone_event', message: arriveMsg, refresh: true });
+    broadcast(oldZoneId, { type: 'zone_event', message: departMsg, refresh: true });
   } else {
     world.zones.get(oldZoneId)?.npcs.delete(entity.id);
     entity.zone_id = newZoneId;
     world.zones.get(newZoneId)?.npcs.add(entity.id);
+    broadcast(newZoneId, { type: 'zone_event', message: arriveMsg, refresh: true });
+    broadcast(oldZoneId, { type: 'zone_event', message: departMsg, refresh: true });
   }
+
+  // Close the door behind them
+  if (doorWasClosed) {
+    const door = getDoorForExit(oldZoneId, departDir)
+              || getDoorForExit(newZoneId, OPPOSITE_DIR[departDir]);
+    if (door) {
+      door.is_open = 0;
+      setDoorCache(door.id, door);
+      if (query) query('UPDATE doors SET is_open=0 WHERE id=$1', [door.id]).catch(() => {});
+      broadcast(newZoneId, { type: 'zone_event', message: 'The door closes behind them.' });
+    }
+  }
+
+  return true;
+}
+
+// Find which exit direction connects fromZone → toZone, or null if none.
+function exitDirection(fromZoneId, toZoneId) {
+  const exits = world.zones.get(fromZoneId)?.exits || {};
+  return Object.keys(exits).find(dir => exits[dir] === toZoneId) || null;
 }
 
 // Resolve an edge from a node (looks up fromNode+fromPort in edges array).
@@ -221,7 +273,7 @@ async function execAction(node, entity, ctx) {
       if (!target || zoneId === target) break;
 
       if (mode === 'teleport') {
-        moveEntity(entity, target, broadcast);
+        moveEntity(entity, target, broadcast); // teleport ignores doors
         ai.patrolTarget = null;
         ai.patrolPath = [];
         if (isEnemy(entity) === false && query) {
@@ -241,9 +293,15 @@ async function execAction(node, entity, ctx) {
 
       const nextZone = ai.patrolPath.shift();
       if (nextZone) {
-        moveEntity(entity, nextZone, broadcast);
+        const moved = moveEntity(entity, nextZone, broadcast, query);
+        if (!moved) {
+          // Locked door blocking the path — abandon this route and recompute next tick
+          ai.patrolPath = [];
+          ai.patrolTarget = null;
+          break;
+        }
         if (!isEnemy(entity) && query) {
-          query('UPDATE npcs SET zone_id=$1 WHERE id=$2', [nextZone, entity.id]).catch(() => {});
+          query('UPDATE npcs SET zone_id=$1 WHERE id=$2', [entityZone(entity), entity.id]).catch(() => {});
         }
         return 'RUNNING'; // still en route — stay at PATROL node next tick
       }
@@ -263,9 +321,10 @@ async function execAction(node, entity, ctx) {
         ? safeExits[Math.floor(Math.random() * safeExits.length)]
         : exits[Math.floor(Math.random() * exits.length)];
 
-      moveEntity(entity, dest, broadcast);
+      const moved = moveEntity(entity, dest, broadcast, query);
+      if (!moved) break; // locked door — stay put
       if (!isEnemy(entity) && query) {
-        query('UPDATE npcs SET zone_id=$1 WHERE id=$2', [dest, entity.id]).catch(() => {});
+        query('UPDATE npcs SET zone_id=$1 WHERE id=$2', [entityZone(entity), entity.id]).catch(() => {});
       }
       // Clear target after fleeing
       entity.targetId = null;

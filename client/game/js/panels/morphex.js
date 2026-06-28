@@ -4,7 +4,8 @@ const HAIR_COLORS  = ['black','dark brown','brown','auburn','dirty blonde','blon
 const HAIR_LENGTHS = ['shaved','short','medium','long','very_long'];
 const HAIR_STYLES  = ['mohawk','shaved','dreadlocks','braided','messy','slicked-back','curly','wavy','undercut','fade','afro','cornrows','pompadour','pixie'];
 const EYE_COLORS   = ['brown','dark brown','blue','light blue','green','hazel','grey','amber'];
-const BREAST_SIZES = ['flat','small','medium','large','very large'];
+const BREAST_SIZES  = ['flat','small','medium','large','very large'];
+const SEXUALITIES   = ['Male', 'Female', 'Male and Female'];
 
 function heightDesc(cm) {
   if (cm < 158) return 'short';
@@ -90,9 +91,10 @@ function _sectionHeader(text) {
 }
 
 function _render(d) {
-  const sex    = d.biological_sex || 'male';
-  const isMis  = d.mis_active;
-  const app    = d.appearance_data || {};
+  const sex       = d.biological_sex || 'male';
+  const isMis     = d.mis_active;
+  const app       = d.appearance_data || {};
+  const sexuality = d.sexuality || 'Male';
   const h      = d.height_cm || 170;
   const w      = d.weight_kg || 70;
   const hs     = d.hair_style  || 'short';
@@ -115,13 +117,13 @@ function _render(d) {
   ].join('');
 
   if (isMis) {
+    sheet += _sectionHeader('Biological');
+    sheet += _statRow('Sexuality', sexuality);
     if (sex === 'male') {
-      sheet += _sectionHeader('Biological');
       sheet += _statRow('Penis',     `${app.penis_length_cm || 13}cm, ${app.penis_girth_cm || 12}cm girth`);
       sheet += _statRow('Testicles', app.testicle_size || 'average');
       sheet += _statRow('State',     d.erect ? 'erect' : 'flaccid', true);
     } else {
-      sheet += _sectionHeader('Biological');
       sheet += _statRow('Breasts', app.breast_size || 'medium');
       sheet += _statRow('Labia',   app.labia_style || 'average');
     }
@@ -159,6 +161,8 @@ function _render(d) {
   ].join('');
 
   if (isMis) {
+    mods += _sectionHeader('Biological');
+    mods += _modRow('Sexuality', _sel('mx-sexuality', SEXUALITIES, sexuality));
     if (sex === 'male') {
       mods += _sectionHeader('Biological — 5₵/cm');
       mods += _modRow('Length (cm)', _numInput('mx-penis', app.penis_length_cm || 13, 7, 21));
@@ -246,6 +250,9 @@ function _render(d) {
 
     const app = d.appearance_data || {};
     if (d.mis_active) {
+      const newSexuality = document.getElementById('mx-sexuality')?.value;
+      if (newSexuality && newSexuality !== (d.sexuality || 'Male')) cmds.push(`morphex sexuality ${newSexuality}`);
+
       if (d.biological_sex === 'male') {
         const newPenis = parseInt(document.getElementById('mx-penis')?.value);
         if (!isNaN(newPenis) && newPenis !== (app.penis_length_cm || 13)) cmds.push(`morphex penis ${newPenis}`);

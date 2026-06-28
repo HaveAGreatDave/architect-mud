@@ -132,7 +132,7 @@ function stainDescription(type, itemName, isSelf) {
 
 async function describePlayerAppearance(target, isSelf, viewer = null, broadcast = null) {
   const { rows: equipped } = await query(
-    `SELECT i.name, i.tags FROM player_inventory pi
+    `SELECT i.name, i.tags, pi.layer FROM player_inventory pi
      JOIN items i ON i.id = pi.item_id
      WHERE pi.player_id=$1 AND pi.is_equipped=1`,
     [target.id]
@@ -140,16 +140,21 @@ async function describePlayerAppearance(target, isSelf, viewer = null, broadcast
 
   // Count items per slot (for erection layer visibility)
   const layerCounts = {};
-  // For each body slot, pick the outermost equipped item (highest allowed_layer_range.max).
+  // For each body slot, pick the outermost item (highest pi.layer).
+  // Accessories are always all shown, so collect them separately.
   const bySlot = {};
+  const accessories = [];
   for (const row of equipped) {
     const slot = row.tags?.slot;
     if (!slot) continue;
+    if (slot === 'accessory') {
+      accessories.push(row);
+      continue;
+    }
     layerCounts[slot] = (layerCounts[slot] || 0) + 1;
-    const lr = row.tags?.allowed_layer_range;
-    const layerMax = (lr && typeof lr === 'object') ? (lr.max || 0) : 99;
-    if (!bySlot[slot] || layerMax > bySlot[slot].layerMax) {
-      bySlot[slot] = { name: row.name, layerMax, tags: row.tags };
+    const layer = row.layer ?? 0;
+    if (!bySlot[slot] || layer > bySlot[slot].layer) {
+      bySlot[slot] = { name: row.name, layer, tags: row.tags };
     }
   }
 
@@ -161,7 +166,6 @@ async function describePlayerAppearance(target, isSelf, viewer = null, broadcast
     `${withArticle(bySlot[s].name)} on ${isSelf ? 'your' : 'their'} ${s}`
   );
   const weapon = bySlot['weapon_hand'];
-  const accessory = bySlot['accessory'];
 
   // Physical appearance line (new)
   const physLine = physicalDescription(target, isSelf);
@@ -188,7 +192,7 @@ async function describePlayerAppearance(target, isSelf, viewer = null, broadcast
     }
   }
 
-  if (!bodyPieces.length && !weapon && !accessory) {
+  if (!bodyPieces.length && !weapon && !accessories.length) {
     const nakedLines = isSelf
       ? [
           `You have nothing on. Not a thread. You are, in the technical sense, naked.`,
@@ -248,9 +252,10 @@ async function describePlayerAppearance(target, isSelf, viewer = null, broadcast
     sentences.push(cap(`${subject('is carrying', 'they are carrying', 'you are carrying')} ${withArticle(weapon.name)}.`));
   }
 
-  if (accessory) {
+  if (accessories.length) {
     const place = isSelf ? 'on you' : 'on them';
-    sentences.push(cap(`${subject('has', 'they have', 'you have')} ${withArticle(accessory.name)} ${place}.`));
+    const accList = accessories.map(a => withArticle(a.name)).join(', ');
+    sentences.push(cap(`${subject('has', 'they have', 'you have')} ${accList} ${place}.`));
   }
 
   msg += sentences.join(' ');

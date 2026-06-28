@@ -302,6 +302,7 @@ const handlers = {
   'environment.sync': (msg) => { updateEnvironmentHUD(msg); updateForecast(msg.forecast); },
   'environment.daily': (msg) => { updateEnvironmentHUD(msg); updateForecast(msg.forecast); },
   'environment.weatherOverride': (msg) => { updateEnvironmentHUD(msg); },
+  'lightning': () => { triggerLightningFlash(); },
 
   output: (msg) => { appendHtml(msg.message, 'help'); },
 

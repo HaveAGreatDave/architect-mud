@@ -23,6 +23,7 @@ export function startGameLoop(broadcast) {
   setInterval(tick, 1000); // 1s combat tick stays raw — latency-critical hot path
   schedule('1m', minuteTickFn);
   schedule('45s', ambientTick);
+  schedule('30s', stormTick);
   schedule('1m', resourceTick);
   schedule('10s', () => tickSpawns());
   schedule('1m', rentCollectionTick);
@@ -304,6 +305,39 @@ async function ambientTick() {
         propagateSound(zoneId, weatherAmbient.message, weatherAmbient.loudness, broadcastFn);
       }
     }
+  }
+}
+
+const STORM_WEATHER_TYPES = new Set(['thunderstorm', 'storm']);
+
+const THUNDER_MESSAGES = [
+  '<span class="msg-ambient">A crack of thunder splits the air — close, loud, and felt in the chest.</span>',
+  '<span class="msg-ambient">Thunder rolls across the sky in a long, rumbling wave.</span>',
+  '<span class="msg-ambient">A deep boom of thunder rattles the buildings around you.</span>',
+  '<span class="msg-ambient">Lightning, then a violent crack of thunder half a second behind it.</span>',
+  '<span class="msg-ambient">Thunder detonates overhead. The ground seems to shudder with it.</span>',
+];
+
+// Fires lightning flashes and thunder messages to outdoor players during storms.
+// Runs every 30s; each zone has a random chance of a strike per tick.
+async function stormTick() {
+  const { weatherType } = getEnvironmentState();
+  if (!STORM_WEATHER_TYPES.has(weatherType)) return;
+
+  for (const [zoneId, zone] of world.zones) {
+    if (zone.players.size === 0) continue;
+    if (zone.flags?.is_interior) continue;
+    if (Math.random() > 0.5) continue; // ~50% chance per exterior zone per 30s
+
+    // Send lightning flash to all players in zone
+    broadcastFn(zoneId, { type: 'lightning' });
+
+    // Thunder follows 0.5–3s later (simulated with a small delay)
+    const delay = 500 + Math.random() * 2500;
+    const msg = THUNDER_MESSAGES[Math.floor(Math.random() * THUNDER_MESSAGES.length)];
+    setTimeout(() => {
+      broadcastFn(zoneId, { type: 'ambient', message: msg });
+    }, delay);
   }
 }
 

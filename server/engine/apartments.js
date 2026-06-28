@@ -64,10 +64,21 @@ export async function activateForcefield(player, broadcastFn) {
 	}
 
 	if (broadcastFn) {
+		// Bystanders see it from the outside.
 		broadcastFn(zoneId, {
 			type: 'zone_event',
 			message: `<span style="color:var(--cyan)">A low hum fills the air as ${player.handle}'s HoloLock pulses with blue light. A <strong>quantum forcefield</strong> shimmers into existence around the unit — ${player.handle} is protected.</span>`,
-		});
+		}, player.id);
+		// Owner gets a first-person confirmation.
+		const FORCEFIELD_UP_OWNER = [
+			`<span style="color:var(--cyan)">◈ HoloLock engaged. A quantum forcefield seals the unit around you. Sleep easy.</span>`,
+			`<span style="color:var(--cyan)">◈ Forcefield active. The HoloLock hums softly as the barrier locks into place. You're sealed in.</span>`,
+			`<span style="color:var(--cyan)">◈ Quantum barrier established. Your HoloLock pulses once and goes steady. Nobody's getting in.</span>`,
+			`<span style="color:var(--cyan)">◈ HoloLock online. The air shimmers as the forcefield closes around you. You are protected.</span>`,
+			`<span style="color:var(--cyan)">◈ Barrier up. Your HoloLock seals the unit tight. The world outside can wait.</span>`,
+		];
+		const ownerMsg = FORCEFIELD_UP_OWNER[Math.floor(Math.random() * FORCEFIELD_UP_OWNER.length)];
+		broadcastFn(null, { type: 'output', message: ownerMsg }, null, player.id);
 		broadcastFn(zoneId, { type: 'sound', sound: 'hololock_activate' });
 	}
 }
@@ -425,16 +436,63 @@ export async function cmdSleep(player, broadcastFn) {
 		};
 	}
 
+	// Look for somewhere to lie — furniture with a 'lie' interaction, or named like a bed/couch.
+	const BED_NAMES = /\b(bed|cot|bunk|mattress|couch|sofa|futon|hammock|cot|pallet|bedroll|sleeping bag|lounger)\b/i;
+	const { rows: furnitureRows } = await query(
+		`SELECT * FROM furniture WHERE zone_id=$1 LIMIT 20`,
+		[player.current_zone],
+	);
+	const lieSpot = furnitureRows.find(f =>
+		f.flags?.interactions?.includes?.('lie') || BED_NAMES.test(f.name)
+	);
+
 	player.sleeping = {
 		restore: elig.restore,
 		reason: elig.reason,
 		minutesSlept: 0,
 	};
 
-	const flavor =
-		elig.reason === "home"
-			? "You lie down behind your own locked door and let your guard down, finally."
-			: "You catch a rough, watchful sleep. Better than nothing.";
+	let selfMsg, roomMsg;
+	if (lieSpot) {
+		const n = lieSpot.name;
+		const SELF_BED = [
+			`You pull back the covers and collapse onto the ${n}, too tired to care about anything else.`,
+			`You drop onto the ${n} with a groan of relief and close your eyes.`,
+			`You crawl onto the ${n} and curl up, letting the exhaustion take over.`,
+			`You sink into the ${n} and feel the tension leave your body almost immediately.`,
+			`You stretch out on the ${n} and stare at the ceiling for about three seconds before passing out.`,
+		];
+		const ROOM_BED = [
+			(h) => `${h} collapses onto the ${n} and goes still.`,
+			(h) => `${h} drops onto the ${n} with a grunt and closes their eyes.`,
+			(h) => `${h} crawls onto the ${n} and curls up.`,
+			(h) => `${h} sinks into the ${n} and is asleep almost immediately.`,
+			(h) => `${h} lies down on the ${n} and goes quiet.`,
+		];
+		const i = Math.floor(Math.random() * SELF_BED.length);
+		selfMsg = SELF_BED[i];
+		roomMsg = ROOM_BED[i](player.handle);
+	} else {
+		const SELF_FLOOR = [
+			`There's nowhere comfortable to sleep. You clear a patch of floor and lie down anyway.`,
+			`No bed. You fold your jacket into a pillow, settle onto the floor, and close your eyes.`,
+			`You find the least filthy stretch of floor and lie down. It's exactly as bad as it sounds.`,
+			`You curl up on the hard floor, back against the wall, and try to pretend it's fine.`,
+			`No furniture, no comfort. You lie down on the floor like an animal and make peace with it.`,
+		];
+		const ROOM_FLOOR = [
+			(h) => `${h} clears a space on the floor and lies down.`,
+			(h) => `${h} folds their jacket into a pillow and settles onto the floor.`,
+			(h) => `${h} lies down on the floor with a look of grim acceptance.`,
+			(h) => `${h} curls up on the floor, back to the wall.`,
+			(h) => `${h} drops onto the floor and goes still.`,
+		];
+		const i = Math.floor(Math.random() * SELF_FLOOR.length);
+		selfMsg = SELF_FLOOR[i];
+		roomMsg = ROOM_FLOOR[i](player.handle);
+	}
+
+	broadcastFn(player.current_zone, { type: 'zone_event', message: roomMsg }, player.id);
 
 	if (elig.reason === "home") {
 		await activateForcefield(player, broadcastFn);
@@ -442,7 +500,7 @@ export async function cmdSleep(player, broadcastFn) {
 
 	return {
 		type: "sleep",
-		message: `${flavor} You'll rest gradually while you're out — send any command to wake up early.`,
+		message: `${selfMsg}\n\nYou'll rest gradually while you're out — send any command to wake up early.`,
 	};
 }
 

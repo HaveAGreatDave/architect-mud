@@ -1334,6 +1334,15 @@ export async function devClearWeatherOverride() {
 export async function devTriggerStorm() { return devOverrideWeather({ weatherType: 'storm' }); }
 export async function devTriggerSnow() { return devOverrideWeather({ weatherType: 'snow' }); }
 
+export async function devMaxStorm() {
+  const { broadcast } = deps;
+  // Override to thunderstorm at current temp, then force precipRate to maximum.
+  await devOverrideWeather({ weatherType: 'thunderstorm', tempC: state.tempC + diurnalOffset(state.minutes), precipChance: 1.0 });
+  setCurrentPrecip('rain', 1.0);
+  if (broadcast) broadcast({ type: 'environment.weatherOverride', ...getHUDPayload() });
+  return getHUDPayload();
+}
+
 export function devResetBuildingTemps() {
   let count = 0;
   for (const [zoneId, z] of state.zones) {

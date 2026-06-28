@@ -45,17 +45,25 @@ function _saveConvos() {
       toSave[handle] = convo.messages.slice(-WHISPER_PERSIST_MAX);
     }
     localStorage.setItem(WHISPER_CONVO_KEY, JSON.stringify(toSave));
-  } catch {}
+    console.debug('[whisper] saved convos:', Object.keys(toSave));
+  } catch (e) {
+    console.error('[whisper] save failed:', e);
+  }
 }
 
 function _loadConvos() {
   try {
-    const saved = JSON.parse(localStorage.getItem(WHISPER_CONVO_KEY) || '{}');
+    const raw = localStorage.getItem(WHISPER_CONVO_KEY);
+    console.debug('[whisper] loading convos, raw key present:', raw !== null);
+    const saved = JSON.parse(raw || '{}');
     for (const [handle, messages] of Object.entries(saved)) {
       if (!Array.isArray(messages) || messages.length === 0) continue;
       _whisperConvos.set(handle, { messages, scrollTop: 999999, unread: 0 });
     }
-  } catch {}
+    console.debug('[whisper] loaded handles:', [..._whisperConvos.keys()]);
+  } catch (e) {
+    console.error('[whisper] load failed:', e);
+  }
 }
 
 export function initChannels(channelList) {
@@ -637,6 +645,8 @@ export function sendToActiveTab(text) {
 export function initWhisperPanel() {
   _loadSettings();
   _loadConvos();
+
+  window.addEventListener('beforeunload', _saveConvos);
 
   document.getElementById('chat-toggle-btn').addEventListener('click', toggleWhisperPanel);
   document.getElementById('whisper-reply-input').addEventListener('keydown', e => {

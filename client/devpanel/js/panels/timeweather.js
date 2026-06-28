@@ -80,6 +80,7 @@ function renderTimeWeatherPanel(data) {
             <input id="tw-precip" type="number" min="0" max="100" value="${Math.round((forecast[0]?.precipChance ?? WEATHER_PRECIP_CHANCE[forecast[0]?.weatherType] ?? 0.05)*100)}" style="margin-top:4px;width:80px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:5px 8px;border-radius:2px">
           </label>
           <button class="action-btn" onclick="devApplyWeather()">Apply</button>
+          <button class="action-btn danger" onclick="devMaxStorm()" title="Force thunderstorm at maximum precipitation rate (precipRate=1.0)">⛈ Max Storm</button>
           <button class="action-btn" onclick="devResetBuildingTemps()" title="Set all interior/apartment zones to 20°C">Reset Building Temps to 20°C</button>
         </div>
       </div>
@@ -300,6 +301,13 @@ async function devResetBuildingTemps() {
   const r = await API('/environment/weather/reset-building-temps', 'POST');
   if (r.error) { toast(r.error, true); return; }
   toast(`Reset ${r.reset} indoor zone(s) to 20°C`);
+}
+
+async function devMaxStorm() {
+  const r = await API('/environment/weather/maxstorm', 'POST', {});
+  if (r.error) { toast(r.error, true); return; }
+  toast('⛈ Max storm forced — thunderstorm at precipRate 1.0');
+  loadPanel('timeweather');
 }
 
 async function devDeleteClimateProfile() {

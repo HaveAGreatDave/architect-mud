@@ -1131,7 +1131,7 @@
 								flex-shrink: 0;
 							"
 							title="Open theme editor">
-							Edit
+							🎨 Edit
 						</button>
 					</div>
 				</div>
@@ -1710,6 +1710,27 @@
 			<button id="mobile-map-close" aria-label="Close map">✕</button>
 			<div id="minimap-grid-mob">—</div>
 		</div>
+
+		<div id="lightning-overlay" style="
+			pointer-events:none;
+			position:fixed;inset:0;
+			background:rgba(220,235,255,0.85);
+			opacity:0;
+			z-index:9999;
+			transition:none;
+		"></div>
+		<script>
+			function triggerLightningFlash() {
+				const el = document.getElementById('lightning-overlay');
+				if (!el) return;
+				el.style.transition = 'none';
+				el.style.opacity = '1';
+				// Double-flash: bright → dim → bright → fade out
+				setTimeout(() => { el.style.transition = 'opacity 60ms'; el.style.opacity = '0.2'; }, 60);
+				setTimeout(() => { el.style.transition = 'none';          el.style.opacity = '0.9'; }, 140);
+				setTimeout(() => { el.style.transition = 'opacity 400ms'; el.style.opacity = '0';   }, 200);
+			}
+		</script>
 
 		<script type="module" src="js/main.js"></script>
 

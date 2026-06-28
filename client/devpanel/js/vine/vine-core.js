@@ -134,14 +134,48 @@ class VineEditor {
     this._applyTransform();
   }
 
+  // Fit all nodes into the visible area with padding.
+  _fitToView() {
+    const ids = Object.keys(this.graph.nodes);
+    if (!ids.length) return;
+    const PAD = 40;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const id of ids) {
+      const el = this._canvas.querySelector(`[data-vine-id="${id}"]`);
+      const n = this.graph.nodes[id];
+      const w = el ? el.offsetWidth : 240;
+      const h = el ? el.offsetHeight : 120;
+      minX = Math.min(minX, n.x);
+      minY = Math.min(minY, n.y);
+      maxX = Math.max(maxX, n.x + w);
+      maxY = Math.max(maxY, n.y + h);
+    }
+    const areaW = this._area.clientWidth;
+    const areaH = this._area.clientHeight;
+    const contentW = maxX - minX + PAD * 2;
+    const contentH = maxY - minY + PAD * 2;
+    const scale = Math.min(1, Math.min(areaW / contentW, areaH / contentH));
+    this._view = {
+      x: (areaW - contentW * scale) / 2 - minX * scale + PAD * scale,
+      y: (areaH - contentH * scale) / 2 - minY * scale + PAD * scale,
+      scale,
+    };
+    this._applyTransform();
+  }
+
   // ── Events ─────────────────────────────────────────────────────────────────
 
   _bindWorkspace() {
     this._area.addEventListener('wheel', (e) => {
-      if (!e.ctrlKey) return;
       e.preventDefault();
-      const r = this._area.getBoundingClientRect();
-      this._adjustZoom(e.deltaY < 0 ? 0.1 : -0.1, e.clientX - r.left, e.clientY - r.top);
+      if (e.ctrlKey) {
+        const r = this._area.getBoundingClientRect();
+        this._adjustZoom(e.deltaY < 0 ? 0.1 : -0.1, e.clientX - r.left, e.clientY - r.top);
+      } else {
+        this._view.x -= e.deltaX;
+        this._view.y -= e.deltaY;
+        this._applyTransform();
+      }
     }, { passive: false });
 
     this._area.addEventListener('mousedown', (e) => {
@@ -389,7 +423,7 @@ class VineEditor {
       nodes[id].y = rank[id]  * ROW_H + OY;
     }
     this._renderAll();
-    requestAnimationFrame(() => this._renderEdges());
+    requestAnimationFrame(() => { this._renderEdges(); this._fitToView(); });
     this._fire('change');
 
     // Push undo record after render so positions are stable.

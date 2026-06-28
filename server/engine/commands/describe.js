@@ -206,7 +206,7 @@ export async function describeZone(zone, player) {
     ? sentences[0].trim()
     : (isDim ? sentences.slice(0, 2).join(' ').trim() : zone.description);
   let weatherLine = '';
-  if (!isInteriorZone(zone) && vis.category !== 'pitch_dark' && vis.category !== 'dark') {
+  if (!isInteriorZone(zone) && vis.category !== 'pitch_dark') {
     const wd = getWeatherDescription();
     if (wd) weatherLine = ` ${wd}`;
   }

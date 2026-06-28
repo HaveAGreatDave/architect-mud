@@ -53,6 +53,7 @@ function buildPanelData(player, toast = null) {
       mis_active:          isMisActive(player),
       appearance_data:     player.appearance_data || {},
       erect:               player.erect || 0,
+      sexuality:           player.sexuality || 'Male',
       toast,
     },
     player_update: { credits: player.credits },
@@ -230,6 +231,22 @@ async function cmdMorphex(args, raw, player) {
     await adjustCredits(player, -totalCost);
     await query('UPDATE players SET appearance_data=$1 WHERE id=$2', [JSON.stringify(appData), player.id]);
     return buildPanelData(player, `Adjusted. (-${totalCost}₵)`);
+  }
+
+  // sexuality — MIS only
+  if (sub === 'sexuality') {
+    if (!isMisActive(player)) return buildPanelData(player, `That option isn't available.`);
+    const SEXUALITIES = ['Male', 'Female', 'Male and Female'];
+    const val = rest.join(' ');
+    const match = SEXUALITIES.find(s => s.toLowerCase() === val.toLowerCase());
+    if (!match) return buildPanelData(player, `Valid options: ${SEXUALITIES.join(', ')}`);
+    if (player.sexuality === match) return buildPanelData(player, `Already set to ${match}.`);
+    const { ok, cost } = chargeCheck(player);
+    if (!ok) return buildPanelData(player, `Insufficient funds — 10₵ required.`);
+    player.sexuality = match;
+    await applyCharge(player, cost);
+    await query('UPDATE players SET sexuality=$1 WHERE id=$2', [match, player.id]);
+    return buildPanelData(player, `Sexuality preference → ${match}.${cost ? ` (-${cost}₵)` : ' (free)'}`);
   }
 
   // Unknown sub-command — just open the panel
