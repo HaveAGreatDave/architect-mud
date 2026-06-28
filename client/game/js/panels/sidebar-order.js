@@ -9,22 +9,10 @@ export function initSidebarOrder() {
   document.getElementById('sidebar-lock-btn').addEventListener('click', toggleLock);
   document.getElementById('sidebar-reset-btn')?.addEventListener('click', resetOrder);
 
-  const dropEnd = document.getElementById('sidebar-drop-end');
-  dropEnd.addEventListener('dragover', (e) => {
-    if (!dragSrc) return;
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    clearDropIndicators();
-    dropEnd.classList.add('drop-active');
-  });
-  dropEnd.addEventListener('dragleave', () => dropEnd.classList.remove('drop-active'));
-  dropEnd.addEventListener('drop', (e) => {
-    e.preventDefault();
-    if (!dragSrc) return;
-    dropEnd.classList.remove('drop-active');
-    dropEnd.before(dragSrc);
-    saveOrder();
-  });
+  const sidebar = document.getElementById('sidebar');
+  sidebar.addEventListener('dragover', onSidebarDragOver);
+  sidebar.addEventListener('drop', onSidebarDrop);
+  sidebar.addEventListener('dragleave', onSidebarDragLeave);
 }
 
 function loadOrder() {
@@ -67,17 +55,11 @@ function toggleLock() {
 
 function attachDragHandlers(el) {
   el.addEventListener('dragstart', onDragStart);
-  el.addEventListener('dragover', onDragOver);
-  el.addEventListener('dragleave', onDragLeave);
-  el.addEventListener('drop', onDrop);
   el.addEventListener('dragend', onDragEnd);
 }
 
 function detachDragHandlers(el) {
   el.removeEventListener('dragstart', onDragStart);
-  el.removeEventListener('dragover', onDragOver);
-  el.removeEventListener('dragleave', onDragLeave);
-  el.removeEventListener('drop', onDrop);
   el.removeEventListener('dragend', onDragEnd);
 }
 
@@ -87,40 +69,49 @@ function onDragStart(e) {
   this.classList.add('dragging');
 }
 
-function onDragOver(e) {
-  if (!dragSrc || dragSrc === this) return;
-  e.preventDefault();
-  e.dataTransfer.dropEffect = 'move';
-  clearDropIndicators();
-  const rect = this.getBoundingClientRect();
-  const midY = rect.top + rect.height / 2;
-  if (e.clientY < midY) this.classList.add('drop-before');
-  else this.classList.add('drop-after');
-}
-
-function onDragLeave() {
-  this.classList.remove('drop-before', 'drop-after');
-}
-
-function onDrop(e) {
-  e.preventDefault();
-  if (!dragSrc || dragSrc === this) return;
-  const isAfter = this.classList.contains('drop-after');
-  clearDropIndicators();
-  if (isAfter) this.after(dragSrc);
-  else this.before(dragSrc);
-  saveOrder();
-}
-
 function onDragEnd() {
   this.classList.remove('dragging');
   clearDropIndicators();
   dragSrc = null;
 }
 
+// Find the section immediately after the cursor Y position.
+// Returns null to mean "insert at end".
+function getInsertionTarget(clientY) {
+  const sections = [...document.querySelectorAll('#sidebar .sidebar-section')].filter(s => s !== dragSrc);
+  for (const sec of sections) {
+    const rect = sec.getBoundingClientRect();
+    if (clientY < rect.bottom) return sec;
+  }
+  return null;
+}
+
+function onSidebarDragOver(e) {
+  if (!dragSrc) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  clearDropIndicators();
+  const target = getInsertionTarget(e.clientY);
+  if (target) target.classList.add('drop-before');
+  else document.getElementById('sidebar-drop-end')?.classList.add('drop-active');
+}
+
+function onSidebarDragLeave(e) {
+  if (e.currentTarget.contains(e.relatedTarget)) return;
+  clearDropIndicators();
+}
+
+function onSidebarDrop(e) {
+  e.preventDefault();
+  if (!dragSrc) return;
+  const target = getInsertionTarget(e.clientY);
+  clearDropIndicators();
+  if (target && target !== dragSrc) target.before(dragSrc);
+  else if (!target) document.getElementById('sidebar-drop-end').before(dragSrc);
+  saveOrder();
+}
+
 function clearDropIndicators() {
-  document.querySelectorAll('.sidebar-section.drop-before, .sidebar-section.drop-after').forEach(el => {
-    el.classList.remove('drop-before', 'drop-after');
-  });
+  document.querySelectorAll('.sidebar-section.drop-before').forEach(el => el.classList.remove('drop-before'));
   document.getElementById('sidebar-drop-end')?.classList.remove('drop-active');
 }
