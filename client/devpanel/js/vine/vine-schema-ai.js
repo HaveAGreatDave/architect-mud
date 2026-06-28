@@ -62,7 +62,7 @@ const AI_ACTIONS = [
   { type: 'ACQUIRE_TARGET',  label: 'Acquire Target',  params: [{ key: 'prefer',      label: 'Prefer',                type: 'select', options: ['random', 'lowest_hp'], default: 'random' }] },
   { type: 'DROP_TARGET',     label: 'Drop Target',     params: [] },
   { type: 'PATROL',          label: 'Patrol',          params: [
-    { key: 'waypoints',  label: 'Waypoints (JSON array of zone IDs)',  type: 'json',    default: [] },
+    { key: 'waypoints',  label: 'Waypoints',  type: 'zone-list',  default: [] },
     { key: 'mode',       label: 'Move mode',                           type: 'select',  options: ['walk', 'teleport'], default: 'walk' },
     { key: 'loop',       label: 'Loop back to start',                  type: 'boolean', default: true },
   ]},
@@ -120,6 +120,81 @@ function _renderParamFields(container, catalogue, typeKey, dataObj, onChange) {
       inp.onchange = () => {
         try { (dataObj.params = dataObj.params || {})[p.key] = JSON.parse(inp.value); onChange(); } catch {}
       };
+    } else if (p.type === 'zone-list') {
+      row.style.cssText = 'display:flex;flex-direction:column;align-items:stretch;gap:4px;margin-bottom:4px';
+      inp = document.createElement('div');
+      const getWps = () => dataObj.params?.[p.key] ?? p.default ?? [];
+      const setWps = (arr) => { (dataObj.params = dataObj.params || {})[p.key] = arr; onChange(); renderWpList(); };
+
+      const listEl = document.createElement('div');
+      listEl.style.cssText = 'display:flex;flex-direction:column;gap:2px';
+
+      const selectorWrap = document.createElement('div');
+      selectorWrap.style.cssText = 'display:none;gap:4px;align-items:center';
+
+      const addBtnRow = document.createElement('div');
+      addBtnRow.style.cssText = 'display:flex;gap:4px;align-items:center;flex-wrap:wrap';
+
+      const addBtn = document.createElement('button');
+      addBtn.textContent = '+';
+      addBtn.className = 'action-btn';
+      addBtn.style.cssText = 'padding:1px 8px;font-size:11px';
+
+      addBtn.onclick = async () => {
+        if (selectorWrap.style.display !== 'none') { selectorWrap.style.display = 'none'; return; }
+        const zones = await API('/zones').catch(() => []);
+        const sorted = (Array.isArray(zones) ? zones : []).slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+        inp._zoneNames = Object.fromEntries(sorted.map(z => [z.id, z.name]));
+        const sel = document.createElement('select');
+        sel.style.cssText = _AI_IS + ';flex:1;min-width:0';
+        sel.innerHTML = sorted.map(z => `<option value="${z.id}">${z.name} (${z.id})</option>`).join('');
+        const confirmBtn = document.createElement('button');
+        confirmBtn.textContent = 'Add';
+        confirmBtn.className = 'action-btn success';
+        confirmBtn.style.cssText = 'padding:1px 6px;font-size:10px';
+        confirmBtn.onclick = () => {
+          if (!sel.value) return;
+          setWps([...getWps(), sel.value]);
+          selectorWrap.style.display = 'none';
+        };
+        selectorWrap.innerHTML = '';
+        selectorWrap.appendChild(sel);
+        selectorWrap.appendChild(confirmBtn);
+        selectorWrap.style.display = 'flex';
+        renderWpList();
+      };
+
+      const renderWpList = () => {
+        listEl.innerHTML = '';
+        getWps().forEach((zid, i) => {
+          const name = inp._zoneNames?.[zid] || zid;
+          const item = document.createElement('div');
+          item.style.cssText = 'display:flex;align-items:center;gap:4px;font-size:10px';
+          const badge = document.createElement('span');
+          badge.style.cssText = _AI_IS + ';padding:1px 5px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+          badge.textContent = `${i + 1}. ${name}`;
+          const rm = document.createElement('button');
+          rm.textContent = '×';
+          rm.className = 'action-btn danger';
+          rm.style.cssText = 'padding:0 5px;font-size:11px;line-height:1.3;flex-shrink:0';
+          rm.onclick = () => { const arr = [...getWps()]; arr.splice(i, 1); setWps(arr); };
+          item.appendChild(badge);
+          item.appendChild(rm);
+          listEl.appendChild(item);
+        });
+      };
+
+      // Eagerly fetch zone names for existing waypoints
+      API('/zones').then(zones => {
+        inp._zoneNames = Object.fromEntries((Array.isArray(zones) ? zones : []).map(z => [z.id, z.name]));
+        renderWpList();
+      });
+
+      renderWpList();
+      addBtnRow.appendChild(addBtn);
+      addBtnRow.appendChild(selectorWrap);
+      inp.appendChild(listEl);
+      inp.appendChild(addBtnRow);
     } else {
       inp = document.createElement('input');
       inp.type = p.type === 'number' ? 'number' : 'text';
