@@ -93,7 +93,8 @@ export function parseZoneInfo(html) {
       const btn = document.createElement('button');
       btn.className = 'exit-btn';
       btn.textContent = dir;
-      btn.onclick = () => import('./net.js').then(m => m.sendCmd(dir));
+      const cmd = dir.replace(/^\[|\]$/g, '');
+      btn.onclick = () => import('./net.js').then(m => m.sendCmd(cmd));
       exitsEl.appendChild(btn);
     }
   }
