@@ -43,7 +43,9 @@ export function makeGhostBroadcast(realBroadcast, ghostPlayerId) {
     if (targetPlayerId && targetPlayerId !== ghostPlayerId) return;
     // Zone-wide action by the ghost: replace content with eerie feeling.
     if (zoneId && excludePlayerId === ghostPlayerId) {
-      realBroadcast(zoneId, { type: 'zone_event', message: randomGhostAmbient() }, ghostPlayerId);
+      const ghostMsg = { type: 'zone_event', message: randomGhostAmbient() };
+      if (msg.refresh) ghostMsg.refresh = true;
+      realBroadcast(zoneId, ghostMsg, ghostPlayerId);
       return;
     }
     // Anything else (e.g. broadcast TO the ghost themselves) passes through.

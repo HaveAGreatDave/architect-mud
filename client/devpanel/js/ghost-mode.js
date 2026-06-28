@@ -560,6 +560,7 @@
         if (label && (msg.zoneName || msg.zone)) label.textContent = msg.zoneName || msg.zone;
         if (msg.zone) currentGhostZoneId = msg.zone;
         setAreaContent(msg.message);
+        if (msg.notify) appendFeed(msg.notify, 'msg-system', true);
         break;
       }
       case 'move':
