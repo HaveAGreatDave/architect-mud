@@ -63,9 +63,21 @@ The server **does not** touch the schema or world content on boot. The two are m
 │   │   ├── apartments.js     # Property ownership, locks, lockpicking, safe sleep
 │   │   ├── actions.js        # Canonical mutation path: registerAction / dispatchAction
 │   │   ├── events.js         # In-process event bus: on / emit
-│   │   ├── tags.js           # Tag helpers (hasTag, tagValue) + re-exports TAG_CATALOG
-│   │   ├── flags.js          # Player/zone/world flag store + evalConditions
-│   │   ├── graph.js          # Shared graph engine for graph-structured dialogue/scripting
+│   │   ├── flags.js          # Player/world flag store + evalConditions; registers SET_FLAG/CLEAR_FLAG
+│   │   ├── graph.js          # Script graph runner (runGraph/runScriptById) + orchestration actions
+│   │   ├── tags.js           # Tag helpers (hasTag, tagValue, tagsOf) + re-exports TAG_CATALOG
+│   │   ├── supertags.js      # Supertag materialization helpers (materializeItemTags, ownTags)
+│   │   ├── specializedActions.js  # Verb-first tag-gated action registry (registerSpecializedAction / fireSpecializedAction)
+│   │   ├── ai-behaviour.js   # VINE behaviour tree runtime (tickEntityAI, initBlackboard)
+│   │   ├── pathfinding.js    # BFS zone pathfinding (findPath, getZonesInRadius)
+│   │   ├── locks.js          # Lock type registry (registerLockType, resolveLockAuth)
+│   │   ├── lockAuthHandlers.js  # Auth handlers wired by the doors plugin
+│   │   ├── channels.js       # Radio channels: definitions, send, history (CHANNEL_DEFS)
+│   │   ├── effects.js        # Timed status effects framework (applyEffect, tickEffects)
+│   │   ├── bodily.js         # Digestive/bladder pressure system (tickBodily)
+│   │   ├── appearance.js     # Character appearance generation + description helpers
+│   │   ├── ip.js             # Improvement points: mintIp, raiseStat, statCost
+│   │   ├── mis.js            # Mature Interaction System — gated by server + player opt-in
 │   │   └── plugins.js        # Hook-based plugin loader
 │   ├── models/
 │   │   ├── db.js             # pg.Pool connection, single query() export
@@ -83,7 +95,8 @@ The server **does not** touch the schema or world content on boot. The two are m
 │   ├── game/index.html       # Player client — single file, no framework, no build step
 │   ├── devpanel/index.html   # Dev panel — same approach
 │   └── shared/
-│       └── tagCatalog.js     # Single source of truth for item tag definitions — read by both client and server
+│       ├── tagCatalog.js     # Single source of truth for item tag definitions — read by both client and server
+│       └── tagSupertags.js   # Supertag registry (TAG_SUPERTAGS) — dual-mode file like tagCatalog.js
 ├── plugins/
 │   ├── factions/             # Faction rep display (`factions`/`rep` commands)
 │   ├── mutations/            # Mutation display + radiation-tick mutation check (`mutations` command)

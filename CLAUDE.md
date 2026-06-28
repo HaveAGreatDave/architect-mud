@@ -17,6 +17,8 @@ Post-singularity browser MUD in the HellMOO tradition. Text-driven, real-time, b
 - [docs/systems-world.md](docs/systems-world.md) — world state, movement, ambience, sound propagation, spawning, minimap, scheduler, tunables (as built)
 - [docs/devpanel-js.md](docs/devpanel-js.md) — dev panel JS file reference: what each script in `client/devpanel/js/` holds, which functions live where, and the load-order contract
 - [docs/commands.md](docs/commands.md) — command dispatch pipeline, SIFT/FATE target resolution system, rules for using SIFT in new commands, and per-domain targeting reference
+- [docs/scripting.md](docs/scripting.md) — action registry (registerAction/dispatchAction), event bus (on/emit), flag store (getFlag/setFlag/evalConditions), and script graph runner (runGraph); the mutation path all content flows through
+- [docs/ai-behaviour.md](docs/ai-behaviour.md) — VINE-powered behaviour trees for enemies and NPCs; node types, condition/action catalogue, blackboard, pathfinding
 
 **Before touching any system, read the relevant doc section if there's one applicable to the request.**
 

@@ -98,6 +98,20 @@ Applied by the `use`/`eat`/`drink` command from item tags ([inventory.js](../ser
 - **Auto-wake** on any of: fully rested, hunger or thirst ≤ 5, or 30 minutes slept (`SLEEP_MAX_MINUTES`).
 - Any command other than `sleep`/`rest` wakes the player and is then executed (`commands/index.js`).
 
+## Bodily pressure
+
+[bodily.js](../server/engine/bodily.js), ticked once per minute by `resourceTick` for each awake player.
+
+Two hidden float columns on the `players` row — `digestive_load` (bowel) and `hydration_load` (bladder) — accumulate as the player eats and drinks:
+
+- **Eating:** adds `restoreHunger × 0.5` digestive load.
+- **Drinking:** adds `restoreThirst × 0.6` hydration load.
+- **Natural decay:** −1 digestive / −2 hydration per minute (bladder clears faster than bowel).
+
+**Threshold messages** (80–110) fire occasionally — every 3 minutes — as private ambient descriptions of increasing urgency, randomly selected from flavour pools. At >110 an **involuntary release** occurs with a zone-visible ambient message (no source attribution) and a dump to 0.
+
+`foodLoad(restoreHunger)` and `drinkLoad(restoreThirst)` are exported so the `use`/`eat`/`drink` path can apply load at the same time as it applies the hunger/thirst restore.
+
 ## Status effects (framework only)
 
 [effects.js](../server/engine/effects.js) is a clean data-driven framework (`bleeding`, `burning`,
