@@ -297,10 +297,24 @@ async function cmdLootCorpse(targetStr, player, broadcast) {
 	return buildLootView({ id: targetPlayer.id, name: targetPlayer.handle, butcher_table: [] }, player);
 }
 
+// Resolve a corpse by ID, falling back to a sleeping/offline player in the same zone.
+async function resolveCorpseOrPlayer(corpseId, player) {
+	const corpse = corpseId ? getCorpse(corpseId) : null;
+	if (corpse) return corpse;
+	// Check if it's a sleeping/offline player still in the zone
+	if (!corpseId) return null;
+	const { rows } = await query(
+		`SELECT id, handle FROM players WHERE id=$1 AND current_zone=$2`,
+		[corpseId, player.current_zone],
+	);
+	if (!rows.length) return null;
+	return { id: rows[0].id, name: rows[0].handle, zoneId: player.current_zone, butcher_table: [] };
+}
+
 // Take every item from a corpse at once.
 async function cmdLootAll(args, player) {
 	const corpseId = args[0];
-	const corpse = corpseId ? getCorpse(corpseId) : null;
+	const corpse = await resolveCorpseOrPlayer(corpseId, player);
 	if (!corpse || corpse.zoneId !== player.current_zone) {
 		const label = args.slice(1).join(' ') || 'That corpse';
 		return { type: "error", message: `${label} is gone.` };
@@ -332,7 +346,7 @@ async function cmdLootId(args, player) {
 		nameParts = rest.slice(1);
 	}
 
-	const corpse = corpseId ? getCorpse(corpseId) : null;
+	const corpse = await resolveCorpseOrPlayer(corpseId, player);
 	if (!corpse || corpse.zoneId !== player.current_zone) {
 		const label = nameParts.join(' ') || 'That corpse';
 		return { type: "error", message: `${label} is gone.` };
