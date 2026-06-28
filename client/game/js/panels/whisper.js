@@ -197,23 +197,70 @@ export function receiveMOTD(msg) {
 
 // ── PANEL SIZE / TEXT SIZE ────────────────────────────────────────────────────
 
+// Chrome overhead constants (must match the actual panel DOM):
+//   width:  10+10px log padding + 2px border + 17px scrollbar = 39px
+//   height: 10+10px log padding + 2px border + 26px drag handle + 34px tabs row = 82px
+const CHROME_W = 40;
+const CHROME_H = 82;
+
+// Small and medium have fixed target sizes; large auto-fits to its MOTD content.
+const WINDOW_TARGETS = {
+  small:  { w: 280, h: 250 },
+  medium: { w: 460, h: 380 },
+  large:  null,
+};
+
 function _applyWindowSize() {
-  const panel = document.getElementById('whisper-panel');
+  const panel   = document.getElementById('whisper-panel');
+  const content = document.getElementById('whisper-content');
   if (!panel) return;
-  // All three sizes fit to their MOTD dimensions; no fullscreen mode.
+
   const motdKey = _selectMotdSize(); // 'big' | 'medium' | 'small'
   const dims    = _motdDims[motdKey];
-  const fallbackW = { small: 300, medium: 500, large: 700 }[_windowSize];
-  const fallbackH = { small: 340, medium: 480, large: 600 }[_windowSize];
-  const maxW = Math.floor(window.innerWidth  * 0.95);
-  const maxH = Math.floor(window.innerHeight * 0.92);
-  panel.style.width        = Math.min(Math.max(dims?.w || fallbackW, 150), maxW) + 'px';
-  panel.style.height       = Math.min(Math.max(dims?.h || fallbackH, 150), maxH) + 'px';
+  const maxW    = Math.floor(window.innerWidth  * 0.95);
+  const maxH    = Math.floor(window.innerHeight * 0.92);
+
+  const target  = WINDOW_TARGETS[_windowSize];
+  let panelW, panelH, scale;
+
+  if (target) {
+    // Fixed target: scale MOTD content to fit inside the panel's content area.
+    panelW = Math.min(target.w, maxW);
+    panelH = Math.min(target.h, maxH);
+    if (dims?.w && dims?.h) {
+      const motdContentW = dims.w - CHROME_W;
+      const motdContentH = dims.h - CHROME_H;
+      const contentW     = panelW  - CHROME_W;
+      const contentH     = panelH  - CHROME_H;
+      scale = Math.min(contentW / motdContentW, contentH / motdContentH, 1);
+    } else {
+      scale = 1;
+    }
+  } else {
+    // Large: auto-fit panel to MOTD, no scaling.
+    const fallbackW = 700;
+    const fallbackH = 600;
+    panelW = Math.min(Math.max(dims?.w || fallbackW, 150), maxW);
+    panelH = Math.min(Math.max(dims?.h || fallbackH, 150), maxH);
+    scale  = 1;
+  }
+
+  panel.style.width        = panelW + 'px';
+  panel.style.height       = panelH + 'px';
   panel.style.right        = '8px';
   panel.style.bottom       = '8px';
   panel.style.left         = 'auto';
   panel.style.top          = 'auto';
   panel.style.borderRadius = '4px';
+
+  if (content) {
+    content.style.transform     = scale < 1 ? `scale(${scale.toFixed(3)})` : '';
+    content.style.transformOrigin = 'top left';
+    // When scaled down the content box is visually smaller but still occupies
+    // its original layout size — use width override to prevent phantom scrollbar.
+    content.style.width = scale < 1 ? `${(100 / scale).toFixed(2)}%` : '';
+  }
+
   _refreshCogMenu();
 }
 
