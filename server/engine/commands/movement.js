@@ -1,5 +1,5 @@
 import { query } from '../../models/db.js';
-import { getZone, getMinimapData, addPlayerToZone, removePlayerFromZone, getDoorForExit, setDoorCache } from '../world.js';
+import { getZone, getMinimapData, addPlayerToZone, removePlayerFromZone, getDoorForExit, setDoorCache, getAllLivePlayers } from '../world.js';
 import { getZoneVisibility, getWindowsForZone, getEnvironmentState, getZoneTemperature } from '../environment.js';
 import { describeZone, resolveNamedDestination } from './describe.js';
 import { checkLockAuth, getLockTagPublic } from './doors.js';
@@ -187,6 +187,9 @@ async function cmdMove(direction, player, broadcast) {
     }
   }
 
+  const oldZoneId = player.current_zone;
+  const followers = getAllLivePlayers().filter(p => p.following === player.id && p.current_zone === oldZoneId);
+
   removePlayerFromZone(player.id, player.current_zone);
   addPlayerToZone(player.id, targetId);
   player.current_zone = targetId;
@@ -248,7 +251,32 @@ async function cmdMove(direction, player, broadcast) {
     narration = `→ You head ${direction} to ${destName}.`;
   }
 
+  for (const follower of followers) {
+    await cmdMove(direction, follower, broadcast);
+  }
+
   return { type:'move', message:zoneDesc, narration, zone:targetId, direction, radiation_gain:radGain, minimap: getMinimapData(targetId), tempC: getZoneTemperature(targetId) };
+}
+
+function cmdFollow(args, player, broadcast) {
+  if (!args.length) {
+    if (!player.following) return { type: 'output', message: 'You are not following anyone.' };
+    player.following = null;
+    return { type: 'output', message: 'You stop following.' };
+  }
+  const targetHandle = args.join(' ').toLowerCase();
+  const target = getAllLivePlayers().find(p => p.handle.toLowerCase() === targetHandle && p.id !== player.id);
+  if (!target) return { type: 'error', message: `No player named "${args.join(' ')}" is online.` };
+  player.following = target.id;
+  broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} starts following ${target.handle}.` }, player.id);
+  return { type: 'output', message: `You are now following ${target.handle}. Type "follow" with no arguments to stop.` };
+}
+
+function cmdUnfollow(player, broadcast) {
+  if (!player.following) return { type: 'output', message: 'You are not following anyone.' };
+  player.following = null;
+  broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} stops following.` }, player.id);
+  return { type: 'output', message: 'You stop following.' };
 }
 
 const MAP_DIR_OFFSET = { north:[0,-1], south:[0,1], east:[1,0], west:[-1,0] };
@@ -340,5 +368,7 @@ export const handlers = {
   in:    (args, raw, player, broadcast) => cmdMove('in', player, broadcast),
   out:   (args, raw, player, broadcast) => cmdMove('out', player, broadcast),
   exit:  (args, raw, player, broadcast) => cmdMove('exit', player, broadcast),
-  map:   (args, raw, player) => cmdMap(player),
+  map:      (args, raw, player) => cmdMap(player),
+  follow:   (args, raw, player, broadcast) => cmdFollow(args, player, broadcast),
+  unfollow: (args, raw, player, broadcast) => cmdUnfollow(player, broadcast),
 };
