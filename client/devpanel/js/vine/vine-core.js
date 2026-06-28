@@ -24,7 +24,12 @@ class VineEditor {
   // ── DOM Setup ─────────────────────────────────────────────────────────────
 
   _setupDOM() {
-    this.containerEl.style.cssText = 'position:relative;overflow:hidden;display:flex;background:var(--bg2);user-select:none';
+    // Set individual properties so we don't overwrite height/flex/border the caller put on containerEl.
+    this.containerEl.style.position = 'relative';
+    this.containerEl.style.overflow = 'hidden';
+    this.containerEl.style.display = 'flex';
+    this.containerEl.style.background = 'var(--bg2)';
+    this.containerEl.style.userSelect = 'none';
 
     // Left area: canvas + SVG
     this._area = document.createElement('div');
@@ -531,6 +536,8 @@ class VineEditor {
     this._renderAll();
     this._applyTransform();
     this._props.innerHTML = '<div style="padding:16px;color:var(--text-dim);font-size:12px">Select a node to edit its properties.</div>';
+    // Re-render edges after layout settles (getBoundingClientRect needs a paint frame).
+    requestAnimationFrame(() => this._renderEdges());
   }
 
   save() {
