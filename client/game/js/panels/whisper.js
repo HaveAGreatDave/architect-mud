@@ -306,9 +306,9 @@ function _switchToTab(key) {
 
 function _closeWhisperTab(handle) {
   if (_channels.has(handle) && _channels.get(handle).permanent) return;
+  _saveConvos();
   _whisperConvos.delete(handle);
   _channels.delete(handle);
-  _saveConvos();
   if (_activeWhisperTab === handle) _switchToTab(USERS_TAB);
   else { _refreshWhisperTabs(); _updateChatBadge(); }
 }
