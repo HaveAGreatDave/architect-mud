@@ -13,6 +13,24 @@ const HAUNT_MESSAGES = [
   'You hear your name spoken softly, just once, in a voice you don\'t recognise. Nobody is there.',
 ];
 
+const GHOST_LIGHT_ON_MESSAGES = [
+  'The lights come on by themselves. Nobody touched the switch.',
+  'A light flickers to life. The switch did not move.',
+  'The room brightens without warning. There is no one near the fixture.',
+  'Something turns the light on. The switch clicks on its own.',
+  'The bulb comes on. An invisible hand must have found the switch in the dark.',
+  'Light fills the room, sudden and unexplained.',
+];
+
+const GHOST_LIGHT_OFF_MESSAGES = [
+  'The lights go out. Nobody touched the switch.',
+  'Darkness drops over the room without warning.',
+  'Something kills the light. The switch clicked, but no hand was on it.',
+  'The room goes dark. A cold stillness settles in after.',
+  'The light dies. In the silence that follows, something feels closer.',
+  'Without warning, the lights cut out.',
+];
+
 const GHOST_AMBIENT_MESSAGES = [
   'A presence moves through the room. You see nothing.',
   'Something stirs in the air, restless and unseen.',
@@ -31,8 +49,14 @@ const GHOST_AMBIENT_MESSAGES = [
   'The atmosphere shifts, as if the room is holding its breath.',
 ];
 
-function randomGhostAmbient() {
-  return GHOST_AMBIENT_MESSAGES[Math.floor(Math.random() * GHOST_AMBIENT_MESSAGES.length)];
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function randomGhostAmbient(originalMsg) {
+  if (originalMsg) {
+    const m = String(originalMsg);
+    if (/flickers on|comes on|lit up/i.test(m)) return pick(GHOST_LIGHT_ON_MESSAGES);
+    if (/goes dark|turns off|cut out/i.test(m))  return pick(GHOST_LIGHT_OFF_MESSAGES);
+  }
+  return pick(GHOST_AMBIENT_MESSAGES);
 }
 
 // Wraps the real broadcast so any zone-visible action by a ghost reaches
@@ -43,7 +67,7 @@ export function makeGhostBroadcast(realBroadcast, ghostPlayerId) {
     if (targetPlayerId && targetPlayerId !== ghostPlayerId) return;
     // Zone-wide action by the ghost: replace content with eerie feeling.
     if (zoneId && excludePlayerId === ghostPlayerId) {
-      const ghostMsg = { type: 'zone_event', message: randomGhostAmbient() };
+      const ghostMsg = { type: 'zone_event', message: randomGhostAmbient(msg.message) };
       if (msg.refresh) ghostMsg.refresh = true;
       realBroadcast(zoneId, ghostMsg, ghostPlayerId);
       return;
