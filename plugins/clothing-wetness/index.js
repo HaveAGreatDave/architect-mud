@@ -7,16 +7,16 @@
  *
  * Wetness thresholds: 25 (damp), 50 (wet), 75 (very wet), 100 (soaked)
  *
- * Rain wetting: precipRate² × 15 per minute (quadratic — torrential wets much faster than drizzle)
- *   light rain (0.3) → ~74 min to soaked
- *   moderate  (0.5) → ~27 min
- *   heavy     (0.65)→ ~16 min
- *   torrential(0.95)→ ~7 min
+ * Rain wetting: precipRate² × 30 per minute (quadratic — torrential wets much faster than drizzle)
+ *   light rain (0.3) → ~37 min to soaked
+ *   moderate  (0.5) → ~13 min
+ *   heavy     (0.65)→ ~8 min
+ *   torrential(0.95)→ ~4 min
  *
  * Snow wetting: piecewise linear — blizzard (dry wind) is slower than heavy snow
- *   light flurries (≤0.2) → ~500 min (effectively never)
- *   moderate–heavy (0.2–0.7) → precipRate × 3 per minute
- *   blizzard (>0.7) → min(precipRate × 1.5, 1.5) per minute (dry wind cap)
+ *   light flurries (≤0.2) → ~250 min (effectively never)
+ *   moderate–heavy (0.2–0.7) → precipRate × 6 per minute
+ *   blizzard (>0.7) → min(precipRate × 3, 3) per minute (dry wind cap)
  *
  * Drying: base 2/min outdoors, 3/min indoors, × temp multiplier (every 10°C above 15°C adds 50%)
  */
@@ -26,13 +26,13 @@ import { getEnvironmentState, getZoneTemperature } from '../../server/engine/env
 import { getAllLivePlayers, getZone } from '../../server/engine/world.js';
 
 function rainWettingRate(precipRate) {
-  return precipRate * precipRate * 15;
+  return precipRate * precipRate * 30;
 }
 
 function snowWettingRate(precipRate) {
-  if (precipRate <= 0.2) return precipRate;
-  if (precipRate <= 0.7) return precipRate * 3;
-  return Math.min(precipRate * 1.5, 1.5); // blizzard — dry wind limits soak rate
+  if (precipRate <= 0.2) return precipRate * 2;
+  if (precipRate <= 0.7) return precipRate * 6;
+  return Math.min(precipRate * 3, 3); // blizzard — dry wind limits soak rate
 }
 
 // Drying multiplier: every 10°C above 15°C adds 50% more drying speed.
