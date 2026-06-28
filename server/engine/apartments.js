@@ -110,6 +110,18 @@ export async function releaseApartment(apt, zoneId) {
 		[zoneId],
 	);
 	setApartmentCache(zoneId, updated.rows[0]);
+
+	// Unlock the physical door so the next tenant can enter.
+	for (const door of world.doors.values()) {
+		const doorZone = world.zones.get(door.zone_id);
+		const targetId = doorZone?.exits?.[door.exit_dir];
+		if (door.zone_id === zoneId || targetId === zoneId) {
+			if (!(door.tags ?? []).some(t => t.type?.startsWith('lock:'))) continue;
+			await query('UPDATE doors SET lock_state=$1 WHERE id=$2', ['unlocked', door.id]);
+			door.lock_state = 'unlocked';
+			setDoorCache(door.id, door);
+		}
+	}
 }
 
 export async function cmdLockDoor(player, wantLocked) {
