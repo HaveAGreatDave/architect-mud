@@ -388,3 +388,46 @@ export async function pvpSwing(attacker, defender) {
 
   return { hit: true, killed, damage, attackerMsg, defenderMsg, defenderHp: defender.hp, defenderHpMax: defHpMax };
 }
+
+// Like pvpSwing but for a sleeping/offline defender: always hits, no dodge roll.
+// defender is a plain DB row (offline player); soak is 0 since it's not cached.
+export async function pvpSwingSleeping(attacker, defender) {
+  if ((defender.hp ?? defender.hp_max ?? 100) <= 0) return null;
+  if (isOnCooldown(attacker.id, 'attack')) return null;
+  setCooldown(attacker.id, 'attack');
+  await ensureTunables();
+
+  const { rows } = await query(
+    `SELECT i.* FROM player_inventory pi JOIN items i ON i.id=pi.item_id
+     WHERE pi.player_id=$1 AND pi.is_equipped=1 AND jsonb_exists(i.tags,'weapon') LIMIT 1`,
+    [attacker.id]
+  );
+  const equipped = rows[0];
+  const dmg = equipped?.tags?.damage || {};
+  const damageType = equipped?.tags?.damage_type || 'kinetic';
+  const damage_min = dmg.min ?? 2;
+  const damage_max = dmg.max ?? 4;
+
+  const critical = Math.random() < 0.1;
+  const part = rollBodyPart();
+  const partLabel = PART_LABELS[part] || part;
+  const headMult = part === 'head' ? getTunable('head_damage_multiplier', 1.5) : 1;
+
+  let damage = randInt(damage_min, damage_max);
+  if (critical) damage = Math.floor(damage * getTunable('crit_multiplier', 1.5));
+  damage = Math.floor(damage * headMult);
+  damage = Math.max(1, damage);
+
+  const defHpBefore = defender.hp ?? defender.hp_max ?? 100;
+  const newHp = Math.max(0, defHpBefore - damage);
+  const defHpMax = defender.hp_max ?? 100;
+  await query('UPDATE players SET hp=$1 WHERE id=$2', [newHp, defender.id]);
+
+  const killed = newHp <= 0;
+
+  const attackerMsg = critical
+    ? `<span class="crit-tag">CRITICAL HIT</span> to ${defender.handle}'s <span class="hit-part">${partLabel}</span>! You deal <span class="dmg-dealt">${damage}</span> <span class="dmg-type">${damageType}</span>.`
+    : `You hit ${defender.handle}'s <span class="hit-part">${partLabel}</span> for <span class="dmg-dealt">${damage}</span> <span class="dmg-type">${damageType}</span>.`;
+
+  return { hit: true, killed, damage, attackerMsg, defenderHp: newHp, defenderHpMax: defHpMax };
+}

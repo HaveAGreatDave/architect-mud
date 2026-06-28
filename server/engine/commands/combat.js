@@ -1,6 +1,6 @@
 import { query } from "../../models/db.js";
 import { getZoneEnemies, getZoneCorpses, getZonePlayers, getLivePlayer, createCorpse, getCorpse, removeCorpse } from "../world.js";
-import { playerAttackEnemy, isOnCooldown, setCooldown, getCooldownRemaining } from "../combat.js";
+import { playerAttackEnemy, isOnCooldown, setCooldown, getCooldownRemaining, pvpSwingSleeping } from "../combat.js";
 import { resolveForCommand, resolve as siftResolve, createSelectionState, formatSelectionPage } from "../sift.js";
 import { awardSkillUse, skillCheck } from "../skills.js";
 import { hasTag, tagValue, isStackable } from "../tags.js";
@@ -206,21 +206,13 @@ async function offlineSleepSwing(attacker, targetId, broadcast) {
 		return;
 	}
 
-	const { rows: wpRows } = await query(
-		`SELECT i.* FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.is_equipped=1 AND jsonb_exists(i.tags,'weapon') LIMIT 1`,
-		[attacker.id],
-	);
-	const equipped = wpRows[0];
-	const dmg = equipped ? tagValue(equipped, "damage", {}) || {} : {};
-	const min = dmg.min ?? 2;
-	const max = dmg.max ?? 4;
-	const damage = Math.max(1, Math.floor(Math.random() * (max - min + 1)) + min);
-	setCooldown(attacker.id, 'attack');
+	const result = await pvpSwingSleeping(attacker, target);
+	if (!result) return;
 
-	const currentHp = target.hp ?? target.hp_max ?? 100;
-	const newHp = Math.max(0, currentHp - damage);
+	broadcast(null, { type: 'combat', message: result.attackerMsg, auto: true }, null, attacker.id);
+	broadcast(attacker.current_zone, { type: 'zone_event', message: `${attacker.handle} attacks ${target.handle} in their sleep.` }, attacker.id);
 
-	if (newHp <= 0) {
+	if (result.killed) {
 		attacker.offlinePvpTargetId = null;
 		const { handlePlayerDeath } = await import("../gameLoop.js");
 		const corpseId = `corpse_player_${target.id}_${Date.now()}`;
@@ -244,12 +236,7 @@ async function offlineSleepSwing(attacker, targetId, broadcast) {
 		const corpseLink = `<span class="action-link corpse-link" data-action="loot" data-target="${corpseId}" data-label="${corpseName}" title="Loot ${corpseName}">${corpseName}</span>`;
 		broadcast(attacker.current_zone, { type: "zone_event", message: `${target.handle} has died. ${corpseLink}`, refresh: true }, attacker.id);
 		broadcast(null, { type: "combat", message: `You kill ${target.handle}. ${corpseLink}`, killed: true, auto: true }, null, attacker.id);
-		return;
 	}
-
-	await query(`UPDATE players SET hp=$1 WHERE id=$2`, [newHp, target.id]);
-	broadcast(attacker.current_zone, { type: "zone_event", message: `${attacker.handle} attacks ${target.handle} in their sleep.` }, attacker.id);
-	broadcast(null, { type: "combat", message: `You hit ${target.handle}'s sleeping body for ${damage} damage.`, auto: true }, null, attacker.id);
 }
 
 export { offlineSleepSwing };
