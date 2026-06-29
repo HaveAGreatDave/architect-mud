@@ -113,11 +113,16 @@ async function openChannelEditor(rec) {
   _channelEditTarget = rec || null;
   _channelPlaylist = [];
 
-  // Load broadcasts list for the timeline library
+  // Load broadcasts and themes in parallel
+  let themes = [];
   try {
-    const bcs = await directAPI('/broadcast/broadcasts');
+    const [bcs, ths] = await Promise.all([
+      directAPI('/broadcast/broadcasts'),
+      directAPI('/broadcast/themes'),
+    ]);
     _channelBroadcasts = Array.isArray(bcs) ? bcs : [];
-  } catch (e) { _channelBroadcasts = []; }
+    themes = Array.isArray(ths) ? ths : [];
+  } catch (e) { _channelBroadcasts = []; themes = []; }
 
   // Load existing playlist
   if (rec) {
@@ -159,6 +164,13 @@ async function openChannelEditor(rec) {
     `<option value="${t}"${(rec?.channel_type || 'playlist') === t ? ' selected' : ''}>${t}</option>`
   ).join('');
 
+  const themeOptions = [
+    '<option value="">— None —</option>',
+    ...themes.map(t =>
+      `<option value="${t.id}"${rec?.theme_id === t.id ? ' selected' : ''}>${escHtml2(t.name)}</option>`
+    ),
+  ].join('');
+
   const newsCatCheckboxes = NEWS_CATEGORIES.map(cat => {
     const checked = Array.isArray(rec?.news_categories) && rec.news_categories.includes(cat) ? ' checked' : '';
     return `<label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer">
@@ -186,6 +198,16 @@ async function openChannelEditor(rec) {
       <div>
         <label style="display:block;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:4px">Description</label>
         <input id="ch-description" class="form-input" value="${escHtml2(rec?.description || '')}" placeholder="Channel description">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div>
+          <label style="display:block;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:4px">Station Name</label>
+          <input id="ch-station-name" class="form-input" value="${escHtml2(rec?.station_name || '')}" placeholder="Shown in TV header (defaults to Name)">
+        </div>
+        <div>
+          <label style="display:block;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:4px">TV Theme</label>
+          <select id="ch-theme" class="form-input">${themeOptions}</select>
+        </div>
       </div>
       <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">
         <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px">
@@ -442,10 +464,12 @@ async function saveChannel() {
     name,
     number: parseInt(document.getElementById('ch-number')?.value || 0, 10) || null,
     description: document.getElementById('ch-description')?.value || '',
+    station_name: document.getElementById('ch-station-name')?.value?.trim() || '',
     channel_type: document.getElementById('ch-type')?.value || 'playlist',
     enabled: document.getElementById('ch-enabled')?.checked ? 1 : 0,
     loop_playlist: document.getElementById('ch-loop')?.checked ? 1 : 0,
     idle_broadcast_id: document.getElementById('ch-idle')?.value || null,
+    theme_id: document.getElementById('ch-theme')?.value || null,
     news_categories: newsCategories,
   };
 

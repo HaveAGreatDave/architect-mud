@@ -1,5 +1,5 @@
 import { state } from './state.js';
-import { appendMsg, appendHtml, updateVitals, parseZoneInfo, showDevPanelButton, setAreaPane } from './render.js';
+import { appendMsg, appendHtml, appendPre, updateVitals, parseZoneInfo, showDevPanelButton, setAreaPane } from './render.js';
 import { sendCmd, sendCmdSilent, closeConnection, attemptAutoReauth } from './net.js';
 import { renderMinimap, openMapPopup } from './panels/minimap.js';
 import { updateEnvironmentHUD, updateZoneTempHUD, refreshZoneVisibility } from './panels/environment.js';
@@ -13,6 +13,7 @@ import { openLightViewDialog } from './panels/lightview.js';
 import { openMorphexPanel } from './panels/morphex.js';
 import { updateForecast } from './panels/forecast.js';
 import { openAtmPanel, closeAtmPanel, updateAtmPanel } from './panels/atm.js';
+import { openTvPanel, isTvOpen, getTvActiveChannelId, appendTvMessage, updateTvTicker, applyTvOverlay } from './panels/tv.js';
 
 const DEV_ROLES = ['admin', 'dev', 'builder', 'designer'];
 
@@ -96,7 +97,24 @@ const handlers = {
     setTimeout(() => { sendCmd('look'); }, 1500);
   },
 
-  broadcast: (msg) => { appendMsg(msg.message, msg.style === 'ticker' ? 'broadcast-ticker' : 'broadcast'); },
+  broadcast: (msg) => {
+    if (isTvOpen() && getTvActiveChannelId() === msg.channel) {
+      if (msg.style === 'ticker') updateTvTicker(msg.message);
+      else appendTvMessage(msg.message, msg.style);
+    } else if (msg.style === 'ticker') {
+      appendMsg(msg.message, 'broadcast-ticker');
+    } else if (msg.style === 'ascii_art') {
+      appendPre(msg.message, 'broadcast-ascii-art');
+    } else {
+      appendMsg(msg.message, 'broadcast');
+    }
+  },
+  tv_panel: (msg) => { openTvPanel(msg); },
+  tv_overlay: (msg) => {
+    if (isTvOpen() && getTvActiveChannelId() === msg.channelId) {
+      applyTvOverlay(msg.overlay);
+    }
+  },
   system: (msg) => { appendMsg(msg.message, 'system'); },
   ambient: (msg) => { appendHtml(msg.message, 'ambient'); },
   sleep: (msg) => { appendHtml(msg.message, 'system'); },

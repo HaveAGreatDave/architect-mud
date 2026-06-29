@@ -717,6 +717,43 @@ export const SCHEMA_SQL = `
   CREATE INDEX IF NOT EXISTS idx_media_playlist_channel ON media_channel_playlist(channel_id, start_time);
   CREATE INDEX IF NOT EXISTS idx_media_cameras_zone ON media_cameras(zone_id);
 
+  -- TV presentation themes. CSS variable overrides applied to the in-game TV panel.
+  -- preset: named style preset for special CSS effects (corporate|crt|emergency|security|pirate).
+  -- Individual color fields override the matching CSS variable; blank = use CSS default.
+  -- scanlines: 0 = off, 1 = subtle (default), 2 = heavy.
+  CREATE TABLE IF NOT EXISTS media_themes (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT DEFAULT '',
+    preset TEXT DEFAULT 'corporate',
+    bg_color TEXT DEFAULT '',
+    border_color TEXT DEFAULT '',
+    text_color TEXT DEFAULT '',
+    header_color TEXT DEFAULT '',
+    accent_color TEXT DEFAULT '',
+    live_color TEXT DEFAULT '',
+    ticker_color TEXT DEFAULT '',
+    scanlines INTEGER DEFAULT 1,
+    flags JSONB DEFAULT '{}',
+    created_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW()),
+    updated_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
+  );
+  ALTER TABLE media_channels ADD COLUMN IF NOT EXISTS theme_id TEXT REFERENCES media_themes(id);
+  ALTER TABLE media_channels ADD COLUMN IF NOT EXISTS station_name TEXT DEFAULT '';
+
+  -- Broadcast graphics library. ASCII art referenced by VINE title_card nodes.
+  -- type: 'ascii' | 'svg'; tags: JSONB array of labels for dev-panel filtering.
+  CREATE TABLE IF NOT EXISTS media_graphics (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT DEFAULT '',
+    type TEXT DEFAULT 'ascii',
+    content TEXT NOT NULL DEFAULT '',
+    tags JSONB DEFAULT '[]',
+    created_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW()),
+    updated_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
+  );
+
   -- ── ATM system ──────────────────────────────────────────────────────────────
   -- ATM networks define the banking faction: fee rates, withdrawal limits,
   -- faction rep gates, and UI accent color.

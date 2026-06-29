@@ -31,6 +31,10 @@ const newsQueue = new Map();
 // For fast invalidation on tune changes.
 const furnitureChannelIndex = new Map();
 
+// graphicsCache.get(id) = { id, name, type, content }
+// Loaded at startup and after any graphics CRUD operation.
+const graphicsCache = new Map();
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function devOk(auth) {
@@ -63,9 +67,13 @@ function formatMessage(text, deviceType, zone) {
 async function loadChannelRuntimes() {
   try {
     const { rows: channels } = await query(
-      `SELECT c.*, b.messages AS idle_messages, b.message_interval AS idle_interval
+      `SELECT c.*, b.messages AS idle_messages, b.message_interval AS idle_interval,
+              t.id AS theme_id, t.name AS theme_name, t.preset AS theme_preset,
+              t.bg_color, t.border_color, t.text_color, t.header_color,
+              t.accent_color, t.live_color, t.ticker_color, t.scanlines
          FROM media_channels c
          LEFT JOIN media_broadcasts b ON b.id = c.idle_broadcast_id
+         LEFT JOIN media_themes t ON t.id = c.theme_id
         WHERE c.enabled = 1 ORDER BY c.number`
     );
     const { rows: playlist } = await query(
@@ -117,6 +125,8 @@ async function loadChannelRuntimes() {
       const idleMsgs = ch.idle_messages ? (Array.isArray(ch.idle_messages) ? ch.idle_messages : JSON.parse(ch.idle_messages)) : [];
       channelRuntime.set(ch.id, {
         channelId: ch.id,
+        name: ch.name,
+        stationName: ch.station_name || ch.name,
         number: ch.number,
         channelType: ch.channel_type,
         newsCategories: Array.isArray(ch.news_categories) ? ch.news_categories : (ch.news_categories ? JSON.parse(ch.news_categories) : []),
@@ -127,11 +137,34 @@ async function loadChannelRuntimes() {
         loopOriginMs: Date.now(),
         lastMsgKey: '',
         graphBlackboard: { currentNode: null, waitUntil: null, npcAnchor: null, activeBroadcastId: null },
+        theme: ch.theme_id ? {
+          id: ch.theme_id,
+          name: ch.theme_name,
+          preset: ch.theme_preset,
+          bg_color: ch.bg_color,
+          border_color: ch.border_color,
+          text_color: ch.text_color,
+          header_color: ch.header_color,
+          accent_color: ch.accent_color,
+          live_color: ch.live_color,
+          ticker_color: ch.ticker_color,
+          scanlines: ch.scanlines,
+        } : null,
       });
       newsQueue.set(ch.id, []);
     }
   } catch (err) {
     console.error('[broadcast] loadChannelRuntimes error:', err.message);
+  }
+}
+
+async function loadGraphicsCache() {
+  try {
+    const { rows } = await query('SELECT id, name, type, content FROM media_graphics');
+    graphicsCache.clear();
+    for (const row of rows) graphicsCache.set(row.id, row);
+  } catch (err) {
+    console.error('[broadcast] loadGraphicsCache error:', err.message);
   }
 }
 
@@ -280,6 +313,14 @@ async function broadcastTick() {
       }
       if (!result || result.key === state.lastMsgKey) continue;
       state.lastMsgKey = result.key;
+
+      // Overlay events (show_overlay / clear_overlay) go direct to TV watchers
+      if (result.style === 'overlay') {
+        for (const player of players) {
+          sendToPlayer(player.id, { type: 'tv_overlay', channelId, overlay: result.overlay ?? null });
+        }
+        continue;
+      }
 
       const zone = getZone(zoneId);
       const formatted = formatMessage(result.text, deviceType, zone);
@@ -537,6 +578,34 @@ function tickBroadcastGraph(channelId, graph, state, nowMs) {
         break;
       }
 
+      case 'title_card': {
+        const gid = node.data?.graphic_id;
+        const graphic = gid ? graphicsCache.get(gid) : null;
+        bb.currentNode = _resolveEdge(edges, nodeId, 'next');
+        if (graphic) {
+          const caption = node.data?.caption ? `\n${node.data.caption}` : '';
+          return { text: graphic.content + caption, key: `graphic:${channelId}:${gid}:${nowMs}`, style: 'ascii_art' };
+        }
+        nodeId = bb.currentNode;
+        break;
+      }
+
+      case 'show_overlay': {
+        const overlay = {
+          overlayType: node.data?.overlay_type || 'lower_third',
+          text: node.data?.text || '',
+          subtext: node.data?.subtext || '',
+          duration: node.data?.duration_s ?? 6,
+        };
+        bb.currentNode = _resolveEdge(edges, nodeId, 'next');
+        return { overlay, key: `overlay:${channelId}:${nodeId}:${nowMs}`, style: 'overlay' };
+      }
+
+      case 'clear_overlay': {
+        bb.currentNode = _resolveEdge(edges, nodeId, 'next');
+        return { overlay: null, key: `clear_overlay:${channelId}:${nowMs}`, style: 'overlay' };
+      }
+
       default:
         nodeId = null;
     }
@@ -686,8 +755,37 @@ async function cmdTune(args, raw, player, broadcast) {
   return { type: 'output', message: `Tuned to channel ${channelNumber}: ${channel.name}.` };
 }
 
+async function cmdTv(args, raw, player) {
+  if (!player) return { type: 'error', message: 'No character.' };
+  const zoneMap = zoneTunings.get(player.current_zone);
+  if (!zoneMap || !zoneMap.size) return { type: 'output', message: 'There is no television here.' };
+
+  for (const [channelId, deviceType] of zoneMap) {
+    if (deviceType !== 'tv') continue;
+    const state = channelRuntime.get(channelId);
+    if (!state) continue;
+    sendToPlayer(player.id, {
+      type: 'tv_panel',
+      channelId,
+      channelName: state.name || channelId,
+      stationName: state.stationName || state.name || channelId,
+      channelNumber: state.number ?? 0,
+      channelType: state.channelType || 'playlist',
+      theme: state.theme || null,
+    });
+    return { type: 'output', message: 'You turn to the television.' };
+  }
+  return { type: 'output', message: 'There is no television here.' };
+}
+
 async function cmdWatch(args, raw, player) {
   if (!player) return { type: 'error', message: 'No character.' };
+
+  const firstArg = (args[0] || '').toLowerCase();
+  if (['tv', 'television', 'monitor', 'screen', 'tele'].includes(firstArg)) {
+    return cmdTv([], raw, player);
+  }
+
   const zoneMap = zoneTunings.get(player.current_zone);
   if (!zoneMap || !zoneMap.size) return { type: 'output', message: 'No active broadcast device in this area.' };
 
@@ -707,6 +805,7 @@ export const commands = {
   tune: cmdTune,
   watch: cmdWatch,
   listen: cmdWatch,
+  tv: cmdTv,
 };
 
 // ── Route handler (CRUD) ─────────────────────────────────────────────────────
@@ -815,9 +914,10 @@ export const routeHandler = async (path, method, body, auth) => {
       if (!id && method === 'POST') {
         const cid = body.id || `ch_${Date.now()}`;
         await query(
-          `INSERT INTO media_channels (id,name,number,description,enabled,loop_playlist,priority,channel_type,idle_broadcast_id,news_categories,updated_at)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,EXTRACT(EPOCH FROM NOW()))`,
+          `INSERT INTO media_channels (id,name,number,description,station_name,theme_id,enabled,loop_playlist,priority,channel_type,idle_broadcast_id,news_categories,updated_at)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,EXTRACT(EPOCH FROM NOW()))`,
           [cid, body.name || 'Untitled Channel', body.number || null, body.description || '',
+           body.station_name || '', body.theme_id || null,
            body.enabled !== false ? 1 : 0, body.loop_playlist !== false ? 1 : 0,
            body.priority || 0, body.channel_type || 'playlist',
            body.idle_broadcast_id || null, JSON.stringify(body.news_categories || [])]
@@ -827,10 +927,11 @@ export const routeHandler = async (path, method, body, auth) => {
       }
       if (id && !sub && method === 'PUT') {
         await query(
-          `UPDATE media_channels SET name=$1,number=$2,description=$3,enabled=$4,loop_playlist=$5,
-           priority=$6,channel_type=$7,idle_broadcast_id=$8,news_categories=$9,
-           updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$10`,
+          `UPDATE media_channels SET name=$1,number=$2,description=$3,station_name=$4,theme_id=$5,
+           enabled=$6,loop_playlist=$7,priority=$8,channel_type=$9,idle_broadcast_id=$10,news_categories=$11,
+           updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$12`,
           [body.name || 'Untitled Channel', body.number || null, body.description || '',
+           body.station_name || '', body.theme_id || null,
            body.enabled !== false ? 1 : 0, body.loop_playlist !== false ? 1 : 0,
            body.priority || 0, body.channel_type || 'playlist',
            body.idle_broadcast_id || null, JSON.stringify(body.news_categories || []), id]
@@ -915,6 +1016,81 @@ export const routeHandler = async (path, method, body, auth) => {
       await loadChannelRuntimes();
       return { status: 201, body: { id: bid, message_count: messages.length } };
     }
+
+    // ── Themes ──────────────────────────────────────────────────────────────
+    if (resource === 'themes') {
+      if (!id && method === 'GET') {
+        const { rows } = await query('SELECT * FROM media_themes ORDER BY name');
+        return { status: 200, body: rows };
+      }
+      if (!id && method === 'POST') {
+        const tid = body.id || `theme_${Date.now()}`;
+        await query(
+          `INSERT INTO media_themes (id,name,description,preset,bg_color,border_color,text_color,header_color,accent_color,live_color,ticker_color,scanlines,flags,created_at,updated_at)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,EXTRACT(EPOCH FROM NOW()),EXTRACT(EPOCH FROM NOW()))`,
+          [tid, body.name||'Untitled', body.description||'', body.preset||'corporate',
+           body.bg_color||'', body.border_color||'', body.text_color||'', body.header_color||'',
+           body.accent_color||'', body.live_color||'', body.ticker_color||'',
+           body.scanlines ?? 1, JSON.stringify(body.flags||{})]
+        );
+        await loadChannelRuntimes();
+        return { status: 201, body: { id: tid } };
+      }
+      if (id && method === 'PUT') {
+        await query(
+          `UPDATE media_themes SET name=$1,description=$2,preset=$3,bg_color=$4,border_color=$5,text_color=$6,
+           header_color=$7,accent_color=$8,live_color=$9,ticker_color=$10,scanlines=$11,flags=$12,
+           updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$13`,
+          [body.name||'Untitled', body.description||'', body.preset||'corporate',
+           body.bg_color||'', body.border_color||'', body.text_color||'', body.header_color||'',
+           body.accent_color||'', body.live_color||'', body.ticker_color||'',
+           body.scanlines ?? 1, JSON.stringify(body.flags||{}), id]
+        );
+        await loadChannelRuntimes();
+        return { status: 200, body: { id } };
+      }
+      if (id && method === 'DELETE') {
+        if (auth?.role !== 'admin') return { status: 403, body: { error: 'Admin access required' } };
+        await query('DELETE FROM media_themes WHERE id=$1', [id]);
+        await loadChannelRuntimes();
+        return { status: 200, body: { message: 'Deleted' } };
+      }
+    }
+
+    // ── Graphics ────────────────────────────────────────────────────────────
+    if (resource === 'graphics') {
+      if (!id && method === 'GET') {
+        const { rows } = await query('SELECT * FROM media_graphics ORDER BY name');
+        return { status: 200, body: rows };
+      }
+      if (!id && method === 'POST') {
+        const gid = body.id || `graphic_${Date.now()}`;
+        await query(
+          `INSERT INTO media_graphics (id,name,description,type,content,tags,created_at,updated_at)
+           VALUES ($1,$2,$3,$4,$5,$6,EXTRACT(EPOCH FROM NOW()),EXTRACT(EPOCH FROM NOW()))`,
+          [gid, body.name||'Untitled', body.description||'', body.type||'ascii',
+           body.content||'', JSON.stringify(body.tags||[])]
+        );
+        await loadGraphicsCache();
+        return { status: 201, body: { id: gid } };
+      }
+      if (id && method === 'PUT') {
+        await query(
+          `UPDATE media_graphics SET name=$1,description=$2,type=$3,content=$4,tags=$5,
+           updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$6`,
+          [body.name||'Untitled', body.description||'', body.type||'ascii',
+           body.content||'', JSON.stringify(body.tags||[]), id]
+        );
+        await loadGraphicsCache();
+        return { status: 200, body: { id } };
+      }
+      if (id && method === 'DELETE') {
+        if (auth?.role !== 'admin') return { status: 403, body: { error: 'Admin access required' } };
+        await query('DELETE FROM media_graphics WHERE id=$1', [id]);
+        await loadGraphicsCache();
+        return { status: 200, body: { message: 'Deleted' } };
+      }
+    }
   } catch (err) {
     return { status: 400, body: { error: err.message } };
   }
@@ -926,6 +1102,7 @@ export const routeHandler = async (path, method, body, auth) => {
 
 await loadChannelRuntimes();
 await loadZoneTunings();
+await loadGraphicsCache();
 setInterval(broadcastTick, 5000);
 
-console.log(`[broadcast] Plugin loaded. ${channelRuntime.size} channel(s), ${zoneTunings.size} tuned zone(s).`);
+console.log(`[broadcast] Plugin loaded. ${channelRuntime.size} channel(s), ${zoneTunings.size} tuned zone(s), ${graphicsCache.size} graphic(s).`);

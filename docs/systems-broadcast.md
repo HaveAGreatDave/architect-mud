@@ -308,8 +308,18 @@ All broadcast routes use `directAPI` (not the staging API).
 
 `dispatch.js` handles `{ type: 'broadcast', message, channel, style }`:
 
+When the TV panel is open and its active channel matches `msg.channel`, messages are routed to the TV panel instead of the main output. Otherwise they fall through to the existing text output:
+
 ```js
-broadcast: (msg) => appendMsg(msg.message, msg.style === 'ticker' ? 'broadcast-ticker' : 'broadcast')
+broadcast: (msg) => {
+  if (isTvOpen() && getTvActiveChannelId() === msg.channel) {
+    if (msg.style === 'ticker') updateTvTicker(msg.message);
+    else appendTvMessage(msg.message, msg.style);
+  } else {
+    appendMsg(msg.message, msg.style === 'ticker' ? 'broadcast-ticker' : 'broadcast');
+  }
+}
+tv_panel: (msg) => { openTvPanel(msg); }
 ```
 
 CSS classes in `client/game/styles.css`:
@@ -318,6 +328,68 @@ CSS classes in `client/game/styles.css`:
 .msg-broadcast        { color: var(--text-dim); border-left: 2px solid var(--border); padding-left: 8px; }
 .msg-broadcast-ticker { color: var(--accent); letter-spacing: 0.5px; font-style: italic; border-left: 2px solid var(--accent); padding-left: 8px; }
 ```
+
+---
+
+## TV Presentation Layer
+
+`client/game/js/panels/tv.js` — the television popup panel.
+
+### Player commands
+
+| Command | Behaviour |
+|---|---|
+| `watch tv` / `watch television` / `watch monitor` | Opens the TV panel for the first `tv`-type device in the zone |
+| `tv` | Same as above |
+| `watch` (no args) | Existing behaviour — prints current broadcast text to main output |
+| `tune <n>` | Still tunes the device; open the TV panel separately |
+
+### TV panel structure
+
+Three independently updating regions:
+
+```
+╔════════════════════════════════════════════╗
+║ STATION NAME    CH 7    Program   ● LIVE   ║
+╠════════════════════════════════════════════╣
+║                                            ║
+║          Scrollable broadcast content      ║
+║               (with history)               ║
+║                                            ║
+╠════════════════════════════════════════════╣
+║ BREAKING • ticker text scrolls here •     ║
+╚════════════════════════════════════════════╝
+```
+
+- **Header**: station name, channel number, program name, LIVE dot (pulses red)
+- **Content**: broadcast messages append here. Scrollback is preserved (up to 200 messages). Scrolling up pauses auto-scroll; returning to the bottom restores LIVE mode. The LIVE badge dims when scrolled.
+- **Footer ticker**: `style: 'ticker'` messages feed a horizontally scrolling ticker independent of the content area. Multiple ticker messages are concatenated with `●` separators within the same animation pass.
+
+### Server → client message: `tv_panel`
+
+Sent by `cmdTv()` in the broadcast plugin when the player types `watch tv` or `tv`:
+
+```js
+{
+  type: 'tv_panel',
+  channelId: 'ch_ksab',
+  channelName: 'KSAB-TV',
+  channelNumber: 7,
+  channelType: 'news',
+}
+```
+
+The TV panel opens and binds to `channelId`. Subsequent `broadcast` WS ticks whose `channel` matches are routed to the panel.
+
+### Closing
+
+ESC key, clicking the backdrop, or the ✕ button closes the panel. On close, subsequent broadcasts for that channel resume appearing in the main output.
+
+### Future phases
+
+- **Phase 2**: `media_themes` table; each channel references a theme; theme CSS variables applied to `#tv-window`.
+- **Phase 3**: `media_graphics` table (ASCII art, SVG); new VINE node types `title_card` / `graphic_display`; graphics rendered in the TV content area.
+- **Phase 4**: Drag-and-drop Theme Editor, Overlay Editor, Canvas Art Editor in devpanel.
 
 ---
 

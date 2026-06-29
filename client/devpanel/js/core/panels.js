@@ -214,6 +214,18 @@ const PANELS = {
     noEdit: true,
     render: renderChannelsPanel,
   },
+  themes: {
+    title: 'TV Themes',
+    fetch: () => directAPI('/broadcast/themes'),
+    noEdit: true,
+    render: renderThemesPanel,
+  },
+  graphics: {
+    title: 'Graphics Library',
+    fetch: () => directAPI('/broadcast/graphics'),
+    noEdit: true,
+    render: renderGraphicsPanel,
+  },
   changes: {
     title: 'Changes',
     fetch: () => API('/staging/pending'),

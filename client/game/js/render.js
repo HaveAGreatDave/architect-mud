@@ -17,6 +17,14 @@ export function appendHtml(html, cls = '') {
   scrollOutput();
 }
 
+export function appendPre(text, cls = '') {
+  const el = document.createElement('pre');
+  el.className = `msg msg-${cls}`;
+  el.textContent = text;
+  document.getElementById('output').appendChild(el);
+  scrollOutput();
+}
+
 // New room text enters in the direction of travel so a move reads as a step.
 const AREA_SLIDE = { north:[0,-1], south:[0,1], east:[1,0], west:[-1,0] };
 

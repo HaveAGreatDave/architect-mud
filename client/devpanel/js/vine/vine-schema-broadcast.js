@@ -265,6 +265,43 @@ const _bcNodeDefs = {
       ${_bField('World flag key', _bInput('data.flag', n.data.flag, 'martial_law'))}
       ${_bField('Value', _bInput('data.value', n.data.value ?? 'true', 'true'))}`,
   },
+
+  title_card: {
+    label: 'Title Card',
+    color: '#224455',
+    defaultData: { graphic_id:'', caption:'' },
+    renderBody: (n) => `<div style="font-size:11px;color:var(--text-dim)">${_escB(n.data.graphic_id||'(no graphic)')}</div>`,
+    getOutPorts: () => [{ key:'next', label:'next' }],
+    renderProperties: (n, ed, id) => `
+      ${_bHelp(id,'Displays a graphic from the Graphics Library as ASCII art in the TV panel, or as pre-formatted text in the regular broadcast output. If the graphic_id is not found the node is skipped silently.')}
+      ${_bField('Graphic ID', _bInput('data.graphic_id', n.data.graphic_id, 'graphic database id'))}
+      ${_bField('Caption (optional)', _bInput('data.caption', n.data.caption, 'Text shown below the graphic'))}`,
+  },
+
+  show_overlay: {
+    label: 'Show Overlay',
+    color: '#335544',
+    defaultData: { overlay_type:'lower_third', text:'', subtext:'', duration_s:6 },
+    renderBody: (n) => `<div style="font-size:11px;color:var(--text-dim)">${_escB(n.data.overlay_type||'lower_third')}: ${_escB((n.data.text||'').slice(0,40))}</div>`,
+    getOutPorts: () => [{ key:'next', label:'next' }],
+    renderProperties: (n, ed, id) => `
+      ${_bHelp(id,'Pushes an overlay element to the TV panel for all current viewers. Does not stop graph execution — continues immediately to <em>next</em>. The overlay auto-clears after <em>duration</em> seconds, or when a <strong>Clear Overlay</strong> node fires.')}
+      ${_bField('Type', _bSelect('data.overlay_type', [['lower_third','Lower Third (nameplate)'],['alert_flash','Alert Flash (full-screen)']], n.data.overlay_type||'lower_third'))}
+      ${_bField('Main text', _bInput('data.text', n.data.text, 'DR. ELAINE VOSS'))}
+      ${_bField('Subtext', _bInput('data.subtext', n.data.subtext, 'Chief Science Officer, NovaCorp'))}
+      ${_bField('Duration (s)', `<input data-vine-field="data.duration_s" data-vine-type="number" type="number" min="1" step="1" value="${n.data.duration_s??6}" style="${_BS}">`)}`,
+  },
+
+  clear_overlay: {
+    label: 'Clear Overlay',
+    color: '#443322',
+    defaultData: {},
+    renderBody: () => `<div style="font-size:11px;color:var(--text-dim);letter-spacing:1px">— CLEAR —</div>`,
+    getOutPorts: () => [{ key:'next', label:'next' }],
+    renderProperties: (n, ed, id) => `
+      ${_bHelp(id,'Dismisses any active overlay on the TV panel immediately, for all current viewers. Continues to <em>next</em> without stopping the tick.')}
+      <div style="color:var(--text-dim);font-size:12px">No properties.</div>`,
+  },
 };
 
 // ── Auto-layout ───────────────────────────────────────────────────────────────

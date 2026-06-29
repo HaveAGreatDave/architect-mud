@@ -48,6 +48,7 @@ function renderBroadcastsPanel(data) {
           <div style="font-size:13px;font-weight:600;color:var(--accent);letter-spacing:1px;text-transform:uppercase">Broadcasts</div>
           <div style="font-size:11px;color:var(--text-dim);margin-top:2px">${_broadcastList.length} asset${_broadcastList.length !== 1 ? 's' : ''} — reusable media content</div>
         </div>
+        <button class="action-btn" onclick="bcImportBsm()" title="Import a .bsm script file">↑ Import .bsm</button>
         <button class="action-btn" onclick="openBroadcastModal(null)">+ New Broadcast</button>
       </div>
       ${_broadcastList.length ? `
@@ -281,6 +282,253 @@ async function cloneBroadcast(rec) {
     const res = await directAPI('/broadcast/broadcasts', 'POST', body);
     if (res?.error) { toast(res.error, true); return; }
     toast('Broadcast cloned.');
+    await showPanel('broadcasts');
+  } catch (err) {
+    toast(err.message, true);
+  }
+}
+
+// ── BSM import ───────────────────────────────────────────────────────────────
+
+function bcImportBsm() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.bsm,.txt';
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const text = await file.text();
+    let compiled;
+    try {
+      compiled = compileBsm(text);
+    } catch (err) {
+      toast(`BSM parse error: ${err.message}`, true); return;
+    }
+    if (!compiled.meta.name) { toast('BSM file is missing @broadcast name.', true); return; }
+    await _bcImportDependencies(compiled);
+  };
+  input.click();
+}
+
+// ── BSM dependency resolver ───────────────────────────────────────────────────
+
+let _bcDepCompiled = null;
+let _bcDepPending = new Set();
+let _bcPickerZoneId = null;
+let _bcPickerSelected = null;
+
+async function _bcImportDependencies(compiled) {
+  const [allZones, allNpcs] = await Promise.all([
+    directAPI('/zones', 'GET'),
+    directAPI('/npcs', 'GET'),
+  ]);
+
+  const zoneIds = new Set((allZones || []).map(z => z.id));
+  const npcDbIds = new Set((allNpcs || []).map(n => n.id));
+
+  const missingZones = compiled.rooms.filter(id => !zoneIds.has(id));
+  const missingNpcs  = compiled.npcIds.filter(id => !npcDbIds.has(id));
+
+  if (!missingZones.length && !missingNpcs.length) {
+    await _bcImportSave(compiled); return;
+  }
+
+  _bcDepCompiled = compiled;
+  _bcDepPending  = new Set([...missingZones, ...missingNpcs]);
+  _bcShowDepModal(missingNpcs, missingZones, allZones || []);
+}
+
+function _bcShowDepModal(missingNpcs, missingZones, allZones) {
+  const npcRows = missingNpcs.map(id => `
+    <div id="dep-row-${CSS.escape(id)}" style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--bg3);border-radius:2px">
+      <span style="flex:1;font-size:12px;color:var(--text)">NPC <span style="color:var(--cyan)">${escHtml(id)}</span></span>
+      <span id="dep-status-${CSS.escape(id)}" style="font-size:10px;color:var(--text-dim)">missing</span>
+      <button class="action-btn" style="font-size:10px;padding:3px 8px" onclick="_bcCreateNpc('${id}')">Create NPC</button>
+    </div>`).join('');
+
+  const zoneRows = missingZones.map(id => `
+    <div id="dep-row-${CSS.escape(id)}" style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--bg3);border-radius:2px">
+      <span style="flex:1;font-size:12px;color:var(--text)">Zone <span style="color:var(--yellow)">${escHtml(id)}</span></span>
+      <span id="dep-status-${CSS.escape(id)}" style="font-size:10px;color:var(--text-dim)">missing</span>
+      <button class="action-btn" style="font-size:10px;padding:3px 8px" onclick="_bcShowZonePicker('${id}')">Place on Map</button>
+    </div>`).join('');
+
+  const el = document.createElement('div');
+  el.id = 'bsm-dep-overlay';
+  el.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:700;display:flex;align-items:center;justify-content:center';
+  el.innerHTML = `
+    <div style="background:var(--bg2);border:1px solid var(--accent);padding:20px;width:560px;max-width:94vw;max-height:80vh;overflow-y:auto;border-radius:3px;display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="color:var(--accent);font-size:13px;letter-spacing:2px;text-transform:uppercase">BSM Dependencies</span>
+        <button onclick="document.getElementById('bsm-dep-overlay').remove()" style="background:transparent;border:1px solid var(--border);color:var(--text-dim);width:26px;height:26px;cursor:pointer;border-radius:2px;font-size:13px">✕</button>
+      </div>
+      <div style="font-size:11px;color:var(--text-dim)">The following entities referenced in the script don't exist yet. Resolve each one before importing.</div>
+      ${npcRows || ''}
+      ${zoneRows || ''}
+      <button id="bsm-finish-btn" class="action-btn primary" style="margin-top:4px" disabled onclick="_bcDepFinish()">Finish Import</button>
+    </div>`;
+
+  // stash allZones on the element for the picker
+  el._allZones = allZones;
+  document.body.appendChild(el);
+}
+
+function _bcMarkResolved(id) {
+  _bcDepPending.delete(id);
+  const statusEl = document.getElementById(`dep-status-${CSS.escape(id)}`);
+  if (statusEl) { statusEl.textContent = '✓ created'; statusEl.style.color = 'var(--success)'; }
+  const rowEl = document.getElementById(`dep-row-${CSS.escape(id)}`);
+  if (rowEl) rowEl.querySelectorAll('button').forEach(b => b.disabled = true);
+  if (_bcDepPending.size === 0) {
+    const btn = document.getElementById('bsm-finish-btn');
+    if (btn) btn.removeAttribute('disabled');
+  }
+}
+
+async function _bcCreateNpc(id) {
+  const name = id.replace(/^npc_/, '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  try {
+    const res = await directAPI('/npcs', 'POST', {
+      id, name, description: `${name}. Edit this description.`,
+      zone_id: null, disposition: 'neutral',
+    });
+    if (res?.error) { toast(res.error, true); return; }
+    _bcMarkResolved(id);
+  } catch (err) { toast(err.message, true); }
+}
+
+function _bcShowZonePicker(zoneId) {
+  _bcPickerZoneId = zoneId;
+  _bcPickerSelected = null;
+  const overlay = document.getElementById('bsm-dep-overlay');
+  const allZones = overlay?._allZones || [];
+  const placed = allZones.filter(z => z.grid_x != null && z.grid_y != null && z.map_id === 'map_world');
+
+  let minX = -3, maxX = 3, minY = -3, maxY = 3;
+  if (placed.length) {
+    const xs = placed.map(z => z.grid_x), ys = placed.map(z => z.grid_y);
+    minX = Math.min(...xs) - 2; maxX = Math.max(...xs) + 2;
+    minY = Math.min(...ys) - 2; maxY = Math.max(...ys) + 2;
+  }
+  const byCoord = new Map(placed.map(z => [`${z.grid_x},${z.grid_y}`, z]));
+  const W = maxX - minX + 1, H = maxY - minY + 1;
+  const CELL = 76;
+
+  let cells = '';
+  for (let y = minY; y <= maxY; y++) {
+    for (let x = minX; x <= maxX; x++) {
+      const z = byCoord.get(`${x},${y}`);
+      if (z) {
+        cells += `<div style="background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--text-dim);text-align:center;padding:2px;overflow:hidden;line-height:1.2" title="${z.id}">${escHtml(z.name)}</div>`;
+      } else {
+        cells += `<div class="bsm-pick-cell" data-x="${x}" data-y="${y}" onclick="_bcPickCell(${x},${y},this)" style="background:var(--bg);border:1px dashed var(--border);display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--border);cursor:pointer" title="${x},${y}">+</div>`;
+      }
+    }
+  }
+
+  const picker = document.createElement('div');
+  picker.id = 'bsm-picker-overlay';
+  picker.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:800;display:flex;align-items:center;justify-content:center';
+  picker.innerHTML = `
+    <div style="background:var(--bg2);border:1px solid var(--yellow);padding:16px;width:660px;max-width:96vw;border-radius:3px;display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="color:var(--yellow);font-size:12px;letter-spacing:1px;text-transform:uppercase">Place Zone: <strong>${escHtml(zoneId)}</strong></span>
+        <button onclick="document.getElementById('bsm-picker-overlay').remove()" style="background:transparent;border:1px solid var(--border);color:var(--text-dim);width:24px;height:24px;cursor:pointer;border-radius:2px;font-size:12px">✕</button>
+      </div>
+      <div style="font-size:11px;color:var(--text-dim)">Click an empty cell (+) to place the zone on the world map.</div>
+      <div style="overflow:auto;max-height:400px">
+        <div style="display:grid;grid-template-columns:repeat(${W},${CELL}px);grid-template-rows:repeat(${H},${Math.round(CELL*0.65)}px);gap:2px;width:fit-content">
+          ${cells}
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;align-items:center">
+        <span id="bsm-picker-label" style="font-size:11px;color:var(--text-dim)">No cell selected</span>
+        <button onclick="document.getElementById('bsm-picker-overlay').remove()" class="action-btn">Cancel</button>
+        <button id="bsm-picker-confirm" class="action-btn primary" disabled onclick="_bcPickerConfirm()">Place Here</button>
+      </div>
+    </div>`;
+  document.body.appendChild(picker);
+}
+
+function _bcPickCell(x, y, el) {
+  document.querySelectorAll('.bsm-pick-cell').forEach(c => {
+    c.style.background = 'var(--bg)';
+    c.style.borderColor = 'var(--border)';
+    c.style.color = 'var(--border)';
+  });
+  el.style.background = 'color-mix(in srgb,var(--yellow) 20%,transparent)';
+  el.style.borderColor = 'var(--yellow)';
+  el.style.color = 'var(--yellow)';
+  _bcPickerSelected = { x, y };
+  const lbl = document.getElementById('bsm-picker-label');
+  if (lbl) lbl.textContent = `Selected: ${x}, ${y}`;
+  const btn = document.getElementById('bsm-picker-confirm');
+  if (btn) btn.removeAttribute('disabled');
+}
+
+async function _bcPickerConfirm() {
+  if (!_bcPickerSelected || !_bcPickerZoneId) return;
+  const { x, y } = _bcPickerSelected;
+  const id = _bcPickerZoneId;
+  const name = id.split('/').pop().replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  try {
+    const res = await directAPI('/zones', 'POST', {
+      id, name, description: `${name}. Edit this description.`,
+      map_id: 'map_world', grid_x: x, grid_y: y, grid_z: 0,
+      marker: name.slice(0, 2).toUpperCase(),
+    });
+    if (res?.error) { toast(res.error, true); return; }
+    document.getElementById('bsm-picker-overlay')?.remove();
+    _bcMarkResolved(id);
+    toast(`Zone "${name}" placed at ${x},${y}.`);
+  } catch (err) { toast(err.message, true); }
+}
+
+async function _bcDepFinish() {
+  document.getElementById('bsm-dep-overlay')?.remove();
+  if (_bcDepCompiled) await _bcImportSave(_bcDepCompiled);
+}
+
+async function _bcImportSave({ meta, broadcastGraph, messages, assets }) {
+  // Upsert any ::asset blocks into media_graphics
+  for (const asset of assets) {
+    try {
+      await directAPI('/broadcast/graphics', 'POST', asset);
+    } catch {
+      try { await directAPI(`/broadcast/graphics/${asset.id}`, 'PUT', asset); } catch {}
+    }
+  }
+
+  // Check for duplicate name
+  let method = 'POST', path = '/broadcast/broadcasts';
+  const existing = _broadcastList.find(b => b.name === meta.name);
+  if (existing) {
+    const overwrite = confirm(`A broadcast named "${meta.name}" already exists.\n\nOK = overwrite it   Cancel = create new copy`);
+    if (overwrite) {
+      method = 'PUT';
+      path = `/broadcast/broadcasts/${existing.id}`;
+    } else {
+      meta.name += ' (imported)';
+    }
+  }
+
+  const body = {
+    name: meta.name,
+    category: meta.category || 'general',
+    playback_mode: 'scripted',
+    message_interval: 5,
+    override_duration: meta.length || null,
+    loop: 0,
+    enabled: 1,
+    messages: messages.map(t => ({ text: t })),
+    broadcast_graph: broadcastGraph,
+  };
+
+  try {
+    const res = await directAPI(path, method, body);
+    if (res?.error) { toast(res.error, true); return; }
+    const nodeCount = Object.keys(broadcastGraph.nodes).length;
+    toast(`Imported "${meta.name}" — ${messages.length} messages, ${nodeCount} graph nodes${assets.length ? `, ${assets.length} asset(s)` : ''}.`);
     await showPanel('broadcasts');
   } catch (err) {
     toast(err.message, true);

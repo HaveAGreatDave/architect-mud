@@ -944,6 +944,9 @@ export async function apiCreateFurniture(body) {
     const lumenOut = isLight && body.lumen_output != null ? Number(body.lumen_output) : null;
     await query(`INSERT INTO furniture (id,zone_id,name,description,object_type,light_on,light_type,power_draw_kw,lumen_output,flags) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
       [id, body.zone_id, body.name, body.description||'', body.object_type||'furniture', isLight?(body.light_on?1:0):0, isLight?(body.light_type||'lamp'):null, pdraw, lumenOut, JSON.stringify(body.flags||{})]);
+    if (body.flags?.atm) {
+      await query(`INSERT INTO atm_units (id) VALUES ($1) ON CONFLICT (id) DO NOTHING`, [id]);
+    }
     return {status:201,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
@@ -960,6 +963,9 @@ export async function apiUpdateFurniture(id, body) {
     if (!sets.length) return {status:400,body:{error:'nothing to update'}};
     vals.push(id);
     await query(`UPDATE furniture SET ${sets.join(',')} WHERE id=$${i}`, vals);
+    if (body.flags?.atm) {
+      await query(`INSERT INTO atm_units (id) VALUES ($1) ON CONFLICT (id) DO NOTHING`, [id]);
+    }
     // Resync total_lumens for this zone if the row is a light.
     const { rows: updated } = await query(`SELECT zone_id FROM furniture WHERE id=$1 AND object_type='light'`, [id]);
     if (updated[0]?.zone_id) {
