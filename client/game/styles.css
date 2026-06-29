@@ -1001,6 +1001,7 @@ body {
 #env-hud-sidebar .env-precip-label {
 	color: var(--blue);
 	font-size: 11px;
+	margin-left: auto;
 }
 
 /* Forecast panel — mirrors the dialogue panel's modal pattern */
