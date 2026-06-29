@@ -1,4 +1,4 @@
-import { fireHook } from '../engine/plugins.js';
+import { fireHook, getLoadedPlugins, getRegisteredHooks } from '../engine/plugins.js';
 
 const DEV_ROLES = ['dev', 'admin', 'builder', 'designer'];
 
@@ -10,9 +10,22 @@ export async function handleWorldValidatorApi(path, method, body, auth) {
   }
 
   try {
+    if (path === '/worldvalidator/status' && method === 'GET') {
+      return { status: 200, body: {
+        loadedPlugins: getLoadedPlugins(),
+        registeredHooks: getRegisteredHooks(),
+      }};
+    }
+
     if (path === '/worldvalidator/run-full' && method === 'POST') {
-      const result = await fireHook('worldValidator.runFull', body || {});
-      if (result == null) return { status: 503, body: { error: 'zone-validator plugin not loaded' } };
+      const hooks = getRegisteredHooks();
+      if (!hooks['worldValidator.runFull']?.length) {
+        return { status: 503, body: { error: 'zone-validator plugin not loaded', loadedPlugins: getLoadedPlugins() } };
+      }
+      let runError = null;
+      const result = await fireHook('worldValidator.runFull', body || {}).catch(e => { runError = e; return null; });
+      if (runError) return { status: 500, body: { error: `Validator threw: ${runError.message}` } };
+      if (result == null) return { status: 503, body: { error: 'zone-validator plugin not loaded', loadedPlugins: getLoadedPlugins() } };
       return { status: 200, body: result };
     }
 
