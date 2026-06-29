@@ -26,14 +26,7 @@ async function use(args, raw, player) {
   return cmdUse(targetStr, player);
 }
 
-async function inject(args, raw, player) {
-  const targetStr = args.join(' ');
-  if (!targetStr) return { type: 'error', message: 'Inject what?' };
-  if (!(await findDrug(targetStr, player))) return { type: 'error', message: `You have nothing to inject called "${targetStr}".` };
-  return cmdUse(targetStr, player);
-}
-
 export const specializedActions = [
   { verb: 'use', requiredTag: 'drug', handler: use },
-  { verb: 'inject', requiredTag: 'drug', handler: inject },
+  { verb: 'inject', requiredTag: 'drug', handler: use },
 ];

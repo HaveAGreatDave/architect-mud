@@ -325,10 +325,6 @@ on('flag.set', ({ flag, value }) => {
   }
 });
 
-on('zone.entered', ({ actor, zone }) => {
-  if (!actor || !zone) return;
-});
-
 // NPC hosts send to a channel's queue via the BROADCAST_SAY AI action
 on('npc.broadcast_say', ({ channel_id, text }) => {
   if (!channel_id || !text) return;

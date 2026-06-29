@@ -56,12 +56,14 @@ HellMOO-style, permanent, dev-panel editable, cached in memory at boot.
 
 ## Drugs & addiction
 
-[drugs.js](../server/engine/drugs.js), invoked from the `use` command when the item joins to a row in
-`drugs`. Dev-panel editable, cached at boot.
+[drugs.js](../server/engine/drugs.js), invoked from the `use` and `inject` commands when the item joins
+to a row in `drugs` (both share one handler in the drugs plugin). Dev-panel editable, cached at boot.
 
 - **Effects** (`effects` JSON): instantaneous, clamped stat deltas — `hp`, `sanity`, `hunger`, `thirst`,
-  `radiation`. Per-drug state is tracked in `player_drug_state` (`doses_in_system`, `times_used`,
-  `is_addicted`, `active_until`).
+  `radiation`. Restoring `hunger`/`thirst` also applies `digestive_load`/`hydration_load` via
+  `foodLoad`/`drinkLoad`, the same as the `consumable` path — so a drug that fills you up carries the
+  same bowel/bladder cost as food (see "Digestive & hydration load" below). Per-drug state is tracked in
+  `player_drug_state` (`doses_in_system`, `times_used`, `is_addicted`, `active_until`).
 - **Overdose:** when `doses_in_system ≥ overdose_threshold` (default 3), the drug's
   `withdrawal_effects.overdose` deltas are merged into the dose's effects and an overdose warning fires.
 - **Addiction:** if not already addicted, a `Math.random() < addiction_chance` roll on each use can
@@ -104,8 +106,8 @@ Applied by the `use`/`eat`/`drink` command from item tags ([inventory.js](../ser
 
 Two hidden float columns on the `players` row — `digestive_load` (bowel) and `hydration_load` (bladder) — accumulate as the player eats and drinks:
 
-- **Eating:** adds `restoreHunger × 0.5` digestive load.
-- **Drinking:** adds `restoreThirst × 0.6` hydration load.
+- **Eating:** adds `restoreHunger × 0.5` digestive load (the `consumable` path **and** drugs that restore hunger).
+- **Drinking:** adds `restoreThirst × 0.6` hydration load (the `consumable` path **and** drugs that restore thirst).
 - **Natural decay:** −1 digestive / −2 hydration per minute (bladder clears faster than bowel).
 
 **Threshold messages** (80–110) fire occasionally — every 3 minutes — as private ambient descriptions of increasing urgency, randomly selected from flavour pools. At >110 an **involuntary release** occurs with a zone-visible ambient message (no source attribution) and a dump to 0.

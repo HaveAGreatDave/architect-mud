@@ -1,6 +1,0 @@
-{
-  "name": "visibility",
-  "version": "1.0.0",
-  "description": "Injects ambient light / visibility text into room descriptions.",
-  "hooks": ["zone.describeRoom"]
-}

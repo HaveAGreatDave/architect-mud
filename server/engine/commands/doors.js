@@ -1,5 +1,5 @@
 import { query } from '../../models/db.js';
-import { getDoorForExit, getZoneDoors, setDoorCache, getZone, world } from '../world.js';
+import { getDoorForExit, getZoneDoors, setDoorCache, getZone, world, getApartment, setApartmentCache } from '../world.js';
 import { resolveLockAuth, getLockType, getAllLockTypes } from '../locks.js';
 import { propagateSound } from '../sounds.js';
 import { isOnCooldown, setCooldown, getCooldownRemaining } from '../combat.js';
@@ -58,6 +58,26 @@ async function updateDoor(door, changes) {
   const keys = Object.keys(changes);
   const sets = keys.map((k, i) => `${k}=$${i+1}`).join(',');
   await query(`UPDATE doors SET ${sets} WHERE id=$${keys.length+1}`, [...Object.values(changes), door.id]);
+  if (changes.lock_state === 'locked' || changes.lock_state === 'unlocked') await syncApartmentLock(door, changes.lock_state);
+}
+
+// Reverse leg of the apartment↔door lock mirror. The apartment lock command
+// (apartments.js cmdLockDoor) treats apt.is_locked as master and mirrors it into
+// door.lock_state; this keeps apt.is_locked in step when a door is locked/unlocked
+// via the door-lock-tag command instead, so both fields stay consistent whichever
+// path was used. A door touches up to two zones (its own and its exit target);
+// sync whichever side is an apartment.
+async function syncApartmentLock(door, lockState) {
+  const isLocked = lockState === 'locked' ? 1 : 0;
+  const zone = getZone(door.zone_id);
+  const targetId = zone?.exits?.[door.exit_dir];
+  for (const zid of [door.zone_id, targetId]) {
+    if (!zid) continue;
+    const apt = getApartment(zid);
+    if (!apt || apt.is_locked === isLocked) continue;
+    await query('UPDATE apartments SET is_locked=$1 WHERE zone_id=$2', [isLocked, zid]);
+    setApartmentCache(zid, { ...apt, is_locked: isLocked });
+  }
 }
 
 async function cmdOpenDoor(args, raw, player, broadcast) {

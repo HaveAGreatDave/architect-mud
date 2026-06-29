@@ -84,10 +84,9 @@ credits, failure broadcasts a public "caught red-handed" event. Uses `adjustCred
 - **Quality tiers** (`QUALITY_TIERS`): scrap 0.5× → common 1.0× → refined 1.5× → pristine 2.0× →
   architect-grade 3.0× (a multiplier on output stats; tier is stored in the item instance's `custom_data`).
 
-> **Known bug:** the `recipes` command (crafting plugin) still reads the dead `trained` column, which is
-> frozen at its pre-IP/XP-migration value. The live skill metric is now `player_skills.ip`
-> (level = `floor(ip/100)`), which `craft` reads correctly. So `recipes` can hide recipes whose skill
-> requirement you actually meet — yet `craft` will still make them. See the QA report.
+Both `recipes` (the availability list) and `craft` (the actual gate) derive skill rank the same way —
+`floor(player_skills.ip / 100)` — so the list and what you can build always agree. (Previously
+`recipes` read the dead `trained` column and could hide recipes `craft` would still make; fixed.)
 
 ## IP, XP & raising stats
 
@@ -128,10 +127,23 @@ table, cached in `world.apartments`.
 - **`upgrade lock`:** +1 lock difficulty for 75c, up to a max of 14.
 - **`pick` / `picklock`:** a `security` check vs the unit's lock difficulty on someone else's locked door.
 
-> **Broken access control** (see the QA report): `cmdMove` never checks apartment locks, so a locked
-> door does **not** stop anyone from walking in — locking only affects *sleep* eligibility. And a
-> successful `pick` returns `bypassed_zone` but **nothing consumes it** and the door is never actually
-> unlocked, so lock-picking has no functional effect. The lock/upgrade/pick loop is currently cosmetic
-> for entry; it only gates whether you may `sleep` in the unit.
+### Lock state — source of truth
+
+Apartment lock status lives in **two fields that are kept in sync**, each read by different mechanics:
+
+- `apartments.is_locked` (0/1) — read by **sleep eligibility** and the **room-description text**.
+- `doors.lock_state` (`'locked'`/`'unlocked'`/`null`) — read by **physical passage** ([movement.js](../server/engine/commands/movement.js) and AI movement) and the **door commands**.
+
+The sync is **bidirectional**, so the two never drift regardless of which command was used:
+
+- The apartment command (`apartments.js` `cmdLockDoor`) treats `is_locked` as the write target and mirrors it into every lock-tagged door touching the zone.
+- The door-lock-tag command (`doors.js`, via `updateDoor` → `syncApartmentLock`) writes `lock_state` and mirrors it back into the apartment's `is_locked`.
+
+`forcefield_locked` on a door is a separate, forcefield-owned flag layered on top (set/cleared by `activateForcefield`/`deactivateForcefield`). When changing either lock field, update through these command paths so the mirror runs — don't write one field raw.
+
+> **Known gap** (see the QA report): a successful `pick` returns `bypassed_zone` but **nothing consumes
+> it** and the door is never actually unlocked, so lock-picking has no functional effect yet. (Passage
+> itself *is* gated — `cmdMove` checks `door.lock_state` — so a locked lock-tagged apartment door does
+> block entry; an apartment with no physical door still only gates `sleep`.)
 
 `sleep` mechanics are covered in [systems-survival.md](systems-survival.md).

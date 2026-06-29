@@ -77,7 +77,6 @@ export const hooks = {
       const wettable = rows.filter(r => hasTag(r, 'gets_wet'));
       if (!wettable.length) {
         player.wetness = 0;
-        player._prevWetness = 0;
         continue;
       }
 
@@ -118,8 +117,6 @@ export const hooks = {
         }
         if (prevWetness > 0 && newWetness === 0) messages.push(DRY_MSG);
       }
-
-      player._prevWetness = newWetness;
 
       const wetnessChanged = Math.round(newWetness) !== Math.round(prevWetness);
       if ((messages.length || wetnessChanged) && broadcast) {

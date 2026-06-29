@@ -111,8 +111,7 @@ The server **does not** touch the schema or world content on boot. The two are m
 │   ├── food/                 # EAT specialized action for consumable-tagged items
 │   ├── drugs/                # USE/INJECT specialized actions for drug-tagged items
 │   ├── lighting/             # SWITCH/FLIP/TURN specialized actions for light fixtures
-│   ├── clothing-wetness/     # Per-item wetness from rain/snow + temperature effects
-│   └── visibility/           # (stub — registered but currently empty; was zone.describeRoom hook)
+│   └── clothing-wetness/     # Per-item wetness from rain/snow + temperature effects
 └── render.yaml                # Render free-plan service config
 ```
 
@@ -332,8 +331,7 @@ The loader itself (`plugins.js`) is a file-drop manifest + `index.js` exporting 
   ├── food/               # EAT specialized action gated on consumable tag
   ├── drugs/              # USE/INJECT specialized actions gated on drug tag
   ├── lighting/           # SWITCH/FLIP/TURN specialized actions for light fixtures
-  ├── clothing-wetness/   # Per-item wetness from rain/snow + body temperature effects
-  └── visibility/         # (stub — registered, currently empty; intended zone.describeRoom hook)
+  └── clothing-wetness/   # Per-item wetness from rain/snow + body temperature effects
 ```
 
 ```javascript

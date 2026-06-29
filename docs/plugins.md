@@ -41,10 +41,9 @@ To list what's actually registered at runtime: `getRegisteredCommands()` in `plu
 | **lighting** | SWITCH/FLIP/TURN on switchable lights | — | specialized actions (tag-gated) |
 | **weapon** | ATTACK (player path) | — | specialized action (tag-gated) |
 | **clothing-wetness** | Per-item wetness from rain/snow, body-temp effect | — | tick + hook |
-| **visibility** | Ambient light/visibility text in room descriptions | — | hook `zone.describeRoom` |
 | **weather** | Seeded 7-day forecast; owns `weather_forecast` table | — | tick |
 | **zone-validator** | Zone exit-connectivity integrity checks | — | startup/validation |
-| **atm** | ATM terminals — power-aware, faction-networked, hackable, finite cash stock | `atm deposit withdraw jack` | USE specialized action (tag `atm`); replenish tick every 5 min |
+| **atm** | ATM terminals — power-aware, faction-networked, hackable, finite cash stock | `atm deposit withdraw jack` | USE specialized action (tag `atm`); replenish tick every 5 min. Owns `deposit`/`withdraw` outright — the matching engine `economy.js` handlers were removed |
 | **broadcast** | Media framework — scripted channels, dynamic news, VINE graph scripts, camera feeds, NPC hosts | `tune watch listen` | USE specialized action (tag `broadcast_receiver`); broadcast tick every 5 s; event consumers (`player.death`, `flag.set`, `npc.broadcast_say`); exposes `hasChannelViewers` via broadcast-bridge for AI conditions |
 
 A plugin with no player verbs and no specialized actions integrates purely through **hooks**
