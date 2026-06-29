@@ -3,7 +3,7 @@
 Architect's media framework: scripted channels, live cameras, dynamic news, and VINE-authored broadcast graphs delivered in real-time to players in zones with tuned devices. Players who actively `watch tv` get the full TV panel experience; players in the same room passively hear occasional ambient noise.
 
 Primary server file: [`plugins/broadcast/index.js`](../plugins/broadcast/index.js).  
-Dev panel files: [`client/devpanel/js/panels/broadcast.js`](../client/devpanel/js/panels/broadcast.js), [`client/devpanel/js/panels/broadcast-channel.js`](../client/devpanel/js/panels/broadcast-channel.js), [`client/devpanel/js/panels/broadcast-schedule.js`](../client/devpanel/js/panels/broadcast-schedule.js).  
+Dev panel files: [`client/devpanel/js/panels/broadcast.js`](../client/devpanel/js/panels/broadcast.js), [`client/devpanel/js/panels/broadcast-channel.js`](../client/devpanel/js/panels/broadcast-channel.js), [`client/devpanel/js/panels/broadcast-schedule.js`](../client/devpanel/js/panels/broadcast-schedule.js), [`client/devpanel/js/panels/broadcast-themes.js`](../client/devpanel/js/panels/broadcast-themes.js), [`client/devpanel/js/panels/broadcast-graphics.js`](../client/devpanel/js/panels/broadcast-graphics.js).  
 VINE schema: [`client/devpanel/js/vine/vine-schema-broadcast.js`](../client/devpanel/js/vine/vine-schema-broadcast.js).  
 Game client: [`client/game/js/panels/tv.js`](../client/game/js/panels/tv.js).
 
@@ -19,7 +19,7 @@ Five tables in `server/models/schema.js`:
 | `media_channels` | Channel definitions — number, type, NPC studio zone, offline graphic |
 | `media_channel_playlist` | Daily schedule or loop playlist per channel |
 | `media_cameras` | Camera placements, recording buffers, streaming targets |
-| `media_graphics` | ASCII art / graphic assets referenced by channels and VINE nodes |
+| `media_graphics` | ASCII art and SVG graphic assets referenced by channels and VINE nodes |
 
 ### `media_broadcasts`
 
@@ -37,6 +37,7 @@ loop INTEGER              — 1 = repeat message list when exhausted
 enabled INTEGER
 broadcast_graph JSONB     — VINE graph; overrides flat message list when present
 fallback_messages JSONB   — ['[TECHNICAL DIFFICULTIES]…', …] — used when NPC host is absent
+channel_id TEXT FK        — channel this broadcast is assigned to (informational, not scheduling)
 ```
 
 ### `media_channels`
@@ -51,8 +52,9 @@ theme_id TEXT FK          — references media_themes (optional)
 idle_broadcast_id TEXT FK — plays when nothing covers the current time
 news_categories JSONB     — ['murder','martial_law',…] — news event filter
 loop_playlist INTEGER     — 1 = playlist loops continuously
-studio_zone_id TEXT       — zone where NPC hosts work; used for presence checks
-offline_graphic_id TEXT   — media_graphics id shown when channel is off-air
+studio_zone_id TEXT FK    — zone where NPC hosts work; used for presence checks
+offline_graphic_id TEXT FK — media_graphics id shown when channel is off-air
+zone_id TEXT FK           — physical location of the channel's transmitter/studio
 ```
 
 ### `media_channel_playlist`
@@ -82,8 +84,13 @@ storage_limit INTEGER     — default 200
 ```
 id TEXT PK
 name TEXT
-content TEXT              — raw ASCII art or text content
+description TEXT
+type TEXT                 — 'ascii' | 'svg'
+content TEXT              — raw ASCII art string, or a complete <svg>…</svg> document
+tags JSONB                — []
 ```
+
+The `type` field controls how the content is rendered. `ascii` content is displayed as a `<pre>` element. `svg` content is injected as live SVG markup, centred and scaled to fit the panel.
 
 ---
 
@@ -110,7 +117,7 @@ content TEXT              — raw ASCII art or text content
 
 2. **`loadZoneTunings()`** — reads all furniture with `broadcast_receiver` flag, builds `zoneTunings: Map<zoneId, Map<channelId, deviceType>>` and `furnitureChannelIndex: Map<furnitureId, { zoneId, channelId, deviceType }>`.
 
-3. **`loadGraphicsCache()`** — loads all `media_graphics` rows into `graphicsCache: Map<id, row>` for zero-latency off-air graphic resolution.
+3. **`loadGraphicsCache()`** — loads all `media_graphics` rows (`id`, `name`, `type`, `content`) into `graphicsCache: Map<id, row>` for zero-latency off-air graphic resolution.
 
 4. **`startBroadcastTick()`** — `setInterval(broadcastTick, 5000)`.
 
@@ -121,7 +128,7 @@ Every 5 seconds:
 1. Iterates `zoneTunings`.
 2. Skips zones with no players.
 3. For each tuned channel, calls `getCurrentMessage(channelId, nowMs)`.
-4. If no result (or duplicate key): checks `state.wasActive`. If it was active last tick, fires a one-time `off_air` signal to all watching players (includes offline graphic content if set), then sets `state.wasActive = false`. Continues to next channel.
+4. If no result (or duplicate key): checks `state.wasActive`. If it was active last tick, fires a one-time `off_air` signal to all watching players (includes offline graphic content and type if set), then sets `state.wasActive = false`. Continues to next channel.
 5. If a result arrived: formats via `formatMessage(text, deviceType, zone)`, sends `{ type: 'broadcast', message, channel, style }` to all players in the zone. Sets `state.wasActive = true`.
 
 ### `getCurrentMessage()`
@@ -140,8 +147,6 @@ Computes how many seconds a broadcast asset occupies in the schedule:
 1. `override_duration` wins if set.
 2. If `broadcast_graph` is present, walks the graph via `_vineDuration()`: `say`/`ticker` nodes each add one `message_interval`; `wait` nodes add `data.seconds`. If this is > 0, it wins.
 3. Fallback: `messages.length × message_interval`.
-
-This means VINE-authored broadcasts occupy the correct schedule window even when `wait` nodes add pauses.
 
 ### `formatMessage()`
 
@@ -175,11 +180,11 @@ techDiffMode = false
 
 ### NPC presence → camera-idle → tech-diff state machine
 
-**Phase 1 — Normal**: the walker follows the graph normally. When it hits an `npc_anchor` node, it checks whether that NPC is physically present in `state.studioZoneId` (`world.zones.get(studioZoneId)?.npcs.has(npcId)`). If absent and `studioZoneId` is configured, it sets `bb.hostAbsent = true` and `bb.absentDetectedAt = nowMs`.
+**Phase 1 — Normal**: the walker follows the graph normally. When it hits an `npc_anchor` node, it checks whether that NPC is physically present in `state.studioZoneId`. If absent and `studioZoneId` is configured, it sets `bb.hostAbsent = true` and `bb.absentDetectedAt = nowMs`.
 
-**Phase 2 — Camera-idle (0–60 seconds)**: once `hostAbsent` is true, `say` and `ticker` nodes are silently skipped (NPC voice suppressed). Instead, each tick returns a live camera snapshot of the empty studio zone as `[CAM: studio] <room description>`. This phase lasts 60 seconds.
+**Phase 2 — Camera-idle (0–60 seconds)**: once `hostAbsent` is true, `say` and `ticker` nodes are silently skipped. Instead, each tick returns a live camera snapshot of the empty studio zone as `[CAM: studio] <room description>`. This phase lasts 60 seconds.
 
-**Phase 3 — Technical difficulties (60 s onward)**: after 60 seconds, `bb.techDiffMode = true`. The walker short-circuits each tick to return a rotating line from `state.currentFallbackMessages`. Default fallback: `'[TECHNICAL DIFFICULTIES] Please stand by.'`. The show continues outputting until the schedule slot expires and the blackboard resets for the next program.
+**Phase 3 — Technical difficulties (60 s onward)**: after 60 seconds, `bb.techDiffMode = true`. The walker short-circuits each tick to return a rotating line from `state.currentFallbackMessages`. Default fallback: `'[TECHNICAL DIFFICULTIES] Please stand by.'`.
 
 ### Node types
 
@@ -196,7 +201,7 @@ techDiffMode = false
 | `loop` | Jump to connected target or back to `_start`. |
 | `random` | Pick a branch weighted by `branch.weight`. |
 | `set_flag` | Call `setFlag(flag, value)`. Advance immediately. |
-| `title_card` | Return graphic content from `graphicsCache` by `graphic_id`. |
+| `title_card` | Fetch graphic from `graphicsCache` by `graphic_id`. Return `{ text: content, style: 'svg' \| 'ascii_art' }` based on `graphic.type`. |
 | `overlay` | Push `{ type: 'tv_overlay', overlay: { overlayType, text, subtext, duration } }` to watching players. |
 
 Guards against cycles: max 50 hops per tick before early exit.
@@ -228,7 +233,7 @@ Action node → type: BROADCAST_SAY
   text: 'Good evening. Tonight's top story…'
 ```
 
-The AI engine emits `npc.broadcast_say` → broadcast plugin queues the text on that channel. The NPC does not need to be in the studio zone for this path — it is a fire-and-forget voice insert, separate from the scripted VINE broadcast graph.
+The AI engine emits `npc.broadcast_say` → broadcast plugin queues the text on that channel. The NPC does not need to be in the studio zone for this path.
 
 ### `CHANNEL_HAS_VIEWERS` condition
 
@@ -237,18 +242,16 @@ Condition node → type: CHANNEL_HAS_VIEWERS
   channel_id: 'ch_ksab_tv'
 ```
 
-Returns true if any player is currently watching that channel. Implemented via `broadcast-bridge.js` to avoid circular imports between the AI engine and the broadcast plugin.
+Returns true if any player is currently watching that channel. Implemented via `broadcast-bridge.js` to avoid circular imports.
 
 ### `broadcast-bridge.js`
 
-A thin registry (`server/engine/broadcast-bridge.js`) that breaks the circular import:
+`server/engine/broadcast-bridge.js` breaks the circular import:
 
 ```js
 registerViewerChecker(fn)    // called by broadcast plugin at startup
 hasChannelViewers(channelId) // called by ai-behaviour evalCondition
 ```
-
-The broadcast plugin registers a closure over `zoneTunings`. The AI engine calls `hasChannelViewers` synchronously per evaluation.
 
 ---
 
@@ -259,8 +262,6 @@ The broadcast plugin registers a closure over `zoneTunings`. The AI engine calls
 | `broadcast_receiver` | flag | Item can be tuned to a channel |
 | `broadcast_device_type` | enum: `tv\|radio\|security_monitor\|portable_monitor\|camera` | Controls `formatMessage()` output |
 | `tv` | flag | Item is openable as a TV panel via `watch tv` / `tv` command |
-
-The `tune <n>` command sets `furniture.flags.tuned_channel`. `loadZoneTunings()` builds the in-memory map at startup; the `tune` command updates it live without a DB reload.
 
 ---
 
@@ -278,7 +279,7 @@ The `tune <n>` command sets `furniture.flags.tuned_channel`. `loadZoneTunings()`
 
 ### Passive viewers (not watching)
 
-Players in the same room as a tuned TV who have not opened the TV panel hear only occasional ambient noise. Every 8th broadcast tick that would have reached them:
+Every 8th broadcast tick that would have reached them:
 
 ```
 [TV] static voices from the television...
@@ -288,7 +289,7 @@ No broadcast content is ever shown in the main chat stream.
 
 ### Active viewers (TV panel open)
 
-All broadcast messages for the active channel are routed to the TV panel. Messages with `style: 'ticker'` go to the ticker strip. All others append to the scrollable content area.
+All broadcast messages for the active channel are routed to the TV panel. `style: 'ticker'` goes to the ticker strip. `style: 'svg'` is injected as live SVG markup. All others append as text.
 
 `dispatch.js` handler:
 
@@ -296,7 +297,7 @@ All broadcast messages for the active channel are routed to the TV panel. Messag
 broadcast: (msg) => {
   if (msg.style === 'off_air') {
     if (isTvOpen() && getTvActiveChannelId() === msg.channel)
-      showTvOffAir(msg.offlineGraphicContent || null);
+      showTvOffAir(msg.offlineGraphicContent || null, msg.offlineGraphicType || 'ascii');
     return;
   }
   if (isTvOpen() && getTvActiveChannelId() === msg.channel) {
@@ -307,8 +308,6 @@ broadcast: (msg) => {
       appendMsg('[TV] static voices from the television...', 'broadcast-ambient');
   }
 },
-tv_panel: (msg) => { openTvPanel(msg); },
-tv_off:   ()    => { if (isTvOpen()) shutdownTvPanel(); },
 ```
 
 ---
@@ -332,10 +331,16 @@ tv_off:   ()    => { if (isTvOpen()) shutdownTvPanel(); },
 ╚═══════════════════════════════════════════════════════╝
 ```
 
-- **Header**: station name, channel number, program name, LIVE badge (pulses red while receiving).
-- **Content**: broadcast messages append here. Scrollback is preserved. Scrolling up pauses auto-scroll; returning to the bottom restores LIVE mode — the badge dims when scrolled.
-- **Ticker strip**: `style: 'ticker'` messages feed a horizontally scrolling ticker. Multiple ticker messages within the same animation are concatenated with `●` separators. The text enters fully off-screen right (`translateX(trackWidth)`) and exits fully off the left edge (`translateX(-textWidth)`), measured at runtime via `scrollWidth`/`offsetWidth` for accuracy. Speed is constant 80 px/s.
-- **Footer**: channel knob + frequency tuner.
+### Message rendering (`appendTvMessage(text, style)`)
+
+| Style | Render method |
+|---|---|
+| `raw` | `div.textContent = text` |
+| `ticker` | Routed to the ticker strip, not the content area |
+| `ascii_art` | `pre.textContent = text` — monospace, pre-wrapped, coloured by `--tv-header-color` |
+| `svg` | `div.innerHTML = text` — SVG injected as live markup, `max-width:100%; height:auto` |
+
+SVG graphics are centred and scale to fit the panel width. Because graphics are dev-authored (not player input), innerHTML injection is safe.
 
 ### Themes
 
@@ -354,105 +359,137 @@ Built-in theme presets (applied via `data-theme` attribute): `corporate`, `crt`,
 
 ### Frequency Tuner
 
-The TV footer contains a frequency dial:
-
-- **`#tv-freq-display`**: shows current frequency as a decimal (e.g. `7.0`).
+- **`#tv-freq-display`**: current frequency as a decimal (e.g. `7.0`).
 - **`#tv-tuner-slider`**: range input from 0 to `(highest channel number + 2)`. Dragging calls `tvTunerInput(val)`.
-- **`tvTunerInput(val)`**: updates `_tvFrequency`, finds the nearest channel, sets the static overlay opacity proportional to distance from that channel (`opacity = min(1, dist / LOCK_RANGE)`). When within `LOCK_RANGE = 0.25` of a channel number and not already on that channel, calls `_tvTuneTo(n)` — sends `tune n` to the server and plays the tune animation.
-- **Knob click**: cycles to the next channel in `_tvChannelList` (sorted by channel number), wrapping around.
-
-Channel list is sent by the server in every `tv_panel` message and used to populate the tuner's range and lock targets.
+- **Knob click**: cycles to the next channel in `_tvChannelList`, wrapping around.
+- Lock range `LOCK_RANGE = 0.25`: within this many channel-numbers of a real channel, the tuner locks and calls `_tvTuneTo(n)`.
 
 ### Off-Air State
 
-When a channel transitions from active to silent, the server sends:
-
-```js
-{ type: 'broadcast', channel, style: 'off_air', offlineGraphicContent: '...' | null }
-```
-
-`showTvOffAir(offlineGraphicContent)`:
-
-- If `offlineGraphicContent` is set: shows it in the content area as `ascii_art`.
-- Otherwise: hides content, shows the `#tv-static` element with `tv-static-loop` (CSS flicker animation).
-
-The server also fires the off-air signal immediately in `buildTvPanel()` when a player opens or re-tunes to a channel that is currently off-air, so they never see a blank panel.
-
-### Tune-In Animation
-
-When a channel switch occurs (`openTvPanel` or `_tvTuneTo`):
-
-1. Content hidden; static overlay shown at full opacity.
-2. Knob SVG rotates 360° over ~1.1 s (`tv-knob-spinning`).
-3. After 1.1 s: static fades out via `tv-static-out` keyframe; content reveals.
-
-### CRT Shutoff Animation (`shutdownTvPanel()`)
-
-Triggered by: close button, ESC, clicking the backdrop, or the server's `tv_off` message (fired by `tune 0`).
-
-The `#tv-window` receives class `tv-shutting-off`:
-
-```
-0%:   full size, normal brightness
-10%:  scaleY(0.012) — image snaps to thin horizontal line with 4× brightness flash
-28%:  line starts contracting horizontally, brightness dropping
-100%: scaleY(0.012) scaleX(0), brightness(0) — line vanishes
-```
-
-Total duration: 0.55 s. On `animationend`, `closeTvPanel()` is called to actually remove the panel from the DOM.
-
-`closeTvPanel()` (instant, used for programmatic channel switches) bypasses the animation.
-
-### `tv_panel` message
-
-Sent by the server whenever the player opens a TV or successfully tunes to a new channel:
+When a channel goes silent the server sends:
 
 ```js
 {
-  type: 'tv_panel',
-  channelId, channelName, stationName,
-  channelNumber,
-  channelType,
-  theme,        // theme row or null
-  channelList,  // [{ number, name, channelId }] sorted by number — populates tuner
+  type: 'broadcast', channel, style: 'off_air',
+  offlineGraphicContent: '...' | null,
+  offlineGraphicType: 'ascii' | 'svg'
 }
 ```
 
-`openTvPanel(data)` resets all panel state (history, ticker, static) and plays the tune-in animation.
+`showTvOffAir(content, type)`:
+- If `content` is set: calls `appendTvMessage(content, type === 'svg' ? 'svg' : 'ascii_art')`.
+- Otherwise: hides content, shows `#tv-static` with CSS flicker loop.
+
+The off-air signal fires immediately in `buildTvPanel()` when a player opens or re-tunes to a currently-silent channel.
+
+### Tune-In Animation
+
+1. Content hidden; static overlay shown at full opacity.
+2. Knob SVG rotates 360° over ~1.1 s (`tv-knob-spinning`).
+3. After 1.1 s: static fades out; content reveals.
+
+### CRT Shutoff Animation (`shutdownTvPanel()`)
+
+Triggered by: close button, ESC, backdrop click, or server `tv_off` (from `tune 0`).
+
+```
+0%:   full size, normal brightness
+10%:  scaleY(0.012) — snap to thin horizontal line, 4× brightness flash
+28%:  line contracts horizontally, brightness drops
+100%: scaleY(0.012) scaleX(0), brightness(0) — vanishes
+```
+
+Duration: 0.55 s. `closeTvPanel()` (programmatic, instant) bypasses the animation.
 
 ---
 
 ## Dev Panel
 
-### Broadcasts Panel (`panels/broadcast.js`)
+All broadcast tools live under a single **📺 Broadcasts** nav item. The panel renders a tab bar with five sub-tabs. Opening the Broadcasts panel fetches all required data in parallel: broadcasts, channels, NPCs, themes, graphics, zones.
 
-Split-pane layout: sidebar list (left) + storyboard canvas editor (right).
+### Sub-tabs
 
-**Sidebar**: all broadcasts with category colour dot, channel number badge, computed duration. "+ New" creates a blank broadcast. "↑ Import .bsm" runs the BSM dependency resolver.
+| Tab | File | Purpose |
+|---|---|---|
+| 📺 Broadcasts | `broadcast.js` | Storyboard canvas editor for individual broadcast assets |
+| 📡 Channels | `broadcast-channel.js` | Channel metadata, playlists, camera manager |
+| 📅 Schedule | `broadcast-schedule.js` | 24-hour timeline drag-and-drop scheduler |
+| 🎨 Themes | `broadcast-themes.js` | CSS variable theme editor for the TV panel |
+| 🖼 Graphics | `broadcast-graphics.js` | ASCII art and SVG graphic asset library |
 
-**Canvas editor**: card-based VINE graph editor. Each node in the broadcast graph is a card that can be expanded inline to edit fields. Card types: `start`, `say`, `ticker`, `wait`, `npc_anchor`, `camera_cut`, `overlay`, `title_card`. Drag handles reorder cards; the graph's `next` chain is rebuilt on save. Branch nodes (condition/random/loop) are shown as read-only badges with "Edit in VINE ⬡".
+Navigating between tabs preserves the loaded data (`_bcSuiteData`). Mutations (save/delete) in any sub-tab call `bcSuiteRefresh(tabName)` to re-fetch all data and re-render the suite on the correct tab.
+
+### Broadcasts Tab (`broadcast.js`)
+
+Split-pane: sidebar list + storyboard canvas editor.
+
+**Sidebar**: all broadcasts with category colour dot and channel badge. "+ New" creates a blank broadcast. "↑ BSM" runs the BSM import flow.
+
+**Canvas editor card types** and their inline field editors:
+
+| Card type | Fields |
+|---|---|
+| `say` | Text (textarea), Style (raw / emote / narrate / system) |
+| `ticker` | Ticker text (textarea) |
+| `wait` | Duration (seconds) |
+| `npc_anchor` | NPC ID (text) |
+| `camera_cut` | Zone (dropdown from all zones), Label |
+| `overlay` | Graphic (dropdown from `media_graphics`), Overlay text |
+| `title_card` | Graphic (dropdown from `media_graphics`) |
+
+`camera_cut`, `overlay`, and `title_card` card fields use populated dropdowns (zones and graphics are pre-fetched with the suite data) rather than plain text ID inputs.
 
 **⬡ VINE button**: opens the full VINE graph modal. On save, the canvas syncs via `_bcBuildCards()`.
 
-**Fallback Messages textarea**: one line per message. Saved as `fallback_messages` JSONB. Used when an NPC host is absent (tech-diff mode).
+### BSM Import Flow
 
-**Duration readout**: computed client-side via `_bcVineDuration()` — the same node-walk logic as the server — displayed next to the message interval field.
+The BSM (Broadcast Script Markup) importer runs a three-step modal flow:
 
-### Channels Panel (`panels/broadcast-channel.js`)
+**Step 1 — Channel selection** (`_bcShowImportChannelModal`):  
+Before any dependency checks, the user assigns the broadcast to a channel. Options:
+- Pick an existing channel from a dropdown.
+- Select "no channel" (imports unassigned).
+- Select "+ Create new channel…" — expands an inline form with name, number, and a **Pick zone on map** button. Clicking the map button opens the same world-grid zone picker used in the dependency resolver. The chosen cell creates a new zone (`zone_ch_<n>_<ts>`) with the label `<channel name> Studio`, which becomes the new channel's `zone_id`. The channel is created with `channel_type: 'playlist'` before proceeding.
 
-Per-channel settings: name, number, type, station name, theme, idle broadcast, news categories, loop toggle, enabled toggle, **Studio Zone ID**, **Offline Graphic ID**.
+**Step 2 — Dependency resolver** (`_bcImportDependencies`):  
+Checks the script's referenced NPCs and broadcast room zone IDs against the DB. Missing entities are listed in a modal with Create / Place on Map actions per item. The Finish Import button enables only when all dependencies are resolved.
 
-- **Studio Zone ID**: zone where NPC hosts work. If the NPC anchor is absent from this zone at broadcast time, the presence state machine activates.
-- **Offline Graphic ID**: `media_graphics` row ID. Content is shown in the TV panel when the channel is off-air instead of the default static animation.
+**Step 3 — Import save** (`_bcImportSave`):  
+Uploads any graphic assets embedded in the BSM file, then creates or overwrites the broadcast. The channel selected in Step 1 takes precedence over any `@channel` directive in the BSM file.
 
-### Schedule Panel (`panels/broadcast-schedule.js`)
+### Channels Tab (`broadcast-channel.js`)
 
-Sidebar channel list (left) + per-channel 24 h timeline (right).
+Per-channel settings: name, number, type, station name, theme, idle broadcast, news categories, loop toggle, enabled toggle.
 
-- Clicking a channel in the sidebar loads its daily schedule on the timeline.
-- Broadcast assets live in a library drawer below the timeline and can be dragged onto the timeline to create playlist slots.
-- Slots are resizable (right edge drag) and repositionable (body drag), snapping to 30-second intervals.
-- Inline channel rename/renumber in the timeline header (saved on blur via `PUT /broadcast/channels/:id`).
+- **Studio Zone**: dropdown of all zones (the zone where NPC hosts work).
+- **Offline Graphic**: dropdown of all `media_graphics` entries (the graphic shown when the channel is off-air).
+
+The channel editor also fetches graphics and zones fresh on open, so newly created zones appear immediately.
+
+Below the channel list, the **Cameras** section manages `media_cameras` entries. The camera editor's Zone dropdown is fetched fresh on open.
+
+### Schedule Tab (`broadcast-schedule.js`)
+
+Sidebar channel list (left) + per-channel 24 h timeline (right). Broadcast assets live in a library drawer below the timeline and can be dragged onto the timeline to create playlist slots. Slots are resizable (right edge drag) and repositionable (body drag), snapping to 30-second intervals.
+
+### Graphics Tab (`broadcast-graphics.js`)
+
+The graphic editor modal opens with three tabs:
+
+**🎨 ASCII Canvas** — cell-grid painter. Click to paint characters from the palette, use arrow keys to move the cursor, type any character to paint it. Supports resize. Syncs bidirectionally with the Text tab.
+
+**✏ Text** — raw textarea. Paste ASCII art or hand-write SVG. Live preview below. Syncs to canvas on tab switch. If the content starts with `<svg`, saving auto-sets `type: 'svg'`.
+
+**◈ Vector** — live SVG canvas editor (modal widens to 960 px):
+
+- **Tools**: Select (↖), Rect (▬), Circle (●), Line (╱), Text (T)
+- **Creating**: drag on the canvas to draw rects, circles, lines; click to place text (prompts for content)
+- **Selecting**: click a shape with the Select tool; drag to move; 8 resize handles on rects/circles; 2 endpoint handles on lines
+- **Properties panel** (right sidebar): fill + stroke colour pickers with hex fallback, stroke width, opacity; type-specific fields (text content, font size/weight/family; rect corner radius)
+- **Shape list**: shows all shapes top-to-bottom, click to select, ↑↓ to reorder z-order, ✕ to delete
+- **Canvas controls**: width, height (default 640×360), background colour
+- **Saving**: serialises shapes to a clean `<svg xmlns=…>` string, sets `type: 'svg'` automatically
+- **Loading**: parses editor-generated SVG back into the shape list when reopening. Hand-edited SVG can be loaded via the Text tab and then switched to Vector for further editing.
 
 ### API Routes
 
@@ -460,24 +497,36 @@ All broadcast routes use `directAPI`:
 
 | Method | Path | Action |
 |---|---|---|
-| GET | `/broadcast/broadcasts` | List all broadcasts (includes `broadcast_graph`, `fallback_messages`) |
+| GET | `/broadcast/broadcasts` | List all broadcasts |
 | POST | `/broadcast/broadcasts` | Create broadcast |
 | PUT | `/broadcast/broadcasts/:id` | Update broadcast |
 | DELETE | `/broadcast/broadcasts/:id` | Delete broadcast |
 | GET | `/broadcast/channels` | List channels with playlist |
 | POST | `/broadcast/channels` | Create channel |
-| PUT | `/broadcast/channels/:id` | Update channel (includes `studio_zone_id`, `offline_graphic_id`) |
-| PUT | `/broadcast/channels/:id/playlist` | Replace entire playlist (DELETE + INSERT) |
+| PUT | `/broadcast/channels/:id` | Update channel |
+| PUT | `/broadcast/channels/:id/playlist` | Replace entire playlist |
 | GET | `/broadcast/cameras` | List cameras |
+| POST | `/broadcast/cameras` | Create camera |
+| PUT | `/broadcast/cameras/:id` | Update camera |
+| DELETE | `/broadcast/cameras/:id` | Delete camera |
 | GET | `/broadcast/graphics` | List graphics |
+| POST | `/broadcast/graphics` | Create graphic |
+| PUT | `/broadcast/graphics/:id` | Update graphic |
+| DELETE | `/broadcast/graphics/:id` | Delete graphic |
+| GET | `/broadcast/themes` | List themes |
+| POST | `/broadcast/themes` | Create theme |
+| PUT | `/broadcast/themes/:id` | Update theme |
+| DELETE | `/broadcast/themes/:id` | Delete theme |
 
 ---
 
 ## Operational Notes
 
 - **Tick cadence**: 5 seconds, separate `setInterval` in the plugin (not the world scheduler).
-- **In-memory only**: `channelRuntime`, `zoneTunings`, `newsQueue`, `graphicsCache` — all rebuilt on server restart from DB. News queue starts empty on restart; news events re-populate it as they occur in-world.
-- **VINE vs flat list**: runtime prefers `broadcastGraph` when present on a playlist item. Both are saved independently; updating one does not affect the other.
-- **Off-air signal fires once per transition**: `state.wasActive` tracks whether the channel was active last tick. The off-air signal fires exactly once when a channel goes silent. It fires again immediately via `buildTvPanel()` when a player opens a TV that is currently off-air.
-- **NPC presence requires `studio_zone_id`**: if `studioZoneId` is not set on the channel runtime, presence checks are skipped — the broadcast runs regardless of where the NPC is. This is the safe default for channels without a physical studio.
-- **Blackboard lifetime**: one blackboard per channel, persists across ticks, resets when the active `broadcast_id` changes (next schedule slot). This means the tech-diff state machine clears automatically when the show's time slot ends.
+- **In-memory only**: `channelRuntime`, `zoneTunings`, `newsQueue`, `graphicsCache` — all rebuilt on server restart from DB. News queue starts empty on restart.
+- **Graphics cache**: holds `id`, `name`, `type`, `content`. `type` is used by `title_card` and `off_air` to set the correct wire style (`'svg'` vs `'ascii_art'`), which the client uses to pick `innerHTML` vs `textContent` rendering.
+- **VINE vs flat list**: runtime prefers `broadcastGraph` when present. Both are saved independently.
+- **Off-air signal fires once per transition**: `state.wasActive` tracks channel activity. The signal fires exactly once when a channel goes silent, and again immediately via `buildTvPanel()` when a player opens a currently-silent TV.
+- **NPC presence requires `studio_zone_id`**: if not set, presence checks are skipped — the broadcast runs regardless of NPC location.
+- **Blackboard lifetime**: one per channel, persists across ticks, resets when the active `broadcast_id` changes.
+- **SVG graphics**: displayed as inline SVG in the TV panel. Content is dev-authored, making `innerHTML` injection safe. The `max-width:100%; height:auto` rule on the injected `<svg>` ensures it scales to the panel width. The recommended canvas size for title sequences is 640×360.
