@@ -193,6 +193,7 @@ async function cmdWithdraw(args, raw, player) {
 const jackLockout = new Map();
 
 async function cmdJack(args, raw, player) {
+  return { type: 'error', message: "Terminal jacking is currently offline." };
   const atm = await findAtmInZone(player.current_zone);
   if (!atm) return { type: 'error', message: "Nothing worth jacking here." };
   if (atm.is_broken) return { type: 'error', message: 'This terminal is already dead.' };

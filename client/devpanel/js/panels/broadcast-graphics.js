@@ -433,7 +433,7 @@ async function saveGraphic() {
     }
     closeModal();
     toast('Graphic saved.');
-    await showPanel('graphics');
+    await bcSuiteRefresh('graphics');
   } catch (e) {
     toast(`Save failed: ${e.message}`, true);
   }
@@ -444,7 +444,7 @@ async function deleteGraphic(id, name) {
   try {
     await directAPI(`/broadcast/graphics/${id}`, 'DELETE');
     toast('Graphic deleted.');
-    await showPanel('graphics');
+    await bcSuiteRefresh('graphics');
   } catch (e) {
     toast(`Delete failed: ${e.message}`, true);
   }

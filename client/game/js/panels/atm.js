@@ -70,7 +70,7 @@ function renderAtmPanel(data) {
   const disabled = isBroken || !powered;
   document.getElementById('atm-deposit-btn').disabled = disabled;
   document.getElementById('atm-withdraw-btn').disabled = disabled;
-  document.getElementById('atm-jack-btn').disabled = isBroken || !powered || cashStock <= 0;
+  document.getElementById('atm-jack-btn').disabled = true;
 }
 
 export function initAtmPanel() {

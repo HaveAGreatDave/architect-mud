@@ -1,5 +1,84 @@
-// broadcast.js — split-panel broadcast editor with storyboard canvas.
+// broadcast.js — unified broadcast suite (tab switcher + storyboard editor).
 // All functions land in global scope.
+
+// ── Broadcast Suite (tab container) ──────────────────────────────────────────
+
+let _bcSuiteTab  = 'broadcasts'; // active sub-tab
+let _bcSuiteData = {};           // full fetched data cache
+
+const BC_SUITE_TABS = [
+  { id: 'broadcasts', label: '📺 Broadcasts' },
+  { id: 'channels',   label: '📡 Channels'   },
+  { id: 'schedule',   label: '📅 Schedule'   },
+  { id: 'themes',     label: '🎨 Themes'     },
+  { id: 'graphics',   label: '🖼 Graphics'   },
+];
+
+function renderBroadcastSuite(data) {
+  _bcSuiteData = data || {};
+  // Render the tab bar + content area into list-panel
+  const panel = document.getElementById('list-panel');
+  panel.innerHTML = `
+    <div style="display:flex;flex-direction:column;height:100%;overflow:hidden">
+      <div id="bc-suite-tabs" style="display:flex;gap:0;border-bottom:2px solid var(--border);flex-shrink:0;background:var(--bg2)">
+        ${BC_SUITE_TABS.map(t => `
+          <div onclick="bcSuiteSelectTab('${t.id}')"
+            id="bc-suite-tab-${t.id}"
+            style="padding:8px 16px;font-size:11px;letter-spacing:0.5px;cursor:pointer;border-bottom:2px solid ${_bcSuiteTab === t.id ? 'var(--accent)' : 'transparent'};
+                   color:${_bcSuiteTab === t.id ? 'var(--accent)' : 'var(--text-dim)'};
+                   margin-bottom:-2px;white-space:nowrap;transition:color 0.1s">
+            ${t.label}
+          </div>`).join('')}
+      </div>
+      <div id="bc-suite-content" style="flex:1;overflow:auto;min-height:0"></div>
+    </div>`;
+  _bcSuiteRender();
+}
+
+function bcSuiteSelectTab(tab) {
+  _bcSuiteTab = tab;
+  // Update tab highlights
+  BC_SUITE_TABS.forEach(t => {
+    const el = document.getElementById(`bc-suite-tab-${t.id}`);
+    if (!el) return;
+    const active = t.id === tab;
+    el.style.borderBottomColor = active ? 'var(--accent)' : 'transparent';
+    el.style.color = active ? 'var(--accent)' : 'var(--text-dim)';
+  });
+  _bcSuiteRender();
+}
+
+function _bcSuiteRender() {
+  // Temporarily redirect list-panel to our inner content div
+  const real = document.getElementById('list-panel');
+  const inner = document.getElementById('bc-suite-content');
+  if (!inner) return;
+
+  // Swap list-panel id so existing render functions write into the inner div
+  real.id  = '__bc_suite_outer';
+  inner.id = 'list-panel';
+
+  try {
+    switch (_bcSuiteTab) {
+      case 'broadcasts': renderBroadcastsPanel(_bcSuiteData); break;
+      case 'channels':   renderChannelsPanel(_bcSuiteData.channels || []); break;
+      case 'schedule':   renderSchedulePanel({ channels: _bcSuiteData.channels || [], broadcasts: _bcSuiteData.broadcasts || [], npcs: _bcSuiteData.npcs || [] }); break;
+      case 'themes':     renderThemesPanel(_bcSuiteData.themes || []); break;
+      case 'graphics':   renderGraphicsPanel(_bcSuiteData.graphics || []); break;
+    }
+  } finally {
+    // Restore ids
+    inner.id = 'bc-suite-content';
+    real.id  = 'list-panel';
+  }
+}
+
+// Called by sub-panels that need to refresh their data after mutations
+async function bcSuiteRefresh(focusTab) {
+  if (focusTab) _bcSuiteTab = focusTab;
+  const data = await PANELS.broadcasts.fetch();
+  renderBroadcastSuite(data);
+}
 
 const BROADCAST_CATEGORIES = ['general','news','advertisement','entertainment','emergency','weather','sport','music','documentary','surveillance'];
 const BROADCAST_MODES      = ['scripted','dynamic_news','live_camera','recorded'];
@@ -607,7 +686,7 @@ async function deleteBroadcast(id, name) {
     const res = await directAPI(`/broadcast/broadcasts/${id}`, 'DELETE');
     if (res?.error) { toast(res.error, true); return; }
     toast('Broadcast deleted.');
-    await showPanel('broadcasts');
+    await bcSuiteRefresh('broadcasts');
   } catch (err) { toast(err.message, true); }
 }
 
@@ -629,7 +708,7 @@ async function cloneBroadcast(rec) {
     const res = await directAPI('/broadcast/broadcasts', 'POST', body);
     if (res?.error) { toast(res.error, true); return; }
     toast('Broadcast cloned.');
-    await showPanel('broadcasts');
+    await bcSuiteRefresh('broadcasts');
   } catch (err) { toast(err.message, true); }
 }
 
@@ -841,7 +920,7 @@ async function _bcImportSave({ meta, broadcastGraph, messages, assets }) {
     if (res?.error) { toast(res.error, true); return; }
     const nodeCount = Object.keys(broadcastGraph.nodes).length;
     toast(`Imported "${meta.name}" — ${messages.length} messages, ${nodeCount} graph nodes${assets.length ? `, ${assets.length} asset(s)` : ''}.`);
-    await showPanel('broadcasts');
+    await bcSuiteRefresh('broadcasts');
   } catch (err) { toast(err.message, true); }
 }
 

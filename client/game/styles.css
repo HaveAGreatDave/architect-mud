@@ -1113,6 +1113,13 @@ body {
 	transition: filter 0.6s ease;
 }
 
+/* Keyboard-collapse transition for mobile */
+@media (max-width: 720px) {
+	#area-pane {
+		transition: filter 0.6s ease, max-height 0.2s ease;
+	}
+}
+
 /* ─── INPUT BAR ─── */
 #input-area {
 	border-top: 1px solid var(--border);
@@ -3090,6 +3097,12 @@ body {
 	display: flex;
 }
 
+@media (max-width: 720px) {
+	#mobile-hud {
+		display: flex;
+	}
+}
+
 #mobile-vitals {
 	display: flex;
 	flex-direction: column;
@@ -3138,6 +3151,62 @@ body {
 	line-height: 1;
 	pointer-events: none;
 	font-weight: bold;
+}
+
+/* ─── MOBILE DPAD ─── */
+#mob-dpad {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 1px;
+	flex-shrink: 0;
+}
+
+.dpad-row {
+	display: flex;
+	align-items: center;
+	gap: 1px;
+}
+
+.dpad-mid {
+	gap: 1px;
+}
+
+.dpad-center {
+	width: 28px;
+	height: 28px;
+}
+
+.dpad-btn {
+	width: 28px;
+	height: 28px;
+	background: var(--bg3);
+	border: 1px solid var(--border);
+	color: var(--text-dim);
+	font-family: var(--font-mono);
+	font-size: 11px;
+	font-weight: bold;
+	border-radius: 2px;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition: border-color 0.1s, color 0.1s, background 0.1s;
+	-webkit-tap-highlight-color: transparent;
+	user-select: none;
+}
+
+.dpad-btn:active {
+	background: var(--accent-dim);
+	border-color: var(--accent);
+	color: var(--accent);
+}
+
+.dpad-u,
+.dpad-d {
+	font-size: 13px;
+	color: var(--text-dim);
+	opacity: 0.6;
 }
 
 #mob-btn-stack {

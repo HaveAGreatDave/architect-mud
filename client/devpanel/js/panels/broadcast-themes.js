@@ -268,7 +268,7 @@ async function saveTheme() {
     }
     closeModal();
     toast('Theme saved.');
-    await showPanel('themes');
+    await bcSuiteRefresh('themes');
   } catch (e) {
     toast(`Save failed: ${e.message}`, true);
   }
@@ -279,7 +279,7 @@ async function deleteTheme(id, name) {
   try {
     await directAPI(`/broadcast/themes/${id}`, 'DELETE');
     toast('Theme deleted.');
-    await showPanel('themes');
+    await bcSuiteRefresh('themes');
   } catch (e) {
     toast(`Delete failed: ${e.message}`, true);
   }

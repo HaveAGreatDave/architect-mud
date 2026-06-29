@@ -292,6 +292,12 @@ if (mobileMapPanel) {
 // Mobile chat button
 document.getElementById('mobile-chat-btn')?.addEventListener('click', toggleWhisperPanel);
 
+// Mobile dpad — send movement commands without opening the keyboard
+document.getElementById('mob-dpad')?.addEventListener('click', (e) => {
+  const btn = e.target.closest('.dpad-btn');
+  if (btn?.dataset.cmd) sendCmd(btn.dataset.cmd);
+});
+
 // Mobile output scroll — touchstart/move on #output scrolls it, ignoring
 // touches that begin on the map tab button or the minimap panel.
 {

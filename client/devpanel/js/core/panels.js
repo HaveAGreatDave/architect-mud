@@ -199,49 +199,23 @@ const PANELS = {
   broadcasts: {
     title: 'Broadcasts',
     fetch: async () => {
-      const [broadcasts, channels] = await Promise.all([
+      const [broadcasts, channels, npcs, themes, graphics] = await Promise.all([
         directAPI('/broadcast/broadcasts'),
         directAPI('/broadcast/channels'),
-      ]);
-      return { broadcasts: Array.isArray(broadcasts) ? broadcasts : [], channels: Array.isArray(channels) ? channels : [] };
-    },
-    noEdit: true,
-    render: renderBroadcastsPanel,
-  },
-  channels: {
-    title: 'Channels',
-    fetch: () => directAPI('/broadcast/channels'),
-    noEdit: true,
-    render: renderChannelsPanel,
-  },
-  schedule: {
-    title: 'Schedule',
-    fetch: async () => {
-      const [chRes, bcRes, npcRes] = await Promise.all([
-        directAPI('/broadcast/channels'),
-        directAPI('/broadcast/broadcasts'),
         directAPI('/npcs'),
+        directAPI('/broadcast/themes'),
+        directAPI('/broadcast/graphics'),
       ]);
       return {
-        channels:   Array.isArray(chRes?.channels)   ? chRes.channels   : (Array.isArray(chRes)   ? chRes   : []),
-        broadcasts: Array.isArray(bcRes?.broadcasts) ? bcRes.broadcasts : (Array.isArray(bcRes)   ? bcRes   : []),
-        npcs:       Array.isArray(npcRes)            ? npcRes           : [],
+        broadcasts: Array.isArray(broadcasts) ? broadcasts : [],
+        channels:   Array.isArray(channels)   ? channels   : [],
+        npcs:       Array.isArray(npcs)        ? npcs       : [],
+        themes:     Array.isArray(themes)      ? themes     : [],
+        graphics:   Array.isArray(graphics)    ? graphics   : [],
       };
     },
     noEdit: true,
-    render: renderSchedulePanel,
-  },
-  themes: {
-    title: 'TV Themes',
-    fetch: () => directAPI('/broadcast/themes'),
-    noEdit: true,
-    render: renderThemesPanel,
-  },
-  graphics: {
-    title: 'Graphics Library',
-    fetch: () => directAPI('/broadcast/graphics'),
-    noEdit: true,
-    render: renderGraphicsPanel,
+    render: renderBroadcastSuite,
   },
   changes: {
     title: 'Changes',

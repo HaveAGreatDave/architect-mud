@@ -508,7 +508,7 @@ async function saveChannel() {
 
     closeModal();
     toast(isNew ? 'Channel created.' : 'Channel saved.');
-    await showPanel('channels');
+    await bcSuiteRefresh('channels');
   } catch (err) {
     toast(err.message, true);
   }
@@ -520,7 +520,7 @@ async function deleteChannel(id, name) {
     const res = await directAPI(`/broadcast/channels/${id}`, 'DELETE');
     if (res?.error) { toast(res.error, true); return; }
     toast('Channel deleted.');
-    await showPanel('channels');
+    await bcSuiteRefresh('channels');
   } catch (err) {
     toast(err.message, true);
   }
