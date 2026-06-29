@@ -149,6 +149,10 @@ export function closeTvPanel() {
   _clearOverlay();
   const win = document.getElementById('tv-window');
   win.classList.remove('tv-shutting-off');
+  win.style.position = '';
+  win.style.left = '';
+  win.style.top = '';
+  win.style.margin = '';
   document.getElementById('tv-static').classList.remove('tv-static-on', 'tv-static-fade', 'tv-static-loop');
   document.getElementById('tv-content').classList.remove('tv-hidden');
   document.getElementById('tv-panel').classList.remove('active');
@@ -349,12 +353,44 @@ function _startTickerAnimation() {
   }, { once: true });
 }
 
+const TUNE_RESISTANCE = 0.02;  // channel units per pixel dragged
+
 export function initTvPanel() {
   document.getElementById('tv-tuner-slider')?.addEventListener('input', (e) => tvTunerInput(e.target.value));
   document.getElementById('tv-close-btn').addEventListener('click', shutdownTvPanel);
 
-  document.getElementById('tv-knob').addEventListener('click', () => {
+  // Knob: click cycles channels; drag tunes with high resistance
+  const knob = document.getElementById('tv-knob');
+  let _knobDragging = false;
+  let _knobStartX = 0;
+  let _knobStartFreq = 0;
+  let _knobMoved = false;
+
+  knob.addEventListener('mousedown', (e) => {
     if (!_tvOpen) return;
+    _knobDragging = true;
+    _knobStartX = e.clientX;
+    _knobStartFreq = _tvFrequency;
+    _knobMoved = false;
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!_knobDragging) return;
+    const dx = e.clientX - _knobStartX;
+    if (Math.abs(dx) > 3) _knobMoved = true;
+    const rawFreq = _knobStartFreq + dx * TUNE_RESISTANCE;
+    const maxCh = _tvChannelList.length ? Math.max(..._tvChannelList.map(c => c.number)) + 2 : 99;
+    const clamped = Math.max(0, Math.min(maxCh, rawFreq));
+    tvTunerInput(clamped);
+    const slider = document.getElementById('tv-tuner-slider');
+    if (slider) slider.value = clamped;
+  });
+
+  document.addEventListener('mouseup', () => { _knobDragging = false; });
+
+  knob.addEventListener('click', () => {
+    if (!_tvOpen || _knobMoved) return;
     if (_tvChannelList.length) {
       const idx = _tvChannelList.findIndex(c => c.channelId === _tvActiveChannelId);
       const next = _tvChannelList[(idx + 1) % _tvChannelList.length];
@@ -371,9 +407,29 @@ export function initTvPanel() {
     if (!_tvPoweredOff) _playTuneAnimation();
   });
 
-  document.getElementById('tv-panel').addEventListener('click', e => {
-    if (e.target.id === 'tv-panel') shutdownTvPanel();
+  // Draggable TV window
+  const header = document.getElementById('tv-header');
+  const win = document.getElementById('tv-window');
+  let _dragWin = false;
+  let _dragWinX = 0, _dragWinY = 0;
+  let _winOffX = 0, _winOffY = 0;
+
+  header.addEventListener('mousedown', (e) => {
+    if (e.target.closest('#tv-close-btn')) return;
+    _dragWin = true;
+    const rect = win.getBoundingClientRect();
+    _dragWinX = e.clientX - rect.left;
+    _dragWinY = e.clientY - rect.top;
+    win.style.position = 'fixed';
+    win.style.margin = '0';
+    e.preventDefault();
   });
+  document.addEventListener('mousemove', (e) => {
+    if (!_dragWin) return;
+    win.style.left = `${e.clientX - _dragWinX}px`;
+    win.style.top  = `${e.clientY - _dragWinY}px`;
+  });
+  document.addEventListener('mouseup', () => { _dragWin = false; });
 
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && _tvOpen) shutdownTvPanel();

@@ -437,6 +437,36 @@ async function cmdExamine(targetStr, player, broadcast) {
       }
 
       msg += `\n<span style="display:inline-flex;gap:18px;padding:6px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:2px;margin:4px 0">${liveDot}${loadDot}</span>\n${statusLine}`;
+    } else if (f.object_type === 'broadcast_camera') {
+      const flags = f.flags || {};
+      const camId = flags.camera_id;
+      let camStatus = '';
+      if (camId) {
+        const { rows: camRows } = await query(
+          'SELECT is_powered, is_streaming, is_recording, streaming_channel_id FROM media_cameras WHERE id=$1', [camId]
+        );
+        if (camRows.length) {
+          const cam = camRows[0];
+          const streaming = cam.is_streaming && cam.is_powered;
+          const recording = cam.is_recording && cam.is_powered;
+          const chId = cam.streaming_channel_id;
+          let chLabel = '';
+          if (chId) {
+            const { rows: chRows } = await query('SELECT name, number FROM media_channels WHERE id=$1', [chId]);
+            if (chRows.length) chLabel = `Ch ${chRows[0].number}: ${chRows[0].name}`;
+          }
+          const streamDot = streaming
+            ? `<span style="color:var(--red);font-weight:bold">⬤ STREAMING</span>`
+            : `<span style="color:var(--border)">○ STREAMING</span>`;
+          const recDot = recording
+            ? `<span style="color:var(--accent2);font-weight:bold">⬤ REC</span>`
+            : `<span style="color:var(--border)">○ REC</span>`;
+          camStatus = `\n<span style="display:inline-flex;gap:18px;padding:6px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:2px;margin:4px 0">${streamDot}${recDot}</span>`;
+          if (chLabel) camStatus += `\n<span style="color:var(--text-dim)">→ ${chLabel}</span>`;
+          camStatus += `\n<span class="action-link" data-action="record" data-target="${f.name.toLowerCase()}">record</span>  <span class="action-link" data-action="stream" data-target="${f.name.toLowerCase()}">stream</span>`;
+        }
+      }
+      msg += camStatus;
     } else {
       // Generic furniture: posture interactions (sit/lie/lean → "on <name>")
       // plus capability verbs gated on flat tags (read/drink → "<name>"),

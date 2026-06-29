@@ -646,6 +646,7 @@ function tickBroadcastGraph(channelId, graph, state, nowMs) {
         const voice = bb.npcAnchor ? `[${bb.npcAnchor}] ` : '';
         const text = style === 'ticker' ? `>> ${voice}${raw} <<` : `${voice}${raw}`;
         bb.currentNode = _resolveEdge(edges, nodeId, 'next');
+        bb.waitUntil = nowMs + 5000;
         return { text, key: `graph:${channelId}:${nodeId}:${nowMs}`, style };
       }
 
@@ -653,6 +654,7 @@ function tickBroadcastGraph(channelId, graph, state, nowMs) {
         if (bb.hostAbsent) { nodeId = _resolveEdge(edges, nodeId, 'next'); break; }
         const text = `>> ${node.data?.text || ''} <<`;
         bb.currentNode = _resolveEdge(edges, nodeId, 'next');
+        bb.waitUntil = nowMs + 5000;
         return { text, key: `ticker:${channelId}:${nodeId}`, style: 'ticker' };
       }
 
@@ -693,7 +695,10 @@ function tickBroadcastGraph(channelId, graph, state, nowMs) {
         const label = node.data?.label || zoneId;
         const snap = zoneId ? buildCameraSnapshot(zoneId) : null;
         bb.currentNode = _resolveEdge(edges, nodeId, 'next');
-        if (snap) return { text: `[CAM: ${label}] ${snap}`, key: `cam:${channelId}:${zoneId}:${nowMs}`, style: 'raw' };
+        if (snap) {
+          bb.waitUntil = nowMs + 5000;
+          return { text: `[CAM: ${label}] ${snap}`, key: `cam:${channelId}:${zoneId}:${nowMs}`, style: 'raw' };
+        }
         nodeId = bb.currentNode;
         break;
       }
@@ -1269,6 +1274,19 @@ export const routeHandler = async (path, method, body, auth) => {
            body.streaming_channel_id || null, body.storage_limit || 200,
            body.permissions || 'public', JSON.stringify(body.flags || {})]
         );
+        // Create matching broadcast_camera furniture so players can interact with it
+        if (body.zone_id) {
+          const camNum = body.id ? (body.id.match(/_(\d+)_\d+$/) || [])[1] : null;
+          const camLabel = camNum ? `Broadcast Camera ${camNum}` : 'Broadcast Camera';
+          await query(
+            `INSERT INTO furniture (id,zone_id,name,description,object_type,flags)
+             VALUES ($1,$2,$3,$4,'broadcast_camera',$5)
+             ON CONFLICT (id) DO NOTHING`,
+            [`${camId}_furn`, body.zone_id, camLabel,
+             'A broadcast-grade studio camera on a heavy-duty motorised mount. A small red light glows when streaming.',
+             JSON.stringify({ broadcast_transmitter: true, camera_id: camId, channel_id: body.streaming_channel_id || null })]
+          );
+        }
         await loadChannelRuntimes();
         return { status: 201, body: { id: camId } };
       }
@@ -1357,6 +1375,154 @@ export const routeHandler = async (path, method, body, auth) => {
     }
 
     // ── Graphics ────────────────────────────────────────────────────────────
+    // ── Studio Info — inspect an exterior zone for existing studio rooms ────────
+    if (resource === 'studio-info' && method === 'POST') {
+      const exteriorZoneId = body?.exterior_zone_id;
+      if (!exteriorZoneId) return { status: 400, body: { error: 'exterior_zone_id required' } };
+
+      // Find interior map for this exterior zone
+      const { rows: maps } = await query(
+        'SELECT id FROM maps WHERE parent_zone_id=$1 LIMIT 1', [exteriorZoneId]
+      );
+      if (!maps.length) return { status: 200, body: { hasMap: false } };
+      const mapId = maps[0].id;
+
+      // Find all interior zones on this map
+      const { rows: zones } = await query(
+        'SELECT id, grid_x, grid_y, grid_z, exits, flags FROM zones WHERE map_id=$1', [mapId]
+      );
+      // Stage = grid 0,0,0 or has is_building flag
+      const stage = zones.find(z => z.grid_z === 0 && z.grid_x === 0 && z.grid_y === 0)
+        || zones.find(z => z.flags?.is_building);
+      if (!stage) return { status: 200, body: { hasMap: true, noStage: true } };
+
+      const stageExits = stage.exits || {};
+      const utilityId  = stageExits.down || null;
+      const productionId = stageExits.up || null;
+
+      return { status: 200, body: {
+        hasMap: true,
+        stage_zone_id:      stage.id,
+        utility_zone_id:    utilityId,
+        production_zone_id: productionId,
+        missingUtility:     !utilityId,
+        missingProduction:  !productionId,
+      }};
+    }
+
+    // ── Ensure Studio — attach to existing building, create missing rooms ────────
+    if (resource === 'ensure-studio' && method === 'POST') {
+      if (!devOk(auth)) return { status: 403, body: { error: 'Dev access required' } };
+      const { exterior_zone_id, studio_name, channel_id } = body || {};
+      if (!exterior_zone_id) return { status: 400, body: { error: 'exterior_zone_id required' } };
+
+      const ts = Date.now();
+
+      // Find or create interior map
+      const { rows: maps } = await query('SELECT id FROM maps WHERE parent_zone_id=$1 LIMIT 1', [exterior_zone_id]);
+      let mapId;
+      if (maps.length) {
+        mapId = maps[0].id;
+      } else {
+        mapId = `map_int_${ts}`;
+        await query('INSERT INTO maps (id,name,parent_zone_id) VALUES ($1,$2,$3)',
+          [mapId, studio_name || 'Studio Interior', exterior_zone_id]);
+      }
+
+      // Find stage zone
+      let { rows: stageRows } = await query(
+        'SELECT id, exits FROM zones WHERE map_id=$1 AND grid_z=0 AND grid_x=0 AND grid_y=0 LIMIT 1', [mapId]
+      );
+      let studioZoneId, studioExits;
+      if (stageRows.length) {
+        studioZoneId = stageRows[0].id;
+        studioExits  = stageRows[0].exits || {};
+      } else {
+        studioZoneId = `zone_studio_${ts}`;
+        const stageName = `${studio_name || 'Studio'} — Stage`;
+        await query(
+          `INSERT INTO zones (id,name,description,map_id,grid_x,grid_y,grid_z,flags,exits)
+           VALUES ($1,$2,$3,$4,0,0,0,$5,$6)`,
+          [studioZoneId, stageName, 'The main studio stage floor.', mapId,
+           JSON.stringify({ is_interior: true, is_building: true, world_exit_zone: exterior_zone_id }),
+           JSON.stringify({ out: exterior_zone_id })]
+        );
+        // Wire exterior → stage
+        const { rows: extRows } = await query('SELECT exits FROM zones WHERE id=$1', [exterior_zone_id]);
+        const extExits = JSON.stringify({ ...(extRows[0]?.exits || {}), in: studioZoneId });
+        await query('UPDATE zones SET exits=$1 WHERE id=$2', [extExits, exterior_zone_id]);
+        studioExits = { out: exterior_zone_id };
+        await query(`INSERT INTO furniture (id,zone_id,name,object_type,light_type,light_on,light_on_intended,power_draw_kw,lumen_output,flags)
+          VALUES ($1,$2,'Overhead Light','light','overhead',1,1,0.02,1200,'{}')`, [`furn_light_stage_${ts}`, studioZoneId]);
+      }
+
+      // Find or create utility room (down)
+      let utilityZoneId = studioExits.down || null;
+      if (!utilityZoneId) {
+        utilityZoneId = `zone_util_${ts}`;
+        await query(
+          `INSERT INTO zones (id,name,description,map_id,grid_x,grid_y,grid_z,flags,exits)
+           VALUES ($1,$2,$3,$4,0,0,-1,$5,$6)`,
+          [utilityZoneId, `${studio_name || 'Studio'} — Power Room`,
+           'Utility room housing the building junction box.', mapId,
+           JSON.stringify({ is_interior: true }), JSON.stringify({ up: studioZoneId })]
+        );
+        studioExits = { ...studioExits, down: utilityZoneId };
+        await query('UPDATE zones SET exits=$1 WHERE id=$2', [JSON.stringify(studioExits), studioZoneId]);
+        await query(`INSERT INTO furniture (id,zone_id,name,object_type,light_type,light_on,light_on_intended,power_draw_kw,lumen_output,flags)
+          VALUES ($1,$2,'Overhead Light','light','overhead',1,1,0.02,1200,'{}')`, [`furn_light_util_${ts}`, utilityZoneId]);
+
+        const { rows: plants } = await query(`SELECT id FROM generators WHERE generator_type='city_plant' AND status='online' LIMIT 1`);
+        const cityGenId = plants[0]?.id || null;
+        const jboxId = `gen_${utilityZoneId}_${ts}`;
+        await query(
+          `INSERT INTO generators (id,zone_id,name,generator_type,capacity_kw,status,city_generator_id,remaining_kw)
+           VALUES ($1,$2,$3,'junction_box',500,'online',$4,500)`,
+          [jboxId, utilityZoneId, `${studio_name || 'Studio'} Junction Box`, cityGenId]
+        );
+        await query(
+          `INSERT INTO power_zones (id,name,source_type,generator_id,capacity_kw,current_load_kw,status,available_kw,max_capacity_kw)
+           VALUES ($1,$2,'junction_box',$3,500,0,'powered',500,500) ON CONFLICT (id) DO NOTHING`,
+          [utilityZoneId, `${studio_name || 'Studio'} Power Room`, jboxId]
+        );
+      }
+
+      // Find or create production/control room (up)
+      let productionZoneId = studioExits.up || null;
+      if (!productionZoneId) {
+        productionZoneId = `zone_prod_${ts}`;
+        await query(
+          `INSERT INTO zones (id,name,description,map_id,grid_x,grid_y,grid_z,flags,exits)
+           VALUES ($1,$2,$3,$4,0,0,1,$5,$6)`,
+          [productionZoneId, `${studio_name || 'Studio'} — Production`,
+           'Media deck and broadcast control room.', mapId,
+           JSON.stringify({ is_interior: true }), JSON.stringify({ down: studioZoneId })]
+        );
+        studioExits = { ...studioExits, up: productionZoneId };
+        await query('UPDATE zones SET exits=$1 WHERE id=$2', [JSON.stringify(studioExits), studioZoneId]);
+        await query(`INSERT INTO furniture (id,zone_id,name,object_type,light_type,light_on,light_on_intended,power_draw_kw,lumen_output,flags)
+          VALUES ($1,$2,'Overhead Light','light','overhead',1,1,0.02,1200,'{}')`, [`furn_light_prod_${ts}`, productionZoneId]);
+      }
+
+      // Ensure power_zones for stage and production exist
+      for (const [zid, zname] of [[studioZoneId, 'Stage'], [productionZoneId, 'Production']]) {
+        const { rows: genRows } = await query(`SELECT generator_id FROM power_zones WHERE id=$1`, [utilityZoneId]);
+        const jboxRef = genRows[0]?.generator_id || null;
+        await query(
+          `INSERT INTO power_zones (id,name,source_type,generator_id,capacity_kw,current_load_kw,status,available_kw,max_capacity_kw)
+           VALUES ($1,$2,'junction_box',$3,500,0,'powered',500,500) ON CONFLICT (id) DO NOTHING`,
+          [zid, zname, jboxRef]
+        );
+      }
+
+      await Promise.all([studioZoneId, utilityZoneId, productionZoneId, exterior_zone_id].map(reloadZone));
+
+      return { status: 200, body: {
+        exterior_zone_id, studio_zone_id: studioZoneId,
+        utility_zone_id: utilityZoneId, production_zone_id: productionZoneId,
+      }};
+    }
+
     // ── Create Studio (zone + power room + junction box) ────────────────────────
     if (resource === 'create-studio' && method === 'POST') {
       if (!devOk(auth)) return { status: 403, body: { error: 'Dev access required' } };
@@ -1481,6 +1647,15 @@ export const routeHandler = async (path, method, body, auth) => {
              VALUES ($1,$2,'junction_box',$3,500,0,'powered',500,500)
              ON CONFLICT (id) DO NOTHING`,
             [zid, zname, jboxId]
+          );
+        }
+
+        // Overhead lights in each interior zone
+        for (const [zid, lightSuffix] of [[studioZoneId, 'stage'], [utilityZoneId, 'util'], [productionZoneId, 'prod']]) {
+          await query(
+            `INSERT INTO furniture (id,zone_id,name,object_type,light_type,light_on,light_on_intended,power_draw_kw,lumen_output,flags)
+             VALUES ($1,$2,'Overhead Light','light','overhead',1,1,0.02,1200,'{}')`,
+            [`furn_light_${lightSuffix}_${ts}`, zid]
           );
         }
 

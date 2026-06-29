@@ -22,12 +22,20 @@ let _schedResizeStartDur  = 0;
 // Popover state
 let _schedPopoverIdx = null;
 
+// Dirty tracking
+let _schedDirty   = false;
+let _schedNowTimer = null;
+
 let   _schedPxPerHour   = 52;
 const SCHED_SNAP        = 1800;
 const SCHED_H           = 72;
 
 function _schedScale() { return _schedPxPerHour / 3600; }
-function _schedW()     { return _schedPxPerHour * 24; }
+function _schedW() {
+  if (!_schedItems.length) return _schedPxPerHour * 24;
+  const rightmost = Math.max(..._schedItems.map(i => _schedToX(i.start_time + i.duration)));
+  return Math.max(_schedPxPerHour * 24, rightmost) + 60;
+}
 
 const SCHED_CAT_COLOR = {
   entertainment: 'var(--cyan)',
@@ -145,6 +153,38 @@ async function _schedLoadItems() {
       };
     });
   } catch { _schedItems = []; }
+  _schedDirty = false;
+  _schedUpdateSaveBtn();
+}
+
+function _schedMarkDirty() {
+  if (_schedDirty) return;
+  _schedDirty = true;
+  _schedUpdateSaveBtn();
+}
+
+function _schedUpdateSaveBtn() {
+  const btn = document.querySelector('[onclick="_schedSave()"]');
+  if (!btn) return;
+  if (_schedDirty) {
+    btn.textContent = 'Save Schedule';
+    btn.style.background = '';
+    btn.style.color = '';
+    btn.style.borderColor = '';
+  } else {
+    btn.textContent = '✓ Saved';
+    btn.style.background = 'var(--green)';
+    btn.style.color = 'var(--bg)';
+    btn.style.borderColor = 'var(--green)';
+  }
+}
+
+function _schedUpdateNowLine() {
+  const line = document.getElementById('sched-now-line');
+  if (!line) return;
+  const now = new Date();
+  const sec = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+  line.style.left = _schedToX(sec) + 'px';
 }
 
 // ── Sidebar render ────────────────────────────────────────────────────────────
@@ -363,10 +403,13 @@ function _schedBuildTimeline() {
           ondragleave="_schedTlDragLeave()"
           ondrop="_schedTlDrop(event)">
           <div id="sched-drop-line"></div>
+          <div id="sched-now-line" style="position:absolute;top:0;bottom:0;width:2px;background:var(--accent);opacity:0.7;pointer-events:none;z-index:5"></div>
           ${items}
         </div>
       </div>
     </div>`;
+  _schedUpdateNowLine();
+  if (!_schedNowTimer) _schedNowTimer = setInterval(_schedUpdateNowLine, 10000);
 }
 
 function _schedFmtDur(sec) {
@@ -484,6 +527,7 @@ function _schedTlDrop(e) {
   _schedDragBcId   = null;
   _schedDragIdx    = null;
   _schedDragOffset = 0;
+  _schedMarkDirty();
   _schedRenderTimeline();
 }
 
@@ -504,6 +548,7 @@ function _schedOnMouseMove(e) {
   const item = _schedItems[_schedResizeIdx];
   item.duration          = dur;
   item.duration_override = dur;
+  _schedMarkDirty();
   _schedRenderTimeline();
 }
 
@@ -557,7 +602,10 @@ function _schedRenderTimeline() {
       </div>`;
   });
 
-  tl.innerHTML = '<div id="sched-drop-line"></div>' + items;
+  const w = _schedW();
+  tl.style.width = w + 'px';
+  tl.innerHTML = '<div id="sched-drop-line"></div><div id="sched-now-line" style="position:absolute;top:0;bottom:0;width:2px;background:var(--accent);opacity:0.7;pointer-events:none;z-index:5"></div>' + items;
+  _schedUpdateNowLine();
 }
 
 // ── Popover (click a block) ───────────────────────────────────────────────────
@@ -634,6 +682,7 @@ function _schedPopSetStart(idx, val) {
   const [h, m] = val.split(':').map(Number);
   if (isNaN(h) || isNaN(m)) return;
   _schedItems[idx].start_time = _schedClamp(h * 3600 + m * 60, _schedItems[idx].duration);
+  _schedMarkDirty();
   _schedRenderTimeline();
 }
 
@@ -641,6 +690,7 @@ function _schedPopSetDur(idx, val) {
   const dur = Math.max(60, parseInt(val) * 60);
   _schedItems[idx].duration          = dur;
   _schedItems[idx].duration_override = dur;
+  _schedMarkDirty();
   _schedRenderTimeline();
 }
 
@@ -648,11 +698,13 @@ function _schedToggleNpc(idx, npcId, checked) {
   const staff = _schedItems[idx].npc_staff;
   if (checked && !staff.includes(npcId)) staff.push(npcId);
   if (!checked) _schedItems[idx].npc_staff = staff.filter(id => id !== npcId);
+  _schedMarkDirty();
   _schedRenderTimeline();
 }
 
 function _schedDeleteItem(idx) {
   _schedItems.splice(idx, 1);
+  _schedMarkDirty();
   _schedClosePopover();
   _schedRenderTimeline();
 }
@@ -671,6 +723,7 @@ async function _schedSave() {
   try {
     const res = await directAPI(`/broadcast/channels/${_schedChannelId}/playlist`, 'PUT', payload);
     if (res?.error) { toast(res.error, true); return; }
-    toast('Schedule saved.');
+    _schedDirty = false;
+    _schedUpdateSaveBtn();
   } catch (err) { toast(err.message, true); }
 }

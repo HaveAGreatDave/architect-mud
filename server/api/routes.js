@@ -751,7 +751,8 @@ export async function apiDeleteZone(id) {
       await query('DELETE FROM windows          WHERE zone_interior=$1 OR zone_exterior=$1', [zid]);
       await query('DELETE FROM media_cameras    WHERE zone_id=$1', [zid]);
       await query('DELETE FROM player_inventory WHERE player_id=$1', [`_ground_${zid}`]);
-      // Null out NPC home/wander references pointing at this zone
+      // Delete NPCs homed in this zone, null out remaining references
+      await query('DELETE FROM npcs             WHERE home_zone=$1',   [zid]);
       await query('UPDATE npcs SET home_zone=NULL   WHERE home_zone=$1', [zid]);
       await query(`UPDATE npcs SET wander_zones=(
         SELECT jsonb_agg(v) FROM jsonb_array_elements_text(wander_zones) t(v) WHERE v <> $1

@@ -62,7 +62,7 @@ function compileBsm(text) {
   const SPEAKER_RE = /^([A-Z][A-Z0-9_]*):\s*$/;
 
   const DIRECTIVE_PREFIXES = [
-    '@', '::', 'EVENT ', 'TITLE ', 'TICKER', 'WAIT ', 'NPC ', 'OVERLAY ',
+    '@', '::', 'EVENT ', 'TITLE ', 'TICKER', 'WAIT', 'NPC ', 'OVERLAY ',
     'SHOT', 'SHOT_END', 'TICKER_END', 'OVERLAY_END', 'LOWER_THIRD_END', 'END', 'CAM ', 'ROOM ', 'LOWER_THIRD',
   ];
 
@@ -140,8 +140,9 @@ function compileBsm(text) {
     }
 
     // ── WAIT ─────────────────────────────────────────────────────────────────
-    if (ln.startsWith('WAIT ')) {
-      makeNode({ type: 'wait', duration: parseFloat(ln.slice(5)) });
+    if (ln === 'WAIT' || ln.startsWith('WAIT ')) {
+      const sec = ln === 'WAIT' ? 5 : (parseFloat(ln.slice(5)) || 5);
+      makeNode({ type: 'wait', duration: sec });
       i++; continue;
     }
 
@@ -238,6 +239,12 @@ function compileBsm(text) {
 
     _debug.unknownDirectives.push(ln);
     i++;
+  }
+
+  // Guard: ensure start node links to first content node if chain was broken
+  if (startId && nodes[startId] && nodes[startId].next == null) {
+    const firstContent = Object.keys(nodes).find(k => k !== startId);
+    if (firstContent) nodes[startId].next = firstContent;
   }
 
   return { meta, broadcastGraph: { _start: startId, nodes }, messages, assets, rooms, cameras: cameraNumbers, npcIds: [...npcIds], actorIds, _debug };

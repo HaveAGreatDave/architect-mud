@@ -38,7 +38,7 @@ CITY TRANSIT ANNOUNCES MINOR DELAYS DUE TO AUTOMATED TANK COLLISION • BUY ACID
 
 END
 
-WAIT 8s
+ 8s
 
 EVENT DISSOLVE
 
@@ -46,7 +46,7 @@ EVENT DISSOLVE
 
 ROOM studio_stage
 
-CAM1 WIDE
+CAM 1 WIDE
 
 SHOT
 
@@ -63,43 +63,43 @@ EVENT APPLAUSE
 FRANK:
 Donna!
 
-WAIT 1s
+ 1s
 
 DONNA:
 What?
 
-WAIT 1s
+ 1s
 
 FRANK:
 The pipe's making that noise again.
 
-WAIT 2s
+ 2s
 
 DONNA:
 Which one?
 
-WAIT 1s
+ 1s
 
 FRANK:
 The loud one.
 
-WAIT 1s
+ 1s
 
 DONNA:
 Frank...
 
-WAIT 1s
+ 1s
 
 DONNA:
 They're all loud.
 
 EVENT LAUGHTER
 
-WAIT 3s
+ 3s
 
 ::scene MAINTENANCE
 
-CAM2 TRACK frank
+CAM 2 TRACK frank
 
 SHOT
 
@@ -110,33 +110,33 @@ END
 FRANK:
 I called maintenance.
 
-WAIT 1s
+ 1s
 
 DONNA:
 Good.
 
-WAIT 1s
+ 1s
 
 FRANK:
 They put me on hold.
 
-WAIT 1s
+ 1s
 
 DONNA:
 How long?
 
-WAIT 1s
+ 1s
 
 FRANK:
 Yesterday.
 
 EVENT LAUGHTER
 
-WAIT 3s
+ 3s
 
 ENTER maintenance_bot
 
-CAM3 MEDIUM maintenance_bot
+CAM 3 MEDIUM maintenance_bot
 
 SHOT
 
@@ -147,24 +147,24 @@ END
 BOT:
 Maintenance request acknowledged.
 
-WAIT 1s
+ 1s
 
 BOT:
 Estimated repair time...
 
-WAIT 2s
+ 2s
 
 BOT:
 Three to five business months.
 
 EVENT LAUGHTER
 
-WAIT 2s
+ 2s
 
 FRANK:
 Can you at least stop the leak?
 
-WAIT 1s
+ 1s
 
 BOT:
 Leak subscription expired.
@@ -173,11 +173,11 @@ EVENT APPLAUSE
 
 EVENT LAUGHTER
 
-WAIT 4s
+ 4s
 
 ::scene THE FIX
 
-CAM4 CLOSEUP maintenance_bot
+CAM 4 CLOSEUP maintenance_bot
 
 ACTION maintenance_bot tighten_pipe
 
@@ -189,33 +189,33 @@ Every pipe in the apartment immediately becomes twice as loud.
 
 END
 
-WAIT 2s
+ 2s
 
 FRANK:
 ...
 
-WAIT 1s
+ 1s
 
 DONNA:
 Well...
 
-WAIT 1s
+ 1s
 
 DONNA:
 It's louder.
 
-WAIT 2s
+ 2s
 
 BOT:
 Repair successful.
 
 EVENT LAUGHTER
 
-WAIT 5s
+ 5s
 
 ::scene TAG
 
-CAM1 WIDE
+CAM 1 WIDE
 
 SHOT
 
@@ -228,37 +228,37 @@ END
 FRANK:
 Think it'll stop?
 
-WAIT 1s
+ 1s
 
 DONNA:
 Eventually.
 
-WAIT 1s
+ 1s
 
 FRANK:
 When?
 
-WAIT 1s
+ 1s
 
 DONNA:
 When the ceiling falls down.
 
 EVENT LAUGHTER
 
-WAIT 2s
+ 2s
 
 The ceiling light flickers violently.
 
-WAIT 1s
+ 1s
 
 A single ceiling tile drops into Frank's lap.
 
-WAIT 2s
+ 2s
 
 FRANK:
 ...
 
-WAIT 1s
+ 1s
 
 FRANK:
 Called it.
@@ -267,23 +267,28 @@ EVENT APPLAUSE
 
 EVENT LAUGHTER
 
-WAIT 5s
+ 5s
 
 ::scene CREDITS
 
-CAM2 WIDE
+CAM 2 WIDE
 
 SHOT
 
 The camera slowly pulls back from Apartment 14B as the familiar theme plays over the closing credits. The sounds of rattling pipes continue long after the apartment disappears from view.
 
-END
+
+SHOT_END
 
 MUSIC neighbors_theme
 
 ♪ The Neighbors from 14B theme begins playing. ♪
 
 EVENT FADE_OUT
+
+END
+
+
 ```
 
 ---
