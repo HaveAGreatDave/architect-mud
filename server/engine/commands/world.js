@@ -606,7 +606,9 @@ async function cmdSpawn(args, player) {
   const invId = `inv_spawn_${Date.now()}`;
   await query('INSERT INTO player_inventory (id,player_id,item_id,quantity) VALUES ($1,$2,$3,1)',
     [invId, `_ground_${zoneId}`, itemId]);
-  return { type: 'output', message: `Spawned ${itemId} in ${zoneId}.` };
+  const zoneName = getZone(zoneId)?.name;
+  const where = zoneName ? `${zoneName} (${zoneId})` : zoneId;
+  return { type: 'output', message: `Spawned ${itemId} in ${where}.` };
 }
 
 async function cmdSpawnEnemy(args, player, broadcast) {
@@ -619,7 +621,9 @@ async function cmdSpawnEnemy(args, player, broadcast) {
   if (!rows.length) return { type: 'error', message: `No enemy template "${enemyId}".` };
   const instance = spawnEnemySync(rows[0], zoneId);
   broadcast?.(zoneId, { type: 'zone_event', message: `A ${instance.name} appears.`, refresh: true });
-  return { type: 'output', message: `Spawned ${instance.name} (${instance.instanceId}) in ${zoneId}.` };
+  const zoneName = world.zones.get(zoneId)?.name;
+  const where = zoneName ? `${zoneName} (${zoneId})` : zoneId;
+  return { type: 'output', message: `Spawned ${instance.name} (${instance.instanceId}) in ${where}.` };
 }
 
 async function applyLightSwitch(nameStr, dir, player, broadcast) {
