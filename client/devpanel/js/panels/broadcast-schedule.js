@@ -661,8 +661,6 @@ function _schedDeleteItem(idx) {
 
 async function _schedSave() {
   if (!_schedChannelId) return;
-  const btn = document.querySelector('[onclick="_schedSave()"]');
-  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
   const payload = _schedItems.map(item => ({
     broadcast_id:      item.broadcast_id,
     start_time:        item.start_time,
@@ -673,19 +671,6 @@ async function _schedSave() {
   try {
     const res = await directAPI(`/broadcast/channels/${_schedChannelId}/playlist`, 'PUT', payload);
     if (res?.error) { toast(res.error, true); return; }
-    if (btn) {
-      btn.textContent = '✓ Saved';
-      btn.style.background = 'var(--green)';
-      btn.style.color = 'var(--bg)';
-      setTimeout(() => {
-        btn.textContent = 'Save Schedule';
-        btn.style.background = '';
-        btn.style.color = '';
-        btn.disabled = false;
-      }, 1800);
-    }
-  } catch (err) {
-    toast(err.message, true);
-    if (btn) { btn.textContent = 'Save Schedule'; btn.disabled = false; }
-  }
+    toast('Schedule saved.');
+  } catch (err) { toast(err.message, true); }
 }
