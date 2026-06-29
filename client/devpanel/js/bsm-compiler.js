@@ -109,8 +109,6 @@ function compileBsm(text) {
     }
 
     // ── Structural markers ───────────────────────────────────────────────────
-    if (ln.startsWith('::')) { i++; continue; }  // all structural markers (::actors, ::endactors, ::scene, etc.)
-
     if (ln.startsWith('::asset ')) {
       const assetId = ln.slice(8).trim();
       i++;
@@ -118,6 +116,8 @@ function compileBsm(text) {
       assets.push({ id: assetId, name: assetId, type: 'ascii', content });
       continue;
     }
+
+    if (ln.startsWith('::')) { i++; continue; }  // ::actors, ::endactors, ::scene, ::endasset, etc.
 
     // ── EVENT (placeholder node for future VINE node types) ──────────────────
     if (ln.startsWith('EVENT ')) {
