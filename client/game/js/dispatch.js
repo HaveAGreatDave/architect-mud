@@ -13,7 +13,9 @@ import { openLightViewDialog } from './panels/lightview.js';
 import { openMorphexPanel } from './panels/morphex.js';
 import { updateForecast } from './panels/forecast.js';
 import { openAtmPanel, closeAtmPanel, updateAtmPanel } from './panels/atm.js';
-import { openTvPanel, isTvOpen, getTvActiveChannelId, appendTvMessage, updateTvTicker, applyTvOverlay } from './panels/tv.js';
+import { openTvPanel, isTvOpen, getTvActiveChannelId, appendTvMessage, updateTvTicker, applyTvOverlay, showTvOffAir, shutdownTvPanel } from './panels/tv.js';
+
+let _tvAmbientCounter = 0;
 
 const DEV_ROLES = ['admin', 'dev', 'builder', 'designer'];
 
@@ -98,18 +100,22 @@ const handlers = {
   },
 
   broadcast: (msg) => {
+    if (msg.style === 'off_air') {
+      if (isTvOpen() && getTvActiveChannelId() === msg.channel)
+        showTvOffAir(msg.offlineGraphicContent || null);
+      return;
+    }
     if (isTvOpen() && getTvActiveChannelId() === msg.channel) {
       if (msg.style === 'ticker') updateTvTicker(msg.message);
       else appendTvMessage(msg.message, msg.style);
-    } else if (msg.style === 'ticker') {
-      appendMsg(msg.message, 'broadcast-ticker');
-    } else if (msg.style === 'ascii_art') {
-      appendPre(msg.message, 'broadcast-ascii-art');
     } else {
-      appendMsg(msg.message, 'broadcast');
+      // Not actively watching — ambient only, no broadcast content
+      if (++_tvAmbientCounter % 8 === 0)
+        appendMsg('[TV] static voices from the television...', 'broadcast-ambient');
     }
   },
   tv_panel: (msg) => { openTvPanel(msg); },
+  tv_off:   ()    => { if (isTvOpen()) shutdownTvPanel(); },
   tv_overlay: (msg) => {
     if (isTvOpen() && getTvActiveChannelId() === msg.channelId) {
       applyTvOverlay(msg.overlay);

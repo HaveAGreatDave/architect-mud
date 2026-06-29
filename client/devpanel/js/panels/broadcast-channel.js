@@ -209,6 +209,16 @@ async function openChannelEditor(rec) {
           <select id="ch-theme" class="form-input">${themeOptions}</select>
         </div>
       </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div>
+          <label style="display:block;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:4px">Studio Zone ID</label>
+          <input id="ch-studio-zone" class="form-input" value="${escHtml2(rec?.studio_zone_id || '')}" placeholder="zone_id where NPC hosts work">
+        </div>
+        <div>
+          <label style="display:block;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:4px">Offline Graphic ID</label>
+          <input id="ch-offline-graphic" class="form-input" value="${escHtml2(rec?.offline_graphic_id || '')}" placeholder="media_graphics id for off-air screen">
+        </div>
+      </div>
       <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">
         <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px">
           <input type="checkbox" id="ch-enabled" ${rec?.enabled !== 0 ? 'checked' : ''}> Enabled
@@ -471,6 +481,8 @@ async function saveChannel() {
     idle_broadcast_id: document.getElementById('ch-idle')?.value || null,
     theme_id: document.getElementById('ch-theme')?.value || null,
     news_categories: newsCategories,
+    studio_zone_id: document.getElementById('ch-studio-zone')?.value?.trim() || null,
+    offline_graphic_id: document.getElementById('ch-offline-graphic')?.value?.trim() || null,
   };
 
   const isNew = !_channelEditTarget;

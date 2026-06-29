@@ -1724,12 +1724,23 @@
 						<button id="tv-close-btn" aria-label="Close television">✕</button>
 					</div>
 				</div>
+				<div id="tv-static"></div>
 				<div id="tv-content">
 					<div id="tv-messages"></div>
 				</div>
 				<div id="tv-footer">
 					<div id="tv-ticker-track">
 						<span id="tv-ticker-inner"></span>
+					</div>
+					<div id="tv-knob-wrap">
+						<svg id="tv-knob" viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg" aria-label="Tune channel">
+							<circle cx="18" cy="18" r="15" class="tv-knob-ring"/>
+							<line x1="18" y1="18" x2="18" y2="5" class="tv-knob-line"/>
+						</svg>
+					</div>
+					<div id="tv-tuner-wrap">
+						<span id="tv-freq-display">—</span>
+						<input id="tv-tuner-slider" type="range" min="0" max="99" step="0.1">
 					</div>
 				</div>
 				<div id="tv-overlay-container"></div>

@@ -449,6 +449,28 @@ async function execAction(node, entity, ctx) {
       break;
     }
 
+    case 'GO_HOME': {
+      if (!ai) break;
+      const home = entity.home_zone;
+      if (!home || zoneId === home) break; // already home
+
+      if (!ai.patrolPath.length || ai.patrolTarget !== home) {
+        const path = findPath(zoneId, home);
+        if (!path || path.length < 2) return 'RUNNING';
+        ai.patrolPath = path.slice(1);
+        ai.patrolTarget = home;
+      }
+
+      const nextZone = ai.patrolPath.shift();
+      if (!nextZone) return 'RUNNING';
+      const moved = moveEntity(entity, nextZone, broadcast, query);
+      if (!moved) { ai.patrolPath = []; ai.patrolTarget = null; }
+      else if (!isEnemy(entity) && query) {
+        query('UPDATE npcs SET zone_id=$1 WHERE id=$2', [entityZone(entity), entity.id]).catch(() => {});
+      }
+      return 'RUNNING';
+    }
+
     case 'SET_FLAG': {
       if (!ai) break;
       if (params.scope === 'self') {

@@ -39,6 +39,19 @@ applySettings(settings);
 applyMobileScale();
 window.addEventListener('resize', applyMobileScale);
 
+// Collapse the room-description pane when the software keyboard opens so the
+// output log and input bar get the full remaining viewport height.
+if (window.visualViewport && _isMobile) {
+  const _areaPane = document.getElementById('area-pane');
+  let _fullVH = window.visualViewport.height;
+  window.visualViewport.addEventListener('resize', () => {
+    const keyboardUp = window.visualViewport.height < _fullVH * 0.75;
+    _areaPane.style.maxHeight = keyboardUp ? '0' : '';
+    _areaPane.style.overflow = keyboardUp ? 'hidden' : '';
+    if (!keyboardUp) _fullVH = window.visualViewport.height;
+  });
+}
+
 listenForSettingsChanges((s) => { applySettings(s); applyMobileScale(); });
 // saveAndApply is called after settings.js mutates the settings object in-place
 initSettingsUI(settings, () => { saveSettings(settings); applySettings(settings); applyMobileScale(); refreshTempDisplay(); }, {

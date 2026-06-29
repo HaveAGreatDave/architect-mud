@@ -905,19 +905,19 @@ async function apiGetNpcs() { const {rows}=await query('SELECT * FROM npcs'); re
 export async function apiCreateNpc(body) {
   const id=body.id||`npc_${Date.now()}`;
   try {
-    await query(`INSERT INTO npcs (id,name,description,zone_id,faction,disposition,dialogue_tree,vendor_inventory,wanders,wander_zones,flags,behaviour_graph) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
-      [id,body.name,body.description,body.zone_id||null,body.faction||null,body.disposition||'neutral',JSON.stringify(body.dialogue_tree||{}),JSON.stringify(body.vendor_inventory||[]),body.wanders?1:0,JSON.stringify(body.wander_zones||[]),JSON.stringify(body.flags||{}),JSON.stringify(body.behaviour_graph||{})]);
+    await query(`INSERT INTO npcs (id,name,description,zone_id,home_zone,faction,disposition,dialogue_tree,vendor_inventory,wanders,wander_zones,flags,behaviour_graph) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+      [id,body.name,body.description,body.zone_id||null,body.home_zone||null,body.faction||null,body.disposition||'neutral',JSON.stringify(body.dialogue_tree||{}),JSON.stringify(body.vendor_inventory||[]),body.wanders?1:0,JSON.stringify(body.wander_zones||[]),JSON.stringify(body.flags||{}),JSON.stringify(body.behaviour_graph||{})]);
     return {status:201,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
 export async function apiUpdateNpc(id,body) {
   try {
-    await query(`UPDATE npcs SET name=$1,description=$2,zone_id=$3,faction=$4,disposition=$5,dialogue_tree=$6,vendor_inventory=$7,wanders=$8,wander_zones=$9,flags=$10,behaviour_graph=$11 WHERE id=$12`,
-      [body.name,body.description,body.zone_id,body.faction,body.disposition,JSON.stringify(body.dialogue_tree||{}),JSON.stringify(body.vendor_inventory||[]),body.wanders?1:0,JSON.stringify(body.wander_zones||[]),JSON.stringify(body.flags||{}),JSON.stringify(body.behaviour_graph||{}),id]);
+    await query(`UPDATE npcs SET name=$1,description=$2,zone_id=$3,home_zone=$4,faction=$5,disposition=$6,dialogue_tree=$7,vendor_inventory=$8,wanders=$9,wander_zones=$10,flags=$11,behaviour_graph=$12 WHERE id=$13`,
+      [body.name,body.description,body.zone_id,body.home_zone||null,body.faction,body.disposition,JSON.stringify(body.dialogue_tree||{}),JSON.stringify(body.vendor_inventory||[]),body.wanders?1:0,JSON.stringify(body.wander_zones||[]),JSON.stringify(body.flags||{}),JSON.stringify(body.behaviour_graph||{}),id]);
     // Update in-memory cache
     const { world: w } = await import('../engine/world.js');
     const existing = w.npcs.get(id);
-    if (existing) Object.assign(existing, { name:body.name, description:body.description, zone_id:body.zone_id, faction:body.faction, disposition:body.disposition, dialogue_tree:body.dialogue_tree||{}, vendor_inventory:body.vendor_inventory||[], wanders:body.wanders?1:0, wander_zones:body.wander_zones||[], flags:body.flags||{}, behaviour_graph:body.behaviour_graph||{} });
+    if (existing) Object.assign(existing, { name:body.name, description:body.description, zone_id:body.zone_id, home_zone:body.home_zone||null, faction:body.faction, disposition:body.disposition, dialogue_tree:body.dialogue_tree||{}, vendor_inventory:body.vendor_inventory||[], wanders:body.wanders?1:0, wander_zones:body.wander_zones||[], flags:body.flags||{}, behaviour_graph:body.behaviour_graph||{} });
     return {status:200,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }

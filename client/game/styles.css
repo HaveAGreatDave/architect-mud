@@ -502,6 +502,20 @@ body {
 	#quick-cmds {
 		overflow-x: auto;
 		flex-wrap: nowrap;
+		padding: 6px 10px;
+		gap: 6px;
+	}
+	.qcmd {
+		font-size: 13px;
+		padding: 8px 14px;
+		min-height: 36px;
+		flex-shrink: 0;
+	}
+	#cmd-input {
+		font-size: 16px; /* prevents iOS viewport zoom on focus */
+	}
+	#look-resize-handle {
+		display: none;
 	}
 	#auth-box {
 		width: 95vw;
@@ -3775,14 +3789,46 @@ body {
 }
 #tv-ticker-inner {
 	display: inline-block;
-	padding-left: 100%;
+	white-space: nowrap;
 	font-size: 11px;
 	color: var(--tv-ticker-color);
 	letter-spacing: 0.5px;
+	will-change: transform;
 }
-@keyframes tv-ticker-scroll {
-	0% { transform: translateX(0); }
-	100% { transform: translateX(-100%); }
+/* Off-air static loop */
+.tv-static-loop {
+	animation: tv-static-flicker 0.08s steps(1) infinite;
+}
+@keyframes tv-static-flicker {
+	0%, 100% { opacity: 0.9; }
+	50%       { opacity: 0.6; }
+}
+/* Frequency tuner in TV footer */
+#tv-tuner-wrap {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 0 6px;
+}
+#tv-freq-display {
+	font-size: 11px;
+	color: var(--tv-header-color);
+	min-width: 28px;
+	text-align: right;
+	font-variant-numeric: tabular-nums;
+	letter-spacing: 0.5px;
+}
+#tv-tuner-slider {
+	width: 90px;
+	accent-color: var(--tv-header-color);
+	cursor: pointer;
+}
+/* Passive ambient TV message in main chat */
+.broadcast-ambient {
+	color: var(--text-dim);
+	font-size: 11px;
+	font-style: italic;
+	opacity: 0.6;
 }
 /* Overlay container — sits above content, below header */
 #tv-overlay-container {
@@ -3851,4 +3897,89 @@ body {
 @keyframes tv-alert-in {
 	0% { opacity: 0; transform: scale(1.04); }
 	100% { opacity: 1; transform: scale(1); }
+}
+
+/* ── TV Static + Knob ── */
+#tv-static {
+	display: none;
+	position: absolute;
+	inset: 0;
+	z-index: 20;
+	pointer-events: none;
+	background-color: #111;
+	background-image:
+		url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+	background-size: 180px 180px;
+}
+#tv-static.tv-static-on {
+	display: block;
+	animation: tv-static-flicker 0.06s steps(1) infinite;
+}
+#tv-static.tv-static-fade {
+	display: block;
+	animation: tv-static-out 0.4s ease-out forwards;
+}
+@keyframes tv-static-flicker {
+	0%   { background-position: 0 0;     filter: brightness(0.6) contrast(2); }
+	25%  { background-position: -30px 20px; filter: brightness(1.1) contrast(1.8); }
+	50%  { background-position: 15px -10px; filter: brightness(0.8) contrast(2.2); }
+	75%  { background-position: -10px 35px; filter: brightness(1.3) contrast(1.6); }
+	100% { background-position: 5px -25px;  filter: brightness(0.7) contrast(2); }
+}
+@keyframes tv-static-out {
+	0%   { opacity: 1; filter: brightness(1) contrast(2); }
+	60%  { opacity: 0.6; filter: brightness(1.4) contrast(1.5); }
+	100% { opacity: 0; filter: brightness(1) contrast(1); }
+}
+#tv-content.tv-hidden { visibility: hidden; }
+
+/* Knob */
+#tv-knob-wrap {
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+	padding: 0 10px 0 8px;
+	border-left: 1px solid var(--tv-border);
+}
+#tv-knob {
+	width: 30px;
+	height: 30px;
+	cursor: pointer;
+	display: block;
+	transition: filter 0.2s;
+}
+#tv-knob:hover { filter: drop-shadow(0 0 4px var(--tv-header-color)); }
+.tv-knob-ring {
+	fill: none;
+	stroke: var(--tv-header-color);
+	stroke-width: 2;
+	opacity: 0.7;
+}
+.tv-knob-line {
+	stroke: var(--tv-header-color);
+	stroke-width: 2.5;
+	stroke-linecap: round;
+}
+#tv-knob.tv-knob-spinning {
+	animation: tv-knob-spin 1.1s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+@keyframes tv-knob-spin {
+	0%   { transform: rotate(0deg); }
+	30%  { transform: rotate(200deg); }
+	55%  { transform: rotate(310deg); }
+	70%  { transform: rotate(270deg); }
+	82%  { transform: rotate(340deg); }
+	91%  { transform: rotate(320deg); }
+	100% { transform: rotate(360deg); }
+}
+/* CRT shutoff — vertical collapse to bright line, then line shrinks to nothing */
+#tv-window.tv-shutting-off {
+	animation: tv-crt-shutoff 0.55s ease-in forwards;
+	pointer-events: none;
+}
+@keyframes tv-crt-shutoff {
+	0%   { transform: scaleY(1)     scaleX(1);    filter: brightness(1);   }
+	10%  { transform: scaleY(0.012) scaleX(1.04); filter: brightness(4);   }
+	28%  { transform: scaleY(0.012) scaleX(0.85); filter: brightness(2.5); }
+	100% { transform: scaleY(0.012) scaleX(0);    filter: brightness(0);   }
 }

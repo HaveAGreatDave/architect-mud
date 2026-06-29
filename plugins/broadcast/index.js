@@ -43,8 +43,27 @@ function devOk(auth) {
 
 function broadcastDuration(bc) {
   if (bc.override_duration) return bc.override_duration;
+  if (bc.broadcast_graph) {
+    const d = _vineDuration(bc.broadcast_graph, bc.message_interval || 5);
+    if (d > 0) return d;
+  }
   const count = Array.isArray(bc.messages) ? bc.messages.length : 0;
   return count * (bc.message_interval || 5);
+}
+
+function _vineDuration(graph, interval) {
+  if (!graph?._start || !graph?.nodes) return 0;
+  let total = 0, nodeId = graph._start;
+  const seen = new Set();
+  while (nodeId && !seen.has(nodeId)) {
+    seen.add(nodeId);
+    const node = graph.nodes[nodeId];
+    if (!node) break;
+    if (node.type === 'say' || node.type === 'ticker') total += interval;
+    else if (node.type === 'wait') total += node.data?.seconds ?? 5;
+    nodeId = node.next ?? null;
+  }
+  return total;
 }
 
 function formatMessage(text, deviceType, zone) {
@@ -77,7 +96,7 @@ async function loadChannelRuntimes() {
         WHERE c.enabled = 1 ORDER BY c.number`
     );
     const { rows: playlist } = await query(
-      `SELECT p.*, b.playback_mode, b.messages, b.message_interval, b.override_duration, b.loop, b.broadcast_graph
+      `SELECT p.*, b.playback_mode, b.messages, b.message_interval, b.override_duration, b.loop, b.broadcast_graph, b.fallback_messages
          FROM media_channel_playlist p
          JOIN media_broadcasts b ON b.id = p.broadcast_id
         ORDER BY p.channel_id, p.start_time`
@@ -113,6 +132,7 @@ async function loadChannelRuntimes() {
         message_interval: item.message_interval || 5,
         loop: item.loop,
         broadcastGraph,
+        fallbackMessages: Array.isArray(item.fallback_messages) ? item.fallback_messages : (item.fallback_messages ? JSON.parse(item.fallback_messages) : []),
       });
     }
 
@@ -135,9 +155,13 @@ async function loadChannelRuntimes() {
         idleBroadcast: idleMsgs.length ? { messages: idleMsgs, message_interval: ch.idle_interval || 5 } : null,
         camera: cameraByChannel.get(ch.id) || null,
         scheduleMode: ch.schedule_mode || 'loop',
+        studioZoneId: ch.studio_zone_id || null,
+        offlineGraphicId: ch.offline_graphic_id || null,
         loopOriginMs: Date.now(),
         lastMsgKey: '',
-        graphBlackboard: { currentNode: null, waitUntil: null, npcAnchor: null, activeBroadcastId: null },
+        wasActive: false,
+        currentFallbackMessages: [],
+        graphBlackboard: { currentNode: null, waitUntil: null, npcAnchor: null, activeBroadcastId: null, hostAbsent: false, absentDetectedAt: null, techDiffMode: false },
         theme: ch.theme_id ? {
           id: ch.theme_id,
           name: ch.theme_name,
@@ -245,6 +269,7 @@ async function getCurrentMessage(state, nowMs) {
     const gameSecondsSinceMidnight = minutes * 60;
     const item = playlist.find(i => gameSecondsSinceMidnight >= i.startTime && gameSecondsSinceMidnight < i.startTime + i.duration);
     if (item) {
+      state.currentFallbackMessages = item.fallbackMessages || [];
       if (item.broadcastGraph) return tickBroadcastGraph(state.channelId, item.broadcastGraph, state, nowMs);
       const segElapsed = gameSecondsSinceMidnight - item.startTime;
       const result = getScriptedMessage(item.messages, item.message_interval, segElapsed);
@@ -285,6 +310,7 @@ async function getCurrentMessage(state, nowMs) {
       }
       // VINE graph (scripted/news with broadcast_graph) — walker manages its own timing
       if (item.broadcastGraph) {
+        state.currentFallbackMessages = item.fallbackMessages || [];
         return tickBroadcastGraph(state.channelId, item.broadcastGraph, state, nowMs);
       }
       // scripted flat list
@@ -331,7 +357,18 @@ async function broadcastTick() {
         console.error(`[broadcast] tick error (${channelId}):`, err.message);
         continue;
       }
-      if (!result || result.key === state.lastMsgKey) continue;
+      if (!result || result.key === state.lastMsgKey) {
+        if (state.wasActive) {
+          state.wasActive = false;
+          const graphic = state.offlineGraphicId ? graphicsCache.get(state.offlineGraphicId) : null;
+          for (const player of players) {
+            sendToPlayer(player.id, { type: 'broadcast', channel: channelId, style: 'off_air',
+              offlineGraphicContent: graphic?.content || null });
+          }
+        }
+        continue;
+      }
+      state.wasActive = true;
       state.lastMsgKey = result.key;
 
       // Overlay events (show_overlay / clear_overlay) go direct to TV watchers
@@ -475,7 +512,37 @@ function tickBroadcastGraph(channelId, graph, state, nowMs) {
     bb.currentNode = null;
     bb.waitUntil = null;
     bb.npcAnchor = null;
+    bb.hostAbsent = false;
+    bb.absentDetectedAt = null;
+    bb.techDiffMode = false;
     bb.activeBroadcastId = graph._broadcastId;
+  }
+
+  // Tech-diff mode — host was absent; cycle fallback messages until slot ends
+  if (bb.techDiffMode) {
+    const pool = state.currentFallbackMessages?.length
+      ? state.currentFallbackMessages
+      : ['[TECHNICAL DIFFICULTIES] Please stand by.'];
+    const idx = Math.floor(nowMs / 5000) % pool.length;
+    return { text: pool[idx], key: `techDiff:${channelId}:${idx}:${Math.floor(nowMs / 5000)}`, style: 'raw' };
+  }
+
+  // Camera-idle phase — host absent but first 60s; show live studio feed
+  if (bb.hostAbsent && bb.absentDetectedAt) {
+    const elapsed = nowMs - bb.absentDetectedAt;
+    if (elapsed < 60_000) {
+      const snap = state.studioZoneId ? buildCameraSnapshot(state.studioZoneId) : null;
+      bb.waitUntil = nowMs + 5000;
+      return snap
+        ? { text: `[CAM: studio] ${snap}`, key: `absent-cam:${channelId}:${nowMs}`, style: 'raw' }
+        : null;
+    }
+    bb.techDiffMode = true;
+    const pool = state.currentFallbackMessages?.length
+      ? state.currentFallbackMessages
+      : ['[TECHNICAL DIFFICULTIES] Please stand by.'];
+    const idx = Math.floor(nowMs / 5000) % pool.length;
+    return { text: pool[idx], key: `techDiff:${channelId}:${idx}:${Math.floor(nowMs / 5000)}`, style: 'raw' };
   }
 
   if (bb.waitUntil && nowMs < bb.waitUntil) return null;
@@ -497,6 +564,7 @@ function tickBroadcastGraph(channelId, graph, state, nowMs) {
         break;
 
       case 'say': {
+        if (bb.hostAbsent) { nodeId = _resolveEdge(edges, nodeId, 'next'); break; }
         const raw = node.data?.text || '';
         const style = node.data?.style || 'raw';
         const voice = bb.npcAnchor ? `[${bb.npcAnchor}] ` : '';
@@ -506,14 +574,24 @@ function tickBroadcastGraph(channelId, graph, state, nowMs) {
       }
 
       case 'ticker': {
+        if (bb.hostAbsent) { nodeId = _resolveEdge(edges, nodeId, 'next'); break; }
         const text = `>> ${node.data?.text || ''} <<`;
         bb.currentNode = _resolveEdge(edges, nodeId, 'next');
         return { text, key: `ticker:${channelId}:${nodeId}`, style: 'ticker' };
       }
 
       case 'npc_anchor': {
-        const npc = world.npcs?.get(node.data?.npc_id);
-        bb.npcAnchor = npc?.name || node.data?.npc_id || null;
+        const npcId = node.data?.npc_id;
+        const npc = world.npcs?.get(npcId);
+        bb.npcAnchor = npc?.name || npcId || null;
+        // Presence check — if channel has a studio zone configured
+        if (npcId && state.studioZoneId && !bb.hostAbsent) {
+          const zone = getZone(state.studioZoneId);
+          if (!(zone?.npcs?.has(npcId))) {
+            bb.hostAbsent = true;
+            bb.absentDetectedAt = nowMs;
+          }
+        }
         nodeId = _resolveEdge(edges, nodeId, 'next');
         break;
       }
@@ -749,6 +827,7 @@ async function cmdTune(args, raw, player, broadcast) {
       if (zMap) { zMap.delete(old.channelId); if (!zMap.size) zoneTunings.delete(old.zoneId); }
       furnitureChannelIndex.delete(device.id);
     }
+    sendToPlayer(player.id, { type: 'tv_off' });
     return { type: 'output', message: 'Device turned off.' };
   }
 
@@ -772,7 +851,53 @@ async function cmdTune(args, raw, player, broadcast) {
   furnitureChannelIndex.set(device.id, { zoneId: player.current_zone, channelId: channel.id, deviceType });
 
   emit('device.tuned', { furnitureId: device.id, channelNumber, channelId: channel.id });
+  // If the player has the TV panel open, re-send tv_panel so it switches to the new channel
+  buildTvPanel(channel.id, player);
   return { type: 'output', message: `Tuned to channel ${channelNumber}: ${channel.name}.` };
+}
+
+function buildTvPanel(channelId, player) {
+  const state = channelRuntime.get(channelId);
+  if (!state) return null;
+  const channelList = [...channelRuntime.values()]
+    .filter(s => s.number != null)
+    .sort((a, b) => a.number - b.number)
+    .map(s => ({ number: s.number, name: s.name, channelId: s.channelId }));
+  sendToPlayer(player.id, {
+    type: 'tv_panel',
+    channelId,
+    channelName: state.name || channelId,
+    stationName: state.stationName || state.name || channelId,
+    channelNumber: state.number ?? 0,
+    channelType: state.channelType || 'playlist',
+    theme: state.theme || null,
+    channelList,
+  });
+  // If the channel is currently off-air, signal it immediately rather than waiting for the next tick
+  if (!state.wasActive) {
+    const graphic = state.offlineGraphicId ? graphicsCache.get(state.offlineGraphicId) : null;
+    sendToPlayer(player.id, { type: 'broadcast', channel: channelId, style: 'off_air',
+      offlineGraphicContent: graphic?.content || null });
+  }
+  return { type: 'output', message: 'You turn to the television.' };
+}
+
+// Specialized action: use <tv-furniture>
+async function doUseTv(args, raw, player) {
+  if (!player) return undefined;
+  const nameHint = args.join(' ').toLowerCase();
+
+  // Find a tv-flagged furniture in the zone matching the name hint
+  const { rows } = await query(
+    `SELECT id, name FROM furniture WHERE zone_id=$1 AND jsonb_exists(flags,'tv')${nameHint ? ' AND name ILIKE $2' : ''} LIMIT 1`,
+    nameHint ? [player.current_zone, `%${nameHint}%`] : [player.current_zone]
+  );
+  if (!rows.length) return undefined;
+
+  const entry = furnitureChannelIndex.get(rows[0].id);
+  if (!entry || entry.deviceType !== 'tv') return { type: 'output', message: `${rows[0].name} isn't receiving any signal.` };
+
+  return buildTvPanel(entry.channelId, player) ?? { type: 'output', message: `${rows[0].name} has no active channel.` };
 }
 
 async function cmdTv(args, raw, player) {
@@ -782,18 +907,8 @@ async function cmdTv(args, raw, player) {
 
   for (const [channelId, deviceType] of zoneMap) {
     if (deviceType !== 'tv') continue;
-    const state = channelRuntime.get(channelId);
-    if (!state) continue;
-    sendToPlayer(player.id, {
-      type: 'tv_panel',
-      channelId,
-      channelName: state.name || channelId,
-      stationName: state.stationName || state.name || channelId,
-      channelNumber: state.number ?? 0,
-      channelType: state.channelType || 'playlist',
-      theme: state.theme || null,
-    });
-    return { type: 'output', message: 'You turn to the television.' };
+    const result = buildTvPanel(channelId, player);
+    if (result) return result;
   }
   return { type: 'output', message: 'There is no television here.' };
 }
@@ -828,6 +943,10 @@ export const commands = {
   tv: cmdTv,
 };
 
+export const specializedActions = [
+  { verb: 'use', requiredTag: 'tv', handler: doUseTv },
+];
+
 // ── Route handler (CRUD) ─────────────────────────────────────────────────────
 
 export const routeHandler = async (path, method, body, auth) => {
@@ -850,13 +969,14 @@ export const routeHandler = async (path, method, body, auth) => {
         const bid = body.id || `bc_${Date.now()}`;
         const graph = body.broadcast_graph ? JSON.stringify(body.broadcast_graph) : null;
         await query(
-          `INSERT INTO media_broadcasts (id,name,description,category,tags,playback_mode,messages,message_interval,override_duration,loop,enabled,created_by,updated_at,broadcast_graph)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,EXTRACT(EPOCH FROM NOW()),$13)`,
+          `INSERT INTO media_broadcasts (id,name,description,category,tags,playback_mode,messages,message_interval,override_duration,loop,enabled,created_by,updated_at,broadcast_graph,channel_id,fallback_messages)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,EXTRACT(EPOCH FROM NOW()),$13,$14,$15)`,
           [bid, body.name || 'Untitled', body.description || '', body.category || 'general',
            JSON.stringify(body.tags || []), body.playback_mode || 'scripted',
            JSON.stringify(body.messages || []), body.message_interval || 5,
            body.override_duration || null, body.loop ? 1 : 0, body.enabled !== false ? 1 : 0,
-           auth?.playerId || 'unknown', graph]
+           auth?.playerId || 'unknown', graph, body.channel_id || null,
+           JSON.stringify(body.fallback_messages || [])]
         );
         await loadChannelRuntimes();
         return { status: 201, body: { id: bid } };
@@ -866,11 +986,12 @@ export const routeHandler = async (path, method, body, auth) => {
         await query(
           `UPDATE media_broadcasts SET name=$1,description=$2,category=$3,tags=$4,playback_mode=$5,
            messages=$6,message_interval=$7,override_duration=$8,loop=$9,enabled=$10,broadcast_graph=$11,
-           updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$12`,
+           channel_id=$12,fallback_messages=$13,updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$14`,
           [body.name||'Untitled', body.description||'', body.category||'general',
            JSON.stringify(body.tags||[]), body.playback_mode||'scripted',
            JSON.stringify(body.messages||[]), body.message_interval||5,
-           body.override_duration||null, body.loop?1:0, body.enabled!==false?1:0, graph, id]
+           body.override_duration||null, body.loop?1:0, body.enabled!==false?1:0, graph,
+           body.channel_id||null, JSON.stringify(body.fallback_messages||[]), id]
         );
         await loadChannelRuntimes();
         return { status: 200, body: { id } };
@@ -889,7 +1010,7 @@ export const routeHandler = async (path, method, body, auth) => {
       if (id && sub === 'playlist') {
         if (method === 'GET') {
           const { rows } = await query(
-            `SELECT p.*, b.name AS broadcast_name, b.playback_mode, b.messages, b.message_interval, b.override_duration
+            `SELECT p.*, b.name AS broadcast_name, b.playback_mode, b.messages, b.message_interval, b.override_duration, b.broadcast_graph, b.fallback_messages
                FROM media_channel_playlist p
                JOIN media_broadcasts b ON b.id = p.broadcast_id
               WHERE p.channel_id=$1 ORDER BY p.start_time`,
@@ -949,12 +1070,14 @@ export const routeHandler = async (path, method, body, auth) => {
         await query(
           `UPDATE media_channels SET name=$1,number=$2,description=$3,station_name=$4,theme_id=$5,
            enabled=$6,loop_playlist=$7,priority=$8,channel_type=$9,idle_broadcast_id=$10,news_categories=$11,
-           updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$12`,
+           schedule_mode=$12,studio_zone_id=$13,offline_graphic_id=$14,updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$15`,
           [body.name || 'Untitled Channel', body.number || null, body.description || '',
            body.station_name || '', body.theme_id || null,
            body.enabled !== false ? 1 : 0, body.loop_playlist !== false ? 1 : 0,
            body.priority || 0, body.channel_type || 'playlist',
-           body.idle_broadcast_id || null, JSON.stringify(body.news_categories || []), id]
+           body.idle_broadcast_id || null, JSON.stringify(body.news_categories || []),
+           body.schedule_mode || 'loop', body.studio_zone_id || null,
+           body.offline_graphic_id || null, id]
         );
         await loadChannelRuntimes();
         return { status: 200, body: { id } };

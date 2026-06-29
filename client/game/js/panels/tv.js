@@ -1,7 +1,10 @@
 // Television popup panel — receives live broadcast push via the existing WS tick.
 // Opened by 'watch tv' / 'tv' commands; closed by ESC or the close button.
 
+import { sendCmd } from '../net.js';
+
 let _tvOpen = false;
+let _tvShuttingDown = false;
 let _tvActiveChannelId = null;
 const _tvHistory = [];
 const MAX_TV_HISTORY = 200;
@@ -9,6 +12,10 @@ let _tvAtBottom = true;
 let _tickerText = '';
 let _tickerAnimating = false;
 let _overlayTimer = null;
+let _tuneTimer = null;
+let _tvChannelList = [];   // [{ number, name, channelId }] sorted by number
+let _tvFrequency   = 0;    // current dial position (float)
+const LOCK_RANGE   = 0.25; // within this many channel-numbers = lock in
 
 export function openTvPanel(data) {
   _tvActiveChannelId = data.channelId;
@@ -17,19 +24,66 @@ export function openTvPanel(data) {
   _tickerText = '';
   _tickerAnimating = false;
   _tvAtBottom = true;
+  _tvChannelList = Array.isArray(data.channelList) ? data.channelList : [];
+  _tvFrequency   = data.channelNumber ?? 0;
 
   document.getElementById('tv-station-name').textContent = data.stationName || data.channelName || 'UNKNOWN';
   document.getElementById('tv-channel-num').textContent = `CH ${data.channelNumber ?? '—'}`;
   document.getElementById('tv-program-name').textContent = '';
   document.getElementById('tv-messages').innerHTML = '';
 
+  const freqDisplay = document.getElementById('tv-freq-display');
+  if (freqDisplay) freqDisplay.textContent = _tvFrequency.toFixed(1);
+  const slider = document.getElementById('tv-tuner-slider');
+  if (slider) {
+    const maxCh = _tvChannelList.length ? Math.max(..._tvChannelList.map(c => c.number)) + 2 : 99;
+    slider.max = Math.max(maxCh, _tvFrequency + 2);
+    slider.value = _tvFrequency;
+  }
+
   const inner = document.getElementById('tv-ticker-inner');
-  inner.style.animation = 'none';
+  inner.style.transition = 'none';
+  inner.style.transform  = '';
   inner.textContent = '';
+  _tickerText = '';
+  _tickerAnimating = false;
 
   applyTvTheme(data.theme || null);
 
   document.getElementById('tv-panel').classList.add('active');
+  _playTuneAnimation();
+}
+
+function _playTuneAnimation() {
+  if (_tuneTimer) { clearTimeout(_tuneTimer); _tuneTimer = null; }
+
+  const staticEl = document.getElementById('tv-static');
+  const content  = document.getElementById('tv-content');
+  const knob     = document.getElementById('tv-knob');
+
+  // Hide content, show static
+  content.classList.add('tv-hidden');
+  staticEl.classList.remove('tv-static-fade');
+  staticEl.classList.add('tv-static-on');
+
+  // Spin the knob
+  knob.classList.remove('tv-knob-spinning');
+  knob.offsetWidth; // force reflow to restart animation
+  knob.classList.add('tv-knob-spinning');
+
+  // After knob settles (~1.1s), fade static out and reveal content
+  _tuneTimer = setTimeout(() => {
+    staticEl.classList.remove('tv-static-on');
+    staticEl.classList.add('tv-static-fade');
+    content.classList.remove('tv-hidden');
+
+    staticEl.addEventListener('animationend', () => {
+      staticEl.classList.remove('tv-static-fade');
+    }, { once: true });
+
+    knob.classList.remove('tv-knob-spinning');
+    _tuneTimer = null;
+  }, 1200);
 }
 
 export function applyTvTheme(theme) {
@@ -61,9 +115,24 @@ export function applyTvTheme(theme) {
 
 export function closeTvPanel() {
   _tvOpen = false;
+  _tvShuttingDown = false;
   _tvActiveChannelId = null;
+  if (_tuneTimer) { clearTimeout(_tuneTimer); _tuneTimer = null; }
   _clearOverlay();
+  const win = document.getElementById('tv-window');
+  win.classList.remove('tv-shutting-off');
+  document.getElementById('tv-static').classList.remove('tv-static-on', 'tv-static-fade', 'tv-static-loop');
+  document.getElementById('tv-content').classList.remove('tv-hidden');
   document.getElementById('tv-panel').classList.remove('active');
+}
+
+export function shutdownTvPanel() {
+  if (!_tvOpen || _tvShuttingDown) return;
+  _tvShuttingDown = true;
+  if (_tuneTimer) { clearTimeout(_tuneTimer); _tuneTimer = null; }
+  const win = document.getElementById('tv-window');
+  win.classList.add('tv-shutting-off');
+  win.addEventListener('animationend', () => closeTvPanel(), { once: true });
 }
 
 export function applyTvOverlay(overlay) {
@@ -107,6 +176,54 @@ function _esc(str) {
 export function isTvOpen() { return _tvOpen; }
 export function getTvActiveChannelId() { return _tvActiveChannelId; }
 
+function _tvTuneTo(num) {
+  sendCmd('tune ' + num);
+  _playTuneAnimation();
+}
+
+export function tvTunerInput(val) {
+  _tvFrequency = parseFloat(val);
+  const freqDisplay = document.getElementById('tv-freq-display');
+  if (freqDisplay) freqDisplay.textContent = _tvFrequency.toFixed(1);
+  if (!_tvChannelList.length) return;
+
+  const nearest = _tvChannelList.reduce((a, b) =>
+    Math.abs(b.number - _tvFrequency) < Math.abs(a.number - _tvFrequency) ? b : a);
+  const dist = Math.abs(nearest.number - _tvFrequency);
+
+  const staticEl = document.getElementById('tv-static');
+  if (staticEl) {
+    const opacity = Math.min(1, dist / LOCK_RANGE);
+    staticEl.style.opacity = opacity.toFixed(2);
+    if (opacity > 0) {
+      staticEl.classList.add('tv-static-on');
+    } else {
+      staticEl.classList.remove('tv-static-on');
+    }
+  }
+
+  if (dist < LOCK_RANGE && nearest.channelId !== _tvActiveChannelId) {
+    if (staticEl) { staticEl.style.opacity = ''; staticEl.classList.remove('tv-static-on'); }
+    _tvTuneTo(nearest.number);
+  }
+}
+
+export function showTvOffAir(offlineGraphicContent) {
+  const staticEl = document.getElementById('tv-static');
+  const content  = document.getElementById('tv-content');
+  if (!staticEl || !content) return;
+  if (offlineGraphicContent) {
+    staticEl.classList.remove('tv-static-on', 'tv-static-loop');
+    staticEl.style.opacity = '';
+    content.classList.remove('tv-hidden');
+    appendTvMessage(offlineGraphicContent, 'ascii_art');
+  } else {
+    content.classList.add('tv-hidden');
+    staticEl.classList.add('tv-static-on', 'tv-static-loop');
+    staticEl.style.opacity = '';
+  }
+}
+
 export function appendTvMessage(text, style) {
   const container = document.getElementById('tv-messages');
   if (!container) return;
@@ -135,36 +252,53 @@ export function updateTvTicker(text) {
 
 function _startTickerAnimation() {
   const inner = document.getElementById('tv-ticker-inner');
-  if (!inner || !_tickerText) return;
+  const track = document.getElementById('tv-ticker-track');
+  if (!inner || !track || !_tickerText) return;
 
   _tickerAnimating = true;
+  inner.style.transition = 'none';
+  inner.style.transform  = '';
   inner.textContent = `${_tickerText}   `;
+  inner.offsetHeight; // reflow to measure scrollWidth
 
-  // Duration scales with text length for consistent reading speed (~0.13s per char)
-  const duration = Math.max(10, _tickerText.length * 0.13);
+  const trackW = track.offsetWidth;
+  const textW  = inner.scrollWidth;
+  const dur    = (trackW + textW) / 80; // 80 px/s constant reading speed
 
-  inner.style.animation = 'none';
-  inner.offsetHeight; // force reflow to restart
-  inner.style.animation = `tv-ticker-scroll ${duration}s linear forwards`;
+  inner.style.transform = `translateX(${trackW}px)`;
+  inner.offsetHeight;
+  inner.style.transition = `transform ${dur}s linear`;
+  inner.style.transform  = `translateX(${-textW}px)`;
 
-  inner.addEventListener('animationend', function handler() {
-    inner.removeEventListener('animationend', handler);
+  inner.addEventListener('transitionend', () => {
     _tickerText = '';
     _tickerAnimating = false;
-    inner.style.animation = 'none';
+    inner.style.transition = 'none';
+    inner.style.transform  = '';
     inner.textContent = '';
   }, { once: true });
 }
 
 export function initTvPanel() {
-  document.getElementById('tv-close-btn').addEventListener('click', closeTvPanel);
+  document.getElementById('tv-tuner-slider')?.addEventListener('input', (e) => tvTunerInput(e.target.value));
+  document.getElementById('tv-close-btn').addEventListener('click', shutdownTvPanel);
+
+  document.getElementById('tv-knob').addEventListener('click', () => {
+    if (!_tvOpen) return;
+    if (_tvChannelList.length > 1) {
+      const idx = _tvChannelList.findIndex(c => c.channelId === _tvActiveChannelId);
+      const next = _tvChannelList[(idx + 1) % _tvChannelList.length];
+      if (next) { _tvFrequency = next.number; _tvTuneTo(next.number); return; }
+    }
+    _playTuneAnimation();
+  });
 
   document.getElementById('tv-panel').addEventListener('click', e => {
-    if (e.target.id === 'tv-panel') closeTvPanel();
+    if (e.target.id === 'tv-panel') shutdownTvPanel();
   });
 
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && _tvOpen) closeTvPanel();
+    if (e.key === 'Escape' && _tvOpen) shutdownTvPanel();
   });
 
   // Track scroll position to know if we're in live mode (at bottom)

@@ -2,18 +2,21 @@
 
 let _bankUnits = [];
 let _bankNetworks = [];
+let _bankZones = [];
 
 async function renderBankPanel() {
   const panel = document.getElementById('list-panel');
   panel.innerHTML = '<div style="padding:24px;color:var(--text-dim)">Loading ATM data…</div>';
 
-  const [units, networks] = await Promise.all([
+  const [units, networks, zones] = await Promise.all([
     directAPI('/atm/units').catch(() => []),
     directAPI('/atm/networks').catch(() => []),
+    API('/zones').catch(() => []),
   ]);
 
   _bankUnits    = Array.isArray(units)    ? units    : [];
   _bankNetworks = Array.isArray(networks) ? networks : [];
+  _bankZones    = Array.isArray(zones)    ? zones    : (zones?.zones || []);
   _renderBankBody();
 }
 
@@ -140,6 +143,7 @@ function _renderBankBody() {
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <div style="font-size:13px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">ATM Units</div>
         <div style="display:flex;gap:8px">
+          <button class="action-btn primary" onclick="bankCreateAtm()" style="font-size:11px;padding:4px 12px">+ Create ATM Terminal</button>
           <button class="action-btn" onclick="bankReplenishAll()" style="font-size:11px;padding:4px 12px">↻ Replenish All</button>
           <button class="action-btn" onclick="renderBankPanel()" style="font-size:11px;padding:4px 12px">⟳ Refresh</button>
         </div>
@@ -236,6 +240,95 @@ async function bankReplenishAll() {
   const res = await directAPI('/atm/replenish-all', 'POST').catch(e => ({ error: e.message }));
   if (res && res.error) { toast(res.error, true); return; }
   toast(`Replenished ${res.count ?? '?'} ATM(s).`);
+  renderBankPanel();
+}
+
+// ── Create ATM Terminal ───────────────────────────────────────────────────────
+
+function bankCreateAtm() {
+  const zoneOpts = _bankZones
+    .slice().sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id))
+    .map(z => `<option value="${z.id}">${z.name || z.id}</option>`)
+    .join('');
+  const netOpts = _bankNetworks
+    .map(n => `<option value="${n.id}">${n.name}</option>`)
+    .join('');
+  const fieldStyle = 'background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);padding:5px 8px;width:100%;box-sizing:border-box';
+
+  openModal('Create ATM Terminal', `
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="font-size:11px;color:var(--text-dim);padding:4px 8px;background:var(--bg3);border-radius:3px;border-left:2px solid var(--accent)">
+        Creates the furniture item (with the <code>atm</code> flag) and registers it as an ATM unit in one step.
+      </div>
+      <div class="field"><label>Terminal Name</label>
+        <input id="batm-name" type="text" value="ATM Terminal" placeholder="ATM Terminal" style="${fieldStyle}">
+      </div>
+      <div class="field"><label>Description</label>
+        <input id="batm-desc" type="text" value="A cash dispensing terminal." placeholder="A cash dispensing terminal." style="${fieldStyle}">
+      </div>
+      <div class="field"><label>Zone</label>
+        <select id="batm-zone" style="${fieldStyle}">
+          <option value="">— Unplaced —</option>${zoneOpts}
+        </select>
+      </div>
+      <div class="field"><label>Network</label>
+        <select id="batm-network" style="${fieldStyle}">
+          <option value="">— Unaffiliated (CENTRAL BANK) —</option>${netOpts}
+        </select>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="field"><label>Cash Max (₵)</label>
+          <input id="batm-cashmax" type="number" min="1" value="10000" style="${fieldStyle}">
+        </div>
+        <div class="field"><label>Replenish (hours)</label>
+          <input id="batm-interval" type="number" min="1" value="6" style="${fieldStyle}">
+        </div>
+      </div>
+      <div class="field"><label>Hack Difficulty (1–10)</label>
+        <input id="batm-diff" type="number" min="1" max="10" value="5" style="${fieldStyle}">
+      </div>
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <button class="action-btn success" style="flex:1" onclick="bankCreateAtmSave()">Create</button>
+        <button class="action-btn" onclick="closeModal()">Cancel</button>
+      </div>
+    </div>`);
+}
+
+async function bankCreateAtmSave() {
+  const name    = document.getElementById('batm-name').value.trim();
+  const desc    = document.getElementById('batm-desc').value.trim();
+  const zoneId  = document.getElementById('batm-zone').value || null;
+  const network = document.getElementById('batm-network').value || null;
+  const cashMax = parseInt(document.getElementById('batm-cashmax').value, 10) || 10000;
+  const interval = parseInt(document.getElementById('batm-interval').value, 10) || 6;
+  const diff    = parseInt(document.getElementById('batm-diff').value, 10) || 5;
+
+  if (!name) { toast('Terminal name is required.', true); return; }
+
+  // Create the furniture — server auto-creates atm_units row when flags.atm is set
+  const fur = await API('/furniture', 'POST', {
+    name, description: desc,
+    zone_id: zoneId,
+    object_type: 'terminal',
+    flags: { atm: true, interactions: [] },
+    light_on: 0,
+  }).catch(e => ({ error: e.message }));
+
+  if (fur?.error) { toast(fur.error, true); return; }
+
+  const atmId = fur.id || fur.entityId;
+
+  // Set ATM unit settings (the auto-created row has defaults; overwrite now)
+  await directAPI(`/atm/units/${atmId}`, 'PUT', {
+    network_id: network,
+    cash_max: cashMax,
+    cash_stock: cashMax,
+    replenish_interval_hours: interval,
+    hack_difficulty: diff,
+  }).catch(e => toast(e.message, true));
+
+  toast(`ATM Terminal "${name}" created.`);
+  closeModal();
   renderBankPanel();
 }
 

@@ -84,6 +84,7 @@ function npcEditForm(rec, isNew) {
     <div class="field"><label>Description</label><textarea id="f-description">${rec.description||''}</textarea></div>
     <div class="field-row">
       <div class="field"><label>Zone ID</label><input id="f-zone_id" value="${rec.zone_id||''}"></div>
+      <div class="field"><label>Home Zone</label><input id="f-home_zone" value="${rec.home_zone||''}" placeholder="zone ID (optional)"></div>
       <div class="field"><label>Faction</label><input id="f-faction" value="${rec.faction||''}"></div>
     </div>
     <div class="field"><label>Disposition</label>
@@ -127,6 +128,7 @@ async function saveNpc(existing) {
     name: document.getElementById('f-name').value,
     description: document.getElementById('f-description').value,
     zone_id: document.getElementById('f-zone_id').value || null,
+    home_zone: document.getElementById('f-home_zone').value || null,
     faction: document.getElementById('f-faction').value || null,
     disposition: document.getElementById('f-disposition').value,
     wanders: document.getElementById('f-wanders').checked,

@@ -174,6 +174,7 @@ export const SCHEMA_SQL = `
     flags JSONB DEFAULT '{}'
   );
   ALTER TABLE npcs ADD COLUMN IF NOT EXISTS behaviour_graph JSONB DEFAULT '{}';
+  ALTER TABLE npcs ADD COLUMN IF NOT EXISTS home_zone TEXT DEFAULT NULL;
 
   -- Non-takeable scenery (bar counters, stools, beds, tables...). Distinct
   -- from items: items live in player_inventory (including the
@@ -741,6 +742,10 @@ export const SCHEMA_SQL = `
   ALTER TABLE media_channels ADD COLUMN IF NOT EXISTS theme_id TEXT REFERENCES media_themes(id);
   ALTER TABLE media_channels ADD COLUMN IF NOT EXISTS station_name TEXT DEFAULT '';
   ALTER TABLE media_channels ADD COLUMN IF NOT EXISTS schedule_mode TEXT DEFAULT 'loop';
+  ALTER TABLE media_broadcasts ADD COLUMN IF NOT EXISTS channel_id TEXT REFERENCES media_channels(id);
+  ALTER TABLE media_channels  ADD COLUMN IF NOT EXISTS studio_zone_id TEXT;
+  ALTER TABLE media_channels  ADD COLUMN IF NOT EXISTS offline_graphic_id TEXT;
+  ALTER TABLE media_broadcasts ADD COLUMN IF NOT EXISTS fallback_messages JSONB DEFAULT '[]';
 
   -- Broadcast graphics library. ASCII art referenced by VINE title_card nodes.
   -- type: 'ascii' | 'svg'; tags: JSONB array of labels for dev-panel filtering.

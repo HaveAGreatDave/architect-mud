@@ -6,6 +6,7 @@ import { foodLoad, applyThirst } from '../bodily.js';
 import { dispatchAction } from '../actions.js';
 import { getZonePlayers } from '../world.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../sift.js';
+import { fireSpecializedAction } from '../specializedActions.js';
 import { resolveCorpseOrPlayer, buildLootView } from './combat.js';
 
 // Throttle: only broadcast "rummages in container" once per 30s per player.
@@ -176,7 +177,30 @@ async function cmdGive(argStr, player, broadcast) {
   return dispatchAction({ type:'GIVE', actor: player, params: { row: rows[0], toPlayer: target }, context: { broadcast } });
 }
 
-async function cmdUse(targetStr, player) {
+// Flag → native verb for furniture types with dedicated handlers.
+const FURNITURE_NATIVE_VERB = { atm: 'atm', tv: 'tv', water_source: 'drink' };
+
+async function cmdUseFurniture(targetStr, player, broadcast) {
+  const { rows } = await query(
+    `SELECT * FROM furniture WHERE zone_id=$1 AND name ILIKE $2 LIMIT 1`,
+    [player.current_zone, `%${targetStr}%`]
+  );
+  if (!rows.length) return { type:'error', message:`No usable item "${targetStr}" found.` };
+  const f = rows[0];
+  const flags = f.flags || {};
+
+  // Delegate to the native verb for this furniture type so the plugin handler runs.
+  for (const [flag, verb] of Object.entries(FURNITURE_NATIVE_VERB)) {
+    if (flags[flag]) {
+      const result = await fireSpecializedAction(verb, [f.name], `${verb} ${f.name}`, player, broadcast);
+      if (result !== undefined) return result;
+    }
+  }
+
+  return { type:'error', message:`You can't use ${f.name} like that.` };
+}
+
+async function cmdUse(targetStr, player, broadcast) {
   if (!targetStr) return { type:'error', message:'Use what?' };
 
   const { rows: drugRows } = await query(
@@ -196,7 +220,7 @@ async function cmdUse(targetStr, player) {
   }
 
   const { rows } = await query(`SELECT pi.*,i.name,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND i.name ILIKE $2 AND jsonb_exists(i.tags,'consumable') LIMIT 1`, [player.id, `%${targetStr}%`]);
-  if (!rows.length) return { type:'error', message:`No usable item "${targetStr}" in inventory.` };
+  if (!rows.length) return cmdUseFurniture(targetStr, player, broadcast);
   const item = rows[0];
   const t = item.tags || {};
   const messages = [`You use ${item.name}.`];
@@ -655,9 +679,9 @@ export const handlers = {
   drop: (args, raw, player, broadcast) => cmdDrop(args.join(' '), player, broadcast),
   dropid: (args, raw, player, broadcast) => cmdDropById(args[0], player, broadcast, parseInt(args[1]) || 0),
   give: (args, raw, player, broadcast) => cmdGive(args.join(' '), player, broadcast),
-  use:   (args, raw, player) => cmdUse(args.join(' '), player),
-  eat:   (args, raw, player) => cmdUse(args.join(' '), player),
-  drink: (args, raw, player) => cmdUse(args.join(' '), player),
+  use:   (args, raw, player, broadcast) => cmdUse(args.join(' '), player, broadcast),
+  eat:   (args, raw, player, broadcast) => cmdUse(args.join(' '), player, broadcast),
+  drink: (args, raw, player, broadcast) => cmdUse(args.join(' '), player, broadcast),
   equip:    (args, raw, player) => cmdEquip(args.join(' '), player),
   wear:     (args, raw, player) => cmdEquip(args.join(' '), player),
   unequip:  (args, raw, player) => cmdUnequip(args.join(' '), player),

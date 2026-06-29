@@ -51,28 +51,66 @@ function _schedFmtTime(sec) {
 // ── Panel entry ──────────────────────────────────────────────────────────────
 
 async function renderSchedulePanel(data) {
-  const panel = document.getElementById('list-panel');
-  panel.innerHTML = '<div style="padding:16px;color:var(--text-dim);font-size:12px">Loading schedule…</div>';
-
   _schedChannels   = Array.isArray(data?.channels)   ? data.channels   : [];
   _schedBroadcasts = Array.isArray(data?.broadcasts) ? data.broadcasts : [];
   _schedNpcs       = Array.isArray(data?.npcs)       ? data.npcs       : [];
 
   if (!_schedChannelId && _schedChannels.length) _schedChannelId = _schedChannels[0].id;
 
+  const panel = document.getElementById('list-panel');
+  panel.innerHTML = `
+    <div style="display:flex;height:100%;overflow:hidden">
+      <div id="sched-sidebar" style="width:220px;flex-shrink:0;border-right:1px solid var(--border);display:flex;flex-direction:column;background:var(--bg)"></div>
+      <div id="sched-content" style="flex:1;overflow:auto;background:var(--bg)"></div>
+    </div>`;
+
   await _schedLoadItems();
-  _schedRender();
+  _schedRenderSidebar();
+  _schedRenderContent();
 
   // Global mouse handlers for resize
   document.addEventListener('mousemove', _schedOnMouseMove);
   document.addEventListener('mouseup',   _schedOnMouseUp);
 }
 
+// ── New channel ───────────────────────────────────────────────────────────────
+
+let _schedNewChVisible = false;
+
+function _schedToggleNewCh(show) {
+  _schedNewChVisible = show;
+  const form = document.getElementById('sched-newch-form');
+  if (form) form.style.display = show ? 'flex' : 'none';
+  if (show) document.getElementById('sched-newch-name')?.focus();
+}
+
+async function _schedCreateChannel() {
+  const name   = document.getElementById('sched-newch-name')?.value?.trim();
+  const number = parseInt(document.getElementById('sched-newch-number')?.value || '');
+  if (!name)   { toast('Channel name is required.', true); return; }
+  if (!number) { toast('Channel number is required.', true); return; }
+  try {
+    const res = await directAPI('/broadcast/channels', 'POST', {
+      id: `ch_${number}_${Date.now()}`, name, number, channel_type: 'playlist', enabled: 1,
+    });
+    if (res?.error) { toast(res.error, true); return; }
+    const newCh = { id: res.id || `ch_${number}_${Date.now()}`, name, number, channel_type: 'playlist', schedule_mode: 'loop' };
+    _schedChannels.push(newCh);
+    _schedChannels.sort((a, b) => (a.number || 99) - (b.number || 99));
+    _schedChannelId = newCh.id;
+    _schedItems = [];
+    _schedToggleNewCh(false);
+    _schedRenderSidebar();
+    _schedRenderContent();
+    toast(`Channel ${number}: ${name} created.`);
+  } catch (err) { toast(err.message, true); }
+}
+
 async function _schedLoadItems() {
   if (!_schedChannelId) { _schedItems = []; return; }
   try {
-    const ch = await directAPI(`/broadcast/channels/${_schedChannelId}`, 'GET');
-    const pl = Array.isArray(ch?.playlist) ? ch.playlist : [];
+    const pl = await directAPI(`/broadcast/channels/${_schedChannelId}/playlist`, 'GET');
+    if (!Array.isArray(pl)) { _schedItems = []; return; }
     _schedItems = pl.map(item => {
       const bc = _schedBroadcasts.find(b => b.id === item.broadcast_id) || {};
       const dur = item.duration_override
@@ -93,63 +131,147 @@ async function _schedLoadItems() {
   } catch { _schedItems = []; }
 }
 
-// ── Main render ──────────────────────────────────────────────────────────────
+// ── Sidebar render ────────────────────────────────────────────────────────────
 
-function _schedRender() {
-  const panel = document.getElementById('list-panel');
+function _schedRenderSidebar() {
+  const el = document.getElementById('sched-sidebar');
+  if (!el) return;
+
+  const items = _schedChannels.map(ch => {
+    const sel     = ch.id === _schedChannelId;
+    const isDaily = ch.schedule_mode === 'daily';
+    return `<div onclick="_schedSwitchChannel('${ch.id}')"
+      style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border);
+             background:${sel ? 'var(--bg3)' : 'transparent'};
+             border-left:3px solid ${sel ? 'var(--accent)' : 'transparent'}">
+      <div style="font-size:12px;font-weight:600;color:var(--text-bright)">
+        <span style="color:var(--text-dim);font-size:10px">Ch ${ch.number || '?'} </span>${escHtml(ch.name)}
+      </div>
+      <div style="font-size:10px;color:var(--text-dim);margin-top:2px;display:flex;gap:6px">
+        <span>${ch.channel_type || 'playlist'}</span>
+        <span style="color:${isDaily ? 'var(--cyan)' : 'var(--border)'}">● ${isDaily ? 'daily' : 'loop'}</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  const newChForm = `
+    <div id="sched-newch-form" style="display:${_schedNewChVisible ? 'flex' : 'none'};flex-direction:column;gap:4px;padding:8px;background:var(--bg3);border-bottom:1px solid var(--border)">
+      <input id="sched-newch-name"   class="form-input" placeholder="Channel name"  style="font-size:11px">
+      <div style="display:flex;gap:4px">
+        <input id="sched-newch-number" class="form-input" placeholder="Ch #" type="number" min="1" style="width:64px;font-size:11px">
+        <button class="action-btn primary" style="font-size:11px;flex:1" onclick="_schedCreateChannel()">Create</button>
+        <button class="action-btn" style="font-size:11px" onclick="_schedToggleNewCh(false)">✕</button>
+      </div>
+    </div>`;
+
+  el.innerHTML = `
+    <div style="padding:8px;border-bottom:1px solid var(--border);flex-shrink:0">
+      <button class="action-btn" style="width:100%;font-size:11px" onclick="_schedToggleNewCh(true)">+ New Channel</button>
+    </div>
+    ${newChForm}
+    <div style="flex:1;overflow-y:auto">
+      ${items || '<div style="padding:16px;color:var(--text-dim);font-size:11px">No channels yet.</div>'}
+    </div>`;
+}
+
+// ── Content render (timeline + library) ──────────────────────────────────────
+
+function _schedRenderContent() {
+  const el = document.getElementById('sched-content');
+  if (!el) return;
+
   const ch = _schedChannels.find(c => c.id === _schedChannelId);
-  const isDaily = ch?.schedule_mode === 'daily';
+  if (!ch) {
+    el.innerHTML = '<div style="padding:32px;color:var(--text-dim);font-size:12px">Select a channel from the sidebar.</div>';
+    return;
+  }
 
-  const chOptions = _schedChannels.map(c =>
-    `<option value="${c.id}" ${c.id === _schedChannelId ? 'selected' : ''}>${escHtml(c.name)} (ch ${c.number})</option>`
-  ).join('');
+  const isDaily = ch.schedule_mode === 'daily';
 
   const libRows = _schedBroadcasts.map(b => {
     const dur = b.override_duration || ((Array.isArray(b.messages) ? b.messages.length : 0) * (b.message_interval || 5)) || 3600;
     const col = SCHED_CAT_COLOR[b.category] || 'var(--text-dim)';
     return `<div class="sched-lib-item" draggable="true"
       ondragstart="_schedLibDragStart(event,'${b.id}')"
-      style="padding:5px 8px;border-left:3px solid ${col};background:var(--bg3);border-radius:2px;cursor:grab;margin-bottom:3px">
-      <div style="font-size:11px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(b.name)}</div>
+      style="padding:5px 8px;border-left:3px solid ${col};background:var(--bg3);border-radius:2px;cursor:grab;flex-shrink:0;min-width:120px">
+      <div style="font-size:11px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px">${escHtml(b.name)}</div>
       <div style="font-size:10px;color:var(--text-dim)">${_schedFmtDur(dur)}</div>
     </div>`;
   }).join('');
 
-  panel.innerHTML = `
-    <div style="display:flex;flex-direction:column;height:100%;gap:0">
+  el.innerHTML = `
+    <div style="display:flex;flex-direction:column;height:100%;min-height:0">
 
-      <!-- Toolbar -->
-      <div style="padding:8px 12px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0">
-        <select id="sched-ch-sel" class="form-input" style="width:200px" onchange="_schedSwitchChannel(this.value)">${chOptions}</select>
-        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text);cursor:pointer">
+      <!-- Channel header -->
+      <div style="padding:10px 16px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:10px;color:var(--text-dim)">Ch</span>
+          <input id="sched-ch-number" type="number" class="form-input" value="${ch.number || ''}" min="1"
+            style="width:52px;font-size:13px;font-weight:700" onblur="_schedSaveChMeta()">
+          <input id="sched-ch-name" class="form-input" value="${escHtml(ch.name)}"
+            style="width:180px;font-size:13px;font-weight:700" onblur="_schedSaveChMeta()">
+        </div>
+        <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;color:var(--text)">
           <input type="checkbox" id="sched-daily-toggle" ${isDaily ? 'checked' : ''} onchange="_schedToggleMode(this.checked)">
-          Daily schedule mode
+          Daily mode
         </label>
-        <span style="font-size:11px;color:var(--text-dim)">${isDaily ? 'start_time = seconds from midnight' : 'Loop mode — use Channels panel to manage'}</span>
         <div style="margin-left:auto;display:flex;gap:6px">
-          <button class="action-btn" onclick="bcImportBsm()" title="Import a .bsm file and place it on the timeline">↑ Import .bsm</button>
+          <button class="action-btn" onclick="bcImportBsm()" title="Import a .bsm file">↑ BSM</button>
           <button class="action-btn primary" onclick="_schedSave()">Save Schedule</button>
         </div>
       </div>
 
-      <!-- Body: library + timeline -->
-      <div style="display:flex;flex:1;overflow:hidden">
+      <!-- Timeline area -->
+      <div style="flex:1;overflow:auto;padding:16px">
+        ${!isDaily
+          ? `<div style="padding:24px 0;color:var(--text-dim);font-size:12px">
+               Enable <strong>Daily mode</strong> above to use the 24-hour timeline editor for this channel.
+             </div>`
+          : `<div style="font-size:11px;color:var(--text-dim);margin-bottom:8px">Drag broadcasts from the library below onto the timeline. Snap: 30 min. Click a block to edit.</div>
+             ${_schedBuildTimeline()}`}
+      </div>
 
-        <!-- Library pane -->
-        <div style="width:200px;flex-shrink:0;border-right:1px solid var(--border);padding:8px;overflow-y:auto;background:var(--bg)">
-          <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:6px">Broadcasts</div>
+      <!-- Library drawer -->
+      <div style="border-top:1px solid var(--border);padding:8px 12px;background:var(--bg2);flex-shrink:0">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:6px">Broadcast Library</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;max-height:96px;overflow-y:auto">
           ${libRows || '<div style="color:var(--text-dim);font-size:11px">No broadcasts</div>'}
         </div>
-
-        <!-- Timeline pane -->
-        <div style="flex:1;overflow:auto;padding:12px">
-          ${!isDaily ? `<div style="padding:24px;color:var(--text-dim);font-size:12px">Enable <strong>Daily schedule mode</strong> above to use the 24-hour timeline editor.</div>` : _schedBuildTimeline()}
-        </div>
-
       </div>
+
     </div>`;
 
   _schedClosePopover();
+}
+
+// ── Save channel name/number on blur ──────────────────────────────────────────
+
+function _schedChBody(ch, overrides = {}) {
+  return {
+    name: ch.name, number: ch.number, description: ch.description || '',
+    station_name: ch.station_name || '', theme_id: ch.theme_id || null,
+    studio_zone_id: ch.studio_zone_id || null, offline_graphic_id: ch.offline_graphic_id || null,
+    enabled: ch.enabled !== 0 ? 1 : 0, loop_playlist: ch.loop_playlist !== 0 ? 1 : 0,
+    priority: ch.priority || 0, channel_type: ch.channel_type || 'playlist',
+    idle_broadcast_id: ch.idle_broadcast_id || null,
+    news_categories: ch.news_categories || [],
+    schedule_mode: ch.schedule_mode || 'loop',
+    ...overrides,
+  };
+}
+
+async function _schedSaveChMeta() {
+  const ch = _schedChannels.find(c => c.id === _schedChannelId);
+  if (!ch) return;
+  const name   = document.getElementById('sched-ch-name')?.value?.trim()  || ch.name;
+  const number = parseInt(document.getElementById('sched-ch-number')?.value || '') || ch.number;
+  if (name === ch.name && number === ch.number) return;
+  try {
+    const res = await directAPI(`/broadcast/channels/${ch.id}`, 'PUT', _schedChBody(ch, { name, number }));
+    if (res?.error) { toast(res.error, true); return; }
+    ch.name = name; ch.number = number;
+    _schedRenderSidebar();
+  } catch (err) { toast(err.message, true); }
 }
 
 function _schedBuildTimeline() {
@@ -189,7 +311,6 @@ function _schedBuildTimeline() {
   });
 
   return `
-    <div style="font-size:11px;color:var(--text-dim);margin-bottom:6px">Drag broadcasts from the library onto the timeline. Snap: 30 min. Click a block to edit.</div>
     <div style="overflow-x:auto">
       <div style="width:${SCHED_W}px">
         ${ruler}
@@ -213,17 +334,21 @@ function _schedFmtDur(sec) {
 async function _schedSwitchChannel(id) {
   _schedChannelId = id;
   await _schedLoadItems();
-  _schedRender();
+  _schedRenderSidebar();
+  _schedRenderContent();
 }
 
 async function _schedToggleMode(daily) {
   if (!_schedChannelId) return;
+  const ch = _schedChannels.find(c => c.id === _schedChannelId);
+  if (!ch) return;
+  const mode = daily ? 'daily' : 'loop';
   try {
-    const res = await directAPI(`/broadcast/channels/${_schedChannelId}`, 'PUT', { schedule_mode: daily ? 'daily' : 'loop' });
+    const res = await directAPI(`/broadcast/channels/${ch.id}`, 'PUT', _schedChBody(ch, { schedule_mode: mode }));
     if (res?.error) { toast(res.error, true); return; }
-    const ch = _schedChannels.find(c => c.id === _schedChannelId);
-    if (ch) ch.schedule_mode = daily ? 'daily' : 'loop';
-    _schedRender();
+    ch.schedule_mode = mode;
+    _schedRenderSidebar();
+    _schedRenderContent();
   } catch (err) { toast(err.message, true); }
 }
 
@@ -311,7 +436,7 @@ function _schedOnMouseUp() {
 
 function _schedRenderTimeline() {
   const tl = document.getElementById('sched-timeline');
-  if (!tl) { _schedRender(); return; }
+  if (!tl) { _schedRenderContent(); return; }
 
   let items = '';
   _schedItems.forEach((item, idx) => {
