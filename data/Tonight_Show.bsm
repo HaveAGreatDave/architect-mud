@@ -1,0 +1,421 @@
+@broadcast "The Tonight Show with John Akerson"
+@channel ksab_tv
+@category late_night
+@type live_to_tape
+@season 1
+@episode 1
+@runtime 180s
+@host john_akerson
+
+::scene TITLE
+
+EVENT FADE_IN
+
+TITLE tonight_show_logo
+
+MUSIC tonight_theme
+
+♪ The Tonight Show theme begins playing. ♪
+
+TICKER
+
+ACID COLA REPORTS RECORD PROFITS • POLICE ADVISE CITIZENS TO AVOID DISTRICT 12 • CITY TRANSIT EXPECTS ONLY MODERATE EXPLOSIONS TODAY • BUY NEO-NOODLES: NOW 12% LESS SYNTHETIC •
+
+END
+
+WAIT 8s
+
+EVENT DISSOLVE
+
+::scene INTRODUCTION
+
+ROOM ksab/studio_stage
+
+CAM1 WIDE
+
+SHOT
+
+The broadcast opens on a brightly lit studio bathed in neon blues and warm amber lights. A packed audience applauds enthusiastically while the Tonight Show band finishes the opening bars of the theme.
+
+END
+
+NPC announcer
+NPC john_akerson
+
+ANNOUNCER:
+From somewhere above the smog and only slightly outside the blast radius...
+
+WAIT 2s
+
+ANNOUNCER:
+It's...
+
+WAIT 1s
+
+ANNOUNCER:
+The Tonight Show!
+
+EVENT APPLAUSE
+
+WAIT 2s
+
+ANNOUNCER:
+Tonight...
+
+WAIT 1s
+
+ANNOUNCER:
+Corporate executives explain why exploding vending machines are actually a premium feature.
+
+WAIT 2s
+
+ANNOUNCER:
+A local street chef prepares authentic mutant squid tacos.
+
+WAIT 2s
+
+ANNOUNCER:
+And we'll meet a man who's legally declared his apartment to be an independent nation.
+
+WAIT 2s
+
+ANNOUNCER:
+Ladies and gentlemen...
+
+WAIT 1s
+
+ANNOUNCER:
+JOOOOOHN AKERSON!
+
+EVENT APPLAUSE
+
+ENTER john_akerson
+
+CAM2 TRACK john_akerson
+
+SHOT
+
+The camera follows John Akerson as he jogs onto the stage, shaking hands with audience members before stopping behind his desk with a broad smile.
+
+END
+
+ACTION john_akerson wave
+
+WAIT 3s
+
+::scene MONOLOGUE
+
+CAM3 CLOSEUP john_akerson
+
+JOHN:
+Thank you!
+
+WAIT 1s
+
+JOHN:
+Thank you!
+
+WAIT 1s
+
+JOHN:
+Sit down! We've got a fantastic show tonight!
+
+EVENT APPLAUSE
+
+WAIT 2s
+
+JOHN:
+Did everyone survive the commute?
+
+WAIT 1s
+
+JOHN:
+Traffic was backed up six blocks after somebody hacked the crossing lights to advertise noodles.
+
+EVENT LAUGHTER
+
+WAIT 2s
+
+JOHN:
+Corporate Security says crime is down.
+
+WAIT 1s
+
+JOHN:
+Apparently they stopped counting anything outside corporate property.
+
+EVENT LAUGHTER
+
+WAIT 2s
+
+JOHN:
+I stopped by a pharmacy today.
+
+WAIT 1s
+
+JOHN:
+They've started locking up bottled water.
+
+WAIT 1s
+
+JOHN:
+The cybernetic organs are still self-service though.
+
+EVENT LAUGHTER
+
+WAIT 2s
+
+JOHN:
+You know times are tough when the mugger accepts store credit.
+
+EVENT APPLAUSE
+
+EVENT LAUGHTER
+
+WAIT 3s
+
+JOHN:
+Good news though...
+
+WAIT 1s
+
+JOHN:
+My landlord says the building is structurally sound.
+
+WAIT 2s
+
+JOHN:
+Apparently that's a completely different thing than "safe."
+
+EVENT LAUGHTER
+
+WAIT 5s
+
+::scene INTERVIEW
+
+LOWER_THIRD
+
+John Akerson
+Host
+
+END
+
+ENTER lucky_malone
+
+LOWER_THIRD
+
+Lenny "Lucky" Malone
+Professional Lottery Winner
+
+END
+
+CAM4 TWO_SHOT john_akerson lucky_malone
+
+SHOT
+
+The camera settles into a comfortable two-shot as John and tonight's guest sit beneath the warm studio lights.
+
+END
+
+EVENT APPLAUSE
+
+JOHN:
+Lenny, welcome to the show.
+
+LUCKY:
+Happy to be here.
+
+JOHN:
+You won the city lottery seven times.
+
+LUCKY:
+Eight.
+
+WAIT 1s
+
+JOHN:
+Eight?
+
+LUCKY:
+The eighth time they stopped congratulating me and started interviewing me.
+
+EVENT LAUGHTER
+
+WAIT 2s
+
+JOHN:
+What's your secret?
+
+LUCKY:
+Always buy your ticket after surviving something that should've killed you.
+
+EVENT LAUGHTER
+
+WAIT 2s
+
+JOHN:
+That's oddly specific.
+
+LUCKY:
+I'm from Eastside.
+
+EVENT APPLAUSE
+
+EVENT LAUGHTER
+
+WAIT 3s
+
+JOHN:
+What's the first thing you bought?
+
+LUCKY:
+A deluxe apartment.
+
+WAIT 1s
+
+JOHN:
+Nice!
+
+LUCKY:
+The deluxe part is that only one wall leaks.
+
+EVENT LAUGHTER
+
+WAIT 8s
+
+::scene COMMERCIAL
+
+EVENT COMMERCIAL_BREAK
+
+TITLE acid_cola_logo
+
+SHOT
+
+The broadcast abruptly transitions to an aggressively colorful commercial surrounded by flashing corporate branding.
+
+END
+
+MUSIC acid_cola_jingle
+
+♪ An upbeat Acid Cola™ advertising jingle begins playing. ♪
+
+NARRATOR:
+Feeling tired?
+
+WAIT 2s
+
+NARRATOR:
+Feeling hopeless?
+
+WAIT 2s
+
+NARRATOR:
+Drink Acid Cola™.
+
+WAIT 2s
+
+NARRATOR:
+Because reality is easier to tolerate when it's carbonated.
+
+WAIT 2s
+
+OVERLAY commercial_offer
+
+LIMITED TIME OFFER
+
+BUY TWO
+
+GET THE THIRD LEGALLY CLASSIFIED AS A BONUS
+
+END
+
+WAIT 8s
+
+EVENT RETURN_FROM_BREAK
+
+::scene CLOSING
+
+CAM2 MEDIUM john_akerson
+
+LOWER_THIRD
+
+John Akerson
+Host
+
+END
+
+MUSIC tonight_theme
+
+♪ The Tonight Show theme begins playing. ♪
+
+JOHN:
+That's all the time we've got tonight.
+
+WAIT 1s
+
+JOHN:
+Thanks to Lenny for joining us.
+
+WAIT 2s
+
+JOHN:
+Remember...
+
+WAIT 1s
+
+JOHN:
+If somebody offers you free cyberware in an alley...
+
+WAIT 2s
+
+JOHN:
+...at least ask if it comes with a warranty.
+
+EVENT LAUGHTER
+
+WAIT 2s
+
+JOHN:
+Good night, everybody!
+
+EVENT APPLAUSE
+
+CAM1 WIDE
+
+SHOT
+
+The camera slowly pulls back as John waves to the audience. The Tonight Show band reprises the theme while the audience rises for a standing ovation beneath glowing neon studio lights.
+
+END
+
+WAIT 6s
+
+EVENT FADE_OUT
+
+
+::asset tonight_show_logo
+
+████████████████████████████████████████████████████████████████████████████████
+
+████████╗██╗  ██╗███████╗
+╚══██╔══╝██║  ██║██╔════╝
+   ██║   ███████║█████╗
+   ██║   ██╔══██║██╔══╝
+   ██║   ██║  ██║███████╗
+   ╚═╝   ╚═╝  ╚═╝╚══════╝
+
+
+████████╗ ██████╗ ███╗   ██╗██╗ ██████╗ ██╗  ██╗████████╗    ███████╗██╗  ██╗ ██████╗ ██╗    ██╗
+╚══██╔══╝██╔═══██╗████╗  ██║██║██╔════╝ ██║  ██║╚══██╔══╝    ██╔════╝██║  ██║██╔═══██╗██║    ██║
+   ██║   ██║   ██║██╔██╗ ██║██║██║  ███╗███████║   ██║       ███████╗███████║██║   ██║██║ █╗ ██║
+   ██║   ██║   ██║██║╚██╗██║██║██║   ██║██╔══██║   ██║       ╚════██║██╔══██║██║   ██║██║███╗██║
+   ██║   ╚██████╔╝██║ ╚████║██║╚██████╔╝██║  ██║   ██║       ███████║██║  ██║╚██████╔╝╚███╔███╔╝
+   ╚═╝    ╚═════╝ ╚═╝  ╚═══╝╚═╝ ╚═════╝ ╚═╝  ╚═╝   ╚═╝       ╚══════╝╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝
+
+                               with
+
+                        JOHN AKERSON
+
+████████████████████████████████████████████████████████████████████████████████
+
+END

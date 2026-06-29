@@ -16,12 +16,16 @@ const API = async (path, method = 'GET', body = null) => {
 
   // Intercept entity writes and route them to staging.
   // Excluded: sub-resource operations (rooms, build) and complex multi-step paths.
-  const STAGING_EXCLUDED = [/\/zones\/[^/]+\/rooms/, /\/zones\/[^/]+\/live-enemies/, /\/apartments\/build/, /\/apartments\//, /\/furniture\/bulk/];
+  const STAGING_EXCLUDED = [/\/zones\/.+\/rooms/, /\/zones\/.+\/live-enemies/, /\/apartments\/build/, /\/apartments\//, /\/furniture\/bulk/];
   const entityType = getEntityType(path);
   const excluded = STAGING_EXCLUDED.some(re => re.test(path));
   if (stagingEnabled && entityType && !excluded && ['POST', 'PUT', 'DELETE'].includes(method)) {
     const parts = path.split('/');
-    const entityId = parts[2] || body?.id || `new_${Date.now()}`;
+    // Entity IDs may contain slashes (e.g. "ksab/studio_stage"), so grab everything
+    // after the entity-type segment rather than just parts[2].
+    const entityPrefix = '/' + parts[1] + '/';
+    const rawId = path.startsWith(entityPrefix) ? path.slice(entityPrefix.length) : parts[2];
+    const entityId = rawId || body?.id || `new_${Date.now()}`;
     const entityName = (method !== 'DELETE' ? (body?.name || currentRecord?.name) : currentRecord?.name) || entityId;
     const changeType = method === 'DELETE' ? 'delete' : method === 'POST' ? 'create' : 'update';
     const description = `${changeType[0].toUpperCase() + changeType.slice(1)}d ${entityType} "${entityName}"`;

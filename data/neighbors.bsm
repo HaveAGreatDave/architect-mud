@@ -1,0 +1,289 @@
+```bsm
+@broadcast "Neighbors from 14B - Episode 12: The Loud Pipe"
+@channel ksab_tv
+@category comedy
+@type scripted
+@season 1
+@episode 12
+@runtime 180s
+
+::scene TITLE
+
+EVENT FADE_IN
+
+TITLE neighbors_14b_logo
+
+MUSIC neighbors_theme
+
+♪ The Neighbors from 14B theme begins playing. ♪
+
+TICKER
+
+CITY TRANSIT ANNOUNCES MINOR DELAYS DUE TO AUTOMATED TANK COLLISION • BUY ACID COLA™ • APARTMENT LOTTERY RESULTS AVAILABLE AFTER MIDNIGHT •
+
+END
+
+WAIT 8s
+
+EVENT DISSOLVE
+
+::scene OPENING
+
+ROOM apartments/14b_living_room
+
+CAM1 WIDE
+
+SHOT
+
+The broadcast opens on a cramped apartment living room. The furniture is mismatched, a ceiling pipe drips steadily into a saucepan, and an ancient television hums softly in the corner.
+
+END
+
+NPC frank
+
+NPC donna
+
+EVENT APPLAUSE
+
+FRANK:
+Donna!
+
+WAIT 1s
+
+DONNA:
+What?
+
+WAIT 1s
+
+FRANK:
+The pipe's making that noise again.
+
+WAIT 2s
+
+DONNA:
+Which one?
+
+WAIT 1s
+
+FRANK:
+The loud one.
+
+WAIT 1s
+
+DONNA:
+Frank...
+
+WAIT 1s
+
+DONNA:
+They're all loud.
+
+EVENT LAUGHTER
+
+WAIT 3s
+
+::scene MAINTENANCE
+
+CAM2 TRACK frank
+
+SHOT
+
+The camera follows Frank into the tiny kitchen where six different pipes rattle through the walls.
+
+END
+
+FRANK:
+I called maintenance.
+
+WAIT 1s
+
+DONNA:
+Good.
+
+WAIT 1s
+
+FRANK:
+They put me on hold.
+
+WAIT 1s
+
+DONNA:
+How long?
+
+WAIT 1s
+
+FRANK:
+Yesterday.
+
+EVENT LAUGHTER
+
+WAIT 3s
+
+ENTER maintenance_bot
+
+CAM3 MEDIUM maintenance_bot
+
+SHOT
+
+A battered maintenance robot rolls into the apartment, trailing sparks and carrying a wrench larger than one of its arms.
+
+END
+
+BOT:
+Maintenance request acknowledged.
+
+WAIT 1s
+
+BOT:
+Estimated repair time...
+
+WAIT 2s
+
+BOT:
+Three to five business months.
+
+EVENT LAUGHTER
+
+WAIT 2s
+
+FRANK:
+Can you at least stop the leak?
+
+WAIT 1s
+
+BOT:
+Leak subscription expired.
+
+EVENT APPLAUSE
+
+EVENT LAUGHTER
+
+WAIT 4s
+
+::scene THE FIX
+
+CAM4 CLOSEUP maintenance_bot
+
+ACTION maintenance_bot tighten_pipe
+
+SHOT
+
+The robot tightens a single valve.
+
+Every pipe in the apartment immediately becomes twice as loud.
+
+END
+
+WAIT 2s
+
+FRANK:
+...
+
+WAIT 1s
+
+DONNA:
+Well...
+
+WAIT 1s
+
+DONNA:
+It's louder.
+
+WAIT 2s
+
+BOT:
+Repair successful.
+
+EVENT LAUGHTER
+
+WAIT 5s
+
+::scene TAG
+
+CAM1 WIDE
+
+SHOT
+
+The couple sits on the couch, shouting over the deafening roar of vibrating plumbing.
+
+Water suddenly begins pouring from a ceiling light fixture into Frank's coffee.
+
+END
+
+FRANK:
+Think it'll stop?
+
+WAIT 1s
+
+DONNA:
+Eventually.
+
+WAIT 1s
+
+FRANK:
+When?
+
+WAIT 1s
+
+DONNA:
+When the ceiling falls down.
+
+EVENT LAUGHTER
+
+WAIT 2s
+
+The ceiling light flickers violently.
+
+WAIT 1s
+
+A single ceiling tile drops into Frank's lap.
+
+WAIT 2s
+
+FRANK:
+...
+
+WAIT 1s
+
+FRANK:
+Called it.
+
+EVENT APPLAUSE
+
+EVENT LAUGHTER
+
+WAIT 5s
+
+::scene CREDITS
+
+CAM2 WIDE
+
+SHOT
+
+The camera slowly pulls back from Apartment 14B as the familiar theme plays over the closing credits. The sounds of rattling pipes continue long after the apartment disappears from view.
+
+END
+
+MUSIC neighbors_theme
+
+♪ The Neighbors from 14B theme begins playing. ♪
+
+EVENT FADE_OUT
+```
+
+---
+
+# ASCII Asset: `neighbors_14b_logo`
+
+```text
+███╗   ██╗███████╗██╗ ██████╗ ██╗  ██╗██████╗  ██████╗ ██████╗ ███████╗
+████╗  ██║██╔════╝██║██╔════╝ ██║  ██║██╔══██╗██╔═══██ ██╔══██╗██╔════╝
+██╔██╗ ██║█████╗  ██║██║  ███╗███████║██████╔╝██║   ██╗██████╔╝███████╗
+██║╚██╗██║██╔══╝  ██║██║   ██║██╔══██║██╔══██╗██║   ██║██╔══██╗╚════██║
+██║ ╚████║███████╗██║╚██████╔╝██║  ██║██████╔╝╚██████╔╝██║  ██║███████║
+╚═╝  ╚═══╝╚══════╝╚═╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝  ╚═════╝ ╚═╝  ╚═╝╚══════╝
+
+                              from 14B
+
+                   "The Loud Pipe" • Episode 12
+END
