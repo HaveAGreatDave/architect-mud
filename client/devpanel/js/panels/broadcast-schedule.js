@@ -179,12 +179,14 @@ function _schedUpdateSaveBtn() {
   }
 }
 
-function _schedUpdateNowLine() {
+async function _schedUpdateNowLine() {
   const line = document.getElementById('sched-now-line');
   if (!line) return;
-  const now = new Date();
-  const sec = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
-  line.style.left = _schedToX(sec) + 'px';
+  try {
+    const state = await directAPI('/environment/state', 'GET');
+    const sec = (state.minutes || 0) * 60;
+    line.style.left = _schedToX(sec) + 'px';
+  } catch (_) {}
 }
 
 // ── Sidebar render ────────────────────────────────────────────────────────────
@@ -243,6 +245,10 @@ function _schedRenderContent() {
   }
 
   const isDaily = ch.schedule_mode === 'daily';
+
+  // Auto-fit timeline to available width so 24 hours fills the panel
+  const availW = el.clientWidth - 32;
+  if (availW > 200) _schedPxPerHour = Math.floor(availW / 24);
 
   const libRows = _schedBroadcasts.map(b => {
     const dur = b.override_duration || ((Array.isArray(b.messages) ? b.messages.length : 0) * (b.message_interval || 5)) || 3600;
@@ -311,6 +317,8 @@ function _schedRenderContent() {
     </div>`;
 
   _schedClosePopover();
+  setTimeout(_schedUpdateNowLine, 0);
+  if (!_schedNowTimer) _schedNowTimer = setInterval(_schedUpdateNowLine, 10000);
 }
 
 // ── Save channel name/number on blur ──────────────────────────────────────────
@@ -347,7 +355,7 @@ function _schedBuildTimeline() {
   const w = _schedW();
   // Ruler
   let ruler = `<div style="position:relative;width:${w}px;height:24px;flex-shrink:0;border-bottom:1px solid var(--border);margin-bottom:2px">`;
-  for (let h = 0; h < 24; h++) {
+  for (let h = 0; h <= 24; h++) {
     const x = _schedToX(h * 3600);
     ruler += `<div style="position:absolute;left:${x}px;top:0;height:100%;border-left:1px solid var(--border);padding-left:3px;font-size:10px;color:var(--text-dim);line-height:24px">${String(h).padStart(2,'0')}:00</div>`;
   }
@@ -395,7 +403,7 @@ function _schedBuildTimeline() {
   });
 
   return `
-    <div style="overflow-x:auto">
+    <div style="overflow:visible">
       <div style="width:${w}px">
         ${ruler}
         <div id="sched-timeline" style="position:relative;width:${w}px;height:${SCHED_H}px;background:var(--bg3);border:1px solid var(--border);border-radius:2px"
@@ -403,13 +411,11 @@ function _schedBuildTimeline() {
           ondragleave="_schedTlDragLeave()"
           ondrop="_schedTlDrop(event)">
           <div id="sched-drop-line"></div>
-          <div id="sched-now-line" style="position:absolute;top:0;bottom:0;width:2px;background:var(--accent);opacity:0.7;pointer-events:none;z-index:5"></div>
+          <div id="sched-now-line" style="position:absolute;top:0;bottom:0;width:2px;background:#44cc66;opacity:0.85;pointer-events:none;z-index:5"></div>
           ${items}
         </div>
       </div>
     </div>`;
-  _schedUpdateNowLine();
-  if (!_schedNowTimer) _schedNowTimer = setInterval(_schedUpdateNowLine, 10000);
 }
 
 function _schedFmtDur(sec) {

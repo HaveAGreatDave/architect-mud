@@ -310,9 +310,12 @@ async function getCurrentMessage(state, nowMs) {
     if (item) {
       if (item.slotType === 'commercial_break') return _playCommercial(state, nowMs);
       state.currentFallbackMessages = item.fallbackMessages || [];
-      if (item.broadcastGraph) return tickBroadcastGraph(state.channelId, item.broadcastGraph, state, nowMs);
       const segElapsed = gameSecondsSinceMidnight - item.startTime;
-      const result = getScriptedMessage(item.messages, item.message_interval, segElapsed);
+      if (item.broadcastGraph) return tickBroadcastGraph(state.channelId, item.broadcastGraph, state, nowMs, segElapsed);
+      // Flat messages — loop within the slot duration
+      const cycleDur = item.messages.length * (item.message_interval || 5);
+      const loopedElapsed = cycleDur > 0 ? segElapsed % cycleDur : segElapsed;
+      const result = getScriptedMessage(item.messages, item.message_interval, loopedElapsed);
       if (result) return { text: result.text, key: `${item.broadcastId}:${result.idx}` };
     }
     // Nothing scheduled right now — fall through to idle
@@ -579,7 +582,32 @@ function _evalBroadcastCondition(node, channelId, nowMs) {
 }
 
 // Walk the VINE graph for one tick. Returns { text, key, style } or null.
-function tickBroadcastGraph(channelId, graph, state, nowMs) {
+// Walk a VINE graph forward by segElapsedMs, setting bb.currentNode / bb.waitUntil
+// so the channel appears mid-program when a viewer tunes in late.
+function _seekGraph(graph, bb, segElapsedMs, nowMs) {
+  const edges = graph.edges || [];
+  let nodeId = graph._start;
+  let remaining = segElapsedMs;
+  const CONTENT_MS = 5000; // inter-node delay emitted by tickBroadcastGraph for content nodes
+
+  for (let step = 0; step < 2000 && nodeId && remaining > 0; step++) {
+    const node = graph.nodes[nodeId];
+    if (!node) break;
+    if (node.type === 'wait') {
+      const waitMs = ((node.data?.seconds ?? node.data?.duration) || 5) * 1000;
+      if (remaining >= waitMs) { remaining -= waitMs; nodeId = _resolveEdge(edges, nodeId, 'next'); }
+      else { bb.waitUntil = nowMs + (waitMs - remaining); bb.currentNode = _resolveEdge(edges, nodeId, 'next'); return; }
+    } else if (['say', 'ticker', 'camera_cut', 'overlay', 'title_card', 'event'].includes(node.type)) {
+      if (remaining >= CONTENT_MS) { remaining -= CONTENT_MS; nodeId = _resolveEdge(edges, nodeId, 'next'); }
+      else { bb.waitUntil = nowMs + (CONTENT_MS - remaining); bb.currentNode = nodeId; return; }
+    } else {
+      nodeId = _resolveEdge(edges, nodeId, 'next'); // start/loop/condition — no time cost
+    }
+  }
+  bb.currentNode = nodeId || null;
+}
+
+function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
   if (!state.graphBlackboard) return null;
   const bb = state.graphBlackboard;
 
@@ -592,6 +620,11 @@ function tickBroadcastGraph(channelId, graph, state, nowMs) {
     bb.absentDetectedAt = null;
     bb.techDiffMode = false;
     bb.activeBroadcastId = graph._broadcastId;
+    // Seek to mid-program position if tuning in partway through
+    if (segElapsedSec > 0) {
+      _seekGraph(graph, bb, segElapsedSec * 1000, nowMs);
+      return null;
+    }
   }
 
   // Tech-diff mode — host was absent; cycle fallback messages until slot ends

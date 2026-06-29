@@ -29,7 +29,9 @@ export function openTvPanel(data) {
   _tickerAnimating = false;
   _tvAtBottom = true;
   _tvChannelList = Array.isArray(data.channelList) ? data.channelList : [];
-  const savedFreq = parseFloat(localStorage.getItem('tv_frequency') || '0');
+  const maxCh = _tvChannelList.length ? Math.max(..._tvChannelList.map(c => c.number)) : 9;
+  let savedFreq = parseFloat(localStorage.getItem('tv_frequency') || '0');
+  if (savedFreq >= maxCh) savedFreq = 0;
   _tvFrequency = (data.channelNumber > 0) ? data.channelNumber : savedFreq;
 
   document.getElementById('tv-station-name').textContent = data.stationName || data.channelName || '——';

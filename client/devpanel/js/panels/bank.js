@@ -99,7 +99,7 @@ function _renderBankBody() {
       <td style="padding:8px 10px;color:var(--text-dim);font-size:11px">${n.faction_id || '—'}</td>
       <td style="padding:8px 10px;white-space:nowrap">
         <button class="action-btn" onclick="bankInjectNetwork('${n.id}')" title="Fill all ATMs on this network" style="padding:2px 8px;font-size:10px">Inject All</button>
-        <button class="action-btn" onclick="bankEditNetwork(${JSON.stringify(JSON.stringify(n))})" style="padding:2px 8px;font-size:10px">Edit</button>
+        <button class="action-btn" onclick="bankEditNetwork('${n.id}')" style="padding:2px 8px;font-size:10px">Edit</button>
         <button class="action-btn danger" onclick="bankDeleteNetwork('${n.id}','${n.name}')" style="padding:2px 8px;font-size:10px">Delete</button>
       </td>
     </tr>`).join('') || `<tr><td colspan="6" style="padding:20px;color:var(--text-dim);text-align:center">No networks defined.</td></tr>`;
@@ -370,8 +370,9 @@ function _networkModal(title, n) {
 
 function bankNewNetwork() { _networkModal('New ATM Network', {}); }
 
-function bankEditNetwork(jsonStr) {
-  const n = JSON.parse(jsonStr);
+function bankEditNetwork(id) {
+  const n = _bankNetworks.find(x => x.id === id);
+  if (!n) return;
   _networkModal(`Edit Network: ${n.name}`, n);
 }
 
