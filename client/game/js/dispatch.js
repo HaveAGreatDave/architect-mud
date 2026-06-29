@@ -102,7 +102,7 @@ const handlers = {
   broadcast: (msg) => {
     if (msg.style === 'off_air') {
       if (isTvOpen() && getTvActiveChannelId() === msg.channel)
-        showTvOffAir(msg.offlineGraphicContent || null);
+        showTvOffAir(msg.offlineGraphicContent || null, msg.offlineGraphicType || 'ascii');
       return;
     }
     if (isTvOpen() && getTvActiveChannelId() === msg.channel) {

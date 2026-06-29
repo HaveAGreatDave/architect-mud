@@ -208,7 +208,7 @@ export function tvTunerInput(val) {
   }
 }
 
-export function showTvOffAir(offlineGraphicContent) {
+export function showTvOffAir(offlineGraphicContent, offlineGraphicType) {
   const staticEl = document.getElementById('tv-static');
   const content  = document.getElementById('tv-content');
   if (!staticEl || !content) return;
@@ -216,7 +216,7 @@ export function showTvOffAir(offlineGraphicContent) {
     staticEl.classList.remove('tv-static-on', 'tv-static-loop');
     staticEl.style.opacity = '';
     content.classList.remove('tv-hidden');
-    appendTvMessage(offlineGraphicContent, 'ascii_art');
+    appendTvMessage(offlineGraphicContent, offlineGraphicType === 'svg' ? 'svg' : 'ascii_art');
   } else {
     content.classList.add('tv-hidden');
     staticEl.classList.add('tv-static-on', 'tv-static-loop');
@@ -228,10 +228,17 @@ export function appendTvMessage(text, style) {
   const container = document.getElementById('tv-messages');
   if (!container) return;
 
-  const tag = style === 'ascii_art' ? 'pre' : 'div';
-  const el = document.createElement(tag);
+  const el = document.createElement(style === 'ascii_art' ? 'pre' : 'div');
   el.className = `tv-msg tv-msg-${style || 'raw'}`;
-  el.textContent = text;
+  if (style === 'svg') {
+    // Dev-authored SVG — render as markup, sized to fill the message area
+    el.style.cssText = 'display:flex;justify-content:center;align-items:center;padding:4px 0';
+    el.innerHTML = text;
+    const svg = el.querySelector('svg');
+    if (svg) { svg.style.maxWidth = '100%'; svg.style.height = 'auto'; }
+  } else {
+    el.textContent = text;
+  }
   container.appendChild(el);
 
   _tvHistory.push(el);

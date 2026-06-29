@@ -242,52 +242,10 @@ document.getElementById('debug-whisper-btn')?.addEventListener('click', debugFak
 window._sendRaw = sendRaw;
 document.getElementById('open-map-btn')?.addEventListener('click', () => sendCmd('map'));
 
-// Mobile minimap button + drag
-const mobileMapTab = document.getElementById('mobile-map-btn');
-const mobileMapPanel = document.getElementById('mobile-minimap-panel');
-const mobileMapClose = document.getElementById('mobile-map-close');
-
-mobileMapTab?.addEventListener('click', () => {
-  mobileMapPanel.classList.add('open');
-  mobileMapPanel.setAttribute('aria-hidden', 'false');
-  // Place near right edge on first open (needs to be visible to measure)
-  if (!mobileMapPanel._placed) {
-    mobileMapPanel._placed = true;
-    requestAnimationFrame(() => {
-      const r = mobileMapPanel.getBoundingClientRect();
-      mobileMapPanel.style.left = (window.innerWidth - r.width - 2) + 'px';
-      mobileMapPanel.style.top = Math.round((window.innerHeight - r.height) / 2) + 'px';
-    });
-  }
+// HUD minimap tap → open full map popup
+document.getElementById('minimap-grid-hud')?.addEventListener('click', () => {
+  sendCmd('map');
 });
-
-mobileMapClose?.addEventListener('click', () => {
-  mobileMapPanel.classList.remove('open');
-  mobileMapPanel.setAttribute('aria-hidden', 'true');
-});
-
-// Drag
-if (mobileMapPanel) {
-  let dragOffsetX = 0, dragOffsetY = 0;
-
-  mobileMapPanel.addEventListener('pointerdown', (e) => {
-    if (e.target === mobileMapClose) return;
-    e.preventDefault();
-    const r = mobileMapPanel.getBoundingClientRect();
-    dragOffsetX = e.clientX - r.left;
-    dragOffsetY = e.clientY - r.top;
-    mobileMapPanel.setPointerCapture(e.pointerId);
-  });
-
-  mobileMapPanel.addEventListener('pointermove', (e) => {
-    if (!mobileMapPanel.hasPointerCapture(e.pointerId)) return;
-    const r = mobileMapPanel.getBoundingClientRect();
-    const newLeft = Math.max(0, Math.min(window.innerWidth - r.width, e.clientX - dragOffsetX));
-    const newTop = Math.max(0, Math.min(window.innerHeight - r.height, e.clientY - dragOffsetY));
-    mobileMapPanel.style.left = newLeft + 'px';
-    mobileMapPanel.style.top = newTop + 'px';
-  });
-}
 
 // Mobile chat button
 document.getElementById('mobile-chat-btn')?.addEventListener('click', toggleWhisperPanel);

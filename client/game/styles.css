@@ -3153,13 +3153,107 @@ body {
 	font-weight: bold;
 }
 
-/* ─── MOBILE DPAD ─── */
-#mob-dpad {
+/* ─── HUD RIGHT COLUMN (inline minimap + weather/chat) ─── */
+#mob-hud-right {
 	display: flex;
 	flex-direction: column;
 	align-items: center;
+	gap: 3px;
+	flex-shrink: 0;
+}
+
+#minimap-grid-hud {
+	white-space: nowrap;
+	font-size: 9px;
+	line-height: 1;
+	letter-spacing: 0;
+	text-align: center;
+	font-family: var(--font-mono);
+	background: var(--bg);
+	border: 1px solid var(--border);
+	border-radius: 2px;
+	padding: 2px 3px;
+	cursor: pointer;
+	transition: border-color 0.15s;
+}
+#minimap-grid-hud:hover {
+	border-color: var(--accent);
+}
+#minimap-grid-hud .mm-cell {
+	width: 1em;
+	height: 1em;
+	line-height: 1em;
+}
+
+#mob-hud-bottom {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	font-size: 10px;
+}
+
+.mob-hud-weather {
+	font-size: 12px;
+}
+
+.mob-hud-temp {
+	color: var(--cyan);
+	font-size: 10px;
+}
+
+#mobile-chat-btn {
+	background: transparent;
+	border: 1px solid var(--border);
+	color: var(--text-dim);
+	font-family: var(--font-mono);
+	font-size: 14px;
+	padding: 2px 5px;
+	cursor: pointer;
+	border-radius: 2px;
+	flex-shrink: 0;
+	transition: all 0.15s;
+	-webkit-tap-highlight-color: transparent;
+}
+#mobile-chat-btn:hover {
+	border-color: var(--accent);
+	color: var(--accent);
+}
+
+/* ─── BOTTOM BAR (quick-cmds + dpad) ─── */
+#bottom-bar {
+	display: flex;
+	align-items: stretch;
+	border-top: 1px solid var(--border);
+	background: var(--bg);
+	flex-shrink: 0;
+}
+
+#quick-cmds {
+	flex: 1;
+	border-top: none;
+	border-right: 1px solid var(--border);
+	min-width: 0;
+}
+
+/* ─── MOBILE DPAD ─── */
+#mob-dpad {
+	display: none;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
 	gap: 1px;
 	flex-shrink: 0;
+	padding: 4px 6px;
+}
+
+@media (max-width: 720px) {
+	#mob-dpad {
+		display: flex;
+	}
+}
+
+[data-density="compact"] #mob-dpad {
+	display: flex;
 }
 
 .dpad-row {
@@ -3168,18 +3262,14 @@ body {
 	gap: 1px;
 }
 
-.dpad-mid {
-	gap: 1px;
-}
-
 .dpad-center {
-	width: 28px;
-	height: 28px;
+	width: 26px;
+	height: 26px;
 }
 
 .dpad-btn {
-	width: 28px;
-	height: 28px;
+	width: 26px;
+	height: 26px;
 	background: var(--bg3);
 	border: 1px solid var(--border);
 	color: var(--text-dim);
@@ -3205,84 +3295,7 @@ body {
 .dpad-u,
 .dpad-d {
 	font-size: 13px;
-	color: var(--text-dim);
-	opacity: 0.6;
-}
-
-#mob-btn-stack {
-	display: flex;
-	flex-direction: column;
-	gap: 2px;
-	flex-shrink: 0;
-}
-
-#mob-chat-map {
-	display: flex;
-	gap: 2px;
-}
-
-#mob-chat-map #mobile-chat-btn,
-#mob-chat-map #mobile-map-btn {
-	flex: 1;
-}
-
-#mobile-env {
-	display: flex;
-	align-items: center;
-	gap: 4px;
-	font-size: 11px;
-	flex-shrink: 0;
-	color: var(--text);
-	cursor: pointer;
-	padding: 2px 6px;
-	border-radius: 2px;
-	border: 1px solid var(--border);
-	background: var(--bg2);
-}
-#mobile-env:hover {
-	background: var(--bg3);
-}
-#mobile-env .env-temp {
-	color: var(--cyan);
-	font-size: 10px;
-}
-#mobile-env .env-icon {
-	font-size: 13px;
-}
-
-#mobile-chat-btn {
-	background: transparent;
-	border: 1px solid var(--border);
-	color: var(--text-dim);
-	font-family: var(--font-mono);
-	font-size: 11px;
-	padding: 3px 7px;
-	cursor: pointer;
-	border-radius: 2px;
-	flex-shrink: 0;
-	transition: all 0.15s;
-}
-#mobile-chat-btn:hover {
-	border-color: var(--accent);
-	color: var(--accent);
-}
-
-/* ─── MOBILE MAP BUTTON ─── */
-#mobile-map-btn {
-	background: transparent;
-	border: 1px solid var(--border);
-	color: var(--text-dim);
-	font-family: var(--font-mono);
-	font-size: 14px;
-	padding: 3px 7px;
-	cursor: pointer;
-	border-radius: 2px;
-	flex-shrink: 0;
-	transition: all 0.15s;
-}
-#mobile-map-btn:hover {
-	border-color: var(--accent);
-	color: var(--accent);
+	opacity: 0.55;
 }
 
 #mobile-minimap-panel {
@@ -3840,6 +3853,18 @@ body {
 	white-space: pre;
 	margin: 6px 0;
 	text-align: center;
+}
+.tv-msg-svg {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	padding: 8px 0;
+	width: 100%;
+}
+.tv-msg-svg svg {
+	max-width: 100%;
+	height: auto;
+	border-radius: 2px;
 }
 /* Footer ticker */
 #tv-footer {

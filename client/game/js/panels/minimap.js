@@ -111,6 +111,8 @@ export function renderMinimap(nodes, direction) {
   grid.innerHTML = html;
   const mob = document.getElementById('minimap-grid-mob');
   if (mob) mob.innerHTML = html;
+  const hud = document.getElementById('minimap-grid-hud');
+  if (hud) hud.innerHTML = html;
   if (direction) slideMinimap(direction);
 }
 

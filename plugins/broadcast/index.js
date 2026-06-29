@@ -363,7 +363,8 @@ async function broadcastTick() {
           const graphic = state.offlineGraphicId ? graphicsCache.get(state.offlineGraphicId) : null;
           for (const player of players) {
             sendToPlayer(player.id, { type: 'broadcast', channel: channelId, style: 'off_air',
-              offlineGraphicContent: graphic?.content || null });
+              offlineGraphicContent: graphic?.content || null,
+              offlineGraphicType: graphic?.type || 'ascii' });
           }
         }
         continue;
@@ -682,7 +683,7 @@ function tickBroadcastGraph(channelId, graph, state, nowMs) {
         bb.currentNode = _resolveEdge(edges, nodeId, 'next');
         if (graphic) {
           const caption = node.data?.caption ? `\n${node.data.caption}` : '';
-          return { text: graphic.content + caption, key: `graphic:${channelId}:${gid}:${nowMs}`, style: 'ascii_art' };
+          return { text: graphic.content + caption, key: `graphic:${channelId}:${gid}:${nowMs}`, style: graphic.type === 'svg' ? 'svg' : 'ascii_art' };
         }
         nodeId = bb.currentNode;
         break;
@@ -877,7 +878,8 @@ function buildTvPanel(channelId, player) {
   if (!state.wasActive) {
     const graphic = state.offlineGraphicId ? graphicsCache.get(state.offlineGraphicId) : null;
     sendToPlayer(player.id, { type: 'broadcast', channel: channelId, style: 'off_air',
-      offlineGraphicContent: graphic?.content || null });
+      offlineGraphicContent: graphic?.content || null,
+      offlineGraphicType: graphic?.type || 'ascii' });
   }
   return { type: 'output', message: 'You turn to the television.' };
 }
