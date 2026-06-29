@@ -921,7 +921,7 @@ export async function apiUpdateNpc(id,body) {
     return {status:200,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
-async function apiDeleteNpc(id) {
+export async function apiDeleteNpc(id) {
   try {
     await query('DELETE FROM npcs WHERE id=$1', [id]);
     return {status:200,body:{message:'NPC deleted'}};
