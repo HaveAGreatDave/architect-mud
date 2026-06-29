@@ -1213,7 +1213,7 @@ export function getPowerMap() {
 }
 
 export function getEnvironmentState() {
-  return { ...getHUDPayload(), ambientLight: state.ambientLight, forecast: getForecast(), powerMap: getPowerMap(), precipRate: state.precipRate, currentPrecip: state.currentPrecip };
+  return { ...getHUDPayload(), minutes: state.minutes, hour: Math.floor(state.minutes / 60), ambientLight: state.ambientLight, forecast: getForecast(), powerMap: getPowerMap(), precipRate: state.precipRate, currentPrecip: state.currentPrecip };
 }
 
 // ---------------------------------------------------------------------------

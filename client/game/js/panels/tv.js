@@ -31,9 +31,9 @@ export function openTvPanel(data) {
   _tickerAnimating = false;
   _tvAtBottom = true;
   _tvChannelList = Array.isArray(data.channelList) ? data.channelList : [];
-  let savedFreq = parseFloat(localStorage.getItem('tv_frequency') || '0');
-  if (savedFreq >= TV_DIAL_MAX) savedFreq = 0;
-  _tvFrequency = (data.channelNumber > 0) ? data.channelNumber : savedFreq;
+  const savedLocal = localStorage.getItem('tv_frequency');
+  _tvFrequency = savedLocal !== null ? parseFloat(savedLocal) : (typeof data.dialFrequency === 'number' ? data.dialFrequency : 0);
+  if (!isFinite(_tvFrequency) || _tvFrequency < 0 || _tvFrequency >= TV_DIAL_MAX) _tvFrequency = 0;
 
   document.getElementById('tv-station-name').textContent = data.stationName || data.channelName || '——';
   document.getElementById('tv-channel-num').textContent = (data.channelNumber > 0) ? `CH ${data.channelNumber}` : '——';
@@ -165,7 +165,7 @@ export function closeTvPanel() {
   _clearOverlay();
   const win = document.getElementById('tv-window');
   win.classList.remove('tv-shutting-off');
-  localStorage.setItem('tv_frequency', _tvFrequency.toFixed(1));
+  localStorage.setItem('tv_frequency', _tvFrequency.toFixed(2));
   win.style.position = '';
   win.style.left = '';
   win.style.top = '';

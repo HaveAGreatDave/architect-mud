@@ -228,7 +228,7 @@ async function loadZoneTunings() {
       const deviceType = flags.broadcast_device_type || flags['broadcast_device_type'] || 'tv';
       if (!zoneTunings.has(row.zone_id)) zoneTunings.set(row.zone_id, new Map());
       zoneTunings.get(row.zone_id).set(row.channel_id, deviceType);
-      furnitureChannelIndex.set(row.id, { zoneId: row.zone_id, channelId: row.channel_id, deviceType });
+      furnitureChannelIndex.set(row.id, { zoneId: row.zone_id, channelId: row.channel_id, deviceType, dialFrequency: typeof flags.tv_dial_freq === 'number' ? flags.tv_dial_freq : 0 });
     }
   } catch (err) {
     console.error('[broadcast] loadZoneTunings error:', err.message);
@@ -600,8 +600,10 @@ function _seekGraph(graph, bb, segElapsedMs, nowMs) {
     } else if (['say', 'ticker', 'camera_cut', 'overlay', 'title_card', 'event'].includes(node.type)) {
       if (remaining >= CONTENT_MS) { remaining -= CONTENT_MS; nodeId = _resolveEdge(edges, nodeId, 'next'); }
       else { bb.waitUntil = nowMs + (CONTENT_MS - remaining); bb.currentNode = nodeId; return; }
+    } else if (node.type === 'loop') {
+      nodeId = _resolveEdge(edges, nodeId, 'next') || graph._start; // mirror tickBroadcastGraph
     } else {
-      nodeId = _resolveEdge(edges, nodeId, 'next'); // start/loop/condition — no time cost
+      nodeId = _resolveEdge(edges, nodeId, 'next'); // start/npc_anchor/condition — no time cost
     }
   }
   bb.currentNode = nodeId || null;
@@ -877,6 +879,7 @@ registerAction({
     if (!chRows.length) return { type: 'output', message: `No channel ${channel_number}.` };
     const channel = chRows[0];
     flags.tuned_channel = channel_number;
+    flags.tv_dial_freq = channel_number;
     await query('UPDATE furniture SET flags=$1 WHERE id=$2', [JSON.stringify(flags), furniture_id]);
 
     // Update cache
@@ -884,7 +887,7 @@ registerAction({
     const zoneId = furniture.zone_id;
     if (!zoneTunings.has(zoneId)) zoneTunings.set(zoneId, new Map());
     zoneTunings.get(zoneId).set(channel.id, deviceType);
-    furnitureChannelIndex.set(furniture_id, { zoneId, channelId: channel.id, deviceType });
+    furnitureChannelIndex.set(furniture_id, { zoneId, channelId: channel.id, deviceType, dialFrequency: channel_number });
 
     emit('device.tuned', { furnitureId: furniture_id, channelNumber: channel_number, channelId: channel.id });
     return { type: 'output', message: `Tuned to channel ${channel_number}: ${channel.name}.` };
@@ -1011,6 +1014,7 @@ async function cmdTune(args, raw, player, broadcast) {
 
   const flags = typeof device.flags === 'object' ? { ...device.flags } : JSON.parse(device.flags || '{}');
   flags.tuned_channel = channelNumber;
+  flags.tv_dial_freq = channelNumber;
   await query('UPDATE furniture SET flags=$1 WHERE id=$2', [JSON.stringify(flags), device.id]);
 
   // Clear old, set new in cache
@@ -1022,27 +1026,39 @@ async function cmdTune(args, raw, player, broadcast) {
   const deviceType = flags.broadcast_device_type || 'tv';
   if (!zoneTunings.has(player.current_zone)) zoneTunings.set(player.current_zone, new Map());
   zoneTunings.get(player.current_zone).set(channel.id, deviceType);
-  furnitureChannelIndex.set(device.id, { zoneId: player.current_zone, channelId: channel.id, deviceType });
+  furnitureChannelIndex.set(device.id, { zoneId: player.current_zone, channelId: channel.id, deviceType, dialFrequency: channelNumber });
 
   emit('device.tuned', { furnitureId: device.id, channelNumber, channelId: channel.id });
-  // If the player has the TV panel open, re-send tv_panel so it switches to the new channel
-  buildTvPanel(channel.id, player);
+  buildTvPanel(channel.id, player, channelNumber);
   return { type: 'output', message: `Tuned to channel ${channelNumber}: ${channel.name}.` };
 }
 
-function buildTvPanel(channelId, player) {
+function _furnitureEntryForZoneChannel(zoneId, channelId) {
+  for (const entry of furnitureChannelIndex.values()) {
+    if (entry.zoneId === zoneId && entry.channelId === channelId) return entry;
+  }
+  return null;
+}
+
+function buildTvPanel(channelId, player, dialFrequency) {
   const state = channelRuntime.get(channelId);
   if (!state) return null;
   const channelList = [...channelRuntime.values()]
     .filter(s => s.number != null)
     .sort((a, b) => a.number - b.number)
     .map(s => ({ number: s.number, name: s.name, channelId: s.channelId }));
+  // Resolve dialFrequency from cache if not passed directly
+  if (dialFrequency === undefined) {
+    const fEntry = _furnitureEntryForZoneChannel(player.current_zone, channelId);
+    dialFrequency = fEntry?.dialFrequency ?? 0;
+  }
   sendToPlayer(player.id, {
     type: 'tv_panel',
     channelId,
     channelName: state.name || channelId,
     stationName: state.stationName || state.name || channelId,
     channelNumber: state.number ?? 0,
+    dialFrequency,
     channelType: state.channelType || 'playlist',
     theme: state.theme || null,
     channelList,
@@ -1089,7 +1105,7 @@ async function doUseTv(args, raw, player) {
 
   const entry = furnitureChannelIndex.get(rows[0].id);
   if (!entry || entry.deviceType !== 'tv') return buildTvOffPanel(player);
-  return buildTvPanel(entry.channelId, player) ?? buildTvOffPanel(player);
+  return buildTvPanel(entry.channelId, player, entry.dialFrequency ?? 0) ?? buildTvOffPanel(player);
 }
 
 async function cmdTv(args, raw, player) {
