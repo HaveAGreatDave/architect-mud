@@ -94,6 +94,7 @@ export async function resolveAttack(player, target, broadcast) {
 			{
 				type: "zone_event",
 				message: `${player.handle} attacks ${target.name}.`,
+				refresh: true,
 			},
 			player.id,
 		);
