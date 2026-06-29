@@ -585,8 +585,8 @@ function tickBroadcastGraph(channelId, graph, state, nowMs) {
         const npcId = node.data?.npc_id;
         const npc = world.npcs?.get(npcId);
         bb.npcAnchor = npc?.name || npcId || null;
-        // Presence check — if channel has a studio zone configured
-        if (npcId && state.studioZoneId && !bb.hostAbsent) {
+        // Presence check — only for live channels with a studio zone configured
+        if (npcId && state.channelType === 'live' && state.studioZoneId && !bb.hostAbsent) {
           const zone = getZone(state.studioZoneId);
           if (!(zone?.npcs?.has(npcId))) {
             bb.hostAbsent = true;

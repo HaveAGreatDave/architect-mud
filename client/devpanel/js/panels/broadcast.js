@@ -433,11 +433,17 @@ function _bcCardFields(card, idx) {
         <label style="font-size:10px;color:var(--text-dim)">Duration</label>
         <input type="number" class="form-input" value="${card.duration||5}" min="0" style="width:80px;font-size:12px" oninput="_bcCards[${idx}].duration=parseFloat(this.value)||0"> s
       </div>`;
-    case 'npc_anchor':
+    case 'npc_anchor': {
+      const chType = (_bcSuiteData.channels || []).find(c => c.id === _bcSelected?.channel_id)?.channel_type;
+      const anchorNote = chType && chType !== 'live'
+        ? `<div style="font-size:10px;color:var(--yellow);margin-top:6px">⚠ NPC presence is only enforced on live channels. This anchor is decorative on <em>${chType}</em> channels.</div>`
+        : '';
       return `<div style="padding-top:10px">
         <label style="font-size:10px;color:var(--text-dim);display:block;margin-bottom:4px">NPC ID</label>
         <input class="form-input" value="${escHtml(card.npc_id||'')}" placeholder="npc_john_akerson" style="font-size:12px" ${bind('npc_id')}>
+        ${anchorNote}
       </div>`;
+    }
     case 'camera_cut': {
       const zoneOpts = `<option value="">— none —</option>` +
         [...(_bcSuiteData.zones || [])].sort((a,b) => (a.name||'').localeCompare(b.name||''))
@@ -760,13 +766,22 @@ async function _bcShowImportChannelModal(compiled) {
     _bcImportAllZones = await directAPI('/zones', 'GET') || [];
   } catch { _bcImportAllZones = []; }
 
+  const isScripted = compiled.meta?.type === 'scripted';
   const chOptions = `<option value="">— no channel —</option>` +
     [..._bcChannels].sort((a, b) => (a.number || 99) - (b.number || 99))
       .map(c => `<option value="${c.id}">Ch ${c.number}: ${escHtml(c.name)}</option>`).join('') +
     `<option value="__new__">+ Create new channel…</option>`;
 
+  const zonePickerLabel = isScripted ? 'Broadcast Zone (where the show plays from)' : 'Studio Zone (optional)';
+  const zonePickerNote  = isScripted
+    ? '<div style="font-size:10px;color:var(--text-dim);margin-top:2px">Required for scripted shows so players in the right zone receive the broadcast.</div>'
+    : '';
+  const studioNameLabel = isScripted ? 'Zone Name' : 'Studio Zone Name';
+  const studioNamePlaceholder = isScripted ? 'e.g. Broadcast Tower' : 'e.g. KSAB Studio';
+
   const overlay = document.createElement('div');
   overlay.id = 'bsm-channel-overlay';
+  overlay.dataset.scripted = isScripted ? '1' : '';
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:700;display:flex;align-items:center;justify-content:center';
   overlay.innerHTML = `
     <div style="background:var(--bg2);border:1px solid var(--accent);padding:20px;width:480px;max-width:94vw;border-radius:3px;display:flex;flex-direction:column;gap:14px">
@@ -774,7 +789,9 @@ async function _bcShowImportChannelModal(compiled) {
         <span style="color:var(--accent);font-size:13px;letter-spacing:2px;text-transform:uppercase">BSM Import — Assign Channel</span>
         <button onclick="document.getElementById('bsm-channel-overlay').remove()" style="background:transparent;border:1px solid var(--border);color:var(--text-dim);width:26px;height:26px;cursor:pointer;border-radius:2px;font-size:13px">✕</button>
       </div>
-      <div style="font-size:11px;color:var(--text-dim)">Select a channel to assign this broadcast to, or create a new one.</div>
+      <div style="font-size:11px;color:var(--text-dim)">
+        ${isScripted ? 'Scripted show — no NPC hosts required.' : 'Select a channel to assign this broadcast to, or create a new one.'}
+      </div>
       <div>
         <label style="font-size:10px;color:var(--text-dim);display:block;margin-bottom:5px;text-transform:uppercase;letter-spacing:1px">Channel</label>
         <select id="bsm-ch-select" class="form-input" style="width:100%;font-size:12px" onchange="_bcImportChSelectChange(this.value)">
@@ -793,9 +810,17 @@ async function _bcShowImportChannelModal(compiled) {
             <input id="bsm-new-ch-number" class="form-input" type="number" min="1" placeholder="#" style="width:100%;font-size:12px;box-sizing:border-box">
           </div>
         </div>
-        <div style="display:flex;align-items:center;gap:10px">
-          <button class="action-btn" style="font-size:11px;white-space:nowrap" onclick="_bcImportPickChZone()">📍 Pick zone on map</button>
-          <span id="bsm-new-ch-zone-label" style="font-size:11px;color:var(--text-dim)">No zone selected</span>
+        <div>
+          <div style="font-size:10px;color:var(--text-dim);margin-bottom:5px;text-transform:uppercase;letter-spacing:1px">${zonePickerLabel}</div>
+          ${zonePickerNote}
+          <div style="display:flex;align-items:center;gap:10px;margin-top:4px">
+            <button class="action-btn" style="font-size:11px;white-space:nowrap" onclick="_bcImportPickChZone()">📍 Pick on map</button>
+            <span id="bsm-new-ch-zone-label" style="font-size:11px;color:var(--text-dim)">No zone selected</span>
+          </div>
+        </div>
+        <div id="bsm-new-ch-studio-row" style="display:none">
+          <label style="font-size:10px;color:var(--text-dim);display:block;margin-bottom:3px">${studioNameLabel}</label>
+          <input id="bsm-new-ch-studio-name" class="form-input" placeholder="${studioNamePlaceholder}" style="width:100%;font-size:12px;box-sizing:border-box">
         </div>
       </div>
       <div style="display:flex;gap:8px;justify-content:flex-end">
@@ -875,10 +900,20 @@ function _bcImportChPickerConfirm() {
   document.getElementById('bsm-ch-picker-overlay')?.remove();
   const lbl = document.getElementById('bsm-new-ch-zone-label');
   if (lbl && _bcImportChZone) lbl.textContent = `Zone at ${_bcImportChZone.x}, ${_bcImportChZone.y}`;
+  // Show studio name field and pre-fill based on channel name if not already set
+  const studioRow = document.getElementById('bsm-new-ch-studio-row');
+  const studioInput = document.getElementById('bsm-new-ch-studio-name');
+  if (studioRow) studioRow.style.display = 'block';
+  if (studioInput && !studioInput.value) {
+    const chName = document.getElementById('bsm-new-ch-name')?.value?.trim();
+    const isScripted = document.getElementById('bsm-channel-overlay')?.dataset.scripted === '1';
+    studioInput.value = chName ? `${chName} ${isScripted ? 'Broadcast Zone' : 'Studio'}` : '';
+  }
 }
 
 async function _bcImportChannelConfirm() {
   const compiled = _bcImportPending;
+  const isScripted = compiled.meta?.type === 'scripted';
   const sel = document.getElementById('bsm-ch-select')?.value || '';
 
   if (sel === '__new__') {
@@ -886,19 +921,26 @@ async function _bcImportChannelConfirm() {
     const number = parseInt(document.getElementById('bsm-new-ch-number')?.value || '');
     if (!name)   { toast('Channel name is required.', true); return; }
     if (!number) { toast('Channel number is required.', true); return; }
+    if (isScripted && !_bcImportChZone) { toast('Pick a broadcast zone on the map first.', true); return; }
 
     const chId = `ch_${number}_${Date.now()}`;
     const chBody = { id: chId, name, number, channel_type: 'playlist', enabled: 1 };
     if (_bcImportChZone) {
-      const zoneName = `${name} Studio`;
+      const defaultName = isScripted ? `${name} Broadcast Zone` : `${name} Studio`;
+      const zoneName = document.getElementById('bsm-new-ch-studio-name')?.value?.trim() || defaultName;
       const zoneId   = `zone_ch_${number}_${Date.now()}`;
       try {
         await directAPI('/zones', 'POST', {
-          id: zoneId, name: zoneName, description: `Broadcast studio for channel ${number}: ${name}.`,
+          id: zoneId, name: zoneName,
+          description: isScripted
+            ? `Broadcast zone for channel ${number}: ${name}.`
+            : `Broadcast studio for channel ${number}: ${name}.`,
           map_id: 'map_world', grid_x: _bcImportChZone.x, grid_y: _bcImportChZone.y, grid_z: 0,
           marker: name.slice(0, 2).toUpperCase(),
         });
-        chBody.zone_id = zoneId;
+        // Scripted: zone_id is where the show originates; live: studio_zone_id tracks NPC hosts
+        if (isScripted) chBody.zone_id = zoneId;
+        else chBody.studio_zone_id = zoneId;
       } catch (err) { toast(`Zone creation failed: ${err.message}`, true); return; }
     }
 
@@ -925,14 +967,16 @@ let _bcPickerZoneId = null;
 let _bcPickerSelected = null;
 
 async function _bcImportDependencies(compiled) {
+  const isScripted = compiled.meta?.type === 'scripted';
   const [allZones, allNpcs] = await Promise.all([
     directAPI('/zones', 'GET'), directAPI('/npcs', 'GET'),
   ]);
   const zoneIds  = new Set((allZones || []).map(z => z.id));
   const npcDbIds = new Set((allNpcs  || []).map(n => n.id));
-  _bcExistingNpcIds = npcDbIds; // used by _bcCreateNpc to skip duplicates
+  _bcExistingNpcIds = npcDbIds;
   const missingZones = compiled.rooms.filter(id => !zoneIds.has(id));
-  const missingNpcs  = compiled.npcIds.filter(id => !npcDbIds.has(id));
+  // Scripted shows have no live hosts — skip NPC dependency resolution
+  const missingNpcs  = isScripted ? [] : compiled.npcIds.filter(id => !npcDbIds.has(id));
   if (!missingZones.length && !missingNpcs.length) { await _bcImportSave(compiled); return; }
   _bcDepCompiled = compiled;
   _bcDepPending  = new Set([...missingZones, ...missingNpcs]);

@@ -231,6 +231,7 @@ async function openChannelEditor(rec) {
         <div>
           <label style="display:block;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:4px">Studio Zone</label>
           <select id="ch-studio-zone" class="form-input">${zoneOptions2}</select>
+          <div style="font-size:10px;color:var(--text-dim);margin-top:3px">${rec?.channel_type === 'live' ? 'NPC hosts must be present here to broadcast' : 'Where this channel broadcasts from'}</div>
         </div>
         <div>
           <label style="display:block;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:4px">Offline Graphic</label>

@@ -5,7 +5,7 @@ function compileBsm(text) {
   const lines = text.split('\n');
   let i = 0;
 
-  const meta = { name: '', channel: '', category: 'general', host: '', length: null };
+  const meta = { name: '', channel: '', category: 'general', host: '', length: null, type: 'live' };
   // Pre-scan for @alias directives so they work regardless of position in the file
   const aliases = {};
   for (const ln of lines) {
@@ -78,6 +78,7 @@ function compileBsm(text) {
         else if (key === 'category') meta.category = val;
         else if (key === 'host') meta.host = val;
         else if (key === 'length') meta.length = parseFloat(val);
+        else if (key === 'type') meta.type = val.toLowerCase();
         else if (key === 'alias') {
           const [speaker, npcId] = val.split(/\s+/);
           if (speaker && npcId) aliases[speaker.toUpperCase()] = npcId;
