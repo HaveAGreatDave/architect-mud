@@ -1452,8 +1452,8 @@ export const routeHandler = async (path, method, body, auth) => {
         const extExits = JSON.stringify({ ...(extRows[0]?.exits || {}), in: studioZoneId });
         await query('UPDATE zones SET exits=$1 WHERE id=$2', [extExits, exterior_zone_id]);
         studioExits = { out: exterior_zone_id };
-        await query(`INSERT INTO furniture (id,zone_id,name,object_type,light_type,light_on,light_on_intended,power_draw_kw,lumen_output,flags)
-          VALUES ($1,$2,'Overhead Light','light','overhead',1,1,0.02,1200,'{}')`, [`furn_light_stage_${ts}`, studioZoneId]);
+        await query(`INSERT INTO furniture (id,zone_id,name,description,object_type,light_type,light_on,light_on_intended,power_draw_kw,lumen_output,flags)
+          VALUES ($1,$2,'Overhead Light','A recessed overhead light panel.','light','overhead',1,1,0.02,1200,'{}')`, [`furn_light_stage_${ts}`, studioZoneId]);
       }
 
       // Find or create utility room (down)
@@ -1469,8 +1469,8 @@ export const routeHandler = async (path, method, body, auth) => {
         );
         studioExits = { ...studioExits, down: utilityZoneId };
         await query('UPDATE zones SET exits=$1 WHERE id=$2', [JSON.stringify(studioExits), studioZoneId]);
-        await query(`INSERT INTO furniture (id,zone_id,name,object_type,light_type,light_on,light_on_intended,power_draw_kw,lumen_output,flags)
-          VALUES ($1,$2,'Overhead Light','light','overhead',1,1,0.02,1200,'{}')`, [`furn_light_util_${ts}`, utilityZoneId]);
+        await query(`INSERT INTO furniture (id,zone_id,name,description,object_type,light_type,light_on,light_on_intended,power_draw_kw,lumen_output,flags)
+          VALUES ($1,$2,'Overhead Light','A recessed overhead light panel.','light','overhead',1,1,0.02,1200,'{}')`, [`furn_light_util_${ts}`, utilityZoneId]);
 
         const { rows: plants } = await query(`SELECT id FROM generators WHERE generator_type='city_plant' AND status='online' LIMIT 1`);
         const cityGenId = plants[0]?.id || null;
@@ -1500,8 +1500,8 @@ export const routeHandler = async (path, method, body, auth) => {
         );
         studioExits = { ...studioExits, up: productionZoneId };
         await query('UPDATE zones SET exits=$1 WHERE id=$2', [JSON.stringify(studioExits), studioZoneId]);
-        await query(`INSERT INTO furniture (id,zone_id,name,object_type,light_type,light_on,light_on_intended,power_draw_kw,lumen_output,flags)
-          VALUES ($1,$2,'Overhead Light','light','overhead',1,1,0.02,1200,'{}')`, [`furn_light_prod_${ts}`, productionZoneId]);
+        await query(`INSERT INTO furniture (id,zone_id,name,description,object_type,light_type,light_on,light_on_intended,power_draw_kw,lumen_output,flags)
+          VALUES ($1,$2,'Overhead Light','A recessed overhead light panel.','light','overhead',1,1,0.02,1200,'{}')`, [`furn_light_prod_${ts}`, productionZoneId]);
       }
 
       // Ensure power_zones for stage and production exist
@@ -1653,8 +1653,8 @@ export const routeHandler = async (path, method, body, auth) => {
         // Overhead lights in each interior zone
         for (const [zid, lightSuffix] of [[studioZoneId, 'stage'], [utilityZoneId, 'util'], [productionZoneId, 'prod']]) {
           await query(
-            `INSERT INTO furniture (id,zone_id,name,object_type,light_type,light_on,light_on_intended,power_draw_kw,lumen_output,flags)
-             VALUES ($1,$2,'Overhead Light','light','overhead',1,1,0.02,1200,'{}')`,
+            `INSERT INTO furniture (id,zone_id,name,description,object_type,light_type,light_on,light_on_intended,power_draw_kw,lumen_output,flags)
+             VALUES ($1,$2,'Overhead Light','A recessed overhead light panel.','light','overhead',1,1,0.02,1200,'{}')`,
             [`furn_light_${lightSuffix}_${ts}`, zid]
           );
         }
