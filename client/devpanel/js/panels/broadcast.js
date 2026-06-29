@@ -80,6 +80,7 @@ function renderBroadcastSuite(data) {
 
 function bcSuiteSelectTab(tab) {
   _bcSuiteTab = tab;
+  if (typeof closeEdit === 'function') closeEdit();
   // Update tab highlights
   BC_SUITE_TABS.forEach(t => {
     const el = document.getElementById(`bc-suite-tab-${t.id}`);
@@ -759,23 +760,16 @@ async function saveBroadcast() {
     const res = await directAPI(path, method, body);
     if (res?.error) { toast(res.error, true); return; }
     toast(isNew ? 'Broadcast created.' : 'Broadcast saved.');
-    // Refresh panel and re-select the broadcast
-    const refreshedData = await Promise.all([
-      directAPI('/broadcast/broadcasts'),
-      directAPI('/broadcast/channels'),
-    ]);
-    const broadcasts = Array.isArray(refreshedData[0]) ? refreshedData[0] : [];
-    const channels   = Array.isArray(refreshedData[1]) ? refreshedData[1] : [];
-    _broadcastList = broadcasts;
-    _bcChannels    = channels;
     const newId = res.id || _bcSelected?.id;
-    _bcSelected = broadcasts.find(b => b.id === newId) || null;
+    _bcSelected = null;
+    await bcSuiteRefresh('broadcasts');
+    _bcSelected = (_bcSuiteData?.broadcasts || []).find(b => b.id === newId) || null;
     if (_bcSelected) {
       _bcCards = _bcBuildCards(_bcSelected);
       _bcExpandedIdx = null;
+      _bcNewActive = false;
     }
-    _bcRenderSidebar();
-    _bcUpdateDurLabel();
+    _bcSuiteRender();
   } catch (err) { toast(err.message, true); }
 }
 
@@ -1392,10 +1386,12 @@ let _bcExistingNpcIds = new Set(); // populated during dependency check
 async function _bcCreateNpc(id) {
   if (_bcExistingNpcIds.has(id)) { _bcMarkResolved(id); return; }
   const name = id.replace(/^npc_/, '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  // Use studio zone from BSM import context if available
+  const studioZone = _bcImportStudioZoneId || null;
   try {
     const res = await directAPI('/npcs', 'POST', {
       id, name, description: `${name}. Edit this description.`, zone_id: null,
-      behaviour_graph: _bcDefaultStudioGraph(),
+      behaviour_graph: _bcDefaultStudioGraph(studioZone),
     });
     if (res?.error) { toast(res.error, true); return; }
     _bcMarkResolved(id);
@@ -1625,7 +1621,7 @@ async function _bcImportSave({ meta, broadcastGraph, messages, assets, cameras, 
                 zone_id: _bcImportStudioZoneId, home_zone: _bcImportStudioZoneId,
                 wanders: 0, wander_zones: [],
                 dialogue_tree: {}, vendor_inventory: [], flags: { studio_npc: true },
-                behaviour_graph: _bcDefaultStudioGraph(),
+                behaviour_graph: _bcDefaultStudioGraph(_bcImportStudioZoneId),
               });
             if (npcRes?.error) console.warn(`[BSM] NPC spawn failed for ${npcId}:`, npcRes.error);
             else npcSpawnCount++;
@@ -1778,13 +1774,13 @@ function _bcCancelNewBroadcast() {
 function _bcCancelNewCommercial() {
   _bcCommNewActive = false;
   _bcCommSelected  = null;
-  renderCommercialsPanel(_bcSuiteData);
+  _bcSuiteRender();
 }
 
 function _bcCommNew() {
   _bcCommNewActive = true;
   _bcCommSelected  = null;
-  renderCommercialsPanel(_bcSuiteData);
+  _bcSuiteRender();
 }
 
 async function saveCommercialCanvas() {
@@ -1813,9 +1809,10 @@ async function saveCommercialCanvas() {
     if (res?.error) { toast(res.error, true); return; }
     const newId = res.id || _bcSelected?.id;
     toast(isNew ? 'Commercial created.' : 'Commercial saved.');
+    _bcCommSelected = null; // will be re-set after fresh data arrives
     await bcSuiteRefresh('commercials');
     _bcCommSelected = (_bcSuiteData?.broadcasts || []).find(b => b.id === newId) || null;
-    if (_bcCommSelected) renderCommercialsPanel(_bcSuiteData);
+    if (_bcCommSelected) _bcSuiteRender();
   } catch (err) { toast(err.message, true); }
 }
 
@@ -1929,14 +1926,15 @@ async function _bcCommDelete(bcId) {
 
 // ── NPC helpers ───────────────────────────────────────────────────────────────
 
-function _bcDefaultStudioGraph() {
+function _bcDefaultStudioGraph(studioZoneId = null) {
   return {
     _start: 'n_start',
     nodes: {
       n_start:  { type: 'start',  next: 'n_life' },
       n_life:   { type: 'action', action_type: 'HAVE_LIFE',  next: 'n_work' },
-      n_work:   { type: 'action', action_type: 'GO_TO_WORK', next: 'n_atwork' },
-      n_atwork: { type: 'action', action_type: 'AT_WORK',    next: 'n_wait' },
+      n_work:   { type: 'action', action_type: 'GO_TO_WORK', params: studioZoneId ? { zone_id: studioZoneId } : {}, next: 'n_atwork' },
+      n_atwork: { type: 'action', action_type: 'AT_WORK',    next: 'n_gohome' },
+      n_gohome: { type: 'action', action_type: 'GO_HOME',    next: 'n_wait' },
       n_wait:   { type: 'wait',   seconds: 30,               next: 'n_loop' },
       n_loop:   { type: 'loop',   next: 'n_start' },
     },
@@ -2083,16 +2081,31 @@ function _bcNpcDraw(el) {
   el.innerHTML = `
     <div>
       <div style="display:flex;align-items:center;gap:10px;padding:6px 12px;
-                  border-bottom:2px solid var(--border);font-size:10px;color:var(--text-dim);
-                  text-transform:uppercase;letter-spacing:1px;background:var(--bg2)">
-        <span style="min-width:160px">NPC</span>
-        <span style="min-width:120px">Work Status</span>
-        <span style="flex:1">Active Zone</span>
+                  border-bottom:2px solid var(--border);background:var(--bg2)">
+        <span style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;min-width:160px">NPC</span>
+        <span style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;min-width:120px">Work Status</span>
+        <span style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;flex:1">Active Zone</span>
+        <button class="action-btn" style="font-size:10px;padding:3px 10px" onclick="_bcRecalcSchedules(this)">⟳ Recalculate Schedules</button>
       </div>
       ${rows}
     </div>`;
 }
 
+
+async function _bcRecalcSchedules(btn) {
+  if (btn) { btn.disabled = true; btn.textContent = '⟳ Working…'; }
+  try {
+    const res = await directAPI('/broadcast/recalculate-schedules', 'POST', {});
+    if (res?.error) { toast(res.error, true); return; }
+    toast(res.message || 'Schedules recalculated.');
+    _bcNpcCache = null;
+    await bcSuiteRefresh('npcs');
+  } catch (err) {
+    toast(err.message, true);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '⟳ Recalculate Schedules'; }
+  }
+}
 
 // ── Utility ───────────────────────────────────────────────────────────────────
 

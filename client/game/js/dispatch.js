@@ -114,6 +114,10 @@ const handlers = {
     if (isTvOpen() && getTvActiveChannelId() === msg.channel) {
       if (msg.style === 'ticker') updateTvTicker(msg.message);
       else appendTvMessage(msg.message, msg.style);
+      if (msg.programName !== undefined) {
+        const el = document.getElementById('tv-program-name');
+        if (el) el.textContent = msg.programName || '';
+      }
     } else {
       // Not actively watching — ambient only, no broadcast content
       if (++_tvAmbientCounter % 8 === 0)

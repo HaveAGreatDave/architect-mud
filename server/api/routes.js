@@ -144,6 +144,7 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path==='/zones' && method==='POST') return requireDev(auth, ()=>apiCreateZone(body,auth));
   if (path==='/maps' && method==='GET') return requireDev(auth, apiGetMaps);
   if (path==='/maps/link-interior' && method==='POST') return requireDev(auth, ()=>apiLinkInterior(body, auth));
+  if (path.startsWith('/maps/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteMap(path.split('/')[2]));
   if (path.startsWith('/maps/') && method==='GET') return requireDev(auth, ()=>apiGetMap(path.split('/')[2]));
   // Zone IDs may contain '/' — extract with slice, not split, to handle them correctly
   const _zoneId    = (p) => p.slice('/zones/'.length);
@@ -499,6 +500,22 @@ async function apiGetMaps() {
     FROM maps m ORDER BY m.id
   `);
   return { status:200, body: rows };
+}
+
+async function apiDeleteMap(id) {
+  try {
+    const { rows: mapRows } = await query('SELECT id FROM maps WHERE id=$1', [id]);
+    if (!mapRows.length) return { status: 404, body: { error: 'Map not found' } };
+    // Get all zone IDs on this map — delete them using the full cascade logic
+    const { rows: zoneRows } = await query('SELECT id FROM zones WHERE map_id=$1', [id]);
+    // Delete each zone through the full cascade (handles npcs, furniture, exits, etc.)
+    for (const { id: zid } of zoneRows) await apiDeleteZone(zid).catch(() => {});
+    // Delete the map itself in case it wasn't caught by entry/parent zone cleanup
+    await query('DELETE FROM maps WHERE id=$1', [id]);
+    return { status: 200, body: { message: `Map deleted (${zoneRows.length} zone${zoneRows.length !== 1 ? 's' : ''} removed)` } };
+  } catch (e) {
+    return { status: 400, body: { error: e.message } };
+  }
 }
 
 async function apiGetMap(id) {
@@ -948,6 +965,10 @@ export async function apiCreateNpc(body) {
   try {
     await query(`INSERT INTO npcs (id,name,description,zone_id,home_zone,faction,dialogue_tree,vendor_inventory,wanders,wander_zones,flags,behaviour_graph) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
       [id,body.name,body.description,body.zone_id||null,body.home_zone||null,body.faction||null,JSON.stringify(body.dialogue_tree||{}),JSON.stringify(body.vendor_inventory||[]),body.wanders?1:0,JSON.stringify(body.wander_zones||[]),JSON.stringify(body.flags||{}),JSON.stringify(body.behaviour_graph||{})]);
+    // Register in world memory so the NPC is immediately visible
+    const { world: w } = await import('../engine/world.js');
+    w.npcs.set(id, { id, name:body.name, description:body.description, zone_id:body.zone_id||null, home_zone:body.home_zone||null, faction:body.faction||null, dialogue_tree:body.dialogue_tree||{}, vendor_inventory:body.vendor_inventory||[], wanders:body.wanders?1:0, wander_zones:body.wander_zones||[], flags:body.flags||{}, behaviour_graph:body.behaviour_graph||{}, _ai:{ currentNode:null, waitUntil:null, patrolPath:[], patrolTarget:null, patrolMode:'walk', patrolIndex:0, alertCooldown:0, lastSay:0, flags:{} } });
+    if (body.zone_id) w.zones.get(body.zone_id)?.npcs.add(id);
     return {status:201,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
@@ -955,15 +976,25 @@ export async function apiUpdateNpc(id,body) {
   try {
     await query(`UPDATE npcs SET name=$1,description=$2,zone_id=$3,home_zone=$4,faction=$5,dialogue_tree=$6,vendor_inventory=$7,wanders=$8,wander_zones=$9,flags=$10,behaviour_graph=$11 WHERE id=$12`,
       [body.name,body.description,body.zone_id,body.home_zone||null,body.faction,JSON.stringify(body.dialogue_tree||{}),JSON.stringify(body.vendor_inventory||[]),body.wanders?1:0,JSON.stringify(body.wander_zones||[]),JSON.stringify(body.flags||{}),JSON.stringify(body.behaviour_graph||{}),id]);
-    // Update in-memory cache
+    // Update in-memory NPC and sync zone.npcs sets
     const { world: w } = await import('../engine/world.js');
     const existing = w.npcs.get(id);
-    if (existing) Object.assign(existing, { name:body.name, description:body.description, zone_id:body.zone_id, home_zone:body.home_zone||null, faction:body.faction, dialogue_tree:body.dialogue_tree||{}, vendor_inventory:body.vendor_inventory||[], wanders:body.wanders?1:0, wander_zones:body.wander_zones||[], flags:body.flags||{}, behaviour_graph:body.behaviour_graph||{} });
+    const oldZone = existing?.zone_id;
+    const newZone = body.zone_id || null;
+    if (existing) Object.assign(existing, { name:body.name, description:body.description, zone_id:newZone, home_zone:body.home_zone||null, faction:body.faction, dialogue_tree:body.dialogue_tree||{}, vendor_inventory:body.vendor_inventory||[], wanders:body.wanders?1:0, wander_zones:body.wander_zones||[], flags:body.flags||{}, behaviour_graph:body.behaviour_graph||{} });
+    if (oldZone !== newZone) {
+      if (oldZone) w.zones.get(oldZone)?.npcs.delete(id);
+      if (newZone) w.zones.get(newZone)?.npcs.add(id);
+    }
     return {status:200,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
 export async function apiDeleteNpc(id) {
   try {
+    const { world: w } = await import('../engine/world.js');
+    const npc = w.npcs.get(id);
+    if (npc?.zone_id) w.zones.get(npc.zone_id)?.npcs.delete(id);
+    w.npcs.delete(id);
     await query('DELETE FROM npcs WHERE id=$1', [id]);
     return {status:200,body:{message:'NPC deleted'}};
   } catch(e) { return {status:400,body:{error:e.message}}; }

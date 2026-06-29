@@ -150,6 +150,17 @@ const _bcNodeDefs = {
       ${_bField('NPC ID', _bInput('data.npc_id', n.data.npc_id, 'npc database id'))}`,
   },
 
+  npc_action: {
+    label: 'Emote',
+    color: '#664422',
+    defaultData: { message:'' },
+    renderBody: (n) => `<div style="font-size:11px;color:var(--text-dim)">${_escB((n.data.message||'').slice(0,60))}</div>`,
+    getOutPorts: () => [{ key:'next', label:'next' }],
+    renderProperties: (n, ed, id) => `
+      ${_bHelp(id,'Makes the active NPC Anchor perform an action in the studio zone. For live channels the emote fires in-world and relays to TV watchers as "<Name> <action>". Requires an NPC Anchor node earlier in the graph.')}
+      ${_bField('Action text', _bTextarea('data.message', n.data.message, 2))}`,
+  },
+
   inject_news: {
     label: 'Inject News',
     color: '#886622',

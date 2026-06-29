@@ -92,7 +92,12 @@ const AI_ACTIONS = [
     { key: 'channel_id', label: 'Channel ID', type: 'text',   default: '' },
     { key: 'text',       label: 'Text',       type: 'text',   default: '' },
   ]},
-  { type: 'GO_HOME', label: 'Go Home', params: [] },
+  { type: 'GO_HOME',   label: 'Go Home',   params: [] },
+  { type: 'HAVE_LIFE', label: 'Have Life', params: [] },
+  { type: 'AT_WORK',   label: 'At Work',   params: [] },
+  { type: 'EMOTE',     label: 'Emote',     params: [
+    { key: 'message', label: 'Action text', type: 'text', default: '' },
+  ]},
   { type: 'GO_TO_WORK', label: 'Go To Work', params: [
     { key: 'zone_id',              label: 'Studio Zone',      type: 'text',   default: '' },
     { key: 'arrive_by',            label: 'Arrive By (hour)', type: 'number', default: 20 },

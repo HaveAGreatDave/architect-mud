@@ -63,7 +63,7 @@ function compileBsm(text) {
   const DIRECTIVE_PREFIXES = [
     '@', '::', 'EVENT ', 'TITLE ', 'TICKER', 'WAIT', 'NPC ', 'OVERLAY ',
     'SHOT', 'SHOT_END', 'TICKER_END', 'OVERLAY_END', 'LOWER_THIRD_END', 'END', 'CAM ', 'ROOM ', 'LOWER_THIRD',
-    'MUSIC ', 'ENTER ', 'ACTION ', '♪',
+    'MUSIC ', 'ENTER ', 'ACTION', 'END_ACTION', '♪',
   ];
 
   const BARE_DURATION_RE = /^(\d+(?:\.\d+)?)s?$/;  // "8s", "2s", "1.5s", "8"
@@ -256,21 +256,33 @@ function compileBsm(text) {
       i++; continue;
     }
 
-    // ── ENTER stage direction ─────────────────────────────────────────────────
+    // ── ENTER stage direction → npc_anchor + npc_action "enters" ─────────────
     if (ln.startsWith('ENTER ')) {
       const raw = ln.slice(6).trim();
       const npc = raw.startsWith('npc_') ? raw : `npc_${raw}`;
-      makeNode({ type: 'say', text: `[ ${npc} enters ]`, style: 'stage_direction' });
+      if (npc !== activeNpc) { makeNode({ type: 'npc_anchor', npc_id: npc }); activeNpc = npc; }
+      makeNode({ type: 'npc_action', message: 'enters' });
       i++; continue;
     }
 
-    // ── ACTION stage direction ────────────────────────────────────────────────
+    // ── ACTION stage direction → npc_anchor + npc_action ─────────────────────
+    if (ln === 'ACTION') {
+      i++;
+      const content = collectBlock('END_ACTION');
+      const [rawFirst, ...rest] = content.trim().split(/\s+/);
+      const npc = rawFirst ? (rawFirst.startsWith('npc_') ? rawFirst : `npc_${rawFirst}`) : activeNpc;
+      const act = rest.join(' ');
+      if (npc && npc !== activeNpc) { makeNode({ type: 'npc_anchor', npc_id: npc }); activeNpc = npc; }
+      if (act) makeNode({ type: 'npc_action', message: act });
+      continue;
+    }
     if (ln.startsWith('ACTION ')) {
       const parts = ln.slice(7).trim().split(/\s+/);
       const rawNpc = parts[0] || '';
       const npc = rawNpc.startsWith('npc_') ? rawNpc : `npc_${rawNpc}`;
       const act = parts.slice(1).join(' ');
-      makeNode({ type: 'say', text: `[ ${npc} ${act} ]`, style: 'stage_direction' });
+      if (npc !== activeNpc) { makeNode({ type: 'npc_anchor', npc_id: npc }); activeNpc = npc; }
+      if (act) makeNode({ type: 'npc_action', message: act });
       i++; continue;
     }
 
@@ -280,7 +292,11 @@ function compileBsm(text) {
       i++; continue;
     }
 
-    _debug.unknownDirectives.push(ln);
+    if (activeNpc) {
+      makeNode({ type: 'npc_action', message: ln });
+    } else {
+      _debug.unknownDirectives.push(ln);
+    }
     i++;
   }
 

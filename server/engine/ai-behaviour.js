@@ -500,34 +500,47 @@ async function execAction(node, entity, ctx) {
       break;
     }
 
-    case 'SAY': {
-      const text = params.text || '';
-      if (!text) break;
-      broadcast(zoneId, {
-        type: 'output',
-        message: `<span style="color:var(--yellow)">${entity.name} says, "${text}"</span>`,
-      });
-      break;
-    }
-
     // HAVE_LIFE: do a life activity — skipped when NPC is scheduled to work
     case 'HAVE_LIFE': {
       if (!ai) break;
-      if (isNpcScheduledNow(entity.id)) break; // on schedule — do nothing here
-      // Walk toward home_zone or a supplied waypoint
-      const waypoints = Array.isArray(params.waypoints) ? params.waypoints : [];
-      const dest = entity.home_zone || waypoints[Math.floor(Math.random() * Math.max(waypoints.length, 1))];
-      if (!dest || zoneId === dest) break;
-      if (!ai.patrolPath.length || ai.patrolTarget !== dest) {
-        const path = findPath(zoneId, dest);
-        if (!path || path.length < 2) break;
-        ai.patrolPath = path.slice(1);
-        ai.patrolTarget = dest;
+      if (isNpcScheduledNow(entity.id)) {
+        ai._lifeActivity = null; // clear so next off-schedule period re-rolls
+        break;
       }
-      const next = ai.patrolPath.shift();
-      if (next) {
-        const moved = moveEntity(entity, next, broadcast, query);
-        if (!moved) { ai.patrolPath = []; ai.patrolTarget = null; }
+      // Roll a random activity if none is set or we've arrived at the destination
+      if (!ai._lifeActivity || (!ai.patrolPath.length && zoneId === ai.patrolTarget)) {
+        ai._lifeActivity = Math.random() < 0.5 ? 'patrol' : 'home';
+        ai.patrolPath = [];
+        ai.patrolTarget = null;
+      }
+      let hlife_dest = null;
+      if (ai._lifeActivity === 'home') {
+        hlife_dest = entity.home_zone || null;
+      } else {
+        // patrol: pick a random safe exterior zone on the world map
+        if (!ai.patrolTarget) {
+          const safe = [];
+          for (const [sid, sz] of world.zones) {
+            if (sz.map_id !== 'map_world') continue;
+            if (sz.flags?.is_interior || sz.flags?.is_apartment || sz.flags?.is_building) continue;
+            if ((sz.danger_rating || 0) > 1) continue;
+            safe.push(sid);
+          }
+          ai.patrolTarget = safe.length ? safe[Math.floor(Math.random() * safe.length)] : entity.home_zone;
+        }
+        hlife_dest = ai.patrolTarget;
+      }
+      if (!hlife_dest || zoneId === hlife_dest) { ai._lifeActivity = null; break; }
+      if (!ai.patrolPath.length || ai.patrolTarget !== hlife_dest) {
+        const path = findPath(zoneId, hlife_dest);
+        if (!path || path.length < 2) { ai._lifeActivity = null; break; }
+        ai.patrolPath = path.slice(1);
+        ai.patrolTarget = hlife_dest;
+      }
+      const hlife_next = ai.patrolPath.shift();
+      if (hlife_next) {
+        const moved = moveEntity(entity, hlife_next, broadcast, query);
+        if (!moved) { ai.patrolPath = []; ai.patrolTarget = null; ai._lifeActivity = null; }
         else if (!isEnemy(entity) && query) {
           query('UPDATE npcs SET zone_id=$1 WHERE id=$2', [entityZone(entity), entity.id]).catch(() => {});
         }
@@ -539,7 +552,7 @@ async function execAction(node, entity, ctx) {
     case 'GO_TO_WORK': {
       if (!ai) break;
       if (!isNpcScheduledNow(entity.id)) break; // not on schedule — skip
-      const workZone = getNpcStudioZone(entity.id);
+      const workZone = params?.zone_id || params?.studio_zone || getNpcStudioZone(entity.id);
       if (!workZone || zoneId === workZone) break; // already there or no zone known
 
       if (!ai.patrolPath.length || ai.patrolTarget !== workZone) {
@@ -563,6 +576,29 @@ async function execAction(node, entity, ctx) {
       // NPC is in studio during scheduled hours — just idle here.
       // The graph loop (wait → loop back) re-checks IS_BROADCAST_SCHEDULED each cycle.
       break;
+    }
+
+    // GO_HOME: navigate to home_zone when not scheduled — skipped during work hours
+    case 'GO_HOME': {
+      if (!ai) break;
+      if (isNpcScheduledNow(entity.id)) break; // still on schedule — stay put
+      const home = entity.home_zone;
+      if (!home || zoneId === home) break; // no home configured or already there
+      if (!ai.patrolPath.length || ai.patrolTarget !== home) {
+        const path = findPath(zoneId, home);
+        if (!path || path.length < 2) break;
+        ai.patrolPath = path.slice(1);
+        ai.patrolTarget = home;
+      }
+      const gh_next = ai.patrolPath.shift();
+      if (gh_next) {
+        const moved = moveEntity(entity, gh_next, broadcast, query);
+        if (!moved) { ai.patrolPath = []; ai.patrolTarget = null; }
+        else if (!isEnemy(entity) && query) {
+          query('UPDATE npcs SET zone_id=$1 WHERE id=$2', [entityZone(entity), entity.id]).catch(() => {});
+        }
+      }
+      return 'RUNNING';
     }
 
     // Walk to the studio zone the NPC is scheduled at (derived from broadcast schedule)
