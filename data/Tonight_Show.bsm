@@ -61,8 +61,6 @@ ACID COLA REPORTS RECORD PROFITS • POLICE ADVISE CITIZENS TO AVOID DISTRICT 12
 
 TICKER_END
 
- 8s
-
 EVENT DISSOLVE
 
 ::scene INTRODUCTION
@@ -83,44 +81,28 @@ NPC npc_john_akerson
 announcer:
 From somewhere above the smog and only slightly outside the blast radius...
 
- 2s
-
 ANNOUNCER:
 It's...
-
- 1s
 
 ANNOUNCER:
 The Tonight Show!
 
 EVENT APPLAUSE
 
- 2s
-
 ANNOUNCER:
 Tonight...
-
- 1s
 
 ANNOUNCER:
 Corporate executives explain why exploding vending machines are actually a premium feature.
 
- 2s
-
 ANNOUNCER:
 A local street chef prepares authentic mutant squid tacos.
-
- 2s
 
 ANNOUNCER:
 And we'll meet a man who's legally declared his apartment to be an independent nation.
 
- 2s
-
 ANNOUNCER:
 Ladies and gentlemen...
-
- 1s
 
 ANNOUNCER:
 JOOOOOHN AKERSON!
@@ -139,8 +121,6 @@ SHOT_END
 
 ACTION john_akerson wave
 
- 3s
-
 ::scene MONOLOGUE
 
 CAM 3 CLOSEUP john_akerson
@@ -148,60 +128,40 @@ CAM 3 CLOSEUP john_akerson
 JOHN:
 Thank you!
 
- 1s
-
 JOHN:
 Thank you!
-
- 1s
 
 JOHN:
 Sit down! We've got a fantastic show tonight!
 
 EVENT APPLAUSE
 
- 2s
-
 JOHN:
 Did everyone survive the commute?
-
- 1s
 
 JOHN:
 Traffic was backed up six blocks after somebody hacked the crossing lights to advertise noodles.
 
 EVENT LAUGHTER
 
- 2s
-
 JOHN:
 Corporate Security says crime is down.
-
- 1s
 
 JOHN:
 Apparently they stopped counting anything outside corporate property.
 
 EVENT LAUGHTER
 
- 2s
-
 JOHN:
 I stopped by a pharmacy today.
 
- 1s
-
 JOHN:
 They've started locking up bottled water.
-
- 1s
 
 JOHN:
 The cybernetic organs are still self-service though.
 
 EVENT LAUGHTER
-
- 2s
 
 JOHN:
 You know times are tough when the mugger accepts store credit.
@@ -210,24 +170,16 @@ EVENT APPLAUSE
 
 EVENT LAUGHTER
 
- 3s
-
 JOHN:
 Good news though...
 
- 1s
-
 JOHN:
 My landlord says the building is structurally sound.
-
- 2s
 
 JOHN:
 Apparently that's a completely different thing than "safe."
 
 EVENT LAUGHTER
-
- 5s
 
 ::scene INTERVIEW
 
@@ -269,7 +221,6 @@ You won the city lottery seven times.
 LUCKY:
 Eight.
 
- 1s
 
 JOHN:
 Eight?
@@ -279,7 +230,6 @@ The eighth time they stopped congratulating me and started interviewing me.
 
 EVENT LAUGHTER
 
- 2s
 
 JOHN:
 What's your secret?
@@ -288,8 +238,6 @@ LUCKY:
 Always buy your ticket after surviving something that should've killed you.
 
 EVENT LAUGHTER
-
- 2s
 
 JOHN:
 That's oddly specific.
@@ -301,15 +249,11 @@ EVENT APPLAUSE
 
 EVENT LAUGHTER
 
- 3s
-
 JOHN:
 What's the first thing you bought?
 
 LUCKY:
 A deluxe apartment.
-
- 1s
 
 JOHN:
 Nice!
@@ -318,8 +262,6 @@ LUCKY:
 The deluxe part is that only one wall leaks.
 
 EVENT LAUGHTER
-
- 8s
 
 ::scene COMMERCIAL
 
@@ -340,22 +282,14 @@ MUSIC acid_cola_jingle
 announcer:
 Feeling tired?
 
- 2s
-
 announcer:
 Feeling hopeless?
-
- 2s
 
 announcer:
 Drink Acid Cola™.
 
- 2s
-
 announcer:
 Because reality is easier to tolerate when it's carbonated.
-
- 2s
 
 OVERLAY commercial_offer
 
@@ -366,8 +300,6 @@ BUY TWO
 GET THE THIRD LEGALLY CLASSIFIED AS A BONUS
 
 OVERLAY_END
-
- 8s
 
 EVENT RETURN_FROM_BREAK
 
@@ -389,29 +321,19 @@ MUSIC tonight_theme
 JOHN:
 That's all the time we've got tonight.
 
- 1s
-
 JOHN:
 Thanks to Lenny for joining us.
-
- 2s
 
 JOHN:
 Remember...
 
- 1s
-
 JOHN:
-If somebody offers you free cyberware in an alley...
-
- 2s
+If somebody offers you free cyberware in an alley..
 
 JOHN:
 ...at least ask if it comes with a warranty.
 
 EVENT LAUGHTER
-
- 2s
 
 JOHN:
 Good night, everybody!
@@ -425,8 +347,6 @@ SHOT
 The camera slowly pulls back as John waves to the audience. The Tonight Show band reprises the theme while the audience rises for a standing ovation beneath glowing neon studio lights.
 
 SHOT_END
-
- 6s
 
 EVENT FADE_OUT
 

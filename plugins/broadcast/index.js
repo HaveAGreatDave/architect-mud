@@ -7,7 +7,7 @@ import { registerAction } from '../../server/engine/actions.js';
 import { registerCommand } from '../../server/engine/plugins.js';
 import { apiDeleteZone } from '../../server/api/routes.js';
 import { registerViewerChecker, registerNpcScheduleChecker, registerNpcStudioZoneLookup } from '../../server/engine/broadcast-bridge.js';
-import { getEnvironmentState } from '../../server/engine/environment.js';
+import { getEnvironmentState, recomputePower } from '../../server/engine/environment.js';
 
 // ── In-memory state ──────────────────────────────────────────────────────────
 
@@ -650,13 +650,13 @@ function _extractNpcWorkSequence(graph, npcId) {
 
 // Patch a NPC's behaviour graph: replace the AT_WORK + wait nodes with the
 // extracted work sequence, keeping the lifecycle shell intact.
-function _buildWorkPhasedGraph(sequence) {
+function _buildWorkPhasedGraph(sequence, studioZoneId = null) {
   const graph = {
     _start: 'n_start',
     nodes: {
       n_start: { type: 'start',  next: 'n_life' },
       n_life:  { type: 'action', action_type: 'HAVE_LIFE',  next: 'n_work' },
-      n_work:  { type: 'action', action_type: 'GO_TO_WORK', next: sequence.length ? 'n_w0' : 'n_atwork' },
+      n_work:  { type: 'action', action_type: 'GO_TO_WORK', params: studioZoneId ? { zone_id: studioZoneId } : {}, next: sequence.length ? 'n_w0' : 'n_atwork' },
       n_loop:  { type: 'loop',   next: 'n_start' },
     },
   };
@@ -688,12 +688,12 @@ async function _injectWorkPhaseForPlaylistItem(item) {
     if (!npcId) continue;
     const sequence = _extractNpcWorkSequence(graph, npcId);
     if (!sequence.length) continue; // no lines for this NPC — leave existing graph alone
-    const newGraph = JSON.stringify(_buildWorkPhasedGraph(sequence));
+    const newGraph = JSON.stringify(_buildWorkPhasedGraph(sequence, item.studioZoneId || null));
     await query(
       `UPDATE npcs SET behaviour_graph=$1 WHERE id=$2`, [newGraph, npcId]
     ).catch(() => {});
     const live = world.npcs.get(npcId);
-    if (live) live.behaviour_graph = _buildWorkPhasedGraph(sequence);
+    if (live) live.behaviour_graph = _buildWorkPhasedGraph(sequence, item.studioZoneId || null);
   }
 }
 
@@ -796,6 +796,8 @@ function _seekGraph(graph, bb, segElapsedMs, nowMs) {
 function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
   if (!state.graphBlackboard) return null;
   const bb = state.graphBlackboard;
+  // Scripted daily-schedule content always plays through — no host-presence gating
+  const skipPresence = state.scheduleMode === 'daily';
 
   // Reset blackboard if a different broadcast is now active
   if (bb.activeBroadcastId !== graph._broadcastId) {
@@ -814,42 +816,41 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
     }
   }
 
-  // Tech-diff mode — host was absent; cycle fallback messages until slot ends
-  // Re-check each tick: if the host NPC returned to the studio zone, clear the latch
-  if (bb.techDiffMode) {
-    if (bb.npcAnchorId && state.studioZoneId) {
-      const zone = getZone(state.studioZoneId);
-      if (zone?.npcs?.has(bb.npcAnchorId)) {
-        bb.techDiffMode = false;
-        bb.hostAbsent = false;
-        bb.absentDetectedAt = null;
+  // Tech-diff / camera-idle only apply to truly-live unscripted channels
+  if (!skipPresence) {
+    if (bb.techDiffMode) {
+      if (bb.npcAnchorId && state.studioZoneId) {
+        const zone = getZone(state.studioZoneId);
+        if (zone?.npcs?.has(bb.npcAnchorId)) {
+          bb.techDiffMode = false;
+          bb.hostAbsent = false;
+          bb.absentDetectedAt = null;
+        }
       }
     }
-  }
-  if (bb.techDiffMode) {
-    const pool = state.currentFallbackMessages?.length
-      ? state.currentFallbackMessages
-      : ['[TECHNICAL DIFFICULTIES] Please stand by.'];
-    const idx = Math.floor(nowMs / 5000) % pool.length;
-    return { text: pool[idx], key: `techDiff:${channelId}:${idx}:${Math.floor(nowMs / 5000)}`, style: 'raw' };
-  }
-
-  // Camera-idle phase — host absent but first 60s; show live studio feed
-  if (bb.hostAbsent && bb.absentDetectedAt) {
-    const elapsed = nowMs - bb.absentDetectedAt;
-    if (elapsed < 60_000) {
-      const snap = state.studioZoneId ? buildCameraSnapshot(state.studioZoneId) : null;
-      bb.waitUntil = nowMs + 5000;
-      return snap
-        ? { text: `[CAM: studio] ${snap}`, key: `absent-cam:${channelId}:${nowMs}`, style: 'raw' }
-        : null;
+    if (bb.techDiffMode) {
+      const pool = state.currentFallbackMessages?.length
+        ? state.currentFallbackMessages
+        : ['[TECHNICAL DIFFICULTIES] Please stand by.'];
+      const idx = Math.floor(nowMs / 5000) % pool.length;
+      return { text: pool[idx], key: `techDiff:${channelId}:${idx}:${Math.floor(nowMs / 5000)}`, style: 'raw' };
     }
-    bb.techDiffMode = true;
-    const pool = state.currentFallbackMessages?.length
-      ? state.currentFallbackMessages
-      : ['[TECHNICAL DIFFICULTIES] Please stand by.'];
-    const idx = Math.floor(nowMs / 5000) % pool.length;
-    return { text: pool[idx], key: `techDiff:${channelId}:${idx}:${Math.floor(nowMs / 5000)}`, style: 'raw' };
+    if (bb.hostAbsent && bb.absentDetectedAt) {
+      const elapsed = nowMs - bb.absentDetectedAt;
+      if (elapsed < 60_000) {
+        const snap = state.studioZoneId ? buildCameraSnapshot(state.studioZoneId) : null;
+        bb.waitUntil = nowMs + 5000;
+        return snap
+          ? { text: `[CAM: studio] ${snap}`, key: `absent-cam:${channelId}:${nowMs}`, style: 'raw' }
+          : null;
+      }
+      bb.techDiffMode = true;
+      const pool = state.currentFallbackMessages?.length
+        ? state.currentFallbackMessages
+        : ['[TECHNICAL DIFFICULTIES] Please stand by.'];
+      const idx = Math.floor(nowMs / 5000) % pool.length;
+      return { text: pool[idx], key: `techDiff:${channelId}:${idx}:${Math.floor(nowMs / 5000)}`, style: 'raw' };
+    }
   }
 
   if (bb.waitUntil && nowMs < bb.waitUntil) return null;
@@ -865,49 +866,44 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
     const node = nodes[nodeId];
     if (!node) break;
 
-    switch (node.type) {
+    try { switch (node.type) {
       case 'start':
         nodeId = _resolveEdge(edges, nodeId, 'next');
         break;
 
       case 'say': {
-        if (bb.hostAbsent) { nodeId = _resolveEdge(edges, nodeId, 'next'); break; }
         const raw = node.data?.text || '';
         bb.currentNode = _resolveEdge(edges, nodeId, 'next');
         bb.waitUntil = nowMs + 5000;
         const key_say = `graph:${channelId}:${nodeId}:${nowMs}`;
-        // Live channel: trigger real NPC speech in zone — studio relay delivers to TV
-        if (state.channelType === 'live' && state.studioZoneId && bb.npcAnchor) {
+        // Live channel with NPC physically present: relay via zone — zone broadcast delivers to TV watchers
+        if (!skipPresence && !bb.hostAbsent && state.channelType === 'live' && state.studioZoneId && bb.npcAnchor && node.data?.style !== 'narration') {
           sendToZone(state.studioZoneId, {
             type: 'output',
             message: `<span style="color:var(--yellow)">${bb.npcAnchor} says, "${raw}"</span>`,
           });
           return { key: key_say, style: 'live_relay' };
         }
-        // Scripted/playlist channels: push text directly
+        // Scripted / daily schedule / NPC absent fallback: push text directly to TV watchers
         const style_say = node.data?.style || 'raw';
-        const voice = bb.npcAnchor ? `[${bb.npcAnchor}] ` : '';
-        const text_say = style_say === 'ticker' ? `>> ${voice}${raw} <<` : `${voice}${raw}`;
-        return { text: text_say, key: key_say, style: style_say };
+        const isNarration = style_say === 'narration';
+        const text_say = style_say === 'ticker'
+          ? `>> ${bb.npcAnchor ? `${bb.npcAnchor}: ` : ''}${raw} <<`
+          : (!isNarration && bb.npcAnchor ? `${bb.npcAnchor} says, "${raw}"` : raw);
+        return { text: text_say, key: key_say, style: 'raw' };
       }
 
       case 'npc_action': {
-        if (bb.hostAbsent) { nodeId = _resolveEdge(edges, nodeId, 'next'); break; }
         const emote = node.data?.message || node.data?.action || '';
         if (!emote) { nodeId = _resolveEdge(edges, nodeId, 'next'); break; }
         bb.currentNode = _resolveEdge(edges, nodeId, 'next');
         bb.waitUntil = nowMs + 3000;
         const key_act = `action:${channelId}:${nodeId}:${nowMs}`;
-        // Live channel: trigger real NPC emote in zone — studio relay delivers to TV
-        if (state.channelType === 'live' && state.studioZoneId && bb.npcAnchor) {
-          sendToZone(state.studioZoneId, {
-            type: 'output',
-            message: `<span style="color:var(--yellow)">${bb.npcAnchor} ${emote}</span>`,
-          });
-          return { key: key_act, style: 'live_relay' };
+        // Send as ambient text to studio zone (no NPC attribution), and return text directly to TV
+        if (state.channelType === 'live' && state.studioZoneId) {
+          sendToZone(state.studioZoneId, { type: 'output', message: `<span style="color:var(--text-dim);font-style:italic">${emote}</span>` });
         }
-        const tvText = bb.npcAnchor ? `[${bb.npcAnchor} ${emote}]` : `[${emote}]`;
-        return { text: tvText, key: key_act, style: 'action' };
+        return { text: emote, key: key_act, style: 'raw' };
       }
 
       case 'ticker': {
@@ -923,11 +919,11 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
         const npc = world.npcs?.get(npcId);
         bb.npcAnchor = npc?.name || npcId || null;
         bb.npcAnchorId = npcId || null;
-        // Presence check — only for live channels with a studio zone configured
-        if (npcId && state.channelType === 'live' && state.studioZoneId) {
+        // Presence check — only for truly-live unscripted channels
+        if (!skipPresence && npcId && state.channelType === 'live' && state.studioZoneId) {
           const zone = getZone(state.studioZoneId);
           if (zone?.npcs?.has(npcId)) {
-            bb.hostAbsent = false; // host returned — clear absence state
+            bb.hostAbsent = false;
           } else if (!bb.hostAbsent) {
             bb.hostAbsent = true;
             bb.absentDetectedAt = nowMs;
@@ -1024,11 +1020,14 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
         const gid = node.data?.graphic_id;
         const graphic = gid ? graphicsCache.get(gid) : null;
         bb.currentNode = _resolveEdge(edges, nodeId, 'next');
+        bb.waitUntil = nowMs + 5000;
         if (graphic) {
           const caption = node.data?.caption ? `\n${node.data.caption}` : '';
           return { text: graphic.content + caption, key: `graphic:${channelId}:${gid}:${nowMs}`, style: graphic.type === 'svg' ? 'svg' : 'ascii_art' };
         }
+        // Graphic not found — skip but still consume the wait slot
         nodeId = bb.currentNode;
+        bb.waitUntil = null;
         break;
       }
 
@@ -1048,8 +1047,33 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
         return { overlay: null, key: `clear_overlay:${channelId}:${nowMs}`, style: 'overlay' };
       }
 
+      case 'event': {
+        const evType = (node.data?.event_type || '').toUpperCase();
+        const EVENT_MESSAGES = {
+          LAUGHTER:  'Laughter erupts from the crowd!',
+          APPLAUSE:  'The crowd roars with applause!',
+          CHEERING:  'The crowd cheers enthusiastically!',
+          BOOING:    'The crowd boos!',
+          GASPING:   'The crowd gasps!',
+          MURMURING: 'Murmurs ripple through the crowd.',
+          SILENCE:   'A hush falls over the crowd.',
+        };
+        const evText = EVENT_MESSAGES[evType] || `${evType.charAt(0) + evType.slice(1).toLowerCase()} from the crowd.`;
+        bb.currentNode = _resolveEdge(edges, nodeId, 'next');
+        bb.waitUntil = nowMs + 3000;
+        // Always send to room as ambient text AND return to TV — never live_relay
+        if (state.channelType === 'live' && state.studioZoneId) {
+          sendToZone(state.studioZoneId, { type: 'output', message: `<span style="color:var(--text-dim);font-style:italic">${evText}</span>` });
+        }
+        return { text: evText, key: `event:${channelId}:${nodeId}:${nowMs}`, style: 'raw' };
+      }
+
       default:
-        nodeId = null;
+        // Unknown node type — skip to next rather than halting the graph
+        nodeId = _resolveEdge(edges, nodeId, 'next');
+    } } catch (err) {
+      console.error(`[broadcast] graph node error (${channelId}/${nodeId}):`, err.message);
+      nodeId = _resolveEdge(edges, nodeId, 'next');
     }
   }
   return null;
@@ -1509,6 +1533,7 @@ export const routeHandler = async (path, method, body, auth) => {
             return {
               broadcast_id: item.broadcast_id || null,
               npcStaff: Array.isArray(cond?.npc_staff) ? cond.npc_staff : [],
+              studioZoneId: chStudioZone,
             };
           });
           await Promise.all(parsedItems.map(i => _injectWorkPhaseForPlaylistItem(i)));
@@ -1852,7 +1877,21 @@ export const routeHandler = async (path, method, body, auth) => {
         );
       }
 
+      // Upsert lighting_states for all three interior zones so their lights register
+      for (const zid of [studioZoneId, utilityZoneId, productionZoneId]) {
+        const { rows: lc } = await query(
+          `SELECT COUNT(*)::int AS cnt, COALESCE(SUM(COALESCE(lumen_output,0)),0)::int AS lm
+             FROM furniture WHERE zone_id=$1 AND object_type='light' AND light_on=1`, [zid]
+        );
+        await query(
+          `INSERT INTO lighting_states (zone_id,has_emergency_lighting,artificial_light_level,fixture_count,total_lumens)
+           VALUES ($1,0,0,$2,$3) ON CONFLICT (zone_id) DO UPDATE SET fixture_count=$2, total_lumens=$3`,
+          [zid, lc[0]?.cnt || 0, lc[0]?.lm || 0]
+        ).catch(() => {});
+      }
+
       await Promise.all([studioZoneId, utilityZoneId, productionZoneId, exterior_zone_id].map(reloadZone));
+      await recomputePower().catch(() => {});
 
       return { status: 200, body: {
         exterior_zone_id, studio_zone_id: studioZoneId,
@@ -2218,17 +2257,19 @@ export const routeHandler = async (path, method, body, auth) => {
 
       // Assign default behaviour graph (with studio zone) to any new NPC staff without one
       const { rows: chSzRow2 } = await query('SELECT studio_zone_id FROM media_channels WHERE id=$1', [row.channel_id]);
-      const defaultGraph = JSON.stringify(makeDefaultStudioGraph(chSzRow2[0]?.studio_zone_id || null));
+      const studioZoneId = chSzRow2[0]?.studio_zone_id || null;
+      const defaultGraph = JSON.stringify(makeDefaultStudioGraph(studioZoneId));
       for (const npcId of npcIds) {
+        // Always overwrite — ensures zone_id is populated even for existing graphs
         const { rowCount } = await query(
-          `UPDATE npcs SET behaviour_graph=$1 WHERE id=$2 AND (behaviour_graph IS NULL OR behaviour_graph::text = '{}' OR behaviour_graph::text = 'null')`,
+          `UPDATE npcs SET behaviour_graph=$1 WHERE id=$2`,
           [defaultGraph, npcId]
         ).catch(() => ({ rowCount: 0 }));
         if (rowCount) updatedNpcs++;
       }
 
       // Re-inject work-phase actions from the broadcast graph
-      await _injectWorkPhaseForPlaylistItem({ broadcast_id: row.broadcast_id, npcStaff: npcIds });
+      await _injectWorkPhaseForPlaylistItem({ broadcast_id: row.broadcast_id, npcStaff: npcIds, studioZoneId });
     }
 
     await loadChannelRuntimes();

@@ -103,6 +103,7 @@ export async function handleEnvironmentApi(path, method, body, auth) {
       if (path === '/environment/power/fail') return { status: 200, body: await env.devSimulateFailure(body?.generatorId) };
       if (path === '/environment/power/install' && method === 'POST') return { status: 200, body: await env.installGenerator(body || {}) };
       if (path === '/environment/power/fix-zones' && method === 'POST') return { status: 200, body: await env.fixZonePowerConnections() };
+      if (path === '/environment/power/resync-lighting' && method === 'POST') return { status: 200, body: await env.resyncAllLightingStates() };
       if (path === '/environment/power/fix-buildings' && method === 'POST') return { status: 200, body: await env.fixBuildingPowerConnections() };
       if (path === '/environment/power/recompute' && method === 'POST') return { status: 200, body: await env.recomputePower() };
       if (path.startsWith('/environment/power/generators/') && path.endsWith('/capacity') && method === 'POST') {

@@ -28,7 +28,7 @@ MUSIC acid_cola_jingle
 
 ♪ An upbeat Acid Cola™ advertising jingle begins playing. ♪
 
- 5s
+ 
 
 ::scene COMMERCIAL
 
@@ -43,17 +43,17 @@ SHOT_END
 NARRATOR:
 Feeling tired?
 
- 2s
+ 
 
 NARRATOR:
 Feeling hopeless?
 
- 2s
+ 
 
 NARRATOR:
 Feeling like the world is slowly collapsing around you?
 
- 2s
+ 
 
 CAM 2 CLOSEUP acid_cola_can
 
@@ -66,12 +66,12 @@ SHOT_END
 NARRATOR:
 Drink Acid Cola™.
 
- 2s
+ 
 
 NARRATOR:
 Because reality is easier to tolerate when it's carbonated.
 
- 2s
+ 
 
 OVERLAY
 
@@ -83,6 +83,6 @@ GET THE THIRD LEGALLY CLASSIFIED AS A BONUS
 
 SHOT_END
 
- 5s
+ 
 
 EVENT FADE_OUT

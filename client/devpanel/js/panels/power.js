@@ -193,6 +193,7 @@ function renderPowerPanelBody() {
     <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
       <button class="action-btn" onclick="fixZonePowerConnections()">🔌 Fix Zone Connections</button>
       <button class="action-btn" onclick="fixBuildingPowerConnections()">🏢 Fix Building Connections</button>
+      <button class="action-btn" onclick="resyncAllLighting()">💡 Resync Lighting</button>
       <button class="action-btn" onclick="forceRecomputePower()">↺ Force Recompute</button>
     </div>
     <div id="power-tool-log" style="background:var(--bg-secondary,#111);border:1px solid var(--border,#333);border-radius:4px;padding:8px;font-size:11px;font-family:monospace;min-height:48px;max-height:200px;overflow-y:auto;color:var(--text-dim)">No tools run yet.</div>
@@ -331,6 +332,15 @@ async function fixBuildingPowerConnections() {
     renderPowerPanelBody();
     powerToolLog(lines);
   }
+}
+
+async function resyncAllLighting() {
+  powerToolLog(['⏳ Resyncing lighting states from furniture...']);
+  const result = await API('/environment/power/resync-lighting', 'POST').catch(e => ({ error: e.message }));
+  if (result?.error) { powerToolLog([`❌ Error: ${result.error}`]); return; }
+  await _refreshPowerMapData();
+  renderPowerPanelBody();
+  powerToolLog([`✅ Lighting resynced for ${result.fixed} zone(s). Overhead lights should now register correctly.`]);
 }
 
 async function forceRecomputePower() {

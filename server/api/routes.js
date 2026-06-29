@@ -1021,6 +1021,11 @@ export async function apiCreateFurniture(body) {
     if (body.flags?.atm) {
       await query(`INSERT INTO atm_units (id) VALUES ($1) ON CONFLICT (id) DO NOTHING`, [id]);
     }
+    if (isLight && body.zone_id) {
+      const { rows: lc } = await query(`SELECT COUNT(*)::int AS cnt, COALESCE(SUM(COALESCE(lumen_output,0)),0)::int AS lm FROM furniture WHERE zone_id=$1 AND object_type='light' AND light_on=1`, [body.zone_id]);
+      await query(`INSERT INTO lighting_states (zone_id,has_emergency_lighting,artificial_light_level,fixture_count,total_lumens) VALUES ($1,0,0,$2,$3) ON CONFLICT (zone_id) DO UPDATE SET fixture_count=$2, total_lumens=$3`, [body.zone_id, lc[0]?.cnt||0, lc[0]?.lm||0]).catch(()=>{});
+      await recomputePower().catch(()=>{});
+    }
     return {status:201,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
@@ -1045,7 +1050,7 @@ export async function apiUpdateFurniture(id, body) {
     if (updated[0]?.zone_id) {
       const zid = updated[0].zone_id;
       const { rows: lc } = await query(`SELECT COUNT(*)::int AS cnt, COALESCE(SUM(COALESCE(lumen_output,0)),0)::int AS lm FROM furniture WHERE zone_id=$1 AND object_type='light' AND light_on=1`, [zid]);
-      await query(`UPDATE lighting_states SET fixture_count=$1, total_lumens=$2 WHERE zone_id=$3`, [lc[0]?.cnt||0, lc[0]?.lm||0, zid]).catch(()=>{});
+      await query(`INSERT INTO lighting_states (zone_id,has_emergency_lighting,artificial_light_level,fixture_count,total_lumens) VALUES ($1,0,0,$2,$3) ON CONFLICT (zone_id) DO UPDATE SET fixture_count=$2, total_lumens=$3`, [zid, lc[0]?.cnt||0, lc[0]?.lm||0]).catch(()=>{});
       await recomputePower().catch(()=>{});
     }
     return {status:200,body:{id}};

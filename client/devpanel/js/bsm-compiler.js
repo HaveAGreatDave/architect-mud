@@ -196,11 +196,11 @@ function compileBsm(text) {
       continue;
     }
 
-    // ── SHOT block → say node ────────────────────────────────────────────────
+    // ── SHOT block → narration (no NPC prefix) ───────────────────────────────
     if (ln === 'SHOT') {
       i++;
       const text = collectBlock('SHOT_END');
-      makeNode({ type: 'say', text, style: 'raw' });
+      makeNode({ type: 'say', text, style: 'narration' });
       messages.push(text);
       continue;
     }
