@@ -18,7 +18,7 @@ import { fireRoutes, fireHook } from '../engine/plugins.js';
 import { handlePlayerDeath } from '../engine/gameLoop.js';
 import { reloadWindows as reloadWindowsEnv, recomputePower } from '../engine/environment.js';
 import { ensureTunables } from '../engine/tunables.js';
-import { startingIp, statCost, RAISABLE_STATS, getNetXp, statSpent } from '../engine/ip.js';
+import { startingIp, statCost, RAISABLE_STATS, getNetXp, statSpent, maxHpForEndurance } from '../engine/ip.js';
 import { SKILLS } from '../engine/skills.js';
 import { materializeItemTags, ownTags, superKeys } from '../engine/supertags.js';
 import { getMotd, saveMotd } from '../engine/motd.js';
@@ -284,11 +284,13 @@ async function apiRegister(body) {
     // after creation equals startingIp (the same spendable as the old IP grant).
     const bonusXp = startingIp() + RAISABLE_STATS.length * statCost(0);
     const app = randomAppearance(biological_sex);
+    // hp/hp_max derive from the starting endurance of 1 (see maxHpForEndurance).
+    const startHp = maxHpForEndurance(1);
     await query(
       `INSERT INTO players
         (id,username,password_hash,handle,role,bonus_xp,hp,hp_max,stat_brawn,stat_reflexes,stat_endurance,stat_brains,stat_cool,
          biological_sex,hair_style,hair_length,hair_color,eye_color,height_cm,weight_kg,appearance_data,email,sexuality)
-       VALUES ($1,$2,$3,$4,'player',$5,40,40,1,1,1,1,1,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+       VALUES ($1,$2,$3,$4,'player',$5,${startHp},${startHp},1,1,1,1,1,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
       [id, username.toLowerCase(), hashPassword(password), handle, bonusXp,
        biological_sex, app.hair_style, app.hair_length, app.hair_color, app.eye_color,
        app.height_cm, app.weight_kg, JSON.stringify(app.appearance_data), email.toLowerCase().trim(),
@@ -1155,6 +1157,12 @@ async function apiUpdatePlayer(id, body) {
     sets.push(`${key}=$${vals.length+1}`);
     vals.push(body[key]);
   }
+  // Editing endurance without an explicit hp_max keeps max HP consistent with
+  // the formula; an explicit hp_max in the same request wins (manual override).
+  if ('stat_endurance' in body && !('hp_max' in body)) {
+    sets.push(`hp_max=$${vals.length+1}`);
+    vals.push(maxHpForEndurance(body.stat_endurance));
+  }
   if (!sets.length) return {status:400,body:{error:'No editable fields provided'}};
   vals.push(id);
   const {rows}=await query(`UPDATE players SET ${sets.join(',')} WHERE id=$${vals.length} RETURNING *`,vals);
@@ -1168,6 +1176,7 @@ async function apiUpdatePlayer(id, body) {
       'body_temp_c','stat_brawn','stat_reflexes','stat_endurance','stat_brains','stat_cool','bonus_xp',
       'origin_fragment','archetype','visibly_mutated','covered_in_blood'];
     for (const f of LIVE_FIELDS) if (f in body) live[f]=updated[f];
+    if ('stat_endurance' in body && !('hp_max' in body)) live.hp_max=updated.hp_max;
     broadcastFn(null,{type:'player_update',hp:live.hp,hp_max:live.hp_max,sanity:live.sanity,
       sanity_max:live.sanity_max,hunger:live.hunger,thirst:live.thirst,radiation:live.radiation,
       credits:live.credits,stamina:live.stamina,stamina_max:live.stamina_max},null,id);

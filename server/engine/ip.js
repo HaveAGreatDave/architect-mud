@@ -4,6 +4,13 @@ import { ensureTunables, getTunable } from './tunables.js';
 // Per-skill IP cap. Skill level = floor(ip/100), so 1000 IP == level 10.
 const SKILL_IP_CAP = 1000;
 
+// Base HP every survivor has, before endurance scaling.
+export const BASE_HP_MAX = 40;
+// Max HP = base + 2 per point of endurance. END 10 -> 60, END 1 -> 42.
+export function maxHpForEndurance(endurance) {
+  return BASE_HP_MAX + 2 * (Number(endurance) || 0);
+}
+
 // Roll for an IP award on a *successful* skill check. Chance is highest when the
 // margin is ≈ 0 (barely won) and falls off as the margin grows. On a hit, award
 // exactly 1 IP to the skill. 1 IP silently = 1 XP (XP is aggregated from skill IP).
@@ -135,5 +142,19 @@ export async function raiseStat(playerId, statName) {
   // Spending is implicit: raising the stat increases statSpent by `cost`, which
   // lowers Net XP. No pool is decremented; Total XP never changes.
   await query(`UPDATE players SET ${col} = ${col} + 1 WHERE id=$1`, [playerId]);
-  return { stat: statName, col, from: current, to: current + 1, cost, net_remaining: net - cost };
+
+  const result = { stat: statName, col, from: current, to: current + 1, cost, net_remaining: net - cost };
+
+  // Endurance drives max HP; raising it lifts the cap and heals the +2 delta.
+  if (statName === 'endurance') {
+    const newHpMax = maxHpForEndurance(current + 1);
+    const { rows: hpRows } = await query(
+      `UPDATE players SET hp_max=$1, hp=LEAST(hp+2,$1) WHERE id=$2 RETURNING hp, hp_max`,
+      [newHpMax, playerId]
+    );
+    result.hp = hpRows[0].hp;
+    result.hp_max = hpRows[0].hp_max;
+  }
+
+  return result;
 }

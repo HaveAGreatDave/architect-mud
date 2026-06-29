@@ -77,8 +77,9 @@ export async function buyFromVendor(player, npc, itemId, quantity = 1) {
 
 export async function sellToVendor(player, npc, inventoryId, quantity = 1) {
   const { rows } = await query(
-    `SELECT pi.*, i.name, i.value, i.tags FROM player_inventory pi
+    `SELECT pi.*, i.name, i.value, i.tags, p.stat_cool FROM player_inventory pi
      JOIN items i ON i.id = pi.item_id
+     JOIN players p ON p.id = pi.player_id
      WHERE pi.id = $1 AND pi.player_id = $2`,
     [inventoryId, player.id]
   );
@@ -90,7 +91,8 @@ export async function sellToVendor(player, npc, inventoryId, quantity = 1) {
   if (invItem.is_equipped) return { success: false, message: 'Unequip it first.' };
 
   const sellQty = Math.min(quantity, invItem.quantity);
-  const sellPrice = Math.max(1, Math.floor(invItem.value * 0.4)) * sellQty; // 40% of value
+  const coolMult = 1 + (invItem.stat_cool || 0) * 0.05; // each point of cool adds 5% (20 cool = double)
+  const sellPrice = Math.max(1, Math.floor(invItem.value * 0.4 * coolMult)) * sellQty;
 
   await adjustCredits(player, sellPrice);
 
