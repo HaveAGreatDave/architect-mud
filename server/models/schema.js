@@ -691,7 +691,7 @@ export const SCHEMA_SQL = `
   CREATE TABLE IF NOT EXISTS media_channel_playlist (
     id TEXT PRIMARY KEY,
     channel_id TEXT NOT NULL REFERENCES media_channels(id) ON DELETE CASCADE,
-    broadcast_id TEXT NOT NULL REFERENCES media_broadcasts(id) ON DELETE CASCADE,
+    broadcast_id TEXT REFERENCES media_broadcasts(id) ON DELETE CASCADE,
     start_time INTEGER NOT NULL DEFAULT 0,
     duration_override REAL,
     priority INTEGER DEFAULT 0,
