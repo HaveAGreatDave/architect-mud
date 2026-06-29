@@ -1366,7 +1366,7 @@ export const routeHandler = async (path, method, body, auth) => {
       let createdExterior = false;
 
       // Track created entities for cleanup on failure
-      const created = { exterior: null, map: null, studio: null, utility: null, jbox: null };
+      const created = { exterior: null, map: null, studio: null, utility: null, production: null, jbox: null };
 
       try {
         // If grid coords given, create or reuse the exterior world-map zone
@@ -1434,9 +1434,23 @@ export const routeHandler = async (path, method, body, auth) => {
         );
         created.utility = utilityZoneId;
 
-        // Add down exit from studio to utility room
+        // Create production/control room above stage (grid 0,0,1)
+        const productionZoneId = `zone_prod_${ts}`;
+        const productionName = `${studio_name} — Production`;
+        await query(
+          `INSERT INTO zones (id,name,description,map_id,grid_x,grid_y,grid_z,flags,exits)
+           VALUES ($1,$2,$3,$4,0,0,1,$5,$6)`,
+          [productionZoneId, productionName,
+           'Media deck and broadcast control room.',
+           mapId,
+           JSON.stringify({ is_interior: true }),
+           JSON.stringify({ down: studioZoneId })]
+        );
+        created.production = productionZoneId;
+
+        // Add down exit from studio to utility room and up exit to production
         const { rows: stRows } = await query('SELECT exits FROM zones WHERE id=$1', [studioZoneId]);
-        const studioExits = JSON.stringify({ ...(stRows[0]?.exits || {}), down: utilityZoneId });
+        const studioExits = JSON.stringify({ ...(stRows[0]?.exits || {}), down: utilityZoneId, up: productionZoneId });
         await query('UPDATE zones SET exits=$1 WHERE id=$2', [studioExits, studioZoneId]);
 
         // Find city plant generator
@@ -1455,7 +1469,11 @@ export const routeHandler = async (path, method, body, auth) => {
         created.jbox = jboxId;
 
         // Register zones in power_zones
-        for (const [zid, zname] of [[studioZoneId, stageName], [utilityZoneId, `${studio_name} Power Room`]]) {
+        for (const [zid, zname] of [
+          [studioZoneId,     stageName],
+          [utilityZoneId,    `${studio_name} Power Room`],
+          [productionZoneId, productionName],
+        ]) {
           await query(
             `INSERT INTO power_zones (id,name,source_type,generator_id,capacity_kw,current_load_kw,status,available_kw,max_capacity_kw)
              VALUES ($1,$2,'junction_box',$3,500,0,'powered',500,500)
@@ -1468,27 +1486,31 @@ export const routeHandler = async (path, method, body, auth) => {
         await Promise.all([
           reloadZone(studioZoneId),
           reloadZone(utilityZoneId),
+          reloadZone(productionZoneId),
           reloadZone(exteriorZoneId),
         ]);
 
         return { status: 201, body: {
-          exterior_zone_id: exteriorZoneId,
-          studio_zone_id:   studioZoneId,
-          utility_zone_id:  utilityZoneId,
-          map_id:           mapId,
-          junction_box_id:  jboxId,
+          exterior_zone_id:    exteriorZoneId,
+          studio_zone_id:      studioZoneId,
+          utility_zone_id:     utilityZoneId,
+          production_zone_id:  productionZoneId,
+          map_id:              mapId,
+          junction_box_id:     jboxId,
         }};
 
       } catch (err) {
         // Attempt to clean up any partially created entities
         const cleanup = [];
-        if (created.jbox)    cleanup.push(query('DELETE FROM generators WHERE id=$1',   [created.jbox]));
-        if (created.utility) cleanup.push(query('DELETE FROM power_zones WHERE id=$1',  [created.utility]));
-        if (created.utility) cleanup.push(query('DELETE FROM zones WHERE id=$1',        [created.utility]));
-        if (created.studio)  cleanup.push(query('DELETE FROM power_zones WHERE id=$1',  [created.studio]));
-        if (created.studio)  cleanup.push(query('DELETE FROM zones WHERE id=$1',        [created.studio]));
-        if (created.map)     cleanup.push(query('DELETE FROM maps WHERE id=$1',         [created.map]));
-        if (created.exterior) cleanup.push(query('DELETE FROM zones WHERE id=$1',       [created.exterior]));
+        if (created.jbox)       cleanup.push(query('DELETE FROM generators WHERE id=$1',    [created.jbox]));
+        if (created.production) cleanup.push(query('DELETE FROM power_zones WHERE id=$1',   [created.production]));
+        if (created.production) cleanup.push(query('DELETE FROM zones WHERE id=$1',         [created.production]));
+        if (created.utility)    cleanup.push(query('DELETE FROM power_zones WHERE id=$1',   [created.utility]));
+        if (created.utility)    cleanup.push(query('DELETE FROM zones WHERE id=$1',         [created.utility]));
+        if (created.studio)     cleanup.push(query('DELETE FROM power_zones WHERE id=$1',   [created.studio]));
+        if (created.studio)     cleanup.push(query('DELETE FROM zones WHERE id=$1',         [created.studio]));
+        if (created.map)        cleanup.push(query('DELETE FROM maps WHERE id=$1',          [created.map]));
+        if (created.exterior)   cleanup.push(query('DELETE FROM zones WHERE id=$1',         [created.exterior]));
         await Promise.allSettled(cleanup);
         return { status: 500, body: { error: `Studio creation failed: ${err.message}` } };
       }
@@ -1511,30 +1533,77 @@ export const routeHandler = async (path, method, body, auth) => {
           );
           cameras = cams;
         }
-        return { status: 200, body: { deck, cameras } };
+        const { rows: mediaCameras } = await query(
+          `SELECT mc.*, z.name AS zone_name FROM media_cameras mc
+             LEFT JOIN zones z ON z.id = mc.zone_id
+            WHERE mc.streaming_channel_id=$1`,
+          [id]
+        );
+        return { status: 200, body: { deck, cameras, mediaCameras } };
       }
       // POST /broadcast/deck — spawn a media deck in a zone and link to channel
       if (!id && method === 'POST') {
         if (!devOk(auth)) return { status: 403, body: { error: 'Dev access required' } };
-        const { channel_id, zone_id, name } = body || {};
-        if (!channel_id || !zone_id) return { status: 400, body: { error: 'channel_id and zone_id required' } };
+        const { channel_id, zone_id, name, auto_place } = body || {};
+        if (!channel_id) return { status: 400, body: { error: 'channel_id is required' } };
+
+        let targetZoneId = zone_id;
+        let stageZoneId  = null;
+
+        if (auto_place || !zone_id) {
+          // Derive production zone from channel's studio_zone_id (stage floor) → exits.up
+          const { rows: chRows } = await query(
+            'SELECT studio_zone_id FROM media_channels WHERE id=$1', [channel_id]
+          );
+          if (!chRows.length) return { status: 404, body: { error: 'Channel not found' } };
+          stageZoneId = chRows[0].studio_zone_id;
+          if (!stageZoneId) return { status: 400, body: { error: 'Channel has no studio zone. Run studio setup first.' } };
+
+          const { rows: stageRows } = await query('SELECT exits FROM zones WHERE id=$1', [stageZoneId]);
+          const exits = stageRows[0]?.exits || {};
+          targetZoneId = exits.up;
+          if (!targetZoneId) return { status: 400, body: { error: 'No production room found (up from stage). Run studio setup first.' } };
+        }
+        if (!targetZoneId) return { status: 400, body: { error: 'zone_id required (or use auto_place: true)' } };
+
         // Unlink any existing deck for this channel
         await query(
           `UPDATE furniture SET flags = flags - 'channel_id' WHERE flags->>'channel_id'=$1`,
           [channel_id]
         );
-        const deckId = `furn_deck_${channel_id}_${Date.now()}`;
+        const ts = Date.now();
+        const deckId = `furn_deck_${channel_id}_${ts}`;
         await query(
           `INSERT INTO furniture (id, zone_id, name, description, flags, power_draw_kw, object_type)
            VALUES ($1,$2,$3,$4,$5,2.0,'media_deck')`,
-          [deckId, zone_id, name || 'Media Deck',
+          [deckId, targetZoneId, name || 'Media Deck',
            'Broadcast transmission hardware. Plays cassettes and routes live camera feeds.',
            JSON.stringify({ media_deck: true, channel_id, deck_cassettes: [], deck_active: null })]
         );
-        // Update channel studio_zone_id to deck's zone
-        await query(`UPDATE media_channels SET studio_zone_id=$1 WHERE id=$2`, [zone_id, channel_id]);
+        await query(`UPDATE media_channels SET studio_zone_id=$1 WHERE id=$2`, [stageZoneId || targetZoneId, channel_id]);
+
+        let cameraId = null;
+        if (auto_place && stageZoneId) {
+          // Create broadcast_transmitter furniture in stage zone
+          const camFurnId = `furn_cam_${channel_id}_${ts}`;
+          await query(
+            `INSERT INTO furniture (id,zone_id,name,description,flags,object_type)
+             VALUES ($1,$2,$3,$4,$5,'camera')`,
+            [camFurnId, stageZoneId, 'Studio Camera',
+             'Broadcast camera positioned on the stage floor.',
+             JSON.stringify({ broadcast_transmitter: true, channel_id })]
+          );
+          // Register in media_cameras, streaming to this channel
+          cameraId = `cam_${channel_id}_${ts}`;
+          await query(
+            `INSERT INTO media_cameras (id,zone_id,direction,is_powered,is_recording,is_streaming,streaming_channel_id,storage_limit,permissions,flags)
+             VALUES ($1,$2,'south',1,0,1,$3,200,'public','{}')`,
+            [cameraId, stageZoneId, channel_id]
+          );
+        }
+
         await loadChannelRuntimes();
-        return { status: 201, body: { id: deckId, zone_id, channel_id } };
+        return { status: 201, body: { id: deckId, zone_id: targetZoneId, channel_id, camera_id: cameraId } };
       }
     }
 

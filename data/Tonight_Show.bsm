@@ -7,14 +7,14 @@
 @runtime 180
 
 ::actors
-@actor npc_	john_akerson
+@actor npc_john_akerson
 @alias npc_john_akerson JOHN
 
 @actor npc_graham_mercer
 @alias npc_graham_mercer ANNOUNCER
 
 @actor npc_lucky_malone
-alias  npc_lucky_malone LUCKY
+@alias npc_lucky_malone LUCKY
 
 
 ::asset tonight_show_logo
@@ -42,7 +42,7 @@ alias  npc_lucky_malone LUCKY
 
 ████████████████████████████████████████████████████████████████████████████████
 
-END
+::endasset
 
 ::scene TITLE
 
@@ -76,8 +76,8 @@ The broadcast opens on a brightly lit studio bathed in neon blues and warm amber
 
 END
 
-NPC announcer
-NPC john_akerson
+NPC npc_graham_mercer
+NPC npc_john_akerson
 
 ANNOUNCER:
 From somewhere above the smog and only slightly outside the blast radius...

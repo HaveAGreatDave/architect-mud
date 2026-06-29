@@ -54,12 +54,15 @@ function populateThemeDropdown() {
 
 function applyDevSettings() {
   const themeId = devSettings.theme || 'dark';
-  const fontSize = devSettings.fontSize || '13';
+  const fontSize = devSettings.fontSize || '14';
   const density = devSettings.density || 'comfortable';
+  const motion = devSettings.motion || 'on';
+  const tempUnit = devSettings.tempUnit || 'C';
 
   const customTheme = (devSettings.customThemes || []).find(t => t.id === themeId);
   document.documentElement.setAttribute('data-theme', customTheme ? 'dark' : themeId);
   document.documentElement.setAttribute('data-density', density);
+  document.documentElement.setAttribute('data-motion', motion);
   document.documentElement.style.setProperty('--font-size-base', fontSize + 'px');
 
   populateThemeDropdown();
@@ -70,8 +73,21 @@ function applyDevSettings() {
   document.querySelectorAll('#dev-opt-density .dev-settings-opt').forEach(btn => {
     btn.classList.toggle('selected', btn.dataset.value === density);
   });
+  document.querySelectorAll('#dev-opt-motion .dev-settings-opt').forEach(btn => {
+    btn.classList.toggle('selected', btn.dataset.value === motion);
+  });
+  document.querySelectorAll('#dev-opt-tempunit .dev-settings-opt').forEach(btn => {
+    btn.classList.toggle('selected', btn.dataset.value === tempUnit);
+  });
 
-  const colors = customTheme ? customTheme.colors : (devSettings.customColors || {});
+  const contrastLevel = devSettings._contrastPreview != null ? devSettings._contrastPreview : (devSettings.contrast || 0);
+  const contrastSlider = document.getElementById('dev-opt-contrast');
+  const contrastLabel = document.getElementById('dev-contrast-label');
+  if (contrastSlider && contrastSlider.value !== String(contrastLevel)) contrastSlider.value = contrastLevel;
+  if (contrastLabel) contrastLabel.textContent = contrastLevel === 0 ? 'Base' : `+${contrastLevel}%`;
+
+  const baseColors = customTheme ? customTheme.colors : (devSettings.customColors || {});
+  const colors = baseColors;
   THEME_COLOR_VARS.forEach(({ v }) => {
     if (colors[v]) document.documentElement.style.setProperty(v, colors[v]);
     else document.documentElement.style.removeProperty(v);

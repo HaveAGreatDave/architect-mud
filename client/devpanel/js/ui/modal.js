@@ -3,6 +3,16 @@ function openSettingsPanel() {
   applyDevSettings();
 }
 function closeSettingsPanel() {
+  if (devSettings._contrastPreview != null) {
+    delete devSettings._contrastPreview;
+    const slider = document.getElementById('dev-opt-contrast');
+    const label  = document.getElementById('dev-contrast-label');
+    const saved  = devSettings.contrast || 0;
+    if (slider) slider.value = saved;
+    if (label) label.textContent = saved === 0 ? 'Base' : `+${saved}%`;
+    saveDevSettings(devSettings);
+    applyDevSettings();
+  }
   document.getElementById('settings-overlay').classList.remove('active');
 }
 

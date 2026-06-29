@@ -54,4 +54,53 @@ document.addEventListener('DOMContentLoaded', () => {
       applyDevSettings();
     });
   });
+
+  document.querySelectorAll('#dev-opt-motion .dev-settings-opt').forEach(btn => {
+    btn.addEventListener('click', () => {
+      devSettings.motion = btn.dataset.value;
+      saveDevSettings(devSettings);
+      applyDevSettings();
+    });
+  });
+
+  document.querySelectorAll('#dev-opt-tempunit .dev-settings-opt').forEach(btn => {
+    btn.addEventListener('click', () => {
+      devSettings.tempUnit = btn.dataset.value;
+      saveDevSettings(devSettings);
+      applyDevSettings();
+    });
+  });
+
+  const contrastSlider = document.getElementById('dev-opt-contrast');
+  const contrastLabel  = document.getElementById('dev-contrast-label');
+  const contrastSave   = document.getElementById('dev-contrast-save');
+  const contrastRestore = document.getElementById('dev-contrast-restore');
+
+  if (contrastSlider) {
+    contrastSlider.addEventListener('input', () => {
+      const val = parseInt(contrastSlider.value, 10);
+      if (contrastLabel) contrastLabel.textContent = val === 0 ? 'Base' : `+${val}%`;
+      devSettings._contrastPreview = val;
+      saveDevSettings(devSettings);
+      applyDevSettings();
+    });
+  }
+  if (contrastSave) {
+    contrastSave.addEventListener('click', () => {
+      devSettings.contrast = parseInt(contrastSlider?.value ?? 0, 10);
+      delete devSettings._contrastPreview;
+      saveDevSettings(devSettings);
+      applyDevSettings();
+    });
+  }
+  if (contrastRestore) {
+    contrastRestore.addEventListener('click', () => {
+      devSettings.contrast = 0;
+      delete devSettings._contrastPreview;
+      if (contrastSlider) contrastSlider.value = 0;
+      if (contrastLabel) contrastLabel.textContent = 'Base';
+      saveDevSettings(devSettings);
+      applyDevSettings();
+    });
+  }
 });

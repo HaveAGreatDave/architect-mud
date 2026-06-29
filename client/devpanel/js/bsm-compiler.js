@@ -6,6 +6,7 @@ function compileBsm(text) {
   let i = 0;
 
   const meta = { name: '', channel: '', category: 'general', host: '', length: null, type: 'live' };
+  const _debug = { unknownDirectives: [], nodeTypes: {} };
 
   // Pre-scan ::actors block to build alias map and actor list.
   // Format:
@@ -22,7 +23,7 @@ function compileBsm(text) {
     if (!_inActors) continue;
     const mActor = t.match(/^@actor\s+(\S+)/);
     if (mActor) { actorIds.push(mActor[1]); continue; }
-    const mAlias = t.match(/^@alias\s+(\S+)\s+(\S+)/);
+    const mAlias = t.match(/^@?alias\s+(\S+)\s+(\S+)/);
     if (mAlias) aliases[mAlias[2].toUpperCase()] = mAlias[1];
   }
 
@@ -47,6 +48,7 @@ function compileBsm(text) {
     if (startId === null) startId = id;
     prevId = id;
     if (data.type === 'npc_anchor' && data.npc_id) npcIds.add(data.npc_id);
+    _debug.nodeTypes[data.type] = (_debug.nodeTypes[data.type] || 0) + 1;
     return id;
   }
 
@@ -60,7 +62,7 @@ function compileBsm(text) {
 
   const DIRECTIVE_PREFIXES = [
     '@', '::', 'EVENT ', 'TITLE ', 'TICKER', 'WAIT ', 'NPC ', 'OVERLAY ',
-    'SHOT', 'ENDSHOT', 'END', 'CAM', 'ROOM ',
+    'SHOT', 'ENDSHOT', 'END', 'CAM', 'ROOM ', 'LOWER_THIRD',
   ];
 
   function isDirectiveLine(ln) {
@@ -170,6 +172,22 @@ function compileBsm(text) {
       continue;
     }
 
+    // ── LOWER_THIRD block → overlay node ────────────────────────────────────
+    if (ln === 'LOWER_THIRD') {
+      i++;
+      const ltLines = [];
+      while (i < lines.length) {
+        const ol = lines[i].trim();
+        if (ol === 'END') { i++; break; }
+        if (isDirectiveLine(ol)) break;
+        if (ol) ltLines.push(ol);
+        i++;
+      }
+      const [ltText = '', ltSubtext = ''] = ltLines;
+      makeNode({ type: 'overlay', overlayType: 'lower_third', text: ltText, subtext: ltSubtext, graphic_id: '' });
+      continue;
+    }
+
     // ── SHOT block → say node ────────────────────────────────────────────────
     if (ln === 'SHOT') {
       i++;
@@ -212,8 +230,9 @@ function compileBsm(text) {
       continue;
     }
 
+    _debug.unknownDirectives.push(ln);
     i++;
   }
 
-  return { meta, broadcastGraph: { _start: startId, nodes }, messages, assets, rooms, npcIds: [...npcIds], actorIds };
+  return { meta, broadcastGraph: { _start: startId, nodes }, messages, assets, rooms, npcIds: [...npcIds], actorIds, _debug };
 }

@@ -568,6 +568,17 @@ function _schedOpenPopover(e, idx) {
   _schedPopoverIdx = idx;
   const item = _schedItems[idx];
 
+  // Auto-seed npc_staff from npc_anchor nodes in the broadcast graph
+  if (item.broadcast_id) {
+    const bc = _schedBroadcasts.find(b => b.id === item.broadcast_id);
+    if (bc?.broadcast_graph?.nodes) {
+      for (const node of Object.values(bc.broadcast_graph.nodes)) {
+        if (node.type === 'npc_anchor' && node.npc_id && !item.npc_staff.includes(node.npc_id))
+          item.npc_staff.push(node.npc_id);
+      }
+    }
+  }
+
   const npcCheckboxes = _schedNpcs.map(n => {
     const checked = item.npc_staff.includes(n.id) ? 'checked' : '';
     return `<label style="display:flex;align-items:center;gap:5px;font-size:11px;cursor:pointer;padding:2px 0">

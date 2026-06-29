@@ -20,153 +20,188 @@ let _tlLoopDuration = 3600;    // total loop seconds
 let _tlDragging = null;        // { idx, startX, origStartTime }
 let _tlResizing = null;        // { idx, startX, origDuration }
 let _cameras = [];
+const _channelExpanded = new Set();   // channel IDs with expanded children visible
+const _channelDeckCache = {};         // channelId → { deck, cameras, mediaCameras } | 'loading' | 'error'
 
 // ── Panel render ─────────────────────────────────────────────────────────────
+
+const _chTypeColor = { playlist:'var(--cyan)', news:'var(--yellow)', mixed:'var(--accent)', live:'var(--green)', emergency:'var(--red)' };
 
 function renderChannelsPanel(data) {
   _channelList = Array.isArray(data) ? data : [];
   const panel = document.getElementById('list-panel');
 
-  const typeColor = { playlist:'var(--cyan)', news:'var(--yellow)', mixed:'var(--accent)', live:'var(--green)', emergency:'var(--red)' };
-
-  const rows = _channelList.map(ch => {
-    const plCount = Array.isArray(ch.playlist) ? ch.playlist.length : 0;
-    return `<tr>
-      <td style="font-weight:bold;color:var(--accent);min-width:32px">${ch.number ?? '—'}</td>
-      <td style="font-weight:600;color:${ch.enabled ? 'var(--text-bright)' : 'var(--text-dim)'}">${escHtml2(ch.name)}</td>
-      <td><span style="font-size:10px;padding:2px 6px;border-radius:2px;background:var(--bg3);color:${typeColor[ch.channel_type] || 'var(--text)'}">${ch.channel_type || 'playlist'}</span></td>
-      <td style="text-align:center;color:var(--text-dim)">${plCount}</td>
-      <td style="text-align:right;white-space:nowrap">
-        <button class="action-btn" style="font-size:10px;padding:3px 8px" onclick="openChannelEditor(${JSON.stringify(ch).replace(/"/g,'&quot;')})">✏ Edit</button>
-        <button class="action-btn danger" style="font-size:10px;padding:3px 8px;margin-left:4px" onclick="deleteChannel(${JSON.stringify(ch).replace(/"/g,'&quot;')})">✕</button>
-      </td>
-    </tr>`;
-  }).join('');
+  const rows = _channelList.map(ch => _renderChannelRow(ch)).join('');
 
   panel.innerHTML = `
     <div style="padding:10px 16px;border-bottom:2px solid var(--border);background:var(--bg2)">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
         <div>
           <div style="font-size:13px;font-weight:600;color:var(--accent);letter-spacing:1px;text-transform:uppercase">Channels</div>
           <div style="font-size:11px;color:var(--text-dim);margin-top:2px">${_channelList.length} channel${_channelList.length !== 1 ? 's' : ''} — tune devices to a number to receive</div>
         </div>
         <button class="action-btn" onclick="openChannelEditor(null)">+ New Channel</button>
       </div>
-      ${_channelList.length ? `
-      <table>
-        <thead><tr><th style="min-width:32px">#</th><th>Name</th><th>Type</th><th style="text-align:center">Items</th><th></th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>` : '<div style="padding:24px;color:var(--text-dim)">No channels yet. Create one to schedule broadcasts.</div>'}
-    </div>
-    <div style="padding:10px 16px;background:var(--bg2);margin-top:4px;border-bottom:1px solid var(--border)">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <div style="font-size:12px;font-weight:600;color:var(--accent2);letter-spacing:1px;text-transform:uppercase">Media Deck</div>
-      </div>
-      <div id="deck-list-area"><span class="bc-meta">Loading...</span></div>
-    </div>
-    <div style="padding:10px 16px;background:var(--bg2);margin-top:0;border-bottom:2px solid var(--border)">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <div style="font-size:12px;font-weight:600;color:var(--accent);letter-spacing:1px;text-transform:uppercase">Cameras</div>
-        <button class="action-btn" onclick="openCameraEditor(null)">+ New Camera</button>
-      </div>
-      <div id="camera-list-area"></div>
+      ${_channelList.length
+        ? `<div id="ch-accordion">${rows}</div>`
+        : '<div style="padding:24px;color:var(--text-dim)">No channels yet. Create one to schedule broadcasts.</div>'}
     </div>`;
 
-  loadCameraList();
-  loadDeckSection();
-}
-
-// ── Camera list ──────────────────────────────────────────────────────────────
-
-async function loadCameraList() {
-  try {
-    _cameras = await directAPI('/broadcast/cameras');
-    renderCameraList();
-  } catch (e) {
-    document.getElementById('camera-list-area').innerHTML =
-      `<span style="color:var(--text-dim);font-size:12px">Could not load cameras.</span>`;
+  // Reload deck data for any channels that were already expanded before re-render
+  for (const channelId of _channelExpanded) {
+    loadChannelDeckData(channelId);
   }
 }
 
-function renderCameraList() {
-  const el = document.getElementById('camera-list-area');
-  if (!el) return;
-  if (!Array.isArray(_cameras) || !_cameras.length) {
-    el.innerHTML = '<div style="color:var(--text-dim);font-size:12px">No cameras placed.</div>';
-    return;
-  }
-  const rows = _cameras.map(c => `<tr>
-    <td style="font-size:12px">${escHtml2(c.zone_name || c.zone_id || '—')}</td>
-    <td style="font-size:11px;color:var(--text-dim)">${c.direction}</td>
-    <td style="text-align:center">${c.is_powered ? '<span style="color:var(--green)">⬤</span>' : '<span style="color:var(--text-dim)">⬤</span>'}</td>
-    <td style="text-align:center">${c.is_recording ? '<span style="color:var(--red)">⏺</span>' : '—'}</td>
-    <td style="text-align:center">${c.is_streaming ? `<span style="color:var(--cyan)">▶ Ch ${c.channel_number ?? '?'}</span>` : '—'}</td>
-    <td style="text-align:right;white-space:nowrap">
-      <button class="action-btn" style="font-size:10px;padding:3px 8px" onclick="openCameraEditor(${JSON.stringify(c).replace(/"/g,'&quot;')})">✏</button>
-      <button class="action-btn" style="font-size:10px;padding:3px 8px;margin-left:4px" onclick="clearCameraBuffer('${c.id}')">⏹ Clear</button>
-      <button class="action-btn" style="font-size:10px;padding:3px 8px;margin-left:4px" onclick="cameraTobroadcast('${c.id}')">→ Broadcast</button>
-      <button class="action-btn danger" style="font-size:10px;padding:3px 8px;margin-left:4px" onclick="deleteCamera('${c.id}')">✕</button>
-    </td>
-  </tr>`).join('');
-  el.innerHTML = `<table>
-    <thead><tr><th>Zone</th><th>Dir</th><th>Power</th><th>Rec</th><th>Stream</th><th></th></tr></thead>
-    <tbody>${rows}</tbody>
-  </table>`;
+function _renderChannelRow(ch) {
+  const plCount  = Array.isArray(ch.playlist) ? ch.playlist.length : 0;
+  const expanded = _channelExpanded.has(ch.id);
+  const col      = _chTypeColor[ch.channel_type] || 'var(--text)';
+  const studio   = ch.studio_zone_id ? `<span style="font-size:9px;color:var(--text-dim);margin-left:6px">📍 ${escHtml2(ch.studio_zone_id)}</span>` : '';
+
+  const children = expanded ? `
+    <div id="ch-children-${CSS.escape(ch.id)}" style="border-top:1px solid var(--border);background:var(--bg3)">
+      ${_renderDeckChild(ch)}
+    </div>` : `<div id="ch-children-${CSS.escape(ch.id)}" style="display:none"></div>`;
+
+  return `
+    <div style="border:1px solid var(--border);border-radius:2px;margin-bottom:4px;overflow:hidden">
+      <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg2);cursor:pointer"
+           onclick="toggleChannelExpand('${ch.id}')">
+        <span style="font-size:11px;color:var(--text-dim);width:12px;flex-shrink:0">${expanded ? '▼' : '▶'}</span>
+        <span style="font-weight:bold;color:var(--accent);min-width:28px">Ch ${ch.number ?? '—'}</span>
+        <span style="font-weight:600;flex:1;color:${ch.enabled ? 'var(--text-bright)' : 'var(--text-dim)'}">${escHtml2(ch.name)}</span>
+        ${studio}
+        <span style="font-size:10px;padding:2px 6px;border-radius:2px;background:var(--bg3);color:${col}">${ch.channel_type || 'playlist'}</span>
+        <span style="font-size:10px;color:var(--text-dim)">${plCount} item${plCount !== 1 ? 's' : ''}</span>
+        <button class="action-btn" style="font-size:10px;padding:2px 7px" onclick="event.stopPropagation();openChannelEditor(${JSON.stringify(ch).replace(/"/g,'&quot;')})">✏ Edit</button>
+        <button class="action-btn danger" style="font-size:10px;padding:2px 7px" onclick="event.stopPropagation();deleteChannel(${JSON.stringify(ch).replace(/"/g,'&quot;')})">✕</button>
+      </div>
+      ${children}
+    </div>`;
 }
 
-// ── Deck section (media deck per channel) ─────────────────────────────────────
+function _renderDeckChild(ch, deckData) {
+  const hasDeck = deckData && deckData.deck;
+  const studioLabel = ch.studio_zone_id
+    ? `<span style="font-size:10px;color:var(--text-dim)">Studio: ${escHtml2(ch.studio_zone_id)}</span>`
+    : '<span style="font-size:10px;color:var(--text-dim)">No studio zone set</span>';
 
-let _deckSpawnZone = null; // { id, name } while spawn picker is open
-
-async function loadDeckSection() {
-  const el = document.getElementById('deck-list-area');
-  if (!el) return;
-  // Use the most recently opened/selected channel
-  const channelId = _channelEditTarget?.id;
-  if (!channelId) {
-    el.innerHTML = '<div class="bc-meta">Select a channel to manage its media deck.</div>';
-    return;
+  if (!deckData) {
+    return `
+      <div style="padding:8px 14px 6px;display:flex;flex-direction:column;gap:6px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:10px;font-weight:600;color:var(--accent2);text-transform:uppercase;letter-spacing:1px">📼 Media Deck</span>
+          ${studioLabel}
+          <span class="bc-meta" style="margin-left:auto">Loading…</span>
+        </div>
+      </div>`;
   }
+
+  if (deckData === 'error') {
+    return `
+      <div style="padding:8px 14px 6px">
+        <span style="font-size:10px;font-weight:600;color:var(--accent2);text-transform:uppercase;letter-spacing:1px">📼 Media Deck</span>
+        <span style="font-size:10px;color:var(--red);margin-left:8px">Failed to load</span>
+      </div>`;
+  }
+
+  if (!hasDeck) {
+    const canSpawn = !!ch.studio_zone_id;
+    return `
+      <div style="padding:8px 14px 10px;display:flex;flex-direction:column;gap:6px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:10px;font-weight:600;color:var(--accent2);text-transform:uppercase;letter-spacing:1px">📼 Media Deck</span>
+          ${studioLabel}
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;padding-left:4px">
+          <span class="bc-meta">No media deck assigned.</span>
+          ${canSpawn
+            ? `<button class="action-btn" style="font-size:10px;padding:2px 8px" onclick="spawnDeckForChannel('${ch.id}')">+ Auto-Spawn Deck</button>`
+            : `<span class="bc-meta" style="color:var(--text-dim)">(Set studio zone in Edit first)</span>`}
+        </div>
+      </div>`;
+  }
+
+  const deck = deckData.deck;
+  const mediaCams = deckData.mediaCameras || [];
+
+  const camRows = mediaCams.map(c => `
+    <div style="display:flex;align-items:center;gap:8px;padding:3px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:10px">📹</span>
+      <span style="font-size:10px;flex:1;color:var(--text)">${escHtml2(c.zone_name || c.zone_id || '—')}</span>
+      <span style="font-size:9px;color:var(--text-dim)">${c.direction}</span>
+      ${c.is_streaming ? `<span style="font-size:9px;color:var(--cyan)">▶ streaming</span>` : `<span style="font-size:9px;color:var(--text-dim)">idle</span>`}
+      <button class="action-btn" style="font-size:9px;padding:1px 5px" onclick="openCameraEditor(${JSON.stringify(c).replace(/"/g,'&quot;')})">✏</button>
+      <button class="action-btn danger" style="font-size:9px;padding:1px 5px" onclick="deleteCamera('${c.id}');loadChannelDeckData('${ch.id}')">✕</button>
+    </div>`).join('');
+
+  return `
+    <div style="padding:8px 14px 10px;display:flex;flex-direction:column;gap:6px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:10px;font-weight:600;color:var(--accent2);text-transform:uppercase;letter-spacing:1px">📼 Media Deck</span>
+        <span style="font-size:10px;color:var(--text)">${escHtml2(deck.name || deck.id)}</span>
+        <span style="font-size:9px;color:var(--text-dim)">→ ${escHtml2(deck.zone_id)}</span>
+        <button class="action-btn" style="font-size:9px;padding:1px 6px;margin-left:auto" onclick="spawnDeckForChannel('${ch.id}')">⇄ Replace</button>
+      </div>
+      <div style="padding-left:4px">
+        <div style="font-size:10px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">📷 Cameras</div>
+        ${mediaCams.length ? camRows : '<span class="bc-meta" style="color:var(--text-dim)">No cameras linked.</span>'}
+      </div>
+    </div>`;
+}
+
+async function toggleChannelExpand(channelId) {
+  const ch = _channelList.find(c => c.id === channelId);
+  if (!ch) return;
+  const childEl = document.getElementById(`ch-children-${CSS.escape(channelId)}`);
+  if (!childEl) return;
+
+  if (_channelExpanded.has(channelId)) {
+    _channelExpanded.delete(channelId);
+    childEl.style.display = 'none';
+    childEl.innerHTML = '';
+    // Flip the toggle arrow
+    const arrow = childEl.previousElementSibling?.querySelector('span:first-child');
+    if (arrow) arrow.textContent = '▶';
+  } else {
+    _channelExpanded.add(channelId);
+    childEl.style.display = '';
+    // Flip the toggle arrow
+    const arrow = childEl.previousElementSibling?.querySelector('span:first-child');
+    if (arrow) arrow.textContent = '▼';
+    // Show loading state immediately
+    childEl.innerHTML = _renderDeckChild(ch);
+    // Then load real data
+    await loadChannelDeckData(channelId);
+  }
+}
+
+async function loadChannelDeckData(channelId) {
+  const ch = _channelList.find(c => c.id === channelId);
+  if (!ch) return;
+  const childEl = document.getElementById(`ch-children-${CSS.escape(channelId)}`);
+  if (!childEl || !_channelExpanded.has(channelId)) return;
+
   try {
     const data = await directAPI(`/broadcast/deck/${channelId}`);
-    renderDeckSection(el, channelId, data.deck, data.cameras || []);
-  } catch (e) {
-    el.innerHTML = `<div class="bc-meta" style="color:var(--red)">Failed to load deck info.</div>`;
+    _channelDeckCache[channelId] = data;
+    childEl.innerHTML = `<div style="border-top:1px solid var(--border);background:var(--bg3)">${_renderDeckChild(ch, data)}</div>`;
+  } catch {
+    _channelDeckCache[channelId] = 'error';
+    childEl.innerHTML = `<div style="border-top:1px solid var(--border);background:var(--bg3)">${_renderDeckChild(ch, 'error')}</div>`;
   }
-}
-
-function renderDeckSection(el, channelId, deck, cameras) {
-  if (!deck) {
-    el.innerHTML = `
-      <div class="bc-meta" style="margin-bottom:8px">No media deck assigned to this channel.</div>
-      <button class="action-btn" onclick="spawnDeckForChannel('${channelId}')">+ Spawn Media Deck</button>`;
-    return;
-  }
-  const camList = cameras.length
-    ? cameras.map(c => `<div class="bc-meta">📹 ${escHtml(c.name || c.id)} <span style="color:var(--text-dim)">(${c.zone_id})</span></div>`).join('')
-    : '<div class="bc-meta" style="color:var(--text-dim)">No cameras connected.</div>';
-  el.innerHTML = `
-    <div style="display:flex;align-items:flex-start;gap:12px">
-      <div style="flex:1">
-        <div class="bc-title" style="margin-bottom:4px">📼 ${escHtml(deck.name || deck.id)}</div>
-        <div class="bc-meta">Zone: ${escHtml(deck.zone_id)}</div>
-        <div class="bc-meta" style="margin-top:6px;font-weight:600;letter-spacing:0.5px">Connected cameras:</div>
-        ${camList}
-      </div>
-      <button class="action-btn" style="font-size:10px" onclick="spawnDeckForChannel('${channelId}')">⇄ Replace Deck</button>
-    </div>`;
 }
 
 async function spawnDeckForChannel(channelId) {
-  // Prompt for zone — simplified: ask user to enter zone ID or open zone list
-  const zoneId = prompt('Enter zone ID to place the media deck in (must be an interior zone):');
-  if (!zoneId) return;
-  const deckName = prompt('Deck name:', 'Media Deck') || 'Media Deck';
   try {
-    const res = await directAPI('/broadcast/deck', 'POST', { channel_id: channelId, zone_id: zoneId.trim(), name: deckName });
+    const res = await directAPI('/broadcast/deck', 'POST', { channel_id: channelId, auto_place: true });
     if (res?.error) { toast(res.error, true); return; }
-    toast('Media deck spawned and linked.');
-    loadDeckSection();
+    toast('Media deck and camera spawned.');
+    // Refresh this channel's data in the accordion
+    const ch = _channelList.find(c => c.id === channelId);
+    if (ch) ch.studio_zone_id = res.zone_id || ch.studio_zone_id;
+    await loadChannelDeckData(channelId);
   } catch (e) { toast(e.message, true); }
 }
 
@@ -175,9 +210,6 @@ async function spawnDeckForChannel(channelId) {
 async function openChannelEditor(rec) {
   _channelEditTarget = rec || null;
   _channelPlaylist = [];
-
-  // Refresh the deck section sidebar whenever a channel is opened
-  if (rec) loadDeckSection();
 
   // Load broadcasts, themes, graphics, and zones in parallel
   let themes = [], graphics = [], zones = [];
