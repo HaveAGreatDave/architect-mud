@@ -3199,7 +3199,7 @@ body {
    (a flex container would collapse all 25 cells onto one line). */
 #minimap-grid-hud {
 	white-space: nowrap;
-	font-size: 14px;
+	font-size: 13px;
 	line-height: 1.05;
 	letter-spacing: 0;
 	text-align: center;
@@ -3306,6 +3306,27 @@ body {
 #area-toggle-btn:active {
 	color: var(--accent);
 }
+
+/* Bottom region wrapper. Desktop: plain vertical stack (cmds bar above input,
+   dpad hidden). Mobile/compact: the dpad becomes a full-height column on the
+   right while the cmds/weather bar and the input row stack to its left. */
+#bottom-input-wrap {
+	display: flex;
+	flex-direction: column;
+}
+#bottom-stack {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+@media (max-width: 720px) {
+	#bottom-input-wrap { flex-direction: row; align-items: stretch; }
+	#bottom-stack { flex: 1; }
+	#bottom-input-wrap #mob-dpad { border-left: 1px solid var(--border); }
+}
+[data-density="compact"] #bottom-input-wrap { flex-direction: row; align-items: stretch; }
+[data-density="compact"] #bottom-stack { flex: 1; }
+[data-density="compact"] #bottom-input-wrap #mob-dpad { border-left: 1px solid var(--border); }
 
 /* ─── BOTTOM BAR (quick-cmds + dpad) ─── */
 #bottom-bar {
