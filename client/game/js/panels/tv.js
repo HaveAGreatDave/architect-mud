@@ -38,12 +38,6 @@ export function openTvPanel(data) {
 
   const freqDisplay = document.getElementById('tv-freq-display');
   if (freqDisplay) freqDisplay.textContent = _tvFrequency.toFixed(1);
-  const slider = document.getElementById('tv-tuner-slider');
-  if (slider) {
-    const maxCh = _tvChannelList.length ? Math.max(..._tvChannelList.map(c => c.number)) + 2 : 99;
-    slider.max = Math.max(maxCh, _tvFrequency + 2);
-    slider.value = _tvFrequency;
-  }
 
   const inner = document.getElementById('tv-ticker-inner');
   inner.style.transition = 'none';
@@ -62,7 +56,21 @@ export function openTvPanel(data) {
     staticEl.classList.remove('tv-static-on', 'tv-static-fade', 'tv-static-loop');
     staticEl.style.opacity = '';
   } else {
-    _playTuneAnimation();
+    // CRT power-on: expand from bright line, then reveal content
+    const content  = document.getElementById('tv-content');
+    const staticEl = document.getElementById('tv-static');
+    content.classList.add('tv-hidden');
+    staticEl.classList.remove('tv-static-fade', 'tv-static-loop');
+    staticEl.style.opacity = '1';
+    staticEl.classList.add('tv-static-on');
+    _playCrtPowerOn();
+    _tuneTimer = setTimeout(() => {
+      staticEl.classList.remove('tv-static-on');
+      staticEl.classList.add('tv-static-fade');
+      content.classList.remove('tv-hidden');
+      staticEl.addEventListener('animationend', () => staticEl.classList.remove('tv-static-fade'), { once: true });
+      _tuneTimer = null;
+    }, 720);
   }
 }
 
@@ -162,9 +170,18 @@ export function shutdownTvPanel() {
   if (!_tvOpen || _tvShuttingDown) return;
   _tvShuttingDown = true;
   if (_tuneTimer) { clearTimeout(_tuneTimer); _tuneTimer = null; }
-  const win = document.getElementById('tv-window');
-  win.classList.add('tv-shutting-off');
-  win.addEventListener('animationend', () => closeTvPanel(), { once: true });
+
+  // Brief static flash, then CRT vertical collapse
+  const staticEl = document.getElementById('tv-static');
+  staticEl.classList.remove('tv-static-fade');
+  staticEl.classList.add('tv-static-on');
+
+  setTimeout(() => {
+    staticEl.classList.remove('tv-static-on');
+    const win = document.getElementById('tv-window');
+    win.classList.add('tv-shutting-off');
+    win.addEventListener('animationend', () => closeTvPanel(), { once: true });
+  }, 280);
 }
 
 export function applyTvOverlay(overlay) {
@@ -223,7 +240,6 @@ export function tvTunerInput(val) {
     _tvPoweredOff = false;
     document.getElementById('tv-content').classList.add('tv-hidden');
     _playCrtPowerOn();
-    // Tuning lock logic will run on the next slider input event
     return;
   }
 
@@ -356,7 +372,6 @@ function _startTickerAnimation() {
 const TUNE_RESISTANCE = 0.02;  // channel units per pixel dragged
 
 export function initTvPanel() {
-  document.getElementById('tv-tuner-slider')?.addEventListener('input', (e) => tvTunerInput(e.target.value));
   document.getElementById('tv-close-btn').addEventListener('click', shutdownTvPanel);
 
   // Knob: click cycles channels; drag tunes with high resistance
@@ -383,20 +398,9 @@ export function initTvPanel() {
     const maxCh = _tvChannelList.length ? Math.max(..._tvChannelList.map(c => c.number)) + 2 : 99;
     const clamped = Math.max(0, Math.min(maxCh, rawFreq));
     tvTunerInput(clamped);
-    const slider = document.getElementById('tv-tuner-slider');
-    if (slider) slider.value = clamped;
   });
 
-  document.addEventListener('mouseup', () => {
-    if (_knobDragging && _tvOpen && _tvFrequency <= 0 && !_tvPoweredOff) {
-      // Released at far left — power off
-      _tvPoweredOff = true;
-      const staticEl = document.getElementById('tv-static');
-      if (staticEl) { staticEl.classList.remove('tv-static-on', 'tv-static-fade'); staticEl.style.opacity = ''; }
-      document.getElementById('tv-content')?.classList.add('tv-hidden');
-    }
-    _knobDragging = false;
-  });
+  document.addEventListener('mouseup', () => { _knobDragging = false; });
 
   knob.addEventListener('click', () => {
     if (!_tvOpen || _knobMoved) return;

@@ -21,7 +21,7 @@ await query(
     'Shoddy Television',
     'A battered flatscreen bolted to the wall with mismatched screws. The casing is cracked and one corner is held together with duct tape, but the picture still comes through.',
     'furniture',
-    JSON.stringify({ tv: true, broadcast_device_type: 'tv' }),
+    JSON.stringify({ tv: true, broadcast_device_type: 'tv', broadcast_receiver: true }),
   ]
 );
 
