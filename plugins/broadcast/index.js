@@ -1426,6 +1426,15 @@ export const routeHandler = async (path, method, body, auth) => {
            body.idle_broadcast_id || null, JSON.stringify(body.news_categories || []),
            JSON.stringify(body.commercial_pool || []), body.studio_zone_id || null]
         );
+        // Auto-create streaming camera when studio_zone_id is provided with the new channel
+        if (body.studio_zone_id) {
+          await query(
+            `INSERT INTO media_cameras (id, zone_id, streaming_channel_id, is_streaming, is_powered)
+             VALUES ($1, $2, $3, 1, 1)
+             ON CONFLICT (id) DO NOTHING`,
+            [`cam_studio_${cid}`, body.studio_zone_id, cid]
+          ).catch(() => {});
+        }
         await loadChannelRuntimes();
         return { status: 201, body: { id: cid } };
       }
@@ -1864,15 +1873,18 @@ export const routeHandler = async (path, method, body, auth) => {
           );
         }
 
-        // If a channel_id is supplied, link the studio zone and create a streaming camera
+        // If a channel_id is supplied and that channel exists, link the studio zone and create a streaming camera
         if (channel_id) {
-          await query(`UPDATE media_channels SET studio_zone_id=$1 WHERE id=$2 AND studio_zone_id IS NULL`, [studioZoneId, channel_id]);
-          await query(
-            `INSERT INTO media_cameras (id, zone_id, streaming_channel_id, is_streaming, is_powered)
-             VALUES ($1, $2, $3, 1, 1)
-             ON CONFLICT (id) DO NOTHING`,
-            [`cam_studio_${ts}`, studioZoneId, channel_id]
-          );
+          const { rows: chRows } = await query(`SELECT id FROM media_channels WHERE id=$1`, [channel_id]);
+          if (chRows.length) {
+            await query(`UPDATE media_channels SET studio_zone_id=$1 WHERE id=$2 AND studio_zone_id IS NULL`, [studioZoneId, channel_id]);
+            await query(
+              `INSERT INTO media_cameras (id, zone_id, streaming_channel_id, is_streaming, is_powered)
+               VALUES ($1, $2, $3, 1, 1)
+               ON CONFLICT (id) DO NOTHING`,
+              [`cam_studio_${ts}`, studioZoneId, channel_id]
+            );
+          }
         }
 
         // Load new zones into the world
