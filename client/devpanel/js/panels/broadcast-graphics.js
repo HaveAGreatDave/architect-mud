@@ -15,9 +15,13 @@ const ASCII_PALETTE = [
 let _ce = {
   cols: 60, rows: 22,
   cells: [],       // [row][col] = char
+  colors: [],      // [row][col] = hex string | null (null = default)
   cursorR: 0, cursorC: 0,
   active: false,
 };
+
+let _grSelColor  = null;  // null = default color
+let _grEraseMode = false;
 
 let _graphicList = [];
 let _graphicEditTarget = null;
@@ -95,14 +99,21 @@ function openGraphicEditor(rec) {
           <div style="font-size:10px;color:var(--text-dim)">Char palette:</div>
           <div id="gr-palette" style="display:flex;flex-wrap:wrap;gap:2px;max-width:340px"></div>
           <div style="display:flex;gap:4px;margin-left:auto">
+            <button id="gr-erase-btn" class="action-btn" style="font-size:10px;padding:2px 8px" onclick="_grToggleErase()">⌫ Erase</button>
             <button class="action-btn" style="font-size:10px;padding:2px 8px" onclick="_grClear()">Clear</button>
             <button class="action-btn" style="font-size:10px;padding:2px 8px" onclick="_grImportFromText()">← Import text</button>
           </div>
         </div>
-        <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px">
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px;flex-wrap:wrap">
           <div style="font-size:10px;color:var(--text-dim)">Selected:</div>
           <div id="gr-sel-char" style="font-family:monospace;font-size:18px;color:var(--accent);min-width:20px;text-align:center">█</div>
-          <div style="font-size:10px;color:var(--text-dim)">Click to paint · Arrow keys move · Type chars · Backspace = space</div>
+          <div style="width:1px;height:16px;background:var(--border)"></div>
+          <div style="font-size:10px;color:var(--text-dim)">Color:</div>
+          <input id="gr-color-pick" type="color" value="#b8d4c8"
+            style="width:26px;height:22px;padding:0;border:1px solid var(--border);background:transparent;cursor:pointer"
+            oninput="_grSetColor(this.value)" title="Character color">
+          <button class="action-btn" style="font-size:10px;padding:1px 6px" onclick="_grSetColor(null)" title="Remove color — use default">✕ default</button>
+          <div style="font-size:10px;color:var(--text-dim)">· Click to paint · Arrows move · Type chars · Backspace = erase</div>
         </div>
         <div style="overflow:auto;max-height:280px;border:1px solid var(--border);background:#050a08">
           <canvas id="gr-canvas" style="display:block;cursor:crosshair;image-rendering:pixelated"></canvas>
@@ -141,6 +152,12 @@ function openGraphicEditor(rec) {
             W <input id="sv-w" type="number" min="100" max="1920" value="640" class="form-input" style="width:56px;font-size:11px" onchange="_svApplySize()">
             H <input id="sv-h" type="number" min="100" max="1080" value="360" class="form-input" style="width:56px;font-size:11px" onchange="_svApplySize()">
             BG <input id="sv-bg" type="color" value="#0a0f0d" style="width:32px;height:24px;padding:0;border:1px solid var(--border);background:transparent;cursor:pointer" onchange="_svApplySize()">
+          </div>
+          <div style="width:1px;height:20px;background:var(--border)"></div>
+          <div style="display:flex;align-items:center;gap:3px">
+            <button class="action-btn" style="font-size:13px;padding:1px 8px;line-height:1" onclick="_svSetZoom(_sv.zoom/1.25)" title="Zoom out">−</button>
+            <span id="sv-zoom-label" style="font-size:10px;color:var(--text-dim);min-width:34px;text-align:center;cursor:pointer" onclick="_svZoomFit()" title="Click to fit">100%</span>
+            <button class="action-btn" style="font-size:13px;padding:1px 8px;line-height:1" onclick="_svSetZoom(_sv.zoom*1.25)" title="Zoom in">+</button>
           </div>
           <label class="action-btn" style="cursor:pointer;font-size:10px;padding:2px 8px;margin-left:auto" title="Load an SVG file from disk">
             ⬆ Upload SVG
@@ -279,6 +296,26 @@ function _grSelectChar(ch) {
   if (sel) sel.textContent = ch;
 }
 
+function _grSetColor(hex) {
+  _grSelColor = hex || null;
+  const pick   = document.getElementById('gr-color-pick');
+  const swatch = document.getElementById('gr-sel-char');
+  if (pick)   { pick.style.opacity = hex ? '1' : '0.35'; if (hex) pick.value = hex; }
+  if (swatch) swatch.style.color = hex || 'var(--accent)';
+}
+
+function _grToggleErase() {
+  _grEraseMode = !_grEraseMode;
+  const btn    = document.getElementById('gr-erase-btn');
+  const canvas = document.getElementById('gr-canvas');
+  if (btn) {
+    btn.style.background   = _grEraseMode ? 'var(--accent2)' : '';
+    btn.style.color        = _grEraseMode ? 'var(--bg)'      : '';
+    btn.style.borderColor  = _grEraseMode ? 'var(--accent2)' : '';
+  }
+  if (canvas) canvas.style.cursor = _grEraseMode ? 'cell' : 'crosshair';
+}
+
 function _grInitCanvas(existingContent) {
   const cols = parseInt(document.getElementById('gr-cols')?.value || _ce.cols, 10);
   const rows = parseInt(document.getElementById('gr-rows')?.value || _ce.rows, 10);
@@ -287,7 +324,8 @@ function _grInitCanvas(existingContent) {
   _ce.active = true;
 
   // Init empty grid
-  _ce.cells = Array.from({ length: rows }, () => Array(cols).fill(' '));
+  _ce.cells  = Array.from({ length: rows }, () => Array(cols).fill(' '));
+  _ce.colors = Array.from({ length: rows }, () => Array(cols).fill(null));
 
   if (existingContent) _grLoadFromText(existingContent);
 
@@ -295,14 +333,25 @@ function _grInitCanvas(existingContent) {
   if (!canvas) return;
 
   // Set up canvas interactions
+  let _grMousePainting = false;
   canvas.onclick = null;
   canvas.onmousedown = (e) => {
+    _grMousePainting = true;
     const { r, c } = _grCellFromEvent(e);
     _ce.cursorR = r; _ce.cursorC = c;
-    _grPaintCell(r, c, _grSelChar);
+    _grPaintCell(r, c, _grEraseMode ? ' ' : _grSelChar);
     _grRedraw();
     canvas.focus();
   };
+  canvas.onmousemove = (e) => {
+    if (!_grMousePainting) return;
+    const { r, c } = _grCellFromEvent(e);
+    if (r === _ce.cursorR && c === _ce.cursorC) return;
+    _ce.cursorR = r; _ce.cursorC = c;
+    _grPaintCell(r, c, _grEraseMode ? ' ' : _grSelChar);
+    _grRedraw();
+  };
+  canvas.onmouseup = canvas.onmouseleave = () => { _grMousePainting = false; };
   canvas.tabIndex = 0;
   canvas.onkeydown = _grKeydown;
 
@@ -341,7 +390,7 @@ function _grRedraw() {
     for (let c = 0; c < _ce.cols; c++) {
       const ch2 = (_ce.cells[r] && _ce.cells[r][c]) || ' ';
       if (ch2 !== ' ') {
-        ctx.fillStyle = '#b8d4c8';
+        ctx.fillStyle = _ce.colors[r]?.[c] || '#b8d4c8';
         ctx.fillText(ch2, c*cs + cs/2, r*cs + cs/2 + 0.5);
       }
     }
@@ -370,8 +419,10 @@ function _grCellFromEvent(e) {
 
 function _grPaintCell(r, c, ch) {
   if (r < 0 || r >= _ce.rows || c < 0 || c >= _ce.cols) return;
-  if (!_ce.cells[r]) _ce.cells[r] = Array(_ce.cols).fill(' ');
-  _ce.cells[r][c] = ch;
+  if (!_ce.cells[r])  _ce.cells[r]  = Array(_ce.cols).fill(' ');
+  if (!_ce.colors[r]) _ce.colors[r] = Array(_ce.cols).fill(null);
+  _ce.cells[r][c]  = ch;
+  _ce.colors[r][c] = ch === ' ' ? null : _grSelColor;
 }
 
 function _grKeydown(e) {
@@ -412,10 +463,13 @@ function _grKeydown(e) {
 function _grResize() {
   const cols = parseInt(document.getElementById('gr-cols')?.value || 60, 10);
   const rows = parseInt(document.getElementById('gr-rows')?.value || 22, 10);
-  const newCells = Array.from({ length: rows }, (_, r) =>
+  const newCells  = Array.from({ length: rows }, (_, r) =>
     Array.from({ length: cols }, (_, c) => (_ce.cells[r]?.[c]) ?? ' ')
   );
-  _ce.cols = cols; _ce.rows = rows; _ce.cells = newCells;
+  const newColors = Array.from({ length: rows }, (_, r) =>
+    Array.from({ length: cols }, (_, c) => (_ce.colors[r]?.[c]) ?? null)
+  );
+  _ce.cols = cols; _ce.rows = rows; _ce.cells = newCells; _ce.colors = newColors;
   _ce.cursorR = Math.min(_ce.cursorR, rows - 1);
   _ce.cursorC = Math.min(_ce.cursorC, cols - 1);
   _grRedraw();
@@ -423,26 +477,55 @@ function _grResize() {
 
 function _grClear() {
   if (!confirm('Clear the canvas?')) return;
-  _ce.cells = Array.from({ length: _ce.rows }, () => Array(_ce.cols).fill(' '));
+  _ce.cells  = Array.from({ length: _ce.rows }, () => Array(_ce.cols).fill(' '));
+  _ce.colors = Array.from({ length: _ce.rows }, () => Array(_ce.cols).fill(null));
   _grRedraw();
 }
 
+// Parse a single line of BBCode into [{ch, color}] pairs (only [color=X] tags handled).
+function _grParseLine(line) {
+  const result = [];
+  let i = 0, currentColor = null;
+  const stack = [];
+  while (i < line.length) {
+    if (line[i] === '[') {
+      const close = line.indexOf(']', i);
+      if (close !== -1) {
+        const tag = line.slice(i + 1, close);
+        const m   = tag.match(/^color=(.+)$/i);
+        if (m)              { stack.push(currentColor); currentColor = m[1]; i = close + 1; continue; }
+        if (tag === '/color') { currentColor = stack.pop() ?? null;          i = close + 1; continue; }
+        // Unknown tag — skip past it
+        i = close + 1; continue;
+      }
+    }
+    result.push({ ch: line[i], color: currentColor });
+    i++;
+  }
+  return result;
+}
+
 function _grLoadFromText(text) {
-  const lines = text.split('\n');
-  const maxCol = Math.max(_ce.cols, ...lines.map(l => l.length));
+  const lines   = text.split('\n');
+  const parsed  = lines.map(ln => _grParseLine(ln));
+  const maxCol  = Math.max(_ce.cols, ...parsed.map(p => p.length));
   if (maxCol > _ce.cols) {
     _ce.cols = Math.min(120, maxCol);
-    document.getElementById('gr-cols') && (document.getElementById('gr-cols').value = _ce.cols);
+    const el = document.getElementById('gr-cols');
+    if (el) el.value = _ce.cols;
   }
-  const maxRow = Math.max(_ce.rows, lines.length);
+  const maxRow = Math.max(_ce.rows, parsed.length);
   if (maxRow > _ce.rows) {
     _ce.rows = Math.min(50, maxRow);
-    document.getElementById('gr-rows') && (document.getElementById('gr-rows').value = _ce.rows);
+    const el = document.getElementById('gr-rows');
+    if (el) el.value = _ce.rows;
   }
-  _ce.cells = Array.from({ length: _ce.rows }, (_, r) => {
-    const line = lines[r] || '';
-    return Array.from({ length: _ce.cols }, (_, c) => line[c] ?? ' ');
-  });
+  _ce.cells  = Array.from({ length: _ce.rows }, (_, r) =>
+    Array.from({ length: _ce.cols }, (_, c) => parsed[r]?.[c]?.ch  ?? ' ')
+  );
+  _ce.colors = Array.from({ length: _ce.rows }, (_, r) =>
+    Array.from({ length: _ce.cols }, (_, c) => parsed[r]?.[c]?.color ?? null)
+  );
   _grRedraw();
 }
 
@@ -490,12 +573,27 @@ function _grLoadSvgFile(input) {
 }
 
 function _grSyncToTextarea() {
-  const lines = _ce.cells.map(row => {
-    let line = row.join('');
-    line = line.replace(/ +$/, ''); // trim trailing spaces per row
-    return line;
+  const lines = _ce.cells.map((row, r) => {
+    const colors = _ce.colors[r] || [];
+    // Find last non-space column
+    let last = row.length - 1;
+    while (last >= 0 && (row[last] || ' ') === ' ') last--;
+    if (last < 0) return '';
+    // Build color segments up to last non-space
+    let out = '', cur = null, seg = '';
+    for (let c = 0; c <= last; c++) {
+      const ch  = row[c] || ' ';
+      const col = ch === ' ' ? null : (colors[c] || null);
+      if (col === cur) {
+        seg += ch;
+      } else {
+        if (seg) out += cur ? `[color=${cur}]${seg}[/color]` : seg;
+        cur = col; seg = ch;
+      }
+    }
+    if (seg) out += cur ? `[color=${cur}]${seg}[/color]` : seg;
+    return out;
   });
-  // Trim trailing empty rows
   while (lines.length > 0 && lines[lines.length - 1] === '') lines.pop();
   const ta = document.getElementById('gr-content');
   if (ta) ta.value = lines.join('\n');
@@ -568,6 +666,7 @@ function escHtml4(str) {
 let _sv = {
   shapes: [], selectedId: null, tool: 'select',
   w: 640, h: 360, bgColor: '#0a0f0d',
+  zoom: 1,
   mouseDown: false, creating: false,
   createX0: 0, createY0: 0,
   dragging: false, dragX0: 0, dragY0: 0, dragAttrs: null,
@@ -590,6 +689,7 @@ function _svId() { return `s${_svNextId++}`; }
 
 function _svInit(content) {
   _sv.shapes = []; _svNextId = 1; _sv.selectedId = null; _sv.tool = 'select';
+  _sv.zoom = 1;
   _sv.mouseDown = false; _sv.creating = false; _sv.dragging = false; _sv.resizing = false;
   _sv.rawSvg = null;
   if (content?.trim().startsWith('<svg')) {
@@ -650,8 +750,8 @@ function _svRender() {
   const svg = document.getElementById('sv-canvas');
   if (!svg) return;
   svg.setAttribute('viewBox', `0 0 ${_sv.w} ${_sv.h}`);
-  svg.setAttribute('width',  _sv.w);
-  svg.setAttribute('height', _sv.h);
+  svg.setAttribute('width',  Math.round(_sv.w * _sv.zoom));
+  svg.setAttribute('height', Math.round(_sv.h * _sv.zoom));
 
   let html = `<rect width="${_sv.w}" height="${_sv.h}" fill="${escHtml4(_sv.bgColor)}"/>`;
 
@@ -733,6 +833,52 @@ function _svAttachEvents() {
   wrapper.onmousemove = _svOnMove;
   wrapper.onmouseup   = _svOnUp;
   wrapper.onmouseleave = _svOnUp;
+
+  // Mousewheel zoom toward cursor
+  if (wrapper._svWheelListener) wrapper.removeEventListener('wheel', wrapper._svWheelListener);
+  wrapper._svWheelListener = (e) => {
+    e.preventDefault();
+    const factor  = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+    const oldZoom = _sv.zoom;
+    const newZoom = Math.max(0.1, Math.min(8, oldZoom * factor));
+    const rect    = wrapper.getBoundingClientRect();
+    const mx      = e.clientX - rect.left;
+    const my      = e.clientY - rect.top;
+    _sv.zoom = newZoom;
+    _svRender();
+    wrapper.scrollLeft = (wrapper.scrollLeft + mx) * (newZoom / oldZoom) - mx;
+    wrapper.scrollTop  = (wrapper.scrollTop  + my) * (newZoom / oldZoom) - my;
+    const zEl = document.getElementById('sv-zoom-label');
+    if (zEl) zEl.textContent = `${Math.round(newZoom * 100)}%`;
+  };
+  wrapper.addEventListener('wheel', wrapper._svWheelListener, { passive: false });
+}
+
+function _svSetZoom(z) {
+  const wrapper = document.getElementById('sv-wrapper');
+  if (!wrapper) return;
+  const oldZoom = _sv.zoom;
+  _sv.zoom = Math.max(0.1, Math.min(8, z));
+  const cx = wrapper.scrollLeft + wrapper.clientWidth  / 2;
+  const cy = wrapper.scrollTop  + wrapper.clientHeight / 2;
+  _svRender();
+  const scale = _sv.zoom / oldZoom;
+  wrapper.scrollLeft = cx * scale - wrapper.clientWidth  / 2;
+  wrapper.scrollTop  = cy * scale - wrapper.clientHeight / 2;
+  const zEl = document.getElementById('sv-zoom-label');
+  if (zEl) zEl.textContent = `${Math.round(_sv.zoom * 100)}%`;
+}
+
+function _svZoomFit() {
+  const wrapper = document.getElementById('sv-wrapper');
+  if (!wrapper) return;
+  const scaleX = (wrapper.clientWidth  - 16) / _sv.w;
+  const scaleY = (wrapper.clientHeight - 16) / _sv.h;
+  _sv.zoom = Math.min(scaleX, scaleY, 1);
+  _svRender();
+  wrapper.scrollTo(0, 0);
+  const zEl = document.getElementById('sv-zoom-label');
+  if (zEl) zEl.textContent = `${Math.round(_sv.zoom * 100)}%`;
 }
 
 // ── Mouse down handlers ───────────────────────────────────────────────────────

@@ -1,5 +1,4 @@
 @broadcast "Acid Cola™ - Reality Hurts"
-@channel ksab_tv
 @category commercial
 @type commercial
 @runtime 30s
@@ -18,6 +17,8 @@
 END
 
 ::scene TITLE
+
+ROOM studio_stage
 
 EVENT FADE_IN
 

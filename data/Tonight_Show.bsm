@@ -29,7 +29,7 @@ EVENT DISSOLVE
 
 ::scene INTRODUCTION
 
-ROOM ksab/studio_stage
+ROOM studio_stage
 
 CAM1 WIDE
 

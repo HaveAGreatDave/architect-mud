@@ -1073,6 +1073,8 @@ async function _bcImportChannelConfirm() {
           if (studio?.error) { toast(`Studio creation failed: ${studio.error}`, true); return; }
           if (isScripted) chBody.zone_id = studio.studio_zone_id;
           else chBody.studio_zone_id = studio.studio_zone_id;
+          _bcImportStudioZoneId   = studio.studio_zone_id;
+          _bcImportStudioZoneName = zoneName;
         } catch (err) { toast(`Studio creation failed: ${err.message}`, true); return; }
       }
     }
@@ -1096,10 +1098,16 @@ async function _bcImportChannelConfirm() {
 
 let _bcDepCompiled = null;
 let _bcDepPending  = new Set();
-let _bcPickerZoneId = null;
+let _bcPickerZoneId   = null;
 let _bcPickerSelected = null;
+let _bcPickerOutdoorId = null;   // outdoor zone chosen in step 1
+let _bcPickerAllZones  = [];     // zones snapshot for multi-step picker
+let _bcZoneRemap = {};           // { bsmZoneId: realZoneId } — applied at save
+let _bcImportStudioZoneId   = null;
+let _bcImportStudioZoneName = null;
 
 async function _bcImportDependencies(compiled) {
+  _bcZoneRemap = {};
   const isScripted = compiled.meta?.type === 'scripted';
   const [allZones, allNpcs] = await Promise.all([
     directAPI('/zones', 'GET'), directAPI('/npcs', 'GET'),
@@ -1124,12 +1132,18 @@ function _bcShowDepModal(missingNpcs, missingZones, allZones) {
       <button class="action-btn" style="font-size:10px;padding:3px 8px" onclick="_bcCreateNpc('${id}')">Create NPC</button>
     </div>`).join('');
 
-  const zoneRows = missingZones.map(id => `
+  const zoneRows = missingZones.map(id => {
+    const studioBtn = _bcImportStudioZoneId
+      ? `<button class="action-btn" style="font-size:10px;padding:3px 8px" onclick="_bcUseStudioZone('${id}')">Use ${escHtml(_bcImportStudioZoneName || _bcImportStudioZoneId)}</button>`
+      : '';
+    return `
     <div id="dep-row-${CSS.escape(id)}" style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--bg3);border-radius:2px">
       <span style="flex:1;font-size:12px;color:var(--text)">Zone <span style="color:var(--yellow)">${escHtml(id)}</span></span>
       <span id="dep-status-${CSS.escape(id)}" style="font-size:10px;color:var(--text-dim)">missing</span>
+      ${studioBtn}
       <button class="action-btn" style="font-size:10px;padding:3px 8px" onclick="_bcShowZonePicker('${id}')">Place on Map</button>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 
   const el = document.createElement('div');
   el.id = 'bsm-dep-overlay';
@@ -1160,6 +1174,13 @@ function _bcMarkResolved(id) {
   }
 }
 
+function _bcUseStudioZone(bsmId) {
+  if (!_bcImportStudioZoneId) return;
+  if (bsmId !== _bcImportStudioZoneId) _bcZoneRemap[bsmId] = _bcImportStudioZoneId;
+  _bcMarkResolved(bsmId);
+  toast(`Zone "${bsmId}" → "${_bcImportStudioZoneName || _bcImportStudioZoneId}"`);
+}
+
 let _bcExistingNpcIds = new Set(); // populated during dependency check
 
 async function _bcCreateNpc(id) {
@@ -1172,11 +1193,20 @@ async function _bcCreateNpc(id) {
   } catch (err) { toast(err.message, true); }
 }
 
+// ── Dep zone picker — 3-step: outdoor zone → building → interior confirm ────────
+
 function _bcShowZonePicker(zoneId) {
-  _bcPickerZoneId = zoneId;
-  _bcPickerSelected = null;
+  _bcPickerZoneId    = zoneId;
+  _bcPickerSelected  = null;
+  _bcPickerOutdoorId = null;
   const overlay = document.getElementById('bsm-dep-overlay');
-  const allZones = overlay?._allZones || [];
+  _bcPickerAllZones  = overlay?._allZones || _bcImportAllZones || [];
+  _bcShowOutdoorPicker();
+}
+
+function _bcShowOutdoorPicker() {
+  document.getElementById('bsm-picker-overlay')?.remove();
+  const allZones = _bcPickerAllZones;
   const placed = allZones.filter(z => z.grid_x != null && z.grid_y != null && z.map_id === 'map_world');
   let minX = -3, maxX = 3, minY = -3, maxY = 3;
   if (placed.length) {
@@ -1192,9 +1222,16 @@ function _bcShowZonePicker(zoneId) {
     for (let x = minX; x <= maxX; x++) {
       const z = byCoord.get(`${x},${y}`);
       if (z) {
-        cells += `<div style="background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--text-dim);text-align:center;padding:2px;overflow:hidden;line-height:1.2" title="${z.id}">${escHtml(z.name)}</div>`;
+        cells += `<div class="bsm-pick-outdoor" data-id="${escHtml(z.id)}"
+          onclick="_bcOutdoorPickExisting('${escHtml(z.id)}')"
+          style="background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--text);text-align:center;padding:2px;overflow:hidden;line-height:1.2;cursor:pointer"
+          onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'"
+          title="${escHtml(z.id)}">${escHtml(z.name)}</div>`;
       } else {
-        cells += `<div class="bsm-pick-cell" data-x="${x}" data-y="${y}" onclick="_bcPickCell(${x},${y},this)" style="background:var(--bg);border:1px dashed var(--border);display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--border);cursor:pointer" title="${x},${y}">+</div>`;
+        cells += `<div class="bsm-pick-cell" data-x="${x}" data-y="${y}"
+          onclick="_bcOutdoorPickNewCell(${x},${y},this)"
+          style="background:var(--bg);border:1px dashed var(--border);display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--border);cursor:pointer"
+          title="${x},${y}">+</div>`;
       }
     }
   }
@@ -1204,52 +1241,178 @@ function _bcShowZonePicker(zoneId) {
   picker.innerHTML = `
     <div style="background:var(--bg2);border:1px solid var(--yellow);padding:16px;width:660px;max-width:96vw;border-radius:3px;display:flex;flex-direction:column;gap:10px">
       <div style="display:flex;justify-content:space-between;align-items:center">
-        <span style="color:var(--yellow);font-size:12px;letter-spacing:1px;text-transform:uppercase">Place Zone: <strong>${escHtml(zoneId)}</strong></span>
+        <span style="color:var(--yellow);font-size:12px;letter-spacing:1px;text-transform:uppercase">Place <strong>${escHtml(_bcPickerZoneId)}</strong> — Step 1: Pick Outdoor Zone</span>
         <button onclick="document.getElementById('bsm-picker-overlay').remove()" style="background:transparent;border:1px solid var(--border);color:var(--text-dim);width:24px;height:24px;cursor:pointer;border-radius:2px;font-size:12px">✕</button>
       </div>
-      <div style="font-size:11px;color:var(--text-dim)">Click an empty cell (+) to place the zone on the world map.</div>
+      <div style="font-size:11px;color:var(--text-dim)">Click an existing zone to place inside it, or click an empty cell (+) to create a new outdoor zone.</div>
       <div style="overflow:auto;max-height:400px">
         <div style="display:grid;grid-template-columns:repeat(${W},${CELL}px);grid-template-rows:repeat(${H},${Math.round(CELL*0.65)}px);gap:2px;width:fit-content">
           ${cells}
         </div>
       </div>
-      <div style="display:flex;gap:8px;justify-content:flex-end;align-items:center">
-        <span id="bsm-picker-label" style="font-size:11px;color:var(--text-dim)">No cell selected</span>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
         <button onclick="document.getElementById('bsm-picker-overlay').remove()" class="action-btn">Cancel</button>
-        <button id="bsm-picker-confirm" class="action-btn primary" disabled onclick="_bcPickerConfirm()">Place Here</button>
       </div>
     </div>`;
   document.body.appendChild(picker);
 }
 
-function _bcPickCell(x, y, el) {
+function _bcOutdoorPickExisting(outdoorZoneId) {
+  _bcPickerOutdoorId = outdoorZoneId;
+  _bcShowBuildingPicker();
+}
+
+async function _bcOutdoorPickNewCell(x, y, el) {
   document.querySelectorAll('.bsm-pick-cell').forEach(c => {
     c.style.background = 'var(--bg)'; c.style.borderColor = 'var(--border)'; c.style.color = 'var(--border)';
   });
   el.style.background = 'color-mix(in srgb,var(--yellow) 20%,transparent)';
   el.style.borderColor = 'var(--yellow)'; el.style.color = 'var(--yellow)';
-  _bcPickerSelected = { x, y };
-  const lbl = document.getElementById('bsm-picker-label');
-  if (lbl) lbl.textContent = `Selected: ${x}, ${y}`;
-  const btn = document.getElementById('bsm-picker-confirm');
-  if (btn) btn.removeAttribute('disabled');
+  el.textContent = '…';
+  const bsmName = _bcPickerZoneId.split('/').pop().replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  try {
+    const studio = await directAPI('/broadcast/create-studio', 'POST', { studio_name: bsmName, grid_x: x, grid_y: y });
+    if (studio?.error) { toast(`Zone creation failed: ${studio.error}`, true); el.textContent = '+'; return; }
+    _bcPickerAllZones = await directAPI('/zones', 'GET') || _bcPickerAllZones;
+    document.getElementById('bsm-picker-overlay')?.remove();
+    _bcShowInteriorConfirm(studio.studio_zone_id, bsmName, null);
+  } catch (err) { toast(err.message, true); el.textContent = '+'; }
 }
 
-async function _bcPickerConfirm() {
-  if (!_bcPickerSelected || !_bcPickerZoneId) return;
-  const { x, y } = _bcPickerSelected;
-  const id = _bcPickerZoneId;
-  const name = id.split('/').pop().replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+// ── Step 2: pick or create a building in the chosen outdoor zone ──────────────
+
+function _bcShowBuildingPicker() {
+  document.getElementById('bsm-picker-overlay')?.remove();
+  const outdoorZoneId = _bcPickerOutdoorId;
+  const allZones = _bcPickerAllZones;
+  const outdoorZone = allZones.find(z => z.id === outdoorZoneId);
+  const buildings = allZones.filter(z =>
+    z.flags?.is_interior &&
+    (z.flags?.world_exit_zone === outdoorZoneId || z.exits?.out === outdoorZoneId)
+  );
+
+  const picker = document.createElement('div');
+  picker.id = 'bsm-picker-overlay';
+  picker.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:800;display:flex;align-items:center;justify-content:center';
+
+  if (!buildings.length) {
+    const defaultName = _bcPickerZoneId.split('/').pop().replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    picker.innerHTML = `
+      <div style="background:var(--bg2);border:1px solid var(--yellow);padding:20px;width:480px;max-width:96vw;border-radius:3px;display:flex;flex-direction:column;gap:14px">
+        <span style="color:var(--yellow);font-size:12px;letter-spacing:1px;text-transform:uppercase">Place <strong>${escHtml(_bcPickerZoneId)}</strong> — Step 2: New Building</span>
+        <div style="font-size:12px;color:var(--text)"><strong>${escHtml(outdoorZone?.name || outdoorZoneId)}</strong> has no buildings yet. A new studio will be created inside it.</div>
+        <div>
+          <label style="font-size:10px;color:var(--text-dim);display:block;margin-bottom:4px">Building Name</label>
+          <input id="bsm-building-name" class="form-input" style="width:100%;font-size:12px;box-sizing:border-box" value="${escHtml(defaultName)}">
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button onclick="_bcShowOutdoorPicker()" class="action-btn">← Back</button>
+          <button class="action-btn primary" onclick="_bcBuildingCreate('${escHtml(outdoorZoneId)}')">Create Building →</button>
+        </div>
+      </div>`;
+  } else {
+    const rows = buildings.map(z => `
+      <div onclick="_bcBuildingPickExisting('${escHtml(z.id)}','${escHtml(z.name)}')"
+        style="padding:8px 10px;cursor:pointer;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:baseline"
+        onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">
+        <span style="font-size:12px;color:var(--text)">${escHtml(z.name)}</span>
+        <span style="font-size:9px;color:var(--text-dim)">${escHtml(z.id)}</span>
+      </div>`).join('');
+    picker.innerHTML = `
+      <div style="background:var(--bg2);border:1px solid var(--yellow);padding:16px;width:520px;max-width:96vw;border-radius:3px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="color:var(--yellow);font-size:12px;letter-spacing:1px;text-transform:uppercase">Place <strong>${escHtml(_bcPickerZoneId)}</strong> — Step 2: Pick Building</span>
+          <button onclick="document.getElementById('bsm-picker-overlay').remove()" style="background:transparent;border:1px solid var(--border);color:var(--text-dim);width:24px;height:24px;cursor:pointer;border-radius:2px;font-size:12px">✕</button>
+        </div>
+        <div style="font-size:11px;color:var(--text-dim)">Buildings inside <strong>${escHtml(outdoorZone?.name || outdoorZoneId)}</strong>:</div>
+        <div style="border:1px solid var(--border);border-radius:2px;background:var(--bg);overflow:auto;max-height:280px">
+          ${rows}
+          <div id="bsm-building-new-row"
+            onclick="_bcBuildingNewPrompt('${escHtml(outdoorZoneId)}')"
+            style="padding:8px 10px;cursor:pointer;color:var(--accent);font-size:12px"
+            onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">
+            + Create new building here
+          </div>
+          <div id="bsm-building-new-form" style="display:none;padding:10px;flex-direction:column;gap:8px">
+            <input id="bsm-building-name" class="form-input" style="font-size:12px" placeholder="Building name"
+              value="${escHtml(_bcPickerZoneId.split('/').pop().replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()))}">
+            <div style="display:flex;gap:6px">
+              <button class="action-btn" onclick="document.getElementById('bsm-building-new-form').style.display='none';document.getElementById('bsm-building-new-row').style.display=''">Cancel</button>
+              <button class="action-btn primary" onclick="_bcBuildingCreate('${escHtml(outdoorZoneId)}')">Create →</button>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button onclick="_bcShowOutdoorPicker()" class="action-btn">← Back</button>
+        </div>
+      </div>`;
+  }
+  document.body.appendChild(picker);
+}
+
+function _bcBuildingNewPrompt(outdoorZoneId) {
+  const row  = document.getElementById('bsm-building-new-row');
+  const form = document.getElementById('bsm-building-new-form');
+  if (row)  row.style.display  = 'none';
+  if (form) form.style.display = 'flex';
+  document.getElementById('bsm-building-name')?.focus();
+}
+
+function _bcBuildingPickExisting(interiorZoneId, interiorZoneName) {
+  document.getElementById('bsm-picker-overlay')?.remove();
+  _bcShowInteriorConfirm(interiorZoneId, interiorZoneName, _bcPickerOutdoorId);
+}
+
+async function _bcBuildingCreate(outdoorZoneId) {
+  const name = document.getElementById('bsm-building-name')?.value?.trim();
+  if (!name) { toast('Building name is required.', true); return; }
   try {
-    const res = await directAPI('/zones', 'POST', {
-      id, name, description: `${name}. Edit this description.`,
-      map_id: 'map_world', grid_x: x, grid_y: y, grid_z: 0, marker: name.slice(0, 2).toUpperCase(),
-    });
-    if (res?.error) { toast(res.error, true); return; }
+    const studio = await directAPI('/broadcast/create-studio', 'POST', { studio_name: name, exterior_zone_id: outdoorZoneId });
+    if (studio?.error) { toast(`Building creation failed: ${studio.error}`, true); return; }
+    _bcPickerAllZones = await directAPI('/zones', 'GET') || _bcPickerAllZones;
     document.getElementById('bsm-picker-overlay')?.remove();
-    _bcMarkResolved(id);
-    toast(`Zone "${name}" placed at ${x},${y}.`);
+    _bcShowInteriorConfirm(studio.studio_zone_id, name, outdoorZoneId);
   } catch (err) { toast(err.message, true); }
+}
+
+// ── Step 3: interior confirm ───────────────────────────────────────────────────
+
+function _bcShowInteriorConfirm(interiorZoneId, interiorZoneName, outdoorZoneId) {
+  document.getElementById('bsm-picker-overlay')?.remove();
+  const zone = _bcPickerAllZones.find(z => z.id === interiorZoneId)
+    || { id: interiorZoneId, name: interiorZoneName, description: '' };
+  const backFn = outdoorZoneId
+    ? `_bcPickerOutdoorId='${escHtml(outdoorZoneId)}';_bcShowBuildingPicker()`
+    : '_bcShowOutdoorPicker()';
+  const remapNote = interiorZoneId !== _bcPickerZoneId
+    ? `<div style="font-size:10px;color:var(--yellow);padding:6px 0">⚠ BSM ID <code>${escHtml(_bcPickerZoneId)}</code> will be remapped to <code>${escHtml(interiorZoneId)}</code> on import.</div>`
+    : '';
+  const picker = document.createElement('div');
+  picker.id = 'bsm-picker-overlay';
+  picker.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:800;display:flex;align-items:center;justify-content:center';
+  picker.innerHTML = `
+    <div style="background:var(--bg2);border:1px solid var(--accent);padding:20px;width:460px;max-width:96vw;border-radius:3px;display:flex;flex-direction:column;gap:14px">
+      <span style="color:var(--accent);font-size:12px;letter-spacing:1px;text-transform:uppercase">Place <strong>${escHtml(_bcPickerZoneId)}</strong> — Confirm Interior</span>
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:2px;padding:12px;display:flex;flex-direction:column;gap:4px">
+        <div style="font-size:13px;font-weight:600;color:var(--text-bright)">${escHtml(zone.name || interiorZoneId)}</div>
+        <div style="font-size:10px;color:var(--text-dim);font-family:monospace">${escHtml(zone.id)}</div>
+        ${zone.description ? `<div style="font-size:11px;color:var(--text-dim);margin-top:4px">${escHtml(zone.description)}</div>` : ''}
+      </div>
+      ${remapNote}
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button onclick="${backFn}" class="action-btn">← Back</button>
+        <button class="action-btn primary" onclick="_bcInteriorConfirm('${escHtml(interiorZoneId)}')">Use This Zone ✓</button>
+      </div>
+    </div>`;
+  document.body.appendChild(picker);
+}
+
+function _bcInteriorConfirm(interiorZoneId) {
+  const bsmId = _bcPickerZoneId;
+  document.getElementById('bsm-picker-overlay')?.remove();
+  if (interiorZoneId !== bsmId) _bcZoneRemap[bsmId] = interiorZoneId;
+  _bcMarkResolved(bsmId);
+  toast(`Zone "${bsmId}" → "${interiorZoneId}"`);
 }
 
 async function _bcDepFinish() {
@@ -1258,6 +1421,14 @@ async function _bcDepFinish() {
 }
 
 async function _bcImportSave({ meta, broadcastGraph, messages, assets }) {
+  // Apply zone ID remaps to camera_cut nodes (BSM ID → real interior zone ID)
+  if (Object.keys(_bcZoneRemap).length) {
+    for (const node of Object.values(broadcastGraph?.nodes || {})) {
+      if (node.type === 'camera_cut' && _bcZoneRemap[node.zone_id]) {
+        node.zone_id = _bcZoneRemap[node.zone_id];
+      }
+    }
+  }
   for (const asset of assets) {
     try { await directAPI('/broadcast/graphics', 'POST', asset); }
     catch { try { await directAPI(`/broadcast/graphics/${asset.id}`, 'PUT', asset); } catch {} }
@@ -1321,6 +1492,7 @@ function renderCommercialsPanel(data) {
       <div style="width:220px;flex-shrink:0;border-right:1px solid var(--border);display:flex;flex-direction:column;background:var(--bg)">
         <div style="padding:8px 10px;border-bottom:1px solid var(--border);display:flex;gap:6px;align-items:center">
           <span class="bc-label" style="margin:0;flex:1">Commercials</span>
+          <button class="action-btn" style="font-size:10px" onclick="_bcCommImportBsm()" title="Import .bsm file">↑ BSM</button>
           <button class="action-btn primary" style="font-size:10px" onclick="_bcCommNew()">+ New</button>
         </div>
         <div style="flex:1;overflow-y:auto">${sidebar}</div>
@@ -1405,14 +1577,70 @@ function _bcCommEditor(bc, channels) {
     </div>`;
 }
 
-async function _bcCommNew() {
-  const id = `advert_${Date.now()}`;
-  const res = await directAPI('/broadcast/broadcasts', 'POST', {
-    id, name: 'New Commercial', category: 'advertisement',
-    messages: [], message_interval: 5, override_duration: 30,
+function _bcCommNew() {
+  if (typeof VineBroadcastSchema === 'undefined') {
+    toast('VINE broadcast schema not loaded.', true); return;
+  }
+  const emptyGraph = { _start: 'c_0', nodes: { c_0: { type: 'start', _vine: { x: 80, y: 80 } } } };
+  const vineData = VineBroadcastSchema.fromBroadcastGraph(emptyGraph);
+  vineModalOpen('VINE — New Commercial', VineBroadcastSchema, vineData, async (vineGraph) => {
+    const graph = VineBroadcastSchema.toBroadcastGraph(vineGraph);
+    const msgs  = Object.values(graph.nodes || {})
+      .filter(n => n.type === 'say' || n.type === 'ticker')
+      .map(n => ({ text: n.text || '' }));
+    const id  = `advert_${Date.now()}`;
+    const res = await directAPI('/broadcast/broadcasts', 'POST', {
+      id, name: 'New Commercial', category: 'advertisement',
+      messages: msgs, message_interval: 5, override_duration: null,
+      broadcast_graph: graph,
+    });
+    if (res?.error) { toast(res.error, true); return; }
+    _bcCommSelected = { id, name: 'New Commercial', category: 'advertisement',
+      messages: msgs, message_interval: 5, override_duration: null, broadcast_graph: graph };
+    await bcSuiteRefresh('commercials');
   });
+}
+
+function _bcCommImportBsm() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.bsm,.txt';
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const text = await file.text();
+    let compiled;
+    try { compiled = compileBsm(text); }
+    catch (err) { toast(`BSM parse error: ${err.message}`, true); return; }
+    if (!compiled.meta.name) { toast('BSM file is missing @broadcast name.', true); return; }
+    await _bcCommSaveBsm(compiled);
+  };
+  input.click();
+}
+
+async function _bcCommSaveBsm({ meta, broadcastGraph, messages, assets }) {
+  for (const asset of assets) {
+    try { await directAPI('/broadcast/graphics', 'POST', asset); }
+    catch { try { await directAPI(`/broadcast/graphics/${asset.id}`, 'PUT', asset); } catch {} }
+  }
+  let method = 'POST', path = '/broadcast/broadcasts';
+  const ads = (_bcSuiteData?.broadcasts || []).filter(b => b.category === 'advertisement');
+  const existing = ads.find(b => b.name === meta.name);
+  if (existing) {
+    const overwrite = confirm(`A commercial named "${meta.name}" already exists.\n\nOK = overwrite   Cancel = create copy`);
+    if (overwrite) { method = 'PUT'; path = `/broadcast/broadcasts/${existing.id}`; }
+    else meta.name += ' (imported)';
+  }
+  const body = {
+    name: meta.name, category: 'advertisement',
+    playback_mode: 'scripted', message_interval: 5,
+    override_duration: meta.length || null, loop: 0, enabled: 1,
+    messages: messages.map(t => ({ text: t })),
+    broadcast_graph: broadcastGraph,
+  };
+  const res = await directAPI(path, method, body);
   if (res?.error) { toast(res.error, true); return; }
-  _bcCommSelected = { id, name: 'New Commercial', category: 'advertisement', messages: [], message_interval: 5, override_duration: null };
+  toast(`Imported commercial "${meta.name}".`);
   await bcSuiteRefresh('commercials');
 }
 
