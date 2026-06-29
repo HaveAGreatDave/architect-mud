@@ -387,7 +387,16 @@ export function initTvPanel() {
     if (slider) slider.value = clamped;
   });
 
-  document.addEventListener('mouseup', () => { _knobDragging = false; });
+  document.addEventListener('mouseup', () => {
+    if (_knobDragging && _tvOpen && _tvFrequency <= 0 && !_tvPoweredOff) {
+      // Released at far left — power off
+      _tvPoweredOff = true;
+      const staticEl = document.getElementById('tv-static');
+      if (staticEl) { staticEl.classList.remove('tv-static-on', 'tv-static-fade'); staticEl.style.opacity = ''; }
+      document.getElementById('tv-content')?.classList.add('tv-hidden');
+    }
+    _knobDragging = false;
+  });
 
   knob.addEventListener('click', () => {
     if (!_tvOpen || _knobMoved) return;
@@ -406,6 +415,18 @@ export function initTvPanel() {
     }
     if (!_tvPoweredOff) _playTuneAnimation();
   });
+
+  // Mousewheel on knob — fine-tune by half a channel per tick
+  knob.addEventListener('wheel', (e) => {
+    if (!_tvOpen) return;
+    e.preventDefault();
+    const delta = -Math.sign(e.deltaY) * 0.5;
+    const maxCh = _tvChannelList.length ? Math.max(..._tvChannelList.map(c => c.number)) + 2 : 99;
+    const clamped = Math.max(0, Math.min(maxCh, _tvFrequency + delta));
+    tvTunerInput(clamped);
+    const slider = document.getElementById('tv-tuner-slider');
+    if (slider) slider.value = clamped;
+  }, { passive: false });
 
   // Draggable TV window
   const header = document.getElementById('tv-header');

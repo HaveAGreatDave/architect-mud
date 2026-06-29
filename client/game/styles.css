@@ -4089,10 +4089,10 @@ body {
 	flex-shrink: 0;
 	border-top: 1px solid var(--tv-border);
 	background: rgba(0, 20, 15, 0.7);
-	overflow: hidden;
-	height: 26px;
+	height: 72px;
 	display: flex;
 	align-items: center;
+	overflow: visible;
 }
 #tv-ticker-track {
 	width: 100%;
@@ -4232,15 +4232,15 @@ body {
 	animation: tv-static-out 0.4s ease-out forwards;
 }
 @keyframes tv-static-flicker {
-	0%   { background-position: 0 0;       filter: brightness(0.75) contrast(1.7); }
-	12%  { background-position: -47px 23px; filter: brightness(1.0) contrast(1.9); }
-	25%  { background-position: 31px -18px; filter: brightness(0.82) contrast(1.8); }
-	37%  { background-position: -12px 55px; filter: brightness(1.1) contrast(1.6); }
-	50%  { background-position: 62px -7px;  filter: brightness(0.78) contrast(1.9); }
-	62%  { background-position: -28px 40px; filter: brightness(0.95) contrast(1.7); }
-	75%  { background-position: 17px -44px; filter: brightness(1.05) contrast(1.8); }
-	87%  { background-position: -53px 12px; filter: brightness(0.8) contrast(1.9); }
-	100% { background-position: 8px -31px;  filter: brightness(0.87) contrast(1.7); }
+	0%   { background-position: 0 0;        filter: brightness(0.88) contrast(1.3); }
+	12%  { background-position: -47px 23px; filter: brightness(0.95) contrast(1.4); }
+	25%  { background-position: 31px -18px; filter: brightness(0.91) contrast(1.3); }
+	37%  { background-position: -12px 55px; filter: brightness(0.97) contrast(1.35); }
+	50%  { background-position: 62px -7px;  filter: brightness(0.89) contrast(1.4); }
+	62%  { background-position: -28px 40px; filter: brightness(0.94) contrast(1.3); }
+	75%  { background-position: 17px -44px; filter: brightness(0.96) contrast(1.35); }
+	87%  { background-position: -53px 12px; filter: brightness(0.90) contrast(1.4); }
+	100% { background-position: 8px -31px;  filter: brightness(0.93) contrast(1.3); }
 }
 @keyframes tv-static-out {
 	0%   { opacity: 1; filter: brightness(1) contrast(2); }
@@ -4254,16 +4254,17 @@ body {
 	flex-shrink: 0;
 	display: flex;
 	align-items: center;
-	padding: 0 10px 0 8px;
+	padding: 0 14px 0 12px;
 	border-left: 1px solid var(--tv-border);
 }
 #tv-knob {
-	width: 48px;
-	height: 48px;
-	cursor: pointer;
+	width: 68px;
+	height: 68px;
+	cursor: grab;
 	display: block;
 	transition: filter 0.2s;
 }
+#tv-knob:active { cursor: grabbing; }
 #tv-knob:hover { filter: drop-shadow(0 0 6px var(--tv-header-color)); }
 .tv-knob-ring {
 	fill: none;
