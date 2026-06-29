@@ -1,17 +1,61 @@
 // broadcast.js — unified broadcast suite (tab switcher + storyboard editor).
 // All functions land in global scope.
 
+// ── Markup renderer (BBCode → HTML, no token expansion) ─────────────────────
+
+function _bcMarkup(text) {
+  let s = String(text ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  // Rainbow
+  s = s.replace(/\[rainbow\]([\s\S]*?)\[\/rainbow\]/gi, (_, t) => {
+    const parts = []; t.replace(/&[a-z#][a-z0-9]*;|./gis, m => parts.push(m));
+    return parts.map((ch, i) => `<span style="color:hsl(${Math.round(i/Math.max(parts.length-1,1)*300)},100%,65%)">${ch}</span>`).join('');
+  });
+  s = s.replace(/\[b\]([\s\S]*?)\[\/b\]/gi,      '<strong>$1</strong>');
+  s = s.replace(/\[i\]([\s\S]*?)\[\/i\]/gi,       '<em>$1</em>');
+  s = s.replace(/\[u\]([\s\S]*?)\[\/u\]/gi,       '<span style="text-decoration:underline">$1</span>');
+  s = s.replace(/\[s\]([\s\S]*?)\[\/s\]/gi,       '<span style="text-decoration:line-through">$1</span>');
+  s = s.replace(/\[blink\]([\s\S]*?)\[\/blink\]/gi,'<span style="animation:blink 1s step-end infinite">$1</span>');
+  s = s.replace(/\[color=([^\]]{1,30})\]([\s\S]*?)\[\/color\]/gi, (_, c, t) =>
+    /^(?:[a-zA-Z]+|#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?)$/.test(c.trim())
+      ? `<span style="color:${c.trim()}">${t}</span>` : t);
+  s = s.replace(/\[danger\]([\s\S]*?)\[\/danger\]/gi,  '<span style="color:var(--red)">$1</span>');
+  s = s.replace(/\[safe\]([\s\S]*?)\[\/safe\]/gi,      '<span style="color:var(--green)">$1</span>');
+  s = s.replace(/\[player\]([\s\S]*?)\[\/player\]/gi,  '<span style="color:var(--purple)">$1</span>');
+  s = s.replace(/\[item\]([\s\S]*?)\[\/item\]/gi,      '<span style="color:var(--yellow)">$1</span>');
+  s = s.replace(/\[system\]([\s\S]*?)\[\/system\]/gi,  '<span style="color:var(--text-dim)">$1</span>');
+  return s;
+}
+
+function _bcMarkupPreview(previewId, text) {
+  const el = document.getElementById(previewId);
+  if (!el) return;
+  el.innerHTML = _bcMarkup(text);
+  el.style.display = text?.trim() ? '' : 'none';
+}
+
+function _bcInsertTag(taId, open, close) {
+  const ta = document.getElementById(taId);
+  if (!ta) return;
+  const s = ta.selectionStart, e = ta.selectionEnd;
+  const sel = ta.value.slice(s, e) || 'text';
+  ta.value = ta.value.slice(0, s) + open + sel + close + ta.value.slice(e);
+  ta.dispatchEvent(new Event('input'));
+  ta.focus();
+  ta.setSelectionRange(s + open.length, s + open.length + sel.length);
+}
+
 // ── Broadcast Suite (tab container) ──────────────────────────────────────────
 
 let _bcSuiteTab  = 'broadcasts'; // active sub-tab
 let _bcSuiteData = {};           // full fetched data cache
 
 const BC_SUITE_TABS = [
-  { id: 'broadcasts', label: '📺 Broadcasts' },
-  { id: 'channels',   label: '📡 Channels'   },
-  { id: 'schedule',   label: '📅 Schedule'   },
-  { id: 'themes',     label: '🎨 Themes'     },
-  { id: 'graphics',   label: '🖼 Graphics'   },
+  { id: 'broadcasts',  label: '📺 Broadcasts'  },
+  { id: 'channels',    label: '📡 Channels'    },
+  { id: 'schedule',    label: '📅 Schedule'    },
+  { id: 'commercials', label: '📼 Commercials' },
+  { id: 'themes',      label: '🎨 Themes'      },
+  { id: 'graphics',    label: '🖼 Graphics'    },
 ];
 
 function renderBroadcastSuite(data) {
@@ -19,16 +63,14 @@ function renderBroadcastSuite(data) {
   // Render the tab bar + content area into list-panel
   const panel = document.getElementById('list-panel');
   panel.innerHTML = `
-    <div style="display:flex;flex-direction:column;height:100%;overflow:hidden">
-      <div id="bc-suite-tabs" style="display:flex;gap:0;border-bottom:2px solid var(--border);flex-shrink:0;background:var(--bg2)">
+    <div class="bc-suite">
+      <div class="bc-tabs" id="bc-suite-tabs">
         ${BC_SUITE_TABS.map(t => `
-          <div onclick="bcSuiteSelectTab('${t.id}')"
+          <button class="bc-tab${_bcSuiteTab === t.id ? ' bc-tab-active' : ''}"
             id="bc-suite-tab-${t.id}"
-            style="padding:8px 16px;font-size:11px;letter-spacing:0.5px;cursor:pointer;border-bottom:2px solid ${_bcSuiteTab === t.id ? 'var(--accent)' : 'transparent'};
-                   color:${_bcSuiteTab === t.id ? 'var(--accent)' : 'var(--text-dim)'};
-                   margin-bottom:-2px;white-space:nowrap;transition:color 0.1s">
+            onclick="bcSuiteSelectTab('${t.id}')">
             ${t.label}
-          </div>`).join('')}
+          </button>`).join('')}
       </div>
       <div id="bc-suite-content" style="flex:1;overflow:auto;min-height:0"></div>
     </div>`;
@@ -41,9 +83,7 @@ function bcSuiteSelectTab(tab) {
   BC_SUITE_TABS.forEach(t => {
     const el = document.getElementById(`bc-suite-tab-${t.id}`);
     if (!el) return;
-    const active = t.id === tab;
-    el.style.borderBottomColor = active ? 'var(--accent)' : 'transparent';
-    el.style.color = active ? 'var(--accent)' : 'var(--text-dim)';
+    el.classList.toggle('bc-tab-active', t.id === tab);
   });
   _bcSuiteRender();
 }
@@ -60,11 +100,12 @@ function _bcSuiteRender() {
 
   try {
     switch (_bcSuiteTab) {
-      case 'broadcasts': renderBroadcastsPanel(_bcSuiteData); break;
-      case 'channels':   renderChannelsPanel(_bcSuiteData.channels || []); break;
-      case 'schedule':   renderSchedulePanel({ channels: _bcSuiteData.channels || [], broadcasts: _bcSuiteData.broadcasts || [], npcs: _bcSuiteData.npcs || [] }); break;
-      case 'themes':     renderThemesPanel(_bcSuiteData.themes || []); break;
-      case 'graphics':   renderGraphicsPanel(_bcSuiteData.graphics || []); break;
+      case 'broadcasts':  renderBroadcastsPanel(_bcSuiteData); break;
+      case 'channels':    renderChannelsPanel(_bcSuiteData.channels || []); break;
+      case 'schedule':    renderSchedulePanel({ channels: _bcSuiteData.channels || [], broadcasts: _bcSuiteData.broadcasts || [], npcs: _bcSuiteData.npcs || [] }); break;
+      case 'commercials': renderCommercialsPanel(_bcSuiteData); break;
+      case 'themes':      renderThemesPanel(_bcSuiteData.themes || []); break;
+      case 'graphics':    renderGraphicsPanel(_bcSuiteData.graphics || []); break;
     }
   } finally {
     // Restore ids
@@ -412,10 +453,26 @@ function _bcCardFields(card, idx) {
   const bind = (key) => `oninput="_bcCards[${idx}]['${key}']=this.value;_bcUpdateDurLabel()"`;
 
   switch (card.type) {
-    case 'say':
-      return `<div style="display:flex;flex-direction:column;gap:8px;padding-top:10px">
+    case 'say': {
+      const taId = `bc-say-ta-${idx}`, prvId = `bc-say-pv-${idx}`;
+      const fmtBtns = [['B','[b]','[/b]'],['I','[i]','[/i]'],['U','[u]','[/u]'],['S','[s]','[/s]'],['~','[blink]','[/blink]'],['🌈','[rainbow]','[/rainbow]']].map(([lbl,o,c]) =>
+        `<button class="action-btn" style="font-size:10px;padding:1px 5px;font-weight:bold" title="${o}${c}" onclick="_bcInsertTag('${taId}','${o}','${c}')">${lbl}</button>`).join('');
+      const colorBtns = ['red','#ff8c00','yellow','lime','cyan','#7b68ee','magenta'].map(c =>
+        `<button style="width:16px;height:16px;background:${c};border:1px solid var(--border);border-radius:2px;cursor:pointer;padding:0;flex-shrink:0" title="[color=${c}]" onclick="_bcInsertTag('${taId}','[color=${c}]','[/color]')"></button>`).join('');
+      const gameBtns = ['danger','safe','player','item','system'].map(lbl =>
+        `<button class="action-btn" style="font-size:9px;padding:1px 5px" onclick="_bcInsertTag('${taId}','[${lbl}]','[/${lbl}]')">${lbl}</button>`).join('');
+      return `<div style="display:flex;flex-direction:column;gap:6px;padding-top:10px">
         <label style="font-size:10px;color:var(--text-dim)">Text</label>
-        <textarea class="form-input" rows="4" style="resize:vertical;font-size:12px" ${bind('text')}>${escHtml(card.text||'')}</textarea>
+        <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;padding:4px 0">
+          ${fmtBtns}
+          <span style="width:1px;background:var(--border);height:14px;margin:0 2px"></span>
+          ${colorBtns}
+          <span style="width:1px;background:var(--border);height:14px;margin:0 2px"></span>
+          ${gameBtns}
+        </div>
+        <textarea id="${taId}" class="form-input" rows="4" style="resize:vertical;font-size:12px"
+          oninput="_bcCards[${idx}].text=this.value;_bcUpdateDurLabel();_bcMarkupPreview('${prvId}',this.value)">${escHtml(card.text||'')}</textarea>
+        <div id="${prvId}" style="font-size:12px;line-height:1.6;padding:6px 8px;background:var(--bg3);border:1px solid var(--border);border-radius:2px;min-height:24px;${card.text?'':'display:none'}">${_bcMarkup(card.text||'')}</div>
         <div style="display:flex;align-items:center;gap:8px">
           <label style="font-size:10px;color:var(--text-dim)">Style</label>
           <select class="form-input" style="width:120px;font-size:11px" oninput="_bcCards[${idx}].style=this.value">
@@ -423,6 +480,7 @@ function _bcCardFields(card, idx) {
           </select>
         </div>
       </div>`;
+    }
     case 'ticker':
       return `<div style="padding-top:10px">
         <label style="font-size:10px;color:var(--text-dim);display:block;margin-bottom:4px">Ticker text</label>
@@ -836,51 +894,112 @@ function _bcImportChSelectChange(val) {
   if (form) form.style.display = val === '__new__' ? 'flex' : 'none';
 }
 
+let _bcZonePickerMode = 'map'; // 'map' | 'list'
+
 function _bcImportPickChZone() {
+  _bcZonePickerMode = 'map';
+  _bcZonePickerRender();
+}
+
+function _bcZonePickerRender() {
+  document.getElementById('bsm-ch-picker-overlay')?.remove();
   const allZones = _bcImportAllZones;
-  const placed = allZones.filter(z => z.grid_x != null && z.grid_y != null && z.map_id === 'map_world');
-  let minX = -3, maxX = 3, minY = -3, maxY = 3;
-  if (placed.length) {
-    const xs = placed.map(z => z.grid_x), ys = placed.map(z => z.grid_y);
-    minX = Math.min(...xs) - 2; maxX = Math.max(...xs) + 2;
-    minY = Math.min(...ys) - 2; maxY = Math.max(...ys) + 2;
-  }
-  const byCoord = new Map(placed.map(z => [`${z.grid_x},${z.grid_y}`, z]));
-  const W = maxX - minX + 1;
-  const CELL = 76;
-  let cells = '';
-  for (let y = minY; y <= maxY; y++) {
-    for (let x = minX; x <= maxX; x++) {
-      const z = byCoord.get(`${x},${y}`);
-      if (z) {
-        cells += `<div style="background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--text-dim);text-align:center;padding:2px;overflow:hidden;line-height:1.2" title="${z.id}">${escHtml(z.name)}</div>`;
-      } else {
-        cells += `<div class="bsm-ch-pick-cell" data-x="${x}" data-y="${y}" onclick="_bcImportChPickCell(${x},${y},this)" style="background:var(--bg);border:1px dashed var(--border);display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--border);cursor:pointer" title="${x},${y}">+</div>`;
-      }
-    }
-  }
   const picker = document.createElement('div');
   picker.id = 'bsm-ch-picker-overlay';
   picker.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:800;display:flex;align-items:center;justify-content:center';
+
+  let modeContent;
+  if (_bcZonePickerMode === 'list') {
+    // Show only interior zones (not world map) for studio placement
+    const interiorZones = allZones.filter(z => z.map_id && z.map_id !== 'map_world');
+    const rows = interiorZones.map(z =>
+      `<div class="bsm-ch-zone-row" data-id="${z.id}"
+        onclick="_bcImportChPickExisting('${z.id}', ${JSON.stringify(escHtml(z.name)).replace(/'/g,"\\'")})"
+        style="padding:6px 10px;cursor:pointer;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:baseline">
+        <span style="font-size:11px;color:var(--text)">${escHtml(z.name)}</span>
+        <span style="font-size:9px;color:var(--text-dim)">${z.id}</span>
+      </div>`
+    ).join('');
+    modeContent = `
+      <div class="bc-meta" style="margin-bottom:6px">Showing interior/building zones only. Use 🗺 World Map to create a new studio.</div>
+      <input id="bsm-zone-search" class="form-input" placeholder="Search zones..." style="margin-bottom:6px"
+        oninput="_bcZoneListFilter(this.value)">
+      <div id="bsm-zone-list" style="overflow:auto;max-height:340px;border:1px solid var(--border);border-radius:2px;background:var(--bg)">
+        ${rows || '<div class="bc-meta" style="padding:10px">No interior zones found.</div>'}
+      </div>`;
+  } else {
+    const placed = allZones.filter(z => z.grid_x != null && z.grid_y != null && z.map_id === 'map_world');
+    let minX = -3, maxX = 3, minY = -3, maxY = 3;
+    if (placed.length) {
+      const xs = placed.map(z => z.grid_x), ys = placed.map(z => z.grid_y);
+      minX = Math.min(...xs) - 2; maxX = Math.max(...xs) + 2;
+      minY = Math.min(...ys) - 2; maxY = Math.max(...ys) + 2;
+    }
+    const byCoord = new Map(placed.map(z => [`${z.grid_x},${z.grid_y}`, z]));
+    const W = maxX - minX + 1;
+    const CELL = 76;
+    let cells = '';
+    for (let y = minY; y <= maxY; y++) {
+      for (let x = minX; x <= maxX; x++) {
+        const z = byCoord.get(`${x},${y}`);
+        if (z) {
+          cells += `<div style="background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--text-dim);text-align:center;padding:2px;overflow:hidden;line-height:1.2" title="${z.id}">${escHtml(z.name)}</div>`;
+        } else {
+          cells += `<div class="bsm-ch-pick-cell" data-x="${x}" data-y="${y}" onclick="_bcImportChPickCell(${x},${y},this)" style="background:var(--bg);border:1px dashed var(--border);display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--border);cursor:pointer" title="${x},${y}">+</div>`;
+        }
+      }
+    }
+    modeContent = `
+      <div style="font-size:11px;color:var(--text-dim);margin-bottom:4px">Click an empty cell (+) to create a new zone on the world map.</div>
+      <div style="overflow:auto;max-height:400px">
+        <div style="display:grid;grid-template-columns:repeat(${W},${CELL}px);grid-template-rows:repeat(${maxY - minY + 1},${Math.round(CELL * 0.65)}px);gap:2px;width:fit-content">
+          ${cells}
+        </div>
+      </div>`;
+  }
+
   picker.innerHTML = `
     <div style="background:var(--bg2);border:1px solid var(--yellow);padding:16px;width:660px;max-width:96vw;border-radius:3px;display:flex;flex-direction:column;gap:10px">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <span style="color:var(--yellow);font-size:12px;letter-spacing:1px;text-transform:uppercase">Pick Channel Zone</span>
         <button onclick="document.getElementById('bsm-ch-picker-overlay').remove()" style="background:transparent;border:1px solid var(--border);color:var(--text-dim);width:24px;height:24px;cursor:pointer;border-radius:2px;font-size:12px">✕</button>
       </div>
-      <div style="font-size:11px;color:var(--text-dim)">Click an empty cell (+) to place the channel's studio zone on the world map.</div>
-      <div style="overflow:auto;max-height:400px">
-        <div style="display:grid;grid-template-columns:repeat(${W},${CELL}px);grid-template-rows:repeat(${maxY-minY+1},${Math.round(CELL*0.65)}px);gap:2px;width:fit-content">
-          ${cells}
-        </div>
+      <div style="display:flex;gap:0;border:1px solid var(--border);border-radius:2px;overflow:hidden;align-self:flex-start">
+        <button onclick="_bcZonePickerSwitch('map')" class="action-btn" style="border:none;border-radius:0;${_bcZonePickerMode === 'map' ? 'background:var(--bg3);color:var(--accent2)' : ''}">🗺 World Map</button>
+        <button onclick="_bcZonePickerSwitch('list')" class="action-btn" style="border:none;border-radius:0;border-left:1px solid var(--border);${_bcZonePickerMode === 'list' ? 'background:var(--bg3);color:var(--accent2)' : ''}">☰ Zone List</button>
       </div>
+      ${modeContent}
       <div style="display:flex;gap:8px;justify-content:flex-end;align-items:center">
-        <span id="bsm-ch-picker-label" style="font-size:11px;color:var(--text-dim)">No cell selected</span>
+        <span id="bsm-ch-picker-label" style="font-size:11px;color:var(--text-dim)">No zone selected</span>
         <button onclick="document.getElementById('bsm-ch-picker-overlay').remove()" class="action-btn">Cancel</button>
-        <button id="bsm-ch-picker-confirm" class="action-btn primary" disabled onclick="_bcImportChPickerConfirm()">Use This Cell</button>
+        <button id="bsm-ch-picker-confirm" class="action-btn primary" disabled onclick="_bcImportChPickerConfirm()">Use This Zone</button>
       </div>
     </div>`;
   document.body.appendChild(picker);
+}
+
+function _bcZonePickerSwitch(mode) {
+  _bcZonePickerMode = mode;
+  _bcImportChZone = null;
+  _bcZonePickerRender();
+}
+
+function _bcZoneListFilter(q) {
+  const lower = q.toLowerCase();
+  document.querySelectorAll('.bsm-ch-zone-row').forEach(row => {
+    row.style.display = row.textContent.toLowerCase().includes(lower) ? '' : 'none';
+  });
+}
+
+function _bcImportChPickExisting(zoneId, zoneName) {
+  document.querySelectorAll('.bsm-ch-zone-row').forEach(r => {
+    r.style.background = r.dataset.id === zoneId ? 'color-mix(in srgb,var(--accent2) 15%,transparent)' : '';
+  });
+  _bcImportChZone = { existingId: zoneId, existingName: zoneName };
+  const lbl = document.getElementById('bsm-ch-picker-label');
+  if (lbl) lbl.textContent = `Selected: ${zoneName}`;
+  const btn = document.getElementById('bsm-ch-picker-confirm');
+  if (btn) btn.removeAttribute('disabled');
 }
 
 function _bcImportChPickCell(x, y, el) {
@@ -899,15 +1018,24 @@ function _bcImportChPickCell(x, y, el) {
 function _bcImportChPickerConfirm() {
   document.getElementById('bsm-ch-picker-overlay')?.remove();
   const lbl = document.getElementById('bsm-new-ch-zone-label');
-  if (lbl && _bcImportChZone) lbl.textContent = `Zone at ${_bcImportChZone.x}, ${_bcImportChZone.y}`;
-  // Show studio name field and pre-fill based on channel name if not already set
-  const studioRow = document.getElementById('bsm-new-ch-studio-row');
-  const studioInput = document.getElementById('bsm-new-ch-studio-name');
-  if (studioRow) studioRow.style.display = 'block';
-  if (studioInput && !studioInput.value) {
-    const chName = document.getElementById('bsm-new-ch-name')?.value?.trim();
-    const isScripted = document.getElementById('bsm-channel-overlay')?.dataset.scripted === '1';
-    studioInput.value = chName ? `${chName} ${isScripted ? 'Broadcast Zone' : 'Studio'}` : '';
+  if (!_bcImportChZone) return;
+
+  if (_bcImportChZone.existingId) {
+    // Existing zone — no new zone needed, no studio name field
+    if (lbl) lbl.textContent = _bcImportChZone.existingName || _bcImportChZone.existingId;
+    const studioRow = document.getElementById('bsm-new-ch-studio-row');
+    if (studioRow) studioRow.style.display = 'none';
+  } else {
+    // New zone from map
+    if (lbl) lbl.textContent = `New zone at ${_bcImportChZone.x}, ${_bcImportChZone.y}`;
+    const studioRow = document.getElementById('bsm-new-ch-studio-row');
+    const studioInput = document.getElementById('bsm-new-ch-studio-name');
+    if (studioRow) studioRow.style.display = 'block';
+    if (studioInput && !studioInput.value) {
+      const chName = document.getElementById('bsm-new-ch-name')?.value?.trim();
+      const isScripted = document.getElementById('bsm-channel-overlay')?.dataset.scripted === '1';
+      studioInput.value = chName ? `${chName} ${isScripted ? 'Broadcast Zone' : 'Studio'}` : '';
+    }
   }
 }
 
@@ -926,22 +1054,27 @@ async function _bcImportChannelConfirm() {
     const chId = `ch_${number}_${Date.now()}`;
     const chBody = { id: chId, name, number, channel_type: 'playlist', enabled: 1 };
     if (_bcImportChZone) {
-      const defaultName = isScripted ? `${name} Broadcast Zone` : `${name} Studio`;
-      const zoneName = document.getElementById('bsm-new-ch-studio-name')?.value?.trim() || defaultName;
-      const zoneId   = `zone_ch_${number}_${Date.now()}`;
-      try {
-        await directAPI('/zones', 'POST', {
-          id: zoneId, name: zoneName,
-          description: isScripted
-            ? `Broadcast zone for channel ${number}: ${name}.`
-            : `Broadcast studio for channel ${number}: ${name}.`,
-          map_id: 'map_world', grid_x: _bcImportChZone.x, grid_y: _bcImportChZone.y, grid_z: 0,
-          marker: name.slice(0, 2).toUpperCase(),
-        });
-        // Scripted: zone_id is where the show originates; live: studio_zone_id tracks NPC hosts
+      if (_bcImportChZone.existingId) {
+        // Use an existing interior zone — no creation needed
+        const zoneId = _bcImportChZone.existingId;
         if (isScripted) chBody.zone_id = zoneId;
         else chBody.studio_zone_id = zoneId;
-      } catch (err) { toast(`Zone creation failed: ${err.message}`, true); return; }
+      } else {
+        // New zone from world map — use create-studio to set up full interior + power
+        const defaultName = isScripted ? `${name} Broadcast Zone` : `${name} Studio`;
+        const zoneName = document.getElementById('bsm-new-ch-studio-name')?.value?.trim() || defaultName;
+        try {
+          const studio = await directAPI('/broadcast/create-studio', 'POST', {
+            studio_name: zoneName,
+            grid_x: _bcImportChZone.x,
+            grid_y: _bcImportChZone.y,
+            channel_id: chId,
+          });
+          if (studio?.error) { toast(`Studio creation failed: ${studio.error}`, true); return; }
+          if (isScripted) chBody.zone_id = studio.studio_zone_id;
+          else chBody.studio_zone_id = studio.studio_zone_id;
+        } catch (err) { toast(`Studio creation failed: ${err.message}`, true); return; }
+      }
     }
 
     try {
@@ -1158,6 +1291,181 @@ async function _bcImportSave({ meta, broadcastGraph, messages, assets }) {
     toast(`Imported "${meta.name}" — ${messages.length} messages, ${nodeCount} graph nodes${assets.length ? `, ${assets.length} asset(s)` : ''}.`);
     await bcSuiteRefresh('broadcasts');
   } catch (err) { toast(err.message, true); }
+}
+
+// ── Commercials Tab ───────────────────────────────────────────────────────────
+
+let _bcCommSelected = null;
+
+function renderCommercialsPanel(data) {
+  const el = document.getElementById('list-panel');
+  const ads = (data?.broadcasts || []).filter(b => b.category === 'advertisement');
+  const channels = data?.channels || [];
+
+  const sidebar = ads.map(b => {
+    const dur = b.override_duration || ((Array.isArray(b.messages) ? b.messages.length : 0) * (b.message_interval || 5)) || 30;
+    const active = _bcCommSelected?.id === b.id;
+    return `<div onclick="_bcCommSelect('${b.id}')"
+      style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border);
+             background:${active ? 'var(--bg3)' : 'transparent'};
+             border-left:3px solid ${active ? 'var(--accent2)' : 'transparent'}">
+      <div class="bc-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(b.name)}</div>
+      <div class="bc-meta">${Math.round(dur)}s · ${b.messages?.length || 0} msgs</div>
+    </div>`;
+  }).join('') || `<div class="bc-meta" style="padding:12px">No advertisements yet</div>`;
+
+  const editor = _bcCommSelected ? _bcCommEditor(_bcCommSelected, channels) : `<div class="bc-meta" style="padding:24px">Select a commercial to edit</div>`;
+
+  el.innerHTML = `
+    <div style="display:flex;height:100%;overflow:hidden">
+      <div style="width:220px;flex-shrink:0;border-right:1px solid var(--border);display:flex;flex-direction:column;background:var(--bg)">
+        <div style="padding:8px 10px;border-bottom:1px solid var(--border);display:flex;gap:6px;align-items:center">
+          <span class="bc-label" style="margin:0;flex:1">Commercials</span>
+          <button class="action-btn primary" style="font-size:10px" onclick="_bcCommNew()">+ New</button>
+        </div>
+        <div style="flex:1;overflow-y:auto">${sidebar}</div>
+      </div>
+      <div style="flex:1;overflow:auto;padding:16px">${editor}</div>
+    </div>`;
+
+  // Sync selected object from fresh data
+  if (_bcCommSelected) {
+    _bcCommSelected = ads.find(b => b.id === _bcCommSelected.id) || null;
+  }
+}
+
+function _bcCommSelect(id) {
+  _bcCommSelected = (_bcSuiteData?.broadcasts || []).find(b => b.id === id) || null;
+  renderCommercialsPanel(_bcSuiteData);
+}
+
+function _bcCommEditor(bc, channels) {
+  // Which channels include this commercial in their pool
+  const poolChannels = channels.filter(ch => {
+    const pool = Array.isArray(ch.commercial_pool) ? ch.commercial_pool : (ch.commercial_pool ? JSON.parse(ch.commercial_pool) : []);
+    return pool.includes(bc.id);
+  });
+  const poolList = poolChannels.length
+    ? poolChannels.map(c => `<span class="bc-chip">${escHtml(c.name)}</span>`).join(' ')
+    : `<span class="bc-meta">Not assigned to any channels</span>`;
+
+  const msgs = Array.isArray(bc.messages) ? bc.messages : [];
+  const dur = bc.override_duration || (msgs.length * (bc.message_interval || 5)) || 30;
+
+  return `
+    <div style="max-width:640px;display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <input class="form-input" id="bc-comm-name" value="${escHtml(bc.name)}"
+          style="flex:1;font-size:13px;font-weight:600" onblur="_bcCommSaveMeta()">
+        <button class="action-btn danger" onclick="_bcCommDelete('${bc.id}')">Delete</button>
+      </div>
+
+      <div class="bc-section">
+        <div class="bc-section-head">Timing</div>
+        <div class="bc-section-body" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div>
+            <label class="bc-label">Interval (sec between messages)</label>
+            <input class="form-input" type="number" id="bc-comm-interval" value="${bc.message_interval || 5}" min="1" onblur="_bcCommSaveMeta()">
+          </div>
+          <div>
+            <label class="bc-label">Override duration (sec)</label>
+            <input class="form-input" type="number" id="bc-comm-duration" value="${bc.override_duration || ''}" min="1" placeholder="auto (${Math.round(dur)}s)" onblur="_bcCommSaveMeta()">
+          </div>
+        </div>
+      </div>
+
+      <div class="bc-section">
+        <div class="bc-section-head" style="justify-content:space-between">
+          Messages
+          <button class="action-btn" style="font-size:10px" onclick="_bcCommAddMsg('${bc.id}')">+ Add</button>
+        </div>
+        <div class="bc-section-body" style="display:flex;flex-direction:column;gap:6px">
+          ${msgs.length
+            ? msgs.map((m, i) => {
+              const taId = `bc-comm-ta-${bc.id}-${i}`, pvId = `bc-comm-pv-${bc.id}-${i}`;
+              return `<div style="display:flex;gap:6px;align-items:flex-start">
+                <span class="bc-meta" style="padding-top:6px;min-width:20px">${i + 1}.</span>
+                <div style="flex:1;display:flex;flex-direction:column;gap:3px">
+                  <textarea id="${taId}" class="form-input" rows="2" style="width:100%;font-size:11px;resize:vertical"
+                    oninput="_bcMarkupPreview('${pvId}',this.value)"
+                    onblur="_bcCommSaveMsg('${bc.id}',${i},this.value)">${escHtml(m)}</textarea>
+                  <div id="${pvId}" style="font-size:11px;line-height:1.5;padding:4px 6px;background:var(--bg3);border:1px solid var(--border);border-radius:2px;${m?'':'display:none'}">${_bcMarkup(m)}</div>
+                </div>
+                <button class="action-btn danger" style="padding:2px 6px;font-size:10px;margin-top:2px" onclick="_bcCommDelMsg('${bc.id}',${i})">✕</button>
+              </div>`;
+            }).join('')
+            : `<div class="bc-meta">No messages yet</div>`}
+        </div>
+      </div>
+
+      <div class="bc-section">
+        <div class="bc-section-head">Channel Pool Membership</div>
+        <div class="bc-section-body">${poolList}</div>
+      </div>
+    </div>`;
+}
+
+async function _bcCommNew() {
+  const id = `advert_${Date.now()}`;
+  const res = await directAPI('/broadcast/broadcasts', 'POST', {
+    id, name: 'New Commercial', category: 'advertisement',
+    messages: [], message_interval: 5, override_duration: 30,
+  });
+  if (res?.error) { toast(res.error, true); return; }
+  _bcCommSelected = { id, name: 'New Commercial', category: 'advertisement', messages: [], message_interval: 5, override_duration: null };
+  await bcSuiteRefresh('commercials');
+}
+
+async function _bcCommSaveMeta() {
+  if (!_bcCommSelected) return;
+  const name     = document.getElementById('bc-comm-name')?.value?.trim();
+  const interval = parseInt(document.getElementById('bc-comm-interval')?.value) || 5;
+  const duration = parseInt(document.getElementById('bc-comm-duration')?.value) || null;
+  if (!name) return;
+  const res = await directAPI(`/broadcast/broadcasts/${_bcCommSelected.id}`, 'PUT', {
+    ..._bcCommSelected, name, message_interval: interval, override_duration: duration || null,
+  });
+  if (res?.error) { toast(res.error, true); return; }
+  _bcCommSelected.name             = name;
+  _bcCommSelected.message_interval = interval;
+  _bcCommSelected.override_duration = duration || null;
+  await bcSuiteRefresh('commercials');
+}
+
+async function _bcCommAddMsg(bcId) {
+  const bc = (_bcSuiteData?.broadcasts || []).find(b => b.id === bcId);
+  if (!bc) return;
+  const msgs = Array.isArray(bc.messages) ? [...bc.messages, 'New message'] : ['New message'];
+  const res = await directAPI(`/broadcast/broadcasts/${bcId}`, 'PUT', { ...bc, messages: msgs });
+  if (res?.error) { toast(res.error, true); return; }
+  await bcSuiteRefresh('commercials');
+}
+
+async function _bcCommSaveMsg(bcId, idx, val) {
+  const bc = (_bcSuiteData?.broadcasts || []).find(b => b.id === bcId);
+  if (!bc) return;
+  const msgs = Array.isArray(bc.messages) ? [...bc.messages] : [];
+  msgs[idx] = val;
+  const res = await directAPI(`/broadcast/broadcasts/${bcId}`, 'PUT', { ...bc, messages: msgs });
+  if (res?.error) { toast(res.error, true); return; }
+  await bcSuiteRefresh('commercials');
+}
+
+async function _bcCommDelMsg(bcId, idx) {
+  const bc = (_bcSuiteData?.broadcasts || []).find(b => b.id === bcId);
+  if (!bc) return;
+  const msgs = Array.isArray(bc.messages) ? bc.messages.filter((_, i) => i !== idx) : [];
+  const res = await directAPI(`/broadcast/broadcasts/${bcId}`, 'PUT', { ...bc, messages: msgs });
+  if (res?.error) { toast(res.error, true); return; }
+  await bcSuiteRefresh('commercials');
+}
+
+async function _bcCommDelete(bcId) {
+  if (!confirm('Delete this commercial?')) return;
+  const res = await directAPI(`/broadcast/broadcasts/${bcId}`, 'DELETE');
+  if (res?.error) { toast(res.error, true); return; }
+  _bcCommSelected = null;
+  await bcSuiteRefresh('commercials');
 }
 
 // ── Utility ───────────────────────────────────────────────────────────────────

@@ -1,0 +1,87 @@
+@broadcast "Acid Cola™ - Reality Hurts"
+@channel ksab_tv
+@category commercial
+@type commercial
+@runtime 30s
+
+::asset acid_cola_logo
+
+ █████╗  ██████╗██╗██████╗      ██████╗ ██████╗ ██╗      █████╗
+██╔══██╗██╔════╝██║██╔══██╗    ██╔════╝██╔═══██╗██║     ██╔══██╗
+███████║██║     ██║██║  ██║    ██║     ██║   ██║██║     ███████║
+██╔══██║██║     ██║██║  ██║    ██║     ██║   ██║██║     ██╔══██║
+██║  ██║╚██████╗██║██████╔╝    ╚██████╗╚██████╔╝███████╗██║  ██║
+╚═╝  ╚═╝ ╚═════╝╚═╝╚═════╝      ╚═════╝ ╚═════╝ ╚══════╝╚═╝  ╚═╝
+
+                      "Reality Hurts."
+
+END
+
+::scene TITLE
+
+EVENT FADE_IN
+
+TITLE acid_cola_logo
+
+MUSIC acid_cola_jingle
+
+♪ An upbeat Acid Cola™ advertising jingle begins playing. ♪
+
+WAIT 5s
+
+::scene COMMERCIAL
+
+CAM1 WIDE
+
+SHOT
+
+The camera sweeps across a dazzling futuristic city skyline as glowing Acid Cola™ signs illuminate the night.
+
+END
+
+NARRATOR:
+Feeling tired?
+
+WAIT 2s
+
+NARRATOR:
+Feeling hopeless?
+
+WAIT 2s
+
+NARRATOR:
+Feeling like the world is slowly collapsing around you?
+
+WAIT 2s
+
+CAM2 CLOSEUP acid_cola_can
+
+SHOT
+
+The camera dramatically zooms toward an ice-cold can of Acid Cola™ as condensation glistens beneath brilliant studio lighting.
+
+END
+
+NARRATOR:
+Drink Acid Cola™.
+
+WAIT 2s
+
+NARRATOR:
+Because reality is easier to tolerate when it's carbonated.
+
+WAIT 2s
+
+OVERLAY
+
+LIMITED TIME OFFER
+
+BUY TWO
+
+GET THE THIRD LEGALLY CLASSIFIED AS A BONUS
+
+END
+
+WAIT 5s
+
+EVENT FADE_OUT

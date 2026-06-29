@@ -3154,15 +3154,16 @@ body {
 	font-weight: bold;
 }
 
-/* ─── HUD RIGHT COLUMN (inline minimap + weather/chat) ─── */
+/* ─── HUD RIGHT COLUMN (minimap left, info stack right) ─── */
 #mob-hud-right {
 	display: flex;
-	flex-direction: column;
-	align-items: center;
-	gap: 3px;
+	flex-direction: row;
+	align-items: stretch;
+	gap: 4px;
 	flex-shrink: 0;
 }
 
+/* Minimap fills the full height of the info column beside it */
 #minimap-grid-hud {
 	white-space: nowrap;
 	font-size: 9px;
@@ -3176,8 +3177,11 @@ body {
 	padding: 2px 3px;
 	cursor: pointer;
 	transition: border-color 0.15s;
+	display: flex;
+	align-items: center;
+	justify-content: center;
 }
-#minimap-grid-hud:hover {
+#minimap-grid-hud:active {
 	border-color: var(--accent);
 }
 #minimap-grid-hud .mm-cell {
@@ -3186,20 +3190,30 @@ body {
 	line-height: 1em;
 }
 
-#mob-hud-bottom {
+/* Info stack: weather, body temp, chat — stacked vertically to minimap's right */
+#mob-hud-info {
 	display: flex;
-	align-items: center;
-	gap: 4px;
-	font-size: 10px;
+	flex-direction: column;
+	gap: 2px;
+	justify-content: space-between;
 }
 
 .mob-hud-weather {
-	font-size: 12px;
+	font-size: 13px;
+	line-height: 1;
+	text-align: center;
 }
 
 .mob-hud-temp {
 	color: var(--cyan);
-	font-size: 10px;
+	font-size: 9px;
+	line-height: 1;
+}
+
+.mob-hud-bodytemp {
+	color: var(--orange);
+	font-size: 9px;
+	line-height: 1;
 }
 
 #mobile-chat-btn {
@@ -3208,15 +3222,52 @@ body {
 	color: var(--text-dim);
 	font-family: var(--font-mono);
 	font-size: 14px;
-	padding: 2px 5px;
+	padding: 1px 4px;
 	cursor: pointer;
 	border-radius: 2px;
 	flex-shrink: 0;
 	transition: all 0.15s;
 	-webkit-tap-highlight-color: transparent;
+	line-height: 1;
 }
-#mobile-chat-btn:hover {
+#mobile-chat-btn:active {
 	border-color: var(--accent);
+	color: var(--accent);
+}
+
+/* ─── AREA TOGGLE BAR (mobile only) ─── */
+#area-toggle-bar {
+	display: none;
+	border-bottom: 1px solid var(--border);
+	background: var(--bg2);
+	flex-shrink: 0;
+}
+
+@media (max-width: 720px) {
+	#area-toggle-bar {
+		display: flex;
+	}
+}
+
+[data-density="compact"] #area-toggle-bar {
+	display: flex;
+}
+
+#area-toggle-btn {
+	background: transparent;
+	border: none;
+	color: var(--text-dim);
+	font-family: var(--font-mono);
+	font-size: 10px;
+	padding: 3px 10px;
+	cursor: pointer;
+	letter-spacing: 1px;
+	text-transform: uppercase;
+	width: 100%;
+	text-align: left;
+	-webkit-tap-highlight-color: transparent;
+}
+#area-toggle-btn:active {
 	color: var(--accent);
 }
 
@@ -3293,10 +3344,16 @@ body {
 	color: var(--accent);
 }
 
-.dpad-u,
-.dpad-d {
-	font-size: 13px;
-	opacity: 0.55;
+.dpad-blank {
+	background: transparent;
+	border-color: transparent;
+	cursor: default;
+	pointer-events: none;
+}
+
+.dpad-ud {
+	opacity: 0.6;
+	font-size: 12px;
 }
 
 #mobile-minimap-panel {
@@ -3856,14 +3913,14 @@ body {
 	text-align: center;
 }
 .tv-msg-svg {
-	display: flex;
-	justify-content: center;
-	align-items: center;
-	padding: 8px 0;
+	display: block;
 	width: 100%;
+	padding: 4px 0;
+	line-height: 0;
 }
 .tv-msg-svg svg {
-	max-width: 100%;
+	display: block;
+	width: 100%;
 	height: auto;
 	border-radius: 2px;
 }

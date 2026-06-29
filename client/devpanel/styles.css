@@ -476,3 +476,50 @@
   ::-webkit-scrollbar { width: 5px; }
   ::-webkit-scrollbar-track { background: var(--bg2); }
   ::-webkit-scrollbar-thumb { background: var(--border); }
+
+  /* ── Broadcast Suite ──────────────────────────────────────────────────────── */
+  .bc-suite { display: flex; flex-direction: column; height: 100%; background: var(--bg); }
+
+  .bc-tabs {
+    display: flex; gap: 0; flex-shrink: 0;
+    background: var(--bg2); border-bottom: 2px solid var(--border);
+    padding: 0 8px;
+  }
+  .bc-tab {
+    font-family: var(--font); font-size: 11px; letter-spacing: 0.5px;
+    padding: 8px 14px; cursor: pointer; border: none; background: transparent;
+    color: var(--text-dim); border-bottom: 2px solid transparent; margin-bottom: -2px;
+    transition: color 0.1s, border-color 0.1s; white-space: nowrap;
+  }
+  .bc-tab:hover { color: var(--text); }
+  .bc-tab.bc-tab-active { color: var(--accent2); border-bottom-color: var(--accent2); }
+
+  .bc-section { border: 1px solid var(--border); border-radius: 2px; background: var(--bg2); overflow: hidden; }
+  .bc-section-head {
+    padding: 7px 12px; background: var(--bg3); border-bottom: 1px solid var(--border);
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px;
+    color: var(--accent2); display: flex; align-items: center; justify-content: space-between;
+  }
+  .bc-section-body { padding: 12px; }
+
+  .bc-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); display: block; margin-bottom: 4px; }
+  .bc-meta  { font-size: 10px; color: var(--text-dim); }
+  .bc-title { font-size: 12px; font-weight: 600; color: var(--text-bright); }
+  .bc-chip  { display: inline-block; font-size: 9px; padding: 1px 5px; border-radius: 2px; border: 1px solid var(--border); color: var(--text-dim); background: var(--bg3); vertical-align: middle; }
+
+  .bc-lib-item { padding: 5px 8px; border-radius: 2px; cursor: grab; flex-shrink: 0; background: var(--bg3); user-select: none; min-width: 100px; }
+
+  .bc-break-slot {
+    position: absolute; top: 0; height: 100%;
+    background: repeating-linear-gradient(45deg, var(--bg3), var(--bg3) 4px, var(--bg2) 4px, var(--bg2) 8px);
+    border: 1px dashed var(--text-dim); border-radius: 2px;
+    box-sizing: border-box; overflow: hidden; cursor: grab; user-select: none;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  #sched-drop-line {
+    display: none; position: absolute; top: 0; bottom: 0; width: 2px;
+    background: var(--accent); pointer-events: none; z-index: 10;
+    box-shadow: 0 0 6px var(--accent);
+  }
+

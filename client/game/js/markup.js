@@ -145,6 +145,11 @@ export function parseMarkup(raw) {
   return _applyBBCode(_esc(expandTokens(raw)));
 }
 
+// BBCode only — no token expansion. Safe for rendering received messages (broadcasts, signs, etc.)
+export function renderMarkup(raw) {
+  return _applyBBCode(_esc(String(raw ?? '')));
+}
+
 // ── Help text & status template ────────────────────────────────────────────────
 
 export const STATUS_TEMPLATE = '[b][color=#00ffff][system]ARCHITECT LIVE STATS[/system][/color][/b]  |  [player]$name[/player]  |  [u]ZONE:$zone[/u]  |  HP:[color=red]$hp/$maxhp[/color]  |  SAN:[i]$san[/i]  |  RAD:[s]$rad[/s]  |  TEMP:[b]$temp[/b]  |  CREDITS:[color=#00ff99]$credits[/color]  |  XP:$xp  |  [item]$weapon[/item] ACTIVE';

@@ -98,12 +98,23 @@ async function loadChannelRuntimes() {
     const { rows: playlist } = await query(
       `SELECT p.*, b.playback_mode, b.messages, b.message_interval, b.override_duration, b.loop, b.broadcast_graph, b.fallback_messages
          FROM media_channel_playlist p
-         JOIN media_broadcasts b ON b.id = p.broadcast_id
+         LEFT JOIN media_broadcasts b ON b.id = p.broadcast_id
         ORDER BY p.channel_id, p.start_time`
     );
     const { rows: cams } = await query(
       'SELECT id, zone_id, streaming_channel_id FROM media_cameras WHERE is_streaming = 1 AND is_powered = 1'
     );
+    const { rows: allCommercials } = await query(
+      `SELECT id, messages, message_interval FROM media_broadcasts WHERE category = 'advertisement'`
+    );
+    const commercialMap = new Map();
+    for (const ad of allCommercials) {
+      commercialMap.set(ad.id, {
+        id: ad.id,
+        messages: Array.isArray(ad.messages) ? ad.messages : (ad.messages ? JSON.parse(ad.messages) : []),
+        message_interval: ad.message_interval || 5,
+      });
+    }
 
     const cameraByChannel = new Map();
     for (const cam of cams) {
@@ -125,6 +136,7 @@ async function loadChannelRuntimes() {
       playlistByChannel.get(item.channel_id).push({
         id: item.id,
         broadcastId: item.broadcast_id,
+        slotType: item.slot_type || 'broadcast',
         startTime: item.start_time,
         duration: dur,
         playback_mode: item.playback_mode,
@@ -143,6 +155,7 @@ async function loadChannelRuntimes() {
         ? Math.max(...pl.map(i => i.startTime + i.duration))
         : 0;
       const idleMsgs = ch.idle_messages ? (Array.isArray(ch.idle_messages) ? ch.idle_messages : JSON.parse(ch.idle_messages)) : [];
+      const commercialPool = ch.commercial_pool ? (Array.isArray(ch.commercial_pool) ? ch.commercial_pool : JSON.parse(ch.commercial_pool)) : [];
       channelRuntime.set(ch.id, {
         channelId: ch.id,
         name: ch.name,
@@ -157,6 +170,10 @@ async function loadChannelRuntimes() {
         scheduleMode: ch.schedule_mode || 'loop',
         studioZoneId: ch.studio_zone_id || null,
         offlineGraphicId: ch.offline_graphic_id || null,
+        commercialPool,
+        commercialBroadcasts: commercialPool.map(id => commercialMap.get(id)).filter(Boolean),
+        commercialIndex: 0,
+        _commercialCycleCount: 0,
         loopOriginMs: Date.now(),
         lastMsgKey: '',
         wasActive: false,
@@ -244,6 +261,28 @@ function buildCameraSnapshot(zoneId) {
   return parts.join(' ');
 }
 
+// Round-robin through commercial pool for break slots
+function _playCommercial(state, nowMs) {
+  const ads = state.commercialBroadcasts || [];
+  if (!ads.length) return null;
+  const adIdx = (state.commercialIndex || 0) % ads.length;
+  const ad = ads[adIdx];
+  if (!ad?.messages?.length) {
+    state.commercialIndex = adIdx + 1;
+    return null;
+  }
+  const elapsed = (nowMs / 1000) % (ad.messages.length * (ad.message_interval || 5));
+  const result = getScriptedMessage(ad.messages, ad.message_interval || 5, elapsed);
+  // Advance to next commercial once we've completed a cycle
+  const cycleDone = Math.floor((nowMs / 1000) / (ad.messages.length * (ad.message_interval || 5)));
+  if (cycleDone > (state._commercialCycleCount || 0)) {
+    state._commercialCycleCount = cycleDone;
+    state.commercialIndex = adIdx + 1;
+  }
+  if (result) return { text: result.text, key: `commercial:${ad.id}:${result.idx}` };
+  return null;
+}
+
 async function getCurrentMessage(state, nowMs) {
   const { channelType, playlist, totalDuration, idleBroadcast, newsCategories, camera, loopOriginMs, scheduleMode } = state;
 
@@ -269,6 +308,7 @@ async function getCurrentMessage(state, nowMs) {
     const gameSecondsSinceMidnight = minutes * 60;
     const item = playlist.find(i => gameSecondsSinceMidnight >= i.startTime && gameSecondsSinceMidnight < i.startTime + i.duration);
     if (item) {
+      if (item.slotType === 'commercial_break') return _playCommercial(state, nowMs);
       state.currentFallbackMessages = item.fallbackMessages || [];
       if (item.broadcastGraph) return tickBroadcastGraph(state.channelId, item.broadcastGraph, state, nowMs);
       const segElapsed = gameSecondsSinceMidnight - item.startTime;
@@ -288,6 +328,7 @@ async function getCurrentMessage(state, nowMs) {
     const elapsed = ((nowMs - loopOriginMs) / 1000) % totalDuration;
     const item = playlist.find(i => elapsed >= i.startTime && elapsed < i.startTime + i.duration);
     if (item) {
+      if (item.slotType === 'commercial_break') return _playCommercial(state, nowMs);
       if (item.playback_mode === 'live_camera' && camera) {
         const text = buildCameraSnapshot(camera.zone_id);
         return text ? { text, key: `cam:${nowMs}` } : null;
@@ -338,6 +379,38 @@ async function getCurrentMessage(state, nowMs) {
   return null;
 }
 
+// ── Media deck playback ───────────────────────────────────────────────────────
+
+// Cache: zoneId → { broadcastId, messages, message_interval, fetchedAt }
+const _deckCache = new Map();
+const _DECK_CACHE_TTL = 10000; // 10s
+
+async function _getDeckMessage(zoneId, nowMs) {
+  let entry = _deckCache.get(zoneId);
+  if (!entry || nowMs - entry.fetchedAt > _DECK_CACHE_TTL) {
+    const { rows } = await query(
+      `SELECT flags FROM furniture WHERE zone_id=$1 AND flags::text LIKE '%"media_deck"%' LIMIT 1`,
+      [zoneId]
+    ).catch(() => ({ rows: [] }));
+    const dflags = rows[0] ? (typeof rows[0].flags === 'object' ? rows[0].flags : JSON.parse(rows[0].flags || '{}')) : null;
+    const activeId = dflags?.deck_active || null;
+    if (activeId) {
+      const { rows: bcRows } = await query('SELECT messages, message_interval FROM media_broadcasts WHERE id=$1', [activeId]).catch(() => ({ rows: [] }));
+      const bc = bcRows[0];
+      entry = bc
+        ? { broadcastId: activeId, messages: Array.isArray(bc.messages) ? bc.messages : (bc.messages ? JSON.parse(bc.messages) : []), message_interval: bc.message_interval || 5, fetchedAt: nowMs }
+        : { broadcastId: null, messages: [], message_interval: 5, fetchedAt: nowMs };
+    } else {
+      entry = { broadcastId: null, messages: [], message_interval: 5, fetchedAt: nowMs };
+    }
+    _deckCache.set(zoneId, entry);
+  }
+  if (!entry.broadcastId || !entry.messages.length) return null;
+  const elapsed = (nowMs / 1000) % (entry.messages.length * entry.message_interval);
+  const result = getScriptedMessage(entry.messages, entry.message_interval, elapsed);
+  return result ? { text: result.text, key: `deck:${entry.broadcastId}:${result.idx}` } : null;
+}
+
 // ── Broadcast tick ───────────────────────────────────────────────────────────
 
 async function broadcastTick() {
@@ -352,7 +425,9 @@ async function broadcastTick() {
 
       let result;
       try {
-        result = await getCurrentMessage(state, nowMs);
+        // Media deck check: a loaded cassette in this zone overrides channel content
+        const deckResult = await _getDeckMessage(zoneId, nowMs);
+        result = deckResult || await getCurrentMessage(state, nowMs);
       } catch (err) {
         console.error(`[broadcast] tick error (${channelId}):`, err.message);
         continue;
@@ -802,6 +877,50 @@ registerAction({
   },
 });
 
+// ── Media Deck: load/eject cassettes ─────────────────────────────────────────
+
+async function cmdLoadCassette(args, raw, player) {
+  if (!player) return { type: 'error', message: 'No character.' };
+  // Usage: load cassette [into deck]  — finds cassette in inventory and deck in zone
+  const inv = world.get(player.id)?.inventory || [];
+  const cassette = inv.find(i => {
+    const flags = typeof i.flags === 'object' ? i.flags : (i.flags ? JSON.parse(i.flags) : {});
+    return flags.media_cassette || (i.tags && (Array.isArray(i.tags) ? i.tags : JSON.parse(i.tags || '[]')).includes('media_cassette'));
+  });
+  if (!cassette) return { type: 'output', message: 'You have no cassette to load.' };
+  const { rows: decks } = await query(
+    `SELECT * FROM furniture WHERE zone_id=$1 AND flags::text LIKE '%"media_deck"%' LIMIT 1`,
+    [player.current_zone]
+  );
+  if (!decks.length) return { type: 'output', message: 'There is no media deck here.' };
+  const deck = decks[0];
+  const dflags = typeof deck.flags === 'object' ? { ...deck.flags } : JSON.parse(deck.flags || '{}');
+  const cflags = typeof cassette.flags === 'object' ? cassette.flags : JSON.parse(cassette.flags || '{}');
+  const broadcastId = cflags.broadcast_id;
+  if (!broadcastId) return { type: 'output', message: 'That cassette has no broadcast loaded.' };
+  const cassettes = Array.isArray(dflags.deck_cassettes) ? [...dflags.deck_cassettes] : [];
+  if (!cassettes.includes(broadcastId)) cassettes.push(broadcastId);
+  dflags.deck_cassettes = cassettes;
+  dflags.deck_active = broadcastId;
+  await query('UPDATE furniture SET flags=$1 WHERE id=$2', [JSON.stringify(dflags), deck.id]);
+  return { type: 'output', message: `You load the cassette into the deck.` };
+}
+
+async function cmdEjectCassette(args, raw, player) {
+  if (!player) return { type: 'error', message: 'No character.' };
+  const { rows: decks } = await query(
+    `SELECT * FROM furniture WHERE zone_id=$1 AND flags::text LIKE '%"media_deck"%' LIMIT 1`,
+    [player.current_zone]
+  );
+  if (!decks.length) return { type: 'output', message: 'There is no media deck here.' };
+  const deck = decks[0];
+  const dflags = typeof deck.flags === 'object' ? { ...deck.flags } : JSON.parse(deck.flags || '{}');
+  if (!dflags.deck_active) return { type: 'output', message: 'The deck is empty.' };
+  dflags.deck_active = null;
+  await query('UPDATE furniture SET flags=$1 WHERE id=$2', [JSON.stringify(dflags), deck.id]);
+  return { type: 'output', message: `You eject the cassette.` };
+}
+
 // ── Commands ─────────────────────────────────────────────────────────────────
 
 async function cmdTune(args, raw, player, broadcast) {
@@ -939,10 +1058,15 @@ async function cmdWatch(args, raw, player) {
 }
 
 export const commands = {
-  tune: cmdTune,
+  tune:  cmdTune,
   watch: cmdWatch,
   listen: cmdWatch,
-  tv: cmdTv,
+  tv:    cmdTv,
+  load:  (args, raw, player) => {
+    if (raw.toLowerCase().includes('cassette')) return cmdLoadCassette(args, raw, player);
+    return null; // pass to next handler
+  },
+  eject: cmdEjectCassette,
 };
 
 export const specializedActions = [
@@ -1014,7 +1138,7 @@ export const routeHandler = async (path, method, body, auth) => {
           const { rows } = await query(
             `SELECT p.*, b.name AS broadcast_name, b.playback_mode, b.messages, b.message_interval, b.override_duration, b.broadcast_graph, b.fallback_messages
                FROM media_channel_playlist p
-               JOIN media_broadcasts b ON b.id = p.broadcast_id
+               LEFT JOIN media_broadcasts b ON b.id = p.broadcast_id
               WHERE p.channel_id=$1 ORDER BY p.start_time`,
             [id]
           );
@@ -1026,12 +1150,13 @@ export const routeHandler = async (path, method, body, auth) => {
           const items = Array.isArray(body) ? body : [];
           for (const item of items) {
             const pid = item.id || `pl_${randomUUID()}`;
+            const slotType = item.slot_type || 'broadcast';
             await query(
-              `INSERT INTO media_channel_playlist (id,channel_id,broadcast_id,start_time,duration_override,priority,conditions)
-               VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-              [pid, id, item.broadcast_id, item.start_time || 0,
+              `INSERT INTO media_channel_playlist (id,channel_id,broadcast_id,start_time,duration_override,priority,conditions,slot_type)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+              [pid, id, item.broadcast_id || null, item.start_time || 0,
                item.duration_override || null, item.priority || 0,
-               JSON.stringify(item.conditions || [])]
+               JSON.stringify(item.conditions || []), slotType]
             );
           }
           await loadChannelRuntimes();
@@ -1057,13 +1182,14 @@ export const routeHandler = async (path, method, body, auth) => {
       if (!id && method === 'POST') {
         const cid = body.id || `ch_${Date.now()}`;
         await query(
-          `INSERT INTO media_channels (id,name,number,description,station_name,theme_id,enabled,loop_playlist,priority,channel_type,idle_broadcast_id,news_categories,updated_at)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,EXTRACT(EPOCH FROM NOW()))`,
+          `INSERT INTO media_channels (id,name,number,description,station_name,theme_id,enabled,loop_playlist,priority,channel_type,idle_broadcast_id,news_categories,commercial_pool,updated_at)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,EXTRACT(EPOCH FROM NOW()))`,
           [cid, body.name || 'Untitled Channel', body.number || null, body.description || '',
            body.station_name || '', body.theme_id || null,
            body.enabled !== false ? 1 : 0, body.loop_playlist !== false ? 1 : 0,
            body.priority || 0, body.channel_type || 'playlist',
-           body.idle_broadcast_id || null, JSON.stringify(body.news_categories || [])]
+           body.idle_broadcast_id || null, JSON.stringify(body.news_categories || []),
+           JSON.stringify(body.commercial_pool || [])]
         );
         await loadChannelRuntimes();
         return { status: 201, body: { id: cid } };
@@ -1072,14 +1198,15 @@ export const routeHandler = async (path, method, body, auth) => {
         await query(
           `UPDATE media_channels SET name=$1,number=$2,description=$3,station_name=$4,theme_id=$5,
            enabled=$6,loop_playlist=$7,priority=$8,channel_type=$9,idle_broadcast_id=$10,news_categories=$11,
-           schedule_mode=$12,studio_zone_id=$13,offline_graphic_id=$14,updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$15`,
+           schedule_mode=$12,studio_zone_id=$13,offline_graphic_id=$14,commercial_pool=$15,
+           updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$16`,
           [body.name || 'Untitled Channel', body.number || null, body.description || '',
            body.station_name || '', body.theme_id || null,
            body.enabled !== false ? 1 : 0, body.loop_playlist !== false ? 1 : 0,
            body.priority || 0, body.channel_type || 'playlist',
            body.idle_broadcast_id || null, JSON.stringify(body.news_categories || []),
            body.schedule_mode || 'loop', body.studio_zone_id || null,
-           body.offline_graphic_id || null, id]
+           body.offline_graphic_id || null, JSON.stringify(body.commercial_pool || []), id]
         );
         await loadChannelRuntimes();
         return { status: 200, body: { id } };
@@ -1203,6 +1330,154 @@ export const routeHandler = async (path, method, body, auth) => {
     }
 
     // ── Graphics ────────────────────────────────────────────────────────────
+    // ── Create Studio (zone + power room + junction box) ────────────────────────
+    if (resource === 'create-studio' && method === 'POST') {
+      if (!devOk(auth)) return { status: 403, body: { error: 'Dev access required' } };
+      const { studio_name, exterior_zone_id, grid_x, grid_y, channel_id } = body || {};
+      if (!studio_name) return { status: 400, body: { error: 'studio_name is required' } };
+
+      const ts = Date.now();
+      let exteriorZoneId = exterior_zone_id;
+
+      // If grid coords given, create or reuse the exterior world-map zone (the building)
+      if (!exteriorZoneId && grid_x != null && grid_y != null) {
+        const { rows: existing } = await query(
+          `SELECT id FROM zones WHERE map_id='map_world' AND grid_x=$1 AND grid_y=$2 LIMIT 1`,
+          [grid_x, grid_y]
+        );
+        if (existing.length) {
+          exteriorZoneId = existing[0].id;
+        } else {
+          exteriorZoneId = `zone_ext_${ts}`;
+          await query(
+            `INSERT INTO zones (id,name,description,map_id,grid_x,grid_y,grid_z,marker,flags,exits)
+             VALUES ($1,$2,$3,'map_world',$4,$5,0,$6,'{}','{}')`,
+            [exteriorZoneId, studio_name, `Exterior of ${studio_name}.`,
+             grid_x, grid_y, studio_name.slice(0, 2).toUpperCase()]
+          );
+        }
+      }
+      if (!exteriorZoneId) return { status: 400, body: { error: 'exterior_zone_id or grid_x+grid_y required' } };
+
+      // Create interior map linked to the exterior zone
+      const mapId = `map_int_${ts}`;
+      await query(
+        `INSERT INTO maps (id, name, parent_zone_id, entry_zone_id, created_by) VALUES ($1,$2,$3,$4,$5)`,
+        [mapId, `${studio_name} — Interior`, exteriorZoneId, null, auth?.playerId || null]
+      );
+
+      // Create studio zone (floor 1 of interior map, grid 0,0)
+      const studioZoneId = `zone_studio_${ts}`;
+      await query(
+        `INSERT INTO zones (id,name,description,map_id,grid_x,grid_y,grid_z,flags,exits)
+         VALUES ($1,$2,$3,$4,0,0,0,$5,$6)`,
+        [studioZoneId, studio_name,
+         `Broadcast studio for channel ${channel_id ? `channel ${channel_id}` : studio_name}.`,
+         mapId,
+         JSON.stringify({ is_interior: true, is_building: true, world_exit_zone: exteriorZoneId }),
+         JSON.stringify({ out: exteriorZoneId })]
+      );
+      // Patch map entry_zone_id
+      await query(`UPDATE maps SET entry_zone_id=$1 WHERE id=$2`, [studioZoneId, mapId]);
+
+      // Link exterior zone → studio: read current exits, merge, write back
+      const { rows: extRows } = await query('SELECT exits FROM zones WHERE id=$1', [exteriorZoneId]);
+      const mergedExits = JSON.stringify({ ...(extRows[0]?.exits || {}), in: studioZoneId });
+      await query('UPDATE zones SET exits=$1 WHERE id=$2', [mergedExits, exteriorZoneId]);
+
+      // Create utility/power room below (grid 0,0,-1)
+      const utilityZoneId = `zone_util_${ts}`;
+      await query(
+        `INSERT INTO zones (id,name,description,map_id,grid_x,grid_y,grid_z,flags,exits)
+         VALUES ($1,$2,$3,$4,0,0,-1,$5,$6)`,
+        [utilityZoneId, `${studio_name} — Power Room`,
+         'Utility room housing the building junction box.',
+         mapId,
+         JSON.stringify({ is_interior: true }),
+         JSON.stringify({ up: studioZoneId })]
+      );
+      // Add down exit from studio to utility room (same read-merge-write pattern)
+      const { rows: stRows } = await query('SELECT exits FROM zones WHERE id=$1', [studioZoneId]);
+      const studioExits = JSON.stringify({ ...(stRows[0]?.exits || {}), down: utilityZoneId });
+      await query('UPDATE zones SET exits=$1 WHERE id=$2', [studioExits, studioZoneId]);
+
+      // Find city plant generator
+      const { rows: plants } = await query(
+        `SELECT id FROM generators WHERE generator_type='city_plant' AND status='online' LIMIT 1`
+      );
+      const cityGenId = plants[0]?.id || null;
+
+      // Create junction_box generator in utility room
+      const jboxId = `gen_${utilityZoneId}_${ts}`;
+      await query(
+        `INSERT INTO generators (id,zone_id,name,generator_type,capacity_kw,status,city_generator_id,remaining_kw)
+         VALUES ($1,$2,$3,'junction_box',500,'online',$4,500)`,
+        [jboxId, utilityZoneId, `${studio_name} Junction Box`, cityGenId]
+      );
+
+      // Register zones in power_zones
+      for (const [zid, zname] of [[studioZoneId, studio_name], [utilityZoneId, `${studio_name} Power Room`]]) {
+        await query(
+          `INSERT INTO power_zones (id,name,source_type,generator_id,capacity_kw,current_load_kw,status,available_kw,max_capacity_kw)
+           VALUES ($1,$2,'junction_box',$3,500,0,'powered',500,500)
+           ON CONFLICT (id) DO NOTHING`,
+          [zid, zname, jboxId]
+        );
+      }
+
+      return { status: 201, body: {
+        exterior_zone_id: exteriorZoneId,
+        studio_zone_id:   studioZoneId,
+        utility_zone_id:  utilityZoneId,
+        map_id:           mapId,
+        junction_box_id:  jboxId,
+      }};
+    }
+
+    // ── Deck management for a channel ───────────────────────────────────────────
+    if (resource === 'deck') {
+      // GET /broadcast/deck/:channel_id — get the deck for a channel
+      if (id && method === 'GET') {
+        const { rows } = await query(
+          `SELECT * FROM furniture WHERE flags->>'channel_id'=$1 AND flags->>'media_deck'='true' LIMIT 1`,
+          [id]
+        );
+        const deck = rows[0] || null;
+        let cameras = [];
+        if (deck?.zone_id) {
+          const { rows: cams } = await query(
+            `SELECT * FROM furniture WHERE zone_id=$1 AND flags->>'broadcast_transmitter'='true'`,
+            [deck.zone_id]
+          );
+          cameras = cams;
+        }
+        return { status: 200, body: { deck, cameras } };
+      }
+      // POST /broadcast/deck — spawn a media deck in a zone and link to channel
+      if (!id && method === 'POST') {
+        if (!devOk(auth)) return { status: 403, body: { error: 'Dev access required' } };
+        const { channel_id, zone_id, name } = body || {};
+        if (!channel_id || !zone_id) return { status: 400, body: { error: 'channel_id and zone_id required' } };
+        // Unlink any existing deck for this channel
+        await query(
+          `UPDATE furniture SET flags = flags - 'channel_id' WHERE flags->>'channel_id'=$1`,
+          [channel_id]
+        );
+        const deckId = `furn_deck_${channel_id}_${Date.now()}`;
+        await query(
+          `INSERT INTO furniture (id, zone_id, name, description, flags, power_draw_kw, object_type)
+           VALUES ($1,$2,$3,$4,$5,2.0,'media_deck')`,
+          [deckId, zone_id, name || 'Media Deck',
+           'Broadcast transmission hardware. Plays cassettes and routes live camera feeds.',
+           JSON.stringify({ media_deck: true, channel_id, deck_cassettes: [], deck_active: null })]
+        );
+        // Update channel studio_zone_id to deck's zone
+        await query(`UPDATE media_channels SET studio_zone_id=$1 WHERE id=$2`, [zone_id, channel_id]);
+        await loadChannelRuntimes();
+        return { status: 201, body: { id: deckId, zone_id, channel_id } };
+      }
+    }
+
     if (resource === 'graphics') {
       if (!id && method === 'GET') {
         const { rows } = await query('SELECT * FROM media_graphics ORDER BY name');

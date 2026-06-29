@@ -58,15 +58,22 @@ function renderChannelsPanel(data) {
         <tbody>${rows}</tbody>
       </table>` : '<div style="padding:24px;color:var(--text-dim)">No channels yet. Create one to schedule broadcasts.</div>'}
     </div>
-    <div style="padding:10px 16px;background:var(--bg2);margin-top:4px;border-bottom:2px solid var(--border)">
+    <div style="padding:10px 16px;background:var(--bg2);margin-top:4px;border-bottom:1px solid var(--border)">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <div style="font-size:13px;font-weight:600;color:var(--accent);letter-spacing:1px;text-transform:uppercase">Cameras</div>
+        <div style="font-size:12px;font-weight:600;color:var(--accent2);letter-spacing:1px;text-transform:uppercase">Media Deck</div>
+      </div>
+      <div id="deck-list-area"><span class="bc-meta">Loading...</span></div>
+    </div>
+    <div style="padding:10px 16px;background:var(--bg2);margin-top:0;border-bottom:2px solid var(--border)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="font-size:12px;font-weight:600;color:var(--accent);letter-spacing:1px;text-transform:uppercase">Cameras</div>
         <button class="action-btn" onclick="openCameraEditor(null)">+ New Camera</button>
       </div>
       <div id="camera-list-area"></div>
     </div>`;
 
   loadCameraList();
+  loadDeckSection();
 }
 
 // ── Camera list ──────────────────────────────────────────────────────────────
@@ -107,11 +114,70 @@ function renderCameraList() {
   </table>`;
 }
 
+// ── Deck section (media deck per channel) ─────────────────────────────────────
+
+let _deckSpawnZone = null; // { id, name } while spawn picker is open
+
+async function loadDeckSection() {
+  const el = document.getElementById('deck-list-area');
+  if (!el) return;
+  // Use the most recently opened/selected channel
+  const channelId = _channelEditTarget?.id;
+  if (!channelId) {
+    el.innerHTML = '<div class="bc-meta">Select a channel to manage its media deck.</div>';
+    return;
+  }
+  try {
+    const data = await directAPI(`/broadcast/deck/${channelId}`);
+    renderDeckSection(el, channelId, data.deck, data.cameras || []);
+  } catch (e) {
+    el.innerHTML = `<div class="bc-meta" style="color:var(--red)">Failed to load deck info.</div>`;
+  }
+}
+
+function renderDeckSection(el, channelId, deck, cameras) {
+  if (!deck) {
+    el.innerHTML = `
+      <div class="bc-meta" style="margin-bottom:8px">No media deck assigned to this channel.</div>
+      <button class="action-btn" onclick="spawnDeckForChannel('${channelId}')">+ Spawn Media Deck</button>`;
+    return;
+  }
+  const camList = cameras.length
+    ? cameras.map(c => `<div class="bc-meta">📹 ${escHtml(c.name || c.id)} <span style="color:var(--text-dim)">(${c.zone_id})</span></div>`).join('')
+    : '<div class="bc-meta" style="color:var(--text-dim)">No cameras connected.</div>';
+  el.innerHTML = `
+    <div style="display:flex;align-items:flex-start;gap:12px">
+      <div style="flex:1">
+        <div class="bc-title" style="margin-bottom:4px">📼 ${escHtml(deck.name || deck.id)}</div>
+        <div class="bc-meta">Zone: ${escHtml(deck.zone_id)}</div>
+        <div class="bc-meta" style="margin-top:6px;font-weight:600;letter-spacing:0.5px">Connected cameras:</div>
+        ${camList}
+      </div>
+      <button class="action-btn" style="font-size:10px" onclick="spawnDeckForChannel('${channelId}')">⇄ Replace Deck</button>
+    </div>`;
+}
+
+async function spawnDeckForChannel(channelId) {
+  // Prompt for zone — simplified: ask user to enter zone ID or open zone list
+  const zoneId = prompt('Enter zone ID to place the media deck in (must be an interior zone):');
+  if (!zoneId) return;
+  const deckName = prompt('Deck name:', 'Media Deck') || 'Media Deck';
+  try {
+    const res = await directAPI('/broadcast/deck', 'POST', { channel_id: channelId, zone_id: zoneId.trim(), name: deckName });
+    if (res?.error) { toast(res.error, true); return; }
+    toast('Media deck spawned and linked.');
+    loadDeckSection();
+  } catch (e) { toast(e.message, true); }
+}
+
 // ── Channel editor (metadata + timeline) ─────────────────────────────────────
 
 async function openChannelEditor(rec) {
   _channelEditTarget = rec || null;
   _channelPlaylist = [];
+
+  // Refresh the deck section sidebar whenever a channel is opened
+  if (rec) loadDeckSection();
 
   // Load broadcasts, themes, graphics, and zones in parallel
   let themes = [], graphics = [], zones = [];
@@ -196,6 +262,16 @@ async function openChannelEditor(rec) {
     </label>`;
   }).join('');
 
+  const ads = _channelBroadcasts.filter(b => b.category === 'advertisement');
+  const currentPool = Array.isArray(rec?.commercial_pool)
+    ? rec.commercial_pool
+    : (rec?.commercial_pool ? JSON.parse(rec.commercial_pool) : []);
+  const poolCheckboxes = ads.map(b => `
+    <label style="display:flex;align-items:center;gap:5px;font-size:11px;cursor:pointer">
+      <input type="checkbox" class="ch-comm-pool" value="${b.id}"${currentPool.includes(b.id) ? ' checked' : ''}>
+      ${escHtml2(b.name)}
+    </label>`).join('');
+
   const body = `
     <div style="display:flex;flex-direction:column;gap:14px">
       <!-- Metadata -->
@@ -255,6 +331,14 @@ async function openChannelEditor(rec) {
       <div id="ch-news-section" style="display:${(rec?.channel_type === 'news' || rec?.channel_type === 'mixed') ? 'block' : 'none'}">
         <label style="display:block;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:6px">News Categories</label>
         <div style="display:flex;flex-wrap:wrap;gap:6px 14px;background:var(--bg3);padding:8px;border-radius:2px">${newsCatCheckboxes}</div>
+      </div>
+
+      <!-- Commercial Pool -->
+      <div id="ch-comm-section" style="display:${ads.length ? 'block' : 'none'}">
+        <label style="display:block;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:6px">Commercial Pool</label>
+        <div style="display:flex;flex-wrap:wrap;gap:6px 14px;background:var(--bg3);padding:8px;border-radius:2px">
+          ${poolCheckboxes || '<div style="font-size:11px;color:var(--text-dim)">No advertisements — create some in the Commercials tab</div>'}
+        </div>
       </div>
 
       <!-- Timeline -->
@@ -487,7 +571,8 @@ async function saveChannel() {
   const name = document.getElementById('ch-name')?.value?.trim();
   if (!name) { toast('Name is required.', true); return; }
 
-  const newsCategories = Array.from(document.querySelectorAll('.ch-news-cat:checked')).map(cb => cb.value);
+  const newsCategories  = Array.from(document.querySelectorAll('.ch-news-cat:checked')).map(cb => cb.value);
+  const commercialPool  = Array.from(document.querySelectorAll('.ch-comm-pool:checked')).map(cb => cb.value);
 
   const channelBody = {
     name,
@@ -500,6 +585,7 @@ async function saveChannel() {
     idle_broadcast_id: document.getElementById('ch-idle')?.value || null,
     theme_id: document.getElementById('ch-theme')?.value || null,
     news_categories: newsCategories,
+    commercial_pool: commercialPool,
     studio_zone_id: document.getElementById('ch-studio-zone')?.value?.trim() || null,
     offline_graphic_id: document.getElementById('ch-offline-graphic')?.value?.trim() || null,
   };

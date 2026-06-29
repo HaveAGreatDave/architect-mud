@@ -39,26 +39,48 @@ applySettings(settings);
 applyMobileScale();
 window.addEventListener('resize', applyMobileScale);
 
-// When the software keyboard opens, collapse the look pane and output log so
-// only the top bar (header + mobile HUD) and bottom bar (input + dpad) remain.
-if (window.visualViewport && _isMobile) {
-  const _areaPane = document.getElementById('area-pane');
-  const _output   = document.getElementById('output');
-  const _resizeHandle = document.getElementById('look-resize-handle');
-  let _fullVH = window.visualViewport.height;
-  window.visualViewport.addEventListener('resize', () => {
-    const keyboardUp = window.visualViewport.height < _fullVH * 0.75;
-    for (const el of [_areaPane, _output, _resizeHandle]) {
-      if (!el) continue;
-      el.style.maxHeight = keyboardUp ? '0' : '';
-      el.style.overflow  = keyboardUp ? 'hidden' : '';
-    }
-    if (!keyboardUp) {
-      _fullVH = window.visualViewport.height;
-      // Restore scroll position to bottom of output after keyboard closes
-      _output.scrollTop = _output.scrollHeight;
-    }
-  });
+// Mobile look-pane toggle (+/- button)
+if (_isMobile) {
+  const _areaPane  = document.getElementById('area-pane');
+  const _toggleBtn = document.getElementById('area-toggle-btn');
+  const _toggleBar = document.getElementById('area-toggle-bar');
+  let _paneOpen = false;
+
+  function _setAreaPane(open) {
+    _paneOpen = open;
+    _areaPane.style.maxHeight = open ? '' : '0';
+    _areaPane.style.overflow  = open ? '' : 'hidden';
+    if (_toggleBtn) _toggleBtn.textContent = open ? '− look' : '+ look';
+  }
+
+  // Start collapsed on mobile
+  _setAreaPane(false);
+
+  _toggleBtn?.addEventListener('click', () => _setAreaPane(!_paneOpen));
+
+  // Keyboard collapse: hide output + area; restore to user's toggle state on close
+  if (window.visualViewport) {
+    const _output = document.getElementById('output');
+    let _fullVH = window.visualViewport.height;
+    let _keyboardUp = false;
+
+    window.visualViewport.addEventListener('resize', () => {
+      _keyboardUp = window.visualViewport.height < _fullVH * 0.75;
+      if (_keyboardUp) {
+        window.scrollTo(0, 0);
+        _output.style.maxHeight = '0';
+        _output.style.overflow  = 'hidden';
+        _areaPane.style.maxHeight = '0';
+        _areaPane.style.overflow  = 'hidden';
+      } else {
+        _fullVH = window.visualViewport.height;
+        _output.style.maxHeight = '';
+        _output.style.overflow  = '';
+        _setAreaPane(_paneOpen);
+        _output.scrollTop = _output.scrollHeight;
+      }
+    });
+  }
 }
 
 listenForSettingsChanges((s) => { applySettings(s); applyMobileScale(); });

@@ -134,6 +134,10 @@
     broadcast_device_type: { label: 'Device Type', shape: 'enum', scope: 'class', group: 'Broadcast',
       options: ['tv', 'radio', 'security_monitor', 'portable_monitor', 'camera'],
       help: 'Controls how broadcast content is formatted for this device.' },
+    media_deck: { label: 'Media Deck', shape: 'flag', scope: 'furniture', group: 'Broadcast',
+      help: 'This furniture is a media cassette deck. Players can load/eject cassette items. Broadcasts in deck_cassettes play in the zone instead of scheduled programming.' },
+    media_cassette: { label: 'Media Cassette', shape: 'flag', scope: 'class', group: 'Broadcast',
+      help: 'This item is a cassette tape. It should also have flags.broadcast_id pointing to a media_broadcasts row.' },
 
     // --- Furniture capabilities (presence-only, on a furniture row) ---
     water_source: { label: 'Water Source', shape: 'flag', scope: 'furniture', group: 'Capabilities',

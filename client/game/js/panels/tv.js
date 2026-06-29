@@ -2,6 +2,7 @@
 // Opened by 'watch tv' / 'tv' commands; closed by ESC or the close button.
 
 import { sendCmd } from '../net.js';
+import { renderMarkup } from '../markup.js';
 
 let _tvOpen = false;
 let _tvShuttingDown = false;
@@ -231,13 +232,38 @@ export function appendTvMessage(text, style) {
   const el = document.createElement(style === 'ascii_art' ? 'pre' : 'div');
   el.className = `tv-msg tv-msg-${style || 'raw'}`;
   if (style === 'svg') {
-    // Dev-authored SVG — render as markup, sized to fill the message area
-    el.style.cssText = 'display:flex;justify-content:center;align-items:center;padding:4px 0';
     el.innerHTML = text;
     const svg = el.querySelector('svg');
-    if (svg) { svg.style.maxWidth = '100%'; svg.style.height = 'auto'; }
+    if (svg) {
+      // Force SVG to fill panel width at its natural aspect ratio
+      svg.setAttribute('width', '100%');
+      svg.removeAttribute('height');
+      // If no viewBox, infer one from width/height attrs so scaling works
+      if (!svg.getAttribute('viewBox')) {
+        const w = parseFloat(svg.getAttribute('width')) || 640;
+        const h = parseFloat(svg.getAttribute('height')) || 360;
+        svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+        svg.setAttribute('width', '100%');
+        svg.removeAttribute('height');
+      }
+    }
+  } else if (style === 'ascii_art') {
+    el.innerHTML = renderMarkup(text);
+    // Scale font-size so the widest line fills the content area.
+    // Strip markup tags from text before measuring so tag syntax doesn't inflate line lengths.
+    requestAnimationFrame(() => {
+      const content = document.getElementById('tv-content');
+      if (!content) return;
+      const plain = text.replace(/\[[^\]]*\]/g, '');
+      const lines = plain.split('\n');
+      const maxLen = Math.max(...lines.map(l => l.length), 1);
+      const availPx = content.clientWidth - 36;
+      const targetPx = Math.min(availPx / (maxLen * 0.6), 18);
+      const finalPx  = Math.max(targetPx, 7);
+      el.style.fontSize = `${finalPx.toFixed(1)}px`;
+    });
   } else {
-    el.textContent = text;
+    el.innerHTML = renderMarkup(text);
   }
   container.appendChild(el);
 

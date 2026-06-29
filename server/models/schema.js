@@ -746,6 +746,8 @@ export const SCHEMA_SQL = `
   ALTER TABLE media_channels  ADD COLUMN IF NOT EXISTS studio_zone_id TEXT;
   ALTER TABLE media_channels  ADD COLUMN IF NOT EXISTS offline_graphic_id TEXT;
   ALTER TABLE media_broadcasts ADD COLUMN IF NOT EXISTS fallback_messages JSONB DEFAULT '[]';
+  ALTER TABLE media_channels ADD COLUMN IF NOT EXISTS commercial_pool JSONB DEFAULT '[]';
+  ALTER TABLE media_channel_playlist ADD COLUMN IF NOT EXISTS slot_type TEXT DEFAULT 'broadcast';
 
   -- Broadcast graphics library. ASCII art referenced by VINE title_card nodes.
   -- type: 'ascii' | 'svg'; tags: JSONB array of labels for dev-panel filtering.

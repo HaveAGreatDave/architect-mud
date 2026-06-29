@@ -142,7 +142,11 @@ function openGraphicEditor(rec) {
             H <input id="sv-h" type="number" min="100" max="1080" value="360" class="form-input" style="width:56px;font-size:11px" onchange="_svApplySize()">
             BG <input id="sv-bg" type="color" value="#0a0f0d" style="width:32px;height:24px;padding:0;border:1px solid var(--border);background:transparent;cursor:pointer" onchange="_svApplySize()">
           </div>
-          <button class="action-btn danger" style="font-size:10px;padding:2px 8px;margin-left:auto" onclick="_svClearAll()">Clear All</button>
+          <label class="action-btn" style="cursor:pointer;font-size:10px;padding:2px 8px;margin-left:auto" title="Load an SVG file from disk">
+            ⬆ Upload SVG
+            <input type="file" accept=".svg,image/svg+xml" style="display:none" onchange="_grLoadSvgFile(this)">
+          </label>
+          <button class="action-btn danger" style="font-size:10px;padding:2px 8px" onclick="_svClearAll()">Clear All</button>
         </div>
         <!-- Main area: canvas + sidebar -->
         <div style="display:flex;gap:8px;height:380px">
@@ -448,6 +452,43 @@ function _grImportFromText() {
   if (ta?.value.trim()) _grLoadFromText(ta.value);
 }
 
+function _grLoadSvgFile(input) {
+  const file = input.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const svg = e.target.result?.trim();
+    if (!svg?.startsWith('<')) { toast('File does not look like an SVG.', true); return; }
+    // Always put the raw SVG into the text tab textarea so it's preserved
+    const ta = document.getElementById('gr-content');
+    if (ta) ta.value = svg;
+    // Try to parse into the vector editor
+    _svInit(svg);
+    // Check if the SVG has elements the editor can't represent (paths, groups, etc.)
+    const doc = new DOMParser().parseFromString(svg, 'image/svg+xml');
+    const svgEl = doc.querySelector('svg');
+    const children = svgEl ? [...svgEl.children].filter(el => el.tagName !== 'rect' || el.getAttribute('x')) : [];
+    const hasComplex = children.some(el => !['rect','circle','line','text'].includes(el.tagName));
+    if (hasComplex) {
+      // Store raw SVG so _svToString can emit it verbatim
+      _sv.rawSvg = svg;
+      // Show it as a static preview in the canvas wrapper
+      const wrapper = document.getElementById('sv-wrapper');
+      if (wrapper) {
+        wrapper.innerHTML = `<div style="position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#050a08">
+          <div style="max-width:100%;max-height:100%;overflow:hidden">${svg}</div>
+          <div style="position:absolute;bottom:6px;left:0;right:0;text-align:center;font-size:10px;color:var(--text-dim)">Complex SVG — displayed read-only. Editable shapes not available.</div>
+        </div>`;
+      }
+      toast('Complex SVG loaded — will save and broadcast as-is.');
+    } else {
+      toast('SVG loaded.');
+    }
+  };
+  reader.readAsText(file);
+  input.value = ''; // reset so re-uploading same file triggers onchange
+}
+
 function _grSyncToTextarea() {
   const lines = _ce.cells.map(row => {
     let line = row.join('');
@@ -531,6 +572,7 @@ let _sv = {
   createX0: 0, createY0: 0,
   dragging: false, dragX0: 0, dragY0: 0, dragAttrs: null,
   resizing: false, resizeHandle: null,
+  rawSvg: null, // set when an uploaded SVG can't be fully parsed into editable shapes
 };
 let _svNextId = 1;
 
@@ -549,6 +591,7 @@ function _svId() { return `s${_svNextId++}`; }
 function _svInit(content) {
   _sv.shapes = []; _svNextId = 1; _sv.selectedId = null; _sv.tool = 'select';
   _sv.mouseDown = false; _sv.creating = false; _sv.dragging = false; _sv.resizing = false;
+  _sv.rawSvg = null;
   if (content?.trim().startsWith('<svg')) {
     try { _svParse(content); } catch(e) {}
   }
@@ -897,6 +940,8 @@ function _svMove(id, dir) {
 // ── Serialise / deserialise ───────────────────────────────────────────────────
 
 function _svToString() {
+  // If a complex uploaded SVG is stored, emit it verbatim
+  if (_sv.rawSvg) return _sv.rawSvg;
   const e = escHtml4;
   const lines = [
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${_sv.w} ${_sv.h}" width="${_sv.w}" height="${_sv.h}">`,

@@ -22,11 +22,12 @@ let _schedResizeStartDur  = 0;
 // Popover state
 let _schedPopoverIdx = null;
 
-const SCHED_PX_PER_HOUR = 52;                        // px per game hour
-const SCHED_SCALE       = SCHED_PX_PER_HOUR / 3600;  // px per second
-const SCHED_SNAP        = 1800;                       // snap to 30-minute increments
-const SCHED_W           = SCHED_PX_PER_HOUR * 24;    // 1248px total
-const SCHED_H           = 72;                         // px height of timeline
+let   _schedPxPerHour   = 52;
+const SCHED_SNAP        = 1800;
+const SCHED_H           = 72;
+
+function _schedScale() { return _schedPxPerHour / 3600; }
+function _schedW()     { return _schedPxPerHour * 24; }
 
 const SCHED_CAT_COLOR = {
   entertainment: 'var(--cyan)',
@@ -39,9 +40,22 @@ const SCHED_CAT_COLOR = {
   general:       'var(--text-dim)',
 };
 
-function _schedToX(sec)  { return sec * SCHED_SCALE; }
-function _schedToSec(px) { return Math.round((px / SCHED_SCALE) / SCHED_SNAP) * SCHED_SNAP; }
+function _schedToX(sec)  { return sec * _schedScale(); }
+function _schedToSec(px) { return Math.round((px / _schedScale()) / SCHED_SNAP) * SCHED_SNAP; }
 function _schedClamp(sec, dur) { return Math.max(0, Math.min(86400 - (dur || SCHED_SNAP), sec)); }
+
+function _schedZoom(delta) {
+  _schedPxPerHour = Math.max(8, Math.min(400, _schedPxPerHour + delta));
+  const label = document.getElementById('sched-zoom-label');
+  if (label) label.textContent = _schedZoomLabel();
+  _schedRenderTimeline();
+}
+function _schedZoomLabel() {
+  if (_schedPxPerHour <= 14)  return 'day view';
+  if (_schedPxPerHour <= 60)  return 'hour view';
+  if (_schedPxPerHour <= 180) return 'min view';
+  return 'sec view';
+}
 
 function _schedFmtTime(sec) {
   const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60);
@@ -118,10 +132,12 @@ async function _schedLoadItems() {
         || ((Array.isArray(bc.messages) ? bc.messages.length : 0) * (bc.message_interval || 5))
         || 3600;
       const cond = item.conditions ? (typeof item.conditions === 'string' ? JSON.parse(item.conditions) : item.conditions) : {};
+      const isBreak = item.slot_type === 'commercial_break';
       return {
         broadcast_id:      item.broadcast_id,
-        broadcast_name:    bc.name || item.broadcast_id,
-        broadcast_category: bc.category || 'general',
+        broadcast_name:    isBreak ? 'Commercial Break' : (bc.name || item.broadcast_id),
+        broadcast_category: isBreak ? 'commercial' : (bc.category || 'general'),
+        slot_type:         item.slot_type || 'broadcast',
         start_time:        item.start_time || 0,
         duration:          dur,
         duration_override: item.duration_override || null,
@@ -191,13 +207,20 @@ function _schedRenderContent() {
   const libRows = _schedBroadcasts.map(b => {
     const dur = b.override_duration || ((Array.isArray(b.messages) ? b.messages.length : 0) * (b.message_interval || 5)) || 3600;
     const col = SCHED_CAT_COLOR[b.category] || 'var(--text-dim)';
-    return `<div class="sched-lib-item" draggable="true"
+    return `<div class="bc-lib-item" draggable="true"
       ondragstart="_schedLibDragStart(event,'${b.id}')"
-      style="padding:5px 8px;border-left:3px solid ${col};background:var(--bg3);border-radius:2px;cursor:grab;flex-shrink:0;min-width:120px">
-      <div style="font-size:11px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px">${escHtml(b.name)}</div>
-      <div style="font-size:10px;color:var(--text-dim)">${_schedFmtDur(dur)}</div>
+      style="border-left:3px solid ${col}">
+      <div class="bc-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px">${escHtml(b.name)}</div>
+      <div class="bc-meta">${_schedFmtDur(dur)}</div>
     </div>`;
   }).join('');
+
+  const breakTile = `<div class="bc-lib-item" draggable="true"
+    ondragstart="_schedLibDragStart(event,'__break__')"
+    style="border-left:3px solid var(--text-dim);border-style:dashed">
+    <div class="bc-title">⏸ BREAK</div>
+    <div class="bc-meta">commercial slot</div>
+  </div>`;
 
   el.innerHTML = `
     <div style="display:flex;flex-direction:column;height:100%;min-height:0">
@@ -205,7 +228,7 @@ function _schedRenderContent() {
       <!-- Channel header -->
       <div style="padding:10px 16px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0;flex-wrap:wrap">
         <div style="display:flex;align-items:center;gap:6px">
-          <span style="font-size:10px;color:var(--text-dim)">Ch</span>
+          <span class="bc-meta">Ch</span>
           <input id="sched-ch-number" type="number" class="form-input" value="${ch.number || ''}" min="1"
             style="width:52px;font-size:13px;font-weight:700" onblur="_schedSaveChMeta()">
           <input id="sched-ch-name" class="form-input" value="${escHtml(ch.name)}"
@@ -215,7 +238,12 @@ function _schedRenderContent() {
           <input type="checkbox" id="sched-daily-toggle" ${isDaily ? 'checked' : ''} onchange="_schedToggleMode(this.checked)">
           Daily mode
         </label>
-        <div style="margin-left:auto;display:flex;gap:6px">
+        <div style="margin-left:auto;display:flex;align-items:center;gap:6px">
+          <div style="display:flex;align-items:center;gap:4px">
+            <button class="action-btn" style="padding:2px 7px" onclick="_schedZoom(-16)" title="Zoom out">−</button>
+            <span id="sched-zoom-label" class="bc-meta" style="min-width:58px;text-align:center">${_schedZoomLabel()}</span>
+            <button class="action-btn" style="padding:2px 7px" onclick="_schedZoom(16)" title="Zoom in">+</button>
+          </div>
           <button class="action-btn" onclick="bcImportBsm()" title="Import a .bsm file">↑ BSM</button>
           <button class="action-btn primary" onclick="_schedSave()">Save Schedule</button>
         </div>
@@ -227,15 +255,16 @@ function _schedRenderContent() {
           ? `<div style="padding:24px 0;color:var(--text-dim);font-size:12px">
                Enable <strong>Daily mode</strong> above to use the 24-hour timeline editor for this channel.
              </div>`
-          : `<div style="font-size:11px;color:var(--text-dim);margin-bottom:8px">Drag broadcasts from the library below onto the timeline. Snap: 30 min. Click a block to edit.</div>
+          : `<div class="bc-meta" style="margin-bottom:8px">Drag broadcasts from the library onto the timeline. Click a block to edit. Snap: 30 min.</div>
              ${_schedBuildTimeline()}`}
       </div>
 
       <!-- Library drawer -->
       <div style="border-top:1px solid var(--border);padding:8px 12px;background:var(--bg2);flex-shrink:0">
-        <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:6px">Broadcast Library</div>
+        <div class="bc-label" style="margin-bottom:6px">Broadcast Library</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;max-height:96px;overflow-y:auto">
-          ${libRows || '<div style="color:var(--text-dim);font-size:11px">No broadcasts</div>'}
+          ${breakTile}
+          ${libRows || '<div class="bc-meta">No broadcasts</div>'}
         </div>
       </div>
 
@@ -275,8 +304,9 @@ async function _schedSaveChMeta() {
 }
 
 function _schedBuildTimeline() {
+  const w = _schedW();
   // Ruler
-  let ruler = `<div style="position:relative;width:${SCHED_W}px;height:24px;flex-shrink:0;border-bottom:1px solid var(--border);margin-bottom:2px">`;
+  let ruler = `<div style="position:relative;width:${w}px;height:24px;flex-shrink:0;border-bottom:1px solid var(--border);margin-bottom:2px">`;
   for (let h = 0; h < 24; h++) {
     const x = _schedToX(h * 3600);
     ruler += `<div style="position:absolute;left:${x}px;top:0;height:100%;border-left:1px solid var(--border);padding-left:3px;font-size:10px;color:var(--text-dim);line-height:24px">${String(h).padStart(2,'0')}:00</div>`;
@@ -287,23 +317,37 @@ function _schedBuildTimeline() {
   let items = '';
   _schedItems.forEach((item, idx) => {
     const x   = _schedToX(item.start_time);
-    const w   = Math.max(12, _schedToX(item.duration));
+    const iw  = Math.max(12, _schedToX(item.duration));
     const col = SCHED_CAT_COLOR[item.broadcast_category] || 'var(--text-dim)';
+
+    if (item.slot_type === 'commercial_break') {
+      items += `
+        <div class="bc-break-slot" draggable="true"
+          ondragstart="_schedItemDragStart(event,${idx})"
+          onclick="_schedOpenPopover(event,${idx})"
+          style="left:${x}px;width:${iw}px;">
+          <span style="font-size:9px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">⏸ BREAK</span>
+          <div class="sched-resize-handle" onmousedown="_schedResizeStart(event,${idx})"
+            style="position:absolute;right:0;top:0;width:6px;height:100%;cursor:ew-resize;background:var(--border);opacity:0.8"></div>
+        </div>`;
+      return;
+    }
+
     const staffChips = item.npc_staff.map(id => {
       const npc = _schedNpcs.find(n => n.id === id);
       const initials = (npc?.name || id).slice(0, 2).toUpperCase();
-      return `<span style="background:var(--bg);border:1px solid var(--border);border-radius:2px;padding:0 3px;font-size:9px;color:var(--text-dim)">${initials}</span>`;
+      return `<span class="bc-chip">${initials}</span>`;
     }).join('');
     items += `
       <div class="sched-item" draggable="true"
         ondragstart="_schedItemDragStart(event,${idx})"
         onclick="_schedOpenPopover(event,${idx})"
-        style="position:absolute;left:${x}px;width:${w}px;height:${SCHED_H}px;top:0;
+        style="position:absolute;left:${x}px;width:${iw}px;height:${SCHED_H}px;top:0;
                background:color-mix(in srgb,${col} 18%,var(--bg2));
                border:1px solid ${col};border-radius:2px;box-sizing:border-box;
                overflow:hidden;cursor:grab;user-select:none">
         <div style="padding:3px 5px;font-size:10px;font-weight:600;color:${col};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(item.broadcast_name)}</div>
-        <div style="padding:0 5px;font-size:9px;color:var(--text-dim)">${_schedFmtTime(item.start_time)}–${_schedFmtTime(item.start_time + item.duration)}</div>
+        <div class="bc-meta" style="padding:0 5px">${_schedFmtTime(item.start_time)}–${_schedFmtTime(item.start_time + item.duration)}</div>
         <div style="padding:2px 4px;display:flex;gap:2px;flex-wrap:wrap">${staffChips}</div>
         <div class="sched-resize-handle" onmousedown="_schedResizeStart(event,${idx})"
           style="position:absolute;right:0;top:0;width:6px;height:100%;cursor:ew-resize;background:${col};opacity:0.5"></div>
@@ -312,11 +356,13 @@ function _schedBuildTimeline() {
 
   return `
     <div style="overflow-x:auto">
-      <div style="width:${SCHED_W}px">
+      <div style="width:${w}px">
         ${ruler}
-        <div id="sched-timeline" style="position:relative;width:${SCHED_W}px;height:${SCHED_H}px;background:var(--bg3);border:1px solid var(--border);border-radius:2px"
-          ondragover="event.preventDefault()"
+        <div id="sched-timeline" style="position:relative;width:${w}px;height:${SCHED_H}px;background:var(--bg3);border:1px solid var(--border);border-radius:2px"
+          ondragover="_schedTlDragOver(event)"
+          ondragleave="_schedTlDragLeave()"
           ondrop="_schedTlDrop(event)">
+          <div id="sched-drop-line"></div>
           ${items}
         </div>
       </div>
@@ -370,20 +416,52 @@ function _schedItemDragStart(e, idx) {
   if (tl) {
     const rect = tl.getBoundingClientRect();
     const item = _schedItems[idx];
-    _schedDragOffset = (e.clientX - rect.left) / SCHED_SCALE - item.start_time;
+    _schedDragOffset = (e.clientX - rect.left) / _schedScale() - item.start_time;
   }
   e.dataTransfer.effectAllowed = 'move';
   e.stopPropagation();
 }
 
+function _schedTlDragOver(e) {
+  e.preventDefault();
+  const tl = document.getElementById('sched-timeline');
+  const line = document.getElementById('sched-drop-line');
+  if (!tl || !line) return;
+  const rect = tl.getBoundingClientRect();
+  const rawPx = e.clientX - rect.left;
+  const snappedPx = _schedToX(_schedToSec(rawPx));
+  line.style.display = 'block';
+  line.style.left = snappedPx + 'px';
+}
+
+function _schedTlDragLeave() {
+  const line = document.getElementById('sched-drop-line');
+  if (line) line.style.display = 'none';
+}
+
 function _schedTlDrop(e) {
   e.preventDefault();
+  const line = document.getElementById('sched-drop-line');
+  if (line) line.style.display = 'none';
   const tl = document.getElementById('sched-timeline');
   if (!tl) return;
   const rect = tl.getBoundingClientRect();
-  const rawSec = (e.clientX - rect.left) / SCHED_SCALE;
+  const rawSec = (e.clientX - rect.left) / _schedScale();
 
-  if (_schedDragBcId != null) {
+  if (_schedDragBcId === '__break__') {
+    const dur = SCHED_SNAP;
+    const sec = _schedClamp(_schedToSec(rawSec), dur);
+    _schedItems.push({
+      broadcast_id:       null,
+      broadcast_name:     'Commercial Break',
+      broadcast_category: 'commercial',
+      slot_type:          'commercial_break',
+      start_time:         sec,
+      duration:           dur,
+      duration_override:  null,
+      npc_staff:          [],
+    });
+  } else if (_schedDragBcId != null) {
     const bc  = _schedBroadcasts.find(b => b.id === _schedDragBcId);
     if (!bc) return;
     const dur = bc.override_duration || ((Array.isArray(bc.messages) ? bc.messages.length : 0) * (bc.message_interval || 5)) || 3600;
@@ -392,6 +470,7 @@ function _schedTlDrop(e) {
       broadcast_id:       bc.id,
       broadcast_name:     bc.name,
       broadcast_category: bc.category || 'general',
+      slot_type:          'broadcast',
       start_time:         sec,
       duration:           dur,
       duration_override:  null,
@@ -399,7 +478,7 @@ function _schedTlDrop(e) {
     });
   } else if (_schedDragIdx != null) {
     const item = _schedItems[_schedDragIdx];
-    item.start_time = _schedClamp(_schedToSec(rawSec - _schedDragOffset * SCHED_SCALE), item.duration);
+    item.start_time = _schedClamp(_schedToSec(rawSec - _schedDragOffset * _schedScale()), item.duration);
   }
 
   _schedDragBcId   = null;
@@ -421,7 +500,7 @@ function _schedResizeStart(e, idx) {
 function _schedOnMouseMove(e) {
   if (_schedResizeIdx == null) return;
   const dx  = e.clientX - _schedResizeStartX;
-  const dur = Math.max(SCHED_SNAP, _schedToSec(_schedResizeStartDur * SCHED_SCALE + dx));
+  const dur = Math.max(SCHED_SNAP, _schedToSec(_schedResizeStartDur * _schedScale() + dx));
   const item = _schedItems[_schedResizeIdx];
   item.duration          = dur;
   item.duration_override = dur;
@@ -441,30 +520,44 @@ function _schedRenderTimeline() {
   let items = '';
   _schedItems.forEach((item, idx) => {
     const x   = _schedToX(item.start_time);
-    const w   = Math.max(12, _schedToX(item.duration));
+    const iw  = Math.max(12, _schedToX(item.duration));
     const col = SCHED_CAT_COLOR[item.broadcast_category] || 'var(--text-dim)';
+
+    if (item.slot_type === 'commercial_break') {
+      items += `
+        <div class="bc-break-slot" draggable="true"
+          ondragstart="_schedItemDragStart(event,${idx})"
+          onclick="_schedOpenPopover(event,${idx})"
+          style="left:${x}px;width:${iw}px;">
+          <span style="font-size:9px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">⏸ BREAK</span>
+          <div class="sched-resize-handle" onmousedown="_schedResizeStart(event,${idx})"
+            style="position:absolute;right:0;top:0;width:6px;height:100%;cursor:ew-resize;background:var(--border);opacity:0.8"></div>
+        </div>`;
+      return;
+    }
+
     const staffChips = item.npc_staff.map(id => {
       const npc = _schedNpcs.find(n => n.id === id);
       const initials = (npc?.name || id).slice(0, 2).toUpperCase();
-      return `<span style="background:var(--bg);border:1px solid var(--border);border-radius:2px;padding:0 3px;font-size:9px;color:var(--text-dim)">${initials}</span>`;
+      return `<span class="bc-chip">${initials}</span>`;
     }).join('');
     items += `
       <div class="sched-item" draggable="true"
         ondragstart="_schedItemDragStart(event,${idx})"
         onclick="_schedOpenPopover(event,${idx})"
-        style="position:absolute;left:${x}px;width:${w}px;height:${SCHED_H}px;top:0;
+        style="position:absolute;left:${x}px;width:${iw}px;height:${SCHED_H}px;top:0;
                background:color-mix(in srgb,${col} 18%,var(--bg2));
                border:1px solid ${col};border-radius:2px;box-sizing:border-box;
                overflow:hidden;cursor:grab;user-select:none">
         <div style="padding:3px 5px;font-size:10px;font-weight:600;color:${col};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(item.broadcast_name)}</div>
-        <div style="padding:0 5px;font-size:9px;color:var(--text-dim)">${_schedFmtTime(item.start_time)}–${_schedFmtTime(item.start_time + item.duration)}</div>
+        <div class="bc-meta" style="padding:0 5px">${_schedFmtTime(item.start_time)}–${_schedFmtTime(item.start_time + item.duration)}</div>
         <div style="padding:2px 4px;display:flex;gap:2px;flex-wrap:wrap">${staffChips}</div>
         <div class="sched-resize-handle" onmousedown="_schedResizeStart(event,${idx})"
           style="position:absolute;right:0;top:0;width:6px;height:100%;cursor:ew-resize;background:${col};opacity:0.5"></div>
       </div>`;
   });
 
-  tl.innerHTML = items;
+  tl.innerHTML = '<div id="sched-drop-line"></div>' + items;
 }
 
 // ── Popover (click a block) ───────────────────────────────────────────────────
@@ -561,6 +654,7 @@ async function _schedSave() {
     broadcast_id:      item.broadcast_id,
     start_time:        item.start_time,
     duration_override: item.duration_override,
+    slot_type:         item.slot_type || 'broadcast',
     conditions:        item.npc_staff.length ? { npc_staff: item.npc_staff } : [],
   }));
   try {
