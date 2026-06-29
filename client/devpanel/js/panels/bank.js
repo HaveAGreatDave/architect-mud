@@ -99,7 +99,7 @@ function _renderBankBody() {
       <td style="padding:8px 10px;color:var(--text-dim);font-size:11px">${n.faction_id || '—'}</td>
       <td style="padding:8px 10px;white-space:nowrap">
         <button class="action-btn" onclick="bankInjectNetwork('${n.id}')" title="Fill all ATMs on this network" style="padding:2px 8px;font-size:10px">Inject All</button>
-        <button class="action-btn" onclick="bankEditNetwork(${JSON.stringify(JSON.stringify(n))})" style="padding:2px 8px;font-size:10px">Edit</button>
+        <button class="action-btn" onclick="bankEditNetwork('${n.id}')" style="padding:2px 8px;font-size:10px">Edit</button>
         <button class="action-btn danger" onclick="bankDeleteNetwork('${n.id}','${n.name}')" style="padding:2px 8px;font-size:10px">Delete</button>
       </td>
     </tr>`).join('') || `<tr><td colspan="6" style="padding:20px;color:var(--text-dim);text-align:center">No networks defined.</td></tr>`;
@@ -341,9 +341,15 @@ function _networkModal(title, n) {
         <input id="bnet-name" type="text" value="${n.name || ''}" placeholder="CorpBank Terminal"
           style="background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);padding:5px 8px;width:100%;box-sizing:border-box">
       </div>
-      <div class="field"><label>Color (hex)</label>
-        <input id="bnet-color" type="text" value="${n.color || '#00ff88'}" placeholder="#00ff88"
-          style="background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);padding:5px 8px;width:100%;box-sizing:border-box">
+      <div class="field"><label>Color</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input id="bnet-color-picker" type="color" value="${n.color || '#00ff88'}"
+            style="width:36px;height:32px;padding:2px;border:1px solid var(--border);background:var(--bg3);cursor:pointer;flex-shrink:0"
+            oninput="document.getElementById('bnet-color').value=this.value">
+          <input id="bnet-color" type="text" value="${n.color || '#00ff88'}" placeholder="#00ff88"
+            style="background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);padding:5px 8px;flex:1;box-sizing:border-box"
+            oninput="if(/^#[0-9a-fA-F]{6}$/.test(this.value))document.getElementById('bnet-color-picker').value=this.value">
+        </div>
       </div>
       <div class="field"><label>Fee Rate (0.0 – 1.0)</label>
         <input id="bnet-fee" type="number" min="0" max="1" step="0.01" value="${n.fee_rate ?? 0}"
@@ -361,17 +367,17 @@ function _networkModal(title, n) {
         <input id="bnet-faction" type="text" value="${n.faction_id || ''}" placeholder="e.g. corp"
           style="background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);padding:5px 8px;width:100%;box-sizing:border-box">
       </div>
-      <div style="display:flex;gap:8px;margin-top:4px">
-        <button class="action-btn success" style="flex:1" onclick="bankSaveNetwork(${!!n.id})">${n.id ? 'Save' : 'Create'}</button>
-        <button class="action-btn" onclick="closeModal()">Cancel</button>
-      </div>
     </div>`);
+  const saveBtn = document.getElementById('modal-save');
+  saveBtn.textContent = n.id ? 'Save' : 'Create';
+  saveBtn.onclick = () => bankSaveNetwork(!!n.id);
 }
 
 function bankNewNetwork() { _networkModal('New ATM Network', {}); }
 
-function bankEditNetwork(jsonStr) {
-  const n = JSON.parse(jsonStr);
+function bankEditNetwork(id) {
+  const n = _bankNetworks.find(x => x.id === id);
+  if (!n) return;
   _networkModal(`Edit Network: ${n.name}`, n);
 }
 
