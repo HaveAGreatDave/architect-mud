@@ -4,7 +4,7 @@
 @type live_to_tape
 @season 1
 @episode 1
-@runtime 180s
+@runtime 180
 @host john_akerson
 
 ::scene TITLE

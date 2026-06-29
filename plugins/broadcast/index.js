@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
-import { world, getZonePlayers, getZone, getZoneNpcs, getZoneEnemies } from '../../server/engine/world.js';
+import { world, getZonePlayers, getZone, getZoneNpcs, getZoneEnemies, reloadZone } from '../../server/engine/world.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { on, emit } from '../../server/engine/events.js';
 import { registerAction } from '../../server/engine/actions.js';
@@ -1338,100 +1338,135 @@ export const routeHandler = async (path, method, body, auth) => {
 
       const ts = Date.now();
       let exteriorZoneId = exterior_zone_id;
+      let createdExterior = false;
 
-      // If grid coords given, create or reuse the exterior world-map zone (the building)
-      if (!exteriorZoneId && grid_x != null && grid_y != null) {
-        const { rows: existing } = await query(
-          `SELECT id FROM zones WHERE map_id='map_world' AND grid_x=$1 AND grid_y=$2 LIMIT 1`,
-          [grid_x, grid_y]
+      // Track created entities for cleanup on failure
+      const created = { exterior: null, map: null, studio: null, utility: null, jbox: null };
+
+      try {
+        // If grid coords given, create or reuse the exterior world-map zone
+        if (!exteriorZoneId && grid_x != null && grid_y != null) {
+          const { rows: existing } = await query(
+            `SELECT id FROM zones WHERE map_id='map_world' AND grid_x=$1 AND grid_y=$2 LIMIT 1`,
+            [grid_x, grid_y]
+          );
+          if (existing.length) {
+            exteriorZoneId = existing[0].id;
+          } else {
+            exteriorZoneId = `zone_ext_${ts}`;
+            await query(
+              `INSERT INTO zones (id,name,description,map_id,grid_x,grid_y,grid_z,marker,flags,exits)
+               VALUES ($1,$2,$3,'map_world',$4,$5,0,$6,'{}','{}')`,
+              [exteriorZoneId, studio_name, `Exterior of ${studio_name}.`,
+               grid_x, grid_y, studio_name.slice(0, 2).toUpperCase()]
+            );
+            created.exterior = exteriorZoneId;
+            createdExterior = true;
+          }
+        }
+        if (!exteriorZoneId) return { status: 400, body: { error: 'exterior_zone_id or grid_x+grid_y required' } };
+
+        // Create interior map linked to the exterior zone
+        const mapId = `map_int_${ts}`;
+        await query(
+          `INSERT INTO maps (id, name, parent_zone_id, entry_zone_id, created_by) VALUES ($1,$2,$3,$4,$5)`,
+          [mapId, `${studio_name} — Interior`, exteriorZoneId, null, auth?.playerId || null]
         );
-        if (existing.length) {
-          exteriorZoneId = existing[0].id;
-        } else {
-          exteriorZoneId = `zone_ext_${ts}`;
+        created.map = mapId;
+
+        // Create studio zone (floor 0 of interior map, grid 0,0)
+        const studioZoneId = `zone_studio_${ts}`;
+        const stageName = `${studio_name} Stage`;
+        await query(
+          `INSERT INTO zones (id,name,description,map_id,grid_x,grid_y,grid_z,flags,exits)
+           VALUES ($1,$2,$3,$4,0,0,0,$5,$6)`,
+          [studioZoneId, stageName,
+           `Broadcast stage for ${studio_name}.`,
+           mapId,
+           JSON.stringify({ is_interior: true, is_building: true, world_exit_zone: exteriorZoneId }),
+           JSON.stringify({ out: exteriorZoneId })]
+        );
+        created.studio = studioZoneId;
+
+        // Patch map entry_zone_id
+        await query(`UPDATE maps SET entry_zone_id=$1 WHERE id=$2`, [studioZoneId, mapId]);
+
+        // Link exterior zone → studio
+        const { rows: extRows } = await query('SELECT exits FROM zones WHERE id=$1', [exteriorZoneId]);
+        const mergedExits = JSON.stringify({ ...(extRows[0]?.exits || {}), in: studioZoneId });
+        await query('UPDATE zones SET exits=$1 WHERE id=$2', [mergedExits, exteriorZoneId]);
+
+        // Create utility/power room below (grid 0,0,-1)
+        const utilityZoneId = `zone_util_${ts}`;
+        await query(
+          `INSERT INTO zones (id,name,description,map_id,grid_x,grid_y,grid_z,flags,exits)
+           VALUES ($1,$2,$3,$4,0,0,-1,$5,$6)`,
+          [utilityZoneId, `${studio_name} — Power Room`,
+           'Utility room housing the building junction box.',
+           mapId,
+           JSON.stringify({ is_interior: true }),
+           JSON.stringify({ up: studioZoneId })]
+        );
+        created.utility = utilityZoneId;
+
+        // Add down exit from studio to utility room
+        const { rows: stRows } = await query('SELECT exits FROM zones WHERE id=$1', [studioZoneId]);
+        const studioExits = JSON.stringify({ ...(stRows[0]?.exits || {}), down: utilityZoneId });
+        await query('UPDATE zones SET exits=$1 WHERE id=$2', [studioExits, studioZoneId]);
+
+        // Find city plant generator
+        const { rows: plants } = await query(
+          `SELECT id FROM generators WHERE generator_type='city_plant' AND status='online' LIMIT 1`
+        );
+        const cityGenId = plants[0]?.id || null;
+
+        // Create junction_box generator in utility room
+        const jboxId = `gen_${utilityZoneId}_${ts}`;
+        await query(
+          `INSERT INTO generators (id,zone_id,name,generator_type,capacity_kw,status,city_generator_id,remaining_kw)
+           VALUES ($1,$2,$3,'junction_box',500,'online',$4,500)`,
+          [jboxId, utilityZoneId, `${studio_name} Junction Box`, cityGenId]
+        );
+        created.jbox = jboxId;
+
+        // Register zones in power_zones
+        for (const [zid, zname] of [[studioZoneId, stageName], [utilityZoneId, `${studio_name} Power Room`]]) {
           await query(
-            `INSERT INTO zones (id,name,description,map_id,grid_x,grid_y,grid_z,marker,flags,exits)
-             VALUES ($1,$2,$3,'map_world',$4,$5,0,$6,'{}','{}')`,
-            [exteriorZoneId, studio_name, `Exterior of ${studio_name}.`,
-             grid_x, grid_y, studio_name.slice(0, 2).toUpperCase()]
+            `INSERT INTO power_zones (id,name,source_type,generator_id,capacity_kw,current_load_kw,status,available_kw,max_capacity_kw)
+             VALUES ($1,$2,'junction_box',$3,500,0,'powered',500,500)
+             ON CONFLICT (id) DO NOTHING`,
+            [zid, zname, jboxId]
           );
         }
+
+        // Load new zones into the world
+        await Promise.all([
+          reloadZone(studioZoneId),
+          reloadZone(utilityZoneId),
+          reloadZone(exteriorZoneId),
+        ]);
+
+        return { status: 201, body: {
+          exterior_zone_id: exteriorZoneId,
+          studio_zone_id:   studioZoneId,
+          utility_zone_id:  utilityZoneId,
+          map_id:           mapId,
+          junction_box_id:  jboxId,
+        }};
+
+      } catch (err) {
+        // Attempt to clean up any partially created entities
+        const cleanup = [];
+        if (created.jbox)    cleanup.push(query('DELETE FROM generators WHERE id=$1',   [created.jbox]));
+        if (created.utility) cleanup.push(query('DELETE FROM power_zones WHERE id=$1',  [created.utility]));
+        if (created.utility) cleanup.push(query('DELETE FROM zones WHERE id=$1',        [created.utility]));
+        if (created.studio)  cleanup.push(query('DELETE FROM power_zones WHERE id=$1',  [created.studio]));
+        if (created.studio)  cleanup.push(query('DELETE FROM zones WHERE id=$1',        [created.studio]));
+        if (created.map)     cleanup.push(query('DELETE FROM maps WHERE id=$1',         [created.map]));
+        if (created.exterior) cleanup.push(query('DELETE FROM zones WHERE id=$1',       [created.exterior]));
+        await Promise.allSettled(cleanup);
+        return { status: 500, body: { error: `Studio creation failed: ${err.message}` } };
       }
-      if (!exteriorZoneId) return { status: 400, body: { error: 'exterior_zone_id or grid_x+grid_y required' } };
-
-      // Create interior map linked to the exterior zone
-      const mapId = `map_int_${ts}`;
-      await query(
-        `INSERT INTO maps (id, name, parent_zone_id, entry_zone_id, created_by) VALUES ($1,$2,$3,$4,$5)`,
-        [mapId, `${studio_name} — Interior`, exteriorZoneId, null, auth?.playerId || null]
-      );
-
-      // Create studio zone (floor 1 of interior map, grid 0,0)
-      const studioZoneId = `zone_studio_${ts}`;
-      await query(
-        `INSERT INTO zones (id,name,description,map_id,grid_x,grid_y,grid_z,flags,exits)
-         VALUES ($1,$2,$3,$4,0,0,0,$5,$6)`,
-        [studioZoneId, studio_name,
-         `Broadcast studio for channel ${channel_id ? `channel ${channel_id}` : studio_name}.`,
-         mapId,
-         JSON.stringify({ is_interior: true, is_building: true, world_exit_zone: exteriorZoneId }),
-         JSON.stringify({ out: exteriorZoneId })]
-      );
-      // Patch map entry_zone_id
-      await query(`UPDATE maps SET entry_zone_id=$1 WHERE id=$2`, [studioZoneId, mapId]);
-
-      // Link exterior zone → studio: read current exits, merge, write back
-      const { rows: extRows } = await query('SELECT exits FROM zones WHERE id=$1', [exteriorZoneId]);
-      const mergedExits = JSON.stringify({ ...(extRows[0]?.exits || {}), in: studioZoneId });
-      await query('UPDATE zones SET exits=$1 WHERE id=$2', [mergedExits, exteriorZoneId]);
-
-      // Create utility/power room below (grid 0,0,-1)
-      const utilityZoneId = `zone_util_${ts}`;
-      await query(
-        `INSERT INTO zones (id,name,description,map_id,grid_x,grid_y,grid_z,flags,exits)
-         VALUES ($1,$2,$3,$4,0,0,-1,$5,$6)`,
-        [utilityZoneId, `${studio_name} — Power Room`,
-         'Utility room housing the building junction box.',
-         mapId,
-         JSON.stringify({ is_interior: true }),
-         JSON.stringify({ up: studioZoneId })]
-      );
-      // Add down exit from studio to utility room (same read-merge-write pattern)
-      const { rows: stRows } = await query('SELECT exits FROM zones WHERE id=$1', [studioZoneId]);
-      const studioExits = JSON.stringify({ ...(stRows[0]?.exits || {}), down: utilityZoneId });
-      await query('UPDATE zones SET exits=$1 WHERE id=$2', [studioExits, studioZoneId]);
-
-      // Find city plant generator
-      const { rows: plants } = await query(
-        `SELECT id FROM generators WHERE generator_type='city_plant' AND status='online' LIMIT 1`
-      );
-      const cityGenId = plants[0]?.id || null;
-
-      // Create junction_box generator in utility room
-      const jboxId = `gen_${utilityZoneId}_${ts}`;
-      await query(
-        `INSERT INTO generators (id,zone_id,name,generator_type,capacity_kw,status,city_generator_id,remaining_kw)
-         VALUES ($1,$2,$3,'junction_box',500,'online',$4,500)`,
-        [jboxId, utilityZoneId, `${studio_name} Junction Box`, cityGenId]
-      );
-
-      // Register zones in power_zones
-      for (const [zid, zname] of [[studioZoneId, studio_name], [utilityZoneId, `${studio_name} Power Room`]]) {
-        await query(
-          `INSERT INTO power_zones (id,name,source_type,generator_id,capacity_kw,current_load_kw,status,available_kw,max_capacity_kw)
-           VALUES ($1,$2,'junction_box',$3,500,0,'powered',500,500)
-           ON CONFLICT (id) DO NOTHING`,
-          [zid, zname, jboxId]
-        );
-      }
-
-      return { status: 201, body: {
-        exterior_zone_id: exteriorZoneId,
-        studio_zone_id:   studioZoneId,
-        utility_zone_id:  utilityZoneId,
-        map_id:           mapId,
-        junction_box_id:  jboxId,
-      }};
     }
 
     // ── Deck management for a channel ───────────────────────────────────────────
