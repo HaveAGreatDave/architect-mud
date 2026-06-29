@@ -10,6 +10,7 @@ import { tickSleep, releaseApartment } from './apartments.js';
 import { fireHook } from './plugins.js';
 import { emit } from './events.js';
 import { schedule } from './scheduler.js';
+import { carryCapacity } from './commands/inventory.js';
 import { query, logActivity } from '../models/db.js';
 import { getEnvironmentState, getZoneTemperature } from './environment.js';
 import { tickBodily } from './bodily.js';
@@ -244,6 +245,7 @@ export async function handlePlayerDeath(player, killer) {
   const corpseId = `corpse_player_${player.id}_${Date.now()}`;
   const corpseName = `${player.handle}'s corpse`;
   const expiresAt = Date.now() + 60 * 60 * 1000;
+  const corpseCapacity = carryCapacity(player);
 
   // Strip all non-quest items into the corpse (flatten container nesting)
   await query(
@@ -255,11 +257,11 @@ export async function handlePlayerDeath(player, killer) {
 
   // Persist corpse so it survives server restart
   await query(
-    `INSERT INTO player_corpses (id, player_id, zone_id, death_message, expires_at) VALUES ($1, $2, $3, $4, $5)`,
-    [corpseId, player.id, deathZone, corpseName, expiresAt]
+    `INSERT INTO player_corpses (id, player_id, zone_id, death_message, expires_at, capacity) VALUES ($1, $2, $3, $4, $5, $6)`,
+    [corpseId, player.id, deathZone, corpseName, expiresAt, corpseCapacity]
   ).catch(() => {});
 
-  createCorpse({ id: corpseId, name: corpseName, zoneId: deathZone, expiresAt });
+  createCorpse({ id: corpseId, name: corpseName, zoneId: deathZone, expiresAt, capacity: corpseCapacity });
 
   // Full restore on respawn — you come out of the vat whole, not wounded.
   // Skills/rank/xp live in a separate table untouched by any of this, so

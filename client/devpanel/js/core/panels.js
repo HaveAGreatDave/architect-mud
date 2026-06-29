@@ -45,6 +45,7 @@ const PANELS = {
     title: 'Items',
     fetch: () => API('/items'),
     render: renderItemsPanel,
+    filter: filterItems,
     editForm: itemEditForm,
     save: saveItem,
     delete: id => API(`/items/${id}`, 'DELETE'),

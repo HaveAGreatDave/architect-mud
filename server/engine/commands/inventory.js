@@ -70,9 +70,10 @@ async function cmdInventory(player) {
     msg += `  ${item.name}${item.quantity>1?` x${item.quantity}`:''}${quality}${instFlags}${container}${eq} — <span class="item-rarity-${item.rarity}">${item.rarity}</span>\n`;
   }
   const weight = await computeCarriedWeight(player);
-  msg += `\nWeight: ${formatWeight(weight)}`;
+  const cap = carryCapacity(player);
+  msg += `\nWeight: ${formatWeight(weight)}/${formatWeight(cap)}`;
   msg += `\nCredits: ${player.credits||0}`;
-  return { type:'inventory', message:msg, items:rows };
+  return { type:'inventory', message:msg, items:rows, weight, capacity:cap };
 }
 
 function round1(n) { return Math.round(n * 10) / 10; }
@@ -96,6 +97,11 @@ function withArticle(name) {
 async function containerContentsWeight(containerRowId) {
   const { rows } = await query(`SELECT COALESCE(SUM(i.weight*pi.quantity),0) AS w FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.container_id=$1`, [containerRowId]);
   return Number(rows[0].w) || 0;
+}
+
+// Carry capacity in grams: 14kg base + 1kg per brawn point.
+export function carryCapacity(player) {
+  return 14000 + (Number(player?.stat_brawn) || 0) * 1000;
 }
 
 // Total carried weight: top-level items at full weight, contained items at 75%.
@@ -447,6 +453,13 @@ async function cmdStowById(argStr, player, broadcast) {
     // Fall back to corpse stow: move item from player inv onto a corpse
     const corpse = await resolveCorpseOrPlayer(containerRowId, player);
     if (!corpse || corpse.zoneId !== player.current_zone) return { type:'container_error', message:'Container not found.' };
+    if (corpse.capacity != null) {
+      const { rows: usedRows } = await query(`SELECT COALESCE(SUM(i.weight*pi.quantity),0) AS w FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1`, [corpse.id]);
+      const used = Number(usedRows[0].w) || 0;
+      if (used + (item.weight || 0) > corpse.capacity) {
+        return { type:'container_error', message:`${corpse.name} is full (${formatWeight(used)}/${formatWeight(corpse.capacity)}).` };
+      }
+    }
     const reqQty = qtyStr && /^\d+$/.test(qtyStr) ? parseInt(qtyStr, 10) : null;
     const moveQty = (reqQty && reqQty > 0 && reqQty < item.quantity && isStackable(item)) ? reqQty : null;
     if (moveQty) {

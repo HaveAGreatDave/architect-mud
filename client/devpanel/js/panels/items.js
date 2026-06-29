@@ -86,9 +86,16 @@ function readItemTag(rowEl) {
   }
 }
 
-function renderItemsPanel() {
+function filterItems(q) {
+  if (!q) { renderItemsPanel(); return; }
+  const filtered = allRecords.filter(r =>
+    Object.values(r).some(v => String(v).toLowerCase().includes(q))
+  );
+  renderItemsPanel(filtered);
+}
+
+function renderItemsPanel(records = allRecords) {
   const panel = document.getElementById('list-panel');
-  const records = allRecords;
   if (!records.length) {
     panel.innerHTML = '<div style="padding:24px;color:var(--text-dim)">No items found.</div>';
     return;

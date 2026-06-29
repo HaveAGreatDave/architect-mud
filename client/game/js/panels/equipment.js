@@ -7,6 +7,14 @@ let equipDraggedId = null;
 let dragHandled = false;
 let currentLayer = 1;
 let lastItems = [];
+let lastWeight = null;
+let lastCapacity = null;
+
+function formatWeight(g) {
+  g = Number(g) || 0;
+  if (g < 1000) return `${Math.round(g)}g`;
+  return `${(Math.round(g / 100) / 10).toString()}kg`;
+}
 
 export function getEquippedWeaponName() {
   const w = lastItems.find(item => item.is_equipped && item.slot === 'weapon_hand');
@@ -42,8 +50,10 @@ function updateLayerDisplay() {
 
 function rerenderLayer() { renderEquipPanel(lastItems); }
 
-export function renderEquipPanel(items) {
+export function renderEquipPanel(items, weight, capacity) {
   lastItems = items;
+  if (weight !== undefined) lastWeight = weight;
+  if (capacity !== undefined) lastCapacity = capacity;
   updateLayerDisplay();
 
   for (const slotName of EQUIP_SLOT_NAMES) {
@@ -109,6 +119,10 @@ export function renderEquipPanel(items) {
   }
 
   document.getElementById('equip-credits-val').textContent = (state.player && state.player.credits) || 0;
+  const wtEl = document.getElementById('equip-weight-val');
+  if (wtEl && lastCapacity != null) {
+    wtEl.textContent = `${formatWeight(lastWeight)}/${formatWeight(lastCapacity)}`;
+  }
 }
 
 function showDropQtyDialog(item, onConfirm) {

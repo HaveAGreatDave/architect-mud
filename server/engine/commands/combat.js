@@ -94,6 +94,7 @@ export async function resolveAttack(player, target, broadcast) {
 			{
 				type: "zone_event",
 				message: `${player.handle} attacks ${target.name}.`,
+				refresh: true,
 			},
 			player.id,
 		);
@@ -239,11 +240,13 @@ async function offlineSleepSwing(attacker, targetId, broadcast) {
 			 AND NOT (i.tags @> '{"quest_item":true}')`,
 			[corpseId, target.id],
 		).catch(() => {});
+		// Corpse storage mirrors the victim's carry capacity at death (14kg + 1kg/brawn).
+		const corpseCapacity = 14000 + (Number(target.stat_brawn) || 0) * 1000;
 		await query(
-			`INSERT INTO player_corpses (id, player_id, zone_id, death_message, expires_at) VALUES ($1, $2, $3, $4, $5)`,
-			[corpseId, target.id, attacker.current_zone, corpseName, expiresAt],
+			`INSERT INTO player_corpses (id, player_id, zone_id, death_message, expires_at, capacity) VALUES ($1, $2, $3, $4, $5, $6)`,
+			[corpseId, target.id, attacker.current_zone, corpseName, expiresAt, corpseCapacity],
 		).catch(() => {});
-		createCorpse({ id: corpseId, name: corpseName, zoneId: attacker.current_zone, expiresAt });
+		createCorpse({ id: corpseId, name: corpseName, zoneId: attacker.current_zone, expiresAt, capacity: corpseCapacity });
 		await query(`UPDATE players SET hp=$1, current_zone=anchor_zone, deaths=deaths+1 WHERE id=$2`, [target.hp_max ?? 100, target.id]);
 
 		// Give starter clothes just like the live-death path does
@@ -302,6 +305,7 @@ export async function buildLootView(corpse, player) {
 		 ORDER BY i.name`,
 		[player.id],
 	);
+	const used = items.reduce((sum, r) => sum + (Number(r.weight) || 0) * (Number(r.quantity) || 0), 0);
 	return {
 		type: "loot_view",
 		corpseId: corpse.id,
@@ -309,6 +313,8 @@ export async function buildLootView(corpse, player) {
 		butcherable: (corpse.butcher_table || []).length > 0,
 		items,
 		invItems,
+		capacity: corpse.capacity != null ? corpse.capacity : null,
+		usedWeight: used,
 	};
 }
 

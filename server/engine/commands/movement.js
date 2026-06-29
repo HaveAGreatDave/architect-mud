@@ -4,6 +4,7 @@ import { getZoneVisibility, getWindowsForZone, getEnvironmentState, getZoneTempe
 import { describeZone, resolveNamedDestination } from './describe.js';
 import { checkLockAuth, getLockTagPublic } from './doors.js';
 import { emit } from '../events.js';
+import { computeCarriedWeight, carryCapacity, formatWeight } from './inventory.js';
 
 const RAW_DIRECTIONS = ['north', 'south', 'east', 'west', 'up', 'down', 'in', 'out', 'exit'];
 
@@ -219,6 +220,12 @@ async function cmdMove(direction, player, broadcast) {
       setDoorCache(door.id, door);
       await query('UPDATE doors SET is_open=1 WHERE id=$1', [door.id]);
     }
+  }
+
+  const carried = await computeCarriedWeight(player);
+  const cap = carryCapacity(player);
+  if (carried > cap) {
+    return { type:'error', message:`You're carrying too much to move (${formatWeight(carried)}/${formatWeight(cap)}). Drop something.` };
   }
 
   const oldZoneId = player.current_zone;

@@ -80,11 +80,17 @@ const handlers = {
     refreshZoneVisibility();
   },
 
-  combat: (msg) => {
-    appendHtml(msg.message, msg.killed ? 'loot' : 'combat');
-    if (msg.killed && msg.corpseLink) appendHtml(`${msg.corpseLink}`, 'loot');
-    if (msg.killed) sendCmdSilent('look');
-  },
+  combat: (() => {
+    let _lookTimer = null;
+    return (msg) => {
+      appendHtml(msg.message, msg.killed ? 'loot' : 'combat');
+      if (msg.killed && msg.corpseLink) appendHtml(`${msg.corpseLink}`, 'loot');
+      // Kill refreshes the area pane immediately; a non-kill hit refreshes it
+      // (debounced) so the top pane shows the enemy's updated HP totals.
+      if (msg.killed) { clearTimeout(_lookTimer); sendCmdSilent('look'); }
+      else { clearTimeout(_lookTimer); _lookTimer = setTimeout(() => sendCmdSilent('look'), 300); }
+    };
+  })(),
 
   combat_incoming: (msg) => {
     appendHtml(msg.message, 'combat-incoming');
@@ -153,7 +159,7 @@ const handlers = {
   say: (msg) => { appendMsg(msg.message, 'say'); },
 
   inventory: (msg) => {
-    renderEquipPanel(msg.items || []);
+    renderEquipPanel(msg.items || [], msg.weight, msg.capacity);
     document.getElementById('equip-panel').classList.add('active');
   },
 

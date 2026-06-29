@@ -12,6 +12,7 @@ import { isMisActive, isAttractedTo, addHorniness, erectionVisibilityNote, breas
 import { availableActions } from '../specializedActions.js';
 import { statusLabels } from '../effects.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../sift.js';
+import { carryCapacity, formatWeight } from './inventory.js';
 
 async function cmdStats(player) {
   const { rows } = await query('SELECT * FROM players WHERE id=$1', [player.id]);
@@ -21,7 +22,7 @@ async function cmdStats(player) {
   let msg = `<span class="stats-header">${p.handle}</span> — ${p.archetype||'unknown'}\n\n`;
   msg += `HP:     ${p.hp}/${p.hp_max}\nSanity: ${p.sanity}/${p.sanity_max}\nHunger: ${p.hunger}/100\nThirst: ${p.thirst}/100\nRAD:    ${radBar} ${p.radiation}/100\n\n`;
   const { total, net } = await getNetXp(player.id);
-  msg += `BRAWN:${p.stat_brawn}  REFL:${p.stat_reflexes}  BRNS:${p.stat_brains}\nCOOL:${p.stat_cool}  END:${p.stat_endurance}\n\nXP: ${Math.floor(net)} (Total: ${total})  Credits: ${p.credits}`;
+  msg += `BRAWN:${p.stat_brawn}  REFL:${p.stat_reflexes}  BRNS:${p.stat_brains}\nCOOL:${p.stat_cool}  END:${p.stat_endurance}\n\nCarry: ${formatWeight(carryCapacity(p))} max\n\nXP: ${Math.floor(net)} (Total: ${total})  Credits: ${p.credits}`;
 
   const statusFlags = [];
   if (player.sleeping) statusFlags.push('Asleep');
@@ -606,7 +607,9 @@ async function cmdSpawn(args, player) {
   const invId = `inv_spawn_${Date.now()}`;
   await query('INSERT INTO player_inventory (id,player_id,item_id,quantity) VALUES ($1,$2,$3,1)',
     [invId, `_ground_${zoneId}`, itemId]);
-  return { type: 'output', message: `Spawned ${itemId} in ${zoneId}.` };
+  const zoneName = getZone(zoneId)?.name;
+  const where = zoneName ? `${zoneName} (${zoneId})` : zoneId;
+  return { type: 'output', message: `Spawned ${itemId} in ${where}.` };
 }
 
 async function cmdSpawnEnemy(args, player, broadcast) {
@@ -619,7 +622,9 @@ async function cmdSpawnEnemy(args, player, broadcast) {
   if (!rows.length) return { type: 'error', message: `No enemy template "${enemyId}".` };
   const instance = spawnEnemySync(rows[0], zoneId);
   broadcast?.(zoneId, { type: 'zone_event', message: `A ${instance.name} appears.`, refresh: true });
-  return { type: 'output', message: `Spawned ${instance.name} (${instance.instanceId}) in ${zoneId}.` };
+  const zoneName = world.zones.get(zoneId)?.name;
+  const where = zoneName ? `${zoneName} (${zoneId})` : zoneId;
+  return { type: 'output', message: `Spawned ${instance.name} (${instance.instanceId}) in ${where}.` };
 }
 
 async function applyLightSwitch(nameStr, dir, player, broadcast) {
