@@ -29,10 +29,11 @@ export function openTvPanel(data) {
   _tickerAnimating = false;
   _tvAtBottom = true;
   _tvChannelList = Array.isArray(data.channelList) ? data.channelList : [];
-  _tvFrequency   = data.channelNumber ?? 0;
+  const savedFreq = parseFloat(localStorage.getItem('tv_frequency') || '0');
+  _tvFrequency = (data.channelNumber > 0) ? data.channelNumber : savedFreq;
 
   document.getElementById('tv-station-name').textContent = data.stationName || data.channelName || '——';
-  document.getElementById('tv-channel-num').textContent = data.channelNumber ? `CH ${data.channelNumber}` : '——';
+  document.getElementById('tv-channel-num').textContent = (data.channelNumber > 0) ? `CH ${data.channelNumber}` : '——';
   document.getElementById('tv-program-name').textContent = '';
   document.getElementById('tv-messages').innerHTML = '';
 
@@ -81,9 +82,12 @@ function _playTuneAnimation() {
   const content  = document.getElementById('tv-content');
   const knob     = document.getElementById('tv-knob');
 
-  // Hide content, show static
+  // Hide content, show static — clear inline knob rotation so spin animation plays cleanly
+  content.style.opacity = '';
   content.classList.add('tv-hidden');
+  staticEl.style.opacity = '';
   staticEl.classList.remove('tv-static-fade');
+  knob.style.transform = '';
   staticEl.classList.add('tv-static-on');
 
   // Spin the knob
@@ -102,6 +106,7 @@ function _playTuneAnimation() {
     }, { once: true });
 
     knob.classList.remove('tv-knob-spinning');
+    _updateKnobRotation();
     _tuneTimer = null;
   }, 1200);
 }
@@ -157,6 +162,7 @@ export function closeTvPanel() {
   _clearOverlay();
   const win = document.getElementById('tv-window');
   win.classList.remove('tv-shutting-off');
+  localStorage.setItem('tv_frequency', _tvFrequency.toFixed(1));
   win.style.position = '';
   win.style.left = '';
   win.style.top = '';
@@ -230,10 +236,20 @@ function _tvTuneTo(num) {
   _playTuneAnimation();
 }
 
+function _updateKnobRotation() {
+  if (!_tvChannelList.length) return;
+  const maxCh = Math.max(..._tvChannelList.map(c => c.number));
+  if (!maxCh) return;
+  const rotation = (_tvFrequency / maxCh) * 360;
+  const knobEl = document.getElementById('tv-knob');
+  if (knobEl) knobEl.style.transform = `rotate(${rotation}deg)`;
+}
+
 export function tvTunerInput(val) {
   _tvFrequency = parseFloat(val);
   const freqDisplay = document.getElementById('tv-freq-display');
-  if (freqDisplay) freqDisplay.textContent = _tvFrequency.toFixed(1);
+  if (freqDisplay) freqDisplay.textContent = _tvFrequency.toFixed(2);
+  _updateKnobRotation();
 
   // If TV was off and user starts tuning, play CRT power-on first
   if (_tvPoweredOff && _tvFrequency > 0) {
@@ -249,19 +265,27 @@ export function tvTunerInput(val) {
     Math.abs(b.number - _tvFrequency) < Math.abs(a.number - _tvFrequency) ? b : a);
   const dist = Math.abs(nearest.number - _tvFrequency);
 
-  const staticEl = document.getElementById('tv-static');
+  const staticEl  = document.getElementById('tv-static');
+  const contentEl = document.getElementById('tv-content');
+  const chanNumEl = document.getElementById('tv-channel-num');
+
+  // Progressive fade: static fills as you move away, content fades in as you approach
+  const staticOpacity  = Math.min(1, dist / LOCK_RANGE);
+  const contentOpacity = 1 - staticOpacity;
+
   if (staticEl) {
-    const opacity = Math.min(1, dist / LOCK_RANGE);
-    staticEl.style.opacity = opacity.toFixed(2);
-    if (opacity > 0) {
-      staticEl.classList.add('tv-static-on');
-    } else {
-      staticEl.classList.remove('tv-static-on');
-    }
+    staticEl.style.opacity = staticOpacity.toFixed(2);
+    if (staticOpacity > 0) staticEl.classList.add('tv-static-on');
+    else staticEl.classList.remove('tv-static-on');
   }
+  if (contentEl) {
+    contentEl.classList.remove('tv-hidden');
+    contentEl.style.opacity = contentOpacity.toFixed(2);
+  }
+  // Channel number only visible when exactly on an active channel
+  if (chanNumEl) chanNumEl.textContent = (dist < 0.01) ? `CH ${nearest.number}` : '——';
 
   if (dist < LOCK_RANGE && nearest.channelId !== _tvActiveChannelId) {
-    if (staticEl) { staticEl.style.opacity = ''; staticEl.classList.remove('tv-static-on'); }
     _tvTuneTo(nearest.number);
   }
 }
@@ -395,8 +419,8 @@ export function initTvPanel() {
     const dx = e.clientX - _knobStartX;
     if (Math.abs(dx) > 3) _knobMoved = true;
     const rawFreq = _knobStartFreq + dx * TUNE_RESISTANCE;
-    const maxCh = _tvChannelList.length ? Math.max(..._tvChannelList.map(c => c.number)) + 2 : 99;
-    const clamped = Math.max(0, Math.min(maxCh, rawFreq));
+    const maxCh = _tvChannelList.length ? Math.max(..._tvChannelList.map(c => c.number)) : 9;
+    const clamped = Math.round(((rawFreq % maxCh) + maxCh) % maxCh * 20) / 20;
     tvTunerInput(clamped);
   });
 
@@ -424,9 +448,9 @@ export function initTvPanel() {
   knob.addEventListener('wheel', (e) => {
     if (!_tvOpen) return;
     e.preventDefault();
-    const delta = -Math.sign(e.deltaY) * 0.5;
-    const maxCh = _tvChannelList.length ? Math.max(..._tvChannelList.map(c => c.number)) + 2 : 99;
-    const clamped = Math.max(0, Math.min(maxCh, _tvFrequency + delta));
+    const delta = -Math.sign(e.deltaY) * 0.05;
+    const maxCh = _tvChannelList.length ? Math.max(..._tvChannelList.map(c => c.number)) : 9;
+    const clamped = Math.round(((_tvFrequency + delta + maxCh) % maxCh) * 20) / 20;
     tvTunerInput(clamped);
     const slider = document.getElementById('tv-tuner-slider');
     if (slider) slider.value = clamped;
