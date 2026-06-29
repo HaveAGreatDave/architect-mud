@@ -159,7 +159,7 @@ const handlers = {
   say: (msg) => { appendMsg(msg.message, 'say'); },
 
   inventory: (msg) => {
-    renderEquipPanel(msg.items || []);
+    renderEquipPanel(msg.items || [], msg.weight, msg.capacity);
     document.getElementById('equip-panel').classList.add('active');
   },
 

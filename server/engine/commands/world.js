@@ -12,6 +12,7 @@ import { isMisActive, isAttractedTo, addHorniness, erectionVisibilityNote, breas
 import { availableActions } from '../specializedActions.js';
 import { statusLabels } from '../effects.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../sift.js';
+import { carryCapacity, formatWeight } from './inventory.js';
 
 async function cmdStats(player) {
   const { rows } = await query('SELECT * FROM players WHERE id=$1', [player.id]);
@@ -21,7 +22,7 @@ async function cmdStats(player) {
   let msg = `<span class="stats-header">${p.handle}</span> — ${p.archetype||'unknown'}\n\n`;
   msg += `HP:     ${p.hp}/${p.hp_max}\nSanity: ${p.sanity}/${p.sanity_max}\nHunger: ${p.hunger}/100\nThirst: ${p.thirst}/100\nRAD:    ${radBar} ${p.radiation}/100\n\n`;
   const { total, net } = await getNetXp(player.id);
-  msg += `BRAWN:${p.stat_brawn}  REFL:${p.stat_reflexes}  BRNS:${p.stat_brains}\nCOOL:${p.stat_cool}  END:${p.stat_endurance}\n\nXP: ${Math.floor(net)} (Total: ${total})  Credits: ${p.credits}`;
+  msg += `BRAWN:${p.stat_brawn}  REFL:${p.stat_reflexes}  BRNS:${p.stat_brains}\nCOOL:${p.stat_cool}  END:${p.stat_endurance}\n\nCarry: ${formatWeight(carryCapacity(p))} max\n\nXP: ${Math.floor(net)} (Total: ${total})  Credits: ${p.credits}`;
 
   const statusFlags = [];
   if (player.sleeping) statusFlags.push('Asleep');

@@ -36,11 +36,11 @@ export async function initWorld() {
 export async function loadPlayerCorpses() {
   const now = Date.now();
   const { rows } = await query(
-    `SELECT id, zone_id, death_message, expires_at FROM player_corpses WHERE expires_at > $1`,
+    `SELECT id, zone_id, death_message, expires_at, capacity FROM player_corpses WHERE expires_at > $1`,
     [now]
   ).catch(() => ({ rows: [] }));
   for (const row of rows) {
-    const c = { id: row.id, name: row.death_message, zoneId: row.zone_id, expiresAt: Number(row.expires_at) };
+    const c = { id: row.id, name: row.death_message, zoneId: row.zone_id, expiresAt: Number(row.expires_at), capacity: row.capacity != null ? Number(row.capacity) : null };
     world.corpses.set(c.id, c);
     world.zones.get(c.zoneId)?.corpses.add(c.id);
   }

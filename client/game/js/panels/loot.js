@@ -132,7 +132,8 @@ function buildItemCard(item, source, corpseId) {
 
 function renderLootPanel(data) {
   document.getElementById('loot-title').textContent = data.corpseName;
-  document.getElementById('loot-contents-label').textContent = data.corpseName;
+  const capLabel = data.capacity != null ? ` (${formatWeight(data.usedWeight || 0)}/${formatWeight(data.capacity)})` : '';
+  document.getElementById('loot-contents-label').textContent = data.corpseName + capLabel;
   document.getElementById('loot-notify').textContent = data.notify || '';
 
   const corpseItems = (data.items || []).filter(i => i.id !== data.corpseId);
