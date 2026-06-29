@@ -134,6 +134,7 @@ async function loadChannelRuntimes() {
         totalDuration,
         idleBroadcast: idleMsgs.length ? { messages: idleMsgs, message_interval: ch.idle_interval || 5 } : null,
         camera: cameraByChannel.get(ch.id) || null,
+        scheduleMode: ch.schedule_mode || 'loop',
         loopOriginMs: Date.now(),
         lastMsgKey: '',
         graphBlackboard: { currentNode: null, waitUntil: null, npcAnchor: null, activeBroadcastId: null },
@@ -220,7 +221,7 @@ function buildCameraSnapshot(zoneId) {
 }
 
 async function getCurrentMessage(state, nowMs) {
-  const { channelType, playlist, totalDuration, idleBroadcast, newsCategories, camera, loopOriginMs } = state;
+  const { channelType, playlist, totalDuration, idleBroadcast, newsCategories, camera, loopOriginMs, scheduleMode } = state;
 
   // Dynamic news channels: pop from queue — but if a VINE-graph item is active, let the graph manage it
   if (channelType === 'news') {
@@ -238,7 +239,26 @@ async function getCurrentMessage(state, nowMs) {
     return text ? { text, key: `cam:${nowMs}` } : null;
   }
 
-  // Playlist-based (playlist | mixed | emergency)
+  // Daily schedule mode — start_time is seconds from midnight (0–86399)
+  if (scheduleMode === 'daily' && playlist.length) {
+    const { minutes } = getEnvironmentState();
+    const gameSecondsSinceMidnight = minutes * 60;
+    const item = playlist.find(i => gameSecondsSinceMidnight >= i.startTime && gameSecondsSinceMidnight < i.startTime + i.duration);
+    if (item) {
+      if (item.broadcastGraph) return tickBroadcastGraph(state.channelId, item.broadcastGraph, state, nowMs);
+      const segElapsed = gameSecondsSinceMidnight - item.startTime;
+      const result = getScriptedMessage(item.messages, item.message_interval, segElapsed);
+      if (result) return { text: result.text, key: `${item.broadcastId}:${result.idx}` };
+    }
+    // Nothing scheduled right now — fall through to idle
+    if (idleBroadcast?.messages?.length) {
+      const result = getScriptedMessage(idleBroadcast.messages, idleBroadcast.message_interval, (nowMs / 1000) % (idleBroadcast.messages.length * (idleBroadcast.message_interval || 5)));
+      if (result) return { text: result.text, key: `idle:${result.idx}` };
+    }
+    return null;
+  }
+
+  // Playlist-based loop (playlist | mixed | emergency)
   if (playlist.length && totalDuration > 0) {
     const elapsed = ((nowMs - loopOriginMs) / 1000) % totalDuration;
     const item = playlist.find(i => elapsed >= i.startTime && elapsed < i.startTime + i.duration);

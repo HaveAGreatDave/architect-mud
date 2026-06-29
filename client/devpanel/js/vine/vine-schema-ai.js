@@ -54,6 +54,10 @@ const AI_CONDITIONS = [
   { type: 'RANDOM_CHANCE',    label: 'Random Chance',           params: [{ key: 'chance',  label: 'Probability 0–1',   type: 'number', default: 0.5 }] },
   { type: 'IS_DAYTIME',       label: 'Is Daytime',              params: [] },
   { type: 'CHANNEL_HAS_VIEWERS', label: 'Channel Has Viewers', params: [{ key: 'channel_id', label: 'Channel ID', type: 'text', default: '' }] },
+  { type: 'HOUR_RANGE', label: 'Hour Range', params: [
+    { key: 'from', label: 'From (0–23)', type: 'number', default: 8 },
+    { key: 'to',   label: 'To (0–23)',   type: 'number', default: 20 },
+  ]},
 ];
 
 // ── Action type catalogue ─────────────────────────────────────────────────────
@@ -87,6 +91,11 @@ const AI_ACTIONS = [
   { type: 'BROADCAST_SAY', label: 'Broadcast Say', params: [
     { key: 'channel_id', label: 'Channel ID', type: 'text',   default: '' },
     { key: 'text',       label: 'Text',       type: 'text',   default: '' },
+  ]},
+  { type: 'GO_TO_WORK', label: 'Go To Work', params: [
+    { key: 'zone_id',              label: 'Studio Zone',      type: 'text',   default: '' },
+    { key: 'arrive_by',            label: 'Arrive By (hour)', type: 'number', default: 20 },
+    { key: 'depart_early_minutes', label: 'Buffer (min)',     type: 'number', default: 0 },
   ]},
 ];
 

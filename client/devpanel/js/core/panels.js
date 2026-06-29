@@ -214,6 +214,23 @@ const PANELS = {
     noEdit: true,
     render: renderChannelsPanel,
   },
+  schedule: {
+    title: 'Schedule',
+    fetch: async () => {
+      const [chRes, bcRes, npcRes] = await Promise.all([
+        directAPI('/broadcast/channels'),
+        directAPI('/broadcast/broadcasts'),
+        directAPI('/npcs'),
+      ]);
+      return {
+        channels:   Array.isArray(chRes?.channels)   ? chRes.channels   : (Array.isArray(chRes)   ? chRes   : []),
+        broadcasts: Array.isArray(bcRes?.broadcasts) ? bcRes.broadcasts : (Array.isArray(bcRes)   ? bcRes   : []),
+        npcs:       Array.isArray(npcRes)            ? npcRes           : [],
+      };
+    },
+    noEdit: true,
+    render: renderSchedulePanel,
+  },
   themes: {
     title: 'TV Themes',
     fetch: () => directAPI('/broadcast/themes'),

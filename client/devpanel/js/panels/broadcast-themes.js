@@ -2,16 +2,18 @@
 // Includes live preview and color picker inputs.
 // All functions land in global scope (no modules).
 
-const THEME_PRESETS = ['corporate', 'crt', 'emergency', 'security', 'pirate'];
-
-// Built-in preset seeds — used to auto-populate fields when preset is selected
-const PRESET_SEEDS = {
-  corporate: { bg_color:'#080c10', border_color:'rgba(0,220,180,0.45)', text_color:'#b8d4c8', header_color:'#00dbb4', live_color:'#ff4455', ticker_color:'#ffc940' },
-  crt:       { bg_color:'#020c02', border_color:'rgba(0,255,60,0.45)',  text_color:'#00dd33', header_color:'#00ff44', live_color:'#ffee00', ticker_color:'#00ff44' },
-  emergency: { bg_color:'#0a0000', border_color:'rgba(255,30,0,0.7)',   text_color:'#ff9988', header_color:'#ff2200', live_color:'#ffffff', ticker_color:'#ff4400' },
-  security:  { bg_color:'#000a08', border_color:'rgba(0,200,100,0.4)',  text_color:'#a0d0b0', header_color:'#00cc77', live_color:'#ff4422', ticker_color:'#00cc77' },
-  pirate:    { bg_color:'#0a0808', border_color:'rgba(220,160,0,0.5)',  text_color:'#ddc0a0', header_color:'#ff9900', live_color:'#ff4444', ticker_color:'#ff9900' },
-};
+// Derive broadcast colors from a UI theme's CSS variables (LIGHT_THEMES / DARK_THEMES from settings.js)
+function _broadcastColorsFromTheme(themeId) {
+  const c = _getBuiltinThemeColors(themeId);
+  return {
+    bg_color:     c['--bg']     || '#080c10',
+    border_color: c['--border'] || '#1a2a22',
+    text_color:   c['--text']   || '#b8d4c8',
+    header_color: c['--accent'] || '#00dbb4',
+    live_color:   c['--red']    || '#ff4455',
+    ticker_color: c['--yellow'] || '#ffc940',
+  };
+}
 
 let _themeList = [];
 let _themeEditTarget = null;
@@ -38,7 +40,7 @@ function renderThemesPanel(data) {
     <td style="font-size:11px;color:var(--text-dim)">${escHtml3(t.preset || 'corporate')}</td>
     <td style="font-size:11px;color:var(--text-dim)">${escHtml3(t.description || '')}</td>
     <td style="text-align:right;white-space:nowrap">
-      <button class="action-btn" style="font-size:10px;padding:3px 8px" onclick="openThemeEditor(${JSON.stringify(t).replace(/"/g,'&quot;')})">✏ Edit</button>
+      <button class="action-btn" style="font-size:10px;padding:3px 8px" onclick="openBroadcastThemeEditor(${JSON.stringify(t).replace(/"/g,'&quot;')})">✏ Edit</button>
       <button class="action-btn danger" style="font-size:10px;padding:3px 8px;margin-left:4px" onclick="deleteTheme('${t.id}','${escHtml3(t.name).replace(/'/g,"\\'")}')">✕</button>
     </td>
   </tr>`).join('');
@@ -50,7 +52,7 @@ function renderThemesPanel(data) {
           <div style="font-size:13px;font-weight:600;color:var(--accent);letter-spacing:1px;text-transform:uppercase">TV Themes</div>
           <div style="font-size:11px;color:var(--text-dim);margin-top:2px">${_themeList.length} theme${_themeList.length !== 1 ? 's' : ''} — applied to channels via the channel editor</div>
         </div>
-        <button class="action-btn" onclick="openThemeEditor(null)">+ New Theme</button>
+        <button class="action-btn" onclick="openBroadcastThemeEditor(null)">+ New Theme</button>
       </div>
       ${_themeList.length ? `
       <table>
@@ -62,12 +64,13 @@ function renderThemesPanel(data) {
 
 // ── Theme editor modal ────────────────────────────────────────────────────────
 
-function openThemeEditor(rec) {
+function openBroadcastThemeEditor(rec) {
   _themeEditTarget = rec || null;
 
-  const presetOpts = THEME_PRESETS.map(p =>
-    `<option value="${p}"${(rec?.preset || 'corporate') === p ? ' selected' : ''}>${p}</option>`
-  ).join('');
+  const currentPreset = rec?.preset || 'dark';
+  const presetOpts =
+    `<optgroup label="Light Themes">${LIGHT_THEMES.map(([v,l]) => `<option value="${v}"${currentPreset===v?' selected':''}>${l}</option>`).join('')}</optgroup>` +
+    `<optgroup label="Dark Themes">${DARK_THEMES.map(([v,l])  => `<option value="${v}"${currentPreset===v?' selected':''}>${l}</option>`).join('')}</optgroup>`;
 
   // Color row: text input + color picker side by side
   const colorRow = (label, field, val) => {
@@ -166,8 +169,9 @@ function openThemeEditor(rec) {
   const card = document.querySelector('#generic-modal .modal-card');
   if (card) card.style.width = '780px';
 
-  // Initial preview
-  setTimeout(_updateThemePreview, 0);
+  // Seed colors from preset when creating a new theme
+  if (!rec) setTimeout(() => _themeApplyPreset(currentPreset), 0);
+  else setTimeout(_updateThemePreview, 0);
 
   // Wire all inputs to update preview
   ['bg_color','border_color','text_color','header_color','live_color','ticker_color','scanlines'].forEach(f => {
@@ -190,8 +194,7 @@ function _themeTextSync(field, val) {
 }
 
 function _themeApplyPreset(preset) {
-  const seed = PRESET_SEEDS[preset];
-  if (!seed) return;
+  const seed = _broadcastColorsFromTheme(preset);
   const fields = ['bg_color','border_color','text_color','header_color','live_color','ticker_color'];
   for (const f of fields) {
     const v = seed[f] || '';

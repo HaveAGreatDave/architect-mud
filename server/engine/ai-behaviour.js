@@ -188,6 +188,13 @@ function evalCondition(node, entity) {
     case 'CHANNEL_HAS_VIEWERS':
       return hasChannelViewers(params.channel_id);
 
+    case 'HOUR_RANGE': {
+      const { hour } = getEnvironmentState();
+      if (hour == null) return false;
+      const from = params.from ?? 0, to = params.to ?? 23;
+      return from <= to ? (hour >= from && hour <= to) : (hour >= from || hour <= to);
+    }
+
     default:
       return false;
   }
@@ -397,6 +404,43 @@ async function execAction(node, entity, ctx) {
 
     case 'IDLE':
       break;
+
+    case 'GO_TO_WORK': {
+      if (!ai) break;
+      const { zone_id, arrive_by, depart_early_minutes = 0 } = params;
+      if (!zone_id || arrive_by == null) break;
+
+      // Already at work — let graph continue to work activity nodes
+      if (zoneId === zone_id) break;
+
+      const path = findPath(zoneId, zone_id);
+      if (!path || path.length < 2) return 'RUNNING'; // unreachable — hold and retry
+
+      const { minutes } = getEnvironmentState();
+      const travelMinutes = path.length - 1;
+      const arriveByMinutes = (arrive_by * 60) - depart_early_minutes;
+      const departMinutes = (arriveByMinutes - travelMinutes + 1440) % 1440;
+      const minutesUntilDept = (departMinutes - minutes + 1440) % 1440;
+
+      // Not time to leave yet — hold here so work activities don't start early
+      if (minutesUntilDept > travelMinutes + 5) return 'RUNNING';
+
+      // Time to commute — step one zone toward destination
+      if (!ai.patrolPath.length || ai.patrolTarget !== zone_id) {
+        ai.patrolPath = path.slice(1);
+        ai.patrolTarget = zone_id;
+        ai.patrolMode = 'walk';
+      }
+      const nextZone = ai.patrolPath[0];
+      if (!nextZone) return 'RUNNING';
+      ai.patrolPath.shift();
+      const moved = moveEntity(entity, nextZone, broadcast, query);
+      if (!moved) { ai.patrolPath = []; ai.patrolTarget = null; }
+      else if (!isEnemy(entity) && query) {
+        query('UPDATE npcs SET zone_id=$1 WHERE id=$2', [entityZone(entity), entity.id]).catch(() => {});
+      }
+      return 'RUNNING';
+    }
 
     case 'BROADCAST_SAY': {
       const { channel_id, text } = params;
