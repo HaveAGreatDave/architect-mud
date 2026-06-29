@@ -2,7 +2,6 @@ function renderTagsPanel(data) {
   const catalog = data?.catalog ?? data;
   const supertags = data?.supertags ?? {};
   const SHAPES = ['text','flag','int','enum','range','hot','statmap'];
-  const SCOPES = ['class','instance','furniture'];
   let _catalog = catalog && typeof catalog === 'object' ? { ...catalog } : {};
   let _sortKey = 'key';
   let _sortDir = 1;
@@ -30,7 +29,9 @@ function renderTagsPanel(data) {
   }
 
   function tagDialogForm(r) {
-    const xj = r ? rowExtraJson(r) : '';
+    const isInstance = r?.scope === 'instance';
+    const targets = isInstance ? [] : (r ? tagTargets(r) : ['item']);
+    const ck = v => v ? ' checked' : '';
     return `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
         <div class="field"><label>Label</label><input id="td-label" value="${escVal(r?.label ?? '')}"></div>
@@ -38,9 +39,16 @@ function renderTagsPanel(data) {
         <div class="field"><label>Shape</label>
           <select id="td-shape">${SHAPES.map(s=>`<option value="${s}"${r?.shape===s?' selected':''}>${s}</option>`).join('')}</select>
         </div>
-        <div class="field"><label>Scope</label>
-          <select id="td-scope">${SCOPES.map(s=>`<option value="${s}"${r?.scope===s?' selected':''}>${s}</option>`).join('')}</select>
+        <div class="field"></div>
+      </div>
+      <div class="field" style="margin-bottom:8px">
+        <label>Usable on</label>
+        <div style="display:flex;gap:18px;padding:4px 0">
+          <label style="display:flex;align-items:center;gap:6px;font-weight:normal;cursor:pointer"><input type="checkbox" id="td-item"${ck(targets.includes('item'))}> Items</label>
+          <label style="display:flex;align-items:center;gap:6px;font-weight:normal;cursor:pointer"><input type="checkbox" id="td-furniture"${ck(targets.includes('furniture'))}> Furniture</label>
+          <label style="display:flex;align-items:center;gap:6px;font-weight:normal;cursor:pointer" title="Per-item runtime state (e.g. broken). Set by game logic, not attached in an editor."><input type="checkbox" id="td-instance"${ck(isInstance)}> Per-instance flag</label>
         </div>
+        <div style="font-size:10px;color:var(--text-dim);margin-top:2px">Which editors offer this tag. A tag can apply to both. "Per-instance" tags are item runtime state and aren't offered in any editor.</div>
       </div>
       <div class="field"><label>Help</label><input id="td-help" value="${escVal(r?.help ?? '')}" placeholder="What this tag does..." style="width:100%"></div>`;
   }
@@ -48,10 +56,15 @@ function renderTagsPanel(data) {
   function readDialogFields() {
     const label = document.getElementById('td-label')?.value ?? '';
     const shape = document.getElementById('td-shape')?.value ?? 'flag';
-    const scope = document.getElementById('td-scope')?.value ?? 'class';
     const group = document.getElementById('td-group')?.value ?? '';
     const help  = document.getElementById('td-help')?.value ?? '';
-    return { label, shape, scope, group, help };
+    const isInstance = document.getElementById('td-instance')?.checked;
+    if (isInstance) return { label, shape, scope: 'instance', group, help, targets: [] };
+    const targets = [];
+    if (document.getElementById('td-item')?.checked) targets.push('item');
+    if (document.getElementById('td-furniture')?.checked) targets.push('furniture');
+    if (!targets.length) { toast('Pick at least one of Items / Furniture (or Per-instance flag)', true); return null; }
+    return { label, shape, scope: 'class', group, help, targets };
   }
 
   function render() {
@@ -69,7 +82,7 @@ function renderTagsPanel(data) {
             ${th('key','Key')}
             ${th('label','Label')}
             ${th('shape','Shape')}
-            ${th('scope','Scope')}
+            ${th('scope','Usable on')}
             ${th('group','Group')}
             <th>Help</th>
             <th style="width:80px"></th>
@@ -80,7 +93,7 @@ function renderTagsPanel(data) {
                 <td><code style="font-size:11px">${escVal(r.key)}</code></td>
                 <td>${escVal(r.label)}</td>
                 <td><span class="badge">${escVal(r.shape)}</span></td>
-                <td style="color:var(--text-dim);font-size:11px">${escVal(r.scope)}</td>
+                <td style="color:var(--text-dim);font-size:11px">${escVal(r.scope === 'instance' ? 'instance (runtime)' : (tagTargets(r).join(', ') || '—'))}</td>
                 <td style="color:var(--text-dim);font-size:11px">${escVal(r.group)}</td>
                 <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:var(--text-dim)" title="${escVal(r.help)}">${escVal(r.help)}</td>
                 <td style="white-space:nowrap">
@@ -111,8 +124,8 @@ function renderTagsPanel(data) {
     const key = window._tagRows[i].key;
     const fields = readDialogFields();
     if (!fields) return;
-    const { label, shape, scope, group, help } = fields;
-    window._tagCatalog[key] = { label, shape, scope, group, help };
+    const { label, shape, scope, group, help, targets } = fields;
+    window._tagCatalog[key] = { ...(window._tagCatalog[key] || {}), label, shape, scope, group, help, targets };
     const r = await API('/tag-catalog', 'PUT', window._tagCatalog);
     if (r?.error) { toast(r.error, true); return; }
     toast('Tag saved');
@@ -151,8 +164,8 @@ function renderTagsPanel(data) {
     if (window._tagCatalog[key]) { toast(`"${key}" already exists`, true); return; }
     const fields = readDialogFields();
     if (!fields) return;
-    const { label, shape, scope, group, help } = fields;
-    window._tagCatalog[key] = { label, shape, scope, group, help };
+    const { label, shape, scope, group, help, targets } = fields;
+    window._tagCatalog[key] = { ...(window._tagCatalog[key] || {}), label, shape, scope, group, help, targets };
     const r = await API('/tag-catalog', 'PUT', window._tagCatalog);
     if (r?.error) { toast(r.error, true); return; }
     toast(`"${key}" added to catalog`);

@@ -22,7 +22,7 @@ function itemTagRow(name, value) {
 function itemAddTagPicker(presentNames) {
   const groups = {};
   for (const [name, def] of Object.entries(TAG_CATALOG)) {
-    if (def.scope !== 'class' || name === 'description' || presentNames.includes(name)) continue;
+    if (!tagAppliesTo(def, 'item') || name === 'description' || presentNames.includes(name)) continue;
     (groups[def.group] = groups[def.group] || []).push([name, def]);
   }
   const optgroups = Object.entries(groups).map(([g, list]) =>

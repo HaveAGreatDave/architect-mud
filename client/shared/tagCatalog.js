@@ -19,11 +19,17 @@
  *   hot     heal-over-time { amount, duration_seconds }
  *   statmap JSON object of key -> number (small JSON textarea)
  *
- * scope — 'class' tags live on the item template (items.tags); 'instance' tags
- * are presence-only flags on a carried item (player_inventory.custom_data);
- * 'furniture' tags are capability flags on a furniture row (furniture.flags),
- * declaring what verbs the piece affords (e.g. water_source → drink/wash). They
- * surface as tags via tagsOf() just like item tags.
+ * scope — storage semantics for the engine: 'class' tags live on the item
+ * template (items.tags); 'instance' tags are presence-only flags on a carried
+ * item (player_inventory.custom_data); 'furniture' tags live on a furniture row
+ * (furniture.flags). They all surface via tagsOf() the same way.
+ *
+ * targets — OPTIONAL array controlling which dev-panel editors offer the tag:
+ * subset of ['item','furniture']. When present it overrides the default derived
+ * from scope, so a single tag can be attachable on both items and furniture
+ * (e.g. broadcast_receiver). When absent, applicability is derived from scope
+ * (class → item, furniture → furniture, instance → neither; instance flags are
+ * runtime-only and never builder-attached). Use tagTargets()/tagAppliesTo().
  */
 (function (global) {
   const TAG_CATALOG = {
@@ -140,3 +146,8 @@
 
   global.TAG_CATALOG = TAG_CATALOG;
 })(typeof window !== 'undefined' ? window : globalThis);
+
+// NOTE: applicability helpers (tagTargets / tagAppliesTo) live in the sibling
+// tagHelpers.js, NOT here — this file is regenerated verbatim from JSON whenever
+// the Tags screen saves the catalog (see apiPutTagCatalog), which would wipe any
+// functions defined here.

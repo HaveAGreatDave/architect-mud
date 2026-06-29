@@ -353,30 +353,88 @@ function furnitureEditForm(rec, isNew) {
       <div style="font-size:10px;color:var(--text-dim);margin-top:2px">Which commands players can use on this piece of furniture.</div>
     </div>
     ${(() => {
-      const caps = Object.entries(window.TAG_CATALOG || {})
-        .filter(([, def]) => def.scope === 'furniture' && def.shape === 'flag');
-      if (!caps.length) return '';
-      const boxes = caps.map(([key, def]) => {
-        const checked = rec.flags?.[key] ? 'checked' : '';
-        return `<label style="display:flex;align-items:flex-start;gap:6px;font-size:12px;cursor:pointer;font-weight:normal" title="${(def.help||'').replace(/"/g,'&quot;')}">
-          <input type="checkbox" id="f-cap-${key}" ${checked} style="accent-color:var(--accent);margin-top:2px"> ${def.label}
-        </label>`;
-      }).join('');
+      const flags = (rec.flags && typeof rec.flags === 'object') ? rec.flags : {};
+      const tagNames = Object.keys(flags).filter(n => TAG_CATALOG[n] && tagAppliesTo(TAG_CATALOG[n], 'furniture'));
       return `<div class="field">
-        <label>Capabilities</label>
-        <div style="display:flex;flex-direction:column;gap:8px;padding:6px 0">${boxes}</div>
+        <label>Capabilities & Tags</label>
+        <div id="furniture-tags">${tagNames.map(n => furnitureTagRow(n, flags[n])).join('')}</div>
+        <div id="furniture-add-tag-picker">${furnitureAddTagPicker(tagNames)}</div>
+        <div class="field" style="margin-top:8px">
+          <label style="font-size:11px;opacity:0.6;text-transform:uppercase;letter-spacing:0.05em">Attached Tags</label>
+          <div id="furniture-tag-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">${furnitureTagChips(tagNames)}</div>
+        </div>
         <div style="font-size:10px;color:var(--text-dim);margin-top:2px">Tag-driven affordances. A capability enables verbs from any plugin that asks for it (e.g. Water Source → drink/wash).</div>
       </div>`;
     })()}
   `;
 }
 
-// Catalog keys with scope 'furniture' + shape 'flag' — the capability checkboxes
-// rendered in the editor and persisted as flat keys in furniture.flags.
-function furnitureCapabilityKeys() {
-  return Object.entries(window.TAG_CATALOG || {})
-    .filter(([, def]) => def.scope === 'furniture' && def.shape === 'flag')
-    .map(([key]) => key);
+// --- Furniture tag picker (mirrors the item picker; reuses itemTagWidget /
+// readItemTag). Tags are stored as flat keys in furniture.flags and filtered to
+// the catalog entries marked usable on furniture. ---
+function furnitureTagRow(name, value) {
+  const def = TAG_CATALOG[name];
+  return `<div class="field tag-row" data-tag="${name}">
+    <label>${def.label}<button type="button" onclick="removeFurnitureTag(this)" style="float:right;background:none;border:none;color:inherit;cursor:pointer;font-size:15px;line-height:1">×</button></label>
+    ${itemTagWidget(name, value)}
+    <div class="zone-subsection-note">${def.help}</div>
+  </div>`;
+}
+
+function furnitureAddTagPicker(presentNames) {
+  const groups = {};
+  for (const [name, def] of Object.entries(TAG_CATALOG)) {
+    if (!tagAppliesTo(def, 'furniture') || presentNames.includes(name)) continue;
+    (groups[def.group] = groups[def.group] || []).push([name, def]);
+  }
+  const optgroups = Object.entries(groups).map(([g, list]) =>
+    `<optgroup label="${g}">${list.map(([n, d])=>`<option value="${n}">${d.label}</option>`).join('')}</optgroup>`).join('');
+  if (!optgroups) return '<div style="font-size:11px;color:var(--text-dim)">No more furniture tags available.</div>';
+  return `<div class="field-row" style="align-items:flex-end">
+    <div class="field"><label>Add tag</label><select id="furniture-add-tag">${optgroups}</select></div>
+    <button type="button" class="action-btn" onclick="addFurnitureTag()">Add</button>
+  </div>`;
+}
+
+function furnitureTagChips(present) {
+  if (!present.length) return '<span style="color:var(--text-dim);font-size:11px">No tags attached.</span>';
+  return present.map(n => {
+    const def = TAG_CATALOG[n];
+    const label = def ? def.label : n;
+    return `<span onclick="removeFurnitureTagByName('${n}')" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:12px;background:var(--bg-alt,rgba(255,255,255,0.08));border:1px solid var(--border,rgba(255,255,255,0.15));font-size:11px;cursor:pointer;user-select:none" title="Click to remove">${label} <span style="opacity:0.6">×</span></span>`;
+  }).join('');
+}
+
+function refreshFurnitureTagChips() {
+  const el = document.getElementById('furniture-tag-chips');
+  if (!el) return;
+  const present = [...document.querySelectorAll('#furniture-tags .tag-row')].map(r => r.dataset.tag);
+  el.innerHTML = furnitureTagChips(present);
+}
+
+function refreshFurnitureTagPicker() {
+  const present = [...document.querySelectorAll('#furniture-tags .tag-row')].map(r => r.dataset.tag);
+  document.getElementById('furniture-add-tag-picker').innerHTML = furnitureAddTagPicker(present);
+  refreshFurnitureTagChips();
+}
+
+function addFurnitureTag() {
+  const name = document.getElementById('furniture-add-tag').value;
+  if (!name) return;
+  const def = TAG_CATALOG[name];
+  const defaults = { flag:true, int:0, enum:def.options?.[0], range:{min:0,max:0}, hot:{amount:0,duration_seconds:0}, statmap:{}, text:'' };
+  document.getElementById('furniture-tags').insertAdjacentHTML('beforeend', furnitureTagRow(name, defaults[def.shape]));
+  refreshFurnitureTagPicker();
+}
+
+function removeFurnitureTag(btn) {
+  btn.closest('.tag-row').remove();
+  refreshFurnitureTagPicker();
+}
+
+function removeFurnitureTagByName(name) {
+  const row = document.querySelector(`#furniture-tags .tag-row[data-tag="${name}"]`);
+  if (row) { row.remove(); refreshFurnitureTagPicker(); }
 }
 async function assignRoomToJB(zoneId) {
   const genId = document.getElementById('assign-jb-select')?.value;
@@ -392,10 +450,14 @@ async function saveFurniture(existing) {
   const objectType = document.getElementById('f-object_type')?.value || 'furniture';
   const isLight = objectType === 'light';
   const flags = { ...(existing?.flags || {}), interactions: ['sit','lie','lean','switch'].filter(i => document.getElementById(`f-ix-${i}`)?.checked) };
-  for (const key of furnitureCapabilityKeys()) {
-    if (document.getElementById(`f-cap-${key}`)?.checked) flags[key] = true;
-    else delete flags[key];
+  // Re-derive furniture-applicable catalog tags from the picker. Non-catalog
+  // flags (e.g. atm) and the interactions array are preserved.
+  for (const [name, def] of Object.entries(TAG_CATALOG)) {
+    if (tagAppliesTo(def, 'furniture')) delete flags[name];
   }
+  try {
+    for (const row of document.querySelectorAll('#furniture-tags .tag-row')) flags[row.dataset.tag] = readItemTag(row);
+  } catch (e) { return { error: e.message }; }
   const body = {
     name: document.getElementById('f-name').value,
     description: document.getElementById('f-description').value,
