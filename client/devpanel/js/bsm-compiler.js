@@ -56,10 +56,9 @@ function compileBsm(text) {
   // Entry point
   makeNode({ type: 'start' });
 
-  // All-caps word followed immediately by colon on its own line: JOHN:  LUCKY:  ANNOUNCER:
-  // Speaker labels resolve via the ::actors block.  Without an alias the compiler
-  // generates npc_label_??? which appears unresolved in the dependency checker.
-  const SPEAKER_RE = /^([A-Z][A-Z0-9_]*):\s*$/;
+  // Word followed immediately by colon on its own line: JOHN:  Lucky:  announcer:
+  // Case-insensitive; alias lookup normalises to uppercase.
+  const SPEAKER_RE = /^([A-Za-z][A-Za-z0-9_]*):\s*$/;
 
   const DIRECTIVE_PREFIXES = [
     '@', '::', 'EVENT ', 'TITLE ', 'TICKER', 'WAIT', 'NPC ', 'OVERLAY ',
@@ -110,8 +109,7 @@ function compileBsm(text) {
     }
 
     // ── Structural markers ───────────────────────────────────────────────────
-    if (ln === '::actors') { i++; continue; }  // block contents handled by pre-scan
-    if (ln.startsWith('::scene ')) { i++; continue; }
+    if (ln.startsWith('::')) { i++; continue; }  // all structural markers (::actors, ::endactors, ::scene, etc.)
 
     if (ln.startsWith('::asset ')) {
       const assetId = ln.slice(8).trim();
@@ -220,7 +218,7 @@ function compileBsm(text) {
     // ── Speaker dialogue (implicit NPC anchor on voice change) ───────────────
     const speakerMatch = ln.match(SPEAKER_RE);
     if (speakerMatch) {
-      const speaker = speakerMatch[1];
+      const speaker = speakerMatch[1].toUpperCase();
       const resolved = aliases[speaker];
       if (!resolved && !_debug.unresolvedSpeakers.some(u => u.label === speaker)) {
         _debug.unresolvedSpeakers.push({ label: speaker, fallback: `npc_${speaker.toLowerCase()}` });

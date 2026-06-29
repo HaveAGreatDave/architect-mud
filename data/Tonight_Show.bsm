@@ -11,7 +11,7 @@
 @alias npc_john_akerson JOHN
 
 @actor npc_graham_mercer
-@alias npc_graham_mercer NARRATOR
+@alias npc_graham_mercer ANNOUNCER
 
 @actor npc_lucky_malone
 @alias npc_lucky_malone LUCKY
@@ -80,7 +80,7 @@ SHOT_END
 NPC npc_graham_mercer
 NPC npc_john_akerson
 
-ANNOUNCER:
+announcer:
 From somewhere above the smog and only slightly outside the blast radius...
 
  2s
@@ -337,22 +337,22 @@ MUSIC acid_cola_jingle
 
 ♪ An upbeat Acid Cola™ advertising jingle begins playing. ♪
 
-NARRATOR:
+announcer:
 Feeling tired?
 
  2s
 
-NARRATOR:
+announcer:
 Feeling hopeless?
 
  2s
 
-NARRATOR:
+announcer:
 Drink Acid Cola™.
 
  2s
 
-NARRATOR:
+announcer:
 Because reality is easier to tolerate when it's carbonated.
 
  2s

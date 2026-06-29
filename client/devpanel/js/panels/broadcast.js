@@ -811,18 +811,23 @@ async function cloneBroadcast(rec) {
 
 // ── BSM import ───────────────────────────────────────────────────────────────
 
+let _bcImportInProgress = false;
 function bcImportBsm() {
+  if (_bcImportInProgress) { toast('Import already in progress.', false); return; }
   if (_bcNewActive) _bcCancelNewBroadcast();
   const input = document.createElement('input');
   input.type = 'file';
   input.accept = '.bsm,.txt';
   input.onchange = async (e) => {
+    if (_bcImportInProgress) return;
+    _bcImportInProgress = true;
     const file = e.target.files[0];
-    if (!file) return;
+    input.remove();
+    if (!file) { _bcImportInProgress = false; return; }
     const text = await file.text();
     let compiled;
     try { compiled = compileBsm(text); }
-    catch (err) { toast(`BSM parse error: ${err.message}`, true); return; }
+    catch (err) { toast(`BSM parse error: ${err.message}`, true); _bcImportInProgress = false; return; }
     console.group('[BSM Import] ' + (compiled.meta.name || file.name));
     console.table(compiled._debug?.nodeTypes || {});
     if (compiled._debug?.unknownDirectives?.length)
@@ -834,7 +839,7 @@ function bcImportBsm() {
     console.log('Assets:', compiled.assets.map(a => a.id));
     console.log('Total nodes:', Object.keys(compiled.broadcastGraph?.nodes || {}).length);
     console.groupEnd();
-    if (!compiled.meta.name) { toast('BSM file is missing @broadcast name.', true); return; }
+    if (!compiled.meta.name) { toast('BSM file is missing @broadcast name.', true); _bcImportInProgress = false; return; }
     if (compiled._debug?.unresolvedSpeakers?.length) {
       const names = compiled._debug.unresolvedSpeakers.map(u => `${u.label} → ${u.fallback}`).join(', ');
       toast(`BSM warning: speaker(s) with no alias in ::actors — ${names}. Add @alias lines or they will be created as placeholder NPCs.`, false);
@@ -1634,6 +1639,14 @@ async function _bcImportSave({ meta, broadcastGraph, messages, assets, cameras, 
 
     await bcSuiteRefresh('broadcasts');
   } catch (err) { toast(`Import error: ${err.message}`, true); console.error('[BSM] _bcImportSave threw:', err); }
+  _bcImportInProgress = false;
+}
+
+function _bcCancelImport() {
+  document.getElementById('bsm-channel-overlay')?.remove();
+  document.getElementById('bsm-studio-confirm-overlay')?.remove();
+  document.getElementById('bsm-dep-overlay')?.remove();
+  _bcImportInProgress = false;
 }
 
 // ── Commercials Tab ───────────────────────────────────────────────────────────
