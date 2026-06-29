@@ -64,11 +64,14 @@ function compileBsm(text) {
   const DIRECTIVE_PREFIXES = [
     '@', '::', 'EVENT ', 'TITLE ', 'TICKER', 'WAIT', 'NPC ', 'OVERLAY ',
     'SHOT', 'SHOT_END', 'TICKER_END', 'OVERLAY_END', 'LOWER_THIRD_END', 'END', 'CAM ', 'ROOM ', 'LOWER_THIRD',
+    'MUSIC ', 'ENTER ', 'ACTION ', '♪',
   ];
+
+  const BARE_DURATION_RE = /^(\d+(?:\.\d+)?)s?$/;  // "8s", "2s", "1.5s", "8"
 
   function isDirectiveLine(ln) {
     if (!ln) return false;
-    return DIRECTIVE_PREFIXES.some(p => ln.startsWith(p)) || SPEAKER_RE.test(ln);
+    return DIRECTIVE_PREFIXES.some(p => ln.startsWith(p)) || SPEAKER_RE.test(ln) || BARE_DURATION_RE.test(ln);
   }
 
   function collectBlock(terminator) {
@@ -235,6 +238,18 @@ function compileBsm(text) {
       makeNode({ type: 'say', text, style: 'raw' });
       messages.push(text);
       continue;
+    }
+
+    // ── Bare duration  "8s" / "2s" / "1.5s" ────────────────────────────────────
+    const durMatch = ln.match(BARE_DURATION_RE);
+    if (durMatch) {
+      makeNode({ type: 'wait', duration: parseFloat(durMatch[1]) });
+      i++; continue;
+    }
+
+    // ── Production cues (no runtime effect) ─────────────────────────────────────
+    if (ln.startsWith('MUSIC ') || ln.startsWith('ENTER ') || ln.startsWith('ACTION ') || ln.startsWith('♪')) {
+      i++; continue;
     }
 
     _debug.unknownDirectives.push(ln);
