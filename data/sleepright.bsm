@@ -27,67 +27,67 @@ MUSIC corporate_chime
 
 ♪ A soothing corporate melody begins playing. ♪
 
-WAIT 5s
+ 5s
 
 ::scene COMMERCIAL
 
-CAM1 WIDE
+CAM 1 WIDE
 
 SHOT
 
 The camera glides through a spotless luxury apartment where a citizen sleeps peacefully inside a sleek chrome SleepRight™ pod.
 
-END
+SHOT_END
 
 NARRATOR:
 Still sleeping in a bed?
 
-WAIT 2s
+ 2s
 
 NARRATOR:
 How twentieth century.
 
-WAIT 2s
+ 2s
 
-CAM2 CLOSEUP sleep_pod
+CAM 2 CLOSEUP sleep_pod
 
 SHOT
 
 The camera slowly circles the glowing sleep pod as soft blue lights pulse across its polished surface.
 
-END
+SHOT_END
 
 NARRATOR:
 SleepRight™ monitors your dreams...
 
-WAIT 2s
+ 2s
 
 NARRATOR:
 ...your heart...
 
-WAIT 1s
+ 1s
 
 NARRATOR:
 ...and your productivity.
 
-WAIT 2s
+ 2s
 
 EVENT CHIME
 
 NARRATOR:
 Wake refreshed.
 
-WAIT 1s
+ 1s
 
 NARRATOR:
 Wake focused.
 
-WAIT 1s
+ 1s
 
 NARRATOR:
 Wake ready to exceed quarterly expectations.
 
-WAIT 2s
+ 2s
 
 OVERLAY
 
@@ -97,18 +97,20 @@ NOW AVAILABLE WITH
 
 OPTIONAL LUNG FILTRATION PACKAGE
 
-END
+OVERLAY_END
 
-WAIT 5s
+ 5s
 
 NARRATOR:
 SleepRight™.
 
-WAIT 2s
+ 2s
 
 NARRATOR:
 Because unconscious employees can't miss deadlines.
 
-WAIT 3s
+ 3s
 
 EVENT FADE_OUT
+
+END

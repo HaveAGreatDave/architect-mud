@@ -62,13 +62,16 @@ function compileBsm(text) {
   const SPEAKER_RE = /^([A-Z][A-Z0-9_]*):\s*$/;
 
   const DIRECTIVE_PREFIXES = [
-    '@', '::', 'EVENT ', 'TITLE ', 'TICKER', 'WAIT ', 'NPC ', 'OVERLAY ',
+    '@', '::', 'EVENT ', 'TITLE ', 'TICKER', 'WAIT', 'NPC ', 'OVERLAY ',
     'SHOT', 'SHOT_END', 'TICKER_END', 'OVERLAY_END', 'LOWER_THIRD_END', 'END', 'CAM ', 'ROOM ', 'LOWER_THIRD',
+    'MUSIC ', 'ENTER ', 'ACTION ', '♪',
   ];
+
+  const BARE_DURATION_RE = /^(\d+(?:\.\d+)?)s?$/;  // "8s", "2s", "1.5s", "8"
 
   function isDirectiveLine(ln) {
     if (!ln) return false;
-    return DIRECTIVE_PREFIXES.some(p => ln.startsWith(p)) || SPEAKER_RE.test(ln);
+    return DIRECTIVE_PREFIXES.some(p => ln.startsWith(p)) || SPEAKER_RE.test(ln) || BARE_DURATION_RE.test(ln);
   }
 
   function collectBlock(terminator) {
@@ -140,8 +143,9 @@ function compileBsm(text) {
     }
 
     // ── WAIT ─────────────────────────────────────────────────────────────────
-    if (ln.startsWith('WAIT ')) {
-      makeNode({ type: 'wait', duration: parseFloat(ln.slice(5)) });
+    if (ln === 'WAIT' || ln.startsWith('WAIT ')) {
+      const sec = ln === 'WAIT' ? 5 : (parseFloat(ln.slice(5)) || 5);
+      makeNode({ type: 'wait', duration: sec });
       i++; continue;
     }
 
@@ -236,8 +240,52 @@ function compileBsm(text) {
       continue;
     }
 
+    // ── Bare duration  "8s" / "2s" / "1.5s" ────────────────────────────────────
+    const durMatch = ln.match(BARE_DURATION_RE);
+    if (durMatch) {
+      makeNode({ type: 'wait', duration: parseFloat(durMatch[1]) });
+      i++; continue;
+    }
+
+    // ── MUSIC cue ────────────────────────────────────────────────────────────────
+    if (ln.startsWith('MUSIC ')) {
+      const cue = ln.slice(6).trim();
+      makeNode({ type: 'say', text: `♪ ${cue} ♪`, style: 'ambient' });
+      i++; continue;
+    }
+
+    // ── ENTER stage direction ─────────────────────────────────────────────────
+    if (ln.startsWith('ENTER ')) {
+      const raw = ln.slice(6).trim();
+      const npc = raw.startsWith('npc_') ? raw : `npc_${raw}`;
+      makeNode({ type: 'say', text: `[ ${npc} enters ]`, style: 'stage_direction' });
+      i++; continue;
+    }
+
+    // ── ACTION stage direction ────────────────────────────────────────────────
+    if (ln.startsWith('ACTION ')) {
+      const parts = ln.slice(7).trim().split(/\s+/);
+      const rawNpc = parts[0] || '';
+      const npc = rawNpc.startsWith('npc_') ? rawNpc : `npc_${rawNpc}`;
+      const act = parts.slice(1).join(' ');
+      makeNode({ type: 'say', text: `[ ${npc} ${act} ]`, style: 'stage_direction' });
+      i++; continue;
+    }
+
+    // ── ♪ music-cue text lines ───────────────────────────────────────────────
+    if (ln.startsWith('♪')) {
+      makeNode({ type: 'say', text: ln, style: 'ambient' });
+      i++; continue;
+    }
+
     _debug.unknownDirectives.push(ln);
     i++;
+  }
+
+  // Guard: ensure start node links to first content node if chain was broken
+  if (startId && nodes[startId] && nodes[startId].next == null) {
+    const firstContent = Object.keys(nodes).find(k => k !== startId);
+    if (firstContent) nodes[startId].next = firstContent;
   }
 
   return { meta, broadcastGraph: { _start: startId, nodes }, messages, assets, rooms, cameras: cameraNumbers, npcIds: [...npcIds], actorIds, _debug };

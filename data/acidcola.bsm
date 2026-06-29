@@ -28,50 +28,50 @@ MUSIC acid_cola_jingle
 
 ♪ An upbeat Acid Cola™ advertising jingle begins playing. ♪
 
-WAIT 5s
+ 5s
 
 ::scene COMMERCIAL
 
-CAM1 WIDE
+CAM 1 WIDE
 
 SHOT
 
 The camera sweeps across a dazzling futuristic city skyline as glowing Acid Cola™ signs illuminate the night.
 
-END
+SHOT_END
 
 NARRATOR:
 Feeling tired?
 
-WAIT 2s
+ 2s
 
 NARRATOR:
 Feeling hopeless?
 
-WAIT 2s
+ 2s
 
 NARRATOR:
 Feeling like the world is slowly collapsing around you?
 
-WAIT 2s
+ 2s
 
-CAM2 CLOSEUP acid_cola_can
+CAM 2 CLOSEUP acid_cola_can
 
 SHOT
 
 The camera dramatically zooms toward an ice-cold can of Acid Cola™ as condensation glistens beneath brilliant studio lighting.
 
-END
+SHOT_END
 
 NARRATOR:
 Drink Acid Cola™.
 
-WAIT 2s
+ 2s
 
 NARRATOR:
 Because reality is easier to tolerate when it's carbonated.
 
-WAIT 2s
+ 2s
 
 OVERLAY
 
@@ -81,8 +81,8 @@ BUY TWO
 
 GET THE THIRD LEGALLY CLASSIFIED AS A BONUS
 
-END
+SHOT_END
 
-WAIT 5s
+ 5s
 
 EVENT FADE_OUT

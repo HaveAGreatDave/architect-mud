@@ -22,12 +22,20 @@ let _schedResizeStartDur  = 0;
 // Popover state
 let _schedPopoverIdx = null;
 
+// Dirty tracking
+let _schedDirty   = false;
+let _schedNowTimer = null;
+
 let   _schedPxPerHour   = 52;
 const SCHED_SNAP        = 1800;
 const SCHED_H           = 72;
 
 function _schedScale() { return _schedPxPerHour / 3600; }
-function _schedW()     { return _schedPxPerHour * 24; }
+function _schedW() {
+  if (!_schedItems.length) return _schedPxPerHour * 24;
+  const rightmost = Math.max(..._schedItems.map(i => _schedToX(i.start_time + i.duration)));
+  return Math.max(_schedPxPerHour * 24, rightmost) + 60;
+}
 
 const SCHED_CAT_COLOR = {
   entertainment: 'var(--cyan)',
@@ -108,7 +116,7 @@ async function _schedCreateChannel() {
       id: `ch_${number}_${Date.now()}`, name, number, channel_type: 'playlist', enabled: 1,
     });
     if (res?.error) { toast(res.error, true); return; }
-    const newCh = { id: res.id || `ch_${number}_${Date.now()}`, name, number, channel_type: 'playlist', schedule_mode: 'loop' };
+    const newCh = { id: res.id || `ch_${number}_${Date.now()}`, name, number, channel_type: 'playlist', schedule_mode: 'daily' };
     _schedChannels.push(newCh);
     _schedChannels.sort((a, b) => (a.number || 99) - (b.number || 99));
     _schedChannelId = newCh.id;
@@ -145,6 +153,38 @@ async function _schedLoadItems() {
       };
     });
   } catch { _schedItems = []; }
+  _schedDirty = false;
+  _schedUpdateSaveBtn();
+}
+
+function _schedMarkDirty() {
+  if (_schedDirty) return;
+  _schedDirty = true;
+  _schedUpdateSaveBtn();
+}
+
+function _schedUpdateSaveBtn() {
+  const btn = document.querySelector('[onclick="_schedSave()"]');
+  if (!btn) return;
+  if (_schedDirty) {
+    btn.textContent = 'Save Schedule';
+    btn.style.background = '';
+    btn.style.color = '';
+    btn.style.borderColor = '';
+  } else {
+    btn.textContent = '✓ Saved';
+    btn.style.background = 'var(--green)';
+    btn.style.color = 'var(--bg)';
+    btn.style.borderColor = 'var(--green)';
+  }
+}
+
+function _schedUpdateNowLine() {
+  const line = document.getElementById('sched-now-line');
+  if (!line) return;
+  const now = new Date();
+  const sec = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+  line.style.left = _schedToX(sec) + 'px';
 }
 
 // ── Sidebar render ────────────────────────────────────────────────────────────
@@ -284,7 +324,7 @@ function _schedChBody(ch, overrides = {}) {
     priority: ch.priority || 0, channel_type: ch.channel_type || 'playlist',
     idle_broadcast_id: ch.idle_broadcast_id || null,
     news_categories: ch.news_categories || [],
-    schedule_mode: ch.schedule_mode || 'loop',
+    schedule_mode: ch.schedule_mode || 'daily',
     ...overrides,
   };
 }
@@ -363,10 +403,13 @@ function _schedBuildTimeline() {
           ondragleave="_schedTlDragLeave()"
           ondrop="_schedTlDrop(event)">
           <div id="sched-drop-line"></div>
+          <div id="sched-now-line" style="position:absolute;top:0;bottom:0;width:2px;background:var(--accent);opacity:0.7;pointer-events:none;z-index:5"></div>
           ${items}
         </div>
       </div>
     </div>`;
+  _schedUpdateNowLine();
+  if (!_schedNowTimer) _schedNowTimer = setInterval(_schedUpdateNowLine, 10000);
 }
 
 function _schedFmtDur(sec) {
@@ -416,7 +459,7 @@ function _schedItemDragStart(e, idx) {
   if (tl) {
     const rect = tl.getBoundingClientRect();
     const item = _schedItems[idx];
-    _schedDragOffset = (e.clientX - rect.left) / _schedScale() - item.start_time;
+    _schedDragOffset = (e.clientX - rect.left) - _schedToX(item.start_time); // pixels from item left edge
   }
   e.dataTransfer.effectAllowed = 'move';
   e.stopPropagation();
@@ -446,11 +489,11 @@ function _schedTlDrop(e) {
   const tl = document.getElementById('sched-timeline');
   if (!tl) return;
   const rect = tl.getBoundingClientRect();
-  const rawSec = (e.clientX - rect.left) / _schedScale();
+  const rawPx = e.clientX - rect.left;
 
   if (_schedDragBcId === '__break__') {
     const dur = SCHED_SNAP;
-    const sec = _schedClamp(_schedToSec(rawSec), dur);
+    const sec = _schedClamp(_schedToSec(rawPx), dur);
     _schedItems.push({
       broadcast_id:       null,
       broadcast_name:     'Commercial Break',
@@ -465,7 +508,7 @@ function _schedTlDrop(e) {
     const bc  = _schedBroadcasts.find(b => b.id === _schedDragBcId);
     if (!bc) return;
     const dur = bc.override_duration || ((Array.isArray(bc.messages) ? bc.messages.length : 0) * (bc.message_interval || 5)) || 3600;
-    const sec = _schedClamp(_schedToSec(rawSec), dur);
+    const sec = _schedClamp(_schedToSec(rawPx), dur);
     _schedItems.push({
       broadcast_id:       bc.id,
       broadcast_name:     bc.name,
@@ -478,12 +521,13 @@ function _schedTlDrop(e) {
     });
   } else if (_schedDragIdx != null) {
     const item = _schedItems[_schedDragIdx];
-    item.start_time = _schedClamp(_schedToSec(rawSec - _schedDragOffset * _schedScale()), item.duration);
+    item.start_time = _schedClamp(_schedToSec(rawPx - _schedDragOffset), item.duration);
   }
 
   _schedDragBcId   = null;
   _schedDragIdx    = null;
   _schedDragOffset = 0;
+  _schedMarkDirty();
   _schedRenderTimeline();
 }
 
@@ -504,6 +548,7 @@ function _schedOnMouseMove(e) {
   const item = _schedItems[_schedResizeIdx];
   item.duration          = dur;
   item.duration_override = dur;
+  _schedMarkDirty();
   _schedRenderTimeline();
 }
 
@@ -557,7 +602,10 @@ function _schedRenderTimeline() {
       </div>`;
   });
 
-  tl.innerHTML = '<div id="sched-drop-line"></div>' + items;
+  const w = _schedW();
+  tl.style.width = w + 'px';
+  tl.innerHTML = '<div id="sched-drop-line"></div><div id="sched-now-line" style="position:absolute;top:0;bottom:0;width:2px;background:var(--accent);opacity:0.7;pointer-events:none;z-index:5"></div>' + items;
+  _schedUpdateNowLine();
 }
 
 // ── Popover (click a block) ───────────────────────────────────────────────────
@@ -634,6 +682,7 @@ function _schedPopSetStart(idx, val) {
   const [h, m] = val.split(':').map(Number);
   if (isNaN(h) || isNaN(m)) return;
   _schedItems[idx].start_time = _schedClamp(h * 3600 + m * 60, _schedItems[idx].duration);
+  _schedMarkDirty();
   _schedRenderTimeline();
 }
 
@@ -641,6 +690,7 @@ function _schedPopSetDur(idx, val) {
   const dur = Math.max(60, parseInt(val) * 60);
   _schedItems[idx].duration          = dur;
   _schedItems[idx].duration_override = dur;
+  _schedMarkDirty();
   _schedRenderTimeline();
 }
 
@@ -648,11 +698,13 @@ function _schedToggleNpc(idx, npcId, checked) {
   const staff = _schedItems[idx].npc_staff;
   if (checked && !staff.includes(npcId)) staff.push(npcId);
   if (!checked) _schedItems[idx].npc_staff = staff.filter(id => id !== npcId);
+  _schedMarkDirty();
   _schedRenderTimeline();
 }
 
 function _schedDeleteItem(idx) {
   _schedItems.splice(idx, 1);
+  _schedMarkDirty();
   _schedClosePopover();
   _schedRenderTimeline();
 }
@@ -671,6 +723,7 @@ async function _schedSave() {
   try {
     const res = await directAPI(`/broadcast/channels/${_schedChannelId}/playlist`, 'PUT', payload);
     if (res?.error) { toast(res.error, true); return; }
-    toast('Schedule saved.');
+    _schedDirty = false;
+    _schedUpdateSaveBtn();
   } catch (err) { toast(err.message, true); }
 }

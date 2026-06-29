@@ -861,11 +861,6 @@ async function _bcShowImportChannelModal(compiled) {
       .map(c => `<option value="${c.id}">Ch ${c.number}: ${escHtml(c.name)}</option>`).join('') +
     `<option value="__new__">+ Create new channel…</option>`;
 
-  const zonePickerLabel = isScripted ? 'Broadcast Zone (where the show plays from)' : 'Studio Zone (optional)';
-  const zonePickerNote  = isScripted
-    ? '<div style="font-size:10px;color:var(--text-dim);margin-top:2px">Required for scripted shows so players in the right zone receive the broadcast.</div>'
-    : '';
-  const studioNameLabel = isScripted ? 'Zone Name' : 'Studio Zone Name';
   const studioNamePlaceholder = isScripted ? 'e.g. Broadcast Tower' : 'e.g. KSAB Studio';
 
   const overlay = document.createElement('div');
@@ -899,16 +894,15 @@ async function _bcShowImportChannelModal(compiled) {
             <input id="bsm-new-ch-number" class="form-input" type="number" min="1" placeholder="#" style="width:100%;font-size:12px;box-sizing:border-box">
           </div>
         </div>
-        <div>
-          <div style="font-size:10px;color:var(--text-dim);margin-bottom:5px;text-transform:uppercase;letter-spacing:1px">${zonePickerLabel}</div>
-          ${zonePickerNote}
-          <div style="display:flex;align-items:center;gap:10px;margin-top:4px">
-            <button class="action-btn" style="font-size:11px;white-space:nowrap" onclick="_bcImportPickChZone()">📍 Pick on map</button>
-            <span id="bsm-new-ch-zone-label" style="font-size:11px;color:var(--text-dim)">No zone selected</span>
-          </div>
+      </div>
+      <div style="padding:12px;background:var(--bg3);border-radius:2px;border:1px solid var(--border);display:flex;flex-direction:column;gap:8px">
+        <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">Studio Zone <span style="color:var(--accent)">*</span></div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <button class="action-btn" style="font-size:11px;white-space:nowrap" onclick="_bcImportPickChZone()">📍 Pick on map</button>
+          <span id="bsm-new-ch-zone-label" style="font-size:11px;color:var(--text-dim)">No zone selected</span>
         </div>
         <div id="bsm-new-ch-studio-row" style="display:none">
-          <label style="font-size:10px;color:var(--text-dim);display:block;margin-bottom:3px">${studioNameLabel}</label>
+          <label style="font-size:10px;color:var(--text-dim);display:block;margin-bottom:3px">Studio Zone Name</label>
           <input id="bsm-new-ch-studio-name" class="form-input" placeholder="${studioNamePlaceholder}" style="width:100%;font-size:12px;box-sizing:border-box">
         </div>
       </div>
@@ -982,7 +976,7 @@ function _bcZonePickerRender() {
     }
     modeContent = `
       <div style="font-size:11px;color:var(--text-dim);margin-bottom:4px">Click an empty cell (+) to create a new zone on the world map.</div>
-      <div style="overflow:auto;max-height:400px">
+      <div id="bsm-map-scroll" style="overflow:auto;max-height:400px">
         <div style="display:grid;grid-template-columns:repeat(${W},${CELL}px);grid-template-rows:repeat(${maxY - minY + 1},${Math.round(CELL * 0.65)}px);gap:2px;width:fit-content">
           ${cells}
         </div>
@@ -1007,6 +1001,12 @@ function _bcZonePickerRender() {
       </div>
     </div>`;
   document.body.appendChild(picker);
+  // Scroll map to center after render
+  const scroll = document.getElementById('bsm-map-scroll');
+  if (scroll) {
+    scroll.scrollLeft = (scroll.scrollWidth - scroll.clientWidth) / 2;
+    scroll.scrollTop  = (scroll.scrollHeight - scroll.clientHeight) / 2;
+  }
 }
 
 function _bcZonePickerSwitch(mode) {
@@ -1047,17 +1047,40 @@ function _bcImportChPickCell(x, y, el) {
   if (btn) btn.removeAttribute('disabled');
 }
 
-function _bcImportChPickOccupied(zoneId, zoneName, el) {
+async function _bcImportChPickOccupied(zoneId, zoneName, el) {
   document.querySelectorAll('.bsm-ch-pick-cell').forEach(c => {
     c.style.background = c.classList.contains('bsm-ch-pick-occupied') ? 'var(--bg3)' : 'var(--bg)';
     c.style.borderColor = 'var(--border)'; c.style.color = c.classList.contains('bsm-ch-pick-occupied') ? 'var(--text-dim)' : 'var(--border)';
   });
   el.style.background = 'color-mix(in srgb,var(--yellow) 20%,transparent)';
   el.style.borderColor = 'var(--yellow)'; el.style.color = 'var(--accent)';
-  // fromMap: true distinguishes from list-picker existing zones — will create studio within this zone
-  _bcImportChZone = { existingId: zoneId, existingName: zoneName, fromMap: true };
+
   const lbl = document.getElementById('bsm-ch-picker-label');
-  if (lbl) lbl.textContent = `Selected: ${zoneName}`;
+  if (lbl) lbl.textContent = `Checking ${zoneName}…`;
+
+  let info = null;
+  try {
+    const r = await fetch('/api/broadcast/studio-info', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ exterior_zone_id: zoneId }),
+    });
+    if (r.ok) info = await r.json();
+  } catch (_) {}
+
+  let studioZoneId = null;
+  if (info?.stage_zone_id) {
+    studioZoneId = info.stage_zone_id;
+    const missing = [];
+    if (info.missingUtility) missing.push('utility room');
+    if (info.missingProduction) missing.push('control room');
+    const detail = missing.length ? ` Missing: ${missing.join(' + ')} (will be created).` : ' Studio is complete.';
+    if (lbl) lbl.textContent = `Attaching to: ${zoneName}.${detail}`;
+  } else {
+    if (lbl) lbl.textContent = `No studio in ${zoneName} — will create one.`;
+  }
+
+  _bcImportChZone = { exteriorId: zoneId, existingId: studioZoneId, existingName: zoneName, fromMap: true, needsEnsure: true };
+
   const studioRow = document.getElementById('bsm-new-ch-studio-row');
   const studioInput = document.getElementById('bsm-new-ch-studio-name');
   if (studioRow) studioRow.style.display = 'block';
@@ -1074,13 +1097,23 @@ function _bcImportChPickerConfirm() {
   const lbl = document.getElementById('bsm-new-ch-zone-label');
   if (!_bcImportChZone) return;
 
-  if (_bcImportChZone.existingId) {
-    // Existing zone — no new zone needed, no studio name field
+  if (_bcImportChZone.needsEnsure) {
+    // Occupied tile: ensure-studio path — studio name may be needed for room creation
+    if (lbl) lbl.textContent = _bcImportChZone.existingName || _bcImportChZone.exteriorId;
+    const studioRow = document.getElementById('bsm-new-ch-studio-row');
+    if (studioRow) studioRow.style.display = 'block';
+    if (!document.getElementById('bsm-new-ch-studio-name')?.value) {
+      const chName = document.getElementById('bsm-new-ch-name')?.value?.trim();
+      const inp = document.getElementById('bsm-new-ch-studio-name');
+      if (inp) inp.value = chName ? `${chName} Studio` : '';
+    }
+  } else if (_bcImportChZone.existingId) {
+    // Existing zone from dropdown — no new zone needed
     if (lbl) lbl.textContent = _bcImportChZone.existingName || _bcImportChZone.existingId;
     const studioRow = document.getElementById('bsm-new-ch-studio-row');
     if (studioRow) studioRow.style.display = 'none';
   } else {
-    // New zone from map
+    // New zone from map (empty tile)
     if (lbl) lbl.textContent = `New zone at ${_bcImportChZone.x}, ${_bcImportChZone.y}`;
     const studioRow = document.getElementById('bsm-new-ch-studio-row');
     const studioInput = document.getElementById('bsm-new-ch-studio-name');
@@ -1098,12 +1131,13 @@ async function _bcImportChannelConfirm() {
   const isScripted = compiled.meta?.type === 'scripted';
   const sel = document.getElementById('bsm-ch-select')?.value || '';
 
+  if (!_bcImportChZone) { toast('Pick a studio zone on the map first.', true); return; }
+
   if (sel === '__new__') {
     const name   = document.getElementById('bsm-new-ch-name')?.value?.trim();
     const number = parseInt(document.getElementById('bsm-new-ch-number')?.value || '');
     if (!name)   { toast('Channel name is required.', true); return; }
     if (!number) { toast('Channel number is required.', true); return; }
-    if (isScripted && !_bcImportChZone) { toast('Pick a broadcast zone on the map first.', true); return; }
 
     const chId = `ch_${number}_${Date.now()}`;
     const chBody = { id: chId, name, number, channel_type: 'playlist', enabled: 1 };
@@ -1115,11 +1149,14 @@ async function _bcImportChannelConfirm() {
         else chBody.studio_zone_id = zoneId;
         _bcImportStudioZoneId = zoneId;
       } else {
-        // New map cell or occupied map cell — create full studio within/at this location
+        // New map cell or occupied map cell — create or ensure studio
         const defaultName = isScripted ? `${name} Broadcast Zone` : `${name} Studio`;
         const zoneName = document.getElementById('bsm-new-ch-studio-name')?.value?.trim() || defaultName;
         const studioPayload = { studio_name: zoneName, channel_id: chId };
-        if (_bcImportChZone.existingId) {
+        const useEnsure = !!_bcImportChZone.needsEnsure;
+        if (_bcImportChZone.exteriorId) {
+          studioPayload.exterior_zone_id = _bcImportChZone.exteriorId;
+        } else if (_bcImportChZone.existingId) {
           studioPayload.exterior_zone_id = _bcImportChZone.existingId;
         } else {
           studioPayload.grid_x = _bcImportChZone.x;
@@ -1127,7 +1164,8 @@ async function _bcImportChannelConfirm() {
         }
         let studio;
         try {
-          studio = await directAPI('/broadcast/create-studio', 'POST', studioPayload);
+          const endpoint = useEnsure ? '/broadcast/ensure-studio' : '/broadcast/create-studio';
+          studio = await directAPI(endpoint, 'POST', studioPayload);
           if (studio?.error) { toast(`Studio creation failed: ${studio.error}`, true); return; }
         } catch (err) { toast(`Studio creation failed: ${err.message}`, true); return; }
 
@@ -1152,6 +1190,45 @@ async function _bcImportChannelConfirm() {
 
   } else {
     _bcImportChannelId = sel || null;
+    const existingCh = _bcChannels.find(c => c.id === sel) || {};
+
+    if (_bcImportChZone.existingId && !_bcImportChZone.fromMap) {
+      // List-picked existing interior zone — assign directly, no studio creation needed
+      _bcImportStudioZoneId = _bcImportChZone.existingId;
+      try {
+        await directAPI(`/broadcast/channels/${sel}`, 'PUT', { ...existingCh, studio_zone_id: _bcImportChZone.existingId });
+      } catch (err) { toast(`Failed to update channel: ${err.message}`, true); return; }
+    } else {
+      // New map cell or occupied map cell — create or ensure studio
+      const defaultName = `${existingCh.name || 'Studio'} Studio`;
+      const zoneName = document.getElementById('bsm-new-ch-studio-name')?.value?.trim() || defaultName;
+      const studioPayload = { studio_name: zoneName, channel_id: sel };
+      const useEnsure = !!_bcImportChZone.needsEnsure;
+      if (_bcImportChZone.exteriorId) {
+        studioPayload.exterior_zone_id = _bcImportChZone.exteriorId;
+      } else if (_bcImportChZone.existingId) {
+        studioPayload.exterior_zone_id = _bcImportChZone.existingId;
+      } else {
+        studioPayload.grid_x = _bcImportChZone.x;
+        studioPayload.grid_y = _bcImportChZone.y;
+      }
+      let studio;
+      try {
+        const endpoint = useEnsure ? '/broadcast/ensure-studio' : '/broadcast/create-studio';
+        studio = await directAPI(endpoint, 'POST', studioPayload);
+        if (studio?.error) { toast(`Studio creation failed: ${studio.error}`, true); return; }
+      } catch (err) { toast(`Studio creation failed: ${err.message}`, true); return; }
+
+      _bcImportStudioZoneId   = studio.studio_zone_id;
+      _bcImportStudioZoneName = zoneName;
+      try {
+        await directAPI(`/broadcast/channels/${sel}`, 'PUT', { ...existingCh, studio_zone_id: studio.studio_zone_id });
+      } catch (err) { toast(`Failed to update channel: ${err.message}`, true); return; }
+
+      document.getElementById('bsm-channel-overlay')?.remove();
+      await _bcShowStudioConfirmation(studio, zoneName, compiled, null, sel);
+      return;
+    }
   }
 
   document.getElementById('bsm-channel-overlay')?.remove();
@@ -1197,12 +1274,16 @@ async function _bcShowStudioConfirmation(studio, studioName, compiled, chBody, c
 async function _bcStudioConfirmContinue() {
   document.getElementById('bsm-studio-confirm-overlay')?.remove();
   const { _bcPendingChBody: chBody, _bcPendingChId: chId, _bcPendingChName: name, _bcPendingChNum: number, _bcPendingCompiled: compiled } = window;
-  try {
-    const res = await directAPI('/broadcast/channels', 'POST', chBody);
-    if (res?.error) { toast(res.error, true); return; }
-    _bcImportChannelId = res.id || chId;
-    _bcChannels.push({ ...(res || {}), id: _bcImportChannelId, name, number });
-  } catch (err) { toast(err.message, true); return; }
+  if (chBody) {
+    try {
+      const res = await directAPI('/broadcast/channels', 'POST', chBody);
+      if (res?.error) { toast(res.error, true); return; }
+      _bcImportChannelId = res.id || chId;
+      _bcChannels.push({ ...(res || {}), id: _bcImportChannelId, name, number });
+    } catch (err) { toast(err.message, true); return; }
+  }
+  // Run world validator to fix any dangling exits from studio creation
+  directAPI('/worldvalidator/run-full', 'POST', { autoRepair: true }).catch(() => {});
   await _bcImportDependencies(compiled);
 }
 
@@ -1451,7 +1532,7 @@ async function _bcDepFinish() {
   if (_bcDepCompiled) await _bcImportSave(_bcDepCompiled);
 }
 
-async function _bcImportSave({ meta, broadcastGraph, messages, assets, cameras }) {
+async function _bcImportSave({ meta, broadcastGraph, messages, assets, cameras, actorIds }) {
   // Apply zone ID remaps to camera_cut nodes (BSM ID → real interior zone ID)
   for (const node of Object.values(broadcastGraph?.nodes || {})) {
     if (node.type === 'camera_cut') {
@@ -1491,28 +1572,50 @@ async function _bcImportSave({ meta, broadcastGraph, messages, assets, cameras }
     if (res?.error) { toast(res.error, true); return; }
     const nodeCount = Object.keys(broadcastGraph.nodes).length;
 
-    // Auto-spawn media deck + cameras if we have a channel and studio zone
+    // Auto-spawn media deck in production/control room + cameras on stage floor
     const camNums = Array.isArray(cameras) ? cameras : [];
-    if (_bcImportChannelId && _bcImportStudioZoneId && camNums.length) {
+    if (_bcImportChannelId && _bcImportStudioZoneId) {
       try {
         await directAPI('/broadcast/deck', 'POST', {
           channel_id: _bcImportChannelId, auto_place: true, no_camera: true,
         });
         const ts = Date.now();
-        await Promise.all(camNums.map((num, idx) =>
-          directAPI('/broadcast/cameras', 'POST', {
-            id: `cam_${_bcImportChannelId}_${num}_${ts + idx}`,
-            zone_id: _bcImportStudioZoneId,
-            direction: 'all',
-            is_powered: 1, is_recording: 0, is_streaming: 1,
-            streaming_channel_id: _bcImportChannelId,
-            storage_limit: 200,
-            permissions: 'public',
-          })
-        ));
-        toast(`Imported "${meta.name}" — ${messages.length} messages, ${nodeCount} graph nodes${assets.length ? `, ${assets.length} asset(s)` : ''}, ${camNums.length} camera(s) spawned.`);
+        if (camNums.length) {
+          await Promise.all(camNums.map((num, idx) =>
+            directAPI('/broadcast/cameras', 'POST', {
+              id: `cam_${_bcImportChannelId}_${num}_${ts + idx}`,
+              zone_id: _bcImportStudioZoneId,
+              direction: 'all',
+              is_powered: 1, is_recording: 0, is_streaming: 1,
+              streaming_channel_id: _bcImportChannelId,
+              storage_limit: 200,
+              permissions: 'public',
+            })
+          ));
+        }
+        // Spawn declared actors (actorIds) in studio zone if they don't already exist there
+        let npcSpawnCount = 0;
+        const actors = Array.isArray(actorIds) ? actorIds : [];
+        for (const npcId of actors) {
+          try {
+            const existing = await directAPI(`/npcs/${npcId}`, 'GET');
+            if (!existing || existing.error) {
+              await directAPI('/npcs', 'POST', {
+                id: npcId, name: npcId.replace(/^npc_/, '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+                description: 'A broadcast studio host.',
+                zone_id: _bcImportStudioZoneId, home_zone: _bcImportStudioZoneId,
+                disposition: 'neutral', wanders: 0, wander_zones: [],
+                dialogue_tree: {}, vendor_inventory: [], flags: { studio_npc: true }, behaviour_graph: {},
+              });
+              npcSpawnCount++;
+            }
+          } catch (_) {}
+        }
+        const camNote = camNums.length ? `, ${camNums.length} camera(s) spawned` : '';
+        const npcNote = npcSpawnCount ? `, ${npcSpawnCount} NPC(s) spawned` : '';
+        toast(`Imported "${meta.name}" — ${messages.length} messages, ${nodeCount} graph nodes${assets.length ? `, ${assets.length} asset(s)` : ''}${camNote}${npcNote}.`);
       } catch (camErr) {
-        toast(`Imported "${meta.name}" but camera/deck spawn failed: ${camErr.message}`, true);
+        toast(`Imported "${meta.name}" but studio spawn failed: ${camErr.message}`, true);
       }
     } else {
       toast(`Imported "${meta.name}" — ${messages.length} messages, ${nodeCount} graph nodes${assets.length ? `, ${assets.length} asset(s)` : ''}.`);
@@ -1568,7 +1671,7 @@ function renderCommercialsPanel(data) {
 function _bcCommSelect(id) {
   _bcCommSelected  = (_bcSuiteData?.broadcasts || []).find(b => b.id === id) || null;
   _bcCommNewActive = false;
-  renderCommercialsPanel(_bcSuiteData);
+  _bcSuiteRender();
 }
 
 function _bcCommEditor(bc, channels) {
