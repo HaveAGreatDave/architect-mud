@@ -253,6 +253,12 @@ async function cmdMorphex(args, raw, player) {
   return buildPanelData(player);
 }
 
+export async function openCosmeticMachine(player) {
+  if (!await getMachine(player.current_zone))
+    return { type: 'error', message: `There's no MORPHEX 9000 terminal here.` };
+  return buildPanelData(player);
+}
+
 export const handlers = {
   use: async (args, raw, player) => {
     // Only intercept if any word in args matches a machine name

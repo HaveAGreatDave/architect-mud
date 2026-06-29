@@ -402,7 +402,12 @@ export async function describeZone(zone, player) {
 					f.object_type === "light"
 						? ` <span class="light-state ${f.light_on ? "light-on" : "light-off"}">(${f.light_on ? "on" : "off"})</span>`
 						: "";
-				return `<span class="action-link furniture-link" data-action="examine" data-target="${f.name}" title="Examine ${f.name}">${f.name}</span>${stateTag}`;
+				let extra = "";
+				if (f.object_type === "toilet") {
+					extra = ` <span class="action-link" data-action="poop" data-target="${f.name}" title="Poop in ${f.name}">[poop]</span>`
+						+ ` <span class="action-link" data-action="pee" data-target="${f.name}" title="Pee in ${f.name}">[pee]</span>`;
+				}
+				return `<span class="action-link furniture-link" data-action="examine" data-target="${f.name}" title="Examine ${f.name}">${f.name}</span>${stateTag}${extra}`;
 			});
 			desc += `\n<span class="furniture-label">Furniture:</span> ${furnitureLinks.join(", ")}`;
 		}

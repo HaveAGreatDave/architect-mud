@@ -14,8 +14,8 @@ async function hasFacilityNearby(zoneId) {
 
 // Resolve an optional target from raw command args (e.g. "pee on alice" / "shit on bed")
 async function resolveBodilyTarget(args, raw, player, verb) {
-  // Expect "on <name>" or just no args
-  const str = args.join(' ').replace(/^on\s+/i, '').trim();
+  // Expect "on <name>", "in <name>", or just no args
+  const str = args.join(' ').replace(/^(?:on|in)\s+/i, '').trim();
   if (!str) return null;
 
   // Check for player target in zone using SIFT
@@ -51,8 +51,13 @@ async function cmdPee(args, player, broadcast) {
   if (target?.type === 'ambiguous') return { type:'output', message: target.selection };
   if (target?.type === 'player') {
     if (!isMisActive(player)) return { type:'error', message:`That requires MIS to be enabled.` };
-    const hasFacility = false;
-    const result = await relieveBladder(player, hasFacility, broadcast, target);
+    const result = await relieveBladder(player, false, broadcast, target);
+    return { type: result.ok ? 'output' : 'error', message: result.message };
+  }
+  if (target?.type === 'furniture') {
+    const f = target.target;
+    if (f.object_type !== 'toilet') return { type:'error', message:`You can't do that in the ${f.name}.` };
+    const result = await relieveBladder(player, true, broadcast);
     return { type: result.ok ? 'output' : 'error', message: result.message };
   }
   const hasFacility = await hasFacilityNearby(player.current_zone);
