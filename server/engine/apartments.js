@@ -374,7 +374,7 @@ export async function cmdPickLock(player) {
 	}
 	return {
 		type: "pick_fail",
-		message: `You work at the lock, but it holds. (rolled ${result.total} vs difficulty ${result.difficulty})`,
+		message: `You work at the lock, but it holds. (skill ${result.effective} vs difficulty ${result.difficulty})`,
 	};
 }
 

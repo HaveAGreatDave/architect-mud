@@ -38,12 +38,19 @@ export async function effectiveSkill(player, skillId) {
   return level + avgStat;
 }
 
+// Opposed-style swing, matching combat to-hit (combat.js rollSwing): 2d8 − 2d8,
+// range −14..+14, ~40% within ±2. `difficulty` plays the role of an opposing
+// skill (like dodge), so close skill-vs-difficulty matchups are coin-flippy and
+// big gaps decide. Success when (effective − difficulty) + swing >= 0.
+function roll2d8() {
+  return Math.floor(Math.random() * 8) + 1 + Math.floor(Math.random() * 8) + 1;
+}
+
 export async function skillCheck(player, skillId, difficulty = 5) {
   const effective = await effectiveSkill(player, skillId);
-  const roll = Math.floor(Math.random() * 10) + 1;
-  const total = roll + effective;
-  const margin = total - difficulty;
-  return { success: total >= difficulty, roll, total, difficulty, margin };
+  const swing = roll2d8() - roll2d8();
+  const margin = (effective - difficulty) + swing;
+  return { success: margin >= 0, swing, effective, difficulty, margin };
 }
 
 // Roll for an IP award on a successful skill use (binary, barely-won = best odds).
