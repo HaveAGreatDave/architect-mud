@@ -38,7 +38,7 @@ CITY TRANSIT ANNOUNCES MINOR DELAYS DUE TO AUTOMATED TANK COLLISION • BUY ACID
 
 END
 
- 8s
+ 
 
 EVENT DISSOLVE
 
@@ -63,39 +63,39 @@ EVENT APPLAUSE
 FRANK:
 Donna!
 
- 1s
+ 
 
 DONNA:
 What?
 
- 1s
+ 
 
 FRANK:
 The pipe's making that noise again.
 
- 2s
+ 
 
 DONNA:
 Which one?
 
- 1s
+ 
 
 FRANK:
 The loud one.
 
- 1s
+ 
 
 DONNA:
 Frank...
 
- 1s
+ 
 
 DONNA:
 They're all loud.
 
 EVENT LAUGHTER
 
- 3s
+ 
 
 ::scene MAINTENANCE
 
@@ -110,29 +110,29 @@ END
 FRANK:
 I called maintenance.
 
- 1s
+ 
 
 DONNA:
 Good.
 
- 1s
+ 
 
 FRANK:
 They put me on hold.
 
- 1s
+ 
 
 DONNA:
 How long?
 
- 1s
+ 
 
 FRANK:
 Yesterday.
 
 EVENT LAUGHTER
 
- 3s
+ 
 
 ENTER maintenance_bot
 
@@ -147,24 +147,24 @@ END
 BOT:
 Maintenance request acknowledged.
 
- 1s
+ 
 
 BOT:
 Estimated repair time...
 
- 2s
+ 
 
 BOT:
 Three to five business months.
 
 EVENT LAUGHTER
 
- 2s
+ 
 
 FRANK:
 Can you at least stop the leak?
 
- 1s
+ 
 
 BOT:
 Leak subscription expired.
@@ -173,7 +173,7 @@ EVENT APPLAUSE
 
 EVENT LAUGHTER
 
- 4s
+ 
 
 ::scene THE FIX
 
@@ -189,29 +189,29 @@ Every pipe in the apartment immediately becomes twice as loud.
 
 END
 
- 2s
+ 
 
 FRANK:
 ...
 
- 1s
+ 
 
 DONNA:
 Well...
 
- 1s
+ 
 
 DONNA:
 It's louder.
 
- 2s
+ 
 
 BOT:
 Repair successful.
 
 EVENT LAUGHTER
 
- 5s
+ 
 
 ::scene TAG
 
@@ -228,37 +228,37 @@ END
 FRANK:
 Think it'll stop?
 
- 1s
+ 
 
 DONNA:
 Eventually.
 
- 1s
+ 
 
 FRANK:
 When?
 
- 1s
+ 
 
 DONNA:
 When the ceiling falls down.
 
 EVENT LAUGHTER
 
- 2s
+ 
 
 The ceiling light flickers violently.
 
- 1s
+ 
 
 A single ceiling tile drops into Frank's lap.
 
- 2s
+ 
 
 FRANK:
 ...
 
- 1s
+ 
 
 FRANK:
 Called it.
@@ -267,7 +267,7 @@ EVENT APPLAUSE
 
 EVENT LAUGHTER
 
- 5s
+ 
 
 ::scene CREDITS
 
