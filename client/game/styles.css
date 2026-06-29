@@ -1115,7 +1115,8 @@ body {
 
 /* Keyboard-collapse transition for mobile */
 @media (max-width: 720px) {
-	#area-pane {
+	#area-pane,
+	#output {
 		transition: filter 0.6s ease, max-height 0.2s ease;
 	}
 }

@@ -6,7 +6,12 @@ function compileBsm(text) {
   let i = 0;
 
   const meta = { name: '', channel: '', category: 'general', host: '', length: null };
-  const aliases = {}; // SPEAKER_NAME → npc_id, populated by @alias directives
+  // Pre-scan for @alias directives so they work regardless of position in the file
+  const aliases = {};
+  for (const ln of lines) {
+    const m = ln.trim().match(/^@alias\s+(\S+)\s+(\S+)/);
+    if (m) aliases[m[1].toUpperCase()] = m[2];
+  }
   const nodes = {};
   const assets = [];
   const messages = [];

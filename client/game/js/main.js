@@ -39,16 +39,25 @@ applySettings(settings);
 applyMobileScale();
 window.addEventListener('resize', applyMobileScale);
 
-// Collapse the room-description pane when the software keyboard opens so the
-// output log and input bar get the full remaining viewport height.
+// When the software keyboard opens, collapse the look pane and output log so
+// only the top bar (header + mobile HUD) and bottom bar (input + dpad) remain.
 if (window.visualViewport && _isMobile) {
   const _areaPane = document.getElementById('area-pane');
+  const _output   = document.getElementById('output');
+  const _resizeHandle = document.getElementById('look-resize-handle');
   let _fullVH = window.visualViewport.height;
   window.visualViewport.addEventListener('resize', () => {
     const keyboardUp = window.visualViewport.height < _fullVH * 0.75;
-    _areaPane.style.maxHeight = keyboardUp ? '0' : '';
-    _areaPane.style.overflow = keyboardUp ? 'hidden' : '';
-    if (!keyboardUp) _fullVH = window.visualViewport.height;
+    for (const el of [_areaPane, _output, _resizeHandle]) {
+      if (!el) continue;
+      el.style.maxHeight = keyboardUp ? '0' : '';
+      el.style.overflow  = keyboardUp ? 'hidden' : '';
+    }
+    if (!keyboardUp) {
+      _fullVH = window.visualViewport.height;
+      // Restore scroll position to bottom of output after keyboard closes
+      _output.scrollTop = _output.scrollHeight;
+    }
   });
 }
 

@@ -930,6 +930,7 @@ async function _bcImportDependencies(compiled) {
   ]);
   const zoneIds  = new Set((allZones || []).map(z => z.id));
   const npcDbIds = new Set((allNpcs  || []).map(n => n.id));
+  _bcExistingNpcIds = npcDbIds; // used by _bcCreateNpc to skip duplicates
   const missingZones = compiled.rooms.filter(id => !zoneIds.has(id));
   const missingNpcs  = compiled.npcIds.filter(id => !npcDbIds.has(id));
   if (!missingZones.length && !missingNpcs.length) { await _bcImportSave(compiled); return; }
@@ -982,7 +983,10 @@ function _bcMarkResolved(id) {
   }
 }
 
+let _bcExistingNpcIds = new Set(); // populated during dependency check
+
 async function _bcCreateNpc(id) {
+  if (_bcExistingNpcIds.has(id)) { _bcMarkResolved(id); return; }
   const name = id.replace(/^npc_/, '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
   try {
     const res = await directAPI('/npcs', 'POST', { id, name, description: `${name}. Edit this description.`, zone_id: null, disposition: 'neutral' });

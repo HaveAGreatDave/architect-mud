@@ -38,7 +38,7 @@ function renderChannelsPanel(data) {
       <td style="text-align:center;color:var(--text-dim)">${plCount}</td>
       <td style="text-align:right;white-space:nowrap">
         <button class="action-btn" style="font-size:10px;padding:3px 8px" onclick="openChannelEditor(${JSON.stringify(ch).replace(/"/g,'&quot;')})">✏ Edit</button>
-        <button class="action-btn danger" style="font-size:10px;padding:3px 8px;margin-left:4px" onclick="deleteChannel('${ch.id}','${escHtml2(ch.name).replace(/'/g,"\\'")}')">✕</button>
+        <button class="action-btn danger" style="font-size:10px;padding:3px 8px;margin-left:4px" onclick="deleteChannel(${JSON.stringify(ch).replace(/"/g,'&quot;')})">✕</button>
       </td>
     </tr>`;
   }).join('');
@@ -532,16 +532,91 @@ async function saveChannel() {
   }
 }
 
-async function deleteChannel(id, name) {
+async function deleteChannel(ch) {
+  const { id, name } = ch;
   if (!confirm(`Delete channel "${name}" and its playlist? This cannot be undone.`)) return;
   try {
+    // Collect candidate zones and NPCs to offer cleanup
+    const [allChannels, allNpcs, allZones] = await Promise.all([
+      directAPI('/broadcast/channels'),
+      directAPI('/npcs'),
+      directAPI('/zones'),
+    ]);
+    const otherChannels = (allChannels || []).filter(c => c.id !== id);
+    const otherZoneRefs = new Set(
+      otherChannels.flatMap(c => [c.zone_id, c.studio_zone_id].filter(Boolean))
+    );
+
+    // Zones created for this channel that no other channel references
+    const candidateZoneIds = [ch.zone_id, ch.studio_zone_id].filter(z => z && !otherZoneRefs.has(z));
+    const candidateZones   = (allZones || []).filter(z => candidateZoneIds.includes(z.id));
+
+    // NPCs whose zone_id is one of the candidate zones
+    const candidateNpcs = (allNpcs || []).filter(n => candidateZoneIds.includes(n.zone_id));
+
+    let deleteZones = [];
+    let deleteNpcs  = [];
+    if (candidateZones.length || candidateNpcs.length) {
+      const chosen = await _chDeleteCleanupPrompt(name, candidateZones, candidateNpcs);
+      if (chosen === null) return; // user cancelled
+      deleteZones = chosen.zones;
+      deleteNpcs  = chosen.npcs;
+    }
+
     const res = await directAPI(`/broadcast/channels/${id}`, 'DELETE');
     if (res?.error) { toast(res.error, true); return; }
-    toast('Channel deleted.');
+
+    await Promise.all([
+      ...deleteNpcs.map(n  => directAPI(`/npcs/${n.id}`,  'DELETE').catch(() => {})),
+      ...deleteZones.map(z => directAPI(`/zones/${z.id}`, 'DELETE').catch(() => {})),
+    ]);
+
+    const parts = ['Channel deleted'];
+    if (deleteNpcs.length)  parts.push(`${deleteNpcs.length} NPC${deleteNpcs.length > 1 ? 's' : ''} removed`);
+    if (deleteZones.length) parts.push(`${deleteZones.length} zone${deleteZones.length > 1 ? 's' : ''} removed`);
+    toast(parts.join(' · ') + '.');
     await bcSuiteRefresh('channels');
   } catch (err) {
     toast(err.message, true);
   }
+}
+
+function _chDeleteCleanupPrompt(channelName, zones, npcs) {
+  return new Promise(resolve => {
+    const zoneHtml = zones.map(z => `
+      <label style="display:flex;align-items:center;gap:8px;padding:5px 0;cursor:pointer">
+        <input type="checkbox" class="ch-del-zone" data-id="${z.id}" checked style="accent-color:var(--accent)">
+        <span style="font-size:12px"><span style="color:var(--yellow)">${escHtml2(z.name)}</span> <span style="color:var(--text-dim);font-size:10px">${z.id}</span></span>
+      </label>`).join('');
+    const npcHtml = npcs.map(n => `
+      <label style="display:flex;align-items:center;gap:8px;padding:5px 0;cursor:pointer">
+        <input type="checkbox" class="ch-del-npc" data-id="${n.id}" checked style="accent-color:var(--accent)">
+        <span style="font-size:12px"><span style="color:var(--cyan)">${escHtml2(n.name || n.id)}</span> <span style="color:var(--text-dim);font-size:10px">${n.id}</span></span>
+      </label>`).join('');
+
+    const el = document.createElement('div');
+    el.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:900;display:flex;align-items:center;justify-content:center';
+    el.innerHTML = `
+      <div style="background:var(--bg2);border:1px solid var(--accent);padding:20px;width:480px;max-width:94vw;border-radius:3px;display:flex;flex-direction:column;gap:14px">
+        <div style="color:var(--accent);font-size:13px;letter-spacing:2px;text-transform:uppercase">Also delete?</div>
+        <div style="font-size:11px;color:var(--text-dim)">These zones and NPCs appear to be associated with <strong style="color:var(--text)">${escHtml2(channelName)}</strong> and aren't used by other channels. Uncheck anything you want to keep.</div>
+        ${zones.length ? `<div><div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Zones</div>${zoneHtml}</div>` : ''}
+        ${npcs.length  ? `<div><div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">NPCs</div>${npcHtml}</div>` : ''}
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button class="action-btn" id="ch-del-cancel">Cancel</button>
+          <button class="action-btn danger" id="ch-del-confirm">Delete Channel + Selected</button>
+        </div>
+      </div>`;
+    document.body.appendChild(el);
+
+    el.querySelector('#ch-del-cancel').onclick = () => { el.remove(); resolve(null); };
+    el.querySelector('#ch-del-confirm').onclick = () => {
+      const selZones = [...el.querySelectorAll('.ch-del-zone:checked')].map(cb => zones.find(z => z.id === cb.dataset.id)).filter(Boolean);
+      const selNpcs  = [...el.querySelectorAll('.ch-del-npc:checked')].map(cb => npcs.find(n => n.id === cb.dataset.id)).filter(Boolean);
+      el.remove();
+      resolve({ zones: selZones, npcs: selNpcs });
+    };
+  });
 }
 
 // ── Camera editor ────────────────────────────────────────────────────────────
