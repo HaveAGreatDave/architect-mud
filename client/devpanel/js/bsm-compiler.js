@@ -62,7 +62,7 @@ function compileBsm(text) {
 
   const DIRECTIVE_PREFIXES = [
     '@', '::', 'EVENT ', 'TITLE ', 'TICKER', 'WAIT ', 'NPC ', 'OVERLAY ',
-    'SHOT', 'ENDSHOT', 'END', 'CAM', 'ROOM ', 'LOWER_THIRD',
+    'SHOT', 'SHOT_END', 'TICKER_END', 'OVERLAY_END', 'LOWER_THIRD_END', 'END', 'CAM ', 'ROOM ', 'LOWER_THIRD',
   ];
 
   function isDirectiveLine(ln) {
@@ -85,6 +85,9 @@ function compileBsm(text) {
     const ln = lines[i].trim();
 
     if (!ln) { i++; continue; }
+
+    // ── EOF marker ───────────────────────────────────────────────────────────
+    if (ln === 'END') break;
 
     // ── Header directives ────────────────────────────────────────────────────
     if (ln.startsWith('@')) {
@@ -129,7 +132,7 @@ function compileBsm(text) {
     // ── TICKER block ─────────────────────────────────────────────────────────
     if (ln === 'TICKER') {
       i++;
-      const text = collectBlock('END');
+      const text = collectBlock('TICKER_END');
       makeNode({ type: 'ticker', text });
       messages.push(text);
       continue;
@@ -149,7 +152,7 @@ function compileBsm(text) {
     }
 
     // ── CAM cut ──────────────────────────────────────────────────────────────
-    if (/^CAM\d/.test(ln)) {
+    if (/^CAM \d/.test(ln)) {
       const parts = ln.split(/\s+/);
       const label = [parts[0], parts[1], parts.slice(2).join(' ')].filter(Boolean).join(' — ');
       makeNode({ type: 'camera_cut', zone_id: '', label });
@@ -163,7 +166,7 @@ function compileBsm(text) {
       const textLines = [];
       while (i < lines.length) {
         const ol = lines[i].trim();
-        if (ol === 'END') { i++; break; }
+        if (ol === 'OVERLAY_END') { i++; break; }
         if (isDirectiveLine(ol)) break;
         textLines.push(ol);
         i++;
@@ -178,7 +181,7 @@ function compileBsm(text) {
       const ltLines = [];
       while (i < lines.length) {
         const ol = lines[i].trim();
-        if (ol === 'END') { i++; break; }
+        if (ol === 'LOWER_THIRD_END') { i++; break; }
         if (isDirectiveLine(ol)) break;
         if (ol) ltLines.push(ol);
         i++;
@@ -191,7 +194,7 @@ function compileBsm(text) {
     // ── SHOT block → say node ────────────────────────────────────────────────
     if (ln === 'SHOT') {
       i++;
-      const text = collectBlock('ENDSHOT');
+      const text = collectBlock('SHOT_END');
       makeNode({ type: 'say', text, style: 'raw' });
       messages.push(text);
       continue;

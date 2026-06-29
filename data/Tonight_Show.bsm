@@ -58,7 +58,7 @@ TICKER
 
 ACID COLA REPORTS RECORD PROFITS • POLICE ADVISE CITIZENS TO AVOID DISTRICT 12 • CITY TRANSIT EXPECTS ONLY MODERATE EXPLOSIONS TODAY • BUY NEO-NOODLES: NOW 12% LESS SYNTHETIC •
 
-END
+TICKER_END
 
 WAIT 8s
 
@@ -68,13 +68,13 @@ EVENT DISSOLVE
 
 ROOM studio_stage
 
-CAM1 WIDE
+CAM 1 WIDE
 
 SHOT
 
 The broadcast opens on a brightly lit studio bathed in neon blues and warm amber lights. A packed audience applauds enthusiastically while the Tonight Show band finishes the opening bars of the theme.
 
-END
+SHOT_END
 
 NPC npc_graham_mercer
 NPC npc_john_akerson
@@ -128,13 +128,13 @@ EVENT APPLAUSE
 
 ENTER john_akerson
 
-CAM2 TRACK john_akerson
+CAM 2 TRACK john_akerson
 
 SHOT
 
 The camera follows John Akerson as he jogs onto the stage, shaking hands with audience members before stopping behind his desk with a broad smile.
 
-END
+SHOT_END
 
 ACTION john_akerson wave
 
@@ -142,7 +142,7 @@ WAIT 3s
 
 ::scene MONOLOGUE
 
-CAM3 CLOSEUP john_akerson
+CAM 3 CLOSEUP john_akerson
 
 JOHN:
 Thank you!
@@ -235,7 +235,7 @@ LOWER_THIRD
 John Akerson
 Host
 
-END
+LOWER_THIRD_END
 
 ENTER lucky_malone
 
@@ -244,15 +244,15 @@ LOWER_THIRD
 Lenny "Lucky" Malone
 Professional Lottery Winner
 
-END
+LOWER_THIRD_END
 
-CAM4 TWO_SHOT john_akerson lucky_malone
+CAM 4 TWO_SHOT john_akerson lucky_malone
 
 SHOT
 
 The camera settles into a comfortable two-shot as John and tonight's guest sit beneath the warm studio lights.
 
-END
+SHOT_END
 
 EVENT APPLAUSE
 
@@ -330,7 +330,7 @@ SHOT
 
 The broadcast abruptly transitions to an aggressively colorful commercial surrounded by flashing corporate branding.
 
-END
+SHOT_END
 
 MUSIC acid_cola_jingle
 
@@ -364,7 +364,7 @@ BUY TWO
 
 GET THE THIRD LEGALLY CLASSIFIED AS A BONUS
 
-END
+OVERLAY_END
 
 WAIT 8s
 
@@ -372,14 +372,14 @@ EVENT RETURN_FROM_BREAK
 
 ::scene CLOSING
 
-CAM2 MEDIUM john_akerson
+CAM 2 MEDIUM john_akerson
 
 LOWER_THIRD
 
 John Akerson
 Host
 
-END
+LOWER_THIRD_END
 
 MUSIC tonight_theme
 
@@ -417,15 +417,17 @@ Good night, everybody!
 
 EVENT APPLAUSE
 
-CAM1 WIDE
+CAM 1 WIDE
 
 SHOT
 
 The camera slowly pulls back as John waves to the audience. The Tonight Show band reprises the theme while the audience rises for a standing ovation beneath glowing neon studio lights.
 
-END
+SHOT_END
 
 WAIT 6s
 
 EVENT FADE_OUT
+
+END
 
