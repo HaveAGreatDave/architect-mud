@@ -730,6 +730,22 @@ export async function apiDeleteZone(id) {
       await query('DELETE FROM player_corpses   WHERE zone_id=$1', [zid]);
       await query('DELETE FROM world_events     WHERE zone_id=$1', [zid]);
       await query('DELETE FROM windows          WHERE zone_interior=$1 OR zone_exterior=$1', [zid]);
+      await query('DELETE FROM media_cameras    WHERE zone_id=$1', [zid]);
+      await query('DELETE FROM player_inventory WHERE player_id=$1', [`_ground_${zid}`]);
+      // Null out NPC home/wander references pointing at this zone
+      await query('UPDATE npcs SET home_zone=NULL   WHERE home_zone=$1', [zid]);
+      await query(`UPDATE npcs SET wander_zones=(
+        SELECT jsonb_agg(v) FROM jsonb_array_elements_text(wander_zones) t(v) WHERE v <> $1
+      ) WHERE wander_zones @> to_jsonb($1::text)`, [zid]);
+      // Null out broadcast studio references
+      await query('UPDATE media_channels SET studio_zone_id=NULL WHERE studio_zone_id=$1', [zid]);
+      // Fix player anchor/home zone references
+      await query("UPDATE players SET anchor_zone='zone_start' WHERE anchor_zone=$1", [zid]);
+      await query('UPDATE players SET home_zone=NULL           WHERE home_zone=$1',   [zid]);
+      // Remove dangling exit links from any zone pointing at this one
+      await query(`UPDATE zones SET exits=(
+        SELECT jsonb_object_agg(key, value) FROM jsonb_each_text(exits) WHERE value <> $1
+      ) WHERE exits IS NOT NULL AND exits::text LIKE '%' || $1 || '%'`, [zid]);
     }
     for (const child of children) {
       await query('DELETE FROM apartments WHERE zone_id=$1', [child.id]);

@@ -339,8 +339,8 @@ export async function initEnvironment({ query, emitHook, broadcast }) {
   scheduleTicks();
   state.ready = true;
 
-  // Sync streetlights to the current phase on boot (no client messages — nobody is connected yet).
-  const bootLightsOn = (state.phase === 'night' || state.phase === 'dusk') ? 1 : 0;
+  // Sync streetlights on boot — lights on when ambient visibility (including weather) is dim.
+  const bootLightsOn = computeAmbientVisibility() < VISIBILITY_DIM ? 1 : 0;
   await query(`UPDATE furniture SET light_on=$1 WHERE object_type='light' AND light_type='streetlight'`, [bootLightsOn]).catch(()=>{});
   await recomputePower().catch(() => {});
 }
@@ -593,7 +593,17 @@ async function tick1m() {
   await flickerOverloadedZones();
 }
 
-// Turn streetlights on or off in response to the day/night cycle.
+// Ambient visibility factoring in weather (fog, ash, blizzard, etc.).
+// Used to decide whether streetlights should be on independent of time-of-day.
+function computeAmbientVisibility() {
+  const weatherFactor = WEATHER_VISIBILITY_FACTOR[state.weatherType] ?? 1.0;
+  const fogFactor     = FOG_FACTOR[state.weatherType] ?? DEFAULT_FOG_FACTOR;
+  return state.ambientLight * weatherFactor * fogFactor;
+}
+
+// Turn streetlights on or off based on ambient visibility.
+// Lights come on whenever visibility drops below VISIBILITY_DIM — whether from
+// nightfall, fog, ash, blizzard, or any other weather that cuts ambient light.
 // Only powered zones get lights turned on; all zones have lights turned off.
 // Sends a zone_event message and triggers a look refresh for each affected zone.
 async function syncStreetlights(lightOn) {
@@ -624,9 +634,14 @@ async function syncStreetlights(lightOn) {
   }
 
   if (broadcast) {
+    const isDarkPhase = state.phase === 'night' || state.phase === 'dusk';
     const msg = lightOn
-      ? '<br><span class="power-restore">The streetlights flicker to life as darkness falls.</span><br>'
-      : '<br><span class="ambient">The streetlights dim and go dark as daylight returns.</span><br>';
+      ? (isDarkPhase
+          ? '<br><span class="power-restore">The streetlights flicker to life as darkness falls.</span><br>'
+          : '<br><span class="power-restore">The streetlights flicker on against the gloom.</span><br>')
+      : (isDarkPhase
+          ? '<br><span class="ambient">The streetlights go dark as conditions clear.</span><br>'
+          : '<br><span class="ambient">The streetlights dim and go dark as daylight returns.</span><br>');
     for (const { zone_id } of affected) {
       broadcast(zone_id, { type: 'zone_event', message: msg, refresh: true });
     }
@@ -645,18 +660,19 @@ async function tick30m() {
   state.lastTick30m = Date.now();
 
   const prevPhase = state.phase;
+  const prevAmbientVisibility = computeAmbientVisibility();
   recalcAmbientAndVisibility();
 
   await query(`UPDATE world_clock SET last_tick_30m = now() WHERE id = 1`);
 
-  // Street lights follow the day/night cycle automatically.
-  if (prevPhase !== state.phase) {
-    const nowDark = state.phase === 'night' || state.phase === 'dusk';
-    const wasDark = prevPhase === 'night' || prevPhase === 'dusk';
-    if (nowDark !== wasDark) {
-      await syncStreetlights(nowDark).catch(() => {});
-      await recomputePower().catch(() => {});
-    }
+  // Street lights come on when ambient visibility (ambient light × weather factors)
+  // drops below the dim threshold — nightfall, fog, ash, blizzard, etc.
+  const nowAmbientVisibility = computeAmbientVisibility();
+  const wasLightsOn = prevAmbientVisibility < VISIBILITY_DIM;
+  const nowLightsOn = nowAmbientVisibility < VISIBILITY_DIM;
+  if (nowLightsOn !== wasLightsOn) {
+    await syncStreetlights(nowLightsOn).catch(() => {});
+    await recomputePower().catch(() => {});
   }
 
   // Precipitation roll: start if dry and roll wins; stop if raining and roll loses.
@@ -1206,7 +1222,7 @@ export function getEnvironmentState() {
 
 export async function devSetTime({ date, minutes }) {
   const { query, broadcast } = deps;
-  const prevPhase = state.phase;
+  const prevAmbientVisibility = computeAmbientVisibility();
   if (date) state.date = date;
   if (minutes !== undefined) state.minutes = ((Number(minutes) % (24 * 60)) + 24 * 60) % (24 * 60);
   state.dayOfWeek = dayOfWeekFor(state.date);
@@ -1215,10 +1231,10 @@ export async function devSetTime({ date, minutes }) {
     `UPDATE world_clock SET game_date = $1, game_time_minutes = $2, day_of_week = $3 WHERE id = 1`,
     [state.date, state.minutes, state.dayOfWeek]
   );
-  const nowDark = state.phase === 'night' || state.phase === 'dusk';
-  const wasDark = prevPhase === 'night' || prevPhase === 'dusk';
-  if (nowDark !== wasDark) {
-    await syncStreetlights(nowDark).catch(() => {});
+  const wasLightsOn = prevAmbientVisibility < VISIBILITY_DIM;
+  const nowLightsOn = computeAmbientVisibility() < VISIBILITY_DIM;
+  if (nowLightsOn !== wasLightsOn) {
+    await syncStreetlights(nowLightsOn).catch(() => {});
     await recomputePower().catch(() => {});
   }
   const payload = getHUDPayload();
@@ -1302,6 +1318,7 @@ export async function devOverrideWeather({ weatherType, tempC, precipChance }) {
   if (!state.weatherOverrideActive) {
     state.weatherOverrideBackup = { weatherType: state.weatherType, tempC: state.tempC, precipChance: state.forecast[0]?.precipChance ?? 0.05 };
   }
+  const prevLightsOn = computeAmbientVisibility() < VISIBILITY_DIM;
   state.weatherOverrideActive = true;
   state.weatherType = weatherType;
   // tempC from the client is already offset-adjusted (getHUDPayload adds diurnalOffset).
@@ -1313,6 +1330,11 @@ export async function devOverrideWeather({ weatherType, tempC, precipChance }) {
   state.forecast[0] = { ...state.forecast[0], weatherType, tempC: state.tempC, ...(precipChance !== undefined ? { precipChance: Number(precipChance) } : {}) };
   // Roll current precip against the new precipChance, replacing whatever was active.
   rollAndSetCurrentPrecip(weatherType, state.tempC + diurnalOffset(state.minutes), Number(precipChance ?? state.forecast[0]?.precipChance ?? 0.05));
+  const nowLightsOn = computeAmbientVisibility() < VISIBILITY_DIM;
+  if (nowLightsOn !== prevLightsOn) {
+    await syncStreetlights(nowLightsOn).catch(() => {});
+    await recomputePower().catch(() => {});
+  }
   if (broadcast) broadcast({ type: 'environment.weatherOverride', ...getHUDPayload() });
   return getHUDPayload();
 }
@@ -1320,12 +1342,18 @@ export async function devOverrideWeather({ weatherType, tempC, precipChance }) {
 export async function devClearWeatherOverride() {
   const { query, broadcast, emitHook } = deps;
   if (!state.weatherOverrideActive) return getHUDPayload();
+  const prevLightsOn = computeAmbientVisibility() < VISIBILITY_DIM;
   state.weatherOverrideActive = false;
   state.weatherOverrideBackup = null;
   await query(`UPDATE world_clock SET weather_override_active = FALSE, weather_override_backup = NULL WHERE id = 1`);
   // Recalculate forecast so state reflects real forecast values (not the backed-up override values).
   if (emitHook) await emitHook('environment.recalculateForecast', { setWeatherState, climateProfile: state.activeClimateProfile, currentDate: state.date });
   rollAndSetCurrentPrecip(state.weatherType, state.tempC + diurnalOffset(state.minutes), state.forecast[0]?.precipChance ?? 0.05);
+  const nowLightsOn = computeAmbientVisibility() < VISIBILITY_DIM;
+  if (nowLightsOn !== prevLightsOn) {
+    await syncStreetlights(nowLightsOn).catch(() => {});
+    await recomputePower().catch(() => {});
+  }
   const payload = { ...getHUDPayload(), forecast: getForecast() };
   if (broadcast) broadcast({ type: 'environment.sync', ...payload });
   return payload;

@@ -1003,6 +1003,24 @@ function buildTvPanel(channelId, player) {
   return { type: 'output', message: 'You turn to the television.' };
 }
 
+function buildTvOffPanel(player) {
+  const channelList = [...channelRuntime.values()]
+    .filter(s => s.number != null)
+    .sort((a, b) => a.number - b.number)
+    .map(s => ({ number: s.number, name: s.name, channelId: s.channelId }));
+  sendToPlayer(player.id, {
+    type: 'tv_panel',
+    channelId: null,
+    channelNumber: 0,
+    channelName: '',
+    stationName: '',
+    channelType: null,
+    theme: null,
+    channelList,
+  });
+  return { type: 'output', message: 'The television is off.' };
+}
+
 // Specialized action: use <tv-furniture>
 async function doUseTv(args, raw, player) {
   if (!player) return undefined;
@@ -1016,21 +1034,28 @@ async function doUseTv(args, raw, player) {
   if (!rows.length) return undefined;
 
   const entry = furnitureChannelIndex.get(rows[0].id);
-  if (!entry || entry.deviceType !== 'tv') return { type: 'output', message: `${rows[0].name} isn't receiving any signal.` };
-
-  return buildTvPanel(entry.channelId, player) ?? { type: 'output', message: `${rows[0].name} has no active channel.` };
+  if (!entry || entry.deviceType !== 'tv') return buildTvOffPanel(player);
+  return buildTvPanel(entry.channelId, player) ?? buildTvOffPanel(player);
 }
 
 async function cmdTv(args, raw, player) {
   if (!player) return { type: 'error', message: 'No character.' };
   const zoneMap = zoneTunings.get(player.current_zone);
-  if (!zoneMap || !zoneMap.size) return { type: 'output', message: 'There is no television here.' };
 
-  for (const [channelId, deviceType] of zoneMap) {
-    if (deviceType !== 'tv') continue;
-    const result = buildTvPanel(channelId, player);
-    if (result) return result;
+  if (zoneMap) {
+    for (const [channelId, deviceType] of zoneMap) {
+      if (deviceType !== 'tv') continue;
+      const result = buildTvPanel(channelId, player);
+      if (result) return result;
+    }
   }
+
+  // No tuned TV — check for any TV-flagged furniture in the zone (TV exists but is off)
+  const { rows } = await query(
+    `SELECT id FROM furniture WHERE zone_id=$1 AND jsonb_exists(flags,'tv') LIMIT 1`,
+    [player.current_zone]
+  );
+  if (rows.length) return buildTvOffPanel(player);
   return { type: 'output', message: 'There is no television here.' };
 }
 

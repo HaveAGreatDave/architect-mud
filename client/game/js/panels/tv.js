@@ -6,6 +6,7 @@ import { renderMarkup } from '../markup.js';
 
 let _tvOpen = false;
 let _tvShuttingDown = false;
+let _tvPoweredOff = false;
 let _tvActiveChannelId = null;
 const _tvHistory = [];
 const MAX_TV_HISTORY = 200;
@@ -19,8 +20,10 @@ let _tvFrequency   = 0;    // current dial position (float)
 const LOCK_RANGE   = 0.25; // within this many channel-numbers = lock in
 
 export function openTvPanel(data) {
-  _tvActiveChannelId = data.channelId;
+  _tvActiveChannelId = data.channelId || null;
   _tvOpen = true;
+  _tvShuttingDown = false;
+  _tvPoweredOff = !data.channelId || data.channelNumber === 0;
   _tvHistory.length = 0;
   _tickerText = '';
   _tickerAnimating = false;
@@ -28,8 +31,8 @@ export function openTvPanel(data) {
   _tvChannelList = Array.isArray(data.channelList) ? data.channelList : [];
   _tvFrequency   = data.channelNumber ?? 0;
 
-  document.getElementById('tv-station-name').textContent = data.stationName || data.channelName || 'UNKNOWN';
-  document.getElementById('tv-channel-num').textContent = `CH ${data.channelNumber ?? '—'}`;
+  document.getElementById('tv-station-name').textContent = data.stationName || data.channelName || '——';
+  document.getElementById('tv-channel-num').textContent = data.channelNumber ? `CH ${data.channelNumber}` : '——';
   document.getElementById('tv-program-name').textContent = '';
   document.getElementById('tv-messages').innerHTML = '';
 
@@ -50,9 +53,17 @@ export function openTvPanel(data) {
   _tickerAnimating = false;
 
   applyTvTheme(data.theme || null);
-
   document.getElementById('tv-panel').classList.add('active');
-  _playTuneAnimation();
+
+  if (_tvPoweredOff) {
+    // TV is off — dark screen, no animation
+    document.getElementById('tv-content').classList.add('tv-hidden');
+    const staticEl = document.getElementById('tv-static');
+    staticEl.classList.remove('tv-static-on', 'tv-static-fade', 'tv-static-loop');
+    staticEl.style.opacity = '';
+  } else {
+    _playTuneAnimation();
+  }
 }
 
 function _playTuneAnimation() {
@@ -87,6 +98,21 @@ function _playTuneAnimation() {
   }, 1200);
 }
 
+function _playCrtPowerOn() {
+  const win = document.getElementById('tv-window');
+  const staticEl = document.getElementById('tv-static');
+
+  // Static comes on as the CRT warms up
+  staticEl.classList.remove('tv-static-fade', 'tv-static-loop');
+  staticEl.style.opacity = '1';
+  staticEl.classList.add('tv-static-on');
+
+  win.classList.remove('tv-powering-on');
+  win.offsetWidth; // force reflow to restart animation
+  win.classList.add('tv-powering-on');
+  win.addEventListener('animationend', () => win.classList.remove('tv-powering-on'), { once: true });
+}
+
 export function applyTvTheme(theme) {
   const win = document.getElementById('tv-window');
   if (!win) return;
@@ -117,6 +143,7 @@ export function applyTvTheme(theme) {
 export function closeTvPanel() {
   _tvOpen = false;
   _tvShuttingDown = false;
+  _tvPoweredOff = false;
   _tvActiveChannelId = null;
   if (_tuneTimer) { clearTimeout(_tuneTimer); _tuneTimer = null; }
   _clearOverlay();
@@ -186,6 +213,16 @@ export function tvTunerInput(val) {
   _tvFrequency = parseFloat(val);
   const freqDisplay = document.getElementById('tv-freq-display');
   if (freqDisplay) freqDisplay.textContent = _tvFrequency.toFixed(1);
+
+  // If TV was off and user starts tuning, play CRT power-on first
+  if (_tvPoweredOff && _tvFrequency > 0) {
+    _tvPoweredOff = false;
+    document.getElementById('tv-content').classList.add('tv-hidden');
+    _playCrtPowerOn();
+    // Tuning lock logic will run on the next slider input event
+    return;
+  }
+
   if (!_tvChannelList.length) return;
 
   const nearest = _tvChannelList.reduce((a, b) =>
@@ -318,12 +355,20 @@ export function initTvPanel() {
 
   document.getElementById('tv-knob').addEventListener('click', () => {
     if (!_tvOpen) return;
-    if (_tvChannelList.length > 1) {
+    if (_tvChannelList.length) {
       const idx = _tvChannelList.findIndex(c => c.channelId === _tvActiveChannelId);
       const next = _tvChannelList[(idx + 1) % _tvChannelList.length];
-      if (next) { _tvFrequency = next.number; _tvTuneTo(next.number); return; }
+      if (next) {
+        _tvFrequency = next.number;
+        if (_tvPoweredOff) {
+          _tvPoweredOff = false;
+          _playCrtPowerOn();
+        }
+        _tvTuneTo(next.number);
+        return;
+      }
     }
-    _playTuneAnimation();
+    if (!_tvPoweredOff) _playTuneAnimation();
   });
 
   document.getElementById('tv-panel').addEventListener('click', e => {

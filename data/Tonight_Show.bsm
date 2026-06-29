@@ -5,7 +5,16 @@
 @season 1
 @episode 1
 @runtime 180
-@host john_akerson
+
+::actors
+@actor npc_	john_akerson
+@alias npc_john_akerson JOHN
+
+@actor npc_graham_mercer
+@alias npc_graham_mercer  ANNOUNCER
+
+@actor npc_lucky_malone
+alias  npc_lucky_malone LUCKY
 
 
 ::asset tonight_show_logo

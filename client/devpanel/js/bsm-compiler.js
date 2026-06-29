@@ -6,17 +6,31 @@ function compileBsm(text) {
   let i = 0;
 
   const meta = { name: '', channel: '', category: 'general', host: '', length: null, type: 'live' };
-  // Pre-scan for @alias directives so they work regardless of position in the file
-  const aliases = {};
+
+  // Pre-scan ::actors block to build alias map and actor list.
+  // Format:
+  //   ::actors
+  //   @actor john_akerson          ← entity ID becomes npc_john_akerson
+  //   @alias john_akerson JOHN     ← JOHN: dialogue lines map to npc_john_akerson
+  const aliases  = {};  // ALIAS_LABEL (uppercase) → npc_id
+  const actorIds = [];  // npc_ids in declaration order
+  let _inActors = false;
   for (const ln of lines) {
-    const m = ln.trim().match(/^@alias\s+(\S+)\s+(\S+)/);
-    if (m) aliases[m[1].toUpperCase()] = m[2];
+    const t = ln.trim();
+    if (t === '::actors')                       { _inActors = true;  continue; }
+    if (t.startsWith('::') && t !== '::actors') { _inActors = false; continue; }
+    if (!_inActors) continue;
+    const mActor = t.match(/^@actor\s+(\S+)/);
+    if (mActor) { actorIds.push(`npc_${mActor[1]}`); continue; }
+    const mAlias = t.match(/^@alias\s+(\S+)\s+(\S+)/);
+    if (mAlias) aliases[mAlias[2].toUpperCase()] = `npc_${mAlias[1]}`;
   }
+
   const nodes = {};
   const assets = [];
   const messages = [];
   const rooms = [];      // zone IDs from ROOM directives (ordered, deduplicated)
-  const npcIds = new Set(); // npc_ids from npc_anchor nodes
+  const npcIds = new Set(actorIds); // pre-populated from ::actors; grows with explicit NPC directives
 
   let nodeCount = 0;
   let startId = null;
@@ -40,6 +54,8 @@ function compileBsm(text) {
   makeNode({ type: 'start' });
 
   // All-caps word followed immediately by colon on its own line: JOHN:  LUCKY:  ANNOUNCER:
+  // Speaker labels resolve via the ::actors block.  Without an alias the compiler
+  // generates npc_label_??? which appears unresolved in the dependency checker.
   const SPEAKER_RE = /^([A-Z][A-Z0-9_]*):\s*$/;
 
   const DIRECTIVE_PREFIXES = [
@@ -79,15 +95,13 @@ function compileBsm(text) {
         else if (key === 'host') meta.host = val;
         else if (key === 'length') meta.length = parseFloat(val);
         else if (key === 'type') meta.type = val.toLowerCase();
-        else if (key === 'alias') {
-          const [speaker, npcId] = val.split(/\s+/);
-          if (speaker && npcId) aliases[speaker.toUpperCase()] = npcId;
-        }
+        // @actor / @alias are pre-scanned from ::actors block; skip here
       }
       i++; continue;
     }
 
     // ── Structural markers ───────────────────────────────────────────────────
+    if (ln === '::actors') { i++; continue; }  // block contents handled by pre-scan
     if (ln.startsWith('::scene ')) { i++; continue; }
 
     if (ln.startsWith('::asset ')) {
@@ -201,5 +215,5 @@ function compileBsm(text) {
     i++;
   }
 
-  return { meta, broadcastGraph: { _start: startId, nodes }, messages, assets, rooms, npcIds: [...npcIds] };
+  return { meta, broadcastGraph: { _start: startId, nodes }, messages, assets, rooms, npcIds: [...npcIds], actorIds };
 }
