@@ -31,6 +31,7 @@ const AREA_SLIDE = { north:[0,-1], south:[0,1], east:[1,0], west:[-1,0] };
 // Description collapse is a compact-view preference: the room prose clamps to
 // a few lines with a toggle, and the choice persists across room changes.
 function applyDescCollapse(el) {
+  if (document.documentElement.getAttribute('data-density') !== 'compact') return;
   const desc = el.querySelector('.room-desc');
   if (!desc) return;
   const expanded = localStorage.getItem('areaDescExpanded') === '1';
