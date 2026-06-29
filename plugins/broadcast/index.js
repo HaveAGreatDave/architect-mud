@@ -178,7 +178,7 @@ async function loadChannelRuntimes() {
         lastMsgKey: '',
         wasActive: false,
         currentFallbackMessages: [],
-        graphBlackboard: { currentNode: null, waitUntil: null, npcAnchor: null, activeBroadcastId: null, hostAbsent: false, absentDetectedAt: null, techDiffMode: false },
+        graphBlackboard: { currentNode: null, waitUntil: null, npcAnchor: null, npcAnchorId: null, activeBroadcastId: null, hostAbsent: false, absentDetectedAt: null, techDiffMode: false },
         theme: ch.theme_id ? {
           id: ch.theme_id,
           name: ch.theme_name,
@@ -616,6 +616,7 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
     bb.currentNode = null;
     bb.waitUntil = null;
     bb.npcAnchor = null;
+    bb.npcAnchorId = null;
     bb.hostAbsent = false;
     bb.absentDetectedAt = null;
     bb.techDiffMode = false;
@@ -628,6 +629,17 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
   }
 
   // Tech-diff mode — host was absent; cycle fallback messages until slot ends
+  // Re-check each tick: if the host NPC returned to the studio zone, clear the latch
+  if (bb.techDiffMode) {
+    if (bb.npcAnchorId && state.studioZoneId) {
+      const zone = getZone(state.studioZoneId);
+      if (zone?.npcs?.has(bb.npcAnchorId)) {
+        bb.techDiffMode = false;
+        bb.hostAbsent = false;
+        bb.absentDetectedAt = null;
+      }
+    }
+  }
   if (bb.techDiffMode) {
     const pool = state.currentFallbackMessages?.length
       ? state.currentFallbackMessages
@@ -695,10 +707,13 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
         const npcId = node.data?.npc_id;
         const npc = world.npcs?.get(npcId);
         bb.npcAnchor = npc?.name || npcId || null;
+        bb.npcAnchorId = npcId || null;
         // Presence check — only for live channels with a studio zone configured
-        if (npcId && state.channelType === 'live' && state.studioZoneId && !bb.hostAbsent) {
+        if (npcId && state.channelType === 'live' && state.studioZoneId) {
           const zone = getZone(state.studioZoneId);
-          if (!(zone?.npcs?.has(npcId))) {
+          if (zone?.npcs?.has(npcId)) {
+            bb.hostAbsent = false; // host returned — clear absence state
+          } else if (!bb.hostAbsent) {
             bb.hostAbsent = true;
             bb.absentDetectedAt = nowMs;
           }

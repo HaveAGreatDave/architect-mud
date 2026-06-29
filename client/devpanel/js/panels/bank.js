@@ -341,9 +341,15 @@ function _networkModal(title, n) {
         <input id="bnet-name" type="text" value="${n.name || ''}" placeholder="CorpBank Terminal"
           style="background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);padding:5px 8px;width:100%;box-sizing:border-box">
       </div>
-      <div class="field"><label>Color (hex)</label>
-        <input id="bnet-color" type="text" value="${n.color || '#00ff88'}" placeholder="#00ff88"
-          style="background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);padding:5px 8px;width:100%;box-sizing:border-box">
+      <div class="field"><label>Color</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input id="bnet-color-picker" type="color" value="${n.color || '#00ff88'}"
+            style="width:36px;height:32px;padding:2px;border:1px solid var(--border);background:var(--bg3);cursor:pointer;flex-shrink:0"
+            oninput="document.getElementById('bnet-color').value=this.value">
+          <input id="bnet-color" type="text" value="${n.color || '#00ff88'}" placeholder="#00ff88"
+            style="background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);padding:5px 8px;flex:1;box-sizing:border-box"
+            oninput="if(/^#[0-9a-fA-F]{6}$/.test(this.value))document.getElementById('bnet-color-picker').value=this.value">
+        </div>
       </div>
       <div class="field"><label>Fee Rate (0.0 – 1.0)</label>
         <input id="bnet-fee" type="number" min="0" max="1" step="0.01" value="${n.fee_rate ?? 0}"
@@ -361,11 +367,10 @@ function _networkModal(title, n) {
         <input id="bnet-faction" type="text" value="${n.faction_id || ''}" placeholder="e.g. corp"
           style="background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);padding:5px 8px;width:100%;box-sizing:border-box">
       </div>
-      <div style="display:flex;gap:8px;margin-top:4px">
-        <button class="action-btn success" style="flex:1" onclick="bankSaveNetwork(${!!n.id})">${n.id ? 'Save' : 'Create'}</button>
-        <button class="action-btn" onclick="closeModal()">Cancel</button>
-      </div>
     </div>`);
+  const saveBtn = document.getElementById('modal-save');
+  saveBtn.textContent = n.id ? 'Save' : 'Create';
+  saveBtn.onclick = () => bankSaveNetwork(!!n.id);
 }
 
 function bankNewNetwork() { _networkModal('New ATM Network', {}); }

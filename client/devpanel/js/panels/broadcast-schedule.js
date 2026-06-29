@@ -184,7 +184,9 @@ async function _schedUpdateNowLine() {
   if (!line) return;
   try {
     const state = await directAPI('/environment/state', 'GET');
-    const sec = (state.minutes || 0) * 60;
+    // state.time is "HH:MM" (from getHUDPayload); minutes field is not exposed
+    const [h, m] = (state.time || '0:0').split(':').map(Number);
+    const sec = (h || 0) * 3600 + (m || 0) * 60;
     line.style.left = _schedToX(sec) + 'px';
   } catch (_) {}
 }
