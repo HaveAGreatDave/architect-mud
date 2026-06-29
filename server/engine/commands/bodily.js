@@ -6,7 +6,7 @@ import { resolve as siftResolve, createSelectionState, formatSelectionPage } fro
 
 async function hasFacilityNearby(zoneId) {
   const { rows } = await query(
-    `SELECT id FROM furniture WHERE zone_id=$1 AND object_type='toilet' LIMIT 1`,
+    `SELECT id FROM furniture WHERE zone_id=$1 AND (object_type='toilet' OR jsonb_exists(flags,'toilet')) LIMIT 1`,
     [zoneId]
   );
   return rows.length > 0;
@@ -81,9 +81,10 @@ async function cmdPoop(args, player, broadcast) {
   }
   if (target?.type === 'furniture') {
     const f = target.target;
-    const hasSit = f.flags?.interactions?.includes?.('sit') || f.object_type === 'toilet';
+    const isToilet = f.object_type === 'toilet' || f.flags?.toilet;
+    const hasSit = f.flags?.interactions?.includes?.('sit') || isToilet;
     if (!hasSit) return { type:'error', message:`You can't do that on the ${f.name}.` };
-    if (f.object_type === 'toilet') {
+    if (isToilet) {
       const result = await relieveBowels(player, true, broadcast);
       return { type: result.ok ? 'output' : 'error', message: result.message };
     }
@@ -97,7 +98,7 @@ async function cmdPoop(args, player, broadcast) {
 
 async function cmdFlush(args, player) {
   const { rows } = await query(
-    `SELECT id FROM furniture WHERE zone_id=$1 AND object_type='toilet' LIMIT 1`,
+    `SELECT id FROM furniture WHERE zone_id=$1 AND (object_type='toilet' OR jsonb_exists(flags,'toilet')) LIMIT 1`,
     [player.current_zone]
   );
   if (!rows.length) return { type:'error', message:`There's no toilet here to flush.` };
@@ -107,7 +108,7 @@ async function cmdFlush(args, player) {
 // `use toilet` or `sit` — describes the toilet and provides contextual actions
 async function cmdUseToilet(player) {
   const { rows } = await query(
-    `SELECT * FROM furniture WHERE zone_id=$1 AND object_type='toilet' LIMIT 1`,
+    `SELECT * FROM furniture WHERE zone_id=$1 AND (object_type='toilet' OR jsonb_exists(flags,'toilet')) LIMIT 1`,
     [player.current_zone]
   );
   if (!rows.length) return null;
@@ -130,7 +131,7 @@ async function cmdUseToilet(player) {
 // `use sink` or `wash` with no args — describes the sink and provides contextual actions
 async function cmdUseSink(player) {
   const { rows } = await query(
-    `SELECT * FROM furniture WHERE zone_id=$1 AND object_type='sink' LIMIT 1`,
+    `SELECT * FROM furniture WHERE zone_id=$1 AND (object_type='sink' OR jsonb_exists(flags,'water_source')) LIMIT 1`,
     [player.current_zone]
   );
   if (!rows.length) return null;

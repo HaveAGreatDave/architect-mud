@@ -128,10 +128,13 @@
 
     // --- Broadcast ---
     broadcast_receiver: { label: 'Broadcast Receiver', shape: 'flag', scope: 'class', group: 'Broadcast',
+      targets: ['item', 'furniture'],
       help: 'Item or furniture can be tuned to a broadcast channel.' },
     broadcast_transmitter: { label: 'Broadcast Transmitter', shape: 'flag', scope: 'class', group: 'Broadcast',
+      targets: ['item', 'furniture'],
       help: 'Item or furniture is a camera or microphone (broadcast source).' },
     broadcast_device_type: { label: 'Device Type', shape: 'enum', scope: 'class', group: 'Broadcast',
+      targets: ['item', 'furniture'],
       options: ['tv', 'radio', 'security_monitor', 'portable_monitor', 'camera'],
       help: 'Controls how broadcast content is formatted for this device.' },
     media_deck: { label: 'Media Deck', shape: 'flag', scope: 'furniture', group: 'Broadcast',
@@ -144,6 +147,10 @@
       help: 'Players can drink from and wash at this furniture. Enables the water-plugin verbs (drink/wash). The verb is blind to what the furniture is — sink, fountain, well, leaking pipe — it only asks for this capability.' },
     bulletin: { label: 'Bulletin Board', shape: 'flag', scope: 'furniture', group: 'Capabilities',
       help: 'Players can READ this furniture to see the server leaderboard — the top 5 survivors ranked by total XP (ties broken by older account first).' },
+    toilet: { label: 'Toilet', shape: 'flag', scope: 'furniture', group: 'Capabilities',
+      help: 'Players can sit and relieve themselves here (pee / poop / flush) with privacy. The verbs are blind to what the furniture is — stall, latrine, bucket — they only ask for this capability.' },
+    cosmetic_machine: { label: 'Cosmetic Machine', shape: 'flag', scope: 'furniture', group: 'Capabilities',
+      help: 'Players can change their appearance here (the morphex/biosculpt verbs). The verb only asks for this capability, not a specific object_type.' },
 
     // --- Instance flags (presence-only, on a carried item) ---
     broken: { label: 'Broken', shape: 'flag', scope: 'instance', group: 'Instance',

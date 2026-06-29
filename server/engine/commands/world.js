@@ -389,7 +389,7 @@ async function cmdExamine(targetStr, player, broadcast) {
       const n = f.name.toLowerCase();
       const openLink = `<span class="action-link" data-action="open" data-target="${n}">open</span>`;
       msg += `\n<span class="text-dim">Actions:</span> ${openLink}`;
-    } else if (f.object_type === 'media_deck') {
+    } else if (f.object_type === 'media_deck' || f.flags?.media_deck) {
       const flags = f.flags || {};
       const channelId = flags.channel_id;
       const deckActive = flags.deck_active;

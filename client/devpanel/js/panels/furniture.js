@@ -296,10 +296,6 @@ function furnitureEditForm(rec, isNew) {
       <select id="f-object_type" onchange="const show=this.value==='light';['f-light-fields','f-lighton-field','f-powerdraw-field','f-lumens-field'].forEach(function(id){document.getElementById(id).style.display=show?'':'none';})">
         <option value="furniture" ${(!rec.object_type||rec.object_type==='furniture')?'selected':''}>Furniture</option>
         <option value="light" ${rec.object_type==='light'?'selected':''}>Light</option>
-        <option value="fixture" ${rec.object_type==='fixture'?'selected':''}>Fixture</option>
-        <option value="appliance" ${rec.object_type==='appliance'?'selected':''}>Appliance</option>
-        <option value="decoration" ${rec.object_type==='decoration'?'selected':''}>Decoration</option>
-        <option value="terminal" ${rec.object_type==='terminal'?'selected':''}>Terminal</option>
         <option value="container" ${rec.object_type==='container'?'selected':''}>Container</option>
       </select>
     </div>
