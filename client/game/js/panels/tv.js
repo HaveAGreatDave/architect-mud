@@ -31,8 +31,10 @@ export function openTvPanel(data) {
   _tickerAnimating = false;
   _tvAtBottom = true;
   _tvChannelList = Array.isArray(data.channelList) ? data.channelList : [];
+  // Server (furniture flags.tv_dial_freq) is source of truth; localStorage is only a within-session fallback
+  const serverFreq = typeof data.dialFrequency === 'number' ? data.dialFrequency : -1;
   const savedLocal = localStorage.getItem('tv_frequency');
-  _tvFrequency = savedLocal !== null ? parseFloat(savedLocal) : (typeof data.dialFrequency === 'number' ? data.dialFrequency : 0);
+  _tvFrequency = serverFreq >= 0 ? serverFreq : (savedLocal !== null ? parseFloat(savedLocal) : 0);
   if (!isFinite(_tvFrequency) || _tvFrequency < 0 || _tvFrequency >= TV_DIAL_MAX) _tvFrequency = 0;
 
   document.getElementById('tv-station-name').textContent = data.stationName || data.channelName || '——';
@@ -166,6 +168,7 @@ export function closeTvPanel() {
   const win = document.getElementById('tv-window');
   win.classList.remove('tv-shutting-off');
   localStorage.setItem('tv_frequency', _tvFrequency.toFixed(2));
+  sendCmd(`_tvfreq ${_tvFrequency.toFixed(2)}`); // persist dial position to furniture flags
   win.style.position = '';
   win.style.left = '';
   win.style.top = '';

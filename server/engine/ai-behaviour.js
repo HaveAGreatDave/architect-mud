@@ -3,7 +3,7 @@ import { findPath, getZonesInRadius } from './pathfinding.js';
 import { enemyAttackPlayer } from './combat.js';
 import { getEnvironmentState } from './environment.js';
 import { emit } from './events.js';
-import { hasChannelViewers } from './broadcast-bridge.js';
+import { hasChannelViewers, isNpcScheduledNow, getNpcStudioZone } from './broadcast-bridge.js';
 
 // ── Blackboard ────────────────────────────────────────────────────────────────
 
@@ -187,6 +187,16 @@ function evalCondition(node, entity) {
 
     case 'CHANNEL_HAS_VIEWERS':
       return hasChannelViewers(params.channel_id);
+
+    // True if the NPC is in an active daily schedule slot right now
+    case 'IS_BROADCAST_SCHEDULED':
+      return isNpcScheduledNow(entity.id);
+
+    // True if the NPC is already in their assigned studio zone
+    case 'AT_WORK_ZONE': {
+      const studioZone = getNpcStudioZone(entity.id);
+      return studioZone ? zoneId === studioZone : false;
+    }
 
     case 'HOUR_RANGE': {
       const { hour } = getEnvironmentState();
@@ -478,6 +488,94 @@ async function execAction(node, entity, ctx) {
       }
       // world scope: would need async world_flags DB write — skip for now
       break;
+    }
+
+    case 'EMOTE': {
+      const msg = params.message || '';
+      if (!msg) break;
+      broadcast(zoneId, {
+        type: 'output',
+        message: `<span style="color:var(--yellow)">${entity.name} ${msg}</span>`,
+      });
+      break;
+    }
+
+    // HAVE_LIFE: do a life activity — skipped when NPC is scheduled to work
+    case 'HAVE_LIFE': {
+      if (!ai) break;
+      if (isNpcScheduledNow(entity.id)) break; // on schedule — do nothing here
+      // Walk toward home_zone or a supplied waypoint
+      const waypoints = Array.isArray(params.waypoints) ? params.waypoints : [];
+      const dest = entity.home_zone || waypoints[Math.floor(Math.random() * Math.max(waypoints.length, 1))];
+      if (!dest || zoneId === dest) break;
+      if (!ai.patrolPath.length || ai.patrolTarget !== dest) {
+        const path = findPath(zoneId, dest);
+        if (!path || path.length < 2) break;
+        ai.patrolPath = path.slice(1);
+        ai.patrolTarget = dest;
+      }
+      const next = ai.patrolPath.shift();
+      if (next) {
+        const moved = moveEntity(entity, next, broadcast, query);
+        if (!moved) { ai.patrolPath = []; ai.patrolTarget = null; }
+        else if (!isEnemy(entity) && query) {
+          query('UPDATE npcs SET zone_id=$1 WHERE id=$2', [entityZone(entity), entity.id]).catch(() => {});
+        }
+      }
+      break; // does NOT return RUNNING — graph continues to GO_TO_WORK each tick
+    }
+
+    // GO_TO_WORK: navigate to the NPC's studio zone when scheduled — skipped otherwise
+    case 'GO_TO_WORK': {
+      if (!ai) break;
+      if (!isNpcScheduledNow(entity.id)) break; // not on schedule — skip
+      const workZone = getNpcStudioZone(entity.id);
+      if (!workZone || zoneId === workZone) break; // already there or no zone known
+
+      if (!ai.patrolPath.length || ai.patrolTarget !== workZone) {
+        const path = findPath(zoneId, workZone);
+        if (!path || path.length < 2) return 'RUNNING';
+        ai.patrolPath = path.slice(1);
+        ai.patrolTarget = workZone;
+      }
+      const nextZone = ai.patrolPath.shift();
+      if (!nextZone) return 'RUNNING';
+      const moved = moveEntity(entity, nextZone, broadcast, query);
+      if (!moved) { ai.patrolPath = []; ai.patrolTarget = null; }
+      else if (!isEnemy(entity) && query) {
+        query('UPDATE npcs SET zone_id=$1 WHERE id=$2', [entityZone(entity), entity.id]).catch(() => {});
+      }
+      return 'RUNNING';
+    }
+
+    // AT_WORK: stay put during work hours — no-op so graph can loop and re-check schedule
+    case 'AT_WORK': {
+      // NPC is in studio during scheduled hours — just idle here.
+      // The graph loop (wait → loop back) re-checks IS_BROADCAST_SCHEDULED each cycle.
+      break;
+    }
+
+    // Walk to the studio zone the NPC is scheduled at (derived from broadcast schedule)
+    case 'GO_TO_STUDIO': {
+      if (!ai) break;
+      const studioZone = getNpcStudioZone(entity.id);
+      if (!studioZone || zoneId === studioZone) break; // already there or unscheduled
+
+      if (!ai.patrolPath.length || ai.patrolTarget !== studioZone) {
+        const path = findPath(zoneId, studioZone);
+        if (!path || path.length < 2) return 'RUNNING';
+        ai.patrolPath = path.slice(1);
+        ai.patrolTarget = studioZone;
+      }
+
+      const nextZone = ai.patrolPath.shift();
+      if (!nextZone) return 'RUNNING';
+      const moved = moveEntity(entity, nextZone, broadcast, query);
+      if (!moved) { ai.patrolPath = []; ai.patrolTarget = null; }
+      else if (!isEnemy(entity) && query) {
+        query('UPDATE npcs SET zone_id=$1 WHERE id=$2', [entityZone(entity), entity.id]).catch(() => {});
+      }
+      return 'RUNNING';
     }
 
     default:

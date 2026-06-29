@@ -88,6 +88,10 @@ Out ports: `ifTrue`, `ifFalse`.
 | `FLAG_SET` | `scope`, `flag` | blackboard flag is truthy (scope:self only; world flags fall back to blackboard) |
 | `RANDOM_CHANCE` | `chance` (default 0.5) | Math.random() < chance |
 | `IS_DAYTIME` | — | world timePhase is day/dawn/dusk |
+| `CHANNEL_HAS_VIEWERS` | `channel_id` | at least one player is watching `channel_id` on a TV |
+| `HOUR_RANGE` | `from`, `to` (0–23) | current game hour is within the range (wraps midnight) |
+| `IS_BROADCAST_SCHEDULED` | — | NPC is in npc_staff for a currently-active daily schedule slot |
+| `AT_WORK_ZONE` | — | NPC is already in their assigned broadcast studio zone |
 
 ### `action`
 
@@ -107,6 +111,14 @@ Executes one action and stops the tick. The cursor is saved to the `next` port's
 | `TELEPORT` | `zone_id` | Instantly move entity; persists `zone_id` to DB for NPCs |
 | `IDLE` | — | No-op; useful as the terminal action in a branch |
 | `SET_FLAG` | `scope: 'self'`, `flag`, `value` | Write to blackboard flags (self-scope only; world-scope is a no-op currently) |
+| `EMOTE` | `message` | Broadcast `"NpcName <message>"` to the NPC's current zone (e.g. `"waves at the camera"`) |
+| `BROADCAST_SAY` | `channel_id`, `text` | Inject a line of dialogue into a broadcast channel feed as this NPC |
+| `GO_TO_WORK` | — | If scheduled (`IS_BROADCAST_SCHEDULED`) and not already at work zone, walk toward the studio; returns RUNNING while en route. No-ops otherwise. |
+| `HAVE_LIFE` | `waypoints?: [zone_id]` | If not scheduled, walk toward `home_zone` or a random waypoint. No-ops when scheduled. Does NOT return RUNNING — graph continues each tick. |
+| `AT_WORK` | — | No-op that marks the "at work" position in the graph. Keeps NPC in place during scheduled hours; graph re-checks schedule on next loop. |
+| `GO_TO_WORK` (old) | `zone_id`, `arrive_by`, `depart_early_minutes` | Timed commute to a specific zone; superseded by the parameterless `GO_TO_WORK` above for studio NPCs |
+| `GO_HOME` | — | Walk toward `entity.home_zone`; returns RUNNING until arrived |
+| `GO_TO_STUDIO` | — | Walk toward the studio zone derived from the NPC's broadcast schedule; returns RUNNING until arrived |
 
 ### `wait`
 
@@ -129,6 +141,23 @@ Weighted random branch. Picks one of N branches by weight and follows that port.
 { branches: [{ weight: number }, ...] }
 ```
 Out ports: `branch_0`, `branch_1`, … (one per entry).
+
+---
+
+## Default Studio Behaviour Graph
+
+When a broadcast channel's playlist is saved with NPC staff, any NPC that has an empty `behaviour_graph` is automatically assigned the following default graph:
+
+```
+start → HAVE_LIFE → GO_TO_WORK → AT_WORK → wait(30) → loop
+```
+
+Behaviour per cycle:
+- **Off-schedule**: `HAVE_LIFE` walks toward `home_zone` (or supplied waypoints). `GO_TO_WORK` and `AT_WORK` no-op.
+- **Scheduled, not at studio**: `HAVE_LIFE` no-ops. `GO_TO_WORK` navigates one step toward studio (RUNNING until arrived). `AT_WORK` no-op.
+- **Scheduled, at studio**: All three no-op. NPC stays put.
+
+The 30-second wait keeps the re-check at a reasonable pace without hammering the engine tick. NPCs with hand-authored graphs are unaffected.
 
 ---
 

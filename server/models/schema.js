@@ -164,7 +164,8 @@ export const SCHEMA_SQL = `
     flags JSONB DEFAULT '{}'
   );
   ALTER TABLE npcs ADD COLUMN IF NOT EXISTS behaviour_graph JSONB DEFAULT '{}';
-  ALTER TABLE npcs ADD COLUMN IF NOT EXISTS home_zone TEXT DEFAULT NULL;
+  ALTER TABLE npcs ADD COLUMN IF NOT EXISTS home_zone TEXT DEFAULT 'zone_residential_lobby';
+  ALTER TABLE npcs ALTER COLUMN home_zone SET DEFAULT 'zone_residential_lobby';
 
   -- Non-takeable scenery (bar counters, stools, beds, tables...). Distinct
   -- from items: items live in player_inventory (including the

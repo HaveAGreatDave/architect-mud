@@ -111,6 +111,8 @@ function broadcast(
 		}
 		ws.send(payload);
 	}
+	// Notify studio camera relay (broadcast plugin listens to this)
+	if (zoneId && !targetPlayerId) emit('zone.broadcast', { zoneId, msg: message });
 }
 
 const MIME = {

@@ -15,3 +15,8 @@ export function setBroadcast(fn) { broadcastFn = fn; }
 export function sendToPlayer(playerId, message) {
   if (broadcastFn && playerId) broadcastFn(null, message, null, playerId);
 }
+
+// Broadcast a message to all players currently in a zone.
+export function sendToZone(zoneId, message) {
+  if (broadcastFn && zoneId) broadcastFn(zoneId, message);
+}

@@ -1,10 +1,10 @@
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
 import { world, getZonePlayers, getZone, getZoneNpcs, getZoneEnemies, reloadZone } from '../../server/engine/world.js';
-import { sendToPlayer } from '../../server/engine/messaging.js';
+import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { on, emit } from '../../server/engine/events.js';
 import { registerAction } from '../../server/engine/actions.js';
-import { registerViewerChecker } from '../../server/engine/broadcast-bridge.js';
+import { registerViewerChecker, registerNpcScheduleChecker, registerNpcStudioZoneLookup } from '../../server/engine/broadcast-bridge.js';
 import { getEnvironmentState } from '../../server/engine/environment.js';
 
 // ── In-memory state ──────────────────────────────────────────────────────────
@@ -30,6 +30,23 @@ const newsQueue = new Map();
 // furnitureChannelIndex.get(furnitureId) = { zoneId, channelId, deviceType }
 // For fast invalidation on tune changes.
 const furnitureChannelIndex = new Map();
+
+// studioZoneIndex.get(studioZoneId) = channelId
+// Enables O(1) lookup in zone.broadcast relay listener.
+const studioZoneIndex = new Map();
+
+// Default behaviour graph assigned to studio NPCs that don't yet have one.
+const DEFAULT_STUDIO_BEHAVIOUR_GRAPH = {
+  _start: 'n_start',
+  nodes: {
+    n_start:  { type: 'start',  next: 'n_life' },
+    n_life:   { type: 'action', action_type: 'HAVE_LIFE',  next: 'n_work' },
+    n_work:   { type: 'action', action_type: 'GO_TO_WORK', next: 'n_atwork' },
+    n_atwork: { type: 'action', action_type: 'AT_WORK',    next: 'n_wait' },
+    n_wait:   { type: 'wait',   seconds: 30,               next: 'n_loop' },
+    n_loop:   { type: 'loop',   next: 'n_start' },
+  },
+};
 
 // graphicsCache.get(id) = { id, name, type, content }
 // Loaded at startup and after any graphics CRUD operation.
@@ -133,6 +150,7 @@ async function loadChannelRuntimes() {
       } else {
         broadcastGraph = null;
       }
+      const cond = typeof item.conditions === 'object' ? item.conditions : (item.conditions ? JSON.parse(item.conditions) : {});
       playlistByChannel.get(item.channel_id).push({
         id: item.id,
         broadcastId: item.broadcast_id,
@@ -145,11 +163,14 @@ async function loadChannelRuntimes() {
         loop: item.loop,
         broadcastGraph,
         fallbackMessages: Array.isArray(item.fallback_messages) ? item.fallback_messages : (item.fallback_messages ? JSON.parse(item.fallback_messages) : []),
+        npcStaff: Array.isArray(cond?.npc_staff) ? cond.npc_staff : [],
       });
     }
 
     channelRuntime.clear();
+    studioZoneIndex.clear();
     for (const ch of channels) {
+      if (ch.studio_zone_id) studioZoneIndex.set(ch.studio_zone_id, ch.id);
       const pl = playlistByChannel.get(ch.id) || [];
       const totalDuration = pl.length
         ? Math.max(...pl.map(i => i.startTime + i.duration))
@@ -228,7 +249,8 @@ async function loadZoneTunings() {
       const deviceType = flags.broadcast_device_type || flags['broadcast_device_type'] || 'tv';
       if (!zoneTunings.has(row.zone_id)) zoneTunings.set(row.zone_id, new Map());
       zoneTunings.get(row.zone_id).set(row.channel_id, deviceType);
-      furnitureChannelIndex.set(row.id, { zoneId: row.zone_id, channelId: row.channel_id, deviceType, dialFrequency: typeof flags.tv_dial_freq === 'number' ? flags.tv_dial_freq : 0 });
+      furnitureChannelIndex.set(row.id, { zoneId: row.zone_id, channelId: row.channel_id, deviceType,
+        dialFrequency: typeof flags.tv_dial_freq === 'number' ? flags.tv_dial_freq : (parseFloat(flags.tuned_channel) || 0) });
     }
   } catch (err) {
     console.error('[broadcast] loadZoneTunings error:', err.message);
@@ -458,6 +480,13 @@ async function broadcastTick() {
         continue;
       }
 
+      // live_relay: NPC spoke in zone; zone relay already sent to TV watchers — just track state
+      if (result.style === 'live_relay') {
+        state.wasActive = true;
+        state.lastMsgKey = result.key;
+        continue;
+      }
+
       const zone = getZone(zoneId);
       const formatted = formatMessage(result.text, deviceType, zone);
       if (!formatted) continue;
@@ -516,6 +545,48 @@ registerViewerChecker((channelId) => {
     if (channelMap.has(channelId) && getZonePlayers(zoneId).length > 0) return true;
   }
   return false;
+});
+
+// IS_BROADCAST_SCHEDULED: is this NPC in an active daily schedule slot right now?
+registerNpcScheduleChecker((npcId) => {
+  const { minutes } = getEnvironmentState();
+  const gameSecs = (minutes ?? 0) * 60;
+  for (const state of channelRuntime.values()) {
+    if (state.scheduleMode !== 'daily') continue;
+    const item = state.playlist.find(i => gameSecs >= i.startTime && gameSecs < i.startTime + i.duration);
+    if (item?.npcStaff?.includes(npcId)) return true;
+  }
+  return false;
+});
+
+// getNpcStudioZone: find the studio zone for the channel this NPC is staffed on
+registerNpcStudioZoneLookup((npcId) => {
+  for (const state of channelRuntime.values()) {
+    if (!state.studioZoneId) continue;
+    if (state.playlist.some(i => i.npcStaff?.includes(npcId))) return state.studioZoneId;
+  }
+  return null;
+});
+
+// ── Studio zone relay ─────────────────────────────────────────────────────────
+// When a zone event fires in a studio zone, relay qualifying messages to TV watchers.
+// This is what makes the TV a live camera feed of the studio.
+on('zone.broadcast', ({ zoneId, msg }) => {
+  const channelId = studioZoneIndex.get(zoneId);
+  if (!channelId) return;
+  const state = channelRuntime.get(channelId);
+  if (!state || state.channelType !== 'live') return;
+  // Only relay player-visible events (speech, zone_event) — not combat or system messages
+  if (msg.type !== 'output' && msg.type !== 'zone_event') return;
+  if (!msg.message) return;
+  for (const [viewZoneId, channelMap] of zoneTunings) {
+    if (!channelMap.has(channelId)) continue;
+    const players = getZonePlayers(viewZoneId);
+    for (const player of players) {
+      sendToPlayer(player.id, { type: 'broadcast', message: msg.message, channel: channelId, style: 'raw' });
+    }
+  }
+  state.wasActive = true;
 });
 
 // ── Graph walker (VINE broadcast graphs) ─────────────────────────────────────
@@ -590,18 +661,23 @@ function _seekGraph(graph, bb, segElapsedMs, nowMs) {
   let remaining = segElapsedMs;
   const CONTENT_MS = 5000; // inter-node delay emitted by tickBroadcastGraph for content nodes
 
-  for (let step = 0; step < 2000 && nodeId && remaining > 0; step++) {
+  const CONTENT_TYPES = ['say', 'ticker', 'camera_cut', 'overlay', 'title_card', 'event', 'npc_action'];
+  for (let step = 0; step < 2000 && remaining > 0; step++) {
+    if (!nodeId) {
+      // Graph exhausted without a loop node — wrap back to _start (implicit looping)
+      nodeId = graph._start;
+    }
     const node = graph.nodes[nodeId];
     if (!node) break;
     if (node.type === 'wait') {
       const waitMs = ((node.data?.seconds ?? node.data?.duration) || 5) * 1000;
       if (remaining >= waitMs) { remaining -= waitMs; nodeId = _resolveEdge(edges, nodeId, 'next'); }
       else { bb.waitUntil = nowMs + (waitMs - remaining); bb.currentNode = _resolveEdge(edges, nodeId, 'next'); return; }
-    } else if (['say', 'ticker', 'camera_cut', 'overlay', 'title_card', 'event'].includes(node.type)) {
+    } else if (CONTENT_TYPES.includes(node.type)) {
       if (remaining >= CONTENT_MS) { remaining -= CONTENT_MS; nodeId = _resolveEdge(edges, nodeId, 'next'); }
       else { bb.waitUntil = nowMs + (CONTENT_MS - remaining); bb.currentNode = nodeId; return; }
     } else if (node.type === 'loop') {
-      nodeId = _resolveEdge(edges, nodeId, 'next') || graph._start; // mirror tickBroadcastGraph
+      nodeId = _resolveEdge(edges, nodeId, 'next') || graph._start;
     } else {
       nodeId = _resolveEdge(edges, nodeId, 'next'); // start/npc_anchor/condition — no time cost
     }
@@ -689,12 +765,41 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
       case 'say': {
         if (bb.hostAbsent) { nodeId = _resolveEdge(edges, nodeId, 'next'); break; }
         const raw = node.data?.text || '';
-        const style = node.data?.style || 'raw';
-        const voice = bb.npcAnchor ? `[${bb.npcAnchor}] ` : '';
-        const text = style === 'ticker' ? `>> ${voice}${raw} <<` : `${voice}${raw}`;
         bb.currentNode = _resolveEdge(edges, nodeId, 'next');
         bb.waitUntil = nowMs + 5000;
-        return { text, key: `graph:${channelId}:${nodeId}:${nowMs}`, style };
+        const key_say = `graph:${channelId}:${nodeId}:${nowMs}`;
+        // Live channel: trigger real NPC speech in zone — studio relay delivers to TV
+        if (state.channelType === 'live' && state.studioZoneId && bb.npcAnchor) {
+          sendToZone(state.studioZoneId, {
+            type: 'output',
+            message: `<span style="color:var(--yellow)">${bb.npcAnchor} says, "${raw}"</span>`,
+          });
+          return { key: key_say, style: 'live_relay' };
+        }
+        // Scripted/playlist channels: push text directly
+        const style_say = node.data?.style || 'raw';
+        const voice = bb.npcAnchor ? `[${bb.npcAnchor}] ` : '';
+        const text_say = style_say === 'ticker' ? `>> ${voice}${raw} <<` : `${voice}${raw}`;
+        return { text: text_say, key: key_say, style: style_say };
+      }
+
+      case 'npc_action': {
+        if (bb.hostAbsent) { nodeId = _resolveEdge(edges, nodeId, 'next'); break; }
+        const emote = node.data?.message || node.data?.action || '';
+        if (!emote) { nodeId = _resolveEdge(edges, nodeId, 'next'); break; }
+        bb.currentNode = _resolveEdge(edges, nodeId, 'next');
+        bb.waitUntil = nowMs + 3000;
+        const key_act = `action:${channelId}:${nodeId}:${nowMs}`;
+        // Live channel: trigger real NPC emote in zone — studio relay delivers to TV
+        if (state.channelType === 'live' && state.studioZoneId && bb.npcAnchor) {
+          sendToZone(state.studioZoneId, {
+            type: 'output',
+            message: `<span style="color:var(--yellow)">${bb.npcAnchor} ${emote}</span>`,
+          });
+          return { key: key_act, style: 'live_relay' };
+        }
+        const tvText = bb.npcAnchor ? `[${bb.npcAnchor} ${emote}]` : `[${emote}]`;
+        return { text: tvText, key: key_act, style: 'action' };
       }
 
       case 'ticker': {
@@ -1152,11 +1257,31 @@ async function cmdWatch(args, raw, player) {
   return { type: 'output', message: lines.length ? lines.join('\n') : 'No active broadcasts right now.' };
 }
 
+// Internal command — client sends this when TV panel closes to persist the float dial position
+async function cmdTvFreq(args, raw, player) {
+  if (!player) return null;
+  const freq = parseFloat(args[0]);
+  if (!isFinite(freq) || freq < 0) return null;
+  const { rows } = await query(
+    `SELECT * FROM furniture WHERE zone_id=$1 AND flags::text LIKE '%broadcast_receiver%' LIMIT 1`,
+    [player.current_zone]
+  );
+  if (!rows.length) return null;
+  const device = rows[0];
+  const flags = typeof device.flags === 'object' ? { ...device.flags } : JSON.parse(device.flags || '{}');
+  flags.tv_dial_freq = freq;
+  await query('UPDATE furniture SET flags=$1 WHERE id=$2', [JSON.stringify(flags), device.id]);
+  const entry = furnitureChannelIndex.get(device.id);
+  if (entry) entry.dialFrequency = freq;
+  return null; // silent — no output to player
+}
+
 export const commands = {
   tune:  cmdTune,
   watch: cmdWatch,
   listen: cmdWatch,
   tv:    cmdTv,
+  _tvfreq: cmdTvFreq,
   load:  (args, raw, player) => {
     if (raw.toLowerCase().includes('cassette')) return cmdLoadCassette(args, raw, player);
     return null; // pass to next handler
@@ -1243,16 +1368,31 @@ export const routeHandler = async (path, method, body, auth) => {
           // Replace entire playlist for channel
           await query('DELETE FROM media_channel_playlist WHERE channel_id=$1', [id]);
           const items = Array.isArray(body) ? body : [];
+          const allNpcIds = new Set();
           for (const item of items) {
             const pid = item.id || `pl_${randomUUID()}`;
             const slotType = item.slot_type || 'broadcast';
+            const cond = item.conditions || [];
             await query(
               `INSERT INTO media_channel_playlist (id,channel_id,broadcast_id,start_time,duration_override,priority,conditions,slot_type)
                VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
               [pid, id, item.broadcast_id || null, item.start_time || 0,
                item.duration_override || null, item.priority || 0,
-               JSON.stringify(item.conditions || []), slotType]
+               JSON.stringify(cond), slotType]
             );
+            const staff = Array.isArray(cond?.npc_staff) ? cond.npc_staff
+              : (Array.isArray(cond) ? [] : (Array.isArray(cond?.npc_staff) ? cond.npc_staff : []));
+            for (const nid of staff) if (nid) allNpcIds.add(nid);
+          }
+          // Assign default behaviour graph to any staff NPC that doesn't have one yet
+          if (allNpcIds.size) {
+            const defaultGraph = JSON.stringify(DEFAULT_STUDIO_BEHAVIOUR_GRAPH);
+            for (const npcId of allNpcIds) {
+              await query(
+                `UPDATE npcs SET behaviour_graph=$1 WHERE id=$2 AND (behaviour_graph IS NULL OR behaviour_graph::text = '{}' OR behaviour_graph::text = 'null')`,
+                [defaultGraph, npcId]
+              ).catch(() => {});
+            }
           }
           await loadChannelRuntimes();
           return { status: 200, body: { message: 'Playlist updated' } };
@@ -1724,6 +1864,17 @@ export const routeHandler = async (path, method, body, auth) => {
           );
         }
 
+        // If a channel_id is supplied, link the studio zone and create a streaming camera
+        if (channel_id) {
+          await query(`UPDATE media_channels SET studio_zone_id=$1 WHERE id=$2 AND studio_zone_id IS NULL`, [studioZoneId, channel_id]);
+          await query(
+            `INSERT INTO media_cameras (id, zone_id, name, streaming_channel_id, is_streaming, is_powered)
+             VALUES ($1, $2, $3, $4, 1, 1)
+             ON CONFLICT (id) DO NOTHING`,
+            [`cam_studio_${ts}`, studioZoneId, `${studio_name} Studio Cam`, channel_id]
+          );
+        }
+
         // Load new zones into the world
         await Promise.all([
           reloadZone(studioZoneId),
@@ -1731,6 +1882,7 @@ export const routeHandler = async (path, method, body, auth) => {
           reloadZone(productionZoneId),
           reloadZone(exteriorZoneId),
         ]);
+        if (channel_id) await loadChannelRuntimes();
 
         return { status: 201, body: {
           exterior_zone_id:    exteriorZoneId,
