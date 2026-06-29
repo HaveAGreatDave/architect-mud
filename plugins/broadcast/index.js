@@ -4,6 +4,7 @@ import { world, getZonePlayers, getZone, getZoneNpcs, getZoneEnemies, reloadZone
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { on, emit } from '../../server/engine/events.js';
 import { registerAction } from '../../server/engine/actions.js';
+import { registerCommand } from '../../server/engine/plugins.js';
 import { registerViewerChecker, registerNpcScheduleChecker, registerNpcStudioZoneLookup } from '../../server/engine/broadcast-bridge.js';
 import { getEnvironmentState } from '../../server/engine/environment.js';
 
@@ -113,7 +114,7 @@ async function loadChannelRuntimes() {
         WHERE c.enabled = 1 ORDER BY c.number`
     );
     const { rows: playlist } = await query(
-      `SELECT p.*, b.playback_mode, b.messages, b.message_interval, b.override_duration, b.loop, b.broadcast_graph, b.fallback_messages
+      `SELECT p.*, b.name AS broadcast_name, b.playback_mode, b.messages, b.message_interval, b.override_duration, b.loop, b.broadcast_graph, b.fallback_messages
          FROM media_channel_playlist p
          LEFT JOIN media_broadcasts b ON b.id = p.broadcast_id
         ORDER BY p.channel_id, p.start_time`
@@ -154,6 +155,7 @@ async function loadChannelRuntimes() {
       playlistByChannel.get(item.channel_id).push({
         id: item.id,
         broadcastId: item.broadcast_id,
+        broadcastName: item.broadcast_name || null,
         slotType: item.slot_type || 'broadcast',
         startTime: item.start_time,
         duration: dur,
@@ -318,13 +320,8 @@ async function getCurrentMessage(state, nowMs) {
     return item ? { text: item.text, key: `news:${item.ts}` } : null;
   }
 
-  // Live camera
-  if (channelType === 'live' && camera) {
-    const text = buildCameraSnapshot(camera.zone_id);
-    return text ? { text, key: `cam:${nowMs}` } : null;
-  }
-
   // Daily schedule mode — start_time is seconds from midnight (0–86399)
+  // Checked before live camera so VINE graphs always tick for live+daily channels.
   if (scheduleMode === 'daily' && playlist.length) {
     const { minutes } = getEnvironmentState();
     const gameSecondsSinceMidnight = minutes * 60;
@@ -332,20 +329,32 @@ async function getCurrentMessage(state, nowMs) {
     if (item) {
       if (item.slotType === 'commercial_break') return _playCommercial(state, nowMs);
       state.currentFallbackMessages = item.fallbackMessages || [];
+      state.currentProgramName = item.broadcastName || null;
       const segElapsed = gameSecondsSinceMidnight - item.startTime;
-      if (item.broadcastGraph) return tickBroadcastGraph(state.channelId, item.broadcastGraph, state, nowMs, segElapsed);
+      if (item.broadcastGraph) {
+        const r = tickBroadcastGraph(state.channelId, item.broadcastGraph, state, nowMs, segElapsed);
+        if (r) r.programName = item.broadcastName || null;
+        return r;
+      }
       // Flat messages — loop within the slot duration
       const cycleDur = item.messages.length * (item.message_interval || 5);
       const loopedElapsed = cycleDur > 0 ? segElapsed % cycleDur : segElapsed;
       const result = getScriptedMessage(item.messages, item.message_interval, loopedElapsed);
-      if (result) return { text: result.text, key: `${item.broadcastId}:${result.idx}` };
+      if (result) return { text: result.text, key: `${item.broadcastId}:${result.idx}`, programName: item.broadcastName || null };
     }
     // Nothing scheduled right now — fall through to idle
+    state.currentProgramName = null;
     if (idleBroadcast?.messages?.length) {
       const result = getScriptedMessage(idleBroadcast.messages, idleBroadcast.message_interval, (nowMs / 1000) % (idleBroadcast.messages.length * (idleBroadcast.message_interval || 5)));
       if (result) return { text: result.text, key: `idle:${result.idx}` };
     }
     return null;
+  }
+
+  // Live camera (non-daily channels only — daily channels handled above)
+  if (channelType === 'live' && camera) {
+    const text = buildCameraSnapshot(camera.zone_id);
+    return text ? { text, key: `cam:${nowMs}` } : null;
   }
 
   // Playlist-based loop (playlist | mixed | emergency)
@@ -491,8 +500,9 @@ async function broadcastTick() {
       const formatted = formatMessage(result.text, deviceType, zone);
       if (!formatted) continue;
 
+      const programName = result.programName ?? state.currentProgramName ?? null;
       for (const player of players) {
-        sendToPlayer(player.id, { type: 'broadcast', message: formatted, channel: channelId, style: result.style || 'raw' });
+        sendToPlayer(player.id, { type: 'broadcast', message: formatted, channel: channelId, style: result.style || 'raw', programName });
       }
       emit('broadcast.message', { channelId, zoneId, text: result.text });
     }
@@ -1371,7 +1381,6 @@ export const commands = {
   watch: cmdWatch,
   listen: cmdWatch,
   tv:    cmdTv,
-  _tvfreq: cmdTvFreq,
   load:  (args, raw, player) => {
     if (raw.toLowerCase().includes('cassette')) return cmdLoadCassette(args, raw, player);
     return null; // pass to next handler
@@ -2149,6 +2158,67 @@ export const routeHandler = async (path, method, body, auth) => {
     return { status: 400, body: { error: err.message } };
   }
 
+  // ── Recalculate NPC work schedules ────────────────────────────────────────
+  if (resource === 'recalculate-schedules' && method === 'POST') {
+    if (!devOk(auth)) return { status: 403, body: { error: 'Dev access required' } };
+
+    // Fetch all playlist items that have a broadcast_id
+    const { rows: plItems } = await query(`
+      SELECT p.id, p.channel_id, p.broadcast_id, p.start_time, p.duration_override,
+             p.priority, p.conditions, p.slot_type,
+             b.broadcast_graph
+      FROM media_channel_playlist p
+      JOIN media_broadcasts b ON b.id = p.broadcast_id
+      WHERE p.broadcast_id IS NOT NULL
+    `);
+
+    let updatedItems = 0;
+    let updatedNpcs  = 0;
+
+    for (const row of plItems) {
+      let graph = row.broadcast_graph;
+      if (!graph) continue;
+      if (typeof graph === 'string') { try { graph = JSON.parse(graph); } catch { continue; } }
+      const normalized = _normalizeBroadcastGraph(graph);
+
+      // Collect all unique npc_anchor ids from the graph
+      const npcIds = [];
+      for (const node of Object.values(normalized.nodes || {})) {
+        const nid = node.data?.npc_id || node.npc_id;
+        if (node.type === 'npc_anchor' && nid && !npcIds.includes(nid)) npcIds.push(nid);
+      }
+      if (!npcIds.length) continue;
+
+      // Merge into existing conditions, preserving any manual additions
+      let cond = row.conditions;
+      if (typeof cond === 'string') { try { cond = JSON.parse(cond); } catch { cond = {}; } }
+      if (Array.isArray(cond)) cond = {};
+      const existing = Array.isArray(cond.npc_staff) ? cond.npc_staff : [];
+      const merged   = [...new Set([...existing, ...npcIds])];
+      if (merged.length === existing.length && merged.every((v, i) => v === existing[i])) continue; // no change
+
+      cond.npc_staff = merged;
+      await query(`UPDATE media_channel_playlist SET conditions=$1 WHERE id=$2`, [JSON.stringify(cond), row.id]);
+      updatedItems++;
+
+      // Assign default behaviour graph to any new NPC staff without one
+      const defaultGraph = JSON.stringify(DEFAULT_STUDIO_BEHAVIOUR_GRAPH);
+      for (const npcId of npcIds) {
+        const { rowCount } = await query(
+          `UPDATE npcs SET behaviour_graph=$1 WHERE id=$2 AND (behaviour_graph IS NULL OR behaviour_graph::text = '{}' OR behaviour_graph::text = 'null')`,
+          [defaultGraph, npcId]
+        ).catch(() => ({ rowCount: 0 }));
+        if (rowCount) updatedNpcs++;
+      }
+
+      // Re-inject work-phase actions from the broadcast graph
+      await _injectWorkPhaseForPlaylistItem({ broadcast_id: row.broadcast_id, npcStaff: npcIds });
+    }
+
+    await loadChannelRuntimes();
+    return { status: 200, body: { message: `Updated ${updatedItems} schedule item(s), ${updatedNpcs} NPC behaviour graph(s).` } };
+  }
+
   return null;
 };
 
@@ -2158,5 +2228,8 @@ await loadChannelRuntimes();
 await loadZoneTunings();
 await loadGraphicsCache();
 setInterval(broadcastTick, 5000);
+
+// Register _tvfreq as a silent internal command (not listed in plugin.json, invisible to HELP)
+registerCommand('_tvfreq', cmdTvFreq);
 
 console.log(`[broadcast] Plugin loaded. ${channelRuntime.size} channel(s), ${zoneTunings.size} tuned zone(s), ${graphicsCache.size} graphic(s).`);

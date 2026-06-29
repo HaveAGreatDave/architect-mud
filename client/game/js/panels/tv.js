@@ -39,7 +39,9 @@ export function openTvPanel(data) {
 
   document.getElementById('tv-station-name').textContent = data.stationName || data.channelName || '——';
   document.getElementById('tv-channel-num').textContent = (data.channelNumber > 0) ? `CH ${data.channelNumber}` : '——';
-  document.getElementById('tv-program-name').textContent = '';
+  const pnEl = document.getElementById('tv-program-name');
+  pnEl.textContent = '';
+  pnEl.style.opacity = '';
   document.getElementById('tv-messages').innerHTML = '';
 
   const freqDisplay = document.getElementById('tv-freq-display');
@@ -112,6 +114,9 @@ function _playTuneAnimation() {
 
     knob.classList.remove('tv-knob-spinning');
     _updateKnobRotation();
+    const pn = document.getElementById('tv-program-name');
+    if (pn) pn.style.opacity = '1';
+    content.style.opacity = '';
     _tuneTimer = null;
   }, 1200);
 }
@@ -268,9 +273,10 @@ export function tvTunerInput(val) {
     Math.abs(b.number - _tvFrequency) < Math.abs(a.number - _tvFrequency) ? b : a);
   const dist = Math.abs(nearest.number - _tvFrequency);
 
-  const staticEl  = document.getElementById('tv-static');
-  const contentEl = document.getElementById('tv-content');
-  const chanNumEl = document.getElementById('tv-channel-num');
+  const staticEl      = document.getElementById('tv-static');
+  const contentEl     = document.getElementById('tv-content');
+  const chanNumEl     = document.getElementById('tv-channel-num');
+  const programNameEl = document.getElementById('tv-program-name');
 
   // Progressive fade: static fills as you move away, content fades in as you approach
   const staticOpacity  = Math.min(1, dist / LOCK_RANGE);
@@ -285,6 +291,8 @@ export function tvTunerInput(val) {
     contentEl.classList.remove('tv-hidden');
     contentEl.style.opacity = contentOpacity.toFixed(2);
   }
+  // Program name fades in from invisible as you approach the channel frequency
+  if (programNameEl) programNameEl.style.opacity = contentOpacity.toFixed(2);
   // Channel number only visible when exactly on an active channel
   if (chanNumEl) chanNumEl.textContent = (dist < 0.01) ? `CH ${nearest.number}` : '——';
 

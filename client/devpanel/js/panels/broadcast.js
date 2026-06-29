@@ -759,23 +759,16 @@ async function saveBroadcast() {
     const res = await directAPI(path, method, body);
     if (res?.error) { toast(res.error, true); return; }
     toast(isNew ? 'Broadcast created.' : 'Broadcast saved.');
-    // Refresh panel and re-select the broadcast
-    const refreshedData = await Promise.all([
-      directAPI('/broadcast/broadcasts'),
-      directAPI('/broadcast/channels'),
-    ]);
-    const broadcasts = Array.isArray(refreshedData[0]) ? refreshedData[0] : [];
-    const channels   = Array.isArray(refreshedData[1]) ? refreshedData[1] : [];
-    _broadcastList = broadcasts;
-    _bcChannels    = channels;
     const newId = res.id || _bcSelected?.id;
-    _bcSelected = broadcasts.find(b => b.id === newId) || null;
+    _bcSelected = null;
+    await bcSuiteRefresh('broadcasts');
+    _bcSelected = (_bcSuiteData?.broadcasts || []).find(b => b.id === newId) || null;
     if (_bcSelected) {
       _bcCards = _bcBuildCards(_bcSelected);
       _bcExpandedIdx = null;
+      _bcNewActive = false;
     }
-    _bcRenderSidebar();
-    _bcUpdateDurLabel();
+    _bcSuiteRender();
   } catch (err) { toast(err.message, true); }
 }
 
@@ -1778,13 +1771,13 @@ function _bcCancelNewBroadcast() {
 function _bcCancelNewCommercial() {
   _bcCommNewActive = false;
   _bcCommSelected  = null;
-  renderCommercialsPanel(_bcSuiteData);
+  _bcSuiteRender();
 }
 
 function _bcCommNew() {
   _bcCommNewActive = true;
   _bcCommSelected  = null;
-  renderCommercialsPanel(_bcSuiteData);
+  _bcSuiteRender();
 }
 
 async function saveCommercialCanvas() {
@@ -1813,9 +1806,10 @@ async function saveCommercialCanvas() {
     if (res?.error) { toast(res.error, true); return; }
     const newId = res.id || _bcSelected?.id;
     toast(isNew ? 'Commercial created.' : 'Commercial saved.');
+    _bcCommSelected = null; // will be re-set after fresh data arrives
     await bcSuiteRefresh('commercials');
     _bcCommSelected = (_bcSuiteData?.broadcasts || []).find(b => b.id === newId) || null;
-    if (_bcCommSelected) renderCommercialsPanel(_bcSuiteData);
+    if (_bcCommSelected) _bcSuiteRender();
   } catch (err) { toast(err.message, true); }
 }
 
@@ -2083,16 +2077,31 @@ function _bcNpcDraw(el) {
   el.innerHTML = `
     <div>
       <div style="display:flex;align-items:center;gap:10px;padding:6px 12px;
-                  border-bottom:2px solid var(--border);font-size:10px;color:var(--text-dim);
-                  text-transform:uppercase;letter-spacing:1px;background:var(--bg2)">
-        <span style="min-width:160px">NPC</span>
-        <span style="min-width:120px">Work Status</span>
-        <span style="flex:1">Active Zone</span>
+                  border-bottom:2px solid var(--border);background:var(--bg2)">
+        <span style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;min-width:160px">NPC</span>
+        <span style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;min-width:120px">Work Status</span>
+        <span style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;flex:1">Active Zone</span>
+        <button class="action-btn" style="font-size:10px;padding:3px 10px" onclick="_bcRecalcSchedules(this)">⟳ Recalculate Schedules</button>
       </div>
       ${rows}
     </div>`;
 }
 
+
+async function _bcRecalcSchedules(btn) {
+  if (btn) { btn.disabled = true; btn.textContent = '⟳ Working…'; }
+  try {
+    const res = await directAPI('/broadcast/recalculate-schedules', 'POST', {});
+    if (res?.error) { toast(res.error, true); return; }
+    toast(res.message || 'Schedules recalculated.');
+    _bcNpcCache = null;
+    await bcSuiteRefresh('npcs');
+  } catch (err) {
+    toast(err.message, true);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '⟳ Recalculate Schedules'; }
+  }
+}
 
 // ── Utility ───────────────────────────────────────────────────────────────────
 
