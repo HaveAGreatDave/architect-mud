@@ -1885,6 +1885,29 @@ export async function setZoneMaxCapacity(zoneId, maxCapacityKw) {
   return getPowerMap().find(z => z.zoneId === zoneId);
 }
 
+// Resyncs lighting_states.total_lumens for every zone from its actual furniture.
+// Fixes zones (e.g. studio interiors) where lighting_states was never populated
+// or went stale. Safe to call at any time — all updates are upserts.
+export async function resyncAllLightingStates() {
+  const { query } = deps;
+  const { rows: zones } = await query(`SELECT DISTINCT zone_id FROM furniture WHERE object_type='light'`);
+  let fixed = 0;
+  for (const { zone_id } of zones) {
+    const { rows: lc } = await query(
+      `SELECT COUNT(*)::int AS cnt, COALESCE(SUM(CASE WHEN light_on=1 THEN COALESCE(lumen_output,0) ELSE 0 END),0)::int AS lm
+         FROM furniture WHERE zone_id=$1 AND object_type='light'`, [zone_id]
+    );
+    await query(
+      `INSERT INTO lighting_states (zone_id,has_emergency_lighting,artificial_light_level,fixture_count,total_lumens)
+       VALUES ($1,0,0,$2,$3) ON CONFLICT (zone_id) DO UPDATE SET fixture_count=$2, total_lumens=$3`,
+      [zone_id, lc[0]?.cnt || 0, lc[0]?.lm || 0]
+    );
+    fixed++;
+  }
+  await recomputePower();
+  return { fixed };
+}
+
 // Re-runs the power simulation immediately (instead of waiting for the next
 // 24h tick) — used after install/remove so the dev panel's power map and
 // any live "look at generator" reflect the change right away.
