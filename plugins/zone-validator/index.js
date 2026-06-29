@@ -66,6 +66,11 @@ async function validateOne(zone, allZoneIds, autoRepair) {
 }
 
 async function runFull(opts = {}) {
+  try { return await _runFull(opts); }
+  catch (err) { return { _error: err.message, stack: err.stack }; }
+}
+
+async function _runFull(opts = {}) {
   const { autoRepair = true } = opts;
   const zones = await fetchAllZones();
   const allZoneIds = new Set(zones.map(z => z.id));

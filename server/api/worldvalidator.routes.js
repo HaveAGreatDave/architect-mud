@@ -22,10 +22,9 @@ export async function handleWorldValidatorApi(path, method, body, auth) {
       if (!hooks['worldValidator.runFull']?.length) {
         return { status: 503, body: { error: 'zone-validator plugin not loaded', loadedPlugins: getLoadedPlugins() } };
       }
-      let runError = null;
-      const result = await fireHook('worldValidator.runFull', body || {}).catch(e => { runError = e; return null; });
-      if (runError) return { status: 500, body: { error: `Validator threw: ${runError.message}` } };
+      const result = await fireHook('worldValidator.runFull', body || {});
       if (result == null) return { status: 503, body: { error: 'zone-validator plugin not loaded', loadedPlugins: getLoadedPlugins() } };
+      if (result._error) return { status: 500, body: { error: result._error, stack: result.stack } };
       return { status: 200, body: result };
     }
 
