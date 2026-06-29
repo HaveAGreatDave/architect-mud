@@ -18,9 +18,17 @@ export async function awardIp(playerId, skillId, margin = 0) {
   const current = rows[0]?.ip ?? 0;
   if (current >= SKILL_IP_CAP) return { awarded: 0, leveledUp: false };
 
+  // Brains speeds skill-ups: +ip_brains_bonus_per_point per brain above 1, so at
+  // the default 0.05 a survivor with 21 brains has double the per-roll odds, and
+  // 1 brain (the starting value) gets the unmodified base rate.
+  const { rows: pr } = await query('SELECT stat_brains FROM players WHERE id=$1', [playerId]);
+  const brains = Number(pr[0]?.stat_brains) || 1;
+  const perPoint = getTunable('ip_brains_bonus_per_point', 0.05);
+  const brainsMult = 1 + Math.max(0, brains - 1) * perPoint;
+
   const base = getTunable('ip_award_base_chance', 1.0);
   const scale = getTunable('ip_award_margin_scale', 2.0);
-  const chance = base / (1 + Math.max(0, margin) * scale);
+  const chance = (base / (1 + Math.max(0, margin) * scale)) * brainsMult;
   if (Math.random() >= chance) return { awarded: 0, leveledUp: false };
 
   const newIp = current + 1;
