@@ -765,16 +765,16 @@ export async function apiDeleteZone(id) {
         SELECT jsonb_object_agg(key, value) FROM jsonb_each_text(exits) WHERE value <> $1
       ) WHERE exits IS NOT NULL AND exits::text LIKE '%' || $1 || '%'`, [zid]);
     }
-    for (const child of children) {
-      await query('DELETE FROM apartments WHERE zone_id=$1', [child.id]);
-      await query('DELETE FROM zones WHERE id=$1', [child.id]);
-      world.zones.delete(child.id);
+    for (const zid of allDeletedIds) {
+      await query('DELETE FROM apartments WHERE zone_id=$1', [zid]);
+      await query('DELETE FROM zones WHERE id=$1', [zid]);
+      world.zones.delete(zid);
     }
-    await query('DELETE FROM zones WHERE id=$1',[id]);
-    world.zones.delete(id);
-    // Clean up any interior maps whose entry zone or parent exterior zone was just deleted.
-    // Zones placed on those maps become unlinked but are left intact for manual cleanup.
-    await query('DELETE FROM maps WHERE entry_zone_id=$1 OR parent_zone_id=$1', [id]);
+    // Clean up any interior maps whose entry zone or parent zone is among the deleted set.
+    await query(
+      `DELETE FROM maps WHERE entry_zone_id = ANY($1) OR parent_zone_id = ANY($1)`,
+      [allDeletedIds]
+    );
     // If we deleted an individual room, clean up the parent's interior map if no rooms remain.
     if (roomParentId) {
       const { rows: remaining } = await query(

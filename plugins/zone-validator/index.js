@@ -146,14 +146,29 @@ async function runFull(opts = {}) {
     }
   }
 
-  // Check for orphaned interior rooms: zones on interior maps whose exterior
-  // parent zone no longer exists. Covers broken studio complexes, apartments, etc.
+  // Check for orphaned interior rooms — two cases:
+  // 1. The map exists but its parent exterior zone doesn't.
+  // 2. The zone has a map_id that doesn't exist at all (map was deleted).
+  // Both leave dangling zones that can't be reached or deleted normally.
   const { rows: orphanedMaps } = await query(`
     SELECT m.id AS map_id, m.parent_zone_id
     FROM maps m
     WHERE m.parent_zone_id IS NOT NULL
       AND NOT EXISTS (SELECT 1 FROM zones WHERE id = m.parent_zone_id)
   `).catch(() => ({ rows: [] }));
+
+  // Zones whose map_id points to a deleted map — collect as synthetic orphaned-map entries
+  const { rows: ghostMapZones } = await query(`
+    SELECT DISTINCT z.map_id
+    FROM zones z
+    WHERE z.map_id IS NOT NULL
+      AND NOT EXISTS (SELECT 1 FROM maps WHERE id = z.map_id)
+  `).catch(() => ({ rows: [] }));
+  for (const { map_id } of ghostMapZones) {
+    if (!orphanedMaps.find(m => m.map_id === map_id)) {
+      orphanedMaps.push({ map_id, parent_zone_id: null });
+    }
+  }
 
   for (const om of orphanedMaps) {
     const { rows: orphanedZones } = await query(

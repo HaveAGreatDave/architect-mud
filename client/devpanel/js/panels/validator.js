@@ -78,6 +78,7 @@ const ISSUE_LABELS = {
   building_no_entrance:      'Building: no world-map entrance',
   building_entrance_broken:  'Building: exterior zone has no exit to this building',
   orphaned_entity:           'Orphaned entity (zone deleted)',
+  orphaned_room:             'Orphaned room (map deleted)',
 };
 
 function renderValidatorResults(r) {
