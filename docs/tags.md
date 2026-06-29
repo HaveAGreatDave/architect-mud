@@ -67,6 +67,7 @@ Class tags are a JSON object keyed by tag name → secondary attribute; `true` f
 | `requires` | `{stat_*:int}` | `requirements` |
 | `stat_bonus` | `{stat_*:int}` | `stat_modifiers` |
 | `broken`/`cursed` (instance) | `true` | new presence flags in `custom_data` |
+| `fillable` | int (capacity, fluid units) | new — fluid container. Instance `custom_data.fluid_amount`/`fluid_type` hold contents (absent/0 = empty); filling makes a unit unique. Verbs `fill`/`drink`/`empty` live in the **fillable** plugin (thirst-per-unit is a fluid property, not the container's) |
 
 ## Supertags (tags-of-tags)
 

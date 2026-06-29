@@ -115,6 +115,8 @@
     // --- Container ---
     container: { label: 'Container Capacity', shape: 'int', scope: 'class', group: 'Container',
       help: 'Marks this item as a container. Value is the max total weight it can hold. Contents count at 75% of their weight while carried.' },
+    fillable: { label: 'Fillable Capacity', shape: 'int', scope: 'class', group: 'Container',
+      help: 'Marks this item as a fillable fluid container. Value is the capacity in fluid units (a neutral volume). Fill at a water source; drink to consume the fluid. How much a fluid restores is a property of the fluid, not the container.' },
 
     // --- Locks ---
     "lock:hololock": { label: 'Holographic Lock', shape: 'statmap', scope: 'class', group: 'Hardware', help: 'Electronic holographic authorization matrix.' },

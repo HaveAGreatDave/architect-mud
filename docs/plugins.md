@@ -35,6 +35,7 @@ To list what's actually registered at runtime: `getRegisteredCommands()` in `plu
 | **quests** | Quest lifecycle + objective tracking | `quests quest ql` | Actions + event consumers; owns `quests`, `player_quests` tables |
 | **dev-tools** | Admin/dev utilities | `.dresscyd` | admin-only |
 | **container** | OPEN on containers | — | specialized action (tag-gated) |
+| **fillable** | FILL/EMPTY fluid containers; DRINK from them | `fill empty` | specialized actions gated on the `fillable` capacity tag. Holds fluid amount + type in `player_inventory.custom_data`. `drink <container>` lands here; bare `drink`/`drink from <source>` falls through to the **water** plugin. Filling a non-empty unit splits it off the stack (filled = unique). Thirst-per-unit is a fluid property (`FLUID_RATES`, water=1), applied on DRINK |
 | **doors** | OPEN/CLOSE/LOCK/UNLOCK | — | specialized actions (tag-gated) |
 | **drugs** | USE/INJECT | — | specialized actions (tag-gated) |
 | **food** | EAT | — | specialized action (tag-gated) |

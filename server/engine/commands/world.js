@@ -318,6 +318,21 @@ async function describePlayerAppearance(target, isSelf, viewer = null, broadcast
   return msg.trim();
 }
 
+// Qualitative fullness line for a fillable container, from its instance fluid
+// state and class capacity. Absent/0 amount reads as empty.
+function describeFill(customData, capacity) {
+  const amount = customData?.fluid_amount || 0;
+  if (amount <= 0 || !capacity) return 'It is empty.';
+  const fluid = customData?.fluid_type || 'fluid';
+  const pct = (amount / capacity) * 100;
+  let level;
+  if (pct >= 100) level = 'full';
+  else if (pct > 75) level = 'mostly full';
+  else if (pct < 25) level = 'mostly empty';
+  else level = 'half full';
+  return `It is ${level} of ${fluid}.`;
+}
+
 async function cmdExamine(targetStr, player, broadcast) {
   if (!targetStr || targetStr === 'room') {
     const zone = getZone(player.current_zone);
@@ -332,13 +347,16 @@ async function cmdExamine(targetStr, player, broadcast) {
     return { type:'examine', message: await describePlayerAppearance(player, true, player, broadcast) };
   }
 
-  const { rows } = await query(`SELECT pi.id AS inv_id, i.* FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND i.name ILIKE $2 LIMIT 1`, [player.id, `%${targetStr}%`]);
+  const { rows } = await query(`SELECT pi.id AS inv_id, pi.custom_data, i.* FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND i.name ILIKE $2 LIMIT 1`, [player.id, `%${targetStr}%`]);
   if (rows.length) {
     const it = rows[0];
     let msg = `${it.name}\n${it.tags?.description ?? it.description}`;
     if (it.tags && Object.prototype.hasOwnProperty.call(it.tags, 'container')) {
       const { describeContainer } = await import('./inventory.js');
       msg += `\n\n${await describeContainer({ id: it.inv_id, name: it.name, tags: it.tags })}`;
+    }
+    if (it.tags && Object.prototype.hasOwnProperty.call(it.tags, 'fillable')) {
+      msg += `\n${describeFill(it.custom_data, it.tags.fillable)}`;
     }
     const acts = availableActions(it);
     if (acts.length) {

@@ -1,0 +1,8 @@
+{
+  "name": "fillable",
+  "version": "1.0.0",
+  "description": "Fillable fluid containers: FILL at a water source, DRINK to restore thirst, EMPTY to discard. Gated on the fillable capacity tag.",
+  "hooks": [],
+  "commands": [],
+  "specializedActions": ["fill", "empty", "drink"]
+}
