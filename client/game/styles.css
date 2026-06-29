@@ -644,6 +644,35 @@ body {
 	flex: 0 0 auto;
 	white-space: pre-wrap;
 	word-break: break-word;
+	line-height: 1.35;
+}
+
+/* Collapsible room prose (compact view). Block so it can clamp; the toggle
+   sits on its own line beneath. */
+.room-desc {
+	display: block;
+}
+.room-desc.collapsed {
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+.room-desc-toggle {
+	display: inline-block;
+	background: none;
+	border: none;
+	padding: 0;
+	margin: 1px 0;
+	color: var(--accent);
+	font-family: var(--font-mono);
+	font-size: 11px;
+	cursor: pointer;
+	letter-spacing: 1px;
+	-webkit-tap-highlight-color: transparent;
+}
+.room-desc-toggle:hover {
+	text-decoration: underline;
 }
 
 #area-pane::-webkit-scrollbar {
@@ -777,6 +806,7 @@ body {
 	font-size: 11px;
 	padding: 1px 5px;
 	border-radius: 2px;
+	vertical-align: middle;
 }
 .zone-danger-safe {
 	color: var(--green);
@@ -811,7 +841,7 @@ body {
 	display: block;
 	font-size: 11px;
 	font-style: italic;
-	margin: 2px 0;
+	margin: 0;
 }
 .light-clear {
 	color: var(--text-dim);
@@ -1127,6 +1157,7 @@ body {
 	border-top: 1px solid var(--border);
 	padding: 10px 16px;
 	display: flex;
+	align-items: center;
 	gap: 8px;
 	background: var(--bg2);
 	flex-shrink: 0;
@@ -3087,7 +3118,7 @@ body {
 /* ─── MOBILE HUD STRIP ─── */
 #mobile-hud {
 	display: none;
-	align-items: center;
+	align-items: stretch;
 	gap: 6px;
 	padding: 4px 8px;
 	background: var(--bg2);
@@ -3168,15 +3199,15 @@ body {
    (a flex container would collapse all 25 cells onto one line). */
 #minimap-grid-hud {
 	white-space: nowrap;
-	font-size: 9px;
-	line-height: 1;
+	font-size: 14px;
+	line-height: 1.05;
 	letter-spacing: 0;
 	text-align: center;
 	font-family: var(--font-mono);
 	background: var(--bg);
 	border: 1px solid var(--border);
 	border-radius: 2px;
-	padding: 3px 4px;
+	padding: 1px 2px;
 	cursor: pointer;
 	transition: border-color 0.15s;
 	display: block;
@@ -3217,12 +3248,13 @@ body {
 }
 
 #mobile-chat-btn {
+	display: none; /* lives in the input row; mobile/compact only */
 	background: transparent;
 	border: 1px solid var(--border);
 	color: var(--text-dim);
 	font-family: var(--font-mono);
-	font-size: 14px;
-	padding: 1px 4px;
+	font-size: 16px;
+	padding: 6px 8px;
 	cursor: pointer;
 	border-radius: 2px;
 	flex-shrink: 0;
@@ -3230,6 +3262,10 @@ body {
 	-webkit-tap-highlight-color: transparent;
 	line-height: 1;
 }
+@media (max-width: 720px) {
+	#mobile-chat-btn { display: block; }
+}
+[data-density="compact"] #mobile-chat-btn { display: block; }
 #mobile-chat-btn:active {
 	border-color: var(--accent);
 	color: var(--accent);
@@ -3297,7 +3333,6 @@ body {
 	padding: 6px 12px;
 	flex: 1;
 	min-width: 0;
-	border-right: 1px solid var(--border);
 }
 
 #cmd-fan-btn {

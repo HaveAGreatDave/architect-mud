@@ -489,7 +489,6 @@
 				</div>
 			</div>
 			<div id="mob-hud-right">
-				<button id="mobile-chat-btn" title="Toggle chat">💬<span id="mobile-chat-badge" style="display:none"> !</span></button>
 				<div id="minimap-grid-hud" title="Tap for full map">—</div>
 			</div>
 		</div>
@@ -532,6 +531,16 @@
 						<button class="qcmd" data-cmd="mutations">mutations</button>
 						<button class="qcmd" id="open-map-btn">map</button>
 					</div>
+				</div>
+				<div id="input-area">
+					<span id="prompt">&gt;</span>
+					<input
+						type="text"
+						id="cmd-input"
+						placeholder="Type a command..."
+						autocomplete="off"
+						spellcheck="false" />
+					<button id="mobile-chat-btn" title="Toggle chat">💬<span id="mobile-chat-badge" style="display:none"> !</span></button>
 					<div id="mob-dpad">
 						<div class="dpad-row">
 							<button class="dpad-btn dpad-blank" disabled></button>
@@ -549,15 +558,6 @@
 							<button class="dpad-btn dpad-ud" data-cmd="d" title="Down">↓</button>
 						</div>
 					</div>
-				</div>
-				<div id="input-area">
-					<span id="prompt">&gt;</span>
-					<input
-						type="text"
-						id="cmd-input"
-						placeholder="Type a command..."
-						autocomplete="off"
-						spellcheck="false" />
 				</div>
 			</div>
 

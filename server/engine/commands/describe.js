@@ -189,15 +189,17 @@ export async function describeZone(zone, player) {
   const { rows: furniture } = await query('SELECT * FROM furniture WHERE zone_id = $1', [zone.id]);
   const windows = getWindowsForZone(zone.id);
 
-  let desc = `<span class="zone-name">${zone.name}</span>\n`;
-  if (vis.category === 'dark') {
-    desc += `<span class="light-level light-dark">It's very dark. You can barely make out your surroundings.</span>\n`;
-  } else if (vis.category === 'dim') {
-    desc += `<span class="light-level light-dim">The light is poor here. Details are hard to make out.</span>\n`;
-  }
-  desc += `<span class="zone-danger zone-danger-${zone.danger_rating}">[${zone.danger_rating.toUpperCase()}]</span>`;
+  // Header line: name and the danger tag sit together so the [SAFE]/[LETHAL]
+  // chip reads as a label on the room rather than a separate line.
+  let desc = `<span class="zone-name">${zone.name}</span>` +
+    ` <span class="zone-danger zone-danger-${zone.danger_rating}">[${zone.danger_rating.toUpperCase()}]</span>`;
   if (zone.radiation_level > 0) desc += ` <span class="rad-warning">☢ RAD:${zone.radiation_level}</span>`;
   if (zone.pvp_enabled) desc += ` <span class="pvp-warning">⚔ PVP</span>`;
+  if (vis.category === 'dark') {
+    desc += `\n<span class="light-level light-dark">It's very dark. You can barely make out your surroundings.</span>`;
+  } else if (vis.category === 'dim') {
+    desc += `\n<span class="light-level light-dim">The light is poor here. Details are hard to make out.</span>`;
+  }
   const roomDesc = await fireHook('zone.describeRoom', zone);
   if (roomDesc) desc += `\n${roomDesc}`;
   // Truncate description based on light level — less light, fewer details.
@@ -210,7 +212,8 @@ export async function describeZone(zone, player) {
     const wd = getWeatherDescription();
     if (wd) weatherLine = ` ${wd}`;
   }
-  desc += `\n${zoneDesc}${weatherLine}${describeBuildingDiscovery(buildings)}`;
+  // Prose paragraph wrapped so the client can collapse/expand it independently.
+  desc += `\n<span class="room-desc">${zoneDesc}${weatherLine}${describeBuildingDiscovery(buildings)}</span>`;
   desc += await describeApartmentStatus(zone);
   desc += describeRentStatus(zone, player);
 
@@ -308,7 +311,6 @@ export async function describeZone(zone, player) {
     desc += `\n<span class="furniture-label">Windows:</span> ${windowLinks.join(', ')}`;
   }
 
-  if (others.length || sleepingBodies.length || npcs.length || enemies.length || corpses.length) desc += `\n`;
   if (others.length) {
     const playerLinks = others.map(p =>
       `<span class="action-link player-link" data-action="examine" data-target="${p.handle}" title="Look at ${p.handle}">${p.handle}</span>`
@@ -344,7 +346,6 @@ export async function describeZone(zone, player) {
     );
     desc += `\n<span class="corpses-label">Corpses:</span> ${corpseLinks.join(', ')}`;
   }
-  if (plain.length || buildings.length || rooms.length) desc += `\n`;
   if (plain.length) {
     const exitLinks = plain.map(p => {
       const door = getDoorForExit(zone.id, p.direction);
