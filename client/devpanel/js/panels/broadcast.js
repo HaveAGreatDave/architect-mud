@@ -1113,6 +1113,7 @@ async function _bcImportChannelConfirm() {
         const zoneId = _bcImportChZone.existingId;
         if (isScripted) chBody.zone_id = zoneId;
         else chBody.studio_zone_id = zoneId;
+        _bcImportStudioZoneId = zoneId;
       } else {
         // New map cell or occupied map cell — create full studio within/at this location
         const defaultName = isScripted ? `${name} Broadcast Zone` : `${name} Studio`;
@@ -1450,7 +1451,7 @@ async function _bcDepFinish() {
   if (_bcDepCompiled) await _bcImportSave(_bcDepCompiled);
 }
 
-async function _bcImportSave({ meta, broadcastGraph, messages, assets }) {
+async function _bcImportSave({ meta, broadcastGraph, messages, assets, cameras }) {
   // Apply zone ID remaps to camera_cut nodes (BSM ID → real interior zone ID)
   for (const node of Object.values(broadcastGraph?.nodes || {})) {
     if (node.type === 'camera_cut') {
@@ -1489,7 +1490,34 @@ async function _bcImportSave({ meta, broadcastGraph, messages, assets }) {
     const res = await directAPI(path, method, body);
     if (res?.error) { toast(res.error, true); return; }
     const nodeCount = Object.keys(broadcastGraph.nodes).length;
-    toast(`Imported "${meta.name}" — ${messages.length} messages, ${nodeCount} graph nodes${assets.length ? `, ${assets.length} asset(s)` : ''}.`);
+
+    // Auto-spawn media deck + cameras if we have a channel and studio zone
+    const camNums = Array.isArray(cameras) ? cameras : [];
+    if (_bcImportChannelId && _bcImportStudioZoneId && camNums.length) {
+      try {
+        await directAPI('/broadcast/deck', 'POST', {
+          channel_id: _bcImportChannelId, auto_place: true, no_camera: true,
+        });
+        const ts = Date.now();
+        await Promise.all(camNums.map((num, idx) =>
+          directAPI('/broadcast/cameras', 'POST', {
+            id: `cam_${_bcImportChannelId}_${num}_${ts + idx}`,
+            zone_id: _bcImportStudioZoneId,
+            direction: 'all',
+            is_powered: 1, is_recording: 0, is_streaming: 1,
+            streaming_channel_id: _bcImportChannelId,
+            storage_limit: 200,
+            permissions: 'public',
+          })
+        ));
+        toast(`Imported "${meta.name}" — ${messages.length} messages, ${nodeCount} graph nodes${assets.length ? `, ${assets.length} asset(s)` : ''}, ${camNums.length} camera(s) spawned.`);
+      } catch (camErr) {
+        toast(`Imported "${meta.name}" but camera/deck spawn failed: ${camErr.message}`, true);
+      }
+    } else {
+      toast(`Imported "${meta.name}" — ${messages.length} messages, ${nodeCount} graph nodes${assets.length ? `, ${assets.length} asset(s)` : ''}.`);
+    }
+
     await bcSuiteRefresh('broadcasts');
   } catch (err) { toast(err.message, true); }
 }

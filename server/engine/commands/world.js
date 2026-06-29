@@ -389,6 +389,54 @@ async function cmdExamine(targetStr, player, broadcast) {
       const n = f.name.toLowerCase();
       const openLink = `<span class="action-link" data-action="open" data-target="${n}">open</span>`;
       msg += `\n<span class="text-dim">Actions:</span> ${openLink}`;
+    } else if (f.object_type === 'media_deck') {
+      const flags = f.flags || {};
+      const channelId = flags.channel_id;
+      const deckActive = flags.deck_active;
+
+      let channelLabel = null;
+      let liveCount = 0;
+      if (channelId) {
+        const { rows: chRows } = await query(
+          'SELECT name, number FROM media_channels WHERE id=$1', [channelId]
+        );
+        if (chRows.length) channelLabel = `Ch ${chRows[0].number}: ${chRows[0].name}`;
+        const { rows: camRows } = await query(
+          `SELECT COUNT(*)::int AS cnt FROM media_cameras
+           WHERE streaming_channel_id=$1 AND is_streaming=1 AND is_powered=1`,
+          [channelId]
+        );
+        liveCount = camRows[0]?.cnt || 0;
+      }
+
+      const isLoad = !!deckActive;
+      const isLive = !isLoad && liveCount > 0;
+
+      const liveDot  = isLive
+        ? `<span style="color:var(--red);font-weight:bold;letter-spacing:1px">⬤ LIVE</span>`
+        : `<span style="color:var(--border)">○ LIVE</span>`;
+      const loadDot  = isLoad
+        ? `<span style="color:var(--cyan);font-weight:bold;letter-spacing:1px">⬤ LOAD</span>`
+        : `<span style="color:var(--border)">○ LOAD</span>`;
+
+      let statusLine;
+      if (isLive) {
+        const camTag = `<span style="color:var(--text-dim)">${liveCount} cam${liveCount !== 1 ? 's' : ''} online</span>`;
+        const chTag  = channelLabel ? `<span style="color:var(--text-dim)">${channelLabel}</span>` : '';
+        statusLine = `<span style="color:var(--red)">▶ TRANSMITTING LIVE</span>  ${[chTag, camTag].filter(Boolean).join('  ·  ')}`;
+      } else if (isLoad) {
+        const { rows: bcRows } = await query(
+          'SELECT name FROM media_broadcasts WHERE id=$1', [deckActive]
+        );
+        const bcName = bcRows[0]?.name || deckActive;
+        const chTag  = channelLabel ? `<span style="color:var(--text-dim)">${channelLabel}</span>` : '';
+        statusLine = `<span style="color:var(--cyan)">▶ CASSETTE:</span> <span style="color:var(--text)">${bcName}</span>${chTag ? `  ·  ${chTag}` : ''}`;
+      } else {
+        const chTag = channelLabel ? `<span style="color:var(--text-dim)">${channelLabel}</span>` : '';
+        statusLine = `<span style="color:var(--border)">— STANDBY</span>${chTag ? `  ·  ${chTag}` : ''}`;
+      }
+
+      msg += `\n<span style="display:inline-flex;gap:18px;padding:6px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:2px;margin:4px 0">${liveDot}${loadDot}</span>\n${statusLine}`;
     } else {
       // Generic furniture: posture interactions (sit/lie/lean → "on <name>")
       // plus capability verbs gated on flat tags (read/drink → "<name>"),

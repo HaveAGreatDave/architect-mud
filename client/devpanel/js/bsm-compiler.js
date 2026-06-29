@@ -30,7 +30,8 @@ function compileBsm(text) {
   const nodes = {};
   const assets = [];
   const messages = [];
-  const rooms = [];      // zone IDs from ROOM directives (ordered, deduplicated)
+  const rooms = [];           // zone IDs from ROOM directives (ordered, deduplicated)
+  const cameraNumbers = [];   // unique CAM numbers in order of first appearance
   const npcIds = new Set(actorIds); // pre-populated from ::actors; grows with explicit NPC directives
 
   let nodeCount = 0;
@@ -154,6 +155,8 @@ function compileBsm(text) {
     // ── CAM cut ──────────────────────────────────────────────────────────────
     if (/^CAM \d/.test(ln)) {
       const parts = ln.split(/\s+/);
+      const camNum = parseInt(parts[1], 10);
+      if (!isNaN(camNum) && !cameraNumbers.includes(camNum)) cameraNumbers.push(camNum);
       const label = [parts[0], parts[1], parts.slice(2).join(' ')].filter(Boolean).join(' — ');
       makeNode({ type: 'camera_cut', zone_id: '', label });
       i++; continue;
@@ -237,5 +240,5 @@ function compileBsm(text) {
     i++;
   }
 
-  return { meta, broadcastGraph: { _start: startId, nodes }, messages, assets, rooms, npcIds: [...npcIds], actorIds, _debug };
+  return { meta, broadcastGraph: { _start: startId, nodes }, messages, assets, rooms, cameras: cameraNumbers, npcIds: [...npcIds], actorIds, _debug };
 }

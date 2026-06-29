@@ -1544,7 +1544,7 @@ export const routeHandler = async (path, method, body, auth) => {
       // POST /broadcast/deck — spawn a media deck in a zone and link to channel
       if (!id && method === 'POST') {
         if (!devOk(auth)) return { status: 403, body: { error: 'Dev access required' } };
-        const { channel_id, zone_id, name, auto_place } = body || {};
+        const { channel_id, zone_id, name, auto_place, no_camera } = body || {};
         if (!channel_id) return { status: 400, body: { error: 'channel_id is required' } };
 
         let targetZoneId = zone_id;
@@ -1583,7 +1583,7 @@ export const routeHandler = async (path, method, body, auth) => {
         await query(`UPDATE media_channels SET studio_zone_id=$1 WHERE id=$2`, [stageZoneId || targetZoneId, channel_id]);
 
         let cameraId = null;
-        if (auto_place && stageZoneId) {
+        if (auto_place && stageZoneId && !no_camera) {
           // Create broadcast_transmitter furniture in stage zone
           const camFurnId = `furn_cam_${channel_id}_${ts}`;
           await query(
