@@ -2024,6 +2024,38 @@ function _bcNpcStatus(npc, npcSchedule) {
   return               { label: 'Not Scheduled', color: 'var(--text-dim)' };
 }
 
+function _bcNpcOpenSidebar(npcId) {
+  if (!_bcNpcCache) return;
+  const npc = _bcNpcCache.npcs.find(n => n.id === npcId);
+  if (!npc) return;
+  _bcNpcExpanded = npcId;
+  // Render into the standard edit-panel sidebar so the tab bar stays visible
+  const editPanel = document.getElementById('edit-panel');
+  const editTitle = document.getElementById('edit-title');
+  const editBody  = document.getElementById('edit-body');
+  const editFooter = editPanel?.querySelector('.edit-footer');
+  if (!editPanel || !editBody) return;
+  editTitle.textContent = `NPC: ${npc.name}`;
+  editBody.innerHTML = npcEditForm(npc, false);
+  if (editFooter) {
+    editFooter.innerHTML = `
+      <button class="action-btn success" style="flex:1" onclick="_bcNpcSaveSidebar('${escHtml(npcId)}')">Save NPC</button>
+      <button class="action-btn" onclick="closeEdit()">Cancel</button>`;
+  }
+  editPanel.classList.add('open');
+}
+
+async function _bcNpcSaveSidebar(npcId) {
+  const npc = _bcNpcCache?.npcs.find(n => n.id === npcId);
+  if (!npc) return;
+  const result = await saveNpc(npc);
+  if (result?.error) { toast(result.error, true); return; }
+  toast(result?.staged ? 'Staged — publish to apply' : (result?.message || 'NPC saved'));
+  _bcNpcCache = null;
+  closeEdit();
+  await bcSuiteRefresh('npcs');
+}
+
 function _bcNpcDraw(el) {
   if (!_bcNpcCache) return;
   const { npcs, npcSchedule, zoneMap } = _bcNpcCache;
@@ -2035,26 +2067,16 @@ function _bcNpcDraw(el) {
 
   const rows = npcs.map(npc => {
     const { label, color } = _bcNpcStatus(npc, npcSchedule);
-    const zoneName  = npc.zone_id ? (zoneMap.get(npc.zone_id) || npc.zone_id) : '—';
-    const expanded  = _bcNpcExpanded === npc.id;
-    const editHtml  = expanded ? `
-      <div style="padding:12px 16px 16px;background:var(--bg2);border-top:1px solid var(--border)">
-        ${npcEditForm(npc, false)}
-        <div style="display:flex;gap:8px;margin-top:12px">
-          <button class="action-btn primary" onclick="_bcNpcSave('${escHtml(npc.id)}')">Save NPC</button>
-          <button class="action-btn" onclick="_bcNpcToggle('${escHtml(npc.id)}')">Cancel</button>
-        </div>
-      </div>` : '';
+    const zoneName = npc.zone_id ? (zoneMap.get(npc.zone_id) || npc.zone_id) : '—';
     return `
       <div style="border-bottom:1px solid var(--border)">
         <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;cursor:pointer;user-select:none"
-             onclick="_bcNpcToggle('${escHtml(npc.id)}')">
+             onclick="_bcNpcOpenSidebar('${escHtml(npc.id)}')">
           <span style="min-width:160px;font-size:13px;font-weight:600;color:var(--text)">${escHtml(npc.name)}</span>
           <span style="min-width:120px;font-size:11px;font-weight:600;color:${color}">${label}</span>
           <span style="flex:1;font-size:11px;color:var(--text-dim)" title="${escHtml(npc.zone_id || '')}">${escHtml(zoneName)}</span>
-          <span style="font-size:10px;color:var(--text-dim)">${expanded ? '▲' : '▼'}</span>
+          <span style="font-size:10px;color:var(--text-dim)">✏</span>
         </div>
-        ${editHtml}
       </div>`;
   }).join('');
 
@@ -2071,21 +2093,6 @@ function _bcNpcDraw(el) {
     </div>`;
 }
 
-function _bcNpcToggle(id) {
-  _bcNpcExpanded = (_bcNpcExpanded === id) ? null : id;
-  const el = document.getElementById('list-panel');
-  _bcNpcDraw(el);
-}
-
-async function _bcNpcSave(id) {
-  const npc = _bcNpcCache?.npcs.find(n => n.id === id);
-  if (!npc) return;
-  const result = await saveNpc(npc); // reuse npcs.js save — reads the rendered form fields
-  if (result?.error) { toast(result.error, true); return; }
-  toast(result?.staged ? 'Staged — publish to apply' : (result?.message || 'NPC saved'));
-  _bcNpcCache = null; // invalidate so next render re-fetches
-  await bcSuiteRefresh('npcs');
-}
 
 // ── Utility ───────────────────────────────────────────────────────────────────
 

@@ -373,8 +373,12 @@ async function openChannelEditor(rec) {
         </div>
       </div>
 
-      <!-- Timeline -->
-      <div style="border:1px solid var(--border);border-radius:2px;overflow:hidden">
+      <!-- Timeline (hidden for daily-schedule channels — use the Schedule tab instead) -->
+      ${rec?.schedule_mode === 'daily' ? `
+      <div style="padding:10px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:2px;font-size:12px;color:var(--text-dim)">
+        📅 This channel uses daily scheduling — use the <strong style="color:var(--accent)">Schedule</strong> tab to edit its programming blocks.
+      </div>` : `
+      <div id="ch-timeline-section" style="border:1px solid var(--border);border-radius:2px;overflow:hidden">
         <div style="padding:6px 10px;background:var(--bg3);display:flex;justify-content:space-between;align-items:center">
           <span style="font-size:11px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:1px">Playlist Timeline</span>
           <div style="display:flex;gap:8px;align-items:center">
@@ -398,7 +402,7 @@ async function openChannelEditor(rec) {
               ondragover="event.preventDefault()" ondrop="tlDrop(event)"></div>
           </div>
         </div>
-      </div>
+      </div>`}
     </div>`;
 
   openModal(rec ? `Edit Channel: ${rec.name}` : 'New Channel', body);
@@ -418,8 +422,10 @@ async function openChannelEditor(rec) {
     tlRender();
   });
 
-  tlRenderLibrary();
-  tlRender();
+  if (rec?.schedule_mode !== 'daily') {
+    tlRenderLibrary();
+    tlRender();
+  }
 
   document.getElementById('modal-save').onclick = saveChannel;
 }
@@ -632,16 +638,18 @@ async function saveChannel() {
 
     const channelId = isNew ? chRes.id : _channelEditTarget.id;
 
-    // Save playlist
-    const playlistBody = _channelPlaylist.map(item => ({
-      broadcast_id: item.broadcast_id,
-      start_time: item.start_time,
-      duration_override: item.duration_override || null,
-      priority: item.priority || 0,
-      conditions: item.conditions || [],
-    }));
-    const plRes = await directAPI(`/broadcast/channels/${channelId}/playlist`, 'PUT', playlistBody);
-    if (plRes?.error) { toast(plRes.error, true); return; }
+    // Save playlist — skip for daily-schedule channels (managed via the Schedule tab)
+    if (_channelEditTarget?.schedule_mode !== 'daily') {
+      const playlistBody = _channelPlaylist.map(item => ({
+        broadcast_id: item.broadcast_id,
+        start_time: item.start_time,
+        duration_override: item.duration_override || null,
+        priority: item.priority || 0,
+        conditions: item.conditions || [],
+      }));
+      const plRes = await directAPI(`/broadcast/channels/${channelId}/playlist`, 'PUT', playlistBody);
+      if (plRes?.error) { toast(plRes.error, true); return; }
+    }
 
     closeModal();
     toast(isNew ? 'Channel created.' : 'Channel saved.');
