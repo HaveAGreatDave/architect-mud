@@ -11,6 +11,7 @@ let _tvActiveChannelId = null;
 const _tvHistory = [];
 const MAX_TV_HISTORY = 200;
 let _tvAtBottom = true;
+let _clearAfterTitleCard = false;
 let _tickerText = '';
 let _tickerAnimating = false;
 let _overlayTimer = null;
@@ -30,6 +31,7 @@ export function openTvPanel(data) {
   _tickerText = '';
   _tickerAnimating = false;
   _tvAtBottom = true;
+  _clearAfterTitleCard = false;
   _tvChannelList = Array.isArray(data.channelList) ? data.channelList : [];
   // Server (furniture flags.tv_dial_freq) is source of truth; localStorage is only a within-session fallback
   const serverFreq = typeof data.dialFrequency === 'number' ? data.dialFrequency : -1;
@@ -317,9 +319,29 @@ export function showTvOffAir(offlineGraphicContent, offlineGraphicType) {
   }
 }
 
+function _clearTvMessages() {
+  const container = document.getElementById('tv-messages');
+  if (container) container.innerHTML = '';
+  _tvHistory.length = 0;
+}
+
 export function appendTvMessage(text, style) {
   const container = document.getElementById('tv-messages');
   if (!container) return;
+
+  const isTitleCard = style === 'svg' || style === 'ascii_art';
+
+  // Clear before title cards, and after them on the next message
+  if (isTitleCard || _clearAfterTitleCard) {
+    _clearTvMessages();
+    _clearAfterTitleCard = false;
+  } else if (container.scrollHeight > container.clientHeight) {
+    // Content has filled the screen — wrap to top rather than scroll
+    _clearTvMessages();
+  }
+
+  // Flag that the next non-title message should clear the screen
+  if (isTitleCard) _clearAfterTitleCard = true;
 
   const el = document.createElement(style === 'ascii_art' ? 'pre' : 'div');
   el.className = `tv-msg tv-msg-${style || 'raw'}`;
