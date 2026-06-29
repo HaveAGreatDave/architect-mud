@@ -6,6 +6,7 @@
  * outcasts in Custodian-aligned zones (hostility text, then turrets).
  */
 import { query } from '../models/db.js';
+import { maxHpForEndurance } from './ip.js';
 
 let MUTATION_CACHE = {};
 
@@ -49,6 +50,18 @@ export async function grantMutation(player, mutation) {
     await query(`UPDATE players SET ${statUpdates.join(', ')} WHERE id = $${i}`, vals);
     for (const [stat, delta] of Object.entries(mutation.stat_modifiers || {})) {
       if (player[stat] !== undefined) player[stat] += delta;
+    }
+
+    // Endurance changes shift max HP; mirror the delta onto current HP, clamped.
+    const endDelta = mutation.stat_modifiers.stat_endurance;
+    if (endDelta) {
+      const newHpMax = maxHpForEndurance(player.stat_endurance);
+      const { rows: hpRows } = await query(
+        `UPDATE players SET hp_max=$1, hp=GREATEST(1,LEAST(hp+$2,$1)) WHERE id=$3 RETURNING hp, hp_max`,
+        [newHpMax, endDelta * 2, player.id]
+      );
+      player.hp = hpRows[0].hp;
+      player.hp_max = hpRows[0].hp_max;
     }
   }
 

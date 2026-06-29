@@ -778,8 +778,16 @@ async function cmdRaise(args, player) {
 
   player[result.col] = result.to;
 
+  const update = { [result.col]: result.to };
+  if (result.hp_max !== undefined) {
+    player.hp = result.hp;
+    player.hp_max = result.hp_max;
+    update.hp = result.hp;
+    update.hp_max = result.hp_max;
+  }
+
   const msg = `You invest ${result.cost} XP improving your ${result.stat} (${result.from} → ${result.to}).\nXP remaining: ${Math.floor(result.net_remaining)}`;
-  return { type: 'raise', message: msg, player_update: { [result.col]: result.to } };
+  return { type: 'raise', message: msg, player_update: update };
 }
 
 

@@ -25,7 +25,7 @@ import {
 import { startGameLoop } from "./engine/gameLoop.js";
 import { loadPlugins, fireHook } from "./engine/plugins.js";
 import { emit } from "./engine/events.js";
-import { getNetXp } from "./engine/ip.js";
+import { getNetXp, maxHpForEndurance } from "./engine/ip.js";
 import { dispatchAction } from "./engine/actions.js";
 // Side-effect imports: register the Flag store and graph-engine Actions
 // (SET_FLAG, CLEAR_FLAG, GRANT_ITEM, TELEPORT, EXECUTE_SCRIPT, …) at boot.
@@ -529,6 +529,19 @@ async function finishAuth(ws, session, player) {
 	session.handle = player.handle;
 	session.role = player.role;
 	playerSockets.set(player.id, ws);
+
+	// Keep max HP in sync with endurance. Self-heals pre-existing characters
+	// whose stored hp_max predates endurance-scaled HP (no migration script).
+	const correctHpMax = maxHpForEndurance(player.stat_endurance);
+	if (player.hp_max !== correctHpMax) {
+		player.hp_max = correctHpMax;
+		player.hp = Math.min(player.hp, correctHpMax);
+		await query("UPDATE players SET hp_max=$1, hp=$2 WHERE id=$3", [
+			player.hp_max,
+			player.hp,
+			player.id,
+		]);
+	}
 
 	const livePlayer = {
 		id: player.id,
