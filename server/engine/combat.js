@@ -7,6 +7,7 @@ const COOLDOWNS = {
   attack: 3500,
   flee: 4000,
   use_item: 2500,
+  shove: 60000,
 };
 
 const playerCooldowns = new Map(); // playerId -> { action -> timestamp }

@@ -1,0 +1,7 @@
+{
+  "name": "shove",
+  "version": "1.0.0",
+  "description": "Shove/drag a player or corpse into an adjacent room via a contested brawn-vs-weight check.",
+  "hooks": [],
+  "commands": ["shove", "drag"]
+}

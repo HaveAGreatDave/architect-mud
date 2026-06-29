@@ -183,7 +183,7 @@ function buildBattleCryMessages(enemies, playerHandle) {
   return lines;
 }
 
-async function cmdMove(direction, player, broadcast) {
+export async function cmdMove(direction, player, broadcast, opts = {}) {
   if (!direction) return { type:'error', message:'Go where? (north, south, east, west, up, down)' };
   const zone = getZone(player.current_zone);
   if (!zone) return { type:'error', message:'Your zone is missing.' };
@@ -222,10 +222,12 @@ async function cmdMove(direction, player, broadcast) {
     }
   }
 
-  const carried = await computeCarriedWeight(player);
-  const cap = carryCapacity(player);
-  if (carried > cap) {
-    return { type:'error', message:`You're carrying too much to move (${formatWeight(carried)}/${formatWeight(cap)}). Drop something.` };
+  if (!opts.bypassEncumbrance) {
+    const carried = await computeCarriedWeight(player);
+    const cap = carryCapacity(player);
+    if (carried > cap) {
+      return { type:'error', message:`You're carrying too much to move (${formatWeight(carried)}/${formatWeight(cap)}). Drop something.` };
+    }
   }
 
   const oldZoneId = player.current_zone;

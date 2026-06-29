@@ -287,6 +287,18 @@ export function createCorpse(c) {
 
 export function getCorpse(id) { return world.corpses.get(id) || null; }
 
+// Relocate a corpse to another zone (used by shove/drag). Loot rows live in
+// player_inventory keyed by the corpse id and carry no zone, so only the zone
+// membership and the persisted zone_id move.
+export async function moveCorpse(id, newZoneId) {
+  const c = world.corpses.get(id);
+  if (!c) return;
+  world.zones.get(c.zoneId)?.corpses.delete(id);
+  c.zoneId = newZoneId;
+  world.zones.get(newZoneId)?.corpses.add(id);
+  await query('UPDATE player_corpses SET zone_id=$1 WHERE id=$2', [newZoneId, id]).catch(() => {});
+}
+
 // Remove a corpse from the world and delete any loot rows owned by it so the
 // DB doesn't accumulate orphaned _corpse loot. Called on loot/butcher and expiry.
 export async function removeCorpse(id) {
