@@ -121,13 +121,6 @@ function playerPartSoak(player, part, damageType) {
   return resolveSoak(entry.soak, damageType) + (entry.flat || 0);
 }
 
-// Total soak for an enemy: typed soak map if present, else flat armor fallback.
-// Used only as the legacy fallback for enemies with no per-part body_parts.
-function enemySoak(enemy, damageType) {
-  if (enemy.soak && Object.keys(enemy.soak).length) return resolveSoak(enemy.soak, damageType);
-  return enemy.armor || 0;
-}
-
 // Per-part hit weights from a monster's body_parts (array of {part,weight,soak}).
 // Returns null when the monster has none, so the caller uses the global default.
 function enemyBodyPartWeights(enemy) {
@@ -141,18 +134,18 @@ function enemyBodyPartWeights(enemy) {
 }
 
 // Soak for the struck part of a monster, from its body_parts typed soak map.
-// Falls back to the legacy single soak/armor for monsters with no body_parts.
+// Monsters with no body_parts take full damage (0 soak).
 function enemyPartSoak(enemy, part, damageType) {
   const parts = enemy.body_parts;
   if (Array.isArray(parts) && parts.length) {
     const entry = parts.find(p => p && p.part === part);
     return entry ? resolveSoak(entry.soak, damageType) : 0;
   }
-  return enemySoak(enemy, damageType);
+  return 0;
 }
 
 // A monster's attack as a list of typed damage components ({type,min,max}).
-// Falls back to a single component from the legacy damage_min/max columns.
+// Monsters with no weapon array fall back to an unarmed strike.
 function enemyWeaponComponents(enemy) {
   if (Array.isArray(enemy.weapon) && enemy.weapon.length) {
     return enemy.weapon.map(c => ({
@@ -161,7 +154,7 @@ function enemyWeaponComponents(enemy) {
       max: Number(c.max) || 0,
     }));
   }
-  return [{ type: enemy.flags?.damage_type || 'kinetic', min: enemy.damage_min || 2, max: enemy.damage_max || 5 }];
+  return [{ type: enemy.flags?.damage_type || 'kinetic', min: 1, max: 3 }];
 }
 
 // Player attacks enemy instance. Returns { success, hit, killed, damage, critical, margin, ... }

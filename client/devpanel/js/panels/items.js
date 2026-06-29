@@ -96,7 +96,6 @@ function renderItemsPanel() {
 
   const cols = [
     { key: 'name', label: 'Name', width: '35%' },
-    { key: 'subtype', label: 'Subtype', width: '20%' },
     { key: 'rarity', label: 'Rarity', width: '15%' },
     { key: 'weight', label: 'Weight (g)', width: '10%' },
     { key: 'value', label: 'Value', width: '10%' },
@@ -197,13 +196,8 @@ function itemEditForm(rec, isNew) {
   return `
     <div class="field"><label>Item ID</label><input id="f-id" value="${isNew?'':rec.id}" ${!isNew?'readonly style="opacity:0.5"':''}></div>
     <div class="field"><label>Name</label><input id="f-name" value="${rec.name||''}"></div>
-    <div class="field-row">
-      <div class="field"><label>Type</label>
-        <select id="f-type">${['','weapon','clothing','armor','consumable','drug','material','currency','misc'].map(t=>`<option value="${t}" ${(rec.type||'')===(t)?'selected':''}>${t||'— none —'}</option>`).join('')}</select>
-      </div>
-      <div class="field"><label>Rarity</label>
-        <select id="f-rarity">${['common','uncommon','rare','very_rare','legendary'].map(r=>`<option ${rec.rarity===r?'selected':''}>${r}</option>`).join('')}</select>
-      </div>
+    <div class="field"><label>Rarity</label>
+      <select id="f-rarity">${['common','uncommon','rare','very_rare','legendary'].map(r=>`<option ${rec.rarity===r?'selected':''}>${r}</option>`).join('')}</select>
     </div>
     <div class="field-row">
       <div class="field"><label>Weight (g)</label><input type="number" id="f-weight" value="${rec.weight||1000}" step="1"></div>
@@ -232,7 +226,6 @@ async function saveItem(existing) {
   const supertags = [...document.querySelectorAll('#item-supertags .tag-row')].map(r => r.dataset.super);
   const body = {
     name: document.getElementById('f-name').value,
-    type: document.getElementById('f-type').value || null,
     rarity: document.getElementById('f-rarity').value,
     weight: parseInt(document.getElementById('f-weight').value)||1000,
     value: +document.getElementById('f-value').value,

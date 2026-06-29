@@ -3,6 +3,7 @@ import { getZone, getMinimapData, addPlayerToZone, removePlayerFromZone, getDoor
 import { getZoneVisibility, getWindowsForZone, getEnvironmentState, getZoneTemperature } from '../environment.js';
 import { describeZone, resolveNamedDestination } from './describe.js';
 import { checkLockAuth, getLockTagPublic } from './doors.js';
+import { emit } from '../events.js';
 
 const RAW_DIRECTIONS = ['north', 'south', 'east', 'west', 'up', 'down', 'in', 'out', 'exit'];
 
@@ -226,6 +227,7 @@ async function cmdMove(direction, player, broadcast) {
   removePlayerFromZone(player.id, player.current_zone);
   addPlayerToZone(player.id, targetId);
   player.current_zone = targetId;
+  emit('zone.entered', { actor: player, zone: targetId, from: oldZoneId });
   player.combatTargetId = null;
   const wasSitting = player.posture === 'sitting';
   player.posture = 'standing';

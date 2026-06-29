@@ -62,6 +62,16 @@ ambients are suppressed while a louder sound is "in the air" (`getInterruptLoudn
 > **Minor bug** (QA report): `dropWords` does a throwaway first random pass only to test emptiness, then
 > a second independent random pass for the actual output — the validated string isn't the one returned.
 
+> **Future / unwired (drift audit):** two authored surfaces are intentionally *not* consumed yet and are
+> kept pending a design pass — don't assume they do anything:
+> - The **`sounds` definition table** (name/category/descriptions/loudness) is authored in the dev panel
+>   but no engine path ever `SELECT`s it to emit a sound; sound emission today is code-driven via
+>   `propagateSound`. Wiring a tag/event → `playSound(name)` lookup is the open task. (The unread
+>   `sounds.tags` ghost column was dropped.)
+> - Window **`visibility_transmission`** is authored on windows but every consumer reads only
+>   `light_transmission`; peer-through keys off the linked zone's presence, not this value. Either wire it
+>   into peer/look opacity or drop the field — needs a look-through design decision first.
+
 ## Spawning & corpses
 
 `tickSpawns` (every 10s) joins `zone_spawns` with `enemies`, and for each timer that's due, spawns if the

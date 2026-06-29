@@ -1390,7 +1390,7 @@ async function _bcCreateNpc(id) {
   if (_bcExistingNpcIds.has(id)) { _bcMarkResolved(id); return; }
   const name = id.replace(/^npc_/, '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
   try {
-    const res = await directAPI('/npcs', 'POST', { id, name, description: `${name}. Edit this description.`, zone_id: null, disposition: 'neutral' });
+    const res = await directAPI('/npcs', 'POST', { id, name, description: `${name}. Edit this description.`, zone_id: null });
     if (res?.error) { toast(res.error, true); return; }
     _bcMarkResolved(id);
   } catch (err) { toast(err.message, true); }
@@ -1617,7 +1617,7 @@ async function _bcImportSave({ meta, broadcastGraph, messages, assets, cameras, 
                 id: npcId, name: npcId.replace(/^npc_/, '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
                 description: 'A broadcast studio host.',
                 zone_id: _bcImportStudioZoneId, home_zone: _bcImportStudioZoneId,
-                disposition: 'neutral', wanders: 0, wander_zones: [],
+                wanders: 0, wander_zones: [],
                 dialogue_tree: {}, vendor_inventory: [], flags: { studio_npc: true }, behaviour_graph: {},
               });
             if (npcRes?.error) console.warn(`[BSM] NPC spawn failed for ${npcId}:`, npcRes.error);

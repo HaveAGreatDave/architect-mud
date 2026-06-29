@@ -31,7 +31,7 @@ const MACHINE_NAMES = ['morphex', 'biosculpt', 'makeover', 'morphex 9000'];
 
 async function getMachine(zoneId) {
   const { rows } = await query(
-    `SELECT id FROM furniture WHERE zone_id=$1 AND object_type='cosmetic_machine' LIMIT 1`,
+    `SELECT id FROM furniture WHERE zone_id=$1 AND (object_type='cosmetic_machine' OR jsonb_exists(flags,'cosmetic_machine')) LIMIT 1`,
     [zoneId]
   );
   return rows[0] || null;

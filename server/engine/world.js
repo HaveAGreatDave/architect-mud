@@ -240,9 +240,6 @@ export function spawnEnemySync(template, zoneId) {
     hit: template.hit ?? 1, dodge: template.dodge ?? 1,
     weapon: Array.isArray(template.weapon) ? template.weapon : [],
     body_parts: Array.isArray(template.body_parts) ? template.body_parts : [],
-    // Legacy fallbacks for templates predating the hit/dodge/weapon rework.
-    damage_min: template.damage_min, damage_max: template.damage_max,
-    armor: template.armor, soak: template.soak || {},
     loot_table: template.loot_table || [],
     butcher_table: Array.isArray(template.butcher_table) ? template.butcher_table : [],
     butcher_difficulty: template.butcher_difficulty ?? 5,

@@ -944,19 +944,19 @@ async function apiGetNpcs() { const {rows}=await query('SELECT * FROM npcs'); re
 export async function apiCreateNpc(body) {
   const id=body.id||`npc_${Date.now()}`;
   try {
-    await query(`INSERT INTO npcs (id,name,description,zone_id,home_zone,faction,disposition,dialogue_tree,vendor_inventory,wanders,wander_zones,flags,behaviour_graph) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
-      [id,body.name,body.description,body.zone_id||null,body.home_zone||null,body.faction||null,body.disposition||'neutral',JSON.stringify(body.dialogue_tree||{}),JSON.stringify(body.vendor_inventory||[]),body.wanders?1:0,JSON.stringify(body.wander_zones||[]),JSON.stringify(body.flags||{}),JSON.stringify(body.behaviour_graph||{})]);
+    await query(`INSERT INTO npcs (id,name,description,zone_id,home_zone,faction,dialogue_tree,vendor_inventory,wanders,wander_zones,flags,behaviour_graph) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+      [id,body.name,body.description,body.zone_id||null,body.home_zone||null,body.faction||null,JSON.stringify(body.dialogue_tree||{}),JSON.stringify(body.vendor_inventory||[]),body.wanders?1:0,JSON.stringify(body.wander_zones||[]),JSON.stringify(body.flags||{}),JSON.stringify(body.behaviour_graph||{})]);
     return {status:201,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
 export async function apiUpdateNpc(id,body) {
   try {
-    await query(`UPDATE npcs SET name=$1,description=$2,zone_id=$3,home_zone=$4,faction=$5,disposition=$6,dialogue_tree=$7,vendor_inventory=$8,wanders=$9,wander_zones=$10,flags=$11,behaviour_graph=$12 WHERE id=$13`,
-      [body.name,body.description,body.zone_id,body.home_zone||null,body.faction,body.disposition,JSON.stringify(body.dialogue_tree||{}),JSON.stringify(body.vendor_inventory||[]),body.wanders?1:0,JSON.stringify(body.wander_zones||[]),JSON.stringify(body.flags||{}),JSON.stringify(body.behaviour_graph||{}),id]);
+    await query(`UPDATE npcs SET name=$1,description=$2,zone_id=$3,home_zone=$4,faction=$5,dialogue_tree=$6,vendor_inventory=$7,wanders=$8,wander_zones=$9,flags=$10,behaviour_graph=$11 WHERE id=$12`,
+      [body.name,body.description,body.zone_id,body.home_zone||null,body.faction,JSON.stringify(body.dialogue_tree||{}),JSON.stringify(body.vendor_inventory||[]),body.wanders?1:0,JSON.stringify(body.wander_zones||[]),JSON.stringify(body.flags||{}),JSON.stringify(body.behaviour_graph||{}),id]);
     // Update in-memory cache
     const { world: w } = await import('../engine/world.js');
     const existing = w.npcs.get(id);
-    if (existing) Object.assign(existing, { name:body.name, description:body.description, zone_id:body.zone_id, home_zone:body.home_zone||null, faction:body.faction, disposition:body.disposition, dialogue_tree:body.dialogue_tree||{}, vendor_inventory:body.vendor_inventory||[], wanders:body.wanders?1:0, wander_zones:body.wander_zones||[], flags:body.flags||{}, behaviour_graph:body.behaviour_graph||{} });
+    if (existing) Object.assign(existing, { name:body.name, description:body.description, zone_id:body.zone_id, home_zone:body.home_zone||null, faction:body.faction, dialogue_tree:body.dialogue_tree||{}, vendor_inventory:body.vendor_inventory||[], wanders:body.wanders?1:0, wander_zones:body.wander_zones||[], flags:body.flags||{}, behaviour_graph:body.behaviour_graph||{} });
     return {status:200,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
@@ -1582,21 +1582,20 @@ async function apiGetSounds(fullUrl) {
 }
 async function apiCreateSound(body) {
   const id = randomUUID();
-  const { name, category='misc', descriptions=[], loudness=3.0, tags={}, enabled=1 } = body||{};
+  const { name, category='misc', descriptions=[], loudness=3.0, enabled=1 } = body||{};
   if (!name?.trim()) return { status:400, body:{error:'name required'} };
-  await query('INSERT INTO sounds (id,name,category,descriptions,loudness,tags,enabled) VALUES ($1,$2,$3,$4,$5,$6,$7)',
-    [id, name.trim(), category, JSON.stringify(descriptions), loudness, JSON.stringify(tags), enabled?1:0]);
+  await query('INSERT INTO sounds (id,name,category,descriptions,loudness,enabled) VALUES ($1,$2,$3,$4,$5,$6)',
+    [id, name.trim(), category, JSON.stringify(descriptions), loudness, enabled?1:0]);
   return { status:201, body:{id} };
 }
 async function apiUpdateSound(id, body) {
-  const { name, category, descriptions, loudness, tags, enabled } = body||{};
+  const { name, category, descriptions, loudness, enabled } = body||{};
   const sets = [], vals = [];
   let i = 1;
   if (name!=null)         { sets.push(`name=$${i++}`);         vals.push(name.trim()); }
   if (category!=null)     { sets.push(`category=$${i++}`);     vals.push(category); }
   if (descriptions!=null) { sets.push(`descriptions=$${i++}`); vals.push(JSON.stringify(descriptions)); }
   if (loudness!=null)     { sets.push(`loudness=$${i++}`);     vals.push(loudness); }
-  if (tags!=null)         { sets.push(`tags=$${i++}`);         vals.push(JSON.stringify(tags)); }
   if (enabled!=null)      { sets.push(`enabled=$${i++}`);      vals.push(enabled?1:0); }
   if (!sets.length) return { status:400, body:{error:'nothing to update'} };
   vals.push(id);
