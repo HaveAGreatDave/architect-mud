@@ -1320,14 +1320,11 @@ async function _bcImportDependencies(compiled) {
   const npcDbIds = new Set((allNpcs  || []).map(n => n.id));
   _bcExistingNpcIds = npcDbIds;
   const missingZones = compiled.rooms.filter(id => !zoneIds.has(id));
-  // Only flag explicitly declared actors as blocking deps.
-  // Speaker-generated NPCs (not in actorIds) are auto-created as placeholders during save.
-  const declaredActors = new Set(compiled.actorIds || []);
-  const missingNpcs = isScripted ? [] : compiled.npcIds.filter(id => declaredActors.has(id) && !npcDbIds.has(id));
-  if (!missingZones.length && !missingNpcs.length) { await _bcImportSave(compiled); return; }
+  // NPCs are always auto-created in _bcImportSave — never block the import on them.
+  if (!missingZones.length) { await _bcImportSave(compiled); return; }
   _bcDepCompiled = compiled;
-  _bcDepPending  = new Set([...missingZones, ...missingNpcs]);
-  _bcShowDepModal(missingNpcs, missingZones, allZones || []);
+  _bcDepPending  = new Set(missingZones);
+  _bcShowDepModal([], missingZones, allZones || []);
 }
 
 function _bcShowDepModal(missingNpcs, missingZones, allZones) {
