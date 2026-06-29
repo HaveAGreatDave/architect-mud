@@ -500,6 +500,16 @@ async function execAction(node, entity, ctx) {
       break;
     }
 
+    case 'SAY': {
+      const text = params.text || '';
+      if (!text) break;
+      broadcast(zoneId, {
+        type: 'output',
+        message: `<span style="color:var(--yellow)">${entity.name} says, "${text}"</span>`,
+      });
+      break;
+    }
+
     // HAVE_LIFE: do a life activity — skipped when NPC is scheduled to work
     case 'HAVE_LIFE': {
       if (!ai) break;

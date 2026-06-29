@@ -551,9 +551,16 @@ registerViewerChecker((channelId) => {
 registerNpcScheduleChecker((npcId) => {
   const { minutes } = getEnvironmentState();
   const gameSecs = (minutes ?? 0) * 60;
+  const nowMs = Date.now();
   for (const state of channelRuntime.values()) {
-    if (state.scheduleMode !== 'daily') continue;
-    const item = state.playlist.find(i => gameSecs >= i.startTime && gameSecs < i.startTime + i.duration);
+    let item = null;
+    if (state.scheduleMode === 'daily') {
+      item = state.playlist.find(i => gameSecs >= i.startTime && gameSecs < i.startTime + i.duration);
+    } else if (state.playlist.length && state.totalDuration > 0) {
+      // Loop/mixed/emergency: find which playlist item is currently playing
+      const elapsed = ((nowMs - state.loopOriginMs) / 1000) % state.totalDuration;
+      item = state.playlist.find(i => elapsed >= i.startTime && elapsed < i.startTime + i.duration);
+    }
     if (item?.npcStaff?.includes(npcId)) return true;
   }
   return false;
@@ -588,6 +595,89 @@ on('zone.broadcast', ({ zoneId, msg }) => {
   }
   state.wasActive = true;
 });
+
+// ── Behaviour graph work-phase injection ─────────────────────────────────────
+// Walk a normalised broadcast VINE graph and extract a linear sequence of
+// say/npc_action nodes for a specific NPC anchor. Returns an array of
+// { type:'SAY'|'EMOTE', params, waitSecs } objects in script order.
+function _extractNpcWorkSequence(graph, npcId) {
+  if (!graph?._start || !graph?.nodes) return [];
+  const edges = graph.edges || [];
+  let nodeId = graph._start;
+  let currentNpc = null;
+  const sequence = [];
+  let pendingWait = 0;
+  const visited = new Set();
+  while (nodeId && !visited.has(nodeId)) {
+    visited.add(nodeId);
+    const node = graph.nodes[nodeId];
+    if (!node) break;
+    const { type, data = {} } = node;
+    if (type === 'npc_anchor') {
+      currentNpc = data.npc_id || null;
+    } else if (type === 'wait') {
+      pendingWait += (data.seconds || data.duration || 5);
+    } else if (type === 'say' && currentNpc === npcId) {
+      sequence.push({ type: 'SAY', params: { text: data.text || '' }, waitSecs: pendingWait });
+      pendingWait = 5; // default gap after a line
+    } else if (type === 'npc_action' && currentNpc === npcId) {
+      const msg = data.message || data.action || '';
+      if (msg) sequence.push({ type: 'EMOTE', params: { message: msg }, waitSecs: pendingWait });
+      pendingWait = 3;
+    } else if (type === 'loop') {
+      break; // one pass only
+    }
+    nodeId = _resolveEdge(edges, nodeId, 'next');
+  }
+  return sequence;
+}
+
+// Patch a NPC's behaviour graph: replace the AT_WORK + wait nodes with the
+// extracted work sequence, keeping the lifecycle shell intact.
+function _buildWorkPhasedGraph(sequence) {
+  const graph = {
+    _start: 'n_start',
+    nodes: {
+      n_start: { type: 'start',  next: 'n_life' },
+      n_life:  { type: 'action', action_type: 'HAVE_LIFE',  next: 'n_work' },
+      n_work:  { type: 'action', action_type: 'GO_TO_WORK', next: sequence.length ? 'n_w0' : 'n_atwork' },
+      n_loop:  { type: 'loop',   next: 'n_start' },
+    },
+  };
+  if (!sequence.length) {
+    graph.nodes.n_atwork = { type: 'action', action_type: 'AT_WORK', next: 'n_wait' };
+    graph.nodes.n_wait   = { type: 'wait', seconds: 30, next: 'n_loop' };
+    return graph;
+  }
+  sequence.forEach((step, i) => {
+    const id  = `n_w${i}`;
+    const wid = `n_ww${i}`;
+    const nextAction = i + 1 < sequence.length ? `n_w${i + 1}` : 'n_loop';
+    graph.nodes[id]  = { type: 'action', action_type: step.type, params: step.params, next: wid };
+    graph.nodes[wid] = { type: 'wait', seconds: Math.max(1, step.waitSecs || 5), next: nextAction };
+  });
+  return graph;
+}
+
+async function _injectWorkPhaseForPlaylistItem(item) {
+  if (!item.broadcast_id || !item.npcStaff?.length) return;
+  const { rows: bcRows } = await query(
+    `SELECT broadcast_graph FROM media_broadcasts WHERE id=$1`, [item.broadcast_id]
+  ).catch(() => ({ rows: [] }));
+  if (!bcRows.length || !bcRows[0].broadcast_graph) return;
+  let rawGraph = bcRows[0].broadcast_graph;
+  if (typeof rawGraph === 'string') { try { rawGraph = JSON.parse(rawGraph); } catch { return; } }
+  const graph = _normalizeBroadcastGraph(rawGraph);
+  for (const npcId of item.npcStaff) {
+    if (!npcId) continue;
+    const sequence = _extractNpcWorkSequence(graph, npcId);
+    if (!sequence.length) continue; // no lines for this NPC — leave existing graph alone
+    const newGraph = JSON.stringify(_buildWorkPhasedGraph(sequence));
+    await query(
+      `UPDATE npcs SET behaviour_graph=$1 WHERE id=$2`, [newGraph, npcId]
+    ).catch(() => {});
+  }
+}
 
 // ── Graph walker (VINE broadcast graphs) ─────────────────────────────────────
 
@@ -1394,6 +1484,15 @@ export const routeHandler = async (path, method, body, auth) => {
               ).catch(() => {});
             }
           }
+          // Inject work-phase actions from each item's broadcast graph into NPC behaviour graphs
+          const parsedItems = items.map(item => {
+            const cond = item.conditions || [];
+            return {
+              broadcast_id: item.broadcast_id || null,
+              npcStaff: Array.isArray(cond?.npc_staff) ? cond.npc_staff : [],
+            };
+          });
+          await Promise.all(parsedItems.map(i => _injectWorkPhaseForPlaylistItem(i)));
           await loadChannelRuntimes();
           return { status: 200, body: { message: 'Playlist updated' } };
         }
