@@ -1515,10 +1515,11 @@ export const routeHandler = async (path, method, body, auth) => {
               : (Array.isArray(cond) ? [] : (Array.isArray(cond?.npc_staff) ? cond.npc_staff : []));
             for (const nid of staff) if (nid) allNpcIds.add(nid);
           }
+          // Fetch studio zone once — needed for both default graph and work-phase injection
+          const { rows: chSzRows } = await query('SELECT studio_zone_id FROM media_channels WHERE id=$1', [id]);
+          const chStudioZone = chSzRows[0]?.studio_zone_id || null;
           // Assign default behaviour graph to any staff NPC that doesn't have one yet
           if (allNpcIds.size) {
-            const { rows: chSzRows } = await query('SELECT studio_zone_id FROM media_channels WHERE id=$1', [id]);
-            const chStudioZone = chSzRows[0]?.studio_zone_id || null;
             const defaultGraph = JSON.stringify(makeDefaultStudioGraph(chStudioZone));
             for (const npcId of allNpcIds) {
               await query(
