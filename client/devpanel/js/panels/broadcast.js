@@ -56,6 +56,7 @@ const BC_SUITE_TABS = [
   { id: 'commercials', label: '📼 Commercials' },
   { id: 'themes',      label: '🎨 Themes'      },
   { id: 'graphics',    label: '🖼 Graphics'    },
+  { id: 'npcs',        label: '👥 NPCs'        },
 ];
 
 function renderBroadcastSuite(data) {
@@ -106,6 +107,7 @@ function _bcSuiteRender() {
       case 'commercials': renderCommercialsPanel(_bcSuiteData); break;
       case 'themes':      renderThemesPanel(_bcSuiteData.themes || []); break;
       case 'graphics':    renderGraphicsPanel(_bcSuiteData.graphics || []); break;
+      case 'npcs':        renderBroadcastNpcsPanel(_bcSuiteData); break;
     }
   } finally {
     // Restore ids
@@ -117,6 +119,7 @@ function _bcSuiteRender() {
 // Called by sub-panels that need to refresh their data after mutations
 async function bcSuiteRefresh(focusTab) {
   if (focusTab) _bcSuiteTab = focusTab;
+  _bcNpcCache = null; // invalidate NPC status cache on any refresh
   const data = await PANELS.broadcasts.fetch();
   renderBroadcastSuite(data);
 }
@@ -1918,6 +1921,150 @@ async function _bcCommDelete(bcId) {
   if (res?.error) { toast(res.error, true); return; }
   _bcCommSelected = null;
   await bcSuiteRefresh('commercials');
+}
+
+// ── NPC Status Tab ────────────────────────────────────────────────────────────
+
+let _bcNpcExpanded  = null;   // currently-expanded NPC id
+let _bcNpcCache     = null;   // { rows, gameSec } — cached render data
+
+function renderBroadcastNpcsPanel(data) {
+  const el = document.getElementById('list-panel');
+  // If we have cached data, render immediately (toggle expand without reload)
+  if (_bcNpcCache) { _bcNpcDraw(el); return; }
+  el.innerHTML = `<div style="padding:16px;color:var(--text-dim);font-size:12px">Loading NPC status…</div>`;
+  _bcNpcLoad(data, el).catch(err =>
+    el.innerHTML = `<div style="padding:16px;color:var(--red);font-size:12px">Error: ${escHtml(err.message)}</div>`
+  );
+}
+
+async function _bcNpcLoad(data, el) {
+  // Collect NPC IDs referenced as npc_anchor in any broadcast graph
+  const npcIdSet = new Set();
+  for (const bc of (data.broadcasts || [])) {
+    const g = typeof bc.broadcast_graph === 'object' ? bc.broadcast_graph
+              : (bc.broadcast_graph ? JSON.parse(bc.broadcast_graph) : null);
+    if (!g?.nodes) continue;
+    for (const node of Object.values(g.nodes)) {
+      const nid = node.data?.npc_id || node.npc_id;
+      if (node.type === 'npc_anchor' && nid) npcIdSet.add(nid);
+    }
+  }
+
+  // Channels with studio zones running daily schedules
+  const channels = data.channels || [];
+  const dailyStudios = channels.filter(c => c.schedule_mode === 'daily' && c.studio_zone_id);
+
+  // Fetch game time and all relevant playlists in parallel
+  const [envState, ...playlists] = await Promise.all([
+    directAPI('/environment/state'),
+    ...dailyStudios.map(ch => directAPI(`/broadcast/channels/${ch.id}/playlist`).catch(() => [])),
+  ]);
+
+  const [hh, mm] = (envState.time || '0:0').split(':').map(Number);
+  const gameSecNow = (hh || 0) * 3600 + (mm || 0) * 60;
+
+  // Build: npcId → { isNow, isFuture, studioZoneId }
+  const npcSchedule = new Map();
+  dailyStudios.forEach((ch, idx) => {
+    for (const item of (Array.isArray(playlists[idx]) ? playlists[idx] : [])) {
+      const cond = typeof item.conditions === 'object' ? item.conditions : JSON.parse(item.conditions || '{}');
+      const staff = Array.isArray(cond.npc_staff) ? cond.npc_staff : [];
+      const start = item.start_time || 0;
+      const dur   = item.duration_override || 3600;
+      const isNow    = gameSecNow >= start && gameSecNow < start + dur;
+      const isFuture = start > gameSecNow;
+      for (const npcId of staff) {
+        const e = npcSchedule.get(npcId) || { isNow: false, isFuture: false, studioZoneId: ch.studio_zone_id };
+        if (isNow)              e.isNow    = true;
+        if (isFuture && !e.isNow) e.isFuture = true;
+        e.studioZoneId = e.studioZoneId || ch.studio_zone_id;
+        npcSchedule.set(npcId, e);
+      }
+    }
+  });
+
+  const zones   = data.zones || [];
+  const zoneMap = new Map(zones.map(z => [z.id, z.name]));
+  const npcs    = (data.npcs || []).filter(n => npcIdSet.has(n.id));
+
+  _bcNpcCache = { npcs, npcSchedule, zoneMap };
+  _bcNpcDraw(el);
+}
+
+function _bcNpcStatus(npc, npcSchedule) {
+  const sched = npcSchedule.get(npc.id);
+  if (!sched) return { label: 'Not Scheduled', color: 'var(--text-dim)' };
+  const atStudio = npc.zone_id === sched.studioZoneId;
+  if (sched.isNow) {
+    if (atStudio) return { label: 'At Work',  color: 'var(--green)'    };
+    return           { label: 'Late',         color: 'var(--red)'      };
+  }
+  if (sched.isFuture) return { label: 'Scheduled', color: 'var(--yellow)' };
+  return               { label: 'Not Scheduled', color: 'var(--text-dim)' };
+}
+
+function _bcNpcDraw(el) {
+  if (!_bcNpcCache) return;
+  const { npcs, npcSchedule, zoneMap } = _bcNpcCache;
+
+  if (!npcs.length) {
+    el.innerHTML = `<div style="padding:24px;color:var(--text-dim);font-size:12px">No NPCs are referenced as npc_anchor nodes in any broadcast.</div>`;
+    return;
+  }
+
+  const rows = npcs.map(npc => {
+    const { label, color } = _bcNpcStatus(npc, npcSchedule);
+    const zoneName  = npc.zone_id ? (zoneMap.get(npc.zone_id) || npc.zone_id) : '—';
+    const expanded  = _bcNpcExpanded === npc.id;
+    const editHtml  = expanded ? `
+      <div style="padding:12px 16px 16px;background:var(--bg2);border-top:1px solid var(--border)">
+        ${npcEditForm(npc, false)}
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <button class="action-btn primary" onclick="_bcNpcSave('${escHtml(npc.id)}')">Save NPC</button>
+          <button class="action-btn" onclick="_bcNpcToggle('${escHtml(npc.id)}')">Cancel</button>
+        </div>
+      </div>` : '';
+    return `
+      <div style="border-bottom:1px solid var(--border)">
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;cursor:pointer;user-select:none"
+             onclick="_bcNpcToggle('${escHtml(npc.id)}')">
+          <span style="min-width:160px;font-size:13px;font-weight:600;color:var(--text)">${escHtml(npc.name)}</span>
+          <span style="min-width:120px;font-size:11px;font-weight:600;color:${color}">${label}</span>
+          <span style="flex:1;font-size:11px;color:var(--text-dim)" title="${escHtml(npc.zone_id || '')}">${escHtml(zoneName)}</span>
+          <span style="font-size:10px;color:var(--text-dim)">${expanded ? '▲' : '▼'}</span>
+        </div>
+        ${editHtml}
+      </div>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div>
+      <div style="display:flex;align-items:center;gap:10px;padding:6px 12px;
+                  border-bottom:2px solid var(--border);font-size:10px;color:var(--text-dim);
+                  text-transform:uppercase;letter-spacing:1px;background:var(--bg2)">
+        <span style="min-width:160px">NPC</span>
+        <span style="min-width:120px">Work Status</span>
+        <span style="flex:1">Active Zone</span>
+      </div>
+      ${rows}
+    </div>`;
+}
+
+function _bcNpcToggle(id) {
+  _bcNpcExpanded = (_bcNpcExpanded === id) ? null : id;
+  const el = document.getElementById('list-panel');
+  _bcNpcDraw(el);
+}
+
+async function _bcNpcSave(id) {
+  const npc = _bcNpcCache?.npcs.find(n => n.id === id);
+  if (!npc) return;
+  const result = await saveNpc(npc); // reuse npcs.js save — reads the rendered form fields
+  if (result?.error) { toast(result.error, true); return; }
+  toast(result?.staged ? 'Staged — publish to apply' : (result?.message || 'NPC saved'));
+  _bcNpcCache = null; // invalidate so next render re-fetches
+  await bcSuiteRefresh('npcs');
 }
 
 // ── Utility ───────────────────────────────────────────────────────────────────
