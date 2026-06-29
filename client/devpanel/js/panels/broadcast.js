@@ -1522,10 +1522,9 @@ function renderCommercialsPanel(data) {
   el.innerHTML = `
     <div style="display:flex;height:100%;overflow:hidden">
       <div style="width:220px;flex-shrink:0;border-right:1px solid var(--border);display:flex;flex-direction:column;background:var(--bg)">
-        <div style="padding:8px 10px;border-bottom:1px solid var(--border);display:flex;gap:6px;align-items:center">
-          <span class="bc-label" style="margin:0;flex:1">Commercials</span>
-          <button class="action-btn" style="font-size:10px" onclick="_bcCommImportBsm()" title="Import .bsm file">↑ BSM</button>
-          <button class="action-btn primary" style="font-size:10px" onclick="_bcCommNew()">+ New</button>
+        <div style="padding:8px;border-bottom:1px solid var(--border);display:flex;gap:4px;flex-shrink:0">
+          <button class="action-btn" style="flex:1;font-size:11px" onclick="_bcCommNew()">+ New</button>
+          <button class="action-btn" style="font-size:11px" title="Import .bsm file" onclick="_bcCommImportBsm()">↑ BSM</button>
         </div>
         <div style="flex:1;overflow-y:auto">${sidebar}</div>
       </div>
