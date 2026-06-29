@@ -87,7 +87,10 @@ function applyDevSettings() {
   if (contrastLabel) contrastLabel.textContent = contrastLevel === 0 ? 'Base' : `+${contrastLevel}%`;
 
   const baseColors = customTheme ? customTheme.colors : (devSettings.customColors || {});
-  const colors = baseColors;
+  let allColors = _getBuiltinThemeColors(customTheme ? customTheme.id : themeId);
+  Object.assign(allColors, baseColors);
+  const boosted = _boostContrast(allColors, contrastLevel);
+  const colors = contrastLevel ? boosted : baseColors;
   THEME_COLOR_VARS.forEach(({ v }) => {
     if (colors[v]) document.documentElement.style.setProperty(v, colors[v]);
     else document.documentElement.style.removeProperty(v);
@@ -95,6 +98,54 @@ function applyDevSettings() {
 
   repaintPowerTileColors();
 }
+// --- Contrast boost helpers (mirrors shared/settings.js) ---
+function _hexToHsl(hex) {
+  let r = parseInt(hex.slice(1,3),16)/255, g = parseInt(hex.slice(3,5),16)/255, b = parseInt(hex.slice(5,7),16)/255;
+  const max = Math.max(r,g,b), min = Math.min(r,g,b), d = max-min;
+  let h=0, s=0, l=(max+min)/2;
+  if (d) {
+    s = d / (1-Math.abs(2*l-1));
+    h = max===r ? ((g-b)/d+6)%6 : max===g ? (b-r)/d+2 : (r-g)/d+4;
+    h *= 60;
+  }
+  return [h, s*100, l*100];
+}
+function _hslToHex(h, s, l) {
+  s /= 100; l /= 100;
+  const a = s*Math.min(l,1-l);
+  const f = n => { const k=(n+h/30)%12; const c=l-a*Math.max(Math.min(k-3,9-k,1),-1); return Math.round(255*c).toString(16).padStart(2,'0'); };
+  return `#${f(0)}${f(8)}${f(4)}`;
+}
+function _isValidHex(s) { return /^#[0-9a-fA-F]{6}$/.test(s); }
+const _BG_VARS  = ['--bg','--bg2','--bg3','--border'];
+const _FG_VARS  = ['--text','--text-dim','--text-bright'];
+const _COL_VARS = ['--accent','--accent-dim','--green','--red','--orange','--yellow','--purple'];
+function _boostContrast(colors, level) {
+  if (!level) return colors;
+  const t = level / 100;
+  const bgHex = colors['--bg'] || '#000000';
+  const isDark = _isValidHex(bgHex) ? _hexToHsl(bgHex)[2] < 50 : true;
+  const result = { ...colors };
+  for (const v of _BG_VARS) {
+    if (!result[v] || !_isValidHex(result[v])) continue;
+    const [h, s, l] = _hexToHsl(result[v]);
+    result[v] = _hslToHex(h, s, l + ((isDark ? 0 : 100) - l) * t * 0.75);
+  }
+  for (const v of _FG_VARS) {
+    if (!result[v] || !_isValidHex(result[v])) continue;
+    const [h, s, l] = _hexToHsl(result[v]);
+    result[v] = _hslToHex(h, s, l + ((isDark ? 100 : 0) - l) * t * 0.75);
+  }
+  for (const v of _COL_VARS) {
+    if (!result[v] || !_isValidHex(result[v])) continue;
+    const [h, s, l] = _hexToHsl(result[v]);
+    const newS = Math.min(100, s + (100-s) * t * 0.5);
+    const targetL = isDark ? 68 : 32;
+    result[v] = _hslToHex(h, newS, l + (targetL-l) * t * 0.5);
+  }
+  return result;
+}
+
 // Must be defined before applyDevSettings() is called (const is not hoisted)
 let _themeEditorEditingId = null;
 
