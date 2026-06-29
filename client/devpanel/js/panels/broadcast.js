@@ -1270,11 +1270,11 @@ async function _bcShowStudioConfirmation(studio, studioName, compiled, chBody, c
     </div>`;
   document.body.appendChild(overlay);
   // Store pending channel body for the continue action
-  window._bcPendingChBody = chBody;
-  window._bcPendingChId   = chId;
-  window._bcPendingChName = chBody.name;
-  window._bcPendingChNum  = chBody.number;
-  window._bcPendingCompiled = compiled;
+  window._bcPendingChBody    = chBody;
+  window._bcPendingChId      = chId;
+  window._bcPendingChName    = chBody?.name ?? null;
+  window._bcPendingChNum     = chBody?.number ?? null;
+  window._bcPendingCompiled  = compiled;
 }
 
 async function _bcStudioConfirmContinue() {
@@ -1604,23 +1604,22 @@ async function _bcImportSave({ meta, broadcastGraph, messages, assets, cameras, 
           const camErrors = camResults.filter(r => r?.error);
           if (camErrors.length) console.warn(`[BSM] ${camErrors.length} camera(s) failed:`, camErrors.map(r => r.error));
         }
-        // Spawn ALL referenced NPCs (actorIds + any speaker-generated fallbacks) if missing
+        // Spawn declared actors in studio zone if they don't already exist
         let npcSpawnCount = 0;
-        const actors = [...new Set([...(Array.isArray(actorIds) ? actorIds : [])])];
+        const existingNpcIds = _bcExistingNpcIds instanceof Set ? _bcExistingNpcIds : new Set();
+        const actors = [...new Set(Array.isArray(actorIds) ? actorIds : [])];
         for (const npcId of actors) {
+          if (existingNpcIds.has(npcId)) continue;
           try {
-            const existing = await directAPI(`/npcs/${npcId}`, 'GET');
-            if (!existing || existing.error) {
-              const npcRes = await directAPI('/npcs', 'POST', {
+            const npcRes = await directAPI('/npcs', 'POST', {
                 id: npcId, name: npcId.replace(/^npc_/, '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
                 description: 'A broadcast studio host.',
                 zone_id: _bcImportStudioZoneId, home_zone: _bcImportStudioZoneId,
                 disposition: 'neutral', wanders: 0, wander_zones: [],
                 dialogue_tree: {}, vendor_inventory: [], flags: { studio_npc: true }, behaviour_graph: {},
               });
-              if (npcRes?.error) console.warn(`[BSM] NPC spawn failed for ${npcId}:`, npcRes.error);
-              else npcSpawnCount++;
-            }
+            if (npcRes?.error) console.warn(`[BSM] NPC spawn failed for ${npcId}:`, npcRes.error);
+            else npcSpawnCount++;
           } catch (npcErr) { console.warn(`[BSM] NPC spawn error for ${npcId}:`, npcErr.message); }
         }
         const camNote = camNums.length ? `, ${camNums.length} camera(s) spawned` : '';
