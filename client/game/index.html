@@ -1157,6 +1157,19 @@
 				</div>
 
 				<div class="settings-group">
+					<label class="group-label" for="opt-contrast" style="display:flex;justify-content:space-between;align-items:center">
+						<span>Contrast</span>
+						<span id="contrast-value-label" style="font-size:11px;color:var(--text-dim)">Base</span>
+					</label>
+					<input type="range" id="opt-contrast" min="0" max="100" step="1" value="0"
+						style="width:100%;accent-color:var(--accent);cursor:pointer;margin:6px 0 4px">
+					<div style="display:flex;gap:6px;margin-top:4px">
+						<button id="contrast-save-btn" style="flex:1;background:var(--accent);border:none;color:#000;font-family:var(--font);font-size:11px;padding:5px 0;cursor:pointer;border-radius:2px">Save</button>
+						<button id="contrast-restore-btn" style="flex:1;background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font);font-size:11px;padding:5px 0;cursor:pointer;border-radius:2px">Restore</button>
+					</div>
+				</div>
+
+				<div class="settings-group">
 					<label class="group-label">Font Size</label>
 					<div class="settings-options" id="opt-fontsize">
 						<button class="settings-opt" data-value="12">

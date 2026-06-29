@@ -152,8 +152,10 @@ let _bcChannels     = [];
 let _bcSelected     = null;
 let _bcCards        = [];
 let _bcExpandedIdx  = null;
-let _broadcastGraph = null;
-let _bcNewChVisible = false;
+let _broadcastGraph  = null;
+let _bcNewChVisible  = false;
+let _bcNewActive     = false;  // true while the blank "new broadcast" canvas is open
+let _bcCommNewActive = false;  // true while the blank "new commercial" canvas is open
 
 // ── Panel entry ───────────────────────────────────────────────────────────────
 
@@ -218,6 +220,7 @@ function bcSelectBroadcast(id) {
   _bcSelected     = id ? (_broadcastList.find(b => b.id === id) || null) : null;
   _bcExpandedIdx  = null;
   _bcNewChVisible = false;
+  _bcNewActive    = !id;  // opening a new blank canvas
 
   _bcCards        = _bcBuildCards(_bcSelected);
   _broadcastGraph = _bcSelected?.broadcast_graph || null;
@@ -288,8 +291,11 @@ function _bcRenderCanvas() {
   const el = document.getElementById('bc-canvas');
   if (!el) return;
 
-  if (!_bcSelected && _bcCards.length <= 1 && !_bcCards.find(c => c.type !== 'start')) {
-    // New broadcast
+  if (!_bcSelected) {
+    if (!_bcNewActive) {
+      el.innerHTML = `<div style="padding:32px;text-align:center;color:var(--text-dim);font-size:11px;font-family:var(--font)">Select a broadcast or click + New</div>`;
+      return;
+    }
     el.innerHTML = _bcCanvasHtml(null);
     _bcRenderCards();
     return;
@@ -315,10 +321,14 @@ function _bcCanvasHtml(rec, opts = {}) {
     `<option value="${m}" ${(rec?.playback_mode || 'scripted') === m ? 'selected' : ''}>${m.replace(/_/g,' ')}</option>`
   ).join('');
 
-  const saveHandler = isCommercial ? 'saveCommercialCanvas()' : 'saveBroadcast()';
-  const delHandler  = isCommercial
+  const saveHandler   = isCommercial ? 'saveCommercialCanvas()' : 'saveBroadcast()';
+  const cancelHandler = isCommercial ? '_bcCancelNewCommercial()' : '_bcCancelNewBroadcast()';
+  const delHandler    = isCommercial
     ? `deleteCommercialCanvas('${rec?.id || ''}','${escHtml(rec?.name||'').replace(/'/g,"\\'")}')`
     : `deleteBroadcast('${rec?.id || ''}','${escHtml(rec?.name||'').replace(/'/g,"\\'")}')`;
+  const leftBtn = rec
+    ? `<button class="action-btn danger bc-canvas-btn" onclick="${delHandler}">✕ Delete</button>`
+    : `<button class="action-btn bc-canvas-btn" onclick="${cancelHandler}">Cancel</button>`;
 
   const categoryRow = isCommercial
     ? `<span class="bc-chip" style="font-size:11px;padding:3px 10px;color:var(--accent2);border-color:var(--accent2);letter-spacing:1px">COMMERCIAL</span>`
@@ -345,7 +355,7 @@ function _bcCanvasHtml(rec, opts = {}) {
         <input id="bc-name" class="form-input" value="${escHtml(rec?.name || '')}" placeholder="${isCommercial ? 'Commercial name' : 'Broadcast name'}"
           style="flex:1;font-size:18px;font-weight:700;color:var(--text-bright);background:transparent;border-color:transparent;padding:4px 0;font-family:var(--font)"
           onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='transparent'">
-        <button class="action-btn danger bc-canvas-btn" onclick="${delHandler}" ${rec ? '' : 'disabled'}>✕ Delete</button>
+        ${leftBtn}
         <button class="action-btn primary bc-canvas-btn" onclick="${saveHandler}">Save</button>
       </div>
 
@@ -802,6 +812,7 @@ async function cloneBroadcast(rec) {
 // ── BSM import ───────────────────────────────────────────────────────────────
 
 function bcImportBsm() {
+  if (_bcNewActive) _bcCancelNewBroadcast();
   const input = document.createElement('input');
   input.type = 'file';
   input.accept = '.bsm,.txt';
@@ -1429,14 +1440,18 @@ function renderCommercialsPanel(data) {
         </div>
         <div style="flex:1;overflow-y:auto">${sidebar}</div>
       </div>
-      <div style="flex:1;overflow:auto;padding:16px">${_bcCanvasHtml(_bcCommSelected, { mode: 'commercial' })}</div>
+      <div style="flex:1;overflow:auto;padding:16px">${(_bcCommSelected || _bcCommNewActive)
+        ? _bcCanvasHtml(_bcCommSelected, { mode: 'commercial' })
+        : `<div style="padding:32px;text-align:center;color:var(--text-dim);font-size:11px;font-family:var(--font)">Select a commercial or click + New</div>`
+      }</div>
     </div>`;
 
-  _bcRenderCards();
+  if (_bcCommSelected || _bcCommNewActive) _bcRenderCards();
 }
 
 function _bcCommSelect(id) {
-  _bcCommSelected = (_bcSuiteData?.broadcasts || []).find(b => b.id === id) || null;
+  _bcCommSelected  = (_bcSuiteData?.broadcasts || []).find(b => b.id === id) || null;
+  _bcCommNewActive = false;
   renderCommercialsPanel(_bcSuiteData);
 }
 
@@ -1506,8 +1521,22 @@ function _bcCommEditor(bc, channels) {
     </div>`;
 }
 
+function _bcCancelNewBroadcast() {
+  _bcNewActive = false;
+  _bcSelected  = null;
+  _bcCards     = [];
+  _bcRenderCanvas();
+}
+
+function _bcCancelNewCommercial() {
+  _bcCommNewActive = false;
+  _bcCommSelected  = null;
+  renderCommercialsPanel(_bcSuiteData);
+}
+
 function _bcCommNew() {
-  _bcCommSelected = null;
+  _bcCommNewActive = true;
+  _bcCommSelected  = null;
   renderCommercialsPanel(_bcSuiteData);
 }
 
