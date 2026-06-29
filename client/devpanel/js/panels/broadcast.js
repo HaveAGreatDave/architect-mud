@@ -80,6 +80,7 @@ function renderBroadcastSuite(data) {
 
 function bcSuiteSelectTab(tab) {
   _bcSuiteTab = tab;
+  if (typeof closeEdit === 'function') closeEdit();
   // Update tab highlights
   BC_SUITE_TABS.forEach(t => {
     const el = document.getElementById(`bc-suite-tab-${t.id}`);
@@ -1931,7 +1932,7 @@ function _bcDefaultStudioGraph(studioZoneId = null) {
     nodes: {
       n_start:  { type: 'start',  next: 'n_life' },
       n_life:   { type: 'action', action_type: 'HAVE_LIFE',  next: 'n_work' },
-      n_work:   { type: 'action', action_type: 'GO_TO_WORK', params: studioZoneId ? { studio_zone: studioZoneId } : {}, next: 'n_atwork' },
+      n_work:   { type: 'action', action_type: 'GO_TO_WORK', params: studioZoneId ? { zone_id: studioZoneId } : {}, next: 'n_atwork' },
       n_atwork: { type: 'action', action_type: 'AT_WORK',    next: 'n_gohome' },
       n_gohome: { type: 'action', action_type: 'GO_HOME',    next: 'n_wait' },
       n_wait:   { type: 'wait',   seconds: 30,               next: 'n_loop' },

@@ -500,16 +500,6 @@ async function execAction(node, entity, ctx) {
       break;
     }
 
-    case 'SAY': {
-      const text = params.text || '';
-      if (!text) break;
-      broadcast(zoneId, {
-        type: 'output',
-        message: `<span style="color:var(--yellow)">${entity.name} says, "${text}"</span>`,
-      });
-      break;
-    }
-
     // HAVE_LIFE: do a life activity — skipped when NPC is scheduled to work
     case 'HAVE_LIFE': {
       if (!ai) break;
@@ -562,7 +552,7 @@ async function execAction(node, entity, ctx) {
     case 'GO_TO_WORK': {
       if (!ai) break;
       if (!isNpcScheduledNow(entity.id)) break; // not on schedule — skip
-      const workZone = params?.studio_zone || getNpcStudioZone(entity.id);
+      const workZone = params?.zone_id || params?.studio_zone || getNpcStudioZone(entity.id);
       if (!workZone || zoneId === workZone) break; // already there or no zone known
 
       if (!ai.patrolPath.length || ai.patrolTarget !== workZone) {

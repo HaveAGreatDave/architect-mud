@@ -44,7 +44,7 @@ function makeDefaultStudioGraph(studioZoneId = null) {
     nodes: {
       n_start:  { type: 'start',  next: 'n_life' },
       n_life:   { type: 'action', action_type: 'HAVE_LIFE',  next: 'n_work' },
-      n_work:   { type: 'action', action_type: 'GO_TO_WORK', params: studioZoneId ? { studio_zone: studioZoneId } : {}, next: 'n_atwork' },
+      n_work:   { type: 'action', action_type: 'GO_TO_WORK', params: studioZoneId ? { zone_id: studioZoneId } : {}, next: 'n_atwork' },
       n_atwork: { type: 'action', action_type: 'AT_WORK',    next: 'n_gohome' },
       n_gohome: { type: 'action', action_type: 'GO_HOME',    next: 'n_wait' },
       n_wait:   { type: 'wait',   seconds: 30,               next: 'n_loop' },
@@ -634,7 +634,7 @@ function _extractNpcWorkSequence(graph, npcId) {
     } else if (type === 'wait') {
       pendingWait += (data.seconds || data.duration || 5);
     } else if (type === 'say' && currentNpc === npcId) {
-      sequence.push({ type: 'SAY', params: { text: data.text || '' }, waitSecs: pendingWait });
+      sequence.push({ type: 'SAY', params: { message: data.text || '' }, waitSecs: pendingWait });
       pendingWait = 5; // default gap after a line
     } else if (type === 'npc_action' && currentNpc === npcId) {
       const msg = data.message || data.action || '';
@@ -692,6 +692,8 @@ async function _injectWorkPhaseForPlaylistItem(item) {
     await query(
       `UPDATE npcs SET behaviour_graph=$1 WHERE id=$2`, [newGraph, npcId]
     ).catch(() => {});
+    const live = world.npcs.get(npcId);
+    if (live) live.behaviour_graph = _buildWorkPhasedGraph(sequence);
   }
 }
 
