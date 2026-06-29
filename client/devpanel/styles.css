@@ -130,6 +130,7 @@
   .action-btn.primary:hover { background: var(--accent); color: var(--bg); }
   .action-btn.success { border-color: var(--accent2); color: var(--accent2); }
   .action-btn.success:hover { background: var(--accent2); color: var(--bg); }
+  .bc-canvas-btn { min-width: 78px; padding: 5px 14px; font-size: 11px; font-family: var(--font); text-align: center; }
 
   /* Edit panel */
   #edit-panel {

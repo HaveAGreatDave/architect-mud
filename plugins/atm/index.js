@@ -50,7 +50,7 @@ function buildAtmPanel(atm, player, powered) {
     name: atm.name,
     network: {
       id: atm.network_id || null,
-      name: atm.network_name || 'CENTRAL BANK',
+      name: atm.network_name || 'UNLINKED',
       color: atm.color || '#00ff88',
       fee_rate: parseFloat(atm.fee_rate) || 0,
       withdrawal_limit: atm.withdrawal_limit ?? 5000,

@@ -3658,7 +3658,7 @@ body {
 #atm-box {
 	background: #000;
 	border: 2px solid #00ff88;
-	box-shadow: 0 0 40px rgba(0, 255, 136, 0.35), inset 0 0 80px rgba(0, 0, 0, 0.95);
+	box-shadow: 0 0 60px rgba(0, 255, 136, 0.7), 0 0 20px rgba(0, 255, 136, 0.5), inset 0 0 80px rgba(0, 0, 0, 0.95);
 	font-family: 'Courier New', Courier, monospace;
 	color: #00ff88;
 	min-width: 340px;
@@ -3854,7 +3854,12 @@ body {
 	background: rgba(255, 59, 92, 0.12);
 	border-color: #ff3b5c;
 }
-.atm-btn-danger:disabled { opacity: 0.25; }
+.atm-btn-danger:disabled {
+	opacity: 0.6;
+	color: #ff3b5c;
+	border-color: rgba(255, 59, 92, 0.5);
+	cursor: not-allowed;
+}
 
 /* ── TV Panel ── */
 #tv-panel {

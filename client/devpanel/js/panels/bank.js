@@ -214,11 +214,8 @@ function bankEditUnit(id) {
       <div class="field"><label>Hack Difficulty (1–10)</label>
         <input id="beu-diff" type="number" min="1" max="10" value="${u.hack_difficulty || 5}" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);padding:5px 8px;width:100%;box-sizing:border-box">
       </div>
-      <div style="display:flex;gap:8px;margin-top:4px">
-        <button class="action-btn success" style="flex:1" onclick="bankSaveUnit('${id}')">Save</button>
-        <button class="action-btn" onclick="closeModal()">Cancel</button>
-      </div>
     </div>`);
+  document.getElementById('modal-save').onclick = () => bankSaveUnit(id);
 }
 
 async function bankSaveUnit(id) {
@@ -287,11 +284,10 @@ function bankCreateAtm() {
       <div class="field"><label>Hack Difficulty (1–10)</label>
         <input id="batm-diff" type="number" min="1" max="10" value="5" style="${fieldStyle}">
       </div>
-      <div style="display:flex;gap:8px;margin-top:4px">
-        <button class="action-btn success" style="flex:1" onclick="bankCreateAtmSave()">Create</button>
-        <button class="action-btn" onclick="closeModal()">Cancel</button>
-      </div>
     </div>`);
+  const saveBtn = document.getElementById('modal-save');
+  saveBtn.textContent = 'Create';
+  saveBtn.onclick = bankCreateAtmSave;
 }
 
 async function bankCreateAtmSave() {

@@ -122,7 +122,7 @@ async function bcSuiteRefresh(focusTab) {
 }
 
 const BROADCAST_CATEGORIES = ['general','news','advertisement','entertainment','emergency','weather','sport','music','documentary','surveillance'];
-const BROADCAST_MODES      = ['scripted','dynamic_news','live_camera','recorded'];
+const BROADCAST_MODES      = ['scripted','dynamic_news','live','recorded'];
 
 const BC_CAT_COLOR = {
   entertainment: 'var(--cyan)',    news: 'var(--yellow)',
@@ -299,7 +299,9 @@ function _bcRenderCanvas() {
   _bcRenderCards();
 }
 
-function _bcCanvasHtml(rec) {
+function _bcCanvasHtml(rec, opts = {}) {
+  const isCommercial = opts.mode === 'commercial';
+
   const chOptions = `<option value="">— no channel —</option>` +
     [..._bcChannels].sort((a,b) => (a.number||99) - (b.number||99)).map(c =>
       `<option value="${c.id}" ${rec?.channel_id === c.id ? 'selected' : ''}>Ch ${c.number}: ${escHtml(c.name)}</option>`
@@ -313,6 +315,18 @@ function _bcCanvasHtml(rec) {
     `<option value="${m}" ${(rec?.playback_mode || 'scripted') === m ? 'selected' : ''}>${m.replace(/_/g,' ')}</option>`
   ).join('');
 
+  const saveHandler = isCommercial ? 'saveCommercialCanvas()' : 'saveBroadcast()';
+  const delHandler  = isCommercial
+    ? `deleteCommercialCanvas('${rec?.id || ''}','${escHtml(rec?.name||'').replace(/'/g,"\\'")}')`
+    : `deleteBroadcast('${rec?.id || ''}','${escHtml(rec?.name||'').replace(/'/g,"\\'")}')`;
+
+  const categoryRow = isCommercial
+    ? `<span class="bc-chip" style="font-size:11px;padding:3px 10px;color:var(--accent2);border-color:var(--accent2);letter-spacing:1px">COMMERCIAL</span>`
+    : `<div style="display:flex;align-items:center;gap:6px">
+         <span style="font-size:10px;color:var(--text-dim)">Category</span>
+         <select id="bc-category" class="form-input" style="font-size:11px;width:130px">${catOptions}</select>
+       </div>`;
+
   const nodeCount = Object.keys(rec?.broadcast_graph?.nodes || {}).length;
 
   const newChForm = `
@@ -324,30 +338,27 @@ function _bcCanvasHtml(rec) {
     </div>`;
 
   return `
-    <div style="max-width:900px;margin:0 auto;padding:24px 28px;display:flex;flex-direction:column;gap:0">
+    <div style="max-width:900px;margin:0 auto;padding:24px 28px;display:flex;flex-direction:column;gap:0;border:1px solid var(--border);border-radius:2px;background:var(--bg2)">
 
       <!-- Header -->
       <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:4px">
-        <input id="bc-name" class="form-input" value="${escHtml(rec?.name || '')}" placeholder="Broadcast name"
-          style="flex:1;font-size:18px;font-weight:700;color:var(--text-bright);background:transparent;border-color:transparent;padding:4px 0"
+        <input id="bc-name" class="form-input" value="${escHtml(rec?.name || '')}" placeholder="${isCommercial ? 'Commercial name' : 'Broadcast name'}"
+          style="flex:1;font-size:18px;font-weight:700;color:var(--text-bright);background:transparent;border-color:transparent;padding:4px 0;font-family:var(--font)"
           onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='transparent'">
-        <button class="action-btn danger" style="margin-top:4px" onclick="deleteBroadcast('${rec?.id || ''}','${escHtml(rec?.name||'').replace(/'/g,"\\'")}')" ${rec ? '' : 'disabled'}>✕ Delete</button>
-        <button class="action-btn primary" style="margin-top:4px" onclick="saveBroadcast()">Save</button>
+        <button class="action-btn danger bc-canvas-btn" onclick="${delHandler}" ${rec ? '' : 'disabled'}>✕ Delete</button>
+        <button class="action-btn primary bc-canvas-btn" onclick="${saveHandler}">Save</button>
       </div>
 
       <!-- Channel row -->
       <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);margin-bottom:12px">
-        <span style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);min-width:56px">Channel</span>
+        <span style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);min-width:56px;font-family:var(--font)">Channel</span>
         <select id="bc-channel" class="form-input" style="width:220px;font-size:12px" onchange="_bcOnChannelSelect(this.value)">${chOptions}</select>
         ${newChForm}
       </div>
 
       <!-- Metadata row -->
       <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding-bottom:12px;border-bottom:1px solid var(--border);margin-bottom:16px">
-        <div style="display:flex;align-items:center;gap:6px">
-          <span style="font-size:10px;color:var(--text-dim)">Category</span>
-          <select id="bc-category" class="form-input" style="font-size:11px;width:130px">${catOptions}</select>
-        </div>
+        ${categoryRow}
         <div style="display:flex;align-items:center;gap:6px">
           <span style="font-size:10px;color:var(--text-dim)">Mode</span>
           <select id="bc-mode" class="form-input" style="font-size:11px;width:120px">${modeOptions}</select>
@@ -1390,7 +1401,11 @@ let _bcCommSelected = null;
 function renderCommercialsPanel(data) {
   const el = document.getElementById('list-panel');
   const ads = (data?.broadcasts || []).filter(b => b.category === 'advertisement');
-  const channels = data?.channels || [];
+
+  // Sync selected object from fresh data, then sync broadcast canvas state
+  if (_bcCommSelected) _bcCommSelected = ads.find(b => b.id === _bcCommSelected.id) || null;
+  _bcSelected = _bcCommSelected;
+  _bcCards    = _bcBuildCards(_bcCommSelected);
 
   const sidebar = ads.map(b => {
     const dur = b.override_duration || ((Array.isArray(b.messages) ? b.messages.length : 0) * (b.message_interval || 5)) || 30;
@@ -1404,8 +1419,6 @@ function renderCommercialsPanel(data) {
     </div>`;
   }).join('') || `<div class="bc-meta" style="padding:12px">No advertisements yet</div>`;
 
-  const editor = _bcCommSelected ? _bcCommEditor(_bcCommSelected, channels) : `<div class="bc-meta" style="padding:24px">Select a commercial to edit</div>`;
-
   el.innerHTML = `
     <div style="display:flex;height:100%;overflow:hidden">
       <div style="width:220px;flex-shrink:0;border-right:1px solid var(--border);display:flex;flex-direction:column;background:var(--bg)">
@@ -1416,13 +1429,10 @@ function renderCommercialsPanel(data) {
         </div>
         <div style="flex:1;overflow-y:auto">${sidebar}</div>
       </div>
-      <div style="flex:1;overflow:auto;padding:16px">${editor}</div>
+      <div style="flex:1;overflow:auto;padding:16px">${_bcCanvasHtml(_bcCommSelected, { mode: 'commercial' })}</div>
     </div>`;
 
-  // Sync selected object from fresh data
-  if (_bcCommSelected) {
-    _bcCommSelected = ads.find(b => b.id === _bcCommSelected.id) || null;
-  }
+  _bcRenderCards();
 }
 
 function _bcCommSelect(id) {
@@ -1497,27 +1507,53 @@ function _bcCommEditor(bc, channels) {
 }
 
 function _bcCommNew() {
-  if (typeof VineBroadcastSchema === 'undefined') {
-    toast('VINE broadcast schema not loaded.', true); return;
-  }
-  const emptyGraph = { _start: 'c_0', nodes: { c_0: { type: 'start', _vine: { x: 80, y: 80 } } } };
-  const vineData = VineBroadcastSchema.fromBroadcastGraph(emptyGraph);
-  vineModalOpen('VINE — New Commercial', VineBroadcastSchema, vineData, async (vineGraph) => {
-    const graph = VineBroadcastSchema.toBroadcastGraph(vineGraph);
-    const msgs  = Object.values(graph.nodes || {})
-      .filter(n => n.type === 'say' || n.type === 'ticker')
-      .map(n => ({ text: n.text || '' }));
-    const id  = `advert_${Date.now()}`;
-    const res = await directAPI('/broadcast/broadcasts', 'POST', {
-      id, name: 'New Commercial', category: 'advertisement',
-      messages: msgs, message_interval: 5, override_duration: null,
-      broadcast_graph: graph,
-    });
+  _bcCommSelected = null;
+  renderCommercialsPanel(_bcSuiteData);
+}
+
+async function saveCommercialCanvas() {
+  const name = document.getElementById('bc-name')?.value?.trim();
+  if (!name) { toast('Name is required.', true); return; }
+  const { graph, messages } = _bcRebuildGraph();
+  const body = {
+    name,
+    description:       _bcSelected?.description || '',
+    category:          'advertisement',
+    playback_mode:     document.getElementById('bc-mode')?.value || 'scripted',
+    message_interval:  parseFloat(document.getElementById('bc-interval')?.value || 5),
+    override_duration: parseFloat(document.getElementById('bc-override-dur')?.value || '') || null,
+    loop:              document.getElementById('bc-loop')?.checked    ? 1 : 0,
+    enabled:           document.getElementById('bc-enabled')?.checked ? 1 : 0,
+    messages,
+    broadcast_graph:   graph,
+    channel_id:        document.getElementById('bc-channel')?.value || null,
+    fallback_messages: (document.getElementById('bc-fallback-msgs')?.value || '').split('\n').map(s => s.trim()).filter(Boolean),
+  };
+  const isNew = !_bcSelected;
+  const path   = isNew ? '/broadcast/broadcasts' : `/broadcast/broadcasts/${_bcSelected.id}`;
+  const method = isNew ? 'POST' : 'PUT';
+  try {
+    const res = await directAPI(path, method, body);
     if (res?.error) { toast(res.error, true); return; }
-    _bcCommSelected = { id, name: 'New Commercial', category: 'advertisement',
-      messages: msgs, message_interval: 5, override_duration: null, broadcast_graph: graph };
+    const newId = res.id || _bcSelected?.id;
+    toast(isNew ? 'Commercial created.' : 'Commercial saved.');
     await bcSuiteRefresh('commercials');
-  });
+    _bcCommSelected = (_bcSuiteData?.broadcasts || []).find(b => b.id === newId) || null;
+    if (_bcCommSelected) renderCommercialsPanel(_bcSuiteData);
+  } catch (err) { toast(err.message, true); }
+}
+
+async function deleteCommercialCanvas(id, name) {
+  if (!id) return;
+  if (!confirm(`Delete commercial "${name}"? This cannot be undone.`)) return;
+  try {
+    const res = await directAPI(`/broadcast/broadcasts/${id}`, 'DELETE');
+    if (res?.error) { toast(res.error, true); return; }
+    _bcCommSelected = null;
+    _bcSelected     = null;
+    toast('Commercial deleted.');
+    await bcSuiteRefresh('commercials');
+  } catch (err) { toast(err.message, true); }
 }
 
 function _bcCommImportBsm() {
