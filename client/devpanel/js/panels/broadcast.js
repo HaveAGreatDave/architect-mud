@@ -438,25 +438,37 @@ function _bcCardFields(card, idx) {
         <label style="font-size:10px;color:var(--text-dim);display:block;margin-bottom:4px">NPC ID</label>
         <input class="form-input" value="${escHtml(card.npc_id||'')}" placeholder="npc_john_akerson" style="font-size:12px" ${bind('npc_id')}>
       </div>`;
-    case 'camera_cut':
+    case 'camera_cut': {
+      const zoneOpts = `<option value="">— none —</option>` +
+        [...(_bcSuiteData.zones || [])].sort((a,b) => (a.name||'').localeCompare(b.name||''))
+          .map(z => `<option value="${escHtml(z.id)}"${card.zone_id === z.id ? ' selected' : ''}>${escHtml(z.name)} <span style="color:var(--text-dim)">(${escHtml(z.id)})</span></option>`).join('');
       return `<div style="display:flex;flex-direction:column;gap:8px;padding-top:10px">
-        <div><label style="font-size:10px;color:var(--text-dim);display:block;margin-bottom:3px">Zone ID</label>
-        <input class="form-input" value="${escHtml(card.zone_id||'')}" style="font-size:12px" ${bind('zone_id')}></div>
+        <div><label style="font-size:10px;color:var(--text-dim);display:block;margin-bottom:3px">Zone</label>
+        <select class="form-input" style="font-size:12px;width:100%" oninput="_bcCards[${idx}].zone_id=this.value;_bcUpdateDurLabel()">${zoneOpts}</select></div>
         <div><label style="font-size:10px;color:var(--text-dim);display:block;margin-bottom:3px">Label</label>
         <input class="form-input" value="${escHtml(card.label||'')}" placeholder="Optional label" style="font-size:12px" ${bind('label')}></div>
       </div>`;
-    case 'overlay':
+    }
+    case 'overlay': {
+      const graphicOpts = `<option value="">— none —</option>` +
+        [...(_bcSuiteData.graphics || [])].sort((a,b) => (a.name||'').localeCompare(b.name||''))
+          .map(g => `<option value="${escHtml(g.id)}"${card.graphic_id === g.id ? ' selected' : ''}>${escHtml(g.name||g.id)}</option>`).join('');
       return `<div style="display:flex;flex-direction:column;gap:8px;padding-top:10px">
-        <div><label style="font-size:10px;color:var(--text-dim);display:block;margin-bottom:3px">Graphic ID</label>
-        <input class="form-input" value="${escHtml(card.graphic_id||'')}" style="font-size:12px" ${bind('graphic_id')}></div>
+        <div><label style="font-size:10px;color:var(--text-dim);display:block;margin-bottom:3px">Graphic</label>
+        <select class="form-input" style="font-size:12px;width:100%" oninput="_bcCards[${idx}].graphic_id=this.value">${graphicOpts}</select></div>
         <div><label style="font-size:10px;color:var(--text-dim);display:block;margin-bottom:3px">Overlay text</label>
         <textarea class="form-input" rows="2" style="font-size:12px;resize:vertical" ${bind('text')}>${escHtml(card.text||'')}</textarea></div>
       </div>`;
-    case 'title_card':
+    }
+    case 'title_card': {
+      const graphicOpts = `<option value="">— none —</option>` +
+        [...(_bcSuiteData.graphics || [])].sort((a,b) => (a.name||'').localeCompare(b.name||''))
+          .map(g => `<option value="${escHtml(g.id)}"${card.graphic_id === g.id ? ' selected' : ''}>${escHtml(g.name||g.id)}</option>`).join('');
       return `<div style="padding-top:10px">
-        <label style="font-size:10px;color:var(--text-dim);display:block;margin-bottom:4px">Graphic ID</label>
-        <input class="form-input" value="${escHtml(card.graphic_id||'')}" style="font-size:12px" ${bind('graphic_id')}>
+        <label style="font-size:10px;color:var(--text-dim);display:block;margin-bottom:4px">Graphic</label>
+        <select class="form-input" style="font-size:12px;width:100%" oninput="_bcCards[${idx}].graphic_id=this.value">${graphicOpts}</select>
       </div>`;
+    }
     default:
       return `<div style="padding:10px;font-size:11px;color:var(--text-dim)">This node type can only be edited in the VINE graph editor.</div>`;
   }
@@ -726,9 +738,183 @@ function bcImportBsm() {
     try { compiled = compileBsm(text); }
     catch (err) { toast(`BSM parse error: ${err.message}`, true); return; }
     if (!compiled.meta.name) { toast('BSM file is missing @broadcast name.', true); return; }
-    await _bcImportDependencies(compiled);
+    _bcShowImportChannelModal(compiled);
   };
   input.click();
+}
+
+// ── BSM import — channel selection step ──────────────────────────────────────
+
+let _bcImportChannelId  = null;  // resolved channel id for the import
+let _bcImportChZone     = null;  // { x, y } picked for new channel's zone_id
+let _bcImportAllZones   = [];    // cached zones for the channel zone picker
+let _bcImportPending    = null;  // compiled BSM held during channel selection
+
+async function _bcShowImportChannelModal(compiled) {
+  _bcImportChannelId = null;
+  _bcImportChZone    = null;
+  _bcImportPending   = compiled;
+
+  // Pre-fetch zones so the zone picker is ready
+  try {
+    _bcImportAllZones = await directAPI('/zones', 'GET') || [];
+  } catch { _bcImportAllZones = []; }
+
+  const chOptions = `<option value="">— no channel —</option>` +
+    [..._bcChannels].sort((a, b) => (a.number || 99) - (b.number || 99))
+      .map(c => `<option value="${c.id}">Ch ${c.number}: ${escHtml(c.name)}</option>`).join('') +
+    `<option value="__new__">+ Create new channel…</option>`;
+
+  const overlay = document.createElement('div');
+  overlay.id = 'bsm-channel-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:700;display:flex;align-items:center;justify-content:center';
+  overlay.innerHTML = `
+    <div style="background:var(--bg2);border:1px solid var(--accent);padding:20px;width:480px;max-width:94vw;border-radius:3px;display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="color:var(--accent);font-size:13px;letter-spacing:2px;text-transform:uppercase">BSM Import — Assign Channel</span>
+        <button onclick="document.getElementById('bsm-channel-overlay').remove()" style="background:transparent;border:1px solid var(--border);color:var(--text-dim);width:26px;height:26px;cursor:pointer;border-radius:2px;font-size:13px">✕</button>
+      </div>
+      <div style="font-size:11px;color:var(--text-dim)">Select a channel to assign this broadcast to, or create a new one.</div>
+      <div>
+        <label style="font-size:10px;color:var(--text-dim);display:block;margin-bottom:5px;text-transform:uppercase;letter-spacing:1px">Channel</label>
+        <select id="bsm-ch-select" class="form-input" style="width:100%;font-size:12px" onchange="_bcImportChSelectChange(this.value)">
+          ${chOptions}
+        </select>
+      </div>
+      <div id="bsm-new-ch-form" style="display:none;flex-direction:column;gap:10px;padding:12px;background:var(--bg3);border-radius:2px;border:1px solid var(--border)">
+        <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">New Channel</div>
+        <div style="display:flex;gap:8px">
+          <div style="flex:1">
+            <label style="font-size:10px;color:var(--text-dim);display:block;margin-bottom:3px">Name</label>
+            <input id="bsm-new-ch-name" class="form-input" placeholder="Channel name" style="width:100%;font-size:12px;box-sizing:border-box">
+          </div>
+          <div style="width:80px">
+            <label style="font-size:10px;color:var(--text-dim);display:block;margin-bottom:3px">Number</label>
+            <input id="bsm-new-ch-number" class="form-input" type="number" min="1" placeholder="#" style="width:100%;font-size:12px;box-sizing:border-box">
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <button class="action-btn" style="font-size:11px;white-space:nowrap" onclick="_bcImportPickChZone()">📍 Pick zone on map</button>
+          <span id="bsm-new-ch-zone-label" style="font-size:11px;color:var(--text-dim)">No zone selected</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="action-btn" onclick="document.getElementById('bsm-channel-overlay').remove()">Cancel</button>
+        <button class="action-btn primary" onclick="_bcImportChannelConfirm()">Continue →</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+}
+
+function _bcImportChSelectChange(val) {
+  const form = document.getElementById('bsm-new-ch-form');
+  if (form) form.style.display = val === '__new__' ? 'flex' : 'none';
+}
+
+function _bcImportPickChZone() {
+  const allZones = _bcImportAllZones;
+  const placed = allZones.filter(z => z.grid_x != null && z.grid_y != null && z.map_id === 'map_world');
+  let minX = -3, maxX = 3, minY = -3, maxY = 3;
+  if (placed.length) {
+    const xs = placed.map(z => z.grid_x), ys = placed.map(z => z.grid_y);
+    minX = Math.min(...xs) - 2; maxX = Math.max(...xs) + 2;
+    minY = Math.min(...ys) - 2; maxY = Math.max(...ys) + 2;
+  }
+  const byCoord = new Map(placed.map(z => [`${z.grid_x},${z.grid_y}`, z]));
+  const W = maxX - minX + 1;
+  const CELL = 76;
+  let cells = '';
+  for (let y = minY; y <= maxY; y++) {
+    for (let x = minX; x <= maxX; x++) {
+      const z = byCoord.get(`${x},${y}`);
+      if (z) {
+        cells += `<div style="background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--text-dim);text-align:center;padding:2px;overflow:hidden;line-height:1.2" title="${z.id}">${escHtml(z.name)}</div>`;
+      } else {
+        cells += `<div class="bsm-ch-pick-cell" data-x="${x}" data-y="${y}" onclick="_bcImportChPickCell(${x},${y},this)" style="background:var(--bg);border:1px dashed var(--border);display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--border);cursor:pointer" title="${x},${y}">+</div>`;
+      }
+    }
+  }
+  const picker = document.createElement('div');
+  picker.id = 'bsm-ch-picker-overlay';
+  picker.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:800;display:flex;align-items:center;justify-content:center';
+  picker.innerHTML = `
+    <div style="background:var(--bg2);border:1px solid var(--yellow);padding:16px;width:660px;max-width:96vw;border-radius:3px;display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="color:var(--yellow);font-size:12px;letter-spacing:1px;text-transform:uppercase">Pick Channel Zone</span>
+        <button onclick="document.getElementById('bsm-ch-picker-overlay').remove()" style="background:transparent;border:1px solid var(--border);color:var(--text-dim);width:24px;height:24px;cursor:pointer;border-radius:2px;font-size:12px">✕</button>
+      </div>
+      <div style="font-size:11px;color:var(--text-dim)">Click an empty cell (+) to place the channel's studio zone on the world map.</div>
+      <div style="overflow:auto;max-height:400px">
+        <div style="display:grid;grid-template-columns:repeat(${W},${CELL}px);grid-template-rows:repeat(${maxY-minY+1},${Math.round(CELL*0.65)}px);gap:2px;width:fit-content">
+          ${cells}
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;align-items:center">
+        <span id="bsm-ch-picker-label" style="font-size:11px;color:var(--text-dim)">No cell selected</span>
+        <button onclick="document.getElementById('bsm-ch-picker-overlay').remove()" class="action-btn">Cancel</button>
+        <button id="bsm-ch-picker-confirm" class="action-btn primary" disabled onclick="_bcImportChPickerConfirm()">Use This Cell</button>
+      </div>
+    </div>`;
+  document.body.appendChild(picker);
+}
+
+function _bcImportChPickCell(x, y, el) {
+  document.querySelectorAll('.bsm-ch-pick-cell').forEach(c => {
+    c.style.background = 'var(--bg)'; c.style.borderColor = 'var(--border)'; c.style.color = 'var(--border)';
+  });
+  el.style.background = 'color-mix(in srgb,var(--yellow) 20%,transparent)';
+  el.style.borderColor = 'var(--yellow)'; el.style.color = 'var(--yellow)';
+  _bcImportChZone = { x, y };
+  const lbl = document.getElementById('bsm-ch-picker-label');
+  if (lbl) lbl.textContent = `Selected: ${x}, ${y}`;
+  const btn = document.getElementById('bsm-ch-picker-confirm');
+  if (btn) btn.removeAttribute('disabled');
+}
+
+function _bcImportChPickerConfirm() {
+  document.getElementById('bsm-ch-picker-overlay')?.remove();
+  const lbl = document.getElementById('bsm-new-ch-zone-label');
+  if (lbl && _bcImportChZone) lbl.textContent = `Zone at ${_bcImportChZone.x}, ${_bcImportChZone.y}`;
+}
+
+async function _bcImportChannelConfirm() {
+  const compiled = _bcImportPending;
+  const sel = document.getElementById('bsm-ch-select')?.value || '';
+
+  if (sel === '__new__') {
+    const name   = document.getElementById('bsm-new-ch-name')?.value?.trim();
+    const number = parseInt(document.getElementById('bsm-new-ch-number')?.value || '');
+    if (!name)   { toast('Channel name is required.', true); return; }
+    if (!number) { toast('Channel number is required.', true); return; }
+
+    const chId = `ch_${number}_${Date.now()}`;
+    const chBody = { id: chId, name, number, channel_type: 'playlist', enabled: 1 };
+    if (_bcImportChZone) {
+      const zoneName = `${name} Studio`;
+      const zoneId   = `zone_ch_${number}_${Date.now()}`;
+      try {
+        await directAPI('/zones', 'POST', {
+          id: zoneId, name: zoneName, description: `Broadcast studio for channel ${number}: ${name}.`,
+          map_id: 'map_world', grid_x: _bcImportChZone.x, grid_y: _bcImportChZone.y, grid_z: 0,
+          marker: name.slice(0, 2).toUpperCase(),
+        });
+        chBody.zone_id = zoneId;
+      } catch (err) { toast(`Zone creation failed: ${err.message}`, true); return; }
+    }
+
+    try {
+      const res = await directAPI('/broadcast/channels', 'POST', chBody);
+      if (res?.error) { toast(res.error, true); return; }
+      _bcImportChannelId = res.id || chId;
+      _bcChannels.push({ ...(res || {}), id: _bcImportChannelId, name, number });
+    } catch (err) { toast(err.message, true); return; }
+
+  } else {
+    _bcImportChannelId = sel || null;
+  }
+
+  document.getElementById('bsm-channel-overlay')?.remove();
+  await _bcImportDependencies(compiled);
 }
 
 // ── BSM dependency resolver ───────────────────────────────────────────────────
@@ -902,10 +1088,12 @@ async function _bcImportSave({ meta, broadcastGraph, messages, assets }) {
     if (overwrite) { method = 'PUT'; path = `/broadcast/broadcasts/${existing.id}`; }
     else { meta.name += ' (imported)'; }
   }
-  // Resolve channel_id from @channel directive
-  const channelId = meta.channel
-    ? (_bcChannels.find(c => c.id === meta.channel || String(c.number) === meta.channel)?.id || null)
-    : null;
+  // Use channel selected during import; fall back to @channel directive
+  const channelId = _bcImportChannelId !== undefined && _bcImportChannelId !== null
+    ? _bcImportChannelId
+    : (meta.channel
+        ? (_bcChannels.find(c => c.id === meta.channel || String(c.number) === meta.channel)?.id || null)
+        : null);
 
   const body = {
     name: meta.name, category: meta.category || 'general',

@@ -113,16 +113,20 @@ async function openChannelEditor(rec) {
   _channelEditTarget = rec || null;
   _channelPlaylist = [];
 
-  // Load broadcasts and themes in parallel
-  let themes = [];
+  // Load broadcasts, themes, graphics, and zones in parallel
+  let themes = [], graphics = [], zones = [];
   try {
-    const [bcs, ths] = await Promise.all([
+    const [bcs, ths, gfx, zns] = await Promise.all([
       directAPI('/broadcast/broadcasts'),
       directAPI('/broadcast/themes'),
+      directAPI('/broadcast/graphics'),
+      directAPI('/zones'),
     ]);
     _channelBroadcasts = Array.isArray(bcs) ? bcs : [];
-    themes = Array.isArray(ths) ? ths : [];
-  } catch (e) { _channelBroadcasts = []; themes = []; }
+    themes   = Array.isArray(ths) ? ths : [];
+    graphics = Array.isArray(gfx) ? gfx : [];
+    zones    = Array.isArray(zns) ? zns : [];
+  } catch (e) { _channelBroadcasts = []; themes = []; graphics = []; zones = []; }
 
   // Load existing playlist
   if (rec) {
@@ -171,6 +175,20 @@ async function openChannelEditor(rec) {
     ),
   ].join('');
 
+  const graphicOptions = [
+    '<option value="">— None —</option>',
+    ...[...graphics].sort((a,b) => (a.name||'').localeCompare(b.name||'')).map(g =>
+      `<option value="${g.id}"${rec?.offline_graphic_id === g.id ? ' selected' : ''}>${escHtml2(g.name||g.id)}</option>`
+    ),
+  ].join('');
+
+  const zoneOptions2 = [
+    '<option value="">— None —</option>',
+    ...[...zones].sort((a,b) => (a.name||'').localeCompare(b.name||'')).map(z =>
+      `<option value="${z.id}"${rec?.studio_zone_id === z.id ? ' selected' : ''}>${escHtml2(z.name)}</option>`
+    ),
+  ].join('');
+
   const newsCatCheckboxes = NEWS_CATEGORIES.map(cat => {
     const checked = Array.isArray(rec?.news_categories) && rec.news_categories.includes(cat) ? ' checked' : '';
     return `<label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer">
@@ -211,12 +229,12 @@ async function openChannelEditor(rec) {
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div>
-          <label style="display:block;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:4px">Studio Zone ID</label>
-          <input id="ch-studio-zone" class="form-input" value="${escHtml2(rec?.studio_zone_id || '')}" placeholder="zone_id where NPC hosts work">
+          <label style="display:block;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:4px">Studio Zone</label>
+          <select id="ch-studio-zone" class="form-input">${zoneOptions2}</select>
         </div>
         <div>
-          <label style="display:block;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:4px">Offline Graphic ID</label>
-          <input id="ch-offline-graphic" class="form-input" value="${escHtml2(rec?.offline_graphic_id || '')}" placeholder="media_graphics id for off-air screen">
+          <label style="display:block;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:4px">Offline Graphic</label>
+          <select id="ch-offline-graphic" class="form-input">${graphicOptions}</select>
         </div>
       </div>
       <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">

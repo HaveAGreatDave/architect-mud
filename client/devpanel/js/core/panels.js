@@ -199,12 +199,13 @@ const PANELS = {
   broadcasts: {
     title: 'Broadcasts',
     fetch: async () => {
-      const [broadcasts, channels, npcs, themes, graphics] = await Promise.all([
+      const [broadcasts, channels, npcs, themes, graphics, zones] = await Promise.all([
         directAPI('/broadcast/broadcasts'),
         directAPI('/broadcast/channels'),
         directAPI('/npcs'),
         directAPI('/broadcast/themes'),
         directAPI('/broadcast/graphics'),
+        directAPI('/zones'),
       ]);
       return {
         broadcasts: Array.isArray(broadcasts) ? broadcasts : [],
@@ -212,6 +213,7 @@ const PANELS = {
         npcs:       Array.isArray(npcs)        ? npcs       : [],
         themes:     Array.isArray(themes)      ? themes     : [],
         graphics:   Array.isArray(graphics)    ? graphics   : [],
+        zones:      Array.isArray(zones)       ? zones      : [],
       };
     },
     noEdit: true,
