@@ -108,7 +108,7 @@ async function _schedCreateChannel() {
       id: `ch_${number}_${Date.now()}`, name, number, channel_type: 'playlist', enabled: 1,
     });
     if (res?.error) { toast(res.error, true); return; }
-    const newCh = { id: res.id || `ch_${number}_${Date.now()}`, name, number, channel_type: 'playlist', schedule_mode: 'loop' };
+    const newCh = { id: res.id || `ch_${number}_${Date.now()}`, name, number, channel_type: 'playlist', schedule_mode: 'daily' };
     _schedChannels.push(newCh);
     _schedChannels.sort((a, b) => (a.number || 99) - (b.number || 99));
     _schedChannelId = newCh.id;
@@ -284,7 +284,7 @@ function _schedChBody(ch, overrides = {}) {
     priority: ch.priority || 0, channel_type: ch.channel_type || 'playlist',
     idle_broadcast_id: ch.idle_broadcast_id || null,
     news_categories: ch.news_categories || [],
-    schedule_mode: ch.schedule_mode || 'loop',
+    schedule_mode: ch.schedule_mode || 'daily',
     ...overrides,
   };
 }
@@ -416,7 +416,7 @@ function _schedItemDragStart(e, idx) {
   if (tl) {
     const rect = tl.getBoundingClientRect();
     const item = _schedItems[idx];
-    _schedDragOffset = (e.clientX - rect.left) / _schedScale() - item.start_time;
+    _schedDragOffset = (e.clientX - rect.left) - _schedToX(item.start_time); // pixels from item left edge
   }
   e.dataTransfer.effectAllowed = 'move';
   e.stopPropagation();
@@ -446,11 +446,11 @@ function _schedTlDrop(e) {
   const tl = document.getElementById('sched-timeline');
   if (!tl) return;
   const rect = tl.getBoundingClientRect();
-  const rawSec = (e.clientX - rect.left) / _schedScale();
+  const rawPx = e.clientX - rect.left;
 
   if (_schedDragBcId === '__break__') {
     const dur = SCHED_SNAP;
-    const sec = _schedClamp(_schedToSec(rawSec), dur);
+    const sec = _schedClamp(_schedToSec(rawPx), dur);
     _schedItems.push({
       broadcast_id:       null,
       broadcast_name:     'Commercial Break',
@@ -465,7 +465,7 @@ function _schedTlDrop(e) {
     const bc  = _schedBroadcasts.find(b => b.id === _schedDragBcId);
     if (!bc) return;
     const dur = bc.override_duration || ((Array.isArray(bc.messages) ? bc.messages.length : 0) * (bc.message_interval || 5)) || 3600;
-    const sec = _schedClamp(_schedToSec(rawSec), dur);
+    const sec = _schedClamp(_schedToSec(rawPx), dur);
     _schedItems.push({
       broadcast_id:       bc.id,
       broadcast_name:     bc.name,
@@ -478,7 +478,7 @@ function _schedTlDrop(e) {
     });
   } else if (_schedDragIdx != null) {
     const item = _schedItems[_schedDragIdx];
-    item.start_time = _schedClamp(_schedToSec(rawSec - _schedDragOffset * _schedScale()), item.duration);
+    item.start_time = _schedClamp(_schedToSec(rawPx - _schedDragOffset), item.duration);
   }
 
   _schedDragBcId   = null;

@@ -976,7 +976,7 @@ function _bcZonePickerRender() {
     }
     modeContent = `
       <div style="font-size:11px;color:var(--text-dim);margin-bottom:4px">Click an empty cell (+) to create a new zone on the world map.</div>
-      <div style="overflow:auto;max-height:400px">
+      <div id="bsm-map-scroll" style="overflow:auto;max-height:400px">
         <div style="display:grid;grid-template-columns:repeat(${W},${CELL}px);grid-template-rows:repeat(${maxY - minY + 1},${Math.round(CELL * 0.65)}px);gap:2px;width:fit-content">
           ${cells}
         </div>
@@ -1001,6 +1001,12 @@ function _bcZonePickerRender() {
       </div>
     </div>`;
   document.body.appendChild(picker);
+  // Scroll map to center after render
+  const scroll = document.getElementById('bsm-map-scroll');
+  if (scroll) {
+    scroll.scrollLeft = (scroll.scrollWidth - scroll.clientWidth) / 2;
+    scroll.scrollTop  = (scroll.scrollHeight - scroll.clientHeight) / 2;
+  }
 }
 
 function _bcZonePickerSwitch(mode) {

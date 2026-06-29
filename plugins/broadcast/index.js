@@ -1207,14 +1207,14 @@ export const routeHandler = async (path, method, body, auth) => {
       if (!id && method === 'POST') {
         const cid = body.id || `ch_${Date.now()}`;
         await query(
-          `INSERT INTO media_channels (id,name,number,description,station_name,theme_id,enabled,loop_playlist,priority,channel_type,idle_broadcast_id,news_categories,commercial_pool,updated_at)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,EXTRACT(EPOCH FROM NOW()))`,
+          `INSERT INTO media_channels (id,name,number,description,station_name,theme_id,enabled,loop_playlist,priority,channel_type,idle_broadcast_id,news_categories,commercial_pool,studio_zone_id,updated_at)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,EXTRACT(EPOCH FROM NOW()))`,
           [cid, body.name || 'Untitled Channel', body.number || null, body.description || '',
            body.station_name || '', body.theme_id || null,
            body.enabled !== false ? 1 : 0, body.loop_playlist !== false ? 1 : 0,
            body.priority || 0, body.channel_type || 'playlist',
            body.idle_broadcast_id || null, JSON.stringify(body.news_categories || []),
-           JSON.stringify(body.commercial_pool || [])]
+           JSON.stringify(body.commercial_pool || []), body.studio_zone_id || null]
         );
         await loadChannelRuntimes();
         return { status: 201, body: { id: cid } };
