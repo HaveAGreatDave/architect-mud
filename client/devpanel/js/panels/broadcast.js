@@ -1385,10 +1385,12 @@ let _bcExistingNpcIds = new Set(); // populated during dependency check
 async function _bcCreateNpc(id) {
   if (_bcExistingNpcIds.has(id)) { _bcMarkResolved(id); return; }
   const name = id.replace(/^npc_/, '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  // Use studio zone from BSM import context if available
+  const studioZone = _bcImportStudioZoneId || null;
   try {
     const res = await directAPI('/npcs', 'POST', {
       id, name, description: `${name}. Edit this description.`, zone_id: null,
-      behaviour_graph: _bcDefaultStudioGraph(),
+      behaviour_graph: _bcDefaultStudioGraph(studioZone),
     });
     if (res?.error) { toast(res.error, true); return; }
     _bcMarkResolved(id);
@@ -1618,7 +1620,7 @@ async function _bcImportSave({ meta, broadcastGraph, messages, assets, cameras, 
                 zone_id: _bcImportStudioZoneId, home_zone: _bcImportStudioZoneId,
                 wanders: 0, wander_zones: [],
                 dialogue_tree: {}, vendor_inventory: [], flags: { studio_npc: true },
-                behaviour_graph: _bcDefaultStudioGraph(),
+                behaviour_graph: _bcDefaultStudioGraph(_bcImportStudioZoneId),
               });
             if (npcRes?.error) console.warn(`[BSM] NPC spawn failed for ${npcId}:`, npcRes.error);
             else npcSpawnCount++;
@@ -1923,14 +1925,15 @@ async function _bcCommDelete(bcId) {
 
 // ── NPC helpers ───────────────────────────────────────────────────────────────
 
-function _bcDefaultStudioGraph() {
+function _bcDefaultStudioGraph(studioZoneId = null) {
   return {
     _start: 'n_start',
     nodes: {
       n_start:  { type: 'start',  next: 'n_life' },
       n_life:   { type: 'action', action_type: 'HAVE_LIFE',  next: 'n_work' },
-      n_work:   { type: 'action', action_type: 'GO_TO_WORK', next: 'n_atwork' },
-      n_atwork: { type: 'action', action_type: 'AT_WORK',    next: 'n_wait' },
+      n_work:   { type: 'action', action_type: 'GO_TO_WORK', params: studioZoneId ? { studio_zone: studioZoneId } : {}, next: 'n_atwork' },
+      n_atwork: { type: 'action', action_type: 'AT_WORK',    next: 'n_gohome' },
+      n_gohome: { type: 'action', action_type: 'GO_HOME',    next: 'n_wait' },
       n_wait:   { type: 'wait',   seconds: 30,               next: 'n_loop' },
       n_loop:   { type: 'loop',   next: 'n_start' },
     },

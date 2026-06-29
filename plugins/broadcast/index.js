@@ -38,17 +38,22 @@ const furnitureChannelIndex = new Map();
 const studioZoneIndex = new Map();
 
 // Default behaviour graph assigned to studio NPCs that don't yet have one.
-const DEFAULT_STUDIO_BEHAVIOUR_GRAPH = {
-  _start: 'n_start',
-  nodes: {
-    n_start:  { type: 'start',  next: 'n_life' },
-    n_life:   { type: 'action', action_type: 'HAVE_LIFE',  next: 'n_work' },
-    n_work:   { type: 'action', action_type: 'GO_TO_WORK', next: 'n_atwork' },
-    n_atwork: { type: 'action', action_type: 'AT_WORK',    next: 'n_wait' },
-    n_wait:   { type: 'wait',   seconds: 30,               next: 'n_loop' },
-    n_loop:   { type: 'loop',   next: 'n_start' },
-  },
-};
+function makeDefaultStudioGraph(studioZoneId = null) {
+  return {
+    _start: 'n_start',
+    nodes: {
+      n_start:  { type: 'start',  next: 'n_life' },
+      n_life:   { type: 'action', action_type: 'HAVE_LIFE',  next: 'n_work' },
+      n_work:   { type: 'action', action_type: 'GO_TO_WORK', params: studioZoneId ? { studio_zone: studioZoneId } : {}, next: 'n_atwork' },
+      n_atwork: { type: 'action', action_type: 'AT_WORK',    next: 'n_gohome' },
+      n_gohome: { type: 'action', action_type: 'GO_HOME',    next: 'n_wait' },
+      n_wait:   { type: 'wait',   seconds: 30,               next: 'n_loop' },
+      n_loop:   { type: 'loop',   next: 'n_start' },
+    },
+  };
+}
+// Backward-compat alias used where no specific studio zone is known yet
+const DEFAULT_STUDIO_BEHAVIOUR_GRAPH = makeDefaultStudioGraph();
 
 // graphicsCache.get(id) = { id, name, type, content }
 // Loaded at startup and after any graphics CRUD operation.
@@ -1486,7 +1491,9 @@ export const routeHandler = async (path, method, body, auth) => {
           }
           // Assign default behaviour graph to any staff NPC that doesn't have one yet
           if (allNpcIds.size) {
-            const defaultGraph = JSON.stringify(DEFAULT_STUDIO_BEHAVIOUR_GRAPH);
+            const { rows: chSzRows } = await query('SELECT studio_zone_id FROM media_channels WHERE id=$1', [id]);
+            const chStudioZone = chSzRows[0]?.studio_zone_id || null;
+            const defaultGraph = JSON.stringify(makeDefaultStudioGraph(chStudioZone));
             for (const npcId of allNpcIds) {
               await query(
                 `UPDATE npcs SET behaviour_graph=$1 WHERE id=$2 AND (behaviour_graph IS NULL OR behaviour_graph::text = '{}' OR behaviour_graph::text = 'null')`,
@@ -2207,8 +2214,9 @@ export const routeHandler = async (path, method, body, auth) => {
       await query(`UPDATE media_channel_playlist SET conditions=$1 WHERE id=$2`, [JSON.stringify(cond), row.id]);
       updatedItems++;
 
-      // Assign default behaviour graph to any new NPC staff without one
-      const defaultGraph = JSON.stringify(DEFAULT_STUDIO_BEHAVIOUR_GRAPH);
+      // Assign default behaviour graph (with studio zone) to any new NPC staff without one
+      const { rows: chSzRow2 } = await query('SELECT studio_zone_id FROM media_channels WHERE id=$1', [row.channel_id]);
+      const defaultGraph = JSON.stringify(makeDefaultStudioGraph(chSzRow2[0]?.studio_zone_id || null));
       for (const npcId of npcIds) {
         const { rowCount } = await query(
           `UPDATE npcs SET behaviour_graph=$1 WHERE id=$2 AND (behaviour_graph IS NULL OR behaviour_graph::text = '{}' OR behaviour_graph::text = 'null')`,
