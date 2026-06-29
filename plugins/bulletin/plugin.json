@@ -1,0 +1,8 @@
+{
+  "name": "bulletin",
+  "version": "1.0.0",
+  "description": "READ a bulletin board to see the server leaderboard — top 5 survivors by total XP.",
+  "hooks": [],
+  "commands": [],
+  "specializedActions": [{ "verb": "read", "requiredTag": "bulletin" }]
+}

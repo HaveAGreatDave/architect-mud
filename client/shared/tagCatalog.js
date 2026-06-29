@@ -136,6 +136,8 @@
     // --- Furniture capabilities (presence-only, on a furniture row) ---
     water_source: { label: 'Water Source', shape: 'flag', scope: 'furniture', group: 'Capabilities',
       help: 'Players can drink from and wash at this furniture. Enables the water-plugin verbs (drink/wash). The verb is blind to what the furniture is — sink, fountain, well, leaking pipe — it only asks for this capability.' },
+    bulletin: { label: 'Bulletin Board', shape: 'flag', scope: 'furniture', group: 'Capabilities',
+      help: 'Players can READ this furniture to see the server leaderboard — the top 5 survivors ranked by total XP (ties broken by older account first).' },
 
     // --- Instance flags (presence-only, on a carried item) ---
     broken: { label: 'Broken', shape: 'flag', scope: 'instance', group: 'Instance',
