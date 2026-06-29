@@ -18,7 +18,8 @@ import { fireRoutes, fireHook } from '../engine/plugins.js';
 import { handlePlayerDeath } from '../engine/gameLoop.js';
 import { reloadWindows as reloadWindowsEnv, recomputePower } from '../engine/environment.js';
 import { ensureTunables } from '../engine/tunables.js';
-import { startingIp, statCost, RAISABLE_STATS } from '../engine/ip.js';
+import { startingIp, statCost, RAISABLE_STATS, getNetXp, statSpent } from '../engine/ip.js';
+import { SKILLS } from '../engine/skills.js';
 import { materializeItemTags, ownTags, superKeys } from '../engine/supertags.js';
 import { getMotd, saveMotd } from '../engine/motd.js';
 import { isMisServerEnabled, setServerMisEnabled } from '../engine/mis.js';
@@ -253,6 +254,7 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path==='/players' && method==='GET') return requireAdmin(auth, apiGetPlayers);
   if (path.startsWith('/players/') && method==='PUT' && !path.endsWith('/role') && !path.endsWith('/kick') && !path.endsWith('/teleport')) return requireAdmin(auth, ()=>apiUpdatePlayer(path.split('/')[2], body));
   if (path.startsWith('/players/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeletePlayer(path.split('/')[2]));
+  if (path.startsWith('/players/') && path.endsWith('/progression') && method==='GET') return requireAdmin(auth, ()=>apiGetPlayerProgression(path.split('/')[2]));
   if (path.startsWith('/players/') && path.endsWith('/smite') && method==='POST') return requireAdmin(auth, ()=>apiSmitePlayer(path.split('/')[2]));
   if (path.startsWith('/players/') && path.endsWith('/whisper') && method==='POST') return requireAdmin(auth, ()=>apiWhisperPlayer(path.split('/')[2], body));
   if (path.startsWith('/players/') && path.endsWith('/role') && method==='PUT') return requireAdmin(auth, ()=>apiSetPlayerRole(path.split('/')[2], body));
@@ -1075,6 +1077,29 @@ async function apiGetPlayers() {
     origin_fragment,archetype,visibly_mutated,offline_sleeping,created_at,last_seen FROM players`);
   const online = new Set(getAllLivePlayers().map(p=>p.id));
   return {status:200,body:rows.map(r=>({...r,online:online.has(r.id)}))};
+}
+
+async function apiGetPlayerProgression(id) {
+  await ensureTunables();
+  const {rows}=await query('SELECT id,stat_brawn,stat_reflexes,stat_endurance,stat_brains,stat_cool,COALESCE(bonus_xp,0) AS bonus_xp FROM players WHERE id=$1',[id]);
+  if (!rows.length) return {status:404,body:{error:'Player not found'}};
+  const p = rows[0];
+  const {rows:skillRows}=await query('SELECT skill_id,ip FROM player_skills WHERE player_id=$1 ORDER BY ip DESC',[id]);
+  const skills = skillRows.map(r=>({
+    skill_id:r.skill_id,
+    name:SKILLS[r.skill_id]?.name || r.skill_id,
+    category:SKILLS[r.skill_id]?.category || '—',
+    ip:r.ip||0,
+    level:Math.floor((r.ip||0)/100),
+  }));
+  const {total,net}=await getNetXp(id);
+  return {status:200,body:{
+    skills,
+    bonus_xp:Number(p.bonus_xp),
+    total_xp:total,
+    net_xp:net,
+    spent_xp:statSpent(p),
+  }};
 }
 
 async function apiUpdatePlayer(id, body) {

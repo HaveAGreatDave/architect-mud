@@ -122,6 +122,9 @@ async function openPlayerEdit(id) {
       row3(field('Brains','stat_brains','number'), field('Cool','stat_cool','number')) +
       field('Bonus XP','bonus_xp','number')
     )}
+    ${section('Progression (read-only)',
+      `<div id="pe-progression" style="font-size:12px;color:var(--text-dim)">Loading…</div>`
+    )}
     ${section('Economy',
       row2(field('Credits','credits','number'), field('Bank Credits','bank_credits','number'))
     )}
@@ -152,6 +155,39 @@ async function openPlayerEdit(id) {
   }
 
   document.getElementById('generic-modal').style.display = 'flex';
+  loadPlayerProgression(id);
+}
+
+async function loadPlayerProgression(id) {
+  const el = document.getElementById('pe-progression');
+  if (!el) return;
+  const r = await API(`/players/${id}/progression`, 'GET');
+  if (!el.isConnected || _editingPlayerId !== id) return; // modal closed/changed
+  if (!r || r.error) { el.textContent = r?.error || 'Failed to load progression.'; return; }
+
+  const xpRow = (label, val) => `<div style="display:flex;justify-content:space-between"><span>${label}</span><span style="color:var(--text-bright)">${val}</span></div>`;
+  const xpSummary = `<div style="display:grid;gap:3px;margin-bottom:10px">
+    ${xpRow('Total XP', r.total_xp)}
+    ${xpRow('Spent on stats', r.spent_xp)}
+    ${xpRow('Net XP (spendable)', r.net_xp)}
+    ${xpRow('Bonus XP (starting + grants)', r.bonus_xp)}
+  </div>`;
+
+  const skills = Array.isArray(r.skills) ? r.skills : [];
+  const skillRows = skills.length
+    ? skills.map(s => `<tr>
+        <td style="color:var(--text-bright)">${s.name}</td>
+        <td style="color:var(--text-dim);font-size:11px">${s.category}</td>
+        <td style="text-align:right">L${s.level}</td>
+        <td style="text-align:right">${s.ip} IP</td>
+      </tr>`).join('')
+    : `<tr><td colspan="4" style="color:var(--text-dim)">No skill IP yet.</td></tr>`;
+
+  el.innerHTML = xpSummary +
+    `<table style="width:100%;font-size:12px"><thead><tr>
+      <th style="text-align:left">Skill</th><th style="text-align:left">Category</th>
+      <th style="text-align:right">Level</th><th style="text-align:right">IP</th>
+    </tr></thead><tbody>${skillRows}</tbody></table>`;
 }
 
 async function savePlayerEdit() {
