@@ -88,7 +88,7 @@ const handlers = {
 
   combat_incoming: (msg) => {
     appendHtml(msg.message, 'combat-incoming');
-    if (state.player) { state.player.hp = msg.hp; updateVitals(state.player); }
+    if (state.player && msg.player_update) { Object.assign(state.player, msg.player_update); updateVitals(state.player); }
   },
 
   combat_miss: (msg) => { appendHtml(msg.message, 'system'); },

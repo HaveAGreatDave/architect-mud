@@ -115,7 +115,7 @@ async function tick() {
         if (result.hit) {
           target.hp = Math.max(0, target.hp - result.damage);
           query('UPDATE players SET hp=$1 WHERE id=$2', [target.hp, target.id]).catch(()=>{});
-          broadcastFn(null, { type:'combat_incoming', message:result.message, damage:result.damage, hp:target.hp, hp_max:target.hp_max }, null, target.id);
+          broadcastFn(null, { type:'combat_incoming', message:result.message, player_update:{ hp:target.hp, hp_max:target.hp_max } }, null, target.id);
           if (target.hp <= 0) { await handlePlayerDeath(target, enemy); return; }
 
           // Retaliation: start attacking the attacker only if not already engaged.
@@ -174,7 +174,7 @@ async function tick() {
         broadcastFn(null, { type: 'output', message: `You scramble to your feet as the attack comes in!` }, null, pvpTarget.id);
       }
       broadcastFn(null, { type: 'combat', message: result.attackerMsg, auto: true }, null, playerId);
-      broadcastFn(null, { type: 'combat_incoming', message: result.defenderMsg, damage: result.damage || 0, hp: result.defenderHp, hp_max: result.defenderHpMax }, null, pvpTarget.id);
+      broadcastFn(null, { type: 'combat_incoming', message: result.defenderMsg, player_update: { hp: result.defenderHp, hp_max: result.defenderHpMax } }, null, pvpTarget.id);
       if (result.killed) {
         player.pvpTargetId = null;
         pvpTarget.pvpTargetId = null;
