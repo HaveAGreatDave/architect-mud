@@ -228,7 +228,7 @@ async function execAction(node, entity, ctx) {
         if (result.hit) {
           target.hp = Math.max(0, target.hp - result.damage);
           query('UPDATE players SET hp=$1 WHERE id=$2', [target.hp, target.id]).catch(() => {});
-          broadcast(null, { type: 'combat_incoming', message: result.message, damage: result.damage, hp: target.hp, hp_max: target.hp_max }, null, target.id);
+          broadcast(null, { type: 'combat_incoming', message: result.message, player_update: { hp: target.hp, hp_max: target.hp_max } }, null, target.id);
           if (target.hp <= 0) {
             const { handlePlayerDeath } = await import('./gameLoop.js');
             await handlePlayerDeath(target, entity);

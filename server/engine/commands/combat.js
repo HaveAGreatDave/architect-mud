@@ -268,7 +268,7 @@ async function offlineSleepSwing(attacker, targetId, broadcast) {
 		query('UPDATE players SET player_kills=player_kills+1 WHERE id=$1', [attacker.id]).catch(() => {});
 		const corpseLink = `<span class="action-link corpse-link" data-action="loot" data-target="${corpseId}" data-label="${corpseName}" title="Loot ${corpseName}">${corpseName}</span>`;
 		broadcast(attacker.current_zone, { type: "zone_event", message: `${target.handle} has died. ${corpseLink}`, refresh: true }, attacker.id);
-		broadcast(null, { type: "combat", message: `You kill ${target.handle}. ${corpseLink}`, killed: true, auto: true }, null, attacker.id);
+		broadcast(null, { type: "combat", message: `You kill ${target.handle}.`, killed: true, corpseLink, auto: true }, null, attacker.id);
 	}
 }
 

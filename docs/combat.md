@@ -165,6 +165,26 @@ radiation 0), clears sleep, moves the player to `anchor_zone` (default `zone_sta
 randomized clone-vat death message. Skills/IP live in separate tables and are untouched — death costs
 you the run, not your progress.
 
+## Client message contract (combat & loot)
+
+The server→client protocol has no schema; this is the contract for the combat/loot messages.
+
+**Canonical vitals rule:** any message that mutates player vitals carries them in a nested
+`player_update` object, and the client applies it uniformly via
+`Object.assign(state.player, msg.player_update)`. Do **not** send flat top-level vitals fields
+(`hp`, `sanity`, …) on a new message — `combat_incoming` used to (carrying flat `hp`/`hp_max`) and
+was realigned to `player_update: { hp, hp_max }`. Follow the canonical shape for anything new.
+
+**Corpse links on a kill:** a `combat` message with `killed: true` puts the clickable corpse link in
+its own `corpseLink` field (never embedded in `message`). The client renders `message`, then appends
+`corpseLink`. Both the PvE (`resolveAttack`) and PvP (`offlineSleepSwing`) kill paths follow this.
+
+**`player_death` has two variants.** The normal death (`gameLoop.js` `handlePlayerDeath`) carries
+`{ message, respawn_zone, player_update }`. The offline "murdered in your sleep" wake path
+(`index.js`) sends `{ message }` only — no `player_update`. This is intentional: the woken player
+receives full state on their next `look`/reconnect, and the handler guards on `msg.player_update`
+before applying it. `respawn_zone` is currently emitted but read by no client handler.
+
 ## Player baseline
 
 New survivors start with every stat at **1** (raised further with XP via `raise`) and a flat **40 HP**
