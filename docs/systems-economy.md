@@ -99,7 +99,9 @@ must be a round number.
 - **IP award (binary roll):** on a *successful* skill use, `awardSkillUse` → `awardIp(playerId,
   skillId, margin)` rolls **once**: `chance = ip_award_base_chance / (1 + max(0, margin) ×
   ip_award_margin_scale)`. A barely-won check (margin ≈ 0) has the best odds; the chance falls off as
-  the margin grows. On a hit, exactly **1 IP** is added to that skill (`player_skills.ip`), capped at
+  the margin grows. That chance is then scaled by a **brains** multiplier
+  `1 + (stat_brains − 1) × ip_brains_bonus_per_point` (default 0.05): 1 brain (the starting value) gets
+  the unmodified base rate, 21 brains doubles the per-roll odds. On a hit, exactly **1 IP** is added to that skill (`player_skills.ip`), capped at
   1000. Each award shows a `+1 IP` line in the main pane, plus a skill-level-up line at every 100
   boundary.
 - **Skill level** = `floor(player_skills.ip / 100)`, 0–10. Feeds `effectiveSkill` (level + avg of the
