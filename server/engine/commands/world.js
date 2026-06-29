@@ -389,11 +389,19 @@ async function cmdExamine(targetStr, player, broadcast) {
       const n = f.name.toLowerCase();
       const openLink = `<span class="action-link" data-action="open" data-target="${n}">open</span>`;
       msg += `\n<span class="text-dim">Actions:</span> ${openLink}`;
-    } else if (interactions.length) {
-      const links = interactions.map(ix =>
-        `<span class="action-link" data-action="${ix}" data-target="on ${f.name.toLowerCase()}">${ix}</span>`
-      ).join('  ');
-      msg += `\n<span class="text-dim">Actions:</span> ${links}`;
+    } else {
+      // Generic furniture: posture interactions (sit/lie/lean → "on <name>")
+      // plus capability verbs gated on flat tags (read/drink → "<name>"),
+      // discovered from the specialized-action registry.
+      const n = f.name.toLowerCase();
+      const links = [
+        ...interactions.map(ix =>
+          `<span class="action-link" data-action="${ix}" data-target="on ${n}">${ix}</span>`),
+        ...availableActions(f)
+          .filter(v => !interactions.includes(v) && !['switch','flip','turn','open'].includes(v))
+          .map(v => `<span class="action-link" data-action="${v}" data-target="${n}">${v}</span>`),
+      ];
+      if (links.length) msg += `\n<span class="text-dim">Actions:</span> ${links.join('  ')}`;
     }
     return { type:'examine', message: msg };
   }

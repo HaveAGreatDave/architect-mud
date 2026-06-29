@@ -131,6 +131,9 @@ function renderTagsPanel(data) {
     toast('Tag saved');
     closeModal();
     _catalog = { ...window._tagCatalog };
+    // Keep the global catalog (read by the item & furniture tag pickers) in sync
+    // so newly added/edited tags appear without a page reload.
+    window.TAG_CATALOG = window._tagCatalog;
     render();
   };
 
@@ -142,6 +145,9 @@ function renderTagsPanel(data) {
     if (r?.error) { toast(r.error, true); return; }
     toast(`"${key}" removed from catalog`);
     _catalog = { ...window._tagCatalog };
+    // Keep the global catalog (read by the item & furniture tag pickers) in sync
+    // so newly added/edited tags appear without a page reload.
+    window.TAG_CATALOG = window._tagCatalog;
     render();
   };
 
@@ -171,6 +177,9 @@ function renderTagsPanel(data) {
     toast(`"${key}" added to catalog`);
     closeModal();
     _catalog = { ...window._tagCatalog };
+    // Keep the global catalog (read by the item & furniture tag pickers) in sync
+    // so newly added/edited tags appear without a page reload.
+    window.TAG_CATALOG = window._tagCatalog;
     render();
   };
 
