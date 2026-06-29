@@ -266,7 +266,7 @@ function resolveEquipLayer(item, requestedLayer) {
   const maxLayer = (lr && typeof lr === 'object' && lr.max) ? lr.max : 5;
   const layer = (requestedLayer && Number.isInteger(requestedLayer) && requestedLayer >= 1 && requestedLayer <= 5)
     ? requestedLayer
-    : (tagValue(item, 'layer') || 1);
+    : minLayer;
   if (layer < minLayer || layer > maxLayer) return { error: `${item.name} can only be worn on layer${minLayer === maxLayer ? ` ${minLayer}` : `s ${minLayer}–${maxLayer}`}.` };
   return { layer };
 }

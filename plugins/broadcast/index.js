@@ -890,7 +890,8 @@ async function cmdLoadCassette(args, raw, player) {
   const inv = world.get(player.id)?.inventory || [];
   const cassette = inv.find(i => {
     const flags = typeof i.flags === 'object' ? i.flags : (i.flags ? JSON.parse(i.flags) : {});
-    return flags.media_cassette || (i.tags && (Array.isArray(i.tags) ? i.tags : JSON.parse(i.tags || '[]')).includes('media_cassette'));
+    const itags = typeof i.tags === 'object' ? i.tags : (i.tags ? JSON.parse(i.tags) : {});
+    return flags.media_cassette || (itags && Object.prototype.hasOwnProperty.call(itags, 'media_cassette'));
   });
   if (!cassette) return { type: 'output', message: 'You have no cassette to load.' };
   const { rows: decks } = await query(

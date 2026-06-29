@@ -88,7 +88,7 @@ const _scriptNodeDefs = {
     getOutPorts: () => [{ key: 'ifTrue', label: 'if true' }, { key: 'ifFalse', label: 'if false' }],
     renderProperties: (n, ed, id) => `
       ${_helpBox(id,
-        'Checks a flag and routes execution down the "if true" or "if false" output. Connect two separate branches to those ports. Supported ops: "set" (flag exists/is truthy), "clear" (flag absent/falsy).',
+        'Checks a flag and routes execution down the "if true" or "if false" output. Connect two separate branches to those ports. Supported ops: "set" (flag exists), "unset" (flag absent), "eq"/"neq" (value equals/not-equals), "gt"/"lt" (numeric compare).',
         '{ "flag": "met_detective", "op": "set" }\n\n→ if true:  detective already met\n→ if false: first encounter'
       )}
       ${_field('Condition (JSON)', _textarea('data.condition', JSON.stringify(n.data.condition || {}, null, 2), 4, 'json'))}
