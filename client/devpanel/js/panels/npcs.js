@@ -78,6 +78,7 @@ function npcEditForm(rec, isNew) {
   const tree = typeof rec.dialogue_tree === 'object' ? rec.dialogue_tree : JSON.parse(rec.dialogue_tree||'{}');
   const vendor = Array.isArray(rec.vendor_inventory) ? rec.vendor_inventory : JSON.parse(rec.vendor_inventory||'[]');
   const behaviourGraph = typeof rec.behaviour_graph === 'object' ? rec.behaviour_graph : JSON.parse(rec.behaviour_graph||'{}');
+  const flags = typeof rec.flags === 'object' ? rec.flags : JSON.parse(rec.flags||'{}');
   return `
     <div class="field"><label>NPC ID</label><input id="f-id" value="${isNew?'':rec.id}" ${!isNew?'readonly style="opacity:0.5"':''}></div>
     <div class="field"><label>Name</label><input id="f-name" value="${rec.name||''}"></div>
@@ -113,6 +114,7 @@ function npcEditForm(rec, isNew) {
       </div>
       <textarea id="f-behaviour_graph" rows="6">${JSON.stringify(behaviourGraph, null, 2)}</textarea>
     </div>
+    <div class="field"><label>Flags (JSON) — e.g. gender, first_strike_delay_ms, battle_cries</label><textarea id="f-flags" rows="3">${JSON.stringify(flags, null, 2)}</textarea></div>
   `;
 }
 
@@ -122,6 +124,8 @@ async function saveNpc(existing) {
   try { tree = JSON.parse(document.getElementById('f-dialogue_tree').value); } catch { return { error: 'Dialogue tree: invalid JSON' }; }
   try { vendor = JSON.parse(document.getElementById('f-vendor_inventory').value); } catch { return { error: 'Vendor inventory: invalid JSON' }; }
   try { behaviour_graph = JSON.parse(document.getElementById('f-behaviour_graph')?.value || '{}'); } catch { return { error: 'Behaviour graph: invalid JSON' }; }
+  let flags;
+  try { flags = JSON.parse(document.getElementById('f-flags')?.value || '{}'); } catch { return { error: 'Flags: invalid JSON' }; }
   const wanderZonesRaw = document.getElementById('f-wander_zones')?.value || '';
   const wander_zones = wanderZonesRaw.split('\n').map(s => s.trim()).filter(Boolean);
   const body = {
@@ -136,7 +140,7 @@ async function saveNpc(existing) {
     dialogue_tree: tree,
     vendor_inventory: vendor,
     behaviour_graph,
-    flags: {},
+    flags,
   };
   if (isNew) { body.id = document.getElementById('f-id').value.trim(); return API('/npcs', 'POST', body); }
   return API(`/npcs/${existing.id}`, 'PUT', body);

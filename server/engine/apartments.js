@@ -56,7 +56,7 @@ export async function activateForcefield(player, broadcastFn) {
 		const doorZone = world.zones.get(door.zone_id);
 		const targetId = doorZone?.exits?.[door.exit_dir];
 		if (door.zone_id !== zoneId && targetId !== zoneId) continue;
-		if (!(door.tags ?? []).some(t => t.type?.startsWith('lock:'))) continue;
+		if (!Object.keys(door.tags || {}).some(k => k.startsWith('lock:'))) continue;
 		await query("UPDATE doors SET lock_state='locked', forcefield_locked=1 WHERE id=$1", [door.id]);
 		door.lock_state = 'locked';
 		door.forcefield_locked = 1;
@@ -249,7 +249,7 @@ export async function releaseApartment(apt, zoneId) {
 		const doorZone = world.zones.get(door.zone_id);
 		const targetId = doorZone?.exits?.[door.exit_dir];
 		if (door.zone_id === zoneId || targetId === zoneId) {
-			if (!(door.tags ?? []).some(t => t.type?.startsWith('lock:'))) continue;
+			if (!Object.keys(door.tags || {}).some(k => k.startsWith('lock:'))) continue;
 			await query('UPDATE doors SET lock_state=$1 WHERE id=$2', ['unlocked', door.id]);
 			door.lock_state = 'unlocked';
 			setDoorCache(door.id, door);
