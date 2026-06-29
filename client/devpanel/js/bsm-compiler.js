@@ -6,7 +6,7 @@ function compileBsm(text) {
   let i = 0;
 
   const meta = { name: '', channel: '', category: 'general', host: '', length: null, type: 'live' };
-  const _debug = { unknownDirectives: [], nodeTypes: {} };
+  const _debug = { unknownDirectives: [], nodeTypes: {}, unresolvedSpeakers: [] };
 
   // Pre-scan ::actors block to build alias map and actor list.
   // Format:
@@ -221,7 +221,11 @@ function compileBsm(text) {
     const speakerMatch = ln.match(SPEAKER_RE);
     if (speakerMatch) {
       const speaker = speakerMatch[1];
-      const npcId = aliases[speaker] ?? `npc_${speaker.toLowerCase()}`;
+      const resolved = aliases[speaker];
+      if (!resolved && !_debug.unresolvedSpeakers.some(u => u.label === speaker)) {
+        _debug.unresolvedSpeakers.push({ label: speaker, fallback: `npc_${speaker.toLowerCase()}` });
+      }
+      const npcId = resolved ?? `npc_${speaker.toLowerCase()}`;
       i++;
       let text = '';
       while (i < lines.length) {

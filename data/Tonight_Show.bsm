@@ -11,7 +11,7 @@
 @alias npc_john_akerson JOHN
 
 @actor npc_graham_mercer
-@alias npc_graham_mercer ANNOUNCER
+@alias npc_graham_mercer NARRATOR
 
 @actor npc_lucky_malone
 @alias npc_lucky_malone LUCKY

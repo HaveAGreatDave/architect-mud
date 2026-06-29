@@ -827,12 +827,18 @@ function bcImportBsm() {
     console.table(compiled._debug?.nodeTypes || {});
     if (compiled._debug?.unknownDirectives?.length)
       console.warn('Unknown/unhandled directives:', compiled._debug.unknownDirectives);
+    if (compiled._debug?.unresolvedSpeakers?.length)
+      console.warn('Unresolved speaker aliases:', compiled._debug.unresolvedSpeakers);
     console.log('Actors:', compiled.actorIds);
     console.log('Rooms:', compiled.rooms);
     console.log('Assets:', compiled.assets.map(a => a.id));
     console.log('Total nodes:', Object.keys(compiled.broadcastGraph?.nodes || {}).length);
     console.groupEnd();
     if (!compiled.meta.name) { toast('BSM file is missing @broadcast name.', true); return; }
+    if (compiled._debug?.unresolvedSpeakers?.length) {
+      const names = compiled._debug.unresolvedSpeakers.map(u => `${u.label} → ${u.fallback}`).join(', ');
+      toast(`BSM warning: speaker(s) with no alias in ::actors — ${names}. Add @alias lines or they will be created as placeholder NPCs.`, false);
+    }
     _bcShowImportChannelModal(compiled);
   };
   input.click();
@@ -1309,8 +1315,10 @@ async function _bcImportDependencies(compiled) {
   const npcDbIds = new Set((allNpcs  || []).map(n => n.id));
   _bcExistingNpcIds = npcDbIds;
   const missingZones = compiled.rooms.filter(id => !zoneIds.has(id));
-  // Scripted shows have no live hosts — skip NPC dependency resolution
-  const missingNpcs  = isScripted ? [] : compiled.npcIds.filter(id => !npcDbIds.has(id));
+  // Only flag explicitly declared actors as blocking deps.
+  // Speaker-generated NPCs (not in actorIds) are auto-created as placeholders during save.
+  const declaredActors = new Set(compiled.actorIds || []);
+  const missingNpcs = isScripted ? [] : compiled.npcIds.filter(id => declaredActors.has(id) && !npcDbIds.has(id));
   if (!missingZones.length && !missingNpcs.length) { await _bcImportSave(compiled); return; }
   _bcDepCompiled = compiled;
   _bcDepPending  = new Set([...missingZones, ...missingNpcs]);
@@ -1569,19 +1577,20 @@ async function _bcImportSave({ meta, broadcastGraph, messages, assets, cameras, 
   };
   try {
     const res = await directAPI(path, method, body);
-    if (res?.error) { toast(res.error, true); return; }
+    if (res?.error) { toast(`Import failed (saving broadcast): ${res.error}`, true); return; }
     const nodeCount = Object.keys(broadcastGraph.nodes).length;
 
     // Auto-spawn media deck in production/control room + cameras on stage floor
     const camNums = Array.isArray(cameras) ? cameras : [];
     if (_bcImportChannelId && _bcImportStudioZoneId) {
       try {
-        await directAPI('/broadcast/deck', 'POST', {
+        const deckRes = await directAPI('/broadcast/deck', 'POST', {
           channel_id: _bcImportChannelId, auto_place: true, no_camera: true,
         });
+        if (deckRes?.error) console.warn('[BSM] Media deck spawn failed:', deckRes.error);
         const ts = Date.now();
         if (camNums.length) {
-          await Promise.all(camNums.map((num, idx) =>
+          const camResults = await Promise.all(camNums.map((num, idx) =>
             directAPI('/broadcast/cameras', 'POST', {
               id: `cam_${_bcImportChannelId}_${num}_${ts + idx}`,
               zone_id: _bcImportStudioZoneId,
@@ -1592,37 +1601,40 @@ async function _bcImportSave({ meta, broadcastGraph, messages, assets, cameras, 
               permissions: 'public',
             })
           ));
+          const camErrors = camResults.filter(r => r?.error);
+          if (camErrors.length) console.warn(`[BSM] ${camErrors.length} camera(s) failed:`, camErrors.map(r => r.error));
         }
-        // Spawn declared actors (actorIds) in studio zone if they don't already exist there
+        // Spawn ALL referenced NPCs (actorIds + any speaker-generated fallbacks) if missing
         let npcSpawnCount = 0;
-        const actors = Array.isArray(actorIds) ? actorIds : [];
+        const actors = [...new Set([...(Array.isArray(actorIds) ? actorIds : [])])];
         for (const npcId of actors) {
           try {
             const existing = await directAPI(`/npcs/${npcId}`, 'GET');
             if (!existing || existing.error) {
-              await directAPI('/npcs', 'POST', {
+              const npcRes = await directAPI('/npcs', 'POST', {
                 id: npcId, name: npcId.replace(/^npc_/, '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
                 description: 'A broadcast studio host.',
                 zone_id: _bcImportStudioZoneId, home_zone: _bcImportStudioZoneId,
                 disposition: 'neutral', wanders: 0, wander_zones: [],
                 dialogue_tree: {}, vendor_inventory: [], flags: { studio_npc: true }, behaviour_graph: {},
               });
-              npcSpawnCount++;
+              if (npcRes?.error) console.warn(`[BSM] NPC spawn failed for ${npcId}:`, npcRes.error);
+              else npcSpawnCount++;
             }
-          } catch (_) {}
+          } catch (npcErr) { console.warn(`[BSM] NPC spawn error for ${npcId}:`, npcErr.message); }
         }
         const camNote = camNums.length ? `, ${camNums.length} camera(s) spawned` : '';
         const npcNote = npcSpawnCount ? `, ${npcSpawnCount} NPC(s) spawned` : '';
         toast(`Imported "${meta.name}" — ${messages.length} messages, ${nodeCount} graph nodes${assets.length ? `, ${assets.length} asset(s)` : ''}${camNote}${npcNote}.`);
       } catch (camErr) {
-        toast(`Imported "${meta.name}" but studio spawn failed: ${camErr.message}`, true);
+        toast(`Imported "${meta.name}" — broadcast saved, but studio setup failed: ${camErr.message}`, true);
       }
     } else {
       toast(`Imported "${meta.name}" — ${messages.length} messages, ${nodeCount} graph nodes${assets.length ? `, ${assets.length} asset(s)` : ''}.`);
     }
 
     await bcSuiteRefresh('broadcasts');
-  } catch (err) { toast(err.message, true); }
+  } catch (err) { toast(`Import error: ${err.message}`, true); console.error('[BSM] _bcImportSave threw:', err); }
 }
 
 // ── Commercials Tab ───────────────────────────────────────────────────────────
