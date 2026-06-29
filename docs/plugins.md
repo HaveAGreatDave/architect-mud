@@ -38,6 +38,7 @@ To list what's actually registered at runtime: `getRegisteredCommands()` in `plu
 | **doors** | OPEN/CLOSE/LOCK/UNLOCK | — | specialized actions (tag-gated) |
 | **drugs** | USE/INJECT | — | specialized actions (tag-gated) |
 | **food** | EAT | — | specialized action (tag-gated) |
+| **water** | DRINK from furniture | — | specialized action gated on the `water_source` capability tag; resolves a named (or any) water-source furniture in the zone, restores thirst, else falls through to item DRINK. WASH at a water source is handled engine-side in `mis.js` (it now recognises `water_source`, not just `object_type='sink'`) |
 | **lighting** | SWITCH/FLIP/TURN on switchable lights | — | specialized actions (tag-gated) |
 | **weapon** | ATTACK (player path) | — | specialized action (tag-gated) |
 | **clothing-wetness** | Per-item wetness from rain/snow, body-temp effect | — | tick + hook |

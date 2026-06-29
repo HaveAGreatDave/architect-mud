@@ -11,6 +11,14 @@ import { world } from './world.js';
 export function foodLoad(restoreHunger)  { return (restoreHunger || 0) * 0.5; }
 export function drinkLoad(restoreThirst) { return (restoreThirst || 0) * 0.6; }
 
+// Apply a drink's thirst restore in-memory: bump the thirst meter (capped at 100)
+// and the bladder load. Shared by item consumption (cmdUse) and furniture water
+// sources so both stay in sync. Caller is responsible for persisting.
+export function applyThirst(player, amount) {
+  player.thirst = Math.min(100, (player.thirst || 0) + amount);
+  player.hydration_load = Math.min(120, (player.hydration_load || 0) + drinkLoad(amount));
+}
+
 // Called once per minute from the game loop for each awake player.
 // Returns array of private messages to send the player.
 export async function tickBodily(player, broadcastFn, zoneBroadcastFn) {

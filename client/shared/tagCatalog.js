@@ -20,7 +20,10 @@
  *   statmap JSON object of key -> number (small JSON textarea)
  *
  * scope — 'class' tags live on the item template (items.tags); 'instance' tags
- * are presence-only flags on a carried item (player_inventory.custom_data).
+ * are presence-only flags on a carried item (player_inventory.custom_data);
+ * 'furniture' tags are capability flags on a furniture row (furniture.flags),
+ * declaring what verbs the piece affords (e.g. water_source → drink/wash). They
+ * surface as tags via tagsOf() just like item tags.
  */
 (function (global) {
   const TAG_CATALOG = {
@@ -123,6 +126,10 @@
     broadcast_device_type: { label: 'Device Type', shape: 'enum', scope: 'class', group: 'Broadcast',
       options: ['tv', 'radio', 'security_monitor', 'portable_monitor', 'camera'],
       help: 'Controls how broadcast content is formatted for this device.' },
+
+    // --- Furniture capabilities (presence-only, on a furniture row) ---
+    water_source: { label: 'Water Source', shape: 'flag', scope: 'furniture', group: 'Capabilities',
+      help: 'Players can drink from and wash at this furniture. Enables the water-plugin verbs (drink/wash). The verb is blind to what the furniture is — sink, fountain, well, leaking pipe — it only asks for this capability.' },
 
     // --- Instance flags (presence-only, on a carried item) ---
     broken: { label: 'Broken', shape: 'flag', scope: 'instance', group: 'Instance',

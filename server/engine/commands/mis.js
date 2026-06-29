@@ -997,10 +997,10 @@ async function cmdHandjob(args, raw, player, broadcast) {
 
 async function cmdWashHands(player) {
   const { rows } = await query(
-    `SELECT id FROM furniture WHERE zone_id=$1 AND object_type='sink' LIMIT 1`,
+    `SELECT id FROM furniture WHERE zone_id=$1 AND (object_type='sink' OR jsonb_exists(flags,'water_source')) LIMIT 1`,
     [player.current_zone]
   );
-  if (!rows.length) return { type:'error', message:`There's no sink here.` };
+  if (!rows.length) return { type:'error', message:`There's no water source here.` };
 
   let msg = `You wash your hands at the sink.`;
   if (isMisActive(player)) {
@@ -1014,7 +1014,7 @@ async function cmdWash(args, raw, player) {
   if (args[0] === 'hands') return cmdWashHands(player);
 
   const { rows: sinkRows } = await query(
-    `SELECT id FROM furniture WHERE zone_id=$1 AND object_type='sink' LIMIT 1`,
+    `SELECT id FROM furniture WHERE zone_id=$1 AND (object_type='sink' OR jsonb_exists(flags,'water_source')) LIMIT 1`,
     [player.current_zone]
   );
   const hasSink = sinkRows.length > 0;
@@ -1045,7 +1045,7 @@ async function cmdWash(args, raw, player) {
     else await query('DELETE FROM player_inventory WHERE id=$1', [waterRow.id]);
   }
 
-  const src = hasSink ? `the sink` : `the water`;
+  const src = `the water`;
   const msg = bloodWashed
     ? `You use ${src} to scrub the blood off. Better.`
     : `You use ${src} to clean yourself off. Better.`;

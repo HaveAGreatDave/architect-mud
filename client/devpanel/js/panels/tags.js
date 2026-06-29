@@ -2,7 +2,7 @@ function renderTagsPanel(data) {
   const catalog = data?.catalog ?? data;
   const supertags = data?.supertags ?? {};
   const SHAPES = ['text','flag','int','enum','range','hot','statmap'];
-  const SCOPES = ['class','instance'];
+  const SCOPES = ['class','instance','furniture'];
   let _catalog = catalog && typeof catalog === 'object' ? { ...catalog } : {};
   let _sortKey = 'key';
   let _sortDir = 1;

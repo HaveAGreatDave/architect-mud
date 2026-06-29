@@ -352,7 +352,31 @@ function furnitureEditForm(rec, isNew) {
       </div>
       <div style="font-size:10px;color:var(--text-dim);margin-top:2px">Which commands players can use on this piece of furniture.</div>
     </div>
+    ${(() => {
+      const caps = Object.entries(window.TAG_CATALOG || {})
+        .filter(([, def]) => def.scope === 'furniture' && def.shape === 'flag');
+      if (!caps.length) return '';
+      const boxes = caps.map(([key, def]) => {
+        const checked = rec.flags?.[key] ? 'checked' : '';
+        return `<label style="display:flex;align-items:flex-start;gap:6px;font-size:12px;cursor:pointer;font-weight:normal" title="${(def.help||'').replace(/"/g,'&quot;')}">
+          <input type="checkbox" id="f-cap-${key}" ${checked} style="accent-color:var(--accent);margin-top:2px"> ${def.label}
+        </label>`;
+      }).join('');
+      return `<div class="field">
+        <label>Capabilities</label>
+        <div style="display:flex;flex-direction:column;gap:8px;padding:6px 0">${boxes}</div>
+        <div style="font-size:10px;color:var(--text-dim);margin-top:2px">Tag-driven affordances. A capability enables verbs from any plugin that asks for it (e.g. Water Source → drink/wash).</div>
+      </div>`;
+    })()}
   `;
+}
+
+// Catalog keys with scope 'furniture' + shape 'flag' — the capability checkboxes
+// rendered in the editor and persisted as flat keys in furniture.flags.
+function furnitureCapabilityKeys() {
+  return Object.entries(window.TAG_CATALOG || {})
+    .filter(([, def]) => def.scope === 'furniture' && def.shape === 'flag')
+    .map(([key]) => key);
 }
 async function assignRoomToJB(zoneId) {
   const genId = document.getElementById('assign-jb-select')?.value;
@@ -367,11 +391,16 @@ async function saveFurniture(existing) {
   const isNew = !existing?.id;
   const objectType = document.getElementById('f-object_type')?.value || 'furniture';
   const isLight = objectType === 'light';
+  const flags = { ...(existing?.flags || {}), interactions: ['sit','lie','lean','switch'].filter(i => document.getElementById(`f-ix-${i}`)?.checked) };
+  for (const key of furnitureCapabilityKeys()) {
+    if (document.getElementById(`f-cap-${key}`)?.checked) flags[key] = true;
+    else delete flags[key];
+  }
   const body = {
     name: document.getElementById('f-name').value,
     description: document.getElementById('f-description').value,
     zone_id: document.getElementById('f-zone_id').value || null,
-    flags: { ...(existing?.flags || {}), interactions: ['sit','lie','lean','switch'].filter(i => document.getElementById(`f-ix-${i}`)?.checked) },
+    flags,
     object_type: objectType,
     light_type: isLight ? (document.getElementById('f-light_type')?.value || 'lamp') : null,
     light_on: isLight ? Number(document.getElementById('f-light_on')?.value || 0) : 0,

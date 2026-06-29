@@ -102,7 +102,7 @@ applied supertags as inherited chips.
 ## Approach
 
 ### Shared catalog — single source of truth
-New file `client/shared/tagCatalog.js` (served at `/shared/*`). Exports `TAG_CATALOG`, a map of tag name → `{ label, shape, scope:'class'|'instance', group, help, options? }`. Written to work **both** as a browser global (`window.TAG_CATALOG`) and ESM (`export`), because the dev-panel `<script>` is a classic script (not a module) and the Node engine uses `import`. `shape` is one of `text|flag|int|enum|range|hot|statmap` and drives both the dev-panel input widget and serialization.
+New file `client/shared/tagCatalog.js` (served at `/shared/*`). Exports `TAG_CATALOG`, a map of tag name → `{ label, shape, scope:'class'|'instance'|'furniture', group, help, options? }`. The `furniture` scope marks **capability tags** stored as flat keys in `furniture.flags` (e.g. `water_source`) — declared affordances a verb plugin gates on, surfaced as tags by `tagsOf()`. The furniture dev-panel editor renders a checkbox per `scope==='furniture'` flag tag. Written to work **both** as a browser global (`window.TAG_CATALOG`) and ESM (`export`), because the dev-panel `<script>` is a classic script (not a module) and the Node engine uses `import`. `shape` is one of `text|flag|int|enum|range|hot|statmap` and drives both the dev-panel input widget and serialization.
 
 New helper `server/engine/tags.js` imports the catalog (relative import from `client/shared/`) and exposes `hasTag(item,name)`, `tagValue(item,name,default)`, `hasFlag(invRow,name)`, and re-exports `TAG_CATALOG`.
 
