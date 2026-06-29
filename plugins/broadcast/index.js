@@ -1868,10 +1868,10 @@ export const routeHandler = async (path, method, body, auth) => {
         if (channel_id) {
           await query(`UPDATE media_channels SET studio_zone_id=$1 WHERE id=$2 AND studio_zone_id IS NULL`, [studioZoneId, channel_id]);
           await query(
-            `INSERT INTO media_cameras (id, zone_id, name, streaming_channel_id, is_streaming, is_powered)
-             VALUES ($1, $2, $3, $4, 1, 1)
+            `INSERT INTO media_cameras (id, zone_id, streaming_channel_id, is_streaming, is_powered)
+             VALUES ($1, $2, $3, 1, 1)
              ON CONFLICT (id) DO NOTHING`,
-            [`cam_studio_${ts}`, studioZoneId, `${studio_name} Studio Cam`, channel_id]
+            [`cam_studio_${ts}`, studioZoneId, channel_id]
           );
         }
 
