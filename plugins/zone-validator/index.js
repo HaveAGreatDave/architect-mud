@@ -146,6 +146,56 @@ async function runFull(opts = {}) {
     }
   }
 
+  // Check for orphaned interior rooms: zones on interior maps whose exterior
+  // parent zone no longer exists. Covers broken studio complexes, apartments, etc.
+  const { rows: orphanedMaps } = await query(`
+    SELECT m.id AS map_id, m.parent_zone_id
+    FROM maps m
+    WHERE m.parent_zone_id IS NOT NULL
+      AND NOT EXISTS (SELECT 1 FROM zones WHERE id = m.parent_zone_id)
+  `).catch(() => ({ rows: [] }));
+
+  for (const om of orphanedMaps) {
+    const { rows: orphanedZones } = await query(
+      `SELECT id, name FROM zones WHERE map_id=$1`, [om.map_id]
+    ).catch(() => ({ rows: [] }));
+
+    for (const oz of orphanedZones) {
+      allIssues.push({
+        type: 'orphaned_room',
+        zoneId: oz.id,
+        zoneName: oz.name,
+        mapId: om.map_id,
+        missingExterior: om.parent_zone_id,
+        repaired: autoRepair,
+      });
+      if (autoRepair) totalRepairs++;
+    }
+
+    if (autoRepair && orphanedZones.length) {
+      const zoneIds = orphanedZones.map(z => z.id);
+      for (const zid of zoneIds) {
+        await query('DELETE FROM npcs             WHERE zone_id=$1', [zid]);
+        await query('DELETE FROM furniture        WHERE zone_id=$1', [zid]);
+        await query('DELETE FROM zone_spawns      WHERE zone_id=$1', [zid]);
+        await query('DELETE FROM lighting_states  WHERE zone_id=$1', [zid]);
+        await query('DELETE FROM generators       WHERE zone_id=$1', [zid]);
+        await query('DELETE FROM power_zones      WHERE id=$1',      [zid]);
+        await query('DELETE FROM player_corpses   WHERE zone_id=$1', [zid]);
+        await query('DELETE FROM world_events     WHERE zone_id=$1', [zid]);
+        await query('DELETE FROM windows          WHERE zone_interior=$1 OR zone_exterior=$1', [zid]);
+        await query('DELETE FROM media_cameras    WHERE zone_id=$1', [zid]);
+        await query('DELETE FROM player_inventory WHERE player_id=$1', [`_ground_${zid}`]);
+        await query('UPDATE media_channels SET studio_zone_id=NULL WHERE studio_zone_id=$1', [zid]);
+        await query("UPDATE players SET anchor_zone='zone_start' WHERE anchor_zone=$1", [zid]);
+        await query('UPDATE players SET home_zone=NULL           WHERE home_zone=$1',   [zid]);
+        world.zones.delete(zid);
+      }
+      await query(`DELETE FROM zones WHERE map_id=$1`, [om.map_id]);
+      await query('DELETE FROM maps  WHERE id=$1',     [om.map_id]);
+    }
+  }
+
   return {
     zonesScanned: zones.length,
     exitsScanned: totalExits,

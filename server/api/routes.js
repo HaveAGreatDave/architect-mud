@@ -719,6 +719,24 @@ export async function apiDeleteZone(id) {
       [id]
     );
     const allDeletedIds = [id, ...children.map(c => c.id)];
+    // If any zone being deleted is on an interior map, pull in all sibling zones
+    // on that same map. This ensures studio rooms (utility, production, stage) are
+    // all deleted together regardless of which entry point the user deleted.
+    {
+      const { rows: mapRows } = await query(
+        `SELECT DISTINCT z.map_id FROM zones z
+         JOIN maps m ON m.id = z.map_id
+         WHERE z.id = ANY($1) AND z.map_id IS NOT NULL AND m.parent_zone_id IS NOT NULL`,
+        [allDeletedIds]
+      );
+      for (const { map_id } of mapRows) {
+        const { rows: siblings } = await query(
+          `SELECT id FROM zones WHERE map_id=$1 AND NOT (id = ANY($2))`,
+          [map_id, allDeletedIds]
+        );
+        for (const s of siblings) allDeletedIds.push(s.id);
+      }
+    }
     // Cascade-delete everything tied to these zone IDs so nothing is left orphaned.
     for (const zid of allDeletedIds) {
       await query('DELETE FROM npcs             WHERE zone_id=$1', [zid]);
