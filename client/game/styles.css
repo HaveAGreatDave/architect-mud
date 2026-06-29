@@ -3155,16 +3155,17 @@ body {
 	font-weight: bold;
 }
 
-/* ─── HUD RIGHT COLUMN (minimap left, info stack right) ─── */
+/* ─── HUD RIGHT COLUMN (chat button + minimap, map on the right) ─── */
 #mob-hud-right {
 	display: flex;
 	flex-direction: row;
-	align-items: stretch;
+	align-items: center;
 	gap: 4px;
 	flex-shrink: 0;
 }
 
-/* Minimap fills the full height of the info column beside it */
+/* Minimap renders as block so the per-row <br> line breaks survive
+   (a flex container would collapse all 25 cells onto one line). */
 #minimap-grid-hud {
 	white-space: nowrap;
 	font-size: 9px;
@@ -3175,12 +3176,10 @@ body {
 	background: var(--bg);
 	border: 1px solid var(--border);
 	border-radius: 2px;
-	padding: 2px 3px;
+	padding: 3px 4px;
 	cursor: pointer;
 	transition: border-color 0.15s;
-	display: flex;
-	align-items: center;
-	justify-content: center;
+	display: block;
 }
 #minimap-grid-hud:active {
 	border-color: var(--accent);
@@ -3279,6 +3278,7 @@ body {
 	border-top: 1px solid var(--border);
 	background: var(--bg);
 	flex-shrink: 0;
+	position: relative;
 }
 
 #quick-cmds {
@@ -3287,6 +3287,84 @@ body {
 	border-right: 1px solid var(--border);
 	min-width: 0;
 }
+
+/* Mobile-only command fan-out trigger + relocated weather. Hidden on desktop,
+   where the quick-cmds bar shows inline and weather lives in the sidebar. */
+#bottom-left {
+	display: none;
+	align-items: center;
+	gap: 10px;
+	padding: 6px 12px;
+	flex: 1;
+	min-width: 0;
+	border-right: 1px solid var(--border);
+}
+
+#cmd-fan-btn {
+	background: var(--bg3);
+	border: 1px solid var(--border);
+	color: var(--text-dim);
+	font-family: var(--font-mono);
+	font-size: 13px;
+	padding: 8px 14px;
+	min-height: 36px;
+	cursor: pointer;
+	border-radius: 2px;
+	flex-shrink: 0;
+	letter-spacing: 1px;
+	-webkit-tap-highlight-color: transparent;
+	transition: all 0.1s;
+}
+#cmd-fan-btn:active {
+	border-color: var(--accent);
+	color: var(--accent);
+}
+
+#bottom-weather {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	min-width: 0;
+}
+#bottom-weather .mob-hud-weather { font-size: 16px; }
+#bottom-weather .mob-hud-temp,
+#bottom-weather .mob-hud-bodytemp { font-size: 11px; }
+
+/* Mobile: command list becomes a fan-out popup above the bar, triggered by
+   #cmd-fan-btn; #bottom-left (button + weather) takes its place inline.
+   The popup styling is shared by the width media query and compact mode. */
+@media (max-width: 720px) {
+	#bottom-left { display: flex; }
+	#quick-cmds {
+		display: none;
+		position: absolute;
+		left: 0;
+		right: 0;
+		bottom: 100%;
+		flex-wrap: wrap;
+		overflow-x: hidden;
+		border-right: none;
+		border-bottom: 1px solid var(--border);
+		box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.4);
+		z-index: 60;
+	}
+	#quick-cmds.open { display: flex; }
+}
+[data-density="compact"] #bottom-left { display: flex; }
+[data-density="compact"] #quick-cmds {
+	display: none;
+	position: absolute;
+	left: 0;
+	right: 0;
+	bottom: 100%;
+	flex-wrap: wrap;
+	overflow-x: hidden;
+	border-right: none;
+	border-bottom: 1px solid var(--border);
+	box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.4);
+	z-index: 60;
+}
+[data-density="compact"] #quick-cmds.open { display: flex; }
 
 /* ─── MOBILE DPAD ─── */
 #mob-dpad {

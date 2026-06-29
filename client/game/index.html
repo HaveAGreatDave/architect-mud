@@ -489,17 +489,8 @@
 				</div>
 			</div>
 			<div id="mob-hud-right">
+				<button id="mobile-chat-btn" title="Toggle chat">💬<span id="mobile-chat-badge" style="display:none"> !</span></button>
 				<div id="minimap-grid-hud" title="Tap for full map">—</div>
-				<div id="mob-hud-info">
-					<span id="env-weather-icon-m" class="mob-hud-weather" title="Weather">—</span>
-					<span class="mob-hud-temp" id="env-temp-m">—°</span>
-					<span id="env-body-temp-m" class="mob-hud-bodytemp"></span>
-					<button id="mobile-chat-btn" title="Toggle chat">💬<span id="mobile-chat-badge" style="display:none"> !</span></button>
-					<span id="env-clock-m" style="display:none"></span>
-					<span id="env-time-icon-m" style="display:none"></span>
-					<span id="env-body-feel-m" style="display:none"></span>
-					<span id="env-precip-intensity-m" style="display:none"></span>
-				</div>
 			</div>
 		</div>
 
@@ -518,6 +509,18 @@
 				</div>
 				<div id="output"></div>
 				<div id="bottom-bar">
+					<div id="bottom-left">
+						<button id="cmd-fan-btn" title="Commands">≡ cmds</button>
+						<div id="bottom-weather">
+							<span id="env-weather-icon-m" class="mob-hud-weather" title="Weather">—</span>
+							<span class="mob-hud-temp" id="env-temp-m">—°</span>
+							<span id="env-body-temp-m" class="mob-hud-bodytemp"></span>
+							<span id="env-clock-m" style="display:none"></span>
+							<span id="env-time-icon-m" style="display:none"></span>
+							<span id="env-body-feel-m" style="display:none"></span>
+							<span id="env-precip-intensity-m" style="display:none"></span>
+						</div>
+					</div>
 					<div id="quick-cmds">
 						<button class="qcmd" data-open-equip>inv</button>
 						<button class="qcmd" data-cmd="stats">stats</button>
