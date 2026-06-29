@@ -5,6 +5,7 @@ import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { on, emit } from '../../server/engine/events.js';
 import { registerAction } from '../../server/engine/actions.js';
 import { registerCommand } from '../../server/engine/plugins.js';
+import { apiDeleteZone } from '../../server/api/routes.js';
 import { registerViewerChecker, registerNpcScheduleChecker, registerNpcStudioZoneLookup } from '../../server/engine/broadcast-bridge.js';
 import { getEnvironmentState } from '../../server/engine/environment.js';
 
@@ -1565,9 +1566,14 @@ export const routeHandler = async (path, method, body, auth) => {
       }
       if (id && !sub && method === 'DELETE') {
         if (auth?.role !== 'admin') return { status: 403, body: { error: 'Admin access required' } };
+        // Look up studio zone before deleting the channel row
+        const { rows: chRows } = await query('SELECT studio_zone_id FROM media_channels WHERE id=$1', [id]);
+        const studioZoneId = chRows[0]?.studio_zone_id || null;
         await query('DELETE FROM media_cameras WHERE streaming_channel_id=$1', [id]);
         await query('DELETE FROM furniture WHERE object_type=\'media_deck\' AND flags->>\'channel_id\'=$1', [id]);
         await query('DELETE FROM media_channels WHERE id=$1', [id]);
+        // Cascade: delete the studio zone and its entire map (production, utility rooms, etc.)
+        if (studioZoneId) await apiDeleteZone(studioZoneId).catch(err => console.warn('[broadcast] studio zone cleanup:', err.message));
         await loadChannelRuntimes();
         await loadZoneTunings();
         return { status: 200, body: { message: 'Deleted' } };

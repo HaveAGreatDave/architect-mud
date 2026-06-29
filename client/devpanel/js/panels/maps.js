@@ -501,6 +501,7 @@ function renderMapOverview() {
     html += `<div class="map-toolbar">
       <label>Interior</label>
       <select onchange="switchInteriorMap(this.value)">${intOpts}</select>
+      <button class="action-btn danger" style="font-size:10px;padding:2px 8px" onclick="mapDeleteInterior()" title="Delete this interior map and all its zones">Delete Map</button>
       <span style="margin-left:6px">Floor</span>
       <button class="action-btn" onclick="changeFloor(-1)">▾</button>
       <span style="min-width:60px;text-align:center">z = ${o.z}</span>
@@ -872,6 +873,21 @@ async function switchMapTab(tab, interiorId) {
     // No interiors exist — show placeholder using existing mapOverview (exterior data)
     renderMapOverview();
   }
+}
+
+async function mapDeleteInterior() {
+  const o = mapOverview;
+  if (!o?.map?.id || !o.map.parent_zone_id) return; // only for interior maps
+  const mapId = o.map.id;
+  const mapName = o.map.name;
+  if (!confirm(`Delete "${mapName}" and all its zones? This cannot be undone.`)) return;
+  const res = await directAPI(`/maps/${mapId}`, 'DELETE');
+  if (res?.error) { alert(res.error); return; }
+  // Switch back to the world map and refresh
+  mapSelectedInteriorId = null;
+  mapsList = mapsList.filter(m => m.id !== mapId);
+  const worldId = mapsList.find(m => m.id === 'map_world')?.id || mapsList.find(m => !m.parent_zone_id)?.id || mapsList[0]?.id;
+  if (worldId) await loadMapOverview(worldId);
 }
 
 async function switchInteriorMap(id) {

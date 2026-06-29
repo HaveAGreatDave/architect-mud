@@ -144,6 +144,7 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path==='/zones' && method==='POST') return requireDev(auth, ()=>apiCreateZone(body,auth));
   if (path==='/maps' && method==='GET') return requireDev(auth, apiGetMaps);
   if (path==='/maps/link-interior' && method==='POST') return requireDev(auth, ()=>apiLinkInterior(body, auth));
+  if (path.startsWith('/maps/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteMap(path.split('/')[2]));
   if (path.startsWith('/maps/') && method==='GET') return requireDev(auth, ()=>apiGetMap(path.split('/')[2]));
   // Zone IDs may contain '/' — extract with slice, not split, to handle them correctly
   const _zoneId    = (p) => p.slice('/zones/'.length);
@@ -499,6 +500,22 @@ async function apiGetMaps() {
     FROM maps m ORDER BY m.id
   `);
   return { status:200, body: rows };
+}
+
+async function apiDeleteMap(id) {
+  try {
+    const { rows: mapRows } = await query('SELECT id FROM maps WHERE id=$1', [id]);
+    if (!mapRows.length) return { status: 404, body: { error: 'Map not found' } };
+    // Get all zone IDs on this map — delete them using the full cascade logic
+    const { rows: zoneRows } = await query('SELECT id FROM zones WHERE map_id=$1', [id]);
+    // Delete each zone through the full cascade (handles npcs, furniture, exits, etc.)
+    for (const { id: zid } of zoneRows) await apiDeleteZone(zid).catch(() => {});
+    // Delete the map itself in case it wasn't caught by entry/parent zone cleanup
+    await query('DELETE FROM maps WHERE id=$1', [id]);
+    return { status: 200, body: { message: `Map deleted (${zoneRows.length} zone${zoneRows.length !== 1 ? 's' : ''} removed)` } };
+  } catch (e) {
+    return { status: 400, body: { error: e.message } };
+  }
 }
 
 async function apiGetMap(id) {
