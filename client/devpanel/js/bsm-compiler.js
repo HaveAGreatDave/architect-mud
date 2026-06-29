@@ -10,10 +10,10 @@ function compileBsm(text) {
   // Pre-scan ::actors block to build alias map and actor list.
   // Format:
   //   ::actors
-  //   @actor john_akerson          ← entity ID becomes npc_john_akerson
-  //   @alias john_akerson JOHN     ← JOHN: dialogue lines map to npc_john_akerson
-  const aliases  = {};  // ALIAS_LABEL (uppercase) → npc_id
-  const actorIds = [];  // npc_ids in declaration order
+  //   @actor npc_john_akerson          ← exact entity ID
+  //   @alias npc_john_akerson JOHN     ← JOHN: dialogue lines map to npc_john_akerson
+  const aliases  = {};  // ALIAS_LABEL (uppercase) → entity id
+  const actorIds = [];  // entity ids in declaration order
   let _inActors = false;
   for (const ln of lines) {
     const t = ln.trim();
@@ -21,9 +21,9 @@ function compileBsm(text) {
     if (t.startsWith('::') && t !== '::actors') { _inActors = false; continue; }
     if (!_inActors) continue;
     const mActor = t.match(/^@actor\s+(\S+)/);
-    if (mActor) { actorIds.push(`npc_${mActor[1]}`); continue; }
+    if (mActor) { actorIds.push(mActor[1]); continue; }
     const mAlias = t.match(/^@alias\s+(\S+)\s+(\S+)/);
-    if (mAlias) aliases[mAlias[2].toUpperCase()] = `npc_${mAlias[1]}`;
+    if (mAlias) aliases[mAlias[2].toUpperCase()] = mAlias[1];
   }
 
   const nodes = {};
