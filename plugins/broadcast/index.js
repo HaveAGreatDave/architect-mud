@@ -1238,6 +1238,8 @@ export const routeHandler = async (path, method, body, auth) => {
       }
       if (id && !sub && method === 'DELETE') {
         if (auth?.role !== 'admin') return { status: 403, body: { error: 'Admin access required' } };
+        await query('UPDATE media_cameras SET streaming_channel_id=NULL, is_streaming=0 WHERE streaming_channel_id=$1', [id]);
+        await query('UPDATE furniture SET flags = flags - ARRAY[\'channel_id\',\'deck_active\'] WHERE flags->>\'channel_id\'=$1', [id]);
         await query('DELETE FROM media_channels WHERE id=$1', [id]);
         await loadChannelRuntimes();
         await loadZoneTunings();
