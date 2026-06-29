@@ -53,7 +53,9 @@ export function setAreaPane(html, direction) {
   const el = document.getElementById('area-content');
   el.innerHTML = html;
   applyDescCollapse(el);
-  if (el.animate && document.documentElement.getAttribute('data-motion') !== 'off') {
+  // Only a location change (move) plays the slide transition. Silent refreshes
+  // from kills, loot, look, etc. pass no direction and update in place.
+  if (direction && el.animate && document.documentElement.getAttribute('data-motion') !== 'off') {
     const off = AREA_SLIDE[direction] || [0, 1];
     el.animate(
       [{ opacity: 0, transform: `translate(${off[0] * 10}px, ${off[1] * 10}px)` },
