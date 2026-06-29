@@ -28,9 +28,30 @@ export function appendPre(text, cls = '') {
 // New room text enters in the direction of travel so a move reads as a step.
 const AREA_SLIDE = { north:[0,-1], south:[0,1], east:[1,0], west:[-1,0] };
 
+// Description collapse is a compact-view preference: the room prose clamps to
+// a few lines with a toggle, and the choice persists across room changes.
+function applyDescCollapse(el) {
+  const desc = el.querySelector('.room-desc');
+  if (!desc) return;
+  const expanded = localStorage.getItem('areaDescExpanded') === '1';
+  desc.classList.toggle('collapsed', !expanded);
+  const toggle = document.createElement('button');
+  toggle.type = 'button';
+  toggle.className = 'room-desc-toggle';
+  toggle.textContent = expanded ? '− less' : '+ more';
+  toggle.addEventListener('click', () => {
+    const expand = desc.classList.contains('collapsed'); // collapsed → expand
+    desc.classList.toggle('collapsed', !expand);
+    localStorage.setItem('areaDescExpanded', expand ? '1' : '0');
+    toggle.textContent = expand ? '− less' : '+ more';
+  });
+  desc.after(toggle);
+}
+
 export function setAreaPane(html, direction) {
   const el = document.getElementById('area-content');
   el.innerHTML = html;
+  applyDescCollapse(el);
   if (el.animate && document.documentElement.getAttribute('data-motion') !== 'off') {
     const off = AREA_SLIDE[direction] || [0, 1];
     el.animate(

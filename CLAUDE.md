@@ -23,7 +23,7 @@ Post-singularity browser MUD in the HellMOO tradition. Text-driven, real-time, b
 - [docs/systems-posture.md](docs/systems-posture.md) — posture/sitting (split engine+plugin system): the `player.posture`/`sittingOn` contract, HP regen, stand-up triggers, look description (as built)
 - [docs/systems-broadcast.md](docs/systems-broadcast.md) — broadcast system: channels, playlists, dynamic news, VINE graph scripts, NPC hosts, camera feeds, broadcast-bridge, game client styling (as built)
 - [docs/systems-atm.md](docs/systems-atm.md) — ATM terminals: furniture integration, networks, fee/limit/faction logic, hacking, replenish tick, power dependency, dev panel routes (as built)
-- [docs/audits/source-of-truth-audit.md](docs/audits/source-of-truth-audit.md) — reusable prompt to audit engine-vs-plugin duplicate/split sources of truth (the bug class behind the posture break)
+- [docs/audits/](docs/audits/README.md) — **audit suite**: reusable prompts that challenge the design at its silent seams (engine↔plugin source-of-truth, client↔server protocol, content↔engine fields, UI/CSS standardization, registry naming harmony). Start at the [index](docs/audits/README.md); the seminal one is [source-of-truth-audit.md](docs/audits/source-of-truth-audit.md) (the bug class behind the posture break).
 
 **Before touching any system, read the relevant doc section if there's one applicable to the request.**
 

@@ -490,16 +490,6 @@
 			</div>
 			<div id="mob-hud-right">
 				<div id="minimap-grid-hud" title="Tap for full map">—</div>
-				<div id="mob-hud-info">
-					<span id="env-weather-icon-m" class="mob-hud-weather" title="Weather">—</span>
-					<span class="mob-hud-temp" id="env-temp-m">—°</span>
-					<span id="env-body-temp-m" class="mob-hud-bodytemp"></span>
-					<button id="mobile-chat-btn" title="Toggle chat">💬<span id="mobile-chat-badge" style="display:none"> !</span></button>
-					<span id="env-clock-m" style="display:none"></span>
-					<span id="env-time-icon-m" style="display:none"></span>
-					<span id="env-body-feel-m" style="display:none"></span>
-					<span id="env-precip-intensity-m" style="display:none"></span>
-				</div>
 			</div>
 		</div>
 
@@ -517,7 +507,21 @@
 					>
 				</div>
 				<div id="output"></div>
+				<div id="bottom-input-wrap">
+				<div id="bottom-stack">
 				<div id="bottom-bar">
+					<div id="bottom-left">
+						<button id="cmd-fan-btn" title="Commands">≡ cmds</button>
+						<div id="bottom-weather">
+							<span id="env-weather-icon-m" class="mob-hud-weather" title="Weather">—</span>
+							<span class="mob-hud-temp" id="env-temp-m">—°</span>
+							<span id="env-body-temp-m" class="mob-hud-bodytemp"></span>
+							<span id="env-clock-m" style="display:none"></span>
+							<span id="env-time-icon-m" style="display:none"></span>
+							<span id="env-body-feel-m" style="display:none"></span>
+							<span id="env-precip-intensity-m" style="display:none"></span>
+						</div>
+					</div>
 					<div id="quick-cmds">
 						<button class="qcmd" data-open-equip>inv</button>
 						<button class="qcmd" data-cmd="stats">stats</button>
@@ -529,7 +533,19 @@
 						<button class="qcmd" data-cmd="mutations">mutations</button>
 						<button class="qcmd" id="open-map-btn">map</button>
 					</div>
-					<div id="mob-dpad">
+				</div>
+				<div id="input-area">
+					<span id="prompt">&gt;</span>
+					<input
+						type="text"
+						id="cmd-input"
+						placeholder="Type a command..."
+						autocomplete="off"
+						spellcheck="false" />
+					<button id="mobile-chat-btn" title="Toggle chat">💬<span id="mobile-chat-badge" style="display:none"> !</span></button>
+				</div>
+				</div>
+				<div id="mob-dpad">
 						<div class="dpad-row">
 							<button class="dpad-btn dpad-blank" disabled></button>
 							<button class="dpad-btn" data-cmd="n" title="North">N</button>
@@ -546,15 +562,6 @@
 							<button class="dpad-btn dpad-ud" data-cmd="d" title="Down">↓</button>
 						</div>
 					</div>
-				</div>
-				<div id="input-area">
-					<span id="prompt">&gt;</span>
-					<input
-						type="text"
-						id="cmd-input"
-						placeholder="Type a command..."
-						autocomplete="off"
-						spellcheck="false" />
 				</div>
 			</div>
 
@@ -676,13 +683,13 @@
 								class="env-body-temp"
 								id="env-body-temp"
 								style="display: none"></span>
-							<span
-								class="env-precip-label"
-								id="env-precip-intensity"></span>
 						</div>
 						<div class="env-hud-row env-hud-weather">
 							<span id="env-light-icon" style="font-size: 10px; color: var(--text-dim)">●</span>
 							<span id="env-light-label" style="color: var(--text-dim)">—</span>
+							<span
+								class="env-precip-label"
+								id="env-precip-intensity"></span>
 						</div>
 					</div>
 				</div>

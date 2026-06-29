@@ -262,6 +262,25 @@ document.getElementById('signout-btn').addEventListener('click', () => {
   location.reload();
 });
 
+// Mobile command fan-out: toggle the quick-cmds popup above the bar.
+{
+  const fanBtn = document.getElementById('cmd-fan-btn');
+  const quickCmds = document.getElementById('quick-cmds');
+  if (fanBtn && quickCmds) {
+    fanBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      quickCmds.classList.toggle('open');
+    });
+    // Close after picking a command, or when tapping outside the popup.
+    quickCmds.addEventListener('click', () => quickCmds.classList.remove('open'));
+    document.addEventListener('click', (e) => {
+      if (!quickCmds.contains(e.target) && e.target !== fanBtn) {
+        quickCmds.classList.remove('open');
+      }
+    });
+  }
+}
+
 // Quick-cmd buttons
 document.querySelectorAll('.qcmd[data-cmd]').forEach(btn => {
   btn.addEventListener('click', () => sendCmd(btn.dataset.cmd));

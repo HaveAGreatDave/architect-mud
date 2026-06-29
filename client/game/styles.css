@@ -644,6 +644,35 @@ body {
 	flex: 0 0 auto;
 	white-space: pre-wrap;
 	word-break: break-word;
+	line-height: 1.35;
+}
+
+/* Collapsible room prose (compact view). Block so it can clamp; the toggle
+   sits on its own line beneath. */
+.room-desc {
+	display: block;
+}
+.room-desc.collapsed {
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+.room-desc-toggle {
+	display: inline-block;
+	background: none;
+	border: none;
+	padding: 0;
+	margin: 1px 0;
+	color: var(--accent);
+	font-family: var(--font-mono);
+	font-size: 11px;
+	cursor: pointer;
+	letter-spacing: 1px;
+	-webkit-tap-highlight-color: transparent;
+}
+.room-desc-toggle:hover {
+	text-decoration: underline;
 }
 
 #area-pane::-webkit-scrollbar {
@@ -777,6 +806,7 @@ body {
 	font-size: 11px;
 	padding: 1px 5px;
 	border-radius: 2px;
+	vertical-align: middle;
 }
 .zone-danger-safe {
 	color: var(--green);
@@ -811,7 +841,7 @@ body {
 	display: block;
 	font-size: 11px;
 	font-style: italic;
-	margin: 2px 0;
+	margin: 0;
 }
 .light-clear {
 	color: var(--text-dim);
@@ -1001,6 +1031,7 @@ body {
 #env-hud-sidebar .env-precip-label {
 	color: var(--blue);
 	font-size: 11px;
+	margin-left: auto;
 }
 
 /* Forecast panel — mirrors the dialogue panel's modal pattern */
@@ -1126,6 +1157,7 @@ body {
 	border-top: 1px solid var(--border);
 	padding: 10px 16px;
 	display: flex;
+	align-items: center;
 	gap: 8px;
 	background: var(--bg2);
 	flex-shrink: 0;
@@ -3086,7 +3118,7 @@ body {
 /* ─── MOBILE HUD STRIP ─── */
 #mobile-hud {
 	display: none;
-	align-items: center;
+	align-items: stretch;
 	gap: 6px;
 	padding: 4px 8px;
 	background: var(--bg2);
@@ -3154,32 +3186,31 @@ body {
 	font-weight: bold;
 }
 
-/* ─── HUD RIGHT COLUMN (minimap left, info stack right) ─── */
+/* ─── HUD RIGHT COLUMN (chat button + minimap, map on the right) ─── */
 #mob-hud-right {
 	display: flex;
 	flex-direction: row;
-	align-items: stretch;
+	align-items: center;
 	gap: 4px;
 	flex-shrink: 0;
 }
 
-/* Minimap fills the full height of the info column beside it */
+/* Minimap renders as block so the per-row <br> line breaks survive
+   (a flex container would collapse all 25 cells onto one line). */
 #minimap-grid-hud {
 	white-space: nowrap;
-	font-size: 9px;
-	line-height: 1;
+	font-size: 13px;
+	line-height: 1.05;
 	letter-spacing: 0;
 	text-align: center;
 	font-family: var(--font-mono);
 	background: var(--bg);
 	border: 1px solid var(--border);
 	border-radius: 2px;
-	padding: 2px 3px;
+	padding: 1px 2px;
 	cursor: pointer;
 	transition: border-color 0.15s;
-	display: flex;
-	align-items: center;
-	justify-content: center;
+	display: block;
 }
 #minimap-grid-hud:active {
 	border-color: var(--accent);
@@ -3217,12 +3248,13 @@ body {
 }
 
 #mobile-chat-btn {
+	display: none; /* lives in the input row; mobile/compact only */
 	background: transparent;
 	border: 1px solid var(--border);
 	color: var(--text-dim);
 	font-family: var(--font-mono);
-	font-size: 14px;
-	padding: 1px 4px;
+	font-size: 16px;
+	padding: 6px 8px;
 	cursor: pointer;
 	border-radius: 2px;
 	flex-shrink: 0;
@@ -3230,6 +3262,10 @@ body {
 	-webkit-tap-highlight-color: transparent;
 	line-height: 1;
 }
+@media (max-width: 720px) {
+	#mobile-chat-btn { display: block; }
+}
+[data-density="compact"] #mobile-chat-btn { display: block; }
 #mobile-chat-btn:active {
 	border-color: var(--accent);
 	color: var(--accent);
@@ -3271,6 +3307,27 @@ body {
 	color: var(--accent);
 }
 
+/* Bottom region wrapper. Desktop: plain vertical stack (cmds bar above input,
+   dpad hidden). Mobile/compact: the dpad becomes a full-height column on the
+   right while the cmds/weather bar and the input row stack to its left. */
+#bottom-input-wrap {
+	display: flex;
+	flex-direction: column;
+}
+#bottom-stack {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+@media (max-width: 720px) {
+	#bottom-input-wrap { flex-direction: row; align-items: stretch; }
+	#bottom-stack { flex: 1; }
+	#bottom-input-wrap #mob-dpad { border-left: 1px solid var(--border); }
+}
+[data-density="compact"] #bottom-input-wrap { flex-direction: row; align-items: stretch; }
+[data-density="compact"] #bottom-stack { flex: 1; }
+[data-density="compact"] #bottom-input-wrap #mob-dpad { border-left: 1px solid var(--border); }
+
 /* ─── BOTTOM BAR (quick-cmds + dpad) ─── */
 #bottom-bar {
 	display: flex;
@@ -3278,6 +3335,7 @@ body {
 	border-top: 1px solid var(--border);
 	background: var(--bg);
 	flex-shrink: 0;
+	position: relative;
 }
 
 #quick-cmds {
@@ -3286,6 +3344,83 @@ body {
 	border-right: 1px solid var(--border);
 	min-width: 0;
 }
+
+/* Mobile-only command fan-out trigger + relocated weather. Hidden on desktop,
+   where the quick-cmds bar shows inline and weather lives in the sidebar. */
+#bottom-left {
+	display: none;
+	align-items: center;
+	gap: 10px;
+	padding: 6px 12px;
+	flex: 1;
+	min-width: 0;
+}
+
+#cmd-fan-btn {
+	background: var(--bg3);
+	border: 1px solid var(--border);
+	color: var(--text-dim);
+	font-family: var(--font-mono);
+	font-size: 13px;
+	padding: 8px 14px;
+	min-height: 36px;
+	cursor: pointer;
+	border-radius: 2px;
+	flex-shrink: 0;
+	letter-spacing: 1px;
+	-webkit-tap-highlight-color: transparent;
+	transition: all 0.1s;
+}
+#cmd-fan-btn:active {
+	border-color: var(--accent);
+	color: var(--accent);
+}
+
+#bottom-weather {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	min-width: 0;
+}
+#bottom-weather .mob-hud-weather { font-size: 16px; }
+#bottom-weather .mob-hud-temp,
+#bottom-weather .mob-hud-bodytemp { font-size: 11px; }
+
+/* Mobile: command list becomes a fan-out popup above the bar, triggered by
+   #cmd-fan-btn; #bottom-left (button + weather) takes its place inline.
+   The popup styling is shared by the width media query and compact mode. */
+@media (max-width: 720px) {
+	#bottom-left { display: flex; }
+	#quick-cmds {
+		display: none;
+		position: absolute;
+		left: 0;
+		right: 0;
+		bottom: 100%;
+		flex-wrap: wrap;
+		overflow-x: hidden;
+		border-right: none;
+		border-bottom: 1px solid var(--border);
+		box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.4);
+		z-index: 60;
+	}
+	#quick-cmds.open { display: flex; }
+}
+[data-density="compact"] #bottom-left { display: flex; }
+[data-density="compact"] #quick-cmds {
+	display: none;
+	position: absolute;
+	left: 0;
+	right: 0;
+	bottom: 100%;
+	flex-wrap: wrap;
+	overflow-x: hidden;
+	border-right: none;
+	border-bottom: 1px solid var(--border);
+	box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.4);
+	z-index: 60;
+}
+[data-density="compact"] #quick-cmds.open { display: flex; }
 
 /* ─── MOBILE DPAD ─── */
 #mob-dpad {
