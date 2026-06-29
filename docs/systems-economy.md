@@ -36,8 +36,10 @@ negative" invariant lives in one place.
 
 [vendor.js](../server/engine/vendor.js), driven by `shop`/`buy`/`sell`.
 
-- **Stock** comes from the NPC's `vendor_inventory` JSON; price is `entry.price` (falling back to the
-  item's `value`), discounted by faction reputation, floored at 1.
+- **Stock** comes from the NPC's `vendor_inventory` JSON — an array of `{ "item_id": "<id>", "price"?: <int>, "stock"?: <int> }`.
+  Only `item_id` is required (the exact snake_case key — a `itemId` typo silently yields no stock; the NPC editor
+  now rejects entries missing `item_id`). Price is `entry.price` (falling back to the item's `value`), discounted by
+  faction reputation, floored at 1.
 - **Buy:** debits credits via `adjustCredits`, then inserts/stacks the item. Vendor `stock` is **not**
   decremented — supply is effectively infinite (default `stock ?? 99` is display-only).
 - **Sell:** pays **40% of the item's `value`**. Rejects `quest_item`-tagged and equipped items.

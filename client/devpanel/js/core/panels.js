@@ -56,7 +56,6 @@ const PANELS = {
       { key: 'name', label: 'Name' },
       { key: 'zone_id', label: 'Zone' },
       { key: 'faction', label: 'Faction' },
-      { key: 'disposition', label: 'Disposition' },
     ],
     render: renderNpcsPanel,
     editForm: npcEditForm,

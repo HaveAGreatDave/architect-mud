@@ -65,7 +65,6 @@ export const SCHEMA_SQL = `
     danger_rating TEXT DEFAULT 'safe',
     pvp_enabled INTEGER DEFAULT 0,
     radiation_level INTEGER DEFAULT 0,
-    light_level TEXT DEFAULT 'normal',
     is_safe_zone INTEGER DEFAULT 0,
     ambient_events JSONB DEFAULT '[]',
     exits JSONB DEFAULT '{}',
@@ -135,15 +134,7 @@ export const SCHEMA_SQL = `
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     description TEXT NOT NULL,
-    stat_str INTEGER DEFAULT 5,
-    stat_agi INTEGER DEFAULT 5,
-    stat_end INTEGER DEFAULT 5,
     hp_max INTEGER DEFAULT 50,
-    damage_min INTEGER DEFAULT 3,
-    damage_max INTEGER DEFAULT 8,
-    armor INTEGER DEFAULT 0,
-    xp_reward INTEGER DEFAULT 10,
-    credit_reward INTEGER DEFAULT 0,
     loot_table JSONB DEFAULT '[]',
     behavior TEXT DEFAULT 'aggressive',
     faction TEXT,
@@ -167,7 +158,6 @@ export const SCHEMA_SQL = `
     description TEXT NOT NULL,
     zone_id TEXT,
     faction TEXT,
-    disposition TEXT DEFAULT 'neutral',
     dialogue_tree JSONB DEFAULT '{}',
     vendor_inventory JSONB DEFAULT '[]',
     wanders INTEGER DEFAULT 0,
@@ -211,7 +201,6 @@ export const SCHEMA_SQL = `
     category TEXT NOT NULL DEFAULT 'misc',
     descriptions JSONB NOT NULL DEFAULT '[]',
     loudness REAL NOT NULL DEFAULT 3.0,
-    tags JSONB DEFAULT '{}',
     enabled INTEGER NOT NULL DEFAULT 1
   );
 
@@ -401,8 +390,6 @@ export const SCHEMA_SQL = `
   ALTER TABLE players ADD COLUMN IF NOT EXISTS stat_cool INTEGER DEFAULT 0;
   ALTER TABLE players ADD COLUMN IF NOT EXISTS bonus_xp INTEGER DEFAULT 0;
   ALTER TABLE player_skills ADD COLUMN IF NOT EXISTS trained REAL DEFAULT 0;
-  ALTER TABLE enemies ADD COLUMN IF NOT EXISTS defense INTEGER DEFAULT 0;
-  ALTER TABLE enemies ADD COLUMN IF NOT EXISTS soak JSONB DEFAULT '{}';
   ALTER TABLE enemies ADD COLUMN IF NOT EXISTS hit INTEGER DEFAULT 1;
   ALTER TABLE enemies ADD COLUMN IF NOT EXISTS dodge INTEGER DEFAULT 1;
   ALTER TABLE enemies ADD COLUMN IF NOT EXISTS weapon JSONB DEFAULT '[]';

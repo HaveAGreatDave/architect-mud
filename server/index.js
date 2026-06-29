@@ -475,7 +475,7 @@ async function autoEquipOnLogin(playerId) {
 		`SELECT pi.id, i.tags->>'slot' AS slot
 		 FROM player_inventory pi JOIN items i ON i.id = pi.item_id
 		 WHERE pi.player_id = $1 AND pi.is_equipped = 0
-		   AND (i.tags->>'auto_equip')::boolean = true
+		   AND jsonb_exists(i.tags,'auto_equip')
 		   AND i.tags ? 'slot'`,
 		[playerId],
 	);

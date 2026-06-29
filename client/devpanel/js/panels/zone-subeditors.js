@@ -36,9 +36,6 @@ function openAddNpcForm(zoneId) {
     <div class="zone-inline-form">
       <div class="field"><label>Name</label><input id="nn-name" placeholder="e.g. Lowry"></div>
       <div class="field"><label>Description</label><textarea id="nn-description" rows="3"></textarea></div>
-      <div class="field"><label>Disposition</label>
-        <select id="nn-disposition">${['friendly','neutral','hostile','fearful'].map(d=>`<option>${d}</option>`).join('')}</select>
-      </div>
       <div class="zone-inline-form-actions">
         <button class="action-btn success" onclick='submitAddNpc(${JSON.stringify(zoneId)})'>Create</button>
         <button class="action-btn" onclick="document.getElementById('zone-add-npc-form').innerHTML=''">Cancel</button>
@@ -49,9 +46,8 @@ function openAddNpcForm(zoneId) {
 async function submitAddNpc(zoneId) {
   const name = document.getElementById('nn-name').value.trim();
   const description = document.getElementById('nn-description').value.trim();
-  const disposition = document.getElementById('nn-disposition').value;
   if (!name) { toast('NPC name is required', true); return; }
-  const result = await API('/npcs', 'POST', { zone_id: zoneId, name, description, disposition, faction: null, dialogue_tree: {}, vendor_inventory: [], wanders: false, flags: {} });
+  const result = await API('/npcs', 'POST', { zone_id: zoneId, name, description, faction: null, dialogue_tree: {}, vendor_inventory: [], wanders: false, flags: {} });
   if (result?.error) { toast(result.error, true); return; }
   toast('NPC added');
   await refreshZoneEditPanel(zoneId);
@@ -83,7 +79,7 @@ async function submitAddExistingNpc(zoneId) {
   const npc = zoneEditAllNpcsCache.find(n => n.id === npcId);
   if (!npc) return;
   const result = await API(`/npcs/${npcId}`, 'PUT', {
-    name: npc.name, description: npc.description, disposition: npc.disposition,
+    name: npc.name, description: npc.description,
     zone_id: zoneId, faction: npc.faction,
     dialogue_tree: npc.dialogue_tree || {}, vendor_inventory: npc.vendor_inventory || [],
     wanders: npc.wanders, flags: npc.flags || {},
@@ -100,9 +96,6 @@ function openEditNpcQuick(npcId) {
     <div class="zone-inline-form">
       <div class="field"><label>Name</label><input id="en-name-${npc.id}" value="${npc.name||''}"></div>
       <div class="field"><label>Description</label><textarea id="en-description-${npc.id}" rows="3">${npc.description||''}</textarea></div>
-      <div class="field"><label>Disposition</label>
-        <select id="en-disposition-${npc.id}">${['friendly','neutral','hostile','fearful'].map(d=>`<option ${npc.disposition===d?'selected':''}>${d}</option>`).join('')}</select>
-      </div>
       <div class="zone-inline-form-actions">
         <button class="action-btn success" onclick="submitEditNpcQuick('${npc.id}')">Save</button>
         <button class="action-btn" onclick="refreshZoneEditPanel('${npc.zone_id}')">Cancel</button>
@@ -114,12 +107,11 @@ async function submitEditNpcQuick(npcId) {
   if (!npc) return;
   const name = document.getElementById(`en-name-${npc.id}`).value.trim();
   const description = document.getElementById(`en-description-${npc.id}`).value.trim();
-  const disposition = document.getElementById(`en-disposition-${npc.id}`).value;
   // Preserve everything this quick-edit form doesn't expose (faction,
   // dialogue_tree, vendor_inventory, wanders, flags) by round-tripping it
   // from the cached record.
   const result = await API(`/npcs/${npc.id}`, 'PUT', {
-    name, description, disposition,
+    name, description,
     zone_id: npc.zone_id, faction: npc.faction,
     dialogue_tree: npc.dialogue_tree || {}, vendor_inventory: npc.vendor_inventory || [],
     wanders: npc.wanders, flags: npc.flags || {},

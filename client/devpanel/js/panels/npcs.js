@@ -88,11 +88,6 @@ function npcEditForm(rec, isNew) {
       <div class="field"><label>Home Zone</label><input id="f-home_zone" value="${rec.home_zone||''}" placeholder="zone ID (optional)"></div>
       <div class="field"><label>Faction</label><input id="f-faction" value="${rec.faction||''}"></div>
     </div>
-    <div class="field"><label>Disposition</label>
-      <select id="f-disposition">
-        ${['friendly','neutral','hostile','fearful'].map(d=>`<option ${rec.disposition===d?'selected':''}>${d}</option>`).join('')}
-      </select>
-    </div>
     <div class="checkbox-field"><input type="checkbox" id="f-wanders" ${rec.wanders?'checked':''} onchange="document.getElementById('f-wander_zones-wrap').style.display=this.checked?'':'none'"><label>Wanders between zones</label></div>
     <div class="field" id="f-wander_zones-wrap" style="${rec.wanders?'':'display:none'}">
       <label>Permitted Wander Zones (one zone ID per line)</label>
@@ -106,7 +101,7 @@ function npcEditForm(rec, isNew) {
       </div>
       <textarea id="f-dialogue_tree" rows="10">${JSON.stringify(tree, null, 2)}</textarea>
     </div>
-    <div class="field"><label>Vendor Inventory (JSON array)</label><textarea id="f-vendor_inventory" rows="5">${JSON.stringify(vendor, null, 2)}</textarea></div>
+    <div class="field"><label>Vendor Inventory — array of { "item_id": "...", "price"?: 0, "stock"?: 99 } (price/stock optional)</label><textarea id="f-vendor_inventory" rows="5">${JSON.stringify(vendor, null, 2)}</textarea></div>
     <div class="field">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
         <label>AI Behaviour Graph (JSON) — overrides random wander when set</label>
@@ -123,6 +118,12 @@ async function saveNpc(existing) {
   let tree, vendor, behaviour_graph;
   try { tree = JSON.parse(document.getElementById('f-dialogue_tree').value); } catch { return { error: 'Dialogue tree: invalid JSON' }; }
   try { vendor = JSON.parse(document.getElementById('f-vendor_inventory').value); } catch { return { error: 'Vendor inventory: invalid JSON' }; }
+  if (!Array.isArray(vendor)) return { error: 'Vendor inventory must be a JSON array.' };
+  for (const e of vendor) {
+    if (!e || typeof e.item_id !== 'string' || !e.item_id.trim()) {
+      return { error: 'Vendor inventory: each entry needs an "item_id" string (price/stock optional).' };
+    }
+  }
   try { behaviour_graph = JSON.parse(document.getElementById('f-behaviour_graph')?.value || '{}'); } catch { return { error: 'Behaviour graph: invalid JSON' }; }
   let flags;
   try { flags = JSON.parse(document.getElementById('f-flags')?.value || '{}'); } catch { return { error: 'Flags: invalid JSON' }; }
@@ -134,7 +135,6 @@ async function saveNpc(existing) {
     zone_id: document.getElementById('f-zone_id').value || null,
     home_zone: document.getElementById('f-home_zone').value || null,
     faction: document.getElementById('f-faction').value || null,
-    disposition: document.getElementById('f-disposition').value,
     wanders: document.getElementById('f-wanders').checked,
     wander_zones,
     dialogue_tree: tree,

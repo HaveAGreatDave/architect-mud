@@ -30,7 +30,7 @@ function renderTagsPanel(data) {
 
   function tagDialogForm(r) {
     const isInstance = r?.scope === 'instance';
-    const targets = isInstance ? [] : (r ? tagTargets(r) : ['item']);
+    const targets = isInstance ? [] : (r ? tagTargets(r) : ['item', 'furniture']);
     const ck = v => v ? ' checked' : '';
     return `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
