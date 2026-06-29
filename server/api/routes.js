@@ -743,8 +743,8 @@ export async function apiDeleteZone(id) {
       await query('DELETE FROM furniture        WHERE zone_id=$1', [zid]);
       await query('DELETE FROM zone_spawns      WHERE zone_id=$1', [zid]);
       await query('DELETE FROM lighting_states  WHERE zone_id=$1', [zid]);
-      await query('DELETE FROM generators       WHERE zone_id=$1', [zid]);
       await query('DELETE FROM power_zones      WHERE id=$1',      [zid]);
+      await query('DELETE FROM generators       WHERE zone_id=$1', [zid]);
       await query('DELETE FROM player_corpses   WHERE zone_id=$1', [zid]);
       await query('DELETE FROM world_events     WHERE zone_id=$1', [zid]);
       await query('DELETE FROM windows          WHERE zone_interior=$1 OR zone_exterior=$1', [zid]);
