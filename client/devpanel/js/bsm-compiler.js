@@ -247,8 +247,34 @@ function compileBsm(text) {
       i++; continue;
     }
 
-    // ── Production cues (no runtime effect) ─────────────────────────────────────
-    if (ln.startsWith('MUSIC ') || ln.startsWith('ENTER ') || ln.startsWith('ACTION ') || ln.startsWith('♪')) {
+    // ── MUSIC cue ────────────────────────────────────────────────────────────────
+    if (ln.startsWith('MUSIC ')) {
+      const cue = ln.slice(6).trim();
+      makeNode({ type: 'say', text: `♪ ${cue} ♪`, style: 'ambient' });
+      i++; continue;
+    }
+
+    // ── ENTER stage direction ─────────────────────────────────────────────────
+    if (ln.startsWith('ENTER ')) {
+      const raw = ln.slice(6).trim();
+      const npc = raw.startsWith('npc_') ? raw : `npc_${raw}`;
+      makeNode({ type: 'say', text: `[ ${npc} enters ]`, style: 'stage_direction' });
+      i++; continue;
+    }
+
+    // ── ACTION stage direction ────────────────────────────────────────────────
+    if (ln.startsWith('ACTION ')) {
+      const parts = ln.slice(7).trim().split(/\s+/);
+      const rawNpc = parts[0] || '';
+      const npc = rawNpc.startsWith('npc_') ? rawNpc : `npc_${rawNpc}`;
+      const act = parts.slice(1).join(' ');
+      makeNode({ type: 'say', text: `[ ${npc} ${act} ]`, style: 'stage_direction' });
+      i++; continue;
+    }
+
+    // ── ♪ music-cue text lines ───────────────────────────────────────────────
+    if (ln.startsWith('♪')) {
+      makeNode({ type: 'say', text: ln, style: 'ambient' });
       i++; continue;
     }
 

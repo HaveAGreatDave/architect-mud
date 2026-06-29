@@ -4062,6 +4062,8 @@ body {
 }
 .tv-msg-raw { color: var(--tv-text); }
 .tv-msg-ticker { color: var(--tv-ticker-color); font-style: italic; }
+.tv-msg-ambient { color: var(--tv-text); opacity: 0.6; font-style: italic; }
+.tv-msg-stage_direction { color: var(--tv-header-color); opacity: 0.55; font-size: 0.88em; }
 .tv-msg-ascii-art {
 	font-size: 12px;
 	line-height: 1.3;
