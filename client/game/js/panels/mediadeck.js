@@ -36,24 +36,28 @@ function renderMediaDeckPanel(data) {
   const listEl = document.getElementById('mediadeck-cassette-list');
   listEl.innerHTML = '';
   if (!cassettes || !cassettes.length) {
-    listEl.innerHTML = '<div class="mediadeck-empty">No cassettes in this deck.</div>';
+    listEl.innerHTML = '<div class="mediadeck-empty">— NO TRACKS LOADED —</div>';
   } else {
-    for (const c of cassettes) {
+    cassettes.forEach((c, i) => {
+      const isActive = c.id === activeCassetteId;
       const row = document.createElement('div');
-      row.className = 'mediadeck-cassette-row' + (c.id === activeCassetteId ? ' active' : '');
-      row.innerHTML = `<span class="mediadeck-cassette-name">${escapeHtml(c.name)}</span>
-        <span class="mediadeck-cassette-cat">${escapeHtml(c.category || '')}</span>`;
+      row.className = 'mediadeck-cassette-row' + (isActive ? ' active' : '');
+      row.innerHTML = `<span class="mediadeck-track-num">${String(i + 1).padStart(2, '0')}</span>
+        <span class="mediadeck-cassette-spool${isActive ? ' spinning' : ''}"></span>
+        <span class="mediadeck-cassette-name">${escapeHtml(c.name)}</span>
+        <span class="mediadeck-cassette-cat">${escapeHtml(c.category || '')}</span>
+        ${isActive ? '<span class="mediadeck-playing-tag">▶ PLAY</span>' : ''}`;
       row.addEventListener('click', () => {
         sendCmdSilent(`selectcassette ${c.id}`);
       });
       listEl.appendChild(row);
-    }
+    });
   }
 
   const schedEl = document.getElementById('mediadeck-schedule-list');
   schedEl.innerHTML = '';
   if (!schedule || !schedule.length) {
-    schedEl.innerHTML = '<div class="mediadeck-empty">No schedule on file.</div>';
+    schedEl.innerHTML = '<div class="mediadeck-empty">— NO SCHEDULE ON FILE —</div>';
   } else {
     for (const s of schedule) {
       const row = document.createElement('div');

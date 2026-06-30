@@ -1646,20 +1646,31 @@ async function _bcImportSave({ meta, broadcastGraph, messages, assets, cameras, 
           }
         }
         const ts = Date.now();
+        let camsCreated = 0;
         if (camNums.length) {
-          const camResults = await Promise.all(camNums.map((num, idx) =>
-            directAPI('/broadcast/cameras', 'POST', {
-              id: `cam_${_bcImportChannelId}_${num}_${ts + idx}`,
-              zone_id: _bcImportStudioZoneId,
-              direction: 'all',
-              is_powered: 1, is_recording: 0, is_streaming: 1,
-              streaming_channel_id: _bcImportChannelId,
-              storage_limit: 200,
-              permissions: 'public',
-            })
-          ));
-          const camErrors = camResults.filter(r => r?.error);
-          if (camErrors.length) console.warn(`[BSM] ${camErrors.length} camera(s) failed:`, camErrors.map(r => r.error));
+          let existingCams = [];
+          try {
+            const allCams = await directAPI('/broadcast/cameras', 'GET');
+            existingCams = Array.isArray(allCams) ? allCams.filter(c => c.zone_id === _bcImportStudioZoneId) : [];
+          } catch { /* fall through, treat as none */ }
+          const shortfall = Math.max(0, camNums.length - existingCams.length);
+          const camsToCreate = camNums.slice(0, shortfall);
+          if (camsToCreate.length) {
+            const camResults = await Promise.all(camsToCreate.map((num, idx) =>
+              directAPI('/broadcast/cameras', 'POST', {
+                id: `cam_${_bcImportChannelId}_${num}_${ts + idx}`,
+                zone_id: _bcImportStudioZoneId,
+                direction: 'all',
+                is_powered: 1, is_recording: 0, is_streaming: 1,
+                streaming_channel_id: _bcImportChannelId,
+                storage_limit: 200,
+                permissions: 'public',
+              })
+            ));
+            const camErrors = camResults.filter(r => r?.error);
+            if (camErrors.length) console.warn(`[BSM] ${camErrors.length} camera(s) failed:`, camErrors.map(r => r.error));
+            camsCreated = camsToCreate.length - camErrors.length;
+          }
         }
         // Spawn declared actors in studio zone if they don't already exist
         let npcSpawnCount = 0;
@@ -1680,7 +1691,7 @@ async function _bcImportSave({ meta, broadcastGraph, messages, assets, cameras, 
             else npcSpawnCount++;
           } catch (npcErr) { console.warn(`[BSM] NPC spawn error for ${npcId}:`, npcErr.message); }
         }
-        const camNote = camNums.length ? `, ${camNums.length} camera(s) spawned` : '';
+        const camNote = camsCreated ? `, ${camsCreated} camera(s) spawned` : '';
         const npcNote = npcSpawnCount ? `, ${npcSpawnCount} NPC(s) spawned` : '';
         toast(`Imported "${meta.name}" — ${messages.length} messages, ${nodeCount} graph nodes${assets.length ? `, ${assets.length} asset(s)` : ''}${camNote}${npcNote}.`);
       } catch (camErr) {

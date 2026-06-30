@@ -1319,7 +1319,16 @@ async function buildMediaDeckPanel(deckId, player) {
       `SELECT id, name, category FROM media_broadcasts WHERE id = ANY($1)`,
       [cassetteIds]
     );
-    cassettes = cassetteIds.map(id => bcRows.find(b => b.id === id) || { id, name: id, category: 'general' });
+    cassettes = cassetteIds
+      .map(id => bcRows.find(b => b.id === id))
+      .filter(Boolean);
+    // Prune dangling cassette ids whose broadcast was deleted, so stale
+    // raw ids (e.g. "bc_1234567890") don't linger in the deck's library.
+    if (cassettes.length !== cassetteIds.length) {
+      dflags.deck_cassettes = cassettes.map(c => c.id);
+      if (dflags.deck_active && !dflags.deck_cassettes.includes(dflags.deck_active)) dflags.deck_active = null;
+      await query('UPDATE furniture SET flags=$1 WHERE id=$2', [JSON.stringify(dflags), deck.id]);
+    }
   }
 
   // Read-only schedule preview — today's playlist slots for the linked channel.
