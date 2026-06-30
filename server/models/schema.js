@@ -735,7 +735,7 @@ export const SCHEMA_SQL = `
   ALTER TABLE media_channels ADD COLUMN IF NOT EXISTS theme_id TEXT REFERENCES media_themes(id);
   ALTER TABLE media_channels ADD COLUMN IF NOT EXISTS station_name TEXT DEFAULT '';
   ALTER TABLE media_channels ADD COLUMN IF NOT EXISTS schedule_mode TEXT DEFAULT 'loop';
-  ALTER TABLE media_broadcasts ADD COLUMN IF NOT EXISTS channel_id TEXT REFERENCES media_channels(id);
+  ALTER TABLE media_broadcasts ADD COLUMN IF NOT EXISTS channel_id TEXT REFERENCES media_channels(id) ON DELETE SET NULL;
   ALTER TABLE media_channels  ADD COLUMN IF NOT EXISTS studio_zone_id TEXT;
   ALTER TABLE media_channels  ADD COLUMN IF NOT EXISTS offline_graphic_id TEXT;
   ALTER TABLE media_broadcasts ADD COLUMN IF NOT EXISTS fallback_messages JSONB DEFAULT '[]';

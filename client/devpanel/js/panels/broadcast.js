@@ -210,9 +210,10 @@ function _bcRenderSidebar() {
   }).join('');
 
   el.innerHTML = `
-    <div style="padding:8px;border-bottom:1px solid var(--border);display:flex;gap:4px;flex-shrink:0">
+    <div style="padding:8px;border-bottom:1px solid var(--border);display:flex;gap:4px;flex-shrink:0;flex-wrap:wrap">
       <button class="action-btn" style="flex:1;font-size:11px" onclick="bcSelectBroadcast(null)">+ New</button>
       <button class="action-btn" style="font-size:11px" title="Import .bsm file" onclick="bcImportBsm()">↑ BSM</button>
+      <button class="action-btn" style="width:100%;font-size:10px;color:var(--text-dim)" title="Remove playlist slots, camera references, and channel links pointing at deleted entities" onclick="bcCleanOrphans()">🧹 Clean Orphans</button>
     </div>
     <div style="flex:1;overflow-y:auto">
       ${items || '<div style="padding:16px;color:var(--text-dim);font-size:11px">No broadcasts yet.</div>'}
@@ -820,6 +821,24 @@ async function cloneBroadcast(rec) {
 // ── BSM import ───────────────────────────────────────────────────────────────
 
 let _bcImportInProgress = false;
+async function bcCleanOrphans() {
+  if (!confirm('Scan for and remove orphaned broadcast references?\n\nThis will:\n• Delete playlist slots pointing at deleted broadcasts\n• Null out channel/zone refs on broadcasts, channels, and cameras that point at deleted entities\n\nNo broadcasts or channels will be deleted.')) return;
+  const res = await directAPI('/broadcast/cleanup-orphans', 'POST');
+  if (res?.error) { toast(res.error, true); return; }
+  toast(res.message || 'Done');
+  if (res.report && Object.keys(res.report).length) {
+    const lines = [];
+    if (res.report.playlistSlotsRemoved)         lines.push(`${res.report.playlistSlotsRemoved} dead playlist slot(s) removed`);
+    if (res.report.broadcastChannelRefsCleared)  lines.push(`${res.report.broadcastChannelRefsCleared} broadcast→channel ref(s) cleared`);
+    if (res.report.channelIdleBcRefsCleared)     lines.push(`${res.report.channelIdleBcRefsCleared} idle-broadcast ref(s) cleared`);
+    if (res.report.channelStudioZoneRefsCleared) lines.push(`${res.report.channelStudioZoneRefsCleared} studio-zone ref(s) cleared`);
+    if (res.report.camerasRemovedDeadZone)       lines.push(`${res.report.camerasRemovedDeadZone} camera(s) removed (zone gone)`);
+    if (res.report.cameraChannelRefsCleared)     lines.push(`${res.report.cameraChannelRefsCleared} camera→channel ref(s) cleared`);
+    console.log('[bcCleanOrphans]', lines.join(', '));
+  }
+  await bcSuiteRefresh('broadcasts');
+}
+
 function bcImportBsm() {
   if (_bcImportInProgress) { toast('Import already in progress.', false); return; }
   if (_bcNewActive) _bcCancelNewBroadcast();

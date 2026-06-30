@@ -4562,8 +4562,8 @@ body {
 
 	display: flex;
 	flex-direction: column;
-	width: min(760px, 96vw);
-	height: min(520px, 90vh);
+	width: min(760px, 96vw, calc(90vh * 760 / 520));
+	aspect-ratio: 760 / 520;
 	background: var(--tv-bg);
 	border: 3px solid #1a1a1a;
 	outline: 1px solid var(--tv-border);

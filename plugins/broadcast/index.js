@@ -2005,6 +2005,7 @@ export const routeHandler = async (path, method, body, auth) => {
         const studioZoneId = chRows[0]?.studio_zone_id || null;
         await query('DELETE FROM media_cameras WHERE streaming_channel_id=$1', [id]);
         await query('DELETE FROM furniture WHERE object_type=\'media_deck\' AND flags->>\'channel_id\'=$1', [id]);
+        await query('UPDATE media_broadcasts SET channel_id=NULL WHERE channel_id=$1', [id]);
         await query('DELETE FROM media_channels WHERE id=$1', [id]);
         // Cascade: delete the studio zone and its entire map (production, utility rooms, etc.)
         if (studioZoneId) await apiDeleteZone(studioZoneId).catch(err => console.warn('[broadcast] studio zone cleanup:', err.message));
@@ -2134,6 +2135,100 @@ export const routeHandler = async (path, method, body, auth) => {
         await loadChannelRuntimes();
         return { status: 200, body: { message: 'Deleted' } };
       }
+    }
+
+    // ── Orphan cleanup ──────────────────────────────────────────────────────
+    if (resource === 'cleanup-orphans' && method === 'POST') {
+      if (auth?.role !== 'admin') return { status: 403, body: { error: 'Admin access required' } };
+      const report = {};
+
+      // Playlist entries whose broadcast no longer exists (null broadcast_id on a broadcast-type slot)
+      const { rows: orphanSlots } = await query(
+        `SELECT p.id FROM media_channel_playlist p
+         WHERE p.broadcast_id IS NOT NULL
+           AND NOT EXISTS (SELECT 1 FROM media_broadcasts b WHERE b.id = p.broadcast_id)`
+      );
+      if (orphanSlots.length) {
+        await query(
+          `DELETE FROM media_channel_playlist WHERE id = ANY($1::text[])`,
+          [orphanSlots.map(r => r.id)]
+        );
+        report.playlistSlotsRemoved = orphanSlots.length;
+      }
+
+      // Broadcasts pointing at a deleted channel
+      const { rows: orphanBcChannel } = await query(
+        `SELECT id FROM media_broadcasts
+         WHERE channel_id IS NOT NULL
+           AND NOT EXISTS (SELECT 1 FROM media_channels c WHERE c.id = channel_id)`
+      );
+      if (orphanBcChannel.length) {
+        await query(
+          `UPDATE media_broadcasts SET channel_id=NULL WHERE id = ANY($1::text[])`,
+          [orphanBcChannel.map(r => r.id)]
+        );
+        report.broadcastChannelRefsCleared = orphanBcChannel.length;
+      }
+
+      // Channels with idle_broadcast_id pointing at a deleted broadcast
+      const { rows: orphanIdleBc } = await query(
+        `SELECT id FROM media_channels
+         WHERE idle_broadcast_id IS NOT NULL
+           AND NOT EXISTS (SELECT 1 FROM media_broadcasts b WHERE b.id = idle_broadcast_id)`
+      );
+      if (orphanIdleBc.length) {
+        await query(
+          `UPDATE media_channels SET idle_broadcast_id=NULL WHERE id = ANY($1::text[])`,
+          [orphanIdleBc.map(r => r.id)]
+        );
+        report.channelIdleBcRefsCleared = orphanIdleBc.length;
+      }
+
+      // Channels with studio_zone_id pointing at a deleted zone
+      const { rows: orphanStudio } = await query(
+        `SELECT id FROM media_channels
+         WHERE studio_zone_id IS NOT NULL
+           AND NOT EXISTS (SELECT 1 FROM zones z WHERE z.id = studio_zone_id)`
+      );
+      if (orphanStudio.length) {
+        await query(
+          `UPDATE media_channels SET studio_zone_id=NULL WHERE id = ANY($1::text[])`,
+          [orphanStudio.map(r => r.id)]
+        );
+        report.channelStudioZoneRefsCleared = orphanStudio.length;
+      }
+
+      // Cameras pointing at a deleted zone
+      const { rows: orphanCamZone } = await query(
+        `SELECT id FROM media_cameras
+         WHERE zone_id IS NOT NULL
+           AND NOT EXISTS (SELECT 1 FROM zones z WHERE z.id = zone_id)`
+      );
+      if (orphanCamZone.length) {
+        await query(
+          `DELETE FROM media_cameras WHERE id = ANY($1::text[])`,
+          [orphanCamZone.map(r => r.id)]
+        );
+        report.camerasRemovedDeadZone = orphanCamZone.length;
+      }
+
+      // Cameras streaming to a deleted channel
+      const { rows: orphanCamCh } = await query(
+        `SELECT id FROM media_cameras
+         WHERE streaming_channel_id IS NOT NULL
+           AND NOT EXISTS (SELECT 1 FROM media_channels c WHERE c.id = streaming_channel_id)`
+      );
+      if (orphanCamCh.length) {
+        await query(
+          `UPDATE media_cameras SET streaming_channel_id=NULL WHERE id = ANY($1::text[])`,
+          [orphanCamCh.map(r => r.id)]
+        );
+        report.cameraChannelRefsCleared = orphanCamCh.length;
+      }
+
+      await loadChannelRuntimes();
+      const total = Object.values(report).reduce((s, n) => s + n, 0);
+      return { status: 200, body: { message: total ? `Cleaned ${total} orphaned reference(s)` : 'Nothing to clean — no orphans found', report } };
     }
 
     // ── Graphics ────────────────────────────────────────────────────────────
