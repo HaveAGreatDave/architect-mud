@@ -13,7 +13,7 @@ const WAVEFORMS = ['square', 'sine', 'triangle', 'sawtooth', 'noise'];
 const KNOWN_EVENTS = [
   'enemy.attacked', 'enemy.killed', 'player.death',
   'item.taken', 'item.dropped', 'device.tuned',
-  'weather.rain', 'weather.storm', 'weather.clear', 'weather.snow',
+  'weather.rain', 'weather.storm', 'weather.clear', 'weather.snow', 'weather.thunder',
   'time.dawn', 'time.dusk', 'time.midnight',
   'quest.completed', 'zone.entered',
 ];
