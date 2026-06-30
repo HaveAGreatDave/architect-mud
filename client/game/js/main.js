@@ -67,28 +67,26 @@ applySettings(settings);
 applyMobileScale();
 window.addEventListener("resize", applyMobileScale);
 
-// Mobile area-pane: starts hidden, auto-opens when room content arrives,
-// closed by the [▲ hide] button inside the pane.
+// Mobile area-pane: always starts collapsed. The resize-handle bar is always
+// visible and hosts the toggle button (▼/▲). No auto-open on content update.
 if (_isMobile) {
 	const _areaPane = document.getElementById("area-pane");
 	const _toggleBar = document.getElementById("area-toggle-bar");
-	const _resizeHandle = document.getElementById("look-resize-handle");
-	const _closeBtn = document.getElementById("area-pane-close");
+	const _toggleBtn = document.getElementById("area-pane-toggle");
 
 	function _setAreaPane(open) {
 		_areaPane.classList.toggle("mob-pane-hidden", !open);
-		if (_resizeHandle) _resizeHandle.classList.toggle("mob-pane-hidden", !open);
-		if (_toggleBar) _toggleBar.style.display = "none"; // always hidden on mobile
+		if (_toggleBtn) _toggleBtn.textContent = open ? "▲" : "▼";
 	}
 
-	// Start fully hidden — zero footprint at top
+	// Hide the old toggle bar — the handle button replaces it
+	if (_toggleBar) _toggleBar.style.display = "none";
+
+	// Start collapsed
 	_setAreaPane(false);
 
-	// Auto-open whenever room content arrives (look / move)
-	_areaPane.addEventListener("contentupdate", () => _setAreaPane(true));
-
-	// [▲ hide] button inside the pane closes it
-	_closeBtn?.addEventListener("click", () => _setAreaPane(false));
+	// Toggle on the resize-handle button
+	_toggleBtn?.addEventListener("click", () => _setAreaPane(_areaPane.classList.contains("mob-pane-hidden")));
 
 	// Keyboard collapse: hide output + area; restore when keyboard drops
 	if (window.visualViewport) {
