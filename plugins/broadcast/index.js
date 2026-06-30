@@ -1810,7 +1810,7 @@ export const routeHandler = async (path, method, body, auth) => {
     // ── Broadcasts ──────────────────────────────────────────────────────────
     if (resource === 'broadcasts') {
       if (!id && method === 'GET') {
-        const { rows } = await query(`SELECT * FROM media_broadcasts WHERE NOT (tags->>'cassette_ejected' = 'true') ORDER BY name`);
+        const { rows } = await query(`SELECT * FROM media_broadcasts WHERE (tags->>'cassette_ejected') IS DISTINCT FROM 'true' ORDER BY name`);
         return { status: 200, body: rows };
       }
       if (!id && method === 'POST') {

@@ -909,7 +909,7 @@ async function _bcShowImportChannelModal(compiled) {
     <div style="background:var(--bg2);border:1px solid var(--accent);padding:20px;width:480px;max-width:94vw;border-radius:3px;display:flex;flex-direction:column;gap:14px">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <span style="color:var(--accent);font-size:13px;letter-spacing:2px;text-transform:uppercase">BSM Import — Assign Channel</span>
-        <button onclick="document.getElementById('bsm-channel-overlay').remove()" style="background:transparent;border:1px solid var(--border);color:var(--text-dim);width:26px;height:26px;cursor:pointer;border-radius:2px;font-size:13px">✕</button>
+        <button onclick="document.getElementById('bsm-channel-overlay').remove();_bcImportInProgress=false" style="background:transparent;border:1px solid var(--border);color:var(--text-dim);width:26px;height:26px;cursor:pointer;border-radius:2px;font-size:13px">✕</button>
       </div>
       <div style="font-size:11px;color:var(--text-dim)">
         ${isScripted ? 'Scripted show — no NPC hosts required.' : 'Select a channel to assign this broadcast to, or create a new one.'}
@@ -945,7 +945,7 @@ async function _bcShowImportChannelModal(compiled) {
         </div>
       </div>
       <div style="display:flex;gap:8px;justify-content:flex-end">
-        <button class="action-btn" onclick="document.getElementById('bsm-channel-overlay').remove()">Cancel</button>
+        <button class="action-btn" onclick="document.getElementById('bsm-channel-overlay').remove();_bcImportInProgress=false">Cancel</button>
         <button class="action-btn primary" onclick="_bcImportChannelConfirm()">Continue →</button>
       </div>
     </div>`;
