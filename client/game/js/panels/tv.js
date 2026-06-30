@@ -424,6 +424,7 @@ const TUNE_RESISTANCE = 0.02;  // channel units per pixel dragged
 
 export function initTvPanel() {
   document.getElementById('tv-close-btn').addEventListener('click', shutdownTvPanel);
+  window.addEventListener('game-disconnect', () => { if (_tvOpen) shutdownTvPanel(); });
 
   // Knob: click cycles channels; drag tunes with high resistance
   const knob = document.getElementById('tv-knob');

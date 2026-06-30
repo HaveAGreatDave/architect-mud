@@ -62,8 +62,8 @@ function compileBsm(text) {
 
   const DIRECTIVE_PREFIXES = [
     '@', '::', 'EVENT ', 'TITLE ', 'TICKER', 'WAIT', 'NPC ', 'OVERLAY',
-    'SHOT', 'SHOT_END', 'TICKER_END', 'OVERLAY_END', 'LOWER_THIRD_END', 'END', 'CAM ', 'ROOM ', 'LOWER_THIRD',
-    'MUSIC ', 'ENTER ', 'ACTION', 'END_ACTION', '♪',
+    'SHOT', 'SHOT_END', 'TICKER_END', 'OVERLAY_END', 'LOWER_THIRD_END', 'MUSIC_END', 'END', 'CAM ', 'ROOM ', 'LOWER_THIRD',
+    'MUSIC', 'ENTER ', 'ACTION', 'END_ACTION', '♪',
   ];
 
   const BARE_DURATION_RE = /^(\d+(?:\.\d+)?)s?$/;  // "8s", "2s", "1.5s", "8"
@@ -257,11 +257,12 @@ function compileBsm(text) {
       i++; continue;
     }
 
-    // ── MUSIC cue ────────────────────────────────────────────────────────────────
-    if (ln.startsWith('MUSIC ')) {
-      const cue = ln.slice(6).trim();
-      makeNode({ type: 'say', text: `♪ ${cue} ♪`, style: 'ambient' });
-      i++; continue;
+    // ── MUSIC block — theme name is code only; body text is what displays ────────
+    if (ln.startsWith('MUSIC')) {
+      i++;
+      const displayText = collectBlock('MUSIC_END');
+      if (displayText) makeNode({ type: 'say', text: displayText, style: 'ambient' });
+      continue;
     }
 
     // ── ENTER stage direction → npc_anchor + npc_action "enters" ─────────────

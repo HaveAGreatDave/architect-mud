@@ -905,7 +905,7 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
         }
         const text_say = style_say === 'ticker'
           ? `>> ${bb.npcAnchor ? `${bb.npcAnchor}: ` : ''}${raw} <<`
-          : (!isNarration && bb.npcAnchor ? `${bb.npcAnchor} says, "${raw}"` : raw);
+          : (!isNarration && !isAmbient && bb.npcAnchor ? `${bb.npcAnchor} says, "${raw}"` : raw);
         return { text: text_say, key: key_say, style: 'raw' };
       }
 
