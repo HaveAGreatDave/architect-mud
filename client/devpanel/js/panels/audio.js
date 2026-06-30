@@ -32,6 +32,7 @@ const AUDIO_IMPORT_FIELDS = {
 
 let _audioTab = 'instruments';
 let _audioData = { instruments: [], songs: [], sfx: [], ambient: [], events: [] };
+let _playingSongId = null;
 
 function renderAudioPanel(data) {
   _audioData = {
@@ -112,7 +113,7 @@ function renderAudioTabBody() {
       <td><span style="font-size:10px;background:var(--bg3);padding:2px 6px;border-radius:2px;color:var(--accent)">${r.category}</span></td>
       <td style="font-size:11px;color:var(--text-dim)">${extra}</td>
       <td style="text-align:right;white-space:nowrap">
-        <button class="action-btn" style="font-size:10px;padding:3px 8px" onclick="previewAudioAsset('${_audioTab}','${r.id}')">▶</button>
+        <button class="action-btn${_audioTab === 'songs' && r.id === _playingSongId ? ' danger' : ''}" style="font-size:10px;padding:3px 8px" onclick="previewAudioAsset('${_audioTab}','${r.id}')">${_audioTab === 'songs' && r.id === _playingSongId ? '⏹' : '▶'}</button>
         <button class="action-btn" style="font-size:10px;padding:3px 8px;margin-left:4px" onclick="editAudioAsset('${_audioTab}','${r.id}')">✏</button>
         <button class="action-btn" style="font-size:10px;padding:3px 8px;margin-left:4px" onclick="exportAudioAsset('${_audioTab}','${r.id}')" title="Export as JSON">⬇</button>
         <button class="action-btn danger" style="font-size:10px;padding:3px 8px;margin-left:4px" onclick="deleteAudioAsset('${_audioTab}','${r.id}','${r.name.replace(/'/g, "\\'")}')">✕</button>
@@ -135,6 +136,12 @@ function previewAudioAsset(tab, id) {
   else if (tab === 'instruments') window.AudioEngine.playSfx({ priority: 5, category: 'sfx', config: { ...(row.config || {}), waveform: row.waveform, freq: 440, duration: 0.6 } });
   else if (tab === 'ambient') { window.AudioEngine.loopSound(row); setTimeout(() => window.AudioEngine.stopLoop(row.id), 4000); }
   else if (tab === 'songs') {
+    if (_playingSongId === id) {
+      stopAllAudioPreviews();
+      return;
+    }
+    _playingSongId = id;
+    renderAudioTabBody();
     const _instrumentsById = {};
     for (const instId of (row.instrument_ids || [])) {
       const inst = _audioData.instruments.find(i => i.id === instId);
@@ -150,6 +157,8 @@ function previewAudioAsset(tab, id) {
 function stopAllAudioPreviews() {
   window.AudioEngine?.stopMusic();
   window.AudioEngine?.stop('ambience');
+  _playingSongId = null;
+  renderAudioTabBody();
 }
 
 // ── Import / Export (JSON presets — never real audio files, see note above) ──
@@ -311,6 +320,7 @@ let _sqCh = [];
 let _sqBars = 4;
 let _sqView = 'grid';
 let _sqPop = null;
+let _sqPlaying = false;
 
 const _SQ_NOTES = ['C','C#','D','Eb','E','F','F#','G','Ab','A','Bb','B'];
 
@@ -529,6 +539,26 @@ function _sqOpenPop(cell, ci, si) {
   }, 50);
 }
 
+function _sqTogglePlay() {
+  if (_sqPlaying) {
+    window.AudioEngine?.stopMusic();
+    _sqPlaying = false;
+  } else {
+    window.AudioEngine?.init();
+    const tempo = parseInt(document.getElementById('sg-tempo')?.value) || 120;
+    const instrumentIds = _sqGetInstrumentIds();
+    const _instrumentsById = {};
+    for (const id of instrumentIds) {
+      const inst = _audioData.instruments.find(i => i.id === id);
+      if (inst) _instrumentsById[id] = inst;
+    }
+    window.AudioEngine.playMusic({ name: '_preview', tempo, channels: _sqCh, instrument_ids: instrumentIds, _instrumentsById, priority: 5 });
+    _sqPlaying = true;
+  }
+  const btn = document.getElementById('sq-play');
+  if (btn) { btn.textContent = _sqPlaying ? '⏹ Stop' : '▶ Play'; btn.classList.toggle('danger', _sqPlaying); }
+}
+
 // ── End Step Sequencer ────────────────────────────────────────────────────────
 
 function instrumentLikeConfigFields(cfg, prefix) {
@@ -649,6 +679,8 @@ function openAudioModal(tab, row) {
   } else if (tab === 'songs') {
     _sqInjectCss();
     _sqInit(row);
+    _sqPlaying = false;
+    window.AudioEngine?.stopMusic();
 
     const modalCard = document.querySelector('#generic-modal .modal-card');
     modalCard.style.width = 'min(90vw, 1100px)';
@@ -664,6 +696,7 @@ function openAudioModal(tab, row) {
         <button id="sq-vgrid" class="sq-vtab sq-vtab-on">⊞ Grid</button>
         <button id="sq-vjson" class="sq-vtab">{ } JSON</button>
         <span id="sq-stats" style="font-size:10px;color:var(--text-dim);margin-left:10px"></span>
+        <button id="sq-play" class="action-btn" style="margin-left:auto;padding:3px 14px">▶ Play</button>
       </div>
       <div id="sq-vg">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
@@ -691,6 +724,7 @@ function openAudioModal(tab, row) {
     _sqRender();
     _sqUpdateStats();
 
+    document.getElementById('sq-play').onclick = _sqTogglePlay;
     document.getElementById('sg-tempo').addEventListener('input', _sqUpdateStats);
 
     document.getElementById('sq-vgrid').onclick = () => {
@@ -758,6 +792,7 @@ function openAudioModal(tab, row) {
       if (r?.error) { toast(r.error, true); return; }
       toast(isNew ? 'Song created' : 'Song updated');
       modalCard.style.width = '';
+      _sqPlaying = false; window.AudioEngine?.stopMusic();
       closeModal(); loadPanel('audio');
     };
   }

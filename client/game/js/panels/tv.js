@@ -518,17 +518,20 @@ export function appendTvMessage(text, style) {
     el.innerHTML = text;
     const svg = el.querySelector('svg');
     if (svg) {
-      // Force SVG to fill panel width at its natural aspect ratio
-      svg.setAttribute('width', '100%');
-      svg.removeAttribute('height');
-      // If no viewBox, infer one from width/height attrs so scaling works
       if (!svg.getAttribute('viewBox')) {
         const w = parseFloat(svg.getAttribute('width')) || 640;
         const h = parseFloat(svg.getAttribute('height')) || 360;
         svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
-        svg.setAttribute('width', '100%');
-        svg.removeAttribute('height');
       }
+      const vbParts = svg.getAttribute('viewBox').split(/[\s,]+/);
+      const naturalWidth = parseFloat(vbParts[2]) || 640;
+      svg.removeAttribute('width');
+      svg.removeAttribute('height');
+      svg.style.width = `${naturalWidth}px`;
+      svg.style.maxWidth = '100%';
+      svg.style.height = 'auto';
+      svg.style.display = 'block';
+      svg.style.margin = '0 auto';
     }
   } else if (style === 'ascii_art') {
     el.innerHTML = renderMarkup(text);

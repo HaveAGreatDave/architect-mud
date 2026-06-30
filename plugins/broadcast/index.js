@@ -1513,6 +1513,15 @@ async function buildMediaDeckPanel(deckId, player) {
 
   const lightState = _deckLightState(state?.channelType, dflags.deck_active);
 
+  const { rows: invRows } = await query(
+    `SELECT i.name FROM player_inventory pi
+       JOIN items i ON i.id = pi.item_id
+      WHERE pi.player_id=$1 AND pi.is_equipped=0 AND pi.container_id IS NULL
+        AND (jsonb_exists(i.tags,'media_cassette') OR (i.flags->>'media_cassette')='true')
+      ORDER BY i.name`,
+    [player.id]
+  );
+
   sendToPlayer(player.id, {
     type: 'mediadeck_panel',
     deckId: deck.id,
@@ -1524,6 +1533,7 @@ async function buildMediaDeckPanel(deckId, player) {
     activeCassetteId: dflags.deck_active || null,
     cassettes,
     schedule,
+    inventoryCassettes: invRows.map(r => ({ name: r.name })),
   });
   return { type: 'output', message: `You examine the ${deck.name}.` };
 }

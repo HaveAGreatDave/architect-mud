@@ -52,6 +52,7 @@ export function openMediaDeckPanel(data) {
 
 export function closeMediaDeckPanel() {
   document.getElementById('mediadeck-panel').classList.remove('active');
+  document.getElementById('mediadeck-load-picker').hidden = true;
   deckData = null;
   _setDeckWhir(false);
 }
@@ -128,22 +129,52 @@ function escapeHtml(s) {
   return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+function showLoadPicker() {
+  const picker = document.getElementById('mediadeck-load-picker');
+  const list = document.getElementById('mediadeck-load-picker-list');
+  const cassettes = deckData?.inventoryCassettes || [];
+  list.innerHTML = '';
+  if (!cassettes.length) {
+    list.innerHTML = '<div class="mediadeck-load-picker-empty">— NO CASSETTES IN INVENTORY —</div>';
+  } else {
+    cassettes.forEach(c => {
+      const row = document.createElement('div');
+      row.className = 'mediadeck-load-picker-item';
+      row.textContent = c.name;
+      row.addEventListener('click', () => {
+        window.AudioEngine?.playSfx(MEDIADECK_INSERT_DEF);
+        sendCmdSilent(`load cassette ${c.name}`);
+        hideLoadPicker();
+      });
+      list.appendChild(row);
+    });
+  }
+  picker.hidden = false;
+}
+
+function hideLoadPicker() {
+  document.getElementById('mediadeck-load-picker').hidden = true;
+}
+
 export function initMediaDeckPanel() {
   document.getElementById('mediadeck-close').addEventListener('click', closeMediaDeckPanel);
   document.getElementById('mediadeck-panel').addEventListener('click', e => {
     if (e.target.id === 'mediadeck-panel') closeMediaDeckPanel();
   });
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && deckData) closeMediaDeckPanel();
+    if (e.key === 'Escape' && deckData) {
+      if (!document.getElementById('mediadeck-load-picker').hidden) {
+        hideLoadPicker();
+      } else {
+        closeMediaDeckPanel();
+      }
+    }
   });
   document.getElementById('mediadeck-eject-btn').addEventListener('click', () => {
     if (deckData?.activeCassetteId) window.AudioEngine?.playSfx(MEDIADECK_EJECT_DEF);
+    _setDeckWhir(false);
     sendCmdSilent('eject');
-    closeMediaDeckPanel();
   });
-  document.getElementById('mediadeck-load-btn').addEventListener('click', () => {
-    window.AudioEngine?.playSfx(MEDIADECK_INSERT_DEF);
-    sendCmdSilent('load cassette');
-    closeMediaDeckPanel();
-  });
+  document.getElementById('mediadeck-load-btn').addEventListener('click', showLoadPicker);
+  document.getElementById('mediadeck-load-picker-cancel').addEventListener('click', hideLoadPicker);
 }
