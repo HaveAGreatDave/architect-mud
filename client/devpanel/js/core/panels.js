@@ -105,6 +105,13 @@ const PANELS = {
     noEdit: true,
     render: renderSoundsPanel,
   },
+  audio: {
+    title: 'Audio',
+    fetch: () => Promise.all([API('/audio/instruments'), API('/audio/songs'), API('/audio/sfx'), API('/audio/ambient')])
+      .then(([instruments, songs, sfx, ambient]) => ({ instruments, songs, sfx, ambient })),
+    noEdit: true,
+    render: renderAudioPanel,
+  },
   tags: {
     title: 'Tag Catalog',
     fetch: async () => ({ catalog: await API('/tag-catalog'), supertags: await API('/tag-supertags') }),

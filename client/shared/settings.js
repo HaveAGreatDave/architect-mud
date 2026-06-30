@@ -1,5 +1,6 @@
 const SETTINGS_KEY = 'architect_settings';
-const DEFAULT_SETTINGS = { theme: 'dark', fontSize: '14', density: 'comfortable', sidebarPosition: 'left', motion: 'on', tempUnit: 'C', contrast: 0 };
+const DEFAULT_AUDIO_SETTINGS = { enabled: false, music: true, sfx: true, tv: true, masterVolume: 0.8, musicVolume: 0.7, sfxVolume: 0.9, ambientVolume: 0.5, tvVolume: 0.6, muteWhenHidden: true };
+const DEFAULT_SETTINGS = { theme: 'dark', fontSize: '14', density: 'comfortable', sidebarPosition: 'left', motion: 'on', tempUnit: 'C', contrast: 0, audio: DEFAULT_AUDIO_SETTINGS };
 
 export function formatTemp(tempC) {
   if (tempC === null || tempC === undefined) return null;
@@ -107,10 +108,11 @@ function _boostContrast(colors, level) {
 export function loadSettings() {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
-    if (!raw) return { ...DEFAULT_SETTINGS };
-    return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+    if (!raw) return { ...DEFAULT_SETTINGS, audio: { ...DEFAULT_AUDIO_SETTINGS } };
+    const stored = JSON.parse(raw);
+    return { ...DEFAULT_SETTINGS, ...stored, audio: { ...DEFAULT_AUDIO_SETTINGS, ...(stored.audio || {}) } };
   } catch {
-    return { ...DEFAULT_SETTINGS };
+    return { ...DEFAULT_SETTINGS, audio: { ...DEFAULT_AUDIO_SETTINGS } };
   }
 }
 
@@ -191,6 +193,22 @@ export function applySettings(settings) {
       btn.classList.toggle('selected', btn.dataset.value === String(settings[key]));
     });
   }
+
+  const audio = settings.audio || DEFAULT_AUDIO_SETTINGS;
+  window.AudioEngine?.applyVolumeSettings(audio);
+  for (const toggle of ['music', 'sfx', 'tv', 'muteWhenHidden']) {
+    const container = document.getElementById(`opt-audio-${toggle}`);
+    if (!container) continue;
+    container.querySelectorAll('.settings-opt').forEach(btn => {
+      btn.classList.toggle('selected', btn.dataset.value === String(audio[toggle]));
+    });
+  }
+  for (const slider of ['masterVolume', 'musicVolume', 'sfxVolume', 'ambientVolume', 'tvVolume']) {
+    const el = document.getElementById(`opt-${slider}`);
+    const label = document.getElementById(`${slider}-label`);
+    if (el && el.value !== String(audio[slider])) el.value = audio[slider];
+    if (label) label.textContent = `${Math.round((audio[slider] ?? 0) * 100)}%`;
+  }
 }
 
 export function initSettingsUI(settings, saveAndApply, { getOrigin, saveOrigin, sendCmd, notify } = {}) {
@@ -261,6 +279,25 @@ export function initSettingsUI(settings, saveAndApply, { getOrigin, saveOrigin, 
       delete settings._contrastPreview;
       if (contrastSlider) contrastSlider.value = 0;
       if (contrastLabel) contrastLabel.textContent = 'Base';
+      saveAndApply();
+    });
+  }
+
+  for (const toggle of ['music', 'sfx', 'tv', 'muteWhenHidden']) {
+    document.querySelectorAll(`#opt-audio-${toggle} .settings-opt`).forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (!settings.audio) settings.audio = { ...DEFAULT_AUDIO_SETTINGS };
+        settings.audio[toggle] = btn.dataset.value === 'true';
+        saveAndApply();
+      });
+    });
+  }
+  for (const slider of ['masterVolume', 'musicVolume', 'sfxVolume', 'ambientVolume', 'tvVolume']) {
+    const el = document.getElementById(`opt-${slider}`);
+    if (!el) continue;
+    el.addEventListener('input', () => {
+      if (!settings.audio) settings.audio = { ...DEFAULT_AUDIO_SETTINGS };
+      settings.audio[slider] = parseFloat(el.value);
       saveAndApply();
     });
   }

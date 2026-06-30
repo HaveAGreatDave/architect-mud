@@ -5,6 +5,7 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<title>ARCHITECT</title>
 		<link rel="stylesheet" href="styles.css" />
+		<script defer src="https://cloud.umami.is/script.js" data-website-id="1d2831a3-7b4b-4dd6-81ac-776ed6375456"></script>
 		<script>
 			// Auto-login is in flight when remembered credentials exist — hide the
 			// auth screen before first paint so it never flashes on refresh.
@@ -1252,6 +1253,67 @@
 				</div>
 
 				<div class="settings-group">
+					<label class="group-label">Audio</label>
+					<div class="settings-options" id="opt-audio-muteWhenHidden">
+						<button class="settings-opt" data-value="true">Mute When Tab Hidden</button>
+						<button class="settings-opt" data-value="false">Keep Playing in Background</button>
+					</div>
+				</div>
+
+				<div class="settings-group">
+					<label class="group-label">Music / SFX / TV Audio</label>
+					<div class="settings-options" id="opt-audio-music">
+						<button class="settings-opt" data-value="true">Music On</button>
+						<button class="settings-opt" data-value="false">Music Off</button>
+					</div>
+					<div class="settings-options" id="opt-audio-sfx" style="margin-top:6px">
+						<button class="settings-opt" data-value="true">SFX On</button>
+						<button class="settings-opt" data-value="false">SFX Off</button>
+					</div>
+					<div class="settings-options" id="opt-audio-tv" style="margin-top:6px">
+						<button class="settings-opt" data-value="true">TV Audio On</button>
+						<button class="settings-opt" data-value="false">TV Audio Off</button>
+					</div>
+				</div>
+
+				<div class="settings-group">
+					<label class="group-label" style="display:flex;justify-content:space-between;align-items:center" for="opt-masterVolume">
+						<span>Master Volume</span>
+						<span id="masterVolume-label" style="font-size:11px;color:var(--text-dim)">80%</span>
+					</label>
+					<input type="range" id="opt-masterVolume" min="0" max="1" step="0.05" value="0.8"
+						style="width:100%;accent-color:var(--accent);cursor:pointer;margin:6px 0 10px">
+
+					<label class="group-label" style="display:flex;justify-content:space-between;align-items:center" for="opt-musicVolume">
+						<span>Music Volume</span>
+						<span id="musicVolume-label" style="font-size:11px;color:var(--text-dim)">70%</span>
+					</label>
+					<input type="range" id="opt-musicVolume" min="0" max="1" step="0.05" value="0.7"
+						style="width:100%;accent-color:var(--accent);cursor:pointer;margin:6px 0 10px">
+
+					<label class="group-label" style="display:flex;justify-content:space-between;align-items:center" for="opt-sfxVolume">
+						<span>SFX Volume</span>
+						<span id="sfxVolume-label" style="font-size:11px;color:var(--text-dim)">90%</span>
+					</label>
+					<input type="range" id="opt-sfxVolume" min="0" max="1" step="0.05" value="0.9"
+						style="width:100%;accent-color:var(--accent);cursor:pointer;margin:6px 0 10px">
+
+					<label class="group-label" style="display:flex;justify-content:space-between;align-items:center" for="opt-ambientVolume">
+						<span>Ambient Volume</span>
+						<span id="ambientVolume-label" style="font-size:11px;color:var(--text-dim)">50%</span>
+					</label>
+					<input type="range" id="opt-ambientVolume" min="0" max="1" step="0.05" value="0.5"
+						style="width:100%;accent-color:var(--accent);cursor:pointer;margin:6px 0 10px">
+
+					<label class="group-label" style="display:flex;justify-content:space-between;align-items:center" for="opt-tvVolume">
+						<span>TV Volume</span>
+						<span id="tvVolume-label" style="font-size:11px;color:var(--text-dim)">60%</span>
+					</label>
+					<input type="range" id="opt-tvVolume" min="0" max="1" step="0.05" value="0.6"
+						style="width:100%;accent-color:var(--accent);cursor:pointer;margin:6px 0 4px">
+				</div>
+
+				<div class="settings-group">
 					<label class="group-label" for="settings-origin"
 						>Description</label
 					>
@@ -1326,6 +1388,15 @@
 							</label>
 						</div>
 						<div id="maturity-status" style="font-size:11px;color:var(--text-dim);margin-top:4px"></div>
+
+						<div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px">
+							<span style="font-size:12px;color:var(--text-dim)">Sound</span>
+							<label style="position:relative;display:inline-block;width:36px;height:20px">
+								<input type="checkbox" id="settings-sound-enabled" style="opacity:0;width:0;height:0">
+								<span id="sound-slider-track" style="position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:var(--border);border-radius:10px;transition:.2s"></span>
+								<span id="sound-slider-thumb" style="position:absolute;content:'';height:14px;width:14px;left:3px;bottom:3px;background:var(--text-dim);border-radius:50%;transition:.2s;pointer-events:none"></span>
+							</label>
+						</div>
 					</div>
 				</div>
 				<script>
@@ -1376,6 +1447,29 @@
 								status.style.color = 'var(--error, #c44)';
 								status.textContent = 'MIS not enabled on server.';
 							}
+						});
+
+						// Sound on/off — lives behind the same hidden reveal as MIS.
+						// Off by default; persists via the shared architect_settings store.
+						var soundCheckbox = document.getElementById("settings-sound-enabled");
+						var soundTrack = document.getElementById("sound-slider-track");
+						var soundThumb = document.getElementById("sound-slider-thumb");
+
+						function updateSoundSliderVisual(checked) {
+							soundTrack.style.background = checked ? 'var(--accent)' : 'var(--border)';
+							soundThumb.style.left = checked ? '19px' : '3px';
+							soundThumb.style.background = checked ? '#000' : 'var(--text-dim)';
+						}
+
+						try {
+							var stored = JSON.parse(localStorage.getItem('architect_settings') || '{}');
+							soundCheckbox.checked = !!(stored.audio && stored.audio.enabled);
+						} catch (e) {}
+						updateSoundSliderVisual(soundCheckbox.checked);
+
+						soundCheckbox.addEventListener("change", function () {
+							updateSoundSliderVisual(soundCheckbox.checked);
+							if (window._setAudioEnabled) window._setAudioEnabled(soundCheckbox.checked);
 						});
 					})();
 				</script>
@@ -1878,6 +1972,9 @@
 					<div id="mediadeck-name"></div>
 					<div id="mediadeck-channel" class="atm-subtitle"></div>
 				</div>
+				<div id="mediadeck-slot">
+					<div id="mediadeck-cartridge"></div>
+				</div>
 				<div class="atm-status-row">
 					<span class="atm-label">STATUS</span>
 					<span id="mediadeck-light" class="mediadeck-light"></span>
@@ -1885,7 +1982,10 @@
 				</div>
 				<div class="atm-divider">── CASSETTES ───────────────────────</div>
 				<div id="mediadeck-cassette-list" class="mediadeck-list"></div>
-				<button id="mediadeck-eject-btn" class="mediadeck-eject-btn" style="margin-top:10px">⏏ EJECT</button>
+				<div class="mediadeck-btn-row">
+					<button id="mediadeck-load-btn" class="mediadeck-transport-btn">▶ LOAD</button>
+					<button id="mediadeck-eject-btn" class="mediadeck-transport-btn mediadeck-eject-btn">⏏ EJECT</button>
+				</div>
 				<div class="atm-divider">── SCHEDULE ─────────────────────────</div>
 				<div id="mediadeck-schedule-list" class="mediadeck-list"></div>
 			</div>
@@ -1912,6 +2012,7 @@
 			}
 		</script>
 
+		<script src="/shared/audio-engine.js"></script>
 		<script type="module" src="js/main.js"></script>
 
 		<a

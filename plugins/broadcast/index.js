@@ -1248,7 +1248,7 @@ async function cmdLoadCassette(args, raw, player) {
   if (!player) return { type: 'error', message: 'No character.' };
   // Usage: load cassette [into deck]  — finds a carried cassette and the deck in this zone
   const { rows: invRows } = await query(
-    `SELECT pi.id AS inv_id, i.name, i.flags, i.tags FROM player_inventory pi
+    `SELECT pi.id AS inv_id, i.id AS item_id, i.name, i.flags, i.tags FROM player_inventory pi
        JOIN items i ON i.id = pi.item_id
       WHERE pi.player_id=$1 AND pi.is_equipped=0
         AND (jsonb_exists(i.tags,'media_cassette') OR (i.flags->>'media_cassette')='true')
@@ -1267,7 +1267,10 @@ async function cmdLoadCassette(args, raw, player) {
   dflags.deck_cassettes = cassettes;
   dflags.deck_active = broadcastId;
   await query('UPDATE furniture SET flags=$1 WHERE id=$2', [JSON.stringify(dflags), deck.id]);
-  return { type: 'output', message: `You load the cassette into the deck.` };
+  // The tape goes into the deck — it's no longer something you're carrying.
+  await query('DELETE FROM player_inventory WHERE id=$1', [cassette.inv_id]);
+  _deckCache.delete(player.current_zone);
+  return { type: 'output', message: `You slide the cassette into the deck. It clunks into place and starts playing.` };
 }
 
 async function cmdEjectCassette(args, raw, player) {
@@ -1276,9 +1279,36 @@ async function cmdEjectCassette(args, raw, player) {
   if (!deck) return { type: 'output', message: 'There is no media deck here.' };
   const dflags = _deckFlags(deck);
   if (!dflags.deck_active) return { type: 'output', message: 'The deck is empty.' };
+  const broadcastId = dflags.deck_active;
+
+  // Pop the physical cassette back out into the player's hands — at most one
+  // copy of a given broadcast's tape can exist in a player's inventory at a time.
+  const { rows: bcRows } = await query('SELECT name FROM media_broadcasts WHERE id=$1', [broadcastId]);
+  const broadcastName = bcRows[0]?.name || 'Untitled';
+  const itemId = `item_cassette_${broadcastId}`;
+  await query(
+    `INSERT INTO items (id, name, description, type, subtype, weight, value, rarity, is_stackable, is_unique, tags)
+     VALUES ($1,$2,$3,'media','cassette',100,0,'common',0,1,$4)
+     ON CONFLICT (id) DO UPDATE SET name=$2, tags=$4`,
+    [itemId, `Cassette: ${broadcastName}`, `A media cassette labeled "${broadcastName}".`,
+     JSON.stringify({ media_cassette: true, broadcast_id: broadcastId })]
+  );
+  const { rows: existingInv } = await query(
+    `SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 LIMIT 1`,
+    [player.id, itemId]
+  );
+  if (!existingInv.length) {
+    await query('INSERT INTO player_inventory (id, player_id, item_id, quantity) VALUES ($1,$2,$3,1)',
+      [randomUUID(), player.id, itemId]);
+  }
+
+  // Remove it from the deck's library entirely — the program stops, the deck goes idle.
+  dflags.deck_cassettes = (Array.isArray(dflags.deck_cassettes) ? dflags.deck_cassettes : [])
+    .filter(id => id !== broadcastId);
   dflags.deck_active = null;
   await query('UPDATE furniture SET flags=$1 WHERE id=$2', [JSON.stringify(dflags), deck.id]);
-  return { type: 'output', message: `You eject the cassette.` };
+  _deckCache.delete(player.current_zone);
+  return { type: 'output', message: `You eject the cassette. The screen dissolves into static.` };
 }
 
 // Select a cassette already in the deck's library (no need to carry it again).

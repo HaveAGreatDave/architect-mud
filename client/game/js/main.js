@@ -40,6 +40,7 @@ import { refreshTempDisplay } from "./panels/environment.js";
 import { initAtmPanel } from "./panels/atm.js";
 import { initTvPanel } from "./panels/tv.js";
 import { initMediaDeckPanel } from "./panels/mediadeck.js";
+import { initAudio } from "./panels/audio.js";
 
 // Settings
 const settings = loadSettings();
@@ -113,6 +114,7 @@ listenForSettingsChanges((s) => {
 	applySettings(s);
 	applyMobileScale();
 });
+initAudio();
 // saveAndApply is called after settings.js mutates the settings object in-place
 initSettingsUI(
 	settings,
@@ -148,6 +150,16 @@ initSettingsUI(
 		},
 	},
 );
+
+// Bridge for the hidden sound toggle in index.html (lives in the same
+// secret-reveal panel as the MIS toggle) — it's plain inline markup, not a
+// module, so it can't import settings.js directly.
+window._setAudioEnabled = (enabled) => {
+	if (!settings.audio) settings.audio = {};
+	settings.audio.enabled = enabled;
+	saveSettings(settings);
+	applySettings(settings);
+};
 
 initThemeEditorOverlay();
 initSidebarOrder();

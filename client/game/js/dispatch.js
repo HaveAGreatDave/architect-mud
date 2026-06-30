@@ -362,6 +362,11 @@ const handlers = {
   morphex_panel: (msg) => { openMorphexPanel(msg.data); },
   atm_panel: (msg) => { openAtmPanel(msg); },
   mediadeck_panel: (msg) => { openMediaDeckPanel(msg); },
+
+  audio_music: (msg) => { window.AudioEngine?.playMusic(msg.def); },
+  audio_sfx: (msg) => { window.AudioEngine?.playSfx(msg.def); },
+  audio_ambience: (msg) => { window.AudioEngine?.loopSound(msg.def); },
+  audio_stop: (msg) => { window.AudioEngine?.stop(msg.scope, msg.id); },
 };
 
 export function handleServerMsg(msg) {

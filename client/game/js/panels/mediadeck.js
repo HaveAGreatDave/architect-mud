@@ -33,6 +33,17 @@ function renderMediaDeckPanel(data) {
   lightEl.className = 'mediadeck-light mediadeck-light-' + (lightState || 'red');
   document.getElementById('mediadeck-light-label').textContent = LIGHT_LABEL[lightState] || 'OFFLINE';
 
+  const activeCassette = (cassettes || []).find(c => c.id === activeCassetteId);
+  const cartridgeEl = document.getElementById('mediadeck-cartridge');
+  const slotEl = document.getElementById('mediadeck-slot');
+  if (activeCassette) {
+    slotEl.classList.add('loaded');
+    cartridgeEl.innerHTML = `<span class="mediadeck-cartridge-label">${escapeHtml(activeCassette.name)}</span>`;
+  } else {
+    slotEl.classList.remove('loaded');
+    cartridgeEl.innerHTML = '<span class="mediadeck-cartridge-label">— EMPTY —</span>';
+  }
+
   const listEl = document.getElementById('mediadeck-cassette-list');
   listEl.innerHTML = '';
   if (!cassettes || !cassettes.length) {
@@ -83,6 +94,10 @@ export function initMediaDeckPanel() {
   });
   document.getElementById('mediadeck-eject-btn').addEventListener('click', () => {
     sendCmdSilent('eject');
+    closeMediaDeckPanel();
+  });
+  document.getElementById('mediadeck-load-btn').addEventListener('click', () => {
+    sendCmdSilent('load cassette');
     closeMediaDeckPanel();
   });
 }

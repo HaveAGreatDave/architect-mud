@@ -20,6 +20,16 @@ let _tvFrequency   = 0;    // current dial position (float)
 const LOCK_RANGE   = 0.25; // within this many channel-numbers = lock in
 const TV_DIAL_MAX  = 9.05; // dial wraps 0.0 → 9.0 → 0.0 (9.0 + 0.05 step = wrap)
 
+// CRT hum is per-viewer UI ambience tied to the panel being open, not shared
+// multiplayer state — so unlike channel-change SFX (server-driven via the
+// audio plugin's device.tuned listener), it's started/stopped locally here.
+const TV_HUM_DEF = {
+  id: 'tv_hum_local', category: 'tv', priority: 1, loop: true,
+  config: { waveform: 'sine', freq: 60, gain: 0.05, noiseMix: 0.15,
+    filter: { type: 'lowpass', freq: 400, q: 0.7 },
+    adsr: { a: 0.5, d: 0.1, s: 1, r: 0.5 } },
+};
+
 export function openTvPanel(data) {
   const wasAlreadyOn = _tvOpen;
   _tvActiveChannelId = data.channelId || null;
@@ -52,6 +62,7 @@ export function openTvPanel(data) {
 
   applyTvTheme(data.theme || null);
   document.getElementById('tv-panel').classList.add('active');
+  window.AudioEngine?.loopSound(TV_HUM_DEF);
 
   if (_tvPoweredOff) {
     // TV opened at 0.0 — show static, content hidden
@@ -177,6 +188,7 @@ export function closeTvPanel() {
   document.getElementById('tv-static').classList.remove('tv-static-on', 'tv-static-fade', 'tv-static-loop');
   document.getElementById('tv-content').classList.remove('tv-hidden');
   document.getElementById('tv-panel').classList.remove('active');
+  window.AudioEngine?.stopLoop(TV_HUM_DEF.id);
 }
 
 export function shutdownTvPanel() {

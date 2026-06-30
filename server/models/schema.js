@@ -781,6 +781,61 @@ export const SCHEMA_SQL = `
     hack_difficulty INTEGER DEFAULT 5,
     is_broken INTEGER DEFAULT 0
   );
+
+  -- Procedural Audio system (browser-generated playback via Web Audio API).
+  -- Wholly separate from the text-based "sounds" table above — that system
+  -- produces ambient prose ("You hear footsteps nearby"), this system produces
+  -- actual synthesized audio (music, SFX, ambience). Never merge the two.
+  CREATE TABLE IF NOT EXISTS audio_instruments (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    category TEXT DEFAULT 'misc',
+    waveform TEXT DEFAULT 'square',
+    config JSONB DEFAULT '{}',
+    enabled INTEGER DEFAULT 1
+  );
+
+  -- channels: tracker-style pattern data — array of channels, each an array of
+  -- step objects ({note, instrument, vol} or null). instrument_ids references
+  -- audio_instruments.id values used by the pattern. priority feeds the voice
+  -- manager's stealing decisions (higher wins).
+  CREATE TABLE IF NOT EXISTS audio_songs (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    category TEXT DEFAULT 'misc',
+    tempo INTEGER DEFAULT 120,
+    channels JSONB DEFAULT '[]',
+    loop_start INTEGER DEFAULT 0,
+    loop_end INTEGER DEFAULT 0,
+    instrument_ids JSONB DEFAULT '[]',
+    priority INTEGER DEFAULT 5,
+    enabled INTEGER DEFAULT 1
+  );
+
+  -- config is a self-contained synth recipe (oscillator/noise layers + envelope
+  -- + pitch curve) — a one-shot sound effect, independent of audio_instruments.
+  CREATE TABLE IF NOT EXISTS audio_sfx (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    category TEXT DEFAULT 'misc',
+    priority INTEGER DEFAULT 5,
+    config JSONB DEFAULT '{}',
+    enabled INTEGER DEFAULT 1
+  );
+
+  CREATE TABLE IF NOT EXISTS audio_ambient (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    category TEXT DEFAULT 'misc',
+    priority INTEGER DEFAULT 1,
+    config JSONB DEFAULT '{}',
+    loop INTEGER DEFAULT 1,
+    enabled INTEGER DEFAULT 1
+  );
+
+  -- Zone-level adaptive music assignment: which audio_songs row plays while a
+  -- player is in this zone. NULL = no music change on entering this zone.
+  ALTER TABLE zones ADD COLUMN IF NOT EXISTS audio_theme_id TEXT REFERENCES audio_songs(id);
 `;
 
 export async function applySchema() {
