@@ -475,7 +475,8 @@ async function cmdExamine(targetStr, player, broadcast) {
         statusLine = `<span style="color:var(--border)">— STANDBY</span>${chTag ? `  ·  ${chTag}` : ''}`;
       }
 
-      msg += `\n<span style="display:inline-flex;gap:18px;padding:6px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:2px;margin:4px 0">${liveDot}${loadDot}</span>\n${statusLine}`;
+      const useLink = `<span class="action-link" data-action="use" data-target="${f.name.toLowerCase()}">use</span>`;
+      msg += `\n<span style="display:inline-flex;gap:18px;padding:6px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:2px;margin:4px 0">${liveDot}${loadDot}</span>\n${statusLine}\n<span class="text-dim">Actions:</span> ${useLink}`;
     } else if (f.object_type === 'broadcast_camera') {
       const flags = f.flags || {};
       const camId = flags.camera_id;
