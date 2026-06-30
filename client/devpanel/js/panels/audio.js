@@ -344,8 +344,9 @@ function _sqInjectCss() {
   s.textContent = `
 .sq-vtab{padding:4px 12px;border:1px solid var(--border);background:var(--bg2);color:var(--text-dim);border-radius:3px;cursor:pointer;font-size:11px}
 .sq-vtab.sq-vtab-on{background:var(--accent);color:#000;border-color:var(--accent)}
-.sq-lrow{height:36px;border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 6px;gap:4px;background:var(--bg2);box-sizing:border-box}
+.sq-lrow{height:36px;border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 6px;gap:4px;background:var(--bg2);box-sizing:border-box;transition:background 0.05s,border-left 0.05s}
 .sq-lrow-hdr{height:24px;border-bottom:1px solid var(--border);background:var(--bg2)}
+.sq-lrow.sq-ch-active{background:rgba(0,240,255,0.10)!important;border-left:3px solid var(--accent)}
 .sq-rrow{height:36px;border-bottom:1px solid var(--border);display:flex;align-items:stretch;box-sizing:border-box}
 .sq-rrow-hdr{height:24px;border-bottom:1px solid var(--border);display:flex}
 .sq-cell{width:18px;min-width:18px;border-right:1px solid #1c1c1c;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:6px;color:transparent;user-select:none;flex-shrink:0}
@@ -365,7 +366,8 @@ function _sqInjectCss() {
 .sq-pop select,.sq-pop input[type=range]{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:2px 4px;border-radius:3px;font-size:11px}
 .sq-pop-row{display:flex;gap:6px}
 .sq-pop-del{flex:1;background:#221;border:1px solid #443;color:#f77;border-radius:3px;padding:4px 8px;cursor:pointer;font-size:10px}
-.sq-pop-ok{flex:1;background:var(--accent);border:1px solid var(--accent);color:#000;border-radius:3px;padding:4px 8px;cursor:pointer;font-size:10px}`;
+.sq-pop-ok{flex:1;background:var(--accent);border:1px solid var(--accent);color:#000;border-radius:3px;padding:4px 8px;cursor:pointer;font-size:10px}
+#sq-playhead{position:absolute;top:24px;bottom:0;width:18px;background:rgba(255,180,0,0.12);border-left:2px solid rgba(255,180,0,0.75);pointer-events:none;z-index:3;display:none}`;
   document.head.appendChild(s);
 }
 
@@ -447,7 +449,8 @@ function _sqRender() {
     <div id="sq-left" style="flex-shrink:0;width:190px;overflow:hidden;border-right:2px solid var(--border)">
       ${leftHtml}
     </div>
-    <div id="sq-right" style="flex:1;overflow:auto">
+    <div id="sq-right" style="flex:1;overflow:auto;position:relative">
+      <div id="sq-playhead"></div>
       <div class="sq-rrow-hdr">${barLabelHtml}</div>
       ${chRowsHtml}
     </div>`;
@@ -539,10 +542,34 @@ function _sqOpenPop(cell, ci, si) {
   }, 50);
 }
 
+function _sqClearPlayhead() {
+  const ph = document.getElementById('sq-playhead');
+  if (ph) ph.style.display = 'none';
+  document.querySelectorAll('.sq-lrow').forEach(r => r.classList.remove('sq-ch-active'));
+}
+
+function _sqOnStep(stepIdx, active) {
+  const ph = document.getElementById('sq-playhead');
+  if (!ph) return;
+  ph.style.display = '';
+  ph.style.left = (stepIdx * 18) + 'px';
+  const right = document.getElementById('sq-right');
+  if (right) {
+    const phLeft = stepIdx * 18;
+    if (phLeft < right.scrollLeft || phLeft + 18 > right.scrollLeft + right.clientWidth) {
+      right.scrollLeft = Math.max(0, phLeft - right.clientWidth * 0.3);
+    }
+  }
+  document.querySelectorAll('.sq-lrow').forEach((row, ci) => {
+    row.classList.toggle('sq-ch-active', !!(active[ci]));
+  });
+}
+
 function _sqTogglePlay() {
   if (_sqPlaying) {
     window.AudioEngine?.stopMusic();
     _sqPlaying = false;
+    _sqClearPlayhead();
   } else {
     window.AudioEngine?.init();
     const tempo = parseInt(document.getElementById('sg-tempo')?.value) || 120;
@@ -552,7 +579,7 @@ function _sqTogglePlay() {
       const inst = _audioData.instruments.find(i => i.id === id);
       if (inst) _instrumentsById[id] = inst;
     }
-    window.AudioEngine.playMusic({ name: '_preview', tempo, channels: _sqCh, instrument_ids: instrumentIds, _instrumentsById, priority: 5 });
+    window.AudioEngine.playMusic({ name: '_preview', tempo, channels: _sqCh, instrument_ids: instrumentIds, _instrumentsById, priority: 5, onStep: _sqOnStep });
     _sqPlaying = true;
   }
   const btn = document.getElementById('sq-play');
@@ -792,7 +819,7 @@ function openAudioModal(tab, row) {
       if (r?.error) { toast(r.error, true); return; }
       toast(isNew ? 'Song created' : 'Song updated');
       modalCard.style.width = '';
-      _sqPlaying = false; window.AudioEngine?.stopMusic();
+      _sqPlaying = false; window.AudioEngine?.stopMusic(); _sqClearPlayhead();
       closeModal(); loadPanel('audio');
     };
   }

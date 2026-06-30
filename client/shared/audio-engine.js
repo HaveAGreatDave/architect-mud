@@ -384,6 +384,11 @@
         const ms = Math.max(0, (time - c.currentTime) * 1000) + (stepSeconds * 1000) + 200;
         setTimeout(() => freeVoice(idx), ms);
       });
+      if (def.onStep) {
+        const delay = Math.max(0, (time - c.currentTime) * 1000);
+        const active = channels.map(ch => !!(ch[stepIdx % ch.length]?.note));
+        setTimeout(() => def.onStep(stepIdx, active), delay);
+      }
     }
 
     function scheduler() {
