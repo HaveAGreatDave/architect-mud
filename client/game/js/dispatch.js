@@ -6,6 +6,7 @@ import { updateEnvironmentHUD, updateZoneTempHUD, refreshZoneVisibility } from '
 import { openDialogue, closeDialogue, openShop } from './panels/dialogue.js';
 import { renderEquipPanel } from './panels/equipment.js';
 import { renderRecipesPanel } from './panels/recipes.js';
+import { renderStatsPanel } from './panels/stats.js';
 import { receiveWhisper, sentWhisper, receiveChannelMsg, initChannels, initChannelHistory, receiveMOTD, refreshOnlinePlayers } from './panels/whisper.js';
 import { openContainerPanel, refreshContainerPanel, getActiveContainerId, showContainerNotify } from './panels/container.js';
 import { openLootPanel, closeLootPanel } from './panels/loot.js';
@@ -196,7 +197,8 @@ const handlers = {
   },
 
   stats: (msg) => {
-    appendHtml(msg.message, 'help');
+    renderStatsPanel(msg.stats);
+    document.getElementById('stats-panel').classList.add('active');
     if (msg.player) updateVitals(msg.player);
   },
 

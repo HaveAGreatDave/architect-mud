@@ -48,11 +48,9 @@ export async function awardIp(playerId, skillId, margin = 0) {
   return { awarded: 1, leveledUp };
 }
 
-// Cost to raise a stat from currentValue to currentValue+1.
+// Cost to raise a stat by one point. Flat for now: 100 XP = 1 stat point.
 export function statCost(currentValue) {
-  const base = getTunable('stat_cost_base', 10);
-  const exp = getTunable('stat_cost_exponent', 1.5);
-  return Math.ceil(base * Math.pow(Math.max(1, currentValue), exp));
+  return getTunable('stat_cost_flat', 100);
 }
 
 export const RAISABLE_STATS = ['brawn', 'reflexes', 'endurance', 'brains', 'cool'];
