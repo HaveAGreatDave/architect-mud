@@ -429,38 +429,30 @@ export function initTvPanel() {
   window.addEventListener('game-disconnect', () => { if (_tvOpen) shutdownTvPanel(); });
 
   // Knob: circular drag tunes, click cycles channels
+  // Uses tangent-projection: mouse delta is projected onto the clockwise tangent of the
+  // knob line at its current angle, so all 360° feel equally responsive.
   const knob = document.getElementById('tv-knob');
   let _knobDragging = false;
-  let _knobLastAngle = 0;
   let _knobMoved = false;
-
-  function _knobCenter() {
-    const r = knob.getBoundingClientRect();
-    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
-  }
-
-  function _angleFromCenter(e) {
-    const c = _knobCenter();
-    return Math.atan2(e.clientY - c.y, e.clientX - c.x) * (180 / Math.PI);
-  }
 
   knob.addEventListener('mousedown', (e) => {
     if (!_tvOpen) return;
     _knobDragging = true;
-    _knobLastAngle = _angleFromCenter(e);
     _knobMoved = false;
     e.preventDefault();
   });
 
   document.addEventListener('mousemove', (e) => {
     if (!_knobDragging) return;
-    const angle = _angleFromCenter(e);
-    let dAngle = angle - _knobLastAngle;
-    if (dAngle > 180) dAngle -= 360;
-    if (dAngle < -180) dAngle += 360;
-    _knobLastAngle = angle;
-    if (Math.abs(dAngle) > 0.5) _knobMoved = true;
-    const rawFreq = _tvFrequency + dAngle / 36;
+    // Knob line direction (0 freq = 12 o'clock = -π/2 from +X axis in screen coords)
+    const kRad = (_tvFrequency / TV_DIAL_MAX) * 2 * Math.PI - Math.PI / 2;
+    // Clockwise tangent at this angle: perpendicular 90° CW from the line
+    const tx = -Math.sin(kRad);
+    const ty =  Math.cos(kRad);
+    // Component of mouse movement in the tangent direction
+    const dot = e.movementX * tx + e.movementY * ty;
+    if (Math.abs(dot) > 0.3) _knobMoved = true;
+    const rawFreq = _tvFrequency + dot * 0.02;
     const clamped = Math.round(((rawFreq % TV_DIAL_MAX) + TV_DIAL_MAX) % TV_DIAL_MAX * 20) / 20;
     tvTunerInput(clamped);
   });

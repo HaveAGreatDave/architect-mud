@@ -257,8 +257,11 @@ function compileBsm(text) {
       i++; continue;
     }
 
+    // ── Block terminators appearing outside their blocks — silently skip ────────
+    if (ln.endsWith('_END') || ln === 'END_ACTION') { i++; continue; }
+
     // ── MUSIC block — theme name is code only; body text is what displays ────────
-    if (ln.startsWith('MUSIC')) {
+    if (ln === 'MUSIC' || ln.startsWith('MUSIC ')) {
       i++;
       const displayText = collectBlock('MUSIC_END');
       if (displayText) makeNode({ type: 'say', text: displayText, style: 'ambient' });
@@ -297,6 +300,9 @@ function compileBsm(text) {
 
     // ── ♪ music-cue text lines ───────────────────────────────────────────────
     if (ln.startsWith('♪')) {
+      // Skip bare cue-name markers like ♪ tonight_theme ♪ (single word = compiler ID, not display text)
+      const inner = ln.replace(/^♪\s*|\s*♪$/g, '').trim();
+      if (!/\s/.test(inner)) { i++; continue; }
       makeNode({ type: 'say', text: ln, style: 'ambient' });
       i++; continue;
     }

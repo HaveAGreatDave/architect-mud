@@ -1069,13 +1069,16 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
       case 'event': {
         const evType = (node.data?.event_type || '').toUpperCase();
         const EVENT_MESSAGES = {
-          LAUGHTER:  'Laughter erupts from the crowd!',
-          APPLAUSE:  'The crowd roars with applause!',
-          CHEERING:  'The crowd cheers enthusiastically!',
-          BOOING:    'The crowd boos!',
-          GASPING:   'The crowd gasps!',
-          MURMURING: 'Murmurs ripple through the crowd.',
-          SILENCE:   'A hush falls over the crowd.',
+          LAUGHTER:         'Laughter erupts from the crowd!',
+          APPLAUSE:         'The crowd roars with applause!',
+          CHEERING:         'The crowd cheers enthusiastically!',
+          BOOING:           'The crowd boos!',
+          GASPING:          'The crowd gasps!',
+          MURMURING:        'Murmurs ripple through the crowd.',
+          SILENCE:          'A hush falls over the crowd.',
+          FADE_OUT:         'The camera slowly fades to black.',
+          FADE_IN:          'The camera fades back in.',
+          RETURN_FROM_BREAK:'The scene cuts back in from a commercial break.',
         };
         const evText = EVENT_MESSAGES[evType] || `${evType.charAt(0) + evType.slice(1).toLowerCase()} from the crowd.`;
         bb.currentNode = _resolveEdge(edges, nodeId, 'next');
