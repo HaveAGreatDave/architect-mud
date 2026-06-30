@@ -1232,25 +1232,35 @@ registerAction({
 
 // ── Media Deck: load/eject cassettes ─────────────────────────────────────────
 
+async function _findDeckInZone(zoneId) {
+  const { rows } = await query(
+    `SELECT * FROM furniture WHERE zone_id=$1 AND flags::text LIKE '%"media_deck"%' LIMIT 1`,
+    [zoneId]
+  );
+  return rows[0] || null;
+}
+
+function _deckFlags(deck) {
+  return typeof deck.flags === 'object' ? { ...deck.flags } : JSON.parse(deck.flags || '{}');
+}
+
 async function cmdLoadCassette(args, raw, player) {
   if (!player) return { type: 'error', message: 'No character.' };
-  // Usage: load cassette [into deck]  — finds cassette in inventory and deck in zone
-  const inv = world.get(player.id)?.inventory || [];
-  const cassette = inv.find(i => {
-    const flags = typeof i.flags === 'object' ? i.flags : (i.flags ? JSON.parse(i.flags) : {});
-    const itags = typeof i.tags === 'object' ? i.tags : (i.tags ? JSON.parse(i.tags) : {});
-    return flags.media_cassette || (itags && Object.prototype.hasOwnProperty.call(itags, 'media_cassette'));
-  });
-  if (!cassette) return { type: 'output', message: 'You have no cassette to load.' };
-  const { rows: decks } = await query(
-    `SELECT * FROM furniture WHERE zone_id=$1 AND flags::text LIKE '%"media_deck"%' LIMIT 1`,
-    [player.current_zone]
+  // Usage: load cassette [into deck]  — finds a carried cassette and the deck in this zone
+  const { rows: invRows } = await query(
+    `SELECT pi.id AS inv_id, i.name, i.flags, i.tags FROM player_inventory pi
+       JOIN items i ON i.id = pi.item_id
+      WHERE pi.player_id=$1 AND pi.is_equipped=0
+        AND (jsonb_exists(i.tags,'media_cassette') OR (i.flags->>'media_cassette')='true')
+      LIMIT 1`,
+    [player.id]
   );
-  if (!decks.length) return { type: 'output', message: 'There is no media deck here.' };
-  const deck = decks[0];
-  const dflags = typeof deck.flags === 'object' ? { ...deck.flags } : JSON.parse(deck.flags || '{}');
-  const cflags = typeof cassette.flags === 'object' ? cassette.flags : JSON.parse(cassette.flags || '{}');
-  const broadcastId = cflags.broadcast_id;
+  if (!invRows.length) return { type: 'output', message: 'You have no cassette to load.' };
+  const cassette = invRows[0];
+  const deck = await _findDeckInZone(player.current_zone);
+  if (!deck) return { type: 'output', message: 'There is no media deck here.' };
+  const dflags = _deckFlags(deck);
+  const broadcastId = cassette.tags?.broadcast_id || cassette.flags?.broadcast_id;
   if (!broadcastId) return { type: 'output', message: 'That cassette has no broadcast loaded.' };
   const cassettes = Array.isArray(dflags.deck_cassettes) ? [...dflags.deck_cassettes] : [];
   if (!cassettes.includes(broadcastId)) cassettes.push(broadcastId);
@@ -1262,18 +1272,134 @@ async function cmdLoadCassette(args, raw, player) {
 
 async function cmdEjectCassette(args, raw, player) {
   if (!player) return { type: 'error', message: 'No character.' };
-  const { rows: decks } = await query(
-    `SELECT * FROM furniture WHERE zone_id=$1 AND flags::text LIKE '%"media_deck"%' LIMIT 1`,
-    [player.current_zone]
-  );
-  if (!decks.length) return { type: 'output', message: 'There is no media deck here.' };
-  const deck = decks[0];
-  const dflags = typeof deck.flags === 'object' ? { ...deck.flags } : JSON.parse(deck.flags || '{}');
+  const deck = await _findDeckInZone(player.current_zone);
+  if (!deck) return { type: 'output', message: 'There is no media deck here.' };
+  const dflags = _deckFlags(deck);
   if (!dflags.deck_active) return { type: 'output', message: 'The deck is empty.' };
   dflags.deck_active = null;
   await query('UPDATE furniture SET flags=$1 WHERE id=$2', [JSON.stringify(dflags), deck.id]);
   return { type: 'output', message: `You eject the cassette.` };
 }
+
+// Select a cassette already in the deck's library (no need to carry it again).
+async function cmdSelectCassette(args, raw, player) {
+  if (!player) return { type: 'error', message: 'No character.' };
+  const broadcastId = args[0];
+  if (!broadcastId) return { type: 'error', message: 'Select which cassette? Use the deck panel or "select <id>".' };
+  const deck = await _findDeckInZone(player.current_zone);
+  if (!deck) return { type: 'output', message: 'There is no media deck here.' };
+  const dflags = _deckFlags(deck);
+  const cassettes = Array.isArray(dflags.deck_cassettes) ? dflags.deck_cassettes : [];
+  if (!cassettes.includes(broadcastId)) return { type: 'output', message: 'That cassette is not in this deck.' };
+  dflags.deck_active = broadcastId;
+  await query('UPDATE furniture SET flags=$1 WHERE id=$2', [JSON.stringify(dflags), deck.id]);
+  return buildMediaDeckPanel(deck.id, player);
+}
+
+// ── Media Deck panel (client overlay) ─────────────────────────────────────────
+
+function _deckLightState(channelType, deckActive) {
+  if (deckActive) return 'orange';
+  if (channelType === 'live') return 'green';
+  return 'red';
+}
+
+async function buildMediaDeckPanel(deckId, player) {
+  const { rows } = await query('SELECT * FROM furniture WHERE id=$1', [deckId]);
+  if (!rows.length) return { type: 'error', message: 'Deck not found.' };
+  const deck = rows[0];
+  const dflags = _deckFlags(deck);
+  const channelId = dflags.channel_id || null;
+  const state = channelId ? channelRuntime.get(channelId) : null;
+
+  const cassetteIds = Array.isArray(dflags.deck_cassettes) ? dflags.deck_cassettes : [];
+  let cassettes = [];
+  if (cassetteIds.length) {
+    const { rows: bcRows } = await query(
+      `SELECT id, name, category FROM media_broadcasts WHERE id = ANY($1)`,
+      [cassetteIds]
+    );
+    cassettes = cassetteIds.map(id => bcRows.find(b => b.id === id) || { id, name: id, category: 'general' });
+  }
+
+  // Read-only schedule preview — today's playlist slots for the linked channel.
+  let schedule = [];
+  if (channelId) {
+    const { rows: plRows } = await query(
+      `SELECT p.start_time, p.duration_override, b.name AS broadcast_name
+         FROM media_channel_playlist p LEFT JOIN media_broadcasts b ON b.id = p.broadcast_id
+        WHERE p.channel_id=$1 ORDER BY p.start_time`,
+      [channelId]
+    );
+    schedule = plRows.map(r => ({
+      startTime: r.start_time,
+      name: r.broadcast_name || '(untitled)',
+    }));
+  }
+
+  const lightState = _deckLightState(state?.channelType, dflags.deck_active);
+
+  sendToPlayer(player.id, {
+    type: 'mediadeck_panel',
+    deckId: deck.id,
+    deckName: deck.name,
+    channelId,
+    channelName: state?.name || null,
+    channelNumber: state?.number ?? null,
+    lightState,
+    activeCassetteId: dflags.deck_active || null,
+    cassettes,
+    schedule,
+  });
+  return { type: 'output', message: `You examine the ${deck.name}.` };
+}
+
+async function doUseMediaDeck(args, raw, player) {
+  if (!player) return undefined;
+  const nameHint = args.join(' ').toLowerCase();
+  const { rows } = await query(
+    `SELECT id, name FROM furniture WHERE zone_id=$1 AND flags::text LIKE '%"media_deck"%'${nameHint ? ' AND name ILIKE $2' : ''} LIMIT 1`,
+    nameHint ? [player.current_zone, `%${nameHint}%`] : [player.current_zone]
+  );
+  if (!rows.length) return undefined;
+  return buildMediaDeckPanel(rows[0].id, player);
+}
+
+// ── Media Deck schedule-sync tick ─────────────────────────────────────────────
+// Keeps a deck's active cassette aligned with the channel's current playlist
+// slot, when that slot's broadcast is already in the deck's library. A deck
+// with no matching cassette in its library is left alone (no auto-load of
+// untouched/never-inserted tapes).
+async function mediaDeckSyncTick() {
+  const { rows: decks } = await query(
+    `SELECT id, flags FROM furniture WHERE flags::text LIKE '%"media_deck"%'`
+  );
+  if (!decks.length) return;
+  const { minutes } = getEnvironmentState();
+  const gameSecondsSinceMidnight = minutes * 60;
+
+  for (const deck of decks) {
+    const dflags = _deckFlags(deck);
+    const channelId = dflags.channel_id;
+    const cassettes = Array.isArray(dflags.deck_cassettes) ? dflags.deck_cassettes : [];
+    if (!channelId || !cassettes.length) continue;
+
+    const { rows: plRows } = await query(
+      `SELECT broadcast_id, start_time, COALESCE(duration_override, 300) AS duration
+         FROM media_channel_playlist WHERE channel_id=$1 ORDER BY start_time`,
+      [channelId]
+    );
+    const slot = plRows.find(p => gameSecondsSinceMidnight >= p.start_time && gameSecondsSinceMidnight < p.start_time + p.duration);
+    if (!slot?.broadcast_id) continue;
+    if (!cassettes.includes(slot.broadcast_id)) continue;
+    if (dflags.deck_active === slot.broadcast_id) continue;
+
+    dflags.deck_active = slot.broadcast_id;
+    await query('UPDATE furniture SET flags=$1 WHERE id=$2', [JSON.stringify(dflags), deck.id]).catch(() => {});
+  }
+}
+
+setInterval(() => mediaDeckSyncTick().catch(e => console.error('[broadcast] media deck sync error:', e.message)), 30 * 1000);
 
 // ── Commands ─────────────────────────────────────────────────────────────────
 
@@ -1477,10 +1603,12 @@ export const commands = {
     return null; // pass to next handler
   },
   eject: cmdEjectCassette,
+  selectcassette: cmdSelectCassette,
 };
 
 export const specializedActions = [
   { verb: 'use', requiredTag: 'tv', handler: doUseTv },
+  { verb: 'use', requiredTag: 'media_deck', handler: doUseMediaDeck },
 ];
 
 // ── Route handler (CRUD) ─────────────────────────────────────────────────────
@@ -2255,6 +2383,72 @@ export const routeHandler = async (path, method, body, auth) => {
 
         await loadChannelRuntimes();
         return { status: 201, body: { id: deckId, zone_id: targetZoneId, channel_id, camera_id: cameraId } };
+      }
+    }
+
+    // ── Cassette: create a physical item for a broadcast and register it in the
+    // channel's media deck library ────────────────────────────────────────────
+    if (resource === 'cassette') {
+      if (!id && method === 'POST') {
+        if (!devOk(auth)) return { status: 403, body: { error: 'Dev access required' } };
+        const { broadcast_id, channel_id } = body || {};
+        if (!broadcast_id) return { status: 400, body: { error: 'broadcast_id is required' } };
+
+        const { rows: bcRows } = await query('SELECT name FROM media_broadcasts WHERE id=$1', [broadcast_id]);
+        if (!bcRows.length) return { status: 404, body: { error: 'Broadcast not found' } };
+        const broadcastName = bcRows[0].name;
+
+        const itemId = `item_cassette_${broadcast_id}`;
+        await query(
+          `INSERT INTO items (id, name, description, type, subtype, weight, value, rarity, is_stackable, is_unique, tags)
+           VALUES ($1,$2,$3,'media','cassette',100,0,'common',0,1,$4)
+           ON CONFLICT (id) DO UPDATE SET name=$2, tags=$4`,
+          [itemId, `Cassette: ${broadcastName}`, `A media cassette labeled "${broadcastName}".`,
+           JSON.stringify({ media_cassette: true, broadcast_id })]
+        );
+
+        let invId = null;
+        if (channel_id) {
+          const { rows: chRows } = await query('SELECT studio_zone_id FROM media_channels WHERE id=$1', [channel_id]);
+          const stageZoneId = chRows[0]?.studio_zone_id;
+          if (stageZoneId) {
+            const { rows: stageRows } = await query('SELECT exits FROM zones WHERE id=$1', [stageZoneId]);
+            const productionZoneId = stageRows[0]?.exits?.up;
+            if (productionZoneId) {
+              const { rows: existingInv } = await query(
+                `SELECT pi.id FROM player_inventory pi WHERE pi.player_id=$1 AND pi.item_id=$2 LIMIT 1`,
+                [`_ground_${productionZoneId}`, itemId]
+              );
+              if (existingInv.length) {
+                invId = existingInv[0].id;
+              } else {
+                invId = randomUUID();
+                await query(
+                  `INSERT INTO player_inventory (id, player_id, item_id, quantity) VALUES ($1,$2,$3,1)`,
+                  [invId, `_ground_${productionZoneId}`, itemId]
+                );
+              }
+            }
+          }
+
+          // Register in the channel's media deck library so playback/scheduling can use it
+          // immediately, without requiring someone to physically carry the cassette first.
+          const { rows: deckRows } = await query(
+            `SELECT id, flags FROM furniture WHERE flags->>'channel_id'=$1 AND flags->>'media_deck'='true' LIMIT 1`,
+            [channel_id]
+          );
+          if (deckRows.length) {
+            const dflags = _deckFlags(deckRows[0]);
+            const cassettes = Array.isArray(dflags.deck_cassettes) ? [...dflags.deck_cassettes] : [];
+            if (!cassettes.includes(broadcast_id)) {
+              cassettes.push(broadcast_id);
+              dflags.deck_cassettes = cassettes;
+              await query('UPDATE furniture SET flags=$1 WHERE id=$2', [JSON.stringify(dflags), deckRows[0].id]);
+            }
+          }
+        }
+
+        return { status: 201, body: { item_id: itemId, inv_id: invId } };
       }
     }
 

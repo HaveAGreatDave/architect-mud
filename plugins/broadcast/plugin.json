@@ -2,7 +2,7 @@
   "name": "broadcast",
   "version": "1.0.0",
   "description": "Unified media framework: scripted channels, dynamic news, live cameras, recorded footage.",
-  "commands": ["tune", "watch", "listen", "tv"],
+  "commands": ["tune", "watch", "listen", "tv", "load", "eject", "selectcassette"],
   "routePrefix": "/broadcast",
   "actions": { "registers": ["TUNE_DEVICE", "CAMERA_RECORD", "CAMERA_STREAM"] },
   "events": {

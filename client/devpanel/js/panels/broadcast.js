@@ -1633,6 +1633,18 @@ async function _bcImportSave({ meta, broadcastGraph, messages, assets, cameras, 
           channel_id: _bcImportChannelId, auto_place: true, no_camera: true,
         });
         if (deckRes?.error) console.warn('[BSM] Media deck spawn failed:', deckRes.error);
+
+        // Non-live imports get a physical cassette of the recording, placed in
+        // the production room and registered in the deck's library.
+        if (meta.type !== 'live') {
+          const broadcastId = res?.id || existing?.id;
+          if (broadcastId) {
+            const cassetteRes = await directAPI('/broadcast/cassette', 'POST', {
+              broadcast_id: broadcastId, channel_id: _bcImportChannelId,
+            });
+            if (cassetteRes?.error) console.warn('[BSM] Cassette creation failed:', cassetteRes.error);
+          }
+        }
         const ts = Date.now();
         if (camNums.length) {
           const camResults = await Promise.all(camNums.map((num, idx) =>

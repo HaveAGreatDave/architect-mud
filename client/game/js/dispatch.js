@@ -15,6 +15,7 @@ import { openLightViewDialog } from './panels/lightview.js';
 import { openMorphexPanel } from './panels/morphex.js';
 import { updateForecast } from './panels/forecast.js';
 import { openAtmPanel, closeAtmPanel, updateAtmPanel } from './panels/atm.js';
+import { openMediaDeckPanel } from './panels/mediadeck.js';
 import { openTvPanel, isTvOpen, getTvActiveChannelId, appendTvMessage, updateTvTicker, applyTvOverlay, clearTvMessages, showTvOffAir, shutdownTvPanel } from './panels/tv.js';
 
 let _tvAmbientCounter = 0;
@@ -360,6 +361,7 @@ const handlers = {
   lightview: (msg) => { openLightViewDialog(msg); refreshZoneVisibility(); },
   morphex_panel: (msg) => { openMorphexPanel(msg.data); },
   atm_panel: (msg) => { openAtmPanel(msg); },
+  mediadeck_panel: (msg) => { openMediaDeckPanel(msg); },
 };
 
 export function handleServerMsg(msg) {

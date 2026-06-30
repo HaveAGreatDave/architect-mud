@@ -708,14 +708,6 @@ export const SCHEMA_SQL = `
   );
   ALTER TABLE media_cameras ADD COLUMN IF NOT EXISTS is_damaged INTEGER DEFAULT 0;
 
-  CREATE TABLE IF NOT EXISTS media_deck_units (
-    id TEXT PRIMARY KEY REFERENCES furniture(id),
-    channel_id TEXT NOT NULL REFERENCES media_channels(id),
-    active_cassette_item_id TEXT,
-    light_state TEXT NOT NULL DEFAULT 'red'
-  );
-  CREATE INDEX IF NOT EXISTS idx_media_deck_units_channel ON media_deck_units(channel_id);
-
   CREATE INDEX IF NOT EXISTS idx_media_playlist_channel ON media_channel_playlist(channel_id, start_time);
   CREATE INDEX IF NOT EXISTS idx_media_cameras_zone ON media_cameras(zone_id);
 

@@ -39,6 +39,7 @@ import { initSidebarOrder } from "./panels/sidebar-order.js";
 import { refreshTempDisplay } from "./panels/environment.js";
 import { initAtmPanel } from "./panels/atm.js";
 import { initTvPanel } from "./panels/tv.js";
+import { initMediaDeckPanel } from "./panels/mediadeck.js";
 
 // Settings
 const settings = loadSettings();
@@ -347,6 +348,7 @@ initWhisperPanel();
 initWho();
 initAtmPanel();
 initTvPanel();
+initMediaDeckPanel();
 
 // Wire signout
 document.getElementById("signout-btn").addEventListener("click", () => {
