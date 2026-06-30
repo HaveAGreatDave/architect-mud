@@ -21,7 +21,7 @@ const LOCK_RANGE   = 0.25; // within this many channel-numbers = lock in
 const TV_DIAL_MAX  = 9.05; // dial wraps 0.0 → 9.0 → 0.0 (9.0 + 0.05 step = wrap)
 
 export function openTvPanel(data) {
-  const wasAlreadyOn = _tvOpen && !_tvPoweredOff;
+  const wasAlreadyOn = _tvOpen;
   _tvActiveChannelId = data.channelId || null;
   _tvOpen = true;
   _tvShuttingDown = false;
