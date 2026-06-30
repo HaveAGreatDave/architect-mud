@@ -54,6 +54,13 @@ function ambientByName(name) {
   return id ? ambient.get(id) : null;
 }
 
+// Looked up by other plugins (e.g. broadcast) that need to trigger a song by
+// its human name without owning a DB query of their own.
+export function getSongDefByName(name) {
+  const song = name ? songByName(name) : null;
+  return song ? resolveSongInstruments(song) : null;
+}
+
 // ── Event route helper ────────────────────────────────────────────────────
 // Checks audio_event_routes for the given event name and dispatches the
 // configured SFX / ambient / song to the appropriate target. Returns true if

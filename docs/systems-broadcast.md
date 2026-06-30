@@ -192,6 +192,7 @@ techDiffMode = false
 |---|---|
 | `say` | Return `{ text, key, style: 'raw' }`. Skipped (node advanced) when `hostAbsent`. |
 | `ticker` | Return `{ text, key, style: 'ticker' }`. Skipped when `hostAbsent`. |
+| `music` | Looks up `data.song` against `audio_songs` (via `getSongDefByName` in `plugins/audio/index.js`). If found, returns `{ text, song, key, style: 'music' }` and holds for 15s; if the channel is `live` with a `studioZoneId`, also `sendToZone`s the song there directly. If not found, falls back to `{ text, key, style: 'raw' }` (or is skipped if `text` is also empty). See [Music Cues](#music-cues). |
 | `wait` | Set `waitUntil = nowMs + data.seconds * 1000`. Block until elapsed. |
 | `npc_anchor` | Set `bb.npcAnchor`. Check NPC presence against `studioZoneId`. Advance. |
 | `camera_cut` | Return `[CAM: label] <zone snapshot>`. |
@@ -205,6 +206,21 @@ techDiffMode = false
 | `overlay` | Push `{ type: 'tv_overlay', overlay: { overlayType, text, subtext, duration } }` to watching players. |
 
 Guards against cycles: max 50 hops per tick before early exit.
+
+---
+
+## Music Cues
+
+The `MUSIC <song>` ... `MUSIC_END` block in a `.bsm` script (or a `music` card in the dev panel canvas editor / VINE graph) plays a real synthesized song from the [procedural audio system](#audio-system-cross-reference) rather than just printing text.
+
+- `song` is matched against `audio_songs.name` (case-sensitive) via `getSongDefByName()`, exported from `plugins/audio/index.js`.
+- **Found**: the resolved song def (with `_instrumentsById` attached) is sent as `{ type: 'audio_music', def }` to every player currently watching that channel's TV. If the channel is `live` and has a `studioZoneId`, the same song is also sent to everyone physically in the studio zone via `sendToZone`, independent of who's watching a TV. The node holds for 15 seconds (songs are authored at a fixed 15s length — see the seed instruments/songs in `scripts/seed-broadcast-music.js`) before the graph advances. Any `text` on the node is still shown as a normal broadcast line alongside the song.
+- **Not found**: no audio plays. If `text` is set, it's shown exactly like a `say` node (`style: 'raw'`) and the node holds for 5 seconds. If `text` is empty too, the node is skipped with no delay.
+- `client/devpanel/js/bsm-compiler.js` no longer discards the theme name on the `MUSIC` line (it used to fold straight into an ambient `say` node) — it's preserved as `data.song` on a dedicated `music` node type.
+
+### Audio System Cross-Reference
+
+Music/SFX/ambience playback is owned by `plugins/audio/index.js` + `client/shared/audio-engine.js` — a fully procedural, sample-free Web Audio synthesis engine (tracker-style `audio_songs.channels` step data, not audio files). This is wholly separate from the text-based ambient "Sound" system (`server/engine/sounds.js`) — never merge the two. See the `audio_instruments` / `audio_songs` / `audio_sfx` / `audio_ambient` / `audio_event_routes` tables in `server/models/schema.js` for the full schema, and `client/game/js/panels/musicplayer.js` for the player-facing music player UI (typing `music` in-game).
 
 ---
 

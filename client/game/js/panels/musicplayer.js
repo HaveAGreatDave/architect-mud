@@ -1,7 +1,8 @@
 // Architect Music Player (AMP) — local Walkman UI for personal music playback.
 // Opened by typing `music` in the command bar (intercepted client-side in
-// input.js — never sent to server). Fetches the song library from /audio/songs
-// + /audio/instruments directly and drives window.AudioEngine locally.
+// input.js — never sent to server). Fetches the song library from
+// /api/audio/songs + /api/audio/instruments directly and drives
+// window.AudioEngine locally.
 
 let _songs = [];
 let _instruments = {};   // id -> row
@@ -13,8 +14,8 @@ let _playing = false;
 async function _loadLibrary() {
   try {
     const [sr, ir] = await Promise.all([
-      fetch('/audio/songs'),
-      fetch('/audio/instruments'),
+      fetch('/api/audio/songs'),
+      fetch('/api/audio/instruments'),
     ]);
     const [songsData, instsData] = await Promise.all([sr.json(), ir.json()]);
     _songs = Array.isArray(songsData) ? songsData : [];

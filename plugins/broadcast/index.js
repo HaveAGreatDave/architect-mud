@@ -8,6 +8,7 @@ import { registerCommand } from '../../server/engine/plugins.js';
 import { apiDeleteZone } from '../../server/api/routes.js';
 import { registerViewerChecker, registerNpcScheduleChecker, registerNpcStudioZoneLookup } from '../../server/engine/broadcast-bridge.js';
 import { getEnvironmentState, recomputePower, resyncAllLightingStates } from '../../server/engine/environment.js';
+import { getSongDefByName } from '../audio/index.js';
 
 // ── In-memory state ──────────────────────────────────────────────────────────
 
@@ -97,6 +98,7 @@ function _vineDuration(graph, interval) {
     if (node.type === 'say' || node.type === 'ticker') total += interval;
     else if (node.type === 'wait') total += node.data?.seconds ?? 5;
     else if (node.type === 'credits') total += node.data?.duration ?? 10;
+    else if (node.type === 'music') total += 15;
     nodeId = node.next ?? null;
   }
   return total;
@@ -529,7 +531,8 @@ async function broadcastTick() {
 
       const zone = getZone(zoneId);
       const formatted = formatMessage(result.text, deviceType, zone);
-      if (!formatted) continue;
+      const isMusic = result.style === 'music' && result.song;
+      if (!formatted && !isMusic) continue;
 
       const programName = result.programName ?? state.currentProgramName ?? null;
 
@@ -538,7 +541,8 @@ async function broadcastTick() {
       const watchersHere = players.filter(p => tvWatchers.get(p.id) === channelId);
       for (const player of players) {
         if (tvWatchers.get(player.id) === channelId) {
-          sendToPlayer(player.id, { type: 'broadcast', message: formatted, channel: channelId, style: result.style || 'raw', programName });
+          if (formatted) sendToPlayer(player.id, { type: 'broadcast', message: formatted, channel: channelId, style: result.style || 'raw', programName });
+          if (isMusic) sendToPlayer(player.id, { type: 'audio_music', def: result.song });
         } else if (watchersHere.length > 0 && result.speech) {
           sendToPlayer(player.id, { type: 'broadcast_ambient', speechText: result.speechText, channel: channelId });
         }
@@ -818,6 +822,10 @@ function _seekGraph(graph, bb, segElapsedMs, nowMs) {
       const creditsMs = (node.data?.duration ?? 10) * 1000;
       if (remaining >= creditsMs) { remaining -= creditsMs; nodeId = _resolveEdge(edges, nodeId, 'next'); }
       else { bb.waitUntil = nowMs + (creditsMs - remaining); bb.currentNode = nodeId; return; }
+    } else if (node.type === 'music') {
+      const musicMs = getSongDefByName(node.data?.song) ? 15000 : CONTENT_MS;
+      if (remaining >= musicMs) { remaining -= musicMs; nodeId = _resolveEdge(edges, nodeId, 'next'); }
+      else { bb.waitUntil = nowMs + (musicMs - remaining); bb.currentNode = nodeId; return; }
     } else if (CONTENT_TYPES.includes(node.type)) {
       if (remaining >= CONTENT_MS) { remaining -= CONTENT_MS; nodeId = _resolveEdge(edges, nodeId, 'next'); }
       else { bb.waitUntil = nowMs + (CONTENT_MS - remaining); bb.currentNode = nodeId; return; }
@@ -941,6 +949,24 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
           : (!isNarration && !isAmbient && bb.npcAnchor ? `${bb.npcAnchor} says, "${raw}"` : raw);
         const isSpeech = !isNarration && !isAmbient && style_say !== 'ticker' && !!bb.npcAnchor;
         return { text: text_say, key: key_say, style: 'raw', ...(isSpeech ? { speech: true, speechText: text_say } : {}) };
+      }
+
+      case 'music': {
+        const songName = node.data?.song || '';
+        const text = node.data?.text || '';
+        bb.currentNode = _resolveEdge(edges, nodeId, 'next');
+        const songDef = getSongDefByName(songName);
+        const key_music = `music:${channelId}:${nodeId}:${nowMs}`;
+        if (songDef) {
+          bb.waitUntil = nowMs + 15000;
+          if (state.channelType === 'live' && state.studioZoneId) {
+            sendToZone(state.studioZoneId, { type: 'audio_music', def: songDef });
+          }
+          return { text, song: songDef, key: key_music, style: 'music' };
+        }
+        if (!text) { nodeId = bb.currentNode; bb.waitUntil = null; break; }
+        bb.waitUntil = nowMs + 5000;
+        return { text, key: key_music, style: 'raw' };
       }
 
       case 'npc_action': {

@@ -314,6 +314,18 @@ const _bcNodeDefs = {
       ${_bField('Duration (s)', `<input data-vine-field="data.duration_s" data-vine-type="number" type="number" min="1" step="1" value="${n.data.duration_s??6}" style="${_BS}">`)}`,
   },
 
+  music: {
+    label: 'Music',
+    color: '#d45fb0',
+    defaultData: { song:'', text:'' },
+    renderBody: (n) => `<div style="font-size:11px;color:var(--text-dim)">${_escB(n.data.song||'(no song)')}${n.data.text ? ' · '+_escB(n.data.text.slice(0,30)) : ''}</div>`,
+    getOutPorts: () => [{ key:'next', label:'next' }],
+    renderProperties: (n, ed, id) => `
+      ${_bHelp(id,'Plays the named row from the Audio Library\'s Songs table for everyone watching this channel\'s TV (and in the studio zone, if this is a live channel). If no song by that name is registered, the node falls back to showing just the text line below.')}
+      ${_bField('Song name', _bInput('data.song', n.data.song, 'acid_cola_jingle'))}
+      ${_bField('Display text (optional)', _bInput('data.text', n.data.text, 'Shown alongside or instead of the song'))}`,
+  },
+
   clear_overlay: {
     label: 'Clear Overlay',
     color: '#443322',

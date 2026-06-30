@@ -279,11 +279,14 @@ function compileBsm(text) {
     // ── Block terminators appearing outside their blocks — silently skip ────────
     if (ln.endsWith('_END') || ln === 'END_ACTION' || ln === 'END_CREDITS') { i++; continue; }
 
-    // ── MUSIC block — theme name is code only; body text is what displays ────────
+    // ── MUSIC block — theme name plays the matching audio_songs row if one
+    // exists; body text is the display line (shown alongside the song, or
+    // alone as a fallback if no song by that name is registered) ────────────
     if (ln === 'MUSIC' || ln.startsWith('MUSIC ')) {
+      const song = ln === 'MUSIC' ? '' : ln.slice(6).trim();
       i++;
       const displayText = collectBlock('MUSIC_END');
-      if (displayText) makeNode({ type: 'say', text: displayText, style: 'ambient' });
+      if (song || displayText) makeNode({ type: 'music', song, text: displayText });
       continue;
     }
 

@@ -136,7 +136,7 @@ const BC_CAT_COLOR = {
   weather:       '#60b8d4',        surveillance: 'var(--green)',
 };
 
-const BC_CARD_TYPES = ['say','ticker','wait','npc_anchor','camera_cut','overlay','title_card'];
+const BC_CARD_TYPES = ['say','ticker','wait','npc_anchor','camera_cut','overlay','title_card','music'];
 
 const BC_CARD_META = {
   say:        { label: 'SAY',         color: 'var(--cyan)' },
@@ -146,6 +146,7 @@ const BC_CARD_META = {
   camera_cut: { label: 'CAMERA CUT',  color: 'var(--green)' },
   overlay:    { label: 'OVERLAY',     color: '#e0883a' },
   title_card: { label: 'TITLE CARD',  color: '#60b8d4' },
+  music:      { label: 'MUSIC',       color: '#d45fb0' },
   start:      { label: 'START',       color: 'var(--accent)' },
 };
 
@@ -470,6 +471,7 @@ function _bcCardPreview(card) {
     case 'camera_cut': return `${card.zone_id || '?'}${card.label ? ' — '+card.label : ''}`;
     case 'overlay':    return `${card.graphic_id || '?'}${card.text ? ' · '+card.text.slice(0,40) : ''}`;
     case 'title_card': return card.graphic_id || '(unset)';
+    case 'music':       return `${card.song || '(no song)'}${card.text ? ' · '+card.text.slice(0,40) : ''}`;
     default:           return '';
   }
 }
@@ -556,6 +558,15 @@ function _bcCardFields(card, idx) {
       return `<div style="padding-top:10px">
         <label style="font-size:10px;color:var(--text-dim);display:block;margin-bottom:4px">Graphic</label>
         <select class="form-input" style="font-size:12px;width:100%" oninput="_bcCards[${idx}].graphic_id=this.value">${graphicOpts}</select>
+      </div>`;
+    }
+    case 'music': {
+      return `<div style="display:flex;flex-direction:column;gap:8px;padding-top:10px">
+        <div><label style="font-size:10px;color:var(--text-dim);display:block;margin-bottom:3px">Song name</label>
+        <input class="form-input" value="${escHtml(card.song||'')}" placeholder="acid_cola_jingle" style="font-size:12px" ${bind('song')}>
+        <div style="font-size:10px;color:var(--text-dim);margin-top:4px">Must match an <code>audio_songs</code> name. If no song by that name exists, only the text below plays.</div></div>
+        <div><label style="font-size:10px;color:var(--text-dim);display:block;margin-bottom:3px">Display text (optional)</label>
+        <textarea class="form-input" rows="2" style="font-size:12px;resize:vertical" ${bind('text')}>${escHtml(card.text||'')}</textarea></div>
       </div>`;
     }
     default:
