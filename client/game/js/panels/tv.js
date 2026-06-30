@@ -54,11 +54,13 @@ export function openTvPanel(data) {
   document.getElementById('tv-panel').classList.add('active');
 
   if (_tvPoweredOff) {
-    // TV is off — dark screen, no animation
+    // TV opened at 0.0 — show static, content hidden
     document.getElementById('tv-content').classList.add('tv-hidden');
     const staticEl = document.getElementById('tv-static');
-    staticEl.classList.remove('tv-static-on', 'tv-static-fade', 'tv-static-loop');
-    staticEl.style.opacity = '';
+    staticEl.classList.remove('tv-static-fade', 'tv-static-loop');
+    staticEl.style.opacity = '1';
+    staticEl.classList.add('tv-static-on');
+    _playCrtPowerOn();
   } else if (!wasAlreadyOn) {
     // CRT power-on: expand from bright line, then reveal content
     const content  = document.getElementById('tv-content');
