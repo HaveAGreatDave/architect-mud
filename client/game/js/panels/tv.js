@@ -255,7 +255,6 @@ function _updateKnobRotation() {
 }
 
 export function tvTunerInput(val) {
-  if (_tvPoweredOff) return;
   _tvFrequency = parseFloat(val);
   const freqDisplay = document.getElementById('tv-freq-display');
   if (freqDisplay) freqDisplay.textContent = _tvFrequency.toFixed(2);
@@ -454,7 +453,7 @@ export function initTvPanel() {
   document.addEventListener('mouseup', () => { _knobDragging = false; });
 
   knob.addEventListener('click', () => {
-    if (!_tvOpen || _knobMoved || _tvPoweredOff) return;
+    if (!_tvOpen || _knobMoved) return;
     if (_tvChannelList.length) {
       const idx = _tvChannelList.findIndex(c => c.channelId === _tvActiveChannelId);
       const next = _tvChannelList[(idx + 1) % _tvChannelList.length];
