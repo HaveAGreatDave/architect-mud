@@ -16,7 +16,8 @@ let _tickerAnimating = false;
 let _overlayTimer = null;
 let _tuneTimer = null;
 let _tvChannelList = [];   // [{ number, name, channelId }] sorted by number
-let _tvFrequency   = 0;    // current dial position (float)
+let _tvFrequency   = 0;    // current dial position (float), quantized to 0.05 steps for display/lock
+let _dialRaw       = 0;    // unquantized accumulator driving drag math, avoids feedback-loop stepping
 const LOCK_RANGE   = 0.25; // within this many channel-numbers = lock in
 const TV_DIAL_MAX  = 9.05; // dial wraps 0.0 → 9.0 → 0.0 (9.0 + 0.05 step = wrap)
 
@@ -37,9 +38,13 @@ const TV_HUM_DEF = {
 // not shared multiplayer state.
 const TV_STATIC_DEF = {
   id: 'tv_static_local', category: 'tv', priority: 1, loop: true,
-  config: { waveform: 'noise', noiseMix: 1, gain: 0.35,
-    filter: { type: 'bandpass', freq: 3500, q: 0.4 },
-    adsr: { a: 0.05, d: 0.05, s: 1, r: 0.3 } },
+  config: { waveform: 'noise', noiseMix: 1, gain: 0.6,
+    // Broadband highpass (not a narrow bandpass) keeps the harsh full-spectrum
+    // hiss instead of thinning it to a single tone. Fast tremolo amplitude-
+    // modulates the noise for a crackly/crunchy texture rather than smooth hiss.
+    filter: { type: 'highpass', freq: 700, q: 0.5 },
+    tremolo: { rate: 35, depth: 0.6 },
+    adsr: { a: 0.02, d: 0.02, s: 1, r: 0.3 } },
 };
 
 function _setStaticAudio(fraction, rampSeconds) {
@@ -48,6 +53,14 @@ function _setStaticAudio(fraction, rampSeconds) {
 
 export function openTvPanel(data) {
   const wasAlreadyOn = _tvOpen;
+  // The server echoes a tv_panel message back after every player-initiated tune
+  // (to push updated station/channel metadata). If the panel is already open,
+  // this is just that echo, not a fresh power-on — so sync metadata only and
+  // leave the dial position / power animation alone. Re-running the full reset
+  // here was snapping the knob back to 0 mid-drag and replaying the power-on
+  // static, which made the dial feel like it was fighting the player.
+  const isTuneEcho = wasAlreadyOn;
+
   _tvActiveChannelId = data.channelId || null;
   _tvOpen = true;
   _tvShuttingDown = false;
@@ -57,7 +70,6 @@ export function openTvPanel(data) {
   _tickerAnimating = false;
   _clearAfterTitleCard = false;
   _tvChannelList = Array.isArray(data.channelList) ? data.channelList : [];
-  _tvFrequency = 0;
 
   document.getElementById('tv-station-name').textContent = data.stationName || data.channelName || '——';
   document.getElementById('tv-channel-num').textContent = (data.channelNumber > 0) ? `CH ${data.channelNumber}` : '——';
@@ -66,17 +78,20 @@ export function openTvPanel(data) {
   pnEl.style.opacity = '';
   document.getElementById('tv-messages').innerHTML = '';
 
-  const freqDisplay = document.getElementById('tv-freq-display');
-  if (freqDisplay) freqDisplay.textContent = _tvFrequency.toFixed(1);
-
   const inner = document.getElementById('tv-ticker-inner');
   inner.style.transition = 'none';
   inner.style.transform  = '';
   inner.textContent = '';
-  _tickerText = '';
-  _tickerAnimating = false;
 
   applyTvTheme(data.theme || null);
+
+  if (isTuneEcho) return; // metadata synced; dial position and animations are untouched
+
+  _tvFrequency = 0;
+  _dialRaw = 0;
+  const freqDisplay = document.getElementById('tv-freq-display');
+  if (freqDisplay) freqDisplay.textContent = _tvFrequency.toFixed(1);
+
   document.getElementById('tv-panel').classList.add('active');
   window.AudioEngine?.loopSound(TV_HUM_DEF);
   window.AudioEngine?.loopSound(TV_STATIC_DEF);
@@ -90,7 +105,7 @@ export function openTvPanel(data) {
     staticEl.style.opacity = '1';
     staticEl.classList.add('tv-static-on');
     _playCrtPowerOn();
-  } else if (!wasAlreadyOn) {
+  } else {
     // CRT power-on: expand from bright line, then reveal content
     const content  = document.getElementById('tv-content');
     const staticEl = document.getElementById('tv-static');
@@ -477,21 +492,24 @@ export function initTvPanel() {
     if (!_tvOpen) return;
     _knobDragging = true;
     _knobMoved = false;
+    _dialRaw = _tvFrequency; // resync the unquantized accumulator to wherever the dial actually is
     e.preventDefault();
   });
 
   document.addEventListener('mousemove', (e) => {
     if (!_knobDragging) return;
     // Knob line direction (0 freq = 12 o'clock = -π/2 from +X axis in screen coords)
-    const kRad = (_tvFrequency / TV_DIAL_MAX) * 2 * Math.PI - Math.PI / 2;
+    const kRad = (_dialRaw / TV_DIAL_MAX) * 2 * Math.PI - Math.PI / 2;
     // Clockwise tangent at this angle: perpendicular 90° CW from the line
     const tx = -Math.sin(kRad);
     const ty =  Math.cos(kRad);
     // Component of mouse movement in the tangent direction
     const dot = e.movementX * tx + e.movementY * ty;
     if (Math.abs(dot) > 0.3) _knobMoved = true;
-    const rawFreq = _tvFrequency + dot * 0.02;
-    const clamped = Math.round(((rawFreq % TV_DIAL_MAX) + TV_DIAL_MAX) % TV_DIAL_MAX * 20) / 20;
+    // Accumulate on the unquantized value so small/slow movements aren't lost to
+    // rounding each frame — only the display/lock value snaps to 0.05 steps.
+    _dialRaw = ((_dialRaw + dot * 0.02) % TV_DIAL_MAX + TV_DIAL_MAX) % TV_DIAL_MAX;
+    const clamped = Math.round(_dialRaw * 20) / 20;
     tvTunerInput(clamped);
   });
 
@@ -504,6 +522,7 @@ export function initTvPanel() {
       const next = _tvChannelList[(idx + 1) % _tvChannelList.length];
       if (next) {
         _tvFrequency = next.number;
+        _dialRaw = next.number;
         _tvTuneTo(next.number);
         return;
       }
@@ -517,9 +536,8 @@ export function initTvPanel() {
     e.preventDefault();
     const delta = -Math.sign(e.deltaY) * 0.05;
     const clamped = Math.round(((_tvFrequency + delta + TV_DIAL_MAX) % TV_DIAL_MAX) * 20) / 20;
+    _dialRaw = clamped;
     tvTunerInput(clamped);
-    const slider = document.getElementById('tv-tuner-slider');
-    if (slider) slider.value = clamped;
   }, { passive: false });
 
   // Draggable TV window

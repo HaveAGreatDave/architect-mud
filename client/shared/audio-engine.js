@@ -93,7 +93,7 @@
     masterGain.gain.setTargetAtTime(masterTarget, t, 0.02);
     musicGain.gain.setTargetAtTime(_settings.music ? _settings.musicVolume : 0, t, 0.02);
     sfxGain.gain.setTargetAtTime(_settings.sfx ? _settings.sfxVolume : 0, t, 0.02);
-    ambientGain.gain.setTargetAtTime(_settings.sfx ? _settings.ambientVolume : 0, t, 0.02);
+    ambientGain.gain.setTargetAtTime(_settings.ambientVolume ?? 0.5, t, 0.02);
     tvGain.gain.setTargetAtTime(_settings.tv ? _settings.tvVolume : 0, t, 0.02);
   }
 
@@ -306,11 +306,20 @@
   // Rides an already-playing loop's volume up/down without restarting it —
   // e.g. TV static tracking how far off-channel a dial currently is.
   // fraction is 0-1, scaled against the loop's own configured gain.
+  // Explicitly cancels+rewrites scheduled automation rather than layering a
+  // setTargetAtTime on top of it — the loop's own attack/decay ramp from
+  // buildLayer() is still scheduled for the first ~100ms after creation, and
+  // without cancellation it fires regardless and snaps gain back to the
+  // sustain level a moment after this call sets it toward 0.
   function setLoopGain(id, fraction, rampSeconds = 0.05) {
     const loop = activeLoops.get(id);
     if (!loop?.gainNode) return;
     const target = loop.baseGain * Math.max(0, Math.min(1, fraction));
-    loop.gainNode.gain.setTargetAtTime(target, ctx.currentTime, rampSeconds);
+    const now = ctx.currentTime;
+    const g = loop.gainNode.gain;
+    g.cancelScheduledValues(now);
+    g.setValueAtTime(g.value, now);
+    g.linearRampToValueAtTime(target, now + Math.max(rampSeconds, 0.01));
   }
 
   // ── Song player (tracker-style step sequencer) ─────────────────────────────

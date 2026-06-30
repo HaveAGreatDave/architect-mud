@@ -399,8 +399,8 @@ async function ensureApartmentRow(zoneId) {
 export async function apiCreateZone(body,auth) {
   const id = body.id||`zone_${Date.now()}`;
   try {
-    await query(`INSERT INTO zones (id,name,description,danger_rating,pvp_enabled,radiation_level,is_safe_zone,exits,ambient_events,ambient_theme,flags,created_by,map_id,grid_x,grid_y,grid_z,marker,color,bg_color) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
-      [id,body.name||'Unnamed Zone',body.description||'An empty place.',body.danger_rating||'medium',body.pvp_enabled?1:0,body.radiation_level||0,body.is_safe_zone?1:0,JSON.stringify(body.exits||{}),JSON.stringify(body.ambient_events||[]),body.ambient_theme||'indoors',JSON.stringify(body.flags||{}),auth?.playerId,body.map_id||null,body.grid_x??null,body.grid_y??null,body.grid_z??0,body.marker||null,body.color||null,body.bg_color||null]);
+    await query(`INSERT INTO zones (id,name,description,danger_rating,pvp_enabled,radiation_level,is_safe_zone,exits,ambient_events,ambient_theme,flags,created_by,map_id,grid_x,grid_y,grid_z,marker,color,bg_color,audio_theme_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)`,
+      [id,body.name||'Unnamed Zone',body.description||'An empty place.',body.danger_rating||'medium',body.pvp_enabled?1:0,body.radiation_level||0,body.is_safe_zone?1:0,JSON.stringify(body.exits||{}),JSON.stringify(body.ambient_events||[]),body.ambient_theme||'indoors',JSON.stringify(body.flags||{}),auth?.playerId,body.map_id||null,body.grid_x??null,body.grid_y??null,body.grid_z??0,body.marker||null,body.color||null,body.bg_color||null,body.audio_theme_id||null]);
     if (body.flags?.is_apartment) await ensureApartmentRow(id);
     await reloadZone(id);
     fireHook('zone.create', id, body).catch(() => {});
@@ -411,7 +411,7 @@ export async function apiUpdateZone(id,body) {
   const sets=[]; const vals=[];
   let i=1;
   const boolFields = ['pvp_enabled','is_safe_zone'];
-  const simple=['name','description','danger_rating','pvp_enabled','radiation_level','is_safe_zone','map_id','grid_x','grid_y','grid_z','marker','color','bg_color'];
+  const simple=['name','description','danger_rating','pvp_enabled','radiation_level','is_safe_zone','map_id','grid_x','grid_y','grid_z','marker','color','bg_color','audio_theme_id'];
   for (const f of simple) {
     if (body[f]!==undefined) {
       sets.push(`${f}=$${i++}`);

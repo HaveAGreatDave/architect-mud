@@ -167,6 +167,8 @@ async function zoneEditForm(rec, isNew) {
       : { map_id: rec.map_id, grid_x: rec.grid_x, grid_y: rec.grid_y, grid_z: rec.grid_z };
   pendingZonePlacement = null;
 
+  const audioSongs = await API('/audio/songs').catch(() => []);
+
   let subSectionsHtml = '<div class="zone-subsection-note">Save this zone first to add rooms, NPCs, furniture, or a generator.</div>';
   if (!isNew) {
     const isExterior = !flags.is_interior && !flags.is_apartment && !flags.is_building;
@@ -590,6 +592,12 @@ async function zoneEditForm(rec, isNew) {
     <div class="field"><label>Ambient Theme <span style="color:var(--text-dim);font-weight:400">(global pool fallback theme)</span></label>
       <select id="f-ambient_theme">${AMBIENT_THEMES.map(t=>`<option value="${t}" ${(rec.ambient_theme||'indoors')===t?'selected':''}>${t.charAt(0).toUpperCase()+t.slice(1)}</option>`).join('')}</select>
     </div>
+    <div class="field"><label>Audio Theme <span style="color:var(--text-dim);font-weight:400">(procedural music that plays while a player is in this zone — see the Audio panel)</span></label>
+      <select id="f-audio_theme_id">
+        <option value="">— None —</option>
+        ${(Array.isArray(audioSongs) ? audioSongs : []).map(s => `<option value="${s.id}" ${rec.audio_theme_id===s.id?'selected':''}>${s.name}</option>`).join('')}
+      </select>
+    </div>
     <div class="field"><label>Ambient Events (JSON array of strings)</label><textarea id="f-ambient_events" rows="6">${JSON.stringify(ambients, null, 2)}</textarea></div>
     ${rec.id ? `
     <div class="field" style="border-top:1px solid var(--border);padding-top:14px;margin-top:4px">
@@ -666,6 +674,7 @@ async function saveZone(existing) {
     pvp_enabled: document.getElementById('f-pvp_enabled').checked,
     is_safe_zone: document.getElementById('f-is_safe_zone').checked,
     exits: { ...zoneEditExitsState }, ambient_events: ambients, ambient_theme: document.getElementById('f-ambient_theme').value, flags,
+    audio_theme_id: document.getElementById('f-audio_theme_id').value || null,
     marker: document.getElementById('f-marker').value.trim() || null,
     color: document.getElementById('f-color').value.trim() || null,
     bg_color: document.getElementById('f-bg_color').value.trim() || null,
