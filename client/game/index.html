@@ -1253,67 +1253,6 @@
 				</div>
 
 				<div class="settings-group">
-					<label class="group-label">Audio</label>
-					<div class="settings-options" id="opt-audio-muteWhenHidden">
-						<button class="settings-opt" data-value="true">Mute When Tab Hidden</button>
-						<button class="settings-opt" data-value="false">Keep Playing in Background</button>
-					</div>
-				</div>
-
-				<div class="settings-group">
-					<label class="group-label">Music / SFX / TV Audio</label>
-					<div class="settings-options" id="opt-audio-music">
-						<button class="settings-opt" data-value="true">Music On</button>
-						<button class="settings-opt" data-value="false">Music Off</button>
-					</div>
-					<div class="settings-options" id="opt-audio-sfx" style="margin-top:6px">
-						<button class="settings-opt" data-value="true">SFX On</button>
-						<button class="settings-opt" data-value="false">SFX Off</button>
-					</div>
-					<div class="settings-options" id="opt-audio-tv" style="margin-top:6px">
-						<button class="settings-opt" data-value="true">TV Audio On</button>
-						<button class="settings-opt" data-value="false">TV Audio Off</button>
-					</div>
-				</div>
-
-				<div class="settings-group">
-					<label class="group-label" style="display:flex;justify-content:space-between;align-items:center" for="opt-masterVolume">
-						<span>Master Volume</span>
-						<span id="masterVolume-label" style="font-size:11px;color:var(--text-dim)">80%</span>
-					</label>
-					<input type="range" id="opt-masterVolume" min="0" max="1" step="0.05" value="0.8"
-						style="width:100%;accent-color:var(--accent);cursor:pointer;margin:6px 0 10px">
-
-					<label class="group-label" style="display:flex;justify-content:space-between;align-items:center" for="opt-musicVolume">
-						<span>Music Volume</span>
-						<span id="musicVolume-label" style="font-size:11px;color:var(--text-dim)">70%</span>
-					</label>
-					<input type="range" id="opt-musicVolume" min="0" max="1" step="0.05" value="0.7"
-						style="width:100%;accent-color:var(--accent);cursor:pointer;margin:6px 0 10px">
-
-					<label class="group-label" style="display:flex;justify-content:space-between;align-items:center" for="opt-sfxVolume">
-						<span>SFX Volume</span>
-						<span id="sfxVolume-label" style="font-size:11px;color:var(--text-dim)">90%</span>
-					</label>
-					<input type="range" id="opt-sfxVolume" min="0" max="1" step="0.05" value="0.9"
-						style="width:100%;accent-color:var(--accent);cursor:pointer;margin:6px 0 10px">
-
-					<label class="group-label" style="display:flex;justify-content:space-between;align-items:center" for="opt-ambientVolume">
-						<span>Ambient Volume</span>
-						<span id="ambientVolume-label" style="font-size:11px;color:var(--text-dim)">50%</span>
-					</label>
-					<input type="range" id="opt-ambientVolume" min="0" max="1" step="0.05" value="0.5"
-						style="width:100%;accent-color:var(--accent);cursor:pointer;margin:6px 0 10px">
-
-					<label class="group-label" style="display:flex;justify-content:space-between;align-items:center" for="opt-tvVolume">
-						<span>TV Volume</span>
-						<span id="tvVolume-label" style="font-size:11px;color:var(--text-dim)">60%</span>
-					</label>
-					<input type="range" id="opt-tvVolume" min="0" max="1" step="0.05" value="0.6"
-						style="width:100%;accent-color:var(--accent);cursor:pointer;margin:6px 0 4px">
-				</div>
-
-				<div class="settings-group">
 					<label class="group-label" for="settings-origin"
 						>Description</label
 					>
@@ -1396,6 +1335,61 @@
 								<span id="sound-slider-track" style="position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:var(--border);border-radius:10px;transition:.2s"></span>
 								<span id="sound-slider-thumb" style="position:absolute;content:'';height:14px;width:14px;left:3px;bottom:3px;background:var(--text-dim);border-radius:50%;transition:.2s;pointer-events:none"></span>
 							</label>
+						</div>
+
+						<div style="margin-top:14px;padding-top:10px;border-top:1px solid var(--border)">
+							<div class="settings-options" id="opt-audio-muteWhenHidden">
+								<button class="settings-opt" data-value="true">Mute When Tab Hidden</button>
+								<button class="settings-opt" data-value="false">Keep Playing in Background</button>
+							</div>
+
+							<div class="settings-options" id="opt-audio-music" style="margin-top:6px">
+								<button class="settings-opt" data-value="true">Music On</button>
+								<button class="settings-opt" data-value="false">Music Off</button>
+							</div>
+							<div class="settings-options" id="opt-audio-sfx" style="margin-top:6px">
+								<button class="settings-opt" data-value="true">SFX On</button>
+								<button class="settings-opt" data-value="false">SFX Off</button>
+							</div>
+							<div class="settings-options" id="opt-audio-tv" style="margin-top:6px">
+								<button class="settings-opt" data-value="true">TV Audio On</button>
+								<button class="settings-opt" data-value="false">TV Audio Off</button>
+							</div>
+
+							<label class="group-label" style="display:flex;justify-content:space-between;align-items:center;margin-top:10px" for="opt-masterVolume">
+								<span>Master Volume</span>
+								<span id="masterVolume-label" style="font-size:11px;color:var(--text-dim)">80%</span>
+							</label>
+							<input type="range" id="opt-masterVolume" min="0" max="1" step="0.05" value="0.8"
+								style="width:100%;accent-color:var(--accent);cursor:pointer;margin:6px 0 10px">
+
+							<label class="group-label" style="display:flex;justify-content:space-between;align-items:center" for="opt-musicVolume">
+								<span>Music Volume</span>
+								<span id="musicVolume-label" style="font-size:11px;color:var(--text-dim)">70%</span>
+							</label>
+							<input type="range" id="opt-musicVolume" min="0" max="1" step="0.05" value="0.7"
+								style="width:100%;accent-color:var(--accent);cursor:pointer;margin:6px 0 10px">
+
+							<label class="group-label" style="display:flex;justify-content:space-between;align-items:center" for="opt-sfxVolume">
+								<span>SFX Volume</span>
+								<span id="sfxVolume-label" style="font-size:11px;color:var(--text-dim)">90%</span>
+							</label>
+							<input type="range" id="opt-sfxVolume" min="0" max="1" step="0.05" value="0.9"
+								style="width:100%;accent-color:var(--accent);cursor:pointer;margin:6px 0 10px">
+
+							<label class="group-label" style="display:flex;justify-content:space-between;align-items:center" for="opt-ambientVolume">
+								<span>Ambient Volume</span>
+								<span id="ambientVolume-label" style="font-size:11px;color:var(--text-dim)">50%</span>
+							</label>
+							<input type="range" id="opt-ambientVolume" min="0" max="1" step="0.05" value="0.5"
+								style="width:100%;accent-color:var(--accent);cursor:pointer;margin:6px 0 10px">
+
+							<label class="group-label" style="display:flex;justify-content:space-between;align-items:center" for="opt-tvVolume">
+								<span>TV Volume</span>
+								<span id="tvVolume-label" style="font-size:11px;color:var(--text-dim)">60%</span>
+							</label>
+							<input type="range" id="opt-tvVolume" min="0" max="1" step="0.05" value="0.6"
+								style="width:100%;accent-color:var(--accent);cursor:pointer;margin:6px 0 4px">
 						</div>
 					</div>
 				</div>

@@ -1,5 +1,5 @@
 const SETTINGS_KEY = 'architect_settings';
-const DEFAULT_AUDIO_SETTINGS = { enabled: false, music: true, sfx: true, tv: true, masterVolume: 0.8, musicVolume: 0.7, sfxVolume: 0.9, ambientVolume: 0.5, tvVolume: 0.6, muteWhenHidden: true };
+const DEFAULT_AUDIO_SETTINGS = { enabled: false, music: false, sfx: false, tv: false, masterVolume: 0.8, musicVolume: 0.7, sfxVolume: 0.9, ambientVolume: 0.5, tvVolume: 0.6, muteWhenHidden: true };
 const DEFAULT_SETTINGS = { theme: 'dark', fontSize: '14', density: 'comfortable', sidebarPosition: 'left', motion: 'on', tempUnit: 'C', contrast: 0, audio: DEFAULT_AUDIO_SETTINGS };
 
 export function formatTemp(tempC) {
