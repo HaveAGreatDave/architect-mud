@@ -61,7 +61,7 @@ function compileBsm(text) {
   const SPEAKER_RE = /^([A-Za-z][A-Za-z0-9_]*):\s*$/;
 
   const DIRECTIVE_PREFIXES = [
-    '@', '::', 'EVENT ', 'TITLE ', 'TICKER', 'WAIT', 'NPC ', 'OVERLAY ',
+    '@', '::', 'EVENT ', 'TITLE ', 'TICKER', 'WAIT', 'NPC ', 'OVERLAY',
     'SHOT', 'SHOT_END', 'TICKER_END', 'OVERLAY_END', 'LOWER_THIRD_END', 'END', 'CAM ', 'ROOM ', 'LOWER_THIRD',
     'MUSIC ', 'ENTER ', 'ACTION', 'END_ACTION', '♪',
   ];
@@ -164,7 +164,15 @@ function compileBsm(text) {
       i++; continue;
     }
 
-    // ── OVERLAY (Phase 3, with optional inline text block) ───────────────────
+    // ── OVERLAY text_card (bare OVERLAY, no graphic id) ─────────────────────
+    if (ln === 'OVERLAY') {
+      i++;
+      const text = collectBlock('OVERLAY_END');
+      makeNode({ type: 'overlay', overlayType: 'text_card', text });
+      continue;
+    }
+
+    // ── OVERLAY with graphic id ──────────────────────────────────────────────
     if (ln.startsWith('OVERLAY ')) {
       const graphicId = ln.slice(8).trim();
       i++;

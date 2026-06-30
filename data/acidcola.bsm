@@ -29,7 +29,6 @@ MUSIC acid_cola_jingle
 ♪ An upbeat Acid Cola™ advertising jingle begins playing. ♪
 
  
-
 ::scene COMMERCIAL
 
 CAM 1 WIDE
@@ -80,6 +79,8 @@ LIMITED TIME OFFER
 BUY TWO
 
 GET THE THIRD LEGALLY CLASSIFIED AS A BONUS
+
+OVERLAY_END
 
 SHOT_END
 

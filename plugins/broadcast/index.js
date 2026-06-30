@@ -788,8 +788,15 @@ function _seekGraph(graph, bb, segElapsedMs, nowMs) {
       else { bb.waitUntil = nowMs + (CONTENT_MS - remaining); bb.currentNode = nodeId; return; }
     } else if (node.type === 'loop') {
       nodeId = _resolveEdge(edges, nodeId, 'next') || graph._start;
+    } else if (node.type === 'npc_anchor') {
+      // Track speaker so early say nodes have the correct anchor after seeking
+      const npcId = node.data?.npc_id;
+      const npc = world.npcs?.get(npcId);
+      bb.npcAnchor = npc?.name || npcId || null;
+      bb.npcAnchorId = npcId || null;
+      nodeId = _resolveEdge(edges, nodeId, 'next');
     } else {
-      nodeId = _resolveEdge(edges, nodeId, 'next'); // start/npc_anchor/condition — no time cost
+      nodeId = _resolveEdge(edges, nodeId, 'next'); // start/condition — no time cost
     }
   }
   bb.currentNode = nodeId || null;
@@ -880,12 +887,21 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
         const key_say = `graph:${channelId}:${nodeId}:${nowMs}`;
         const style_say = node.data?.style || 'raw';
         const isNarration = style_say === 'narration';
-        // Always send dialogue to the studio zone as an action (non-narration lines only)
-        if (!isNarration && state.channelType === 'live' && state.studioZoneId && bb.npcAnchor) {
-          sendToZone(state.studioZoneId, {
-            type: 'output',
-            message: `<span style="color:var(--yellow)">${bb.npcAnchor} says, "${raw}"</span>`,
-          });
+        const isAmbient   = style_say === 'ambient';
+        if (state.channelType === 'live' && state.studioZoneId) {
+          if (!isNarration && !isAmbient && bb.npcAnchor) {
+            // NPC dialogue → room as coloured speech
+            sendToZone(state.studioZoneId, {
+              type: 'output',
+              message: `<span style="color:var(--yellow)">${bb.npcAnchor} says, "${raw}"</span>`,
+            });
+          } else if (isAmbient) {
+            // MUSIC / ♪ lines → room as plain italic ambient text
+            sendToZone(state.studioZoneId, {
+              type: 'output',
+              message: `<span style="color:var(--text-dim);font-style:italic">${raw}</span>`,
+            });
+          }
         }
         const text_say = style_say === 'ticker'
           ? `>> ${bb.npcAnchor ? `${bb.npcAnchor}: ` : ''}${raw} <<`
@@ -1031,14 +1047,19 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
         break;
       }
 
-      case 'show_overlay': {
+      case 'show_overlay':
+      case 'overlay': {
+        const overlayType = node.data?.overlayType || node.data?.overlay_type
+          || (node.type === 'overlay' && !node.data?.graphic_id ? 'text_card' : 'lower_third');
         const overlay = {
-          overlayType: node.data?.overlay_type || 'lower_third',
+          overlayType,
           text: node.data?.text || '',
           subtext: node.data?.subtext || '',
-          duration: node.data?.duration_s ?? 6,
+          duration: node.data?.duration_s ?? (overlayType === 'text_card' ? 5 : 6),
+          clearScreen: overlayType === 'text_card',
         };
         bb.currentNode = _resolveEdge(edges, nodeId, 'next');
+        bb.waitUntil = nowMs + (overlay.duration * 1000);
         return { overlay, key: `overlay:${channelId}:${nodeId}:${nowMs}`, style: 'overlay' };
       }
 
@@ -1325,7 +1346,7 @@ function buildTvOffPanel(player) {
     theme: null,
     channelList,
   });
-  return { type: 'output', message: 'The television is off.' };
+  return { type: 'output', message: 'You turn to the television.' };
 }
 
 // Specialized action: use <tv-furniture>
@@ -1342,7 +1363,7 @@ async function doUseTv(args, raw, player) {
 
   const entry = furnitureChannelIndex.get(rows[0].id);
   if (!entry || entry.deviceType !== 'tv') return buildTvOffPanel(player);
-  return buildTvPanel(entry.channelId, player, entry.dialFrequency ?? 0) ?? buildTvOffPanel(player);
+  return buildTvOffPanel(player);
 }
 
 async function cmdTv(args, raw, player) {
@@ -1352,8 +1373,7 @@ async function cmdTv(args, raw, player) {
   if (zoneMap) {
     for (const [channelId, deviceType] of zoneMap) {
       if (deviceType !== 'tv') continue;
-      const result = buildTvPanel(channelId, player);
-      if (result) return result;
+      if (channelRuntime.has(channelId)) return buildTvOffPanel(player);
     }
   }
 
