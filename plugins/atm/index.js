@@ -300,7 +300,7 @@ export const routeHandler = async (path, method, body, auth) => {
 
       if (id && !sub && method === 'PUT') {
         // Update ATM unit config
-        const { cash_stock, cash_max, replenish_interval_hours, hack_difficulty, network_id, is_broken } = body || {};
+        const { cash_stock, cash_max, replenish_interval_hours, hack_difficulty, network_id, is_broken, name } = body || {};
         const fields = [];
         const vals = [];
         let idx = 1;
@@ -310,9 +310,20 @@ export const routeHandler = async (path, method, body, auth) => {
         if (hack_difficulty != null)          { fields.push(`hack_difficulty=$${idx++}`);          vals.push(Math.max(1, parseInt(hack_difficulty, 10) || 5)); }
         if (network_id !== undefined)         { fields.push(`network_id=$${idx++}`);               vals.push(network_id || null); }
         if (is_broken != null)                { fields.push(`is_broken=$${idx++}`);                vals.push(is_broken ? 1 : 0); }
-        if (!fields.length) return { status: 400, body: { error: 'Nothing to update' } };
-        vals.push(id);
-        await query(`UPDATE atm_units SET ${fields.join(',')} WHERE id=$${idx}`, vals);
+        if (!fields.length && name == null) return { status: 400, body: { error: 'Nothing to update' } };
+        if (fields.length) {
+          vals.push(id);
+          await query(`UPDATE atm_units SET ${fields.join(',')} WHERE id=$${idx}`, vals);
+        }
+        if (name != null) {
+          await query('UPDATE furniture SET name=$1 WHERE id=$2', [name.trim() || 'ATM Terminal', id]);
+        }
+        return { status: 200, body: { ok: true } };
+      }
+
+      if (id && !sub && method === 'DELETE') {
+        await query('DELETE FROM atm_units WHERE id=$1', [id]);
+        await query('DELETE FROM furniture WHERE id=$1', [id]);
         return { status: 200, body: { ok: true } };
       }
 

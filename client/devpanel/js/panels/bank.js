@@ -84,6 +84,8 @@ function _renderBankBody() {
         <button class="action-btn" onclick="bankSetStock('${u.id}',${u.cash_stock || 0},${u.cash_max || 5000})" title="Set stock to custom amount" style="padding:2px 8px;font-size:10px">Set</button>
         ${u.is_broken ? `<button class="action-btn success" onclick="bankRepairAtm('${u.id}')" style="padding:2px 8px;font-size:10px">Repair</button>` : ''}
         <button class="action-btn" onclick="bankEditUnit('${u.id}')" style="padding:2px 8px;font-size:10px">Edit</button>
+        <button class="action-btn" onclick="bankRenameAtm('${u.id}','${(u.atm_name || u.id).replace(/'/g,"\\\'")}')" style="padding:2px 8px;font-size:10px">Rename</button>
+        <button class="action-btn danger" onclick="bankDeleteAtm('${u.id}','${(u.atm_name || u.id).replace(/'/g,"\\\'")}')" style="padding:2px 8px;font-size:10px">Delete</button>
       </td>
     </tr>`).join('') || `<tr><td colspan="7" style="padding:20px;color:var(--text-dim);text-align:center">No ATM units found. Add furniture with the <code>atm</code> flag and run the schema.</td></tr>`;
 
@@ -238,6 +240,23 @@ async function bankReplenishAll() {
   if (res && res.error) { toast(res.error, true); return; }
   toast(`Replenished ${res.count ?? '?'} ATM(s).`);
   renderBankPanel();
+}
+
+async function bankRenameAtm(id, currentName) {
+  const val = prompt('New name for this ATM terminal:', currentName);
+  if (val === null || val.trim() === '') return;
+  directAPI(`/atm/units/${id}`, 'PUT', { name: val.trim() })
+    .then(() => { toast('ATM renamed.'); renderBankPanel(); })
+    .catch(e => toast(e.message, true));
+}
+
+async function bankDeleteAtm(id, name) {
+  if (!confirm(`Delete ATM terminal "${name}"? This removes the furniture and ATM unit permanently.`)) return;
+  try {
+    await directAPI(`/atm/units/${id}`, 'DELETE');
+    toast('ATM terminal deleted.');
+    renderBankPanel();
+  } catch (e) { toast(e.message, true); }
 }
 
 // ── Create ATM Terminal ───────────────────────────────────────────────────────
