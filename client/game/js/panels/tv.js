@@ -33,10 +33,9 @@ export function openTvPanel(data) {
   _tvAtBottom = true;
   _clearAfterTitleCard = false;
   _tvChannelList = Array.isArray(data.channelList) ? data.channelList : [];
-  // Server (furniture flags.tv_dial_freq) is source of truth; localStorage is only a within-session fallback
-  const serverFreq = typeof data.dialFrequency === 'number' ? data.dialFrequency : -1;
+  // Restore from localStorage only — server-side flag may hold a stale value from a different session
   const savedLocal = localStorage.getItem('tv_frequency');
-  _tvFrequency = serverFreq >= 0 ? serverFreq : (savedLocal !== null ? parseFloat(savedLocal) : 0);
+  _tvFrequency = savedLocal !== null ? parseFloat(savedLocal) : 0;
   if (!isFinite(_tvFrequency) || _tvFrequency < 0 || _tvFrequency >= TV_DIAL_MAX) _tvFrequency = 0;
 
   document.getElementById('tv-station-name').textContent = data.stationName || data.channelName || '——';
@@ -321,7 +320,7 @@ export function showTvOffAir(offlineGraphicContent, offlineGraphicType) {
 
 function _clearTvMessages() {
   const container = document.getElementById('tv-messages');
-  if (container) container.innerHTML = '';
+  if (container) { container.innerHTML = ''; container.scrollTop = 0; }
   _tvHistory.length = 0;
 }
 
@@ -383,8 +382,6 @@ export function appendTvMessage(text, style) {
 
   _tvHistory.push(el);
   if (_tvHistory.length > MAX_TV_HISTORY) _tvHistory.shift().remove();
-
-  if (_tvAtBottom) container.scrollTop = container.scrollHeight;
 }
 
 export function updateTvTicker(text) {

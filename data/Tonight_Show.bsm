@@ -55,6 +55,8 @@ MUSIC tonight_theme
 
 ♪ The Tonight Show theme begins playing. ♪
 
+MUSIC_END
+
 TICKER
 
 ACID COLA REPORTS RECORD PROFITS • POLICE ADVISE CITIZENS TO AVOID DISTRICT 12 • CITY TRANSIT EXPECTS ONLY MODERATE EXPLOSIONS TODAY • BUY NEO-NOODLES: NOW 12% LESS SYNTHETIC •
@@ -309,14 +311,13 @@ CAM 2 MEDIUM john_akerson
 
 LOWER_THIRD
 
-John Akerson
-Host
-
 LOWER_THIRD_END
 
 MUSIC tonight_theme
 
 ♪ The Tonight Show theme begins playing. ♪
+
+MUSIC_END
 
 JOHN:
 That's all the time we've got tonight.

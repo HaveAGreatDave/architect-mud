@@ -473,7 +473,9 @@ async function broadcastTick() {
         continue;
       }
       if (!result || result.key === state.lastMsgKey) {
-        if (state.wasActive) {
+        // null during a wait node means the graph is still running — don't trigger off_air
+        const stillWaiting = !result && state.graphBlackboard?.waitUntil > nowMs;
+        if (!stillWaiting && state.wasActive) {
           state.wasActive = false;
           const graphic = state.offlineGraphicId ? graphicsCache.get(state.offlineGraphicId) : null;
           for (const player of players) {
@@ -876,17 +878,15 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
         bb.currentNode = _resolveEdge(edges, nodeId, 'next');
         bb.waitUntil = nowMs + 5000;
         const key_say = `graph:${channelId}:${nodeId}:${nowMs}`;
-        // Live channel with NPC physically present: relay via zone — zone broadcast delivers to TV watchers
-        if (!skipPresence && !bb.hostAbsent && state.channelType === 'live' && state.studioZoneId && bb.npcAnchor && node.data?.style !== 'narration') {
+        const style_say = node.data?.style || 'raw';
+        const isNarration = style_say === 'narration';
+        // Always send dialogue to the studio zone as an action (non-narration lines only)
+        if (!isNarration && state.channelType === 'live' && state.studioZoneId && bb.npcAnchor) {
           sendToZone(state.studioZoneId, {
             type: 'output',
             message: `<span style="color:var(--yellow)">${bb.npcAnchor} says, "${raw}"</span>`,
           });
-          return { key: key_say, style: 'live_relay' };
         }
-        // Scripted / daily schedule / NPC absent fallback: push text directly to TV watchers
-        const style_say = node.data?.style || 'raw';
-        const isNarration = style_say === 'narration';
         const text_say = style_say === 'ticker'
           ? `>> ${bb.npcAnchor ? `${bb.npcAnchor}: ` : ''}${raw} <<`
           : (!isNarration && bb.npcAnchor ? `${bb.npcAnchor} says, "${raw}"` : raw);
