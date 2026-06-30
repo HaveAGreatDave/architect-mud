@@ -1004,6 +1004,7 @@ function _bcZonePickerRender() {
       ${modeContent}
       <div style="display:flex;gap:8px;justify-content:flex-end;align-items:center">
         <span id="bsm-ch-picker-label" style="font-size:11px;color:var(--text-dim)">No zone selected</span>
+        <button id="bsm-ch-picker-delete" class="action-btn" style="display:none;color:var(--red);border-color:var(--red)" onclick="_bcPickerDeleteZone()">✕ Delete Zone</button>
         <button onclick="document.getElementById('bsm-ch-picker-overlay').remove()" class="action-btn">Cancel</button>
         <button id="bsm-ch-picker-confirm" class="action-btn primary" disabled onclick="_bcImportChPickerConfirm()">Use This Zone</button>
       </div>
@@ -1098,6 +1099,30 @@ async function _bcImportChPickOccupied(zoneId, zoneName, el) {
   }
   const btn = document.getElementById('bsm-ch-picker-confirm');
   if (btn) btn.removeAttribute('disabled');
+  // Show delete button for occupied cells so ghost zones can be removed
+  const delBtn = document.getElementById('bsm-ch-picker-delete');
+  if (delBtn) { delBtn.style.display = ''; delBtn.dataset.zoneId = zoneId; delBtn.dataset.zoneName = zoneName; }
+}
+
+async function _bcPickerDeleteZone() {
+  const btn = document.getElementById('bsm-ch-picker-delete');
+  if (!btn) return;
+  const zoneId = btn.dataset.zoneId;
+  const zoneName = btn.dataset.zoneName || zoneId;
+  if (!zoneId) return;
+  if (!confirm(`Delete "${zoneName}" and all its studio rooms? This cannot be undone.`)) return;
+  btn.disabled = true;
+  btn.textContent = 'Deleting…';
+  try {
+    const res = await directAPI(`/zones/${zoneId}`, 'DELETE');
+    if (res?.error) { toast(res.error, true); btn.disabled = false; btn.textContent = '✕ Delete Zone'; return; }
+    toast(`"${zoneName}" deleted.`);
+    document.getElementById('bsm-ch-picker-overlay')?.remove();
+    // Refresh zone cache then re-open the picker so the ghost cell disappears
+    _bcImportAllZones = await directAPI('/zones', 'GET').catch(() => _bcImportAllZones);
+    _bcImportChZone = null;
+    _bcZonePickerRender();
+  } catch (err) { toast(err.message, true); btn.disabled = false; btn.textContent = '✕ Delete Zone'; }
 }
 
 function _bcImportChPickerConfirm() {

@@ -7,7 +7,7 @@ import { registerAction } from '../../server/engine/actions.js';
 import { registerCommand } from '../../server/engine/plugins.js';
 import { apiDeleteZone } from '../../server/api/routes.js';
 import { registerViewerChecker, registerNpcScheduleChecker, registerNpcStudioZoneLookup } from '../../server/engine/broadcast-bridge.js';
-import { getEnvironmentState, recomputePower } from '../../server/engine/environment.js';
+import { getEnvironmentState, recomputePower, resyncAllLightingStates } from '../../server/engine/environment.js';
 
 // ── In-memory state ──────────────────────────────────────────────────────────
 
@@ -1878,6 +1878,18 @@ export const routeHandler = async (path, method, body, auth) => {
         );
       }
 
+      // Ensure exterior zone has a street light (idempotent — skip if one already exists)
+      const { rows: extLights } = await query(
+        `SELECT id FROM furniture WHERE zone_id=$1 AND light_type='streetlight' LIMIT 1`, [exterior_zone_id]
+      );
+      if (!extLights.length) {
+        await query(
+          `INSERT INTO furniture (id,zone_id,name,description,object_type,light_type,light_on,power_draw_kw,lumen_output,flags)
+           VALUES ($1,$2,'Street Light','A tall metal post topped with a flickering sodium lamp.','light','streetlight',0,0.2,8000,'{}')`,
+          [`furn_light_ext_${ts}`, exterior_zone_id]
+        );
+      }
+
       // Upsert lighting_states for all three interior zones so their lights register
       for (const zid of [studioZoneId, utilityZoneId, productionZoneId]) {
         const { rows: lc } = await query(
@@ -1893,6 +1905,7 @@ export const routeHandler = async (path, method, body, auth) => {
 
       await Promise.all([studioZoneId, utilityZoneId, productionZoneId, exterior_zone_id].map(reloadZone));
       await recomputePower().catch(() => {});
+      await resyncAllLightingStates().catch(() => {});
 
       return { status: 200, body: {
         exterior_zone_id, studio_zone_id: studioZoneId,
@@ -2036,6 +2049,13 @@ export const routeHandler = async (path, method, body, auth) => {
           );
         }
 
+        // Street light on the exterior zone (day/night managed — light_on_intended stays NULL)
+        await query(
+          `INSERT INTO furniture (id,zone_id,name,description,object_type,light_type,light_on,power_draw_kw,lumen_output,flags)
+           VALUES ($1,$2,'Street Light','A tall metal post topped with a flickering sodium lamp.','light','streetlight',0,0.2,8000,'{}')`,
+          [`furn_light_ext_${ts}`, exteriorZoneId]
+        );
+
         // If a channel_id is supplied and that channel exists, link the studio zone and create a streaming camera
         if (channel_id) {
           const { rows: chRows } = await query(`SELECT id FROM media_channels WHERE id=$1`, [channel_id]);
@@ -2057,6 +2077,9 @@ export const routeHandler = async (path, method, body, auth) => {
           reloadZone(productionZoneId),
           reloadZone(exteriorZoneId),
         ]);
+        // Fix power connections and lighting now that junction box and zones are in place
+        await recomputePower().catch(() => {});
+        await resyncAllLightingStates().catch(() => {});
         if (channel_id) await loadChannelRuntimes();
 
         return { status: 201, body: {
