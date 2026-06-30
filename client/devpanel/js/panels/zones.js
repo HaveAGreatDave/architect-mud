@@ -102,18 +102,24 @@ function renderZonesTable(records) {
 async function deleteZoneRow(id) {
   const rec = allRecords.find(r => r.id === id);
   if (!rec) return;
-  const childCount = allRecords.filter(z => (z.flags?.is_apartment || z.flags?.is_interior) && Object.values(z.exits || {})[0] === id).length;
+  const children = allRecords.filter(z => (z.flags?.is_apartment || z.flags?.is_interior) && Object.values(z.exits || {})[0] === id);
+  const childCount = children.length;
   const msg = childCount
-    ? `Delete ${rec.name || id}? This will also delete ${childCount} attached room${childCount > 1 ? 's' : ''}.`
+    ? `Delete ${rec.name || id}? This will also queue ${childCount} attached room${childCount > 1 ? 's' : ''} for deletion.`
     : `Delete ${rec.name || id}?`;
   if (!confirm(msg)) return;
-  const prev = currentRecord;
   currentRecord = rec;
   const result = await API(`/zones/${id}`, 'DELETE');
-  currentRecord = prev;
-  if (result?.error) { toast(result.error, true); return; }
+  if (result?.error) { currentRecord = null; toast(result.error, true); return; }
+  for (const child of children) {
+    currentRecord = child;
+    await API(`/zones/${child.id}`, 'DELETE');
+  }
+  currentRecord = null;
   if (result?.staged) {
-    toast('Marked for deletion — publish to apply');
+    toast(childCount
+      ? `${rec.name || id} + ${childCount} room${childCount !== 1 ? 's' : ''} marked for deletion — publish to apply`
+      : 'Marked for deletion — publish to apply');
     await updateStagingBadge();
   } else {
     toast(result?.message || 'Deleted');
@@ -890,6 +896,7 @@ function updateColorPreview() {
   el.style.color = color || 'var(--text-dim)';
   el.style.background = bgColor || 'transparent';
   el.textContent = sym;
+  _liveMapColorUpdate();
 }
 
 // Map layout edits (piece moves, connections) persist immediately through the

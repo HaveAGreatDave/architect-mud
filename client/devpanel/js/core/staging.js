@@ -22,6 +22,7 @@ async function publishAll() {
   const hasFurnitureChanges = _furnitureAllItems.some(f => f._staged || f._markedForDeletion);
   const result = await API('/staging/publish', 'POST', { all: true });
   if (result.error) { toast(result.error, true); return; }
+  _mapPendingOverrides.clear();
   toast(`✓ ${result.message}`);
   await updateStagingBadge();
   // Refresh furniture cache for green badge / deletion cleanup regardless of active panel.
@@ -42,6 +43,7 @@ async function rejectAll() {
   if (!confirm(`Discard all ${pendingChanges.length} staged change${pendingChanges.length !== 1 ? 's' : ''}? This cannot be undone.`)) return;
   const result = await API('/staging/reject', 'POST', { all: true });
   if (result.error) { toast(result.error, true); return; }
+  _mapPendingOverrides.clear();
   toast(result.message);
   await updateStagingBadge();
   if (currentPanel === 'changes') loadPanel('changes');
@@ -53,6 +55,10 @@ async function publishSelected() {
   if (!confirm(`Publish ${checked.length} selected change${checked.length !== 1 ? 's' : ''}?`)) return;
   const result = await API('/staging/publish', 'POST', { ids: checked });
   if (result.error) { toast(result.error, true); return; }
+  // Overrides for published zones are now live in DB — no longer needed as overrides
+  for (const c of pendingChanges) {
+    if (checked.includes(c.id) && c.entityType === 'zone') _mapPendingOverrides.delete(c.entityId);
+  }
   toast(`✓ ${result.message}`);
   await updateStagingBadge();
   loadPanel('changes');
@@ -64,6 +70,10 @@ async function rejectSelected() {
   if (!confirm(`Discard ${checked.length} selected change${checked.length !== 1 ? 's' : ''}?`)) return;
   const result = await API('/staging/reject', 'POST', { ids: checked });
   if (result.error) { toast(result.error, true); return; }
+  // Remove overrides for any rejected zone changes
+  for (const c of pendingChanges) {
+    if (checked.includes(c.id) && c.entityType === 'zone') _mapPendingOverrides.delete(c.entityId);
+  }
   toast(result.message);
   await updateStagingBadge();
   loadPanel('changes');

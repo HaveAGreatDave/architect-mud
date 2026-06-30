@@ -400,6 +400,23 @@ function applyZoneEditToMap(zoneId) {
   renderMapOverview();
 }
 
+// Live-patches the mapOverview zone with the current form color/marker values and
+// re-renders the map if it's visible. Called from the color/marker edit controls so
+// tile colors update immediately without needing to save first.
+function _liveMapColorUpdate() {
+  if (!currentRecord?.id || !mapOverview) return;
+  const z = mapOverview.zones.get(currentRecord.id);
+  if (!z) return;
+  const color = document.getElementById('f-color')?.value.trim() || null;
+  const bg_color = document.getElementById('f-bg_color')?.value.trim() || null;
+  const marker = document.getElementById('f-marker')?.value.trim() || null;
+  z.color = color;
+  z.bg_color = bg_color;
+  z.marker = marker;
+  _mapPendingOverrides.set(currentRecord.id, { color, bg_color, marker });
+  if (currentPanel === 'maps') renderMapOverview();
+}
+
 // Click a zone tile on the map overview to edit it in the zone editor, then
 // return to the map after saving (mapZoneEditReturn).
 async function mapTileEditClick(zoneId) {
@@ -442,6 +459,7 @@ let mapExteriorMapId = null;      // last-loaded exterior map id, so we can retu
 let mapSelectedInteriorId = null;
 let mapInteriorsList = [];        // interior maps (parent_zone_id != null)
 let _exteriorBuildingZones = [];  // building zones from the exterior map, for interior tab dropdown
+let _mapPendingOverrides = new Map(); // zoneId → {color,bg_color,marker} for staged-but-unpublished zone edits
 
 function mapsGuard() { return true; }
 
@@ -473,6 +491,12 @@ async function loadMapOverview(mapId) {
   mapOverview = { map: data.map, zones, unplaced, unplacedInterior, children: data.children || [], buildingZoneIds: data.buildingZoneIds || [], z: keepZ };
   if (!data.map.parent_zone_id) {
     _exteriorBuildingZones = (data.zones || []).filter(z => z.flags?.is_building);
+  }
+  // Re-apply any staged-but-unpublished color/marker changes so the map stays in sync
+  // even after a fresh fetch (tab switch, panel reload, etc.)
+  for (const [zoneId, overrides] of _mapPendingOverrides) {
+    const z = zones.get(zoneId);
+    if (z) Object.assign(z, overrides);
   }
   renderMapOverview();
 }
