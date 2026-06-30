@@ -78,10 +78,11 @@ if (_isMobile) {
 		_paneOpen = open;
 		_areaPane.style.maxHeight = open ? "" : "0";
 		_areaPane.style.overflow = open ? "" : "hidden";
+		if (_toggleBar) _toggleBar.style.display = open ? "" : "none";
 		if (_toggleBtn) _toggleBtn.textContent = open ? "− lock" : "+ lock";
 	}
 
-	// Start collapsed on mobile
+	// Start fully collapsed on mobile — no toggle bar visible
 	_setAreaPane(false);
 
 	_toggleBtn?.addEventListener("click", () => _setAreaPane(!_paneOpen));

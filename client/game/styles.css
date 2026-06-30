@@ -3777,6 +3777,12 @@ body {
 	color: var(--accent);
 }
 
+.dpad-btn.dpad-available {
+	border-color: var(--accent);
+	color: var(--accent);
+	background: var(--accent-dim);
+}
+
 .dpad-blank {
 	background: transparent;
 	border-color: transparent;
@@ -3786,7 +3792,10 @@ body {
 
 .dpad-ud {
 	opacity: 0.6;
-	font-size: 12px;
+	font-size: 10px;
+}
+.dpad-ud.dpad-available {
+	opacity: 1;
 }
 
 #mobile-minimap-panel {
