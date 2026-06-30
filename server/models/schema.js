@@ -166,6 +166,8 @@ export const SCHEMA_SQL = `
   ALTER TABLE npcs ADD COLUMN IF NOT EXISTS behaviour_graph JSONB DEFAULT '{}';
   ALTER TABLE npcs ADD COLUMN IF NOT EXISTS home_zone TEXT DEFAULT 'zone_residential_lobby';
   ALTER TABLE npcs ALTER COLUMN home_zone SET DEFAULT 'zone_residential_lobby';
+  ALTER TABLE npcs ADD COLUMN IF NOT EXISTS studio_zone_id TEXT;
+  ALTER TABLE npcs ADD COLUMN IF NOT EXISTS chitchat JSONB DEFAULT '[]';
 
   -- Non-takeable scenery (bar counters, stools, beds, tables...). Distinct
   -- from items: items live in player_inventory (including the
@@ -704,6 +706,15 @@ export const SCHEMA_SQL = `
     permissions TEXT DEFAULT 'public',
     flags JSONB DEFAULT '{}'
   );
+  ALTER TABLE media_cameras ADD COLUMN IF NOT EXISTS is_damaged INTEGER DEFAULT 0;
+
+  CREATE TABLE IF NOT EXISTS media_deck_units (
+    id TEXT PRIMARY KEY REFERENCES furniture(id),
+    channel_id TEXT NOT NULL REFERENCES media_channels(id),
+    active_cassette_item_id TEXT,
+    light_state TEXT NOT NULL DEFAULT 'red'
+  );
+  CREATE INDEX IF NOT EXISTS idx_media_deck_units_channel ON media_deck_units(channel_id);
 
   CREATE INDEX IF NOT EXISTS idx_media_playlist_channel ON media_channel_playlist(channel_id, start_time);
   CREATE INDEX IF NOT EXISTS idx_media_cameras_zone ON media_cameras(zone_id);

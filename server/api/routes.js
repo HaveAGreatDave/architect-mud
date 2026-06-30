@@ -10,6 +10,7 @@ import { fileURLToPath } from 'url';
 import vm from 'vm';
 import { sendPasswordResetEmail } from '../mailer.js';
 import { randomAppearance } from '../engine/appearance.js';
+import { DEFAULT_CHITCHAT_LINES } from '../engine/ai-behaviour.js';
 import { handleEnvironmentApi } from './environment.routes.js';
 import { handleWorldValidatorApi } from './worldvalidator.routes.js';
 import { handleStagingApi } from './staging.routes.js';
@@ -964,12 +965,14 @@ export async function apiUpdateItem(id,body) {
 async function apiGetNpcs() { const {rows}=await query('SELECT * FROM npcs'); return {status:200,body:rows}; }
 export async function apiCreateNpc(body) {
   const id=body.id||`npc_${Date.now()}`;
+  const homeZone = body.home_zone || 'zone_residential_lobby';
+  const chitchat = Array.isArray(body.chitchat) && body.chitchat.length ? body.chitchat : DEFAULT_CHITCHAT_LINES;
   try {
-    await query(`INSERT INTO npcs (id,name,description,zone_id,home_zone,faction,dialogue_tree,vendor_inventory,wanders,wander_zones,flags,behaviour_graph) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
-      [id,body.name,body.description,body.zone_id||null,body.home_zone||null,body.faction||null,JSON.stringify(body.dialogue_tree||{}),JSON.stringify(body.vendor_inventory||[]),body.wanders?1:0,JSON.stringify(body.wander_zones||[]),JSON.stringify(body.flags||{}),JSON.stringify(body.behaviour_graph||{})]);
+    await query(`INSERT INTO npcs (id,name,description,zone_id,home_zone,faction,dialogue_tree,vendor_inventory,wanders,wander_zones,flags,behaviour_graph,chitchat,studio_zone_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+      [id,body.name,body.description,body.zone_id||null,homeZone,body.faction||null,JSON.stringify(body.dialogue_tree||{}),JSON.stringify(body.vendor_inventory||[]),body.wanders?1:0,JSON.stringify(body.wander_zones||[]),JSON.stringify(body.flags||{}),JSON.stringify(body.behaviour_graph||{}),JSON.stringify(chitchat),body.studio_zone_id||null]);
     // Register in world memory so the NPC is immediately visible
     const { world: w } = await import('../engine/world.js');
-    w.npcs.set(id, { id, name:body.name, description:body.description, zone_id:body.zone_id||null, home_zone:body.home_zone||null, faction:body.faction||null, dialogue_tree:body.dialogue_tree||{}, vendor_inventory:body.vendor_inventory||[], wanders:body.wanders?1:0, wander_zones:body.wander_zones||[], flags:body.flags||{}, behaviour_graph:body.behaviour_graph||{}, _ai:{ currentNode:null, waitUntil:null, patrolPath:[], patrolTarget:null, patrolMode:'walk', patrolIndex:0, alertCooldown:0, lastSay:0, flags:{} } });
+    w.npcs.set(id, { id, name:body.name, description:body.description, zone_id:body.zone_id||null, home_zone:homeZone, faction:body.faction||null, dialogue_tree:body.dialogue_tree||{}, vendor_inventory:body.vendor_inventory||[], wanders:body.wanders?1:0, wander_zones:body.wander_zones||[], flags:body.flags||{}, behaviour_graph:body.behaviour_graph||{}, chitchat, studio_zone_id:body.studio_zone_id||null, _ai:{ currentNode:null, waitUntil:null, patrolPath:[], patrolTarget:null, patrolMode:'walk', patrolIndex:0, alertCooldown:0, lastSay:0, flags:{} } });
     if (body.zone_id) w.zones.get(body.zone_id)?.npcs.add(id);
     return {status:201,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }

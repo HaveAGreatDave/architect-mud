@@ -37,18 +37,22 @@ const furnitureChannelIndex = new Map();
 // Enables O(1) lookup in zone.broadcast relay listener.
 const studioZoneIndex = new Map();
 
-// Default behaviour graph assigned to studio NPCs that don't yet have one.
+// cameraZoneStatus.get(zoneId) = true if at least one camera in that zone is
+// powered and undamaged. Refreshed alongside loadChannelRuntimes().
+const cameraZoneStatus = new Map();
+
+// Default behaviour graph assigned to studio NPCs that don't yet have one:
+// start -> CHECK_WORK -> (goToWork) -> GO_TO_WORK -> AT_WORK -> loop back to CHECK_WORK
+//                      -> (haveLife) -> HAVE_LIFE -> loop back to CHECK_WORK
 function makeDefaultStudioGraph(studioZoneId = null) {
   return {
     _start: 'n_start',
     nodes: {
-      n_start:  { type: 'start',  next: 'n_life' },
-      n_life:   { type: 'action', action_type: 'HAVE_LIFE',  next: 'n_work' },
+      n_start:  { type: 'start',  next: 'n_check' },
+      n_check:  { type: 'action', action_type: 'CHECK_WORK', goToWork: 'n_work', haveLife: 'n_life' },
       n_work:   { type: 'action', action_type: 'GO_TO_WORK', params: studioZoneId ? { zone_id: studioZoneId } : {}, next: 'n_atwork' },
-      n_atwork: { type: 'action', action_type: 'AT_WORK',    next: 'n_gohome' },
-      n_gohome: { type: 'action', action_type: 'GO_HOME',    next: 'n_wait' },
-      n_wait:   { type: 'wait',   seconds: 30,               next: 'n_loop' },
-      n_loop:   { type: 'loop',   next: 'n_start' },
+      n_atwork: { type: 'action', action_type: 'AT_WORK',    next: 'n_check' },
+      n_life:   { type: 'action', action_type: 'HAVE_LIFE',  next: 'n_check' },
     },
   };
 }
@@ -128,6 +132,15 @@ async function loadChannelRuntimes() {
     const { rows: cams } = await query(
       'SELECT id, zone_id, streaming_channel_id FROM media_cameras WHERE is_streaming = 1 AND is_powered = 1'
     );
+    const { rows: allCams } = await query(
+      'SELECT zone_id, is_powered, is_damaged FROM media_cameras'
+    );
+    cameraZoneStatus.clear();
+    for (const cam of allCams) {
+      const working = !!cam.is_powered && !cam.is_damaged;
+      if (working) cameraZoneStatus.set(cam.zone_id, true);
+      else if (!cameraZoneStatus.has(cam.zone_id)) cameraZoneStatus.set(cam.zone_id, false);
+    }
     const { rows: allCommercials } = await query(
       `SELECT id, messages, message_interval FROM media_broadcasts WHERE category = 'advertisement'`
     );
@@ -601,8 +614,8 @@ on('zone.broadcast', ({ zoneId, msg }) => {
   if (!channelId) return;
   const state = channelRuntime.get(channelId);
   if (!state || state.channelType !== 'live') return;
-  // Only relay player-visible events (speech, zone_event) — not combat or system messages
-  if (msg.type !== 'output' && msg.type !== 'zone_event') return;
+  // Only relay player-visible events (speech, say, zone_event) — not combat or system messages
+  if (msg.type !== 'output' && msg.type !== 'zone_event' && msg.type !== 'say') return;
   if (!msg.message) return;
   for (const [viewZoneId, channelMap] of zoneTunings) {
     if (!channelMap.has(channelId)) continue;
@@ -888,7 +901,7 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
         const style_say = node.data?.style || 'raw';
         const isNarration = style_say === 'narration';
         const isAmbient   = style_say === 'ambient';
-        if (state.studioZoneId) {
+        if (state.channelType === 'live' && state.studioZoneId) {
           if (!isNarration && !isAmbient && bb.npcAnchor) {
             sendToZone(state.studioZoneId, {
               type: 'output',
@@ -914,7 +927,7 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
         bb.waitUntil = nowMs + 3000;
         const key_act = `action:${channelId}:${nodeId}:${nowMs}`;
         const emoteText = bb.npcAnchor ? `${bb.npcAnchor} ${emote}` : emote;
-        if (state.studioZoneId) {
+        if (state.channelType === 'live' && state.studioZoneId) {
           sendToZone(state.studioZoneId, { type: 'output', message: `<span style="color:var(--text-dim);font-style:italic">${emoteText}</span>` });
         }
         return { text: emoteText, key: key_act, style: 'raw' };
@@ -931,7 +944,10 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
       case 'npc_anchor': {
         const npcId = node.data?.npc_id;
         const npc = world.npcs?.get(npcId);
-        bb.npcAnchor = npc?.name || npcId || null;
+        const fallbackName = npcId?.startsWith('npc_')
+          ? npcId.slice(4).split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+          : npcId;
+        bb.npcAnchor = npc?.name || fallbackName || null;
         bb.npcAnchorId = npcId || null;
         // Presence check — only for truly-live unscripted channels
         if (!skipPresence && npcId && state.channelType === 'live' && state.studioZoneId) {
@@ -966,8 +982,21 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
       case 'camera_cut': {
         const zoneId = node.data?.zone_id;
         const label = node.data?.label || zoneId;
-        const snap = zoneId ? buildCameraSnapshot(zoneId) : null;
+        // cameraZoneStatus is `false` only when the zone has a registered camera that's
+        // off/damaged — a zone with no camera device at all is left ungated (legacy behavior).
+        const camDown = zoneId && cameraZoneStatus.get(zoneId) === false;
         bb.currentNode = _resolveEdge(edges, nodeId, 'next');
+        if (camDown && zoneId === state.studioZoneId && !skipPresence) {
+          // The studio's own camera feed is down — go to technical difficulties
+          // rather than silently cutting to the next node.
+          bb.techDiffMode = true;
+          const pool = state.currentFallbackMessages?.length
+            ? state.currentFallbackMessages
+            : ['[TECHNICAL DIFFICULTIES] Please stand by.'];
+          const idx = Math.floor(nowMs / 5000) % pool.length;
+          return { text: pool[idx], key: `techDiff:${channelId}:${idx}:${Math.floor(nowMs / 5000)}`, style: 'raw' };
+        }
+        const snap = (zoneId && !camDown) ? buildCameraSnapshot(zoneId) : null;
         if (snap) {
           bb.waitUntil = nowMs + 5000;
           return { text: `[CAM: ${label}] ${snap}`, key: `cam:${channelId}:${zoneId}:${nowMs}`, style: 'raw' };
@@ -1083,11 +1112,20 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
         const evText = EVENT_MESSAGES[evType] || `${evType.charAt(0) + evType.slice(1).toLowerCase()} from the crowd.`;
         bb.currentNode = _resolveEdge(edges, nodeId, 'next');
         bb.waitUntil = nowMs + 3000;
-        // Always send to room as ambient text AND return to TV — never live_relay
-        if (state.studioZoneId) {
+        // Only relay to room for truly-live channels — never live_relay for recordings
+        if (state.channelType === 'live' && state.studioZoneId) {
           sendToZone(state.studioZoneId, { type: 'output', message: `<span style="color:var(--text-dim);font-style:italic">${evText}</span>` });
         }
         return { text: evText, key: `event:${channelId}:${nodeId}:${nowMs}`, style: 'raw' };
+      }
+
+      case 'tech_difficulties': {
+        const duration = (node.data?.duration ?? 10) * 1000;
+        const graphic = state.offlineGraphicId ? graphicsCache.get(state.offlineGraphicId) : null;
+        bb.currentNode = _resolveEdge(edges, nodeId, 'next');
+        bb.waitUntil = nowMs + duration;
+        const text = graphic ? graphic.content : '[TECHNICAL DIFFICULTIES] Please stand by.';
+        return { text, key: `techdiff-node:${channelId}:${nodeId}:${nowMs}`, style: graphic?.type === 'svg' ? 'svg' : 'ascii_art' };
       }
 
       default:

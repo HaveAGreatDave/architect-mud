@@ -103,6 +103,7 @@ const AI_ACTIONS = [
     { key: 'arrive_by',            label: 'Arrive By (hour)', type: 'number', default: 20 },
     { key: 'depart_early_minutes', label: 'Buffer (min)',     type: 'number', default: 0 },
   ]},
+  { type: 'CHECK_WORK', label: 'Check Work', params: [] },
 ];
 
 // ── Shared param form renderer ────────────────────────────────────────────────
@@ -361,15 +362,23 @@ const _aiNodeDefs = {
       const def = AI_ACTIONS.find(a => a.type === n.data.action_type);
       return `<div style="font-size:11px;color:var(--accent)">${_escAI(def?.label || n.data.action_type || '(no action)')}</div>`;
     },
-    getOutPorts: () => [{ key: 'next', label: 'next' }],
+    getOutPorts: (n) => {
+      if (n.data.action_type === 'CHECK_WORK') {
+        return [
+          { key: 'goToWork', label: 'go to work' },
+          { key: 'haveLife', label: 'have life' },
+        ];
+      }
+      return [{ key: 'next', label: 'next' }];
+    },
     renderProperties: (n, ed, id) => {
       const actOpts = AI_ACTIONS.map(a =>
         `<option value="${a.type}" ${a.type === n.data.action_type ? 'selected' : ''}>${a.label}</option>`
       ).join('');
       return `
         ${_aiHelpBox(id,
-          'Executes one game action, then stops graph evaluation for this tick. The "next" port runs on the following tick if the graph reaches this node again.',
-          'PATROL  — move through a list of zone IDs step by step\nATTACK  — strike current target using normal combat\nSAY     — broadcast a message to the zone\nFLEE    — move away from target\'s zone\nCALL_BACKUP — alert nearby same-faction entities'
+          'Executes one game action, then stops graph evaluation for this tick. The "next" port runs on the following tick if the graph reaches this node again. CHECK_WORK is the exception: it has two named ports, "go to work" and "have life", instead of "next".',
+          'PATROL  — move through a list of zone IDs step by step\nATTACK  — strike current target using normal combat\nSAY     — broadcast a message to the zone\nFLEE    — move away from target\'s zone\nCALL_BACKUP — alert nearby same-faction entities\nCHECK_WORK — branches to go-to-work or have-life based on schedule + travel time'
         )}
         ${_aiField('Action Type', `<select data-vine-field="data.action_type" style="${_AI_IS}" id="ai-act-type-${id}">${actOpts}</select>`)}
         <div id="ai-act-params-${id}"></div>
@@ -471,8 +480,8 @@ function _autoLayoutAI(dbGraph) {
     colRows[col]++;
 
     const n = nodes[id];
-    const nexts = [n.next, n.ifTrue, n.ifFalse, ...(Object.keys(n).filter(k => k.startsWith('branch_')).map(k => n[k]))].filter(Boolean);
-    const nextCols = n.ifTrue || n.ifFalse ? [col + 1, col + 2] : [col + 1];
+    const nexts = [n.next, n.ifTrue, n.ifFalse, n.goToWork, n.haveLife, ...(Object.keys(n).filter(k => k.startsWith('branch_')).map(k => n[k]))].filter(Boolean);
+    const nextCols = n.ifTrue || n.ifFalse || (n.goToWork && n.haveLife) ? [col + 1, col + 2] : [col + 1];
     nexts.forEach((nid, i) => {
       if (!visited.has(nid)) queue.push({ id: nid, col: nextCols[i] || col + 1 });
     });
@@ -498,12 +507,14 @@ window.VineAISchema = {
     const edges = [];
 
     for (const [id, node] of Object.entries(dbGraph.nodes)) {
-      const { type, next, ifTrue, ifFalse, _vine, ...fields } = node;
+      const { type, next, ifTrue, ifFalse, goToWork, haveLife, _vine, ...fields } = node;
       const pos = _vine || layout[id] || { x: 40, y: 40 };
 
       if (next)   edges.push({ fromNode: id, fromPort: 'next',    toNode: next });
       if (ifTrue) edges.push({ fromNode: id, fromPort: 'ifTrue',  toNode: ifTrue });
       if (ifFalse)edges.push({ fromNode: id, fromPort: 'ifFalse', toNode: ifFalse });
+      if (goToWork) edges.push({ fromNode: id, fromPort: 'goToWork', toNode: goToWork });
+      if (haveLife) edges.push({ fromNode: id, fromPort: 'haveLife', toNode: haveLife });
 
       // Random branches
       for (const [k, v] of Object.entries(fields)) {
@@ -536,6 +547,8 @@ window.VineAISchema = {
       const nextEdge  = edges.find(e => e.fromNode === id && e.fromPort === 'next');
       const trueEdge  = edges.find(e => e.fromNode === id && e.fromPort === 'ifTrue');
       const falseEdge = edges.find(e => e.fromNode === id && e.fromPort === 'ifFalse');
+      const goToWorkEdge = edges.find(e => e.fromNode === id && e.fromPort === 'goToWork');
+      const haveLifeEdge = edges.find(e => e.fromNode === id && e.fromPort === 'haveLife');
 
       // Collect branch edges for random nodes
       const branchEdges = {};
@@ -551,6 +564,8 @@ window.VineAISchema = {
         ...(nextEdge  ? { next:    nextEdge.toNode }  : {}),
         ...(trueEdge  ? { ifTrue:  trueEdge.toNode }  : {}),
         ...(falseEdge ? { ifFalse: falseEdge.toNode } : {}),
+        ...(goToWorkEdge ? { goToWork: goToWorkEdge.toNode } : {}),
+        ...(haveLifeEdge ? { haveLife: haveLifeEdge.toNode } : {}),
         ...branchEdges,
         _vine: { x: node.x, y: node.y },
       };

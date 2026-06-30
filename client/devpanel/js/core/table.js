@@ -125,6 +125,7 @@ async function openEdit(record, isNew) {
 
 function closeEdit() {
   document.getElementById('edit-panel').classList.remove('open');
+  document.getElementById('edit-body').innerHTML = '';
   currentRecord = null;
   // Clean up VINE editor if active (removes document-level key listeners)
   if (window._vineActiveEditor) {

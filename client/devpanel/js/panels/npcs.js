@@ -74,18 +74,22 @@ function renderNpcsPanel(data) {
 // --- Zone forms ---
 // Controls which entrance-discovery flavor-text bank a building uses
 // (server-side bank lives in commands.js, keyed by the same ids).
-function npcEditForm(rec, isNew) {
+async function npcEditForm(rec, isNew) {
   const tree = typeof rec.dialogue_tree === 'object' ? rec.dialogue_tree : JSON.parse(rec.dialogue_tree||'{}');
   const vendor = Array.isArray(rec.vendor_inventory) ? rec.vendor_inventory : JSON.parse(rec.vendor_inventory||'[]');
   const behaviourGraph = typeof rec.behaviour_graph === 'object' ? rec.behaviour_graph : JSON.parse(rec.behaviour_graph||'{}');
   const flags = typeof rec.flags === 'object' ? rec.flags : JSON.parse(rec.flags||'{}');
+  const zones = await API('/zones').catch(() => []);
+  const zoneList = Array.isArray(zones) ? [...zones].sort((a, b) => (a.id||'').localeCompare(b.id||'')) : [];
+  const homeZoneVal = rec.home_zone || 'zone_residential_lobby';
+  const homeZoneOpts = zoneList.map(z => `<option value="${z.id}" ${z.id===homeZoneVal?'selected':''}>${z.id}</option>`).join('');
   return `
     <div class="field"><label>NPC ID</label><input id="f-id" value="${isNew?'':rec.id}" ${!isNew?'readonly style="opacity:0.5"':''}></div>
     <div class="field"><label>Name</label><input id="f-name" value="${rec.name||''}"></div>
     <div class="field"><label>Description</label><textarea id="f-description">${rec.description||''}</textarea></div>
     <div class="field-row">
       <div class="field"><label>Zone ID</label><input id="f-zone_id" value="${rec.zone_id||''}"></div>
-      <div class="field"><label>Home Zone</label><input id="f-home_zone" value="${rec.home_zone||''}" placeholder="zone ID (optional)"></div>
+      <div class="field"><label>Home Zone</label><select id="f-home_zone">${homeZoneOpts}</select></div>
       <div class="field"><label>Faction</label><input id="f-faction" value="${rec.faction||''}"></div>
     </div>
     <div class="checkbox-field"><input type="checkbox" id="f-wanders" ${rec.wanders?'checked':''} onchange="document.getElementById('f-wander_zones-wrap').style.display=this.checked?'':'none'"><label>Wanders between zones</label></div>

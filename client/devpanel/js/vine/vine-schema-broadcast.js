@@ -185,6 +185,17 @@ const _bcNodeDefs = {
       ${_bField('Display label', _bInput('data.label', n.data.label, 'Downtown Plaza'))}`,
   },
 
+  tech_difficulties: {
+    label: 'Tech Difficulties',
+    color: '#993333',
+    defaultData: { duration: 10 },
+    renderBody: (n) => `<div style="font-size:11px;color:var(--text-dim)">${n.data.duration||10}s</div>`,
+    getOutPorts: () => [{ key:'next', label:'next' }],
+    renderProperties: (n, ed, id) => `
+      ${_bHelp(id,'Cuts to the channel\'s offline graphic (or a static placeholder if none is set) for N seconds, as if the broadcast had dropped out. Use this to author a deliberate technical-difficulties beat. The same display also triggers automatically when a live channel\'s cameras are all down or its anchor goes missing.')}
+      ${_bField('Duration (s)', `<input data-vine-field="data.duration" data-vine-type="number" type="number" min="1" step="1" value="${n.data.duration||10}" style="${_BS}">`)}`,
+  },
+
   break: {
     label: 'Break',
     color: '#444444',

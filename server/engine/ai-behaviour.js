@@ -5,6 +5,29 @@ import { getEnvironmentState } from './environment.js';
 import { emit } from './events.js';
 import { hasChannelViewers, isNpcScheduledNow, getNpcStudioZone } from './broadcast-bridge.js';
 
+// ── Chitchat ────────────────────────────────────────────────────────────────
+
+export const DEFAULT_CHITCHAT_LINES = [
+  'mutters something about the radiation levels.',
+  'checks a flickering wrist terminal.',
+  'cracks their knuckles.',
+  'hums an off-key tune.',
+  'glances at the nearest exit.',
+  'adjusts their collar.',
+  'stares blankly at the wall for a moment.',
+  'mumbles a complaint about the recycled air.',
+  'taps a foot impatiently.',
+  'sighs and checks the time.',
+  'scratches at an old scar.',
+  'cracks a thin, joyless smile.',
+];
+
+function pickChitchatLine(entity) {
+  const lines = Array.isArray(entity.chitchat) ? entity.chitchat : [];
+  if (lines.length) return lines[Math.floor(Math.random() * lines.length)];
+  return null; // SAY case falls back to the literal smoking line when this returns null
+}
+
 // ── Blackboard ────────────────────────────────────────────────────────────────
 
 export function initBlackboard() {
@@ -118,11 +141,13 @@ function normalizeGraph(graph) {
   const nodes = {};
 
   for (const [id, node] of Object.entries(graph.nodes)) {
-    const { type, next, ifTrue, ifFalse, _vine, ...fields } = node;
+    const { type, next, ifTrue, ifFalse, goToWork, haveLife, _vine, ...fields } = node;
 
-    if (next)    edges.push({ fromNode: id, fromPort: 'next',    toNode: next });
-    if (ifTrue)  edges.push({ fromNode: id, fromPort: 'ifTrue',  toNode: ifTrue });
-    if (ifFalse) edges.push({ fromNode: id, fromPort: 'ifFalse', toNode: ifFalse });
+    if (next)     edges.push({ fromNode: id, fromPort: 'next',     toNode: next });
+    if (ifTrue)   edges.push({ fromNode: id, fromPort: 'ifTrue',   toNode: ifTrue });
+    if (ifFalse)  edges.push({ fromNode: id, fromPort: 'ifFalse',  toNode: ifFalse });
+    if (goToWork) edges.push({ fromNode: id, fromPort: 'goToWork', toNode: goToWork });
+    if (haveLife) edges.push({ fromNode: id, fromPort: 'haveLife', toNode: haveLife });
 
     for (const k of Object.keys(fields)) {
       if (k.startsWith('branch_') && fields[k]) {
@@ -194,7 +219,7 @@ function evalCondition(node, entity) {
 
     // True if the NPC is already in their assigned studio zone
     case 'AT_WORK_ZONE': {
-      const studioZone = getNpcStudioZone(entity.id);
+      const studioZone = entity.studio_zone_id || getNpcStudioZone(entity.id);
       return studioZone ? zoneId === studioZone : false;
     }
 
@@ -356,11 +381,23 @@ async function execAction(node, entity, ctx) {
 
     case 'SAY': {
       if (!ai) break;
-      const msg = params.message || '';
-      if (!msg) break;
       const cooldown = (params.cooldown_s ?? 30) * 1000;
       if (params.once && ai.lastSay > 0) break;
       if (Date.now() - ai.lastSay < cooldown) break;
+
+      // Studio NPCs away from their assigned studio never deliver authored lines —
+      // they fall back to idle chitchat (or a generic smoking emote) instead.
+      if (entity.studio_zone_id && zoneId !== entity.studio_zone_id) {
+        const line = pickChitchatLine(entity);
+        ai.lastSay = Date.now();
+        broadcast(zoneId, line
+          ? { type: 'output', message: `<span style="color:var(--yellow)">${entity.name} says: "${line}"</span>` }
+          : { type: 'output', message: `<span style="color:var(--text-dim);font-style:italic">${entity.name} smokes a cigarette.</span>` });
+        break;
+      }
+
+      const msg = params.message || '';
+      if (!msg) break;
       ai.lastSay = Date.now();
       broadcast(zoneId, {
         type: 'output',
@@ -418,27 +455,32 @@ async function execAction(node, entity, ctx) {
     case 'GO_TO_WORK': {
       if (!ai) break;
       const { zone_id, arrive_by, depart_early_minutes = 0 } = params;
-      if (!zone_id || arrive_by == null) break;
+      const workZone = zone_id || entity.studio_zone_id || getNpcStudioZone(entity.id);
+      if (!workZone) break;
 
       // Already at work — let graph continue to work activity nodes
-      if (zoneId === zone_id) break;
+      if (zoneId === workZone) break;
 
-      const path = findPath(zoneId, zone_id);
-      if (!path || path.length < 2) return 'RUNNING'; // unreachable — hold and retry
-
-      const { minutes } = getEnvironmentState();
-      const travelMinutes = path.length - 1;
-      const arriveByMinutes = (arrive_by * 60) - depart_early_minutes;
-      const departMinutes = (arriveByMinutes - travelMinutes + 1440) % 1440;
-      const minutesUntilDept = (departMinutes - minutes + 1440) % 1440;
-
-      // Not time to leave yet — hold here so work activities don't start early
-      if (minutesUntilDept > travelMinutes + 5) return 'RUNNING';
+      // Explicit timing params: hold off until the commute window opens.
+      // No params (e.g. driven by CHECK_WORK, which already decided it's time): walk immediately.
+      if (zone_id && arrive_by != null) {
+        const path = findPath(zoneId, workZone);
+        if (!path || path.length < 2) return 'RUNNING'; // unreachable — hold and retry
+        const { minutes } = getEnvironmentState();
+        const travelMinutes = path.length - 1;
+        const arriveByMinutes = (arrive_by * 60) - depart_early_minutes;
+        const departMinutes = (arriveByMinutes - travelMinutes + 1440) % 1440;
+        const minutesUntilDept = (departMinutes - minutes + 1440) % 1440;
+        // Not time to leave yet — hold here so work activities don't start early
+        if (minutesUntilDept > travelMinutes + 5) return 'RUNNING';
+      }
 
       // Time to commute — step one zone toward destination
-      if (!ai.patrolPath.length || ai.patrolTarget !== zone_id) {
+      if (!ai.patrolPath.length || ai.patrolTarget !== workZone) {
+        const path = findPath(zoneId, workZone);
+        if (!path || path.length < 2) return 'RUNNING';
         ai.patrolPath = path.slice(1);
-        ai.patrolTarget = zone_id;
+        ai.patrolTarget = workZone;
         ai.patrolMode = 'walk';
       }
       const nextZone = ai.patrolPath[0];
@@ -450,6 +492,13 @@ async function execAction(node, entity, ctx) {
         query('UPDATE npcs SET zone_id=$1 WHERE id=$2', [entityZone(entity), entity.id]).catch(() => {});
       }
       return 'RUNNING';
+    }
+
+    // CHECK_WORK: branch to goToWork or haveLife based on the NPC's current schedule.
+    case 'CHECK_WORK': {
+      const studioZone = entity.studio_zone_id || getNpcStudioZone(entity.id);
+      if (!studioZone) return 'haveLife';
+      return isNpcScheduledNow(entity.id) ? 'goToWork' : 'haveLife';
     }
 
     case 'BROADCAST_SAY': {
@@ -507,6 +556,14 @@ async function execAction(node, entity, ctx) {
         ai._lifeActivity = null; // clear so next off-schedule period re-rolls
         break;
       }
+      // Small per-tick chance to emote or say a chitchat line, independent of movement.
+      if (Date.now() - ai.lastSay > 20000 && Math.random() < 0.05) {
+        ai.lastSay = Date.now();
+        const line = pickChitchatLine(entity);
+        broadcast(zoneId, line
+          ? { type: 'output', message: `<span style="color:var(--yellow)">${entity.name} says: "${line}"</span>` }
+          : { type: 'output', message: `<span style="color:var(--text-dim);font-style:italic">${entity.name} smokes a cigarette.</span>` });
+      }
       // Roll a random activity if none is set or we've arrived at the destination
       if (!ai._lifeActivity || (!ai.patrolPath.length && zoneId === ai.patrolTarget)) {
         ai._lifeActivity = Math.random() < 0.5 ? 'patrol' : 'home';
@@ -548,29 +605,6 @@ async function execAction(node, entity, ctx) {
       break; // does NOT return RUNNING — graph continues to GO_TO_WORK each tick
     }
 
-    // GO_TO_WORK: navigate to the NPC's studio zone when scheduled — skipped otherwise
-    case 'GO_TO_WORK': {
-      if (!ai) break;
-      if (!isNpcScheduledNow(entity.id)) break; // not on schedule — skip
-      const workZone = params?.zone_id || params?.studio_zone || getNpcStudioZone(entity.id);
-      if (!workZone || zoneId === workZone) break; // already there or no zone known
-
-      if (!ai.patrolPath.length || ai.patrolTarget !== workZone) {
-        const path = findPath(zoneId, workZone);
-        if (!path || path.length < 2) return 'RUNNING';
-        ai.patrolPath = path.slice(1);
-        ai.patrolTarget = workZone;
-      }
-      const nextZone = ai.patrolPath.shift();
-      if (!nextZone) return 'RUNNING';
-      const moved = moveEntity(entity, nextZone, broadcast, query);
-      if (!moved) { ai.patrolPath = []; ai.patrolTarget = null; }
-      else if (!isEnemy(entity) && query) {
-        query('UPDATE npcs SET zone_id=$1 WHERE id=$2', [entityZone(entity), entity.id]).catch(() => {});
-      }
-      return 'RUNNING';
-    }
-
     // AT_WORK: stay put during work hours — no-op so graph can loop and re-check schedule
     case 'AT_WORK': {
       // NPC is in studio during scheduled hours — just idle here.
@@ -604,7 +638,7 @@ async function execAction(node, entity, ctx) {
     // Walk to the studio zone the NPC is scheduled at (derived from broadcast schedule)
     case 'GO_TO_STUDIO': {
       if (!ai) break;
-      const studioZone = getNpcStudioZone(entity.id);
+      const studioZone = entity.studio_zone_id || getNpcStudioZone(entity.id);
       if (!studioZone || zoneId === studioZone) break; // already there or unscheduled
 
       if (!ai.patrolPath.length || ai.patrolTarget !== studioZone) {
@@ -675,10 +709,12 @@ export async function tickEntityAI(entity, ctx) {
 
       case 'action': {
         const result = await execAction(node, entity, ctx);
-        // RUNNING: stay at this node next tick. Otherwise advance cursor.
+        // RUNNING: stay at this node next tick. A string result (other than RUNNING) names
+        // the outgoing port to follow (e.g. CHECK_WORK's 'goToWork'/'haveLife'). Anything
+        // else (true/false/undefined from ordinary actions) falls back to the 'next' port.
         ai.currentNode = (result === 'RUNNING')
           ? nodeId
-          : resolveEdge(edges, nodeId, 'next');
+          : resolveEdge(edges, nodeId, typeof result === 'string' ? result : 'next');
         return;
       }
 

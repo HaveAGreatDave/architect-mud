@@ -7,6 +7,7 @@ import { openDialogue, closeDialogue, openShop } from './panels/dialogue.js';
 import { renderEquipPanel } from './panels/equipment.js';
 import { renderRecipesPanel } from './panels/recipes.js';
 import { renderStatsPanel } from './panels/stats.js';
+import { renderSkillsPanel } from './panels/skills.js';
 import { receiveWhisper, sentWhisper, receiveChannelMsg, initChannels, initChannelHistory, receiveMOTD, refreshOnlinePlayers } from './panels/whisper.js';
 import { openContainerPanel, refreshContainerPanel, getActiveContainerId, showContainerNotify } from './panels/container.js';
 import { openLootPanel, closeLootPanel } from './panels/loot.js';
@@ -202,7 +203,10 @@ const handlers = {
     if (msg.player) updateVitals(msg.player);
   },
 
-  skills: (msg) => { appendHtml(msg.message, 'help'); },
+  skills: (msg) => {
+    renderSkillsPanel(msg);
+    document.getElementById('skills-panel').classList.add('active');
+  },
   who: (msg) => { appendHtml(msg.message, 'help'); },
   help: (msg) => { appendHtml(msg.message, 'help'); },
   examine: (msg) => { appendHtml(msg.message, 'help'); },

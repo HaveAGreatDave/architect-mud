@@ -1,0 +1,78 @@
+<svg width="640" height="760" viewBox="0 0 640 760" xmlns="http://www.w3.org/2000/svg" font-family="'Courier New', Courier, monospace">
+  <defs>
+    <radialGradient id="core" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="22%" stop-color="#ff8fe6"/>
+      <stop offset="55%" stop-color="#ff2ec4"/>
+      <stop offset="100%" stop-color="#6e1957"/>
+    </radialGradient>
+    <linearGradient id="frame" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#28e5ff"/>
+      <stop offset="100%" stop-color="#ff2ec4"/>
+    </linearGradient>
+    <radialGradient id="halo" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ff2ec4" stop-opacity="0.45"/>
+      <stop offset="100%" stop-color="#ff2ec4" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="6" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="grit">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="7" result="n"/>
+      <feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.05 0"/>
+      <feComposite operator="over" in2="SourceGraphic"/>
+    </filter>
+  </defs>
+
+  <!-- void -->
+  <rect width="640" height="760" fill="#05050a"/>
+  <rect width="640" height="760" fill="url(#halo)" opacity="0.5"/>
+
+  <!-- faint blueprint grid -->
+  <g stroke="#28e5ff" stroke-width="0.5" opacity="0.07">
+    <path d="M0 120H640M0 230H640M0 470H640M0 580H640"/>
+    <path d="M120 0V760M230 0V760M410 0V760M520 0V760"/>
+  </g>
+
+  <!-- emblem: architect diamond framing the AI core -->
+  <g transform="translate(320 300)" filter="url(#grit)">
+    <!-- outer diamond / monolith struts -->
+    <g fill="none" stroke="url(#frame)" stroke-width="3" filter="url(#glow)">
+      <path d="M0 -210 L150 -60 L150 60 L0 210 L-150 60 L-150 -60 Z"/>
+      <path d="M0 -150 L100 -45 L100 45 L0 150 L-100 45 L-100 -45 Z" opacity="0.55"/>
+      <!-- corner brackets, echoing the ascii ┌─┐ -->
+      <path d="M-150 -60 H-200 M-150 60 H-200 M150 -60 H200 M150 60 H200"/>
+      <path d="M-200 -78 V-42 M200 -78 V-42 M-200 42 V78 M200 42 V78"/>
+    </g>
+
+    <!-- fracture lines — post-apocalyptic damage -->
+    <g stroke="#8888a8" stroke-width="1.2" opacity="0.5">
+      <path d="M-150 60 L-70 30 L-40 95 L10 70"/>
+      <path d="M150 -60 L95 -20 L120 25"/>
+    </g>
+
+    <!-- the AI eye / glowing core (the ██ block, reborn as an aperture) -->
+    <circle r="74" fill="url(#core)" filter="url(#glow)"/>
+    <g fill="none" stroke="#05050a" stroke-width="2.5">
+      <!-- iris aperture blades -->
+      <path d="M0 -64 L28 -20 L-28 -20 Z M0 64 L28 20 L-28 20 Z M-64 0 L-20 -28 L-20 28 Z M64 0 L20 -28 L20 28 Z"/>
+    </g>
+    <circle r="74" fill="none" stroke="#28e5ff" stroke-width="2" opacity="0.8"/>
+    <circle r="14" fill="#05050a"/>
+    <circle r="5" fill="#28e5ff"/>
+
+    <!-- scanline across the eye -->
+    <rect x="-74" y="-4" width="148" height="3" fill="#ffffff" opacity="0.35"/>
+  </g>
+
+  <!-- wordmark -->
+  <text x="320" y="588" text-anchor="middle" fill="#ffffff" font-size="74" font-weight="bold" letter-spacing="14" filter="url(#glow)">ARCHITECT</text>
+  <text x="320" y="588" text-anchor="middle" fill="#ff2ec4" font-size="74" font-weight="bold" letter-spacing="14" opacity="0.0">ARCHITECT</text>
+
+  <!-- shaded rule, echoing ░▒▓█▓▒░ -->
+  <text x="320" y="632" text-anchor="middle" fill="#ff2ec4" font-size="26" letter-spacing="2" opacity="0.85">░▒▓█▓▒░ ▒▓█ ▓▒░</text>
+
+  <!-- tagline -->
+  <text x="320" y="688" text-anchor="middle" fill="#8888a8" font-size="22" letter-spacing="3">The AI won. You survived. Probably.</text>
+</svg>

@@ -101,6 +101,7 @@ class VineEditor {
     this._toolbar.appendChild(mkBtn('↩', 'Undo (Ctrl+Z)', () => { if (this._history.undo()) this._renderAll(); }));
     this._toolbar.appendChild(mkBtn('↪', 'Redo (Ctrl+Y)', () => { if (this._history.redo()) this._renderAll(); }));
     this._toolbar.appendChild(mkBtn('⟳ Auto-layout', 'Arrange nodes left-to-right, minimise crossings', () => this._autoLayout()));
+    this._toolbar.appendChild(mkBtn('⬇ Layout Vertical', 'Arrange nodes top-to-bottom, packed to fit the most nodes on screen', () => this._autoLayoutVertical()));
 
     this._hideWiresBtn = mkBtn('Hide Wires', 'Toggle connection visibility', () => {
       this._edgesHidden = !this._edgesHidden;
@@ -331,7 +332,10 @@ class VineEditor {
 
   // ── Auto-layout (Sugiyama-lite) ────────────────────────────────────────────
 
-  _autoLayout() {
+  _autoLayout() { this._runAutoLayout(false); }
+  _autoLayoutVertical() { this._runAutoLayout(true); }
+
+  _runAutoLayout(vertical) {
     const nodes = this.graph.nodes;
     const edges = this.graph.edges;
     const ids = Object.keys(nodes);
@@ -417,10 +421,21 @@ class VineEditor {
     }
 
     // ── 5. Assign pixel positions.
-    const COL_W = 320, ROW_H = 180, OX = 40, OY = 60;
-    for (const id of ids) {
-      nodes[id].x = layer[id] * COL_W + OX;
-      nodes[id].y = rank[id]  * ROW_H + OY;
+    if (vertical) {
+      const ROW_H = 110, OX = 40, OY = 50;
+      const WRAP_COLS = Math.max(1, Math.ceil(Math.sqrt(Math.max(...cols.map(c => c.length)))));
+      const COL_W = 200;
+      for (const id of ids) {
+        const r = rank[id];
+        nodes[id].x = (r % WRAP_COLS) * COL_W + OX;
+        nodes[id].y = layer[id] * ROW_H + Math.floor(r / WRAP_COLS) * (ROW_H * 0.55) + OY;
+      }
+    } else {
+      const COL_W = 320, ROW_H = 180, OX = 40, OY = 60;
+      for (const id of ids) {
+        nodes[id].x = layer[id] * COL_W + OX;
+        nodes[id].y = rank[id]  * ROW_H + OY;
+      }
     }
     this._renderAll();
     requestAnimationFrame(() => { this._renderEdges(); this._fitToView(); });

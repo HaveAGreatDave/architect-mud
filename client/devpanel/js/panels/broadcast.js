@@ -903,7 +903,7 @@ async function _bcShowImportChannelModal(compiled) {
           </div>
         </div>
       </div>
-      <div style="padding:12px;background:var(--bg3);border-radius:2px;border:1px solid var(--border);display:flex;flex-direction:column;gap:8px">
+      <div id="bsm-studio-zone-section" style="padding:12px;background:var(--bg3);border-radius:2px;border:1px solid var(--border);display:flex;flex-direction:column;gap:8px">
         <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">Studio Zone <span style="color:var(--accent)">*</span></div>
         <div style="display:flex;align-items:center;gap:10px">
           <button class="action-btn" style="font-size:11px;white-space:nowrap" onclick="_bcImportPickChZone()">📍 Pick on map</button>
@@ -925,6 +925,11 @@ async function _bcShowImportChannelModal(compiled) {
 function _bcImportChSelectChange(val) {
   const form = document.getElementById('bsm-new-ch-form');
   if (form) form.style.display = val === '__new__' ? 'flex' : 'none';
+  const studioSection = document.getElementById('bsm-studio-zone-section');
+  if (studioSection) {
+    const existingCh = val && val !== '__new__' ? _bcChannels.find(c => c.id === val) : null;
+    studioSection.style.display = existingCh?.studio_zone_id ? 'none' : '';
+  }
 }
 
 let _bcZonePickerMode = 'map'; // 'map' | 'list'
@@ -1163,6 +1168,17 @@ async function _bcImportChannelConfirm() {
   const compiled = _bcImportPending;
   const isScripted = compiled.meta?.type === 'scripted';
   const sel = document.getElementById('bsm-ch-select')?.value || '';
+
+  if (sel && sel !== '__new__') {
+    const existingCh = _bcChannels.find(c => c.id === sel) || {};
+    if (existingCh.studio_zone_id) {
+      _bcImportChannelId = sel;
+      _bcImportStudioZoneId = existingCh.studio_zone_id;
+      document.getElementById('bsm-channel-overlay')?.remove();
+      await _bcImportDependencies(compiled);
+      return;
+    }
+  }
 
   if (!_bcImportChZone) { toast('Pick a studio zone on the map first.', true); return; }
 
@@ -1951,17 +1967,17 @@ async function _bcCommDelete(bcId) {
 
 // ── NPC helpers ───────────────────────────────────────────────────────────────
 
+// start -> CHECK_WORK -> (goToWork) -> GO_TO_WORK -> AT_WORK -> loop back to CHECK_WORK
+//                      -> (haveLife) -> HAVE_LIFE -> loop back to CHECK_WORK
 function _bcDefaultStudioGraph(studioZoneId = null) {
   return {
     _start: 'n_start',
     nodes: {
-      n_start:  { type: 'start',  next: 'n_life' },
-      n_life:   { type: 'action', action_type: 'HAVE_LIFE',  next: 'n_work' },
+      n_start:  { type: 'start',  next: 'n_check' },
+      n_check:  { type: 'action', action_type: 'CHECK_WORK', goToWork: 'n_work', haveLife: 'n_life' },
       n_work:   { type: 'action', action_type: 'GO_TO_WORK', params: studioZoneId ? { zone_id: studioZoneId } : {}, next: 'n_atwork' },
-      n_atwork: { type: 'action', action_type: 'AT_WORK',    next: 'n_gohome' },
-      n_gohome: { type: 'action', action_type: 'GO_HOME',    next: 'n_wait' },
-      n_wait:   { type: 'wait',   seconds: 30,               next: 'n_loop' },
-      n_loop:   { type: 'loop',   next: 'n_start' },
+      n_atwork: { type: 'action', action_type: 'AT_WORK',    next: 'n_check' },
+      n_life:   { type: 'action', action_type: 'HAVE_LIFE',  next: 'n_check' },
     },
   };
 }
@@ -2047,7 +2063,7 @@ function _bcNpcStatus(npc, npcSchedule) {
   return               { label: 'Not Scheduled', color: 'var(--text-dim)' };
 }
 
-function _bcNpcOpenSidebar(npcId) {
+async function _bcNpcOpenSidebar(npcId) {
   if (!_bcNpcCache) return;
   const npc = _bcNpcCache.npcs.find(n => n.id === npcId);
   if (!npc) return;
@@ -2059,7 +2075,7 @@ function _bcNpcOpenSidebar(npcId) {
   const editFooter = editPanel?.querySelector('.edit-footer');
   if (!editPanel || !editBody) return;
   editTitle.textContent = `NPC: ${npc.name}`;
-  editBody.innerHTML = npcEditForm(npc, false);
+  editBody.innerHTML = await npcEditForm(npc, false);
   if (editFooter) {
     editFooter.innerHTML = `
       <button class="action-btn success" style="flex:1" onclick="_bcNpcSaveSidebar('${escHtml(npcId)}')">Save NPC</button>

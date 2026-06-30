@@ -59,18 +59,34 @@ async function cmdStats(player) {
 }
 
 async function cmdSkills(player) {
-  const skills = await getPlayerSkills(player.id);
-  let msg = '<span class="skills-header">SKILLS</span>\n\n';
-  for (const cat of ['combat','survival','tech','social','arcane']) {
-    msg += `<span class="skill-category">${cat.toUpperCase()}</span>\n`;
-    for (const skill of Object.values(SKILLS).filter(s=>s.category===cat)) {
-      const data = skills[skill.id] || { level:0, ip:0 };
-      const bars = Math.min(10, data.level);
-      msg += `  ${skill.name.padEnd(20)} [${'█'.repeat(bars)}${'░'.repeat(10-bars)}] ${data.level}/10 (${data.ip} IP)\n`;
-    }
-    msg += '\n';
-  }
-  return { type:'skills', message:msg };
+  const { rows } = await query('SELECT * FROM players WHERE id=$1', [player.id]);
+  const p = rows[0];
+  if (!p) return { type:'error', message:'Could not load skills.' };
+  const playerSkills = await getPlayerSkills(player.id);
+  const STAT_LABEL = { stat_brawn:'BRW', stat_reflexes:'RFL', stat_brains:'BRN', stat_cool:'COO', stat_endurance:'END' };
+
+  const groups = ['combat','survival','tech','social','arcane'].map(cat => ({
+    category: cat,
+    skills: Object.values(SKILLS).filter(s => s.category === cat).map(s => {
+      const ip = playerSkills[s.id]?.ip || 0;
+      const level = Math.floor(ip / 100);
+      const statBonus = Math.floor(s.stats.reduce((sum, c) => sum + (p[c] || 0), 0) / s.stats.length);
+      const buff = 0;
+      return {
+        name: s.name,
+        desc: s.desc,
+        stats: s.stats.map(c => STAT_LABEL[c] || c),
+        ip,
+        ipValue: (ip / 100).toFixed(2),
+        level,
+        statBonus,
+        buff,
+        final: level + statBonus + buff,
+      };
+    }),
+  }));
+
+  return { type:'skills', groups };
 }
 
 const BODY_SLOTS = ['head','torso','hands','legs','feet'];

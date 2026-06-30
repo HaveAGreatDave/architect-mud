@@ -63,7 +63,7 @@ function compileBsm(text) {
   const DIRECTIVE_PREFIXES = [
     '@', '::', 'EVENT ', 'TITLE ', 'TICKER', 'WAIT', 'NPC ', 'OVERLAY',
     'SHOT', 'SHOT_END', 'TICKER_END', 'OVERLAY_END', 'LOWER_THIRD_END', 'MUSIC_END', 'END', 'CAM ', 'ROOM ', 'LOWER_THIRD',
-    'MUSIC', 'ENTER ', 'ACTION', 'END_ACTION', '♪',
+    'MUSIC', 'ENTER ', 'ACTION', 'END_ACTION', '♪', 'TECH_DIFFICULTIES ',
   ];
 
   const BARE_DURATION_RE = /^(\d+(?:\.\d+)?)s?$/;  // "8s", "2s", "1.5s", "8"
@@ -122,6 +122,12 @@ function compileBsm(text) {
     // ── EVENT (placeholder node for future VINE node types) ──────────────────
     if (ln.startsWith('EVENT ')) {
       makeNode({ type: 'event', event_type: ln.slice(6).trim() });
+      i++; continue;
+    }
+
+    // ── TECH_DIFFICULTIES — channel offline graphic for N seconds ───────────
+    if (ln.startsWith('TECH_DIFFICULTIES ')) {
+      makeNode({ type: 'tech_difficulties', duration: parseFloat(ln.slice(19)) || 10 });
       i++; continue;
     }
 
