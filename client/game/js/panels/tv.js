@@ -423,13 +423,12 @@ function _startTickerAnimation() {
   }, { once: true });
 }
 
-const TUNE_DEG_PER_CHANNEL = 36; // degrees of rotation per channel unit (360° = 10 channels)
 
 export function initTvPanel() {
   document.getElementById('tv-close-btn').addEventListener('click', shutdownTvPanel);
   window.addEventListener('game-disconnect', () => { if (_tvOpen) shutdownTvPanel(); });
 
-  // Knob: click cycles channels; circular drag tunes by angle
+  // Knob: circular drag tunes, click cycles channels
   const knob = document.getElementById('tv-knob');
   let _knobDragging = false;
   let _knobLastAngle = 0;
@@ -457,13 +456,11 @@ export function initTvPanel() {
     if (!_knobDragging) return;
     const angle = _angleFromCenter(e);
     let dAngle = angle - _knobLastAngle;
-    // Wrap shortest-arc so crossing ±180° doesn't jump
     if (dAngle > 180) dAngle -= 360;
     if (dAngle < -180) dAngle += 360;
     _knobLastAngle = angle;
     if (Math.abs(dAngle) > 0.5) _knobMoved = true;
-    // Accumulate directly onto current frequency — smooth, full-rotation capable
-    const rawFreq = _tvFrequency + dAngle / TUNE_DEG_PER_CHANNEL;
+    const rawFreq = _tvFrequency + dAngle / 36;
     const clamped = Math.round(((rawFreq % TV_DIAL_MAX) + TV_DIAL_MAX) % TV_DIAL_MAX * 20) / 20;
     tvTunerInput(clamped);
   });

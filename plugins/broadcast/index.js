@@ -888,15 +888,13 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
         const style_say = node.data?.style || 'raw';
         const isNarration = style_say === 'narration';
         const isAmbient   = style_say === 'ambient';
-        if (state.channelType === 'live' && state.studioZoneId) {
+        if (state.studioZoneId) {
           if (!isNarration && !isAmbient && bb.npcAnchor) {
-            // NPC dialogue → room as coloured speech
             sendToZone(state.studioZoneId, {
               type: 'output',
               message: `<span style="color:var(--yellow)">${bb.npcAnchor} says, "${raw}"</span>`,
             });
           } else if (isAmbient) {
-            // MUSIC / ♪ lines → room as plain italic ambient text
             sendToZone(state.studioZoneId, {
               type: 'output',
               message: `<span style="color:var(--text-dim);font-style:italic">${raw}</span>`,
@@ -916,7 +914,7 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
         bb.waitUntil = nowMs + 3000;
         const key_act = `action:${channelId}:${nodeId}:${nowMs}`;
         const emoteText = bb.npcAnchor ? `${bb.npcAnchor} ${emote}` : emote;
-        if (state.channelType === 'live' && state.studioZoneId) {
+        if (state.studioZoneId) {
           sendToZone(state.studioZoneId, { type: 'output', message: `<span style="color:var(--text-dim);font-style:italic">${emoteText}</span>` });
         }
         return { text: emoteText, key: key_act, style: 'raw' };
@@ -1083,7 +1081,7 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
         bb.currentNode = _resolveEdge(edges, nodeId, 'next');
         bb.waitUntil = nowMs + 3000;
         // Always send to room as ambient text AND return to TV — never live_relay
-        if (state.channelType === 'live' && state.studioZoneId) {
+        if (state.studioZoneId) {
           sendToZone(state.studioZoneId, { type: 'output', message: `<span style="color:var(--text-dim);font-style:italic">${evText}</span>` });
         }
         return { text: evText, key: `event:${channelId}:${nodeId}:${nowMs}`, style: 'raw' };
