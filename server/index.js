@@ -51,6 +51,7 @@ import { initEnvironment, getHUDPayload, getZoneTemperature } from "./engine/env
 import { getPlayerChannels, getChannelHistory } from "./engine/channels.js";
 import { getMotd } from "./engine/motd.js";
 import { openShopSession, closeShopSession } from "./engine/vendor-session.js";
+import { getSoundReach } from "./engine/sounds.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
@@ -298,6 +299,9 @@ wss.on("connection", (ws) => {
 						},
 						session.playerId,
 					);
+					for (const [zoneId, dist] of getSoundReach(player.current_zone, 2.0)) {
+						if (dist > 0) broadcast(zoneId, { type: 'ambient', message: `<span class="msg-ambient msg-ambient-distant">Nearby, someone goes quiet.</span>` });
+					}
 					await activateForcefield(player, broadcast);
 					await query(
 						"UPDATE players SET last_seen=EXTRACT(EPOCH FROM NOW()), current_zone=$1, offline_sleeping=TRUE WHERE id=$2",
@@ -632,6 +636,9 @@ async function finishAuth(ws, session, player) {
 		{ type: "zone_event", message: `${player.handle} has arrived.` },
 		player.id,
 	);
+	for (const [zoneId, dist] of getSoundReach(livePlayer.current_zone, 2.0)) {
+		if (dist > 0) broadcast(zoneId, { type: 'ambient', message: `<span class="msg-ambient msg-ambient-distant">Nearby, someone stirs.</span>` });
+	}
 	let envHUD = null;
 	try {
 		envHUD = { ...getHUDPayload(), tempC: getZoneTemperature(livePlayer.current_zone) };

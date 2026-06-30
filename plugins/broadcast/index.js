@@ -365,11 +365,36 @@ async function getCurrentMessage(state, nowMs) {
         if (r) r.programName = item.broadcastName || null;
         return r;
       }
-      // Flat messages — loop within the slot duration
+      // Flat messages — loop within the slot duration, inserting a random commercial between cycles
       const cycleDur = item.messages.length * (item.message_interval || 5);
-      const loopedElapsed = cycleDur > 0 ? segElapsed % cycleDur : segElapsed;
-      const result = getScriptedMessage(item.messages, item.message_interval, loopedElapsed);
-      if (result) return { text: result.text, key: `${item.broadcastId}:${result.idx}`, programName: item.broadcastName || null };
+      if (cycleDur > 0) {
+        const ads = state.commercialBroadcasts || [];
+        if (ads.length > 0) {
+          // Walk cycles: [broadcast cycleDur] [commercial adDur] [broadcast ...] ...
+          let t = 0;
+          let cycleNum = 0;
+          while (true) {
+            if (segElapsed < t + cycleDur) {
+              const result = getScriptedMessage(item.messages, item.message_interval, segElapsed - t);
+              if (result) return { text: result.text, key: `${item.broadcastId}:${result.idx}`, programName: item.broadcastName || null };
+              return null;
+            }
+            const ad = ads[cycleNum % ads.length];
+            const adDur = ad.messages.length * (ad.message_interval || 5);
+            if (segElapsed < t + cycleDur + adDur) {
+              const adElapsed = segElapsed - (t + cycleDur);
+              const adResult = getScriptedMessage(ad.messages, ad.message_interval || 5, adElapsed);
+              if (adResult) return { text: adResult.text, key: `commercial:${ad.id}:${adResult.idx}`, programName: item.broadcastName || null };
+              return null;
+            }
+            t += cycleDur + adDur;
+            cycleNum++;
+          }
+        }
+        const loopedElapsed = segElapsed % cycleDur;
+        const result = getScriptedMessage(item.messages, item.message_interval, loopedElapsed);
+        if (result) return { text: result.text, key: `${item.broadcastId}:${result.idx}`, programName: item.broadcastName || null };
+      }
     }
     // Nothing scheduled right now — fall through to idle
     state.currentProgramName = null;

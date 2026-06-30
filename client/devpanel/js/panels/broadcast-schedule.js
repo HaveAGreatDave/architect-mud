@@ -384,7 +384,7 @@ async function _schedSaveChMeta() {
 function _schedBuildTimeline() {
   const w = _schedW();
   // Ruler
-  let ruler = `<div style="position:relative;width:${w}px;height:24px;flex-shrink:0;border-bottom:1px solid var(--border);margin-bottom:2px">`;
+  let ruler = `<div id="sched-ruler" style="position:relative;width:${w}px;height:24px;flex-shrink:0;border-bottom:1px solid var(--border);margin-bottom:2px">`;
   for (let h = 0; h <= 24; h++) {
     const x = _schedToX(h * 3600);
     ruler += `<div style="position:absolute;left:${x}px;top:0;height:100%;border-left:1px solid var(--border);padding-left:3px;font-size:10px;color:var(--text-dim);line-height:24px">${String(h).padStart(2,'0')}:00</div>`;
@@ -667,6 +667,19 @@ function _schedRenderTimeline() {
   const w = _schedW();
   tl.style.width = w + 'px';
   tl.innerHTML = '<div id="sched-drop-line"></div><div id="sched-now-line" style="position:absolute;top:0;bottom:0;width:2px;background:var(--accent);opacity:0.7;pointer-events:none;z-index:5"></div>' + items;
+
+  // Rebuild ruler ticks at new zoom level
+  const rulerEl = document.getElementById('sched-ruler');
+  if (rulerEl) {
+    rulerEl.style.width = w + 'px';
+    let rulerHtml = '';
+    for (let h = 0; h <= 24; h++) {
+      const x = _schedToX(h * 3600);
+      rulerHtml += `<div style="position:absolute;left:${x}px;top:0;height:100%;border-left:1px solid var(--border);padding-left:3px;font-size:10px;color:var(--text-dim);line-height:24px">${String(h).padStart(2,'0')}:00</div>`;
+    }
+    rulerEl.innerHTML = rulerHtml;
+  }
+
   _schedUpdateNowLine();
 }
 

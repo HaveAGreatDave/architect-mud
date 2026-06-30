@@ -309,7 +309,7 @@
     const c = ensureContext();
     if (!c) return null;
     try {
-      const res = await fetch(`/audio/samples/${def.id}/data`);
+      const res = await fetch(`/api/audio/samples/${def.id}/data`);
       const { data } = await res.json();
       const bytes = Uint8Array.from(atob(data), ch => ch.charCodeAt(0));
       const raw = await c.decodeAudioData(bytes.buffer);
