@@ -18,11 +18,19 @@ async function cmdStats(player) {
   const { rows } = await query('SELECT * FROM players WHERE id=$1', [player.id]);
   const p = rows[0];
   if (!p) return { type:'error', message:'Could not load stats.' };
-  const radBar = `[${'█'.repeat(Math.floor(p.radiation/10))}${'░'.repeat(10-Math.floor(p.radiation/10))}]`;
-  let msg = `<span class="stats-header">${p.handle}</span> — ${p.archetype||'unknown'}\n\n`;
-  msg += `HP:     ${p.hp}/${p.hp_max}\nSanity: ${p.sanity}/${p.sanity_max}\nHunger: ${p.hunger}/100\nThirst: ${p.thirst}/100\nRAD:    ${radBar} ${p.radiation}/100\n\n`;
   const { total, net } = await getNetXp(player.id);
-  msg += `BRAWN:${p.stat_brawn}  REFL:${p.stat_reflexes}  BRNS:${p.stat_brains}\nCOOL:${p.stat_cool}  END:${p.stat_endurance}\n\nCarry: ${formatWeight(carryCapacity(p))} max\n\nXP: ${Math.floor(net)} (Total: ${total})  Credits: ${p.credits}`;
+
+  const playerSkills = await getPlayerSkills(player.id);
+  const STAT_ABBR = { stat_brawn:'BRW', stat_reflexes:'REF', stat_brains:'BRN', stat_cool:'COO', stat_endurance:'END' };
+  const skillGroups = ['combat','survival','tech','social','arcane'].map(cat => ({
+    category: cat,
+    skills: Object.values(SKILLS).filter(s => s.category === cat)
+      .map(s => ({
+        name: s.name,
+        level: playerSkills[s.id]?.level || 0,
+        stats: s.stats.map(c => STAT_ABBR[c] || c),
+      })),
+  }));
 
   const statusFlags = [];
   if (player.sleeping) statusFlags.push('Asleep');
@@ -31,9 +39,23 @@ async function cmdStats(player) {
   if (player.hydratedUntil && Date.now() < player.hydratedUntil) statusFlags.push('Hydrated');
   if (p.covered_in_blood) statusFlags.push('Covered in blood');
   statusFlags.push(...statusLabels(player));
-  if (statusFlags.length) msg += `\n\n<span class="status-flags">${statusFlags.join(' · ')}</span>`;
 
-  return { type:'stats', message:msg, player:p };
+  return {
+    type: 'stats',
+    stats: {
+      handle: p.handle,
+      archetype: p.archetype || 'No Archetype',
+      brawn: p.stat_brawn, reflexes: p.stat_reflexes, brains: p.stat_brains,
+      cool: p.stat_cool, endurance: p.stat_endurance,
+      carry: formatWeight(carryCapacity(p)),
+      net_xp: Math.floor(net), total_xp: total, credits: p.credits,
+      stat_cost: statCost(0),
+      created_at: p.created_at,
+      skills: skillGroups,
+      status: statusFlags,
+    },
+    player: p,
+  };
 }
 
 async function cmdSkills(player) {

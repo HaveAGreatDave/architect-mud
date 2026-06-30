@@ -23,6 +23,7 @@ import { state } from "./state.js";
 import { initInput } from "./input.js";
 import { initEquipPanel } from "./panels/equipment.js";
 import { initRecipesPanel } from "./panels/recipes.js";
+import { initStatsPanel } from "./panels/stats.js";
 import { initContainerPanel } from "./panels/container.js";
 import { initLootPanel } from "./panels/loot.js";
 import { initDialogue } from "./panels/dialogue.js";
@@ -335,6 +336,7 @@ initInput();
 // Panels
 initEquipPanel();
 initRecipesPanel();
+initStatsPanel();
 initContainerPanel();
 initLootPanel();
 initDialogue();
