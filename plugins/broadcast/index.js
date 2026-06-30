@@ -915,11 +915,11 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
         bb.currentNode = _resolveEdge(edges, nodeId, 'next');
         bb.waitUntil = nowMs + 3000;
         const key_act = `action:${channelId}:${nodeId}:${nowMs}`;
-        // Send as ambient text to studio zone (no NPC attribution), and return text directly to TV
+        const emoteText = bb.npcAnchor ? `${bb.npcAnchor} ${emote}` : emote;
         if (state.channelType === 'live' && state.studioZoneId) {
-          sendToZone(state.studioZoneId, { type: 'output', message: `<span style="color:var(--text-dim);font-style:italic">${emote}</span>` });
+          sendToZone(state.studioZoneId, { type: 'output', message: `<span style="color:var(--text-dim);font-style:italic">${emoteText}</span>` });
         }
-        return { text: emote, key: key_act, style: 'raw' };
+        return { text: emoteText, key: key_act, style: 'raw' };
       }
 
       case 'ticker': {

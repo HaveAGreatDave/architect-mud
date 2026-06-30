@@ -270,7 +270,7 @@ function compileBsm(text) {
       const raw = ln.slice(6).trim();
       const npc = raw.startsWith('npc_') ? raw : `npc_${raw}`;
       if (npc !== activeNpc) { makeNode({ type: 'npc_anchor', npc_id: npc }); activeNpc = npc; }
-      makeNode({ type: 'npc_action', message: 'enters' });
+      makeNode({ type: 'npc_action', message: 'enters the frame.' });
       i++; continue;
     }
 

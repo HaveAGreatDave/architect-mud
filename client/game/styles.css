@@ -4144,25 +4144,24 @@ body {
 	inset: 0;
 	pointer-events: none;
 	overflow: hidden;
-	z-index: 10;
-}
-/* Lower-third nameplate */
-.tv-overlay-text-card {
-	position: absolute;
-	inset: 0;
+	z-index: 50;
 	display: flex;
 	align-items: center;
 	justify-content: center;
+}
+/* Lower-third nameplate */
+.tv-overlay-text-card {
 	text-align: center;
-	background: rgba(0, 0, 0, 0.82);
+	background: rgba(0, 0, 0, 0.88);
 	color: var(--tv-text, #e0e0e0);
 	font-size: 15px;
 	font-weight: 600;
 	line-height: 1.6;
 	letter-spacing: 0.04em;
-	padding: 24px;
+	padding: 28px 36px;
 	white-space: pre-wrap;
 	border: 2px solid var(--tv-header-color, #aaa);
+	max-width: 80%;
 	animation: tv-lt-slide-in 0.3s ease-out;
 }
 
