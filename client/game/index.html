@@ -15,21 +15,34 @@
 			) {
 				document.write("<style>#auth-screen{display:none}</style>");
 			}
-			// Apply sidebar position before first paint to avoid layout flash.
+			// Apply saved theme/layout before first paint so the default
+			// template never flashes on refresh (the module that calls
+			// applySettings is deferred and runs after first paint).
 			(function () {
+				var root = document.documentElement;
 				try {
 					var s = JSON.parse(
 						localStorage.getItem("architect_settings") || "{}",
 					);
-					document.documentElement.setAttribute(
-						"data-sidebar",
-						s.sidebarPosition || "left",
+					root.setAttribute("data-sidebar", s.sidebarPosition || "left");
+					root.setAttribute("data-density", s.density || "comfortable");
+					root.setAttribute("data-motion", s.motion || "on");
+					root.style.setProperty(
+						"--font-size-base",
+						(s.fontSize || "14") + "px",
 					);
+					var custom = (s.customThemes || []).find(function (t) {
+						return t.id === s.theme;
+					});
+					root.setAttribute("data-theme", custom ? "dark" : s.theme || "dark");
+					if (custom && custom.colors) {
+						Object.keys(custom.colors).forEach(function (v) {
+							root.style.setProperty(v, custom.colors[v]);
+						});
+					}
 				} catch (e) {
-					document.documentElement.setAttribute(
-						"data-sidebar",
-						"left",
-					);
+					root.setAttribute("data-sidebar", "left");
+					root.setAttribute("data-theme", "dark");
 				}
 			})();
 		</script>
