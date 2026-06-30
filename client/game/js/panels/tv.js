@@ -51,6 +51,27 @@ function _setStaticAudio(fraction, rampSeconds) {
   window.AudioEngine?.setLoopGain(TV_STATIC_DEF.id, fraction, rampSeconds);
 }
 
+// Classic CRT power-on "thunk": a fast low-to-high pitch rise (degaussing
+// coil whine) with a touch of noise for grit. One-shot, local-only — fires
+// alongside the existing power-on warm-up animation in _playCrtPowerOn().
+const TV_POWER_ON_DEF = {
+  id: 'tv_power_on_local', category: 'tv', priority: 3,
+  config: { waveform: 'triangle', freq: 80, duration: 0.35, noiseMix: 0.3,
+    pitchBend: { to: 600, time: 0.25 },
+    filter: { type: 'lowpass', freq: 3000, q: 1 },
+    adsr: { a: 0.005, d: 0.15, s: 0.3, r: 0.15 } },
+};
+
+// Power-off "zap": the reverse — a quick high-to-low pitch drop as the CRT
+// collapses, timed with the vertical-collapse animation in shutdownTvPanel().
+const TV_POWER_OFF_DEF = {
+  id: 'tv_power_off_local', category: 'tv', priority: 3,
+  config: { waveform: 'triangle', freq: 900, duration: 0.3, noiseMix: 0.2,
+    pitchBend: { to: 40, time: 0.25 },
+    filter: { type: 'lowpass', freq: 4000, q: 1 },
+    adsr: { a: 0.001, d: 0.05, s: 0.2, r: 0.2 } },
+};
+
 export function openTvPanel(data) {
   const wasAlreadyOn = _tvOpen;
   // The server echoes a tv_panel message back after every player-initiated tune
@@ -175,6 +196,7 @@ function _playCrtPowerOn() {
   staticEl.style.opacity = '1';
   staticEl.classList.add('tv-static-on');
   _setStaticAudio(1);
+  window.AudioEngine?.playSfx(TV_POWER_ON_DEF);
 
   win.classList.remove('tv-powering-on');
   win.offsetWidth; // force reflow to restart animation
@@ -238,11 +260,14 @@ export function shutdownTvPanel() {
   const staticEl = document.getElementById('tv-static');
   staticEl.classList.remove('tv-static-fade');
   staticEl.classList.add('tv-static-on');
+  _setStaticAudio(1);
 
   setTimeout(() => {
     staticEl.classList.remove('tv-static-on');
+    _setStaticAudio(0, 0.1);
     const win = document.getElementById('tv-window');
     win.classList.add('tv-shutting-off');
+    window.AudioEngine?.playSfx(TV_POWER_OFF_DEF);
     win.addEventListener('animationend', () => closeTvPanel(), { once: true });
   }, 280);
 }
@@ -481,34 +506,47 @@ export function initTvPanel() {
   document.getElementById('tv-close-btn').addEventListener('click', shutdownTvPanel);
   window.addEventListener('game-disconnect', () => { if (_tvOpen) shutdownTvPanel(); });
 
-  // Knob: circular drag tunes, click cycles channels
-  // Uses tangent-projection: mouse delta is projected onto the clockwise tangent of the
-  // knob line at its current angle, so all 360° feel equally responsive.
+  // Knob: circular drag tunes, click cycles channels.
+  // Tracks the mouse's actual angle around the knob's center frame-to-frame, so
+  // dragging in a circle maps 1:1 onto dial rotation regardless of drag radius.
+  // A center deadzone guards against the classic rotary-drag failure mode: near
+  // the pivot, a tiny mouse movement subtends a huge angle and the dial spins
+  // wildly — so angle updates are skipped while the cursor is too close in.
   const knob = document.getElementById('tv-knob');
   let _knobDragging = false;
   let _knobMoved = false;
+  let _knobLastAngle = 0;
+  const KNOB_DEADZONE_PX = 10;
+
+  function _angleFromCenter(e) {
+    const rect = knob.getBoundingClientRect();
+    const dx = e.clientX - (rect.left + rect.width / 2);
+    const dy = e.clientY - (rect.top + rect.height / 2);
+    if (Math.hypot(dx, dy) < KNOB_DEADZONE_PX) return null;
+    return Math.atan2(dx, -dy); // 0 = straight up, increases clockwise
+  }
 
   knob.addEventListener('mousedown', (e) => {
     if (!_tvOpen) return;
     _knobDragging = true;
     _knobMoved = false;
     _dialRaw = _tvFrequency; // resync the unquantized accumulator to wherever the dial actually is
+    _knobLastAngle = _angleFromCenter(e);
     e.preventDefault();
   });
 
   document.addEventListener('mousemove', (e) => {
     if (!_knobDragging) return;
-    // Knob line direction (0 freq = 12 o'clock = -π/2 from +X axis in screen coords)
-    const kRad = (_dialRaw / TV_DIAL_MAX) * 2 * Math.PI - Math.PI / 2;
-    // Clockwise tangent at this angle: perpendicular 90° CW from the line
-    const tx = -Math.sin(kRad);
-    const ty =  Math.cos(kRad);
-    // Component of mouse movement in the tangent direction
-    const dot = e.movementX * tx + e.movementY * ty;
-    if (Math.abs(dot) > 0.3) _knobMoved = true;
-    // Accumulate on the unquantized value so small/slow movements aren't lost to
-    // rounding each frame — only the display/lock value snaps to 0.05 steps.
-    _dialRaw = ((_dialRaw + dot * 0.02) % TV_DIAL_MAX + TV_DIAL_MAX) % TV_DIAL_MAX;
+    const angle = _angleFromCenter(e);
+    if (angle === null || _knobLastAngle === null) { _knobLastAngle = angle; return; }
+    let delta = angle - _knobLastAngle;
+    // Normalize across the ±π seam so crossing it doesn't register as a near-full spin
+    while (delta > Math.PI) delta -= 2 * Math.PI;
+    while (delta < -Math.PI) delta += 2 * Math.PI;
+    _knobLastAngle = angle;
+    if (Math.abs(delta) > 0.02) _knobMoved = true;
+    const freqDelta = (delta / (2 * Math.PI)) * TV_DIAL_MAX;
+    _dialRaw = ((_dialRaw + freqDelta) % TV_DIAL_MAX + TV_DIAL_MAX) % TV_DIAL_MAX;
     const clamped = Math.round(_dialRaw * 20) / 20;
     tvTunerInput(clamped);
   });

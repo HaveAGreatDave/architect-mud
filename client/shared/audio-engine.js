@@ -76,21 +76,25 @@
     return c;
   }
 
+  function _masterTarget() {
+    if (_hiddenDucked) return 0;
+    return _settings.enabled ? (_settings.masterVolume ?? 1) : 0;
+  }
+
   if (typeof document !== 'undefined') {
     document.addEventListener('visibilitychange', () => {
       if (!ctx) return;
       const shouldDuck = document.hidden && _settings.muteWhenHidden;
       if (shouldDuck === _hiddenDucked) return;
       _hiddenDucked = shouldDuck;
-      masterGain.gain.setTargetAtTime(shouldDuck ? 0 : (_settings.enabled ? 1 : 0), ctx.currentTime, 0.05);
+      masterGain.gain.setTargetAtTime(_masterTarget(), ctx.currentTime, 0.05);
     });
   }
 
   function _applyGains() {
     if (!ctx) return;
     const t = ctx.currentTime;
-    const masterTarget = _hiddenDucked ? 0 : (_settings.enabled ? 1 : 0);
-    masterGain.gain.setTargetAtTime(masterTarget, t, 0.02);
+    masterGain.gain.setTargetAtTime(_masterTarget(), t, 0.02);
     musicGain.gain.setTargetAtTime(_settings.music ? _settings.musicVolume : 0, t, 0.02);
     sfxGain.gain.setTargetAtTime(_settings.sfx ? _settings.sfxVolume : 0, t, 0.02);
     ambientGain.gain.setTargetAtTime(_settings.ambientVolume ?? 0.5, t, 0.02);
@@ -289,7 +293,12 @@
     const idx = allocateVoice(priority);
     if (idx === -1) return;
     const time = c.currentTime;
-    const sound = buildSound(def.config || {}, busFor(def.category || 'ambient'), time, null);
+    // Loops are inherently ambient-type sound (one-shots use playSfx instead),
+    // so they default to the Ambient bus/volume regardless of their content
+    // category (e.g. an audio_ambient row tagged "environment") — 'tv' is the
+    // one deliberate override, so CRT hum/static answer to the TV Audio toggle
+    // instead of the generic Ambient slider.
+    const sound = buildSound(def.config || {}, busFor(def.category === 'tv' ? 'tv' : 'ambient'), time, null);
     const baseGain = def.config?.gain ?? 1;
     activeLoops.set(id, { voiceIdx: idx, release: sound.release, gainNode: sound.gainNode, baseGain });
     occupyVoice(idx, priority, () => { sound.release(c.currentTime); activeLoops.delete(id); });

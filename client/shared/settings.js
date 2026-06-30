@@ -196,6 +196,23 @@ export function applySettings(settings) {
 
   const audio = settings.audio || DEFAULT_AUDIO_SETTINGS;
   window.AudioEngine?.applyVolumeSettings(audio);
+
+  // The master Sound switch lives behind the hidden MIS-style reveal in
+  // index.html (its own inline <script>, not this module) — sync its visual
+  // state here too so it doesn't go stale on cross-tab updates or anything
+  // else that calls applySettings() without going through that inline script.
+  const soundCheckbox = document.getElementById('settings-sound-enabled');
+  if (soundCheckbox && soundCheckbox.checked !== !!audio.enabled) {
+    soundCheckbox.checked = !!audio.enabled;
+    const track = document.getElementById('sound-slider-track');
+    const thumb = document.getElementById('sound-slider-thumb');
+    if (track) track.style.background = audio.enabled ? 'var(--accent)' : 'var(--border)';
+    if (thumb) {
+      thumb.style.left = audio.enabled ? '19px' : '3px';
+      thumb.style.background = audio.enabled ? '#000' : 'var(--text-dim)';
+    }
+  }
+
   for (const toggle of ['music', 'sfx', 'tv', 'muteWhenHidden']) {
     const container = document.getElementById(`opt-audio-${toggle}`);
     if (!container) continue;
