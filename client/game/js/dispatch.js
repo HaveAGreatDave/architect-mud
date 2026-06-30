@@ -18,7 +18,6 @@ import { openAtmPanel, closeAtmPanel, updateAtmPanel } from './panels/atm.js';
 import { openMediaDeckPanel } from './panels/mediadeck.js';
 import { openTvPanel, isTvOpen, getTvActiveChannelId, appendTvMessage, updateTvTicker, applyTvOverlay, clearTvMessages, showTvOffAir, shutdownTvPanel } from './panels/tv.js';
 
-let _tvAmbientCounter = 0;
 
 const DEV_ROLES = ['admin', 'dev', 'builder', 'designer'];
 
@@ -121,11 +120,10 @@ const handlers = {
         const el = document.getElementById('tv-program-name');
         if (el) el.textContent = msg.programName || '';
       }
-    } else {
-      // Not actively watching — ambient only, no broadcast content
-      if (++_tvAmbientCounter % 8 === 0)
-        appendMsg('[TV] static voices from the television...', 'broadcast-ambient');
     }
+  },
+  broadcast_ambient: (msg) => {
+    if (msg.speechText) appendMsg(`[TV] "${msg.speechText}"`, 'broadcast-ambient');
   },
   tv_panel: (msg) => { openTvPanel(msg); },
   tv_off:   ()    => { if (isTvOpen()) shutdownTvPanel(); },

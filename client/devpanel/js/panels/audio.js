@@ -298,6 +298,224 @@ function openEventRouteModal(row) {
   modal.style.display = 'flex';
 }
 
+// ── Step Sequencer ────────────────────────────────────────────────────────────
+
+let _sqCh = [];
+let _sqBars = 4;
+let _sqView = 'grid';
+let _sqPop = null;
+
+const _SQ_NOTES = ['C','C#','D','Eb','E','F','F#','G','Ab','A','Bb','B'];
+
+function _sqNoteOpts(cur) {
+  return [2,3,4,5,6].flatMap(o =>
+    _SQ_NOTES.map(n => { const v=n+o; return `<option value="${v}"${v===cur?' selected':''}>${v}</option>`; })
+  ).join('');
+}
+
+function _sqInstOpts(cur) {
+  return `<option value="">(none)</option>` +
+    _audioData.instruments.map(i =>
+      `<option value="${i.id}"${i.id===cur?' selected':''}>${i.name}</option>`
+    ).join('');
+}
+
+function _sqInjectCss() {
+  if (document.getElementById('sq-css')) return;
+  const s = document.createElement('style');
+  s.id = 'sq-css';
+  s.textContent = `
+.sq-vtab{padding:4px 12px;border:1px solid var(--border);background:var(--bg2);color:var(--text-dim);border-radius:3px;cursor:pointer;font-size:11px}
+.sq-vtab.sq-vtab-on{background:var(--accent);color:#000;border-color:var(--accent)}
+.sq-lrow{height:36px;border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 6px;gap:4px;background:var(--bg2);box-sizing:border-box}
+.sq-lrow-hdr{height:24px;border-bottom:1px solid var(--border);background:var(--bg2)}
+.sq-rrow{height:36px;border-bottom:1px solid var(--border);display:flex;align-items:stretch;box-sizing:border-box}
+.sq-rrow-hdr{height:24px;border-bottom:1px solid var(--border);display:flex}
+.sq-cell{width:18px;min-width:18px;border-right:1px solid #1c1c1c;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:6px;color:transparent;user-select:none;flex-shrink:0}
+.sq-cell:hover{background:rgba(255,180,0,0.15)!important}
+.sq-cell.sq-bs{border-left:2px solid #383838}
+.sq-cell.sq-b4{border-left:1px solid #2a2a2a}
+.sq-cell.sq-f{background:rgba(255,140,0,0.28);color:#ffa040}
+.sq-cell.sq-f:hover{background:rgba(255,140,0,0.48)!important}
+.sq-hcell{width:18px;min-width:18px;height:100%;border-right:1px solid #1c1c1c;display:flex;align-items:center;justify-content:center;font-size:7px;color:var(--text-dim);flex-shrink:0}
+.sq-hcell.sq-bs{border-left:2px solid #383838;color:var(--accent);font-size:8px}
+.sq-inst{font-size:9px;max-width:105px;flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:2px;padding:1px 2px}
+.sq-note{font-size:9px;width:44px;background:var(--bg);border:1px solid var(--border);color:var(--accent);border-radius:2px;padding:1px 2px}
+.sq-del{padding:1px 5px;font-size:10px;background:none;border:1px solid #443;color:#a66;border-radius:2px;cursor:pointer;flex-shrink:0}
+.sq-del:hover{background:#332;color:#f99}
+.sq-pop{position:fixed;z-index:9999;background:var(--bg2);border:1px solid var(--accent);border-radius:5px;padding:10px 12px;display:flex;flex-direction:column;gap:8px;min-width:180px;font-size:11px;box-shadow:0 4px 20px rgba(0,0,0,.7)}
+.sq-pop label{font-size:9px;letter-spacing:1px;color:var(--text-dim);display:block}
+.sq-pop select,.sq-pop input[type=range]{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:2px 4px;border-radius:3px;font-size:11px}
+.sq-pop-row{display:flex;gap:6px}
+.sq-pop-del{flex:1;background:#221;border:1px solid #443;color:#f77;border-radius:3px;padding:4px 8px;cursor:pointer;font-size:10px}
+.sq-pop-ok{flex:1;background:var(--accent);border:1px solid var(--accent);color:#000;border-radius:3px;padding:4px 8px;cursor:pointer;font-size:10px}`;
+  document.head.appendChild(s);
+}
+
+function _sqInit(row) {
+  _sqView = 'grid';
+  _sqBars = 4;
+  _sqCh = [];
+  if (row.channels?.length) {
+    _sqCh = row.channels.map(ch => [...(ch || [])]);
+    _sqBars = Math.max(1, Math.ceil((_sqCh[0]?.length || 0) / 16));
+  }
+  const total = _sqBars * 16;
+  _sqCh = _sqCh.map(ch => {
+    const a = new Array(total).fill(null);
+    for (let i = 0; i < Math.min(ch.length, total); i++) a[i] = ch[i] ?? null;
+    return a;
+  });
+}
+
+function _sqDomVal(ch, key) {
+  const counts = {};
+  ch.forEach(s => { if (s?.[key]) counts[s[key]] = (counts[s[key]] || 0) + 1; });
+  return Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+}
+
+function _sqGetInstrumentIds() {
+  const ids = new Set();
+  document.querySelectorAll('.sq-inst').forEach(el => { if (el.value) ids.add(el.value); });
+  _sqCh.forEach(ch => ch.forEach(s => { if (s?.instrument) ids.add(s.instrument); }));
+  return [...ids];
+}
+
+function _sqUpdateStats() {
+  const el = document.getElementById('sq-stats');
+  if (!el) return;
+  const tempo = parseInt(document.getElementById('sg-tempo')?.value) || 120;
+  const steps = _sqBars * 16;
+  const secs = Math.round(steps / (tempo * 4) * 10) / 10;
+  el.textContent = `${_sqBars} bars · ${steps} steps · ~${secs}s`;
+}
+
+function _sqRender() {
+  const grid = document.getElementById('sq-grid');
+  if (!grid) return;
+  const n = _sqBars * 16;
+
+  // Left panel: fixed channel headers
+  let leftHtml = `<div class="sq-lrow-hdr"></div>`;
+  _sqCh.forEach((ch, ci) => {
+    const domInst = _sqDomVal(ch, 'instrument') || '';
+    const domNote = _sqDomVal(ch, 'note') || 'C4';
+    leftHtml += `<div class="sq-lrow">
+      <select class="sq-inst" data-ci="${ci}">${_sqInstOpts(domInst)}</select>
+      <select class="sq-note" data-ci="${ci}">${_sqNoteOpts(domNote)}</select>
+      <button class="sq-del" data-ci="${ci}">✕</button>
+    </div>`;
+  });
+
+  // Right panel: bar labels + step rows
+  let barLabelHtml = '';
+  for (let s = 0; s < n; s++) {
+    const isBar = s % 16 === 0;
+    const lbl = isBar ? 'B' + (Math.floor(s / 16) + 1) : (s % 4 === 0 ? '·' : '');
+    barLabelHtml += `<div class="sq-hcell${isBar ? ' sq-bs' : ''}">${lbl}</div>`;
+  }
+
+  let chRowsHtml = '';
+  _sqCh.forEach((ch, ci) => {
+    let cells = '';
+    for (let s = 0; s < n; s++) {
+      const st = ch[s];
+      const bs = s % 16 === 0 ? ' sq-bs' : (s % 4 === 0 ? ' sq-b4' : '');
+      cells += `<div class="sq-cell${bs}${st ? ' sq-f' : ''}" data-ci="${ci}" data-si="${s}">${st ? st.note : ''}</div>`;
+    }
+    chRowsHtml += `<div class="sq-rrow">${cells}</div>`;
+  });
+
+  grid.innerHTML = `
+    <div id="sq-left" style="flex-shrink:0;width:190px;overflow:hidden;border-right:2px solid var(--border)">
+      ${leftHtml}
+    </div>
+    <div id="sq-right" style="flex:1;overflow:auto">
+      <div class="sq-rrow-hdr">${barLabelHtml}</div>
+      ${chRowsHtml}
+    </div>`;
+
+  const sqLeft = document.getElementById('sq-left');
+  const sqRight = document.getElementById('sq-right');
+  sqRight.addEventListener('scroll', () => { sqLeft.scrollTop = sqRight.scrollTop; });
+
+  sqRight.querySelectorAll('.sq-cell').forEach(cell => {
+    cell.addEventListener('click', () => {
+      const ci = +cell.dataset.ci, si = +cell.dataset.si;
+      if (_sqCh[ci][si]) {
+        _sqOpenPop(cell, ci, si);
+      } else {
+        const inst = sqLeft.querySelector(`.sq-inst[data-ci="${ci}"]`)?.value || '';
+        const note = sqLeft.querySelector(`.sq-note[data-ci="${ci}"]`)?.value || 'C4';
+        _sqCh[ci][si] = { note, instrument: inst, vol: 0.6 };
+        cell.classList.add('sq-f');
+        cell.textContent = note;
+      }
+    });
+  });
+
+  sqLeft.querySelectorAll('.sq-del').forEach(btn => {
+    btn.addEventListener('click', () => {
+      _sqCh.splice(+btn.dataset.ci, 1);
+      _sqRender();
+    });
+  });
+}
+
+function _sqClosePop() {
+  if (_sqPop) { _sqPop.remove(); _sqPop = null; }
+}
+
+function _sqOpenPop(cell, ci, si) {
+  _sqClosePop();
+  const st = _sqCh[ci][si];
+  const vol = st?.vol ?? 0.6;
+  const pop = document.createElement('div');
+  pop.className = 'sq-pop';
+  pop.innerHTML = `
+    <div style="font-size:9px;color:var(--accent);letter-spacing:1px">CH${ci + 1} · STEP${si + 1}</div>
+    <div><label>NOTE</label><select id="sq-pnote">${_sqNoteOpts(st?.note || 'C4')}</select></div>
+    <div><label>VOL <span id="sq-pvl">${Math.round(vol * 100)}%</span></label>
+      <input type="range" id="sq-pvol" min="0" max="1" step="0.05" value="${vol}"></div>
+    <div class="sq-pop-row">
+      <button class="sq-pop-del" id="sq-pdel">✕ Clear</button>
+      <button class="sq-pop-ok" id="sq-pok">OK</button>
+    </div>`;
+
+  const r = cell.getBoundingClientRect();
+  pop.style.top  = Math.min(r.bottom + 4, window.innerHeight - 190) + 'px';
+  pop.style.left = Math.max(4, Math.min(r.left, window.innerWidth - 200)) + 'px';
+  document.body.appendChild(pop);
+  _sqPop = pop;
+
+  pop.querySelector('#sq-pvol').oninput = function() {
+    pop.querySelector('#sq-pvl').textContent = Math.round(this.value * 100) + '%';
+  };
+  pop.querySelector('#sq-pdel').onclick = () => {
+    _sqCh[ci][si] = null;
+    cell.classList.remove('sq-f');
+    cell.textContent = '';
+    _sqClosePop();
+  };
+  pop.querySelector('#sq-pok').onclick = () => {
+    const note = pop.querySelector('#sq-pnote').value;
+    const v    = parseFloat(pop.querySelector('#sq-pvol').value);
+    const inst = document.querySelector(`.sq-inst[data-ci="${ci}"]`)?.value || st?.instrument || '';
+    _sqCh[ci][si] = { note, instrument: inst, vol: v };
+    cell.classList.add('sq-f');
+    cell.textContent = note;
+    _sqClosePop();
+  };
+
+  setTimeout(() => {
+    document.addEventListener('mousedown', function h(e) {
+      if (!pop.contains(e.target)) { _sqClosePop(); document.removeEventListener('mousedown', h); }
+    });
+  }, 50);
+}
+
+// ── End Step Sequencer ────────────────────────────────────────────────────────
+
 function instrumentLikeConfigFields(cfg, prefix) {
   cfg = cfg || {};
   const adsr = cfg.adsr || {};
@@ -348,6 +566,8 @@ function categoryOptions(current) {
 }
 
 function openAudioModal(tab, row) {
+  // Reset any leftover width from a previous songs/grid modal
+  document.querySelector('#generic-modal .modal-card').style.width = '';
   const isNew = !row.id;
   const modal = document.getElementById('generic-modal');
   document.getElementById('modal-title').textContent = `${isNew ? 'New' : 'Edit'}: ${row.name || tab}`;
@@ -412,45 +632,117 @@ function openAudioModal(tab, row) {
       closeModal(); loadPanel('audio');
     };
   } else if (tab === 'songs') {
-    const instOpts = _audioData.instruments.map(i => i.id).join(', ');
+    _sqInjectCss();
+    _sqInit(row);
+
+    const modalCard = document.querySelector('#generic-modal .modal-card');
+    modalCard.style.width = 'min(90vw, 1100px)';
+
     body.innerHTML = `
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:12px">
         <div class="field"><label>Name</label><input id="sg-name" value="${row.name || ''}"></div>
         <div class="field"><label>Category</label><select id="sg-cat">${categoryOptions(row.category || 'misc')}</select></div>
         <div class="field"><label>Tempo (BPM)</label><input id="sg-tempo" type="number" min="40" max="300" value="${row.tempo ?? 120}"></div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:10px">
-        <div class="field"><label>Loop Start (step)</label><input id="sg-loopstart" type="number" min="0" value="${row.loop_start ?? 0}"></div>
-        <div class="field"><label>Loop End (step)</label><input id="sg-loopend" type="number" min="0" value="${row.loop_end ?? 0}"></div>
         <div class="field"><label>Priority (1-10)</label><input id="sg-priority" type="number" min="1" max="10" value="${row.priority ?? 5}"></div>
       </div>
-      <div class="field" style="margin-top:10px"><label>Instrument IDs <span style="color:var(--text-dim);font-weight:400">(comma-separated — available: ${instOpts || 'none yet'})</span></label>
-        <input id="sg-instids" value="${(row.instrument_ids || []).join(', ')}">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <button id="sq-vgrid" class="sq-vtab sq-vtab-on">⊞ Grid</button>
+        <button id="sq-vjson" class="sq-vtab">{ } JSON</button>
+        <span id="sq-stats" style="font-size:10px;color:var(--text-dim);margin-left:10px"></span>
       </div>
-      <div class="field" style="margin-top:10px"><label>Channels <span style="color:var(--text-dim);font-weight:400">(tracker pattern JSON — array of channels, each an array of {note,instrument,vol} or null steps; visual timeline editor is a planned follow-up)</span></label>
-        <textarea id="sg-channels" rows="8" style="resize:vertical;font-family:monospace;font-size:11px">${JSON.stringify(row.channels || [], null, 2)}</textarea>
+      <div id="sq-vg">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <span style="font-size:10px;color:var(--text-dim)">Bars:</span>
+          <button id="sq-bsub" class="action-btn" style="padding:2px 10px">−</button>
+          <span id="sq-bcnt" style="font-size:12px;min-width:24px;text-align:center">${_sqBars}</span>
+          <button id="sq-badd" class="action-btn" style="padding:2px 10px">+</button>
+          <span style="font-size:10px;color:var(--text-dim);margin-left:8px">Click empty cell → place note &nbsp;·&nbsp; Click filled cell → edit/clear</span>
+        </div>
+        <div id="sq-grid" style="display:flex;border:1px solid var(--border);border-radius:4px;overflow:hidden;max-height:52vh"></div>
+        <button class="action-btn" id="sq-addch" style="margin-top:8px">+ Add Channel</button>
+      </div>
+      <div id="sq-vj" style="display:none">
+        <div class="field"><label>Instrument IDs <span style="font-weight:400;color:var(--text-dim)">(comma-separated)</span></label>
+          <input id="sg-instids" value="${(row.instrument_ids || []).join(', ')}"></div>
+        <div class="field" style="margin-top:10px"><label>Channels JSON</label>
+          <textarea id="sg-channels" rows="10" style="resize:vertical;font-family:monospace;font-size:10px">${JSON.stringify(row.channels || [], null, 2)}</textarea>
+        </div>
       </div>
       <div class="field" style="display:flex;align-items:center;gap:10px;margin-top:10px">
         <input type="checkbox" id="sg-enabled" ${row.enabled !== 0 ? 'checked' : ''}>
         <label for="sg-enabled" style="margin:0;cursor:pointer">Enabled</label>
       </div>`;
+
+    _sqRender();
+    _sqUpdateStats();
+
+    document.getElementById('sg-tempo').addEventListener('input', _sqUpdateStats);
+
+    document.getElementById('sq-vgrid').onclick = () => {
+      _sqView = 'grid';
+      document.getElementById('sq-vg').style.display = '';
+      document.getElementById('sq-vj').style.display = 'none';
+      document.getElementById('sq-vgrid').classList.add('sq-vtab-on');
+      document.getElementById('sq-vjson').classList.remove('sq-vtab-on');
+      _sqRender();
+    };
+    document.getElementById('sq-vjson').onclick = () => {
+      _sqView = 'json';
+      document.getElementById('sq-vg').style.display = 'none';
+      document.getElementById('sq-vj').style.display = '';
+      document.getElementById('sq-vgrid').classList.remove('sq-vtab-on');
+      document.getElementById('sq-vjson').classList.add('sq-vtab-on');
+      document.getElementById('sg-instids').value = _sqGetInstrumentIds().join(', ');
+      document.getElementById('sg-channels').value = JSON.stringify(_sqCh, null, 2);
+    };
+
+    document.getElementById('sq-badd').onclick = () => {
+      _sqBars++;
+      _sqCh = _sqCh.map(ch => [...ch, ...new Array(16).fill(null)]);
+      document.getElementById('sq-bcnt').textContent = _sqBars;
+      _sqUpdateStats();
+      _sqRender();
+    };
+    document.getElementById('sq-bsub').onclick = () => {
+      if (_sqBars <= 1) return;
+      _sqBars--;
+      const n = _sqBars * 16;
+      _sqCh = _sqCh.map(ch => ch.slice(0, n));
+      document.getElementById('sq-bcnt').textContent = _sqBars;
+      _sqUpdateStats();
+      _sqRender();
+    };
+    document.getElementById('sq-addch').onclick = () => {
+      _sqCh.push(new Array(_sqBars * 16).fill(null));
+      _sqRender();
+    };
+
     document.getElementById('modal-save').onclick = async () => {
       const name = document.getElementById('sg-name').value.trim();
       if (!name) { toast('Name is required', true); return; }
-      let channels;
-      try { channels = JSON.parse(document.getElementById('sg-channels').value || '[]'); }
-      catch { toast('Channels must be valid JSON', true); return; }
+      let channels, instrumentIds;
+      if (_sqView === 'json') {
+        try { channels = JSON.parse(document.getElementById('sg-channels').value || '[]'); }
+        catch { toast('Channels must be valid JSON', true); return; }
+        instrumentIds = document.getElementById('sg-instids').value.split(',').map(s => s.trim()).filter(Boolean);
+      } else {
+        channels = _sqCh;
+        instrumentIds = _sqGetInstrumentIds();
+      }
       const reqBody = {
-        name, category: document.getElementById('sg-cat').value, tempo: parseInt(document.getElementById('sg-tempo').value) || 120,
-        loop_start: parseInt(document.getElementById('sg-loopstart').value) || 0,
-        loop_end: parseInt(document.getElementById('sg-loopend').value) || 0,
+        name, category: document.getElementById('sg-cat').value,
+        tempo: parseInt(document.getElementById('sg-tempo').value) || 120,
         priority: parseInt(document.getElementById('sg-priority').value) || 5,
-        instrument_ids: document.getElementById('sg-instids').value.split(',').map(s => s.trim()).filter(Boolean),
-        channels, enabled: document.getElementById('sg-enabled').checked ? 1 : 0,
+        loop_start: 0,
+        loop_end: Math.max(0, (channels[0]?.length || 0) - 1),
+        instrument_ids: instrumentIds,
+        channels,
+        enabled: document.getElementById('sg-enabled').checked ? 1 : 0,
       };
       const r = isNew ? await API('/audio/songs', 'POST', reqBody) : await API(`/audio/songs/${row.id}`, 'PUT', reqBody);
       if (r?.error) { toast(r.error, true); return; }
       toast(isNew ? 'Song created' : 'Song updated');
+      modalCard.style.width = '';
       closeModal(); loadPanel('audio');
     };
   }

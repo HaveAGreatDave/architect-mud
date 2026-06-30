@@ -63,7 +63,7 @@ function compileBsm(text) {
   const DIRECTIVE_PREFIXES = [
     '@', '::', 'EVENT ', 'TITLE ', 'TICKER', 'WAIT', 'NPC ', 'OVERLAY',
     'SHOT', 'SHOT_END', 'TICKER_END', 'OVERLAY_END', 'LOWER_THIRD_END', 'MUSIC_END', 'END', 'CAM ', 'ROOM ', 'LOWER_THIRD',
-    'MUSIC', 'ENTER ', 'ACTION', 'END_ACTION', '♪', 'TECH_DIFFICULTIES ',
+    'MUSIC', 'ENTER ', 'ACTION', 'END_ACTION', '♪', 'TECH_DIFFICULTIES ', 'CREDITS',
   ];
 
   const BARE_DURATION_RE = /^(\d+(?:\.\d+)?)s?$/;  // "8s", "2s", "1.5s", "8"
@@ -219,6 +219,19 @@ function compileBsm(text) {
       continue;
     }
 
+    // ── CREDITS block → scrolling end-credits ────────────────────────────────
+    // Optional duration in seconds: CREDITS 30
+    if (ln === 'CREDITS' || ln.startsWith('CREDITS ')) {
+      const durStr = ln.slice(7).trim();
+      const duration = durStr ? (parseFloat(durStr) || null) : null;
+      i++;
+      const text = collectBlock('END_CREDITS');
+      const nodeData = { type: 'credits', text };
+      if (duration !== null) nodeData.duration = duration;
+      makeNode(nodeData);
+      continue;
+    }
+
     // ── Explicit NPC anchor ──────────────────────────────────────────────────
     if (ln.startsWith('NPC ')) {
       const npcId = ln.slice(4).trim();
@@ -264,7 +277,7 @@ function compileBsm(text) {
     }
 
     // ── Block terminators appearing outside their blocks — silently skip ────────
-    if (ln.endsWith('_END') || ln === 'END_ACTION') { i++; continue; }
+    if (ln.endsWith('_END') || ln === 'END_ACTION' || ln === 'END_CREDITS') { i++; continue; }
 
     // ── MUSIC block — theme name is code only; body text is what displays ────────
     if (ln === 'MUSIC' || ln.startsWith('MUSIC ')) {

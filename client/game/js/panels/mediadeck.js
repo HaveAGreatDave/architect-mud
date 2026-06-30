@@ -77,6 +77,9 @@ function renderMediaDeckPanel(data) {
   const activeCassette = (cassettes || []).find(c => c.id === activeCassetteId);
   const cartridgeEl = document.getElementById('mediadeck-cartridge');
   const slotEl = document.getElementById('mediadeck-slot');
+  const isPlaying = lightState === 'orange';
+  document.getElementById('mediadeck-reel-l')?.classList.toggle('spinning', isPlaying);
+  document.getElementById('mediadeck-reel-r')?.classList.toggle('spinning', isPlaying);
   if (activeCassette) {
     slotEl.classList.add('loaded');
     cartridgeEl.innerHTML = `<span class="mediadeck-cartridge-label">${escapeHtml(activeCassette.name)}</span>`;

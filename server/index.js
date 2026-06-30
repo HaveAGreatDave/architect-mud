@@ -267,6 +267,14 @@ wss.on("connection", (ws) => {
 			return;
 		}
 		if (msg.type === "mis_toggle") return handleMisToggle(ws, session, msg);
+		if (msg.type === "tv_watch" || msg.type === "tv_unwatch") {
+			if (!session.playerId) return;
+			if (msg.type === "tv_watch" && msg.channelId)
+				emit("tv.watch", { playerId: session.playerId, channelId: msg.channelId });
+			else
+				emit("tv.unwatch", { playerId: session.playerId });
+			return;
+		}
 	});
 
 	ws.on("close", async () => {

@@ -1,7 +1,7 @@
 // Television popup panel — receives live broadcast push via the existing WS tick.
 // Opened by 'watch tv' / 'tv' commands; closed by ESC or the close button.
 
-import { sendCmdSilent } from '../net.js';
+import { sendCmdSilent, sendRaw } from '../net.js';
 import { renderMarkup } from '../markup.js';
 
 let _tvOpen = false;
@@ -21,6 +21,7 @@ let _dialRaw       = 0;    // unquantized accumulator driving drag math, avoids 
 const LOCK_RANGE   = 0.25; // within this many channel-numbers = lock in
 const TV_DIAL_MAX  = 9.05; // dial wraps 0.0 → 9.0 → 0.0 (9.0 + 0.05 step = wrap)
 let _sweepRaf       = null;
+let _wheelTarget    = null;
 const DIAL_SWEEP_SPEED = 4; // frequency-units per second — controls how long static shows between channels
 
 // CRT hum is per-viewer UI ambience tied to the panel being open, not shared
@@ -88,6 +89,7 @@ export function openTvPanel(data) {
   _tvOpen = true;
   _tvShuttingDown = false;
   _tvPoweredOff = !data.channelId || data.channelNumber === 0;
+  if (_tvActiveChannelId) sendRaw({ type: 'tv_watch', channelId: _tvActiveChannelId });
   _tvHistory.length = 0;
   _tickerText = '';
   _tickerAnimating = false;
@@ -238,6 +240,7 @@ export function closeTvPanel() {
   _tvShuttingDown = false;
   _tvPoweredOff = false;
   _tvActiveChannelId = null;
+  sendRaw({ type: 'tv_unwatch' });
   if (_tuneTimer) { clearTimeout(_tuneTimer); _tuneTimer = null; }
   if (_sweepRaf) { cancelAnimationFrame(_sweepRaf); _sweepRaf = null; }
   _clearOverlay();
@@ -322,15 +325,12 @@ export function isTvOpen() { return _tvOpen; }
 export function getTvActiveChannelId() { return _tvActiveChannelId; }
 
 function _tvTuneTo(num) {
-  // Cancel any in-progress sweep immediately. If we don't, the rAF loop
-  // keeps setting inline knob transforms on the very next frame after
-  // _playTuneAnimation clears knob.style.transform = '', causing the
-  // line to visually snap to a wrong position before the spin settles.
   if (_sweepRaf) { cancelAnimationFrame(_sweepRaf); _sweepRaf = null; }
+  _wheelTarget = null;
   _tvFrequency = num;
   _dialRaw = num;
+  _updateKnobRotation();
   sendCmdSilent('tune ' + num);
-  _playTuneAnimation();
 }
 
 // Sweeps the dial from its current position toward the next/previous channel
@@ -369,7 +369,12 @@ function _sweepDialTo(targetNumber, direction) {
     const raw = start + (unwrappedTarget - start) * t;
     _dialRaw = ((raw % TV_DIAL_MAX) + TV_DIAL_MAX) % TV_DIAL_MAX;
     tvTunerInput(Math.round(_dialRaw * 20) / 20);
-    _sweepRaf = (t < 1) ? requestAnimationFrame(tick) : null;
+    if (t < 1) {
+      _sweepRaf = requestAnimationFrame(tick);
+    } else {
+      _sweepRaf = null;
+      _wheelTarget = null;
+    }
   }
   _sweepRaf = requestAnimationFrame(tick);
 }
@@ -451,7 +456,7 @@ export function appendTvMessage(text, style) {
   const container = document.getElementById('tv-messages');
   if (!container) return;
 
-  const isTitleCard = style === 'svg' || style === 'ascii_art';
+  const isTitleCard = style === 'svg' || style === 'ascii_art' || style === 'credits';
 
   // Clear before title cards, and after them on the next message
   if (isTitleCard || _clearAfterTitleCard) {
@@ -470,6 +475,42 @@ export function appendTvMessage(text, style) {
 
   // Flag that the next non-title message should clear the screen
   if (isTitleCard) _clearAfterTitleCard = true;
+
+  if (style === 'credits') {
+    const content = document.getElementById('tv-content');
+    const wrap = document.createElement('div');
+    wrap.className = 'tv-credits-wrap';
+    const inner = document.createElement('div');
+    inner.className = 'tv-credits-inner';
+    for (const line of text.split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed) {
+        const b = document.createElement('div');
+        b.className = 'credits-blank';
+        inner.appendChild(b);
+        continue;
+      }
+      // ALL-CAPS short lines become section headers
+      const isHeader = trimmed === trimmed.toUpperCase() && trimmed.length < 50 && /[A-Z]/.test(trimmed);
+      const p = document.createElement('p');
+      p.className = isHeader ? 'credits-header' : 'credits-line';
+      p.textContent = trimmed;
+      inner.appendChild(p);
+    }
+    wrap.appendChild(inner);
+    container.appendChild(wrap);
+    requestAnimationFrame(() => {
+      const contentH = content.clientHeight;
+      const innerH = inner.scrollHeight;
+      inner.style.transform = `translateY(${contentH}px)`;
+      inner.offsetHeight;
+      inner.style.transition = `transform ${((contentH + innerH) / 50).toFixed(1)}s linear`;
+      inner.style.transform = `translateY(${-innerH}px)`;
+    });
+    _tvHistory.push(wrap);
+    if (_tvHistory.length > MAX_TV_HISTORY) _tvHistory.shift().remove();
+    return;
+  }
 
   const el = document.createElement(style === 'ascii_art' ? 'pre' : 'div');
   el.className = `tv-msg tv-msg-${style || 'raw'}`;
@@ -578,15 +619,14 @@ export function initTvPanel() {
     _playTuneAnimation();
   });
 
-  // Mousewheel on knob — fine-tune by half a channel per tick
+  // Mousewheel on knob — sweep 0.25 per tick in 0.05 steps
   knob.addEventListener('wheel', (e) => {
     if (!_tvOpen) return;
     e.preventDefault();
-    if (_sweepRaf) { cancelAnimationFrame(_sweepRaf); _sweepRaf = null; }
     const delta = -Math.sign(e.deltaY) * 0.25;
-    const clamped = Math.round(((_tvFrequency + delta + TV_DIAL_MAX) % TV_DIAL_MAX) * 20) / 20;
-    _dialRaw = clamped;
-    tvTunerInput(clamped);
+    const base = _wheelTarget !== null ? _wheelTarget : _dialRaw;
+    _wheelTarget = Math.round(((base + delta + TV_DIAL_MAX) % TV_DIAL_MAX) * 20) / 20;
+    _sweepDialTo(_wheelTarget, Math.sign(delta));
   }, { passive: false });
 
   // +/- buttons: smoothly sweep toward the next/previous channel rather than

@@ -33,6 +33,13 @@ const newsQueue = new Map();
 // For fast invalidation on tune changes.
 const furnitureChannelIndex = new Map();
 
+// tvWatchers.get(playerId) = channelId — players who currently have the TV panel open.
+const tvWatchers = new Map();
+
+on('tv.watch',   ({ playerId, channelId }) => tvWatchers.set(playerId, channelId));
+on('tv.unwatch', ({ playerId })           => tvWatchers.delete(playerId));
+on('player.logout', ({ id })              => tvWatchers.delete(id));
+
 // studioZoneIndex.get(studioZoneId) = channelId
 // Enables O(1) lookup in zone.broadcast relay listener.
 const studioZoneIndex = new Map();
@@ -89,6 +96,7 @@ function _vineDuration(graph, interval) {
     if (!node) break;
     if (node.type === 'say' || node.type === 'ticker') total += interval;
     else if (node.type === 'wait') total += node.data?.seconds ?? 5;
+    else if (node.type === 'credits') total += node.data?.duration ?? 10;
     nodeId = node.next ?? null;
   }
   return total;
@@ -492,9 +500,10 @@ async function broadcastTick() {
           state.wasActive = false;
           const graphic = state.offlineGraphicId ? graphicsCache.get(state.offlineGraphicId) : null;
           for (const player of players) {
-            sendToPlayer(player.id, { type: 'broadcast', channel: channelId, style: 'off_air',
-              offlineGraphicContent: graphic?.content || null,
-              offlineGraphicType: graphic?.type || 'ascii' });
+            if (tvWatchers.get(player.id) === channelId)
+              sendToPlayer(player.id, { type: 'broadcast', channel: channelId, style: 'off_air',
+                offlineGraphicContent: graphic?.content || null,
+                offlineGraphicType: graphic?.type || 'ascii' });
           }
         }
         continue;
@@ -505,7 +514,8 @@ async function broadcastTick() {
       // Overlay events (show_overlay / clear_overlay) go direct to TV watchers
       if (result.style === 'overlay') {
         for (const player of players) {
-          sendToPlayer(player.id, { type: 'tv_overlay', channelId, overlay: result.overlay ?? null });
+          if (tvWatchers.get(player.id) === channelId)
+            sendToPlayer(player.id, { type: 'tv_overlay', channelId, overlay: result.overlay ?? null });
         }
         continue;
       }
@@ -522,8 +532,16 @@ async function broadcastTick() {
       if (!formatted) continue;
 
       const programName = result.programName ?? state.currentProgramName ?? null;
+
+      // Split players: those watching this channel get full panel message;
+      // non-watchers get an ambient speech blurb only if someone else in the room is watching.
+      const watchersHere = players.filter(p => tvWatchers.get(p.id) === channelId);
       for (const player of players) {
-        sendToPlayer(player.id, { type: 'broadcast', message: formatted, channel: channelId, style: result.style || 'raw', programName });
+        if (tvWatchers.get(player.id) === channelId) {
+          sendToPlayer(player.id, { type: 'broadcast', message: formatted, channel: channelId, style: result.style || 'raw', programName });
+        } else if (watchersHere.length > 0 && result.speech) {
+          sendToPlayer(player.id, { type: 'broadcast_ambient', speechText: result.speechText, channel: channelId });
+        }
       }
       emit('broadcast.message', { channelId, zoneId, text: result.text });
     }
@@ -796,6 +814,10 @@ function _seekGraph(graph, bb, segElapsedMs, nowMs) {
       const waitMs = ((node.data?.seconds ?? node.data?.duration) || 5) * 1000;
       if (remaining >= waitMs) { remaining -= waitMs; nodeId = _resolveEdge(edges, nodeId, 'next'); }
       else { bb.waitUntil = nowMs + (waitMs - remaining); bb.currentNode = _resolveEdge(edges, nodeId, 'next'); return; }
+    } else if (node.type === 'credits') {
+      const creditsMs = (node.data?.duration ?? 10) * 1000;
+      if (remaining >= creditsMs) { remaining -= creditsMs; nodeId = _resolveEdge(edges, nodeId, 'next'); }
+      else { bb.waitUntil = nowMs + (creditsMs - remaining); bb.currentNode = nodeId; return; }
     } else if (CONTENT_TYPES.includes(node.type)) {
       if (remaining >= CONTENT_MS) { remaining -= CONTENT_MS; nodeId = _resolveEdge(edges, nodeId, 'next'); }
       else { bb.waitUntil = nowMs + (CONTENT_MS - remaining); bb.currentNode = nodeId; return; }
@@ -917,7 +939,8 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
         const text_say = style_say === 'ticker'
           ? `>> ${bb.npcAnchor ? `${bb.npcAnchor}: ` : ''}${raw} <<`
           : (!isNarration && !isAmbient && bb.npcAnchor ? `${bb.npcAnchor} says, "${raw}"` : raw);
-        return { text: text_say, key: key_say, style: 'raw' };
+        const isSpeech = !isNarration && !isAmbient && style_say !== 'ticker' && !!bb.npcAnchor;
+        return { text: text_say, key: key_say, style: 'raw', ...(isSpeech ? { speech: true, speechText: text_say } : {}) };
       }
 
       case 'npc_action': {
@@ -1072,6 +1095,13 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
         nodeId = bb.currentNode;
         bb.waitUntil = null;
         break;
+      }
+
+      case 'credits': {
+        const creditsText = node.data?.text || '';
+        bb.currentNode = _resolveEdge(edges, nodeId, 'next');
+        bb.waitUntil = nowMs + ((node.data?.duration ?? 10) * 1000);
+        return { text: creditsText, key: `credits:${channelId}:${nodeId}:${nowMs}`, style: 'credits' };
       }
 
       case 'show_overlay':
