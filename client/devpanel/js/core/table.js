@@ -127,6 +127,13 @@ function closeEdit() {
   document.getElementById('edit-panel').classList.remove('open');
   document.getElementById('edit-body').innerHTML = '';
   currentRecord = null;
+  // Restore the standard Save/Delete footer in case it was overridden (e.g. broadcast NPC sidebar)
+  const editFooter = document.querySelector('#edit-panel .edit-footer');
+  if (editFooter) {
+    editFooter.innerHTML = `
+      <button class="action-btn success" onclick="saveRecord()" style="flex:1">Save</button>
+      <button class="action-btn danger" id="delete-btn" onclick="deleteRecord()">Delete</button>`;
+  }
   // Clean up VINE editor if active (removes document-level key listeners)
   if (window._vineActiveEditor) {
     window._vineActiveEditor.destroy();
