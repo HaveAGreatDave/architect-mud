@@ -24,14 +24,15 @@ const KNOWN_EVENTS = [
 // tracker patterns), never a recorded sample, so JSON is the only format that makes
 // sense — there's no waveform data to import, just synth presets to share/back up.
 const AUDIO_IMPORT_FIELDS = {
-  instruments: ['name', 'category', 'waveform', 'config', 'enabled'],
+  instruments: ['name', 'category', 'waveform', 'config', 'enabled', 'sample_id'],
   songs: ['name', 'category', 'tempo', 'channels', 'loop_start', 'loop_end', 'instrument_ids', 'priority', 'enabled'],
   sfx: ['name', 'category', 'priority', 'config', 'enabled'],
   ambient: ['name', 'category', 'priority', 'config', 'loop', 'enabled'],
+  samples: ['name', 'category', 'priority', 'data', 'mime_type', 'base_note', 'loop_start', 'loop_end', 'snes_rate', 'snes_bits', 'echo_mix', 'config', 'enabled'],
 };
 
 let _audioTab = 'instruments';
-let _audioData = { instruments: [], songs: [], sfx: [], ambient: [], events: [] };
+let _audioData = { instruments: [], songs: [], sfx: [], ambient: [], events: [], samples: [] };
 let _playingSongId = null;
 
 function renderAudioPanel(data) {
@@ -41,6 +42,7 @@ function renderAudioPanel(data) {
     sfx: Array.isArray(data?.sfx) ? data.sfx : [],
     ambient: Array.isArray(data?.ambient) ? data.ambient : [],
     events: Array.isArray(data?.events) ? data.events : [],
+    samples: Array.isArray(data?.samples) ? data.samples : [],
   };
   const panel = document.getElementById('list-panel');
   const tabs = [
@@ -48,6 +50,7 @@ function renderAudioPanel(data) {
     ['songs', 'Songs'],
     ['sfx', 'Sound Effects'],
     ['ambient', 'Ambient'],
+    ['samples', 'Samples'],
     ['events', 'Event Routes'],
   ];
   const tabBar = tabs.map(([key, label]) => `
@@ -102,10 +105,28 @@ function renderAudioTabBody() {
     return;
   }
 
+  if (_audioTab === 'samples') {
+    if (!rows.length) { body.innerHTML = '<div style="padding:24px;color:var(--text-dim)">No samples uploaded yet.</div>'; return; }
+    const cells = rows.map(r => `<tr>
+      <td style="font-weight:600;color:${r.enabled !== 0 ? 'var(--text-bright)' : 'var(--text-dim)'}">${r.name}</td>
+      <td><span style="font-size:10px;background:var(--bg3);padding:2px 6px;border-radius:2px;color:var(--accent)">${r.category}</span></td>
+      <td style="font-size:11px;color:var(--text-dim)">${r.snes_rate || 16000}Hz · ${r.snes_bits || 4}-bit${r.echo_mix > 0 ? ' · echo' : ''}</td>
+      <td style="text-align:right;white-space:nowrap">
+        <button class="action-btn" style="font-size:10px;padding:3px 8px" onclick="previewAudioAsset('samples','${r.id}')">▶</button>
+        <button class="action-btn" style="font-size:10px;padding:3px 8px;margin-left:4px" onclick="editAudioAsset('samples','${r.id}')">✏</button>
+        <button class="action-btn" style="font-size:10px;padding:3px 8px;margin-left:4px" onclick="exportAudioAsset('samples','${r.id}')" title="Export as JSON">⬇</button>
+        <button class="action-btn danger" style="font-size:10px;padding:3px 8px;margin-left:4px" onclick="deleteAudioAsset('samples','${r.id}','${r.name.replace(/'/g, "\\'")}')">✕</button>
+      </td>
+    </tr>`).join('');
+    body.innerHTML = `<table><thead><tr><th>Name</th><th>Category</th><th>SNES</th><th></th></tr></thead><tbody>${cells}</tbody></table>`;
+    return;
+  }
+
   if (!rows.length) { body.innerHTML = '<div style="padding:24px;color:var(--text-dim)">Nothing here yet.</div>'; return; }
 
   const cells = rows.map(r => {
-    const extra = _audioTab === 'instruments' ? r.waveform
+    const extra = _audioTab === 'instruments'
+      ? (r.sample_id ? `sample: ${_audioData.samples.find(s => s.id === r.sample_id)?.name || r.sample_id}` : r.waveform)
       : _audioTab === 'songs' ? `${r.tempo || 120} BPM`
       : `priority ${r.priority ?? 5}`;
     return `<tr>
@@ -133,6 +154,7 @@ function previewAudioAsset(tab, id) {
   const row = findAudioAsset(tab, id);
   if (!row) return;
   if (tab === 'sfx') window.AudioEngine.playSfx(row);
+  else if (tab === 'samples') window.AudioEngine.playSample(row);
   else if (tab === 'instruments') window.AudioEngine.playSfx({ priority: 5, category: 'sfx', config: { ...(row.config || {}), waveform: row.waveform, freq: 440, duration: 0.6 } });
   else if (tab === 'ambient') { window.AudioEngine.loopSound(row); setTimeout(() => window.AudioEngine.stopLoop(row.id), 4000); }
   else if (tab === 'songs') {
@@ -269,9 +291,11 @@ async function openEventRouteModal(row) {
         ${zoneOpts.join('')}
       </datalist>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:10px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px">
       <div class="field"><label>SFX (one-shot)</label>
         <select id="er-sfx">${_assetOptions(_audioData.sfx, row?.sfx_id, '— none —')}</select></div>
+      <div class="field"><label>Sample (SNES one-shot)</label>
+        <select id="er-sample">${_assetOptions(_audioData.samples, row?.sample_id, '— none —')}</select></div>
       <div class="field"><label>Ambient (loop)</label>
         <select id="er-ambient">${_assetOptions(_audioData.ambient, row?.ambient_id, '— none —')}</select></div>
       <div class="field"><label>Song (music)</label>
@@ -300,6 +324,7 @@ async function openEventRouteModal(row) {
     const body = {
       event_name: eventName,
       sfx_id: document.getElementById('er-sfx').value || null,
+      sample_id: document.getElementById('er-sample').value || null,
       ambient_id: document.getElementById('er-ambient').value || null,
       song_id: document.getElementById('er-song').value || null,
       scope: document.getElementById('er-scope').value,
@@ -645,12 +670,84 @@ function openAudioModal(tab, row) {
   document.getElementById('modal-title').textContent = `${isNew ? 'New' : 'Edit'}: ${row.name || tab}`;
   const body = document.getElementById('modal-body');
 
-  if (tab === 'instruments') {
+  if (tab === 'samples') {
+    const num = (id, fb) => { const v = parseFloat(document.getElementById(id)?.value); return isNaN(v) ? fb : v; };
+    body.innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+        <div class="field"><label>Name</label><input id="smp-name" value="${row.name || ''}"></div>
+        <div class="field"><label>Category</label><select id="smp-cat">${categoryOptions(row.category || 'environment')}</select></div>
+        <div class="field"><label>Priority (1-10)</label><input id="smp-priority" type="number" min="1" max="10" value="${row.priority ?? 5}"></div>
+      </div>
+      ${isNew ? `<div class="field" style="margin-top:10px"><label>Audio File <span style="color:var(--text-dim);font-weight:400">(mp3, wav, ogg)</span></label>
+        <input type="file" id="smp-file" accept="audio/*"></div>`
+        : `<div style="margin-top:10px;padding:8px;background:var(--bg3);border-radius:3px;font-size:11px;color:var(--text-dim)">Audio data already stored. To replace, delete and re-upload.</div>`}
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:10px">
+        <div class="field"><label>Base Note (MIDI, 60=C4)</label><input id="smp-basenote" type="number" min="0" max="127" value="${row.base_note ?? 60}"></div>
+        <div class="field"><label>SNES Rate (Hz)</label><select id="smp-rate">
+          ${[8000, 11025, 16000, 22050, 32000].map(r => `<option value="${r}" ${(row.snes_rate ?? 16000) == r ? 'selected' : ''}>${r}</option>`).join('')}
+        </select></div>
+        <div class="field"><label>SNES Bits</label><select id="smp-bits">
+          <option value="4" ${(row.snes_bits ?? 4) == 4 ? 'selected' : ''}>4-bit (BRR-like)</option>
+          <option value="8" ${row.snes_bits == 8 ? 'selected' : ''}>8-bit (more fidelity)</option>
+        </select></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:10px">
+        <div class="field"><label>Echo Mix (0–1)</label><input id="smp-echo" type="number" step="0.05" min="0" max="1" value="${row.echo_mix ?? 0}"></div>
+        <div class="field"><label>Loop Start (sec)</label><input id="smp-loopstart" type="number" step="0.01" min="0" value="${row.loop_start ?? 0}"></div>
+        <div class="field"><label>Loop End (sec, 0=off)</label><input id="smp-loopend" type="number" step="0.01" min="0" value="${row.loop_end ?? 0}"></div>
+      </div>
+      <div style="margin-top:12px;font-size:11px;font-weight:600;color:var(--text-dim)">ADSR envelope</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:10px;margin-top:6px">
+        <div class="field"><label>Attack</label><input id="smp-a" type="number" step="0.01" min="0" value="${row.config?.adsr?.a ?? 0.01}"></div>
+        <div class="field"><label>Decay</label><input id="smp-d" type="number" step="0.01" min="0" value="${row.config?.adsr?.d ?? 0}"></div>
+        <div class="field"><label>Sustain</label><input id="smp-s" type="number" step="0.05" min="0" max="1" value="${row.config?.adsr?.s ?? 1}"></div>
+        <div class="field"><label>Release</label><input id="smp-r" type="number" step="0.01" min="0" value="${row.config?.adsr?.r ?? 0.3}"></div>
+        <div class="field"><label>Gain (0–1)</label><input id="smp-gain" type="number" step="0.05" min="0" max="1" value="${row.config?.gain ?? 1}"></div>
+      </div>
+      <div class="field" style="display:flex;align-items:center;gap:10px;margin-top:10px">
+        <input type="checkbox" id="smp-enabled" ${row.enabled !== 0 ? 'checked' : ''}>
+        <label for="smp-enabled" style="margin:0;cursor:pointer">Enabled</label>
+      </div>`;
+    document.getElementById('modal-save').onclick = async () => {
+      const name = document.getElementById('smp-name').value.trim();
+      if (!name) { toast('Name is required', true); return; }
+      const reqBody = {
+        name, category: document.getElementById('smp-cat').value,
+        priority: parseInt(document.getElementById('smp-priority').value) || 5,
+        base_note: parseInt(document.getElementById('smp-basenote').value) || 60,
+        snes_rate: parseInt(document.getElementById('smp-rate').value) || 16000,
+        snes_bits: parseInt(document.getElementById('smp-bits').value) || 4,
+        echo_mix: num('smp-echo', 0),
+        loop_start: num('smp-loopstart', 0),
+        loop_end: num('smp-loopend', 0),
+        config: { adsr: { a: num('smp-a', 0.01), d: num('smp-d', 0), s: num('smp-s', 1), r: num('smp-r', 0.3) }, gain: num('smp-gain', 1) },
+        enabled: document.getElementById('smp-enabled').checked ? 1 : 0,
+      };
+      if (isNew) {
+        const file = document.getElementById('smp-file')?.files[0];
+        if (!file) { toast('Audio file is required', true); return; }
+        reqBody.mime_type = file.type || 'audio/mpeg';
+        reqBody.data = await new Promise((res, rej) => {
+          const reader = new FileReader();
+          reader.onload = () => res(reader.result.split(',')[1]);
+          reader.onerror = rej;
+          reader.readAsDataURL(file);
+        });
+      }
+      const r = isNew ? await API('/audio/samples', 'POST', reqBody) : await API(`/audio/samples/${row.id}`, 'PUT', reqBody);
+      if (r?.error) { toast(r.error, true); return; }
+      toast(isNew ? 'Sample uploaded' : 'Sample updated');
+      closeModal(); loadPanel('audio');
+    };
+  } else if (tab === 'instruments') {
     body.innerHTML = `
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
         <div class="field"><label>Name</label><input id="am-name" value="${row.name || ''}"></div>
         <div class="field"><label>Category</label><select id="am-cat">${categoryOptions(row.category || 'misc')}</select></div>
         <div class="field"><label>Waveform</label><select id="am-wave">${WAVEFORMS.map(w => `<option value="${w}" ${(row.waveform || 'square') === w ? 'selected' : ''}>${w}</option>`).join('')}</select></div>
+      </div>
+      <div class="field" style="margin-top:10px"><label>Sample <span style="color:var(--text-dim);font-weight:400">(if set, sample is used instead of synthesized waveform)</span></label>
+        <select id="am-sample">${_assetOptions(_audioData.samples, row.sample_id, '— synth only —')}</select>
       </div>
       ${instrumentLikeConfigFields(row.config, 'am')}
       <div class="field" style="display:flex;align-items:center;gap:10px;margin-top:10px">
@@ -662,6 +759,7 @@ function openAudioModal(tab, row) {
       if (!name) { toast('Name is required', true); return; }
       const reqBody = {
         name, category: document.getElementById('am-cat').value, waveform: document.getElementById('am-wave').value,
+        sample_id: document.getElementById('am-sample').value || null,
         config: readInstrumentLikeConfig('am'), enabled: document.getElementById('am-enabled').checked ? 1 : 0,
       };
       const r = isNew ? await API('/audio/instruments', 'POST', reqBody) : await API(`/audio/instruments/${row.id}`, 'PUT', reqBody);

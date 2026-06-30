@@ -10,19 +10,23 @@ const instruments = new Map(); // id -> row
 const songs = new Map();       // id -> row
 const sfx = new Map();         // id -> row
 const ambient = new Map();     // id -> row
+const samples = new Map();     // id -> row (without data column)
 const eventRoutes = new Map(); // event_name -> row
 
 // name -> id, so event handlers below can reference assets by human name
 // without hardcoding ids. Falls back to no-op if the named asset isn't seeded.
 const byName = { sfx: new Map(), songs: new Map(), ambient: new Map() };
 
+const SAMPLE_META_COLS = 'id,name,category,priority,mime_type,base_note,loop_start,loop_end,snes_rate,snes_bits,echo_mix,config,enabled';
+
 export async function loadAudioLibrary() {
-  const [i, s, fx, am, ev] = await Promise.all([
+  const [i, s, fx, am, ev, sm] = await Promise.all([
     query('SELECT * FROM audio_instruments'),
     query('SELECT * FROM audio_songs'),
     query('SELECT * FROM audio_sfx'),
     query('SELECT * FROM audio_ambient'),
     query('SELECT * FROM audio_event_routes WHERE enabled=1'),
+    query(`SELECT ${SAMPLE_META_COLS} FROM audio_samples`),
   ]);
   instruments.clear();
   for (const row of i.rows) instruments.set(row.id, row);
@@ -37,6 +41,8 @@ export async function loadAudioLibrary() {
   for (const row of am.rows) { ambient.set(row.id, row); byName.ambient.set(row.name, row.id); }
   eventRoutes.clear();
   for (const row of ev.rows) eventRoutes.set(row.event_name, row);
+  samples.clear();
+  for (const row of sm.rows) samples.set(row.id, row);
 }
 
 await loadAudioLibrary().catch(e => console.error('[audio] failed to load library:', e.message));
@@ -77,6 +83,10 @@ function triggerEventRoute(eventName, zoneId, playerId) {
     const def = sfx.get(route.sfx_id);
     if (def) send(target, { type: 'audio_sfx', def });
   }
+  if (route.sample_id) {
+    const def = samples.get(route.sample_id);
+    if (def) send(target, { type: 'audio_sample', def });
+  }
   if (route.ambient_id) {
     const def = ambient.get(route.ambient_id);
     if (def) send(target, { type: 'audio_ambience', def });
@@ -93,7 +103,16 @@ function triggerEventRoute(eventName, zoneId, playerId) {
 function resolveSongInstruments(song) {
   const ids = Array.isArray(song.instrument_ids) ? song.instrument_ids : [];
   const _instrumentsById = {};
-  for (const id of ids) { const row = instruments.get(id); if (row) _instrumentsById[id] = row; }
+  for (const id of ids) {
+    const row = instruments.get(id);
+    if (!row) continue;
+    const inst = { ...row };
+    if (inst.sample_id) {
+      const sampleDef = samples.get(inst.sample_id);
+      if (sampleDef) inst._sampleDef = sampleDef;
+    }
+    _instrumentsById[id] = inst;
+  }
   return { ...song, _instrumentsById };
 }
 
@@ -177,7 +196,7 @@ function devOk(auth) {
 }
 
 const TABLES = {
-  instruments: { table: 'audio_instruments', cache: instruments, cols: ['name', 'category', 'waveform', 'config', 'enabled'] },
+  instruments: { table: 'audio_instruments', cache: instruments, cols: ['name', 'category', 'waveform', 'config', 'enabled', 'sample_id'] },
   songs: { table: 'audio_songs', cache: songs, cols: ['name', 'category', 'tempo', 'channels', 'loop_start', 'loop_end', 'instrument_ids', 'priority', 'enabled'] },
   sfx: { table: 'audio_sfx', cache: sfx, cols: ['name', 'category', 'priority', 'config', 'enabled'] },
   ambient: { table: 'audio_ambient', cache: ambient, cols: ['name', 'category', 'priority', 'config', 'loop', 'enabled'] },
@@ -185,7 +204,7 @@ const TABLES = {
 
 // event_routes has event_name as PK (not a UUID id), so it gets its own
 // branch in routeHandler rather than being stuffed into TABLES.
-const EVENT_ROUTE_COLS = ['sfx_id', 'ambient_id', 'song_id', 'scope', 'enabled'];
+const EVENT_ROUTE_COLS = ['sfx_id', 'ambient_id', 'song_id', 'sample_id', 'scope', 'enabled'];
 
 const JSONB_COLS = new Set(['config', 'channels', 'instrument_ids']);
 
@@ -235,6 +254,55 @@ export const routeHandler = async (path, method, body, auth) => {
       }
       if (id && method === 'DELETE') {
         await query('DELETE FROM audio_event_routes WHERE event_name=$1', [id]);
+        await loadAudioLibrary();
+        return { status: 200, body: { message: 'Deleted' } };
+      }
+    } catch (e) {
+      return { status: 500, body: { error: e.message } };
+    }
+    return null;
+  }
+
+  // ── /audio/samples CRUD + data sub-resource ─────────────────────────────
+  if (resource === 'samples') {
+    const SAMPLE_COLS = ['name', 'category', 'priority', 'data', 'mime_type', 'base_note', 'loop_start', 'loop_end', 'snes_rate', 'snes_bits', 'echo_mix', 'config', 'enabled'];
+    try {
+      // GET /audio/samples/:id/data — returns base64 blob; open to game client (no dev auth needed for GET)
+      if (id && parts[3] === 'data' && method === 'GET') {
+        const { rows } = await query('SELECT data FROM audio_samples WHERE id=$1', [id]);
+        if (!rows[0]) return { status: 404, body: { error: 'Not found' } };
+        return { status: 200, body: { data: rows[0].data } };
+      }
+      if (!id && method === 'GET') {
+        const { rows } = await query(`SELECT ${SAMPLE_META_COLS} FROM audio_samples ORDER BY name`);
+        return { status: 200, body: rows };
+      }
+      if (!id && method === 'POST') {
+        const newId = body.id || `smp_${randomUUID()}`;
+        const cols = ['id', ...SAMPLE_COLS];
+        const placeholders = cols.map((_, idx) => `$${idx + 1}`).join(',');
+        const values = [newId, ...SAMPLE_COLS.map(c => {
+          if (c === 'config') return JSON.stringify(body[c] ?? {});
+          if (c === 'enabled') return body[c] !== false ? 1 : 0;
+          return body[c] ?? null;
+        })];
+        await query(`INSERT INTO audio_samples (${cols.join(',')}) VALUES (${placeholders})`, values);
+        await loadAudioLibrary();
+        return { status: 201, body: { id: newId } };
+      }
+      if (id && method === 'PUT') {
+        const sets = SAMPLE_COLS.map((c, i) => `${c}=$${i + 1}`).join(',');
+        const values = [...SAMPLE_COLS.map(c => {
+          if (c === 'config') return JSON.stringify(body[c] ?? {});
+          if (c === 'enabled') return body[c] !== false ? 1 : 0;
+          return body[c] ?? null;
+        }), id];
+        await query(`UPDATE audio_samples SET ${sets} WHERE id=$${SAMPLE_COLS.length + 1}`, values);
+        await loadAudioLibrary();
+        return { status: 200, body: { id } };
+      }
+      if (id && method === 'DELETE') {
+        await query('DELETE FROM audio_samples WHERE id=$1', [id]);
         await loadAudioLibrary();
         return { status: 200, body: { message: 'Deleted' } };
       }

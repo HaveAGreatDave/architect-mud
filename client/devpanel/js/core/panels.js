@@ -107,8 +107,8 @@ const PANELS = {
   },
   audio: {
     title: 'Audio',
-    fetch: () => Promise.all([API('/audio/instruments'), API('/audio/songs'), API('/audio/sfx'), API('/audio/ambient'), API('/audio/events')])
-      .then(([instruments, songs, sfx, ambient, events]) => ({ instruments, songs, sfx, ambient, events })),
+    fetch: () => Promise.all([API('/audio/instruments'), API('/audio/songs'), API('/audio/sfx'), API('/audio/ambient'), API('/audio/events'), API('/audio/samples')])
+      .then(([instruments, songs, sfx, ambient, events, samples]) => ({ instruments, songs, sfx, ambient, events, samples })),
     noEdit: true,
     render: renderAudioPanel,
   },

@@ -849,6 +849,30 @@ export const SCHEMA_SQL = `
     scope TEXT NOT NULL DEFAULT 'zone',
     enabled INTEGER NOT NULL DEFAULT 1
   );
+
+  -- SNES-style sample playback. base64 audio data stored in the DB; the data
+  -- column is intentionally excluded from the standard list GET — fetch it via
+  -- GET /audio/samples/:id/data. snes_rate and snes_bits control the BRR-like
+  -- downsampling + bit-crush applied in the browser at load time.
+  CREATE TABLE IF NOT EXISTS audio_samples (
+    id         TEXT PRIMARY KEY,
+    name       TEXT NOT NULL,
+    category   TEXT DEFAULT 'misc',
+    priority   INTEGER DEFAULT 5,
+    data       TEXT,
+    mime_type  TEXT DEFAULT 'audio/mpeg',
+    base_note  INTEGER DEFAULT 60,
+    loop_start REAL DEFAULT 0,
+    loop_end   REAL DEFAULT 0,
+    snes_rate  INTEGER DEFAULT 16000,
+    snes_bits  INTEGER DEFAULT 4,
+    echo_mix   REAL DEFAULT 0,
+    config     JSONB DEFAULT '{}',
+    enabled    INTEGER DEFAULT 1
+  );
+
+  ALTER TABLE audio_instruments ADD COLUMN IF NOT EXISTS sample_id TEXT REFERENCES audio_samples(id);
+  ALTER TABLE audio_event_routes ADD COLUMN IF NOT EXISTS sample_id TEXT REFERENCES audio_samples(id);
 `;
 
 export async function applySchema() {

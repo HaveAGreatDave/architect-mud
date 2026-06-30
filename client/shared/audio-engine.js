@@ -281,6 +281,138 @@
     return { release: (t) => releases.forEach(r => r.release(t)), gainNode: releases[0]?.gainNode };
   }
 
+  // ── SNES-style sample playback ─────────────────────────────────────────────
+  // Samples are fetched once from /audio/samples/:id/data, then processed:
+  // 1. decode audio, 2. downsample to snes_rate via OfflineAudioContext,
+  // 3. bit-crush in place. Result cached by id for the session lifetime.
+
+  const _sampleCache = new Map(); // id -> processed AudioBuffer
+
+  async function _processSnes(rawBuffer, snesRate, snesBits) {
+    const ratio = rawBuffer.sampleRate / snesRate;
+    const outLen = Math.max(1, Math.ceil(rawBuffer.length / ratio));
+    const off = new OfflineAudioContext(1, outLen, snesRate);
+    const src = off.createBufferSource();
+    src.buffer = rawBuffer;
+    src.connect(off.destination);
+    src.start(0);
+    const lo = await off.startRendering();
+    // Bit-crush: quantise to snesBits depth
+    const d = lo.getChannelData(0);
+    const step = Math.pow(2, snesBits - 1);
+    for (let i = 0; i < d.length; i++) d[i] = Math.round(d[i] * step) / step;
+    return lo;
+  }
+
+  async function loadSample(def) {
+    if (_sampleCache.has(def.id)) return _sampleCache.get(def.id);
+    const c = ensureContext();
+    if (!c) return null;
+    try {
+      const res = await fetch(`/audio/samples/${def.id}/data`);
+      const { data } = await res.json();
+      const bytes = Uint8Array.from(atob(data), ch => ch.charCodeAt(0));
+      const raw = await c.decodeAudioData(bytes.buffer);
+      const processed = await _processSnes(raw, def.snes_rate ?? 16000, def.snes_bits ?? 4);
+      _sampleCache.set(def.id, processed);
+      return processed;
+    } catch (e) {
+      console.warn('[audio] loadSample failed:', def.id, e.message);
+      return null;
+    }
+  }
+
+  function _noteToMidi(note) {
+    if (typeof note === 'number') return note;
+    const m = /^([A-G][#b]?)(-?\d+)$/.exec(String(note).trim());
+    if (!m) return 60;
+    const semitone = NOTE_INDEX[m[1]];
+    if (semitone === undefined) return 60;
+    return (parseInt(m[2], 10) + 1) * 12 + semitone;
+  }
+
+  // Core playback from a pre-decoded buffer. schedTime is an AudioContext timestamp.
+  function _playSampleFromBuffer(buf, def, opts, schedTime) {
+    const c = ctx;
+    if (!c || !buf) return;
+    const adsr = def.config?.adsr ?? { a: 0.01, d: 0, s: 1, r: 0.3 };
+    const peak = (def.config?.gain ?? 1) * (opts.gain ?? 1);
+    const idx = allocateVoice(def.priority ?? 5);
+    if (idx === -1) return;
+
+    // Pitch shift: MIDI note → playback rate; Gaussian warmth = lowpass tightens with pitch deviation
+    const baseFreq = 440 * Math.pow(2, ((def.base_note ?? 60) - 69) / 12);
+    const midiNote = opts.note ?? (def.base_note ?? 60);
+    const targetFreq = 440 * Math.pow(2, (midiNote - 69) / 12);
+    const rate = targetFreq / baseFreq;
+
+    const gainNode = c.createGain();
+    gainNode.gain.setValueAtTime(0, schedTime);
+    gainNode.gain.linearRampToValueAtTime(peak, schedTime + (adsr.a ?? 0.01));
+    gainNode.gain.linearRampToValueAtTime(peak * (adsr.s ?? 1), schedTime + (adsr.a ?? 0.01) + (adsr.d ?? 0));
+
+    const warmth = c.createBiquadFilter();
+    warmth.type = 'lowpass';
+    warmth.frequency.value = Math.max(3000, 18000 / rate);
+
+    const srcNode = c.createBufferSource();
+    srcNode.buffer = buf;
+    srcNode.playbackRate.value = rate;
+    if ((def.loop_end ?? 0) > 0) {
+      srcNode.loop = true;
+      srcNode.loopStart = def.loop_start ?? 0;
+      srcNode.loopEnd = def.loop_end;
+    }
+
+    const naturalDuration = buf.duration / rate;
+    const isLooping = (def.loop_end ?? 0) > 0;
+    const holdSec = isLooping
+      ? (def.config?.duration ?? 4)
+      : Math.max(0, naturalDuration - (adsr.a ?? 0.01) - (adsr.d ?? 0));
+    const releaseAt = schedTime + (adsr.a ?? 0.01) + (adsr.d ?? 0) + holdSec;
+    const endAt = releaseAt + (adsr.r ?? 0.3) + 0.1;
+
+    srcNode.connect(warmth);
+
+    if ((def.echo_mix ?? 0) > 0) {
+      const mix = def.echo_mix;
+      const delay = c.createDelay(0.5);
+      delay.delayTime.value = 0.18;
+      const fb = c.createGain(); fb.gain.value = 0.35;
+      const dryGain = c.createGain(); dryGain.gain.value = 1 - mix;
+      const wetGain = c.createGain(); wetGain.gain.value = mix;
+      warmth.connect(dryGain).connect(gainNode);
+      warmth.connect(wetGain).connect(delay);
+      delay.connect(fb).connect(delay);
+      delay.connect(gainNode);
+    } else {
+      warmth.connect(gainNode);
+    }
+    gainNode.connect(busFor(def.category));
+
+    srcNode.start(schedTime);
+    if (!isLooping) srcNode.stop(Math.max(schedTime, schedTime + naturalDuration) + 0.05);
+    else srcNode.stop(endAt);
+
+    gainNode.gain.setTargetAtTime(0, releaseAt, Math.max(0.01, (adsr.r ?? 0.3) / 3));
+
+    const stopFn = () => {
+      gainNode.gain.cancelScheduledValues(c.currentTime);
+      gainNode.gain.setTargetAtTime(0, c.currentTime, 0.02);
+    };
+    occupyVoice(idx, def.priority ?? 5, stopFn);
+    const msUntilFree = Math.max(100, (endAt - c.currentTime + 0.1) * 1000);
+    setTimeout(() => freeVoice(idx), msUntilFree);
+  }
+
+  async function playSample(def, opts = {}) {
+    if (!def) return;
+    ensureContext();
+    const buf = await loadSample(def);
+    if (!buf) return;
+    _playSampleFromBuffer(buf, def, opts, ctx.currentTime);
+  }
+
   // ── SFX (one-shots) ────────────────────────────────────────────────────────
 
   function playSfx(def) {
@@ -372,9 +504,26 @@
       channels.forEach((ch, chIdx) => {
         const step = ch[stepIdx % ch.length];
         if (!step || step.note == null) return;
+        const instrument = (def._instrumentsById && def._instrumentsById[step.instrument]) || {};
+
+        // Sample-backed instrument: pitch-shift the sample buffer instead of synthesis
+        if (instrument._sampleDef) {
+          const midi = _noteToMidi(step.note);
+          const sampleOpts = { note: midi, gain: step.vol ?? 1 };
+          const cached = _sampleCache.get(instrument._sampleDef.id);
+          if (cached) {
+            _playSampleFromBuffer(cached, instrument._sampleDef, sampleOpts, time);
+          } else {
+            // First encounter: load async then play immediately (note will be slightly late)
+            loadSample(instrument._sampleDef).then(buf => {
+              if (buf) _playSampleFromBuffer(buf, instrument._sampleDef, sampleOpts, c.currentTime);
+            });
+          }
+          return;
+        }
+
         const freq = noteToFreq(step.note);
         if (freq == null) return;
-        const instrument = (def._instrumentsById && def._instrumentsById[step.instrument]) || {};
         const config = { ...(instrument.config || {}), waveform: instrument.waveform || 'square', freq };
         config.gain = (config.gain ?? 1) * (step.vol ?? 1);
         const idx = allocateVoice(priority);
@@ -446,6 +595,10 @@
     const c = init();
     if (!c || !def) return;
     if (activePlayer) activePlayer.stop();
+    // Pre-warm sample cache for any sample-backed instruments so first notes don't stutter
+    for (const inst of Object.values(def._instrumentsById || {})) {
+      if (inst._sampleDef) loadSample(inst._sampleDef);
+    }
     const gain = c.createGain();
     gain.connect(musicGain);
     activePlayer = makeSongPlayer(def, gain);
@@ -507,7 +660,8 @@
 
   global.AudioEngine = {
     init, applyVolumeSettings,
-    playSfx, loopSound, stopLoop, setLoopGain,
+    playSfx, playSample,
+    loopSound, stopLoop, setLoopGain,
     playMusic, stopMusic, pauseMusic, resumeMusic, queueMusic, fadeTo, crossFade, setLayerWeight,
     stop,
     noteToFreq,
