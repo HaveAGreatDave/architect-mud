@@ -1492,7 +1492,7 @@ async function cmdTune(args, raw, player, broadcast) {
 
   emit('device.tuned', { furnitureId: device.id, channelNumber, channelId: channel.id });
   buildTvPanel(channel.id, player, channelNumber);
-  return { type: 'output', message: `Tuned to channel ${channelNumber}: ${channel.name}.` };
+  return null; // silent — the TV panel itself reflects the new channel
 }
 
 function _furnitureEntryForZoneChannel(zoneId, channelId) {

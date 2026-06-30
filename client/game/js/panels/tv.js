@@ -1,7 +1,7 @@
 // Television popup panel — receives live broadcast push via the existing WS tick.
 // Opened by 'watch tv' / 'tv' commands; closed by ESC or the close button.
 
-import { sendCmd } from '../net.js';
+import { sendCmdSilent } from '../net.js';
 import { renderMarkup } from '../markup.js';
 
 let _tvOpen = false;
@@ -20,6 +20,8 @@ let _tvFrequency   = 0;    // current dial position (float), quantized to 0.05 s
 let _dialRaw       = 0;    // unquantized accumulator driving drag math, avoids feedback-loop stepping
 const LOCK_RANGE   = 0.25; // within this many channel-numbers = lock in
 const TV_DIAL_MAX  = 9.05; // dial wraps 0.0 → 9.0 → 0.0 (9.0 + 0.05 step = wrap)
+let _sweepRaf       = null;
+const DIAL_SWEEP_SPEED = 4; // frequency-units per second — controls how long static shows between channels
 
 // CRT hum is per-viewer UI ambience tied to the panel being open, not shared
 // multiplayer state — so unlike channel-change SFX (server-driven via the
@@ -237,6 +239,7 @@ export function closeTvPanel() {
   _tvPoweredOff = false;
   _tvActiveChannelId = null;
   if (_tuneTimer) { clearTimeout(_tuneTimer); _tuneTimer = null; }
+  if (_sweepRaf) { cancelAnimationFrame(_sweepRaf); _sweepRaf = null; }
   _clearOverlay();
   const win = document.getElementById('tv-window');
   win.classList.remove('tv-shutting-off');
@@ -319,8 +322,49 @@ export function isTvOpen() { return _tvOpen; }
 export function getTvActiveChannelId() { return _tvActiveChannelId; }
 
 function _tvTuneTo(num) {
-  sendCmd('tune ' + num);
+  sendCmdSilent('tune ' + num);
   _playTuneAnimation();
+}
+
+// Sweeps the dial from its current position toward the next/previous channel
+// in the list, passing through the static in between (same lock logic as a
+// manual drag) rather than snapping straight there. Used by the +/- buttons,
+// which exist for touch/no-wheel input but read identically to a slow turn.
+function _stepChannel(direction) {
+  if (!_tvChannelList.length) return;
+  let target;
+  if (direction > 0) {
+    const next = _tvChannelList.find(c => c.number > _tvFrequency + 0.001);
+    target = next ? next.number : _tvChannelList[0].number;
+  } else {
+    const prior = [..._tvChannelList].reverse().find(c => c.number < _tvFrequency - 0.001);
+    target = prior ? prior.number : _tvChannelList[_tvChannelList.length - 1].number;
+  }
+  _sweepDialTo(target, direction);
+}
+
+function _sweepDialTo(targetNumber, direction) {
+  if (_sweepRaf) cancelAnimationFrame(_sweepRaf);
+
+  const start = _dialRaw;
+  // Unwrap the target so the sweep moves monotonically in the requested
+  // direction instead of jumping backward across the wrap point.
+  let unwrappedTarget = targetNumber;
+  if (direction > 0 && unwrappedTarget <= start) unwrappedTarget += TV_DIAL_MAX;
+  if (direction < 0 && unwrappedTarget >= start) unwrappedTarget -= TV_DIAL_MAX;
+
+  const distance = Math.abs(unwrappedTarget - start);
+  const duration = Math.max(distance / DIAL_SWEEP_SPEED, 0.15) * 1000;
+  const startTime = performance.now();
+
+  function tick(now) {
+    const t = Math.min((now - startTime) / duration, 1);
+    const raw = start + (unwrappedTarget - start) * t;
+    _dialRaw = ((raw % TV_DIAL_MAX) + TV_DIAL_MAX) % TV_DIAL_MAX;
+    tvTunerInput(Math.round(_dialRaw * 20) / 20);
+    _sweepRaf = (t < 1) ? requestAnimationFrame(tick) : null;
+  }
+  _sweepRaf = requestAnimationFrame(tick);
 }
 
 function _updateKnobRotation() {
@@ -506,55 +550,14 @@ export function initTvPanel() {
   document.getElementById('tv-close-btn').addEventListener('click', shutdownTvPanel);
   window.addEventListener('game-disconnect', () => { if (_tvOpen) shutdownTvPanel(); });
 
-  // Knob: circular drag tunes, click cycles channels.
-  // Tracks the mouse's actual angle around the knob's center frame-to-frame, so
-  // dragging in a circle maps 1:1 onto dial rotation regardless of drag radius.
-  // A center deadzone guards against the classic rotary-drag failure mode: near
-  // the pivot, a tiny mouse movement subtends a huge angle and the dial spins
-  // wildly — so angle updates are skipped while the cursor is too close in.
+  // Knob: click cycles channels, mousewheel fine-tunes. Drag-to-rotate is
+  // disabled for now — it was unreliable to control smoothly — so there's no
+  // mousedown/mousemove rotation handling here.
   const knob = document.getElementById('tv-knob');
-  let _knobDragging = false;
-  let _knobMoved = false;
-  let _knobLastAngle = 0;
-  const KNOB_DEADZONE_PX = 10;
-
-  function _angleFromCenter(e) {
-    const rect = knob.getBoundingClientRect();
-    const dx = e.clientX - (rect.left + rect.width / 2);
-    const dy = e.clientY - (rect.top + rect.height / 2);
-    if (Math.hypot(dx, dy) < KNOB_DEADZONE_PX) return null;
-    return Math.atan2(dx, -dy); // 0 = straight up, increases clockwise
-  }
-
-  knob.addEventListener('mousedown', (e) => {
-    if (!_tvOpen) return;
-    _knobDragging = true;
-    _knobMoved = false;
-    _dialRaw = _tvFrequency; // resync the unquantized accumulator to wherever the dial actually is
-    _knobLastAngle = _angleFromCenter(e);
-    e.preventDefault();
-  });
-
-  document.addEventListener('mousemove', (e) => {
-    if (!_knobDragging) return;
-    const angle = _angleFromCenter(e);
-    if (angle === null || _knobLastAngle === null) { _knobLastAngle = angle; return; }
-    let delta = angle - _knobLastAngle;
-    // Normalize across the ±π seam so crossing it doesn't register as a near-full spin
-    while (delta > Math.PI) delta -= 2 * Math.PI;
-    while (delta < -Math.PI) delta += 2 * Math.PI;
-    _knobLastAngle = angle;
-    if (Math.abs(delta) > 0.02) _knobMoved = true;
-    const freqDelta = (delta / (2 * Math.PI)) * TV_DIAL_MAX;
-    _dialRaw = ((_dialRaw + freqDelta) % TV_DIAL_MAX + TV_DIAL_MAX) % TV_DIAL_MAX;
-    const clamped = Math.round(_dialRaw * 20) / 20;
-    tvTunerInput(clamped);
-  });
-
-  document.addEventListener('mouseup', () => { _knobDragging = false; });
 
   knob.addEventListener('click', () => {
-    if (!_tvOpen || _knobMoved) return;
+    if (!_tvOpen) return;
+    if (_sweepRaf) { cancelAnimationFrame(_sweepRaf); _sweepRaf = null; }
     if (_tvChannelList.length) {
       const idx = _tvChannelList.findIndex(c => c.channelId === _tvActiveChannelId);
       const next = _tvChannelList[(idx + 1) % _tvChannelList.length];
@@ -572,11 +575,20 @@ export function initTvPanel() {
   knob.addEventListener('wheel', (e) => {
     if (!_tvOpen) return;
     e.preventDefault();
+    if (_sweepRaf) { cancelAnimationFrame(_sweepRaf); _sweepRaf = null; }
     const delta = -Math.sign(e.deltaY) * 0.05;
     const clamped = Math.round(((_tvFrequency + delta + TV_DIAL_MAX) % TV_DIAL_MAX) * 20) / 20;
     _dialRaw = clamped;
     tvTunerInput(clamped);
   }, { passive: false });
+
+  // +/- buttons: smoothly sweep toward the next/previous channel rather than
+  // snapping, so touch/no-wheel users still see the static pass between
+  // channels the same way a wheel scrub or drag would show it.
+  const tuneDownBtn = document.getElementById('tv-tune-down');
+  const tuneUpBtn   = document.getElementById('tv-tune-up');
+  tuneDownBtn?.addEventListener('click', () => { if (_tvOpen) _stepChannel(-1); });
+  tuneUpBtn?.addEventListener('click',   () => { if (_tvOpen) _stepChannel(1); });
 
   // Draggable TV window
   const header = document.getElementById('tv-header');

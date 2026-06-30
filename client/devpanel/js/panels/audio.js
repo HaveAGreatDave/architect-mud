@@ -9,6 +9,18 @@
 const AUDIO_CATEGORIES = ['ui', 'combat', 'cyberpunk', 'environment', 'tv', 'misc'];
 const WAVEFORMS = ['square', 'sine', 'triangle', 'sawtooth', 'noise'];
 
+// Field whitelist per asset type, mirrors the column lists in plugins/audio/index.js's
+// TABLES spec — used for both export (what to dump) and import (what to accept).
+// Everything in this system is a JSON parameter object (waveform/ADSR/filter recipes,
+// tracker patterns), never a recorded sample, so JSON is the only format that makes
+// sense — there's no waveform data to import, just synth presets to share/back up.
+const AUDIO_IMPORT_FIELDS = {
+  instruments: ['name', 'category', 'waveform', 'config', 'enabled'],
+  songs: ['name', 'category', 'tempo', 'channels', 'loop_start', 'loop_end', 'instrument_ids', 'priority', 'enabled'],
+  sfx: ['name', 'category', 'priority', 'config', 'enabled'],
+  ambient: ['name', 'category', 'priority', 'config', 'loop', 'enabled'],
+};
+
 let _audioTab = 'instruments';
 let _audioData = { instruments: [], songs: [], sfx: [], ambient: [] };
 
@@ -33,7 +45,11 @@ function renderAudioPanel(data) {
   panel.innerHTML = `
     <div style="padding:10px 16px;border-bottom:2px solid var(--border);background:var(--bg2);display:flex;justify-content:space-between;align-items:center">
       <div style="display:flex;gap:6px">${tabBar}</div>
-      <button class="action-btn" onclick="newAudioAsset('${_audioTab}')">+ New ${tabs.find(t => t[0] === _audioTab)[1]}</button>
+      <div style="display:flex;gap:6px">
+        <button class="action-btn danger" onclick="stopAllAudioPreviews()">⏹ Stop</button>
+        <button class="action-btn" onclick="openAudioImportModal('${_audioTab}')">⬆ Load</button>
+        <button class="action-btn" onclick="newAudioAsset('${_audioTab}')">+ New ${tabs.find(t => t[0] === _audioTab)[1]}</button>
+      </div>
     </div>
     <div id="audio-tab-body"></div>
   `;
@@ -61,6 +77,7 @@ function renderAudioTabBody() {
       <td style="text-align:right;white-space:nowrap">
         <button class="action-btn" style="font-size:10px;padding:3px 8px" onclick="previewAudioAsset('${_audioTab}','${r.id}')">▶</button>
         <button class="action-btn" style="font-size:10px;padding:3px 8px;margin-left:4px" onclick="editAudioAsset('${_audioTab}','${r.id}')">✏</button>
+        <button class="action-btn" style="font-size:10px;padding:3px 8px;margin-left:4px" onclick="exportAudioAsset('${_audioTab}','${r.id}')" title="Export as JSON">⬇</button>
         <button class="action-btn danger" style="font-size:10px;padding:3px 8px;margin-left:4px" onclick="deleteAudioAsset('${_audioTab}','${r.id}','${r.name.replace(/'/g, "\\'")}')">✕</button>
       </td>
     </tr>`;
@@ -88,6 +105,74 @@ function previewAudioAsset(tab, id) {
     }
     window.AudioEngine.playMusic({ ...row, _instrumentsById });
   }
+}
+
+// Halts whatever a Preview button started: the looping song player and any
+// ambient loop preview (SFX one-shots are too short to need stopping, and
+// free themselves on their own envelope/timeout already).
+function stopAllAudioPreviews() {
+  window.AudioEngine?.stopMusic();
+  window.AudioEngine?.stop('ambience');
+}
+
+// ── Import / Export (JSON presets — never real audio files, see note above) ──
+
+function exportAudioAsset(tab, id) {
+  const row = findAudioAsset(tab, id);
+  if (!row) return;
+  const data = {};
+  for (const f of AUDIO_IMPORT_FIELDS[tab]) data[f] = row[f];
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${tab}_${row.name.replace(/[^a-z0-9_-]/gi, '_')}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function openAudioImportModal(tab) {
+  const modal = document.getElementById('generic-modal');
+  document.getElementById('modal-title').textContent = `Load ${tab} preset(s)`;
+  document.getElementById('modal-body').innerHTML = `
+    <div class="field"><label>Upload .json file <span style="color:var(--text-dim);font-weight:400">(exported from this panel, or hand-written)</span></label>
+      <input type="file" id="ai-file" accept="application/json,.json">
+    </div>
+    <div class="field" style="margin-top:10px"><label>...or paste JSON <span style="color:var(--text-dim);font-weight:400">(a single preset object, or an array of presets)</span></label>
+      <textarea id="ai-json" rows="10" style="resize:vertical;font-family:monospace;font-size:11px" placeholder='{"name": "my_sound", "category": "misc", "config": {...}}'></textarea>
+    </div>`;
+  document.getElementById('ai-file').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => { document.getElementById('ai-json').value = reader.result; };
+    reader.readAsText(file);
+  });
+  const saveBtn = document.getElementById('modal-save');
+  saveBtn.textContent = 'Import';
+  saveBtn.onclick = async () => {
+    let parsed;
+    try { parsed = JSON.parse(document.getElementById('ai-json').value); }
+    catch { toast('Invalid JSON', true); return; }
+    const items = Array.isArray(parsed) ? parsed : [parsed];
+    const fields = AUDIO_IMPORT_FIELDS[tab];
+    let imported = 0;
+    for (const item of items) {
+      if (!item?.name) continue;
+      const body = {};
+      for (const f of fields) if (item[f] !== undefined) body[f] = item[f];
+      // Always create new rows on import — never carries the source id across,
+      // so importing can't silently overwrite an existing asset by id collision.
+      const r = await API(`/audio/${tab}`, 'POST', body);
+      if (!r?.error) imported++;
+    }
+    toast(`Imported ${imported} of ${items.length} preset(s)`, imported < items.length);
+    closeModal();
+    loadPanel('audio');
+  };
+  modal.style.display = 'flex';
 }
 
 // ── CRUD ─────────────────────────────────────────────────────────────────────

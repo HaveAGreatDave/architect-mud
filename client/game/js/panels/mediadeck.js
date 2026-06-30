@@ -4,15 +4,56 @@ let deckData = null;
 
 const LIGHT_LABEL = { green: 'LIVE — NO TAPE', orange: 'PLAYING TAPE', red: 'OFFLINE' };
 
+// Local-only UI ambience, same per-viewer treatment as the TV hum/static in
+// panels/tv.js — tied to this panel's state, not shared multiplayer state.
+// category:'tv' so it answers to the TV Audio toggle/volume (this deck is
+// part of the broadcast system), not the generic Ambient slider.
+const MEDIADECK_WHIR_DEF = {
+  id: 'mediadeck_whir_local', category: 'tv', priority: 1, loop: true,
+  config: { waveform: 'triangle', freq: 180, gain: 0.12, noiseMix: 0.2,
+    filter: { type: 'lowpass', freq: 900, q: 1 },
+    tremolo: { rate: 4, depth: 0.3 },
+    adsr: { a: 0.3, d: 0.1, s: 1, r: 0.3 } },
+};
+
+const MEDIADECK_EJECT_DEF = {
+  id: 'mediadeck_eject_local', category: 'tv', priority: 4,
+  config: { layers: [
+    { waveform: 'noise', noiseMix: 1, duration: 0.08, adsr: { a: 0.001, d: 0.05, s: 0, r: 0.03 }, filter: { type: 'highpass', freq: 1500, q: 1 } },
+    { waveform: 'triangle', freq: 150, duration: 0.3, gain: 0.5, pitchBend: { to: 60, time: 0.25 }, adsr: { a: 0.001, d: 0.15, s: 0.2, r: 0.15 }, filter: { type: 'lowpass', freq: 700, q: 1 } },
+  ] },
+};
+
+// The reverse gesture: a slide-in friction noise then a low clunk as the tape
+// locks into place (vs. eject's noise-burst + downward pitch drop).
+const MEDIADECK_INSERT_DEF = {
+  id: 'mediadeck_insert_local', category: 'tv', priority: 4,
+  config: { layers: [
+    { waveform: 'noise', noiseMix: 1, duration: 0.12, adsr: { a: 0.01, d: 0.08, s: 0, r: 0.04 }, filter: { type: 'bandpass', freq: 1800, q: 1 } },
+    { waveform: 'triangle', freq: 90, duration: 0.15, gain: 0.6, adsr: { a: 0.001, d: 0.1, s: 0, r: 0.06 }, filter: { type: 'lowpass', freq: 600, q: 1 } },
+  ] },
+};
+
+// Whirring plays only while a cassette is actively spinning (lightState
+// 'orange' — see _deckLightState in plugins/broadcast/index.js); not for
+// 'green' (live, no tape) or 'red' (offline). Idempotent either way: loopSound
+// no-ops if already looping, stopLoop no-ops if not.
+function _setDeckWhir(active) {
+  if (active) window.AudioEngine?.loopSound(MEDIADECK_WHIR_DEF);
+  else window.AudioEngine?.stopLoop(MEDIADECK_WHIR_DEF.id);
+}
+
 export function openMediaDeckPanel(data) {
   deckData = data;
   renderMediaDeckPanel(data);
   document.getElementById('mediadeck-panel').classList.add('active');
+  _setDeckWhir(data.lightState === 'orange');
 }
 
 export function closeMediaDeckPanel() {
   document.getElementById('mediadeck-panel').classList.remove('active');
   deckData = null;
+  _setDeckWhir(false);
 }
 
 function formatTime(secondsSinceMidnight) {
@@ -93,10 +134,12 @@ export function initMediaDeckPanel() {
     if (e.key === 'Escape' && deckData) closeMediaDeckPanel();
   });
   document.getElementById('mediadeck-eject-btn').addEventListener('click', () => {
+    if (deckData?.activeCassetteId) window.AudioEngine?.playSfx(MEDIADECK_EJECT_DEF);
     sendCmdSilent('eject');
     closeMediaDeckPanel();
   });
   document.getElementById('mediadeck-load-btn').addEventListener('click', () => {
+    window.AudioEngine?.playSfx(MEDIADECK_INSERT_DEF);
     sendCmdSilent('load cassette');
     closeMediaDeckPanel();
   });
