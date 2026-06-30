@@ -11,6 +11,7 @@ const WAVEFORMS = ['square', 'sine', 'triangle', 'sawtooth', 'noise'];
 
 // Known event names for the Events tab dropdown — users can also type custom ones.
 const KNOWN_EVENTS = [
+  'player.login', 'player.logout',
   'enemy.attacked', 'enemy.killed', 'player.death',
   'item.taken', 'item.dropped', 'device.tuned',
   'weather.rain', 'weather.storm', 'weather.clear', 'weather.snow', 'weather.thunder',

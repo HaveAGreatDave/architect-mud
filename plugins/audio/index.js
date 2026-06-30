@@ -116,6 +116,14 @@ function resolveSongInstruments(song) {
   return { ...song, _instrumentsById };
 }
 
+on('player.login', ({ id }) => {
+  triggerEventRoute('player.login', null, id);
+});
+
+on('player.logout', ({ id }) => {
+  triggerEventRoute('player.logout', null, id);
+});
+
 on('zone.entered', ({ actor, zone: zoneId }) => {
   if (triggerEventRoute(`zone.entered.${zoneId}`, zoneId, actor?.id)) return;
   if (triggerEventRoute('zone.entered', zoneId, actor?.id)) return;
