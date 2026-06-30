@@ -255,7 +255,10 @@
   function buildSound(config, destination, time, holdSeconds) {
     const layers = Array.isArray(config.layers) && config.layers.length ? config.layers : [config];
     const releases = layers.map(l => buildLayer(l, destination, time, holdSeconds));
-    return { release: (t) => releases.forEach(r => r.release(t)) };
+    // gainNode is exposed so loops can be ridden up/down live (see setLoopGain).
+    // For multi-layer sounds this only exposes the first layer's gain — fine for
+    // the single-layer loops (ambience, TV static/hum) that actually use it.
+    return { release: (t) => releases.forEach(r => r.release(t)), gainNode: releases[0]?.gainNode };
   }
 
   // ── SFX (one-shots) ────────────────────────────────────────────────────────
@@ -287,7 +290,8 @@
     if (idx === -1) return;
     const time = c.currentTime;
     const sound = buildSound(def.config || {}, busFor(def.category || 'ambient'), time, null);
-    activeLoops.set(id, { voiceIdx: idx, release: sound.release });
+    const baseGain = def.config?.gain ?? 1;
+    activeLoops.set(id, { voiceIdx: idx, release: sound.release, gainNode: sound.gainNode, baseGain });
     occupyVoice(idx, priority, () => { sound.release(c.currentTime); activeLoops.delete(id); });
   }
 
@@ -297,6 +301,16 @@
     voices[loop.voiceIdx]?.stop(false);
     freeVoice(loop.voiceIdx);
     activeLoops.delete(id);
+  }
+
+  // Rides an already-playing loop's volume up/down without restarting it —
+  // e.g. TV static tracking how far off-channel a dial currently is.
+  // fraction is 0-1, scaled against the loop's own configured gain.
+  function setLoopGain(id, fraction, rampSeconds = 0.05) {
+    const loop = activeLoops.get(id);
+    if (!loop?.gainNode) return;
+    const target = loop.baseGain * Math.max(0, Math.min(1, fraction));
+    loop.gainNode.gain.setTargetAtTime(target, ctx.currentTime, rampSeconds);
   }
 
   // ── Song player (tracker-style step sequencer) ─────────────────────────────
@@ -454,7 +468,7 @@
 
   global.AudioEngine = {
     init, applyVolumeSettings,
-    playSfx, loopSound, stopLoop,
+    playSfx, loopSound, stopLoop, setLoopGain,
     playMusic, stopMusic, pauseMusic, resumeMusic, queueMusic, fadeTo, crossFade, setLayerWeight,
     stop,
     noteToFreq,

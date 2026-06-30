@@ -47,8 +47,6 @@ const sfx = [
   { id: 'sfx_combat_death', name: 'combat_death', category: 'combat', priority: 9, config: { waveform: 'sawtooth', freq: 300, duration: 0.8, pitchBend: { to: 60, time: 0.7 }, adsr: { a: 0.001, d: 0.3, s: 0.3, r: 0.4 }, filter: { type: 'lowpass', freq: 1500, q: 1 } } },
   { id: 'sfx_terminal_login', name: 'terminal_login', category: 'cyberpunk', priority: 4, config: { waveform: 'square', freq: 660, duration: 0.3, pitchBend: { to: 1320, time: 0.25 }, adsr: { a: 0.005, d: 0.1, s: 0.5, r: 0.1 } } },
   { id: 'sfx_ice_break', name: 'ice_break', category: 'cyberpunk', priority: 6, config: { waveform: 'noise', noiseMix: 0.6, freq: 2000, duration: 0.4, adsr: { a: 0.001, d: 0.15, s: 0.1, r: 0.2 }, filter: { type: 'highpass', freq: 1500, q: 2 } } },
-  { id: 'sfx_tv_tuning_sweep', name: 'tv_tuning_sweep', category: 'tv', priority: 2, config: { waveform: 'sawtooth', freq: 400, duration: 0.5, pitchBend: { to: 1800, time: 0.45 }, adsr: { a: 0.01, d: 0.2, s: 0.4, r: 0.1 } } },
-  { id: 'sfx_tv_static_burst', name: 'tv_static_burst', category: 'tv', priority: 2, config: { waveform: 'noise', noiseMix: 1, duration: 0.25, adsr: { a: 0.001, d: 0.1, s: 0.3, r: 0.1 }, filter: { type: 'bandpass', freq: 3000, q: 0.5 } } },
   { id: 'sfx_tv_relay_click', name: 'tv_relay_click', category: 'tv', priority: 2, config: { waveform: 'square', freq: 1200, duration: 0.03, adsr: { a: 0.001, d: 0.02, s: 0, r: 0.01 } } },
 ];
 
@@ -67,7 +65,13 @@ async function insert(table, cols, row) {
   );
 }
 
+// Retired: the original tuning sweep read as a rising siren rather than radio
+// static, and the burst was made redundant by the continuous static loop now
+// handled client-side in tv.js. Clean up rows from any DB that ran the old seed.
+const RETIRED_IDS = ['sfx_tv_tuning_sweep', 'sfx_tv_static_burst'];
+
 async function seed() {
+  for (const id of RETIRED_IDS) await query('DELETE FROM audio_sfx WHERE id=$1', [id]);
   for (const row of instruments) await insert('audio_instruments', ['name', 'category', 'waveform', 'config'], row);
   for (const row of songs) await insert('audio_songs', ['name', 'category', 'tempo', 'channels', 'loop_start', 'loop_end', 'instrument_ids', 'priority'], row);
   for (const row of sfx) await insert('audio_sfx', ['name', 'category', 'priority', 'config'], row);

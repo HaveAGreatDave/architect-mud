@@ -30,6 +30,22 @@ const TV_HUM_DEF = {
     adsr: { a: 0.5, d: 0.1, s: 1, r: 0.5 } },
 };
 
+// Static is a continuous noise loop whose gain is ridden live (via
+// AudioEngine.setLoopGain) to track however much visual static is showing —
+// full while off-channel/searching, fading to silent as a channel locks in.
+// Same per-viewer local-only treatment as the hum: it's tied to dial/UI state,
+// not shared multiplayer state.
+const TV_STATIC_DEF = {
+  id: 'tv_static_local', category: 'tv', priority: 1, loop: true,
+  config: { waveform: 'noise', noiseMix: 1, gain: 0.35,
+    filter: { type: 'bandpass', freq: 3500, q: 0.4 },
+    adsr: { a: 0.05, d: 0.05, s: 1, r: 0.3 } },
+};
+
+function _setStaticAudio(fraction, rampSeconds) {
+  window.AudioEngine?.setLoopGain(TV_STATIC_DEF.id, fraction, rampSeconds);
+}
+
 export function openTvPanel(data) {
   const wasAlreadyOn = _tvOpen;
   _tvActiveChannelId = data.channelId || null;
@@ -63,6 +79,8 @@ export function openTvPanel(data) {
   applyTvTheme(data.theme || null);
   document.getElementById('tv-panel').classList.add('active');
   window.AudioEngine?.loopSound(TV_HUM_DEF);
+  window.AudioEngine?.loopSound(TV_STATIC_DEF);
+  _setStaticAudio(0);
 
   if (_tvPoweredOff) {
     // TV opened at 0.0 — show static, content hidden
@@ -86,6 +104,7 @@ export function openTvPanel(data) {
       staticEl.classList.add('tv-static-fade');
       content.classList.remove('tv-hidden');
       staticEl.addEventListener('animationend', () => staticEl.classList.remove('tv-static-fade'), { once: true });
+      _setStaticAudio(0, 0.3);
       _tuneTimer = null;
     }, 720);
   }
@@ -105,6 +124,7 @@ function _playTuneAnimation() {
   staticEl.classList.remove('tv-static-fade');
   knob.style.transform = '';
   staticEl.classList.add('tv-static-on');
+  _setStaticAudio(1);
 
   // Spin the knob
   knob.classList.remove('tv-knob-spinning');
@@ -120,6 +140,7 @@ function _playTuneAnimation() {
     staticEl.addEventListener('animationend', () => {
       staticEl.classList.remove('tv-static-fade');
     }, { once: true });
+    _setStaticAudio(0, 0.3);
 
     knob.classList.remove('tv-knob-spinning');
     _updateKnobRotation();
@@ -138,6 +159,7 @@ function _playCrtPowerOn() {
   staticEl.classList.remove('tv-static-fade', 'tv-static-loop');
   staticEl.style.opacity = '1';
   staticEl.classList.add('tv-static-on');
+  _setStaticAudio(1);
 
   win.classList.remove('tv-powering-on');
   win.offsetWidth; // force reflow to restart animation
@@ -189,6 +211,7 @@ export function closeTvPanel() {
   document.getElementById('tv-content').classList.remove('tv-hidden');
   document.getElementById('tv-panel').classList.remove('active');
   window.AudioEngine?.stopLoop(TV_HUM_DEF.id);
+  window.AudioEngine?.stopLoop(TV_STATIC_DEF.id);
 }
 
 export function shutdownTvPanel() {
@@ -286,6 +309,7 @@ export function tvTunerInput(val) {
   // Progressive fade: static fills as you move away, content fades in as you approach
   const staticOpacity  = Math.min(1, dist / LOCK_RANGE);
   const contentOpacity = 1 - staticOpacity;
+  _setStaticAudio(staticOpacity);
 
   if (staticEl) {
     staticEl.style.opacity = staticOpacity.toFixed(2);
@@ -315,10 +339,12 @@ export function showTvOffAir(offlineGraphicContent, offlineGraphicType) {
     staticEl.style.opacity = '';
     content.classList.remove('tv-hidden');
     appendTvMessage(offlineGraphicContent, offlineGraphicType === 'svg' ? 'svg' : 'ascii_art');
+    _setStaticAudio(0, 0.3);
   } else {
     content.classList.add('tv-hidden');
     staticEl.classList.add('tv-static-on', 'tv-static-loop');
     staticEl.style.opacity = '';
+    _setStaticAudio(1);
   }
 }
 

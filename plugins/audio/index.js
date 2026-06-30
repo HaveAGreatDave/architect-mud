@@ -97,19 +97,18 @@ on('item.dropped', ({ actor }) => {
 });
 
 // device.tuned fires on every TV/radio channel change (plugins/broadcast).
-// Channel-change audio is shared multiplayer state (everyone looking at the
-// same screen hears it), so it's server-driven like everything else here.
-// The steady CRT hum while a TV panel is open is per-viewer UI ambience and
-// is handled entirely client-side in client/game/js/panels/tv.js instead.
+// The mechanical relay click of actually landing on a channel is shared
+// multiplayer state (everyone looking at the same screen hears it), so it
+// stays server-driven. The static hiss heard while dialing/searching and the
+// steady CRT hum are per-viewer UI ambience tied to dial position, handled
+// entirely client-side in client/game/js/panels/tv.js instead.
 on('device.tuned', async ({ furnitureId }) => {
   if (!furnitureId) return;
   const { rows } = await query('SELECT zone_id FROM furniture WHERE id=$1', [furnitureId]);
   const targetZone = rows[0]?.zone_id;
   if (!targetZone) return;
-  for (const name of ['tv_tuning_sweep', 'tv_static_burst', 'tv_relay_click']) {
-    const def = sfxByName(name);
-    if (def) sendToZone(targetZone, { type: 'audio_sfx', def });
-  }
+  const def = sfxByName('tv_relay_click');
+  if (def) sendToZone(targetZone, { type: 'audio_sfx', def });
 });
 
 // ── Dev panel CRUD ────────────────────────────────────────────────────────
