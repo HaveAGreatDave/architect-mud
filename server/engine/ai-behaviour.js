@@ -4,6 +4,7 @@ import { enemyAttackPlayer } from './combat.js';
 import { getEnvironmentState } from './environment.js';
 import { emit } from './events.js';
 import { hasChannelViewers, isNpcScheduledNow, getNpcStudioZone } from './broadcast-bridge.js';
+import { getShopperForNpc, closeShopSession } from './vendor-session.js';
 
 // ── Chitchat ────────────────────────────────────────────────────────────────
 
@@ -96,6 +97,12 @@ function moveEntity(entity, newZoneId, broadcast, query) {
     broadcast(newZoneId, { type: 'zone_event', message: arriveMsg, refresh: true });
     broadcast(oldZoneId, { type: 'zone_event', message: departMsg, refresh: true });
   } else {
+    // If a player has this NPC's shop open, close it before the NPC leaves.
+    const shopperId = getShopperForNpc(entity.id);
+    if (shopperId) {
+      closeShopSession(shopperId);
+      broadcast(null, { type: 'dialogue_end', message: `${entity.name} has walked away.` }, null, shopperId);
+    }
     world.zones.get(oldZoneId)?.npcs.delete(entity.id);
     entity.zone_id = newZoneId;
     world.zones.get(newZoneId)?.npcs.add(entity.id);
@@ -677,6 +684,9 @@ export async function tickEntityAI(entity, ctx) {
 
   const ai = entity._ai;
   if (!ai) return;
+
+  // Don't tick while a player has this NPC's shop open.
+  if (ai.shopPaused) return;
 
   // Check if suspended in a WAIT — currentNode already points to the resume target
   if (ai.waitUntil && Date.now() < ai.waitUntil) return;

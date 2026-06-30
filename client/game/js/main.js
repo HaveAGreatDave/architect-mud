@@ -41,7 +41,7 @@ import { initAtmPanel } from "./panels/atm.js";
 import { initTvPanel } from "./panels/tv.js";
 import { initMediaDeckPanel } from "./panels/mediadeck.js";
 import { initAudio } from "./panels/audio.js";
-import { initMusicPlayerPanel, openMusicPlayerPanel } from "./panels/musicplayer.js";
+import { initMusicPlayerPanel, openMusicPlayerPanel, stopMusicPlayer } from "./panels/musicplayer.js";
 
 // Settings
 const settings = loadSettings();
@@ -67,45 +67,48 @@ applySettings(settings);
 applyMobileScale();
 window.addEventListener("resize", applyMobileScale);
 
-// Mobile look-pane toggle (+/- button)
+// Mobile area-pane: starts hidden, auto-opens when room content arrives,
+// closed by the [▲ hide] button inside the pane.
 if (_isMobile) {
 	const _areaPane = document.getElementById("area-pane");
-	const _toggleBtn = document.getElementById("area-toggle-btn");
 	const _toggleBar = document.getElementById("area-toggle-bar");
-	let _paneOpen = false;
+	const _resizeHandle = document.getElementById("look-resize-handle");
+	const _closeBtn = document.getElementById("area-pane-close");
 
 	function _setAreaPane(open) {
-		_paneOpen = open;
-		_areaPane.style.maxHeight = open ? "" : "0";
-		_areaPane.style.overflow = open ? "" : "hidden";
-		if (_toggleBar) _toggleBar.style.display = open ? "" : "none";
-		if (_toggleBtn) _toggleBtn.textContent = open ? "− lock" : "+ lock";
+		_areaPane.classList.toggle("mob-pane-hidden", !open);
+		if (_resizeHandle) _resizeHandle.classList.toggle("mob-pane-hidden", !open);
+		if (_toggleBar) _toggleBar.style.display = "none"; // always hidden on mobile
 	}
 
-	// Start fully collapsed on mobile — no toggle bar visible
+	// Start fully hidden — zero footprint at top
 	_setAreaPane(false);
 
-	_toggleBtn?.addEventListener("click", () => _setAreaPane(!_paneOpen));
+	// Auto-open whenever room content arrives (look / move)
+	_areaPane.addEventListener("contentupdate", () => _setAreaPane(true));
 
-	// Keyboard collapse: hide output + area; restore to user's toggle state on close
+	// [▲ hide] button inside the pane closes it
+	_closeBtn?.addEventListener("click", () => _setAreaPane(false));
+
+	// Keyboard collapse: hide output + area; restore when keyboard drops
 	if (window.visualViewport) {
 		const _output = document.getElementById("output");
 		let _fullVH = window.visualViewport.height;
-		let _keyboardUp = false;
+		let _paneWasOpen = false;
 
 		window.visualViewport.addEventListener("resize", () => {
-			_keyboardUp = window.visualViewport.height < _fullVH * 0.75;
-			if (_keyboardUp) {
+			const keyboardUp = window.visualViewport.height < _fullVH * 0.75;
+			if (keyboardUp) {
 				window.scrollTo(0, 0);
 				_output.style.maxHeight = "0";
 				_output.style.overflow = "hidden";
-				_areaPane.style.maxHeight = "0";
-				_areaPane.style.overflow = "hidden";
+				_paneWasOpen = !_areaPane.classList.contains("mob-pane-hidden");
+				_setAreaPane(false);
 			} else {
 				_fullVH = window.visualViewport.height;
 				_output.style.maxHeight = "";
 				_output.style.overflow = "";
-				_setAreaPane(_paneOpen);
+				if (_paneWasOpen) _setAreaPane(true);
 				_output.scrollTop = _output.scrollHeight;
 			}
 		});
@@ -364,6 +367,8 @@ initAtmPanel();
 initTvPanel();
 initMediaDeckPanel();
 initMusicPlayerPanel();
+
+window.addEventListener('game-disconnect', () => stopMusicPlayer());
 
 // Wire signout
 document.getElementById("signout-btn").addEventListener("click", () => {

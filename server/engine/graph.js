@@ -29,6 +29,7 @@ import { registerAction, dispatchAction } from './actions.js';
 import { emit } from './events.js';
 import { evalConditions } from './flags.js';
 import { getZone, addPlayerToZone, removePlayerFromZone } from './world.js';
+import { openShopSession } from './vendor-session.js';
 
 const MAX_STEPS = 100; // cycle / runaway-graph backstop
 
@@ -269,6 +270,7 @@ registerAction({
     if (!npc.vendor_inventory?.length) return { type: 'error', message: `${npc.name} has nothing to sell.` };
     const { getVendorStock } = await import('./vendor.js');
     const stock = await getVendorStock(npc, actor.id);
+    openShopSession(actor.id, npc.id);
     context?.broadcast?.(null, { type: 'dialogue_shop', npcId: npc.id, npcName: npc.name, stock, credits: actor.credits }, null, actor.id);
     return { type: 'open_shop', npcId };
   },

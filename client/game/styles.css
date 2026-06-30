@@ -597,6 +597,36 @@ body {
 	background: var(--bg);
 }
 
+/* Mobile-only hidden state — overrides any inline height styles */
+.mob-pane-hidden {
+	display: none !important;
+}
+
+#area-pane-close {
+	display: none;
+	align-self: flex-end;
+	background: transparent;
+	border: 1px solid var(--border);
+	color: var(--text-dim);
+	font-family: var(--font-mono);
+	font-size: 9px;
+	padding: 2px 7px;
+	cursor: pointer;
+	letter-spacing: 1px;
+	border-radius: 2px;
+	margin-bottom: 4px;
+	flex-shrink: 0;
+	-webkit-tap-highlight-color: transparent;
+}
+#area-pane-close:active {
+	color: var(--accent);
+	border-color: var(--accent);
+}
+@media (max-width: 720px) {
+	#area-pane-close { display: block; }
+}
+[data-density="compact"] #area-pane-close { display: block; }
+
 #look-resize-handle {
 	flex: 0 0 6px;
 	background: var(--border);

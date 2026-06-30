@@ -741,6 +741,7 @@ async function npcWanderTick() {
 
     // Hardcoded fallback wander for NPCs without a behaviour graph.
     if (!npc.wanders) continue;
+    if (npc._ai?.shopPaused) continue; // don't wander while a player is shopping
     if (Math.random() > 0.2) continue; // ~20% chance per minute → wanders roughly every 5 min
     const permitted = Array.isArray(npc.wander_zones) && npc.wander_zones.length ? npc.wander_zones : null;
     let candidates;

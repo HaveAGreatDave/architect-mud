@@ -766,9 +766,10 @@ const sfx = [
 
   // Environment
   { id: 'sfx_electrical_buzz', name: 'electrical_buzz', category: 'environment', priority: 3, config: { waveform: 'sawtooth', freq: 180, duration: 0.2, noiseMix: 0.4, adsr: { a: 0.001, d: 0.12, s: 0.2, r: 0.05 }, tremolo: { rate: 50, depth: 0.5 }, filter: { type: 'bandpass', freq: 1000, q: 1 } } },
-  { id: 'sfx_thunder', name: 'thunder', category: 'environment', priority: 5, config: { duration: 0.1, adsr: { r: 2.5 }, layers: [
-    { waveform: 'noise', noiseMix: 1, gain: 1.0, adsr: { a: 0.003, d: 0.18, s: 0, r: 0.08 }, filter: { type: 'bandpass', freq: 1800, q: 0.8 } },
-    { waveform: 'sine', freq: 55, gain: 0.8, pitchBend: { to: 18, time: 1.2 }, adsr: { a: 0.01, d: 0.6, s: 0.25, r: 2.5 } },
+  { id: 'sfx_thunder', name: 'thunder', category: 'environment', priority: 5, config: { duration: 0.05, adsr: { r: 2.5 }, layers: [
+    { waveform: 'noise', noiseMix: 1, gain: 1.0, adsr: { a: 0.001, d: 0.06, s: 0, r: 0.05 } },
+    { waveform: 'noise', noiseMix: 1, gain: 0.85, adsr: { a: 0.005, d: 1.0, s: 0.15, r: 1.8 }, filter: { type: 'lowpass', freq: 280, q: 0.7 } },
+    { waveform: 'noise', noiseMix: 1, gain: 0.7, adsr: { a: 0.01, d: 1.5, s: 0.2, r: 2.2 }, filter: { type: 'lowpass', freq: 80, q: 0.8 } },
   ] } },
 ];
 

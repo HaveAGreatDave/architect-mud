@@ -108,6 +108,11 @@ export function closeMusicPlayerPanel() {
   document.getElementById('musicplayer-panel').classList.remove('active');
 }
 
+export function stopMusicPlayer() {
+  _stop();
+  closeMusicPlayerPanel();
+}
+
 // ── Init (call once on page load) ─────────────────────────────────────────────
 
 export function initMusicPlayerPanel() {

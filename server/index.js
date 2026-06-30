@@ -50,6 +50,7 @@ import { loadMisSettings, isMisServerEnabled } from "./engine/mis.js";
 import { initEnvironment, getHUDPayload, getZoneTemperature } from "./engine/environment.js";
 import { getPlayerChannels, getChannelHistory } from "./engine/channels.js";
 import { getMotd } from "./engine/motd.js";
+import { openShopSession, closeShopSession } from "./engine/vendor-session.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
@@ -258,6 +259,7 @@ wss.on("connection", (ws) => {
 			return handleReconnect(ws, session, msg);
 		if (msg.type === "command") return handleGameCommand(ws, session, msg);
 		if (msg.type === "dialogue") return handleDialogue(ws, session, msg);
+		if (msg.type === "shop_close") { if (session.playerId) closeShopSession(session.playerId); return; }
 		if (msg.type === "buy_npc") return handleBuyFromNpc(ws, session, msg);
 		if (msg.type === "auth_ghost") return handleGhostAuth(ws, session, msg);
 		if (msg.type === "ghost_command") return handleGhostCommand(ws, session, msg);
@@ -307,6 +309,7 @@ wss.on("connection", (ws) => {
 						[session.playerId],
 					).catch(() => {});
 				}
+				closeShopSession(session.playerId);
 				emit('player.logout', { id: session.playerId, handle: session.handle });
 				logActivity('disconnect', session.handle);
 				broadcast(null, { type: 'online_change' });
@@ -809,6 +812,7 @@ async function handleDialogue(ws, session, msg) {
 		}
 		const { getVendorStock } = await import("./engine/vendor.js");
 		const stock = await getVendorStock(npc, session.playerId);
+		openShopSession(session.playerId, npc.id);
 		ws.send(JSON.stringify({ type: "dialogue_shop", npcId: npc.id, npcName: npc.name, stock, credits: player.credits }));
 		return;
 	}

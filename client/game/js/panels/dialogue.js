@@ -1,5 +1,5 @@
 import { state } from '../state.js';
-import { sendDialogue, buyFromNpc } from '../net.js';
+import { sendDialogue, buyFromNpc, sendRaw } from '../net.js';
 
 const ITEMS_PER_PAGE = 10;
 let shopState = null; // { msg, page }
@@ -37,6 +37,7 @@ export function openDialogue(msg) {
 
 export function closeDialogue() {
   document.getElementById('dialogue-panel').classList.remove('active');
+  if (shopState) sendRaw({ type: 'shop_close' });
   state.currentNpcId = null;
   shopState = null;
 }
