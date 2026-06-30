@@ -1302,17 +1302,33 @@ function _deckFlags(deck) {
 
 async function cmdLoadCassette(args, raw, player) {
   if (!player) return { type: 'error', message: 'No character.' };
-  // Usage: load cassette [into deck]  — finds a carried cassette and the deck in this zone
+  // Usage: load cassette [<name>]  — lists carried cassettes; loads by name if given
   const { rows: invRows } = await query(
     `SELECT pi.id AS inv_id, i.id AS item_id, i.name, i.flags, i.tags FROM player_inventory pi
        JOIN items i ON i.id = pi.item_id
-      WHERE pi.player_id=$1 AND pi.is_equipped=0
+      WHERE pi.player_id=$1 AND pi.is_equipped=0 AND pi.container_id IS NULL
         AND (jsonb_exists(i.tags,'media_cassette') OR (i.flags->>'media_cassette')='true')
-      LIMIT 1`,
+      ORDER BY i.name`,
     [player.id]
   );
   if (!invRows.length) return { type: 'output', message: 'You have no cassette to load.' };
-  const cassette = invRows[0];
+
+  // Strip the leading "cassette" keyword from args to get an optional name filter.
+  const nameFilter = args.filter(a => a.toLowerCase() !== 'cassette').join(' ').trim().toLowerCase();
+
+  if (invRows.length > 1 && !nameFilter) {
+    const lines = invRows.map((r, i) =>
+      `  <span class="action-link" data-action="load" data-target="cassette ${r.name}">${i + 1}. ${r.name}</span>`
+    ).join('\n');
+    return { type: 'output', message: `You have multiple cassettes. Which one?\n${lines}` };
+  }
+
+  let cassette = invRows[0];
+  if (nameFilter) {
+    const match = invRows.find(r => r.name.toLowerCase().includes(nameFilter));
+    if (!match) return { type: 'output', message: `You don't have a cassette matching "${nameFilter}".` };
+    cassette = match;
+  }
   const deck = await _findDeckInZone(player.current_zone);
   if (!deck) return { type: 'output', message: 'There is no media deck here.' };
   const dflags = _deckFlags(deck);
