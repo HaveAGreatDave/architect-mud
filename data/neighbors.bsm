@@ -1,18 +1,24 @@
-```bsm
 @broadcast "Neighbors from 14B - Episode 12: The Loud Pipe"
 @channel ksab_tv
 @category comedy
+@length 180
 @type scripted
-@season 1
-@episode 12
-@runtime 180
 
-# ASCII Asset: `neighbors_14b_logo`
+::actors
+@actor npc_frank
+@alias npc_frank FRANK
 
-```text
+@actor npc_donna
+@alias npc_donna DONNA
+
+@actor npc_maintenance_bot
+@alias npc_maintenance_bot BOT
+::endactors
+
+::asset neighbors_14b_logo
 ███╗   ██╗███████╗██╗ ██████╗ ██╗  ██╗██████╗  ██████╗ ██████╗ ███████╗
-████╗  ██║██╔════╝██║██╔════╝ ██║  ██║██╔══██╗██╔═══██ ██╔══██╗██╔════╝
-██╔██╗ ██║█████╗  ██║██║  ███╗███████║██████╔╝██║   ██╗██████╔╝███████╗
+████╗  ██║██╔════╝██║██╔════╝ ██║  ██║██╔══██╗██╔═══██╗██╔══██╗██╔════╝
+██╔██╗ ██║█████╗  ██║██║  ███╗███████║██████╔╝██║   ██║██████╔╝███████╗
 ██║╚██╗██║██╔══╝  ██║██║   ██║██╔══██║██╔══██╗██║   ██║██╔══██╗╚════██║
 ██║ ╚████║███████╗██║╚██████╔╝██║  ██║██████╔╝╚██████╔╝██║  ██║███████║
 ╚═╝  ╚═══╝╚══════╝╚═╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝  ╚═════╝ ╚═╝  ╚═╝╚══════╝
@@ -29,16 +35,12 @@ EVENT FADE_IN
 TITLE neighbors_14b_logo
 
 MUSIC neighbors_theme
-
 ♪ The Neighbors from 14B theme begins playing. ♪
+MUSIC_END
 
 TICKER
-
 CITY TRANSIT ANNOUNCES MINOR DELAYS DUE TO AUTOMATED TANK COLLISION • BUY ACID COLA™ • APARTMENT LOTTERY RESULTS AVAILABLE AFTER MIDNIGHT •
-
-END
-
- 
+TICKER_END
 
 EVENT DISSOLVE
 
@@ -49,247 +51,165 @@ ROOM studio_stage
 CAM 1 WIDE
 
 SHOT
-
 The broadcast opens on a cramped apartment living room. The furniture is mismatched, a ceiling pipe drips steadily into a saucepan, and an ancient television hums softly in the corner.
+SHOT_END
 
-END
-
-NPC frank
-
-NPC donna
+NPC npc_frank
+NPC npc_donna
 
 EVENT APPLAUSE
 
 FRANK:
 Donna!
 
- 
-
 DONNA:
 What?
-
- 
 
 FRANK:
 The pipe's making that noise again.
 
- 
-
 DONNA:
 Which one?
-
- 
 
 FRANK:
 The loud one.
 
- 
-
 DONNA:
 Frank...
-
- 
 
 DONNA:
 They're all loud.
 
 EVENT LAUGHTER
 
- 
-
 ::scene MAINTENANCE
 
 CAM 2 TRACK frank
 
 SHOT
-
 The camera follows Frank into the tiny kitchen where six different pipes rattle through the walls.
-
-END
+SHOT_END
 
 FRANK:
 I called maintenance.
 
- 
-
 DONNA:
 Good.
-
- 
 
 FRANK:
 They put me on hold.
 
- 
-
 DONNA:
 How long?
-
- 
 
 FRANK:
 Yesterday.
 
 EVENT LAUGHTER
 
- 
-
 ENTER maintenance_bot
 
 CAM 3 MEDIUM maintenance_bot
 
 SHOT
-
 A battered maintenance robot rolls into the apartment, trailing sparks and carrying a wrench larger than one of its arms.
-
-END
+SHOT_END
 
 BOT:
 Maintenance request acknowledged.
 
- 
-
 BOT:
 Estimated repair time...
-
- 
 
 BOT:
 Three to five business months.
 
 EVENT LAUGHTER
 
- 
-
 FRANK:
 Can you at least stop the leak?
-
- 
 
 BOT:
 Leak subscription expired.
 
 EVENT APPLAUSE
-
 EVENT LAUGHTER
-
- 
 
 ::scene THE FIX
 
 CAM 4 CLOSEUP maintenance_bot
 
-ACTION maintenance_bot tighten_pipe
+ACTION maintenance_bot tightens a single valve.
 
 SHOT
-
 The robot tightens a single valve.
 
 Every pipe in the apartment immediately becomes twice as loud.
-
-END
-
- 
+SHOT_END
 
 FRANK:
 ...
 
- 
-
 DONNA:
 Well...
 
- 
-
 DONNA:
 It's louder.
-
- 
 
 BOT:
 Repair successful.
 
 EVENT LAUGHTER
 
- 
-
 ::scene TAG
 
 CAM 1 WIDE
 
 SHOT
-
 The couple sits on the couch, shouting over the deafening roar of vibrating plumbing.
 
 Water suddenly begins pouring from a ceiling light fixture into Frank's coffee.
-
-END
+SHOT_END
 
 FRANK:
 Think it'll stop?
 
- 
-
 DONNA:
 Eventually.
 
- 
-
 FRANK:
 When?
-
- 
 
 DONNA:
 When the ceiling falls down.
 
 EVENT LAUGHTER
 
- 
+ACTION npc_frank watches as the ceiling light flickers violently.
 
-The ceiling light flickers violently.
-
- 
-
-A single ceiling tile drops into Frank's lap.
-
- 
+ACTION npc_frank stares as a ceiling tile drops into his lap.
 
 FRANK:
 ...
-
- 
 
 FRANK:
 Called it.
 
 EVENT APPLAUSE
-
 EVENT LAUGHTER
-
- 
 
 ::scene CREDITS
 
 CAM 2 WIDE
 
 SHOT
-
 The camera slowly pulls back from Apartment 14B as the familiar theme plays over the closing credits. The sounds of rattling pipes continue long after the apartment disappears from view.
-
-
 SHOT_END
 
 MUSIC neighbors_theme
-
 ♪ The Neighbors from 14B theme begins playing. ♪
+MUSIC_END
 
 EVENT FADE_OUT
 
 END
-
-
-```
-
----
-
