@@ -11,7 +11,7 @@ const songs = new Map();       // id -> row
 const sfx = new Map();         // id -> row
 const ambient = new Map();     // id -> row
 const samples = new Map();     // id -> row (without data column)
-const eventRoutes = new Map(); // event_name -> row
+const eventRoutes = new Map(); // event_name -> row[]
 
 // name -> id, so event handlers below can reference assets by human name
 // without hardcoding ids. Falls back to no-op if the named asset isn't seeded.
@@ -40,7 +40,11 @@ export async function loadAudioLibrary() {
   byName.ambient.clear();
   for (const row of am.rows) { ambient.set(row.id, row); byName.ambient.set(row.name, row.id); }
   eventRoutes.clear();
-  for (const row of ev.rows) eventRoutes.set(row.event_name, row);
+  for (const row of ev.rows) {
+    const arr = eventRoutes.get(row.event_name) || [];
+    arr.push(row);
+    eventRoutes.set(row.event_name, arr);
+  }
   samples.clear();
   for (const row of sm.rows) samples.set(row.id, row);
 }
@@ -73,8 +77,9 @@ export function getSongDefByName(name) {
 // a route was found (so callers can skip their hardcoded fallback).
 
 function triggerEventRoute(eventName, zoneId, playerId) {
-  const route = eventRoutes.get(eventName);
-  if (!route) return false;
+  const routes = eventRoutes.get(eventName);
+  if (!routes?.length) return false;
+  const route = routes[Math.floor(Math.random() * routes.length)];
   const usePlayer = route.scope === 'player';
   const target = usePlayer ? playerId : zoneId;
   if (!target) return false;
@@ -210,9 +215,9 @@ const TABLES = {
   ambient: { table: 'audio_ambient', cache: ambient, cols: ['name', 'category', 'priority', 'config', 'loop', 'enabled'] },
 };
 
-// event_routes has event_name as PK (not a UUID id), so it gets its own
-// branch in routeHandler rather than being stuffed into TABLES.
-const EVENT_ROUTE_COLS = ['sfx_id', 'ambient_id', 'song_id', 'sample_id', 'scope', 'enabled'];
+// event_routes uses a UUID id PK; event_name is a plain indexed column allowing
+// multiple routes per event (random selection at runtime).
+const EVENT_ROUTE_COLS = ['event_name', 'sfx_id', 'ambient_id', 'song_id', 'sample_id', 'scope', 'enabled'];
 
 const JSONB_COLS = new Set(['config', 'channels', 'instrument_ids']);
 
@@ -233,7 +238,7 @@ export const routeHandler = async (path, method, body, auth) => {
   const id = parts[2]; // for events, this is the event_name
   const spec = TABLES[resource];
 
-  // ── /audio/events CRUD (event_name is PK, not a UUID) ───────────────────
+  // ── /audio/events CRUD (UUID id PK; multiple rows per event_name allowed) ─
   if (resource === 'events') {
     try {
       if (!id && method === 'GET') {
@@ -243,25 +248,25 @@ export const routeHandler = async (path, method, body, auth) => {
       if (!id && method === 'POST') {
         const evName = body.event_name?.trim();
         if (!evName) return { status: 400, body: { error: 'event_name is required' } };
-        const sets = EVENT_ROUTE_COLS.map((c, i) => `${c}=$${i + 2}`).join(',');
+        const newId = randomUUID();
         await query(
-          `INSERT INTO audio_event_routes (event_name,${EVENT_ROUTE_COLS.join(',')}) VALUES ($1,${EVENT_ROUTE_COLS.map((_,i)=>`$${i+2}`).join(',')}) ON CONFLICT (event_name) DO UPDATE SET ${sets}`,
-          [evName, ...EVENT_ROUTE_COLS.map(c => c === 'enabled' ? (body[c] !== false ? 1 : 0) : (body[c] || null))],
+          `INSERT INTO audio_event_routes (id,${EVENT_ROUTE_COLS.join(',')}) VALUES ($1,${EVENT_ROUTE_COLS.map((_,i)=>`$${i+2}`).join(',')})`,
+          [newId, ...EVENT_ROUTE_COLS.map(c => c === 'enabled' ? (body[c] !== false ? 1 : 0) : (body[c] || null))],
         );
         await loadAudioLibrary();
-        return { status: 200, body: { event_name: evName } };
+        return { status: 200, body: { id: newId } };
       }
       if (id && method === 'PUT') {
         const sets = EVENT_ROUTE_COLS.map((c, i) => `${c}=$${i + 1}`).join(',');
         await query(
-          `UPDATE audio_event_routes SET ${sets} WHERE event_name=$${EVENT_ROUTE_COLS.length + 1}`,
+          `UPDATE audio_event_routes SET ${sets} WHERE id=$${EVENT_ROUTE_COLS.length + 1}`,
           [...EVENT_ROUTE_COLS.map(c => c === 'enabled' ? (body[c] !== false ? 1 : 0) : (body[c] || null)), id],
         );
         await loadAudioLibrary();
-        return { status: 200, body: { event_name: id } };
+        return { status: 200, body: { id } };
       }
       if (id && method === 'DELETE') {
-        await query('DELETE FROM audio_event_routes WHERE event_name=$1', [id]);
+        await query('DELETE FROM audio_event_routes WHERE id=$1', [id]);
         await loadAudioLibrary();
         return { status: 200, body: { message: 'Deleted' } };
       }

@@ -86,21 +86,29 @@ function renderAudioTabBody() {
     const sfxMap = Object.fromEntries(_audioData.sfx.map(r => [r.id, r.name]));
     const ambMap = Object.fromEntries(_audioData.ambient.map(r => [r.id, r.name]));
     const songMap = Object.fromEntries(_audioData.songs.map(r => [r.id, r.name]));
-    const cells = rows.map(r => {
-      const parts = [];
-      if (r.sfx_id) parts.push(`SFX: ${sfxMap[r.sfx_id] || r.sfx_id}`);
-      if (r.ambient_id) parts.push(`Ambient: ${ambMap[r.ambient_id] || r.ambient_id}`);
-      if (r.song_id) parts.push(`Song: ${songMap[r.song_id] || r.song_id}`);
-      const scope = r.scope === 'player' ? '🎧 player' : '📡 zone';
-      return `<tr>
-        <td style="font-weight:600;color:${r.enabled !== 0 ? 'var(--text-bright)' : 'var(--text-dim)'}">${r.event_name}</td>
-        <td style="font-size:11px;color:var(--text-dim)">${parts.join(' · ') || '(no audio assigned)'}</td>
-        <td style="font-size:11px;color:var(--accent)">${scope}</td>
-        <td style="text-align:right;white-space:nowrap">
-          <button class="action-btn" style="font-size:10px;padding:3px 8px" onclick="editEventRoute('${r.event_name.replace(/'/g, "\\'")}')">✏</button>
-          <button class="action-btn danger" style="font-size:10px;padding:3px 8px;margin-left:4px" onclick="deleteEventRoute('${r.event_name.replace(/'/g, "\\'")}')">✕</button>
-        </td>
-      </tr>`;
+    // Group rows by event_name so multiple routes per event are visible together
+    const grouped = {};
+    for (const r of rows) { (grouped[r.event_name] = grouped[r.event_name] || []).push(r); }
+    const cells = Object.entries(grouped).map(([evName, evRows]) => {
+      const routeRows = evRows.map((r, i) => {
+        const parts = [];
+        if (r.sfx_id) parts.push(`SFX: ${sfxMap[r.sfx_id] || r.sfx_id}`);
+        if (r.ambient_id) parts.push(`Amb: ${ambMap[r.ambient_id] || r.ambient_id}`);
+        if (r.song_id) parts.push(`Song: ${songMap[r.song_id] || r.song_id}`);
+        if (r.sample_id) parts.push(`Sample: ${r.sample_id}`);
+        const scope = r.scope === 'player' ? '🎧 player' : '📡 zone';
+        const safeId = r.id.replace(/'/g, "\\'");
+        return `<tr>
+          <td style="color:var(--text-dim);font-size:11px;padding-left:${i === 0 ? '8px' : '24px'}">${i === 0 ? `<span style="font-weight:600;color:var(--text-bright)">${evName}</span>` : '↳ or'}</td>
+          <td style="font-size:11px;color:${r.enabled !== 0 ? 'var(--text)' : 'var(--text-dim);text-decoration:line-through'}">${parts.join(' · ') || '(no audio assigned)'}</td>
+          <td style="font-size:11px;color:var(--accent)">${scope}</td>
+          <td style="text-align:right;white-space:nowrap">
+            <button class="action-btn" style="font-size:10px;padding:3px 8px" onclick="editEventRoute('${safeId}')">✏</button>
+            <button class="action-btn danger" style="font-size:10px;padding:3px 8px;margin-left:4px" onclick="deleteEventRoute('${safeId}')">✕</button>
+          </td>
+        </tr>`;
+      }).join('');
+      return routeRows;
     }).join('');
     body.innerHTML = `<table><thead><tr><th>Event</th><th>Audio</th><th>Scope</th><th></th></tr></thead><tbody>${cells}</tbody></table>`;
     return;
@@ -251,8 +259,8 @@ function newAudioAsset(tab) {
   openAudioModal(tab, {});
 }
 function editAudioAsset(tab, id) { openAudioModal(tab, findAudioAsset(tab, id) || {}); }
-function editEventRoute(eventName) {
-  const row = _audioData.events.find(r => r.event_name === eventName);
+function editEventRoute(id) {
+  const row = _audioData.events.find(r => r.id === id);
   openEventRouteModal(row || null);
 }
 
@@ -263,10 +271,11 @@ async function deleteAudioAsset(tab, id, name) {
   loadPanel('audio');
 }
 
-async function deleteEventRoute(eventName) {
-  if (!confirm(`Remove route for "${eventName}"?`)) return;
-  await API(`/audio/events/${encodeURIComponent(eventName)}`, 'DELETE');
-  toast(`Route for "${eventName}" removed`);
+async function deleteEventRoute(id) {
+  const row = _audioData.events.find(r => r.id === id);
+  if (!confirm(`Remove this route for "${row?.event_name || id}"?`)) return;
+  await API(`/audio/events/${encodeURIComponent(id)}`, 'DELETE');
+  toast('Route removed');
   loadPanel('audio');
 }
 
@@ -331,8 +340,9 @@ async function openEventRouteModal(row) {
       scope: document.getElementById('er-scope').value,
       enabled: document.getElementById('er-enabled').checked ? 1 : 0,
     };
-    // Always POST — the plugin uses ON CONFLICT DO UPDATE (upsert by event_name).
-    const r = await API('/audio/events', 'POST', body);
+    const r = isNew
+      ? await API('/audio/events', 'POST', body)
+      : await API(`/audio/events/${encodeURIComponent(row.id)}`, 'PUT', body);
     if (r?.error) { toast(r.error, true); return; }
     toast(isNew ? 'Route created' : 'Route updated');
     closeModal(); loadPanel('audio');

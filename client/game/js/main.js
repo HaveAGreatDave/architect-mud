@@ -74,8 +74,17 @@ if (_isMobile) {
 	const _toggleBar = document.getElementById("area-toggle-bar");
 	const _toggleBtn = document.getElementById("area-pane-toggle");
 
+	const _resizeHandle = document.getElementById("look-resize-handle");
+
 	function _setAreaPane(open) {
 		_areaPane.classList.toggle("mob-pane-hidden", !open);
+		if (open) {
+			// Reset to auto-fit so a stale saved height doesn't keep pane at 0
+			_areaPane.style.height = "";
+			_areaPane.style.maxHeight = "";
+			_resizeHandle?.classList.remove("manual");
+			localStorage.removeItem("lookPaneHeight");
+		}
 		if (_toggleBtn) _toggleBtn.textContent = open ? "▲" : "▼";
 	}
 
@@ -553,7 +562,7 @@ document
 	let startY, startH;
 
 	handle.addEventListener("mousedown", (e) => {
-		if (e.target === resetBtn) return;
+		if (e.target === resetBtn || e.target.id === "area-pane-toggle") return;
 		startY = e.clientY;
 		startH = pane.getBoundingClientRect().height;
 		handle.classList.add("dragging");
@@ -589,6 +598,7 @@ document
 	handle.addEventListener(
 		"touchstart",
 		(e) => {
+			if (e.target.id === "area-pane-toggle") return;
 			const t = e.touches[0];
 			startY = t.clientY;
 			startH = pane.getBoundingClientRect().height;

@@ -842,13 +842,15 @@ export const SCHEMA_SQL = `
   -- scope='player' sends only to the triggering player. When a route is set for
   -- an event, it takes precedence over any hardcoded fallback in the plugin.
   CREATE TABLE IF NOT EXISTS audio_event_routes (
-    event_name TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY,
+    event_name TEXT NOT NULL,
     sfx_id TEXT,
     ambient_id TEXT,
     song_id TEXT,
     scope TEXT NOT NULL DEFAULT 'zone',
     enabled INTEGER NOT NULL DEFAULT 1
   );
+  CREATE INDEX IF NOT EXISTS idx_audio_event_routes_event_name ON audio_event_routes(event_name);
 
   -- SNES-style sample playback. base64 audio data stored in the DB; the data
   -- column is intentionally excluded from the standard list GET — fetch it via
