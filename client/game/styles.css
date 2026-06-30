@@ -4315,6 +4315,9 @@ body {
 	display: flex;
 	align-items: center;
 	justify-content: center;
+	/* Offset centering into the content area, clear of header (~45px) and footer (72px) */
+	padding-top: 45px;
+	padding-bottom: 72px;
 }
 /* Lower-third nameplate */
 .tv-overlay-text-card {

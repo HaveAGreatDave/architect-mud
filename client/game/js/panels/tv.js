@@ -432,8 +432,7 @@ export function initTvPanel() {
   // Knob: click cycles channels; circular drag tunes by angle
   const knob = document.getElementById('tv-knob');
   let _knobDragging = false;
-  let _knobStartAngle = 0;
-  let _knobStartFreq = 0;
+  let _knobLastAngle = 0;
   let _knobMoved = false;
 
   function _knobCenter() {
@@ -449,20 +448,22 @@ export function initTvPanel() {
   knob.addEventListener('mousedown', (e) => {
     if (!_tvOpen) return;
     _knobDragging = true;
-    _knobStartAngle = _angleFromCenter(e);
-    _knobStartFreq = _tvFrequency;
+    _knobLastAngle = _angleFromCenter(e);
     _knobMoved = false;
     e.preventDefault();
   });
 
   document.addEventListener('mousemove', (e) => {
     if (!_knobDragging) return;
-    let dAngle = _angleFromCenter(e) - _knobStartAngle;
-    // Wrap delta so crossing the ±180° boundary doesn't jump
+    const angle = _angleFromCenter(e);
+    let dAngle = angle - _knobLastAngle;
+    // Wrap shortest-arc so crossing ±180° doesn't jump
     if (dAngle > 180) dAngle -= 360;
     if (dAngle < -180) dAngle += 360;
-    if (Math.abs(dAngle) > 2) _knobMoved = true;
-    const rawFreq = _knobStartFreq + dAngle / TUNE_DEG_PER_CHANNEL;
+    _knobLastAngle = angle;
+    if (Math.abs(dAngle) > 0.5) _knobMoved = true;
+    // Accumulate directly onto current frequency — smooth, full-rotation capable
+    const rawFreq = _tvFrequency + dAngle / TUNE_DEG_PER_CHANNEL;
     const clamped = Math.round(((rawFreq % TV_DIAL_MAX) + TV_DIAL_MAX) % TV_DIAL_MAX * 20) / 20;
     tvTunerInput(clamped);
   });
