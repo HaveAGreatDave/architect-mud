@@ -10,7 +10,6 @@ let _tvPoweredOff = false;
 let _tvActiveChannelId = null;
 const _tvHistory = [];
 const MAX_TV_HISTORY = 200;
-let _tvAtBottom = true;
 let _clearAfterTitleCard = false;
 let _tickerText = '';
 let _tickerAnimating = false;
@@ -22,7 +21,7 @@ const LOCK_RANGE   = 0.25; // within this many channel-numbers = lock in
 const TV_DIAL_MAX  = 9.05; // dial wraps 0.0 → 9.0 → 0.0 (9.0 + 0.05 step = wrap)
 
 export function openTvPanel(data) {
-  const wasAlreadyOn = _tvOpen && !_tvPoweredOff;
+  const wasAlreadyOn = _tvOpen;
   _tvActiveChannelId = data.channelId || null;
   _tvOpen = true;
   _tvShuttingDown = false;
@@ -30,14 +29,9 @@ export function openTvPanel(data) {
   _tvHistory.length = 0;
   _tickerText = '';
   _tickerAnimating = false;
-  _tvAtBottom = true;
   _clearAfterTitleCard = false;
   _tvChannelList = Array.isArray(data.channelList) ? data.channelList : [];
-  // Server (furniture flags.tv_dial_freq) is source of truth; localStorage is only a within-session fallback
-  const serverFreq = typeof data.dialFrequency === 'number' ? data.dialFrequency : -1;
-  const savedLocal = localStorage.getItem('tv_frequency');
-  _tvFrequency = serverFreq >= 0 ? serverFreq : (savedLocal !== null ? parseFloat(savedLocal) : 0);
-  if (!isFinite(_tvFrequency) || _tvFrequency < 0 || _tvFrequency >= TV_DIAL_MAX) _tvFrequency = 0;
+  _tvFrequency = 0;
 
   document.getElementById('tv-station-name').textContent = data.stationName || data.channelName || '——';
   document.getElementById('tv-channel-num').textContent = (data.channelNumber > 0) ? `CH ${data.channelNumber}` : '——';
@@ -60,11 +54,13 @@ export function openTvPanel(data) {
   document.getElementById('tv-panel').classList.add('active');
 
   if (_tvPoweredOff) {
-    // TV is off — dark screen, no animation
+    // TV opened at 0.0 — show static, content hidden
     document.getElementById('tv-content').classList.add('tv-hidden');
     const staticEl = document.getElementById('tv-static');
-    staticEl.classList.remove('tv-static-on', 'tv-static-fade', 'tv-static-loop');
-    staticEl.style.opacity = '';
+    staticEl.classList.remove('tv-static-fade', 'tv-static-loop');
+    staticEl.style.opacity = '1';
+    staticEl.classList.add('tv-static-on');
+    _playCrtPowerOn();
   } else if (!wasAlreadyOn) {
     // CRT power-on: expand from bright line, then reveal content
     const content  = document.getElementById('tv-content');
@@ -174,8 +170,6 @@ export function closeTvPanel() {
   _clearOverlay();
   const win = document.getElementById('tv-window');
   win.classList.remove('tv-shutting-off');
-  localStorage.setItem('tv_frequency', _tvFrequency.toFixed(2));
-  sendCmd(`_tvfreq ${_tvFrequency.toFixed(2)}`); // persist dial position to furniture flags
   win.style.position = '';
   win.style.left = '';
   win.style.top = '';
@@ -209,7 +203,12 @@ export function applyTvOverlay(overlay) {
   if (!container || !overlay) return;
 
   let el;
-  if (overlay.overlayType === 'lower_third') {
+  if (overlay.overlayType === 'text_card') {
+    _clearTvMessages();
+    el = document.createElement('div');
+    el.className = 'tv-overlay-text-card';
+    el.innerHTML = _esc(overlay.text).replace(/\n/g, '<br>');
+  } else if (overlay.overlayType === 'lower_third') {
     el = document.createElement('div');
     el.className = 'tv-overlay-lower-third';
     el.innerHTML =
@@ -260,14 +259,6 @@ export function tvTunerInput(val) {
   const freqDisplay = document.getElementById('tv-freq-display');
   if (freqDisplay) freqDisplay.textContent = _tvFrequency.toFixed(2);
   _updateKnobRotation();
-
-  // If TV was off and user starts tuning, play CRT power-on first
-  if (_tvPoweredOff && _tvFrequency > 0) {
-    _tvPoweredOff = false;
-    document.getElementById('tv-content').classList.add('tv-hidden');
-    _playCrtPowerOn();
-    return;
-  }
 
   if (!_tvChannelList.length) return;
 
@@ -325,6 +316,8 @@ function _clearTvMessages() {
   _tvHistory.length = 0;
 }
 
+export function clearTvMessages() { _clearTvMessages(); }
+
 export function appendTvMessage(text, style) {
   const container = document.getElementById('tv-messages');
   if (!container) return;
@@ -335,9 +328,12 @@ export function appendTvMessage(text, style) {
   if (isTitleCard || _clearAfterTitleCard) {
     _clearTvMessages();
     _clearAfterTitleCard = false;
-  } else if (container.scrollHeight > container.clientHeight) {
-    // Content has filled the screen — wrap to top rather than scroll
-    _clearTvMessages();
+  } else {
+    // #tv-content has overflow:hidden — if content height exceeds its box, clear and restart
+    const tvContent = document.getElementById('tv-content');
+    if (tvContent && tvContent.clientHeight > 0 && container.offsetHeight >= tvContent.clientHeight) {
+      _clearTvMessages();
+    }
   }
 
   // Flag that the next non-title message should clear the screen
@@ -383,8 +379,6 @@ export function appendTvMessage(text, style) {
 
   _tvHistory.push(el);
   if (_tvHistory.length > MAX_TV_HISTORY) _tvHistory.shift().remove();
-
-  if (_tvAtBottom) container.scrollTop = container.scrollHeight;
 }
 
 export function updateTvTicker(text) {
@@ -430,6 +424,7 @@ const TUNE_RESISTANCE = 0.02;  // channel units per pixel dragged
 
 export function initTvPanel() {
   document.getElementById('tv-close-btn').addEventListener('click', shutdownTvPanel);
+  window.addEventListener('game-disconnect', () => { if (_tvOpen) shutdownTvPanel(); });
 
   // Knob: click cycles channels; drag tunes with high resistance
   const knob = document.getElementById('tv-knob');
@@ -465,15 +460,11 @@ export function initTvPanel() {
       const next = _tvChannelList[(idx + 1) % _tvChannelList.length];
       if (next) {
         _tvFrequency = next.number;
-        if (_tvPoweredOff) {
-          _tvPoweredOff = false;
-          _playCrtPowerOn();
-        }
         _tvTuneTo(next.number);
         return;
       }
     }
-    if (!_tvPoweredOff) _playTuneAnimation();
+    _playTuneAnimation();
   });
 
   // Mousewheel on knob — fine-tune by half a channel per tick
@@ -515,10 +506,4 @@ export function initTvPanel() {
     if (e.key === 'Escape' && _tvOpen) shutdownTvPanel();
   });
 
-  // Track scroll position to know if we're in live mode (at bottom)
-  const content = document.getElementById('tv-content');
-  content.addEventListener('scroll', () => {
-    _tvAtBottom = content.scrollTop + content.clientHeight >= content.scrollHeight - 40;
-    document.getElementById('tv-live-badge')?.classList.toggle('tv-scrolled', !_tvAtBottom);
-  });
 }

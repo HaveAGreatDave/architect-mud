@@ -50,6 +50,7 @@ export function initNet(messageHandler) {
     },
     onClose() {
       setConnStatus('offline');
+      window.dispatchEvent(new Event('game-disconnect'));
       if (state.authPending) {
         clearTimeout(state.authTimeout);
         state.authPending = false;

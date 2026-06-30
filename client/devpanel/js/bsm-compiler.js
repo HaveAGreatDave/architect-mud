@@ -61,9 +61,9 @@ function compileBsm(text) {
   const SPEAKER_RE = /^([A-Za-z][A-Za-z0-9_]*):\s*$/;
 
   const DIRECTIVE_PREFIXES = [
-    '@', '::', 'EVENT ', 'TITLE ', 'TICKER', 'WAIT', 'NPC ', 'OVERLAY ',
-    'SHOT', 'SHOT_END', 'TICKER_END', 'OVERLAY_END', 'LOWER_THIRD_END', 'END', 'CAM ', 'ROOM ', 'LOWER_THIRD',
-    'MUSIC ', 'ENTER ', 'ACTION', 'END_ACTION', '♪',
+    '@', '::', 'EVENT ', 'TITLE ', 'TICKER', 'WAIT', 'NPC ', 'OVERLAY',
+    'SHOT', 'SHOT_END', 'TICKER_END', 'OVERLAY_END', 'LOWER_THIRD_END', 'MUSIC_END', 'END', 'CAM ', 'ROOM ', 'LOWER_THIRD',
+    'MUSIC', 'ENTER ', 'ACTION', 'END_ACTION', '♪',
   ];
 
   const BARE_DURATION_RE = /^(\d+(?:\.\d+)?)s?$/;  // "8s", "2s", "1.5s", "8"
@@ -164,7 +164,15 @@ function compileBsm(text) {
       i++; continue;
     }
 
-    // ── OVERLAY (Phase 3, with optional inline text block) ───────────────────
+    // ── OVERLAY text_card (bare OVERLAY, no graphic id) ─────────────────────
+    if (ln === 'OVERLAY') {
+      i++;
+      const text = collectBlock('OVERLAY_END');
+      makeNode({ type: 'overlay', overlayType: 'text_card', text });
+      continue;
+    }
+
+    // ── OVERLAY with graphic id ──────────────────────────────────────────────
     if (ln.startsWith('OVERLAY ')) {
       const graphicId = ln.slice(8).trim();
       i++;
@@ -249,11 +257,12 @@ function compileBsm(text) {
       i++; continue;
     }
 
-    // ── MUSIC cue ────────────────────────────────────────────────────────────────
-    if (ln.startsWith('MUSIC ')) {
-      const cue = ln.slice(6).trim();
-      makeNode({ type: 'say', text: `♪ ${cue} ♪`, style: 'ambient' });
-      i++; continue;
+    // ── MUSIC block — theme name is code only; body text is what displays ────────
+    if (ln.startsWith('MUSIC')) {
+      i++;
+      const displayText = collectBlock('MUSIC_END');
+      if (displayText) makeNode({ type: 'say', text: displayText, style: 'ambient' });
+      continue;
     }
 
     // ── ENTER stage direction → npc_anchor + npc_action "enters" ─────────────
@@ -261,7 +270,7 @@ function compileBsm(text) {
       const raw = ln.slice(6).trim();
       const npc = raw.startsWith('npc_') ? raw : `npc_${raw}`;
       if (npc !== activeNpc) { makeNode({ type: 'npc_anchor', npc_id: npc }); activeNpc = npc; }
-      makeNode({ type: 'npc_action', message: 'enters' });
+      makeNode({ type: 'npc_action', message: 'enters the frame.' });
       i++; continue;
     }
 

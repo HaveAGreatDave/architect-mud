@@ -7,7 +7,7 @@ import { registerAction } from '../../server/engine/actions.js';
 import { registerCommand } from '../../server/engine/plugins.js';
 import { apiDeleteZone } from '../../server/api/routes.js';
 import { registerViewerChecker, registerNpcScheduleChecker, registerNpcStudioZoneLookup } from '../../server/engine/broadcast-bridge.js';
-import { getEnvironmentState, recomputePower } from '../../server/engine/environment.js';
+import { getEnvironmentState, recomputePower, resyncAllLightingStates } from '../../server/engine/environment.js';
 
 // ── In-memory state ──────────────────────────────────────────────────────────
 
@@ -473,7 +473,9 @@ async function broadcastTick() {
         continue;
       }
       if (!result || result.key === state.lastMsgKey) {
-        if (state.wasActive) {
+        // null during a wait node means the graph is still running — don't trigger off_air
+        const stillWaiting = !result && state.graphBlackboard?.waitUntil > nowMs;
+        if (!stillWaiting && state.wasActive) {
           state.wasActive = false;
           const graphic = state.offlineGraphicId ? graphicsCache.get(state.offlineGraphicId) : null;
           for (const player of players) {
@@ -786,8 +788,15 @@ function _seekGraph(graph, bb, segElapsedMs, nowMs) {
       else { bb.waitUntil = nowMs + (CONTENT_MS - remaining); bb.currentNode = nodeId; return; }
     } else if (node.type === 'loop') {
       nodeId = _resolveEdge(edges, nodeId, 'next') || graph._start;
+    } else if (node.type === 'npc_anchor') {
+      // Track speaker so early say nodes have the correct anchor after seeking
+      const npcId = node.data?.npc_id;
+      const npc = world.npcs?.get(npcId);
+      bb.npcAnchor = npc?.name || npcId || null;
+      bb.npcAnchorId = npcId || null;
+      nodeId = _resolveEdge(edges, nodeId, 'next');
     } else {
-      nodeId = _resolveEdge(edges, nodeId, 'next'); // start/npc_anchor/condition — no time cost
+      nodeId = _resolveEdge(edges, nodeId, 'next'); // start/condition — no time cost
     }
   }
   bb.currentNode = nodeId || null;
@@ -876,20 +885,27 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
         bb.currentNode = _resolveEdge(edges, nodeId, 'next');
         bb.waitUntil = nowMs + 5000;
         const key_say = `graph:${channelId}:${nodeId}:${nowMs}`;
-        // Live channel with NPC physically present: relay via zone — zone broadcast delivers to TV watchers
-        if (!skipPresence && !bb.hostAbsent && state.channelType === 'live' && state.studioZoneId && bb.npcAnchor && node.data?.style !== 'narration') {
-          sendToZone(state.studioZoneId, {
-            type: 'output',
-            message: `<span style="color:var(--yellow)">${bb.npcAnchor} says, "${raw}"</span>`,
-          });
-          return { key: key_say, style: 'live_relay' };
-        }
-        // Scripted / daily schedule / NPC absent fallback: push text directly to TV watchers
         const style_say = node.data?.style || 'raw';
         const isNarration = style_say === 'narration';
+        const isAmbient   = style_say === 'ambient';
+        if (state.channelType === 'live' && state.studioZoneId) {
+          if (!isNarration && !isAmbient && bb.npcAnchor) {
+            // NPC dialogue → room as coloured speech
+            sendToZone(state.studioZoneId, {
+              type: 'output',
+              message: `<span style="color:var(--yellow)">${bb.npcAnchor} says, "${raw}"</span>`,
+            });
+          } else if (isAmbient) {
+            // MUSIC / ♪ lines → room as plain italic ambient text
+            sendToZone(state.studioZoneId, {
+              type: 'output',
+              message: `<span style="color:var(--text-dim);font-style:italic">${raw}</span>`,
+            });
+          }
+        }
         const text_say = style_say === 'ticker'
           ? `>> ${bb.npcAnchor ? `${bb.npcAnchor}: ` : ''}${raw} <<`
-          : (!isNarration && bb.npcAnchor ? `${bb.npcAnchor} says, "${raw}"` : raw);
+          : (!isNarration && !isAmbient && bb.npcAnchor ? `${bb.npcAnchor} says, "${raw}"` : raw);
         return { text: text_say, key: key_say, style: 'raw' };
       }
 
@@ -899,11 +915,11 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
         bb.currentNode = _resolveEdge(edges, nodeId, 'next');
         bb.waitUntil = nowMs + 3000;
         const key_act = `action:${channelId}:${nodeId}:${nowMs}`;
-        // Send as ambient text to studio zone (no NPC attribution), and return text directly to TV
+        const emoteText = bb.npcAnchor ? `${bb.npcAnchor} ${emote}` : emote;
         if (state.channelType === 'live' && state.studioZoneId) {
-          sendToZone(state.studioZoneId, { type: 'output', message: `<span style="color:var(--text-dim);font-style:italic">${emote}</span>` });
+          sendToZone(state.studioZoneId, { type: 'output', message: `<span style="color:var(--text-dim);font-style:italic">${emoteText}</span>` });
         }
-        return { text: emote, key: key_act, style: 'raw' };
+        return { text: emoteText, key: key_act, style: 'raw' };
       }
 
       case 'ticker': {
@@ -1031,14 +1047,19 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
         break;
       }
 
-      case 'show_overlay': {
+      case 'show_overlay':
+      case 'overlay': {
+        const overlayType = node.data?.overlayType || node.data?.overlay_type
+          || (node.type === 'overlay' && !node.data?.graphic_id ? 'text_card' : 'lower_third');
         const overlay = {
-          overlayType: node.data?.overlay_type || 'lower_third',
+          overlayType,
           text: node.data?.text || '',
           subtext: node.data?.subtext || '',
-          duration: node.data?.duration_s ?? 6,
+          duration: node.data?.duration_s ?? (overlayType === 'text_card' ? 5 : 6),
+          clearScreen: overlayType === 'text_card',
         };
         bb.currentNode = _resolveEdge(edges, nodeId, 'next');
+        bb.waitUntil = nowMs + (overlay.duration * 1000);
         return { overlay, key: `overlay:${channelId}:${nodeId}:${nowMs}`, style: 'overlay' };
       }
 
@@ -1325,7 +1346,7 @@ function buildTvOffPanel(player) {
     theme: null,
     channelList,
   });
-  return { type: 'output', message: 'The television is off.' };
+  return { type: 'output', message: 'You turn to the television.' };
 }
 
 // Specialized action: use <tv-furniture>
@@ -1342,7 +1363,7 @@ async function doUseTv(args, raw, player) {
 
   const entry = furnitureChannelIndex.get(rows[0].id);
   if (!entry || entry.deviceType !== 'tv') return buildTvOffPanel(player);
-  return buildTvPanel(entry.channelId, player, entry.dialFrequency ?? 0) ?? buildTvOffPanel(player);
+  return buildTvOffPanel(player);
 }
 
 async function cmdTv(args, raw, player) {
@@ -1352,8 +1373,7 @@ async function cmdTv(args, raw, player) {
   if (zoneMap) {
     for (const [channelId, deviceType] of zoneMap) {
       if (deviceType !== 'tv') continue;
-      const result = buildTvPanel(channelId, player);
-      if (result) return result;
+      if (channelRuntime.has(channelId)) return buildTvOffPanel(player);
     }
   }
 
@@ -1878,6 +1898,18 @@ export const routeHandler = async (path, method, body, auth) => {
         );
       }
 
+      // Ensure exterior zone has a street light (idempotent — skip if one already exists)
+      const { rows: extLights } = await query(
+        `SELECT id FROM furniture WHERE zone_id=$1 AND light_type='streetlight' LIMIT 1`, [exterior_zone_id]
+      );
+      if (!extLights.length) {
+        await query(
+          `INSERT INTO furniture (id,zone_id,name,description,object_type,light_type,light_on,power_draw_kw,lumen_output,flags)
+           VALUES ($1,$2,'Street Light','A tall metal post topped with a flickering sodium lamp.','light','streetlight',0,0.2,8000,'{}')`,
+          [`furn_light_ext_${ts}`, exterior_zone_id]
+        );
+      }
+
       // Upsert lighting_states for all three interior zones so their lights register
       for (const zid of [studioZoneId, utilityZoneId, productionZoneId]) {
         const { rows: lc } = await query(
@@ -1893,6 +1925,7 @@ export const routeHandler = async (path, method, body, auth) => {
 
       await Promise.all([studioZoneId, utilityZoneId, productionZoneId, exterior_zone_id].map(reloadZone));
       await recomputePower().catch(() => {});
+      await resyncAllLightingStates().catch(() => {});
 
       return { status: 200, body: {
         exterior_zone_id, studio_zone_id: studioZoneId,
@@ -2036,6 +2069,13 @@ export const routeHandler = async (path, method, body, auth) => {
           );
         }
 
+        // Street light on the exterior zone (day/night managed — light_on_intended stays NULL)
+        await query(
+          `INSERT INTO furniture (id,zone_id,name,description,object_type,light_type,light_on,power_draw_kw,lumen_output,flags)
+           VALUES ($1,$2,'Street Light','A tall metal post topped with a flickering sodium lamp.','light','streetlight',0,0.2,8000,'{}')`,
+          [`furn_light_ext_${ts}`, exteriorZoneId]
+        );
+
         // If a channel_id is supplied and that channel exists, link the studio zone and create a streaming camera
         if (channel_id) {
           const { rows: chRows } = await query(`SELECT id FROM media_channels WHERE id=$1`, [channel_id]);
@@ -2057,6 +2097,9 @@ export const routeHandler = async (path, method, body, auth) => {
           reloadZone(productionZoneId),
           reloadZone(exteriorZoneId),
         ]);
+        // Fix power connections and lighting now that junction box and zones are in place
+        await recomputePower().catch(() => {});
+        await resyncAllLightingStates().catch(() => {});
         if (channel_id) await loadChannelRuntimes();
 
         return { status: 201, body: {
