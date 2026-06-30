@@ -423,23 +423,33 @@ function _startTickerAnimation() {
   }, { once: true });
 }
 
-const TUNE_RESISTANCE = 0.02;  // channel units per pixel dragged
+const TUNE_DEG_PER_CHANNEL = 36; // degrees of rotation per channel unit (360° = 10 channels)
 
 export function initTvPanel() {
   document.getElementById('tv-close-btn').addEventListener('click', shutdownTvPanel);
   window.addEventListener('game-disconnect', () => { if (_tvOpen) shutdownTvPanel(); });
 
-  // Knob: click cycles channels; drag tunes with high resistance
+  // Knob: click cycles channels; circular drag tunes by angle
   const knob = document.getElementById('tv-knob');
   let _knobDragging = false;
-  let _knobStartX = 0;
+  let _knobStartAngle = 0;
   let _knobStartFreq = 0;
   let _knobMoved = false;
+
+  function _knobCenter() {
+    const r = knob.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  }
+
+  function _angleFromCenter(e) {
+    const c = _knobCenter();
+    return Math.atan2(e.clientY - c.y, e.clientX - c.x) * (180 / Math.PI);
+  }
 
   knob.addEventListener('mousedown', (e) => {
     if (!_tvOpen) return;
     _knobDragging = true;
-    _knobStartX = e.clientX;
+    _knobStartAngle = _angleFromCenter(e);
     _knobStartFreq = _tvFrequency;
     _knobMoved = false;
     e.preventDefault();
@@ -447,9 +457,12 @@ export function initTvPanel() {
 
   document.addEventListener('mousemove', (e) => {
     if (!_knobDragging) return;
-    const dx = e.clientX - _knobStartX;
-    if (Math.abs(dx) > 3) _knobMoved = true;
-    const rawFreq = _knobStartFreq + dx * TUNE_RESISTANCE;
+    let dAngle = _angleFromCenter(e) - _knobStartAngle;
+    // Wrap delta so crossing the ±180° boundary doesn't jump
+    if (dAngle > 180) dAngle -= 360;
+    if (dAngle < -180) dAngle += 360;
+    if (Math.abs(dAngle) > 2) _knobMoved = true;
+    const rawFreq = _knobStartFreq + dAngle / TUNE_DEG_PER_CHANNEL;
     const clamped = Math.round(((rawFreq % TV_DIAL_MAX) + TV_DIAL_MAX) % TV_DIAL_MAX * 20) / 20;
     tvTunerInput(clamped);
   });
