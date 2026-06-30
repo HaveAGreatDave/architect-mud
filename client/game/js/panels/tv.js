@@ -253,18 +253,11 @@ function _updateKnobRotation() {
 }
 
 export function tvTunerInput(val) {
+  if (_tvPoweredOff) return;
   _tvFrequency = parseFloat(val);
   const freqDisplay = document.getElementById('tv-freq-display');
   if (freqDisplay) freqDisplay.textContent = _tvFrequency.toFixed(2);
   _updateKnobRotation();
-
-  // If TV was off and user starts tuning, play CRT power-on first
-  if (_tvPoweredOff && _tvFrequency > 0) {
-    _tvPoweredOff = false;
-    document.getElementById('tv-content').classList.add('tv-hidden');
-    _playCrtPowerOn();
-    return;
-  }
 
   if (!_tvChannelList.length) return;
 
@@ -459,21 +452,17 @@ export function initTvPanel() {
   document.addEventListener('mouseup', () => { _knobDragging = false; });
 
   knob.addEventListener('click', () => {
-    if (!_tvOpen || _knobMoved) return;
+    if (!_tvOpen || _knobMoved || _tvPoweredOff) return;
     if (_tvChannelList.length) {
       const idx = _tvChannelList.findIndex(c => c.channelId === _tvActiveChannelId);
       const next = _tvChannelList[(idx + 1) % _tvChannelList.length];
       if (next) {
         _tvFrequency = next.number;
-        if (_tvPoweredOff) {
-          _tvPoweredOff = false;
-          _playCrtPowerOn();
-        }
         _tvTuneTo(next.number);
         return;
       }
     }
-    if (!_tvPoweredOff) _playTuneAnimation();
+    _playTuneAnimation();
   });
 
   // Mousewheel on knob — fine-tune by half a channel per tick
