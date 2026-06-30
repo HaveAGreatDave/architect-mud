@@ -322,6 +322,13 @@ export function isTvOpen() { return _tvOpen; }
 export function getTvActiveChannelId() { return _tvActiveChannelId; }
 
 function _tvTuneTo(num) {
+  // Cancel any in-progress sweep immediately. If we don't, the rAF loop
+  // keeps setting inline knob transforms on the very next frame after
+  // _playTuneAnimation clears knob.style.transform = '', causing the
+  // line to visually snap to a wrong position before the spin settles.
+  if (_sweepRaf) { cancelAnimationFrame(_sweepRaf); _sweepRaf = null; }
+  _tvFrequency = num;
+  _dialRaw = num;
   sendCmdSilent('tune ' + num);
   _playTuneAnimation();
 }

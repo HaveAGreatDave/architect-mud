@@ -9,6 +9,15 @@
 const AUDIO_CATEGORIES = ['ui', 'combat', 'cyberpunk', 'environment', 'tv', 'misc'];
 const WAVEFORMS = ['square', 'sine', 'triangle', 'sawtooth', 'noise'];
 
+// Known event names for the Events tab dropdown — users can also type custom ones.
+const KNOWN_EVENTS = [
+  'enemy.attacked', 'enemy.killed', 'player.death',
+  'item.taken', 'item.dropped', 'device.tuned',
+  'weather.rain', 'weather.storm', 'weather.clear', 'weather.snow',
+  'time.dawn', 'time.dusk', 'time.midnight',
+  'quest.completed', 'zone.entered',
+];
+
 // Field whitelist per asset type, mirrors the column lists in plugins/audio/index.js's
 // TABLES spec — used for both export (what to dump) and import (what to accept).
 // Everything in this system is a JSON parameter object (waveform/ADSR/filter recipes,
@@ -22,7 +31,7 @@ const AUDIO_IMPORT_FIELDS = {
 };
 
 let _audioTab = 'instruments';
-let _audioData = { instruments: [], songs: [], sfx: [], ambient: [] };
+let _audioData = { instruments: [], songs: [], sfx: [], ambient: [], events: [] };
 
 function renderAudioPanel(data) {
   _audioData = {
@@ -30,6 +39,7 @@ function renderAudioPanel(data) {
     songs: Array.isArray(data?.songs) ? data.songs : [],
     sfx: Array.isArray(data?.sfx) ? data.sfx : [],
     ambient: Array.isArray(data?.ambient) ? data.ambient : [],
+    events: Array.isArray(data?.events) ? data.events : [],
   };
   const panel = document.getElementById('list-panel');
   const tabs = [
@@ -37,6 +47,7 @@ function renderAudioPanel(data) {
     ['songs', 'Songs'],
     ['sfx', 'Sound Effects'],
     ['ambient', 'Ambient'],
+    ['events', 'Event Routes'],
   ];
   const tabBar = tabs.map(([key, label]) => `
     <button class="action-btn${_audioTab === key ? ' selected' : ''}" style="${_audioTab === key ? 'background:var(--accent);color:#000' : ''}" onclick="setAudioTab('${key}')">${label} (${_audioData[key].length})</button>
@@ -47,7 +58,7 @@ function renderAudioPanel(data) {
       <div style="display:flex;gap:6px">${tabBar}</div>
       <div style="display:flex;gap:6px">
         <button class="action-btn danger" onclick="stopAllAudioPreviews()">⏹ Stop</button>
-        <button class="action-btn" onclick="openAudioImportModal('${_audioTab}')">⬆ Load</button>
+        ${_audioTab !== 'events' ? `<button class="action-btn" onclick="openAudioImportModal('${_audioTab}')">⬆ Load</button>` : ''}
         <button class="action-btn" onclick="newAudioAsset('${_audioTab}')">+ New ${tabs.find(t => t[0] === _audioTab)[1]}</button>
       </div>
     </div>
@@ -64,6 +75,32 @@ function setAudioTab(tab) {
 function renderAudioTabBody() {
   const body = document.getElementById('audio-tab-body');
   const rows = _audioData[_audioTab];
+
+  if (_audioTab === 'events') {
+    if (!rows.length) { body.innerHTML = '<div style="padding:24px;color:var(--text-dim)">No event routes configured. Add one to map a game event to audio.</div>'; return; }
+    const sfxMap = Object.fromEntries(_audioData.sfx.map(r => [r.id, r.name]));
+    const ambMap = Object.fromEntries(_audioData.ambient.map(r => [r.id, r.name]));
+    const songMap = Object.fromEntries(_audioData.songs.map(r => [r.id, r.name]));
+    const cells = rows.map(r => {
+      const parts = [];
+      if (r.sfx_id) parts.push(`SFX: ${sfxMap[r.sfx_id] || r.sfx_id}`);
+      if (r.ambient_id) parts.push(`Ambient: ${ambMap[r.ambient_id] || r.ambient_id}`);
+      if (r.song_id) parts.push(`Song: ${songMap[r.song_id] || r.song_id}`);
+      const scope = r.scope === 'player' ? '🎧 player' : '📡 zone';
+      return `<tr>
+        <td style="font-weight:600;color:${r.enabled !== 0 ? 'var(--text-bright)' : 'var(--text-dim)'}">${r.event_name}</td>
+        <td style="font-size:11px;color:var(--text-dim)">${parts.join(' · ') || '(no audio assigned)'}</td>
+        <td style="font-size:11px;color:var(--accent)">${scope}</td>
+        <td style="text-align:right;white-space:nowrap">
+          <button class="action-btn" style="font-size:10px;padding:3px 8px" onclick="editEventRoute('${r.event_name.replace(/'/g, "\\'")}')">✏</button>
+          <button class="action-btn danger" style="font-size:10px;padding:3px 8px;margin-left:4px" onclick="deleteEventRoute('${r.event_name.replace(/'/g, "\\'")}')">✕</button>
+        </td>
+      </tr>`;
+    }).join('');
+    body.innerHTML = `<table><thead><tr><th>Event</th><th>Audio</th><th>Scope</th><th></th></tr></thead><tbody>${cells}</tbody></table>`;
+    return;
+  }
+
   if (!rows.length) { body.innerHTML = '<div style="padding:24px;color:var(--text-dim)">Nothing here yet.</div>'; return; }
 
   const cells = rows.map(r => {
@@ -177,14 +214,88 @@ function openAudioImportModal(tab) {
 
 // ── CRUD ─────────────────────────────────────────────────────────────────────
 
-function newAudioAsset(tab) { openAudioModal(tab, {}); }
+function newAudioAsset(tab) {
+  if (tab === 'events') { openEventRouteModal(null); return; }
+  openAudioModal(tab, {});
+}
 function editAudioAsset(tab, id) { openAudioModal(tab, findAudioAsset(tab, id) || {}); }
+function editEventRoute(eventName) {
+  const row = _audioData.events.find(r => r.event_name === eventName);
+  openEventRouteModal(row || null);
+}
 
 async function deleteAudioAsset(tab, id, name) {
   if (!confirm(`Delete "${name}"?`)) return;
   await API(`/audio/${tab}/${id}`, 'DELETE');
   toast(`"${name}" deleted`);
   loadPanel('audio');
+}
+
+async function deleteEventRoute(eventName) {
+  if (!confirm(`Remove route for "${eventName}"?`)) return;
+  await API(`/audio/events/${encodeURIComponent(eventName)}`, 'DELETE');
+  toast(`Route for "${eventName}" removed`);
+  loadPanel('audio');
+}
+
+function _assetOptions(list, current, noneLabel) {
+  return `<option value="">${noneLabel}</option>` +
+    list.map(r => `<option value="${r.id}" ${r.id === current ? 'selected' : ''}>${r.name}</option>`).join('');
+}
+
+function openEventRouteModal(row) {
+  const isNew = !row;
+  const modal = document.getElementById('generic-modal');
+  document.getElementById('modal-title').textContent = isNew ? 'New Event Route' : `Edit: ${row.event_name}`;
+  document.getElementById('modal-body').innerHTML = `
+    <div class="field">
+      <label>Event Name <span style="color:var(--text-dim);font-weight:400">(type or choose from list)</span></label>
+      <input id="er-event" list="er-events-list" value="${row?.event_name || ''}" placeholder="e.g. weather.rain">
+      <datalist id="er-events-list">${KNOWN_EVENTS.map(e => `<option value="${e}">`).join('')}</datalist>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:10px">
+      <div class="field"><label>SFX (one-shot)</label>
+        <select id="er-sfx">${_assetOptions(_audioData.sfx, row?.sfx_id, '— none —')}</select></div>
+      <div class="field"><label>Ambient (loop)</label>
+        <select id="er-ambient">${_assetOptions(_audioData.ambient, row?.ambient_id, '— none —')}</select></div>
+      <div class="field"><label>Song (music)</label>
+        <select id="er-song">${_assetOptions(_audioData.songs, row?.song_id, '— none —')}</select></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:24px;margin-top:12px">
+      <div class="field" style="margin:0"><label>Scope</label>
+        <select id="er-scope">
+          <option value="zone" ${(row?.scope || 'zone') === 'zone' ? 'selected' : ''}>zone — everyone in the zone hears it</option>
+          <option value="player" ${row?.scope === 'player' ? 'selected' : ''}>player — only the triggering player hears it</option>
+        </select></div>
+      <span><input type="checkbox" id="er-enabled" ${row?.enabled !== 0 ? 'checked' : ''}>
+        <label for="er-enabled" style="margin:0;cursor:pointer">Enabled</label></span>
+    </div>
+    <div style="margin-top:14px;padding:10px;background:var(--bg3);border-radius:4px;font-size:11px;color:var(--text-dim)">
+      <strong>How this works:</strong> when the server emits the event, the plugin checks this table first.
+      If a route is configured it plays those assets; otherwise the plugin falls back to its hardcoded defaults
+      (e.g. <code>enemy.attacked</code> defaults to the <em>combat_hit</em> SFX). You can override any default
+      or add routes for new events like <code>weather.rain</code> that have no built-in audio yet.
+    </div>`;
+  const saveBtn = document.getElementById('modal-save');
+  saveBtn.textContent = 'Save';
+  saveBtn.onclick = async () => {
+    const eventName = document.getElementById('er-event').value.trim();
+    if (!eventName) { toast('Event name is required', true); return; }
+    const body = {
+      event_name: eventName,
+      sfx_id: document.getElementById('er-sfx').value || null,
+      ambient_id: document.getElementById('er-ambient').value || null,
+      song_id: document.getElementById('er-song').value || null,
+      scope: document.getElementById('er-scope').value,
+      enabled: document.getElementById('er-enabled').checked ? 1 : 0,
+    };
+    // Always POST — the plugin uses ON CONFLICT DO UPDATE (upsert by event_name).
+    const r = await API('/audio/events', 'POST', body);
+    if (r?.error) { toast(r.error, true); return; }
+    toast(isNew ? 'Route created' : 'Route updated');
+    closeModal(); loadPanel('audio');
+  };
+  modal.style.display = 'flex';
 }
 
 function instrumentLikeConfigFields(cfg, prefix) {

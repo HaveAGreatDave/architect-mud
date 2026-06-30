@@ -409,6 +409,7 @@ async function stormTick() {
     const msg = THUNDER_MESSAGES[Math.floor(Math.random() * THUNDER_MESSAGES.length)];
     setTimeout(() => {
       broadcastFn(zoneId, { type: 'ambient', message: msg });
+      emit('weather.thunder', { zoneId });
     }, delay);
   }
 }

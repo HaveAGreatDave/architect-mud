@@ -10,17 +10,19 @@ const instruments = new Map(); // id -> row
 const songs = new Map();       // id -> row
 const sfx = new Map();         // id -> row
 const ambient = new Map();     // id -> row
+const eventRoutes = new Map(); // event_name -> row
 
 // name -> id, so event handlers below can reference assets by human name
 // without hardcoding ids. Falls back to no-op if the named asset isn't seeded.
 const byName = { sfx: new Map(), songs: new Map(), ambient: new Map() };
 
 export async function loadAudioLibrary() {
-  const [i, s, fx, am] = await Promise.all([
+  const [i, s, fx, am, ev] = await Promise.all([
     query('SELECT * FROM audio_instruments'),
     query('SELECT * FROM audio_songs'),
     query('SELECT * FROM audio_sfx'),
     query('SELECT * FROM audio_ambient'),
+    query('SELECT * FROM audio_event_routes WHERE enabled=1'),
   ]);
   instruments.clear();
   for (const row of i.rows) instruments.set(row.id, row);
@@ -33,6 +35,8 @@ export async function loadAudioLibrary() {
   ambient.clear();
   byName.ambient.clear();
   for (const row of am.rows) { ambient.set(row.id, row); byName.ambient.set(row.name, row.id); }
+  eventRoutes.clear();
+  for (const row of ev.rows) eventRoutes.set(row.event_name, row);
 }
 
 await loadAudioLibrary().catch(e => console.error('[audio] failed to load library:', e.message));
@@ -48,6 +52,33 @@ function songByName(name) {
 function ambientByName(name) {
   const id = byName.ambient.get(name);
   return id ? ambient.get(id) : null;
+}
+
+// ── Event route helper ────────────────────────────────────────────────────
+// Checks audio_event_routes for the given event name and dispatches the
+// configured SFX / ambient / song to the appropriate target. Returns true if
+// a route was found (so callers can skip their hardcoded fallback).
+
+function triggerEventRoute(eventName, zoneId, playerId) {
+  const route = eventRoutes.get(eventName);
+  if (!route) return false;
+  const usePlayer = route.scope === 'player';
+  const target = usePlayer ? playerId : zoneId;
+  if (!target) return false;
+  const send = usePlayer ? sendToPlayer : sendToZone;
+  if (route.sfx_id) {
+    const def = sfx.get(route.sfx_id);
+    if (def) send(target, { type: 'audio_sfx', def });
+  }
+  if (route.ambient_id) {
+    const def = ambient.get(route.ambient_id);
+    if (def) send(target, { type: 'audio_ambience', def });
+  }
+  if (route.song_id) {
+    const song = songs.get(route.song_id);
+    if (song) send(target, { type: 'audio_music', def: resolveSongInstruments(song) });
+  }
+  return true;
 }
 
 // ── Event wiring — server decides what plays, client just renders it ───────
@@ -69,31 +100,50 @@ on('zone.entered', ({ zone: zoneId }) => {
 });
 
 on('enemy.attacked', ({ actor }) => {
-  const def = sfxByName('combat_hit');
-  if (def && actor?.current_zone) sendToZone(actor.current_zone, { type: 'audio_sfx', def });
-});
-
-on('enemy.killed', ({ actor }) => {
-  const def = sfxByName('combat_death');
-  if (def && actor?.current_zone) {
-    sendToZone(actor.current_zone, { type: 'audio_sfx', def });
-    emit('audio.sfx.triggered', { sfxId: def.id, zoneId: actor.current_zone });
+  const zoneId = actor?.current_zone;
+  if (!zoneId) return;
+  if (!triggerEventRoute('enemy.attacked', zoneId, actor?.id)) {
+    const def = sfxByName('combat_hit');
+    if (def) sendToZone(zoneId, { type: 'audio_sfx', def });
   }
 });
 
+on('enemy.killed', ({ actor }) => {
+  const zoneId = actor?.current_zone;
+  if (!zoneId) return;
+  if (!triggerEventRoute('enemy.killed', zoneId, actor?.id)) {
+    const def = sfxByName('combat_death');
+    if (def) sendToZone(zoneId, { type: 'audio_sfx', def });
+  }
+  if (actor?.current_zone) emit('audio.sfx.triggered', { zoneId: actor.current_zone });
+});
+
 on('player.death', ({ player }) => {
-  const def = sfxByName('combat_death');
-  if (def && player?.id) sendToPlayer(player.id, { type: 'audio_sfx', def });
+  if (!triggerEventRoute('player.death', player?.current_zone, player?.id)) {
+    const def = sfxByName('combat_death');
+    if (def && player?.id) sendToPlayer(player.id, { type: 'audio_sfx', def });
+  }
 });
 
 on('item.taken', ({ actor }) => {
-  const def = sfxByName('ui_button');
-  if (def && actor?.id) sendToPlayer(actor.id, { type: 'audio_sfx', def });
+  if (!triggerEventRoute('item.taken', actor?.current_zone, actor?.id)) {
+    const def = sfxByName('ui_button');
+    if (def && actor?.id) sendToPlayer(actor.id, { type: 'audio_sfx', def });
+  }
 });
 
 on('item.dropped', ({ actor }) => {
-  const def = sfxByName('ui_button');
-  if (def && actor?.id) sendToPlayer(actor.id, { type: 'audio_sfx', def });
+  if (!triggerEventRoute('item.dropped', actor?.current_zone, actor?.id)) {
+    const def = sfxByName('ui_button');
+    if (def && actor?.id) sendToPlayer(actor.id, { type: 'audio_sfx', def });
+  }
+});
+
+on('weather.thunder', ({ zoneId }) => {
+  if (!triggerEventRoute('weather.thunder', zoneId, null)) {
+    const def = sfxByName('thunder');
+    if (def && zoneId) sendToZone(zoneId, { type: 'audio_sfx', def });
+  }
 });
 
 // device.tuned fires on every TV/radio channel change (plugins/broadcast).
@@ -124,6 +174,10 @@ const TABLES = {
   ambient: { table: 'audio_ambient', cache: ambient, cols: ['name', 'category', 'priority', 'config', 'loop', 'enabled'] },
 };
 
+// event_routes has event_name as PK (not a UUID id), so it gets its own
+// branch in routeHandler rather than being stuffed into TABLES.
+const EVENT_ROUTE_COLS = ['sfx_id', 'ambient_id', 'song_id', 'scope', 'enabled'];
+
 const JSONB_COLS = new Set(['config', 'channels', 'instrument_ids']);
 
 function colValue(col, body) {
@@ -140,8 +194,47 @@ export const routeHandler = async (path, method, body, auth) => {
 
   const parts = path.split('/').filter(Boolean); // ['audio', resource, id?]
   const resource = parts[1];
-  const id = parts[2];
+  const id = parts[2]; // for events, this is the event_name
   const spec = TABLES[resource];
+
+  // ── /audio/events CRUD (event_name is PK, not a UUID) ───────────────────
+  if (resource === 'events') {
+    try {
+      if (!id && method === 'GET') {
+        const { rows } = await query('SELECT * FROM audio_event_routes ORDER BY event_name');
+        return { status: 200, body: rows };
+      }
+      if (!id && method === 'POST') {
+        const evName = body.event_name?.trim();
+        if (!evName) return { status: 400, body: { error: 'event_name is required' } };
+        const sets = EVENT_ROUTE_COLS.map((c, i) => `${c}=$${i + 2}`).join(',');
+        await query(
+          `INSERT INTO audio_event_routes (event_name,${EVENT_ROUTE_COLS.join(',')}) VALUES ($1,${EVENT_ROUTE_COLS.map((_,i)=>`$${i+2}`).join(',')}) ON CONFLICT (event_name) DO UPDATE SET ${sets}`,
+          [evName, ...EVENT_ROUTE_COLS.map(c => c === 'enabled' ? (body[c] !== false ? 1 : 0) : (body[c] || null))],
+        );
+        await loadAudioLibrary();
+        return { status: 200, body: { event_name: evName } };
+      }
+      if (id && method === 'PUT') {
+        const sets = EVENT_ROUTE_COLS.map((c, i) => `${c}=$${i + 1}`).join(',');
+        await query(
+          `UPDATE audio_event_routes SET ${sets} WHERE event_name=$${EVENT_ROUTE_COLS.length + 1}`,
+          [...EVENT_ROUTE_COLS.map(c => c === 'enabled' ? (body[c] !== false ? 1 : 0) : (body[c] || null)), id],
+        );
+        await loadAudioLibrary();
+        return { status: 200, body: { event_name: id } };
+      }
+      if (id && method === 'DELETE') {
+        await query('DELETE FROM audio_event_routes WHERE event_name=$1', [id]);
+        await loadAudioLibrary();
+        return { status: 200, body: { message: 'Deleted' } };
+      }
+    } catch (e) {
+      return { status: 500, body: { error: e.message } };
+    }
+    return null;
+  }
+
   if (!spec) return null;
 
   try {

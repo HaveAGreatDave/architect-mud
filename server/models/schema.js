@@ -836,6 +836,19 @@ export const SCHEMA_SQL = `
   -- Zone-level adaptive music assignment: which audio_songs row plays while a
   -- player is in this zone. NULL = no music change on entering this zone.
   ALTER TABLE zones ADD COLUMN IF NOT EXISTS audio_theme_id TEXT REFERENCES audio_songs(id);
+
+  -- Event-driven audio routing: maps a game event name to optional SFX,
+  -- ambient loop, or song change. scope='zone' broadcasts to the event's zone;
+  -- scope='player' sends only to the triggering player. When a route is set for
+  -- an event, it takes precedence over any hardcoded fallback in the plugin.
+  CREATE TABLE IF NOT EXISTS audio_event_routes (
+    event_name TEXT PRIMARY KEY,
+    sfx_id TEXT,
+    ambient_id TEXT,
+    song_id TEXT,
+    scope TEXT NOT NULL DEFAULT 'zone',
+    enabled INTEGER NOT NULL DEFAULT 1
+  );
 `;
 
 export async function applySchema() {
