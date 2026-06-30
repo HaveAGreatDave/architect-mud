@@ -41,6 +41,7 @@ import { initAtmPanel } from "./panels/atm.js";
 import { initTvPanel } from "./panels/tv.js";
 import { initMediaDeckPanel } from "./panels/mediadeck.js";
 import { initAudio } from "./panels/audio.js";
+import { initMusicPlayerPanel } from "./panels/musicplayer.js";
 
 // Settings
 const settings = loadSettings();
@@ -361,6 +362,7 @@ initWho();
 initAtmPanel();
 initTvPanel();
 initMediaDeckPanel();
+initMusicPlayerPanel();
 
 // Wire signout
 document.getElementById("signout-btn").addEventListener("click", () => {

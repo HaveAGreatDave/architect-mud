@@ -163,7 +163,7 @@ function exportAudioAsset(tab, id) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `${tab}_${row.name.replace(/[^a-z0-9_-]/gi, '_')}.json`;
+  a.download = `${tab}_${row.name.replace(/[^a-z0-9_-]/gi, '_')}.amps`;
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -175,7 +175,7 @@ function openAudioImportModal(tab) {
   document.getElementById('modal-title').textContent = `Load ${tab} preset(s)`;
   document.getElementById('modal-body').innerHTML = `
     <div class="field"><label>Upload .json file <span style="color:var(--text-dim);font-weight:400">(exported from this panel, or hand-written)</span></label>
-      <input type="file" id="ai-file" accept="application/json,.json">
+      <input type="file" id="ai-file" accept=".amps,.json,application/json">
     </div>
     <div class="field" style="margin-top:10px"><label>...or paste JSON <span style="color:var(--text-dim);font-weight:400">(a single preset object, or an array of presets)</span></label>
       <textarea id="ai-json" rows="10" style="resize:vertical;font-family:monospace;font-size:11px" placeholder='{"name": "my_sound", "category": "misc", "config": {...}}'></textarea>

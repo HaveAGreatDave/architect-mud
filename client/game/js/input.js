@@ -3,9 +3,11 @@ import { sendCmd } from './net.js';
 import { appendHtml } from './render.js';
 import { MARKUP_HELP_HTML, STATUS_TEMPLATE } from './markup.js';
 import { appendToWhisperLog, sendToActiveTab } from './panels/whisper.js';
+import { openMusicPlayerPanel } from './panels/musicplayer.js';
 
 function handleClientCommand(cmd) {
   const lower = cmd.toLowerCase();
+  if (lower === 'music') { openMusicPlayerPanel(); return true; }
   if (lower === '.markup') {
     // Prefer showing in the active whisper tab; fall back to game log
     const whisperShown = appendToWhisperLog(MARKUP_HELP_HTML);

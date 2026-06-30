@@ -4925,3 +4925,268 @@ body {
 	80%  { transform: scaleY(1.02)  scaleX(1);    filter: brightness(1.3); }
 	100% { transform: scaleY(1)     scaleX(1);    filter: brightness(1);   }
 }
+
+/* ── Architect Music Player (AMP) ───────────────────────────────────────────── */
+
+#musicplayer-panel {
+	display: none;
+	position: fixed;
+	right: 24px;
+	top: 80px;
+	z-index: 900;
+	filter: drop-shadow(0 8px 32px rgba(0,0,0,0.7));
+}
+#musicplayer-panel.active { display: block; }
+
+.amp-body {
+	width: 300px;
+	background: linear-gradient(160deg, #232326 0%, #18181b 60%, #1a1a1e 100%);
+	border: 1px solid #3a3a40;
+	border-radius: 14px;
+	overflow: hidden;
+	font-family: 'Courier New', Courier, monospace;
+	user-select: none;
+}
+
+/* Header */
+.amp-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 10px 14px 8px;
+	background: linear-gradient(90deg, #1e1e22, #28282e);
+	border-bottom: 1px solid #333;
+	cursor: move;
+}
+.amp-branding { display: flex; flex-direction: column; line-height: 1; }
+.amp-brand-main {
+	font-size: 13px;
+	font-weight: 700;
+	letter-spacing: 3px;
+	color: #ff7a00;
+	text-shadow: 0 0 8px rgba(255,122,0,0.5);
+}
+.amp-brand-sub {
+	font-size: 8px;
+	letter-spacing: 2px;
+	color: #888;
+	margin-top: 2px;
+}
+.amp-header-right { display: flex; align-items: center; gap: 8px; }
+.amp-screw {
+	width: 7px; height: 7px;
+	border-radius: 50%;
+	background: radial-gradient(circle at 35% 35%, #666, #333);
+	border: 1px solid #555;
+	display: inline-block;
+}
+.amp-close-btn {
+	background: none;
+	border: none;
+	color: #555;
+	font-size: 13px;
+	cursor: pointer;
+	padding: 2px 4px;
+	line-height: 1;
+	border-radius: 3px;
+	transition: color 0.15s;
+}
+.amp-close-btn:hover { color: #ff4444; }
+
+/* Cassette window */
+.amp-cassette-window {
+	margin: 12px 14px;
+	background: #0d0d0f;
+	border: 1px solid #2a2a30;
+	border-radius: 8px;
+	padding: 14px 16px;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0;
+}
+.amp-reel {
+	width: 56px;
+	height: 56px;
+	border-radius: 50%;
+	border: 2px solid #3a3a42;
+	background:
+		radial-gradient(circle at center, #1a1a1e 20%, transparent 20%),
+		conic-gradient(
+			#2e2e34 0deg 30deg, transparent 30deg 90deg,
+			#2e2e34 90deg 120deg, transparent 120deg 180deg,
+			#2e2e34 180deg 210deg, transparent 210deg 270deg,
+			#2e2e34 270deg 300deg, transparent 300deg 360deg
+		),
+		#18181c;
+	position: relative;
+	flex-shrink: 0;
+	transition: border-color 0.3s;
+}
+.amp-reel.spinning {
+	animation: amp-spin 1.8s linear infinite;
+	border-color: #555;
+}
+.amp-reel-r.spinning { animation-direction: reverse; }
+@keyframes amp-spin {
+	from { transform: rotate(0deg); }
+	to   { transform: rotate(360deg); }
+}
+.amp-reel-hub {
+	position: absolute;
+	inset: 18px;
+	border-radius: 50%;
+	background: radial-gradient(circle at 40% 40%, #3a3a42, #1c1c20);
+	border: 1px solid #444;
+}
+.amp-tape-center {
+	flex: 1;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	padding: 0 4px;
+}
+.amp-tape-guide {
+	width: 4px;
+	height: 28px;
+	background: linear-gradient(to bottom, #444, #2a2a30);
+	border-radius: 2px;
+}
+.amp-tape-head {
+	width: 10px;
+	height: 20px;
+	background: linear-gradient(to bottom, #555, #333);
+	border-radius: 2px;
+	border: 1px solid #666;
+}
+
+/* LCD display */
+.amp-lcd {
+	margin: 0 14px 12px;
+	background: #060e06;
+	border: 1px solid #1a2e1a;
+	border-radius: 6px;
+	padding: 8px 12px;
+	box-shadow: inset 0 1px 4px rgba(0,0,0,0.6);
+}
+.amp-lcd-track {
+	font-size: 11px;
+	letter-spacing: 1px;
+	color: #39ff14;
+	text-shadow: 0 0 6px rgba(57,255,20,0.5);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	margin-bottom: 4px;
+}
+.amp-lcd-status {
+	font-size: 9px;
+	letter-spacing: 1px;
+	color: #2aad10;
+	text-shadow: 0 0 4px rgba(42,173,16,0.4);
+}
+
+/* Transport controls */
+.amp-controls {
+	display: flex;
+	justify-content: center;
+	gap: 8px;
+	padding: 4px 14px 10px;
+}
+.amp-btn {
+	width: 44px;
+	height: 36px;
+	background: linear-gradient(160deg, #2e2e34, #222226);
+	border: 1px solid #3a3a42;
+	border-radius: 6px;
+	color: #aaa;
+	font-size: 14px;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition: all 0.1s;
+	box-shadow: 0 2px 4px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04);
+}
+.amp-btn:hover {
+	background: linear-gradient(160deg, #3a3a42, #2a2a30);
+	color: #ddd;
+	border-color: #555;
+}
+.amp-btn:active {
+	transform: translateY(1px);
+	box-shadow: 0 1px 2px rgba(0,0,0,0.5);
+}
+.amp-btn-play {
+	width: 54px;
+	background: linear-gradient(160deg, #3a2800, #2a1e00);
+	border-color: #6a4400;
+	color: #ff9922;
+	text-shadow: 0 0 6px rgba(255,153,34,0.5);
+}
+.amp-btn-play:hover {
+	background: linear-gradient(160deg, #4a3400, #3a2800);
+	color: #ffaa33;
+	border-color: #884400;
+}
+
+/* Footer bar */
+.amp-footer {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 0 14px 12px;
+}
+.amp-footer-label {
+	font-size: 9px;
+	letter-spacing: 2px;
+	color: #444;
+}
+.amp-tracks-btn {
+	font-family: 'Courier New', Courier, monospace;
+	font-size: 9px;
+	letter-spacing: 2px;
+	background: none;
+	border: 1px solid #333;
+	border-radius: 4px;
+	color: #888;
+	padding: 4px 10px;
+	cursor: pointer;
+	transition: all 0.15s;
+}
+.amp-tracks-btn:hover { color: #ccc; border-color: #555; }
+
+/* Track list drawer */
+.amp-tracklist {
+	display: none;
+	max-height: 220px;
+	overflow-y: auto;
+	border-top: 1px solid #222;
+	background: #0f0f12;
+}
+.amp-tracklist.open { display: block; }
+.amp-tracklist::-webkit-scrollbar { width: 4px; }
+.amp-tracklist::-webkit-scrollbar-track { background: #111; }
+.amp-tracklist::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+
+.amp-track-row {
+	display: grid;
+	grid-template-columns: 24px 1fr auto;
+	align-items: center;
+	gap: 8px;
+	padding: 7px 14px;
+	cursor: pointer;
+	border-bottom: 1px solid #1a1a1e;
+	transition: background 0.1s;
+}
+.amp-track-row:hover { background: #1a1a22; }
+.amp-track-row.current {
+	background: #1a1200;
+	border-left: 2px solid #ff7a00;
+}
+.amp-track-num { font-size: 9px; color: #444; }
+.amp-track-name { font-size: 9px; letter-spacing: 1px; color: #bbb; }
+.amp-track-row.current .amp-track-name { color: #ff9922; }
+.amp-track-bpm { font-size: 8px; color: #555; }
+.amp-no-tracks { padding: 16px; font-size: 10px; color: #444; text-align: center; letter-spacing: 2px; }

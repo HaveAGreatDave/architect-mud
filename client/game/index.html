@@ -2008,6 +2008,55 @@
 			}
 		</script>
 
+		<!-- Architect Music Player (AMP) — opened by typing `music` -->
+		<div id="musicplayer-panel">
+			<div class="amp-body">
+				<div class="amp-header" id="amp-header">
+					<div class="amp-branding">
+						<span class="amp-brand-main">ARCHITECT</span>
+						<span class="amp-brand-sub">MUSIC PLAYER</span>
+					</div>
+					<div class="amp-header-right">
+						<span class="amp-screw"></span>
+						<button class="amp-close-btn" id="amp-close" aria-label="Close">✕</button>
+					</div>
+				</div>
+
+				<div class="amp-cassette-window">
+					<div class="amp-reel amp-reel-l" id="amp-reel-l">
+						<div class="amp-reel-hub"></div>
+					</div>
+					<div class="amp-tape-center">
+						<div class="amp-tape-guide"></div>
+						<div class="amp-tape-head"></div>
+						<div class="amp-tape-guide"></div>
+					</div>
+					<div class="amp-reel amp-reel-r" id="amp-reel-r">
+						<div class="amp-reel-hub"></div>
+					</div>
+				</div>
+
+				<div class="amp-lcd">
+					<div class="amp-lcd-track" id="amp-lcd-track">NO TRACK LOADED</div>
+					<div class="amp-lcd-status" id="amp-lcd-status">■  STOPPED</div>
+				</div>
+
+				<div class="amp-controls">
+					<button class="amp-btn" id="amp-prev" title="Previous">⏮</button>
+					<button class="amp-btn" id="amp-stop" title="Stop">⏹</button>
+					<button class="amp-btn amp-btn-play" id="amp-play" title="Play / Pause">▶</button>
+					<button class="amp-btn" id="amp-next" title="Next">⏭</button>
+				</div>
+
+				<div class="amp-footer">
+					<span class="amp-footer-label">AMP-1</span>
+					<button class="amp-tracks-btn" id="amp-tracks-btn">TRACKS ▼</button>
+				</div>
+
+				<div class="amp-tracklist" id="amp-tracklist"></div>
+			</div>
+		</div>
+
 		<script src="/shared/audio-engine.js"></script>
 		<script type="module" src="js/main.js"></script>
 

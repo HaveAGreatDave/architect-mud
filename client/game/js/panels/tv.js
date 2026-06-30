@@ -583,7 +583,7 @@ export function initTvPanel() {
     if (!_tvOpen) return;
     e.preventDefault();
     if (_sweepRaf) { cancelAnimationFrame(_sweepRaf); _sweepRaf = null; }
-    const delta = -Math.sign(e.deltaY) * 0.05;
+    const delta = -Math.sign(e.deltaY) * 0.25;
     const clamped = Math.round(((_tvFrequency + delta + TV_DIAL_MAX) % TV_DIAL_MAX) * 20) / 20;
     _dialRaw = clamped;
     tvTunerInput(clamped);
