@@ -332,7 +332,10 @@ export function appendTvMessage(text, style) {
     // #tv-content has overflow:hidden — if content height exceeds its box, clear and restart
     const tvContent = document.getElementById('tv-content');
     if (tvContent && tvContent.clientHeight > 0 && container.offsetHeight >= tvContent.clientHeight) {
+      // Keep the last line so the display doesn't hard-cut mid-thought
+      const lastEl = _tvHistory.length ? _tvHistory[_tvHistory.length - 1].cloneNode(true) : null;
       _clearTvMessages();
+      if (lastEl) { container.appendChild(lastEl); _tvHistory.push(lastEl); }
     }
   }
 
