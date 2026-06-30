@@ -44,6 +44,14 @@ const instruments = [
     config: { adsr: { a: 0.001, d: 0.15, s: 0, r: 0.1 }, filter: { type: 'lowpass', freq: 200, q: 1 } } },
   { id: 'inst_chord_synth', name: 'chord_synth', category: 'misc', waveform: 'square',
     config: { adsr: { a: 0.01, d: 0.2, s: 0.4, r: 0.25 }, filter: { type: 'lowpass', freq: 2200, q: 1.2 }, tremolo: { rate: 0, depth: 0 } } },
+  { id: 'inst_organ', name: 'organ', category: 'misc', waveform: 'square',
+    config: { adsr: { a: 0.002, d: 0, s: 1.0, r: 0.06 }, filter: { type: 'lowpass', freq: 3000, q: 0.7 }, vibrato: { rate: 6, depth: 5 }, gain: 0.75 } },
+  { id: 'inst_snare', name: 'snare', category: 'misc', waveform: 'noise',
+    config: { noiseMix: 1, adsr: { a: 0.001, d: 0.08, s: 0.05, r: 0.05 }, filter: { type: 'bandpass', freq: 800, q: 1.5 }, gain: 0.9 } },
+  { id: 'inst_open_hat', name: 'open_hat', category: 'misc', waveform: 'noise',
+    config: { noiseMix: 1, adsr: { a: 0.001, d: 0.18, s: 0.1, r: 0.15 }, filter: { type: 'highpass', freq: 6000, q: 1 }, gain: 0.7 } },
+  { id: 'inst_pulse_narrow', name: 'pulse_narrow', category: 'misc', waveform: 'square',
+    config: { adsr: { a: 0.002, d: 0.03, s: 0.6, r: 0.08 }, filter: { type: 'lowpass', freq: 1200, q: 2.5 }, gain: 0.8 } },
 ];
 
 // ── Step sequencer helpers ────────────────────────────────────────────────────

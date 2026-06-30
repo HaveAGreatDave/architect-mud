@@ -41,7 +41,7 @@ import { initAtmPanel } from "./panels/atm.js";
 import { initTvPanel } from "./panels/tv.js";
 import { initMediaDeckPanel } from "./panels/mediadeck.js";
 import { initAudio } from "./panels/audio.js";
-import { initMusicPlayerPanel } from "./panels/musicplayer.js";
+import { initMusicPlayerPanel, openMusicPlayerPanel } from "./panels/musicplayer.js";
 
 // Settings
 const settings = loadSettings();
@@ -415,6 +415,9 @@ window._sendRaw = sendRaw;
 document
 	.getElementById("open-map-btn")
 	?.addEventListener("click", () => sendCmd("map"));
+document
+	.getElementById("open-music-btn")
+	?.addEventListener("click", () => openMusicPlayerPanel());
 
 // HUD minimap tap → open full map popup
 document.getElementById("minimap-grid-hud")?.addEventListener("click", () => {
