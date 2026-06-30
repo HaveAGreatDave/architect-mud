@@ -196,7 +196,7 @@ function renderPowerPanelBody() {
       <button class="action-btn" onclick="resyncAllLighting()">💡 Resync Lighting</button>
       <button class="action-btn" onclick="forceRecomputePower()">↺ Force Recompute</button>
     </div>
-    <div id="power-tool-log" style="background:var(--bg-secondary,#111);border:1px solid var(--border,#333);border-radius:4px;padding:8px;font-size:11px;font-family:monospace;min-height:48px;max-height:200px;overflow-y:auto;color:var(--text-dim)">No tools run yet.</div>
+    <div id="power-tool-log" style="background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:8px;font-size:11px;font-family:monospace;min-height:48px;max-height:200px;overflow-y:auto;color:var(--text-dim)">No tools run yet.</div>
   </div>`;
 
   html += `<div style="padding:12px"><h3 style="color:var(--accent);font-size:12px;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">Generators</h3>`;

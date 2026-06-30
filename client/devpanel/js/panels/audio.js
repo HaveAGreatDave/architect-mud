@@ -243,15 +243,22 @@ function _assetOptions(list, current, noneLabel) {
     list.map(r => `<option value="${r.id}" ${r.id === current ? 'selected' : ''}>${r.name}</option>`).join('');
 }
 
-function openEventRouteModal(row) {
+async function openEventRouteModal(row) {
   const isNew = !row;
   const modal = document.getElementById('generic-modal');
   document.getElementById('modal-title').textContent = isNew ? 'New Event Route' : `Edit: ${row.event_name}`;
+  const zones = await API('/zones').catch(() => []);
+  const zoneOpts = Array.isArray(zones)
+    ? zones.map(z => `<option value="zone.entered.${z.id}" label="${(z.name || z.id).replace(/"/g, '&quot;')}">`)
+    : [];
   document.getElementById('modal-body').innerHTML = `
     <div class="field">
       <label>Event Name <span style="color:var(--text-dim);font-weight:400">(type or choose from list)</span></label>
       <input id="er-event" list="er-events-list" autocomplete="off" value="${row?.event_name || ''}" placeholder="e.g. weather.rain">
-      <datalist id="er-events-list">${KNOWN_EVENTS.map(e => `<option value="${e}">`).join('')}</datalist>
+      <datalist id="er-events-list">
+        ${KNOWN_EVENTS.map(e => `<option value="${e}">`).join('')}
+        ${zoneOpts.join('')}
+      </datalist>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:10px">
       <div class="field"><label>SFX (one-shot)</label>
@@ -458,6 +465,14 @@ function _sqRender() {
     btn.addEventListener('click', () => {
       _sqCh.splice(+btn.dataset.ci, 1);
       _sqRender();
+    });
+  });
+
+  sqLeft.querySelectorAll('.sq-inst').forEach(sel => {
+    sel.addEventListener('change', () => {
+      const ci = +sel.dataset.ci;
+      const newInst = sel.value;
+      _sqCh[ci].forEach(st => { if (st) st.instrument = newInst; });
     });
   });
 }

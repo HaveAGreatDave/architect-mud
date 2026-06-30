@@ -98,6 +98,7 @@ function resolveSongInstruments(song) {
 }
 
 on('zone.entered', ({ actor, zone: zoneId }) => {
+  if (triggerEventRoute(`zone.entered.${zoneId}`, zoneId, actor?.id)) return;
   if (triggerEventRoute('zone.entered', zoneId, actor?.id)) return;
   const zone = getZone(zoneId);
   if (!zone?.audio_theme_id) return;
