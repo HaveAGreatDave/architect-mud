@@ -2345,20 +2345,36 @@ export const routeHandler = async (path, method, body, auth) => {
         }
         if (!targetZoneId) return { status: 400, body: { error: 'zone_id required (or use auto_place: true)' } };
 
-        // Unlink any existing deck for this channel
-        await query(
-          `UPDATE furniture SET flags = flags - 'channel_id' WHERE flags->>'channel_id'=$1`,
+        // Reuse the channel's existing deck if it already has one — move/rename
+        // it in place rather than orphaning it and spawning a duplicate.
+        const { rows: existingDeckRows } = await query(
+          `SELECT id, flags FROM furniture WHERE flags->>'channel_id'=$1 AND flags->>'media_deck'='true' LIMIT 1`,
           [channel_id]
         );
+        let deckId;
         const ts = Date.now();
-        const deckId = `furn_deck_${channel_id}_${ts}`;
-        await query(
-          `INSERT INTO furniture (id, zone_id, name, description, flags, power_draw_kw, object_type)
-           VALUES ($1,$2,$3,$4,$5,2.0,'media_deck')`,
-          [deckId, targetZoneId, name || 'Media Deck',
-           'Broadcast transmission hardware. Plays cassettes and routes live camera feeds.',
-           JSON.stringify({ media_deck: true, channel_id, deck_cassettes: [], deck_active: null })]
-        );
+        if (existingDeckRows.length) {
+          deckId = existingDeckRows[0].id;
+          const dflags = _deckFlags(existingDeckRows[0]);
+          await query(
+            `UPDATE furniture SET zone_id=$1, name=$2 WHERE id=$3`,
+            [targetZoneId, name || 'Media Deck', deckId]
+          );
+          // Ensure flags carry channel_id/media_deck even if an older row lost them
+          dflags.media_deck = true;
+          dflags.channel_id = channel_id;
+          if (!Array.isArray(dflags.deck_cassettes)) dflags.deck_cassettes = [];
+          await query('UPDATE furniture SET flags=$1 WHERE id=$2', [JSON.stringify(dflags), deckId]);
+        } else {
+          deckId = `furn_deck_${channel_id}_${ts}`;
+          await query(
+            `INSERT INTO furniture (id, zone_id, name, description, flags, power_draw_kw, object_type)
+             VALUES ($1,$2,$3,$4,$5,2.0,'media_deck')`,
+            [deckId, targetZoneId, name || 'Media Deck',
+             'Broadcast transmission hardware. Plays cassettes and routes live camera feeds.',
+             JSON.stringify({ media_deck: true, channel_id, deck_cassettes: [], deck_active: null })]
+          );
+        }
         await query(`UPDATE media_channels SET studio_zone_id=$1 WHERE id=$2`, [stageZoneId || targetZoneId, channel_id]);
 
         let cameraId = null;
