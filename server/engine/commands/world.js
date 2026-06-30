@@ -475,8 +475,39 @@ async function cmdExamine(targetStr, player, broadcast) {
         statusLine = `<span style="color:var(--border)">— STANDBY</span>${chTag ? `  ·  ${chTag}` : ''}`;
       }
 
-      const useLink = `<span class="action-link" data-action="use" data-target="${f.name.toLowerCase()}">use</span>`;
-      msg += `\n<span style="display:inline-flex;gap:18px;padding:6px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:2px;margin:4px 0">${liveDot}${loadDot}</span>\n${statusLine}\n<span class="text-dim">Actions:</span> ${useLink}`;
+      // List cassettes currently stored in the deck container.
+      const { rows: cassetteRows } = await query(
+        `SELECT i.tags FROM player_inventory pi JOIN items i ON i.id = pi.item_id WHERE pi.container_id=$1 ORDER BY i.name`,
+        [f.id]
+      );
+      let cassetteList = '';
+      if (cassetteRows.length) {
+        const bcIds = cassetteRows.map(r => {
+          const t = typeof r.tags === 'string' ? JSON.parse(r.tags) : (r.tags || {});
+          return t.broadcast_id;
+        }).filter(Boolean);
+        let nameMap = {};
+        if (bcIds.length) {
+          const { rows: bcRows } = await query(
+            `SELECT id, name FROM media_broadcasts WHERE id = ANY($1)`, [bcIds]
+          );
+          for (const b of bcRows) nameMap[b.id] = b.name;
+        }
+        const lines = bcIds.map(id => {
+          const isActive = id === deckActive;
+          const label = nameMap[id] || id;
+          return isActive
+            ? `  <span style="color:var(--cyan)">▶ ${label}</span>`
+            : `  <span style="color:var(--text-dim)">◦ ${label}</span>`;
+        });
+        cassetteList = '\n' + lines.join('\n');
+      } else {
+        cassetteList = '\n  <span style="color:var(--border)">— empty —</span>';
+      }
+
+      const useLink  = `<span class="action-link" data-action="use" data-target="${f.name.toLowerCase()}">use</span>`;
+      const ejectLink = deckActive ? `  <span class="action-link" data-action="eject" data-target="">eject</span>` : '';
+      msg += `\n<span style="display:inline-flex;gap:18px;padding:6px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:2px;margin:4px 0">${liveDot}${loadDot}</span>\n${statusLine}${cassetteList}\n<span class="text-dim">Actions:</span> ${useLink}${ejectLink}`;
     } else if (f.object_type === 'broadcast_camera') {
       const flags = f.flags || {};
       const camId = flags.camera_id;

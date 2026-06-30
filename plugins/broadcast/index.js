@@ -1322,9 +1322,34 @@ async function cmdLoadCassette(args, raw, player) {
   if (!cassettes.includes(broadcastId)) cassettes.push(broadcastId);
   dflags.deck_cassettes = cassettes;
   dflags.deck_active = broadcastId;
+
+  // Restore any schedule slots that were saved when this cassette was ejected.
+  const channelId = dflags.channel_id || null;
+  const ejected = typeof dflags.deck_ejected_slots === 'object' && !Array.isArray(dflags.deck_ejected_slots)
+    ? dflags.deck_ejected_slots
+    : {};
+  const slotsToRestore = ejected[broadcastId] || [];
+  if (slotsToRestore.length && channelId) {
+    for (const slot of slotsToRestore) {
+      await query(
+        `INSERT INTO media_channel_playlist (id,channel_id,broadcast_id,start_time,duration_override,priority,conditions,slot_type)
+         VALUES ($1,$2,$3,$4,$5,0,$6,$7)
+         ON CONFLICT DO NOTHING`,
+        [randomUUID(), channelId, broadcastId, slot.start_time, slot.duration_override || null,
+         JSON.stringify(slot.conditions || []), slot.slot_type || 'broadcast']
+      );
+    }
+    delete ejected[broadcastId];
+    dflags.deck_ejected_slots = ejected;
+  }
+
+  // Un-hide the broadcast in the library now that its cassette is back in a deck.
+  await query(`UPDATE media_broadcasts SET tags = COALESCE(tags,'{}')::jsonb - 'cassette_ejected' WHERE id=$1`, [broadcastId]);
+
   await query('UPDATE furniture SET flags=$1 WHERE id=$2', [JSON.stringify(dflags), deck.id]);
-  // The tape goes into the deck — it's no longer something you're carrying.
-  await query('DELETE FROM player_inventory WHERE id=$1', [cassette.inv_id]);
+  if (channelId && slotsToRestore.length) await loadChannelRuntimes();
+  // Move the cassette item into the deck container rather than destroying it.
+  await query('UPDATE player_inventory SET container_id=$1 WHERE id=$2', [deck.id, cassette.inv_id]);
   _deckCache.delete(player.current_zone);
   return { type: 'output', message: `You slide the cassette into the deck. It clunks into place and starts playing.` };
 }
@@ -1337,25 +1362,62 @@ async function cmdEjectCassette(args, raw, player) {
   if (!dflags.deck_active) return { type: 'output', message: 'The deck is empty.' };
   const broadcastId = dflags.deck_active;
 
-  // Pop the physical cassette back out into the player's hands — at most one
-  // copy of a given broadcast's tape can exist in a player's inventory at a time.
-  const { rows: bcRows } = await query('SELECT name FROM media_broadcasts WHERE id=$1', [broadcastId]);
-  const broadcastName = bcRows[0]?.name || 'Untitled';
+  // Pop the cassette back into the player's hands — find it in the deck container first.
+  const { rows: bcNameRows } = await query('SELECT name FROM media_broadcasts WHERE id=$1', [broadcastId]);
+  const broadcastName = bcNameRows[0]?.name || 'Untitled';
   const itemId = `item_cassette_${broadcastId}`;
-  await query(
-    `INSERT INTO items (id, name, description, type, subtype, weight, value, rarity, is_stackable, is_unique, tags)
-     VALUES ($1,$2,$3,'media','cassette',100,0,'common',0,1,$4)
-     ON CONFLICT (id) DO UPDATE SET name=$2, tags=$4`,
-    [itemId, `Cassette: ${broadcastName}`, `A media cassette labeled "${broadcastName}".`,
-     JSON.stringify({ media_cassette: true, broadcast_id: broadcastId })]
+
+  const { rows: deckInv } = await query(
+    `SELECT pi.id FROM player_inventory pi WHERE pi.container_id=$1 AND pi.item_id=$2 LIMIT 1`,
+    [deck.id, itemId]
   );
-  const { rows: existingInv } = await query(
-    `SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 LIMIT 1`,
-    [player.id, itemId]
-  );
-  if (!existingInv.length) {
-    await query('INSERT INTO player_inventory (id, player_id, item_id, quantity) VALUES ($1,$2,$3,1)',
-      [randomUUID(), player.id, itemId]);
+  if (deckInv.length) {
+    // Move existing cassette item from deck container back to player inventory.
+    await query('UPDATE player_inventory SET container_id=NULL, player_id=$1, is_equipped=0 WHERE id=$2', [player.id, deckInv[0].id]);
+  } else {
+    // Fallback for decks loaded before the container migration: create a fresh item.
+    await query(
+      `INSERT INTO items (id, name, description, type, subtype, weight, value, rarity, is_stackable, is_unique, tags)
+       VALUES ($1,$2,$3,'media','cassette',100,0,'common',0,1,$4)
+       ON CONFLICT (id) DO UPDATE SET name=$2, tags=$4`,
+      [itemId, `Cassette: ${broadcastName}`, `A media cassette labeled "${broadcastName}".`,
+       JSON.stringify({ media_cassette: true, broadcast_id: broadcastId })]
+    );
+    const { rows: existingInv } = await query(
+      `SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 LIMIT 1`,
+      [player.id, itemId]
+    );
+    if (!existingInv.length) {
+      await query('INSERT INTO player_inventory (id, player_id, item_id, quantity) VALUES ($1,$2,$3,1)',
+        [randomUUID(), player.id, itemId]);
+    }
+  }
+
+  // Mark the broadcast as cassette-ejected so it disappears from the library until reloaded.
+  await query(`UPDATE media_broadcasts SET tags = COALESCE(tags,'{}')::jsonb || '{"cassette_ejected":true}' WHERE id=$1`, [broadcastId]);
+
+  // Pull every occurrence of this broadcast from the channel's schedule and remember the slots
+  // so they can be restored if the cassette is reloaded.
+  const channelId = dflags.channel_id || null;
+  if (channelId) {
+    const { rows: plRows } = await query(
+      `SELECT start_time, duration_override, conditions, slot_type FROM media_channel_playlist
+        WHERE channel_id=$1 AND broadcast_id=$2`,
+      [channelId, broadcastId]
+    );
+    if (plRows.length) {
+      const ejected = typeof dflags.deck_ejected_slots === 'object' && !Array.isArray(dflags.deck_ejected_slots)
+        ? { ...dflags.deck_ejected_slots }
+        : {};
+      ejected[broadcastId] = plRows.map(r => ({
+        start_time:        r.start_time,
+        duration_override: r.duration_override,
+        conditions:        typeof r.conditions === 'string' ? JSON.parse(r.conditions) : (r.conditions || []),
+        slot_type:         r.slot_type || 'broadcast',
+      }));
+      dflags.deck_ejected_slots = ejected;
+      await query('DELETE FROM media_channel_playlist WHERE channel_id=$1 AND broadcast_id=$2', [channelId, broadcastId]);
+    }
   }
 
   // Remove it from the deck's library entirely — the program stops, the deck goes idle.
@@ -1363,6 +1425,7 @@ async function cmdEjectCassette(args, raw, player) {
     .filter(id => id !== broadcastId);
   dflags.deck_active = null;
   await query('UPDATE furniture SET flags=$1 WHERE id=$2', [JSON.stringify(dflags), deck.id]);
+  if (channelId) await loadChannelRuntimes();
   _deckCache.delete(player.current_zone);
   return { type: 'output', message: `You eject the cassette. The screen dissolves into static.` };
 }
@@ -1721,7 +1784,7 @@ export const routeHandler = async (path, method, body, auth) => {
     // ── Broadcasts ──────────────────────────────────────────────────────────
     if (resource === 'broadcasts') {
       if (!id && method === 'GET') {
-        const { rows } = await query('SELECT * FROM media_broadcasts ORDER BY name');
+        const { rows } = await query(`SELECT * FROM media_broadcasts WHERE NOT (tags->>'cassette_ejected' = 'true') ORDER BY name`);
         return { status: 200, body: rows };
       }
       if (!id && method === 'POST') {
@@ -1765,6 +1828,34 @@ export const routeHandler = async (path, method, body, auth) => {
 
     // ── Channels ────────────────────────────────────────────────────────────
     if (resource === 'channels') {
+      // Ejected slots sub-resource — decks linked to this channel that have saved ejected slots
+      if (id && sub === 'ejected-slots' && method === 'GET') {
+        const { rows: deckRows } = await query(
+          `SELECT id, flags FROM furniture WHERE flags::text LIKE '%"media_deck"%' AND flags::text LIKE $1`,
+          [`%${id}%`]
+        );
+        const result = [];
+        for (const d of deckRows) {
+          const df = typeof d.flags === 'object' ? d.flags : JSON.parse(d.flags || '{}');
+          if (df.channel_id !== id) continue;
+          const slots = typeof df.deck_ejected_slots === 'object' && !Array.isArray(df.deck_ejected_slots)
+            ? df.deck_ejected_slots : {};
+          for (const [bcId, bcSlots] of Object.entries(slots)) {
+            for (const slot of bcSlots) {
+              result.push({ broadcast_id: bcId, deck_id: d.id, ...slot });
+            }
+          }
+        }
+        // Enrich with broadcast names
+        const bcIds = [...new Set(result.map(r => r.broadcast_id))];
+        let nameMap = {};
+        if (bcIds.length) {
+          const { rows: names } = await query(`SELECT id, name, category FROM media_broadcasts WHERE id = ANY($1)`, [bcIds]);
+          for (const b of names) nameMap[b.id] = b;
+        }
+        return { status: 200, body: result.map(r => ({ ...r, broadcast_name: nameMap[r.broadcast_id]?.name || r.broadcast_id, broadcast_category: nameMap[r.broadcast_id]?.category || 'general' })) };
+      }
+
       // Playlist sub-resource
       if (id && sub === 'playlist') {
         if (method === 'GET') {
@@ -2520,41 +2611,34 @@ export const routeHandler = async (path, method, body, auth) => {
 
         let invId = null;
         if (channel_id) {
-          const { rows: chRows } = await query('SELECT studio_zone_id FROM media_channels WHERE id=$1', [channel_id]);
-          const stageZoneId = chRows[0]?.studio_zone_id;
-          if (stageZoneId) {
-            const { rows: stageRows } = await query('SELECT exits FROM zones WHERE id=$1', [stageZoneId]);
-            const productionZoneId = stageRows[0]?.exits?.up;
-            if (productionZoneId) {
-              const { rows: existingInv } = await query(
-                `SELECT pi.id FROM player_inventory pi WHERE pi.player_id=$1 AND pi.item_id=$2 LIMIT 1`,
-                [`_ground_${productionZoneId}`, itemId]
-              );
-              if (existingInv.length) {
-                invId = existingInv[0].id;
-              } else {
-                invId = randomUUID();
-                await query(
-                  `INSERT INTO player_inventory (id, player_id, item_id, quantity) VALUES ($1,$2,$3,1)`,
-                  [invId, `_ground_${productionZoneId}`, itemId]
-                );
-              }
-            }
-          }
-
-          // Register in the channel's media deck library so playback/scheduling can use it
-          // immediately, without requiring someone to physically carry the cassette first.
+          // Place the cassette directly into the linked deck's container and register it
+          // in deck_cassettes so playback/scheduling can use it immediately.
           const { rows: deckRows } = await query(
             `SELECT id, flags FROM furniture WHERE flags->>'channel_id'=$1 AND flags->>'media_deck'='true' LIMIT 1`,
             [channel_id]
           );
           if (deckRows.length) {
+            const deckId = deckRows[0].id;
             const dflags = _deckFlags(deckRows[0]);
             const cassettes = Array.isArray(dflags.deck_cassettes) ? [...dflags.deck_cassettes] : [];
             if (!cassettes.includes(broadcast_id)) {
               cassettes.push(broadcast_id);
               dflags.deck_cassettes = cassettes;
-              await query('UPDATE furniture SET flags=$1 WHERE id=$2', [JSON.stringify(dflags), deckRows[0].id]);
+              await query('UPDATE furniture SET flags=$1 WHERE id=$2', [JSON.stringify(dflags), deckId]);
+            }
+            // Insert item into the deck container (or update if it already exists there).
+            const { rows: existingInv } = await query(
+              `SELECT pi.id FROM player_inventory pi WHERE pi.container_id=$1 AND pi.item_id=$2 LIMIT 1`,
+              [deckId, itemId]
+            );
+            if (existingInv.length) {
+              invId = existingInv[0].id;
+            } else {
+              invId = randomUUID();
+              await query(
+                `INSERT INTO player_inventory (id, player_id, item_id, quantity, container_id) VALUES ($1,$2,$3,1,$4)`,
+                [invId, `_deck_${deckId}`, itemId, deckId]
+              );
             }
           }
         }

@@ -153,6 +153,32 @@ async function _schedLoadItems() {
       };
     });
   } catch { _schedItems = []; }
+
+  // Append ghost slots for cassettes that have been ejected from the deck.
+  try {
+    const ejected = await directAPI(`/broadcast/channels/${_schedChannelId}/ejected-slots`, 'GET');
+    if (Array.isArray(ejected)) {
+      for (const slot of ejected) {
+        const bc = _schedBroadcasts.find(b => b.id === slot.broadcast_id) || {};
+        const dur = slot.duration_override
+          || bc.override_duration
+          || ((Array.isArray(bc.messages) ? bc.messages.length : 0) * (bc.message_interval || 5))
+          || 3600;
+        _schedItems.push({
+          broadcast_id:       slot.broadcast_id,
+          broadcast_name:     slot.broadcast_name || bc.name || slot.broadcast_id,
+          broadcast_category: slot.broadcast_category || bc.category || 'general',
+          slot_type:          slot.slot_type || 'broadcast',
+          start_time:         slot.start_time || 0,
+          duration:           dur,
+          duration_override:  slot.duration_override || null,
+          npc_staff:          [],
+          missing_cassette:   true,
+        });
+      }
+    }
+  } catch {}
+
   _schedDirty = false;
   _schedUpdateSaveBtn();
 }
@@ -383,6 +409,18 @@ function _schedBuildTimeline() {
       return;
     }
 
+    if (item.missing_cassette) {
+      items += `
+        <div style="position:absolute;left:${x}px;width:${iw}px;height:${SCHED_H}px;top:0;
+                    background:repeating-linear-gradient(135deg,var(--bg3) 0,var(--bg3) 6px,var(--bg2) 6px,var(--bg2) 12px);
+                    border:1px dashed var(--border);border-radius:2px;box-sizing:border-box;
+                    overflow:hidden;opacity:0.7;pointer-events:none">
+          <div style="padding:3px 5px;font-size:10px;font-weight:600;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">⚠ ${escHtml(item.broadcast_name)}</div>
+          <div class="bc-meta" style="padding:0 5px">${_schedFmtTime(item.start_time)}–${_schedFmtTime(item.start_time + item.duration)}</div>
+          <div style="padding:0 5px;font-size:9px;color:var(--red);letter-spacing:1px;text-transform:uppercase">NO CASSETTE</div>
+        </div>`;
+      return;
+    }
     const staffChips = item.npc_staff.map(id => {
       const npc = _schedNpcs.find(n => n.id === id);
       const initials = (npc?.name || id).slice(0, 2).toUpperCase();
@@ -589,6 +627,18 @@ function _schedRenderTimeline() {
       return;
     }
 
+    if (item.missing_cassette) {
+      items += `
+        <div style="position:absolute;left:${x}px;width:${iw}px;height:${SCHED_H}px;top:0;
+                    background:repeating-linear-gradient(135deg,var(--bg3) 0,var(--bg3) 6px,var(--bg2) 6px,var(--bg2) 12px);
+                    border:1px dashed var(--border);border-radius:2px;box-sizing:border-box;
+                    overflow:hidden;opacity:0.7;pointer-events:none">
+          <div style="padding:3px 5px;font-size:10px;font-weight:600;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">⚠ ${escHtml(item.broadcast_name)}</div>
+          <div class="bc-meta" style="padding:0 5px">${_schedFmtTime(item.start_time)}–${_schedFmtTime(item.start_time + item.duration)}</div>
+          <div style="padding:0 5px;font-size:9px;color:var(--red);letter-spacing:1px;text-transform:uppercase">NO CASSETTE</div>
+        </div>`;
+      return;
+    }
     const staffChips = item.npc_staff.map(id => {
       const npc = _schedNpcs.find(n => n.id === id);
       const initials = (npc?.name || id).slice(0, 2).toUpperCase();
@@ -721,7 +771,7 @@ function _schedDeleteItem(idx) {
 
 async function _schedSave() {
   if (!_schedChannelId) return;
-  const payload = _schedItems.map(item => ({
+  const payload = _schedItems.filter(item => !item.missing_cassette).map(item => ({
     broadcast_id:      item.broadcast_id,
     start_time:        item.start_time,
     duration_override: item.duration_override,
