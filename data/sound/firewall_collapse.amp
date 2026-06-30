@@ -1,0 +1,2207 @@
+{
+  "name": "firewall_collapse",
+  "category": "cyberpunk",
+  "tempo": 152,
+  "loop_start": 0,
+  "loop_end": 255,
+  "instrument_ids": [
+    "Lead Square",
+    "lead_soft",
+    "saw_lead",
+    "chord_synth",
+    "triangle_bass",
+    "kick_drum",
+    "noise_hat",
+    "arp_high",
+    "pad_dark",
+    "Bell Sine"
+  ],
+  "priority": 5,
+  "enabled": 1,
+  "channels": [
+    [
+      {
+        "note": "B3",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "D4",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "F4",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "D4",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "B3",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "D4",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "F4",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "D4",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "B3",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "D4",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "F4",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "D4",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "B3",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "D4",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "F4",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "D4",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "B3",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "D4",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "F4",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "D4",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "B3",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "D4",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "F4",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "D4",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "B3",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "D4",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "F4",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "D4",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "B3",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "D4",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "F4",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "D4",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "B3",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "D4",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "F4",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "D4",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "B3",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "D4",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "F4",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "D4",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "B3",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "D4",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "F4",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "D4",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "B3",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "D4",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "F4",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "D4",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "B3",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "D4",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "F4",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "D4",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "B3",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "D4",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "F4",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "D4",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "B3",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "D4",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "F4",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "D4",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "B3",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "D4",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "F4",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "D4",
+        "instrument": "Lead Square",
+        "vol": 0.8
+      },
+      null,
+      null,
+      null
+    ],
+    [
+      {
+        "note": "E2",
+        "instrument": "triangle_bass",
+        "vol": 0.9
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "note": "E2",
+        "instrument": "triangle_bass",
+        "vol": 0.9
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "note": "D2",
+        "instrument": "triangle_bass",
+        "vol": 0.9
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "note": "D2",
+        "instrument": "triangle_bass",
+        "vol": 0.9
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "triangle_bass",
+        "vol": 0.9
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "triangle_bass",
+        "vol": 0.9
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "note": "B2",
+        "instrument": "triangle_bass",
+        "vol": 0.9
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "note": "B2",
+        "instrument": "triangle_bass",
+        "vol": 0.9
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "note": "E2",
+        "instrument": "triangle_bass",
+        "vol": 0.9
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "note": "E2",
+        "instrument": "triangle_bass",
+        "vol": 0.9
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "note": "D2",
+        "instrument": "triangle_bass",
+        "vol": 0.9
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "note": "D2",
+        "instrument": "triangle_bass",
+        "vol": 0.9
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "triangle_bass",
+        "vol": 0.9
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "triangle_bass",
+        "vol": 0.9
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "note": "B2",
+        "instrument": "triangle_bass",
+        "vol": 0.9
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "note": "B2",
+        "instrument": "triangle_bass",
+        "vol": 0.9
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "note": "E2",
+        "instrument": "triangle_bass",
+        "vol": 0.9
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "note": "E2",
+        "instrument": "triangle_bass",
+        "vol": 0.9
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "note": "D2",
+        "instrument": "triangle_bass",
+        "vol": 0.9
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "note": "D2",
+        "instrument": "triangle_bass",
+        "vol": 0.9
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "triangle_bass",
+        "vol": 0.9
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "triangle_bass",
+        "vol": 0.9
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "note": "B2",
+        "instrument": "triangle_bass",
+        "vol": 0.9
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "note": "B2",
+        "instrument": "triangle_bass",
+        "vol": 0.9
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "note": "E2",
+        "instrument": "triangle_bass",
+        "vol": 0.9
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "note": "E2",
+        "instrument": "triangle_bass",
+        "vol": 0.9
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "note": "D2",
+        "instrument": "triangle_bass",
+        "vol": 0.9
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "note": "D2",
+        "instrument": "triangle_bass",
+        "vol": 0.9
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "triangle_bass",
+        "vol": 0.9
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "triangle_bass",
+        "vol": 0.9
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "note": "B2",
+        "instrument": "triangle_bass",
+        "vol": 0.9
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "note": "B2",
+        "instrument": "triangle_bass",
+        "vol": 0.9
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "E5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null,
+      {
+        "note": "B5",
+        "instrument": "arp_high",
+        "vol": 0.35
+      },
+      null
+    ],
+    [
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null,
+      {
+        "note": "C2",
+        "instrument": "kick_drum",
+        "vol": 1
+      },
+      null,
+      null,
+      null
+    ]
+  ]
+}

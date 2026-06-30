@@ -1,6 +1,6 @@
 # AMP Format — Architect Music Player Asset Specification
 
-`.amps` files are plain JSON exports from the devpanel Audio tab. Each file contains either a single preset object or an array of preset objects. The format covers four asset types: **instruments**, **songs**, **sfx**, and **ambient**.
+`.amp` files are plain JSON exports from the devpanel Audio tab. Each file contains either a single preset object or an array of preset objects. The format covers four asset types: **instruments**, **songs**, **sfx**, and **ambient**.
 
 ---
 
@@ -245,7 +245,7 @@ Each element in `layers` is a full config object (minus a nested `layers`). Usef
 
 ## Import / Export
 
-All four asset types export to `.amps` files from the devpanel Audio tab (⬇ button per row). The Load button (⬆) on each tab accepts `.amps` or `.json`.
+All four asset types export to `.amp` files from the devpanel Audio tab (⬇ button per row). The Load button (⬆) on each tab accepts `.amp` or `.json`.
 
 - **Single preset:** the root object is a single asset.
 - **Batch:** the root object is a JSON array of assets.
