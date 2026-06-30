@@ -250,7 +250,7 @@ function openEventRouteModal(row) {
   document.getElementById('modal-body').innerHTML = `
     <div class="field">
       <label>Event Name <span style="color:var(--text-dim);font-weight:400">(type or choose from list)</span></label>
-      <input id="er-event" list="er-events-list" value="${row?.event_name || ''}" placeholder="e.g. weather.rain">
+      <input id="er-event" list="er-events-list" autocomplete="off" value="${row?.event_name || ''}" placeholder="e.g. weather.rain">
       <datalist id="er-events-list">${KNOWN_EVENTS.map(e => `<option value="${e}">`).join('')}</datalist>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:10px">
