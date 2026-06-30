@@ -93,6 +93,18 @@
       _hiddenDucked = shouldDuck;
       masterGain.gain.setTargetAtTime(_masterTarget(), ctx.currentTime, 0.05);
     });
+
+    // Mobile browsers require a user gesture before AudioContext can run.
+    // Install a one-shot unlock listener so the context is created and resumed
+    // on first tap/click — well before any server-pushed audio message arrives.
+    function _unlockAudio() {
+      ensureContext();
+      if (ctx && ctx.state === 'suspended') ctx.resume();
+      document.removeEventListener('touchstart', _unlockAudio, true);
+      document.removeEventListener('click',      _unlockAudio, true);
+    }
+    document.addEventListener('touchstart', _unlockAudio, true);
+    document.addEventListener('click',      _unlockAudio, true);
   }
 
   function _applyGains() {
