@@ -135,6 +135,84 @@ function zoneColorStyle(colorOrZone, _unused) {
   return ';' + parts.join(';');
 }
 
+// Suggest a zone marker color that matches the hue/saturation/lightness
+// character of a map's existing zone colors but is visually distinct from
+// every one of them — so newly placed zones blend into the map's palette
+// instead of colliding with a neighbor's color or always defaulting to the
+// same swatch.
+function hexToRgbArr(hex) {
+  hex = (hex || '').replace('#', '');
+  if (hex.length !== 6) return null;
+  return [parseInt(hex.slice(0,2),16), parseInt(hex.slice(2,4),16), parseInt(hex.slice(4,6),16)];
+}
+
+function rgbArrToHex([r,g,b]) {
+  return '#' + [r,g,b].map(v => Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join('');
+}
+
+function rgbToHsl([r,g,b]) {
+  r/=255; g/=255; b/=255;
+  const max=Math.max(r,g,b), min=Math.min(r,g,b);
+  let h=0, s=0, l=(max+min)/2;
+  if (max !== min) {
+    const d = max-min;
+    s = l>0.5 ? d/(2-max-min) : d/(max+min);
+    switch (max) {
+      case r: h=(g-b)/d+(g<b?6:0); break;
+      case g: h=(b-r)/d+2; break;
+      default: h=(r-g)/d+4;
+    }
+    h /= 6;
+  }
+  return [h*360, s, l];
+}
+
+function hslToRgbArr(h, s, l) {
+  h = ((h % 360) + 360) / 360;
+  if (s === 0) return [l*255, l*255, l*255];
+  const hue2rgb = (p,q,t) => {
+    if (t<0) t+=1;
+    if (t>1) t-=1;
+    if (t<1/6) return p+(q-p)*6*t;
+    if (t<1/2) return q;
+    if (t<2/3) return p+(q-p)*(2/3-t)*6;
+    return p;
+  };
+  const q = l<0.5 ? l*(1+s) : l+s-l*s;
+  const p = 2*l-q;
+  return [hue2rgb(p,q,h+1/3)*255, hue2rgb(p,q,h)*255, hue2rgb(p,q,h-1/3)*255];
+}
+
+function colorDistance(hexA, hexB) {
+  const a = hexToRgbArr(hexA), b = hexToRgbArr(hexB);
+  if (!a || !b) return Infinity;
+  return Math.sqrt((a[0]-b[0])**2 + (a[1]-b[1])**2 + (a[2]-b[2])**2);
+}
+
+function suggestZoneColor(existingHexColors) {
+  const existing = (existingHexColors || []).filter(c => hexToRgbArr(c));
+  if (!existing.length) return MAP_PALETTE[Math.floor(Math.random() * MAP_PALETTE.length)];
+
+  const hsls = existing.map(c => rgbToHsl(hexToRgbArr(c)));
+  const avgS = hsls.reduce((s,h) => s+h[1], 0) / hsls.length;
+  const avgL = hsls.reduce((s,h) => s+h[2], 0) / hsls.length;
+
+  const MIN_DISTANCE = 70; // RGB euclidean distance treated as "visually distinct"
+  const GOLDEN_ANGLE = 137.508; // spreads candidate hues evenly around the wheel
+  let hue = hsls[hsls.length - 1][0];
+  let best = null, bestDist = -1;
+  for (let i = 0; i < 36; i++) {
+    hue += GOLDEN_ANGLE;
+    const s = Math.min(0.95, Math.max(0.25, avgS + (Math.random()-0.5)*0.15));
+    const l = Math.min(0.8, Math.max(0.25, avgL + (Math.random()-0.5)*0.15));
+    const candidate = rgbArrToHex(hslToRgbArr(hue, s, l));
+    const minDist = Math.min(...existing.map(c => colorDistance(candidate, c)));
+    if (minDist >= MIN_DISTANCE) return candidate;
+    if (minDist > bestDist) { bestDist = minDist; best = candidate; }
+  }
+  return best;
+}
+
 function mapLegendHtml(mode) {
   return mode === 'power'
     ? `<span><span class="legend-swatch" style="background:rgba(80,160,255,0.4);border:1px solid rgba(100,180,255,0.9)"></span>⚡ City Plant</span>
@@ -971,7 +1049,8 @@ async function createZoneAt(x, y) {
   allRecords = Array.isArray(data) ? data : (data.zones || []);
   currentPanel = 'zones';
   mapZoneEditReturn = true;
-  newRecord();
+  const existingColors = allRecords.filter(z => z.map_id === mapOverview.map.id).map(z => z.color).filter(Boolean);
+  newRecord({ color: suggestZoneColor(existingColors) });
 }
 
 // --- Power tab — embedded version of the same grid, toggleable between

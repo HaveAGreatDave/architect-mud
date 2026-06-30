@@ -98,9 +98,12 @@ function editRecord(id) {
   openEdit(currentRecord, false);
 }
 
-function newRecord() {
+function newRecord(defaults = {}) {
   currentRecord = null;
-  openEdit({}, true);
+  if (currentPanel === 'zones' && !('color' in defaults)) {
+    defaults = { ...defaults, color: suggestZoneColor(allRecords.map(z => z.color).filter(Boolean)) };
+  }
+  openEdit(defaults, true);
 }
 
 async function openEdit(record, isNew) {
