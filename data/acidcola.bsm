@@ -1,7 +1,12 @@
 @broadcast "Acid Cola™ - Reality Hurts"
 @category commercial
+@length 30
 @type commercial
-@runtime 30
+
+::actors
+@actor npc_narrator
+@alias npc_narrator NARRATOR
+::endactors
 
 ::asset acid_cola_logo
 
@@ -25,65 +30,46 @@ EVENT FADE_IN
 TITLE acid_cola_logo
 
 MUSIC acid_cola_jingle
-
 ♪ An upbeat Acid Cola™ advertising jingle begins playing. ♪
+MUSIC_END
 
- 
 ::scene COMMERCIAL
 
 CAM 1 WIDE
 
 SHOT
-
 The camera sweeps across a dazzling futuristic city skyline as glowing Acid Cola™ signs illuminate the night.
-
 SHOT_END
 
 NARRATOR:
 Feeling tired?
 
- 
-
 NARRATOR:
 Feeling hopeless?
-
- 
 
 NARRATOR:
 Feeling like the world is slowly collapsing around you?
 
- 
-
 CAM 2 CLOSEUP acid_cola_can
 
 SHOT
-
 The camera dramatically zooms toward an ice-cold can of Acid Cola™ as condensation glistens beneath brilliant studio lighting.
-
 SHOT_END
 
 NARRATOR:
 Drink Acid Cola™.
 
- 
-
 NARRATOR:
 Because reality is easier to tolerate when it's carbonated.
 
- 
-
 OVERLAY
-
 LIMITED TIME OFFER
 
 BUY TWO
 
 GET THE THIRD LEGALLY CLASSIFIED AS A BONUS
-
 OVERLAY_END
 
-SHOT_END
-
- 
-
 EVENT FADE_OUT
+
+END

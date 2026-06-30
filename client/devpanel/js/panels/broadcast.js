@@ -1195,7 +1195,7 @@ async function _bcImportChannelConfirm() {
         // Existing interior zone picked from list — use directly, no studio creation
         const zoneId = _bcImportChZone.existingId;
         if (isScripted) chBody.zone_id = zoneId;
-        else chBody.studio_zone_id = zoneId;
+        chBody.studio_zone_id = zoneId;
         _bcImportStudioZoneId = zoneId;
       } else {
         // New map cell or occupied map cell — create or ensure studio
@@ -1219,7 +1219,7 @@ async function _bcImportChannelConfirm() {
         } catch (err) { toast(`Studio creation failed: ${err.message}`, true); return; }
 
         if (isScripted) chBody.zone_id = studio.studio_zone_id;
-        else chBody.studio_zone_id = studio.studio_zone_id;
+        chBody.studio_zone_id = studio.studio_zone_id;
         _bcImportStudioZoneId   = studio.studio_zone_id;
         _bcImportStudioZoneName = zoneName;
 

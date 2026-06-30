@@ -1,8 +1,13 @@
 @broadcast "SleepRight™ Sleep Pods - Wake Better."
 @channel ksab_tv
 @category commercial
+@length 30
 @type commercial
-@runtime 30
+
+::actors
+@actor npc_narrator
+@alias npc_narrator NARRATOR
+::endactors
 
 ::asset sleepright_logo
 
@@ -24,92 +29,62 @@ EVENT FADE_IN
 TITLE sleepright_logo
 
 MUSIC corporate_chime
-
 ♪ A soothing corporate melody begins playing. ♪
-
- 
+MUSIC_END
 
 ::scene COMMERCIAL
 
 CAM 1 WIDE
 
 SHOT
-
 The camera glides through a spotless luxury apartment where a citizen sleeps peacefully inside a sleek chrome SleepRight™ pod.
-
 SHOT_END
 
 NARRATOR:
 Still sleeping in a bed?
 
- 
-
 NARRATOR:
 How twentieth century.
-
- 
 
 CAM 2 CLOSEUP sleep_pod
 
 SHOT
-
 The camera slowly circles the glowing sleep pod as soft blue lights pulse across its polished surface.
-
 SHOT_END
 
 NARRATOR:
 SleepRight™ monitors your dreams...
 
- 
-
 NARRATOR:
 ...your heart...
 
- 
-
 NARRATOR:
 ...and your productivity.
-
- 
 
 EVENT CHIME
 
 NARRATOR:
 Wake refreshed.
 
- 
-
 NARRATOR:
 Wake focused.
-
- 
 
 NARRATOR:
 Wake ready to exceed quarterly expectations.
 
- 
-
 OVERLAY
-
 SLEEPRIGHT™ EXECUTIVE POD
 
 NOW AVAILABLE WITH
 
 OPTIONAL LUNG FILTRATION PACKAGE
-
 OVERLAY_END
-
- 
 
 NARRATOR:
 SleepRight™.
 
- 
-
 NARRATOR:
 Because unconscious employees can't miss deadlines.
-
- 
 
 EVENT FADE_OUT
 

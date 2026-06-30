@@ -1,0 +1,195 @@
+@broadcast "Chrome & Circumstance - Episode 3: Memory Leak"
+@channel ksab_tv
+@category comedy
+@length 180
+@type scripted
+
+::actors
+@actor npc_vic
+@alias npc_vic VIC
+
+@actor npc_lex
+@alias npc_lex LEX
+
+@actor npc_helpbot
+@alias npc_helpbot HELPBOT
+::endactors
+
+
+
+::scene TITLE
+
+EVENT FADE_IN
+
+TITLE_CARD architect_SVG
+
+MUSIC chrome_circumstance_theme
+♪ A loud synthwave theme pulses with neon energy. ♪
+MUSIC_END
+
+TICKER
+CORPORATION DENIES REPLACING EMPLOYEES WITH CHEAPER EMPLOYEES • CYBER EYES NOW INCLUDE ADS DURING BLINKS • CITY PARKING METERS ACHIEVE SENTIENCE •
+TICKER_END
+
+EVENT DISSOLVE
+
+::scene APARTMENT
+
+ROOM zone_megablock
+
+CAM 1 WIDE
+
+SHOT
+A tiny apartment sits twenty stories above a sea of neon. Every appliance hums louder than necessary, and the refrigerator occasionally thanks someone for their loyalty.
+SHOT_END
+
+NPC npc_vic
+NPC npc_lex
+
+EVENT APPLAUSE
+
+VIC:
+Morning.
+
+LEX:
+It's three in the afternoon.
+
+VIC:
+Then why am I awake?
+
+EVENT LAUGHTER
+
+LEX:
+Your neural implant downloaded an update.
+
+VIC:
+Again?
+
+LEX:
+Apparently you agreed to automatic optimism.
+
+VIC:
+Can I uninstall that?
+
+EVENT LAUGHTER
+
+::scene GLITCH
+
+CAM 2 MEDIUM
+
+SHOT
+Vic blinks. A bright holographic advertisement appears directly in front of his face.
+SHOT_END
+
+VIC:
+Why am I seeing ads?
+
+LEX:
+Premium Vision expired.
+
+VIC:
+I paid for lifetime access.
+
+LEX:
+You did.
+
+LEX:
+Your lifetime subscription ended yesterday.
+
+EVENT LAUGHTER
+
+ENTER helpbot
+
+CAM 3 CLOSEUP helpbot
+
+SHOT
+A cheerful customer service drone floats into the apartment carrying complimentary paperwork.
+SHOT_END
+
+HELPBOT:
+Congratulations!
+
+HELPBOT:
+You've been selected for mandatory customer satisfaction.
+
+EVENT LAUGHTER
+
+VIC:
+I'm not satisfied.
+
+HELPBOT:
+Response recorded as "extremely satisfied."
+
+EVENT APPLAUSE
+EVENT LAUGHTER
+
+::scene SUPPORT
+
+CAM 4 MEDIUM
+
+SHOT
+The drone projects an enormous holographic troubleshooting menu containing thousands of tiny buttons.
+SHOT_END
+
+HELPBOT:
+Please describe your issue.
+
+VIC:
+Memory problems.
+
+HELPBOT:
+Wonderful.
+
+HELPBOT:
+Would you like to forget your memory problems?
+
+EVENT LAUGHTER
+
+VIC:
+No!
+
+HELPBOT:
+Issue resolved.
+
+ACTION npc_helpbot begins printing a receipt that never seems to end.
+
+EVENT LAUGHTER
+
+::scene ENDING
+
+CAM 1 WIDE
+
+SHOT
+The receipt coils across the apartment floor, wraps around the furniture, and disappears out the window into the neon streets below.
+SHOT_END
+
+LEX:
+At least it's free paper.
+
+VIC:
+It's a digital receipt.
+
+LEX:
+...
+
+LEX:
+That's somehow worse.
+
+EVENT APPLAUSE
+EVENT LAUGHTER
+
+::scene CREDITS
+
+CAM 2 WIDE
+
+SHOT
+The camera slowly pulls away from the apartment as the endless receipt continues unspooling into the skyline, while HELPBOT politely apologizes for the inconvenience without ever stopping.
+SHOT_END
+
+MUSIC chrome_circumstance_theme
+♪ The synthwave theme returns over the closing credits. ♪
+MUSIC_END
+
+EVENT FADE_OUT
+
+END
