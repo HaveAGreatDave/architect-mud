@@ -366,11 +366,12 @@
 
     const naturalDuration = buf.duration / rate;
     const isLooping = (def.loop_end ?? 0) > 0;
+    const releaseTime = adsr.r ?? 0.3;
     const holdSec = isLooping
       ? (def.config?.duration ?? 4)
-      : Math.max(0, naturalDuration - (adsr.a ?? 0.01) - (adsr.d ?? 0));
+      : Math.max(0, naturalDuration - (adsr.a ?? 0.01) - (adsr.d ?? 0) - releaseTime);
     const releaseAt = schedTime + (adsr.a ?? 0.01) + (adsr.d ?? 0) + holdSec;
-    const endAt = releaseAt + (adsr.r ?? 0.3) + 0.1;
+    const endAt = releaseAt + releaseTime + 0.1;
 
     srcNode.connect(warmth);
 
@@ -391,8 +392,7 @@
     gainNode.connect(busFor(def.category));
 
     srcNode.start(schedTime);
-    if (!isLooping) srcNode.stop(Math.max(schedTime, schedTime + naturalDuration) + 0.05);
-    else srcNode.stop(endAt);
+    srcNode.stop(endAt);
 
     gainNode.gain.setTargetAtTime(0, releaseAt, Math.max(0.01, (adsr.r ?? 0.3) / 3));
 

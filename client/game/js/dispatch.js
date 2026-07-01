@@ -362,8 +362,8 @@ const handlers = {
   mediadeck_panel: (msg) => { openMediaDeckPanel(msg); },
 
   audio_music: (msg) => { window.AudioEngine?.playMusic(msg.def); },
-  audio_sfx: (msg) => { window.AudioEngine?.playSfx(msg.def); },
-  audio_sample: (msg) => { window.AudioEngine?.playSample(msg.def); },
+  audio_sfx: (msg) => { console.log('[audio] sfx received', msg.def?.id, msg.def?.name); window.AudioEngine?.playSfx(msg.def); },
+  audio_sample: (msg) => { console.log('[audio] sample received', msg.def?.id, msg.def?.name); window.AudioEngine?.playSample(msg.def); },
   audio_ambience: (msg) => { window.AudioEngine?.loopSound(msg.def); },
   audio_stop: (msg) => { window.AudioEngine?.stop(msg.scope, msg.id); },
 };

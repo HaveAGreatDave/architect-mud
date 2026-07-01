@@ -96,9 +96,18 @@ async function loadNpcs() {
 }
 
 async function loadSpawnTemplates() {
-  const { rows } = await query('SELECT * FROM zone_spawns');
-  for (const spawn of rows) {
-    world.spawnTimers.set(spawn.id, { ...spawn, nextSpawn: Date.now() });
+  const { rows } = await query(`
+    SELECT e.*, zs.id as spawn_id, zs.zone_id, zs.max_count, zs.spawn_weight, zs.respawn_seconds
+    FROM zone_spawns zs JOIN enemies e ON e.id = zs.enemy_id
+  `);
+  const now = Date.now();
+  for (const t of rows) {
+    const zone = world.zones.get(t.zone_id);
+    if (zone) {
+      const count = [...zone.enemies].filter(eid => world.enemies.get(eid)?.templateId === t.id).length;
+      for (let i = count; i < t.max_count; i++) spawnEnemySync(t, t.zone_id);
+    }
+    world.spawnTimers.set(t.spawn_id, { ...t, nextSpawn: now + t.respawn_seconds * 1000 });
   }
 }
 

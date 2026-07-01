@@ -122,6 +122,8 @@ function resolveSongInstruments(song) {
 }
 
 on('player.login', ({ id }) => {
+  const routes = eventRoutes.get('player.login');
+  console.log(`[audio] player.login fired for ${id} — routes:`, routes?.length ?? 0, routes?.map(r => `scope=${r.scope} sfx=${r.sfx_id} sample=${r.sample_id}`));
   triggerEventRoute('player.login', null, id);
 });
 
