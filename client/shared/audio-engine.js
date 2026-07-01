@@ -310,8 +310,14 @@
     if (!c) return null;
     try {
       const res = await fetch(`/api/audio/samples/${def.id}/data`);
-      const { data } = await res.json();
+      const json = await res.json();
+      let data = json.data;
+      if (!data) { console.warn('[audio] loadSample: no data for', def.id); return null; }
+      // Strip data URL prefix if present (e.g. "data:audio/mpeg;base64,...")
+      const comma = data.indexOf(',');
+      if (comma !== -1) data = data.slice(comma + 1);
       const bytes = Uint8Array.from(atob(data), ch => ch.charCodeAt(0));
+      console.log(`[audio] loadSample decoding ${def.id} (${bytes.length} bytes, mime: ${def.mime_type})`);
       const raw = await c.decodeAudioData(bytes.buffer);
       const processed = await _processSnes(raw, def.snes_rate ?? 16000, def.snes_bits ?? 4);
       _sampleCache.set(def.id, processed);
