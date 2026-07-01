@@ -13,6 +13,7 @@ import { availableActions } from '../specializedActions.js';
 import { statusLabels } from '../effects.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../sift.js';
 import { carryCapacity, formatWeight } from './inventory.js';
+import { fireHook } from '../plugins.js';
 
 async function cmdStats(player) {
   const { rows } = await query('SELECT * FROM players WHERE id=$1', [player.id]);
@@ -410,6 +411,8 @@ async function cmdExamine(targetStr, player, broadcast) {
   if (furnitureRows.length) {
     const f = furnitureRows[0];
     let msg = `${f.name}\n${f.description}`;
+    const furnitureExtra = await fireHook('furniture.describe', f, player);
+    if (furnitureExtra) msg += `\n${furnitureExtra}`;
     const interactions = f.flags?.interactions || [];
     if (f.object_type === 'light') {
       if (f.light_type === 'streetlight') {

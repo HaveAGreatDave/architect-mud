@@ -16,6 +16,11 @@ async function updateStagingBadge() {
   if (navItem) navItem.textContent = count > 0 ? `📋 Changes (${count})` : '📋 Changes';
 }
 
+function _resolveReturnPanel() {
+  if (mapZoneEditReturn) { mapZoneEditReturn = false; return 'maps'; }
+  return currentPanel;
+}
+
 async function publishAll() {
   if (!confirm(`Publish all ${pendingChanges.length} staged change${pendingChanges.length !== 1 ? 's' : ''} to the live world?`)) return;
   const stagedFurnitureNames = _furnitureAllItems.filter(f => f._staged).map(f => f.name);
@@ -35,7 +40,7 @@ async function publishAll() {
       if (currentPanel === 'furniture') renderFurniturePanel({ furniture: _furnitureAllItems, zones: [..._furnitureZoneNames.entries()].map(([id, name]) => ({ id, name })) });
     }, 6000);
   }
-  loadPanel(currentPanel);
+  loadPanel(_resolveReturnPanel());
 }
 
 async function rejectAll() {
@@ -60,7 +65,7 @@ async function publishSelected() {
   _publishLog = buildPublishLog(result, pendingChanges.filter(c => checked.includes(c.id)));
   toast(`✓ ${result.message}`);
   await updateStagingBadge();
-  loadPanel(currentPanel);
+  loadPanel(_resolveReturnPanel());
 }
 
 async function autoResolveFailures() {
@@ -79,7 +84,7 @@ async function autoResolveFailures() {
   });
   toast(result.message);
   await updateStagingBadge();
-  loadPanel(currentPanel);
+  loadPanel(_resolveReturnPanel());
 }
 
 function buildPublishLog(result, sourceChanges) {
@@ -99,7 +104,7 @@ async function rejectOne(id, name) {
   if (result.error) { toast(result.error, true); return; }
   toast(result.message);
   await updateStagingBadge();
-  loadPanel(currentPanel);
+  loadPanel(_resolveReturnPanel());
 }
 
 async function rejectSelected() {
@@ -114,7 +119,7 @@ async function rejectSelected() {
   }
   toast(result.message);
   await updateStagingBadge();
-  loadPanel(currentPanel);
+  loadPanel(_resolveReturnPanel());
 }
 
 function selectAllChanges(checked) {
