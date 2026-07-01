@@ -17,6 +17,9 @@ const _channels = new Map();
 
 let _whisperPanelVisible = false;
 let _activeWhisperTab = USERS_TAB;
+// Most recently opened PM — kept pinned as a single quick-access strip tab so
+// there's always one conversation reachable in one click.
+let _lastPmTab = null;
 const _whisperConvos = new Map();
 let _onlinePlayers = [];
 
@@ -368,6 +371,7 @@ export function openWhisperTab(handle) {
 		_whisperConvos.set(handle, _restoreOrCreate(handle));
 	}
 	_whisperConvos.get(handle).unread = 0;
+	if (!_channels.has(handle) && handle !== USERS_TAB) _lastPmTab = handle;
 	_switchToTab(handle);
 	if (!_whisperPanelVisible) {
 		_whisperPanelVisible = true;
