@@ -109,16 +109,16 @@ async function cmdShove(args, raw, player, broadcast) {
   }
 
   // Mirror attack's effective PvP gating: forcefielded apartments block reach.
-  if (targetPlayer && getApartment(targetPlayer.current_zone)?.forcefield_active) {
-    return { type: 'error', message: `A quantum forcefield crackles between you and ${targetPlayer.handle}. You can't reach them.` };
+  const blockedByField = targetPlayer ?? sleeper;
+  if (blockedByField && getApartment(blockedByField.current_zone)?.forcefield_active) {
+    return { type: 'error', message: `A quantum forcefield crackles between you and ${blockedByField.handle}. You can't reach them.` };
   }
 
   const targetName = targetPlayer ? targetPlayer.handle : (sleeper ? sleeper.handle : corpse.name);
   const pastVerb = verb === 'drag' ? 'drags' : 'shoves';
 
-  // Sleeping players offer no resistance — skip the contested roll.
-  if (!sleeper) {
-    const grams = targetPlayer ? await computeCarriedWeight(targetPlayer) : await corpseWeight(corpse.id);
+  {
+    const grams = targetPlayer ? await computeCarriedWeight(targetPlayer) : await corpseWeight((corpse ?? sleeper).id);
     const difficulty = Math.ceil((grams / 1000) / 3);
     const swing = rollSwing();
     const margin = ((Number(player.stat_brawn) || 0) - difficulty) + swing;
@@ -129,7 +129,7 @@ async function cmdShove(args, raw, player, broadcast) {
       if (targetPlayer) {
         broadcast(null, { type: 'output', message: `${player.handle} tries to ${verb} you ${direction}, but fails.` }, null, targetPlayer.id);
       }
-      return { type: 'output', message: `You try to ${verb} ${targetName} ${direction}, but can't budge ${targetPlayer ? 'them' : 'it'}.` };
+      return { type: 'output', message: `You try to ${verb} ${targetName} ${direction}, but can't budge ${targetPlayer || sleeper ? 'them' : 'it'}.` };
     }
   }
 
