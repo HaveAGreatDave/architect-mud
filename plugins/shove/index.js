@@ -95,8 +95,16 @@ async function cmdShove(args, raw, player, broadcast) {
 
   let targetPlayer = r.type === 'match' ? (getLivePlayer(r.candidate.id) || r.candidate) : null;
   let corpse = null;
+  let sleeper = null;
   if (!targetPlayer) corpse = resolveCorpse(targetStr, player);
   if (!targetPlayer && !corpse) {
+    const { rows } = await query(
+      `SELECT * FROM players WHERE LOWER(handle) LIKE $1 AND current_zone=$2 AND offline_sleeping=TRUE LIMIT 1`,
+      [`%${targetStr.toLowerCase()}%`, player.current_zone],
+    );
+    if (rows.length) sleeper = rows[0];
+  }
+  if (!targetPlayer && !corpse && !sleeper) {
     return { type: 'error', message: `Can't find "${targetStr}" here.` };
   }
 
@@ -105,23 +113,24 @@ async function cmdShove(args, raw, player, broadcast) {
     return { type: 'error', message: `A quantum forcefield crackles between you and ${targetPlayer.handle}. You can't reach them.` };
   }
 
-  const targetName = targetPlayer ? targetPlayer.handle : corpse.name;
-  const grams = targetPlayer ? await computeCarriedWeight(targetPlayer) : await corpseWeight(corpse.id);
-  const difficulty = Math.ceil((grams / 1000) / 3);
-
-  const swing = rollSwing();
-  const margin = ((Number(player.stat_brawn) || 0) - difficulty) + swing;
-  const success = margin >= 0;
-
+  const targetName = targetPlayer ? targetPlayer.handle : (sleeper ? sleeper.handle : corpse.name);
   const pastVerb = verb === 'drag' ? 'drags' : 'shoves';
 
-  if (!success) {
-    setCooldown(player.id, 'shove');
-    broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} tries to ${verb} ${targetName} ${direction}, but can't budge ${targetPlayer ? 'them' : 'it'}.` }, player.id, null, targetPlayer ? targetPlayer.id : null);
-    if (targetPlayer) {
-      broadcast(null, { type: 'output', message: `${player.handle} tries to ${verb} you ${direction}, but fails.` }, null, targetPlayer.id);
+  // Sleeping players offer no resistance — skip the contested roll.
+  if (!sleeper) {
+    const grams = targetPlayer ? await computeCarriedWeight(targetPlayer) : await corpseWeight(corpse.id);
+    const difficulty = Math.ceil((grams / 1000) / 3);
+    const swing = rollSwing();
+    const margin = ((Number(player.stat_brawn) || 0) - difficulty) + swing;
+
+    if (margin < 0) {
+      setCooldown(player.id, 'shove');
+      broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} tries to ${verb} ${targetName} ${direction}, but can't budge ${targetPlayer ? 'them' : 'it'}.` }, player.id, null, targetPlayer ? targetPlayer.id : null);
+      if (targetPlayer) {
+        broadcast(null, { type: 'output', message: `${player.handle} tries to ${verb} you ${direction}, but fails.` }, null, targetPlayer.id);
+      }
+      return { type: 'output', message: `You try to ${verb} ${targetName} ${direction}, but can't budge ${targetPlayer ? 'them' : 'it'}.` };
     }
-    return { type: 'output', message: `You try to ${verb} ${targetName} ${direction}, but can't budge ${targetPlayer ? 'them' : 'it'}.` };
   }
 
   // Success: announce, then move the target and the actor (encumbrance bypassed).
@@ -131,6 +140,9 @@ async function cmdShove(args, raw, player, broadcast) {
     const tRes = await cmdMove(direction, targetPlayer, broadcast, { bypassEncumbrance: true });
     broadcast(null, { type: 'output', message: `${player.handle} ${pastVerb} you ${direction}!` }, null, targetPlayer.id);
     if (tRes) broadcast(null, tRes, null, targetPlayer.id);
+  } else if (sleeper) {
+    await query(`UPDATE players SET current_zone=$1 WHERE id=$2`, [targetId, sleeper.id]);
+    broadcast(targetId, { type: 'zone_event', message: `${sleeper.handle} is dragged in, fast asleep.`, refresh: true });
   } else {
     await moveCorpse(corpse.id, targetId);
     broadcast(targetId, { type: 'zone_event', message: `${corpse.name} slides in.`, refresh: true });
