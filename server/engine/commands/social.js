@@ -6,6 +6,14 @@ import { evalConditions } from '../flags.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../sift.js';
 import { DEFAULT_CHITCHAT_LINES } from '../ai-behaviour.js';
 
+function formatChitchat(name, line) {
+  const t = line.trim();
+  if (t.startsWith('"') && t.endsWith('"')) {
+    return { type: 'output', message: `<span style="color:var(--yellow)">${name} says: ${t}</span>` };
+  }
+  return { type: 'zone_event', message: `${name} ${t}` };
+}
+
 async function cmdTalk(targetStr, player, broadcast) {
   if (!targetStr) return { type:'error', message:'Talk to whom?' };
   const npcs = getZoneNpcs(player.current_zone);
@@ -27,8 +35,9 @@ async function cmdTalk(targetStr, player, broadcast) {
   if (!root && !options.length) {
     const lines = Array.isArray(npc.chitchat) && npc.chitchat.length ? npc.chitchat : DEFAULT_CHITCHAT_LINES;
     const line = lines[Math.floor(Math.random() * lines.length)];
-    if (broadcast) broadcast(player.current_zone, { type: 'output', message: `<span style="color:var(--yellow)">${npc.name} says: "${line}"</span>` }, player.id);
-    return { type: 'output', message: `${npc.name} says: "${line}"` };
+    const msg = formatChitchat(npc.name, line);
+    if (broadcast) broadcast(player.current_zone, msg, player.id);
+    return msg;
   }
   return { type:'dialogue', npcId:npc.id, npcName:npc.name, node:'root', text:root?.text || `${npc.name} glances up at you.`, options };
 }

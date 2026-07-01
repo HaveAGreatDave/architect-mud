@@ -572,6 +572,12 @@ async function zoneEditForm(rec, isNew) {
       <div class="field"><label>World Map Exit Zone (exterior zone this building leads back to)</label><select id="f-world_exit_zone"><option value="${flags.world_exit_zone || ''}">Loading exterior zones…</option></select></div>
     </div>
     <div class="checkbox-field"><input type="checkbox" id="f-is_interior" ${flags.is_interior?'checked':''}><label>Interior Room (for hand-built interiors not using Rentable Apartment — e.g. a Kitchen or Bedroom — appears in a "Rooms:" list from other interior zones)</label></div>
+    <div class="field"><label>Parent Zone (building hierarchy — leave blank for standalone zones)</label>
+      <select id="f-parent_zone">
+        <option value="">— none (top-level zone) —</option>
+        ${(allRecords||[]).filter(z=>z.id!==rec.id).sort((a,b)=>a.name.localeCompare(b.name)).map(z=>`<option value="${z.id}"${rec.parent_zone===z.id?' selected':''}>${z.name} [${z.id}]</option>`).join('')}
+      </select>
+    </div>
     <div class="field-row">
       <div class="field"><label>Map Marker (≤2 chars)</label><input id="f-marker" maxlength="2" value="${rec.marker || ''}" placeholder="e.g. ⌂" oninput="updateColorPreview()"></div>
       <div class="field"><label>Map Color (text)</label>
@@ -693,6 +699,7 @@ async function saveZone(existing) {
     marker: document.getElementById('f-marker').value.trim() || null,
     color: document.getElementById('f-color').value.trim() || null,
     bg_color: document.getElementById('f-bg_color').value.trim() || null,
+    parent_zone: document.getElementById('f-parent_zone')?.value || null,
   };
 
   if (rawMapId) body.map_id = rawMapId;

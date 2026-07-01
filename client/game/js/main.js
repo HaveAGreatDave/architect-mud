@@ -137,6 +137,28 @@ listenForSettingsChanges((s) => {
 	applyMobileScale();
 });
 initAudio();
+
+async function saveOrigin(text) {
+	const token = sessionStorage.getItem("devpanel-token");
+	const res = await fetch("/api/players/me/profile", {
+		method: "PUT",
+		headers: {
+			"Content-Type": "application/json",
+			...(token ? { Authorization: `Bearer ${token}` } : {}),
+		},
+		body: JSON.stringify({ origin_fragment: text }),
+	})
+		.then((r) => r.json())
+		.catch(() => ({ error: "Request failed" }));
+	if (res.error) {
+		appendMsg(res.error, "error");
+		return false;
+	}
+	if (state.player)
+		state.player.origin_fragment = text || "A survivor. Still standing, somehow.";
+	return true;
+}
+
 // saveAndApply is called after settings.js mutates the settings object in-place
 initSettingsUI(
 	settings,
@@ -151,27 +173,6 @@ initSettingsUI(
 		notify: (msg) => appendMsg(msg, "system"),
 		placeDpadPanel,
 		removeDpadPanel,
-		getOrigin: () => state.player?.origin_fragment || "",
-		saveOrigin: async (text) => {
-			const token = sessionStorage.getItem("devpanel-token");
-			const res = await fetch("/api/players/me/profile", {
-				method: "PUT",
-				headers: {
-					"Content-Type": "application/json",
-					...(token ? { Authorization: `Bearer ${token}` } : {}),
-				},
-				body: JSON.stringify({ origin_fragment: text }),
-			})
-				.then((r) => r.json())
-				.catch(() => ({ error: "Request failed" }));
-			if (res.error) {
-				alert(res.error);
-				return;
-			}
-			if (state.player)
-				state.player.origin_fragment =
-					text || "A survivor. Still standing, somehow.";
-		},
 	},
 );
 
@@ -404,7 +405,7 @@ document.getElementById("verify-back-link").addEventListener("click", () => {
 });
 
 // Command input
-initInput();
+initInput({ saveOrigin, notify: (msg) => appendMsg(msg, "system") });
 
 // Panels
 initEquipPanel();

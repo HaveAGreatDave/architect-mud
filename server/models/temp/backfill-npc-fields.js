@@ -1,0 +1,288 @@
+/**
+ * Diagnoses and backfills NPC fields affected by the vendor/home-life system.
+ *
+ * What this checks:
+ *   1. behaviour_graph = '{}'  → auto-assign default studio or vendor graph
+ *   2. vendor_schedule = '{}' or '[]'  → assign default 10-22 schedule (vendors only)
+ *   3. vendor graph uses old HAVE_LIFE nodes where AT_HOME_LIFE is now expected
+ *      (home_idle / home_life_ps nodes)  → offer to rebuild graph
+ *   4. npc_type = 'npc' but has a vendor_inventory  → flag for manual review
+ *   5. npc_type = 'vendor' but work_zone_id is NULL  → flag (can't commute)
+ *
+ * Dry-run by default (prints what it would do).
+ * Pass --apply to actually write changes.
+ *
+ * Run:
+ *   node server/models/temp/backfill-npc-fields.js
+ *   node server/models/temp/backfill-npc-fields.js --apply
+ */
+
+import 'dotenv/config';
+import { query } from '../db.js';
+
+const APPLY = process.argv.includes('--apply');
+
+// ── Default values (must match ai-behaviour.js) ──────────────────────────────
+
+const DEFAULT_VENDOR_SCHEDULE = {
+  mon:[{from:10,to:22}], tue:[{from:10,to:22}], wed:[{from:10,to:22}],
+  thu:[{from:10,to:22}], fri:[{from:10,to:22}], sat:[{from:10,to:22}], sun:[{from:10,to:22}],
+};
+
+function buildDefaultVendorGraph() {
+  return {
+    _start: 'start',
+    nodes: {
+      start:          { type:'start',  next:'check_work' },
+      check_work:     { type:'action', action_type:'CHECK_VENDOR_WORK',
+                        goToWork:'go_to_work', haveLife:'have_life',
+                        endShift:'collect_safe', offWork:'off_home_check' },
+      go_to_work:     { type:'action', action_type:'GO_TO_WORK',  next:'work_wait' },
+      work_wait:      { type:'wait',   seconds:60, next:'player_check' },
+      player_check:   { type:'condition', condition_type:'PLAYER_IN_ZONE',
+                        ifTrue:'work_say', ifFalse:'check_work' },
+      work_say:       { type:'action', action_type:'VENDOR_CHITCHAT', next:'check_work' },
+      have_life:      { type:'action', action_type:'HAVE_LIFE',    next:'check_work' },
+      collect_safe:   { type:'action', action_type:'VENDOR_COLLECT_SAFE', next:'go_to_atm' },
+      go_to_atm:      { type:'action', action_type:'VENDOR_GO_TO_ATM',    next:'atm_emote' },
+      atm_emote:      { type:'action', action_type:'EMOTE',
+                        params:{ message:'steps up to the ATM terminal and makes a deposit.' },
+                        next:'atm_wait' },
+      atm_wait:       { type:'wait', seconds:10, next:'deposit' },
+      deposit:        { type:'action', action_type:'VENDOR_DEPOSIT', next:'post_shift' },
+      post_shift:     { type:'random', branches:[{weight:1},{weight:5}],
+                        branch_0:'have_life', branch_1:'go_home_ps' },
+      go_home_ps:     { type:'action', action_type:'GO_HOME',     next:'home_life_ps' },
+      home_life_ps:   { type:'action', action_type:'AT_HOME_LIFE', next:'check_work' },
+      off_home_check: { type:'condition', condition_type:'AT_HOME',
+                        ifTrue:'home_idle', ifFalse:'off_random' },
+      home_idle:      { type:'action', action_type:'AT_HOME_LIFE', next:'check_work' },
+      off_random:     { type:'random', branches:[{weight:1},{weight:5}],
+                        branch_0:'have_life', branch_1:'go_home_off' },
+      go_home_off:    { type:'action', action_type:'GO_HOME', next:'check_work' },
+    },
+  };
+}
+
+function buildDefaultStudioGraph() {
+  return {
+    _start: 'start',
+    nodes: {
+      start:      { type:'start',  next:'have_life' },
+      have_life:  { type:'action', action_type:'HAVE_LIFE',  next:'go_to_work' },
+      go_to_work: { type:'action', action_type:'GO_TO_WORK', next:'at_work' },
+      at_work:    { type:'action', action_type:'AT_WORK',    next:'go_home' },
+      go_home:    { type:'action', action_type:'GO_HOME',    next:'home_wait' },
+      home_wait:  { type:'wait',   seconds:60, next:'start' },
+    },
+  };
+}
+
+function buildDefaultUnemployedGraph() {
+  return {
+    _start: 'start',
+    nodes: {
+      start:      { type:'start', next:'have_life' },
+      have_life:  { type:'action', action_type:'HAVE_LIFE', next:'home_check' },
+      home_check: { type:'condition', condition_type:'AT_HOME', ifTrue:'home_idle', ifFalse:'have_life' },
+      home_idle:  { type:'action', action_type:'AT_HOME_LIFE', next:'have_life' },
+    },
+  };
+}
+
+// Check whether a vendor graph has the old HAVE_LIFE home nodes instead of AT_HOME_LIFE.
+function vendorGraphHasOldHomeNodes(graph) {
+  if (!graph || !graph.nodes) return false;
+  const nodes = graph.nodes;
+  const homeNodes = ['home_idle', 'home_life_ps'];
+  return homeNodes.some(k => nodes[k] && nodes[k].action_type === 'HAVE_LIFE');
+}
+
+// Is the graph empty (no _start)?
+function isEmptyGraph(graph) {
+  if (!graph) return true;
+  if (typeof graph === 'string') {
+    try { graph = JSON.parse(graph); } catch { return true; }
+  }
+  return !graph._start;
+}
+
+// Is the schedule empty ('{}'  or '[]' or falsy)?
+function isEmptySchedule(sched) {
+  if (!sched) return true;
+  if (typeof sched === 'string') {
+    try { sched = JSON.parse(sched); } catch { return true; }
+  }
+  if (Array.isArray(sched)) return true; // '[]' — wrong type
+  return Object.keys(sched).length === 0;
+}
+
+// ── Main ──────────────────────────────────────────────────────────────────────
+
+async function main() {
+  console.log(`=== backfill-npc-fields (${APPLY ? 'APPLY' : 'DRY RUN'}) ===\n`);
+
+  const { rows: npcs } = await query('SELECT * FROM npcs ORDER BY name');
+  console.log(`Found ${npcs.length} NPC(s).\n`);
+
+  const fixes = {
+    emptyGraph: [],           // needs default graph
+    emptySchedule: [],        // vendor needs default schedule
+    oldHomeNodes: [],         // vendor graph uses HAVE_LIFE where AT_HOME_LIFE expected
+    noWorkZone: [],           // vendor has no work_zone_id (info only — can't auto-fix)
+    mismatchedType: [],       // has vendor_inventory but npc_type != 'vendor' (info only)
+  };
+
+  for (const npc of npcs) {
+    const graph  = typeof npc.behaviour_graph === 'string'
+      ? (() => { try { return JSON.parse(npc.behaviour_graph); } catch { return {}; } })()
+      : (npc.behaviour_graph || {});
+    const sched  = typeof npc.vendor_schedule === 'string'
+      ? (() => { try { return JSON.parse(npc.vendor_schedule); } catch { return {}; } })()
+      : (npc.vendor_schedule || {});
+    const inv    = typeof npc.vendor_inventory === 'string'
+      ? (() => { try { return JSON.parse(npc.vendor_inventory); } catch { return []; } })()
+      : (npc.vendor_inventory || []);
+
+    const isVendor     = npc.npc_type === 'vendor';
+    const isUnemployed = npc.npc_type === 'unemployed';
+
+    // 1. Empty graph
+    if (isEmptyGraph(graph)) {
+      fixes.emptyGraph.push({ id: npc.id, name: npc.name, isVendor, isUnemployed });
+    }
+
+    // 2. Vendor with empty/missing schedule
+    if (isVendor && isEmptySchedule(sched)) {
+      fixes.emptySchedule.push({ id: npc.id, name: npc.name });
+    }
+
+    // 3. Vendor graph with old HAVE_LIFE home nodes
+    if (isVendor && !isEmptyGraph(graph) && vendorGraphHasOldHomeNodes(graph)) {
+      fixes.oldHomeNodes.push({ id: npc.id, name: npc.name });
+    }
+
+    // 4. Vendor with no work_zone_id (info only)
+    if (isVendor && !npc.work_zone_id) {
+      fixes.noWorkZone.push({ id: npc.id, name: npc.name });
+    }
+
+    // 5. Has vendor inventory but npc_type is 'npc' (might have been created before npc_type existed)
+    if (npc.npc_type !== 'vendor' && inv.length > 0) {
+      fixes.mismatchedType.push({ id: npc.id, name: npc.name, npc_type: npc.npc_type, inv_count: inv.length });
+    }
+  }
+
+  // ── Report ──────────────────────────────────────────────────────────────────
+
+  console.log('── 1. Empty behaviour_graph (NPC does not tick at all) ──────────────────');
+  if (!fixes.emptyGraph.length) {
+    console.log('   ✓ None.');
+  } else {
+    for (const f of fixes.emptyGraph) {
+      const graphType = f.isVendor ? 'buildDefaultVendorGraph' : f.isUnemployed ? 'buildDefaultUnemployedGraph' : 'buildDefaultStudioGraph';
+      console.log(`   ✗ ${f.id.padEnd(35)} (${f.name}) → assign ${graphType}()`);
+    }
+  }
+
+  console.log('\n── 2. Vendor with empty vendor_schedule (never goes to work) ────────────');
+  if (!fixes.emptySchedule.length) {
+    console.log('   ✓ None.');
+  } else {
+    for (const f of fixes.emptySchedule) {
+      console.log(`   ✗ ${f.id.padEnd(35)} (${f.name}) → assign DEFAULT_VENDOR_SCHEDULE`);
+    }
+  }
+
+  console.log('\n── 3. Vendor graph with old HAVE_LIFE home nodes (no sleep cycle) ───────');
+  if (!fixes.oldHomeNodes.length) {
+    console.log('   ✓ None.');
+  } else {
+    for (const f of fixes.oldHomeNodes) {
+      console.log(`   ✗ ${f.id.padEnd(35)} (${f.name}) → rebuild with buildDefaultVendorGraph()`);
+    }
+  }
+
+  console.log('\n── 4. Vendor with no work_zone_id (info only — manual fix required) ─────');
+  if (!fixes.noWorkZone.length) {
+    console.log('   ✓ None.');
+  } else {
+    for (const f of fixes.noWorkZone) {
+      console.log(`   ⚠  ${f.id.padEnd(35)} (${f.name}) → set work_zone_id in dev panel`);
+    }
+  }
+
+  console.log('\n── 5. npc_type=npc but has vendor_inventory (possible stale type) ───────');
+  if (!fixes.mismatchedType.length) {
+    console.log('   ✓ None.');
+  } else {
+    for (const f of fixes.mismatchedType) {
+      console.log(`   ⚠  ${f.id.padEnd(35)} (${f.name}) npc_type=${f.npc_type}, ${f.inv_count} inventory items → manually set npc_type=vendor if this is a shop`);
+    }
+  }
+
+  // ── Apply ───────────────────────────────────────────────────────────────────
+
+  const totalAuto = fixes.emptyGraph.length + fixes.emptySchedule.length + fixes.oldHomeNodes.length;
+
+  if (!APPLY) {
+    console.log(`\n${'─'.repeat(70)}`);
+    if (totalAuto === 0) {
+      console.log('\n✓ Nothing to backfill. All NPC fields look correct.');
+    } else {
+      console.log(`\n${totalAuto} auto-fixable issue(s) found. Re-run with --apply to write changes:`);
+      console.log('  node server/models/temp/backfill-npc-fields.js --apply');
+    }
+    const manualCount = fixes.noWorkZone.length + fixes.mismatchedType.length;
+    if (manualCount) console.log(`\n${manualCount} manual item(s) require dev-panel edits (see above).`);
+    process.exit(0);
+  }
+
+  // Apply fixes
+  console.log(`\n${'─'.repeat(70)}`);
+  console.log('\nApplying fixes...\n');
+
+  let changed = 0;
+
+  // Fix 1: empty graphs
+  for (const f of fixes.emptyGraph) {
+    const graph = f.isVendor ? buildDefaultVendorGraph() : f.isUnemployed ? buildDefaultUnemployedGraph() : buildDefaultStudioGraph();
+    await query('UPDATE npcs SET behaviour_graph=$1 WHERE id=$2', [JSON.stringify(graph), f.id]);
+    const label = f.isVendor ? 'vendor graph' : f.isUnemployed ? 'unemployed graph' : 'studio graph';
+    console.log(`  ✓ ${f.id} (${f.name}) → assigned ${label}`);
+    changed++;
+  }
+
+  // Fix 2: empty vendor schedules
+  for (const f of fixes.emptySchedule) {
+    await query('UPDATE npcs SET vendor_schedule=$1 WHERE id=$2', [JSON.stringify(DEFAULT_VENDOR_SCHEDULE), f.id]);
+    console.log(`  ✓ ${f.id} (${f.name}) → assigned default vendor schedule`);
+    changed++;
+  }
+
+  // Fix 3: old home-life nodes in vendor graphs
+  for (const f of fixes.oldHomeNodes) {
+    const graph = buildDefaultVendorGraph();
+    await query('UPDATE npcs SET behaviour_graph=$1 WHERE id=$2', [JSON.stringify(graph), f.id]);
+    console.log(`  ✓ ${f.id} (${f.name}) → rebuilt vendor graph with AT_HOME_LIFE nodes`);
+    changed++;
+  }
+
+  if (changed === 0) {
+    console.log('  Nothing to apply.');
+  } else {
+    console.log(`\n${changed} NPC(s) updated.`);
+    console.log('\nRestart the server (or trigger world reload) to pick up behaviour graph changes.');
+  }
+
+  const manualCount = fixes.noWorkZone.length + fixes.mismatchedType.length;
+  if (manualCount) {
+    console.log(`\n${manualCount} item(s) still require manual dev-panel edits:`);
+    for (const f of fixes.noWorkZone)     console.log(`  ⚠  ${f.id} (${f.name}) — set work_zone_id`);
+    for (const f of fixes.mismatchedType) console.log(`  ⚠  ${f.id} (${f.name}) — set npc_type=vendor`);
+  }
+
+  process.exit(0);
+}
+
+main().catch(err => { console.error(err); process.exit(1); });

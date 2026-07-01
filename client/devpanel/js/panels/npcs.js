@@ -731,6 +731,7 @@ async function npcEditForm(rec, isNew) {
         <select id="f-npc_type">
           <option value="npc" ${npcType==='npc'?'selected':''}>NPC</option>
           <option value="vendor" ${npcType==='vendor'?'selected':''}>Vendor</option>
+          <option value="unemployed" ${npcType==='unemployed'?'selected':''}>Unemployed</option>
         </select>
       </div>
     </div>
@@ -758,6 +759,10 @@ async function npcEditForm(rec, isNew) {
         </div>
       </div>
       <textarea id="f-chitchat" rows="6" placeholder="She took everything, man.\nYou want another?">${chitchat.join('\n')}</textarea>
+    </div>
+    <div class="field">
+      <label>Home Activities <span style="font-weight:400;color:var(--text-dim);font-size:11px">— one per line; quoted text = says, unquoted = emote</span></label>
+      <textarea id="f-home_activities" rows="5" placeholder='"I could use a drink."\nstares blankly at the wall\n"Another day, another credit."'>${homeActivities.join('\n')}</textarea>
     </div>
     <div class="field">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
@@ -845,6 +850,7 @@ async function saveNpc(existing) {
   const wanderZonesRaw = document.getElementById('f-wander_zones')?.value || '';
   const wander_zones = wanderZonesRaw.split('\n').map(s => s.trim()).filter(Boolean);
   const chitchat = (document.getElementById('f-chitchat')?.value || '').split('\n').map(s => s.trim()).filter(Boolean);
+  const home_activities = (document.getElementById('f-home_activities')?.value || '').split('\n').map(s => s.trim()).filter(Boolean);
   const body = {
     name: document.getElementById('f-name').value,
     description: document.getElementById('f-description').value,
@@ -864,6 +870,7 @@ async function saveNpc(existing) {
     npc_type: document.getElementById('f-npc_type')?.value || 'npc',
     vendor_schedule: _vsToSchedule(),
     vendor_shop_name: document.getElementById('f-vendor_shop_name')?.value || null,
+    home_activities,
     work_zone_id: document.getElementById('f-work-zone-id')?.value || null,
   };
   if (isNew) { body.id = document.getElementById('f-id').value.trim(); return API('/npcs', 'POST', body); }

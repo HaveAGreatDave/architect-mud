@@ -103,6 +103,17 @@ function getNextShiftWakeMs(entity) {
   return tomorrow.getTime() > now + 120000 ? tomorrow.getTime() : null;
 }
 
+// Format a chitchat line the same way as enemy battlecries:
+//   "quoted text"  → yellow say bubble    e.g. "You need something?"
+//   unquoted text  → zone_event emote      e.g. drums fingers on the counter.
+function formatChitchat(name, line) {
+  const t = line.trim();
+  if (t.startsWith('"') && t.endsWith('"')) {
+    return { type: 'output', message: `<span style="color:var(--yellow)">${name} says: ${t}</span>` };
+  }
+  return { type: 'zone_event', message: `${name} ${t}` };
+}
+
 function pickChitchatLine(entity) {
   const lines = Array.isArray(entity.chitchat) ? entity.chitchat : [];
   if (lines.length) return lines[Math.floor(Math.random() * lines.length)];
@@ -780,8 +791,8 @@ async function execAction(node, entity, ctx) {
         ai.lastSay = Date.now();
         const line = pickChitchatLine(entity);
         broadcast(zoneId, line
-          ? { type: 'output', message: `<span style="color:var(--yellow)">${entity.name} says: "${line}"</span>` }
-          : { type: 'output', message: `<span style="color:var(--text-dim);font-style:italic">${entity.name} smokes a cigarette.</span>` });
+          ? formatChitchat(entity.name, line)
+          : { type: 'zone_event', message: `${entity.name} smokes a cigarette.` });
       }
       // Roll a random activity if none is set or we've arrived at the destination
       if (!ai._lifeActivity || (!ai.patrolPath.length && zoneId === ai.patrolTarget)) {
@@ -793,17 +804,29 @@ async function execAction(node, entity, ctx) {
       if (ai._lifeActivity === 'home') {
         hlife_dest = entity.home_zone || null;
       } else {
-        // patrol: pick a random safe exterior zone on the world map
+        // patrol: pick a destination zone.
+        // Unemployed NPCs with a haunt_zone (or haunt_zones array) prefer their hang-out spot 70% of the time.
         if (!ai.patrolTarget) {
-          const safe = [];
-          const safeOnly = entity.flags?.safe_zones_only;
-          for (const [sid, sz] of world.zones) {
-            if (sz.map_id !== 'map_world') continue;
-            if (sz.flags?.is_interior || sz.flags?.is_apartment || sz.flags?.is_building) continue;
-            if (safeOnly ? !sz.is_safe_zone : (sz.danger_rating || 0) > 1) continue;
-            safe.push(sid);
+          const hauntZone = entity.npc_type === 'unemployed'
+            ? (Array.isArray(entity.flags?.haunt_zones) && entity.flags.haunt_zones.length
+                ? entity.flags.haunt_zones[Math.floor(Math.random() * entity.flags.haunt_zones.length)]
+                : (entity.flags?.haunt_zone || null))
+            : null;
+
+          if (hauntZone && Math.random() < 0.7) {
+            ai.patrolTarget = hauntZone;
+          } else {
+            const safe = [];
+            const safeOnly = entity.flags?.safe_zones_only;
+            const HIGH_DANGER = new Set(['high', 'very_high', 'extreme']);
+            for (const [sid, sz] of world.zones) {
+              if (sz.map_id !== 'map_world') continue;
+              if (sz.flags?.is_interior || sz.flags?.is_apartment) continue;
+              if (safeOnly ? !sz.is_safe_zone : HIGH_DANGER.has(sz.danger_rating)) continue;
+              safe.push(sid);
+            }
+            ai.patrolTarget = safe.length ? safe[Math.floor(Math.random() * safe.length)] : entity.home_zone;
           }
-          ai.patrolTarget = safe.length ? safe[Math.floor(Math.random() * safe.length)] : entity.home_zone;
         }
         hlife_dest = ai.patrolTarget;
       }
@@ -825,34 +848,11 @@ async function execAction(node, entity, ctx) {
       break; // does NOT return RUNNING — graph continues to GO_TO_WORK each tick
     }
 
-    // AT_WORK: stay put during work hours — no-op so graph can loop and re-check schedule
+    // AT_WORK: hold at studio while scheduled; fall through when shift ends so graph routes to GO_HOME.
     case 'AT_WORK': {
-      // NPC is in studio during scheduled hours — just idle here.
-      // The graph loop (wait → loop back) re-checks IS_BROADCAST_SCHEDULED each cycle.
+      if (isNpcScheduledNow(entity.id)) return 'RUNNING';
+      // Shift ended — fall through to 'next' so the graph can route to GO_HOME
       break;
-    }
-
-    // GO_HOME: navigate to home_zone when not scheduled — skipped during work hours
-    case 'GO_HOME': {
-      if (!ai) break;
-      if (isNpcScheduledNow(entity.id)) break; // still on schedule — stay put
-      const home = entity.home_zone;
-      if (!home || zoneId === home) break; // no home configured or already there
-      if (!ai.patrolPath.length || ai.patrolTarget !== home) {
-        const path = findPath(zoneId, home);
-        if (!path || path.length < 2) break;
-        ai.patrolPath = path.slice(1);
-        ai.patrolTarget = home;
-      }
-      const gh_next = ai.patrolPath.shift();
-      if (gh_next) {
-        const moved = moveEntity(entity, gh_next, broadcast, query);
-        if (!moved) { ai.patrolPath = []; ai.patrolTarget = null; }
-        else if (!isEnemy(entity) && query) {
-          query('UPDATE npcs SET zone_id=$1 WHERE id=$2', [entityZone(entity), entity.id]).catch(() => {});
-        }
-      }
-      return 'RUNNING';
     }
 
     // ── Vendor-specific actions ──────────────────────────────────────────────
@@ -892,10 +892,7 @@ async function execAction(node, entity, ctx) {
       const line = pickChitchatLine(entity);
       if (!line) break;
       ai.lastSay = Date.now();
-      broadcast(zoneId, {
-        type: 'output',
-        message: `<span style="color:var(--yellow)">${entity.name} says: "${line}"</span>`,
-      });
+      broadcast(zoneId, formatChitchat(entity.name, line));
       break;
     }
 
@@ -1118,6 +1115,41 @@ export function buildDefaultVendorGraph() {
   };
 }
 
+/**
+ * Default behaviour graph for studio NPCs (broadcast staff with no custom graph).
+ * AT_WORK holds RUNNING while scheduled; when the shift ends it falls through to GO_HOME.
+ */
+export function buildDefaultStudioGraph() {
+  return {
+    _start: 'start',
+    nodes: {
+      start:      { type: 'start', next: 'have_life' },
+      have_life:  { type: 'action', action_type: 'HAVE_LIFE',   next: 'go_to_work' },
+      go_to_work: { type: 'action', action_type: 'GO_TO_WORK',  next: 'at_work' },
+      at_work:    { type: 'action', action_type: 'AT_WORK',     next: 'go_home' },
+      go_home:    { type: 'action', action_type: 'GO_HOME',     next: 'home_wait' },
+      home_wait:  { type: 'wait', seconds: 60, next: 'start' },
+    },
+  };
+}
+
+/**
+ * Default behaviour graph for unemployed NPCs.
+ * Loops HAVE_LIFE indefinitely. When at home, AT_HOME_LIFE handles the sleep cycle.
+ * Wandering destination is weighted toward flags.haunt_zone / flags.haunt_zones.
+ */
+export function buildDefaultUnemployedGraph() {
+  return {
+    _start: 'start',
+    nodes: {
+      start:      { type: 'start', next: 'have_life' },
+      have_life:  { type: 'action', action_type: 'HAVE_LIFE', next: 'home_check' },
+      home_check: { type: 'condition', condition_type: 'AT_HOME', ifTrue: 'home_idle', ifFalse: 'have_life' },
+      home_idle:  { type: 'action', action_type: 'AT_HOME_LIFE', next: 'have_life' },
+    },
+  };
+}
+
 // ── Main tick ────────────────────────────────────────────────────────────────
 
 const MAX_STEPS = 50;
@@ -1139,8 +1171,9 @@ export async function tickEntityAI(entity, ctx) {
   // Don't tick while a player has this NPC's shop open.
   if (ai.shopPaused) return;
 
-  // Passive home life — any NPC in their home zone does random activities when players are watching
-  if (!isEnemy(entity) && entity.home_zone && entityZone(entity) === entity.home_zone) {
+  // Passive home life — any NPC in their home zone does random activities when players are watching.
+  // Skipped while homeSleeping (the NPC is visibly asleep; AT_HOME_LIFE owns that state).
+  if (!isEnemy(entity) && !ai.homeSleeping && entity.home_zone && entityZone(entity) === entity.home_zone) {
     const now = Date.now();
     if ((now - (ai.lastHomeSay || 0)) > 30000) {
       const playersHere = getZonePlayers(entityZone(entity));
@@ -1149,9 +1182,10 @@ export async function tickEntityAI(entity, ctx) {
         const pool = (Array.isArray(entity.home_activities) && entity.home_activities.length)
           ? entity.home_activities : DEFAULT_HOME_ACTIVITIES;
         const act = pool[Math.floor(Math.random() * pool.length)];
-        ctx.broadcast(entityZone(entity), { type: 'zone_event', message: `${entity.name} ${act}` });
+        const { type: actType, message: actMsg } = formatChitchat(entity.name, act);
+        ctx.broadcast(entityZone(entity), { type: actType, message: actMsg });
       } else if (playersHere.length) {
-        ai.lastHomeSay = now; // reset cooldown even when no activity fires
+        ai.lastHomeSay = now;
       }
     }
   }

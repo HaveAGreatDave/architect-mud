@@ -229,7 +229,7 @@ export function applySettings(settings) {
   }
 }
 
-export function initSettingsUI(settings, saveAndApply, { getOrigin, saveOrigin, sendCmd, notify, placeDpadPanel, removeDpadPanel } = {}) {
+export function initSettingsUI(settings, saveAndApply, { sendCmd, notify, placeDpadPanel, removeDpadPanel } = {}) {
   const themeSelect = document.getElementById('opt-theme');
   if (themeSelect) {
     themeSelect.addEventListener('change', () => {
@@ -338,25 +338,7 @@ export function initSettingsUI(settings, saveAndApply, { getOrigin, saveOrigin, 
     });
   }
 
-  const originArea = document.getElementById('settings-origin');
-  const originCounter = document.getElementById('settings-origin-counter');
-  const originSave = document.getElementById('settings-origin-save');
-  if (originArea && originCounter) {
-    originArea.addEventListener('input', () => {
-      originCounter.textContent = `${originArea.value.length} / 200`;
-    });
-  }
-  if (originSave && saveOrigin) {
-    originSave.addEventListener('click', () => saveOrigin(originArea.value.trim()));
-  }
-
-
   document.getElementById('settings-btn').addEventListener('click', () => {
-    if (originArea && getOrigin) {
-      const val = getOrigin();
-      originArea.value = val;
-      originCounter.textContent = `${val.length} / 200`;
-    }
     applySettings(settings);
     document.getElementById('settings-panel').classList.add('active');
   });

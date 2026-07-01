@@ -497,8 +497,8 @@ async function ensureApartmentRow(zoneId) {
 export async function apiCreateZone(body,auth) {
   const id = body.id||`zone_${Date.now()}`;
   try {
-    await query(`INSERT INTO zones (id,name,description,danger_rating,pvp_enabled,radiation_level,is_safe_zone,exits,ambient_events,ambient_theme,flags,created_by,map_id,grid_x,grid_y,grid_z,marker,color,bg_color,audio_theme_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)`,
-      [id,body.name||'Unnamed Zone',body.description||'An empty place.',body.danger_rating||'medium',body.pvp_enabled?1:0,body.radiation_level||0,body.is_safe_zone?1:0,JSON.stringify(body.exits||{}),JSON.stringify(body.ambient_events||[]),body.ambient_theme||'indoors',JSON.stringify(body.flags||{}),auth?.playerId,body.map_id||null,body.grid_x??null,body.grid_y??null,body.grid_z??0,body.marker||null,body.color||null,body.bg_color||null,body.audio_theme_id||null]);
+    await query(`INSERT INTO zones (id,name,description,danger_rating,pvp_enabled,radiation_level,is_safe_zone,exits,ambient_events,ambient_theme,flags,created_by,map_id,grid_x,grid_y,grid_z,marker,color,bg_color,audio_theme_id,parent_zone) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)`,
+      [id,body.name||'Unnamed Zone',body.description||'An empty place.',body.danger_rating||'medium',body.pvp_enabled?1:0,body.radiation_level||0,body.is_safe_zone?1:0,JSON.stringify(body.exits||{}),JSON.stringify(body.ambient_events||[]),body.ambient_theme||'indoors',JSON.stringify(body.flags||{}),auth?.playerId,body.map_id||null,body.grid_x??null,body.grid_y??null,body.grid_z??0,body.marker||null,body.color||null,body.bg_color||null,body.audio_theme_id||null,body.parent_zone||null]);
     if (body.flags?.is_apartment) await ensureApartmentRow(id);
     await reloadZone(id);
     fireHook('zone.create', id, body).catch(() => {});
@@ -509,7 +509,7 @@ export async function apiUpdateZone(id,body) {
   const sets=[]; const vals=[];
   let i=1;
   const boolFields = ['pvp_enabled','is_safe_zone'];
-  const simple=['name','description','danger_rating','pvp_enabled','radiation_level','is_safe_zone','map_id','grid_x','grid_y','grid_z','marker','color','bg_color','audio_theme_id'];
+  const simple=['name','description','danger_rating','pvp_enabled','radiation_level','is_safe_zone','map_id','grid_x','grid_y','grid_z','marker','color','bg_color','audio_theme_id','parent_zone'];
   for (const f of simple) {
     if (body[f]!==undefined) {
       sets.push(`${f}=$${i++}`);
@@ -642,9 +642,7 @@ async function apiGetMap(id) {
      WHERE (map_id IS NULL OR map_id != $1)
        AND COALESCE((flags->>'is_interior')::boolean, false) = false
        AND COALESCE((flags->>'is_apartment')::boolean, false) = false
-       AND COALESCE((flags->>'is_building')::boolean, false) = false
        AND parent_zone IS NULL
-       AND NOT EXISTS (SELECT 1 FROM zones c WHERE c.parent_zone = zones.id)
      ORDER BY name`,
     [id]
   );
@@ -1154,10 +1152,10 @@ export async function apiCreateNpc(body) {
   const npcType = body.npc_type || 'npc';
   try {
     const hpMax = body.hp_max || 20;
-    const { buildDefaultVendorGraph } = await import('../engine/ai-behaviour.js');
+    const { buildDefaultVendorGraph, buildDefaultStudioGraph, buildDefaultUnemployedGraph } = await import('../engine/ai-behaviour.js');
     const rawGraph = body.behaviour_graph && Object.keys(body.behaviour_graph).length
       ? body.behaviour_graph
-      : (npcType === 'vendor' ? buildDefaultVendorGraph() : {});
+      : (npcType === 'vendor' ? buildDefaultVendorGraph() : npcType === 'unemployed' ? buildDefaultUnemployedGraph() : buildDefaultStudioGraph());
     const vendorSchedule = (npcType === 'vendor' && !Object.keys(body.vendor_schedule||{}).length)
       ? DEFAULT_VENDOR_SCHEDULE : (body.vendor_schedule || {});
     const homeActivities = Array.isArray(body.home_activities) ? body.home_activities : [];
@@ -1179,10 +1177,10 @@ export async function apiCreateNpc(body) {
 export async function apiUpdateNpc(id,body) {
   try {
     const npcType = body.npc_type || 'npc';
-    const { buildDefaultVendorGraph } = await import('../engine/ai-behaviour.js');
+    const { buildDefaultVendorGraph, buildDefaultStudioGraph, buildDefaultUnemployedGraph } = await import('../engine/ai-behaviour.js');
     const rawGraph = body.behaviour_graph && Object.keys(body.behaviour_graph).length
       ? body.behaviour_graph
-      : (npcType === 'vendor' ? buildDefaultVendorGraph() : {});
+      : (npcType === 'vendor' ? buildDefaultVendorGraph() : npcType === 'unemployed' ? buildDefaultUnemployedGraph() : buildDefaultStudioGraph());
     await query(`UPDATE npcs SET name=$1,description=$2,zone_id=$3,home_zone=$4,faction=$5,dialogue_tree=$6,vendor_inventory=$7,wanders=$8,wander_zones=$9,flags=$10,behaviour_graph=$11,work_zone_id=$12,chitchat=$13,hp_max=$14,hp=LEAST(hp,$14),vendor_stock_size=$16,vendor_restock_rate=$17,npc_type=$18,vendor_schedule=$19,vendor_shop_name=$20,home_activities=$21 WHERE id=$15`,
       [body.name,body.description,body.zone_id,body.home_zone||null,body.faction,JSON.stringify(body.dialogue_tree||{}),JSON.stringify(body.vendor_inventory||[]),body.wanders?1:0,JSON.stringify(body.wander_zones||[]),JSON.stringify(body.flags||{}),JSON.stringify(rawGraph),body.work_zone_id||null,JSON.stringify(body.chitchat||[]),body.hp_max||20,id,body.vendor_stock_size||10,body.vendor_restock_rate||1,npcType,JSON.stringify(body.vendor_schedule||{}),body.vendor_shop_name||null,JSON.stringify(body.home_activities||[])]);
     // Update in-memory NPC and sync zone.npcs sets
