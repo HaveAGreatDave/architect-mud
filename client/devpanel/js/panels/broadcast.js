@@ -1616,7 +1616,7 @@ async function _bcDepFinish() {
   if (_bcDepCompiled) await _bcImportSave(_bcDepCompiled);
 }
 
-async function _bcImportSave({ meta, broadcastGraph, messages, assets, cameras, actorIds }) {
+async function _bcImportSave({ meta, broadcastGraph, messages, assets, cameras, actorIds, npcIds }) {
   // Apply zone ID remaps to camera_cut nodes (BSM ID → real interior zone ID)
   for (const node of Object.values(broadcastGraph?.nodes || {})) {
     if (node.type === 'camera_cut') {
@@ -1706,7 +1706,10 @@ async function _bcImportSave({ meta, broadcastGraph, messages, assets, cameras, 
         // Spawn declared actors in studio zone if they don't already exist
         let npcSpawnCount = 0;
         const existingNpcIds = _bcExistingNpcIds instanceof Set ? _bcExistingNpcIds : new Set();
-        const actors = [...new Set(Array.isArray(actorIds) ? actorIds : [])];
+        const actors = [...new Set([
+          ...(Array.isArray(actorIds) ? actorIds : []),
+          ...(Array.isArray(npcIds)   ? npcIds   : []),
+        ])];
         for (const npcId of actors) {
           if (existingNpcIds.has(npcId)) continue;
           try {

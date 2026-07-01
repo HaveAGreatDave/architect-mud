@@ -35,7 +35,7 @@ Appear at the top, one per line, in any order. Recognized keys:
 | `@category general` | `meta.category` | defaults to `"general"` |
 | `@host npc_host_id` | `meta.host` | |
 | `@length 120` | `meta.length` | parsed as float (seconds) |
-| `@type live` | `meta.type` | lowercased; e.g. `live`, defaults to `"live"` |
+| `@type live` | `meta.type` | lowercased; known values: `live`, `scripted`; defaults to `"live"` |
 
 Any other `@key value` line is silently ignored at the top level (only `@actor`/`@alias` are meaningful elsewhere — see below).
 
@@ -77,6 +77,7 @@ Processed top to bottom, building a linked chain of VINE nodes (`node.next` poin
 | `OVERLAY <graphic_id>` ... (free text until a directive line or `OVERLAY_END`) | `{ type: 'overlay', graphic_id, text }` | text lines collected until another directive is recognized |
 | `LOWER_THIRD` ... `LOWER_THIRD_END` | `{ type: 'overlay', overlayType: 'lower_third', text, subtext, graphic_id: '' }` | first non-empty line = `text`, second = `subtext` |
 | `SHOT` ... `SHOT_END` | `{ type: 'say', text, style: 'narration' }` | text also pushed to `messages` |
+| `CREDITS [seconds]` ... `END_CREDITS` | `{ type: 'credits', text, duration? }` | block content is the credits text; optional duration in seconds on the same line as `CREDITS` |
 | `NPC <npc_id>` | `{ type: 'npc_anchor', npc_id }` | only emitted if it changes the active speaker; sets `activeNpc` |
 | `SPEAKER:` (e.g. `JOHN:`) followed by a line of dialogue | `npc_anchor` (if speaker changed) + `{ type: 'say', text, style: 'raw' }` | label resolved via `::actors` aliases (uppercase match), else falls back to `npc_<label_lowercased>`; unresolved labels recorded in `_debug.unresolvedSpeakers`; dialogue text also pushed to `messages` |
 | bare duration: `8`, `8s`, `1.5s` | `{ type: 'wait', duration }` | matches `^\d+(\.\d+)?s?$` |
@@ -87,7 +88,7 @@ Processed top to bottom, building a linked chain of VINE nodes (`node.next` poin
 | `♪ <cue text> ♪` | `{ type: 'say', text: line, style: 'ambient' }` | only if the inner text contains whitespace (multi-word); a single bare word like `♪ tonight_theme ♪` is treated as a compiler-only cue ID and skipped (no node) |
 | any other non-empty line while `activeNpc` is set | `{ type: 'npc_action', message: line }` | implicit stage direction for the current speaker |
 | any other non-empty line with no `activeNpc` | no node; recorded in `_debug.unknownDirectives` | |
-| lines ending in `_END` / `END_ACTION` seen outside their opening block | skipped silently | guards against stray terminators |
+| lines ending in `_END` / `END_ACTION` / `END_CREDITS` seen outside their opening block | skipped silently | guards against stray terminators |
 
 ### Directive-line detection (`isDirectiveLine`)
 
@@ -96,7 +97,7 @@ Several block collectors (e.g. `OVERLAY <id>`, `SPEAKER:` text) stop early if th
 ```
 @  ::  EVENT   TITLE   TICKER  WAIT  NPC   OVERLAY
 SHOT  SHOT_END  TICKER_END  OVERLAY_END  LOWER_THIRD_END  MUSIC_END  END  CAM   ROOM
-MUSIC  ENTER   ACTION  END_ACTION  ♪  TECH_DIFFICULTIES 
+MUSIC  ENTER   ACTION  END_ACTION  ♪  TECH_DIFFICULTIES  CREDITS
 ```
 
 ...or matches the speaker pattern `^[A-Za-z][A-Za-z0-9_]*:\s*$`, or is a bare duration (`^\d+(\.\d+)?s?$`).
@@ -171,7 +172,28 @@ MUSIC outro_sting
 Thanks for tuning in.
 MUSIC_END
 
+CREDITS 30
+EXECUTIVE PRODUCER
+Dana Vale
+
+WRITTEN BY
+J. Marlowe
+
+END_CREDITS
+
 END
 ```
 
-This produces: a `title_card` node, a `wait(2)` node, an `npc_anchor` for `npc_anchor_dana`, a `say` node (raw dialogue), a `camera_cut` node (camera `1` recorded), a room dependency (`zone_rust_district`, no node), an `overlay` node with graphic id `district_map`, a `wait(3)` node, an `npc_action` node ("shuffles papers"), and a final `music` node (`song: 'outro_sting'`, `text: 'Thanks for tuning in.'`) — plays the `outro_sting` row from `audio_songs` if one exists, otherwise just shows the text.
+This produces: a `title_card` node, a `wait(2)` node, an `npc_anchor` for `npc_anchor_dana`, a `say` node (raw dialogue), a `camera_cut` node (camera `1` recorded), a room dependency (`zone_rust_district`, no node), an `overlay` node with graphic id `district_map`, a `wait(3)` node, an `npc_action` node ("shuffles papers"), a `music` node (`song: 'outro_sting'`, `text: 'Thanks for tuning in.'`), and finally a `credits` node with `duration: 30` and the credits text block.
+
+### CREDITS block
+
+```
+CREDITS [seconds]
+<free text — roles, names, blank lines>
+END_CREDITS
+```
+
+- Optional integer or float after `CREDITS` sets `duration` on the node (e.g. `CREDITS 30`). Without it, `duration` is omitted and the renderer decides how long to display.
+- The entire block between `CREDITS` and `END_CREDITS` is stored verbatim as `text` — no special sub-parsing. Blank lines, all-caps role headings, and name lines are purely a convention for readability.
+- Produces `{ type: 'credits', text, duration? }`.

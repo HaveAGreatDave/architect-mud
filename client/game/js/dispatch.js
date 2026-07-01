@@ -16,7 +16,7 @@ import { openMorphexPanel } from './panels/morphex.js';
 import { updateForecast } from './panels/forecast.js';
 import { openAtmPanel, closeAtmPanel, updateAtmPanel } from './panels/atm.js';
 import { openMediaDeckPanel } from './panels/mediadeck.js';
-import { openTvPanel, isTvOpen, getTvActiveChannelId, appendTvMessage, updateTvTicker, applyTvOverlay, clearTvMessages, showTvOffAir, shutdownTvPanel } from './panels/tv.js';
+import { openTvPanel, isTvOpen, getTvActiveChannelId, appendTvMessage, updateTvTicker, applyTvOverlay, clearTvMessages, showTvOffAir, showTvOnAir, shutdownTvPanel } from './panels/tv.js';
 
 
 const DEV_ROLES = ['admin', 'dev', 'builder', 'designer'];
@@ -118,6 +118,7 @@ const handlers = {
       return;
     }
     if (isTvOpen() && getTvActiveChannelId() === msg.channel) {
+      showTvOnAir();
       if (msg.style === 'ticker') updateTvTicker(msg.message);
       else appendTvMessage(msg.message, msg.style);
       if (msg.programName !== undefined) {

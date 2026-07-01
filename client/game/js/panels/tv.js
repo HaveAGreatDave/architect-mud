@@ -8,6 +8,7 @@ let _tvOpen = false;
 let _tvShuttingDown = false;
 let _tvPoweredOff = false;
 let _tvActiveChannelId = null;
+let _tvOffAir = false;
 const _tvHistory = [];
 const MAX_TV_HISTORY = 200;
 let _clearAfterTitleCard = false;
@@ -158,6 +159,7 @@ function _playTuneAnimation() {
   const knob     = document.getElementById('tv-knob');
 
   // Hide content, show static — clear inline knob rotation so spin animation plays cleanly
+  _tvOffAir = false;
   content.style.opacity = '';
   content.classList.add('tv-hidden');
   staticEl.style.opacity = '';
@@ -171,23 +173,22 @@ function _playTuneAnimation() {
   knob.offsetWidth; // force reflow to restart animation
   knob.classList.add('tv-knob-spinning');
 
-  // After knob settles (~1.1s), fade static out and reveal content
+  // After knob settles (~1.1s), fade static out and reveal content (unless off-air)
   _tuneTimer = setTimeout(() => {
-    staticEl.classList.remove('tv-static-on');
-    staticEl.classList.add('tv-static-fade');
-    content.classList.remove('tv-hidden');
-
-    staticEl.addEventListener('animationend', () => {
-      staticEl.classList.remove('tv-static-fade');
-    }, { once: true });
-    _setStaticAudio(0, 0.3);
-
     knob.classList.remove('tv-knob-spinning');
     _updateKnobRotation();
     const pn = document.getElementById('tv-program-name');
     if (pn) pn.style.opacity = '1';
-    content.style.opacity = '';
     _tuneTimer = null;
+    if (_tvOffAir) return;
+    staticEl.classList.remove('tv-static-on');
+    staticEl.classList.add('tv-static-fade');
+    content.classList.remove('tv-hidden');
+    staticEl.addEventListener('animationend', () => {
+      staticEl.classList.remove('tv-static-fade');
+    }, { once: true });
+    _setStaticAudio(0, 0.3);
+    content.style.opacity = '';
   }, 1200);
 }
 
@@ -240,6 +241,7 @@ export function closeTvPanel() {
   _tvShuttingDown = false;
   _tvPoweredOff = false;
   _tvActiveChannelId = null;
+  _tvOffAir = false;
   sendRaw({ type: 'tv_unwatch' });
   if (_tuneTimer) { clearTimeout(_tuneTimer); _tuneTimer = null; }
   if (_sweepRaf) { cancelAnimationFrame(_sweepRaf); _sweepRaf = null; }
@@ -430,7 +432,8 @@ export function showTvOffAir(offlineGraphicContent, offlineGraphicType) {
   const staticEl = document.getElementById('tv-static');
   const content  = document.getElementById('tv-content');
   if (!staticEl || !content) return;
-  if (offlineGraphicContent) {
+  _tvOffAir = true;
+  if (offlineGraphicContent && !_tuneTimer) {
     staticEl.classList.remove('tv-static-on', 'tv-static-loop');
     staticEl.style.opacity = '';
     content.classList.remove('tv-hidden');
@@ -438,10 +441,24 @@ export function showTvOffAir(offlineGraphicContent, offlineGraphicType) {
     _setStaticAudio(0, 0.3);
   } else {
     content.classList.add('tv-hidden');
+    staticEl.classList.remove('tv-static-fade');
     staticEl.classList.add('tv-static-on', 'tv-static-loop');
     staticEl.style.opacity = '';
     _setStaticAudio(1);
   }
+}
+
+export function showTvOnAir() {
+  if (!_tvOffAir) return;
+  _tvOffAir = false;
+  const staticEl = document.getElementById('tv-static');
+  const content  = document.getElementById('tv-content');
+  if (!staticEl || !content) return;
+  staticEl.classList.remove('tv-static-on', 'tv-static-loop');
+  staticEl.classList.add('tv-static-fade');
+  staticEl.addEventListener('animationend', () => staticEl.classList.remove('tv-static-fade'), { once: true });
+  content.classList.remove('tv-hidden');
+  _setStaticAudio(0, 0.3);
 }
 
 function _clearTvMessages() {
