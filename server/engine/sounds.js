@@ -71,6 +71,30 @@ export function propagateSound(originZoneId, message, loudness, broadcastFn) {
   }
 }
 
+// Propagate a one-shot audio SFX outward from an origin zone.
+// Gain at each hop = loudness * (1/3)^distance; clamped to [0,1] for playback.
+// Propagation stops when the gain falls below AUDIO_STOP_THRESHOLD.
+const AUDIO_STOP_THRESHOLD = 0.05;
+
+export function propagateAudio(originZoneId, sfxDef, loudness, broadcastFn) {
+  const visited = new Map([[originZoneId, loudness]]);
+  const queue = [[originZoneId, loudness]];
+  while (queue.length) {
+    const [zoneId, gain] = queue.shift();
+    broadcastFn(zoneId, { type: 'audio_sfx', def: sfxDef, gain: Math.min(1, gain) });
+    const nextGain = gain / 3;
+    if (nextGain < AUDIO_STOP_THRESHOLD) continue;
+    const zone = world.zones.get(zoneId);
+    if (!zone) continue;
+    for (const neighborId of Object.values(zone.exits || {})) {
+      if (!visited.has(neighborId)) {
+        visited.set(neighborId, nextGain);
+        queue.push([neighborId, nextGain]);
+      }
+    }
+  }
+}
+
 // Yell variant: all-caps, word-drop muffling at distance.
 // senderId is excluded from the origin-zone broadcast (they get their own "You yell:" echo).
 export function propagateYell(originZoneId, senderId, senderHandle, text, broadcastFn) {

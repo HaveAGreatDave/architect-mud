@@ -3,6 +3,7 @@ import { query } from '../../server/models/db.js';
 import { getZone } from '../../server/engine/world.js';
 import { sendToZone, sendToPlayer } from '../../server/engine/messaging.js';
 import { on, emit } from '../../server/engine/events.js';
+import { propagateAudio } from '../../server/engine/sounds.js';
 
 // ── In-memory library cache (loaded from DB at boot, refreshed after CRUD) ──
 
@@ -247,7 +248,7 @@ on('item.dropped', ({ actor }) => {
 on('weather.thunder', ({ zoneId }) => {
   if (!triggerEventRoute('weather.thunder', zoneId, null)) {
     const def = sfxByName('thunder');
-    if (def && zoneId) sendToZone(zoneId, { type: 'audio_sfx', def });
+    if (def && zoneId) propagateAudio(zoneId, def, 1.0, (z, msg) => sendToZone(z, msg));
   }
 });
 
@@ -424,4 +425,27 @@ export const routeHandler = async (path, method, body, auth) => {
     return { status: 500, body: { error: e.message } };
   }
   return null;
+};
+
+// ── Admin commands ─────────────────────────────────────────────────────────────
+
+const ADMIN_ROLES = new Set(['admin', 'dev', 'builder', 'designer']);
+
+export const commands = {
+  '.createsound': async (args, raw, player) => {
+    if (!ADMIN_ROLES.has(player.role)) return { type: 'error', message: 'Admin only.' };
+    const { rows } = await query('SELECT id, name FROM audio_sfx WHERE enabled IS DISTINCT FROM false ORDER BY name');
+    return { type: 'sound_picker', sfx: rows };
+  },
+
+  '.playsound': (args, raw, player, broadcast) => {
+    if (!ADMIN_ROLES.has(player.role)) return { type: 'error', message: 'Admin only.' };
+    const [sfxId, loudnessStr] = args;
+    if (!sfxId) return { type: 'error', message: 'Usage: .playsound <sfx_id> <loudness>' };
+    const def = sfx.get(sfxId);
+    if (!def) return { type: 'error', message: `Unknown SFX: ${sfxId}` };
+    const loudness = Math.max(0.1, Math.min(5, parseFloat(loudnessStr) || 1));
+    propagateAudio(player.current_zone, def, loudness, (zoneId, msg) => sendToZone(zoneId, msg));
+    return { type: 'output', message: `Playing <b>${def.name}</b> at loudness ${loudness}.` };
+  },
 };

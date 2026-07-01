@@ -372,14 +372,93 @@ const handlers = {
   esp_warning: (msg) => { handleEspWarning(msg); },
 
   audio_music: (msg) => { window.AudioEngine?.playMusic(msg.def); },
-  audio_sfx: (msg) => { console.log('[audio] sfx received', msg.def?.id, msg.def?.name); window.AudioEngine?.playSfx(msg.def); },
+  audio_sfx: (msg) => { console.log('[audio] sfx received', msg.def?.id, msg.def?.name, 'gain', msg.gain ?? 1); window.AudioEngine?.playSfx(msg.def, msg.gain ?? 1); },
   audio_sample: (msg) => { console.log('[audio] sample received', msg.def?.id, msg.def?.name); window.AudioEngine?.playSample(msg.def); },
   audio_ambience: (msg) => { window.AudioEngine?.loopSound(msg.def); },
   audio_loop_gain: (msg) => { window.AudioEngine?.setLoopGain(msg.id, msg.gain, msg.ramp ?? 0.4); },
   audio_stop: (msg) => { window.AudioEngine?.stop(msg.scope, msg.id); },
+
+  sound_picker: (msg) => { openSoundPicker(msg.sfx || []); },
 };
 
 export function handleServerMsg(msg) {
   const handler = handlers[msg.type];
   if (handler) handler(msg);
+}
+
+function openSoundPicker(sfxList) {
+  const existing = document.getElementById('sound-picker-overlay');
+  if (existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'sound-picker-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:9999';
+
+  const modal = document.createElement('div');
+  modal.style.cssText = 'background:var(--bg-panel,#1a1a1a);border:1px solid var(--border,#444);padding:20px;min-width:320px;display:flex;flex-direction:column;gap:12px;font-family:monospace';
+
+  const title = document.createElement('div');
+  title.textContent = 'Create Sound';
+  title.style.cssText = 'color:var(--text-bright,#fff);font-size:14px;font-weight:bold;letter-spacing:1px';
+
+  const selectLabel = document.createElement('label');
+  selectLabel.textContent = 'Sound FX:';
+  selectLabel.style.cssText = 'color:var(--text-dim,#aaa);font-size:12px';
+
+  const select = document.createElement('select');
+  select.style.cssText = 'background:var(--bg,#111);color:var(--text,#ccc);border:1px solid var(--border,#444);padding:4px 8px;font-family:monospace;font-size:12px;width:100%';
+  for (const s of sfxList) {
+    const opt = document.createElement('option');
+    opt.value = s.id;
+    opt.textContent = s.name;
+    select.appendChild(opt);
+  }
+
+  const loudnessLabel = document.createElement('label');
+  loudnessLabel.style.cssText = 'color:var(--text-dim,#aaa);font-size:12px;display:flex;justify-content:space-between';
+  const loudnessText = document.createElement('span');
+  loudnessText.textContent = 'Loudness:';
+  const loudnessVal = document.createElement('span');
+  loudnessVal.textContent = '1.0';
+  loudnessLabel.appendChild(loudnessText);
+  loudnessLabel.appendChild(loudnessVal);
+
+  const slider = document.createElement('input');
+  slider.type = 'range';
+  slider.min = '0.1';
+  slider.max = '5';
+  slider.step = '0.1';
+  slider.value = '1.0';
+  slider.style.cssText = 'width:100%;accent-color:var(--accent,#0af)';
+  slider.addEventListener('input', () => { loudnessVal.textContent = parseFloat(slider.value).toFixed(1); });
+
+  const buttons = document.createElement('div');
+  buttons.style.cssText = 'display:flex;gap:8px;justify-content:flex-end';
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.style.cssText = 'background:transparent;color:var(--text-dim,#aaa);border:1px solid var(--border,#444);padding:4px 12px;font-family:monospace;cursor:pointer';
+  cancelBtn.addEventListener('click', () => overlay.remove());
+
+  const playBtn = document.createElement('button');
+  playBtn.textContent = 'Play';
+  playBtn.style.cssText = 'background:var(--accent,#0af);color:#000;border:none;padding:4px 12px;font-family:monospace;cursor:pointer;font-weight:bold';
+  playBtn.addEventListener('click', () => {
+    const id = select.value;
+    const loudness = slider.value;
+    if (id) sendCmd(`.playsound ${id} ${loudness}`);
+    overlay.remove();
+  });
+
+  buttons.appendChild(cancelBtn);
+  buttons.appendChild(playBtn);
+  modal.appendChild(title);
+  modal.appendChild(selectLabel);
+  modal.appendChild(select);
+  modal.appendChild(loudnessLabel);
+  modal.appendChild(slider);
+  modal.appendChild(buttons);
+  overlay.appendChild(modal);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
 }

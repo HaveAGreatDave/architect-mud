@@ -446,7 +446,7 @@
 
   // ── SFX (one-shots) ────────────────────────────────────────────────────────
 
-  function playSfx(def) {
+  function playSfx(def, gainMultiplier = 1) {
     const c = init();
     if (!c || !def?.config) return;
     const priority = def.priority ?? 5;
@@ -454,7 +454,14 @@
     if (idx === -1) return; // dropped — all higher/equal-priority voices busy
     const time = c.currentTime;
     const duration = def.config.duration ?? 0.4;
-    const sound = buildSound(def.config, busFor(def.category), time, duration);
+    let destination = busFor(def.category);
+    if (gainMultiplier !== 1) {
+      const g = c.createGain();
+      g.gain.value = gainMultiplier;
+      g.connect(destination);
+      destination = g;
+    }
+    const sound = buildSound(def.config, destination, time, duration);
     occupyVoice(idx, priority, () => sound.release(c.currentTime));
     setTimeout(() => freeVoice(idx), (duration + (def.config.adsr?.r ?? 0.15) + 0.1) * 1000);
   }

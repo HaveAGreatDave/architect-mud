@@ -2,7 +2,7 @@
   "name": "audio",
   "version": "1.0.0",
   "description": "Procedural SNES-style audio: music, SFX, ambience. Entirely separate from the text-based Sound system.",
-  "commands": [],
+  "commands": [".createsound", ".playsound"],
   "routePrefix": "/audio",
   "events": {
     "emits": ["audio.music.changed", "audio.sfx.triggered"],

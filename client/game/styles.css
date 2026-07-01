@@ -4584,13 +4584,14 @@ body {
 	position: absolute;
 	inset: 4px;
 	border-radius: 4px;
-	background: #130720;
-	border: 1px solid rgba(255, 47, 214, 0.25);
+	/* Amber-brown cassette shell — clearly distinct from purple-black chassis */
+	background: linear-gradient(180deg, #221108 0%, #150b05 100%);
+	border: 1px solid rgba(200, 130, 40, 0.45);
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	z-index: 2;
-	box-shadow: inset 0 0 12px rgba(0,0,0,0.8);
+	box-shadow: inset 0 0 12px rgba(0,0,0,0.7), 0 0 8px rgba(180, 110, 20, 0.12);
 	opacity: 0;
 	transform: translateY(20px);
 	pointer-events: none;
@@ -4601,28 +4602,35 @@ body {
 	transform: translateY(0);
 	pointer-events: auto;
 }
-/* Glass cover lid for mediadeck */
+/* Glass cover lid for mediadeck — permanently tipped back toward camera.
+   transform-origin at bottom = bottom is the hinge; top lifts toward viewer. */
 .mediadeck-glass-cover {
 	position: absolute;
 	inset: 0;
 	border-radius: 6px;
-	background: linear-gradient(160deg,
-		rgba(255,100,255,0.08) 0%,
-		rgba(200,80,255,0.02) 45%,
-		rgba(160,60,255,0.06) 100%
+	background: linear-gradient(170deg,
+		rgba(255,100,255,0.10) 0%,
+		rgba(200,80,255,0.03) 50%,
+		rgba(160,60,255,0.07) 100%
 	);
-	border: 1px solid rgba(255, 47, 214, 0.10);
+	/* thick bright top border = visible glass edge facing the camera */
+	border-top: 3px solid rgba(220, 180, 255, 0.55);
+	border-left: 1px solid rgba(255, 47, 214, 0.14);
+	border-right: 1px solid rgba(255, 47, 214, 0.14);
+	border-bottom: 1px solid rgba(0, 0, 0, 0.35);
 	box-shadow:
-		inset 0 1px 0 rgba(255,255,255,0.10),
-		inset 0 -1px 0 rgba(0,0,0,0.3);
-	transform-origin: top center;
-	transform: rotateX(0deg);
+		inset 0 2px 0 rgba(255,255,255,0.12),
+		inset 0 -1px 0 rgba(0,0,0,0.3),
+		0 -2px 6px rgba(200, 140, 255, 0.18);
+	/* hinge at bottom; top tilts 14° toward the viewer */
+	transform-origin: bottom center;
+	transform: rotateX(-14deg);
 	transition: transform 0.28s ease-in-out;
 	z-index: 5;
 	pointer-events: none;
 }
 #mediadeck-slot.deck-opening .mediadeck-glass-cover {
-	transform: rotateX(-72deg);
+	transform: rotateX(-78deg);
 }
 /* Empty slot indicator */
 .mediadeck-empty-hint {
@@ -4640,20 +4648,20 @@ body {
 	transition: opacity 0.2s;
 }
 #mediadeck-slot.loaded .mediadeck-empty-hint { opacity: 0; }
-/* Dim the deck hardware when no cassette loaded */
-.mediadeck-reel { opacity: 0.3; }
+/* Reels always visible; brighten further when loaded */
+.mediadeck-reel { opacity: 0.65; }
 .mediadeck-tape-guide,
-.mediadeck-tape-head { opacity: 0.3; }
+.mediadeck-tape-head { opacity: 0.4; }
 #mediadeck-slot.loaded .mediadeck-reel { opacity: 1; }
 #mediadeck-slot.loaded .mediadeck-tape-guide,
 #mediadeck-slot.loaded .mediadeck-tape-head { opacity: 1; }
 .mediadeck-cassette-label-strip {
-	background: linear-gradient(135deg, #2a0a3e 0%, #1e0630 100%);
-	border: 1px solid rgba(255, 47, 214, 0.4);
+	background: linear-gradient(135deg, #1a1408 0%, #0f0c04 100%);
+	border: 1px solid rgba(220, 160, 60, 0.55);
 	border-radius: 2px;
 	padding: 3px 10px;
 	font-size: 7px;
-	color: #ff9ff0;
+	color: #e8c47a;
 	letter-spacing: 1.5px;
 	text-transform: uppercase;
 	max-width: 55%;
@@ -4661,8 +4669,8 @@ body {
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
-	text-shadow: 0 0 6px rgba(255, 47, 214, 0.8);
-	box-shadow: 0 0 8px rgba(255, 47, 214, 0.2);
+	text-shadow: 0 0 6px rgba(200, 140, 40, 0.8);
+	box-shadow: 0 0 8px rgba(180, 120, 20, 0.25);
 }
 .mediadeck-reel {
 	width: 44px;
@@ -4679,7 +4687,8 @@ body {
 		),
 		#0a0514;
 	position: relative;
-	z-index: 1;
+	/* sit above the cassette body so reels are always visible through the shell */
+	z-index: 3;
 	flex-shrink: 0;
 	transition: border-color 0.3s, box-shadow 0.3s, opacity 0.3s;
 }
@@ -4708,7 +4717,7 @@ body {
 	gap: 5px;
 	padding: 0 6px;
 	position: relative;
-	z-index: 1;
+	z-index: 3;
 }
 .mediadeck-tape-guide {
 	width: 4px;
