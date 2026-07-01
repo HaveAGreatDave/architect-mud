@@ -1,4 +1,4 @@
-import { world, getLivePlayer, getDoorForExit, setDoorCache } from './world.js';
+import { world, getLivePlayer, getDoorForExit, setDoorCache, getZone } from './world.js';
 import { findPath, getZonesInRadius } from './pathfinding.js';
 import { enemyAttackPlayer } from './combat.js';
 import { getEnvironmentState } from './environment.js';
@@ -87,8 +87,14 @@ function moveEntity(entity, newZoneId, broadcast, query) {
 
   const arriveDir = exitDirection(newZoneId, oldZoneId);
   const departMsg = departDir ? `${entity.name} heads ${departDir}.` : `${entity.name} leaves.`;
-  const arriveFrom = arriveDir === 'up' ? 'below' : arriveDir === 'down' ? 'above' : arriveDir ? `the ${arriveDir}` : null;
-  const arriveMsg = arriveFrom ? `${entity.name} arrives from ${arriveFrom}.` : `${entity.name} arrives.`;
+  const sourceZoneName = getZone(oldZoneId)?.name || 'inside';
+  let arriveMsg;
+  if (arriveDir === 'out')       arriveMsg = `${entity.name} arrives from outside.`;
+  else if (arriveDir === 'in')   arriveMsg = `${entity.name} emerges from ${sourceZoneName}.`;
+  else if (arriveDir === 'up')   arriveMsg = `${entity.name} descends the stairs.`;
+  else if (arriveDir === 'down') arriveMsg = `${entity.name} climbs the stairs.`;
+  else if (arriveDir)            arriveMsg = `${entity.name} arrives from the ${arriveDir}.`;
+  else                           arriveMsg = `${entity.name} arrives.`;
 
   if (isEnemy(entity)) {
     world.zones.get(oldZoneId)?.enemies.delete(entity.instanceId);

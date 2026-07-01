@@ -4,6 +4,14 @@
 import { sendCmdSilent, sendRaw } from '../net.js';
 import { renderMarkup } from '../markup.js';
 
+// Wrap the NPC name in a say line with the TV accent color.
+// Matches: "Name says, "speech"" — name is everything before " says, "
+function _tvColorizeNpcSay(text) {
+  return text.replace(/^(.+?) says, "([\s\S]*)"$/, (_, name, speech) =>
+    `<span style="color:var(--tv-header-color,var(--accent))">${name}</span> says, "${speech}"`
+  );
+}
+
 let _tvOpen = false;
 let _tvShuttingDown = false;
 let _tvPoweredOff = false;
@@ -542,7 +550,7 @@ export function appendTvMessage(text, style) {
       el.style.fontSize = `${finalPx.toFixed(1)}px`;
     });
   } else {
-    el.innerHTML = renderMarkup(text);
+    el.innerHTML = renderMarkup(_tvColorizeNpcSay(text));
   }
   container.appendChild(el);
 

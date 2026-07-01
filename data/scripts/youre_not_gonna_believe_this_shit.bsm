@@ -7,19 +7,16 @@
 
 ::actors
 @actor npc_neil_mcmanistan
-@alias npc_neil_mcmanistan NEIL_MCMANISTAN
+@alias npc_neil_mcmanistan Neil McManistan
 @alias npc_neil_mcmanistan NEIL
 
 @actor npc_captain_nguyen
-@alias npc_captain_nguyen CAPTAIN_NGUYEN
-
-@actor npc_nguyen
-@alias npc_nguyen NGUYEN
+@alias npc_captain_nguyen Captain Nguyen
 
 @actor npc_jerry_rosenberg
 @alias npc_jerry_rosenberg LAWYER
 
-@actor npc_narrator
+@actor npc_narrator Miles Hartwell
 @alias npc_narrator NARRATOR
 
 ::endactors
@@ -88,7 +85,7 @@ Cut to Neil's basement.
 The screen holds black. In the deep background, footsteps approach slowly through darkness. A faint reverb hangs in the air — the acoustic signature of a basement. Above it, muffled but unmistakable, the din of a bustling Vietnamese laundromat drifts down through the ceiling.
 SHOT_END
 
-NEIL_MCMANISTAN:
+Neil Mcmanistan:
 FUCK!
 
 ACTION npc_neil_mcmanistan trips violently over a chair, which screeches across the concrete floor and detonates into a wall of empty beer cans and food containers.
@@ -103,7 +100,7 @@ SHOT
 The camera slowly pulls back. The host is wearing combat boots. He is not wearing pants. These two facts are presented without comment.
 SHOT_END
 
-NEIL_MCMANISTAN:
+Neil Mcmanistan:
 you're not gonna believe this shit!
 
 CAM 2 SIDE_PROFILE on Neil McManistan
@@ -128,16 +125,16 @@ CAM 1 CLOSEUP on Neil McManistan
 
 ::scene ACT_1
 
-NEIL_MCMANISTAN:
+Neil Mcmanistan:
 They must think that I'm retarded. You'd have to be retarded not to put this together, and as sure as Barb took the kids the Jews will get me for this.
 
-CAPTAIN_NGUYEN:
+Captain Nguyen:
 Jesus christ Neil we talked about this shit man you're gonna get us kicked off public access we need this man.
 
-NEIL_MCMANISTAN:
+Neil Mcmanistan:
 Im sorry, I'm sorry where was I. I'll tell you where I was, I was at the grocery store and they had a coupon, Tim Horton's iced coffee syrup, save 2 dollars. And you know how I feel about Singh Hortons...
 
-CAPTAIN_NGUYEN:
+Captain Nguyen:
 CUT!
 
 SHOT
@@ -148,36 +145,36 @@ ACTION npc_neil_mcmanistan gives the camera a slow, deliberate nod.
 
 CAM 1 CLOSEUP on Neil McManistan
 
-NEIL_MCMANISTAN:
+Neil Mcmanistan:
 these fuckin grocery barons are sucking us dry! I had this coupon, and lo and behold, ill give it a go, why not save a few bucks. Regular price 8 bucks, brought it down to 6 with the coupon, but i price matched it down to 6 so the coupon made it 4....
 
-CAPTAIN_NGUYEN:
+Captain Nguyen:
 What the fuck are you talking about and get to the point!
 
 SHOT
-The CAPTAIN NGUYEN delivers this in a frantic whisper from somewhere just off-camera. It is not a quiet whisper.
+The Captain Nguyen delivers this in a frantic whisper from somewhere just off-camera. It is not a quiet whisper.
 SHOT_END
 
-NEIL_MCMANISTAN:
+Neil Mcmanistan:
 Anyways I went back into the place for some vittles a week later, no 2 dollar off coupons, but the same bottle of syrup was now 2 dollars cheaper now that there were no coupons. Those greedy pricks they must think that we are SAPS!
 
 ACTION npc_neil_mcmanistan slams his fist on the table. The ashtray goes airborne. The camera jerks up and snaps directly into Neil's face.
 
 CAM 1 SNAP_TIGHT on Neil McManistan
 
-NEIL_MCMANISTAN:
+Neil Mcmanistan:
 Don't even get me started on that shithole hortons, its harder than Chinese calculus trying to get a jesus coffee in there, they gotta get some teenage girls in there, not like that, not at all, never...
 
-CAPTAIN_NGUYEN:
+Captain Nguyen:
 Jesus christ man you can't keep saying that shit.
 
-NEIL_MCMANISTAN:
+Neil Mcmanistan:
 Pause, no diddy, respectfully.
 
-CAPTAIN_NGUYEN:
+Captain Nguyen:
 THATS NOT HELPING!
 
-NEIL_MCMANISTAN:
+Neil Mcmanistan:
 And now a word from our sponsor:
 
 CAM 3 SWING to the far corner of the basement
@@ -186,16 +183,16 @@ SHOT
 The camera drifts wide to catch the far corner of the basement. Perched on a barstool, just at the edge of the visible set, is an old Vietnamese man. He is holding a small brown paper bag. He has been there the entire time.
 SHOT_END
 
-CAPTAIN_NGUYEN:
+Captain Nguyen:
 Who the hell is that?!
 
-NEIL_MCMANISTAN:
+Neil Mcmanistan:
 Thats fuckin, nguyen, man, hey nguyen say hi.
 
 NGUYEN:
 [Extended Vietnamese at considerable volume, followed by a long and deliberate nod.]
 
-NEIL_MCMANISTAN:
+Neil Mcmanistan:
 Im gonna be this guys sponsor im bringing him on the crew we can hire him for half wage do you believe this guy is from fuckin 'Nam hey nguyen tell this guy you're from 'nam!
 
 ACTION npc_neil_mcmanistan lunges forward and grabs Camera 1, physically wrenching it toward Nguyen.
@@ -204,14 +201,14 @@ ACTION npc_captain_nguyen reaches into frame and yanks Camera 1 back in the othe
 
 CAM 1 SNAPS_BACK to Neil McManistan
 
-CAPTAIN_NGUYEN:
+Captain Nguyen:
 NEIL WE HAVE TO THANK THE SPONSORS SAY AND NOW A WORD FROM OUR SPONSORS!
 
 SHOT
-The CAPTAIN NGUYEN shouts this at a volume that could be heard in the laundromat upstairs.
+The Captain Nguyen shouts this at a volume that could be heard in the laundromat upstairs.
 SHOT_END
 
-NEIL_MCMANISTAN:
+Neil Mcmanistan:
 And now a word from our sponsors.
 
 EVENT COMMERCIAL_BREAK
@@ -275,37 +272,37 @@ CAM 1 MEDIUM on Neil McManistan
 
 ::scene ACT_2
 
-NEIL_MCMANISTAN:
+Neil Mcmanistan:
 Where was I...
 
-CAPTAIN_NGUYEN:
+Captain Nguyen:
 Maybe we should move on.
 
-NEIL_MCMANISTAN:
+Neil Mcmanistan:
 MAYBE YOU SHOULD MOVE ON!
 
-CAPTAIN_NGUYEN:
+Captain Nguyen:
 You know that's not what I meant. Let's get to the top 10.
 
-NEIL_MCMANISTAN:
+Neil Mcmanistan:
 OK here's my top ten conspiracy theories of the week, as always I will be fielding calls but only at the end of the programme please, I know our phone lines are already lighting up, our operators are standing by...
 
-CAPTAIN_NGUYEN:
+Captain Nguyen:
 No one calls this show. This phone isn't even that type of phone. It's a payphone. You have a basement payphone. I didn't even think that was possible.
 
-NEIL_MCMANISTAN:
+Neil Mcmanistan:
 She fuckin took everything man...
 
-CAPTAIN_NGUYEN:
+Captain Nguyen:
 Let's try and move on.
 
-NEIL_MCMANISTAN:
+Neil Mcmanistan:
 That's what Barb told my kids and my dog.
 
-CAPTAIN_NGUYEN:
+Captain Nguyen:
 For christ sake.
 
-NEIL_MCMANISTAN:
+Neil Mcmanistan:
 Just put the fuckin number up man, put up my number so my fans can call in.
 
 TICKER
@@ -316,55 +313,55 @@ SHOT
 The number crawls across the bottom of the screen. It is the suicide hotline. It is being towed by a centaur playing electric guitar. Behind the centaur, a graphic element features Hulk Hogan pointing directly at the audience with one finger. He appears to be saying something encouraging.
 SHOT_END
 
-NEIL_MCMANISTAN:
+Neil Mcmanistan:
 WHAT THE FUCK WAS THAT MAN?! WAS THAT THE SUICIDE HOTLINE NUMBER?!
 
-NEIL_MCMANISTAN:
+Neil Mcmanistan:
 And why was Hulk Hogan involved?
 
-CAPTAIN_NGUYEN:
+Captain Nguyen:
 The Hulkster was your idea.
 
-NEIL_MCMANISTAN:
+Neil Mcmanistan:
 Why the hell was it my idea when was that ever my idea to have Hulk Hogan telling my audience not to kill themselves?!
 
-CAPTAIN_NGUYEN:
+Captain Nguyen:
 I got a voicemail at 3 am. It sounded like you were drunk but you were quite insistent that we should use the Hulkster in a graphic for the show.
 
-NEIL_MCMANISTAN:
+Neil Mcmanistan:
 Since when did that mean get the Hulkster to tell my fans not to kill themselves after the divorce?! I was watching the Netflix documentary!
 
-CAPTAIN_NGUYEN:
+Captain Nguyen:
 That's on me. I thought you'd appreciate the levity.
 
-NEIL_MCMANISTAN:
+Neil Mcmanistan:
 The Hulkster wouldn't stand for this. It was all a smear anyways, and we all know why...
 
-CAPTAIN_NGUYEN:
+Captain Nguyen:
 What are you talking about man?
 
-NEIL_MCMANISTAN:
+Neil Mcmanistan:
 These Hollywood jews hate to see a blonde haired blue eyed macho friend of Jesus win.
 
-CAPTAIN_NGUYEN:
+Captain Nguyen:
 You can't keep saying jews!
 
-NEIL_MCMANISTAN:
+Neil Mcmanistan:
 Why is Barb gonna go get her big jew lawyer to come after me, you know they love to litigate —
 
-CAPTAIN_NGUYEN:
+Captain Nguyen:
 Jesus!
 
-NEIL_MCMANISTAN:
+Neil Mcmanistan:
 YOU CANT SQUEEZE BLOOD FROM A STONE BARBRA I KNOW WHO DROVE US APART AND I HEARS THE TRUTH IS REALLY BAD!
 
-NEIL_MCMANISTAN:
+Neil Mcmanistan:
 IS REALLY BAD.
 
-NEIL_MCMANISTAN:
+Neil Mcmanistan:
 ISRAELI BAD!
 
-NEIL_MCMANISTAN:
+Neil Mcmanistan:
 PRESS THE RED BUTTON NGUYEN!
 
 CAM 3 SWING to Nguyen in the corner
@@ -377,13 +374,13 @@ SHOT_END
 
 CAM 1 BACK to Neil McManistan
 
-CAPTAIN_NGUYEN:
+Captain Nguyen:
 You can't have a Jew button are you insane!
 
-NEIL_MCMANISTAN:
+Neil Mcmanistan:
 THEN WHY DO THESE JEWS KEEP PUSHING MY BUTTONS?!
 
-CAPTAIN_NGUYEN:
+Captain Nguyen:
 I'm cutting to break.
 
 ACTION npc_neil_mcmanistan seizes Camera 1 and wrenches it toward Nguyen.
@@ -394,26 +391,26 @@ SHOT
 The camera swings wildly between the two men, catching ceiling, floor, the laundromat pipes, and half-illuminated faces in roughly equal measure.
 SHOT_END
 
-NEIL_MCMANISTAN:
+Neil Mcmanistan:
 DO YOU HAVE TROUBLE GETTING IT UP CUZ YOUR WIFE WAS AN UGLY PIG?!
 
-CAPTAIN_NGUYEN:
+Captain Nguyen:
 Give me that!
 
-NEIL_MCMANISTAN:
-WELL LOOK NO FURTHER THAN CAPTAIN NGUYEN'S MAGIC ROOT! AVAILABLE VIA PAYPAL —
+Neil Mcmanistan:
+WELL LOOK NO FURTHER THAN Captain Nguyen'S MAGIC ROOT! AVAILABLE VIA PAYPAL —
 
 CAM 1 SNAPS to Nguyen's midsection
 
 ACTION npc_nguyen reaches into his trousers and produces a strange, gnarled red root, which he holds aloft with quiet dignity.
 
-CAPTAIN_NGUYEN:
+Captain Nguyen:
 THAT'S ENOUGH! I'VE HAD ENOUGH! I'M PULLING THE PLUG —
 
-NEIL_MCMANISTAN:
+Neil Mcmanistan:
 She took everything. I'm living off tinned beans here. Let a man eat.
 
-CAPTAIN_NGUYEN:
+Captain Nguyen:
 And now a word from our sponsor.
 
 ACTION npc_captain_nguyen releases Camera 1 and it drops to the concrete floor.
@@ -446,10 +443,12 @@ LAWYER:
 Do you ever wonder what your life could be, if this guy wasn't holding you back?
 
 SHOT
+
 The footage cuts abruptly to grainy home video: a man in a wife-beater and dirty underpants, cracking a beer and lighting a cigarette while a baby plays with a fork near a wall socket.
+
 SHOT_END
 
-NEIL_MCMANISTAN:
+Neil Mcmanistan:
 WTF IS THAT ME?!
 
 SHOT
@@ -463,22 +462,22 @@ SHOT_END
 LAWYER:
 Let's bris this schmuck. Now cheaper — with our ten percent off circumcision discount! Spouses of gentiles now save ten percent!
 
-NEIL_MCMANISTAN:
+Neil Mcmanistan:
 YOU LET THEM RUN AN AD FOR MY EX WIFE'S JEW LAWYER?!
 
-CAPTAIN_NGUYEN:
+Captain Nguyen:
 He pays good money —
 
-NEIL_MCMANISTAN:
+Neil Mcmanistan:
 THAT'S MY MONEY!
 
-CAPTAIN_NGUYEN:
+Captain Nguyen:
 He's a friend of the show.
 
-NEIL_MCMANISTAN:
+Neil Mcmanistan:
 HE IS NOT A FRIEND OF THE SHOW THIS GUY RUINED MY LIFE —
 
-CAPTAIN_NGUYEN:
+Captain Nguyen:
 I'm muting your microphone.
 
 SHOT
@@ -503,7 +502,7 @@ The camera — which has been lying on the floor of the basement at a forty-five
 SHOT_END
 
 CAM 1 MEDIUM on Neil McManistan
-NEIL_MCMANISTAN:
+Neil Mcmanistan:
 Who makes an ad like that? That's like three antisemitic self-burns in a row. He looks like Jude Süss up there. This is egregious! I'm too riled up to continue. Nguyen, roll the credits!
 
 ACTION npc_nguyen rises from his barstool and produces a large flip chart from behind him with the calm efficiency of a man who was prepared for this.
@@ -538,35 +537,35 @@ END_CREDITS
 
 ::scene postcredits
 
-CAPTAIN_NGUYEN:
+Captain Nguyen:
 DIVORCE WINNER?!
 
-NEIL_MCMANISTAN:
+Neil Mcmanistan:
 Oh fuck off!
 
-NEIL_MCMANISTAN:
+Neil Mcmanistan:
 BIG GUY: Neil McManistan.
 
-NEIL_MCMANISTAN:
-CAPTAIN NGUYEN: Captain Nguyen.
+Neil Mcmanistan:
+Captain Nguyen: Captain Nguyen.
 
-CAPTAIN_NGUYEN:
-YOU CAN'T JUST CREDIT CAPTAIN NGUYEN AS THE CAPTAIN NGUYEN! I'M THE CAPTAIN NGUYEN!
+Captain Nguyen:
+YOU CAN'T JUST CREDIT Captain Nguyen AS THE Captain Nguyen! I'M THE Captain Nguyen!
 
 ACTION npc_nguyen flips to the next page of the flip chart.
 
-NEIL_MCMANISTAN:
+Neil Mcmanistan:
 TRAITOR: Gabe Owners.
 
-CAPTAIN_NGUYEN:
+Captain Nguyen:
 Real mature, man. Real mature. Your buddy Nguyen couldn't captain a rowboat — whipping out his root on live television, what the fuck was that?! She was right to leave you, man.
 
-NEIL_MCMANISTAN:
+Neil Mcmanistan:
 ... fair observation...
 
 ACTION npc_neil_mcmanistan pensively lights a cigarette, furrows his brow, and stares into the middle distance.
 
-NEIL_MCMANISTAN:
+Neil Mcmanistan:
 Join us next week when we are joined by our special guest — my wife's personal trainer — where we will fight a grudge match to the death!
 
 EVENT FADE_OUT

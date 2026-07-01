@@ -789,10 +789,10 @@ const ambient = [
   { id: 'amb_neon_hum',    name: 'amb_neon_hum',    category: 'environment', priority: 1, loop: 1, config: { waveform: 'square', freq: 220, gain: 0.08, noiseMix: 0.15, adsr: { a: 0.1, d: 0.1, s: 1, r: 0.2 }, filter: { type: 'lowpass', freq: 1500, q: 1 }, tremolo: { rate: 60, depth: 0.3 } } },
   { id: 'amb_tv_hum',      name: 'amb_tv_hum',      category: 'tv',          priority: 1, loop: 1, config: { waveform: 'sine', freq: 60, gain: 0.05, noiseMix: 0.15, adsr: { a: 0.5, d: 0.1, s: 1, r: 0.5 }, filter: { type: 'lowpass', freq: 400, q: 0.7 } } },
   { id: 'amb_tv_static',        name: 'amb_tv_static',        category: 'tv',          priority: 1, loop: 1, config: { waveform: 'noise', noiseMix: 1, gain: 0.6, filter: { type: 'highpass', freq: 700, q: 0.5 }, tremolo: { rate: 35, depth: 0.6 }, adsr: { a: 0.02, d: 0.02, s: 1, r: 0.3 } } },
-  // Wailing air-raid/tornado siren: sawtooth at 800 Hz center, slow vibrato sweeps
-  // 420–1180 Hz over ~3.6 s per cycle. Tremolo adds amplitude chop. High priority
-  // so it cuts through ambient bus. Used by Emergency Security Protocol.
-  { id: 'amb_emergency_siren',  name: 'amb_emergency_siren',  category: 'environment', priority: 5, loop: 1, config: { waveform: 'sawtooth', freq: 800, gain: 0.65, noiseMix: 0.04, filter: { type: 'lowpass', freq: 2200, q: 1.2 }, vibrato: { rate: 0.28, depth: 380 }, tremolo: { rate: 0.28, depth: 0.18 }, adsr: { a: 0.4, d: 0.1, s: 1, r: 1.5 } } },
+  // Tornado/air-raid siren: sawtooth at 550 Hz center, long vibrato sweeps
+  // 230–870 Hz over ~6.7 s per cycle. Lower pitch, slower sweep than original.
+  // Tremolo chop locked to sweep rate. High priority. Used by Emergency Security Protocol.
+  { id: 'amb_emergency_siren',  name: 'amb_emergency_siren',  category: 'environment', priority: 5, loop: 1, config: { waveform: 'sawtooth', freq: 550, gain: 0.65, noiseMix: 0.04, filter: { type: 'lowpass', freq: 1600, q: 1.2 }, vibrato: { rate: 0.15, depth: 320 }, tremolo: { rate: 0.15, depth: 0.18 }, adsr: { a: 0.6, d: 0.1, s: 1, r: 2.0 } } },
 ];
 
 // ── DB helpers ────────────────────────────────────────────────────────────────

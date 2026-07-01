@@ -1,8 +1,13 @@
-import { sendCmdSilent } from '../net.js';
+import { sendCmdSilent, sendRaw } from '../net.js';
 
 let deckData = null;
+const MAX_PREVIEW_LINES = 20;
 
-const LIGHT_LABEL = { green: 'LIVE — NO TAPE', orange: 'PLAYING TAPE', red: 'OFFLINE' };
+function _lightLabel(lightState, activeCassetteId) {
+  if (lightState === 'green') return 'LIVE';
+  if (lightState === 'orange') return activeCassetteId ? 'PLAYING TAPE' : 'ON AIR';
+  return 'OFFLINE';
+}
 
 // Local-only UI ambience, same per-viewer treatment as the TV hum/static in
 // panels/tv.js — tied to this panel's state, not shared multiplayer state.
@@ -48,13 +53,36 @@ export function openMediaDeckPanel(data) {
   renderMediaDeckPanel(data);
   document.getElementById('mediadeck-panel').classList.add('active');
   _setDeckWhir(data.lightState === 'orange');
+  // Clear preview on open and subscribe to channel broadcast
+  const previewMsgs = document.getElementById('mediadeck-preview-msgs');
+  if (previewMsgs) previewMsgs.innerHTML = '';
+  if (data.channelId) sendRaw({ type: 'deck_watch', channelId: data.channelId });
 }
 
 export function closeMediaDeckPanel() {
+  sendRaw({ type: 'deck_unwatch' });
   document.getElementById('mediadeck-panel').classList.remove('active');
   document.getElementById('mediadeck-load-picker').hidden = true;
   deckData = null;
   _setDeckWhir(false);
+}
+
+export function updateMediaDeckBroadcast(msg) {
+  const preview = document.getElementById('mediadeck-preview-msgs');
+  if (!preview) return;
+  const el = document.createElement('div');
+  el.className = 'mediadeck-preview-line';
+  el.textContent = msg.message || '';
+  preview.appendChild(el);
+  // spacer between lines
+  const sp = document.createElement('div');
+  sp.style.height = '0.4em';
+  preview.appendChild(sp);
+  // trim old lines
+  while (preview.children.length > MAX_PREVIEW_LINES * 2) {
+    preview.removeChild(preview.firstChild);
+  }
+  preview.scrollTop = preview.scrollHeight;
 }
 
 function formatTime(secondsSinceMidnight) {
@@ -64,7 +92,7 @@ function formatTime(secondsSinceMidnight) {
 }
 
 function renderMediaDeckPanel(data) {
-  const { deckName, channelName, channelNumber, lightState, activeCassetteId, cassettes, schedule } = data;
+  const { deckName, channelName, channelNumber, lightState, channelType, activeCassetteId, cassettes, schedule } = data;
 
   document.getElementById('mediadeck-name').textContent = deckName || 'Media Deck';
   document.getElementById('mediadeck-channel').textContent = channelName
@@ -73,7 +101,21 @@ function renderMediaDeckPanel(data) {
 
   const lightEl = document.getElementById('mediadeck-light');
   lightEl.className = 'mediadeck-light mediadeck-light-' + (lightState || 'red');
-  document.getElementById('mediadeck-light-label').textContent = LIGHT_LABEL[lightState] || 'OFFLINE';
+  document.getElementById('mediadeck-light-label').textContent = _lightLabel(lightState, activeCassetteId);
+
+  const previewHeader = document.getElementById('mediadeck-preview-header');
+  if (previewHeader) {
+    if (!data.channelId || lightState === 'red') {
+      previewHeader.textContent = '— NO SIGNAL —';
+      previewHeader.className = 'mediadeck-preview-header mediadeck-preview-header-offline';
+    } else if (lightState === 'green') {
+      previewHeader.textContent = '⬤ LIVE';
+      previewHeader.className = 'mediadeck-preview-header mediadeck-preview-header-live';
+    } else {
+      previewHeader.textContent = '● ON AIR';
+      previewHeader.className = 'mediadeck-preview-header mediadeck-preview-header-scripted';
+    }
+  }
 
   const activeCassette = (cassettes || []).find(c => c.id === activeCassetteId);
   const cartridgeEl = document.getElementById('mediadeck-cartridge');
@@ -177,4 +219,7 @@ export function initMediaDeckPanel() {
   });
   document.getElementById('mediadeck-load-btn').addEventListener('click', showLoadPicker);
   document.getElementById('mediadeck-load-picker-cancel').addEventListener('click', hideLoadPicker);
+  document.getElementById('mediadeck-restart-btn').addEventListener('click', () => {
+    sendCmdSilent('_restartbroadcast');
+  });
 }

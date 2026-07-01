@@ -279,6 +279,14 @@ wss.on("connection", (ws) => {
 				emit("tv.unwatch", { playerId: session.playerId });
 			return;
 		}
+		if (msg.type === "deck_watch" || msg.type === "deck_unwatch") {
+			if (!session.playerId) return;
+			if (msg.type === "deck_watch" && msg.channelId)
+				emit("deck.watch", { playerId: session.playerId, channelId: msg.channelId });
+			else
+				emit("deck.unwatch", { playerId: session.playerId });
+			return;
+		}
 	});
 
 	ws.on("close", async () => {

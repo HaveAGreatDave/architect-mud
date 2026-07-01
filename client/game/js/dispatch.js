@@ -15,9 +15,9 @@ import { openLightViewDialog } from './panels/lightview.js';
 import { openMorphexPanel } from './panels/morphex.js';
 import { updateForecast } from './panels/forecast.js';
 import { openAtmPanel, closeAtmPanel, updateAtmPanel } from './panels/atm.js';
-import { openMediaDeckPanel } from './panels/mediadeck.js';
+import { openMediaDeckPanel, updateMediaDeckBroadcast } from './panels/mediadeck.js';
 import { openTvPanel, isTvOpen, getTvActiveChannelId, appendTvMessage, updateTvTicker, applyTvOverlay, clearTvMessages, showTvOffAir, showTvOnAir, shutdownTvPanel } from './panels/tv.js';
-import { applyEspState } from './esp.js';
+import { applyEspState, handleEspWarning } from './esp.js';
 
 
 const DEV_ROLES = ['admin', 'dev', 'builder', 'designer'];
@@ -366,9 +366,10 @@ const handlers = {
   morphex_panel: (msg) => { openMorphexPanel(msg.data); },
   atm_panel: (msg) => { openAtmPanel(msg); },
   mediadeck_panel: (msg) => { openMediaDeckPanel(msg); },
+  deck_broadcast:  (msg) => { updateMediaDeckBroadcast(msg); },
 
   esp_state:   (msg) => { applyEspState(msg); },
-  esp_warning: (msg) => { appendHtml(`<div class="esp-warning">${msg.message}</div>`, 'esp-warning'); },
+  esp_warning: (msg) => { handleEspWarning(msg); },
 
   audio_music: (msg) => { window.AudioEngine?.playMusic(msg.def); },
   audio_sfx: (msg) => { console.log('[audio] sfx received', msg.def?.id, msg.def?.name); window.AudioEngine?.playSfx(msg.def); },

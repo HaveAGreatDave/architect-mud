@@ -70,8 +70,17 @@ let storeGhostTokenFn = null;
 export function setGhostTokenStore(fn) { storeGhostTokenFn = fn; }
 
 // Record active player count every minute for the dashboard graph.
+// Deduplicate by email so multi-account users only count once.
 schedule('1m', async () => {
-  const count = getAllLivePlayers().length;
+  const liveIds = getAllLivePlayers().map(p => p.id);
+  let count = 0;
+  if (liveIds.length > 0) {
+    const { rows } = await query(
+      `SELECT COUNT(DISTINCT COALESCE(email, id::text)) AS n FROM players WHERE id = ANY($1)`,
+      [liveIds]
+    );
+    count = parseInt(rows[0].n, 10);
+  }
   await query(`INSERT INTO player_count_log (count) VALUES ($1)`, [count]);
   // Prune rows older than 7 days
   await query(`DELETE FROM player_count_log WHERE recorded_at < NOW() - INTERVAL '7 days'`);

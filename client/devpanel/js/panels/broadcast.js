@@ -3,6 +3,12 @@
 
 // ── Markup renderer (BBCode → HTML, no token expansion) ─────────────────────
 
+function _bcColorizeNpcSay(text) {
+  return text.replace(/^(.+?) says, "([\s\S]*)"$/, (_, name, speech) =>
+    `<span style="color:var(--tv-header-color,var(--accent));font-weight:700">${name}</span> says, "${speech}"`
+  );
+}
+
 function _bcMarkup(text) {
   let s = String(text ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   // Rainbow
@@ -2248,9 +2254,89 @@ let _bcpvInterval = 5000;
 let _bcpvTickerAnim = null;
 let _bcpvAnchor  = null; // current npc_anchor npc_id
 
+// ── CRT power-on/off helpers (shared by static + live preview) ───────────────
+
+function _bcpvInjectCrtStyles() {
+  if (document.getElementById('bcpv-crt-styles')) return;
+  const s = document.createElement('style');
+  s.id = 'bcpv-crt-styles';
+  s.textContent = `
+    @keyframes bcpv-crt-poweron {
+      0%   { transform:scaleY(0.012) scaleX(0);    filter:brightness(0);   }
+      20%  { transform:scaleY(0.012) scaleX(0.85); filter:brightness(2.5); }
+      45%  { transform:scaleY(0.012) scaleX(1);    filter:brightness(2);   }
+      65%  { transform:scaleY(1)     scaleX(1);    filter:brightness(1.5); }
+      100% { transform:scaleY(1)     scaleX(1);    filter:brightness(1);   }
+    }
+    @keyframes bcpv-crt-shutoff {
+      0%   { transform:scaleY(1)     scaleX(1);    filter:brightness(1); }
+      10%  { transform:scaleY(0.012) scaleX(1.04); filter:brightness(4); }
+      35%  { transform:scaleY(0.012) scaleX(0.35); filter:brightness(2); }
+      100% { transform:scaleY(0.012) scaleX(0);    filter:brightness(0); }
+    }
+    .bcpv-crt-on  { animation:bcpv-crt-poweron 0.6s ease-out forwards; pointer-events:none; }
+    .bcpv-crt-off { animation:bcpv-crt-shutoff 0.55s ease-in  forwards; pointer-events:none; }
+  `;
+  document.head.appendChild(s);
+}
+
+function _bcpvCrtSound(type) {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const t = ctx.currentTime;
+    if (type === 'on') {
+      // Noise burst (warmup)
+      const buf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * 0.15), ctx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      const ns = ctx.createBufferSource(), ng = ctx.createGain();
+      ng.gain.setValueAtTime(0.15, t); ng.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+      ns.buffer = buf; ns.connect(ng); ng.connect(ctx.destination); ns.start(t);
+      // Rising tone
+      const osc = ctx.createOscillator(), og = ctx.createGain();
+      osc.frequency.setValueAtTime(60, t); osc.frequency.exponentialRampToValueAtTime(800, t + 0.4);
+      og.gain.setValueAtTime(0.08, t); og.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+      osc.connect(og); og.connect(ctx.destination); osc.start(t); osc.stop(t + 0.5);
+      setTimeout(() => ctx.close(), 1000);
+    } else {
+      // Descending zap
+      const osc = ctx.createOscillator(), g = ctx.createGain();
+      osc.frequency.setValueAtTime(1200, t); osc.frequency.exponentialRampToValueAtTime(30, t + 0.3);
+      g.gain.setValueAtTime(0.12, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+      osc.connect(g); g.connect(ctx.destination); osc.start(t); osc.stop(t + 0.3);
+      // Noise burst
+      const buf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * 0.1), ctx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+      const ns = ctx.createBufferSource(), ng = ctx.createGain();
+      ng.gain.setValueAtTime(0.1, t); ng.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+      ns.buffer = buf; ns.connect(ng); ng.connect(ctx.destination); ns.start(t);
+      setTimeout(() => ctx.close(), 500);
+    }
+  } catch {}
+}
+
+function _bcpvCrtOn() {
+  _bcpvInjectCrtStyles();
+  _bcpvCrtSound('on');
+  const win = document.getElementById('bcpv-window');
+  if (!win) return;
+  win.classList.add('bcpv-crt-on');
+  win.addEventListener('animationend', () => win.classList.remove('bcpv-crt-on'), { once: true });
+}
+
+function _bcpvCrtOff(cb) {
+  _bcpvCrtSound('off');
+  const win = document.getElementById('bcpv-window');
+  if (win) {
+    win.classList.add('bcpv-crt-off');
+  }
+  setTimeout(cb, 600);
+}
+
 function bcPreviewBroadcast() {
   if (!_bcSelected) return;
-  _bcpvClose();
+  _bcpvClose(true);
 
   _bcpvCards   = _bcCards.filter(c => c.type !== 'start');
   _bcpvIdx     = 0;
@@ -2313,15 +2399,19 @@ function bcPreviewBroadcast() {
 
   document.body.appendChild(modal);
   modal.addEventListener('click', e => { if (e.target === modal) _bcpvClose(); });
+  _bcpvCrtOn();
 
   _bcpvStep();
 }
 
-function _bcpvClose() {
+function _bcpvClose(instant = false) {
   clearTimeout(_bcpvTimer);
   _bcpvTimer = null;
   if (_bcpvTickerAnim) { cancelAnimationFrame(_bcpvTickerAnim); _bcpvTickerAnim = null; }
-  document.getElementById('bcpv-modal')?.remove();
+  const modal = document.getElementById('bcpv-modal');
+  if (!modal) return;
+  if (instant) { modal.remove(); return; }
+  _bcpvCrtOff(() => modal.remove());
 }
 
 function _bcpvRestart() {
@@ -2361,16 +2451,19 @@ function _bcpvStep() {
   _bcpvUpdateStatus(`Card ${_bcpvIdx + 1} / ${_bcpvCards.length}  ·  ${card.type}`);
 
   if (card.type === 'npc_anchor') {
-    _bcpvAnchor = card.npc_id || null;
+    const npcId = card.npc_id || null;
+    const npcRec = npcId && (_bcSuiteData.npcs || _bcNpcCache?.npcs || []).find(n => n.id === npcId);
+    _bcpvAnchor = npcRec?.name || (npcId ? npcId.replace(/^npc_/, '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : null);
     delay = 0;
 
   } else if (card.type === 'say' || card.type === 'stage_direction' || card.type === 'ambient') {
     const style = card.style || 'raw';
     const text = card.text || '';
-    const attributed = (_bcpvAnchor && card.type === 'say')
+    const isNarration = style === 'narration' || style === 'ambient' || card.type === 'ambient';
+    const attributed = (!isNarration && _bcpvAnchor && card.type === 'say')
       ? `<span style="color:var(--tv-header-color);font-weight:700">${escHtml(_bcpvAnchor)}</span> says "${escHtml(text)}"`
       : text;
-    _bcpvAppend(attributed, style === 'raw' ? 'tv-msg-raw' : `tv-msg-${style}`, true);
+    _bcpvAppend(attributed, style === 'raw' ? 'tv-msg-raw' : `tv-msg-${style}`, !isNarration);
     delay = _bcpvInterval;
 
   } else if (card.type === 'ticker') {
@@ -2501,9 +2594,9 @@ let _bcLiveChId   = null;
 
 function bcLivePreview(channelId, channelName, studioZoneId) {
   // Close any static preview that might be open
-  _bcpvClose();
+  _bcpvClose(true);
   // Close any previous live preview
-  _bcLiveClose();
+  _bcLiveClose(true);
 
   _bcLiveChId = channelId;
 
@@ -2553,6 +2646,7 @@ function bcLivePreview(channelId, channelName, studioZoneId) {
 
   document.body.appendChild(modal);
   modal.addEventListener('click', e => { if (e.target === modal) _bcLiveClose(); });
+  _bcpvCrtOn();
 
   _bcLiveConnect(channelId, studioZoneId);
 }
@@ -2651,13 +2745,16 @@ async function _bcLiveConnect(channelId, studioZoneId) {
   });
 }
 
-function _bcLiveClose() {
+function _bcLiveClose(instant = false) {
   if (_bcLiveWs) {
     try { _bcLiveWs.close(); } catch {}
     _bcLiveWs = null;
   }
   _bcLiveChId = null;
-  document.getElementById('bcpv-modal')?.remove();
+  const modal = document.getElementById('bcpv-modal');
+  if (!modal) return;
+  if (instant) { modal.remove(); return; }
+  _bcpvCrtOff(() => modal.remove());
 }
 
 function _bcLiveHandleOffAir(msg) {
@@ -2699,7 +2796,7 @@ function _bcLiveAppend(text, style) {
   } else {
     el = document.createElement('div');
     el.style.cssText = 'font-size:12px;line-height:1.5;color:var(--tv-text);word-break:break-word';
-    el.innerHTML = _bcMarkup(text);
+    el.innerHTML = _bcMarkup(_bcColorizeNpcSay(text));
   }
 
   msgs.appendChild(el);

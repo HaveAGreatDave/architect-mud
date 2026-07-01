@@ -36,10 +36,14 @@ const furnitureChannelIndex = new Map();
 
 // tvWatchers.get(playerId) = channelId — players who currently have the TV panel open.
 const tvWatchers = new Map();
+// deckWatchers.get(playerId) = channelId — players with the mediadeck preview open.
+const deckWatchers = new Map();
 
 on('tv.watch',   ({ playerId, channelId }) => tvWatchers.set(playerId, channelId));
 on('tv.unwatch', ({ playerId })           => tvWatchers.delete(playerId));
-on('player.logout', ({ id })              => tvWatchers.delete(id));
+on('deck.watch',   ({ playerId, channelId }) => deckWatchers.set(playerId, channelId));
+on('deck.unwatch', ({ playerId })            => deckWatchers.delete(playerId));
+on('player.logout', ({ id })              => { tvWatchers.delete(id); deckWatchers.delete(id); });
 
 // studioZoneIndex.get(studioZoneId) = channelId
 // Enables O(1) lookup in zone.broadcast relay listener.
@@ -467,6 +471,21 @@ async function getCurrentMessage(state, nowMs) {
   return null;
 }
 
+// ── Broadcast restart ─────────────────────────────────────────────────────────
+
+function restartChannelBroadcast(channelId) {
+  const state = channelRuntime.get(channelId);
+  if (!state) return false;
+  // Null the activeBroadcastId so tickBroadcastGraph resets to _start on the next tick
+  if (state.graphBlackboard) state.graphBlackboard.activeBroadcastId = null;
+  state.lastMsgKey = '';
+  // Evict deck cache for every zone tuned to this channel so flat-list position resets too
+  for (const [zoneId, tunings] of zoneTunings) {
+    if (tunings.has(channelId)) _deckCache.delete(zoneId);
+  }
+  return true;
+}
+
 // ── Media deck playback ───────────────────────────────────────────────────────
 
 // Cache: zoneId → { broadcastId, messages, message_interval, fetchedAt }
@@ -571,6 +590,10 @@ async function broadcastTick() {
         } else if (watchersHere.length > 0 && result.speech) {
           sendToPlayer(player.id, { type: 'broadcast_ambient', speechText: result.speechText, channel: channelId });
         }
+        // Deck preview — independent of TV panel subscription
+        if (deckWatchers.get(player.id) === channelId && formatted) {
+          sendToPlayer(player.id, { type: 'deck_broadcast', message: formatted, channel: channelId, style: result.style || 'raw' });
+        }
       }
       emit('broadcast.message', { channelId, zoneId, text: result.text });
     }
@@ -664,12 +687,22 @@ on('zone.broadcast', ({ zoneId, msg }) => {
   // Only relay player-visible events (speech, say, zone_event) — not combat or system messages
   if (msg.type !== 'output' && msg.type !== 'zone_event' && msg.type !== 'say') return;
   if (!msg.message) return;
+  const sentDeck = new Set();
   for (const [viewZoneId, channelMap] of zoneTunings) {
     if (!channelMap.has(channelId)) continue;
     const players = getZonePlayers(viewZoneId);
     for (const player of players) {
       sendToPlayer(player.id, { type: 'broadcast', message: msg.message, channel: channelId, style: 'raw' });
+      if (deckWatchers.get(player.id) === channelId) {
+        sendToPlayer(player.id, { type: 'deck_broadcast', message: msg.message, channel: channelId, style: 'raw' });
+        sentDeck.add(player.id);
+      }
     }
+  }
+  // Also send to deck watchers not already covered by a tuned zone
+  for (const [playerId, watchChId] of deckWatchers) {
+    if (watchChId !== channelId || sentDeck.has(playerId)) continue;
+    sendToPlayer(playerId, { type: 'deck_broadcast', message: msg.message, channel: channelId, style: 'raw' });
   }
   state.wasActive = true;
 });
@@ -1489,8 +1522,8 @@ async function cmdSelectCassette(args, raw, player) {
 // ── Media Deck panel (client overlay) ─────────────────────────────────────────
 
 function _deckLightState(channelType, deckActive) {
-  if (deckActive) return 'orange';
   if (channelType === 'live') return 'green';
+  if (deckActive || channelType) return 'orange'; // scripted/news channel or tape inserted
   return 'red';
 }
 
@@ -1536,7 +1569,12 @@ async function buildMediaDeckPanel(deckId, player) {
     }));
   }
 
-  const lightState = _deckLightState(state?.channelType, dflags.deck_active);
+  let channelType = state?.channelType ?? null;
+  if (!channelType && channelId) {
+    const { rows: chTypeRows } = await query('SELECT channel_type FROM media_channels WHERE id=$1 AND enabled=1', [channelId]);
+    channelType = chTypeRows[0]?.channel_type ?? null;
+  }
+  const lightState = _deckLightState(channelType, dflags.deck_active);
 
   const { rows: invRows } = await query(
     `SELECT i.name FROM player_inventory pi
@@ -1554,11 +1592,13 @@ async function buildMediaDeckPanel(deckId, player) {
     channelId,
     channelName: state?.name || null,
     channelNumber: state?.number ?? null,
+    channelType,
     lightState,
     activeCassetteId: dflags.deck_active || null,
     cassettes,
     schedule,
     inventoryCassettes: invRows.map(r => ({ name: r.name })),
+    isAdminOrDev: player.role === 'admin' || player.role === 'dev',
   });
   return { type: 'output', message: `You examine the ${deck.name}.` };
 }
@@ -1808,6 +1848,21 @@ async function cmdTvFreq(args, raw, player) {
   return null; // silent — no output to player
 }
 
+async function cmdRestartBroadcast(args, raw, player) {
+  if (!player || (player.role !== 'admin' && player.role !== 'dev')) {
+    return { type: 'error', message: 'Access denied.' };
+  }
+  const deck = await _findDeckInZone(player.current_zone);
+  if (!deck) return { type: 'error', message: 'No media deck in this zone.' };
+  const dflags = typeof deck.flags === 'object' ? deck.flags : JSON.parse(deck.flags || '{}');
+  const channelId = dflags.channel_id || null;
+  if (!channelId) return { type: 'error', message: 'Deck is not linked to a channel.' };
+  const ok = restartChannelBroadcast(channelId);
+  return ok
+    ? { type: 'output', message: 'Broadcast restarted from the top.' }
+    : { type: 'error', message: 'Channel not found in runtime.' };
+}
+
 export const commands = {
   tune:  cmdTune,
   watch: cmdWatch,
@@ -1971,6 +2026,13 @@ export const routeHandler = async (path, method, body, auth) => {
           await loadChannelRuntimes();
           return { status: 200, body: { message: 'Playlist updated' } };
         }
+      }
+
+      if (id && sub === 'restart' && method === 'POST') {
+        const ok = restartChannelBroadcast(id);
+        return ok
+          ? { status: 200, body: { message: 'Channel broadcast restarted.' } }
+          : { status: 404, body: { error: 'Channel not found or not running.' } };
       }
 
       if (!id && method === 'GET') {
@@ -2918,5 +2980,6 @@ setInterval(broadcastTick, 5000);
 
 // Register _tvfreq as a silent internal command (not listed in plugin.json, invisible to HELP)
 registerCommand('_tvfreq', cmdTvFreq);
+registerCommand('_restartbroadcast', cmdRestartBroadcast);
 
 console.log(`[broadcast] Plugin loaded. ${channelRuntime.size} channel(s), ${zoneTunings.size} tuned zone(s), ${graphicsCache.size} graphic(s).`);

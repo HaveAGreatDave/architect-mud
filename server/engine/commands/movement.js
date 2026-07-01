@@ -8,6 +8,15 @@ import { computeCarriedWeight, carryCapacity, formatWeight } from './inventory.j
 
 const RAW_DIRECTIONS = ['north', 'south', 'east', 'west', 'up', 'down', 'in', 'out', 'exit'];
 
+function buildArriveMsg(name, arrivalDir, sourceZoneName) {
+  if (arrivalDir === 'out') return `${name} arrives from outside.`;
+  if (arrivalDir === 'in')  return `${name} emerges from ${sourceZoneName}.`;
+  if (arrivalDir === 'up')  return `${name} descends the stairs.`;
+  if (arrivalDir === 'down') return `${name} climbs the stairs.`;
+  if (arrivalDir)           return `${name} arrives from the ${arrivalDir}.`;
+  return `${name} arrives.`;
+}
+
 async function cmdLookThroughWindow(win, player) {
   if (!win.curtain_open && win.glass_state !== 'broken') {
     return { type:'examine', message:`The curtains are drawn. You can't see through ${win.name}.` };
@@ -267,7 +276,7 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
       : `${player.handle} heads ${direction}.`;
   const arriveMsg = (doorWasLocked || doorWasClosed)
     ? (arrivalDir ? `${player.handle} comes through the door from the ${arrivalDir}.` : `${player.handle} comes through the door.`)
-    : (arrivalDir ? `${player.handle} arrives from the ${arrivalDir}.` : `${player.handle} arrives.`);
+    : buildArriveMsg(player.handle, arrivalDir, zone.name);
   broadcast(zone.id, { type:'zone_event', message: departMsg, refresh: true }, player.id);
   broadcast(targetId, { type:'zone_event', message: arriveMsg, refresh: true }, player.id);
 
