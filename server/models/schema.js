@@ -920,6 +920,53 @@ export const SCHEMA_SQL = `
     used       BOOLEAN NOT NULL DEFAULT FALSE
   );
   CREATE INDEX IF NOT EXISTS idx_evt_token ON email_verification_tokens(token);
+
+  -- ── Scavenging system ────────────────────────────────────────────────────────
+  -- A scavenging_tables row is a reusable *template*: a named loot pool with a
+  -- replenish cadence and optional per-table message overrides. A zone opts in via
+  -- zones.flags.scavenging_table_id. Depletion/replenish is tracked PER-ZONE (see
+  -- scavenging_zone_stock / scavenging_zone_state), so the same template can be
+  -- shared across many zones without them sharing a stock pool.
+  -- messages: nullable JSONB { "player": [...], "broadcast": [...] } — empty/absent
+  -- keys fall back to the plugin's built-in default pools.
+  CREATE TABLE IF NOT EXISTS scavenging_tables (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    replenish_interval_seconds INTEGER NOT NULL DEFAULT 300,
+    messages JSONB DEFAULT '{}',
+    flags JSONB DEFAULT '{}'
+  );
+
+  -- Template loot entries. difficulty plays the role of an opposing skill in the
+  -- 2d8-2d8 scavenging check; weight biases both the per-attempt pick and the
+  -- replenish pick; max_qty caps how much of this item a zone can hold.
+  CREATE TABLE IF NOT EXISTS scavenging_table_items (
+    id TEXT PRIMARY KEY,
+    table_id TEXT NOT NULL REFERENCES scavenging_tables(id) ON DELETE CASCADE,
+    item_id TEXT NOT NULL,
+    difficulty INTEGER NOT NULL DEFAULT 5,
+    weight INTEGER NOT NULL DEFAULT 10,
+    max_qty INTEGER NOT NULL DEFAULT 3
+  );
+  CREATE INDEX IF NOT EXISTS idx_scav_items_table ON scavenging_table_items(table_id);
+
+  -- Per-zone live stock. One row per (zone, item); current_qty is the remaining
+  -- count a scavenger can still pull. Initialised to the template's max_qty the
+  -- first time a zone is scavenged.
+  CREATE TABLE IF NOT EXISTS scavenging_zone_stock (
+    zone_id TEXT NOT NULL,
+    item_id TEXT NOT NULL,
+    current_qty INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (zone_id, item_id)
+  );
+
+  -- Per-zone replenish clock. last_replenish is the epoch-seconds anchor the lazy
+  -- catch-up computation advances from (one table per zone via zones.flags).
+  CREATE TABLE IF NOT EXISTS scavenging_zone_state (
+    zone_id TEXT PRIMARY KEY,
+    table_id TEXT NOT NULL,
+    last_replenish BIGINT NOT NULL DEFAULT 0
+  );
 `;
 
 export async function applySchema() {

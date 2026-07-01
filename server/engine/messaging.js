@@ -16,7 +16,8 @@ export function sendToPlayer(playerId, message) {
   if (broadcastFn && playerId) broadcastFn(null, message, null, playerId);
 }
 
-// Broadcast a message to all players currently in a zone.
-export function sendToZone(zoneId, message) {
-  if (broadcastFn && zoneId) broadcastFn(zoneId, message);
+// Broadcast a message to all players currently in a zone, optionally excluding
+// one player id (e.g. the actor who triggered the event).
+export function sendToZone(zoneId, message, excludeId = null) {
+  if (broadcastFn && zoneId) broadcastFn(zoneId, message, excludeId);
 }
