@@ -1124,14 +1124,19 @@ async function _bcImportChPickOccupied(zoneId, zoneName, el) {
     if (lbl) lbl.textContent = `No studio in ${zoneName} — will create one.`;
   }
 
-  _bcImportChZone = { exteriorId: zoneId, existingId: studioZoneId, existingName: zoneName, fromMap: true, needsEnsure: true };
-
   const studioRow = document.getElementById('bsm-new-ch-studio-row');
   const studioInput = document.getElementById('bsm-new-ch-studio-name');
-  if (studioRow) studioRow.style.display = 'block';
-  if (studioInput && !studioInput.value) {
-    const chName = document.getElementById('bsm-new-ch-name')?.value?.trim();
-    studioInput.value = chName ? `${chName} Studio` : '';
+  if (studioZoneId) {
+    // Existing studio found — use it directly, same as a list-pick (no create/confirm step)
+    _bcImportChZone = { existingId: studioZoneId, existingName: zoneName };
+    if (studioRow) studioRow.style.display = 'none';
+  } else {
+    _bcImportChZone = { exteriorId: zoneId, existingId: null, existingName: zoneName, fromMap: true, needsEnsure: true };
+    if (studioRow) studioRow.style.display = 'block';
+    if (studioInput && !studioInput.value) {
+      const chName = document.getElementById('bsm-new-ch-name')?.value?.trim();
+      studioInput.value = chName ? `${chName} Studio` : '';
+    }
   }
   const btn = document.getElementById('bsm-ch-picker-confirm');
   if (btn) btn.removeAttribute('disabled');

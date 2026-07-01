@@ -175,6 +175,12 @@ const PANELS = {
     noEdit: true,
     render: renderBankPanel,
   },
+  emergency: {
+    title: 'Emergency',
+    fetch: () => directAPI('/emergency/state'),
+    noEdit: true,
+    render: renderEmergencyPanel,
+  },
   worldstate: {
     title: 'World State',
     fetch: () => API('/world/state'),

@@ -1,0 +1,606 @@
+@broadcast "You're Not Gonna Believe This Shit With Neil McManistan"
+@channel public_access_11
+@category late_night
+@host npc_neil_mcmanistan
+@type live
+@length 1800
+
+::actors
+@actor npc_neil_mcmanistan
+@alias npc_neil_mcmanistan NEIL_MCMANISTAN
+@alias npc_neil_mcmanistan NEIL
+
+@actor npc_captain_nguyen
+@alias npc_captain_nguyen CAPTAIN_NGUYEN
+
+@actor npc_nguyen
+@alias npc_nguyen NGUYEN
+
+@actor npc_jerry_rosenberg
+@alias npc_jerry_rosenberg LAWYER
+
+@actor npc_narrator
+@alias npc_narrator NARRATOR
+
+::endactors
+
+::asset hungry_man_just_meats_logo
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                                                                              ║
+║  ██╗  ██╗██╗   ██╗███╗   ██╗ ██████╗ ██████╗ ██╗   ██╗                   ║
+║  ██║  ██║██║   ██║████╗  ██║██╔════╝ ██╔══██╗╚██╗ ██╔╝                   ║
+║  ███████║██║   ██║██╔██╗ ██║██║  ███╗██████╔╝ ╚████╔╝                    ║
+║  ██╔══██║██║   ██║██║╚██╗██║██║   ██║██╔══██╗  ╚██╔╝                     ║
+║  ██║  ██║╚██████╔╝██║ ╚████║╚██████╔╝██║  ██║   ██║                      ║
+║  ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝ ╚═════╝ ╚═╝  ╚═╝   ╚═╝                      ║
+║                                                                              ║
+║      ███╗   ███╗ █████╗ ███╗   ██╗                                        ║
+║      ████╗ ████║██╔══██╗████╗  ██║                                        ║
+║      ██╔████╔██║███████║██╔██╗ ██║                                        ║
+║      ██║╚██╔╝██║██╔══██║██║╚██╗██║                                        ║
+║      ██║ ╚═╝ ██║██║  ██║██║ ╚████║                                        ║
+║      ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝                                        ║
+║                                                                              ║
+║  ╔══════════════════════════════════════════════════════════════════════╗  ║
+║  ║    ▶  J U S T   T H E   M E A T S ™                                ║  ║
+║  ╚══════════════════════════════════════════════════════════════════════╝  ║
+║                                                                              ║
+║          "She can't control you anymore, king."                              ║
+║                                                                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+::endasset
+
+::asset jerry_rosenberg_logo
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                                                                              ║
+║     ██╗███████╗██████╗ ██████╗ ██╗   ██╗                                  ║
+║     ██║██╔════╝██╔══██╗██╔══██╗╚██╗ ██╔╝                                  ║
+║     ██║█████╗  ██████╔╝██████╔╝ ╚████╔╝                                   ║
+║██   ██║██╔══╝  ██╔══██╗██╔══██╗  ╚██╔╝                                    ║
+║╚█████╔╝███████╗██║  ██║██║  ██║   ██║                                     ║
+║ ╚════╝ ╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝                                     ║
+║                                                                              ║
+║  ██████╗  ██████╗ ███████╗███████╗███╗  ██╗██████╗ ███████╗██████╗  ██████╗║
+║  ██╔══██╗██╔═══██╗██╔════╝██╔════╝████╗ ██║██╔══██╗██╔════╝██╔══██╗██╔════╝║
+║  ██████╔╝██║   ██║███████╗█████╗  ██╔██╗██║██████╔╝█████╗  ██████╔╝██║  ███╗║
+║  ██╔══██╗██║   ██║╚════██║██╔══╝  ██║╚██╗██║██╔══██╗██╔══╝  ██╔══██╗██║   ██║║
+║  ██║  ██║╚██████╔╝███████║███████╗██║ ╚███║██████╔╝███████╗██║  ██║╚██████╔╝║
+║  ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚══════╝╚═╝  ╚══╝╚═════╝ ╚══════╝╚═╝  ╚═╝ ╚═════╝║
+║                                                                              ║
+║              ═══  F A M I L Y   L A W  ═══                                 ║
+║                                                                              ║
+║                       "divorce attorney"                                     ║
+║                                                                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+::endasset
+
+::scene COLD_OPEN
+
+EVENT FADE_IN
+
+TITLE divorced
+
+ROOM zone_neil_basement
+
+SHOT
+The screen holds black. In the deep background, footsteps approach slowly through darkness. A faint reverb hangs in the air — the acoustic signature of a basement. Above it, muffled but unmistakable, the din of a bustling Vietnamese laundromat drifts down through the ceiling.
+SHOT_END
+
+NEIL_MCMANISTAN:
+FUCK!
+
+ACTION npc_neil_mcmanistan trips violently over a chair, which screeches across the concrete floor and detonates into a wall of empty beer cans and food containers.
+
+SHOT
+A bare lightbulb swings into frame on its pull-string. It flickers on, casting a slow pendulum of amber light across a dishevelled man in a dirty wife-beater seated at a table. In front of him sits a microphone from the 1930s.
+SHOT_END
+
+CAM 1 PULL_BACK on Neil McManistan at the table
+
+SHOT
+The camera slowly pulls back. The host is wearing combat boots. He is not wearing pants. These two facts are presented without comment.
+SHOT_END
+
+NEIL_MCMANISTAN:
+you're not gonna believe this shit
+
+CAM 2 SIDE_PROFILE on Neil McManistan
+
+ACTION npc_neil_mcmanistan pulls out a Zippo lighter and ignites a cigarette with the ease of a man who has been doing this since before it was legal.
+
+OVERLAY
+█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█
+You're not gonna believe this shit
+                           With Neil McManistan!
+█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█
+OVERLAY_END
+
+SHOT
+The banner is made entirely of letters cut from various magazines and newspapers — ransom-note style. It crashes onto the screen with no ceremony whatsoever.
+SHOT_END
+
+EVENT DISSOLVE
+
+SHOT
+The basement dissolves to a sprawling conspiracy web: cork board, yarn, thumbtacks. Charlie Kirk is connected to Benito Mussolini by a red string. Both are connected to a laminated photograph of a lizard. Scattered across the map: celebrities, geopolitical figures, and anti-Zionist imagery of considerable ambition. It is the work of a very troubled and extremely productive man.
+SHOT_END
+
+SHOT
+The scene snaps into a hard spin cut — synchronized to the wet, gurgling crescendo of a bong reaching its full percolation. We slam back to the basement.
+SHOT_END
+
+ACTION npc_neil_mcmanistan doubles over the table in a monumental coughing fit, a thick cloud of smoke escaping in every direction.
+
+CAM 1 CLOSEUP on Neil McManistan
+
+::scene ACT_1
+
+NEIL_MCMANISTAN:
+They must think that I'm retarded. You'd have to be retarded not to put this together, and as sure as Barb took the kids the Jews will get me for this.
+
+CAPTAIN_NGUYEN:
+Jesus christ Neil we talked about this shit man you're gonna get us kicked off public access we need this man.
+
+NEIL_MCMANISTAN:
+Im sorry, I'm sorry where was I. I'll tell you where I was, I was at the grocery store and they had a coupon, Tim Horton's iced coffee syrup, save 2 dollars. And you know how I feel about Singh Hortons...
+
+CAPTAIN_NGUYEN:
+CUT!
+
+SHOT
+A beep sounds. Neil nods at the camera. The show resumes.
+SHOT_END
+
+ACTION npc_neil_mcmanistan gives the camera a slow, deliberate nod.
+
+CAM 1 CLOSEUP on Neil McManistan
+
+NEIL_MCMANISTAN:
+these fuckin grocery barons are sucking us dry! I had this coupon, and lo and behold, ill give it a go, why not save a few bucks. Regular price 8 bucks, brought it down to 6 with the coupon, but i price matched it down to 6 so the coupon made it 4....
+
+CAPTAIN_NGUYEN:
+What the fuck are you talking about and get to the point!
+
+SHOT
+The producer delivers this in a frantic whisper from somewhere just off-camera. It is not a quiet whisper.
+SHOT_END
+
+NEIL_MCMANISTAN:
+Anyways I went back into the place for some vittles a week later, no 2 dollar off coupons, but the same bottle of syrup was now 2 dollars cheaper now that there were no coupons. Those greedy pricks they must think that we are SAPS!
+
+ACTION npc_neil_mcmanistan slams his fist on the table. The ashtray goes airborne. The camera jerks up and snaps directly into Neil's face.
+
+CAM 1 SNAP_TIGHT on Neil McManistan
+
+NEIL_MCMANISTAN:
+Don't even get me started on that shithole hortons, its harder than Chinese calculus trying to get a jesus coffee in there, they gotta get some teenage girls in there, not like that, not at all, never...
+
+CAPTAIN_NGUYEN:
+Jesus christ man you can't keep saying that shit.
+
+NEIL_MCMANISTAN:
+Pause, no diddy, respectfully.
+
+CAPTAIN_NGUYEN:
+THATS NOT HELPING!
+
+NEIL_MCMANISTAN:
+And now a word from our sponsor:
+
+CAM 3 SWING to the far corner of the basement
+
+SHOT
+The camera drifts wide to catch the far corner of the basement. Perched on a barstool, just at the edge of the visible set, is an old Vietnamese man. He is holding a small brown paper bag. He has been there the entire time.
+SHOT_END
+
+CAPTAIN_NGUYEN:
+Who the hell is that?!
+
+NEIL_MCMANISTAN:
+Thats fuckin, nguyen, man, hey nguyen say hi.
+
+NGUYEN:
+[Extended Vietnamese at considerable volume, followed by a long and deliberate nod.]
+
+NEIL_MCMANISTAN:
+Im gonna be this guys sponsor im bringing him on the crew we can hire him for half wage do you believe this guy is from fuckin 'Nam hey nguyen tell this guy you're from 'nam!
+
+ACTION npc_neil_mcmanistan lunges forward and grabs Camera 1, physically wrenching it toward Nguyen.
+
+ACTION npc_captain_nguyen reaches into frame and yanks Camera 1 back in the other direction.
+
+CAM 1 SNAPS_BACK to Neil McManistan
+
+CAPTAIN_NGUYEN:
+NEIL WE HAVE TO THANK THE SPONSORS SAY AND NOW A WORD FROM OUR SPONSORS!
+
+SHOT
+The producer shouts this at a volume that could be heard in the laundromat upstairs.
+SHOT_END
+
+NEIL_MCMANISTAN:
+And now a word from our sponsors.
+
+EVENT COMMERCIAL_BREAK
+
+::scene AD_1
+
+TITLE hungry_man_just_meats_logo
+
+SHOT
+The basement drops away. We cut to a commercial. A sad man sits alone at a kitchen table, staring at a wall.
+SHOT_END
+
+CAM 4 CLOSEUP on the sad man
+
+EVENT DISSOLVE
+
+CAM 5 WIDE dream sequence — sunlit park
+
+SHOT
+A dream blooms into colour. The man pushes his child on a playground swing. Nearby, his partner holds a new baby and smiles at him — warm, full, genuine. This is everything. This is his whole life.
+SHOT_END
+
+SHOT
+A thundercrack. A man on a Harley-Davidson roars up onto the grass, dismounts, kicks the baby, and begins making out with the man's wife. The kid on the swing jumps off, turns to face the camera, and speaks.
+SHOT_END
+
+NARRATOR:
+Loser.
+
+SHOT
+The whole family piles onto the Harley and rides away without a backward glance. The man sinks to his knees. He begins to weep.
+SHOT_END
+
+SHOT
+A figure approaches from the right: a large man in a foam rubber Salisbury steak costume. He sits beside the crying man and places an arm around him in silence.
+
+A second figure approaches from the left: a rectangular man in a chicken patty costume, carrying a glass of whiskey. He hands it over.
+
+A third figure lumbers in from the rear — shaped like a rib patty, boombox on one shoulder. Creed is playing. He reaches a thick slab-like arm forward and passes the crying man a lit joint.
+SHOT_END
+
+EVENT DISSOLVE
+
+SHOT
+The man is back in his kitchen. He is cleaned up. Shaved. Wearing a pressed shirt. On the table before him sits a Hungry Man dinner tray — wall to wall meat. Not a vegetable in sight. He looks at it the way a man looks at his oldest friend.
+SHOT_END
+
+NARRATOR:
+It's just the meats.
+
+NARRATOR:
+She can't control you anymore, king.
+
+EVENT RETURN_FROM_BREAK
+
+SHOT
+The camera fades back to the basement. Neil is at the table. There are three more cigarette butts in the ashtray than there were before the break. He does not acknowledge this. The pendulum bulb has slowed to a gentle sway.
+SHOT_END
+
+CAM 1 MEDIUM on Neil McManistan
+
+::scene ACT_2
+
+NEIL_MCMANISTAN:
+Where was I...
+
+CAPTAIN_NGUYEN:
+Maybe we should move on.
+
+NEIL_MCMANISTAN:
+MAYBE YOU SHOULD MOVE ON!
+
+CAPTAIN_NGUYEN:
+You know that's not what I meant. Let's get to the top 10.
+
+NEIL_MCMANISTAN:
+OK here's my top ten conspiracy theories of the week, as always I will be fielding calls but only at the end of the programme please, I know our phone lines are already lighting up, our operators are standing by...
+
+CAPTAIN_NGUYEN:
+No one calls this show. This phone isn't even that type of phone. It's a payphone. You have a basement payphone. I didn't even think that was possible.
+
+NEIL_MCMANISTAN:
+She fuckin took everything man...
+
+CAPTAIN_NGUYEN:
+Let's try and move on.
+
+NEIL_MCMANISTAN:
+That's what Barb told my kids and my dog.
+
+CAPTAIN_NGUYEN:
+For christ sake.
+
+NEIL_MCMANISTAN:
+Just put the fuckin number up man, put up my number so my fans can call in.
+
+TICKER
+1-800-273-8255 ←── NEIL'S HOTLINE — OPERATORS STANDING BY ←── 1-800-273-8255 ←── CENTAUR SHREDS ON ←── DON'T LET HER WIN, BROTHER! — HULK HOGAN ←── CALL NOW ←── 1-800-273-8255 ←── NEIL'S HOTLINE ←──
+TICKER_END
+
+SHOT
+The number crawls across the bottom of the screen. It is the suicide hotline. It is being towed by a centaur playing electric guitar. Behind the centaur, a graphic element features Hulk Hogan pointing directly at the audience with one finger. He appears to be saying something encouraging.
+SHOT_END
+
+NEIL_MCMANISTAN:
+WHAT THE FUCK WAS THAT MAN?! WAS THAT THE SUICIDE HOTLINE NUMBER?!
+
+NEIL_MCMANISTAN:
+And why was Hulk Hogan involved?
+
+CAPTAIN_NGUYEN:
+The Hulkster was your idea.
+
+NEIL_MCMANISTAN:
+Why the hell was it my idea when was that ever my idea to have Hulk Hogan telling my audience not to kill themselves?!
+
+CAPTAIN_NGUYEN:
+I got a voicemail at 3 am. It sounded like you were drunk but you were quite insistent that we should use the Hulkster in a graphic for the show.
+
+NEIL_MCMANISTAN:
+Since when did that mean get the Hulkster to tell my fans not to kill themselves after the divorce?! I was watching the Netflix documentary!
+
+CAPTAIN_NGUYEN:
+That's on me. I thought you'd appreciate the levity.
+
+NEIL_MCMANISTAN:
+The Hulkster wouldn't stand for this. It was all a smear anyways, and we all know why...
+
+CAPTAIN_NGUYEN:
+What are you talking about man?
+
+NEIL_MCMANISTAN:
+These Hollywood jews hate to see a blonde haired blue eyed macho friend of Jesus win.
+
+CAPTAIN_NGUYEN:
+You can't keep saying jews!
+
+NEIL_MCMANISTAN:
+Why is Barb gonna go get her big jew lawyer to come after me, you know they love to litigate —
+
+CAPTAIN_NGUYEN:
+Jesus!
+
+NEIL_MCMANISTAN:
+YOU CANT SQUEEZE BLOOD FROM A STONE BARBRA I KNOW WHO DROVE US APART AND I HEARS THE TRUTH IS REALLY BAD!
+
+NEIL_MCMANISTAN:
+IS REALLY BAD.
+
+NEIL_MCMANISTAN:
+ISRAELI BAD!
+
+NEIL_MCMANISTAN:
+PRESS THE RED BUTTON NGUYEN!
+
+CAM 3 SWING to Nguyen in the corner
+
+ACTION npc_nguyen reaches out and presses the large red button mounted to the wall beside his barstool.
+
+SHOT
+From a speaker of indeterminate location, a single word is announced at considerable volume.
+SHOT_END
+
+CAM 1 BACK to Neil McManistan
+
+CAPTAIN_NGUYEN:
+You can't have a Jew button are you insane!
+
+NEIL_MCMANISTAN:
+THEN WHY DO THESE JEWS KEEP PUSHING MY BUTTONS?!
+
+CAPTAIN_NGUYEN:
+I'm cutting to break.
+
+ACTION npc_neil_mcmanistan seizes Camera 1 and wrenches it toward Nguyen.
+
+ACTION npc_captain_nguyen grabs Camera 1 from the other side and hauls it back.
+
+SHOT
+The camera swings wildly between the two men, catching ceiling, floor, the laundromat pipes, and half-illuminated faces in roughly equal measure.
+SHOT_END
+
+NEIL_MCMANISTAN:
+DO YOU HAVE TROUBLE GETTING IT UP CUZ YOUR WIFE WAS AN UGLY PIG?!
+
+CAPTAIN_NGUYEN:
+Give me that!
+
+NEIL_MCMANISTAN:
+WELL LOOK NO FURTHER THAN CAPTAIN NGUYEN'S MAGIC ROOT! AVAILABLE VIA PAYPAL —
+
+CAM 1 SNAPS to Nguyen's midsection
+
+ACTION npc_nguyen reaches into his trousers and produces a strange, gnarled red root, which he holds aloft with quiet dignity.
+
+CAPTAIN_NGUYEN:
+THAT'S ENOUGH! I'VE HAD ENOUGH! I'M PULLING THE PLUG —
+
+NEIL_MCMANISTAN:
+She took everything. I'm living off tinned beans here. Let a man eat.
+
+CAPTAIN_NGUYEN:
+And now a word from our sponsor.
+
+ACTION npc_captain_nguyen releases Camera 1 and it drops to the concrete floor.
+
+SHOT
+The camera hits the floor and settles at a forty-five-degree angle. The image holds there. In the background, the argument continues to dissolve into ambient noise.
+SHOT_END
+
+EVENT COMMERCIAL_BREAK
+
+::scene AD_2
+
+TITLE jerry_rosenberg_logo
+
+ROOM zone_jerry_beach
+
+SHOT
+Cut to exterior. California. The sun is aggressively bright. A convertible sports car rolls up a coastal road to the sound of smooth jazz.
+SHOT_END
+
+CAM 6 WIDE on the beach
+
+SHOT
+The camera pans to the beach. An attractive woman and her handsome personal trainer are doing Pilates together. They are very in sync. They are having a genuinely lovely time.
+SHOT_END
+
+SHOT
+A man in a crisp linen suit steps into frame. He has the easy confidence of someone who has never once paid his own parking tickets.
+SHOT_END
+
+LAWYER:
+Do you ever wonder what your life could be, if this guy wasn't holding you back?
+
+SHOT
+The footage cuts abruptly to grainy home video: a man in a wife-beater and dirty underpants, cracking a beer and lighting a cigarette while a baby plays with a fork near a wall socket.
+SHOT_END
+
+NEIL_MCMANISTAN:
+WTF IS THAT ME?!
+
+SHOT
+The ad continues, undeterred.
+SHOT_END
+
+SHOT
+The lawyer steps back into frame. He is now dressed as a mohel. He adjusts his equipment.
+SHOT_END
+
+LAWYER:
+Let's bris this schmuck. Now cheaper — with our ten percent off circumcision discount! Spouses of gentiles now save ten percent!
+
+NEIL_MCMANISTAN:
+YOU LET THEM RUN AN AD FOR MY EX WIFE'S JEW LAWYER?!
+
+CAPTAIN_NGUYEN:
+He pays good money —
+
+NEIL_MCMANISTAN:
+THAT'S MY MONEY!
+
+CAPTAIN_NGUYEN:
+He's a friend of the show.
+
+NEIL_MCMANISTAN:
+HE IS NOT A FRIEND OF THE SHOW THIS GUY RUINED MY LIFE —
+
+CAPTAIN_NGUYEN:
+I'm muting your microphone.
+
+SHOT
+Neil's protests continue at length, reduced by the muted mic to a distant, indistinct hum. The ad presses on without him.
+SHOT_END
+
+SHOT
+The lawyer returns, now dressed as a Hasid. He squares up to the camera with evident satisfaction. He begins to recite his contact information at a measured pace. Then his eyes go wide. His hands come together — slowly, fingers interlacing.
+SHOT_END
+
+LAWYER:
+For all your divorce needs, come to Jerry Rosenberg Family Law — where we will make him pay. And make him pay for me too!
+
+SHOT
+From somewhere behind the muted microphone, Neil can be observed commenting at some volume. The exact words are inaudible. The feeling is clear.
+SHOT_END
+
+EVENT RETURN_FROM_BREAK
+
+SHOT
+The camera — which has been lying on the floor of the basement at a forty-five-degree angle for the duration of the break — is picked up by an unseen hand and levelled. It finds Neil already mid-sentence, microphone apparently reinstated.
+SHOT_END
+
+CAM 1 MEDIUM on Neil McManistan
+
+::scene CREDITS_SEQUENCE
+
+NEIL_MCMANISTAN:
+Who makes an ad like that? That's like three antisemitic self-burns in a row. He looks like Jude Süss up there. This is egregious! I'm too riled up to continue. Nguyen, roll the credits!
+
+ACTION npc_nguyen rises from his barstool and produces a large flip chart from behind him with the calm efficiency of a man who was prepared for this.
+
+NEIL_MCMANISTAN:
+HOST: Neil McManistan.
+
+NEIL_MCMANISTAN:
+LEGEND: Neil McManistan.
+
+NEIL_MCMANISTAN:
+CAMERA: Neil McManistan.
+
+CAPTAIN_NGUYEN:
+You can't just give yourself all the credit. You don't even operate the camera. Legend? Seriously?
+
+NEIL_MCMANISTAN:
+NARRATOR: Neil McManistan.
+
+NEIL_MCMANISTAN:
+DIVORCE WINNER: Neil McManistan.
+
+CAPTAIN_NGUYEN:
+DIVORCE WINNER?!
+
+NEIL_MCMANISTAN:
+Oh fuck off!
+
+NEIL_MCMANISTAN:
+BIG GUY: Neil McManistan.
+
+NEIL_MCMANISTAN:
+PRODUCER: Captain Nguyen.
+
+CAPTAIN_NGUYEN:
+YOU CAN'T JUST CREDIT CAPTAIN NGUYEN AS THE PRODUCER! I'M THE PRODUCER!
+
+ACTION npc_nguyen flips to the next page of the flip chart.
+
+NEIL_MCMANISTAN:
+TRAITOR: Gabe Owners.
+
+CAPTAIN_NGUYEN:
+Real mature, man. Real mature. Your buddy Nguyen couldn't captain a rowboat — whipping out his root on live television, what the fuck was that?! She was right to leave you, man.
+
+NEIL_MCMANISTAN:
+... fair observation...
+
+ACTION npc_neil_mcmanistan pensively lights a cigarette, furrows his brow, and stares into the middle distance.
+
+NEIL_MCMANISTAN:
+Join us next week when we are joined by our special guest — my wife's personal trainer — where we will fight a grudge match to the death!
+
+EVENT FADE_OUT
+
+CREDITS 45
+HOST
+Neil McManistan
+
+LEGEND
+Neil McManistan
+
+CAMERA
+Neil McManistan
+
+NARRATOR
+Neil McManistan
+
+DIVORCE WINNER
+Neil McManistan
+
+BIG GUY
+Neil McManistan
+
+PRODUCER
+Captain Nguyen
+
+TRAITOR
+Gabe Owners
+END_CREDITS
+
+EVENT FADE_OUT
+
+END

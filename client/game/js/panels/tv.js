@@ -25,56 +25,24 @@ let _sweepRaf       = null;
 let _wheelTarget    = null;
 const DIAL_SWEEP_SPEED = 4; // frequency-units per second — controls how long static shows between channels
 
-// CRT hum is per-viewer UI ambience tied to the panel being open, not shared
-// multiplayer state — so unlike channel-change SFX (server-driven via the
-// audio plugin's device.tuned listener), it's started/stopped locally here.
-const TV_HUM_DEF = {
-  id: 'tv_hum_local', category: 'tv', priority: 1, loop: true,
-  config: { waveform: 'sine', freq: 60, gain: 0.05, noiseMix: 0.15,
-    filter: { type: 'lowpass', freq: 400, q: 0.7 },
-    adsr: { a: 0.5, d: 0.1, s: 1, r: 0.5 } },
-};
+// CRT hum/static are per-viewer loops; power-on/off are one-shot SFX.
+// Local ids are fixed so AudioEngine can track the loops by id regardless of
+// what config the server supplies. Configs are replaced at open time if the
+// server sends registered defs (from audio_ambient / audio_sfx in the DB).
+const TV_HUM_DEF     = { id: 'tv_hum_local',     category: 'tv', priority: 1, loop: true, config: { waveform: 'sine',     freq: 60,  gain: 0.05, noiseMix: 0.15, filter: { type: 'lowpass',  freq: 400,  q: 0.7 }, adsr: { a: 0.5,   d: 0.1,  s: 1,   r: 0.5  } } };
+const TV_STATIC_DEF  = { id: 'tv_static_local',  category: 'tv', priority: 1, loop: true, config: { waveform: 'noise',    noiseMix: 1, gain: 0.6, filter: { type: 'highpass', freq: 700,  q: 0.5 }, tremolo: { rate: 35, depth: 0.6 }, adsr: { a: 0.02,  d: 0.02, s: 1,   r: 0.3  } } };
+const TV_POWER_ON_DEF  = { id: 'tv_power_on_local',  category: 'tv', priority: 3, config: { waveform: 'triangle', freq: 80,  duration: 0.35, noiseMix: 0.3, pitchBend: { to: 600, time: 0.25 }, filter: { type: 'lowpass', freq: 3000, q: 1 }, adsr: { a: 0.005, d: 0.15, s: 0.3, r: 0.15 } } };
+const TV_POWER_OFF_DEF = { id: 'tv_power_off_local', category: 'tv', priority: 3, config: { waveform: 'triangle', freq: 900, duration: 0.3,  noiseMix: 0.2, pitchBend: { to: 40,  time: 0.25 }, filter: { type: 'lowpass', freq: 4000, q: 1 }, adsr: { a: 0.001, d: 0.05, s: 0.2, r: 0.2  } } };
 
-// Static is a continuous noise loop whose gain is ridden live (via
-// AudioEngine.setLoopGain) to track however much visual static is showing —
-// full while off-channel/searching, fading to silent as a channel locks in.
-// Same per-viewer local-only treatment as the hum: it's tied to dial/UI state,
-// not shared multiplayer state.
-const TV_STATIC_DEF = {
-  id: 'tv_static_local', category: 'tv', priority: 1, loop: true,
-  config: { waveform: 'noise', noiseMix: 1, gain: 0.6,
-    // Broadband highpass (not a narrow bandpass) keeps the harsh full-spectrum
-    // hiss instead of thinning it to a single tone. Fast tremolo amplitude-
-    // modulates the noise for a crackly/crunchy texture rather than smooth hiss.
-    filter: { type: 'highpass', freq: 700, q: 0.5 },
-    tremolo: { rate: 35, depth: 0.6 },
-    adsr: { a: 0.02, d: 0.02, s: 1, r: 0.3 } },
-};
+// Active defs — replaced with server-supplied configs on panel open.
+let _humDef     = TV_HUM_DEF;
+let _staticDef  = TV_STATIC_DEF;
+let _powerOnDef = TV_POWER_ON_DEF;
+let _powerOffDef = TV_POWER_OFF_DEF;
 
 function _setStaticAudio(fraction, rampSeconds) {
-  window.AudioEngine?.setLoopGain(TV_STATIC_DEF.id, fraction, rampSeconds);
+  window.AudioEngine?.setLoopGain(_staticDef.id, fraction, rampSeconds);
 }
-
-// Classic CRT power-on "thunk": a fast low-to-high pitch rise (degaussing
-// coil whine) with a touch of noise for grit. One-shot, local-only — fires
-// alongside the existing power-on warm-up animation in _playCrtPowerOn().
-const TV_POWER_ON_DEF = {
-  id: 'tv_power_on_local', category: 'tv', priority: 3,
-  config: { waveform: 'triangle', freq: 80, duration: 0.35, noiseMix: 0.3,
-    pitchBend: { to: 600, time: 0.25 },
-    filter: { type: 'lowpass', freq: 3000, q: 1 },
-    adsr: { a: 0.005, d: 0.15, s: 0.3, r: 0.15 } },
-};
-
-// Power-off "zap": the reverse — a quick high-to-low pitch drop as the CRT
-// collapses, timed with the vertical-collapse animation in shutdownTvPanel().
-const TV_POWER_OFF_DEF = {
-  id: 'tv_power_off_local', category: 'tv', priority: 3,
-  config: { waveform: 'triangle', freq: 900, duration: 0.3, noiseMix: 0.2,
-    pitchBend: { to: 40, time: 0.25 },
-    filter: { type: 'lowpass', freq: 4000, q: 1 },
-    adsr: { a: 0.001, d: 0.05, s: 0.2, r: 0.2 } },
-};
 
 export function openTvPanel(data) {
   const wasAlreadyOn = _tvOpen;
@@ -85,6 +53,13 @@ export function openTvPanel(data) {
   // here was snapping the knob back to 0 mid-drag and replaying the power-on
   // static, which made the dial feel like it was fighting the player.
   const isTuneEcho = wasAlreadyOn;
+
+  if (data.sounds) {
+    if (data.sounds.hum)     _humDef     = { ...TV_HUM_DEF,      config: data.sounds.hum.config };
+    if (data.sounds.static)  _staticDef  = { ...TV_STATIC_DEF,   config: data.sounds.static.config };
+    if (data.sounds.powerOn) _powerOnDef = { ...TV_POWER_ON_DEF, config: data.sounds.powerOn.config };
+    if (data.sounds.powerOff)_powerOffDef= { ...TV_POWER_OFF_DEF,config: data.sounds.powerOff.config };
+  }
 
   _tvActiveChannelId = data.channelId || null;
   _tvOpen = true;
@@ -119,8 +94,8 @@ export function openTvPanel(data) {
   if (freqDisplay) freqDisplay.textContent = _tvFrequency.toFixed(1);
 
   document.getElementById('tv-panel').classList.add('active');
-  window.AudioEngine?.loopSound(TV_HUM_DEF);
-  window.AudioEngine?.loopSound(TV_STATIC_DEF);
+  window.AudioEngine?.loopSound(_humDef);
+  window.AudioEngine?.loopSound(_staticDef);
   _setStaticAudio(0);
 
   if (_tvPoweredOff) {
@@ -202,7 +177,7 @@ function _playCrtPowerOn() {
   staticEl.style.opacity = '1';
   staticEl.classList.add('tv-static-on');
   _setStaticAudio(1);
-  window.AudioEngine?.playSfx(TV_POWER_ON_DEF);
+  window.AudioEngine?.playSfx(_powerOnDef);
 
   win.classList.remove('tv-powering-on');
   win.offsetWidth; // force reflow to restart animation
@@ -256,8 +231,8 @@ export function closeTvPanel() {
   document.getElementById('tv-static').classList.remove('tv-static-on', 'tv-static-fade', 'tv-static-loop');
   document.getElementById('tv-content').classList.remove('tv-hidden');
   document.getElementById('tv-panel').classList.remove('active');
-  window.AudioEngine?.stopLoop(TV_HUM_DEF.id);
-  window.AudioEngine?.stopLoop(TV_STATIC_DEF.id);
+  window.AudioEngine?.stopLoop(_humDef.id);
+  window.AudioEngine?.stopLoop(_staticDef.id);
 }
 
 export function shutdownTvPanel() {
@@ -276,7 +251,7 @@ export function shutdownTvPanel() {
     _setStaticAudio(0, 0.1);
     const win = document.getElementById('tv-window');
     win.classList.add('tv-shutting-off');
-    window.AudioEngine?.playSfx(TV_POWER_OFF_DEF);
+    window.AudioEngine?.playSfx(_powerOffDef);
     win.addEventListener('animationend', () => closeTvPanel(), { once: true });
   }, 280);
 }

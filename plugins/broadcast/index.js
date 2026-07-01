@@ -8,7 +8,7 @@ import { registerCommand } from '../../server/engine/plugins.js';
 import { apiDeleteZone } from '../../server/api/routes.js';
 import { registerViewerChecker, registerNpcScheduleChecker, registerNpcStudioZoneLookup } from '../../server/engine/broadcast-bridge.js';
 import { getEnvironmentState, recomputePower, resyncAllLightingStates } from '../../server/engine/environment.js';
-import { getSongDefByName } from '../audio/index.js';
+import { getSongDefByName, getSfxDefByName, getAmbientDefByName } from '../audio/index.js';
 
 // ── In-memory state ──────────────────────────────────────────────────────────
 
@@ -1694,6 +1694,12 @@ function buildTvPanel(channelId, player, dialFrequency) {
     channelType: state.channelType || 'playlist',
     theme: state.theme || null,
     channelList,
+    sounds: {
+      hum:      getAmbientDefByName('amb_tv_hum'),
+      static:   getAmbientDefByName('amb_tv_static'),
+      powerOn:  getSfxDefByName('tv_power_on'),
+      powerOff: getSfxDefByName('tv_power_off'),
+    },
   });
   // If the channel is currently off-air, signal it immediately rather than waiting for the next tick
   if (!state.wasActive) {

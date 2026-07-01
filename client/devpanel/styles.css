@@ -524,3 +524,9 @@
     box-shadow: 0 0 6px var(--accent);
   }
 
+
+/* Emergency Security Protocol status pulse */
+@keyframes esp-status-pulse {
+	0%, 100% { background: rgba(120,0,0,0.15); border-color: #880000; }
+	50%       { background: rgba(180,0,0,0.28); border-color: #cc0000; }
+}

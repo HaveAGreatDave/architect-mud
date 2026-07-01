@@ -70,6 +70,8 @@ export function getSongDefByName(name) {
   const song = name ? songByName(name) : null;
   return song ? resolveSongInstruments(song) : null;
 }
+export function getSfxDefByName(name) { return name ? sfxByName(name) : null; }
+export function getAmbientDefByName(name) { return name ? ambientByName(name) : null; }
 
 // ── Event route helper ────────────────────────────────────────────────────
 // Checks audio_event_routes for the given event name and dispatches the

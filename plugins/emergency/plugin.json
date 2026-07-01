@@ -1,0 +1,10 @@
+{
+  "name": "emergency",
+  "version": "1.0.0",
+  "description": "Emergency Security Protocol — zone-wide siren, warning broadcasts, and red alert UI",
+  "routePrefix": "/emergency",
+  "hooks": [],
+  "commands": [],
+  "actions": [],
+  "events": []
+}

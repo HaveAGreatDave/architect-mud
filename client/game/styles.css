@@ -5426,3 +5426,65 @@ body {
 .amp-track-row.current .amp-track-name { color: var(--accent); }
 .amp-track-bpm { font-size: 8px; color: var(--text-dim); opacity: 0.6; }
 .amp-no-tracks { padding: 16px; font-size: 10px; color: var(--text-dim); text-align: center; letter-spacing: 2px; }
+
+/* ── Emergency Security Protocol ─────────────────────────────────────────── */
+
+#esp-banner {
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	background: rgba(150, 0, 0, 0.93);
+	color: #fff;
+	font-size: 10px;
+	font-weight: 700;
+	letter-spacing: 2px;
+	text-align: center;
+	padding: 5px 12px;
+	z-index: 9999;
+	animation: esp-banner-pulse 1.8s ease-in-out infinite;
+	text-shadow: 0 0 10px rgba(255, 80, 80, 0.9);
+	pointer-events: none;
+}
+#esp-banner.esp-hidden { display: none; }
+
+@keyframes esp-banner-pulse {
+	0%, 100% { background: rgba(130, 0, 0, 0.90); box-shadow: 0 2px 12px rgba(180, 0, 0, 0.5); }
+	50%       { background: rgba(200, 15, 15, 0.97); box-shadow: 0 2px 24px rgba(255, 30, 30, 0.85); }
+}
+
+body.esp-active #minimap-grid,
+body.esp-active #minimap-grid-hud,
+body.esp-active #minimap-grid-mob {
+	animation: esp-minimap-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes esp-minimap-pulse {
+	0%, 100% { box-shadow: 0 0 6px rgba(180, 0, 0, 0.45); filter: sepia(0.25) hue-rotate(300deg) saturate(1.4) brightness(0.92); }
+	50%       { box-shadow: 0 0 22px rgba(255, 20, 20, 0.90); filter: sepia(0.45) hue-rotate(300deg) saturate(1.8) brightness(1.02); }
+}
+
+body.esp-active #output {
+	animation: esp-output-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes esp-output-pulse {
+	0%, 100% { box-shadow: inset 0 0 35px rgba(140, 0, 0, 0.07); }
+	50%       { box-shadow: inset 0 0 70px rgba(200, 10, 10, 0.20); }
+}
+
+.esp-warning {
+	color: #ff3b3b;
+	font-weight: 700;
+	letter-spacing: 1px;
+	border-left: 3px solid #cc0000;
+	padding: 4px 0 4px 10px;
+	margin: 2px 0;
+	text-shadow: 0 0 6px rgba(255, 50, 50, 0.45);
+	animation: esp-text-flash 0.9s ease-in-out 4;
+}
+
+@keyframes esp-text-flash {
+	0%, 100% { opacity: 1; }
+	50%       { opacity: 0.55; }
+}
