@@ -407,7 +407,7 @@ async function saveEnemy(existing) {
     flags,
     behaviour_graph,
   };
-  if (isNew) { body.id = document.getElementById('f-id').value.trim(); return API('/enemies', 'POST', body); }
+  if (isNew) { body.id = document.getElementById('f-id').value.trim() || document.getElementById('f-name').value.trim().toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,''); return API('/enemies', 'POST', body); }
   return API(`/enemies/${existing.id}`, 'PUT', body);
 }
 

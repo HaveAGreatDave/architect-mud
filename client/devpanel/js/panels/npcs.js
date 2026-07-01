@@ -336,7 +336,7 @@ async function saveNpc(existing) {
     behaviour_graph,
     flags,
   };
-  if (isNew) { body.id = document.getElementById('f-id').value.trim(); return API('/npcs', 'POST', body); }
+  if (isNew) { body.id = document.getElementById('f-id').value.trim() || document.getElementById('f-name').value.trim().toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,''); return API('/npcs', 'POST', body); }
   return API(`/npcs/${existing.id}`, 'PUT', body);
 }
 

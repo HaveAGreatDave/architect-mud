@@ -13,6 +13,7 @@ const PANELS = {
   },
   zones: {
     title: 'Zones',
+    idPrefix: 'zone',
     fetch: () => API('/zones'),
     columns: [
       { key: 'name', label: 'Name' },
@@ -29,6 +30,7 @@ const PANELS = {
   },
   enemies: {
     title: 'Enemies',
+    idPrefix: 'enemy',
     fetch: () => API('/enemies'),
     columns: [
       { key: 'name', label: 'Name' },
@@ -43,6 +45,7 @@ const PANELS = {
   },
   items: {
     title: 'Items',
+    idPrefix: 'item',
     fetch: () => API('/items'),
     render: renderItemsPanel,
     filter: filterItems,
@@ -52,6 +55,7 @@ const PANELS = {
   },
   npcs: {
     title: 'NPCs',
+    idPrefix: 'npc',
     fetch: () => API('/npcs'),
     columns: [
       { key: 'name', label: 'Name' },
@@ -65,6 +69,7 @@ const PANELS = {
   },
   furniture: {
     title: 'Furniture',
+    idPrefix: 'furniture',
     fetch: () => Promise.all([API('/furniture'), API('/zones')]).then(([f, z]) => ({ furniture: Array.isArray(f) ? f : [], zones: Array.isArray(z) ? z : [] })),
     render: renderFurniturePanel,
     filter: filterFurniture,
@@ -74,6 +79,7 @@ const PANELS = {
   },
   mutations: {
     title: 'Mutations',
+    idPrefix: 'mutation',
     fetch: () => API('/mutations'),
     columns: [
       { key: 'name', label: 'Name' },
@@ -88,6 +94,7 @@ const PANELS = {
   },
   drugs: {
     title: 'Drugs',
+    idPrefix: 'drug',
     fetch: () => API('/drugs'),
     columns: [
       { key: 'name', label: 'Name' },
@@ -120,6 +127,7 @@ const PANELS = {
   },
   recipes: {
     title: 'Recipes',
+    idPrefix: 'recipe',
     fetch: () => API('/recipes'),
     columns: [
       { key: 'name', label: 'Name' },
@@ -134,6 +142,7 @@ const PANELS = {
   },
   quests: {
     title: 'Quests',
+    idPrefix: 'quest',
     fetch: () => API('/quests'),
     columns: [
       { key: 'name', label: 'Name' },
@@ -147,6 +156,7 @@ const PANELS = {
   },
   scripts: {
     title: 'Scripts',
+    idPrefix: 'script',
     fetch: () => API('/scripts'),
     columns: [
       { key: 'name', label: 'Name' },
