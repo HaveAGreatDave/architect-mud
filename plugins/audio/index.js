@@ -317,6 +317,8 @@ export const routeHandler = async (path, method, body, auth) => {
         return { status: 200, body: { id } };
       }
       if (id && method === 'DELETE') {
+        await query('UPDATE audio_instruments SET sample_id=NULL WHERE sample_id=$1', [id]);
+        await query('UPDATE audio_event_routes SET sample_id=NULL WHERE sample_id=$1', [id]);
         await query('DELETE FROM audio_samples WHERE id=$1', [id]);
         await loadAudioLibrary();
         return { status: 200, body: { message: 'Deleted' } };
