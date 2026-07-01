@@ -229,44 +229,154 @@ function generatorSvg(msg) {
 
 function junctionSvg(msg) {
   const { dead, offline, pct, barColor, statusText, statusColor, critical } = stateBits(msg);
+  const live = !offline;
   const led = (x, cls, color) => `<circle cx="${x}" cy="8" r="5" fill="${dead ? '#2b353c' : color}" ${dead ? '' : `class="${cls}"`}/>`;
-  const breaker = (x, y, on) => `<rect x="${x}" y="${y}" width="20" height="30" rx="2" fill="#12171b" stroke="#2b353c"/><rect x="${x+5}" y="${on ? y+4 : y+16}" width="10" height="10" rx="1" fill="${on ? '#46e05a' : '#5c6f79'}"/>`;
+
+  // ── Mechanical primitives ──────────────────────────────────────────────────
+  // A slotted fixing screw and a hex fastening bolt — sprinkled to sell the
+  // "bolted-together cabinet" look.
+  const screw = (x, y) => `<g transform="translate(${x},${y})"><circle r="2.6" fill="#1b2126" stroke="#3a464e" stroke-width="0.8"/><line x1="-1.8" y1="0" x2="1.8" y2="0" stroke="#0a0d0f" stroke-width="0.9"/></g>`;
+  const bolt = (x, y) => `<g transform="translate(${x},${y})"><circle r="6" fill="#161c21" stroke="#3a464e" stroke-width="1.3"/><circle r="3" fill="#0d1013"/><line x1="-2.4" y1="-1.4" x2="2.4" y2="1.4" stroke="#39454d" stroke-width="1"/></g>`;
+  // A breaker: housing, pivoting toggle (up=on/green, down=off/grey) and two screws.
+  const breaker = (x, y, on) => `<g transform="translate(${x},${y})">
+      <rect x="0" y="0" width="24" height="46" rx="2" fill="#0e1216" stroke="#2b353c"/>
+      <rect x="3" y="3" width="18" height="40" rx="1.5" fill="url(#di-breaker)"/>
+      <rect x="6" y="${on ? 6 : 26}" width="12" height="14" rx="2" fill="${on ? '#46e05a' : '#54626b'}" stroke="#000" stroke-opacity="0.45"/>
+      <line x1="8" y1="${on ? 9 : 37}" x2="16" y2="${on ? 9 : 37}" stroke="#0b1a0d" stroke-width="1" opacity="${on ? 0.8 : 0.4}"/>
+      ${screw(6, 40)}${screw(18, 40)}
+    </g>`;
+  // Analog gauge: semicircular dial, tick marks and a needle at `frac` (0..1).
+  const gauge = (cx, cy, r, frac, cap, color) => {
+    const a = Math.PI * (1 - Math.max(0, Math.min(1, frac)));
+    const nx = cx + Math.cos(a) * (r - 6), ny = cy - Math.sin(a) * (r - 6);
+    let ticks = '';
+    for (let i = 0; i <= 5; i++) {
+      const ta = Math.PI * (1 - i / 5);
+      ticks += `<line x1="${(cx + Math.cos(ta) * (r - 2)).toFixed(1)}" y1="${(cy - Math.sin(ta) * (r - 2)).toFixed(1)}" x2="${(cx + Math.cos(ta) * (r - 7)).toFixed(1)}" y2="${(cy - Math.sin(ta) * (r - 7)).toFixed(1)}" stroke="#3a464e" stroke-width="1"/>`;
+    }
+    return `<g>
+      <path d="M${cx - r},${cy} A${r},${r} 0 0 1 ${cx + r},${cy}" fill="#0a0d0f" stroke="#2b353c" stroke-width="1.5"/>
+      <path d="M${cx - r + 4},${cy} A${r - 4},${r - 4} 0 0 1 ${cx + r - 4},${cy}" fill="none" stroke="${live ? color : '#243'}" stroke-width="2" opacity="0.4"/>
+      ${ticks}
+      <line x1="${cx}" y1="${cy}" x2="${nx.toFixed(1)}" y2="${ny.toFixed(1)}" stroke="${live ? color : '#5c6f79'}" stroke-width="2"/>
+      <circle cx="${cx}" cy="${cy}" r="3" fill="#3a464e"/>
+      <text x="${cx}" y="${cy + 13}" text-anchor="middle" font-size="8" letter-spacing="1" fill="#6f8792">${cap}</text>
+    </g>`;
+  };
+
   const breakers = [];
-  for (let i = 0; i < 6; i++) breakers.push(breaker(20 + i*30, 40, !offline));
-  return `<svg viewBox="0 0 520 340" xmlns="http://www.w3.org/2000/svg" role="img" font-family="'Courier New',monospace">
+  for (let i = 0; i < 6; i++) breakers.push(breaker(i * 32, 6, live));
+
+  // ── Oscilloscope trace ──────────────────────────────────────────────────────
+  // Replaces the old single crawling dot: a jagged throughput waveform that
+  // swings hard up and down and morphs between frames. Amplitude tracks load.
+  const scopeW = 236, scopeH = 116, midY = scopeH / 2;
+  const load = loadPct(msg);
+  const amp = 0.30 + (load == null ? 0.4 : load / 100) * 0.16;     // busier line under heavier load
+  const buildWave = (phase) => {
+    const n = 22, pts = [];
+    for (let i = 0; i <= n; i++) {
+      const x = (i / n) * scopeW;
+      const y = midY
+        - Math.sin(i * 0.85 + phase) * (scopeH * amp)
+        - Math.sin(i * 2.4 + phase * 1.7) * (scopeH * 0.14)
+        - Math.sin(i * 5.1 + phase * 0.5) * (scopeH * 0.05);
+      pts.push(`${x.toFixed(0)},${Math.max(4, Math.min(scopeH - 4, y)).toFixed(0)}`);
+    }
+    return pts.join(' ');
+  };
+  const w1 = buildWave(0), w2 = buildWave(2.1), w3 = buildWave(4.0), w4 = buildWave(1.1);
+  const flat = `0,${midY} ${scopeW},${midY}`;
+  const trace = live
+    ? `<polyline points="${w1}" fill="none" stroke="#37f5db" stroke-width="1.8" filter="url(#di-soft2)" opacity="0.35"/>
+       <polyline points="${w1}" fill="none" stroke="#8ffbec" stroke-width="1.6">
+         <animate attributeName="points" dur="1.15s" repeatCount="indefinite" values="${w1};${w2};${w3};${w4};${w1}"/>
+       </polyline>
+       <rect x="0" y="0" width="2" height="${scopeH}" fill="#8ffbec" opacity="0.22"><animate attributeName="x" from="0" to="${scopeW - 2}" dur="2.1s" repeatCount="indefinite"/></rect>`
+    : `<polyline points="${flat}" fill="none" stroke="#5c6f79" stroke-width="1.6"/>`;
+
+  return `<svg viewBox="0 0 560 400" xmlns="http://www.w3.org/2000/svg" role="img" font-family="'Courier New',monospace">
     <title>${esc(msg.name)} inspection</title>
-    <defs><linearGradient id="di-metal2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#232b31"/><stop offset="100%" stop-color="#10151a"/></linearGradient></defs>
-    <rect x="4" y="4" width="512" height="332" rx="6" fill="url(#di-metal2)" stroke="#3a464e" stroke-width="2"/>
-    <rect x="16" y="16" width="488" height="26" fill="#12171b" stroke="#2b353c"/>
-    <text x="26" y="34" fill="${dead ? '#ff4a5b' : '#37f5db'}" font-size="14" letter-spacing="2" font-weight="bold">${esc(msg.name).toUpperCase()}</text>
-    <text x="494" y="34" fill="#6f8792" font-size="10" text-anchor="end">JUNCTION_BOX</text>
+    <defs>
+      <linearGradient id="di-metal2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#232b31"/><stop offset="100%" stop-color="#10151a"/></linearGradient>
+      <linearGradient id="di-breaker" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1c242a"/><stop offset="100%" stop-color="#0c1013"/></linearGradient>
+      <pattern id="di-haz2" width="24" height="14" patternUnits="userSpaceOnUse"><rect width="24" height="14" fill="#0e0f0c"/><path d="M-7,14 L7,0 M5,14 L19,0 M17,14 L31,0" stroke="#ffb23e" stroke-width="6" opacity="0.85"/></pattern>
+      <pattern id="di-scopegrid" width="20" height="19.3" patternUnits="userSpaceOnUse"><path d="M20,0 H0 V19.3" fill="none" stroke="#0e2a28" stroke-width="1"/></pattern>
+      <filter id="di-soft2"><feGaussianBlur stdDeviation="1.8"/></filter>
+    </defs>
+
+    <!-- cabinet shell + drop shadow -->
+    <ellipse cx="280" cy="386" rx="230" ry="14" fill="#000" opacity="0.25"/>
+    <rect x="4" y="4" width="552" height="392" rx="8" fill="url(#di-metal2)" stroke="#3a464e" stroke-width="2"/>
+    <rect x="12" y="12" width="536" height="376" rx="5" fill="none" stroke="#000" stroke-width="1" opacity="0.5"/>
+    ${bolt(20, 20)}${bolt(540, 20)}${bolt(20, 380)}${bolt(540, 380)}
+
+    <!-- title + hazard stripe -->
+    <rect x="24" y="22" width="512" height="26" fill="#12171b" stroke="#2b353c"/>
+    <text x="34" y="40" fill="${dead ? '#ff4a5b' : '#37f5db'}" font-size="14" letter-spacing="2" font-weight="bold">${esc(msg.name).toUpperCase()}</text>
+    <text x="526" y="40" fill="#6f8792" font-size="10" text-anchor="end">JUNCTION_BOX</text>
+    <rect x="24" y="52" width="512" height="12" fill="url(#di-haz2)" opacity="0.9"/>
+
     <!-- breaker bank -->
-    <g transform="translate(30,70)"><text x="0" y="-6" fill="#6f8792" font-size="10" letter-spacing="2">BREAKERS</text>${breakers.join('')}
-      ${offline ? '' : '<g><line x1="0" y1="18" x2="180" y2="18" stroke="#46e05a" stroke-width="1" opacity="0.25"/><circle r="2.5" fill="#8ffbec"><animateMotion path="M0,18 H180" dur="1.4s" repeatCount="indefinite"/></circle></g>'}
+    <g transform="translate(34,86)">
+      <text x="0" y="-8" fill="#6f8792" font-size="10" letter-spacing="2">BREAKERS</text>
+      <rect x="-8" y="-2" width="212" height="66" rx="3" fill="#0a0d0f" stroke="#233" stroke-width="1"/>
+      <rect x="-8" y="26" width="212" height="3" fill="#2b353c"/>
+      ${breakers.join('')}
+      ${screw(-3, 3)}${screw(-3, 58)}${screw(199, 3)}${screw(199, 58)}
     </g>
+
+    <!-- analog gauges -->
+    <g transform="translate(60,206)">
+      ${gauge(0, 0, 34, live ? (load == null ? 0.45 : load / 100) : 0, 'LOAD', '#ffb23e')}
+      ${gauge(112, 0, 34, live ? 0.62 : 0, 'VOLTS', '#37f5db')}
+    </g>
+
+    <!-- oscilloscope: live throughput -->
+    <g transform="translate(298,72)">
+      <rect x="0" y="0" width="248" height="152" fill="#0c1114" stroke="#2b353c"/>
+      <rect x="0" y="0" width="248" height="20" fill="#161d22"/>
+      <text x="10" y="14" fill="#37f5db" font-size="11" letter-spacing="2">◢ LIVE THROUGHPUT</text>
+      <g transform="translate(6,28)">
+        <rect x="0" y="0" width="${scopeW}" height="${scopeH}" fill="#04100e" stroke="#123"/>
+        <rect x="0" y="0" width="${scopeW}" height="${scopeH}" fill="url(#di-scopegrid)" opacity="0.6"/>
+        <line x1="0" y1="${midY}" x2="${scopeW}" y2="${midY}" stroke="#1d4a48" stroke-width="1" opacity="0.5"/>
+        ${trace}
+      </g>
+    </g>
+
     <!-- integrity -->
-    <g transform="translate(30,180)">
+    <g transform="translate(34,270)">
       <text x="0" y="0" fill="#6f8792" font-size="10" letter-spacing="2">INTEGRITY</text>
-      <text x="180" y="2" fill="${barColor}" font-size="18" font-weight="bold" text-anchor="end">${pct}%</text>
-      <rect x="0" y="10" width="180" height="12" fill="#0a0d0f" stroke="#2b353c"/>
-      <rect x="2" y="12" height="8" fill="${barColor}" opacity="0.9"><animate attributeName="width" from="0" to="${Math.round(176*pct/100)}" dur="0.6s" fill="freeze"/></rect>
+      <text x="196" y="2" fill="${barColor}" font-size="18" font-weight="bold" text-anchor="end">${pct}%</text>
+      <rect x="0" y="10" width="196" height="12" fill="#0a0d0f" stroke="#2b353c"/>
+      <rect x="2" y="12" height="8" fill="${barColor}" opacity="0.9"><animate attributeName="width" from="0" to="${Math.round(192*pct/100)}" dur="0.6s" fill="freeze"/></rect>
       <text x="0" y="40" fill="${statusColor}" font-size="11" font-weight="bold">◉ ${statusText}</text>
     </g>
-    <!-- readout -->
-    <g transform="translate(30,250)" font-size="12">
+
+    <!-- readout + LEDs -->
+    <g transform="translate(34,336)" font-size="12">
       <text x="0" y="0" fill="#8fb0bb">THROUGHPUT</text>
-      <text x="180" y="0" fill="${offline ? '#5c6f79' : '#37f5db'}" text-anchor="end" font-weight="bold" ${offline ? '' : 'class="di-flick"'}>${offline ? '0 kW' : kw(msg.capacityKw)}</text>
+      <text x="196" y="0" fill="${offline ? '#5c6f79' : '#37f5db'}" text-anchor="end" font-weight="bold" ${offline ? '' : 'class="di-flick"'}>${offline ? '0 kW' : kw(msg.capacityKw)}</text>
     </g>
-    <!-- LEDs -->
-    <g transform="translate(30,290)">${led(8,'led-a','#46e05a')}${led(30,'led-b','#46e05a')}${led(52,'led-c','#ffb23e')}</g>
+    <g transform="translate(34,356)">${led(8,'led-a','#46e05a')}${led(30,'led-b','#46e05a')}${led(52,'led-c','#ffb23e')}${led(74,'led-a','#37f5db')}
+      <text x="94" y="12" fill="#4a5a63" font-size="8" letter-spacing="1">BUS · SYNC · THERM · NET</text>
+    </g>
+
+    <!-- cooling vents -->
+    <g transform="translate(474,300)" stroke="#000" stroke-opacity="0.5">
+      ${[0,1,2,3,4].map(i => `<rect x="0" y="${i*11}" width="60" height="5" rx="2" fill="#0c1013"/>`).join('')}
+    </g>
+
     <!-- hack port (compact) -->
-    <g transform="translate(320,70)">
-      <rect x="0" y="0" width="170" height="110" fill="#0a0d0f" stroke="#33403a" stroke-dasharray="6 4"/>
-      <text x="12" y="20" fill="#5c6f79" font-size="11" letter-spacing="1">◄ HACK PORT ►</text>
-      <g transform="translate(66,36)" stroke="#54666f" fill="#12171b" stroke-width="2"><path d="M8,16 v-7 a11,11 0 0 1 22,0 v7" fill="none"/><rect x="2" y="16" width="34" height="24" rx="3"/></g>
-      <text x="85" y="94" fill="#ff4a5b" font-size="10" text-anchor="middle" opacity="0.8" class="di-flick">ACCESS DENIED</text>
+    <g transform="translate(298,238)">
+      <rect x="0" y="0" width="168" height="52" fill="#0a0d0f" stroke="#33403a" stroke-dasharray="6 4"/>
+      <text x="10" y="18" fill="#5c6f79" font-size="11" letter-spacing="1">◄ HACK PORT ►</text>
+      <g transform="translate(120,10)" stroke="#54666f" fill="#12171b" stroke-width="2"><path d="M4,26 v-7 a10,10 0 0 1 20,0 v7" fill="none"/><rect x="-1" y="26" width="30" height="18" rx="3"/></g>
+      <text x="60" y="42" fill="#ff4a5b" font-size="10" text-anchor="middle" opacity="0.8" class="di-flick">ACCESS DENIED</text>
     </g>
-    <g class="di-scanbar"><rect x="4" width="512" height="18" fill="#37f5db" opacity="0.05"/></g>
-    ${critical ? '<rect x="4" y="4" width="512" height="332" rx="6" fill="none" stroke="#ff4a5b" stroke-width="3" class="di-danger" pointer-events="none"/>' : ''}
+
+    <g class="di-scanbar"><rect x="4" width="552" height="18" fill="#37f5db" opacity="0.05"/></g>
+    ${critical ? '<rect x="4" y="4" width="552" height="392" rx="8" fill="none" stroke="#ff4a5b" stroke-width="3" class="di-danger" pointer-events="none"/>' : ''}
   </svg>`;
 }

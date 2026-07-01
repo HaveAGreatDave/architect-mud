@@ -9,10 +9,23 @@ import { renderPane } from './render-pane.js';
 import { renderHandASCII } from './cards.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
 import { registerAction } from '../../server/engine/actions.js';
+import { on } from '../../server/engine/events.js';
 
 // ── Boot ───────────────────────────────────────────────────────────────────────
 
 GameTable.loadAll().catch(e => console.error('[gametable] load error:', e.message));
+
+// Walking out of the room drops you from any table you were seated at or
+// watching. Otherwise pushPaneAll keeps blasting the poker pane at you (on every
+// dealer quip or opponent action) long after you've left, re-covering your room.
+on('zone.entered', ({ actor, zone }) => {
+  for (const t of activeTables.values()) {
+    if (t.zoneId === zone) continue;
+    if (t.seatedIndex(actor.id) >= 0 || t.spectators.has(actor.id)) {
+      t.leaveTable(actor.id).catch(e => console.error('[gametable] auto-leave:', e.message));
+    }
+  }
+});
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
