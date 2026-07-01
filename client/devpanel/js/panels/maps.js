@@ -766,8 +766,8 @@ function renderMapOverview() {
     const disconnected = [...o.zones.values()].filter(z => Object.keys(z.exits || {}).length === 0 && z.grid_x != null);
     const allExtUnplaced = [...extTray, ...noPosition].sort((a, b) => a.name.localeCompare(b.name));
     const intUnplaced = [...(o.unplacedInterior?.values() || [])];
-    const unplacedBuildings = intUnplaced.filter(z => z.flags?.is_building);
-    const orphanedRooms = intUnplaced.filter(z => !z.flags?.is_building);
+    const unplacedBuildings = intUnplaced.filter(z => z.flags?.is_building || z.is_building_root);
+    const orphanedRooms = intUnplaced.filter(z => !z.flags?.is_building && !z.is_building_root);
     const extChip = z => `<span class="bigmap-tile bm-edit" style="width:auto;height:auto;padding:4px 8px;cursor:grab;flex-shrink:0${zoneColorStyle(z)};border-color:var(--accent)" draggable="true" ondragstart="mapTrayDragStart(event,'${z.id}')" title="${z.id}">${z.name}</span>`;
     const intChip = z => `<span class="bigmap-tile bm-edit" style="width:auto;height:auto;padding:4px 8px;cursor:grab;flex-shrink:0${zoneColorStyle(z)};border-color:var(--accent2);color:var(--accent2);font-weight:600" draggable="true" ondragstart="mapInteriorTrayDragStart(event,'${z.id}')" title="${z.id}">🏢 ${z.name}</span>`;
     const roomChip = z => `<span class="bigmap-tile bm-edit" style="width:auto;height:auto;padding:4px 8px;cursor:pointer;flex-shrink:0${zoneColorStyle(z)};border-color:var(--yellow);color:var(--yellow)" onclick="mapTileEditClick('${z.id}')" title="${z.id}">🚪 ${z.name}</span>`;
@@ -903,7 +903,8 @@ function mapInteriorTrayDragStart(e, id) {
 function openInteriorLinkModal(interiorZoneId, exteriorZoneId) {
   const extZone = mapOverview.zones.get(exteriorZoneId);
   const intZone = mapOverview.unplacedInterior?.get(interiorZoneId);
-  const dirs = ['in','out','north','south','east','west','up','down'];
+  const entranceDirs = ['in','out','north','south','east','west','up','down'];
+  const stackDirs = ['up','down','north','south','east','west'];
   openModal(`Link to ${extZone?.name || exteriorZoneId}`, `
     <div class="field">
       <p style="color:var(--text-dim);margin:0 0 12px">
@@ -913,42 +914,38 @@ function openInteriorLinkModal(interiorZoneId, exteriorZoneId) {
       </p>
       <label>Entrance direction</label>
       <select id="int-link-dir">
-        ${dirs.map(d => `<option value="${d}"${d === 'in' ? ' selected' : ''}>${d}</option>`).join('')}
+        ${entranceDirs.map(d => `<option value="${d}"${d === 'in' ? ' selected' : ''}>${d}</option>`).join('')}
+      </select>
+    </div>
+    <div class="field" style="margin-top:12px">
+      <label>Hallway stacking direction</label>
+      <p style="color:var(--text-dim);font-size:11px;margin:2px 0 6px">Direction hallways extend from the lobby — each floor/corridor is placed one step further in this direction.</p>
+      <select id="int-link-stack-dir">
+        ${stackDirs.map(d => `<option value="${d}"${d === 'up' ? ' selected' : ''}>${d}</option>`).join('')}
       </select>
     </div>
   `);
   document.getElementById('modal-save').onclick = async () => {
     const dir = document.getElementById('int-link-dir').value;
+    const stackDir = document.getElementById('int-link-stack-dir').value;
     closeModal();
-    await linkInteriorToExterior(interiorZoneId, exteriorZoneId, dir);
+    await linkInteriorToExterior(interiorZoneId, exteriorZoneId, dir, stackDir);
   };
 }
 
-async function linkInteriorToExterior(interiorZoneId, exteriorZoneId, dir) {
-  const intZone = mapOverview.unplacedInterior?.get(interiorZoneId);
-  const r = await API('/maps/link-interior', 'POST', { exteriorZoneId, interiorZoneId, direction: dir });
+async function linkInteriorToExterior(interiorZoneId, exteriorZoneId, dir, hallwayDir) {
+  const r = await API('/maps/link-interior', 'POST', { exteriorZoneId, interiorZoneId, direction: dir, hallwayDir: hallwayDir || null });
   if (r?.error) { toast(r.error, true); return; }
 
   const interiorMap = r.interiorMap;
-  mapOverview.unplacedInterior?.delete(interiorZoneId);
-  // Update exterior zone exits in-memory so the exterior view reflects the link
-  const extZone = mapOverview.zones.get(exteriorZoneId);
-  if (extZone) extZone.exits[dir] = interiorZoneId;
-  toast(`Interior linked! Opening interior editor…`);
+  const laid = r.layoutCount || 0;
+  toast(`Interior linked${laid ? ` — ${laid} zone${laid !== 1 ? 's' : ''} auto-laid out` : ''}. Opening interior editor…`);
 
-  // Build interior map overview from what we know — the server has committed
-  // everything, but reloading via loadMapOverview would show empty (the zone's
-  // map_id was just set so it appears now, but entry zone is at 0,0,0).
-  const entryZone = {
-    ...(intZone || { id: interiorZoneId, name: interiorZoneId, exits: {}, danger_rating: 'safe' }),
-    map_id: interiorMap.id, grid_x: 0, grid_y: 0, grid_z: 0,
-    flags: { is_interior: true },
-  };
   mapViewTab = 'interior';
   mapSelectedInteriorId = interiorMap.id;
   if (!mapsList.find(m => m.id === interiorMap.id)) mapsList.push(interiorMap);
-  mapOverview = { map: interiorMap, zones: new Map([[interiorZoneId, entryZone]]), unplaced: new Map(), unplacedInterior: new Map(), children: [], z: 0 };
-  renderMapOverview();
+  // Reload from server so the auto-layout is reflected immediately
+  await loadMapOverview(interiorMap.id);
 }
 
 async function switchMapTab(tab, interiorId) {
