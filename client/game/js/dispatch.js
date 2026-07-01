@@ -18,6 +18,8 @@ import { openAtmPanel, closeAtmPanel, updateAtmPanel } from './panels/atm.js';
 import { openMediaDeckPanel, updateMediaDeckBroadcast } from './panels/mediadeck.js';
 import { openTvPanel, isTvOpen, getTvActiveChannelId, appendTvMessage, updateTvTicker, applyTvOverlay, clearTvMessages, showTvOffAir, showTvOnAir, shutdownTvPanel } from './panels/tv.js';
 import { applyEspState, handleEspWarning } from './esp.js';
+import { playPokerSfx } from './poker-sfx.js';
+import { showConfirmDialog } from './panels/confirm.js';
 
 
 const DEV_ROLES = ['admin', 'dev', 'builder', 'designer'];
@@ -287,6 +289,9 @@ const handlers = {
       attemptAutoReauth();
       return;
     }
+    // A `leave` issued from the poker bar when the server has no table for us:
+    // the pane is stale, so drop it and re-show the room instead of the error.
+    if (msg.closePoker) { sendCmdSilent('look'); return; }
     appendMsg(msg.message, 'error');
     if (document.getElementById('recipes-panel').classList.contains('active')) sendCmdSilent('recipes');
   },
@@ -357,7 +362,9 @@ const handlers = {
   'lightning': () => { triggerLightningFlash(); },
 
   output: (msg) => { appendHtml(msg.message, 'help'); },
+  confirm: (msg) => { showConfirmDialog(msg); },
   poker_update: (msg) => { setAreaPane(msg.html); },
+  poker_sfx: (msg) => { playPokerSfx(msg.cue); },
 
   online_change: () => { refreshOnlinePlayers(); },
   whisper: (msg) => { receiveWhisper(msg.from || 'Admin', msg.message); },
@@ -375,11 +382,12 @@ const handlers = {
   esp_state:   (msg) => { applyEspState(msg); },
   esp_warning: (msg) => { handleEspWarning(msg); },
 
-  audio_music: (msg) => { window.AudioEngine?.playMusic(msg.def); },
+  audio_music: (msg) => { window.AudioEngine?.playMusic(msg.def, { restartIfSame: false }); },
   audio_sfx: (msg) => { console.log('[audio] sfx received', msg.def?.id, msg.def?.name, 'gain', msg.gain ?? 1); window.AudioEngine?.playSfx(msg.def, msg.gain ?? 1); },
   audio_sample: (msg) => { console.log('[audio] sample received', msg.def?.id, msg.def?.name); window.AudioEngine?.playSample(msg.def); },
   audio_ambience: (msg) => { window.AudioEngine?.loopSound(msg.def); },
   audio_loop_gain: (msg) => { window.AudioEngine?.setLoopGain(msg.id, msg.gain, msg.ramp ?? 0.4); },
+  audio_duck: (msg) => { window.AudioEngine?.duckLoop?.(msg.id, msg.fraction, msg.hold); },
   audio_stop: (msg) => { window.AudioEngine?.stop(msg.scope, msg.id); },
 
   sound_picker: (msg) => { openSoundPicker(msg.sfx || []); },

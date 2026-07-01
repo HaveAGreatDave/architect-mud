@@ -426,8 +426,13 @@ async function handleGhostCommand(ws, session, msg) {
 	// drain — cut this zone's power to zero (ghost sabotage; visibility fades to dark)
 	if (verb === 'drain') {
 		const result = await cmdGhostPowerDrain(session, broadcast);
-		if (result.type === 'ghost_power_drained') emit('ghost.drain', { zoneId: session.ghostZoneId });
 		ws.send(JSON.stringify(result));
+		if (result.type === 'ghost_power_drained') {
+			emit('ghost.drain', { zoneId: session.ghostZoneId });
+			// Re-render the ghost's own area view so the drained darkness shows
+			// on the ghost screen too — same visibility fade the zone's players get.
+			ws.send(JSON.stringify(await cmdGhostLook(session)));
+		}
 		return;
 	}
 

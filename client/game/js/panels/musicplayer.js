@@ -9,6 +9,60 @@ let _instruments = {};   // id -> row
 let _samples = {};       // id -> sample metadata row
 let _currentIdx = -1;
 let _playing = false;
+let _loaded = false;     // a cassette is physically seated in the deck
+// Bumped on every transport action; async animation steps bail if it changed,
+// so rapid Next/Prev/Eject clicks can't stack overlapping playback.
+let _seq = 0;
+
+// ── Deck SFX (synthesized, routed through the SFX bus like poker-sfx.js) ───────
+// The mechanical foley around loading a tape: the glass door motor + latch, the
+// cassette seating "thunk", the slide-out on eject, the capstan spin-up as a song
+// starts, and a transport blip for Next/Prev.
+const SFX = {
+  // Servo whirr of the lid motor, capped by the latch click as the glass opens.
+  door: { id: 'amp-door', category: 'sfx', priority: 7, config: { duration: 0.42, layers: [
+    { waveform: 'sawtooth', freq: 68, filter: { type: 'lowpass', freq: 560, q: 3 },
+      vibrato: { rate: 24, depth: 14 }, adsr: { a: 0.04, d: 0.05, s: 0.6, r: 0.14 }, gain: 0.13 },
+    { waveform: 'triangle', freq: 2100, delay: 0.27, adsr: { a: 0.001, d: 0.03, s: 0, r: 0.02 }, gain: 0.16 },
+    { waveform: 'noise', delay: 0.27, filter: { type: 'highpass', freq: 4200, q: 0.7 },
+      adsr: { a: 0.001, d: 0.02, s: 0, r: 0.015 }, gain: 0.11 },
+  ] } },
+  // Heavy low thud + plastic click as the cassette seats home.
+  thunk: { id: 'amp-thunk', category: 'sfx', priority: 7, config: { duration: 0.2, layers: [
+    { waveform: 'sine', freq: 120, pitchBend: { to: 52, time: 0.08 },
+      adsr: { a: 0.001, d: 0.12, s: 0, r: 0.05 }, gain: 0.6 },
+    { waveform: 'triangle', freq: 90, pitchBend: { to: 58, time: 0.06 },
+      adsr: { a: 0.001, d: 0.08, s: 0, r: 0.04 }, gain: 0.32 },
+    { waveform: 'noise', filter: { type: 'lowpass', freq: 850, q: 1 },
+      adsr: { a: 0.001, d: 0.03, s: 0, r: 0.02 }, gain: 0.28 },
+  ] } },
+  // Tape sliding back out of the slot, ending on the spring-loaded latch pop.
+  slide: { id: 'amp-slide', category: 'sfx', priority: 7, config: { duration: 0.5, layers: [
+    { waveform: 'noise', filter: { type: 'bandpass', freq: 1700, q: 0.8 },
+      adsr: { a: 0.03, d: 0.34, s: 0.15, r: 0.14 }, gain: 0.2 },
+    { waveform: 'triangle', freq: 480, delay: 0.3, pitchBend: { to: 260, time: 0.08 },
+      adsr: { a: 0.001, d: 0.07, s: 0, r: 0.04 }, gain: 0.22 },
+  ] } },
+  // Brief capstan spin-up as the reels engage and a song begins.
+  spin: { id: 'amp-spin', category: 'sfx', priority: 7, config: { duration: 0.34, layers: [
+    { waveform: 'sawtooth', freq: 38, pitchBend: { to: 118, time: 0.24 },
+      filter: { type: 'lowpass', freq: 760, q: 2 }, vibrato: { rate: 30, depth: 10 },
+      adsr: { a: 0.05, d: 0.05, s: 0.7, r: 0.12 }, gain: 0.12 },
+  ] } },
+  // Short transport blip for Next / Prev.
+  blip: { id: 'amp-blip', category: 'sfx', priority: 7, config: { duration: 0.08, layers: [
+    { waveform: 'square', freq: 860, adsr: { a: 0.001, d: 0.05, s: 0, r: 0.02 }, gain: 0.15 },
+  ] } },
+};
+function _sfx(def) { window.AudioEngine?.playSfx(def); }
+
+// Choreography timings (ms). The insert drop is slowed a touch and music holds
+// until the tape has fully seated, the glass has closed, and the capstan whirs.
+const T_EJECT   = 640;   // slide-out + glass swing (matches amp-cassette-rise CSS)
+const T_SEAT    = 820;   // cassette lands home mid-drop → thunk
+const T_LABEL   = 380;   // update reels/label mid-drop so it reads as the new tape
+const T_INSERT  = 1050;  // drop finishes, glass closes (matches amp-cassette-drop CSS)
+const T_SPIN    = 180;   // capstan whir lead-in before the first note
 
 // ── Library fetch ─────────────────────────────────────────────────────────────
 
@@ -51,33 +105,117 @@ function _resolveSong(song) {
 
 // ── Playback ──────────────────────────────────────────────────────────────────
 
+// Load a track and play it, with the full mechanical choreography: if a tape is
+// already seated it slides out first, then the glass opens, the new cassette
+// drops in and thunks home, the glass closes, the capstan whirs, and only then
+// does the music start (music waits for the animation to finish).
 function _playIdx(idx) {
   if (idx < 0 || idx >= _songs.length) return;
-  _currentIdx = idx;
-  _playing = true;
   window.AudioEngine?.init();
-  window.AudioEngine?.playMusic(_resolveSong(_songs[idx]));
   const win = document.getElementById('amp-cassette-window');
-  if (win) {
-    // Glass swings open, a fresh cassette drops in from the top and seats, then
-    // the glass closes over it. Reels/label update mid-drop so the tape reads as
-    // the one just loaded.
+  const token = ++_seq;
+  _currentIdx = idx;
+
+  const insert = () => {
+    if (token !== _seq || !win) { if (token === _seq) _startPlayback(token); return; }
     win.classList.remove('ejecting');
     win.classList.add('deck-opening', 'inserting');
-    setTimeout(() => { _updateDisplay(); }, 300);
-    setTimeout(() => { win.classList.remove('inserting', 'deck-opening'); }, 850);
-    return;
+    _sfx(SFX.door);
+    setTimeout(() => { if (token === _seq) _sfx(SFX.thunk); }, T_SEAT);
+    setTimeout(() => { if (token === _seq) { _loaded = true; _updateDisplay(); } }, T_LABEL);
+    setTimeout(() => {
+      if (token !== _seq) return;
+      win.classList.remove('inserting', 'deck-opening');
+      _startPlayback(token);
+    }, T_INSERT);
+  };
+
+  if (win && _loaded) {
+    // Eject the seated tape first, then insert the new one (door stays open).
+    window.AudioEngine?.stopMusic();
+    _playing = false;
+    _updateButtons();
+    win.classList.remove('inserting', 'deck-opening');
+    win.classList.add('ejecting');
+    _sfx(SFX.slide);
+    setTimeout(() => {
+      if (token !== _seq) return;
+      win.classList.remove('ejecting');
+      insert();
+    }, T_EJECT);
+  } else {
+    insert();
   }
-  _updateDisplay();
+}
+
+// Spin up the capstan and start the already-seated tape. Shared by _playIdx (end
+// of the insert animation) and Play-from-stopped (tape already in the deck).
+function _startPlayback(token) {
+  if (token !== _seq) return;
+  _sfx(SFX.spin);
+  setTimeout(() => {
+    if (token !== _seq) return;
+    _loaded = true;
+    _playing = true;
+    window.AudioEngine?.playMusic(_resolveSong(_songs[_currentIdx]));
+    _updateDisplay();
+  }, T_SPIN);
 }
 
 function _stop() {
+  _seq++;               // cancel any in-flight insert/eject animation
   _playing = false;
+  // Settle the deck: close the glass and clear any half-run drop/rise so a Stop
+  // mid-animation doesn't leave the door hanging open.
+  document.getElementById('amp-cassette-window')
+    ?.classList.remove('inserting', 'deck-opening', 'ejecting');
   window.AudioEngine?.stopMusic();
   _updateDisplay();
 }
 
+// Eject the current cassette: stop, slide the tape out, and leave the deck empty.
+function _eject() {
+  const win = document.getElementById('amp-cassette-window');
+  const token = ++_seq;
+  window.AudioEngine?.stopMusic();
+  _playing = false;
+  _updateButtons();
+  const finish = () => { _currentIdx = -1; _loaded = false; _updateDisplay(); };
+  if (win && _loaded) {
+    win.classList.remove('inserting', 'deck-opening');
+    win.classList.add('ejecting');
+    _sfx(SFX.slide);
+    setTimeout(() => {
+      if (token !== _seq) return;
+      win.classList.remove('ejecting');
+      finish();
+    }, T_EJECT);
+  } else {
+    finish();
+  }
+}
+
 // ── Display ───────────────────────────────────────────────────────────────────
+
+// Light the transport buttons in the accent colour to reflect state: Play glows
+// while playing, Stop glows while stopped, and the Play glyph toggles ⏸ / ▶.
+function _updateButtons() {
+  const playBtn = document.getElementById('amp-play');
+  const stopBtn = document.getElementById('amp-stop');
+  playBtn?.classList.toggle('active', _playing);
+  stopBtn?.classList.toggle('active', !_playing);
+  if (playBtn) playBtn.textContent = _playing ? '⏸' : '▶';
+}
+
+// Brief accent-colour pulse on a transport button (Next / Prev feedback).
+function _flashBtn(id) {
+  const btn = document.getElementById(id);
+  if (!btn) return;
+  btn.classList.remove('blip');
+  void btn.offsetWidth;   // restart the animation if clicked in quick succession
+  btn.classList.add('blip');
+  setTimeout(() => btn.classList.remove('blip'), 200);
+}
 
 function _updateDisplay() {
   const song = _songs[_currentIdx];
@@ -85,7 +223,6 @@ function _updateDisplay() {
 
   const trackEl = document.getElementById('amp-lcd-track');
   const statusEl = document.getElementById('amp-lcd-status');
-  const playBtn  = document.getElementById('amp-play');
 
   if (trackEl)  trackEl.textContent  = song
     ? song.name.replace(/_/g, ' ').toUpperCase()
@@ -93,7 +230,7 @@ function _updateDisplay() {
   if (statusEl) statusEl.textContent = _playing
     ? `▶  PLAYING   [${String(_currentIdx + 1).padStart(2, '0')}]   ${song?.tempo || '--'} BPM`
     : '■  STOPPED';
-  if (playBtn)  playBtn.textContent  = _playing ? '⏸' : '▶';
+  _updateButtons();
 
   panel?.querySelectorAll('.amp-reel').forEach(r =>
     r.classList.toggle('spinning', _playing));
@@ -152,16 +289,24 @@ export function initMusicPlayerPanel() {
   panel.addEventListener('click', e => { if (e.target === panel) closeMusicPlayerPanel(); });
 
   document.getElementById('amp-play').addEventListener('click', () => {
-    if (_playing) _stop();
-    else if (_songs.length) _playIdx(_currentIdx < 0 ? 0 : _currentIdx);
+    if (_playing) { _stop(); return; }
+    if (!_songs.length) return;
+    // Tape already seated → just spin it back up; otherwise load one from scratch.
+    if (_loaded && _currentIdx >= 0) _startPlayback(++_seq);
+    else _playIdx(_currentIdx < 0 ? 0 : _currentIdx);
   });
   document.getElementById('amp-stop').addEventListener('click', _stop);
+  document.getElementById('amp-eject').addEventListener('click', _eject);
   document.getElementById('amp-prev').addEventListener('click', () => {
     if (!_songs.length) return;
+    _sfx(SFX.blip);
+    _flashBtn('amp-prev');
     _playIdx((_currentIdx - 1 + _songs.length) % _songs.length);
   });
   document.getElementById('amp-next').addEventListener('click', () => {
     if (!_songs.length) return;
+    _sfx(SFX.blip);
+    _flashBtn('amp-next');
     _playIdx((_currentIdx + 1) % _songs.length);
   });
 

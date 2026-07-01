@@ -81,6 +81,7 @@ A song is a tracker-style pattern that sequences instrument notes across one or 
 | `priority` | int | `5` | Voice-stealing priority (1–10, higher wins) |
 | `enabled` | int | `1` | |
 | `channels` | array of arrays | `[]` | See **Channel / Step shape** below |
+| `channel_pan` | float[] | `[]` | Optional per-channel stereo pan (`-1` left … `1` right), parallel to `channels`. Empty = mono. Set by the `.MOD` importer (Amiga L-R-R-L) |
 
 ### Channel / Step shape
 
@@ -95,6 +96,19 @@ A song is a tracker-style pattern that sequences instrument notes across one or 
 | `note` | string | Standard notation: note name + octave — `C4` `F#3` `Bb5` `Eb2`. `"R"` or `""` = rest |
 | `instrument` | string | ID of the instrument row to use for this step |
 | `vol` | float | Per-step velocity scalar (0–1). Multiplied against the instrument's `gain` |
+| `fx` | object | Optional tracker effect on a sample-backed step (see **Step effects** below) |
+
+### Step effects (`fx`)
+
+Sample-backed notes may carry one tracker effect, imported from `.MOD` files. These are perceptual approximations, not a sample-accurate ProTracker replay, and are ignored by synth (oscillator) instruments. A step whose `note` is `null` but which has an `fx` is a *continuation* cell — it modulates the note still ringing on that channel without retriggering.
+
+| `fx.t` | Fields | Effect |
+|---|---|---|
+| `arp` | `x`, `y` (semitones) | Arpeggio — cycles base / +x / +y once per tick across the row |
+| `porta` | `dir` (`1`/`-1`), `speed` | Pitch slide up/down, continues on note-less rows |
+| `toneporta` | `speed` | Slides the ringing voice toward the step's note without retriggering |
+| `vib` | `rate`, `depth` | Vibrato — detune LFO for the note's duration |
+| `volslide` | `up`, `down` | Ramps the ringing voice's volume up/down, continues on note-less rows |
 
 **Note range:** The engine supports octaves 2–6. Middle C is `C4`. Sharps use `#` (`C#4`), flats use `b` (`Bb4`).
 
@@ -195,7 +209,7 @@ The `config` object is the synth recipe passed directly to the Web Audio layer b
 | `duration` | float | `0.4` | Seconds. SFX only — how long before the release phase |
 | `gain` | float | `1.0` | Output level scalar (0–1) |
 | `noiseMix` | float | `0.0` | 0 = pure oscillator, 1 = pure noise, fractional = blend |
-| `detune` | float | `0` | Cents offset applied to the oscillator |
+| `detune` | float | `0` | Cents offset applied to the oscillator (synth) or sample playback (sample-backed). Set by the `.MOD` importer to carry per-sample finetune |
 | `adsr.a` | float | `0.01` | Attack time in seconds |
 | `adsr.d` | float | `0.05` | Decay time in seconds |
 | `adsr.s` | float | `0.7` | Sustain level (0–1, fraction of peak gain) |

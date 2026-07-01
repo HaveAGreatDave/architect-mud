@@ -841,6 +841,77 @@ async function _injectWorkPhaseForPlaylistItem(item) {
   }
 }
 
+// Recalculate every NPC's work schedule from the current playlists: derive each
+// broadcast's on-screen NPCs from its graph, merge them into the playlist item's
+// npc_staff conditions, assign a studio-aware behaviour graph + work_zone_id to
+// any host, and re-inject the per-broadcast work-phase actions. Idempotent.
+async function recalculateNpcSchedules() {
+  const { rows: plItems } = await query(`
+    SELECT p.id, p.channel_id, p.broadcast_id, p.start_time, p.duration_override,
+           p.priority, p.conditions, p.slot_type,
+           b.broadcast_graph
+    FROM media_channel_playlist p
+    JOIN media_broadcasts b ON b.id = p.broadcast_id
+    WHERE p.broadcast_id IS NOT NULL
+  `);
+
+  let updatedItems = 0;
+  let updatedNpcs  = 0;
+
+  for (const row of plItems) {
+    let graph = row.broadcast_graph;
+    if (!graph) continue;
+    if (typeof graph === 'string') { try { graph = JSON.parse(graph); } catch { continue; } }
+    const normalized = _normalizeBroadcastGraph(graph);
+
+    // Collect all unique npc_anchor ids from the graph
+    const npcIds = [];
+    for (const node of Object.values(normalized.nodes || {})) {
+      const nid = node.data?.npc_id || node.npc_id;
+      if (node.type === 'npc_anchor' && nid && !npcIds.includes(nid)) npcIds.push(nid);
+    }
+    if (!npcIds.length) continue;
+
+    // Merge into existing conditions, preserving any manual additions
+    let cond = row.conditions;
+    if (typeof cond === 'string') { try { cond = JSON.parse(cond); } catch { cond = {}; } }
+    if (Array.isArray(cond)) cond = {};
+    const existing = Array.isArray(cond.npc_staff) ? cond.npc_staff : [];
+    const merged   = [...new Set([...existing, ...npcIds])];
+    const staffChanged = !(merged.length === existing.length && merged.every((v, i) => v === existing[i]));
+
+    if (staffChanged) {
+      cond.npc_staff = merged;
+      await query(`UPDATE media_channel_playlist SET conditions=$1 WHERE id=$2`, [JSON.stringify(cond), row.id]);
+      updatedItems++;
+    }
+
+    // Assign default behaviour graph (with studio zone) to any staff NPC, and
+    // ensure work_zone_id points at the studio so GO_TO_WORK resolves.
+    const { rows: chSzRow2 } = await query('SELECT studio_zone_id FROM media_channels WHERE id=$1', [row.channel_id]);
+    const studioZoneId = chSzRow2[0]?.studio_zone_id || null;
+    const defaultGraph = JSON.stringify(makeDefaultStudioGraph(studioZoneId));
+    for (const npcId of npcIds) {
+      // Always overwrite — ensures zone_id is populated even for existing graphs; set work_zone_id so GO_TO_WORK resolves without graph params
+      const { rowCount } = await query(
+        `UPDATE npcs SET behaviour_graph=$1, work_zone_id=COALESCE(work_zone_id,$2) WHERE id=$3`,
+        [defaultGraph, studioZoneId, npcId]
+      ).catch(() => ({ rowCount: 0 }));
+      if (rowCount) {
+        updatedNpcs++;
+        const npc = world.npcs.get(npcId);
+        if (npc && !npc.work_zone_id) npc.work_zone_id = studioZoneId;
+      }
+    }
+
+    // Re-inject work-phase actions from the broadcast graph
+    await _injectWorkPhaseForPlaylistItem({ broadcast_id: row.broadcast_id, npcStaff: npcIds, studioZoneId });
+  }
+
+  await loadChannelRuntimes();
+  return { updatedItems, updatedNpcs };
+}
+
 // ── Graph walker (VINE broadcast graphs) ─────────────────────────────────────
 
 function _resolveEdge(edges, fromNode, fromPort) {
@@ -2076,7 +2147,9 @@ export const routeHandler = async (path, method, body, auth) => {
             };
           });
           await Promise.all(parsedItems.map(i => _injectWorkPhaseForPlaylistItem(i)));
-          await loadChannelRuntimes();
+          // Recalculate NPC work schedules across all channels on every save so
+          // hosts derived from broadcast graphs stay assigned to their studio.
+          await recalculateNpcSchedules();
           return { status: 200, body: { message: 'Playlist updated' } };
         }
       }
@@ -2416,47 +2489,110 @@ export const routeHandler = async (path, method, body, auth) => {
     // ── Ensure Studio — attach to existing building, create missing rooms ────────
     if (resource === 'ensure-studio' && method === 'POST') {
       if (!devOk(auth)) return { status: 403, body: { error: 'Dev access required' } };
-      const { exterior_zone_id, studio_name, channel_id } = body || {};
-      if (!exterior_zone_id) return { status: 400, body: { error: 'exterior_zone_id required' } };
+      const { exterior_zone_id, studio_name, channel_id, studio_zone_id, grid_x, grid_y } = body || {};
 
       const ts = Date.now();
+      let exteriorZoneId = exterior_zone_id || null;
+      let mapId = null, studioZoneId = null, studioExits = null;
+      let stageX = 0, stageY = 0, stageZ = 0;
+      const touchedNeighbors = [];
 
-      // Find or create interior map
-      const { rows: maps } = await query('SELECT id FROM maps WHERE parent_zone_id=$1 LIMIT 1', [exterior_zone_id]);
-      let mapId;
-      if (maps.length) {
-        mapId = maps[0].id;
-      } else {
-        mapId = `map_int_${ts}`;
-        await query('INSERT INTO maps (id,name,parent_zone_id) VALUES ($1,$2,$3)',
-          [mapId, studio_name || 'Studio Interior', exterior_zone_id]);
+      // Resolve from an existing stage zone when given (a list-picked studio, or
+      // a channel that already points at its studio). The stage is authoritative;
+      // derive its map + exterior from it so we only backfill what's missing.
+      if (studio_zone_id) {
+        const { rows: stRows } = await query(
+          'SELECT id, map_id, grid_x, grid_y, grid_z, exits, flags FROM zones WHERE id=$1', [studio_zone_id]
+        );
+        if (stRows.length) {
+          const st = stRows[0];
+          studioZoneId = st.id;
+          mapId        = st.map_id;
+          studioExits  = st.exits || {};
+          stageX = st.grid_x ?? 0; stageY = st.grid_y ?? 0; stageZ = st.grid_z ?? 0;
+          if (!exteriorZoneId) exteriorZoneId = st.flags?.world_exit_zone || studioExits.out || null;
+        }
       }
 
-      // Find stage zone
-      let { rows: stageRows } = await query(
-        'SELECT id, exits FROM zones WHERE map_id=$1 AND grid_z=0 AND grid_x=0 AND grid_y=0 LIMIT 1', [mapId]
-      );
-      let studioZoneId, studioExits;
-      if (stageRows.length) {
-        studioZoneId = stageRows[0].id;
-        studioExits  = stageRows[0].exits || {};
-      } else {
-        studioZoneId = `zone_studio_${ts}`;
-        const stageName = `${studio_name || 'Studio'} — Stage`;
-        await query(
-          `INSERT INTO zones (id,name,description,map_id,grid_x,grid_y,grid_z,flags,exits)
-           VALUES ($1,$2,$3,$4,0,0,0,$5,$6)`,
-          [studioZoneId, stageName, 'The main studio stage floor.', mapId,
-           JSON.stringify({ is_interior: true, is_building: true, world_exit_zone: exterior_zone_id }),
-           JSON.stringify({ out: exterior_zone_id })]
+      // Otherwise resolve/create the exterior world tile from grid coords
+      // (empty-cell "place new" path), wiring it to orthogonal neighbours.
+      if (!exteriorZoneId && !studioZoneId && grid_x != null && grid_y != null) {
+        const { rows: existing } = await query(
+          `SELECT id FROM zones WHERE map_id='map_world' AND grid_x=$1 AND grid_y=$2 AND COALESCE(grid_z,0)=0 LIMIT 1`,
+          [grid_x, grid_y]
         );
-        // Wire exterior → stage
-        const { rows: extRows } = await query('SELECT exits FROM zones WHERE id=$1', [exterior_zone_id]);
-        const extExits = JSON.stringify({ ...(extRows[0]?.exits || {}), in: studioZoneId });
-        await query('UPDATE zones SET exits=$1 WHERE id=$2', [extExits, exterior_zone_id]);
-        studioExits = { out: exterior_zone_id };
-        await query(`INSERT INTO furniture (id,zone_id,name,description,object_type,light_type,light_on,light_on_intended,power_draw_kw,lumen_output,flags)
-          VALUES ($1,$2,'Overhead Light','A recessed overhead light panel.','light','overhead',1,1,0.02,1200,'{}')`, [`furn_light_stage_${ts}`, studioZoneId]);
+        if (existing.length) {
+          exteriorZoneId = existing[0].id;
+        } else {
+          exteriorZoneId = `zone_ext_${ts}`;
+          const tileColor = await _studioTileColor();
+          const NEIGHBOR_DIRS = { north: [0, -1], south: [0, 1], east: [1, 0], west: [-1, 0] };
+          const NEIGHBOR_OPP = { north: 'south', south: 'north', east: 'west', west: 'east' };
+          const newExits = {};
+          for (const [dir, [dx, dy]] of Object.entries(NEIGHBOR_DIRS)) {
+            const { rows: nb } = await query(
+              `SELECT id, exits FROM zones WHERE map_id='map_world' AND grid_x=$1 AND grid_y=$2 AND COALESCE(grid_z,0)=0 LIMIT 1`,
+              [grid_x + dx, grid_y + dy]
+            );
+            if (!nb.length) continue;
+            newExits[dir] = nb[0].id;
+            const nbExits = { ...(nb[0].exits || {}), [NEIGHBOR_OPP[dir]]: exteriorZoneId };
+            await query('UPDATE zones SET exits=$1 WHERE id=$2', [JSON.stringify(nbExits), nb[0].id]);
+            touchedNeighbors.push(nb[0].id);
+          }
+          await query(
+            `INSERT INTO zones (id,name,description,map_id,grid_x,grid_y,grid_z,marker,color,flags,exits)
+             VALUES ($1,$2,$3,'map_world',$4,$5,0,$6,$7,'{}',$8)`,
+            [exteriorZoneId, studio_name || 'Studio', `Exterior of ${studio_name || 'the studio'}.`,
+             grid_x, grid_y, (studio_name || 'ST').slice(0, 2).toUpperCase(), tileColor, JSON.stringify(newExits)]
+          );
+        }
+      }
+
+      if (!exteriorZoneId && !studioZoneId) {
+        return { status: 400, body: { error: 'exterior_zone_id, studio_zone_id, or grid_x+grid_y required' } };
+      }
+
+      // Find or create interior map (the stage path already resolved mapId).
+      if (!mapId) {
+        const { rows: maps } = await query('SELECT id FROM maps WHERE parent_zone_id=$1 LIMIT 1', [exteriorZoneId]);
+        if (maps.length) {
+          mapId = maps[0].id;
+        } else {
+          mapId = `map_int_${ts}`;
+          await query('INSERT INTO maps (id,name,parent_zone_id) VALUES ($1,$2,$3)',
+            [mapId, studio_name || 'Studio Interior', exteriorZoneId]);
+        }
+      }
+
+      // Find or create stage zone (skip when already resolved from studio_zone_id).
+      if (!studioZoneId) {
+        const { rows: stageRows } = await query(
+          'SELECT id, exits FROM zones WHERE map_id=$1 AND grid_z=0 AND grid_x=0 AND grid_y=0 LIMIT 1', [mapId]
+        );
+        if (stageRows.length) {
+          studioZoneId = stageRows[0].id;
+          studioExits  = stageRows[0].exits || {};
+        } else {
+          studioZoneId = `zone_studio_${ts}`;
+          const stageName = `${studio_name || 'Studio'} — Stage`;
+          await query(
+            `INSERT INTO zones (id,name,description,map_id,grid_x,grid_y,grid_z,flags,exits)
+             VALUES ($1,$2,$3,$4,0,0,0,$5,$6)`,
+            [studioZoneId, stageName, 'The main studio stage floor.', mapId,
+             JSON.stringify({ is_interior: true, is_building: true, world_exit_zone: exteriorZoneId }),
+             JSON.stringify(exteriorZoneId ? { out: exteriorZoneId } : {})]
+          );
+          // Wire exterior → stage
+          if (exteriorZoneId) {
+            const { rows: extRows } = await query('SELECT exits FROM zones WHERE id=$1', [exteriorZoneId]);
+            const extExits = JSON.stringify({ ...(extRows[0]?.exits || {}), in: studioZoneId });
+            await query('UPDATE zones SET exits=$1 WHERE id=$2', [extExits, exteriorZoneId]);
+          }
+          studioExits = exteriorZoneId ? { out: exteriorZoneId } : {};
+          await query(`INSERT INTO furniture (id,zone_id,name,description,object_type,light_type,light_on,light_on_intended,power_draw_kw,lumen_output,flags)
+            VALUES ($1,$2,'Overhead Light','A recessed overhead light panel.','light','overhead',1,1,0.02,1200,'{}')`, [`furn_light_stage_${ts}`, studioZoneId]);
+        }
       }
 
       // Find or create utility room (down)
@@ -2465,9 +2601,10 @@ export const routeHandler = async (path, method, body, auth) => {
         utilityZoneId = `zone_util_${ts}`;
         await query(
           `INSERT INTO zones (id,name,description,map_id,grid_x,grid_y,grid_z,flags,exits)
-           VALUES ($1,$2,$3,$4,0,0,-1,$5,$6)`,
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
           [utilityZoneId, `${studio_name || 'Studio'} — Power Room`,
            'Utility room housing the building junction box.', mapId,
+           stageX, stageY, stageZ - 1,
            JSON.stringify({ is_interior: true }), JSON.stringify({ up: studioZoneId })]
         );
         studioExits = { ...studioExits, down: utilityZoneId };
@@ -2496,9 +2633,10 @@ export const routeHandler = async (path, method, body, auth) => {
         productionZoneId = `zone_prod_${ts}`;
         await query(
           `INSERT INTO zones (id,name,description,map_id,grid_x,grid_y,grid_z,flags,exits)
-           VALUES ($1,$2,$3,$4,0,0,1,$5,$6)`,
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
           [productionZoneId, `${studio_name || 'Studio'} — Production`,
            'Media deck and broadcast control room.', mapId,
+           stageX, stageY, stageZ + 1,
            JSON.stringify({ is_interior: true }), JSON.stringify({ down: studioZoneId })]
         );
         studioExits = { ...studioExits, up: productionZoneId };
@@ -2519,15 +2657,17 @@ export const routeHandler = async (path, method, body, auth) => {
       }
 
       // Ensure exterior zone has a street light (idempotent — skip if one already exists)
-      const { rows: extLights } = await query(
-        `SELECT id FROM furniture WHERE zone_id=$1 AND light_type='streetlight' LIMIT 1`, [exterior_zone_id]
-      );
-      if (!extLights.length) {
-        await query(
-          `INSERT INTO furniture (id,zone_id,name,description,object_type,light_type,light_on,power_draw_kw,lumen_output,flags)
-           VALUES ($1,$2,'Street Light','A tall metal post topped with a flickering sodium lamp.','light','streetlight',0,0.2,8000,'{}')`,
-          [`furn_light_ext_${ts}`, exterior_zone_id]
+      if (exteriorZoneId) {
+        const { rows: extLights } = await query(
+          `SELECT id FROM furniture WHERE zone_id=$1 AND light_type='streetlight' LIMIT 1`, [exteriorZoneId]
         );
+        if (!extLights.length) {
+          await query(
+            `INSERT INTO furniture (id,zone_id,name,description,object_type,light_type,light_on,power_draw_kw,lumen_output,flags)
+             VALUES ($1,$2,'Street Light','A tall metal post topped with a flickering sodium lamp.','light','streetlight',0,0.2,8000,'{}')`,
+            [`furn_light_ext_${ts}`, exteriorZoneId]
+          );
+        }
       }
 
       // Upsert lighting_states for all three interior zones so their lights register
@@ -2543,12 +2683,15 @@ export const routeHandler = async (path, method, body, auth) => {
         ).catch(() => {});
       }
 
-      await Promise.all([studioZoneId, utilityZoneId, productionZoneId, exterior_zone_id].map(reloadZone));
+      await Promise.all(
+        [studioZoneId, utilityZoneId, productionZoneId, exteriorZoneId, ...touchedNeighbors]
+          .filter(Boolean).map(reloadZone)
+      );
       await recomputePower().catch(() => {});
       await resyncAllLightingStates().catch(() => {});
 
       return { status: 200, body: {
-        exterior_zone_id, studio_zone_id: studioZoneId,
+        exterior_zone_id: exteriorZoneId, studio_zone_id: studioZoneId,
         utility_zone_id: utilityZoneId, production_zone_id: productionZoneId,
       }};
     }
@@ -2565,6 +2708,7 @@ export const routeHandler = async (path, method, body, auth) => {
 
       // Track created entities for cleanup on failure
       const created = { exterior: null, map: null, studio: null, utility: null, production: null, jbox: null };
+      const touchedNeighbors = [];
 
       try {
         // If grid coords given, create or reuse the exterior world-map zone
@@ -2586,6 +2730,26 @@ export const routeHandler = async (path, method, body, auth) => {
             );
             created.exterior = exteriorZoneId;
             createdExterior = true;
+
+            // Auto-connect the new world tile to orthogonally adjacent world
+            // zones (both directions), matching the map-overview drag behaviour.
+            const NEIGHBOR_DIRS = { north: [0, -1], south: [0, 1], east: [1, 0], west: [-1, 0] };
+            const NEIGHBOR_OPP = { north: 'south', south: 'north', east: 'west', west: 'east' };
+            const newExits = {};
+            for (const [dir, [dx, dy]] of Object.entries(NEIGHBOR_DIRS)) {
+              const { rows: nb } = await query(
+                `SELECT id, exits FROM zones WHERE map_id='map_world' AND grid_x=$1 AND grid_y=$2 AND COALESCE(grid_z,0)=0 LIMIT 1`,
+                [grid_x + dx, grid_y + dy]
+              );
+              if (!nb.length) continue;
+              newExits[dir] = nb[0].id;
+              const nbExits = { ...(nb[0].exits || {}), [NEIGHBOR_OPP[dir]]: exteriorZoneId };
+              await query('UPDATE zones SET exits=$1 WHERE id=$2', [JSON.stringify(nbExits), nb[0].id]);
+              touchedNeighbors.push(nb[0].id);
+            }
+            if (Object.keys(newExits).length) {
+              await query('UPDATE zones SET exits=$1 WHERE id=$2', [JSON.stringify(newExits), exteriorZoneId]);
+            }
           }
         }
         if (!exteriorZoneId) return { status: 400, body: { error: 'exterior_zone_id or grid_x+grid_y required' } };
@@ -2717,6 +2881,7 @@ export const routeHandler = async (path, method, body, auth) => {
           reloadZone(utilityZoneId),
           reloadZone(productionZoneId),
           reloadZone(exteriorZoneId),
+          ...touchedNeighbors.map(reloadZone),
         ]);
         // Fix power connections and lighting now that junction box and zones are in place
         await fixZonePowerConnections().catch(() => {});
@@ -2950,68 +3115,7 @@ export const routeHandler = async (path, method, body, auth) => {
   // ── Recalculate NPC work schedules ────────────────────────────────────────
   if (resource === 'recalculate-schedules' && method === 'POST') {
     if (!devOk(auth)) return { status: 403, body: { error: 'Dev access required' } };
-
-    // Fetch all playlist items that have a broadcast_id
-    const { rows: plItems } = await query(`
-      SELECT p.id, p.channel_id, p.broadcast_id, p.start_time, p.duration_override,
-             p.priority, p.conditions, p.slot_type,
-             b.broadcast_graph
-      FROM media_channel_playlist p
-      JOIN media_broadcasts b ON b.id = p.broadcast_id
-      WHERE p.broadcast_id IS NOT NULL
-    `);
-
-    let updatedItems = 0;
-    let updatedNpcs  = 0;
-
-    for (const row of plItems) {
-      let graph = row.broadcast_graph;
-      if (!graph) continue;
-      if (typeof graph === 'string') { try { graph = JSON.parse(graph); } catch { continue; } }
-      const normalized = _normalizeBroadcastGraph(graph);
-
-      // Collect all unique npc_anchor ids from the graph
-      const npcIds = [];
-      for (const node of Object.values(normalized.nodes || {})) {
-        const nid = node.data?.npc_id || node.npc_id;
-        if (node.type === 'npc_anchor' && nid && !npcIds.includes(nid)) npcIds.push(nid);
-      }
-      if (!npcIds.length) continue;
-
-      // Merge into existing conditions, preserving any manual additions
-      let cond = row.conditions;
-      if (typeof cond === 'string') { try { cond = JSON.parse(cond); } catch { cond = {}; } }
-      if (Array.isArray(cond)) cond = {};
-      const existing = Array.isArray(cond.npc_staff) ? cond.npc_staff : [];
-      const merged   = [...new Set([...existing, ...npcIds])];
-      if (merged.length === existing.length && merged.every((v, i) => v === existing[i])) continue; // no change
-
-      cond.npc_staff = merged;
-      await query(`UPDATE media_channel_playlist SET conditions=$1 WHERE id=$2`, [JSON.stringify(cond), row.id]);
-      updatedItems++;
-
-      // Assign default behaviour graph (with studio zone) to any new NPC staff without one
-      const { rows: chSzRow2 } = await query('SELECT studio_zone_id FROM media_channels WHERE id=$1', [row.channel_id]);
-      const studioZoneId = chSzRow2[0]?.studio_zone_id || null;
-      const defaultGraph = JSON.stringify(makeDefaultStudioGraph(studioZoneId));
-      for (const npcId of npcIds) {
-        // Always overwrite — ensures zone_id is populated even for existing graphs; set work_zone_id so GO_TO_WORK resolves without graph params
-        const { rowCount } = await query(
-          `UPDATE npcs SET behaviour_graph=$1, work_zone_id=COALESCE(work_zone_id,$2) WHERE id=$3`,
-          [defaultGraph, studioZoneId, npcId]
-        ).catch(() => ({ rowCount: 0 }));
-        if (rowCount) {
-          updatedNpcs++;
-          const npc = world.npcs.get(npcId);
-          if (npc && !npc.work_zone_id) npc.work_zone_id = studioZoneId;
-        }
-      }
-
-      // Re-inject work-phase actions from the broadcast graph
-      await _injectWorkPhaseForPlaylistItem({ broadcast_id: row.broadcast_id, npcStaff: npcIds, studioZoneId });
-    }
-
-    await loadChannelRuntimes();
+    const { updatedItems, updatedNpcs } = await recalculateNpcSchedules();
     return { status: 200, body: { message: `Updated ${updatedItems} schedule item(s), ${updatedNpcs} NPC behaviour graph(s).` } };
   }
 

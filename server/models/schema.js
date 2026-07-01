@@ -564,6 +564,8 @@ export const SCHEMA_SQL = `
     monthly_precip_chance JSONB NOT NULL DEFAULT '[]',
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
   );
+  ALTER TABLE climate_profiles ADD COLUMN IF NOT EXISTS monthly_wind_kph JSONB NOT NULL DEFAULT '[]';
+  ALTER TABLE climate_profiles ADD COLUMN IF NOT EXISTS monthly_humidity JSONB NOT NULL DEFAULT '[]';
 
   CREATE TABLE IF NOT EXISTS weather_forecast (
     forecast_day INTEGER PRIMARY KEY,
@@ -572,6 +574,8 @@ export const SCHEMA_SQL = `
     temp_c INTEGER NOT NULL,
     locked INTEGER NOT NULL DEFAULT 0
   );
+  ALTER TABLE weather_forecast ADD COLUMN IF NOT EXISTS wind_kph INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE weather_forecast ADD COLUMN IF NOT EXISTS humidity_pct INTEGER NOT NULL DEFAULT 60;
 
   CREATE TABLE IF NOT EXISTS lighting_states (
     zone_id TEXT PRIMARY KEY,
@@ -849,6 +853,10 @@ export const SCHEMA_SQL = `
     priority INTEGER DEFAULT 5,
     enabled INTEGER DEFAULT 1
   );
+
+  -- Per-channel stereo pan (-1..1), parallel to channels[]. Empty = mono playback.
+  -- Set by the .MOD importer (Amiga L-R-R-L); hand-authored songs leave it empty.
+  ALTER TABLE audio_songs ADD COLUMN IF NOT EXISTS channel_pan JSONB DEFAULT '[]';
 
   -- config is a self-contained synth recipe (oscillator/noise layers + envelope
   -- + pitch curve) — a one-shot sound effect, independent of audio_instruments.

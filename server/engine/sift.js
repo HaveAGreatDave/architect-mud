@@ -89,6 +89,17 @@ export function resolve(query, candidates, context = {}) {
   return { type: 'ambiguous', candidates: scored.map(s => s.candidate) };
 }
 
+// All candidates SIFT considers a match (score > 0), best-first. Used by bulk
+// verbs like "drop all <filter>" that act on every match instead of prompting
+// to disambiguate — the same scoring, no ambiguity gate.
+export function matchAll(query, candidates) {
+  return candidates
+    .map(c => ({ candidate: c, score: scoreCandidate(c.name, query) }))
+    .filter(s => s.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .map(s => s.candidate);
+}
+
 // ---------------------------------------------------------------------------
 // Public entry point — decides SIFT vs FATE based on combat context
 // ---------------------------------------------------------------------------

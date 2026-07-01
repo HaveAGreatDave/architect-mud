@@ -1,4 +1,5 @@
 const ORDER_KEY = 'architect_sidebar_order';
+const HIDDEN_KEY = 'architect_sidebar_hidden';
 const DEFAULT_ORDER = ['minimap-section', 'vitals-section', 'location-section', 'env-section', 'enemy-section', 'chat-section'];
 
 let locked = true;
@@ -6,15 +7,103 @@ let dragSrc = null;
 let dropInfo = null;
 let lastClientY = null;
 let dropped = false; // true once onSidebarDrop fires, so onDragEnd doesn't double-execute
+let pendingHide = null; // section dragged out a side edge, hidden on release
 
 export function initSidebarOrder() {
+  // Park hidden sections out of the sidebar before laying out the rest.
+  const park = getHiddenPark();
+  for (const id of loadHidden()) {
+    const el = document.getElementById(id);
+    if (el) park.appendChild(el);
+  }
   applyLayout(loadLayout());
   document.getElementById('sidebar-lock-btn').addEventListener('click', toggleLock);
   document.getElementById('sidebar-reset-btn')?.addEventListener('click', resetOrder);
+  initRestoreControl();
   const sidebar = document.getElementById('sidebar');
   sidebar.addEventListener('dragover', onSidebarDragOver);
   sidebar.addEventListener('drop', onSidebarDrop);
   sidebar.addEventListener('dragleave', onSidebarDragLeave);
+}
+
+// --- hidden panels ---
+
+function loadHidden() {
+  try { return JSON.parse(localStorage.getItem(HIDDEN_KEY)) || []; } catch { return []; }
+}
+
+function saveHidden(ids) {
+  localStorage.setItem(HIDDEN_KEY, JSON.stringify(ids));
+}
+
+function getHiddenPark() {
+  let park = document.getElementById('sidebar-hidden-park');
+  if (!park) {
+    park = document.createElement('div');
+    park.id = 'sidebar-hidden-park';
+    park.style.display = 'none';
+    document.body.appendChild(park);
+  }
+  return park;
+}
+
+function sectionLabel(el) {
+  return el.querySelector('.sidebar-label')?.textContent.trim() || el.id;
+}
+
+function hideSection(el) {
+  el.draggable = false;
+  detachDragHandlers(el);
+  getHiddenPark().appendChild(el);
+  const ids = loadHidden();
+  if (!ids.includes(el.id)) { ids.push(el.id); saveHidden(ids); }
+  saveLayout();
+  renderRestoreMenu();
+}
+
+function restoreSection(id) {
+  saveHidden(loadHidden().filter(x => x !== id));
+  const el = document.getElementById(id);
+  if (el) {
+    document.getElementById('sidebar-drop-end').before(el);
+    if (!locked) { el.draggable = true; attachDragHandlers(el); }
+  }
+  saveLayout();
+  renderRestoreMenu();
+}
+
+function initRestoreControl() {
+  const btn = document.getElementById('sidebar-restore-btn');
+  const menu = document.getElementById('sidebar-restore-menu');
+  if (!btn || !menu) return;
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (menu.style.display !== 'none') { menu.style.display = 'none'; return; }
+    renderRestoreMenu();
+    menu.style.display = 'block';
+  });
+  document.addEventListener('click', (e) => {
+    if (!document.getElementById('sidebar-restore')?.contains(e.target)) menu.style.display = 'none';
+  });
+}
+
+function renderRestoreMenu() {
+  const menu = document.getElementById('sidebar-restore-menu');
+  if (!menu) return;
+  const ids = loadHidden();
+  if (!ids.length) {
+    menu.innerHTML = '<div class="sidebar-restore-empty">No hidden panels</div>';
+    return;
+  }
+  menu.innerHTML = '';
+  for (const id of ids) {
+    const el = document.getElementById(id);
+    const item = document.createElement('button');
+    item.className = 'sidebar-restore-item';
+    item.textContent = el ? sectionLabel(el) : id;
+    item.addEventListener('click', () => { restoreSection(id); menu.style.display = 'none'; });
+    menu.appendChild(item);
+  }
 }
 
 function loadLayout() {
@@ -50,10 +139,12 @@ function applyLayout(items) {
   const dropEnd = document.getElementById('sidebar-drop-end');
   document.querySelectorAll('#sidebar .sidebar-spacer').forEach(s => s.remove());
 
+  const hidden = new Set(loadHidden());
   const placed = new Set();
   if (items) {
     for (const item of items) {
       if (item.type === 'section') {
+        if (hidden.has(item.id)) continue;
         const el = document.getElementById(item.id);
         if (el) { dropEnd.before(el); placed.add(item.id); }
       } else if (item.type === 'spacer' && item.flex > 0.01) {
@@ -62,7 +153,7 @@ function applyLayout(items) {
     }
   }
   for (const id of DEFAULT_ORDER) {
-    if (!placed.has(id)) {
+    if (!placed.has(id) && !hidden.has(id)) {
       const el = document.getElementById(id);
       if (el) dropEnd.before(el);
     }
@@ -72,30 +163,9 @@ function applyLayout(items) {
 export function resetOrder() {
   document.querySelectorAll('#sidebar .sidebar-spacer').forEach(s => s.remove());
   localStorage.removeItem(ORDER_KEY);
+  saveHidden([]); // restore any hidden panels
   applyLayout(null);
-}
-
-export function placeDpadPanel() {
-  const sidebar = document.getElementById('sidebar');
-  const section = document.getElementById('dpad-section');
-  if (!section) return false;
-  const spacer = sidebar.querySelector('.sidebar-spacer');
-  // Prefer an existing flexible gap; otherwise drop it at the bottom of the sidebar.
-  if (spacer) spacer.before(section);
-  else document.getElementById('sidebar-drop-end').before(section);
-  if (!locked) { section.draggable = true; attachDragHandlers(section); }
-  saveLayout();
-  return true;
-}
-
-export function removeDpadPanel() {
-  const section = document.getElementById('dpad-section');
-  if (!section) return;
-  const park = document.getElementById('dpad-section-park');
-  section.draggable = false;
-  detachDragHandlers(section);
-  park.appendChild(section);
-  saveLayout();
+  renderRestoreMenu();
 }
 
 function toggleLock() {
@@ -106,6 +176,15 @@ function toggleLock() {
   btn.classList.toggle('unlocked', !locked);
   btn.title = locked ? 'Unlock to reorder sidebar sections' : 'Lock sidebar order';
   sidebar.classList.toggle('drag-mode', !locked);
+
+  // The restore dropdown only exists while unlocked.
+  const restore = document.getElementById('sidebar-restore');
+  if (restore) {
+    restore.style.display = locked ? 'none' : '';
+    const menu = document.getElementById('sidebar-restore-menu');
+    if (locked) { if (menu) menu.style.display = 'none'; }
+    else renderRestoreMenu();
+  }
   sidebar.querySelectorAll('.sidebar-section').forEach(sec => {
     if (!sidebar.contains(sec)) return;
     sec.draggable = !locked;
@@ -135,15 +214,16 @@ function onDragEnd() {
   this.classList.remove('dragging');
   hideDropIndicator();
 
-  // If the cursor slipped off a vertical edge, dropInfo was clamped in dragleave.
-  // Execute that clamped drop now (only if onSidebarDrop didn't already handle it).
-  if (!dropped && dropInfo) {
-    executeDrop(dropInfo);
-    saveLayout();
+  // Cursor released outside the sidebar: either hide (dragged off a side edge)
+  // or execute the clamped drop (slipped off a vertical edge in dragleave).
+  if (!dropped) {
+    if (pendingHide) hideSection(pendingHide);
+    else if (dropInfo) { executeDrop(dropInfo); saveLayout(); }
   }
 
   dropped = false;
   dropInfo = null;
+  pendingHide = null;
   lastClientY = null;
   dragSrc = null;
 }
@@ -209,6 +289,7 @@ function onSidebarDragOver(e) {
   e.preventDefault();
   e.dataTransfer.dropEffect = 'move';
   lastClientY = e.clientY;
+  pendingHide = null; // back inside the sidebar — cancel any pending hide
   dropInfo = computeDropInfo(e.clientY);
   showDropIndicator(dropInfo.lineY, dropInfo.kind === 'before' || dropInfo.kind === 'after');
 }
@@ -228,7 +309,8 @@ function onSidebarDragLeave(e) {
     } else if (lastClientY <= sr.top) {
       dropInfo = computeDropInfo(sr.top);    // snaps to before first section
     } else {
-      dropInfo = null; // side exit — cancel
+      dropInfo = null;      // side exit — drop is cancelled...
+      pendingHide = dragSrc; // ...and the section is hidden on release
     }
   } else {
     dropInfo = null;

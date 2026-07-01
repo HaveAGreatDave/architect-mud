@@ -18,11 +18,13 @@
  *   moderate–heavy (0.2–0.7) → precipRate × 6 per minute
  *   blizzard (>0.7) → min(precipRate × 3, 3) per minute (dry wind cap)
  *
- * Drying: base 2/min outdoors, 3/min indoors, × temp multiplier (every 10°C above 15°C adds 50%)
+ * Drying: base 2/min outdoors, 3/min indoors, × temp multiplier (every 10°C above 15°C adds 50%).
+ *   Outdoors also × wind multiplier (up to 2.5× at gale) and × humidity multiplier
+ *   (damp air slows evaporation, dry air speeds it). Interiors are sheltered/HVAC-neutral.
  */
 import { query } from '../../server/models/db.js';
 import { hasTag } from '../../server/engine/tags.js';
-import { getZoneTemperature, getZonePrecip } from '../../server/engine/environment.js';
+import { getZoneTemperature, getZonePrecip, getWindKph, getHumidityPct } from '../../server/engine/environment.js';
 import { getAllLivePlayers, getZone } from '../../server/engine/world.js';
 
 function rainWettingRate(precipRate) {
@@ -39,6 +41,20 @@ function snowWettingRate(precipRate) {
 // e.g. 15°C → 1×, 25°C → 1.5×, 35°C → 2×, 45°C → 2.5×
 function dryMultiplier(tempC) {
   return 1 + Math.max(0, tempC - 15) / 20;
+}
+
+// Wind speeds evaporation (forced convection). Outdoors only; up to +150% at gale.
+// e.g. 0 kph → 1×, 15 → 1.5×, 30 → 2×, 45+ → 2.5× (capped).
+function windMultiplier(windKph) {
+  return 1 + Math.min(1.5, windKph / 30);
+}
+
+// Humid air holds moisture, so evaporation slows; dry air speeds it. Neutral at
+// ~60% RH. null (unknown) → 1×. Clamped so it never fully stalls or runs away.
+// e.g. 30% → ~1.15×, 60% → 0.9×, 90% → 0.6×, 100% → 0.5×.
+function humidityMultiplier(humidityPct) {
+  if (humidityPct == null) return 1;
+  return Math.max(0.5, Math.min(1.3, 1.5 - humidityPct / 100));
 }
 
 // Thresholds: { value, risingMsg, fallingMsg }
@@ -65,7 +81,10 @@ export const hooks = {
       const isSnow = precipType === 'snow';
       const zoneTemp = getZoneTemperature(player.current_zone);
       const baseDryRate = isIndoors ? 3 : 2;
-      const dryRate = baseDryRate * dryMultiplier(zoneTemp);
+      // Wind and humidity only bite outdoors; interiors are sheltered and HVAC-neutral.
+      const windMult = isIndoors ? 1 : windMultiplier(getWindKph());
+      const humidMult = isIndoors ? 1 : humidityMultiplier(getHumidityPct());
+      const dryRate = baseDryRate * dryMultiplier(zoneTemp) * windMult * humidMult;
 
       const { rows } = await query(
         `SELECT pi.id, pi.custom_data, i.tags

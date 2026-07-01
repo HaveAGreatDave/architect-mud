@@ -988,8 +988,8 @@ function _bcZonePickerRender() {
     // Show only interior zones (not world map) for studio placement
     const interiorZones = allZones.filter(z => z.map_id && z.map_id !== 'map_world');
     const rows = interiorZones.map(z =>
-      `<div class="bsm-ch-zone-row" data-id="${z.id}"
-        onclick="_bcImportChPickExisting('${z.id}', ${JSON.stringify(escHtml(z.name)).replace(/'/g,"\\'")})"
+      `<div class="bsm-ch-zone-row" data-id="${z.id}" data-name="${escHtml(z.name)}"
+        onclick="_bcImportChPickExisting('${z.id}', this.dataset.name)"
         style="padding:6px 10px;cursor:pointer;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:baseline">
         <span style="font-size:11px;color:var(--text)">${escHtml(z.name)}</span>
         <span style="font-size:9px;color:var(--text-dim)">${z.id}</span>
@@ -1018,7 +1018,7 @@ function _bcZonePickerRender() {
       for (let x = minX; x <= maxX; x++) {
         const z = byCoord.get(`${x},${y}`);
         if (z) {
-          cells += `<div class="bsm-ch-pick-cell bsm-ch-pick-occupied" data-x="${x}" data-y="${y}" data-zone-id="${z.id}" data-zone-name="${escHtml(z.name)}" onclick="_bcImportChPickOccupied('${z.id}',${JSON.stringify(z.name)},this)" style="background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--text-dim);text-align:center;padding:2px;overflow:hidden;line-height:1.2;cursor:pointer" title="${z.id}">${escHtml(z.name)}</div>`;
+          cells += `<div class="bsm-ch-pick-cell bsm-ch-pick-occupied" data-x="${x}" data-y="${y}" data-zone-id="${z.id}" data-zone-name="${escHtml(z.name)}" onclick="_bcImportChPickOccupied('${z.id}',this.dataset.zoneName,this)" style="background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--text-dim);text-align:center;padding:2px;overflow:hidden;line-height:1.2;cursor:pointer" title="${z.id}">${escHtml(z.name)}</div>`;
         } else {
           cells += `<div class="bsm-ch-pick-cell" data-x="${x}" data-y="${y}" onclick="_bcImportChPickCell(${x},${y},this)" style="background:var(--bg);border:1px dashed var(--border);display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--border);cursor:pointer" title="${x},${y}">+</div>`;
         }
@@ -1133,8 +1133,13 @@ async function _bcImportChPickOccupied(zoneId, zoneName, el) {
   const studioRow = document.getElementById('bsm-new-ch-studio-row');
   const studioInput = document.getElementById('bsm-new-ch-studio-name');
   if (studioZoneId) {
-    // Existing studio found — use it directly, same as a list-pick (no create/confirm step)
-    _bcImportChZone = { existingId: studioZoneId, existingName: zoneName };
+    if (info.missingUtility || info.missingProduction) {
+      // Existing studio missing utility/production — ensure it completes on confirm.
+      _bcImportChZone = { exteriorId: zoneId, existingId: studioZoneId, existingName: zoneName, fromMap: true, needsEnsure: true };
+    } else {
+      // Complete studio — use it directly (no create/confirm step).
+      _bcImportChZone = { existingId: studioZoneId, existingName: zoneName };
+    }
     if (studioRow) studioRow.style.display = 'none';
   } else {
     _bcImportChZone = { exteriorId: zoneId, existingId: null, existingName: zoneName, fromMap: true, needsEnsure: true };
@@ -1215,7 +1220,15 @@ async function _bcImportChannelConfirm() {
     const existingCh = _bcChannels.find(c => c.id === sel) || {};
     if (existingCh.studio_zone_id) {
       _bcImportChannelId = sel;
-      _bcImportStudioZoneId = existingCh.studio_zone_id;
+      // Ensure the existing studio is complete (utility + production rooms)
+      // before importing — idempotent, only creates what's missing.
+      let studioZoneId = existingCh.studio_zone_id;
+      try {
+        const ensured = await directAPI('/broadcast/ensure-studio', 'POST', { studio_zone_id: existingCh.studio_zone_id, channel_id: sel });
+        if (ensured?.studio_zone_id) studioZoneId = ensured.studio_zone_id;
+        else if (ensured?.error) console.warn('[BSM] ensure-studio (existing channel):', ensured.error);
+      } catch (err) { console.warn('[BSM] ensure-studio (existing channel) failed:', err.message); }
+      _bcImportStudioZoneId = studioZoneId;
       document.getElementById('bsm-channel-overlay')?.remove();
       await _bcImportDependencies(compiled);
       return;

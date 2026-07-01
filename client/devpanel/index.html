@@ -171,6 +171,18 @@
   <div id="vine-modal-body" style="flex:1;overflow:hidden;min-height:0"></div>
 </div>
 
+<!-- VENDOR SHOP EDITOR MODAL (pop-out) -->
+<div id="ve-modal" style="display:none;position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0.7);align-items:center;justify-content:center" onclick="if(event.target===this)veCloseModal()">
+  <div class="modal-card" style="width:min(880px,94vw);max-height:90vh;display:flex;flex-direction:column;overflow:hidden">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      <h2 style="margin:0;color:var(--accent);letter-spacing:2px;text-transform:uppercase;font-size:14px">🛒 <span id="ve-modal-title">Vendor Shop</span></h2>
+      <span style="font-size:10px;color:var(--text-dim)">Catalogue = full list · Active shelf = auto-managed subset</span>
+      <button class="action-btn" style="margin-left:auto" onclick="veCloseModal()">✕ Close</button>
+    </div>
+    <div id="ve-modal-body" style="flex:1;overflow-y:auto;min-height:0"></div>
+  </div>
+</div>
+
 <!-- BIG MAP -->
 <div id="bigmap-overlay" onclick="if(event.target===this) closeBigMap()">
   <div class="modal-card bigmap-modal">

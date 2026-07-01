@@ -98,7 +98,7 @@ async function cmdSeat(args, raw, player) {
 
 async function cmdLeave(args, raw, player) {
   const t = tableForPlayer(player);
-  if (!t) return { type: 'error', message: 'You are not at any table.' };
+  if (!t) return { type: 'error', message: 'You are not at any table.', closePoker: true };
   await t.leaveTable(player.id);
   // Revert this player's area pane from the table view back to the room.
   const { describeZone } = await import('../../server/engine/commands/index.js');
@@ -359,7 +359,7 @@ async function tableTick() {
       // then, only while a hand is live and players are seated.
       if (table.phase === 'InProgress' && table.seatedCount() > 0) {
         const now = Date.now();
-        if (!table._lastDealerSay || now - table._lastDealerSay > 75_000) {
+        if (!table._lastDealerSay || now - table._lastDealerSay > 150_000) {
           table._lastDealerSay = now;
           table.dealerIdle();
         }
@@ -367,7 +367,7 @@ async function tableTick() {
         // A lone player is waiting for the table to fill — the dealer chats them
         // up and heckles the room to sit down, more often than idle chatter.
         const now = Date.now();
-        if (!table._lastDealerSay || now - table._lastDealerSay > 30_000) {
+        if (!table._lastDealerSay || now - table._lastDealerSay > 90_000) {
           table._lastDealerSay = now;
           table.dealerWaitingBanter();
         }

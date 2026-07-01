@@ -32,6 +32,9 @@ let envTempC = null;
 let envCurrentWeatherType = null;
 let envCurrentPrecipIntensity = null;
 let envBodyTempC = null;
+let envWindKph = null;
+let envHumidity = null;
+let envFeelsLikeC = null;
 
 function bodyFeelLabel(tempC) {
   if (tempC === null) return '';
@@ -88,6 +91,9 @@ export function updateEnvironmentHUD(env) {
   if (env.tempC !== undefined) envTempC = env.tempC;
   if (env.currentWeatherType !== undefined) envCurrentWeatherType = env.currentWeatherType;
   if (env.currentIntensity !== undefined) envCurrentPrecipIntensity = env.currentIntensity;
+  if (env.windKph !== undefined) envWindKph = env.windKph;
+  if (env.humidityPct !== undefined) envHumidity = env.humidityPct;
+  if (env.feelsLikeC !== undefined) envFeelsLikeC = env.feelsLikeC;
   _lastServerTick = Date.now();
   renderEnvironmentHUD();
   if (env.time) refreshZoneVisibility();
@@ -117,6 +123,9 @@ export function updateBodyTempHUD(tempC) {
 export function updateZoneTempHUD(tempC, local) {
   if (clientMinutes === null) return;
   envTempC = tempC;
+  // Indoor updates carry no weather payload — there's no wind chill indoors, so
+  // feels-like tracks the ambient temp (matches the server's apparent temp).
+  if (!(local && local.cloudCover !== undefined)) envFeelsLikeC = tempC;
   if (local && local.cloudCover !== undefined) {
     if (local.precipType !== undefined && local.precipType !== 'none') {
       envCurrentWeatherType = local.precipType;
@@ -262,7 +271,12 @@ export function getEnvSnapshot() {
     bodyTempC: envBodyTempC,
     precipIntensity: envCurrentPrecipIntensity,
     weatherType: envCurrentWeatherType,
-    bodyFeel: bodyFeelLabel(envTempC),
+    windKph: envWindKph,
+    humidityPct: envHumidity,
+    feelsLikeC: envFeelsLikeC,
+    // Comfort reflects the apparent temperature (wind chill / humidity), not the
+    // raw thermometer reading — falls back to actual temp before the first sync.
+    bodyFeel: bodyFeelLabel(envFeelsLikeC ?? envTempC),
   };
 }
 

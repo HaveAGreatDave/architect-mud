@@ -11,6 +11,57 @@ const WHISPER_CONVO_KEY = 'dev_whisper_convos';
 const WHISPER_SETTINGS_KEY = 'dev_whisper_settings';
 const WHISPER_MAX_MSGS = 100;
 
+// Emoji shortcodes: typing :code: auto-replaces with the emoji as you type.
+// Covers every emoji in the picker below (multiple aliases per glyph).
+const EMOJI_SHORTCODES = {
+  joy: '😂', lol: '😂', laugh: '😂',
+  skull: '💀', dead: '💀',
+  fire: '🔥', lit: '🔥',
+  zap: '⚡', lightning: '⚡',
+  rad: '☢️', radiation: '☢️', nuke: '☢️',
+  syringe: '💉', needle: '💉',
+  blood: '🩸',
+  knife: '🗡️', dagger: '🗡️',
+  bomb: '💣',
+  clown: '🤡',
+  devil: '😈', imp: '😈',
+  angry_devil: '👿', devilrage: '👿',
+  robot: '🤖', bot: '🤖',
+  alien: '👾',
+  brain: '🧠',
+  eye: '👁️',
+  sick: '🤢', nauseated: '🤢',
+  rage: '😤', huff: '😤',
+  cry: '😭', sob: '😭',
+  100: '💯', hundred: '💯',
+  shaka: '🤙',
+  wave: '👋',
+  salute: '🫡',
+  heart: '❤️',
+  sparkles: '✨',
+  boom: '💥', explosion: '💥',
+  target: '🎯', dart: '🎯', bullseye: '🎯',
+  ruins: '🏚️',
+  pill: '💊',
+  smoke: '🚬', cig: '🚬',
+  beer: '🍺',
+  money: '💰', cash: '💰',
+};
+
+// On input, replace a completed :code: token immediately before the cursor.
+function _emojiAutoReplace(inp) {
+  const pos = inp.selectionStart ?? inp.value.length;
+  const before = inp.value.slice(0, pos);
+  const m = before.match(/:([a-z0-9_+-]+):$/i);
+  if (!m) return;
+  const emoji = EMOJI_SHORTCODES[m[1].toLowerCase()];
+  if (!emoji) return;
+  const start = pos - m[0].length;
+  inp.value = inp.value.slice(0, start) + emoji + inp.value.slice(pos);
+  const newPos = start + emoji.length;
+  inp.selectionStart = inp.selectionEnd = newPos;
+}
+
 let _panelOpen = false;
 let _activeTab = '#system';
 const _convos = new Map(); // tabKey → { messages: [], unread: 0, scrollTop, playerId? }
@@ -620,9 +671,11 @@ function initWhisperPanel() {
 
   window.addEventListener('beforeunload', _saveConvos);
 
-  document.getElementById('whisper-input')?.addEventListener('keydown', e => {
+  const whisperInput = document.getElementById('whisper-input');
+  whisperInput?.addEventListener('keydown', e => {
     if (e.key === 'Enter') _sendMessage();
   });
+  whisperInput?.addEventListener('input', () => _emojiAutoReplace(whisperInput));
   document.getElementById('whisper-send-btn')?.addEventListener('click', _sendMessage);
   document.getElementById('whisper-new-msgs')?.addEventListener('click', _scrollToBottom);
   document.getElementById('whisper-scroll-bottom')?.addEventListener('click', _scrollToBottom);
@@ -690,6 +743,8 @@ function initWhisperPanel() {
     for (const emoji of EMOJIS) {
       const b = document.createElement('button');
       b.textContent = emoji;
+      const code = Object.keys(EMOJI_SHORTCODES).find(k => EMOJI_SHORTCODES[k] === emoji);
+      if (code) b.title = `:${code}:`;
       b.style.cssText = 'background:transparent;border:none;font-size:18px;cursor:pointer;padding:2px;border-radius:2px;line-height:1';
       b.addEventListener('mouseenter', () => { b.style.background = 'var(--bg3)'; });
       b.addEventListener('mouseleave', () => { b.style.background = 'transparent'; });

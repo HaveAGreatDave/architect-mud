@@ -122,26 +122,14 @@ export function parseZoneInfo(html) {
     if (bar) bar.textContent = zoneName;
   }
 
-  const exitsEl = document.getElementById('exits-display');
-  exitsEl.innerHTML = '';
   const exitLinks = tmp.querySelectorAll('.action-link.exit-link, .action-link.building-link, .action-link.room-nav-link');
   const availDirs = new Set();
   for (const link of exitLinks) {
-    const cmd = link.dataset.target;
-    if (!cmd) continue;
-    availDirs.add(cmd);
-    const dirTag = link.previousElementSibling?.classList.contains('dir-tag')
-      ? link.previousElementSibling.textContent.replace(/^\[|\]$/g, '')
-      : cmd;
-    const btn = document.createElement('button');
-    btn.className = 'exit-btn';
-    btn.textContent = dirTag;
-    btn.onclick = () => import('./net.js').then(m => m.sendCmd(cmd));
-    exitsEl.appendChild(btn);
+    if (link.dataset.target) availDirs.add(link.dataset.target);
   }
 
   // Light up dpad buttons for available exits
-  for (const btn of document.querySelectorAll('#mob-dpad .dpad-btn[data-cmd], #dpad-section .dpad-btn[data-cmd]')) {
+  for (const btn of document.querySelectorAll('#mob-dpad .dpad-btn[data-cmd], #loc-dpad .dpad-btn[data-cmd]')) {
     btn.classList.toggle('dpad-available', availDirs.has(_DPAD_DIR[btn.dataset.cmd] || btn.dataset.cmd));
   }
 }

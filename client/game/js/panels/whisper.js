@@ -9,6 +9,57 @@ import {
 
 const USERS_TAB = "__users__";
 const WHISPER_MAX_MSGS = 100;
+
+// Emoji shortcodes: typing :code: auto-replaces with the emoji as you type.
+// Covers every emoji in the picker below (multiple aliases per glyph).
+const EMOJI_SHORTCODES = {
+	joy: "😂", lol: "😂", laugh: "😂",
+	skull: "💀", dead: "💀",
+	fire: "🔥", lit: "🔥",
+	zap: "⚡", lightning: "⚡",
+	rad: "☢️", radiation: "☢️", nuke: "☢️",
+	syringe: "💉", needle: "💉",
+	blood: "🩸",
+	knife: "🗡️", dagger: "🗡️",
+	bomb: "💣",
+	clown: "🤡",
+	devil: "😈", imp: "😈",
+	angry_devil: "👿", devilrage: "👿",
+	robot: "🤖", bot: "🤖",
+	alien: "👾",
+	brain: "🧠",
+	eye: "👁️",
+	sick: "🤢", nauseated: "🤢",
+	rage: "😤", huff: "😤",
+	cry: "😭", sob: "😭",
+	100: "💯", hundred: "💯",
+	shaka: "🤙",
+	wave: "👋",
+	salute: "🫡",
+	heart: "❤️",
+	sparkles: "✨",
+	boom: "💥", explosion: "💥",
+	target: "🎯", dart: "🎯", bullseye: "🎯",
+	ruins: "🏚️",
+	pill: "💊",
+	smoke: "🚬", cig: "🚬",
+	beer: "🍺",
+	money: "💰", cash: "💰",
+};
+
+// On input, replace a completed :code: token immediately before the cursor.
+function _emojiAutoReplace(inp) {
+	const pos = inp.selectionStart ?? inp.value.length;
+	const before = inp.value.slice(0, pos);
+	const m = before.match(/:([a-z0-9_+-]+):$/i);
+	if (!m) return;
+	const emoji = EMOJI_SHORTCODES[m[1].toLowerCase()];
+	if (!emoji) return;
+	const start = pos - m[0].length;
+	inp.value = inp.value.slice(0, start) + emoji + inp.value.slice(pos);
+	const newPos = start + emoji.length;
+	inp.selectionStart = inp.selectionEnd = newPos;
+}
 const WHISPER_CONVO_KEY = "whisper_convos";
 const WHISPER_PERSIST_MAX = 100;
 
@@ -876,11 +927,11 @@ export function initWhisperPanel() {
 	document
 		.getElementById("chat-toggle-btn")
 		.addEventListener("click", toggleWhisperPanel);
-	document
-		.getElementById("whisper-reply-input")
-		.addEventListener("keydown", (e) => {
-			if (e.key === "Enter") sendWhisperReply();
-		});
+	const replyInput = document.getElementById("whisper-reply-input");
+	replyInput.addEventListener("keydown", (e) => {
+		if (e.key === "Enter") sendWhisperReply();
+	});
+	replyInput.addEventListener("input", () => _emojiAutoReplace(replyInput));
 
 	// Close (✕) button
 	document.querySelectorAll("#whisper-panel button").forEach((btn) => {
@@ -945,6 +996,10 @@ export function initWhisperPanel() {
 	for (const emoji of EMOJIS) {
 		const btn = document.createElement("button");
 		btn.textContent = emoji;
+		const code = Object.keys(EMOJI_SHORTCODES).find(
+			(k) => EMOJI_SHORTCODES[k] === emoji,
+		);
+		if (code) btn.title = `:${code}:`;
 		btn.style.cssText =
 			"background:transparent;border:none;font-size:18px;cursor:pointer;padding:2px;border-radius:2px;line-height:1";
 		btn.addEventListener("mouseenter", () => {

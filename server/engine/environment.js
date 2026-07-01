@@ -25,6 +25,7 @@
 // 24-hour world tick).
 
 import { schedule } from './scheduler.js';
+import { emit } from './events.js';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -182,7 +183,7 @@ const state = {
   lastTick30m: 0,
   lastTick24h: 0,
   activeClimateProfileId: null,
-  activeClimateProfile: null,  // { monthly_temp_c: [...12], monthly_precip_chance: [...12] }
+  activeClimateProfile: null,  // { monthly_temp_c: [...12], monthly_precip_chance: [...12], monthly_wind_kph: [...12], monthly_humidity: [...12] }
   currentPrecip: 'none',       // 'none' | 'rain' | 'snow' — live state, updated each 30-min tick
   precipRate: 0,               // 0.1–1.0 intensity scale; 0 when dry. Label derived via currentIntensityLabel().
   weatherOverrideActive: false, // true while a dev has manually forced weather outside the forecast
@@ -299,7 +300,7 @@ export async function initEnvironment({ query, emitHook, broadcast, getOccupiedZ
   state.activeClimateProfileId = clockRow.active_climate_profile_id || null;
   if (state.activeClimateProfileId) {
     const { rows: cpRows } = await query('SELECT * FROM climate_profiles WHERE id = $1', [state.activeClimateProfileId]);
-    if (cpRows[0]) state.activeClimateProfile = { monthly_temp_c: cpRows[0].monthly_temp_c, monthly_precip_chance: cpRows[0].monthly_precip_chance };
+    if (cpRows[0]) state.activeClimateProfile = { monthly_temp_c: cpRows[0].monthly_temp_c, monthly_precip_chance: cpRows[0].monthly_precip_chance, monthly_wind_kph: cpRows[0].monthly_wind_kph, monthly_humidity: cpRows[0].monthly_humidity };
   }
 
   // Weather plugin initializes the forecast via this hook. Must run before
@@ -1177,6 +1178,9 @@ export function getHUDPayload() {
     season: state.season,
     weatherType: state.weatherType,
     weatherIcon: WEATHER_ICON[state.weatherType],
+    windKph: state.forecast[0]?.windKph ?? 0,
+    humidityPct: state.forecast[0]?.humidityPct ?? null,
+    feelsLikeC: apparentTemperature(state.tempC + diurnalOffset(state.minutes), state.forecast[0]?.windKph ?? 0, state.forecast[0]?.humidityPct ?? null),
     tempC: state.tempC + diurnalOffset(state.minutes),
     tempF: Math.round(((state.tempC + diurnalOffset(state.minutes)) * 9) / 5 + 32),
     timePhase: phase.name,
@@ -1212,6 +1216,13 @@ export function setWeatherState(weatherType, tempC, forecast) {
 export function setCurrentPrecip(type, rate) {
   state.currentPrecip = type ?? 'none';
   state.precipRate    = rate ?? 0;
+}
+
+// Current global precipitation type ('none' | 'rain' | 'sleet' | 'snow' |
+// 'blizzard' | 'thunderstorm'). Carries the full taxonomy (the field only
+// distinguishes rain/snow), so the audio layer picks the right ambience loop.
+export function getCurrentPrecipType() {
+  return state.currentPrecip;
 }
 
 // ---------------------------------------------------------------------------
@@ -1266,6 +1277,7 @@ export async function getWeatherMap() {
   const snap = weatherFieldSnapshot ? weatherFieldSnapshot() : { bounds: null, systems: [] };
   const base = state.tempC + diurnalOffset(state.minutes);
   const active = state.currentPrecip !== 'none';
+  const baseHum = state.forecast[0]?.humidityPct ?? 60;
   const zones = [];
   if (deps.query) {
     const { rows } = await deps.query(
@@ -1274,12 +1286,17 @@ export async function getWeatherMap() {
     ).catch(() => ({ rows: [] }));
     for (const z of rows) {
       const f = sampleField ? sampleField(z.grid_x, z.grid_y) : null;
+      const cloud  = f ? f.cloudCover : 0;
+      const precip = (f && active) ? f.precipRate : 0;
+      // Day humidity is the floor; tiles under cloud / active precip read damper.
+      const localHum = Math.min(100, Math.round(baseHum + cloud * 8 + precip * 15));
       zones.push({
         id: z.id, name: z.name, grid_x: z.grid_x, grid_y: z.grid_y,
         tempC: f ? Math.round(base + f.tempOffset) : Math.round(base),
-        cloudCover: f ? f.cloudCover : 0,
-        precipRate: (f && active) ? f.precipRate : 0,
+        cloudCover: cloud,
+        precipRate: precip,
         precipType: (f && active && f.precipType !== 'none') ? f.precipType : 'none',
+        humidityPct: localHum,
       });
     }
   }
@@ -1305,6 +1322,14 @@ function broadcastZoneWeather(occupied) {
       cloudCover: f.cloudCover,
       precipType: active && f.precipType !== 'none' ? f.precipType : 'none',
       precipRate: active ? f.precipRate : 0,
+    });
+    // Signal the audio layer which precipitation ambience (if any) this tile is
+    // under. `precipType` carries the full taxonomy (state.currentPrecip);
+    // `active` is whether this specific tile is under a precip cell right now.
+    emit('weather.zoneAmbience', {
+      zoneId,
+      precipType: state.currentPrecip,
+      active: active && f.precipType !== 'none',
     });
   }
 }
@@ -1342,6 +1367,54 @@ export function getZoneTemperature(zoneId) {
   const base = state.tempC + diurnalOffset(state.minutes);
   const f = fieldAt(zoneId);
   return f ? Math.round(base + f.tempOffset) : base;
+}
+
+// Prevailing wind speed (kph) for the current day. Global — one figure for the
+// whole world, driven by the active forecast. 0 until the forecast is ready.
+export function getWindKph() {
+  return state.forecast[0]?.windKph ?? 0;
+}
+
+// Relative humidity (%) for the current day, or null if unknown. Global, from
+// the active forecast. Feeds apparent-temperature and clothing drying.
+export function getHumidityPct() {
+  return state.forecast[0]?.humidityPct ?? null;
+}
+
+// Apparent ("feels like") temperature. Wind chill bites in the cold and rising
+// wind; humidity pushes the heat index up when it's hot and makes deep cold
+// feel damper. Returns the dry-air temp unchanged when neither applies.
+//   tempC       — actual air temperature (°C)
+//   windKph     — prevailing wind speed (km/h); 0 indoors/sheltered
+//   humidityPct — relative humidity 0–100, or null if unknown
+export function apparentTemperature(tempC, windKph = 0, humidityPct = null) {
+  let feels = tempC;
+  // Wind chill — only meaningful in cold air moving faster than a light breeze.
+  if (tempC <= 10 && windKph >= 5) {
+    const v = Math.pow(windKph, 0.16);
+    feels = 13.12 + 0.6215 * tempC - 11.37 * v + 0.3965 * tempC * v;
+  }
+  if (humidityPct != null) {
+    if (tempC >= 27) {
+      // Heat index: muggy heat feels hotter, scaling with how far over 27°C.
+      const humidExcess = Math.max(0, Math.min(100, humidityPct) - 40) / 100; // 0..0.6
+      feels += (tempC - 27) * humidExcess * 1.2;
+    } else if (tempC < 8 && humidityPct > 70) {
+      // Damp cold cuts deeper than dry cold.
+      feels -= (humidityPct - 70) / 100 * 2;
+    }
+  }
+  return Math.round(feels * 10) / 10;
+}
+
+// Feels-like temperature for a zone: outdoors it folds in the day's wind and
+// humidity; indoors (and for a sheltered interior) it's just the ambient temp.
+// extraOffsetC lets callers add a zone temp_offset flag before the wind bites.
+export function getZoneApparentTemperature(zoneId, extraOffsetC = 0) {
+  const ambient = getZoneTemperature(zoneId) + extraOffsetC;
+  const z = state.zones.get(zoneId);
+  if (isIndoorZone(z)) return ambient;
+  return apparentTemperature(ambient, state.forecast[0]?.windKph ?? 0, state.forecast[0]?.humidityPct ?? null);
 }
 
 export function getPowerMap() {
@@ -1410,20 +1483,20 @@ export async function devForceTick24() { await tick24h(); return { ...getHUDPayl
 
 export async function devGetClimateProfiles() {
   const { rows } = await deps.query('SELECT * FROM climate_profiles ORDER BY name ASC');
-  return rows.map(r => ({ id: r.id, name: r.name, monthly_temp_c: r.monthly_temp_c, monthly_precip_chance: r.monthly_precip_chance }));
+  return rows.map(r => ({ id: r.id, name: r.name, monthly_temp_c: r.monthly_temp_c, monthly_precip_chance: r.monthly_precip_chance, monthly_wind_kph: r.monthly_wind_kph, monthly_humidity: r.monthly_humidity }));
 }
 
-export async function devSaveClimateProfile({ id, name, monthly_temp_c, monthly_precip_chance }) {
+export async function devSaveClimateProfile({ id, name, monthly_temp_c, monthly_precip_chance, monthly_wind_kph, monthly_humidity }) {
   const { query } = deps;
   if (!id) id = `climate_${Date.now()}`;
   if (!name) throw new Error('Profile name required');
   await query(
-    `INSERT INTO climate_profiles (id, name, monthly_temp_c, monthly_precip_chance)
-     VALUES ($1, $2, $3, $4)
-     ON CONFLICT (id) DO UPDATE SET name = $2, monthly_temp_c = $3, monthly_precip_chance = $4`,
-    [id, name, JSON.stringify(monthly_temp_c), JSON.stringify(monthly_precip_chance)]
+    `INSERT INTO climate_profiles (id, name, monthly_temp_c, monthly_precip_chance, monthly_wind_kph, monthly_humidity)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     ON CONFLICT (id) DO UPDATE SET name = $2, monthly_temp_c = $3, monthly_precip_chance = $4, monthly_wind_kph = $5, monthly_humidity = $6`,
+    [id, name, JSON.stringify(monthly_temp_c), JSON.stringify(monthly_precip_chance), JSON.stringify(monthly_wind_kph ?? []), JSON.stringify(monthly_humidity ?? [])]
   );
-  return { id, name, monthly_temp_c, monthly_precip_chance };
+  return { id, name, monthly_temp_c, monthly_precip_chance, monthly_wind_kph, monthly_humidity };
 }
 
 export async function devDeleteClimateProfile(id) {
@@ -1447,15 +1520,15 @@ export async function devSetActiveClimate(id) {
   const { rows } = await query('SELECT * FROM climate_profiles WHERE id = $1', [id]);
   if (!rows[0]) throw new Error('Climate profile not found');
   state.activeClimateProfileId = id;
-  state.activeClimateProfile = { monthly_temp_c: rows[0].monthly_temp_c, monthly_precip_chance: rows[0].monthly_precip_chance };
+  state.activeClimateProfile = { monthly_temp_c: rows[0].monthly_temp_c, monthly_precip_chance: rows[0].monthly_precip_chance, monthly_wind_kph: rows[0].monthly_wind_kph, monthly_humidity: rows[0].monthly_humidity };
   await query('UPDATE world_clock SET active_climate_profile_id = $1 WHERE id = 1', [id]);
   return { activeClimateProfileId: id };
 }
 
-export async function devRecalculateForecast({ monthly_temp_c, monthly_precip_chance } = {}) {
+export async function devRecalculateForecast({ monthly_temp_c, monthly_precip_chance, monthly_wind_kph, monthly_humidity } = {}) {
   const { emitHook, broadcast } = deps;
   const climateProfile = (monthly_temp_c && monthly_precip_chance)
-    ? { monthly_temp_c, monthly_precip_chance }
+    ? { monthly_temp_c, monthly_precip_chance, monthly_wind_kph, monthly_humidity }
     : state.activeClimateProfile;
   if (emitHook) await emitHook('environment.recalculateForecast', { setWeatherState, climateProfile, currentDate: state.date });
   // Re-roll current precip against the newly forecasted precipChance.

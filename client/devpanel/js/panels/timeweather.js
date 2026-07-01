@@ -46,6 +46,7 @@ function renderTimeWeatherPanel(data) {
             <button class="action-btn" onclick="setWeatherOverlay('temp')">🌡 Temp</button>
             <button class="action-btn" onclick="setWeatherOverlay('cloud')">☁ Cloud</button>
             <button class="action-btn" onclick="setWeatherOverlay('precip')">🌧 Precip</button>
+            <button class="action-btn" onclick="setWeatherOverlay('humid')">💧 Humidity</button>
             <button class="action-btn" onclick="setWeatherOverlay('wind')">💨 Wind</button>
           </div>
         </div>
@@ -129,6 +130,7 @@ function renderTimeWeatherPanel(data) {
                 <option value="__london">🌦 London</option>
                 <option value="__phoenix">🏜 Phoenix</option>
                 <option value="__novosibirsk">🥶 Novosibirsk</option>
+                <option value="__coldwater">🌫 Coldwater Basin</option>
               </optgroup>
               ${climateProfiles.length ? `<optgroup label="Saved Profiles">${climateProfiles.map(p=>`<option value="${p.id}"${p.id===activeId?' selected':''}>${p.id===activeId?'★ ':''}${p.name}</option>`).join('')}</optgroup>` : ''}
             </select>
@@ -152,13 +154,35 @@ function renderTimeWeatherPanel(data) {
           </div>
         </div>
 
-        <div>
+        <div style="margin-bottom:14px">
           <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:8px">Monthly Precipitation Chance (%)</div>
           <div style="display:grid;grid-template-columns:repeat(12,1fr);gap:4px">
             ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].map((m,i)=>`
               <div style="text-align:center">
                 <div style="font-size:10px;color:var(--text-dim);margin-bottom:3px">${m}</div>
                 <input id="tw-p-${i}" type="number" min="0" max="100" value="${Math.round(((climateProfiles.find(p=>p.id===activeId)?.monthly_precip_chance||[])[i]??'')*100)||''}" placeholder="—" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:4px 2px;border-radius:2px;text-align:center">
+              </div>`).join('')}
+          </div>
+        </div>
+
+        <div style="margin-bottom:14px">
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:8px">Monthly Avg Wind (km/h)</div>
+          <div style="display:grid;grid-template-columns:repeat(12,1fr);gap:4px">
+            ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].map((m,i)=>`
+              <div style="text-align:center">
+                <div style="font-size:10px;color:var(--text-dim);margin-bottom:3px">${m}</div>
+                <input id="tw-w-${i}" type="number" min="0" value="${(climateProfiles.find(p=>p.id===activeId)?.monthly_wind_kph||[])[i]??''}" placeholder="—" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:4px 2px;border-radius:2px;text-align:center">
+              </div>`).join('')}
+          </div>
+        </div>
+
+        <div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:8px">Monthly Avg Humidity (%)</div>
+          <div style="display:grid;grid-template-columns:repeat(12,1fr);gap:4px">
+            ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].map((m,i)=>`
+              <div style="text-align:center">
+                <div style="font-size:10px;color:var(--text-dim);margin-bottom:3px">${m}</div>
+                <input id="tw-h-${i}" type="number" min="0" max="100" value="${(climateProfiles.find(p=>p.id===activeId)?.monthly_humidity||[])[i]??''}" placeholder="—" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:4px 2px;border-radius:2px;text-align:center">
               </div>`).join('')}
           </div>
         </div>
@@ -181,6 +205,7 @@ const WM_LEGEND = {
   temp:   'Tile colour = temperature (blue cold → red hot). Dashed circles are weather systems.',
   cloud:  'Tile shading = cloud cover. Denser = more overcast.',
   precip: 'Tile colour = precipitation intensity (blue rain / white snow), only while actively precipitating.',
+  humid:  'Tile colour = relative humidity (faint = dry → deep teal = saturated). Tiles under cloud/rain read damper.',
   wind:   "Arrows show each system's heading and speed; dashed circle = system radius.",
 };
 
@@ -188,6 +213,12 @@ function wmTempColor(t) {
   const c = Math.max(-20, Math.min(40, t ?? 0));
   const hue = 240 - ((c + 20) / 60) * 240; // -20°C → 240 (blue), 40°C → 0 (red)
   return `hsl(${hue.toFixed(0)},65%,45%)`;
+}
+
+// Relative humidity → teal ramp. 15% (arid) faint, 100% (saturated) deep teal.
+function wmHumidColor(h) {
+  const a = Math.max(0, Math.min(1, ((h ?? 0) - 15) / 85));
+  return `rgba(64,168,176,${(0.12 + a * 0.72).toFixed(2)})`;
 }
 
 function buildWeatherMapSVG(data, overlay) {
@@ -215,8 +246,9 @@ function buildWeatherMapSVG(data, overlay) {
     if (overlay === 'temp')        { fill = wmTempColor(z.tempC); label = `${z.tempC}°`; }
     else if (overlay === 'cloud')  { fill = `rgba(200,206,220,${cloud.toFixed(2)})`; }
     else if (overlay === 'precip') { fill = z.precipType === 'snow' ? `rgba(235,240,255,${precip.toFixed(2)})` : `rgba(70,120,240,${precip.toFixed(2)})`; }
+    else if (overlay === 'humid')  { fill = wmHumidColor(z.humidityPct); if (z.humidityPct != null) label = `${z.humidityPct}%`; }
     else if (overlay === 'wind')   { fill = `rgba(200,206,220,${(cloud * 0.6).toFixed(2)})`; }
-    const tip = `${z.name} (${z.grid_x},${z.grid_y}) — ${z.tempC}°C, cloud ${(cloud * 100) | 0}%, precip ${(precip * 100) | 0}%`;
+    const tip = `${z.name} (${z.grid_x},${z.grid_y}) — ${z.tempC}°C, humidity ${z.humidityPct ?? '?'}%, cloud ${(cloud * 100) | 0}%, precip ${(precip * 100) | 0}%`;
     tiles += `<rect x="${x + 1}" y="${y + 1}" width="${cell - 2}" height="${cell - 2}" rx="3" fill="${fill}" stroke="var(--border)" stroke-width="1"><title>${tip}</title></rect>`;
     if (label) tiles += `<text x="${x + cell / 2}" y="${y + cell / 2 + 3}" text-anchor="middle" font-size="10" fill="#fff" style="pointer-events:none">${label}</text>`;
   }
@@ -339,11 +371,12 @@ async function devForceTick(which) {
 }
 
 const CLIMATE_PRESETS = {
-  __reykjavik:   { name: 'Reykjavik',   monthly_temp_c: [-1,0,1,4,8,11,12,11,8,5,2,0],          monthly_precip_chance: [0.65,0.60,0.60,0.55,0.55,0.55,0.60,0.60,0.65,0.65,0.65,0.65] },
-  __miami:       { name: 'Miami',       monthly_temp_c: [20,21,23,25,28,30,31,31,30,27,24,21],   monthly_precip_chance: [0.30,0.30,0.35,0.40,0.50,0.70,0.75,0.75,0.65,0.45,0.35,0.30] },
-  __london:      { name: 'London',      monthly_temp_c: [5,5,8,11,14,18,20,20,16,12,8,5],        monthly_precip_chance: [0.50,0.45,0.45,0.45,0.45,0.50,0.50,0.50,0.50,0.55,0.55,0.50] },
-  __phoenix:     { name: 'Phoenix',     monthly_temp_c: [12,14,18,23,29,34,37,36,32,26,18,12],   monthly_precip_chance: [0.15,0.15,0.15,0.10,0.10,0.10,0.40,0.40,0.30,0.15,0.10,0.15] },
-  __novosibirsk: { name: 'Novosibirsk', monthly_temp_c: [-16,-14,-6,4,13,19,22,19,12,3,-8,-14],  monthly_precip_chance: [0.35,0.30,0.30,0.35,0.40,0.45,0.50,0.45,0.40,0.40,0.40,0.40] },
+  __reykjavik:   { name: 'Reykjavik',   monthly_temp_c: [-1,0,1,4,8,11,12,11,8,5,2,0],          monthly_precip_chance: [0.65,0.60,0.60,0.55,0.55,0.55,0.60,0.60,0.65,0.65,0.65,0.65], monthly_wind_kph: [30,29,28,25,22,20,19,20,24,28,31,31], monthly_humidity: [78,78,76,74,74,76,80,82,80,80,79,78] },
+  __miami:       { name: 'Miami',       monthly_temp_c: [20,21,23,25,28,30,31,31,30,27,24,21],   monthly_precip_chance: [0.30,0.30,0.35,0.40,0.50,0.70,0.75,0.75,0.65,0.45,0.35,0.30], monthly_wind_kph: [17,18,19,20,18,16,15,15,16,18,18,17], monthly_humidity: [72,70,70,68,72,78,78,80,82,80,76,73] },
+  __london:      { name: 'London',      monthly_temp_c: [5,5,8,11,14,18,20,20,16,12,8,5],        monthly_precip_chance: [0.50,0.45,0.45,0.45,0.45,0.50,0.50,0.50,0.50,0.55,0.55,0.50], monthly_wind_kph: [24,23,22,19,17,16,16,16,17,20,22,24], monthly_humidity: [86,82,78,72,72,70,70,72,78,82,85,87] },
+  __phoenix:     { name: 'Phoenix',     monthly_temp_c: [12,14,18,23,29,34,37,36,32,26,18,12],   monthly_precip_chance: [0.15,0.15,0.15,0.10,0.10,0.10,0.40,0.40,0.30,0.15,0.10,0.15], monthly_wind_kph: [12,13,15,17,17,15,14,13,13,12,11,11], monthly_humidity: [35,30,28,22,18,15,30,35,32,30,32,36] },
+  __novosibirsk: { name: 'Novosibirsk', monthly_temp_c: [-16,-14,-6,4,13,19,22,19,12,3,-8,-14],  monthly_precip_chance: [0.35,0.30,0.30,0.35,0.40,0.45,0.50,0.45,0.40,0.40,0.40,0.40], monthly_wind_kph: [16,16,18,20,18,16,15,14,17,19,18,16], monthly_humidity: [80,78,75,65,58,62,70,72,74,76,82,82] },
+  __coldwater:   { name: 'Coldwater Basin', monthly_temp_c: [-3,-2,1,5,10,14,16,15,11,6,1,-2],  monthly_precip_chance: [0.55,0.52,0.50,0.48,0.45,0.45,0.48,0.50,0.55,0.60,0.60,0.58], monthly_wind_kph: [10,10,11,12,12,11,10,10,11,12,11,10], monthly_humidity: [88,87,85,82,80,82,85,87,90,90,89,88] },
 };
 
 function devLoadClimatePreset(val) {
@@ -355,6 +388,8 @@ function devLoadClimatePreset(val) {
     document.getElementById('tw-climate-name').value = p.name;
     p.monthly_temp_c.forEach((v, i) => { const el = document.getElementById(`tw-t-${i}`); if (el) el.value = v; });
     p.monthly_precip_chance.forEach((v, i) => { const el = document.getElementById(`tw-p-${i}`); if (el) el.value = Math.round(v * 100); });
+    (p.monthly_wind_kph || []).forEach((v, i) => { const el = document.getElementById(`tw-w-${i}`); if (el) el.value = v; });
+    (p.monthly_humidity || []).forEach((v, i) => { const el = document.getElementById(`tw-h-${i}`); if (el) el.value = v; });
     return;
   }
   // Saved profile — find it in current panel data
@@ -364,21 +399,25 @@ function devLoadClimatePreset(val) {
   document.getElementById('tw-climate-name').value = p.name;
   p.monthly_temp_c.forEach((v, i) => { const el = document.getElementById(`tw-t-${i}`); if (el) el.value = v; });
   p.monthly_precip_chance.forEach((v, i) => { const el = document.getElementById(`tw-p-${i}`); if (el) el.value = Math.round(v * 100); });
+  (p.monthly_wind_kph || []).forEach((v, i) => { const el = document.getElementById(`tw-w-${i}`); if (el) el.value = v; });
+  (p.monthly_humidity || []).forEach((v, i) => { const el = document.getElementById(`tw-h-${i}`); if (el) el.value = v; });
 }
 
 function devReadClimateInputs() {
   const monthly_temp_c = Array.from({length:12}, (_,i) => Number(document.getElementById(`tw-t-${i}`)?.value ?? 0));
   const monthly_precip_chance = Array.from({length:12}, (_,i) => Math.min(1, Math.max(0, Number(document.getElementById(`tw-p-${i}`)?.value ?? 40) / 100)));
+  const monthly_wind_kph = Array.from({length:12}, (_,i) => Math.max(0, Number(document.getElementById(`tw-w-${i}`)?.value ?? 0)));
+  const monthly_humidity = Array.from({length:12}, (_,i) => Math.min(100, Math.max(0, Number(document.getElementById(`tw-h-${i}`)?.value ?? 0))));
   const name = document.getElementById('tw-climate-name')?.value?.trim();
-  return { name, monthly_temp_c, monthly_precip_chance };
+  return { name, monthly_temp_c, monthly_precip_chance, monthly_wind_kph, monthly_humidity };
 }
 
 async function devSaveClimateProfile() {
   const sel = document.getElementById('tw-climate-select');
   const existingId = sel?.value && !sel.value.startsWith('__') ? sel.value : undefined;
-  const { name, monthly_temp_c, monthly_precip_chance } = devReadClimateInputs();
+  const { name, monthly_temp_c, monthly_precip_chance, monthly_wind_kph, monthly_humidity } = devReadClimateInputs();
   if (!name) { toast('Enter a profile name', true); return; }
-  const r = await API('/environment/climate/profiles', 'POST', { id: existingId, name, monthly_temp_c, monthly_precip_chance });
+  const r = await API('/environment/climate/profiles', 'POST', { id: existingId, name, monthly_temp_c, monthly_precip_chance, monthly_wind_kph, monthly_humidity });
   if (r.error) { toast(r.error, true); return; }
   toast(`Climate profile "${name}" saved`);
   loadPanel('timeweather');
@@ -389,9 +428,9 @@ async function devSetActiveClimate() {
   const id = sel?.value && !sel.value.startsWith('__') ? sel.value : null;
   if (!id) {
     // Save first if custom, then set active
-    const { name, monthly_temp_c, monthly_precip_chance } = devReadClimateInputs();
+    const { name, monthly_temp_c, monthly_precip_chance, monthly_wind_kph, monthly_humidity } = devReadClimateInputs();
     if (!name) { toast('Save the profile first, then set it active', true); return; }
-    const saved = await API('/environment/climate/profiles', 'POST', { name, monthly_temp_c, monthly_precip_chance });
+    const saved = await API('/environment/climate/profiles', 'POST', { name, monthly_temp_c, monthly_precip_chance, monthly_wind_kph, monthly_humidity });
     if (saved.error) { toast(saved.error, true); return; }
     const r = await API('/environment/climate/active', 'POST', { id: saved.id });
     if (r.error) { toast(r.error, true); return; }
@@ -405,8 +444,8 @@ async function devSetActiveClimate() {
 }
 
 async function devRecalculateForecast() {
-  const { monthly_temp_c, monthly_precip_chance } = devReadClimateInputs();
-  const r = await API('/environment/climate/recalculate', 'POST', { monthly_temp_c, monthly_precip_chance });
+  const { monthly_temp_c, monthly_precip_chance, monthly_wind_kph, monthly_humidity } = devReadClimateInputs();
+  const r = await API('/environment/climate/recalculate', 'POST', { monthly_temp_c, monthly_precip_chance, monthly_wind_kph, monthly_humidity });
   if (r.error) { toast(r.error, true); return; }
   toast('Forecast recalculated');
   loadPanel('timeweather');

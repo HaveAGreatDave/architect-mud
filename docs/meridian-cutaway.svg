@@ -1,0 +1,181 @@
+<svg viewBox="0 0 680 1012" xmlns="http://www.w3.org/2000/svg" role="img" font-family="monospace">
+<title>The Meridian — side cutaway</title>
+<desc>Cutaway side elevation of The Meridian, a six-storey residential tower: a street-level lobby, floors one through six each with a central stair-core hallway serving four studio units, and a flat roof with antenna mast and water tank.</desc>
+<defs>
+<linearGradient id="dusk" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0" stop-color="#0d1017"/><stop offset="0.55" stop-color="#141826"/><stop offset="1" stop-color="#1a1420"/>
+</linearGradient>
+<filter id="glow" x="-30%" y="-60%" width="160%" height="260%"><feGaussianBlur stdDeviation="2.2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+</defs>
+<rect x="0" y="0" width="680" height="1012" fill="url(#dusk)"/>
+<g fill="#161b24" opacity="0.9">
+  <rect x="0" y="470" width="70" height="542"/>
+  <rect x="70" y="540" width="46" height="472"/>
+  <rect x="556" y="430" width="60" height="582"/>
+  <rect x="616" y="520" width="64" height="492"/>
+  <rect x="516" y="560" width="42" height="452"/></g>
+<rect x="144" y="114" width="324" height="62" fill="#31363e" stroke="#20242b" stroke-width="2"/>
+<rect x="144" y="106" width="324" height="10" fill="#3d434c" stroke="#20242b" stroke-width="1.5"/>
+<rect x="164" y="92" width="52" height="24" fill="#3a4048" stroke="#22262d" stroke-width="1.5"/>
+<ellipse cx="190" cy="92" rx="26" ry="7" fill="#4c525b" stroke="#22262d" stroke-width="1.5"/>
+<line x1="406" y1="44" x2="406" y2="114" stroke="#5a6069" stroke-width="3"/>
+<line x1="390" y1="70" x2="422" y2="70" stroke="#5a6069" stroke-width="2"/>
+<line x1="395" y1="56" x2="417" y2="56" stroke="#5a6069" stroke-width="2"/>
+<circle cx="406" cy="40" r="4.5" fill="#ff5a4d"><animate attributeName="opacity" values="1;0.25;1" dur="2.4s" repeatCount="indefinite"/></circle>
+<text x="306" y="136" text-anchor="middle" font-size="12" fill="#9aa2ab" letter-spacing="2">roof · z7</text>
+<rect x="144" y="176" width="324" height="98" fill="#2b3037" stroke="#1c2026" stroke-width="1.5"/>
+<rect x="144" y="176" width="324" height="6" fill="#3d434c"/>
+<rect x="150" y="182" width="96" height="92" fill="#1e232b" stroke="#474e57" stroke-width="1.5"/>
+<rect x="168" y="204" width="60" height="40" fill="#e8a54b" stroke="#4a515a" stroke-width="1.5"/>
+<line x1="198" y1="204" x2="198" y2="244" stroke="#4a515a" stroke-width="1"/>
+<rect x="366" y="182" width="96" height="92" fill="#1e232b" stroke="#474e57" stroke-width="1.5"/>
+<rect x="384" y="204" width="60" height="40" fill="#141a21" stroke="#4a515a" stroke-width="1.5"/>
+<line x1="414" y1="204" x2="414" y2="244" stroke="#4a515a" stroke-width="1"/>
+<rect x="246" y="182" width="120" height="92" fill="#141821" stroke="#3a4150" stroke-width="1.5"/>
+<polyline points="264,264 306,264 306,192 348,192" fill="none" stroke="#46c9d6" stroke-width="2" opacity="0.75"/>
+<line x1="266" y1="255" x2="274.4" y2="255" stroke="#46c9d6" stroke-width="1.5" opacity="0.5"/>
+<line x1="276" y1="246" x2="284.4" y2="246" stroke="#46c9d6" stroke-width="1.5" opacity="0.5"/>
+<line x1="286" y1="237" x2="294.4" y2="237" stroke="#46c9d6" stroke-width="1.5" opacity="0.5"/>
+<line x1="296" y1="228" x2="304.4" y2="228" stroke="#46c9d6" stroke-width="1.5" opacity="0.5"/>
+<rect x="241" y="244" width="5" height="26" fill="#2a5f66"/>
+<rect x="366" y="244" width="5" height="26" fill="#2a5f66"/>
+<text x="124" y="230" text-anchor="middle" font-size="18" fill="#cfd6dd" font-weight="500">6</text>
+<text x="124" y="245" text-anchor="middle" font-size="9" fill="#6b7580">z6</text>
+<text x="306" y="197" text-anchor="middle" font-size="8.5" fill="#5f6b78" letter-spacing="1">floor 6 hall</text>
+<rect x="144" y="274" width="324" height="98" fill="#2b3037" stroke="#1c2026" stroke-width="1.5"/>
+<rect x="144" y="274" width="324" height="6" fill="#3d434c"/>
+<rect x="150" y="280" width="96" height="92" fill="#1e232b" stroke="#474e57" stroke-width="1.5"/>
+<rect x="168" y="302" width="60" height="40" fill="#141a21" stroke="#4a515a" stroke-width="1.5"/>
+<line x1="198" y1="302" x2="198" y2="342" stroke="#4a515a" stroke-width="1"/>
+<rect x="366" y="280" width="96" height="92" fill="#1e232b" stroke="#474e57" stroke-width="1.5"/>
+<rect x="384" y="302" width="60" height="40" fill="#e8a54b" stroke="#4a515a" stroke-width="1.5"/>
+<line x1="414" y1="302" x2="414" y2="342" stroke="#4a515a" stroke-width="1"/>
+<rect x="246" y="280" width="120" height="92" fill="#141821" stroke="#3a4150" stroke-width="1.5"/>
+<polyline points="264,362 306,362 306,290 348,290" fill="none" stroke="#46c9d6" stroke-width="2" opacity="0.75"/>
+<line x1="266" y1="353" x2="274.4" y2="353" stroke="#46c9d6" stroke-width="1.5" opacity="0.5"/>
+<line x1="276" y1="344" x2="284.4" y2="344" stroke="#46c9d6" stroke-width="1.5" opacity="0.5"/>
+<line x1="286" y1="335" x2="294.4" y2="335" stroke="#46c9d6" stroke-width="1.5" opacity="0.5"/>
+<line x1="296" y1="326" x2="304.4" y2="326" stroke="#46c9d6" stroke-width="1.5" opacity="0.5"/>
+<rect x="241" y="342" width="5" height="26" fill="#2a5f66"/>
+<rect x="366" y="342" width="5" height="26" fill="#2a5f66"/>
+<text x="124" y="328" text-anchor="middle" font-size="18" fill="#cfd6dd" font-weight="500">5</text>
+<text x="124" y="343" text-anchor="middle" font-size="9" fill="#6b7580">z5</text>
+<path d="M276 282 q10 14 -2 22 q-14 4 -6 -12 q4 -10 8 -10 z" fill="#5a4a2e" opacity="0.5"/>
+<text x="306" y="295" text-anchor="middle" font-size="8.5" fill="#5f6b78" letter-spacing="1">floor 5 hall</text>
+<rect x="144" y="372" width="324" height="98" fill="#2b3037" stroke="#1c2026" stroke-width="1.5"/>
+<rect x="144" y="372" width="324" height="6" fill="#3d434c"/>
+<rect x="150" y="378" width="96" height="92" fill="#1e232b" stroke="#474e57" stroke-width="1.5"/>
+<rect x="168" y="400" width="60" height="40" fill="#e8a54b" stroke="#4a515a" stroke-width="1.5"/>
+<line x1="198" y1="400" x2="198" y2="440" stroke="#4a515a" stroke-width="1"/>
+<rect x="366" y="378" width="96" height="92" fill="#1e232b" stroke="#474e57" stroke-width="1.5"/>
+<rect x="384" y="400" width="60" height="40" fill="#e8a54b" stroke="#4a515a" stroke-width="1.5"/>
+<line x1="414" y1="400" x2="414" y2="440" stroke="#4a515a" stroke-width="1"/>
+<rect x="246" y="378" width="120" height="92" fill="#141821" stroke="#3a4150" stroke-width="1.5"/>
+<polyline points="264,460 306,460 306,388 348,388" fill="none" stroke="#46c9d6" stroke-width="2" opacity="0.75"/>
+<line x1="266" y1="451" x2="274.4" y2="451" stroke="#46c9d6" stroke-width="1.5" opacity="0.5"/>
+<line x1="276" y1="442" x2="284.4" y2="442" stroke="#46c9d6" stroke-width="1.5" opacity="0.5"/>
+<line x1="286" y1="433" x2="294.4" y2="433" stroke="#46c9d6" stroke-width="1.5" opacity="0.5"/>
+<line x1="296" y1="424" x2="304.4" y2="424" stroke="#46c9d6" stroke-width="1.5" opacity="0.5"/>
+<rect x="241" y="440" width="5" height="26" fill="#2a5f66"/>
+<rect x="366" y="440" width="5" height="26" fill="#2a5f66"/>
+<text x="124" y="426" text-anchor="middle" font-size="18" fill="#cfd6dd" font-weight="500">4</text>
+<text x="124" y="441" text-anchor="middle" font-size="9" fill="#6b7580">z4</text>
+<text x="306" y="393" text-anchor="middle" font-size="8.5" fill="#5f6b78" letter-spacing="1">floor 4 hall</text>
+<rect x="144" y="470" width="324" height="98" fill="#2b3037" stroke="#1c2026" stroke-width="1.5"/>
+<rect x="144" y="470" width="324" height="6" fill="#3d434c"/>
+<rect x="150" y="476" width="96" height="92" fill="#1e232b" stroke="#474e57" stroke-width="1.5"/>
+<rect x="168" y="498" width="60" height="40" fill="#e8a54b" stroke="#4a515a" stroke-width="1.5"/>
+<line x1="198" y1="498" x2="198" y2="538" stroke="#4a515a" stroke-width="1"/>
+<rect x="366" y="476" width="96" height="92" fill="#1e232b" stroke="#474e57" stroke-width="1.5"/>
+<rect x="384" y="498" width="60" height="40" fill="#141a21" stroke="#4a515a" stroke-width="1.5"/>
+<line x1="414" y1="498" x2="414" y2="538" stroke="#4a515a" stroke-width="1"/>
+<rect x="246" y="476" width="120" height="92" fill="#141821" stroke="#3a4150" stroke-width="1.5"/>
+<polyline points="264,558 306,558 306,486 348,486" fill="none" stroke="#46c9d6" stroke-width="2" opacity="0.75"/>
+<line x1="266" y1="549" x2="274.4" y2="549" stroke="#46c9d6" stroke-width="1.5" opacity="0.5"/>
+<line x1="276" y1="540" x2="284.4" y2="540" stroke="#46c9d6" stroke-width="1.5" opacity="0.5"/>
+<line x1="286" y1="531" x2="294.4" y2="531" stroke="#46c9d6" stroke-width="1.5" opacity="0.5"/>
+<line x1="296" y1="522" x2="304.4" y2="522" stroke="#46c9d6" stroke-width="1.5" opacity="0.5"/>
+<rect x="241" y="538" width="5" height="26" fill="#2a5f66"/>
+<rect x="366" y="538" width="5" height="26" fill="#2a5f66"/>
+<text x="124" y="524" text-anchor="middle" font-size="18" fill="#cfd6dd" font-weight="500">3</text>
+<text x="124" y="539" text-anchor="middle" font-size="9" fill="#6b7580">z3</text>
+<text x="306" y="491" text-anchor="middle" font-size="8.5" fill="#5f6b78" letter-spacing="1">floor 3 hall</text>
+<rect x="144" y="568" width="324" height="98" fill="#2b3037" stroke="#1c2026" stroke-width="1.5"/>
+<rect x="144" y="568" width="324" height="6" fill="#3d434c"/>
+<rect x="150" y="574" width="96" height="92" fill="#1e232b" stroke="#474e57" stroke-width="1.5"/>
+<rect x="168" y="596" width="60" height="40" fill="#141a21" stroke="#4a515a" stroke-width="1.5"/>
+<line x1="198" y1="596" x2="198" y2="636" stroke="#4a515a" stroke-width="1"/>
+<rect x="366" y="574" width="96" height="92" fill="#1e232b" stroke="#474e57" stroke-width="1.5"/>
+<rect x="384" y="596" width="60" height="40" fill="#e8a54b" stroke="#4a515a" stroke-width="1.5"/>
+<line x1="414" y1="596" x2="414" y2="636" stroke="#4a515a" stroke-width="1"/>
+<rect x="246" y="574" width="120" height="92" fill="#141821" stroke="#3a4150" stroke-width="1.5"/>
+<polyline points="264,656 306,656 306,584 348,584" fill="none" stroke="#46c9d6" stroke-width="2" opacity="0.75"/>
+<line x1="266" y1="647" x2="274.4" y2="647" stroke="#46c9d6" stroke-width="1.5" opacity="0.5"/>
+<line x1="276" y1="638" x2="284.4" y2="638" stroke="#46c9d6" stroke-width="1.5" opacity="0.5"/>
+<line x1="286" y1="629" x2="294.4" y2="629" stroke="#46c9d6" stroke-width="1.5" opacity="0.5"/>
+<line x1="296" y1="620" x2="304.4" y2="620" stroke="#46c9d6" stroke-width="1.5" opacity="0.5"/>
+<rect x="241" y="636" width="5" height="26" fill="#2a5f66"/>
+<rect x="366" y="636" width="5" height="26" fill="#2a5f66"/>
+<text x="124" y="622" text-anchor="middle" font-size="18" fill="#cfd6dd" font-weight="500">2</text>
+<text x="124" y="637" text-anchor="middle" font-size="9" fill="#6b7580">z2</text>
+<path d="M276 576 q10 14 -2 22 q-14 4 -6 -12 q4 -10 8 -10 z" fill="#5a4a2e" opacity="0.5"/>
+<text x="306" y="589" text-anchor="middle" font-size="8.5" fill="#5f6b78" letter-spacing="1">floor 2 hall</text>
+<rect x="144" y="666" width="324" height="98" fill="#2b3037" stroke="#1c2026" stroke-width="1.5"/>
+<rect x="144" y="666" width="324" height="6" fill="#3d434c"/>
+<rect x="150" y="672" width="96" height="92" fill="#1e232b" stroke="#474e57" stroke-width="1.5"/>
+<rect x="168" y="694" width="60" height="40" fill="#e8a54b" stroke="#4a515a" stroke-width="1.5"/>
+<line x1="198" y1="694" x2="198" y2="734" stroke="#4a515a" stroke-width="1"/>
+<rect x="366" y="672" width="96" height="92" fill="#1e232b" stroke="#474e57" stroke-width="1.5"/>
+<rect x="384" y="694" width="60" height="40" fill="#e8a54b" stroke="#4a515a" stroke-width="1.5"/>
+<line x1="414" y1="694" x2="414" y2="734" stroke="#4a515a" stroke-width="1"/>
+<rect x="246" y="672" width="120" height="92" fill="#141821" stroke="#3a4150" stroke-width="1.5"/>
+<polyline points="264,754 306,754 306,682 348,682" fill="none" stroke="#46c9d6" stroke-width="2" opacity="0.75"/>
+<line x1="266" y1="745" x2="274.4" y2="745" stroke="#46c9d6" stroke-width="1.5" opacity="0.5"/>
+<line x1="276" y1="736" x2="284.4" y2="736" stroke="#46c9d6" stroke-width="1.5" opacity="0.5"/>
+<line x1="286" y1="727" x2="294.4" y2="727" stroke="#46c9d6" stroke-width="1.5" opacity="0.5"/>
+<line x1="296" y1="718" x2="304.4" y2="718" stroke="#46c9d6" stroke-width="1.5" opacity="0.5"/>
+<rect x="241" y="734" width="5" height="26" fill="#2a5f66"/>
+<rect x="366" y="734" width="5" height="26" fill="#2a5f66"/>
+<text x="124" y="720" text-anchor="middle" font-size="18" fill="#cfd6dd" font-weight="500">1</text>
+<text x="124" y="735" text-anchor="middle" font-size="9" fill="#6b7580">z1</text>
+<text x="306" y="687" text-anchor="middle" font-size="8.5" fill="#5f6b78" letter-spacing="1">floor 1 hall</text>
+<rect x="136" y="764" width="340" height="118" fill="#262b33" stroke="#171b21" stroke-width="2"/>
+<rect x="136" y="764" width="340" height="7" fill="#3d434c"/>
+<polyline points="264,780 306,780 306,834 348,834" fill="none" stroke="#46c9d6" stroke-width="2" opacity="0.7"/>
+<rect x="156" y="794" width="70" height="60" fill="#e8a54b" stroke="#4a515a" stroke-width="1.5" opacity="0.9"/>
+<line x1="191" y1="794" x2="191" y2="854" stroke="#8a6a34" stroke-width="1"/>
+<rect x="282" y="824" width="48" height="58" fill="#0e1319" stroke="#46c9d6" stroke-width="2"/>
+<line x1="306" y1="824" x2="306" y2="882" stroke="#2a5f66" stroke-width="1.5"/>
+<circle cx="300" cy="854" r="2" fill="#46c9d6"/>
+<rect x="386" y="794" width="60" height="60" fill="#141a21" stroke="#4a515a" stroke-width="1.5"/>
+<text x="306" y="786" text-anchor="middle" font-size="12" fill="#9aa2ab" letter-spacing="2">lobby · z0</text>
+<text x="306" y="755" text-anchor="middle" font-size="15" fill="#5fd3df" letter-spacing="2" font-weight="500" style="filter:url(#glow)">The Meridian</text>
+<rect x="0" y="882" width="680" height="46" fill="#12161c"/>
+<line x1="0" y1="882" x2="680" y2="882" stroke="#2a2f37" stroke-width="2"/>
+<line x1="20" y1="914" x2="660" y2="914" stroke="#39414b" stroke-width="2" stroke-dasharray="18 14"/>
+<text x="306" y="902" text-anchor="middle" font-size="9" fill="#5fd3df">out → the meridian (street)</text>
+<rect x="486" y="196" width="180" height="292" rx="6" fill="#171c24" stroke="#2c333d" stroke-width="1.5"/>
+<text x="500" y="220" font-size="12" fill="#cfd6dd" letter-spacing="1">structure</text>
+<line x1="500" y1="228" x2="652" y2="228" stroke="#2c333d" stroke-width="1"/>
+<polyline points="502,252 512,252 512,242 520,242" fill="none" stroke="#46c9d6" stroke-width="2"/>
+<text x="528" y="253" font-size="10.5" fill="#aab2bb">stair core</text>
+<rect x="502" y="269" width="18" height="13" fill="#e8a54b"/>
+<text x="528" y="281" font-size="10.5" fill="#aab2bb">lit unit</text>
+<rect x="502" y="297" width="18" height="13" fill="#141a21" stroke="#4a515a"/>
+<text x="528" y="309" font-size="10.5" fill="#aab2bb">dark unit</text>
+<rect x="509" y="324" width="5" height="15" fill="#2a5f66"/>
+<text x="528" y="337" font-size="10.5" fill="#aab2bb">unit door</text>
+<text x="500" y="370" font-size="10.5" fill="#cfd6dd">4 units / floor</text>
+<circle cx="576" cy="422" r="26" fill="#10151c" stroke="#2c333d" stroke-width="1.5"/>
+<rect x="567" y="413" width="18" height="18" fill="#141a21" stroke="#3a4150"/>
+<text x="576" y="392" text-anchor="middle" font-size="9" fill="#8b939c">n·x01</text>
+<text x="618" y="425" text-anchor="middle" font-size="9" fill="#8b939c">e·x02</text>
+<text x="576" y="462" text-anchor="middle" font-size="9" fill="#8b939c">s·x03</text>
+<text x="534" y="425" text-anchor="middle" font-size="9" fill="#8b939c">w·x04</text>
+<line x1="92" y1="186" x2="92" y2="804" stroke="#46c9d6" stroke-width="1.5" opacity="0.55" stroke-dasharray="4 4"/>
+<polygon points="88,190 96,190 92,182" fill="#46c9d6" opacity="0.8"/>
+<polygon points="88,800 96,800 92,808" fill="#46c9d6" opacity="0.8"/>
+<text x="86" y="470" font-size="9.5" fill="#5fd3df" transform="rotate(-90 86 470)" text-anchor="middle">up / down · stair spine</text>
+<text x="150" y="44" font-size="20" fill="#e6ebf0" font-weight="500">The Meridian</text>
+<text x="150" y="64" font-size="11.5" fill="#8b939c">side cutaway · 32 rooms · entered from the street</text>
+</svg>

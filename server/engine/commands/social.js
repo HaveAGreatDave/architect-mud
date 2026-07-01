@@ -25,6 +25,15 @@ async function cmdTalk(targetStr, player, broadcast) {
     return { type:'output', message: formatSelectionPage({ allCandidates: r.candidates, visibleIndex: 0, pageSize: 5 }) };
   }
   const npc = r.candidate;
+  // A dealer away from their table's room (their work zone) won't run the poker
+  // dialogue tree — off duty, they just make random dealer small talk instead.
+  if (npc.npc_type === 'dealer' && npc.work_zone_id && npc.zone_id !== npc.work_zone_id) {
+    const lines = getNpcChitchat(npc) || DEFAULT_CHITCHAT_LINES;
+    const line = lines[Math.floor(Math.random() * lines.length)];
+    const msg = formatChitchat(npc.name, line);
+    if (broadcast) broadcast(player.current_zone, msg, player.id);
+    return msg;
+  }
   const root = npc.dialogue_tree?.root;
   // Condition-gate root options against the player's Flags (Phase 4).
   const options = [];

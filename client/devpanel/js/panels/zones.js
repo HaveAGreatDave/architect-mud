@@ -6,30 +6,36 @@ function renderZonesTable(records) {
   const childrenByParent = new Map();
   const childIds = new Set();
 
-  // Group interior/apartment zones under their parent building.
-  // Primary: look at building zone exits pointing to interior zones (authoritative).
+  const addChild = (parentId, childZone) => {
+    if (parentId === childZone.id) return;
+    if (!childrenByParent.has(parentId)) childrenByParent.set(parentId, []);
+    childrenByParent.get(parentId).push(childZone);
+    childIds.add(childZone.id);
+  };
+
+  // Primary: the explicit parent_zone field is the authoritative building
+  // hierarchy (building → lobby → hallways → units, any depth).
+  for (const z of records) {
+    const pid = z.parent_zone;
+    if (pid && byId.has(pid) && !childIds.has(z.id)) addChild(pid, z);
+  }
+
+  // Fallback for zones with no explicit parent_zone — the older exit/is_building
+  // heuristic, so studios and other unparented interiors still nest.
   for (const z of records) {
     if (!z.flags?.is_building) continue;
     for (const exitZoneId of Object.values(z.exits || {})) {
       const exitZone = byId.get(exitZoneId);
-      if (exitZone?.flags?.is_interior || exitZone?.flags?.is_apartment) {
-        if (!childrenByParent.has(z.id)) childrenByParent.set(z.id, []);
-        if (!childIds.has(exitZoneId)) {
-          childrenByParent.get(z.id).push(exitZone);
-          childIds.add(exitZoneId);
-        }
+      if ((exitZone?.flags?.is_interior || exitZone?.flags?.is_apartment) && !childIds.has(exitZoneId)) {
+        addChild(z.id, exitZone);
       }
     }
   }
-  // Fallback: apartment zones that weren't matched above — use their first exit as parent.
+  // Apartment zones still unmatched — use their first exit as parent.
   for (const z of records) {
     if (childIds.has(z.id) || !z.flags?.is_apartment) continue;
     const parentId = Object.values(z.exits || {})[0];
-    if (parentId && byId.has(parentId)) {
-      if (!childrenByParent.has(parentId)) childrenByParent.set(parentId, []);
-      childrenByParent.get(parentId).push(z);
-      childIds.add(z.id);
-    }
+    if (parentId && byId.has(parentId)) addChild(parentId, z);
   }
 
   let topLevel = records.filter(z => !childIds.has(z.id));
@@ -65,7 +71,8 @@ function renderZonesTable(records) {
     return `<span style="color:var(--warning);font-size:11px">!Not Published</span>`;
   };
 
-  const renderRow = (rec, isChild, hasKids, collapsed) => {
+  const renderRow = (rec, depth, hasKids, collapsed) => {
+    const isChild = depth > 0;
     const isPendingDelete = rec._stagingStatus === 'pending delete';
     const rowStyle = isPendingDelete
       ? 'cursor:pointer;opacity:0.6;text-decoration:line-through'
@@ -74,7 +81,7 @@ function renderZonesTable(records) {
     columns.forEach((col, i) => {
       const raw = rec[col.key];
       let val = col.render ? col.render(raw) : (raw ?? '—');
-      if (i === 0 && isChild) val = `<span class="zone-child-indent">↳</span>${val}`;
+      if (i === 0 && isChild) val = `<span class="zone-child-indent" style="margin-left:${(depth - 1) * 14}px">↳</span>${val}`;
       if (i === 0 && hasKids) {
         val = `<span class="zone-collapse-toggle" title="${collapsed ? 'Expand' : 'Collapse'} rooms" onclick="event.stopPropagation();toggleBuildingCollapse('${rec.id}')">${collapsed ? '+' : '−'}</span>${val}`;
       }
@@ -90,15 +97,22 @@ function renderZonesTable(records) {
     return row;
   };
 
-  for (const rec of topLevel) {
+  const seen = new Set();
+  const renderTree = (rec, depth) => {
+    if (seen.has(rec.id)) return ''; // guard against parent_zone cycles
+    seen.add(rec.id);
     const kids = childrenByParent.get(rec.id);
+    const hasKids = !!(kids && kids.length);
     const collapsed = collapsedBuildings.has(rec.id);
-    html += renderRow(rec, false, !!kids, collapsed);
-    if (kids && !collapsed) {
+    let out = renderRow(rec, depth, hasKids, collapsed);
+    if (hasKids && !collapsed) {
       kids.sort((a, b) => String(a.name).localeCompare(String(b.name)));
-      for (const kid of kids) html += renderRow(kid, true, false, false);
+      for (const kid of kids) out += renderTree(kid, depth + 1);
     }
-  }
+    return out;
+  };
+
+  for (const rec of topLevel) html += renderTree(rec, 0);
   html += '</tbody></table>';
   panel.innerHTML = html;
 }

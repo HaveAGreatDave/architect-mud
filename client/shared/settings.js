@@ -1,6 +1,8 @@
 const SETTINGS_KEY = 'architect_settings';
 const DEFAULT_AUDIO_SETTINGS = { enabled: false, music: false, sfx: false, tv: false, masterVolume: 0.8, musicVolume: 0.7, sfxVolume: 0.9, ambientVolume: 0.5, tvVolume: 0.6, muteWhenHidden: true };
-const DEFAULT_SETTINGS = { theme: 'dark', fontSize: '14', density: 'comfortable', sidebarPosition: 'left', motion: 'on', tempUnit: 'C', contrast: 0, dpadSize: 'small', dpadPanel: false, audio: DEFAULT_AUDIO_SETTINGS };
+const DEFAULT_SETTINGS = { theme: 'dark', fontSize: '14', density: 'comfortable', sidebarPosition: 'left', motion: 'on', tempUnit: 'C', contrast: 0, dpadSize: 'small', pokerFelt: 'green', pokerFeltColor: '#1a4a1a', audio: DEFAULT_AUDIO_SETTINGS };
+
+const DEFAULT_FELT_GREEN = '#1a4a1a';
 
 export function formatTemp(tempC) {
   if (tempC === null || tempC === undefined) return null;
@@ -73,6 +75,15 @@ function _hslToHex(h, s, l) {
 }
 
 function _isValidHex(s) { return /^#[0-9a-fA-F]{6}$/.test(s); }
+
+// Mute a colour toward a felt-friendly tone, keeping its hue. Only ever darkens
+// and desaturates (caps L and S), so an already-muted colour passes through
+// unchanged — bright theme accents get tamed, dark ones are left alone.
+function _dampenFelt(hex) {
+  if (!_isValidHex(hex)) return hex;
+  const [h, s, l] = _hexToHsl(hex);
+  return _hslToHex(h, Math.min(s, 60), Math.min(l, 26));
+}
 
 const _BG_VARS  = ['--bg','--bg2','--bg3','--border'];
 const _FG_VARS  = ['--text','--text-dim','--text-bright'];
@@ -178,6 +189,29 @@ export function applySettings(settings) {
     else document.documentElement.style.removeProperty(v);
   });
 
+  // Poker felt colour: classic green, the theme accent (dampened to a felt tone
+  // so bright accents don't glare), or a custom pick (used exactly as chosen).
+  // CSS mixes darker/lighter shades from this single base.
+  const feltMode = settings.pokerFelt || 'green';
+  let feltColor = DEFAULT_FELT_GREEN;
+  if (feltMode === 'accent') {
+    const accentRaw = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+    feltColor = _isValidHex(accentRaw) ? _dampenFelt(accentRaw) : 'var(--accent)';
+  } else if (feltMode === 'custom' && _isValidHex(settings.pokerFeltColor || '')) {
+    feltColor = settings.pokerFeltColor;
+  }
+  document.documentElement.style.setProperty('--poker-felt', feltColor);
+  const feltGroup = document.getElementById('opt-pokerfelt');
+  if (feltGroup) {
+    feltGroup.querySelectorAll('.settings-opt').forEach(btn => {
+      btn.classList.toggle('selected', btn.dataset.value === feltMode);
+    });
+  }
+  const feltColorInput = document.getElementById('opt-pokerfelt-color');
+  if (feltColorInput && _isValidHex(settings.pokerFeltColor || '') && feltColorInput.value !== settings.pokerFeltColor) {
+    feltColorInput.value = settings.pokerFeltColor;
+  }
+
   _populateThemeDropdown(settings);
 
   const _cs = document.getElementById('opt-contrast');
@@ -186,10 +220,10 @@ export function applySettings(settings) {
   if (_cs && _cs.value !== String(_cv)) _cs.value = _cv;
   if (_cl) _cl.textContent = _cv === 0 ? 'Base' : `+${_cv}%`;
 
-  for (const group of ['fontsize', 'density', 'sidebar', 'motion', 'tempunit', 'dpadsize', 'dpadpanel']) {
+  for (const group of ['fontsize', 'density', 'sidebar', 'motion', 'tempunit', 'dpadsize']) {
     const container = document.getElementById(`opt-${group}`);
     if (!container) continue;
-    const key = group === 'fontsize' ? 'fontSize' : group === 'sidebar' ? 'sidebarPosition' : group === 'tempunit' ? 'tempUnit' : group === 'dpadsize' ? 'dpadSize' : group === 'dpadpanel' ? 'dpadPanel' : group;
+    const key = group === 'fontsize' ? 'fontSize' : group === 'sidebar' ? 'sidebarPosition' : group === 'tempunit' ? 'tempUnit' : group === 'dpadsize' ? 'dpadSize' : group;
     container.querySelectorAll('.settings-opt').forEach(btn => {
       btn.classList.toggle('selected', btn.dataset.value === String(settings[key]));
     });
@@ -229,7 +263,7 @@ export function applySettings(settings) {
   }
 }
 
-export function initSettingsUI(settings, saveAndApply, { sendCmd, notify, placeDpadPanel, removeDpadPanel } = {}) {
+export function initSettingsUI(settings, saveAndApply, { sendCmd, notify } = {}) {
   const themeSelect = document.getElementById('opt-theme');
   if (themeSelect) {
     themeSelect.addEventListener('change', () => {
@@ -257,21 +291,6 @@ export function initSettingsUI(settings, saveAndApply, { sendCmd, notify, placeD
   document.querySelectorAll('#opt-dpadsize .settings-opt').forEach(btn => {
     btn.addEventListener('click', () => { settings.dpadSize = btn.dataset.value; saveAndApply(); });
   });
-  document.querySelectorAll('#opt-dpadpanel .settings-opt').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const want = btn.dataset.value === 'true';
-      if (want) {
-        if (!placeDpadPanel || !placeDpadPanel()) {
-          if (notify) notify('No empty slot in sidebar — unlock and drag sections apart to make space first.');
-          return;
-        }
-      } else {
-        if (removeDpadPanel) removeDpadPanel();
-      }
-      settings.dpadPanel = want;
-      saveAndApply();
-    });
-  });
   document.querySelectorAll('#opt-tempunit .settings-opt').forEach(btn => {
     btn.addEventListener('click', () => {
       settings.tempUnit = btn.dataset.value;
@@ -282,6 +301,18 @@ export function initSettingsUI(settings, saveAndApply, { sendCmd, notify, placeD
       }
     });
   });
+
+  document.querySelectorAll('#opt-pokerfelt .settings-opt').forEach(btn => {
+    btn.addEventListener('click', () => { settings.pokerFelt = btn.dataset.value; saveAndApply(); });
+  });
+  const pokerFeltColor = document.getElementById('opt-pokerfelt-color');
+  if (pokerFeltColor) {
+    pokerFeltColor.addEventListener('input', () => {
+      settings.pokerFeltColor = pokerFeltColor.value;
+      settings.pokerFelt = 'custom';
+      saveAndApply();
+    });
+  }
 
   const contrastSlider = document.getElementById('opt-contrast');
   const contrastLabel  = document.getElementById('contrast-value-label');

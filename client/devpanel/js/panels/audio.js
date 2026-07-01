@@ -30,7 +30,7 @@ const KNOWN_EVENTS = [
 // sense — there's no waveform data to import, just synth presets to share/back up.
 const AUDIO_IMPORT_FIELDS = {
   instruments: ['name', 'category', 'waveform', 'config', 'enabled', 'sample_id'],
-  songs: ['name', 'category', 'tempo', 'channels', 'loop_start', 'loop_end', 'instrument_ids', 'priority', 'enabled'],
+  songs: ['name', 'category', 'tempo', 'channels', 'loop_start', 'loop_end', 'instrument_ids', 'priority', 'enabled', 'channel_pan'],
   sfx: ['name', 'category', 'priority', 'config', 'enabled'],
   ambient: ['name', 'category', 'priority', 'config', 'loop', 'enabled'],
   samples: ['name', 'category', 'priority', 'data', 'mime_type', 'base_note', 'loop_start', 'loop_end', 'snes_rate', 'snes_bits', 'echo_mix', 'config', 'enabled'],
@@ -260,8 +260,15 @@ function openAudioImportModal(tab) {
     const items = Array.isArray(parsed) ? parsed : [parsed];
     const fields = AUDIO_IMPORT_FIELDS[tab];
     let imported = 0;
+    const emptySongs = [];
     for (const item of items) {
       if (!item?.name) continue;
+      // A song with no channels is unplayable (the AMP player filters it out) — reject
+      // it here rather than creating a dead row that can never sound.
+      if (tab === 'songs' && !(Array.isArray(item.channels) && item.channels.length > 0)) {
+        emptySongs.push(item.name);
+        continue;
+      }
       const body = {};
       for (const f of fields) if (item[f] !== undefined) body[f] = item[f];
       // Always create new rows on import — never carries the source id across,
@@ -269,6 +276,7 @@ function openAudioImportModal(tab) {
       const r = await API(`/audio/${tab}`, 'POST', body);
       if (!r?.error) imported++;
     }
+    if (emptySongs.length) toast(`Rejected ${emptySongs.length} song(s) with no channels: ${emptySongs.join(', ')}`, true);
     toast(`Imported ${imported} of ${items.length} preset(s)`, imported < items.length);
     closeModal();
     loadPanel('audio');
@@ -307,6 +315,22 @@ function _midiToNoteStr(midi) {
 function _periodToNote(period) {
   if (!period) return null;
   return _midiToNoteStr(_MOD_C2_MIDI + Math.round(12 * Math.log2(428 / period)));
+}
+
+// Normalise a MOD cell's effect into the player's compact fx shape (see
+// applySampleFx in audio-engine.js). Volume (Cxx), speed/tempo (Fxx) and the
+// arrangement effects (Bxx/Dxx) are handled separately, so they return null here.
+function _cellFx(cell) {
+  const p = cell.param;
+  switch (cell.effect) {
+    case 0x0: return p ? { t: 'arp', x: p >> 4, y: p & 0x0F } : null;
+    case 0x1: return { t: 'porta', dir: 1, speed: p };
+    case 0x2: return { t: 'porta', dir: -1, speed: p };
+    case 0x3: return { t: 'toneporta', speed: p };
+    case 0x4: return { t: 'vib', rate: p >> 4, depth: p & 0x0F };
+    case 0xA: return { t: 'volslide', up: p >> 4, down: p & 0x0F };
+    default: return null;
+  }
 }
 
 function _modSanitize(s, fallback) {
@@ -355,9 +379,11 @@ function _parseMod(buf) {
   const samples = [];
   for (let i = 0; i < 31; i++) {
     const o = 20 + i * 30;
+    const ftNibble = u8[o + 24] & 0x0F;            // signed -8..7, ~1/8 semitone steps
     samples.push({
       name: readStr(o, 22),
       len: dv.getUint16(o + 22, false) * 2,        // stored in words
+      finetune: ftNibble < 8 ? ftNibble : ftNibble - 16,
       volume: u8[o + 25],                          // 0-64
       repeatStart: dv.getUint16(o + 26, false) * 2,
       repeatLen: dv.getUint16(o + 28, false) * 2,
@@ -385,30 +411,78 @@ function _parseMod(buf) {
     dataOff += s.len;
   }
 
-  // Build channels by concatenating patterns in play order. A note with sample 0
-  // keeps the channel's previous sample (MOD semantics). Placeholder instrument
-  // refs ("S<n>") are remapped to real instrument ids after the DB rows exist.
+  // Resolve the actually-played row sequence, honouring position-jump (Bxx) and
+  // pattern-break (Dxx). Detect the natural loop point (first row we revisit) so the
+  // song loops where the module intended rather than at the raw pattern boundary.
+  const played = [];
+  let loopStartIndex = 0;
+  const seen = new Map();
+  let pos = 0, row = 0, guard = 0;
+  while (pos < order.length && guard++ < 20000) {
+    const key = pos + ':' + row;
+    if (seen.has(key)) { loopStartIndex = seen.get(key); break; }
+    seen.set(key, played.length);
+    const pat = order[pos];
+    played.push({ pat, row });
+    let nextPos = pos, nextRow = row + 1, jump = false;
+    for (let ch = 0; ch < numChannels; ch++) {
+      const cell = cellAt(pat, row, ch);
+      if (cell.effect === 0x0B) { nextPos = cell.param; nextRow = 0; jump = true; }          // position jump
+      else if (cell.effect === 0x0D) { nextPos = pos + 1; nextRow = (cell.param >> 4) * 10 + (cell.param & 0x0F); jump = true; } // pattern break (row is BCD)
+    }
+    if (jump) { pos = nextPos; row = nextRow > 63 ? 0 : nextRow; }
+    else if (++row > 63) { row = 0; pos++; }
+  }
+
+  // Initial speed / tempo (Fxx). MOD default is speed 6 @ 125 BPM; row duration is
+  // speed*2.5/BPM seconds, which our sequencer expresses as tempo = 6*BPM/speed.
+  let speed = 6, bpm = 125, gotSpeed = false, gotBpm = false;
+  for (const { pat, row: r } of played) {
+    for (let ch = 0; ch < numChannels; ch++) {
+      const cell = cellAt(pat, r, ch);
+      if (cell.effect === 0x0F && cell.param > 0) {
+        if (cell.param < 0x20) { if (!gotSpeed) { speed = cell.param; gotSpeed = true; } }
+        else if (!gotBpm) { bpm = cell.param; gotBpm = true; }
+      }
+    }
+    if (gotSpeed && gotBpm) break;
+  }
+  const tempo = Math.max(1, Math.round(6 * bpm / speed));
+
+  // Build channels from the played sequence. A note with sample 0 keeps the channel's
+  // previous sample (MOD semantics). Effect-only cells are kept when they carry a
+  // continuation effect (porta / tone porta / vibrato / volume slide) so the player
+  // can keep modulating the ringing voice. Placeholder instrument refs ("S<n>") are
+  // remapped to real instrument ids after the DB rows exist.
   const chCount = Math.min(numChannels, MAX_CHANNELS);
   const channels = Array.from({ length: chCount }, () => []);
   const lastSample = new Array(chCount).fill(0);
-  for (const pat of order) {
-    for (let row = 0; row < 64; row++) {
-      for (let ch = 0; ch < chCount; ch++) {
-        const cell = cellAt(pat, row, ch);
-        if (cell.sample) lastSample[ch] = cell.sample;
-        const note = _periodToNote(cell.period);
-        const smpIdx = lastSample[ch];
-        if (note && smpIdx) {
-          const vol = cell.effect === 0x0C ? Math.min(1, cell.param / 64) : (samples[smpIdx - 1]?.volume ?? 48) / 64;
-          channels[ch].push({ note, instrument: `S${smpIdx}`, vol: Math.round(vol * 100) / 100 });
-        } else {
-          channels[ch].push(null);
-        }
+  for (const { pat, row: r } of played) {
+    for (let ch = 0; ch < chCount; ch++) {
+      const cell = cellAt(pat, r, ch);
+      if (cell.sample) lastSample[ch] = cell.sample;
+      const note = _periodToNote(cell.period);
+      const smpIdx = lastSample[ch];
+      const fx = _cellFx(cell);
+      if (note && smpIdx) {
+        const vol = cell.effect === 0x0C ? Math.min(1, cell.param / 64) : (samples[smpIdx - 1]?.volume ?? 48) / 64;
+        const st = { note, instrument: `S${smpIdx}`, vol: Math.round(vol * 100) / 100 };
+        if (fx) st.fx = fx;
+        channels[ch].push(st);
+      } else if (fx && fx.t !== 'arp') {
+        // Continuation-capable effect with no new note — arpeggio only makes sense on a note.
+        channels[ch].push({ note: null, instrument: smpIdx ? `S${smpIdx}` : null, fx });
+      } else {
+        channels[ch].push(null);
       }
     }
   }
 
-  return { title, tag, numChannels, channels, samples };
+  // Amiga hard-panning: channels alternate L-R-R-L across the stereo field.
+  const AMIGA_PAN = [-0.6, 0.6, 0.6, -0.6];
+  const channelPan = Array.from({ length: chCount }, (_, i) => AMIGA_PAN[i % 4]);
+
+  return { title, tag, numChannels, channels, samples, tempo, loopStart: loopStartIndex, loopEnd: Math.max(0, played.length - 1), channelPan };
 }
 
 async function _modImport(buf, fileName) {
@@ -420,7 +494,9 @@ async function _modImport(buf, fileName) {
 
   // 1. One sample + instrument per used MOD sample; map MOD index → instrument id.
   const usedIdx = new Set();
-  for (const ch of mod.channels) for (const st of ch) if (st) usedIdx.add(parseInt(st.instrument.slice(1), 10));
+  for (const ch of mod.channels) for (const st of ch) {
+    if (st && typeof st.instrument === 'string' && st.instrument[0] === 'S') usedIdx.add(parseInt(st.instrument.slice(1), 10));
+  }
 
   const instByModIdx = {};
   let sampleFails = 0;
@@ -428,13 +504,14 @@ async function _modImport(buf, fileName) {
     const s = mod.samples[idx - 1];
     if (!s?.pcm || s.pcm.length === 0) { sampleFails++; continue; }
     const looped = s.repeatLen > 2;
+    const detune = s.finetune ? Math.round(s.finetune * 12.5) : 0;   // ~1/8 semitone per unit
     const sr = await API('/audio/samples', 'POST', {
       name: `${base}_s${String(idx).padStart(2, '0')}`, category: 'misc', priority: 5,
       data: _pcm8ToWavBase64(s.pcm, _MOD_C2_RATE), mime_type: 'audio/wav',
       base_note: _MOD_C2_MIDI, snes_rate: 16000, snes_bits: 8, echo_mix: 0,
       loop_start: looped ? s.repeatStart / _MOD_C2_RATE : 0,
       loop_end: looped ? (s.repeatStart + s.repeatLen) / _MOD_C2_RATE : 0,
-      config: { adsr: { a: 0.005, d: 0, s: 1, r: 0.05 }, gain: 1 }, enabled: 1,
+      config: { adsr: { a: 0.005, d: 0, s: 1, r: 0.05 }, gain: 1, ...(detune ? { detune } : {}) }, enabled: 1,
     });
     if (sr?.error || !sr?.id) { sampleFails++; continue; }
     const ir = await API('/audio/instruments', 'POST', {
@@ -445,24 +522,30 @@ async function _modImport(buf, fileName) {
     instByModIdx[idx] = ir.id;
   }
 
-  // 2. Remap placeholder refs → real ids; drop notes whose sample failed.
+  // 2. Remap placeholder refs → real ids. Note cells whose sample failed are dropped;
+  //    effect-only cells (note null) are kept — they only modulate a live voice, so
+  //    they carry no instrument of their own.
   const instrumentIds = new Set();
   for (const ch of mod.channels) {
     for (let i = 0; i < ch.length; i++) {
       const st = ch[i];
       if (!st) continue;
+      if (st.note == null) {
+        if (typeof st.instrument === 'string' && st.instrument[0] === 'S') st.instrument = instByModIdx[parseInt(st.instrument.slice(1), 10)] || null;
+        continue;
+      }
       const id = instByModIdx[parseInt(st.instrument.slice(1), 10)];
       if (id) { st.instrument = id; instrumentIds.add(id); }
       else ch[i] = null;
     }
   }
 
-  // 3. Create the song. 125 BPM matches the MOD default (speed 6 @ 50 Hz PAL).
-  const length = mod.channels.reduce((m, ch) => Math.max(m, ch.length), 0);
+  // 3. Create the song — tempo, loop point and pan come from the parsed module.
   const song = await API('/audio/songs', 'POST', {
-    name: base, category: 'misc', tempo: 125, priority: 5,
-    loop_start: 0, loop_end: Math.max(0, length - 1),
-    instrument_ids: [...instrumentIds], channels: mod.channels, enabled: 1,
+    name: base, category: 'misc', tempo: mod.tempo, priority: 5,
+    loop_start: mod.loopStart, loop_end: mod.loopEnd,
+    instrument_ids: [...instrumentIds], channels: mod.channels,
+    channel_pan: mod.channelPan, enabled: 1,
   });
   if (song?.error) { toast(song.error, true); return; }
 
@@ -481,8 +564,10 @@ function openModImportModal() {
       <input type="file" id="mod-file" accept=".mod,audio/mod">
     </div>
     <div style="margin-top:12px;padding:10px;background:var(--bg3);border-radius:4px;font-size:11px;color:var(--text-dim)">
-      Creates one sample + instrument per used module sample, then a song from the pattern data at 125 BPM.
-      Channels past ${MAX_CHANNELS} are ignored. Effects other than volume (Cxx) are not imported.
+      Creates one sample + instrument per used module sample, then a song from the pattern data at the
+      module's own tempo. Imports volume, arpeggio, portamento, tone portamento, vibrato and volume-slide
+      effects, sample finetune, pattern break/jump (loop point), and Amiga stereo panning. Channels past
+      ${MAX_CHANNELS} are ignored.
     </div>`;
   const saveBtn = document.getElementById('modal-save');
   saveBtn.textContent = 'Import';
@@ -609,6 +694,7 @@ let _sqBars = 4;
 let _sqView = 'grid';
 let _sqPop = null;
 let _sqPlaying = false;
+let _sqPan = null;   // channel_pan of the song being edited (MOD stereo), for faithful preview
 
 const _SQ_NOTES = ['C','C#','D','Eb','E','F','F#','G','Ab','A','Bb','B'];
 
@@ -663,6 +749,7 @@ function _sqInit(row) {
   _sqView = 'grid';
   _sqBars = 4;
   _sqCh = [];
+  _sqPan = Array.isArray(row.channel_pan) && row.channel_pan.length ? row.channel_pan : null;
   if (row.channels?.length) {
     _sqCh = row.channels.slice(0, MAX_CHANNELS).map(ch => [...(ch || [])]);
     _sqBars = Math.max(1, Math.ceil((_sqCh[0]?.length || 0) / 16));
@@ -728,7 +815,7 @@ function _sqRender() {
     for (let s = 0; s < n; s++) {
       const st = ch[s];
       const bs = s % 16 === 0 ? ' sq-bs' : (s % 4 === 0 ? ' sq-b4' : '');
-      cells += `<div class="sq-cell${bs}${st ? ' sq-f' : ''}" data-ci="${ci}" data-si="${s}">${st ? st.note : ''}</div>`;
+      cells += `<div class="sq-cell${bs}${st ? ' sq-f' : ''}" data-ci="${ci}" data-si="${s}">${st && st.note ? st.note : ''}</div>`;
     }
     chRowsHtml += `<div class="sq-rrow">${cells}</div>`;
   });
@@ -863,7 +950,7 @@ function _sqTogglePlay() {
     const tempo = parseInt(document.getElementById('sg-tempo')?.value) || 120;
     const instrumentIds = _sqGetInstrumentIds();
     const _instrumentsById = _resolveInstrumentsById(instrumentIds);
-    window.AudioEngine.playMusic({ name: '_preview', tempo, channels: _sqCh, instrument_ids: instrumentIds, _instrumentsById, priority: 5, onStep: _sqOnStep });
+    window.AudioEngine.playMusic({ name: '_preview', tempo, channels: _sqCh, instrument_ids: instrumentIds, _instrumentsById, priority: 5, onStep: _sqOnStep, channel_pan: _sqPan || [] });
     _sqPlaying = true;
   }
   const btn = document.getElementById('sq-play');
@@ -1334,14 +1421,21 @@ function openAudioModal(tab, row) {
         channels = _sqCh;
         instrumentIds = _sqGetInstrumentIds();
       }
+      // A MOD-imported song carries a real loop point + per-channel pan that this
+      // grid editor doesn't expose — preserve them on edit instead of silently
+      // resetting to a full-length mono loop. Hand-authored songs (no pan) keep the
+      // original behaviour: loop the whole pattern.
+      const isMod = !isNew && Array.isArray(row.channel_pan) && row.channel_pan.length > 0;
+      const fullEnd = Math.max(0, (channels[0]?.length || 0) - 1);
       const reqBody = {
         name, category: document.getElementById('sg-cat').value,
         tempo: parseInt(document.getElementById('sg-tempo').value) || 120,
         priority: parseInt(document.getElementById('sg-priority').value) || 5,
-        loop_start: 0,
-        loop_end: Math.max(0, (channels[0]?.length || 0) - 1),
+        loop_start: isMod ? (row.loop_start ?? 0) : 0,
+        loop_end: isMod ? (row.loop_end ?? fullEnd) : fullEnd,
         instrument_ids: instrumentIds,
         channels,
+        channel_pan: Array.isArray(row.channel_pan) ? row.channel_pan : [],
         enabled: document.getElementById('sg-enabled').checked ? 1 : 0,
       };
       const r = isNew ? await API('/audio/songs', 'POST', reqBody) : await API(`/audio/songs/${row.id}`, 'PUT', reqBody);

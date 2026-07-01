@@ -406,7 +406,7 @@ async function cmdLootCorpse(targetStr, player, broadcast) {
 	let targetPlayer = lootr.type === 'match' ? lootr.candidate : null;
 	if (!targetPlayer) {
 		const { rows } = await query(
-			`SELECT id, handle FROM players WHERE LOWER(handle) LIKE $1 AND current_zone=$2 AND id!=$3 LIMIT 1`,
+			`SELECT id, handle, offline_sleeping FROM players WHERE LOWER(handle) LIKE $1 AND current_zone=$2 AND id!=$3 LIMIT 1`,
 			[`%${targetStr.toLowerCase()}%`, player.current_zone, player.id],
 		);
 		if (rows.length) targetPlayer = rows[0];
@@ -416,7 +416,61 @@ async function cmdLootCorpse(targetStr, player, broadcast) {
 	if (lootProtectedApt?.forcefield_active) {
 		return { type: "error", message: `A quantum forcefield crackles between you and ${targetPlayer.handle}. You can't touch them.` };
 	}
+
+	// Rifling through a sleeping victim's pockets is a deeply shady act. Announce
+	// the deed, and — if anyone's awake to see it — roll Deception to keep a
+	// straight face. Fail in front of witnesses and you bottle it, sheepishly.
+	const isSleeping = !!targetPlayer.sleeping || !!targetPlayer.offline_sleeping;
+	if (isSleeping) {
+		const lootView = () => buildLootView({ id: targetPlayer.id, name: targetPlayer.handle, butcher_table: [] }, player);
+		const result = await attemptSneakyLoot(player, targetPlayer, broadcast);
+		return result === "proceed" ? lootView() : result;
+	}
 	return buildLootView({ id: targetPlayer.id, name: targetPlayer.handle, butcher_table: [] }, player);
+}
+
+const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+// The shady-looting encounter. Broadcasts the devious attempt to any bystanders
+// plus the actor, and — only when awake witnesses are present — gates the loot
+// behind a Deception check. Returns "proceed" to open the loot GUI, or a result
+// object (the sheepish bail-out) to abort.
+async function attemptSneakyLoot(player, targetPlayer, broadcast) {
+	const name = targetPlayer.handle;
+	const witnesses = getZonePlayers(player.current_zone)
+		.filter((p) => p.id !== player.id && p.id !== targetPlayer.id && !p.sleeping);
+
+	const selfDevious = pick([
+		`You lower yourself beside the sleeping ${name} and start rifling through their belongings with the tenderness of a raccoon at a bin.`,
+		`Holding your breath, you slip a hand toward ${name}'s pockets, moving with all the grace of a man defusing a bomb made of loose change.`,
+		`You get to work on ${name}'s pockets, telling yourself this is basically a wellness check. A wellness check with upside.`,
+	]);
+
+	if (witnesses.length) {
+		broadcast(player.current_zone, { type: "zone_event", message: pick([
+			`${player.handle} sinks into a crouch and begins picking through ${name}'s pockets with the focus of a surgeon and the morals of a seagull.`,
+			`${player.handle} tiptoes up to the sleeping ${name}, hands hovering, doing a truly unconvincing impression of someone who belongs there.`,
+			`${player.handle} leans over ${name}'s sleeping body and starts *very slowly* patting them down, glancing around like a meerkat with a guilty conscience.`,
+		]) }, player.id);
+
+		const check = await skillCheck(player, "deception", 4 + 3 * witnesses.length);
+		await awardSkillUse(player.id, "deception", check.margin);
+		if (!check.success) {
+			broadcast(player.current_zone, { type: "zone_event", message: pick([
+				`${player.handle} freezes mid-reach as the room turns to look, then loudly insists they were 'just checking ${name} was still breathing.' Nobody is convinced.`,
+				`Caught red-handed over ${name}, ${player.handle} snatches their hand back and gives the room a weak, guilty little wave.`,
+				`${player.handle} jolts upright from ${name}'s sleeping form, pockets suspiciously empty, and announces to no one in particular that they 'dropped a coin.'`,
+			]) }, player.id);
+			return { type: "emote", message: pick([
+				`Eyes on the back of your neck. You withdraw your hand and pretend to tuck ${name}'s blanket in with the warmth of a man who has definitely never stolen anything. Better leave it — for now.`,
+				`Someone's watching. You straighten up fast, flash a thumbs-up as if that has ever worked for anyone ever, and abandon the heist with as much dignity as you can fake.`,
+				`Caught. You pat ${name} gently on the shoulder like a concerned friend and back away whistling. The pockets will keep.`,
+			]) };
+		}
+	}
+
+	broadcast(null, { type: "action", message: selfDevious }, null, player.id);
+	return "proceed";
 }
 
 // Resolve a corpse by ID, falling back to a sleeping/offline player in the same zone.

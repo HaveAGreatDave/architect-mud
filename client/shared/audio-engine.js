@@ -391,6 +391,9 @@
     const srcNode = c.createBufferSource();
     srcNode.buffer = buf;
     srcNode.playbackRate.value = rate;
+    // Static detune (cents) — used for MOD sample finetune. Song fx (vibrato) add on
+    // top of this via LFOs connected to the same detune param.
+    if (def.config?.detune) srcNode.detune.value = def.config.detune;
     if ((def.loop_end ?? 0) > 0) {
       srcNode.loop = true;
       srcNode.loopStart = def.loop_start ?? 0;
@@ -422,7 +425,7 @@
     } else {
       warmth.connect(gainNode);
     }
-    gainNode.connect(busFor(def.category));
+    gainNode.connect(opts.destination || busFor(def.category));
 
     srcNode.start(schedTime);
     srcNode.stop(endAt);
@@ -436,6 +439,24 @@
     occupyVoice(idx, def.priority ?? 5, stopFn);
     const msUntilFree = Math.max(100, (endAt - c.currentTime + 0.1) * 1000);
     setTimeout(() => freeVoice(idx), msUntilFree);
+
+    // Voice handle: per-channel monophony (a new note cuts the one still ringing with
+    // a short fade, avoiding the click of a hard stop) plus the params and running
+    // state that song fx (arpeggio, portamento, vibrato, volume slide) modulate live.
+    const auxNodes = [];
+    return {
+      srcNode, gainNode,
+      baseRate: rate, basePeak: peak, baseNote: def.base_note ?? 60,
+      _rate: rate, _vol: peak, _toneTarget: null,
+      attachAux(n) { auxNodes.push(n); },
+      cut(atTime) {
+        const t = Math.max(atTime, c.currentTime);
+        gainNode.gain.cancelScheduledValues(t);
+        gainNode.gain.setTargetAtTime(0, t, 0.006);
+        try { srcNode.stop(t + 0.05); } catch { /* already stopped */ }
+        for (const n of auxNodes) { try { n.stop(t + 0.05); } catch { /* already stopped */ } }
+      },
+    };
   }
 
   async function playSample(def, opts = {}) {
@@ -523,6 +544,65 @@
 
   const STEPS_PER_BEAT = 4; // one tracker row == a 16th note
 
+  // ── Tracker note effects (MOD import) ──────────────────────────────────────
+  // These are perceptual approximations of ProTracker effects, not a sample-accurate
+  // replay: pitch is modulated in playback-rate/cents space rather than Amiga periods,
+  // and the tunables below are hand-picked for feel. Only sample-backed voices carry
+  // these (a voice handle with a srcNode); synth voices ignore them.
+  const MOD_TICKS = 6;       // assumed ticks/row (MOD default speed) — arpeggio subdivides the row by this
+  const PORTA_SEMI = 0.28;   // semitones/row per porta unit
+  const VIB_HZ = 0.55;       // vibrato LFO Hz per rate unit
+  const VIB_CENTS = 7;       // vibrato depth (cents) per depth unit
+
+  function applySampleFx(voice, fx, time, rowSeconds) {
+    if (!fx || !voice || !voice.srcNode) return;
+    const c = ctx;
+    const rate = voice.srcNode.playbackRate;
+    switch (fx.t) {
+      case 'arp': {
+        // Cycle base / +x / +y semitones once per tick across the row (chiptune warble).
+        const offs = [0, fx.x, fx.y];
+        const tickDur = rowSeconds / MOD_TICKS;
+        for (let k = 0; k < MOD_TICKS; k++) {
+          rate.setValueAtTime(voice.baseRate * Math.pow(2, offs[k % 3] / 12), time + k * tickDur);
+        }
+        rate.setValueAtTime(voice.baseRate, time + rowSeconds);
+        break;
+      }
+      case 'porta': {
+        if (!fx.speed) break;
+        const cur = voice._rate;
+        const target = cur * Math.pow(2, (fx.dir * fx.speed * PORTA_SEMI) / 12);
+        rate.cancelScheduledValues(time);
+        rate.setValueAtTime(cur, time);
+        rate.linearRampToValueAtTime(target, time + rowSeconds);
+        voice._rate = target;
+        break;
+      }
+      case 'vib': {
+        if (!fx.depth) break;
+        const lfo = c.createOscillator();
+        lfo.frequency.value = Math.max(0.1, fx.rate * VIB_HZ);
+        const depth = c.createGain();
+        depth.gain.value = fx.depth * VIB_CENTS;
+        lfo.connect(depth).connect(voice.srcNode.detune);
+        lfo.start(time);
+        voice.attachAux(lfo);
+        break;
+      }
+      case 'volslide': {
+        if (!fx.up && !fx.down) break;
+        const g = voice.gainNode.gain;
+        const target = Math.max(0, Math.min(1.5, voice._vol + ((fx.up - fx.down) * MOD_TICKS) / 64));
+        g.cancelScheduledValues(time);
+        g.setValueAtTime(voice._vol, time);
+        g.linearRampToValueAtTime(target, time + rowSeconds);
+        voice._vol = target;
+        break;
+      }
+    }
+  }
+
   function makeSongPlayer(def, outputGain) {
     const c = ctx;
     const channels = (Array.isArray(def.channels) ? def.channels : []).slice(0, MAX_CHANNELS);
@@ -532,7 +612,30 @@
     const stepSeconds = 60 / (def.tempo || 120) / STEPS_PER_BEAT;
     const priority = def.priority ?? 5;
 
-    const channelGains = channels.map(() => { const g = c.createGain(); g.connect(outputGain); return g; });
+    // Optional per-channel stereo pan (MOD import sets Amiga L-R-R-L). Songs without
+    // channel_pan stay mono — hand-authored content is unaffected.
+    const pans = Array.isArray(def.channel_pan) && def.channel_pan.length ? def.channel_pan : null;
+    // Per-channel headroom only for sample-backed songs (MOD imports), whose many
+    // full-scale 8-bit samples would otherwise clip when summed. Pure-synth songs are
+    // left at unity so their hand-tuned loudness is unchanged.
+    const sampleBacked = Object.values(def._instrumentsById || {}).some(i => i && i._sampleDef);
+    const chComp = sampleBacked ? 1 / Math.sqrt(Math.max(1, channels.length)) : 1;
+    const channelGains = channels.map((_, i) => {
+      const g = c.createGain();
+      g.gain.value = chComp;
+      if (pans && pans[i] != null && c.createStereoPanner) {
+        const p = c.createStereoPanner();
+        p.pan.value = Math.max(-1, Math.min(1, pans[i]));
+        g.connect(p); p.connect(outputGain);
+      } else {
+        g.connect(outputGain);
+      }
+      return g;
+    });
+    // One live voice per channel — trackers are monophonic per channel, so a new note
+    // cuts whatever is still ringing. Without this, looped/long samples bleed under the
+    // following notes.
+    const channelVoice = channels.map(() => null);
 
     let currentStep = loopStart;
     let nextStepTime = c.currentTime;
@@ -543,20 +646,52 @@
     function scheduleStep(stepIdx, time) {
       channels.forEach((ch, chIdx) => {
         const step = ch[stepIdx % ch.length];
-        if (!step || step.note == null) return;
-        const instrument = (def._instrumentsById && def._instrumentsById[step.instrument]) || {};
+        if (!step) return;
+        const hasNote = step.note != null;
+        const fx = step.fx;
+        if (!hasNote && !fx) return;
+        const live = channelVoice[chIdx];
 
-        // Sample-backed instrument: pitch-shift the sample buffer instead of synthesis
+        // Tone portamento: slide the ringing voice toward the target note without
+        // retriggering. A note on the row (re)sets the target; note-less rows keep
+        // sliding toward the last target.
+        if (fx && fx.t === 'toneporta' && live && live.srcNode) {
+          let target = live._toneTarget;
+          if (hasNote) { target = Math.pow(2, (_noteToMidi(step.note) - (live.baseNote ?? 60)) / 12); live._toneTarget = target; }
+          if (target != null) {
+            const rp = live.srcNode.playbackRate;
+            rp.cancelScheduledValues(time);
+            rp.setValueAtTime(live._rate, time);
+            rp.linearRampToValueAtTime(target, time + stepSeconds);
+            live._rate = target;
+          }
+          return;
+        }
+
+        // Continuation effect on a note-less row: modulate the still-ringing voice.
+        if (!hasNote) {
+          if (fx && live) applySampleFx(live, fx, time, stepSeconds);
+          return;
+        }
+
+        // A new note plays: cut whatever this channel was still playing (monophony).
+        const instrument = (def._instrumentsById && def._instrumentsById[step.instrument]) || {};
+        if (live) { live.cut(time); channelVoice[chIdx] = null; }
+
+        // Sample-backed instrument: pitch-shift the sample buffer instead of synthesis.
+        // Route through this channel's gain node (not the SFX bus) so the song's
+        // per-channel mix, fades, and Music volume all apply.
         if (instrument._sampleDef) {
           const midi = _noteToMidi(step.note);
-          const sampleOpts = { note: midi, gain: step.vol ?? 1 };
+          const sampleOpts = { note: midi, gain: step.vol ?? 1, destination: channelGains[chIdx] };
+          const onVoice = (v) => { if (v) { channelVoice[chIdx] = v; if (fx) applySampleFx(v, fx, time, stepSeconds); } };
           const cached = _sampleCache.get(instrument._sampleDef.id);
           if (cached) {
-            _playSampleFromBuffer(cached, instrument._sampleDef, sampleOpts, time);
+            onVoice(_playSampleFromBuffer(cached, instrument._sampleDef, sampleOpts, time));
           } else {
             // First encounter: load async then play immediately (note will be slightly late)
             loadSample(instrument._sampleDef).then(buf => {
-              if (buf) _playSampleFromBuffer(buf, instrument._sampleDef, sampleOpts, c.currentTime);
+              if (buf) onVoice(_playSampleFromBuffer(buf, instrument._sampleDef, sampleOpts, c.currentTime));
             });
           }
           return;
@@ -569,6 +704,7 @@
         const idx = allocateVoice(priority);
         if (idx === -1) return;
         const sound = buildSound(config, channelGains[chIdx], time, stepSeconds * 0.9);
+        channelVoice[chIdx] = { cut: (t) => sound.release(t), srcNode: null };
         occupyVoice(idx, priority, () => sound.release(c.currentTime));
         const ms = Math.max(0, (time - c.currentTime) * 1000) + (stepSeconds * 1000) + 200;
         setTimeout(() => freeVoice(idx), ms);
@@ -612,7 +748,16 @@
     function stop() {
       stopped = true;
       clearInterval(timer);
-      channelGains.forEach(g => g.disconnect());
+      // Actively cut any still-ringing per-channel voices with a short fade, then
+      // drop the song bus. Looped/long samples are scheduled to keep sounding for
+      // their full hold (up to several seconds); disconnecting alone leaves that
+      // scheduled tail ringing, so Stop must explicitly release each live voice.
+      const now = c.currentTime;
+      channelVoice.forEach(v => { if (v && v.cut) { try { v.cut(now); } catch { /* already gone */ } } });
+      channelGains.forEach(g => {
+        try { g.gain.cancelScheduledValues(now); g.gain.setTargetAtTime(0, now, 0.03); } catch { /* noop */ }
+      });
+      setTimeout(() => channelGains.forEach(g => { try { g.disconnect(); } catch { /* already disconnected */ } }), 150);
     }
 
     function setChannelWeight(chIdx, weight) {
@@ -625,16 +770,24 @@
 
   let activePlayer = null;
   let pendingNext = null;
+  let activeSongId = null;
 
   // def.channels' step.instrument references an instrument id. The caller
   // (server plugin for live playback, devpanel panel for preview) is expected
   // to attach def._instrumentsById = {id: instrumentRow, ...} before calling
   // playMusic/fadeTo — keeps this engine free of any server/devpanel fetch logic.
 
-  function playMusic(def) {
+  function playMusic(def, opts = {}) {
     const c = init();
     if (!c || !def) return;
+    // Zone/ambient routes re-push the same theme on every zone.entered — skip the
+    // restart when the identical song is already playing so it doesn't audibly
+    // retrigger from the top each time an actor enters. Local UI/preview callers
+    // omit restartIfSame and always (re)start.
+    const songId = def.id ?? def.name ?? null;
+    if (opts.restartIfSame === false && activePlayer && activeSongId === songId) return;
     if (activePlayer) activePlayer.stop();
+    activeSongId = songId;
     // Pre-warm sample cache for any sample-backed instruments so first notes don't stutter
     for (const inst of Object.values(def._instrumentsById || {})) {
       if (inst._sampleDef) loadSample(inst._sampleDef);
@@ -653,6 +806,7 @@
   }
 
   function stopMusic() {
+    activeSongId = null;
     if (!activePlayer) return;
     activePlayer.stop();
     activePlayer = null;
@@ -690,6 +844,14 @@
     activePlayer?.setChannelWeight(channelIndex, weight);
   }
 
+  // Sidechain duck: dip a loop's gain briefly (e.g. rain under a thunderclap),
+  // then swell it back. No-op if the loop isn't currently playing.
+  function duckLoop(id, fraction = 0.35, holdSeconds = 0.9, rampSeconds = 0.08) {
+    if (!activeLoops.has(id)) return;
+    setLoopGain(id, fraction, rampSeconds);
+    setTimeout(() => { if (activeLoops.has(id)) setLoopGain(id, 1, 0.4); }, holdSeconds * 1000);
+  }
+
   // ── Generic stop (WS audio_stop messages) ──────────────────────────────────
 
   function stop(scope, id) {
@@ -706,7 +868,7 @@
   global.AudioEngine = {
     init, applyVolumeSettings,
     playSfx, playSample, clearSampleCache,
-    loopSound, stopLoop, setLoopGain,
+    loopSound, stopLoop, setLoopGain, duckLoop,
     playMusic, stopMusic, pauseMusic, resumeMusic, queueMusic, fadeTo, crossFade, setLayerWeight,
     stop,
     noteToFreq,

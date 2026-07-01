@@ -16,6 +16,17 @@ const SEASON_BY_MONTH = [
 
 const SEASON_BASE_TEMP_C  = { winter: 2,    spring: 12, summer: 24, autumn: 11 };
 const SEASON_BASE_PRECIP  = { winter: 0.35, spring: 0.40, summer: 0.35, autumn: 0.45 };
+// Prevailing wind runs higher in the cold, unsettled seasons and drops in summer.
+const SEASON_BASE_WIND_KPH = { winter: 22, spring: 18, summer: 13, autumn: 20 };
+// Damp air pools in the cold seasons; summer runs drier by default.
+const SEASON_BASE_HUMIDITY = { winter: 82, spring: 70, summer: 58, autumn: 78 };
+
+// How each weather type scales the day's wind. Fog and haze only form in near-still
+// air, so they pull wind right down; storms and blizzards are wind events by nature.
+const WIND_BY_WEATHER = {
+  clear: 0.7, fog: 0.25, haze: 0.4, cloudy: 1.0, overcast: 1.1,
+  rain: 1.2, sleet: 1.25, snow: 1.0, thunderstorm: 1.9, blizzard: 2.0, storm: 2.0,
+};
 
 function seedFromString(str) {
   const hash = createHash('sha256').update(str).digest();
@@ -41,6 +52,35 @@ function seasonForDate(dateStr) {
   return SEASON_BY_MONTH[month];
 }
 
+// Turn a climate/season baseline into a concrete day's wind. The weather type sets
+// the ceiling (a foggy day can't be a gale); on top of that we roll the day's
+// "windiness": most days sit near the mean, but ~15% come out dead calm and ~15%
+// blow up into a gusty day. Deterministic — driven by the shared rand stream.
+function windForDay(baseWind, weatherType, rand) {
+  const typeMult = WIND_BY_WEATHER[weatherType] ?? 1.0;
+  const r = rand();
+  let dayMult;
+  if (r < 0.15)      dayMult = 0.3 + rand() * 0.3;   // calm day
+  else if (r > 0.85) dayMult = 1.4 + rand() * 0.8;   // windy / gusty day
+  else               dayMult = 0.7 + rand() * 0.7;   // ordinary day
+  return Math.max(0, Math.round(baseWind * typeMult * dayMult));
+}
+
+// Turn a climate/season baseline into a concrete day's relative humidity. The
+// weather type drives it hard: fog and rain mean saturated air, clear skies dry
+// it out. Small day-to-day jitter on top. Deterministic via the shared stream.
+function humidityForDay(baseHumidity, weatherType, rand) {
+  let h = baseHumidity;
+  if (weatherType === 'fog')              h += 18;
+  else if (weatherType === 'haze')        h += 6;
+  else if (weatherType === 'clear')       h -= 15;
+  else if (weatherType === 'cloudy')      h += 2;
+  else if (weatherType === 'overcast')    h += 8;
+  else if (PRECIP_TYPES.has(weatherType)) h += 14;   // rain/sleet/snow/blizzard/thunderstorm/storm
+  h += Math.round((rand() - 0.5) * 12);              // ±6 day jitter
+  return Math.max(15, Math.min(100, Math.round(h)));
+}
+
 function precipTypeForTemp(tempC, rand) {
   const heavy = rand() < 0.25;
   if (tempC > 3)  return heavy ? 'thunderstorm' : 'rain';
@@ -56,6 +96,8 @@ function generateWeatherForDate(dateStr, climateProfile) {
 
   const baseTemp     = climateProfile?.monthly_temp_c?.[month]        ?? SEASON_BASE_TEMP_C[season];
   const precipChance = climateProfile?.monthly_precip_chance?.[month] ?? SEASON_BASE_PRECIP[season];
+  const baseWind     = climateProfile?.monthly_wind_kph?.[month]      ?? SEASON_BASE_WIND_KPH[season];
+  const baseHumidity = climateProfile?.monthly_humidity?.[month]      ?? SEASON_BASE_HUMIDITY[season];
 
   // 5% chance of extreme day (±20°C swing), otherwise ±10°C
   const isExtreme = rand() < 0.05;
@@ -74,7 +116,12 @@ function generateWeatherForDate(dateStr, climateProfile) {
     else                                  weatherType = 'clear';
   }
 
-  return { weatherType, tempC, precipChance };
+  // Wind and humidity are rolled last so adding them never shifts the
+  // temp/precip/type outcomes above for a given date+climate.
+  const windKph     = windForDay(baseWind, weatherType, rand);
+  const humidityPct = humidityForDay(baseHumidity, weatherType, rand);
+
+  return { weatherType, tempC, precipChance, windKph, humidityPct };
 }
 
 function addDays(dateStr, days) {
@@ -93,11 +140,11 @@ async function regenerateFullForecast(startDate, climateProfile) {
   await query('DELETE FROM weather_forecast');
   for (let i = 0; i < 7; i++) {
     const date = addDays(startDate, i);
-    const { weatherType, tempC } = generateWeatherForDate(date, climateProfile);
+    const { weatherType, tempC, windKph, humidityPct } = generateWeatherForDate(date, climateProfile);
     await query(
-      `INSERT INTO weather_forecast (forecast_day, game_date, weather_type, temp_c)
-       VALUES ($1, $2, $3, $4)`,
-      [i, date, weatherType, tempC]
+      `INSERT INTO weather_forecast (forecast_day, game_date, weather_type, temp_c, wind_kph, humidity_pct)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [i, date, weatherType, tempC, windKph, humidityPct]
     );
   }
 }
@@ -118,6 +165,8 @@ async function loadForecast(setWeatherState, climateProfile) {
       date,
       weatherType: r.weather_type,
       tempC: r.temp_c,
+      windKph: r.wind_kph,
+      humidityPct: r.humidity_pct,
       precipChance,
     };
   });
@@ -171,14 +220,19 @@ async function computeBounds() {
 // Build the day's systems from forecast[0]. count/intensity scale with weather
 // type + precipChance; positions/velocities are seeded so the layout and the
 // prevailing wind are reproducible for a given date.
-function systemsForForecast(weatherType, precipChance, tempC, bounds, rand) {
+function systemsForForecast(weatherType, precipChance, tempC, windKph, bounds, rand) {
   const width  = Math.max(1, bounds.maxX - bounds.minX);
   const height = Math.max(1, bounds.maxY - bounds.minY);
   const span   = Math.max(width, height);
 
-  // One prevailing wind for the day; each cell jitters around it.
+  // One prevailing wind for the day; each cell jitters around it. When the
+  // forecast carries a wind speed, the fronts drift proportionally faster — a
+  // calm day barely moves, a gale rips across the map. Falls back to a random
+  // breeze when no wind figure is available.
   const windAngle = rand() * Math.PI * 2;
-  const windSpeed = 0.08 + rand() * 0.22;           // grid units per 30s advect
+  const windSpeed = windKph != null
+    ? 0.05 + Math.min(1, windKph / 60) * 0.30       // ~0.05 (calm) → 0.35 (gale)
+    : 0.08 + rand() * 0.22;                          // grid units per 30s advect
   const baseVx = Math.cos(windAngle) * windSpeed;
   const baseVy = Math.sin(windAngle) * windSpeed;
 
@@ -216,7 +270,8 @@ function seedField(date, forecast0, bounds) {
   const weatherType  = forecast0?.weatherType ?? 'clear';
   const tempC        = forecast0?.tempC ?? 12;
   const precipChance = forecast0?.precipChance ?? 0.05;
-  const { systems, baseCloud } = systemsForForecast(weatherType, precipChance, tempC, bounds, rand);
+  const windKph      = forecast0?.windKph ?? null;
+  const { systems, baseCloud } = systemsForForecast(weatherType, precipChance, tempC, windKph, bounds, rand);
   field.systems   = systems;
   field.baseCloud = baseCloud;
   field.bounds    = bounds;
@@ -297,15 +352,15 @@ export const hooks = {
 
     const nextForecast = [
       ...shifted,
-      { date: newDate, weatherType: generated.weatherType, tempC: generated.tempC, precipChance: generated.precipChance },
+      { date: newDate, weatherType: generated.weatherType, tempC: generated.tempC, windKph: generated.windKph, humidityPct: generated.humidityPct, precipChance: generated.precipChance },
     ].map((f, i) => ({ ...f, forecastDay: i }));
 
     await query('DELETE FROM weather_forecast');
     for (const f of nextForecast) {
       await query(
-        `INSERT INTO weather_forecast (forecast_day, game_date, weather_type, temp_c)
-         VALUES ($1, $2, $3, $4)`,
-        [f.forecastDay, f.date, f.weatherType, f.tempC]
+        `INSERT INTO weather_forecast (forecast_day, game_date, weather_type, temp_c, wind_kph, humidity_pct)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [f.forecastDay, f.date, f.weatherType, f.tempC, f.windKph ?? 0, f.humidityPct ?? 60]
       );
     }
     setWeatherState(nextForecast[0].weatherType, nextForecast[0].tempC, nextForecast);

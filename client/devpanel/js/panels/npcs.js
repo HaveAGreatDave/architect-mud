@@ -236,6 +236,38 @@ function veRenderBuckets() {
   const stockSize = parseInt(document.getElementById('f-vendor_stock_size')?.value) || 10;
   const statusEl = document.getElementById('ve-stock-status');
   if (statusEl) statusEl.textContent = `Active shelf: ${_ve.activeStockCount} / ${stockSize}`;
+  veUpdateSummary();
+}
+
+// Pop-out shop editor: the form shows a button + summary; the two-bucket
+// picker lives in the #ve-modal overlay for a comfortable, roomy layout.
+function veUpdateSummary() {
+  const el = document.getElementById('ve-summary');
+  if (!el) return;
+  const n = _ve.catalogue.length;
+  const stockSize = parseInt(document.getElementById('f-vendor_stock_size')?.value) || 10;
+  el.textContent = n
+    ? `${n} item${n !== 1 ? 's' : ''} in catalogue · active shelf ${_ve.activeStockCount}/${stockSize}`
+    : 'No items in catalogue yet — click Open Shop Editor to add wares.';
+}
+
+function veOpenModal() {
+  const m = document.getElementById('ve-modal');
+  if (!m) return;
+  const titleEl = document.getElementById('ve-modal-title');
+  if (titleEl) {
+    const shopName = document.getElementById('f-vendor_shop_name')?.value?.trim();
+    titleEl.textContent = shopName || currentRecord?.name || 'Vendor Shop';
+  }
+  m.style.display = 'flex';
+  veRenderBuckets();
+  setTimeout(() => document.getElementById('ve-search-input')?.focus(), 0);
+}
+
+function veCloseModal() {
+  const m = document.getElementById('ve-modal');
+  if (m) m.style.display = 'none';
+  veUpdateSummary();
 }
 
 function veLeftClick(event, itemId) {
@@ -352,7 +384,7 @@ function _veEditorHtml(rec) {
   const catOpts = [['all', '— All types —'], ...allTypes.map(t => [t, `${_VE_TYPE[t] || '📦'} ${t}`])]
     .map(([v, l]) => `<option value="${v}">${l}</option>`).join('');
   const hdr = 'display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:var(--bg3);border-bottom:1px solid var(--border)';
-  const list = 'height:270px;overflow-y:auto;background:var(--bg)';
+  const list = 'height:min(48vh,460px);overflow-y:auto;background:var(--bg)';
   return `
   <div style="border:1px solid var(--border);border-radius:3px;overflow:hidden">
     <!-- top bar -->
@@ -594,7 +626,10 @@ async function npcEditForm(rec, isNew) {
   const homeZoneVal = rec.home_zone || 'zone_residential_lobby';
   const homeZoneOpts = zoneList.map(z => `<option value="${z.id}" ${z.id===homeZoneVal?'selected':''}>${z.id}</option>`).join('');
   setTimeout(() => {
+    const veBody = document.getElementById('ve-modal-body');
+    if (veBody) veBody.innerHTML = _veEditorHtml(rec);
     veRenderBuckets();
+    veUpdateSummary();
     _vsRender();
     if (rec.id && workZoneId) npcRefreshSafeStatus();
     // Auto-set default vendor dialogue when the archetype sells and dialogue is blank.
@@ -634,6 +669,15 @@ async function npcEditForm(rec, isNew) {
       <div class="zone-subsection-note">Current zone is always included at runtime.</div>
     </div>
     <div class="field">
+      <label>Work Zone <span style="font-weight:400;color:var(--text-dim);font-size:11px">— where this NPC commutes to (GO_TO_WORK / schedule)</span></label>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:4px">
+        <input type="hidden" id="f-work-zone-id" value="${workZoneId}">
+        <span id="f-work-zone-name" style="color:var(--text);min-width:120px">${workZoneName}</span>
+        <button type="button" class="action-btn" onclick="openVendorZonePicker()">Pick on Map</button>
+        ${workZoneId ? `<span style="font-size:11px;color:var(--text-dim)">${workZoneId}</span>` : ''}
+      </div>
+    </div>
+    <div class="field">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
         <label>Chitchat Lines <span style="font-weight:400;color:var(--text-dim);font-size:11px">— one per line, spoken at random during idle</span></label>
         <span id="f-chitchat-hint" style="font-size:11px;color:var(--text-dim)"></span>
@@ -654,11 +698,11 @@ async function npcEditForm(rec, isNew) {
       <textarea id="f-dialogue_tree" rows="10">${JSON.stringify(tree, null, 2)}</textarea>
     </div>
     <div class="field" id="vendor-shop-section" style="${sellsNow?'':'display:none'}">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
         <label style="margin:0">Vendor Shop</label>
-        <span style="font-size:10px;color:var(--text-dim)">Catalogue = full list · Active shelf = auto-managed subset</span>
+        <button type="button" class="action-btn primary" onclick="veOpenModal()">🛒 Open Shop Editor</button>
       </div>
-      ${_veEditorHtml(rec)}
+      <div id="ve-summary" style="font-size:11px;color:var(--text-dim);margin-top:6px">—</div>
     </div>
 
     <!-- ── Vendor Config (visible when the Job / Personality sells goods) ── -->
@@ -674,16 +718,6 @@ async function npcEditForm(rec, isNew) {
         <div class="field">
           <label>Work Schedule <span style="font-weight:400;color:var(--text-dim);font-size:11px">— click or drag to toggle hours</span></label>
           <div id="vendor-schedule-grid" style="overflow-x:auto;margin-top:6px"></div>
-        </div>
-
-        <div class="field">
-          <label>Work Zone</label>
-          <div style="display:flex;gap:8px;align-items:center;margin-top:4px">
-            <input type="hidden" id="f-work-zone-id" value="${workZoneId}">
-            <span id="f-work-zone-name" style="color:var(--text);min-width:120px">${workZoneName}</span>
-            <button type="button" class="action-btn" onclick="openVendorZonePicker()">Pick on Map</button>
-            ${workZoneId ? `<span style="font-size:11px;color:var(--text-dim)">${workZoneId}</span>` : ''}
-          </div>
         </div>
 
         <div class="field">

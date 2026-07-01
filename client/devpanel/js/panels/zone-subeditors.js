@@ -96,6 +96,7 @@ function openEditNpcQuick(npcId) {
     <div class="zone-inline-form">
       <div class="field"><label>Name</label><input id="en-name-${npc.id}" value="${npc.name||''}"></div>
       <div class="field"><label>Description</label><textarea id="en-description-${npc.id}" rows="3">${npc.description||''}</textarea></div>
+      <div class="field"><label>Work Zone <span style="font-weight:400;color:var(--text-dim);font-size:11px">— zone this NPC works in (e.g. a dealer's table room); blank = none</span></label><input id="en-workzone-${npc.id}" value="${npc.work_zone_id||''}" placeholder="zone_id"></div>
       <div class="zone-inline-form-actions">
         <button class="action-btn success" onclick="submitEditNpcQuick('${npc.id}')">Save</button>
         <button class="action-btn" onclick="refreshZoneEditPanel('${npc.zone_id}')">Cancel</button>
@@ -107,11 +108,12 @@ async function submitEditNpcQuick(npcId) {
   if (!npc) return;
   const name = document.getElementById(`en-name-${npc.id}`).value.trim();
   const description = document.getElementById(`en-description-${npc.id}`).value.trim();
+  const work_zone_id = document.getElementById(`en-workzone-${npc.id}`).value.trim() || null;
   // Preserve everything this quick-edit form doesn't expose (faction,
   // dialogue_tree, vendor_inventory, wanders, flags) by round-tripping it
   // from the cached record.
   const result = await API(`/npcs/${npc.id}`, 'PUT', {
-    name, description,
+    name, description, work_zone_id,
     zone_id: npc.zone_id, faction: npc.faction,
     dialogue_tree: npc.dialogue_tree || {}, vendor_inventory: npc.vendor_inventory || [],
     wanders: npc.wanders, flags: npc.flags || {},

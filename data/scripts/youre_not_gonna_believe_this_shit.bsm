@@ -12,6 +12,7 @@
 
 @actor npc_captain_nguyen
 @alias npc_captain_nguyen Captain Nguyen
+@alias npc_captain_nguyen Nguyen
 
 @actor npc_jerry_rosenberg
 @alias npc_jerry_rosenberg LAWYER

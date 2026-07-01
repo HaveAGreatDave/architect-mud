@@ -4,6 +4,7 @@ import { getZone } from '../../server/engine/world.js';
 import { sendToZone, sendToPlayer } from '../../server/engine/messaging.js';
 import { on, emit } from '../../server/engine/events.js';
 import { propagateAudio } from '../../server/engine/sounds.js';
+import { getZonePrecip, getCurrentPrecipType } from '../../server/engine/environment.js';
 
 // ── In-memory library cache (loaded from DB at boot, refreshed after CRUD) ──
 
@@ -135,6 +136,7 @@ on('player.logout', ({ id }) => {
 });
 
 on('zone.entered', ({ actor, zone: zoneId }) => {
+  reconcilePlayerWeatherAmbient(actor?.id, zoneId);
   if (triggerEventRoute(`zone.entered.${zoneId}`, zoneId, actor?.id)) return;
   if (triggerEventRoute('zone.entered', zoneId, actor?.id)) return;
   const zone = getZone(zoneId);
@@ -324,6 +326,116 @@ on('weather.thunder', ({ zoneId }) => {
   }
 });
 
+// ── Precipitation ambience ────────────────────────────────────────────────
+// Looping outdoor weather beds (rain / sleet / snow / blizzard). The engine
+// emits `weather.zoneAmbience` per occupied outdoor tile every 30s field tick,
+// plus we top up a player on zone entry so entering mid-storm still starts the
+// loop and stepping indoors stops it. Which asset plays is resolved from the
+// event-route table (event names below) so builders can swap in real audio via
+// the dev panel; if no route/asset is set we fall back to a synthesized bed so
+// the effect works out of the box. Selection is by precip TYPE; the per-tile
+// precipRate only gates whether anything plays.
+const WEATHER_AMBIENT_EVENTS = {
+  rain:         'weather.ambient.rain',
+  drizzle:      'weather.ambient.rain',
+  thunderstorm: 'weather.ambient.rain',
+  sleet:        'weather.ambient.sleet',
+  snow:         'weather.ambient.snow',
+  blizzard:     'weather.ambient.blizzard',
+  storm:        'weather.ambient.blizzard',
+};
+
+// Synthesized fallbacks — filtered noise beds. Overridden by any matching
+// event route with an ambient_id. Keyed by normalized precip kind.
+const WEATHER_AMBIENT_FALLBACK = {
+  rain: { id: 'wx_amb_rain', name: 'wx_amb_rain', category: 'ambient', priority: 2, config: { gain: 0.5, layers: [
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass',  freq: 4200, q: 0.6 }, adsr: { a: 1.5, d: 0, s: 1,   r: 1.5 }, gain: 0.55 },
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 600,  q: 0.5 }, adsr: { a: 1.5, d: 0, s: 0.5, r: 1.5 }, gain: 0.18 },
+  ] } },
+  sleet: { id: 'wx_amb_sleet', name: 'wx_amb_sleet', category: 'ambient', priority: 2, config: { gain: 0.5, layers: [
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 5200, q: 0.8 }, adsr: { a: 1, d: 0, s: 1,   r: 1 }, gain: 0.5 },
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 3000, q: 0.6 }, adsr: { a: 1, d: 0, s: 0.6, r: 1 }, gain: 0.22 },
+  ] } },
+  snow: { id: 'wx_amb_snow', name: 'wx_amb_snow', category: 'ambient', priority: 2, config: { gain: 0.3, layers: [
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass', freq: 1200, q: 0.5 }, adsr: { a: 2, d: 0, s: 1, r: 2 }, gain: 0.3 },
+  ] } },
+  blizzard: { id: 'wx_amb_blizzard', name: 'wx_amb_blizzard', category: 'ambient', priority: 2, config: { gain: 0.6, layers: [
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass',  freq: 1800, q: 0.8 }, adsr: { a: 2, d: 0, s: 1,   r: 2 }, gain: 0.6 },
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 750,  q: 1.5 }, adsr: { a: 2, d: 0, s: 0.7, r: 2 }, gain: 0.3 },
+  ] } },
+};
+
+// Collapse the precip taxonomy onto the four ambience beds.
+function weatherAmbientKind(precipType) {
+  if (precipType === 'thunderstorm' || precipType === 'drizzle') return 'rain';
+  if (precipType === 'storm') return 'blizzard';
+  return precipType;
+}
+
+// Resolve the ambient def for a precip type: an event-route override if present,
+// else the synthesized fallback. Returns null for 'none'/unknown.
+function weatherAmbientDef(precipType) {
+  if (!precipType || precipType === 'none') return null;
+  const routes = eventRoutes.get(WEATHER_AMBIENT_EVENTS[precipType]);
+  const routed = routes?.find(r => r.ambient_id);
+  if (routed) { const d = ambient.get(routed.ambient_id); if (d) return d; }
+  return WEATHER_AMBIENT_FALLBACK[weatherAmbientKind(precipType)] || null;
+}
+
+// Every ambient id we might have started, so a player-scoped reset can stop
+// whichever one is playing without touching non-weather ambience.
+function knownWeatherAmbientIds() {
+  const ids = new Set();
+  for (const t of ['rain', 'sleet', 'snow', 'blizzard']) {
+    const d = weatherAmbientDef(t);
+    if (d?.id) ids.add(d.id);
+  }
+  return ids;
+}
+
+const zoneWeatherAmbient = new Map(); // outdoor zoneId -> ambient id currently playing there
+
+// Per-zone reconcile driven by the engine's 30s field tick. Only emits on a
+// change, so a steady storm doesn't re-send every tick.
+on('weather.zoneAmbience', ({ zoneId, precipType, active }) => {
+  const def = active ? weatherAmbientDef(precipType) : null;
+  const desiredId = def?.id || null;
+  const currentId = zoneWeatherAmbient.get(zoneId) || null;
+  if (desiredId === currentId) return;
+  if (currentId) sendToZone(zoneId, { type: 'audio_stop', scope: 'ambience', id: currentId });
+  if (def) sendToZone(zoneId, { type: 'audio_ambience', def });
+  if (desiredId) zoneWeatherAmbient.set(zoneId, desiredId); else zoneWeatherAmbient.delete(zoneId);
+});
+
+// Sidechain: when a thunderclap fires, briefly duck the weather bed playing in
+// that zone so the clap punches cleanly through the rain, then let it swell
+// back. No-op if no bed is playing there. (Separate listener from the SFX one
+// above; the event bus supports multiple handlers.)
+on('weather.thunder', ({ zoneId }) => {
+  const bedId = zoneWeatherAmbient.get(zoneId);
+  if (bedId) sendToZone(zoneId, { type: 'audio_duck', scope: 'ambience', id: bedId, fraction: 0.35, hold: 0.9 });
+});
+
+// Top up a single player on zone entry: clear any weather bed, then start the
+// new zone's if it's outdoors and actively precipitating on their tile.
+function reconcilePlayerWeatherAmbient(playerId, zoneId) {
+  if (!playerId || !zoneId) return;
+  const zone = getZone(zoneId);
+  const indoor = !!(zone?.flags?.is_interior || zone?.flags?.is_apartment || zone?.flags?.is_building);
+  let desired = null;
+  if (!indoor) {
+    const { precipType, precipRate } = getZonePrecip(zoneId);
+    if (precipRate && precipType !== 'none') desired = weatherAmbientDef(getCurrentPrecipType());
+  }
+  const desiredId = desired?.id || null;
+  // Stop every weather bed except the one we want (loopSound is idempotent, so
+  // re-starting the same id is a no-op — no gap when moving between like tiles).
+  for (const id of knownWeatherAmbientIds()) {
+    if (id !== desiredId) sendToPlayer(playerId, { type: 'audio_stop', scope: 'ambience', id });
+  }
+  if (desired) sendToPlayer(playerId, { type: 'audio_ambience', def: desired });
+}
+
 // device.tuned fires on every TV/radio channel change (plugins/broadcast).
 // The mechanical relay click of actually landing on a channel is shared
 // multiplayer state (everyone looking at the same screen hears it), so it
@@ -347,7 +459,7 @@ function devOk(auth) {
 
 const TABLES = {
   instruments: { table: 'audio_instruments', cache: instruments, cols: ['name', 'category', 'waveform', 'config', 'enabled', 'sample_id'] },
-  songs: { table: 'audio_songs', cache: songs, cols: ['name', 'category', 'tempo', 'channels', 'loop_start', 'loop_end', 'instrument_ids', 'priority', 'enabled'] },
+  songs: { table: 'audio_songs', cache: songs, cols: ['name', 'category', 'tempo', 'channels', 'loop_start', 'loop_end', 'instrument_ids', 'priority', 'enabled', 'channel_pan'] },
   sfx: { table: 'audio_sfx', cache: sfx, cols: ['name', 'category', 'priority', 'config', 'enabled'] },
   ambient: { table: 'audio_ambient', cache: ambient, cols: ['name', 'category', 'priority', 'config', 'loop', 'enabled'] },
 };
@@ -356,7 +468,7 @@ const TABLES = {
 // multiple routes per event (random selection at runtime).
 const EVENT_ROUTE_COLS = ['event_name', 'sfx_id', 'ambient_id', 'song_id', 'sample_id', 'scope', 'enabled'];
 
-const JSONB_COLS = new Set(['config', 'channels', 'instrument_ids']);
+const JSONB_COLS = new Set(['config', 'channels', 'instrument_ids', 'channel_pan']);
 
 function colValue(col, body) {
   const v = body[col];

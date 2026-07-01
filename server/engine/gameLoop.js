@@ -13,7 +13,7 @@ import { emit } from './events.js';
 import { schedule } from './scheduler.js';
 import { carryCapacity } from './commands/inventory.js';
 import { query, logActivity } from '../models/db.js';
-import { getEnvironmentState, getZoneTemperature, recordLightningKill, getZoneStormIntensity } from './environment.js';
+import { getEnvironmentState, getZoneTemperature, getZoneApparentTemperature, recordLightningKill, getZoneStormIntensity } from './environment.js';
 import { tickBodily } from './bodily.js';
 import { tickDrugDecay } from './drugs.js';
 import { addHorniness } from './mis.js';
@@ -684,31 +684,41 @@ async function resourceTick() {
     const prevBodyTemp = player.body_temp_c ?? 37.0;
     const zone = world.zones.get(player.current_zone);
     const tempOffset = zone?.flags?.temp_offset || 0;
-    const rawAmbient = getZoneTemperature(player.current_zone) + tempOffset;
-    const effectiveAmbient = rawAmbient;
+    // Apparent ("feels like") temperature — folds the day's wind chill and
+    // humidity into the ambient the body actually has to cope with (outdoors).
+    const effectiveAmbient = getZoneApparentTemperature(player.current_zone, tempOffset);
 
     // Effective temperature = ambient + clothing insulation (insulation in °C offset).
-    const effectiveTemp = effectiveAmbient + (player.insulation || 0);
+    // Bare core skin (no torso/legs clothing) subtracts an exposure penalty on the
+    // cold side only — nakedness bites in the cold but still vents heat when hot.
+    const warmthTemp = effectiveAmbient + (player.insulation || 0) - (player.exposurePenalty || 0);
+    const heatTemp   = effectiveAmbient + (player.insulation || 0);
     const playerWetness = player.wetness ?? 0;
-    const DELTA_TIME = 60; // seconds per tick
 
-    // Comfort zone: effectiveTemp between 10°C and 35°C causes no body temp drift.
-    // Below 10°C → cooling; above 35°C → heating.
-    // Rate = 0.002 * |diff|^1.75 °C/min (e.g. diff=10 → 0.063°C/min; diff=20 → 0.19°C/min).
+    // Below 10°C → cooling; above 35°C → heating; in the comfort band between,
+    // the body's own thermoregulation restores the 37°C setpoint.
+    // Drift rate = 0.002 * |diff|^1.75 °C/min (e.g. diff=10 → 0.11°C/min; diff=20 → 0.38°C/min).
     const COLD_THRESHOLD = 10;
     const HOT_THRESHOLD = 35;
-    const cooling = effectiveTemp < COLD_THRESHOLD;
-    const heating = effectiveTemp > HOT_THRESHOLD;
+    const cooling = warmthTemp < COLD_THRESHOLD;
+    const heating = heatTemp > HOT_THRESHOLD;
     if (cooling) {
-      const absDiff = COLD_THRESHOLD - effectiveTemp;
+      const absDiff = COLD_THRESHOLD - warmthTemp;
       const baseDrift = 0.002 * Math.pow(absDiff, 1.75); // °C per minute
       const wetMult = 1 + (playerWetness / 100);
       player.body_temp_c = (player.body_temp_c ?? 37.0) - baseDrift * wetMult;
     } else if (heating) {
-      const absDiff = effectiveTemp - HOT_THRESHOLD;
+      const absDiff = heatTemp - HOT_THRESHOLD;
       const baseDrift = 0.002 * Math.pow(absDiff, 1.75); // °C per minute
       const wetMult = Math.max(0.70, 1 - playerWetness * 0.003);
       player.body_temp_c = (player.body_temp_c ?? 37.0) + baseDrift * wetMult;
+    } else {
+      // Comfort band: metabolic thermoregulation pulls core back to 37°C.
+      // Exponential relaxation (~0.05/min): a 3°C deficit recovers in ~35 min —
+      // enough to warm up indoors without trivializing cold exposure.
+      const cur = player.body_temp_c ?? 37.0;
+      const diff = 37.0 - cur;
+      player.body_temp_c = Math.abs(diff) < 0.1 ? 37.0 : cur + diff * 0.05;
     }
 
     // Clamp to survivable range; prevents runaway values on extreme ticks.

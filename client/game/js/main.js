@@ -37,7 +37,7 @@ import {
 	toggleWhisperPanel,
 } from "./panels/whisper.js";
 import { initWho, openWhoModal } from "./panels/who.js";
-import { initSidebarOrder, placeDpadPanel, removeDpadPanel } from "./panels/sidebar-order.js";
+import { initSidebarOrder } from "./panels/sidebar-order.js";
 import { refreshTempDisplay } from "./panels/environment.js";
 import { initAtmPanel } from "./panels/atm.js";
 import { initTvPanel } from "./panels/tv.js";
@@ -171,8 +171,6 @@ initSettingsUI(
 	{
 		sendCmd,
 		notify: (msg) => appendMsg(msg, "system"),
-		placeDpadPanel,
-		removeDpadPanel,
 	},
 );
 
@@ -188,10 +186,6 @@ window._setAudioEnabled = (enabled) => {
 
 initThemeEditorOverlay();
 initSidebarOrder();
-// Restore desktop dpad panel if it was enabled but not captured in saved layout
-if (settings.dpadPanel && !document.getElementById('sidebar').contains(document.getElementById('dpad-section'))) {
-	placeDpadPanel();
-}
 
 // Net / WebSocket
 initNet(handleServerMsg);
@@ -495,10 +489,32 @@ document.getElementById("mob-dpad")?.addEventListener("click", (e) => {
 	const btn = e.target.closest(".dpad-btn");
 	if (btn?.dataset.cmd) sendCmd(btn.dataset.cmd);
 });
-document.getElementById("dpad-section")?.addEventListener("click", (e) => {
-	const btn = e.target.closest(".dpad-btn");
-	if (btn?.dataset.cmd) sendCmd(btn.dataset.cmd);
-});
+// Location d-pad — movement + size toggle (auto fills available space up to the
+// max; the resize button overrides with fixed 100% / 50% sizes)
+const locDpad = document.getElementById("loc-dpad");
+if (locDpad) {
+	const MODES = ["auto", "full", "half"];
+	const GLYPH = { auto: "⤢", full: "▣", half: "▪" };
+	const resizeBtn = locDpad.querySelector(".dpad-resize-btn");
+	const applyMode = (mode) => {
+		locDpad.dataset.dpadMode = mode;
+		if (resizeBtn) {
+			resizeBtn.textContent = GLYPH[mode];
+			resizeBtn.title = `D-Pad size: ${mode} (click to change)`;
+		}
+	};
+	const saved = localStorage.getItem("architect_dpad_mode");
+	applyMode(MODES.includes(saved) ? saved : "auto");
+	resizeBtn?.addEventListener("click", () => {
+		const next = MODES[(MODES.indexOf(locDpad.dataset.dpadMode) + 1) % MODES.length];
+		localStorage.setItem("architect_dpad_mode", next);
+		applyMode(next);
+	});
+	locDpad.addEventListener("click", (e) => {
+		const btn = e.target.closest(".dpad-btn");
+		if (btn?.dataset.cmd) sendCmd(btn.dataset.cmd);
+	});
+}
 
 // Poker command bar — buttons live in the area pane (re-rendered on every poker
 // update, so this is delegated). data-cmd relays the real verb (labels may be

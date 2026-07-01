@@ -3,7 +3,7 @@
 
 import { query } from '../../server/models/db.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
-import { getLivePlayer, getZonePlayers } from '../../server/engine/world.js';
+import { getLivePlayer, getZonePlayers, getZoneNpcs } from '../../server/engine/world.js';
 import { HoldemGame } from './games/holdem.js';
 import { renderPane } from './render-pane.js';
 
@@ -92,6 +92,9 @@ export class GameTable {
     this.gameType = row.game_type || 'holdem';
     this.config   = typeof row.config === 'string' ? JSON.parse(row.config) : (row.config || {});
     this.phase    = row.phase || 'WaitingForPlayers';
+
+    // Optional explicit dealer NPC id; otherwise resolved from the zone by flag.
+    this.dealerNpcId  = this.config.dealerNpcId || null;
 
     // seats: fixed array of 4. null = empty. Each entry: { playerId, handle, chips, seatIdx, disconnectedAt }
     this.seats = Array(MAX_SEATS).fill(null);
@@ -259,6 +262,8 @@ export class GameTable {
     this._dealerSay(`${info.sbHandle} posts small blind ₵ ${this.game.smallBlind}. ${info.bbHandle} posts big blind ₵ ${this.game.bigBlind}.`);
     this._dealerSay(this._quip('newHand'));
 
+    this._pushSfx('shuffle');
+    this._pushSfx('deal');
     this.pushPaneAll();
     this._promptOrRunout();
     this._lastPersist = 0; // force persist on next tick
@@ -277,6 +282,11 @@ export class GameTable {
     if (action === 'call' || action === 'bet' || action === 'raise' || action === 'allin') {
       this._betAnimPlayer = playerId;
     }
+
+    // Action sound cue: call = chips in; bet/raise = bigger chips in; all-in gets
+    // its own dramatic shove; check = knock; fold = the sad sigh.
+    const sfxMap = { fold: 'fold', check: 'check', call: 'call', bet: 'raise', raise: 'raise', allin: 'allin' };
+    if (sfxMap[action]) this._pushSfx(sfxMap[action]);
 
     this._handleActionResult(result, playerId);
     return result;
@@ -301,6 +311,7 @@ export class GameTable {
     if (pr.phase === 'flop' || pr.phase === 'turn' || pr.phase === 'river') {
       this._dealerSay(this._quip(pr.phase));
       this._sweepAnim = true; // bets were just reset — animate the sweep to the pot
+      this._pushSfx('deal');  // community cards hit the felt
       this.pushPaneAll();
       this._promptOrRunout();
     } else if (pr.phase === 'showdown') {
@@ -314,6 +325,7 @@ export class GameTable {
         }
       }
       this.phase = 'HandComplete';
+      this._pushSfx('win'); // triumphant fanfare for the completed round
       this.pushPaneAll();
       // Apply chip totals from game back to seat objects
       for (const gs of this.game.seats) {
@@ -323,6 +335,7 @@ export class GameTable {
       // Remove broke players
       for (let i = 0; i < this.seats.length; i++) {
         if (this.seats[i] && this.seats[i].chips === 0) {
+          this._pushSfx('broke', this.seats[i].playerId); // private sad send-off
           sendToPlayer(this.seats[i].playerId, { type: 'output', message: 'You have no chips left. You leave the table.' });
           this.leaveTable(this.seats[i].playerId);
         }
@@ -364,6 +377,9 @@ export class GameTable {
     const actor = this.game?.getCurrentActor();
     if (!actor) return;
     const pid = actor.playerId;
+
+    // Private prompt so the acting player notices the action has reached them.
+    this._pushSfx('turn', pid);
 
     const warnHandle = setTimeout(() => {
       sendToPlayer(pid, { type: 'output', message: '⚠ 10 seconds to act.' });
@@ -419,8 +435,37 @@ export class GameTable {
     this._sweepAnim = false;
   }
 
+  // Push a poker sound-effect cue. Without playerId it goes to everyone watching
+  // the table (seated + spectators); with one it's private (e.g. going broke).
+  // The client (poker-sfx.js) owns the actual synth def for each cue.
+  _pushSfx(cue, playerId = null) {
+    if (playerId) { sendToPlayer(playerId, { type: 'poker_sfx', cue }); return; }
+    const recipients = [
+      ...this.seats.filter(Boolean).map(s => s.playerId),
+      ...this.spectators,
+    ];
+    for (const pid of recipients) sendToPlayer(pid, { type: 'poker_sfx', cue });
+  }
+
+  // The live dealer NPC for this table: the one flagged with our table_id, an
+  // explicitly configured id, or any dealer-type NPC in the room. null if none
+  // is present (dead, despawned, or a table with no NPC). Dead NPCs are already
+  // removed from the zone set on death, but the hp guard is belt-and-suspenders.
+  _dealerNpc() {
+    const alive = n => n && (n.hp == null || n.hp > 0);
+    const npcs = getZoneNpcs(this.zoneId).filter(alive);
+    if (this.dealerNpcId) return npcs.find(n => n.id === this.dealerNpcId) || null;
+    return npcs.find(n => n.flags?.table_id === this.id)
+        || npcs.find(n => n.npc_type === 'dealer')
+        || null;
+  }
+
   _dealerSay(text) {
     if (!text) return;
+    // No living dealer NPC at the table — no one to speak. The table falls
+    // silent: no speech bubble, no chat line. (A dead dealer stops narrating.)
+    const npc = this._dealerNpc();
+    if (!npc) return;
     // Drive the dealer's on-table speech bubble. It clears itself after a lull
     // so it doesn't hang stale between hands. (No push here — the callers that
     // emit dealer lines already pushPaneAll immediately afterwards.)
@@ -430,10 +475,11 @@ export class GameTable {
       this.dealerBubble = null;
       this.pushPaneAll();
     }, 7000);
-    // Also echo to the room chat log so observers not watching the pane see it.
-    // Import sendToZone lazily to avoid circular dep issues at load time.
+    // Echo to the room chat log as the dealer NPC's own speech, matching the
+    // engine's standard NPC say format so it reads identically to `Orion Dex
+    // says: "..."`. Import sendToZone lazily to avoid circular dep at load.
     import('../../server/engine/messaging.js').then(({ sendToZone }) => {
-      sendToZone(this.zoneId, { type: 'zone_event', message: `<span class="dealer-say">[Dealer] ${text}</span>` });
+      sendToZone(this.zoneId, { type: 'output', message: `<span style="color:var(--yellow)">${npc.name} says: "${text}"</span>` });
     });
   }
 

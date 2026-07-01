@@ -5,7 +5,7 @@ import { hasTag, tagValue, hasFlag, isStackable, TAG_CATALOG } from '../tags.js'
 import { foodLoad, applyThirst } from '../bodily.js';
 import { dispatchAction } from '../actions.js';
 import { getZonePlayers } from '../world.js';
-import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../sift.js';
+import { resolve as siftResolve, matchAll as siftMatchAll, createSelectionState, formatSelectionPage } from '../sift.js';
 import { fireSpecializedAction } from '../specializedActions.js';
 import { resolveCorpseOrPlayer, buildLootView } from './combat.js';
 import { openCosmeticMachine } from './appearance.js';
@@ -50,8 +50,18 @@ export async function recomputeArmor(player) {
 export async function recomputeInsulation(player) {
   const { rows } = await query(`SELECT i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.is_equipped=1`, [player.id]);
   let total = 0;
-  for (const r of rows) total += tagValue(r, 'insulation', 0) || 0;
+  const covered = new Set();
+  for (const r of rows) {
+    total += tagValue(r, 'insulation', 0) || 0;
+    const slot = tagValue(r, 'slot');
+    if (slot) covered.add(slot);
+  }
   player.insulation = total;
+  // Bare core skin sheds heat fast, so nakedness makes the cold genuinely bite.
+  // Torso dominates (the body defends the core hardest); legs are secondary.
+  // Applied only to the cooling side of the body-temp tick (see gameLoop.js) —
+  // going shirtless in the heat is a relief, not a penalty.
+  player.exposurePenalty = (covered.has('torso') ? 0 : 10) + (covered.has('legs') ? 0 : 5);
 }
 
 async function cmdInventory(player) {
@@ -150,11 +160,34 @@ async function cmdTake(targetStr, player, broadcast) {
 
 async function cmdDrop(targetStr, player, broadcast) {
   if (!targetStr) return { type:'error', message:'Drop what?' };
+  const lower = targetStr.trim().toLowerCase();
+  // Pool includes equipped gear (no is_equipped filter) so "drop all" can shed it.
   const { rows } = await query(
     `SELECT pi.*,i.name FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND NOT jsonb_exists(i.tags,'quest_item')`,
     [player.id]
   );
   if (!rows.length) return { type:'error', message:`You don't have anything to drop.` };
+
+  // "drop all" — sheds everything you're carrying, equipped items included. Gated
+  // behind an in-browser confirmation; the client echoes back "drop __allconfirm".
+  if (lower === 'all') {
+    return {
+      type: 'confirm',
+      prompt: `Drop all ${rows.length} item${rows.length === 1 ? '' : 's'} you're carrying, including everything you have equipped?`,
+      confirmLabel: 'Drop Everything',
+      command: 'drop __allconfirm',
+    };
+  }
+  if (lower === '__allconfirm') return dropRows(rows, player, broadcast);
+
+  // "drop all <filter>" — drop every SIFT match, no prompt.
+  if (lower.startsWith('all ')) {
+    const filter = targetStr.trim().slice(4).trim();
+    const matches = siftMatchAll(filter, rows);
+    if (!matches.length) return { type:'error', message:`You don't have any "${filter}" to drop.` };
+    return dropRows(matches, player, broadcast);
+  }
+
   const sift = siftResolve(targetStr, rows, { verb: 'drop' });
   if (sift.type === 'none') return { type:'error', message:`You don't have "${targetStr}".` };
   if (sift.type === 'ambiguous') {
@@ -162,6 +195,24 @@ async function cmdDrop(targetStr, player, broadcast) {
     return { type:'output', message: formatSelectionPage({ allCandidates: sift.candidates, visibleIndex: 0, pageSize: 5 }) };
   }
   return dispatchAction({ type:'DROP', actor: player, params: { row: sift.candidate }, context: { broadcast } });
+}
+
+// Drop a set of inventory rows, one DROP action each, joining the player-facing
+// lines. Recomputes armor/insulation if any dropped item was equipped so soak
+// doesn't linger after the gear hits the ground.
+async function dropRows(rows, player, broadcast) {
+  const messages = [];
+  let hadEquipped = false;
+  for (const row of rows) {
+    if (row.is_equipped) hadEquipped = true;
+    const r = await dispatchAction({ type:'DROP', actor: player, params: { row }, context: { broadcast } });
+    messages.push(r.message);
+  }
+  if (hadEquipped) {
+    await recomputeArmor(player);
+    await recomputeInsulation(player);
+  }
+  return { type:'drop', message: messages.join('\n') };
 }
 
 async function cmdDropById(inventoryId, player, broadcast, qty) {
@@ -280,6 +331,16 @@ function resolveEquipLayer(item, requestedLayer) {
   return { layer };
 }
 
+// Equip/unequip changes the worn set, so refresh derived armor + insulation
+// (the inventory.changed event handler doesn't). Keeps typed soak and the
+// nakedness/cold penalty current the moment gear goes on or comes off.
+async function dispatchEquip(action, player) {
+  const result = await dispatchAction(action);
+  await recomputeArmor(player);
+  await recomputeInsulation(player);
+  return result;
+}
+
 async function cmdEquip(targetStr, player) {
   if (!targetStr) return { type:'error', message:'Equip what?' };
   const { rows } = await query(`SELECT pi.*,i.name,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND i.name ILIKE $2 AND jsonb_exists(i.tags,'slot') LIMIT 1`, [player.id, `%${targetStr}%`]);
@@ -294,14 +355,14 @@ async function cmdEquip(targetStr, player) {
   if (!slot) return { type:'error', message:`${item.name} doesn't have a valid equip slot configured.` };
   const { layer, error } = resolveEquipLayer(item);
   if (error) return { type:'error', message: error };
-  return dispatchAction({ type:'EQUIP', actor: player, params: { row: item, slot, layer } });
+  return dispatchEquip({ type:'EQUIP', actor: player, params: { row: item, slot, layer } }, player);
 }
 
 async function cmdUnequip(targetStr, player) {
   if (!targetStr) return { type:'error', message:'Unequip what?' };
   const { rows } = await query(`SELECT pi.*,i.name FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.is_equipped=1 AND i.name ILIKE $2 LIMIT 1`, [player.id, `%${targetStr}%`]);
   if (!rows.length) return { type:'error', message:`You don't have "${targetStr}" equipped.` };
-  return dispatchAction({ type:'UNEQUIP', actor: player, params: { row: rows[0] } });
+  return dispatchEquip({ type:'UNEQUIP', actor: player, params: { row: rows[0] } }, player);
 }
 
 async function cmdEquipById(inventoryId, player, requestedLayer) {
@@ -318,14 +379,14 @@ async function cmdEquipById(inventoryId, player, requestedLayer) {
   if (!slot) return { type:'error', message:`${item.name} doesn't have a valid equip slot configured.` };
   const { layer, error } = resolveEquipLayer(item, requestedLayer);
   if (error) return { type:'error', message: error };
-  return dispatchAction({ type:'EQUIP', actor: player, params: { row: item, slot, layer } });
+  return dispatchEquip({ type:'EQUIP', actor: player, params: { row: item, slot, layer } }, player);
 }
 
 async function cmdUnequipById(inventoryId, player) {
   if (!inventoryId) return { type:'error', message:'Nothing selected to unequip.' };
   const { rows } = await query(`SELECT pi.*,i.name FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.id=$1 AND pi.player_id=$2 AND pi.is_equipped=1 LIMIT 1`, [inventoryId, player.id]);
   if (!rows.length) return { type:'error', message:`That isn't equipped.` };
-  return dispatchAction({ type:'UNEQUIP', actor: player, params: { row: rows[0] } });
+  return dispatchEquip({ type:'UNEQUIP', actor: player, params: { row: rows[0] } }, player);
 }
 
 // Find a container the player can reach: their inventory first, then the ground.
