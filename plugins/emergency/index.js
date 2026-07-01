@@ -247,13 +247,17 @@ function deactivate() {
   const siren = sirenDef();
   const muffled = sirenDefMuffled(siren);
 
+  const windDownMsg = { type: 'ambient', message: '<span class="msg-ambient">The emergency siren slows, drops in pitch, and winds down into silence. The red warning lights stutter once and go dark.</span>' };
+
   for (const zoneId of espZones) {
     sendToZone(zoneId, { type: 'esp_state', active: false });
     if (siren) sendToZone(zoneId, { type: 'audio_stop', scope: 'ambience', id: siren.id });
+    sendToZone(zoneId, windDownMsg);
   }
   for (const zoneId of espIndoor) {
     sendToZone(zoneId, { type: 'esp_state', active: false });
     if (muffled) sendToZone(zoneId, { type: 'audio_stop', scope: 'ambience', id: muffled.id });
+    sendToZone(zoneId, windDownMsg);
   }
 
   espActive = false;
