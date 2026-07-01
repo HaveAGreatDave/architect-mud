@@ -195,7 +195,7 @@ async function loadPlayerProgression(id) {
 async function gotoPlayer(id, handle) {
   const r = await API(`/players/${id}/goto`, 'POST');
   if (r?.error) { toast(r.error, true); return; }
-  toast(`→ Teleported to ${handle} in ${r.zoneId}`);
+  await launchPlayerClient();
 }
 
 async function sendPlayerToZone(id, handle, currentZone) {

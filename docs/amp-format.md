@@ -178,29 +178,13 @@ The `config` object is the synth recipe passed directly to the Web Audio layer b
   "gain": 1.0,
   "noiseMix": 0.0,
   "detune": 0,
-  "adsr": {
-    "a": 0.01,
-    "d": 0.05,
-    "s": 0.7,
-    "r": 0.15
-  },
-  "filter": {
-    "type": "lowpass",
-    "freq": 4000,
-    "q": 1
-  },
-  "vibrato": {
-    "rate": 0,
-    "depth": 0
-  },
-  "tremolo": {
-    "rate": 0,
-    "depth": 0
-  },
-  "pitchBend": {
-    "to": 880,
-    "time": 0.25
-  }
+  "adsr": { "a": 0.01, "d": 0.05, "s": 0.7, "r": 0.15 },
+  "filter": { "type": "lowpass", "freq": 4000, "q": 1 },
+  "vibrato": { "rate": 0, "depth": 0 },
+  "tremolo": { "rate": 0, "depth": 0 },
+  "fm": { "rate": 60, "depth": 100 },
+  "echo": { "mix": 0.3, "delay": 0.18, "feedback": 0.35 },
+  "pitchBend": { "to": 880, "time": 0.25 }
 }
 ```
 
@@ -223,23 +207,89 @@ The `config` object is the synth recipe passed directly to the Web Audio layer b
 | `vibrato.depth` | float | `0` | Pitch modulation depth in cents |
 | `tremolo.rate` | float | `0` | Amplitude LFO frequency in Hz (0 = off) |
 | `tremolo.depth` | float | `0` | Amplitude modulation depth (0–1) |
+| `fm.rate` | float | — | **FM modulation** — modulator frequency in Hz. Omit or `0` to disable |
+| `fm.depth` | float | `100` | Frequency deviation in Hz (FM index = `depth ÷ carrier freq`) |
+| `echo.mix` | float | — | **Echo** — wet/dry mix (0–1). Omit or `0` to disable |
+| `echo.delay` | float | `0.18` | Delay line length in seconds (max 2.0) |
+| `echo.feedback` | float | `0.35` | Feedback gain (0–0.95); values near 1 create long reverb tails |
 | `pitchBend.to` | float | — | Target frequency in Hz at end of bend |
 | `pitchBend.time` | float | `0.2` | Bend duration in seconds |
 
-### Layered configs
+### FM modulation
 
-`config.layers` overrides the single-layer shape entirely. Any config with a `layers` array is treated as a multi-layer sound — each layer is its own independent synth voice with its own ADSR, filter, and waveform, all summed to the same output.
+`fm` wires an audio-rate modulator oscillator into the carrier's frequency input, producing classic FM synthesis timbres — bells, metallic clangour, bass stabs — depending on the ratio of `fm.rate` to `freq` and the `depth`.
+
+```json
+{ "waveform": "sine", "freq": 220, "fm": { "rate": 440, "depth": 300 },
+  "adsr": { "a": 0.01, "d": 0.4, "s": 0, "r": 0.2 }, "gain": 0.7 }
+```
+
+Quick-reference ratios (ratio = `fm.rate ÷ freq`):
+
+| Ratio | Character |
+|---|---|
+| 1:1 | Rich fundamental, organ-like |
+| 2:1 | Bright, octave-enhanced |
+| 3:1 | Metallic, bell-adjacent |
+| 7:1 or non-integer | Inharmonic, clangorous, cyberpunk |
+
+### Echo
+
+`echo` creates a parallel delay-feedback loop. It is applied per layer in multi-layer configs, so each layer can have its own echo character.
+
+```json
+{ "waveform": "square", "freq": 440, "echo": { "mix": 0.4, "delay": 0.25, "feedback": 0.5 } }
+```
+
+`echo.feedback` must stay below `1.0` — at or above 1 the loop diverges. The delay line is clamped to 2 seconds.
+
+### Layered configs (SFX)
+
+`config.layers` replaces the single-layer shape. Any config with a `layers` array is treated as a multi-layer sound — each layer is an independent synth voice summed to the same output bus.
+
+The key addition over a flat config is **`delay`**: a per-layer start offset in seconds, relative to when the SFX fires. This lets one SFX asset produce rhythmic sequences — three door raps, a burst-fire shot, a UI chime cascade — without `setTimeout` chains or multiple server messages.
 
 ```json
 {
+  "duration": 1.0,
   "layers": [
-    { "waveform": "noise", "noiseMix": 1, "duration": 0.08, "adsr": { "a": 0.001, "d": 0.05, "s": 0, "r": 0.03 }, "filter": { "type": "highpass", "freq": 1500, "q": 1 } },
-    { "waveform": "triangle", "freq": 150, "duration": 0.3, "gain": 0.5, "pitchBend": { "to": 60, "time": 0.25 }, "adsr": { "a": 0.001, "d": 0.15, "s": 0.2, "r": 0.15 }, "filter": { "type": "lowpass", "freq": 700, "q": 1 } }
+    {
+      "noiseMix": 0.8,
+      "filter": { "type": "bandpass", "freq": 280, "q": 3.5 },
+      "adsr": { "a": 0.001, "d": 0.06, "s": 0, "r": 0.18 },
+      "gain": 0.85,
+      "delay": 0
+    },
+    {
+      "noiseMix": 0.8,
+      "filter": { "type": "bandpass", "freq": 280, "q": 3.5 },
+      "adsr": { "a": 0.001, "d": 0.06, "s": 0, "r": 0.18 },
+      "gain": 0.85,
+      "delay": 0.28
+    },
+    {
+      "noiseMix": 0.8,
+      "filter": { "type": "bandpass", "freq": 280, "q": 3.5 },
+      "adsr": { "a": 0.001, "d": 0.06, "s": 0, "r": 0.18 },
+      "gain": 0.85,
+      "delay": 0.56
+    }
   ]
 }
 ```
 
-Each element in `layers` is a full config object (minus a nested `layers`). Useful for mechanical sounds that need a noise burst + a pitched component (e.g. eject clicks, UI chimes).
+**Per-layer fields** — all standard config keys apply plus:
+
+| Field | Type | Default | Notes |
+|---|---|---|---|
+| `delay` | float | `0` | Seconds before this layer starts, relative to SFX fire time |
+
+**Rules:**
+- Each element in `layers` is a full config object; nested `layers` are not supported.
+- `duration` lives at the top level of the config (not inside each layer) and controls the overall hold time before release.
+- Layers with `echo` each maintain their own independent delay line.
+- Single-layer SFX continue to save in the flat format (no `layers` array) for backward compatibility — existing assets are unaffected.
+- The devpanel SFX editor exposes layers as collapsible cards; each card has a **Delay (s)** field alongside Waveform and Frequency in the header row.
 
 ---
 

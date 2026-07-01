@@ -345,6 +345,7 @@ async function apiRegister(body) {
     await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,is_equipped,slot,layer) SELECT $1,$2,i.id,1,1.0,1,'torso',2 FROM items i WHERE i.id='item_basic_shirt'`, [randomUUID(), id]);
     await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,is_equipped,slot,layer) SELECT $1,$2,i.id,1,1.0,1,'legs',2  FROM items i WHERE i.id='item_basic_pants'`, [randomUUID(), id]);
     await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,is_equipped,slot,layer) SELECT $1,$2,i.id,1,1.0,1,'feet',2  FROM items i WHERE i.id='item_basic_shoes'`, [randomUUID(), id]);
+    logActivity('char_created', handle);
     fireHook('player.create', { id, handle, username: username.toLowerCase(), role: 'player' }).catch(() => {});
     if (isEmailVerificationEnabled()) {
       const verifyToken = randomBytes(32).toString('hex');

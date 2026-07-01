@@ -589,7 +589,12 @@ async function zoneEditForm(rec, isNew) {
         <span id="color-preview" style="font-family:var(--font);font-size:18px;display:inline-block;width:2.4ch;text-align:center;padding:2px 4px;border:1px solid var(--border);border-radius:2px;color:${rec.color||'var(--text-dim)'};background:${rec.bg_color||'transparent'}">${rec.marker ? (rec.marker.length===1 ? rec.marker+' ' : rec.marker.slice(0,2)) : '○ '}</span>
       </div>
     </div>
-    <div class="field"><label>Map Placement</label><input readonly style="opacity:0.6" value="${place.map_id ? `${place.map_id} @ (${place.grid_x ?? '–'}, ${place.grid_y ?? '–'}, ${place.grid_z ?? 0}) — move on the Maps overview` : 'unplaced — position from the Maps overview'}"></div>
+    <div class="field"><label>Map Placement</label>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input readonly style="opacity:0.6;flex:1" value="${place.map_id ? `${place.map_id} @ (${place.grid_x ?? '–'}, ${place.grid_y ?? '–'}, ${place.grid_z ?? 0}) — move on the Maps overview` : 'unplaced — position from the Maps overview'}">
+        ${(!isNew && place.map_id) ? `<button type="button" class="action-btn danger" style="white-space:nowrap;flex-shrink:0" onclick="removeZoneFromMap('${rec.id}')">Remove from Map</button>` : ''}
+      </div>
+    </div>
     <input type="hidden" id="f-map_id" value="${place.map_id || ''}">
     <input type="hidden" id="f-grid_x" value="${place.grid_x ?? ''}">
     <input type="hidden" id="f-grid_y" value="${place.grid_y ?? ''}">
@@ -705,6 +710,23 @@ async function refreshZoneEditPanel(zoneId) {
   await loadPanel('zones');
   currentRecord = allRecords.find(r => r.id === zoneId);
   if (currentRecord) await openEdit(currentRecord, false);
+}
+
+async function removeZoneFromMap(zoneId) {
+  if (!confirm(`Remove "${zoneId}" from its map? The zone and its exits are unchanged — only the grid placement is erased.`)) return;
+  const d = await API(`/zones/${zoneId}`, 'PUT', { map_id: null, grid_x: null, grid_y: null, grid_z: null });
+  if (d.error) { toast(d.error || 'Failed to remove from map', true); return; }
+  // Sync mapOverview in-memory so the tile disappears immediately
+  if (typeof mapOverview !== 'undefined' && mapOverview) {
+    const z = mapOverview.zones.get(zoneId);
+    if (z) {
+      z.map_id = null; z.grid_x = null; z.grid_y = null; z.grid_z = null;
+      mapOverview.zones.delete(zoneId);
+      mapOverview.unplaced.set(zoneId, z);
+      if (typeof renderMapOverview === 'function') renderMapOverview();
+    }
+  }
+  await refreshZoneEditPanel(zoneId);
 }
 
 // Exits — direction + destination-zone picker instead of hand-edited JSON.

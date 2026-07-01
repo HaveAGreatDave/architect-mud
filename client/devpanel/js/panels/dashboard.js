@@ -259,10 +259,13 @@ async function _initActivityLog() {
   if (d.error || !d.rows?.length) { box.value = d.error ? 'Failed to load activity log.' : '(no activity yet)'; return; }
   const lines = d.rows.map(row => {
     const ts = new Date(row.occurred_at).toLocaleString();
-    if (row.event_type === 'connect')    return `[${ts}] *** ${row.handle} Connects`;
-    if (row.event_type === 'disconnect') return `[${ts}] *** ${row.handle} Disconnects`;
-    if (row.event_type === 'death')      return `[${ts}] ${row.handle} Dies`;
-    if (row.event_type === 'kick')       return `[${ts}] ${row.handle} was kicked by ${row.admin_handle || 'An administrator'}`;
+    if (row.event_type === 'connect')      return `[${ts}] *** ${row.handle} Connects`;
+    if (row.event_type === 'disconnect')   return `[${ts}] *** ${row.handle} Disconnects`;
+    if (row.event_type === 'death')        return `[${ts}] ${row.handle} Dies`;
+    if (row.event_type === 'kick')         return `[${ts}] ${row.handle} was kicked by ${row.admin_handle || 'An administrator'}`;
+    if (row.event_type === 'pvp_kill')     return `[${ts}] ☠ ${row.handle} killed ${row.detail || '???'}`;
+    if (row.event_type === 'char_created') return `[${ts}] ✦ ${row.handle} created`;
+    if (row.event_type === 'admin_cmd')    return `[${ts}] [ADMIN] ${row.handle}: ${row.detail || ''}`;
     return `[${ts}] ${row.event_type}: ${row.handle}`;
   });
   box.value = lines.join('\n');

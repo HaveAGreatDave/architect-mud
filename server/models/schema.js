@@ -635,8 +635,10 @@ export const SCHEMA_SQL = `
     event_type TEXT NOT NULL,
     handle     TEXT NOT NULL,
     admin_handle TEXT,
+    detail     TEXT,
     occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
+  ALTER TABLE server_activity_log ADD COLUMN IF NOT EXISTS detail TEXT;
   CREATE INDEX IF NOT EXISTS idx_server_activity_log_time ON server_activity_log(occurred_at DESC);
 
   -- Player count history (sampled every minute, kept for 7 days)

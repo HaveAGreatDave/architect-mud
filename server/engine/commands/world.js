@@ -1,4 +1,4 @@
-import { query } from '../../models/db.js';
+import { query, logActivity } from '../../models/db.js';
 import { getZone, getZoneEnemies, getZoneNpcs, getZonePlayers, getDoorForExit, getZoneDoors, spawnEnemySync, world } from '../world.js';
 import { getLockTagPublic } from './doors.js';
 import { getZonePowerStatus, recomputePower, recalcZoneLoad, getEnvironmentState } from '../environment.js';
@@ -684,6 +684,7 @@ async function cmdSpawn(args, player, broadcast) {
   broadcast?.(zoneId, { type: 'zone_event', message: `A ${itemName} appears.`, refresh: true });
   const zoneName = getZone(zoneId)?.name;
   const where = zoneName ? `${zoneName} (${zoneId})` : zoneId;
+  logActivity('admin_cmd', player.handle, null, `spawn ${itemId} → ${where}`);
   return { type: 'output', message: `Spawned ${itemName} in ${where}.` };
 }
 
@@ -699,6 +700,7 @@ async function cmdSpawnEnemy(args, player, broadcast) {
   broadcast?.(zoneId, { type: 'zone_event', message: `A ${instance.name} appears.`, refresh: true });
   const zoneName = world.zones.get(zoneId)?.name;
   const where = zoneName ? `${zoneName} (${zoneId})` : zoneId;
+  logActivity('admin_cmd', player.handle, null, `spawnenemy ${enemyId} → ${where}`);
   return { type: 'output', message: `Spawned ${instance.name} (${instance.instanceId}) in ${where}.` };
 }
 
@@ -798,6 +800,7 @@ async function cmdTeleport(targetZoneId, player, broadcast) {
   broadcast(oldZoneId, { type:'zone_event', message:`${player.handle} vanishes in a flicker of static.` }, player.id);
   broadcast(targetZoneId, { type:'zone_event', message:`${player.handle} flickers into existence out of nowhere.` }, player.id);
 
+  logActivity('admin_cmd', player.handle, null, `teleport → ${targetZoneId}`);
   return { type:'move', message: await describeZone(targetZone, player), zone: targetZoneId, minimap: getMinimapData(targetZoneId) };
 }
 

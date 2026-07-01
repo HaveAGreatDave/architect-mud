@@ -1,4 +1,4 @@
-import { query } from "../../models/db.js";
+import { query, logActivity } from "../../models/db.js";
 import { getZoneEnemies, getZoneCorpses, getZonePlayers, getZoneNpcs, getLivePlayer, createCorpse, getCorpse, removeCorpse, getApartment } from "../world.js";
 import { playerAttackEnemy, playerAttackNpc, isOnCooldown, setCooldown, getCooldownRemaining, pvpSwingSleeping } from "../combat.js";
 import { resolveForCommand, resolve as siftResolve, createSelectionState, formatSelectionPage } from "../sift.js";
@@ -320,6 +320,7 @@ async function offlineSleepSwing(attacker, targetId, broadcast) {
 
 		attacker.player_kills = (attacker.player_kills || 0) + 1;
 		query('UPDATE players SET player_kills=player_kills+1 WHERE id=$1', [attacker.id]).catch(() => {});
+		logActivity('pvp_kill', attacker.handle, null, target.handle);
 		const corpseLink = `<span class="action-link corpse-link" data-action="loot" data-target="${corpseId}" data-label="${corpseName}" title="Loot ${corpseName}">${corpseName}</span>`;
 		broadcast(attacker.current_zone, { type: "zone_event", message: `${target.handle} has died. ${corpseLink}`, refresh: true }, attacker.id);
 		broadcast(null, { type: "combat", message: `You kill ${target.handle}.`, killed: true, corpseLink, auto: true }, null, attacker.id);
