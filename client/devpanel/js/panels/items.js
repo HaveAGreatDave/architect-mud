@@ -195,22 +195,66 @@ function removeItemSupertag(btn) {
   refreshItemSupertagPicker();
 }
 
+function itemCopyFromPicker(type) {
+  const matches = (allRecords || []).filter(r => r.type === type);
+  if (!matches.length) return '<span style="color:var(--text-dim);font-size:11px">No existing items in this category.</span>';
+  const opts = matches.sort((a,b)=>(a.name||'').localeCompare(b.name||'')).map(r =>
+    `<option value="${r.id}">${r.name} (${r.id})</option>`).join('');
+  return `<div class="field-row" style="align-items:flex-end">
+    <div class="field" style="flex:1"><select id="item-copy-select">${opts}</select></div>
+    <button type="button" class="action-btn" onclick="applyItemCopy()">Copy</button>
+  </div>`;
+}
+
+function refreshItemCopyPicker() {
+  const el = document.getElementById('item-copy-picker');
+  if (!el) return;
+  el.innerHTML = itemCopyFromPicker(document.getElementById('f-type').value);
+}
+
+function applyItemCopy() {
+  const id = document.getElementById('item-copy-select')?.value;
+  if (!id) return;
+  const src = (allRecords || []).find(r => r.id === id);
+  if (!src) return;
+
+  // Scalar fields
+  document.getElementById('f-name').value = src.name || '';
+  document.getElementById('f-rarity').value = src.rarity || 'common';
+  document.getElementById('f-weight').value = src.weight ?? 1000;
+  document.getElementById('f-value').value = src.value ?? 0;
+
+  // Tags
+  const rawTags = (src.tags && typeof src.tags === 'object') ? src.tags : JSON.parse(src.tags||'{}');
+  const tags = itemOwnTags(rawTags);
+  const superApplied = itemSuperKeys(rawTags);
+  const tagNames = Object.keys(tags).filter(n => n !== 'description' && TAG_CATALOG[n]);
+
+  document.getElementById('f-description').value = tags.description || '';
+  document.getElementById('item-supertags').innerHTML = superApplied.map(k => itemSupertagChip(k)).join('');
+  document.getElementById('item-tags').innerHTML = tagNames.map(n => itemTagRow(n, tags[n])).join('');
+  refreshItemSupertagPicker();
+  refreshItemTagPicker();
+}
+
 function itemEditForm(rec, isNew) {
   const rawTags = (rec.tags && typeof rec.tags === 'object') ? rec.tags : JSON.parse(rec.tags||'{}');
   const tags = itemOwnTags(rawTags);
   const superApplied = itemSuperKeys(rawTags);
   const tagNames = Object.keys(tags).filter(n => n !== 'description' && TAG_CATALOG[n]);
+  const currentType = rec.type || 'clothing';
   return `
     <div class="field"><label>Item ID</label><input id="f-id" value="${isNew?'':rec.id}" ${!isNew?'readonly style="opacity:0.5"':''}></div>
     <div class="field"><label>Name</label><input id="f-name" value="${rec.name||''}"></div>
     <div class="field-row">
       <div class="field"><label>Category</label>
-        <select id="f-type">${['clothing','armor','weapon','consumable','drug','key','misc','ammo','tool','implant'].map(t=>`<option value="${t}" ${rec.type===t?'selected':''}>${t}</option>`).join('')}</select>
+        <select id="f-type" ${isNew?'onchange="refreshItemCopyPicker()"':''}>${['clothing','armor','weapon','consumable','drug','key','misc','ammo','tool','implant'].map(t=>`<option value="${t}" ${currentType===t?'selected':''}>${t}</option>`).join('')}</select>
       </div>
       <div class="field"><label>Rarity</label>
         <select id="f-rarity">${['common','uncommon','rare','very_rare','legendary'].map(r=>`<option ${rec.rarity===r?'selected':''}>${r}</option>`).join('')}</select>
       </div>
     </div>
+    ${isNew ? `<div class="field"><label>Copy from existing</label><div id="item-copy-picker">${itemCopyFromPicker(currentType)}</div></div>` : ''}
     <div class="field-row">
       <div class="field"><label>Weight (g)</label><input type="number" id="f-weight" value="${rec.weight||1000}" step="1"></div>
       <div class="field"><label>Value</label><input type="number" id="f-value" value="${rec.value||0}"></div>
