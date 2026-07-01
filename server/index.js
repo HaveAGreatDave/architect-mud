@@ -637,7 +637,7 @@ async function finishAuth(ws, session, player) {
 		player.id,
 	);
 	for (const [zoneId, dist] of getSoundReach(livePlayer.current_zone, 2.0)) {
-		if (dist > 0) broadcast(zoneId, { type: 'ambient', message: `<span class="msg-ambient msg-ambient-distant">Nearby, someone stirs.</span>` });
+		if (dist > 0) broadcast(zoneId, { type: 'ambient', message: `<span class="msg-ambient msg-ambient-distant">Nearby, someone stirs.</span>` }, player.id);
 	}
 	let envHUD = null;
 	try {
