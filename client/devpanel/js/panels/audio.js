@@ -635,6 +635,8 @@ function instrumentLikeConfigFields(cfg, prefix) {
   const filter = cfg.filter || {};
   const vibrato = cfg.vibrato || {};
   const tremolo = cfg.tremolo || {};
+  const fm = cfg.fm || {};
+  const echo = cfg.echo || {};
   return `
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px">
       <div class="field"><label>Attack</label><input id="${prefix}-a" type="number" step="0.01" min="0" value="${adsr.a ?? 0.01}"></div>
@@ -651,11 +653,18 @@ function instrumentLikeConfigFields(cfg, prefix) {
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-top:10px">
       <div class="field"><label>Vibrato Rate</label><input id="${prefix}-vibrate" type="number" step="0.5" min="0" value="${vibrato.rate ?? 0}"></div>
-      <div class="field"><label>Vibrato Depth</label><input id="${prefix}-vibdepth" type="number" step="1" min="0" value="${vibrato.depth ?? 0}"></div>
+      <div class="field"><label>Vibrato Depth (¢)</label><input id="${prefix}-vibdepth" type="number" step="1" min="0" value="${vibrato.depth ?? 0}"></div>
       <div class="field"><label>Tremolo Rate</label><input id="${prefix}-tremrate" type="number" step="0.5" min="0" value="${tremolo.rate ?? 0}"></div>
       <div class="field"><label>Tremolo Depth</label><input id="${prefix}-tremdepth" type="number" step="0.05" min="0" max="1" value="${tremolo.depth ?? 0}"></div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-top:10px">
+      <div class="field"><label>FM Rate (Hz)</label><input id="${prefix}-fmrate" type="number" step="1" min="0" value="${fm.rate ?? 0}" title="Modulator oscillator frequency. 0 = off."></div>
+      <div class="field"><label>FM Depth (Hz)</label><input id="${prefix}-fmdepth" type="number" step="1" min="0" value="${fm.depth ?? 0}" title="Frequency deviation in Hz. Index = depth ÷ carrier freq."></div>
+      <div class="field"><label>Echo Mix</label><input id="${prefix}-echomix" type="number" step="0.01" min="0" max="1" value="${echo.mix ?? 0}"></div>
+      <div class="field"><label>Echo Delay (s)</label><input id="${prefix}-echodelay" type="number" step="0.01" min="0" value="${echo.delay ?? 0.18}"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:10px">
+      <div class="field"><label>Echo Feedback</label><input id="${prefix}-echofb" type="number" step="0.05" min="0" max="0.95" value="${echo.feedback ?? 0.35}"></div>
       <div class="field"><label>Noise Mix (0-1)</label><input id="${prefix}-noisemix" type="number" step="0.05" min="0" max="1" value="${cfg.noiseMix ?? 0}"></div>
       <div class="field"><label>Gain (0-1)</label><input id="${prefix}-gain" type="number" step="0.05" min="0" max="1" value="${cfg.gain ?? 1}"></div>
     </div>`;
@@ -663,11 +672,15 @@ function instrumentLikeConfigFields(cfg, prefix) {
 
 function readInstrumentLikeConfig(prefix, extra) {
   const num = (id, fallback) => { const v = parseFloat(document.getElementById(id).value); return isNaN(v) ? fallback : v; };
+  const fmRate = num(`${prefix}-fmrate`, 0);
+  const echoMix = num(`${prefix}-echomix`, 0);
   return {
     adsr: { a: num(`${prefix}-a`, 0.01), d: num(`${prefix}-d`, 0.05), s: num(`${prefix}-s`, 0.7), r: num(`${prefix}-r`, 0.15) },
     filter: { type: document.getElementById(`${prefix}-filtertype`).value, freq: num(`${prefix}-filterfreq`, 4000), q: num(`${prefix}-filterq`, 1) },
     vibrato: { rate: num(`${prefix}-vibrate`, 0), depth: num(`${prefix}-vibdepth`, 0) },
     tremolo: { rate: num(`${prefix}-tremrate`, 0), depth: num(`${prefix}-tremdepth`, 0) },
+    ...(fmRate > 0 ? { fm: { rate: fmRate, depth: num(`${prefix}-fmdepth`, 100) } } : {}),
+    ...(echoMix > 0 ? { echo: { mix: echoMix, delay: num(`${prefix}-echodelay`, 0.18), feedback: num(`${prefix}-echofb`, 0.35) } } : {}),
     noiseMix: num(`${prefix}-noisemix`, 0),
     gain: num(`${prefix}-gain`, 1),
     ...extra,

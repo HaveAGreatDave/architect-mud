@@ -228,7 +228,7 @@ async function activate(message) {
   for (const zoneId of espIndoor) sendToZone(zoneId, { type: 'esp_warning', message: espMessage });
 
   for (const npc of world.npcs.values()) {
-    if (!npc.home_zone) continue;
+    if (!npc.home_zone || !npc._ai) continue;
     npc._ai.patrolPath = [];
     npc._ai.patrolTarget = null;
     npc._ai.currentNode = null;
@@ -236,6 +236,7 @@ async function activate(message) {
     npc._ai._lifeActivity = null;
     npc._ai.flags.esp_shelter = true;
   }
+  setEspShelter(true);
 
   espActive = true;
 }
@@ -261,6 +262,21 @@ function deactivate() {
   espActive = false;
   espZones.clear();
   espIndoor.clear();
+
+  // Release the global ESP shelter override so normal AI ticks resume.
+  setEspShelter(false);
+
+  // Reset each NPC's AI state so they pick up their normal routine on the
+  // next tick rather than staying frozen at their home zone.
+  for (const npc of world.npcs.values()) {
+    if (!npc._ai) continue;
+    npc._ai.flags.esp_shelter = false;
+    npc._ai.patrolPath = [];
+    npc._ai.patrolTarget = null;
+    npc._ai.currentNode = null;
+    npc._ai.waitUntil = null;
+    npc._ai._lifeActivity = null;
+  }
 
   standDownArbiters();
 }
