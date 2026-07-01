@@ -1,18 +1,206 @@
 /**
- * NPC personality system — combat reactions and MIS responses keyed to the same
- * personality slugs as NPC_CHITCHAT_PRESETS in the devpanel (npcs.js).
+ * NPC archetype registry — the single source of truth for an NPC's persona.
  *
- * Each personality has:
+ * An archetype bundles, in one place, everything that used to be spread across
+ * `chitchat` (idle lines), `work_zone_id`/`npc_type` (the job), and
+ * `flags.personality` (combat/MIS reactions):
+ *
+ *   label / icon    — how the job/personality shows in the dev-panel dropdown
+ *   sells           — true if this archetype runs a shop (shows the vendor editor)
+ *   mobile          — true for a travelling seller with no fixed shop location
+ *   npcType         — value written to the npcs.npc_type column for runtime
+ *                     behaviour (vendor commute, unemployed haunt). Derived from
+ *                     the archetype; the editor no longer sets it directly.
+ *   chitchat        — idle lines; used unless the NPC stores its own override
  *   combat_lines    — said (or shouted) when the NPC is hit. ALL CAPS = shout.
  *   mis_willing     — default willingness for MIS actions (overridden by npc.flags.mis_willing)
  *   mis_lines_ok    — lines when NPC is willing
  *   mis_lines_no    — lines when NPC refuses
  *   mis_attack      — true if hostile NPCs attack the player rather than just fleeing (rare)
  *   mis_never       — true if personality always refuses regardless of mis_willing flag
+ *
+ * The dev panel fetches label/icon/sells/mobile via GET /npc-personalities; the
+ * heavier line arrays live only here. Keep this file the one place they live.
  */
 
 const DEFAULTS = {
+  // ── Jobs ────────────────────────────────────────────────────────────────
+  vendor: {
+    label: 'Vendor', icon: '🛒', sells: true, mobile: false, npcType: 'vendor',
+    chitchat: [
+      "Best prices in the district. That's not saying much.",
+      "You touch it, you bought it.",
+      "Everything's genuine. Genuinely acquired.",
+      "Trade you for it. Credits preferred. Bullets accepted.",
+      "Limited supply. Always limited. That's the pitch.",
+      "I don't know where it came from. That's not your business either.",
+      "Come back tomorrow — stock changes. If I'm still here.",
+      "Quality merchandise at prices that won't kill you. Probably.",
+    ],
+    combat_lines: [
+      'Hey! Watch the merchandise!',
+      'You are going to PAY for that.',
+      'I\'M CALLING SECURITY.',
+      'Get away from my stall.',
+      'This is bad for business.',
+      'STOP THAT.',
+      'You touch me again and your tab is cancelled.',
+      'Do you know what I paid for this pitch?',
+      'I\'ve dealt with worse. But not by much.',
+      'That is COMING OUT OF YOUR DEPOSIT.',
+    ],
+    mis_willing: false,
+    mis_lines_ok: [
+      'Is this going to affect my pricing?',
+      'I\'m marking this down as a professional expense.',
+      'Fine. But I\'m not discounting anything.',
+      'Not here. Behind the stall.',
+    ],
+    mis_lines_no: [
+      'That is NOT a service I offer.',
+      'GET AWAY FROM MY STALL.',
+      'No. Absolutely not. Out.',
+      'I will call the whole market over here.',
+    ],
+  },
+
+  travelling_vendor: {
+    label: 'Travelling Vendor', icon: '🎒', sells: true, mobile: true, npcType: 'npc',
+    chitchat: [
+      "Everything I sell fits on my back. Ask me how.",
+      "Here today. Somewhere worse tomorrow.",
+      "No stall, no rent, no problem.",
+      "You won't find me here next week. Buy now.",
+      "I walk the whole sprawl so you don't have to.",
+      "Prices are firm. My feet hurt too much to haggle.",
+      "Caught this batch three districts over. Rare out here.",
+      "Keep moving, keep selling. That's the trade.",
+    ],
+    combat_lines: [
+      'HANDS OFF THE PACK.',
+      'You rob a man on the road, you get what\'s coming.',
+      'I\'ve been jumped in worse places than this.',
+      'That\'s my whole livelihood you\'re grabbing at.',
+      'I move for a living. I can move faster than you.',
+      'Touch the goods again. See what happens.',
+      'Nothing in here is worth your life. Walk away.',
+      'STOP. I\'ll remember your face in every town from here to the gate.',
+      'You think I carry this without knowing how to keep it?',
+      'Bad idea. Bad, bad idea.',
+    ],
+    mis_willing: false,
+    mis_lines_ok: [
+      'Quick. I\'ve got ground to cover.',
+      'Off the road, then. Behind the crates.',
+      'Fine, but I\'m gone by morning.',
+      'Costs extra. Everything does.',
+    ],
+    mis_lines_no: [
+      'Not my line of work. Move along.',
+      'I sell goods, not favours.',
+      'No. I\'ve a route to keep.',
+      'Try someone who stays put.',
+    ],
+  },
+
+  bartender: {
+    label: 'Bartender', icon: '🍺', sells: true, mobile: false, npcType: 'npc',
+    chitchat: [
+      "What'll it be?",
+      "You look like you've had a rough one.",
+      "Pay first. Trust later. That's policy.",
+      "You're not the first person to cry at this bar. Won't be the last.",
+      "I've heard worse. Much worse.",
+      "Last call was three hours ago. I'm still here.",
+      "We're out of the good stuff. We were always out of the good stuff.",
+      "Tab's running. Keep drinking.",
+      "I don't ask questions. That's why people come here.",
+      "You want ice with that? Funny.",
+    ],
+    combat_lines: [
+      'You just spilled my best bottle. I hope it was worth it.',
+      'Get out of the bar.',
+      'I\'ve seen worse Tuesdays.',
+      'Do you know what this does to my regulars?',
+      'I\'m too tired for this.',
+      'Not in my establishment.',
+      'I\'ve cut off people for less.',
+      'You\'re eighty-sixed.',
+      'I don\'t get paid enough for this.',
+      'HEY. Watch the glassware.',
+    ],
+    mis_willing: true,
+    mis_lines_ok: [
+      'Behind the bar isn\'t exactly private, but alright.',
+      'Close the curtain.',
+      'Add it to the tab.',
+      'Make it fast. I have customers.',
+    ],
+    mis_lines_no: [
+      'Not while I\'m working.',
+      'Get out.',
+      'You\'re cut off. Both ways.',
+      'I don\'t do that. Go find somebody who does.',
+    ],
+  },
+
+  dealer: {
+    label: 'Dealer', icon: '🂡', sells: false, mobile: false, npcType: 'dealer',
+    chitchat: [
+      '"Pot\'s right."',
+      'cuts the deck without looking, a motion as automatic as breathing',
+      '"No rabbit hunting."',
+      'sets out the cut card with a flat click',
+      '"Your read or your math — pick one. You\'re not fast enough for both."',
+      'riffles the deck once, sets it down, waits',
+      '"Minimum raise is the size of the last raise. Always."',
+      'adjusts the position of the discard tray by exactly one centimeter',
+      '"If you can\'t afford to call, you shouldn\'t have raised."',
+      'watches the table with the patient attention of someone who has seen every tell twice',
+      '"Side pot. Keep your stacks separate."',
+      'squares the deck against the felt — a crisp, decisive sound',
+    ],
+    combat_lines: [
+      'The house does not tolerate this.',
+      'You\'re done at this table. At every table.',
+      'Security is already moving. You just haven\'t clocked it yet.',
+      'Sit down. This only ends one way.',
+      'I\'ve watched men lose everything at this felt. You\'ll fit right in.',
+      'Cards down. Hands where I can see them.',
+      'You think the pit boss won\'t hear about this?',
+      'Bad beat. Yours, not mine.',
+      'I deal to a lot of dangerous people. You just cut in line.',
+      'The odds on you walking out of here just got very long.',
+    ],
+    mis_willing: false,
+    mis_lines_ok: [
+      'On break. Make it quick and quiet.',
+      'Not at the table. Back room.',
+      'The house doesn\'t need to know everything.',
+      'Cut the deck. We\'ll see how your luck runs.',
+    ],
+    mis_lines_no: [
+      'The house says no.',
+      'I don\'t gamble on that. Ever.',
+      'Take it somewhere off the floor.',
+      'You\'re reading the wrong dealer.',
+    ],
+  },
+
   tv_host: {
+    label: 'TV Host', icon: '📺', sells: false, mobile: false, npcType: 'npc',
+    chitchat: [
+      "We'll be right back after these messages.",
+      "Incredible. Simply incredible. Stay with us.",
+      "That's all the time we have for tonight, folks.",
+      "Let's go to our correspondent in the field.",
+      "Live from the ruins of civilization — this is the news.",
+      "Don't touch that dial. Actually, you can't. The dial broke years ago.",
+      "Our ratings are through the roof. The roof itself is on fire.",
+      "I'm told we have a caller. Hello, you're on the air.",
+      "This next segment has been approved by our corporate overlords.",
+      "Remember: what you're about to see cannot be unseen.",
+    ],
     combat_lines: [
       'WE ARE LIVE AND SOMEONE IS ATTACKING ME — DON\'T TOUCH THAT DIAL.',
       'Oh my god. OH MY GOD. This is incredible television.',
@@ -41,63 +229,61 @@ const DEFAULTS = {
     ],
   },
 
-  bartender: {
+  unemployed: {
+    label: 'Unemployed', icon: '🚷', sells: false, mobile: false, npcType: 'unemployed',
+    chitchat: [
+      "Used to have a job. Good one, too.",
+      "Nothing going today. Nothing going most days.",
+      "You hiring? No? Figures.",
+      "I keep my head down and my hands empty. Nobody bothers me.",
+      "Rent's due. Rent's always due.",
+      "Killing time. It's the only thing that's free.",
+      "I know these halls better than anyone with somewhere to be.",
+      "One of these days something'll turn up.",
+      "Spare a credit? Didn't think so.",
+      "I'm not loitering. I live here. Sort of.",
+    ],
     combat_lines: [
-      'You just spilled my best bottle. I hope it was worth it.',
-      'Get out of the bar.',
-      'I\'ve seen worse Tuesdays.',
-      'Do you know what this does to my regulars?',
-      'I\'m too tired for this.',
-      'Not in my establishment.',
-      'I\'ve cut off people for less.',
-      'You\'re eighty-sixed.',
-      'I don\'t get paid enough for this.',
-      'HEY. Watch the glassware.',
+      'What did I even do to you?',
+      'I\'ve got nothing worth taking!',
+      'Leave me alone, I\'m not bothering anyone.',
+      'Come on, man. COME ON.',
+      'Why is it always me?',
+      'I don\'t want any trouble.',
+      'I\'ll remember this. Not that it\'ll help.',
+      'Ow. OW. Alright, alright!',
+      'You\'re really beating up the guy with nothing?',
+      'I know people. Well. I knew people.',
     ],
     mis_willing: true,
     mis_lines_ok: [
-      'Behind the bar isn\'t exactly private, but alright.',
-      'Close the curtain.',
-      'Add it to the tab.',
-      'Make it fast. I have customers.',
+      'For credits? Yeah, alright. I\'m not proud.',
+      'Beats standing around.',
+      'Nobody ever asks. Sure.',
+      'What\'s it pay?',
     ],
     mis_lines_no: [
-      'Not while I\'m working.',
-      'Get out.',
-      'You\'re cut off. Both ways.',
-      'I don\'t do that. Go find somebody who does.',
+      'Not that desperate. Yet.',
+      'Leave me be.',
+      'I said no.',
+      'Find someone else.',
     ],
   },
 
-  vendor: {
-    combat_lines: [
-      'Hey! Watch the merchandise!',
-      'You are going to PAY for that.',
-      'I\'M CALLING SECURITY.',
-      'Get away from my stall.',
-      'This is bad for business.',
-      'STOP THAT.',
-      'You touch me again and your tab is cancelled.',
-      'Do you know what I paid for this pitch?',
-      'I\'ve dealt with worse. But not by much.',
-      'That is COMING OUT OF YOUR DEPOSIT.',
-    ],
-    mis_willing: false,
-    mis_lines_ok: [
-      'Is this going to affect my pricing?',
-      'I\'m marking this down as a professional expense.',
-      'Fine. But I\'m not discounting anything.',
-      'Not here. Behind the stall.',
-    ],
-    mis_lines_no: [
-      'That is NOT a service I offer.',
-      'GET AWAY FROM MY STALL.',
-      'No. Absolutely not. Out.',
-      'I will call the whole market over here.',
-    ],
-  },
-
+  // ── Behavioural personalities ───────────────────────────────────────────
   guard: {
+    label: 'Guard', icon: '🔒', sells: false, mobile: false, npcType: 'npc',
+    chitchat: [
+      "Move along.",
+      "Eyes forward.",
+      "I see you.",
+      "Nothing happens on my watch. Usually.",
+      "This area is restricted. That's not a suggestion.",
+      "I've had a long shift. Don't make it longer.",
+      "Protocol says I have to say something. So: stop.",
+      "Keep it moving.",
+      "Don't make me call this in.",
+    ],
     combat_lines: [
       'STAND DOWN. NOW.',
       'You are in violation.',
@@ -126,6 +312,17 @@ const DEFAULTS = {
   },
 
   thug: {
+    label: 'Thug', icon: '🔪', sells: false, mobile: false, npcType: 'npc',
+    chitchat: [
+      "You looking at something?",
+      "Watch where you're walking.",
+      "This block's got rules.",
+      "Nice gear. Shame what happens to nice things.",
+      "I seen you around here before?",
+      "Mind your business and you'll keep your fingers.",
+      "The crew knows your face now.",
+      "We run things here. Not them. Us.",
+    ],
     combat_lines: [
       'YOU\'RE DEAD.',
       'Wrong person.',
@@ -154,6 +351,17 @@ const DEFAULTS = {
   },
 
   doctor: {
+    label: 'Doctor', icon: '🩺', sells: false, mobile: false, npcType: 'npc',
+    chitchat: [
+      "Don't touch that with your bare hands.",
+      "I've seen worse. Barely.",
+      "The human body is remarkably resilient. And remarkably stupid.",
+      "This won't hurt much.",
+      "I can fix that. The question is whether you'll want me to.",
+      "My rates are reasonable. For the apocalypse.",
+      "Symptom management is all any of us are doing at this point.",
+      "Sign the waiver. Everyone signs the waiver.",
+    ],
     combat_lines: [
       'This is counterproductive to your health.',
       'I\'m trying to help people. Stop that.',
@@ -182,6 +390,17 @@ const DEFAULTS = {
   },
 
   politician: {
+    label: 'Politician', icon: '🎙', sells: false, mobile: false, npcType: 'npc',
+    chitchat: [
+      "We're making progress.",
+      "The data supports our approach.",
+      "I hear your concerns. I'll note them down.",
+      "The situation is under control. My definition of control.",
+      "We're committed to accountability. The accountability of others.",
+      "This is a temporary measure.",
+      "Due process is very important to us.",
+      "We are exploring all options. Except the obvious ones.",
+    ],
     combat_lines: [
       'This is completely unacceptable.',
       'I will be raising this with the relevant committee.',
@@ -210,6 +429,17 @@ const DEFAULTS = {
   },
 
   preacher: {
+    label: 'Preacher', icon: '✝', sells: false, mobile: false, npcType: 'npc',
+    chitchat: [
+      "The end was promised. The end delivered.",
+      "Repent. It won't help, but the gesture matters.",
+      "He watches. Even here.",
+      "Salvation is available. Supply is limited.",
+      "Blessed are the adaptable.",
+      "The scripture didn't specify what kind of fire.",
+      "Sin freely. Confess generously. That's the cycle.",
+      "Judgment is coming. It commutes.",
+    ],
     combat_lines: [
       'THE WAGES OF SIN.',
       'YOU WILL ANSWER FOR THIS.',
@@ -236,6 +466,17 @@ const DEFAULTS = {
   },
 
   vagrant: {
+    label: 'Vagrant', icon: '🚬', sells: false, mobile: false, npcType: 'npc',
+    chitchat: [
+      "You got a smoke?",
+      "I used to have a job. Good job too.",
+      "Don't sleep near the east wall. Trust me.",
+      "Seen things out there you wouldn't believe.",
+      "It's gonna rain. I can tell. My knee knows.",
+      "You got any credits? Just asking.",
+      "They took everything. But not this spot. This spot's mine.",
+      "The machines don't sleep. I've watched.",
+    ],
     combat_lines: [
       'Hey! I wasn\'t doing nothing!',
       'Ow ow ow.',
@@ -264,6 +505,17 @@ const DEFAULTS = {
   },
 
   mercenary: {
+    label: 'Mercenary', icon: '💀', sells: false, mobile: false, npcType: 'npc',
+    chitchat: [
+      "This isn't personal. It's a contract.",
+      "Better paid than the last job. That's all I ask.",
+      "Don't mistake my silence for hesitation.",
+      "I've seen a lot of warzones. They all look the same eventually.",
+      "Loyalty's expensive. I'm surprisingly affordable.",
+      "Eyes open. That's the whole philosophy.",
+      "I get paid either way.",
+      "There's no good side. Just better rates.",
+    ],
     combat_lines: [
       'Wrong call.',
       'You\'re not in my contract as friendly.',
@@ -293,6 +545,17 @@ const DEFAULTS = {
   },
 
   scientist: {
+    label: 'Scientist', icon: '🔬', sells: false, mobile: false, npcType: 'npc',
+    chitchat: [
+      "The results were unexpected. As always.",
+      "Containment is holding. For now.",
+      "This is theoretically reversible.",
+      "The ethical review board no longer exists. We proceed.",
+      "Note: do not touch the sample with your left hand.",
+      "I've run the numbers. The numbers are concerning.",
+      "Progress requires sacrifice. Usually someone else's.",
+      "We're close. We are always close.",
+    ],
     combat_lines: [
       'Interesting. That was considerably more painful than expected.',
       'I\'m going to document this.',
@@ -322,6 +585,17 @@ const DEFAULTS = {
   },
 
   cult_member: {
+    label: 'Cult Member', icon: '👁', sells: false, mobile: false, npcType: 'npc',
+    chitchat: [
+      "He is coming. He is always coming.",
+      "Join us. The waiting is easier with company.",
+      "The old world is ash. This is better.",
+      "We don't recruit. We recognise.",
+      "Pain is just loyalty with nerve endings.",
+      "Doubt is the first step. We help with the next ones.",
+      "There is no leaving. There is only becoming.",
+      "The vessel is willing. Are you?",
+    ],
     combat_lines: [
       'THE VESSEL ACCEPTS ALL PAIN.',
       'You only strengthen my faith.',
@@ -416,4 +690,32 @@ export function getNpcMisLine(npc, willing) {
 export function npcMisAttacks(npc) {
   const data = getData(npc.flags?.personality);
   return !!(data.mis_attack) && Math.random() < 0.2;
+}
+
+// The idle chitchat pool for an NPC: its own stored override if any, otherwise
+// the archetype default. Returns null so callers can apply their own ultimate
+// fallback (DEFAULT_CHITCHAT_LINES) when neither is set.
+export function getNpcChitchat(npc) {
+  if (Array.isArray(npc.chitchat) && npc.chitchat.length) return npc.chitchat;
+  const data = getData(npc.flags?.personality);
+  return data.chitchat?.length ? data.chitchat : null;
+}
+
+// npc_type column value for a given archetype (runtime behaviour category).
+// Unknown/absent archetype → null so callers keep any explicitly-provided type.
+export function npcTypeForPersonality(personality) {
+  return DEFAULTS[personality]?.npcType ?? null;
+}
+
+// Lightweight metadata for the dev-panel dropdown (no line arrays). Insertion
+// order defines dropdown order: jobs first, then behavioural personalities.
+export function listPersonalityMeta() {
+  return Object.entries(DEFAULTS).map(([slug, d]) => ({
+    slug,
+    label: d.label ?? slug,
+    icon: d.icon ?? '',
+    sells: !!d.sells,
+    mobile: !!d.mobile,
+    npcType: d.npcType ?? 'npc',
+  }));
 }

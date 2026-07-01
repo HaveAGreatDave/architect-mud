@@ -1,5 +1,5 @@
 import { state } from '../state.js';
-import { sendDialogue, buyFromNpc, sendRaw } from '../net.js';
+import { sendDialogue, buyFromNpc, sellToNpc, sendRaw } from '../net.js';
 
 const ITEMS_PER_PAGE = 10;
 let shopState = null; // { msg, page }
@@ -42,33 +42,52 @@ export function closeDialogue() {
   shopState = null;
 }
 
-export function openShop(msg, page = 0) {
+export function openShop(msg, page = 0, mode) {
   state.currentNpcId = msg.npcId;
-  shopState = { msg, page };
+  // Infer the active tab: a sell/buy result keeps you on that tab; otherwise preserve
+  // the prior tab across refreshes, defaulting to Buy on first open.
+  if (!mode) mode = msg.sellResult ? 'sell' : msg.buyResult ? 'buy' : (shopState?.mode || 'buy');
+  shopState = { msg, page, mode };
 
   document.getElementById('dialogue-npc-name').textContent = msg.npcName;
 
-  const stock = msg.stock || [];
-  const totalPages = Math.max(1, Math.ceil(stock.length / ITEMS_PER_PAGE));
+  const list = mode === 'sell' ? (msg.inventory || []) : (msg.stock || []);
+  const totalPages = Math.max(1, Math.ceil(list.length / ITEMS_PER_PAGE));
   const safePage = Math.max(0, Math.min(page, totalPages - 1));
-  const pageItems = stock.slice(safePage * ITEMS_PER_PAGE, (safePage + 1) * ITEMS_PER_PAGE);
+  const pageItems = list.slice(safePage * ITEMS_PER_PAGE, (safePage + 1) * ITEMS_PER_PAGE);
 
   let html = `<div class="shop-body">`;
   html += `<div class="shop-credits">Credits: <span style="color:var(--accent2);font-weight:bold">${msg.credits ?? 0}₵</span></div>`;
-  if (msg.buyResult) {
-    const color = msg.buySuccess ? 'var(--green, #4ade80)' : 'var(--red)';
-    html += `<div class="shop-result" style="color:${color}">${msg.buyResult}</div>`;
+  html += `<div class="shop-tabs">
+    <button class="shop-tab${mode === 'buy' ? ' active' : ''}" data-mode="buy">Buy</button>
+    <button class="shop-tab${mode === 'sell' ? ' active' : ''}" data-mode="sell">Sell</button>
+  </div>`;
+  const resultText = mode === 'sell' ? msg.sellResult : msg.buyResult;
+  const resultOk = mode === 'sell' ? msg.sellSuccess : msg.buySuccess;
+  if (resultText) {
+    const color = resultOk ? 'var(--green, #4ade80)' : 'var(--red)';
+    html += `<div class="shop-result" style="color:${color}">${resultText}</div>`;
   }
   if (pageItems.length) {
     for (const item of pageItems) {
-      html += `<div class="shop-item">
-        <div class="shop-item-row">
-          <span class="item-rarity-${item.rarity} shop-item-name">${item.name}</span>
-          <button class="dialogue-opt shop-buy-btn" data-item-id="${item.item_id}" data-npc-id="${msg.npcId}">${item.price}₵ — Buy</button>
-        </div>
-        ${item.discounted ? '<span class="shop-discount">(rep discount applied)</span>' : ''}
-        <div class="shop-item-desc">${item.description}</div>
-      </div>`;
+      if (mode === 'sell') {
+        const qty = item.quantity > 1 ? ` <span class="shop-item-desc">×${item.quantity}</span>` : '';
+        html += `<div class="shop-item">
+          <div class="shop-item-row">
+            <span class="item-rarity-${item.rarity} shop-item-name">${item.name}${qty}</span>
+            <button class="dialogue-opt shop-buy-btn shop-sell-btn" data-inventory-id="${item.inventory_id}" data-npc-id="${msg.npcId}">${item.price}₵ — Sell</button>
+          </div>
+        </div>`;
+      } else {
+        html += `<div class="shop-item">
+          <div class="shop-item-row">
+            <span class="item-rarity-${item.rarity} shop-item-name">${item.name}</span>
+            <button class="dialogue-opt shop-buy-btn" data-item-id="${item.item_id}" data-npc-id="${msg.npcId}">${item.price}₵ — Buy</button>
+          </div>
+          ${item.discounted ? '<span class="shop-discount">(rep discount applied)</span>' : ''}
+          <div class="shop-item-desc">${item.description}</div>
+        </div>`;
+      }
     }
     if (totalPages > 1) {
       html += `<div class="shop-pager">`;
@@ -78,7 +97,7 @@ export function openShop(msg, page = 0) {
       html += `</div>`;
     }
   } else {
-    html += '<div style="color:var(--text-dim)">Nothing in stock.</div>';
+    html += `<div style="color:var(--text-dim)">${mode === 'sell' ? 'Nothing to sell.' : 'Nothing in stock.'}</div>`;
   }
   html += `</div>`;
 
@@ -92,15 +111,22 @@ export function openShop(msg, page = 0) {
   backBtn.onclick = () => sendDialogue(msg.npcId, 'root');
   opts.appendChild(backBtn);
 
-  document.querySelectorAll('.shop-buy-btn').forEach(btn => {
+  document.querySelectorAll('.shop-tab').forEach(btn => {
+    btn.addEventListener('click', () => openShop(shopState.msg, 0, btn.dataset.mode));
+  });
+
+  document.querySelectorAll('.shop-sell-btn').forEach(btn => {
+    btn.addEventListener('click', () => sellToNpc(btn.dataset.npcId, btn.dataset.inventoryId));
+  });
+  document.querySelectorAll('.shop-buy-btn:not(.shop-sell-btn)').forEach(btn => {
     btn.addEventListener('click', () => buyFromNpc(btn.dataset.npcId, btn.dataset.itemId));
   });
 
   const prevBtn = document.querySelector('.shop-prev-btn');
-  if (prevBtn) prevBtn.addEventListener('click', () => openShop(shopState.msg, shopState.page - 1));
+  if (prevBtn) prevBtn.addEventListener('click', () => openShop(shopState.msg, shopState.page - 1, mode));
 
   const nextBtn = document.querySelector('.shop-next-btn');
-  if (nextBtn) nextBtn.addEventListener('click', () => openShop(shopState.msg, shopState.page + 1));
+  if (nextBtn) nextBtn.addEventListener('click', () => openShop(shopState.msg, shopState.page + 1, mode));
 
   document.getElementById('dialogue-panel').classList.add('active');
 }

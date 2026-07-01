@@ -5,6 +5,7 @@ import { getZoneVisibility, getWindowsForZone, getEnvironmentState, getZoneTempe
 import { describeZone, resolveNamedDestination } from './describe.js';
 import { checkLockAuth, getLockTagPublic } from './doors.js';
 import { emit } from '../events.js';
+import { closeShopSession } from '../vendor-session.js';
 import { computeCarriedWeight, carryCapacity, formatWeight } from './inventory.js';
 
 const RAW_DIRECTIONS = ['north', 'south', 'east', 'west', 'up', 'down', 'in', 'out', 'exit'];
@@ -243,6 +244,7 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
   const oldZoneId = player.current_zone;
   const followers = getAllLivePlayers().filter(p => p.following === player.id && p.current_zone === oldZoneId);
 
+  closeShopSession(player.id); // leaving the zone ends any active shop session (unpauses the vendor)
   removePlayerFromZone(player.id, player.current_zone);
   addPlayerToZone(player.id, targetId);
   player.current_zone = targetId;

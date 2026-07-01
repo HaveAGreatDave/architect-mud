@@ -261,6 +261,10 @@
     display: none; align-items: center; justify-content: center;
   }
   #bigmap-overlay.active, #settings-overlay.active { display: flex; }
+
+  /* Shared backdrop for JS-created modals — invariant layout only. Each overlay keeps its
+     own display / background-opacity / z-index inline, since those vary per modal. */
+  .modal-overlay { position: fixed; inset: 0; align-items: center; justify-content: center; }
   .modal-card {
     background: var(--bg2);
     border: 1px solid var(--border);

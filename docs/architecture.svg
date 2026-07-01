@@ -1,0 +1,157 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1240 1044" role="img" font-family="ui-monospace, Menlo, Consolas, monospace">
+  <title>Architecture — Architect MUD engine</title>
+  <desc>Layered diagram: vanilla-JS clients over a raw WebSocket to a Node.js server (command dispatch, plugins, engine, cross-cutting registries) backed by PostgreSQL.</desc>
+
+  <style>
+    :root{
+      --bg:#0b0e14; --panel:#131926; --panel2:#0f1420; --border:#273246;
+      --text:#d7deea; --dim:#8695ac; --blue:#6ab7ff; --amber:#e6b455;
+      --green:#5fd08a; --wire:#3d4a63;
+    }
+    text{ fill:var(--text); }
+    .title{ font-size:38px; font-weight:800; letter-spacing:1px; }
+    .sub{ font-size:12px; fill:var(--dim); }
+    .lyr{ font-size:13px; font-weight:700; letter-spacing:2px; fill:var(--dim); }
+    .h{ font-size:15px; font-weight:700; }
+    .bt{ font-size:14px; font-weight:700; }
+    .tx{ font-size:11.5px; }
+    .sm{ font-size:10.5px; fill:var(--dim); }
+    .dim{ fill:var(--dim); }
+    .blue{ fill:var(--blue); } .amber{ fill:var(--amber); } .green{ fill:var(--green); }
+    .panel{ fill:var(--panel); stroke:var(--border); stroke-width:1; }
+    .box{ fill:var(--panel2); stroke:var(--border); stroke-width:1; }
+    .pill{ fill:var(--panel); stroke:var(--border); stroke-width:1; }
+  </style>
+
+  <defs>
+    <marker id="arw" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="var(--wire)"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1240" height="1044" fill="var(--bg)"/>
+
+  <!-- ── Title ─────────────────────────────────────────────── -->
+  <text x="620" y="54" text-anchor="middle" class="title"><tspan class="blue">Architect</tspan><tspan class="amber">ure</tspan></text>
+  <text x="620" y="80" text-anchor="middle" class="sub">post-singularity browser MUD · Node.js + raw WebSockets + PostgreSQL · no build step · no ORM · no framework</text>
+
+  <!-- ── 1. CLIENTS ────────────────────────────────────────── -->
+  <text x="48" y="118" class="lyr">1 · CLIENTS</text>
+  <text x="176" y="118" class="sm">vanilla JS — one HTML/JS file per client + a sibling styles.css</text>
+
+  <rect class="box" x="48"  y="132" width="360" height="104" rx="5"/>
+  <text x="66" y="160" class="bt">Game Client</text>
+  <text x="66" y="182" class="sm">client/game/</text>
+  <text x="66" y="202" class="tx">index.html · js/ · styles.css</text>
+  <text x="66" y="222" class="tx dim">rooms · combat · inventory · shop · TV</text>
+
+  <rect class="box" x="440" y="132" width="360" height="104" rx="5"/>
+  <text x="458" y="160" class="bt">Dev Panel</text>
+  <text x="458" y="182" class="sm">client/devpanel/</text>
+  <text x="458" y="202" class="tx">world &amp; content editor</text>
+  <text x="458" y="222" class="tx dim">VINE editors: AI · dialogue · broadcast</text>
+
+  <rect class="box" x="832" y="132" width="360" height="104" rx="5"/>
+  <text x="850" y="160" class="bt">TV / Broadcast</text>
+  <text x="850" y="182" class="sm">in-page popup — tv.js</text>
+  <text x="850" y="202" class="tx">channels · ticker · camera feeds</text>
+  <text x="850" y="222" class="tx dim">driven by the broadcast plugin</text>
+
+  <line x1="620" y1="236" x2="620" y2="266" stroke="var(--wire)" stroke-width="1.5" marker-end="url(#arw)"/>
+
+  <!-- ── 2. WEBSOCKET SEAM ─────────────────────────────────── -->
+  <rect class="panel" x="48" y="270" width="1144" height="86" rx="6"/>
+  <text x="68" y="300" class="h">2 · RAW WEBSOCKET <tspan class="dim">— no REST for gameplay (dev panel uses REST only for content editing)</tspan></text>
+  <text x="68" y="326" class="tx"><tspan class="green">client → server</tspan>&#160;&#160; auth · command · dialogue · buy_npc · sell_npc · tune · watch</text>
+  <text x="68" y="346" class="tx"><tspan class="blue">server → client</tspan>&#160;&#160; zone_event · dialogue_shop · broadcast · combat_incoming · player_update</text>
+
+  <line x1="620" y1="356" x2="620" y2="372" stroke="var(--wire)" stroke-width="1.5" marker-end="url(#arw)"/>
+
+  <!-- ── 3. SERVER ─────────────────────────────────────────── -->
+  <rect class="panel" x="48" y="376" width="1144" height="470" rx="6"/>
+  <text x="68" y="404" class="h">3 · SERVER <tspan class="dim">— Node.js (server/)</tspan></text>
+
+  <!-- entry strip -->
+  <rect class="box" x="72" y="416" width="1096" height="40" rx="4"/>
+  <text x="88" y="441" class="tx">server/index.js — WebSocket auth + message routing <tspan class="dim">(handleAuth · handleGameCommand · handleDialogue · buy_npc / sell_npc)</tspan></text>
+
+  <!-- dispatch box -->
+  <rect class="box" x="72" y="470" width="344" height="256" rx="4"/>
+  <text x="88" y="496" class="bt">Command Dispatch</text>
+  <text x="88" y="513" class="sm">commands/index.js · handleCommand</text>
+  <text x="88" y="543" class="tx"><tspan class="dim">1</tspan>&#160; SIFT selection intercept</text>
+  <text x="88" y="573" class="tx"><tspan class="dim">2</tspan>&#160; fireCommand → <tspan class="blue">PLUGINS</tspan>&#160;&#160;<tspan class="amber">◀ first</tspan></text>
+  <text x="88" y="603" class="tx"><tspan class="dim">3</tspan>&#160; fireSpecializedAction <tspan class="dim">(tag-gated)</tspan></text>
+  <text x="88" y="633" class="tx"><tspan class="dim">4</tspan>&#160; use pre-intercept</text>
+  <text x="88" y="663" class="tx"><tspan class="dim">5</tspan>&#160; builtins → <tspan class="green">ENGINE</tspan>&#160;&#160;<tspan class="dim">◀ last</tspan></text>
+  <text x="88" y="703" class="sm">plugin-registered verbs shadow engine builtins</text>
+
+  <!-- plugins box -->
+  <rect class="box" x="440" y="470" width="728" height="120" rx="4"/>
+  <text x="456" y="496" class="bt"><tspan class="blue">/plugins/</tspan> <tspan class="dim">— registered commands win over engine builtins</tspan></text>
+  <text x="456" y="524" class="tx">broadcast · atm · scavenging · interactions · vendor-safe · quests · doors</text>
+  <text x="456" y="546" class="tx">crafting · food · water · drugs · weather · mutations · shove · pinch · lighting …</text>
+  <text x="456" y="572" class="sm">own state · request/response hooks · scheduler ticks</text>
+
+  <!-- engine box -->
+  <rect class="box" x="440" y="606" width="728" height="120" rx="4"/>
+  <text x="456" y="632" class="bt"><tspan class="green">Engine</tspan> <tspan class="dim">— server/engine/ · gameplay + reactions</tspan></text>
+  <text x="456" y="660" class="tx">world · combat · vendor · economy · ai-behaviour · graph · inventory</text>
+  <text x="456" y="682" class="tx">factions · environment · scheduler · sift · sounds · effects · pathfinding …</text>
+  <text x="456" y="708" class="sm">loops · combat · movement read plugin-set state (e.g. posture, shop session)</text>
+
+  <!-- dispatch → plugins / engine arrows -->
+  <line x1="416" y1="524" x2="438" y2="524" stroke="var(--wire)" stroke-width="1.5" marker-end="url(#arw)"/>
+  <line x1="416" y1="662" x2="438" y2="662" stroke="var(--wire)" stroke-width="1.5" marker-end="url(#arw)"/>
+  <line x1="244" y1="456" x2="244" y2="468" stroke="var(--wire)" stroke-width="1.5" marker-end="url(#arw)"/>
+
+  <!-- cross-cutting registries -->
+  <rect class="box" x="72" y="742" width="1096" height="86" rx="4"/>
+  <text x="88" y="764" class="sm">cross-cutting registries — string-keyed (a typo'd key = silent dead link)</text>
+  <!-- 5 pills -->
+  <g>
+    <rect class="pill" x="88"   y="774" width="201" height="44" rx="4"/>
+    <text x="100" y="794" class="tx">Action Registry</text>
+    <text x="100" y="810" class="sm">registerAction · dispatchAction</text>
+
+    <rect class="pill" x="303"  y="774" width="201" height="44" rx="4"/>
+    <text x="315" y="794" class="tx">Event Bus</text>
+    <text x="315" y="810" class="sm">on · emit</text>
+
+    <rect class="pill" x="518"  y="774" width="201" height="44" rx="4"/>
+    <text x="530" y="794" class="tx">Flag Store</text>
+    <text x="530" y="810" class="sm">getFlag · setFlag · evalConditions</text>
+
+    <rect class="pill" x="733"  y="774" width="201" height="44" rx="4"/>
+    <text x="745" y="794" class="tx">VINE Runner</text>
+    <text x="745" y="810" class="sm">runGraph (behaviour · dialogue)</text>
+
+    <rect class="pill" x="948"  y="774" width="220" height="44" rx="4"/>
+    <text x="960" y="794" class="tx">Scheduler</text>
+    <text x="960" y="810" class="sm">tick cadences</text>
+  </g>
+
+  <line x1="620" y1="846" x2="620" y2="868" stroke="var(--wire)" stroke-width="1.5" marker-end="url(#arw)"/>
+
+  <!-- ── 4. DATA ───────────────────────────────────────────── -->
+  <rect class="panel" x="48" y="872" width="1144" height="140" rx="6"/>
+  <text x="68" y="900" class="h">4 · DATA <tspan class="dim">— PostgreSQL (Supabase)</tspan></text>
+
+  <rect class="box" x="72"  y="912" width="352" height="86" rx="4"/>
+  <text x="88" y="938" class="bt">query() helper</text>
+  <text x="88" y="957" class="sm">server/models/db.js</text>
+  <text x="88" y="978" class="tx dim">the single DB path — no ORM, ever</text>
+
+  <rect class="box" x="444" y="912" width="352" height="86" rx="4"/>
+  <text x="460" y="938" class="bt">Schema</text>
+  <text x="460" y="957" class="sm">schema.js · SCHEMA_SQL (idempotent)</text>
+  <text x="460" y="978" class="tx dim">apply: npm run db:schema · no boot migrations</text>
+
+  <rect class="box" x="816" y="912" width="352" height="86" rx="4"/>
+  <text x="832" y="938" class="bt">Content</text>
+  <text x="832" y="957" class="sm">zones · items · npcs · enemies</text>
+  <text x="832" y="978" class="tx dim">+ VINE graphs (behaviour_graph · dialogue_tree)</text>
+
+  <!-- footer note -->
+  <text x="620" y="1034" text-anchor="middle" class="sm">VINE behaviour/dialogue graphs are authored in the dev panel, stored as JSON in the DB, and executed by graph.js / ai-behaviour.js via the VINE Runner. Content ships via dev-panel export/restore — never rewritten on boot.</text>
+</svg>

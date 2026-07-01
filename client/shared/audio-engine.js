@@ -132,6 +132,7 @@
   // ── 16-voice manager with priority stealing ───────────────────────────────
 
   const MAX_VOICES = 16;
+  const MAX_CHANNELS = 16; // tracker songs play at most 16 channels; extras are ignored
   const voices = new Array(MAX_VOICES).fill(null); // {priority, startedAt, stop()} | null
 
   function allocateVoice(priority) {
@@ -524,7 +525,7 @@
 
   function makeSongPlayer(def, outputGain) {
     const c = ctx;
-    const channels = Array.isArray(def.channels) ? def.channels : [];
+    const channels = (Array.isArray(def.channels) ? def.channels : []).slice(0, MAX_CHANNELS);
     const length = channels.reduce((m, ch) => Math.max(m, ch.length), 0);
     const loopStart = def.loop_start || 0;
     const loopEnd = def.loop_end > loopStart ? def.loop_end : (length - 1);

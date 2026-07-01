@@ -1,10 +1,11 @@
 import { getAllLivePlayers, getZonePlayers, getZoneNpcs, getZoneEnemies } from '../world.js';
 import { formatBattleCry } from '../combat.js';
 import { propagateYell } from '../sounds.js';
-import { canAccessChannel, broadcastToChannel } from '../channels.js';
+import { canAccessChannel, sendToChatChannel } from '../channels.js';
 import { evalConditions } from '../flags.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../sift.js';
 import { DEFAULT_CHITCHAT_LINES } from '../ai-behaviour.js';
+import { getNpcChitchat } from '../npc-personality.js';
 
 function formatChitchat(name, line) {
   const t = line.trim();
@@ -33,7 +34,7 @@ async function cmdTalk(targetStr, player, broadcast) {
   }
   if (npc.vendor_inventory?.length) options.push({ label: 'Browse your wares.', next: '__shop__' });
   if (!root && !options.length) {
-    const lines = Array.isArray(npc.chitchat) && npc.chitchat.length ? npc.chitchat : DEFAULT_CHITCHAT_LINES;
+    const lines = getNpcChitchat(npc) || DEFAULT_CHITCHAT_LINES;
     const line = lines[Math.floor(Math.random() * lines.length)];
     const msg = formatChitchat(npc.name, line);
     if (broadcast) broadcast(player.current_zone, msg, player.id);
@@ -68,7 +69,7 @@ function cmdWhisper(args, raw, player, broadcast) {
     const msgText = afterCmd.slice(targetWord.length).trim();
     if (!msgText) return { type:'error', message:`Usage: whisper ${channelId} <message>` };
     if (!canAccessChannel(channelId, player)) return { type:'error', message:`No such channel: ${channelId}` };
-    broadcastToChannel(channelId, { type:'channel_msg', channel: channelId, from: player.handle, message: msgText }, broadcast);
+    sendToChatChannel(channelId, { type:'channel_msg', channel: channelId, from: player.handle, message: msgText }, broadcast);
     return null;
   }
 

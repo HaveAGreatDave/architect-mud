@@ -13,8 +13,9 @@ import { emit } from './events.js';
 import { schedule } from './scheduler.js';
 import { carryCapacity } from './commands/inventory.js';
 import { query, logActivity } from '../models/db.js';
-import { getEnvironmentState, getZoneTemperature } from './environment.js';
+import { getEnvironmentState, getZoneTemperature, recordLightningKill, getZoneStormIntensity } from './environment.js';
 import { tickBodily } from './bodily.js';
+import { tickDrugDecay } from './drugs.js';
 import { addHorniness } from './mis.js';
 
 // HP restored per sitting tick (every 15 seconds)
@@ -271,10 +272,59 @@ async function minuteTickFn() {
       }
     }
     if (player.hydratedUntil && Date.now() >= player.hydratedUntil) player.hydratedUntil = null;
+
+    // Drug decay: once a dose's active window has expired, doses_in_system drops by 1/min
+    // so overdose thresholds clear over time instead of accumulating forever.
+    await tickDrugDecay(playerId);
   }
 }
 
+// Spawn a lootable corpse for a dead player: strip non-quest inventory into it, persist
+// the row, and register it in memory. Shared by the live-death path and the offline
+// sleep-kill path so corpse capacity + strip rules can't drift. Returns id + name.
+export async function spawnPlayerCorpse(victim, zoneId) {
+  const corpseId = `corpse_player_${victim.id}_${Date.now()}`;
+  const corpseName = `${victim.handle}'s corpse`;
+  const expiresAt = Date.now() + 60 * 60 * 1000;
+  const capacity = carryCapacity(victim);
+  // Strip all non-quest items into the corpse (flatten container nesting)
+  await query(
+    `UPDATE player_inventory pi SET player_id=$1, is_equipped=0, slot=NULL, layer=NULL, container_id=NULL
+     FROM items i WHERE i.id=pi.item_id AND pi.player_id=$2
+     AND NOT (i.tags @> '{"quest_item":true}')`,
+    [corpseId, victim.id]
+  ).catch(() => {});
+  // Persist corpse so it survives server restart
+  await query(
+    `INSERT INTO player_corpses (id, player_id, zone_id, death_message, expires_at, capacity) VALUES ($1, $2, $3, $4, $5, $6)`,
+    [corpseId, victim.id, zoneId, corpseName, expiresAt, capacity]
+  ).catch(() => {});
+  createCorpse({ id: corpseId, name: corpseName, zoneId, expiresAt, capacity });
+  return { corpseId, corpseName };
+}
+
+// Re-equip the default starter outfit (underwear layer 1 + basics layer 2) after death,
+// skipping anything already equipped. Shared by both death paths.
+export function equipStarterOutfit(victimId, sex) {
+  const underwear = sex === 'male'
+    ? [['item_underwear_male', 'legs']]
+    : [['item_underwear_female_top', 'torso'], ['item_underwear_female_bottom', 'legs']];
+  const equip = (itemId, slot, layer) =>
+    query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,is_equipped,slot,layer)
+           SELECT $1,$2,i.id,1,1.0,1,$3,$4 FROM items i WHERE i.id=$5
+           AND NOT EXISTS (SELECT 1 FROM player_inventory WHERE player_id=$2 AND item_id=$5 AND is_equipped=1)`,
+      [randomUUID(), victimId, slot, layer, itemId]).catch(() => {});
+  for (const [itemId, slot] of underwear) equip(itemId, slot, 1);
+  for (const [itemId, slot] of [['item_basic_shirt','torso'],['item_basic_pants','legs'],['item_basic_shoes','feet']]) equip(itemId, slot, 2);
+}
+
 export async function handlePlayerDeath(player, killer) {
+  // Re-entrancy guard: several attacks can resolve in the same tick and each land a
+  // "killing" blow on an already-dead player. Without this, each call inserts another
+  // corpse and increments deaths again. The flag clears once respawn completes below.
+  if (player._dying) return;
+  player._dying = true;
+
   player.deaths = (player.deaths || 0) + 1;
   query('UPDATE players SET deaths=deaths+1 WHERE id=$1', [player.id]).catch(() => {});
   if (killer && killer.id) {
@@ -294,26 +344,7 @@ export async function handlePlayerDeath(player, killer) {
   const respawnZone = player.anchor_zone || 'zone_start';
   const deathZone = player.current_zone;
 
-  const corpseId = `corpse_player_${player.id}_${Date.now()}`;
-  const corpseName = `${player.handle}'s corpse`;
-  const expiresAt = Date.now() + 60 * 60 * 1000;
-  const corpseCapacity = carryCapacity(player);
-
-  // Strip all non-quest items into the corpse (flatten container nesting)
-  await query(
-    `UPDATE player_inventory pi SET player_id=$1, is_equipped=0, slot=NULL, layer=NULL, container_id=NULL
-     FROM items i WHERE i.id=pi.item_id AND pi.player_id=$2
-     AND NOT (i.tags @> '{"quest_item":true}')`,
-    [corpseId, player.id]
-  ).catch(() => {});
-
-  // Persist corpse so it survives server restart
-  await query(
-    `INSERT INTO player_corpses (id, player_id, zone_id, death_message, expires_at, capacity) VALUES ($1, $2, $3, $4, $5, $6)`,
-    [corpseId, player.id, deathZone, corpseName, expiresAt, corpseCapacity]
-  ).catch(() => {});
-
-  createCorpse({ id: corpseId, name: corpseName, zoneId: deathZone, expiresAt, capacity: corpseCapacity });
+  const { corpseId, corpseName } = await spawnPlayerCorpse(player, deathZone);
 
   // Full restore on respawn — you come out of the vat whole, not wounded.
   // Skills/rank/xp live in a separate table untouched by any of this, so
@@ -356,26 +387,13 @@ export async function handlePlayerDeath(player, killer) {
   player.current_zone = respawnZone;
 
   // Equip fresh underwear (layer 1) and basic clothing (layer 2) on respawn
-  const sex = player.biological_sex || 'male';
-  const underwear = sex === 'male'
-    ? [['item_underwear_male', 'legs']]
-    : [['item_underwear_female_top', 'torso'], ['item_underwear_female_bottom', 'legs']];
-  for (const [itemId, slot] of underwear) {
-    query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,is_equipped,slot,layer)
-           SELECT $1,$2,i.id,1,1.0,1,$3,1 FROM items i WHERE i.id=$4
-           AND NOT EXISTS (SELECT 1 FROM player_inventory WHERE player_id=$2 AND item_id=$4 AND is_equipped=1)`,
-      [randomUUID(), player.id, slot, itemId]).catch(() => {});
-  }
-  for (const [itemId, slot] of [['item_basic_shirt','torso'],['item_basic_pants','legs'],['item_basic_shoes','feet']]) {
-    query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,is_equipped,slot,layer)
-           SELECT $1,$2,i.id,1,1.0,1,$3,2 FROM items i WHERE i.id=$4
-           AND NOT EXISTS (SELECT 1 FROM player_inventory WHERE player_id=$2 AND item_id=$4 AND is_equipped=1)`,
-      [randomUUID(), player.id, slot, itemId]).catch(() => {});
-  }
+  equipStarterOutfit(player.id, player.biological_sex || 'male');
 
   logActivity('death', player.handle);
   fireHook('player.death', player, killer).catch(()=>{});
   emit('player.death', { player, killer });
+
+  player._dying = false; // respawn complete — a future death may process again
 }
 
 // Weather types that produce distinct ambient sounds outdoors.
@@ -438,13 +456,18 @@ async function stormTick() {
   for (const [zoneId, zone] of world.zones) {
     if (zone.players.size === 0) continue;
     if (zone.flags?.is_interior) continue;
-    if (Math.random() > 0.5) continue; // ~50% chance per exterior zone per 30s
+    // Per-tile: only zones actually under a storm cell flash, and denser cells
+    // flash (and kill) more often. Field disabled → uniform 0.5 (old behaviour).
+    const intensity = getZoneStormIntensity(zoneId);
+    if (intensity <= 0) continue;
+    if (Math.random() > intensity) continue;
 
     // Send lightning flash to all players in zone
     broadcastFn(zoneId, { type: 'lightning' });
 
-    // Very rare: one player in the zone gets struck by lightning (1 in 500 per flash)
-    if (Math.random() < 1 / 500) {
+    // Very rare: one player in the zone gets struck by lightning, scaled by
+    // local storm intensity (1 in 500 per flash at a cell core).
+    if (Math.random() < (1 / 500) * intensity) {
       const playerIds = [...zone.players];
       const victimId = playerIds[Math.floor(Math.random() * playerIds.length)];
       const victim = getLivePlayer(victimId);
@@ -454,6 +477,8 @@ async function stormTick() {
           message: `<span class="death-message">⚡ ⚡ ⚡ LIGHTNING STRIKES! ⚡ ⚡ ⚡\nA blinding bolt of lightning tears through the sky and strikes you squarely. Thunder explodes overhead as the world disappears in a flash of searing white.</span>`,
         }, null, victim.id);
         broadcastFn(zoneId, { type: 'zone_event', message: `A bolt of lightning strikes ${victim.handle} dead.` }, victim.id);
+        const kill = await recordLightningKill(victim.handle);
+        console.log(`[weather] Lightning killed ${victim.handle} in zone ${zoneId} at ${kill.date} ${kill.time}.`);
         await handlePlayerDeath(victim, null);
       }
     }
@@ -905,33 +930,38 @@ async function rentCollectionTick() {
     const zoneName = zoneRows[0]?.name ?? apt.zone_id;
 
     // Check if player has enough credits
-    const { rows: playerRows } = await query('SELECT id,credits,handle FROM players WHERE id=$1', [apt.owner_id]);
+    const { rows: playerRows } = await query('SELECT id,credits,bank_credits,handle FROM players WHERE id=$1', [apt.owner_id]);
     if (!playerRows.length) {
       // Player deleted — release the apartment
       await releaseApartment(apt, apt.zone_id);
       continue;
     }
     const p = playerRows[0];
+    const carried = p.credits || 0;
+    const banked = p.bank_credits || 0;
 
-    if (p.credits < cost) {
-      // Can't pay — evict
+    if (carried + banked < cost) {
+      // Can't cover from the bank or on hand — evict
       await releaseApartment(apt, apt.zone_id);
       broadcastFn(null, {
         type: 'output',
-        message: `<span style="color:var(--red)">EVICTION NOTICE — You couldn't cover the ${cost}c weekly rent for <em>${zoneName}</em> in ${buildingName}. Your lease has been terminated and the unit re-listed. Next time, keep some credits on hand.</span>`,
+        message: `<span style="color:var(--red)">EVICTION NOTICE — You couldn't cover the ${cost}c weekly rent for <em>${zoneName}</em> in ${buildingName}. Your lease has been terminated and the unit re-listed. Next time, keep credits banked or on hand.</span>`,
       }, null, p.id);
       continue;
     }
 
-    // Deduct rent
-    await query('UPDATE players SET credits=credits-$1 WHERE id=$2', [cost, p.id]);
+    // Draft rent from the bank first, then carried credits for any shortfall.
+    const fromBank = Math.min(banked, cost);
+    const fromCarried = cost - fromBank;
+    await query('UPDATE players SET bank_credits=bank_credits-$1, credits=credits-$2 WHERE id=$3', [fromBank, fromCarried, p.id]);
     const live = getLivePlayer(p.id);
     if (live) {
-      live.credits = Math.max(0, live.credits - cost);
+      live.bank_credits = Math.max(0, (live.bank_credits || 0) - fromBank);
+      live.credits = Math.max(0, (live.credits || 0) - fromCarried);
       broadcastFn(null, {
         type: 'output',
-        message: `<span style="color:var(--yellow)">RENT COLLECTED — ${cost}c deducted for <em>${zoneName}</em> in ${buildingName}. Remaining credits: ${live.credits}c.</span>`,
-        player_update: { credits: live.credits },
+        message: `<span style="color:var(--yellow)">RENT COLLECTED — ${cost}c deducted for <em>${zoneName}</em> in ${buildingName}. Banked: ${live.bank_credits}c · On hand: ${live.credits}c.</span>`,
+        player_update: { credits: live.credits, bank_credits: live.bank_credits },
       }, null, p.id);
     }
   }

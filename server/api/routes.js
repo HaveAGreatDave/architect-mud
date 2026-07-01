@@ -12,6 +12,7 @@ import { sendPasswordResetEmail, sendVerificationEmail } from '../mailer.js';
 import { isEmailVerificationEnabled, setEmailVerificationEnabled } from '../engine/emailVerification.js';
 import { randomAppearance } from '../engine/appearance.js';
 import { DEFAULT_CHITCHAT_LINES } from '../engine/ai-behaviour.js';
+import { npcTypeForPersonality, listPersonalityMeta } from '../engine/npc-personality.js';
 
 const DEFAULT_VENDOR_SCHEDULE = {
   mon:[{from:10,to:22}], tue:[{from:10,to:22}], wed:[{from:10,to:22}],
@@ -42,7 +43,7 @@ import { SKILLS } from '../engine/skills.js';
 import { materializeItemTags, ownTags, superKeys } from '../engine/supertags.js';
 import { getMotd, saveMotd } from '../engine/motd.js';
 import { isMisServerEnabled, setServerMisEnabled } from '../engine/mis.js';
-import { canAccessChannel, broadcastToChannel, getChannelMessagesSince } from '../engine/channels.js';
+import { canAccessChannel, sendToChatChannel, getChannelMessagesSince } from '../engine/channels.js';
 import { schedule } from '../engine/scheduler.js';
 
 // Devpanel admin presence: playerId → { handle, role, ts }
@@ -221,6 +222,7 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path==='/items' && method==='GET') return requireDev(auth, apiGetItems);
   if (path==='/items' && method==='POST') return requireDev(auth, ()=>apiCreateItem(body));
   if (path.startsWith('/items/') && method==='PUT') return requireDev(auth, ()=>apiUpdateItem(path.split('/')[2],body));
+  if (path==='/npc-personalities' && method==='GET') return requireDev(auth, async () => ({ status:200, body: listPersonalityMeta() }));
   if (path==='/npcs' && method==='GET') return requireDev(auth, apiGetNpcs);
   if (path==='/npcs' && method==='POST') return requireDev(auth, ()=>apiCreateNpc(body));
   if (path==='/npcs/send-to-work' && method==='POST') return requireDev(auth, apiSendLateNpcsToWork);
@@ -311,7 +313,7 @@ export async function handleApiRequest(url, method, body, headers) {
     const fakePlayer = { role: auth.role };
     if (!canAccessChannel(channelId, fakePlayer)) return { status:403, body:{error:'No access to channel'} };
     if (!broadcastFn) return { status:503, body:{error:'Server not ready'} };
-    broadcastToChannel(channelId, { type:'channel_msg', channel: channelId, from: handle, message }, broadcastFn);
+    sendToChatChannel(channelId, { type:'channel_msg', channel: channelId, from: handle, message }, broadcastFn);
     return { status:200, body:{ok:true} };
   }
   if (path==='/players/me/profile' && method==='PUT') return apiUpdateOwnProfile(auth, body);
@@ -1156,8 +1158,12 @@ async function apiGetNpcs() { const {rows}=await query('SELECT * FROM npcs'); re
 export async function apiCreateNpc(body) {
   const id=body.id||`npc_${Date.now()}`;
   const homeZone = body.home_zone || 'zone_residential_lobby';
-  const chitchat = Array.isArray(body.chitchat) && body.chitchat.length ? body.chitchat : DEFAULT_CHITCHAT_LINES;
-  const npcType = body.npc_type || 'npc';
+  // Chitchat is now optional — empty means "use the archetype default" (resolved
+  // at runtime via getNpcChitchat), so store exactly what the editor sent.
+  const chitchat = Array.isArray(body.chitchat) ? body.chitchat : [];
+  // npc_type is derived from the archetype (flags.personality); fall back to any
+  // explicitly-provided type for seeds/callers that set it directly.
+  const npcType = npcTypeForPersonality(body.flags?.personality) || body.npc_type || 'npc';
   try {
     const hpMax = body.hp_max || 20;
     const { buildDefaultVendorGraph, buildDefaultStudioGraph, buildDefaultUnemployedGraph } = await import('../engine/ai-behaviour.js');
@@ -1184,7 +1190,7 @@ export async function apiCreateNpc(body) {
 }
 export async function apiUpdateNpc(id,body) {
   try {
-    const npcType = body.npc_type || 'npc';
+    const npcType = npcTypeForPersonality(body.flags?.personality) || body.npc_type || 'npc';
     const { buildDefaultVendorGraph, buildDefaultStudioGraph, buildDefaultUnemployedGraph } = await import('../engine/ai-behaviour.js');
     const rawGraph = body.behaviour_graph && Object.keys(body.behaviour_graph).length
       ? body.behaviour_graph
@@ -1337,8 +1343,8 @@ export async function apiCreateFurniture(body) {
     const pdraw = body.power_draw_kw != null ? Number(body.power_draw_kw) : null;
     const isLight = body.object_type === 'light';
     const lumenOut = isLight && body.lumen_output != null ? Number(body.lumen_output) : null;
-    await query(`INSERT INTO furniture (id,zone_id,name,description,object_type,light_on,light_type,power_draw_kw,lumen_output,flags) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-      [id, body.zone_id, body.name, body.description||'', body.object_type||'furniture', isLight?(body.light_on?1:0):0, isLight?(body.light_type||'lamp'):null, pdraw, lumenOut, JSON.stringify(body.flags||{})]);
+    await query(`INSERT INTO furniture (id,zone_id,name,description,object_type,light_on,light_type,power_draw_kw,lumen_output,flags,price) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+      [id, body.zone_id, body.name, body.description||'', body.object_type||'furniture', isLight?(body.light_on?1:0):0, isLight?(body.light_type||'lamp'):null, pdraw, lumenOut, JSON.stringify(body.flags||{}), Number(body.price)||0]);
     if (body.flags?.atm) {
       await query(`INSERT INTO atm_units (id) VALUES ($1) ON CONFLICT (id) DO NOTHING`, [id]);
     }
@@ -1360,6 +1366,7 @@ export async function apiUpdateFurniture(id, body) {
     if (body.light_on!=null) { sets.push(`light_on=$${i++}`); vals.push(body.light_on?1:0); }
     if (body.power_draw_kw!=null) { sets.push(`power_draw_kw=$${i++}`); vals.push(body.power_draw_kw === '' ? null : Number(body.power_draw_kw)); }
     if (body.lumen_output!=null) { sets.push(`lumen_output=$${i++}`); vals.push(body.lumen_output === '' ? null : Number(body.lumen_output)); }
+    if (body.price!=null) { sets.push(`price=$${i++}`); vals.push(Number(body.price)||0); }
     if (!sets.length) return {status:400,body:{error:'nothing to update'}};
     vals.push(id);
     await query(`UPDATE furniture SET ${sets.join(',')} WHERE id=$${i}`, vals);

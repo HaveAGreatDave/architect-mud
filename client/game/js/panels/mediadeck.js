@@ -174,11 +174,24 @@ function escapeHtml(s) {
   return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-function _animateDeckLid() {
+// Glass swings open, a fresh cassette drops in from the top and seats, then the
+// glass closes over it.
+function _insertCassette() {
   const slot = document.getElementById('mediadeck-slot');
   if (!slot) return;
-  slot.classList.add('deck-opening');
-  setTimeout(() => slot.classList.remove('deck-opening'), 500);
+  slot.classList.remove('ejecting');
+  slot.classList.add('deck-opening', 'inserting');
+  setTimeout(() => slot.classList.remove('inserting', 'deck-opening'), 850);
+}
+
+// The reverse: glass opens and the seated cassette rises up and out, then the
+// glass closes on the empty slot.
+function _ejectCassette() {
+  const slot = document.getElementById('mediadeck-slot');
+  if (!slot) return;
+  slot.classList.remove('inserting');
+  slot.classList.add('deck-opening', 'ejecting');
+  setTimeout(() => slot.classList.remove('ejecting', 'deck-opening'), 700);
 }
 
 function showLoadPicker() {
@@ -195,7 +208,7 @@ function showLoadPicker() {
       row.textContent = c.name;
       row.addEventListener('click', () => {
         window.AudioEngine?.playSfx(MEDIADECK_INSERT_DEF);
-        _animateDeckLid();
+        _insertCassette();
         sendCmdSilent(`load cassette ${c.name}`);
         hideLoadPicker();
       });
@@ -226,7 +239,7 @@ export function initMediaDeckPanel() {
   document.getElementById('mediadeck-eject-btn').addEventListener('click', () => {
     if (deckData?.activeCassetteId) {
       window.AudioEngine?.playSfx(MEDIADECK_EJECT_DEF);
-      _animateDeckLid();
+      _ejectCassette();
     }
     _setDeckWhir(false);
     sendCmdSilent('eject');

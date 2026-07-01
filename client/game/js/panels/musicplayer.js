@@ -6,6 +6,7 @@
 
 let _songs = [];
 let _instruments = {};   // id -> row
+let _samples = {};       // id -> sample metadata row
 let _currentIdx = -1;
 let _playing = false;
 
@@ -13,26 +14,38 @@ let _playing = false;
 
 async function _loadLibrary() {
   try {
-    const [sr, ir] = await Promise.all([
+    const [sr, ir, smr] = await Promise.all([
       fetch('/api/audio/songs'),
       fetch('/api/audio/instruments'),
+      fetch('/api/audio/samples'),
     ]);
-    const [songsData, instsData] = await Promise.all([sr.json(), ir.json()]);
+    const [songsData, instsData, samplesData] = await Promise.all([sr.json(), ir.json(), smr.json()]);
     _songs = Array.isArray(songsData)
       ? songsData.filter(s => Array.isArray(s.channels) && s.channels.length > 0)
       : [];
     _instruments = {};
     if (Array.isArray(instsData)) for (const i of instsData) _instruments[i.id] = i;
+    _samples = {};
+    if (Array.isArray(samplesData)) for (const s of samplesData) _samples[s.id] = s;
   } catch {
     _songs = [];
     _instruments = {};
+    _samples = {};
   }
 }
 
+// Attach each sample-backed instrument's `_sampleDef` so the song player uses the
+// actual sample instead of a synth waveform (mirrors the server's
+// resolveSongInstruments in plugins/audio/index.js).
 function _resolveSong(song) {
   const _instrumentsById = {};
-  for (const id of (song.instrument_ids || []))
-    if (_instruments[id]) _instrumentsById[id] = _instruments[id];
+  for (const id of (song.instrument_ids || [])) {
+    const inst = _instruments[id];
+    if (!inst) continue;
+    const copy = { ...inst };
+    if (inst.sample_id && _samples[inst.sample_id]) copy._sampleDef = _samples[inst.sample_id];
+    _instrumentsById[id] = copy;
+  }
   return { ...song, _instrumentsById };
 }
 
@@ -46,9 +59,13 @@ function _playIdx(idx) {
   window.AudioEngine?.playMusic(_resolveSong(_songs[idx]));
   const win = document.getElementById('amp-cassette-window');
   if (win) {
-    win.classList.add('deck-opening');
-    setTimeout(() => { _updateDisplay(); }, 350);
-    setTimeout(() => { win.classList.remove('deck-opening'); }, 1000);
+    // Glass swings open, a fresh cassette drops in from the top and seats, then
+    // the glass closes over it. Reels/label update mid-drop so the tape reads as
+    // the one just loaded.
+    win.classList.remove('ejecting');
+    win.classList.add('deck-opening', 'inserting');
+    setTimeout(() => { _updateDisplay(); }, 300);
+    setTimeout(() => { win.classList.remove('inserting', 'deck-opening'); }, 850);
     return;
   }
   _updateDisplay();

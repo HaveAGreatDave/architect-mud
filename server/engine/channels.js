@@ -34,7 +34,7 @@ export function canAccessChannel(channelId, player) {
   return def ? def.isMember(player) : false;
 }
 
-export function broadcastToChannel(channelId, msg, broadcast) {
+export function sendToChatChannel(channelId, msg, broadcast) {
   const def = CHANNEL_DEFS[channelId.toLowerCase()];
   if (!def) return false;
   for (const p of getAllLivePlayers().filter(p => def.isMember(p))) {

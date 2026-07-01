@@ -99,6 +99,10 @@ export function buyFromNpc(npcId, itemId) {
   _connection?.send({ type: 'buy_npc', npcId, itemId });
 }
 
+export function sellToNpc(npcId, inventoryId) {
+  _connection?.send({ type: 'sell_npc', npcId, inventoryId });
+}
+
 export function sendRaw(msg) {
   if (!_connection?.isOpen()) return false;
   _connection.send(msg);

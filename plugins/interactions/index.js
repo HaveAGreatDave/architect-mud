@@ -9,6 +9,12 @@ import {
 	setLivePlayer,
 } from "../../server/engine/world.js";
 import { query } from "../../server/models/db.js";
+import {
+	resolve as siftResolve,
+	createSelectionState,
+	formatSelectionPage,
+} from "../../server/engine/sift.js";
+import { registerAction, dispatchAction } from "../../server/engine/actions.js";
 
 // ---------------------------------------------------------------------------
 // Context helpers
@@ -62,6 +68,47 @@ function doEmote(selfMsg, zoneMsg, player, broadcast) {
 // Posture commands
 // ---------------------------------------------------------------------------
 
+// The poker chairs are furniture flagged with game_table_id / seat_idx. Sitting
+// on one (or "at the poker table") takes a poker seat instead of a posture.
+// Returns a command result, or undefined to fall through to normal posture sit.
+async function maybeSitAtPoker(target, player, broadcast) {
+	const { rows: pt } = await query(
+		`SELECT 1 FROM furniture WHERE zone_id=$1 AND flags->>'game_table_id' IS NOT NULL LIMIT 1`,
+		[player.current_zone],
+	);
+	if (!pt.length) return undefined; // no poker table here — ordinary sit
+
+	if (target) {
+		const name = target.replace(/^the\s+/i, "").trim();
+		const { rows } = await query(
+			`SELECT * FROM furniture WHERE zone_id=$1 AND name ILIKE $2 AND flags->>'game_table_id' IS NOT NULL LIMIT 1`,
+			[player.current_zone, `%${name}%`],
+		);
+		if (!rows.length) return undefined; // not a poker seat — let posture logic try
+		const seatIdx = rows[0].flags?.seat_idx;
+		return dispatchAction({
+			type: "gametable.take_seat",
+			actor: player,
+			params: { seatIdx },
+			context: { broadcast },
+		});
+	}
+
+	// Bare `sit` with a poker table present — ask: floor or the table?
+	const candidates = [
+		{ name: "the floor", kind: "floor" },
+		{ name: "the poker table", kind: "poker" },
+	];
+	createSelectionState(player.id, candidates, {
+		dispatchType: "interactions.sit_choice",
+		dispatchParam: "choice",
+	});
+	return {
+		type: "output",
+		message: formatSelectionPage({ allCandidates: candidates, visibleIndex: 0, pageSize: 5 }),
+	};
+}
+
 async function cmdSit(args, raw, player, broadcast) {
 	const { env, vis } = getCtx(player);
 	const mod = envMod(env, vis);
@@ -70,6 +117,13 @@ async function cmdSit(args, raw, player, broadcast) {
 	const floorTarget = ["floor", "ground", "down"].includes(
 		target?.toLowerCase(),
 	);
+
+	// Poker seating takes precedence over posture when a table is in the room.
+	if (!floorTarget) {
+		const poker = await maybeSitAtPoker(target, player, broadcast);
+		if (poker !== undefined) return poker;
+	}
+
 	if (target && !floorTarget) {
 		const { rows } = await query(
 			`SELECT * FROM furniture WHERE zone_id=$1 AND name ILIKE $2 LIMIT 1`,
@@ -448,6 +502,49 @@ async function cmdLean(args, raw, player, broadcast) {
 }
 
 // ---------------------------------------------------------------------------
+// Watch — passive observation of a screen/media piece (furniture flagged "watch")
+// ---------------------------------------------------------------------------
+
+async function cmdWatch(args, raw, player, broadcast) {
+	const { env, vis } = getCtx(player);
+	const mod = envMod(env, vis);
+	const target = stripPrep(args, ["on", "at"]);
+	if (target) {
+		const { rows } = await query(
+			`SELECT * FROM furniture WHERE zone_id=$1 AND name ILIKE $2 LIMIT 1`,
+			[player.current_zone, `%${target}%`],
+		);
+		if (!rows.length)
+			return { type: "emote", message: `There is no ${target} here.` };
+		const interactions = rows[0].flags?.interactions || [];
+		if (!interactions.includes("watch"))
+			return {
+				type: "emote",
+				message: `You can't watch the ${rows[0].name}.`,
+			};
+		return doEmote(
+			`You settle in and watch the ${rows[0].name}${mod}.`,
+			`${player.handle} settles in to watch the ${rows[0].name}.`,
+			player,
+			broadcast,
+		);
+	}
+	// Find any watchable surface in the room
+	const { rows } = await query(
+		`SELECT name FROM furniture WHERE zone_id=$1 AND flags @> '{"interactions":["watch"]}'::jsonb LIMIT 1`,
+		[player.current_zone],
+	);
+	if (rows.length)
+		return doEmote(
+			`You settle in and watch the ${rows[0].name}${mod}.`,
+			`${player.handle} settles in to watch the ${rows[0].name}.`,
+			player,
+			broadcast,
+		);
+	return { type: "emote", message: "There's nothing here to watch." };
+}
+
+// ---------------------------------------------------------------------------
 // Social actions
 // ---------------------------------------------------------------------------
 
@@ -608,6 +705,26 @@ async function findTargetInZone(target, player) {
 	return null;
 }
 
+// Resolves the bare-`sit` SIFT choice: floor (posture) or the poker table.
+// Plugin verbs can't use SIFT's builtin replay, so this rides the action path.
+registerAction({
+	type: "interactions.sit_choice",
+	handler: async ({ actor, params, context }) => {
+		if (params.choice?.kind === "poker") {
+			return dispatchAction({ type: "gametable.take_seat", actor, params: {}, context });
+		}
+		const { env, vis } = getCtx(actor);
+		const mod = envMod(env, vis);
+		setLivePlayer(actor.id, { ...actor, posture: "sitting", sittingOn: null });
+		return doEmote(
+			`You lower yourself and sit on the floor${mod}.`,
+			`${actor.handle} sits down on the floor.`,
+			actor,
+			context?.broadcast,
+		);
+	},
+});
+
 // ---------------------------------------------------------------------------
 // Exports
 // ---------------------------------------------------------------------------
@@ -635,4 +752,5 @@ export const commands = {
 	reflect: cmdReflect,
 	examine: cmdExamine,
 	lean: cmdLean,
+	watch: cmdWatch,
 };

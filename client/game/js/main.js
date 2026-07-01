@@ -500,6 +500,24 @@ document.getElementById("dpad-section")?.addEventListener("click", (e) => {
 	if (btn?.dataset.cmd) sendCmd(btn.dataset.cmd);
 });
 
+// Poker command bar — buttons live in the area pane (re-rendered on every poker
+// update, so this is delegated). data-cmd relays the real verb (labels may be
+// aliases, e.g. "sit"→seat, "watch"→spectate); data-fill prefills the input for
+// amount verbs (bet/raise) rather than firing an incomplete command.
+document.getElementById("area-content")?.addEventListener("click", (e) => {
+	const btn = e.target.closest(".poker-cmd");
+	if (!btn) return;
+	if (btn.dataset.fill != null) {
+		const input = document.getElementById("cmd-input");
+		if (input) {
+			input.value = btn.dataset.fill;
+			input.focus();
+		}
+	} else if (btn.dataset.cmd) {
+		sendCmd(btn.dataset.cmd);
+	}
+});
+
 // Mobile output scroll — touchstart/move on #output scrolls it, ignoring
 // touches that begin on the map tab button or the minimap panel.
 {

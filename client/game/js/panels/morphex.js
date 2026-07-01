@@ -47,7 +47,7 @@ export function openMorphexPanel(data) {
   if (!_modal) {
     _modal = document.createElement('div');
     _modal.id = 'morphex-modal';
-    _modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.78);z-index:500;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box';
+    _modal.classList.add('modal-overlay'); _modal.style.cssText = 'background:rgba(0,0,0,0.78);z-index:500;display:flex;padding:16px;box-sizing:border-box';
     _modal.addEventListener('click', e => { if (e.target === _modal) _close(); });
     document.body.appendChild(_modal);
   }

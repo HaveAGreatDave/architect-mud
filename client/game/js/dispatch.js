@@ -2,7 +2,7 @@ import { state } from './state.js';
 import { appendMsg, appendHtml, appendPre, updateVitals, parseZoneInfo, showDevPanelButton, setAreaPane } from './render.js';
 import { sendCmd, sendCmdSilent, closeConnection, attemptAutoReauth, showVerifyScreen } from './net.js';
 import { renderMinimap, openMapPopup } from './panels/minimap.js';
-import { updateEnvironmentHUD, updateZoneTempHUD, refreshZoneVisibility } from './panels/environment.js';
+import { updateEnvironmentHUD, updateZoneTempHUD, refreshZoneVisibility, signalPowerOut } from './panels/environment.js';
 import { openDialogue, closeDialogue, openShop } from './panels/dialogue.js';
 import { renderEquipPanel } from './panels/equipment.js';
 import { renderRecipesPanel } from './panels/recipes.js';
@@ -163,6 +163,9 @@ const handlers = {
     let _lookTimer = null;
     return (msg) => {
       appendHtml(msg.message, 'zone-event');
+      // Grid power cut: the server tags the cutout line with class="power-out".
+      // Arm the flicker + pop and refresh brightness now, don't wait for the look debounce.
+      if (msg.message && msg.message.includes('power-out')) { signalPowerOut(); refreshZoneVisibility(); }
       if (msg.refresh) { clearTimeout(_lookTimer); _lookTimer = setTimeout(() => sendCmdSilent('look'), 800); }
     };
   })(),
@@ -347,13 +350,14 @@ const handlers = {
   },
 
   'environment.clockTick': (msg) => { updateEnvironmentHUD(msg); },
-  'environment.zoneTempTick': (msg) => { updateZoneTempHUD(msg.tempC); },
+  'environment.zoneTempTick': (msg) => { updateZoneTempHUD(msg.tempC, msg); },
   'environment.sync': (msg) => { updateEnvironmentHUD(msg); updateForecast(msg.forecast); },
   'environment.daily': (msg) => { updateEnvironmentHUD(msg); updateForecast(msg.forecast); },
   'environment.weatherOverride': (msg) => { updateEnvironmentHUD(msg); },
   'lightning': () => { triggerLightningFlash(); },
 
   output: (msg) => { appendHtml(msg.message, 'help'); },
+  poker_update: (msg) => { setAreaPane(msg.html); },
 
   online_change: () => { refreshOnlinePlayers(); },
   whisper: (msg) => { receiveWhisper(msg.from || 'Admin', msg.message); },
@@ -392,7 +396,7 @@ function openSoundPicker(sfxList) {
 
   const overlay = document.createElement('div');
   overlay.id = 'sound-picker-overlay';
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:9999';
+  overlay.classList.add('modal-overlay'); overlay.style.cssText = 'background:rgba(0,0,0,0.7);display:flex;z-index:9999';
 
   const modal = document.createElement('div');
   modal.style.cssText = 'background:var(--bg-panel,#1a1a1a);border:1px solid var(--border,#444);padding:20px;min-width:320px;display:flex;flex-direction:column;gap:12px;font-family:monospace';

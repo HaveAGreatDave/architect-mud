@@ -38,6 +38,10 @@ export async function handleEnvironmentApi(path, method, body, auth) {
     return { status: 200, body: env.getForecast() };
   }
 
+  if (path === '/environment/weathermap' && method === 'GET') {
+    return { status: 200, body: await env.getWeatherMap() };
+  }
+
   if (path === '/environment/climate/profiles' && method === 'GET') {
     const denied = requireDevAuth(auth);
     if (denied) return denied;

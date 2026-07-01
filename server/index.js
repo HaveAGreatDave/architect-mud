@@ -40,7 +40,7 @@ import {
 	consumeSwitchToken,
 	setGhostTokenStore,
 } from "./api/routes.js";
-import { cmdGhostLook, cmdGhostMove, cmdGhostHaunt, makeGhostBroadcast } from "./engine/commands/ghost.js";
+import { cmdGhostLook, cmdGhostMove, cmdGhostHaunt, cmdGhostPowerDrain, makeGhostBroadcast } from "./engine/commands/ghost.js";
 import { activateForcefield, deactivateForcefield } from "./engine/apartments.js";
 import { startKeepalive } from "./keepalive.js";
 import { setBroadcast as setMessagingBroadcast } from "./engine/messaging.js";
@@ -263,6 +263,7 @@ wss.on("connection", (ws) => {
 		if (msg.type === "dialogue") return handleDialogue(ws, session, msg);
 		if (msg.type === "shop_close") { if (session.playerId) closeShopSession(session.playerId); return; }
 		if (msg.type === "buy_npc") return handleBuyFromNpc(ws, session, msg);
+		if (msg.type === "sell_npc") return handleSellToNpc(ws, session, msg);
 		if (msg.type === "auth_ghost") return handleGhostAuth(ws, session, msg);
 		if (msg.type === "ghost_command") return handleGhostCommand(ws, session, msg);
 		if (msg.type === "ghost_jump") return handleGhostJump(ws, session, msg);
@@ -390,6 +391,10 @@ async function handleGhostCommand(ws, session, msg) {
 	const verb = parts[0];
 	const rest = parts.slice(1).join(' ');
 
+	// Every ghost action feeds the audio plugin's "unseen presence" cadence
+	// (it plays a subtle spooky sound to the zone on every Nth action).
+	emit('ghost.action', { zoneId: session.ghostZoneId });
+
 	// look
 	if (verb === 'look' || verb === 'l') {
 		const result = await cmdGhostLook(session);
@@ -414,6 +419,14 @@ async function handleGhostCommand(ws, session, msg) {
 	// haunt
 	if (verb === 'haunt' && rest) {
 		const result = await cmdGhostHaunt(raw.slice(6).trim(), session, broadcast);
+		ws.send(JSON.stringify(result));
+		return;
+	}
+
+	// drain — cut this zone's power to zero (ghost sabotage; visibility fades to dark)
+	if (verb === 'drain') {
+		const result = await cmdGhostPowerDrain(session, broadcast);
+		if (result.type === 'ghost_power_drained') emit('ghost.drain', { zoneId: session.ghostZoneId });
 		ws.send(JSON.stringify(result));
 		return;
 	}
@@ -845,10 +858,8 @@ async function handleDialogue(ws, session, msg) {
 			ws.send(JSON.stringify({ type: "error", message: `${npc.name} has nothing to sell.` }));
 			return;
 		}
-		const { getVendorStock } = await import("./engine/vendor.js");
-		const stock = await getVendorStock(npc, session.playerId);
 		openShopSession(session.playerId, npc.id);
-		ws.send(JSON.stringify({ type: "dialogue_shop", npcId: npc.id, npcName: npc.name, stock, credits: player.credits }));
+		await sendShopPanel(ws, npc, session.playerId);
 		return;
 	}
 
@@ -946,6 +957,25 @@ async function handleDialogue(ws, session, msg) {
 	);
 }
 
+// Render the GUI shop panel (both Buy stock and Sell inventory) for a player.
+// Shared by shop-open, buy, and sell so the three paths can't drift on payload shape.
+async function sendShopPanel(ws, npc, playerId, extra = {}) {
+	const player = getLivePlayer(playerId);
+	if (!player) return;
+	const { getVendorStock, getSellableInventory } = await import("./engine/vendor.js");
+	const stock = await getVendorStock(npc, playerId);
+	const inventory = await getSellableInventory(player, npc);
+	ws.send(JSON.stringify({
+		type: "dialogue_shop",
+		npcId: npc.id,
+		npcName: npc.name,
+		stock,
+		inventory,
+		credits: player.credits,
+		...extra,
+	}));
+}
+
 async function handleBuyFromNpc(ws, session, msg) {
 	if (!session.playerId) return;
 	const player = getLivePlayer(session.playerId);
@@ -953,18 +983,24 @@ async function handleBuyFromNpc(ws, session, msg) {
 	const { rows } = await query("SELECT * FROM npcs WHERE id=$1", [msg.npcId]);
 	if (!rows.length) { ws.send(JSON.stringify({ type: "error", message: "NPC not found." })); return; }
 	const npc = rows[0];
-	const { buyFromVendor, getVendorStock } = await import("./engine/vendor.js");
+	const { buyFromVendor } = await import("./engine/vendor.js");
 	const result = await buyFromVendor(player, npc, msg.itemId, 1);
-	const stock = await getVendorStock(npc, session.playerId);
-	ws.send(JSON.stringify({
-		type: "dialogue_shop",
-		npcId: npc.id,
-		npcName: npc.name,
-		stock,
-		credits: player.credits,
-		buyResult: result.message,
-		buySuccess: result.success,
-	}));
+	await sendShopPanel(ws, npc, session.playerId, { buyResult: result.message, buySuccess: result.success });
+	if (result.success) {
+		ws.send(JSON.stringify({ type: "player_update", credits: player.credits }));
+	}
+}
+
+async function handleSellToNpc(ws, session, msg) {
+	if (!session.playerId) return;
+	const player = getLivePlayer(session.playerId);
+	if (!player) return;
+	const { rows } = await query("SELECT * FROM npcs WHERE id=$1", [msg.npcId]);
+	if (!rows.length) { ws.send(JSON.stringify({ type: "error", message: "NPC not found." })); return; }
+	const npc = rows[0];
+	const { sellToVendor } = await import("./engine/vendor.js");
+	const result = await sellToVendor(player, npc, msg.inventoryId, 1);
+	await sendShopPanel(ws, npc, session.playerId, { sellResult: result.message, sellSuccess: result.success });
 	if (result.success) {
 		ws.send(JSON.stringify({ type: "player_update", credits: player.credits }));
 	}
@@ -1007,6 +1043,17 @@ async function boot() {
 					payload !== undefined ? payload : zoneIdOrPayload,
 				),
 			emitHook: fireHook,
+			// Zones currently occupied by a connected, non-ghost player — lets the
+			// weather field push per-zone updates only where they'll be seen.
+			getOccupiedZones: () => {
+				const zs = new Set();
+				for (const [ws, session] of clients) {
+					if (ws.readyState !== 1 || session.isGhost) continue;
+					const p = getLivePlayer(session.playerId);
+					if (p?.current_zone) zs.add(p.current_zone);
+				}
+				return zs;
+			},
 		});
 	} catch (e) {
 		console.error(

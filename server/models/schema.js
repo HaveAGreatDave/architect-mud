@@ -218,6 +218,9 @@ export const SCHEMA_SQL = `
   -- restore correctly when power returns. NULL = not currently overridden.
   ALTER TABLE furniture ADD COLUMN IF NOT EXISTS light_on_intended INTEGER DEFAULT NULL;
   ALTER TABLE furniture ADD COLUMN IF NOT EXISTS lumen_output INTEGER;
+  -- Nominal worth in credits (room dressing is examine-only, so this is flavour/
+  -- appraisal value, not a shop price). 0 = worthless/unpriced.
+  ALTER TABLE furniture ADD COLUMN IF NOT EXISTS price INTEGER DEFAULT 0;
 
   -- Triggered sound definitions (gunshot, explosion, bark, etc.).
   -- Associated with objects/events via tags; loudness determines tile range.
@@ -552,6 +555,7 @@ export const SCHEMA_SQL = `
   ALTER TABLE world_clock ADD COLUMN IF NOT EXISTS active_climate_profile_id TEXT;
   ALTER TABLE world_clock ADD COLUMN IF NOT EXISTS weather_override_active BOOLEAN NOT NULL DEFAULT FALSE;
   ALTER TABLE world_clock ADD COLUMN IF NOT EXISTS weather_override_backup JSONB;
+  ALTER TABLE world_clock ADD COLUMN IF NOT EXISTS lightning_kills JSONB NOT NULL DEFAULT '[]';
 
   CREATE TABLE IF NOT EXISTS climate_profiles (
     id TEXT PRIMARY KEY,
@@ -966,6 +970,22 @@ export const SCHEMA_SQL = `
     zone_id TEXT PRIMARY KEY,
     table_id TEXT NOT NULL,
     last_replenish BIGINT NOT NULL DEFAULT 0
+  );
+
+  -- ── GameTable (poker / card games) ──────────────────────────────────────────
+  -- One row per physical table. config stores table rules; state stores the full
+  -- serialized in-progress hand (seats, hands, community cards, pot, phase, etc.).
+  -- All mutable game state lives in the JSONB blob — no per-action DB writes;
+  -- persisted at hand end, on player leave, and on the 10-second recovery tick.
+  CREATE TABLE IF NOT EXISTS game_tables (
+    id          TEXT PRIMARY KEY,
+    zone_id     TEXT NOT NULL,
+    name        TEXT NOT NULL,
+    game_type   TEXT NOT NULL DEFAULT 'holdem',
+    config      JSONB NOT NULL DEFAULT '{}',
+    state       JSONB NOT NULL DEFAULT '{}',
+    phase       TEXT NOT NULL DEFAULT 'WaitingForPlayers',
+    updated_at  TIMESTAMPTZ DEFAULT NOW()
   );
 `;
 

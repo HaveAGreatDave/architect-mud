@@ -288,6 +288,10 @@ function furnitureEditForm(rec, isNew) {
     <div class="field"><label>Furniture ID</label><input id="f-id" value="${isNew?'':rec.id}" readonly style="opacity:0.5${isNew?';font-style:italic':''}"></div>
     <div class="field"><label>Name</label><input id="f-name" value="${rec.name||''}" ${isNew?'oninput="document.getElementById(\'f-id\').value=\'furniture_\'+this.value.toLowerCase().replace(/\\s+/g,\'_\').replace(/[^a-z0-9_]/g,\'\')"':''}></div>
     <div class="field"><label>Description</label><textarea id="f-description" rows="4">${rec.description||''}</textarea></div>
+    <div class="field"><label>Price (cr)</label>
+      <input id="f-price" type="number" min="0" step="1" value="${rec.price ?? 0}">
+      <div style="font-size:10px;color:var(--text-dim);margin-top:3px">Appraisal / base value in credits. Used as the vendor shop price for sellable furniture.</div>
+    </div>
     <div class="field"><label>Zone</label>
       <select id="f-zone_id">
         <option value="" ${!rec.zone_id?'selected':''}>— Unplaced —</option>
@@ -341,7 +345,7 @@ function furnitureEditForm(rec, isNew) {
     <div class="field">
       <label>Interactions</label>
       <div style="display:flex;gap:14px;flex-wrap:wrap;padding:6px 0">
-        ${['sit','lie','lean','switch'].map(i => {
+        ${['sit','lie','lean','watch','switch'].map(i => {
           const checked = (rec.flags?.interactions || []).includes(i) ? 'checked' : '';
           return `<label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;font-weight:normal">
             <input type="checkbox" id="f-ix-${i}" ${checked} style="accent-color:var(--accent)"> ${i}
@@ -447,7 +451,7 @@ async function saveFurniture(existing) {
   const isNew = !existing?.id;
   const objectType = document.getElementById('f-object_type')?.value || 'furniture';
   const isLight = objectType === 'light';
-  const flags = { ...(existing?.flags || {}), interactions: ['sit','lie','lean','switch'].filter(i => document.getElementById(`f-ix-${i}`)?.checked) };
+  const flags = { ...(existing?.flags || {}), interactions: ['sit','lie','lean','watch','switch'].filter(i => document.getElementById(`f-ix-${i}`)?.checked) };
   // Re-derive furniture-applicable catalog tags from the picker. Non-catalog
   // flags (e.g. atm) and the interactions array are preserved.
   for (const [name, def] of Object.entries(TAG_CATALOG)) {
@@ -462,6 +466,7 @@ async function saveFurniture(existing) {
     zone_id: document.getElementById('f-zone_id').value || null,
     flags,
     object_type: objectType,
+    price: Number(document.getElementById('f-price')?.value) || 0,
     light_type: isLight ? (document.getElementById('f-light_type')?.value || 'lamp') : null,
     light_on: isLight ? Number(document.getElementById('f-light_on')?.value || 0) : 0,
   };

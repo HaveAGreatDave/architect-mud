@@ -118,7 +118,7 @@ in `gameLoop.js`. Plugins and the environment system subscribe via `schedule()`.
 `CHANNEL_DEFS` is the definition registry (id, `permanent`, `systemOnly`, `isMember(player)`). New channels are added here.
 
 - `getPlayerChannels(player)` — the channels a player should subscribe to on login.
-- `broadcastToChannel(channelId, msg, broadcast)` — send to all eligible online players.
+- `sendToChatChannel(channelId, msg, broadcast)` — send to all eligible online players.
 - `saveChannelMessage(channelId, msg)` / `getChannelHistory(channelId)` — persist and replay last 50 messages per channel (stored in `channel_history` table).
 
 ## Appearance

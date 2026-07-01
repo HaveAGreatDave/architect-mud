@@ -9,6 +9,10 @@
 const AUDIO_CATEGORIES = ['ui', 'combat', 'cyberpunk', 'environment', 'tv', 'misc'];
 const WAVEFORMS = ['square', 'sine', 'triangle', 'sawtooth', 'noise'];
 
+// Mirrors MAX_CHANNELS in client/shared/audio-engine.js — the song player only
+// renders the first 16 channels, so the tracker never authors past that.
+const MAX_CHANNELS = 16;
+
 // Known event names for the Events tab dropdown — users can also type custom ones.
 const KNOWN_EVENTS = [
   'player.login', 'player.logout',
@@ -68,6 +72,7 @@ function renderAudioPanel(data) {
           : _audioTab === 'events'
             ? `<button class="action-btn" onclick="newAudioAsset('events')">+ New Event Route</button>`
             : `<button class="action-btn" onclick="openAudioImportModal('${_audioTab}')">⬆ Load</button>
+               ${_audioTab === 'songs' ? `<button class="action-btn" onclick="openModImportModal()">🎵 Import .MOD</button>` : ''}
                <button class="action-btn" onclick="newAudioAsset('${_audioTab}')">+ New ${tabs.find(t => t[0] === _audioTab)[1]}</button>`
         }
       </div>
@@ -161,6 +166,25 @@ function renderAudioTabBody() {
 
 function findAudioAsset(tab, id) { return _audioData[tab].find(r => r.id === id); }
 
+// Build the id→instrument map the song player expects, attaching each
+// sample-backed instrument's `_sampleDef` (from the loaded samples metadata) so
+// preview plays the actual sample rather than falling back to a synth waveform.
+// Mirrors the server's resolveSongInstruments in plugins/audio/index.js.
+function _resolveInstrumentsById(instrumentIds) {
+  const map = {};
+  for (const id of (instrumentIds || [])) {
+    const inst = _audioData.instruments.find(i => i.id === id);
+    if (!inst) continue;
+    const copy = { ...inst };
+    if (inst.sample_id) {
+      const smp = _audioData.samples.find(s => s.id === inst.sample_id);
+      if (smp) copy._sampleDef = smp;
+    }
+    map[id] = copy;
+  }
+  return map;
+}
+
 // ── Preview (local-only, no server round-trip) ──────────────────────────────
 
 function previewAudioAsset(tab, id) {
@@ -178,12 +202,7 @@ function previewAudioAsset(tab, id) {
     }
     _playingSongId = id;
     renderAudioTabBody();
-    const _instrumentsById = {};
-    for (const instId of (row.instrument_ids || [])) {
-      const inst = _audioData.instruments.find(i => i.id === instId);
-      if (inst) _instrumentsById[instId] = inst;
-    }
-    window.AudioEngine.playMusic({ ...row, _instrumentsById });
+    window.AudioEngine.playMusic({ ...row, _instrumentsById: _resolveInstrumentsById(row.instrument_ids) });
   }
 }
 
@@ -253,6 +272,234 @@ function openAudioImportModal(tab) {
     toast(`Imported ${imported} of ${items.length} preset(s)`, imported < items.length);
     closeModal();
     loadPanel('audio');
+  };
+  modal.style.display = 'flex';
+}
+
+// ── ProTracker .MOD import ─────────────────────────────────────────────────
+// A .MOD carries note patterns (channels) plus 8-bit signed PCM instrument
+// samples — a near-perfect match for the tracker's data model. We parse it in
+// the browser (no deps), wrap each PCM sample as a WAV → audio_samples row,
+// create an audio_instruments row per sample, and build the song's channels
+// from the pattern order. Only 31-sample tagged MODs are supported; channels
+// past MAX_CHANNELS are dropped, and effects other than volume (Cxx) are ignored.
+
+const _MOD_NOTE_NAMES = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
+const _MOD_C2_MIDI = 60;    // period 428 → C4 (MIDI 60); relative pitches derive from here
+const _MOD_C2_RATE = 8287;  // Amiga PAL playback rate at period 428 = 7093789.2 / (428*2)
+
+function _modChannelsForTag(tag) {
+  if (['M.K.', 'M!K!', 'FLT4', '4CHN'].includes(tag)) return 4;
+  if (tag === '6CHN') return 6;
+  if (['8CHN', 'FLT8', 'OKTA', 'CD81'].includes(tag)) return 8;
+  let m = /^(\d\d)(?:CH|CN)$/.exec(tag);  // e.g. 16CH, 32CN
+  if (m) return parseInt(m[1], 10);
+  m = /^(\d)CHN$/.exec(tag);              // e.g. 2CHN
+  if (m) return parseInt(m[1], 10);
+  return null; // not a recognised 31-sample tagged MOD
+}
+
+function _midiToNoteStr(midi) {
+  const octave = Math.floor(midi / 12) - 1;
+  return `${_MOD_NOTE_NAMES[((midi % 12) + 12) % 12]}${octave}`;
+}
+
+function _periodToNote(period) {
+  if (!period) return null;
+  return _midiToNoteStr(_MOD_C2_MIDI + Math.round(12 * Math.log2(428 / period)));
+}
+
+function _modSanitize(s, fallback) {
+  const clean = (s || '').replace(/[^a-z0-9]+/gi, '_').replace(/^_+|_+$/g, '').toLowerCase();
+  return clean || fallback;
+}
+
+// Wrap 8-bit signed PCM as a 16-bit mono WAV, base64-encoded (audio_samples.data
+// is decoded via AudioContext.decodeAudioData, which needs a real container).
+function _pcm8ToWavBase64(int8, sampleRate) {
+  const n = int8.length;
+  const out = new ArrayBuffer(44 + n * 2);
+  const dv = new DataView(out);
+  let o = 0;
+  const wr = (s) => { for (let i = 0; i < s.length; i++) dv.setUint8(o++, s.charCodeAt(i)); };
+  wr('RIFF'); dv.setUint32(o, 36 + n * 2, true); o += 4;
+  wr('WAVEfmt '); dv.setUint32(o, 16, true); o += 4;
+  dv.setUint16(o, 1, true); o += 2;               // PCM
+  dv.setUint16(o, 1, true); o += 2;               // mono
+  dv.setUint32(o, sampleRate, true); o += 4;
+  dv.setUint32(o, sampleRate * 2, true); o += 4;  // byte rate
+  dv.setUint16(o, 2, true); o += 2;               // block align
+  dv.setUint16(o, 16, true); o += 2;              // bits/sample
+  wr('data'); dv.setUint32(o, n * 2, true); o += 4;
+  for (let i = 0; i < n; i++) { dv.setInt16(o, int8[i] * 256, true); o += 2; }
+  const bytes = new Uint8Array(out);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin);
+}
+
+function _parseMod(buf) {
+  const u8 = new Uint8Array(buf);
+  const dv = new DataView(buf);
+  const readStr = (off, len) => {
+    let s = '';
+    for (let i = 0; i < len; i++) { const c = u8[off + i]; if (!c) break; if (c >= 32 && c < 127) s += String.fromCharCode(c); }
+    return s.trim();
+  };
+  if (buf.byteLength < 1084) throw new Error('File too small to be a 31-sample MOD.');
+  const tag = readStr(1080, 4);
+  const numChannels = _modChannelsForTag(tag);
+  if (!numChannels) throw new Error(`Unsupported MOD variant (tag "${tag || '—'}"). Only 31-sample tagged .MOD files are supported.`);
+
+  const title = readStr(0, 20);
+  const samples = [];
+  for (let i = 0; i < 31; i++) {
+    const o = 20 + i * 30;
+    samples.push({
+      name: readStr(o, 22),
+      len: dv.getUint16(o + 22, false) * 2,        // stored in words
+      volume: u8[o + 25],                          // 0-64
+      repeatStart: dv.getUint16(o + 26, false) * 2,
+      repeatLen: dv.getUint16(o + 28, false) * 2,
+      pcm: null,
+    });
+  }
+
+  const songLength = u8[950];
+  const order = [];
+  for (let i = 0; i < songLength; i++) order.push(u8[952 + i]);
+  const numPatterns = Math.max(0, ...order) + 1;
+
+  const patternBase = 1084;
+  const patternSize = 64 * numChannels * 4;
+  const cellAt = (pat, row, ch) => {
+    const o = patternBase + pat * patternSize + (row * numChannels + ch) * 4;
+    const b0 = u8[o], b1 = u8[o + 1], b2 = u8[o + 2], b3 = u8[o + 3];
+    return { sample: (b0 & 0xF0) | (b2 >> 4), period: ((b0 & 0x0F) << 8) | b1, effect: b2 & 0x0F, param: b3 };
+  };
+
+  // Sample PCM (8-bit signed) follows all pattern data.
+  let dataOff = patternBase + numPatterns * patternSize;
+  for (const s of samples) {
+    if (s.len > 0 && dataOff + s.len <= buf.byteLength) s.pcm = new Int8Array(buf, dataOff, s.len);
+    dataOff += s.len;
+  }
+
+  // Build channels by concatenating patterns in play order. A note with sample 0
+  // keeps the channel's previous sample (MOD semantics). Placeholder instrument
+  // refs ("S<n>") are remapped to real instrument ids after the DB rows exist.
+  const chCount = Math.min(numChannels, MAX_CHANNELS);
+  const channels = Array.from({ length: chCount }, () => []);
+  const lastSample = new Array(chCount).fill(0);
+  for (const pat of order) {
+    for (let row = 0; row < 64; row++) {
+      for (let ch = 0; ch < chCount; ch++) {
+        const cell = cellAt(pat, row, ch);
+        if (cell.sample) lastSample[ch] = cell.sample;
+        const note = _periodToNote(cell.period);
+        const smpIdx = lastSample[ch];
+        if (note && smpIdx) {
+          const vol = cell.effect === 0x0C ? Math.min(1, cell.param / 64) : (samples[smpIdx - 1]?.volume ?? 48) / 64;
+          channels[ch].push({ note, instrument: `S${smpIdx}`, vol: Math.round(vol * 100) / 100 });
+        } else {
+          channels[ch].push(null);
+        }
+      }
+    }
+  }
+
+  return { title, tag, numChannels, channels, samples };
+}
+
+async function _modImport(buf, fileName) {
+  let mod;
+  try { mod = _parseMod(buf); }
+  catch (e) { toast(e.message, true); return; }
+
+  const base = _modSanitize(mod.title, _modSanitize(fileName.replace(/\.mod$/i, ''), 'mod'));
+
+  // 1. One sample + instrument per used MOD sample; map MOD index → instrument id.
+  const usedIdx = new Set();
+  for (const ch of mod.channels) for (const st of ch) if (st) usedIdx.add(parseInt(st.instrument.slice(1), 10));
+
+  const instByModIdx = {};
+  let sampleFails = 0;
+  for (const idx of usedIdx) {
+    const s = mod.samples[idx - 1];
+    if (!s?.pcm || s.pcm.length === 0) { sampleFails++; continue; }
+    const looped = s.repeatLen > 2;
+    const sr = await API('/audio/samples', 'POST', {
+      name: `${base}_s${String(idx).padStart(2, '0')}`, category: 'misc', priority: 5,
+      data: _pcm8ToWavBase64(s.pcm, _MOD_C2_RATE), mime_type: 'audio/wav',
+      base_note: _MOD_C2_MIDI, snes_rate: 16000, snes_bits: 8, echo_mix: 0,
+      loop_start: looped ? s.repeatStart / _MOD_C2_RATE : 0,
+      loop_end: looped ? (s.repeatStart + s.repeatLen) / _MOD_C2_RATE : 0,
+      config: { adsr: { a: 0.005, d: 0, s: 1, r: 0.05 }, gain: 1 }, enabled: 1,
+    });
+    if (sr?.error || !sr?.id) { sampleFails++; continue; }
+    const ir = await API('/audio/instruments', 'POST', {
+      name: `${base}_i${String(idx).padStart(2, '0')}`, category: 'misc',
+      waveform: 'sine', sample_id: sr.id, config: {}, enabled: 1,
+    });
+    if (ir?.error || !ir?.id) { sampleFails++; continue; }
+    instByModIdx[idx] = ir.id;
+  }
+
+  // 2. Remap placeholder refs → real ids; drop notes whose sample failed.
+  const instrumentIds = new Set();
+  for (const ch of mod.channels) {
+    for (let i = 0; i < ch.length; i++) {
+      const st = ch[i];
+      if (!st) continue;
+      const id = instByModIdx[parseInt(st.instrument.slice(1), 10)];
+      if (id) { st.instrument = id; instrumentIds.add(id); }
+      else ch[i] = null;
+    }
+  }
+
+  // 3. Create the song. 125 BPM matches the MOD default (speed 6 @ 50 Hz PAL).
+  const length = mod.channels.reduce((m, ch) => Math.max(m, ch.length), 0);
+  const song = await API('/audio/songs', 'POST', {
+    name: base, category: 'misc', tempo: 125, priority: 5,
+    loop_start: 0, loop_end: Math.max(0, length - 1),
+    instrument_ids: [...instrumentIds], channels: mod.channels, enabled: 1,
+  });
+  if (song?.error) { toast(song.error, true); return; }
+
+  const dropped = mod.numChannels > MAX_CHANNELS ? ` · dropped ${mod.numChannels - MAX_CHANNELS} channel(s) over ${MAX_CHANNELS}` : '';
+  const skipped = sampleFails ? ` · ${sampleFails} sample(s) skipped` : '';
+  toast(`Imported "${base}" — ${mod.channels.length} channels${dropped}${skipped}`, sampleFails > 0);
+  closeModal();
+  loadPanel('audio');
+}
+
+function openModImportModal() {
+  const modal = document.getElementById('generic-modal');
+  document.getElementById('modal-title').textContent = 'Import ProTracker .MOD';
+  document.getElementById('modal-body').innerHTML = `
+    <div class="field"><label>Module file <span style="color:var(--text-dim);font-weight:400">(31-sample tagged .MOD — M.K., 6CHN, 8CHN, xxCH)</span></label>
+      <input type="file" id="mod-file" accept=".mod,audio/mod">
+    </div>
+    <div style="margin-top:12px;padding:10px;background:var(--bg3);border-radius:4px;font-size:11px;color:var(--text-dim)">
+      Creates one sample + instrument per used module sample, then a song from the pattern data at 125 BPM.
+      Channels past ${MAX_CHANNELS} are ignored. Effects other than volume (Cxx) are not imported.
+    </div>`;
+  const saveBtn = document.getElementById('modal-save');
+  saveBtn.textContent = 'Import';
+  saveBtn.onclick = async () => {
+    const file = document.getElementById('mod-file')?.files[0];
+    if (!file) { toast('Choose a .MOD file', true); return; }
+    const prev = saveBtn.textContent;
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Importing…';
+    try {
+      await _modImport(await file.arrayBuffer(), file.name);
+    } catch (e) {
+      toast(`Import failed: ${e.message}`, true);
+    } finally {
+      saveBtn.disabled = false;
+      saveBtn.textContent = prev;
+    }
   };
   modal.style.display = 'flex';
 }
@@ -417,7 +664,7 @@ function _sqInit(row) {
   _sqBars = 4;
   _sqCh = [];
   if (row.channels?.length) {
-    _sqCh = row.channels.map(ch => [...(ch || [])]);
+    _sqCh = row.channels.slice(0, MAX_CHANNELS).map(ch => [...(ch || [])]);
     _sqBars = Math.max(1, Math.ceil((_sqCh[0]?.length || 0) / 16));
   }
   const total = _sqBars * 16;
@@ -615,11 +862,7 @@ function _sqTogglePlay() {
     window.AudioEngine?.init();
     const tempo = parseInt(document.getElementById('sg-tempo')?.value) || 120;
     const instrumentIds = _sqGetInstrumentIds();
-    const _instrumentsById = {};
-    for (const id of instrumentIds) {
-      const inst = _audioData.instruments.find(i => i.id === id);
-      if (inst) _instrumentsById[id] = inst;
-    }
+    const _instrumentsById = _resolveInstrumentsById(instrumentIds);
     window.AudioEngine.playMusic({ name: '_preview', tempo, channels: _sqCh, instrument_ids: instrumentIds, _instrumentsById, priority: 5, onStep: _sqOnStep });
     _sqPlaying = true;
   }
@@ -1074,6 +1317,7 @@ function openAudioModal(tab, row) {
       _sqRender();
     };
     document.getElementById('sq-addch').onclick = () => {
+      if (_sqCh.length >= MAX_CHANNELS) { toast(`Channel limit is ${MAX_CHANNELS}`, true); return; }
       _sqCh.push(new Array(_sqBars * 16).fill(null));
       _sqRender();
     };

@@ -11,18 +11,21 @@
 
 const EFFECT_DEFS = {
   bleeding: {
+    label: 'Bleeding',
     onTick(player) {
       player.hp = Math.max(0, player.hp - 2);
       return 'You are bleeding. (-2 HP)';
     },
   },
   burning: {
+    label: 'Burning',
     onTick(player) {
       player.hp = Math.max(0, player.hp - 5);
       return 'You are on fire. (-5 HP)';
     },
   },
   irradiated: {
+    label: 'Irradiated',
     onTick(player) {
       player.radiation = Math.min(100, (player.radiation || 0) + 2);
       return 'Radiation courses through you. (+2 RAD)';

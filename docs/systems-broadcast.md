@@ -306,21 +306,32 @@ Implemented in `plugins/broadcast/index.js` (search `Media Deck`).
 
 ## Game Client — Passive vs Active
 
+The **server** (`broadcastTick`) decides who gets what: it splits the players in a tuned
+zone into active watchers (TV panel open on that channel) and everyone else, and sends
+each group a different message type. There is no client-side counter.
+
 ### Passive viewers (not watching)
 
-Every 8th broadcast tick that would have reached them:
+Any player in a zone tuned to a channel who does **not** have the TV panel open overhears
+spoken content as ambient background TV. When a message carries a `speech` component, the
+server sends that player a `broadcast_ambient` with the actual `speechText`; the client
+renders it as:
 
 ```
-[TV] static voices from the television...
+[TV] "…the spoken line…"
 ```
 
-No broadcast content is ever shown in the main chat stream.
+This fires once per new broadcast message (throttled by the `lastMsgKey` guard in
+`broadcastTick`, not every tick), and only for messages that have speech — non-spoken
+content (graphics, music, tickers) never leaks into the main chat stream. It does **not**
+depend on anyone else in the room actively watching.
 
 ### Active viewers (TV panel open)
 
-All broadcast messages for the active channel are routed to the TV panel. `style: 'ticker'` goes to the ticker strip. `style: 'svg'` is injected as live SVG markup. All others append as text.
-
-`dispatch.js` handler:
+All broadcast messages for the active channel are routed to the TV panel. `style: 'ticker'`
+goes to the ticker strip. `style: 'svg'` is injected as live SVG markup. All others append
+as text. `dispatch.js` uses two handlers — `broadcast` (active watchers) and
+`broadcast_ambient` (passive viewers):
 
 ```js
 broadcast: (msg) => {
@@ -330,12 +341,13 @@ broadcast: (msg) => {
     return;
   }
   if (isTvOpen() && getTvActiveChannelId() === msg.channel) {
+    showTvOnAir();
     if (msg.style === 'ticker') updateTvTicker(msg.message);
     else appendTvMessage(msg.message, msg.style);
-  } else {
-    if (++_tvAmbientCounter % 8 === 0)
-      appendMsg('[TV] static voices from the television...', 'broadcast-ambient');
   }
+},
+broadcast_ambient: (msg) => {
+  if (msg.speechText) appendMsg(`[TV] "${msg.speechText}"`, 'broadcast-ambient');
 },
 ```
 

@@ -122,11 +122,172 @@ async function loadForecast(setWeatherState, climateProfile) {
     };
   });
   setWeatherState(forecast[0].weatherType, forecast[0].tempC, forecast);
+  return forecast;
+}
+
+// ---------------------------------------------------------------------------
+// Per-zone weather field
+//
+// A handful of moving "systems" (cloud / precip / storm cells) drift across the
+// outdoor map (map_world). Each outdoor zone samples the field by its grid_x/
+// grid_y to get local cloud cover, precip, a temperature offset and storm
+// intensity. Deterministic per day (same seed scheme as the forecast). The
+// engine never imports this plugin — it holds the sampler we hand it at init
+// (registerWeatherField), exactly like setWeatherState / rollAndSetCurrentPrecip.
+// The field is fully re-derivable from (date, forecast[0], seed): no DB table,
+// no per-tick writes. See docs/systems-world.md.
+// ---------------------------------------------------------------------------
+
+const K_TEMP = 4;                                   // °C pulled down at a cell core
+const STORM_TYPES  = new Set(['thunderstorm', 'storm']);
+const PRECIP_TYPES = new Set(['rain', 'sleet', 'snow', 'blizzard', 'thunderstorm', 'storm']);
+
+const field = {
+  systems: [],        // moving cells (below)
+  baseCloud: 0,       // ambient cloudiness floor from weatherType
+  bounds: null,       // { minX, maxX, minY, maxY } of map_world, cached
+};
+
+function smoothstep(t) {
+  if (t <= 0) return 0;
+  if (t >= 1) return 1;
+  return t * t * (3 - 2 * t);
+}
+
+function precipTypeForFieldTemp(tempC) {
+  return tempC <= 1 ? 'snow' : 'rain';
+}
+
+async function computeBounds() {
+  const { rows } = await query(
+    `SELECT MIN(grid_x) AS minx, MAX(grid_x) AS maxx, MIN(grid_y) AS miny, MAX(grid_y) AS maxy
+     FROM zones WHERE map_id = 'map_world' AND grid_x IS NOT NULL AND grid_y IS NOT NULL`
+  ).catch(() => ({ rows: [] }));
+  const r = rows[0] || {};
+  if (r.minx == null) return { minX: 0, maxX: 10, minY: 0, maxY: 10 };
+  return { minX: r.minx, maxX: r.maxx, minY: r.miny, maxY: r.maxy };
+}
+
+// Build the day's systems from forecast[0]. count/intensity scale with weather
+// type + precipChance; positions/velocities are seeded so the layout and the
+// prevailing wind are reproducible for a given date.
+function systemsForForecast(weatherType, precipChance, tempC, bounds, rand) {
+  const width  = Math.max(1, bounds.maxX - bounds.minX);
+  const height = Math.max(1, bounds.maxY - bounds.minY);
+  const span   = Math.max(width, height);
+
+  // One prevailing wind for the day; each cell jitters around it.
+  const windAngle = rand() * Math.PI * 2;
+  const windSpeed = 0.08 + rand() * 0.22;           // grid units per 30s advect
+  const baseVx = Math.cos(windAngle) * windSpeed;
+  const baseVy = Math.sin(windAngle) * windSpeed;
+
+  const pType = precipTypeForFieldTemp(tempC);
+  const systems = [];
+  const spawn = (type, intensity) => {
+    const radius = span * (0.22 + rand() * 0.18);   // covers a fraction of the map
+    systems.push({
+      x: bounds.minX + rand() * width,
+      y: bounds.minY + rand() * height,
+      vx: baseVx * (0.7 + rand() * 0.6),
+      vy: baseVy * (0.7 + rand() * 0.6),
+      radius, type, intensity, precipType: pType,
+    });
+  };
+
+  let baseCloud = 0, cloudCells = 0, precipCells = 0, stormCells = 0;
+  if (weatherType === 'clear')                  { cloudCells = rand() < 0.5 ? 1 : 0; }
+  else if (weatherType === 'fog' || weatherType === 'haze') { baseCloud = 0.3; cloudCells = 1; }
+  else if (weatherType === 'cloudy')            { baseCloud = 0.4; cloudCells = 2 + Math.floor(rand() * 2); }
+  else if (weatherType === 'overcast')          { baseCloud = 0.7; cloudCells = 2 + Math.floor(rand() * 3); }
+  else if (STORM_TYPES.has(weatherType))        { baseCloud = 0.5; cloudCells = 1 + Math.floor(rand() * 2); stormCells = 1 + Math.floor(rand() * 2); }
+  else if (PRECIP_TYPES.has(weatherType))       { baseCloud = 0.45; cloudCells = 2; precipCells = 1 + Math.floor(rand() * 2); }
+  else                                          { cloudCells = 1; }
+
+  for (let i = 0; i < cloudCells;  i++) spawn('cloud',  0.5 + rand() * 0.4);
+  for (let i = 0; i < precipCells; i++) spawn('precip', 0.5 + precipChance * 0.5);
+  for (let i = 0; i < stormCells;  i++) spawn('storm',  0.6 + precipChance * 0.4);
+
+  return { systems, baseCloud };
+}
+
+function seedField(date, forecast0, bounds) {
+  const rand = mulberry32(seedFromString(`weatherfield:${date}`));
+  const weatherType  = forecast0?.weatherType ?? 'clear';
+  const tempC        = forecast0?.tempC ?? 12;
+  const precipChance = forecast0?.precipChance ?? 0.05;
+  const { systems, baseCloud } = systemsForForecast(weatherType, precipChance, tempC, bounds, rand);
+  field.systems   = systems;
+  field.baseCloud = baseCloud;
+  field.bounds    = bounds;
+}
+
+// Drift every cell one step; torus-wrap (with padding) so cells re-enter the
+// map naturally and the system count stays stable. Pure in-memory math.
+function advectField() {
+  const b = field.bounds;
+  if (!b) return;
+  const pad = 2;
+  for (const s of field.systems) {
+    s.x += s.vx;
+    s.y += s.vy;
+    const lo = b.minX - s.radius - pad, spanX = (b.maxX - b.minX) + s.radius * 2 + pad * 2;
+    const loY = b.minY - s.radius - pad, spanY = (b.maxY - b.minY) + s.radius * 2 + pad * 2;
+    if (s.x < lo)  s.x += spanX; else if (s.x > lo + spanX)  s.x -= spanX;
+    if (s.y < loY) s.y += spanY; else if (s.y > loY + spanY) s.y -= spanY;
+  }
+}
+
+// The shared sampler handed to the engine. O(systems); systems are single digits.
+function sampleWeatherAt(gx, gy) {
+  let cloudCover = field.baseCloud, precipRate = 0, stormIntensity = 0, tempOffset = 0;
+  let precipType = 'none';
+  if (gx == null || gy == null) return { cloudCover, precipRate, precipType, tempOffset, stormIntensity };
+  for (const s of field.systems) {
+    const dist = Math.hypot(gx - s.x, gy - s.y);
+    if (dist >= s.radius) continue;
+    const f = s.intensity * smoothstep(1 - dist / s.radius);
+    if (f <= 0) continue;
+    cloudCover = Math.max(cloudCover, f);
+    tempOffset -= f * K_TEMP;
+    if (s.type === 'precip' || s.type === 'storm') {
+      if (f > precipRate) { precipRate = f; precipType = s.precipType; }
+      if (s.type === 'storm') stormIntensity = Math.max(stormIntensity, f);
+    }
+  }
+  return {
+    cloudCover: Math.min(1, cloudCover),
+    precipRate: Math.min(1, precipRate),
+    precipType,
+    tempOffset,
+    stormIntensity: Math.min(1, stormIntensity),
+  };
+}
+
+function getWeatherFieldSnapshot() {
+  return {
+    bounds: field.bounds,
+    systems: field.systems.map(s => ({
+      x: s.x, y: s.y, radius: s.radius, vx: s.vx, vy: s.vy,
+      type: s.type, intensity: s.intensity, precipType: s.precipType,
+    })),
+  };
+}
+
+async function reseedFromForecast0(forecast0) {
+  if (!forecast0) return;
+  const bounds = field.bounds || await computeBounds();
+  seedField(forecast0.date, forecast0, bounds);
 }
 
 export const hooks = {
-  'environment.init': async ({ setWeatherState, climateProfile }) => {
-    await loadForecast(setWeatherState, climateProfile);
+  'environment.init': async ({ setWeatherState, climateProfile, registerWeatherField, registerWeatherFieldSnapshot, registerWeatherFieldAdvance }) => {
+    const forecast = await loadForecast(setWeatherState, climateProfile);
+    const bounds = await computeBounds();
+    seedField(forecast[0].date, forecast[0], bounds);
+    if (registerWeatherField) registerWeatherField(sampleWeatherAt);
+    if (registerWeatherFieldSnapshot) registerWeatherFieldSnapshot(getWeatherFieldSnapshot);
+    if (registerWeatherFieldAdvance) registerWeatherFieldAdvance(advectField);
   },
 
   'environment.advanceWeather': async ({ setWeatherState, rollAndSetCurrentPrecip, getHUDPayload, broadcast, currentForecast, climateProfile }) => {
@@ -150,11 +311,20 @@ export const hooks = {
     setWeatherState(nextForecast[0].weatherType, nextForecast[0].tempC, nextForecast);
     // Roll current precip against the new day's forecasted precipChance.
     rollAndSetCurrentPrecip(nextForecast[0].weatherType, nextForecast[0].tempC, nextForecast[0].precipChance ?? 0.05);
+    // Re-seed the moving field for the new day.
+    seedField(nextForecast[0].date, nextForecast[0], field.bounds || await computeBounds());
     if (broadcast) broadcast({ type: 'environment.sync', ...getHUDPayload() });
   },
 
   'environment.recalculateForecast': async ({ setWeatherState, climateProfile, currentDate }) => {
     await regenerateFullForecast(currentDate, climateProfile);
-    await loadForecast(setWeatherState, climateProfile);
+    const forecast = await loadForecast(setWeatherState, climateProfile);
+    seedField(forecast[0].date, forecast[0], field.bounds || await computeBounds());
+  },
+
+  // Fired by the engine after a dev weather override so the field re-seeds to
+  // match the forced weather/intensity (Max Storm → full storm cells; clear → drain).
+  'environment.weatherFieldSync': async ({ forecast0 }) => {
+    await reseedFromForecast0(forecast0);
   },
 };

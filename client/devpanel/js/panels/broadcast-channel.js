@@ -733,7 +733,7 @@ function _chDeleteCleanupPrompt(channelName, zones, npcs) {
       </label>`).join('');
 
     const el = document.createElement('div');
-    el.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:900;display:flex;align-items:center;justify-content:center';
+    el.classList.add('modal-overlay'); el.style.cssText = 'background:rgba(0,0,0,0.8);z-index:900;display:flex';
     el.innerHTML = `
       <div style="background:var(--bg2);border:1px solid var(--accent);padding:20px;width:480px;max-width:94vw;border-radius:3px;display:flex;flex-direction:column;gap:14px">
         <div style="color:var(--accent);font-size:13px;letter-spacing:2px;text-transform:uppercase">Also delete?</div>

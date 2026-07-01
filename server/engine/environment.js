@@ -187,6 +187,7 @@ const state = {
   precipRate: 0,               // 0.1–1.0 intensity scale; 0 when dry. Label derived via currentIntensityLabel().
   weatherOverrideActive: false, // true while a dev has manually forced weather outside the forecast
   weatherOverrideBackup: null,  // { weatherType, tempC, precipChance } — pre-override forecast day 0 values
+  lightningKills: [],           // [{ handle, date, time }] — players killed by storm lightning (not smite)
 };
 
 let deps = { query: null, emitHook: null, broadcast: null };
@@ -279,8 +280,8 @@ function logError(err) {
 // Initialization
 // ---------------------------------------------------------------------------
 
-export async function initEnvironment({ query, emitHook, broadcast }) {
-  deps = { query, emitHook, broadcast };
+export async function initEnvironment({ query, emitHook, broadcast, getOccupiedZones }) {
+  deps = { query, emitHook, broadcast, getOccupiedZones };
 
   const clockRow = await ensureClockRow(query);
   state.date = toDateString(clockRow.game_date);
@@ -293,6 +294,7 @@ export async function initEnvironment({ query, emitHook, broadcast }) {
 
   state.weatherOverrideActive = clockRow.weather_override_active || false;
   state.weatherOverrideBackup = clockRow.weather_override_backup || null;
+  state.lightningKills = clockRow.lightning_kills || [];
 
   state.activeClimateProfileId = clockRow.active_climate_profile_id || null;
   if (state.activeClimateProfileId) {
@@ -303,7 +305,7 @@ export async function initEnvironment({ query, emitHook, broadcast }) {
   // Weather plugin initializes the forecast via this hook. Must run before
   // loadZonePowerAndLighting + recalcAmbientAndVisibility so state.weatherType
   // is populated when those functions read it.
-  if (emitHook) await emitHook('environment.init', { setWeatherState, setCurrentPrecip, climateProfile: state.activeClimateProfile });
+  if (emitHook) await emitHook('environment.init', { setWeatherState, setCurrentPrecip, climateProfile: state.activeClimateProfile, registerWeatherField, registerWeatherFieldSnapshot, registerWeatherFieldAdvance });
 
   await loadZonePowerAndLighting(query);
   await loadWindows(query);
@@ -339,9 +341,8 @@ export async function initEnvironment({ query, emitHook, broadcast }) {
   scheduleTicks();
   state.ready = true;
 
-  // Sync streetlights on boot — lights on when ambient visibility (including weather) is dim.
-  const bootLightsOn = computeAmbientVisibility() < VISIBILITY_DIM ? 1 : 0;
-  await query(`UPDATE furniture SET light_on=$1 WHERE object_type='light' AND light_type='streetlight'`, [bootLightsOn]).catch(()=>{});
+  // Sync streetlights on boot — each zone lit per its own local ambient visibility.
+  await syncStreetlights().catch(() => {});
   await recomputePower().catch(() => {});
 }
 
@@ -361,8 +362,25 @@ function scheduleTicks() {
   });
 
   // 30-second flicker: pure broadcast to overloaded zones — no DB writes,
-  // just keeps the visual effect alive between redistribution ticks.
-  schedule('30s', () => { flickerOverloadedZones(); });
+  // just keeps the visual effect alive between redistribution ticks. Also
+  // advects the moving weather field one step and pushes local outdoor weather
+  // to occupied zones (in-memory only; no DB writes).
+  schedule('30s', () => {
+    flickerOverloadedZones();
+    if (!state.frozen && advanceWeatherField) {
+      advanceWeatherField();
+      const occupied = deps.getOccupiedZones ? [...deps.getOccupiedZones()] : [];
+      broadcastZoneWeather(occupied);
+      // Snappy streetlights: reconcile only the zones players are standing in so
+      // a storm rolling overhead lights their block at once; the 30-minute tick
+      // still sweeps the whole map.
+      if (occupied.length) {
+        syncStreetlights(occupied)
+          .then(changed => (changed ? recomputePower() : null))
+          .catch(() => {});
+      }
+    }
+  });
 }
 
 async function ensureClockRow(query) {
@@ -383,7 +401,7 @@ async function ensureClockRow(query) {
 
 async function loadZonePowerAndLighting(query) {
   const { rows: zones } = await query(`
-    SELECT pz.*, g.generator_type, z.flags AS zone_flags
+    SELECT pz.*, g.generator_type, z.flags AS zone_flags, z.grid_x, z.grid_y, z.map_id
     FROM power_zones pz
     LEFT JOIN generators g ON g.id = pz.generator_id
     LEFT JOIN zones z ON z.id = pz.id
@@ -405,6 +423,9 @@ async function loadZonePowerAndLighting(query) {
       hasEmergencyLighting: light ? !!light.has_emergency_lighting : false,
       artificialLight: computeArtificialLight(z.status, light),
       flags: zf,
+      gridX: z.grid_x,
+      gridY: z.grid_y,
+      mapId: z.map_id,
     });
   }
 }
@@ -593,59 +614,83 @@ async function tick1m() {
   await flickerOverloadedZones();
 }
 
-// Ambient visibility factoring in weather (fog, ash, blizzard, etc.).
-// Used to decide whether streetlights should be on independent of time-of-day.
-function computeAmbientVisibility() {
+// Per-zone ambient visibility: time-of-day light attenuated by that zone's LOCAL
+// weather (the moving cloud/storm field on map_world falls back to global weather
+// factors elsewhere). Deliberately excludes artificial light so streetlights are
+// decided without feedback from the very lights being toggled. Mirrors the
+// outdoor blend in getZoneVisibility.
+function zoneAmbientVisibility(gridX, gridY, mapId) {
   const weatherFactor = WEATHER_VISIBILITY_FACTOR[state.weatherType] ?? 1.0;
   const fogFactor     = FOG_FACTOR[state.weatherType] ?? DEFAULT_FOG_FACTOR;
-  return state.ambientLight * weatherFactor * fogFactor;
+  let factor = weatherFactor * fogFactor;
+  if (sampleField && mapId === 'map_world' && gridX != null) {
+    const f = sampleField(gridX, gridY);
+    const activePrecip = state.currentPrecip !== 'none' ? f.precipRate : 0;
+    const localCloudFactor = clamp01(1 - 0.5 * f.cloudCover - 0.4 * activePrecip);
+    factor = Math.min(factor, localCloudFactor);
+  }
+  return state.ambientLight * factor;
 }
 
-// Turn streetlights on or off based on ambient visibility.
-// Lights come on whenever visibility drops below VISIBILITY_DIM — whether from
-// nightfall, fog, ash, blizzard, or any other weather that cuts ambient light.
-// Only powered zones get lights turned on; all zones have lights turned off.
-// Sends a zone_event message and triggers a look refresh for each affected zone.
-async function syncStreetlights(lightOn) {
+// Reconcile streetlights to each zone's LOCAL ambient visibility, so lights come
+// on tile-by-tile — a storm cell rolling over one block lights it while a clear
+// block nearby stays dark, and nightfall lights everything. Only powered zones
+// light up; unpowered or clearing zones go dark. Sends a zone_event + look
+// refresh to zones that changed. Returns true if anything changed so the caller
+// can recompute power. Pass zoneFilter (array of zoneIds) to reconcile only
+// those zones — the 30-second tick uses this to react instantly for the zones
+// players are actually standing in, while the 30-minute tick sweeps everything.
+async function syncStreetlights(zoneFilter = null) {
   const { query, broadcast } = deps;
 
-  // SELECT can use alias; UPDATE cannot in PostgreSQL — use subquery form instead.
-  const { rows: affected } = await query(
-    lightOn
-      ? `SELECT DISTINCT zone_id FROM furniture
-         WHERE light_type = 'streetlight' AND light_on = 0
-           AND zone_id IN (SELECT id FROM power_zones WHERE status IN ('powered', 'overloaded'))`
-      : `SELECT DISTINCT zone_id FROM furniture
-         WHERE light_type = 'streetlight' AND light_on = 1`
+  const filter = zoneFilter && zoneFilter.length ? [...zoneFilter] : null;
+  const { rows } = await query(
+    filter
+      ? `SELECT f.zone_id, f.light_on, z.grid_x, z.grid_y, z.map_id
+         FROM furniture f JOIN zones z ON z.id = f.zone_id
+         WHERE f.light_type = 'streetlight' AND f.zone_id = ANY($1)`
+      : `SELECT f.zone_id, f.light_on, z.grid_x, z.grid_y, z.map_id
+         FROM furniture f JOIN zones z ON z.id = f.zone_id
+         WHERE f.light_type = 'streetlight'`,
+    filter ? [filter] : undefined
   ).catch(() => ({ rows: [] }));
+  if (!rows.length) return false;
 
-  if (!affected.length) return;
-
-  if (lightOn) {
-    await query(
-      `UPDATE furniture SET light_on = 1
-       WHERE light_type = 'streetlight' AND light_on = 0
-         AND zone_id IN (SELECT id FROM power_zones WHERE status IN ('powered', 'overloaded'))`
-    ).catch(() => {});
-  } else {
-    await query(
-      `UPDATE furniture SET light_on = 0 WHERE light_type = 'streetlight' AND light_on = 1`
-    ).catch(() => {});
+  const want = new Map();     // zoneId -> 1|0 desired
+  const wasOn = new Set();    // zones with >=1 streetlight currently on
+  for (const r of rows) {
+    if (r.light_on) wasOn.add(r.zone_id);
+    if (!want.has(r.zone_id)) {
+      const z = state.zones.get(r.zone_id);
+      const powered = z && (z.powerStatus === 'powered' || z.powerStatus === 'overloaded');
+      const vis = zoneAmbientVisibility(r.grid_x, r.grid_y, r.map_id);
+      want.set(r.zone_id, (powered && vis < VISIBILITY_DIM) ? 1 : 0);
+    }
   }
+
+  const onZones = [], offZones = [];
+  for (const [zoneId, w] of want) {
+    const on = wasOn.has(zoneId);
+    if (w && !on) onZones.push(zoneId);
+    else if (!w && on) offZones.push(zoneId);
+  }
+  if (!onZones.length && !offZones.length) return false;
+
+  if (onZones.length)  await query(`UPDATE furniture SET light_on = 1 WHERE light_type = 'streetlight' AND zone_id = ANY($1)`, [onZones]).catch(() => {});
+  if (offZones.length) await query(`UPDATE furniture SET light_on = 0 WHERE light_type = 'streetlight' AND zone_id = ANY($1)`, [offZones]).catch(() => {});
 
   if (broadcast) {
     const isDarkPhase = state.phase === 'night' || state.phase === 'dusk';
-    const msg = lightOn
-      ? (isDarkPhase
-          ? '<br><span class="power-restore">The streetlights flicker to life as darkness falls.</span><br>'
-          : '<br><span class="power-restore">The streetlights flicker on against the gloom.</span><br>')
-      : (isDarkPhase
-          ? '<br><span class="ambient">The streetlights go dark as conditions clear.</span><br>'
-          : '<br><span class="ambient">The streetlights dim and go dark as daylight returns.</span><br>');
-    for (const { zone_id } of affected) {
-      broadcast(zone_id, { type: 'zone_event', message: msg, refresh: true });
-    }
+    const onMsg = isDarkPhase
+      ? '<br><span class="power-restore">The streetlights flicker to life as darkness falls.</span><br>'
+      : '<br><span class="power-restore">The streetlights flicker on against the gloom.</span><br>';
+    const offMsg = isDarkPhase
+      ? '<br><span class="ambient">The streetlights go dark as conditions clear.</span><br>'
+      : '<br><span class="ambient">The streetlights dim and go dark as daylight returns.</span><br>';
+    for (const zoneId of onZones)  broadcast(zoneId, { type: 'zone_event', message: onMsg,  refresh: true });
+    for (const zoneId of offZones) broadcast(zoneId, { type: 'zone_event', message: offMsg, refresh: true });
   }
+  return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -660,20 +705,14 @@ async function tick30m() {
   state.lastTick30m = Date.now();
 
   const prevPhase = state.phase;
-  const prevAmbientVisibility = computeAmbientVisibility();
   recalcAmbientAndVisibility();
 
   await query(`UPDATE world_clock SET last_tick_30m = now() WHERE id = 1`);
 
-  // Street lights come on when ambient visibility (ambient light × weather factors)
-  // drops below the dim threshold — nightfall, fog, ash, blizzard, etc.
-  const nowAmbientVisibility = computeAmbientVisibility();
-  const wasLightsOn = prevAmbientVisibility < VISIBILITY_DIM;
-  const nowLightsOn = nowAmbientVisibility < VISIBILITY_DIM;
-  if (nowLightsOn !== wasLightsOn) {
-    await syncStreetlights(nowLightsOn).catch(() => {});
-    await recomputePower().catch(() => {});
-  }
+  // Reconcile streetlights against each zone's LOCAL ambient visibility, so a
+  // block under a passing storm cell lights up while clear blocks stay dark —
+  // as well as the usual nightfall/fog darkening.
+  if (await syncStreetlights().catch(() => false)) await recomputePower().catch(() => {});
 
   // Precipitation roll: start if dry and roll wins; stop if raining and roll loses.
   const precipChance = state.forecast[0]?.precipChance ?? 0.05;
@@ -748,7 +787,7 @@ async function tick24h() {
 
 // Handles light-state side-effects when a zone's power status changes.
 // prevStatus = status stored in DB before this tick; newStatus = just computed.
-async function applyPowerLightEffects(query, zoneId, prevStatus, newStatus, available, maxCap) {
+async function applyPowerLightEffects(query, zoneId, prevStatus, newStatus, available, maxCap, opts = {}) {
   const broadcast = deps.broadcast;
 
   const wasOk = prevStatus === 'powered';
@@ -769,7 +808,7 @@ async function applyPowerLightEffects(query, zoneId, prevStatus, newStatus, avai
     await query(`UPDATE furniture SET light_on=0 WHERE zone_id=$1 AND object_type='light'`, [zoneId]);
     // Do NOT zero current_load_kw — demand stays constant; only available_kw=0 signals no supply.
     await query(`UPDATE lighting_states SET fixture_count=0, total_lumens=0 WHERE zone_id=$1`, [zoneId]).catch(() => {});
-    if (broadcast && prevStatus !== 'offline') {
+    if (broadcast && prevStatus !== 'offline' && !opts.silent) {
       const { text: nameStr, isSingular } = _fmtLightNames(activeLights.map(l => l.name));
       const CUTOUT_MSGS = [
         `${_cap(nameStr)} ${isSingular ? 'cuts' : 'cut'} out abruptly. Darkness.`,
@@ -1092,7 +1131,17 @@ export function getZoneVisibility(zoneId) {
   const fogFactor = FOG_FACTOR[state.weatherType] ?? DEFAULT_FOG_FACTOR;
   // Interior zones aren't directly affected by outdoor weather/fog —
   // that attenuation was already applied inside getWindowLightContribution.
-  const envFactor = isInterior ? 1.0 : weatherFactor * fogFactor;
+  let envFactor = isInterior ? 1.0 : weatherFactor * fogFactor;
+  // Outdoor zones under a local cloud/precip cell get extra attenuation so a
+  // passing storm dims that tile specifically. Fog/ash/haze stay global.
+  if (!isInterior) {
+    const f = fieldAt(zoneId);
+    if (f) {
+      const activePrecip = state.currentPrecip !== 'none' ? f.precipRate : 0;
+      const localCloudFactor = clamp01(1 - 0.5 * f.cloudCover - 0.4 * activePrecip);
+      envFactor = Math.min(envFactor, localCloudFactor);
+    }
+  }
   const visibility = clamp01(effectiveLight * envFactor);
 
   let category = 'clear';
@@ -1165,6 +1214,101 @@ export function setCurrentPrecip(type, rate) {
   state.precipRate    = rate ?? 0;
 }
 
+// ---------------------------------------------------------------------------
+// Per-zone weather field
+//
+// The weather plugin owns a moving field of cloud/storm cells over the outdoor
+// map (map_world). It injects a synchronous sampler here at boot; the engine
+// samples it without importing the plugin — mirroring the setWeatherState /
+// rollAndSetCurrentPrecip injection style. If no sampler is registered (field
+// disabled), every per-zone path below falls back to the global weather.
+// ---------------------------------------------------------------------------
+let sampleField = null;             // (gridX, gridY) => { cloudCover, precipRate, precipType, tempOffset, stormIntensity }
+let weatherFieldSnapshot = null;    // () => { bounds, systems[] } — for the dev map
+let advanceWeatherField = null;     // () => void — advect one step
+
+export function registerWeatherField(fn)          { sampleField = fn; }
+export function registerWeatherFieldSnapshot(fn)  { weatherFieldSnapshot = fn; }
+export function registerWeatherFieldAdvance(fn)   { advanceWeatherField = fn; }
+
+// Sample the field for an outdoor zone. Returns null for interiors / zones off
+// the outdoor map / null coords / when the field is disabled → callers fall back
+// to the global model.
+function fieldAt(zoneId) {
+  const z = state.zones.get(zoneId);
+  if (!sampleField || !z || z.mapId !== 'map_world') return null;
+  return sampleField(z.gridX, z.gridY);
+}
+
+// Local precipitation for a zone. The global 30-minute roll stays the map-wide
+// "is precip active" gate; the field decides which tiles are actually under it.
+export function getZonePrecip(zoneId) {
+  const f = fieldAt(zoneId);
+  if (!f) return { precipType: state.currentPrecip, precipRate: state.precipRate };
+  if (state.currentPrecip === 'none') return { precipType: 'none', precipRate: 0 };
+  return {
+    precipType: f.precipType === 'none' ? state.currentPrecip : f.precipType,
+    precipRate: f.precipRate,
+  };
+}
+
+// Local storm intensity (0..1) driving lightning frequency/lethality per tile.
+// Field disabled / off-map → uniform fallback matching the old global behaviour.
+export function getZoneStormIntensity(zoneId) {
+  const f = fieldAt(zoneId);
+  if (f) return f.stormIntensity;
+  return (state.weatherType === 'thunderstorm' || state.weatherType === 'storm') ? 0.5 : 0;
+}
+
+// Full outdoor-zone weather snapshot for the dev weather map. Queries map_world
+// zones directly so it covers every placed zone, not just those in state.zones.
+export async function getWeatherMap() {
+  const snap = weatherFieldSnapshot ? weatherFieldSnapshot() : { bounds: null, systems: [] };
+  const base = state.tempC + diurnalOffset(state.minutes);
+  const active = state.currentPrecip !== 'none';
+  const zones = [];
+  if (deps.query) {
+    const { rows } = await deps.query(
+      `SELECT id, name, grid_x, grid_y FROM zones
+       WHERE map_id = 'map_world' AND grid_x IS NOT NULL AND grid_y IS NOT NULL`
+    ).catch(() => ({ rows: [] }));
+    for (const z of rows) {
+      const f = sampleField ? sampleField(z.grid_x, z.grid_y) : null;
+      zones.push({
+        id: z.id, name: z.name, grid_x: z.grid_x, grid_y: z.grid_y,
+        tempC: f ? Math.round(base + f.tempOffset) : Math.round(base),
+        cloudCover: f ? f.cloudCover : 0,
+        precipRate: (f && active) ? f.precipRate : 0,
+        precipType: (f && active && f.precipType !== 'none') ? f.precipType : 'none',
+      });
+    }
+  }
+  return { bounds: snap.bounds, systems: snap.systems, zones };
+}
+
+// Broadcast local outdoor weather to player-occupied outdoor zones. Additive to
+// the existing environment.zoneTempTick — old clients ignore the extra keys.
+// Iterates occupied zones only (via deps.getOccupiedZones) so cost scales with
+// active players, not world size.
+function broadcastZoneWeather(occupied) {
+  const { broadcast } = deps;
+  if (!broadcast || !sampleField || !occupied) return;
+  const base = state.tempC + diurnalOffset(state.minutes);
+  const active = state.currentPrecip !== 'none';
+  for (const zoneId of occupied) {
+    const z = state.zones.get(zoneId);
+    if (!z || z.mapId !== 'map_world') continue;
+    const f = sampleField(z.gridX, z.gridY);
+    broadcast(zoneId, {
+      type: 'environment.zoneTempTick',
+      tempC: Math.round(base + f.tempOffset),
+      cloudCover: f.cloudCover,
+      precipType: active && f.precipType !== 'none' ? f.precipType : 'none',
+      precipRate: active ? f.precipRate : 0,
+    });
+  }
+}
+
 const WEATHER_DESCRIPTIONS = {
   clear:        ['The sky above is open and clear.', 'A crisp stillness hangs in the air.', 'Pale light cuts through the haze overhead.'],
   cloudy:       ['Broken clouds drift across the sky.', 'Grey-white clouds roll overhead.'],
@@ -1195,7 +1339,9 @@ export function getZoneTemperature(zoneId) {
   if (isIndoorZone(z) && state.zoneTemps.has(zoneId)) {
     return state.zoneTemps.get(zoneId);
   }
-  return state.tempC + diurnalOffset(state.minutes);
+  const base = state.tempC + diurnalOffset(state.minutes);
+  const f = fieldAt(zoneId);
+  return f ? Math.round(base + f.tempOffset) : base;
 }
 
 export function getPowerMap() {
@@ -1213,7 +1359,20 @@ export function getPowerMap() {
 }
 
 export function getEnvironmentState() {
-  return { ...getHUDPayload(), minutes: state.minutes, hour: Math.floor(state.minutes / 60), ambientLight: state.ambientLight, forecast: getForecast(), powerMap: getPowerMap(), precipRate: state.precipRate, currentPrecip: state.currentPrecip };
+  return { ...getHUDPayload(), minutes: state.minutes, hour: Math.floor(state.minutes / 60), ambientLight: state.ambientLight, forecast: getForecast(), powerMap: getPowerMap(), precipRate: state.precipRate, currentPrecip: state.currentPrecip, lightningKills: state.lightningKills };
+}
+
+// Records a player killed by storm lightning (not smite). Appends
+// { handle, date, time } stamped with the current in-game date/time and
+// persists the log to world_clock so it survives restarts.
+export async function recordLightningKill(handle) {
+  const entry = { handle, date: state.date, time: formatHHMM(state.minutes) };
+  state.lightningKills.push(entry);
+  if (deps.query) {
+    await deps.query(`UPDATE world_clock SET lightning_kills = $1 WHERE id = 1`,
+      [JSON.stringify(state.lightningKills)]).catch(logError);
+  }
+  return entry;
 }
 
 // ---------------------------------------------------------------------------
@@ -1222,7 +1381,6 @@ export function getEnvironmentState() {
 
 export async function devSetTime({ date, minutes }) {
   const { query, broadcast } = deps;
-  const prevAmbientVisibility = computeAmbientVisibility();
   if (date) state.date = date;
   if (minutes !== undefined) state.minutes = ((Number(minutes) % (24 * 60)) + 24 * 60) % (24 * 60);
   state.dayOfWeek = dayOfWeekFor(state.date);
@@ -1231,12 +1389,7 @@ export async function devSetTime({ date, minutes }) {
     `UPDATE world_clock SET game_date = $1, game_time_minutes = $2, day_of_week = $3 WHERE id = 1`,
     [state.date, state.minutes, state.dayOfWeek]
   );
-  const wasLightsOn = prevAmbientVisibility < VISIBILITY_DIM;
-  const nowLightsOn = computeAmbientVisibility() < VISIBILITY_DIM;
-  if (nowLightsOn !== wasLightsOn) {
-    await syncStreetlights(nowLightsOn).catch(() => {});
-    await recomputePower().catch(() => {});
-  }
+  if (await syncStreetlights().catch(() => false)) await recomputePower().catch(() => {});
   const payload = getHUDPayload();
   if (broadcast) broadcast({ type: 'environment.sync', ...payload });
   return payload;
@@ -1318,7 +1471,6 @@ export async function devOverrideWeather({ weatherType, tempC, precipChance }) {
   if (!state.weatherOverrideActive) {
     state.weatherOverrideBackup = { weatherType: state.weatherType, tempC: state.tempC, precipChance: state.forecast[0]?.precipChance ?? 0.05 };
   }
-  const prevLightsOn = computeAmbientVisibility() < VISIBILITY_DIM;
   state.weatherOverrideActive = true;
   state.weatherType = weatherType;
   // tempC from the client is already offset-adjusted (getHUDPayload adds diurnalOffset).
@@ -1330,11 +1482,9 @@ export async function devOverrideWeather({ weatherType, tempC, precipChance }) {
   state.forecast[0] = { ...state.forecast[0], weatherType, tempC: state.tempC, ...(precipChance !== undefined ? { precipChance: Number(precipChance) } : {}) };
   // Roll current precip against the new precipChance, replacing whatever was active.
   rollAndSetCurrentPrecip(weatherType, state.tempC + diurnalOffset(state.minutes), Number(precipChance ?? state.forecast[0]?.precipChance ?? 0.05));
-  const nowLightsOn = computeAmbientVisibility() < VISIBILITY_DIM;
-  if (nowLightsOn !== prevLightsOn) {
-    await syncStreetlights(nowLightsOn).catch(() => {});
-    await recomputePower().catch(() => {});
-  }
+  // Re-seed the moving field to match the forced weather/intensity.
+  if (emitHook) await emitHook('environment.weatherFieldSync', { forecast0: state.forecast[0] });
+  if (await syncStreetlights().catch(() => false)) await recomputePower().catch(() => {});
   if (broadcast) broadcast({ type: 'environment.weatherOverride', ...getHUDPayload() });
   return getHUDPayload();
 }
@@ -1342,18 +1492,14 @@ export async function devOverrideWeather({ weatherType, tempC, precipChance }) {
 export async function devClearWeatherOverride() {
   const { query, broadcast, emitHook } = deps;
   if (!state.weatherOverrideActive) return getHUDPayload();
-  const prevLightsOn = computeAmbientVisibility() < VISIBILITY_DIM;
   state.weatherOverrideActive = false;
   state.weatherOverrideBackup = null;
   await query(`UPDATE world_clock SET weather_override_active = FALSE, weather_override_backup = NULL WHERE id = 1`);
   // Recalculate forecast so state reflects real forecast values (not the backed-up override values).
+  // (The recalculateForecast hook also re-seeds the weather field.)
   if (emitHook) await emitHook('environment.recalculateForecast', { setWeatherState, climateProfile: state.activeClimateProfile, currentDate: state.date });
   rollAndSetCurrentPrecip(state.weatherType, state.tempC + diurnalOffset(state.minutes), state.forecast[0]?.precipChance ?? 0.05);
-  const nowLightsOn = computeAmbientVisibility() < VISIBILITY_DIM;
-  if (nowLightsOn !== prevLightsOn) {
-    await syncStreetlights(nowLightsOn).catch(() => {});
-    await recomputePower().catch(() => {});
-  }
+  if (await syncStreetlights().catch(() => false)) await recomputePower().catch(() => {});
   const payload = { ...getHUDPayload(), forecast: getForecast() };
   if (broadcast) broadcast({ type: 'environment.sync', ...payload });
   return payload;
@@ -1916,6 +2062,26 @@ export async function recomputePower() {
   await simulatePowerNetwork(query, { weatherType: state.weatherType });
   await loadZonePowerAndLighting(query);
   return getPowerMap();
+}
+
+// Ghost-mode sabotage: force a zone fully offline right now. Zeroes its supply
+// and load, cuts the lights via the standard blackout path (which broadcasts a
+// zone_event with refresh:true, so clients re-look and the visibility filter
+// fades to darkness), then reloads in-memory power state so getZoneVisibility()
+// drops immediately. Returns { ok, prevStatus }; ok:false when the zone has no
+// power_zones row to drain.
+export async function drainZonePower(zoneId) {
+  const { query } = deps;
+  const { rows } = await query('SELECT status, max_capacity_kw FROM power_zones WHERE id=$1', [zoneId]);
+  if (!rows.length) return { ok: false };
+  const prevStatus = rows[0].status;
+  const cap = rows[0].max_capacity_kw ?? 0;
+  await query(`UPDATE power_zones SET status='offline', available_kw=0, current_load_kw=0 WHERE id=$1`, [zoneId]);
+  // silent: the generic "lights cut out" line is suppressed so the ghost layer
+  // can broadcast its own dramatic, sourceless blackout emote (with refresh) instead.
+  await applyPowerLightEffects(query, zoneId, prevStatus, 'offline', 0, cap, { silent: true });
+  await loadZonePowerAndLighting(query);
+  return { ok: true, prevStatus };
 }
 
 // Used by commands.js (light switches, generator examine) to check whether

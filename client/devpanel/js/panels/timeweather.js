@@ -10,6 +10,11 @@ function renderTimeWeatherPanel(data) {
   const activeId = env.activeClimateProfileId || '';
   window._twClimateProfiles = climateProfiles;
 
+  const lightningKills = Array.isArray(env.lightningKills) ? env.lightningKills : [];
+  const lightningBox = lightningKills.length
+    ? lightningKills.slice().reverse().map(k => `<div style="padding:4px 0;border-bottom:1px solid var(--border)">⚡ <span style="color:var(--text-bright)">${k.handle}</span> <span style="color:var(--text-dim)">— ${k.date} ${k.time}</span></div>`).join('')
+    : `<div style="color:var(--text-dim)">No one has been struck by lightning so far!</div>`;
+
   const forecastGrid = forecast.slice(0,7).map((f,i) => `
     <div style="background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:12px;text-align:center;min-width:80px">
       <div style="font-size:10px;color:var(--text-dim);margin-bottom:4px">${i===0?'Today':'Day '+(i+1)}</div>
@@ -32,6 +37,25 @@ function renderTimeWeatherPanel(data) {
           <div><div style="color:var(--text-dim);font-size:10px;margin-bottom:2px">INTENSITY</div><div style="color:var(--text)">${env.currentIntensity||'—'}</div></div>
           <div><div style="color:var(--text-dim);font-size:10px;margin-bottom:2px">STATUS</div><div style="color:${env.frozen?'var(--red)':'var(--accent2)'}">${env.frozen?'⏸ Frozen':'▶ Running'}</div></div>
         </div>
+      </div>
+
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:20px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim)">Weather Map <span style="font-weight:400;text-transform:none;color:var(--text-dim)">— live</span></div>
+          <div id="tw-wm-toggles" style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="action-btn" onclick="setWeatherOverlay('temp')">🌡 Temp</button>
+            <button class="action-btn" onclick="setWeatherOverlay('cloud')">☁ Cloud</button>
+            <button class="action-btn" onclick="setWeatherOverlay('precip')">🌧 Precip</button>
+            <button class="action-btn" onclick="setWeatherOverlay('wind')">💨 Wind</button>
+          </div>
+        </div>
+        <div id="tw-weathermap" style="overflow:auto;max-width:100%"><div style="color:var(--text-dim);font-size:12px">Loading weather map…</div></div>
+        <div id="tw-wm-legend" style="font-size:10px;color:var(--text-dim);margin-top:8px"></div>
+      </div>
+
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:20px">
+        <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:16px">Lightning Deaths</div>
+        <div style="font-size:12px;max-height:180px;overflow-y:auto">${lightningBox}</div>
       </div>
 
       <div style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:20px">
@@ -143,6 +167,118 @@ function renderTimeWeatherPanel(data) {
     </div>`;
 
   startPanelClock();
+  startWeatherMapPolling();
+}
+
+// ---------------------------------------------------------------------------
+// Weather Map — live SVG overlay of the moving per-zone weather field.
+// Reads GET /environment/weathermap (outdoor zones + system vectors), draws a
+// tile per zone coloured by the active overlay, plus system circles + wind
+// arrows. Polls every ~12s so fronts visibly drift across the map.
+// ---------------------------------------------------------------------------
+
+const WM_LEGEND = {
+  temp:   'Tile colour = temperature (blue cold → red hot). Dashed circles are weather systems.',
+  cloud:  'Tile shading = cloud cover. Denser = more overcast.',
+  precip: 'Tile colour = precipitation intensity (blue rain / white snow), only while actively precipitating.',
+  wind:   "Arrows show each system's heading and speed; dashed circle = system radius.",
+};
+
+function wmTempColor(t) {
+  const c = Math.max(-20, Math.min(40, t ?? 0));
+  const hue = 240 - ((c + 20) / 60) * 240; // -20°C → 240 (blue), 40°C → 0 (red)
+  return `hsl(${hue.toFixed(0)},65%,45%)`;
+}
+
+function buildWeatherMapSVG(data, overlay) {
+  const zones = data.zones || [];
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const z of zones) {
+    minX = Math.min(minX, z.grid_x); maxX = Math.max(maxX, z.grid_x);
+    minY = Math.min(minY, z.grid_y); maxY = Math.max(maxY, z.grid_y);
+  }
+  if (data.bounds) {
+    minX = Math.min(minX, data.bounds.minX); maxX = Math.max(maxX, data.bounds.maxX);
+    minY = Math.min(minY, data.bounds.minY); maxY = Math.max(maxY, data.bounds.maxY);
+  }
+  const cell = 40, pad = 8;
+  const cols = maxX - minX + 1, rows = maxY - minY + 1;
+  const W = cols * cell + pad * 2, H = rows * cell + pad * 2;
+  const px = gx => pad + (gx - minX) * cell;
+  const py = gy => pad + (gy - minY) * cell;
+
+  let tiles = '';
+  for (const z of zones) {
+    const x = px(z.grid_x), y = py(z.grid_y);
+    const cloud = z.cloudCover || 0, precip = z.precipRate || 0;
+    let fill = 'var(--bg3)', label = '';
+    if (overlay === 'temp')        { fill = wmTempColor(z.tempC); label = `${z.tempC}°`; }
+    else if (overlay === 'cloud')  { fill = `rgba(200,206,220,${cloud.toFixed(2)})`; }
+    else if (overlay === 'precip') { fill = z.precipType === 'snow' ? `rgba(235,240,255,${precip.toFixed(2)})` : `rgba(70,120,240,${precip.toFixed(2)})`; }
+    else if (overlay === 'wind')   { fill = `rgba(200,206,220,${(cloud * 0.6).toFixed(2)})`; }
+    const tip = `${z.name} (${z.grid_x},${z.grid_y}) — ${z.tempC}°C, cloud ${(cloud * 100) | 0}%, precip ${(precip * 100) | 0}%`;
+    tiles += `<rect x="${x + 1}" y="${y + 1}" width="${cell - 2}" height="${cell - 2}" rx="3" fill="${fill}" stroke="var(--border)" stroke-width="1"><title>${tip}</title></rect>`;
+    if (label) tiles += `<text x="${x + cell / 2}" y="${y + cell / 2 + 3}" text-anchor="middle" font-size="10" fill="#fff" style="pointer-events:none">${label}</text>`;
+  }
+
+  let sys = '';
+  const arrowScale = cell * 6;
+  for (const s of (data.systems || [])) {
+    const scx = pad + (s.x - minX) * cell + cell / 2;
+    const scy = pad + (s.y - minY) * cell + cell / 2;
+    const r = Math.max(6, s.radius * cell);
+    const col = s.type === 'storm' ? 'var(--yellow)' : s.type === 'precip' ? '#5a8cf0' : '#c8ccd8';
+    sys += `<circle cx="${scx.toFixed(1)}" cy="${scy.toFixed(1)}" r="${r.toFixed(1)}" fill="none" stroke="${col}" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.8"/>`;
+    if (overlay === 'wind' || s.type === 'storm') {
+      const ex = scx + s.vx * arrowScale, ey = scy + s.vy * arrowScale;
+      sys += `<line x1="${scx.toFixed(1)}" y1="${scy.toFixed(1)}" x2="${ex.toFixed(1)}" y2="${ey.toFixed(1)}" stroke="${col}" stroke-width="2" marker-end="url(#tw-arrow)"/>`;
+    }
+    if (s.type === 'storm') sys += `<text x="${scx.toFixed(1)}" y="${(scy - r - 3).toFixed(1)}" text-anchor="middle" font-size="11" fill="var(--yellow)">⚡</text>`;
+  }
+
+  return `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="max-width:100%;height:auto;font-family:var(--font)">
+    <defs><marker id="tw-arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#c8ccd8"/></marker></defs>
+    ${tiles}${sys}
+  </svg>`;
+}
+
+function paintWeatherMap() {
+  const host = document.getElementById('tw-weathermap');
+  if (!host) return;
+  const data = window._twWeatherMapData;
+  if (!data || !data.zones?.length) {
+    host.innerHTML = '<div style="color:var(--text-dim);font-size:12px">No outdoor zones placed on the map.</div>';
+    return;
+  }
+  const overlay = window._twOverlay || 'temp';
+  host.innerHTML = buildWeatherMapSVG(data, overlay);
+  const legend = document.getElementById('tw-wm-legend');
+  if (legend) legend.textContent = WM_LEGEND[overlay] || '';
+}
+
+function setWeatherOverlay(mode) {
+  window._twOverlay = mode;
+  const wrap = document.getElementById('tw-wm-toggles');
+  if (wrap) for (const b of wrap.children) {
+    const on = (b.getAttribute('onclick') || '').includes(`'${mode}'`);
+    b.style.borderColor = on ? 'var(--accent2)' : '';
+    b.style.color = on ? 'var(--accent2)' : '';
+  }
+  paintWeatherMap();
+}
+
+function startWeatherMapPolling() {
+  if (window._twWeatherMapInterval) { clearInterval(window._twWeatherMapInterval); window._twWeatherMapInterval = null; }
+  if (!window._twOverlay) window._twOverlay = 'temp';
+  const tick = async () => {
+    const host = document.getElementById('tw-weathermap');
+    if (!host) { clearInterval(window._twWeatherMapInterval); window._twWeatherMapInterval = null; return; }
+    const d = await API('/environment/weathermap');
+    if (d && !d.error) { window._twWeatherMapData = d; paintWeatherMap(); }
+  };
+  tick();
+  window._twWeatherMapInterval = setInterval(tick, 12_000);
+  setWeatherOverlay(window._twOverlay);
 }
 
 async function devApplyTime() {

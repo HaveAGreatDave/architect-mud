@@ -42,7 +42,7 @@ negative" invariant lives in one place.
   faction reputation, floored at 1.
 - **Buy:** debits credits via `adjustCredits`, then inserts/stacks the item. Vendor `stock` is **not**
   decremented — supply is effectively infinite (default `stock ?? 99` is display-only).
-- **Sell:** pays **40% of the item's `value`**. Rejects `quest_item`-tagged and equipped items.
+- **Sell:** pays `floor(value × 0.4 × (1 + Cool×0.05) × (1 + factionDiscount))`, floored at 1 — a base **40% of the item's `value`**, boosted **+5% per point of the seller's Cool stat**, and adjusted by faction reputation with the vendor (friendly rep pays more, hostile pays less — the same discount buy uses, inverted). Rejects `quest_item`-tagged and equipped items. Sell price logic lives in `computeSellUnitPrice` (`vendor.js`), shared by the actual sale and the GUI Sell-tab preview.
 
 ## Faction reputation
 

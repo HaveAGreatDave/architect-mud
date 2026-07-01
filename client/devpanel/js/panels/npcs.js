@@ -98,142 +98,37 @@ function renderNpcsPanel(data) {
 // --- Zone forms ---
 // Controls which entrance-discovery flavor-text bank a building uses
 // (server-side bank lives in commands.js, keyed by the same ids).
-const NPC_CHITCHAT_PRESETS = {
-  tv_host: [
-    "We'll be right back after these messages.",
-    "Incredible. Simply incredible. Stay with us.",
-    "That's all the time we have for tonight, folks.",
-    "Let's go to our correspondent in the field.",
-    "Live from the ruins of civilization — this is the news.",
-    "Don't touch that dial. Actually, you can't. The dial broke years ago.",
-    "Our ratings are through the roof. The roof itself is on fire.",
-    "I'm told we have a caller. Hello, you're on the air.",
-    "This next segment has been approved by our corporate overlords.",
-    "Remember: what you're about to see cannot be unseen.",
-  ],
-  bartender: [
-    "What'll it be?",
-    "You look like you've had a rough one.",
-    "Pay first. Trust later. That's policy.",
-    "You're not the first person to cry at this bar. Won't be the last.",
-    "I've heard worse. Much worse.",
-    "Last call was three hours ago. I'm still here.",
-    "We're out of the good stuff. We were always out of the good stuff.",
-    "Tab's running. Keep drinking.",
-    "I don't ask questions. That's why people come here.",
-    "You want ice with that? Funny.",
-  ],
-  vendor: [
-    "Best prices in the district. That's not saying much.",
-    "You touch it, you bought it.",
-    "Everything's genuine. Genuinely acquired.",
-    "Trade you for it. Credits preferred. Bullets accepted.",
-    "Limited supply. Always limited. That's the pitch.",
-    "I don't know where it came from. That's not your business either.",
-    "Come back tomorrow — stock changes. If I'm still here.",
-    "Quality merchandise at prices that won't kill you. Probably.",
-  ],
-  guard: [
-    "Move along.",
-    "Eyes forward.",
-    "I see you.",
-    "Nothing happens on my watch. Usually.",
-    "This area is restricted. That's not a suggestion.",
-    "I've had a long shift. Don't make it longer.",
-    "Protocol says I have to say something. So: stop.",
-    "Keep it moving.",
-    "Don't make me call this in.",
-  ],
-  thug: [
-    "You looking at something?",
-    "Watch where you're walking.",
-    "This block's got rules.",
-    "Nice gear. Shame what happens to nice things.",
-    "I seen you around here before?",
-    "Mind your business and you'll keep your fingers.",
-    "The crew knows your face now.",
-    "We run things here. Not them. Us.",
-  ],
-  doctor: [
-    "Don't touch that with your bare hands.",
-    "I've seen worse. Barely.",
-    "The human body is remarkably resilient. And remarkably stupid.",
-    "This won't hurt much.",
-    "I can fix that. The question is whether you'll want me to.",
-    "My rates are reasonable. For the apocalypse.",
-    "Symptom management is all any of us are doing at this point.",
-    "Sign the waiver. Everyone signs the waiver.",
-  ],
-  politician: [
-    "We're making progress.",
-    "The data supports our approach.",
-    "I hear your concerns. I'll note them down.",
-    "The situation is under control. My definition of control.",
-    "We're committed to accountability. The accountability of others.",
-    "This is a temporary measure.",
-    "Due process is very important to us.",
-    "We are exploring all options. Except the obvious ones.",
-  ],
-  preacher: [
-    "The end was promised. The end delivered.",
-    "Repent. It won't help, but the gesture matters.",
-    "He watches. Even here.",
-    "Salvation is available. Supply is limited.",
-    "Blessed are the adaptable.",
-    "The scripture didn't specify what kind of fire.",
-    "Sin freely. Confess generously. That's the cycle.",
-    "Judgment is coming. It commutes.",
-  ],
-  vagrant: [
-    "You got a smoke?",
-    "I used to have a job. Good job too.",
-    "Don't sleep near the east wall. Trust me.",
-    "Seen things out there you wouldn't believe.",
-    "It's gonna rain. I can tell. My knee knows.",
-    "You got any credits? Just asking.",
-    "They took everything. But not this spot. This spot's mine.",
-    "The machines don't sleep. I've watched.",
-  ],
-  mercenary: [
-    "This isn't personal. It's a contract.",
-    "Better paid than the last job. That's all I ask.",
-    "Don't mistake my silence for hesitation.",
-    "I've seen a lot of warzones. They all look the same eventually.",
-    "Loyalty's expensive. I'm surprisingly affordable.",
-    "Eyes open. That's the whole philosophy.",
-    "I get paid either way.",
-    "There's no good side. Just better rates.",
-  ],
-  scientist: [
-    "The results were unexpected. As always.",
-    "Containment is holding. For now.",
-    "This is theoretically reversible.",
-    "The ethical review board no longer exists. We proceed.",
-    "Note: do not touch the sample with your left hand.",
-    "I've run the numbers. The numbers are concerning.",
-    "Progress requires sacrifice. Usually someone else's.",
-    "We're close. We are always close.",
-  ],
-  cult_member: [
-    "He is coming. He is always coming.",
-    "Join us. The waiting is easier with company.",
-    "The old world is ash. This is better.",
-    "We don't recruit. We recognise.",
-    "Pain is just loyalty with nerve endings.",
-    "Doubt is the first step. We help with the next ones.",
-    "There is no leaving. There is only becoming.",
-    "The vessel is willing. Are you?",
-  ],
-};
+// Archetype metadata fetched from GET /npc-personalities (the single server-side
+// registry). Chitchat/combat/MIS line content lives only on the server now; the
+// client keeps just labels/icons/sells/mobile for the dropdown and shop gating.
+let _npcPersonalities = [];
 
-function npcLoadChitchatPreset() {
-  const key = document.getElementById('f-chitchat-preset')?.value;
-  if (!key || !NPC_CHITCHAT_PRESETS[key]) return;
-  const ta = document.getElementById('f-chitchat');
-  if (!ta) return;
-  const existing = ta.value.trim();
-  const preset = NPC_CHITCHAT_PRESETS[key].join('\n');
-  ta.value = existing ? `${existing}\n${preset}` : preset;
+// Show/hide the shop UI and refresh the chitchat hint when the Job / Personality
+// changes; auto-set default vendor dialogue when switching to a selling archetype.
+function npcApplyArchetype(slug) {
+  const p = _npcPersonalities.find(x => x.slug === slug) || null;
+  const sells = !!p?.sells;
+  const shopEl = document.getElementById('vendor-shop-section');
+  const cfgEl = document.getElementById('vendor-config-section');
+  if (shopEl) shopEl.style.display = sells ? '' : 'none';
+  if (cfgEl) cfgEl.style.display = sells ? '' : 'none';
+  npcUpdateChitchatHint(slug);
+  if (sells) {
+    const ta = document.getElementById('f-dialogue_tree');
+    const val = ta?.value?.trim();
+    if (!val || val === '{}') { npcGenerateDefaultDialogue(true); toast('Default vendor dialogue set automatically. Save to persist.'); }
+  }
+}
+
+// Reflects whether the chitchat textarea is overriding the archetype default.
+function npcUpdateChitchatHint(slug) {
+  const hint = document.getElementById('f-chitchat-hint');
+  if (!hint) return;
+  const p = _npcPersonalities.find(x => x.slug === slug) || null;
+  const hasOverride = (document.getElementById('f-chitchat')?.value || '').trim().length > 0;
+  if (hasOverride) hint.textContent = 'custom lines — overriding the archetype default';
+  else if (p) hint.textContent = `blank — using ${p.icon} ${p.label} default lines`;
+  else hint.textContent = 'blank — using generic default lines';
 }
 
 // ─── Vendor Shop Editor ─────────────────────────────────────────────────────
@@ -677,45 +572,43 @@ async function npcEditForm(rec, isNew) {
   const vendorBankCredits = rec.vendor_bank_credits || 0;
   const vendorShopName = rec.vendor_shop_name || '';
 
-  const [zones, allItems] = await Promise.all([
+  const [zones, allItems, persMeta] = await Promise.all([
     API('/zones').catch(() => []),
     API('/items').catch(() => []),
+    API('/npc-personalities').catch(() => []),
   ]);
   _veInit(rec, Array.isArray(allItems) ? allItems : []);
   _vsInit(vendorSchedule);
+
+  // Single archetype registry (server-driven): each entry = job + personality.
+  const personalities = Array.isArray(persMeta) ? persMeta : [];
+  _npcPersonalities = personalities;
+  const curPers = personalities.find(p => p.slug === flags.personality) || null;
+  const sellsNow = !!curPers?.sells;
+  const jobOpts = ['<option value="">— none —</option>',
+    ...personalities.map(p => `<option value="${p.slug}" ${flags.personality===p.slug?'selected':''}>${p.icon} ${p.label}${p.sells?' · shop':''}</option>`)
+  ].join('');
 
   const zoneList = Array.isArray(zones) ? [...zones].sort((a, b) => (a.id||'').localeCompare(b.id||'')) : [];
   const workZoneName = (workZoneId && zoneList.find(z => z.id === workZoneId)?.name) || workZoneId || '—';
   const homeZoneVal = rec.home_zone || 'zone_residential_lobby';
   const homeZoneOpts = zoneList.map(z => `<option value="${z.id}" ${z.id===homeZoneVal?'selected':''}>${z.id}</option>`).join('');
-  const presetOpts = [
-    ['', '— load preset —'],
-    ['tv_host','📺 TV Host'],['bartender','🍺 Bartender'],['vendor','🛒 Vendor'],
-    ['guard','🔒 Guard'],['thug','🔪 Thug'],['doctor','🩺 Doctor'],
-    ['politician','🎙 Politician'],['preacher','✝ Preacher'],['vagrant','🚬 Vagrant'],
-    ['mercenary','💀 Mercenary'],['scientist','🔬 Scientist'],['cult_member','👁 Cult Member'],
-  ].map(([v, l]) => `<option value="${v}">${l}</option>`).join('');
-
   setTimeout(() => {
     veRenderBuckets();
     _vsRender();
     if (rec.id && workZoneId) npcRefreshSafeStatus();
-    // Auto-set default vendor dialogue when type is vendor and dialogue is blank/empty
-    if (npcType === 'vendor') {
+    // Auto-set default vendor dialogue when the archetype sells and dialogue is blank.
+    if (sellsNow) {
       const ta = document.getElementById('f-dialogue_tree');
       const val = ta?.value?.trim();
       if (!val || val === '{}') npcGenerateDefaultDialogue(true), toast('Default vendor dialogue set automatically. Save to persist.');
     }
-    // Show/hide vendor config on type change; auto-set dialogue when switching to vendor
-    document.getElementById('f-npc_type')?.addEventListener('change', function() {
-      const isVendor = this.value === 'vendor';
-      document.getElementById('vendor-config-section').style.display = isVendor ? '' : 'none';
-      if (isVendor) {
-        const ta = document.getElementById('f-dialogue_tree');
-        const val = ta?.value?.trim();
-        if (!val || val === '{}') npcGenerateDefaultDialogue(true), toast('Default vendor dialogue set automatically. Save to persist.');
-      }
+    // Job / Personality change: show/hide shop UI, refresh the chitchat placeholder,
+    // and auto-set vendor dialogue when switching to a selling archetype.
+    document.getElementById('f-personality')?.addEventListener('change', function() {
+      npcApplyArchetype(this.value);
     });
+    npcUpdateChitchatHint(flags.personality);
   }, 0);
 
   return `
@@ -727,20 +620,10 @@ async function npcEditForm(rec, isNew) {
       <div class="field"><label>Home Zone</label><select id="f-home_zone">${homeZoneOpts}</select></div>
       <div class="field"><label>Faction</label><input id="f-faction" value="${rec.faction||''}"></div>
       <div class="field" style="max-width:100px"><label>Max HP</label><input id="f-hp_max" type="number" min="1" step="1" value="${rec.hp_max||20}"></div>
-      <div class="field" style="max-width:110px"><label>NPC Type</label>
-        <select id="f-npc_type">
-          <option value="npc" ${npcType==='npc'?'selected':''}>NPC</option>
-          <option value="vendor" ${npcType==='vendor'?'selected':''}>Vendor</option>
-          <option value="unemployed" ${npcType==='unemployed'?'selected':''}>Unemployed</option>
-        </select>
-      </div>
     </div>
     <div class="field-row" style="align-items:flex-end">
-      <div class="field"><label>Personality — drives combat reactions and MIS responses</label>
-        <select id="f-personality">
-          <option value="">— none —</option>
-          ${[['tv_host','📺 TV Host'],['bartender','🍺 Bartender'],['vendor','🛒 Vendor'],['guard','🔒 Guard'],['thug','🔪 Thug'],['doctor','🩺 Doctor'],['politician','🎙 Politician'],['preacher','✝ Preacher'],['vagrant','🚬 Vagrant'],['mercenary','💀 Mercenary'],['scientist','🔬 Scientist'],['cult_member','👁 Cult Member']].map(([v,l])=>`<option value="${v}" ${flags.personality===v?'selected':''}>${l}</option>`).join('')}
-        </select>
+      <div class="field"><label>Job / Personality — one archetype sets the NPC's job, chitchat, combat reactions and MIS responses</label>
+        <select id="f-personality">${jobOpts}</select>
       </div>
       <div class="field" style="max-width:160px"><label><input type="checkbox" id="f-mis_willing" ${flags.mis_willing===true?'checked':''}> MIS willing — allows MIS actions</label></div>
     </div>
@@ -753,12 +636,9 @@ async function npcEditForm(rec, isNew) {
     <div class="field">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
         <label>Chitchat Lines <span style="font-weight:400;color:var(--text-dim);font-size:11px">— one per line, spoken at random during idle</span></label>
-        <div style="display:flex;gap:6px;align-items:center">
-          <select id="f-chitchat-preset" class="form-input" style="font-size:11px;padding:3px 6px">${presetOpts}</select>
-          <button type="button" class="action-btn" style="font-size:11px;padding:3px 8px" onclick="npcLoadChitchatPreset()">Load</button>
-        </div>
+        <span id="f-chitchat-hint" style="font-size:11px;color:var(--text-dim)"></span>
       </div>
-      <textarea id="f-chitchat" rows="6" placeholder="She took everything, man.\nYou want another?">${chitchat.join('\n')}</textarea>
+      <textarea id="f-chitchat" rows="6" oninput="npcUpdateChitchatHint(document.getElementById('f-personality').value)" placeholder="Leave blank to use the selected Job / Personality's default lines.">${chitchat.join('\n')}</textarea>
     </div>
     <div class="field">
       <label>Home Activities <span style="font-weight:400;color:var(--text-dim);font-size:11px">— one per line; quoted text = says, unquoted = emote</span></label>
@@ -773,7 +653,7 @@ async function npcEditForm(rec, isNew) {
       </div>
       <textarea id="f-dialogue_tree" rows="10">${JSON.stringify(tree, null, 2)}</textarea>
     </div>
-    <div class="field">
+    <div class="field" id="vendor-shop-section" style="${sellsNow?'':'display:none'}">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
         <label style="margin:0">Vendor Shop</label>
         <span style="font-size:10px;color:var(--text-dim)">Catalogue = full list · Active shelf = auto-managed subset</span>
@@ -781,8 +661,8 @@ async function npcEditForm(rec, isNew) {
       ${_veEditorHtml(rec)}
     </div>
 
-    <!-- ── Vendor Config (visible when npc_type=vendor) ─────────────────── -->
-    <div id="vendor-config-section" style="${npcType==='vendor'?'':'display:none'}">
+    <!-- ── Vendor Config (visible when the Job / Personality sells goods) ── -->
+    <div id="vendor-config-section" style="${sellsNow?'':'display:none'}">
       <div style="border-top:1px solid var(--border);margin:16px 0 12px;padding-top:12px">
         <div style="font-size:12px;font-weight:600;color:var(--accent);letter-spacing:0.05em;margin-bottom:12px">VENDOR CONFIG</div>
 
@@ -867,7 +747,6 @@ async function saveNpc(existing) {
     vendor_restock_rate: parseInt(document.getElementById('f-vendor_restock_rate')?.value) || 1,
     behaviour_graph,
     flags,
-    npc_type: document.getElementById('f-npc_type')?.value || 'npc',
     vendor_schedule: _vsToSchedule(),
     vendor_shop_name: document.getElementById('f-vendor_shop_name')?.value || null,
     home_activities,

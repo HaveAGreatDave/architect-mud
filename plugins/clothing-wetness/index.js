@@ -22,7 +22,7 @@
  */
 import { query } from '../../server/models/db.js';
 import { hasTag } from '../../server/engine/tags.js';
-import { getEnvironmentState, getZoneTemperature } from '../../server/engine/environment.js';
+import { getZoneTemperature, getZonePrecip } from '../../server/engine/environment.js';
 import { getAllLivePlayers, getZone } from '../../server/engine/world.js';
 
 function rainWettingRate(precipRate) {
@@ -53,17 +53,16 @@ const DRY_MSG = "You're completely dry.";
 
 export const hooks = {
   'tick.minute': async ({ broadcast }) => {
-    const env = getEnvironmentState();
-    const { precipRate } = env;
-
     for (const player of getAllLivePlayers()) {
       const playerId = player.id;
       if (player.sleeping) continue;
 
       const zone = getZone(player.current_zone);
       const isIndoors = zone?.flags?.is_interior ?? false;
+      // Local precipitation at the player's tile — under a passing cell or not.
+      const { precipRate, precipType } = getZonePrecip(player.current_zone);
       const isPrecipitating = precipRate > 0 && !isIndoors;
-      const isSnow = env.currentPrecip === 'snow';
+      const isSnow = precipType === 'snow';
       const zoneTemp = getZoneTemperature(player.current_zone);
       const baseDryRate = isIndoors ? 3 : 2;
       const dryRate = baseDryRate * dryMultiplier(zoneTemp);

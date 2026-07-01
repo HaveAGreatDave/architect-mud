@@ -6,7 +6,7 @@
   "routePrefix": "/broadcast",
   "actions": { "registers": ["TUNE_DEVICE", "CAMERA_RECORD", "CAMERA_STREAM"] },
   "events": {
-    "emits": ["broadcast.started", "broadcast.message", "device.tuned", "camera.recorded"],
-    "consumes": ["player.death", "zone.entered", "flag.set", "item.dropped"]
+    "emits": ["broadcast.message", "device.tuned", "camera.recorded"],
+    "consumes": ["tv.watch", "tv.unwatch", "deck.watch", "deck.unwatch", "player.logout", "player.death", "flag.set", "npc.broadcast_say", "zone.broadcast"]
   }
 }

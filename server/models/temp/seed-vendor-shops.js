@@ -113,7 +113,7 @@ const VELK_DIALOGUE = {
     ],
   },
   history: {
-    text: '"Fifteen years in this spot. Before me it was a noodle bar. Before that, rubble. This city's got layers."',
+    text: '"Fifteen years in this spot. Before me it was a noodle bar. Before that, rubble. This city\'s got layers."',
     options: [
       { label: 'What happened to the noodle bar?', next: 'noodles' },
       { label: 'Browse your wares.', next: '__shop__' },
@@ -146,8 +146,8 @@ const DRUM_DIALOGUE = {
     options: [
       { label: 'Browse your wares.', next: '__shop__' },
       { label: 'You make these yourself?', next: 'craft' },
-      { label: 'What's the post-apocalypse look this season?', next: 'fashion' },
-      { label: 'I'm good, thanks.', next: 'bye' },
+      { label: 'What\'s the post-apocalypse look this season?', next: 'fashion' },
+      { label: 'I\'m good, thanks.', next: 'bye' },
     ],
   },
   craft: {
@@ -165,7 +165,7 @@ const DRUM_DIALOGUE = {
     ],
   },
   bye: {
-    text: '"Come back when you're ready to commit to an aesthetic. Or don\'t. Either way, you know where I am."',
+    text: '"Come back when you\'re ready to commit to an aesthetic. Or don\'t. Either way, you know where I am."',
     options: [],
   },
 };

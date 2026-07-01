@@ -250,6 +250,59 @@ on('player.respawn', ({ player }) => {
   setTimeout(() => sendToPlayer(id, { type: 'audio_sfx', def: SFX_VAT_CHIME }), 2100);
 });
 
+// ── Ghost-mode audio ───────────────────────────────────────────────────────
+// Inline synth defs — no DB row needed. Deliberately quiet: an unseen presence
+// should be felt more than heard.
+
+// Subtle "something is here" — a breathy swell over a low sub and a faint high
+// shimmer. Low gains keep it under the ambient bed rather than announcing itself.
+const SFX_GHOST_WHISPER = {
+  id: 'sfx_ghost_whisper', name: 'sfx_ghost_whisper', category: 'sfx', priority: 3,
+  config: {
+    duration: 1.8,
+    layers: [
+      { noiseMix: 1, filter: { type: 'bandpass', freq: 1200, q: 0.8 }, adsr: { a: 0.6, d: 0.5, s: 0.3, r: 0.9 }, gain: 0.09 },
+      { waveform: 'sine', freq: 70, pitchBend: { to: 52, time: 1.8 }, adsr: { a: 0.5, d: 0.4, s: 0.4, r: 0.8 }, gain: 0.06 },
+      { waveform: 'sine', freq: 2100, tremolo: { rate: 6, depth: 0.7 }, adsr: { a: 0.4, d: 0.6, s: 0.2, r: 0.7 }, gain: 0.03 },
+    ],
+  },
+};
+
+// Power drain — mains hum sagging and dying, a sub drop, and an electrical
+// fizzle tail. Descending pitch mirrors the lights fading to black.
+const SFX_POWER_DRAIN = {
+  id: 'sfx_power_drain', name: 'sfx_power_drain', category: 'sfx', priority: 6,
+  config: {
+    duration: 2.2,
+    layers: [
+      { waveform: 'sawtooth', freq: 120, pitchBend: { to: 18, time: 2.0 }, filter: { type: 'lowpass', freq: 900, q: 1.0 }, adsr: { a: 0.05, d: 0.4, s: 0.6, r: 1.0 }, gain: 0.22 },
+      { waveform: 'sine', freq: 80, pitchBend: { to: 25, time: 2.0 }, adsr: { a: 0.05, d: 0.3, s: 0.5, r: 0.9 }, gain: 0.18 },
+      { noiseMix: 0.7, filter: { type: 'highpass', freq: 3000, q: 1.2 }, adsr: { a: 0.02, d: 0.8, s: 0.15, r: 0.8 }, gain: 0.08 },
+    ],
+  },
+};
+
+// A ghost's actions build an "unseen presence" — but a sound on every single one
+// would be constant noise, so only every Nth action rings out. Designers can
+// override the sound with an event route named 'ghost.ambient'; otherwise the
+// inline whisper plays. Counter is global across ghosts (rare to have several).
+let _ghostActionCount = 0;
+const GHOST_AMBIENT_EVERY = 5;
+
+on('ghost.action', ({ zoneId }) => {
+  if (!zoneId) return;
+  _ghostActionCount++;
+  if (_ghostActionCount % GHOST_AMBIENT_EVERY !== 0) return;
+  if (triggerEventRoute('ghost.ambient', zoneId, null)) return;
+  sendToZone(zoneId, { type: 'audio_sfx', def: SFX_GHOST_WHISPER });
+});
+
+on('ghost.drain', ({ zoneId }) => {
+  if (!zoneId) return;
+  if (triggerEventRoute('ghost.drain', zoneId, null)) return;
+  sendToZone(zoneId, { type: 'audio_sfx', def: SFX_POWER_DRAIN });
+});
+
 on('item.taken', ({ actor }) => {
   if (!triggerEventRoute('item.taken', actor?.current_zone, actor?.id)) {
     const def = sfxByName('ui_button');

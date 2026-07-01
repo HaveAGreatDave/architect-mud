@@ -8,7 +8,7 @@ export function openLightViewDialog(data) {
   if (!modal) {
     modal = document.createElement('div');
     modal.id = 'lightview-modal';
-    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:500;display:flex;align-items:center;justify-content:center';
+    modal.classList.add('modal-overlay'); modal.style.cssText = 'background:rgba(0,0,0,0.75);z-index:500;display:flex';
     modal.addEventListener('click', e => { if (e.target === modal) closeLightViewDialog(); });
     document.body.appendChild(modal);
   }
@@ -42,8 +42,8 @@ function _renderLightView(modal, d) {
       <td style="text-align:center"><span style="color:${d.powerStatus === 'powered' ? 'var(--green)' : 'var(--red)'}">
         ${d.powerStatus === 'powered' ? '✓ Receiving' : '✗ No power'}</span></td>
       <td style="text-align:right;white-space:nowrap">
-        <button data-lv-toggle-light="${l.id}" data-lv-state="${l.light_on ? 0 : 1}" style="${_lvBtnStyle(l.light_on ? 'var(--red)' : 'var(--green)')}">${l.light_on ? 'Turn Off' : 'Turn On'}</button>
-        <button data-lv-delete-light="${l.id}" style="${_lvBtnStyle('var(--text-dim)')}">✕</button>
+        <button data-lv-toggle-light="${l.id}" data-lv-state="${l.light_on ? 0 : 1}" class="lv-btn" style="${_lvBtnStyle(l.light_on ? 'var(--red)' : 'var(--green)')}">${l.light_on ? 'Turn Off' : 'Turn On'}</button>
+        <button data-lv-delete-light="${l.id}" class="lv-btn" style="${_lvBtnStyle('var(--text-dim)')}">✕</button>
       </td>
     </tr>`;
   }).join('') || `<tr><td colspan="5" style="color:var(--text-dim);font-style:italic;padding:8px">No light fixtures in this room.</td></tr>`;
@@ -65,9 +65,9 @@ function _renderLightView(modal, d) {
         </div>
       </td>
       <td style="text-align:right;white-space:nowrap">
-        <button data-lv-toggle-curtain="${w.id}" data-lv-state="${w.curtain_open ? 0 : 1}" style="${_lvBtnStyle('var(--accent)')}">${w.curtain_open ? 'Close' : 'Open'}</button>
-        <button data-lv-edit-window="${w.id}" style="${_lvBtnStyle('var(--text-dim)')}">✏</button>
-        <button data-lv-delete-window="${w.id}" style="${_lvBtnStyle('var(--red)')}">✕</button>
+        <button data-lv-toggle-curtain="${w.id}" data-lv-state="${w.curtain_open ? 0 : 1}" class="lv-btn" style="${_lvBtnStyle('var(--accent)')}">${w.curtain_open ? 'Close' : 'Open'}</button>
+        <button data-lv-edit-window="${w.id}" class="lv-btn" style="${_lvBtnStyle('var(--text-dim)')}">✏</button>
+        <button data-lv-delete-window="${w.id}" class="lv-btn" style="${_lvBtnStyle('var(--red)')}">✕</button>
       </td>
     </tr>`;
   }).join('') || `<tr><td colspan="5" style="color:var(--text-dim);font-style:italic;padding:8px">No windows in this room.</td></tr>`;
@@ -104,7 +104,7 @@ function _renderLightView(modal, d) {
 
     <div style="padding:10px 16px 4px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border)">
       <span style="font-size:12px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:1px">Lights</span>
-      <button data-lv-add-light style="${_lvBtnStyle('var(--green)')}">+ Add Light</button>
+      <button data-lv-add-light class="lv-btn" style="${_lvBtnStyle('var(--green)')}">+ Add Light</button>
     </div>
     <table style="width:100%;border-collapse:collapse;font-size:11px">
       <thead><tr style="background:var(--bg3)">
@@ -119,7 +119,7 @@ function _renderLightView(modal, d) {
 
     <div style="padding:10px 16px 4px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);margin-top:4px">
       <span style="font-size:12px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:1px">Windows</span>
-      <button data-lv-add-window style="${_lvBtnStyle('var(--cyan)')}">+ Add Window</button>
+      <button data-lv-add-window class="lv-btn" style="${_lvBtnStyle('var(--cyan)')}">+ Add Window</button>
     </div>
     <table style="width:100%;border-collapse:collapse;font-size:11px">
       <thead><tr style="background:var(--bg3)">
@@ -132,8 +132,8 @@ function _renderLightView(modal, d) {
       <tbody id="lv-windows-body">${winRows}</tbody>
     </table>
     <div style="padding:10px 16px;border-top:1px solid var(--border);text-align:right">
-      <button data-lv-refresh style="${_lvBtnStyle('var(--accent)')}" title="Refresh data">↻ Refresh</button>
-      <button data-lv-close style="${_lvBtnStyle('var(--text-dim)')}">Close</button>
+      <button data-lv-refresh class="lv-btn" style="${_lvBtnStyle('var(--accent)')}" title="Refresh data">↻ Refresh</button>
+      <button data-lv-close class="lv-btn" style="${_lvBtnStyle('var(--text-dim)')}">Close</button>
     </div>
   </div>`;
 
@@ -179,8 +179,9 @@ function _renderLightView(modal, d) {
   });
 }
 
+// Emits the per-button accent as a CSS custom property; static styling lives in .lv-btn.
 function _lvBtnStyle(color) {
-  return `background:transparent;border:1px solid ${color};color:${color};font-family:var(--font-mono);font-size:10px;padding:3px 8px;cursor:pointer;border-radius:2px;margin-left:4px`;
+  return `--lv-btn-color:${color}`;
 }
 
 function _lvToken() { return sessionStorage.getItem('devpanel-token'); }
@@ -199,7 +200,7 @@ function _lvInlineForm(kind, existing) {
   if (!overlay) {
     overlay = document.createElement('div');
     overlay.id = 'lv-form-overlay';
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:600;display:flex;align-items:center;justify-content:center';
+    overlay.classList.add('modal-overlay'); overlay.style.cssText = 'background:rgba(0,0,0,0.6);z-index:600;display:flex';
     document.body.appendChild(overlay);
   }
   overlay.style.display = 'flex';
@@ -251,8 +252,8 @@ function _lvInlineForm(kind, existing) {
       </div>
       ${formHtml}
       <div style="display:flex;gap:8px;margin-top:4px">
-        <button id="lvf-save" style="${_lvBtnStyle('var(--green)')}">Save</button>
-        <button id="lvf-cancel" style="${_lvBtnStyle('var(--text-dim)')}">Cancel</button>
+        <button id="lvf-save" class="lv-btn" style="${_lvBtnStyle('var(--green)')}">Save</button>
+        <button id="lvf-cancel" class="lv-btn" style="${_lvBtnStyle('var(--text-dim)')}">Cancel</button>
       </div>
     </div>`;
 

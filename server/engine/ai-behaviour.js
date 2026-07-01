@@ -5,6 +5,7 @@ import { getEnvironmentState } from './environment.js';
 import { emit } from './events.js';
 import { hasChannelViewers, isNpcScheduledNow, getNpcStudioZone } from './broadcast-bridge.js';
 import { getShopperForNpc, closeShopSession } from './vendor-session.js';
+import { getNpcChitchat } from './npc-personality.js';
 
 // ── Vendor schedule helpers ──────────────────────────────────────────────────
 
@@ -115,7 +116,10 @@ function formatChitchat(name, line) {
 }
 
 function pickChitchatLine(entity) {
-  const lines = Array.isArray(entity.chitchat) ? entity.chitchat : [];
+  // NPC's own chitchat override, else the archetype default (getNpcChitchat).
+  // Enemies have no personality archetype, so this falls through to their own
+  // chitchat array or null.
+  const lines = getNpcChitchat(entity) || (Array.isArray(entity.chitchat) ? entity.chitchat : []);
   if (lines.length) return lines[Math.floor(Math.random() * lines.length)];
   return null; // SAY case falls back to the literal smoking line when this returns null
 }

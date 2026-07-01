@@ -109,17 +109,112 @@ export function updateBodyTempHUD(tempC) {
   renderEnvironmentHUD();
 }
 
-// Called every minute with the zone's current indoor temperature.
-// Overwrites the outdoor temp shown in the HUD when the player is indoors.
-export function updateZoneTempHUD(tempC) {
+// Called with a zone's current temperature. For indoor zones this carries only
+// tempC (overwrites the HUD outdoor temp while inside). For outdoor zones the
+// weather field also sends local cloudCover/precipType/precipRate — additive
+// keys we use to reflect the player's actual tile (a passing storm cell shows
+// local rain even if the global headline is "cloudy"). Old servers omit them.
+export function updateZoneTempHUD(tempC, local) {
   if (clientMinutes === null) return;
   envTempC = tempC;
+  if (local && local.cloudCover !== undefined) {
+    if (local.precipType !== undefined && local.precipType !== 'none') {
+      envCurrentWeatherType = local.precipType;
+      envCurrentPrecipIntensity = localPrecipLabel(local.precipType, local.precipRate || 0);
+    } else {
+      envCurrentWeatherType = local.cloudCover >= 0.5 ? 'overcast' : (local.cloudCover >= 0.2 ? 'cloudy' : 'clear');
+      envCurrentPrecipIntensity = '';
+    }
+  }
   renderEnvironmentHUD();
+}
+
+// Coarse local intensity label from a 0..1 precip rate (the fine server labels
+// live server-side; this is just enough for the local HUD line).
+function localPrecipLabel(type, rate) {
+  const band = rate < 0.25 ? 'light' : rate < 0.5 ? 'moderate' : rate < 0.75 ? 'heavy' : 'severe';
+  return `${band} ${type === 'snow' ? 'snow' : 'rain'}`;
+}
+
+// The flicker + pop fire only on a real grid power cut, which the server signals with a
+// `power-out` zone_event. dispatch.js arms this with the affected zone; the next
+// visibility refresh consumes it. Ordinary day/night dimming just fades.
+let _powerOutArmedZone = null;
+let _visPrevBrightness = '';
+let _visFlickering = false;
+
+// Called from the zone_event handler when the server broadcasts a `power-out` for the
+// player's current zone. Arms the next refresh to flicker the lights out with a pop.
+export function signalPowerOut() {
+  _powerOutArmedZone = state.currentZone;
+}
+
+// Apply the brightness filter to the light-sensitive panes. `instant` bypasses the
+// CSS fade (used for the rapid flicker steps).
+function _applyBrightnessFilter(brightness, instant) {
+  for (const id of ['area-pane', 'output']) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    el.style.transition = instant ? 'none' : '';
+    el.style.filter = brightness;
+  }
+}
+
+// Power-cut flicker: stutter between the previous (lit) brightness and the new dark
+// level a handful of times, then settle dark. Deliberately paced (~90–200 ms/step,
+// 4–6 steps → ~5–11 Hz) so it reads as a dying light, not a strobe.
+function _flickerLightsOut(litBrightness, darkBrightness) {
+  _visFlickering = true;
+  const steps = 4 + Math.floor(Math.random() * 3); // 4–6
+  let i = 0;
+  const step = () => {
+    if (i >= steps) {
+      _applyBrightnessFilter(darkBrightness, true); // land dark without the slow fade
+      for (const id of ['area-pane', 'output']) {   // restore the CSS fade for later changes
+        const el = document.getElementById(id);
+        if (el) el.style.transition = '';
+      }
+      _visFlickering = false;
+      return;
+    }
+    _applyBrightnessFilter(i % 2 === 0 ? darkBrightness : litBrightness, true);
+    i++;
+    setTimeout(step, 90 + Math.random() * 110); // 90–200 ms
+  };
+  step();
+}
+
+// Short electric pop + buzz for a sudden power cut. Two layered one-shots on the SFX
+// bus, together well under half a second so they punctuate the flicker without dragging.
+function _playPowerOutSfx() {
+  const eng = window.AudioEngine;
+  if (!eng?.playSfx) return;
+  // Buzz — a brief mains-hum crackle that pitches down as the supply dies.
+  eng.playSfx({
+    id: 'power_out_buzz', category: 'sfx', priority: 4,
+    config: {
+      waveform: 'sawtooth', freq: 120, duration: 0.22, noiseMix: 0.25, gain: 0.35,
+      tremolo: { rate: 60, depth: 0.7 },
+      pitchBend: { to: 40, time: 0.15 },
+      filter: { type: 'lowpass', freq: 2000, q: 1 },
+      adsr: { a: 0.001, d: 0.05, s: 0.4, r: 0.12 },
+    },
+  });
+  // Pop — a sharp broadband transient: the click of the cut.
+  eng.playSfx({
+    id: 'power_out_pop', category: 'sfx', priority: 4,
+    config: {
+      waveform: 'noise', noiseMix: 1, duration: 0.05, gain: 0.5,
+      filter: { type: 'bandpass', freq: 1800, q: 0.8 },
+      adsr: { a: 0.001, d: 0.03, s: 0, r: 0.03 },
+    },
+  });
 }
 
 export function refreshZoneVisibility() {
   if (!state.currentZone) return;
-  fetch(`/api/environment/visibility/${encodeURIComponent(state.currentZone)}`)
+  const zone = state.currentZone;
+  fetch(`/api/environment/visibility/${encodeURIComponent(zone)}`)
     .then(r => r.json())
     .then(v => {
       const vis = Math.max(0, Math.min(1, v.visibility ?? 1));
@@ -129,10 +224,19 @@ export function refreshZoneVisibility() {
       const brightness = vis >= 0.6
         ? ''
         : `brightness(${(0.2 + 0.8 * (vis / 0.6)).toFixed(3)})`;
-      for (const id of ['area-pane', 'output']) {
-        const el = document.getElementById(id);
-        if (el) el.style.filter = brightness;
+
+      // Flicker + pop only when the server signalled a grid power cut for this zone;
+      // everything else (day/night, curtains, moving rooms) just fades.
+      const powerCut = _powerOutArmedZone === zone;
+
+      if (!_visFlickering) {
+        if (powerCut) { _playPowerOutSfx(); _flickerLightsOut(_visPrevBrightness, brightness); }
+        else _applyBrightnessFilter(brightness, false);
       }
+
+      if (powerCut) _powerOutArmedZone = null;
+      _visPrevBrightness = brightness;
+
       const LIGHT_CATS = {
         pitch_dark: { label: 'Pitch Dark', color: 'var(--text-dim)' },
         dark:       { label: 'Dark',       color: 'var(--red)' },

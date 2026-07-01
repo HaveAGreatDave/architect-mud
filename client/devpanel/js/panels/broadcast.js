@@ -911,7 +911,7 @@ async function _bcShowImportChannelModal(compiled) {
   const overlay = document.createElement('div');
   overlay.id = 'bsm-channel-overlay';
   overlay.dataset.scripted = isScripted ? '1' : '';
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:700;display:flex;align-items:center;justify-content:center';
+  overlay.classList.add('modal-overlay'); overlay.style.cssText = 'background:rgba(0,0,0,0.8);z-index:700;display:flex';
   overlay.innerHTML = `
     <div style="background:var(--bg2);border:1px solid var(--accent);padding:20px;width:480px;max-width:94vw;border-radius:3px;display:flex;flex-direction:column;gap:14px">
       <div style="display:flex;justify-content:space-between;align-items:center">
@@ -981,7 +981,7 @@ function _bcZonePickerRender() {
   const allZones = _bcImportAllZones;
   const picker = document.createElement('div');
   picker.id = 'bsm-ch-picker-overlay';
-  picker.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:800;display:flex;align-items:center;justify-content:center';
+  picker.classList.add('modal-overlay'); picker.style.cssText = 'background:rgba(0,0,0,0.85);z-index:800;display:flex';
 
   let modeContent;
   if (_bcZonePickerMode === 'list') {
@@ -1343,7 +1343,7 @@ async function _bcShowStudioConfirmation(studio, studioName, compiled, chBody, c
 
   const overlay = document.createElement('div');
   overlay.id = 'bsm-studio-confirm-overlay';
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:700;display:flex;align-items:center;justify-content:center';
+  overlay.classList.add('modal-overlay'); overlay.style.cssText = 'background:rgba(0,0,0,0.8);z-index:700;display:flex';
   overlay.innerHTML = `
     <div style="background:var(--bg2);border:1px solid var(--green);padding:20px;width:480px;max-width:94vw;border-radius:3px;display:flex;flex-direction:column;gap:14px">
       <div style="color:var(--green);font-size:13px;letter-spacing:2px;text-transform:uppercase">✓ Studio Created</div>
@@ -1437,7 +1437,7 @@ function _bcShowDepModal(missingNpcs, missingZones, allZones) {
 
   const el = document.createElement('div');
   el.id = 'bsm-dep-overlay';
-  el.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:700;display:flex;align-items:center;justify-content:center';
+  el.classList.add('modal-overlay'); el.style.cssText = 'background:rgba(0,0,0,0.8);z-index:700;display:flex';
   el.innerHTML = `
     <div style="background:var(--bg2);border:1px solid var(--accent);padding:20px;width:560px;max-width:94vw;max-height:80vh;overflow-y:auto;border-radius:3px;display:flex;flex-direction:column;gap:12px">
       <div style="display:flex;justify-content:space-between;align-items:center">
@@ -1533,7 +1533,7 @@ function _bcShowOutdoorPicker() {
   }
   const picker = document.createElement('div');
   picker.id = 'bsm-picker-overlay';
-  picker.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:800;display:flex;align-items:center;justify-content:center';
+  picker.classList.add('modal-overlay'); picker.style.cssText = 'background:rgba(0,0,0,0.85);z-index:800;display:flex';
   picker.innerHTML = `
     <div style="background:var(--bg2);border:1px solid var(--yellow);padding:16px;width:660px;max-width:96vw;border-radius:3px;display:flex;flex-direction:column;gap:10px">
       <div style="display:flex;justify-content:space-between;align-items:center">
@@ -1604,7 +1604,7 @@ function _bcShowInteriorConfirm(interiorZoneId, interiorZoneName, outdoorZoneId)
     : '';
   const picker = document.createElement('div');
   picker.id = 'bsm-picker-overlay';
-  picker.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:800;display:flex;align-items:center;justify-content:center';
+  picker.classList.add('modal-overlay'); picker.style.cssText = 'background:rgba(0,0,0,0.85);z-index:800;display:flex';
   picker.innerHTML = `
     <div style="background:var(--bg2);border:1px solid var(--accent);padding:20px;width:460px;max-width:96vw;border-radius:3px;display:flex;flex-direction:column;gap:14px">
       <span style="color:var(--accent);font-size:12px;letter-spacing:1px;text-transform:uppercase">Place <strong>${escHtml(_bcPickerZoneId)}</strong> — Confirm Stage</span>

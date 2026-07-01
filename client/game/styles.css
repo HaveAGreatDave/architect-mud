@@ -1194,14 +1194,14 @@ body {
      filter and dims too (critical for light themes). vis >= 0.6 clears it. */
 #area-pane,
 #output {
-	transition: filter 0.6s ease;
+	transition: filter 1.75s ease;
 }
 
 /* Keyboard-collapse transition for mobile */
 @media (max-width: 720px) {
 	#area-pane,
 	#output {
-		transition: filter 0.6s ease, max-height 0.2s ease;
+		transition: filter 1.75s ease, max-height 0.2s ease;
 	}
 }
 
@@ -2927,6 +2927,35 @@ body {
 }
 
 /* Quantity split dialog */
+/* Shared backdrop for JS-created modals — invariant layout only. Each overlay keeps its
+   own display / background-opacity / z-index inline, since those vary per modal. */
+.modal-overlay {
+	position: fixed;
+	inset: 0;
+	align-items: center;
+	justify-content: center;
+}
+
+/* Inline radio-option label used across the auth/creation form. */
+.radio-label {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	cursor: pointer;
+}
+
+/* Light View panel buttons. Accent colour is passed per-button via --lv-btn-color. */
+.lv-btn {
+	background: transparent;
+	border: 1px solid var(--lv-btn-color);
+	color: var(--lv-btn-color);
+	font-family: var(--font-mono);
+	font-size: 10px;
+	padding: 3px 8px;
+	cursor: pointer;
+	border-radius: 2px;
+	margin-left: 4px;
+}
 .qty-dialog-overlay {
 	position: fixed;
 	inset: 0;
@@ -3190,6 +3219,31 @@ body {
 }
 .shop-result {
 	margin-bottom: 6px;
+}
+.shop-tabs {
+	display: flex;
+	gap: 4px;
+	margin-bottom: 6px;
+}
+.shop-tab {
+	flex: 1;
+	padding: 3px 8px;
+	font-size: 10px;
+	font-family: inherit;
+	text-transform: uppercase;
+	letter-spacing: 1px;
+	color: var(--text-dim);
+	background: var(--bg2);
+	border: 1px solid var(--border);
+	border-radius: 2px;
+	cursor: pointer;
+}
+.shop-tab:hover {
+	color: var(--text);
+}
+.shop-tab.active {
+	color: var(--accent2);
+	border-color: var(--accent2);
 }
 .shop-item {
 	border: 1px solid var(--border);
@@ -4589,7 +4643,8 @@ body {
 	position: absolute;
 	inset: 4px;
 	border-radius: 4px;
-	/* Amber-brown cassette shell — clearly distinct from purple-black chassis */
+	/* Amber-brown broadcast cassette shell — clearly distinct from the
+	   purple-black studio chassis. */
 	background: linear-gradient(180deg, #221108 0%, #150b05 100%);
 	border: 1px solid rgba(200, 130, 40, 0.45);
 	display: flex;
@@ -4598,32 +4653,60 @@ body {
 	z-index: 2;
 	box-shadow: inset 0 0 12px rgba(0,0,0,0.7), 0 0 8px rgba(180, 110, 20, 0.12);
 	opacity: 0;
-	transform: translateY(20px);
 	pointer-events: none;
-	transition: opacity 0.22s ease-out, transform 0.22s ease-out;
+	transition: opacity 0.22s ease-out;
 }
 #mediadeck-slot.loaded .mediadeck-cassette-body {
 	opacity: 1;
-	transform: translateY(0);
 	pointer-events: auto;
 }
+/* Cassette drop-in / pop-out choreography (see .inserting / .ejecting below) */
+@keyframes mediadeck-cassette-drop {
+	0%   { opacity: 0; transform: translateY(-150%); }
+	12%  { opacity: 1; }
+	72%  { transform: translateY(7%); }
+	88%  { transform: translateY(-2%); }
+	100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes mediadeck-cassette-rise {
+	0%   { opacity: 1; transform: translateY(0); }
+	20%  { transform: translateY(6%); }
+	100% { opacity: 0; transform: translateY(-150%); }
+}
+#mediadeck-slot.inserting .mediadeck-cassette-body {
+	opacity: 1;
+	animation: mediadeck-cassette-drop 0.8s cubic-bezier(.34,1.3,.5,1) both;
+}
+#mediadeck-slot.ejecting .mediadeck-cassette-body {
+	opacity: 1;
+	animation: mediadeck-cassette-rise 0.6s cubic-bezier(.5,-0.2,.7,0.5) both;
+}
+#mediadeck-slot.inserting .mediadeck-empty-hint,
+#mediadeck-slot.ejecting .mediadeck-empty-hint { opacity: 0; }
 /* Glass cover lid for mediadeck — hinge at bottom, top tilts toward viewer.
    deck-opening swings fully open; reels always visible through transparent glass. */
 .mediadeck-glass-cover {
 	position: absolute;
 	inset: 0;
 	border-radius: 6px;
-	background: linear-gradient(170deg,
-		rgba(255,100,255,0.04) 0%,
-		rgba(200,80,255,0.01) 50%,
-		rgba(160,60,255,0.03) 100%
-	);
+	/* Semi-transparent smoked glass with a diagonal sheen streak — reads as a
+	   real pane while the reels stay visible spinning behind it. */
+	background:
+		linear-gradient(115deg,
+			transparent 0%, transparent 38%,
+			rgba(255,220,255,0.13) 47%, rgba(255,220,255,0.04) 52%,
+			transparent 60%, transparent 100%),
+		linear-gradient(170deg,
+			rgba(255,100,255,0.08) 0%,
+			rgba(200,80,255,0.03) 50%,
+			rgba(160,60,255,0.06) 100%
+		);
 	border-top: 3px solid rgba(220, 180, 255, 0.55);
 	border-left: 1px solid rgba(255, 47, 214, 0.10);
 	border-right: 1px solid rgba(255, 47, 214, 0.10);
 	border-bottom: 1px solid rgba(0, 0, 0, 0.25);
 	box-shadow:
-		inset 0 2px 0 rgba(255,255,255,0.10),
+		inset 0 2px 0 rgba(255,255,255,0.13),
 		inset 0 -1px 0 rgba(0,0,0,0.2),
 		0 -2px 6px rgba(200, 140, 255, 0.12);
 	transform-origin: bottom center;
@@ -4632,7 +4715,9 @@ body {
 	z-index: 5;
 	pointer-events: none;
 }
-#mediadeck-slot.deck-opening .mediadeck-glass-cover {
+#mediadeck-slot.deck-opening .mediadeck-glass-cover,
+#mediadeck-slot.inserting .mediadeck-glass-cover,
+#mediadeck-slot.ejecting  .mediadeck-glass-cover {
 	transform: rotateX(-78deg);
 	border-top-width: 9px;
 }
@@ -4660,6 +4745,13 @@ body {
 #mediadeck-slot.loaded .mediadeck-tape-guide,
 #mediadeck-slot.loaded .mediadeck-tape-head { opacity: 1; }
 .mediadeck-cassette-label-strip {
+	/* Pinned to the lower face of the shell so it clears the centred reels/head
+	   and rides with the drop-in animation. */
+	position: absolute;
+	bottom: 5px;
+	left: 50%;
+	transform: translateX(-50%);
+	z-index: 4;
 	background: linear-gradient(135deg, #1a1408 0%, #0f0c04 100%);
 	border: 1px solid rgba(220, 160, 60, 0.55);
 	border-radius: 2px;
@@ -5415,40 +5507,70 @@ body {
 	position: absolute;
 	inset: 4px;
 	border-radius: 6px;
-	background: var(--bg2);
-	border: 1px solid var(--border);
+	/* Graphite walkman tape shell — deliberately a different colour from the
+	   theme-tinted chassis window so the cassette reads as its own object. */
+	background: linear-gradient(180deg, #2b2f3a 0%, #14161d 100%);
+	border: 1px solid #3d4354;
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	z-index: 2;
 	box-shadow: inset 0 0 12px rgba(0,0,0,0.6);
 	opacity: 0;
-	transform: translateY(24px);
 	pointer-events: none;
-	transition: opacity 0.22s ease-out, transform 0.22s ease-out;
+	transition: opacity 0.22s ease-out;
 }
 .amp-cassette-body.loaded {
 	opacity: 1;
-	transform: translateY(0);
 	pointer-events: auto;
 }
+/* Cassette drop-in / pop-out choreography (see .inserting / .ejecting below) */
+@keyframes amp-cassette-drop {
+	0%   { opacity: 0; transform: translateY(-150%); }
+	12%  { opacity: 1; }
+	72%  { transform: translateY(7%); }
+	88%  { transform: translateY(-2%); }
+	100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes amp-cassette-rise {
+	0%   { opacity: 1; transform: translateY(0); }
+	20%  { transform: translateY(6%); }
+	100% { opacity: 0; transform: translateY(-150%); }
+}
+.amp-cassette-window.inserting .amp-cassette-body {
+	opacity: 1;
+	animation: amp-cassette-drop 0.8s cubic-bezier(.34,1.3,.5,1) both;
+}
+.amp-cassette-window.ejecting .amp-cassette-body {
+	opacity: 1;
+	animation: amp-cassette-rise 0.6s cubic-bezier(.5,-0.2,.7,0.5) both;
+}
+.amp-cassette-window.inserting .amp-empty-hint,
+.amp-cassette-window.ejecting .amp-empty-hint { opacity: 0; }
 /* Glass cover lid — hinge at bottom, top tilts toward viewer when closed.
    deck-opening swings it fully open so reels stay visible throughout. */
 .amp-glass-cover {
 	position: absolute;
 	inset: 0;
 	border-radius: 8px;
-	background: linear-gradient(160deg,
-		rgba(180,240,255,0.04) 0%,
-		rgba(80,180,255,0.01) 45%,
-		rgba(0,180,255,0.03) 100%
-	);
+	/* Semi-transparent smoked glass: a faint tint plus a diagonal sheen streak
+	   so the pane reads as real glass, yet the reels stay visible through it. */
+	background:
+		linear-gradient(115deg,
+			transparent 0%, transparent 38%,
+			rgba(200,245,255,0.14) 47%, rgba(200,245,255,0.05) 52%,
+			transparent 60%, transparent 100%),
+		linear-gradient(160deg,
+			rgba(180,240,255,0.08) 0%,
+			rgba(80,180,255,0.03) 45%,
+			rgba(0,180,255,0.06) 100%
+		);
 	border-top: 3px solid rgba(160,230,255,0.55);
 	border-left: 1px solid rgba(0,240,255,0.10);
 	border-right: 1px solid rgba(0,240,255,0.10);
 	border-bottom: 1px solid rgba(0,0,0,0.25);
 	box-shadow:
-		inset 0 1px 0 rgba(255,255,255,0.10),
+		inset 0 1px 0 rgba(255,255,255,0.14),
 		inset 0 -1px 0 rgba(0,0,0,0.2);
 	transform-origin: bottom center;
 	transform: rotateX(-14deg);
@@ -5456,7 +5578,9 @@ body {
 	z-index: 5;
 	pointer-events: none;
 }
-.amp-cassette-window.deck-opening .amp-glass-cover {
+.amp-cassette-window.deck-opening .amp-glass-cover,
+.amp-cassette-window.inserting .amp-glass-cover,
+.amp-cassette-window.ejecting  .amp-glass-cover {
 	transform: rotateX(-78deg);
 	border-top-width: 9px;
 }
@@ -5484,12 +5608,20 @@ body {
 .amp-cassette-body.loaded ~ .amp-tape-center .amp-tape-guide,
 .amp-cassette-body.loaded ~ .amp-tape-center .amp-tape-head { opacity: 1; }
 .amp-cassette-label-strip {
-	background: linear-gradient(135deg, var(--bg3) 0%, var(--bg2) 100%);
-	border: 1px solid var(--border);
+	/* Stuck-on paper label, off-white with dark hand-labelled text — its own
+	   material against the graphite shell. Pinned to the lower face of the shell
+	   (clear of the centred reels/head, and rides with the drop-in animation). */
+	position: absolute;
+	bottom: 5px;
+	left: 50%;
+	transform: translateX(-50%);
+	z-index: 4;
+	background: linear-gradient(135deg, #efe7d0 0%, #d8ceb2 100%);
+	border: 1px solid #b8ad8c;
 	border-radius: 2px;
 	padding: 3px 10px;
 	font-size: 7px;
-	color: var(--accent);
+	color: #2a2318;
 	letter-spacing: 1.5px;
 	text-transform: uppercase;
 	max-width: 55%;
@@ -5497,7 +5629,7 @@ body {
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
-	text-shadow: 0 0 5px var(--accent-dim);
+	box-shadow: 0 1px 3px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.2);
 }
 .amp-reel {
 	width: 56px;
@@ -5514,7 +5646,9 @@ body {
 		),
 		var(--bg);
 	position: relative;
-	z-index: 1;
+	/* Above the cassette shell (z2) but below the glass (z5), so the reels read
+	   as the tape's spool windows and keep spinning even when fully loaded. */
+	z-index: 3;
 	flex-shrink: 0;
 	transition: border-color 0.3s, opacity 0.3s;
 }
@@ -5543,7 +5677,7 @@ body {
 	gap: 6px;
 	padding: 0 4px;
 	position: relative;
-	z-index: 1;
+	z-index: 3;
 }
 .amp-tape-guide {
 	width: 4px;
@@ -5749,4 +5883,521 @@ body.esp-active #output {
 @keyframes esp-text-flash {
 	0%, 100% { opacity: 1; }
 	50%       { opacity: 0.55; }
+}
+
+/* ── Poker / GameTable ──────────────────────────────────────────────────── */
+
+.poker-table-wrap {
+	position: relative;
+	width: 100%;
+	height: 340px;
+	background: radial-gradient(ellipse at center, #1a4a1a 0%, #0d2e0d 60%, #081808 100%);
+	border: 2px solid #3a6b2a;
+	border-radius: 8px;
+	overflow: hidden;
+	font-family: var(--font-mono);
+}
+
+/* Felt inner oval */
+.poker-felt {
+	position: absolute;
+	inset: 18px 14px;
+	border-radius: 50%;
+	border: 3px solid #2a5a1a;
+	box-shadow: inset 0 0 40px rgba(0,0,0,0.5);
+	pointer-events: none;
+}
+
+/* Deck of cards shown in center */
+.poker-deck {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%) rotate(-5deg);
+	z-index: 2;
+}
+.poker-deck-card {
+	position: absolute;
+	width: 34px;
+	height: 50px;
+	background: #1a1a2e;
+	border: 1px solid #3a3a5e;
+	border-radius: 4px;
+	background-image: repeating-linear-gradient(
+		45deg, rgba(255,255,255,0.03) 0px, rgba(255,255,255,0.03) 2px,
+		transparent 2px, transparent 8px
+	);
+}
+.poker-deck-card:nth-child(1) { top: 0; left: 0; }
+.poker-deck-card:nth-child(2) { top: -2px; left: -2px; }
+.poker-deck-card:nth-child(3) { top: -4px; left: -4px; }
+
+/* Seats — absolute positioned around the oval */
+.poker-seat {
+	position: absolute;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 4px;
+	z-index: 3;
+}
+.seat-north { top: 8px; left: 50%; transform: translateX(-50%); }
+.seat-east  { right: 10px; top: 50%; transform: translateY(-50%); }
+.seat-south { bottom: 8px; left: 50%; transform: translateX(-50%); }
+.seat-west  { left: 10px; top: 50%; transform: translateY(-50%); }
+.seat-empty .seat-name { color: var(--text-dim); font-style: italic; }
+
+.seat-name {
+	font-size: 11px;
+	color: var(--text-bright);
+	letter-spacing: 0.5px;
+	white-space: nowrap;
+}
+.seat-name .dealer-btn {
+	background: var(--yellow);
+	color: #000;
+	font-size: 9px;
+	font-weight: bold;
+	border-radius: 50%;
+	width: 14px;
+	height: 14px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	margin-left: 4px;
+}
+.seat-chips {
+	font-size: 11px;
+	color: var(--green);
+	letter-spacing: 0.5px;
+}
+.seat-chips.empty { color: var(--text-dim); }
+.seat-active-bet {
+	font-size: 10px;
+	color: var(--yellow);
+}
+.seat-status {
+	font-size: 10px;
+	color: var(--red);
+	letter-spacing: 1px;
+}
+.seat-viewer .seat-name { color: var(--cyan); }
+
+/* Cards */
+.seat-cards {
+	display: flex;
+	gap: 3px;
+	justify-content: center;
+}
+
+.poker-card-wrap {
+	perspective: 200px;
+	width: 34px;
+	height: 50px;
+}
+.poker-card-inner {
+	position: relative;
+	width: 100%;
+	height: 100%;
+	transform-style: preserve-3d;
+}
+.poker-card-front,
+.poker-card-back {
+	position: absolute;
+	inset: 0;
+	border-radius: 4px;
+	background: #fff;
+	border: 1px solid #bbb;
+	box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+	backface-visibility: hidden;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-direction: column;
+	font-family: var(--font-mono);
+	font-size: 11px;
+	font-weight: bold;
+	line-height: 1.1;
+}
+.poker-card-back {
+	background: #1a1a2e;
+	border-color: #3a3a5e;
+	background-image: repeating-linear-gradient(
+		45deg, rgba(255,255,255,0.04) 0px, rgba(255,255,255,0.04) 2px,
+		transparent 2px, transparent 8px
+	);
+	transform: rotateY(0deg);
+}
+.poker-card-front {
+	transform: rotateY(180deg);
+}
+/* Static face-up cards (community, your hole cards, showdown) rotate the inner so
+   the front shows. The one-shot deal flip ends at this same angle, so it holds. */
+.poker-card-wrap.face-up .poker-card-inner {
+	transform: rotateY(180deg);
+}
+.poker-card-front .rank-top { position: absolute; top: 3px; left: 4px; font-size: 9px; }
+.poker-card-front .suit-center { font-size: 16px; }
+.poker-card-front .rank-bot { position: absolute; bottom: 3px; right: 4px; font-size: 9px; transform: rotate(180deg); }
+.suit-red { color: #cc1111; }
+.suit-black { color: #111111; }
+
+/* Deal animations — each direction starts at deck (center) and slides to position.
+   The viewer (south) deals face-down then flips. Others stay face-down. */
+@keyframes deal-to-south {
+	from { transform: translateY(-120px); opacity: 0; }
+	to   { transform: translateY(0);      opacity: 1; }
+}
+@keyframes deal-to-north {
+	from { transform: translateY(100px);  opacity: 0; }
+	to   { transform: translateY(0);      opacity: 1; }
+}
+@keyframes deal-to-east {
+	from { transform: translateX(-200px); opacity: 0; }
+	to   { transform: translateX(0);      opacity: 1; }
+}
+@keyframes deal-to-west {
+	from { transform: translateX(200px);  opacity: 0; }
+	to   { transform: translateX(0);      opacity: 1; }
+}
+@keyframes card-flip-reveal {
+	0%   { transform: rotateY(0deg); }
+	50%  { transform: rotateY(90deg); }
+	100% { transform: rotateY(180deg); }
+}
+
+.dealing-south .poker-card-inner {
+	animation: deal-to-south 0.35s ease-out both;
+}
+.dealing-south.card-2 .poker-card-inner { animation-delay: 0.25s; }
+.dealing-north .poker-card-inner {
+	animation: deal-to-north 0.35s ease-out both;
+}
+.dealing-north.card-2 .poker-card-inner { animation-delay: 0.25s; }
+.dealing-east .poker-card-inner {
+	animation: deal-to-east 0.35s ease-out both;
+}
+.dealing-east.card-2 .poker-card-inner { animation-delay: 0.25s; }
+.dealing-west .poker-card-inner {
+	animation: deal-to-west 0.35s ease-out both;
+}
+.dealing-west.card-2 .poker-card-inner { animation-delay: 0.25s; }
+
+/* Viewer card reveal: after deal animation, flip to face-up */
+.seat-viewer .dealing-south .poker-card-inner {
+	animation:
+		deal-to-south 0.35s ease-out both,
+		card-flip-reveal 0.35s ease-in-out 0.45s both;
+}
+.seat-viewer .dealing-south.card-2 .poker-card-inner {
+	animation:
+		deal-to-south 0.35s ease-out 0.25s both,
+		card-flip-reveal 0.35s ease-in-out 0.7s both;
+}
+
+/* Community board in center */
+.poker-board {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 4px;
+	z-index: 3;
+}
+.poker-board-cards {
+	display: flex;
+	gap: 3px;
+}
+.poker-board-label {
+	font-size: 9px;
+	color: var(--text-dim);
+	letter-spacing: 1px;
+	text-transform: uppercase;
+}
+.poker-pot {
+	font-size: 11px;
+	color: var(--yellow);
+	letter-spacing: 0.5px;
+}
+.poker-phase {
+	font-size: 9px;
+	color: var(--text-dim);
+	letter-spacing: 1px;
+	text-transform: uppercase;
+}
+.poker-status {
+	font-size: 10px;
+	color: var(--yellow);
+	letter-spacing: 1.5px;
+	text-transform: uppercase;
+	text-shadow: 0 1px 2px #000;
+	animation: status-pulse 1.6s ease-in-out infinite;
+}
+@keyframes status-pulse {
+	0%, 100% { opacity: 0.55; }
+	50%      { opacity: 1; }
+}
+
+/* Speech bubble for last action */
+.poker-bubble {
+	position: absolute;
+	background: rgba(0,0,0,0.75);
+	border: 1px solid var(--accent-dim);
+	color: var(--accent);
+	font-size: 10px;
+	padding: 2px 7px;
+	border-radius: 3px;
+	white-space: nowrap;
+	z-index: 10;
+	pointer-events: none;
+	animation: bubble-fade 4s ease-out forwards;
+}
+/* Position bubbles just outside each seat */
+.seat-north .poker-bubble  { top: -20px; left: 50%; transform: translateX(-50%); }
+.seat-east .poker-bubble   { right: -4px; top: -18px; }
+.seat-south .poker-bubble  { bottom: -20px; left: 50%; transform: translateX(-50%); }
+.seat-west .poker-bubble   { left: -4px; top: -18px; }
+@keyframes bubble-fade {
+	0%, 60% { opacity: 1; }
+	100%     { opacity: 0; }
+}
+
+/* Current-turn highlight ring */
+.seat-active {
+	outline: 2px solid var(--yellow);
+	border-radius: 4px;
+	outline-offset: 3px;
+	animation: active-pulse 1.2s ease-in-out infinite;
+}
+@keyframes active-pulse {
+	0%, 100% { outline-color: rgba(245,230,66,0.9); }
+	50%      { outline-color: rgba(245,230,66,0.35); }
+}
+
+/* Table header strip */
+.poker-header {
+	position: absolute;
+	top: 4px;
+	left: 50%;
+	transform: translateX(-50%);
+	font-size: 10px;
+	color: rgba(255,255,255,0.35);
+	letter-spacing: 2px;
+	text-transform: uppercase;
+	z-index: 4;
+	pointer-events: none;
+}
+
+/* Dealer figure + speech bubble (top-left corner, opens inward) */
+.poker-dealer {
+	position: absolute;
+	top: 6px;
+	left: 8px;
+	display: flex;
+	align-items: flex-start;
+	gap: 6px;
+	z-index: 8;
+	pointer-events: none;
+}
+.dealer-avatar {
+	font-size: 22px;
+	line-height: 1;
+	color: #e8e8f0;
+	filter: drop-shadow(0 1px 2px rgba(0,0,0,0.6));
+}
+.dealer-speech {
+	position: relative;
+	max-width: 150px;
+	background: #12121c;
+	border: 1px solid var(--accent-dim);
+	color: var(--accent);
+	font-size: 10px;
+	line-height: 1.3;
+	padding: 4px 8px;
+	border-radius: 8px;
+	box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+	animation: chat-pop 0.18s ease-out;
+}
+/* tail pointing left toward the dealer avatar */
+.dealer-speech::before {
+	content: '';
+	position: absolute;
+	left: -5px;
+	top: 8px;
+	border-width: 4px 5px 4px 0;
+	border-style: solid;
+	border-color: transparent #12121c transparent transparent;
+}
+
+/* Player chat speech bubbles (from `say`) — open inward toward table center */
+.poker-chat {
+	position: absolute;
+	width: 118px;
+	background: #f4f1e4;
+	color: #16160f;
+	font-size: 10px;
+	line-height: 1.25;
+	padding: 4px 8px;
+	border-radius: 8px;
+	white-space: normal;
+	text-align: center;
+	z-index: 13;
+	pointer-events: none;
+	box-shadow: 0 2px 6px rgba(0,0,0,0.55);
+	animation: chat-pop 0.18s ease-out;
+}
+.poker-chat::after {
+	content: '';
+	position: absolute;
+	border: 5px solid transparent;
+}
+.seat-north .poker-chat { top: calc(100% + 7px); left: 50%; transform: translateX(-50%); }
+.seat-north .poker-chat::after { top: -9px; left: 50%; margin-left: -5px; border-bottom-color: #f4f1e4; border-top: 0; }
+.seat-south .poker-chat { bottom: calc(100% + 7px); left: 50%; transform: translateX(-50%); }
+.seat-south .poker-chat::after { bottom: -9px; left: 50%; margin-left: -5px; border-top-color: #f4f1e4; border-bottom: 0; }
+.seat-east .poker-chat { right: calc(100% + 9px); top: 50%; transform: translateY(-50%); }
+.seat-east .poker-chat::after { right: -9px; top: 50%; margin-top: -5px; border-left-color: #f4f1e4; border-right: 0; }
+.seat-west .poker-chat { left: calc(100% + 9px); top: 50%; transform: translateY(-50%); }
+.seat-west .poker-chat::after { left: -9px; top: 50%; margin-top: -5px; border-right-color: #f4f1e4; border-left: 0; }
+@keyframes chat-pop {
+	from { opacity: 0; }
+}
+
+/* ── Money on the felt — bills & coins ─────────────────────────────────────── */
+.money-pile {
+	position: relative;
+	height: 16px;
+	width: 0;          /* zero-width anchor; bills fan out from its center */
+	margin: 0 auto;
+}
+.money-pile .bill,
+.money-pile .coin {
+	position: absolute;
+	left: 0;
+	top: 0;
+}
+.bill {
+	width: 22px;
+	height: 12px;
+	margin-left: -11px;
+	border-radius: 2px;
+	border: 1px solid rgba(0,0,0,0.6);
+	font-family: var(--font-mono);
+	font-size: 7px;
+	font-weight: bold;
+	line-height: 12px;
+	text-align: center;
+	color: rgba(255,255,255,0.95);
+	text-shadow: 0 1px 1px rgba(0,0,0,0.7);
+	box-shadow: 0 1px 2px rgba(0,0,0,0.5);
+}
+.bill-100 { background: #2b2b3a; }
+.bill-50  { background: #6b3fa0; }
+.bill-20  { background: #2e7d46; }
+.bill-10  { background: #2a6bb0; }
+.bill-5   { background: #b23b3b; }
+.coin {
+	width: 10px;
+	height: 10px;
+	margin-left: -5px;
+	margin-top: 1px;
+	border-radius: 50%;
+	background: radial-gradient(circle at 35% 30%, #ffe9a8, #c9962b 70%);
+	border: 1px solid #8a6a1e;
+	box-shadow: 0 1px 2px rgba(0,0,0,0.5);
+}
+
+/* Bet piles — placed on the felt between each seat and the center */
+.bet-money {
+	position: absolute;
+	z-index: 5;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 1px;
+	pointer-events: none;
+}
+.bet-money .bet-amt {
+	font-size: 9px;
+	color: var(--yellow);
+	text-shadow: 0 1px 2px #000;
+}
+.bet-north { top: 66px;    left: 50%; transform: translateX(-50%); }
+.bet-south { bottom: 66px; left: 50%; transform: translateX(-50%); }
+.bet-east  { right: 92px;  top: 50%;  transform: translateY(-50%); }
+.bet-west  { left: 92px;   top: 50%;  transform: translateY(-50%); }
+
+/* Center pot as a spread of bills */
+.poker-pot {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 2px;
+}
+.pot-amt {
+	font-size: 11px;
+	color: var(--yellow);
+	letter-spacing: 0.5px;
+}
+
+/* Toss-in: the whole pile drops onto the felt */
+@keyframes money-toss {
+	0%   { opacity: 0; transform: translateY(-26px) scale(0.8); }
+	70%  { opacity: 1; transform: translateY(3px)   scale(1.04); }
+	100% { transform: translateY(0) scale(1); }
+}
+.money-pile.tossing { animation: money-toss 0.4s ease-out; }
+
+/* Sweep: pot bills gather inward from a wider spread */
+@keyframes money-sweep {
+	0%   { opacity: 0.2; transform: scale(1.6); }
+	100% { opacity: 1;   transform: scale(1); }
+}
+.money-pile.sweeping { animation: money-sweep 0.5s ease-out; }
+
+/* Winning seat glow at showdown */
+.seat-winner {
+	border-radius: 4px;
+	animation: winner-glow 1s ease-in-out infinite alternate;
+}
+.seat-winner .seat-name { color: var(--yellow); text-shadow: 0 0 6px rgba(245,230,66,0.7); }
+@keyframes winner-glow {
+	from { box-shadow: 0 0 4px 1px rgba(245,230,66,0.45); }
+	to   { box-shadow: 0 0 14px 4px rgba(245,230,66,0.95); }
+}
+
+/* Clickable command bar under the poker table */
+.poker-cmdbar {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	justify-content: center;
+	padding: 6px 4px 2px;
+}
+.poker-cmd {
+	font-family: var(--font-mono);
+	font-size: 11px;
+	letter-spacing: 0.5px;
+	color: var(--text-bright);
+	background: #14241a;
+	border: 1px solid #2a5a1a;
+	border-radius: 3px;
+	padding: 3px 10px;
+	cursor: pointer;
+	transition: background 0.12s, border-color 0.12s;
+}
+.poker-cmd:hover {
+	background: #1e3a26;
+	border-color: var(--green);
+}
+.poker-cmd:active { transform: translateY(1px); }
+.poker-cmd.disabled {
+	color: var(--text-dim);
+	background: #10161288;
+	border-color: #24312a;
+	cursor: default;
+	opacity: 0.5;
 }

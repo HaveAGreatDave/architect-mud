@@ -1,5 +1,6 @@
 import { getZone, getLivePlayer, getAllLivePlayers } from '../world.js';
 import { describeZone } from './describe.js';
+import { drainZonePower } from '../environment.js';
 import { query } from '../../models/db.js';
 
 const HAUNT_MESSAGES = [
@@ -47,6 +48,18 @@ const GHOST_AMBIENT_MESSAGES = [
   'You sense a presence just beyond the edge of perception.',
   'An old instinct fires: run. Then it subsides. Nothing is there.',
   'The atmosphere shifts, as if the room is holding its breath.',
+];
+
+// Zone-visible when a ghost drains the power. Sourceless and dramatic — no name,
+// no cause the players can point to, just an unseen thing pulling the room dark.
+const GHOST_DRAIN_MESSAGES = [
+  'The air turns to ice. Every light in the room dies at once, as though something unseen has reached into the walls and squeezed. Darkness pours in.',
+  'A pressure builds — silent, immense, wrong. The power bleeds away like water down a drain, and the room drops into black.',
+  'Something you cannot see draws a long, slow breath. The lights gutter, dim, and go out together. The dark that follows feels occupied.',
+  'The bulbs flare too bright, then burst into darkness all at once. No hand was near the switches. The cold stays behind.',
+  'An unseen presence closes around the room\'s power and pulls. Filaments die one by one until nothing is left but the black and the certainty of being watched.',
+  'The lights bow, as if in fear, and then surrender. Blackness floods the space. You are not alone in it.',
+  'A cold weight settles over everything. The power gutters out from somewhere behind the walls, and the darkness that rushes in is not empty.',
 ];
 
 function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
@@ -99,6 +112,28 @@ export async function cmdGhostMove(direction, session) {
   const player = getLivePlayer(session.playerId) || { id: session.playerId, handle: session.handle, current_zone: targetId };
   const message = await describeZone(targetZone, player);
   return { type: 'ghost_look', message, zone: targetId, zoneName: targetZone.name };
+}
+
+export async function cmdGhostPowerDrain(session, broadcast) {
+  const zone = getZone(session.ghostZoneId);
+  if (!zone) return { type: 'ghost_error', message: 'Zone not found.' };
+  const res = await drainZonePower(session.ghostZoneId);
+  if (!res.ok) {
+    return { type: 'ghost_error', message: `${zone.name} has no power connection to drain.` };
+  }
+  if (res.prevStatus === 'offline') {
+    return { type: 'ghost_power_drained', message: `${zone.name} is already dark and powerless.` };
+  }
+  // Broadcast the sourceless blackout to everyone in the zone. refresh:true drives
+  // the client re-look, and the visibility filter fades the room down to darkness.
+  broadcast(zone.id, { type: 'zone_event', message: `<br><span style="color:#9f7aea;font-style:italic">${pick(GHOST_DRAIN_MESSAGES)}</span><br>`, refresh: true });
+  const confirms = [
+    `You reach into the grid and pull. The power in ${zone.name} bleeds away to nothing.`,
+    `You close an unseen hand around ${zone.name} and squeeze until the lights die.`,
+    `The power in ${zone.name} drains into you. Darkness floods the room.`,
+    `You unmake the light in ${zone.name}. The dark rushes in to fill the space you left.`,
+  ];
+  return { type: 'ghost_power_drained', message: pick(confirms) };
 }
 
 export async function cmdGhostHaunt(targetHandle, session, broadcast) {

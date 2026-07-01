@@ -28,6 +28,15 @@ Two flavors live here:
   whose payoff is readability and token cost. The non-negotiable step is **surgical migration** — move,
   don't redesign — and, for UI, a before/after visual diff.
 
+## Findings logs
+
+Point-in-time reports from running these audits, tagged with fix status (the audits above
+are *reusable prompts*; these are the *results* of a sweep):
+
+- [findings-2026-07.md](findings-2026-07.md) — nine-area sweep (NPC/AI · Broadcast · Vendor ·
+  Combat · Survival · Economy · World · UI/CSS · Dev-panel↔REST). ~20 fixes applied; open
+  items and recommended order at the end. Scavenging not yet covered.
+
 ## How to use one
 
 1. Pick the seam that matches what you're about to touch (or what feels under-examined).

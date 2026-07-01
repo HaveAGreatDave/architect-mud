@@ -58,6 +58,11 @@ const AI_CONDITIONS = [
     { key: 'from', label: 'From (0–23)', type: 'number', default: 8 },
     { key: 'to',   label: 'To (0–23)',   type: 'number', default: 20 },
   ]},
+  { type: 'TARGETABLE_IN_ZONE',   label: 'Targetable In Zone',    params: [] },
+  { type: 'IS_BROADCAST_SCHEDULED', label: 'Broadcast Scheduled Now', params: [] },
+  { type: 'AT_WORK_ZONE',         label: 'At Work Zone',          params: [] },
+  { type: 'IS_VENDOR_WORK_TIME',  label: 'Vendor Work Time',      params: [] },
+  { type: 'AT_HOME',              label: 'At Home',               params: [] },
 ];
 
 // ── Action type catalogue ─────────────────────────────────────────────────────
@@ -104,6 +109,15 @@ const AI_ACTIONS = [
     { key: 'depart_early_minutes', label: 'Buffer (min)',         type: 'number', default: 0 },
   ]},
   { type: 'CHECK_WORK', label: 'Check Work', params: [] },
+  { type: 'ROAM',       label: 'Roam',       params: [{ key: 'interval_s', label: 'Interval (s)', type: 'number', default: 10 }] },
+  { type: 'GO_TO_STUDIO',       label: 'Go To Studio',        params: [] },
+  // Vendor daily-routine actions (parameterless — driven by NPC fields + blackboard).
+  { type: 'CHECK_VENDOR_WORK',  label: 'Check Vendor Work',    params: [] },
+  { type: 'VENDOR_CHITCHAT',    label: 'Vendor Chitchat',      params: [] },
+  { type: 'AT_HOME_LIFE',       label: 'At Home (Life)',       params: [] },
+  { type: 'VENDOR_COLLECT_SAFE',label: 'Vendor Collect Safe',  params: [] },
+  { type: 'VENDOR_GO_TO_ATM',   label: 'Vendor Go To ATM',     params: [] },
+  { type: 'VENDOR_DEPOSIT',     label: 'Vendor Deposit',       params: [] },
 ];
 
 // ── Shared param form renderer ────────────────────────────────────────────────
@@ -369,6 +383,14 @@ const _aiNodeDefs = {
           { key: 'haveLife', label: 'have life' },
         ];
       }
+      if (n.data.action_type === 'CHECK_VENDOR_WORK') {
+        return [
+          { key: 'goToWork', label: 'go to work' },
+          { key: 'haveLife', label: 'have life' },
+          { key: 'endShift', label: 'end shift' },
+          { key: 'offWork',  label: 'off work' },
+        ];
+      }
       return [{ key: 'next', label: 'next' }];
     },
     renderProperties: (n, ed, id) => {
@@ -463,6 +485,12 @@ const _aiNodeDefs = {
 
 // ── Conversion: DB graph ↔ VINE graph ─────────────────────────────────────────
 
+// Named output ports that carry graph edges (not node data). Kept in one place so the
+// DB↔VINE (de)serialization below stays in lockstep with the runtime's normalizeGraph
+// (server/engine/ai-behaviour.js) — a port missing here is silently dropped on save.
+// branch_N ports (random nodes) are handled separately by prefix.
+const AI_EDGE_PORTS = ['next', 'ifTrue', 'ifFalse', 'goToWork', 'haveLife', 'endShift', 'offWork'];
+
 function _autoLayoutAI(dbGraph) {
   const pos = {};
   const W = 320, H = 170;
@@ -480,7 +508,7 @@ function _autoLayoutAI(dbGraph) {
     colRows[col]++;
 
     const n = nodes[id];
-    const nexts = [n.next, n.ifTrue, n.ifFalse, n.goToWork, n.haveLife, ...(Object.keys(n).filter(k => k.startsWith('branch_')).map(k => n[k]))].filter(Boolean);
+    const nexts = [...AI_EDGE_PORTS.map(p => n[p]), ...Object.keys(n).filter(k => k.startsWith('branch_')).map(k => n[k])].filter(Boolean);
     const nextCols = n.ifTrue || n.ifFalse || (n.goToWork && n.haveLife) ? [col + 1, col + 2] : [col + 1];
     nexts.forEach((nid, i) => {
       if (!visited.has(nid)) queue.push({ id: nid, col: nextCols[i] || col + 1 });
@@ -507,20 +535,16 @@ window.VineAISchema = {
     const edges = [];
 
     for (const [id, node] of Object.entries(dbGraph.nodes)) {
-      const { type, next, ifTrue, ifFalse, goToWork, haveLife, _vine, ...fields } = node;
+      const { type, _vine, ...rest } = node;
       const pos = _vine || layout[id] || { x: 40, y: 40 };
 
-      if (next)   edges.push({ fromNode: id, fromPort: 'next',    toNode: next });
-      if (ifTrue) edges.push({ fromNode: id, fromPort: 'ifTrue',  toNode: ifTrue });
-      if (ifFalse)edges.push({ fromNode: id, fromPort: 'ifFalse', toNode: ifFalse });
-      if (goToWork) edges.push({ fromNode: id, fromPort: 'goToWork', toNode: goToWork });
-      if (haveLife) edges.push({ fromNode: id, fromPort: 'haveLife', toNode: haveLife });
-
-      // Random branches
-      for (const [k, v] of Object.entries(fields)) {
-        if (k.startsWith('branch_') && v) {
-          edges.push({ fromNode: id, fromPort: k, toNode: v });
-          delete fields[k];
+      // Split flat node keys into edge ports (→ edges) and node data (→ data).
+      const fields = {};
+      for (const [k, v] of Object.entries(rest)) {
+        if (AI_EDGE_PORTS.includes(k) || k.startsWith('branch_')) {
+          if (v) edges.push({ fromNode: id, fromPort: k, toNode: v });
+        } else {
+          fields[k] = v;
         }
       }
 
@@ -544,29 +568,21 @@ window.VineAISchema = {
 
     for (const [id, node] of Object.entries(vineGraph.nodes || {})) {
       const data = { ...node.data };
-      const nextEdge  = edges.find(e => e.fromNode === id && e.fromPort === 'next');
-      const trueEdge  = edges.find(e => e.fromNode === id && e.fromPort === 'ifTrue');
-      const falseEdge = edges.find(e => e.fromNode === id && e.fromPort === 'ifFalse');
-      const goToWorkEdge = edges.find(e => e.fromNode === id && e.fromPort === 'goToWork');
-      const haveLifeEdge = edges.find(e => e.fromNode === id && e.fromPort === 'haveLife');
 
-      // Collect branch edges for random nodes
-      const branchEdges = {};
+      // Flatten every outgoing edge back onto the node as a port field. Any named port
+      // (AI_EDGE_PORTS) and random-branch ports round-trip without an explicit case.
+      const portFields = {};
       for (const e of edges) {
-        if (e.fromNode === id && e.fromPort.startsWith('branch_')) {
-          branchEdges[e.fromPort] = e.toNode;
+        if (e.fromNode !== id) continue;
+        if (AI_EDGE_PORTS.includes(e.fromPort) || e.fromPort.startsWith('branch_')) {
+          portFields[e.fromPort] = e.toNode;
         }
       }
 
       nodes[id] = {
         type: node.type,
         ...data,
-        ...(nextEdge  ? { next:    nextEdge.toNode }  : {}),
-        ...(trueEdge  ? { ifTrue:  trueEdge.toNode }  : {}),
-        ...(falseEdge ? { ifFalse: falseEdge.toNode } : {}),
-        ...(goToWorkEdge ? { goToWork: goToWorkEdge.toNode } : {}),
-        ...(haveLifeEdge ? { haveLife: haveLifeEdge.toNode } : {}),
-        ...branchEdges,
+        ...portFields,
         _vine: { x: node.x, y: node.y },
       };
     }

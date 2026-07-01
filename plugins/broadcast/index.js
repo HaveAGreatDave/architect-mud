@@ -133,8 +133,13 @@ function _vineDuration(graph, interval) {
   return total;
 }
 
-function formatMessage(text, deviceType, zone) {
+// Styles whose text is raw markup (SVG / ASCII / credits card) — a device prefix glued
+// on front corrupts the graphic (breaks the client's SVG sizing, prints a stray label).
+const GRAPHIC_STYLES = new Set(['svg', 'ascii_art', 'credits']);
+
+function formatMessage(text, deviceType, zone, style) {
   if (!text) return null;
+  if (GRAPHIC_STYLES.has(style)) return text; // pass graphic content through unprefixed
   switch (deviceType) {
     case 'radio':
       return `[Radio] ${text}`;
@@ -545,6 +550,27 @@ async function _getDeckMessage(zoneId, nowMs) {
 
 // ── Broadcast tick ───────────────────────────────────────────────────────────
 
+// The off-air broadcast payload (channel dark → show the channel's offline graphic or
+// static). Shared by the tick's go-dark path and the panel-open immediate signal.
+function _offAirMessage(state, channelId) {
+  const graphic = state.offlineGraphicId ? graphicsCache.get(state.offlineGraphicId) : null;
+  return {
+    type: 'broadcast', channel: channelId, style: 'off_air',
+    offlineGraphicContent: graphic?.content || null,
+    offlineGraphicType: graphic?.type || 'ascii',
+  };
+}
+
+// Rotating "technical difficulties" fallback line, keyed to the 5s slot so it changes
+// over time. Shared by the three places that drop a channel into tech-diff.
+function _techDiffMessage(state, channelId, nowMs) {
+  const pool = state.currentFallbackMessages?.length
+    ? state.currentFallbackMessages
+    : ['[TECHNICAL DIFFICULTIES] Please stand by.'];
+  const slot = Math.floor(nowMs / 5000);
+  return { text: pool[slot % pool.length], key: `techDiff:${channelId}:${slot % pool.length}:${slot}`, style: 'raw' };
+}
+
 async function broadcastTick() {
   const nowMs = Date.now();
   for (const [zoneId, channelMap] of zoneTunings) {
@@ -569,12 +595,10 @@ async function broadcastTick() {
         const stillWaiting = !result && state.graphBlackboard?.waitUntil > nowMs;
         if (!stillWaiting && state.wasActive) {
           state.wasActive = false;
-          const graphic = state.offlineGraphicId ? graphicsCache.get(state.offlineGraphicId) : null;
+          const offAir = _offAirMessage(state, channelId);
           for (const player of players) {
             if (tvWatchers.get(player.id) === channelId)
-              sendToPlayer(player.id, { type: 'broadcast', channel: channelId, style: 'off_air',
-                offlineGraphicContent: graphic?.content || null,
-                offlineGraphicType: graphic?.type || 'ascii' });
+              sendToPlayer(player.id, offAir);
           }
         }
         continue;
@@ -599,20 +623,20 @@ async function broadcastTick() {
       }
 
       const zone = getZone(zoneId);
-      const formatted = formatMessage(result.text, deviceType, zone);
+      const formatted = formatMessage(result.text, deviceType, zone, result.style);
       const isMusic = result.style === 'music' && result.song;
       if (!formatted && !isMusic) continue;
 
       const programName = result.programName ?? state.currentProgramName ?? null;
 
-      // Split players: those watching this channel get full panel message;
-      // non-watchers get an ambient speech blurb only if someone else in the room is watching.
-      const watchersHere = players.filter(p => tvWatchers.get(p.id) === channelId);
+      // Split players: those watching this channel get the full panel message;
+      // anyone else in a tuned zone overhears a spoken line as ambient background TV
+      // (once per new message, per the lastMsgKey guard above — not every tick).
       for (const player of players) {
         if (tvWatchers.get(player.id) === channelId) {
           if (formatted) sendToPlayer(player.id, { type: 'broadcast', message: formatted, channel: channelId, style: result.style || 'raw', programName });
           if (isMusic) sendToPlayer(player.id, { type: 'audio_music', def: result.song });
-        } else if (watchersHere.length > 0 && result.speech) {
+        } else if (result.speech) {
           sendToPlayer(player.id, { type: 'broadcast_ambient', speechText: result.speechText, channel: channelId });
         }
         // Deck preview — independent of TV panel subscription
@@ -881,15 +905,50 @@ function _evalBroadcastCondition(node, channelId, nowMs) {
 }
 
 // Walk the VINE graph for one tick. Returns { text, key, style } or null.
+// Broadcast tick interval — the graph walker (tickBroadcastGraph) emits at most one
+// message per tick, so on-air a node occupies a whole tick even if its hold is shorter.
+const BROADCAST_TICK_MS = 5000;
+
+// Canonical on-air hold (ms) for a content node, before tick-quantization. This is the
+// single source of truth for how long each node type stays up, shared by the live walker
+// (tickBroadcastGraph sets bb.waitUntil = nowMs + nodeHoldMs(node)) and the late-tune
+// seeker (_seekGraph) — so a viewer tuning in mid-program lands where playback actually is.
+function nodeHoldMs(node) {
+  const d = node.data || {};
+  switch (node.type) {
+    case 'npc_action':
+    case 'event':
+      return 3000;
+    case 'music':
+      return getSongDefByName(d.song) ? 15000 : 5000;
+    case 'wait':
+      return (d.seconds ?? 5) * 1000;
+    case 'credits':
+    case 'tech_difficulties':
+      return (d.duration ?? 10) * 1000;
+    case 'show_overlay':
+    case 'overlay': {
+      const overlayType = d.overlayType || d.overlay_type
+        || (node.type === 'overlay' && !d.graphic_id ? 'text_card' : 'lower_third');
+      return (d.duration_s ?? (overlayType === 'text_card' ? 5 : 6)) * 1000;
+    }
+    default:
+      return 5000; // say, ticker, camera_cut, title_card, …
+  }
+}
+
 // Walk a VINE graph forward by segElapsedMs, setting bb.currentNode / bb.waitUntil
 // so the channel appears mid-program when a viewer tunes in late.
 function _seekGraph(graph, bb, segElapsedMs, nowMs) {
   const edges = graph.edges || [];
   let nodeId = graph._start;
   let remaining = segElapsedMs;
-  const CONTENT_MS = 5000; // inter-node delay emitted by tickBroadcastGraph for content nodes
 
-  const CONTENT_TYPES = ['say', 'ticker', 'camera_cut', 'overlay', 'title_card', 'event', 'npc_action'];
+  // Node types that occupy on-air time (produce a message + a hold). Everything else
+  // (start/condition/loop/anchor/random/set_flag/inject_news/break/clear_overlay) is
+  // instantaneous during a walk.
+  const CONTENT_TYPES = ['say', 'ticker', 'camera_cut', 'overlay', 'show_overlay', 'title_card',
+    'event', 'npc_action', 'music', 'credits', 'tech_difficulties'];
   for (let step = 0; step < 2000 && remaining > 0; step++) {
     if (!nodeId) {
       // Graph exhausted without a loop node — wrap back to _start (implicit looping)
@@ -898,20 +957,15 @@ function _seekGraph(graph, bb, segElapsedMs, nowMs) {
     const node = graph.nodes[nodeId];
     if (!node) break;
     if (node.type === 'wait') {
-      const waitMs = ((node.data?.seconds ?? node.data?.duration) || 5) * 1000;
+      // Wait produces no message; after it, playback advances to the next node.
+      const waitMs = Math.ceil(nodeHoldMs(node) / BROADCAST_TICK_MS) * BROADCAST_TICK_MS;
       if (remaining >= waitMs) { remaining -= waitMs; nodeId = _resolveEdge(edges, nodeId, 'next'); }
       else { bb.waitUntil = nowMs + (waitMs - remaining); bb.currentNode = _resolveEdge(edges, nodeId, 'next'); return; }
-    } else if (node.type === 'credits') {
-      const creditsMs = (node.data?.duration ?? 10) * 1000;
-      if (remaining >= creditsMs) { remaining -= creditsMs; nodeId = _resolveEdge(edges, nodeId, 'next'); }
-      else { bb.waitUntil = nowMs + (creditsMs - remaining); bb.currentNode = nodeId; return; }
-    } else if (node.type === 'music') {
-      const musicMs = getSongDefByName(node.data?.song) ? 15000 : CONTENT_MS;
-      if (remaining >= musicMs) { remaining -= musicMs; nodeId = _resolveEdge(edges, nodeId, 'next'); }
-      else { bb.waitUntil = nowMs + (musicMs - remaining); bb.currentNode = nodeId; return; }
     } else if (CONTENT_TYPES.includes(node.type)) {
-      if (remaining >= CONTENT_MS) { remaining -= CONTENT_MS; nodeId = _resolveEdge(edges, nodeId, 'next'); }
-      else { bb.waitUntil = nowMs + (CONTENT_MS - remaining); bb.currentNode = nodeId; return; }
+      // Quantize the hold up to the tick grid — a 6s overlay occupies two 5s ticks.
+      const holdMs = Math.ceil(nodeHoldMs(node) / BROADCAST_TICK_MS) * BROADCAST_TICK_MS;
+      if (remaining >= holdMs) { remaining -= holdMs; nodeId = _resolveEdge(edges, nodeId, 'next'); }
+      else { bb.waitUntil = nowMs + (holdMs - remaining); bb.currentNode = nodeId; return; }
     } else if (node.type === 'loop') {
       nodeId = _resolveEdge(edges, nodeId, 'next') || graph._start;
     } else if (node.type === 'npc_anchor') {
@@ -964,11 +1018,7 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
       }
     }
     if (bb.techDiffMode) {
-      const pool = state.currentFallbackMessages?.length
-        ? state.currentFallbackMessages
-        : ['[TECHNICAL DIFFICULTIES] Please stand by.'];
-      const idx = Math.floor(nowMs / 5000) % pool.length;
-      return { text: pool[idx], key: `techDiff:${channelId}:${idx}:${Math.floor(nowMs / 5000)}`, style: 'raw' };
+      return _techDiffMessage(state, channelId, nowMs);
     }
     if (bb.hostAbsent && bb.absentDetectedAt) {
       const elapsed = nowMs - bb.absentDetectedAt;
@@ -980,11 +1030,7 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
           : null;
       }
       bb.techDiffMode = true;
-      const pool = state.currentFallbackMessages?.length
-        ? state.currentFallbackMessages
-        : ['[TECHNICAL DIFFICULTIES] Please stand by.'];
-      const idx = Math.floor(nowMs / 5000) % pool.length;
-      return { text: pool[idx], key: `techDiff:${channelId}:${idx}:${Math.floor(nowMs / 5000)}`, style: 'raw' };
+      return _techDiffMessage(state, channelId, nowMs);
     }
   }
 
@@ -1009,7 +1055,7 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
       case 'say': {
         const raw = node.data?.text || '';
         bb.currentNode = _resolveEdge(edges, nodeId, 'next');
-        bb.waitUntil = nowMs + 5000;
+        bb.waitUntil = nowMs + nodeHoldMs(node);
         const key_say = `graph:${channelId}:${nodeId}:${nowMs}`;
         const style_say = node.data?.style || 'raw';
         const isNarration = style_say === 'narration';
@@ -1041,14 +1087,14 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
         const songDef = getSongDefByName(songName);
         const key_music = `music:${channelId}:${nodeId}:${nowMs}`;
         if (songDef) {
-          bb.waitUntil = nowMs + 15000;
+          bb.waitUntil = nowMs + nodeHoldMs(node);
           if (state.channelType === 'live' && state.studioZoneId) {
             sendToZone(state.studioZoneId, { type: 'audio_music', def: songDef });
           }
           return { text, song: songDef, key: key_music, style: 'music' };
         }
         if (!text) { nodeId = bb.currentNode; bb.waitUntil = null; break; }
-        bb.waitUntil = nowMs + 5000;
+        bb.waitUntil = nowMs + nodeHoldMs(node);
         return { text, key: key_music, style: 'raw' };
       }
 
@@ -1056,7 +1102,7 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
         const emote = node.data?.message || node.data?.action || '';
         if (!emote) { nodeId = _resolveEdge(edges, nodeId, 'next'); break; }
         bb.currentNode = _resolveEdge(edges, nodeId, 'next');
-        bb.waitUntil = nowMs + 3000;
+        bb.waitUntil = nowMs + nodeHoldMs(node);
         const key_act = `action:${channelId}:${nodeId}:${nowMs}`;
         const emoteText = bb.npcAnchor ? `${bb.npcAnchor} ${emote}` : emote;
         if (state.channelType === 'live' && state.studioZoneId) {
@@ -1069,7 +1115,7 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
         if (bb.hostAbsent) { nodeId = _resolveEdge(edges, nodeId, 'next'); break; }
         const text = `>> ${node.data?.text || ''} <<`;
         bb.currentNode = _resolveEdge(edges, nodeId, 'next');
-        bb.waitUntil = nowMs + 5000;
+        bb.waitUntil = nowMs + nodeHoldMs(node);
         return { text, key: `ticker:${channelId}:${nodeId}`, style: 'ticker' };
       }
 
@@ -1122,15 +1168,11 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
           // The studio's own camera feed is down — go to technical difficulties
           // rather than silently cutting to the next node.
           bb.techDiffMode = true;
-          const pool = state.currentFallbackMessages?.length
-            ? state.currentFallbackMessages
-            : ['[TECHNICAL DIFFICULTIES] Please stand by.'];
-          const idx = Math.floor(nowMs / 5000) % pool.length;
-          return { text: pool[idx], key: `techDiff:${channelId}:${idx}:${Math.floor(nowMs / 5000)}`, style: 'raw' };
+          return _techDiffMessage(state, channelId, nowMs);
         }
         const snap = (zoneId && !camDown) ? buildCameraSnapshot(zoneId) : null;
         if (snap) {
-          bb.waitUntil = nowMs + 5000;
+          bb.waitUntil = nowMs + nodeHoldMs(node);
           return { text: `[CAM: ${label}] ${snap}`, key: `cam:${channelId}:${zoneId}:${nowMs}`, style: 'raw' };
         }
         nodeId = bb.currentNode;
@@ -1157,8 +1199,7 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
       }
 
       case 'wait': {
-        const seconds = node.data?.seconds ?? 5;
-        bb.waitUntil = nowMs + seconds * 1000;
+        bb.waitUntil = nowMs + nodeHoldMs(node);
         bb.currentNode = _resolveEdge(edges, nodeId, 'next');
         return null;
       }
@@ -1195,7 +1236,7 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
         const gid = node.data?.graphic_id;
         const graphic = gid ? graphicsCache.get(gid) : null;
         bb.currentNode = _resolveEdge(edges, nodeId, 'next');
-        bb.waitUntil = nowMs + 5000;
+        bb.waitUntil = nowMs + nodeHoldMs(node);
         if (graphic) {
           const caption = node.data?.caption ? `\n${node.data.caption}` : '';
           return { text: graphic.content + caption, key: `graphic:${channelId}:${gid}:${nowMs}`, style: graphic.type === 'svg' ? 'svg' : 'ascii_art' };
@@ -1209,7 +1250,7 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
       case 'credits': {
         const creditsText = node.data?.text || '';
         bb.currentNode = _resolveEdge(edges, nodeId, 'next');
-        bb.waitUntil = nowMs + ((node.data?.duration ?? 10) * 1000);
+        bb.waitUntil = nowMs + nodeHoldMs(node);
         return { text: creditsText, key: `credits:${channelId}:${nodeId}:${nowMs}`, style: 'credits' };
       }
 
@@ -1250,7 +1291,7 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
         };
         const evText = EVENT_MESSAGES[evType] || `${evType.charAt(0) + evType.slice(1).toLowerCase()} from the crowd.`;
         bb.currentNode = _resolveEdge(edges, nodeId, 'next');
-        bb.waitUntil = nowMs + 3000;
+        bb.waitUntil = nowMs + nodeHoldMs(node);
         // Only relay to room for truly-live channels — never live_relay for recordings
         if (state.channelType === 'live' && state.studioZoneId) {
           sendToZone(state.studioZoneId, { type: 'output', message: `<span style="color:var(--text-dim);font-style:italic">${evText}</span>` });
@@ -1259,10 +1300,9 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
       }
 
       case 'tech_difficulties': {
-        const duration = (node.data?.duration ?? 10) * 1000;
         const graphic = state.offlineGraphicId ? graphicsCache.get(state.offlineGraphicId) : null;
         bb.currentNode = _resolveEdge(edges, nodeId, 'next');
-        bb.waitUntil = nowMs + duration;
+        bb.waitUntil = nowMs + nodeHoldMs(node);
         const text = graphic ? graphic.content : '[TECHNICAL DIFFICULTIES] Please stand by.';
         return { text, key: `techdiff-node:${channelId}:${nodeId}:${nowMs}`, style: graphic?.type === 'svg' ? 'svg' : 'ascii_art' };
       }
@@ -1280,6 +1320,46 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
 
 // ── Actions ──────────────────────────────────────────────────────────────────
 
+// Shared tuning core for both the TUNE_DEVICE action and the `tune` command: rewrite the
+// device's flags, sync the zoneTunings / furnitureChannelIndex caches, and (on a real
+// tune-on) emit device.tuned. channelNumber 0 = off. Returns a status the caller acts on
+// for its own side effects (text output vs tv_off/panel) so the two can't drift on the core.
+// NB: the off-path device.tuned emit is left to the caller — cmdTune deliberately stays
+// silent there (no tv_relay_click on manual power-off) while TUNE_DEVICE emits.
+async function _applyTuning(device, channelNumber, zoneId) {
+  const flags = typeof device.flags === 'object' ? { ...device.flags } : JSON.parse(device.flags || '{}');
+
+  // Remove any existing tuning from the cache.
+  const old = furnitureChannelIndex.get(device.id);
+  if (old) {
+    const zMap = zoneTunings.get(old.zoneId);
+    if (zMap) { zMap.delete(old.channelId); if (!zMap.size) zoneTunings.delete(old.zoneId); }
+    furnitureChannelIndex.delete(device.id);
+  }
+
+  if (channelNumber === 0) {
+    delete flags.tuned_channel;
+    await query('UPDATE furniture SET flags=$1 WHERE id=$2', [JSON.stringify(flags), device.id]);
+    return { status: 'off' };
+  }
+
+  const { rows: chRows } = await query('SELECT * FROM media_channels WHERE number=$1 AND enabled=1', [channelNumber]);
+  if (!chRows.length) return { status: 'not_found' };
+  const channel = chRows[0];
+
+  flags.tuned_channel = channelNumber;
+  flags.tv_dial_freq = channelNumber;
+  await query('UPDATE furniture SET flags=$1 WHERE id=$2', [JSON.stringify(flags), device.id]);
+
+  const deviceType = flags.broadcast_device_type || 'tv';
+  if (!zoneTunings.has(zoneId)) zoneTunings.set(zoneId, new Map());
+  zoneTunings.get(zoneId).set(channel.id, deviceType);
+  furnitureChannelIndex.set(device.id, { zoneId, channelId: channel.id, deviceType, dialFrequency: channelNumber });
+
+  emit('device.tuned', { furnitureId: device.id, channelNumber, channelId: channel.id });
+  return { status: 'tuned', channel };
+}
+
 registerAction({
   type: 'TUNE_DEVICE',
   handler: async ({ actor, params }) => {
@@ -1290,43 +1370,14 @@ registerAction({
     const { rows: fRows } = await query('SELECT * FROM furniture WHERE id=$1', [furniture_id]);
     if (!fRows.length) return { type: 'error', message: 'Device not found.' };
     const furniture = fRows[0];
-    const flags = typeof furniture.flags === 'object' ? { ...furniture.flags } : JSON.parse(furniture.flags || '{}');
 
-    // Remove old tuning from cache
-    const old = furnitureChannelIndex.get(furniture_id);
-    if (old) {
-      const zMap = zoneTunings.get(old.zoneId);
-      if (zMap) {
-        zMap.delete(old.channelId);
-        if (!zMap.size) zoneTunings.delete(old.zoneId);
-      }
-      furnitureChannelIndex.delete(furniture_id);
-    }
-
-    if (channel_number === 0) {
-      // Tune off
-      delete flags.tuned_channel;
-      await query('UPDATE furniture SET flags=$1 WHERE id=$2', [JSON.stringify(flags), furniture_id]);
+    const result = await _applyTuning(furniture, channel_number, furniture.zone_id);
+    if (result.status === 'off') {
       emit('device.tuned', { furnitureId: furniture_id, channelNumber: 0 });
       return { type: 'output', message: 'Device turned off.' };
     }
-
-    const { rows: chRows } = await query('SELECT * FROM media_channels WHERE number=$1 AND enabled=1', [channel_number]);
-    if (!chRows.length) return { type: 'output', message: `No channel ${channel_number}.` };
-    const channel = chRows[0];
-    flags.tuned_channel = channel_number;
-    flags.tv_dial_freq = channel_number;
-    await query('UPDATE furniture SET flags=$1 WHERE id=$2', [JSON.stringify(flags), furniture_id]);
-
-    // Update cache
-    const deviceType = flags.broadcast_device_type || 'tv';
-    const zoneId = furniture.zone_id;
-    if (!zoneTunings.has(zoneId)) zoneTunings.set(zoneId, new Map());
-    zoneTunings.get(zoneId).set(channel.id, deviceType);
-    furnitureChannelIndex.set(furniture_id, { zoneId, channelId: channel.id, deviceType, dialFrequency: channel_number });
-
-    emit('device.tuned', { furnitureId: furniture_id, channelNumber: channel_number, channelId: channel.id });
-    return { type: 'output', message: `Tuned to channel ${channel_number}: ${channel.name}.` };
+    if (result.status === 'not_found') return { type: 'output', message: `No channel ${channel_number}.` };
+    return { type: 'output', message: `Tuned to channel ${channel_number}: ${result.channel.name}.` };
   },
 });
 
@@ -1453,6 +1504,21 @@ async function cmdLoadCassette(args, raw, player) {
   return { type: 'output', message: `You slide the cassette into the deck. It clunks into place and starts playing.` };
 }
 
+// Upsert the canonical cassette item for a broadcast (deterministic id
+// item_cassette_<id>) so the eject path and the dev-panel import path converge on one
+// item definition rather than creating duplicates. Returns the item id.
+async function _ensureCassetteItem(broadcastId, broadcastName) {
+  const itemId = `item_cassette_${broadcastId}`;
+  await query(
+    `INSERT INTO items (id, name, description, type, subtype, weight, value, rarity, is_stackable, is_unique, tags)
+     VALUES ($1,$2,$3,'media','cassette',100,0,'common',0,1,$4)
+     ON CONFLICT (id) DO UPDATE SET name=$2, tags=$4`,
+    [itemId, `Cassette: ${broadcastName}`, `A media cassette labeled "${broadcastName}".`,
+     JSON.stringify({ media_cassette: true, broadcast_id: broadcastId })]
+  );
+  return itemId;
+}
+
 async function cmdEjectCassette(args, raw, player) {
   if (!player) return { type: 'error', message: 'No character.' };
   const deck = await _findDeckInZone(player.current_zone);
@@ -1475,13 +1541,7 @@ async function cmdEjectCassette(args, raw, player) {
     await query('UPDATE player_inventory SET container_id=NULL, player_id=$1, is_equipped=0 WHERE id=$2', [player.id, deckInv[0].id]);
   } else {
     // Fallback for decks loaded before the container migration: create a fresh item.
-    await query(
-      `INSERT INTO items (id, name, description, type, subtype, weight, value, rarity, is_stackable, is_unique, tags)
-       VALUES ($1,$2,$3,'media','cassette',100,0,'common',0,1,$4)
-       ON CONFLICT (id) DO UPDATE SET name=$2, tags=$4`,
-      [itemId, `Cassette: ${broadcastName}`, `A media cassette labeled "${broadcastName}".`,
-       JSON.stringify({ media_cassette: true, broadcast_id: broadcastId })]
-    );
+    await _ensureCassetteItem(broadcastId, broadcastName);
     const { rows: existingInv } = await query(
       `SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 LIMIT 1`,
       [player.id, itemId]
@@ -1690,43 +1750,14 @@ async function cmdTune(args, raw, player, broadcast) {
   if (!rows.length) return { type: 'output', message: 'There is no broadcast-capable device here.' };
   const device = rows[0];
 
-  if (channelNumber === 0) {
-    const flags = typeof device.flags === 'object' ? { ...device.flags } : JSON.parse(device.flags || '{}');
-    delete flags.tuned_channel;
-    await query('UPDATE furniture SET flags=$1 WHERE id=$2', [JSON.stringify(flags), device.id]);
-    // Clear from cache
-    const old = furnitureChannelIndex.get(device.id);
-    if (old) {
-      const zMap = zoneTunings.get(old.zoneId);
-      if (zMap) { zMap.delete(old.channelId); if (!zMap.size) zoneTunings.delete(old.zoneId); }
-      furnitureChannelIndex.delete(device.id);
-    }
+  const result = await _applyTuning(device, channelNumber, player.current_zone);
+  if (result.status === 'off') {
     sendToPlayer(player.id, { type: 'tv_off' });
     return { type: 'output', message: 'Device turned off.' };
   }
+  if (result.status === 'not_found') return { type: 'output', message: `Channel ${channelNumber} not found.` };
 
-  const { rows: chRows } = await query('SELECT * FROM media_channels WHERE number=$1 AND enabled=1', [channelNumber]);
-  if (!chRows.length) return { type: 'output', message: `Channel ${channelNumber} not found.` };
-  const channel = chRows[0];
-
-  const flags = typeof device.flags === 'object' ? { ...device.flags } : JSON.parse(device.flags || '{}');
-  flags.tuned_channel = channelNumber;
-  flags.tv_dial_freq = channelNumber;
-  await query('UPDATE furniture SET flags=$1 WHERE id=$2', [JSON.stringify(flags), device.id]);
-
-  // Clear old, set new in cache
-  const old = furnitureChannelIndex.get(device.id);
-  if (old) {
-    const zMap = zoneTunings.get(old.zoneId);
-    if (zMap) { zMap.delete(old.channelId); if (!zMap.size) zoneTunings.delete(old.zoneId); }
-  }
-  const deviceType = flags.broadcast_device_type || 'tv';
-  if (!zoneTunings.has(player.current_zone)) zoneTunings.set(player.current_zone, new Map());
-  zoneTunings.get(player.current_zone).set(channel.id, deviceType);
-  furnitureChannelIndex.set(device.id, { zoneId: player.current_zone, channelId: channel.id, deviceType, dialFrequency: channelNumber });
-
-  emit('device.tuned', { furnitureId: device.id, channelNumber, channelId: channel.id });
-  buildTvPanel(channel.id, player, channelNumber);
+  buildTvPanel(result.channel.id, player, channelNumber);
   return null; // silent — the TV panel itself reflects the new channel
 }
 
@@ -1768,10 +1799,7 @@ function buildTvPanel(channelId, player, dialFrequency) {
   });
   // If the channel is currently off-air, signal it immediately rather than waiting for the next tick
   if (!state.wasActive) {
-    const graphic = state.offlineGraphicId ? graphicsCache.get(state.offlineGraphicId) : null;
-    sendToPlayer(player.id, { type: 'broadcast', channel: channelId, style: 'off_air',
-      offlineGraphicContent: graphic?.content || null,
-      offlineGraphicType: graphic?.type || 'ascii' });
+    sendToPlayer(player.id, _offAirMessage(state, channelId));
   }
   return { type: 'output', message: 'You turn to the television.' };
 }
@@ -2842,14 +2870,7 @@ export const routeHandler = async (path, method, body, auth) => {
         if (!bcRows.length) return { status: 404, body: { error: 'Broadcast not found' } };
         const broadcastName = bcRows[0].name;
 
-        const itemId = `item_cassette_${broadcast_id}`;
-        await query(
-          `INSERT INTO items (id, name, description, type, subtype, weight, value, rarity, is_stackable, is_unique, tags)
-           VALUES ($1,$2,$3,'media','cassette',100,0,'common',0,1,$4)
-           ON CONFLICT (id) DO UPDATE SET name=$2, tags=$4`,
-          [itemId, `Cassette: ${broadcastName}`, `A media cassette labeled "${broadcastName}".`,
-           JSON.stringify({ media_cassette: true, broadcast_id })]
-        );
+        const itemId = await _ensureCassetteItem(broadcast_id, broadcastName);
 
         let invId = null;
         if (channel_id) {

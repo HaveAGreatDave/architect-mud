@@ -13,6 +13,7 @@ import { getFactionDiscount } from './factions.js';
 import { adjustCredits } from './economy.js';
 import { randomUUID } from 'crypto';
 import { isStackable } from './tags.js';
+import { isConsumerFurniture } from './furniture-shop.js';
 
 // ─── Stock display ───────────────────────────────────────────────────────────
 
@@ -32,6 +33,9 @@ export async function getVendorStock(npc, playerId) {
     const { rows } = await query('SELECT * FROM items WHERE id = $1', [entry.item_id]);
     if (!rows.length) continue;
     const item = rows[0];
+    // Vendors only sell furniture you can actually use (sit/lean/lie/watch);
+    // non-consumer furniture (infrastructure) is ignored on the shelf.
+    if (item.type === 'furniture' && !isConsumerFurniture(item)) continue;
     const basePrice = priceMap[entry.item_id] ?? item.value;
     const finalPrice = Math.max(1, Math.round(basePrice * (1 - discount)));
     stock.push({
@@ -98,6 +102,39 @@ export async function buyFromVendor(player, npc, itemId, quantity = 1) {
 
 // ─── Sell ────────────────────────────────────────────────────────────────────
 
+// Per-unit sell payout: 40% of item value, boosted by the seller's Cool stat
+// (+5% per point) and adjusted by faction reputation with the vendor — the same
+// discount buy applies, but here friendly rep pays *more* (1+discount) and hostile
+// rep pays less. Floored at 1. Single source of truth for the sell price so the
+// panel preview and the actual sale can't drift.
+export function computeSellUnitPrice(value, statCool, discount = 0) {
+  const coolMult = 1 + (statCool || 0) * 0.05;
+  return Math.max(1, Math.floor((value || 0) * 0.4 * coolMult * (1 + discount)));
+}
+
+// List the player's sellable items (excludes equipped + quest items), each with the
+// sell price this vendor would pay. Drives the GUI shop's Sell tab.
+export async function getSellableInventory(player, npc) {
+  const { rows } = await query(
+    `SELECT pi.id, pi.quantity, i.name, i.value, i.rarity, i.tags, p.stat_cool
+     FROM player_inventory pi
+     JOIN items i ON i.id = pi.item_id
+     JOIN players p ON p.id = pi.player_id
+     WHERE pi.player_id = $1 AND pi.is_equipped = 0`,
+    [player.id]
+  );
+  const discount = npc.faction ? await getFactionDiscount(player.id, npc.faction) : 0;
+  return rows
+    .filter(r => !r.tags?.quest_item)
+    .map(r => ({
+      inventory_id: r.id,
+      name: r.name,
+      quantity: r.quantity,
+      rarity: r.rarity,
+      price: computeSellUnitPrice(r.value, r.stat_cool, discount),
+    }));
+}
+
 export async function sellToVendor(player, npc, inventoryId, quantity = 1) {
   const { rows } = await query(
     `SELECT pi.*, i.name, i.value, i.tags, p.stat_cool FROM player_inventory pi
@@ -114,8 +151,8 @@ export async function sellToVendor(player, npc, inventoryId, quantity = 1) {
   if (invItem.is_equipped) return { success: false, message: 'Unequip it first.' };
 
   const sellQty = Math.min(quantity, invItem.quantity);
-  const coolMult = 1 + (invItem.stat_cool || 0) * 0.05;
-  const sellPrice = Math.max(1, Math.floor(invItem.value * 0.4 * coolMult)) * sellQty;
+  const discount = npc.faction ? await getFactionDiscount(player.id, npc.faction) : 0;
+  const sellPrice = computeSellUnitPrice(invItem.value, invItem.stat_cool, discount) * sellQty;
 
   await adjustCredits(player, sellPrice);
 

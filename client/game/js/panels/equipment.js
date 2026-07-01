@@ -130,7 +130,7 @@ function showDropQtyDialog(item, onConfirm) {
   if (!overlay) {
     overlay = document.createElement('div');
     overlay.id = 'drop-qty-overlay';
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:600;display:flex;align-items:center;justify-content:center';
+    overlay.classList.add('modal-overlay'); overlay.style.cssText = 'background:rgba(0,0,0,0.75);z-index:600;display:flex';
     overlay.addEventListener('click', e => { if (e.target === overlay) overlay.style.display = 'none'; });
     document.body.appendChild(overlay);
   }
