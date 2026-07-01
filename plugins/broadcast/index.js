@@ -2878,12 +2878,16 @@ export const routeHandler = async (path, method, body, auth) => {
       const studioZoneId = chSzRow2[0]?.studio_zone_id || null;
       const defaultGraph = JSON.stringify(makeDefaultStudioGraph(studioZoneId));
       for (const npcId of npcIds) {
-        // Always overwrite — ensures zone_id is populated even for existing graphs
+        // Always overwrite — ensures zone_id is populated even for existing graphs; set work_zone_id so GO_TO_WORK resolves without graph params
         const { rowCount } = await query(
-          `UPDATE npcs SET behaviour_graph=$1 WHERE id=$2`,
-          [defaultGraph, npcId]
+          `UPDATE npcs SET behaviour_graph=$1, work_zone_id=COALESCE(work_zone_id,$2) WHERE id=$3`,
+          [defaultGraph, studioZoneId, npcId]
         ).catch(() => ({ rowCount: 0 }));
-        if (rowCount) updatedNpcs++;
+        if (rowCount) {
+          updatedNpcs++;
+          const npc = world.npcs.get(npcId);
+          if (npc && !npc.work_zone_id) npc.work_zone_id = studioZoneId;
+        }
       }
 
       // Re-inject work-phase actions from the broadcast graph

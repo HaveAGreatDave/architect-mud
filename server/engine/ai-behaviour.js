@@ -462,7 +462,7 @@ async function execAction(node, entity, ctx) {
     case 'GO_TO_WORK': {
       if (!ai) break;
       const { zone_id, arrive_by, depart_early_minutes = 0 } = params;
-      const workZone = zone_id || entity.studio_zone_id || getNpcStudioZone(entity.id);
+      const workZone = zone_id || entity.work_zone_id || entity.studio_zone_id || getNpcStudioZone(entity.id);
       if (!workZone) break;
 
       // Already at work — let graph continue to work activity nodes

@@ -99,9 +99,9 @@ const AI_ACTIONS = [
     { key: 'message', label: 'Action text', type: 'text', default: '' },
   ]},
   { type: 'GO_TO_WORK', label: 'Go To Work', params: [
-    { key: 'zone_id',              label: 'Studio Zone',      type: 'text',   default: '' },
-    { key: 'arrive_by',            label: 'Arrive By (hour)', type: 'number', default: 20 },
-    { key: 'depart_early_minutes', label: 'Buffer (min)',     type: 'number', default: 0 },
+    { key: 'zone_id',              label: 'Work Zone (override)', type: 'text',   default: '' },
+    { key: 'arrive_by',            label: 'Arrive By (hour)',     type: 'number', default: 20 },
+    { key: 'depart_early_minutes', label: 'Buffer (min)',         type: 'number', default: 0 },
   ]},
   { type: 'CHECK_WORK', label: 'Check Work', params: [] },
 ];

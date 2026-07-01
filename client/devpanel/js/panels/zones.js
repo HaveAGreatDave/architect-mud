@@ -574,14 +574,14 @@ async function zoneEditForm(rec, isNew) {
         <div class="color-swatches">${MAP_PALETTE.map(c => `<span class="color-swatch" style="background:${c}" title="${c}" onclick="setZoneColor('${c}')"></span>`).join('')}<span class="color-swatch" style="background:transparent;border-style:dashed" title="clear" onclick="setZoneColor('')"></span></div>
         <div style="display:flex;gap:4px;align-items:center">
           <input id="f-color" value="${rec.color || ''}" placeholder="#rrggbb (blank = danger color)" oninput="syncColorWheel('f-color','f-color-wheel');updateColorPreview()" style="flex:1">
-          <input type="color" id="f-color-wheel" value="${rec.color || '#ffffff'}" onchange="setZoneColor(this.value)" style="width:28px;height:28px;padding:1px;border:1px solid var(--border);background:var(--bg3);cursor:pointer;flex-shrink:0">
+          <input type="color" id="f-color-wheel" value="${rec.color || '#ffffff'}" oninput="setZoneColor(this.value)" onchange="setZoneColor(this.value)" style="width:28px;height:28px;padding:1px;border:1px solid var(--border);background:var(--bg3);cursor:pointer;flex-shrink:0">
         </div>
       </div>
       <div class="field"><label>Map BG Color</label>
         <div class="color-swatches">${MAP_PALETTE.map(c => `<span class="color-swatch" style="background:${c}" title="${c}" onclick="setBgColor('${c}')"></span>`).join('')}<span class="color-swatch" style="background:transparent;border-style:dashed" title="clear" onclick="setBgColor('')"></span></div>
         <div style="display:flex;gap:4px;align-items:center">
           <input id="f-bg_color" value="${rec.bg_color || ''}" placeholder="#rrggbb (blank = transparent)" oninput="syncColorWheel('f-bg_color','f-bg-wheel');updateColorPreview()" style="flex:1">
-          <input type="color" id="f-bg-wheel" value="${rec.bg_color || '#000000'}" onchange="setBgColor(this.value)" style="width:28px;height:28px;padding:1px;border:1px solid var(--border);background:var(--bg3);cursor:pointer;flex-shrink:0">
+          <input type="color" id="f-bg-wheel" value="${rec.bg_color || '#000000'}" oninput="setBgColor(this.value)" onchange="setBgColor(this.value)" style="width:28px;height:28px;padding:1px;border:1px solid var(--border);background:var(--bg3);cursor:pointer;flex-shrink:0">
         </div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding-bottom:8px;flex-shrink:0">
