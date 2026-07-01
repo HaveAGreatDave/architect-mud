@@ -17,10 +17,10 @@ const ZONE = 'zone_start';
 const JUNK = [
   { id: 'item_rusted_can',       name: 'Rusted Can',            weight: 120, value: 1,  rarity: 'common',
     description: 'A dented steel can, label long gone to rust. Empty, but the metal is still good for something.',
-    difficulty: 3, pick_weight: 16, max_qty: 4 },
+    difficulty: 3, pick_weight: 16, max_qty: 3 },
   { id: 'item_scrap_metal',      name: 'Scrap Metal',           weight: 800, value: 3,  rarity: 'common',
     description: 'A jagged offcut of sheet metal, edges sharp enough to remind you to be careful. Raw fabrication stock.',
-    difficulty: 4, pick_weight: 15, max_qty: 4 },
+    difficulty: 4, pick_weight: 15, max_qty: 3 },
   { id: 'item_tangled_wire',     name: 'Tangled Wire',          weight: 200, value: 4,  rarity: 'common',
     description: 'A fist-sized snarl of copper wire, half its insulation cracked away. Worth untangling.',
     difficulty: 5, pick_weight: 12, max_qty: 3 },

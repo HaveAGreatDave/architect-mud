@@ -96,9 +96,11 @@ once per `ATTEMPT_MS` (3500 ms, a sibling to the attack cadence). Each attempt:
 out-of-reach pick can be drawn and auto-fails; variance is intentional), then roll.
 
 **Success** — decrement that item's per-zone stock, insert one unit straight into
-inventory, award 1 IP via `awardSkillUse`, reset `streak`, and show a random flavor
-line + "*You turn up <item>.*" If that took the **last** unit → "*You've picked the
-area clean.*" + stop.
+inventory, award 1 IP via `awardSkillUse`, and show a random flavor line + "*You
+turn up <item> and pocket it.*" (the item name is a clickable `examine` link). **A
+successful find always ends the action** — you stop scavenging on the first find,
+so gathering a room takes a fresh `scavenge` per item. If that find took the
+**last** unit, an extra "*picked the area clean*" line fires before the stop.
 
 **Failure** — `streak++`, show a flavor line + "*You come up empty.*" At **exactly**
 `streak === 3`, fire the once-only nudge "*…if you just search a little harder…*"

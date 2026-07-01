@@ -218,14 +218,12 @@ async function runAttempt(player, st, nowMs) {
       [randomUUID(), player.id, target.item_id]
     );
     await awardSkillUse(player.id, 'scavenging', margin);
-    out(player.id, `${flavor}\n<span class="item-grant">You turn up ${target.name}.</span>`);
-
-    if (totalStock - 1 === 0) {
-      out(player.id, 'You\'ve picked the area clean. There\'s nothing left to find.');
-      stopScavenging(player.id, st.zoneId, player.handle);
-    } else {
-      advanceState(player.id, { lastAttempt: nowMs, streak: 0 });
-    }
+    const link = `<span class="action-link item-link" data-action="examine" data-target="${target.name}" title="Examine ${target.name}">${target.name}</span>`;
+    out(player.id, `${flavor}\n<span class="item-grant">You turn up ${link} and pocket it.</span>`);
+    if (totalStock - 1 === 0)
+      out(player.id, 'That was the last of it — you\'ve picked the area clean.');
+    // A successful find always ends the action.
+    stopScavenging(player.id, st.zoneId, player.handle);
     return;
   }
 
