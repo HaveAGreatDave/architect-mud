@@ -607,7 +607,7 @@ export function initTvPanel() {
   const knob = document.getElementById('tv-knob');
 
   knob.addEventListener('click', () => {
-    if (!_tvOpen) return;
+    if (!_tvOpen || navigator.maxTouchPoints > 0) return;
     if (_sweepRaf) { cancelAnimationFrame(_sweepRaf); _sweepRaf = null; }
     if (_tvChannelList.length) {
       const idx = _tvChannelList.findIndex(c => c.channelId === _tvActiveChannelId);

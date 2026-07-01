@@ -5133,6 +5133,32 @@ body {
 	100% { transform: scaleY(1)     scaleX(1);    filter: brightness(1);   }
 }
 
+/* ── TV panel: mobile overrides ─────────────────────────────────────────────── */
+@media (max-width: 600px) {
+	#tv-window {
+		/* Square-ish: fills most of the viewport width, height matches */
+		width: min(96vw, 96vh);
+		aspect-ratio: 1 / 1;
+	}
+	#tv-header {
+		padding: 5px 8px;
+		gap: 6px;
+	}
+	#tv-station-name { font-size: 10px; letter-spacing: 1px; }
+	#tv-channel-num  { font-size: 9px; }
+	#tv-program-name { font-size: 9px; display: none; }
+	#tv-close-btn    { width: 24px; height: 24px; font-size: 13px; }
+	#tv-live-badge   { font-size: 8px; }
+	#tv-content      { padding: 8px 10px; }
+	#tv-footer       { height: 48px; }
+	#tv-knob         { width: 42px; height: 42px; }
+	#tv-knob-wrap    { gap: 5px; padding: 0 8px 0 8px; }
+	.tv-tune-btn     { width: 22px; height: 22px; font-size: 13px; }
+	#tv-tuner-wrap   { padding: 0 4px; }
+	#tv-freq-display { font-size: 9px; min-width: 22px; }
+	#tv-overlay-container { padding-bottom: 148px; }
+}
+
 /* ── Architect Music Player (AMP) ───────────────────────────────────────────── */
 
 #musicplayer-panel {
