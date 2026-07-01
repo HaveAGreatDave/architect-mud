@@ -77,10 +77,12 @@ export function resetOrder() {
 
 export function placeDpadPanel() {
   const sidebar = document.getElementById('sidebar');
-  const spacer = sidebar.querySelector('.sidebar-spacer');
-  if (!spacer) return false;
   const section = document.getElementById('dpad-section');
-  spacer.before(section);
+  if (!section) return false;
+  const spacer = sidebar.querySelector('.sidebar-spacer');
+  // Prefer an existing flexible gap; otherwise drop it at the bottom of the sidebar.
+  if (spacer) spacer.before(section);
+  else document.getElementById('sidebar-drop-end').before(section);
   if (!locked) { section.draggable = true; attachDragHandlers(section); }
   saveLayout();
   return true;

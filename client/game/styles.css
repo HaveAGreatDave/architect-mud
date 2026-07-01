@@ -1661,6 +1661,31 @@ body {
 	flex-wrap: wrap;
 }
 
+/* Condensed inline rows for the simple icon/option groups: label on the
+   left, buttons pushed to the right, one row each instead of stacked. */
+.settings-group:has(> .settings-options) {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin-bottom: 7px;
+}
+.settings-group:has(> .settings-options) label.group-label {
+	flex: 0 0 84px;
+	margin-bottom: 0;
+}
+.settings-group:has(> .settings-options) .settings-options {
+	flex: 1;
+	justify-content: flex-end;
+	flex-wrap: nowrap;
+}
+.settings-group:has(> .settings-options) .settings-opt {
+	padding: 5px 8px;
+	min-width: 34px;
+	text-align: center;
+	line-height: 1;
+	font-size: 14px;
+}
+
 /* Map popup */
 #map-panel {
 	display: none;
