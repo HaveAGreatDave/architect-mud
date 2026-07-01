@@ -1,6 +1,6 @@
 import { query } from '../../models/db.js';
 import { formatBattleCry } from '../combat.js';
-import { getZone, getMinimapData, addPlayerToZone, removePlayerFromZone, getDoorForExit, setDoorCache, getAllLivePlayers, getLivePlayer, getZoneEnemies } from '../world.js';
+import { getZone, getMinimapData, addPlayerToZone, removePlayerFromZone, getDoorForExit, setDoorCache, getAllLivePlayers, getLivePlayer, getZoneEnemies, tryBattleCry } from '../world.js';
 import { getZoneVisibility, getWindowsForZone, getEnvironmentState, getZoneTemperature } from '../environment.js';
 import { describeZone, resolveNamedDestination } from './describe.js';
 import { checkLockAuth, getLockTagPublic } from './doors.js';
@@ -171,7 +171,7 @@ function buildBattleCryMessages(enemies, playerHandle) {
   const lines = [];
   for (const { enemy, count } of byType.values()) {
     const cries = enemy.flags?.battle_cries;
-    if (!Array.isArray(cries) || !cries.length) continue;
+    if (!Array.isArray(cries) || !cries.length || !tryBattleCry(enemy.templateId)) continue;
     const cry = cries[Math.floor(Math.random() * cries.length)];
     const plural = count > 1;
     const typeName = plural ? `${enemy.name}s` : enemy.name;

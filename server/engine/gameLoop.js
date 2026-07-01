@@ -1,4 +1,4 @@
-import { world, tickSpawns, getRandomAmbient, getWeatherAmbient, getLivePlayer, getInterruptLoudness, registerInterrupt, createCorpse, removeCorpse } from './world.js';
+import { world, tickSpawns, getRandomAmbient, getWeatherAmbient, getLivePlayer, getInterruptLoudness, registerInterrupt, createCorpse, removeCorpse, tryBattleCry } from './world.js';
 import { randomUUID } from 'crypto';
 import { propagateSound } from './sounds.js';
 import { enemyAttackPlayer, enemyAttackNpc, npcAttackPlayer, isOnCooldown, pvpSwing, formatBattleCry } from './combat.js';
@@ -49,9 +49,9 @@ async function tick() {
           enemy._lastThreatTick = now;
           enemy._threatLevel = (enemy._threatLevel || 0) + 1;
 
-          // Battlecry — throttled to once per 30 s regardless of threat tick rate
+          // Battlecry — throttled to once per 30 s per individual enemy; also suppressed for 10 s if same type just shouted
           const cries = enemy.flags?.battle_cries;
-          if (Array.isArray(cries) && cries.length && now - (enemy._lastBattleCry || 0) >= 30000) {
+          if (Array.isArray(cries) && cries.length && now - (enemy._lastBattleCry || 0) >= 30000 && tryBattleCry(enemy.templateId)) {
             enemy._lastBattleCry = now;
             const randomPlayer = getLivePlayer([...zone.players][Math.floor(Math.random() * zone.players.size)]);
             const cry = cries[Math.floor(Math.random() * cries.length)]

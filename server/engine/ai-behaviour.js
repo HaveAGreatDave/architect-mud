@@ -1,6 +1,6 @@
 import { world, getLivePlayer, getDoorForExit, setDoorCache, getZone } from './world.js';
 import { findPath, getZonesInRadius } from './pathfinding.js';
-import { enemyAttackPlayer, enemyAttackNpc } from './combat.js';
+import { enemyAttackPlayer, enemyAttackNpc, enemyAttackEnemy } from './combat.js';
 import { getEnvironmentState } from './environment.js';
 import { emit } from './events.js';
 import { hasChannelViewers, isNpcScheduledNow, getNpcStudioZone } from './broadcast-bridge.js';
@@ -274,6 +274,24 @@ async function execAction(node, entity, ctx) {
   switch (type) {
     case 'ATTACK': {
       if (!entity.targetId) break;
+      // Check if target is another enemy instance
+      const enemyTarget = entity.flags?.attacks_enemies ? world.enemies.get(entity.targetId) : null;
+      if (enemyTarget) {
+        if (enemyTarget._dead || enemyTarget.zoneId !== zoneId) {
+          entity.targetId = null;
+          if (ai) ai.patrolPath = [];
+          break;
+        }
+        enemyAttackEnemy(entity, enemyTarget).then(result => {
+          if (!result) return;
+          broadcast(zoneId, { type: 'zone_event', message: result.message, refresh: result.killed });
+          if (result.killed) {
+            entity.targetId = null;
+            if (ai) ai.patrolPath = [];
+          }
+        }).catch(() => {});
+        break;
+      }
       // Check if target is an NPC (when attacks_npcs flag is set)
       const npcTarget = entity.flags?.attacks_npcs ? world.npcs.get(entity.targetId) : null;
       if (npcTarget) {
@@ -336,7 +354,10 @@ async function execAction(node, entity, ctx) {
       const npcs = entity.flags?.attacks_npcs
         ? [...zone.npcs].map(id => world.npcs.get(id)).filter(n => n && !n._dead)
         : [];
-      const pool = [...players, ...npcs];
+      const enemies = entity.flags?.attacks_enemies
+        ? [...zone.enemies].map(id => world.enemies.get(id)).filter(e => e && !e._dead && e.instanceId !== entity.instanceId)
+        : [];
+      const pool = [...players, ...npcs, ...enemies];
       if (!pool.length) break;
       if (params.prefer === 'lowest_hp') {
         pool.sort((a, b) => (a.hp ?? 0) - (b.hp ?? 0));
@@ -634,10 +655,11 @@ async function execAction(node, entity, ctx) {
         // patrol: pick a random safe exterior zone on the world map
         if (!ai.patrolTarget) {
           const safe = [];
+          const safeOnly = entity.flags?.safe_zones_only;
           for (const [sid, sz] of world.zones) {
             if (sz.map_id !== 'map_world') continue;
             if (sz.flags?.is_interior || sz.flags?.is_apartment || sz.flags?.is_building) continue;
-            if ((sz.danger_rating || 0) > 1) continue;
+            if (safeOnly ? !sz.is_safe_zone : (sz.danger_rating || 0) > 1) continue;
             safe.push(sid);
           }
           ai.patrolTarget = safe.length ? safe[Math.floor(Math.random() * safe.length)] : entity.home_zone;

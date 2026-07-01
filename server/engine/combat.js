@@ -1,4 +1,4 @@
-import { world, getEnemyInstance, removeEnemyInstance, getLivePlayer, getZonePlayers } from './world.js';
+import { world, getEnemyInstance, removeEnemyInstance, getLivePlayer, getZonePlayers, tryBattleCry } from './world.js';
 import { getNpcCombatLine } from './npc-personality.js';
 import { effectiveSkill } from './skills.js';
 import { ensureTunables, getTunable } from './tunables.js';
@@ -271,7 +271,7 @@ export async function enemyAttackPlayer(enemy, player) {
   const hit = margin >= 0;
 
   const cries = enemy.flags?.battle_cries;
-  const cry = (isFirstStrike && Array.isArray(cries) && cries.length)
+  const cry = (isFirstStrike && Array.isArray(cries) && cries.length && tryBattleCry(enemy.templateId))
     ? formatBattleCry(enemy.name, cries[Math.floor(Math.random() * cries.length)].replace(/\$enemy/g, enemy.name).replace(/\$player/g, player.handle)) + '\n'
     : '';
 
@@ -500,6 +500,51 @@ export async function enemyAttackNpc(enemy, npc) {
     message: critical
       ? `<span class="crit-tag">CRITICAL HIT</span> ${enemy.name} hits ${npc.name}'s <span class="hit-part">${partLabel}</span> for <span class="dmg-dealt">${damage}</span> <span class="dmg-type">${damageTypes}</span>!${killed ? ' They go down.' : ''}`
       : `${enemy.name} hits ${npc.name}'s <span class="hit-part">${partLabel}</span> for <span class="dmg-dealt">${damage}</span> <span class="dmg-type">${damageTypes}</span>.${killed ? ' They go down.' : ''}`,
+  };
+}
+
+// Enemy attacks another enemy instance. Uses the same timing/formula as enemyAttackNpc.
+export async function enemyAttackEnemy(attacker, defender) {
+  if (!defender || defender._dead) return null;
+  const now = Date.now();
+  await ensureTunables();
+  const attackInterval = getTunable('enemy_attack_interval_ms', 4000);
+  if (now - attacker.lastAttack < attackInterval) return null;
+  attacker.lastAttack = now;
+
+  const margin = (attacker.hit ?? 1) - (defender.flags?.dodge ?? 1) + rollSwing();
+  const hit = margin >= 0;
+  if (!hit) {
+    return { hit: false, killed: false, message: `${attacker.name} attacks ${defender.name} and misses.` };
+  }
+
+  const critical = margin >= getTunable('crit_threshold', 8);
+  const components = enemyWeaponComponents(attacker);
+  const damageTypes = [...new Set(components.map(c => c.type))].join('/');
+  const part = rollBodyPart();
+  const headMult = part === 'head' ? getTunable('head_damage_multiplier', 1.5) : 1;
+  let total = 0;
+  for (const c of components) {
+    let amt = randInt(c.min, c.max);
+    if (critical) amt = Math.floor(amt * getTunable('crit_multiplier', 1.5));
+    total += Math.floor(amt * headMult);
+  }
+  const damage = Math.max(1, total);
+  const partLabel = PART_LABELS[part] || part;
+
+  defender.hp = Math.max(0, (defender.hp ?? defender.hp_max ?? 20) - damage);
+  const killed = defender.hp <= 0;
+  if (killed) {
+    defender._dead = true;
+    const zone = world.zones.get(defender.zoneId);
+    if (zone) zone.enemies.delete(defender.instanceId);
+  }
+
+  return {
+    hit: true, damage, critical, killed,
+    message: critical
+      ? `<span class="crit-tag">CRITICAL HIT</span> ${attacker.name} hits ${defender.name}'s <span class="hit-part">${partLabel}</span> for <span class="dmg-dealt">${damage}</span> <span class="dmg-type">${damageTypes}</span>!${killed ? ' They go down.' : ''}`
+      : `${attacker.name} hits ${defender.name}'s <span class="hit-part">${partLabel}</span> for <span class="dmg-dealt">${damage}</span> <span class="dmg-type">${damageTypes}</span>.${killed ? ' They go down.' : ''}`,
   };
 }
 

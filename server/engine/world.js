@@ -22,6 +22,9 @@ const RECENT_AMBIENT_WINDOW = 5;
 // Quieter ambients are suppressed while a loud sound is "in the air".
 const zoneInterruptLoudness = new Map(); // zoneId -> { loudness, expiresAt }
 
+// Battlecry type cooldown: if one enemy of a type shouts, suppress others of the same type for 10 s.
+const battleCryTypeCooldowns = new Map(); // templateId -> timestamp
+
 export async function initWorld() {
   await loadZones();
   await loadNpcs();
@@ -239,6 +242,33 @@ export function removeEnemyInstance(id) {
   world.enemies.delete(id);
 }
 
+const SPAWN_MESSAGES = [
+  n => `A ${n} drags itself out of the shadows.`,
+  n => `A ${n} materializes from nowhere you can pinpoint.`,
+  n => `Something wet hits the floor. A ${n} has arrived.`,
+  n => `A ${n} shoulders through like it owns the place.`,
+  n => `A ${n} drops from the ceiling with a hollow thud.`,
+  n => `A ${n} rounds the corner, already looking for trouble.`,
+  n => `You hear it before you see it. A ${n} emerges.`,
+  n => `A ${n} crawls up through a floor grate and shakes itself off.`,
+  n => `A ${n} squeezes through a gap that shouldn't be big enough.`,
+  n => `A ${n} steps into the light, blinking slowly.`,
+  n => `A ${n} pushes through, trailing something dark.`,
+  n => `A ${n} appears at the edge of the room, sniffing.`,
+  n => `There's a sound like tearing plastic. A ${n} is here.`,
+  n => `A ${n} skitters in from somewhere you'd rather not think about.`,
+  n => `A ${n} staggers in looking hungrier than you'd like.`,
+  n => `The lights flicker. When they come back, a ${n} is standing there.`,
+  n => `A ${n} unfolds itself from the corner.`,
+  n => `A faint chemical smell precedes the ${n}.`,
+  n => `You catch movement in your peripheral. A ${n}.`,
+  n => `A ${n} peels away from the wall.`,
+];
+
+function pickSpawnMessage(name) {
+  return SPAWN_MESSAGES[Math.floor(Math.random() * SPAWN_MESSAGES.length)](name);
+}
+
 export function spawnEnemySync(template, zoneId) {
   const id = `ei_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
   const flags = template.flags || {};
@@ -282,7 +312,7 @@ export async function tickSpawns(broadcast) {
     if (count < t.max_count && Math.random() * 100 < t.spawn_weight) {
       const instance = spawnEnemySync(t, t.zone_id);
       if (broadcast && zone.players.size > 0) {
-        broadcast(t.zone_id, { type: 'zone_event', message: `A ${instance.name} appears.`, refresh: true });
+        broadcast(t.zone_id, { type: 'zone_event', message: pickSpawnMessage(instance.name), refresh: true });
       }
     }
     world.spawnTimers.set(t.spawn_id, { ...timer, nextSpawn: now + t.respawn_seconds * 1000 });
@@ -403,6 +433,15 @@ export async function reloadZone(zoneId) {
     npcs: existing.npcs,
     corpses: existing.corpses,
   });
+}
+
+// Returns true and records the cooldown if this enemy type can shout; false if suppressed.
+export function tryBattleCry(templateId, cooldownMs = 10000) {
+  const now = Date.now();
+  const last = battleCryTypeCooldowns.get(templateId) || 0;
+  if (now - last < cooldownMs) return false;
+  battleCryTypeCooldowns.set(templateId, now);
+  return true;
 }
 
 export { world };

@@ -288,6 +288,8 @@ function broadcastArrayShutdown(zoneId) {
     type: 'output',
     message: `<span style="color:var(--text-dim);font-style:italic">The last bay seals with a pressure-equalizing thud and the Array's status lamp shifts from amber to green. Hydraulic armatures retract in sequence — each segment folding back into the chassis with a series of heavy mechanical clunks. Cooling fans spool down in a long descending whirr, and a tri-tone confirmation chime announces that the Arbiter Array has returned to standby.</span>`,
   });
+  // Trigger a look refresh so clients see the updated zone without a manual reload.
+  setTimeout(() => sendToZone(zoneId, { type: 'zone_event', message: '', refresh: true }), 2000);
   sendToZone(zoneId, { type: 'audio_sfx', def: SFX_ARRAY_WHIRR });
   setTimeout(() => sendToZone(zoneId, { type: 'audio_sfx', def: SFX_ARRAY_CLUNK }), 600);
   setTimeout(() => {
@@ -342,7 +344,7 @@ async function activateArbiters() {
       const instance = spawnEnemySync(template, zone_id);
       instance.home_zone = zone_id;
       instance.behaviour_graph = ARBITER_BEHAVIOUR_GRAPH;
-      instance.flags = { ...(instance.flags || {}), ignores_admins: true };
+      instance.flags = { ...(instance.flags || {}), ignores_admins: true, attacks_enemies: true, safe_zones_only: true };
       spawnedArbiters.add(instance.instanceId);
       arbiterHomeZone.set(instance.instanceId, zone_id);
       spawnedByZone.get(zone_id).add(instance.instanceId);
