@@ -173,10 +173,8 @@ async function activate(message) {
     if (muffled) sendToZone(zoneId, { type: 'audio_ambience', def: muffled });
   }
 
-  espTicker = setInterval(() => {
-    broadcastToEspZones({ type: 'esp_warning', message: espMessage });
-    for (const zoneId of espIndoor) sendToZone(zoneId, { type: 'esp_warning', message: espMessage });
-  }, 10_000);
+  broadcastToEspZones({ type: 'esp_warning', message: espMessage });
+  for (const zoneId of espIndoor) sendToZone(zoneId, { type: 'esp_warning', message: espMessage });
 
   espActive = true;
 }
@@ -211,17 +209,18 @@ async function activateArbiters() {
   const { rows: arrayRows } = await query(
     `SELECT DISTINCT zone_id FROM furniture WHERE name ILIKE '%arbiter%'`
   );
-  if (!arrayRows.length) return { error: 'No Arbiter Array furniture found' };
+  if (!arrayRows.length) return { error: 'No Arbiter Array furniture found in DB — create furniture named "Arbiter Array" and assign it to a zone' };
 
   const { rows: templates } = await query(
     `SELECT * FROM enemies WHERE id = 'enemy_arbiterclass_enforcement_unit' LIMIT 1`
   );
-  if (!templates.length) return { error: 'Arbiter enemy template not found' };
+  if (!templates.length) return { error: 'Enemy template "enemy_arbiterclass_enforcement_unit" not found in DB' };
   const template = templates[0];
 
+  const missingZones = [];
   let spawned = 0;
   for (const { zone_id } of arrayRows) {
-    if (!world.zones.has(zone_id)) continue;
+    if (!world.zones.has(zone_id)) { missingZones.push(zone_id); continue; }
     for (let i = 0; i < 5; i++) {
       const instance = spawnEnemySync(template, zone_id);
       instance.home_zone = zone_id;
@@ -229,6 +228,13 @@ async function activateArbiters() {
       spawnedArbiters.add(instance.instanceId);
       spawned++;
     }
+  }
+
+  if (spawned === 0) {
+    const hint = missingZones.length
+      ? `Found ${arrayRows.length} array zone(s) but none are loaded in the live world: ${missingZones.join(', ')}`
+      : 'No zones to spawn into';
+    return { error: hint };
   }
 
   arbitersActive = true;
@@ -394,7 +400,9 @@ export const routeHandler = async (path, method, body, auth) => {
   }
 
   if (path === '/emergency/arbiters/activate' && method === 'POST') {
-    const result = await activateArbiters();
+    let result;
+    try { result = await activateArbiters(); }
+    catch (e) { return { status: 500, body: { error: e.message || 'Arbiter activation failed' } }; }
     if (result.error) return { status: 400, body: result };
     return { status: 200, body: result };
   }
