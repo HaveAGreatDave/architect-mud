@@ -417,6 +417,15 @@ function _closeWhisperTab(handle) {
 	_saveConvos();
 	_whisperConvos.delete(handle);
 	_channels.delete(handle);
+	// Re-pin the quick-access slot to another remaining PM (if any).
+	if (_lastPmTab === handle) {
+		_lastPmTab = null;
+		for (const [h] of _whisperConvos) {
+			if (_channels.has(h) || h === USERS_TAB) continue;
+			_lastPmTab = h;
+			break;
+		}
+	}
 	if (_activeWhisperTab === handle) _switchToTab(USERS_TAB);
 	else {
 		_refreshWhisperTabs();
@@ -464,7 +473,7 @@ function _refreshWhisperTabs() {
 	let pmUnread = 0;
 	for (const [handle, convo] of _whisperConvos) {
 		if (_channels.has(handle) || handle === USERS_TAB) continue;
-		if (handle !== _activeWhisperTab && convo.unread > 0) pmUnread += convo.unread;
+		if (handle !== _lastPmTab && convo.unread > 0) pmUnread += convo.unread;
 	}
 
 	const hubTab = document.createElement("button");
@@ -496,20 +505,18 @@ function _refreshWhisperTabs() {
 		}
 	}
 
-	// Player whisper tabs live in the Chats hub list, not the strip — only the
-	// currently-open PM gets a tab, so the strip can't sprawl off-screen.
-	if (
-		_activeWhisperTab !== USERS_TAB &&
-		!_channels.has(_activeWhisperTab) &&
-		_whisperConvos.has(_activeWhisperTab)
-	) {
-		mkClosableTab(
-			_activeWhisperTab,
-			_activeWhisperTab,
-			true,
-			() => openWhisperTab(_activeWhisperTab),
-			() => _closeWhisperTab(_activeWhisperTab),
-		);
+	// PM conversations live in the Chats hub list, not the strip. One PM stays
+	// pinned here as a quick-access tab (the last one opened); it has no close
+	// button — closing happens from the hub, and switching PMs re-pins this slot.
+	if (_lastPmTab && _whisperConvos.has(_lastPmTab) && !_channels.has(_lastPmTab)) {
+		const active = _activeWhisperTab === _lastPmTab;
+		const convo = _whisperConvos.get(_lastPmTab);
+		const t = document.createElement("button");
+		t.className = `whisper-tab${active ? " active tab-purple" : ""}`;
+		t.textContent = _lastPmTab;
+		t.onclick = () => openWhisperTab(_lastPmTab);
+		if (!active && convo?.unread > 0) t.appendChild(mkPip());
+		tabs.appendChild(t);
 	}
 }
 
