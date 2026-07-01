@@ -1,6 +1,6 @@
 import { world, getLivePlayer, getDoorForExit, setDoorCache, getZone } from './world.js';
 import { findPath, getZonesInRadius } from './pathfinding.js';
-import { enemyAttackPlayer } from './combat.js';
+import { enemyAttackPlayer, enemyAttackNpc } from './combat.js';
 import { getEnvironmentState } from './environment.js';
 import { emit } from './events.js';
 import { hasChannelViewers, isNpcScheduledNow, getNpcStudioZone } from './broadcast-bridge.js';
@@ -260,6 +260,31 @@ async function execAction(node, entity, ctx) {
   switch (type) {
     case 'ATTACK': {
       if (!entity.targetId) break;
+      // Check if target is an NPC (when attacks_npcs flag is set)
+      const npcTarget = entity.flags?.attacks_npcs ? world.npcs.get(entity.targetId) : null;
+      if (npcTarget) {
+        if (npcTarget._dead || npcTarget.zone_id !== zoneId) {
+          entity.targetId = null;
+          if (ai) ai.patrolPath = [];
+          break;
+        }
+        enemyAttackNpc(entity, npcTarget).then(result => {
+          if (!result) return;
+          if (result.hit) {
+            broadcast(zoneId, { type: 'zone_event', message: result.message });
+            if (result.npcSpeech) {
+              const verb = result.npcSpeech.shout ? 'shouts' : 'says';
+              broadcast(zoneId, { type: 'zone_event', message: `${npcTarget.name} ${verb}, "${result.npcSpeech.line}"` });
+            }
+          }
+          if (result.killed) {
+            entity.targetId = null;
+            if (ai) ai.patrolPath = [];
+            broadcast(zoneId, { type: 'zone_event', message: `${npcTarget.name} has been killed.`, refresh: true });
+          }
+        }).catch(() => {});
+        break;
+      }
       const target = getLivePlayer(entity.targetId);
       if (!target || target.current_zone !== zoneId) {
         entity.targetId = null;
@@ -291,14 +316,18 @@ async function execAction(node, entity, ctx) {
     }
 
     case 'ACQUIRE_TARGET': {
-      if (!zone || zone.players.size === 0) break;
+      if (!zone) break;
       const players = [...zone.players].map(id => getLivePlayer(id)).filter(Boolean);
-      if (!players.length) break;
+      const npcs = entity.flags?.attacks_npcs
+        ? [...zone.npcs].map(id => world.npcs.get(id)).filter(n => n && !n._dead)
+        : [];
+      const pool = [...players, ...npcs];
+      if (!pool.length) break;
       if (params.prefer === 'lowest_hp') {
-        players.sort((a, b) => a.hp - b.hp);
-        entity.targetId = players[0].id;
+        pool.sort((a, b) => (a.hp ?? 0) - (b.hp ?? 0));
+        entity.targetId = pool[0].id;
       } else {
-        entity.targetId = players[Math.floor(Math.random() * players.length)].id;
+        entity.targetId = pool[Math.floor(Math.random() * pool.length)].id;
       }
       entity.aggroedAt = Date.now();
       break;
@@ -680,6 +709,9 @@ async function execAction(node, entity, ctx) {
 
 const MAX_STEPS = 50;
 
+let _espShelterActive = false;
+export function setEspShelter(active) { _espShelterActive = !!active; }
+
 export async function tickEntityAI(entity, ctx) {
   // Normalize DB format (inline connections + flat data) to runtime format on first tick
   if (entity.behaviour_graph && !entity.behaviour_graph._normalized) {
@@ -693,6 +725,24 @@ export async function tickEntityAI(entity, ctx) {
 
   // Don't tick while a player has this NPC's shop open.
   if (ai.shopPaused) return;
+
+  // ESP: override all NPC behaviour — route everyone home until stand-down.
+  if (_espShelterActive && !isEnemy(entity) && entity.home_zone) {
+    const zoneId = entityZone(entity);
+    if (zoneId !== entity.home_zone) {
+      if (!ai.patrolPath.length || ai.patrolTarget !== entity.home_zone) {
+        const path = findPath(zoneId, entity.home_zone);
+        if (path && path.length >= 2) { ai.patrolPath = path.slice(1); ai.patrolTarget = entity.home_zone; }
+      }
+      const next = ai.patrolPath.shift();
+      if (next) {
+        const moved = moveEntity(entity, next, ctx.broadcast, ctx.query);
+        if (!moved) { ai.patrolPath = []; ai.patrolTarget = null; }
+        else if (ctx.query) ctx.query('UPDATE npcs SET zone_id=$1 WHERE id=$2', [entityZone(entity), entity.id]).catch(() => {});
+      }
+    }
+    return;
+  }
 
   // Check if suspended in a WAIT — currentNode already points to the resume target
   if (ai.waitUntil && Date.now() < ai.waitUntil) return;

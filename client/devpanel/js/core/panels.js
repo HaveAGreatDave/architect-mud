@@ -3,6 +3,7 @@
 const PANELS = {
   dashboard: {
     title: 'Dashboard',
+    description: 'Live server status, active players, and world health at a glance.',
     fetch: async () => {
       const [world, env] = await Promise.all([API('/world/state'), API('/environment/state')]);
       if (env && !env.error) window._lastEnv = env;
@@ -13,6 +14,7 @@ const PANELS = {
   },
   zones: {
     title: 'Zones',
+    description: 'Edit room descriptions, exits, danger ratings, and zone properties.',
     idPrefix: 'zone',
     fetch: () => API('/zones'),
     columns: [
@@ -30,6 +32,7 @@ const PANELS = {
   },
   enemies: {
     title: 'Enemies',
+    description: 'Define enemy stats, behaviour trees, attack patterns, and loot tables.',
     idPrefix: 'enemy',
     fetch: () => API('/enemies'),
     columns: [
@@ -45,6 +48,7 @@ const PANELS = {
   },
   items: {
     title: 'Items',
+    description: 'Create and edit weapons, armour, consumables, and world objects.',
     idPrefix: 'item',
     fetch: () => API('/items'),
     render: renderItemsPanel,
@@ -55,6 +59,7 @@ const PANELS = {
   },
   npcs: {
     title: 'NPCs',
+    description: 'Configure named characters — dialogue, faction, schedules, and AI.',
     idPrefix: 'npc',
     fetch: () => API('/npcs'),
     columns: [
@@ -69,6 +74,7 @@ const PANELS = {
   },
   furniture: {
     title: 'Furniture',
+    description: 'Interactive objects placed in zones — terminals, vendors, seats, and more.',
     idPrefix: 'furniture',
     fetch: () => Promise.all([API('/furniture'), API('/zones')]).then(([f, z]) => ({ furniture: Array.isArray(f) ? f : [], zones: Array.isArray(z) ? z : [] })),
     render: renderFurniturePanel,
@@ -79,6 +85,7 @@ const PANELS = {
   },
   mutations: {
     title: 'Mutations',
+    description: 'Radiation-triggered biological modifications that alter player stats and abilities.',
     idPrefix: 'mutation',
     fetch: () => API('/mutations'),
     columns: [
@@ -94,6 +101,7 @@ const PANELS = {
   },
   drugs: {
     title: 'Drugs',
+    description: 'Consumable substances with timed stat effects, addiction, and overdose thresholds.',
     idPrefix: 'drug',
     fetch: () => API('/drugs'),
     columns: [
@@ -107,13 +115,15 @@ const PANELS = {
     delete: id => API(`/drugs/${id}`, 'DELETE'),
   },
   sounds: {
-    title: 'Sounds',
+    title: 'SoundScript',
+    description: 'Named audio-text sound effects and ambient text events broadcast by zone theme.',
     fetch: () => Promise.all([API('/sounds'), API('/ambient-events')]).then(([s, a]) => ({ sounds: s, ambients: a })),
     noEdit: true,
     render: renderSoundsPanel,
   },
   audio: {
     title: 'Audio',
+    description: 'Music instruments, songs, SFX clips, ambient tracks, and audio event bindings.',
     fetch: () => Promise.all([API('/audio/instruments'), API('/audio/songs'), API('/audio/sfx'), API('/audio/ambient'), API('/audio/events'), API('/audio/samples')])
       .then(([instruments, songs, sfx, ambient, events, samples]) => ({ instruments, songs, sfx, ambient, events, samples })),
     noEdit: true,
@@ -121,12 +131,14 @@ const PANELS = {
   },
   tags: {
     title: 'Tag Catalog',
+    description: 'Property tags that attach behaviours and rules to items, zones, and entities.',
     fetch: async () => ({ catalog: await API('/tag-catalog'), supertags: await API('/tag-supertags') }),
     noEdit: true,
     render: renderTagsPanel,
   },
   recipes: {
     title: 'Recipes',
+    description: 'Crafting recipes linking ingredient items to output items, with skill and station requirements.',
     idPrefix: 'recipe',
     fetch: () => API('/recipes'),
     columns: [
@@ -142,6 +154,7 @@ const PANELS = {
   },
   quests: {
     title: 'Quests',
+    description: 'Multi-step player objectives with triggers, conditions, and rewards.',
     idPrefix: 'quest',
     fetch: () => API('/quests'),
     columns: [
@@ -156,6 +169,7 @@ const PANELS = {
   },
   scripts: {
     title: 'Scripts',
+    description: 'VINE behaviour graphs for scripted events, branching dialogue, and quest logic.',
     idPrefix: 'script',
     fetch: () => API('/scripts'),
     columns: [
@@ -169,35 +183,41 @@ const PANELS = {
   },
   maps: {
     title: 'Maps',
+    description: 'Visual layout editor for connected zone maps.',
     fetch: () => API('/maps'),
     render: renderMapsPanel,
     noEdit: true,
   },
   power: {
     title: 'Power Grid',
+    description: 'Manage city power infrastructure and zone power dependencies.',
     fetch: () => API('/maps/map_world').then(d => d?.zones || []),
     render: renderPowerPanel,
     noEdit: true,
   },
   bank: {
     title: 'Bank & ATMs',
+    description: 'ATM networks, faction banking, credit limits, and fee configuration.',
     fetch: () => Promise.resolve({}),
     noEdit: true,
     render: renderBankPanel,
   },
   emergency: {
     title: 'Emergency',
+    description: 'Configure emergency alert tiers, broadcast triggers, and server-wide response protocols.',
     fetch: () => directAPI('/emergency/state'),
     noEdit: true,
     render: renderEmergencyPanel,
   },
   worldstate: {
     title: 'World State',
+    description: 'Live flags and variables governing the world\'s current global state.',
     fetch: () => API('/world/state'),
     render: renderWorldState,
   },
   timeweather: {
     title: 'Time & Weather',
+    description: 'Day/night cycle settings, climate profiles, and weather forecasting.',
     fetch: async () => {
       const [env, forecast, climateProfiles] = await Promise.all([
         API('/environment/state'), API('/environment/forecast'), API('/environment/climate/profiles')
@@ -209,18 +229,21 @@ const PANELS = {
   },
   players: {
     title: 'Players',
+    description: 'Connected and registered player accounts, character stats, and session data.',
     fetch: () => API('/players'),
     noEdit: true,
     render: renderPlayersPanel,
   },
   validator: {
     title: 'Zone Validator',
+    description: 'Cross-reference zones and content for broken exits, missing references, and bad data.',
     fetch: () => Promise.resolve({}),
     noEdit: true,
     render: renderValidatorPanel,
   },
   broadcasts: {
     title: 'Broadcasts',
+    description: 'TV channels, schedules, NPC hosts, themes, and live broadcast content.',
     fetch: async () => {
       const [broadcasts, channels, npcs, themes, graphics, zones] = await Promise.all([
         directAPI('/broadcast/broadcasts'),
@@ -244,6 +267,7 @@ const PANELS = {
   },
   changes: {
     title: 'Changes',
+    description: 'Staged edits awaiting review before publishing to production.',
     fetch: () => API('/staging/pending'),
     noEdit: true,
     render: renderChangesPanel,
@@ -268,6 +292,7 @@ async function loadPanel(name) {
   const p = PANELS[name];
   if (!p) return;
   document.getElementById('panel-title').textContent = p.title;
+  document.getElementById('panel-description').textContent = p.description || '';
   document.getElementById('new-btn').style.display = p.noEdit || name === 'worldstate' || name === 'players' ? 'none' : '';
 
   let data;

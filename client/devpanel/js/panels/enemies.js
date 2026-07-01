@@ -332,6 +332,7 @@ async function enemyEditForm(rec, isNew) {
     </div>
     <div class="field"><label>First Strike Delay (ms) — hesitation before its first attack after aggroing. 0 = attacks immediately.</label><input type="number" id="f-first_strike_delay_ms" value="${rec.flags?.first_strike_delay_ms||0}" min="0" step="500"></div>
     <div class="field"><label>Battle Cries (one per line) — shown on its first strike</label><textarea id="f-battle_cries" rows="3">${(rec.flags?.battle_cries||[]).join('\n')}</textarea></div>
+    <div class="field"><label><input type="checkbox" id="f-attacks_npcs" ${rec.flags?.attacks_npcs?'checked':''}> Attacks NPCs — will target and fight NPCs in the zone</label></div>
     <div class="field">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
         <label>AI Behaviour Graph (JSON) — leave empty to use hardcoded behavior field above</label>
@@ -386,7 +387,7 @@ async function saveEnemy(existing) {
   }
   const existingFlags = existing?.flags || {};
   const cries = document.getElementById('f-battle_cries').value.split('\n').map(s=>s.trim()).filter(Boolean);
-  const flags = { ...existingFlags, first_strike_delay_ms: +document.getElementById('f-first_strike_delay_ms').value || 0, battle_cries: cries };
+  const flags = { ...existingFlags, first_strike_delay_ms: +document.getElementById('f-first_strike_delay_ms').value || 0, battle_cries: cries, attacks_npcs: document.getElementById('f-attacks_npcs')?.checked || false };
   let behaviour_graph = {};
   try { behaviour_graph = JSON.parse(document.getElementById('f-behaviour_graph')?.value || '{}'); }
   catch { return { error: 'Behaviour graph: invalid JSON' }; }

@@ -1,4 +1,5 @@
-import { getEnemyInstance, removeEnemyInstance, getLivePlayer, getZonePlayers } from './world.js';
+import { world, getEnemyInstance, removeEnemyInstance, getLivePlayer, getZonePlayers } from './world.js';
+import { getNpcCombatLine } from './npc-personality.js';
 import { effectiveSkill } from './skills.js';
 import { ensureTunables, getTunable } from './tunables.js';
 import { query } from '../models/db.js';
@@ -381,6 +382,159 @@ export async function pvpSwing(attacker, defender) {
     : `${attacker.handle} hits your <span class="hit-part">${partLabel}</span> for <span class="dmg-taken">${damage}</span> <span class="dmg-type">${damageType}</span>.${defHpTag}`;
 
   return { hit: true, killed, damage, attackerMsg, defenderMsg, defenderHp: defender.hp, defenderHpMax: defHpMax };
+}
+
+// Player attacks an NPC. NPCs have no armor (0 soak). Returns same shape as playerAttackEnemy.
+export async function playerAttackNpc(player, npcId, weaponStats) {
+  if (isOnCooldown(player.id, 'attack')) {
+    return { success: false, message: `You're still recovering. (${(getCooldownRemaining(player.id, 'attack') / 1000).toFixed(1)}s)` };
+  }
+  const npc = world.npcs.get(npcId);
+  if (!npc) return { success: false, message: "That target is gone." };
+  if (npc.zone_id !== player.current_zone) return { success: false, message: "That target isn't here." };
+  if (npc._dead) return { success: false, message: `${npc.name} is already dead.` };
+
+  await ensureTunables();
+  const weaponSkillId = weaponStats?.weapon_skill || 'brawling';
+  const attackSkill = await effectiveSkill(player, weaponSkillId);
+  const npcDodge = npc.flags?.dodge ?? 1;
+  const margin = (attackSkill - npcDodge) + rollSwing();
+  const hit = margin >= 0;
+  setCooldown(player.id, 'attack');
+
+  if (!hit) {
+    return { success: true, hit: false, margin, npcId, message: `You swing at ${npc.name} and miss.` };
+  }
+
+  const critical = margin >= getTunable('crit_threshold', 8);
+  const damage_min = weaponStats?.damage_min || 2;
+  const damage_max = weaponStats?.damage_max || 5;
+  const damageType = weaponStats?.damage_type || 'kinetic';
+  let damage = randInt(damage_min, damage_max);
+  if (critical) damage = Math.floor(damage * getTunable('crit_multiplier', 1.5));
+  const part = rollBodyPart(null);
+  if (part === 'head') damage = Math.floor(damage * getTunable('head_damage_multiplier', 1.5));
+  damage = Math.max(1, damage);
+  const partLabel = PART_LABELS[part] || part;
+
+  npc.hp = Math.max(0, (npc.hp ?? npc.hp_max ?? 20) - damage);
+  npc._combatTargetId = player.id;
+
+  const npcSpeech = getNpcCombatLine(npc);
+
+  if (npc.hp <= 0) {
+    npc._dead = true;
+    npc._respawnAt = Date.now() + 60000;
+    const zone = world.zones.get(player.current_zone);
+    if (zone) zone.npcs.delete(npcId);
+    return {
+      success: true, hit: true, killed: true, critical, damage, margin, npcId, npcSpeech,
+      message: critical
+        ? `<span class="crit-tag">CRITICAL HIT</span> to the <span class="hit-part">${partLabel}</span>! You deal <span class="dmg-dealt">${damage}</span> <span class="dmg-type">${damageType}</span> to ${npc.name}. They crumple.`
+        : `You strike ${npc.name}'s <span class="hit-part">${partLabel}</span> for <span class="dmg-dealt">${damage}</span> <span class="dmg-type">${damageType}</span>. They crumple.`,
+    };
+  }
+
+  const { bar, tier } = hpBar(npc.hp, npc.hp_max ?? 20);
+  const hpTag = ` <span class="hpbar hp-${tier}">[${bar}]</span> <span class="hp-count">${npc.hp}/${npc.hp_max ?? 20}</span>`;
+  return {
+    success: true, hit: true, killed: false, critical, damage, margin, npcId, npcSpeech,
+    npcHp: npc.hp, npcHpMax: npc.hp_max ?? 20,
+    message: critical
+      ? `<span class="crit-tag">CRITICAL HIT</span> to the <span class="hit-part">${partLabel}</span>! You deal <span class="dmg-dealt">${damage}</span> <span class="dmg-type">${damageType}</span> to ${npc.name}!${hpTag}`
+      : `You strike ${npc.name}'s <span class="hit-part">${partLabel}</span> for <span class="dmg-dealt">${damage}</span> <span class="dmg-type">${damageType}</span>.${hpTag}`,
+  };
+}
+
+// Enemy attacks NPC. Uses same timing as enemyAttackPlayer. Returns result or null when on cooldown.
+export async function enemyAttackNpc(enemy, npc) {
+  if (!npc || npc._dead) return null;
+  const now = Date.now();
+  await ensureTunables();
+  const attackInterval = getTunable('enemy_attack_interval_ms', 4000);
+  if (now - enemy.lastAttack < attackInterval) return null;
+  enemy.lastAttack = now;
+
+  const margin = (enemy.hit ?? 1) - (npc.flags?.dodge ?? 1) + rollSwing();
+  const hit = margin >= 0;
+  if (!hit) {
+    return { hit: false, killed: false, npcId: npc.id, message: `${enemy.name} attacks ${npc.name} and misses.` };
+  }
+
+  const critical = margin >= getTunable('crit_threshold', 8);
+  const components = enemyWeaponComponents(enemy);
+  const damageTypes = [...new Set(components.map(c => c.type))].join('/');
+  const part = rollBodyPart();
+  const headMult = part === 'head' ? getTunable('head_damage_multiplier', 1.5) : 1;
+  let total = 0;
+  for (const c of components) {
+    let amt = randInt(c.min, c.max);
+    if (critical) amt = Math.floor(amt * getTunable('crit_multiplier', 1.5));
+    total += Math.floor(amt * headMult);
+  }
+  const damage = Math.max(1, total);
+  const partLabel = PART_LABELS[part] || part;
+
+  npc.hp = Math.max(0, (npc.hp ?? npc.hp_max ?? 20) - damage);
+  npc._combatTargetId = enemy.instanceId;
+
+  const npcSpeech = getNpcCombatLine(npc);
+  const killed = npc.hp <= 0;
+  if (killed) {
+    npc._dead = true;
+    npc._respawnAt = Date.now() + 60000;
+    const zone = world.zones.get(npc.zone_id);
+    if (zone) zone.npcs.delete(npc.id);
+  }
+
+  return {
+    hit: true, damage, critical, killed, npcId: npc.id, npcSpeech,
+    message: critical
+      ? `<span class="crit-tag">CRITICAL HIT</span> ${enemy.name} hits ${npc.name}'s <span class="hit-part">${partLabel}</span> for <span class="dmg-dealt">${damage}</span> <span class="dmg-type">${damageTypes}</span>!${killed ? ' They go down.' : ''}`
+      : `${enemy.name} hits ${npc.name}'s <span class="hit-part">${partLabel}</span> for <span class="dmg-dealt">${damage}</span> <span class="dmg-type">${damageTypes}</span>.${killed ? ' They go down.' : ''}`,
+  };
+}
+
+// NPC retaliates against a player. Returns { hit, damage, message } or null when on cooldown.
+export async function npcAttackPlayer(npc, player) {
+  if (npc._dead) return null;
+  const now = Date.now();
+  await ensureTunables();
+  const attackInterval = getTunable('enemy_attack_interval_ms', 4000);
+  if (now - (npc._lastAttack || 0) < attackInterval) return null;
+  npc._lastAttack = now;
+
+  const npcHit = npc.flags?.hit ?? 1;
+  const playerDodge = await effectiveSkill(player, 'dodge');
+  const margin = (npcHit - playerDodge) + rollSwing();
+  const hit = margin >= 0;
+
+  if (!hit) {
+    return { hit: false, message: `${npc.name} attacks you and misses.` };
+  }
+
+  const critical = margin >= getTunable('crit_threshold', 8);
+  const weaponArr = Array.isArray(npc.flags?.weapon) && npc.flags.weapon.length
+    ? npc.flags.weapon
+    : [{ type: 'kinetic', min: 1, max: 3 }];
+  const damageTypes = [...new Set(weaponArr.map(c => c.type))].join('/');
+  const part = rollBodyPart();
+  const headMult = part === 'head' ? getTunable('head_damage_multiplier', 1.5) : 1;
+  let total = 0;
+  for (const c of weaponArr) {
+    let amt = randInt(Number(c.min) || 1, Number(c.max) || 3);
+    if (critical) amt = Math.floor(amt * getTunable('crit_multiplier', 1.5));
+    total += Math.max(0, Math.floor(amt * headMult) - playerPartSoak(player, part, c.type));
+  }
+  const damage = Math.max(1, total);
+  const partLabel = PART_LABELS[part] || part;
+
+  return {
+    hit: true, damage, critical,
+    message: critical
+      ? `<span class="crit-tag-in">CRITICAL!</span> ${npc.name} hits your <span class="hit-part">${partLabel}</span> for <span class="dmg-taken">${damage}</span> <span class="dmg-type">${damageTypes}</span>!${selfHpTag(player.hp - damage, player.hp_max)}`
+      : `${npc.name} hits your <span class="hit-part">${partLabel}</span> for <span class="dmg-taken">${damage}</span> <span class="dmg-type">${damageTypes}</span>.${selfHpTag(player.hp - damage, player.hp_max)}`,
+  };
 }
 
 // Like pvpSwing but for a sleeping/offline defender: always hits, no dodge roll.

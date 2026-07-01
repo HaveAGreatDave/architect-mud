@@ -995,7 +995,7 @@ function apiDespawnAllEnemies() {
   return { status:200, body:{ message:`Despawned ${count} enemies` } };
 }
 async function apiGetEnemies() { const {rows}=await query('SELECT * FROM enemies'); return {status:200,body:rows}; }
-async function apiCreateEnemy(body) {
+export async function apiCreateEnemy(body) {
   const id=body.id||`enemy_${Date.now()}`;
   try {
     await query(`INSERT INTO enemies (id,name,description,hit,dodge,hp_max,weapon,body_parts,loot_table,butcher_table,butcher_difficulty,behavior,faction,death_message,flags,behaviour_graph) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
@@ -1010,7 +1010,7 @@ export async function apiUpdateEnemy(id,body) {
     return {status:200,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
-async function apiDeleteEnemy(id) {
+export async function apiDeleteEnemy(id) {
   try {
     await query('DELETE FROM enemies WHERE id=$1',[id]);
     return {status:200,body:{message:'Deleted'}};
@@ -1045,25 +1045,27 @@ export async function apiCreateNpc(body) {
   const homeZone = body.home_zone || 'zone_residential_lobby';
   const chitchat = Array.isArray(body.chitchat) && body.chitchat.length ? body.chitchat : DEFAULT_CHITCHAT_LINES;
   try {
-    await query(`INSERT INTO npcs (id,name,description,zone_id,home_zone,faction,dialogue_tree,vendor_inventory,wanders,wander_zones,flags,behaviour_graph,chitchat,studio_zone_id,work_zone_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
-      [id,body.name,body.description,body.zone_id||null,homeZone,body.faction||null,JSON.stringify(body.dialogue_tree||{}),JSON.stringify(body.vendor_inventory||[]),body.wanders?1:0,JSON.stringify(body.wander_zones||[]),JSON.stringify(body.flags||{}),JSON.stringify(body.behaviour_graph||{}),JSON.stringify(chitchat),body.studio_zone_id||null,body.work_zone_id||null]);
+    const hpMax = body.hp_max || 20;
+    await query(`INSERT INTO npcs (id,name,description,zone_id,home_zone,faction,dialogue_tree,vendor_inventory,wanders,wander_zones,flags,behaviour_graph,chitchat,studio_zone_id,work_zone_id,hp,hp_max) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
+      [id,body.name,body.description,body.zone_id||null,homeZone,body.faction||null,JSON.stringify(body.dialogue_tree||{}),JSON.stringify(body.vendor_inventory||[]),body.wanders?1:0,JSON.stringify(body.wander_zones||[]),JSON.stringify(body.flags||{}),JSON.stringify(body.behaviour_graph||{}),JSON.stringify(chitchat),body.studio_zone_id||null,body.work_zone_id||null,hpMax,hpMax]);
     // Register in world memory so the NPC is immediately visible
     const { world: w } = await import('../engine/world.js');
-    w.npcs.set(id, { id, name:body.name, description:body.description, zone_id:body.zone_id||null, home_zone:homeZone, faction:body.faction||null, dialogue_tree:body.dialogue_tree||{}, vendor_inventory:body.vendor_inventory||[], wanders:body.wanders?1:0, wander_zones:body.wander_zones||[], flags:body.flags||{}, behaviour_graph:body.behaviour_graph||{}, chitchat, studio_zone_id:body.studio_zone_id||null, work_zone_id:body.work_zone_id||null, _ai:{ currentNode:null, waitUntil:null, patrolPath:[], patrolTarget:null, patrolMode:'walk', patrolIndex:0, alertCooldown:0, lastSay:0, flags:{} } });
+    w.npcs.set(id, { id, name:body.name, description:body.description, zone_id:body.zone_id||null, home_zone:homeZone, faction:body.faction||null, dialogue_tree:body.dialogue_tree||{}, vendor_inventory:body.vendor_inventory||[], wanders:body.wanders?1:0, wander_zones:body.wander_zones||[], flags:body.flags||{}, behaviour_graph:body.behaviour_graph||{}, chitchat, studio_zone_id:body.studio_zone_id||null, work_zone_id:body.work_zone_id||null, hp:hpMax, hp_max:hpMax, _ai:{ currentNode:null, waitUntil:null, patrolPath:[], patrolTarget:null, patrolMode:'walk', patrolIndex:0, alertCooldown:0, lastSay:0, flags:{} } });
     if (body.zone_id) w.zones.get(body.zone_id)?.npcs.add(id);
     return {status:201,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
 export async function apiUpdateNpc(id,body) {
   try {
-    await query(`UPDATE npcs SET name=$1,description=$2,zone_id=$3,home_zone=$4,faction=$5,dialogue_tree=$6,vendor_inventory=$7,wanders=$8,wander_zones=$9,flags=$10,behaviour_graph=$11,work_zone_id=$12,chitchat=$13 WHERE id=$14`,
-      [body.name,body.description,body.zone_id,body.home_zone||null,body.faction,JSON.stringify(body.dialogue_tree||{}),JSON.stringify(body.vendor_inventory||[]),body.wanders?1:0,JSON.stringify(body.wander_zones||[]),JSON.stringify(body.flags||{}),JSON.stringify(body.behaviour_graph||{}),body.work_zone_id||null,JSON.stringify(body.chitchat||[]),id]);
+    await query(`UPDATE npcs SET name=$1,description=$2,zone_id=$3,home_zone=$4,faction=$5,dialogue_tree=$6,vendor_inventory=$7,wanders=$8,wander_zones=$9,flags=$10,behaviour_graph=$11,work_zone_id=$12,chitchat=$13,hp_max=$14,hp=LEAST(hp,$14) WHERE id=$15`,
+      [body.name,body.description,body.zone_id,body.home_zone||null,body.faction,JSON.stringify(body.dialogue_tree||{}),JSON.stringify(body.vendor_inventory||[]),body.wanders?1:0,JSON.stringify(body.wander_zones||[]),JSON.stringify(body.flags||{}),JSON.stringify(body.behaviour_graph||{}),body.work_zone_id||null,JSON.stringify(body.chitchat||[]),body.hp_max||20,id]);
     // Update in-memory NPC and sync zone.npcs sets
     const { world: w } = await import('../engine/world.js');
     const existing = w.npcs.get(id);
     const oldZone = existing?.zone_id;
     const newZone = body.zone_id || null;
-    if (existing) Object.assign(existing, { name:body.name, description:body.description, zone_id:newZone, home_zone:body.home_zone||null, faction:body.faction, dialogue_tree:body.dialogue_tree||{}, vendor_inventory:body.vendor_inventory||[], wanders:body.wanders?1:0, wander_zones:body.wander_zones||[], flags:body.flags||{}, behaviour_graph:body.behaviour_graph||{}, work_zone_id:body.work_zone_id||null, chitchat:body.chitchat||[] });
+    const newHpMax = body.hp_max || 20;
+    if (existing) Object.assign(existing, { name:body.name, description:body.description, zone_id:newZone, home_zone:body.home_zone||null, faction:body.faction, dialogue_tree:body.dialogue_tree||{}, vendor_inventory:body.vendor_inventory||[], wanders:body.wanders?1:0, wander_zones:body.wander_zones||[], flags:body.flags||{}, behaviour_graph:body.behaviour_graph||{}, work_zone_id:body.work_zone_id||null, chitchat:body.chitchat||[], hp_max:newHpMax, hp:Math.min(existing.hp??newHpMax, newHpMax) });
     if (oldZone !== newZone) {
       if (oldZone) w.zones.get(oldZone)?.npcs.delete(id);
       if (newZone) w.zones.get(newZone)?.npcs.add(id);

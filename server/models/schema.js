@@ -169,6 +169,9 @@ export const SCHEMA_SQL = `
   ALTER TABLE npcs ADD COLUMN IF NOT EXISTS studio_zone_id TEXT;
   ALTER TABLE npcs ADD COLUMN IF NOT EXISTS work_zone_id TEXT;
   ALTER TABLE npcs ADD COLUMN IF NOT EXISTS chitchat JSONB DEFAULT '[]';
+  ALTER TABLE npcs ADD COLUMN IF NOT EXISTS hp INTEGER DEFAULT 20;
+  ALTER TABLE npcs ADD COLUMN IF NOT EXISTS hp_max INTEGER DEFAULT 20;
+  UPDATE npcs SET hp=20, hp_max=20 WHERE hp IS NULL OR hp_max IS NULL;
 
   -- Non-takeable scenery (bar counters, stools, beds, tables...). Distinct
   -- from items: items live in player_inventory (including the

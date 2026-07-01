@@ -269,6 +269,16 @@ async function npcEditForm(rec, isNew) {
       <div class="field"><label>Zone ID</label><input id="f-zone_id" value="${rec.zone_id||''}"></div>
       <div class="field"><label>Home Zone</label><select id="f-home_zone">${homeZoneOpts}</select></div>
       <div class="field"><label>Faction</label><input id="f-faction" value="${rec.faction||''}"></div>
+      <div class="field" style="max-width:100px"><label>Max HP</label><input id="f-hp_max" type="number" min="1" step="1" value="${rec.hp_max||20}"></div>
+    </div>
+    <div class="field-row" style="align-items:flex-end">
+      <div class="field"><label>Personality — drives combat reactions and MIS responses</label>
+        <select id="f-personality">
+          <option value="">— none —</option>
+          ${[['tv_host','📺 TV Host'],['bartender','🍺 Bartender'],['vendor','🛒 Vendor'],['guard','🔒 Guard'],['thug','🔪 Thug'],['doctor','🩺 Doctor'],['politician','🎙 Politician'],['preacher','✝ Preacher'],['vagrant','🚬 Vagrant'],['mercenary','💀 Mercenary'],['scientist','🔬 Scientist'],['cult_member','👁 Cult Member']].map(([v,l])=>`<option value="${v}" ${flags.personality===v?'selected':''}>${l}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field" style="max-width:160px"><label><input type="checkbox" id="f-mis_willing" ${flags.mis_willing===true?'checked':''}> MIS willing — allows MIS actions</label></div>
     </div>
     <div class="checkbox-field"><input type="checkbox" id="f-wanders" ${rec.wanders?'checked':''} onchange="document.getElementById('f-wander_zones-wrap').style.display=this.checked?'':'none'"><label>Wanders between zones</label></div>
     <div class="field" id="f-wander_zones-wrap" style="${rec.wanders?'':'display:none'}">
@@ -319,6 +329,10 @@ async function saveNpc(existing) {
   try { behaviour_graph = JSON.parse(document.getElementById('f-behaviour_graph')?.value || '{}'); } catch { return { error: 'Behaviour graph: invalid JSON' }; }
   let flags;
   try { flags = JSON.parse(document.getElementById('f-flags')?.value || '{}'); } catch { return { error: 'Flags: invalid JSON' }; }
+  const personality = document.getElementById('f-personality')?.value || '';
+  if (personality) flags.personality = personality; else delete flags.personality;
+  const misWillingEl = document.getElementById('f-mis_willing');
+  if (misWillingEl) flags.mis_willing = misWillingEl.checked; else delete flags.mis_willing;
   const wanderZonesRaw = document.getElementById('f-wander_zones')?.value || '';
   const wander_zones = wanderZonesRaw.split('\n').map(s => s.trim()).filter(Boolean);
   const chitchat = (document.getElementById('f-chitchat')?.value || '').split('\n').map(s => s.trim()).filter(Boolean);
@@ -331,6 +345,7 @@ async function saveNpc(existing) {
     wanders: document.getElementById('f-wanders').checked,
     wander_zones,
     chitchat,
+    hp_max: parseInt(document.getElementById('f-hp_max')?.value) || 20,
     dialogue_tree: tree,
     vendor_inventory: vendor,
     behaviour_graph,

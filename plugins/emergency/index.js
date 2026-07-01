@@ -3,6 +3,7 @@ import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { on } from '../../server/engine/events.js';
 import { getAmbientDefByName } from '../audio/index.js';
 import { world, spawnEnemySync, removeEnemyInstance, getLivePlayer } from '../../server/engine/world.js';
+import { setEspShelter } from '../../server/engine/ai-behaviour.js';
 
 const DEFAULT_MESSAGE =
   '⚠ EMERGENCY SECURITY PROTOCOL ACTIVE — ALL CIVILIANS SHELTER IN PLACE IMMEDIATELY — ARMED RESPONSE UNITS ARE DEPLOYED — THIS IS NOT A DRILL — STAY INDOORS AND AWAIT FURTHER INSTRUCTIONS ⚠';
@@ -19,8 +20,60 @@ let espIndoor   = new Set();
 let arbitersActive        = false;
 let arbitersStandingDown  = false;
 let adminProtectionEnabled = false;
-const spawnedArbiters     = new Set(); // Set<instanceId>
+const spawnedArbiters  = new Set();         // Set<instanceId>
+const arbiterHomeZone  = new Map();         // instanceId -> zoneId
+const spawnedByZone    = new Map();         // zoneId -> Set<instanceId>
 let lastDespawnBroadcast  = 0;
+
+// ── Inline SFX defs (synthesized by the client audio engine; no DB entry needed) ──
+
+const SFX_ARBITER_DOCK = {
+  id: 'sfx_arbiter_dock', name: 'sfx_arbiter_dock', category: 'sfx', priority: 6,
+  config: {
+    duration: 0.25,
+    layers: [
+      // low-frequency body thud
+      { waveform: 'sine',  freq: 52,  adsr: { a: 0.002, d: 0.12, s: 0, r: 0.18 }, gain: 1.0 },
+      // noise burst — the mechanical clack of metal-on-metal
+      { noiseMix: 1, filter: { type: 'lowpass', freq: 300 }, adsr: { a: 0.001, d: 0.06, s: 0, r: 0.04 }, gain: 0.6 },
+      // faint metallic ring
+      { waveform: 'sine',  freq: 410, adsr: { a: 0.001, d: 0.04, s: 0, r: 0.28 }, gain: 0.1 },
+    ],
+  },
+};
+
+// Hydraulic whirr spooling down — pitch-bends from 160Hz to near-silence over 2.5s
+const SFX_ARRAY_WHIRR = {
+  id: 'sfx_array_whirr', name: 'sfx_array_whirr', category: 'sfx', priority: 7,
+  config: {
+    duration: 2.5,
+    layers: [
+      { waveform: 'sawtooth', freq: 160, pitchBend: { to: 30, time: 2.5 }, filter: { type: 'lowpass', freq: 700, q: 1.5 }, adsr: { a: 0.08, d: 0.3, s: 0.6, r: 0.9 }, gain: 0.5 },
+      { waveform: 'square',   freq: 82,  pitchBend: { to: 18, time: 2.0 }, filter: { type: 'lowpass', freq: 400 },         adsr: { a: 0.05, d: 0.2, s: 0.5, r: 0.8 }, gain: 0.28 },
+    ],
+  },
+};
+
+// Heavy structural clunk — armatures seating home
+const SFX_ARRAY_CLUNK = {
+  id: 'sfx_array_clunk', name: 'sfx_array_clunk', category: 'sfx', priority: 7,
+  config: {
+    duration: 0.3,
+    layers: [
+      { waveform: 'sine', freq: 44, adsr: { a: 0.001, d: 0.14, s: 0, r: 0.2 }, gain: 1.0 },
+      { noiseMix: 1, filter: { type: 'lowpass', freq: 420 }, adsr: { a: 0.001, d: 0.09, s: 0, r: 0.07 }, gain: 0.7 },
+    ],
+  },
+};
+
+// Short confirmation beep — tri-tone fired in sequence by the caller
+const SFX_ARRAY_BEEP = {
+  id: 'sfx_array_beep', name: 'sfx_array_beep', category: 'sfx', priority: 7,
+  config: {
+    duration: 0.1,
+    layers: [{ waveform: 'square', freq: 1100, adsr: { a: 0.005, d: 0.04, s: 0.3, r: 0.06 }, gain: 0.38 }],
+  },
+};
 
 // Behaviour graph injected onto every spawned Arbiter (DB format — normalizeGraph runs on first tick).
 // Flow: check standdown flag → if standing down, GO_HOME; else seek/attack players; wander safe zones otherwise.
@@ -175,6 +228,16 @@ async function activate(message) {
   broadcastToEspZones({ type: 'esp_warning', message: espMessage });
   for (const zoneId of espIndoor) sendToZone(zoneId, { type: 'esp_warning', message: espMessage });
 
+  for (const npc of world.npcs.values()) {
+    if (!npc.home_zone) continue;
+    npc._ai.patrolPath = [];
+    npc._ai.patrolTarget = null;
+    npc._ai.currentNode = null;
+    npc._ai.waitUntil = null;
+    npc._ai._lifeActivity = null;
+    npc._ai.flags.esp_shelter = true;
+  }
+
   espActive = true;
 }
 
@@ -196,6 +259,41 @@ function deactivate() {
   espActive = false;
   espZones.clear();
   espIndoor.clear();
+
+  standDownArbiters();
+}
+
+// ── Array shutdown sequence ───────────────────────────────────────────────────
+
+function broadcastArrayShutdown(zoneId) {
+  sendToZone(zoneId, {
+    type: 'output',
+    message: `<span style="color:var(--text-dim);font-style:italic">The last bay seals with a pressure-equalizing thud and the Array's status lamp shifts from amber to green. Hydraulic armatures retract in sequence — each segment folding back into the chassis with a series of heavy mechanical clunks. Cooling fans spool down in a long descending whirr, and a tri-tone confirmation chime announces that the Arbiter Array has returned to standby.</span>`,
+  });
+  sendToZone(zoneId, { type: 'audio_sfx', def: SFX_ARRAY_WHIRR });
+  setTimeout(() => sendToZone(zoneId, { type: 'audio_sfx', def: SFX_ARRAY_CLUNK }), 600);
+  setTimeout(() => {
+    sendToZone(zoneId, { type: 'audio_sfx', def: SFX_ARRAY_BEEP });
+    setTimeout(() => sendToZone(zoneId, { type: 'audio_sfx', def: SFX_ARRAY_BEEP }), 190);
+    setTimeout(() => sendToZone(zoneId, { type: 'audio_sfx', def: SFX_ARRAY_BEEP }), 420);
+  }, 1300);
+  setTimeout(() => sendToZone(zoneId, { type: 'audio_sfx', def: SFX_ARRAY_CLUNK }), 1900);
+}
+
+// Remove an arbiter from all tracking sets; fires the per-zone shutdown broadcast
+// if we're in stand-down mode and this was the last arbiter for that zone.
+function removeTrackedArbiter(instanceId, docked) {
+  spawnedArbiters.delete(instanceId);
+  const homeZone = arbiterHomeZone.get(instanceId);
+  arbiterHomeZone.delete(instanceId);
+  if (!homeZone) return;
+  const zoneSet = spawnedByZone.get(homeZone);
+  if (!zoneSet) return;
+  zoneSet.delete(instanceId);
+  if (zoneSet.size === 0) {
+    spawnedByZone.delete(homeZone);
+    if (arbitersStandingDown) broadcastArrayShutdown(homeZone);
+  }
 }
 
 // ── Arbiter logic ─────────────────────────────────────────────────────────────
@@ -214,15 +312,21 @@ async function activateArbiters() {
   if (!templates.length) return { error: 'Enemy template "enemy_arbiterclass_enforcement_unit" not found in DB' };
   const template = templates[0];
 
+  arbiterHomeZone.clear();
+  spawnedByZone.clear();
+
   const missingZones = [];
   let spawned = 0;
   for (const { zone_id } of arrayRows) {
     if (!world.zones.has(zone_id)) { missingZones.push(zone_id); continue; }
+    if (!spawnedByZone.has(zone_id)) spawnedByZone.set(zone_id, new Set());
     for (let i = 0; i < 5; i++) {
       const instance = spawnEnemySync(template, zone_id);
       instance.home_zone = zone_id;
       instance.behaviour_graph = ARBITER_BEHAVIOUR_GRAPH;
       spawnedArbiters.add(instance.instanceId);
+      arbiterHomeZone.set(instance.instanceId, zone_id);
+      spawnedByZone.get(zone_id).add(instance.instanceId);
       spawned++;
     }
   }
@@ -243,9 +347,9 @@ function standDownArbiters() {
   if (!arbitersActive || arbitersStandingDown) return;
   arbitersStandingDown = true;
 
-  for (const instanceId of spawnedArbiters) {
+  for (const instanceId of [...spawnedArbiters]) {
     const e = world.enemies.get(instanceId);
-    if (!e) { spawnedArbiters.delete(instanceId); continue; }
+    if (!e) { removeTrackedArbiter(instanceId, false); continue; }
     e.targetId = null;
     e.aggroedAt = null;
     if (e._ai) {
@@ -262,9 +366,9 @@ function standDownArbiters() {
 setInterval(() => {
   if (!arbitersActive) return;
 
-  for (const instanceId of spawnedArbiters) {
+  for (const instanceId of [...spawnedArbiters]) {
     const e = world.enemies.get(instanceId);
-    if (!e) { spawnedArbiters.delete(instanceId); continue; }
+    if (!e) { removeTrackedArbiter(instanceId, false); continue; }
 
     // Admin protection: never let Arbiters attack admin players.
     if (adminProtectionEnabled && e.targetId) {
@@ -286,8 +390,10 @@ setInterval(() => {
           message: `<span style="color:var(--text-dim);font-style:italic">The Arbiter-Class Enforcement Unit locks back into its bay, armor sealing flush as its optic drains to nothing and its presence collapses into controlled absence.</span>`,
         });
       }
+      // Thunk SFX: the unit physically docking into its bay.
+      sendToZone(e.zoneId, { type: 'audio_sfx', def: SFX_ARBITER_DOCK });
       removeEnemyInstance(instanceId);
-      spawnedArbiters.delete(instanceId);
+      removeTrackedArbiter(instanceId, true);
     }
   }
 
@@ -297,7 +403,29 @@ setInterval(() => {
   }
 }, 2000);
 
-// ── Zone movement: syncing existing ESP logic ─────────────────────────────────
+// ── Zone movement / login: syncing existing ESP logic ────────────────────────
+
+on('player.login', ({ id }) => {
+  const player = getLivePlayer(id);
+  if (!player) return;
+  const zoneId = player.current_zone;
+  const siren = sirenDef();
+  const muffled = sirenDefMuffled(siren);
+  if (!espActive) {
+    // ESP is off — nothing to push (client starts in the off state)
+    return;
+  }
+  if (espZones.has(zoneId)) {
+    sendToPlayer(id, { type: 'esp_state', active: true, message: espMessage });
+    if (muffled) sendToPlayer(id, { type: 'audio_stop', scope: 'ambience', id: muffled.id });
+    if (siren) sendToPlayer(id, { type: 'audio_ambience', def: siren });
+  } else if (espIndoor.has(zoneId)) {
+    sendToPlayer(id, { type: 'esp_state', active: true, message: espMessage });
+    if (siren) sendToPlayer(id, { type: 'audio_stop', scope: 'ambience', id: siren.id });
+    if (muffled) sendToPlayer(id, { type: 'audio_ambience', def: muffled });
+  }
+  // else: player is outside ESP zones — no push needed
+});
 
 on('zone.entered', ({ actor, zone: zoneId }) => {
   if (!espActive) return;

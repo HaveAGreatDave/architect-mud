@@ -15,7 +15,7 @@ import { getSelectionState, advanceSelectionState, formatSelectionPage } from '.
 
 export { describeZone, describeVoidTeleport } from './describe.js';
 export { recomputeArmor, recomputeInsulation, EQUIP_SLOTS } from './inventory.js';
-export { resolveAttack } from './combat.js';
+export { resolveAttack, resolveAttackNpc } from './combat.js';
 
 // Appearance handlers: `use` returns null when not targeting a cosmetic machine.
 // Strip it out here so we can try it as a pre-pass before falling back to inventory.

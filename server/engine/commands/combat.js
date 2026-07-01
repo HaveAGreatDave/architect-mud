@@ -1,6 +1,6 @@
 import { query } from "../../models/db.js";
-import { getZoneEnemies, getZoneCorpses, getZonePlayers, getLivePlayer, createCorpse, getCorpse, removeCorpse, getApartment } from "../world.js";
-import { playerAttackEnemy, isOnCooldown, setCooldown, getCooldownRemaining, pvpSwingSleeping } from "../combat.js";
+import { getZoneEnemies, getZoneCorpses, getZonePlayers, getZoneNpcs, getLivePlayer, createCorpse, getCorpse, removeCorpse, getApartment } from "../world.js";
+import { playerAttackEnemy, playerAttackNpc, isOnCooldown, setCooldown, getCooldownRemaining, pvpSwingSleeping } from "../combat.js";
 import { resolveForCommand, resolve as siftResolve, createSelectionState, formatSelectionPage } from "../sift.js";
 import { awardSkillUse, skillCheck } from "../skills.js";
 import { hasTag, tagValue, isStackable } from "../tags.js";
@@ -107,6 +107,37 @@ export async function resolveAttack(player, target, broadcast) {
 	};
 }
 
+function broadcastNpcSpeech(npc, speech, zoneId, broadcast) {
+	if (!speech) return;
+	const verb = speech.shout ? 'shouts' : 'says';
+	broadcast(zoneId, { type: 'zone_event', message: `${npc.name} ${verb}, "${speech.line}"` });
+}
+
+export async function resolveAttackNpc(player, npc, broadcast) {
+	const { rows } = await query(
+		`SELECT i.* FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.is_equipped=1 AND jsonb_exists(i.tags,'weapon') LIMIT 1`,
+		[player.id],
+	);
+	const equipped = rows[0];
+	const dmg = equipped ? tagValue(equipped, "damage", {}) || {} : {};
+	const wskill = equipped ? tagValue(equipped, "weapon_skill") || "brawling" : "brawling";
+	const weaponStats = equipped
+		? { damage_min: dmg.min, damage_max: dmg.max, weapon_skill: wskill, damage_type: tagValue(equipped, "damage_type") || "kinetic" }
+		: { damage_min: 2, damage_max: 4, weapon_skill: "brawling", damage_type: "kinetic" };
+
+	const result = await playerAttackNpc(player, npc.id, weaponStats);
+	if (!result.success) return { type: "error", message: result.message };
+
+	if (result.hit) broadcastNpcSpeech(npc, result.npcSpeech, player.current_zone, broadcast);
+	if (result.killed) {
+		player.npcCombatTargetId = null;
+		broadcast(player.current_zone, { type: "zone_event", message: `${npc.name} has been killed by ${player.handle}.`, refresh: true }, player.id);
+	} else {
+		broadcast(player.current_zone, { type: "zone_event", message: `${player.handle} attacks ${npc.name}.`, refresh: true }, player.id);
+	}
+	return { type: "combat", message: result.message, killed: result.killed || false };
+}
+
 export async function cmdAttack(targetStr, player, broadcast) {
 	if (!targetStr) return { type: "error", message: "Attack what?" };
 	if (player.posture === 'sitting') { player.posture = 'standing'; player.sittingOn = null; }
@@ -123,13 +154,33 @@ export async function cmdAttack(targetStr, player, broadcast) {
 		const target = result.candidate;
 		if (isOnCooldown(player.id, 'attack')) {
 			player.combatTargetId = target.instanceId;
+			player.npcCombatTargetId = null;
 			return { type: "output", message: `Switching target to ${target.name}.` };
 		}
 		player.combatTargetId = target.instanceId;
+		player.npcCombatTargetId = null;
 		return resolveAttack(player, target, broadcast);
 	}
 
-	// No enemy matched — check for a player in the zone (live first, then offline)
+	// No enemy matched — check for an NPC in the zone
+	const zoneNpcs = getZoneNpcs(player.current_zone).filter(n => !n._dead);
+	if (zoneNpcs.length) {
+		const npcPool = zoneNpcs.map(n => ({ ...n, name: n.name }));
+		const npcr = siftResolve(targetStr, npcPool);
+		if (npcr.type === 'match') {
+			const targetNpc = npcr.candidate;
+			if (isOnCooldown(player.id, 'attack')) {
+				player.npcCombatTargetId = targetNpc.id;
+				player.combatTargetId = null;
+				return { type: "output", message: `Switching target to ${targetNpc.name}.` };
+			}
+			player.npcCombatTargetId = targetNpc.id;
+			player.combatTargetId = null;
+			return resolveAttackNpc(player, targetNpc, broadcast);
+		}
+	}
+
+	// No enemy or NPC matched — check for a player in the zone (live first, then offline)
 	const liveOthers = getZonePlayers(player.current_zone).filter((p) => p.id !== player.id);
 	const attackPool = liveOthers.map(p => ({ ...p, name: p.handle }));
 	const atkr = siftResolve(targetStr, attackPool);
@@ -625,7 +676,7 @@ async function cmdSteal(targetStr, player, broadcast) {
 }
 
 function cmdStop(player, broadcast) {
-	if (!player.combatTargetId && !player.pvpTargetId)
+	if (!player.combatTargetId && !player.pvpTargetId && !player.npcCombatTargetId)
 		return { type: "output", message: "You aren't attacking anything." };
 	if (player.pvpTargetId) {
 		const opponent = getLivePlayer(player.pvpTargetId);
@@ -636,6 +687,7 @@ function cmdStop(player, broadcast) {
 		player.pvpTargetId = null;
 	}
 	player.combatTargetId = null;
+	player.npcCombatTargetId = null;
 	return { type: "output", message: "You disengage." };
 }
 

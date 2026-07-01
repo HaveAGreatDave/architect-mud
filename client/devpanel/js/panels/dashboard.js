@@ -301,13 +301,17 @@ async function _initPlayerCountChart() {
   container.innerHTML = `
     <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="width:100%;height:120px;display:block">
       <defs>
-        <linearGradient id="pcl-grad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="var(--accent)" stop-opacity="0.25"/>
-          <stop offset="100%" stop-color="var(--accent)" stop-opacity="0.02"/>
+        <linearGradient id="pcl-line-grad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#e05555"/>
+          <stop offset="100%" stop-color="#55bb55"/>
+        </linearGradient>
+        <linearGradient id="pcl-area-grad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#e05555" stop-opacity="0.3"/>
+          <stop offset="100%" stop-color="#55bb55" stop-opacity="0.04"/>
         </linearGradient>
       </defs>
-      <path d="${area}" fill="url(#pcl-grad)"/>
-      <polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+      <path d="${area}" fill="url(#pcl-area-grad)"/>
+      <polyline points="${pts}" fill="none" stroke="url(#pcl-line-grad)" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
     </svg>`;
 }
 

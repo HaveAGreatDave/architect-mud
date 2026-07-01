@@ -1,11 +1,11 @@
 import { world, tickSpawns, getRandomAmbient, getWeatherAmbient, getLivePlayer, getInterruptLoudness, registerInterrupt, createCorpse, removeCorpse } from './world.js';
 import { randomUUID } from 'crypto';
 import { propagateSound } from './sounds.js';
-import { enemyAttackPlayer, isOnCooldown, pvpSwing } from './combat.js';
+import { enemyAttackPlayer, enemyAttackNpc, npcAttackPlayer, isOnCooldown, pvpSwing } from './combat.js';
 import { tickEntityAI } from './ai-behaviour.js';
 import { offlineSleepSwing } from './commands/combat.js';
 import { tickEffects } from './effects.js';
-import { resolveAttack } from './commands/index.js';
+import { resolveAttack, resolveAttackNpc } from './commands/index.js';
 import { tickSleep, releaseApartment } from './apartments.js';
 import { fireHook } from './plugins.js';
 import { emit } from './events.js';
@@ -189,6 +189,52 @@ async function tick() {
     if (!player.offlinePvpTargetId) continue;
     if (isOnCooldown(playerId, 'attack')) continue;
     offlineSleepSwing(player, player.offlinePvpTargetId, broadcastFn).catch(() => {});
+  }
+
+  // Player auto-attack against NPC
+  for (const [playerId, player] of world.players) {
+    if (!player.npcCombatTargetId) continue;
+    const npc = world.npcs.get(player.npcCombatTargetId);
+    if (!npc || npc._dead || npc.zone_id !== player.current_zone) {
+      player.npcCombatTargetId = null;
+      continue;
+    }
+    if (!isOnCooldown(playerId, 'attack')) {
+      resolveAttackNpc(player, npc, broadcastFn)
+        .then(atkResult => {
+          if (atkResult?.type === 'combat') {
+            broadcastFn(null, { ...atkResult, auto: true }, null, playerId);
+          } else {
+            player.npcCombatTargetId = null;
+          }
+        })
+        .catch(() => {});
+    }
+  }
+
+  // NPC retaliation against players
+  for (const [npcId, npc] of world.npcs) {
+    if (!npc._combatTargetId || npc._dead) continue;
+    const target = getLivePlayer(npc._combatTargetId);
+    if (!target || target.current_zone !== npc.zone_id) {
+      npc._combatTargetId = null;
+      continue;
+    }
+    npcAttackPlayer(npc, target).then(async result => {
+      if (!result) return;
+      if (result.hit) {
+        target.hp = Math.max(0, target.hp - result.damage);
+        query('UPDATE players SET hp=$1 WHERE id=$2', [target.hp, target.id]).catch(() => {});
+        broadcastFn(null, { type: 'combat_incoming', message: result.message, player_update: { hp: target.hp, hp_max: target.hp_max } }, null, target.id);
+        if (target.hp <= 0) {
+          await handlePlayerDeath(target, null);
+        } else if (!target.npcCombatTargetId) {
+          target.npcCombatTargetId = npcId;
+        }
+      } else {
+        broadcastFn(null, { type: 'combat_miss', message: result.message }, null, target.id);
+      }
+    }).catch(() => {});
   }
 
   // Status effects
@@ -732,7 +778,24 @@ async function sittingRegenTick() {
 }
 
 async function npcWanderTick() {
+  const now = Date.now();
   for (const [id, npc] of world.npcs) {
+    // Respawn dead NPCs at their home zone after 60s
+    if (npc._dead) {
+      if (npc._respawnAt && now >= npc._respawnAt) {
+        npc._dead = false;
+        npc._respawnAt = null;
+        npc._combatTargetId = null;
+        npc._lastAttack = 0;
+        npc.hp = npc.hp_max ?? 20;
+        const dest = npc.home_zone || npc.zone_id;
+        npc.zone_id = dest;
+        world.zones.get(dest)?.npcs.add(id);
+        query('UPDATE npcs SET zone_id=$1, hp=$2 WHERE id=$3', [dest, npc.hp, id]).catch(() => {});
+      }
+      continue;
+    }
+
     if (npc.behaviour_graph?._start) {
       // Behaviour graph drives this NPC — delegate to AI runtime.
       await tickEntityAI(npc, { broadcast: broadcastFn, query }).catch(() => {});

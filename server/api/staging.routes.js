@@ -11,7 +11,7 @@ import { removeGenerator } from '../engine/environment.js';
 import {
   apiCreateZone, apiDeleteZone,
   apiCreateFurniture, apiDeleteFurniture,
-  apiCreateNpc, apiDeleteNpc, apiCreateItem,
+  apiCreateNpc, apiDeleteNpc, apiCreateItem, apiCreateEnemy, apiDeleteEnemy,
   apiUpdateZone, apiUpdateEnemy, apiUpdateItem, apiUpdateNpc,
   apiUpdateFurniture, apiUpdateRecipe, apiUpdateMutation, apiUpdateDrug,
   apiCreateWindow, apiUpdateWindow, apiDeleteWindow,
@@ -108,6 +108,7 @@ const UPDATERS = {
 
 const CREATORS = {
   zone:      (data) => apiCreateZone(data, null),
+  enemy:     (data) => apiCreateEnemy(data),
   item:      (data) => apiCreateItem(data),
   npc:       (data) => apiCreateNpc(data),
   furniture: (data) => apiCreateFurniture(data),
@@ -129,6 +130,7 @@ const ORPHAN_TABLES = {
 
 const DELETERS = {
   zone:           (id) => apiDeleteZone(id),
+  enemy:          (id) => apiDeleteEnemy(id),
   npc:            (id) => apiDeleteNpc(id),
   furniture:      (id) => apiDeleteFurniture(id),
   generator:      (id) => removeGenerator(id).then(r => ({ status:200, body:r })),

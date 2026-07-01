@@ -13,9 +13,10 @@ import {
   MASTURBATE_EVENT_MALE, MASTURBATE_EVENT_FEMALE,
   FUCK_EVENT_MSGS, FUCK_EVENT_PLAYER_MSGS, FUCK_EVENT_TARGET_MSGS, EJACULATE_ZONE_MSGS,
 } from '../mis.js';
-import { getZonePlayers, getZoneNpcs, getLivePlayer } from '../world.js';
+import { world, getZonePlayers, getZoneNpcs, getLivePlayer } from '../world.js';
 import { stainZone, stainClothing } from '../bodily.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../sift.js';
+import { isNpcMisWilling, getNpcMisLine, npcMisAttacks } from '../npc-personality.js';
 
 function misGate(player, raw) {
   if (!isMisActive(player)) {
@@ -31,6 +32,77 @@ function broadcastMis(zoneId, message, broadcast, excludePlayerId = null, alsoTa
     if (p.id === excludePlayerId) continue;
     if (alsoTargetId && p.id === alsoTargetId) continue; // target gets their own message
     if (isMisActive(p)) broadcast(null, message, null, p.id);
+  }
+}
+
+// Resolve an NPC in the player's zone by name substring.
+function resolveNpcForMis(nameStr, zoneId) {
+  const npcs = getZoneNpcs(zoneId).filter(n => !n._dead);
+  const r = siftResolve(nameStr, npcs.map(n => ({ ...n, name: n.name })));
+  return r.type === 'match' ? r.candidate : null;
+}
+
+// Move NPC to their home zone immediately (flee response).
+function fleeNpcToHome(npc, broadcast) {
+  const dest = npc.home_zone || npc.zone_id;
+  if (dest === npc.zone_id) return;
+  const from = npc.zone_id;
+  world.zones.get(from)?.npcs.delete(npc.id);
+  npc.zone_id = dest;
+  world.zones.get(dest)?.npcs.add(npc.id);
+  broadcast(from, { type: 'zone_event', message: `${npc.name} hurries away.` });
+  query('UPDATE npcs SET zone_id=$1 WHERE id=$2', [dest, npc.id]).catch(() => {});
+}
+
+// Shared NPC MIS reaction handler. verb is the action name for actor message copy.
+// opts.isStrip = true broadcasts a clothing strip message (for penetrative commands).
+async function handleNpcMis(player, npc, verb, broadcast, opts = {}) {
+  const willing = isNpcMisWilling(npc);
+  const line = getNpcMisLine(npc, willing);
+
+  if (opts.isStrip) {
+    broadcastMis(player.current_zone, {
+      type: 'zone_event',
+      message: `${player.handle} strips off ${npc.name}'s clothing.`,
+    }, broadcast);
+  }
+
+  if (line) {
+    const upper = line.replace(/[^A-Za-z]/g, '');
+    const shout = upper.length > 3 && upper === upper.toUpperCase();
+    const verb2 = shout ? 'shouts' : 'says';
+    broadcastMis(player.current_zone, {
+      type: 'zone_event',
+      message: `${npc.name} ${verb2}, "${line}"`,
+    }, broadcast);
+  }
+
+  if (willing) {
+    const msgs = await addHorniness(player, 15, broadcast);
+    if (msgs.length) broadcast(null, { type: 'resource_tick', messages: msgs, player_update: { horniness: player.horniness } }, null, player.id);
+    const actorLines = {
+      touch:         `You touch ${npc.name}. They don't stop you.`,
+      squeeze:       `You squeeze ${npc.name}. They let you.`,
+      kiss:          `You kiss ${npc.name}. They lean into it.`,
+      lick:          `You drag your tongue across ${npc.name}. They don't pull away.`,
+      fondle:        `You fondle ${npc.name}. They let you.`,
+      slap:          `You slap ${npc.name}. They absorb it without complaint.`,
+      suck:          `You take ${npc.name} into your mouth. They enjoy it.`,
+      fuck:          `You take ${npc.name}. They go with it.`,
+      'jerk off on': `You jerk off in front of ${npc.name}. They watch.`,
+      'eat out':     `You go down on ${npc.name}. They don't object.`,
+    };
+    return { type: 'output', message: actorLines[verb] || `You do that to ${npc.name}.` };
+  } else {
+    if (npcMisAttacks(npc)) {
+      npc._combatTargetId = player.id;
+      player.npcCombatTargetId = npc.id;
+      player.combatTargetId = null;
+      return { type: 'output', message: `${npc.name} doesn't appreciate that at all.` };
+    } else {
+      fleeNpcToHome(npc, broadcast);
+      return { type: 'output', message: `${npc.name} wants nothing to do with this and leaves immediately.` };
+    }
   }
 }
 
@@ -142,6 +214,10 @@ async function actHandler({ player, broadcast, rawArgs, defaultPart, selfMessage
     if (msgs.length) broadcast(null, { type:'resource_tick', messages: msgs }, null, player.id);
     return { type:'output', message: pickMsg(selfMessages, { part }) };
   }
+
+  // NPC target — bypass player MIS gate; NPC reacts based on their personality
+  const npcTarget = resolveNpcForMis(targetStr, player.current_zone);
+  if (npcTarget) return handleNpcMis(player, npcTarget, verb, broadcast);
 
   const { res, error, ambiguous } = resolveTargetMis(targetStr, player, verb);
   if (ambiguous) return ambiguous;
@@ -336,6 +412,9 @@ async function cmdSlap(args, raw, player, broadcast) {
 
   if (!targetStr) return { type:'error', message:`Usage: slap <target>'s <body part>` };
 
+  const slapNpc = resolveNpcForMis(targetStr, player.current_zone);
+  if (slapNpc) return handleNpcMis(player, slapNpc, 'slap', broadcast);
+
   const sr = resolveTarget(targetStr, player);
   if (sr.type === 'none') return { type:'error', message:`You don't see "${targetStr}" here.` };
   if (sr.type === 'ambiguous') {
@@ -493,6 +572,9 @@ async function cmdJerkOffOn(args, raw, player, broadcast) {
   const str = raw.replace(/^(?:jerk(?:\s+off)?(?:\s+on)?|jackoff\s+on?)\s*/i, '').trim();
   if (!str) return { type:'error', message:`Usage: jerk off on <target>` };
 
+  const jerkNpc = resolveNpcForMis(str, player.current_zone);
+  if (jerkNpc) return handleNpcMis(player, jerkNpc, 'jerk off on', broadcast);
+
   const { res, error, ambiguous } = resolveTargetMis(str, player);
   if (ambiguous) return ambiguous;
   if (error) return { type:'error', message: error };
@@ -575,6 +657,10 @@ async function cmdFuck(args, raw, player, broadcast) {
   else if (ASS_WORDS.some(w => rawLocation.includes(w)))   location = 'ass';
 
   if (!targetStr) return { type:'error', message:`Usage: fuck <target> [in mouth/pussy/ass]` };
+
+  // NPC target — skip all clothing checks; broadcast strip message then react by personality
+  const fuckNpc = resolveNpcForMis(targetStr, player.current_zone);
+  if (fuckNpc) return handleNpcMis(player, fuckNpc, 'fuck', broadcast, { isStrip: true });
 
   if (hasMisEvent(player.id)) {
     const meta = stopMisEvent(player.id);
@@ -904,6 +990,9 @@ async function cmdEatOut(args, raw, player, broadcast) {
   const partLabel = isPussy ? 'pussy' : 'ass';
 
   if (!targetStr) return { type:'error', message:`Usage: eat out <target>'s [pussy/ass]` };
+
+  const eatNpc = resolveNpcForMis(targetStr, player.current_zone);
+  if (eatNpc) return handleNpcMis(player, eatNpc, 'eat out', broadcast);
 
   const { res, error, ambiguous } = resolveTargetMis(targetStr, player);
   if (ambiguous) return ambiguous;
