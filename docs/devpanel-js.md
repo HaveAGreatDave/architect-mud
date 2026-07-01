@@ -14,7 +14,7 @@ Top-level mutable globals shared across every other file. Includes the auth toke
 ### `api.js`
 The two HTTP helpers used everywhere:
 
-- **`API(path, method, body)`** — the primary call wrapper. Automatically intercepts writes to stageable entity types (`/zones`, `/enemies`, `/items`, `/npcs`, `/furniture`, `/recipes`, `/mutations`, `/drugs`, `/windows`) and routes them through the staging pipeline (`/api/staging/stage`) instead of applying them directly. Falls through to a direct fetch for reads and excluded sub-resource paths.
+- **`API(path, method, body)`** — the primary call wrapper. Automatically intercepts writes to stageable entity types (`/zones`, `/enemies`, `/items`, `/npcs`, `/furniture`, `/recipes`, `/mutations`, `/drugs`, `/windows`) and routes them through the staging pipeline (`/api/staging/stage`) instead of applying them directly. (`/scavenging-tables` is also staged, as the `scavenging_table` type.) Falls through to a direct fetch for reads and excluded sub-resource paths.
 - **`directAPI(path, method, body)`** — bypasses staging entirely. Used for live-world actions (spawn, despawn, reload zone, power commands, etc.) that should take effect immediately.
 
 Also holds `STAGED_ENTITY_TYPES` (the path→entityType map) and `getEntityType()`.
@@ -33,7 +33,7 @@ The shared list/edit lifecycle that every panel rides on:
 ### `panels.js`
 The central dispatch table and panel lifecycle. **Must load after all `panels/*` and `ui/*` files** because the `PANELS` object literal evaluates function references at construction time.
 
-- **`PANELS`** — one entry per nav section (dashboard, zones, maps, power, enemies, items, npcs, furniture, recipes, scripts, quests, mutations, drugs, sounds, tags, worldstate, timeweather, players, validator, changes). Each entry declares `title`, `fetch`, optional `columns`, `editForm`, `save`, `delete`, and `render`.
+- **`PANELS`** — one entry per nav section (dashboard, zones, maps, power, enemies, items, npcs, furniture, recipes, scavenging, scripts, quests, mutations, drugs, sounds, tags, worldstate, timeweather, players, validator, changes). Each entry declares `title`, `fetch`, optional `columns`, `editForm`, `save`, `delete`, and `render`.
 - `activatePanelNav(name)` — highlights the active nav item.
 - `showPanel(name)` / `loadPanel(name)` — fetch data, call the panel's render function, wire up the toolbar.
 
@@ -149,6 +149,14 @@ Thin editors for mutations, drugs, and recipes — all follow the same pattern o
 - `mutationEditForm(rec, isNew)` / `saveMutation(existing)`
 - `drugEditForm(rec, isNew)` / `saveDrug(existing)`
 - `recipeEditForm(rec, isNew)` / `saveRecipe(existing)`
+
+### `scavenging.js`
+The Scavenging Tables panel — CRUD for reusable scavenge loot templates (`scavenging_tables` + `scavenging_table_items`). Attached to zones via `flags.scavenging_table_id` from the zone editor.
+
+- `scavengingEditForm(rec, isNew)` — table metadata + loot-entry row builder + optional flavor line-lists. Fetches the full table (`/scavenging-tables/:id`) on edit since the list row only carries counts.
+- Entry rows: `scavEntryRow()`, `addScavEntry()`, `removeScavEntry()`, `scavItemOptions()`, plus `scavUpdateHints()` / `scavReachHint()` for the live reach + draw-share hints.
+- `saveScavengingTable(existing)` — POST/PUT with `{ name, replenish_interval_seconds, entries, messages }`. Staged as the `scavenging_table` entity type.
+- Holds `_scavItems` (item cache for the picker).
 
 ### `quests.js`
 Thin editor for the `quests` table (consumed by the quests plugin). Objectives and rewards are edited as raw JSON, matching the simple-entities pattern.

@@ -178,6 +178,10 @@ async function zoneEditForm(rec, isNew) {
   pendingZonePlacement = null;
 
   const audioSongs = await API('/audio/songs').catch(() => []);
+  const scavTables = await API('/scavenging-tables').catch(() => []);
+  const scavSelected = flags.scavenging_table_id || '';
+  const scavOptions = (Array.isArray(scavTables) ? scavTables : [])
+    .map(t => `<option value="${t.id}" ${t.id===scavSelected?'selected':''}>${t.name} (${t.entry_count} items)</option>`).join('');
 
   let subSectionsHtml = '<div class="zone-subsection-note">Save this zone first to add rooms, NPCs, furniture, or a generator.</div>';
   if (!isNew) {
@@ -578,6 +582,12 @@ async function zoneEditForm(rec, isNew) {
         ${(allRecords||[]).filter(z=>z.id!==rec.id).sort((a,b)=>a.name.localeCompare(b.name)).map(z=>`<option value="${z.id}"${rec.parent_zone===z.id?' selected':''}>${z.name} [${z.id}]</option>`).join('')}
       </select>
     </div>
+    <div class="field"><label>Scavenging Table (players can <code>scavenge</code> here for loot from this table)</label>
+      <select id="f-scavenging_table_id">
+        <option value="">— none —</option>
+        ${scavOptions}
+      </select>
+    </div>
     <div class="field-row">
       <div class="field"><label>Map Marker (≤2 chars)</label><input id="f-marker" maxlength="2" value="${rec.marker || ''}" placeholder="e.g. ⌂" oninput="updateColorPreview()"></div>
       <div class="field"><label>Map Color (text)</label>
@@ -680,6 +690,7 @@ async function saveZone(existing) {
     building_type: document.getElementById('f-building_type')?.value || null,
     world_exit_zone: document.getElementById('f-world_exit_zone')?.value.trim() || null,
     is_interior: document.getElementById('f-is_interior').checked,
+    scavenging_table_id: document.getElementById('f-scavenging_table_id')?.value || null,
   };
 
   const rawMapId = document.getElementById('f-map_id')?.value;

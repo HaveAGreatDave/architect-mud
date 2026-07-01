@@ -152,6 +152,22 @@ const PANELS = {
     save: saveRecipe,
     delete: id => API(`/recipes/${id}`, 'DELETE'),
   },
+  scavenging: {
+    title: 'Scavenging Tables',
+    description: 'Reusable loot templates for the scavenge action. Attach one to a zone from the zone editor (Scavenging section); per-zone stock is tracked automatically.',
+    idPrefix: 'scav',
+    fetch: () => API('/scavenging-tables'),
+    columns: [
+      { key: 'name', label: 'Name' },
+      { key: 'id', label: 'Table ID', render: v => `<code style="font-size:11px;color:var(--text-dim)">${v}</code>` },
+      { key: 'entry_count', label: 'Items' },
+      { key: 'zone_count', label: 'Zones' },
+      { key: 'replenish_interval_seconds', label: 'Replenish', render: v => `${Math.round((v||0)/60)}m` },
+    ],
+    editForm: scavengingEditForm,
+    save: saveScavengingTable,
+    delete: id => API(`/scavenging-tables/${id}`, 'DELETE'),
+  },
   quests: {
     title: 'Quests',
     description: 'Multi-step player objectives with triggers, conditions, and rewards.',

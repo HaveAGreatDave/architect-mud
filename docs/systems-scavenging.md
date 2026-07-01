@@ -141,11 +141,26 @@ There is no stop verb — `stand` or moving ends it. Targeted `scavenge <thing>`
 - `MAX_SWING` = 14 (reachability ceiling; the 2d8−2d8 maximum)
 - Tick scan cadence: 1000 ms
 
-## Authoring (deferred)
+## Authoring (dev panel)
 
-There is **no dev-panel UI yet** — tables/items/zone-attachment are seeded by hand.
-[scripts/seed-scavenging.js](../scripts/seed-scavenging.js) is the working example:
-it creates six "junk" items, the "Roadside Junk" table, and attaches it to
-`zone_start`. A dev-panel CRUD surface (table editor + a zone-editor dropdown, and
-likely promoting `zones.flags.scavenging_table_id` to a real column for the join) is
-the intended follow-up.
+Tables are edited from the **Scavenging** panel (`/dev` → Scavenging), and a zone
+opts in via a **Scavenging Table** dropdown in the zone editor.
+
+- **Scavenging panel** ([client/devpanel/js/panels/scavenging.js](../client/devpanel/js/panels/scavenging.js)):
+  list of tables (name, item count, zone-usage count, replenish interval) and a
+  table editor. The editor has table metadata (name, replenish interval shown in
+  minutes), a **loot-entry row builder** (item picker + difficulty/weight/max-qty,
+  with a live per-row hint showing the reach threshold and the entry's share of the
+  weighted draw — no raw JSON), and two optional flavor line-lists (player /
+  broadcast, one line each; blank falls back to the engine defaults).
+- **Zone attach**: the zone editor writes `flags.scavenging_table_id`. Selecting
+  "— none —" detaches.
+- Routes: `GET/POST /scavenging-tables`, `GET/PUT/DELETE /scavenging-tables/:id`
+  (plus `GET /scavenging-tables/:id/zone-stock` for a read-only per-zone stock peek).
+  Edits go through the **staging pipeline** (`scavenging_table` entity type) like
+  other content. Delete refuses while any zone still references the table.
+
+Per-zone stock/state is derived by the engine and is **not** authored here.
+[scripts/seed-scavenging.js](../scripts/seed-scavenging.js) remains as the
+scripted example. Still deferred: promoting `zones.flags.scavenging_table_id` to a
+real column, and a FK on `scavenging_table_items.item_id`.

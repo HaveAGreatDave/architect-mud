@@ -240,6 +240,12 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path==='/recipes' && method==='POST') return requireDev(auth, ()=>apiCreateRecipe(body));
   if (path.startsWith('/recipes/') && method==='PUT') return requireDev(auth, ()=>apiUpdateRecipe(path.split('/')[2],body));
   if (path.startsWith('/recipes/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteRecipe(path.split('/')[2]));
+  if (path==='/scavenging-tables' && method==='GET') return requireDev(auth, apiGetScavengingTables);
+  if (path==='/scavenging-tables' && method==='POST') return requireDev(auth, ()=>apiCreateScavengingTable(body));
+  if (path.startsWith('/scavenging-tables/') && path.endsWith('/zone-stock') && method==='GET') return requireDev(auth, ()=>apiGetScavengingZoneStock(path.split('/')[2]));
+  if (path.startsWith('/scavenging-tables/') && method==='GET') return requireDev(auth, ()=>apiGetScavengingTable(path.split('/')[2]));
+  if (path.startsWith('/scavenging-tables/') && method==='PUT') return requireDev(auth, ()=>apiUpdateScavengingTable(path.split('/')[2],body));
+  if (path.startsWith('/scavenging-tables/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteScavengingTable(path.split('/')[2]));
   if (path==='/scripts' && method==='GET') return requireDev(auth, apiGetScripts);
   if (path==='/scripts' && method==='POST') return requireDev(auth, ()=>apiCreateScript(body));
   if (path.startsWith('/scripts/') && method==='PUT') return requireDev(auth, ()=>apiUpdateScript(path.split('/')[2],body));
@@ -1795,6 +1801,76 @@ async function apiDeleteRecipe(id) {
   try {
     await query('DELETE FROM recipes WHERE id=$1',[id]);
     await loadRecipes();
+    return {status:200,body:{message:'Deleted'}};
+  } catch(e) { return {status:400,body:{error:e.message}}; }
+}
+
+// --- Scavenging tables (reusable loot templates; attached to zones via flags.scavenging_table_id) ---
+async function apiGetScavengingTables() {
+  const {rows}=await query(`
+    SELECT t.*,
+      (SELECT COUNT(*) FROM scavenging_table_items ti WHERE ti.table_id=t.id) AS entry_count,
+      (SELECT COUNT(*) FROM zones z WHERE z.flags->>'scavenging_table_id' = t.id) AS zone_count
+    FROM scavenging_tables t ORDER BY t.name`);
+  return {status:200,body:rows};
+}
+async function apiGetScavengingTable(id) {
+  const {rows}=await query('SELECT * FROM scavenging_tables WHERE id=$1',[id]);
+  if(!rows.length) return {status:404,body:{error:'Not found'}};
+  const {rows:entries}=await query(
+    `SELECT ti.*, i.name AS item_name FROM scavenging_table_items ti
+     LEFT JOIN items i ON i.id=ti.item_id WHERE ti.table_id=$1 ORDER BY ti.weight DESC`,[id]);
+  return {status:200,body:{...rows[0], entries}};
+}
+async function apiGetScavengingZoneStock(id) {
+  const {rows}=await query(
+    `SELECT s.zone_id, z.name AS zone_name, s.item_id, i.name AS item_name, s.current_qty
+     FROM scavenging_zone_stock s
+     LEFT JOIN zones z ON z.id=s.zone_id
+     LEFT JOIN items i ON i.id=s.item_id
+     WHERE s.zone_id IN (SELECT id FROM zones WHERE flags->>'scavenging_table_id'=$1)
+     ORDER BY z.name, i.name`,[id]);
+  return {status:200,body:rows};
+}
+function _scavEntries(body){ return Array.isArray(body.entries)?body.entries:[]; }
+async function _writeScavEntries(tableId, entries){
+  await query('DELETE FROM scavenging_table_items WHERE table_id=$1',[tableId]);
+  for(const e of entries){
+    if(!e.item_id) continue;
+    await query(
+      `INSERT INTO scavenging_table_items (id, table_id, item_id, difficulty, weight, max_qty)
+       VALUES ($1,$2,$3,$4,$5,$6)`,
+      [randomUUID(), tableId, e.item_id, parseInt(e.difficulty)||5, parseInt(e.weight)||10, parseInt(e.max_qty)||3]);
+  }
+}
+export async function apiCreateScavengingTable(body) {
+  const id=body.id||`scav_${Date.now()}`;
+  try {
+    await query(
+      `INSERT INTO scavenging_tables (id, name, replenish_interval_seconds, messages)
+       VALUES ($1,$2,$3,$4)`,
+      [id, body.name||'Untitled Table', parseInt(body.replenish_interval_seconds)||300,
+       JSON.stringify(body.messages||{})]);
+    await _writeScavEntries(id, _scavEntries(body));
+    return {status:201,body:{id}};
+  } catch(e) { return {status:400,body:{error:e.message}}; }
+}
+export async function apiUpdateScavengingTable(id, body) {
+  try {
+    await query(
+      `UPDATE scavenging_tables SET name=$1, replenish_interval_seconds=$2, messages=$3 WHERE id=$4`,
+      [body.name||'Untitled Table', parseInt(body.replenish_interval_seconds)||300,
+       JSON.stringify(body.messages||{}), id]);
+    await _writeScavEntries(id, _scavEntries(body));
+    return {status:200,body:{id}};
+  } catch(e) { return {status:400,body:{error:e.message}}; }
+}
+export async function apiDeleteScavengingTable(id) {
+  try {
+    const {rows}=await query(`SELECT COUNT(*)::int AS n FROM zones WHERE flags->>'scavenging_table_id'=$1`,[id]);
+    if(rows[0].n>0) return {status:409,body:{error:`Still attached to ${rows[0].n} zone(s). Detach it first.`}};
+    await query('DELETE FROM scavenging_table_items WHERE table_id=$1',[id]);
+    await query('DELETE FROM scavenging_tables WHERE id=$1',[id]);
     return {status:200,body:{message:'Deleted'}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }

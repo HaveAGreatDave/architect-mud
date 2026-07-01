@@ -1,7 +1,7 @@
 const STAGED_ENTITY_TYPES = {
   '/zones': 'zone', '/enemies': 'enemy', '/items': 'item', '/npcs': 'npc',
   '/furniture': 'furniture', '/recipes': 'recipe', '/mutations': 'mutation', '/drugs': 'drug',
-  '/windows': 'window',
+  '/windows': 'window', '/scavenging-tables': 'scavenging_table',
 };
 
 function getEntityType(path) {

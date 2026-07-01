@@ -16,6 +16,7 @@ import {
   apiUpdateFurniture, apiUpdateRecipe, apiUpdateMutation, apiUpdateDrug,
   apiCreateWindow, apiUpdateWindow, apiDeleteWindow,
   apiCreateSpawn, apiDeleteZoneSpawn,
+  apiCreateScavengingTable, apiUpdateScavengingTable, apiDeleteScavengingTable,
 } from './routes.js';
 
 const DEV_ROLES = ['dev', 'admin', 'builder', 'designer'];
@@ -104,6 +105,7 @@ const UPDATERS = {
   mutation:  (id, data) => apiUpdateMutation(id, data),
   drug:      (id, data) => apiUpdateDrug(id, data),
   window:    (id, data) => apiUpdateWindow(id, data),
+  scavenging_table: (id, data) => apiUpdateScavengingTable(id, data),
 };
 
 const CREATORS = {
@@ -114,6 +116,7 @@ const CREATORS = {
   furniture: (data) => apiCreateFurniture(data),
   window:    (data) => apiCreateWindow(data),
   spawn:     (data) => apiCreateSpawn(data),
+  scavenging_table: (data) => apiCreateScavengingTable(data),
 };
 
 // Allowed tables for orphan cleanup deletes. Maps table name → zone column.
@@ -136,6 +139,7 @@ const DELETERS = {
   generator:      (id) => removeGenerator(id).then(r => ({ status:200, body:r })),
   window:         (id) => apiDeleteWindow(id),
   spawn:          (id) => apiDeleteZoneSpawn(id),
+  scavenging_table: (id) => apiDeleteScavengingTable(id),
   // Orphan cleanup: entity_id is "{table}:{refId}"
   orphan_cleanup: async (compositeId) => {
     const sep = compositeId.indexOf(':');
