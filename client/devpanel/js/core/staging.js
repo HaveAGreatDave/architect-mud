@@ -1,4 +1,5 @@
 let pendingChanges = [];
+let _publishLog = []; // persists until next publish so it stays visible after panel reload
 
 async function updateStagingBadge() {
   const data = await API('/staging/pending').catch(() => null);
@@ -17,15 +18,14 @@ async function updateStagingBadge() {
 
 async function publishAll() {
   if (!confirm(`Publish all ${pendingChanges.length} staged change${pendingChanges.length !== 1 ? 's' : ''} to the live world?`)) return;
-  // Capture staged furniture state before publish so we can update the list immediately after.
   const stagedFurnitureNames = _furnitureAllItems.filter(f => f._staged).map(f => f.name);
   const hasFurnitureChanges = _furnitureAllItems.some(f => f._staged || f._markedForDeletion);
   const result = await API('/staging/publish', 'POST', { all: true });
   if (result.error) { toast(result.error, true); return; }
   _mapPendingOverrides.clear();
+  _publishLog = buildPublishLog(result, pendingChanges);
   toast(`✓ ${result.message}`);
   await updateStagingBadge();
-  // Refresh furniture cache for green badge / deletion cleanup regardless of active panel.
   if (hasFurnitureChanges) {
     const freshData = await PANELS.furniture.fetch();
     _furnitureAllItems = Array.isArray(freshData) ? freshData : (freshData.furniture || []);
@@ -35,7 +35,6 @@ async function publishAll() {
       if (currentPanel === 'furniture') renderFurniturePanel({ furniture: _furnitureAllItems, zones: [..._furnitureZoneNames.entries()].map(([id, name]) => ({ id, name })) });
     }, 6000);
   }
-  // Reload whichever panel is open so it reflects the published state.
   loadPanel(currentPanel);
 }
 
@@ -55,11 +54,50 @@ async function publishSelected() {
   if (!confirm(`Publish ${checked.length} selected change${checked.length !== 1 ? 's' : ''}?`)) return;
   const result = await API('/staging/publish', 'POST', { ids: checked });
   if (result.error) { toast(result.error, true); return; }
-  // Overrides for published zones are now live in DB — no longer needed as overrides
   for (const c of pendingChanges) {
     if (checked.includes(c.id) && c.entityType === 'zone') _mapPendingOverrides.delete(c.entityId);
   }
+  _publishLog = buildPublishLog(result, pendingChanges.filter(c => checked.includes(c.id)));
   toast(`✓ ${result.message}`);
+  await updateStagingBadge();
+  loadPanel(currentPanel);
+}
+
+async function autoResolveFailures() {
+  const failedIds = _publishLog.filter(e => e.error).map(e => e.id);
+  if (!failedIds.length) return;
+  const result = await API('/staging/resolve', 'POST', { ids: failedIds });
+  if (result.error) { toast(result.error, true); return; }
+  // Merge resolve results back into the log
+  const resolvedSet = new Set((result.resolved || []).map(r => r.id));
+  const resolveErrors = Object.fromEntries((result.errors || []).map(e => [e.id, e.error]));
+  _publishLog = _publishLog.map(e => {
+    if (!e.error) return e;
+    if (resolvedSet.has(e.id)) return { ...e, error: null, resolved: true };
+    if (resolveErrors[e.id]) return { ...e, resolveError: resolveErrors[e.id] };
+    return e;
+  });
+  toast(result.message);
+  await updateStagingBadge();
+  loadPanel(currentPanel);
+}
+
+function buildPublishLog(result, sourceChanges) {
+  const errorMap = Object.fromEntries((result.errors || []).map(e => [e.id, e.error]));
+  return sourceChanges.map(c => ({
+    id: c.id,
+    entityType: c.entityType,
+    entityName: c.entityName || c.entityId,
+    changeType: c.changeType,
+    error: errorMap[c.id] || null,
+  }));
+}
+
+async function rejectOne(id, name) {
+  if (!confirm(`Discard staged change for "${name}"?`)) return;
+  const result = await API('/staging/reject', 'POST', { ids: [id] });
+  if (result.error) { toast(result.error, true); return; }
+  toast(result.message);
   await updateStagingBadge();
   loadPanel(currentPanel);
 }
@@ -125,6 +163,7 @@ function renderChangesPanel(data) {
             </div>
             <div style="font-size:11px;color:var(--text-dim)">By: ${c.author} • ${timeAgo(c.stagedAt)}</div>
           </div>
+          <button class="action-btn danger" style="font-size:10px;padding:2px 8px;white-space:nowrap" onclick="rejectOne('${c.id}','${(c.entityName||c.entityId).replace(/'/g,"\\'")}')">Reject</button>
         </div>`;
     }
     html += `</div>
@@ -133,6 +172,44 @@ function renderChangesPanel(data) {
         <button class="action-btn success" onclick="publishSelected()">Publish Selected</button>
         <button class="action-btn danger" onclick="rejectSelected()">Reject Selected</button>
       </div>`;
+  }
+
+  // Publish log
+  if (_publishLog.length) {
+    const hasFailures = _publishLog.some(e => e.error);
+    const hasUnresolvedFailures = _publishLog.some(e => e.error && !e.resolveError);
+    html += `<div style="margin-top:28px">
+      <div style="font-size:13px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">Publish Log</div>
+      <div style="border-top:1px solid var(--border)">`;
+    for (const e of _publishLog) {
+      const typeLabel = ENTITY_TYPE_LABELS[e.entityType] || e.entityType;
+      const typeIcon = CHANGE_TYPE_ICONS[e.changeType] || '✎';
+      let status, statusColor, detail = '';
+      if (e.resolved) {
+        status = '✓ resolved'; statusColor = 'var(--success)';
+      } else if (e.error) {
+        status = '✗ failed'; statusColor = 'var(--danger)';
+        detail = `<div style="font-size:11px;color:var(--danger);margin-top:3px;padding-left:2px">${e.error}${e.resolveError ? ` → resolve also failed: ${e.resolveError}` : ''}</div>`;
+      } else {
+        status = '✓ published'; statusColor = 'var(--success)';
+      }
+      html += `<div style="padding:10px 0;border-bottom:1px solid var(--border)">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:11px;padding:1px 6px;background:var(--bg3);border-radius:3px;color:var(--text-dim)">${typeLabel}</span>
+          <span style="font-weight:600;color:var(--text)">${e.entityName}</span>
+          <span style="font-size:11px;color:var(--text-dim)">${typeIcon} ${e.changeType}</span>
+          <span style="font-size:11px;color:${statusColor};margin-left:auto">${status}</span>
+        </div>
+        ${detail}
+      </div>`;
+    }
+    html += `</div>`;
+    if (hasFailures) {
+      html += `<div style="display:flex;gap:8px;margin-top:10px;align-items:center">`;
+      if (hasUnresolvedFailures) html += `<button class="action-btn success" onclick="autoResolveFailures()">⚙ Auto-resolve failures</button>`;
+      html += `<button class="action-btn" onclick="_publishLog=[];loadPanel('changes')" style="opacity:0.7">Clear log</button></div>`;
+    }
+    html += `</div>`;
   }
 
   // Database backup / export
