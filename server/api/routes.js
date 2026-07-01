@@ -613,29 +613,42 @@ async function apiGetMap(id) {
   );
   // Zones not yet placed on THIS map and not interior rooms — shown in the
   // overview's tray so they can be dragged onto this map by hand.
-  // Includes: zones with no map_id, and zones assigned to other maps.
-  // Excludes: is_interior and is_apartment zones (they live in sub-maps).
+  // Excludes: is_interior, is_apartment, is_building flags AND zones that are
+  // children of another zone (parent_zone IS NOT NULL) or building roots
+  // (have children referencing them via parent_zone — those go to unplacedInterior).
   const { rows: unplaced } = await query(
     `SELECT id, name, danger_rating, exits, flags FROM zones
      WHERE (map_id IS NULL OR map_id != $1)
        AND COALESCE((flags->>'is_interior')::boolean, false) = false
        AND COALESCE((flags->>'is_apartment')::boolean, false) = false
        AND COALESCE((flags->>'is_building')::boolean, false) = false
+       AND parent_zone IS NULL
+       AND NOT EXISTS (SELECT 1 FROM zones c WHERE c.parent_zone = zones.id)
      ORDER BY name`,
     [id]
   );
-  // Interior/apartment zones with no map assignment need to be linked before
-  // they're reachable by players. Buildings are considered placed if any zone
-  // has an exit pointing to them — that's the only thing that makes them reachable.
+  // Interior/apartment zones with no map assignment, plus zones that are
+  // children of another zone (parent_zone IS NOT NULL), plus building roots
+  // (zones whose children reference them via parent_zone, or is_building flag)
+  // that are not yet reachable from any exterior zone.
   const { rows: unplacedInterior } = await query(`
-    SELECT id, name, danger_rating, exits, flags FROM zones
+    SELECT id, name, danger_rating, exits, flags,
+           CASE WHEN COALESCE((flags->>'is_building')::boolean, false) = true
+                  OR EXISTS (SELECT 1 FROM zones c WHERE c.parent_zone = zones.id)
+                THEN true ELSE false END AS is_building_root
+    FROM zones
     WHERE map_id IS NULL
       AND (COALESCE((flags->>'is_interior')::boolean, false) = true
-        OR COALESCE((flags->>'is_apartment')::boolean, false) = true)
+        OR COALESCE((flags->>'is_apartment')::boolean, false) = true
+        OR parent_zone IS NOT NULL)
     UNION
-    -- Buildings that no zone has an exit to (truly unreachable)
-    SELECT z.id, z.name, z.danger_rating, z.exits, z.flags FROM zones z
-    WHERE COALESCE((z.flags->>'is_building')::boolean, false) = true
+    -- Building roots (have children or is_building) that no exterior zone exits to
+    SELECT z.id, z.name, z.danger_rating, z.exits, z.flags, true AS is_building_root
+    FROM zones z
+    WHERE z.map_id IS NULL
+      AND z.parent_zone IS NULL
+      AND (COALESCE((z.flags->>'is_building')::boolean, false) = true
+        OR EXISTS (SELECT 1 FROM zones c WHERE c.parent_zone = z.id))
       AND NOT EXISTS (
         SELECT 1 FROM zones ext, jsonb_each_text(COALESCE(ext.exits, '{}')) kv
         WHERE kv.value = z.id
@@ -694,7 +707,76 @@ async function apiLinkInterior(body, auth) {
   await query('UPDATE zones SET map_id=$1, grid_x=0, grid_y=0, grid_z=0, flags=$2, exits=$3 WHERE id=$4', [interiorMap.id, intFlags, intExits, interiorZoneId]);
   await Promise.all([reloadZone(exteriorZoneId), reloadZone(interiorZoneId)]);
 
-  return { status: 200, body: { interiorMap } };
+  // Auto-layout children if a hallway stacking direction was provided.
+  const { hallwayDir } = body || {};
+  let layoutCount = 0;
+  if (hallwayDir) {
+    layoutCount = await autoLayoutInteriorChildren(interiorMap.id, interiorZoneId, hallwayDir);
+  }
+
+  return { status: 200, body: { interiorMap, layoutCount } };
+}
+
+// Given a placed building root zone at 0,0,0, traverse the exit chain in
+// hallwayDir to order hallways, then place each hallway's children (units)
+// at the exit-direction offset from the hallway cell.
+const LAYOUT_DIR_OFFSET = { north:[0,-1,0], south:[0,1,0], east:[1,0,0], west:[-1,0,0], up:[0,0,1], down:[0,0,-1] };
+const UNIT_DIR_OFFSET   = { north:[0,-1,0], south:[0,1,0], east:[1,0,0], west:[-1,0,0] };
+
+async function autoLayoutInteriorChildren(mapId, rootZoneId, hallwayDir) {
+  const { rows: rootRows } = await query('SELECT * FROM zones WHERE id=$1', [rootZoneId]);
+  if (!rootRows.length) return 0;
+  const rootZone = rootRows[0];
+
+  // Load all direct children (hallways) of the root
+  const { rows: hallways } = await query('SELECT * FROM zones WHERE parent_zone=$1', [rootZoneId]);
+  if (!hallways.length) return 0;
+
+  // Order hallways by following the exit chain from root in hallwayDir
+  const hallwayById = new Map(hallways.map(h => [h.id, h]));
+  const ordered = [];
+  const seen = new Set([rootZoneId]);
+  let cur = rootZone;
+  while (cur) {
+    const nextId = (cur.exits || {})[hallwayDir];
+    if (!nextId || seen.has(nextId)) break;
+    seen.add(nextId);
+    const next = hallwayById.get(nextId);
+    if (!next) break;
+    ordered.push(next);
+    cur = next;
+  }
+  // Any hallways not reached by the chain (e.g. roof off a different direction)
+  for (const h of hallways) {
+    if (!seen.has(h.id)) ordered.push(h);
+  }
+
+  const off = LAYOUT_DIR_OFFSET[hallwayDir] || [0, 0, 1];
+  let count = 0;
+
+  for (let i = 0; i < ordered.length; i++) {
+    const hallway = ordered[i];
+    const hx = (i + 1) * off[0];
+    const hy = (i + 1) * off[1];
+    const hz = (i + 1) * off[2];
+    await query('UPDATE zones SET map_id=$1, grid_x=$2, grid_y=$3, grid_z=$4 WHERE id=$5',
+      [mapId, hx, hy, hz, hallway.id]);
+    reloadZone(hallway.id).catch(() => {});
+    count++;
+
+    // Place this hallway's children (units) at their exit offsets
+    const { rows: units } = await query('SELECT * FROM zones WHERE parent_zone=$1', [hallway.id]);
+    for (const unit of units) {
+      const exitDir = Object.keys(hallway.exits || {}).find(d => (hallway.exits)[d] === unit.id);
+      const ud = exitDir && UNIT_DIR_OFFSET[exitDir];
+      if (!ud) continue;
+      await query('UPDATE zones SET map_id=$1, grid_x=$2, grid_y=$3, grid_z=$4 WHERE id=$5',
+        [mapId, hx + ud[0], hy + ud[1], hz + ud[2], unit.id]);
+      reloadZone(unit.id).catch(() => {});
+      count++;
+    }
+  }
+  return count;
 }
 
 async function apiCreateMap(body, auth) {
