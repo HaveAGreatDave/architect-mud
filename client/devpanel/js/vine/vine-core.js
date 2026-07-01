@@ -792,3 +792,22 @@ function vineModalSave() {
   }
   vineModalClose();
 }
+
+function vineModalImportJSON() {
+  openModal('Load JSON into VINE', `
+    <div class="field"><label>Paste graph JSON</label>
+      <textarea id="vine-import-json" style="width:100%;height:300px;font-family:monospace;font-size:11px" placeholder='{"nodes":{},"edges":[]}'></textarea>
+    </div>`);
+  const saveBtn = document.getElementById('modal-save');
+  saveBtn.textContent = 'Load';
+  saveBtn.onclick = () => {
+    const raw = document.getElementById('vine-import-json').value.trim();
+    try {
+      const graph = JSON.parse(raw);
+      if (_vineModalEditor) _vineModalEditor.load(graph);
+      closeModal();
+    } catch (e) {
+      toast('Invalid JSON: ' + e.message, true);
+    }
+  };
+}

@@ -42,6 +42,19 @@ Post-singularity browser MUD in the HellMOO tradition. Text-driven, real-time, b
 - **Plugins for extensibility.** New behavior hooks belong in `/plugins/`, not in engine files, unless they're genuinely core.
 - **UTF-8, always.** Several files (especially `client/game/index.html`) use Unicode glyphs and box-drawing chars (`₵ ⚙ ⏻ ╱ █ ☢`). When editing, preserve UTF-8 without a BOM — never let a tool re-save as Windows-1252 or it double-encodes everything into `â•±â•²` mojibake. After editing such files, sanity-check that the glyphs are still intact.
 
+## VINE Graph Workflow
+
+When asked to create or update an NPC behaviour graph, dialogue tree, or enemy behaviour graph:
+
+1. **Write the JSON** — produce the full graph object (`{ nodes: {}, edges: [] }`) according to the relevant schema (`vine-schema-ai.js`, `vine-schema-dialogue.js`, etc.).
+2. **Push it to the DB** via the PATCH API routes (no copy-pasting, no UI required):
+   - NPC behaviour: `PATCH /api/npcs/:id/graph` `{ "field": "behaviour_graph", "graph": {...} }`
+   - NPC dialogue: `PATCH /api/npcs/:id/graph` `{ "field": "dialogue_tree", "graph": {...} }`
+   - Enemy behaviour: `PATCH /api/enemies/:id/graph` `{ "field": "behaviour_graph", "graph": {...} }`
+3. **Confirm success** — check the response is `{ ok: true }` and report back. If the route returns an error, diagnose and fix before reporting done.
+
+The VINE modal also has a "📋 Load JSON" button for manual paste-in when needed, but the API route is the standard path.
+
 ## Working Agreements
 
 ### 1. Think Before Coding

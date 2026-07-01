@@ -216,6 +216,7 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path==='/enemies' && method==='GET') return requireDev(auth, apiGetEnemies);
   if (path==='/enemies' && method==='POST') return requireDev(auth, ()=>apiCreateEnemy(body));
   if (path.startsWith('/enemies/') && method==='PUT') return requireDev(auth, ()=>apiUpdateEnemy(path.split('/')[2],body));
+  if (path.startsWith('/enemies/') && path.endsWith('/graph') && method==='PATCH') return requireDev(auth, ()=>apiPatchGraph('enemies',path.split('/')[2],body));
   if (path.startsWith('/enemies/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteEnemy(path.split('/')[2]));
   if (path==='/items' && method==='GET') return requireDev(auth, apiGetItems);
   if (path==='/items' && method==='POST') return requireDev(auth, ()=>apiCreateItem(body));
@@ -224,6 +225,7 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path==='/npcs' && method==='POST') return requireDev(auth, ()=>apiCreateNpc(body));
   if (path==='/npcs/send-to-work' && method==='POST') return requireDev(auth, apiSendLateNpcsToWork);
   if (path.startsWith('/npcs/') && method==='PUT') return requireDev(auth, ()=>apiUpdateNpc(path.split('/')[2],body));
+  if (path.startsWith('/npcs/') && path.endsWith('/graph') && method==='PATCH') return requireDev(auth, ()=>apiPatchGraph('npcs',path.split('/')[2],body));
   if (path.startsWith('/npcs/') && path.endsWith('/restock') && method==='POST') return requireDev(auth, ()=>apiRestockVendor(path.split('/')[2]));
   if (path.startsWith('/npcs/') && path.endsWith('/place-safe') && method==='POST') return requireDev(auth, ()=>apiPlaceSafe(path.split('/')[2]));
   if (path.startsWith('/npcs/') && path.endsWith('/safe-status') && method==='GET') return requireDev(auth, ()=>apiGetSafeStatus(path.split('/')[2]));
@@ -1213,6 +1215,23 @@ export async function apiUpdateNpc(id,body) {
     return {status:200,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
+const NPC_GRAPH_FIELDS = new Set(['behaviour_graph', 'dialogue_tree']);
+const ENEMY_GRAPH_FIELDS = new Set(['behaviour_graph']);
+async function apiPatchGraph(table, id, body) {
+  const allowed = table === 'npcs' ? NPC_GRAPH_FIELDS : ENEMY_GRAPH_FIELDS;
+  const field = body.field;
+  if (!allowed.has(field)) return { status: 400, body: { error: `Invalid field '${field}' for ${table}` } };
+  if (!body.graph || typeof body.graph !== 'object') return { status: 400, body: { error: 'graph must be an object' } };
+  try {
+    const { rowCount } = await query(
+      `UPDATE ${table} SET ${field}=$1 WHERE id=$2`,
+      [JSON.stringify(body.graph), id]
+    );
+    if (!rowCount) return { status: 404, body: { error: 'Not found' } };
+    return { status: 200, body: { ok: true } };
+  } catch (e) { return { status: 400, body: { error: e.message } }; }
+}
+
 async function apiRestockVendor(id) {
   try {
     const { rows } = await query(
