@@ -141,12 +141,13 @@ export function openTvPanel(data) {
     staticEl.classList.add('tv-static-on');
     _playCrtPowerOn();
     _tuneTimer = setTimeout(() => {
+      _tuneTimer = null;
+      if (_tvOffAir) return;
       staticEl.classList.remove('tv-static-on');
       staticEl.classList.add('tv-static-fade');
       content.classList.remove('tv-hidden');
       staticEl.addEventListener('animationend', () => staticEl.classList.remove('tv-static-fade'), { once: true });
       _setStaticAudio(0, 0.3);
-      _tuneTimer = null;
     }, 720);
   }
 }
