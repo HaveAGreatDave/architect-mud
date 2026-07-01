@@ -737,12 +737,12 @@ const sfx = [
   { id: 'sfx_ui_menu', name: 'ui_menu', category: 'ui', priority: 2, config: { waveform: 'triangle', freq: 320, duration: 0.07, adsr: { a: 0.001, d: 0.05, s: 0, r: 0.04 }, filter: { type: 'lowpass', freq: 1800, q: 1 } } },
 
   // Combat
-  { id: 'sfx_combat_hit', name: 'combat_hit', category: 'combat', priority: 7, config: { waveform: 'noise', noiseMix: 0.8, freq: 150, duration: 0.12, adsr: { a: 0.001, d: 0.08, s: 0, r: 0.05 }, filter: { type: 'lowpass', freq: 2500, q: 1 } } },
+  { id: 'sfx_combat_hit', name: 'combat_hit', category: 'combat', priority: 7, config: { waveform: 'noise', noiseMix: 0.4, freq: 120, duration: 0.12, adsr: { a: 0.003, d: 0.08, s: 0, r: 0.05 }, filter: { type: 'lowpass', freq: 900, q: 1 } } },
   { id: 'sfx_combat_death', name: 'combat_death', category: 'combat', priority: 9, config: { waveform: 'sawtooth', freq: 300, duration: 0.8, pitchBend: { to: 60, time: 0.7 }, adsr: { a: 0.001, d: 0.3, s: 0.3, r: 0.4 }, filter: { type: 'lowpass', freq: 1500, q: 1 } } },
   { id: 'sfx_combat_punch', name: 'combat_punch', category: 'combat', priority: 6, config: { waveform: 'triangle', freq: 90, duration: 0.1, noiseMix: 0.3, adsr: { a: 0.001, d: 0.07, s: 0, r: 0.04 }, filter: { type: 'lowpass', freq: 1200, q: 1 } } },
-  { id: 'sfx_combat_slash', name: 'combat_slash', category: 'combat', priority: 6, config: { waveform: 'noise', noiseMix: 1, duration: 0.18, adsr: { a: 0.005, d: 0.12, s: 0, r: 0.05 }, filter: { type: 'highpass', freq: 2500, q: 1.5 } } },
+  { id: 'sfx_combat_slash', name: 'combat_slash', category: 'combat', priority: 6, config: { waveform: 'noise', noiseMix: 0.5, duration: 0.18, adsr: { a: 0.008, d: 0.12, s: 0, r: 0.06 }, filter: { type: 'bandpass', freq: 1000, q: 1.2 } } },
   { id: 'sfx_combat_stab', name: 'combat_stab', category: 'combat', priority: 7, config: { layers: [
-    { waveform: 'noise', noiseMix: 1, duration: 0.08, adsr: { a: 0.001, d: 0.05, s: 0, r: 0.03 }, filter: { type: 'highpass', freq: 3000, q: 1.5 } },
+    { waveform: 'noise', noiseMix: 0.6, duration: 0.08, adsr: { a: 0.002, d: 0.05, s: 0, r: 0.03 }, filter: { type: 'lowpass', freq: 1200, q: 1 } },
     { waveform: 'triangle', freq: 120, duration: 0.1, gain: 0.6, adsr: { a: 0.001, d: 0.06, s: 0, r: 0.04 }, filter: { type: 'lowpass', freq: 800, q: 1 } },
   ] } },
   { id: 'sfx_combat_gunshot', name: 'combat_gunshot', category: 'combat', priority: 8, config: { layers: [

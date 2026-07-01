@@ -126,9 +126,22 @@ async function openEdit(record, isNew) {
   }
 }
 
+let _mapZoneEditSaved = false;
+
 function closeEdit() {
   document.getElementById('edit-panel').classList.remove('open');
   document.getElementById('edit-body').innerHTML = '';
+  // Revert live map color preview if the edit was discarded (closed without saving)
+  if (mapZoneEditReturn && !_mapZoneEditSaved && currentRecord) {
+    const z = mapOverview?.zones.get(currentRecord.id);
+    if (z) {
+      z.color = currentRecord.color || null;
+      z.bg_color = currentRecord.bg_color || null;
+      z.marker = currentRecord.marker || null;
+      renderMapOverview();
+    }
+  }
+  _mapZoneEditSaved = false;
   currentRecord = null;
   // Restore the standard Save/Delete footer in case it was overridden (e.g. broadcast NPC sidebar)
   const editFooter = document.querySelector('#edit-panel .edit-footer');
@@ -167,9 +180,20 @@ async function saveRecord() {
         if (issues > 0) toast(`Zone saved — ${issues} exit issue(s) found (see Validator)`, true);
       }).catch(() => {});
     }
-    if (mapZoneEditReturn) applyZoneEditToMap(currentRecord?.id);
-    else if (zoneEnemyEditReturn) await refreshEnemiesSection(zoneEnemyEditReturn);
-    else await loadPanel(currentPanel);
+    if (mapZoneEditReturn) {
+      const savedId = currentRecord?.id;
+      applyZoneEditToMap(savedId);
+      // Persist staged color/marker overrides so the map stays correct after panel reloads
+      if (result?.staged && savedId) {
+        const z = mapOverview?.zones.get(savedId);
+        if (z) _mapPendingOverrides.set(savedId, { color: z.color || null, bg_color: z.bg_color || null, marker: z.marker || null });
+      }
+    } else if (zoneEnemyEditReturn) {
+      await refreshEnemiesSection(zoneEnemyEditReturn);
+    } else {
+      await loadPanel(currentPanel);
+    }
+    _mapZoneEditSaved = true;
     closeEdit();
   } catch (err) {
     toast(`Unexpected error: ${err.message}`, true);

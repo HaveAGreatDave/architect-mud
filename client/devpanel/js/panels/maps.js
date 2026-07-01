@@ -248,6 +248,10 @@ async function openBigMap(mode = 'zones') {
     zones: new Map((mapData.zones || []).map(z => [z.id, { ...z, exits: z.exits || {}, grid_z: z.grid_z ?? 0 }])),
     children: mapData.children || [],
   };
+  for (const [zoneId, overrides] of _mapPendingOverrides) {
+    const z = bigMapOverlayData.zones.get(zoneId);
+    if (z) Object.assign(z, overrides);
+  }
   bigMapZones = mapData.zones || [];
   bigMapPowerData = Array.isArray(powerMap) ? powerMap : [];
   bigMapGenerators = Array.isArray(generators) ? generators : [];
@@ -413,8 +417,7 @@ function _liveMapColorUpdate() {
   z.color = color;
   z.bg_color = bg_color;
   z.marker = marker;
-  _mapPendingOverrides.set(currentRecord.id, { color, bg_color, marker });
-  if (currentPanel === 'maps') renderMapOverview();
+  if (currentPanel === 'maps' || mapZoneEditReturn) renderMapOverview();
 }
 
 // Click a zone tile on the map overview to edit it in the zone editor, then
@@ -556,6 +559,7 @@ function validateMapOverview(zonesMap, knownZoneIds, interiorZoneIds) {
 }
 
 function renderMapOverview() {
+  if (!mapOverview) return;
   const o = mapOverview;
   const panel = document.getElementById('list-panel');
   const all = [...o.zones.values()];
