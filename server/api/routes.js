@@ -8,7 +8,8 @@ import { randomUUID, createHash, randomBytes } from 'crypto';
 import { readFileSync, writeFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import vm from 'vm';
-import { sendPasswordResetEmail } from '../mailer.js';
+import { sendPasswordResetEmail, sendVerificationEmail } from '../mailer.js';
+import { isEmailVerificationEnabled, setEmailVerificationEnabled } from '../engine/emailVerification.js';
 import { randomAppearance } from '../engine/appearance.js';
 import { DEFAULT_CHITCHAT_LINES } from '../engine/ai-behaviour.js';
 import { handleEnvironmentApi } from './environment.routes.js';
@@ -113,9 +114,21 @@ export async function handleApiRequest(url, method, body, headers) {
     await setServerMisEnabled(enable);
     return { status:200, body:{ enabled: enable } };
   }
+  if (path==='/email-verification/status' && method==='GET') {
+    if (!auth || !['dev','admin','builder','designer'].includes(auth.role)) return { status:403, body:{error:'Dev access required'} };
+    return { status:200, body:{ enabled: isEmailVerificationEnabled() } };
+  }
+  if (path==='/email-verification/toggle' && method==='POST') {
+    if (!auth || !['dev','admin','builder','designer'].includes(auth.role)) return { status:403, body:{error:'Dev access required'} };
+    const enable = !!body?.enable;
+    await setEmailVerificationEnabled(enable);
+    return { status:200, body:{ enabled: enable } };
+  }
 
   if (path==='/auth/register' && method==='POST') return apiRegister(body);
   if (path==='/auth/login' && method==='POST') return apiLogin(body);
+  if (path==='/auth/verify-email' && method==='POST') return apiVerifyEmail(body);
+  if (path==='/auth/resend-verification' && method==='POST') return apiResendVerification(body);
   if (path==='/auth/forgot-password' && method==='POST') return apiForgotPassword(body);
   if (path==='/auth/reset-password'  && method==='POST') return apiResetPassword(body);
   if (path.startsWith('/auth/email-hint') && method==='GET') return apiEmailHint(new URL('http://x'+url).searchParams.get('username'));
@@ -311,6 +324,17 @@ async function apiRegister(body) {
     await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,is_equipped,slot,layer) SELECT $1,$2,i.id,1,1.0,1,'legs',2  FROM items i WHERE i.id='item_basic_pants'`, [randomUUID(), id]);
     await query(`INSERT INTO player_inventory (id,player_id,item_id,quantity,condition,is_equipped,slot,layer) SELECT $1,$2,i.id,1,1.0,1,'feet',2  FROM items i WHERE i.id='item_basic_shoes'`, [randomUUID(), id]);
     fireHook('player.create', { id, handle, username: username.toLowerCase(), role: 'player' }).catch(() => {});
+    if (isEmailVerificationEnabled()) {
+      const verifyToken = randomBytes(32).toString('hex');
+      await query(
+        'INSERT INTO email_verification_tokens (player_id, token, expires_at) VALUES ($1,$2,$3)',
+        [id, verifyToken, Date.now() + 24 * 60 * 60 * 1000]
+      );
+      const verifyUrl = `${process.env.CLIENT_BASE_URL || 'http://localhost:3000'}/game?verify_token=${verifyToken}`;
+      sendVerificationEmail(email.toLowerCase().trim(), verifyUrl).catch(e => console.error('[register] verification email failed:', e.message));
+      return {status:201,body:{needsVerification:true}};
+    }
+    await query('UPDATE players SET email_verified=TRUE WHERE id=$1', [id]);
     return {status:201,body:{token:makeToken(id,'player'),playerId:id,handle,role:'player'}};
   } catch(e) {
     if (e.code === '23505') return {status:409,body:{error:'Username or handle already taken'}};
@@ -325,8 +349,39 @@ async function apiLogin(body) {
   const {rows} = await query('SELECT * FROM players WHERE username=$1',[username.toLowerCase()]);
   if (!rows.length||rows[0].password_hash!==hashPassword(password)) return {status:401,body:{error:'Invalid credentials'}};
   const p = rows[0];
+  if (isEmailVerificationEnabled() && !p.email_verified) return {status:403,body:{error:'Please verify your email before logging in.',needsVerification:true}};
   fireHook('player.login', { id: p.id, handle: p.handle, role: p.role }).catch(() => {});
   return {status:200,body:{token:makeToken(p.id,p.role),playerId:p.id,handle:p.handle,role:p.role}};
+}
+
+async function apiVerifyEmail(body) {
+  const { token } = body||{};
+  if (!token) return { status:400, body:{ error:'token required' } };
+  const { rows } = await query('SELECT * FROM email_verification_tokens WHERE token=$1', [token]);
+  if (!rows.length) return { status:404, body:{ error:'Invalid or expired verification link.' } };
+  const row = rows[0];
+  if (row.used) return { status:400, body:{ error:'This verification link has already been used.' } };
+  if (Date.now() > row.expires_at) return { status:400, body:{ error:'Verification link has expired. Request a new one.' } };
+  await query('UPDATE players SET email_verified=TRUE WHERE id=$1', [row.player_id]);
+  await query('UPDATE email_verification_tokens SET used=TRUE WHERE id=$1', [row.id]);
+  const { rows: pRows } = await query('SELECT id, handle, role FROM players WHERE id=$1', [row.player_id]);
+  const p = pRows[0];
+  return { status:200, body:{ token:makeToken(p.id,p.role), playerId:p.id, handle:p.handle, role:p.role } };
+}
+
+async function apiResendVerification(body) {
+  const { email } = body||{};
+  if (!email) return { status:400, body:{ error:'email required' } };
+  const { rows } = await query('SELECT id, email, email_verified FROM players WHERE email=$1', [email.toLowerCase().trim()]);
+  if (!rows.length) return { status:200, body:{ sent:true } }; // don't reveal if account exists
+  const p = rows[0];
+  if (p.email_verified) return { status:400, body:{ error:'This account is already verified.' } };
+  await query('UPDATE email_verification_tokens SET used=TRUE WHERE player_id=$1 AND used=FALSE', [p.id]);
+  const token = randomBytes(32).toString('hex');
+  await query('INSERT INTO email_verification_tokens (player_id, token, expires_at) VALUES ($1,$2,$3)', [p.id, token, Date.now() + 24 * 60 * 60 * 1000]);
+  const verifyUrl = `${process.env.CLIENT_BASE_URL || 'http://localhost:3000'}/game?verify_token=${token}`;
+  sendVerificationEmail(p.email, verifyUrl).catch(e => console.error('[resend-verification] email failed:', e.message));
+  return { status:200, body:{ sent:true } };
 }
 
 async function apiEmailHint(username) {

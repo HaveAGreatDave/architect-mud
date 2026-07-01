@@ -752,6 +752,7 @@ function openAudioModal(tab, row) {
       }
       const r = isNew ? await API('/audio/samples', 'POST', reqBody) : await API(`/audio/samples/${row.id}`, 'PUT', reqBody);
       if (r?.error) { toast(r.error, true); return; }
+      if (!isNew) window.AudioEngine?.clearSampleCache(row.id);
       toast(isNew ? 'Sample uploaded' : 'Sample updated');
       closeModal(); loadPanel('audio');
     };

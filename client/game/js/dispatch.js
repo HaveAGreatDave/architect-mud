@@ -1,6 +1,6 @@
 import { state } from './state.js';
 import { appendMsg, appendHtml, appendPre, updateVitals, parseZoneInfo, showDevPanelButton, setAreaPane } from './render.js';
-import { sendCmd, sendCmdSilent, closeConnection, attemptAutoReauth } from './net.js';
+import { sendCmd, sendCmdSilent, closeConnection, attemptAutoReauth, showVerifyScreen } from './net.js';
 import { renderMinimap, openMapPopup } from './panels/minimap.js';
 import { updateEnvironmentHUD, updateZoneTempHUD, refreshZoneVisibility } from './panels/environment.js';
 import { openDialogue, closeDialogue, openShop } from './panels/dialogue.js';
@@ -51,6 +51,10 @@ const handlers = {
     state.authPending = false;
     state.player = null;
     sessionStorage.removeItem('reconnect-token');
+    if (msg.needsVerification) {
+      showVerifyScreen('', msg.message);
+      return;
+    }
     const submitBtn = document.getElementById('auth-submit');
     submitBtn.disabled = false;
     submitBtn.textContent = state.isRegister ? 'Register' : 'Enter';

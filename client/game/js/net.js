@@ -186,13 +186,17 @@ export function doAuth() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password, handle, biological_sex, email, sexuality }),
     }).then(r => r.json()).then(data => {
+      clearTimeout(state.authTimeout);
+      state.authPending = false;
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Register';
       if (data.error) {
-        clearTimeout(state.authTimeout);
-        state.authPending = false;
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Register';
         errEl.textContent = data.error;
         errEl.style.color = 'var(--red)';
+        return;
+      }
+      if (data.needsVerification) {
+        showVerifyScreen(email, 'Account created. Check your email for a verification link before logging in.');
         return;
       }
       _connection.send({ type: 'auth', username, password });
@@ -207,6 +211,43 @@ export function doAuth() {
   } else {
     _connection.send({ type: 'auth', username, password });
   }
+}
+
+export function showVerifyScreen(email, message) {
+  document.getElementById('auth-screen').style.display = 'none';
+  const screen = document.getElementById('verify-screen');
+  screen.style.display = '';
+  document.getElementById('verify-message').textContent = message || 'Check your email for a verification link.';
+  document.getElementById('verify-resend-email').value = email || '';
+  document.getElementById('verify-error').textContent = '';
+}
+
+export async function doResendVerification() {
+  const email = document.getElementById('verify-resend-email').value.trim();
+  const errEl = document.getElementById('verify-error');
+  const btn = document.getElementById('verify-resend-btn');
+  if (!email) { errEl.textContent = 'Enter your email address.'; errEl.style.color = 'var(--red)'; return; }
+  btn.disabled = true;
+  btn.textContent = 'Sending...';
+  try {
+    const data = await fetch('/api/auth/resend-verification', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    }).then(r => r.json());
+    if (data.error) {
+      errEl.textContent = data.error;
+      errEl.style.color = 'var(--red)';
+    } else {
+      errEl.textContent = 'Sent. Check your inbox.';
+      errEl.style.color = 'var(--accent)';
+    }
+  } catch {
+    errEl.textContent = 'Request failed. Try again.';
+    errEl.style.color = 'var(--red)';
+  }
+  btn.disabled = false;
+  btn.textContent = 'Resend Verification Email';
 }
 
 export async function doForgotPassword() {

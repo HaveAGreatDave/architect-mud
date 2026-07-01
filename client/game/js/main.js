@@ -15,6 +15,8 @@ import {
 	doAuth,
 	doForgotPassword,
 	doResetPassword,
+	doResendVerification,
+	showVerifyScreen,
 	closeConnection,
 	sendRaw,
 } from "./net.js";
@@ -363,6 +365,37 @@ if (_resetToken) {
 document
 	.getElementById("reset-submit")
 	.addEventListener("click", () => doResetPassword(_resetToken));
+
+// Detect verify token in URL
+const _verifyToken = new URLSearchParams(location.search).get("verify_token");
+if (_verifyToken) {
+	document.getElementById("auth-screen").style.display = "none";
+	fetch("/api/auth/verify-email", {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ token: _verifyToken }),
+	}).then(r => r.json()).then(data => {
+		history.replaceState({}, "", location.pathname);
+		if (data.error) {
+			showVerifyScreen("", data.error + " You can request a new link below.");
+		} else {
+			const errEl = document.getElementById("auth-error");
+			errEl.textContent = "Email verified. You can now log in.";
+			errEl.style.color = "var(--accent)";
+			document.getElementById("auth-screen").style.display = "flex";
+		}
+	}).catch(() => {
+		showVerifyScreen("", "Verification failed. Please try again or request a new link.");
+	});
+}
+
+// Verify screen wiring
+document.getElementById("verify-resend-btn").addEventListener("click", doResendVerification);
+document.getElementById("verify-back-link").addEventListener("click", () => {
+	document.getElementById("verify-screen").style.display = "none";
+	document.getElementById("auth-screen").style.display = "flex";
+	history.replaceState({}, "", location.pathname);
+});
 
 // Command input
 initInput();

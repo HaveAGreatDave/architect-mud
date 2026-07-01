@@ -71,6 +71,24 @@ async function initMisToggle() {
   });
 }
 
+async function initEmailVerifyToggle() {
+  const toggle = document.getElementById('email-verify-toggle');
+  if (!toggle) return;
+  try {
+    const data = await API('/email-verification/status');
+    toggle.checked = !!data.enabled;
+  } catch(e) { /* non-fatal */ }
+  toggle.addEventListener('change', async () => {
+    try {
+      await API('/email-verification/toggle', 'POST', { enable: toggle.checked });
+      toast(`Email verification ${toggle.checked ? 'enabled' : 'disabled'}`);
+    } catch(e) {
+      toast('Email verification toggle failed', true);
+      toggle.checked = !toggle.checked;
+    }
+  });
+}
+
 function startWorldStatePolling() {
   setInterval(async () => {
     const data = await API('/world/state');

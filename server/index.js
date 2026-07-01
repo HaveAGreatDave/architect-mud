@@ -46,6 +46,7 @@ import { startKeepalive } from "./keepalive.js";
 import { setBroadcast as setMessagingBroadcast } from "./engine/messaging.js";
 import { query, logActivity } from "./models/db.js";
 import { loadMisSettings, isMisServerEnabled } from "./engine/mis.js";
+import { loadEmailVerificationSetting, isEmailVerificationEnabled } from "./engine/emailVerification.js";
 
 import { initEnvironment, getHUDPayload, getZoneTemperature } from "./engine/environment.js";
 import { getPlayerChannels, getChannelHistory } from "./engine/channels.js";
@@ -431,6 +432,10 @@ async function handleAuth(ws, session, msg) {
 				message: "Invalid credentials.",
 			}),
 		);
+		return;
+	}
+	if (isEmailVerificationEnabled() && !rows[0].email_verified) {
+		ws.send(JSON.stringify({ type: "auth_fail", message: "Please verify your email before logging in.", needsVerification: true }));
 		return;
 	}
 	await finishAuth(ws, session, rows[0]);
@@ -971,6 +976,7 @@ async function boot() {
 	setBroadcast(broadcast);
 	setMessagingBroadcast(broadcast);
 	await loadMisSettings();
+	await loadEmailVerificationSetting();
 	await initWorld();
 	// Sweep loot for monster corpses (not persisted) and expired player corpses.
 	// Player corpses loaded by initWorld() keep their player_inventory rows.

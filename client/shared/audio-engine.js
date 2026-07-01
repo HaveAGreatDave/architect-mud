@@ -664,9 +664,14 @@
     // 'sfx' is one-shot and self-cleans; nothing to stop on demand.
   }
 
+  function clearSampleCache(id) {
+    if (id) _sampleCache.delete(id);
+    else _sampleCache.clear();
+  }
+
   global.AudioEngine = {
     init, applyVolumeSettings,
-    playSfx, playSample,
+    playSfx, playSample, clearSampleCache,
     loopSound, stopLoop, setLoopGain,
     playMusic, stopMusic, pauseMusic, resumeMusic, queueMusic, fadeTo, crossFade, setLayerWeight,
     stop,

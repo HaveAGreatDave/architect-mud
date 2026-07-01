@@ -281,6 +281,7 @@ export const routeHandler = async (path, method, body, auth) => {
   // ── /audio/samples CRUD + data sub-resource ─────────────────────────────
   if (resource === 'samples') {
     const SAMPLE_COLS = ['name', 'category', 'priority', 'data', 'mime_type', 'base_note', 'loop_start', 'loop_end', 'snes_rate', 'snes_bits', 'echo_mix', 'config', 'enabled'];
+    const SAMPLE_EDIT_COLS = ['name', 'category', 'priority', 'base_note', 'loop_start', 'loop_end', 'snes_rate', 'snes_bits', 'echo_mix', 'config', 'enabled'];
     try {
       // GET /audio/samples/:id/data — returns base64 blob; open to game client (no dev auth needed for GET)
       if (id && parts[3] === 'data' && method === 'GET') {
@@ -306,13 +307,13 @@ export const routeHandler = async (path, method, body, auth) => {
         return { status: 201, body: { id: newId } };
       }
       if (id && method === 'PUT') {
-        const sets = SAMPLE_COLS.map((c, i) => `${c}=$${i + 1}`).join(',');
-        const values = [...SAMPLE_COLS.map(c => {
+        const sets = SAMPLE_EDIT_COLS.map((c, i) => `${c}=$${i + 1}`).join(',');
+        const values = [...SAMPLE_EDIT_COLS.map(c => {
           if (c === 'config') return JSON.stringify(body[c] ?? {});
           if (c === 'enabled') return body[c] !== false ? 1 : 0;
           return body[c] ?? null;
         }), id];
-        await query(`UPDATE audio_samples SET ${sets} WHERE id=$${SAMPLE_COLS.length + 1}`, values);
+        await query(`UPDATE audio_samples SET ${sets} WHERE id=$${SAMPLE_EDIT_COLS.length + 1}`, values);
         await loadAudioLibrary();
         return { status: 200, body: { id } };
       }

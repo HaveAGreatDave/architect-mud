@@ -875,6 +875,17 @@ export const SCHEMA_SQL = `
 
   ALTER TABLE audio_instruments ADD COLUMN IF NOT EXISTS sample_id TEXT REFERENCES audio_samples(id);
   ALTER TABLE audio_event_routes ADD COLUMN IF NOT EXISTS sample_id TEXT REFERENCES audio_samples(id);
+
+  -- ── Email verification ───────────────────────────────────────────────────────
+  ALTER TABLE players ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT false;
+  CREATE TABLE IF NOT EXISTS email_verification_tokens (
+    id         TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    player_id  TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+    token      TEXT NOT NULL UNIQUE,
+    expires_at BIGINT NOT NULL,
+    used       BOOLEAN NOT NULL DEFAULT FALSE
+  );
+  CREATE INDEX IF NOT EXISTS idx_evt_token ON email_verification_tokens(token);
 `;
 
 export async function applySchema() {
