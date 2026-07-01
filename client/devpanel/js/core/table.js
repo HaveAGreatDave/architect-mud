@@ -122,6 +122,9 @@ function newRecord(defaults = {}) {
   if (currentPanel === 'zones' && !('color' in defaults)) {
     defaults = { ...defaults, color: suggestZoneColor(allRecords.map(z => z.color).filter(Boolean)) };
   }
+  if (currentPanel === 'furniture' && !('zone_id' in defaults) && typeof _furnitureLastClickedZone !== 'undefined' && _furnitureLastClickedZone) {
+    defaults = { ...defaults, zone_id: _furnitureLastClickedZone };
+  }
   openEdit(defaults, true);
 }
 

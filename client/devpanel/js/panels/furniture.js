@@ -25,6 +25,7 @@ function furnitureItemRow(f, paddingLeft = '28px') {
 let _furnitureAllItems = [];
 let _furnitureZoneNames = new Map();
 const _furnitureExpandedZones = new Set();
+let _furnitureLastClickedZone = null;
 const _furniturePublishedNames = new Set(); // names briefly shown as green after publish
 
 function renderFurniturePanel(data) {
@@ -92,7 +93,7 @@ function renderFurniturePanel(data) {
             <span class="f-arrow" style="color:var(--text-dim);font-size:11px;width:14px;display:inline-block;flex-shrink:0">▸</span>
             <span style="color:var(--accent);font-size:12px">↳ ${intName}</span>
             <span style="margin-left:auto;font-size:10px;color:var(--text-dim)">${intItems.length} item${intItems.length!==1?'s':''}</span>
-            <button class="action-btn" style="font-size:10px;padding:2px 8px;margin-left:4px" onclick="event.stopPropagation();openFurnitureAddModal('${intId}')">+ Add</button>
+            <button class="action-btn" style="font-size:10px;padding:2px 8px;margin-left:4px" onclick="event.stopPropagation();openFurnitureAddModal('${intId}')">Clone</button>
             <button class="action-btn" style="font-size:10px;padding:2px 8px;margin-left:4px" onclick="event.stopPropagation();openFurnitureRoomModal('${intId}')">View Room</button>
           </div>
           <div class="f-children" style="display:none">${intRows}</div>
@@ -109,7 +110,7 @@ function renderFurniturePanel(data) {
     const rows = items.map(f => furnitureItemRow(f, '28px')).join('');
 
     const addBtn = !isUnplaced
-      ? `<button class="action-btn" style="font-size:10px;padding:2px 8px;margin-left:8px" onclick="event.stopPropagation();openFurnitureAddModal('${zoneId}')">+ Add</button>`
+      ? `<button class="action-btn" style="font-size:10px;padding:2px 8px;margin-left:8px" onclick="event.stopPropagation();openFurnitureAddModal('${zoneId}')">Clone</button>`
       : '';
 
     return `<div>
@@ -169,6 +170,7 @@ function fToggle(header) {
   if (zid) {
     if (open) _furnitureExpandedZones.delete(zid);
     else _furnitureExpandedZones.add(zid);
+    if (zid !== '__unplaced__') _furnitureLastClickedZone = zid;
   }
 }
 
@@ -286,12 +288,12 @@ function furnitureEditForm(rec, isNew) {
     <div class="field"><label>Furniture ID</label><input id="f-id" value="${isNew?'':rec.id}" readonly style="opacity:0.5${isNew?';font-style:italic':''}"></div>
     <div class="field"><label>Name</label><input id="f-name" value="${rec.name||''}" ${isNew?'oninput="document.getElementById(\'f-id\').value=\'furniture_\'+this.value.toLowerCase().replace(/\\s+/g,\'_\').replace(/[^a-z0-9_]/g,\'\')"':''}></div>
     <div class="field"><label>Description</label><textarea id="f-description" rows="4">${rec.description||''}</textarea></div>
-    ${!isNew ? `<div class="field"><label>Zone</label>
+    <div class="field"><label>Zone</label>
       <select id="f-zone_id">
         <option value="" ${!rec.zone_id?'selected':''}>— Unplaced —</option>
         ${zoneOptions}
       </select>
-    </div>` : `<input type="hidden" id="f-zone_id" value="${rec.zone_id||''}">`}
+    </div>
     <div class="field"><label>Object Type</label>
       <select id="f-object_type" onchange="const show=this.value==='light';['f-light-fields','f-lighton-field','f-powerdraw-field','f-lumens-field'].forEach(function(id){document.getElementById(id).style.display=show?'':'none';})">
         <option value="furniture" ${(!rec.object_type||rec.object_type==='furniture')?'selected':''}>Furniture</option>
