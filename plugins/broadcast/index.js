@@ -7,7 +7,7 @@ import { registerAction } from '../../server/engine/actions.js';
 import { registerCommand } from '../../server/engine/plugins.js';
 import { apiDeleteZone } from '../../server/api/routes.js';
 import { registerViewerChecker, registerNpcScheduleChecker, registerNpcStudioZoneLookup } from '../../server/engine/broadcast-bridge.js';
-import { getEnvironmentState, recomputePower, resyncAllLightingStates } from '../../server/engine/environment.js';
+import { getEnvironmentState, recomputePower, resyncAllLightingStates, fixZonePowerConnections, fixBuildingPowerConnections } from '../../server/engine/environment.js';
 import { getSongDefByName, getSfxDefByName, getAmbientDefByName } from '../audio/index.js';
 
 // ── In-memory state ──────────────────────────────────────────────────────────
@@ -2603,6 +2603,8 @@ export const routeHandler = async (path, method, body, auth) => {
           reloadZone(exteriorZoneId),
         ]);
         // Fix power connections and lighting now that junction box and zones are in place
+        await fixZonePowerConnections().catch(() => {});
+        await fixBuildingPowerConnections().catch(() => {});
         await recomputePower().catch(() => {});
         await resyncAllLightingStates().catch(() => {});
         if (channel_id) await loadChannelRuntimes();

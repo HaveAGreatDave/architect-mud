@@ -2245,6 +2245,7 @@ let _bcpvIdx     = 0;
 let _bcpvPaused  = false;
 let _bcpvInterval = 5000;
 let _bcpvTickerAnim = null;
+let _bcpvAnchor  = null; // current npc_anchor npc_id
 
 function bcPreviewBroadcast() {
   if (!_bcSelected) return;
@@ -2253,6 +2254,7 @@ function bcPreviewBroadcast() {
   _bcpvCards   = _bcCards.filter(c => c.type !== 'start');
   _bcpvIdx     = 0;
   _bcpvPaused  = false;
+  _bcpvAnchor  = null;
   _bcpvInterval = ((_bcSelected.message_interval || 5)) * 1000;
 
   const graphics = Array.isArray(_bcSuiteData?.graphics) ? _bcSuiteData.graphics : [];
@@ -2332,6 +2334,7 @@ function _bcpvRestart() {
   const overlay = document.getElementById('bcpv-overlay');
   if (overlay) overlay.innerHTML = '';
   _bcpvTicker('');
+  _bcpvAnchor = null;
   _bcpvStep();
 }
 
@@ -2356,9 +2359,17 @@ function _bcpvStep() {
 
   _bcpvUpdateStatus(`Card ${_bcpvIdx + 1} / ${_bcpvCards.length}  ·  ${card.type}`);
 
-  if (card.type === 'say' || card.type === 'stage_direction' || card.type === 'ambient') {
+  if (card.type === 'npc_anchor') {
+    _bcpvAnchor = card.npc_id || null;
+    delay = 0;
+
+  } else if (card.type === 'say' || card.type === 'stage_direction' || card.type === 'ambient') {
     const style = card.style || 'raw';
-    _bcpvAppend(card.text || '', style === 'raw' ? 'tv-msg-raw' : `tv-msg-${style}`);
+    const text = card.text || '';
+    const attributed = (_bcpvAnchor && card.type === 'say')
+      ? `<span style="color:var(--tv-header-color);font-weight:700">${escHtml(_bcpvAnchor)}</span> says "${escHtml(text)}"`
+      : text;
+    _bcpvAppend(attributed, style === 'raw' ? 'tv-msg-raw' : `tv-msg-${style}`, true);
     delay = _bcpvInterval;
 
   } else if (card.type === 'ticker') {
@@ -2413,7 +2424,7 @@ function _bcpvStep() {
     }
 
   } else {
-    // npc_anchor, camera_cut, music, unknown — skip with a brief pause
+    // camera_cut, music, unknown — skip with a brief pause
     delay = 500;
   }
 
@@ -2426,13 +2437,13 @@ function _bcpvScheduleNext(delay) {
   _bcpvTimer = setTimeout(_bcpvStep, delay);
 }
 
-function _bcpvAppend(text, cls) {
+function _bcpvAppend(text, cls, isRawHtml = false) {
   const msgs = document.getElementById('bcpv-messages');
   if (!msgs) return;
   const el = document.createElement('div');
   el.style.cssText = 'font-size:12px;line-height:1.5;color:var(--tv-text);word-break:break-word';
   if (cls === 'tv-msg-ticker') el.style.color = 'var(--tv-ticker-color)';
-  el.innerHTML = _bcMarkup(text);
+  el.innerHTML = isRawHtml ? text : _bcMarkup(text);
   msgs.appendChild(el);
   // Trim if overflowing
   const content = document.getElementById('bcpv-content');

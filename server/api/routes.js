@@ -286,6 +286,7 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path.startsWith('/players/') && path.endsWith('/role') && method==='PUT') return requireAdmin(auth, ()=>apiSetPlayerRole(path.split('/')[2], body));
   if (path.startsWith('/players/') && path.endsWith('/kick') && method==='POST') return requireAdmin(auth, ()=>apiKickPlayer(path.split('/')[2], body));
   if (path.startsWith('/players/') && path.endsWith('/teleport') && method==='POST') return requireAdmin(auth, ()=>apiTeleportPlayer(path.split('/')[2], body));
+  if (path.startsWith('/players/') && path.endsWith('/goto') && method==='POST') return requireAdmin(auth, ()=>apiGotoPlayer(path.split('/')[2], auth));
   if (path==='/tag-catalog' && method==='GET') return requireDev(auth, apiGetTagCatalog);
   if (path==='/tag-catalog' && method==='PUT') return requireDev(auth, ()=>apiPutTagCatalog(body));
   if (path==='/tag-supertags' && method==='GET') return requireDev(auth, apiGetSupertags);
@@ -1329,6 +1330,30 @@ async function apiTeleportPlayer(id, body) {
   broadcastFn(null,{type:'move',message:`<span style="color:var(--cyan)">An unseen force picks you up and deposits you elsewhere.</span>\n\n${lookMsg}`,zone:zoneId,minimap:getMinimapData(zoneId)},null,id);
   broadcastFn(zoneId,{type:'zone_event',message:`${handle} materialises out of thin air.`},id);
   return {status:200,body:{teleported:true,handle,zoneId}};
+}
+
+async function apiGotoPlayer(targetId, auth) {
+  if (!auth?.playerId) return {status:401,body:{error:'Not authenticated'}};
+  const {rows:tRows}=await query('SELECT handle,current_zone FROM players WHERE id=$1',[targetId]);
+  if (!tRows.length) return {status:404,body:{error:'Player not found'}};
+  const {handle:targetHandle,current_zone:zoneId}=tRows[0];
+  if (!zoneId) return {status:400,body:{error:`${targetHandle} has no current zone`}};
+  const zone = getZone(zoneId);
+  if (!zone) return {status:404,body:{error:'Zone not found'}};
+  const {rows:aRows}=await query('SELECT handle,current_zone FROM players WHERE id=$1',[auth.playerId]);
+  if (!aRows.length) return {status:404,body:{error:'Admin player not found'}};
+  const {handle:adminHandle,current_zone:adminZone}=aRows[0];
+  await query('UPDATE players SET current_zone=$1 WHERE id=$2',[zoneId,auth.playerId]);
+  const adminLive = getAllLivePlayers().find(p=>p.id===auth.playerId);
+  if (adminLive) {
+    removePlayerFromZone(auth.playerId, adminZone);
+    adminLive.current_zone = zoneId;
+    addPlayerToZone(auth.playerId, zoneId);
+  }
+  const lookMsg = await describeZone(zone, adminLive || {handle:adminHandle,current_zone:zoneId});
+  broadcastFn(null,{type:'move',message:`<span style="color:var(--cyan)">You phase-shift to ${targetHandle}'s location.</span>\n\n${lookMsg}`,zone:zoneId,minimap:getMinimapData(zoneId)},null,auth.playerId);
+  broadcastFn(zoneId,{type:'zone_event',message:`${adminHandle} materialises out of thin air.`},auth.playerId);
+  return {status:200,body:{teleported:true,adminHandle,targetHandle,zoneId}};
 }
 
 async function apiUpdateOwnProfile(auth, body) {

@@ -10,6 +10,8 @@ function renderPlayersPanel(data) {
   const actionCells = p => `
     <button class="action-btn" style="font-size:10px;padding:3px 8px" onclick="openPlayerEdit('${p.id}')">✏ Edit</button>
     <button class="action-btn" style="font-size:10px;padding:3px 8px;margin-left:4px" onclick="openWhisper('${p.id}','${p.handle.replace(/'/g,"\\'")}')">✉ Whisper</button>
+    <button class="action-btn" style="font-size:10px;padding:3px 8px;margin-left:4px;color:var(--cyan);border-color:var(--cyan)" onclick="gotoPlayer('${p.id}','${p.handle.replace(/'/g,"\\'")}')">→ Go To</button>
+    <button class="action-btn" style="font-size:10px;padding:3px 8px;margin-left:4px;color:var(--accent2);border-color:var(--accent2)" onclick="sendPlayerToZone('${p.id}','${p.handle.replace(/'/g,"\\'")}','${(p.current_zone||'').replace(/'/g,"\\'")}')">↩ Send To</button>
     <button class="action-btn danger" style="font-size:10px;padding:3px 8px;margin-left:4px" onclick="confirmSmite('${p.id}','${p.handle.replace(/'/g,"\\'")}')">⚡ Smite</button>
     <button class="action-btn danger" style="font-size:10px;padding:3px 8px;margin-left:4px" onclick="confirmDelete('${p.id}','${p.handle.replace(/'/g,"\\'")}')">✕ Delete</button>
     <select onchange="setPlayerRole('${p.id}','${p.handle.replace(/'/g,"\\'")}',this.value);this.value=''" style="margin-left:4px;background:var(--bg3);border:1px solid var(--border);color:var(--text-dim);font-family:var(--font);font-size:10px;padding:3px 4px;border-radius:2px;cursor:pointer">
@@ -188,6 +190,21 @@ async function loadPlayerProgression(id) {
       <th style="text-align:left">Skill</th><th style="text-align:left">Category</th>
       <th style="text-align:right">Level</th><th style="text-align:right">IP</th>
     </tr></thead><tbody>${skillRows}</tbody></table>`;
+}
+
+async function gotoPlayer(id, handle) {
+  const r = await API(`/players/${id}/goto`, 'POST');
+  if (r?.error) { toast(r.error, true); return; }
+  toast(`→ Teleported to ${handle} in ${r.zoneId}`);
+}
+
+async function sendPlayerToZone(id, handle, currentZone) {
+  const zoneId = prompt(`Send ${handle} to zone:\n(currently in: ${currentZone || 'unknown'})`)?.trim();
+  if (!zoneId) return;
+  const r = await API(`/players/${id}/teleport`, 'POST', { zoneId });
+  if (r?.error) { toast(r.error, true); return; }
+  toast(`↩ Sent ${handle} to ${zoneId}`);
+  loadPanel('players');
 }
 
 async function savePlayerEdit() {

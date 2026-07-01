@@ -82,11 +82,9 @@
 
 EVENT FADE_IN
 
-TITLE divorced
-
-ROOM zone_neil_basement
-
 SHOT
+Cut to Neil's basement. 
+
 The screen holds black. In the deep background, footsteps approach slowly through darkness. A faint reverb hangs in the air — the acoustic signature of a basement. Above it, muffled but unmistakable, the din of a bustling Vietnamese laundromat drifts down through the ceiling.
 SHOT_END
 
@@ -106,22 +104,13 @@ The camera slowly pulls back. The host is wearing combat boots. He is not wearin
 SHOT_END
 
 NEIL_MCMANISTAN:
-you're not gonna believe this shit
+you're not gonna believe this shit!
 
 CAM 2 SIDE_PROFILE on Neil McManistan
 
 ACTION npc_neil_mcmanistan pulls out a Zippo lighter and ignites a cigarette with the ease of a man who has been doing this since before it was legal.
 
-OVERLAY
-█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█
-You're not gonna believe this shit
-                           With Neil McManistan!
-█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█░█
-OVERLAY_END
-
-SHOT
-The banner is made entirely of letters cut from various magazines and newspapers — ransom-note style. It crashes onto the screen with no ceremony whatsoever.
-SHOT_END
+TITLE graphic_1782871993202
 
 EVENT DISSOLVE
 
@@ -438,8 +427,6 @@ EVENT COMMERCIAL_BREAK
 ::scene AD_2
 
 TITLE jerry_rosenberg_logo
-
-ROOM zone_jerry_beach
 
 SHOT
 Cut to exterior. California. The sun is aggressively bright. A convertible sports car rolls up a coastal road to the sound of smooth jazz.
