@@ -61,7 +61,7 @@ async function publishSelected() {
   }
   toast(`✓ ${result.message}`);
   await updateStagingBadge();
-  loadPanel('changes');
+  loadPanel(currentPanel);
 }
 
 async function rejectSelected() {
@@ -76,7 +76,7 @@ async function rejectSelected() {
   }
   toast(result.message);
   await updateStagingBadge();
-  loadPanel('changes');
+  loadPanel(currentPanel);
 }
 
 function selectAllChanges(checked) {

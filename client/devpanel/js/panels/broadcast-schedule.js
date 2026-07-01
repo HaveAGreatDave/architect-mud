@@ -291,13 +291,6 @@ function _schedRenderContent() {
     </div>`;
   }).join('');
 
-  const breakTile = `<div class="bc-lib-item" draggable="true"
-    ondragstart="_schedLibDragStart(event,'__break__')"
-    style="border-left:3px solid var(--text-dim);border-style:dashed">
-    <div class="bc-title">⏸ BREAK</div>
-    <div class="bc-meta">commercial slot</div>
-  </div>`;
-
   el.innerHTML = `
     <div style="display:flex;flex-direction:column;height:100%;min-height:0">
 
@@ -321,6 +314,7 @@ function _schedRenderContent() {
             <button class="action-btn" style="padding:2px 7px" onclick="_schedZoom(16)" title="Zoom in">+</button>
           </div>
           <button class="action-btn" onclick="bcImportBsm()" title="Import a .bsm file">↑ BSM</button>
+          <button class="action-btn" onclick="_schedAutoSchedule()" title="Fill 24h from available programs and commercials">Auto-schedule</button>
           <button class="action-btn primary" onclick="_schedSave()">Save Schedule</button>
         </div>
       </div>
@@ -339,7 +333,6 @@ function _schedRenderContent() {
       <div style="border-top:1px solid var(--border);padding:8px 12px;background:var(--bg2);flex-shrink:0">
         <div class="bc-label" style="margin-bottom:6px">Broadcast Library</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;max-height:96px;overflow-y:auto">
-          ${breakTile}
           ${libRows || '<div class="bc-meta">No broadcasts</div>'}
         </div>
       </div>
@@ -540,20 +533,7 @@ function _schedTlDrop(e) {
   const rect = tl.getBoundingClientRect();
   const rawPx = e.clientX - rect.left;
 
-  if (_schedDragBcId === '__break__') {
-    const dur = SCHED_SNAP;
-    const sec = _schedClamp(_schedToSec(rawPx), dur);
-    _schedItems.push({
-      broadcast_id:       null,
-      broadcast_name:     'Commercial Break',
-      broadcast_category: 'commercial',
-      slot_type:          'commercial_break',
-      start_time:         sec,
-      duration:           dur,
-      duration_override:  null,
-      npc_staff:          [],
-    });
-  } else if (_schedDragBcId != null) {
+  if (_schedDragBcId != null) {
     const bc  = _schedBroadcasts.find(b => b.id === _schedDragBcId);
     if (!bc) return;
     const dur = bc.override_duration || ((Array.isArray(bc.messages) ? bc.messages.length : 0) * (bc.message_interval || 5)) || 3600;
@@ -782,6 +762,76 @@ function _schedDeleteItem(idx) {
   _schedMarkDirty();
   _schedClosePopover();
   _schedRenderTimeline();
+}
+
+// ── Auto-schedule ─────────────────────────────────────────────────────────────
+
+function _schedAutoSchedule() {
+  const ch = _schedChannels.find(c => c.id === _schedChannelId);
+  if (!ch) return;
+
+  const poolIds = new Set(
+    Array.isArray(ch.commercial_pool) ? ch.commercial_pool
+    : (ch.commercial_pool ? JSON.parse(ch.commercial_pool) : [])
+  );
+
+  const programs    = _schedBroadcasts.filter(b => !poolIds.has(b.id));
+  const commercials = _schedBroadcasts.filter(b => poolIds.has(b.id));
+
+  if (!programs.length) { toast('No programs available to schedule.', true); return; }
+
+  function makeDur(b) {
+    return b.override_duration || ((Array.isArray(b.messages) ? b.messages.length : 0) * (b.message_interval || 5)) || 3600;
+  }
+
+  const items = [];
+  let cursor = 0;
+  let progIdx = 0;
+  let commIdx = 0;
+
+  while (cursor < 86400) {
+    const prog = programs[progIdx % programs.length];
+    const dur  = makeDur(prog);
+    if (cursor + dur > 86400) break;
+    items.push({
+      broadcast_id:       prog.id,
+      broadcast_name:     prog.name,
+      broadcast_category: prog.category || 'general',
+      slot_type:          'broadcast',
+      start_time:         cursor,
+      duration:           dur,
+      duration_override:  null,
+      npc_staff:          [],
+    });
+    cursor += dur;
+    progIdx++;
+
+    if (commercials.length && cursor < 86400) {
+      const comm    = commercials[commIdx % commercials.length];
+      const commDur = makeDur(comm);
+      if (cursor + commDur <= 86400) {
+        items.push({
+          broadcast_id:       comm.id,
+          broadcast_name:     comm.name,
+          broadcast_category: comm.category || 'advertisement',
+          slot_type:          'broadcast',
+          start_time:         cursor,
+          duration:           commDur,
+          duration_override:  null,
+          npc_staff:          [],
+        });
+        cursor += commDur;
+        commIdx++;
+      }
+    }
+  }
+
+  if (!items.length) { toast('Programs are too long to fit in 24 hours.', true); return; }
+
+  _schedItems = items;
+  _schedMarkDirty();
+  _schedRenderTimeline();
+  toast(`Auto-scheduled ${items.length} slot(s) across ${_schedFmtDur(cursor)}.`);
 }
 
 // ── Save ─────────────────────────────────────────────────────────────────────
