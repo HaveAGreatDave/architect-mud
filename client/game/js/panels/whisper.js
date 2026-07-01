@@ -427,14 +427,6 @@ function _refreshWhisperTabs() {
 	if (!tabs) return;
 	tabs.innerHTML = "";
 
-	const mkSimpleTab = (label, active, colorClass, onClick) => {
-		const t = document.createElement("button");
-		t.className = `whisper-tab${active ? ` active ${colorClass}` : ""}`;
-		t.textContent = label;
-		t.onclick = onClick;
-		tabs.appendChild(t);
-	};
-
 	const mkPip = () => {
 		const pip = document.createElement("span");
 		pip.className = "whisper-tab-pip";
@@ -464,9 +456,19 @@ function _refreshWhisperTabs() {
 		tabs.appendChild(wrap);
 	};
 
-	mkSimpleTab("Users", _activeWhisperTab === USERS_TAB, "tab-purple", () =>
-		_switchToTab(USERS_TAB),
-	);
+	// Count PM conversations with unread so the hub tab can surface a pip.
+	let pmUnread = 0;
+	for (const [handle, convo] of _whisperConvos) {
+		if (_channels.has(handle) || handle === USERS_TAB) continue;
+		if (handle !== _activeWhisperTab && convo.unread > 0) pmUnread += convo.unread;
+	}
+
+	const hubTab = document.createElement("button");
+	hubTab.className = `whisper-tab${_activeWhisperTab === USERS_TAB ? " active tab-purple" : ""}`;
+	hubTab.textContent = "Chats";
+	hubTab.onclick = () => _switchToTab(USERS_TAB);
+	if (pmUnread > 0) hubTab.appendChild(mkPip());
+	tabs.appendChild(hubTab);
 
 	// Channel tabs
 	for (const [id, ch] of _channels) {
@@ -490,16 +492,19 @@ function _refreshWhisperTabs() {
 		}
 	}
 
-	// Player whisper tabs
-	for (const [handle] of _whisperConvos) {
-		if (_channels.has(handle)) continue;
-		const active = handle === _activeWhisperTab;
+	// Player whisper tabs live in the Chats hub list, not the strip — only the
+	// currently-open PM gets a tab, so the strip can't sprawl off-screen.
+	if (
+		_activeWhisperTab !== USERS_TAB &&
+		!_channels.has(_activeWhisperTab) &&
+		_whisperConvos.has(_activeWhisperTab)
+	) {
 		mkClosableTab(
-			handle,
-			handle,
-			active,
-			() => openWhisperTab(handle),
-			() => _closeWhisperTab(handle),
+			_activeWhisperTab,
+			_activeWhisperTab,
+			true,
+			() => openWhisperTab(_activeWhisperTab),
+			() => _closeWhisperTab(_activeWhisperTab),
 		);
 	}
 }
@@ -538,6 +543,26 @@ function _renderWhisperLog() {
 function _renderUsersTab(log) {
 	let html = "";
 
+	// Open PM conversations — the scalable home for whispers that used to each
+	// get their own strip tab.
+	const pms = [];
+	for (const [handle, convo] of _whisperConvos) {
+		if (_channels.has(handle) || handle === USERS_TAB) continue;
+		pms.push([handle, convo]);
+	}
+	if (pms.length > 0) {
+		html +=
+			'<div style="padding:8px 10px 4px;font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">Conversations</div>';
+		for (const [handle, convo] of pms) {
+			const h = handle.replace(/"/g, "&quot;");
+			const badge =
+				convo.unread > 0
+					? `<span style="background:var(--red);color:#fff;font-size:9px;font-weight:bold;min-width:12px;height:12px;padding:0 3px;border-radius:2px;display:inline-flex;align-items:center;justify-content:center">${convo.unread}</span>`
+					: "";
+			html += `<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;padding:5px 10px;border-bottom:1px solid var(--border)"><button data-pm="${h}" style="flex:1;text-align:left;background:transparent;border:none;color:var(--text);font-family:var(--font-mono);font-size:12px;cursor:pointer;padding:0">${_esc(handle)}</button>${badge}<button data-pm-close="${h}" title="Close conversation" style="background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font-mono);font-size:11px;line-height:1;width:16px;height:16px;padding:0;cursor:pointer;border-radius:2px">×</button></div>`;
+		}
+	}
+
 	if (_channels.size > 0) {
 		html +=
 			'<div style="padding:8px 10px 4px;font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">Channels</div>';
@@ -561,6 +586,16 @@ function _renderUsersTab(log) {
 
 	log.innerHTML = html;
 
+	log.querySelectorAll("[data-pm]").forEach((btn) => {
+		btn.addEventListener("click", () => openWhisperTab(btn.dataset.pm));
+	});
+	log.querySelectorAll("[data-pm-close]").forEach((btn) => {
+		btn.addEventListener("click", (e) => {
+			e.stopPropagation();
+			_closeWhisperTab(btn.dataset.pmClose);
+			_renderUsersTab(log);
+		});
+	});
 	log.querySelectorAll("[data-channel]").forEach((btn) => {
 		btn.addEventListener("click", () =>
 			openWhisperTab(btn.dataset.channel),
@@ -651,7 +686,11 @@ export function receiveWhisper(from, message) {
 	} else {
 		convo.unread++;
 		_updateChatBadge();
-		if (_whisperPanelVisible) _refreshWhisperTabs();
+		if (_whisperPanelVisible) {
+			_refreshWhisperTabs();
+			if (_activeWhisperTab === USERS_TAB)
+				_renderUsersTab(document.getElementById("whisper-log"));
+		}
 	}
 }
 
