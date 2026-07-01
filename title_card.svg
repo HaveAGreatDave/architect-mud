@@ -1,127 +1,167 @@
 <svg viewBox="0 0 1920 1080" xmlns="http://www.w3.org/2000/svg" width="1920" height="1080">
   <defs>
-    <radialGradient id="bg" cx="50%" cy="50%" r="70%">
-      <stop offset="0%" stop-color="#1a0a2e"/>
-      <stop offset="100%" stop-color="#0a0a0a"/>
+    <linearGradient id="curtainL" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#8B0000"/>
+      <stop offset="100%" stop-color="#5c0000"/>
+    </linearGradient>
+    <linearGradient id="curtainR" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#5c0000"/>
+      <stop offset="100%" stop-color="#8B0000"/>
+    </linearGradient>
+    <linearGradient id="stageFloor" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#c8960a"/>
+      <stop offset="100%" stop-color="#7a5800"/>
+    </linearGradient>
+    <linearGradient id="spotlightL" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fffbe0" stop-opacity="0.22"/>
+      <stop offset="100%" stop-color="#fffbe0" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="spotlightR" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#fffbe0" stop-opacity="0.22"/>
+      <stop offset="100%" stop-color="#fffbe0" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="bannerGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1a0a00"/>
+      <stop offset="50%" stop-color="#2a1400"/>
+      <stop offset="100%" stop-color="#1a0a00"/>
+    </linearGradient>
+    <linearGradient id="goldLine" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="transparent"/>
+      <stop offset="15%" stop-color="#d4a017"/>
+      <stop offset="85%" stop-color="#d4a017"/>
+      <stop offset="100%" stop-color="transparent"/>
+    </linearGradient>
+    <radialGradient id="stageLight" cx="50%" cy="0%" r="70%">
+      <stop offset="0%" stop-color="#fff8dc" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
     </radialGradient>
-    <filter id="glow">
-      <feGaussianBlur stdDeviation="4" result="blur"/>
-      <feMerge>
-        <feMergeNode in="blur"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
+    <filter id="softshadow">
+      <feDropShadow dx="0" dy="4" stdDeviation="10" flood-color="#000000" flood-opacity="0.7"/>
     </filter>
-    <filter id="strongglow">
-      <feGaussianBlur stdDeviation="8" result="blur"/>
-      <feMerge>
-        <feMergeNode in="blur"/>
-        <feMergeNode in="blur"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
-    </filter>
-    <filter id="textshadow">
-      <feDropShadow dx="3" dy="3" stdDeviation="6" flood-color="#ff4400" flood-opacity="0.6"/>
+    <filter id="titleshadow">
+      <feDropShadow dx="4" dy="4" stdDeviation="8" flood-color="#000000" flood-opacity="0.9"/>
     </filter>
   </defs>
 
-  <!-- Background -->
-  <rect width="1920" height="1080" fill="url(#bg)"/>
+  <!-- Stage background — deep warm black -->
+  <rect width="1920" height="1080" fill="#0e0800"/>
 
-  <!-- Subtle scanlines -->
-  <rect width="1920" height="1080" fill="none" stroke="#ffffff" stroke-width="0.3" opacity="0.03"
-    style="background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.03) 2px, rgba(255,255,255,0.03) 4px)"/>
+  <!-- Stage floor -->
+  <polygon points="0,900 1920,900 1920,1080 0,1080" fill="url(#stageFloor)" opacity="0.35"/>
 
-  <!-- Scanline overlay via pattern -->
-  <defs>
-    <pattern id="scanlines" x="0" y="0" width="1920" height="4" patternUnits="userSpaceOnUse">
-      <rect width="1920" height="2" fill="rgba(0,0,0,0.15)"/>
-    </pattern>
-  </defs>
-  <rect width="1920" height="1080" fill="url(#scanlines)"/>
+  <!-- Stage light cone from above -->
+  <rect width="1920" height="1080" fill="url(#stageLight)"/>
 
-  <!-- Decorative horizontal rules -->
-  <line x1="80" y1="290" x2="1840" y2="290" stroke="#ff4400" stroke-width="2" opacity="0.5"/>
-  <line x1="80" y1="820" x2="1840" y2="820" stroke="#ff4400" stroke-width="2" opacity="0.5"/>
+  <!-- Left spotlight beam -->
+  <polygon points="200,0 600,0 750,1080 50,1080" fill="url(#spotlightL)" opacity="0.6"/>
 
-  <!-- Main title line 1 -->
+  <!-- Right spotlight beam -->
+  <polygon points="1720,0 1320,0 1170,1080 1870,1080" fill="url(#spotlightR)" opacity="0.6"/>
+
+  <!-- LEFT CURTAIN -->
+  <polygon points="0,0 320,0 260,1080 0,1080" fill="url(#curtainL)"/>
+  <!-- curtain folds -->
+  <polygon points="60,0 100,0 80,1080 40,1080" fill="#6b0000" opacity="0.5"/>
+  <polygon points="150,0 190,0 165,1080 125,1080" fill="#6b0000" opacity="0.4"/>
+  <polygon points="230,0 270,0 245,1080 205,1080" fill="#6b0000" opacity="0.35"/>
+  <!-- curtain highlight edge -->
+  <line x1="320" y1="0" x2="260" y2="1080" stroke="#aa2222" stroke-width="3" opacity="0.7"/>
+
+  <!-- RIGHT CURTAIN -->
+  <polygon points="1920,0 1600,0 1660,1080 1920,1080" fill="url(#curtainR)"/>
+  <!-- curtain folds -->
+  <polygon points="1860,0 1820,0 1840,1080 1880,1080" fill="#6b0000" opacity="0.5"/>
+  <polygon points="1770,0 1730,0 1755,1080 1795,1080" fill="#6b0000" opacity="0.4"/>
+  <polygon points="1690,0 1650,0 1675,1080 1715,1080" fill="#6b0000" opacity="0.35"/>
+  <!-- curtain highlight edge -->
+  <line x1="1600" y1="0" x2="1660" y2="1080" stroke="#aa2222" stroke-width="3" opacity="0.7"/>
+
+  <!-- Curtain pelmet / valance top -->
+  <rect x="0" y="0" width="1920" height="90" fill="#6b0000"/>
+  <rect x="0" y="84" width="1920" height="12" fill="#d4a017"/>
+  <!-- valance scallops -->
+  <ellipse cx="96" cy="90" rx="96" ry="36" fill="#8B0000"/>
+  <ellipse cx="288" cy="90" rx="96" ry="36" fill="#8B0000"/>
+  <ellipse cx="480" cy="90" rx="96" ry="36" fill="#8B0000"/>
+  <ellipse cx="672" cy="90" rx="96" ry="36" fill="#8B0000"/>
+  <ellipse cx="864" cy="90" rx="96" ry="36" fill="#8B0000"/>
+  <ellipse cx="1056" cy="90" rx="96" ry="36" fill="#8B0000"/>
+  <ellipse cx="1248" cy="90" rx="96" ry="36" fill="#8B0000"/>
+  <ellipse cx="1440" cy="90" rx="96" ry="36" fill="#8B0000"/>
+  <ellipse cx="1632" cy="90" rx="96" ry="36" fill="#8B0000"/>
+  <ellipse cx="1824" cy="90" rx="96" ry="36" fill="#8B0000"/>
+
+  <!-- Main banner background -->
+  <rect x="280" y="280" width="1360" height="490" rx="8" fill="url(#bannerGrad)" filter="url(#softshadow)"/>
+
+  <!-- Gold rules -->
+  <rect x="280" y="280" width="1360" height="6" fill="url(#goldLine)"/>
+  <rect x="280" y="764" width="1360" height="6" fill="url(#goldLine)"/>
+  <rect x="280" y="294" width="1360" height="2" fill="url(#goldLine)" opacity="0.4"/>
+  <rect x="280" y="756" width="1360" height="2" fill="url(#goldLine)" opacity="0.4"/>
+
+  <!-- Star bursts / decorative dots along gold rule -->
+  <circle cx="960" cy="283" r="8" fill="#d4a017"/>
+  <circle cx="480" cy="283" r="5" fill="#d4a017" opacity="0.6"/>
+  <circle cx="1440" cy="283" r="5" fill="#d4a017" opacity="0.6"/>
+  <circle cx="960" cy="767" r="8" fill="#d4a017"/>
+  <circle cx="480" cy="767" r="5" fill="#d4a017" opacity="0.6"/>
+  <circle cx="1440" cy="767" r="5" fill="#d4a017" opacity="0.6"/>
+
+  <!-- Title line 1 -->
   <text
     x="960"
-    y="420"
+    y="450"
     text-anchor="middle"
-    font-family="Impact, 'Arial Black', sans-serif"
-    font-size="148"
-    font-weight="900"
-    fill="#ffffff"
-    filter="url(#textshadow)"
+    font-family="'Georgia', 'Times New Roman', serif"
+    font-size="112"
+    font-weight="bold"
+    font-style="italic"
+    fill="#f5f0e0"
+    filter="url(#titleshadow)"
     letter-spacing="6"
-  >YOU'RE NOT GONNA</text>
+  >You're Not Gonna</text>
 
-  <!-- Main title line 2 — highlight color -->
+  <!-- Title line 2 — big, golden -->
   <text
     x="960"
-    y="590"
+    y="620"
     text-anchor="middle"
-    font-family="Impact, 'Arial Black', sans-serif"
-    font-size="172"
-    font-weight="900"
-    fill="#ff4400"
-    filter="url(#strongglow)"
-    letter-spacing="4"
-  >BELIEVE THIS SHIT!</text>
-
-  <!-- Divider rule under main title -->
-  <line x1="300" y1="640" x2="1620" y2="640" stroke="#ffffff" stroke-width="1.5" opacity="0.25"/>
-
-  <!-- "With" prefix -->
-  <text
-    x="960"
-    y="710"
-    text-anchor="middle"
-    font-family="Georgia, 'Times New Roman', serif"
-    font-size="38"
+    font-family="'Georgia', 'Times New Roman', serif"
+    font-size="140"
+    font-weight="bold"
     font-style="italic"
-    fill="#aaaaaa"
+    fill="#f0c040"
+    filter="url(#titleshadow)"
+    letter-spacing="4"
+  >Believe This Shit!</text>
+
+  <!-- Thin rule between title and credit -->
+  <rect x="400" y="660" width="1120" height="1" fill="#d4a017" opacity="0.5"/>
+
+  <!-- Credit line -->
+  <text
+    x="960"
+    y="730"
+    text-anchor="middle"
+    font-family="'Georgia', 'Times New Roman', serif"
+    font-size="52"
+    font-weight="normal"
+    font-style="italic"
+    fill="#c8a87a"
     letter-spacing="8"
-  >with</text>
+  >with Neil McManistan, divorced</text>
 
-  <!-- Host name -->
-  <text
-    x="960"
-    y="778"
-    text-anchor="middle"
-    font-family="Impact, 'Arial Black', sans-serif"
-    font-size="86"
-    font-weight="900"
-    fill="#ffffff"
-    filter="url(#glow)"
-    letter-spacing="10"
-  >NEIL McMAN ISTAN</text>
+  <!-- Stage floor reflection line -->
+  <line x1="280" y1="900" x2="1640" y2="900" stroke="#d4a017" stroke-width="1" opacity="0.2"/>
 
-  <!-- Comma + divorced tag -->
-  <text
-    x="960"
-    y="838"
-    text-anchor="middle"
-    font-family="Georgia, 'Times New Roman', serif"
-    font-size="34"
-    font-style="italic"
-    fill="#888888"
-    letter-spacing="4"
-  >divorced</text>
-
-  <!-- Corner decoration top-left -->
-  <rect x="80" y="60" width="60" height="6" fill="#ff4400" opacity="0.7"/>
-  <rect x="80" y="60" width="6" height="60" fill="#ff4400" opacity="0.7"/>
-
-  <!-- Corner decoration top-right -->
-  <rect x="1780" y="60" width="60" height="6" fill="#ff4400" opacity="0.7"/>
-  <rect x="1834" y="60" width="6" height="60" fill="#ff4400" opacity="0.7"/>
-
-  <!-- Corner decoration bottom-left -->
-  <rect x="80" y="1014" width="60" height="6" fill="#ff4400" opacity="0.7"/>
-  <rect x="80" y="960" width="6" height="60" fill="#ff4400" opacity="0.7"/>
-
-  <!-- Corner decoration bottom-right -->
-  <rect x="1780" y="1014" width="60" height="6" fill="#ff4400" opacity="0.7"/>
-  <rect x="1834" y="960" width="6" height="60" fill="#ff4400" opacity="0.7"/>
+  <!-- Footlights glow row -->
+  <ellipse cx="400" cy="905" rx="55" ry="14" fill="#fffbe0" opacity="0.18"/>
+  <ellipse cx="560" cy="905" rx="55" ry="14" fill="#fffbe0" opacity="0.18"/>
+  <ellipse cx="720" cy="905" rx="55" ry="14" fill="#fffbe0" opacity="0.18"/>
+  <ellipse cx="880" cy="905" rx="55" ry="14" fill="#fffbe0" opacity="0.18"/>
+  <ellipse cx="1040" cy="905" rx="55" ry="14" fill="#fffbe0" opacity="0.18"/>
+  <ellipse cx="1200" cy="905" rx="55" ry="14" fill="#fffbe0" opacity="0.18"/>
+  <ellipse cx="1360" cy="905" rx="55" ry="14" fill="#fffbe0" opacity="0.18"/>
+  <ellipse cx="1520" cy="905" rx="55" ry="14" fill="#fffbe0" opacity="0.18"/>
 </svg>

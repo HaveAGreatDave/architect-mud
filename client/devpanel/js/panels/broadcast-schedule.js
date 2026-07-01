@@ -314,7 +314,8 @@ function _schedRenderContent() {
             <button class="action-btn" style="padding:2px 7px" onclick="_schedZoom(16)" title="Zoom in">+</button>
           </div>
           <button class="action-btn" onclick="bcImportBsm()" title="Import a .bsm file">↑ BSM</button>
-          <button class="action-btn" onclick="_schedAutoSchedule()" title="Fill 24h from available programs and commercials">Auto-schedule</button>
+          <button class="action-btn danger" onclick="_schedClear()" title="Remove all items from schedule">Clear</button>
+          <button class="action-btn" onclick="_schedAutoScheduleOpen()" title="Fill a time block from available programs and commercials">Auto-schedule</button>
           <button class="action-btn primary" onclick="_schedSave()">Save Schedule</button>
         </div>
       </div>
@@ -764,9 +765,89 @@ function _schedDeleteItem(idx) {
   _schedRenderTimeline();
 }
 
+// ── Clear schedule ────────────────────────────────────────────────────────────
+
+function _schedClear() {
+  if (!_schedItems.length) return;
+  if (!confirm('Remove all items from this schedule?')) return;
+  _schedItems = [];
+  _schedMarkDirty();
+  _schedRenderTimeline();
+}
+
 // ── Auto-schedule ─────────────────────────────────────────────────────────────
 
-function _schedAutoSchedule() {
+function _schedAutoScheduleOpen() {
+  document.getElementById('sched-autosched-modal')?.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'sched-autosched-modal';
+  modal.style.cssText = `position:fixed;inset:0;z-index:700;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6)`;
+  modal.innerHTML = `
+    <div style="background:var(--bg2);border:1px solid var(--accent);border-radius:4px;padding:20px;width:320px;box-shadow:0 8px 32px rgba(0,0,0,0.6)">
+      <div style="font-size:13px;font-weight:700;color:var(--accent);margin-bottom:14px">Auto-schedule</div>
+
+      <label style="display:flex;align-items:center;gap:7px;font-size:12px;cursor:pointer;margin-bottom:12px">
+        <input type="checkbox" id="as-whole-day" checked onchange="_schedAsWholeDay(this.checked)">
+        Fill whole day (00:00 – 24:00)
+      </label>
+
+      <div id="as-range-row" style="display:none;gap:8px;margin-bottom:12px">
+        <div style="flex:1">
+          <label style="font-size:10px;color:var(--text-dim);display:block;margin-bottom:2px">Start</label>
+          <input id="as-start" class="form-input" value="00:00" placeholder="HH:MM" style="font-size:12px;width:100%">
+        </div>
+        <div style="flex:1">
+          <label style="font-size:10px;color:var(--text-dim);display:block;margin-bottom:2px">End</label>
+          <input id="as-end" class="form-input" value="24:00" placeholder="HH:MM" style="font-size:12px;width:100%">
+        </div>
+      </div>
+
+      <div style="margin-bottom:16px">
+        <label style="font-size:10px;color:var(--text-dim);display:block;margin-bottom:4px">Loop count — how many times each show plays before advancing</label>
+        <div style="display:flex;align-items:center;gap:8px">
+          <input id="as-loops" type="number" class="form-input" value="1" min="1" max="99" style="width:72px;font-size:12px">
+          <span style="font-size:11px;color:var(--text-dim)">× per show</span>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="action-btn" onclick="document.getElementById('sched-autosched-modal').remove()">Cancel</button>
+        <button class="action-btn primary" onclick="_schedAutoScheduleRun()">Schedule</button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(modal);
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+}
+
+function _schedAsWholeDay(checked) {
+  const row = document.getElementById('as-range-row');
+  if (row) row.style.display = checked ? 'none' : 'flex';
+}
+
+function _schedAutoScheduleRun() {
+  const wholeDay = document.getElementById('as-whole-day')?.checked ?? true;
+  let startSec = 0, endSec = 86400;
+
+  if (!wholeDay) {
+    const parseT = v => {
+      const [h, m] = (v || '').split(':').map(Number);
+      return isNaN(h) ? null : h * 3600 + (m || 0) * 60;
+    };
+    startSec = parseT(document.getElementById('as-start')?.value) ?? 0;
+    endSec   = parseT(document.getElementById('as-end')?.value)   ?? 86400;
+    if (endSec === 0) endSec = 86400; // 24:00 entered as 0
+    if (endSec <= startSec) { toast('End time must be after start time.', true); return; }
+  }
+
+  const loops = Math.max(1, parseInt(document.getElementById('as-loops')?.value || '1') || 1);
+
+  document.getElementById('sched-autosched-modal')?.remove();
+  _schedAutoSchedule(startSec, endSec, loops);
+}
+
+function _schedAutoSchedule(startSec, endSec, loops) {
   const ch = _schedChannels.find(c => c.id === _schedChannelId);
   if (!ch) return;
 
@@ -784,16 +865,20 @@ function _schedAutoSchedule() {
     return b.override_duration || ((Array.isArray(b.messages) ? b.messages.length : 0) * (b.message_interval || 5)) || 3600;
   }
 
-  const items = [];
-  let cursor = 0;
+  // Remove existing items that fall within the target window, keep items outside it
+  const outside = _schedItems.filter(item => item.start_time + item.duration <= startSec || item.start_time >= endSec);
+
+  const newItems = [];
+  let cursor  = startSec;
   let progIdx = 0;
   let commIdx = 0;
+  let playCount = 0;
 
-  while (cursor < 86400) {
+  while (cursor < endSec) {
     const prog = programs[progIdx % programs.length];
     const dur  = makeDur(prog);
-    if (cursor + dur > 86400) break;
-    items.push({
+    if (cursor + dur > endSec) break;
+    newItems.push({
       broadcast_id:       prog.id,
       broadcast_name:     prog.name,
       broadcast_category: prog.category || 'general',
@@ -804,13 +889,14 @@ function _schedAutoSchedule() {
       npc_staff:          [],
     });
     cursor += dur;
-    progIdx++;
+    playCount++;
+    if (playCount >= loops) { playCount = 0; progIdx++; }
 
-    if (commercials.length && cursor < 86400) {
+    if (commercials.length && cursor < endSec) {
       const comm    = commercials[commIdx % commercials.length];
       const commDur = makeDur(comm);
-      if (cursor + commDur <= 86400) {
-        items.push({
+      if (cursor + commDur <= endSec) {
+        newItems.push({
           broadcast_id:       comm.id,
           broadcast_name:     comm.name,
           broadcast_category: comm.category || 'advertisement',
@@ -826,12 +912,12 @@ function _schedAutoSchedule() {
     }
   }
 
-  if (!items.length) { toast('Programs are too long to fit in 24 hours.', true); return; }
+  if (!newItems.length) { toast('Programs are too long to fit in the selected window.', true); return; }
 
-  _schedItems = items;
+  _schedItems = [...outside, ...newItems].sort((a, b) => a.start_time - b.start_time);
   _schedMarkDirty();
   _schedRenderTimeline();
-  toast(`Auto-scheduled ${items.length} slot(s) across ${_schedFmtDur(cursor)}.`);
+  toast(`Auto-scheduled ${newItems.length} slot(s) across ${_schedFmtDur(cursor - startSec)}.`);
 }
 
 // ── Save ─────────────────────────────────────────────────────────────────────
