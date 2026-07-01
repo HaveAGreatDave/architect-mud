@@ -52,6 +52,7 @@ async function espActivate() {
   const r = await directAPI('/emergency/activate', 'POST', { message: message || undefined });
   if (r.error) { toast(r.error, true); return; }
   toast(`⚠ Emergency Security Protocol ENGAGED — ${r.zones} zone(s) under alert`);
+  updateEspDot(true);
   loadPanel('emergency');
 }
 
@@ -60,6 +61,7 @@ async function espDeactivate() {
   const r = await directAPI('/emergency/deactivate', 'POST', {});
   if (r.error) { toast(r.error, true); return; }
   toast('Emergency Security Protocol stood down');
+  updateEspDot(false);
   loadPanel('emergency');
 }
 

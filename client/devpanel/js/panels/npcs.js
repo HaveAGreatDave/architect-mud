@@ -263,7 +263,7 @@ async function npcEditForm(rec, isNew) {
   ].map(([v, l]) => `<option value="${v}">${l}</option>`).join('');
   return `
     <div class="field"><label>NPC ID</label><input id="f-id" value="${isNew?'':rec.id}" ${!isNew?'readonly style="opacity:0.5"':''}></div>
-    <div class="field"><label>Name</label><input id="f-name" value="${rec.name||''}"></div>
+    <div class="field"><label>Name</label><input id="f-name" value="${rec.name||''}" ${isNew?'oninput="autoFillId(this)"':''}></div>
     <div class="field"><label>Description</label><textarea id="f-description">${rec.description||''}</textarea></div>
     <div class="field-row">
       <div class="field"><label>Zone ID</label><input id="f-zone_id" value="${rec.zone_id||''}"></div>

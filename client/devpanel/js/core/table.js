@@ -1,5 +1,16 @@
 let sortState = { key: null, dir: 1 };
 
+function autoFillId(nameInput) {
+  const idEl = document.getElementById('f-id');
+  if (!idEl || idEl.dataset.userEdited) return;
+  idEl.value = nameInput.value.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+}
+
+// Mark ID field as user-edited if they type in it manually
+document.addEventListener('input', e => {
+  if (e.target.id === 'f-id') e.target.dataset.userEdited = '1';
+});
+
 function renderTable(columns, records, noEdit = false) {
   const panel = document.getElementById('list-panel');
   if (!records.length) { panel.innerHTML = '<div style="padding:24px;color:var(--text-dim)">No records found.</div>'; return; }
@@ -110,10 +121,13 @@ async function openEdit(record, isNew) {
   const p = PANELS[currentPanel];
   if (!p?.editForm) return;
   document.getElementById('edit-panel').classList.add('open');
-  document.getElementById('edit-title').textContent = isNew ? `New ${p.title.slice(0,-1)}` : `Edit: ${record.name || record.id}`;
+  const singular = p.title.endsWith('ies') ? p.title.slice(0,-3)+'y' : p.title.slice(0,-1);
+  document.getElementById('edit-title').textContent = isNew ? `New ${singular}` : `Edit: ${record.name || record.id}`;
   document.getElementById('delete-btn').style.display = isNew ? 'none' : '';
   document.getElementById('edit-body').innerHTML = '<div style="padding:24px;color:var(--text-dim)">Loading...</div>';
   document.getElementById('edit-body').innerHTML = await p.editForm(record, isNew);
+  const idEl = document.getElementById('f-id');
+  if (idEl) delete idEl.dataset.userEdited;
   // Populate the script node editor after DOM is ready
   if (currentPanel === 'scripts') renderScriptEditor();
   // Populate zone windows sub-section after DOM is ready

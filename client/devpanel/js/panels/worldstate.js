@@ -89,15 +89,31 @@ async function initEmailVerifyToggle() {
   });
 }
 
+function updateEspDot(active) {
+  const dot = document.getElementById('ws-esp-dot');
+  if (!dot) return;
+  dot.style.background = active ? '#ff4444' : 'var(--text-dim)';
+  dot.title = active ? 'ESP ACTIVE' : 'Emergency Security Protocol';
+}
+
 function startWorldStatePolling() {
+  // Fetch initial ESP state immediately on load
+  directAPI('/emergency/state').then(d => updateEspDot(!!d?.active)).catch(() => {});
+
   setInterval(async () => {
-    const data = await API('/world/state');
-    const players = data.online_players || [];
-    document.getElementById('ws-players').innerHTML = players.length
-      ? players.map(p => `<div class="ws-player"><em>${p.handle}</em></div>`).join('')
-      : '<div class="ws-player" style="color:var(--text-dim)">None</div>';
-    document.getElementById('ws-enemies').textContent = data.live_enemies || 0;
-    document.getElementById('ws-corpses').textContent = data.live_corpses || 0;
+    const [data, esp] = await Promise.allSettled([
+      API('/world/state'),
+      directAPI('/emergency/state'),
+    ]);
+    if (data.status === 'fulfilled') {
+      const players = data.value.online_players || [];
+      document.getElementById('ws-players').innerHTML = players.length
+        ? players.map(p => `<div class="ws-player"><em>${p.handle}</em></div>`).join('')
+        : '<div class="ws-player" style="color:var(--text-dim)">None</div>';
+      document.getElementById('ws-enemies').textContent = data.value.live_enemies || 0;
+      document.getElementById('ws-corpses').textContent = data.value.live_corpses || 0;
+    }
+    if (esp.status === 'fulfilled') updateEspDot(!!esp.value?.active);
   }, 10000);
 }
 

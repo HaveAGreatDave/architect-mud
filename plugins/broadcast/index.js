@@ -10,6 +10,31 @@ import { registerViewerChecker, registerNpcScheduleChecker, registerNpcStudioZon
 import { getEnvironmentState, recomputePower, resyncAllLightingStates, fixZonePowerConnections, fixBuildingPowerConnections } from '../../server/engine/environment.js';
 import { getSongDefByName, getSfxDefByName, getAmbientDefByName } from '../audio/index.js';
 
+// ── Color helpers (for studio tile coloring) ─────────────────────────────────
+function _hexToHsl(hex) {
+  const r = parseInt(hex.slice(1,3),16)/255, g = parseInt(hex.slice(3,5),16)/255, b = parseInt(hex.slice(5,7),16)/255;
+  const max = Math.max(r,g,b), min = Math.min(r,g,b), l = (max+min)/2;
+  if (max === min) return [0, 0, l];
+  const d = max - min, s = l > 0.5 ? d/(2-max-min) : d/(max+min);
+  let h = max === r ? (g-b)/d + (g<b?6:0) : max === g ? (b-r)/d+2 : (r-g)/d+4;
+  return [h*60, s, l];
+}
+function _hslToHex(h, s, l) {
+  h = ((h % 360) + 360) % 360;
+  const c = (1 - Math.abs(2*l-1)) * s, x = c*(1-Math.abs((h/60)%2-1)), m = l - c/2;
+  let r,g,b;
+  if (h<60){r=c;g=x;b=0;}else if(h<120){r=x;g=c;b=0;}else if(h<180){r=0;g=c;b=x;}
+  else if(h<240){r=0;g=x;b=c;}else if(h<300){r=x;g=0;b=c;}else{r=c;g=0;b=x;}
+  return '#'+[r+m,g+m,b+m].map(v=>Math.round(v*255).toString(16).padStart(2,'0')).join('');
+}
+async function _studioTileColor() {
+  const { rows } = await query(`SELECT color FROM zones WHERE id='zone_start' LIMIT 1`);
+  const ref = rows[0]?.color;
+  const [,s,l] = ref && /^#[0-9a-f]{6}$/i.test(ref) ? _hexToHsl(ref) : [0, 0.55, 0.45];
+  const hue = Math.random() * 360;
+  return _hslToHex(hue, s, l);
+}
+
 // ── In-memory state ──────────────────────────────────────────────────────────
 
 // channelRuntime.get(channelId) = {
@@ -2524,11 +2549,12 @@ export const routeHandler = async (path, method, body, auth) => {
             exteriorZoneId = existing[0].id;
           } else {
             exteriorZoneId = `zone_ext_${ts}`;
+            const tileColor = await _studioTileColor();
             await query(
-              `INSERT INTO zones (id,name,description,map_id,grid_x,grid_y,grid_z,marker,flags,exits)
-               VALUES ($1,$2,$3,'map_world',$4,$5,0,$6,'{}','{}')`,
+              `INSERT INTO zones (id,name,description,map_id,grid_x,grid_y,grid_z,marker,color,flags,exits)
+               VALUES ($1,$2,$3,'map_world',$4,$5,0,$6,$7,'{}','{}')`,
               [exteriorZoneId, studio_name, `Exterior of ${studio_name}.`,
-               grid_x, grid_y, studio_name.slice(0, 2).toUpperCase()]
+               grid_x, grid_y, studio_name.slice(0, 2).toUpperCase(), tileColor]
             );
             created.exterior = exteriorZoneId;
             createdExterior = true;
