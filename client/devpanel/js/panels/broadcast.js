@@ -1741,6 +1741,7 @@ async function _bcImportSave({ meta, broadcastGraph, messages, assets, cameras, 
                 wanders: 0, wander_zones: [],
                 dialogue_tree: {}, vendor_inventory: [], flags: { studio_npc: true },
                 behaviour_graph: _bcDefaultStudioGraph(_bcImportStudioZoneId),
+                chitchat: (typeof NPC_CHITCHAT_PRESETS !== 'undefined' && NPC_CHITCHAT_PRESETS.tv_host) || [],
               });
               if (npcRes?.error) console.warn(`[BSM] NPC spawn failed for ${npcId}:`, npcRes.error);
               else npcSpawnCount++;
@@ -2445,6 +2446,9 @@ function _bcpvAppend(text, cls, isRawHtml = false) {
   if (cls === 'tv-msg-ticker') el.style.color = 'var(--tv-ticker-color)';
   el.innerHTML = isRawHtml ? text : _bcMarkup(text);
   msgs.appendChild(el);
+  const spacer = document.createElement('div');
+  spacer.style.height = '0.75em';
+  msgs.appendChild(spacer);
   // Trim if overflowing
   const content = document.getElementById('bcpv-content');
   if (content) {
@@ -2486,6 +2490,255 @@ function _bcpvScaleAscii(el, text) {
 function _bcpvUpdateStatus(msg) {
   const el = document.getElementById('bcpv-status');
   if (el) el.textContent = msg;
+}
+
+// ── Live Channel Preview ──────────────────────────────────────────────────────
+// Opens the same TV modal as bcPreviewBroadcast but drives it via a real WS
+// connection subscribed to the channel's live broadcast feed.
+
+let _bcLiveWs     = null;
+let _bcLiveChId   = null;
+
+function bcLivePreview(channelId, channelName, studioZoneId) {
+  // Close any static preview that might be open
+  _bcpvClose();
+  // Close any previous live preview
+  _bcLiveClose();
+
+  _bcLiveChId = channelId;
+
+  const modal = document.createElement('div');
+  modal.id = 'bcpv-modal';
+  modal.style.cssText = `
+    position:fixed;inset:0;z-index:800;
+    display:flex;align-items:center;justify-content:center;
+    background:rgba(0,0,0,0.75);
+  `;
+  modal.innerHTML = `
+    <div id="bcpv-window" style="
+      --tv-bg:#080c10;--tv-border:rgba(0,220,180,0.45);--tv-text:#b8d4c8;
+      --tv-header-color:#00dbb4;--tv-live-color:#ff4455;--tv-ticker-color:#ffc940;
+      display:flex;flex-direction:column;
+      width:min(760px,92vw);aspect-ratio:760/520;
+      background:var(--tv-bg);
+      border:3px solid #1a1a1a;outline:1px solid var(--tv-border);
+      box-shadow:0 0 0 6px #111,0 0 60px rgba(0,180,140,0.22),0 8px 40px rgba(0,0,0,0.8),inset 0 0 80px rgba(0,0,0,0.5);
+      background-image:
+        repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.09) 3px,rgba(0,0,0,0.09) 4px),
+        radial-gradient(ellipse at center,transparent 55%,rgba(0,0,0,0.55) 100%);
+      font-family:monospace;color:var(--tv-text);
+      border-radius:4px;position:relative;overflow:hidden;
+    ">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 14px;border-bottom:1px solid var(--tv-border);flex-shrink:0;background:rgba(0,40,30,0.5);gap:10px;z-index:30">
+        <span style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--tv-header-color)">${escHtml(channelName || channelId)}</span>
+        <span id="bcpv-prog" style="font-size:10px;color:var(--tv-text);opacity:0.7;text-transform:uppercase;letter-spacing:1px"></span>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span id="bcpv-live-dot" style="font-size:9px;font-weight:700;letter-spacing:2px;color:var(--tv-live-color);text-transform:uppercase;border:1px solid var(--tv-live-color);padding:1px 5px;border-radius:2px">⬤ LIVE</span>
+          <button onclick="_bcLiveClose()" style="background:transparent;border:none;color:var(--tv-text);cursor:pointer;font-size:16px;opacity:0.7;line-height:1">&#x23FB;</button>
+        </div>
+      </div>
+      <div id="bcpv-content" style="flex:1;overflow:hidden;padding:12px 18px;display:flex;flex-direction:column;justify-content:flex-end;position:relative">
+        <div id="bcpv-messages" style="display:flex;flex-direction:column;gap:4px;overflow:hidden"></div>
+        <div id="bcpv-overlay" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none"></div>
+      </div>
+      <div style="flex-shrink:0;border-top:1px solid var(--tv-border);background:rgba(0,30,22,0.7)">
+        <div style="height:22px;overflow:hidden;position:relative;border-bottom:1px solid rgba(0,220,180,0.15)">
+          <span id="bcpv-ticker" style="display:block;white-space:nowrap;font-size:10px;letter-spacing:0.5px;color:var(--tv-ticker-color);position:absolute;top:3px"></span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 12px">
+          <span id="bcpv-status" style="font-size:10px;color:var(--tv-text);opacity:0.55;font-family:monospace;flex:1">Connecting…</span>
+        </div>
+      </div>
+    </div>`;
+
+  document.body.appendChild(modal);
+  modal.addEventListener('click', e => { if (e.target === modal) _bcLiveClose(); });
+
+  _bcLiveConnect(channelId, studioZoneId);
+}
+
+async function _bcLiveConnect(channelId, studioZoneId) {
+  const dotEl = () => document.getElementById('bcpv-live-dot');
+  const statusEl = () => document.getElementById('bcpv-status');
+
+  // Fetch a ghost WS token using the existing dev panel credentials
+  let ghostToken;
+  try {
+    // zoneId required by the ghost token endpoint; use the channel's studio zone or
+    // any known zone as a placeholder (the admin's home_zone overrides it server-side anyway)
+    const fallbackZone = studioZoneId
+      || (_bcChannels.find(c => c.studio_zone_id)?.studio_zone_id)
+      || 'zone_limbo';
+    const res = await directAPI('/ghost/token', 'POST', { zoneId: fallbackZone });
+    if (res?.error || !res?.token) {
+      const st = statusEl();
+      if (st) st.textContent = `Auth failed: ${res?.error || 'no token'}`;
+      return;
+    }
+    ghostToken = res.token;
+  } catch (err) {
+    const st = statusEl();
+    if (st) st.textContent = `Auth error: ${err.message}`;
+    return;
+  }
+
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const ws = new WebSocket(`${proto}//${location.host}`);
+  _bcLiveWs = ws;
+
+  ws.addEventListener('open', () => {
+    ws.send(JSON.stringify({ type: 'auth_ghost', token: ghostToken }));
+  });
+
+  ws.addEventListener('message', e => {
+    let msg;
+    try { msg = JSON.parse(e.data); } catch { return; }
+
+    if (msg.type === 'ghost_auth_success' || msg.type === 'ghost_look' || msg.type === 'look') {
+      // Auth succeeded — subscribe to the channel's broadcast feed
+      ws.send(JSON.stringify({ type: 'tv_watch', channelId }));
+      const dot = dotEl();
+      if (dot) { dot.textContent = '⬤ LIVE'; dot.style.color = 'var(--tv-live-color)'; dot.style.borderColor = 'var(--tv-live-color)'; }
+      const st = statusEl();
+      if (st) st.textContent = 'Watching live…';
+      return;
+    }
+
+    if (msg.type === 'ghost_auth_fail') {
+      const st = statusEl();
+      if (st) st.textContent = 'Auth failed — check dev token.';
+      return;
+    }
+
+    // Only handle messages for our subscribed channel
+    if (msg.channel && msg.channel !== channelId) return;
+
+    if (msg.type === 'broadcast') {
+      if (msg.style === 'off_air') {
+        _bcLiveHandleOffAir(msg);
+        return;
+      }
+      const st = statusEl();
+      if (st) st.textContent = msg.programName ? `▶ ${msg.programName}` : 'Watching live…';
+      if (msg.programName !== undefined) {
+        const prog = document.getElementById('bcpv-prog');
+        if (prog) prog.textContent = msg.programName || '';
+      }
+      if (msg.style === 'ticker') {
+        _bcpvTicker(msg.message);
+      } else {
+        _bcLiveAppend(msg.message, msg.style);
+      }
+    }
+
+    if (msg.type === 'tv_overlay' && msg.channelId === channelId) {
+      _bcLiveApplyOverlay(msg.overlay);
+    }
+  });
+
+  ws.addEventListener('close', () => {
+    if (!document.getElementById('bcpv-modal')) return;
+    const dot = dotEl();
+    if (dot) { dot.textContent = 'OFFLINE'; dot.style.color = 'var(--text-dim)'; dot.style.borderColor = 'var(--text-dim)'; }
+    const st = statusEl();
+    if (st) st.textContent = 'Disconnected.';
+    _bcLiveWs = null;
+  });
+
+  ws.addEventListener('error', () => {
+    const st = statusEl();
+    if (st) st.textContent = 'WebSocket error.';
+  });
+}
+
+function _bcLiveClose() {
+  if (_bcLiveWs) {
+    try { _bcLiveWs.close(); } catch {}
+    _bcLiveWs = null;
+  }
+  _bcLiveChId = null;
+  document.getElementById('bcpv-modal')?.remove();
+}
+
+function _bcLiveHandleOffAir(msg) {
+  const msgs = document.getElementById('bcpv-messages');
+  if (!msgs) return;
+  msgs.innerHTML = '';
+  const content = msg.offlineGraphicContent || '';
+  const type    = msg.offlineGraphicType   || 'ascii_art';
+  if (content) _bcLiveAppend(content, type === 'svg' ? 'svg' : 'ascii_art');
+  const st = document.getElementById('bcpv-status');
+  if (st) st.textContent = 'Off air.';
+  const dot = document.getElementById('bcpv-live-dot');
+  if (dot) { dot.textContent = 'OFF AIR'; dot.style.color = 'var(--text-dim)'; dot.style.borderColor = 'var(--text-dim)'; }
+}
+
+function _bcLiveAppend(text, style) {
+  const msgs = document.getElementById('bcpv-messages');
+  if (!msgs) return;
+
+  const isTitleCard = style === 'svg' || style === 'ascii_art' || style === 'credits';
+  if (isTitleCard) msgs.innerHTML = '';
+
+  let el;
+  if (style === 'credits') {
+    el = document.createElement('div');
+    el.style.cssText = 'font-size:11px;line-height:1.6;color:var(--tv-text);white-space:pre-line;text-align:center';
+    el.textContent = text;
+  } else if (style === 'ascii_art') {
+    el = document.createElement('pre');
+    el.style.cssText = 'color:var(--tv-text);font-size:11px;line-height:1.3;text-align:center;margin:0 auto;max-width:100%';
+    el.innerHTML = _bcMarkup(text);
+    _bcpvScaleAscii(el, text);
+  } else if (style === 'svg') {
+    el = document.createElement('div');
+    el.style.cssText = 'text-align:center;margin:0 auto;max-width:100%';
+    el.innerHTML = text;
+    const svg = el.querySelector('svg');
+    if (svg) { svg.style.maxWidth = '100%'; svg.style.height = 'auto'; svg.style.display = 'block'; svg.style.margin = '0 auto'; }
+  } else {
+    el = document.createElement('div');
+    el.style.cssText = 'font-size:12px;line-height:1.5;color:var(--tv-text);word-break:break-word';
+    el.innerHTML = _bcMarkup(text);
+  }
+
+  msgs.appendChild(el);
+
+  if (!isTitleCard) {
+    const spacer = document.createElement('div');
+    spacer.style.height = '0.75em';
+    msgs.appendChild(spacer);
+  }
+
+  // Trim overflow
+  const content = document.getElementById('bcpv-content');
+  if (content && !isTitleCard) {
+    while (msgs.scrollHeight > content.clientHeight - 40 && msgs.firstChild)
+      msgs.removeChild(msgs.firstChild);
+  }
+}
+
+function _bcLiveApplyOverlay(overlay) {
+  const container = document.getElementById('bcpv-overlay');
+  if (!container) return;
+  if (!overlay) { container.innerHTML = ''; return; }
+
+  container.innerHTML = '';
+  const el = document.createElement('div');
+  if (overlay.overlayType === 'lower_third') {
+    el.style.cssText = 'position:absolute;bottom:48px;left:0;right:0;background:rgba(0,0,0,0.8);border-top:2px solid var(--tv-header-color);padding:6px 14px';
+    el.innerHTML = `<div style="font-size:13px;font-weight:700;color:var(--tv-header-color)">${escHtml(overlay.text || '')}</div>${overlay.subtext ? `<div style="font-size:10px;color:var(--tv-text);opacity:0.8">${escHtml(overlay.subtext)}</div>` : ''}`;
+  } else if (overlay.overlayType === 'alert_flash') {
+    el.style.cssText = 'position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(120,0,0,0.85);text-align:center;padding:24px';
+    el.innerHTML = `<div style="font-size:20px;font-weight:900;color:#fff;letter-spacing:3px;text-transform:uppercase">${escHtml(overlay.text || '')}</div>${overlay.subtext ? `<div style="font-size:12px;color:rgba(255,255,255,0.7);margin-top:8px">${escHtml(overlay.subtext)}</div>` : ''}`;
+  } else {
+    el.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.7);font-size:14px;color:var(--tv-text)';
+    el.textContent = overlay.text || '';
+  }
+  container.appendChild(el);
+  if (overlay.duration > 0) {
+    setTimeout(() => { if (container.contains(el)) container.removeChild(el); }, overlay.duration * 1000);
+  }
 }
 
 // ── Utility ───────────────────────────────────────────────────────────────────

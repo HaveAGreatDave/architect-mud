@@ -546,8 +546,15 @@ export function appendTvMessage(text, style) {
   }
   container.appendChild(el);
 
-  _tvHistory.push(el);
-  if (_tvHistory.length > MAX_TV_HISTORY) _tvHistory.shift().remove();
+  // Blank spacer between messages
+  const spacer = document.createElement('div');
+  spacer.style.height = '0.75em';
+  container.appendChild(spacer);
+
+  _tvHistory.push(el, spacer);
+  if (_tvHistory.length > MAX_TV_HISTORY * 2) {
+    _tvHistory.splice(0, 2).forEach(n => n.remove());
+  }
 }
 
 export function updateTvTicker(text) {

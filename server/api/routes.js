@@ -196,6 +196,7 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path.startsWith('/items/') && method==='PUT') return requireDev(auth, ()=>apiUpdateItem(path.split('/')[2],body));
   if (path==='/npcs' && method==='GET') return requireDev(auth, apiGetNpcs);
   if (path==='/npcs' && method==='POST') return requireDev(auth, ()=>apiCreateNpc(body));
+  if (path==='/npcs/send-to-work' && method==='POST') return requireDev(auth, apiSendLateNpcsToWork);
   if (path.startsWith('/npcs/') && method==='PUT') return requireDev(auth, ()=>apiUpdateNpc(path.split('/')[2],body));
   if (path.startsWith('/npcs/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteNpc(path.split('/')[2]));
   if (path==='/furniture' && method==='GET') return requireDev(auth, ()=>apiGetFurniture(url));
@@ -1061,6 +1062,24 @@ export async function apiUpdateNpc(id,body) {
     return {status:200,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
+async function apiSendLateNpcsToWork() {
+  try {
+    const { world: w } = await import('../engine/world.js');
+    const moved = [];
+    for (const npc of w.npcs.values()) {
+      const target = npc.work_zone_id;
+      if (!target || npc.zone_id === target) continue;
+      const oldZone = npc.zone_id;
+      await query('UPDATE npcs SET zone_id=$1 WHERE id=$2', [target, npc.id]);
+      if (oldZone) w.zones.get(oldZone)?.npcs.delete(npc.id);
+      npc.zone_id = target;
+      w.zones.get(target)?.npcs.add(npc.id);
+      moved.push({ id: npc.id, name: npc.name, from: oldZone, to: target });
+    }
+    return { status: 200, body: { moved, count: moved.length } };
+  } catch (e) { return { status: 400, body: { error: e.message } }; }
+}
+
 export async function apiDeleteNpc(id) {
   try {
     const { world: w } = await import('../engine/world.js');

@@ -155,7 +155,7 @@ CAPTAIN_NGUYEN:
 What the fuck are you talking about and get to the point!
 
 SHOT
-The producer delivers this in a frantic whisper from somewhere just off-camera. It is not a quiet whisper.
+The CAPTAIN NGUYEN delivers this in a frantic whisper from somewhere just off-camera. It is not a quiet whisper.
 SHOT_END
 
 NEIL_MCMANISTAN:
@@ -208,7 +208,7 @@ CAPTAIN_NGUYEN:
 NEIL WE HAVE TO THANK THE SPONSORS SAY AND NOW A WORD FROM OUR SPONSORS!
 
 SHOT
-The producer shouts this at a volume that could be heard in the laundromat upstairs.
+The CAPTAIN NGUYEN shouts this at a volume that could be heard in the laundromat upstairs.
 SHOT_END
 
 NEIL_MCMANISTAN:
@@ -503,31 +503,40 @@ The camera — which has been lying on the floor of the basement at a forty-five
 SHOT_END
 
 CAM 1 MEDIUM on Neil McManistan
-
-::scene CREDITS_SEQUENCE
-
 NEIL_MCMANISTAN:
 Who makes an ad like that? That's like three antisemitic self-burns in a row. He looks like Jude Süss up there. This is egregious! I'm too riled up to continue. Nguyen, roll the credits!
 
 ACTION npc_nguyen rises from his barstool and produces a large flip chart from behind him with the calm efficiency of a man who was prepared for this.
 
-NEIL_MCMANISTAN:
-HOST: Neil McManistan.
+CREDITS 45
 
-NEIL_MCMANISTAN:
-LEGEND: Neil McManistan.
+HOST
+Neil McManistan
 
-NEIL_MCMANISTAN:
-CAMERA: Neil McManistan.
+LEGEND
+Neil McManistan
 
-CAPTAIN_NGUYEN:
-You can't just give yourself all the credit. You don't even operate the camera. Legend? Seriously?
+CAMERA
+Neil McManistan
 
-NEIL_MCMANISTAN:
-NARRATOR: Neil McManistan.
+NARRATOR
+Neil McManistan
 
-NEIL_MCMANISTAN:
-DIVORCE WINNER: Neil McManistan.
+DIVORCE WINNER
+Neil McManistan
+
+BIG GUY
+Neil McManistan
+
+Producer
+Captain Nguyen
+
+TRAITOR
+Gabe Owners
+
+END_CREDITS
+
+::scene postcredits
 
 CAPTAIN_NGUYEN:
 DIVORCE WINNER?!
@@ -539,10 +548,10 @@ NEIL_MCMANISTAN:
 BIG GUY: Neil McManistan.
 
 NEIL_MCMANISTAN:
-PRODUCER: Captain Nguyen.
+CAPTAIN NGUYEN: Captain Nguyen.
 
 CAPTAIN_NGUYEN:
-YOU CAN'T JUST CREDIT CAPTAIN NGUYEN AS THE PRODUCER! I'M THE PRODUCER!
+YOU CAN'T JUST CREDIT CAPTAIN NGUYEN AS THE CAPTAIN NGUYEN! I'M THE CAPTAIN NGUYEN!
 
 ACTION npc_nguyen flips to the next page of the flip chart.
 
@@ -562,31 +571,7 @@ Join us next week when we are joined by our special guest — my wife's personal
 
 EVENT FADE_OUT
 
-CREDITS 45
-HOST
-Neil McManistan
 
-LEGEND
-Neil McManistan
-
-CAMERA
-Neil McManistan
-
-NARRATOR
-Neil McManistan
-
-DIVORCE WINNER
-Neil McManistan
-
-BIG GUY
-Neil McManistan
-
-PRODUCER
-Captain Nguyen
-
-TRAITOR
-Gabe Owners
-END_CREDITS
 
 EVENT FADE_OUT
 

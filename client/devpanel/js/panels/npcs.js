@@ -1,3 +1,18 @@
+async function npcSendToWork(btn) {
+  if (btn) { btn.disabled = true; btn.textContent = 'Moving…'; }
+  try {
+    const res = await API('/npcs/send-to-work', 'POST');
+    if (res?.error) { toast(res.error, true); return; }
+    if (!res.count) { toast('All NPCs already at their work zone.'); return; }
+    toast(`Moved ${res.count} NPC${res.count !== 1 ? 's' : ''} to their work zones.`);
+    await loadPanel('npcs');
+  } catch (e) {
+    toast(e.message, true);
+  } finally {
+    if (btn) { btn.disabled = false; }
+  }
+}
+
 async function deleteNpcRow(id) {
   const rec = allRecords.find(r => r.id === id);
   if (!rec || rec._stagingStatus === 'pending delete') return;
@@ -68,7 +83,16 @@ function renderNpcsPanel(data) {
     html += '</tr>';
   }
   html += '</tbody></table>';
-  panel.innerHTML = html;
+
+  const lateCount = records.filter(r => r.work_zone_id && r.zone_id !== r.work_zone_id).length;
+  const lateLabel = lateCount ? `Send to Work (${lateCount} late)` : 'Send to Work';
+  const toolbar = `<div style="padding:6px 12px;border-bottom:1px solid var(--border);background:var(--bg2);display:flex;align-items:center;gap:8px">
+    <button class="action-btn" style="font-size:11px;padding:3px 10px" onclick="npcSendToWork(this)"
+      title="Teleport all NPCs with a work_zone who aren't there yet">${lateLabel}</button>
+    ${lateCount ? `<span style="font-size:11px;color:var(--text-dim)">${lateCount} NPC${lateCount !== 1 ? 's' : ''} not at their work zone</span>` : '<span style="font-size:11px;color:var(--text-dim)">All NPCs at work</span>'}
+  </div>`;
+
+  panel.innerHTML = toolbar + html;
 }
 
 // --- Zone forms ---

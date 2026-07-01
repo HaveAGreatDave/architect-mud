@@ -125,6 +125,7 @@ function _renderDeckChild(ch, deckData) {
 
   const deck = deckData.deck;
   const mediaCams = deckData.mediaCameras || [];
+  const chName = escHtml2(ch.name || ch.id);
 
   const camRows = mediaCams.map(c => `
     <div style="display:flex;align-items:center;gap:8px;padding:3px 0;border-bottom:1px solid var(--border)">
@@ -142,7 +143,8 @@ function _renderDeckChild(ch, deckData) {
         <span style="font-size:10px;font-weight:600;color:var(--accent2);text-transform:uppercase;letter-spacing:1px">📼 Media Deck</span>
         <span style="font-size:10px;color:var(--text)">${escHtml2(deck.name || deck.id)}</span>
         <span style="font-size:9px;color:var(--text-dim)">→ ${escHtml2(deck.zone_id)}</span>
-        <button class="action-btn" style="font-size:9px;padding:1px 6px;margin-left:auto" onclick="spawnDeckForChannel('${ch.id}')">⇄ Replace</button>
+        <button class="action-btn" style="font-size:9px;padding:1px 6px;margin-left:auto;color:#ff4455;border-color:#ff4455" onclick="bcLivePreview('${ch.id}','${chName}','${escHtml2(ch.studio_zone_id||'')}')">⬤ Live</button>
+        <button class="action-btn" style="font-size:9px;padding:1px 6px" onclick="spawnDeckForChannel('${ch.id}')">⇄ Replace</button>
       </div>
       <div style="padding-left:4px">
         <div style="font-size:10px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">📷 Cameras</div>
