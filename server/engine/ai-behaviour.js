@@ -42,6 +42,7 @@ export function initBlackboard() {
     alertCooldown: 0,    // timestamp — CALL_BACKUP debounce
     lastSay:      0,     // timestamp — SAY debounce
     flags:        {},    // SET_FLAG scope:self values
+    _roamNextAt:  0,     // timestamp — ROAM cooldown
   };
 }
 
@@ -211,6 +212,18 @@ function evalCondition(node, entity) {
 
     case 'PLAYER_IN_ZONE':
       return (zone?.players.size ?? 0) >= (params.min ?? 1);
+
+    // Like PLAYER_IN_ZONE but respects ignores_admins / attacks_npcs / attacks_enemies flags.
+    // True only if at least one non-admin (or NPC/enemy) target is present.
+    case 'TARGETABLE_IN_ZONE': {
+      if (!zone) return false;
+      let players = [...zone.players].map(id => getLivePlayer(id)).filter(Boolean);
+      if (entity.flags?.ignores_admins) players = players.filter(p => p.role !== 'admin');
+      if (players.length) return true;
+      if (entity.flags?.attacks_npcs && [...zone.npcs].some(id => { const n = world.npcs.get(id); return n && !n._dead; })) return true;
+      if (entity.flags?.attacks_enemies && [...zone.enemies].some(id => { const e = world.enemies.get(id); return e && !e._dead && e.instanceId !== entity.instanceId; })) return true;
+      return false;
+    }
 
     case 'TARGET_HP_BELOW': {
       const target = getLivePlayer(entity.targetId);
@@ -454,6 +467,39 @@ async function execAction(node, entity, ctx) {
       // Clear target after fleeing
       entity.targetId = null;
       entity.aggroedAt = null;
+      break;
+    }
+
+    // ROAM: move to a random adjacent zone every N seconds, looking for targets.
+    // Used by enemies like Arbiters that hunt by wandering rather than fixed patrols.
+    // Params: { interval_s: 10 }
+    case 'ROAM': {
+      if (!ai) break;
+      const intervalMs = (params.interval_s ?? 10) * 1000;
+      const now = Date.now();
+      if (ai._roamNextAt && now < ai._roamNextAt) break; // still waiting
+
+      // Check for targetable entities in current zone before moving.
+      // Respects ignores_admins — admin-only zones are treated as empty.
+      const curZone = world.zones.get(zoneId);
+      let roamPlayers = curZone ? [...(curZone.players || [])].map(id => getLivePlayer(id)).filter(Boolean) : [];
+      if (entity.flags?.ignores_admins) roamPlayers = roamPlayers.filter(p => p.role !== 'admin');
+      const hasTarget = roamPlayers.length > 0 ||
+        (entity.flags?.attacks_npcs && curZone && [...(curZone.npcs || [])].some(id => { const n = world.npcs.get(id); return n && !n._dead; })) ||
+        (entity.flags?.attacks_enemies && curZone && [...(curZone.enemies || [])].some(id => { const e = world.enemies.get(id); return e && !e._dead && e.instanceId !== entity.instanceId; }));
+      if (hasTarget) {
+        // Found a target — don't move, let combat nodes handle aggro
+        ai._roamNextAt = now + intervalMs;
+        break;
+      }
+
+      // No target — step to a random adjacent zone
+      const exits = Object.values(curZone?.exits || {});
+      if (exits.length) {
+        const dest = exits[Math.floor(Math.random() * exits.length)];
+        moveEntity(entity, dest, broadcast, query);
+      }
+      ai._roamNextAt = now + intervalMs;
       break;
     }
 

@@ -169,6 +169,7 @@
 
   function buildLayer(layer, destination, time, holdSeconds) {
     const nodes = [];
+    if (layer.delay) time = time + layer.delay;
     const adsr = layer.adsr || { a: 0.01, d: 0.05, s: 0.7, r: 0.15 };
     const gain = ctx.createGain();
     gain.gain.setValueAtTime(0, time);

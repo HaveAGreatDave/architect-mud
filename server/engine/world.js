@@ -24,6 +24,8 @@ const zoneInterruptLoudness = new Map(); // zoneId -> { loudness, expiresAt }
 
 // Battlecry type cooldown: if one enemy of a type shouts, suppress others of the same type for 10 s.
 const battleCryTypeCooldowns = new Map(); // templateId -> timestamp
+// Battlecry zone cooldown: if any enemy in a zone shouts, suppress all zone battle cries for 30 s.
+const battleCryZoneCooldowns = new Map(); // zoneId -> timestamp
 
 export async function initWorld() {
   await loadZones();
@@ -436,10 +438,16 @@ export async function reloadZone(zoneId) {
 }
 
 // Returns true and records the cooldown if this enemy type can shout; false if suppressed.
-export function tryBattleCry(templateId, cooldownMs = 10000) {
+// zoneId: if provided, also enforces a 30-second per-zone cooldown across all enemy types.
+export function tryBattleCry(templateId, zoneId, cooldownMs = 10000) {
   const now = Date.now();
-  const last = battleCryTypeCooldowns.get(templateId) || 0;
-  if (now - last < cooldownMs) return false;
+  const lastType = battleCryTypeCooldowns.get(templateId) || 0;
+  if (now - lastType < cooldownMs) return false;
+  if (zoneId) {
+    const lastZone = battleCryZoneCooldowns.get(zoneId) || 0;
+    if (now - lastZone < 30000) return false;
+    battleCryZoneCooldowns.set(zoneId, now);
+  }
   battleCryTypeCooldowns.set(templateId, now);
   return true;
 }

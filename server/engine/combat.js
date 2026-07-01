@@ -271,7 +271,7 @@ export async function enemyAttackPlayer(enemy, player) {
   const hit = margin >= 0;
 
   const cries = enemy.flags?.battle_cries;
-  const cry = (isFirstStrike && Array.isArray(cries) && cries.length && tryBattleCry(enemy.templateId))
+  const cry = (isFirstStrike && Array.isArray(cries) && cries.length && tryBattleCry(enemy.templateId, enemy.zoneId))
     ? formatBattleCry(enemy.name, cries[Math.floor(Math.random() * cries.length)].replace(/\$enemy/g, enemy.name).replace(/\$player/g, player.handle)) + '\n'
     : '';
 

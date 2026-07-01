@@ -687,6 +687,132 @@ function readInstrumentLikeConfig(prefix, extra) {
   };
 }
 
+// ── SFX multi-layer editor ────────────────────────────────────────────────────
+
+let _sfxLayers = [];
+
+function _sfxDefaultLayer() {
+  return { waveform: 'square', freq: 440, noiseMix: 0, gain: 1, delay: 0,
+    adsr: { a: 0.01, d: 0.05, s: 0.7, r: 0.15 },
+    filter: { type: 'lowpass', freq: 4000, q: 1 },
+    vibrato: { rate: 0, depth: 0 }, tremolo: { rate: 0, depth: 0 },
+  };
+}
+
+function _sfxInitLayers(config) {
+  if (Array.isArray(config?.layers) && config.layers.length) {
+    _sfxLayers = config.layers.map(l => ({ ..._sfxDefaultLayer(), ...l }));
+  } else {
+    _sfxLayers = [{ ..._sfxDefaultLayer(), ...(config || {}) }];
+  }
+}
+
+function _sfxLayerSummary(layer) {
+  const parts = [];
+  if ((layer.noiseMix || 0) > 0) parts.push(`noise×${layer.noiseMix}`);
+  else parts.push(layer.waveform || 'square');
+  parts.push(`${layer.freq ?? 440}Hz`);
+  if ((layer.delay || 0) > 0) parts.push(`+${layer.delay}s`);
+  parts.push(`gain:${layer.gain ?? 1}`);
+  return parts.join(' · ');
+}
+
+function _sfxRenderLayers() {
+  const container = document.getElementById('sfx-layers-container');
+  if (!container) return;
+  container.innerHTML = _sfxLayers.map((layer, li) => {
+    const p = `sfxl${li}`;
+    return `<div style="border:1px solid var(--border);border-radius:4px;margin-bottom:6px;overflow:hidden" id="sfxl-wrap-${li}">
+      <div style="background:var(--bg3);padding:5px 10px;display:flex;align-items:center;gap:8px;cursor:pointer" onclick="_sfxToggleLayer(${li})">
+        <span style="font-size:10px;font-weight:700;color:var(--accent);min-width:54px">Layer ${li + 1}</span>
+        <span style="font-size:10px;color:var(--text-dim);flex:1">${_sfxLayerSummary(layer)}</span>
+        <button class="action-btn" style="font-size:9px;padding:2px 7px" onclick="event.stopPropagation();_sfxPreviewLayer(${li})">▶</button>
+        <button class="action-btn danger" style="font-size:9px;padding:2px 7px" onclick="event.stopPropagation();_sfxRemoveLayer(${li})">✕</button>
+      </div>
+      <div id="${p}-body" style="padding:10px;display:none">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+          <div class="field"><label>Waveform</label><select id="${p}-wave">${WAVEFORMS.map(w => `<option value="${w}" ${(layer.waveform || 'square') === w ? 'selected' : ''}>${w}</option>`).join('')}</select></div>
+          <div class="field"><label>Frequency (Hz)</label><input id="${p}-freq" type="number" min="20" value="${layer.freq ?? 440}"></div>
+          <div class="field"><label>Delay (s) <span style="color:var(--text-dim);font-weight:400" title="Seconds before this layer starts, relative to when the SFX plays">⏱</span></label>
+            <input id="${p}-delay" type="number" step="0.01" min="0" value="${layer.delay ?? 0}">
+          </div>
+        </div>
+        ${instrumentLikeConfigFields(layer, p)}
+      </div>
+    </div>`;
+  }).join('');
+  // Auto-expand if only one layer
+  if (_sfxLayers.length === 1) {
+    const body = document.getElementById('sfxl0-body');
+    if (body) body.style.display = '';
+  }
+}
+
+window._sfxToggleLayer = function(li) {
+  const body = document.getElementById(`sfxl${li}-body`);
+  if (!body) return;
+  body.style.display = body.style.display === 'none' ? '' : 'none';
+};
+
+window._sfxRemoveLayer = function(li) {
+  _sfxSaveOpenLayers();
+  _sfxLayers.splice(li, 1);
+  _sfxRenderLayers();
+};
+
+window._sfxPreviewLayer = function(li) {
+  _sfxSaveOpenLayers();
+  const layer = _sfxLayers[li];
+  if (!layer) return;
+  window.AudioEngine?.init();
+  const duration = parseFloat(document.getElementById('am-sfx-duration')?.value) || 0.4;
+  window.AudioEngine?.playSfx({ priority: 9, category: 'sfx', config: { duration, layers: [{ ...layer, delay: 0 }] } });
+};
+
+// Flush any open layer form fields back into _sfxLayers before re-rendering.
+function _sfxSaveOpenLayers() {
+  const num = (id, fb) => { const el = document.getElementById(id); if (!el) return fb; const v = parseFloat(el.value); return isNaN(v) ? fb : v; };
+  _sfxLayers.forEach((layer, li) => {
+    const p = `sfxl${li}`;
+    const body = document.getElementById(`${p}-body`);
+    if (!body || body.style.display === 'none') return;
+    layer.waveform = document.getElementById(`${p}-wave`)?.value || 'square';
+    layer.freq = num(`${p}-freq`, 440);
+    layer.delay = num(`${p}-delay`, 0);
+    const fmRate = num(`${p}-fmrate`, 0);
+    const echoMix = num(`${p}-echomix`, 0);
+    layer.adsr = { a: num(`${p}-a`, 0.01), d: num(`${p}-d`, 0.05), s: num(`${p}-s`, 0.7), r: num(`${p}-r`, 0.15) };
+    layer.filter = { type: document.getElementById(`${p}-filtertype`)?.value || 'lowpass', freq: num(`${p}-filterfreq`, 4000), q: num(`${p}-filterq`, 1) };
+    layer.vibrato = { rate: num(`${p}-vibrate`, 0), depth: num(`${p}-vibdepth`, 0) };
+    layer.tremolo = { rate: num(`${p}-tremrate`, 0), depth: num(`${p}-tremdepth`, 0) };
+    layer.noiseMix = num(`${p}-noisemix`, 0);
+    layer.gain = num(`${p}-gain`, 1);
+    if (fmRate > 0) layer.fm = { rate: fmRate, depth: num(`${p}-fmdepth`, 100) }; else delete layer.fm;
+    if (echoMix > 0) layer.echo = { mix: echoMix, delay: num(`${p}-echodelay`, 0.18), feedback: num(`${p}-echofb`, 0.35) }; else delete layer.echo;
+  });
+}
+
+function _sfxReadAllLayers() {
+  _sfxSaveOpenLayers();
+  return _sfxLayers.map(layer => {
+    const clean = { ...layer };
+    if (!clean.vibrato?.rate) delete clean.vibrato;
+    if (!clean.tremolo?.rate) delete clean.tremolo;
+    if (!clean.delay) delete clean.delay;
+    return clean;
+  });
+}
+
+window._sfxAddLayer = function() {
+  _sfxSaveOpenLayers();
+  _sfxLayers.push(_sfxDefaultLayer());
+  _sfxRenderLayers();
+  // Auto-expand the new layer
+  const newIdx = _sfxLayers.length - 1;
+  const body = document.getElementById(`sfxl${newIdx}-body`);
+  if (body) body.style.display = '';
+};
+
 function categoryOptions(current) {
   return AUDIO_CATEGORIES.map(c => `<option value="${c}" ${current === c ? 'selected' : ''}>${c}</option>`).join('');
 }
@@ -797,36 +923,67 @@ function openAudioModal(tab, row) {
       toast(isNew ? 'Instrument created' : 'Instrument updated');
       closeModal(); loadPanel('audio');
     };
-  } else if (tab === 'sfx' || tab === 'ambient') {
-    const isAmbient = tab === 'ambient';
+  } else if (tab === 'sfx') {
+    _sfxInitLayers(row.config);
+    body.innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:14px">
+        <div class="field"><label>Name</label><input id="am-name" value="${row.name || ''}"></div>
+        <div class="field"><label>Category</label><select id="am-cat">${categoryOptions(row.category || 'misc')}</select></div>
+        <div class="field"><label>Priority (1-10)</label><input id="am-priority" type="number" min="1" max="10" value="${row.priority ?? 5}"></div>
+        <div class="field"><label>Duration (sec)</label><input id="am-sfx-duration" type="number" step="0.05" min="0.05" value="${row.config?.duration ?? 0.4}"></div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <span style="font-size:11px;font-weight:600;color:var(--accent);letter-spacing:1px;text-transform:uppercase">Layers</span>
+        <button class="action-btn" style="font-size:10px;padding:3px 10px" onclick="_sfxAddLayer()">+ Add Layer</button>
+      </div>
+      <div id="sfx-layers-container"></div>
+      <div class="field" style="display:flex;align-items:center;gap:10px;margin-top:10px">
+        <input type="checkbox" id="am-enabled" ${row.enabled !== 0 ? 'checked' : ''}>
+        <label for="am-enabled" style="margin:0;cursor:pointer">Enabled</label>
+      </div>`;
+    _sfxRenderLayers();
+    document.getElementById('modal-save').onclick = async () => {
+      const name = document.getElementById('am-name').value.trim();
+      if (!name) { toast('Name is required', true); return; }
+      const layers = _sfxReadAllLayers();
+      const duration = parseFloat(document.getElementById('am-sfx-duration').value) || 0.4;
+      const config = layers.length === 1 ? { ...layers[0], duration } : { layers, duration };
+      const reqBody = {
+        name, category: document.getElementById('am-cat').value,
+        priority: parseInt(document.getElementById('am-priority').value) || 5,
+        config, enabled: document.getElementById('am-enabled').checked ? 1 : 0,
+      };
+      const r = isNew ? await API('/audio/sfx', 'POST', reqBody) : await API(`/audio/sfx/${row.id}`, 'PUT', reqBody);
+      if (r?.error) { toast(r.error, true); return; }
+      toast(isNew ? 'Created' : 'Updated');
+      closeModal(); loadPanel('audio');
+    };
+  } else if (tab === 'ambient') {
     body.innerHTML = `
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
         <div class="field"><label>Name</label><input id="am-name" value="${row.name || ''}"></div>
         <div class="field"><label>Category</label><select id="am-cat">${categoryOptions(row.category || 'misc')}</select></div>
-        <div class="field"><label>Priority (1-10)</label><input id="am-priority" type="number" min="1" max="10" value="${row.priority ?? (isAmbient ? 1 : 5)}"></div>
+        <div class="field"><label>Priority (1-10)</label><input id="am-priority" type="number" min="1" max="10" value="${row.priority ?? 1}"></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px">
         <div class="field"><label>Waveform</label><select id="am-wave">${WAVEFORMS.map(w => `<option value="${w}" ${(row.config?.waveform || 'square') === w ? 'selected' : ''}>${w}</option>`).join('')}</select></div>
         <div class="field"><label>Base Frequency (Hz)</label><input id="am-freq" type="number" min="20" value="${row.config?.freq ?? 440}"></div>
       </div>
-      ${!isAmbient ? `<div class="field" style="margin-top:10px"><label>Duration (sec)</label><input id="am-duration" type="number" step="0.05" min="0.05" value="${row.config?.duration ?? 0.4}"></div>` : ''}
       ${instrumentLikeConfigFields(row.config, 'am')}
       <div class="field" style="display:flex;align-items:center;gap:18px;margin-top:10px">
         <span><input type="checkbox" id="am-enabled" ${row.enabled !== 0 ? 'checked' : ''}> <label for="am-enabled" style="margin:0;cursor:pointer">Enabled</label></span>
-        ${isAmbient ? `<span><input type="checkbox" id="am-loop" ${row.loop !== 0 ? 'checked' : ''}> <label for="am-loop" style="margin:0;cursor:pointer">Loop</label></span>` : ''}
+        <span><input type="checkbox" id="am-loop" ${row.loop !== 0 ? 'checked' : ''}> <label for="am-loop" style="margin:0;cursor:pointer">Loop</label></span>
       </div>`;
     document.getElementById('modal-save').onclick = async () => {
       const name = document.getElementById('am-name').value.trim();
       if (!name) { toast('Name is required', true); return; }
       const extra = { waveform: document.getElementById('am-wave').value, freq: parseFloat(document.getElementById('am-freq').value) || 440 };
-      if (!isAmbient) extra.duration = parseFloat(document.getElementById('am-duration').value) || 0.4;
       const reqBody = {
         name, category: document.getElementById('am-cat').value, priority: parseInt(document.getElementById('am-priority').value) || 5,
         config: readInstrumentLikeConfig('am', extra), enabled: document.getElementById('am-enabled').checked ? 1 : 0,
+        loop: document.getElementById('am-loop').checked ? 1 : 0,
       };
-      if (isAmbient) reqBody.loop = document.getElementById('am-loop').checked ? 1 : 0;
-      const path = `/audio/${tab}`;
-      const r = isNew ? await API(path, 'POST', reqBody) : await API(`${path}/${row.id}`, 'PUT', reqBody);
+      const r = isNew ? await API('/audio/ambient', 'POST', reqBody) : await API(`/audio/ambient/${row.id}`, 'PUT', reqBody);
       if (r?.error) { toast(r.error, true); return; }
       toast(isNew ? 'Created' : 'Updated');
       closeModal(); loadPanel('audio');

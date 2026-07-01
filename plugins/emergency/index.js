@@ -130,7 +130,7 @@ const ARBITER_BEHAVIOUR_GRAPH = {
     },
     delay_attack: {
       type: 'wait',
-      seconds: 5,
+      seconds: 20,
       next: 'attack',
     },
     attack: {
@@ -141,8 +141,8 @@ const ARBITER_BEHAVIOUR_GRAPH = {
     },
     check_player_in_zone: {
       type: 'condition',
-      condition_type: 'PLAYER_IN_ZONE',
-      params: { min: 1 },
+      condition_type: 'TARGETABLE_IN_ZONE',
+      params: {},
       ifTrue: 'acquire_target',
       ifFalse: 'wander',
     },
@@ -154,13 +154,8 @@ const ARBITER_BEHAVIOUR_GRAPH = {
     },
     wander: {
       type: 'action',
-      action_type: 'HAVE_LIFE',
-      params: {},
-      next: 'wander_wait',
-    },
-    wander_wait: {
-      type: 'wait',
-      seconds: 3,
+      action_type: 'ROAM',
+      params: { interval_s: 10 },
       next: 'loop_back',
     },
     loop_back: {

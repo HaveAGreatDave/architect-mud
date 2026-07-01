@@ -1,0 +1,7 @@
+{
+  "name": "knock",
+  "version": "1.0.0",
+  "description": "Knock on a door in a given direction. Sound reaches only the adjacent room on the same floor; never propagates outdoors.",
+  "hooks": [],
+  "commands": ["knock"]
+}
