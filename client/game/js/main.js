@@ -37,7 +37,7 @@ import {
 	toggleWhisperPanel,
 } from "./panels/whisper.js";
 import { initWho, openWhoModal } from "./panels/who.js";
-import { initSidebarOrder } from "./panels/sidebar-order.js";
+import { initSidebarOrder, placeDpadPanel, removeDpadPanel } from "./panels/sidebar-order.js";
 import { refreshTempDisplay } from "./panels/environment.js";
 import { initAtmPanel } from "./panels/atm.js";
 import { initTvPanel } from "./panels/tv.js";
@@ -149,6 +149,8 @@ initSettingsUI(
 	{
 		sendCmd,
 		notify: (msg) => appendMsg(msg, "system"),
+		placeDpadPanel,
+		removeDpadPanel,
 		getOrigin: () => state.player?.origin_fragment || "",
 		saveOrigin: async (text) => {
 			const token = sessionStorage.getItem("devpanel-token");
@@ -185,6 +187,10 @@ window._setAudioEnabled = (enabled) => {
 
 initThemeEditorOverlay();
 initSidebarOrder();
+// Restore desktop dpad panel if it was enabled but not captured in saved layout
+if (settings.dpadPanel && !document.getElementById('sidebar').contains(document.getElementById('dpad-section'))) {
+	placeDpadPanel();
+}
 
 // Net / WebSocket
 initNet(handleServerMsg);
@@ -485,6 +491,10 @@ document
 
 // Mobile dpad — send movement commands without opening the keyboard
 document.getElementById("mob-dpad")?.addEventListener("click", (e) => {
+	const btn = e.target.closest(".dpad-btn");
+	if (btn?.dataset.cmd) sendCmd(btn.dataset.cmd);
+});
+document.getElementById("dpad-section")?.addEventListener("click", (e) => {
 	const btn = e.target.closest(".dpad-btn");
 	if (btn?.dataset.cmd) sendCmd(btn.dataset.cmd);
 });

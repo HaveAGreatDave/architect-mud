@@ -116,6 +116,20 @@ function moveEntity(entity, newZoneId, broadcast, query) {
     broadcast(oldZoneId, { type: 'zone_event', message: departMsg, refresh: true });
   }
 
+  // Lock the door when an NPC arrives at their home zone
+  if (!isEnemy(entity) && entity.home_zone && entity.home_zone === newZoneId && departDir) {
+    const homeDoor = getDoorForExit(newZoneId, OPPOSITE_DIR[departDir])
+                  || getDoorForExit(oldZoneId, departDir)
+                  || null;
+    if (homeDoor && homeDoor.tags && Object.keys(homeDoor.tags).some(k => k.startsWith('lock:'))) {
+      homeDoor.is_open = 0;
+      homeDoor.lock_state = 'locked';
+      setDoorCache(homeDoor.id, homeDoor);
+      if (query) query("UPDATE doors SET is_open=0, lock_state='locked' WHERE id=$1", [homeDoor.id]).catch(() => {});
+      broadcast(newZoneId, { type: 'zone_event', message: `The lock clicks as ${entity.name} secures the door.` });
+    }
+  }
+
   // Close the door behind them
   if (doorWasClosed) {
     const door = getDoorForExit(oldZoneId, departDir)

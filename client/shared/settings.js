@@ -1,6 +1,6 @@
 const SETTINGS_KEY = 'architect_settings';
 const DEFAULT_AUDIO_SETTINGS = { enabled: false, music: false, sfx: false, tv: false, masterVolume: 0.8, musicVolume: 0.7, sfxVolume: 0.9, ambientVolume: 0.5, tvVolume: 0.6, muteWhenHidden: true };
-const DEFAULT_SETTINGS = { theme: 'dark', fontSize: '14', density: 'comfortable', sidebarPosition: 'left', motion: 'on', tempUnit: 'C', contrast: 0, dpadSize: 'small', audio: DEFAULT_AUDIO_SETTINGS };
+const DEFAULT_SETTINGS = { theme: 'dark', fontSize: '14', density: 'comfortable', sidebarPosition: 'left', motion: 'on', tempUnit: 'C', contrast: 0, dpadSize: 'small', dpadPanel: false, audio: DEFAULT_AUDIO_SETTINGS };
 
 export function formatTemp(tempC) {
   if (tempC === null || tempC === undefined) return null;
@@ -186,10 +186,10 @@ export function applySettings(settings) {
   if (_cs && _cs.value !== String(_cv)) _cs.value = _cv;
   if (_cl) _cl.textContent = _cv === 0 ? 'Base' : `+${_cv}%`;
 
-  for (const group of ['fontsize', 'density', 'sidebar', 'motion', 'tempunit', 'dpadsize']) {
+  for (const group of ['fontsize', 'density', 'sidebar', 'motion', 'tempunit', 'dpadsize', 'dpadpanel']) {
     const container = document.getElementById(`opt-${group}`);
     if (!container) continue;
-    const key = group === 'fontsize' ? 'fontSize' : group === 'sidebar' ? 'sidebarPosition' : group === 'tempunit' ? 'tempUnit' : group === 'dpadsize' ? 'dpadSize' : group;
+    const key = group === 'fontsize' ? 'fontSize' : group === 'sidebar' ? 'sidebarPosition' : group === 'tempunit' ? 'tempUnit' : group === 'dpadsize' ? 'dpadSize' : group === 'dpadpanel' ? 'dpadPanel' : group;
     container.querySelectorAll('.settings-opt').forEach(btn => {
       btn.classList.toggle('selected', btn.dataset.value === String(settings[key]));
     });
@@ -229,7 +229,7 @@ export function applySettings(settings) {
   }
 }
 
-export function initSettingsUI(settings, saveAndApply, { getOrigin, saveOrigin, sendCmd, notify } = {}) {
+export function initSettingsUI(settings, saveAndApply, { getOrigin, saveOrigin, sendCmd, notify, placeDpadPanel, removeDpadPanel } = {}) {
   const themeSelect = document.getElementById('opt-theme');
   if (themeSelect) {
     themeSelect.addEventListener('change', () => {
@@ -256,6 +256,21 @@ export function initSettingsUI(settings, saveAndApply, { getOrigin, saveOrigin, 
   });
   document.querySelectorAll('#opt-dpadsize .settings-opt').forEach(btn => {
     btn.addEventListener('click', () => { settings.dpadSize = btn.dataset.value; saveAndApply(); });
+  });
+  document.querySelectorAll('#opt-dpadpanel .settings-opt').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const want = btn.dataset.value === 'true';
+      if (want) {
+        if (!placeDpadPanel || !placeDpadPanel()) {
+          if (notify) notify('No empty slot in sidebar — unlock and drag sections apart to make space first.');
+          return;
+        }
+      } else {
+        if (removeDpadPanel) removeDpadPanel();
+      }
+      settings.dpadPanel = want;
+      saveAndApply();
+    });
   });
   document.querySelectorAll('#opt-tempunit .settings-opt').forEach(btn => {
     btn.addEventListener('click', () => {

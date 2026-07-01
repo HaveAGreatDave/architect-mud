@@ -344,6 +344,8 @@ body {
 	align-items: center;
 	gap: 16px;
 	flex-shrink: 0;
+	position: relative;
+	z-index: 10000;
 }
 
 #header .logo {
@@ -3871,6 +3873,31 @@ body {
 /* Hide d-pad size setting on non-touch (desktop) */
 @media (hover: hover) and (pointer: fine) {
 	.mobile-only-setting { display: none; }
+}
+
+/* Hide desktop-only settings on touch/mobile */
+@media (hover: none), (pointer: coarse) {
+	.desktop-only-setting { display: none; }
+}
+
+/* Desktop d-pad sidebar panel */
+#dpad-section .dpad-panel-inner {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 2px;
+	padding: 6px 4px;
+}
+
+#dpad-section .dpad-btn,
+#dpad-section .dpad-center {
+	width: 42px;
+	height: 42px;
+	font-size: 16px;
+}
+
+#dpad-section .dpad-ud {
+	font-size: 13px;
 }
 
 #mobile-minimap-panel {

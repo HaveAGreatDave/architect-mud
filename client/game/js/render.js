@@ -141,7 +141,7 @@ export function parseZoneInfo(html) {
   }
 
   // Light up dpad buttons for available exits
-  for (const btn of document.querySelectorAll('#mob-dpad .dpad-btn[data-cmd]')) {
+  for (const btn of document.querySelectorAll('#mob-dpad .dpad-btn[data-cmd], #dpad-section .dpad-btn[data-cmd]')) {
     btn.classList.toggle('dpad-available', availDirs.has(_DPAD_DIR[btn.dataset.cmd] || btn.dataset.cmd));
   }
 }

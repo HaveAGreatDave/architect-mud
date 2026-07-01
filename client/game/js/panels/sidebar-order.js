@@ -75,6 +75,27 @@ export function resetOrder() {
   applyLayout(null);
 }
 
+export function placeDpadPanel() {
+  const sidebar = document.getElementById('sidebar');
+  const spacer = sidebar.querySelector('.sidebar-spacer');
+  if (!spacer) return false;
+  const section = document.getElementById('dpad-section');
+  spacer.before(section);
+  if (!locked) { section.draggable = true; attachDragHandlers(section); }
+  saveLayout();
+  return true;
+}
+
+export function removeDpadPanel() {
+  const section = document.getElementById('dpad-section');
+  if (!section) return;
+  const park = document.getElementById('dpad-section-park');
+  section.draggable = false;
+  detachDragHandlers(section);
+  park.appendChild(section);
+  saveLayout();
+}
+
 function toggleLock() {
   locked = !locked;
   const btn = document.getElementById('sidebar-lock-btn');
@@ -84,6 +105,7 @@ function toggleLock() {
   btn.title = locked ? 'Unlock to reorder sidebar sections' : 'Lock sidebar order';
   sidebar.classList.toggle('drag-mode', !locked);
   sidebar.querySelectorAll('.sidebar-section').forEach(sec => {
+    if (!sidebar.contains(sec)) return;
     sec.draggable = !locked;
     if (!locked) attachDragHandlers(sec);
     else detachDragHandlers(sec);

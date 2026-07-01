@@ -49,9 +49,10 @@ async function tick() {
           enemy._lastThreatTick = now;
           enemy._threatLevel = (enemy._threatLevel || 0) + 1;
 
-          // Battlecry — cycle through the enemy's configured cries
+          // Battlecry — throttled to once per 30 s regardless of threat tick rate
           const cries = enemy.flags?.battle_cries;
-          if (Array.isArray(cries) && cries.length) {
+          if (Array.isArray(cries) && cries.length && now - (enemy._lastBattleCry || 0) >= 30000) {
+            enemy._lastBattleCry = now;
             const randomPlayer = getLivePlayer([...zone.players][Math.floor(Math.random() * zone.players.size)]);
             const cry = cries[Math.floor(Math.random() * cries.length)]
               .replace(/\$enemy/g, enemy.name)
@@ -59,12 +60,16 @@ async function tick() {
             broadcastFn(enemy.zoneId, { type: 'output', message: formatBattleCry(enemy.name, cry) });
           }
 
-          // Escalating aggro roll — chance grows 5% per 5-second tick
+          // Escalating aggro roll — chance grows 5% per 5-second tick.
+          // Filter out admins for enemies that have ignores_admins set.
           const canAggro = enemy.behavior === 'aggressive' || enemy.behavior === 'territorial' || enemy.behaviour_graph?._start;
           if (canAggro && Math.random() < Math.min(enemy._threatLevel * 0.05, 0.95)) {
-            const playerIds = [...zone.players];
-            enemy.targetId = playerIds[Math.floor(Math.random() * playerIds.length)];
-            enemy.aggroedAt = now;
+            let candidates = [...zone.players].map(id => getLivePlayer(id)).filter(Boolean);
+            if (enemy.flags?.ignores_admins) candidates = candidates.filter(p => p.role !== 'admin');
+            if (candidates.length) {
+              enemy.targetId = candidates[Math.floor(Math.random() * candidates.length)].id;
+              enemy.aggroedAt = now;
+            }
           }
         }
       } else {
