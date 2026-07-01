@@ -87,10 +87,11 @@ function openGraphicEditor(rec) {
       </div>
 
       <!-- Tab bar -->
-      <div style="display:flex;gap:2px;border-bottom:1px solid var(--border)">
+      <div style="display:flex;gap:2px;border-bottom:1px solid var(--border);align-items:flex-end">
         <button id="gr-tab-canvas" class="action-btn${isSvg ? '' : ' primary'}" style="font-size:10px;border-radius:2px 2px 0 0;margin-bottom:-1px${isSvg ? '' : ';border-bottom:1px solid var(--bg2)'}" onclick="_grTab('canvas')">🎨 ASCII Canvas</button>
         <button id="gr-tab-text"   class="action-btn" style="font-size:10px;border-radius:2px 2px 0 0;margin-bottom:-1px" onclick="_grTab('text')">✏ Text</button>
         <button id="gr-tab-vector" class="action-btn${isSvg ? ' primary' : ''}" style="font-size:10px;border-radius:2px 2px 0 0;margin-bottom:-1px${isSvg ? ';border-bottom:1px solid var(--bg2)' : ''}" onclick="_grTab('vector')">◈ Vector</button>
+        <button class="action-btn" style="font-size:10px;margin-left:auto;margin-bottom:2px" onclick="_grTvPreview()">📺 TV Preview</button>
       </div>
 
       <!-- ASCII canvas tab -->
@@ -659,6 +660,104 @@ async function deleteGraphic(id, name) {
 
 function escHtml4(str) {
   return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── TV Preview ────────────────────────────────────────────────────────────────
+
+function _grBBtoHTML(text) {
+  // Minimal BBCode [color=X]...[/color] → <span style="color:X">...</span>
+  const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return esc(text)
+    .replace(/\[color=([^\]]+)\]/g, '<span style="color:$1">')
+    .replace(/\[\/color\]/g, '</span>');
+}
+
+function _grTvPreview() {
+  const vectorVisible = document.getElementById('gr-vector-tab')?.style.display !== 'none';
+  const canvasVisible = document.getElementById('gr-canvas-tab')?.style.display !== 'none';
+
+  let content, type;
+  if (vectorVisible) {
+    content = _svToString();
+    type = 'svg';
+  } else {
+    if (canvasVisible) _grSyncToTextarea();
+    content = document.getElementById('gr-content')?.value?.trim() || '';
+    type = content.startsWith('<svg') ? 'svg' : 'ascii';
+  }
+
+  if (!content) { toast('No content to preview.', true); return; }
+
+  document.getElementById('gr-tv-preview-overlay')?.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'gr-tv-preview-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;cursor:pointer';
+
+  const tvWin = document.createElement('div');
+  tvWin.style.cssText = [
+    '--tv-bg:#080c10;--tv-border:rgba(0,220,180,0.45);--tv-text:#b8d4c8;--tv-header-color:#00dbb4;',
+    'width:min(760px,96vw);aspect-ratio:760/520;',
+    'background:var(--tv-bg);',
+    'border:3px solid #1a1a1a;outline:1px solid var(--tv-border);',
+    'box-shadow:0 0 0 6px #111,0 0 0 7px rgba(0,220,180,0.08),0 0 60px rgba(0,180,140,0.22),0 8px 40px rgba(0,0,0,0.8);',
+    'font-family:monospace;color:var(--tv-text);border-radius:4px;',
+    'display:flex;flex-direction:column;cursor:default;position:relative;',
+    'background-image:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.09) 3px,rgba(0,0,0,0.09) 4px),radial-gradient(ellipse at center,transparent 55%,rgba(0,0,0,0.55) 100%);',
+  ].join('');
+
+  const header = document.createElement('div');
+  header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:8px 14px;border-bottom:1px solid var(--tv-border);flex-shrink:0;background:rgba(0,40,30,0.5);position:relative;z-index:2';
+  const closeBtn = document.createElement('button');
+  closeBtn.textContent = '✕';
+  closeBtn.style.cssText = 'background:#0c100e;border:2px solid #1e2e28;color:#2e4840;font-size:15px;cursor:pointer;padding:0;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-family:inherit';
+  closeBtn.onclick = () => overlay.remove();
+  header.innerHTML = '<span style="font-size:12px;font-weight:bold;letter-spacing:2px;color:var(--tv-header-color);text-transform:uppercase">TV PREVIEW</span><span style="font-size:11px;color:rgba(184,212,200,0.4);font-style:italic">how this graphic appears on screen</span>';
+  header.appendChild(closeBtn);
+
+  const contentEl = document.createElement('div');
+  contentEl.style.cssText = 'flex:1;overflow:hidden;padding:14px 18px;position:relative;';
+
+  tvWin.appendChild(header);
+  tvWin.appendChild(contentEl);
+  overlay.appendChild(tvWin);
+
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  const escClose = e => { if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', escClose); } };
+  document.addEventListener('keydown', escClose);
+
+  document.body.appendChild(overlay);
+
+  if (type === 'svg') {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = content;
+    const svg = tmp.querySelector('svg');
+    if (svg) {
+      if (!svg.getAttribute('viewBox')) {
+        const w = parseFloat(svg.getAttribute('width')) || 640;
+        const h = parseFloat(svg.getAttribute('height')) || 360;
+        svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+      }
+      svg.removeAttribute('width');
+      svg.removeAttribute('height');
+      svg.style.cssText = 'width:100%;max-width:100%;height:auto;display:block;margin:0 auto';
+    }
+    contentEl.innerHTML = tmp.innerHTML;
+  } else {
+    const el = document.createElement('pre');
+    el.style.cssText = 'margin:0;line-height:1.3;color:var(--tv-text);';
+    el.innerHTML = _grBBtoHTML(content);
+    contentEl.appendChild(el);
+    // Exact same scaling logic as tv.js appendTvMessage
+    requestAnimationFrame(() => {
+      const plain = content.replace(/\[[^\]]*\]/g, '');
+      const lines = plain.split('\n');
+      const maxLen = Math.max(...lines.map(l => l.length), 1);
+      const availPx = contentEl.clientWidth - 36;
+      const targetPx = Math.min(availPx / (maxLen * 0.6), 18);
+      el.style.fontSize = Math.max(targetPx, 7).toFixed(1) + 'px';
+    });
+  }
 }
 
 // ── Vector editor ─────────────────────────────────────────────────────────────

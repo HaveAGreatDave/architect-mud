@@ -1,0 +1,127 @@
+<svg viewBox="0 0 1920 1080" xmlns="http://www.w3.org/2000/svg" width="1920" height="1080">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="50%" r="70%">
+      <stop offset="0%" stop-color="#1a0a2e"/>
+      <stop offset="100%" stop-color="#0a0a0a"/>
+    </radialGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="strongglow">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="textshadow">
+      <feDropShadow dx="3" dy="3" stdDeviation="6" flood-color="#ff4400" flood-opacity="0.6"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1920" height="1080" fill="url(#bg)"/>
+
+  <!-- Subtle scanlines -->
+  <rect width="1920" height="1080" fill="none" stroke="#ffffff" stroke-width="0.3" opacity="0.03"
+    style="background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.03) 2px, rgba(255,255,255,0.03) 4px)"/>
+
+  <!-- Scanline overlay via pattern -->
+  <defs>
+    <pattern id="scanlines" x="0" y="0" width="1920" height="4" patternUnits="userSpaceOnUse">
+      <rect width="1920" height="2" fill="rgba(0,0,0,0.15)"/>
+    </pattern>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#scanlines)"/>
+
+  <!-- Decorative horizontal rules -->
+  <line x1="80" y1="290" x2="1840" y2="290" stroke="#ff4400" stroke-width="2" opacity="0.5"/>
+  <line x1="80" y1="820" x2="1840" y2="820" stroke="#ff4400" stroke-width="2" opacity="0.5"/>
+
+  <!-- Main title line 1 -->
+  <text
+    x="960"
+    y="420"
+    text-anchor="middle"
+    font-family="Impact, 'Arial Black', sans-serif"
+    font-size="148"
+    font-weight="900"
+    fill="#ffffff"
+    filter="url(#textshadow)"
+    letter-spacing="6"
+  >YOU'RE NOT GONNA</text>
+
+  <!-- Main title line 2 — highlight color -->
+  <text
+    x="960"
+    y="590"
+    text-anchor="middle"
+    font-family="Impact, 'Arial Black', sans-serif"
+    font-size="172"
+    font-weight="900"
+    fill="#ff4400"
+    filter="url(#strongglow)"
+    letter-spacing="4"
+  >BELIEVE THIS SHIT!</text>
+
+  <!-- Divider rule under main title -->
+  <line x1="300" y1="640" x2="1620" y2="640" stroke="#ffffff" stroke-width="1.5" opacity="0.25"/>
+
+  <!-- "With" prefix -->
+  <text
+    x="960"
+    y="710"
+    text-anchor="middle"
+    font-family="Georgia, 'Times New Roman', serif"
+    font-size="38"
+    font-style="italic"
+    fill="#aaaaaa"
+    letter-spacing="8"
+  >with</text>
+
+  <!-- Host name -->
+  <text
+    x="960"
+    y="778"
+    text-anchor="middle"
+    font-family="Impact, 'Arial Black', sans-serif"
+    font-size="86"
+    font-weight="900"
+    fill="#ffffff"
+    filter="url(#glow)"
+    letter-spacing="10"
+  >NEIL McMAN ISTAN</text>
+
+  <!-- Comma + divorced tag -->
+  <text
+    x="960"
+    y="838"
+    text-anchor="middle"
+    font-family="Georgia, 'Times New Roman', serif"
+    font-size="34"
+    font-style="italic"
+    fill="#888888"
+    letter-spacing="4"
+  >divorced</text>
+
+  <!-- Corner decoration top-left -->
+  <rect x="80" y="60" width="60" height="6" fill="#ff4400" opacity="0.7"/>
+  <rect x="80" y="60" width="6" height="60" fill="#ff4400" opacity="0.7"/>
+
+  <!-- Corner decoration top-right -->
+  <rect x="1780" y="60" width="60" height="6" fill="#ff4400" opacity="0.7"/>
+  <rect x="1834" y="60" width="6" height="60" fill="#ff4400" opacity="0.7"/>
+
+  <!-- Corner decoration bottom-left -->
+  <rect x="80" y="1014" width="60" height="6" fill="#ff4400" opacity="0.7"/>
+  <rect x="80" y="960" width="6" height="60" fill="#ff4400" opacity="0.7"/>
+
+  <!-- Corner decoration bottom-right -->
+  <rect x="1780" y="1014" width="60" height="6" fill="#ff4400" opacity="0.7"/>
+  <rect x="1834" y="960" width="6" height="60" fill="#ff4400" opacity="0.7"/>
+</svg>
