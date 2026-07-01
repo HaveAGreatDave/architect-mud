@@ -172,6 +172,8 @@ export const SCHEMA_SQL = `
   ALTER TABLE npcs ADD COLUMN IF NOT EXISTS hp INTEGER DEFAULT 20;
   ALTER TABLE npcs ADD COLUMN IF NOT EXISTS hp_max INTEGER DEFAULT 20;
   UPDATE npcs SET hp=20, hp_max=20 WHERE hp IS NULL OR hp_max IS NULL;
+  ALTER TABLE npcs ADD COLUMN IF NOT EXISTS sex TEXT DEFAULT 'male';
+  UPDATE npcs SET sex='male' WHERE sex IS NULL;
 
   -- Non-takeable scenery (bar counters, stools, beds, tables...). Distinct
   -- from items: items live in player_inventory (including the
