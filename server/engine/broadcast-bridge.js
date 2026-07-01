@@ -11,3 +11,7 @@ export function isNpcScheduledNow(npcId) { return _npcScheduleChecker ? _npcSche
 let _npcStudioZoneLookup = null;
 export function registerNpcStudioZoneLookup(fn) { _npcStudioZoneLookup = fn; }
 export function getNpcStudioZone(npcId) { return _npcStudioZoneLookup ? _npcStudioZoneLookup(npcId) : null; }
+
+let _zoneWatchedChecker = null;
+export function registerZoneWatchedChecker(fn) { _zoneWatchedChecker = fn; }
+export function isZoneWatched(zoneId) { return _zoneWatchedChecker ? _zoneWatchedChecker(zoneId) : false; }

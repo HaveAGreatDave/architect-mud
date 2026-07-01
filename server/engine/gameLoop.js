@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import { propagateSound } from './sounds.js';
 import { enemyAttackPlayer, enemyAttackNpc, npcAttackPlayer, isOnCooldown, pvpSwing, formatBattleCry } from './combat.js';
 import { tickEntityAI } from './ai-behaviour.js';
+import { npcBanterTick } from './npc-banter.js';
 import { restockAllVendors } from './vendor.js';
 import { offlineSleepSwing } from './commands/combat.js';
 import { tickEffects } from './effects.js';
@@ -35,6 +36,7 @@ export function startGameLoop(broadcast) {
   schedule('15s', sittingRegenTick);
   schedule('1m', rentCollectionTick);
   schedule('1m', npcWanderTick);
+  schedule('30s', () => npcBanterTick({ broadcast: broadcastFn }));
   schedule('24h', dailyMaintenance);
   console.log('✓ Game loop started');
 }

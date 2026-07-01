@@ -921,6 +921,19 @@ body {
 	color: var(--cyan);
 	font-weight: 600;
 }
+/* Poker table's per-seat chair list — collapsed by default in the area pane. */
+.poker-chairs > summary {
+	cursor: pointer;
+	color: var(--text-dim);
+	width: fit-content;
+}
+.poker-chairs > summary:hover {
+	color: var(--accent);
+}
+.poker-chairs-list {
+	display: block;
+	padding: 2px 0 0 14px;
+}
 .enemies-label {
 	color: var(--orange);
 }

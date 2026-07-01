@@ -180,6 +180,14 @@ export async function cmdAttack(targetStr, player, broadcast) {
 		}
 	}
 
+	// No enemy or NPC matched — check for destructible infrastructure (generators,
+	// junction boxes) before falling through to players.
+	{
+		const { cmdAttackDestructible } = await import('./infrastructure.js');
+		const infra = await cmdAttackDestructible(targetStr, player, broadcast);
+		if (infra) return infra;
+	}
+
 	// No enemy or NPC matched — check for a player in the zone (live first, then offline)
 	const liveOthers = getZonePlayers(player.current_zone).filter((p) => p.id !== player.id);
 	const attackPool = liveOthers.map(p => ({ ...p, name: p.handle }));
@@ -728,6 +736,10 @@ export const handlers = {
 		cmdAttack(args.join(" "), player, broadcast),
 	k: (args, raw, player, broadcast) =>
 		cmdAttack(args.join(" "), player, broadcast),
+	repair: async (args, raw, player, broadcast) => {
+		const { cmdRepairDevice } = await import('./infrastructure.js');
+		return cmdRepairDevice(args.join(" "), player, broadcast);
+	},
 	stop: (args, raw, player, broadcast) => cmdStop(player, broadcast),
 	disengage: (args, raw, player, broadcast) => cmdStop(player, broadcast),
 	loot: (args, raw, player, broadcast) =>

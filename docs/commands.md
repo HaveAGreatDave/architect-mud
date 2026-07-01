@@ -33,7 +33,7 @@ Used for all non-combat entity lookup. Fuzzy scoring with a paged disambiguation
 - Scores candidates 0–100 (exact match = 100, substring = 90–99, prefix = 70–88, word overlap = 40–69, partial word match = 10–38).
 - If the top two candidates are within 8 points of each other (and have different names), it returns `type: 'ambiguous'` and presents a numbered selection list.
 - If only one candidate scores above 0, or one has a clear lead (≥8 points), it returns `type: 'match'`.
-- Entry points: `resolve(query, candidates, context)` — SIFT only.
+- Entry points: `resolve(query, candidates, context)` — SIFT only; and `matchAll(query, candidates)` — returns **all** candidates scoring above 0, best-first, with no ambiguity gate (for bulk verbs that act on every match rather than prompting, e.g. `drop all <filter>`).
 
 ### Selection State (disambiguation UI)
 
@@ -119,7 +119,7 @@ const target = result.candidate; // auto-selected by FATE, no UI
 | `economy.js` | NPCs (shop) | SIFT with disambiguation UI |
 | `economy.js` | Vendor stock items (buy) | SIFT with disambiguation UI |
 | `world.js` | Enemies + NPCs + players (examine) | SIFT with disambiguation UI, combined pool |
-| `inventory.js` | Items (take, drop) | SIFT via `dispatchType/dispatchParam` |
+| `inventory.js` | Items (take, drop) | SIFT via `dispatchType/dispatchParam`; `drop all` → `confirm` result (`drop __allconfirm`, sheds everything incl. equipped); `drop all <filter>` → `matchAll`, drops every match with no prompt. Equipped items are included and `recomputeArmor`/`recomputeInsulation` re-run if any dropped item was equipped |
 | `inventory.js` | Players (give) | SIFT scoring only, error on ambiguous |
 | `housing.js` | Windows (open, close) | SIFT with disambiguation UI |
 | `bodily.js` | Players (pee, poop on target) | SIFT with disambiguation UI |

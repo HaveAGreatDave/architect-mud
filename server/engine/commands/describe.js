@@ -393,9 +393,16 @@ export async function describeZone(zone, player) {
 	}
 
 	if (furniture.length) {
-		const visibleFurniture = isDark
+		// Plugins may claim some furniture (e.g. the poker table's chairs) and
+		// render their own panel for it. Suppressed ids drop out of the plain list.
+		const panel = isDark
+			? null
+			: await fireHook("zone.furniturePanel", zone, furniture, player);
+		const suppress = new Set(panel?.suppressIds || []);
+		const visibleFurniture = (isDark
 			? furniture.filter((f) => f.object_type === "light")
-			: furniture;
+			: furniture
+		).filter((f) => !suppress.has(f.id));
 		if (visibleFurniture.length) {
 			const furnitureLinks = visibleFurniture.map((f) => {
 				const stateTag =
@@ -411,6 +418,7 @@ export async function describeZone(zone, player) {
 			});
 			desc += `\n<span class="furniture-label">Furniture:</span> ${furnitureLinks.join(", ")}`;
 		}
+		if (panel?.html) desc += `\n${panel.html}`;
 	}
 	if (!isDark) {
 		const { rows: zoneGens } = await query(

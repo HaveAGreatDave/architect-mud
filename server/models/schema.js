@@ -190,6 +190,21 @@ export const SCHEMA_SQL = `
   ALTER TABLE npcs ADD COLUMN IF NOT EXISTS vendor_bank_credits INTEGER DEFAULT 0;
   ALTER TABLE npcs ADD COLUMN IF NOT EXISTS vendor_shop_name TEXT;
   ALTER TABLE npcs ADD COLUMN IF NOT EXISTS home_activities JSONB DEFAULT '[]';
+  -- Per-NPC ambient-banter scripts (array of threads; each thread is an array of
+  -- turn strings). Added to the shared library pool when this NPC starts a scene.
+  ALTER TABLE npcs ADD COLUMN IF NOT EXISTS banter JSONB DEFAULT '[]';
+
+  -- Shared ambient-banter library: little back-and-forth scenes idle NPCs play
+  -- out when they share a witnessed zone. personality NULL/'' = generic (fits any
+  -- NPC); a slug limits the thread to that archetype's initiator. lines = ordered
+  -- turns, spoken by alternating participants.
+  CREATE TABLE IF NOT EXISTS npc_banter_threads (
+    id TEXT PRIMARY KEY,
+    personality TEXT,
+    lines JSONB NOT NULL DEFAULT '[]',
+    enabled BOOLEAN DEFAULT TRUE,
+    sort_order INTEGER DEFAULT 0
+  );
 
   -- Non-takeable scenery (bar counters, stools, beds, tables...). Distinct
   -- from items: items live in player_inventory (including the

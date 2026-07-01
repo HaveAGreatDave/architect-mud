@@ -34,6 +34,7 @@ import "./engine/graph.js";
 import { loadRecipes } from "./engine/crafting.js";
 import { loadDrugs } from "./engine/drugs.js";
 import { loadMutations } from "./engine/mutations.js";
+import { loadBanterLibrary } from "./engine/npc-banter.js";
 import {
 	handleApiRequest,
 	setBroadcast,
@@ -1038,6 +1039,7 @@ async function boot() {
 	await loadRecipes();
 	await loadDrugs();
 	await loadMutations();
+	await loadBanterLibrary();
 	await loadPlugins();
 	try {
 		await initEnvironment({

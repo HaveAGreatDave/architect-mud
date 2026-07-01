@@ -460,6 +460,12 @@ export class GameTable {
         || null;
   }
 
+  // The living dealer NPC's name, or null if none is present.
+  dealerName() {
+    const npc = this._dealerNpc();
+    return npc ? npc.name : null;
+  }
+
   _dealerSay(text) {
     if (!text) return;
     // No living dealer NPC at the table — no one to speak. The table falls

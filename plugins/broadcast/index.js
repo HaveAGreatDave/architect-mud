@@ -2625,6 +2625,14 @@ export const routeHandler = async (path, method, body, auth) => {
            VALUES ($1,$2,'junction_box',$3,500,0,'powered',500,500) ON CONFLICT (id) DO NOTHING`,
           [utilityZoneId, `${studio_name || 'Studio'} Power Room`, jboxId]
         );
+        // Physical, destructible junction-box furniture linked to the generator row.
+        await query(
+          `INSERT INTO furniture (id,zone_id,name,description,object_type,flags,hp,hp_max)
+           VALUES ($1,$2,$3,$4,'junction_box',$5,1200,1200) ON CONFLICT (id) DO NOTHING`,
+          [`furn_jbox_${utilityZoneId}_${ts}`, utilityZoneId, `${studio_name || 'Studio'} Junction Box`,
+           'A grey steel junction cabinet of breakers and humming busbars, feeding the building. A small sealed hacking port sits below the latch.',
+           JSON.stringify({ destructible: true, generator_id: jboxId })]
+        );
       }
 
       // Find or create production/control room (up)
@@ -2830,6 +2838,14 @@ export const routeHandler = async (path, method, body, auth) => {
           [jboxId, utilityZoneId, `${studio_name} Junction Box`, cityGenId]
         );
         created.jbox = jboxId;
+        // Physical, destructible junction-box furniture linked to the generator row.
+        await query(
+          `INSERT INTO furniture (id,zone_id,name,description,object_type,flags,hp,hp_max)
+           VALUES ($1,$2,$3,$4,'junction_box',$5,1200,1200) ON CONFLICT (id) DO NOTHING`,
+          [`furn_jbox_${utilityZoneId}_${ts}`, utilityZoneId, `${studio_name} Junction Box`,
+           'A grey steel junction cabinet of breakers and humming busbars, feeding the building. A small sealed hacking port sits below the latch.',
+           JSON.stringify({ destructible: true, generator_id: jboxId })]
+        );
 
         // Register zones in power_zones
         for (const [zid, zname] of [

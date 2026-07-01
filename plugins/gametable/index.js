@@ -345,6 +345,51 @@ async function cmdHelpRouter(args, raw, player) {
   return { type: 'output', message: pokerHelpHTML(t) };
 }
 
+// ── Room description hook ────────────────────────────────────────────────────────
+// The poker chairs are individual furniture rows (Chair 1-4). Listing them all in
+// the room's Furniture: line is noise, and the plain table link buries the way in.
+// This hook suppresses the table's own furniture (chairs + table) from that line
+// and renders a single poker panel: the table, its dealer, and sit/watch buttons.
+
+function renderTablePanel(t, furniture) {
+  const tableFurn = furniture.find(f => f.flags?.game_table_id === t.id && f.flags?.seat_idx == null);
+  const tableName = tableFurn?.name || t.name;
+  const dealer = t.dealerName();
+  const dealerBit = dealer ? ` <span class="text-dim">— dealt by ${dealer}</span>` : '';
+
+  const link = (action, target, label, title) =>
+    `<span class="action-link furniture-link" data-action="${action}" data-target="${target}" title="${title}">${label}</span>`;
+
+  // Per-seat breakdown: empty seats are click-to-sit, taken seats show the handle.
+  const seatBits = t.seats.map((s, i) =>
+    s
+      ? `${i + 1}: <span class="text-dim">${s.handle}</span>`
+      : `${i + 1}: ${link('seat', i + 1, '&lt;EMPTY&gt;', `Take seat ${i + 1}`)}`,
+  );
+
+  // Header actions: Sit drops into the first open seat, Watch spectates.
+  const firstOpen = t.seats.findIndex(s => !s);
+  const actions = [];
+  if (firstOpen >= 0) actions.push(link('seat', firstOpen + 1, 'Sit', 'Take a seat'));
+  actions.push(link('watch', 'poker', 'Watch', 'Watch the game'));
+  if (tableFurn) actions.push(link('examine', tableFurn.name, 'Examine', `Examine ${tableFurn.name}`));
+
+  // The chairs list is collapsed by default — a <details> the player can open.
+  return `<span class="furniture-label">Poker:</span> <span class="furniture-link">${tableName}</span>${dealerBit}`
+    + `   ·   ${actions.join('   ')}`
+    + `<details class="poker-chairs"><summary>Chairs <span class="text-dim">(${t.seatedCount()}/${MAX_SEATS})</span></summary>`
+    + `<span class="poker-chairs-list">${seatBits.join(', ')}</span></details>`;
+}
+
+async function furniturePanel(zone, furniture, player) {
+  const t = tableInZone(zone.id);
+  if (!t) return undefined; // no table here — leave furniture rendering untouched
+  const suppressIds = furniture
+    .filter(f => f.flags?.game_table_id === t.id)
+    .map(f => f.id);
+  return { suppressIds, html: renderTablePanel(t, furniture) };
+}
+
 // ── Tick ───────────────────────────────────────────────────────────────────────
 
 let ticking = false;
@@ -383,6 +428,10 @@ setInterval(() => tableTick().catch(e => console.error('[gametable] tick:', e.me
 console.log('[gametable] Plugin loaded.');
 
 // ── Exports ────────────────────────────────────────────────────────────────────
+
+export const hooks = {
+  'zone.furniturePanel': furniturePanel,
+};
 
 export const commands = {
   join:      cmdJoin,

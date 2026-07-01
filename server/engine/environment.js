@@ -911,6 +911,13 @@ async function simulatePowerNetwork(query, { weatherType }) {
   // city_plant and player types; junction boxes are hardwired inside buildings.
   const updatedStatus = new Map();
   for (const gen of allGenerators) {
+    // A destroyed unit (its physical furniture was smashed apart) stays dark
+    // regardless of type — this is what cuts power to everything downstream.
+    if (gen.flags?.destroyed) {
+      updatedStatus.set(gen.id, { ...gen, status: 'offline' });
+      await query(`UPDATE generators SET status=$1 WHERE id=$2`, ['offline', gen.id]);
+      continue;
+    }
     let status = (gen.generator_type === 'player') ? gen.status : 'online';
     if (status === 'flickering') status = 'online';
     let fuelRemaining = gen.fuel_remaining;
@@ -1096,6 +1103,36 @@ async function simulatePowerNetwork(query, { weatherType }) {
     const cap = z.max_capacity_kw ?? 1000;
     await query(`UPDATE power_zones SET status='offline', available_kw=0, capacity_kw=$1 WHERE id=$2`, [cap, z.id]);
     await applyPowerLightEffects(query, z.id, z.status, 'offline', 0, cap);
+  }
+
+  await reconcileDevicePower(query);
+}
+
+// Tracks the last-known operational state of each destructible power device
+// (generator / junction box) so we fire a one-shot event — the power-up/down
+// sound + flash — only on a transition, never every tick. Operational is keyed
+// on the device's own zone power status, which uniformly captures both a smashed
+// unit (its generator offlines → zone dark) and an upstream blackout.
+const _devicePowerState = new Map(); // furnitureId -> boolean
+
+async function reconcileDevicePower(query) {
+  const { rows } = await query(
+    `SELECT f.id, f.zone_id, f.name, f.object_type, f.hp,
+            COALESCE(pz.status,'offline') AS zone_status
+       FROM furniture f
+       LEFT JOIN power_zones pz ON pz.id = f.zone_id
+      WHERE f.hp_max IS NOT NULL`
+  );
+  for (const d of rows) {
+    const destroyed = (d.hp ?? 1) <= 0;
+    const operational = !destroyed && d.zone_status === 'powered';
+    const prev = _devicePowerState.get(d.id);
+    _devicePowerState.set(d.id, operational);
+    if (prev === undefined || prev === operational) continue; // first sight / no change
+    emit('device.power.changed', {
+      zoneId: d.zone_id, deviceId: d.id, name: d.name,
+      deviceType: d.object_type, operational,
+    });
   }
 }
 
@@ -1323,13 +1360,17 @@ function broadcastZoneWeather(occupied) {
       precipType: active && f.precipType !== 'none' ? f.precipType : 'none',
       precipRate: active ? f.precipRate : 0,
     });
-    // Signal the audio layer which precipitation ambience (if any) this tile is
-    // under. `precipType` carries the full taxonomy (state.currentPrecip);
-    // `active` is whether this specific tile is under a precip cell right now.
+    // Signal the audio layer what weather ambience this tile is under. The audio
+    // plugin runs two reactive beds off this: a precip bed (type from the full
+    // taxonomy state.currentPrecip, gated + gain-scaled by this tile's local
+    // precipRate) and a wind bed (gain-scaled by the day's windKph).
+    const tileActive = active && f.precipType !== 'none';
     emit('weather.zoneAmbience', {
       zoneId,
       precipType: state.currentPrecip,
-      active: active && f.precipType !== 'none',
+      active: tileActive,
+      precipRate: tileActive ? f.precipRate : 0,
+      windKph: state.forecast[0]?.windKph ?? 0,
     });
   }
 }

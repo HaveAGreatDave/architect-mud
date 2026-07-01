@@ -1,6 +1,6 @@
 # AMP Format — Architect Music Player Asset Specification
 
-`.amp` files are plain JSON exports from the devpanel Audio tab. Each file contains either a single preset object or an array of preset objects. The format covers four asset types: **instruments**, **songs**, **sfx**, and **ambient**.
+`.amp` files are plain JSON exports from the devpanel Audio tab. Each file contains either a single preset object or an array of preset objects. The format covers five asset types: **instruments**, **songs**, **sfx**, **ambient**, and **samples**.
 
 ---
 
@@ -307,14 +307,24 @@ The key addition over a flat config is **`delay`**: a per-layer start offset in 
 
 ---
 
+## Samples
+
+A sample is a stored PCM/WAV clip (base-64 in `data`) that instruments play back instead of synthesizing. Backed by `audio_samples` rows; instruments reference one via `sample_id`. Import/export fields: `name`, `category`, `priority`, `data`, `mime_type`, `base_note`, `loop_start`, `loop_end`, `snes_rate`, `snes_bits`, `echo_mix`, `config`, `enabled`. Finetune is carried in `config.detune`. The `.MOD` importer creates one sample (and a wrapping instrument) per used tracker sample.
+
+---
+
 ## Import / Export
 
-All four asset types export to `.amp` files from the devpanel Audio tab (⬇ button per row). The Load button (⬆) on each tab accepts `.amp` or `.json`.
+All five asset types export to `.amp` files from the devpanel Audio tab (⬇ button per row). The Load button (⬆) on each tab accepts `.amp` or `.json`.
 
 - **Single preset:** the root object is a single asset.
 - **Batch:** the root object is a JSON array of assets.
 - Importing always creates new rows — source IDs are never carried over, so importing can't silently collide with an existing asset by ID.
 - Only fields in the whitelist for that asset type are accepted; unknown fields are ignored.
+
+### `.MOD` import
+
+The Audio tab can import Amiga/ProTracker `.mod` modules (Songs tab → Import MOD). The importer renders one sample + wrapping instrument per used tracker sample and builds a song at the **module's own tempo**. It honors volume, arpeggio, portamento, tone-portamento, vibrato and volume-slide effects (into per-step `fx`), sample finetune (into `config.detune`), pattern break/jump (as the song loop point), and Amiga L-R-R-L stereo panning (into `channel_pan`).
 
 ---
 

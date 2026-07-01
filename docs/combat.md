@@ -137,10 +137,19 @@ enemy behaviour:
 but the `enemies.xp_reward` column is not that path.) Both fields are dropped from the dev panel and
 no longer read by the engine; the columns linger in the DB but are vestigial.
 
-> **Disconnected system:** enemies do **not** create corpses. `createCorpse()` ([world.js](../server/engine/world.js))
-> has no callers, and the `loot <corpse>` command reads from `_corpse_<zone>` while kills write to
-> `_ground_<zone>`. The corpse system (corpse rendering, `cleanCorpses`, `loot` command) is currently
-> dead. Kill loot reaches players only via `take`.
+> **Partially disconnected system:** enemies do **not** create corpses. `createCorpse()` ([world.js](../server/engine/world.js))
+> has no callers, and the enemy-corpse path (`_corpse_<zone>` rendering, `cleanCorpses`) is dead — kill
+> loot reaches players only via `take` from the ground. The `loot` command itself is **not** dead,
+> though: `cmdLootCorpse`/`resolveCorpseOrPlayer` fall back to looting a **sleeping or offline player**
+> in the zone (see below).
+
+### Looting a sleeping player (Deception-gated)
+
+`cmdLootCorpse` selects `offline_sleeping` targets and, when the target is `sleeping || offline_sleeping`,
+routes through `attemptSneakyLoot`. If any **awake witnesses** are present (`getZonePlayers`, excluding
+self / target / other sleepers) the deed is broadcast and gated on `skillCheck(player, "deception", 4 + 3 × witnesses.length)`
+(with `awardSkillUse`); failure aborts with an emote and does **not** open the loot view. With no
+witnesses it proceeds silently. This is the sneaky-loot seam the future Crime System will own.
 
 ## Skill gain from combat
 

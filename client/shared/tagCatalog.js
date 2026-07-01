@@ -91,6 +91,8 @@
       help: 'Chance to inflict a status, e.g. { "stunned": 0.3 }.' },
     butchering: { label: 'Butchering Tool', shape: 'flag', scope: 'class', group: 'Combat',
       help: 'Carrying any item with this tag lets you butcher corpses (knives, blades, etc.).' },
+    demolition: { label: 'Demolition Tool', shape: 'flag', scope: 'class', group: 'Combat',
+      help: 'Marks a heavy tool/weapon (sledgehammer, cutting torch, breaching charge) capable of damaging armoured industrial infrastructure — generators and junction boxes. The main power plant can ONLY be damaged by an equipped item with this tag.' },
 
     // --- Consumable effects ---
     restore_hp: { label: 'Restore HP', shape: 'int', scope: 'class', group: 'Consumable',

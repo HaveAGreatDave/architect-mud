@@ -256,9 +256,10 @@ apartments        -- zone_id (PK), owner_id, owner_handle, is_locked, lock_diffi
 
 -- Environment system (schema in server/models/schema.js)
 world_clock       -- single-row clock: game_date, game_time_minutes, day_of_week, season, last tick timestamps
-weather_forecast  -- 7-day deterministic seeded forecast
-generators        -- id, zone_id, name, generator_type (building/city_plant/player), capacity_kw, status; only
-                   -- 'player' type consumes fuel — building/city_plant generators are permanent, no fuel
+weather_forecast  -- 7-day deterministic seeded forecast (per-day weather_type, temp, wind_kph, humidity_pct)
+generators        -- id, zone_id, name, generator_type (city_plant/junction_box/player), capacity_kw, status;
+                   -- city_plant + junction_box are permanent (no fuel); only 'player' type consumes fuel.
+                   -- junction_box links to its parent city_plant via city_generator_id
 power_zones       -- id (= a zone id), source_type, generator_id (FK), capacity_kw, current_load_kw, status
                    -- (powered/overloaded/offline) — a zone with no row here is simply unpowered
 lighting_states   -- zone_id (PK), has_emergency_lighting, artificial_light_level, fixture_count
@@ -278,17 +279,18 @@ Ground-dropped items reuse the `player_inventory` table with a synthetic `player
 
 `environment.js` owns a second in-memory cache (`state`), parallel to and independent of `world.js`'s entity cache. It's populated and refreshed on its own schedule rather than through the main game loop.
 
-**Time & weather.** A single-row game clock (`world_clock`) advances in-game minutes, tracks day/night phase (dawn/day/dusk/night) and season, and drives a 7-day deterministic seeded weather forecast. Two ticks run independently of `gameLoop.js`'s own timers: a 30-minute tick (ambient light recalculation, street light toggling) and a 24-hour tick (full power network simulation, weather advancement).
+**Time & weather.** A single-row game clock (`world_clock`) advances in-game minutes, tracks day/night phase (dawn/day/dusk/night) and season, and drives a 7-day deterministic seeded weather forecast (owned by the **weather** plugin — see [plugins.md](plugins.md)). Five ticks run independently of `gameLoop.js`'s own timers: a **1-minute** tick (advance the game clock + step indoor HVAC temperatures + broadcast), a **30-second** tick (advect the moving weather field, push per-zone weather, reconcile streetlights for occupied zones), a **5-minute** tick (brownout rotation, only while a zone is overloaded), a **30-minute** tick (ambient-light recalculation, full streetlight sweep), and a **24-hour** tick (weather advancement, power re-simulation).
 
-**Power grid.** Generators are either permanent (`building` and `city_plant` types — no fuel, never run dry) or fuel-consuming (`player` type, for future portable generators). Installing a generator from the Zone Editor's Generator sub-section computes a "network" of zones it powers:
-- A `city_plant` generator's network is every zone that isn't flagged `is_apartment`/`is_interior` — i.e. every outdoor zone gets city power from one source.
-- A `building` generator's network is found by a BFS that walks exits in both directions, only crossing into zones flagged `is_apartment`/`is_interior` — i.e. it powers exactly the rooms that belong to that building, no further.
+**Power grid.** Generators come in three types: `city_plant` and `junction_box` are permanent (no fuel, never run dry), `player` is fuel-consuming (portable generators). Distribution is hierarchical — city_plant → junction_box → zone (`simulatePowerNetwork` runs it in phases):
+- A `city_plant` feeds every outdoor zone plus the junction boxes wired to it (via `city_generator_id`).
+- A `junction_box` powers one building's interior zones (those grouped by the `is_building` flag), with a capped throughput drawn from its parent city_plant.
+- There is **no** `building` generator type; a building is powered by its junction box.
 
-Each zone in the network gets a `power_zones` row and a `lighting_states` row. A simple load-vs-capacity ratio per zone decides `powered`/`overloaded`/`offline` (`POWER_OVERLOAD_RATIO`/`POWER_BLACKOUT_RATIO`), re-simulated on every 24-hour tick and immediately on any install/remove via an exported `recomputePower()` rather than waiting for the next tick.
+Each zone in the network gets a `power_zones` row and a `lighting_states` row. Status (`powered`/`overloaded`/`offline`, gated by `POWER_OVERLOAD_RATIO`) comes from each consumer's **allocated-vs-demanded** power across the city_plant→junction_box→zone phases, re-simulated on every 24-hour tick and immediately on any install/remove via an exported `recomputePower()` rather than waiting for the next tick.
 
 **Lighting.** Two kinds of light fixture exist as `furniture` rows (`is_light`, `light_on`, `light_type`):
 - **Overhead / lamp** — indoor, player-switchable via the `switch`/`flip` command, blocked if the room has no power record at all.
-- **Streetlight** — outdoor, *not* player-switchable; toggled automatically by the 30-minute tick on dusk/dawn phase transitions, and re-synced to the current phase on every server boot in case of a restart at night.
+- **Streetlight** — outdoor, *not* player-switchable; reconciled **per-zone against each zone's local ambient visibility** (time-of-day light attenuated by that zone's local weather cell, `vis < VISIBILITY_DIM`), so a storm cell rolling over one block lights it while clear blocks stay dark. Swept on the 30-minute tick and re-reconciled every 30 seconds for occupied zones; also re-synced on every server boot.
 
 **Visibility.** `getZoneVisibility(zoneId)` combines ambient light (time of day) with artificial light (power status + lit fixture count) and weather/fog factors into a `clear`/`dim`/`dark` category, appended as a flavor line to every room description. This is deliberately informational only — darkness doesn't currently hide exits, items, or NPCs; that's flagged as a possible future extension, not something this pass built.
 
@@ -367,8 +369,8 @@ export const routeHandler = (path, method, body, auth) => { /* dev CRUD */ };
 | `zone.describeRoom` | Room description is generated — return value appended to the description text |
 | `zone.describeAmbient` | Periodic ambient tick (45s) for occupied zones — return value broadcast as ambient flavor |
 | `zone.create` / `zone.update` / `zone.delete` | Zone lifecycle events from the dev panel API |
-| `environment.init` | Fired once at server boot after the clock is initialized — receives `{ setWeatherState }` |
-| `environment.advanceWeather` | Fired at the start of each 24h tick BEFORE power simulation — receives `{ setWeatherState, currentForecast, currentDate }` |
+| `environment.init` | Fired once at server boot after the clock is initialized — receives `{ setWeatherState, setCurrentPrecip, climateProfile, registerWeatherField, registerWeatherFieldSnapshot, registerWeatherFieldAdvance }` |
+| `environment.advanceWeather` | Fired at the start of each 24h tick BEFORE power simulation — receives `{ setWeatherState, rollAndSetCurrentPrecip, getHUDPayload, broadcast, currentForecast, currentDate, climateProfile }` |
 | `environment.tick30m` / `environment.tick24h` | Environment system's own ticks (ambient light/street lights; full power simulation) |
 | `environment.weatherChange` / `environment.sunrise` / `environment.sunset` | Fired from inside the environment ticks above |
 | `worldValidator.runFull` / `worldValidator.runZone` | On-demand only — fired by a dev-panel button via `worldvalidator.routes.js`, not on a tick |

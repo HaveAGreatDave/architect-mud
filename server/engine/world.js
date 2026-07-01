@@ -92,6 +92,7 @@ async function loadNpcs() {
       wander_zones: npc.wander_zones || [],
       behaviour_graph: npc.behaviour_graph || {},
       flags: npc.flags || {},
+      banter: npc.banter || [],
       _ai: { currentNode: null, waitUntil: null, patrolPath: [], patrolTarget: null, patrolMode: 'walk', patrolIndex: 0, alertCooldown: 0, lastSay: 0, flags: {} },
     });
     if (npc.zone_id && world.zones.has(npc.zone_id)) {

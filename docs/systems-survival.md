@@ -114,6 +114,52 @@ Two hidden float columns on the `players` row — `digestive_load` (bowel) and `
 
 `foodLoad(restoreHunger)` and `drinkLoad(restoreThirst)` are exported so the `use`/`eat`/`drink` path can apply load at the same time as it applies the hunger/thirst restore.
 
+## Body temperature & thermal comfort
+
+`players.body_temp_c` (float, initialised to `37.0` on login in [index.js](../server/index.js)), drifted once per minute by `resourceTick` in [gameLoop.js](../server/engine/gameLoop.js) for each awake player. Clamped to **25–45°C** and rounded to one decimal. This is an **engine** system; the clothing fields it reads (`player.insulation`, `player.exposurePenalty`) are derived by `recomputeInsulation` in [inventory.js](../server/engine/commands/inventory.js), and the wetness field it reads (`player.wetness`) is owned by the clothing-wetness plugin (see below). The three must agree on those field names.
+
+**Ambient the body drifts toward.** `getZoneApparentTemperature(zoneId, tempOffset)` in [environment.js](../server/engine/environment.js) — the "feels like" temperature (diurnal + per-tile weather offset outdoors, or a stored interior temp indoors; wind chill + humidity folded in outdoors only). See the apparent-temperature detail in [systems-world.md](systems-world.md); the temperature tick does not re-derive the curves.
+
+**Clothing offsets.** Two effective temperatures are computed from the ambient:
+- `warmthTemp = effectiveAmbient + insulation − exposurePenalty` — used on the **cold** side.
+- `heatTemp = effectiveAmbient + insulation` — used on the **hot** side.
+
+`recomputeInsulation(player)` sums the `insulation` tag value of every equipped item into `player.insulation` and sets `player.exposurePenalty = (torso covered ? 0 : 10) + (legs covered ? 0 : 5)` from the equipped items' `slot` tags. The exposure penalty is subtracted **only on the cooling side**, so bare skin makes the cold bite (torso dominant, legs secondary) but is a relief in the heat. `recomputeInsulation` (alongside `recomputeArmor`) is re-run on every equip/unequip and on bulk-drop of equipped items, so the fields stay current.
+
+**Drift.** With `COLD_THRESHOLD = 10` and `HOT_THRESHOLD = 35`:
+- **Cooling** (`warmthTemp < 10`): body temp falls by `baseDrift × wetMult` per minute, where `baseDrift = 0.002 × |10 − warmthTemp|^1.75` and `wetMult = 1 + wetness/100` (soaked ≈ 2× faster cooling).
+- **Heating** (`heatTemp > 35`): body temp rises by `baseDrift × wetMult`, `baseDrift = 0.002 × (heatTemp − 35)^1.75`, `wetMult = max(0.70, 1 − wetness × 0.003)` (being wet mildly slows overheating via evaporative cooling).
+- **Comfort band** (neither): metabolic thermoregulation relaxes core toward 37°C exponentially, `cur + (37 − cur) × 0.05` per minute (snaps to 37.0 within 0.1°C). A ~3°C deficit recovers in ~35 min.
+
+Drift examples: `|diff|=10 → 0.11°C/min`; `|diff|=20 → 0.38°C/min`.
+
+**Effects of core temperature** (on `body_temp_c` after drift):
+- **Danger HP loss:** freezing (`<30°C`) or overheating (`>42°C`) increments `player._dangerousTempTicks`; after **5 continuous minutes** it deals **−10 HP/min** (hypothermia / heat stroke message), floored at 0 and feeding `handlePlayerDeath`. Any non-dangerous tick resets the counter, so short spells don't kill.
+- **Thirst drain:** hot/overheating (`>40°C`) drains 1 extra thirst on a 50% roll per minute.
+- **Stamina:** freezing/overheating drain −3/min, cold (`30–34°C`) or hot (`40–42°C`) drain −1/min; otherwise passive regen of `floor(2 × tempRegenMultiplier(tempC))` — full regen in 36–38°C (and mildly-hot 38–40°C), tapering to 0 at `<30°C` or `>42°C`.
+- **Flavour:** `tempFlavorMessage(tempC, tick)` emits banded ambient lines (chilly → shivering → hypothermia; warm → sweating → heat stroke), rate-limited by tick count so they don't spam. Silent in the 36–38°C comfort band.
+
+`body_temp_c` is persisted each tick and pushed to the client in the `resource_tick` `player_update` whenever it changes.
+
+## Clothing wetness & drying
+
+The [clothing-wetness plugin](../plugins/clothing-wetness/index.js). This is a **plugin**, not engine code: its `tick.minute` hook walks every live, awake player, updates per-item wetness, and writes the aggregate to `player.wetness` — the field the engine's temperature tick reads as `wetMult`. Wetness is stored **per item** in `player_inventory.custom_data.wetness` (0–100 integer, merged via a `jsonb ||` update only when the rounded value changes); `player.wetness` is the mean over equipped wettable items. Only items tagged **`gets_wet`** accumulate wetness; a player with no such equipped item has `player.wetness = 0`.
+
+**Wetting** (outdoors, when `getZonePrecip` reports `precipRate > 0` and the zone is not `flags.is_interior`). Per minute:
+- **Rain:** `rainWettingRate = precipRate² × 30` (quadratic — torrential soaks far faster than drizzle). Light rain (0.3) ≈ 37 min to soaked; moderate (0.5) ≈ 13 min; heavy (0.65) ≈ 8 min; torrential (0.95) ≈ 4 min.
+- **Snow** (`precipType === 'snow'`), piecewise: `≤0.2 → precipRate × 2`; `0.2–0.7 → precipRate × 6`; `>0.7 → min(precipRate × 3, 3)` (blizzard's dry wind caps the soak rate).
+
+Indoors, or when precipitation stops, items **dry** instead.
+
+**Drying.** `dryRate = baseDryRate × dryMultiplier(temp) × windMult × humidMult` per minute:
+- `baseDryRate` = **3 indoors, 2 outdoors**.
+- `dryMultiplier(tempC) = 1 + max(0, tempC − 15)/20` — every 10°C above 15°C adds ~50% (15°C→1×, 25°C→1.5×, 35°C→2×), using `getZoneTemperature`.
+- `windMult = 1 + min(1.5, windKph/30)` and `humidMult = max(0.5, min(1.3, 1.5 − humidityPct/100))` (null humidity → 1×) apply **outdoors only**; interiors treat both as 1× (sheltered, HVAC-neutral).
+
+**Thresholds & messaging.** `WETNESS_THRESHOLDS` at **25 / 50 / 75 / 100** ("starting to get damp" → "getting quite wet" → "very wet" → "completely soaked"), with matching falling messages as you dry ("almost dry" → "drying off" → "drying out"), plus a `"You're completely dry."` line when `player.wetness` reaches 0. Messages fire on the aggregate crossing a threshold in the appropriate direction; a `resource_tick` broadcast with `player_update.wetness` is sent whenever the rounded value changes.
+
+**Feedback into body temperature.** `player.wetness` is consumed by the engine's temperature drift (above): wet clothing accelerates **cooling** (`wetMult = 1 + wetness/100`, up to 2× when soaked) and slightly retards **overheating** (`wetMult = max(0.70, 1 − wetness × 0.003)`). This is the sole cross-system coupling; the plugin owns the wetness value, the engine owns its thermal consequence, and they meet on the `player.wetness` field name. Sleeping players are skipped by the wetness hook.
+
 ## Status effects (framework only)
 
 [effects.js](../server/engine/effects.js) is a clean data-driven framework (`bleeding`, `burning`,

@@ -16,6 +16,7 @@ import { openMorphexPanel } from './panels/morphex.js';
 import { updateForecast } from './panels/forecast.js';
 import { openAtmPanel, closeAtmPanel, updateAtmPanel } from './panels/atm.js';
 import { openMediaDeckPanel, updateMediaDeckBroadcast } from './panels/mediadeck.js';
+import { openDeviceInspectPanel } from './panels/deviceinspect.js';
 import { openTvPanel, isTvOpen, getTvActiveChannelId, appendTvMessage, updateTvTicker, applyTvOverlay, clearTvMessages, showTvOffAir, showTvOnAir, shutdownTvPanel } from './panels/tv.js';
 import { applyEspState, handleEspWarning } from './esp.js';
 import { playPokerSfx } from './poker-sfx.js';
@@ -377,6 +378,7 @@ const handlers = {
   morphex_panel: (msg) => { openMorphexPanel(msg.data); },
   atm_panel: (msg) => { openAtmPanel(msg); },
   mediadeck_panel: (msg) => { openMediaDeckPanel(msg); },
+  device_inspect_panel: (msg) => { openDeviceInspectPanel(msg); },
   deck_broadcast:  (msg) => { updateMediaDeckBroadcast(msg); },
 
   esp_state:   (msg) => { applyEspState(msg); },
@@ -391,7 +393,30 @@ const handlers = {
   audio_stop: (msg) => { window.AudioEngine?.stop(msg.scope, msg.id); },
 
   sound_picker: (msg) => { openSoundPicker(msg.sfx || []); },
+
+  device_power_flash: (msg) => { flashPowerChange(msg.mode, msg.deviceType); },
 };
+
+// Room-wide flash when a generator / junction box loses or regains power.
+// Red stutter on power-down, a clean teal pulse on power-up; generators hit
+// harder than junction boxes.
+function flashPowerChange(mode, deviceType) {
+  const down = mode === 'down';
+  const tint = down ? 'rgba(255,42,52,' : 'rgba(42,236,212,';
+  const peak = (deviceType === 'generator' ? 0.42 : 0.26).toFixed(2);
+  const el = document.createElement('div');
+  el.style.cssText = `position:fixed;inset:0;z-index:9998;pointer-events:none;mix-blend-mode:screen;background:${tint}${peak});opacity:0;transition:opacity .08s ease-out`;
+  document.body.appendChild(el);
+  const blink = (on, after, dur) => setTimeout(() => { el.style.transition = `opacity ${dur}s ease-out`; el.style.opacity = on ? '1' : '0'; }, after);
+  if (down) {
+    // struggling stutter, then die to black
+    blink(true, 0, 0.06); blink(false, 90, 0.05); blink(true, 150, 0.06); blink(false, 260, 0.5);
+    setTimeout(() => el.remove(), 820);
+  } else {
+    blink(true, 0, 0.08); blink(false, 110, 0.55);
+    setTimeout(() => el.remove(), 720);
+  }
+}
 
 export function handleServerMsg(msg) {
   const handler = handlers[msg.type];

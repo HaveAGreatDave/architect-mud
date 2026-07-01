@@ -1,6 +1,6 @@
 # Dev Panel JS Reference
 
-The dev panel (`/dev`) is served from `client/devpanel/`. Its JavaScript lives in `client/devpanel/js/` as 28 plain classic scripts loaded in a fixed order by `index.html`. All scripts share one global scope — no modules, no bundler.
+The dev panel (`/dev`) is served from `client/devpanel/`. Its JavaScript lives in `client/devpanel/js/` as ~38 plain classic scripts (plus the `vine-*` graph-editor files documented in [vine.md](vine.md)) loaded in a fixed order by `index.html`. All scripts share one global scope — no modules, no bundler.
 
 See `client/devpanel/js/README.md` for the load-order contract.
 
@@ -33,7 +33,7 @@ The shared list/edit lifecycle that every panel rides on:
 ### `panels.js`
 The central dispatch table and panel lifecycle. **Must load after all `panels/*` and `ui/*` files** because the `PANELS` object literal evaluates function references at construction time.
 
-- **`PANELS`** — one entry per nav section (dashboard, zones, maps, power, enemies, items, npcs, furniture, recipes, scavenging, scripts, quests, mutations, drugs, sounds, tags, worldstate, timeweather, players, validator, changes). Each entry declares `title`, `fetch`, optional `columns`, `editForm`, `save`, `delete`, and `render`.
+- **`PANELS`** — one entry per nav section (dashboard, zones, maps, power, enemies, items, npcs, furniture, recipes, scavenging, scripts, quests, mutations, drugs, sounds, audio, bank, emergency, broadcasts, tags, worldstate, timeweather, players, validator, changes). Each entry declares `title`, `fetch`, optional `columns`, `editForm`, `save`, `delete`, and `render`.
 - `activatePanelNav(name)` — highlights the active nav item.
 - `showPanel(name)` / `loadPanel(name)` — fetch data, call the panel's render function, wire up the toolbar.
 
@@ -80,6 +80,9 @@ The floating whisper chat panel:
 - `toggleWhisperPanel()` / `openWhisper(id, handle)` / `closeWhisper()` — show/hide/target.
 - `sendWhisper()` — POSTs a whisper message via the API.
 - Holds `_whisperTargetId`, `_whisperTargetHandle`, `_whisperPanelOpen`, `ADMIN_ROLES`.
+
+### `markup.js`
+A dev-panel port of the client chat markup parser (`client/game/js/markup.js`). HTML-escapes input first, then applies BBCode. Because the dev panel has no live player state, `$token` expansion only resolves `$name` (→ the admin handle); every other token passes through untouched. Holds `_MARKUP_TOKEN_PATTERN`.
 
 ---
 
@@ -196,6 +199,21 @@ The Power Grid panel.
 - **Internal helpers**: `_refreshPowerMapData()`, `_buildJbByOutdoor()`.
 - Holds `powerPanelGenerators`, `powerPanelMode`, `powerPanelView`, `powerPanelBuilding`, `powerJbByOutdoor`.
 
+### `bank.js`
+The Bank panel — ATM network overview, unit management, and network CRUD (see [systems-atm.md](systems-atm.md)).
+
+- **Panel render**: `renderBankPanel()`, `_renderBankBody()`.
+- **ATM units**: `bankFillAtm()`, `bankRepairAtm()`, `bankSetStock()`, `bankEditUnit()`, `bankSaveUnit()`, `bankReplenishAll()`, `bankRenameAtm()`, `bankDeleteAtm()`, `bankCreateAtm()`, `bankCreateAtmSave()`.
+- **Networks**: `_networkModal()`, `bankNewNetwork()`, `bankEditNetwork()`, `bankSaveNetwork()`, `bankDeleteNetwork()`, `bankInjectNetwork()`.
+- Holds `_bankUnits`, `_bankNetworks`, `_bankZones`.
+
+### `emergency.js`
+The Emergency Services panel — Emergency Service Provider (ESP) alerts and Arbiter deployment.
+
+- **Panel render**: `renderEmergencyPanel(data)`, `_arbiterDot(arbiters)` (status indicator).
+- **ESP**: `espActivate()`, `espDeactivate()`, `espSaveMessage()`.
+- **Arbiters**: `arbitersActivate()`, `arbitersStandDown()`, `arbitersAdminProtection()`.
+
 ### `broadcast.js`
 The Broadcasts panel — list and modal editor for `media_broadcasts` assets.
 
@@ -219,6 +237,29 @@ The Channels panel — list and visual timeline editor for `media_channels` and 
 - State globals: `_channelList`, `_channelPlaylist`, `_channelBroadcasts`, `_tlScale`, `_tlLoopDuration`, `_tlDragging`, `_tlResizing`.
 - Helper: `escHtml2()` — local escaping helper (avoids colliding with `broadcast.js`'s `escHtml()`).
 
+### `broadcast-schedule.js`
+The 24-hour daily broadcast schedule editor — a zoomable horizontal timeline for arranging broadcasts (and commercials) across a channel's day, with a live "now" line.
+
+- **Panel render**: `renderSchedulePanel()`, `_schedRenderSidebar()`, `_schedRenderContent()`, `_schedChBody()`, `_schedBuildTimeline()`.
+- **Timeline math**: `_schedScale()`, `_schedW()`, `_schedToX()`, `_schedToSec()`, `_schedClamp()`, `_schedZoom()`, `_schedZoomLabel()`, `_schedFmtTime()`, `_schedUpdateNowLine()`.
+- **Channels/items**: `_schedToggleNewCh()`, `_schedCreateChannel()`, `_schedLoadItems()`, `_schedSaveChMeta()`, `_schedMarkDirty()`, `_schedUpdateSaveBtn()`.
+- State globals: `_schedChannels`, `_schedBroadcasts`, `_schedNpcs`.
+
+### `broadcast-themes.js`
+The Broadcast Themes panel — create/edit CSS-variable overrides for the TV panel, with live preview and color pickers. Colors can be derived from a UI theme (`_broadcastColorsFromTheme`).
+
+- `renderThemesPanel()`, `openBroadcastThemeEditor()`, `_themePickerSync()`, `_themeTextSync()`, `_themeApplyPreset()`, `_updateThemePreview()`, `saveTheme()`, `deleteTheme()`.
+- Helper: `escHtml3()` (local escape, avoids colliding with the other broadcast panels' helpers).
+
+### `broadcast-graphics.js`
+The Broadcast Graphics panel — an ASCII-art library for VINE `title_card` nodes, with an interactive canvas grid editor (paint chars/colors, import from text or SVG).
+
+- **Panel/editor**: `renderGraphicsPanel()`, `openGraphicEditor()`, `_grTab()`.
+- **Palette/tools**: `_grBuildPalette()`, `_grSelectChar()`, `_grSetColor()`, `_grToggleErase()`.
+- **Canvas**: `_grInitCanvas()`, `_grCellSize()`, `_grRedraw()`, `_grCellFromEvent()`, `_grPaintCell()`, `_grKeydown()`, `_grResize()`, `_grClear()`.
+- **Import/sync**: `_grParseLine()`, `_grLoadFromText()`, `_grImportFromText()`, `_grLoadSvgFile()`, `_grSyncToTextarea()`.
+- Holds `ASCII_PALETTE`.
+
 ### `sounds.js`
 The Sounds & Ambience panel.
 
@@ -226,6 +267,16 @@ The Sounds & Ambience panel.
 - Sound CRUD: `newSound()`, `editSound()`, `deleteSound()`, `openSoundModal()`.
 - Ambient event CRUD: `newAmbientEvent()`, `editAmbientEvent()`, `deleteAmbientEvent()`, `toggleAmbientEvent()`, `openAmbientEventModal()`.
 - Holds `AMBIENT_THEMES`, `SOUND_CATEGORIES`.
+
+### `audio.js`
+The Audio editor — procedural Web Audio assets (instruments, songs, sfx, ambient, samples). **Separate from `sounds.js`**, which is the text-based gameplay Sound system; the two are never merged. Functional forms plus instant local preview through `window.AudioEngine` against the browser's own `AudioContext` (no server round-trip); no canvas/timeline editor yet.
+
+- **Panel/tabs**: `renderAudioPanel()`, `setAudioTab()`, `renderAudioTabBody()`, `findAudioAsset()`, `_resolveInstrumentsById()`.
+- **Preview**: `previewAudioAsset()`, `stopAllAudioPreviews()`.
+- **Export**: `exportAudioAsset()` (writes `.amp` JSON — see [amp-format.md](amp-format.md)).
+- **Import**: `openAudioImportModal()`, and the `.MOD` tracker importer `openModImportModal()` / `_modImport()` with helpers `_parseMod()`, `_modChannelsForTag()`, `_midiToNoteStr()`, `_periodToNote()`, `_cellFx()`, `_modSanitize()`, `_pcm8ToWavBase64()`. The MOD importer imports at the module's own tempo and honors volume, arpeggio, portamento, tone-portamento, vibrato and volume-slide effects, sample finetune, pattern break/jump (loop point), and Amiga stereo panning.
+- **Editor + save**: `newAudioAsset()`, `editAudioAsset()`, and per-type form/save handlers.
+- Holds `AUDIO_IMPORT_FIELDS` (the per-type field lists for import/export).
 
 ### `players.js`
 The Players panel and player editor.

@@ -107,7 +107,7 @@ function getNextShiftWakeMs(entity) {
 // Format a chitchat line the same way as enemy battlecries:
 //   "quoted text"  → yellow say bubble    e.g. "You need something?"
 //   unquoted text  → zone_event emote      e.g. drums fingers on the counter.
-function formatChitchat(name, line) {
+export function formatChitchat(name, line) {
   const t = line.trim();
   if (t.startsWith('"') && t.endsWith('"')) {
     return { type: 'output', message: `<span style="color:var(--yellow)">${name} says: ${t}</span>` };

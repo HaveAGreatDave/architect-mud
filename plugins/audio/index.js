@@ -1,10 +1,10 @@
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
-import { getZone } from '../../server/engine/world.js';
+import { getZone, getZonePlayers } from '../../server/engine/world.js';
 import { sendToZone, sendToPlayer } from '../../server/engine/messaging.js';
 import { on, emit } from '../../server/engine/events.js';
 import { propagateAudio } from '../../server/engine/sounds.js';
-import { getZonePrecip, getCurrentPrecipType } from '../../server/engine/environment.js';
+import { getZonePrecip, getCurrentPrecipType, getWindKph } from '../../server/engine/environment.js';
 
 // ── In-memory library cache (loaded from DB at boot, refreshed after CRUD) ──
 
@@ -137,6 +137,7 @@ on('player.logout', ({ id }) => {
 
 on('zone.entered', ({ actor, zone: zoneId }) => {
   reconcilePlayerWeatherAmbient(actor?.id, zoneId);
+  reconcileIndustrialAmbient(actor?.id, zoneId).catch(() => {});
   if (triggerEventRoute(`zone.entered.${zoneId}`, zoneId, actor?.id)) return;
   if (triggerEventRoute('zone.entered', zoneId, actor?.id)) return;
   const zone = getZone(zoneId);
@@ -291,6 +292,79 @@ const SFX_POWER_DRAIN = {
 let _ghostActionCount = 0;
 const GHOST_AMBIENT_EVERY = 5;
 
+// Power-up — a turbine/motor spinning up, mains hum settling in, a breaker
+// clunk and an electrical crackle. The industrial inverse of SFX_POWER_DRAIN.
+const SFX_POWER_UP = {
+  id: 'sfx_power_up', name: 'sfx_power_up', category: 'sfx', priority: 6,
+  config: {
+    duration: 1.8,
+    layers: [
+      { waveform: 'sawtooth', freq: 24, pitchBend: { to: 120, time: 1.4 }, filter: { type: 'lowpass', freq: 1000, q: 1.1 }, adsr: { a: 0.2, d: 0.3, s: 0.85, r: 0.5 }, gain: 0.24 },
+      { waveform: 'sine', freq: 30, pitchBend: { to: 60, time: 1.2 }, adsr: { a: 0.15, d: 0.3, s: 0.8, r: 0.5 }, gain: 0.20 },
+      { noiseMix: 1, filter: { type: 'bandpass', freq: 220, q: 3 }, adsr: { a: 0.001, d: 0.09, s: 0, r: 0.08 }, gain: 0.5 },
+      { noiseMix: 0.6, filter: { type: 'highpass', freq: 3200, q: 1.2 }, tremolo: { rate: 18, depth: 0.8 }, adsr: { a: 0.1, d: 0.4, s: 0.3, r: 0.5 }, gain: 0.08 },
+    ],
+  },
+};
+
+// ── Industrial room ambience ──────────────────────────────────────────────
+// Looping beds distinct per room: the power station roars, utility rooms hum.
+// Only play while the device is live — a smashed/blacked-out room falls silent.
+
+// Power station / turbine hall: a deep, cavernous turbine roar.
+const AMB_POWER_STATION = {
+  id: 'amb_power_station', name: 'amb_power_station', category: 'ambient', priority: 2,
+  config: { gain: 0.6, layers: [
+    { waveform: 'sawtooth', freq: 42, filter: { type: 'lowpass', freq: 320, q: 0.9 }, tremolo: { rate: 3.5, depth: 0.25 }, adsr: { a: 2, d: 0, s: 1, r: 2 }, gain: 0.40 },
+    { waveform: 'sine', freq: 28, adsr: { a: 2, d: 0, s: 1, r: 2 }, gain: 0.35 },
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass', freq: 900, q: 0.7 }, tremolo: { rate: 6, depth: 0.15 }, adsr: { a: 2, d: 0, s: 1, r: 2 }, gain: 0.25 },
+    { waveform: 'sine', freq: 220, tremolo: { rate: 0.4, depth: 0.3 }, adsr: { a: 3, d: 0, s: 0.5, r: 3 }, gain: 0.05 },
+  ] },
+};
+// Utility / power room: a tidy 60 Hz mains hum with a faint electrical fizz.
+const AMB_UTILITY_ROOM = {
+  id: 'amb_utility_room', name: 'amb_utility_room', category: 'ambient', priority: 2,
+  config: { gain: 0.4, layers: [
+    { waveform: 'sine', freq: 60, adsr: { a: 1.5, d: 0, s: 1, r: 1.5 }, gain: 0.30 },
+    { waveform: 'sawtooth', freq: 120, filter: { type: 'lowpass', freq: 800, q: 1.0 }, tremolo: { rate: 12, depth: 0.2 }, adsr: { a: 1.5, d: 0, s: 1, r: 1.5 }, gain: 0.12 },
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 5000, q: 0.8 }, tremolo: { rate: 30, depth: 0.6 }, adsr: { a: 1.5, d: 0, s: 0.4, r: 1.5 }, gain: 0.05 },
+  ] },
+};
+const INDUSTRIAL_AMBIENT_IDS = [AMB_POWER_STATION.id, AMB_UTILITY_ROOM.id];
+
+// Start the right loop (or none) for one player based on the zone they're in.
+// A zone hosting a live generator → power-station roar; a live junction box →
+// utility hum; anything else (or a dead/blacked-out unit) → silence.
+async function reconcileIndustrialAmbient(playerId, zoneId) {
+  if (!playerId || !zoneId) return;
+  const { rows } = await query(
+    `SELECT f.object_type, f.hp, COALESCE(pz.status,'offline') AS zone_status
+       FROM furniture f LEFT JOIN power_zones pz ON pz.id = f.zone_id
+      WHERE f.zone_id=$1 AND f.hp_max IS NOT NULL
+      ORDER BY (f.object_type='generator') DESC LIMIT 1`,
+    [zoneId]
+  ).catch(() => ({ rows: [] }));
+  const dev = rows[0];
+  const live = dev && (dev.hp ?? 1) > 0 && dev.zone_status === 'powered';
+  const wantDef = !live ? null : (dev.object_type === 'generator' ? AMB_POWER_STATION : AMB_UTILITY_ROOM);
+  for (const id of INDUSTRIAL_AMBIENT_IDS) {
+    if (id !== wantDef?.id) sendToPlayer(playerId, { type: 'audio_stop', scope: 'ambience', id });
+  }
+  if (wantDef) sendToPlayer(playerId, { type: 'audio_ambience', def: wantDef });
+}
+
+// A destructible power device (generator / junction box) crossing the power
+// threshold: power-down roar as it dies, industrial spin-up when it comes back,
+// a room-wide flash, and the room's ambient bed starting/stopping to match.
+on('device.power.changed', ({ zoneId, operational, deviceType }) => {
+  if (!zoneId) return;
+  const gain = deviceType === 'generator' ? 1.0 : 0.6;
+  const def  = operational ? SFX_POWER_UP : SFX_POWER_DRAIN;
+  sendToZone(zoneId, { type: 'audio_sfx', def, gain });
+  sendToZone(zoneId, { type: 'device_power_flash', mode: operational ? 'up' : 'down', deviceType });
+  for (const p of getZonePlayers(zoneId)) reconcileIndustrialAmbient(p.id, zoneId).catch(() => {});
+});
+
 on('ghost.action', ({ zoneId }) => {
   if (!zoneId) return;
   _ghostActionCount++;
@@ -326,15 +400,20 @@ on('weather.thunder', ({ zoneId }) => {
   }
 });
 
-// ── Precipitation ambience ────────────────────────────────────────────────
-// Looping outdoor weather beds (rain / sleet / snow / blizzard). The engine
-// emits `weather.zoneAmbience` per occupied outdoor tile every 30s field tick,
-// plus we top up a player on zone entry so entering mid-storm still starts the
-// loop and stepping indoors stops it. Which asset plays is resolved from the
-// event-route table (event names below) so builders can swap in real audio via
-// the dev panel; if no route/asset is set we fall back to a synthesized bed so
-// the effect works out of the box. Selection is by precip TYPE; the per-tile
-// precipRate only gates whether anything plays.
+// ── Weather ambience (reactive) ───────────────────────────────────────────
+// Two independent looping outdoor beds run off the engine's `weather.zoneAmbience`
+// signal (emitted per occupied outdoor tile every 30s field tick), plus a
+// per-player top-up on zone entry:
+//   • precip bed — rain / sleet / snow / blizzard, gated by the tile's local
+//     precipRate and whose volume RIDES that rate (drizzle quiet → downpour full).
+//   • wind bed   — a howl that only plays above WIND_MIN_KPH and whose volume
+//     rides the day's windKph (breezy → gale). Layers under precip, so a stormy
+//     gale is rain + wind together; a dry windy day is wind alone.
+// Which asset plays is resolved from the event-route table (names below) so
+// builders can swap in real audio via the dev panel; absent a route/asset we
+// fall back to a synthesized bed so the effect works out of the box.
+const WIND_MIN_KPH = 25;
+
 const WEATHER_AMBIENT_EVENTS = {
   rain:         'weather.ambient.rain',
   drizzle:      'weather.ambient.rain',
@@ -343,10 +422,11 @@ const WEATHER_AMBIENT_EVENTS = {
   snow:         'weather.ambient.snow',
   blizzard:     'weather.ambient.blizzard',
   storm:        'weather.ambient.blizzard',
+  wind:         'weather.ambient.wind',
 };
 
 // Synthesized fallbacks — filtered noise beds. Overridden by any matching
-// event route with an ambient_id. Keyed by normalized precip kind.
+// event route with an ambient_id. Keyed by normalized ambience kind.
 const WEATHER_AMBIENT_FALLBACK = {
   rain: { id: 'wx_amb_rain', name: 'wx_amb_rain', category: 'ambient', priority: 2, config: { gain: 0.5, layers: [
     { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass',  freq: 4200, q: 0.6 }, adsr: { a: 1.5, d: 0, s: 1,   r: 1.5 }, gain: 0.55 },
@@ -363,77 +443,122 @@ const WEATHER_AMBIENT_FALLBACK = {
     { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass',  freq: 1800, q: 0.8 }, adsr: { a: 2, d: 0, s: 1,   r: 2 }, gain: 0.6 },
     { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 750,  q: 1.5 }, adsr: { a: 2, d: 0, s: 0.7, r: 2 }, gain: 0.3 },
   ] } },
+  // Gusting wind: band-limited noise with a slow tremolo swell for the howl.
+  wind: { id: 'wx_amb_wind', name: 'wx_amb_wind', category: 'ambient', priority: 2, config: { gain: 0.5, layers: [
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 500,  q: 1.2 }, tremolo: { rate: 0.25, depth: 0.5 }, adsr: { a: 2.5, d: 0, s: 1,   r: 2.5 }, gain: 0.5 },
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass',  freq: 1500, q: 0.4 }, adsr: { a: 2.5, d: 0, s: 0.5, r: 2.5 }, gain: 0.2 },
+  ] } },
 };
 
-// Collapse the precip taxonomy onto the four ambience beds.
-function weatherAmbientKind(precipType) {
-  if (precipType === 'thunderstorm' || precipType === 'drizzle') return 'rain';
-  if (precipType === 'storm') return 'blizzard';
-  return precipType;
+// Collapse the precip taxonomy onto the ambience beds.
+function weatherAmbientKind(kind) {
+  if (kind === 'thunderstorm' || kind === 'drizzle') return 'rain';
+  if (kind === 'storm') return 'blizzard';
+  return kind;
 }
 
-// Resolve the ambient def for a precip type: an event-route override if present,
-// else the synthesized fallback. Returns null for 'none'/unknown.
-function weatherAmbientDef(precipType) {
-  if (!precipType || precipType === 'none') return null;
-  const routes = eventRoutes.get(WEATHER_AMBIENT_EVENTS[precipType]);
+// Resolve the ambient def for an ambience kind ('rain'|'sleet'|'snow'|'blizzard'
+// |'wind' or any precip taxonomy value): event-route override if present, else
+// the synthesized fallback. Returns null for 'none'/unknown.
+function weatherAmbientDef(kind) {
+  if (!kind || kind === 'none') return null;
+  const routes = eventRoutes.get(WEATHER_AMBIENT_EVENTS[kind]);
   const routed = routes?.find(r => r.ambient_id);
   if (routed) { const d = ambient.get(routed.ambient_id); if (d) return d; }
-  return WEATHER_AMBIENT_FALLBACK[weatherAmbientKind(precipType)] || null;
+  return WEATHER_AMBIENT_FALLBACK[weatherAmbientKind(kind)] || null;
 }
 
 // Every ambient id we might have started, so a player-scoped reset can stop
-// whichever one is playing without touching non-weather ambience.
+// whichever beds are playing without touching non-weather ambience.
 function knownWeatherAmbientIds() {
   const ids = new Set();
-  for (const t of ['rain', 'sleet', 'snow', 'blizzard']) {
+  for (const t of ['rain', 'sleet', 'snow', 'blizzard', 'wind']) {
     const d = weatherAmbientDef(t);
     if (d?.id) ids.add(d.id);
   }
   return ids;
 }
 
-const zoneWeatherAmbient = new Map(); // outdoor zoneId -> ambient id currently playing there
+// Intensity → loop gain fraction (multiplies the def's base gain client-side).
+function precipGainFor(rate) { return Math.max(0.3,  Math.min(1, 0.35 + (rate || 0) * 0.75)); }
+function windGainFor(kph)    { return Math.max(0.35, Math.min(1, (kph - WIND_MIN_KPH) / 45 + 0.4)); }
+function gainBucket(g)       { return Math.round(g * 10) / 10; } // avoid re-sending sub-0.1 gain nudges
 
-// Per-zone reconcile driven by the engine's 30s field tick. Only emits on a
-// change, so a steady storm doesn't re-send every tick.
-on('weather.zoneAmbience', ({ zoneId, precipType, active }) => {
-  const def = active ? weatherAmbientDef(precipType) : null;
-  const desiredId = def?.id || null;
-  const currentId = zoneWeatherAmbient.get(zoneId) || null;
-  if (desiredId === currentId) return;
-  if (currentId) sendToZone(zoneId, { type: 'audio_stop', scope: 'ambience', id: currentId });
-  if (def) sendToZone(zoneId, { type: 'audio_ambience', def });
-  if (desiredId) zoneWeatherAmbient.set(zoneId, desiredId); else zoneWeatherAmbient.delete(zoneId);
+// The beds a given tile should be running, as { def, gain } per slot (or null).
+function desiredBedsFor({ precipType, active, precipRate, windKph }) {
+  const precipDef = active ? weatherAmbientDef(precipType) : null;
+  const windDef   = (windKph >= WIND_MIN_KPH) ? weatherAmbientDef('wind') : null;
+  return {
+    precip: precipDef ? { def: precipDef, gain: precipGainFor(precipRate) } : null,
+    wind:   windDef   ? { def: windDef,   gain: windGainFor(windKph) }     : null,
+  };
+}
+
+const zoneBeds = new Map(); // outdoor zoneId -> { precip: {id,gain}|null, wind: {id,gain}|null }
+
+// Reconcile one slot for a zone: start / stop / ride-gain only on a real change.
+function reconcileZoneSlot(zoneId, trackers, slot, desired) {
+  const cur = trackers[slot] || null;
+  const desiredId = desired?.def?.id || null;
+  if (desiredId !== (cur?.id || null)) {
+    if (cur) sendToZone(zoneId, { type: 'audio_stop', scope: 'ambience', id: cur.id });
+    if (desired) {
+      sendToZone(zoneId, { type: 'audio_ambience', def: desired.def });
+      sendToZone(zoneId, { type: 'audio_loop_gain', id: desiredId, gain: desired.gain, ramp: 0.4 });
+    }
+    trackers[slot] = desiredId ? { id: desiredId, gain: gainBucket(desired.gain) } : null;
+  } else if (desiredId) {
+    const gb = gainBucket(desired.gain);
+    if (gb !== cur.gain) { sendToZone(zoneId, { type: 'audio_loop_gain', id: desiredId, gain: desired.gain, ramp: 2.0 }); cur.gain = gb; }
+  }
+}
+
+on('weather.zoneAmbience', (payload) => {
+  const zoneId = payload.zoneId;
+  const trackers = zoneBeds.get(zoneId) || { precip: null, wind: null };
+  const desired = desiredBedsFor(payload);
+  reconcileZoneSlot(zoneId, trackers, 'precip', desired.precip);
+  reconcileZoneSlot(zoneId, trackers, 'wind',   desired.wind);
+  if (trackers.precip || trackers.wind) zoneBeds.set(zoneId, trackers); else zoneBeds.delete(zoneId);
 });
 
-// Sidechain: when a thunderclap fires, briefly duck the weather bed playing in
-// that zone so the clap punches cleanly through the rain, then let it swell
-// back. No-op if no bed is playing there. (Separate listener from the SFX one
-// above; the event bus supports multiple handlers.)
+// Sidechain: when a thunderclap fires, briefly duck the weather beds playing in
+// that zone so the clap punches cleanly through, then let them swell back.
 on('weather.thunder', ({ zoneId }) => {
-  const bedId = zoneWeatherAmbient.get(zoneId);
-  if (bedId) sendToZone(zoneId, { type: 'audio_duck', scope: 'ambience', id: bedId, fraction: 0.35, hold: 0.9 });
+  const t = zoneBeds.get(zoneId);
+  if (!t) return;
+  for (const bed of [t.precip, t.wind]) {
+    if (bed) sendToZone(zoneId, { type: 'audio_duck', scope: 'ambience', id: bed.id, fraction: 0.35, hold: 0.9 });
+  }
 });
 
-// Top up a single player on zone entry: clear any weather bed, then start the
-// new zone's if it's outdoors and actively precipitating on their tile.
+// Top up a single player on zone entry: clear any weather beds, then start the
+// ones their new tile warrants (outdoors only), at the right reactive gains.
 function reconcilePlayerWeatherAmbient(playerId, zoneId) {
   if (!playerId || !zoneId) return;
   const zone = getZone(zoneId);
   const indoor = !!(zone?.flags?.is_interior || zone?.flags?.is_apartment || zone?.flags?.is_building);
-  let desired = null;
+  const desired = [];
   if (!indoor) {
     const { precipType, precipRate } = getZonePrecip(zoneId);
-    if (precipRate && precipType !== 'none') desired = weatherAmbientDef(getCurrentPrecipType());
+    if (precipRate && precipType !== 'none') {
+      const d = weatherAmbientDef(getCurrentPrecipType());
+      if (d) desired.push({ def: d, gain: precipGainFor(precipRate) });
+    }
+    const kph = getWindKph();
+    if (kph >= WIND_MIN_KPH) {
+      const d = weatherAmbientDef('wind');
+      if (d) desired.push({ def: d, gain: windGainFor(kph) });
+    }
   }
-  const desiredId = desired?.id || null;
-  // Stop every weather bed except the one we want (loopSound is idempotent, so
-  // re-starting the same id is a no-op — no gap when moving between like tiles).
+  const desiredIds = new Set(desired.map(x => x.def.id));
   for (const id of knownWeatherAmbientIds()) {
-    if (id !== desiredId) sendToPlayer(playerId, { type: 'audio_stop', scope: 'ambience', id });
+    if (!desiredIds.has(id)) sendToPlayer(playerId, { type: 'audio_stop', scope: 'ambience', id });
   }
-  if (desired) sendToPlayer(playerId, { type: 'audio_ambience', def: desired });
+  for (const { def, gain } of desired) {
+    sendToPlayer(playerId, { type: 'audio_ambience', def });
+    sendToPlayer(playerId, { type: 'audio_loop_gain', id: def.id, gain, ramp: 0.4 });
+  }
 }
 
 // device.tuned fires on every TV/radio channel change (plugins/broadcast).

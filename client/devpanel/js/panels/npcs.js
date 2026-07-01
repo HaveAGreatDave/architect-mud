@@ -90,6 +90,8 @@ function renderNpcsPanel(data) {
     <button class="action-btn" style="font-size:11px;padding:3px 10px" onclick="npcSendToWork(this)"
       title="Teleport all NPCs with a work_zone who aren't there yet">${lateLabel}</button>
     ${lateCount ? `<span style="font-size:11px;color:var(--text-dim)">${lateCount} NPC${lateCount !== 1 ? 's' : ''} not at their work zone</span>` : '<span style="font-size:11px;color:var(--text-dim)">All NPCs at work</span>'}
+    <button class="action-btn" style="font-size:11px;padding:3px 10px;margin-left:auto" onclick="blOpen()"
+      title="Edit the shared pool of NPC-to-NPC banter scenes">🗣 Banter Library</button>
   </div>`;
 
   panel.innerHTML = toolbar + html;
@@ -129,6 +131,105 @@ function npcUpdateChitchatHint(slug) {
   if (hasOverride) hint.textContent = 'custom lines — overriding the archetype default';
   else if (p) hint.textContent = `blank — using ${p.icon} ${p.label} default lines`;
   else hint.textContent = 'blank — using generic default lines';
+}
+
+// ─── Ambient Banter Editors ─────────────────────────────────────────────────
+// A "thread" is a short scripted scene: an array of turn strings, spoken by
+// alternating NPCs. Per-NPC scripts live on npc.banter; the shared pool lives in
+// the npc_banter_threads table (edited via GET/PUT /npc-banter). Both editors use
+// one textarea per thread — one line per turn — matching the chitchat convention.
+
+function _escTa(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+// ── Per-NPC banter scripts (nb-modal) ──
+let _nb = { threads: [] };
+function _nbInit(rec) {
+  const b = Array.isArray(rec.banter) ? rec.banter : JSON.parse(rec.banter || '[]');
+  _nb.threads = (Array.isArray(b) ? b : []).map(t => Array.isArray(t) ? t.map(String) : String(t).split('\n').map(s => s.trim()).filter(Boolean));
+}
+function _nbSyncFromDom() {
+  const tas = document.querySelectorAll('#nb-modal-body .nb-ta');
+  _nb.threads = Array.from(tas).map(ta => ta.value.split('\n').map(s => s.trim()).filter(Boolean));
+}
+// Value collected into the save payload — synced from DOM if the modal is open.
+function _nbCollect() {
+  if (document.getElementById('nb-modal')?.style.display === 'flex') _nbSyncFromDom();
+  return _nb.threads.filter(t => Array.isArray(t) && t.length);
+}
+function nbRender() {
+  const body = document.getElementById('nb-modal-body');
+  if (!body) return;
+  body.innerHTML = _nb.threads.length ? _nb.threads.map((t, i) => `
+    <div style="border:1px solid var(--border);border-radius:4px;padding:10px;margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span style="font-size:11px;color:var(--text-dim)">Script ${i + 1}</span>
+        <button type="button" class="action-btn danger" onclick="nbRemoveThread(${i})">Remove</button>
+      </div>
+      <textarea class="nb-ta" rows="4" placeholder='"You hear about the transit line?"\n"Ours or theirs?"\n"Does it matter anymore?"'>${_escTa(t.join('\n'))}</textarea>
+    </div>`).join('') : '<div style="color:var(--text-dim);padding:12px">No scripts yet. Use ＋ Add Script.</div>';
+}
+function nbOpenModal() { nbRender(); const m = document.getElementById('nb-modal'); if (m) m.style.display = 'flex'; }
+function nbCloseModal() {
+  _nbSyncFromDom();
+  const m = document.getElementById('nb-modal'); if (m) m.style.display = 'none';
+  const c = document.getElementById('f-banter-count'); if (c) c.textContent = _nb.threads.filter(t => t.length).length;
+}
+function nbAddThread() { _nbSyncFromDom(); _nb.threads.push([]); nbRender(); }
+function nbRemoveThread(i) { _nbSyncFromDom(); _nb.threads.splice(i, 1); nbRender(); }
+
+// ── Shared library (bl-modal) ──
+let _bl = { threads: [], personalities: [] };
+async function blOpen() {
+  const [rows, persMeta] = await Promise.all([
+    API('/npc-banter').catch(() => []),
+    API('/npc-personalities').catch(() => []),
+  ]);
+  _bl.personalities = Array.isArray(persMeta) ? persMeta : [];
+  _bl.threads = (Array.isArray(rows) ? rows : []).map(r => ({
+    id: r.id,
+    personality: r.personality || '',
+    enabled: r.enabled !== false,
+    lines: Array.isArray(r.lines) ? r.lines : JSON.parse(r.lines || '[]'),
+  }));
+  blRender();
+  const m = document.getElementById('bl-modal'); if (m) m.style.display = 'flex';
+}
+function blClose() { const m = document.getElementById('bl-modal'); if (m) m.style.display = 'none'; }
+function _blOpts(sel) {
+  return ['<option value="">Generic (any NPC)</option>',
+    ..._bl.personalities.map(p => `<option value="${p.slug}" ${p.slug === sel ? 'selected' : ''}>${p.icon || ''} ${p.label || p.slug}</option>`)].join('');
+}
+function _blSyncFromDom() {
+  const rows = document.querySelectorAll('#bl-modal-body .bl-row');
+  _bl.threads = Array.from(rows).map(row => ({
+    id: row.getAttribute('data-id') || '',
+    personality: row.querySelector('.bl-pers')?.value || '',
+    enabled: row.querySelector('.bl-en')?.checked !== false,
+    lines: (row.querySelector('.bl-ta')?.value || '').split('\n').map(s => s.trim()).filter(Boolean),
+  }));
+}
+function blRender() {
+  const body = document.getElementById('bl-modal-body');
+  if (!body) return;
+  body.innerHTML = _bl.threads.length ? _bl.threads.map((t, i) => `
+    <div class="bl-row" data-id="${t.id || ''}" style="border:1px solid var(--border);border-radius:4px;padding:10px;margin-bottom:10px">
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:6px">
+        <select class="bl-pers" style="max-width:220px">${_blOpts(t.personality)}</select>
+        <label style="font-size:11px;color:var(--text-dim)"><input type="checkbox" class="bl-en" ${t.enabled ? 'checked' : ''}> enabled</label>
+        <button type="button" class="action-btn danger" style="margin-left:auto" onclick="blRemove(${i})">Remove</button>
+      </div>
+      <textarea class="bl-ta" rows="4" placeholder="One line per turn; speakers alternate.">${_escTa((t.lines || []).join('\n'))}</textarea>
+    </div>`).join('') : '<div style="color:var(--text-dim);padding:12px">Library is empty. Use ＋ Add Thread, or run the seed script.</div>';
+}
+function blAdd() { _blSyncFromDom(); _bl.threads.push({ id: '', personality: '', enabled: true, lines: [] }); blRender(); }
+function blRemove(i) { _blSyncFromDom(); _bl.threads.splice(i, 1); blRender(); }
+async function blSave() {
+  _blSyncFromDom();
+  const threads = _bl.threads.filter(t => t.lines.length);
+  const res = await API('/npc-banter', 'PUT', { threads });
+  if (res?.error) { toast(res.error, true); return; }
+  toast(`Banter library saved (${res.count} thread${res.count === 1 ? '' : 's'}).`);
+  blClose();
 }
 
 // ─── Vendor Shop Editor ─────────────────────────────────────────────────────
@@ -611,6 +712,7 @@ async function npcEditForm(rec, isNew) {
   ]);
   _veInit(rec, Array.isArray(allItems) ? allItems : []);
   _vsInit(vendorSchedule);
+  _nbInit(rec);
 
   // Single archetype registry (server-driven): each entry = job + personality.
   const personalities = Array.isArray(persMeta) ? persMeta : [];
@@ -683,6 +785,17 @@ async function npcEditForm(rec, isNew) {
         <span id="f-chitchat-hint" style="font-size:11px;color:var(--text-dim)"></span>
       </div>
       <textarea id="f-chitchat" rows="6" oninput="npcUpdateChitchatHint(document.getElementById('f-personality').value)" placeholder="Leave blank to use the selected Job / Personality's default lines.">${chitchat.join('\n')}</textarea>
+    </div>
+    <div class="field">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <label>Ambient Banter <span style="font-weight:400;color:var(--text-dim);font-size:11px">— short back-and-forth scenes with other NPCs nearby</span></label>
+        <label style="font-size:11px;color:var(--text-dim);font-weight:400"><input type="checkbox" id="f-banter-enabled" ${flags.no_banter?'':'checked'}> joins ambient banter</label>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button type="button" class="action-btn" onclick="nbOpenModal()">🗣 Edit This NPC's Scripts (<span id="f-banter-count">${_nb.threads.length}</span>)</button>
+        <button type="button" class="action-btn" onclick="blOpen()" title="Edit the shared pool every NPC draws from">Shared Library…</button>
+      </div>
+      <div style="font-size:11px;color:var(--text-dim);margin-top:4px">This NPC's own scripts are added to the shared library pool when it starts a conversation.</div>
     </div>
     <div class="field">
       <label>Home Activities <span style="font-weight:400;color:var(--text-dim);font-size:11px">— one per line; quoted text = says, unquoted = emote</span></label>
@@ -761,6 +874,9 @@ async function saveNpc(existing) {
   if (personality) flags.personality = personality; else delete flags.personality;
   const misWillingEl = document.getElementById('f-mis_willing');
   if (misWillingEl) flags.mis_willing = misWillingEl.checked; else delete flags.mis_willing;
+  const banterEnabledEl = document.getElementById('f-banter-enabled');
+  if (banterEnabledEl && !banterEnabledEl.checked) flags.no_banter = true; else delete flags.no_banter;
+  const banter = _nbCollect();
   const wanderZonesRaw = document.getElementById('f-wander_zones')?.value || '';
   const wander_zones = wanderZonesRaw.split('\n').map(s => s.trim()).filter(Boolean);
   const chitchat = (document.getElementById('f-chitchat')?.value || '').split('\n').map(s => s.trim()).filter(Boolean);
@@ -785,6 +901,7 @@ async function saveNpc(existing) {
     vendor_shop_name: document.getElementById('f-vendor_shop_name')?.value || null,
     home_activities,
     work_zone_id: document.getElementById('f-work-zone-id')?.value || null,
+    banter,
   };
   if (isNew) { body.id = document.getElementById('f-id').value.trim(); return API('/npcs', 'POST', body); }
   return API(`/npcs/${existing.id}`, 'PUT', body);

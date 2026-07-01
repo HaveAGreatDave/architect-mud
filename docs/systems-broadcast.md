@@ -54,7 +54,8 @@ news_categories JSONB     — ['murder','martial_law',…] — news event filter
 loop_playlist INTEGER     — 1 = playlist loops continuously
 studio_zone_id TEXT FK    — zone where NPC hosts work; used for presence checks
 offline_graphic_id TEXT FK — media_graphics id shown when channel is off-air
-zone_id TEXT FK           — physical location of the channel's transmitter/studio
+schedule_mode TEXT        — 'loop' | … (default 'loop')
+commercial_pool JSONB     — broadcast ids eligible as commercial slots (default [])
 ```
 
 ### `media_channel_playlist`
@@ -64,6 +65,9 @@ channel_id TEXT FK
 broadcast_id TEXT FK
 start_time INTEGER        — seconds from loop/day start
 duration_override REAL    — overrides computed duration for this slot only
+priority INTEGER          — higher wins when slots overlap (default 0)
+conditions JSONB          — gate object, e.g. { npc_staff: [npcId,…] } (default [])
+slot_type TEXT            — 'broadcast' | 'commercial' | … (default 'broadcast')
 ```
 
 ### `media_cameras`
@@ -114,6 +118,7 @@ The `type` field controls how the content is rendered. `ascii` content is displa
      }
    }
    ```
+   > The object above is illustrative and has drifted. Current state also carries `totalDuration`, `newsCategories`, `idleBroadcast`, `camera`, `scheduleMode`, and `commercialPool` at the channel level, and each `playlist[]` item now carries `slotType` and `npcStaff`. Treat `index.js` (`loadChannelRuntimes`, ~lines 220–260) as authoritative.
 
 2. **`loadZoneTunings()`** — reads all furniture with `broadcast_receiver` flag, builds `zoneTunings: Map<zoneId, Map<channelId, deviceType>>` and `furnitureChannelIndex: Map<furnitureId, { zoneId, channelId, deviceType }>`.
 
@@ -268,6 +273,15 @@ Returns true if any player is currently watching that channel. Implemented via `
 registerViewerChecker(fn)    // called by broadcast plugin at startup
 hasChannelViewers(channelId) // called by ai-behaviour evalCondition
 ```
+
+### NPC Work Scheduling (`recalculateNpcSchedules`)
+
+Broadcasts declare their on-screen hosts through `npc_anchor` nodes in their VINE graph. `recalculateNpcSchedules()` walks every scheduled broadcast, derives that set of NPCs, and:
+
+- merges them into the playlist item's `conditions.npc_staff` (also surfaced at runtime as `runtime.playlist[].npcStaff`, populated in `loadChannelRuntimes`);
+- overwrites each host NPC's `behaviour_graph` with `makeDefaultStudioGraph(studioZoneId)` and sets its `work_zone_id` to the channel's studio zone, so the NPC's `GO_TO_WORK` behaviour resolves to the studio and it shows up when its slot is on air.
+
+It runs automatically on **every** playlist save (`PUT /broadcast/channels/:id/playlist`) and on demand via `POST /broadcast/recalculate-schedules`. The `studio_zone_id` (channel) and `work_zone_id`/`studio_zone_id` (npc) columns are the wiring this depends on.
 
 ---
 
@@ -545,7 +559,10 @@ All broadcast routes use `directAPI`:
 | GET | `/broadcast/channels` | List channels with playlist |
 | POST | `/broadcast/channels` | Create channel |
 | PUT | `/broadcast/channels/:id` | Update channel |
-| PUT | `/broadcast/channels/:id/playlist` | Replace entire playlist |
+| PUT | `/broadcast/channels/:id/playlist` | Replace entire playlist (re-runs NPC work-scheduling — see below) |
+| POST | `/broadcast/ensure-studio` | Attach/backfill a channel's studio interior rooms; places by `studio_zone_id` or `grid_x`+`grid_y` with neighbor auto-wiring |
+| POST | `/broadcast/create-studio` | Create a new studio zone for a channel |
+| POST | `/broadcast/recalculate-schedules` | Force `recalculateNpcSchedules` across channels |
 | GET | `/broadcast/cameras` | List cameras |
 | POST | `/broadcast/cameras` | Create camera |
 | PUT | `/broadcast/cameras/:id` | Update camera |

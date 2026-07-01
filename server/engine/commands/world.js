@@ -1,6 +1,7 @@
 import { query, logActivity } from '../../models/db.js';
 import { getZone, getZoneEnemies, getZoneNpcs, getZonePlayers, getDoorForExit, getZoneDoors, spawnEnemySync, world } from '../world.js';
 import { getLockTagPublic } from './doors.js';
+import { sendToPlayer } from '../messaging.js';
 import { getZonePowerStatus, recomputePower, recalcZoneLoad, getEnvironmentState } from '../environment.js';
 import { getPlayerSkills, SKILLS } from '../skills.js';
 import { describeZone } from './describe.js';
@@ -544,6 +545,34 @@ async function cmdExamine(targetStr, player, broadcast) {
         }
       }
       msg += camStatus;
+    } else if (f.object_type === 'generator' || f.object_type === 'junction_box') {
+      // Pop the grungy industrial inspection overlay, and give text fallback + actions.
+      const genId = f.flags?.generator_id || null;
+      let g = null;
+      if (genId) {
+        const { rows: gr } = await query('SELECT status, capacity_kw, remaining_kw FROM generators WHERE id=$1', [genId]);
+        g = gr[0] || null;
+      }
+      const destroyed = (f.hp ?? 1) <= 0;
+      const online = !destroyed && g?.status === 'online';
+      const integrityPct = Math.max(0, Math.round(((f.hp ?? 0) / (f.hp_max || 1)) * 100));
+      sendToPlayer(player.id, {
+        type: 'device_inspect_panel',
+        deviceType: f.object_type, name: f.name,
+        integrityPct, hp: f.hp, hpMax: f.hp_max,
+        online, destroyed,
+        capacityKw: g?.capacity_kw ?? null,
+        outputKw: g?.remaining_kw ?? null,
+        hackable: false,
+      });
+      const n = f.name.toLowerCase();
+      const stateLbl = destroyed
+        ? '<span style="color:var(--red)">WRECKED — offline</span>'
+        : online ? '<span style="color:var(--green)">Online</span>'
+                 : '<span style="color:var(--yellow)">No power</span>';
+      const attackLink = `<span class="action-link" data-action="attack" data-target="${n}">attack</span>`;
+      const repairLink = destroyed ? `  <span class="action-link" data-action="repair" data-target="${n}">repair</span>` : '';
+      msg += `\n<span class="text-dim">Status:</span> ${stateLbl} · integrity ${integrityPct}%\n<span class="text-dim">Actions:</span> ${attackLink}${repairLink}`;
     } else {
       // Generic furniture: posture interactions (sit/lie/lean → "on <name>")
       // plus capability verbs gated on flat tags (read/drink → "<name>"),

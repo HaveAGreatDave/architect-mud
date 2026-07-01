@@ -72,6 +72,59 @@ ambients are suppressed while a louder sound is "in the air" (`getInterruptLoudn
 >   `light_transmission`; peer-through keys off the linked zone's presence, not this value. Either wire it
 >   into peer/look opacity or drop the field — needs a look-through design decision first.
 
+## Time, weather & environment
+
+The environmental runtime lives in [environment.js](../server/engine/environment.js): the game clock, day/night phase, the moving weather field, apparent temperature, indoor HVAC, and the power/lighting sim (power grid detail is in [architecture.md](architecture.md) §"Environment System", not repeated here). All live state is held in the in-memory `state` object; Postgres is only written on ticks and dev-tool calls. The 7-day forecast and the drifting weather field are **owned by the weather plugin** ([plugins/weather/index.js](../plugins/weather/index.js)), injected into the engine via hooks — see the weather row in [plugins.md](plugins.md).
+
+### Game clock
+
+The clock is a single `world_clock` row (`id = 1`). `state.minutes` is minutes-since-midnight (server-authoritative), advanced 1:1 with real time. On boot `initEnvironment` catches up on downtime: whole missed days replay `tick24h` (capped at `MAX_CATCHUP_DAYS = 30`), then `state.minutes` jumps forward by the exact elapsed minutes.
+
+- **Phase** (`phaseForMinutes`): `dawn` 05:00–07:00, `day` 07:00–17:00, `dusk` 17:00–20:00, `night` 20:00–05:00 (wraps midnight). `ambientLightForMinutes` returns 1.0 in day, 0.0 at night, and ramps 0↔1 across dawn/dusk. `diurnalOffset` is a cosine temp swing peaking +5°C at 14:00, troughing −12°C at 02:00 (amplitude 8.5, midpoint −3.5), added to the base `state.tempC` everywhere temperature is read.
+- **Season** (`seasonForDate`): derived from calendar month via `SEASON_BY_MONTH`.
+
+### Tick cadences
+
+Scheduled in `scheduleTicks` off [scheduler.js](../server/engine/scheduler.js):
+
+- **1m** (`tick1m`) — increment minute, persist, `stepIndoorTemps`, broadcast `environment.clockTick` + per-zone `environment.zoneTempTick`, flicker overloaded zones.
+- **30s** — `advanceWeatherField()` (advect the field one step), `broadcastZoneWeather(occupied)` to occupied outdoor zones, and snap streetlights for those zones (in-memory; no DB writes).
+- **5m** (`tick5m`) — brownout redistribution; only runs when ≥1 zone is `overloaded`.
+- **30m** (`tick30m`) — recompute `ambientLight`/`phase`, reconcile streetlights map-wide (`syncStreetlights` → lights on where powered and `zoneAmbientVisibility < VISIBILITY_DIM = 0.35`), roll global precip on/off against `forecast[0].precipChance`, broadcast `environment.sync`, fire `environment.tick30m` / sunrise / sunset hooks.
+- **24h** (`tick24h`) — advance calendar, fire `environment.advanceWeather` (plugin shifts the forecast and re-seeds the field), run the power sim, broadcast `environment.daily`.
+
+### Forecast (plugin-owned, seeded, 7-day)
+
+`generateWeatherForDate(dateStr, climateProfile)` is deterministic: a `mulberry32` PRNG seeded off `"weather:<date>"`. Each day yields `{ weatherType, tempC, precipChance, windKph, humidityPct }`:
+
+- **Type** from a precip roll (`precipTypeForTemp` → rain/thunderstorm/sleet/snow/blizzard by temp) or, on dry days, overcast/cloudy/fog/haze/clear scaled by `precipChance`.
+- **Temp** = monthly/seasonal base ± variance (±10°C normally, ±20°C on a 5% "extreme" day).
+- **Wind** (`windForDay`) = base wind × a per-type ceiling (`WIND_BY_WEATHER`: fog/haze calm, storms/blizzards gale) × a rolled daily windiness (~15% calm, ~15% gusty).
+- **Humidity** (`humidityForDay`) = base ± type shift (fog/rain wetter, clear drier) ± jitter.
+
+Bases come from the active **climate profile** (`monthly_temp_c` / `monthly_precip_chance` / `monthly_wind_kph` / `monthly_humidity`, indexed by month) when set, else the `SEASON_BASE_*` fallbacks. The forecast lives in `weather_forecast` (7 rows). At boot `loadForecast` generates it if empty; `environment.advanceWeather` shifts it forward one day and appends a freshly generated day 7. `forecast[0]` is authoritative for the current day — `getWindKph` and `getHumidityPct` read from it.
+
+### Moving weather field
+
+A handful of drifting cloud/precip/storm **cells** over the outdoor map (`map_world`), owned by the plugin, fully re-derivable from `(date, forecast[0])` — no DB table, no per-tick writes. `seedField` builds the day's cells (`systemsForForecast`) from `forecast[0]`: cell count/intensity scale with weather type + `precipChance`, and every cell drifts along one seeded prevailing wind whose speed scales with `windKph` (calm ≈ 0.05 → gale ≈ 0.35 grid-units per 30s). `advectField` (the 30s tick) drifts and torus-wraps them. `sampleWeatherAt(gx, gy)` returns `{ cloudCover, precipRate, precipType, tempOffset, stormIntensity }` — a cell pulls temp down by up to `K_TEMP = 4`°C at its core (smoothstep falloff).
+
+The engine holds the sampler via `registerWeatherField` / `registerWeatherFieldSnapshot` / `registerWeatherFieldAdvance` (never imports the plugin). `fieldAt(zoneId)` samples it for a zone, returning `null` for interiors / off-`map_world` / no-sampler — every consumer then falls back to the global model:
+
+- `getZoneTemperature` — outdoor base + diurnal + `tempOffset` (indoor zones return their HVAC temp instead).
+- `getZonePrecip` — the global 30m roll gates whether precip is active at all; the field decides which tiles are actually under it (`precipType`, `precipRate`).
+- `getZoneStormIntensity` — local 0..1 storm intensity (drives lightning); fallback 0.5 under a global thunderstorm/storm.
+- `getZoneVisibility` — outdoor zones get extra dimming under a local cloud/precip cell (`1 − 0.5·cloudCover − 0.4·precip`), on top of the global weather + fog factors; interiors are lit only through windows.
+
+`getWeatherMap` returns a full per-zone snapshot (plus field bounds/systems) for the dev weather map. `broadcastZoneWeather` pushes local temp/cloud/precip to occupied outdoor zones each 30s and emits `weather.zoneAmbience` for the audio layer.
+
+### Apparent ("feels like") temperature
+
+`apparentTemperature(tempC, windKph, humidityPct)`: applies **wind chill** when cold and breezy (`tempC ≤ 10 && windKph ≥ 5`, standard wind-chill formula), a **heat index** bump when hot and humid (`tempC ≥ 27`, scaled by humidity over 40%), and a damp-cold penalty when `tempC < 8 && humidity > 70`; otherwise returns the dry-air temp. `getZoneApparentTemperature(zoneId, extraOffsetC)` folds in the day's wind + humidity for outdoor zones (interiors return ambient unchanged). This is what the survival layer reads to drive body-temperature drift — see the thermal section in [systems-survival.md](systems-survival.md).
+
+### Indoor HVAC temps
+
+`stepIndoorTemps` (every 1m tick) drives each indoor zone (`is_interior` / `is_apartment` / `is_building`) toward a target. **Powered** zones head to `INDOOR_HVAC_TARGET_C = 20`°C at `INDOOR_HVAC_RATE_PER_MIN = 2.0`°C/min (heating or cooling, ~10 min from an extreme). **Unpowered** zones drift toward the current outdoor temp at `INDOOR_PASSIVE_RATE_PER_MIN = 0.1`°C/min (slow insulated bleed). Per-zone temps live in `state.zoneTemps`, seeded at boot by `initIndoorTemps`, and are read via `getZoneTemperature`.
+
 ## Spawning & corpses
 
 `tickSpawns` (every 10s) joins `zone_spawns` with `enemies`, and for each timer that's due, spawns if the
@@ -92,7 +145,7 @@ same-`map_id`/same-`grid_z` tile set for the full-screen map popup.
 ## Scheduler
 
 [scheduler.js](../server/engine/scheduler.js) is the single interval dispatcher. Named cadences
-(`10s, 30s, 45s, 1m, 5m, 30m, 24h`) each own one `setInterval`; multiple callbacks share it, and errors
+(`10s, 15s, 30s, 45s, 1m, 5m, 30m, 24h`) each own one `setInterval`; multiple callbacks share it, and errors
 in one callback are caught and logged without killing the timer. The **1-second combat tick is
 deliberately not on the scheduler** — it's the latency-critical hot path and uses a raw `setInterval`
 in `gameLoop.js`. Plugins and the environment system subscribe via `schedule()`.

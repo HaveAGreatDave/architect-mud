@@ -13,6 +13,7 @@ import { isEmailVerificationEnabled, setEmailVerificationEnabled } from '../engi
 import { randomAppearance } from '../engine/appearance.js';
 import { DEFAULT_CHITCHAT_LINES } from '../engine/ai-behaviour.js';
 import { npcTypeForPersonality, listPersonalityMeta } from '../engine/npc-personality.js';
+import { loadBanterLibrary } from '../engine/npc-banter.js';
 
 const DEFAULT_VENDOR_SCHEDULE = {
   mon:[{from:10,to:22}], tue:[{from:10,to:22}], wed:[{from:10,to:22}],
@@ -223,6 +224,8 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path==='/items' && method==='POST') return requireDev(auth, ()=>apiCreateItem(body));
   if (path.startsWith('/items/') && method==='PUT') return requireDev(auth, ()=>apiUpdateItem(path.split('/')[2],body));
   if (path==='/npc-personalities' && method==='GET') return requireDev(auth, async () => ({ status:200, body: listPersonalityMeta() }));
+  if (path==='/npc-banter' && method==='GET') return requireDev(auth, apiListBanter);
+  if (path==='/npc-banter' && method==='PUT') return requireDev(auth, ()=>apiReplaceBanter(body));
   if (path==='/npcs' && method==='GET') return requireDev(auth, apiGetNpcs);
   if (path==='/npcs' && method==='POST') return requireDev(auth, ()=>apiCreateNpc(body));
   if (path==='/npcs/send-to-work' && method==='POST') return requireDev(auth, apiSendLateNpcsToWork);
@@ -1155,6 +1158,30 @@ export async function apiUpdateItem(id,body) {
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
 async function apiGetNpcs() { const {rows}=await query('SELECT * FROM npcs'); return {status:200,body:rows}; }
+
+// ── Shared ambient-banter library ─────────────────────────────────────────────
+async function apiListBanter() {
+  const {rows}=await query('SELECT id,personality,lines,enabled,sort_order FROM npc_banter_threads ORDER BY sort_order, id');
+  return {status:200,body:rows};
+}
+// Bulk-replace the whole library (the dev-panel editor sends the full list).
+async function apiReplaceBanter(body) {
+  const threads = Array.isArray(body.threads) ? body.threads : [];
+  try {
+    await query('DELETE FROM npc_banter_threads');
+    let i = 0;
+    for (const t of threads) {
+      const lines = Array.isArray(t.lines) ? t.lines.map(l=>String(l).trim()).filter(Boolean) : [];
+      if (!lines.length) continue;
+      const id = t.id && /^bt_/.test(t.id) ? t.id : `bt_${Date.now().toString(36)}_${i}`;
+      await query('INSERT INTO npc_banter_threads (id,personality,lines,enabled,sort_order) VALUES ($1,$2,$3,$4,$5)',
+        [id, (t.personality||'').trim()||null, JSON.stringify(lines), t.enabled===false?false:true, i]);
+      i++;
+    }
+    await loadBanterLibrary();
+    return {status:200,body:{ok:true,count:i}};
+  } catch(e) { return {status:400,body:{error:e.message}}; }
+}
 export async function apiCreateNpc(body) {
   const id=body.id||`npc_${Date.now()}`;
   const homeZone = body.home_zone || 'zone_residential_lobby';
@@ -1173,12 +1200,13 @@ export async function apiCreateNpc(body) {
     const vendorSchedule = (npcType === 'vendor' && !Object.keys(body.vendor_schedule||{}).length)
       ? DEFAULT_VENDOR_SCHEDULE : (body.vendor_schedule || {});
     const homeActivities = Array.isArray(body.home_activities) ? body.home_activities : [];
-    await query(`INSERT INTO npcs (id,name,description,zone_id,home_zone,faction,dialogue_tree,vendor_inventory,wanders,wander_zones,flags,behaviour_graph,chitchat,studio_zone_id,work_zone_id,hp,hp_max,npc_type,vendor_schedule,vendor_shop_name,home_activities) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)`,
-      [id,body.name,body.description,body.zone_id||null,homeZone,body.faction||null,JSON.stringify(body.dialogue_tree||{}),JSON.stringify(body.vendor_inventory||[]),body.wanders?1:0,JSON.stringify(body.wander_zones||[]),JSON.stringify(body.flags||{}),JSON.stringify(rawGraph),JSON.stringify(chitchat),body.studio_zone_id||null,body.work_zone_id||null,hpMax,hpMax,npcType,JSON.stringify(vendorSchedule),body.vendor_shop_name||null,JSON.stringify(homeActivities)]);
+    const banter = Array.isArray(body.banter) ? body.banter : [];
+    await query(`INSERT INTO npcs (id,name,description,zone_id,home_zone,faction,dialogue_tree,vendor_inventory,wanders,wander_zones,flags,behaviour_graph,chitchat,studio_zone_id,work_zone_id,hp,hp_max,npc_type,vendor_schedule,vendor_shop_name,home_activities,banter) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)`,
+      [id,body.name,body.description,body.zone_id||null,homeZone,body.faction||null,JSON.stringify(body.dialogue_tree||{}),JSON.stringify(body.vendor_inventory||[]),body.wanders?1:0,JSON.stringify(body.wander_zones||[]),JSON.stringify(body.flags||{}),JSON.stringify(rawGraph),JSON.stringify(chitchat),body.studio_zone_id||null,body.work_zone_id||null,hpMax,hpMax,npcType,JSON.stringify(vendorSchedule),body.vendor_shop_name||null,JSON.stringify(homeActivities),JSON.stringify(banter)]);
     // Register in world memory so the NPC is immediately visible
     const { world: w } = await import('../engine/world.js');
     const { initBlackboard } = await import('../engine/ai-behaviour.js');
-    w.npcs.set(id, { id, name:body.name, description:body.description, zone_id:body.zone_id||null, home_zone:homeZone, faction:body.faction||null, dialogue_tree:body.dialogue_tree||{}, vendor_inventory:body.vendor_inventory||[], wanders:body.wanders?1:0, wander_zones:body.wander_zones||[], flags:body.flags||{}, behaviour_graph:rawGraph, chitchat, studio_zone_id:body.studio_zone_id||null, work_zone_id:body.work_zone_id||null, hp:hpMax, hp_max:hpMax, npc_type:npcType, vendor_schedule:vendorSchedule, vendor_bank_credits:0, vendor_shop_name:body.vendor_shop_name||null, home_activities:homeActivities, _ai:initBlackboard() });
+    w.npcs.set(id, { id, name:body.name, description:body.description, zone_id:body.zone_id||null, home_zone:homeZone, faction:body.faction||null, dialogue_tree:body.dialogue_tree||{}, vendor_inventory:body.vendor_inventory||[], wanders:body.wanders?1:0, wander_zones:body.wander_zones||[], flags:body.flags||{}, behaviour_graph:rawGraph, chitchat, studio_zone_id:body.studio_zone_id||null, work_zone_id:body.work_zone_id||null, hp:hpMax, hp_max:hpMax, npc_type:npcType, vendor_schedule:vendorSchedule, vendor_bank_credits:0, vendor_shop_name:body.vendor_shop_name||null, home_activities:homeActivities, banter, _ai:initBlackboard() });
     if (body.zone_id) w.zones.get(body.zone_id)?.npcs.add(id);
     if (npcType === 'vendor' && body.work_zone_id) {
       const npcForBoard = { name: body.name, vendor_schedule: vendorSchedule, vendor_shop_name: body.vendor_shop_name||null };
@@ -1195,15 +1223,15 @@ export async function apiUpdateNpc(id,body) {
     const rawGraph = body.behaviour_graph && Object.keys(body.behaviour_graph).length
       ? body.behaviour_graph
       : (npcType === 'vendor' ? buildDefaultVendorGraph() : npcType === 'unemployed' ? buildDefaultUnemployedGraph() : buildDefaultStudioGraph());
-    await query(`UPDATE npcs SET name=$1,description=$2,zone_id=$3,home_zone=$4,faction=$5,dialogue_tree=$6,vendor_inventory=$7,wanders=$8,wander_zones=$9,flags=$10,behaviour_graph=$11,work_zone_id=$12,chitchat=$13,hp_max=$14,hp=LEAST(hp,$14),vendor_stock_size=$16,vendor_restock_rate=$17,npc_type=$18,vendor_schedule=$19,vendor_shop_name=$20,home_activities=$21 WHERE id=$15`,
-      [body.name,body.description,body.zone_id,body.home_zone||null,body.faction,JSON.stringify(body.dialogue_tree||{}),JSON.stringify(body.vendor_inventory||[]),body.wanders?1:0,JSON.stringify(body.wander_zones||[]),JSON.stringify(body.flags||{}),JSON.stringify(rawGraph),body.work_zone_id||null,JSON.stringify(body.chitchat||[]),body.hp_max||20,id,body.vendor_stock_size||10,body.vendor_restock_rate||1,npcType,JSON.stringify(body.vendor_schedule||{}),body.vendor_shop_name||null,JSON.stringify(body.home_activities||[])]);
+    await query(`UPDATE npcs SET name=$1,description=$2,zone_id=$3,home_zone=$4,faction=$5,dialogue_tree=$6,vendor_inventory=$7,wanders=$8,wander_zones=$9,flags=$10,behaviour_graph=$11,work_zone_id=$12,chitchat=$13,hp_max=$14,hp=LEAST(hp,$14),vendor_stock_size=$16,vendor_restock_rate=$17,npc_type=$18,vendor_schedule=$19,vendor_shop_name=$20,home_activities=$21,banter=$22 WHERE id=$15`,
+      [body.name,body.description,body.zone_id,body.home_zone||null,body.faction,JSON.stringify(body.dialogue_tree||{}),JSON.stringify(body.vendor_inventory||[]),body.wanders?1:0,JSON.stringify(body.wander_zones||[]),JSON.stringify(body.flags||{}),JSON.stringify(rawGraph),body.work_zone_id||null,JSON.stringify(body.chitchat||[]),body.hp_max||20,id,body.vendor_stock_size||10,body.vendor_restock_rate||1,npcType,JSON.stringify(body.vendor_schedule||{}),body.vendor_shop_name||null,JSON.stringify(body.home_activities||[]),JSON.stringify(Array.isArray(body.banter)?body.banter:[])]);
     // Update in-memory NPC and sync zone.npcs sets
     const { world: w } = await import('../engine/world.js');
     const existing = w.npcs.get(id);
     const oldZone = existing?.zone_id;
     const newZone = body.zone_id || null;
     const newHpMax = body.hp_max || 20;
-    if (existing) Object.assign(existing, { name:body.name, description:body.description, zone_id:newZone, home_zone:body.home_zone||null, faction:body.faction, dialogue_tree:body.dialogue_tree||{}, vendor_inventory:body.vendor_inventory||[], wanders:body.wanders?1:0, wander_zones:body.wander_zones||[], flags:body.flags||{}, behaviour_graph:rawGraph, work_zone_id:body.work_zone_id||null, chitchat:body.chitchat||[], hp_max:newHpMax, hp:Math.min(existing.hp??newHpMax, newHpMax), vendor_stock_size:body.vendor_stock_size||10, vendor_restock_rate:body.vendor_restock_rate||1, npc_type:npcType, vendor_schedule:body.vendor_schedule||{}, vendor_shop_name:body.vendor_shop_name||null, home_activities:body.home_activities||[] });
+    if (existing) Object.assign(existing, { name:body.name, description:body.description, zone_id:newZone, home_zone:body.home_zone||null, faction:body.faction, dialogue_tree:body.dialogue_tree||{}, vendor_inventory:body.vendor_inventory||[], wanders:body.wanders?1:0, wander_zones:body.wander_zones||[], flags:body.flags||{}, behaviour_graph:rawGraph, work_zone_id:body.work_zone_id||null, chitchat:body.chitchat||[], hp_max:newHpMax, hp:Math.min(existing.hp??newHpMax, newHpMax), vendor_stock_size:body.vendor_stock_size||10, vendor_restock_rate:body.vendor_restock_rate||1, npc_type:npcType, vendor_schedule:body.vendor_schedule||{}, vendor_shop_name:body.vendor_shop_name||null, home_activities:body.home_activities||[], banter:Array.isArray(body.banter)?body.banter:[] });
     // Upsert/remove schedule board furniture based on current work zone
     if (npcType === 'vendor') {
       const boardId = `furn_schd_${id}`;

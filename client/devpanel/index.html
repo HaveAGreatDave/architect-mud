@@ -183,6 +183,33 @@
   </div>
 </div>
 
+<!-- PER-NPC BANTER SCRIPTS -->
+<div id="nb-modal" style="display:none;position:fixed;inset:0;z-index:520;background:rgba(0,0,0,0.7);align-items:center;justify-content:center" onclick="if(event.target===this)nbCloseModal()">
+  <div class="modal-card" style="width:min(680px,94vw);max-height:90vh;display:flex;flex-direction:column;overflow:hidden">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+      <h2 style="margin:0;color:var(--accent);letter-spacing:2px;text-transform:uppercase;font-size:14px">🗣 <span id="nb-modal-title">Banter Scripts</span></h2>
+      <button class="action-btn" style="margin-left:auto" onclick="nbAddThread()">＋ Add Script</button>
+      <button class="action-btn primary" onclick="nbCloseModal()">✓ Done</button>
+    </div>
+    <div style="font-size:11px;color:var(--text-dim);margin-bottom:10px">Each script is a short back-and-forth. One line per turn; speakers alternate (line 1 = this NPC, line 2 = whoever's nearby). Quoted "text" = says, unquoted = emote.</div>
+    <div id="nb-modal-body" style="flex:1;overflow-y:auto;min-height:0"></div>
+  </div>
+</div>
+
+<!-- SHARED BANTER LIBRARY -->
+<div id="bl-modal" style="display:none;position:fixed;inset:0;z-index:520;background:rgba(0,0,0,0.7);align-items:center;justify-content:center" onclick="if(event.target===this)blClose()">
+  <div class="modal-card" style="width:min(780px,94vw);max-height:90vh;display:flex;flex-direction:column;overflow:hidden">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+      <h2 style="margin:0;color:var(--accent);letter-spacing:2px;text-transform:uppercase;font-size:14px">🗣 Banter Library</h2>
+      <button class="action-btn" style="margin-left:auto" onclick="blAdd()">＋ Add Thread</button>
+      <button class="action-btn primary" onclick="blSave()">Save Library</button>
+      <button class="action-btn" onclick="blClose()">✕ Close</button>
+    </div>
+    <div style="font-size:11px;color:var(--text-dim);margin-bottom:10px">Shared pool of scenes idle NPCs play out when they share a witnessed room. <b>Generic</b> threads fit any pair; setting a personality limits a thread to that archetype's initiator. One line per turn; speakers alternate.</div>
+    <div id="bl-modal-body" style="flex:1;overflow-y:auto;min-height:0"></div>
+  </div>
+</div>
+
 <!-- BIG MAP -->
 <div id="bigmap-overlay" onclick="if(event.target===this) closeBigMap()">
   <div class="modal-card bigmap-modal">
