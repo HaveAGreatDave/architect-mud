@@ -20,6 +20,27 @@ document.getElementById('dev-password').addEventListener('keydown', e => { if(e.
 })();
 applyDevSettings();
 
+// ── Mobile drawers ──────────────────────────────────────────────────────────
+// On phones the nav and world-state sidebars are off-canvas; these toggle the
+// classes the mobile CSS keys off of. Opening one closes the other.
+function toggleMobileNav() {
+  const l = document.getElementById('layout');
+  l.classList.remove('ws-open');
+  l.classList.toggle('nav-open');
+}
+function toggleMobileWorldState() {
+  const l = document.getElementById('layout');
+  l.classList.remove('nav-open');
+  l.classList.toggle('ws-open');
+}
+function closeMobileDrawers() {
+  document.getElementById('layout').classList.remove('nav-open', 'ws-open');
+}
+// Tapping a nav item navigates then closes the drawer.
+document.getElementById('nav').addEventListener('click', e => {
+  if (e.target.closest('.nav-item')) closeMobileDrawers();
+});
+
 window.addEventListener('storage', e => {
   if (e.key !== SHARED_SETTINGS_KEY) return;
   devSettings = loadDevSettings();

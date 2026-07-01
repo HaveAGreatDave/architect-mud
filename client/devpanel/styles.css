@@ -482,6 +482,81 @@
   ::-webkit-scrollbar-track { background: var(--bg2); }
   ::-webkit-scrollbar-thumb { background: var(--border); }
 
+  /* Mobile-only controls hidden on desktop */
+  .mobile-only { display: none; }
+  #nav-toggle, #ws-toggle {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-size: 16px;
+    width: 30px; height: 30px;
+    cursor: pointer;
+    border-radius: 2px;
+    line-height: 1;
+    font-family: var(--font);
+    flex-shrink: 0;
+  }
+  #mobile-backdrop { display: none; }
+
+  /* ─── Mobile layout ─────────────────────────────────────────────────────
+     The three-column desktop layout (nav | content | world-state) doesn't
+     fit a phone, so on narrow screens the nav and world-state become
+     off-canvas drawers and the content takes the full width. This also kills
+     the horizontal overflow that let the whole page be dragged off-screen. */
+  @media (max-width: 768px) {
+    html, body { overflow-x: hidden; overscroll-behavior: none; }
+
+    .mobile-only { display: inline-flex; align-items: center; justify-content: center; }
+
+    /* Header action buttons wrap instead of clipping off the right edge */
+    #header { flex-wrap: wrap; row-gap: 6px; gap: 10px; }
+
+    /* Left nav → slide-in drawer */
+    #nav {
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      z-index: 50;
+      width: 220px;
+      transform: translateX(-100%);
+      transition: transform 0.2s ease;
+    }
+    #layout.nav-open #nav { transform: translateX(0); }
+
+    /* World-state → right slide-in drawer, hidden by default */
+    #world-state {
+      position: fixed;
+      top: 0; right: 0; bottom: 0;
+      z-index: 50;
+      width: 240px;
+      transform: translateX(100%);
+      transition: transform 0.2s ease;
+    }
+    #layout.ws-open #world-state { transform: translateX(0); }
+
+    #layout.nav-open #mobile-backdrop,
+    #layout.ws-open #mobile-backdrop {
+      display: block;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.55);
+      z-index: 45;
+    }
+
+    /* Content fills the viewport (nav/world-state are now out of flow) */
+    #content { width: 100%; }
+
+    /* Edit panel → full-screen overlay */
+    #edit-panel.open {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      z-index: 55;
+    }
+
+    /* Toolbar search wraps to its own full-width row */
+    #toolbar { flex-wrap: wrap; }
+    #toolbar #search-input { width: 100% !important; }
+  }
+
   /* ── Broadcast Suite ──────────────────────────────────────────────────────── */
   .bc-suite { display: flex; flex-direction: column; height: 100%; background: var(--bg); }
 

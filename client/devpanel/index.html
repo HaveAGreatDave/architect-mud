@@ -40,9 +40,11 @@
 
 <!-- HEADER -->
 <div id="header">
+  <button id="nav-toggle" class="mobile-only" onclick="toggleMobileNav()" title="Menu" aria-label="Toggle navigation">☰</button>
   <span class="logo">ARCHITECT <span>// DEV</span></span>
   <span class="auth-status" id="auth-badge">NOT AUTHENTICATED</span>
   <div id="header-actions" style="display:flex;gap:6px;align-items:center">
+    <button id="ws-toggle" class="mobile-only" onclick="toggleMobileWorldState()" title="Server status" aria-label="Toggle server status">📡</button>
     <button id="dev-settings-btn" onclick="openSettingsPanel()" title="Settings" style="background:transparent;border:1px solid var(--border);color:var(--text-dim);font-size:14px;width:28px;height:28px;cursor:pointer;border-radius:2px;transition:all 0.15s;line-height:1;font-family:var(--font)" onmouseover="this.style.cssText+=';border-color:var(--accent);color:var(--accent)'" onmouseout="this.style.cssText+=';border-color:var(--border);color:var(--text-dim)'">⚙</button>
     <button class="action-btn" onclick="refreshWorld()">↻ Refresh</button>
     <button class="action-btn" id="ghost-btn" onclick="openGhostMode()" style="display:none">👻 Ghost Mode</button>
@@ -150,6 +152,9 @@
       </label>
     </div>
   </div>
+
+  <!-- Mobile drawer backdrop -->
+  <div id="mobile-backdrop" onclick="closeMobileDrawers()"></div>
 </div>
 
 <div class="msg-toast" id="toast"></div>
