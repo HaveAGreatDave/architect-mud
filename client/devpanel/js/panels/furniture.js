@@ -283,8 +283,8 @@ function furnitureEditForm(rec, isNew) {
     .map(([id, name]) => `<option value="${id}" ${rec.zone_id===id?'selected':''}>${name} (${id})</option>`)
     .join('');
   return `
-    <div class="field"><label>Furniture ID</label><input id="f-id" value="${isNew?'':rec.id}" ${!isNew?'readonly style="opacity:0.5"':''}></div>
-    <div class="field"><label>Name</label><input id="f-name" value="${rec.name||''}" ${isNew?'oninput="document.getElementById(\'f-id\').value=this.value.toLowerCase().replace(/\\s+/g,\'_\')"':''}></div>
+    <div class="field"><label>Furniture ID</label><input id="f-id" value="${isNew?'':rec.id}" readonly style="opacity:0.5${isNew?';font-style:italic':''}"></div>
+    <div class="field"><label>Name</label><input id="f-name" value="${rec.name||''}" ${isNew?'oninput="document.getElementById(\'f-id\').value=\'furniture_\'+this.value.toLowerCase().replace(/\\s+/g,\'_\').replace(/[^a-z0-9_]/g,\'\')"':''}></div>
     <div class="field"><label>Description</label><textarea id="f-description" rows="4">${rec.description||''}</textarea></div>
     ${!isNew ? `<div class="field"><label>Zone</label>
       <select id="f-zone_id">
@@ -468,7 +468,7 @@ async function saveFurniture(existing) {
   const lmEl = document.getElementById('f-lumen_output');
   if (lmEl) body.lumen_output = lmEl.value.trim() === '' ? null : Number(lmEl.value);
   let result;
-  if (isNew) { body.id = document.getElementById('f-id').value.trim(); result = await API('/furniture', 'POST', body); }
+  if (isNew) { body.id = `furniture_${body.name.trim().toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'')}` || `furniture_${Date.now()}`; result = await API('/furniture', 'POST', body); }
   else { result = await API(`/furniture/${existing.id}`, 'PUT', body); }
   if (isLight) API('/environment/power/fix-buildings', 'POST').catch(() => {});
   return result;
