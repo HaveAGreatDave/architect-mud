@@ -3872,6 +3872,28 @@ body {
 	opacity: 1;
 }
 
+/* D-pad size variants — driven by data-dpad-size on <html> */
+[data-dpad-size="medium"] .dpad-btn,
+[data-dpad-size="medium"] .dpad-center {
+	width: 38px;
+	height: 38px;
+	font-size: 15px;
+}
+[data-dpad-size="medium"] .dpad-ud { font-size: 13px; }
+
+[data-dpad-size="large"] .dpad-btn,
+[data-dpad-size="large"] .dpad-center {
+	width: 52px;
+	height: 52px;
+	font-size: 20px;
+}
+[data-dpad-size="large"] .dpad-ud { font-size: 17px; }
+
+/* Hide d-pad size setting on non-touch (desktop) */
+@media (hover: hover) and (pointer: fine) {
+	.mobile-only-setting { display: none; }
+}
+
 #mobile-minimap-panel {
 	display: none;
 	position: fixed;

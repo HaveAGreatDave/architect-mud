@@ -63,8 +63,13 @@ function renderAudioPanel(data) {
       <div style="display:flex;gap:6px">${tabBar}</div>
       <div style="display:flex;gap:6px">
         <button class="action-btn danger" onclick="stopAllAudioPreviews()">⏹ Stop</button>
-        ${_audioTab !== 'events' ? `<button class="action-btn" onclick="openAudioImportModal('${_audioTab}')">⬆ Load</button>` : ''}
-        <button class="action-btn" onclick="newAudioAsset('${_audioTab}')">+ New ${tabs.find(t => t[0] === _audioTab)[1]}</button>
+        ${_audioTab === 'samples'
+          ? `<button class="action-btn" onclick="newAudioAsset('samples')">⬆ Upload Sample</button>`
+          : _audioTab === 'events'
+            ? `<button class="action-btn" onclick="newAudioAsset('events')">+ New Event Route</button>`
+            : `<button class="action-btn" onclick="openAudioImportModal('${_audioTab}')">⬆ Load</button>
+               <button class="action-btn" onclick="newAudioAsset('${_audioTab}')">+ New ${tabs.find(t => t[0] === _audioTab)[1]}</button>`
+        }
       </div>
     </div>
     <div id="audio-tab-body"></div>
