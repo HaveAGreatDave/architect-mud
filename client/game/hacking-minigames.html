@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ARCHITECT // HACK PROTOTYPES</title>
+<style>
+  :root {
+    --bg: #0a0e0a; --panel: #101610; --border: #1f3a1f;
+    --fg: #7dff7d; --dim: #3f7a3f; --hot: #ff5f5f; --warn: #ffd75f; --cyan: #5fd7ff;
+  }
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--fg); font-family: 'Consolas','Courier New',monospace; margin: 0; padding: 12px; font-size: 15px; }
+  h1 { font-size: 16px; color: var(--cyan); letter-spacing: 2px; margin: 4px 0 12px; }
+  .tabs { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+  .tabs button { background: var(--panel); color: var(--dim); border: 1px solid var(--border); padding: 8px 14px; font-family: inherit; font-size: 14px; cursor: pointer; }
+  .tabs button.active { color: var(--fg); border-color: var(--fg); }
+  .controls { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; background: var(--panel); border: 1px solid var(--border); padding: 8px 12px; margin-bottom: 10px; }
+  .controls label { color: var(--dim); font-size: 13px; }
+  .controls input[type=range] { vertical-align: middle; accent-color: var(--fg); }
+  .controls .val { color: var(--warn); min-width: 2ch; display: inline-block; }
+  .controls button { background: #142014; color: var(--fg); border: 1px solid var(--fg); padding: 6px 14px; font-family: inherit; cursor: pointer; }
+  .game { background: var(--panel); border: 1px solid var(--border); padding: 14px; min-height: 340px; }
+  .hidden { display: none; }
+  .desc { color: var(--dim); font-size: 13px; margin-bottom: 10px; line-height: 1.4; }
+  .status { margin-top: 10px; min-height: 22px; }
+  .win { color: var(--fg); font-weight: bold; }
+  .lose { color: var(--hot); font-weight: bold; }
+  .warn { color: var(--warn); }
+
+  /* codebreaker */
+  #cb-log { margin: 8px 0; }
+  #cb-log .row { padding: 2px 0; letter-spacing: 3px; }
+  #cb-log .fb { color: var(--dim); letter-spacing: 1px; margin-left: 12px; font-size: 13px; }
+  #cb-pad { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
+  #cb-pad button, #cb-actions button { background: #0d130d; color: var(--fg); border: 1px solid var(--border); min-width: 40px; padding: 8px 0; font-family: inherit; font-size: 16px; cursor: pointer; }
+  #cb-pad button:active { background: var(--border); }
+  #cb-current { font-size: 20px; letter-spacing: 6px; min-height: 28px; color: var(--warn); }
+  #cb-current .known { color: var(--cyan); }
+
+  /* buffer */
+  #bf-wrap { display: flex; gap: 24px; flex-wrap: wrap; }
+  #bf-grid { border-collapse: collapse; }
+  #bf-grid td { border: 1px solid var(--border); width: 44px; height: 40px; text-align: center; font-size: 15px; cursor: pointer; color: var(--fg); }
+  #bf-grid td.legal { background: #14240f; }
+  #bf-grid td.used { color: #223022; cursor: default; }
+  #bf-grid td.legal:hover { background: #1e3a16; }
+  .bf-seq { margin: 4px 0; letter-spacing: 2px; }
+  .bf-seq .done-tag { color: var(--fg); }
+  .bf-seq .dead-tag { color: var(--hot); }
+  .bf-seq .m { color: var(--cyan); text-decoration: underline; }
+  #bf-buffer { margin-top: 10px; letter-spacing: 3px; }
+  #bf-buffer .slot { display: inline-block; width: 34px; text-align: center; border: 1px dashed var(--border); margin-right: 4px; padding: 3px 0; }
+
+  /* trace */
+  #tr-grid { border-collapse: collapse; }
+  #tr-grid td { border: 1px solid var(--border); width: 34px; height: 34px; text-align: center; font-size: 15px; cursor: default; }
+  #tr-grid td.reach { cursor: pointer; background: #14240f; }
+  #tr-grid td.reach:hover { background: #1e3a16; }
+  #tr-grid td.me { background: #274a1c; color: var(--warn); }
+  #tr-grid td.ice-seen { color: var(--hot); }
+  #tr-grid td.ice-hit { background: #401010; color: var(--hot); }
+  #tr-grid td.core { color: var(--cyan); font-weight: bold; }
+  #tr-grid td.visited { color: var(--dim); }
+  #tr-hud { margin: 8px 0; color: var(--dim); font-size: 13px; }
+  #tr-hud b { color: var(--warn); }
+</style>
+</head>
+<body>
+<h1>ARCHITECT // HACKING PROTOTYPES</h1>
+
+<div class="tabs">
+  <button data-g="cb" class="active">1&nbsp;CODEBREAKER</button>
+  <button data-g="bf">2&nbsp;BUFFER INJECT</button>
+  <button data-g="tr">3&nbsp;ICE TRACE</button>
+</div>
+
+<div class="controls">
+  <label>SKILL <input type="range" id="skill" min="1" max="10" value="3"> <span class="val" id="skillV">3</span></label>
+  <label>DIFFICULTY <input type="range" id="diff" min="1" max="10" value="3"> <span class="val" id="diffV">3</span></label>
+  <button id="regen">⟳ NEW PUZZLE</button>
+  <span id="tuning" style="color:var(--dim);font-size:12px"></span>
+</div>
+
+<!-- ============ CODEBREAKER ============ -->
+<div class="game" id="g-cb">
+  <div class="desc">Crack the access code. Feedback per attempt: <span style="color:var(--fg)">◉ locked</span> = right symbol right slot, <span class="warn">◌ echo</span> = right symbol wrong slot. Skill grants extra attempts and pre-leaked digits; difficulty grows code length &amp; symbol set.</div>
+  <div id="cb-symbols" class="desc"></div>
+  <div id="cb-log"></div>
+  <div id="cb-current"></div>
+  <div id="cb-pad"></div>
+  <div id="cb-actions"><button id="cb-del">DEL</button> <button id="cb-go">INJECT</button></div>
+  <div class="status" id="cb-status"></div>
+</div>
+
+<!-- ============ BUFFER ============ -->
+<div class="game hidden" id="g-bf">
+  <div class="desc">Assemble daemon sequences from the matrix. First pick: anywhere in the <b>top row</b>. Then alternate: same <b>column</b>, then same <b>row</b>, etc. Each pick consumes one buffer slot. Complete sequences before the buffer fills. Skill grows your buffer; difficulty grows the matrix and sequences.</div>
+  <div id="bf-wrap">
+    <table id="bf-grid"></table>
+    <div>
+      <div style="color:var(--dim);font-size:13px">TARGET DAEMONS</div>
+      <div id="bf-seqs"></div>
+      <div style="color:var(--dim);font-size:13px;margin-top:10px">BUFFER</div>
+      <div id="bf-buffer"></div>
+    </div>
+  </div>
+  <div class="status" id="bf-status"></div>
+</div>
+
+<!-- ============ TRACE ============ -->
+<div class="game hidden" id="g-tr">
+  <div class="desc">Route from entry <span class="warn">◈</span> to core <span style="color:var(--cyan)">▣</span>. ICE <span style="color:var(--hot)">✖</span> is hidden — your sensors (skill) reveal it within range as you move. Stepping on ICE trips an alarm; too many alarms and the trace burns you out. Difficulty adds grid size and ICE density. Moves are limited.</div>
+  <div id="tr-hud"></div>
+  <table id="tr-grid"></table>
+  <div class="status" id="tr-status"></div>
+</div>
+
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const ri = n => Math.floor(Math.random() * n);
+let SKILL = 3, DIFF = 3, GAME = 'cb';
+
+/* ---------- shell ---------- */
+document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
+  GAME = b.dataset.g;
+  document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('active', x === b));
+  ['cb','bf','tr'].forEach(g => $('g-' + g).classList.toggle('hidden', g !== GAME));
+  regen();
+});
+$('skill').oninput = e => { SKILL = +e.target.value; $('skillV').textContent = SKILL; regen(); };
+$('diff').oninput  = e => { DIFF  = +e.target.value; $('diffV').textContent  = DIFF;  regen(); };
+$('regen').onclick = () => regen();
+function regen() { ({cb: cbNew, bf: bfNew, tr: trNew})[GAME](); }
+
+/* =================================================================
+   1. CODEBREAKER
+================================================================= */
+const CB_SYM = '0123456789ABCDEF';
+let cb;
+function cbNew() {
+  const len = 3 + Math.floor(DIFF / 3);              // 3..6
+  const alpha = Math.min(16, 5 + DIFF);              // 6..15
+  const tries = Math.max(3, 5 + Math.floor(SKILL / 2) - Math.floor(DIFF / 4)); // skill helps, diff hurts
+  const leaks = Math.min(len - 1, Math.floor(SKILL / 4));  // pre-revealed slots at high skill
+  const syms = CB_SYM.slice(0, alpha);
+  const code = Array.from({length: len}, () => syms[ri(alpha)]);
+  const known = Array(len).fill(null);
+  const leakIdx = [...Array(len).keys()].sort(() => Math.random() - .5).slice(0, leaks);
+  leakIdx.forEach(i => known[i] = code[i]);
+  cb = { code, syms, len, triesLeft: tries, known, cur: [], over: false };
+  $('tuning').textContent = `len ${len} · symbols ${alpha} · attempts ${tries} · leaked ${leaks}`;
+  $('cb-symbols').textContent = 'SYMBOL SET: ' + syms.split('').join(' ');
+  $('cb-log').innerHTML = '';
+  $('cb-status').textContent = '';
+  $('cb-pad').innerHTML = '';
+  syms.split('').forEach(s => {
+    const b = document.createElement('button');
+    b.textContent = s;
+    b.onclick = () => { if (!cb.over && cb.cur.length < cb.len) { cb.cur.push(s); cbDraw(); } };
+    $('cb-pad').appendChild(b);
+  });
+  cbDraw();
+}
+function cbDraw() {
+  let out = '';
+  for (let i = 0; i < cb.len; i++) {
+    if (i < cb.cur.length) out += cb.cur[i];
+    else if (cb.known[i]) out += `<span class="known">${cb.known[i]}</span>`;
+    else out += '_';
+    out += ' ';
+  }
+  $('cb-current').innerHTML = out + `&nbsp;&nbsp;<span style="color:var(--dim);font-size:13px">[${cb.triesLeft} attempts left]</span>`;
+}
+$('cb-del').onclick = () => { if (!cb.over) { cb.cur.pop(); cbDraw(); } };
+$('cb-go').onclick = () => {
+  if (cb.over || cb.cur.length !== cb.len) return;
+  const g = cb.cur.slice(); cb.cur = []; cb.triesLeft--;
+  let locked = 0, echo = 0;
+  const c = cb.code.slice(), u = g.slice();
+  for (let i = 0; i < cb.len; i++) if (u[i] === c[i]) { locked++; cb.known[i] = c[i]; c[i] = u[i] = null; }
+  for (let i = 0; i < cb.len; i++) if (u[i] !== null) { const j = c.indexOf(u[i]); if (j >= 0) { echo++; c[j] = null; } }
+  const row = document.createElement('div');
+  row.className = 'row';
+  row.innerHTML = g.join(' ') + `<span class="fb">◉×${locked} ◌×${echo}</span>`;
+  $('cb-log').appendChild(row);
+  if (locked === cb.len) { cb.over = true; $('cb-status').innerHTML = '<span class="win">&gt;&gt; ACCESS GRANTED</span>'; }
+  else if (cb.triesLeft <= 0) { cb.over = true; $('cb-status').innerHTML = `<span class="lose">&gt;&gt; LOCKOUT. Code was ${cb.code.join(' ')}</span>`; }
+  cbDraw();
+};
+
+/* =================================================================
+   2. BUFFER INJECT
+================================================================= */
+const BF_SYM = ['1C','55','BD','E9','7A','FF','3B','D0'];
+let bf;
+function bfNew() {
+  const size = 4 + Math.floor(DIFF / 3);             // 4..7
+  const bufLen = 4 + Math.floor(SKILL / 2);          // 4..9
+  const nSeq = 1 + Math.floor((DIFF - 1) / 4);       // 1..3
+  const pool = BF_SYM.slice(0, 4 + Math.floor(DIFF / 3));
+  const grid = Array.from({length: size}, () => Array.from({length: size}, () => pool[ri(pool.length)]));
+  // generate sequences by walking a legal path through the grid so they're always solvable individually
+  const seqs = [];
+  for (let s = 0; s < nSeq; s++) {
+    const sLen = 2 + Math.floor(DIFF / 4) + s;       // later daemons longer
+    let r = 0, c = ri(size), axis = 'col', seq = [grid[r][c]];
+    for (let k = 1; k < sLen; k++) {
+      if (axis === 'col') { r = ri(size); } else { c = ri(size); }
+      axis = axis === 'col' ? 'row' : 'col';
+      seq.push(grid[r][c]);
+    }
+    seqs.push({ seq, state: 'live' }); // live | done | dead
+  }
+  bf = { grid, size, bufLen, seqs, buffer: [], axis: 'row', lockRow: 0, lockCol: -1, used: new Set(), over: false };
+  $('tuning').textContent = `matrix ${size}×${size} · buffer ${bufLen} · daemons ${nSeq}`;
+  $('bf-status').textContent = '';
+  bfDraw();
+}
+function bfLegal(r, c) {
+  if (bf.over || bf.used.has(r + ',' + c)) return false;
+  return bf.axis === 'row' ? r === bf.lockRow : c === bf.lockCol;
+}
+function bfPick(r, c) {
+  if (!bfLegal(r, c)) return;
+  bf.used.add(r + ',' + c);
+  bf.buffer.push(bf.grid[r][c]);
+  if (bf.axis === 'row') { bf.lockCol = c; bf.axis = 'col'; } else { bf.lockRow = r; bf.axis = 'row'; }
+  // score sequences: contiguous subsequence match against buffer tail
+  const bstr = bf.buffer;
+  for (const d of bf.seqs) {
+    if (d.state !== 'live') continue;
+    // find best current progress: longest suffix of buffer matching prefix of seq, or full containment
+    let contained = false;
+    for (let i = 0; i + d.seq.length <= bstr.length; i++) {
+      if (d.seq.every((v, k) => bstr[i + k] === v)) { contained = true; break; }
+    }
+    if (contained) d.state = 'done';
+    else {
+      // dead if remaining buffer can't fit the rest even with best suffix overlap
+      let best = 0;
+      for (let L = Math.min(d.seq.length - 1, bstr.length); L > 0; L--) {
+        if (d.seq.slice(0, L).every((v, k) => bstr[bstr.length - L + k] === v)) { best = L; break; }
+      }
+      if (bstr.length + (d.seq.length - best) > bf.bufLen + 0) {
+        if ((bf.bufLen - bstr.length) < (d.seq.length - best)) d.state = 'dead';
+      }
+    }
+  }
+  const anyLive = bf.seqs.some(d => d.state === 'live');
+  const allDone = bf.seqs.every(d => d.state === 'done');
+  if (allDone) { bf.over = true; $('bf-status').innerHTML = '<span class="win">&gt;&gt; ALL DAEMONS UPLOADED</span>'; }
+  else if (bf.buffer.length >= bf.bufLen || !anyLive) {
+    bf.over = true;
+    const got = bf.seqs.filter(d => d.state === 'done').length;
+    $('bf-status').innerHTML = got ? `<span class="warn">&gt;&gt; PARTIAL BREACH — ${got}/${bf.seqs.length} daemons</span>`
+                                   : '<span class="lose">&gt;&gt; BUFFER FLUSHED. NOTHING UPLOADED.</span>';
+  }
+  bfDraw();
+}
+function bfDraw() {
+  const t = $('bf-grid'); t.innerHTML = '';
+  for (let r = 0; r < bf.size; r++) {
+    const tr = document.createElement('tr');
+    for (let c = 0; c < bf.size; c++) {
+      const td = document.createElement('td');
+      td.textContent = bf.used.has(r + ',' + c) ? '··' : bf.grid[r][c];
+      if (bf.used.has(r + ',' + c)) td.className = 'used';
+      else if (bfLegal(r, c)) { td.className = 'legal'; td.onclick = () => bfPick(r, c); }
+      tr.appendChild(td);
+    }
+    t.appendChild(tr);
+  }
+  $('bf-seqs').innerHTML = bf.seqs.map(d => {
+    // highlight matched prefix (best suffix overlap)
+    let best = 0;
+    for (let L = Math.min(d.seq.length, bf.buffer.length); L > 0; L--) {
+      if (d.seq.slice(0, L).every((v, k) => bf.buffer[bf.buffer.length - L + k] === v)) { best = L; break; }
+    }
+    const body = d.seq.map((v, i) => (d.state === 'live' && i < best) ? `<span class="m">${v}</span>` : v).join(' ');
+    const tag = d.state === 'done' ? ' <span class="done-tag">✔ UPLOADED</span>' : d.state === 'dead' ? ' <span class="dead-tag">✖ DEAD</span>' : '';
+    return `<div class="bf-seq">${body}${tag}</div>`;
+  }).join('');
+  let slots = '';
+  for (let i = 0; i < bf.bufLen; i++) slots += `<span class="slot">${bf.buffer[i] || '—'}</span>`;
+  $('bf-buffer').innerHTML = slots;
+}
+
+/* =================================================================
+   3. ICE TRACE
+================================================================= */
+let tr;
+function trNew() {
+  const size = 6 + Math.floor(DIFF / 2);             // 6..11
+  const iceDensity = 0.10 + DIFF * 0.02;             // 12%..30%
+  const sensor = 1 + Math.floor(SKILL / 3);          // 1..4 chebyshev radius
+  const alarms = 1 + Math.floor(SKILL / 4);          // 1..3 hits allowed
+  const moves = Math.floor(size * 2.2 + SKILL);      // budget
+  const start = { r: size - 1, c: ri(size) };
+  const core = { r: 0, c: ri(size) };
+  let ice;
+  // generate until a safe path exists (BFS), so it's always solvable
+  for (let attempt = 0; attempt < 200; attempt++) {
+    ice = new Set();
+    for (let r = 0; r < size; r++) for (let c = 0; c < size; c++)
+      if (Math.random() < iceDensity && !(r === start.r && c === start.c) && !(r === core.r && c === core.c))
+        ice.add(r + ',' + c);
+    if (trPathExists(size, ice, start, core)) break;
+  }
+  tr = { size, ice, sensor, alarmsLeft: alarms, movesLeft: moves, pos: {...start}, core, seen: new Set(), hit: new Set(), visited: new Set([start.r + ',' + start.c]), over: false };
+  trSense();
+  $('tuning').textContent = `grid ${size}×${size} · ICE ~${Math.round(iceDensity*100)}% · sensor r${sensor} · alarms ${alarms} · moves ${moves}`;
+  $('tr-status').textContent = '';
+  trDraw();
+}
+function trPathExists(size, ice, s, e) {
+  const q = [[s.r, s.c]], vis = new Set([s.r + ',' + s.c]);
+  while (q.length) {
+    const [r, c] = q.shift();
+    if (r === e.r && c === e.c) return true;
+    for (const [dr, dc] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+      const nr = r + dr, nc = c + dc, k = nr + ',' + nc;
+      if (nr < 0 || nc < 0 || nr >= size || nc >= size || vis.has(k) || ice.has(k)) continue;
+      vis.add(k); q.push([nr, nc]);
+    }
+  }
+  return false;
+}
+function trSense() {
+  for (let dr = -tr.sensor; dr <= tr.sensor; dr++)
+    for (let dc = -tr.sensor; dc <= tr.sensor; dc++) {
+      const k = (tr.pos.r + dr) + ',' + (tr.pos.c + dc);
+      if (tr.ice.has(k)) tr.seen.add(k);
+    }
+}
+function trMove(r, c) {
+  if (tr.over) return;
+  const k = r + ',' + c;
+  tr.pos = { r, c };
+  tr.movesLeft--;
+  tr.visited.add(k);
+  if (tr.ice.has(k)) {
+    tr.hit.add(k); tr.seen.add(k); tr.alarmsLeft--;
+    if (tr.alarmsLeft <= 0) { tr.over = true; trReveal(); $('tr-status').innerHTML = '<span class="lose">&gt;&gt; TRACED. CONNECTION BURNED.</span>'; trDraw(); return; }
+    $('tr-status').innerHTML = `<span class="warn">&gt;&gt; ALARM TRIPPED — ${tr.alarmsLeft} left</span>`;
+  } else if (r === tr.core.r && c === tr.core.c) {
+    tr.over = true; $('tr-status').innerHTML = '<span class="win">&gt;&gt; CORE BREACHED</span>'; trDraw(); return;
+  } else {
+    $('tr-status').textContent = '';
+  }
+  if (tr.movesLeft <= 0) { tr.over = true; trReveal(); $('tr-status').innerHTML = '<span class="lose">&gt;&gt; TRACE EXPIRED. KICKED FROM SYSTEM.</span>'; }
+  trSense();
+  trDraw();
+}
+function trReveal() { tr.ice.forEach(k => tr.seen.add(k)); }
+function trDraw() {
+  $('tr-hud').innerHTML = `MOVES <b>${tr.movesLeft}</b> &nbsp; ALARMS <b>${tr.alarmsLeft}</b> &nbsp; SENSOR <b>r${tr.sensor}</b>`;
+  const t = $('tr-grid'); t.innerHTML = '';
+  for (let r = 0; r < tr.size; r++) {
+    const row = document.createElement('tr');
+    for (let c = 0; c < tr.size; c++) {
+      const td = document.createElement('td');
+      const k = r + ',' + c;
+      const isMe = r === tr.pos.r && c === tr.pos.c;
+      const adj = Math.abs(r - tr.pos.r) + Math.abs(c - tr.pos.c) === 1;
+      if (isMe) { td.textContent = '◈'; td.className = 'me'; }
+      else if (tr.hit.has(k)) { td.textContent = '✖'; td.className = 'ice-hit'; }
+      else if (r === tr.core.r && c === tr.core.c) { td.textContent = '▣'; td.className = 'core' + (adj && !tr.over ? ' reach' : ''); }
+      else if (tr.seen.has(k)) { td.textContent = '✖'; td.className = 'ice-seen' + (adj && !tr.over ? ' reach' : ''); }
+      else if (tr.visited.has(k)) { td.textContent = '·'; td.className = 'visited' + (adj && !tr.over ? ' reach' : ''); }
+      else { td.textContent = ''; if (adj && !tr.over) td.className = 'reach'; }
+      if (adj && !tr.over) td.onclick = () => trMove(r, c);
+      row.appendChild(td);
+    }
+    t.appendChild(row);
+  }
+}
+
+/* keyboard for trace */
+document.addEventListener('keydown', e => {
+  if (GAME !== 'tr' || !tr || tr.over) return;
+  const d = { ArrowUp: [-1,0], ArrowDown: [1,0], ArrowLeft: [0,-1], ArrowRight: [0,1] }[e.key];
+  if (!d) return;
+  e.preventDefault();
+  const nr = tr.pos.r + d[0], nc = tr.pos.c + d[1];
+  if (nr >= 0 && nc >= 0 && nr < tr.size && nc < tr.size) trMove(nr, nc);
+});
+
+regen();
+</script>
+</body>
+</html>
