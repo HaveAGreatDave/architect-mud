@@ -745,20 +745,42 @@ function renderMapOverview() {
   const trayChip = (z, dragFn) => `<span class="bigmap-tile bm-edit" style="width:auto;height:auto;padding:4px 8px;cursor:grab;flex-shrink:0${zoneColorStyle(z)}" draggable="true" ondragstart="${dragFn}(event,'${z.id}')" title="${z.id}">${z.name}</span>`;
 
   if (mapViewTab === 'interior') {
-    // Interior tray: rooms with no grid position OR no exits established,
-    // plus any interior/apartment rooms that aren't on any map at all.
-    // Rooms in o.zones with no grid position are already map-assigned — drag them
-    // with mapDragStart (repositioning flow) not mapTrayDragStart (tray/unplaced flow).
+    // Interior tray: rooms with no grid position OR no exits, plus unplaced
+    // interior rooms not on any map. Rooms with a parent_zone are grouped by
+    // their parent and rendered inside a labelled box.
     const onMap = [...o.zones.values()].filter(z => z.grid_x == null || Object.keys(z.exits || {}).length === 0);
-    const orphaned = [...(o.unplacedInterior?.values() || [])].filter(z => !z.flags?.is_building && !o.zones.has(z.id));
-    const needsAttention = [...onMap, ...orphaned];
+    const orphaned = [...(o.unplacedInterior?.values() || [])].filter(z => !z.flags?.is_building && !z.is_building_root && !o.zones.has(z.id));
+
+    // Split into grouped (have parent_zone) and standalone
+    const grouped = orphaned.filter(z => z.parent_zone);
+    const standalone = [...onMap, ...orphaned.filter(z => !z.parent_zone)];
+
+    // Build parent groups map: parent_zone → { name, zones[] }
+    const parentGroups = new Map();
+    for (const z of grouped) {
+      if (!parentGroups.has(z.parent_zone)) {
+        parentGroups.set(z.parent_zone, { name: z.parent_zone_name || z.parent_zone, zones: [] });
+      }
+      parentGroups.get(z.parent_zone).zones.push(z);
+    }
+
+    let trayHtml = '';
+    // Grouped sections — one labeled box per parent
+    for (const [parentId, group] of parentGroups) {
+      trayHtml += `<div style="border:1px solid var(--border);border-radius:4px;padding:8px 10px;margin-bottom:8px;width:100%;box-sizing:border-box">
+        <div style="font-size:10px;font-weight:700;color:var(--accent2);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px" title="${parentId}">${group.name}</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">${group.zones.map(z => trayChip(z, 'mapTrayDragStart')).join('')}</div>
+      </div>`;
+    }
+    // Standalone (on-map unpositioned or truly orphaned with no parent)
+    if (standalone.length) {
+      trayHtml += `<div style="display:flex;gap:6px;flex-wrap:wrap">${standalone.map(z => trayChip(z, o.zones.has(z.id) ? 'mapDragStart' : 'mapTrayDragStart')).join('')}</div>`;
+    }
+
     html += `<div style="padding:0 12px 14px;border-top:1px solid var(--border);margin-top:8px">
       <div style="font-size:11px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;padding-top:10px">Unplaced / No Exits</div>
-      <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px">Rooms with no grid position or no exits. Drag unplaced rooms onto an empty cell to place.</div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap">${needsAttention.length
-        ? needsAttention.map(z => trayChip(z, o.zones.has(z.id) ? 'mapDragStart' : 'mapTrayDragStart')).join('')
-        : `<span style="color:var(--text-dim);font-style:italic;font-size:11px">None — all rooms are placed and connected.</span>`
-      }</div>
+      <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px">Rooms with no grid position or no exits. Drag onto an empty cell to place.</div>
+      ${trayHtml || `<span style="color:var(--text-dim);font-style:italic;font-size:11px">None — all rooms are placed and connected.</span>`}
     </div>`;
   } else {
     const extTray = [...o.unplaced.values()];
@@ -766,8 +788,10 @@ function renderMapOverview() {
     const disconnected = [...o.zones.values()].filter(z => Object.keys(z.exits || {}).length === 0 && z.grid_x != null);
     const allExtUnplaced = [...extTray, ...noPosition].sort((a, b) => a.name.localeCompare(b.name));
     const intUnplaced = [...(o.unplacedInterior?.values() || [])];
-    const unplacedBuildings = intUnplaced.filter(z => z.flags?.is_building || z.is_building_root);
-    const orphanedRooms = intUnplaced.filter(z => !z.flags?.is_building && !z.is_building_root);
+    // Buildings: is_building flag or is a building root. Exclude child zones (have parent_zone).
+    const unplacedBuildings = intUnplaced.filter(z => (z.flags?.is_building || z.is_building_root) && !z.parent_zone);
+    // Orphaned: no parent_zone, not a building root — truly unattached interior rooms
+    const orphanedRooms = intUnplaced.filter(z => !z.flags?.is_building && !z.is_building_root && !z.parent_zone);
     const extChip = z => `<span class="bigmap-tile bm-edit" style="width:auto;height:auto;padding:4px 8px;cursor:grab;flex-shrink:0${zoneColorStyle(z)};border-color:var(--accent)" draggable="true" ondragstart="mapTrayDragStart(event,'${z.id}')" title="${z.id}">${z.name}</span>`;
     const intChip = z => `<span class="bigmap-tile bm-edit" style="width:auto;height:auto;padding:4px 8px;cursor:grab;flex-shrink:0${zoneColorStyle(z)};border-color:var(--accent2);color:var(--accent2);font-weight:600" draggable="true" ondragstart="mapInteriorTrayDragStart(event,'${z.id}')" title="${z.id}">🏢 ${z.name}</span>`;
     const roomChip = z => `<span class="bigmap-tile bm-edit" style="width:auto;height:auto;padding:4px 8px;cursor:pointer;flex-shrink:0${zoneColorStyle(z)};border-color:var(--yellow);color:var(--yellow)" onclick="mapTileEditClick('${z.id}')" title="${z.id}">🚪 ${z.name}</span>`;
@@ -789,12 +813,11 @@ function renderMapOverview() {
         ? unplacedBuildings.map(intChip).join('')
         : `<span style="color:var(--text-dim);font-style:italic;font-size:11px">None.</span>`
       }</div>
+      ${orphanedRooms.length ? `
       <div style="font-size:11px;font-weight:600;color:var(--yellow);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Orphaned Interior Rooms</div>
-      <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px">Interior rooms with no map and no exits — open each to wire up its exits to a parent zone.</div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap">${orphanedRooms.length
-        ? orphanedRooms.map(roomChip).join('')
-        : `<span style="color:var(--text-dim);font-style:italic;font-size:11px">None.</span>`
-      }</div>
+      <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px">Interior rooms with no map, no exits, and no parent zone.</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">${orphanedRooms.map(roomChip).join('')}</div>
+      ` : ''}
     </div>`;
   }
   panel.innerHTML = html;

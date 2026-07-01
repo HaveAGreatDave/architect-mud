@@ -632,18 +632,22 @@ async function apiGetMap(id) {
   // (zones whose children reference them via parent_zone, or is_building flag)
   // that are not yet reachable from any exterior zone.
   const { rows: unplacedInterior } = await query(`
-    SELECT id, name, danger_rating, exits, flags,
-           CASE WHEN COALESCE((flags->>'is_building')::boolean, false) = true
-                  OR EXISTS (SELECT 1 FROM zones c WHERE c.parent_zone = zones.id)
+    SELECT z.id, z.name, z.danger_rating, z.exits, z.flags,
+           z.parent_zone,
+           p.name AS parent_zone_name,
+           CASE WHEN COALESCE((z.flags->>'is_building')::boolean, false) = true
+                  OR EXISTS (SELECT 1 FROM zones c WHERE c.parent_zone = z.id)
                 THEN true ELSE false END AS is_building_root
-    FROM zones
-    WHERE map_id IS NULL
-      AND (COALESCE((flags->>'is_interior')::boolean, false) = true
-        OR COALESCE((flags->>'is_apartment')::boolean, false) = true
-        OR parent_zone IS NOT NULL)
+    FROM zones z
+    LEFT JOIN zones p ON p.id = z.parent_zone
+    WHERE z.map_id IS NULL
+      AND (COALESCE((z.flags->>'is_interior')::boolean, false) = true
+        OR COALESCE((z.flags->>'is_apartment')::boolean, false) = true
+        OR z.parent_zone IS NOT NULL)
     UNION
     -- Building roots (have children or is_building) that no exterior zone exits to
-    SELECT z.id, z.name, z.danger_rating, z.exits, z.flags, true AS is_building_root
+    SELECT z.id, z.name, z.danger_rating, z.exits, z.flags,
+           NULL AS parent_zone, NULL AS parent_zone_name, true AS is_building_root
     FROM zones z
     WHERE z.map_id IS NULL
       AND z.parent_zone IS NULL
