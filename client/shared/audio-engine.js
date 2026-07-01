@@ -193,6 +193,17 @@
         lfo.start(time);
         nodes.push(lfo);
       }
+      // Audio-rate FM: modulator oscillator feeds tone.frequency (in Hz).
+      // depth is the frequency deviation in Hz; index = depth / carrier_freq.
+      if (layer.fm?.rate) {
+        const mod = ctx.createOscillator();
+        mod.frequency.value = layer.fm.rate;
+        const modGain = ctx.createGain();
+        modGain.gain.value = layer.fm.depth ?? 100;
+        mod.connect(modGain).connect(tone.frequency);
+        mod.start(time);
+        nodes.push(mod);
+      }
     }
 
     let noiseSrc = null;
@@ -227,7 +238,21 @@
       mixPoint = tGain;
     }
 
-    mixPoint.connect(destination);
+    // Echo: delay + feedback loop. mix 0–1; delay in seconds; feedback 0–1.
+    if (layer.echo?.mix > 0) {
+      const mix = layer.echo.mix;
+      const delayNode = ctx.createDelay(2.0);
+      delayNode.delayTime.value = layer.echo.delay ?? 0.18;
+      const fb = ctx.createGain(); fb.gain.value = layer.echo.feedback ?? 0.35;
+      const dry = ctx.createGain(); dry.gain.value = 1 - mix;
+      const wet = ctx.createGain(); wet.gain.value = mix;
+      mixPoint.connect(dry).connect(destination);
+      mixPoint.connect(wet).connect(delayNode);
+      delayNode.connect(fb).connect(delayNode);
+      delayNode.connect(destination);
+    } else {
+      mixPoint.connect(destination);
+    }
 
     if (tone) {
       const toneGain = noiseMix > 0 ? ctx.createGain() : null;

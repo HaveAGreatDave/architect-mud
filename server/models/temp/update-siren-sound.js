@@ -3,17 +3,19 @@
 // Run once: node server/models/temp/update-siren-sound.js
 import { query } from '../db.js';
 
-// 600 Hz centre, LFO at 0.1 Hz (10 s per cycle) with ±900 cent depth:
-// sweeps 357 Hz → 1009 Hz — the authentic civil-defense range.
-// Sawtooth approximates the mechanical rotor timbre; small noise mix adds
-// motor rumble. 3 s attack mirrors a real siren spinning up from rest.
+// 600 Hz centre, slow sweep via vibrato LFO (0.1 Hz, ±900 cents → 357–1009 Hz).
+// FM modulator at 420 Hz (index ≈ 0.47) adds the characteristic eerie wail;
+// echo (18% mix, 0.22 s delay, 0.4 feedback) gives outdoor spatial depth.
+// Sine carrier keeps the FM sidebands clean; 3 s attack mirrors spin-up.
 const config = {
-  waveform: 'sawtooth',
+  waveform: 'sine',
   freq: 600,
   gain: 0.8,
-  noiseMix: 0.03,
+  noiseMix: 0.02,
   filter: { type: 'lowpass', freq: 3500, q: 0.8 },
   vibrato: { rate: 0.1, depth: 900 },
+  fm: { rate: 420, depth: 280 },
+  echo: { mix: 0.18, delay: 0.22, feedback: 0.4 },
   adsr: { a: 3.0, d: 0.1, s: 1, r: 4.0 },
 };
 
