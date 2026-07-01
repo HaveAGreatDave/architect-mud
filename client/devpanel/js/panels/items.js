@@ -195,6 +195,29 @@ function removeItemSupertag(btn) {
   refreshItemSupertagPicker();
 }
 
+// Default tag scaffolding per category — what fields appear when you pick a category.
+// Values are starting defaults; Copy from existing overwrites them with real values.
+// Only tags present in TAG_CATALOG are rendered (safe if catalog doesn't have them yet).
+const CATEGORY_DEFAULT_TAGS = {
+  clothing:   { slot: 'torso' },
+  armor:      { slot: 'torso', armor: 0 },
+  weapon:     { weapon: true, slot: 'weapon_hand', weapon_skill: 'blunt', damage: { min: 1, max: 2 } },
+  consumable: { consumable: true },
+  drug:       { consumable: true },
+  implant:    {},
+  ammo:       {},
+  tool:       {},
+  key:        {},
+  misc:       {},
+};
+
+function setCategoryDefaultTags(type) {
+  const defaults = CATEGORY_DEFAULT_TAGS[type] || {};
+  const tagNames = Object.keys(defaults).filter(n => TAG_CATALOG[n]);
+  document.getElementById('item-tags').innerHTML = tagNames.map(n => itemTagRow(n, defaults[n])).join('');
+  refreshItemTagPicker();
+}
+
 function itemCopyFromPicker(type) {
   const matches = (allRecords || []).filter(r => r.type === type);
   if (!matches.length) return '<span style="color:var(--text-dim);font-size:11px">No existing items in this category.</span>';
@@ -202,14 +225,16 @@ function itemCopyFromPicker(type) {
     `<option value="${r.id}">${r.name} (${r.id})</option>`).join('');
   return `<div class="field-row" style="align-items:flex-end">
     <div class="field" style="flex:1"><select id="item-copy-select">${opts}</select></div>
-    <button type="button" class="action-btn" onclick="applyItemCopy()">Copy</button>
+    <button type="button" class="action-btn" onclick="applyItemCopy()">Copy fields</button>
   </div>`;
 }
 
 function refreshItemCopyPicker() {
   const el = document.getElementById('item-copy-picker');
   if (!el) return;
-  el.innerHTML = itemCopyFromPicker(document.getElementById('f-type').value);
+  const type = document.getElementById('f-type').value;
+  el.innerHTML = itemCopyFromPicker(type);
+  setCategoryDefaultTags(type);
 }
 
 function applyItemCopy() {
@@ -218,13 +243,10 @@ function applyItemCopy() {
   const src = (allRecords || []).find(r => r.id === id);
   if (!src) return;
 
-  // Scalar fields
-  document.getElementById('f-name').value = src.name || '';
   document.getElementById('f-rarity').value = src.rarity || 'common';
   document.getElementById('f-weight').value = src.weight ?? 1000;
   document.getElementById('f-value').value = src.value ?? 0;
 
-  // Tags
   const rawTags = (src.tags && typeof src.tags === 'object') ? src.tags : JSON.parse(src.tags||'{}');
   const tags = itemOwnTags(rawTags);
   const superApplied = itemSuperKeys(rawTags);
@@ -241,14 +263,17 @@ function itemEditForm(rec, isNew) {
   const rawTags = (rec.tags && typeof rec.tags === 'object') ? rec.tags : JSON.parse(rec.tags||'{}');
   const tags = itemOwnTags(rawTags);
   const superApplied = itemSuperKeys(rawTags);
-  const tagNames = Object.keys(tags).filter(n => n !== 'description' && TAG_CATALOG[n]);
   const currentType = rec.type || 'clothing';
+  // For new items with no existing tags, scaffold the category defaults.
+  const scaffoldDefaults = CATEGORY_DEFAULT_TAGS[currentType] || {};
+  const sourceTags = isNew && !Object.keys(tags).filter(n => n !== 'description').length ? scaffoldDefaults : tags;
+  const tagNames = Object.keys(sourceTags).filter(n => n !== 'description' && TAG_CATALOG[n]);
   return `
     <div class="field"><label>Item ID</label><input id="f-id" value="${isNew?'':rec.id}" ${!isNew?'readonly style="opacity:0.5"':''}></div>
     <div class="field"><label>Name</label><input id="f-name" value="${rec.name||''}"></div>
     <div class="field-row">
       <div class="field"><label>Category</label>
-        <select id="f-type" ${isNew?'onchange="refreshItemCopyPicker()"':''}>${['clothing','armor','weapon','consumable','drug','key','misc','ammo','tool','implant'].map(t=>`<option value="${t}" ${currentType===t?'selected':''}>${t}</option>`).join('')}</select>
+        <select id="f-type" ${isNew?'onchange="refreshItemCopyPicker()"':''}>${['clothing','armor','weapon','consumable','drug','key','misc','ammo','tool','implant'].map(t=>`<option value="${t}" ${(rec.type||'clothing')===t?'selected':''}>${t}</option>`).join('')}</select>
       </div>
       <div class="field"><label>Rarity</label>
         <select id="f-rarity">${['common','uncommon','rare','very_rare','legendary'].map(r=>`<option ${rec.rarity===r?'selected':''}>${r}</option>`).join('')}</select>
@@ -262,7 +287,7 @@ function itemEditForm(rec, isNew) {
     <div class="field"><label>Description</label><textarea id="f-description" rows="3">${tags.description||''}</textarea></div>
     <div id="item-supertags">${superApplied.map(k => itemSupertagChip(k)).join('')}</div>
     <div id="item-supertag-picker">${itemSupertagPicker(superApplied)}</div>
-    <div id="item-tags">${tagNames.map(n => itemTagRow(n, tags[n])).join('')}</div>
+    <div id="item-tags">${tagNames.map(n => itemTagRow(n, sourceTags[n])).join('')}</div>
     <div id="item-add-tag-picker">${itemAddTagPicker(tagNames)}</div>
     <div class="field" style="margin-top:8px">
       <label style="font-size:11px;opacity:0.6;text-transform:uppercase;letter-spacing:0.05em">Attached Tags</label>
