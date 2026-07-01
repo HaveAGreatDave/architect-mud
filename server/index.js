@@ -617,7 +617,6 @@ async function finishAuth(ws, session, player) {
 	livePlayer.xp = Math.floor(netXp);
 	livePlayer.total_xp = totalXp;
 	setLivePlayer(player.id, livePlayer);
-	emit('player.login', { id: player.id, handle: player.handle, role: player.role });
 	logActivity('connect', player.handle);
 	broadcast(null, { type: 'online_change' });
 	await deactivateForcefield(player.id, livePlayer.home_zone, broadcast);
@@ -737,6 +736,7 @@ async function finishAuth(ws, session, player) {
 			if (bodyTempLoginMsg) ws.send(JSON.stringify({ type: 'system', message: bodyTempLoginMsg }));
 		}
 	}
+	emit('player.login', { id: player.id, handle: player.handle, role: player.role });
 }
 
 
