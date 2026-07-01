@@ -26,6 +26,7 @@ import { materializeItemTags, ownTags, superKeys } from '../engine/supertags.js'
 import { getMotd, saveMotd } from '../engine/motd.js';
 import { isMisServerEnabled, setServerMisEnabled } from '../engine/mis.js';
 import { canAccessChannel, broadcastToChannel, getChannelMessagesSince } from '../engine/channels.js';
+import { schedule } from '../engine/scheduler.js';
 
 // Devpanel admin presence: playerId → { handle, role, ts }
 const devPresence = new Map();
@@ -67,6 +68,15 @@ export function setBroadcast(fn) { broadcastFn = fn; }
 
 let storeGhostTokenFn = null;
 export function setGhostTokenStore(fn) { storeGhostTokenFn = fn; }
+
+// Record active player count every minute for the dashboard graph.
+schedule('1m', async () => {
+  const count = getAllLivePlayers().length;
+  await query(`INSERT INTO player_count_log (count) VALUES ($1)`, [count]);
+  // Prune rows older than 7 days
+  await query(`DELETE FROM player_count_log WHERE recorded_at < NOW() - INTERVAL '7 days'`);
+});
+
 function verifyToken(headers) {
   const token = (headers?.authorization||'').replace('Bearer ','');
   if (!token) return null;
@@ -232,6 +242,7 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path.startsWith('/sounds/') && method==='PUT') return requireDev(auth, ()=>apiUpdateSound(path.split('/')[2],body));
   if (path.startsWith('/sounds/') && method==='DELETE') return requireDev(auth, ()=>apiDeleteSound(path.split('/')[2]));
   if (path==='/server-activity-log' && method==='GET') return requireDev(auth, apiGetActivityLog);
+  if (path==='/player-count-log' && method==='GET') return requireDev(auth, apiGetPlayerCountLog);
   if (path==='/world/state' && method==='GET') return requireDev(auth, apiWorldState);
   if (path==='/world/reload' && method==='POST') return requireDev(auth, ()=>apiReloadZone(body));
   if (path==='/players/online' && method==='GET') {
@@ -1155,6 +1166,10 @@ async function apiBulkAddStreetlights(auth) {
 }
 async function apiGetActivityLog() {
   const {rows} = await query(`SELECT event_type, handle, admin_handle, occurred_at FROM server_activity_log ORDER BY occurred_at DESC LIMIT 50`);
+  return {status:200, body:{rows}};
+}
+async function apiGetPlayerCountLog() {
+  const {rows} = await query(`SELECT recorded_at, count FROM player_count_log ORDER BY recorded_at ASC`);
   return {status:200, body:{rows}};
 }
 async function apiWorldState() {

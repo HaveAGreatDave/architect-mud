@@ -633,6 +633,14 @@ export const SCHEMA_SQL = `
   );
   CREATE INDEX IF NOT EXISTS idx_server_activity_log_time ON server_activity_log(occurred_at DESC);
 
+  -- Player count history (sampled every minute, kept for 7 days)
+  CREATE TABLE IF NOT EXISTS player_count_log (
+    id          BIGSERIAL PRIMARY KEY,
+    recorded_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    count       INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_player_count_log_time ON player_count_log(recorded_at DESC);
+
   -- Kill / death counters
   ALTER TABLE players ADD COLUMN IF NOT EXISTS mob_kills INTEGER DEFAULT 0;
   ALTER TABLE players ADD COLUMN IF NOT EXISTS player_kills INTEGER DEFAULT 0;

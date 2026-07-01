@@ -49,6 +49,23 @@ function renderDashboard(data) {
       ${forecastHtml}
 
       <div style="margin-top:28px">
+        <div style="font-size:13px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">Active Players</div>
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:16px">
+          <div style="display:flex;gap:28px;margin-bottom:14px">
+            <div>
+              <div style="font-size:11px;color:var(--text-dim);margin-bottom:2px">Active Now</div>
+              <div id="pcl-active-now" style="font-size:22px;font-weight:700;color:var(--text-bright)">${online.length}</div>
+            </div>
+            <div>
+              <div style="font-size:11px;color:var(--text-dim);margin-bottom:2px">Peak Concurrent</div>
+              <div id="pcl-peak" style="font-size:22px;font-weight:700;color:var(--text-bright)">—</div>
+            </div>
+          </div>
+          <div id="pcl-chart" style="width:100%;height:120px"></div>
+        </div>
+      </div>
+
+      <div style="margin-top:28px">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
           <div style="font-size:13px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">Server Activity Log</div>
           <button id="log-collapse-btn" onclick="(function(){var b=document.getElementById('log-section-body');var btn=document.getElementById('log-collapse-btn');var hidden=b.style.display==='none';b.style.display=hidden?'':'none';btn.textContent=hidden?'Hide':'Show';})()" style="background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font-mono);font-size:10px;padding:2px 8px;cursor:pointer;border-radius:2px">Hide</button>
@@ -113,6 +130,7 @@ function renderDashboard(data) {
 
   _initMotdEditor();
   _initActivityLog();
+  _initPlayerCountChart();
 }
 
 // ── MOTD editor logic ────────────────────────────────────────────────────────
@@ -248,6 +266,49 @@ async function _initActivityLog() {
     return `[${ts}] ${row.event_type}: ${row.handle}`;
   });
   box.value = lines.join('\n');
+}
+
+async function _initPlayerCountChart() {
+  const container = document.getElementById('pcl-chart');
+  const peakEl    = document.getElementById('pcl-peak');
+  if (!container) return;
+
+  const d = await directAPI('/player-count-log');
+  const rows = (d.rows || []);
+
+  const peak = rows.length ? Math.max(...rows.map(r => r.count)) : 0;
+  if (peakEl) peakEl.textContent = rows.length ? peak : '—';
+
+  if (rows.length < 2) {
+    container.innerHTML = `<div style="height:120px;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--text-dim)">${rows.length === 0 ? 'No data yet — check back in a minute.' : 'Collecting data…'}</div>`;
+    return;
+  }
+
+  const W = 900, H = 100, PAD = 4;
+  const counts = rows.map(r => r.count);
+  const maxV   = Math.max(...counts, 1);
+  const minV   = 0;
+  const range  = maxV - minV || 1;
+
+  const x = (i) => PAD + (i / (rows.length - 1)) * (W - PAD * 2);
+  const y = (v) => H - PAD - ((v - minV) / range) * (H - PAD * 2);
+
+  const pts = rows.map((r, i) => `${x(i).toFixed(1)},${y(r.count).toFixed(1)}`).join(' ');
+  const area = `M${x(0).toFixed(1)},${H} ` +
+    rows.map((r, i) => `L${x(i).toFixed(1)},${y(r.count).toFixed(1)}`).join(' ') +
+    ` L${x(rows.length - 1).toFixed(1)},${H} Z`;
+
+  container.innerHTML = `
+    <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="width:100%;height:120px;display:block">
+      <defs>
+        <linearGradient id="pcl-grad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="var(--accent)" stop-opacity="0.25"/>
+          <stop offset="100%" stop-color="var(--accent)" stop-opacity="0.02"/>
+        </linearGradient>
+      </defs>
+      <path d="${area}" fill="url(#pcl-grad)"/>
+      <polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+    </svg>`;
 }
 
 // --- Players panel ---
