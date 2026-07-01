@@ -1,0 +1,6 @@
+{
+  "name": "scavenging",
+  "version": "1.0.0",
+  "description": "Scavenging — a perpetual, posture-based search action. Zones opt into a reusable loot table; the Scavenging skill gates finds via the 2d8-2d8 check; per-zone stock depletes and lazily replenishes.",
+  "commands": ["scavenge"]
+}

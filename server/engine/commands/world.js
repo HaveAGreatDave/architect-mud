@@ -218,6 +218,9 @@ async function describePlayerAppearance(target, isSelf, viewer = null, broadcast
     const where = target.sittingOn ? `the ${target.sittingOn}` : 'the ground';
     msg += `${isSelf ? 'You are' : `${handle} is`} sitting on ${where}.\n`;
   }
+  if (target.posture === 'scavenging') {
+    msg += `${isSelf ? 'You are' : `${handle} is`} rummaging around, scavenging the area.\n`;
+  }
   if (mutated) msg += `<span class="mutation-tag">Something about ${isSelf ? 'you' : 'them'} isn't quite human anymore.</span>\n`;
   if (target.covered_in_blood) msg += `<span style="color:var(--red)">${isSelf ? 'You are' : 'They are'} covered in blood.</span>\n`;
 
