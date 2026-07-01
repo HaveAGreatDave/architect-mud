@@ -543,7 +543,7 @@ async function zoneEditForm(rec, isNew) {
 
   return `
     <div class="field"><label>Zone ID</label><input id="f-id" value="${isNew ? '' : rec.id}" ${!isNew ? 'readonly style="opacity:0.5"' : ''}></div>
-    <div class="field"><label>Name</label><input id="f-name" value="${rec.name || ''}"></div>
+    <div class="field"><label>Name</label><input id="f-name" value="${rec.name || ''}" ${isNew ? 'oninput="document.getElementById(\'f-id\').value=this.value.toLowerCase().replace(/\\s+/g,\'_\')"' : ''}></div>
     <div class="field"><label>Description</label><textarea id="f-description" rows="5">${rec.description || ''}</textarea></div>
     <div class="field-row">
       <div class="field"><label>Danger Rating</label>

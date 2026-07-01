@@ -284,7 +284,7 @@ function furnitureEditForm(rec, isNew) {
     .join('');
   return `
     <div class="field"><label>Furniture ID</label><input id="f-id" value="${isNew?'':rec.id}" ${!isNew?'readonly style="opacity:0.5"':''}></div>
-    <div class="field"><label>Name</label><input id="f-name" value="${rec.name||''}"></div>
+    <div class="field"><label>Name</label><input id="f-name" value="${rec.name||''}" ${isNew?'oninput="document.getElementById(\'f-id\').value=this.value.toLowerCase().replace(/\\s+/g,\'_\')"':''}></div>
     <div class="field"><label>Description</label><textarea id="f-description" rows="4">${rec.description||''}</textarea></div>
     ${!isNew ? `<div class="field"><label>Zone</label>
       <select id="f-zone_id">

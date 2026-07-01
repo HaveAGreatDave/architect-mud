@@ -297,7 +297,7 @@ async function enemyEditForm(rec, isNew) {
   _enemyBehaviourGraph = behaviourGraph;
   return `
     <div class="field"><label>Enemy ID</label><input id="f-id" value="${isNew?'':rec.id}" ${!isNew?'readonly style="opacity:0.5"':''}></div>
-    <div class="field"><label>Name</label><input id="f-name" value="${rec.name||''}"></div>
+    <div class="field"><label>Name</label><input id="f-name" value="${rec.name||''}" ${isNew?'oninput="document.getElementById(\'f-id\').value=this.value.toLowerCase().replace(/\\s+/g,\'_\')"':''}></div>
     <div class="field"><label>Description</label><textarea id="f-description">${rec.description||''}</textarea></div>
     <div class="field"><label>Death Message</label><textarea id="f-death_message" rows="2">${rec.death_message||''}</textarea></div>
     <div class="field-row">
