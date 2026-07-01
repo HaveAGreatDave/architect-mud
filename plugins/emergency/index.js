@@ -409,43 +409,42 @@ setInterval(() => {
 // ── Zone movement / login: syncing existing ESP logic ────────────────────────
 
 on('player.login', ({ id }) => {
+  if (!espActive) return;
   const player = getLivePlayer(id);
   if (!player) return;
   const zoneId = player.current_zone;
   const siren = sirenDef();
-  const muffled = sirenDefMuffled(siren);
-  if (!espActive) {
-    // ESP is off — nothing to push (client starts in the off state)
-    return;
-  }
+  if (!siren) return;
   if (espZones.has(zoneId)) {
     sendToPlayer(id, { type: 'esp_state', active: true, message: espMessage });
-    if (muffled) sendToPlayer(id, { type: 'audio_stop', scope: 'ambience', id: muffled.id });
-    if (siren) sendToPlayer(id, { type: 'audio_ambience', def: siren });
+    sendToPlayer(id, { type: 'audio_ambience', def: siren });
+    sendToPlayer(id, { type: 'audio_loop_gain', id: siren.id, gain: SIREN_GAIN_OUTDOOR, ramp: 0.1 });
   } else if (espIndoor.has(zoneId)) {
     sendToPlayer(id, { type: 'esp_state', active: true, message: espMessage });
-    if (siren) sendToPlayer(id, { type: 'audio_stop', scope: 'ambience', id: siren.id });
-    if (muffled) sendToPlayer(id, { type: 'audio_ambience', def: muffled });
+    sendToPlayer(id, { type: 'audio_ambience', def: siren });
+    sendToPlayer(id, { type: 'audio_loop_gain', id: siren.id, gain: SIREN_GAIN_INDOOR, ramp: 0.1 });
   }
-  // else: player is outside ESP zones — no push needed
 });
+
+// 0.22 s matches the 220 ms area-pane slide animation so the gain lands at the
+// right level exactly when the new room fades in.
+const SIREN_RAMP = 0.22;
 
 on('zone.entered', ({ actor, zone: zoneId }) => {
   if (!espActive) return;
   const siren = sirenDef();
-  const muffled = sirenDefMuffled(siren);
+  if (!siren) return;
   if (espZones.has(zoneId)) {
     sendToPlayer(actor.id, { type: 'esp_state', active: true, message: espMessage });
-    if (muffled) sendToPlayer(actor.id, { type: 'audio_stop', scope: 'ambience', id: muffled.id });
-    if (siren) sendToPlayer(actor.id, { type: 'audio_ambience', def: siren });
+    sendToPlayer(actor.id, { type: 'audio_ambience', def: siren });
+    sendToPlayer(actor.id, { type: 'audio_loop_gain', id: siren.id, gain: SIREN_GAIN_OUTDOOR, ramp: SIREN_RAMP });
   } else if (espIndoor.has(zoneId)) {
     sendToPlayer(actor.id, { type: 'esp_state', active: true, message: espMessage });
-    if (siren) sendToPlayer(actor.id, { type: 'audio_stop', scope: 'ambience', id: siren.id });
-    if (muffled) sendToPlayer(actor.id, { type: 'audio_ambience', def: muffled });
+    sendToPlayer(actor.id, { type: 'audio_ambience', def: siren });
+    sendToPlayer(actor.id, { type: 'audio_loop_gain', id: siren.id, gain: SIREN_GAIN_INDOOR, ramp: SIREN_RAMP });
   } else {
     sendToPlayer(actor.id, { type: 'esp_state', active: false });
-    if (siren) sendToPlayer(actor.id, { type: 'audio_stop', scope: 'ambience', id: siren.id });
-    if (muffled) sendToPlayer(actor.id, { type: 'audio_stop', scope: 'ambience', id: muffled.id });
+    sendToPlayer(actor.id, { type: 'audio_stop', scope: 'ambience', id: siren.id });
   }
 });
 
