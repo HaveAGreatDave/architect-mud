@@ -162,16 +162,36 @@
   <!-- Drag handle -->
   <div id="whisper-drag-handle" style="padding:4px 8px;border-bottom:1px solid var(--border);display:flex;align-items:center;flex-shrink:0;cursor:grab;user-select:none">
     <span style="flex:1;font-size:10px;color:var(--text-dim);font-family:var(--font-mono);letter-spacing:1px;pointer-events:none">CHAT</span>
-    <button data-close style="background:transparent;border:1px solid var(--red);color:var(--red);cursor:pointer;font-size:13px;line-height:1;font-family:var(--font-mono);width:20px;height:20px;padding:0;border-radius:2px;display:flex;align-items:center;justify-content:center">✕</button>
+    <div style="display:flex;gap:4px;align-items:center;flex-shrink:0">
+      <button id="whisper-cog-btn" title="Chat settings" style="background:transparent;border:1px solid var(--border);color:var(--text-dim);cursor:pointer;font-size:13px;line-height:1;font-family:var(--font-mono);width:20px;height:20px;padding:0;border-radius:2px;display:flex;align-items:center;justify-content:center">⚙</button>
+      <button data-close style="background:transparent;border:1px solid var(--red);color:var(--red);cursor:pointer;font-size:13px;line-height:1;font-family:var(--font-mono);width:20px;height:20px;padding:0;border-radius:2px;display:flex;align-items:center;justify-content:center">✕</button>
+    </div>
+  </div>
+  <!-- Settings cog dropdown -->
+  <div id="whisper-cog-menu" style="display:none;position:absolute;top:34px;right:0;z-index:200;background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:12px 14px;font-family:var(--font-mono);min-width:176px;box-shadow:0 4px 16px rgba(0,0,0,0.6)">
+    <div style="font-size:9px;color:var(--text-dim);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px">Window Size</div>
+    <div style="display:flex;gap:4px;margin-bottom:12px">
+      <button data-winsize="small" style="flex:1;background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font-mono);font-size:10px;padding:5px 2px;cursor:pointer;border-radius:2px">Small</button>
+      <button data-winsize="medium" style="flex:1;background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font-mono);font-size:10px;padding:5px 2px;cursor:pointer;border-radius:2px">Med</button>
+      <button data-winsize="large" style="flex:1;background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font-mono);font-size:10px;padding:5px 2px;cursor:pointer;border-radius:2px">Full</button>
+    </div>
+    <div style="font-size:9px;color:var(--text-dim);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px">Text Size</div>
+    <div style="display:flex;gap:4px">
+      <button data-txtsize="small" style="flex:1;background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font-mono);font-size:10px;padding:5px 2px;cursor:pointer;border-radius:2px">S</button>
+      <button data-txtsize="medium" style="flex:1;background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font-mono);font-size:10px;padding:5px 2px;cursor:pointer;border-radius:2px">M</button>
+      <button data-txtsize="large" style="flex:1;background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font-mono);font-size:10px;padding:5px 2px;cursor:pointer;border-radius:2px">L</button>
+    </div>
   </div>
   <!-- Tabs row -->
   <div style="display:flex;padding:4px 8px;border-bottom:1px solid var(--border);flex-shrink:0;min-width:0">
     <div id="whisper-tabs" style="display:flex;gap:4px;overflow-x:auto;flex:1;min-width:0;align-items:center"></div>
   </div>
   <div id="whisper-log" style="flex:1;overflow-y:auto;padding:10px;font-size:12px"></div>
+  <div id="whisper-new-msgs" style="display:none;position:absolute;bottom:50px;right:8px;background:var(--accent);color:#fff;font-size:10px;padding:3px 8px;border-radius:10px;cursor:pointer;z-index:101">New messages ↓</div>
   <div id="whisper-footer" style="display:none;padding:8px;border-top:1px solid var(--border);gap:6px;flex-shrink:0">
     <input id="whisper-input" type="text" placeholder="Message…" style="flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:6px 8px;outline:none;border-radius:2px">
     <button class="action-btn primary" id="whisper-send-btn">Send</button>
+    <button id="whisper-scroll-bottom" title="Scroll to bottom" style="background:transparent;border:1px solid var(--border);color:var(--text-dim);font-size:14px;padding:3px 7px;cursor:pointer;border-radius:2px;flex-shrink:0;line-height:1">⇊</button>
   </div>
 </div>
 
@@ -314,6 +334,7 @@
 <script src="/dev/js/panels/broadcast-themes.js"></script>
 <script src="/dev/js/panels/broadcast-graphics.js"></script>
 <script src="/dev/js/panels/players.js"></script>
+<script src="/dev/js/ui/markup.js"></script>
 <script src="/dev/js/ui/whisper.js"></script>
 <script src="/dev/js/panels/timeweather.js"></script>
 <script src="/dev/js/panels/worldstate.js"></script>
