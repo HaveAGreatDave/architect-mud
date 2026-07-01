@@ -13,7 +13,6 @@ let espActive   = false;
 let espMessage  = DEFAULT_MESSAGE;
 let espZones    = new Set();
 let espIndoor   = new Set();
-let espTicker   = null;
 
 // ── Arbiter state ─────────────────────────────────────────────────────────────
 
@@ -180,9 +179,7 @@ async function activate(message) {
 }
 
 function deactivate() {
-  if (!espTicker && !espActive) return;
-  clearInterval(espTicker);
-  espTicker = null;
+  if (!espActive) return;
 
   const siren = sirenDef();
   const muffled = sirenDefMuffled(siren);

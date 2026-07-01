@@ -39,7 +39,7 @@ function renderEmergencyPanel(data) {
           <button class="action-btn danger" onclick="espActivate()" ${active ? 'disabled style="opacity:0.35"' : ''}>⚠ Engage ESP</button>
           <button class="action-btn" onclick="espDeactivate()" ${!active ? 'disabled style="opacity:0.35"' : ''}>✕ Stand Down</button>
         </div>
-        ${active ? '<div style="margin-top:10px;font-size:10px;color:var(--text-dim)">Siren is broadcasting. Warning text fires every 10 seconds to all affected zones.</div>' : '<div style="margin-top:10px;font-size:10px;color:var(--text-dim)">Engaging will target all zones containing a streetlight and play the emergency siren.</div>'}
+        ${active ? '<div style="margin-top:10px;font-size:10px;color:var(--text-dim)">Siren is broadcasting. Warning text fired once on activation.</div>' : '<div style="margin-top:10px;font-size:10px;color:var(--text-dim)">Engaging will target all zones containing a streetlight and play the emergency siren.</div>'}
       </div>
 
       <!-- Warning Message -->
@@ -48,7 +48,7 @@ function renderEmergencyPanel(data) {
         <textarea id="esp-msg" rows="5" style="width:100%;box-sizing:border-box;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:11px;padding:8px;border-radius:2px;resize:vertical;letter-spacing:0.5px">${esc(message)}</textarea>
         <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
           <button class="action-btn" onclick="espSaveMessage()">Save Message</button>
-          <span style="font-size:10px;color:var(--text-dim)">Broadcasts every 10 s to affected zones${active ? ' — updates live immediately' : ''}</span>
+          <span style="font-size:10px;color:var(--text-dim)">Sent once on activation${active ? ' — save to resend now' : ''}</span>
         </div>
       </div>
 
