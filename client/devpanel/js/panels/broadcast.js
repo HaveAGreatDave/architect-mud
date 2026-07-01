@@ -362,6 +362,7 @@ function _bcCanvasHtml(rec, opts = {}) {
           style="flex:1;font-size:18px;font-weight:700;color:var(--text-bright);background:transparent;border-color:transparent;padding:4px 0;font-family:var(--font)"
           onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='transparent'">
         ${leftBtn}
+        ${rec ? `<button class="action-btn bc-canvas-btn" onclick="bcPreviewBroadcast()" title="Preview this broadcast in a TV window">▶ Preview</button>` : ''}
         <button class="action-btn primary bc-canvas-btn" onclick="${saveHandler}">Save</button>
       </div>
 
@@ -2098,6 +2099,9 @@ async function _bcNpcLoad(data, el) {
 
   const zones   = data.zones || [];
   const zoneMap = new Map(zones.map(z => [z.id, z.name]));
+  // Also include NPCs referenced via npc_staff in schedule conditions — these
+  // are studio NPCs who may have no npc_anchor node in any broadcast graph.
+  for (const npcId of npcSchedule.keys()) npcIdSet.add(npcId);
   const npcs    = (data.npcs || []).filter(n => npcIdSet.has(n.id));
 
   _bcNpcCache = { npcs, npcSchedule, zoneMap };
@@ -2199,6 +2203,249 @@ async function _bcRecalcSchedules(btn) {
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = '⟳ Recalculate Schedules'; }
   }
+}
+
+// ── TV Preview ────────────────────────────────────────────────────────────────
+// Self-contained broadcast preview modal — mimics the game TV panel but is
+// entirely standalone (no WS, no AudioEngine). Steps through _bcCards using
+// the broadcast's message_interval. Scoped to bcpv-* IDs.
+
+let _bcpvTimer   = null;
+let _bcpvCards   = [];
+let _bcpvIdx     = 0;
+let _bcpvPaused  = false;
+let _bcpvInterval = 5000;
+let _bcpvTickerAnim = null;
+
+function bcPreviewBroadcast() {
+  if (!_bcSelected) return;
+  _bcpvClose();
+
+  _bcpvCards   = _bcCards.filter(c => c.type !== 'start');
+  _bcpvIdx     = 0;
+  _bcpvPaused  = false;
+  _bcpvInterval = ((_bcSelected.message_interval || 5)) * 1000;
+
+  const graphics = Array.isArray(_bcSuiteData?.graphics) ? _bcSuiteData.graphics : [];
+
+  const modal = document.createElement('div');
+  modal.id = 'bcpv-modal';
+  modal.style.cssText = `
+    position:fixed;inset:0;z-index:800;
+    display:flex;align-items:center;justify-content:center;
+    background:rgba(0,0,0,0.75);
+  `;
+  modal.innerHTML = `
+    <div id="bcpv-window" style="
+      --tv-bg:#080c10;--tv-border:rgba(0,220,180,0.45);--tv-text:#b8d4c8;
+      --tv-header-color:#00dbb4;--tv-live-color:#ff4455;--tv-ticker-color:#ffc940;
+      display:flex;flex-direction:column;
+      width:min(760px,92vw);aspect-ratio:760/520;
+      background:var(--tv-bg);
+      border:3px solid #1a1a1a;outline:1px solid var(--tv-border);
+      box-shadow:0 0 0 6px #111,0 0 60px rgba(0,180,140,0.22),0 8px 40px rgba(0,0,0,0.8),inset 0 0 80px rgba(0,0,0,0.5);
+      background-image:
+        repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.09) 3px,rgba(0,0,0,0.09) 4px),
+        radial-gradient(ellipse at center,transparent 55%,rgba(0,0,0,0.55) 100%);
+      font-family:monospace;color:var(--tv-text);
+      border-radius:4px;position:relative;overflow:hidden;
+    ">
+      <!-- Header -->
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 14px;border-bottom:1px solid var(--tv-border);flex-shrink:0;background:rgba(0,40,30,0.5);gap:10px;z-index:30">
+        <span style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--tv-header-color)">${escHtml(_bcSelected.name)}</span>
+        <span id="bcpv-prog" style="font-size:10px;color:var(--tv-text);opacity:0.7;text-transform:uppercase;letter-spacing:1px"></span>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:9px;font-weight:700;letter-spacing:2px;color:var(--tv-live-color);text-transform:uppercase;border:1px solid var(--tv-live-color);padding:1px 5px;border-radius:2px">PREVIEW</span>
+          <button onclick="_bcpvClose()" style="background:transparent;border:none;color:var(--tv-text);cursor:pointer;font-size:16px;opacity:0.7;line-height:1">&#x23FB;</button>
+        </div>
+      </div>
+
+      <!-- Content -->
+      <div id="bcpv-content" style="flex:1;overflow:hidden;padding:12px 18px;display:flex;flex-direction:column;justify-content:flex-end;position:relative">
+        <div id="bcpv-messages" style="display:flex;flex-direction:column;gap:4px;overflow:hidden"></div>
+        <div id="bcpv-overlay" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none"></div>
+      </div>
+
+      <!-- Ticker + controls -->
+      <div style="flex-shrink:0;border-top:1px solid var(--tv-border);background:rgba(0,30,22,0.7)">
+        <div style="height:22px;overflow:hidden;position:relative;border-bottom:1px solid rgba(0,220,180,0.15)">
+          <span id="bcpv-ticker" style="display:block;white-space:nowrap;font-size:10px;letter-spacing:0.5px;color:var(--tv-ticker-color);position:absolute;top:3px"></span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 12px">
+          <button onclick="_bcpvRestart()" style="background:transparent;border:1px solid var(--tv-border);color:var(--tv-text);padding:2px 8px;font-size:10px;cursor:pointer;border-radius:2px;font-family:monospace">⏮</button>
+          <button id="bcpv-playbtn" onclick="_bcpvTogglePause()" style="background:transparent;border:1px solid var(--tv-border);color:var(--tv-text);padding:2px 8px;font-size:10px;cursor:pointer;border-radius:2px;font-family:monospace">⏸ Pause</button>
+          <span id="bcpv-status" style="font-size:10px;color:var(--tv-text);opacity:0.55;font-family:monospace;flex:1;text-align:right"></span>
+        </div>
+      </div>
+    </div>`;
+
+  document.body.appendChild(modal);
+  modal.addEventListener('click', e => { if (e.target === modal) _bcpvClose(); });
+
+  _bcpvStep();
+}
+
+function _bcpvClose() {
+  clearTimeout(_bcpvTimer);
+  _bcpvTimer = null;
+  if (_bcpvTickerAnim) { cancelAnimationFrame(_bcpvTickerAnim); _bcpvTickerAnim = null; }
+  document.getElementById('bcpv-modal')?.remove();
+}
+
+function _bcpvRestart() {
+  clearTimeout(_bcpvTimer);
+  _bcpvIdx = 0;
+  _bcpvPaused = false;
+  const btn = document.getElementById('bcpv-playbtn');
+  if (btn) btn.textContent = '⏸ Pause';
+  const msgs = document.getElementById('bcpv-messages');
+  if (msgs) msgs.innerHTML = '';
+  const overlay = document.getElementById('bcpv-overlay');
+  if (overlay) overlay.innerHTML = '';
+  _bcpvTicker('');
+  _bcpvStep();
+}
+
+function _bcpvTogglePause() {
+  _bcpvPaused = !_bcpvPaused;
+  const btn = document.getElementById('bcpv-playbtn');
+  if (btn) btn.textContent = _bcpvPaused ? '▶ Play' : '⏸ Pause';
+  if (!_bcpvPaused) _bcpvScheduleNext(0);
+  else clearTimeout(_bcpvTimer);
+}
+
+function _bcpvStep() {
+  if (!document.getElementById('bcpv-modal')) return;
+  if (_bcpvIdx >= _bcpvCards.length) {
+    _bcpvUpdateStatus('— End of broadcast —');
+    return;
+  }
+
+  const card = _bcpvCards[_bcpvIdx];
+  const graphics = Array.isArray(_bcSuiteData?.graphics) ? _bcSuiteData.graphics : [];
+  let delay = _bcpvInterval;
+
+  _bcpvUpdateStatus(`Card ${_bcpvIdx + 1} / ${_bcpvCards.length}  ·  ${card.type}`);
+
+  if (card.type === 'say' || card.type === 'stage_direction' || card.type === 'ambient') {
+    const style = card.style || 'raw';
+    _bcpvAppend(card.text || '', style === 'raw' ? 'tv-msg-raw' : `tv-msg-${style}`);
+    delay = _bcpvInterval;
+
+  } else if (card.type === 'ticker') {
+    _bcpvTicker(card.text || '');
+    delay = _bcpvInterval;
+
+  } else if (card.type === 'wait') {
+    delay = (card.duration || 3) * 1000;
+
+  } else if (card.type === 'title_card') {
+    const graphic = graphics.find(g => g.id === card.graphic_id);
+    if (graphic) {
+      const msgs = document.getElementById('bcpv-messages');
+      if (msgs) {
+        msgs.innerHTML = '';
+        const el = document.createElement(graphic.type === 'svg' ? 'div' : 'pre');
+        el.style.cssText = 'color:var(--tv-text);font-size:11px;line-height:1.3;text-align:center;margin:0 auto;max-width:100%';
+        if (graphic.type === 'svg') {
+          el.innerHTML = graphic.content || '';
+          const svg = el.querySelector('svg');
+          if (svg) { svg.style.maxWidth = '100%'; svg.style.height = 'auto'; svg.style.display = 'block'; svg.style.margin = '0 auto'; }
+        } else {
+          el.innerHTML = _bcMarkup(graphic.content || '');
+          _bcpvScaleAscii(el, graphic.content || '');
+        }
+        msgs.appendChild(el);
+      }
+      delay = _bcpvInterval * 3;
+    } else {
+      delay = _bcpvInterval;
+    }
+
+  } else if (card.type === 'overlay') {
+    const container = document.getElementById('bcpv-overlay');
+    if (container) {
+      container.innerHTML = '';
+      const el = document.createElement('div');
+      if (card.overlay_type === 'lower_third') {
+        el.style.cssText = 'position:absolute;bottom:48px;left:0;right:0;background:rgba(0,0,0,0.8);border-top:2px solid var(--tv-header-color);padding:6px 14px';
+        el.innerHTML = `<div style="font-size:13px;font-weight:700;color:var(--tv-header-color)">${escHtml(card.text || '')}</div>${card.subtext ? `<div style="font-size:10px;color:var(--tv-text);opacity:0.8">${escHtml(card.subtext)}</div>` : ''}`;
+      } else if (card.overlay_type === 'alert_flash') {
+        el.style.cssText = 'position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(120,0,0,0.85);text-align:center;padding:24px';
+        el.innerHTML = `<div style="font-size:20px;font-weight:900;color:#fff;letter-spacing:3px;text-transform:uppercase">${escHtml(card.text || '')}</div>${card.subtext ? `<div style="font-size:12px;color:rgba(255,255,255,0.7);margin-top:8px">${escHtml(card.subtext)}</div>` : ''}`;
+      } else {
+        el.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.7);font-size:14px;color:var(--tv-text)';
+        el.textContent = card.text || '';
+      }
+      container.appendChild(el);
+      const dur = (card.duration || 4) * 1000;
+      setTimeout(() => { if (container.contains(el)) container.removeChild(el); }, dur);
+      delay = Math.max(dur + 500, _bcpvInterval);
+    }
+
+  } else {
+    // npc_anchor, camera_cut, music, unknown — skip with a brief pause
+    delay = 500;
+  }
+
+  _bcpvIdx++;
+  if (!_bcpvPaused) _bcpvScheduleNext(delay);
+}
+
+function _bcpvScheduleNext(delay) {
+  clearTimeout(_bcpvTimer);
+  _bcpvTimer = setTimeout(_bcpvStep, delay);
+}
+
+function _bcpvAppend(text, cls) {
+  const msgs = document.getElementById('bcpv-messages');
+  if (!msgs) return;
+  const el = document.createElement('div');
+  el.style.cssText = 'font-size:12px;line-height:1.5;color:var(--tv-text);word-break:break-word';
+  if (cls === 'tv-msg-ticker') el.style.color = 'var(--tv-ticker-color)';
+  el.innerHTML = _bcMarkup(text);
+  msgs.appendChild(el);
+  // Trim if overflowing
+  const content = document.getElementById('bcpv-content');
+  if (content) {
+    while (msgs.scrollHeight > content.clientHeight - 40 && msgs.firstChild)
+      msgs.removeChild(msgs.firstChild);
+  }
+}
+
+function _bcpvTicker(text) {
+  const inner = document.getElementById('bcpv-ticker');
+  if (!inner) return;
+  if (!text) { inner.style.transform = ''; inner.textContent = ''; return; }
+  inner.style.transition = 'none';
+  inner.style.transform = '';
+  inner.textContent = text + '   ';
+  inner.offsetWidth;
+  const track = inner.parentElement;
+  const trackW = track?.offsetWidth || 700;
+  const textW  = inner.scrollWidth;
+  const dur = (trackW + textW) / 80;
+  inner.style.transform = `translateX(${trackW}px)`;
+  inner.offsetWidth;
+  inner.style.transition = `transform ${dur}s linear`;
+  inner.style.transform  = `translateX(${-textW}px)`;
+}
+
+function _bcpvScaleAscii(el, text) {
+  requestAnimationFrame(() => {
+    const content = document.getElementById('bcpv-content');
+    if (!content) return;
+    const plain = text.replace(/\[[^\]]*\]/g, '');
+    const maxLen = Math.max(...plain.split('\n').map(l => l.length), 1);
+    const availPx = content.clientWidth - 36;
+    const targetPx = Math.min(availPx / (maxLen * 0.6), 18);
+    el.style.fontSize = `${Math.max(targetPx, 7).toFixed(1)}px`;
+  });
+}
+
+function _bcpvUpdateStatus(msg) {
+  const el = document.getElementById('bcpv-status');
+  if (el) el.textContent = msg;
 }
 
 // ── Utility ───────────────────────────────────────────────────────────────────

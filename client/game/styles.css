@@ -602,11 +602,11 @@ body {
 	display: none !important;
 }
 
-/* Mobile handle is a tap target — suppress the resize cursor */
+/* Mobile handle is a tap target — suppress the resize cursor, always show accent colour */
 @media (max-width: 720px) {
-	#look-resize-handle { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+	#look-resize-handle { cursor: pointer; -webkit-tap-highlight-color: transparent; background: var(--accent); }
 }
-[data-density="compact"] #look-resize-handle { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+[data-density="compact"] #look-resize-handle { cursor: pointer; -webkit-tap-highlight-color: transparent; background: var(--accent); }
 
 #look-resize-handle {
 	flex: 0 0 6px;
