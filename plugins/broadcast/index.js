@@ -634,7 +634,7 @@ async function broadcastTick() {
       // (once per new message, per the lastMsgKey guard above — not every tick).
       for (const player of players) {
         if (tvWatchers.get(player.id) === channelId) {
-          if (formatted) sendToPlayer(player.id, { type: 'broadcast', message: formatted, channel: channelId, style: result.style || 'raw', programName });
+          if (formatted) sendToPlayer(player.id, { type: 'broadcast', message: formatted, channel: channelId, style: result.style || 'raw', programName, ...(result.duration != null ? { duration: result.duration } : {}) });
           if (isMusic) sendToPlayer(player.id, { type: 'audio_music', def: result.song });
         } else if (result.speech) {
           sendToPlayer(player.id, { type: 'broadcast_ambient', speechText: result.speechText, channel: channelId });
@@ -1322,7 +1322,7 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
         const creditsText = node.data?.text || '';
         bb.currentNode = _resolveEdge(edges, nodeId, 'next');
         bb.waitUntil = nowMs + nodeHoldMs(node);
-        return { text: creditsText, key: `credits:${channelId}:${nodeId}:${nowMs}`, style: 'credits' };
+        return { text: creditsText, key: `credits:${channelId}:${nodeId}:${nowMs}`, style: 'credits', duration: node.data?.duration ?? null };
       }
 
       case 'show_overlay':

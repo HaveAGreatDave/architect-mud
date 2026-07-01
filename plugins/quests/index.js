@@ -56,14 +56,27 @@ function isComplete(quest, progress) {
   return (quest.objectives || []).every((obj, i) => (progress[i] || 0) >= (obj.count || 1));
 }
 
+// Gating: an objective is unlocked only once every objective it `requires` (by id)
+// is met. `requires` holds objective ids authored in VINE as prerequisite edges;
+// an unknown/dangling id never blocks. `progress` is the snapshot to judge against.
+function requiresMet(objectives, obj, progress) {
+  if (!Array.isArray(obj.requires) || !obj.requires.length) return true;
+  return obj.requires.every((rid) => {
+    const ri = objectives.findIndex((o) => o.id === rid);
+    if (ri === -1) return true;
+    return (progress[ri] || 0) >= (objectives[ri].count || 1);
+  });
+}
+
 function msg(playerId, text) {
   sendToPlayer(playerId, { type: 'output', message: text });
 }
 
-function objectiveLine(obj, done) {
+function objectiveLine(obj, done, locked) {
   const label = obj.desc || `${obj.type} ${obj.target || obj.item_id || obj.zone || ''}`.trim();
   const need = obj.count || 1;
   const have = Math.min(done, need);
+  if (locked) return `  [-] ${label} (locked)`;
   return `  [${have >= need ? 'X' : ' '}] ${label}${need > 1 ? ` (${have}/${need})` : ''}`;
 }
 
@@ -86,9 +99,11 @@ async function trackEvent(actor, predicate) {
     while (progress.length < objectives.length) progress.push(0);
 
     let changed = false;
+    const before = progress.slice(); // judge gating against pre-tick state
     objectives.forEach((obj, i) => {
       const need = obj.count || 1;
       if ((progress[i] || 0) >= need) return;
+      if (!requiresMet(objectives, obj, before)) return; // locked until prerequisites done
       if (predicate(obj)) { progress[i] = (progress[i] || 0) + 1; changed = true; }
     });
     if (!changed) continue;
@@ -277,7 +292,7 @@ async function questLog(args, raw, player) {
     const progress = Array.isArray(pq.progress) ? pq.progress : [];
     const tag = pq.status === 'completed' ? ' (ready to turn in)' : '';
     lines.push(`<span class="msg-system">${pq.name}${tag}</span>`);
-    objectives.forEach((obj, i) => lines.push(objectiveLine(obj, progress[i] || 0)));
+    objectives.forEach((obj, i) => lines.push(objectiveLine(obj, progress[i] || 0, !requiresMet(objectives, obj, progress))));
   }
   return { type: 'output', message: lines.join('\n') };
 }

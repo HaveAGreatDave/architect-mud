@@ -243,6 +243,14 @@ function moveEntity(entity, newZoneId, broadcast, query) {
     }
   }
 
+  // Drag along any players following this entity. Fire-and-forget + dynamic
+  // import to keep moveEntity synchronous and avoid a circular import.
+  if (departDir) {
+    import('./commands/movement.js')
+      .then(({ dragFollowers }) => dragFollowers(entity.id, oldZoneId, departDir, broadcast))
+      .catch(() => {});
+  }
+
   return true;
 }
 

@@ -33,23 +33,61 @@ function repaintPowerTileColors() {
 const LIGHT_THEMES = [
   ['light','Parchment'],['inkwell','Inkwell'],['studio','Studio'],
   ['arctic','Arctic'],['solar','Solar'],['mint','Mint'],['lavender','Lavender'],['fog','Fog'],
+  ['latte','Latte'],['rose','Rosewater'],['papertape','Papertape'],['bubblegum','Bubblegum'],
 ];
 const DARK_THEMES = [
   ['dark','Void'],['eclipse','Eclipse'],['iron','Iron'],
   ['contrast','Terminal'],['phosphor','Phosphor Green'],['synthwave','Synthwave'],['bloodmoon','Blood Moon'],['slate','Slate'],
+  ['aurora','Aurora'],['neon','Neon'],['cathode','Cathode'],['grove','Grove'],
 ];
 const BUILTIN_THEME_VALUES = [...LIGHT_THEMES, ...DARK_THEMES].map(([v]) => v);
 
-function populateThemeDropdown() {
-  const sel = document.getElementById('dev-opt-theme');
-  if (!sel) return;
+// --- Theme swatch picker ---
+// Dots read live off the rendered CSS, so new/custom themes self-illustrate.
+// Uses the vars the devpanel themes actually declare (--accent2/--accent3/--cyan).
+const _CHIP_DOT_VARS = ['--accent', '--accent2', '--accent3', '--red', '--yellow', '--cyan'];
+const _CHIP_FRAME_VARS = ['--bg', '--border'];
+
+function _probeThemeVars(theme) {
+  const el = document.createElement('div');
+  el.style.cssText = 'position:absolute;visibility:hidden;pointer-events:none;left:-9999px';
+  if (theme.colors) {
+    el.setAttribute('data-theme', 'dark');
+    Object.entries(theme.colors).forEach(([k, v]) => el.style.setProperty(k, v));
+  } else {
+    el.setAttribute('data-theme', theme.id);
+  }
+  document.body.appendChild(el);
+  const cs = getComputedStyle(el);
+  const out = {};
+  [..._CHIP_FRAME_VARS, ..._CHIP_DOT_VARS].forEach(v => { out[v] = cs.getPropertyValue(v).trim(); });
+  document.body.removeChild(el);
+  return out;
+}
+
+function _themeChipHTML(value, label, colors, active) {
+  const dots = _CHIP_DOT_VARS.map(v => `<span class="theme-dot" style="background:${colors[v] || 'transparent'}"></span>`).join('');
+  return `<button type="button" class="theme-chip${active ? ' selected' : ''}" data-value="${value}" role="option" aria-selected="${active}" title="${label}">` +
+    `<span class="theme-chip-prev" style="background:${colors['--bg']};border-color:${colors['--border']}">${dots}</span>` +
+    `<span class="theme-chip-name">${label}</span></button>`;
+}
+
+function populateThemeGrid() {
+  const grid = document.getElementById('dev-opt-theme-grid');
+  if (!grid) return;
+  const active = devSettings.theme || 'dark';
+  const section = (title, items) =>
+    `<div class="theme-grid-head">${title}</div><div class="theme-grid">` +
+    items.map(([v, l]) => _themeChipHTML(v, l, _probeThemeVars({ id: v }), v === active)).join('') +
+    `</div>`;
+  let html = section('Dark', DARK_THEMES) + section('Light', LIGHT_THEMES);
   const custom = (devSettings.customThemes || []);
-  const lightOpts = LIGHT_THEMES.map(([v,l]) => `<option value="${v}">${l}</option>`).join('');
-  const darkOpts = DARK_THEMES.map(([v,l]) => `<option value="${v}">${l}</option>`).join('');
-  sel.innerHTML = `<optgroup label="Light Themes">${lightOpts}</optgroup><optgroup label="Dark Themes">${darkOpts}</optgroup>` +
-    (custom.length ? `<optgroup label="Custom Themes">${custom.map(t =>
-      `<option value="${t.id}">${t.name}</option>`).join('')}</optgroup>` : '');
-  sel.value = devSettings.theme || 'dark';
+  if (custom.length) {
+    html += `<div class="theme-grid-head">Custom</div><div class="theme-grid">` +
+      custom.map(t => _themeChipHTML(t.id, t.name, _probeThemeVars({ colors: t.colors }), t.id === active)).join('') +
+      `</div>`;
+  }
+  grid.innerHTML = html;
 }
 
 function applyDevSettings() {
@@ -65,7 +103,7 @@ function applyDevSettings() {
   document.documentElement.setAttribute('data-motion', motion);
   document.documentElement.style.setProperty('--font-size-base', fontSize + 'px');
 
-  populateThemeDropdown();
+  populateThemeGrid();
 
   document.querySelectorAll('#dev-opt-fontsize .dev-settings-opt').forEach(btn => {
     btn.classList.toggle('selected', btn.dataset.value === String(fontSize));

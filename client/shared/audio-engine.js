@@ -493,6 +493,67 @@
 
   const activeLoops = new Map(); // id -> { voiceIdx, release }
 
+  // Pitch-jitter a clone of a layer array so repeated sparkle firings never sound
+  // mechanically identical. `jitter` is a fraction (0.1 = ±10%) applied to freq
+  // and pitchBend targets. Deep-ish clone keeps the source def untouched.
+  function _jitterLayers(layers, jitter) {
+    const j = jitter || 0;
+    return layers.map(l => {
+      const c = { ...l };
+      const f = 1 + (Math.random() * 2 - 1) * j;
+      if (typeof c.freq === 'number') c.freq = c.freq * f;
+      if (c.pitchBend?.to) c.pitchBend = { ...c.pitchBend, to: c.pitchBend.to * f };
+      if (c.filter) c.filter = { ...c.filter };
+      return c;
+    });
+  }
+
+  // One-shot fired into the ambient (or tv) bus without touching the voice
+  // manager — sparkles are tiny, cheap, and must never steal or be stolen by
+  // the bed loop they decorate.
+  function _playAmbientOneShot(layers, duration, gainMult, category) {
+    const c = ctx;
+    if (!c) return;
+    let destination = busFor(category === 'tv' ? 'tv' : 'ambient');
+    if (gainMult != null && gainMult !== 1) {
+      const g = c.createGain();
+      g.gain.value = gainMult;
+      g.connect(destination);
+      destination = g;
+    }
+    buildSound({ layers }, destination, c.currentTime, duration ?? 0.2);
+  }
+
+  // Randomized decorative one-shots layered over a bed loop — the "little beeps,
+  // relay clunks and gauge chirps" that turn a static drone into a machine that
+  // sounds alive. Each spec schedules itself on a randomized interval:
+  //   { everyMin, everyMax, prob, gain, duration, jitter, layers }
+  // Returns an array of cancel functions the loop record holds for cleanup.
+  function _startSparkles(sparkles, category) {
+    const cancels = [];
+    for (const spec of sparkles) {
+      let timer = null;
+      let alive = true;
+      const min = spec.everyMin ?? 3;
+      const max = spec.everyMax ?? Math.max(min, min * 2.5);
+      const schedule = () => {
+        if (!alive) return;
+        const wait = (min + Math.random() * Math.max(0, max - min)) * 1000;
+        timer = setTimeout(() => {
+          if (!alive) return;
+          if (Math.random() < (spec.prob ?? 1)) {
+            const g = (spec.gain ?? 1) * (0.7 + Math.random() * 0.6); // ±volume life
+            _playAmbientOneShot(_jitterLayers(spec.layers || [], spec.jitter ?? 0.12), spec.duration, g, category);
+          }
+          schedule();
+        }, wait);
+      };
+      schedule();
+      cancels.push(() => { alive = false; if (timer) clearTimeout(timer); });
+    }
+    return cancels;
+  }
+
   function loopSound(def) {
     const c = init();
     if (!c || !def) return;
@@ -509,13 +570,18 @@
     // instead of the generic Ambient slider.
     const sound = buildSound(def.config || {}, busFor(def.category === 'tv' ? 'tv' : 'ambient'), time, null);
     const baseGain = def.config?.gain ?? 1;
-    activeLoops.set(id, { voiceIdx: idx, release: sound.release, gainNode: sound.gainNode, baseGain });
-    occupyVoice(idx, priority, () => { sound.release(c.currentTime); activeLoops.delete(id); });
+    // Optional randomized decoration (beeps/clunks/chirps) riding over the bed.
+    const sparkleCancels = Array.isArray(def.config?.sparkle) && def.config.sparkle.length
+      ? _startSparkles(def.config.sparkle, def.category)
+      : null;
+    activeLoops.set(id, { voiceIdx: idx, release: sound.release, gainNode: sound.gainNode, baseGain, sparkleCancels });
+    occupyVoice(idx, priority, () => { sound.release(c.currentTime); if (sparkleCancels) sparkleCancels.forEach(fn => fn()); activeLoops.delete(id); });
   }
 
   function stopLoop(id) {
     const loop = activeLoops.get(id);
     if (!loop) return;
+    if (loop.sparkleCancels) loop.sparkleCancels.forEach(fn => fn());
     voices[loop.voiceIdx]?.stop(false);
     freeVoice(loop.voiceIdx);
     activeLoops.delete(id);

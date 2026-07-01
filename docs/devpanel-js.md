@@ -33,7 +33,7 @@ The shared list/edit lifecycle that every panel rides on:
 ### `panels.js`
 The central dispatch table and panel lifecycle. **Must load after all `panels/*` and `ui/*` files** because the `PANELS` object literal evaluates function references at construction time.
 
-- **`PANELS`** — one entry per nav section (dashboard, zones, maps, power, enemies, items, npcs, furniture, recipes, scavenging, scripts, quests, mutations, drugs, sounds, audio, bank, emergency, broadcasts, tags, worldstate, timeweather, players, validator, changes). Each entry declares `title`, `fetch`, optional `columns`, `editForm`, `save`, `delete`, and `render`.
+- **`PANELS`** — one entry per nav section (dashboard, zones, maps, power, enemies, items, npcs, furniture, recipes, scavenging, scripts, quests, vine, mutations, drugs, sounds, audio, bank, emergency, broadcasts, tags, worldstate, timeweather, players, validator, changes). Each entry declares `title`, `fetch`, optional `columns`, `editForm`, `save`, `delete`, and `render`.
 - `activatePanelNav(name)` — highlights the active nav item.
 - `showPanel(name)` / `loadPanel(name)` — fetch data, call the panel's render function, wire up the toolbar.
 
@@ -165,6 +165,16 @@ The Scavenging Tables panel — CRUD for reusable scavenge loot templates (`scav
 Thin editor for the `quests` table (consumed by the quests plugin). Objectives and rewards are edited as raw JSON, matching the simple-entities pattern.
 
 - `questEditForm(rec, isNew)` / `saveQuest(existing)`
+
+### `vine-suite.js`
+The VINE Suite hub panel (`noEdit`, custom render) — one launcher for every VINE graph across all schemas.
+
+- `fetchVineSuite()` — parallel-fetches npcs, enemies, scripts, quests, broadcasts.
+- `renderVineSuite(data)` — sections per category with node-count badges.
+- `vineSuiteEdit(key, id)` — opens the right VINE modal and saves via the category's canonical API.
+- Holds `VINE_SUITE` (category registry), `_VS_ORDER`, `_vineSuiteData`.
+
+`quests.js` also gained `questsOpenVine()` — opens the VINE quest editor seeded from the form fields; on save writes derived `objectives[]`/`rewards{}` back into them.
 
 ### `scripts.js`
 The NPC/world script graph editor.

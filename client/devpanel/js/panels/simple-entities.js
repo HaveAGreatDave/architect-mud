@@ -62,7 +62,17 @@ function drugEditForm(rec, isNew) {
       <div class="field"><label>Overdose Threshold (doses in system)</label><input type="number" id="f-overdose_threshold" value="${rec.overdose_threshold||3}" min="1"></div>
     </div>
     <div class="field"><label>Addiction Chance (0.0 - 1.0)</label><input type="number" id="f-addiction_chance" value="${rec.addiction_chance||0}" min="0" max="1" step="0.01"></div>
-    <div class="field"><label>Effects (JSON — hp/sanity/hunger/thirst/radiation deltas)</label><textarea id="f-effects" rows="3">${JSON.stringify(effects, null, 2)}</textarea></div>
+    <div class="field"><label>Effects (JSON)</label>
+      <div class="hint" style="font-size:11px;line-height:1.5;opacity:0.75;margin:2px 0 4px">
+        All sub-blocks optional. A flat object (no keys below) is treated as <code>instant</code> for back-compat.<br>
+        • <code>instant</code>: {hp, sanity, hunger, thirst, radiation, horniness_increase} one-shot deltas.<br>
+        • <code>phases</code>: {comeup_seconds, peak_seconds, comedown_seconds, comeup_scale, comedown_scale, peak_mods, comeup_message, peak_message, comedown_message, end_message}. <code>peak_mods</code> holds buff deltas (stat_brawn, stat_reflexes, stat_brains, stat_cool, stat_endurance, hp_max, sanity_max) plus <code>*_regen_per_sec</code> drip keys (hp/sanity/stamina). Buffs ramp by scale on come-up/comedown and are cleanly reversed on expiry.<br>
+        • <code>tolerance</code>: {gain_per_dose, recovery_per_sec, max_reduction} — repeated use lowers potency; recovers over time.<br>
+        • <code>withdrawal</code>: {onset_seconds, mods, message, addiction_per_dose, addiction_recovery_per_sec} — bites after time without a dose once addicted.<br>
+        • <code>overdose</code>: {lethal:true, message} — exceeding Overdose Threshold doses kills the player.<br>
+        • <code>hallucination</code>: {mode:"overlay"|"dreamzone", intensity, palette, duration_seconds, events:[{atSec,text}] or eventPool+eventEverySec, dreamzone_id}. Palettes: green/purple/red/gold/cyan/magenta/blue. Use [trip]...[/trip] in text for melting FX.
+      </div>
+      <textarea id="f-effects" rows="6">${JSON.stringify(effects, null, 2)}</textarea></div>
     <div class="field"><label>Overdose Effects (JSON — applied on top of normal effects when overdosed)</label><textarea id="f-withdrawal_effects" rows="3">${JSON.stringify(withdrawal.overdose ? withdrawal : {overdose:{}}, null, 2)}</textarea></div>
   `;
 }

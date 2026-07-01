@@ -28,7 +28,7 @@ radiation (see [systems-survival.md](systems-survival.md)). `go <name>` resolves
 destinations via `resolveNamedDestination` ([describe.js](../server/engine/commands/describe.js)),
 handling exact, unique-prefix, and ambiguous matches.
 
-`describeZone` is the heavy renderer: light level gating (pitch-dark/dark/dim degrade what's visible),
+`describeZone` is the heavy renderer: light level gating (8-step ladder blazing→bright→clear→dim→gloomy→dark→murk→pitch-dark; darker levels degrade what's visible — gloomy drops ground items, dark hides creatures/items, murk also hides NPCs, pitch-dark leaves only feel-for-exits — via the `LIGHT_GATE` table),
 danger/RAD/PVP tags, building-discovery flavour, apartment status, the Custodian outcast/turret
 response, ground items, furniture, windows, exits, other players, NPCs, enemies, and corpses. It fires
 the `zone.describeRoom` plugin hook for optional injected prose.
@@ -123,7 +123,7 @@ The engine holds the sampler via `registerWeatherField` / `registerWeatherFieldS
 
 ### Indoor HVAC temps
 
-`stepIndoorTemps` (every 1m tick) drives each indoor zone (`is_interior` / `is_apartment` / `is_building`) toward a target. **Powered** zones head to `INDOOR_HVAC_TARGET_C = 20`°C at `INDOOR_HVAC_RATE_PER_MIN = 2.0`°C/min (heating or cooling, ~10 min from an extreme). **Unpowered** zones drift toward the current outdoor temp at `INDOOR_PASSIVE_RATE_PER_MIN = 0.1`°C/min (slow insulated bleed). Per-zone temps live in `state.zoneTemps`, seeded at boot by `initIndoorTemps`, and are read via `getZoneTemperature`.
+`stepIndoorTemps` (every 1m tick) drives each indoor zone (`is_interior` / `is_apartment` / `is_building`) toward a target. **Powered** zones head to `INDOOR_HVAC_TARGET_C = 20`°C at `INDOOR_HVAC_RATE_PER_MIN = 2.0`°C/min (heating or cooling, ~10 min from an extreme). **Unpowered** zones drift toward the current outdoor temp by **passive conduction proportional to the indoor↔outdoor gap** (`step = (outdoor − current) × INDOOR_PASSIVE_CONDUCTION`, `= 0.01`): ΔT=10°C ≈ 0.1°C/min (the old flat rate), but ΔT=50°C bleeds at ~0.5°C/min — so a mild outage stays survivable while a blackout in an extreme cold snap or heatwave becomes lethal (**no free safe haven**; a −30°C snap drops an interior to 10°C in ~23 min, 0°C in ~51 min). Per-zone temps live in `state.zoneTemps`, seeded at boot by `initIndoorTemps`, and are read via `getZoneTemperature`.
 
 ## Spawning & corpses
 

@@ -27,7 +27,7 @@
 	--bg3: #ddd9cf;
 	--border: #c8c3b6;
 	--text: #3a3834;
-	--text-dim: #8a8578;
+	--text-dim: #6f6a5e;
 	--text-bright: #1a1916;
 	--accent: #c4197f;
 	--accent-dim: #f5cfe5;
@@ -46,7 +46,7 @@
 	--bg3: #d4e0f0;
 	--border: #a8c0de;
 	--text: #1c2e4a;
-	--text-dim: #5878a0;
+	--text-dim: #476488;
 	--text-bright: #08182e;
 	--accent: #1a60d0;
 	--accent-dim: #bcd4f0;
@@ -65,7 +65,7 @@
 	--bg3: #ecd8b0;
 	--border: #c8a870;
 	--text: #3c2c10;
-	--text-dim: #8a7050;
+	--text-dim: #6f5a3c;
 	--text-bright: #1a1008;
 	--accent: #c07000;
 	--accent-dim: #f8e4b0;
@@ -84,7 +84,7 @@
 	--bg3: #ccecda;
 	--border: #90d0a8;
 	--text: #1a3028;
-	--text-dim: #508070;
+	--text-dim: #3d6b5b;
 	--text-bright: #081818;
 	--accent: #1a9050;
 	--accent-dim: #b0e8cc;
@@ -122,7 +122,7 @@
 	--bg3: #d4d8de;
 	--border: #a8b0bc;
 	--text: #1e2530;
-	--text-dim: #60708a;
+	--text-dim: #505f73;
 	--text-bright: #0a1018;
 	--accent: #2878a8;
 	--accent-dim: #b8d4e8;
@@ -160,7 +160,7 @@
 	--bg3: #dee4ea;
 	--border: #b4bec8;
 	--text: #181e28;
-	--text-dim: #587080;
+	--text-dim: #4a6070;
 	--text-bright: #081018;
 	--accent: #0d7a50;
 	--accent-dim: #c0e8d8;
@@ -198,7 +198,7 @@
 	--bg3: #061e06;
 	--border: #0f4010;
 	--text: #33ff33;
-	--text-dim: #1a8c1a;
+	--text-dim: #22a822;
 	--text-bright: #80ff80;
 	--accent: #00ff41;
 	--accent-dim: #003310;
@@ -236,7 +236,7 @@
 	--bg3: #200505;
 	--border: #4a0c0c;
 	--text: #f0c8b0;
-	--text-dim: #9a6050;
+	--text-dim: #b87868;
 	--text-bright: #ffe8d8;
 	--accent: #ff2200;
 	--accent-dim: #5c0800;
@@ -304,6 +304,171 @@
 	--cyan: #20ddff;
 	--purple: #c040ff;
 }
+
+/* Aurora — slate-blue night base, balanced pastel-vivid spectrum (Tokyo Night lineage) */
+[data-theme="aurora"] {
+	--bg: #16161e;
+	--bg2: #1e1e2a;
+	--bg3: #282838;
+	--border: #363652;
+	--text: #c8d0f0;
+	--text-dim: #8b90ba;
+	--text-bright: #ffffff;
+	--accent: #7aa2ff;
+	--accent-dim: #1e2a4a;
+	--green: #6ee7b7;
+	--red: #ff6b81;
+	--orange: #ff9e64;
+	--yellow: #ffd76b;
+	--cyan: #56e0e0;
+	--purple: #bb8cff;
+}
+
+/* Neon — near-black arcade base, magenta/lime/cyan neon triad */
+[data-theme="neon"] {
+	--bg: #08060f;
+	--bg2: #0f0b1c;
+	--bg3: #171029;
+	--border: #2e1f52;
+	--text: #e8e0ff;
+	--text-dim: #8f7bc0;
+	--text-bright: #ffffff;
+	--accent: #ff2fb3;
+	--accent-dim: #4a0f38;
+	--green: #2bff88;
+	--red: #ff3b5c;
+	--orange: #ff7a18;
+	--yellow: #f5e642;
+	--cyan: #23e5ff;
+	--purple: #a25bff;
+}
+
+/* Cathode — warm amber-CRT base, amber lead with green/teal phosphor accents */
+[data-theme="cathode"] {
+	--bg: #0c0a06;
+	--bg2: #14100a;
+	--bg3: #1d170d;
+	--border: #3a2c14;
+	--text: #ffcf70;
+	--text-dim: #a07a38;
+	--text-bright: #ffe9b0;
+	--accent: #ffb52e;
+	--accent-dim: #4a2f08;
+	--green: #7dd93f;
+	--red: #ff5a3c;
+	--orange: #ff8a1e;
+	--yellow: #ffe23c;
+	--cyan: #38d6c0;
+	--purple: #d07bff;
+}
+
+/* Grove — muted forest dark, soft desaturated nature palette (Everforest lineage) */
+[data-theme="grove"] {
+	--bg: #1f2420;
+	--bg2: #272e28;
+	--bg3: #313a32;
+	--border: #45503f;
+	--text: #d3c6aa;
+	--text-dim: #97a49b;
+	--text-bright: #eef0e2;
+	--accent: #a7c080;
+	--accent-dim: #2f3a2a;
+	--green: #83c092;
+	--red: #e67e80;
+	--orange: #e69875;
+	--yellow: #dbbc7f;
+	--cyan: #7fbbb3;
+	--purple: #d699b6;
+}
+
+/* Latte — clean light base, vivid modern accents (Catppuccin Latte lineage) */
+[data-theme="latte"] {
+	--bg: #eff1f5;
+	--bg2: #e6e9ef;
+	--bg3: #dce0e8;
+	--border: #bcc0cc;
+	--text: #4c4f69;
+	--text-dim: #63677a;
+	--text-bright: #1e2030;
+	--accent: #1e66f5;
+	--accent-dim: #d6e2ff;
+	--green: #40a02b;
+	--red: #d20f39;
+	--orange: #fe640b;
+	--yellow: #df8e1d;
+	--cyan: #179299;
+	--purple: #8839ef;
+}
+
+/* Rosewater — warm parchment light, muted editorial multi-hue (Rosé Pine Dawn lineage) */
+[data-theme="rose"] {
+	--bg: #faf4ed;
+	--bg2: #f0e6da;
+	--bg3: #e6dccb;
+	--border: #cfc4b0;
+	--text: #575279;
+	--text-dim: #656177;
+	--text-bright: #393552;
+	--accent: #b4637a;
+	--accent-dim: #f0dfe4;
+	--green: #618375;
+	--red: #b4506a;
+	--orange: #d7827e;
+	--yellow: #ea9d34;
+	--cyan: #56949f;
+	--purple: #907aa9;
+}
+
+/* Papertape — cream teletype base, colored-ribbon ink accents */
+[data-theme="papertape"] {
+	--bg: #f6f0df;
+	--bg2: #ece3c9;
+	--bg3: #e0d4b2;
+	--border: #c2b184;
+	--text: #3b3222;
+	--text-dim: #6f6142;
+	--text-bright: #211a0e;
+	--accent: #b5601a;
+	--accent-dim: #ecd9be;
+	--green: #4a7a2a;
+	--red: #b52a24;
+	--orange: #c47318;
+	--yellow: #a88410;
+	--cyan: #1a7a86;
+	--purple: #7a4a9a;
+}
+
+/* Bubblegum — soft pink-white pop base, bright vaporwave-day palette */
+[data-theme="bubblegum"] {
+	--bg: #fdf2fb;
+	--bg2: #f8e6f6;
+	--bg3: #f2d9ef;
+	--border: #e0aede;
+	--text: #4a2b52;
+	--text-dim: #8a4f8a;
+	--text-bright: #2a0f34;
+	--accent: #e6217f;
+	--accent-dim: #fbcce4;
+	--green: #12b886;
+	--red: #f03e5c;
+	--orange: #fb8c2a;
+	--yellow: #f0b310;
+	--cyan: #0bb4d4;
+	--purple: #8a3ffb;
+}
+
+/* Theme swatch picker (settings) — replaces the flat theme <select> */
+.theme-grid-wrap { max-height: 300px; overflow-y: auto; }
+.theme-grid-head { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--text-dim); margin: 12px 0 6px; }
+.theme-grid-head:first-child { margin-top: 0; }
+.theme-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.theme-chip { display: flex; flex-direction: column; gap: 5px; background: transparent; border: 1px solid var(--border); border-radius: 6px; padding: 6px; cursor: pointer; text-align: left; }
+.theme-chip:hover { border-color: var(--text-dim); }
+.theme-chip.selected { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.theme-chip-prev { display: flex; align-items: flex-end; gap: 3px; height: 28px; border: 1px solid; border-radius: 4px; padding: 4px; overflow: hidden; }
+.theme-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.theme-chip-name { font-size: 11px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.theme-chip.selected .theme-chip-name { color: var(--accent); }
 
 /* Compact density — used on mobile/desktop "compact" display mode */
 [data-density="compact"] {
@@ -899,11 +1064,23 @@ body {
 .light-clear {
 	color: var(--text-dim);
 }
+.light-blazing {
+	color: var(--cyan);
+}
+.light-bright {
+	color: var(--green);
+}
 .light-dim {
 	color: var(--yellow);
 }
+.light-gloomy {
+	color: var(--orange);
+}
 .light-dark {
 	color: var(--red);
+}
+.light-murk {
+	color: var(--purple);
 }
 .exits-label,
 .npcs-label,
@@ -1818,12 +1995,12 @@ body {
 	margin-bottom: 7px;
 }
 .settings-group:has(> .settings-options) label.group-label {
-	flex: 0 0 84px;
+	flex: 0 0 72px;
 	margin-bottom: 0;
 }
 .settings-group:has(> .settings-options) .settings-options {
 	flex: 1;
-	justify-content: flex-end;
+	justify-content: flex-start;
 	flex-wrap: nowrap;
 }
 .settings-group:has(> .settings-options) .settings-opt {
@@ -4275,24 +4452,43 @@ body {
 	display: flex;
 }
 #atm-box {
-	background: #000;
-	border: 2px solid #00ff88;
-	box-shadow: 0 0 60px rgba(0, 255, 136, 0.7), 0 0 20px rgba(0, 255, 136, 0.5), inset 0 0 80px rgba(0, 0, 0, 0.95);
+	/* Accent is network-branded: atm.js sets --atm-accent from network.color.
+	   Every colour below is derived from it via color-mix, so a red bank and a
+	   green bank render as genuinely different machines. */
+	--atm-accent: #00ff88;
+	background:
+		repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.14) 3px, rgba(0,0,0,0.14) 4px),
+		radial-gradient(120% 80% at 50% -10%, color-mix(in srgb, var(--atm-accent) 10%, transparent), transparent 60%),
+		linear-gradient(160deg, #0a0f0d 0%, #05070a 55%, #000 100%);
+	border: 2px solid var(--atm-accent);
+	border-radius: 7px;
+	box-shadow:
+		0 0 0 1px rgba(0,0,0,0.8),
+		0 0 34px color-mix(in srgb, var(--atm-accent) 55%, transparent),
+		0 0 72px color-mix(in srgb, var(--atm-accent) 22%, transparent),
+		inset 0 0 80px rgba(0, 0, 0, 0.95);
 	font-family: 'Courier New', Courier, monospace;
-	color: #00ff88;
+	color: var(--atm-accent);
 	min-width: 340px;
 	max-width: 400px;
 	width: 100%;
 	padding: 22px 24px 18px;
 	position: relative;
-	/* CRT scanlines */
-	background-image: repeating-linear-gradient(
-		0deg,
-		transparent,
-		transparent 3px,
-		rgba(0, 0, 0, 0.12) 3px,
-		rgba(0, 0, 0, 0.12) 4px
-	);
+	overflow: hidden;
+}
+/* Sweeping scan sheen, like the deck's live glow. */
+#atm-box::before {
+	content: '';
+	position: absolute;
+	left: 0; right: 0; top: 0;
+	height: 40%;
+	background: linear-gradient(180deg, color-mix(in srgb, var(--atm-accent) 8%, transparent), transparent);
+	pointer-events: none;
+	animation: atm-sheen 6s ease-in-out infinite;
+}
+@keyframes atm-sheen {
+	0%, 100% { opacity: 0.25; transform: translateY(-20%); }
+	50% { opacity: 0.6; transform: translateY(10%); }
 }
 #atm-close {
 	position: absolute;
@@ -4300,19 +4496,22 @@ body {
 	right: 12px;
 	background: none;
 	border: none;
-	color: #00ff88;
+	color: var(--atm-accent);
 	font-size: 14px;
 	cursor: pointer;
 	opacity: 0.6;
 	padding: 2px 6px;
 	font-family: inherit;
+	z-index: 2;
 }
 #atm-close:hover { opacity: 1; }
 #atm-header {
 	text-align: center;
 	margin-bottom: 16px;
 	padding-bottom: 12px;
-	border-bottom: 1px solid rgba(0, 255, 136, 0.3);
+	border-bottom: 1px solid color-mix(in srgb, var(--atm-accent) 30%, transparent);
+	position: relative;
+	z-index: 2;
 }
 .atm-logo {
 	font-size: 11px;
@@ -4357,21 +4556,38 @@ body {
 	font-size: 11px;
 	letter-spacing: 1px;
 }
-.atm-online { color: #00ff88; }
+.atm-online { color: var(--atm-accent); text-shadow: 0 0 8px color-mix(in srgb, var(--atm-accent) 60%, transparent); }
 .atm-offline { color: #ff3b5c; animation: none; }
 .atm-bar-wrap {
 	flex: 1;
-	height: 7px;
-	background: rgba(0, 255, 136, 0.12);
-	border: 1px solid rgba(0, 255, 136, 0.3);
+	height: 8px;
+	background: color-mix(in srgb, var(--atm-accent) 12%, #000);
+	border: 1px solid color-mix(in srgb, var(--atm-accent) 30%, transparent);
+	overflow: hidden;
+	position: relative;
 }
 .atm-bar-fill {
 	height: 100%;
-	background: #00ff88;
+	background: linear-gradient(90deg, color-mix(in srgb, var(--atm-accent) 60%, #000), var(--atm-accent));
 	width: 100%;
 	transition: width 0.4s;
+	box-shadow: 0 0 10px color-mix(in srgb, var(--atm-accent) 70%, transparent);
 }
-.atm-bar-fill.atm-bar-low { background: #ff3b5c; }
+/* Travelling gleam over the cash meter — reads as a live, charged reserve. */
+.atm-bar-fill::after {
+	content: '';
+	position: absolute;
+	top: 0; left: 0;
+	width: 30%;
+	height: 100%;
+	background: linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent);
+	animation: atm-bar-gleam 2.6s linear infinite;
+}
+@keyframes atm-bar-gleam {
+	0% { transform: translateX(-120%); }
+	100% { transform: translateX(400%); }
+}
+.atm-bar-fill.atm-bar-low { background: linear-gradient(90deg, #7a1526, #ff3b5c); box-shadow: 0 0 10px rgba(255,59,92,0.6); }
 #atm-cash-label {
 	min-width: 100px;
 	text-align: right;
@@ -4406,9 +4622,9 @@ body {
 }
 #atm-amount {
 	flex: 1;
-	background: rgba(0, 255, 136, 0.07);
-	border: 1px solid rgba(0, 255, 136, 0.4);
-	color: #00ff88;
+	background: color-mix(in srgb, var(--atm-accent) 7%, #000);
+	border: 1px solid color-mix(in srgb, var(--atm-accent) 40%, transparent);
+	color: var(--atm-accent);
 	font-family: inherit;
 	font-size: 13px;
 	padding: 6px 10px;
@@ -4416,35 +4632,38 @@ body {
 	letter-spacing: 1px;
 	min-width: 0;
 }
-#atm-amount::placeholder { color: rgba(0, 255, 136, 0.3); }
-#atm-amount:focus { border-color: #00ff88; background: rgba(0, 255, 136, 0.1); }
+#atm-amount::placeholder { color: color-mix(in srgb, var(--atm-accent) 30%, transparent); }
+#atm-amount:focus { border-color: var(--atm-accent); background: color-mix(in srgb, var(--atm-accent) 10%, #000); box-shadow: 0 0 12px color-mix(in srgb, var(--atm-accent) 35%, transparent); }
 /* Chrome/Safari number input arrows */
 #atm-amount::-webkit-outer-spin-button,
 #atm-amount::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .atm-btn {
 	flex: 1;
-	background: transparent;
-	border: 1px solid rgba(0, 255, 136, 0.5);
-	color: #00ff88;
+	background: linear-gradient(180deg, color-mix(in srgb, var(--atm-accent) 10%, transparent), transparent);
+	border: 1px solid color-mix(in srgb, var(--atm-accent) 50%, transparent);
+	color: var(--atm-accent);
 	font-family: inherit;
 	font-size: 11px;
 	letter-spacing: 2px;
-	padding: 7px 4px;
+	padding: 8px 4px;
 	cursor: pointer;
-	transition: background 0.15s, border-color 0.15s;
+	transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+	box-shadow: inset 0 -2px 0 rgba(0,0,0,0.5);
 }
 .atm-btn:hover:not(:disabled) {
-	background: rgba(0, 255, 136, 0.15);
-	border-color: #00ff88;
+	background: color-mix(in srgb, var(--atm-accent) 20%, transparent);
+	border-color: var(--atm-accent);
+	box-shadow: inset 0 -1px 0 rgba(0,0,0,0.5), 0 0 14px color-mix(in srgb, var(--atm-accent) 40%, transparent);
 }
+.atm-btn:active:not(:disabled) { transform: translateY(1px); }
 .atm-btn:disabled {
 	opacity: 0.3;
 	cursor: not-allowed;
 }
 .atm-btn-small {
 	background: transparent;
-	border: 1px solid rgba(0, 255, 136, 0.35);
-	color: rgba(0, 255, 136, 0.6);
+	border: 1px solid color-mix(in srgb, var(--atm-accent) 35%, transparent);
+	color: color-mix(in srgb, var(--atm-accent) 60%, transparent);
 	font-family: inherit;
 	font-size: 9px;
 	letter-spacing: 1px;
@@ -4452,7 +4671,9 @@ body {
 	cursor: pointer;
 	white-space: nowrap;
 }
-.atm-btn-small:hover { border-color: #00ff88; color: #00ff88; }
+.atm-btn-small:hover { border-color: var(--atm-accent); color: var(--atm-accent); }
+/* Keep readouts above the animated header sheen. */
+#atm-status-block, #atm-balance-block, #atm-tx-block, #atm-hack-wrap, .atm-divider { position: relative; z-index: 2; }
 .atm-fee {
 	font-size: 10px;
 	opacity: 0.5;
@@ -6586,6 +6807,117 @@ body.esp-active #output {
 }
 .poker-cmd:active { transform: translateY(1px); }
 
+/* ─── Poker table — mobile stacked layout ───────────────────────────────────
+   Desktop renders an oval felt with four absolutely-positioned seats, which
+   overflows a phone. On narrow viewports we reflow the *same* server HTML into
+   a vertical stack (flex + `order`): the table title, then opponents as a
+   compact top strip, the community board + pot in the middle, the viewer's own
+   hand at the bottom, and big-tap action buttons below. Opponents are pared
+   down to name + stack + status — their cards, bet piles, and bubbles drop.
+   Gated on width only (not compact density): a compact-density desktop with a
+   wide pane should keep the oval; a narrow window here already matches. */
+@media (max-width: 720px) {
+	#area-pane .poker-table-wrap {
+		display: flex;
+		flex-wrap: wrap;
+		align-content: flex-start;
+		height: auto;
+		padding: 8px;
+		gap: 6px 5px;
+	}
+
+	/* Drop the oval chrome and the info we don't surface on mobile */
+	#area-pane .poker-felt,
+	#area-pane .poker-dealer,
+	#area-pane .poker-deck,
+	#area-pane .money-pile,
+	#area-pane .bet-money,
+	#area-pane .poker-bubble,
+	#area-pane .poker-chat { display: none; }
+
+	/* Pull every seat out of absolute positioning into the flow */
+	#area-pane .poker-seat {
+		position: static;
+		transform: none;
+		z-index: auto;
+		gap: 2px;
+	}
+
+	/* Table title — small centered header, first in the stack */
+	#area-pane .poker-header {
+		position: static;
+		transform: none;
+		order: 0;
+		flex: 1 1 100%;
+		text-align: center;
+		margin-bottom: 2px;
+	}
+
+	/* Opponents (every seat but the viewer's south seat): compact top strip */
+	#area-pane .poker-seat:not(.seat-south) {
+		order: 1;
+		flex: 1 1 0;
+		min-width: 0;
+		flex-direction: column;
+		justify-content: center;
+		padding: 4px 3px;
+		background: rgba(0, 0, 0, 0.28);
+		border: 1px solid rgba(255, 255, 255, 0.08);
+		border-radius: 6px;
+		overflow: hidden;
+	}
+	#area-pane .poker-seat:not(.seat-south) .seat-name,
+	#area-pane .poker-seat:not(.seat-south) .seat-chips {
+		font-size: 10px;
+		max-width: 100%;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+	/* Opponent hole cards are hidden on mobile — name/stack/status only */
+	#area-pane .poker-seat:not(.seat-south) .seat-cards { display: none; }
+
+	/* Community board + pot: full-width middle row (forces the wrap) */
+	#area-pane .poker-board {
+		position: static;
+		transform: none;
+		order: 2;
+		flex: 1 1 100%;
+		margin: 4px 0;
+	}
+	#area-pane .poker-board-cards { flex-wrap: wrap; justify-content: center; }
+
+	/* Viewer's seat + hand: full-width bottom row */
+	#area-pane .seat-south {
+		order: 3;
+		flex: 1 1 100%;
+		padding-top: 4px;
+		border-top: 1px solid rgba(255, 255, 255, 0.1);
+	}
+
+	/* Shrink cards so five community cards fit a phone width */
+	#area-pane .poker-card-wrap { width: 42px; height: 62px; }
+	#area-pane .poker-card-front,
+	#area-pane .poker-card-back { border-radius: 5px; }
+	#area-pane .poker-card-front .rank-top { font-size: 11px; top: 3px; left: 4px; }
+	#area-pane .poker-card-front .suit-center { font-size: 19px; }
+	#area-pane .poker-card-front .rank-bot { font-size: 11px; bottom: 3px; right: 4px; }
+	/* The viewer's own hole cards get a touch more size for readability */
+	#area-pane .seat-viewer .poker-card-wrap { width: 50px; height: 74px; }
+	#area-pane .seat-viewer .poker-card-front .rank-top,
+	#area-pane .seat-viewer .poker-card-front .rank-bot { font-size: 13px; }
+	#area-pane .seat-viewer .poker-card-front .suit-center { font-size: 24px; }
+
+	/* Action bar: fewer, bigger, evenly-sized tap targets */
+	#area-pane .poker-cmdbar { gap: 6px; padding: 8px 4px 4px; }
+	#area-pane .poker-cmd {
+		flex: 1 1 auto;
+		min-width: 68px;
+		font-size: 13px;
+		padding: 9px 8px;
+		text-align: center;
+	}
+}
+
 /* Draggable confirmation dialog (server { type:'confirm' }) */
 .confirm-window {
 	position: fixed;
@@ -6659,4 +6991,83 @@ body.esp-active #output {
 	border-color: #24312a;
 	cursor: default;
 	opacity: 0.5;
+}
+
+/* ── Drug "trip" FX ─────────────────────────────────────────────────────────
+   Driven by dispatch.js: a #trip-overlay div + the `tripping` body class, with
+   two live-tunable custom properties the server pushes on come-up/peak/comedown:
+     --trip-hue        base hue (0–360) from the drug's palette
+     --trip-intensity  0–1, scales overlay opacity, blur and shake amplitude   */
+:root { --trip-hue: 120; --trip-intensity: 0.6; }
+
+#trip-overlay {
+	position: fixed;
+	inset: 0;
+	z-index: 9997;
+	pointer-events: none;
+	mix-blend-mode: screen;
+	background:
+		radial-gradient(circle at 50% 40%,
+			hsla(var(--trip-hue), 100%, 60%, calc(0.18 * var(--trip-intensity))),
+			transparent 70%),
+		linear-gradient(120deg,
+			hsla(var(--trip-hue), 90%, 55%, calc(0.12 * var(--trip-intensity))),
+			hsla(calc(var(--trip-hue) + 120), 90%, 55%, calc(0.10 * var(--trip-intensity))));
+	animation: trip-drift 9s ease-in-out infinite;
+}
+
+@keyframes trip-drift {
+	0%   { filter: hue-rotate(0deg);   opacity: 0.55; transform: scale(1); }
+	25%  { opacity: 0.9; }
+	50%  { filter: hue-rotate(180deg); opacity: 0.7; transform: scale(1.04); }
+	75%  { opacity: 0.95; }
+	100% { filter: hue-rotate(360deg); opacity: 0.55; transform: scale(1); }
+}
+
+/* Whole game view breathes/warps while tripping. Amplitudes scale with intensity. */
+body.tripping #main {
+	animation: trip-shake calc(0.9s - 0.4s * var(--trip-intensity)) ease-in-out infinite;
+	filter: saturate(calc(1 + 0.8 * var(--trip-intensity))) contrast(calc(1 + 0.15 * var(--trip-intensity)));
+	will-change: transform, filter;
+}
+
+@keyframes trip-shake {
+	0%   { transform: translate(0, 0) skewX(0deg); }
+	20%  { transform: translate(calc(1px * var(--trip-intensity)), calc(-1px * var(--trip-intensity))) skewX(calc(0.3deg * var(--trip-intensity))); }
+	40%  { transform: translate(calc(-1px * var(--trip-intensity)), 0) skewX(calc(-0.4deg * var(--trip-intensity))); }
+	60%  { transform: translate(0, calc(1px * var(--trip-intensity))) skewX(calc(0.2deg * var(--trip-intensity))); filter: blur(calc(0.6px * var(--trip-intensity))); }
+	80%  { transform: translate(calc(1px * var(--trip-intensity)), calc(1px * var(--trip-intensity))) skewX(calc(-0.2deg * var(--trip-intensity))); }
+	100% { transform: translate(0, 0) skewX(0deg); }
+}
+
+/* Occasional glitch flash on the log while tripping. */
+body.tripping #output {
+	animation: trip-glitch 4.5s steps(1) infinite;
+}
+
+@keyframes trip-glitch {
+	0%, 92%, 100% { filter: none; }
+	93%  { filter: hue-rotate(90deg) contrast(1.6) blur(0.4px); transform: translateX(1px); }
+	95%  { filter: hue-rotate(-120deg) contrast(1.3); transform: translateX(-2px); }
+	97%  { filter: hue-rotate(45deg) brightness(1.3); transform: translateX(1px); }
+}
+
+/* Trip event lines + [trip] melting text. */
+.msg-trip { color: hsl(var(--trip-hue), 90%, 72%); font-style: italic; text-shadow: 0 0 6px hsla(var(--trip-hue), 100%, 60%, 0.5); }
+
+.trip-text {
+	display: inline-block;
+	animation: trip-warp 2.2s ease-in-out infinite;
+}
+
+@keyframes trip-warp {
+	0%   { transform: skewX(0deg) translateY(0); letter-spacing: 0; }
+	33%  { transform: skewX(3deg) translateY(-1px); letter-spacing: 0.5px; }
+	66%  { transform: skewX(-3deg) translateY(1px); letter-spacing: -0.3px; }
+	100% { transform: skewX(0deg) translateY(0); letter-spacing: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	#trip-overlay, body.tripping #main, body.tripping #output, .trip-text { animation: none; }
+	body.tripping #main { transform: none; }
 }

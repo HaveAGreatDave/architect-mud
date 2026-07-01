@@ -56,24 +56,42 @@ HellMOO-style, permanent, dev-panel editable, cached in memory at boot.
 
 ## Drugs & addiction
 
-[drugs.js](../server/engine/drugs.js), invoked from the `use` and `inject` commands when the item joins
-to a row in `drugs` (both share one handler in the drugs plugin). Dev-panel editable, cached at boot.
+[drugs.js](../server/engine/drugs.js), invoked from `use`/`inject` when the item joins to a row in
+`drugs`. Dev-panel editable, cached at boot. The `effects` JSON is one schema with all sub-blocks
+optional; a flat object with none of the structured keys is treated as an `instant` block (back-compat
+for pre-existing drugs). Per-drug state lives in `player_drug_state` (`doses_in_system`, `times_used`,
+`is_addicted`, `active_until`, plus `tolerance` and `addiction`).
 
-- **Effects** (`effects` JSON): instantaneous, clamped stat deltas — `hp`, `sanity`, `hunger`, `thirst`,
-  `radiation`. Restoring `hunger`/`thirst` also applies `digestive_load`/`hydration_load` via
-  `foodLoad`/`drinkLoad`, the same as the `consumable` path — so a drug that fills you up carries the
-  same bowel/bladder cost as food (see "Digestive & hydration load" below). Per-drug state is tracked in
-  `player_drug_state` (`doses_in_system`, `times_used`, `is_addicted`, `active_until`).
-- **Overdose:** when `doses_in_system ≥ overdose_threshold` (default 3), the drug's
-  `withdrawal_effects.overdose` deltas are merged into the dose's effects and an overdose warning fires.
-- **Addiction:** if not already addicted, a `Math.random() < addiction_chance` roll on each use can
-  flip `is_addicted`.
-
-> **Known gaps** (see the QA report): drug effects are applied **instantly**, not over `duration_seconds`
-> — `active_until`/`duration_seconds` are stored but no timed reversal exists. `tickDrugDecay()` (which
-> would decrement `doses_in_system` after `active_until`) and `getPlayerDrugState()` have **no callers**,
-> so doses never decay → overdose state, once reached, is effectively permanent, and there is no enacted
-> withdrawal penalty for addiction.
+- **`instant`** — one-shot, clamped stat deltas (`hp`, `sanity`, `hunger`, `thirst`, `radiation`,
+  `horniness_increase`). Restoring `hunger`/`thirst` applies `digestive_load`/`hydration_load` via
+  `foodLoad`/`drinkLoad`, exactly like the `consumable` path.
+- **`phases`** — phased effects over time (come-up → peak → comedown), pushed onto `player.activeDrugs`
+  and advanced by `tickDrugs()` in the 1s loop. `peak_mods` holds buff deltas (`stat_*`, `hp_max`,
+  `sanity_max`) applied through the **reversible modifier ledger** in
+  [statmods.js](../server/engine/statmods.js) — buffs are scaled per phase by `comeup_scale`/
+  `comedown_scale` and **cleanly reversed** on expiry (the ledger never bakes a buff into a base stat).
+  `*_regen_per_sec` keys in `peak_mods` are per-second drip regen (fractional accumulator, like
+  heal-over-time). Optional `comeup/peak/comedown/end_message` lines narrate each transition.
+- **Tolerance** (`tolerance` block) — each dose raises `player_drug_state.tolerance`; it recovers lazily
+  off `last_used_at`. Potency (locked into the active-drug entry) is `1 − tolerance × max_reduction`,
+  scaling both phased buff magnitude and hallucination intensity.
+- **Overdose = death** — when `doses_in_system ≥ overdose_threshold` and `effects.overdose.lethal`,
+  `useDrug()` returns `overdose_death` and `cmdUse` runs the full `handlePlayerDeath` path (corpse + vat
+  respawn), clearing any active buff/trip. Non-lethal overdose keeps the legacy burst-penalty behaviour.
+  `tickDrugDecay()` decrements `doses_in_system` after `active_until`, so OD risk clears over time.
+- **Addiction & withdrawal** — `addiction` accumulates per dose (`withdrawal.addiction_per_dose`, default
+  `addiction_chance`) and decays over time; ≥ 0.5 marks the player addicted. `tickWithdrawal()` (minute
+  cadence) applies `withdrawal.mods` through the ledger once time-since-last-use exceeds
+  `withdrawal.onset_seconds`; re-dosing reverses it.
+- **Hallucinations** (`hallucination` block) — handled by the **trip plugin**
+  ([plugins/trip](../plugins/trip/index.js)) off the engine's `drug.used` hook. `mode: "overlay"` streams
+  scripted timed events + trippy client FX while the body stays in the real zone (attackable);
+  `mode: "dreamzone"` teleports the mind into an isolated off-map zone (`flags.is_dreamzone`) and spawns
+  an **attackable phantom body** in the real zone that mirrors the player's HP — damaging it damages the
+  player, and killing it kills them. See [systems-broadcast.md] siblings and the trip plugin for FX
+  (`trip_start`/`trip_event`/`trip_fx`/`trip_end` client messages, the `[trip]` markup tag, `#trip-overlay`
+  + `.tripping` CSS, and inline trip audio). Trips are in-memory; a login rescue in `server/index.js`
+  bounces anyone stranded in a dream zone by a restart back to their anchor.
 
 ## Buffs & heal-over-time
 

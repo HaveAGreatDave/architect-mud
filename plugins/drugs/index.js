@@ -20,10 +20,10 @@ async function findDrug(targetStr, player) {
   return rows.length > 0;
 }
 
-async function use(args, raw, player) {
+async function use(args, raw, player, broadcast) {
   const targetStr = args.join(' ');
   if (!(await findDrug(targetStr, player))) return undefined;
-  return cmdUse(targetStr, player);
+  return cmdUse(targetStr, player, broadcast);
 }
 
 export const specializedActions = [

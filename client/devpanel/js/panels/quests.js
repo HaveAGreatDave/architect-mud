@@ -16,9 +16,41 @@ function questEditForm(rec, isNew) {
         <option value="1" ${rec.repeatable?'selected':''}>Repeatable</option>
       </select>
     </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <label style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim)">Quest Graph</label>
+      <button type="button" class="action-btn" onclick="questsOpenVine()">🌿 Visual Editor</button>
+    </div>
     <div class="field"><label>Objectives (JSON array — type: kill/give/visit + target/item_id/zone, count, desc)</label><textarea id="f-objectives" rows="6">${JSON.stringify(objectives, null, 2)}</textarea></div>
     <div class="field"><label>Rewards (JSON — { credits, items:[{item_id,quantity}], flags:[{scope,flag,value}] })</label><textarea id="f-rewards" rows="5">${JSON.stringify(rewards, null, 2)}</textarea></div>
   `;
+}
+
+// Open the VINE quest editor seeded from the current form values; on save, write the
+// derived objectives[]/rewards{} back into the form fields (saveQuest persists them).
+function questsOpenVine() {
+  let objectives, rewards;
+  try { objectives = JSON.parse(document.getElementById('f-objectives').value || '[]'); } catch { return toast('Objectives: invalid JSON', true); }
+  try { rewards = JSON.parse(document.getElementById('f-rewards').value || '{}'); } catch { return toast('Rewards: invalid JSON', true); }
+  const rec = {
+    name: document.getElementById('f-name').value,
+    description: document.getElementById('f-description').value,
+    repeatable: document.getElementById('f-repeatable').value === '1',
+    objectives, rewards,
+  };
+  vineModalOpen(
+    `Quest: ${rec.name || currentRecord?.id || 'Quest'}`,
+    VineQuestSchema,
+    VineQuestSchema.fromQuest(rec),
+    (savedGraph) => {
+      const q = VineQuestSchema.toQuest(savedGraph);
+      document.getElementById('f-name').value = q.name;
+      document.getElementById('f-description').value = q.description;
+      document.getElementById('f-repeatable').value = q.repeatable ? '1' : '0';
+      document.getElementById('f-objectives').value = JSON.stringify(q.objectives, null, 2);
+      document.getElementById('f-rewards').value = JSON.stringify(q.rewards, null, 2);
+      toast('Quest graph applied — click Save to persist.');
+    }
+  );
 }
 
 async function saveQuest(existing) {

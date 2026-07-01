@@ -764,10 +764,27 @@ window.VineEditor = VineEditor;
 let _vineModalEditor = null;
 let _vineModalOnSave = null;
 
+// Each schema carries a `vineIdentity` { kind, tagline, color, icon }. The header
+// stays a consistent VINE<kind> lockup but recolors so you always know which VINE
+// you're in. Falls back to the plain brand for a schema without an identity.
+function _applyVineIdentity(schema) {
+  const id = (schema && schema.vineIdentity) ||
+    { kind: '', tagline: 'Visual Interaction Node Editor', color: 'var(--accent)', icon: '🌿' };
+  const kindEl = document.getElementById('vine-modal-kind');
+  const tagEl = document.getElementById('vine-modal-tagline');
+  const iconEl = document.getElementById('vine-modal-icon');
+  const headEl = document.getElementById('vine-modal-header');
+  if (kindEl) { kindEl.textContent = id.kind || ''; kindEl.style.color = id.color; }
+  if (tagEl) tagEl.textContent = id.tagline || '';
+  if (iconEl) iconEl.textContent = id.icon || '🌿';
+  if (headEl) headEl.style.borderLeftColor = id.color;
+}
+
 function vineModalOpen(title, schema, graphData, onSave) {
   const modal = document.getElementById('vine-modal');
   if (!modal) return;
   document.getElementById('vine-modal-title').textContent = title;
+  _applyVineIdentity(schema);
   modal.style.display = 'flex';
   _vineModalOnSave = onSave;
 

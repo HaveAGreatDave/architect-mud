@@ -1235,12 +1235,14 @@
 				<h2>Settings</h2>
 
 				<div class="settings-group">
-					<label class="group-label" for="opt-theme">Theme</label>
-					<div style="display: flex; gap: 8px; align-items: center">
-						<select
-							id="opt-theme"
-							class="settings-select"
-							style="flex: 1"></select>
+					<label class="group-label">Theme</label>
+					<div style="display: flex; gap: 8px; align-items: flex-start">
+						<div
+							id="opt-theme-grid"
+							class="theme-grid-wrap"
+							role="listbox"
+							aria-label="Theme"
+							style="flex: 1"></div>
 						<button
 							id="theme-edit-btn"
 							style="

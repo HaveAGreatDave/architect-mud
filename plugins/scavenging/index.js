@@ -17,6 +17,7 @@ import { query } from '../../server/models/db.js';
 import { getZone, getAllLivePlayers, getLivePlayer, setLivePlayer } from '../../server/engine/world.js';
 import { effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
+import { on } from '../../server/engine/events.js';
 
 const ATTEMPT_MS = 3500;   // per-attempt cadence, sibling to the attack cooldown
 const MAX_SWING = 14;      // best possible 2d8-2d8 roll — reachability ceiling
@@ -267,6 +268,13 @@ async function scavengeTick() {
 }
 
 setInterval(() => scavengeTick().catch(e => console.error('[scavenging] tick error:', e.message)), 1000);
+
+// The unified STOP command halts scavenging like any other repeating action.
+on('player.stop', ({ player, stopped }) => {
+  if (player.posture !== 'scavenging') return;
+  stopScavenging(player.id, player.current_zone, player.handle);
+  stopped.push('scavenging');
+});
 
 // ── Command ─────────────────────────────────────────────────────────────────
 

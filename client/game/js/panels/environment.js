@@ -247,10 +247,14 @@ export function refreshZoneVisibility() {
       _visPrevBrightness = brightness;
 
       const LIGHT_CATS = {
-        pitch_dark: { label: 'Pitch Dark', color: 'var(--text-dim)' },
-        dark:       { label: 'Dark',       color: 'var(--red)' },
-        dim:        { label: 'Dim',        color: 'var(--yellow)' },
+        blazing:    { label: 'Blazing',    color: 'var(--cyan)' },
+        bright:     { label: 'Bright',     color: 'var(--green)' },
         clear:      { label: 'Well Lit',   color: 'var(--green)' },
+        dim:        { label: 'Dim',        color: 'var(--yellow)' },
+        gloomy:     { label: 'Gloomy',     color: 'var(--orange)' },
+        dark:       { label: 'Dark',       color: 'var(--red)' },
+        murk:       { label: 'Murky',      color: 'var(--purple)' },
+        pitch_dark: { label: 'Pitch Dark', color: 'var(--text-dim)' },
       };
       const lc = LIGHT_CATS[v.category] || LIGHT_CATS.clear;
       const iconEl = document.getElementById('env-light-icon');

@@ -231,6 +231,7 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path==='/npcs/send-to-work' && method==='POST') return requireDev(auth, apiSendLateNpcsToWork);
   if (path.startsWith('/npcs/') && method==='PUT') return requireDev(auth, ()=>apiUpdateNpc(path.split('/')[2],body));
   if (path.startsWith('/npcs/') && path.endsWith('/graph') && method==='PATCH') return requireDev(auth, ()=>apiPatchGraph('npcs',path.split('/')[2],body));
+  if (path.startsWith('/broadcasts/') && path.endsWith('/graph') && method==='PATCH') return requireDev(auth, ()=>apiPatchGraph('media_broadcasts',path.split('/')[2],body));
   if (path.startsWith('/npcs/') && path.endsWith('/restock') && method==='POST') return requireDev(auth, ()=>apiRestockVendor(path.split('/')[2]));
   if (path.startsWith('/npcs/') && path.endsWith('/place-safe') && method==='POST') return requireDev(auth, ()=>apiPlaceSafe(path.split('/')[2]));
   if (path.startsWith('/npcs/') && path.endsWith('/safe-status') && method==='GET') return requireDev(auth, ()=>apiGetSafeStatus(path.split('/')[2]));
@@ -1257,8 +1258,11 @@ export async function apiUpdateNpc(id,body) {
 }
 const NPC_GRAPH_FIELDS = new Set(['behaviour_graph', 'dialogue_tree']);
 const ENEMY_GRAPH_FIELDS = new Set(['behaviour_graph']);
+const BROADCAST_GRAPH_FIELDS = new Set(['broadcast_graph']);
 async function apiPatchGraph(table, id, body) {
-  const allowed = table === 'npcs' ? NPC_GRAPH_FIELDS : ENEMY_GRAPH_FIELDS;
+  const allowed = table === 'npcs' ? NPC_GRAPH_FIELDS
+    : table === 'media_broadcasts' ? BROADCAST_GRAPH_FIELDS
+    : ENEMY_GRAPH_FIELDS;
   const field = body.field;
   if (!allowed.has(field)) return { status: 400, body: { error: `Invalid field '${field}' for ${table}` } };
   if (!body.graph || typeof body.graph !== 'object') return { status: 400, body: { error: 'graph must be an object' } };

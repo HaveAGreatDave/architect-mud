@@ -113,6 +113,10 @@ function _applyBBCode(s) {
   // Rainbow first — content must be plain escaped text before other tags transform it
   s = s.replace(/\[rainbow\]([\s\S]*?)\[\/rainbow\]/gi, (_, t) => _rainbow(t));
 
+  // Trip: melting per-char hue wrapped in a warping/shimmering span. Used by the
+  // drugs hallucination system. Same char-splitter as rainbow.
+  s = s.replace(/\[trip\]([\s\S]*?)\[\/trip\]/gi, (_, t) => `<span class="trip-text">${_rainbow(t)}</span>`);
+
   s = s.replace(/\[b\]([\s\S]*?)\[\/b\]/gi,      '<strong>$1</strong>');
   s = s.replace(/\[i\]([\s\S]*?)\[\/i\]/gi,       '<em>$1</em>');
   s = s.replace(/\[u\]([\s\S]*?)\[\/u\]/gi,       '<span style="text-decoration:underline">$1</span>');
@@ -168,6 +172,7 @@ export const MARKUP_HELP_HTML = `
   <div><span style="color:var(--yellow);min-width:230px;display:inline-block">[blink]text[/blink]</span> blinking text</div>
   <div><span style="color:var(--yellow);min-width:230px;display:inline-block">[spoiler]text[/spoiler]</span> hidden until clicked</div>
   <div><span style="color:var(--yellow);min-width:230px;display:inline-block">[rainbow]text[/rainbow]</span> <span style="background:linear-gradient(90deg,hsl(0,100%,65%),hsl(60,100%,65%),hsl(120,100%,65%),hsl(180,100%,65%),hsl(240,100%,65%),hsl(300,100%,65%));-webkit-background-clip:text;-webkit-text-fill-color:transparent">rainbow</span></div>
+  <div><span style="color:var(--yellow);min-width:230px;display:inline-block">[trip]text[/trip]</span> <span class="trip-text" style="background:linear-gradient(90deg,hsl(0,100%,65%),hsl(120,100%,65%),hsl(240,100%,65%),hsl(300,100%,65%));-webkit-background-clip:text;-webkit-text-fill-color:transparent">melting</span></div>
   <div><span style="color:var(--yellow);min-width:230px;display:inline-block">[color=red]text[/color]</span> <span style="color:red">colored</span> (name or #rrggbb)</div>
   <div style="color:var(--accent);margin-top:6px;margin-bottom:2px">── Game tags ───────────────────────</div>
   <div><span style="color:var(--yellow);min-width:230px;display:inline-block">[player]Name[/player]</span> <span style="color:var(--purple)">player style</span></div>

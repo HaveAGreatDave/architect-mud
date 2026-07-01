@@ -48,11 +48,13 @@ window.addEventListener('storage', e => {
 });
 
 document.addEventListener('DOMContentLoaded', () => {
-  populateThemeDropdown();
-  const themeSel = document.getElementById('dev-opt-theme');
-  if (themeSel) {
-    themeSel.addEventListener('change', () => {
-      const val = themeSel.value;
+  populateThemeGrid();
+  const themeGrid = document.getElementById('dev-opt-theme-grid');
+  if (themeGrid) {
+    themeGrid.addEventListener('click', (e) => {
+      const chip = e.target.closest('.theme-chip');
+      if (!chip || !themeGrid.contains(chip)) return;
+      const val = chip.dataset.value;
       devSettings.theme = val;
       if (BUILTIN_THEME_VALUES.includes(val)) devSettings.customColors = {};
       saveDevSettings(devSettings);

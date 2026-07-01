@@ -1,3 +1,13 @@
+// Plain-language wind strength, roughly Beaufort. Mirrors the game client's forecast panel.
+function windLabel(kph) {
+  if (kph == null) return '';
+  if (kph < 6)  return 'Calm';
+  if (kph < 20) return 'Breezy';
+  if (kph < 39) return 'Windy';
+  if (kph < 62) return 'Strong';
+  return 'Gale';
+}
+
 function renderTimeWeatherPanel(data) {
   const panel = document.getElementById('list-panel');
   const env = data?.env || {};
@@ -21,6 +31,8 @@ function renderTimeWeatherPanel(data) {
       <div style="font-size:24px;margin-bottom:4px">${f.icon||'?'}</div>
       <div style="font-size:11px;color:var(--text)">${f.weatherType||'?'}</div>
       ${f.tempC!=null?`<div style="font-size:10px;color:var(--text-dim);margin-top:2px">${f.tempC}°C</div>`:''}
+      ${f.windKph!=null?`<div style="font-size:10px;color:var(--text-dim);margin-top:2px" title="${windLabel(f.windKph)}">💨 ${f.windKph} km/h</div>`:''}
+      ${f.humidityPct!=null?`<div style="font-size:10px;color:var(--text-dim);margin-top:1px">💧 ${f.humidityPct}%</div>`:''}
     </div>`).join('');
 
   panel.innerHTML = `
@@ -33,7 +45,9 @@ function renderTimeWeatherPanel(data) {
           <div><div style="color:var(--text-dim);font-size:10px;margin-bottom:2px">DATE</div><div style="color:var(--text)">${env.date||'—'}</div></div>
           <div><div style="color:var(--text-dim);font-size:10px;margin-bottom:2px">SEASON</div><div style="color:var(--text)">${env.season||'—'}</div></div>
           <div><div style="color:var(--text-dim);font-size:10px;margin-bottom:2px">WEATHER</div><div style="color:var(--text)">${env.currentWeatherIcon||''} ${env.currentWeatherType||'—'}</div>${env.currentWeatherType!==env.weatherType?`<div style="color:var(--text-dim);font-size:10px;margin-top:2px">forecast: ${env.weatherType}</div>`:''}</div>
-          <div><div style="color:var(--text-dim);font-size:10px;margin-bottom:2px">TEMPERATURE</div><div style="color:var(--text)">${env.tempC!=null?env.tempC+'°C':'—'}</div></div>
+          <div><div style="color:var(--text-dim);font-size:10px;margin-bottom:2px">TEMPERATURE</div><div style="color:var(--text)">${env.tempC!=null?env.tempC+'°C':'—'}${env.feelsLikeC!=null&&Math.round(env.feelsLikeC)!==Math.round(env.tempC)?`<span style="color:var(--text-dim);font-size:11px"> · feels ${Math.round(env.feelsLikeC)}°C</span>`:''}</div></div>
+          <div><div style="color:var(--text-dim);font-size:10px;margin-bottom:2px">WIND</div><div style="color:var(--text)">${env.windKph!=null?'💨 '+env.windKph+' km/h · '+windLabel(env.windKph):'—'}</div></div>
+          <div><div style="color:var(--text-dim);font-size:10px;margin-bottom:2px">HUMIDITY</div><div style="color:var(--text)">${env.humidityPct!=null?'💧 '+env.humidityPct+'%':'—'}</div></div>
           <div><div style="color:var(--text-dim);font-size:10px;margin-bottom:2px">INTENSITY</div><div style="color:var(--text)">${env.currentIntensity||'—'}</div></div>
           <div><div style="color:var(--text-dim);font-size:10px;margin-bottom:2px">STATUS</div><div style="color:${env.frozen?'var(--red)':'var(--accent2)'}">${env.frozen?'⏸ Frozen':'▶ Running'}</div></div>
         </div>

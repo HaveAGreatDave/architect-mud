@@ -166,6 +166,7 @@ function _autoLayoutScript(graph) {
 }
 
 window.VineScriptSchema = {
+  vineIdentity: { kind: 'script', tagline: 'Scripted event graph', color: '#4455aa', icon: '⎇' },
   nodeTypes: _scriptNodeDefs,
 
   // { start, nodes: { id: { type, ...fields, next?, ifTrue?, ifFalse?, _vine? } } }

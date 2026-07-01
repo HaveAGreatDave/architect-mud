@@ -29,10 +29,12 @@ export { SETTINGS_KEY };
 const LIGHT_THEMES = [
   ['light','Parchment'],['inkwell','Inkwell'],['studio','Studio'],
   ['arctic','Arctic'],['solar','Solar'],['mint','Mint'],['lavender','Lavender'],['fog','Fog'],
+  ['latte','Latte'],['rose','Rosewater'],['papertape','Papertape'],['bubblegum','Bubblegum'],
 ];
 const DARK_THEMES = [
   ['dark','Void'],['eclipse','Eclipse'],['iron','Iron'],
   ['contrast','Terminal'],['phosphor','Phosphor Green'],['synthwave','Synthwave'],['bloodmoon','Blood Moon'],['slate','Slate'],
+  ['aurora','Aurora'],['neon','Neon'],['cathode','Cathode'],['grove','Grove'],
 ];
 const BUILTIN_THEMES = [...LIGHT_THEMES, ...DARK_THEMES];
 
@@ -151,15 +153,55 @@ function _getThemeColors(themeId, settings) {
   return custom ? { ...custom.colors } : _getBuiltinThemeColors(themeId);
 }
 
-function _populateThemeDropdown(settings) {
-  const sel = document.getElementById('opt-theme');
-  if (!sel) return;
+// --- Theme swatch picker ---
+// Colours shown as dots on each chip. Read live from the rendered CSS so new
+// (and custom) themes get an accurate swatch with zero extra bookkeeping.
+const _CHIP_DOT_VARS = ['--accent', '--green', '--red', '--orange', '--yellow', '--purple'];
+const _CHIP_FRAME_VARS = ['--bg', '--border'];
+
+// Probe a theme's actual colours off the DOM. Pass { id } for a built-in
+// (renders a hidden [data-theme] node) or { colors } for a custom theme
+// (applies its overrides on a dark base, then reads back).
+function _probeThemeVars(theme) {
+  const el = document.createElement('div');
+  el.style.cssText = 'position:absolute;visibility:hidden;pointer-events:none;left:-9999px';
+  if (theme.colors) {
+    el.setAttribute('data-theme', 'dark');
+    Object.entries(theme.colors).forEach(([k, v]) => el.style.setProperty(k, v));
+  } else {
+    el.setAttribute('data-theme', theme.id);
+  }
+  document.body.appendChild(el);
+  const cs = getComputedStyle(el);
+  const out = {};
+  [..._CHIP_FRAME_VARS, ..._CHIP_DOT_VARS].forEach(v => { out[v] = cs.getPropertyValue(v).trim(); });
+  document.body.removeChild(el);
+  return out;
+}
+
+function _themeChipHTML(value, label, colors, active) {
+  const dots = _CHIP_DOT_VARS.map(v => `<span class="theme-dot" style="background:${colors[v] || 'transparent'}"></span>`).join('');
+  return `<button type="button" class="theme-chip${active ? ' selected' : ''}" data-value="${value}" role="option" aria-selected="${active}" title="${label}">` +
+    `<span class="theme-chip-prev" style="background:${colors['--bg']};border-color:${colors['--border']}">${dots}</span>` +
+    `<span class="theme-chip-name">${label}</span></button>`;
+}
+
+function _populateThemeGrid(settings) {
+  const grid = document.getElementById('opt-theme-grid');
+  if (!grid) return;
+  const active = settings.theme || 'dark';
+  const section = (title, items) =>
+    `<div class="theme-grid-head">${title}</div><div class="theme-grid">` +
+    items.map(([v, l]) => _themeChipHTML(v, l, _probeThemeVars({ id: v }), v === active)).join('') +
+    `</div>`;
+  let html = section('Dark', DARK_THEMES) + section('Light', LIGHT_THEMES);
   const custom = settings.customThemes || [];
-  const lightOpts = LIGHT_THEMES.map(([v, l]) => `<option value="${v}">${l}</option>`).join('');
-  const darkOpts = DARK_THEMES.map(([v, l]) => `<option value="${v}">${l}</option>`).join('');
-  sel.innerHTML = `<optgroup label="Light Themes">${lightOpts}</optgroup><optgroup label="Dark Themes">${darkOpts}</optgroup>` +
-    (custom.length ? `<optgroup label="Custom">${custom.map(t => `<option value="${t.id}">${t.name}</option>`).join('')}</optgroup>` : '');
-  sel.value = settings.theme || 'dark';
+  if (custom.length) {
+    html += `<div class="theme-grid-head">Custom</div><div class="theme-grid">` +
+      custom.map(t => _themeChipHTML(t.id, t.name, _probeThemeVars({ colors: t.colors }), t.id === active)).join('') +
+      `</div>`;
+  }
+  grid.innerHTML = html;
 }
 
 export function applySettings(settings) {
@@ -212,7 +254,7 @@ export function applySettings(settings) {
     feltColorInput.value = settings.pokerFeltColor;
   }
 
-  _populateThemeDropdown(settings);
+  _populateThemeGrid(settings);
 
   const _cs = document.getElementById('opt-contrast');
   const _cl = document.getElementById('contrast-value-label');
@@ -264,10 +306,12 @@ export function applySettings(settings) {
 }
 
 export function initSettingsUI(settings, saveAndApply, { sendCmd, notify } = {}) {
-  const themeSelect = document.getElementById('opt-theme');
-  if (themeSelect) {
-    themeSelect.addEventListener('change', () => {
-      settings.theme = themeSelect.value;
+  const themeGrid = document.getElementById('opt-theme-grid');
+  if (themeGrid) {
+    themeGrid.addEventListener('click', (e) => {
+      const chip = e.target.closest('.theme-chip');
+      if (!chip || !themeGrid.contains(chip)) return;
+      settings.theme = chip.dataset.value;
       settings.customColors = {};
       saveAndApply();
     });

@@ -1,12 +1,31 @@
 /**
- * Drug system — dev-panel editable substances with timed effects,
- * addiction risk, and overdose consequences. Mirrors the recipes
- * caching pattern: DB is source of truth, cached in memory at boot.
+ * Drug system — dev-panel editable substances with phased effects
+ * (come-up / peak / comedown), tolerance, addiction/withdrawal, lethal
+ * overdose, and hallucination hooks. Mirrors the recipes caching pattern:
+ * DB is source of truth, cached in memory at boot.
+ *
+ * The `effects` JSONB is one schema with all sub-blocks optional:
+ *   instant       — one-shot stat deltas (existing behaviour)
+ *   phases        — { comeup_seconds, peak_seconds, comedown_seconds,
+ *                     comeup_scale, comedown_scale, peak_mods, *_message }
+ *   tolerance     — { gain_per_dose, recovery_per_sec, max_reduction }
+ *   withdrawal    — { onset_seconds, mods, message, addiction_per_dose,
+ *                     addiction_recovery_per_sec }
+ *   overdose      — { lethal, message, mods }
+ *   hallucination — { mode, intensity, palette, duration_seconds, events, dreamzone_id }
+ *
+ * Back-compat: a drug whose `effects` has none of the structured keys above
+ * is treated as a flat `instant` block, so pre-existing drugs run untouched.
  */
 import { query } from '../models/db.js';
 import { foodLoad, drinkLoad } from './bodily.js';
+import { applyMods, reverseMods } from './statmods.js';
+import { fireHook } from './plugins.js';
 
 let DRUG_CACHE = {};
+
+// peak_mods keys ending in this are per-second "drip" regen, not flat buffs.
+const REGEN_RE = /_regen_per_sec$/;
 
 export async function loadDrugs() {
   const { rows } = await query('SELECT * FROM drugs');
@@ -18,45 +37,113 @@ export async function loadDrugs() {
 
 export function getDrugCache() { return DRUG_CACHE; }
 
-export async function useDrug(player, drugId) {
+// --- effects-block helpers ---------------------------------------------------
+
+const STRUCTURED_KEYS = ['instant', 'phases', 'hallucination', 'tolerance', 'withdrawal', 'overdose'];
+function isStructured(eff) { return STRUCTURED_KEYS.some(k => k in eff); }
+
+function buffModsOf(peakMods) {
+  const o = {};
+  for (const k in peakMods) if (!REGEN_RE.test(k)) o[k] = peakMods[k];
+  return o;
+}
+function dripModsOf(peakMods) {
+  const o = {};
+  for (const k in peakMods) if (REGEN_RE.test(k)) o[k] = peakMods[k];
+  return o;
+}
+function scaleMods(mods, factor) {
+  const o = {};
+  for (const k in mods) { const v = Math.round((mods[k] || 0) * factor); if (v) o[k] = v; }
+  return o;
+}
+
+// --- consumption -------------------------------------------------------------
+
+export async function useDrug(player, drugId, broadcast) {
   const drug = DRUG_CACHE[drugId];
   if (!drug) return { success: false, message: 'Unknown substance.' };
 
+  const eff = drug.effects || {};
+  const structured = isStructured(eff);
+  const instant = structured ? (eff.instant || {}) : eff;
+  const phases = eff.phases;
+  const tol = eff.tolerance || {};
+  const wd = eff.withdrawal || {};
+
+  const now = Math.floor(Date.now() / 1000);
   const { rows } = await query('SELECT * FROM player_drug_state WHERE player_id=$1 AND drug_id=$2', [player.id, drugId]);
   const state = rows[0];
-  const now = Math.floor(Date.now() / 1000);
+  const lastUsed = state?.last_used_at || now;
+  const elapsed = Math.max(0, now - lastUsed);
+
+  // Tolerance: lazy recovery since last use, then gain this dose.
+  // Potency is locked to tolerance BEFORE this dose's gain is added.
+  const recPerSec = tol.recovery_per_sec ?? (1 / 3600);
+  let tolerance = Math.max(0, Math.min(1, (state?.tolerance || 0) - recPerSec * elapsed));
+  const potency = Math.max(0, 1 - tolerance * (tol.max_reduction ?? 0.7));
+  tolerance = Math.min(1, tolerance + (tol.gain_per_dose ?? 0));
+
   const dosesInSystem = (state?.doses_in_system || 0) + 1;
   const timesUsed = (state?.times_used || 0) + 1;
-
   const overdosed = dosesInSystem >= (drug.overdose_threshold || 3);
 
+  // Addiction: lazy decay since last use, then accumulate this dose.
+  const addRec = wd.addiction_recovery_per_sec ?? (1 / 86400);
+  let addiction = Math.max(0, (state?.addiction || 0) - addRec * elapsed);
+  addiction = Math.min(1, addiction + (wd.addiction_per_dose ?? drug.addiction_chance ?? 0));
   let justAddicted = false;
-  let isAddicted = state?.is_addicted || false;
-  if (!isAddicted && Math.random() < (drug.addiction_chance || 0)) {
-    isAddicted = true;
-    justAddicted = true;
-  }
+  let isAddicted = state?.is_addicted ? true : false;
+  if (!isAddicted && addiction >= 0.5) { isAddicted = true; justAddicted = true; }
 
   await query(
-    `INSERT INTO player_drug_state (player_id, drug_id, active_until, doses_in_system, times_used, is_addicted, last_used_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7)
-     ON CONFLICT (player_id, drug_id) DO UPDATE SET active_until=$3, doses_in_system=$4, times_used=$5, is_addicted=$6, last_used_at=$7`,
-    [player.id, drugId, now + (drug.duration_seconds || 300), dosesInSystem, timesUsed, isAddicted ? 1 : 0, now]
+    `INSERT INTO player_drug_state (player_id, drug_id, active_until, doses_in_system, times_used, is_addicted, last_used_at, tolerance, addiction)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+     ON CONFLICT (player_id, drug_id) DO UPDATE SET active_until=$3, doses_in_system=$4, times_used=$5, is_addicted=$6, last_used_at=$7, tolerance=$8, addiction=$9`,
+    [player.id, drugId, now + (drug.duration_seconds || 300), dosesInSystem, timesUsed, isAddicted ? 1 : 0, now, tolerance, addiction]
   );
 
-  let message = `You take ${drug.name}. ${drug.description || ''}`.trim();
-  const effects = drug.effects || {};
+  // Re-dosing clears any active withdrawal for this drug.
+  reverseMods(player, `withdrawal:${drugId}`);
+  player._withdrawalActive?.delete(drugId);
 
+  let message = `You take ${drug.name}. ${drug.description || ''}`.trim();
+
+  // --- Overdose --------------------------------------------------------------
   if (overdosed) {
-    const odEffects = drug.withdrawal_effects?.overdose || {};
-    return applyEffects(player, { ...effects, ...odEffects, overdose: true }, `${message}\n<span class="overdose-warning">⚠ You've taken too much, too fast. Your body revolts.</span>`);
+    // Cancel any active buff + trip for this drug.
+    reverseMods(player, `drug:${drugId}`);
+    if (player.activeDrugs) player.activeDrugs = player.activeDrugs.filter(a => a.drugId !== drugId);
+    fireHook('drug.overdose', { player, drug, broadcast }).catch(() => {});
+
+    if (eff.overdose?.lethal) {
+      const odMsg = eff.overdose.message || "You've taken too much. Everything stops.";
+      return { success: true, overdose_death: true, message: `${message}\n<span class="overdose-warning">⚠ ${odMsg}</span>` };
+    }
+    // Non-lethal overdose: burst of penalty (legacy behaviour + new overdose.mods).
+    const odEffects = drug.withdrawal_effects?.overdose || eff.overdose?.mods || {};
+    return applyEffects(player, { ...instant, ...odEffects, overdose: true }, `${message}\n<span class="overdose-warning">⚠ You've taken too much, too fast. Your body revolts.</span>`);
   }
 
   if (justAddicted) {
     message += `\n<span class="addiction-warning">Something in you just changed. You'll want this again.</span>`;
   }
 
-  return applyEffects(player, effects, message);
+  // --- Instant block (existing path) -----------------------------------------
+  const result = applyEffects(player, instant, message);
+
+  // --- Phased effects --------------------------------------------------------
+  if (phases) {
+    startPhasedDrug(player, drug, phases, potency);
+    if (phases.comeup_message) result.message += `\n${phases.comeup_message}`;
+  }
+
+  // --- Hallucination ---------------------------------------------------------
+  if (eff.hallucination) {
+    fireHook('drug.used', { player, drug, potency, broadcast }).catch(() => {});
+  }
+
+  return result;
 }
 
 function applyEffects(player, effects, message) {
@@ -87,6 +174,130 @@ function applyEffects(player, effects, message) {
   }
 
   return { success: true, message, effects, player_update: statUpdates, overdose: !!effects.overdose };
+}
+
+// --- Phased effect engine ----------------------------------------------------
+
+// Register a phased drug on the player and apply its come-up buffs immediately.
+// Re-dosing the same drug restarts its curve (only one buff-set per drug).
+function startPhasedDrug(player, drug, phases, potency) {
+  player.activeDrugs = player.activeDrugs || [];
+  player.activeDrugs = player.activeDrugs.filter(a => a.drugId !== drug.id);
+
+  const entry = {
+    drugId: drug.id, name: drug.name, startedAt: Date.now(), phase: 'comeup',
+    comeupMs: (phases.comeup_seconds || 0) * 1000,
+    peakMs: (phases.peak_seconds || 0) * 1000,
+    comedownMs: (phases.comedown_seconds || 0) * 1000,
+    potency,
+    peak_mods: phases.peak_mods || {},
+    comeup_scale: phases.comeup_scale ?? 1,
+    comedown_scale: phases.comedown_scale ?? 1,
+    messages: { peak: phases.peak_message, comedown: phases.comedown_message, end: phases.end_message },
+    tickAcc: {},
+  };
+  applyMods(player, `drug:${drug.id}`, scaleMods(buffModsOf(entry.peak_mods), entry.comeup_scale * potency));
+  player.activeDrugs.push(entry);
+}
+
+// Called once per second from the game loop. Advances each active drug through
+// its phases, applies drip regen, reverses buffs cleanly on expiry. Returns
+// message strings for broadcast.
+export function tickDrugs(player) {
+  const messages = [];
+  if (!player.activeDrugs?.length) return messages;
+  const now = Date.now();
+
+  player.activeDrugs = player.activeDrugs.filter(entry => {
+    const elapsed = now - entry.startedAt;
+    const total = entry.comeupMs + entry.peakMs + entry.comedownMs;
+    const source = `drug:${entry.drugId}`;
+
+    if (elapsed >= total) {
+      reverseMods(player, source);
+      if (entry.messages.end) messages.push(entry.messages.end);
+      return false;
+    }
+
+    let phase, scale;
+    if (elapsed < entry.comeupMs) { phase = 'comeup'; scale = entry.comeup_scale; }
+    else if (elapsed < entry.comeupMs + entry.peakMs) { phase = 'peak'; scale = 1; }
+    else { phase = 'comedown'; scale = entry.comedown_scale; }
+
+    if (phase !== entry.phase) {
+      entry.phase = phase;
+      applyMods(player, source, scaleMods(buffModsOf(entry.peak_mods), scale * entry.potency));
+      const m = phase === 'peak' ? entry.messages.peak : phase === 'comedown' ? entry.messages.comedown : null;
+      if (m) messages.push(m);
+    }
+
+    // Drip regen (sanity_regen_per_sec, hp_regen_per_sec, ...).
+    const drip = dripModsOf(entry.peak_mods);
+    for (const k in drip) {
+      const base = k.replace(REGEN_RE, '');
+      entry.tickAcc[k] = (entry.tickAcc[k] || 0) + drip[k] * scale * entry.potency;
+      const whole = Math.trunc(entry.tickAcc[k]);
+      if (whole !== 0) {
+        entry.tickAcc[k] -= whole;
+        const capKey = base + '_max';
+        const maxVal = typeof player[capKey] === 'number' ? player[capKey] : (base === 'radiation' ? 100 : undefined);
+        let nv = (player[base] || 0) + whole;
+        nv = Math.max(0, maxVal !== undefined ? Math.min(maxVal, nv) : nv);
+        player[base] = nv;
+      }
+    }
+    return true;
+  });
+
+  return messages;
+}
+
+// --- Withdrawal (minute cadence) --------------------------------------------
+
+// Apply / clear withdrawal debuffs for a player's addicted drugs. Withdrawal
+// bites once elapsed-since-last-use exceeds onset_seconds; re-dosing (in
+// useDrug) reverses it. Addiction itself decays over time so sobriety is
+// reachable without re-dosing. Returns message strings for broadcast.
+export async function tickWithdrawal(player) {
+  const messages = [];
+  const now = Math.floor(Date.now() / 1000);
+  const { rows } = await query(
+    'SELECT * FROM player_drug_state WHERE player_id=$1 AND (addiction >= 0.5 OR is_addicted = 1)',
+    [player.id]
+  );
+  if (!rows.length) return messages;
+  if (!player._withdrawalActive) player._withdrawalActive = new Set();
+
+  for (const state of rows) {
+    const drug = DRUG_CACHE[state.drug_id];
+    if (!drug) continue;
+    const wd = drug.effects?.withdrawal || {};
+    const onset = wd.onset_seconds ?? 3600;
+    const addRec = wd.addiction_recovery_per_sec ?? (1 / 86400);
+    const elapsed = Math.max(0, now - (state.last_used_at || now));
+    const source = `withdrawal:${state.drug_id}`;
+
+    // Decay addiction over time; persist so sobriety sticks.
+    const newAddiction = Math.max(0, (state.addiction || 0) - addRec * 60);
+    const stillAddicted = newAddiction >= 0.5;
+    if (newAddiction !== state.addiction || (!stillAddicted && state.is_addicted)) {
+      query('UPDATE player_drug_state SET addiction=$1, is_addicted=$2 WHERE player_id=$3 AND drug_id=$4',
+        [newAddiction, stillAddicted ? 1 : 0, player.id, state.drug_id]).catch(() => {});
+    }
+
+    if (stillAddicted && elapsed > onset && wd.mods) {
+      applyMods(player, source, wd.mods);
+      if (!player._withdrawalActive.has(state.drug_id)) {
+        player._withdrawalActive.add(state.drug_id);
+        if (wd.message) messages.push(`<span class="withdrawal-warning">${wd.message}</span>`);
+      }
+    } else if (player._withdrawalActive.has(state.drug_id)) {
+      reverseMods(player, source);
+      player._withdrawalActive.delete(state.drug_id);
+    }
+  }
+
+  return messages;
 }
 
 export async function tickDrugDecay(playerId) {

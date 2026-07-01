@@ -275,10 +275,18 @@
       #ghost-feed .light-level { display: block; font-size: 11px; font-style: italic; margin: 2px 0; }
       #ghost-area-content .light-clear,
       #ghost-feed .light-clear { color: var(--text-dim, #8888a8); }
+      #ghost-area-content .light-blazing,
+      #ghost-feed .light-blazing { color: var(--cyan, #28e5ff); }
+      #ghost-area-content .light-bright,
+      #ghost-feed .light-bright { color: var(--green, #39ff8f); }
       #ghost-area-content .light-dim,
       #ghost-feed .light-dim   { color: var(--yellow, #f5e642); }
+      #ghost-area-content .light-gloomy,
+      #ghost-feed .light-gloomy { color: var(--orange, #ff9a3c); }
       #ghost-area-content .light-dark,
       #ghost-feed .light-dark  { color: var(--red, #ff3b5c); }
+      #ghost-area-content .light-murk,
+      #ghost-feed .light-murk  { color: var(--purple, #b86bff); }
       #ghost-area-content .hit-part,
       #ghost-feed .hit-part    { color: var(--cyan, #28e5ff); }
       #ghost-area-content .dmg-dealt,
@@ -548,6 +556,19 @@
     ghostWs.send(JSON.stringify({ type: 'ghost_command', command: raw }));
   }
 
+  // Silent, debounced area-pane refresh for passive zone changes (no command
+  // echo, no spooky-cadence emit). Matches dispatch.js's 800ms look debounce.
+  let refreshTimer = null;
+  function requestGhostRefresh() {
+    if (!ghostWs || ghostWs.readyState !== WebSocket.OPEN) return;
+    clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(() => {
+      if (ghostWs && ghostWs.readyState === WebSocket.OPEN) {
+        ghostWs.send(JSON.stringify({ type: 'ghost_refresh' }));
+      }
+    }, 800);
+  }
+
   function handleGhostMessage(msg) {
     switch (msg.type) {
       // ── Ghost-specific ──────────────────────────────────────────────
@@ -576,7 +597,11 @@
       // ── Broadcast / ambient ─────────────────────────────────────────
       case 'zone_event':
       case 'emote':
-        if (msg.message) appendFeed(msg.message, 'msg-zone-event', true); break;
+        if (msg.message) appendFeed(msg.message, 'msg-zone-event', true);
+        // Zone changed around the ghost (power cut, spawn, etc.): silently
+        // re-look so the area pane stays live — mirrors the game client.
+        if (msg.refresh) requestGhostRefresh();
+        break;
       case 'ambient':
         if (msg.message) appendFeed(msg.message, 'msg-ambient', true); break;
       case 'say':

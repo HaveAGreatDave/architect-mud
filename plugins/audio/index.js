@@ -311,23 +311,57 @@ const SFX_POWER_UP = {
 // Looping beds distinct per room: the power station roars, utility rooms hum.
 // Only play while the device is live — a smashed/blacked-out room falls silent.
 
-// Power station / turbine hall: a deep, cavernous turbine roar.
+// Power station / turbine hall: a deep, cavernous turbine roar — plus randomized
+// machine chatter (relay clunks, telemetry beeps, gauge chirps, breaker ticks)
+// scheduled over the top so the room breathes instead of sitting on flat static.
 const AMB_POWER_STATION = {
   id: 'amb_power_station', name: 'amb_power_station', category: 'ambient', priority: 2,
   config: { gain: 0.6, layers: [
-    { waveform: 'sawtooth', freq: 42, filter: { type: 'lowpass', freq: 320, q: 0.9 }, tremolo: { rate: 3.5, depth: 0.25 }, adsr: { a: 2, d: 0, s: 1, r: 2 }, gain: 0.40 },
-    { waveform: 'sine', freq: 28, adsr: { a: 2, d: 0, s: 1, r: 2 }, gain: 0.35 },
-    { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass', freq: 900, q: 0.7 }, tremolo: { rate: 6, depth: 0.15 }, adsr: { a: 2, d: 0, s: 1, r: 2 }, gain: 0.25 },
-    { waveform: 'sine', freq: 220, tremolo: { rate: 0.4, depth: 0.3 }, adsr: { a: 3, d: 0, s: 0.5, r: 3 }, gain: 0.05 },
+    // Turbine bed: two detuned saws beating against each other give a slow,
+    // uneven throb no single tremolo LFO can fake.
+    { waveform: 'sawtooth', freq: 42, filter: { type: 'lowpass', freq: 320, q: 0.9 }, tremolo: { rate: 3.5, depth: 0.25 }, adsr: { a: 2, d: 0, s: 1, r: 2 }, gain: 0.32 },
+    { waveform: 'sawtooth', freq: 41.3, filter: { type: 'lowpass', freq: 300, q: 0.9 }, tremolo: { rate: 2.7, depth: 0.2 }, adsr: { a: 2, d: 0, s: 1, r: 2 }, gain: 0.22 },
+    { waveform: 'sine', freq: 28, vibrato: { rate: 0.15, depth: 3 }, adsr: { a: 2, d: 0, s: 1, r: 2 }, gain: 0.35 },
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'lowpass', freq: 900, q: 0.7 }, tremolo: { rate: 6, depth: 0.15 }, adsr: { a: 2, d: 0, s: 1, r: 2 }, gain: 0.22 },
+    // Faint whine of spinning steel, drifting.
+    { waveform: 'sine', freq: 220, vibrato: { rate: 0.3, depth: 6 }, tremolo: { rate: 0.4, depth: 0.3 }, adsr: { a: 3, d: 0, s: 0.5, r: 3 }, gain: 0.05 },
+  ], sparkle: [
+    // Telemetry beep — a clean console blip, occasionally a double-tap feel via jitter.
+    { everyMin: 3.5, everyMax: 9, prob: 0.85, gain: 0.11, duration: 0.05, jitter: 0.18, layers: [
+      { waveform: 'square', freq: 1320, adsr: { a: 0.002, d: 0.03, s: 0, r: 0.03 }, filter: { type: 'bandpass', freq: 1320, q: 4 } },
+    ] },
+    // Relay / breaker clunk — noise-tick through a low body, a physical thunk.
+    { everyMin: 6, everyMax: 16, prob: 0.8, gain: 0.16, duration: 0.09, jitter: 0.1, layers: [
+      { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 180, q: 2.5 }, adsr: { a: 0.001, d: 0.06, s: 0, r: 0.05 }, gain: 0.9 },
+      { waveform: 'sine', freq: 90, pitchBend: { to: 55, time: 0.08 }, adsr: { a: 0.001, d: 0.07, s: 0, r: 0.04 }, gain: 0.6 },
+    ] },
+    // Gauge chirp — a tiny rising two-tone, like a needle pegging.
+    { everyMin: 8, everyMax: 20, prob: 0.7, gain: 0.07, duration: 0.12, jitter: 0.14, layers: [
+      { waveform: 'square', freq: 880, pitchBend: { to: 1180, time: 0.1 }, adsr: { a: 0.003, d: 0.09, s: 0.1, r: 0.04 }, filter: { type: 'bandpass', freq: 1000, q: 3 } },
+    ] },
+    // Deep steam/valve hiss release — sparse, adds unease.
+    { everyMin: 14, everyMax: 34, prob: 0.75, gain: 0.09, duration: 0.5, jitter: 0.05, layers: [
+      { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 2600, q: 0.8 }, adsr: { a: 0.05, d: 0.25, s: 0.2, r: 0.35 }, gain: 0.5 },
+    ] },
   ] },
 };
-// Utility / power room: a tidy 60 Hz mains hum with a faint electrical fizz.
+// Utility / power room: a tidy 60 Hz mains hum with a faint electrical fizz, plus
+// sparse data-beeps and capacitor ticks — quieter and tidier than the plant.
 const AMB_UTILITY_ROOM = {
   id: 'amb_utility_room', name: 'amb_utility_room', category: 'ambient', priority: 2,
   config: { gain: 0.4, layers: [
     { waveform: 'sine', freq: 60, adsr: { a: 1.5, d: 0, s: 1, r: 1.5 }, gain: 0.30 },
     { waveform: 'sawtooth', freq: 120, filter: { type: 'lowpass', freq: 800, q: 1.0 }, tremolo: { rate: 12, depth: 0.2 }, adsr: { a: 1.5, d: 0, s: 1, r: 1.5 }, gain: 0.12 },
-    { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 5000, q: 0.8 }, tremolo: { rate: 30, depth: 0.6 }, adsr: { a: 1.5, d: 0, s: 0.4, r: 1.5 }, gain: 0.05 },
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 5000, q: 0.8 }, tremolo: { rate: 30, depth: 0.6 }, adsr: { a: 1.5, d: 0, s: 0.4, r: 1.5 }, gain: 0.04 },
+  ], sparkle: [
+    // Capacitor / relay tick — dry, small.
+    { everyMin: 4, everyMax: 11, prob: 0.8, gain: 0.09, duration: 0.04, jitter: 0.12, layers: [
+      { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 3200, q: 3 }, adsr: { a: 0.001, d: 0.03, s: 0, r: 0.02 }, gain: 0.8 },
+    ] },
+    // Panel data-beep — softer and higher than the plant's telemetry.
+    { everyMin: 7, everyMax: 18, prob: 0.7, gain: 0.06, duration: 0.05, jitter: 0.2, layers: [
+      { waveform: 'square', freq: 1760, adsr: { a: 0.002, d: 0.035, s: 0, r: 0.03 }, filter: { type: 'bandpass', freq: 1760, q: 5 } },
+    ] },
   ] },
 };
 const INDUSTRIAL_AMBIENT_IDS = [AMB_POWER_STATION.id, AMB_UTILITY_ROOM.id];

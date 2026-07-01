@@ -266,6 +266,23 @@ vineModalOpen(
 
 The active editor instance is also exposed at `window._vineActiveEditor` for console access during development.
 
+### Header identity
+
+Each schema declares a `vineIdentity` `{ kind, tagline, color, icon }`. `vineModalOpen`
+reads it (`_applyVineIdentity` in `vine-core.js`) to render a consistent-but-distinct
+header: the same `VINE`<kind> lockup, recolored per type, with a matching tagline,
+icon, and left-border accent — so mid-edit you always know which VINE you're in. The
+colors match the VINE Suite badges. A schema without a `vineIdentity` falls back to the
+plain `VINE — Visual Interaction Node Editor` brand.
+
+| Schema | kind | colour |
+|---|---|---|
+| Dialogue | `dialogue` | `#4477aa` |
+| AI behaviour | `behaviour` | `#886622` |
+| Script | `script` | `#4455aa` |
+| Broadcast | `broadcast` | `#226644` |
+| Quest | `quest` | `#a04488` |
+
 ---
 
 ## Broadcast Schema (`vine-schema-broadcast.js`)
@@ -312,10 +329,77 @@ Two entries were added to the AI catalogue to support broadcast-aware NPC behavi
 
 ---
 
+## Quest Schema (`vine-schema-quest.js`)
+
+Authors a single quest as a small prerequisite DAG. Converts a `quests` row
+(`objectives[]` + `rewards{}`) ↔ VINE graph — there is **no** quest graph column;
+the graph is a projection and `objectives[]`/`rewards{}` stay the authoritative
+fields the (future) quest runtime reads.
+
+### Node types
+
+| Type | Colour | Out ports | Purpose |
+|---|---|---|---|
+| `quest` | Magenta | `start` | The quest itself (name, description, repeatable). One per graph. Objectives wired to `start` are available immediately. |
+| `objective` | Blue | `unlocks` | One goal (`kill`/`give`/`visit` + target, count, desc). An edge **into** it from another objective = "requires that first" (gating). |
+| `reward` | Gold | — | Credits/items/flags granted when every objective feeding it is complete. |
+
+### Gating model
+
+An edge `A.unlocks → B` writes `B.requires = [A]` on the flat objective. Objectives
+with no incoming objective-edge have empty `requires` (available from quest start).
+`requires` and per-node `_vine` positions are **additive** — a runtime that ignores
+them degrades to a flat, unordered objective list, so the graph never diverges from
+the stored shape.
+
+### Conversion helpers
+
+```js
+VineQuestSchema.fromQuest(rec)    // { name, description, repeatable, objectives[], rewards{} } → VINE graph
+VineQuestSchema.toQuest(vineGraph) // VINE graph → quest fields (objectives carry id/requires/_vine)
+```
+
+**Runtime:** the `quests` plugin (`plugins/quests/`) drives this at play time —
+it subscribes to `enemy.killed` / `item.given` / `zone.entered` to advance
+`player_quests.progress`, and honors `requires`: an objective stays locked until
+every objective it depends on is met (`requiresMet` in the plugin, judged against
+the pre-tick progress snapshot). The plugin also owns the `/quests` CRUD routes
+(via its `routeHandler`) and the `START_QUEST`/`ADVANCE`/`COMPLETE`/`TURN_IN`
+actions the VINE action picker lists.
+
+---
+
+## VINE Suite (`panels/vine-suite.js`)
+
+A single hub panel (`🌿 VINE Suite` in the nav) listing **every** VINE-authored
+asset across all schemas — NPC dialogue, NPC/enemy behaviour, scripts, broadcasts,
+quests — each row launching the correct editor. It adds no storage: each category
+reads and writes the same field its owning panel does, via a registry (`VINE_SUITE`)
+that maps category → `{ schema, source, toGraph, save }`.
+
+Saves go through each type's canonical path: graph-blob types (dialogue, behaviour,
+broadcast) use the single-field `PATCH /:type/:id/graph` route (live, not staged —
+matching the [VINE Graph Workflow](../CLAUDE.md)); scripts and quests use their `PUT`
+routes. The broadcast graph route (`PATCH /broadcasts/:id/graph`) was added to the
+shared `apiPatchGraph` whitelist alongside the existing npc/enemy ones.
+
+### Cross-editor jump
+
+Beyond the launcher, editors can link into each other. A dialogue node's
+quest-referencing action (`START_QUEST` / `TURN_IN` / `COMPLETE` / `ADVANCE`, which
+carry a `quest_id`) renders an **🌿 Open quest ▸** button in its action card. It calls
+`vineJumpToQuest(questId)` (in `vine-suite.js`): commits the current graph (Save &
+Close), then opens that quest in the VINE quest editor, saving back via `PUT /quests/:id`.
+Because there is only one VINE modal, the jump is one-way (no back-breadcrumb) and
+confirms before committing. Adding a jump from other schemas is just wiring the same
+helper to another action card.
+
+---
+
 ## Adding a New Schema
 
 1. Create `client/devpanel/js/vine/vine-schema-yourtype.js`.
-2. Define `window.VineYourTypeSchema = { nodeTypes: { ... } }`.
+2. Define `window.VineYourTypeSchema = { vineIdentity: { kind, tagline, color, icon }, nodeTypes: { ... } }`.
 3. Add a `<script>` tag for it in `client/devpanel/index.html` after `vine-core.js`.
 4. Call `vineModalOpen(title, VineYourTypeSchema, data, onSave)` from wherever it's needed.
 

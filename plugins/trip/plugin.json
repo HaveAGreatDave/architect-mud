@@ -1,0 +1,6 @@
+{
+  "name": "trip",
+  "version": "1.0.0",
+  "description": "Drug hallucinations: overlay trips and isolated dream-zone trips with an attackable phantom body, timed descriptive events, and trippy audio.",
+  "hooks": ["drug.used", "drug.overdose"]
+}

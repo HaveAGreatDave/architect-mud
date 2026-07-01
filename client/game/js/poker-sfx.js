@@ -166,8 +166,22 @@ const CUES = {
   broke: BROKE,
 };
 
+// Keep the table sounds gentle — they fire often and should sit under speech and
+// music, never jump out. This scales every cue's synth gain on the shared SFX bus.
+const POKER_SFX_GAIN = 0.55;
+
+// The server can occasionally deliver the same cue twice in quick succession
+// (overlapping broadcast recipients, a rapid re-push). Swallow an identical cue
+// fired within this window so it doesn't double up. Legitimate repeats of a cue
+// (e.g. `deal` on each street) are seconds apart and unaffected.
+const DEDUPE_MS = 120;
+const _lastPlayed = {};
+
 export function playPokerSfx(cue) {
   const def = CUES[cue];
   if (!def) return;
-  window.AudioEngine?.playSfx(def);
+  const now = Date.now();
+  if (now - (_lastPlayed[cue] || 0) < DEDUPE_MS) return;
+  _lastPlayed[cue] = now;
+  window.AudioEngine?.playSfx(def, POKER_SFX_GAIN);
 }

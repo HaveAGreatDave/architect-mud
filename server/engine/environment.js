@@ -139,15 +139,26 @@ const SEASON_BY_MONTH = [
 // When powered, HVAC drives zone temp toward 20°C at 2°C/min in either
 // direction (cools if above 20, heats if below — reaches target in ~10 min
 // from an extreme). Without power, passive conduction drifts the zone toward
-// outdoor temp at ~0.1°C/min (slow, insulated bleed).
+// outdoor temp at a rate PROPORTIONAL to the indoor↔outdoor gap (heat flux ∝ ΔT):
+// a mild outage barely drifts, but a blackout during an extreme cold snap or
+// heatwave bleeds fast enough to become lethal — no free safe haven (see
+// docs/systems-weather-extreme.md).
 const INDOOR_HVAC_TARGET_C         = 20;
 const INDOOR_HVAC_RATE_PER_MIN     = 2.0;
-const INDOOR_PASSIVE_RATE_PER_MIN  = 0.1;
+// Fraction of the indoor↔outdoor gap bled per minute when unpowered. Tuned so
+// ΔT=10°C ≈ 0.1°C/min (the old flat rate) while ΔT=50°C bleeds at ~0.5°C/min.
+const INDOOR_PASSIVE_CONDUCTION    = 0.01;
 
 const POWER_OVERLOAD_RATIO = 1.0;    // alloc < demand × this → 'overloaded'
 const EMERGENCY_LIGHT_LEVEL = 0.3;   // artificial-light contribution on emergency power only
 const SNOW_LOAD_MULTIPLIER = 1.15;   // snow increases effective load (GDD §11: heating demand)
-const STORM_GENERATOR_FAULT_CHANCE = 0.10; // per 24h tick, per non-building generator
+const STORM_GENERATOR_FAULT_CHANCE = 0.10; // base per-tick fault chance, scaled by severity
+// Extreme-weather power scar (docs/systems-weather-extreme.md, step 3): a severe
+// storm can knock the city plant offline, and it STAYS down for a recovery window
+// even after the weather eases — the grid doesn't snap back the instant it clears.
+const STORM_FAULT_SEVERITY   = 0.45;  // min local severity before a storm can fault a generator
+const STORM_RECOVER_BASE_MIN = 10;    // recovery window floor (minutes)
+const STORM_RECOVER_SPAN_MIN = 30;    // + up to this much, scaled by severity (→ 10–40 min)
 
 // Fixture draw values stored and compared in Watts (column still named *_kw
 // for historical reasons — the unit is W throughout the engine).
@@ -156,8 +167,7 @@ const DRAW_STREETLIGHT_W = 200;   // 200 W HPS / LED streetlight
 const DRAW_LAMP_W        = 5;     //   5 W bar lamp / small fixture
 const DRAW_DEFAULT_W     = 5;     //   5 W generic fixture
 
-const VISIBILITY_CLEAR = 0.6;
-const VISIBILITY_DIM = 0.35;
+const VISIBILITY_DIM = 0.35;   // streetlights switch on below this ambient level
 
 // ---------------------------------------------------------------------------
 // In-memory state — source of truth between ticks, persisted to Postgres so
@@ -180,6 +190,7 @@ const state = {
   zones: new Map(),         // zoneId -> { powerStatus, capacityKw, loadKw, hasEmergencyLighting, artificialLight }
   zoneTemps: new Map(),     // zoneId -> current indoor tempC (indoor zones only; outdoor zones use global state.tempC)
   windows: [],              // all window rows from DB, refreshed on init and mutation
+  lastTick1m: 0,           // epoch ms anchor for the last whole game-minute advanced; drives elapsed-based clock
   lastTick30m: 0,
   lastTick24h: 0,
   activeClimateProfileId: null,
@@ -193,6 +204,9 @@ const state = {
 
 let deps = { query: null, emitHook: null, broadcast: null };
 let ticksScheduled = false;
+// True while at least one generator is inside a storm-fault recovery window. Keeps
+// the 5-minute power tick running until the grid recovers, then lets it go quiet.
+let stormFaultActive = false;
 
 // Deterministic weather generation (seedFromString, mulberry32, generateWeatherForDate)
 // has moved to plugins/weather/index.js.
@@ -329,15 +343,20 @@ export async function initEnvironment({ query, emitHook, broadcast, getOccupiedZ
 
   // Time-of-day: jump straight to the correct minute based on elapsed real time
   // since the last 1-minute clock tick. This is exact for any outage length.
-  const missedMinutes = Math.floor((now - lastTick1m) / 60_000);
+  let anchor1m = lastTick1m;
+  const missedMinutes = Math.floor((now - anchor1m) / 60_000);
   if (missedMinutes > 0) {
     state.minutes = (state.minutes + missedMinutes) % (24 * 60);
+    // Advance the anchor by whole minutes only, keeping the sub-minute
+    // remainder, so restarts can't shed a fraction of a minute each time.
+    anchor1m += missedMinutes * 60_000;
     recalcAmbientAndVisibility();
     await query(
-      `UPDATE world_clock SET game_time_minutes = $1, last_tick_1m = now() WHERE id = 1`,
-      [state.minutes]
+      `UPDATE world_clock SET game_time_minutes = $1, last_tick_1m = to_timestamp($2) WHERE id = 1`,
+      [state.minutes, anchor1m / 1000]
     );
   }
+  state.lastTick1m = anchor1m;
 
   scheduleTicks();
   state.ready = true;
@@ -359,7 +378,11 @@ function scheduleTicks() {
   schedule('5m', () => {
     if (state.frozen) return;
     const anyOverloaded = [...state.zones.values()].some(z => z.powerStatus === 'overloaded');
-    if (anyOverloaded) tick5m().catch(logError);
+    // Also run while severe weather can fault the grid, or while a storm fault is
+    // still recovering — so blackouts trigger and clear on a 5-minute cadence
+    // rather than waiting for the daily tick.
+    const severity = weatherFieldSnapshot ? (weatherFieldSnapshot()?.baseSeverity ?? 0) : 0;
+    if (anyOverloaded || stormFaultActive || severity >= STORM_FAULT_SEVERITY) tick5m().catch(logError);
   });
 
   // 30-second flicker: pure broadcast to overloaded zones — no DB writes,
@@ -526,10 +549,16 @@ function stepIndoorTemps() {
     if (!isIndoorZone(z)) continue;
     const current = state.zoneTemps.get(zoneId) ?? outdoorTemp;
     const powered = z.powerStatus === 'powered' || z.powerStatus === 'overloaded';
-    const target  = powered ? INDOOR_HVAC_TARGET_C : outdoorTemp;
-    const rate    = powered ? INDOOR_HVAC_RATE_PER_MIN : INDOOR_PASSIVE_RATE_PER_MIN;
-    const diff    = target - current;
-    const step    = Math.sign(diff) * Math.min(Math.abs(diff), rate);
+    let step;
+    if (powered) {
+      // HVAC pulls toward the setpoint at a fixed rate (linear crawl, capped so it can't overshoot).
+      const diff = INDOOR_HVAC_TARGET_C - current;
+      step = Math.sign(diff) * Math.min(Math.abs(diff), INDOOR_HVAC_RATE_PER_MIN);
+    } else {
+      // Unpowered: passive conduction toward outdoor temp, proportional to the gap.
+      // Asymptotic (never overshoots); accelerates automatically in extreme weather.
+      step = (outdoorTemp - current) * INDOOR_PASSIVE_CONDUCTION;
+    }
     state.zoneTemps.set(zoneId, Math.round((current + step) * 10) / 10);
   }
 }
@@ -599,11 +628,21 @@ async function flickerOverloadedZones() {
 
 async function tick1m() {
   const { query, broadcast } = deps;
-  state.minutes = (state.minutes + 1) % (24 * 60);
-  await query(
-    `UPDATE world_clock SET game_time_minutes = $1, last_tick_1m = now() WHERE id = 1`,
-    [state.minutes]
-  );
+  // Advance by however many whole minutes of real time have actually elapsed,
+  // not a blind +1. setInterval only ever fires late (event-loop lag, GC), so
+  // counting fires makes the clock drift permanently behind real time; anchoring
+  // to the wall clock makes a late or delayed tick self-correcting. The
+  // sub-minute remainder is carried in the anchor so nothing is lost.
+  const now = Date.now();
+  const elapsedMin = Math.floor((now - state.lastTick1m) / 60_000);
+  if (elapsedMin >= 1) {
+    state.minutes = (state.minutes + elapsedMin) % (24 * 60);
+    state.lastTick1m += elapsedMin * 60_000;
+    await query(
+      `UPDATE world_clock SET game_time_minutes = $1, last_tick_1m = to_timestamp($2) WHERE id = 1`,
+      [state.minutes, state.lastTick1m / 1000]
+    );
+  }
   stepIndoorTemps();
   if (broadcast) {
     broadcast({ type: 'environment.clockTick', time: formatHHMM(state.minutes), tempC: state.tempC + diurnalOffset(state.minutes), currentWeatherType: state.currentPrecip !== 'none' ? state.currentPrecip : (PRECIP_FORECAST_TYPES.has(state.weatherType) ? 'cloudy' : state.weatherType), currentIntensity: currentIntensityLabel() });
@@ -904,11 +943,19 @@ async function applyPowerLightEffects(query, zoneId, prevStatus, newStatus, avai
 async function simulatePowerNetwork(query, { weatherType }) {
   const { rows: allGenerators } = await query('SELECT * FROM generators');
   const loadMultiplier = weatherType === 'snow' ? SNOW_LOAD_MULTIPLIER : 1.0;
+  // Global outdoor severity, defined once in the weather plugin and read here via
+  // the field snapshot (no duplicated thresholds). Drives storm faults below.
+  const severity = weatherFieldSnapshot ? (weatherFieldSnapshot()?.baseSeverity ?? 0) : 0;
+  const now = Date.now();
+  let anyRecovering = false;
 
   // ── Phase 1: Resolve generator statuses ─────────────────────────────────
   // city_plant and junction_box are permanent (no fuel). Only player generators
-  // consume fuel or stay permanently offline. Storms can transiently fault
-  // city_plant and player types; junction boxes are hardwired inside buildings.
+  // consume fuel or stay permanently offline. Severe storms fault individual
+  // junction_boxes OFFLINE — the building-level distribution feeds fail before the
+  // hardened central plant, giving scattered per-building blackouts rather than a
+  // city-wide one — and hold them there for a recovery window (recover_after in
+  // flags), so a downed building doesn't snap back the instant the weather eases.
   const updatedStatus = new Map();
   for (const gen of allGenerators) {
     // A destroyed unit (its physical furniture was smashed apart) stays dark
@@ -925,12 +972,38 @@ async function simulatePowerNetwork(query, { weatherType }) {
       fuelRemaining = Math.max(0, fuelRemaining - gen.fuel_burn_rate * 30);
       if (fuelRemaining <= 0) status = 'offline';
     }
-    if (weatherType === 'storm' && gen.generator_type === 'city_plant' && status !== 'offline') {
-      if (Math.random() < STORM_GENERATOR_FAULT_CHANCE) status = 'flickering';
+
+    // Storm-fault persistence: honour an active recovery window, expire a lapsed
+    // one, and roll a fresh fault only in severe weather. Only city_plant faults.
+    let flags = gen.flags || {};
+    let flagsChanged = false;
+    let inRecovery = false;
+    const recoverAfter = flags.recover_after ? new Date(flags.recover_after).getTime() : 0;
+    if (recoverAfter && now < recoverAfter) {
+      inRecovery = true;
+      if (gen.generator_type === 'junction_box') status = 'offline';  // still knocked out
+      anyRecovering = true;
+    } else if (recoverAfter) {
+      const { recover_after, ...rest } = flags;                       // window elapsed — clear the scar
+      flags = rest; flagsChanged = true;
     }
-    updatedStatus.set(gen.id, { ...gen, status, fuel_remaining: fuelRemaining });
-    await query(`UPDATE generators SET status=$1, fuel_remaining=$2 WHERE id=$3`, [status, fuelRemaining, gen.id]);
+    if (gen.generator_type === 'junction_box' && !inRecovery && status !== 'offline'
+        && severity >= STORM_FAULT_SEVERITY && Math.random() < STORM_GENERATOR_FAULT_CHANCE * severity) {
+      status = 'offline';
+      const recoverMs = (STORM_RECOVER_BASE_MIN + severity * STORM_RECOVER_SPAN_MIN) * 60_000;
+      flags = { ...flags, recover_after: new Date(now + recoverMs).toISOString() };
+      flagsChanged = true;
+      anyRecovering = true;
+    }
+
+    updatedStatus.set(gen.id, { ...gen, status, fuel_remaining: fuelRemaining, flags });
+    if (flagsChanged) {
+      await query(`UPDATE generators SET status=$1, fuel_remaining=$2, flags=$3 WHERE id=$4`, [status, fuelRemaining, JSON.stringify(flags), gen.id]);
+    } else {
+      await query(`UPDATE generators SET status=$1, fuel_remaining=$2 WHERE id=$3`, [status, fuelRemaining, gen.id]);
+    }
   }
+  stormFaultActive = anyRecovering;
 
   // ── Phase 2: Recalculate zone loads from active furniture ────────────────
   // Streetlights are always counted as drawing power when it's dark, regardless
@@ -982,6 +1055,9 @@ async function simulatePowerNetwork(query, { weatherType }) {
   const jbDemand = new Map(); // jbId → watts demanded from city plant
   for (const gen of allGenerators) {
     if (gen.generator_type !== 'junction_box') continue;
+    // A faulted/destroyed junction box draws nothing — don't let its dead load
+    // consume city-plant capacity that Phase 5 would then discard.
+    if (updatedStatus.get(gen.id)?.status === 'offline') { jbDemand.set(gen.id, 0); continue; }
     const jbZones = zonesByGen.get(gen.id) || [];
     const raw = jbZones.reduce((s, z) => s + (z.current_load_kw ?? 0), 0) * loadMultiplier;
     jbDemand.set(gen.id, Math.min(raw, gen.capacity_kw));
@@ -1182,10 +1258,19 @@ export function getZoneVisibility(zoneId) {
   }
   const visibility = clamp01(effectiveLight * envFactor);
 
-  let category = 'clear';
+  // 8-step light ladder, brightest → darkest. The bright half is finer-grained
+  // (blazing/bright/clear) so well-lit zones read with more nuance; the dark
+  // half adds gloomy (between dim and dark) and murk (between dark and black).
+  // Consumers: describe.js render gating, client HUD LIGHT_CATS, lightview.
+  let category;
   if (visibility === 0) category = 'pitch_dark';
-  else if (visibility < VISIBILITY_DIM) category = 'dark';
-  else if (visibility < VISIBILITY_CLEAR) category = 'dim';
+  else if (visibility >= 0.90) category = 'blazing';
+  else if (visibility >= 0.75) category = 'bright';
+  else if (visibility >= 0.60) category = 'clear';
+  else if (visibility >= 0.42) category = 'dim';
+  else if (visibility >= 0.26) category = 'gloomy';
+  else if (visibility >= 0.10) category = 'dark';
+  else category = 'murk';
 
   return { visibility, category, ambientLight: ambientContrib, artificialLight: artificial, windowLight };
 }
@@ -1271,7 +1356,7 @@ export function getCurrentPrecipType() {
 // rollAndSetCurrentPrecip injection style. If no sampler is registered (field
 // disabled), every per-zone path below falls back to the global weather.
 // ---------------------------------------------------------------------------
-let sampleField = null;             // (gridX, gridY) => { cloudCover, precipRate, precipType, tempOffset, stormIntensity }
+let sampleField = null;             // (gridX, gridY) => { cloudCover, precipRate, precipType, tempOffset, stormIntensity, severity }
 let weatherFieldSnapshot = null;    // () => { bounds, systems[] } — for the dev map
 let advanceWeatherField = null;     // () => void — advect one step
 
@@ -1308,6 +1393,15 @@ export function getZoneStormIntensity(zoneId) {
   return (state.weatherType === 'thunderstorm' || state.weatherType === 'storm') ? 0.5 : 0;
 }
 
+// Local extreme-weather severity (0..1) — the scalar the extreme-weather layer
+// (thermal/wind/blackout/breathing channels + telegraph) reads per tile. Field
+// disabled / off-map → 0 (indoor and non-outdoor zones are never "severe").
+// See docs/systems-weather-extreme.md.
+export function getZoneSeverity(zoneId) {
+  const f = fieldAt(zoneId);
+  return f ? f.severity : 0;
+}
+
 // Full outdoor-zone weather snapshot for the dev weather map. Queries map_world
 // zones directly so it covers every placed zone, not just those in state.zones.
 export async function getWeatherMap() {
@@ -1326,7 +1420,7 @@ export async function getWeatherMap() {
       const cloud  = f ? f.cloudCover : 0;
       const precip = (f && active) ? f.precipRate : 0;
       // Day humidity is the floor; tiles under cloud / active precip read damper.
-      const localHum = Math.min(100, Math.round(baseHum + cloud * 8 + precip * 15));
+      const localHum = localHumidity(baseHum, cloud, precip);
       zones.push({
         id: z.id, name: z.name, grid_x: z.grid_x, grid_y: z.grid_y,
         tempC: f ? Math.round(base + f.tempOffset) : Math.round(base),
@@ -1334,6 +1428,7 @@ export async function getWeatherMap() {
         precipRate: precip,
         precipType: (f && active && f.precipType !== 'none') ? f.precipType : 'none',
         humidityPct: localHum,
+        severity: f ? f.severity : 0,
       });
     }
   }
@@ -1359,6 +1454,7 @@ function broadcastZoneWeather(occupied) {
       cloudCover: f.cloudCover,
       precipType: active && f.precipType !== 'none' ? f.precipType : 'none',
       precipRate: active ? f.precipRate : 0,
+      severity: f.severity,
     });
     // Signal the audio layer what weather ambience this tile is under. The audio
     // plugin runs two reactive beds off this: a precip bed (type from the full
@@ -1448,14 +1544,33 @@ export function apparentTemperature(tempC, windKph = 0, humidityPct = null) {
   return Math.round(feels * 10) / 10;
 }
 
+// Per-zone relative humidity formula. The day's humidity is the floor; tiles
+// under cloud / active precip read damper. Kept in one place so the feels-like
+// calc and the dev weather-map agree.
+function localHumidity(baseHum, cloudCover, precipRate) {
+  return Math.min(100, Math.round(baseHum + cloudCover * 8 + precipRate * 15));
+}
+
+// Relative humidity (%) at a specific zone, folding in its local cloud/precip.
+// Falls back to the global day value for zones off the outdoor weather field.
+export function getZoneHumidity(zoneId) {
+  const base = state.forecast[0]?.humidityPct ?? null;
+  if (base == null) return null;
+  const f = fieldAt(zoneId);
+  if (!f) return base;
+  const precip = state.currentPrecip !== 'none' ? f.precipRate : 0;
+  return localHumidity(base, f.cloudCover, precip);
+}
+
 // Feels-like temperature for a zone: outdoors it folds in the day's wind and
-// humidity; indoors (and for a sheltered interior) it's just the ambient temp.
-// extraOffsetC lets callers add a zone temp_offset flag before the wind bites.
+// the zone's local humidity; indoors (and for a sheltered interior) it's just
+// the ambient temp. extraOffsetC lets callers add a zone temp_offset flag
+// before the wind bites.
 export function getZoneApparentTemperature(zoneId, extraOffsetC = 0) {
   const ambient = getZoneTemperature(zoneId) + extraOffsetC;
   const z = state.zones.get(zoneId);
   if (isIndoorZone(z)) return ambient;
-  return apparentTemperature(ambient, state.forecast[0]?.windKph ?? 0, state.forecast[0]?.humidityPct ?? null);
+  return apparentTemperature(ambient, state.forecast[0]?.windKph ?? 0, getZoneHumidity(zoneId));
 }
 
 export function getPowerMap() {
@@ -1497,6 +1612,9 @@ export async function devSetTime({ date, minutes }) {
   const { query, broadcast } = deps;
   if (date) state.date = date;
   if (minutes !== undefined) state.minutes = ((Number(minutes) % (24 * 60)) + 24 * 60) % (24 * 60);
+  // Re-anchor so the elapsed-based tick continues 1:1 from the newly set time
+  // rather than jumping forward by the gap since the last real tick.
+  state.lastTick1m = Date.now();
   state.dayOfWeek = dayOfWeekFor(state.date);
   recalcAmbientAndVisibility();
   await query(
@@ -1514,7 +1632,12 @@ export async function devAdvanceTime(minutesToAdd) {
 }
 
 export function devFreeze(frozen) {
+  const wasFrozen = state.frozen;
   state.frozen = !!frozen;
+  // Re-anchor on unfreeze so the paused span isn't counted as elapsed real time
+  // by the next tick (which would snap the clock forward). Freeze stays a true
+  // pause; the elapsed-based tick simply resumes from now.
+  if (wasFrozen && !state.frozen) state.lastTick1m = Date.now();
   return { frozen: state.frozen };
 }
 

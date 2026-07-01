@@ -272,10 +272,17 @@ async function cmdUse(targetStr, player, broadcast) {
   );
   if (drugRows.length) {
     const item = drugRows[0];
-    const result = await useDrug(player, item.drug_id);
+    const result = await useDrug(player, item.drug_id, broadcast);
     if (!result.success) return { type:'error', message: result.message };
     if (item.quantity > 1) await query('UPDATE player_inventory SET quantity=quantity-1 WHERE id=$1', [item.id]);
     else await query('DELETE FROM player_inventory WHERE id=$1', [item.id]);
+    if (result.overdose_death) {
+      // Lethal overdose: show the take message, then run the full death path.
+      broadcast(null, { type: 'output', message: result.message }, null, player.id);
+      const { handlePlayerDeath } = await import('../gameLoop.js');
+      await handlePlayerDeath(player, null);
+      return { type: 'use', message: '' };
+    }
     return { type:'use', message: result.message, player_update: result.player_update };
   }
 

@@ -58,6 +58,9 @@ const _LS = 'font-size:10px;text-transform:uppercase;letter-spacing:1px;color:va
 // ── Actions editor ─────────────────────────────────────────────────────────────
 // Renders a list of action cards into `container`. Calls `onChange` on every mutation.
 
+// Action types that carry a quest_id — these get an "Open quest ▸" jump button.
+const _QUEST_LINK_ACTIONS = ['START_QUEST', 'TURN_IN', 'COMPLETE', 'ADVANCE'];
+
 function _buildActionsEditor(container, actions, onChange) {
   container.innerHTML = '';
   const list = document.createElement('div');
@@ -140,6 +143,17 @@ function _buildActionsEditor(container, actions, onChange) {
           row.appendChild(inp);
           card.appendChild(row);
         }
+      }
+
+      // Cross-link: quest-referencing actions get a jump into that quest's editor.
+      if (_QUEST_LINK_ACTIONS.includes(action.action) && action.quest_id) {
+        const jump = document.createElement('button');
+        jump.className = 'action-btn';
+        jump.style.cssText = 'font-size:10px;margin-top:5px;width:100%';
+        jump.textContent = `🌿 Open quest ▸ ${action.quest_id}`;
+        jump.title = 'Commit this graph and open the referenced quest in VINE';
+        jump.onclick = () => vineJumpToQuest(action.quest_id);
+        card.appendChild(jump);
       }
 
       list.appendChild(card);
@@ -271,6 +285,7 @@ function _buildOptionsEditor(container, node, editor, nodeId) {
 // ── Schema definition ─────────────────────────────────────────────────────────
 
 window.VineDialogueSchema = {
+  vineIdentity: { kind: 'dialogue', tagline: 'NPC conversation tree', color: '#4477aa', icon: '💬' },
   nodeTypes: {
     dialogue: {
       label: 'Dialogue Node',
