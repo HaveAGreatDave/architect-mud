@@ -36,6 +36,6 @@ function toast(msg, isError = false) {
   const el = document.getElementById('toast');
   el.textContent = msg;
   el.className = `msg-toast${isError ? ' error' : ''} visible`;
-  setTimeout(() => el.classList.remove('visible'), 2500);
+  setTimeout(() => el.classList.remove('visible'), 5000);
 }
 
