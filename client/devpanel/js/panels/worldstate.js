@@ -90,18 +90,19 @@ async function initEmailVerifyToggle() {
 }
 
 function updateEspDot(data) {
-  const knob = document.getElementById('ws-esp-knob');
-  const toggle = document.getElementById('ws-esp-toggle');
-  if (!knob || !toggle) return;
+  const input = document.getElementById('ws-esp-toggle');
+  const lbl = input?.closest('label');
+  if (!input || !lbl) return;
   const active = !!data?.active;
   const standingDown = !!data?.arbiters?.standingDown;
-  let color, label;
-  if (active && !standingDown) { color = '#ff4444'; label = 'ESP: DEPLOYED'; }
-  else if (standingDown)        { color = '#f59e0b'; label = 'ESP: STANDING DOWN'; }
-  else                          { color = 'var(--text-dim)'; label = 'Emergency Security Protocol'; }
-  knob.style.background = color;
-  knob.style.transform = (active || standingDown) ? 'translateX(12px)' : '';
-  toggle.title = label;
+  let title;
+  if (active && !standingDown) { title = 'ESP: DEPLOYED'; }
+  else if (standingDown)        { title = 'ESP: STANDING DOWN'; }
+  else                          { title = 'Emergency Security Protocol'; }
+  input.checked = active || standingDown;
+  lbl.classList.toggle('esp-active', active && !standingDown);
+  lbl.classList.toggle('esp-standingdown', !!standingDown);
+  lbl.title = title;
 }
 
 function startWorldStatePolling() {
