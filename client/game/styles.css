@@ -641,6 +641,43 @@ body {
 	#look-resize-handle { flex-basis: 24px; }
 }
 [data-density="compact"] #look-resize-handle { flex-basis: 24px; }
+
+#mob-room-name-bar {
+	display: none;
+}
+@media (max-width: 720px) {
+	#mob-room-name-bar {
+		display: none; /* shown via JS class below */
+		flex: 1;
+		font-family: var(--font-mono);
+		font-size: 10px;
+		font-weight: bold;
+		color: var(--bg);
+		letter-spacing: 1px;
+		text-transform: uppercase;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		pointer-events: none;
+	}
+}
+[data-density="compact"] #mob-room-name-bar {
+	flex: 1;
+	font-family: var(--font-mono);
+	font-size: 10px;
+	font-weight: bold;
+	color: var(--bg);
+	letter-spacing: 1px;
+	text-transform: uppercase;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	pointer-events: none;
+}
+/* Show room name on the bar only when the look pane is collapsed */
+#area-pane.mob-pane-hidden ~ #look-resize-handle #mob-room-name-bar {
+	display: block;
+}
 #look-resize-handle:hover,
 #look-resize-handle.dragging {
 	background: var(--accent);

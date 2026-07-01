@@ -116,7 +116,11 @@ export function parseZoneInfo(html) {
   const tmp = document.createElement('div');
   tmp.innerHTML = html;
   const zoneName = tmp.querySelector('.zone-name')?.textContent;
-  if (zoneName) document.getElementById('zone-name-display').textContent = zoneName;
+  if (zoneName) {
+    document.getElementById('zone-name-display').textContent = zoneName;
+    const bar = document.getElementById('mob-room-name-bar');
+    if (bar) bar.textContent = zoneName;
+  }
 
   const exitsEl = document.getElementById('exits-display');
   exitsEl.innerHTML = '';
