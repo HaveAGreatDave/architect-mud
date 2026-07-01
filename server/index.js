@@ -617,7 +617,6 @@ async function finishAuth(ws, session, player) {
 	livePlayer.xp = Math.floor(netXp);
 	livePlayer.total_xp = totalXp;
 	setLivePlayer(player.id, livePlayer);
-	emit('player.login', { id: player.id, handle: player.handle, role: player.role });
 	logActivity('connect', player.handle);
 	broadcast(null, { type: 'online_change' });
 	await deactivateForcefield(player.id, livePlayer.home_zone, broadcast);
@@ -637,7 +636,22 @@ async function finishAuth(ws, session, player) {
 		player.id,
 	);
 	for (const [zoneId, dist] of getSoundReach(livePlayer.current_zone, 2.0)) {
-		if (dist > 0) broadcast(zoneId, { type: 'ambient', message: `<span class="msg-ambient msg-ambient-distant">Nearby, someone stirs.</span>` });
+		if (dist > 0) {
+			const stirMessages = [
+				'Nearby, someone stirs.',
+				'You hear movement not far off.',
+				'Something shifts in the distance.',
+				'A presence makes itself known nearby.',
+				'Footsteps. Close.',
+				'Someone\'s up.',
+				'There\'s a rustling somewhere close.',
+				'You sense movement nearby.',
+				'Not far away, someone\'s awake.',
+				'A sound. Someone moving.',
+			];
+			const msg = stirMessages[Math.floor(Math.random() * stirMessages.length)];
+			broadcast(zoneId, { type: 'ambient', message: `<span class="msg-ambient msg-ambient-distant">${msg}</span>` }, player.id);
+		}
 	}
 	let envHUD = null;
 	try {
@@ -722,6 +736,7 @@ async function finishAuth(ws, session, player) {
 			if (bodyTempLoginMsg) ws.send(JSON.stringify({ type: 'system', message: bodyTempLoginMsg }));
 		}
 	}
+	emit('player.login', { id: player.id, handle: player.handle, role: player.role });
 }
 
 

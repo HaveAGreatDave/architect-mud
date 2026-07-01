@@ -94,8 +94,15 @@ if (_isMobile) {
 	// Start collapsed
 	_setAreaPane(false);
 
-	// Toggle on the resize-handle button
-	_toggleBtn?.addEventListener("click", () => _setAreaPane(_areaPane.classList.contains("mob-pane-hidden")));
+	// Clicking anywhere on the handle bar toggles the pane.
+	// Guard: ignore if the touch/click was part of a drag (moved more than 4px).
+	let _handleDragged = false;
+	_resizeHandle?.addEventListener("touchstart", () => { _handleDragged = false; }, { passive: true });
+	_resizeHandle?.addEventListener("touchmove",  () => { _handleDragged = true;  }, { passive: true });
+	_resizeHandle?.addEventListener("click", () => {
+		if (_handleDragged) return;
+		_setAreaPane(_areaPane.classList.contains("mob-pane-hidden"));
+	});
 
 	// When the soft keyboard appears, shrink the body to the visual viewport
 	// height so the bottom bar (dpad/cmds/input) stays pinned just above the
@@ -563,7 +570,7 @@ document
 	let startY, startH;
 
 	handle.addEventListener("mousedown", (e) => {
-		if (e.target === resetBtn || e.target.id === "area-pane-toggle") return;
+		if (e.target === resetBtn) return;
 		startY = e.clientY;
 		startH = pane.getBoundingClientRect().height;
 		handle.classList.add("dragging");
@@ -599,7 +606,6 @@ document
 	handle.addEventListener(
 		"touchstart",
 		(e) => {
-			if (e.target.id === "area-pane-toggle") return;
 			const t = e.touches[0];
 			startY = t.clientY;
 			startH = pane.getBoundingClientRect().height;
