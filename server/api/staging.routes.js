@@ -30,6 +30,7 @@ export async function handleStagingApi(path, method, body, auth) {
   if (path === '/staging/pending' && method === 'GET') return getPending();
   if (path === '/staging/publish' && method === 'POST') return publish(body, auth);
   if (path === '/staging/reject' && method === 'POST') return reject(body, auth);
+  if (path === '/staging/resolve' && method === 'POST') return resolve(body, auth);
   if (path === '/staging/deployments' && method === 'GET') return getDeployments();
   return null;
 }
@@ -234,6 +235,61 @@ async function reject(body, auth) {
   }
 
   return { status: 400, body: { error: 'Specify ids or all:true' } };
+}
+
+// Auto-resolve: retries failed changes with fallback strategy:
+//   create that failed  → try update (entity already exists)
+//   update that failed  → try create (entity was deleted)
+//   delete that failed  → treat as already-gone, remove from staging
+async function resolve(body) {
+  const { ids } = body || {};
+  if (!Array.isArray(ids) || !ids.length) {
+    return { status: 400, body: { error: 'Specify ids array' } };
+  }
+  const placeholders = ids.map((_, i) => `$${i + 1}`).join(',');
+  const { rows } = await query(`SELECT * FROM staged_changes WHERE id IN (${placeholders})`, ids);
+
+  const resolved = [];
+  const errors = [];
+  for (const change of rows) {
+    try {
+      if (change.change_type === 'delete') {
+        // Already gone — just clear from staging
+        resolved.push({ id: change.id, entityName: change.entity_name });
+        continue;
+      }
+      if (change.change_type === 'create') {
+        // Entity already exists — fall back to update
+        const updater = UPDATERS[change.entity_type];
+        if (!updater) throw new Error(`No updater for entity type "${change.entity_type}"`);
+        const r = await updater(change.entity_id, change.staged_data || {});
+        if (r?.body?.error) throw new Error(r.body.error);
+      } else {
+        // update failed — entity may be missing, try create
+        const creator = CREATORS[change.entity_type];
+        if (!creator) throw new Error(`No creator for entity type "${change.entity_type}"`);
+        const r = await creator({ ...(change.staged_data || {}), id: change.entity_id });
+        if (r?.body?.error) throw new Error(r.body.error);
+      }
+      resolved.push({ id: change.id, entityName: change.entity_name });
+    } catch (err) {
+      errors.push({ id: change.id, entityName: change.entity_name, error: err.message });
+    }
+  }
+
+  if (resolved.length) {
+    const phs = resolved.map((_, i) => `$${i + 1}`).join(',');
+    await query(`DELETE FROM staged_changes WHERE id IN (${phs})`, resolved.map(r => r.id));
+  }
+
+  return {
+    status: 200,
+    body: {
+      resolved,
+      errors: errors.length ? errors : undefined,
+      message: `Resolved ${resolved.length} of ${rows.length}${errors.length ? `, ${errors.length} still failed` : ''}`,
+    },
+  };
 }
 
 async function getDeployments() {
