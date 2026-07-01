@@ -75,6 +75,10 @@ function _updateDisplay() {
     r.classList.toggle('spinning', _playing));
   panel?.querySelectorAll('.amp-track-row').forEach((row, i) =>
     row.classList.toggle('current', i === _currentIdx));
+  const cassetteBody = document.getElementById('amp-cassette-body');
+  const cassetteLabel = document.getElementById('amp-cassette-label-strip');
+  if (cassetteBody) cassetteBody.classList.toggle('loaded', _currentIdx >= 0);
+  if (cassetteLabel && song) cassetteLabel.textContent = song.name.replace(/_/g, ' ').toUpperCase();
 }
 
 function _renderTrackList() {

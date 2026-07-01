@@ -123,12 +123,15 @@ function renderMediaDeckPanel(data) {
   const isPlaying = lightState === 'orange';
   document.getElementById('mediadeck-reel-l')?.classList.toggle('spinning', isPlaying);
   document.getElementById('mediadeck-reel-r')?.classList.toggle('spinning', isPlaying);
+  const labelStrip = document.getElementById('mediadeck-cassette-label-strip');
   if (activeCassette) {
     slotEl.classList.add('loaded');
     cartridgeEl.innerHTML = `<span class="mediadeck-cartridge-label">${escapeHtml(activeCassette.name)}</span>`;
+    if (labelStrip) labelStrip.textContent = activeCassette.name;
   } else {
     slotEl.classList.remove('loaded');
     cartridgeEl.innerHTML = '<span class="mediadeck-cartridge-label">— EMPTY —</span>';
+    if (labelStrip) labelStrip.textContent = '';
   }
 
   const listEl = document.getElementById('mediadeck-cassette-list');
