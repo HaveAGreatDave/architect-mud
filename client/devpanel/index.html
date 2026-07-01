@@ -124,7 +124,10 @@
     <div class="ws-item">Zones <span id="ws-zones">—</span></div>
     <div class="ws-item" style="margin-top:8px">
       ESP
-      <span id="ws-esp-dot" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--text-dim);margin-left:auto;flex-shrink:0" title="Emergency Security Protocol"></span>
+      <div id="ws-esp-toggle" onclick="showPanel('emergency')" title="Emergency Security Protocol"
+           style="margin-left:auto;flex-shrink:0;width:28px;height:16px;border-radius:8px;background:var(--bg1);border:1px solid var(--accent);position:relative;cursor:pointer">
+        <span id="ws-esp-knob" style="position:absolute;width:10px;height:10px;border-radius:50%;top:2px;left:2px;background:var(--text-dim);transition:transform .2s,background .2s"></span>
+      </div>
     </div>
     <div class="ws-item">
       MIS

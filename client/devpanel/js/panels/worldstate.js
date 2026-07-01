@@ -89,16 +89,24 @@ async function initEmailVerifyToggle() {
   });
 }
 
-function updateEspDot(active) {
-  const dot = document.getElementById('ws-esp-dot');
-  if (!dot) return;
-  dot.style.background = active ? '#ff4444' : 'var(--text-dim)';
-  dot.title = active ? 'ESP ACTIVE' : 'Emergency Security Protocol';
+function updateEspDot(data) {
+  const knob = document.getElementById('ws-esp-knob');
+  const toggle = document.getElementById('ws-esp-toggle');
+  if (!knob || !toggle) return;
+  const active = !!data?.active;
+  const standingDown = !!data?.arbiters?.standingDown;
+  let color, label;
+  if (active && !standingDown) { color = '#ff4444'; label = 'ESP: DEPLOYED'; }
+  else if (standingDown)        { color = '#f59e0b'; label = 'ESP: STANDING DOWN'; }
+  else                          { color = 'var(--text-dim)'; label = 'Emergency Security Protocol'; }
+  knob.style.background = color;
+  knob.style.transform = (active || standingDown) ? 'translateX(12px)' : '';
+  toggle.title = label;
 }
 
 function startWorldStatePolling() {
   // Fetch initial ESP state immediately on load
-  directAPI('/emergency/state').then(d => updateEspDot(!!d?.active)).catch(() => {});
+  directAPI('/emergency/state').then(d => updateEspDot(d)).catch(() => {});
 
   setInterval(async () => {
     const [data, esp] = await Promise.allSettled([
@@ -113,7 +121,7 @@ function startWorldStatePolling() {
       document.getElementById('ws-enemies').textContent = data.value.live_enemies || 0;
       document.getElementById('ws-corpses').textContent = data.value.live_corpses || 0;
     }
-    if (esp.status === 'fulfilled') updateEspDot(!!esp.value?.active);
+    if (esp.status === 'fulfilled') updateEspDot(esp.value);
   }, 10000);
 }
 
