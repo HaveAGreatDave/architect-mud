@@ -97,24 +97,25 @@ if (_isMobile) {
 	// Toggle on the resize-handle button
 	_toggleBtn?.addEventListener("click", () => _setAreaPane(_areaPane.classList.contains("mob-pane-hidden")));
 
-	// Keyboard collapse: hide output + area; restore when keyboard drops
+	// When the soft keyboard appears, shrink the body to the visual viewport
+	// height so the bottom bar (dpad/cmds/input) stays pinned just above the
+	// keyboard and #output (flex:1) fills whatever space remains.
 	if (window.visualViewport) {
 		const _output = document.getElementById("output");
 		let _fullVH = window.visualViewport.height;
 		let _paneWasOpen = false;
 
 		window.visualViewport.addEventListener("resize", () => {
-			const keyboardUp = window.visualViewport.height < _fullVH * 0.75;
+			const vh = window.visualViewport.height;
+			const keyboardUp = vh < _fullVH * 0.75;
 			if (keyboardUp) {
-				window.scrollTo(0, 0);
-				_output.style.maxHeight = "0";
-				_output.style.overflow = "hidden";
+				document.body.style.height = vh + "px";
+				window.scrollTo(0, window.visualViewport.offsetTop);
 				_paneWasOpen = !_areaPane.classList.contains("mob-pane-hidden");
 				_setAreaPane(false);
 			} else {
-				_fullVH = window.visualViewport.height;
-				_output.style.maxHeight = "";
-				_output.style.overflow = "";
+				_fullVH = vh;
+				document.body.style.height = "";
 				if (_paneWasOpen) _setAreaPane(true);
 				_output.scrollTop = _output.scrollHeight;
 			}

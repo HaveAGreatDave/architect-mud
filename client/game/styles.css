@@ -668,6 +668,10 @@ body {
 #look-resize-handle.manual #look-resize-reset {
 	display: block;
 }
+@media (max-width: 720px) {
+	#look-resize-reset { display: none !important; }
+}
+[data-density="compact"] #look-resize-reset { display: none !important; }
 #look-resize-reset:hover {
 	color: var(--accent);
 	border-color: var(--accent);

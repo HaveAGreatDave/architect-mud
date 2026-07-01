@@ -18,7 +18,9 @@ async function _loadLibrary() {
       fetch('/api/audio/instruments'),
     ]);
     const [songsData, instsData] = await Promise.all([sr.json(), ir.json()]);
-    _songs = Array.isArray(songsData) ? songsData : [];
+    _songs = Array.isArray(songsData)
+      ? songsData.filter(s => Array.isArray(s.channels) && s.channels.length > 0)
+      : [];
     _instruments = {};
     if (Array.isArray(instsData)) for (const i of instsData) _instruments[i.id] = i;
   } catch {
