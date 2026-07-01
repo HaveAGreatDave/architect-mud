@@ -317,7 +317,8 @@ async function execAction(node, entity, ctx) {
 
     case 'ACQUIRE_TARGET': {
       if (!zone) break;
-      const players = [...zone.players].map(id => getLivePlayer(id)).filter(Boolean);
+      let players = [...zone.players].map(id => getLivePlayer(id)).filter(Boolean);
+      if (entity.flags?.ignores_admins) players = players.filter(p => p.role !== 'admin');
       const npcs = entity.flags?.attacks_npcs
         ? [...zone.npcs].map(id => world.npcs.get(id)).filter(n => n && !n._dead)
         : [];

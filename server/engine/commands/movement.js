@@ -1,4 +1,5 @@
 import { query } from '../../models/db.js';
+import { formatBattleCry } from '../combat.js';
 import { getZone, getMinimapData, addPlayerToZone, removePlayerFromZone, getDoorForExit, setDoorCache, getAllLivePlayers, getLivePlayer, getZoneEnemies } from '../world.js';
 import { getZoneVisibility, getWindowsForZone, getEnvironmentState, getZoneTemperature } from '../environment.js';
 import { describeZone, resolveNamedDestination } from './describe.js';
@@ -187,7 +188,7 @@ function buildBattleCryMessages(enemies, playerHandle) {
       .replace(/\b[Hh]is\b|\b[Hh]ers\b|\b[Ii]ts\b/g, m => plural ? (m[0] === m[0].toUpperCase() ? 'Their' : 'their') : m)
       .replace(/\b[Hh]er\b/g, m => plural ? (m[0] === m[0].toUpperCase() ? 'Their' : 'their') : m);
 
-    lines.push({ forPlayer, forBystander });
+    lines.push({ forPlayer, forBystander, name: enemy.name });
   }
   return lines;
 }
@@ -323,9 +324,9 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
   const arrivedEnemies = getZoneEnemies(targetId);
   if (arrivedEnemies.length) {
     const cryLines = buildBattleCryMessages(arrivedEnemies, player.handle);
-    for (const { forPlayer, forBystander } of cryLines) {
-      broadcast(null, { type: 'zone_event', message: `<span class="battle-cry">${forPlayer}</span>` }, null, player.id);
-      broadcast(targetId, { type: 'zone_event', message: `<span class="battle-cry">${forBystander}</span>` }, player.id);
+    for (const { forPlayer, forBystander, name } of cryLines) {
+      broadcast(null, { type: 'zone_event', message: formatBattleCry(name, forPlayer) }, null, player.id);
+      broadcast(targetId, { type: 'zone_event', message: formatBattleCry(name, forBystander) }, player.id);
     }
   }
 

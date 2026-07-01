@@ -176,14 +176,8 @@ function sirenDef() {
   return getAmbientDefByName('amb_emergency_siren');
 }
 
-function sirenDefMuffled(siren) {
-  if (!siren) return null;
-  return {
-    ...siren,
-    id: `${siren.id}_indoor`,
-    config: { ...siren.config, gain: (siren.config?.gain ?? 0.65) * 0.5 },
-  };
-}
+const SIREN_GAIN_OUTDOOR = 1.0;
+const SIREN_GAIN_INDOOR  = 1 / 3; // 3× quieter through walls
 
 async function loadStreetlightZones() {
   const { rows } = await query(
@@ -214,15 +208,20 @@ async function activate(message) {
   await loadIndoorZones();
 
   const siren = sirenDef();
-  const muffled = sirenDefMuffled(siren);
 
   for (const zoneId of espZones) {
     sendToZone(zoneId, { type: 'esp_state', active: true, message: espMessage });
-    if (siren) sendToZone(zoneId, { type: 'audio_ambience', def: siren });
+    if (siren) {
+      sendToZone(zoneId, { type: 'audio_ambience', def: siren });
+      sendToZone(zoneId, { type: 'audio_loop_gain', id: siren.id, gain: SIREN_GAIN_OUTDOOR });
+    }
   }
   for (const zoneId of espIndoor) {
     sendToZone(zoneId, { type: 'esp_state', active: true, message: espMessage });
-    if (muffled) sendToZone(zoneId, { type: 'audio_ambience', def: muffled });
+    if (siren) {
+      sendToZone(zoneId, { type: 'audio_ambience', def: siren });
+      sendToZone(zoneId, { type: 'audio_loop_gain', id: siren.id, gain: SIREN_GAIN_INDOOR });
+    }
   }
 
   broadcastToEspZones({ type: 'esp_warning', message: espMessage });
@@ -245,7 +244,6 @@ function deactivate() {
   if (!espActive) return;
 
   const siren = sirenDef();
-  const muffled = sirenDefMuffled(siren);
 
   const windDownMsg = { type: 'ambient', message: '<span class="msg-ambient">The emergency siren slows, drops in pitch, and winds down into silence. The red warning lights stutter once and go dark.</span>' };
 
@@ -256,7 +254,7 @@ function deactivate() {
   }
   for (const zoneId of espIndoor) {
     sendToZone(zoneId, { type: 'esp_state', active: false });
-    if (muffled) sendToZone(zoneId, { type: 'audio_stop', scope: 'ambience', id: muffled.id });
+    if (siren) sendToZone(zoneId, { type: 'audio_stop', scope: 'ambience', id: siren.id });
     sendToZone(zoneId, windDownMsg);
   }
 
@@ -328,6 +326,7 @@ async function activateArbiters() {
       const instance = spawnEnemySync(template, zone_id);
       instance.home_zone = zone_id;
       instance.behaviour_graph = ARBITER_BEHAVIOUR_GRAPH;
+      instance.flags = { ...(instance.flags || {}), ignores_admins: true };
       spawnedArbiters.add(instance.instanceId);
       arbiterHomeZone.set(instance.instanceId, zone_id);
       spawnedByZone.get(zone_id).add(instance.instanceId);

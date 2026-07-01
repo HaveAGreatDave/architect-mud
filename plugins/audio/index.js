@@ -170,6 +170,66 @@ on('player.death', ({ player }) => {
   }
 });
 
+// ── Clone-vat respawn SFX ─────────────────────────────────────────────────────
+// Inline synth defs — no DB row needed.
+
+const SFX_VAT_DRAIN = {
+  id: 'sfx_vat_drain', name: 'sfx_vat_drain', category: 'sfx', priority: 8,
+  config: {
+    duration: 1.6,
+    layers: [
+      { noiseMix: 1, filter: { type: 'bandpass', freq: 1800, q: 0.7 }, adsr: { a: 0.08, d: 0.4, s: 0.6, r: 0.8 }, gain: 0.45 },
+      { waveform: 'sine', freq: 55, pitchBend: { to: 30, time: 1.5 }, adsr: { a: 0.05, d: 0.3, s: 0.5, r: 0.7 }, gain: 0.3 },
+      { noiseMix: 0.8, filter: { type: 'highpass', freq: 3500, q: 1.5 }, adsr: { a: 0.02, d: 0.6, s: 0.2, r: 0.6 }, gain: 0.15 },
+    ],
+  },
+};
+
+const SFX_VAT_BOOT = {
+  id: 'sfx_vat_boot', name: 'sfx_vat_boot', category: 'sfx', priority: 8,
+  config: {
+    duration: 1.2,
+    layers: [
+      { waveform: 'sawtooth', freq: 60, pitchBend: { to: 220, time: 1.0 }, filter: { type: 'lowpass', freq: 1200, q: 1.2 }, adsr: { a: 0.15, d: 0.2, s: 0.8, r: 0.5 }, gain: 0.4 },
+      { waveform: 'sine', freq: 40, pitchBend: { to: 80, time: 0.8 }, adsr: { a: 0.1, d: 0.3, s: 0.7, r: 0.4 }, gain: 0.35 },
+      { noiseMix: 0.6, filter: { type: 'bandpass', freq: 900, q: 2.5 }, tremolo: { rate: 22, depth: 0.9 }, adsr: { a: 0.05, d: 0.1, s: 0.6, r: 0.3 }, gain: 0.18 },
+    ],
+  },
+};
+
+const SFX_VAT_OPEN = {
+  id: 'sfx_vat_open', name: 'sfx_vat_open', category: 'sfx', priority: 9,
+  config: {
+    duration: 0.5,
+    layers: [
+      { waveform: 'sine', freq: 48, adsr: { a: 0.001, d: 0.18, s: 0, r: 0.2 }, gain: 0.9 },
+      { noiseMix: 1, filter: { type: 'highpass', freq: 800 }, adsr: { a: 0.001, d: 0.05, s: 0, r: 0.06 }, gain: 0.7 },
+      { waveform: 'sine', freq: 320, adsr: { a: 0.001, d: 0.08, s: 0, r: 0.38 }, gain: 0.2 },
+    ],
+  },
+};
+
+const SFX_VAT_CHIME = {
+  id: 'sfx_vat_chime', name: 'sfx_vat_chime', category: 'sfx', priority: 9,
+  config: {
+    duration: 0.9,
+    layers: [
+      { waveform: 'triangle', freq: 523.25, adsr: { a: 0.002, d: 0.1, s: 0.6, r: 0.7 }, gain: 0.6 },
+      { waveform: 'sine', freq: 783.99, adsr: { a: 0.001, d: 0.08, s: 0.4, r: 0.75 }, gain: 0.35 },
+      { waveform: 'sine', freq: 1046.5, adsr: { a: 0.001, d: 0.05, s: 0.2, r: 0.8 }, gain: 0.18 },
+    ],
+  },
+};
+
+on('player.respawn', ({ player }) => {
+  if (!player?.id) return;
+  const id = player.id;
+  sendToPlayer(id, { type: 'audio_sfx', def: SFX_VAT_DRAIN });
+  setTimeout(() => sendToPlayer(id, { type: 'audio_sfx', def: SFX_VAT_BOOT  }), 900);
+  setTimeout(() => sendToPlayer(id, { type: 'audio_sfx', def: SFX_VAT_OPEN  }), 1800);
+  setTimeout(() => sendToPlayer(id, { type: 'audio_sfx', def: SFX_VAT_CHIME }), 2100);
+});
+
 on('item.taken', ({ actor }) => {
   if (!triggerEventRoute('item.taken', actor?.current_zone, actor?.id)) {
     const def = sfxByName('ui_button');

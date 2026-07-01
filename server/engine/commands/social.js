@@ -1,4 +1,5 @@
 import { getAllLivePlayers, getZonePlayers, getZoneNpcs, getZoneEnemies } from '../world.js';
+import { formatBattleCry } from '../combat.js';
 import { propagateYell } from '../sounds.js';
 import { canAccessChannel, broadcastToChannel } from '../channels.js';
 import { evalConditions } from '../flags.js';
@@ -107,7 +108,7 @@ function cmdPet(targetStr, player, broadcast) {
       const cry = cries[Math.floor(Math.random() * cries.length)]
         .replace(/\$enemy/g, target.name)
         .replace(/\$player/g, player.handle);
-      broadcast(player.current_zone, { type: 'output', message: `<span class="battle-cry">${cry}</span>` });
+      broadcast(player.current_zone, { type: 'output', message: formatBattleCry(target.name, cry) });
     } else {
       broadcast(player.current_zone, { type: 'output', message: `${target.name} snaps angrily at your hand!` });
     }

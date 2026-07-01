@@ -1,7 +1,7 @@
 import { world, tickSpawns, getRandomAmbient, getWeatherAmbient, getLivePlayer, getInterruptLoudness, registerInterrupt, createCorpse, removeCorpse } from './world.js';
 import { randomUUID } from 'crypto';
 import { propagateSound } from './sounds.js';
-import { enemyAttackPlayer, enemyAttackNpc, npcAttackPlayer, isOnCooldown, pvpSwing } from './combat.js';
+import { enemyAttackPlayer, enemyAttackNpc, npcAttackPlayer, isOnCooldown, pvpSwing, formatBattleCry } from './combat.js';
 import { tickEntityAI } from './ai-behaviour.js';
 import { offlineSleepSwing } from './commands/combat.js';
 import { tickEffects } from './effects.js';
@@ -56,7 +56,7 @@ async function tick() {
             const cry = cries[Math.floor(Math.random() * cries.length)]
               .replace(/\$enemy/g, enemy.name)
               .replace(/\$player/g, randomPlayer?.handle || 'you');
-            broadcastFn(enemy.zoneId, { type: 'output', message: `<span class="battle-cry">${cry}</span>` });
+            broadcastFn(enemy.zoneId, { type: 'output', message: formatBattleCry(enemy.name, cry) });
           }
 
           // Escalating aggro roll — chance grows 5% per 5-second tick
@@ -334,6 +334,8 @@ export async function handlePlayerDeath(player, killer) {
     respawn_zone: respawnZone,
     player_update: { hp:player.hp, sanity:player.sanity, hunger:player.hunger, thirst:player.thirst, radiation:player.radiation, stamina:player.stamina, body_temp_c:player.body_temp_c },
   }, null, player.id);
+
+  emit('player.respawn', { player });
 
   // Notify others in the zone that a corpse has appeared
   const corpseLink = `<span class="action-link corpse-link" data-action="loot" data-target="${corpseId}" data-label="${corpseName}" title="Loot ${corpseName}">${corpseName}</span>`;

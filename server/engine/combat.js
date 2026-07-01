@@ -4,6 +4,14 @@ import { effectiveSkill } from './skills.js';
 import { ensureTunables, getTunable } from './tunables.js';
 import { query } from '../models/db.js';
 
+// Quoted cry  → speech:  Name says: "..."   (name prepended as speaker)
+// Unquoted cry → emote:   raw text as-is    ($enemy token already substituted in)
+export function formatBattleCry(name, raw) {
+  return (raw.startsWith('"') && raw.endsWith('"'))
+    ? `<span style="color:var(--yellow)">${name} says: ${raw}</span>`
+    : `<span class="battle-cry">${raw}</span>`;
+}
+
 const COOLDOWNS = {
   attack: 3500,
   flee: 4000,
@@ -264,7 +272,7 @@ export async function enemyAttackPlayer(enemy, player) {
 
   const cries = enemy.flags?.battle_cries;
   const cry = (isFirstStrike && Array.isArray(cries) && cries.length)
-    ? `<span class="battle-cry">${cries[Math.floor(Math.random() * cries.length)].replace(/\$enemy/g, enemy.name).replace(/\$player/g, player.handle)}</span>\n`
+    ? formatBattleCry(enemy.name, cries[Math.floor(Math.random() * cries.length)].replace(/\$enemy/g, enemy.name).replace(/\$player/g, player.handle)) + '\n'
     : '';
 
   if (!hit) {

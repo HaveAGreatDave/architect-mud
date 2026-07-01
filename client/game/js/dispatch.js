@@ -375,6 +375,7 @@ const handlers = {
   audio_sfx: (msg) => { console.log('[audio] sfx received', msg.def?.id, msg.def?.name); window.AudioEngine?.playSfx(msg.def); },
   audio_sample: (msg) => { console.log('[audio] sample received', msg.def?.id, msg.def?.name); window.AudioEngine?.playSample(msg.def); },
   audio_ambience: (msg) => { window.AudioEngine?.loopSound(msg.def); },
+  audio_loop_gain: (msg) => { window.AudioEngine?.setLoopGain(msg.id, msg.gain, msg.ramp ?? 0.4); },
   audio_stop: (msg) => { window.AudioEngine?.stop(msg.scope, msg.id); },
 };
 
