@@ -145,11 +145,30 @@ on('zone.entered', ({ actor, zone: zoneId }) => {
   emit('audio.music.changed', { zoneId, songId: song.id });
 });
 
-on('enemy.attacked', ({ actor }) => {
+function critBoost(def) {
+  if (!def) return null;
+  function boostLayer(layer) {
+    return {
+      ...layer,
+      gain: (layer.gain ?? 1) * 1.6,
+      adsr: { ...(layer.adsr || { a: 0.01, d: 0.05, s: 0.7, r: 0.15 }), a: 0.002, r: 0.35 },
+      echo: { mix: 0.45, delay: 0.11, feedback: 0.42 },
+      fm: layer.fm ?? { rate: 60, depth: 180 },
+    };
+  }
+  const config = def.config || {};
+  const boosted = Array.isArray(config.layers)
+    ? { ...config, layers: config.layers.map(boostLayer) }
+    : boostLayer(config);
+  return { ...def, config: boosted };
+}
+
+on('enemy.attacked', ({ actor, critical }) => {
+  if (!critical) return;
   const zoneId = actor?.current_zone;
   if (!zoneId) return;
   if (!triggerEventRoute('enemy.attacked', zoneId, actor?.id)) {
-    const def = sfxByName('combat_hit');
+    const def = critBoost(sfxByName('combat_hit'));
     if (def) sendToZone(zoneId, { type: 'audio_sfx', def });
   }
 });

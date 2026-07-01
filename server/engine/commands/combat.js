@@ -54,7 +54,7 @@ export async function resolveAttack(player, target, broadcast) {
 	// swing passes through: manual `attack`/`kill` and the auto-attack loop in
 	// gameLoop.js. Quest objective tracking hangs off enemy.killed/enemy.attacked.
 	if (result.killed) emit("enemy.killed", { actor: player, enemy: target });
-	else emit("enemy.attacked", { actor: player, enemy: target });
+	else emit("enemy.attacked", { actor: player, enemy: target, critical: result.critical });
 
 	if (result.killed) {
 		player.combatTargetId = null;
