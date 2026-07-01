@@ -3087,9 +3087,8 @@ body {
 	inset: 0;
 	background: rgba(0, 0, 0, 0.75);
 	z-index: 100;
-	align-items: flex-start;
+	align-items: center;
 	justify-content: center;
-	padding-top: 4vh;
 }
 #dialogue-panel.active {
 	display: flex;
@@ -3098,10 +3097,10 @@ body {
 #dialogue-box {
 	background: var(--bg2);
 	border: 1px solid var(--accent);
-	padding: 10px 12px;
-	width: 95vw;
-	max-width: 95vw;
-	max-height: 92vh;
+	padding: 16px 18px;
+	width: 480px;
+	min-height: 360px;
+	max-height: 70vh;
 	border-radius: 2px;
 	display: flex;
 	flex-direction: column;
@@ -3145,7 +3144,7 @@ body {
 	white-space: pre-wrap;
 	overflow-y: auto;
 	flex: 1;
-	min-height: 0;
+	min-height: 120px;
 }
 #dialogue-options {
 	display: flex;
@@ -4602,35 +4601,34 @@ body {
 	transform: translateY(0);
 	pointer-events: auto;
 }
-/* Glass cover lid for mediadeck — permanently tipped back toward camera.
-   transform-origin at bottom = bottom is the hinge; top lifts toward viewer. */
+/* Glass cover lid for mediadeck — hinge at bottom, top tilts toward viewer.
+   deck-opening swings fully open; reels always visible through transparent glass. */
 .mediadeck-glass-cover {
 	position: absolute;
 	inset: 0;
 	border-radius: 6px;
 	background: linear-gradient(170deg,
-		rgba(255,100,255,0.10) 0%,
-		rgba(200,80,255,0.03) 50%,
-		rgba(160,60,255,0.07) 100%
+		rgba(255,100,255,0.04) 0%,
+		rgba(200,80,255,0.01) 50%,
+		rgba(160,60,255,0.03) 100%
 	);
-	/* thick bright top border = visible glass edge facing the camera */
 	border-top: 3px solid rgba(220, 180, 255, 0.55);
-	border-left: 1px solid rgba(255, 47, 214, 0.14);
-	border-right: 1px solid rgba(255, 47, 214, 0.14);
-	border-bottom: 1px solid rgba(0, 0, 0, 0.35);
+	border-left: 1px solid rgba(255, 47, 214, 0.10);
+	border-right: 1px solid rgba(255, 47, 214, 0.10);
+	border-bottom: 1px solid rgba(0, 0, 0, 0.25);
 	box-shadow:
-		inset 0 2px 0 rgba(255,255,255,0.12),
-		inset 0 -1px 0 rgba(0,0,0,0.3),
-		0 -2px 6px rgba(200, 140, 255, 0.18);
-	/* hinge at bottom; top tilts 14° toward the viewer */
+		inset 0 2px 0 rgba(255,255,255,0.10),
+		inset 0 -1px 0 rgba(0,0,0,0.2),
+		0 -2px 6px rgba(200, 140, 255, 0.12);
 	transform-origin: bottom center;
 	transform: rotateX(-14deg);
-	transition: transform 0.28s ease-in-out;
+	transition: transform 0.7s ease-in-out, border-top-width 0.7s ease-in-out;
 	z-index: 5;
 	pointer-events: none;
 }
 #mediadeck-slot.deck-opening .mediadeck-glass-cover {
 	transform: rotateX(-78deg);
+	border-top-width: 9px;
 }
 /* Empty slot indicator */
 .mediadeck-empty-hint {
@@ -5428,28 +5426,33 @@ body {
 	transform: translateY(0);
 	pointer-events: auto;
 }
-/* Glass cover lid — tilts back on deck-opening to simulate cassette door */
+/* Glass cover lid — hinge at bottom, top tilts toward viewer when closed.
+   deck-opening swings it fully open so reels stay visible throughout. */
 .amp-glass-cover {
 	position: absolute;
 	inset: 0;
 	border-radius: 8px;
 	background: linear-gradient(160deg,
-		rgba(180,240,255,0.10) 0%,
-		rgba(80,180,255,0.03) 45%,
-		rgba(0,180,255,0.07) 100%
+		rgba(180,240,255,0.04) 0%,
+		rgba(80,180,255,0.01) 45%,
+		rgba(0,180,255,0.03) 100%
 	);
-	border: 1px solid rgba(0,240,255,0.13);
+	border-top: 3px solid rgba(160,230,255,0.55);
+	border-left: 1px solid rgba(0,240,255,0.10);
+	border-right: 1px solid rgba(0,240,255,0.10);
+	border-bottom: 1px solid rgba(0,0,0,0.25);
 	box-shadow:
-		inset 0 1px 0 rgba(255,255,255,0.13),
-		inset 0 -1px 0 rgba(0,0,0,0.3);
-	transform-origin: top center;
-	transform: rotateX(0deg);
-	transition: transform 0.28s ease-in-out;
+		inset 0 1px 0 rgba(255,255,255,0.10),
+		inset 0 -1px 0 rgba(0,0,0,0.2);
+	transform-origin: bottom center;
+	transform: rotateX(-14deg);
+	transition: transform 0.7s ease-in-out, border-top-width 0.7s ease-in-out;
 	z-index: 5;
 	pointer-events: none;
 }
 .amp-cassette-window.deck-opening .amp-glass-cover {
-	transform: rotateX(-72deg);
+	transform: rotateX(-78deg);
+	border-top-width: 9px;
 }
 /* Empty slot indicator */
 .amp-empty-hint {

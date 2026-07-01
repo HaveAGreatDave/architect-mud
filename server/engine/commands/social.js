@@ -4,8 +4,9 @@ import { propagateYell } from '../sounds.js';
 import { canAccessChannel, broadcastToChannel } from '../channels.js';
 import { evalConditions } from '../flags.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../sift.js';
+import { DEFAULT_CHITCHAT_LINES } from '../ai-behaviour.js';
 
-async function cmdTalk(targetStr, player) {
+async function cmdTalk(targetStr, player, broadcast) {
   if (!targetStr) return { type:'error', message:'Talk to whom?' };
   const npcs = getZoneNpcs(player.current_zone);
   const r = siftResolve(targetStr, npcs);
@@ -23,7 +24,12 @@ async function cmdTalk(targetStr, player) {
     options.push(opt);
   }
   if (npc.vendor_inventory?.length) options.push({ label: 'Browse your wares.', next: '__shop__' });
-  if (!root && !options.length) return { type:'talk', message:`${npc.name} doesn't want to talk.` };
+  if (!root && !options.length) {
+    const lines = Array.isArray(npc.chitchat) && npc.chitchat.length ? npc.chitchat : DEFAULT_CHITCHAT_LINES;
+    const line = lines[Math.floor(Math.random() * lines.length)];
+    if (broadcast) broadcast(player.current_zone, { type: 'output', message: `<span style="color:var(--yellow)">${npc.name} says: "${line}"</span>` }, player.id);
+    return { type: 'output', message: `${npc.name} says: "${line}"` };
+  }
   return { type:'dialogue', npcId:npc.id, npcName:npc.name, node:'root', text:root?.text || `${npc.name} glances up at you.`, options };
 }
 
@@ -138,8 +144,8 @@ function cmdObama(targetStr, player, broadcast) {
 }
 
 export const handlers = {
-  talk:    (args, raw, player) => cmdTalk(args.join(' '), player),
-  speak:   (args, raw, player) => cmdTalk(args.join(' '), player),
+  talk:    (args, raw, player, broadcast) => cmdTalk(args.join(' '), player, broadcast),
+  speak:   (args, raw, player, broadcast) => cmdTalk(args.join(' '), player, broadcast),
   say:     (args, raw, player, broadcast) => cmdSay(raw.replace(/^say\s*/i,''), player, broadcast),
   yell:    (args, raw, player, broadcast) => cmdYell(raw.replace(/^(yell|shout)\s*/i,''), player, broadcast),
   shout:   (args, raw, player, broadcast) => cmdYell(raw.replace(/^(yell|shout)\s*/i,''), player, broadcast),

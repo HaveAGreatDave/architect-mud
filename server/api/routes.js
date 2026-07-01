@@ -12,6 +12,23 @@ import { sendPasswordResetEmail, sendVerificationEmail } from '../mailer.js';
 import { isEmailVerificationEnabled, setEmailVerificationEnabled } from '../engine/emailVerification.js';
 import { randomAppearance } from '../engine/appearance.js';
 import { DEFAULT_CHITCHAT_LINES } from '../engine/ai-behaviour.js';
+
+const DEFAULT_VENDOR_SCHEDULE = {
+  mon:[{from:10,to:22}], tue:[{from:10,to:22}], wed:[{from:10,to:22}],
+  thu:[{from:10,to:22}], fri:[{from:10,to:22}], sat:[{from:10,to:22}], sun:[{from:10,to:22}],
+};
+
+function formatScheduleBoard(npc) {
+  const LABELS = { mon:'Mon', tue:'Tue', wed:'Wed', thu:'Thu', fri:'Fri', sat:'Sat', sun:'Sun' };
+  const days = ['mon','tue','wed','thu','fri','sat','sun'];
+  const lines = days.map(d => {
+    const blocks = (npc.vendor_schedule?.[d] || []);
+    if (!blocks.length) return `${LABELS[d]}: Closed`;
+    return `${LABELS[d]}: ${blocks.map(b => `${b.from}:00-${b.to}:00`).join(', ')}`;
+  });
+  const shopLine = npc.vendor_shop_name ? `${npc.vendor_shop_name}\n` : '';
+  return `${npc.name}'s Schedule\n${shopLine}\n${lines.join('\n')}`;
+}
 import { handleEnvironmentApi } from './environment.routes.js';
 import { handleWorldValidatorApi } from './worldvalidator.routes.js';
 import { handleStagingApi } from './staging.routes.js';
@@ -207,6 +224,9 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path==='/npcs' && method==='POST') return requireDev(auth, ()=>apiCreateNpc(body));
   if (path==='/npcs/send-to-work' && method==='POST') return requireDev(auth, apiSendLateNpcsToWork);
   if (path.startsWith('/npcs/') && method==='PUT') return requireDev(auth, ()=>apiUpdateNpc(path.split('/')[2],body));
+  if (path.startsWith('/npcs/') && path.endsWith('/restock') && method==='POST') return requireDev(auth, ()=>apiRestockVendor(path.split('/')[2]));
+  if (path.startsWith('/npcs/') && path.endsWith('/place-safe') && method==='POST') return requireDev(auth, ()=>apiPlaceSafe(path.split('/')[2]));
+  if (path.startsWith('/npcs/') && path.endsWith('/safe-status') && method==='GET') return requireDev(auth, ()=>apiGetSafeStatus(path.split('/')[2]));
   if (path.startsWith('/npcs/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteNpc(path.split('/')[2]));
   if (path==='/furniture' && method==='GET') return requireDev(auth, ()=>apiGetFurniture(url));
   if (path==='/furniture/bulk/streetlights' && method==='POST') return requireDev(auth, ()=>apiBulkAddStreetlights(auth));
@@ -1131,34 +1151,86 @@ export async function apiCreateNpc(body) {
   const id=body.id||`npc_${Date.now()}`;
   const homeZone = body.home_zone || 'zone_residential_lobby';
   const chitchat = Array.isArray(body.chitchat) && body.chitchat.length ? body.chitchat : DEFAULT_CHITCHAT_LINES;
+  const npcType = body.npc_type || 'npc';
   try {
     const hpMax = body.hp_max || 20;
-    await query(`INSERT INTO npcs (id,name,description,zone_id,home_zone,faction,dialogue_tree,vendor_inventory,wanders,wander_zones,flags,behaviour_graph,chitchat,studio_zone_id,work_zone_id,hp,hp_max) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
-      [id,body.name,body.description,body.zone_id||null,homeZone,body.faction||null,JSON.stringify(body.dialogue_tree||{}),JSON.stringify(body.vendor_inventory||[]),body.wanders?1:0,JSON.stringify(body.wander_zones||[]),JSON.stringify(body.flags||{}),JSON.stringify(body.behaviour_graph||{}),JSON.stringify(chitchat),body.studio_zone_id||null,body.work_zone_id||null,hpMax,hpMax]);
+    const { buildDefaultVendorGraph } = await import('../engine/ai-behaviour.js');
+    const rawGraph = body.behaviour_graph && Object.keys(body.behaviour_graph).length
+      ? body.behaviour_graph
+      : (npcType === 'vendor' ? buildDefaultVendorGraph() : {});
+    const vendorSchedule = (npcType === 'vendor' && !Object.keys(body.vendor_schedule||{}).length)
+      ? DEFAULT_VENDOR_SCHEDULE : (body.vendor_schedule || {});
+    const homeActivities = Array.isArray(body.home_activities) ? body.home_activities : [];
+    await query(`INSERT INTO npcs (id,name,description,zone_id,home_zone,faction,dialogue_tree,vendor_inventory,wanders,wander_zones,flags,behaviour_graph,chitchat,studio_zone_id,work_zone_id,hp,hp_max,npc_type,vendor_schedule,vendor_shop_name,home_activities) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)`,
+      [id,body.name,body.description,body.zone_id||null,homeZone,body.faction||null,JSON.stringify(body.dialogue_tree||{}),JSON.stringify(body.vendor_inventory||[]),body.wanders?1:0,JSON.stringify(body.wander_zones||[]),JSON.stringify(body.flags||{}),JSON.stringify(rawGraph),JSON.stringify(chitchat),body.studio_zone_id||null,body.work_zone_id||null,hpMax,hpMax,npcType,JSON.stringify(vendorSchedule),body.vendor_shop_name||null,JSON.stringify(homeActivities)]);
     // Register in world memory so the NPC is immediately visible
     const { world: w } = await import('../engine/world.js');
-    w.npcs.set(id, { id, name:body.name, description:body.description, zone_id:body.zone_id||null, home_zone:homeZone, faction:body.faction||null, dialogue_tree:body.dialogue_tree||{}, vendor_inventory:body.vendor_inventory||[], wanders:body.wanders?1:0, wander_zones:body.wander_zones||[], flags:body.flags||{}, behaviour_graph:body.behaviour_graph||{}, chitchat, studio_zone_id:body.studio_zone_id||null, work_zone_id:body.work_zone_id||null, hp:hpMax, hp_max:hpMax, _ai:{ currentNode:null, waitUntil:null, patrolPath:[], patrolTarget:null, patrolMode:'walk', patrolIndex:0, alertCooldown:0, lastSay:0, flags:{} } });
+    const { initBlackboard } = await import('../engine/ai-behaviour.js');
+    w.npcs.set(id, { id, name:body.name, description:body.description, zone_id:body.zone_id||null, home_zone:homeZone, faction:body.faction||null, dialogue_tree:body.dialogue_tree||{}, vendor_inventory:body.vendor_inventory||[], wanders:body.wanders?1:0, wander_zones:body.wander_zones||[], flags:body.flags||{}, behaviour_graph:rawGraph, chitchat, studio_zone_id:body.studio_zone_id||null, work_zone_id:body.work_zone_id||null, hp:hpMax, hp_max:hpMax, npc_type:npcType, vendor_schedule:vendorSchedule, vendor_bank_credits:0, vendor_shop_name:body.vendor_shop_name||null, home_activities:homeActivities, _ai:initBlackboard() });
     if (body.zone_id) w.zones.get(body.zone_id)?.npcs.add(id);
+    if (npcType === 'vendor' && body.work_zone_id) {
+      const npcForBoard = { name: body.name, vendor_schedule: vendorSchedule, vendor_shop_name: body.vendor_shop_name||null };
+      await query(`INSERT INTO furniture (id,zone_id,name,description,flags,object_type) VALUES ($1,$2,$3,$4,$5,'decoration') ON CONFLICT (id) DO NOTHING`,
+        [`furn_schd_${id}`, body.work_zone_id, `${body.name}'s Schedule`, formatScheduleBoard(npcForBoard), JSON.stringify({ vendor_schedule_board: true, vendor_npc_id: id })]);
+    }
     return {status:201,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
 export async function apiUpdateNpc(id,body) {
   try {
-    await query(`UPDATE npcs SET name=$1,description=$2,zone_id=$3,home_zone=$4,faction=$5,dialogue_tree=$6,vendor_inventory=$7,wanders=$8,wander_zones=$9,flags=$10,behaviour_graph=$11,work_zone_id=$12,chitchat=$13,hp_max=$14,hp=LEAST(hp,$14) WHERE id=$15`,
-      [body.name,body.description,body.zone_id,body.home_zone||null,body.faction,JSON.stringify(body.dialogue_tree||{}),JSON.stringify(body.vendor_inventory||[]),body.wanders?1:0,JSON.stringify(body.wander_zones||[]),JSON.stringify(body.flags||{}),JSON.stringify(body.behaviour_graph||{}),body.work_zone_id||null,JSON.stringify(body.chitchat||[]),body.hp_max||20,id]);
+    const npcType = body.npc_type || 'npc';
+    const { buildDefaultVendorGraph } = await import('../engine/ai-behaviour.js');
+    const rawGraph = body.behaviour_graph && Object.keys(body.behaviour_graph).length
+      ? body.behaviour_graph
+      : (npcType === 'vendor' ? buildDefaultVendorGraph() : {});
+    await query(`UPDATE npcs SET name=$1,description=$2,zone_id=$3,home_zone=$4,faction=$5,dialogue_tree=$6,vendor_inventory=$7,wanders=$8,wander_zones=$9,flags=$10,behaviour_graph=$11,work_zone_id=$12,chitchat=$13,hp_max=$14,hp=LEAST(hp,$14),vendor_stock_size=$16,vendor_restock_rate=$17,npc_type=$18,vendor_schedule=$19,vendor_shop_name=$20,home_activities=$21 WHERE id=$15`,
+      [body.name,body.description,body.zone_id,body.home_zone||null,body.faction,JSON.stringify(body.dialogue_tree||{}),JSON.stringify(body.vendor_inventory||[]),body.wanders?1:0,JSON.stringify(body.wander_zones||[]),JSON.stringify(body.flags||{}),JSON.stringify(rawGraph),body.work_zone_id||null,JSON.stringify(body.chitchat||[]),body.hp_max||20,id,body.vendor_stock_size||10,body.vendor_restock_rate||1,npcType,JSON.stringify(body.vendor_schedule||{}),body.vendor_shop_name||null,JSON.stringify(body.home_activities||[])]);
     // Update in-memory NPC and sync zone.npcs sets
     const { world: w } = await import('../engine/world.js');
     const existing = w.npcs.get(id);
     const oldZone = existing?.zone_id;
     const newZone = body.zone_id || null;
     const newHpMax = body.hp_max || 20;
-    if (existing) Object.assign(existing, { name:body.name, description:body.description, zone_id:newZone, home_zone:body.home_zone||null, faction:body.faction, dialogue_tree:body.dialogue_tree||{}, vendor_inventory:body.vendor_inventory||[], wanders:body.wanders?1:0, wander_zones:body.wander_zones||[], flags:body.flags||{}, behaviour_graph:body.behaviour_graph||{}, work_zone_id:body.work_zone_id||null, chitchat:body.chitchat||[], hp_max:newHpMax, hp:Math.min(existing.hp??newHpMax, newHpMax) });
+    if (existing) Object.assign(existing, { name:body.name, description:body.description, zone_id:newZone, home_zone:body.home_zone||null, faction:body.faction, dialogue_tree:body.dialogue_tree||{}, vendor_inventory:body.vendor_inventory||[], wanders:body.wanders?1:0, wander_zones:body.wander_zones||[], flags:body.flags||{}, behaviour_graph:rawGraph, work_zone_id:body.work_zone_id||null, chitchat:body.chitchat||[], hp_max:newHpMax, hp:Math.min(existing.hp??newHpMax, newHpMax), vendor_stock_size:body.vendor_stock_size||10, vendor_restock_rate:body.vendor_restock_rate||1, npc_type:npcType, vendor_schedule:body.vendor_schedule||{}, vendor_shop_name:body.vendor_shop_name||null, home_activities:body.home_activities||[] });
+    // Upsert/remove schedule board furniture based on current work zone
+    if (npcType === 'vendor') {
+      const boardId = `furn_schd_${id}`;
+      const boardFlags = JSON.stringify({ vendor_schedule_board: true, vendor_npc_id: id });
+      if (body.work_zone_id) {
+        const npcForBoard = { name: body.name, vendor_schedule: body.vendor_schedule||{}, vendor_shop_name: body.vendor_shop_name||null };
+        const boardDesc = formatScheduleBoard(npcForBoard);
+        await query(
+          `INSERT INTO furniture (id,zone_id,name,description,flags,object_type) VALUES ($1,$2,$3,$4,$5,'decoration')
+           ON CONFLICT (id) DO UPDATE SET zone_id=$2, name=$3, description=$4`,
+          [boardId, body.work_zone_id, `${body.name}'s Schedule`, boardDesc, boardFlags]
+        );
+      } else {
+        await query(`DELETE FROM furniture WHERE id=$1`, [boardId]);
+      }
+    }
     if (oldZone !== newZone) {
       if (oldZone) w.zones.get(oldZone)?.npcs.delete(id);
       if (newZone) w.zones.get(newZone)?.npcs.add(id);
     }
     return {status:200,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
+}
+async function apiRestockVendor(id) {
+  try {
+    const { rows } = await query(
+      'SELECT id, vendor_inventory, vendor_stock, vendor_stock_size, vendor_restock_rate FROM npcs WHERE id=$1',
+      [id]
+    );
+    if (!rows.length) return { status: 404, body: { error: 'NPC not found' } };
+    const { restockVendor } = await import('../engine/vendor.js');
+    await restockVendor(rows[0]);
+    const { rows: updated } = await query('SELECT vendor_stock FROM npcs WHERE id=$1', [id]);
+    // Sync world memory
+    const { world: w } = await import('../engine/world.js');
+    const live = w.npcs.get(id);
+    if (live) live.vendor_stock = updated[0]?.vendor_stock || [];
+    return { status: 200, body: { vendor_stock: updated[0]?.vendor_stock || [] } };
+  } catch (e) { return { status: 400, body: { error: e.message } }; }
 }
 async function apiSendLateNpcsToWork() {
   try {
@@ -1175,6 +1247,45 @@ async function apiSendLateNpcsToWork() {
       moved.push({ id: npc.id, name: npc.name, from: oldZone, to: target });
     }
     return { status: 200, body: { moved, count: moved.length } };
+  } catch (e) { return { status: 400, body: { error: e.message } }; }
+}
+
+export async function apiPlaceSafe(id) {
+  try {
+    const { rows: npcRows } = await query('SELECT id, name, work_zone_id FROM npcs WHERE id=$1', [id]);
+    if (!npcRows.length) return { status: 404, body: { error: 'NPC not found' } };
+    const npc = npcRows[0];
+    if (!npc.work_zone_id) return { status: 400, body: { error: 'NPC has no work zone set.' } };
+
+    // Check if safe already exists
+    const { rows: existing } = await query(
+      `SELECT id FROM furniture WHERE zone_id=$1 AND flags @> $2 LIMIT 1`,
+      [npc.work_zone_id, JSON.stringify({ vendor_safe: true, vendor_npc_id: id })]
+    );
+    if (existing.length) return { status: 200, body: { already_exists: true, id: existing[0].id } };
+
+    const safeId = `furniture_safe_${id}_${Date.now()}`;
+    const flags = { vendor_safe: true, vendor_npc_id: id, hack_difficulty: 5 };
+    await query(
+      `INSERT INTO furniture (id, zone_id, name, description, flags) VALUES ($1,$2,$3,$4,$5)`,
+      [safeId, npc.work_zone_id, `${npc.name}'s Safe`, 'A secure holo-lock safe.', JSON.stringify(flags)]
+    );
+    return { status: 201, body: { id: safeId } };
+  } catch (e) { return { status: 400, body: { error: e.message } }; }
+}
+
+export async function apiGetSafeStatus(id) {
+  try {
+    const { rows: npcRows } = await query('SELECT work_zone_id FROM npcs WHERE id=$1', [id]);
+    if (!npcRows.length) return { status: 404, body: { error: 'NPC not found' } };
+    const { work_zone_id } = npcRows[0];
+    if (!work_zone_id) return { status: 200, body: { exists: false, zone_id: null, furniture_id: null } };
+
+    const { rows } = await query(
+      `SELECT id FROM furniture WHERE zone_id=$1 AND flags @> $2 LIMIT 1`,
+      [work_zone_id, JSON.stringify({ vendor_safe: true, vendor_npc_id: id })]
+    );
+    return { status: 200, body: { exists: rows.length > 0, zone_id: work_zone_id, furniture_id: rows[0]?.id || null } };
   } catch (e) { return { status: 400, body: { error: e.message } }; }
 }
 
@@ -1867,14 +1978,14 @@ async function apiGetSounds(fullUrl) {
 }
 async function apiCreateSound(body) {
   const id = randomUUID();
-  const { name, category='misc', descriptions=[], loudness=3.0, enabled=1 } = body||{};
+  const { name, category='misc', descriptions=[], loudness=3.0, enabled=1, propagation='both' } = body||{};
   if (!name?.trim()) return { status:400, body:{error:'name required'} };
-  await query('INSERT INTO sounds (id,name,category,descriptions,loudness,enabled) VALUES ($1,$2,$3,$4,$5,$6)',
-    [id, name.trim(), category, JSON.stringify(descriptions), loudness, enabled?1:0]);
+  await query('INSERT INTO sounds (id,name,category,descriptions,loudness,enabled,propagation) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+    [id, name.trim(), category, JSON.stringify(descriptions), loudness, enabled?1:0, propagation]);
   return { status:201, body:{id} };
 }
 async function apiUpdateSound(id, body) {
-  const { name, category, descriptions, loudness, enabled } = body||{};
+  const { name, category, descriptions, loudness, enabled, propagation } = body||{};
   const sets = [], vals = [];
   let i = 1;
   if (name!=null)         { sets.push(`name=$${i++}`);         vals.push(name.trim()); }
@@ -1882,6 +1993,7 @@ async function apiUpdateSound(id, body) {
   if (descriptions!=null) { sets.push(`descriptions=$${i++}`); vals.push(JSON.stringify(descriptions)); }
   if (loudness!=null)     { sets.push(`loudness=$${i++}`);     vals.push(loudness); }
   if (enabled!=null)      { sets.push(`enabled=$${i++}`);      vals.push(enabled?1:0); }
+  if (propagation!=null)  { sets.push(`propagation=$${i++}`);  vals.push(propagation); }
   if (!sets.length) return { status:400, body:{error:'nothing to update'} };
   vals.push(id);
   await query(`UPDATE sounds SET ${sets.join(',')} WHERE id=$${i}`, vals);

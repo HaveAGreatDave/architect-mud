@@ -106,7 +106,7 @@
     display: inline-block;
   }
   .badge-safe { background: rgba(76,175,116,0.2); color: var(--accent2); border: 1px solid rgba(76,175,116,0.3); }
-  .badge-low { background: rgba(212,196,74,0.15); color: var(--yellow); border: 1px solid rgba(212,196,74,0.3); }
+  .badge-low { background: rgba(212,196,74,0.15); color: #b8a820; border: 1px solid rgba(212,196,74,0.3); }
   .badge-medium { background: rgba(224,145,74,0.15); color: var(--accent3); border: 1px solid rgba(224,145,74,0.3); }
   .badge-high { background: rgba(224,85,85,0.15); color: var(--red); border: 1px solid rgba(224,85,85,0.3); }
   .badge-lethal { background: rgba(224,85,85,0.3); color: var(--red); border: 1px solid var(--red); }
@@ -528,6 +528,32 @@
     box-shadow: 0 0 6px var(--accent);
   }
 
+
+/* ── Vendor schedule grid ─────────────────────────────────────────────────── */
+.vs-grid {
+  display: grid;
+  grid-template-columns: 36px repeat(24, 22px);
+  grid-template-rows: 18px repeat(7, 20px);
+  gap: 2px;
+  width: max-content;
+}
+.vs-corner { grid-column: 1; grid-row: 1; }
+.vs-header { grid-column: 2 / span 24; grid-row: 1; display: contents; }
+.vs-hour-label {
+  font-size: 9px; color: var(--text-dim); text-align: center;
+  line-height: 18px; user-select: none;
+}
+.vs-day-label {
+  font-size: 10px; color: var(--text-dim); display: flex; align-items: center;
+  padding-right: 4px; user-select: none;
+}
+.vs-cell {
+  background: var(--bg3); border-radius: 2px; cursor: pointer;
+  border: 1px solid transparent; transition: background 0.1s;
+}
+.vs-cell:hover { background: var(--bg2); border-color: var(--accent); }
+.vs-cell.vs-on { background: var(--accent2); border-color: var(--accent2); }
+.vs-cell.vs-on:hover { filter: brightness(1.2); }
 
 /* Emergency Security Protocol status pulse */
 @keyframes esp-status-pulse {

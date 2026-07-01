@@ -15,15 +15,18 @@ function renderSoundsPanel(data) {
   };
 
   // Section 1: Sound Definitions
+  const PROP_LABELS = { world:'🌍 World', building:'🏢 Building', both:'🌍🏢 Both', none:'🔇 None' };
   const soundRows = sounds.map(s => {
     const descs = Array.isArray(s.descriptions) ? s.descriptions : [];
     const preview = descs[0] ? `<span style="color:var(--text-dim);font-size:11px;font-style:italic">${descs[0].slice(0,60)}${descs[0].length>60?'…':''}</span>` : '<span style="color:var(--border)">—</span>';
+    const propLabel = PROP_LABELS[s.propagation||'both'] || s.propagation || 'both';
     return `<tr>
       <td style="font-weight:600;color:${s.enabled?'var(--text-bright)':'var(--text-dim)'}">${s.name}</td>
       <td><span style="font-size:10px;background:var(--bg3);padding:2px 6px;border-radius:2px;color:var(--accent)">${s.category}</span></td>
       <td>${preview}</td>
       <td style="min-width:90px">${loudnessBar(s.loudness)}</td>
       <td style="text-align:center;font-size:10px;color:var(--text-dim)">${Array.isArray(s.descriptions)?s.descriptions.length:0}</td>
+      <td style="font-size:10px;color:var(--text-dim);white-space:nowrap">${propLabel}</td>
       <td style="text-align:right;white-space:nowrap">
         <button class="action-btn" style="font-size:10px;padding:3px 8px" onclick="editSound(${JSON.stringify(s).replace(/"/g,'&quot;')})">✏</button>
         <button class="action-btn danger" style="font-size:10px;padding:3px 8px;margin-left:4px" onclick="deleteSound('${s.id}','${s.name.replace(/'/g,"\\'")}')">✕</button>
@@ -65,7 +68,7 @@ function renderSoundsPanel(data) {
         <button class="action-btn" onclick="newSound()">+ New Sound</button>
       </div>
       ${sounds.length ? `<table>
-        <thead><tr><th>Name</th><th>Category</th><th>Sample description</th><th>Loudness</th><th title="Variants">Var</th><th></th></tr></thead>
+        <thead><tr><th>Name</th><th>Category</th><th>Sample description</th><th>Loudness</th><th title="Variants">Var</th><th title="Propagation">Prop</th><th></th></tr></thead>
         <tbody>${soundRows}</tbody>
       </table>` : '<div style="padding:12px 0;color:var(--text-dim);font-size:12px">No sounds defined yet.</div>'}
     </div>
@@ -109,6 +112,14 @@ function openSoundModal(s) {
     <div class="field"><label>Descriptions <span style="color:var(--text-dim);font-weight:400">(one per line — one is chosen at random when triggered)</span></label>
       <textarea id="sm-descs" rows="5" style="resize:vertical">${descs.join('\n')}</textarea>
     </div>
+    <div class="field"><label>Propagation <span style="color:var(--text-dim);font-weight:400">(where this sound can be heard from adjacent tiles)</span></label>
+      <select id="sm-prop">
+        <option value="both" ${(s.propagation||'both')==='both'?'selected':''}>Both — world map and inside buildings</option>
+        <option value="world" ${(s.propagation||'')==='world'?'selected':''}>World only — outdoor tiles, not into buildings</option>
+        <option value="building" ${(s.propagation||'')==='building'?'selected':''}>Building only — interior tiles, not out to world</option>
+        <option value="none" ${(s.propagation||'')==='none'?'selected':''}>None — origin tile only, does not propagate</option>
+      </select>
+    </div>
     <div class="field" style="display:flex;align-items:center;gap:10px">
       <input type="checkbox" id="sm-enabled" ${s.enabled!==0?'checked':''}>
       <label for="sm-enabled" style="margin:0;cursor:pointer">Enabled</label>
@@ -121,6 +132,7 @@ function openSoundModal(s) {
       category: document.getElementById('sm-cat').value,
       loudness: parseFloat(document.getElementById('sm-loudness').value)||3,
       descriptions: document.getElementById('sm-descs').value.split('\n').map(l=>l.trim()).filter(Boolean),
+      propagation: document.getElementById('sm-prop').value,
       enabled: document.getElementById('sm-enabled').checked ? 1 : 0,
     };
     const r = isNew ? await API('/sounds','POST',body) : await API(`/sounds/${s.id}`,'PUT',body);

@@ -175,6 +175,21 @@ export const SCHEMA_SQL = `
   UPDATE npcs SET hp=20, hp_max=20 WHERE hp IS NULL OR hp_max IS NULL;
   ALTER TABLE npcs ADD COLUMN IF NOT EXISTS sex TEXT DEFAULT 'male';
   UPDATE npcs SET sex='male' WHERE sex IS NULL;
+  -- Vendor stock system:
+  --   vendor_inventory  = catalogue (all items this vendor can sell; managed in dev panel)
+  --   vendor_stock      = active shelf (auto-managed subset; what players actually buy from)
+  --   vendor_stock_size = max items on shelf at once
+  --   vendor_restock_rate = items added to shelf per 24 h tick
+  --   vendor_credits    = credits earned from sales; physically stored in the zone's hackable vendor safe
+  ALTER TABLE npcs ADD COLUMN IF NOT EXISTS vendor_stock JSONB DEFAULT '[]';
+  ALTER TABLE npcs ADD COLUMN IF NOT EXISTS vendor_stock_size INTEGER DEFAULT 10;
+  ALTER TABLE npcs ADD COLUMN IF NOT EXISTS vendor_restock_rate INTEGER DEFAULT 1;
+  ALTER TABLE npcs ADD COLUMN IF NOT EXISTS vendor_credits INTEGER DEFAULT 0;
+  ALTER TABLE npcs ADD COLUMN IF NOT EXISTS npc_type TEXT DEFAULT 'npc';
+  ALTER TABLE npcs ADD COLUMN IF NOT EXISTS vendor_schedule JSONB DEFAULT '{}';
+  ALTER TABLE npcs ADD COLUMN IF NOT EXISTS vendor_bank_credits INTEGER DEFAULT 0;
+  ALTER TABLE npcs ADD COLUMN IF NOT EXISTS vendor_shop_name TEXT;
+  ALTER TABLE npcs ADD COLUMN IF NOT EXISTS home_activities JSONB DEFAULT '[]';
 
   -- Non-takeable scenery (bar counters, stools, beds, tables...). Distinct
   -- from items: items live in player_inventory (including the
@@ -187,6 +202,7 @@ export const SCHEMA_SQL = `
     description TEXT NOT NULL,
     flags JSONB DEFAULT '{}'
   );
+  ALTER TABLE furniture ALTER COLUMN flags SET DEFAULT '{}';
   -- object_type classifies the furniture piece. 'light' replaces the old is_light flag.
   -- Valid values: 'furniture', 'light', 'fixture', 'appliance', 'decoration', 'terminal', 'container'
   ALTER TABLE furniture ADD COLUMN IF NOT EXISTS object_type TEXT DEFAULT 'furniture';
@@ -213,6 +229,7 @@ export const SCHEMA_SQL = `
     loudness REAL NOT NULL DEFAULT 3.0,
     enabled INTEGER NOT NULL DEFAULT 1
   );
+  ALTER TABLE sounds ADD COLUMN IF NOT EXISTS propagation TEXT NOT NULL DEFAULT 'both';
 
   -- Global ambient event pool, organized by theme. Zones reference a theme
   -- via the ambient_theme column; the ambient tick pulls from this pool when

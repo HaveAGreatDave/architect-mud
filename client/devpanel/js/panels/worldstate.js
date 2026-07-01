@@ -8,6 +8,10 @@ function renderWorldState(data) {
       let av = a[sortState.key], bv = b[sortState.key];
       if (av == null) av = ''; if (bv == null) bv = '';
       if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * sortState.dir;
+      if (sortState.key === 'danger_rating') {
+        const order = {safe:0,low:1,medium:2,high:3,lethal:4};
+        return ((order[av]??2) - (order[bv]??2)) * sortState.dir;
+      }
       return String(av).localeCompare(String(bv)) * sortState.dir;
     });
   }

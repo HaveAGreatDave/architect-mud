@@ -1,10 +1,52 @@
-import { world, getLivePlayer, getDoorForExit, setDoorCache, getZone } from './world.js';
+import { world, getLivePlayer, getDoorForExit, setDoorCache, getZone, getZonePlayers } from './world.js';
 import { findPath, getZonesInRadius } from './pathfinding.js';
 import { enemyAttackPlayer, enemyAttackNpc, enemyAttackEnemy } from './combat.js';
 import { getEnvironmentState } from './environment.js';
 import { emit } from './events.js';
 import { hasChannelViewers, isNpcScheduledNow, getNpcStudioZone } from './broadcast-bridge.js';
 import { getShopperForNpc, closeShopSession } from './vendor-session.js';
+
+// ── Vendor schedule helpers ──────────────────────────────────────────────────
+
+const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+
+/**
+ * Check whether a vendor NPC should be working right now.
+ * Returns { working, dayHasSchedule, referenceRange }
+ *   working        — true if current hour falls in a scheduled block today
+ *   dayHasSchedule — true if today has any scheduled blocks at all
+ *   referenceRange — on a day-off, the first block of the most recent scheduled day
+ *                    (used for HAVE_LIFE hours on off-days); null if none found
+ */
+export function isVendorWorkTime(npc, env) {
+  const schedule = npc.vendor_schedule || {};
+  const dayOfWeek = env.dayOfWeek; // 1=Mon … 7=Sun (ISO)
+  const hour = env.hour ?? 0;
+
+  // Convert ISO dayOfWeek (1=Mon…7=Sun) to our DAY_KEYS index (0=Sun…6=Sat)
+  const todayIdx = dayOfWeek % 7; // 1→1(Mon)…6→6(Sat)…7→0(Sun)
+  const todayKey = DAY_KEYS[todayIdx];
+  const todayBlocks = schedule[todayKey] || [];
+
+  const dayHasSchedule = todayBlocks.length > 0;
+
+  const inBlock = (blocks, h) => blocks.some(b => h >= (b.from ?? 0) && h < (b.to ?? 24));
+
+  if (dayHasSchedule) {
+    return { working: inBlock(todayBlocks, hour), dayHasSchedule: true, referenceRange: null };
+  }
+
+  // Day off — look back up to 6 days for the most recent scheduled day
+  for (let i = 1; i <= 6; i++) {
+    const idx = ((todayIdx - i) + 7) % 7;
+    const blocks = schedule[DAY_KEYS[idx]] || [];
+    if (blocks.length) {
+      return { working: false, dayHasSchedule: false, referenceRange: blocks[0] };
+    }
+  }
+
+  return { working: false, dayHasSchedule: false, referenceRange: null };
+}
 
 // ── Chitchat ────────────────────────────────────────────────────────────────
 
@@ -22,6 +64,44 @@ export const DEFAULT_CHITCHAT_LINES = [
   'scratches at an old scar.',
   'cracks a thin, joyless smile.',
 ];
+
+const DEFAULT_HOME_ACTIVITIES = [
+  'putters around the apartment, tidying up.',
+  'stares out the window at the neon-lit streets below.',
+  'microwaves something that smells questionable.',
+  'flips through channels on a battered holoscreen.',
+  'does a few half-hearted push-ups.',
+  'rummages through a cabinet looking for something.',
+  'leans against the wall, staring at nothing.',
+  'pours a drink and takes a long sip.',
+  'stretches and cracks their neck.',
+  'sits on the edge of the bed and checks their terminal.',
+  'mutters to themselves and shuffles to the kitchen.',
+  'taps at a broken light fixture without fixing it.',
+];
+
+// Returns the ms timestamp to wake up before the next scheduled shift, or null.
+function getNextShiftWakeMs(entity) {
+  const schedule = entity.vendor_schedule;
+  const now = Date.now();
+  if (schedule && Object.keys(schedule).length) {
+    for (let dayOffset = 0; dayOffset <= 6; dayOffset++) {
+      const checkDate = new Date(now + dayOffset * 86400000);
+      const dayKey = DAY_KEYS[checkDate.getDay()]; // 0=Sun…6=Sat maps to DAY_KEYS
+      const blocks = schedule[dayKey] || [];
+      for (const block of blocks) {
+        const shiftStartMs = new Date(checkDate).setHours(block.from ?? 10, 0, 0, 0);
+        const wakeMs = shiftStartMs - 60 * 60 * 1000; // 1 hour before shift
+        if (wakeMs > now + 120000) return wakeMs;
+      }
+    }
+  }
+  // No vendor schedule — wake at 7am
+  const tomorrow = new Date(now);
+  if (new Date(now).getHours() >= 7) tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setHours(7, 0, 0, 0);
+  return tomorrow.getTime() > now + 120000 ? tomorrow.getTime() : null;
+}
 
 function pickChitchatLine(entity) {
   const lines = Array.isArray(entity.chitchat) ? entity.chitchat : [];
@@ -43,6 +123,11 @@ export function initBlackboard() {
     lastSay:      0,     // timestamp — SAY debounce
     flags:        {},    // SET_FLAG scope:self values
     _roamNextAt:  0,     // timestamp — ROAM cooldown
+    vendor_was_working: false,  // true while vendor NPC is on a scheduled shift
+    vendor_carrying:    0,      // credits extracted from safe, en route to ATM
+    vendor_atm_zone:    null,   // cached nearest ATM zone for deposit run
+    homeSleeping:       false,  // true while NPC is asleep at home (AT_HOME_LIFE)
+    lastHomeSay:        0,      // timestamp — passive home activity cooldown
   };
 }
 
@@ -169,13 +254,15 @@ function normalizeGraph(graph) {
   const nodes = {};
 
   for (const [id, node] of Object.entries(graph.nodes)) {
-    const { type, next, ifTrue, ifFalse, goToWork, haveLife, _vine, ...fields } = node;
+    const { type, next, ifTrue, ifFalse, goToWork, haveLife, endShift, offWork, _vine, ...fields } = node;
 
-    if (next)     edges.push({ fromNode: id, fromPort: 'next',     toNode: next });
-    if (ifTrue)   edges.push({ fromNode: id, fromPort: 'ifTrue',   toNode: ifTrue });
-    if (ifFalse)  edges.push({ fromNode: id, fromPort: 'ifFalse',  toNode: ifFalse });
-    if (goToWork) edges.push({ fromNode: id, fromPort: 'goToWork', toNode: goToWork });
-    if (haveLife) edges.push({ fromNode: id, fromPort: 'haveLife', toNode: haveLife });
+    if (next)      edges.push({ fromNode: id, fromPort: 'next',      toNode: next });
+    if (ifTrue)    edges.push({ fromNode: id, fromPort: 'ifTrue',    toNode: ifTrue });
+    if (ifFalse)   edges.push({ fromNode: id, fromPort: 'ifFalse',   toNode: ifFalse });
+    if (goToWork)  edges.push({ fromNode: id, fromPort: 'goToWork',  toNode: goToWork });
+    if (haveLife)  edges.push({ fromNode: id, fromPort: 'haveLife',  toNode: haveLife });
+    if (endShift)  edges.push({ fromNode: id, fromPort: 'endShift',  toNode: endShift });
+    if (offWork)   edges.push({ fromNode: id, fromPort: 'offWork',   toNode: offWork });
 
     for (const k of Object.keys(fields)) {
       if (k.startsWith('branch_') && fields[k]) {
@@ -269,6 +356,14 @@ function evalCondition(node, entity) {
       const from = params.from ?? 0, to = params.to ?? 23;
       return from <= to ? (hour >= from && hour <= to) : (hour >= from || hour <= to);
     }
+
+    case 'IS_VENDOR_WORK_TIME': {
+      const env = getEnvironmentState();
+      return isVendorWorkTime(entity, env).working;
+    }
+
+    case 'AT_HOME':
+      return !!(entity.home_zone && zoneId === entity.home_zone);
 
     default:
       return false;
@@ -760,6 +855,200 @@ async function execAction(node, entity, ctx) {
       return 'RUNNING';
     }
 
+    // ── Vendor-specific actions ──────────────────────────────────────────────
+
+    // CHECK_VENDOR_WORK: 4-way branch for vendor NPC daily routine.
+    // Ports: goToWork | haveLife | endShift | offWork
+    case 'CHECK_VENDOR_WORK': {
+      const env = getEnvironmentState();
+      const { working, dayHasSchedule, referenceRange } = isVendorWorkTime(entity, env);
+      const hour = env.hour ?? 0;
+
+      if (working) {
+        if (!entity.work_zone_id) return 'haveLife';
+        ai.vendor_was_working = true;
+        return 'goToWork';
+      }
+
+      // Shift just ended
+      if (ai.vendor_was_working) {
+        ai.vendor_was_working = false;
+        return 'endShift';
+      }
+
+      // Day off — use reference range to decide have-life vs off-work hours
+      if (!dayHasSchedule && referenceRange) {
+        const { from = 0, to = 24 } = referenceRange;
+        if (hour >= from && hour < to) return 'haveLife';
+      }
+
+      return 'offWork';
+    }
+
+    // VENDOR_CHITCHAT: say a random chitchat line from entity.chitchat (60s cooldown).
+    case 'VENDOR_CHITCHAT': {
+      if (!ai) break;
+      if (Date.now() - ai.lastSay < 60000) break;
+      const line = pickChitchatLine(entity);
+      if (!line) break;
+      ai.lastSay = Date.now();
+      broadcast(zoneId, {
+        type: 'output',
+        message: `<span style="color:var(--yellow)">${entity.name} says: "${line}"</span>`,
+      });
+      break;
+    }
+
+    // AT_HOME_LIFE: NPC does home activities and can fall asleep until near their next shift.
+    case 'AT_HOME_LIFE': {
+      if (!ai) break;
+      const zoneId = entityZone(entity);
+      const now = Date.now();
+
+      // Waking up from sleep — waitUntil was already cleared by the tick
+      if (ai.homeSleeping) {
+        ai.homeSleeping = false;
+        broadcast(zoneId, { type: 'zone_event', message: `${entity.name} stirs and wakes up.` });
+        break;
+      }
+
+      // Activities are handled by the passive home-life ticker in tickEntityAI.
+      // This node only manages the sleep cycle so the graph can loop back to check_work.
+
+      // ~15% chance to fall asleep per tick
+      if (Math.random() < 0.15) {
+        const wakeMs = getNextShiftWakeMs(entity);
+        if (wakeMs !== null && wakeMs > now + 120000) {
+          // Find something to sleep on in the zone
+          let sleepOn = 'the floor';
+          try {
+            const BED_WORDS = /\b(bed|cot|couch|mattress|sofa|futon|bunk|hammock)\b/i;
+            const { rows: furnRows } = await query(
+              `SELECT name FROM furniture WHERE zone_id=$1 LIMIT 20`, [zoneId]
+            );
+            const bedFurn = furnRows.find(f => BED_WORDS.test(f.name));
+            if (bedFurn) sleepOn = `the ${bedFurn.name.toLowerCase()}`;
+          } catch (_) {}
+          ai.homeSleeping = true;
+          ai.waitUntil = wakeMs;
+          broadcast(zoneId, { type: 'zone_event', message: `${entity.name} lies down on ${sleepOn} and falls asleep.` });
+          return 'RUNNING';
+        }
+      }
+      break;
+    }
+
+    // VENDOR_COLLECT_SAFE: find linked safe in work zone, take 25% of vendor_credits.
+    case 'VENDOR_COLLECT_SAFE': {
+      if (!ai) break;
+      const workZone = entity.work_zone_id;
+      if (!workZone) break;
+
+      try {
+        // Find the safe linked to this NPC in the work zone
+        const { rows: safeRows } = await query(
+          `SELECT id, flags FROM furniture WHERE zone_id=$1 AND flags @> $2 LIMIT 1`,
+          [workZone, JSON.stringify({ vendor_safe: true, vendor_npc_id: entity.id })]
+        );
+        if (!safeRows.length) break;
+
+        const { rows: npcRows } = await query(
+          'SELECT vendor_credits FROM npcs WHERE id=$1', [entity.id]
+        );
+        if (!npcRows.length || !npcRows[0].vendor_credits) break;
+
+        const total = npcRows[0].vendor_credits;
+        const amount = Math.floor(total * 0.25);
+        if (amount <= 0) break;
+
+        await query('UPDATE npcs SET vendor_credits = vendor_credits - $1 WHERE id=$2', [amount, entity.id]);
+        ai.vendor_carrying = amount;
+        ai.vendor_atm_zone = null; // reset so VENDOR_GO_TO_ATM re-queries
+
+        broadcast(workZone, {
+          type: 'output',
+          message: `<span style="color:var(--text-dim);font-style:italic">${entity.name} opens the safe, counts out their cut, and closes it again.</span>`,
+        });
+      } catch (e) {
+        // Non-fatal — continue graph even if safe interaction fails
+      }
+      break;
+    }
+
+    // VENDOR_GO_TO_ATM: find nearest non-broken ATM and walk toward it. RUNNING until arrived.
+    case 'VENDOR_GO_TO_ATM': {
+      if (!ai) break;
+
+      // Find nearest ATM zone if not already cached
+      if (!ai.vendor_atm_zone) {
+        try {
+          const { rows: atmRows } = await query(
+            `SELECT f.zone_id FROM furniture f
+             JOIN atm_units a ON a.id = f.id
+             WHERE f.flags @> '{"atm":true}' AND a.is_broken = 0`
+          );
+          const candidateZones = atmRows.map(r => r.zone_id).filter(Boolean);
+          if (!candidateZones.length) break;
+
+          // BFS to find closest
+          let bestZone = null, bestDist = Infinity;
+          for (const z of candidateZones) {
+            const path = findPath(zoneId, z);
+            if (path && path.length - 1 < bestDist) {
+              bestDist = path.length - 1;
+              bestZone = z;
+            }
+          }
+          if (!bestZone) break;
+          ai.vendor_atm_zone = bestZone;
+        } catch (e) {
+          break;
+        }
+      }
+
+      const atmZone = ai.vendor_atm_zone;
+      if (!atmZone || zoneId === atmZone) {
+        ai.vendor_atm_zone = null; // arrived — clear for next time
+        break;
+      }
+
+      if (!ai.patrolPath.length || ai.patrolTarget !== atmZone) {
+        const path = findPath(zoneId, atmZone);
+        if (!path || path.length < 2) return 'RUNNING';
+        ai.patrolPath = path.slice(1);
+        ai.patrolTarget = atmZone;
+      }
+
+      const nextZone = ai.patrolPath.shift();
+      if (!nextZone) return 'RUNNING';
+      const moved = moveEntity(entity, nextZone, broadcast, query);
+      if (!moved) { ai.patrolPath = []; ai.patrolTarget = null; }
+      else if (query) {
+        query('UPDATE npcs SET zone_id=$1 WHERE id=$2', [entityZone(entity), entity.id]).catch(() => {});
+      }
+      return 'RUNNING';
+    }
+
+    // VENDOR_DEPOSIT: add carried credits to vendor bank balance.
+    case 'VENDOR_DEPOSIT': {
+      if (!ai || ai.vendor_carrying <= 0) break;
+      const amount = ai.vendor_carrying;
+      try {
+        await query(
+          'UPDATE npcs SET vendor_bank_credits = vendor_bank_credits + $1 WHERE id=$2',
+          [amount, entity.id]
+        );
+      } catch (e) {
+        // Non-fatal
+      }
+      ai.vendor_carrying = 0;
+      broadcast(zoneId, {
+        type: 'output',
+        message: `<span style="color:var(--text-dim);font-style:italic">${entity.name} finishes at the ATM terminal.</span>`,
+      });
+      break;
+    }
+
     // Walk to the studio zone the NPC is scheduled at (derived from broadcast schedule)
     case 'GO_TO_STUDIO': {
       if (!ai) break;
@@ -788,6 +1077,47 @@ async function execAction(node, entity, ctx) {
   }
 }
 
+// ── Default vendor behaviour graph ───────────────────────────────────────────
+
+/**
+ * Auto-generate a default VINE-compatible behaviour graph for vendor NPCs.
+ * Stored in npcs.behaviour_graph and editable in the VINE editor.
+ */
+export function buildDefaultVendorGraph() {
+  return {
+    _start: 'start',
+    nodes: {
+      start:          { type: 'start', next: 'check_work' },
+      check_work:     { type: 'action', action_type: 'CHECK_VENDOR_WORK',
+                        goToWork: 'go_to_work', haveLife: 'have_life',
+                        endShift: 'collect_safe', offWork: 'off_home_check' },
+      go_to_work:     { type: 'action', action_type: 'GO_TO_WORK', next: 'work_wait' },
+      work_wait:      { type: 'wait', seconds: 60, next: 'player_check' },
+      player_check:   { type: 'condition', condition_type: 'PLAYER_IN_ZONE',
+                        ifTrue: 'work_say', ifFalse: 'check_work' },
+      work_say:       { type: 'action', action_type: 'VENDOR_CHITCHAT', next: 'check_work' },
+      have_life:      { type: 'action', action_type: 'HAVE_LIFE', next: 'check_work' },
+      collect_safe:   { type: 'action', action_type: 'VENDOR_COLLECT_SAFE', next: 'go_to_atm' },
+      go_to_atm:      { type: 'action', action_type: 'VENDOR_GO_TO_ATM', next: 'atm_emote' },
+      atm_emote:      { type: 'action', action_type: 'EMOTE',
+                        params: { message: 'steps up to the ATM terminal and makes a deposit.' },
+                        next: 'atm_wait' },
+      atm_wait:       { type: 'wait', seconds: 10, next: 'deposit' },
+      deposit:        { type: 'action', action_type: 'VENDOR_DEPOSIT', next: 'post_shift' },
+      post_shift:     { type: 'random', branches: [{ weight: 1 }, { weight: 5 }],
+                        branch_0: 'have_life', branch_1: 'go_home_ps' },
+      go_home_ps:     { type: 'action', action_type: 'GO_HOME', next: 'home_life_ps' },
+      home_life_ps:   { type: 'action', action_type: 'AT_HOME_LIFE', next: 'check_work' },
+      off_home_check: { type: 'condition', condition_type: 'AT_HOME',
+                        ifTrue: 'home_idle', ifFalse: 'off_random' },
+      home_idle:      { type: 'action', action_type: 'AT_HOME_LIFE', next: 'check_work' },
+      off_random:     { type: 'random', branches: [{ weight: 1 }, { weight: 5 }],
+                        branch_0: 'have_life', branch_1: 'go_home_off' },
+      go_home_off:    { type: 'action', action_type: 'GO_HOME', next: 'check_work' },
+    },
+  };
+}
+
 // ── Main tick ────────────────────────────────────────────────────────────────
 
 const MAX_STEPS = 50;
@@ -808,6 +1138,23 @@ export async function tickEntityAI(entity, ctx) {
 
   // Don't tick while a player has this NPC's shop open.
   if (ai.shopPaused) return;
+
+  // Passive home life — any NPC in their home zone does random activities when players are watching
+  if (!isEnemy(entity) && entity.home_zone && entityZone(entity) === entity.home_zone) {
+    const now = Date.now();
+    if ((now - (ai.lastHomeSay || 0)) > 30000) {
+      const playersHere = getZonePlayers(entityZone(entity));
+      if (playersHere.length && Math.random() < 0.3) {
+        ai.lastHomeSay = now;
+        const pool = (Array.isArray(entity.home_activities) && entity.home_activities.length)
+          ? entity.home_activities : DEFAULT_HOME_ACTIVITIES;
+        const act = pool[Math.floor(Math.random() * pool.length)];
+        ctx.broadcast(entityZone(entity), { type: 'zone_event', message: `${entity.name} ${act}` });
+      } else if (playersHere.length) {
+        ai.lastHomeSay = now; // reset cooldown even when no activity fires
+      }
+    }
+  }
 
   // ESP: override all NPC behaviour — route everyone home until stand-down.
   if (_espShelterActive && !isEnemy(entity) && entity.home_zone) {

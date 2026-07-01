@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import { propagateSound } from './sounds.js';
 import { enemyAttackPlayer, enemyAttackNpc, npcAttackPlayer, isOnCooldown, pvpSwing, formatBattleCry } from './combat.js';
 import { tickEntityAI } from './ai-behaviour.js';
+import { restockAllVendors } from './vendor.js';
 import { offlineSleepSwing } from './commands/combat.js';
 import { tickEffects } from './effects.js';
 import { resolveAttack, resolveAttackNpc } from './commands/index.js';
@@ -858,6 +859,11 @@ export async function dailyMaintenance() {
   const { rowCount: stainsCleared } = await query(`UPDATE zones SET stains='{}' WHERE stains != '{}'`);
   for (const zone of world.zones.values()) zone.stains = {};
   if (stainsCleared > 0) console.log(`[dailyMaintenance] Cleared stains from ${stainsCleared} zone(s).`);
+
+  // --- Vendor stock restock ---
+  await restockAllVendors().catch(err =>
+    console.error('[dailyMaintenance] Vendor restock failed:', err.message)
+  );
 }
 
 // Runs every real-world minute. Collects weekly rent from apartment owners

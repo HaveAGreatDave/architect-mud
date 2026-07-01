@@ -21,6 +21,13 @@ Each entity (enemy or NPC) that has a `behaviour_graph` gets a **blackboard** �
   alertCooldown: 0,     // timestamp — CALL_BACKUP debounce
   lastSay:      0,      // timestamp — SAY debounce
   flags:        {},     // SET_FLAG scope:self values
+  // Vendor-specific
+  vendor_was_working: false, // true while on a scheduled shift
+  vendor_carrying:    0,     // credits extracted from safe, en route to ATM
+  vendor_atm_zone:    null,  // cached nearest ATM zone for deposit run
+  // Home life
+  homeSleeping:    false,    // true while asleep at home (AT_HOME_LIFE)
+  lastHomeSay:     0,        // passive home activity cooldown (30s)
 }
 ```
 
@@ -92,6 +99,8 @@ Out ports: `ifTrue`, `ifFalse`.
 | `HOUR_RANGE` | `from`, `to` (0–23) | current game hour is within the range (wraps midnight) |
 | `IS_BROADCAST_SCHEDULED` | — | NPC is in npc_staff for a currently-active daily schedule slot |
 | `AT_WORK_ZONE` | — | NPC is already in their assigned broadcast studio zone |
+| `IS_VENDOR_WORK_TIME` | — | Current day+hour falls within the vendor NPC's `vendor_schedule` |
+| `AT_HOME` | — | NPC is in their `home_zone` |
 
 ### `action`
 
@@ -119,6 +128,12 @@ Executes one action and stops the tick. The cursor is saved to the `next` port's
 | `GO_TO_WORK` (old) | `zone_id`, `arrive_by`, `depart_early_minutes` | Timed commute to a specific zone; superseded by the parameterless `GO_TO_WORK` above for studio NPCs |
 | `GO_HOME` | — | Walk toward `entity.home_zone`; returns RUNNING until arrived |
 | `GO_TO_STUDIO` | — | Walk toward the studio zone derived from the NPC's broadcast schedule; returns RUNNING until arrived |
+| `CHECK_VENDOR_WORK` | — | 4-way branch for vendor NPC routine. Ports: `goToWork` (work time + has work zone), `haveLife` (work time, no zone), `endShift` (shift just ended), `offWork` (off-duty). Reads `npc_type=vendor` schedule from `vendor_schedule`. |
+| `VENDOR_CHITCHAT` | — | Say a random line from `entity.chitchat` to the zone; 60s cooldown |
+| `VENDOR_COLLECT_SAFE` | — | Find linked vendor-safe furniture in `work_zone_id`, take 25% of `vendor_credits`, broadcast to zone |
+| `VENDOR_GO_TO_ATM` | — | Find nearest non-broken ATM furniture globally (BFS), walk toward it; returns RUNNING until arrived |
+| `VENDOR_DEPOSIT` | — | Add `blackboard.vendor_carrying` to `vendor_bank_credits` in DB; broadcast confirmation |
+| `AT_HOME_LIFE` | — | NPC does random home-life activities when players are watching; 15% chance/tick to fall asleep until 1h before next shift (or 7am for NPCs with no schedule). Handles wake-up on re-entry. |
 
 ### `wait`
 
