@@ -1397,6 +1397,12 @@ async function _bcImportDependencies(compiled) {
   const missingZones = compiled.rooms.filter(id => !zoneIds.has(id));
   // NPCs are always auto-created in _bcImportSave — never block the import on them.
   if (!missingZones.length) { await _bcImportSave(compiled); return; }
+  // If the channel already has a studio zone, remap all missing ROOM refs to it automatically.
+  if (_bcImportStudioZoneId) {
+    for (const id of missingZones) _bcZoneRemap[id] = _bcImportStudioZoneId;
+    await _bcImportSave(compiled);
+    return;
+  }
   _bcDepCompiled = compiled;
   _bcDepPending  = new Set(missingZones);
   _bcShowDepModal([], missingZones, allZones || []);

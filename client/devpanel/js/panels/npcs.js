@@ -74,15 +74,169 @@ function renderNpcsPanel(data) {
 // --- Zone forms ---
 // Controls which entrance-discovery flavor-text bank a building uses
 // (server-side bank lives in commands.js, keyed by the same ids).
+const NPC_CHITCHAT_PRESETS = {
+  tv_host: [
+    "We'll be right back after these messages.",
+    "Incredible. Simply incredible. Stay with us.",
+    "That's all the time we have for tonight, folks.",
+    "Let's go to our correspondent in the field.",
+    "Live from the ruins of civilization — this is the news.",
+    "Don't touch that dial. Actually, you can't. The dial broke years ago.",
+    "Our ratings are through the roof. The roof itself is on fire.",
+    "I'm told we have a caller. Hello, you're on the air.",
+    "This next segment has been approved by our corporate overlords.",
+    "Remember: what you're about to see cannot be unseen.",
+  ],
+  bartender: [
+    "What'll it be?",
+    "You look like you've had a rough one.",
+    "Pay first. Trust later. That's policy.",
+    "You're not the first person to cry at this bar. Won't be the last.",
+    "I've heard worse. Much worse.",
+    "Last call was three hours ago. I'm still here.",
+    "We're out of the good stuff. We were always out of the good stuff.",
+    "Tab's running. Keep drinking.",
+    "I don't ask questions. That's why people come here.",
+    "You want ice with that? Funny.",
+  ],
+  vendor: [
+    "Best prices in the district. That's not saying much.",
+    "You touch it, you bought it.",
+    "Everything's genuine. Genuinely acquired.",
+    "Trade you for it. Credits preferred. Bullets accepted.",
+    "Limited supply. Always limited. That's the pitch.",
+    "I don't know where it came from. That's not your business either.",
+    "Come back tomorrow — stock changes. If I'm still here.",
+    "Quality merchandise at prices that won't kill you. Probably.",
+  ],
+  guard: [
+    "Move along.",
+    "Eyes forward.",
+    "I see you.",
+    "Nothing happens on my watch. Usually.",
+    "This area is restricted. That's not a suggestion.",
+    "I've had a long shift. Don't make it longer.",
+    "Protocol says I have to say something. So: stop.",
+    "Keep it moving.",
+    "Don't make me call this in.",
+  ],
+  thug: [
+    "You looking at something?",
+    "Watch where you're walking.",
+    "This block's got rules.",
+    "Nice gear. Shame what happens to nice things.",
+    "I seen you around here before?",
+    "Mind your business and you'll keep your fingers.",
+    "The crew knows your face now.",
+    "We run things here. Not them. Us.",
+  ],
+  doctor: [
+    "Don't touch that with your bare hands.",
+    "I've seen worse. Barely.",
+    "The human body is remarkably resilient. And remarkably stupid.",
+    "This won't hurt much.",
+    "I can fix that. The question is whether you'll want me to.",
+    "My rates are reasonable. For the apocalypse.",
+    "Symptom management is all any of us are doing at this point.",
+    "Sign the waiver. Everyone signs the waiver.",
+  ],
+  politician: [
+    "We're making progress.",
+    "The data supports our approach.",
+    "I hear your concerns. I'll note them down.",
+    "The situation is under control. My definition of control.",
+    "We're committed to accountability. The accountability of others.",
+    "This is a temporary measure.",
+    "Due process is very important to us.",
+    "We are exploring all options. Except the obvious ones.",
+  ],
+  preacher: [
+    "The end was promised. The end delivered.",
+    "Repent. It won't help, but the gesture matters.",
+    "He watches. Even here.",
+    "Salvation is available. Supply is limited.",
+    "Blessed are the adaptable.",
+    "The scripture didn't specify what kind of fire.",
+    "Sin freely. Confess generously. That's the cycle.",
+    "Judgment is coming. It commutes.",
+  ],
+  vagrant: [
+    "You got a smoke?",
+    "I used to have a job. Good job too.",
+    "Don't sleep near the east wall. Trust me.",
+    "Seen things out there you wouldn't believe.",
+    "It's gonna rain. I can tell. My knee knows.",
+    "You got any credits? Just asking.",
+    "They took everything. But not this spot. This spot's mine.",
+    "The machines don't sleep. I've watched.",
+  ],
+  mercenary: [
+    "This isn't personal. It's a contract.",
+    "Better paid than the last job. That's all I ask.",
+    "Don't mistake my silence for hesitation.",
+    "I've seen a lot of warzones. They all look the same eventually.",
+    "Loyalty's expensive. I'm surprisingly affordable.",
+    "Eyes open. That's the whole philosophy.",
+    "I get paid either way.",
+    "There's no good side. Just better rates.",
+  ],
+  scientist: [
+    "The results were unexpected. As always.",
+    "Containment is holding. For now.",
+    "This is theoretically reversible.",
+    "The ethical review board no longer exists. We proceed.",
+    "Note: do not touch the sample with your left hand.",
+    "I've run the numbers. The numbers are concerning.",
+    "Progress requires sacrifice. Usually someone else's.",
+    "We're close. We are always close.",
+  ],
+  cult_member: [
+    "He is coming. He is always coming.",
+    "Join us. The waiting is easier with company.",
+    "The old world is ash. This is better.",
+    "We don't recruit. We recognise.",
+    "Pain is just loyalty with nerve endings.",
+    "Doubt is the first step. We help with the next ones.",
+    "There is no leaving. There is only becoming.",
+    "The vessel is willing. Are you?",
+  ],
+};
+
+function npcLoadChitchatPreset() {
+  const key = document.getElementById('f-chitchat-preset')?.value;
+  if (!key || !NPC_CHITCHAT_PRESETS[key]) return;
+  const ta = document.getElementById('f-chitchat');
+  if (!ta) return;
+  const existing = ta.value.trim();
+  const preset = NPC_CHITCHAT_PRESETS[key].join('\n');
+  ta.value = existing ? `${existing}\n${preset}` : preset;
+}
+
 async function npcEditForm(rec, isNew) {
   const tree = typeof rec.dialogue_tree === 'object' ? rec.dialogue_tree : JSON.parse(rec.dialogue_tree||'{}');
   const vendor = Array.isArray(rec.vendor_inventory) ? rec.vendor_inventory : JSON.parse(rec.vendor_inventory||'[]');
   const behaviourGraph = typeof rec.behaviour_graph === 'object' ? rec.behaviour_graph : JSON.parse(rec.behaviour_graph||'{}');
   const flags = typeof rec.flags === 'object' ? rec.flags : JSON.parse(rec.flags||'{}');
+  const chitchat = Array.isArray(rec.chitchat) ? rec.chitchat : JSON.parse(rec.chitchat||'[]');
   const zones = await API('/zones').catch(() => []);
   const zoneList = Array.isArray(zones) ? [...zones].sort((a, b) => (a.id||'').localeCompare(b.id||'')) : [];
   const homeZoneVal = rec.home_zone || 'zone_residential_lobby';
   const homeZoneOpts = zoneList.map(z => `<option value="${z.id}" ${z.id===homeZoneVal?'selected':''}>${z.id}</option>`).join('');
+  const presetOpts = [
+    ['', '— load preset —'],
+    ['tv_host',     '📺 TV Host'],
+    ['bartender',   '🍺 Bartender'],
+    ['vendor',      '🛒 Vendor'],
+    ['guard',       '🔒 Guard'],
+    ['thug',        '🔪 Thug'],
+    ['doctor',      '🩺 Doctor'],
+    ['politician',  '🎙 Politician'],
+    ['preacher',    '✝ Preacher'],
+    ['vagrant',     '🚬 Vagrant'],
+    ['mercenary',   '💀 Mercenary'],
+    ['scientist',   '🔬 Scientist'],
+    ['cult_member', '👁 Cult Member'],
+  ].map(([v, l]) => `<option value="${v}">${l}</option>`).join('');
   return `
     <div class="field"><label>NPC ID</label><input id="f-id" value="${isNew?'':rec.id}" ${!isNew?'readonly style="opacity:0.5"':''}></div>
     <div class="field"><label>Name</label><input id="f-name" value="${rec.name||''}"></div>
@@ -97,6 +251,16 @@ async function npcEditForm(rec, isNew) {
       <label>Permitted Wander Zones (one zone ID per line)</label>
       <textarea id="f-wander_zones" rows="4" placeholder="Leave blank to wander to adjacent zones only">${(Array.isArray(rec.wander_zones)?rec.wander_zones:JSON.parse(rec.wander_zones||'[]')).join('\n')}</textarea>
       <div class="zone-subsection-note">Current zone is always included at runtime.</div>
+    </div>
+    <div class="field">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <label>Chitchat Lines <span style="font-weight:400;color:var(--text-dim);font-size:11px">— one per line, spoken at random during idle</span></label>
+        <div style="display:flex;gap:6px;align-items:center">
+          <select id="f-chitchat-preset" class="form-input" style="font-size:11px;padding:3px 6px">${presetOpts}</select>
+          <button type="button" class="action-btn" style="font-size:11px;padding:3px 8px" onclick="npcLoadChitchatPreset()">Load</button>
+        </div>
+      </div>
+      <textarea id="f-chitchat" rows="6" placeholder="She took everything, man.\nYou want another?">${chitchat.join('\n')}</textarea>
     </div>
     <div class="field">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
@@ -133,6 +297,7 @@ async function saveNpc(existing) {
   try { flags = JSON.parse(document.getElementById('f-flags')?.value || '{}'); } catch { return { error: 'Flags: invalid JSON' }; }
   const wanderZonesRaw = document.getElementById('f-wander_zones')?.value || '';
   const wander_zones = wanderZonesRaw.split('\n').map(s => s.trim()).filter(Boolean);
+  const chitchat = (document.getElementById('f-chitchat')?.value || '').split('\n').map(s => s.trim()).filter(Boolean);
   const body = {
     name: document.getElementById('f-name').value,
     description: document.getElementById('f-description').value,
@@ -141,6 +306,7 @@ async function saveNpc(existing) {
     faction: document.getElementById('f-faction').value || null,
     wanders: document.getElementById('f-wanders').checked,
     wander_zones,
+    chitchat,
     dialogue_tree: tree,
     vendor_inventory: vendor,
     behaviour_graph,
