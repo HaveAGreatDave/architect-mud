@@ -174,6 +174,13 @@ function escapeHtml(s) {
   return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+function _animateDeckLid() {
+  const slot = document.getElementById('mediadeck-slot');
+  if (!slot) return;
+  slot.classList.add('deck-opening');
+  setTimeout(() => slot.classList.remove('deck-opening'), 500);
+}
+
 function showLoadPicker() {
   const picker = document.getElementById('mediadeck-load-picker');
   const list = document.getElementById('mediadeck-load-picker-list');
@@ -188,6 +195,7 @@ function showLoadPicker() {
       row.textContent = c.name;
       row.addEventListener('click', () => {
         window.AudioEngine?.playSfx(MEDIADECK_INSERT_DEF);
+        _animateDeckLid();
         sendCmdSilent(`load cassette ${c.name}`);
         hideLoadPicker();
       });
@@ -216,7 +224,10 @@ export function initMediaDeckPanel() {
     }
   });
   document.getElementById('mediadeck-eject-btn').addEventListener('click', () => {
-    if (deckData?.activeCassetteId) window.AudioEngine?.playSfx(MEDIADECK_EJECT_DEF);
+    if (deckData?.activeCassetteId) {
+      window.AudioEngine?.playSfx(MEDIADECK_EJECT_DEF);
+      _animateDeckLid();
+    }
     _setDeckWhir(false);
     sendCmdSilent('eject');
   });

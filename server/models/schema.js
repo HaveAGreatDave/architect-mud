@@ -92,6 +92,7 @@ export const SCHEMA_SQL = `
   -- connection); these only position zones on a map for display/editing.
   -- marker is a <=2-char map glyph, color a CSS color for character.
   ALTER TABLE zones ADD COLUMN IF NOT EXISTS map_id TEXT;
+  ALTER TABLE zones ADD COLUMN IF NOT EXISTS parent_zone TEXT REFERENCES zones(id);
   ALTER TABLE zones ADD COLUMN IF NOT EXISTS grid_x INTEGER;
   ALTER TABLE zones ADD COLUMN IF NOT EXISTS grid_y INTEGER;
   ALTER TABLE zones ADD COLUMN IF NOT EXISTS grid_z INTEGER DEFAULT 0;

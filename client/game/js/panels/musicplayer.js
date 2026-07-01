@@ -40,10 +40,20 @@ function _resolveSong(song) {
 
 function _playIdx(idx) {
   if (idx < 0 || idx >= _songs.length) return;
+  const wasEmpty = _currentIdx < 0;
   _currentIdx = idx;
   _playing = true;
   window.AudioEngine?.init();
   window.AudioEngine?.playMusic(_resolveSong(_songs[idx]));
+  if (wasEmpty) {
+    const win = document.getElementById('amp-cassette-window');
+    if (win) {
+      win.classList.add('deck-opening');
+      setTimeout(() => { _updateDisplay(); }, 160);
+      setTimeout(() => { win.classList.remove('deck-opening'); }, 460);
+      return;
+    }
+  }
   _updateDisplay();
 }
 
