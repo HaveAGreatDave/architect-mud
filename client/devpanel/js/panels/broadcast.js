@@ -1393,6 +1393,7 @@ async function _bcImportDependencies(compiled) {
   const zoneIds  = new Set((allZones || []).map(z => z.id));
   const npcDbIds = new Set((allNpcs  || []).map(n => n.id));
   _bcExistingNpcIds = npcDbIds;
+  _bcExistingNpcMap = new Map((allNpcs || []).map(n => [n.id, n]));
   const missingZones = compiled.rooms.filter(id => !zoneIds.has(id));
   // NPCs are always auto-created in _bcImportSave — never block the import on them.
   if (!missingZones.length) { await _bcImportSave(compiled); return; }
@@ -1458,7 +1459,8 @@ function _bcUseStudioZone(bsmId) {
   toast(`Zone "${bsmId}" → "${_bcImportStudioZoneName || _bcImportStudioZoneId}"`);
 }
 
-let _bcExistingNpcIds = new Set(); // populated during dependency check
+let _bcExistingNpcIds  = new Set(); // populated during dependency check
+let _bcExistingNpcMap  = new Map(); // npcId → full NPC record, for zone updates
 
 async function _bcCreateNpc(id) {
   if (_bcExistingNpcIds.has(id)) { _bcMarkResolved(id); return; }
@@ -1708,17 +1710,25 @@ async function _bcImportSave({ meta, broadcastGraph, messages, assets, cameras, 
             camsCreated = camsToCreate.length - camErrors.length;
           }
         }
-        // Spawn declared actors in studio zone if they don't already exist
-        let npcSpawnCount = 0;
+        // Place declared actors in studio zone — create if new, update zone if existing
+        let npcSpawnCount = 0, npcMoveCount = 0;
         const existingNpcIds = _bcExistingNpcIds instanceof Set ? _bcExistingNpcIds : new Set();
         const actors = [...new Set([
           ...(Array.isArray(actorIds) ? actorIds : []),
           ...(Array.isArray(npcIds)   ? npcIds   : []),
         ])];
         for (const npcId of actors) {
-          if (existingNpcIds.has(npcId)) continue;
           try {
-            const npcRes = await directAPI('/npcs', 'POST', {
+            if (existingNpcIds.has(npcId)) {
+              const existing = _bcExistingNpcMap.get(npcId) || {};
+              const npcRes = await directAPI(`/npcs/${npcId}`, 'PUT', {
+                ...existing,
+                zone_id: _bcImportStudioZoneId, home_zone: _bcImportStudioZoneId,
+              });
+              if (npcRes?.error) console.warn(`[BSM] NPC move failed for ${npcId}:`, npcRes.error);
+              else npcMoveCount++;
+            } else {
+              const npcRes = await directAPI('/npcs', 'POST', {
                 id: npcId, name: npcId.replace(/^npc_/, '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
                 description: 'A broadcast studio host.',
                 zone_id: _bcImportStudioZoneId, home_zone: _bcImportStudioZoneId,
@@ -1726,13 +1736,18 @@ async function _bcImportSave({ meta, broadcastGraph, messages, assets, cameras, 
                 dialogue_tree: {}, vendor_inventory: [], flags: { studio_npc: true },
                 behaviour_graph: _bcDefaultStudioGraph(_bcImportStudioZoneId),
               });
-            if (npcRes?.error) console.warn(`[BSM] NPC spawn failed for ${npcId}:`, npcRes.error);
-            else npcSpawnCount++;
-          } catch (npcErr) { console.warn(`[BSM] NPC spawn error for ${npcId}:`, npcErr.message); }
+              if (npcRes?.error) console.warn(`[BSM] NPC spawn failed for ${npcId}:`, npcRes.error);
+              else npcSpawnCount++;
+            }
+          } catch (npcErr) { console.warn(`[BSM] NPC error for ${npcId}:`, npcErr.message); }
         }
         const camNote = camsCreated ? `, ${camsCreated} camera(s) spawned` : '';
-        const npcNote = npcSpawnCount ? `, ${npcSpawnCount} NPC(s) spawned` : '';
-        toast(`Imported "${meta.name}" — ${messages.length} messages, ${nodeCount} graph nodes${assets.length ? `, ${assets.length} asset(s)` : ''}${camNote}${npcNote}.`);
+        const npcNote = [
+          npcSpawnCount ? `${npcSpawnCount} NPC(s) placed` : '',
+          npcMoveCount  ? `${npcMoveCount} NPC(s) moved to studio` : '',
+        ].filter(Boolean).join(', ');
+        const npcSuffix = npcNote ? `, ${npcNote}` : '';
+        toast(`Imported "${meta.name}" — ${messages.length} messages, ${nodeCount} graph nodes${assets.length ? `, ${assets.length} asset(s)` : ''}${camNote}${npcSuffix}.`);
       } catch (camErr) {
         toast(`Imported "${meta.name}" — broadcast saved, but studio setup failed: ${camErr.message}`, true);
       }
