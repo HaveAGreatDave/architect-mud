@@ -1,14 +1,22 @@
 let sortState = { key: null, dir: 1 };
 
-function autoFillId(nameInput) {
+function _nameToId(prefix, name) {
+  return `${prefix}_${name.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'')}`;
+}
+
+function _autoFillIdFromName() {
+  const p = PANELS[currentPanel];
+  if (!p?.idPrefix) return;
   const idEl = document.getElementById('f-id');
-  if (!idEl || idEl.dataset.userEdited) return;
-  idEl.value = nameInput.value.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+  const nameEl = document.getElementById('f-name');
+  if (!idEl || idEl.dataset.userEdited || !nameEl) return;
+  idEl.value = _nameToId(p.idPrefix, nameEl.value);
 }
 
 // Mark ID field as user-edited if they type in it manually
 document.addEventListener('input', e => {
   if (e.target.id === 'f-id') e.target.dataset.userEdited = '1';
+  if (e.target.id === 'f-name') _autoFillIdFromName();
 });
 
 function renderTable(columns, records, noEdit = false) {
@@ -179,6 +187,14 @@ async function saveRecord() {
   const submitBtn = document.querySelector('.edit-footer .action-btn.success');
   if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Saving...'; }
   try {
+    // Auto-generate ID from name if the ID field is still empty on a new record
+    if (!currentRecord && p.idPrefix) {
+      const idEl = document.getElementById('f-id');
+      const nameEl = document.getElementById('f-name');
+      if (idEl && !idEl.value.trim() && nameEl?.value.trim()) {
+        idEl.value = _nameToId(p.idPrefix, nameEl.value.trim());
+      }
+    }
     const result = await p.save(currentRecord);
     if (result?.error) { toast(result.error, true); return; }
     if (result?.staged) {

@@ -543,7 +543,7 @@ async function zoneEditForm(rec, isNew) {
 
   return `
     <div class="field"><label>Zone ID</label><input id="f-id" value="${isNew ? '' : rec.id}" ${!isNew ? 'readonly style="opacity:0.5"' : ''}></div>
-    <div class="field"><label>Name</label><input id="f-name" value="${rec.name || ''}" ${isNew ? 'oninput="autoFillId(this)"' : ''}></div>
+    <div class="field"><label>Name</label><input id="f-name" value="${rec.name || ''}"></div>
     <div class="field"><label>Description</label><textarea id="f-description" rows="5">${rec.description || ''}</textarea></div>
     <div class="field-row">
       <div class="field"><label>Danger Rating</label>
@@ -651,7 +651,7 @@ async function populateWorldZonesDropdown(selectedId) {
 }
 
 async function saveZone(existing) {
-  const id = document.getElementById('f-id').value.trim() || document.getElementById('f-name').value.trim().toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
+  const id = document.getElementById('f-id').value.trim();
   const isNew = !existing?.id;
   let ambients;
   try { ambients = JSON.parse(document.getElementById('f-ambient_events').value); } catch { return { error: 'Ambient events: invalid JSON' }; }

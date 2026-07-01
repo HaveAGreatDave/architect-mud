@@ -297,7 +297,7 @@ async function enemyEditForm(rec, isNew) {
   _enemyBehaviourGraph = behaviourGraph;
   return `
     <div class="field"><label>Enemy ID</label><input id="f-id" value="${isNew?'':rec.id}" ${!isNew?'readonly style="opacity:0.5"':''}></div>
-    <div class="field"><label>Name</label><input id="f-name" value="${rec.name||''}" ${isNew?'oninput="autoFillId(this)"':''}></div>
+    <div class="field"><label>Name</label><input id="f-name" value="${rec.name||''}"></div>
     <div class="field"><label>Description</label><textarea id="f-description">${rec.description||''}</textarea></div>
     <div class="field"><label>Death Message</label><textarea id="f-death_message" rows="2">${rec.death_message||''}</textarea></div>
     <div class="field-row">
@@ -407,7 +407,7 @@ async function saveEnemy(existing) {
     flags,
     behaviour_graph,
   };
-  if (isNew) { body.id = document.getElementById('f-id').value.trim() || document.getElementById('f-name').value.trim().toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,''); return API('/enemies', 'POST', body); }
+  if (isNew) { body.id = document.getElementById('f-id').value.trim(); return API('/enemies', 'POST', body); }
   return API(`/enemies/${existing.id}`, 'PUT', body);
 }
 
