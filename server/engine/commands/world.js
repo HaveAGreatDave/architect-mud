@@ -670,19 +670,21 @@ async function cmdExamine(targetStr, player, broadcast) {
   return { type:'error', message:`You don't see "${targetStr}" here.` };
 }
 
-async function cmdSpawn(args, player) {
+async function cmdSpawn(args, player, broadcast) {
   if (!['admin', 'dev'].includes(player.role)) return { type: 'error', message: 'Access denied.' };
   const [itemId, zoneArg] = args;
   if (!itemId) return { type: 'error', message: 'Usage: spawn <item_id> [zone_id|here]' };
   const zoneId = (!zoneArg || zoneArg === 'here') ? player.current_zone : zoneArg;
-  const { rows } = await query('SELECT id FROM items WHERE id=$1', [itemId]);
+  const { rows } = await query('SELECT id, name FROM items WHERE id=$1', [itemId]);
   if (!rows.length) return { type: 'error', message: `No item "${itemId}".` };
+  const itemName = rows[0].name || itemId;
   const invId = `inv_spawn_${Date.now()}`;
   await query('INSERT INTO player_inventory (id,player_id,item_id,quantity) VALUES ($1,$2,$3,1)',
     [invId, `_ground_${zoneId}`, itemId]);
+  broadcast?.(zoneId, { type: 'zone_event', message: `A ${itemName} appears.`, refresh: true });
   const zoneName = getZone(zoneId)?.name;
   const where = zoneName ? `${zoneName} (${zoneId})` : zoneId;
-  return { type: 'output', message: `Spawned ${itemId} in ${where}.` };
+  return { type: 'output', message: `Spawned ${itemName} in ${where}.` };
 }
 
 async function cmdSpawnEnemy(args, player, broadcast) {
@@ -880,7 +882,7 @@ export const handlers = {
   raise:    (args, raw, player) => cmdRaise(args, player),
   ip:       (args, raw, player) => cmdRaise([], player),
   xp:       (args, raw, player) => cmdRaise([], player),
-  spawn:    (args, raw, player) => cmdSpawn(args, player),
+  spawn:    (args, raw, player, broadcast) => cmdSpawn(args, player, broadcast),
   spawnenemy: (args, raw, player, broadcast) => cmdSpawnEnemy(args, player, broadcast),
 };
 
