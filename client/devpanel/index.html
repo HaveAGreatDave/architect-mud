@@ -10,7 +10,7 @@
 <body>
 
 <!-- GHOST MODE MODAL -->
-<div id="ghost-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:500;align-items:center;justify-content:center">
+<div id="ghost-modal" style="display:none;position:fixed;inset:0;background:transparent;z-index:500;align-items:center;justify-content:center">
   <div style="background:var(--bg2);border:1px solid var(--accent);padding:24px;width:420px;max-width:94vw;border-radius:3px;display:flex;flex-direction:column;gap:14px">
     <div style="display:flex;justify-content:space-between;align-items:center">
       <span style="color:var(--accent);font-size:13px;letter-spacing:2px;text-transform:uppercase">👻 Ghost Mode</span>
@@ -76,6 +76,7 @@
     <div class="nav-item" data-panel="scavenging" onclick="showPanel('scavenging')">🔦 Scavenging</div>
     <div class="nav-item" data-panel="scripts" onclick="showPanel('scripts')">⎇ Scripts</div>
     <div class="nav-item" data-panel="quests" onclick="showPanel('quests')">❗ Quests</div>
+    <div class="nav-item" data-panel="vine" onclick="showPanel('vine')">🌿 VINE Suite</div>
     <div class="nav-item" data-panel="mutations" onclick="showPanel('mutations')">☢ Mutations</div>
     <div class="nav-item" data-panel="drugs" onclick="showPanel('drugs')">💊 Drugs</div>
     <div class="nav-item" data-panel="sounds" onclick="showPanel('sounds')">🔊 SoundScript</div>
@@ -161,8 +162,10 @@
 
 <!-- VINE MODAL (full-screen visual dialogue editor) -->
 <div id="vine-modal" style="display:none;position:fixed;inset:0;z-index:600;background:var(--bg);flex-direction:column">
-  <div style="display:flex;gap:8px;padding:8px 12px;border-bottom:1px solid var(--border);align-items:center;flex-shrink:0;background:var(--bg2)">
-    <span style="font-size:11px;letter-spacing:2px;font-weight:bold;color:var(--accent)">VINE<span style="color:var(--text-dim);font-weight:normal;letter-spacing:1px"> : <b style="color:var(--accent)">V</b>isual <b style="color:var(--accent)">I</b>nteraction <b style="color:var(--accent)">N</b>ode <b style="color:var(--accent)">E</b>ditor</span></span>
+  <div id="vine-modal-header" style="display:flex;gap:9px;padding:8px 12px;border-bottom:1px solid var(--border);border-left:4px solid var(--accent);align-items:center;flex-shrink:0;background:var(--bg2)">
+    <span id="vine-modal-icon" style="font-size:14px;line-height:1">🌿</span>
+    <span style="font-size:13px;letter-spacing:1px;font-weight:bold;color:var(--accent)">VINE<span id="vine-modal-kind" style="color:var(--accent)"></span></span>
+    <span id="vine-modal-tagline" style="font-size:10px;color:var(--text-dim);letter-spacing:1.5px;text-transform:uppercase"></span>
     <span id="vine-modal-title" style="font-weight:bold;flex:1;color:var(--text)"></span>
     <button class="action-btn" onclick="vineModalImportJSON()">📋 Load JSON</button>
     <button class="action-btn" onclick="vineModalSave()">💾 Save &amp; Close</button>
@@ -172,7 +175,7 @@
 </div>
 
 <!-- VENDOR SHOP EDITOR MODAL (pop-out) -->
-<div id="ve-modal" style="display:none;position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0.7);align-items:center;justify-content:center" onclick="if(event.target===this)veCloseModal()">
+<div id="ve-modal" style="display:none;position:fixed;inset:0;z-index:500;background:transparent;align-items:center;justify-content:center" onclick="if(event.target===this)veCloseModal()">
   <div class="modal-card" style="width:min(880px,94vw);max-height:90vh;display:flex;flex-direction:column;overflow:hidden">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
       <h2 style="margin:0;color:var(--accent);letter-spacing:2px;text-transform:uppercase;font-size:14px">🛒 <span id="ve-modal-title">Vendor Shop</span></h2>
@@ -184,7 +187,7 @@
 </div>
 
 <!-- PER-NPC BANTER SCRIPTS -->
-<div id="nb-modal" style="display:none;position:fixed;inset:0;z-index:520;background:rgba(0,0,0,0.7);align-items:center;justify-content:center" onclick="if(event.target===this)nbCloseModal()">
+<div id="nb-modal" style="display:none;position:fixed;inset:0;z-index:520;background:transparent;align-items:center;justify-content:center" onclick="if(event.target===this)nbCloseModal()">
   <div class="modal-card" style="width:min(680px,94vw);max-height:90vh;display:flex;flex-direction:column;overflow:hidden">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
       <h2 style="margin:0;color:var(--accent);letter-spacing:2px;text-transform:uppercase;font-size:14px">🗣 <span id="nb-modal-title">Banter Scripts</span></h2>
@@ -197,7 +200,7 @@
 </div>
 
 <!-- SHARED BANTER LIBRARY -->
-<div id="bl-modal" style="display:none;position:fixed;inset:0;z-index:520;background:rgba(0,0,0,0.7);align-items:center;justify-content:center" onclick="if(event.target===this)blClose()">
+<div id="bl-modal" style="display:none;position:fixed;inset:0;z-index:520;background:transparent;align-items:center;justify-content:center" onclick="if(event.target===this)blClose()">
   <div class="modal-card" style="width:min(780px,94vw);max-height:90vh;display:flex;flex-direction:column;overflow:hidden">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
       <h2 style="margin:0;color:var(--accent);letter-spacing:2px;text-transform:uppercase;font-size:14px">🗣 Banter Library</h2>
@@ -261,7 +264,7 @@
   </div>
 </div>
 
-<div id="generic-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:200;align-items:center;justify-content:center" onmousedown="_modalBdMd=event.target===this" onclick="if(_modalBdMd&&event.target===this)closeModal()">
+<div id="generic-modal" style="display:none;position:fixed;inset:0;background:transparent;z-index:200;align-items:center;justify-content:center" onmousedown="_modalBdMd=event.target===this" onclick="if(_modalBdMd&&event.target===this)closeModal()">
   <div class="modal-card" style="width:520px;max-height:85vh;overflow-y:auto">
     <h2 id="modal-title" style="color:var(--accent);letter-spacing:2px;text-transform:uppercase;font-size:14px;margin-bottom:18px"></h2>
     <div id="modal-body"></div>
@@ -276,17 +279,9 @@
   <div class="modal-card" style="width:360px">
     <h2 style="color:var(--accent);letter-spacing:2px;text-transform:uppercase;font-size:14px;margin-bottom:18px">Settings</h2>
     <div style="margin-bottom:18px">
-      <label for="dev-opt-theme" style="display:block;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:8px">Theme</label>
-      <div style="display:flex;gap:8px;align-items:center">
-        <select id="dev-opt-theme" class="settings-select" style="flex:1">
-          <option value="dark">Dark (Default)</option>
-          <option value="light">Light</option>
-          <option value="contrast">High Contrast</option>
-          <option value="phosphor">Phosphor Green</option>
-          <option value="synthwave">Synthwave</option>
-          <option value="bloodmoon">Blood Moon</option>
-          <option value="slate">Slate</option>
-        </select>
+      <label style="display:block;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:8px">Theme</label>
+      <div style="display:flex;gap:8px;align-items:flex-start">
+        <div id="dev-opt-theme-grid" class="theme-grid-wrap" role="listbox" aria-label="Theme" style="flex:1"></div>
         <button class="action-btn" onclick="openThemeEditor()" title="Customise theme colors">🎨 Edit</button>
       </div>
     </div>
@@ -338,23 +333,23 @@
 </div>
 
 <!-- THEME EDITOR -->
-<div id="theme-editor-overlay" onclick="if(event.target===this)closeThemeEditor()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:700;align-items:center;justify-content:center">
-  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;width:480px;max-height:88vh;display:flex;flex-direction:column;font-family:var(--font)">
-    <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
+<div id="theme-editor-overlay" style="display:none;position:fixed;inset:0;z-index:700;pointer-events:none">
+  <div id="tce-window" style="position:absolute;top:64px;right:24px;pointer-events:auto;background:var(--bg2);border:1px solid var(--border);border-radius:4px;width:360px;max-height:82vh;display:flex;flex-direction:column;font-family:var(--font);box-shadow:0 10px 34px rgba(0,0,0,0.55)">
+    <div id="tce-drag-header" style="padding:9px 12px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;cursor:move;user-select:none">
       <div style="font-size:12px;font-weight:bold;color:var(--accent);text-transform:uppercase;letter-spacing:2px">🎨 Theme Editor</div>
       <button onclick="closeThemeEditor()" style="background:none;border:none;color:var(--text-dim);font-size:18px;cursor:pointer;line-height:1;padding:0 2px">✕</button>
     </div>
-    <div style="padding:8px 18px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;flex-shrink:0">
+    <div style="padding:6px 12px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;flex-shrink:0">
       <label style="font-size:11px;color:var(--text-dim);white-space:nowrap">Base:</label>
       <select id="theme-editor-base" onchange="_loadBaseTheme(this.value)" style="flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:4px 6px;border-radius:2px"></select>
     </div>
-    <div id="theme-editor-rows" style="padding:14px 18px;display:flex;flex-direction:column;gap:6px;overflow-y:auto"></div>
-    <div style="padding:10px 18px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center;flex-shrink:0">
+    <div id="theme-editor-rows" style="padding:8px 12px;display:flex;flex-direction:column;gap:4px;overflow-y:auto"></div>
+    <div style="padding:8px 12px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center;flex-shrink:0">
       <input id="theme-editor-name" type="text" placeholder="Theme name…" style="flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:5px 8px;border-radius:2px">
       <button class="action-btn success" onclick="saveAsCustomTheme()">Save Theme</button>
       <button class="action-btn danger" id="theme-editor-delete-btn" onclick="deleteCustomTheme()" style="display:none">Delete</button>
     </div>
-    <div style="padding:10px 18px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:space-between;flex-shrink:0">
+    <div style="padding:8px 12px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:space-between;flex-shrink:0">
       <button class="action-btn danger" onclick="resetThemeColors()">Reset to Base</button>
       <button class="action-btn" onclick="closeThemeEditor()">Close</button>
     </div>
@@ -369,6 +364,7 @@
 <script src="/dev/js/vine/vine-schema-script.js"></script>
 <script src="/dev/js/vine/vine-schema-ai.js"></script>
 <script src="/dev/js/vine/vine-schema-broadcast.js"></script>
+<script src="/dev/js/vine/vine-schema-quest.js"></script>
 <script src="/shared/tagCatalog.js"></script>
 <script src="/shared/tagHelpers.js"></script>
 <script src="/shared/tagSupertags.js"></script>
@@ -388,6 +384,7 @@
 <script src="/dev/js/panels/scavenging.js"></script>
 <script src="/dev/js/panels/scripts.js"></script>
 <script src="/dev/js/panels/quests.js"></script>
+<script src="/dev/js/panels/vine-suite.js"></script>
 <script src="/dev/js/panels/maps.js"></script>
 <script src="/dev/js/panels/power.js"></script>
 <script src="/dev/js/panels/emergency.js"></script>

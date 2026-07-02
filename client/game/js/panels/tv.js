@@ -453,7 +453,7 @@ function _clearTvMessages() {
 
 export function clearTvMessages() { _clearTvMessages(); }
 
-export function appendTvMessage(text, style) {
+export function appendTvMessage(text, style, duration) {
   const container = document.getElementById('tv-messages');
   if (!container) return;
 
@@ -505,7 +505,10 @@ export function appendTvMessage(text, style) {
       const innerH = inner.scrollHeight;
       inner.style.transform = `translateY(${contentH}px)`;
       inner.offsetHeight;
-      inner.style.transition = `transform ${((contentH + innerH) / 50).toFixed(1)}s linear`;
+      // CREDITS <seconds> from the script overrides the crawl duration; otherwise
+      // fall back to a constant 50px/sec pace based on content height.
+      const crawlSecs = duration != null ? duration : (contentH + innerH) / 50;
+      inner.style.transition = `transform ${crawlSecs.toFixed(1)}s linear`;
       inner.style.transform = `translateY(${-innerH}px)`;
     });
     _tvHistory.push(wrap);

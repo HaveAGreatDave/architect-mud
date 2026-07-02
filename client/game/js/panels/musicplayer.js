@@ -74,8 +74,11 @@ async function _loadLibrary() {
       fetch('/api/audio/samples'),
     ]);
     const [songsData, instsData, samplesData] = await Promise.all([sr.json(), ir.json(), smr.json()]);
+    // AMP is a personal-music Walkman: only surface songs filed under the 'misc'
+    // category (the others — ui/combat/cyberpunk/environment/tv — are engine cues,
+    // not listenable tracks).
     _songs = Array.isArray(songsData)
-      ? songsData.filter(s => Array.isArray(s.channels) && s.channels.length > 0)
+      ? songsData.filter(s => Array.isArray(s.channels) && s.channels.length > 0 && s.category === 'misc')
       : [];
     _instruments = {};
     if (Array.isArray(instsData)) for (const i of instsData) _instruments[i.id] = i;

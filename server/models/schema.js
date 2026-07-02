@@ -393,6 +393,8 @@ export const SCHEMA_SQL = `
     times_used INTEGER DEFAULT 0,
     is_addicted INTEGER DEFAULT 0,
     last_used_at BIGINT,
+    tolerance REAL DEFAULT 0,
+    addiction REAL DEFAULT 0,
     PRIMARY KEY (player_id, drug_id)
   );
 
@@ -451,6 +453,10 @@ export const SCHEMA_SQL = `
   ALTER TABLE players ADD COLUMN IF NOT EXISTS archetype TEXT;
   ALTER TABLE players ADD COLUMN IF NOT EXISTS visibly_mutated INTEGER DEFAULT 0;
   ALTER TABLE players ADD COLUMN IF NOT EXISTS covered_in_blood INTEGER DEFAULT 0;
+
+  -- Drug tolerance + addiction accumulation (phased-effect drug system)
+  ALTER TABLE player_drug_state ADD COLUMN IF NOT EXISTS tolerance REAL DEFAULT 0;
+  ALTER TABLE player_drug_state ADD COLUMN IF NOT EXISTS addiction REAL DEFAULT 0;
 
   CREATE TABLE IF NOT EXISTS combat_config (
     key TEXT PRIMARY KEY,

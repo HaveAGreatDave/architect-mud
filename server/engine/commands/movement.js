@@ -1,7 +1,7 @@
 import { query } from '../../models/db.js';
 import { formatBattleCry } from '../combat.js';
 import { getZone, getMinimapData, addPlayerToZone, removePlayerFromZone, getDoorForExit, setDoorCache, getAllLivePlayers, getLivePlayer, getZoneEnemies, tryBattleCry } from '../world.js';
-import { getZoneVisibility, getWindowsForZone, getEnvironmentState, getZoneTemperature } from '../environment.js';
+import { getZoneVisibility, getWindowsForZone, getEnvironmentState, getZoneTemperature, getZoneSeverity } from '../environment.js';
 import { describeZone, resolveNamedDestination } from './describe.js';
 import { checkLockAuth, getLockTagPublic } from './doors.js';
 import { emit } from '../events.js';
@@ -9,6 +9,14 @@ import { closeShopSession } from '../vendor-session.js';
 import { computeCarriedWeight, carryCapacity, formatWeight } from './inventory.js';
 
 const RAW_DIRECTIONS = ['north', 'south', 'east', 'west', 'up', 'down', 'in', 'out', 'exit'];
+
+// Wind/weather attrition (docs/systems-weather-extreme.md, step 4): crossing into
+// an exposed outdoor zone during severe weather costs extra stamina. Attrition,
+// never a wall — the move always succeeds. getZoneSeverity is 0 for interiors /
+// off-map, so heading indoors is free. Cost = BASE + severity×SPAN stamina.
+const WIND_MOVE_SEVERITY = 0.4;   // min local severity before a move costs extra
+const WIND_MOVE_BASE     = 4;
+const WIND_MOVE_SPAN     = 16;    // → ~10 stamina at sev 0.4, ~20 at sev 1.0
 
 function buildArriveMsg(name, arrivalDir, sourceZoneName) {
   if (arrivalDir === 'out') return `${name} arrives from outside.`;
@@ -242,7 +250,6 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
   }
 
   const oldZoneId = player.current_zone;
-  const followers = getAllLivePlayers().filter(p => p.following === player.id && p.current_zone === oldZoneId);
 
   closeShopSession(player.id); // leaving the zone ends any active shop session (unpauses the vendor)
   removePlayerFromZone(player.id, player.current_zone);
@@ -322,6 +329,25 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
     narration = `→ You head ${direction} to ${destName}.`;
   }
 
+  // Wind/weather attrition — draining stamina for pushing into exposed severe
+  // weather. Skipped for system-driven relocations (shove, .gohome auto-walk),
+  // which pass bypassEncumbrance. Never blocks the move.
+  if (!opts.bypassEncumbrance) {
+    const sev = getZoneSeverity(targetId);
+    if (sev >= WIND_MOVE_SEVERITY) {
+      const cost = Math.round(WIND_MOVE_BASE + sev * WIND_MOVE_SPAN);
+      const before = player.stamina ?? (player.stamina_max ?? 100);
+      player.stamina = Math.max(0, before - cost);
+      if (player.stamina !== before) {
+        await query('UPDATE players SET stamina=$1 WHERE id=$2', [player.stamina, player.id]);
+        broadcast(null, { type:'resource_tick', messages:[], player_update:{ stamina: player.stamina } }, null, player.id);
+      }
+      narration += sev >= 0.75
+        ? ' Forcing your way through the brutal weather leaves you gasping.'
+        : ' You struggle against the weather the whole way; it wears at you.';
+    }
+  }
+
   // Battle cries: one per enemy type in the destination zone
   const arrivedEnemies = getZoneEnemies(targetId);
   if (arrivedEnemies.length) {
@@ -332,12 +358,20 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
     }
   }
 
+  await dragFollowers(player.id, oldZoneId, direction, broadcast);
+
+  return { type:'move', message:zoneDesc, narration, zone:targetId, direction, radiation_gain:radGain, minimap: getMinimapData(targetId), tempC: getZoneTemperature(targetId) };
+}
+
+// Move every live player following `leaderId` (a player or NPC id) out of
+// `fromZoneId` in `direction`, mirroring the leader's move. Used by cmdMove
+// (player leaders) and by ai-behaviour's moveEntity (NPC leaders).
+export async function dragFollowers(leaderId, fromZoneId, direction, broadcast) {
+  const followers = getAllLivePlayers().filter(p => p.following === leaderId && p.current_zone === fromZoneId);
   for (const follower of followers) {
     const followerResult = await cmdMove(direction, follower, broadcast);
     if (followerResult) broadcast(null, followerResult, null, follower.id);
   }
-
-  return { type:'move', message:zoneDesc, narration, zone:targetId, direction, radiation_gain:radGain, minimap: getMinimapData(targetId), tempC: getZoneTemperature(targetId) };
 }
 
 function cmdFollow(args, player, broadcast) {

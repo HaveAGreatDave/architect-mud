@@ -197,6 +197,13 @@ const PANELS = {
     save: saveScript,
     delete: id => API(`/scripts/${id}`, 'DELETE'),
   },
+  vine: {
+    title: 'VINE Suite',
+    description: 'Every VINE graph in the game — dialogue, behaviour, scripts, broadcasts, quests — reachable from one hub.',
+    fetch: fetchVineSuite,
+    noEdit: true,
+    render: renderVineSuite,
+  },
   maps: {
     title: 'Maps',
     description: 'Visual layout editor for connected zone maps.',

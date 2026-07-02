@@ -12,6 +12,9 @@ import { fireCommand } from '../plugins.js';
 import { deactivateForcefield } from '../apartments.js';
 import { fireSpecializedAction } from '../specializedActions.js';
 import { getSelectionState, advanceSelectionState, formatSelectionPage } from '../sift.js';
+import { getLivePlayer } from '../world.js';
+import { hasMisEvent, stopMisEvent } from '../mis.js';
+import { emit } from '../events.js';
 
 export { describeZone, describeVoidTeleport } from './describe.js';
 export { recomputeArmor, recomputeInsulation, EQUIP_SLOTS } from './inventory.js';
@@ -33,6 +36,48 @@ const builtins = new Map([
   ...Object.entries(misHandlers),
   ...Object.entries(appearanceOtherHandlers),
 ]);
+
+// Unified STOP: one verb ends every ongoing/recurring action at once — combat,
+// MIS (sexual) actions, and following. It overrides the per-system `stop`
+// handlers that combat.js and mis.js each register (whichever merged last would
+// otherwise win and stop only its own system).
+async function cmdStopAll(args, raw, player, broadcast) {
+  const stopped = [];
+
+  if (player.combatTargetId || player.pvpTargetId || player.npcCombatTargetId) {
+    if (player.pvpTargetId) {
+      const opponent = getLivePlayer(player.pvpTargetId);
+      if (opponent) {
+        opponent.pvpTargetId = null;
+        broadcast(null, { type: 'output', message: `${player.handle} disengages. Combat ends.` }, null, opponent.id);
+      }
+    }
+    player.combatTargetId = null;
+    player.pvpTargetId = null;
+    player.npcCombatTargetId = null;
+    stopped.push('fighting');
+  }
+
+  if (hasMisEvent(player.id)) {
+    const meta = stopMisEvent(player.id);
+    stopped.push(meta?.action ? `${meta.action}ing${meta.target ? ` ${meta.target}` : ''}` : 'what you were doing');
+  }
+
+  if (player.following) {
+    player.following = null;
+    stopped.push('following');
+  }
+
+  // Let plugins halt their own repeating actions (e.g. scavenging). Synchronous
+  // subscribers push a label onto `stopped` before this returns.
+  emit('player.stop', { player, broadcast, stopped });
+
+  if (!stopped.length) return { type: 'output', message: "You aren't doing anything to stop." };
+  return { type: 'output', message: `You stop ${stopped.join(', ')}.` };
+}
+
+builtins.set('stop', cmdStopAll);
+builtins.set('disengage', cmdStopAll);
 
 export async function handleCommand(input, player, broadcast) {
   const raw = input.trim();

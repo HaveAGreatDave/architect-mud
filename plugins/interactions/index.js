@@ -580,16 +580,31 @@ async function cmdGreet(args, raw, player, broadcast) {
 
 async function cmdFollow(args, raw, player, broadcast) {
 	const target = args.join(" ").trim();
-	if (!target) return { type: "error", message: "Follow whom?" };
-	const found = await findTargetInZone(target, player);
+	if (!target) {
+		if (!player.following)
+			return { type: "output", message: "You are not following anyone." };
+		setLivePlayer(player.id, { ...player, following: null });
+		return { type: "output", message: "You stop following." };
+	}
+	const lower = target.toLowerCase();
+	const foundPlayer = getZonePlayers(player.current_zone)
+		.filter((p) => p.id !== player.id)
+		.find((p) => p.handle.toLowerCase().includes(lower));
+	const found =
+		foundPlayer ||
+		getZoneNpcs(player.current_zone).find((n) =>
+			n.name.toLowerCase().includes(lower),
+		);
 	if (!found)
 		return {
 			type: "error",
 			message: `You don't see anyone called "${target}" here.`,
 		};
+	const name = foundPlayer ? found.handle : found.name;
+	setLivePlayer(player.id, { ...player, following: found.id });
 	return doEmote(
-		`You fall into step behind ${found}.`,
-		`${player.handle} falls into step behind ${found}.`,
+		`You fall into step behind ${name}.`,
+		`${player.handle} falls into step behind ${name}.`,
 		player,
 		broadcast,
 	);

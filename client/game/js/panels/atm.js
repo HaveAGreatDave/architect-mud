@@ -1,5 +1,6 @@
-import { sendCmdSilent, sendCmd } from '../net.js';
+import { sendCmdSilent } from '../net.js';
 import { state } from '../state.js';
+import { openCircuitHack } from './circuithack.js';
 
 let atmData = null;
 
@@ -30,9 +31,12 @@ function formatC(n) {
 function renderAtmPanel(data) {
   const { network, cashStock, cashMax, powered, isBroken, player, name } = data;
 
-  // Network branding
+  // Network branding — the accent colour themes the whole terminal (border, glow,
+  // bars, buttons all derive from --atm-accent via color-mix in the CSS).
+  const accent = network.color || '#00ff88';
+  document.getElementById('atm-box').style.setProperty('--atm-accent', accent);
   document.getElementById('atm-network-name').textContent = network.name;
-  document.getElementById('atm-network-name').style.color = network.color || '#00ff88';
+  document.getElementById('atm-network-name').style.color = accent;
 
   // Power / broken state
   const powerEl = document.getElementById('atm-power-status');
@@ -70,7 +74,9 @@ function renderAtmPanel(data) {
   const disabled = isBroken || !powered;
   document.getElementById('atm-deposit-btn').disabled = disabled;
   document.getElementById('atm-withdraw-btn').disabled = disabled;
-  document.getElementById('atm-jack-btn').disabled = true;
+  // JACK launches the Circuit Breach minigame (testbed). Only worth it when
+  // there's cash to siphon and the machine is live.
+  document.getElementById('atm-jack-btn').disabled = disabled || cashStock <= 0;
 }
 
 export function initAtmPanel() {
@@ -100,9 +106,17 @@ export function initAtmPanel() {
     if (e.key === 'Enter') document.getElementById('atm-deposit-btn').click();
   });
 
+  // JACK → Circuit Breach minigame overlay. Cosmetic for now: the win/lose
+  // result is not yet wired to the server-side `jack` outcome (testbed harness).
   document.getElementById('atm-jack-btn').addEventListener('click', () => {
-    closeAtmPanel();
-    sendCmd('jack atm');
+    if (!atmData) return;
+    openCircuitHack({
+      skill: 4,
+      difficulty: 4,
+      atmName: atmData.name,
+      cashStock: atmData.cashStock,
+      onResult: () => { /* not wired to server jack yet */ },
+    });
   });
 
   // MAX button fills the withdraw amount with the maximum available

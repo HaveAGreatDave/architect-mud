@@ -524,6 +524,7 @@ function _autoLayoutAI(dbGraph) {
 }
 
 window.VineAISchema = {
+  vineIdentity: { kind: 'behaviour', tagline: 'Behaviour tree', color: '#886622', icon: '🧠' },
   nodeTypes: _aiNodeDefs,
 
   // DB format → VINE internal graph

@@ -29,10 +29,12 @@ export { SETTINGS_KEY };
 const LIGHT_THEMES = [
   ['light','Parchment'],['inkwell','Inkwell'],['studio','Studio'],
   ['arctic','Arctic'],['solar','Solar'],['mint','Mint'],['lavender','Lavender'],['fog','Fog'],
+  ['latte','Latte'],['rose','Rosewater'],['papertape','Papertape'],['bubblegum','Bubblegum'],
 ];
 const DARK_THEMES = [
   ['dark','Void'],['eclipse','Eclipse'],['iron','Iron'],
   ['contrast','Terminal'],['phosphor','Phosphor Green'],['synthwave','Synthwave'],['bloodmoon','Blood Moon'],['slate','Slate'],
+  ['aurora','Aurora'],['neon','Neon'],['cathode','Cathode'],['grove','Grove'],
 ];
 const BUILTIN_THEMES = [...LIGHT_THEMES, ...DARK_THEMES];
 
@@ -151,15 +153,55 @@ function _getThemeColors(themeId, settings) {
   return custom ? { ...custom.colors } : _getBuiltinThemeColors(themeId);
 }
 
-function _populateThemeDropdown(settings) {
-  const sel = document.getElementById('opt-theme');
-  if (!sel) return;
+// --- Theme swatch picker ---
+// Colours shown as dots on each chip. Read live from the rendered CSS so new
+// (and custom) themes get an accurate swatch with zero extra bookkeeping.
+const _CHIP_DOT_VARS = ['--accent', '--green', '--red', '--orange', '--yellow', '--purple'];
+const _CHIP_FRAME_VARS = ['--bg', '--border'];
+
+// Probe a theme's actual colours off the DOM. Pass { id } for a built-in
+// (renders a hidden [data-theme] node) or { colors } for a custom theme
+// (applies its overrides on a dark base, then reads back).
+function _probeThemeVars(theme) {
+  const el = document.createElement('div');
+  el.style.cssText = 'position:absolute;visibility:hidden;pointer-events:none;left:-9999px';
+  if (theme.colors) {
+    el.setAttribute('data-theme', 'dark');
+    Object.entries(theme.colors).forEach(([k, v]) => el.style.setProperty(k, v));
+  } else {
+    el.setAttribute('data-theme', theme.id);
+  }
+  document.body.appendChild(el);
+  const cs = getComputedStyle(el);
+  const out = {};
+  [..._CHIP_FRAME_VARS, ..._CHIP_DOT_VARS].forEach(v => { out[v] = cs.getPropertyValue(v).trim(); });
+  document.body.removeChild(el);
+  return out;
+}
+
+function _themeChipHTML(value, label, colors, active) {
+  const dots = _CHIP_DOT_VARS.map(v => `<span class="theme-dot" style="background:${colors[v] || 'transparent'}"></span>`).join('');
+  return `<button type="button" class="theme-chip${active ? ' selected' : ''}" data-value="${value}" role="option" aria-selected="${active}" title="${label}">` +
+    `<span class="theme-chip-prev" style="background:${colors['--bg']};border-color:${colors['--border']}">${dots}</span>` +
+    `<span class="theme-chip-name">${label}</span></button>`;
+}
+
+function _populateThemeGrid(settings) {
+  const grid = document.getElementById('opt-theme-grid');
+  if (!grid) return;
+  const active = settings.theme || 'dark';
+  const section = (title, items) =>
+    `<div class="theme-grid-head">${title}</div><div class="theme-grid">` +
+    items.map(([v, l]) => _themeChipHTML(v, l, _probeThemeVars({ id: v }), v === active)).join('') +
+    `</div>`;
+  let html = section('Dark', DARK_THEMES) + section('Light', LIGHT_THEMES);
   const custom = settings.customThemes || [];
-  const lightOpts = LIGHT_THEMES.map(([v, l]) => `<option value="${v}">${l}</option>`).join('');
-  const darkOpts = DARK_THEMES.map(([v, l]) => `<option value="${v}">${l}</option>`).join('');
-  sel.innerHTML = `<optgroup label="Light Themes">${lightOpts}</optgroup><optgroup label="Dark Themes">${darkOpts}</optgroup>` +
-    (custom.length ? `<optgroup label="Custom">${custom.map(t => `<option value="${t.id}">${t.name}</option>`).join('')}</optgroup>` : '');
-  sel.value = settings.theme || 'dark';
+  if (custom.length) {
+    html += `<div class="theme-grid-head">Custom</div><div class="theme-grid">` +
+      custom.map(t => _themeChipHTML(t.id, t.name, _probeThemeVars({ colors: t.colors }), t.id === active)).join('') +
+      `</div>`;
+  }
+  grid.innerHTML = html;
 }
 
 export function applySettings(settings) {
@@ -212,7 +254,7 @@ export function applySettings(settings) {
     feltColorInput.value = settings.pokerFeltColor;
   }
 
-  _populateThemeDropdown(settings);
+  _populateThemeGrid(settings);
 
   const _cs = document.getElementById('opt-contrast');
   const _cl = document.getElementById('contrast-value-label');
@@ -264,10 +306,12 @@ export function applySettings(settings) {
 }
 
 export function initSettingsUI(settings, saveAndApply, { sendCmd, notify } = {}) {
-  const themeSelect = document.getElementById('opt-theme');
-  if (themeSelect) {
-    themeSelect.addEventListener('change', () => {
-      settings.theme = themeSelect.value;
+  const themeGrid = document.getElementById('opt-theme-grid');
+  if (themeGrid) {
+    themeGrid.addEventListener('click', (e) => {
+      const chip = e.target.closest('.theme-chip');
+      if (!chip || !themeGrid.contains(chip)) return;
+      settings.theme = chip.dataset.value;
       settings.customColors = {};
       saveAndApply();
     });
@@ -471,18 +515,18 @@ function _teRenderRows() {
   container.innerHTML = THEME_COLOR_VARS.map(({ v, label, desc }) => {
     const val = _teGetCurrentColor(v);
     const safe = v.replace(/[^a-z-]/g, '');
-    return `<div style="display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)">
+    return `<div style="display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;padding:4px 0;border-bottom:1px solid var(--border)">
       <div>
         <div style="font-size:12px;color:var(--text)">${label}</div>
         <div style="font-size:10px;color:var(--text-dim)">${desc}</div>
       </div>
       <div>
         <input type="text" data-var="${v}" data-safe="${safe}" class="te-hex" value="${val}" maxlength="7"
-          style="width:76px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:4px 6px;border-radius:2px;letter-spacing:1px">
+          style="width:70px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:3px 6px;border-radius:2px;letter-spacing:1px">
       </div>
-      <div style="position:relative;width:28px;height:28px">
+      <div style="position:relative;width:24px;height:24px">
         <div data-safe="${safe}" class="te-swatch"
-          style="width:28px;height:28px;border-radius:3px;border:1px solid var(--border);cursor:pointer;background:${val}"></div>
+          style="width:24px;height:24px;border-radius:3px;border:1px solid var(--border);cursor:pointer;background:${val}"></div>
         <input type="color" data-var="${v}" data-safe="${safe}" class="te-picker" value="${val.startsWith('#') ? val : '#888888'}"
           style="position:absolute;opacity:0;width:0;height:0;pointer-events:none">
       </div>
@@ -569,11 +613,36 @@ function _teResetToBase() {
   _teLoadBase(baseId);
 }
 
+// Make a floating window draggable by a handle, clamped to the viewport.
+function _makeDraggable(win, handle) {
+  if (!win || !handle || handle._dragBound) return;
+  handle._dragBound = true;
+  handle.addEventListener('mousedown', (e) => {
+    if (e.target.closest('button,select,input')) return;
+    e.preventDefault();
+    const rect = win.getBoundingClientRect();
+    const offX = e.clientX - rect.left, offY = e.clientY - rect.top;
+    win.style.right = 'auto';
+    const move = (ev) => {
+      const x = Math.max(0, Math.min(ev.clientX - offX, window.innerWidth - 40));
+      const y = Math.max(0, Math.min(ev.clientY - offY, window.innerHeight - 40));
+      win.style.left = x + 'px';
+      win.style.top = y + 'px';
+    };
+    const up = () => {
+      document.removeEventListener('mousemove', move);
+      document.removeEventListener('mouseup', up);
+    };
+    document.addEventListener('mousemove', move);
+    document.addEventListener('mouseup', up);
+  });
+}
+
 export function initThemeEditorOverlay() {
   const overlay = document.getElementById('theme-editor-overlay');
   if (!overlay) return;
 
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeThemeEditor(); });
+  _makeDraggable(document.getElementById('te-window'), document.getElementById('te-drag-header'));
   document.getElementById('te-close-btn')?.addEventListener('click', closeThemeEditor);
   document.getElementById('te-close-btn2')?.addEventListener('click', closeThemeEditor);
   document.getElementById('te-base-select')?.addEventListener('change', (e) => _teLoadBase(e.target.value));

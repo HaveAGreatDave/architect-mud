@@ -1235,12 +1235,14 @@
 				<h2>Settings</h2>
 
 				<div class="settings-group">
-					<label class="group-label" for="opt-theme">Theme</label>
-					<div style="display: flex; gap: 8px; align-items: center">
-						<select
-							id="opt-theme"
-							class="settings-select"
-							style="flex: 1"></select>
+					<label class="group-label">Theme</label>
+					<div style="display: flex; gap: 8px; align-items: flex-start">
+						<div
+							id="opt-theme-grid"
+							class="theme-grid-wrap"
+							role="listbox"
+							aria-label="Theme"
+							style="flex: 1"></div>
 						<button
 							id="theme-edit-btn"
 							style="
@@ -1501,30 +1503,37 @@
 				display: none;
 				position: fixed;
 				inset: 0;
-				background: rgba(0, 0, 0, 0.75);
 				z-index: 700;
-				align-items: center;
-				justify-content: center;
+				pointer-events: none;
 			">
 			<div
+				id="te-window"
 				style="
+					position: absolute;
+					top: 64px;
+					right: 24px;
+					pointer-events: auto;
 					background: var(--bg2);
 					border: 1px solid var(--border);
 					border-radius: 4px;
-					width: 480px;
-					max-height: 88vh;
+					width: 340px;
+					max-height: 82vh;
 					display: flex;
 					flex-direction: column;
 					font-family: var(--font);
+					box-shadow: 0 10px 34px rgba(0, 0, 0, 0.55);
 				">
 				<div
+					id="te-drag-header"
 					style="
-						padding: 14px 18px;
+						padding: 9px 12px;
 						border-bottom: 1px solid var(--border);
 						display: flex;
 						justify-content: space-between;
 						align-items: center;
 						flex-shrink: 0;
+						cursor: move;
+						user-select: none;
 					">
 					<div
 						style="
@@ -1552,7 +1561,7 @@
 				</div>
 				<div
 					style="
-						padding: 8px 18px;
+						padding: 6px 12px;
 						border-bottom: 1px solid var(--border);
 						display: flex;
 						gap: 8px;
@@ -1583,15 +1592,15 @@
 				<div
 					id="theme-editor-rows"
 					style="
-						padding: 14px 18px;
+						padding: 8px 12px;
 						display: flex;
 						flex-direction: column;
-						gap: 6px;
+						gap: 4px;
 						overflow-y: auto;
 					"></div>
 				<div
 					style="
-						padding: 10px 18px;
+						padding: 8px 12px;
 						border-top: 1px solid var(--border);
 						display: flex;
 						gap: 8px;
@@ -1645,7 +1654,7 @@
 				</div>
 				<div
 					style="
-						padding: 10px 18px;
+						padding: 8px 12px;
 						border-top: 1px solid var(--border);
 						display: flex;
 						gap: 8px;

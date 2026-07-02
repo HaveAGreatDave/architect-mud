@@ -191,9 +191,33 @@ const K_TEMP = 4;                                   // °C pulled down at a cell
 const STORM_TYPES  = new Set(['thunderstorm', 'storm']);
 const PRECIP_TYPES = new Set(['rain', 'sleet', 'snow', 'blizzard', 'thunderstorm', 'storm']);
 
+// ── Extreme-weather severity (0..1) ─────────────────────────────────────────
+// One derived scalar the whole extreme-weather layer reads (see
+// docs/systems-weather-extreme.md). baseSeverity is a day-level property rolled
+// from forecast[0]; sampleWeatherAt intensifies it locally under storm/precip
+// cells. Cold and heat use raw forecast tempC (the engine folds wind chill into
+// the thermal channel separately); wind and type contribute via max(), so
+// "very cold OR gale OR blizzard" all read severe without double-counting.
+const COLD_LETHAL_C = -12, COLD_RANGE = 25;   // -12°C → 0 … -37°C → 1
+const HEAT_LETHAL_C = 38,  HEAT_RANGE = 12;   //  38°C → 0 …  50°C → 1
+const GALE_KPH      = 45,  WIND_RANGE = 45;   //  45kph → 0 …  90kph → 1
+const PRECIP_SEVERE = 0.7;                    // local precipRate above this adds severity
+const TYPE_FLOOR    = { blizzard: 0.5, storm: 0.5, thunderstorm: 0.35, ash: 0.4, sleet: 0.2 };
+
+function clamp01(n) { return Math.max(0, Math.min(1, n)); }
+
+function severityForForecast0(weatherType, tempC, windKph) {
+  const cold = (COLD_LETHAL_C - tempC) / COLD_RANGE;
+  const heat = (tempC - HEAT_LETHAL_C) / HEAT_RANGE;
+  const wind = ((windKph ?? 0) - GALE_KPH) / WIND_RANGE;
+  const type = TYPE_FLOOR[weatherType] ?? 0;
+  return clamp01(Math.max(cold, heat, wind, type));
+}
+
 const field = {
   systems: [],        // moving cells (below)
   baseCloud: 0,       // ambient cloudiness floor from weatherType
+  baseSeverity: 0,    // day-level extreme-weather severity floor from forecast[0]
   bounds: null,       // { minX, maxX, minY, maxY } of map_world, cached
 };
 
@@ -272,9 +296,10 @@ function seedField(date, forecast0, bounds) {
   const precipChance = forecast0?.precipChance ?? 0.05;
   const windKph      = forecast0?.windKph ?? null;
   const { systems, baseCloud } = systemsForForecast(weatherType, precipChance, tempC, windKph, bounds, rand);
-  field.systems   = systems;
-  field.baseCloud = baseCloud;
-  field.bounds    = bounds;
+  field.systems      = systems;
+  field.baseCloud    = baseCloud;
+  field.baseSeverity = severityForForecast0(weatherType, tempC, windKph);
+  field.bounds       = bounds;
 }
 
 // Drift every cell one step; torus-wrap (with padding) so cells re-enter the
@@ -297,7 +322,7 @@ function advectField() {
 function sampleWeatherAt(gx, gy) {
   let cloudCover = field.baseCloud, precipRate = 0, stormIntensity = 0, tempOffset = 0;
   let precipType = 'none';
-  if (gx == null || gy == null) return { cloudCover, precipRate, precipType, tempOffset, stormIntensity };
+  if (gx == null || gy == null) return { cloudCover, precipRate, precipType, tempOffset, stormIntensity, severity: field.baseSeverity };
   for (const s of field.systems) {
     const dist = Math.hypot(gx - s.x, gy - s.y);
     if (dist >= s.radius) continue;
@@ -310,18 +335,24 @@ function sampleWeatherAt(gx, gy) {
       if (s.type === 'storm') stormIntensity = Math.max(stormIntensity, f);
     }
   }
+  // Local severity: the day-level floor, intensified where a storm cell sits
+  // overhead or precip runs torrential on this tile.
+  const precipSev = precipRate >= PRECIP_SEVERE ? (precipRate - PRECIP_SEVERE) / (1 - PRECIP_SEVERE) : 0;
+  const severity = Math.min(1, Math.max(field.baseSeverity, stormIntensity, precipSev));
   return {
     cloudCover: Math.min(1, cloudCover),
     precipRate: Math.min(1, precipRate),
     precipType,
     tempOffset,
     stormIntensity: Math.min(1, stormIntensity),
+    severity,
   };
 }
 
 function getWeatherFieldSnapshot() {
   return {
     bounds: field.bounds,
+    baseSeverity: field.baseSeverity,
     systems: field.systems.map(s => ({
       x: s.x, y: s.y, radius: s.radius, vx: s.vx, vy: s.vy,
       type: s.type, intensity: s.intensity, precipType: s.precipType,

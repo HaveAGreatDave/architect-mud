@@ -14,13 +14,33 @@ import { adjustCredits } from './economy.js';
 import { randomUUID } from 'crypto';
 import { isStackable } from './tags.js';
 import { isConsumerFurniture } from './furniture-shop.js';
+import { getFlag, setFlag } from './flags.js';
+
+// Trust-gated vendors (e.g. the covert shadow dealer). When an NPC's flags carry
+// a `trust_flag`, its shelf is not the random `vendor_stock` shelf but the full
+// `vendor_inventory` catalogue, per-player-filtered by each entry's `min_trust`
+// against that player's trust flag. Buying raises the flag (`trust_per_buy`),
+// unlocking higher tiers. Reaching `trust_max` sets an optional payoff flag.
+async function readTrust(npc, playerId) {
+  const flagKey = npc.flags?.trust_flag;
+  if (!flagKey) return null;
+  return Number(await getFlag('player', flagKey, { id: playerId })) || 0;
+}
 
 // ─── Stock display ───────────────────────────────────────────────────────────
 
 export async function getVendorStock(npc, playerId) {
   const catalogue = npc.vendor_inventory || [];
   const activeStock = npc.vendor_stock || [];
-  if (!catalogue.length || !activeStock.length) return [];
+  if (!catalogue.length) return [];
+
+  const trust = await readTrust(npc, playerId);
+  // Trust vendor → shelf is the whole catalogue, gated per-entry by min_trust.
+  // Normal vendor → shelf is the auto-managed random subset.
+  const shelf = trust !== null
+    ? catalogue.filter(e => (e.min_trust || 0) <= trust)
+    : activeStock;
+  if (!shelf.length) return [];
 
   const discount = npc.faction ? await getFactionDiscount(playerId, npc.faction) : 0;
 
@@ -29,7 +49,7 @@ export async function getVendorStock(npc, playerId) {
   for (const e of catalogue) priceMap[e.item_id] = e.price;
 
   const stock = [];
-  for (const entry of activeStock) {
+  for (const entry of shelf) {
     const { rows } = await query('SELECT * FROM items WHERE id = $1', [entry.item_id]);
     if (!rows.length) continue;
     const item = rows[0];
@@ -60,11 +80,18 @@ export async function buyFromVendor(player, npc, itemId, quantity = 1) {
   const activeStock = npc.vendor_stock || [];
 
   if (!catalogue.length) return { success: false, message: 'This NPC has nothing to sell.' };
-  if (!activeStock.find(e => e.item_id === itemId)) {
+  const catalogueEntry = catalogue.find(e => e.item_id === itemId);
+
+  const trust = await readTrust(npc, player.id);
+  if (trust !== null) {
+    // Trust vendor: buyable if the catalogue entry is within the player's trust tier.
+    if (!catalogueEntry || (catalogueEntry.min_trust || 0) > trust) {
+      return { success: false, message: "They don't have that for you. Not yet." };
+    }
+  } else if (!activeStock.find(e => e.item_id === itemId)) {
     return { success: false, message: "That item isn't on the shelf right now. Come back later." };
   }
 
-  const catalogueEntry = catalogue.find(e => e.item_id === itemId);
   const { rows: itemRows } = await query('SELECT * FROM items WHERE id = $1', [itemId]);
   if (!itemRows.length) return { success: false, message: 'Item not found.' };
   const item = itemRows[0];
@@ -93,9 +120,25 @@ export async function buyFromVendor(player, npc, itemId, quantity = 1) {
   // Accumulate credits in vendor's safe
   await query('UPDATE npcs SET vendor_credits = vendor_credits + $1 WHERE id = $2', [price, npc.id]);
 
+  // Trust vendor: each purchase earns trust, unlocking higher tiers. Reaching
+  // the cap sets an optional payoff flag (a hook for future content / the "lead").
+  let trustLine = '';
+  if (trust !== null) {
+    const cap = npc.flags?.trust_max ?? 100;
+    const gain = (npc.flags?.trust_per_buy ?? 5) * quantity;
+    const newTrust = Math.min(cap, trust + gain);
+    if (newTrust !== trust) {
+      await setFlag('player', npc.flags.trust_flag, String(newTrust), player);
+      if (newTrust >= cap && npc.flags?.inner_circle_flag && !(await getFlag('player', npc.flags.inner_circle_flag, player))) {
+        await setFlag('player', npc.flags.inner_circle_flag, 'true', player);
+        trustLine = `\n<span class="msg-system">The figure holds your gaze a moment longer than usual. "You're solid. Anything I've got, you can have. And I might have work for someone like you."</span>`;
+      }
+    }
+  }
+
   return {
     success: true,
-    message: `You buy ${quantity}x ${item.name} for ${price} credits. (${player.credits} remaining)`,
+    message: `You buy ${quantity}x ${item.name} for ${price} credits. (${player.credits} remaining)${trustLine}`,
     credits_remaining: player.credits,
   };
 }

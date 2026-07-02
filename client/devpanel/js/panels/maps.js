@@ -135,6 +135,14 @@ function zoneColorStyle(colorOrZone, _unused) {
   return ';' + parts.join(';');
 }
 
+// Zone ids with a staged-but-unpublished delete, so map tiles can flag them
+// with an X until the deletion is published or reverted. Reads the shared
+// staging pendingChanges list (kept fresh by updateStagingBadge).
+function zonesPendingDelete() {
+  const changes = (typeof pendingChanges !== 'undefined' && Array.isArray(pendingChanges)) ? pendingChanges : [];
+  return new Set(changes.filter(c => c.entityType === 'zone' && c.changeType === 'delete').map(c => c.entityId));
+}
+
 // Suggest a zone marker color that matches the hue/saturation/lightness
 // character of a map's existing zone colors but is visually distinct from
 // every one of them — so newly placed zones blend into the map's palette
@@ -256,6 +264,7 @@ async function openBigMap(mode = 'zones') {
   bigMapPowerData = Array.isArray(powerMap) ? powerMap : [];
   bigMapGenerators = Array.isArray(generators) ? generators : [];
   bigMapOverlayZ = 0;
+  await updateStagingBadge();  // keep pending-delete X markers accurate
   document.getElementById('bigmap-title').textContent = mode === 'power' ? 'Power Grid' : (mapData.map?.name || 'City Map');
   renderBigMapOverlay();
   document.getElementById('bigmap-overlay').classList.add('active');
@@ -289,6 +298,7 @@ function renderBigMapOverlay() {
   const minX = Math.min(...xs) - 1, maxX = Math.max(...xs) + 1;
   const minY = Math.min(...ys) - 1, maxY = Math.max(...ys) + 1;
   const byCoord = new Map(onFloor.map(z => [`${z.grid_x},${z.grid_y}`, z]));
+  const pendingDelete = zonesPendingDelete();
 
   const W = maxX - minX + 1, H = maxY - minY + 1;
   const colTmpl = Array.from({ length: 2 * W - 1 }, (_, i) => i % 2 ? '14px' : '110px').join(' ');
@@ -333,6 +343,8 @@ function renderBigMapOverlay() {
           if (p) powerSub = `<div style="font-size:9px;opacity:0.8;margin-top:2px">${(p.loadKw??0).toFixed(1)}W load / ${(p.availableKw??0).toFixed(1)}W draw</div>`;
         }
       }
+
+      if (pendingDelete.has(z.id)) cls += ' bm-pending-delete';
 
       html += `<div class="${cls}" style="${gs}${colorStyle}" title="${z.id}" onclick="bigMapTileClick('${z.id}')"><div>${dive}${marker}${z.name}${exHtml}${powerSub}</div></div>`;
     }
@@ -501,6 +513,8 @@ async function loadMapOverview(mapId) {
     const z = zones.get(zoneId);
     if (z) Object.assign(z, overrides);
   }
+  // Refresh staged-change list so tiles pending deletion render their X marker.
+  await updateStagingBadge();
   renderMapOverview();
 }
 
@@ -574,6 +588,7 @@ function renderMapOverview() {
   ].filter(Boolean));
   const { errors, oneWay } = validateMapOverview(o.zones, knownZoneIds, interiorZoneIds);
   const broken = new Set(errors.map(e => e.zoneId));
+  const pendingDelete = zonesPendingDelete();
   const nameOf = id => o.zones.get(id)?.name || id;
 
   // Sub-tab buttons (always at top)
@@ -704,6 +719,7 @@ function renderMapOverview() {
       }
       let cls = 'bigmap-tile bm-edit';
       if (broken.has(z.id)) cls += ' bm-broken';
+      if (pendingDelete.has(z.id)) cls += ' bm-pending-delete';
       const colorStyle = zoneColorStyle(z);
       const child = o.children.find(c => c.parent_zone_id === z.id);
       const dive = child ? `<span class="map-dive-btn" title="Dive into ${child.name}" onclick="event.stopPropagation();diveInto('${z.id}')">⤵</span>` : '';

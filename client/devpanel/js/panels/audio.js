@@ -39,6 +39,8 @@ const AUDIO_IMPORT_FIELDS = {
 let _audioTab = 'instruments';
 let _audioData = { instruments: [], songs: [], sfx: [], ambient: [], events: [], samples: [] };
 let _playingSongId = null;
+// Which MOD-batch parent groups are expanded in the Instruments/Samples lists.
+let _audioGroupsOpen = new Set();
 
 function renderAudioPanel(data) {
   _audioData = {
@@ -126,45 +128,99 @@ function renderAudioTabBody() {
 
   if (_audioTab === 'samples') {
     if (!rows.length) { body.innerHTML = '<div style="padding:24px;color:var(--text-dim)">No samples uploaded yet.</div>'; return; }
-    const cells = rows.map(r => `<tr>
-      <td style="font-weight:600;color:${r.enabled !== 0 ? 'var(--text-bright)' : 'var(--text-dim)'}">${r.name}</td>
-      <td><span style="font-size:10px;background:var(--bg3);padding:2px 6px;border-radius:2px;color:var(--accent)">${r.category}</span></td>
-      <td style="font-size:11px;color:var(--text-dim)">${r.snes_rate || 16000}Hz · ${r.snes_bits || 4}-bit${r.echo_mix > 0 ? ' · echo' : ''}</td>
-      <td style="text-align:right;white-space:nowrap">
-        <button class="action-btn" style="font-size:10px;padding:3px 8px" onclick="previewAudioAsset('samples','${r.id}')">▶</button>
-        <button class="action-btn" style="font-size:10px;padding:3px 8px;margin-left:4px" onclick="editAudioAsset('samples','${r.id}')">✏</button>
-        <button class="action-btn" style="font-size:10px;padding:3px 8px;margin-left:4px" onclick="exportAudioAsset('samples','${r.id}')" title="Export as JSON">⬇</button>
-        <button class="action-btn danger" style="font-size:10px;padding:3px 8px;margin-left:4px" onclick="deleteAudioAsset('samples','${r.id}','${r.name.replace(/'/g, "\\'")}')">✕</button>
-      </td>
-    </tr>`).join('');
+    const cells = _renderGrouped(rows, _sampleAudioRow, 4, 'samples');
     body.innerHTML = `<table><thead><tr><th>Name</th><th>Category</th><th>SNES</th><th></th></tr></thead><tbody>${cells}</tbody></table>`;
     return;
   }
 
   if (!rows.length) { body.innerHTML = '<div style="padding:24px;color:var(--text-dim)">Nothing here yet.</div>'; return; }
 
-  const cells = rows.map(r => {
-    const extra = _audioTab === 'instruments'
-      ? (r.sample_id ? `sample: ${_audioData.samples.find(s => s.id === r.sample_id)?.name || r.sample_id}` : r.waveform)
-      : _audioTab === 'songs' ? `${r.tempo || 120} BPM`
-      : `priority ${r.priority ?? 5}`;
-    return `<tr>
-      <td style="font-weight:600;color:${r.enabled !== 0 ? 'var(--text-bright)' : 'var(--text-dim)'}">${r.name}</td>
-      <td><span style="font-size:10px;background:var(--bg3);padding:2px 6px;border-radius:2px;color:var(--accent)">${r.category}</span></td>
-      <td style="font-size:11px;color:var(--text-dim)">${extra}</td>
-      <td style="text-align:right;white-space:nowrap">
-        <button class="action-btn${_audioTab === 'songs' && r.id === _playingSongId ? ' danger' : ''}" style="font-size:10px;padding:3px 8px" onclick="previewAudioAsset('${_audioTab}','${r.id}')">${_audioTab === 'songs' && r.id === _playingSongId ? '⏹' : '▶'}</button>
-        <button class="action-btn" style="font-size:10px;padding:3px 8px;margin-left:4px" onclick="editAudioAsset('${_audioTab}','${r.id}')">✏</button>
-        <button class="action-btn" style="font-size:10px;padding:3px 8px;margin-left:4px" onclick="exportAudioAsset('${_audioTab}','${r.id}')" title="Export as JSON">⬇</button>
-        <button class="action-btn danger" style="font-size:10px;padding:3px 8px;margin-left:4px" onclick="deleteAudioAsset('${_audioTab}','${r.id}','${r.name.replace(/'/g, "\\'")}')">✕</button>
-      </td>
-    </tr>`;
-  }).join('');
+  // Instruments cluster MOD-import batches under their song; other tabs stay flat.
+  const cells = _audioTab === 'instruments'
+    ? _renderGrouped(rows, _genericAudioRow, 4, 'instruments')
+    : rows.map(r => _genericAudioRow(r, false)).join('');
 
   body.innerHTML = `<table><thead><tr><th>Name</th><th>Category</th><th></th><th></th></tr></thead><tbody>${cells}</tbody></table>`;
 }
 
 function findAudioAsset(tab, id) { return _audioData[tab].find(r => r.id === id); }
+
+// ── MOD-batch grouping (Instruments / Samples lists) ─────────────────────────
+// A .MOD import creates one instrument + sample per used module sample, all named
+// `<song>_iNN` / `<song>_sNN`, plus a song named `<song>`. Rather than let 20 of
+// them flood the flat list, cluster each batch under a collapsible parent row
+// named after the owning song. Rows that don't match the pattern — or whose parent
+// song no longer exists — render inline exactly as before. Display-only: grouping
+// is derived from the naming convention, nothing is stored.
+function _groupParent(name, songNames) {
+  const m = /^(.+)_[is]\d+$/.exec(name || '');
+  return (m && songNames.has(m[1])) ? m[1] : null;
+}
+function toggleAudioGroup(key) {
+  if (_audioGroupsOpen.has(key)) _audioGroupsOpen.delete(key); else _audioGroupsOpen.add(key);
+  renderAudioTabBody();
+}
+// Emit tbody HTML with batches (≥2 members) folded under a parent header at the
+// batch's first-appearance position; singletons and non-matching rows stay inline.
+function _renderGrouped(rows, renderRow, colspan, noun) {
+  const songNames = new Set(_audioData.songs.map(s => s.name));
+  const groups = new Map();
+  for (const r of rows) { const k = _groupParent(r.name, songNames); if (k) (groups.get(k) || groups.set(k, []).get(k)).push(r); }
+  const emitted = new Set();
+  let html = '';
+  for (const r of rows) {
+    const key = _groupParent(r.name, songNames);
+    const members = key ? groups.get(key) : null;
+    if (key && members.length >= 2) {
+      if (emitted.has(key)) continue;
+      emitted.add(key);
+      const open = _audioGroupsOpen.has(key);
+      const safe = key.replace(/'/g, "\\'");
+      html += `<tr class="audio-group-hdr" onclick="toggleAudioGroup('${safe}')" style="cursor:pointer;background:var(--bg2)">
+        <td colspan="${colspan}" style="font-weight:600;color:var(--text-bright)">
+          <span style="display:inline-block;width:14px;color:var(--accent)">${open ? '▾' : '▸'}</span>🎵 ${key}
+          <span style="color:var(--text-dim);font-weight:400;font-size:11px">(${members.length} ${noun})</span>
+        </td></tr>`;
+      if (open) html += members.map(m => renderRow(m, true)).join('');
+    } else {
+      html += renderRow(r, false);
+    }
+  }
+  return html;
+}
+
+// Row renderers, shared by the flat and grouped paths. `indent` nudges the name
+// cell right when the row sits under a parent header.
+function _genericAudioRow(r, indent) {
+  const extra = _audioTab === 'instruments'
+    ? (r.sample_id ? `sample: ${_audioData.samples.find(s => s.id === r.sample_id)?.name || r.sample_id}` : r.waveform)
+    : _audioTab === 'songs' ? `${r.tempo || 120} BPM`
+    : `priority ${r.priority ?? 5}`;
+  return `<tr>
+    <td style="font-weight:600;color:${r.enabled !== 0 ? 'var(--text-bright)' : 'var(--text-dim)'}${indent ? ';padding-left:26px' : ''}">${r.name}</td>
+    <td><span style="font-size:10px;background:var(--bg3);padding:2px 6px;border-radius:2px;color:var(--accent)">${r.category}</span></td>
+    <td style="font-size:11px;color:var(--text-dim)">${extra}</td>
+    <td style="text-align:right;white-space:nowrap">
+      <button class="action-btn${_audioTab === 'songs' && r.id === _playingSongId ? ' danger' : ''}" style="font-size:10px;padding:3px 8px" onclick="previewAudioAsset('${_audioTab}','${r.id}')">${_audioTab === 'songs' && r.id === _playingSongId ? '⏹' : '▶'}</button>
+      <button class="action-btn" style="font-size:10px;padding:3px 8px;margin-left:4px" onclick="editAudioAsset('${_audioTab}','${r.id}')">✏</button>
+      <button class="action-btn" style="font-size:10px;padding:3px 8px;margin-left:4px" onclick="exportAudioAsset('${_audioTab}','${r.id}')" title="Export as JSON">⬇</button>
+      <button class="action-btn danger" style="font-size:10px;padding:3px 8px;margin-left:4px" onclick="deleteAudioAsset('${_audioTab}','${r.id}','${r.name.replace(/'/g, "\\'")}')">✕</button>
+    </td>
+  </tr>`;
+}
+function _sampleAudioRow(r, indent) {
+  return `<tr>
+    <td style="font-weight:600;color:${r.enabled !== 0 ? 'var(--text-bright)' : 'var(--text-dim)'}${indent ? ';padding-left:26px' : ''}">${r.name}</td>
+    <td><span style="font-size:10px;background:var(--bg3);padding:2px 6px;border-radius:2px;color:var(--accent)">${r.category}</span></td>
+    <td style="font-size:11px;color:var(--text-dim)">${r.snes_rate || 16000}Hz · ${r.snes_bits || 4}-bit${r.echo_mix > 0 ? ' · echo' : ''}</td>
+    <td style="text-align:right;white-space:nowrap">
+      <button class="action-btn" style="font-size:10px;padding:3px 8px" onclick="previewAudioAsset('samples','${r.id}')">▶</button>
+      <button class="action-btn" style="font-size:10px;padding:3px 8px;margin-left:4px" onclick="editAudioAsset('samples','${r.id}')">✏</button>
+      <button class="action-btn" style="font-size:10px;padding:3px 8px;margin-left:4px" onclick="exportAudioAsset('samples','${r.id}')" title="Export as JSON">⬇</button>
+      <button class="action-btn danger" style="font-size:10px;padding:3px 8px;margin-left:4px" onclick="deleteAudioAsset('samples','${r.id}','${r.name.replace(/'/g, "\\'")}')">✕</button>
+    </td>
+  </tr>`;
+}
 
 // Build the id→instrument map the song player expects, attaching each
 // sample-backed instrument's `_sampleDef` (from the loaded samples metadata) so

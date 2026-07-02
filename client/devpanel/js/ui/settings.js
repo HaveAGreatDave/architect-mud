@@ -33,23 +33,61 @@ function repaintPowerTileColors() {
 const LIGHT_THEMES = [
   ['light','Parchment'],['inkwell','Inkwell'],['studio','Studio'],
   ['arctic','Arctic'],['solar','Solar'],['mint','Mint'],['lavender','Lavender'],['fog','Fog'],
+  ['latte','Latte'],['rose','Rosewater'],['papertape','Papertape'],['bubblegum','Bubblegum'],
 ];
 const DARK_THEMES = [
   ['dark','Void'],['eclipse','Eclipse'],['iron','Iron'],
   ['contrast','Terminal'],['phosphor','Phosphor Green'],['synthwave','Synthwave'],['bloodmoon','Blood Moon'],['slate','Slate'],
+  ['aurora','Aurora'],['neon','Neon'],['cathode','Cathode'],['grove','Grove'],
 ];
 const BUILTIN_THEME_VALUES = [...LIGHT_THEMES, ...DARK_THEMES].map(([v]) => v);
 
-function populateThemeDropdown() {
-  const sel = document.getElementById('dev-opt-theme');
-  if (!sel) return;
+// --- Theme swatch picker ---
+// Dots read live off the rendered CSS, so new/custom themes self-illustrate.
+// Uses the vars the devpanel themes actually declare (--accent2/--accent3/--cyan).
+const _CHIP_DOT_VARS = ['--accent', '--accent2', '--accent3', '--red', '--yellow', '--cyan'];
+const _CHIP_FRAME_VARS = ['--bg', '--border'];
+
+function _probeThemeVars(theme) {
+  const el = document.createElement('div');
+  el.style.cssText = 'position:absolute;visibility:hidden;pointer-events:none;left:-9999px';
+  if (theme.colors) {
+    el.setAttribute('data-theme', 'dark');
+    Object.entries(theme.colors).forEach(([k, v]) => el.style.setProperty(k, v));
+  } else {
+    el.setAttribute('data-theme', theme.id);
+  }
+  document.body.appendChild(el);
+  const cs = getComputedStyle(el);
+  const out = {};
+  [..._CHIP_FRAME_VARS, ..._CHIP_DOT_VARS].forEach(v => { out[v] = cs.getPropertyValue(v).trim(); });
+  document.body.removeChild(el);
+  return out;
+}
+
+function _themeChipHTML(value, label, colors, active) {
+  const dots = _CHIP_DOT_VARS.map(v => `<span class="theme-dot" style="background:${colors[v] || 'transparent'}"></span>`).join('');
+  return `<button type="button" class="theme-chip${active ? ' selected' : ''}" data-value="${value}" role="option" aria-selected="${active}" title="${label}">` +
+    `<span class="theme-chip-prev" style="background:${colors['--bg']};border-color:${colors['--border']}">${dots}</span>` +
+    `<span class="theme-chip-name">${label}</span></button>`;
+}
+
+function populateThemeGrid() {
+  const grid = document.getElementById('dev-opt-theme-grid');
+  if (!grid) return;
+  const active = devSettings.theme || 'dark';
+  const section = (title, items) =>
+    `<div class="theme-grid-head">${title}</div><div class="theme-grid">` +
+    items.map(([v, l]) => _themeChipHTML(v, l, _probeThemeVars({ id: v }), v === active)).join('') +
+    `</div>`;
+  let html = section('Dark', DARK_THEMES) + section('Light', LIGHT_THEMES);
   const custom = (devSettings.customThemes || []);
-  const lightOpts = LIGHT_THEMES.map(([v,l]) => `<option value="${v}">${l}</option>`).join('');
-  const darkOpts = DARK_THEMES.map(([v,l]) => `<option value="${v}">${l}</option>`).join('');
-  sel.innerHTML = `<optgroup label="Light Themes">${lightOpts}</optgroup><optgroup label="Dark Themes">${darkOpts}</optgroup>` +
-    (custom.length ? `<optgroup label="Custom Themes">${custom.map(t =>
-      `<option value="${t.id}">${t.name}</option>`).join('')}</optgroup>` : '');
-  sel.value = devSettings.theme || 'dark';
+  if (custom.length) {
+    html += `<div class="theme-grid-head">Custom</div><div class="theme-grid">` +
+      custom.map(t => _themeChipHTML(t.id, t.name, _probeThemeVars({ colors: t.colors }), t.id === active)).join('') +
+      `</div>`;
+  }
+  grid.innerHTML = html;
 }
 
 function applyDevSettings() {
@@ -65,7 +103,7 @@ function applyDevSettings() {
   document.documentElement.setAttribute('data-motion', motion);
   document.documentElement.style.setProperty('--font-size-base', fontSize + 'px');
 
-  populateThemeDropdown();
+  populateThemeGrid();
 
   document.querySelectorAll('#dev-opt-fontsize .dev-settings-opt').forEach(btn => {
     btn.classList.toggle('selected', btn.dataset.value === String(fontSize));
@@ -221,9 +259,37 @@ function _loadBaseTheme(themeId) {
   _renderThemeEditorRows();
 }
 
+// Make a floating window draggable by a handle, clamped to the viewport.
+function _makeThemeEditorDraggable() {
+  const win = document.getElementById('tce-window');
+  const handle = document.getElementById('tce-drag-header');
+  if (!win || !handle || handle._dragBound) return;
+  handle._dragBound = true;
+  handle.addEventListener('mousedown', (e) => {
+    if (e.target.closest('button,select,input')) return;
+    e.preventDefault();
+    const rect = win.getBoundingClientRect();
+    const offX = e.clientX - rect.left, offY = e.clientY - rect.top;
+    win.style.right = 'auto';
+    const move = (ev) => {
+      const x = Math.max(0, Math.min(ev.clientX - offX, window.innerWidth - 40));
+      const y = Math.max(0, Math.min(ev.clientY - offY, window.innerHeight - 40));
+      win.style.left = x + 'px';
+      win.style.top = y + 'px';
+    };
+    const up = () => {
+      document.removeEventListener('mousemove', move);
+      document.removeEventListener('mouseup', up);
+    };
+    document.addEventListener('mousemove', move);
+    document.addEventListener('mouseup', up);
+  });
+}
+
 function openThemeEditor() {
   const overlay = document.getElementById('theme-editor-overlay');
   overlay.style.display = 'flex';
+  _makeThemeEditorDraggable();
   _populateThemeEditorDropdown();
   const themeId = devSettings.theme || 'dark';
   document.getElementById('theme-editor-base').value = themeId;
@@ -290,19 +356,19 @@ function _renderThemeEditorRows() {
     const val = _themeEditorCurrentValue(v);
     const hex = val.startsWith('#') ? val : val;
     const safe = v.replace(/[^a-z-]/g, '');
-    return `<div style="display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)">
+    return `<div style="display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;padding:4px 0;border-bottom:1px solid var(--border)">
       <div>
         <div style="font-size:12px;color:var(--text)">${label}</div>
         <div style="font-size:10px;color:var(--text-dim)">${desc}</div>
       </div>
       <div style="display:flex;align-items:center;gap:6px">
         <input type="text" id="tce-hex-${safe}" value="${hex}" maxlength="7"
-          style="width:76px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:4px 6px;border-radius:2px;letter-spacing:1px"
+          style="width:70px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:3px 6px;border-radius:2px;letter-spacing:1px"
           oninput="onThemeColorHexInput('${safe}','${v}',this.value)">
       </div>
-      <div style="position:relative;width:28px;height:28px">
+      <div style="position:relative;width:24px;height:24px">
         <div id="tce-swatch-${safe}" onclick="document.getElementById('tce-picker-${safe}').click()"
-          style="width:28px;height:28px;border-radius:3px;border:1px solid var(--border);cursor:pointer;background:${hex}"></div>
+          style="width:24px;height:24px;border-radius:3px;border:1px solid var(--border);cursor:pointer;background:${hex}"></div>
         <input type="color" id="tce-picker-${safe}" value="${hex.startsWith('#') ? hex : '#888888'}"
           style="position:absolute;opacity:0;width:0;height:0;pointer-events:none"
           oninput="onThemeColorPickerInput('${safe}','${v}',this.value)">

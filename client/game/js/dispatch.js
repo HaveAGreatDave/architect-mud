@@ -21,9 +21,16 @@ import { openTvPanel, isTvOpen, getTvActiveChannelId, appendTvMessage, updateTvT
 import { applyEspState, handleEspWarning } from './esp.js';
 import { playPokerSfx } from './poker-sfx.js';
 import { showConfirmDialog } from './panels/confirm.js';
+import { renderMarkup } from './markup.js';
 
 
 const DEV_ROLES = ['admin', 'dev', 'builder', 'designer'];
+
+// Keep the synthesized game SFX mellow — they sit under speech, music and
+// ambience and shouldn't jump out. Scales every server-pushed SFX on top of
+// whatever per-event gain the server already set. (Poker SFX have their own
+// softening in poker-sfx.js.)
+const GAME_SFX_GAIN = 0.6;
 
 const handlers = {
   connected: () => {},
@@ -124,7 +131,7 @@ const handlers = {
     if (isTvOpen() && getTvActiveChannelId() === msg.channel) {
       showTvOnAir();
       if (msg.style === 'ticker') updateTvTicker(msg.message);
-      else appendTvMessage(msg.message, msg.style);
+      else appendTvMessage(msg.message, msg.style, msg.duration);
       if (msg.programName !== undefined) {
         const el = document.getElementById('tv-program-name');
         if (el) el.textContent = msg.programName || '';
@@ -385,7 +392,7 @@ const handlers = {
   esp_warning: (msg) => { handleEspWarning(msg); },
 
   audio_music: (msg) => { window.AudioEngine?.playMusic(msg.def, { restartIfSame: false }); },
-  audio_sfx: (msg) => { console.log('[audio] sfx received', msg.def?.id, msg.def?.name, 'gain', msg.gain ?? 1); window.AudioEngine?.playSfx(msg.def, msg.gain ?? 1); },
+  audio_sfx: (msg) => { console.log('[audio] sfx received', msg.def?.id, msg.def?.name, 'gain', msg.gain ?? 1); window.AudioEngine?.playSfx(msg.def, (msg.gain ?? 1) * GAME_SFX_GAIN); },
   audio_sample: (msg) => { console.log('[audio] sample received', msg.def?.id, msg.def?.name); window.AudioEngine?.playSample(msg.def); },
   audio_ambience: (msg) => { window.AudioEngine?.loopSound(msg.def); },
   audio_loop_gain: (msg) => { window.AudioEngine?.setLoopGain(msg.id, msg.gain, msg.ramp ?? 0.4); },
@@ -395,7 +402,41 @@ const handlers = {
   sound_picker: (msg) => { openSoundPicker(msg.sfx || []); },
 
   device_power_flash: (msg) => { flashPowerChange(msg.mode, msg.deviceType); },
+
+  trip_start: (msg) => { startTripFx(msg); },
+  trip_event: (msg) => { appendHtml(renderMarkup(msg.text || ''), 'trip'); if (msg.palette || msg.intensity != null) updateTripFx(msg); },
+  trip_fx:    (msg) => { updateTripFx(msg); },
+  trip_end:   () => { endTripFx(); },
 };
+
+// ── Drug "trip" visual FX ────────────────────────────────────────────────────
+// A persistent full-screen overlay (hue drift + pulse) plus a `tripping` body
+// class that drives CSS blur/shake/glitch. Intensity + palette are live-tunable
+// so the server can push peak/comedown changes. Palette → base hue.
+const TRIP_PALETTES = { green: 120, purple: 280, red: 0, gold: 45, cyan: 190, magenta: 320, blue: 220 };
+
+function updateTripFx(msg) {
+  const hue = TRIP_PALETTES[msg.palette] ?? TRIP_PALETTES.green;
+  const intensity = Math.max(0, Math.min(1, msg.intensity ?? 0.6));
+  document.documentElement.style.setProperty('--trip-hue', String(hue));
+  document.documentElement.style.setProperty('--trip-intensity', String(intensity));
+}
+
+function startTripFx(msg) {
+  updateTripFx(msg);
+  if (!document.getElementById('trip-overlay')) {
+    const el = document.createElement('div');
+    el.id = 'trip-overlay';
+    document.body.appendChild(el);
+  }
+  document.body.classList.add('tripping');
+}
+
+function endTripFx() {
+  document.body.classList.remove('tripping');
+  document.getElementById('trip-overlay')?.remove();
+  window.AudioEngine?.stop('ambience', 'amb_trip_bed');
+}
 
 // Room-wide flash when a generator / junction box loses or regains power.
 // Red stutter on power-down, a clean teal pulse on power-up; generators hit

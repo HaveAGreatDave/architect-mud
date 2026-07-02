@@ -205,6 +205,22 @@ function _vaguePresence(npc) {
 	return pool[Math.floor(Math.random() * pool.length)];
 }
 
+// Per-light-level render gating for describeZone (pitch_dark has its own
+// feel-your-way branch below and isn't in this table; clear is the neutral
+// baseline with no entry). `dim`/`dark` reuse the original two-tier semantics;
+// the new levels layer extra suppression on top:
+//   gloomy — poor light like dim, but ground items drop out entirely.
+//   murk   — near-black like dark, and even NPCs fade from view.
+// `line` is [cssClass, text] for the italic light-level feedback line.
+const LIGHT_GATE = {
+	blazing: { line: ["light-blazing", "Harsh light blazes over everything, sharp and unforgiving."] },
+	bright:  { line: ["light-bright", "The area is brightly lit — every detail stands out."] },
+	dim:     { dim: true, line: ["light-dim", "The light is poor here. Details are hard to make out."] },
+	gloomy:  { dim: true, hideItems: true, line: ["light-gloomy", "Gloom hangs thick — you catch shapes and movement, but little detail."] },
+	dark:    { dark: true, line: ["light-dark", "It's very dark. You can barely make out your surroundings."] },
+	murk:    { dark: true, hideNpcs: true, line: ["light-murk", "It is nearly black — only the vaguest shapes register."] },
+};
+
 export async function describeZone(zone, player) {
 	const vis = getZoneVisibility(zone.id);
 	if (vis.category === "pitch_dark") {
@@ -246,12 +262,14 @@ export async function describeZone(zone, player) {
 		return darkDesc;
 	}
 
-	const isDark = vis.category === "dark";
-	const isDim = vis.category === "dim";
+	const gate = LIGHT_GATE[vis.category] || {};
+	const isDark = !!gate.dark;
+	const isDim = !!gate.dim;
+	const hideItems = isDark || !!gate.hideItems;
 
 	const { buildings, rooms, plain } = getConnectedDestinations(zone);
 	const enemies = isDark ? [] : getZoneEnemies(zone.id);
-	const npcs = getZoneNpcs(zone.id);
+	const npcs = gate.hideNpcs ? [] : getZoneNpcs(zone.id);
 	const corpses = isDark ? [] : getZoneCorpses(zone.id);
 	const others = isDark
 		? []
@@ -264,7 +282,7 @@ export async function describeZone(zone, player) {
 				[zone.id],
 			);
 
-	const { rows: groundItems } = isDark
+	const { rows: groundItems } = hideItems
 		? { rows: [] }
 		: await query(
 				`SELECT pi.*, i.name, i.rarity, i.tags FROM player_inventory pi
@@ -287,10 +305,8 @@ export async function describeZone(zone, player) {
 	if (zone.radiation_level > 0)
 		desc += ` <span class="rad-warning">☢ RAD:${zone.radiation_level}</span>`;
 	if (zone.pvp_enabled) desc += ` <span class="pvp-warning">⚔ PVP</span>`;
-	if (vis.category === "dark") {
-		desc += `\n<span class="light-level light-dark">It's very dark. You can barely make out your surroundings.</span>`;
-	} else if (vis.category === "dim") {
-		desc += `\n<span class="light-level light-dim">The light is poor here. Details are hard to make out.</span>`;
+	if (gate.line) {
+		desc += `\n<span class="light-level ${gate.line[0]}">${gate.line[1]}</span>`;
 	}
 	const roomDesc = await fireHook("zone.describeRoom", zone);
 	if (roomDesc) desc += `\n${roomDesc}`;

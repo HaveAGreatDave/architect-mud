@@ -16,7 +16,7 @@ import { carryCapacity } from './commands/inventory.js';
 import { query, logActivity } from '../models/db.js';
 import { getEnvironmentState, getZoneTemperature, getZoneApparentTemperature, recordLightningKill, getZoneStormIntensity } from './environment.js';
 import { tickBodily } from './bodily.js';
-import { tickDrugDecay } from './drugs.js';
+import { tickDrugDecay, tickDrugs, tickWithdrawal } from './drugs.js';
 import { addHorniness } from './mis.js';
 
 // HP restored per sitting tick (every 15 seconds)
@@ -246,9 +246,9 @@ async function tick() {
     }).catch(() => {});
   }
 
-  // Status effects
+  // Status effects + phased drug effects
   for (const [playerId, player] of world.players) {
-    const messages = tickEffects(player);
+    const messages = [...tickEffects(player), ...tickDrugs(player)];
     if (messages.length) {
       broadcastFn(null, { type:'status_tick', messages }, null, playerId);
       if (player.hp <= 0) await handlePlayerDeath(player, null);
@@ -278,6 +278,10 @@ async function minuteTickFn() {
     // Drug decay: once a dose's active window has expired, doses_in_system drops by 1/min
     // so overdose thresholds clear over time instead of accumulating forever.
     await tickDrugDecay(playerId);
+
+    // Withdrawal: apply/clear addiction debuffs; decay addiction toward sobriety.
+    const wdMessages = await tickWithdrawal(player);
+    if (wdMessages.length) broadcastFn(null, { type: 'status_tick', messages: wdMessages }, null, playerId);
   }
 }
 

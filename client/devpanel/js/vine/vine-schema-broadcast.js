@@ -371,6 +371,7 @@ function _autoLayoutBroadcast(dbGraph) {
 // ── Conversion: DB graph ↔ VINE graph ─────────────────────────────────────────
 
 window.VineBroadcastSchema = {
+  vineIdentity: { kind: 'broadcast', tagline: 'Channel script graph', color: '#226644', icon: '📺' },
   nodeTypes: _bcNodeDefs,
 
   fromBroadcastGraph(dbGraph) {

@@ -268,6 +268,7 @@ wss.on("connection", (ws) => {
 		if (msg.type === "auth_ghost") return handleGhostAuth(ws, session, msg);
 		if (msg.type === "ghost_command") return handleGhostCommand(ws, session, msg);
 		if (msg.type === "ghost_jump") return handleGhostJump(ws, session, msg);
+		if (msg.type === "ghost_refresh") return handleGhostRefresh(ws, session);
 		if (msg.type === "ping") {
 			ws.send(JSON.stringify({ type: "pong" }));
 			return;
@@ -442,7 +443,28 @@ async function handleGhostCommand(ws, session, msg) {
 	const ghostPlayer = { ...(livePlayer || {}), id: session.playerId, handle: session.handle, current_zone: session.ghostZoneId };
 	const ghostBroadcast = makeGhostBroadcast(broadcast, session.playerId);
 	const result = await handleCommand(raw, ghostPlayer, ghostBroadcast);
-	if (result) ws.send(JSON.stringify(result));
+	if (result) {
+		ws.send(JSON.stringify(result));
+		// Mirror the game client's post-command `look`: room-changing actions
+		// refresh the area pane so it doesn't go stale under the ghost.
+		if (ghostResultChangesRoom(result)) ws.send(JSON.stringify(await cmdGhostLook(session)));
+	}
+}
+
+// Result types after which the game client re-issues a silent `look` (see
+// client/game/js/dispatch.js). The ghost re-renders its area pane the same way.
+const GHOST_RELOOK_TYPES = new Set(['combat', 'take', 'drop']);
+function ghostResultChangesRoom(result) {
+	if (!result) return false;
+	if (GHOST_RELOOK_TYPES.has(result.type)) return true;
+	if (result.type === 'action' && result.triggerLook) return true;
+	if (result.type === 'loot' && result.closeLoot) return true;
+	return false;
+}
+
+async function handleGhostRefresh(ws, session) {
+	if (!session.isGhost) return;
+	ws.send(JSON.stringify(await cmdGhostLook(session)));
 }
 
 async function handleAuth(ws, session, msg) {
@@ -723,7 +745,18 @@ async function finishAuth(ws, session, player) {
 	} catch {}
 
 	const bodyTempLoginMsg = loginBodyTempMessage(livePlayer.body_temp_c);
-	const zone = getZone(livePlayer.current_zone);
+	let zone = getZone(livePlayer.current_zone);
+	// Dreamzone rescue: a trip is in-memory only, so a player caught mid-trip by
+	// a server restart would otherwise wake inside an isolated hallucination zone.
+	// Bounce them back to their anchor.
+	if (zone?.flags?.is_dreamzone) {
+		const anchor = livePlayer.anchor_zone || "zone_start";
+		removePlayerFromZone(player.id, livePlayer.current_zone);
+		livePlayer.current_zone = anchor;
+		addPlayerToZone(player.id, anchor);
+		await query("UPDATE players SET current_zone=$1 WHERE id=$2", [anchor, player.id]);
+		zone = getZone(anchor);
+	}
 	if (zone) {
 		ws.send(
 			JSON.stringify({

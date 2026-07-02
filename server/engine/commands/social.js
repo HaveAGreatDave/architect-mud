@@ -6,6 +6,7 @@ import { evalConditions } from '../flags.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../sift.js';
 import { DEFAULT_CHITCHAT_LINES } from '../ai-behaviour.js';
 import { getNpcChitchat } from '../npc-personality.js';
+import { fireHook } from '../plugins.js';
 
 function formatChitchat(name, line) {
   const t = line.trim();
@@ -41,7 +42,9 @@ async function cmdTalk(targetStr, player, broadcast) {
     if (!(await evalConditions(opt.conditions || opt.condition, player))) continue;
     options.push(opt);
   }
-  if (npc.vendor_inventory?.length) options.push({ label: 'Browse your wares.', next: '__shop__' });
+  // Covert vendors (e.g. the shadow dealer) never advertise a shop — the only
+  // way in is knowing how to ask (see the dealer plugin's passphrase mechanic).
+  if (npc.vendor_inventory?.length && !npc.flags?.covert) options.push({ label: 'Browse your wares.', next: '__shop__' });
   if (!root && !options.length) {
     const lines = getNpcChitchat(npc) || DEFAULT_CHITCHAT_LINES;
     const line = lines[Math.floor(Math.random() * lines.length)];
@@ -58,6 +61,8 @@ function cmdSay(text, player, broadcast) {
     return cmdYell(text, player, broadcast);
   }
   broadcast(player.current_zone, { type:'say', message:`${player.handle} says: "${text}"` }, player.id);
+  // Let plugins react to speech (e.g. the shadow dealer's passphrase). Fire-and-forget.
+  fireHook('player.say', { player, text, zoneId: player.current_zone, broadcast }).catch(() => {});
   return { type:'say', message:`You say: "${text}"` };
 }
 
