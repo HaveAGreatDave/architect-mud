@@ -441,9 +441,9 @@ export async function describeZone(zone, player) {
 		}
 		if (cameras.length) {
 			const camLinks = cameras.map((f) =>
-				`<span class="action-link furniture-link" data-action="examine" data-target="${f.name}" title="Examine ${f.name}">${f.name.toLowerCase()}</span>`
+				`<span class="action-link furniture-link" data-action="examine" data-target="${f.name}" title="Examine ${f.name}">camera</span>`
 			);
-			desc += `\n<span class="text-dim">A ${camLinks.join(" and a ")} watches, unblinking.</span>`;
+			desc += `\n<span class="text-dim">${camLinks.length === 1 ? `A ${camLinks[0]} watches, unblinking.` : `<span class="action-link furniture-link" data-action="examine" data-target="${cameras[0].name}" title="Examine camera">Cameras</span> watch, unblinking.`}</span>`;
 		}
 		if (panel?.html) desc += `\n${panel.html}`;
 	}
