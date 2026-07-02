@@ -183,9 +183,13 @@ Reuses TV rendering internals (ticker, SVG, off-air static) — the hub is "a TV
 
 ## Phased build (each phase independently shippable)
 
-1. **Foundation** — `security_devices`/`security_networks` schema (+ `SCHEMA_SQL`),
-   `plant`/`retrieve`/`sweep`, furniture + device-inspect wiring, battery/power tick. One device:
-   sticky cam. Feed via `buildCameraSnapshot`.
+1. **Foundation** — ✅ *code-complete (branch `feature/surveillance-specter`), pending `npm run db:schema` + restart.*
+   `security_networks`/`security_devices`/`security_clips` tables in `SCHEMA_SQL`; new
+   [`plugins/surveillance/`](../plugins/surveillance/index.js) with `plant`/`retrieve`/`sweep`/`feed`;
+   concealed furniture hidden from `look` via a `flags.concealed` filter in `describe.js`;
+   battery/power tick (cams days / drone hours). Feed = own `feedSnapshot()` (zone snapshot, same
+   shape as broadcast's `buildCameraSnapshot`, which is plugin-private so not importable). Test gear:
+   [`scripts/seed-surveillance-gear.js`](../scripts/seed-surveillance-gear.js) (sticky/tap cam, recon drone).
 2. **Surveillance Hub** — multi-feed panel + spy-deck item, live tiles, chrome, audio sparkle skins.
 3. **Records** — `record`, datachip export/replay/trade, `security_clips`.
 4. **Counterplay** — `sweep`→attack, Circuit Breach `hijack` (real wiring), jammer + spoofer.

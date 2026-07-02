@@ -13,7 +13,7 @@ Post-singularity browser MUD in the HellMOO tradition. Text-driven, real-time, b
 - [docs/tags.md](docs/tags.md) — the tag system: catalog/helpers/Tag→Action registry, the tag model, and how to add a tag cleanly (property vs. behavior)
 - [docs/combat.md](docs/combat.md) — combat **as actually built** (to-hit, body parts, typed soak, cooldowns, enemy AI, loot); the authoritative running source on the combat system
 - [docs/systems-survival.md](docs/systems-survival.md) — hunger/thirst, radiation, mutations, drugs, buffs, sleep, status-effect framework (as built)
-- [docs/systems-weather-extreme.md](docs/systems-weather-extreme.md) — **extreme weather (design, not built)**: severity scalar over the weather field, 4 gear-gated-lethal threat channels, no indoor safe-haven, power-stays-out scar, EMP hero event
+- [docs/systems-weather-extreme.md](docs/systems-weather-extreme.md) — **extreme weather (steps 1–5 built; 6–7 pending)**: severity scalar over the weather field, gear-gated-lethal thermal/wind/blackout/ash-choking channels, no indoor safe-haven, power-stays-out scar; telegraph band + EMP hero event still to build
 - [docs/systems-economy.md](docs/systems-economy.md) — credits/banking, vendors, factions, crafting, IP/stat-raising, housing (as built)
 - [docs/systems-world.md](docs/systems-world.md) — world state, movement, ambience, sound propagation, spawning, minimap, scheduler, tunables (as built)
 - [docs/devpanel-js.md](docs/devpanel-js.md) — dev panel JS file reference: what each script in `client/devpanel/js/` holds, which functions live where, and the load-order contract
@@ -25,6 +25,7 @@ Post-singularity browser MUD in the HellMOO tradition. Text-driven, real-time, b
 - [docs/systems-broadcast.md](docs/systems-broadcast.md) — broadcast system: channels, playlists, dynamic news, VINE graph scripts, NPC hosts, camera feeds, broadcast-bridge, game client styling (as built)
 - [docs/systems-atm.md](docs/systems-atm.md) — ATM terminals: furniture integration, networks, fee/limit/faction logic, hacking, replenish tick, power dependency, dev panel routes (as built)
 - [docs/systems-scavenging.md](docs/systems-scavenging.md) — scavenging: posture-based perpetual search, per-zone loot tables + lazy replenish, the 2D8−2D8 Scavenging check, feedback state machine (as built)
+- [docs/systems-corps.md](docs/systems-corps.md) — **corporations & player orgs (design, not built)**: corp = faction + owner + treasury + members + territory; influence tug-of-war for zones, single membership, five power levers (economy/territory/subterfuge/aggression/diplomacy), NPC corp AI, Architect-reacts-to-concentration
 - [docs/audits/](docs/audits/README.md) — **audit suite**: reusable prompts that challenge the design at its silent seams (engine↔plugin source-of-truth, client↔server protocol, content↔engine fields, UI/CSS standardization, registry naming harmony). Start at the [index](docs/audits/README.md); the seminal one is [source-of-truth-audit.md](docs/audits/source-of-truth-audit.md) (the bug class behind the posture break).
 
 **Before touching any system, read the relevant doc section if there's one applicable to the request.**

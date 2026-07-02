@@ -88,12 +88,20 @@ turns lethal indoors. (A faulted box also drops its demand to 0 so it can't wast
   ~23 min a −30°C interior takes to reach 10°C — so shelter-in-a-blackout becomes a genuine survival
   event, not a free win.
 
-### 4. Breathing / exposure
-Wire the **inert** [effects.js](../server/engine/effects.js) framework — `applyEffect()` currently has
-zero callers; this is its intended first use (per the QA note). From the resource / zone-entry tick:
+### 4. Breathing / exposure *(built, step 5 — ash only; acid deferred)*
+First real caller of the [effects.js](../server/engine/effects.js) framework (previously inert —
+`applyEffect` had zero callers). The per-minute `resourceTick` in [gameLoop.js](../server/engine/gameLoop.js):
 
-- Outdoor + acid precip + **not `waterproof`** → `applyEffect('burning')`.
-- Outdoor + `ash` + **no `sealed` mask** → choking.
+- Outdoor + `ash` weather + **no `sealed` item** → `applyEffect('choking', 65)`, re-applied each minute so
+  it lapses ~5s after masking up or getting indoors. The new `choking` effect drains stamina fast (−4/s),
+  then bites HP (−2/s) once winded.
+- The gear gate `player.sealed` is computed in `recomputeInsulation` (same pattern as `insulation`), from
+  the new `sealed` flag tag (catalog: "Sealed (Respirator)"). Any one equipped sealed item suffices.
+- **Plumbing fix:** the per-second status-effect tick now persists **and** broadcasts hp/stamina when an
+  effect changed them (previously effect damage was invisible on the HUD until the minute tick).
+
+**Acid rain + `waterproof` are deferred** to the phase-2 named-events layer (acid needs a new weather type
+and was itself a hero-event candidate) — see build order step 7.
 
 ## Gear tags
 
@@ -118,7 +126,7 @@ roll on the 30s/30m tick — warned, not scheduled.
 2. ✅ **Thermal tail + no-safe-haven**. *Built:* the outdoor tail already reaches lethal (forecast ±20°C extreme days + the −12°C nighttime diurnal dip, gated by `insulation`/`exposurePenalty`); the missing piece was indoors — `stepIndoorTemps` now uses gap-proportional passive conduction so a blacked-out interior can freeze in an extreme snap while mild outages stay survivable.
 3. ✅ **Power scar** (`recover_after`). *Built:* severity-scaled per-`junction_box` storm faults in `simulatePowerNetwork` (scattered per-building blackouts) that persist offline for a 10–40 min recovery window (stored in `generators.flags`, no schema change); `stormFaultActive` keeps the 5-min tick alive until recovery.
 4. ✅ **Wind stamina gate** (movement.js). *Built:* `cmdMove` drains `4 + severity×16` stamina (above severity 0.4) when moving into an exposed severe-weather zone — attrition, never blocks; interiors and `bypassEncumbrance` relocations exempt. First consumer of `getZoneSeverity`.
-5. **`effects.js` wiring + gear tags** (acid / ash).
+5. ✅ **`effects.js` wiring + gear tags** (ash; acid deferred). *Built:* new `choking` effect (stamina→HP); ashfall hazard in `resourceTick` gated by `player.sealed` (new `sealed` flag tag in the shared catalog, computed in `recomputeInsulation`); first-ever `applyEffect` caller; per-second effect tick now persists/broadcasts hp+stamina. Acid rain + `waterproof` moved to step 7's named-events layer.
 6. **Telegraph band.**
 7. *Phase 2:* **EMP / ion storm** on the named-events layer.
 

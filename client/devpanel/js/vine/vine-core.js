@@ -249,6 +249,10 @@ class VineEditor {
   }
 
   _onKey(e) {
+    // Ignore keys when this editor's container is hidden (e.g. a background tab in
+    // the VINE workspace, where several live editors coexist). offsetParent is null
+    // for a display:none subtree, so only the visible editor handles the shortcut.
+    if (this.containerEl.offsetParent === null) return;
     // Only act when focus is inside the vine container or on body.
     const active = document.activeElement;
     const inEditor = this.containerEl.contains(active) || active === document.body;

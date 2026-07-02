@@ -371,28 +371,44 @@ actions the VINE action picker lists.
 
 ## VINE Suite (`panels/vine-suite.js`)
 
-A single hub panel (`🌿 VINE Suite` in the nav) listing **every** VINE-authored
-asset across all schemas — NPC dialogue, NPC/enemy behaviour, scripts, broadcasts,
-quests — each row launching the correct editor. It adds no storage: each category
-reads and writes the same field its owning panel does, via a registry (`VINE_SUITE`)
-that maps category → `{ schema, source, toGraph, save }`.
+The `🌿 VINE Suite` nav panel is a **launch screen**: a "Launch VINE Suite" button
+plus one colour-coded chip per schema (dialogue, NPC/enemy behaviour, script,
+broadcast, quest) that opens the workspace directly to that tab. It adds no storage:
+each category reads and writes the same field its owning panel does, via a registry
+(`VINE_SUITE`) mapping category → `{ schema, source, toGraph, save, color, icon,
+entity?, create? }`.
 
-Saves go through each type's canonical path: graph-blob types (dialogue, behaviour,
-broadcast) use the single-field `PATCH /:type/:id/graph` route (live, not staged —
-matching the [VINE Graph Workflow](../CLAUDE.md)); scripts and quests use their `PUT`
-routes. The broadcast graph route (`PATCH /broadcasts/:id/graph`) was added to the
-shared `apiPatchGraph` whitelist alongside the existing npc/enemy ones.
+### Tabbed workspace (`#vine-workspace`)
+
+A fullscreen overlay with a **tab bar** across the top — one tab per schema, each
+tinted with its `vineIdentity` colour. **Every tab keeps its own live `VineEditor`
+instance** (`_vwTabs[key] = { editor, container, recId, rec }`); switching tabs just
+toggles container visibility, so nothing is lost and there is no save prompt. Multiple
+live editors coexist safely because `VineEditor._onKey` bails when its container is
+hidden (`offsetParent === null`), so only the visible tab handles shortcuts.
+
+Entering a tab with no asset open auto-opens the **picker popup** (`#vine-picker`): a
+compact centred card that lists existing assets of that type (filterable), plus a
+`＋ New` button for standalone types. `create` in the registry POSTs a blank asset
+(quest / script → `POST /quests`|`/scripts`; broadcast → `POST /broadcast/broadcasts`)
+and returns the new record; entity-bound graphs (dialogue, behaviour) have no `create`
+— they attach to an existing NPC/enemy, so the picker just lists those records.
+
+Saves go through each type's canonical path exactly as before: graph-blob types use the
+single-field `PATCH /:type/:id/graph` route (live, not staged); scripts and quests use
+`PUT`. The standalone `#vine-modal` (opened directly from the NPC/enemy/quest/etc.
+panels) is unchanged and still used by those panels.
 
 ### Cross-editor jump
 
-Beyond the launcher, editors can link into each other. A dialogue node's
-quest-referencing action (`START_QUEST` / `TURN_IN` / `COMPLETE` / `ADVANCE`, which
-carry a `quest_id`) renders an **🌿 Open quest ▸** button in its action card. It calls
-`vineJumpToQuest(questId)` (in `vine-suite.js`): commits the current graph (Save &
-Close), then opens that quest in the VINE quest editor, saving back via `PUT /quests/:id`.
-Because there is only one VINE modal, the jump is one-way (no back-breadcrumb) and
-confirms before committing. Adding a jump from other schemas is just wiring the same
-helper to another action card.
+A dialogue node's quest-referencing action (`START_QUEST` / `TURN_IN` / `COMPLETE` /
+`ADVANCE`, which carry a `quest_id`) renders an **🌿 Open quest ▸** button calling
+`vineJumpToQuest(questId)` (in `vine-suite.js`). Inside the workspace it hops **live**
+into the Quest tab and loads that quest (offering to create a stub if it doesn't exist)
+— no save prompt, because the dialogue tab keeps its own live editor untouched. Outside
+the workspace (editing dialogue straight from the NPC panel's single modal) it falls
+back to the commit-then-open-in-modal flow. Adding a jump from other schemas is just
+wiring the same helper to another action card.
 
 ---
 

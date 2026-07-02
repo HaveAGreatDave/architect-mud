@@ -55,6 +55,9 @@ async function cmdStopAll(args, raw, player, broadcast) {
     player.combatTargetId = null;
     player.pvpTargetId = null;
     player.npcCombatTargetId = null;
+    // Grace window so enemy/NPC retaliation and aggro don't instantly re-arm our
+    // target on the next combat tick — long enough to actually break off and flee.
+    player.disengagedUntil = Date.now() + 6000;
     stopped.push('fighting');
   }
 

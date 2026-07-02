@@ -178,9 +178,12 @@ Indoors, or when precipitation stops, items **dry** instead.
 
 **Feedback into body temperature.** `player.wetness` is consumed by the engine's temperature drift (above): wet clothing accelerates **cooling** (`wetMult = 1 + wetness/100`, up to 2× when soaked) and slightly retards **overheating** (`wetMult = max(0.70, 1 − wetness × 0.003)`). This is the sole cross-system coupling; the plugin owns the wetness value, the engine owns its thermal consequence, and they meet on the `player.wetness` field name. Sleeping players are skipped by the wetness hook.
 
-## Status effects (framework only)
+## Status effects
 
 [effects.js](../server/engine/effects.js) is a clean data-driven framework (`bleeding`, `burning`,
-`irradiated`) that ticks every second. **It is currently inert: `applyEffect()` has no callers**, so no
-effect is ever started. Wiring weapon `status_chance`, drug overdose, and zone hazards into `applyEffect`
-is the intended use. Flagged in the QA report as dead-until-wired.
+`irradiated`, `choking`) that ticks every second. Its **first caller** is the extreme-weather ashfall
+hazard: `resourceTick` applies `choking` to unmasked players outdoors during `ash` weather (see
+[systems-weather-extreme.md](systems-weather-extreme.md) §4). `choking` drains stamina (−4/s), then HP
+(−2/s) once winded. The per-second tick now **persists and broadcasts** hp/stamina whenever an effect
+changes them (previously effect damage was invisible on the HUD until the minute tick). Wiring weapon
+`status_chance` and drug overdose into `applyEffect` remains the next intended use.

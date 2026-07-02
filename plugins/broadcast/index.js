@@ -63,10 +63,26 @@ const furnitureChannelIndex = new Map();
 const tvWatchers = new Map();
 // deckWatchers.get(playerId) = channelId — players with the mediadeck preview open.
 const deckWatchers = new Map();
+// deckRecent.get(channelId) = last few formatted lines, so a freshly-opened deck
+// preview shows the current program immediately instead of a blank screen.
+const deckRecent = new Map();
+const DECK_RECENT_MAX = 8;
+function _recordDeckMessage(channelId, message) {
+  if (!channelId || !message) return;
+  const ring = deckRecent.get(channelId) || [];
+  ring.push(message);
+  while (ring.length > DECK_RECENT_MAX) ring.shift();
+  deckRecent.set(channelId, ring);
+}
 
 on('tv.watch',   ({ playerId, channelId }) => tvWatchers.set(playerId, channelId));
 on('tv.unwatch', ({ playerId })           => tvWatchers.delete(playerId));
-on('deck.watch',   ({ playerId, channelId }) => deckWatchers.set(playerId, channelId));
+on('deck.watch',   ({ playerId, channelId }) => {
+  deckWatchers.set(playerId, channelId);
+  // Seed the preview with recent lines so it isn't blank until the next tick.
+  for (const line of (deckRecent.get(channelId) || []))
+    sendToPlayer(playerId, { type: 'deck_broadcast', message: line, channel: channelId, style: 'raw' });
+});
 on('deck.unwatch', ({ playerId })            => deckWatchers.delete(playerId));
 on('player.logout', ({ id })              => { tvWatchers.delete(id); deckWatchers.delete(id); });
 
@@ -136,6 +152,17 @@ function _vineDuration(graph, interval) {
 // Styles whose text is raw markup (SVG / ASCII / credits card) — a device prefix glued
 // on front corrupts the graphic (breaks the client's SVG sizing, prints a stray label).
 const GRAPHIC_STYLES = new Set(['svg', 'ascii_art', 'credits']);
+
+// Decide how a stored graphic renders from its actual CONTENT, not its `type`
+// column (which is easy to mislabel in the editor / on import). Anything that
+// opens with an <svg> tag is SVG; everything else is monospace ASCII art. Without
+// this, an ASCII card saved as type 'svg' renders via innerHTML in a plain div —
+// whitespace collapses and the box-art turns to mush — and an SVG saved as
+// 'ascii' shows its raw markup as text. Sniffing the content sidesteps both.
+function graphicStyle(graphic) {
+  if (!graphic) return 'ascii_art';
+  return /^\s*<svg[\s>]/i.test(graphic.content || '') ? 'svg' : 'ascii_art';
+}
 
 function formatMessage(text, deviceType, zone, style) {
   if (!text) return null;
@@ -557,7 +584,7 @@ function _offAirMessage(state, channelId) {
   return {
     type: 'broadcast', channel: channelId, style: 'off_air',
     offlineGraphicContent: graphic?.content || null,
-    offlineGraphicType: graphic?.type || 'ascii',
+    offlineGraphicType: graphic ? (graphicStyle(graphic) === 'svg' ? 'svg' : 'ascii') : 'ascii',
   };
 }
 
@@ -644,6 +671,7 @@ async function broadcastTick() {
           sendToPlayer(player.id, { type: 'deck_broadcast', message: formatted, channel: channelId, style: result.style || 'raw' });
         }
       }
+      if (formatted) _recordDeckMessage(channelId, formatted);
       emit('broadcast.message', { channelId, zoneId, text: result.text });
     }
   }
@@ -737,6 +765,7 @@ on('zone.broadcast', ({ zoneId, msg }) => {
   if (msg.type !== 'output' && msg.type !== 'zone_event' && msg.type !== 'say') return;
   if (!msg.message) return;
   const sentDeck = new Set();
+  _recordDeckMessage(channelId, msg.message);
   for (const [viewZoneId, channelMap] of zoneTunings) {
     if (!channelMap.has(channelId)) continue;
     const players = getZonePlayers(viewZoneId);
@@ -1310,7 +1339,7 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
         bb.waitUntil = nowMs + nodeHoldMs(node);
         if (graphic) {
           const caption = node.data?.caption ? `\n${node.data.caption}` : '';
-          return { text: graphic.content + caption, key: `graphic:${channelId}:${gid}:${nowMs}`, style: graphic.type === 'svg' ? 'svg' : 'ascii_art' };
+          return { text: graphic.content + caption, key: `graphic:${channelId}:${gid}:${nowMs}`, style: graphicStyle(graphic) };
         }
         // Graphic not found — skip but still consume the wait slot
         nodeId = bb.currentNode;
@@ -1375,7 +1404,7 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
         bb.currentNode = _resolveEdge(edges, nodeId, 'next');
         bb.waitUntil = nowMs + nodeHoldMs(node);
         const text = graphic ? graphic.content : '[TECHNICAL DIFFICULTIES] Please stand by.';
-        return { text, key: `techdiff-node:${channelId}:${nodeId}:${nowMs}`, style: graphic?.type === 'svg' ? 'svg' : 'ascii_art' };
+        return { text, key: `techdiff-node:${channelId}:${nodeId}:${nowMs}`, style: graphicStyle(graphic) };
       }
 
       default:
@@ -1898,9 +1927,10 @@ async function doUseTv(args, raw, player) {
   if (!player) return undefined;
   const nameHint = args.join(' ').toLowerCase();
 
-  // Find a tv-flagged furniture in the zone matching the name hint
+  // Find a tv furniture in the zone matching the name hint. A piece counts as a
+  // TV if it carries the `tv` flag OR is simply named like a television.
   const { rows } = await query(
-    `SELECT id, name FROM furniture WHERE zone_id=$1 AND jsonb_exists(flags,'tv')${nameHint ? ' AND name ILIKE $2' : ''} LIMIT 1`,
+    `SELECT id, name FROM furniture WHERE zone_id=$1 AND (jsonb_exists(flags,'tv') OR name ILIKE '%television%')${nameHint ? ' AND name ILIKE $2' : ''} LIMIT 1`,
     nameHint ? [player.current_zone, `%${nameHint}%`] : [player.current_zone]
   );
   if (!rows.length) return undefined;
@@ -1921,9 +1951,10 @@ async function cmdTv(args, raw, player) {
     }
   }
 
-  // No tuned TV — check for any TV-flagged furniture in the zone (TV exists but is off)
+  // No tuned TV — check for any TV furniture in the zone (TV exists but is off).
+  // Match the `tv` flag or anything simply named like a television.
   const { rows } = await query(
-    `SELECT id FROM furniture WHERE zone_id=$1 AND jsonb_exists(flags,'tv') LIMIT 1`,
+    `SELECT id FROM furniture WHERE zone_id=$1 AND (jsonb_exists(flags,'tv') OR name ILIKE '%television%') LIMIT 1`,
     [player.current_zone]
   );
   if (rows.length) return buildTvOffPanel(player);

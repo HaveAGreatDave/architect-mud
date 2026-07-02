@@ -50,13 +50,18 @@ export async function recomputeArmor(player) {
 export async function recomputeInsulation(player) {
   const { rows } = await query(`SELECT i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.is_equipped=1`, [player.id]);
   let total = 0;
+  let sealed = false;
   const covered = new Set();
   for (const r of rows) {
     total += tagValue(r, 'insulation', 0) || 0;
+    if (hasTag(r, 'sealed')) sealed = true;   // respirator/mask — blocks ash choking
     const slot = tagValue(r, 'slot');
     if (slot) covered.add(slot);
   }
   player.insulation = total;
+  // Whether any equipped item seals the airway (gas mask / respirator). Read by the
+  // ashfall breathing hazard in gameLoop's resourceTick. See systems-weather-extreme.md.
+  player.sealed = sealed;
   // Bare core skin sheds heat fast, so nakedness makes the cold genuinely bite.
   // Torso dominates (the body defends the core hardest); legs are secondary.
   // Applied only to the cooling side of the body-temp tick (see gameLoop.js) —

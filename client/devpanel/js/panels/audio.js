@@ -68,6 +68,7 @@ function renderAudioPanel(data) {
     <div style="padding:10px 16px;border-bottom:2px solid var(--border);background:var(--bg2);display:flex;justify-content:space-between;align-items:center">
       <div style="display:flex;gap:6px">${tabBar}</div>
       <div style="display:flex;gap:6px">
+        <button class="action-btn" onclick="verifyAllAudio()" title="Re-fetch from the server, confirm every asset loads, and report any broken references or malformed configs">✔ Save &amp; Verify</button>
         <button class="action-btn danger" onclick="stopAllAudioPreviews()">⏹ Stop</button>
         ${_audioTab === 'samples'
           ? `<button class="action-btn" onclick="newAudioAsset('samples')">⬆ Upload Sample</button>`
@@ -160,31 +161,35 @@ function toggleAudioGroup(key) {
   if (_audioGroupsOpen.has(key)) _audioGroupsOpen.delete(key); else _audioGroupsOpen.add(key);
   renderAudioTabBody();
 }
-// Emit tbody HTML with batches (≥2 members) folded under a parent header at the
-// batch's first-appearance position; singletons and non-matching rows stay inline.
+// Emit tbody HTML with batches (≥2 members) folded under a parent header. All
+// song-batch groups are emitted first (together, alphabetical), then every
+// singleton / non-matching row (together, in the list's own order) — so grouped
+// songs and individual assets never interleave, regardless of the incoming sort.
 function _renderGrouped(rows, renderRow, colspan, noun) {
   const songNames = new Set(_audioData.songs.map(s => s.name));
   const groups = new Map();
   for (const r of rows) { const k = _groupParent(r.name, songNames); if (k) (groups.get(k) || groups.set(k, []).get(k)).push(r); }
-  const emitted = new Set();
+
   let html = '';
+  // 1. All real batches (≥2 members) first, grouped, sorted by song name.
+  const batchKeys = [...groups.keys()].filter(k => groups.get(k).length >= 2).sort((a, b) => a.localeCompare(b));
+  for (const key of batchKeys) {
+    const members = groups.get(key);
+    const open = _audioGroupsOpen.has(key);
+    const safe = key.replace(/'/g, "\\'");
+    html += `<tr class="audio-group-hdr" onclick="toggleAudioGroup('${safe}')" style="cursor:pointer;background:var(--bg2)">
+      <td colspan="${colspan}" style="font-weight:600;color:var(--text-bright)">
+        <span style="display:inline-block;width:14px;color:var(--accent)">${open ? '▾' : '▸'}</span>🎵 ${key}
+        <span style="color:var(--text-dim);font-weight:400;font-size:11px">(${members.length} ${noun})</span>
+      </td></tr>`;
+    if (open) html += members.map(m => renderRow(m, true)).join('');
+  }
+  // 2. Then every ungrouped row (singletons + non-matching), in the list's order.
+  const batched = new Set(batchKeys);
   for (const r of rows) {
     const key = _groupParent(r.name, songNames);
-    const members = key ? groups.get(key) : null;
-    if (key && members.length >= 2) {
-      if (emitted.has(key)) continue;
-      emitted.add(key);
-      const open = _audioGroupsOpen.has(key);
-      const safe = key.replace(/'/g, "\\'");
-      html += `<tr class="audio-group-hdr" onclick="toggleAudioGroup('${safe}')" style="cursor:pointer;background:var(--bg2)">
-        <td colspan="${colspan}" style="font-weight:600;color:var(--text-bright)">
-          <span style="display:inline-block;width:14px;color:var(--accent)">${open ? '▾' : '▸'}</span>🎵 ${key}
-          <span style="color:var(--text-dim);font-weight:400;font-size:11px">(${members.length} ${noun})</span>
-        </td></tr>`;
-      if (open) html += members.map(m => renderRow(m, true)).join('');
-    } else {
-      html += renderRow(r, false);
-    }
+    if (key && batched.has(key)) continue;
+    html += renderRow(r, false);
   }
   return html;
 }
@@ -270,6 +275,121 @@ function stopAllAudioPreviews() {
   window.AudioEngine?.stop('ambience');
   _playingSongId = null;
   renderAudioTabBody();
+}
+
+// ── Save & Verify (health check, not a persistence path) ─────────────────────
+// Assets already persist on their own forms. This button reassures the user that
+// everything the server holds is actually LOADABLE: it re-fetches all six lists,
+// confirms the in-memory view matches the server (counts + ids per category),
+// then validates every instrument / sfx / ambient / song for the failure modes
+// that would make it silently break at play time — missing sample refs, missing
+// instrument refs, and malformed config objects. Reports a summary toast.
+function _isPlainConfig(c) { return c && typeof c === 'object' && !Array.isArray(c); }
+
+// Validate one synth-config object (instrument / ambient / a single sfx layer).
+// Returns a short problem string, or null if it looks well-formed.
+function _configProblem(cfg) {
+  if (cfg == null) return null; // empty config is legal (pure defaults)
+  if (!_isPlainConfig(cfg)) return 'config is not an object';
+  if (cfg.adsr != null && !_isPlainConfig(cfg.adsr)) return 'adsr is not an object';
+  if (cfg.filter != null && !_isPlainConfig(cfg.filter)) return 'filter is not an object';
+  if (cfg.layers != null && !Array.isArray(cfg.layers)) return 'layers is not an array';
+  return null;
+}
+
+async function verifyAllAudio() {
+  toast('Verifying audio…');
+  let fresh;
+  try {
+    const [instruments, songs, sfx, ambient, events, samples] =
+      await Promise.all(['instruments', 'songs', 'sfx', 'ambient', 'events', 'samples'].map(t => API(`/audio/${t}`)));
+    fresh = { instruments, songs, sfx, ambient, events, samples };
+  } catch (e) { toast(`Verify failed to fetch: ${e.message}`, true); return; }
+
+  const problems = [];
+  let verified = 0;
+
+  // (a) In-memory view vs. server: flag any category whose count or id-set drifted
+  //     (someone else edited, or a local list is stale).
+  for (const cat of ['instruments', 'songs', 'sfx', 'ambient', 'events', 'samples']) {
+    const srv = Array.isArray(fresh[cat]) ? fresh[cat] : [];
+    const mem = _audioData[cat] || [];
+    if (srv.length !== mem.length) problems.push(`${cat}: view shows ${mem.length}, server has ${srv.length} (refresh)`);
+    else {
+      const srvIds = new Set(srv.map(r => r.id));
+      if (mem.some(r => !srvIds.has(r.id))) problems.push(`${cat}: local list has ids the server doesn't (refresh)`);
+    }
+  }
+
+  const sampleIds = new Set((fresh.samples || []).map(s => s.id));
+  const instIds = new Set((fresh.instruments || []).map(i => i.id));
+
+  // (b) Load-check each asset for the refs/shape that would break it at play time.
+  for (const inst of (fresh.instruments || [])) {
+    const p = _configProblem(inst.config);
+    if (p) problems.push(`instrument "${inst.name}": ${p}`);
+    else if (inst.sample_id && !sampleIds.has(inst.sample_id)) problems.push(`instrument "${inst.name}": missing sample ref`);
+    else verified++;
+  }
+  for (const s of (fresh.sfx || [])) {
+    const layers = Array.isArray(s.config?.layers) ? s.config.layers : [s.config];
+    const bad = layers.map(_configProblem).find(Boolean);
+    if (bad) problems.push(`sfx "${s.name}": ${bad}`); else verified++;
+  }
+  for (const a of (fresh.ambient || [])) {
+    const p = _configProblem(a.config);
+    if (p) problems.push(`ambient "${a.name}": ${p}`); else verified++;
+  }
+  for (const song of (fresh.songs || [])) {
+    if (!Array.isArray(song.channels) || !song.channels.length) { problems.push(`song "${song.name}": no channels`); continue; }
+    const missing = (song.instrument_ids || []).filter(id => !instIds.has(id));
+    if (missing.length) problems.push(`song "${song.name}": ${missing.length} missing instrument ref(s)`);
+    else verified++;
+  }
+
+  if (problems.length) {
+    // Cap the toast so a mass failure doesn't flood the screen.
+    const shown = problems.slice(0, 6).join(' · ');
+    const more = problems.length > 6 ? ` · +${problems.length - 6} more` : '';
+    toast(`${verified} sounds verified, ${problems.length} problem(s): ${shown}${more}`, true);
+  } else {
+    toast(`All ${verified} sounds verified — everything loads.`);
+  }
+}
+
+// ── Live preview from unsaved form values ────────────────────────────────────
+// Each of these reads the CURRENT edit-modal fields (via the same read* helpers
+// the Save path uses) and plays the result through AudioEngine without touching
+// the DB — so the user can tweak a field and immediately hear it. Wired to the
+// "▶ Preview" button injected into the instrument / ambient / sfx editors.
+function _previewInstrumentForm() {
+  window.AudioEngine?.init();
+  const waveform = document.getElementById('am-wave')?.value || 'square';
+  const sampleId = document.getElementById('am-sample')?.value || '';
+  const cfg = readInstrumentLikeConfig('am');
+  // Sample-backed instruments preview through the real sample; synth ones play a
+  // fixed 440Hz test tone shaped by the current ADSR/filter/etc.
+  if (sampleId) {
+    const smp = _audioData.samples.find(s => s.id === sampleId);
+    if (smp) { window.AudioEngine.playSample({ ...smp, config: { ...(smp.config || {}), ...cfg } }); return; }
+  }
+  window.AudioEngine.playSfx({ priority: 9, category: 'sfx', config: { ...cfg, waveform, freq: 440, duration: 0.6 } });
+}
+
+function _previewAmbientForm() {
+  window.AudioEngine?.init();
+  const extra = { waveform: document.getElementById('am-wave')?.value || 'square', freq: parseFloat(document.getElementById('am-freq')?.value) || 440 };
+  const row = { id: '_ambient_preview', category: 'misc', priority: 1, loop: 1, config: readInstrumentLikeConfig('am', extra) };
+  window.AudioEngine.loopSound(row);
+  setTimeout(() => window.AudioEngine.stopLoop(row.id), 4000);
+}
+
+function _previewSfxForm() {
+  window.AudioEngine?.init();
+  const layers = _sfxReadAllLayers();
+  const duration = parseFloat(document.getElementById('am-sfx-duration')?.value) || 0.4;
+  const config = layers.length === 1 ? { ...layers[0], duration } : { layers, duration };
+  window.AudioEngine.playSfx({ priority: 9, category: 'sfx', config });
 }
 
 // ── Import / Export (JSON presets — never real audio files, see note above) ──
@@ -821,6 +941,100 @@ function _sqTogglePlay() {
 
 // ── End Step Sequencer ────────────────────────────────────────────────────────
 
+// Inline "?" help affordance — a subtle superscript circle carrying a native
+// title tooltip. Reused across the sound editors to explain non-obvious fields
+// without spending a whole help line per control (see styles.css .audio-help).
+function _help(text) {
+  return `<span class="audio-help" title="${text.replace(/"/g, '&quot;')}">?</span>`;
+}
+
+// ── Live visualization (approach b: static ADSR + filter response) ───────────
+// The AudioEngine does NOT expose its AudioContext / master bus on its public
+// surface (window.AudioEngine only has playSfx/playMusic/loopSound/…), and the
+// task forbids editing the engine — so an AnalyserNode tap of the live signal
+// (approach a) isn't possible read-only. Instead we draw a deterministic
+// approximation from the current form values: the ADSR amplitude envelope and
+// the filter's frequency-response curve. This still lets the user SEE how
+// attack/decay/sustain/release and filter type/freq/Q reshape the sound, and it
+// redraws on every field edit. Purely a canvas paint — no audio is produced.
+function _drawAudioViz(canvasId, adsr, filter) {
+  const cv = document.getElementById(canvasId);
+  if (!cv) return;
+  // Match the backing store to the displayed pixel size for crisp lines.
+  const w = cv.clientWidth || 300, h = cv.clientHeight || 70;
+  cv.width = w; cv.height = h;
+  const g = cv.getContext('2d');
+  g.clearRect(0, 0, w, h);
+
+  // Left ~62%: ADSR envelope (amplitude over a fixed 1.0s note-on + release).
+  const envW = Math.round(w * 0.62), pad = 6;
+  const a = Math.max(0, adsr.a || 0), d = Math.max(0, adsr.d || 0);
+  const s = Math.min(1, Math.max(0, adsr.s ?? 0.7)), r = Math.max(0, adsr.r || 0);
+  const hold = 1.0; // seconds of sustain shown before release
+  const total = a + d + hold + r || 1;
+  const gx = ci => pad + (ci / total) * (envW - pad * 2);
+  const gy = amp => (h - pad) - amp * (h - pad * 2);
+  g.strokeStyle = '#39ff8f'; g.lineWidth = 1.5; g.beginPath();
+  g.moveTo(gx(0), gy(0));
+  g.lineTo(gx(a), gy(1));               // attack → peak
+  g.lineTo(gx(a + d), gy(s));           // decay → sustain level
+  g.lineTo(gx(a + d + hold), gy(s));    // sustain hold
+  g.lineTo(gx(total), gy(0));           // release → 0
+  g.stroke();
+  g.fillStyle = '#7878a0'; g.font = '8px monospace';
+  g.fillText('ADSR', pad, pad + 7);
+
+  // Right ~38%: filter magnitude response sketch across 20Hz–20kHz (log x).
+  const fx0 = envW + 4, fw = w - fx0 - pad;
+  g.strokeStyle = '#333'; g.beginPath(); g.moveTo(fx0 - 2, pad); g.lineTo(fx0 - 2, h - pad); g.stroke();
+  const type = filter.type || 'lowpass';
+  const fc = Math.max(20, filter.freq || 4000), q = Math.max(0.1, filter.q || 1);
+  const lg = f => Math.log10(f);
+  const nx = f => fx0 + ((lg(f) - lg(20)) / (lg(20000) - lg(20))) * fw;
+  // Approximate biquad magnitude (dB) → 0..1 for drawing. Peak near fc scales with Q.
+  const mag = f => {
+    const ratio = f / fc, peak = Math.min(1, 0.35 + q * 0.12);
+    let m;
+    if (type === 'lowpass') m = 1 / Math.sqrt(1 + Math.pow(ratio, 4));
+    else if (type === 'highpass') m = 1 / Math.sqrt(1 + Math.pow(1 / ratio, 4));
+    else if (type === 'notch') m = Math.abs(ratio - 1) < 0.15 / q ? 0.05 : 1;
+    else /* bandpass */ m = 1 / Math.sqrt(1 + Math.pow((ratio - 1 / ratio) * (2 * q), 2));
+    if ((type === 'lowpass' || type === 'highpass') && Math.abs(f - fc) / fc < 0.25) m = Math.max(m, peak);
+    return Math.min(1, m);
+  };
+  g.strokeStyle = '#ff9a3c'; g.lineWidth = 1.5; g.beginPath();
+  for (let px = 0; px <= fw; px += 2) {
+    const f = Math.pow(10, lg(20) + (px / fw) * (lg(20000) - lg(20)));
+    const y = (h - pad) - mag(f) * (h - pad * 2);
+    if (px === 0) g.moveTo(fx0 + px, y); else g.lineTo(fx0 + px, y);
+  }
+  g.stroke();
+  // Cutoff marker + label.
+  g.strokeStyle = '#ff2ec4'; g.setLineDash([2, 2]); g.beginPath();
+  g.moveTo(nx(fc), pad); g.lineTo(nx(fc), h - pad); g.stroke(); g.setLineDash([]);
+  g.fillStyle = '#7878a0';
+  g.fillText(`${type} ${fc >= 1000 ? (fc / 1000).toFixed(1) + 'k' : Math.round(fc)}Hz Q${q}`, fx0, pad + 7);
+}
+
+// Read the ADSR + filter fields for a given prefix and repaint that editor's
+// viz canvas (`<prefix>-viz`). Wired to the config inputs' `input` events.
+function _refreshAudioViz(prefix) {
+  const num = (id, fb) => { const el = document.getElementById(id); if (!el) return fb; const v = parseFloat(el.value); return isNaN(v) ? fb : v; };
+  const adsr = { a: num(`${prefix}-a`, 0.01), d: num(`${prefix}-d`, 0.05), s: num(`${prefix}-s`, 0.7), r: num(`${prefix}-r`, 0.15) };
+  const filter = { type: document.getElementById(`${prefix}-filtertype`)?.value || 'lowpass', freq: num(`${prefix}-filterfreq`, 4000), q: num(`${prefix}-filterq`, 1) };
+  _drawAudioViz(`${prefix}-viz`, adsr, filter);
+}
+
+// Attach input listeners so the viz redraws as ADSR/filter fields change, then
+// paint once immediately. Call after the editor HTML (incl. the canvas) is in DOM.
+function _wireAudioViz(prefix) {
+  ['-a', '-d', '-s', '-r', '-filtertype', '-filterfreq', '-filterq'].forEach(suffix => {
+    const el = document.getElementById(prefix + suffix);
+    if (el) el.addEventListener('input', () => _refreshAudioViz(prefix));
+  });
+  _refreshAudioViz(prefix);
+}
+
 function instrumentLikeConfigFields(cfg, prefix) {
   cfg = cfg || {};
   const adsr = cfg.adsr || {};
@@ -831,34 +1045,35 @@ function instrumentLikeConfigFields(cfg, prefix) {
   const echo = cfg.echo || {};
   return `
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px">
-      <div class="field"><label>Attack</label><input id="${prefix}-a" type="number" step="0.01" min="0" value="${adsr.a ?? 0.01}"></div>
-      <div class="field"><label>Decay</label><input id="${prefix}-d" type="number" step="0.01" min="0" value="${adsr.d ?? 0.05}"></div>
-      <div class="field"><label>Sustain</label><input id="${prefix}-s" type="number" step="0.05" min="0" max="1" value="${adsr.s ?? 0.7}"></div>
-      <div class="field"><label>Release</label><input id="${prefix}-r" type="number" step="0.01" min="0" value="${adsr.r ?? 0.15}"></div>
+      <div class="field"><label>Attack${_help('Seconds to ramp from silence up to full volume when the note starts.')}</label><input id="${prefix}-a" type="number" step="0.01" min="0" value="${adsr.a ?? 0.01}"></div>
+      <div class="field"><label>Decay${_help('Seconds to fall from the peak down to the sustain level.')}</label><input id="${prefix}-d" type="number" step="0.01" min="0" value="${adsr.d ?? 0.05}"></div>
+      <div class="field"><label>Sustain${_help('Held volume level (0–1) after decay, while the note is on.')}</label><input id="${prefix}-s" type="number" step="0.05" min="0" max="1" value="${adsr.s ?? 0.7}"></div>
+      <div class="field"><label>Release${_help('Seconds to fade to silence after the note ends.')}</label><input id="${prefix}-r" type="number" step="0.01" min="0" value="${adsr.r ?? 0.15}"></div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:10px">
-      <div class="field"><label>Filter Type</label><select id="${prefix}-filtertype">
+      <div class="field"><label>Filter Type${_help('lowpass cuts highs, highpass cuts lows, bandpass keeps a band, notch removes a band.')}</label><select id="${prefix}-filtertype">
         ${['lowpass', 'highpass', 'bandpass', 'notch'].map(t => `<option value="${t}" ${filter.type === t ? 'selected' : ''}>${t}</option>`).join('')}
       </select></div>
-      <div class="field"><label>Filter Freq (Hz)</label><input id="${prefix}-filterfreq" type="number" min="20" value="${filter.freq ?? 4000}"></div>
-      <div class="field"><label>Filter Q</label><input id="${prefix}-filterq" type="number" step="0.1" min="0" value="${filter.q ?? 1}"></div>
+      <div class="field"><label>Filter Freq (Hz)${_help('Cutoff / center frequency the filter pivots around.')}</label><input id="${prefix}-filterfreq" type="number" min="20" value="${filter.freq ?? 4000}"></div>
+      <div class="field"><label>Filter Q${_help('Resonance: higher Q makes a sharper, more peaked response at the cutoff.')}</label><input id="${prefix}-filterq" type="number" step="0.1" min="0" value="${filter.q ?? 1}"></div>
+    </div>
+    <canvas id="${prefix}-viz" class="audio-viz" title="Left: ADSR amplitude envelope. Right: filter frequency response."></canvas>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-top:10px">
+      <div class="field"><label>Vibrato Rate${_help('Pitch-wobble speed in Hz. 0 = off.')}</label><input id="${prefix}-vibrate" type="number" step="0.5" min="0" value="${vibrato.rate ?? 0}"></div>
+      <div class="field"><label>Vibrato Depth (¢)${_help('Pitch-wobble amount in cents (100¢ = one semitone).')}</label><input id="${prefix}-vibdepth" type="number" step="1" min="0" value="${vibrato.depth ?? 0}"></div>
+      <div class="field"><label>Tremolo Rate${_help('Volume-wobble speed in Hz. 0 = off.')}</label><input id="${prefix}-tremrate" type="number" step="0.5" min="0" value="${tremolo.rate ?? 0}"></div>
+      <div class="field"><label>Tremolo Depth${_help('Volume-wobble amount (0–1) applied at the tremolo rate.')}</label><input id="${prefix}-tremdepth" type="number" step="0.05" min="0" max="1" value="${tremolo.depth ?? 0}"></div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-top:10px">
-      <div class="field"><label>Vibrato Rate</label><input id="${prefix}-vibrate" type="number" step="0.5" min="0" value="${vibrato.rate ?? 0}"></div>
-      <div class="field"><label>Vibrato Depth (¢)</label><input id="${prefix}-vibdepth" type="number" step="1" min="0" value="${vibrato.depth ?? 0}"></div>
-      <div class="field"><label>Tremolo Rate</label><input id="${prefix}-tremrate" type="number" step="0.5" min="0" value="${tremolo.rate ?? 0}"></div>
-      <div class="field"><label>Tremolo Depth</label><input id="${prefix}-tremdepth" type="number" step="0.05" min="0" max="1" value="${tremolo.depth ?? 0}"></div>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-top:10px">
-      <div class="field"><label>FM Rate (Hz)</label><input id="${prefix}-fmrate" type="number" step="1" min="0" value="${fm.rate ?? 0}" title="Modulator oscillator frequency. 0 = off."></div>
-      <div class="field"><label>FM Depth (Hz)</label><input id="${prefix}-fmdepth" type="number" step="1" min="0" value="${fm.depth ?? 0}" title="Frequency deviation in Hz. Index = depth ÷ carrier freq."></div>
-      <div class="field"><label>Echo Mix</label><input id="${prefix}-echomix" type="number" step="0.01" min="0" max="1" value="${echo.mix ?? 0}"></div>
-      <div class="field"><label>Echo Delay (s)</label><input id="${prefix}-echodelay" type="number" step="0.01" min="0" value="${echo.delay ?? 0.18}"></div>
+      <div class="field"><label>FM Rate (Hz)${_help('Modulator oscillator frequency for FM synthesis. 0 = off.')}</label><input id="${prefix}-fmrate" type="number" step="1" min="0" value="${fm.rate ?? 0}"></div>
+      <div class="field"><label>FM Depth (Hz)${_help('Frequency deviation in Hz. Modulation index = depth ÷ carrier freq.')}</label><input id="${prefix}-fmdepth" type="number" step="1" min="0" value="${fm.depth ?? 0}"></div>
+      <div class="field"><label>Echo Mix${_help('Wet/dry blend of the echo (0 = dry, 1 = full echo).')}</label><input id="${prefix}-echomix" type="number" step="0.01" min="0" max="1" value="${echo.mix ?? 0}"></div>
+      <div class="field"><label>Echo Delay (s)${_help('Time between echo repeats, in seconds.')}</label><input id="${prefix}-echodelay" type="number" step="0.01" min="0" value="${echo.delay ?? 0.18}"></div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:10px">
-      <div class="field"><label>Echo Feedback</label><input id="${prefix}-echofb" type="number" step="0.05" min="0" max="0.95" value="${echo.feedback ?? 0.35}"></div>
-      <div class="field"><label>Noise Mix (0-1)</label><input id="${prefix}-noisemix" type="number" step="0.05" min="0" max="1" value="${cfg.noiseMix ?? 0}"></div>
-      <div class="field"><label>Gain (0-1)</label><input id="${prefix}-gain" type="number" step="0.05" min="0" max="1" value="${cfg.gain ?? 1}"></div>
+      <div class="field"><label>Echo Feedback${_help('How much of each echo feeds back into the next (higher = more repeats).')}</label><input id="${prefix}-echofb" type="number" step="0.05" min="0" max="0.95" value="${echo.feedback ?? 0.35}"></div>
+      <div class="field"><label>Noise Mix (0-1)${_help('Blends in white noise alongside the waveform — good for percussion and texture.')}</label><input id="${prefix}-noisemix" type="number" step="0.05" min="0" max="1" value="${cfg.noiseMix ?? 0}"></div>
+      <div class="field"><label>Gain (0-1)${_help('Overall output level of this sound.')}</label><input id="${prefix}-gain" type="number" step="0.05" min="0" max="1" value="${cfg.gain ?? 1}"></div>
     </div>`;
 }
 
@@ -938,12 +1153,15 @@ function _sfxRenderLayers() {
     const body = document.getElementById('sfxl0-body');
     if (body) body.style.display = '';
   }
+  // Wire each layer's ADSR/filter viz (canvas id `sfxlN-viz`).
+  _sfxLayers.forEach((_, li) => _wireAudioViz(`sfxl${li}`));
 }
 
 window._sfxToggleLayer = function(li) {
   const body = document.getElementById(`sfxl${li}-body`);
   if (!body) return;
   body.style.display = body.style.display === 'none' ? '' : 'none';
+  if (body.style.display !== 'none') _refreshAudioViz(`sfxl${li}`); // canvas sizes from 0 while hidden
 };
 
 window._sfxRemoveLayer = function(li) {
@@ -1023,25 +1241,25 @@ function openAudioModal(tab, row) {
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
         <div class="field"><label>Name</label><input id="smp-name" value="${row.name || ''}"></div>
         <div class="field"><label>Category</label><select id="smp-cat">${categoryOptions(row.category || 'environment')}</select></div>
-        <div class="field"><label>Priority (1-10)</label><input id="smp-priority" type="number" min="1" max="10" value="${row.priority ?? 5}"></div>
+        <div class="field"><label>Priority (1-10)${_help('When many samples play at once, lower-priority ones are dropped first (voice-stealing).')}</label><input id="smp-priority" type="number" min="1" max="10" value="${row.priority ?? 5}"></div>
       </div>
       ${isNew ? `<div class="field" style="margin-top:10px"><label>Audio File <span style="color:var(--text-dim);font-weight:400">(mp3, wav, ogg)</span></label>
         <input type="file" id="smp-file" accept="audio/*"></div>`
         : `<div style="margin-top:10px;padding:8px;background:var(--bg3);border-radius:3px;font-size:11px;color:var(--text-dim)">Audio data already stored. To replace, delete and re-upload.</div>`}
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:10px">
-        <div class="field"><label>Base Note (MIDI, 60=C4)</label><input id="smp-basenote" type="number" min="0" max="127" value="${row.base_note ?? 60}"></div>
-        <div class="field"><label>SNES Rate (Hz)</label><select id="smp-rate">
+        <div class="field"><label>Base Note (MIDI, 60=C4)${_help('MIDI note the sample was recorded at; playback pitches relative to this.')}</label><input id="smp-basenote" type="number" min="0" max="127" value="${row.base_note ?? 60}"></div>
+        <div class="field"><label>SNES Rate (Hz)${_help('Downsample rate — lower = grittier, more retro SNES flavour.')}</label><select id="smp-rate">
           ${[8000, 11025, 16000, 22050, 32000].map(r => `<option value="${r}" ${(row.snes_rate ?? 16000) == r ? 'selected' : ''}>${r}</option>`).join('')}
         </select></div>
-        <div class="field"><label>SNES Bits</label><select id="smp-bits">
+        <div class="field"><label>SNES Bits${_help('Bit-depth crush: 4-bit is BRR-like and lo-fi, 8-bit keeps more fidelity.')}</label><select id="smp-bits">
           <option value="4" ${(row.snes_bits ?? 4) == 4 ? 'selected' : ''}>4-bit (BRR-like)</option>
           <option value="8" ${row.snes_bits == 8 ? 'selected' : ''}>8-bit (more fidelity)</option>
         </select></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:10px">
-        <div class="field"><label>Echo Mix (0–1)</label><input id="smp-echo" type="number" step="0.05" min="0" max="1" value="${row.echo_mix ?? 0}"></div>
-        <div class="field"><label>Loop Start (sec)</label><input id="smp-loopstart" type="number" step="0.01" min="0" value="${row.loop_start ?? 0}"></div>
-        <div class="field"><label>Loop End (sec, 0=off)</label><input id="smp-loopend" type="number" step="0.01" min="0" value="${row.loop_end ?? 0}"></div>
+        <div class="field"><label>Echo Mix (0–1)${_help('Wet/dry blend of the sample echo effect.')}</label><input id="smp-echo" type="number" step="0.05" min="0" max="1" value="${row.echo_mix ?? 0}"></div>
+        <div class="field"><label>Loop Start (sec)${_help('Seconds into the sample where the sustain loop begins.')}</label><input id="smp-loopstart" type="number" step="0.01" min="0" value="${row.loop_start ?? 0}"></div>
+        <div class="field"><label>Loop End (sec, 0=off)${_help('Seconds where the loop ends and jumps back to loop start. 0 disables looping.')}</label><input id="smp-loopend" type="number" step="0.01" min="0" value="${row.loop_end ?? 0}"></div>
       </div>
       <div style="margin-top:12px;font-size:11px;font-weight:600;color:var(--text-dim)">ADSR envelope</div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:10px;margin-top:6px">
@@ -1098,10 +1316,13 @@ function openAudioModal(tab, row) {
         <select id="am-sample">${_assetOptions(_audioData.samples, row.sample_id, '— synth only —')}</select>
       </div>
       ${instrumentLikeConfigFields(row.config, 'am')}
-      <div class="field" style="display:flex;align-items:center;gap:10px;margin-top:10px">
-        <input type="checkbox" id="am-enabled" ${row.enabled !== 0 ? 'checked' : ''}>
-        <label for="am-enabled" style="margin:0;cursor:pointer">Enabled</label>
+      <div class="field" style="display:flex;align-items:center;gap:14px;margin-top:10px">
+        <button type="button" class="action-btn" id="am-preview" style="padding:4px 14px">▶ Preview</button>
+        <span><input type="checkbox" id="am-enabled" ${row.enabled !== 0 ? 'checked' : ''}>
+        <label for="am-enabled" style="margin:0;cursor:pointer">Enabled</label></span>
       </div>`;
+    _wireAudioViz('am');
+    document.getElementById('am-preview').onclick = _previewInstrumentForm;
     document.getElementById('modal-save').onclick = async () => {
       const name = document.getElementById('am-name').value.trim();
       if (!name) { toast('Name is required', true); return; }
@@ -1121,19 +1342,21 @@ function openAudioModal(tab, row) {
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:14px">
         <div class="field"><label>Name</label><input id="am-name" value="${row.name || ''}"></div>
         <div class="field"><label>Category</label><select id="am-cat">${categoryOptions(row.category || 'misc')}</select></div>
-        <div class="field"><label>Priority (1-10)</label><input id="am-priority" type="number" min="1" max="10" value="${row.priority ?? 5}"></div>
-        <div class="field"><label>Duration (sec)</label><input id="am-sfx-duration" type="number" step="0.05" min="0.05" value="${row.config?.duration ?? 0.4}"></div>
+        <div class="field"><label>Priority (1-10)${_help('When too many sounds play at once, lower-priority SFX are dropped first (voice-stealing).')}</label><input id="am-priority" type="number" min="1" max="10" value="${row.priority ?? 5}"></div>
+        <div class="field"><label>Duration (sec)${_help('Total length of the SFX; layers play within this window.')}</label><input id="am-sfx-duration" type="number" step="0.05" min="0.05" value="${row.config?.duration ?? 0.4}"></div>
       </div>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
         <span style="font-size:11px;font-weight:600;color:var(--accent);letter-spacing:1px;text-transform:uppercase">Layers</span>
         <button class="action-btn" style="font-size:10px;padding:3px 10px" onclick="_sfxAddLayer()">+ Add Layer</button>
       </div>
       <div id="sfx-layers-container"></div>
-      <div class="field" style="display:flex;align-items:center;gap:10px;margin-top:10px">
-        <input type="checkbox" id="am-enabled" ${row.enabled !== 0 ? 'checked' : ''}>
-        <label for="am-enabled" style="margin:0;cursor:pointer">Enabled</label>
+      <div class="field" style="display:flex;align-items:center;gap:14px;margin-top:10px">
+        <button type="button" class="action-btn" id="am-preview" style="padding:4px 14px" title="Play the full multi-layer sound with the current unsaved values">▶ Preview</button>
+        <span><input type="checkbox" id="am-enabled" ${row.enabled !== 0 ? 'checked' : ''}>
+        <label for="am-enabled" style="margin:0;cursor:pointer">Enabled</label></span>
       </div>`;
     _sfxRenderLayers();
+    document.getElementById('am-preview').onclick = _previewSfxForm;
     document.getElementById('modal-save').onclick = async () => {
       const name = document.getElementById('am-name').value.trim();
       if (!name) { toast('Name is required', true); return; }
@@ -1155,7 +1378,7 @@ function openAudioModal(tab, row) {
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
         <div class="field"><label>Name</label><input id="am-name" value="${row.name || ''}"></div>
         <div class="field"><label>Category</label><select id="am-cat">${categoryOptions(row.category || 'misc')}</select></div>
-        <div class="field"><label>Priority (1-10)</label><input id="am-priority" type="number" min="1" max="10" value="${row.priority ?? 1}"></div>
+        <div class="field"><label>Priority (1-10)${_help('Higher-priority ambience wins when zones overlap; keep background beds low.')}</label><input id="am-priority" type="number" min="1" max="10" value="${row.priority ?? 1}"></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px">
         <div class="field"><label>Waveform</label><select id="am-wave">${WAVEFORMS.map(w => `<option value="${w}" ${(row.config?.waveform || 'square') === w ? 'selected' : ''}>${w}</option>`).join('')}</select></div>
@@ -1163,9 +1386,12 @@ function openAudioModal(tab, row) {
       </div>
       ${instrumentLikeConfigFields(row.config, 'am')}
       <div class="field" style="display:flex;align-items:center;gap:18px;margin-top:10px">
+        <button type="button" class="action-btn" id="am-preview" style="padding:4px 14px" title="Loop this ambience for 4s with the current unsaved values">▶ Preview</button>
         <span><input type="checkbox" id="am-enabled" ${row.enabled !== 0 ? 'checked' : ''}> <label for="am-enabled" style="margin:0;cursor:pointer">Enabled</label></span>
         <span><input type="checkbox" id="am-loop" ${row.loop !== 0 ? 'checked' : ''}> <label for="am-loop" style="margin:0;cursor:pointer">Loop</label></span>
       </div>`;
+    _wireAudioViz('am');
+    document.getElementById('am-preview').onclick = _previewAmbientForm;
     document.getElementById('modal-save').onclick = async () => {
       const name = document.getElementById('am-name').value.trim();
       if (!name) { toast('Name is required', true); return; }
@@ -1193,8 +1419,8 @@ function openAudioModal(tab, row) {
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:12px">
         <div class="field"><label>Name</label><input id="sg-name" value="${row.name || ''}"></div>
         <div class="field"><label>Category</label><select id="sg-cat">${categoryOptions(row.category || 'misc')}</select></div>
-        <div class="field"><label>Tempo (BPM)</label><input id="sg-tempo" type="number" min="40" max="300" value="${row.tempo ?? 120}"></div>
-        <div class="field"><label>Priority (1-10)</label><input id="sg-priority" type="number" min="1" max="10" value="${row.priority ?? 5}"></div>
+        <div class="field"><label>Tempo (BPM)${_help('Beats per minute; each bar is 16 steps, 4 steps per beat.')}</label><input id="sg-tempo" type="number" min="40" max="300" value="${row.tempo ?? 120}"></div>
+        <div class="field"><label>Priority (1-10)${_help('Higher-priority music can interrupt lower when multiple songs are triggered.')}</label><input id="sg-priority" type="number" min="1" max="10" value="${row.priority ?? 5}"></div>
       </div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
         <button id="sq-vgrid" class="sq-vtab sq-vtab-on">⊞ Grid</button>

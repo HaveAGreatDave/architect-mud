@@ -2,11 +2,13 @@
 // Contains no game rules; delegates to the attached game plugin (holdem.js).
 
 import { query } from '../../server/models/db.js';
-import { sendToPlayer } from '../../server/engine/messaging.js';
+import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { getLivePlayer, getZonePlayers, getZoneNpcs } from '../../server/engine/world.js';
+import { moveEntity } from '../../server/engine/ai-behaviour.js';
+import { findPath } from '../../server/engine/pathfinding.js';
 import { HoldemGame } from './games/holdem.js';
 import { renderPane } from './render-pane.js';
-import { botId, isBotId, decideBotAction } from './bot-player.js';
+import { botId, isBotId, decideBotAction, botChatter, botOutcomeLine } from './bot-player.js';
 
 export const MAX_SEATS = 4;
 const AUTO_START_DELAY_MS = 15_000; // wait this long after 2nd player joins before starting
@@ -138,6 +140,9 @@ export class GameTable {
     // Pending bot-move timer (set when the action reaches a bot seat)
     this._botMoveTimer = null;
 
+    // Gambler NPCs walking in toward the table: [{ npc, path, step }]
+    this._incomingBots = [];
+
     // Pending board run-out timer (set when everyone remaining is all-in)
     this._runoutTimer = null;
 
@@ -221,11 +226,77 @@ export class GameTable {
     if (seatIdx === null) seatIdx = this.seats.findIndex(s => s === null);
 
     this.seats[seatIdx] = { playerId: id, npcId: npc.id, handle: npc.name, chips: buyIn, seatIdx, isBot: true, persona };
+    if (npc._ai) npc._ai.waitUntil = Date.now() + 3_600_000; // freeze his AI so he stays seated
     await this._saveBotBankroll(npc, bankroll - buyIn);
 
     this._checkAutoStart();
     await this._persist();
     return { ok: true, seatIdx };
+  }
+
+  // Bring a gambler NPC to the table. If he's already in the room he sits at once;
+  // otherwise he walks in over the next several ticks (see stepIncomingBots).
+  // Returns { ok, error, walking?, seatIdx? }.
+  async summonBot(npc) {
+    if (this.phase === 'Closed') return { ok: false, error: 'This table is closed.' };
+    if (this.openSeats() === 0) return { ok: false, error: 'No seats available.' };
+    if (this.seatedIndex(botId(npc.id)) >= 0) return { ok: false, error: `${npc.name} is already at the table.` };
+    if (this._incomingBots.some(w => w.npc.id === npc.id)) return { ok: false, error: `${npc.name} is already on his way.` };
+
+    const persona = npc.flags?.poker_persona || {};
+    const buyIn = persona.buyIn || this.config.buyIn || this.config.minBuyIn || 100;
+    if (npc.flags?.poker_cooldown_until && Date.now() < npc.flags.poker_cooldown_until) {
+      return { ok: false, error: `${npc.name} just got cleaned out — he's licking his wounds. Try again later.` };
+    }
+    // Broke but off cooldown → a backer restakes him to a fresh bankroll.
+    let bankroll = npc.flags?.poker_bankroll ?? persona.bankroll ?? 0;
+    if (bankroll < buyIn) {
+      bankroll = Math.max(persona.bankroll || 0, buyIn * 10);
+      await this._saveBotBankroll(npc, bankroll);
+    }
+
+    if (npc.zone_id === this.zoneId) return this.seatBot(npc);
+
+    const path = findPath(npc.zone_id, this.zoneId, { maxDistance: 60 });
+    if (!path || path.length < 2) return { ok: false, error: `${npc.name} can't get here from where he is.` };
+    if (npc._ai) npc._ai.waitUntil = Date.now() + 3_600_000; // freeze his AI while we drive him
+    this._incomingBots.push({ npc, path, step: 1 });          // step 0 is his current zone
+    return { ok: true, walking: true };
+  }
+
+  // Advance each incoming gambler one zone toward the table; seat on arrival.
+  // Called from the plugin tick.
+  stepIncomingBots() {
+    if (!this._incomingBots.length) return;
+    const still = [];
+    for (const w of this._incomingBots) {
+      const next = w.path[w.step];
+      const moved = next && moveEntity(w.npc, next, sendToZone, query);
+      if (!moved) { if (w.npc._ai) w.npc._ai.waitUntil = null; continue; } // arrived-off-path or blocked
+      w.step++;
+      if (w.npc.zone_id === this.zoneId) {
+        this.seatBot(w.npc)
+          .then(r => {
+            if (r.ok) this._dealerSay(`${w.npc.name} takes a seat.`);
+            else if (w.npc._ai) w.npc._ai.waitUntil = null; // couldn't seat — let him resume his life
+          })
+          .catch(e => console.error('[gametable] seat incoming bot:', e.message));
+      } else {
+        still.push(w);
+      }
+    }
+    this._incomingBots = still;
+  }
+
+  // A bot lost its last chip: park it on a recovery cooldown and stand it up.
+  async _bustBot(seat) {
+    const npc = getZoneNpcs(this.zoneId).find(n => n.id === seat.npcId);
+    const until = Date.now() + (this.config.botBustCooldownMs || 10 * 60 * 1000);
+    if (npc) { npc.flags = npc.flags || {}; npc.flags.poker_cooldown_until = until; }
+    await this._saveBotCooldown(seat.npcId, until);
+    const line = botOutcomeLine(seat, 'busted', this._anyHumanName());
+    if (line) this.botSay(seat, line);
+    await this.leaveTable(seat.playerId); // returns 0, thaws his AI → he wanders off
   }
 
   async leaveTable(playerId) {
@@ -254,11 +325,12 @@ export class GameTable {
 
     // Return chips: bots to their bankroll, players to their credits.
     if (wasBot) {
+      const npc = getZoneNpcs(this.zoneId).find(n => n.id === seat.npcId);
       if (chips > 0) {
-        const npc = getZoneNpcs(this.zoneId).find(n => n.id === seat.npcId);
         const bankroll = (npc?.flags?.poker_bankroll ?? 0) + chips;
-        await this._saveBotBankroll(seat.npcId, bankroll);
+        await this._saveBotBankroll(npc || seat.npcId, bankroll);
       }
+      if (npc?._ai) npc._ai.waitUntil = null; // resume his world life — he wanders off
     } else if (chips > 0) {
       await query('UPDATE players SET credits = credits + $1 WHERE id = $2', [chips, playerId]);
       const { rows } = await query('SELECT credits FROM players WHERE id=$1', [playerId]);
@@ -291,6 +363,9 @@ export class GameTable {
       .filter(Boolean)
       .map(s => ({ seatIdx: s.seatIdx, playerId: s.playerId, handle: s.handle, chips: s.chips }));
     if (active.length < 2) return;
+
+    // Tilt cools off over a few hands (Phase 3).
+    for (const s of this.seats) if (s?.isBot && s.tilt) s.tilt = Math.max(0, s.tilt - 0.34);
 
     this.game = new HoldemGame(this.config);
     const prevDealerSeatIdx = this._nextDealerSeatIdx();
@@ -376,15 +451,33 @@ export class GameTable {
         const seat = this.seats.find(s => s && s.playerId === gs.playerId);
         if (seat) seat.chips = gs.chips;
       }
+      // Bot reactions (Phases 3–4): needle on a win, tilt + bad-beat on a loss.
+      for (const seat of this.seats) {
+        if (!seat?.isBot) continue;
+        const gs = this.game.seats.find(g => g.playerId === seat.playerId);
+        if (!gs || gs.folded) continue; // only bots who reached showdown react
+        const name = this._anyHumanName();
+        if (this.lastWinners.includes(seat.playerId)) {
+          const l = botOutcomeLine(seat, 'won', name);
+          if (l) this.botSay(seat, l);
+        } else {
+          const strong = gs.bestHand && gs.bestHand.rank >= 2; // lost with two pair+ = a beat
+          seat.tilt = Math.min(1, (seat.tilt || 0) + (strong ? 0.7 : 0.2));
+          const l = botOutcomeLine(seat, strong ? 'badbeat' : 'lost', name);
+          if (l) this.botSay(seat, l);
+        }
+      }
       // Remove broke players (and busted bots)
       for (let i = 0; i < this.seats.length; i++) {
         if (this.seats[i] && this.seats[i].chips === 0) {
           const s = this.seats[i];
-          if (!s.isBot) {
+          if (s.isBot) {
+            this._bustBot(s); // sets a recovery cooldown, then stands up (returns 0)
+          } else {
             this._pushSfx('broke', s.playerId); // private sad send-off
             sendToPlayer(s.playerId, { type: 'output', message: 'You have no chips left. You leave the table.' });
+            this.leaveTable(s.playerId);
           }
-          this.leaveTable(s.playerId); // bot busting out just stands up (returns 0)
         }
       }
       // Auto-start next hand after delay
@@ -465,14 +558,18 @@ export class GameTable {
       if (!this.game || this.phase !== 'InProgress') return;
       const actor = this.game.getCurrentActor();
       if (!actor || actor.playerId !== seat.playerId) return; // the spot moved on
-      const { action, amount } = decideBotAction(this, seat);
+      const { action, amount, tag } = decideBotAction(this, seat);
       const res = this.processAction(seat.playerId, action, amount || 0);
       // Belt-and-suspenders: an illegal sizing must never leave the table stalled
       // on a bot with no timer. Fall back to the always-legal check-or-fold.
       if (!res.ok) {
         const fallback = this.game.canCheck(seat.playerId) ? 'check' : 'fold';
         this.processAction(seat.playerId, fallback, 0);
+        return;
       }
+      // Table talk (Phase 4) — sometimes needle the table, with true & false tells.
+      const line = botChatter(seat, tag, this._anyHumanName());
+      if (line) this.botSay(seat, line);
     }, delay);
   }
 
@@ -606,6 +703,26 @@ export class GameTable {
       delete this.chatBubbles[playerId];
       this.pushPaneAll();
     }, 7000);
+    this.pushPaneAll();
+  }
+
+  // Name of any seated human, for the bot to needle. Falls back to 'friend'.
+  _anyHumanName() {
+    const h = this.seats.find(s => s && !s.isBot);
+    return h ? h.handle : 'friend';
+  }
+
+  // A bot's speech: float a bubble over its seat AND echo to the room chat, like
+  // the dealer's narration. (Mirrors playerSay + _dealerSay.)
+  botSay(seat, text) {
+    if (!text || !seat) return;
+    this.chatBubbles[seat.playerId] = text;
+    clearTimeout(this._sayTimers[seat.playerId]);
+    this._sayTimers[seat.playerId] = setTimeout(() => {
+      delete this.chatBubbles[seat.playerId];
+      this.pushPaneAll();
+    }, 7000);
+    sendToZone(this.zoneId, { type: 'output', message: `<span style="color:var(--yellow)">${seat.handle} says: "${text}"</span>` });
     this.pushPaneAll();
   }
 

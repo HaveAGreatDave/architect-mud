@@ -1,0 +1,6 @@
+{
+  "name": "surveillance",
+  "version": "0.1.0",
+  "description": "SPECTER — player-deployable spy networks. Phase 1: plant/retrieve/sweep covert devices + remote feed + battery/power tick.",
+  "commands": ["plant", "retrieve", "sweep", "feed"]
+}

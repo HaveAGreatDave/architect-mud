@@ -31,6 +31,21 @@ const EFFECT_DEFS = {
       return 'Radiation courses through you. (+2 RAD)';
     },
   },
+  // Suffocation from breathing ash without a sealed mask: drains stamina fast,
+  // then bites HP once you're winded. Applied by the ashfall hazard in
+  // gameLoop's resourceTick; lapses shortly after you mask up or get indoors.
+  choking: {
+    label: 'Choking',
+    onTick(player) {
+      const cur = player.stamina ?? (player.stamina_max ?? 100);
+      if (cur > 0) {
+        player.stamina = Math.max(0, cur - 4);
+        return 'You choke on the ash-thick air, gasping for breath. (-4 STA)';
+      }
+      player.hp = Math.max(0, player.hp - 2);
+      return "You can't breathe — the ash is suffocating you. (-2 HP)";
+    },
+  },
 };
 
 // Apply (or refresh) a timed status effect on a player.

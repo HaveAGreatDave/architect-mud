@@ -22,16 +22,18 @@ import { query } from '../db.js';
 const ZONE_ID = 'zone_residential_lobby'; // Embassy lobby — has gametable_embassy
 const NPC_ID  = 'npc_cash_vane';
 
-// Idle graph: stay put and chat when players are around. He doesn't wander yet.
-function buildIdleGraph() {
+function buildLifeGraph() {
+  // He has a life: drifts toward his home haunt and hangs about there, chatting
+  // up whoever's around. When summoned, the gametable plugin freezes this graph
+  // and walks him to the table itself (see GameTable.summonBot).
   return {
     _start: 'start',
     nodes: {
-      start:        { type: 'start', next: 'player_check' },
-      player_check: { type: 'condition', condition_type: 'PLAYER_IN_ZONE', ifTrue: 'chitchat', ifFalse: 'idle_wait' },
-      chitchat:     { type: 'action', action_type: 'VENDOR_CHITCHAT', next: 'chat_wait' },
-      chat_wait:    { type: 'wait', seconds: 120, next: 'start' },
-      idle_wait:    { type: 'wait', seconds: 30, next: 'start' },
+      start:      { type: 'start', next: 'have_life' },
+      have_life:  { type: 'action', action_type: 'HAVE_LIFE', next: 'home_check' },
+      home_check: { type: 'condition', condition_type: 'AT_HOME', ifTrue: 'home_life', ifFalse: 'wait' },
+      home_life:  { type: 'action', action_type: 'AT_HOME_LIFE', next: 'wait' },
+      wait:       { type: 'wait', seconds: 20, next: 'start' },
     },
   };
 }
@@ -83,15 +85,28 @@ async function upsertNpc({ id, name, description, zone_id, home_zone, npc_type,
 async function main() {
   console.log('=== seed-poker-gambler: starting ===\n');
 
+  // Give him a home haunt next door to the table, so he lives *near* the game
+  // rather than at it — and visibly walks in when summoned. Falls back to the
+  // table zone itself if the lobby has no usable exit.
+  const { rows: zr } = await query('SELECT exits FROM zones WHERE id=$1', [ZONE_ID]);
+  const exits = zr[0] ? (typeof zr[0].exits === 'string' ? JSON.parse(zr[0].exits) : zr[0].exits || {}) : {};
+  const neighbours = Object.values(exits).filter(Boolean);
+  let homeZone = ZONE_ID;
+  if (neighbours.length) {
+    const { rows: valid } = await query('SELECT id FROM zones WHERE id = ANY($1)', [neighbours]);
+    if (valid.length) homeZone = valid[0].id;
+  }
+  console.log(`Cash's home haunt → ${homeZone}${homeZone === ZONE_ID ? ' (no neighbour found; lives at the table zone)' : ''}\n`);
+
   await upsertNpc({
     id: NPC_ID,
     name: 'Cassius Vane',
     description: "A rangy man in a salvaged casino-floor coat, the felt-green lining worn to grey. His jaw is chrome from the cheekbone down — an old repair he never bothered to skin over, so it catches the light when he smiles, which is often and rarely means anything good. He watches hands the way other people watch weather. They call him Cash, mostly because he keeps taking it.",
-    zone_id: ZONE_ID,
-    home_zone: ZONE_ID,
+    zone_id: homeZone,
+    home_zone: homeZone,
     npc_type: 'gambler',
     chitchat: CHITCHAT,
-    behaviour_graph: buildIdleGraph(),
+    behaviour_graph: buildLifeGraph(),
     hp_max: 25,
     sex: 'male',
     flags: {

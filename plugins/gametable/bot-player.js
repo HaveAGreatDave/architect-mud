@@ -125,15 +125,31 @@ function sizeRaise(game, gs, p) {
   return { action: 'raise', amount: total };
 }
 
+// ── Tilt (Phase 3) ─────────────────────────────────────────────────────────
+
+// A tilted bot plays looser and more aggressively — beatable-by-provoking. Tilt
+// lives on the seat (0..1), spikes on a bad beat, and decays over a few hands.
+function effectivePersona(seat) {
+  const p = { ...(seat.persona || {}) };
+  const tilt = seat.tilt || 0;
+  if (tilt > 0) {
+    p.aggression = clamp((p.aggression ?? 0.5) + 0.25 * tilt, 0, 1);
+    p.bluffFreq  = (p.bluffFreq ?? 0.15) + 0.20 * tilt;
+    p.tightness  = clamp((p.tightness ?? 0.5) - 0.25 * tilt, 0, 1);
+  }
+  return p;
+}
+
 // ── Decision ───────────────────────────────────────────────────────────────
 
-// Decide the bot's action for the current spot. Returns { action, amount }.
+// Decide the bot's action for the current spot.
+// Returns { action, amount, tag } — tag drives table talk (see botChatter).
 export function decideBotAction(table, seat) {
   const game = table.game;
   const gs = game?.getActiveSeat(seat.playerId);
-  if (!gs) return { action: 'fold', amount: 0 };
+  if (!gs) return { action: 'fold', amount: 0, tag: 'fold' };
 
-  const p = seat.persona || {};
+  const p = effectivePersona(seat);
   const aggression    = clamp(p.aggression ?? 0.5, 0, 1);
   const tightness     = clamp(p.tightness ?? 0.5, 0, 1);
   const bluffFreq     = p.bluffFreq ?? 0.15;
@@ -141,14 +157,18 @@ export function decideBotAction(table, seat) {
 
   const { strength, draw } = evaluateStrength(game, gs);
   const toCall = Math.max(0, game.currentBet - gs.bet);
+  const tagged = (r, tag) => ({ ...r, tag });
 
   if (toCall === 0) {
-    // Nothing owed — check, or bet for value / as a semi-bluff / as a pure bluff.
+    // Occasionally slow-play a monster to trap.
+    if (strength > 0.88 && Math.random() < 0.25) return { action: 'check', amount: 0, tag: 'trap' };
     const wantValue     = strength >= 0.55 - aggression * 0.15;
     const wantSemiBluff = draw >= 0.15 && Math.random() < semiBluffFreq;
     const wantBluff     = strength < 0.30 && draw < 0.15 && Math.random() < bluffFreq;
-    if (wantValue || wantSemiBluff || wantBluff) return sizeBet(game, gs, p);
-    return { action: 'check', amount: 0 };
+    if (wantValue)     return tagged(sizeBet(game, gs, p), 'value');
+    if (wantSemiBluff) return tagged(sizeBet(game, gs, p), 'semibluff');
+    if (wantBluff)     return tagged(sizeBet(game, gs, p), 'bluff');
+    return { action: 'check', amount: 0, tag: 'check' };
   }
 
   // Facing a bet — fold, call, or raise.
@@ -159,10 +179,106 @@ export function decideBotAction(table, seat) {
   const wantSemiBluffRaise = draw >= 0.18 && strength < 0.5 && Math.random() < semiBluffFreq * 0.7;
   // Pure-air bluff-raises only into cheap bets — never shove a big bet with nothing.
   const wantBluffRaise     = strength < 0.22 && draw < 0.10 && toCall <= game.pot * 0.5 && Math.random() < bluffFreq * 0.5;
-  if (wantValueRaise || wantSemiBluffRaise || wantBluffRaise) return sizeRaise(game, gs, p);
+  if (wantValueRaise)     return tagged(sizeRaise(game, gs, p), 'value');
+  if (wantSemiBluffRaise) return tagged(sizeRaise(game, gs, p), 'semibluff');
+  if (wantBluffRaise)     return tagged(sizeRaise(game, gs, p), 'bluff');
 
   const cushion = 0.03 + tightness * 0.10; // tighter players demand a better price
-  if (callStrength >= potOdds + cushion) return { action: 'call', amount: 0 };
-  if (potOdds < 0.15 && (strength > 0.25 || draw > 0.10)) return { action: 'call', amount: 0 }; // cheap peel
-  return { action: 'fold', amount: 0 };
+  if (callStrength >= potOdds + cushion) return { action: 'call', amount: 0, tag: strength > 0.85 ? 'trap' : 'call' };
+  if (potOdds < 0.15 && (strength > 0.25 || draw > 0.10)) return { action: 'call', amount: 0, tag: 'call' }; // cheap peel
+  return { action: 'fold', amount: 0, tag: 'fold' };
+}
+
+// ── Table talk (Phase 4) ─────────────────────────────────────────────────────
+// The key to bluffing is that talk is decoupled from true hand strength: 'bluff'
+// lines (confident/threatening) fire when WEAK; 'sandbag' lines (act unimpressed)
+// fire when STRONG. A player who tries to read him gets misled on purpose.
+
+const TALK = {
+  bluff: [ // weak, but talking big
+    "Careful. I don't miss twice, {name}.",
+    'You sure you want to be in this pot?',
+    "This one's already mine. You just don't know it yet.",
+    'Deep breath, {name}. Might be your last good one this hand.',
+    "I'd fold if I were you. But you're not me.",
+  ],
+  sandbag: [ // strong, but acting unimpressed
+    "Eh. I'll toss something in, I guess.",
+    'Probably a mistake, but the price is right.',
+    'I hate this hand. Guess we find out.',
+    "Don't get excited, {name}. I barely have anything.",
+  ],
+  trap: [ // monster, playing it slow and bored
+    "Go ahead, {name}. I'm barely paying attention.",
+    'Do whatever you want. Makes no difference to me.',
+    'Take your time. The dead have plenty.',
+  ],
+  call: [
+    "I'll look you up, {name}.",
+    'Curiosity tax. I pay it every time.',
+    "You could be bluffing. Let's see.",
+  ],
+  fold: [
+    'Take it. This time.',
+    'Not this one, {name}.',
+    "Yours. I've got better spots.",
+  ],
+  won: [
+    'The house always eats.',
+    'Thanks for the donation, {name}.',
+    "That's how it's done. Deal again.",
+    'Stack looks better over here, {name}.',
+  ],
+  lost: [
+    '...nice hand.',
+    'Fine. Deal the next one.',
+    "Enjoy it. It won't last.",
+  ],
+  badbeat: [ // fires when he loses a strong hand — he's now on tilt
+    'Two-outer. Of course. Of COURSE.',
+    'Unreal. You chase everything and the deck kisses you for it, {name}.',
+    'That is not poker. That is a mugging. Deal.',
+    "Sure. Why not. Everybody hits but me. Deal the cards.",
+  ],
+  busted: [
+    "Tapped out. Enjoy it while it lasts, {name}.",
+    "That's my stake. I'll be back for it.",
+    'Rigged deck. Has to be. I need a drink.',
+  ],
+};
+
+function pickTalk(situation, name) {
+  const pool = TALK[situation];
+  if (!pool || !pool.length) return null;
+  return pool[Math.floor(Math.random() * pool.length)].replace(/\{name\}/g, name || 'friend');
+}
+
+// Decide whether the bot says something after an in-hand action, and what.
+// Returns a line string or null. Maps the decision tag to a talk situation,
+// injecting false tells (see above). Rate-limited by a per-seat cooldown.
+export function botChatter(seat, tag, name) {
+  const chattiness = seat.persona?.chattiness ?? 0.5;
+  const now = Date.now();
+  if (seat._lastTalk && now - seat._lastTalk < 5000) return null;
+
+  let situation = null;
+  if (tag === 'bluff') situation = 'bluff';
+  else if (tag === 'semibluff') situation = Math.random() < 0.5 ? 'bluff' : null;
+  else if (tag === 'value') situation = Math.random() < 0.30 ? 'sandbag' : null;
+  else if (tag === 'trap') situation = Math.random() < 0.5 ? 'trap' : null;
+  else if (tag === 'call') situation = Math.random() < 0.30 ? 'call' : null;
+  else if (tag === 'fold') situation = Math.random() < 0.25 ? 'fold' : null;
+  if (!situation) return null;
+  if (Math.random() > 0.4 + chattiness * 0.5) return null;
+
+  seat._lastTalk = now;
+  return pickTalk(situation, name);
+}
+
+// A line for an end-of-hand outcome ('won' | 'lost' | 'badbeat' | 'busted').
+export function botOutcomeLine(seat, kind, name) {
+  const chattiness = seat.persona?.chattiness ?? 0.5;
+  if (Math.random() > 0.5 + chattiness * 0.4) return null;
+  seat._lastTalk = Date.now();
+  return pickTalk(kind, name);
 }

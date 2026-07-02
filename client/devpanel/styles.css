@@ -18,6 +18,14 @@
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: var(--font-size-base); height: 100vh; display: flex; flex-direction: column; }
 
+  /* Drag-selecting text across the UI highlights labels/rows unhelpfully. Suppress
+     selection everywhere, then re-enable it only where a user is meant to type or
+     copy: inputs, textareas, contenteditable, and <code> snippets (IDs, JSON). */
+  body { -webkit-user-select: none; user-select: none; }
+  input, textarea, select, [contenteditable="true"], code, pre {
+    -webkit-user-select: text; user-select: text;
+  }
+
   /* Header */
   #header {
     background: var(--bg2);
@@ -712,4 +720,20 @@
 @keyframes esp-status-pulse {
 	0%, 100% { background: rgba(120,0,0,0.15); border-color: #880000; }
 	50%       { background: rgba(180,0,0,0.28); border-color: #cc0000; }
+}
+
+/* Audio editor — inline "?" help affordance (native title tooltip). Kept subtle
+   so it doesn't compete with the field label; the browser's own tooltip carries
+   the explanation, saving vertical space over a help paragraph per field. */
+.audio-help {
+	display: inline-block; width: 13px; height: 13px; line-height: 13px;
+	text-align: center; font-size: 9px; font-weight: 700; border-radius: 50%;
+	background: var(--bg3); color: var(--text-dim); border: 1px solid var(--border);
+	cursor: help; margin-left: 4px; vertical-align: middle; user-select: none;
+}
+.audio-help:hover { color: var(--accent); border-color: var(--accent); }
+/* Static ADSR/filter visualization canvas in the sound editors. */
+.audio-viz {
+	width: 100%; height: 70px; display: block; background: var(--bg3);
+	border: 1px solid var(--border); border-radius: 4px; margin-top: 10px;
 }

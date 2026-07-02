@@ -3,7 +3,7 @@
 
 import { query } from '../../server/models/db.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
-import { getLivePlayer, getZone, getZoneNpcs } from '../../server/engine/world.js';
+import { getLivePlayer, getZone, world } from '../../server/engine/world.js';
 import { GameTable, activeTables, MAX_SEATS } from './game-table.js';
 import { renderPane } from './render-pane.js';
 import { renderHandASCII } from './cards.js';
@@ -257,18 +257,17 @@ async function cmdCall(args, raw, player) {
 }
 
 // Summon a gambler NPC to an open seat. `deal in <name>`, `summon <name>`, or
-// `call <name>`. Phase 1: the gambler must already be in the room; it sits
-// immediately. (Walking it in from elsewhere in the world is a later phase.)
+// `call <name>`. He can be anywhere in the world — if he's not already in the
+// room he walks in over the next several ticks (see GameTable.stepIncomingBots).
 async function cmdSummon(args, raw, player) {
   const t = tableInZone(player.current_zone);
   if (!t) return { type: 'error', message: 'No poker table here.' };
-  // Sit down first — a gambler won't play an empty table (and shouldn't be left
-  // sitting alone). This also matches the intent: you call him over to join you.
+  // Sit down first — you call him over to join you, not to an empty table.
   if (t.seatedIndex(player.id) < 0) return { type: 'error', message: 'Take a seat first, then call a gambler over.' };
   if (t.openSeats() === 0) return { type: 'error', message: 'The table is full.' };
 
-  const gamblers = getZoneNpcs(player.current_zone).filter(n => n.flags?.poker_player && (n.hp == null || n.hp > 0));
-  if (!gamblers.length) return { type: 'error', message: 'There is no one here willing to play.' };
+  const gamblers = [...world.npcs.values()].filter(n => n.flags?.poker_player && (n.hp == null || n.hp > 0));
+  if (!gamblers.length) return { type: 'error', message: "You don't know any card players who'd show." };
 
   let npc;
   const name = args.join(' ').replace(/^in\s+/i, '').trim(); // allow "deal in <name>"
@@ -276,14 +275,38 @@ async function cmdSummon(args, raw, player) {
     npc = gamblers[0];
   } else {
     const r = siftResolve(name, gamblers.map(n => ({ name: n.name, npc: n })));
-    if (r.type !== 'match') return { type: 'error', message: 'No gambler here by that name.' };
+    if (r.type !== 'match') return { type: 'error', message: 'No gambler you know by that name.' };
     npc = r.candidate.npc;
   }
 
-  const result = await t.seatBot(npc);
+  const result = await t.summonBot(npc);
   if (!result.ok) return { type: 'error', message: result.error };
+  if (result.walking) return { type: 'output', message: `<span style="color:var(--yellow)">Word goes out. ${npc.name} is on his way.</span>` };
   t.pushPaneAll();
   return { type: 'output', message: `<span style="color:var(--yellow)">${npc.name} pulls out a chair and sits down.</span>` };
+}
+
+// Auto-invite: when a lone human has waited a while and no gambler is coming,
+// the dealer rustles one up. Keeps a table alive when no players are around.
+async function maybeAutoInvite(table) {
+  if (table._incomingBots.length || table.openSeats() === 0) return;
+  const lone = table.seats.find(Boolean);
+  if (!lone || lone.isBot) return;
+  const now = Date.now();
+  if (!table._loneSince) table._loneSince = now;
+  if (now - table._loneSince < 45_000) return;                                  // give real players time
+  if (table._lastAutoInvite && now - table._lastAutoInvite < 120_000) return;   // don't spam invites
+
+  const cand = [...world.npcs.values()].find(n =>
+    n.flags?.poker_player && (n.hp == null || n.hp > 0)
+    && !(n.flags.poker_cooldown_until && now < n.flags.poker_cooldown_until)
+    && table.seatedIndex('npc:' + n.id) < 0
+    && !table._incomingBots.some(w => w.npc.id === n.id));
+  if (!cand) return;
+
+  table._lastAutoInvite = now;
+  const r = await table.summonBot(cand).catch(() => ({ ok: false }));
+  if (r.ok && !r.walking) table.pushPaneAll();
 }
 
 async function cmdBet(args, raw, player) {
@@ -457,6 +480,8 @@ async function tableTick() {
   try {
     for (const table of activeTables.values()) {
       await table.maybePersist();
+      table.stepIncomingBots(); // advance any gamblers walking in toward the table
+      if (table.seatedCount() !== 1 || table.game) table._loneSince = null;
 
       // Ambient dealer chatter — a quip in the dealer's speech bubble now and
       // then, only while a hand is live and players are seated.
@@ -474,6 +499,7 @@ async function tableTick() {
           table._lastDealerSay = now;
           table.dealerWaitingBanter();
         }
+        await maybeAutoInvite(table); // and eventually rustle up a gambler
       }
     }
   } finally {

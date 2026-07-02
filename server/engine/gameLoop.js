@@ -6,7 +6,7 @@ import { tickEntityAI, moveEntity } from './ai-behaviour.js';
 import { npcBanterTick } from './npc-banter.js';
 import { restockAllVendors } from './vendor.js';
 import { offlineSleepSwing } from './commands/combat.js';
-import { tickEffects } from './effects.js';
+import { tickEffects, applyEffect } from './effects.js';
 import { resolveAttack, resolveAttackNpc } from './commands/index.js';
 import { tickSleep, releaseApartment } from './apartments.js';
 import { fireHook } from './plugins.js';
@@ -248,11 +248,20 @@ async function tick() {
 
   // Status effects + phased drug effects
   for (const [playerId, player] of world.players) {
+    const hpBefore = player.hp;
+    const stamBefore = player.stamina;
     const messages = [...tickEffects(player), ...tickDrugs(player)];
-    if (messages.length) {
-      broadcastFn(null, { type:'status_tick', messages }, null, playerId);
-      if (player.hp <= 0) await handlePlayerDeath(player, null);
+    if (messages.length) broadcastFn(null, { type:'status_tick', messages }, null, playerId);
+    // Effects mutate hp/stamina in memory but this per-second tick historically
+    // neither persisted nor pushed them — so effect damage was invisible on the
+    // HUD until the minute tick. Persist + broadcast when an effect changed them.
+    const hpChanged = player.hp !== hpBefore;
+    const stamChanged = player.stamina !== stamBefore;
+    if (hpChanged || stamChanged) {
+      await query('UPDATE players SET hp=$1, stamina=$2 WHERE id=$3', [player.hp, player.stamina, playerId]);
+      broadcastFn(null, { type:'resource_tick', messages:[], player_update:{ hp: player.hp, stamina: player.stamina } }, null, playerId);
     }
+    if ((messages.length || hpChanged) && player.hp <= 0) await handlePlayerDeath(player, null);
   }
 }
 
@@ -764,6 +773,16 @@ async function resourceTick() {
 
     const flavorMsg = tempFlavorMessage(tempC, player._tickCounter);
     if (flavorMsg) messages.push(flavorMsg);
+
+    // --- Ashfall breathing hazard ---
+    // Outdoors during ashfall with no sealed mask → choking (drains stamina, then
+    // HP). Re-applied each minute at 65-tick duration so it lapses ~5s after the
+    // player masks up or gets indoors. Ash is a global weather state, not localized.
+    const isIndoor = !!(zone?.flags?.is_interior || zone?.flags?.is_apartment || zone?.flags?.is_building);
+    if (!isIndoor && !player.sealed) {
+      let wx; try { wx = getEnvironmentState(); } catch { wx = null; }
+      if (wx?.weatherType === 'ash') applyEffect(player, 'choking', 65);
+    }
 
     // --- Stamina regen/drain ---
     const staminaMax = player.stamina_max ?? 100;

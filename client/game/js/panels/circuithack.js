@@ -4,9 +4,10 @@
 // until your skill-scaled sensor reveals them; stepping on one trips an alarm.
 // GATE vias are locked until you've collected their KEY; BOOST vias refund moves.
 //
-// Currently a self-contained cosmetic overlay launched from the ATM JACK button
-// (see panels/atm.js) — the win/lose result is reported via opts.onResult but is
-// NOT yet wired to the server-side `jack` outcome. This is the testbed harness.
+// A cosmetic breach overlay launched from the ATM JACK button (see panels/atm.js).
+// The win/lose result is reported via opts.onResult; the ATM panel uses that to
+// fire the server-side `jack` command, which is authoritative for the outcome
+// (the real hacking skillCheck decides the payout — the minigame is flavour).
 //
 // Generation is verified solvable before display: a firewall-free, gate-respecting
 // route to the core within the move budget always exists (state-space BFS over

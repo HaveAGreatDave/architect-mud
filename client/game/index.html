@@ -1947,49 +1947,40 @@
 		<!-- ATM PANEL -->
 		<div id="atm-panel">
 			<div id="atm-box">
-				<button id="atm-close" aria-label="Close">✕</button>
-				<div id="atm-header">
-					<div class="atm-logo">▌ ATM ▐</div>
-					<div id="atm-network-name"></div>
-					<div class="atm-subtitle">AUTOMATED TRANSACTION MACHINE</div>
-				</div>
-				<div id="atm-status-block">
-					<div class="atm-status-row">
-						<span class="atm-label">POWER</span>
-						<span id="atm-power-status" class="atm-value atm-online">ONLINE</span>
+				<!-- Chassis head: brand plate + a couple of moulded screws + close -->
+				<div id="atm-chassis-head">
+					<div class="atm-brandplate">
+						<span class="atm-brand-mark">◉</span>
+						<div class="atm-brand-text">
+							<div id="atm-network-name">CENTRAL BANK</div>
+							<div class="atm-subtitle">AUTOMATED TELLER</div>
+						</div>
 					</div>
-					<div class="atm-status-row">
-						<span class="atm-label">CASH</span>
-						<div class="atm-bar-wrap"><div id="atm-cash-bar" class="atm-bar-fill"></div></div>
-						<span id="atm-cash-label" class="atm-value">5000c / 5000c</span>
+					<div class="atm-headbolts">
+						<span class="atm-screw"></span>
+						<button id="atm-close" aria-label="Close">✕</button>
 					</div>
 				</div>
-				<div class="atm-divider">── ACCOUNT ─────────────────────────</div>
-				<div id="atm-balance-block">
-					<div class="atm-balance-row">
-						<span class="atm-label">CARRIED</span>
-						<span id="atm-carried" class="atm-amount">₵ 0</span>
-					</div>
-					<div class="atm-balance-row">
-						<span class="atm-label">BANKED</span>
-						<span id="atm-banked" class="atm-amount">₵ 0</span>
+				<!-- Bulbous CRT behind glass; atm.js renders menu/screens into #atm-crt-screen -->
+				<div id="atm-crt-bezel">
+					<span class="atm-screw atm-screw-tl"></span>
+					<span class="atm-screw atm-screw-tr"></span>
+					<span class="atm-screw atm-screw-bl"></span>
+					<span class="atm-screw atm-screw-br"></span>
+					<div id="atm-crt">
+						<div id="atm-crt-screen"></div>
+						<div class="atm-crt-scanlines"></div>
+						<div class="atm-crt-glass"></div>
 					</div>
 				</div>
-				<div class="atm-divider">── TRANSACTION ─────────────────────</div>
-				<div id="atm-tx-block">
-					<div class="atm-tx-row">
-						<input id="atm-amount" type="number" min="1" placeholder="AMOUNT" autocomplete="off">
-						<button id="atm-max-btn" class="atm-btn-small">MAX</button>
+				<!-- Physical deck: power LED, card slot, cash tray -->
+				<div id="atm-deck">
+					<div class="atm-deck-led">
+						<span id="atm-power-led" class="atm-led"></span>
+						<span id="atm-power-status">ONLINE</span>
 					</div>
-					<div class="atm-tx-row">
-						<button id="atm-deposit-btn" class="atm-btn">DEPOSIT</button>
-						<button id="atm-withdraw-btn" class="atm-btn">WITHDRAW</button>
-					</div>
-					<div id="atm-fee-info" class="atm-fee"></div>
-				</div>
-				<div class="atm-divider">────────────────────────────────────</div>
-				<div id="atm-hack-wrap">
-					<button id="atm-jack-btn" class="atm-btn atm-btn-danger">▌ JACK TERMINAL ▐</button>
+					<div class="atm-cardslot"><span class="atm-cardslot-lip"></span>INSERT CARD</div>
+					<div class="atm-cashtray">CASH</div>
 				</div>
 			</div>
 		</div>

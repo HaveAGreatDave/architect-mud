@@ -112,6 +112,8 @@ function broadcast(
 		} else if (zoneId) {
 			const p = getLivePlayer(session.playerId);
 			if (!p || p.current_zone !== zoneId) continue;
+			// Asleep players don't perceive the room around them — no actions, speech, or ambience.
+			if (p.sleeping) continue;
 		}
 		ws.send(payload);
 	}
