@@ -13,7 +13,7 @@ Post-singularity browser MUD in the HellMOO tradition. Text-driven, real-time, b
 - [docs/tags.md](docs/tags.md) — the tag system: catalog/helpers/Tag→Action registry, the tag model, and how to add a tag cleanly (property vs. behavior)
 - [docs/combat.md](docs/combat.md) — combat **as actually built** (to-hit, body parts, typed soak, cooldowns, enemy AI, loot); the authoritative running source on the combat system
 - [docs/systems-survival.md](docs/systems-survival.md) — hunger/thirst, radiation, mutations, drugs, buffs, sleep, status-effect framework (as built)
-- [docs/systems-weather-extreme.md](docs/systems-weather-extreme.md) — **extreme weather (steps 1–5 built; 6–7 pending)**: severity scalar over the weather field, gear-gated-lethal thermal/wind/blackout/ash-choking channels, no indoor safe-haven, power-stays-out scar; telegraph band + EMP hero event still to build
+- [docs/systems-weather-extreme.md](docs/systems-weather-extreme.md) — **extreme weather (steps 1–6 built; 7 pending)**: severity scalar over the weather field, gear-gated-lethal thermal/wind/blackout/ash-choking channels, no indoor safe-haven, power-stays-out scar, ⚠ forecast telegraph band; EMP hero event + acid rain still to build
 - [docs/systems-economy.md](docs/systems-economy.md) — credits/banking, vendors, factions, crafting, IP/stat-raising, housing (as built)
 - [docs/systems-world.md](docs/systems-world.md) — world state, movement, ambience, sound propagation, spawning, minimap, scheduler, tunables (as built)
 - [docs/devpanel-js.md](docs/devpanel-js.md) — dev panel JS file reference: what each script in `client/devpanel/js/` holds, which functions live where, and the load-order contract

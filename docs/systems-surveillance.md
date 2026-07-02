@@ -190,7 +190,13 @@ Reuses TV rendering internals (ticker, SVG, off-air static) — the hub is "a TV
    battery/power tick (cams days / drone hours). Feed = own `feedSnapshot()` (zone snapshot, same
    shape as broadcast's `buildCameraSnapshot`, which is plugin-private so not importable). Test gear:
    [`scripts/seed-surveillance-gear.js`](../scripts/seed-surveillance-gear.js) (sticky/tap cam, recon drone).
-2. **Surveillance Hub** — multi-feed panel + spy-deck item, live tiles, chrome, audio sparkle skins.
+2. **Surveillance Hub** — ✅ *code-complete (branch `feature/surveillance-specter`).*
+   New client panel [`surveillancehub.js`](../client/game/js/panels/surveillancehub.js) (+ `#shub-panel`
+   markup, CSS): grid of live feed tiles + a focus pane, per-tile chrome (battery, signal bars, ●REC,
+   scanlines, and static skins for offline/jammed/spoofed/damaged), self-contained WebAudio blips.
+   Opened by the carried **Surveillance Deck** (`hub`, or `use deck`) or a `security_console` furniture.
+   Server pushes `surveillance_hub` (open) then `surveillance_hub_update` every 5s to a `hubViewers`
+   set; client sends `hubclose` on close; `player.logout` prunes. Frames = `feedSnapshot()`.
 3. **Records** — `record`, datachip export/replay/trade, `security_clips`.
 4. **Counterplay** — `sweep`→attack, Circuit Breach `hijack` (real wiring), jammer + spoofer.
 5. **Device variety** — relays, motion/audio sensors, drones (+`pilot`), tiers, vendor + crafting.

@@ -114,11 +114,15 @@ exactly (no new mechanism):
 | `waterproof` | wetness accrual **and** acid `burning` |
 | `sealed` (respirator/mask slot) | ash choking |
 
-## Telegraph
+## Telegraph *(built, step 6)*
 
-The forecast panel ([client/game/js/panels/forecast.js](../client/game/js/panels/forecast.js)) shows a
-`⚠ severe` marker on any day whose `severity` clears a threshold. The **actual onset** is still the field
-roll on the 30s/30m tick — warned, not scheduled.
+Each forecast day now carries a `severity` (attached in the weather plugin's `loadForecast` /
+`advanceWeather` via `severityForForecast0` — single source; flows through `getForecast()` → the
+`/environment/forecast` route and the `environment.daily` broadcast). The forecast panel
+([client/game/js/panels/forecast.js](../client/game/js/panels/forecast.js)) shows an amber **⚠** on any day
+whose `severity ≥ SEVERE_THRESHOLD (0.45)`, with the tooltip "Severe conditions likely — gear up." It's a
+**boolean band, not the raw number** — warns without revealing exact timing or intensity. The **actual
+onset** is still the field roll on the 30s/30m tick — warned, not scheduled.
 
 ## Build order
 
@@ -127,7 +131,7 @@ roll on the 30s/30m tick — warned, not scheduled.
 3. ✅ **Power scar** (`recover_after`). *Built:* severity-scaled per-`junction_box` storm faults in `simulatePowerNetwork` (scattered per-building blackouts) that persist offline for a 10–40 min recovery window (stored in `generators.flags`, no schema change); `stormFaultActive` keeps the 5-min tick alive until recovery.
 4. ✅ **Wind stamina gate** (movement.js). *Built:* `cmdMove` drains `4 + severity×16` stamina (above severity 0.4) when moving into an exposed severe-weather zone — attrition, never blocks; interiors and `bypassEncumbrance` relocations exempt. First consumer of `getZoneSeverity`.
 5. ✅ **`effects.js` wiring + gear tags** (ash; acid deferred). *Built:* new `choking` effect (stamina→HP); ashfall hazard in `resourceTick` gated by `player.sealed` (new `sealed` flag tag in the shared catalog, computed in `recomputeInsulation`); first-ever `applyEffect` caller; per-second effect tick now persists/broadcasts hp+stamina. Acid rain + `waterproof` moved to step 7's named-events layer.
-6. **Telegraph band.**
+6. ✅ **Telegraph band.** *Built:* per-day `severity` attached in the weather plugin's forecast builders (flows through `getForecast()`); client forecast panel shows an amber ⚠ (+tooltip) on days ≥ 0.45 severity — a vague band, not the number.
 7. *Phase 2:* **EMP / ion storm** on the named-events layer.
 
 Steps 1–2 alone give a playable, lethal cold snap.

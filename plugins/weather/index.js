@@ -168,6 +168,7 @@ async function loadForecast(setWeatherState, climateProfile) {
       windKph: r.wind_kph,
       humidityPct: r.humidity_pct,
       precipChance,
+      severity: severityForForecast0(r.weather_type, r.temp_c, r.wind_kph),
     };
   });
   setWeatherState(forecast[0].weatherType, forecast[0].tempC, forecast);
@@ -384,7 +385,7 @@ export const hooks = {
     const nextForecast = [
       ...shifted,
       { date: newDate, weatherType: generated.weatherType, tempC: generated.tempC, windKph: generated.windKph, humidityPct: generated.humidityPct, precipChance: generated.precipChance },
-    ].map((f, i) => ({ ...f, forecastDay: i }));
+    ].map((f, i) => ({ ...f, forecastDay: i, severity: severityForForecast0(f.weatherType, f.tempC, f.windKph) }));
 
     await query('DELETE FROM weather_forecast');
     for (const f of nextForecast) {

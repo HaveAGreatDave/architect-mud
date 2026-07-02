@@ -37,6 +37,15 @@ const GEAR = [
     tags: { security_gear: true, device_kind: 'drone', device_tier: 2,
             battery_max: 864, wired: false, hack_difficulty: 6, concealment_base: 6 },
   },
+  {
+    // Not plantable (no security_gear tag) — this is the monitor. `use deck` or
+    // `hub` opens the Surveillance Hub while it's in your inventory.
+    id: 'item_spy_deck',
+    name: 'Surveillance Deck',
+    description: 'A folding slate of scuffed matte glass. Unfold it and every camera you\'ve seeded blooms across the screen at once — a wall of little rooms you shouldn\'t be able to see.',
+    value: 900, weight: 700, rarity: 'rare',
+    tags: { spy_deck: true },
+  },
 ];
 
 for (const g of GEAR) {

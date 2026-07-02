@@ -2,6 +2,11 @@ import { appendMsg } from '../render.js';
 import { formatTemp, formatTempPrecise } from '/shared/settings.js';
 import { getEnvSnapshot } from './environment.js';
 
+// A forecast day at or above this severity shows a ⚠ warning. Deliberately a
+// boolean band, not the raw number — the telegraph warns "severe conditions
+// likely" without revealing exact timing or intensity (see systems-weather-extreme.md).
+const SEVERE_THRESHOLD = 0.45;
+
 // Plain-language wind strength, roughly Beaufort. Keeps "windy vs calm" legible.
 function windLabel(kph) {
   if (kph == null) return '';
@@ -52,16 +57,18 @@ function renderForecastToday() {
 function renderForecastDays(forecast) {
   const el = document.getElementById('forecast-days');
   if (!el) return;
-  el.innerHTML = (forecast || []).map((f, i) => `
-    <div class="forecast-day-row ${i === 0 ? 'fd-today' : ''}">
+  el.innerHTML = (forecast || []).map((f, i) => {
+    const severe = (f.severity ?? 0) >= SEVERE_THRESHOLD;
+    return `
+    <div class="forecast-day-row ${i === 0 ? 'fd-today' : ''} ${severe ? 'fd-severe' : ''}">
       <span class="fd-label">${i === 0 ? 'Today' : (f.date || '').slice(5) || `+${i}`}</span>
       <span class="fd-icon">${f.icon || ''}</span>
-      <span class="fd-weather">${(f.weatherType || '').replace('_', ' ')}</span>
+      <span class="fd-weather">${(f.weatherType || '').replace('_', ' ')}${severe ? ' <span class="fd-warn" title="Severe conditions likely — gear up before heading out">⚠</span>' : ''}</span>
       ${f.humidityPct != null ? `<span class="fd-humid" title="Humidity">\u{1F4A7} ${f.humidityPct}%</span>` : ''}
       ${f.windKph != null ? `<span class="fd-wind" title="${windLabel(f.windKph)}">\u{1F4A8} ${f.windKph}</span>` : ''}
       <span class="fd-temp">${formatTemp(f.tempC)}</span>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 }
 
 export function closeForecast() {

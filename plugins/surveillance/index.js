@@ -292,11 +292,12 @@ async function playerHasSpyDeck(playerId) {
   return rows.length > 0;
 }
 
+// Register the player as a hub viewer and return the open payload. The command
+// pipeline delivers the return value to the client, so we don't also sendToPlayer
+// here (that would double-open); the tick uses sendToPlayer for live updates.
 async function openHubFor(player) {
-  const payload = await buildHubPayload(player, true);
-  sendToPlayer(player.id, payload);
   hubViewers.add(player.id);
-  return payload;
+  return buildHubPayload(player, true);
 }
 
 // hub — open the Surveillance Hub (requires a carried spy-deck).
