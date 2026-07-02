@@ -25,6 +25,14 @@ export const SKILLS = {
   architect_interface: { id:'architect_interface', name:'Architect Interface', category:'arcane', stats:['stat_brains','stat_cool'], desc:'Communing with the Architect’s systems. Touching the machine-god’s thoughts without losing your own.' },
 };
 
+// Floored average of a skill's governing stats — the bonus that stacks on top
+// of the IP-derived level to form total (effective) skill.
+export function skillStatBonus(player, skillId) {
+  const skill = SKILLS[skillId];
+  if (!skill) return 0;
+  return Math.floor(skill.stats.reduce((sum, s) => sum + (player[s] || 0), 0) / skill.stats.length);
+}
+
 // skill level (floor(ip/100), 0–10) + floored average of governing stats. Can exceed 10.
 export async function effectiveSkill(player, skillId) {
   const skill = SKILLS[skillId];
@@ -34,8 +42,7 @@ export async function effectiveSkill(player, skillId) {
     [player.id, skillId]
   );
   const level = Math.floor((rows[0]?.ip || 0) / 100);
-  const avgStat = Math.floor(skill.stats.reduce((sum, s) => sum + (player[s] || 0), 0) / skill.stats.length);
-  return level + avgStat;
+  return level + skillStatBonus(player, skillId);
 }
 
 // Opposed-style swing, matching combat to-hit (combat.js rollSwing): 2d8 − 2d8,

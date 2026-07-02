@@ -7,7 +7,7 @@
  * every craft attempt, refresh it whenever the dev panel publishes a change.
  */
 import { query } from '../models/db.js';
-import { awardSkillUse, skillCheck } from './skills.js';
+import { awardSkillUse, skillCheck, skillStatBonus } from './skills.js';
 import { isStackable } from './tags.js';
 
 // Quality tiers: numeric 0–4, stored as text in item flags
@@ -66,7 +66,7 @@ export async function attemptCraft(player, recipeId, stationQuality = 'none') {
   for (const r of skillRows) playerSkills[r.skill_id] = Math.floor((r.ip || 0) / 100);
 
   for (const [skillId, minRank] of Object.entries(recipe.skill_req || {})) {
-    if ((playerSkills[skillId] || 0) < minRank) {
+    if ((playerSkills[skillId] || 0) + skillStatBonus(player, skillId) < minRank) {
       const skillName = skillId.replace(/_/g, ' ');
       return { success: false, message: `You need ${skillName} rank ${minRank} to craft this.` };
     }
@@ -180,10 +180,10 @@ export async function attemptCraft(player, recipeId, stationQuality = 'none') {
   };
 }
 
-export function getAvailableRecipes(playerSkills = {}) {
+export function getAvailableRecipes(player, playerSkills = {}) {
   return Object.values(RECIPE_CACHE).filter(recipe => {
     for (const [skillId, minRank] of Object.entries(recipe.skill_req || {})) {
-      if ((playerSkills[skillId] || 0) < minRank) return false;
+      if ((playerSkills[skillId] || 0) + skillStatBonus(player, skillId) < minRank) return false;
     }
     return true;
   });
