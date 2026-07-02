@@ -1,5 +1,6 @@
 const ORDER_KEY = 'architect_sidebar_order';
 const HIDDEN_KEY = 'architect_sidebar_hidden';
+const COLLAPSED_KEY = 'architect_sidebar_collapsed';
 const DEFAULT_ORDER = ['minimap-section', 'vitals-section', 'location-section', 'env-section', 'enemy-section', 'chat-section'];
 
 let locked = true;
@@ -20,6 +21,7 @@ export function initSidebarOrder() {
   document.getElementById('sidebar-lock-btn').addEventListener('click', toggleLock);
   document.getElementById('sidebar-reset-btn')?.addEventListener('click', resetOrder);
   initRestoreControl();
+  initCollapse();
   const sidebar = document.getElementById('sidebar');
   sidebar.addEventListener('dragover', onSidebarDragOver);
   sidebar.addEventListener('drop', onSidebarDrop);
@@ -106,6 +108,39 @@ function renderRestoreMenu() {
   }
 }
 
+// --- collapsible panels ---
+
+function loadCollapsed() {
+  try { return JSON.parse(localStorage.getItem(COLLAPSED_KEY)) || []; } catch { return []; }
+}
+
+function saveCollapsed(ids) {
+  localStorage.setItem(COLLAPSED_KEY, JSON.stringify(ids));
+}
+
+function setCollapsed(section, btn, on) {
+  section.classList.toggle('collapsed', on);
+  btn.textContent = on ? '▸' : '▾';
+  btn.title = on ? 'Expand panel' : 'Collapse panel';
+}
+
+function initCollapse() {
+  const collapsed = new Set(loadCollapsed());
+  document.querySelectorAll('#sidebar .sidebar-collapse-btn').forEach(btn => {
+    const section = btn.closest('.sidebar-section');
+    if (!section) return;
+    setCollapsed(section, btn, collapsed.has(section.id));
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const on = !section.classList.contains('collapsed');
+      setCollapsed(section, btn, on);
+      const ids = loadCollapsed().filter(x => x !== section.id);
+      if (on) ids.push(section.id);
+      saveCollapsed(ids);
+    });
+  });
+}
+
 function loadLayout() {
   try {
     const raw = JSON.parse(localStorage.getItem(ORDER_KEY));
@@ -164,6 +199,11 @@ export function resetOrder() {
   document.querySelectorAll('#sidebar .sidebar-spacer').forEach(s => s.remove());
   localStorage.removeItem(ORDER_KEY);
   saveHidden([]); // restore any hidden panels
+  saveCollapsed([]); // expand any collapsed panels
+  document.querySelectorAll('#sidebar .sidebar-collapse-btn').forEach(btn => {
+    const section = btn.closest('.sidebar-section');
+    if (section) setCollapsed(section, btn, false);
+  });
   applyLayout(null);
   renderRestoreMenu();
 }

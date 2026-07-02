@@ -484,6 +484,82 @@
 	--purple: #8a3ffb;
 }
 
+/* Tide — deep ocean-teal base, luminous aqua lead (abyssal Nord lineage) */
+[data-theme="tide"] {
+	--bg: #0e1c1e;
+	--bg2: #142629;
+	--bg3: #1c3236;
+	--border: #294c52;
+	--text: #c2ded9;
+	--text-dim: #6f9d9a;
+	--text-bright: #e8f6f2;
+	--accent: #4fd6c4;
+	--accent-dim: #0c3d3a;
+	--green: #6fd98f;
+	--red: #f0716f;
+	--orange: #eaa25c;
+	--yellow: #e6d17c;
+	--cyan: #5ce0dc;
+	--purple: #b48cf0;
+}
+
+/* Dusk — muted indigo-plum base, soft rose lead (Rosé Pine lineage) */
+[data-theme="dusk"] {
+	--bg: #191724;
+	--bg2: #1f1d2e;
+	--bg3: #26233a;
+	--border: #403d5c;
+	--text: #e0def4;
+	--text-dim: #908caa;
+	--text-bright: #f5f4fb;
+	--accent: #ebbcba;
+	--accent-dim: #3a2e3f;
+	--green: #6fcf9c;
+	--red: #eb6f92;
+	--orange: #f6c177;
+	--yellow: #f6d488;
+	--cyan: #9ccfd8;
+	--purple: #c4a7e7;
+}
+
+/* Meadow — warm sage-cream base, leaf-green lead (Everforest Light lineage) */
+[data-theme="meadow"] {
+	--bg: #edf0dd;
+	--bg2: #e4e9cf;
+	--bg3: #d9e0bf;
+	--border: #bcc79c;
+	--text: #4a5340;
+	--text-dim: #6f7a5c;
+	--text-bright: #333c28;
+	--accent: #6f942e;
+	--accent-dim: #d5e2b4;
+	--green: #4c8a2e;
+	--red: #e0524a;
+	--orange: #d9852b;
+	--yellow: #c69a20;
+	--cyan: #359489;
+	--purple: #9d5ba0;
+}
+
+/* Clay — warm terracotta-sand base, burnt-clay lead (Gruvbox Light lineage) */
+[data-theme="clay"] {
+	--bg: #f3e6d8;
+	--bg2: #ecdcc8;
+	--bg3: #e3cfb5;
+	--border: #cbb193;
+	--text: #4b3a2a;
+	--text-dim: #7a6449;
+	--text-bright: #332417;
+	--accent: #c0562b;
+	--accent-dim: #ecd0b8;
+	--green: #6a7a1e;
+	--red: #c02f28;
+	--orange: #d1741c;
+	--yellow: #b3841a;
+	--cyan: #3a8478;
+	--purple: #9a5586;
+}
+
 /* Theme swatch picker (settings) — replaces the flat theme <select> */
 .theme-grid-wrap { max-height: 300px; overflow-y: auto; }
 .theme-grid-head { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--text-dim); margin: 12px 0 6px; }
@@ -1645,6 +1721,32 @@ textarea {
 	font-style: italic;
 }
 
+
+/* Collapse toggle — only actionable while the sidebar is unlocked */
+.sidebar-label-collapsible {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+.sidebar-collapse-btn {
+	display: none;
+	background: none;
+	border: none;
+	color: var(--text-dim);
+	font-size: 11px;
+	line-height: 1;
+	padding: 0 2px;
+	cursor: pointer;
+}
+.sidebar-collapse-btn:hover {
+	color: var(--accent);
+}
+#sidebar.drag-mode .sidebar-collapse-btn {
+	display: inline-block;
+}
+.sidebar-section.collapsed > *:not(.sidebar-label) {
+	display: none !important;
+}
 
 /* Drag mode: sections get grab cursor */
 #sidebar.drag-mode .sidebar-section {

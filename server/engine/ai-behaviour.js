@@ -3,6 +3,7 @@ import { findPath, getZonesInRadius } from './pathfinding.js';
 import { enemyAttackPlayer, enemyAttackNpc, enemyAttackEnemy } from './combat.js';
 import { getEnvironmentState } from './environment.js';
 import { emit } from './events.js';
+import { dispatchAction } from './actions.js';
 import { hasChannelViewers, isNpcScheduledNow, getNpcStudioZone } from './broadcast-bridge.js';
 import { getShopperForNpc, closeShopSession } from './vendor-session.js';
 import { getNpcChitchat } from './npc-personality.js';
@@ -747,6 +748,25 @@ async function execAction(node, entity, ctx) {
       const { channel_id, text } = params;
       if (!text || !channel_id) break;
       emit('npc.broadcast_say', { entity, channel_id, text: `[${entity.name}] ${text}` });
+      break;
+    }
+
+    case 'START_QUEST': {
+      // Offer a quest to players sharing this entity's zone. Per-player, per-quest
+      // cooldown (blackboard) so it fires once rather than every tick. The quests
+      // plugin's START_QUEST handler is a no-op if the player already has it.
+      if (!ai) break;
+      const questId = params.quest_id;
+      if (!questId || !zone) break;
+      const cooldown = (params.cooldown_s ?? 60) * 1000;
+      const offers = ai.questOffers || (ai.questOffers = {});
+      const players = [...zone.players].map(id => getLivePlayer(id)).filter(Boolean);
+      for (const p of players) {
+        const key = `${questId}:${p.id}`;
+        if (Date.now() - (offers[key] || 0) < cooldown) continue;
+        offers[key] = Date.now();
+        dispatchAction({ type: 'START_QUEST', actor: p, params: { quest_id: questId } }).catch(() => {});
+      }
       break;
     }
 

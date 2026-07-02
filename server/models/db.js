@@ -6,7 +6,12 @@ const { Pool } = pg;
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-  max: 10,
+  // Max simultaneous connections this process holds. Kept below the Supabase
+  // pooler's per-project client cap so more than one process (e.g. the server +
+  // a one-off script) can connect without tripping "max clients reached".
+  // Override per-process with DB_POOL_MAX — e.g. run scripts with DB_POOL_MAX=1
+  // so seeds/one-offs never compete with the server for slots.
+  max: parseInt(process.env.DB_POOL_MAX, 10) || 5,
   idleTimeoutMillis: 30000,
 });
 

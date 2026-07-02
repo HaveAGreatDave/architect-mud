@@ -1,6 +1,7 @@
-# Corporations & Player Orgs (Design — Not Yet Built)
+# Corporations & Player Orgs (Phase 0 Built; Later Phases Design)
 
-> **Status: design sketch, 2026-07-01.** Nothing here is implemented. This is the agreed plan for
+> **Status: Phase 0 built 2026-07-02** (the corps engine — see the build-order section). Territory,
+> subterfuge, aggression, diplomacy, and NPC corp AI remain design. This is the agreed plan for
 > HellMOO-style corps — organizations that both players and the AI run, that hold territory, money, and
 > members, and that fight, scheme, and deal with each other under the Architect's indifferent eye.
 > It deliberately adds **few new subsystems**: almost every mechanic generalizes an existing
@@ -141,9 +142,20 @@ wants* is the deepest thread ([story.md](story.md)). Corps give it something to 
 
 ## Build order
 
-- **Phase 0 — Orgs exist.** Generalize factions → orgs (owner, treasury, members, ranks). Commands:
-  `found / join / invite / promote / kick / org` (info) `/ contribute / disburse`. Seed factions become
-  owner-less orgs. No territory yet — a shippable, testable slice on its own.
+- **Phase 0 — Orgs exist. ✅ BUILT 2026-07-02.** The 5 factions were folded into a unified `orgs` table
+  (NPC factions are `is_npc=1`, owner-less; player rep still keys off the preserved ids — `getPlayerFactionRep`
+  in [factions.js](../server/engine/factions.js) is the one repointed reader). Player crews live in the
+  same table with an owner + a `treasury`. Implemented as the **[/plugins/corps/](../plugins/corps/index.js)**
+  plugin, all verbs under `corp`/`org`: `found` (flat fee), `invite`/`accept`, `leave`, `kick`, `roster`,
+  `contribute`/`disburse` (atomic via `withTransaction` + guarded treasury UPDATE), **custom ranks +
+  permission bitmask** (`rank add/set/del`, `setrank`; bits in [org-perms.js](../server/engine/org-perms.js)),
+  `edit name/desc/color`, a private **`#corp:<id>` channel** (`corp say`; dynamic seam in
+  [channels.js](../server/engine/channels.js)), and a claimable **HQ** reusing the apartment substrate
+  (`corp claim`; `apartments.owner_type='org'`/`owner_org_id`, ownership checks via `playerControlsApt` in
+  [apartments.js](../server/engine/apartments.js)). Cache: `world.orgs`/`world.orgMembers`, re-synced by
+  `reloadOrg`. Migration: `npm run db:fold-factions`. **Deferred within Phase 0:** HQ forcefield/home-bind/
+  best-rest stay personal-only; the legacy `factions` table is kept for the dev panel (repoint + drop is a
+  fast-follow); `FACTION_MATCH` in the AI is still dead (players have no faction field).
 - **Phase 1 — Territory.** `zone_control` + `claim`, the influence tug-of-war, upkeep + income on the 24h
   tick.
 - **Phase 2 — Investment.** Org tiers, buy assets (vendors / ATMs / turrets / stations).

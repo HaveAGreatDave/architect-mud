@@ -45,7 +45,7 @@ import { cmdGhostLook, cmdGhostMove, cmdGhostHaunt, cmdGhostPowerDrain, makeGhos
 import { activateForcefield, deactivateForcefield } from "./engine/apartments.js";
 import { startKeepalive } from "./keepalive.js";
 import { setBroadcast as setMessagingBroadcast } from "./engine/messaging.js";
-import { query, logActivity } from "./models/db.js";
+import pool, { query, logActivity } from "./models/db.js";
 import { loadMisSettings, isMisServerEnabled } from "./engine/mis.js";
 import { loadEmailVerificationSetting, isEmailVerificationEnabled } from "./engine/emailVerification.js";
 
@@ -1105,6 +1105,18 @@ async function boot() {
 	}
 	startGameLoop(broadcast);
 	startKeepalive();
+
+	// Single-instance guard: if the port is already taken, another server is
+	// running. Exit fast instead of lingering as a zombie that still holds a DB
+	// connection pool (a prime cause of pooler "max clients" errors).
+	httpServer.on("error", (e) => {
+		if (e.code === "EADDRINUSE") {
+			console.error(`\n✗ Port ${PORT} is already in use — another server is running. Exiting.\n`);
+			process.exit(1);
+		}
+		throw e;
+	});
+
 	httpServer.listen(PORT, () => {
 		console.log(`\n🏚  Running on http://localhost:${PORT}`);
 		console.log(`   Player:  http://localhost:${PORT}`);
@@ -1112,6 +1124,20 @@ async function boot() {
 		console.log(`   Health:  http://localhost:${PORT}/health\n`);
 	});
 }
+
+// Graceful shutdown: release DB connections immediately on Ctrl-C / kill so a
+// restart starts clean and doesn't leave connections lingering on the pooler.
+let _shuttingDown = false;
+async function shutdown(signal) {
+	if (_shuttingDown) return;
+	_shuttingDown = true;
+	console.log(`\n${signal} — shutting down…`);
+	httpServer.close();
+	try { await pool.end(); } catch { /* pool already closed */ }
+	process.exit(0);
+}
+process.on("SIGINT", () => shutdown("SIGINT"));
+process.on("SIGTERM", () => shutdown("SIGTERM"));
 
 boot().catch((e) => {
 	console.error("Boot failed:", e);

@@ -21,7 +21,9 @@ function getTier(rep) {
 }
 
 export async function getPlayerFactionRep(playerId) {
-  const { rows: factions } = await query('SELECT * FROM factions');
+  // Factions folded into the unified orgs table: NPC factions are is_npc=1 rows.
+  // Ids were preserved by the fold, so player_faction_rep.faction_id still resolves.
+  const { rows: factions } = await query('SELECT id, name, description, color FROM orgs WHERE is_npc = 1');
   const { rows: reps } = await query(
     'SELECT * FROM player_faction_rep WHERE player_id = $1', [playerId]
   );

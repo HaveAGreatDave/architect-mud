@@ -254,6 +254,22 @@ const handlers = {
   factions: (msg) => { appendHtml(msg.message, 'help'); },
   shop: (msg) => { appendHtml(msg.message, 'help'); },
 
+  // Corps (org) command results. Most just render text; the ones that move the
+  // player's own credits also refresh the vitals HUD.
+  corp_info:        (msg) => { appendHtml(msg.message, 'help'); },
+  corp_roster:      (msg) => { appendHtml(msg.message, 'help'); },
+  corp_invite:      (msg) => { appendHtml(msg.message, 'help'); },
+  corp_joined:      (msg) => { appendHtml(msg.message, 'help'); },
+  corp_left:        (msg) => { appendHtml(msg.message, 'help'); },
+  corp_kick:        (msg) => { appendHtml(msg.message, 'help'); },
+  corp_edit:        (msg) => { appendHtml(msg.message, 'help'); },
+  corp_rank_update: (msg) => { appendHtml(msg.message, 'help'); },
+  corp_hq_claim:    (msg) => { appendHtml(msg.message, 'help'); },
+  corp_founded:     (msg) => { appendHtml(msg.message, 'help'); if (msg.player_update && state.player) { Object.assign(state.player, msg.player_update); updateVitals(state.player); } },
+  corp_contribute:  (msg) => { appendHtml(msg.message, 'help'); if (msg.player_update && state.player) { Object.assign(state.player, msg.player_update); updateVitals(state.player); } },
+  corp_withdraw:    (msg) => { appendHtml(msg.message, 'help'); if (msg.player_update && state.player) { Object.assign(state.player, msg.player_update); updateVitals(state.player); } },
+  corp_disband:     (msg) => { appendHtml(msg.message, 'help'); if (msg.player_update && state.player) { Object.assign(state.player, msg.player_update); updateVitals(state.player); } },
+
   map: (msg) => { openMapPopup(msg.tiles || []); },
 
   equip: (msg) => {

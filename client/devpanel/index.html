@@ -174,36 +174,6 @@
   <div id="vine-modal-body" style="flex:1;overflow:hidden;min-height:0"></div>
 </div>
 
-<!-- VINE WORKSPACE (multi-editor tabbed suite) -->
-<div id="vine-workspace" style="display:none;position:fixed;inset:0;z-index:610;background:var(--bg);flex-direction:column">
-  <div id="vw-tabbar" style="display:flex;align-items:stretch;flex-shrink:0;border-bottom:1px solid var(--border);background:var(--bg2);overflow-x:auto"></div>
-  <div id="vw-toolbar" style="display:flex;gap:8px;padding:6px 12px;border-bottom:1px solid var(--border);align-items:center;flex-shrink:0;background:var(--bg2)">
-    <span id="vw-icon" style="font-size:15px;line-height:1">🌿</span>
-    <span id="vw-title" style="font-weight:bold;flex:1;color:var(--text);font-size:13px">No asset open</span>
-    <button class="action-btn" onclick="vsOpenPicker()">📂 Open / New…</button>
-    <button class="action-btn" onclick="vsImportJSON()">📋 Load JSON</button>
-    <button class="action-btn success" onclick="vsSaveActive()">💾 Save</button>
-    <button class="action-btn" onclick="vineWorkspaceClose()">✕ Close</button>
-  </div>
-  <div id="vw-body" style="flex:1;position:relative;overflow:hidden;min-height:0"></div>
-</div>
-
-<!-- VINE ASSET PICKER (compact new/import popup) -->
-<div id="vine-picker" style="display:none;position:fixed;inset:0;z-index:620;background:color-mix(in srgb,var(--bg) 70%,transparent);align-items:center;justify-content:center" onclick="if(event.target===this)vsClosePicker()">
-  <div style="width:min(560px,92vw);max-height:82vh;display:flex;flex-direction:column;background:var(--bg2);border:1px solid var(--border);border-radius:5px;overflow:hidden">
-    <div id="vp-head" style="display:flex;gap:9px;align-items:center;padding:9px 12px;border-bottom:1px solid var(--border);border-left:4px solid var(--accent)">
-      <span id="vp-icon" style="font-size:15px">🌿</span>
-      <span id="vp-title" style="font-weight:bold;flex:1;font-size:13px"></span>
-      <button class="action-btn" onclick="vsClosePicker()">✕</button>
-    </div>
-    <div style="padding:9px 12px;display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid var(--border)">
-      <button id="vp-new" class="action-btn success" onclick="vsNewAsset()"></button>
-      <input id="vp-search" placeholder="Filter…" oninput="vsRenderPickerList()" style="flex:1;min-width:120px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:4px 8px;border-radius:2px">
-    </div>
-    <div id="vp-list" style="overflow-y:auto;padding:4px 0"></div>
-  </div>
-</div>
-
 <!-- VENDOR SHOP EDITOR MODAL (pop-out) -->
 <div id="ve-modal" style="display:none;position:fixed;inset:0;z-index:500;background:transparent;align-items:center;justify-content:center" onclick="if(event.target===this)veCloseModal()">
   <div class="modal-card" style="width:min(880px,94vw);max-height:90vh;display:flex;flex-direction:column;overflow:hidden">
