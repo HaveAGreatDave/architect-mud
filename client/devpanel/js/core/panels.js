@@ -100,7 +100,6 @@ const PANELS = {
       { key: 'name', label: 'Name' },
       { key: 'polarity', label: 'Polarity', render: v => `<span class="badge badge-${v==='positive'?'safe-zone':v==='negative'?'lethal':'medium'}">${v}</span>` },
       { key: 'visible', label: 'Visible', render: v => v ? '👁' : '' },
-      { key: 'rarity', label: 'Rarity' },
       { key: 'radiation_threshold', label: 'Rad. Threshold' },
     ],
     editForm: mutationEditForm,

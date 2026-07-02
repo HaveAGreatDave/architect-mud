@@ -604,11 +604,11 @@ async function cmdClip(args, raw, player) {
 
   const evidenceTag = crimeTags.length ? ` [EVIDENCE: ${crimeTags.join(', ').toUpperCase()}]` : '';
   await query(
-    `INSERT INTO items (id, name, description, type, weight, value, rarity, tags)
-     VALUES ($1,$2,$3,'evidence',60,$4,$5,$6)`,
+    `INSERT INTO items (id, name, description, type, weight, value, tags)
+     VALUES ($1,$2,$3,'evidence',60,$4,$5)`,
     [itemId, `Datachip — ${zoneName}`,
      `A slab of black storage glass, edge-lit amber. Holds ${frames.length} frames of surveillance footage from ${zoneName}.${evidenceTag}`,
-     crimeTags.length ? 250 : 40, crimeTags.length ? 'rare' : 'common',
+     crimeTags.length ? 250 : 40,
      JSON.stringify({ datachip: true, clip_id: clipId })]
   );
   await query(

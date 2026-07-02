@@ -15,22 +15,22 @@ const ZONE = 'zone_start';
 // pick_weight biases both the per-attempt draw and the replenish draw (higher =
 // shows up more often). max_qty caps how much of it a zone can hold.
 const JUNK = [
-  { id: 'item_rusted_can',       name: 'Rusted Can',            weight: 120, value: 1,  rarity: 'common',
+  { id: 'item_rusted_can',       name: 'Rusted Can',            weight: 120, value: 1,
     description: 'A dented steel can, label long gone to rust. Empty, but the metal is still good for something.',
     difficulty: 3, pick_weight: 16, max_qty: 3 },
-  { id: 'item_scrap_metal',      name: 'Scrap Metal',           weight: 800, value: 3,  rarity: 'common',
+  { id: 'item_scrap_metal',      name: 'Scrap Metal',           weight: 800, value: 3,
     description: 'A jagged offcut of sheet metal, edges sharp enough to remind you to be careful. Raw fabrication stock.',
     difficulty: 4, pick_weight: 15, max_qty: 3 },
-  { id: 'item_tangled_wire',     name: 'Tangled Wire',          weight: 200, value: 4,  rarity: 'common',
+  { id: 'item_tangled_wire',     name: 'Tangled Wire',          weight: 200, value: 4,
     description: 'A fist-sized snarl of copper wire, half its insulation cracked away. Worth untangling.',
     difficulty: 5, pick_weight: 12, max_qty: 3 },
-  { id: 'item_cracked_circuit',  name: 'Cracked Circuit Board', weight: 150, value: 12, rarity: 'uncommon',
+  { id: 'item_cracked_circuit',  name: 'Cracked Circuit Board', weight: 150, value: 12,
     description: 'A scorched circuit board with a hairline crack across it. A few components might still be salvageable.',
     difficulty: 6, pick_weight: 9,  max_qty: 3 },
-  { id: 'item_depleted_battery', name: 'Depleted Battery',      weight: 400, value: 15, rarity: 'uncommon',
+  { id: 'item_depleted_battery', name: 'Depleted Battery',      weight: 400, value: 15,
     description: 'A heavy industrial cell, mostly dead. Trace charge left — and the casing alone is worth hauling.',
     difficulty: 7, pick_weight: 6,  max_qty: 2 },
-  { id: 'item_mystery_component', name: 'Mystery Component',    weight: 90,  value: 60, rarity: 'rare',
+  { id: 'item_mystery_component', name: 'Mystery Component',    weight: 90,  value: 60,
     description: 'A sleek, unlabeled module of pre-Collapse make. You have no idea what it does, but someone will pay to find out.',
     difficulty: 9, pick_weight: 3,  max_qty: 1 },
 ];
@@ -43,9 +43,9 @@ for (const it of JUNK) {
   const { rows: existing } = await query('SELECT id FROM items WHERE id=$1', [it.id]);
   if (existing.length) { console.log(`SKIP  item ${it.id}`); continue; }
   await query(
-    `INSERT INTO items (id,name,description,type,weight,value,rarity,is_stackable,is_unique,tags)
-     VALUES ($1,$2,$3,'misc',$4,$5,$6,1,0,$7)`,
-    [it.id, it.name, it.description, it.weight, it.value, it.rarity,
+    `INSERT INTO items (id,name,description,type,weight,value,is_stackable,is_unique,tags)
+     VALUES ($1,$2,$3,'misc',$4,$5,1,0,$6)`,
+    [it.id, it.name, it.description, it.weight, it.value,
      JSON.stringify({ description: it.description, misc: true })]
   );
   console.log(`CREATED item ${it.id}`);

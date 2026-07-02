@@ -107,7 +107,6 @@ export const SCHEMA_SQL = `
     subtype TEXT,
     weight REAL DEFAULT 1000,
     value INTEGER DEFAULT 0,
-    rarity TEXT DEFAULT 'common',
     is_stackable INTEGER DEFAULT 0,
     is_unique INTEGER DEFAULT 0,
     is_quest_item INTEGER DEFAULT 0,
@@ -414,7 +413,6 @@ export const SCHEMA_SQL = `
     stat_modifiers JSONB DEFAULT '{}',
     effects JSONB DEFAULT '{}',
     drawbacks JSONB DEFAULT '[]',
-    rarity TEXT DEFAULT 'uncommon',
     radiation_threshold INTEGER DEFAULT 40
   );
 

@@ -19,7 +19,7 @@ function resolveCorpse(targetStr, player) {
 
 async function corpseLootRows(corpseId) {
 	const { rows } = await query(
-		`SELECT pi.id,pi.item_id,pi.quantity,i.name,i.rarity,i.weight,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 ORDER BY i.name`,
+		`SELECT pi.id,pi.item_id,pi.quantity,i.name,i.weight,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 ORDER BY i.name`,
 		[corpseId],
 	);
 	return rows;
@@ -28,7 +28,7 @@ async function corpseLootRows(corpseId) {
 export async function buildLootView(corpse, player) {
 	const items = await corpseLootRows(corpse.id);
 	const { rows: invItems } = await query(
-		`SELECT pi.id,pi.item_id,pi.quantity,i.name,i.rarity,i.weight,i.tags
+		`SELECT pi.id,pi.item_id,pi.quantity,i.name,i.weight,i.tags
 		 FROM player_inventory pi JOIN items i ON i.id=pi.item_id
 		 WHERE pi.player_id=$1 AND pi.container_id IS NULL AND pi.is_equipped=0
 		 ORDER BY i.name`,

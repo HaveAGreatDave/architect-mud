@@ -31,8 +31,8 @@ async function main() {
 
   // 2. Demolition tools -----------------------------------------------------
   await query(
-    `INSERT INTO items (id,name,description,type,subtype,weight,value,rarity,is_stackable,is_unique,tags)
-     VALUES ($1,$2,$3,'weapon','melee',8000,650,'uncommon',0,1,$4)
+    `INSERT INTO items (id,name,description,type,subtype,weight,value,is_stackable,is_unique,tags)
+     VALUES ($1,$2,$3,'weapon','melee',8000,650,0,1,$4)
      ON CONFLICT (id) DO UPDATE SET tags=$4, description=$3`,
     ['item_sledgehammer', 'Sledgehammer',
      'A brutal two-handed demolition hammer. Heavy enough to stove in armoured machinery — slowly.',
@@ -40,8 +40,8 @@ async function main() {
        damage: { min: 40, max: 70 }, weapon_skill: 'blunt', damage_type: 'kinetic' })]
   );
   await query(
-    `INSERT INTO items (id,name,description,type,subtype,weight,value,rarity,is_stackable,is_unique,tags)
-     VALUES ($1,$2,$3,'weapon','tool',6000,1800,'rare',0,1,$4)
+    `INSERT INTO items (id,name,description,type,subtype,weight,value,is_stackable,is_unique,tags)
+     VALUES ($1,$2,$3,'weapon','tool',6000,1800,0,1,$4)
      ON CONFLICT (id) DO UPDATE SET tags=$4, description=$3`,
     ['item_thermal_lance', 'Thermal Lance',
      'An oxy-fuel cutting lance that spits a 3000°C jet. Chews through steel casing and busbars alike.',

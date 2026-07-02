@@ -304,8 +304,6 @@ const _ve = {
 };
 
 const _VE_TYPE = { clothing:'👕', armor:'🛡', weapon:'⚔', consumable:'🧪', drug:'💊', key:'🗝', misc:'📦', ammo:'🔫', tool:'🔧', implant:'🔩', furniture:'🪑' };
-const _VE_RARITY_ICON = { common:'⬜', uncommon:'🟩', rare:'🟦', legendary:'🟧', epic:'🟪' };
-const _VE_RARITY_COLOR = { common:'var(--text-dim)', uncommon:'var(--accent2)', rare:'var(--cyan)', legendary:'var(--accent3)', epic:'var(--accent)' };
 
 function _veInit(rec, items) {
   _ve.npcId = rec.id || null;
@@ -337,8 +335,6 @@ function _veFilteredLeft() {
 }
 
 function _veRow(item, selected, side) {
-  const ri = _VE_RARITY_ICON[item.rarity] || '⬜';
-  const rc = _VE_RARITY_COLOR[item.rarity] || 'var(--text-dim)';
   const ti = _VE_TYPE[item.type] || '📦';
   const catalogueEntry = _ve.catalogue.find(e => e.item_id === item.id);
   const price = side === 'right' ? (catalogueEntry?.price ?? item.value ?? 0) : (item.value ?? 0);
@@ -357,8 +353,7 @@ function _veRow(item, selected, side) {
     onclick="ve${side==='left'?'Left':'Right'}Click(event,'${item.id}')"
     style="display:flex;align-items:center;gap:6px;padding:5px 8px;cursor:pointer;border:1px solid transparent;border-radius:2px;margin:1px 2px;user-select:none;${bg}">
     <span style="font-size:12px;color:var(--text-dim);flex-shrink:0;width:14px">${check}</span>
-    <span style="flex-shrink:0;font-size:13px" title="${item.rarity || 'common'}">${ri}</span>
-    <span style="flex:1;font-size:12px;color:${rc};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0" title="${item.name}">${item.name}</span>
+    <span style="flex:1;font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0" title="${item.name}">${item.name}</span>
     <span style="flex-shrink:0;font-size:12px;opacity:0.7" title="${item.type || ''}">${ti}</span>
     ${priceCell}
   </div>`;

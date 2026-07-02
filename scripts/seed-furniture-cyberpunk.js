@@ -188,7 +188,7 @@ const TV_ITEMS = [
     description: 'A paper-thin floor-to-ceiling display laminated directly to wall surface. Immaculate image quality. When nothing is playing it drifts channel-art that costs more to licence than the room.',
     value: 3800,
     weight: 14000,
-    rarity: 'uncommon',
+   
   },
   {
     id: 'item_furn_vidicron_tv',
@@ -196,7 +196,7 @@ const TV_ITEMS = [
     description: 'A 24-inch cathode-ray tube set propped on a milk crate. Channel dial missing; previous owner used needle-nose pliers. Scan lines visible in strong light. Picture is warm and slightly wrong in a way that feels human.',
     value: 220,
     weight: 18000,
-    rarity: 'common',
+   
   },
   {
     id: 'item_furn_phantex_tv',
@@ -204,7 +204,7 @@ const TV_ITEMS = [
     description: 'A gravity-field display unit. Crisp and vivid but three degrees off-true. Never connected to the patch server. One of three thousand that survived the bricking.',
     value: 8500,
     weight: 6000,
-    rarity: 'rare',
+   
   },
   {
     id: 'item_furn_syntron_tv',
@@ -212,7 +212,7 @@ const TV_ITEMS = [
     description: 'Military-spec display in matte black with rubber bumper surround. Screen scratched but perfectly legible. Rack has three bullet holes; the screen has none.',
     value: 2100,
     weight: 11000,
-    rarity: 'uncommon',
+   
   },
 ];
 
@@ -246,9 +246,9 @@ for (const item of TV_ITEMS) {
     continue;
   }
   await query(
-    `INSERT INTO items (id, name, description, type, weight, value, rarity, tags)
-     VALUES ($1, $2, $3, 'furniture', $4, $5, $6, $7)`,
-    [item.id, item.name, item.description, item.weight, item.value, item.rarity,
+    `INSERT INTO items (id, name, description, type, weight, value, tags)
+     VALUES ($1, $2, $3, 'furniture', $4, $5, $6)`,
+    [item.id, item.name, item.description, item.weight, item.value,
      JSON.stringify({ description: item.description })]
   );
   console.log(`CREATE item ${item.id}`);

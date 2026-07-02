@@ -1,5 +1,26 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
+import { existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import pg from 'pg';
+
+// dotenv only loads a .env from the current working directory. The .env is
+// git-ignored, so a git worktree (which git populates with tracked files only)
+// never receives one — leaving DATABASE_URL undefined and pg falling back to
+// localhost:5432. Worktrees live under the repo root (.claude/worktrees/<name>),
+// so walk up from cwd to the nearest .env and load that. Falls back to dotenv's
+// default lookup when none is found.
+function findEnvFile(start) {
+  let dir = start;
+  for (;;) {
+    const candidate = join(dir, '.env');
+    if (existsSync(candidate)) return candidate;
+    const parent = dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
+}
+const envPath = findEnvFile(process.cwd());
+dotenv.config(envPath ? { path: envPath } : undefined);
 const { Pool } = pg;
 
 // Single connection pool, reused across all requests

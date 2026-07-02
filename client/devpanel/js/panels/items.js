@@ -145,7 +145,6 @@ function renderItemsPanel(records = allRecords) {
 
   const cols = [
     { key: 'name', label: 'Name', width: '35%' },
-    { key: 'rarity', label: 'Rarity', width: '15%' },
     { key: 'weight', label: 'Weight (g)', width: '10%' },
     { key: 'value', label: 'Value', width: '10%' },
   ];
@@ -291,7 +290,6 @@ function applyItemCopy() {
   const src = (allRecords || []).find(r => r.id === id);
   if (!src) return;
 
-  document.getElementById('f-rarity').value = src.rarity || 'common';
   document.getElementById('f-weight').value = src.weight ?? 1000;
   document.getElementById('f-value').value = src.value ?? 0;
 
@@ -323,9 +321,6 @@ function itemEditForm(rec, isNew) {
       <div class="field"><label>Category</label>
         <select id="f-type" ${isNew?'onchange="refreshItemCopyPicker()"':''}>${['clothing','armor','weapon','consumable','drug','key','misc','ammo','tool','implant'].map(t=>`<option value="${t}" ${(rec.type||'clothing')===t?'selected':''}>${t}</option>`).join('')}</select>
       </div>
-      <div class="field"><label>Rarity</label>
-        <select id="f-rarity">${['common','uncommon','rare','very_rare','legendary'].map(r=>`<option ${rec.rarity===r?'selected':''}>${r}</option>`).join('')}</select>
-      </div>
     </div>
     ${isNew ? `<div class="field"><label>Copy from existing</label><div id="item-copy-picker">${itemCopyFromPicker(currentType)}</div></div>` : ''}
     <div class="field-row">
@@ -356,7 +351,6 @@ async function saveItem(existing) {
   const body = {
     name: document.getElementById('f-name').value,
     type: document.getElementById('f-type').value,
-    rarity: document.getElementById('f-rarity').value,
     weight: parseInt(document.getElementById('f-weight').value)||1000,
     value: +document.getElementById('f-value').value,
     tags,

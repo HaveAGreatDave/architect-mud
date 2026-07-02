@@ -1219,18 +1219,6 @@ textarea {
 .equipped {
 	color: var(--green);
 }
-.item-rarity-common {
-	color: var(--text-dim);
-}
-.item-rarity-uncommon {
-	color: var(--green);
-}
-.item-rarity-rare {
-	color: var(--cyan);
-}
-.item-rarity-very_rare {
-	color: var(--purple);
-}
 .skill-category {
 	color: var(--accent-dim);
 	font-size: 11px;
@@ -2153,10 +2141,6 @@ textarea {
 .corpse-link {
 	color: var(--text-dim);
 }
-.room-item {
-	/* item rarity classes already set color; just add link affordance */
-}
-
 /* ─── MINIMAP ─── */
 #minimap-section {
 	font-family: var(--font-mono);

@@ -42,7 +42,7 @@ const DREAM_ZONES = [
 const DRUGS = [
   // ── Stimulants ──
   {
-    key: 'buzz', name: 'Buzz', value: 40, rarity: 'common',
+    key: 'buzz', name: 'Buzz', value: 40,
     desc: 'A cheap street stim in a cracked ampoule. Hits fast, fades faster.',
     duration: 180, addiction: 0.12, od: 4,
     effects: {
@@ -56,7 +56,7 @@ const DRUGS = [
     },
   },
   {
-    key: 'redline', name: 'Redline', value: 120, rarity: 'uncommon',
+    key: 'redline', name: 'Redline', value: 120,
     desc: 'Military-grade cyber-amphetamine. The label is mostly warnings.',
     duration: 300, addiction: 0.28, od: 3,
     effects: {
@@ -73,7 +73,7 @@ const DRUGS = [
     },
   },
   {
-    key: 'coldfire', name: 'Coldfire', value: 260, rarity: 'rare',
+    key: 'coldfire', name: 'Coldfire', value: 260,
     desc: 'A combat stim that turns fear into fuel. Frontline mercs swear by it, and at it.',
     duration: 240, addiction: 0.35, od: 3,
     effects: {
@@ -88,7 +88,7 @@ const DRUGS = [
     },
   },
   {
-    key: 'static', name: 'Static', value: 90, rarity: 'uncommon',
+    key: 'static', name: 'Static', value: 90,
     desc: 'A nootropic mist for the overclocked mind. Clarity in a can, with interest.',
     duration: 360, addiction: 0.18, od: 4,
     effects: {
@@ -104,7 +104,7 @@ const DRUGS = [
 
   // ── Opioids / downers ──
   {
-    key: 'grey', name: 'Grey', value: 150, rarity: 'uncommon',
+    key: 'grey', name: 'Grey', value: 150,
     desc: 'Synthetic morphine in a grey gelcap. The pain goes away. So does everything else.',
     duration: 420, addiction: 0.45, od: 3,
     effects: {
@@ -120,7 +120,7 @@ const DRUGS = [
     },
   },
   {
-    key: 'blacktar', name: 'Blacktar', value: 210, rarity: 'rare',
+    key: 'blacktar', name: 'Blacktar', value: 210,
     desc: 'Heavy tar opioid, cut with whatever was nearby. The deepest nod there is.',
     duration: 480, addiction: 0.6, od: 2,
     effects: {
@@ -135,7 +135,7 @@ const DRUGS = [
     },
   },
   {
-    key: 'lull', name: 'Lull', value: 70, rarity: 'common',
+    key: 'lull', name: 'Lull', value: 70,
     desc: 'A blue benzo tab that files the sharp edges off a bad night.',
     duration: 360, addiction: 0.3, od: 3,
     effects: {
@@ -152,7 +152,7 @@ const DRUGS = [
 
   // ── Psychedelics (overlay hallucinations) ──
   {
-    key: 'psilocybin', name: 'Psilocybin', value: 60, rarity: 'common',
+    key: 'psilocybin', name: 'Psilocybin', value: 60,
     desc: 'A handful of wrinkled grey mushrooms grown in somebody\'s ventilation duct.',
     duration: 240, addiction: 0.02, od: 6,
     effects: {
@@ -170,7 +170,7 @@ const DRUGS = [
     },
   },
   {
-    key: 'blotter', name: 'Blotter', value: 130, rarity: 'uncommon',
+    key: 'blotter', name: 'Blotter', value: 130,
     desc: 'A single square of high-powered blotter acid, printed with a grinning sun.',
     duration: 600, addiction: 0.01, od: 8,
     effects: {
@@ -189,7 +189,7 @@ const DRUGS = [
     },
   },
   {
-    key: 'mescaline', name: 'Mescaline', value: 110, rarity: 'uncommon',
+    key: 'mescaline', name: 'Mescaline', value: 110,
     desc: 'Seventy-five pellets rattle in a little tin. You only need a few.',
     duration: 480, addiction: 0.02, od: 6,
     effects: {
@@ -206,7 +206,7 @@ const DRUGS = [
     },
   },
   {
-    key: 'screamers', name: 'Screamers', value: 100, rarity: 'uncommon',
+    key: 'screamers', name: 'Screamers', value: 100,
     desc: 'A designer psychedelic that does not do gentle. Roll the dice.',
     duration: 300, addiction: 0.08, od: 5,
     effects: {
@@ -224,7 +224,7 @@ const DRUGS = [
     },
   },
   {
-    key: 'laughers', name: 'Laughers', value: 85, rarity: 'common',
+    key: 'laughers', name: 'Laughers', value: 85,
     desc: 'Little yellow tabs that turn the apocalypse into the funniest thing you have ever seen.',
     duration: 240, addiction: 0.1, od: 5,
     effects: {
@@ -241,7 +241,7 @@ const DRUGS = [
     },
   },
   {
-    key: 'dreamsmoke', name: 'Dreamsmoke', value: 45, rarity: 'common',
+    key: 'dreamsmoke', name: 'Dreamsmoke', value: 45,
     desc: 'Two bags of engineered grass. Mellow, hungry, harmless-ish.',
     duration: 300, addiction: 0.08, od: 8,
     effects: {
@@ -260,7 +260,7 @@ const DRUGS = [
     },
   },
   {
-    key: 'ether', name: 'Ether', value: 30, rarity: 'common',
+    key: 'ether', name: 'Ether', value: 30,
     desc: 'A pint of raw ether and a rag. Not the smart choice, but here we are.',
     duration: 120, addiction: 0.15, od: 3,
     effects: {
@@ -278,7 +278,7 @@ const DRUGS = [
 
   // ── Dissociatives (dream-zone hallucinations) ──
   {
-    key: 'threshold', name: 'The Threshold', value: 400, rarity: 'rare',
+    key: 'threshold', name: 'The Threshold', value: 400,
     desc: 'A single breath of vaporised DMT-analog. Ten thousand years in four hundred seconds.',
     duration: 200, addiction: 0.01, od: 6,
     effects: {
@@ -294,7 +294,7 @@ const DRUGS = [
     },
   },
   {
-    key: 'khole', name: 'K-Hole', value: 180, rarity: 'uncommon',
+    key: 'khole', name: 'K-Hole', value: 180,
     desc: 'A dissociative dust that unplugs you from your own body for a while.',
     duration: 240, addiction: 0.12, od: 4,
     effects: {
@@ -312,7 +312,7 @@ const DRUGS = [
     },
   },
   {
-    key: 'voidwalk', name: 'Voidwalk', value: 300, rarity: 'rare',
+    key: 'voidwalk', name: 'Voidwalk', value: 300,
     desc: 'A designer dissociative that drops you into the static between channels.',
     duration: 300, addiction: 0.1, od: 4,
     effects: {
@@ -331,7 +331,7 @@ const DRUGS = [
 
   // ── Designer / cyberpunk ──
   {
-    key: 'overclock', name: 'Neural Overclock', value: 350, rarity: 'rare',
+    key: 'overclock', name: 'Neural Overclock', value: 350,
     desc: 'A lace-booster that runs your wetware past the red line. Smoke may be metaphorical.',
     duration: 240, addiction: 0.3, od: 3,
     effects: {
@@ -347,7 +347,7 @@ const DRUGS = [
     },
   },
   {
-    key: 'memhack', name: 'Memhack', value: 220, rarity: 'rare',
+    key: 'memhack', name: 'Memhack', value: 220,
     desc: 'A memory-editing synth. Sands the barbs off your worst recollections. Mostly.',
     duration: 360, addiction: 0.2, od: 4,
     effects: {
@@ -362,7 +362,7 @@ const DRUGS = [
     },
   },
   {
-    key: 'amyls', name: 'Amyls', value: 25, rarity: 'common',
+    key: 'amyls', name: 'Amyls', value: 25,
     desc: 'Two dozen amyls in a rattling little box. A brief, roaring rush.',
     duration: 60, addiction: 0.1, od: 4,
     effects: {
@@ -410,10 +410,10 @@ try {
     const itemId = `item_${d.key}`;
     const drugId = `drug_${d.key}`;
     await client.query(
-      `INSERT INTO items (id, name, description, type, subtype, weight, value, rarity, is_stackable, tags)
-       VALUES ($1,$2,$3,$4,'drug',20,$5,$6,1,$7::jsonb)
+      `INSERT INTO items (id, name, description, type, subtype, weight, value, is_stackable, tags)
+       VALUES ($1,$2,$3,$4,'drug',20,$5,1,$6::jsonb)
        ON CONFLICT (id) DO NOTHING`,
-      [itemId, d.name, d.desc, ITEM_TYPE, d.value, d.rarity, JSON.stringify({ drug: true })]
+      [itemId, d.name, d.desc, ITEM_TYPE, d.value, JSON.stringify({ drug: true })]
     );
     await client.query(
       `INSERT INTO drugs (id, name, description, item_id, duration_seconds, effects, addiction_chance, overdose_threshold, withdrawal_effects, flags)

@@ -37,8 +37,8 @@ const RECIPES = [
 
 for (const c of COMPONENTS) {
   await query(
-    `INSERT INTO items (id, name, description, type, weight, value, rarity, is_stackable, tags)
-     VALUES ($1,$2,$3,'component',150,$4,'common',1,$5)
+    `INSERT INTO items (id, name, description, type, weight, value, is_stackable, tags)
+     VALUES ($1,$2,$3,'component',150,$4,1,$5)
      ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name, description=EXCLUDED.description, value=EXCLUDED.value`,
     [c.id, c.name, c.description, c.value, JSON.stringify({ component: true })]
   );

@@ -331,7 +331,7 @@ The Zone Validator panel (data integrity checks).
 - **Orphan cleanup**: `deleteOrphan()`, `deleteAllOrphans()`.
 - **Map geometry**: `runMapGeometryValidation()`, `renderValidatorMapResults()`.
 - **Auto-fix helpers**: `vFixRemoveExit()`, `vFixAddReciprocal()`, `vFixGeometry()`.
-- **Item integrity**: `runItemValidation()` scans every item client-side against `TAG_CATALOG` for null columns (name/weight/value/rarity), non-object tags, and unknown/malformed tags. `validateItem()`/`tagValueError()`/`deriveItemName()` do detection; `renderItemValidatorResults()` renders a checkbox list (mirrors the Changes screen — Select All/None + per-row Fix/Remove select). `resolveSelectedItemIssues()` routes each choice through staging (Fix = full-object PUT to `/items/:id`; Remove = staged item delete), so resolutions land in the Changes panel to publish.
+- **Item integrity**: `runItemValidation()` scans every item client-side against `TAG_CATALOG` for null columns (name/weight/value), non-object tags, and unknown/malformed tags. `validateItem()`/`tagValueError()`/`deriveItemName()` do detection; `renderItemValidatorResults()` renders a checkbox list (mirrors the Changes screen — Select All/None + per-row Fix/Remove select). `resolveSelectedItemIssues()` routes each choice through staging (Fix = full-object PUT to `/items/:id`; Remove = staged item delete), so resolutions land in the Changes panel to publish.
 - `toggleValidatorAutoRun()`, `exportValidatorReport()`.
 
 ### `tags.js`

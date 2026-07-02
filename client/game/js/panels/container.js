@@ -100,7 +100,7 @@ function renderList(listId, items, source, containerId) {
     card.setAttribute('data-source', source);
     const qty = item.quantity > 1 ? ` x${item.quantity}` : '';
     const wt = item.weight != null ? ` ${formatWeight(item.weight)}` : '';
-    card.innerHTML = `<span class="ctr-name">${item.name}${qty}</span><span class="ctr-meta">${item.rarity || ''}${wt}</span>`;
+    card.innerHTML = `<span class="ctr-name">${item.name}${qty}</span><span class="ctr-meta">${wt}</span>`;
 
     if (source === 'inv') {
       const btn = document.createElement('button');

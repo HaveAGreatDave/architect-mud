@@ -27,7 +27,7 @@ The item system's behavior is currently spread across 11 columns on the `items` 
 
 **Decisions locked with the user:**
 - **Full unification** — tags become the single source of truth for behavior. The 3 booleans, the behavioral parts of `type`/`subtype`, and all 4 JSONB fields migrate into one `tags` JSONB column.
-- Identity/economy scalar columns stay as columns: `id`, `name`, `value`, `weight`, `rarity`.
+- Identity/economy scalar columns stay as columns: `id`, `name`, `value`, `weight`.
 - `description` becomes a **literal `description` tag** (free text), always present in the editor.
 - **Instance tags are presence-only flags** (e.g. `broken`, `cursed`) stored in `player_inventory.custom_data`, no secondary value. Class tags carry the valued attributes. (The existing `custom_data.quality` from crafting is the one valued exception and is left untouched.)
 
@@ -120,11 +120,11 @@ Replace column reads with tag reads across the behavior touchpoints. Pattern: SE
 
 ### Dev panel
 Rewrite `itemEditForm` and `saveItem` in `client/devpanel/index.html` (~1439–1489); add `<script src="/shared/tagCatalog.js"></script>` before the main script (~line 158). Layout:
-- Scalar fields kept: ID, Name, Rarity, Weight, Value.
+- Scalar fields kept: ID, Name, Weight, Value.
 - **Always-present `description` textarea**, rendered first, never removable.
 - **Active-tags list**: one row per tag in `rec.tags`, input widget chosen by catalog `shape` (flag→chip, int→number, enum→select, range→two inputs, hot→amount+duration, statmap/text→small JSON textarea). Each row shows the catalog `help` text inline (reuse `.zone-subsection-note`) and a remove (×) button.
 - **Add-tag picker**: `<select>` built from `TAG_CATALOG` grouped by `group`, filtered to `scope==='class'`, excluding already-present tags + `description`, with an Add button.
-- `saveItem` assembles `tags` from the rows (coercing by shape, JSON.parse with the existing try/catch→`{error}` pattern) and posts `{name, rarity, weight, value, tags}`. Saving still flows through the unchanged `API()` staging interceptor — `getEntityType('/items')` already returns `items`.
+- `saveItem` assembles `tags` from the rows (coercing by shape, JSON.parse with the existing try/catch→`{error}` pattern) and posts `{name, weight, value, tags}`. Saving still flows through the unchanged `API()` staging interceptor — `getEntityType('/items')` already returns `items`.
 
 Reuses existing `.field`, `.field-row`, `.checkbox-field`, `.zone-subsection-note` styles — no new CSS framework. The catalog's `help` text is the in-panel "what does this tag do" reference the user asked for.
 

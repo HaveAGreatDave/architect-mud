@@ -1163,15 +1163,15 @@ function itemTagsFor(body) {
 export async function apiCreateItem(body) {
   const id=body.id||`item_${Date.now()}`;
   try {
-    await query(`INSERT INTO items (id,name,type,weight,value,rarity,tags) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-      [id,body.name,body.type||null,body.weight||1000,body.value||0,body.rarity||'common',JSON.stringify(itemTagsFor(body))]);
+    await query(`INSERT INTO items (id,name,type,weight,value,tags) VALUES ($1,$2,$3,$4,$5,$6)`,
+      [id,body.name,body.type||null,body.weight||1000,body.value||0,JSON.stringify(itemTagsFor(body))]);
     return {status:201,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
 export async function apiUpdateItem(id,body) {
   try {
-    await query(`UPDATE items SET name=$1,type=$2,weight=$3,value=$4,rarity=$5,tags=$6 WHERE id=$7`,
-      [body.name,body.type||null,body.weight,body.value,body.rarity,JSON.stringify(itemTagsFor(body)),id]);
+    await query(`UPDATE items SET name=$1,type=$2,weight=$3,value=$4,tags=$5 WHERE id=$6`,
+      [body.name,body.type||null,body.weight,body.value,JSON.stringify(itemTagsFor(body)),id]);
     return {status:200,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
@@ -1795,16 +1795,16 @@ async function apiGetMutations() { const {rows}=await query('SELECT * FROM mutat
 async function apiCreateMutation(body) {
   const id=body.id||`mut_${Date.now()}`;
   try {
-    await query(`INSERT INTO mutations (id,name,description,polarity,visible,stat_modifiers,effects,drawbacks,rarity,radiation_threshold) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-      [id,body.name,body.description||'',body.polarity||'mixed',body.visible?1:0,JSON.stringify(body.stat_modifiers||{}),JSON.stringify(body.effects||{}),JSON.stringify(body.drawbacks||[]),body.rarity||'uncommon',body.radiation_threshold||40]);
+    await query(`INSERT INTO mutations (id,name,description,polarity,visible,stat_modifiers,effects,drawbacks,radiation_threshold) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+      [id,body.name,body.description||'',body.polarity||'mixed',body.visible?1:0,JSON.stringify(body.stat_modifiers||{}),JSON.stringify(body.effects||{}),JSON.stringify(body.drawbacks||[]),body.radiation_threshold||40]);
     await loadMutations();
     return {status:201,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
 export async function apiUpdateMutation(id,body) {
   try {
-    await query(`UPDATE mutations SET name=$1,description=$2,polarity=$3,visible=$4,stat_modifiers=$5,effects=$6,drawbacks=$7,rarity=$8,radiation_threshold=$9 WHERE id=$10`,
-      [body.name,body.description||'',body.polarity||'mixed',body.visible?1:0,JSON.stringify(body.stat_modifiers||{}),JSON.stringify(body.effects||{}),JSON.stringify(body.drawbacks||[]),body.rarity||'uncommon',body.radiation_threshold||40,id]);
+    await query(`UPDATE mutations SET name=$1,description=$2,polarity=$3,visible=$4,stat_modifiers=$5,effects=$6,drawbacks=$7,radiation_threshold=$8 WHERE id=$9`,
+      [body.name,body.description||'',body.polarity||'mixed',body.visible?1:0,JSON.stringify(body.stat_modifiers||{}),JSON.stringify(body.effects||{}),JSON.stringify(body.drawbacks||[]),body.radiation_threshold||40,id]);
     await loadMutations();
     return {status:200,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
@@ -2123,8 +2123,8 @@ async function apiCreateKeycard(doorId, body) {
   const description = `A slim obsidian card, its surface threaded with bioluminescent circuitry that pulses faintly when held. The access signature encoded in its memory is keyed exclusively to the reader on ${zoneName}'s door — swipe it anywhere else and it's just a pretty piece of plastic.`;
   try {
     await query(
-      `INSERT INTO items (id, name, description, type, subtype, weight, value, rarity, is_stackable, is_unique, flags)
-       VALUES ($1,$2,$3,'key','keycard',0.05,0,'rare',0,1,$4)`,
+      `INSERT INTO items (id, name, description, type, subtype, weight, value, is_stackable, is_unique, flags)
+       VALUES ($1,$2,$3,'key','keycard',0.05,0,0,1,$4)`,
       [id, name, description, JSON.stringify({ keycard_for_door: doorId, unique: true })]
     );
     return { status:201, body:{ id } };

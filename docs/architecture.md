@@ -151,7 +151,7 @@ The world-building interface. Accessible only to accounts with `role: dev`/`admi
 - Behavior flag (aggressive / patrol / territorial), faction affiliation
 
 #### 🗡️ Item Editor
-- Type, subtype, weight, value, rarity
+- Type, subtype, weight, value
 - Stackable / unique / quest-item flags
 - Effects and stat modifiers as JSON
 
@@ -237,7 +237,7 @@ next to something hostile.
 players           -- account, stats, skills location, credits, bank_credits, anchor/current zone
 player_skills     -- player_id, skill_id, rank, xp
 zones             -- id, name, description, exits (JSONB), flags (JSONB), danger_rating, radiation_level
-items             -- template definitions: type, rarity, effects, stat_modifiers
+items             -- template definitions: type, effects, stat_modifiers
 player_inventory  -- player_id (or "_ground_<zone_id>" for dropped items), item_id, quantity
 enemies           -- template definitions: stat block, loot_table, behavior, faction
 zone_spawns       -- zone_id, enemy_id, max_count, spawn_weight, respawn_seconds

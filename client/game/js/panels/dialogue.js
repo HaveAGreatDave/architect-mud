@@ -74,14 +74,14 @@ export function openShop(msg, page = 0, mode) {
         const qty = item.quantity > 1 ? ` <span class="shop-item-desc">×${item.quantity}</span>` : '';
         html += `<div class="shop-item">
           <div class="shop-item-row">
-            <span class="item-rarity-${item.rarity} shop-item-name">${item.name}${qty}</span>
+            <span class="shop-item-name">${item.name}${qty}</span>
             <button class="dialogue-opt shop-buy-btn shop-sell-btn" data-inventory-id="${item.inventory_id}" data-npc-id="${msg.npcId}">${item.price}₵ — Sell</button>
           </div>
         </div>`;
       } else {
         html += `<div class="shop-item">
           <div class="shop-item-row">
-            <span class="item-rarity-${item.rarity} shop-item-name">${item.name}</span>
+            <span class="shop-item-name">${item.name}</span>
             <button class="dialogue-opt shop-buy-btn" data-item-id="${item.item_id}" data-npc-id="${msg.npcId}">${item.price}₵ — Buy</button>
           </div>
           ${item.discounted ? '<span class="shop-discount">(rep discount applied)</span>' : ''}

@@ -29,7 +29,6 @@ each tag does, so nothing gets silently forgotten as the list grows.
 | `name` | TEXT | Display name. Commands fuzzy-match on this (`ILIKE %name%`). |
 | `weight` | REAL | Carry weight, **in grams**. Default 1000 (1kg). Displayed as `g` below 1000g, else `kg` (e.g. `750g`, `1.5kg`). |
 | `value` | INTEGER | Base price; vendors mark up/down from this. |
-| `rarity` | TEXT | `common` / `uncommon` / `rare` / `very_rare`. Flavor + loot tuning. |
 | `tags` | JSONB | **Everything the item *does*.** A map of tag name → value. |
 
 > The legacy columns (`description`, `type`, `subtype`, `is_stackable`,
