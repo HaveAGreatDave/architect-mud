@@ -1989,6 +1989,9 @@
 			</div>
 		</div>
 
+		<!-- Wanted-level HUD — server-driven star readout (wanted.js) -->
+		<div id="wanted-hud"></div>
+
 		<!-- SPECTER Surveillance Hub — multi-feed monitor (surveillancehub.js) -->
 		<div id="shub-panel">
 			<div id="shub-box">
@@ -1999,6 +2002,45 @@
 				</div>
 				<div id="shub-focus"></div>
 				<div id="shub-grid"></div>
+				<div id="shub-alerts"></div>
+			</div>
+		</div>
+
+		<!-- Datachip Replay Deck — VHS/cyberdeck footage playback (datachipreplay.js) -->
+		<div id="chip-panel">
+			<div id="chip-box">
+				<div id="chip-head">
+					<span class="chip-brand">◈ SPECTER-VTR</span>
+					<span id="chip-zone" class="chip-zone">UNKNOWN</span>
+					<button id="chip-close" aria-label="Close">✕</button>
+				</div>
+				<div id="chip-crt">
+					<div id="chip-crt-inner">
+						<div class="chip-osd chip-osd-tl"><span id="chip-mode">▶ PLAY</span></div>
+						<div class="chip-osd chip-osd-tr"><span id="chip-tc">SP  00:00:00</span></div>
+						<div id="chip-screen-text"></div>
+						<div id="chip-evidence" class="chip-evidence" style="display:none"></div>
+						<div class="chip-osd chip-osd-br"><span id="chip-date">--·--·--</span></div>
+						<div class="chip-tracking"></div>
+						<div class="chip-scanlines"></div>
+					</div>
+				</div>
+				<div id="chip-deck">
+					<div class="chip-reels">
+						<span class="chip-reel"></span>
+						<span class="chip-tape-lbl">DATA</span>
+						<span class="chip-reel"></span>
+					</div>
+					<div class="chip-transport">
+						<button id="chip-rew" class="chip-tbtn" title="Rewind">⏮</button>
+						<button id="chip-prev" class="chip-tbtn" title="Step back">◀◀</button>
+						<button id="chip-playpause" class="chip-tbtn chip-tbtn-main" title="Play/Pause">▶</button>
+						<button id="chip-next" class="chip-tbtn" title="Step forward">▶▶</button>
+						<button id="chip-ff" class="chip-tbtn" title="To end">⏭</button>
+						<span id="chip-counter" class="chip-counter">000 / 000</span>
+					</div>
+					<input id="chip-scrub" class="chip-scrub" type="range" min="0" max="0" value="0">
+				</div>
 			</div>
 		</div>
 

@@ -7,6 +7,7 @@ import { sendCmdSilent } from '../net.js';
 let hubData = null;
 let focusId = null;
 let prevStatus = {};   // id -> last status, for offline-transition SFX
+let lastAlertKey = null;
 let audioCtx = null;
 
 const STATUS_LABEL = { offline: 'NO SIGNAL', damaged: 'DAMAGED', jammed: 'JAMMED', spoofed: 'SIGNAL FAULT' };
@@ -35,6 +36,8 @@ export function openSurveillanceHub(data) {
   hubData = data;
   if (!focusId && data.tiles?.length) focusId = data.tiles[0].id;
   prevStatus = {};
+  const top = data.alerts?.[0];
+  lastAlertKey = top ? `${top.t}|${top.text}` : null;   // don't chirp existing alerts on open
   render();
   document.getElementById('shub-panel').classList.add('active');
   blip(680, 0.08); setTimeout(() => blip(920, 0.09), 90); // power-up chirp
@@ -47,6 +50,11 @@ export function updateSurveillanceHub(data) {
   for (const t of data.tiles || []) {
     if (prevStatus[t.id] === 'ok' && t.status !== 'ok') blip(140, 0.18, 'sawtooth', 0.05);
   }
+  // Chirp on a fresh sensor alert.
+  const topAlert = data.alerts?.[0];
+  const key = topAlert ? `${topAlert.t}|${topAlert.text}` : null;
+  if (key && key !== lastAlertKey) { blip(1040, 0.07); setTimeout(() => blip(1320, 0.08), 80); }
+  lastAlertKey = key;
   hubData = data;
   if (focusId && !data.tiles.some(t => t.id === focusId)) focusId = data.tiles[0]?.id || null;
   render();
@@ -73,6 +81,12 @@ function render() {
   const tiles = hubData.tiles || [];
   document.getElementById('shub-count').textContent = `${tiles.filter(t => t.status === 'ok').length}/${tiles.length} LIVE`;
 
+  const alerts = hubData.alerts || [];
+  document.getElementById('shub-alerts').innerHTML = alerts.length
+    ? `<div class="shub-alerts-hd">◉ ALERTS</div>` +
+      alerts.map(a => `<div class="shub-alert"><span class="shub-alert-t">${esc(a.t)}</span> ${esc(a.text)}</div>`).join('')
+    : '';
+
   const grid = document.getElementById('shub-grid');
   if (!tiles.length) {
     grid.innerHTML = `<div class="shub-empty">No deployed devices.<br><span class="shub-dim">Plant a cam, then check back.</span></div>`;
@@ -86,7 +100,7 @@ function render() {
     const sig = t.status === 'ok' ? '<span class="shub-sig shub-sig-ok">▮▮▮</span>' : '<span class="shub-sig shub-sig-dead">▯▯▯</span>';
     return `
       <div class="shub-tile shub-${esc(t.status)}${t.id === focusId ? ' shub-focused' : ''}" data-id="${esc(t.id)}">
-        <div class="shub-tile-head"><span class="shub-tile-name">${esc(t.name)}</span><span class="shub-kind">${esc(t.kind)}</span></div>
+        <div class="shub-tile-head"><span class="shub-tile-name">${esc(t.name)}</span><span class="shub-kind">${esc(t.kind)}·T${esc(t.tier || 1)}</span></div>
         <div class="shub-feed">${tileFeedHtml(t)}<div class="shub-scan"></div></div>
         <div class="shub-tile-foot">
           <span class="shub-zone">${esc(t.zone || '?')}</span>
@@ -101,12 +115,22 @@ function render() {
       <span class="shub-focus-name">▸ ${esc(focus.name)}</span>
       <span class="shub-focus-meta">${esc(focus.zone || '?')} · ${esc(focus.ts || '')} · 🔋${esc(focus.battery)}${focus.recording ? ' · <span class="shub-rec">●REC</span>' : ''}</span>
     </div>
-    <div class="shub-focus-feed shub-${esc(focus.status)}">${tileFeedHtml(focus)}<div class="shub-scan"></div></div>` : '';
+    <div class="shub-focus-feed shub-${esc(focus.status)}">${tileFeedHtml(focus)}<div class="shub-scan"></div></div>
+    <div class="shub-ctrls">
+      <button class="shub-btn${focus.recording ? ' shub-btn-on' : ''}" data-act="record" data-id="${esc(focus.id)}">${focus.recording ? '■ STOP REC' : '● RECORD'}</button>
+      <button class="shub-btn" data-act="clip" data-id="${esc(focus.id)}">▤ CLIP → CHIP</button>
+    </div>` : '';
 
   grid.querySelectorAll('.shub-tile').forEach(el => el.addEventListener('click', () => {
     focusId = el.dataset.id;
     blip(520, 0.05);
     render();
+  }));
+
+  document.querySelectorAll('#shub-focus [data-act]').forEach(el => el.addEventListener('click', () => {
+    const id = el.dataset.id;
+    if (el.dataset.act === 'record') { sendCmdSilent(`record ${id}`); blip(760, 0.06); }
+    else if (el.dataset.act === 'clip') { sendCmdSilent(`clip ${id}`); blip(440, 0.05); setTimeout(() => blip(660, 0.07), 70); }
   }));
 
   tiles.forEach(t => prevStatus[t.id] = t.status);

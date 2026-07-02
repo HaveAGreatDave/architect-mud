@@ -38,6 +38,46 @@ const GEAR = [
             battery_max: 864, wired: false, hack_difficulty: 6, concealment_base: 6 },
   },
   {
+    id: 'item_motion_sensor',
+    name: 'Motion Tripwire',
+    description: 'A matchbox of black plastic with a single dark lens. No picture — it just whispers to your deck the moment something warm moves past.',
+    value: 220, weight: 300, rarity: 'common',
+    tags: { security_gear: true, device_kind: 'motion_sensor', device_tier: 1,
+            battery_max: 576, wired: false, hack_difficulty: 4, concealment_base: 5 },
+  },
+  {
+    id: 'item_audio_sensor',
+    name: 'Audio Bug',
+    description: 'A pinhead mic on a strip of gecko-tape. Deaf to nothing loud — a gunshot, a scream, breaking glass — and it snitches instantly.',
+    value: 240, weight: 250, rarity: 'common',
+    tags: { security_gear: true, device_kind: 'audio_sensor', device_tier: 1,
+            battery_max: 576, wired: false, hack_difficulty: 4, concealment_base: 6 },
+  },
+  {
+    id: 'item_relay_node',
+    name: 'Relay Node',
+    description: 'A ruggedized signal repeater. Powered up, it punches your feeds through interference — deploy one where somebody likes to run a jammer.',
+    value: 600, weight: 900, rarity: 'uncommon',
+    tags: { security_gear: true, device_kind: 'relay', device_tier: 2,
+            battery_max: 576, wired: false, hack_difficulty: 5, concealment_base: 3 },
+  },
+  {
+    id: 'item_signal_jammer',
+    name: 'Signal Jammer',
+    description: 'A squat black puck bristling with stubby antennae. Plant it and every camera in the sector chokes on static. Hungry on power, and hard to hide.',
+    value: 800, weight: 1100, rarity: 'rare',
+    tags: { security_gear: true, device_kind: 'jammer', device_tier: 2,
+            battery_max: 288, wired: false, hack_difficulty: 6, concealment_base: 2 },
+  },
+  {
+    id: 'item_feed_spoofer',
+    name: 'Feed Spoofer',
+    description: 'A sleek relay that whispers a clean, empty-room loop into nearby cameras. The owner watches nothing happen while you work.',
+    value: 1400, weight: 700, rarity: 'rare',
+    tags: { security_gear: true, device_kind: 'spoofer', device_tier: 3,
+            battery_max: 288, wired: false, hack_difficulty: 7, concealment_base: 4 },
+  },
+  {
     // Not plantable (no security_gear tag) — this is the monitor. `use deck` or
     // `hub` opens the Surveillance Hub while it's in your inventory.
     id: 'item_spy_deck',
