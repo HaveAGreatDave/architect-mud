@@ -1,7 +1,10 @@
 const ORDER_KEY = 'architect_sidebar_order';
 const HIDDEN_KEY = 'architect_sidebar_hidden';
 const COLLAPSED_KEY = 'architect_sidebar_collapsed';
-const SIZE_KEY = 'architect_sidebar_sizes';
+// v2: reset once — panels default to content height; only user-resized panels
+// carry a saved size. (Bumped after the min-height:0 change exposed old
+// clamped-tiny sizes, which made every panel come up minimized.)
+const SIZE_KEY = 'architect_sidebar_sizes_v2';
 const DEFAULT_ORDER = ['minimap-section', 'vitals-section', 'location-section', 'env-section', 'enemy-section', 'chat-section'];
 
 let locked = true;

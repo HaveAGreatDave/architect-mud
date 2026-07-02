@@ -571,7 +571,7 @@ function validateMapOverview(zonesMap, knownZoneIds, interiorZoneIds) {
   const errors = [], oneWay = [];
   for (const z of zonesMap.values()) {
     if (z.grid_x == null) continue; // unplaced source — not on the grid, skip
-    for (const [dir, target] of Object.entries(z.exits || {})) {
+    for (const { dir, target } of allExits(z.exits)) {
       const t = zonesMap.get(target);
       const off = MAP_DIR3D[dir];
       let geomError = false;

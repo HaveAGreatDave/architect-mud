@@ -27,6 +27,7 @@ import { initWorld, setLivePlayer, removeLivePlayer, addPlayerToZone, removePlay
 import { exitTargets, allExits, neighborZoneIds, addExit, removeExit } from '../server/engine/exits.js';
 import { cmdMove } from '../server/engine/commands/movement.js';
 import { resolveNamedDestination } from '../server/engine/commands/describe.js';
+import { getSelectionState, clearSelectionState } from '../server/engine/sift.js';
 import { loadPlugins, getLoadedPlugins, getRegisteredCommands, getRegisteredHooks } from '../server/engine/plugins.js';
 import { loadMisSettings } from '../server/engine/mis.js';
 import { handleCommand } from '../server/engine/commands/index.js';
@@ -179,8 +180,11 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
     mover.current_zone = originId;
 
     const amb = await cmdMove('north', mover, broadcast);
-    check('ambiguous direction → prompt', amb?.type === 'error' && /Several ways lead north/.test(amb.message || ''), amb?.message?.slice?.(0, 120));
+    check('ambiguous direction → numbered picker', amb?.type === 'output' && /Several ways lead north/.test(amb.message || '') && /\[1\]/.test(amb.message || ''), amb?.message?.slice?.(0, 120));
     check('ambiguous move does not relocate', mover.current_zone === originId, mover.current_zone);
+    const sel = getSelectionState(mover.id);
+    check('ambiguous move opens SIFT selection', sel?.allCandidates?.length === 2 && sel.context?.verb === 'go', JSON.stringify(sel?.context));
+    clearSelectionState(mover.id);
 
     // SIFT: naming the destination resolves to that specific same-direction exit.
     const res = resolveNamedDestination(world.zones.get(originId), A.name);

@@ -2,7 +2,7 @@ import { query } from '../../models/db.js';
 import { formatBattleCry } from '../combat.js';
 import { getZone, getMinimapData, addPlayerToZone, removePlayerFromZone, getDoorForExit, setDoorCache, getAllLivePlayers, getLivePlayer, getZoneEnemies, tryBattleCry } from '../world.js';
 import { getZoneVisibility, getWindowsForZone, getEnvironmentState, getZoneTemperature, getZoneSeverity } from '../environment.js';
-import { describeZone, resolveNamedDestination, exitDestinationNames } from './describe.js';
+import { describeZone, resolveNamedDestination } from './describe.js';
 import { exitTargets, allExits, primaryExits } from '../exits.js';
 import { checkLockAuth, getLockTagPublic } from './doors.js';
 import { emit } from '../events.js';
@@ -11,6 +11,7 @@ import { computeCarriedWeight, carryCapacity, formatWeight } from './inventory.j
 import { OPPOSITE } from '../directions.js';
 import { forceStand } from '../posture.js';
 import { registerMoveGate, runMoveGates } from '../movement-gates.js';
+import { createSelectionState, getSelectionState, formatSelectionPage } from '../sift.js';
 
 const RAW_DIRECTIONS = ['north', 'south', 'east', 'west', 'up', 'down', 'in', 'out', 'exit'];
 
@@ -258,8 +259,11 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
   } else if (targets.length === 1) {
     targetId = targets[0];
   } else {
-    const names = exitDestinationNames(zone, direction).join(', ');
-    return { type:'error', message: `Several ways lead ${direction}: ${names}. Try "go <name>".` };
+    // Several exits share this direction — open a numbered SIFT picker. Selecting
+    // a number re-dispatches `go <name>`, which resolves the destination uniquely.
+    const candidates = targets.map((id) => ({ id, name: getZone(id)?.name || id }));
+    createSelectionState(player.id, candidates, { verb: 'go' });
+    return { type: 'output', message: `Several ways lead ${direction}.\n${formatSelectionPage(getSelectionState(player.id))}` };
   }
   const targetZone = getZone(targetId);
   if (!targetZone) return { type:'error', message:'That exit leads nowhere yet.' };
