@@ -46,6 +46,43 @@ export function initSidebarOrder() {
   sidebar.addEventListener('dragover', onSidebarDragOver);
   sidebar.addEventListener('drop', onSidebarDrop);
   sidebar.addEventListener('dragleave', onSidebarDragLeave);
+
+  // The look/output panes are an explicit trash drop target: drag any panel
+  // over them and they light up; release to remove it.
+  const gameArea = document.getElementById('output-container');
+  if (gameArea) {
+    gameArea.addEventListener('dragover', onGameDragOver);
+    gameArea.addEventListener('dragleave', onGameDragLeave);
+    gameArea.addEventListener('drop', onGameDrop);
+  }
+}
+
+// --- game-area trash drop target ---
+
+function onGameDragOver(e) {
+  if (!dragSrc || !dragSrc.classList.contains('sidebar-section')) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  pendingHide = dragSrc;
+  dropInfo = null;
+  hideDropIndicator();
+  showTrashIndicator();
+}
+
+function onGameDragLeave(e) {
+  if (e.currentTarget.contains(e.relatedTarget)) return;
+  pendingHide = null;
+  hideTrashIndicator();
+}
+
+function onGameDrop(e) {
+  if (!dragSrc || pendingHide !== dragSrc) return;
+  e.preventDefault();
+  dropped = true; // stop onDragEnd from double-processing
+  const sec = pendingHide;
+  pendingHide = null;
+  hideTrashIndicator();
+  hideSection(sec);
 }
 
 // --- hidden panels ---
@@ -472,6 +509,7 @@ function onDragStart(e) {
 function onDragEnd() {
   this.classList.remove('dragging');
   hideDropIndicator();
+  hideTrashIndicator();
 
   // Cursor released outside the sidebar: either hide (dragged into the game view)
   // or execute the clamped drop (slipped off the top/bottom edge in dragleave).
@@ -551,6 +589,7 @@ function onSidebarDragOver(e) {
   lastClientY = e.clientY;
   lastClientX = e.clientX;
   pendingHide = null; // back inside the sidebar — cancel any pending hide
+  hideTrashIndicator();
   dropInfo = computeDropInfo(e.clientY);
   showDropIndicator(dropInfo.lineY, dropInfo.kind === 'before' || dropInfo.kind === 'after');
 }
@@ -589,6 +628,7 @@ function onSidebarDragLeave(e) {
   }
 
   hideDropIndicator();
+  if (pendingHide) showTrashIndicator(); else hideTrashIndicator();
 }
 
 function onSidebarDrop(e) {
@@ -647,4 +687,38 @@ function showDropIndicator(lineY, snapping) {
 function hideDropIndicator() {
   const el = document.getElementById('sidebar-drop-indicator');
   if (el) el.style.display = 'none';
+}
+
+// --- trash-can indicator ---
+// Shown while a panel is dragged out through the game-facing edge, signalling
+// that releasing will remove it. Anchored over the look/output panes
+// (#output-container) so it reads as a real drop zone; falls back to a
+// screen-centred overlay if that container isn't present.
+
+function getTrashIndicator() {
+  let el = document.getElementById('sidebar-trash-indicator');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'sidebar-trash-indicator';
+    el.innerHTML = '<div class="trash-card"><div class="trash-icon">🗑</div><div class="trash-label">Release to remove</div></div>';
+    document.body.appendChild(el);
+  }
+  return el;
+}
+
+function showTrashIndicator() {
+  const el = getTrashIndicator();
+  const pane = document.getElementById('output-container');
+  if (pane) {
+    const r = pane.getBoundingClientRect();
+    el.style.top = r.top + 'px';
+    el.style.left = r.left + 'px';
+    el.style.width = r.width + 'px';
+    el.style.height = r.height + 'px';
+  }
+  el.classList.add('active');
+}
+
+function hideTrashIndicator() {
+  document.getElementById('sidebar-trash-indicator')?.classList.remove('active');
 }

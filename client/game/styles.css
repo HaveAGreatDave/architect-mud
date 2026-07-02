@@ -1849,6 +1849,47 @@ textarea {
 	box-shadow: 0 0 10px var(--accent), 0 0 4px var(--accent);
 }
 
+/* Trash-can drop zone — tints the look/output panes while a panel is dragged
+   off the bar toward them, signalling that releasing will remove it. */
+#sidebar-trash-indicator {
+	display: none;
+	position: fixed;
+	align-items: center;
+	justify-content: center;
+	background: rgba(0, 0, 0, 0.5);
+	border: 2px dashed var(--red);
+	border-radius: 6px;
+	pointer-events: none;
+	z-index: 1000;
+	opacity: 0;
+	transition: opacity 0.1s;
+}
+#sidebar-trash-indicator.active {
+	display: flex;
+	opacity: 1;
+}
+#sidebar-trash-indicator .trash-card {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 8px;
+	color: var(--red);
+	transform: scale(0.9);
+	transition: transform 0.1s;
+}
+#sidebar-trash-indicator.active .trash-card {
+	transform: scale(1);
+}
+#sidebar-trash-indicator .trash-icon {
+	font-size: 48px;
+	line-height: 1;
+}
+#sidebar-trash-indicator .trash-label {
+	font-size: 11px;
+	text-transform: uppercase;
+	letter-spacing: 2px;
+}
+
 /* DOM anchor for drop insertion — zero height always so lock/unlock never shifts layout */
 .sidebar-drop-end {
 	display: block;
