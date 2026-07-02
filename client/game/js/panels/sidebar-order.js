@@ -15,6 +15,7 @@ const UNLOCK_SVG = `<svg ${SVG_ATTRS}><rect x="3" y="11" width="18" height="11" 
 let dragSrc = null;
 let dropInfo = null;
 let lastClientY = null;
+let lastClientX = null;
 let dropped = false; // true once onSidebarDrop fires, so onDragEnd doesn't double-execute
 let pendingHide = null; // section dragged out a side edge, hidden on release
 
@@ -157,6 +158,21 @@ function setCollapsed(section, btn, on) {
   btn.title = on ? 'Expand panel' : 'Collapse panel';
 }
 
+// Collapse/expand any section without persisting — used by the accordion
+// controller for transient "push others aside" behaviour. Updates whichever
+// caret the section has (standard collapse button or a custom accordion caret).
+export function collapseSection(section, on) {
+  section.classList.toggle('collapsed', on);
+  const btn = section.querySelector('.sidebar-collapse-btn');
+  if (btn) { btn.textContent = on ? '▸' : '▾'; btn.title = on ? 'Expand panel' : 'Collapse panel'; }
+  const caret = section.querySelector('.cpanel-caret');
+  if (caret) caret.textContent = on ? '▸' : '▾';
+}
+
+export function isSectionCollapsed(section) {
+  return section.classList.contains('collapsed');
+}
+
 // Wire one section's collapse button. Idempotent — safe to call again for a
 // late-mounted custom panel.
 function wireCollapse(section) {
@@ -203,21 +219,28 @@ function applySizes() {
 }
 
 function sizeSection(sec, px) {
+  // Fix the panel's height; its .sidebar-section-body scrolls any overflow.
   sec.style.flex = `0 0 ${px}px`;
-  sec.style.overflow = 'hidden';
 }
 
 function resetSizes() {
   localStorage.removeItem(SIZE_KEY);
   document.querySelectorAll('#sidebar .sidebar-section').forEach(sec => {
     sec.style.flex = '';
-    sec.style.overflow = '';
   });
 }
 
-// Add a resize handle to one section. Idempotent.
+// Prepare one section for resizing: wrap its content (everything below the
+// label) in a scroll container, then add the resize handle. The handle sits
+// outside the scroller so it never scrolls away — a shrunk panel scrolls its
+// body instead of clipping. Idempotent.
 function wireResizeHandle(sec) {
   if (sec.querySelector(':scope > .sidebar-resize-handle')) return;
+  const label = sec.querySelector(':scope > .sidebar-label');
+  const body = document.createElement('div');
+  body.className = 'sidebar-section-body';
+  [...sec.children].forEach(child => { if (child !== label) body.appendChild(child); });
+  if (label) label.after(body); else sec.prepend(body);
   const handle = document.createElement('div');
   handle.className = 'sidebar-resize-handle';
   handle.addEventListener('mousedown', onResizeStart);
@@ -232,6 +255,7 @@ function onResizeStart(e) {
   const sec = e.target.closest('.sidebar-section');
   if (!sec) return;
   e.preventDefault();
+  e.stopPropagation();
   resizeSec = sec;
   resizeStartY = e.clientY;
   resizeStartH = sec.getBoundingClientRect().height;
@@ -441,8 +465,8 @@ function onDragEnd() {
   this.classList.remove('dragging');
   hideDropIndicator();
 
-  // Cursor released outside the sidebar: either hide (dragged off a side edge)
-  // or execute the clamped drop (slipped off a vertical edge in dragleave).
+  // Cursor released outside the sidebar: either hide (dragged into the game view)
+  // or execute the clamped drop (slipped off the top/bottom edge in dragleave).
   if (!dropped) {
     if (pendingHide) hideSection(pendingHide);
     else if (dropInfo) { executeDrop(dropInfo); saveLayout(); }
@@ -452,6 +476,7 @@ function onDragEnd() {
   dropInfo = null;
   pendingHide = null;
   lastClientY = null;
+  lastClientX = null;
   dragSrc = null;
 }
 
@@ -516,9 +541,18 @@ function onSidebarDragOver(e) {
   e.preventDefault();
   e.dataTransfer.dropEffect = 'move';
   lastClientY = e.clientY;
+  lastClientX = e.clientX;
   pendingHide = null; // back inside the sidebar — cancel any pending hide
   dropInfo = computeDropInfo(e.clientY);
   showDropIndicator(dropInfo.lineY, dropInfo.kind === 'before' || dropInfo.kind === 'after');
+}
+
+// The game view sits on whichever side of the sidebar has more room (handles the
+// sidebar being docked either left or right). A panel is only hidden when dragged
+// out through that inner, game-facing edge.
+function exitedTowardGame(sr, x) {
+  const gameOnLeft = sr.left >= (window.innerWidth - sr.right);
+  return gameOnLeft ? x <= sr.left : x >= sr.right;
 }
 
 function onSidebarDragLeave(e) {
@@ -527,22 +561,23 @@ function onSidebarDragLeave(e) {
   const sidebar = document.getElementById('sidebar');
   const sr = sidebar.getBoundingClientRect();
 
-  // Clamp to top/bottom if cursor exited via a vertical edge so the drop still
-  // fires at the boundary when the user releases outside the sidebar.
-  // Side exits (left/right) cancel the pending drop.
+  // What an exit means depends on which edge the cursor left through:
+  //  - Top/bottom: clamp to the boundary and still drop (place at start/end), so
+  //    dragging a panel off the bottom to make it last never deletes it.
+  //  - Toward the game screen (the inner, content-facing edge): hide the panel.
+  //    This is the only way to remove one — a deliberate drag into the game view.
+  //  - Away from the game (outer edge): cancel the drop, keep the panel in place.
+  dropInfo = null;
+  pendingHide = null;
   if (lastClientY !== null) {
     if (lastClientY >= sr.bottom) {
       dropInfo = computeDropInfo(sr.bottom); // snaps to 'end'
     } else if (lastClientY <= sr.top) {
       dropInfo = computeDropInfo(sr.top);    // snaps to before first section
-    } else {
-      dropInfo = null;      // side exit — drop is cancelled...
-      // ...and the section is hidden on release (but never the header — you'd lose
-      // the lock control).
+    } else if (lastClientX !== null && exitedTowardGame(sr, lastClientX)) {
+      // Never the header — you'd lose the lock control.
       pendingHide = dragSrc && dragSrc.classList.contains('sidebar-section') ? dragSrc : null;
     }
-  } else {
-    dropInfo = null;
   }
 
   hideDropIndicator();

@@ -39,16 +39,33 @@ async function fill(args, raw, player) {
   const c = await resolveContainer(player, name);
   if (!c) return undefined; // fall through
 
-  // Require a water source in the zone (blind to what the furniture is).
-  const { rows: src } = await query(
+  // A zone can carry either kind of tap. A fuel pump dispenses 'fuel', a sink /
+  // fountain dispenses 'water' — the fluid a fill produces is the source's, not
+  // the container's.
+  const { rows: fuelSrc } = await query(
+    `SELECT name FROM furniture WHERE zone_id=$1 AND jsonb_exists(flags,'fuel_source') LIMIT 1`,
+    [player.current_zone]);
+  const { rows: waterSrc } = await query(
     `SELECT name FROM furniture WHERE zone_id=$1 AND jsonb_exists(flags,'water_source') LIMIT 1`,
     [player.current_zone]);
-  if (!src.length) return { type:'error', message:`There's no water source here to fill the ${c.name} from.` };
+  if (!fuelSrc.length && !waterSrc.length)
+    return { type:'error', message:`There's nothing here to fill the ${c.name} from.` };
 
   const amount = c.custom_data?.fluid_amount || 0;
-  const type = c.custom_data?.fluid_type;
-  if (amount > 0 && type && type !== 'water')
-    return { type:'error', message:`The ${c.name} already holds ${type}. Empty it first.` };
+  const held = c.custom_data?.fluid_type;
+
+  // A non-empty container can only take on more of the same fluid, and only
+  // where that fluid is on tap. Otherwise you have to empty it first.
+  let fluidType, srcName;
+  if (amount > 0 && held) {
+    if (held === 'fuel' && fuelSrc.length) { fluidType = 'fuel'; srcName = fuelSrc[0].name; }
+    else if (held === 'water' && waterSrc.length) { fluidType = 'water'; srcName = waterSrc[0].name; }
+    else return { type:'error', message:`The ${c.name} already holds ${held}. Empty it first.` };
+  } else {
+    // Empty: fill from whatever's here; a fuel pump wins if both are present.
+    if (fuelSrc.length) { fluidType = 'fuel'; srcName = fuelSrc[0].name; }
+    else { fluidType = 'water'; srcName = waterSrc[0].name; }
+  }
 
   const cap = tagValue(c, 'fillable', 0);
 
@@ -62,9 +79,10 @@ async function fill(args, raw, player) {
       [invId, player.id, c.item_id]);
   }
   await query(`UPDATE player_inventory SET custom_data = COALESCE(custom_data,'{}'::jsonb) || $1::jsonb WHERE id=$2`,
-    [JSON.stringify({ fluid_amount: cap, fluid_type: 'water' }), invId]);
+    [JSON.stringify({ fluid_amount: cap, fluid_type: fluidType }), invId]);
 
-  return { type:'use', message:`You fill the ${c.name} from the ${src[0].name}. It's full of water.` };
+  const flavour = fluidType === 'fuel' ? `Fuel sloshes to the brim, reeking of hydrocarbons.` : `It's full of water.`;
+  return { type:'use', message:`You fill the ${c.name} from the ${srcName}. ${flavour}` };
 }
 
 async function drink(args, raw, player) {
@@ -74,6 +92,9 @@ async function drink(args, raw, player) {
 
   const amount = c.custom_data?.fluid_amount || 0;
   if (amount <= 0) return { type:'error', message:`The ${c.name} is empty.` };
+
+  if ((c.custom_data?.fluid_type || 'water') === 'fuel')
+    return { type:'error', message:`The ${c.name} is full of fuel — you're not that desperate.` };
 
   const thirstMissing = 100 - (player.thirst || 0);
   if (thirstMissing <= 0) return { type:'error', message:`You're not thirsty.` };

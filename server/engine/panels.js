@@ -21,7 +21,7 @@ async function resolveSkills(playerId) {
       skills: Object.values(SKILLS).filter(s => s.category === cat).map(s => {
         const ip = ps[s.id]?.ip || 0;
         const statBonus = Math.floor(s.stats.reduce((sum, c) => sum + (p[c] || 0), 0) / s.stats.length);
-        return { name: s.name, final: Math.floor(ip / 100) + statBonus };
+        return { id: s.id, name: s.name, final: Math.floor(ip / 100) + statBonus };
       }),
     })),
   };
@@ -38,6 +38,15 @@ async function resolveInvCount(playerId) {
 }
 
 const RESOLVERS = { skills: resolveSkills, factions: resolveFactions, inv_count: resolveInvCount };
+
+// The builder's Skills sub-picker needs the skill list up front (before any
+// panel_data fetch). Cameras are added by the surveillance plugin's own
+// panel.catalog consumer — the client merges the two pushes.
+export function sendPanelCatalog(session) {
+  if (!session?.playerId) return;
+  const skills = Object.values(SKILLS).map(s => ({ id: s.id, name: s.name, category: s.category }));
+  sendToPlayer(session.playerId, { type: 'panel_catalog', skills });
+}
 
 export async function handlePanelData(session, msg) {
   const playerId = session?.playerId;

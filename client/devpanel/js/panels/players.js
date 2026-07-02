@@ -41,9 +41,21 @@ function renderPlayersPanel(data) {
     </div>
     <table>${thead}<tbody>${tableRows(list)}</tbody></table>` : '';
 
-  panel.innerHTML = section('Admins & Staff', 'var(--accent)', admins)
+  const toolbar = `<div style="padding:16px 16px 0;display:flex;gap:8px;flex-wrap:wrap">
+    <button class="action-btn" onclick="clearAllGameTables()">🃏 Clear all poker tables</button>
+  </div>`;
+
+  panel.innerHTML = toolbar
+    + section('Admins & Staff', 'var(--accent)', admins)
     + section('Players', 'var(--text-dim)', players)
     + (!all.length ? '<div style="padding:24px;color:var(--text-dim)">No players found.</div>' : '');
+}
+
+async function clearAllGameTables() {
+  if (!confirm('Clear all players from every poker table? Seated players and bots are cashed out and stood up.')) return;
+  const r = await directAPI('/gametable/clear-all', 'POST', {});
+  if (r.error) { toast(r.error, true); return; }
+  toast(`🃏 Cleared ${r.cleared} occupant(s) from ${r.tables} table(s)`);
 }
 
 async function confirmSmite(id, handle) {

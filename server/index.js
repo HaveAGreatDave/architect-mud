@@ -45,7 +45,7 @@ import { cmdGhostLook, cmdGhostMove, cmdGhostHaunt, cmdGhostPowerDrain, makeGhos
 import { activateForcefield, deactivateForcefield } from "./engine/apartments.js";
 import { startKeepalive } from "./keepalive.js";
 import { setBroadcast as setMessagingBroadcast } from "./engine/messaging.js";
-import { handlePanelData } from "./engine/panels.js";
+import { handlePanelData, sendPanelCatalog } from "./engine/panels.js";
 import pool, { query, logActivity } from "./models/db.js";
 import { loadMisSettings, isMisServerEnabled } from "./engine/mis.js";
 import { loadEmailVerificationSetting, isEmailVerificationEnabled } from "./engine/emailVerification.js";
@@ -284,7 +284,10 @@ wss.on("connection", (ws) => {
 			return;
 		}
 		if (msg.type === "panel_catalog") {
-			if (session.playerId) emit("panel.catalog", { playerId: session.playerId });
+			if (session.playerId) {
+				sendPanelCatalog(session);                                  // skills list (engine)
+				emit("panel.catalog", { playerId: session.playerId });      // cameras (surveillance plugin)
+			}
 			return;
 		}
 		if (msg.type === "tv_watch" || msg.type === "tv_unwatch") {

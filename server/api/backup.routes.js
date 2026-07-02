@@ -14,12 +14,20 @@ import { query } from '../models/db.js';
 import { SCHEMA_SQL } from '../models/schema.js';
 
 // World/content tables whose rows are dumped, in FK-safe insertion order.
+// An entry may be a table name, or { table, where } to dump a filtered subset.
 const CONTENT_TABLES = [
-  'zones', 'maps', 'factions', 'items', 'enemies', 'zone_spawns',
+  'zones', 'maps', 'items', 'enemies', 'zone_spawns',
   'npcs', 'furniture', 'doors', 'windows', 'sounds', 'global_ambient_events',
   'loot_tables', 'recipes', 'drugs', 'mutations', 'combat_config',
-  'apartments', 'generators', 'power_zones', 'climate_profiles',
+  // Only personal apartments are content; corp HQs (owner_type='org') reference a
+  // player-crew org that isn't exported, which would break the restore's FK.
+  { table: 'apartments', where: "owner_type = 'player'" },
+  'generators', 'power_zones', 'climate_profiles',
   'scripts', 'npc_banter_threads',
+  // NPC factions live in the unified orgs table (is_npc=1); their inter-org
+  // stances live in org_relations. Player crews (is_npc=0) are runtime, excluded.
+  { table: 'orgs', where: 'is_npc = 1' },
+  { table: 'org_relations', where: 'org_id IN (SELECT id FROM orgs WHERE is_npc = 1)' },
 ];
 
 export async function handleBackupApi(path, method, body, auth) {
@@ -45,8 +53,10 @@ async function buildDump() {
   parts.push('');
   parts.push('-- ── CONTENT ────────────────────────────────────────────────────────────────');
 
-  for (const table of CONTENT_TABLES) {
-    const { rows } = await query(`SELECT * FROM ${table}`);
+  for (const entry of CONTENT_TABLES) {
+    const table = typeof entry === 'string' ? entry : entry.table;
+    const where = typeof entry === 'string' ? '' : ` WHERE ${entry.where}`;
+    const { rows } = await query(`SELECT * FROM ${table}${where}`);
     if (!rows.length) continue;
     parts.push('');
     parts.push(`-- ${table} (${rows.length} row${rows.length === 1 ? '' : 's'})`);

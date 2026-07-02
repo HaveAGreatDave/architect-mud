@@ -12,6 +12,7 @@
     "db:reset-chars": "node server/models/temp/reset-chars.js",
     "db:migrate-xp": "node server/models/temp/migrate-xp.js",
     "db:fold-factions": "node server/models/temp/fold-factions-into-orgs.js",
+    "db:drop-factions": "node server/models/temp/drop-factions-table.js",
     "db:seed-audio": "node server/models/temp/seed-audio.js"
   },
   "dependencies": {

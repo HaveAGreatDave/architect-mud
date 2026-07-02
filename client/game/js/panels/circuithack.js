@@ -473,7 +473,6 @@ function close() {
   if (_keyHandler) { window.removeEventListener('keydown', _keyHandler); _keyHandler = null; }
   if (_overlay) { _overlay.remove(); _overlay = null; }
   _state = null;
-  if (_statusTimer) { clearTimeout(_statusTimer); _statusTimer = null; }
 }
 
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');

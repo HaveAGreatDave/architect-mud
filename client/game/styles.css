@@ -1615,6 +1615,35 @@ textarea {
 	padding: 12px;
 	border-bottom: 1px solid var(--border);
 	position: relative;
+	display: flex;
+	flex-direction: column;
+}
+
+/* Scrollable content area — a resized (fixed-height) panel scrolls this
+   instead of clipping. Scrollbar stays hidden until the panel is hovered. */
+.sidebar-section-body {
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow-y: auto;
+	overflow-x: hidden;
+	scrollbar-width: thin;
+	scrollbar-color: transparent transparent;
+}
+.sidebar-section-body:hover {
+	scrollbar-color: var(--border) transparent;
+}
+.sidebar-section-body::-webkit-scrollbar {
+	width: 8px;
+}
+.sidebar-section-body::-webkit-scrollbar-track {
+	background: transparent;
+}
+.sidebar-section-body::-webkit-scrollbar-thumb {
+	background: transparent;
+	border-radius: 4px;
+}
+.sidebar-section-body:hover::-webkit-scrollbar-thumb {
+	background: var(--border);
 }
 
 .sidebar-label {
@@ -1630,6 +1659,7 @@ textarea {
 	flex: none;
 	display: flex;
 	align-items: center;
+	gap: 6px;
 	padding: 4px 6px;
 	background: var(--bg2);
 	border-bottom: 1px solid var(--border);
@@ -1639,6 +1669,7 @@ textarea {
 .sidebar-lock-btn {
 	width: 28px;
 	height: 28px;
+	box-sizing: border-box;
 	background: var(--bg3);
 	border: 1px solid var(--border);
 	border-radius: 3px;
@@ -1670,11 +1701,11 @@ textarea {
 .sidebar-modes {
 	display: flex;
 	gap: 4px;
-	margin-left: 6px;
 }
 .sidebar-mode-btn {
 	width: 26px;
 	height: 28px;
+	box-sizing: border-box;
 	background: var(--bg3);
 	border: 1px solid var(--border);
 	border-radius: 3px;
@@ -1698,10 +1729,10 @@ textarea {
 /* Restore-hidden-panels dropdown — only shown while the sidebar is unlocked */
 .sidebar-restore {
 	position: relative;
-	margin-left: 6px;
 }
 .sidebar-restore-btn {
 	height: 28px;
+	box-sizing: border-box;
 	padding: 0 8px;
 	background: var(--bg3);
 	border: 1px solid var(--border);
@@ -6608,8 +6639,22 @@ textarea {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	z-index: 2;
+	/* Above the deck reels (z2) so the shell reads as the front face of the tape;
+	   two spool-window holes are punched through it (below) so the fixed reel
+	   plugs show through, and slide into alignment as the tape drops in. */
+	z-index: 3;
 	box-shadow: inset 0 0 12px rgba(0,0,0,0.6);
+	/* Reel-hub holes: transparent circles centred 40px in from each shell edge —
+	   exactly over the two deck reels — so the spinning plugs show through. The
+	   holes ride with the shell, so they line up onto the plugs during the drop. */
+	-webkit-mask:
+		radial-gradient(circle 26px at 40px 50%, transparent 0 96%, #000 100%),
+		radial-gradient(circle 26px at calc(100% - 40px) 50%, transparent 0 96%, #000 100%);
+	-webkit-mask-composite: source-in;
+	mask:
+		radial-gradient(circle 26px at 40px 50%, transparent 0 96%, #000 100%),
+		radial-gradient(circle 26px at calc(100% - 40px) 50%, transparent 0 96%, #000 100%);
+	mask-composite: intersect;
 	opacity: 0;
 	pointer-events: none;
 	transition: opacity 0.22s ease-out;
@@ -6740,22 +6785,36 @@ textarea {
 		),
 		var(--bg);
 	position: relative;
-	/* Above the cassette shell (z2) but below the glass (z5), so the reels read
-	   as the tape's spool windows and keep spinning even when fully loaded. */
-	z-index: 3;
+	/* Behind the cassette shell (z3) so the plugs show through the shell's spool-
+	   window holes; the tape's holes slide into alignment over them on insert, and
+	   they keep spinning even when fully loaded. */
+	z-index: 2;
 	flex-shrink: 0;
 	transition: border-color 0.3s, opacity 0.3s;
 }
+/* Spin-up: the reels break inertia and accelerate from rest over ~0.6s (matching
+   the capstan whirr SFX), then hand off to the steady loop with no jump. The
+   cubic-bezier starts at zero slope (rest) and ends at slope 2 — exactly the
+   cruise angular velocity — and the loop's 60° start = the spin-up's 60° end
+   (and 420° ≡ 60°), so both position and speed stay continuous across the
+   handoff and on every loop wrap. */
 .amp-reel.spinning {
-	animation: amp-spin 1.8s linear infinite;
+	animation:
+		amp-reel-spinup 0.6s cubic-bezier(0.25, 0, 0.5, 0) both,
+		amp-reel-spin 1.8s linear 0.6s infinite;
 	border-color: var(--accent);
 	box-shadow: 0 0 6px var(--accent-dim);
 }
-.amp-reel-r.spinning { animation-direction: reverse; }
-@keyframes amp-spin {
-	from { transform: rotate(0deg); }
-	to   { transform: rotate(360deg); }
+/* Right reel counter-rotates: same ramp + cruise, negated angles. */
+.amp-reel-r.spinning {
+	animation:
+		amp-reel-spinup-r 0.6s cubic-bezier(0.25, 0, 0.5, 0) both,
+		amp-reel-spin-r 1.8s linear 0.6s infinite;
 }
+@keyframes amp-reel-spinup   { from { transform: rotate(0);      } to { transform: rotate(60deg);   } }
+@keyframes amp-reel-spin     { from { transform: rotate(60deg);  } to { transform: rotate(420deg);  } }
+@keyframes amp-reel-spinup-r { from { transform: rotate(0);      } to { transform: rotate(-60deg);  } }
+@keyframes amp-reel-spin-r   { from { transform: rotate(-60deg); } to { transform: rotate(-420deg); } }
 .amp-reel-hub {
 	position: absolute;
 	inset: 18px;
@@ -6771,7 +6830,9 @@ textarea {
 	gap: 6px;
 	padding: 0 4px;
 	position: relative;
-	z-index: 3;
+	/* Above the tape shell (z3) so the head/guides read as pressing into the
+	   cassette's centre notch rather than being hidden behind the shell. */
+	z-index: 4;
 }
 .amp-tape-guide {
 	width: 4px;
@@ -7798,10 +7859,11 @@ body.tripping #output {
 
 /* "＋ panel" add button — mirrors the restore control: only shown while the
    sidebar is unlocked (drag-mode / resize-mode set by sidebar-order.js). */
-.sidebar-add-panel { display: none; background: none; border: 1px solid var(--border);
-	color: var(--text-dim); font-size: 10px; padding: 2px 6px; border-radius: 2px; cursor: pointer; }
+.sidebar-add-panel { display: none; align-items: center; height: 28px; box-sizing: border-box;
+	background: none; border: 1px solid var(--border);
+	color: var(--text-dim); font-size: 10px; padding: 0 8px; border-radius: 3px; cursor: pointer; }
 .sidebar-add-panel:hover { color: var(--accent); border-color: var(--accent); }
-#sidebar.drag-mode .sidebar-add-panel, #sidebar.resize-mode .sidebar-add-panel { display: inline-block; }
+#sidebar.drag-mode .sidebar-add-panel, #sidebar.resize-mode .sidebar-add-panel { display: inline-flex; }
 
 .cpanel-body { font-size: 11px; }
 .cpanel-title { display: flex; align-items: center; gap: 4px; }
@@ -7883,3 +7945,17 @@ body.tripping #output {
 	font-size: 11px; padding: 3px 9px; cursor: pointer; }
 .cpanel-chip:hover { border-color: var(--accent); }
 .cpanel-chip.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+/* Accordion panels — click header to expand, pushing others aside */
+.cpanel-head { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.cpanel-caret { color: var(--text-dim); font-size: 10px; flex-shrink: 0; }
+.cpanel-accordion > .sidebar-label { cursor: pointer; }
+.cpanel-accordion > .sidebar-label:hover .cpanel-title { color: var(--accent); }
+/* Expanded accordion fills freed space and scrolls internally (the sidebar itself never scrolls). */
+.cpanel-accordion:not(.collapsed) { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.cpanel-accordion:not(.collapsed) .cpanel-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+
+/* Universal option checkbox + hint text in the config form */
+.cpanel-check { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text-dim); cursor: pointer; }
+.cpanel-check input { accent-color: var(--accent); flex-shrink: 0; }
+.cpanel-field-label em { color: var(--text-dim); font-style: italic; text-transform: none; letter-spacing: 0; }

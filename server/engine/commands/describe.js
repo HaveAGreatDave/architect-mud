@@ -419,8 +419,13 @@ export async function describeZone(zone, player) {
 			? furniture.filter((f) => f.object_type === "light")
 			: furniture
 		).filter((f) => !suppress.has(f.id) && !f.flags?.concealed);
-		if (visibleFurniture.length) {
-			const furnitureLinks = visibleFurniture.map((f) => {
+		// Visible surveillance devices (PD street cams) are pulled out of the plain
+		// Furniture list and mentioned as a dim aside, so they don't dominate the
+		// room the way a couch or vending machine does. Still examinable/smashable.
+		const cameras = visibleFurniture.filter((f) => f.object_type === "security_device");
+		const plainFurniture = visibleFurniture.filter((f) => f.object_type !== "security_device");
+		if (plainFurniture.length) {
+			const furnitureLinks = plainFurniture.map((f) => {
 				const stateTag =
 					f.object_type === "light"
 						? ` <span class="light-state ${f.light_on ? "light-on" : "light-off"}">(${f.light_on ? "on" : "off"})</span>`
@@ -433,6 +438,12 @@ export async function describeZone(zone, player) {
 				return `<span class="action-link furniture-link" data-action="examine" data-target="${f.name}" title="Examine ${f.name}">${f.name}</span>${stateTag}${extra}`;
 			});
 			desc += `\n<span class="furniture-label">Furniture:</span> ${furnitureLinks.join(", ")}`;
+		}
+		if (cameras.length) {
+			const camLinks = cameras.map((f) =>
+				`<span class="action-link furniture-link" data-action="examine" data-target="${f.name}" title="Examine ${f.name}">${f.name.toLowerCase()}</span>`
+			);
+			desc += `\n<span class="text-dim">A ${camLinks.join(" and a ")} watches, unblinking.</span>`;
 		}
 		if (panel?.html) desc += `\n${panel.html}`;
 	}

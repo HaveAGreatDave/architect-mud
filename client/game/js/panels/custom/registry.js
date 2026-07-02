@@ -21,8 +21,8 @@ export const PANEL_TYPES = {
   },
   skills: {
     id: 'skills', title: 'Skills', icon: '🎯',
-    description: 'Your full skill list with effective levels.',
-    configSchema: [],
+    description: 'Your skill list with effective levels — pick which skills to show.',
+    configSchema: [{ key: 'skills', type: 'skills' }],
     defaultTitle: () => 'Skills',
     needs: () => ({ snapshot: ['skills'], watch: [] }),
     render: renderSkills,

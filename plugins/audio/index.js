@@ -394,13 +394,25 @@ const AMB_UTILITY_ROOM = {
     ] },
   ] },
 };
-const INDUSTRIAL_AMBIENT_IDS = [AMB_POWER_STATION.id, AMB_UTILITY_ROOM.id];
+// The turbine roar leaking through the wall to an adjacent tile: the same bed
+// pulled well back and stripped of its close-up machine chatter (the telemetry
+// beeps and relay clunks don't carry outside). A muffled distant drone.
+// NB: config.gain isn't applied to looping beds (only per-layer gain is), so the
+// pull-back is baked into each layer's gain rather than a single top-level scalar.
+const AMB_POWER_STATION_FAINT = {
+  id: 'amb_power_station_faint', name: 'amb_power_station_faint', category: 'ambient', priority: 2,
+  config: {
+    ...AMB_POWER_STATION.config,
+    gain: 0.2,
+    sparkle: undefined,
+    layers: AMB_POWER_STATION.config.layers.map(l => ({ ...l, gain: (l.gain ?? 1) * 0.3 })),
+  },
+};
+const INDUSTRIAL_AMBIENT_IDS = [AMB_POWER_STATION.id, AMB_UTILITY_ROOM.id, AMB_POWER_STATION_FAINT.id];
 
-// Start the right loop (or none) for one player based on the zone they're in.
-// A zone hosting a live generator → power-station roar; a live junction box →
-// utility hum; anything else (or a dead/blacked-out unit) → silence.
-async function reconcileIndustrialAmbient(playerId, zoneId) {
-  if (!playerId || !zoneId) return;
+// The live, powered destructible power device in a zone (generator preferred),
+// or null if the room has none / it's smashed / the zone is blacked out.
+async function liveDeviceInZone(zoneId) {
   const { rows } = await query(
     `SELECT f.object_type, f.hp, COALESCE(pz.status,'offline') AS zone_status
        FROM furniture f LEFT JOIN power_zones pz ON pz.id = f.zone_id
@@ -410,7 +422,28 @@ async function reconcileIndustrialAmbient(playerId, zoneId) {
   ).catch(() => ({ rows: [] }));
   const dev = rows[0];
   const live = dev && (dev.hp ?? 1) > 0 && dev.zone_status === 'powered';
-  const wantDef = !live ? null : (dev.object_type === 'generator' ? AMB_POWER_STATION : AMB_UTILITY_ROOM);
+  return live ? dev : null;
+}
+
+// Which industrial bed (if any) a zone should hear:
+//  · own live generator → power-station roar; own live junction box → utility hum;
+//  · otherwise a live generator in an adjacent zone bleeds through, fainter (only
+//    the generator's roar carries next door — a utility hum wouldn't).
+async function industrialBedFor(zoneId) {
+  const dev = await liveDeviceInZone(zoneId);
+  if (dev) return dev.object_type === 'generator' ? AMB_POWER_STATION : AMB_UTILITY_ROOM;
+  const zone = getZone(zoneId);
+  for (const neighborId of new Set(Object.values(zone?.exits || {}))) {
+    const nDev = await liveDeviceInZone(neighborId);
+    if (nDev?.object_type === 'generator') return AMB_POWER_STATION_FAINT;
+  }
+  return null;
+}
+
+// Start the right loop (or none) for one player based on the zone they're in.
+async function reconcileIndustrialAmbient(playerId, zoneId) {
+  if (!playerId || !zoneId) return;
+  const wantDef = await industrialBedFor(zoneId);
   for (const id of INDUSTRIAL_AMBIENT_IDS) {
     if (id !== wantDef?.id) sendToPlayer(playerId, { type: 'audio_stop', scope: 'ambience', id });
   }
@@ -427,6 +460,14 @@ on('device.power.changed', ({ zoneId, operational, deviceType }) => {
   sendToZone(zoneId, { type: 'audio_sfx', def, gain });
   sendToZone(zoneId, { type: 'device_power_flash', mode: operational ? 'up' : 'down', deviceType });
   for (const p of getZonePlayers(zoneId)) reconcileIndustrialAmbient(p.id, zoneId).catch(() => {});
+  // A generator's roar bleeds into adjacent tiles, so its power flipping on/off
+  // must also start/stop that faint bleed for anyone standing next door.
+  if (deviceType === 'generator') {
+    const zone = getZone(zoneId);
+    for (const neighborId of new Set(Object.values(zone?.exits || {}))) {
+      for (const p of getZonePlayers(neighborId)) reconcileIndustrialAmbient(p.id, neighborId).catch(() => {});
+    }
+  }
 });
 
 on('ghost.action', ({ zoneId }) => {

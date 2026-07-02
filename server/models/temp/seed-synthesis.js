@@ -25,6 +25,7 @@ const ITEMS = [
   { id: 'item_reagent_psycho',   name: 'Psychoactive Extract',  desc: 'A vial of oily extract that shifts colour when you are not looking.',  value: 110, tags: { reagent: true } },
   { id: 'item_solvent',          name: 'Reagent Solvent',       desc: 'Generic cutting solvent. Cheap, nasty, essential.',                    value: 25,  tags: { reagent: true } },
   { id: 'item_catalyst',        name: 'Reaction Catalyst',      desc: 'A sealed ampoule of catalyst. Makes the hard cooks possible.',         value: 140, tags: { reagent: true } },
+  { id: 'item_stabilizer',      name: 'Compound Stabilizer',    desc: 'A vial of molecular stabilizer — the only thing that keeps a spliced compound from tearing itself apart.', value: 220, tags: { reagent: true } },
   { id: 'item_cook_kit',         name: 'Portable Cook Kit',     desc: 'A battered case of glassware, burners, and stained tubing. Lets you cook rough anywhere — badly.', value: 300, tags: { cook_kit: true, unique: true } },
 ];
 
@@ -52,8 +53,9 @@ try {
   await client.query('BEGIN');
 
   if (force) {
-    await client.query('DELETE FROM items WHERE id = ANY($1)', [ITEMS.map(i => i.id)]);
+    await client.query('DELETE FROM items WHERE id = ANY($1)', [[...ITEMS.map(i => i.id), 'item_compound']]);
     await client.query('DELETE FROM recipes WHERE id = ANY($1)', [RECIPES.map(r => r.id)]);
+    await client.query("DELETE FROM drugs WHERE id = 'drug_compound'");
     await client.query("DELETE FROM furniture WHERE id = 'furn_chem_lab'");
   }
 
@@ -65,6 +67,21 @@ try {
       [it.id, it.name, it.desc, it.value, it.tags.cook_kit ? 0 : 1, JSON.stringify(it.tags)]
     );
   }
+
+  // Carrier item + placeholder drug row for SPLICED compounds. The real,
+  // per-batch composed effects ride on each inventory row's custom_data (an
+  // inline drug that useDrug reads directly); this pair just lets the
+  // item→drug join in cmdUse resolve. Non-stackable so batches never merge.
+  await client.query(
+    `INSERT INTO items (id, name, description, type, subtype, weight, value, rarity, is_stackable, tags)
+     VALUES ('item_compound','hand-mixed compound','A hand-mixed compound in an unlabelled vial. Whatever it does, only its maker knows.','drug','compound',15,200,'rare',0,'{"drug":true}'::jsonb)
+     ON CONFLICT (id) DO NOTHING`
+  );
+  await client.query(
+    `INSERT INTO drugs (id, name, description, item_id, duration_seconds, effects, addiction_chance, overdose_threshold, withdrawal_effects, flags)
+     VALUES ('drug_compound','hand-mixed compound','A spliced compound. Effects vary batch to batch.','item_compound',300,'{}'::jsonb,0,3,'{}'::jsonb,'{}'::jsonb)
+     ON CONFLICT (id) DO NOTHING`
+  );
 
   for (const r of RECIPES) {
     await client.query(
@@ -103,7 +120,7 @@ try {
   }
 
   await client.query('COMMIT');
-  console.log(`✓ Seeded ${ITEMS.length} reagent/tool items, ${RECIPES.length} chemistry recipes.`);
+  console.log(`✓ Seeded ${ITEMS.length} reagent/tool items (incl. Stabilizer), the spliced-compound carrier, and ${RECIPES.length} chemistry recipes.`);
   console.log(`  Chem lab placed in zone: ${labZone || '(none found — create furniture flags.crafting_station=chem_lab manually)'}`);
   console.log('  Reagents + cook kit are NOT distributed — hand them out via the dev panel or a scavenging table to test.');
   console.log('  Restart the server so recipes load into the cache.');

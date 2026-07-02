@@ -151,6 +151,12 @@ const INDOOR_PASSIVE_CONDUCTION    = 0.01;
 
 const POWER_OVERLOAD_RATIO = 1.0;    // alloc < demand × this → 'overloaded'
 const EMERGENCY_LIGHT_LEVEL = 0.3;   // artificial-light contribution on emergency power only
+// Portable-generator work light: a battery reserve (0..MAX) that lights the
+// unit's room even while it's stopped, so you can see to deploy and hook it up
+// in a blackout. Idle-but-lit drains the battery; a running generator recharges.
+const GEN_BATTERY_MAX = 100;
+const GEN_BATTERY_DRAIN = 4;         // per power-sim tick, lit off battery (stopped)
+const GEN_BATTERY_RECHARGE = 12;     // per tick, while the generator runs
 const SNOW_LOAD_MULTIPLIER = 1.15;   // snow increases effective load (GDD §11: heating demand)
 const STORM_GENERATOR_FAULT_CHANCE = 0.10; // base per-tick fault chance, scaled by severity
 // Extreme-weather power scar (docs/systems-weather-extreme.md, step 3): a severe
@@ -957,6 +963,7 @@ async function simulatePowerNetwork(query, { weatherType }) {
   // city-wide one — and hold them there for a recovery window (recover_after in
   // flags), so a downed building doesn't snap back the instant the weather eases.
   const updatedStatus = new Map();
+  const genLightByZone = new Map(); // zoneId → any portable gen wants its work light on
   for (const gen of allGenerators) {
     // A destroyed unit (its physical furniture was smashed apart) stays dark
     // regardless of type — this is what cuts power to everything downstream.
@@ -968,7 +975,9 @@ async function simulatePowerNetwork(query, { weatherType }) {
     let status = (gen.generator_type === 'player') ? gen.status : 'online';
     if (status === 'flickering') status = 'online';
     let fuelRemaining = gen.fuel_remaining;
-    if (gen.generator_type === 'player' && gen.fuel_type) {
+    // A portable generator only burns fuel while it's actually running (online).
+    // A stopped unit (offline) holds its tank; an empty tank stalls it out.
+    if (gen.generator_type === 'player' && gen.fuel_type && status === 'online') {
       fuelRemaining = Math.max(0, fuelRemaining - gen.fuel_burn_rate * 30);
       if (fuelRemaining <= 0) status = 'offline';
     }
@@ -996,6 +1005,22 @@ async function simulatePowerNetwork(query, { weatherType }) {
       anyRecovering = true;
     }
 
+    // Portable-generator battery + work light. Recharge while running, drain
+    // while lit off the battery (stopped), and note the room so its emergency
+    // light is applied after the loop (aggregated, so two units don't fight).
+    if (gen.generator_type === 'player') {
+      const bmax = gen.flags?.battery_max ?? GEN_BATTERY_MAX;
+      let battery = gen.flags?.battery ?? bmax;
+      if (status === 'online') battery = Math.min(bmax, battery + GEN_BATTERY_RECHARGE);
+      else if (battery > 0) battery = Math.max(0, battery - GEN_BATTERY_DRAIN);
+      flags = { ...flags, battery, battery_max: bmax };
+      flagsChanged = true;
+      if (gen.zone_id) {
+        const lit = status === 'online' || battery > 0;
+        genLightByZone.set(gen.zone_id, (genLightByZone.get(gen.zone_id) || false) || lit);
+      }
+    }
+
     updatedStatus.set(gen.id, { ...gen, status, fuel_remaining: fuelRemaining, flags });
     if (flagsChanged) {
       await query(`UPDATE generators SET status=$1, fuel_remaining=$2, flags=$3 WHERE id=$4`, [status, fuelRemaining, JSON.stringify(flags), gen.id]);
@@ -1004,6 +1029,19 @@ async function simulatePowerNetwork(query, { weatherType }) {
     }
   }
   stormFaultActive = anyRecovering;
+
+  // Drive each portable generator's room emergency light off its battery/run
+  // state. We only ever write zones that hold a portable generator, so this
+  // owns nothing else's lighting. This is what lets a unit dropped in a
+  // blacked-out room light itself before it back-feeds the building's fixtures.
+  for (const [zoneId, lit] of genLightByZone) {
+    await query(
+      `INSERT INTO lighting_states (zone_id, has_emergency_lighting, artificial_light_level, fixture_count, total_lumens)
+       VALUES ($1, $2, 0, 0, 0)
+       ON CONFLICT (zone_id) DO UPDATE SET has_emergency_lighting=$2`,
+      [zoneId, lit ? 1 : 0]
+    );
+  }
 
   // ── Phase 2: Recalculate zone loads from active furniture ────────────────
   // Streetlights are always counted as drawing power when it's dark, regardless
@@ -1135,13 +1173,33 @@ async function simulatePowerNetwork(query, { weatherType }) {
   for (const gen of allGenerators) {
     if (gen.generator_type !== 'junction_box') continue;
     const jbSt = updatedStatus.get(gen.id);
-    const allocation = jbAlloc.get(gen.id) ?? 0;
+    const cityAlloc = jbAlloc.get(gen.id) ?? 0;
     const jbZones = zonesByGen.get(gen.id) || [];
     const jbTotalDemand = jbDemand.get(gen.id) ?? 0;
 
+    // Backup power: portable player generators plugged into this junction box
+    // (flags.junction_box_id) that are running with fuel left. Their pooled
+    // capacity feeds the building whenever the city plant can't — the outage a
+    // player rides out on a generator. A physically destroyed panel can't
+    // distribute, so a smashed junction box voids the backup.
+    let backupKw = 0;
+    if (!gen.flags?.destroyed) {
+      for (const pg of allGenerators) {
+        if (pg.generator_type !== 'player' || pg.flags?.junction_box_id !== gen.id) continue;
+        const pst = updatedStatus.get(pg.id);
+        if (pst?.status === 'online' && (pst.fuel_remaining ?? 0) > 0) backupKw += pg.capacity_kw || 0;
+      }
+    }
+
+    // City feed is down when the JB is offline, or it had demand but the plant
+    // gave it nothing. Fall back to plugged-in generator power if there is any.
+    const cityDown = !jbSt || jbSt.status === 'offline' || (jbTotalDemand > 0 && cityAlloc <= 0);
+    const onBackup = cityDown && backupKw > 0;
+    const allocation = cityDown ? backupKw : cityAlloc;
+
     // Only mark building offline if the JB itself is down, or it had demand but
-    // the city plant gave it nothing. Zero allocation on zero demand = idle/powered.
-    if (!jbSt || jbSt.status === 'offline' || (jbTotalDemand > 0 && allocation <= 0)) {
+    // the city plant gave it nothing — and no backup generator is carrying it.
+    if (cityDown && !onBackup) {
       for (const z of jbZones) {
         const cap = z.max_capacity_kw ?? 1000;
         await query(`UPDATE power_zones SET status='offline', available_kw=0, capacity_kw=$1 WHERE id=$2`, [cap, z.id]);

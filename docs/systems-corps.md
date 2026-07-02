@@ -153,9 +153,12 @@ wants* is the deepest thread ([story.md](story.md)). Corps give it something to 
   [channels.js](../server/engine/channels.js)), and a claimable **HQ** reusing the apartment substrate
   (`corp claim`; `apartments.owner_type='org'`/`owner_org_id`, ownership checks via `playerControlsApt` in
   [apartments.js](../server/engine/apartments.js)). Cache: `world.orgs`/`world.orgMembers`, re-synced by
-  `reloadOrg`. Migration: `npm run db:fold-factions`. **Deferred within Phase 0:** HQ forcefield/home-bind/
-  best-rest stay personal-only; the legacy `factions` table is kept for the dev panel (repoint + drop is a
-  fast-follow); `FACTION_MATCH` in the AI is still dead (players have no faction field).
+  `reloadOrg`. Migration: `npm run db:fold-factions`, then `npm run db:drop-factions`. The legacy `factions`
+  table is **dropped** — `GET /factions` and the DB backup now read `orgs WHERE is_npc=1` (+ `org_relations`);
+  `player_faction_rep` stays (its `faction_id` now points at `orgs.id`). `FACTION_MATCH` in the AI was
+  **fixed** to read org membership (was reading a nonexistent `player.faction`). **Deferred within Phase 0:**
+  HQ forcefield/home-bind/best-rest stay personal-only; NPC-faction-vs-player *reputation* reactions want a
+  future async REP condition (FACTION_MATCH only covers crew membership).
 - **Phase 1 — Territory.** `zone_control` + `claim`, the influence tug-of-war, upkeep + income on the 24h
   tick.
 - **Phase 2 — Investment.** Org tiers, buy assets (vendors / ATMs / turrets / stations).

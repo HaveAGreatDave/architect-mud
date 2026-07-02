@@ -181,6 +181,7 @@ export function playPokerSfx(cue) {
   const def = CUES[cue];
   if (!def) return;
   const now = Date.now();
+  console.log(`[poker-sfx] recv cue=${cue} t=${now} sinceLast=${now - (_lastPlayed[cue] || 0)}ms`); // TEMP diagnostic — remove after debugging double-play
   if (now - (_lastPlayed[cue] || 0) < DEDUPE_MS) return;
   _lastPlayed[cue] = now;
   window.AudioEngine?.playSfx(def, POKER_SFX_GAIN);

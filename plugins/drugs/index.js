@@ -14,7 +14,7 @@ async function findDrug(targetStr, player) {
     `SELECT pi.id FROM player_inventory pi
      JOIN items i ON i.id = pi.item_id
      JOIN drugs d ON d.item_id = i.id
-     WHERE pi.player_id=$1 AND i.name ILIKE $2 LIMIT 1`,
+     WHERE pi.player_id=$1 AND (i.name ILIKE $2 OR pi.custom_data->>'name' ILIKE $2) LIMIT 1`,
     [player.id, `%${targetStr}%`]
   );
   return rows.length > 0;

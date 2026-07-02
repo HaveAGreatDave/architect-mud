@@ -91,7 +91,7 @@ Out ports: `ifTrue`, `ifFalse`.
 | `IN_ZONE` | `zone_id` | entity is in zone_id |
 | `PLAYER_IN_ZONE` | `min` (default 1) | zone has ≥ min players |
 | `TARGET_HP_BELOW` | `pct` (default 30) | target player HP% < pct |
-| `FACTION_MATCH` | `faction` | target player's faction === faction |
+| `FACTION_MATCH` | `faction` | target player is a member of org (corp/faction) `faction` — reads `org_members`, not a player field. NPC-faction-vs-player reactions key off reputation (a future condition), not this. |
 | `FLAG_SET` | `scope`, `flag` | blackboard flag is truthy (scope:self only; world flags fall back to blackboard) |
 | `RANDOM_CHANCE` | `chance` (default 0.5) | Math.random() < chance |
 | `IS_DAYTIME` | — | world timePhase is day/dawn/dusk |

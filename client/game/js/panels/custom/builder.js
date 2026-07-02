@@ -4,7 +4,7 @@
 import { PANEL_TYPES, PRESETS } from './registry.js';
 import { FIELD_CATALOG, FIELD_BY_KEY, WIDGET_CATALOG, compatibleWidgets, esc } from './catalogs.js';
 import { genId } from './store.js';
-import { mountOne, updateOne, getInstance, getCameras } from './manager.js';
+import { mountOne, updateOne, getInstance, getCameras, getSkillsCatalog } from './manager.js';
 
 export function initCustomPanelButton() {
   document.getElementById('sidebar-add-panel')?.addEventListener('click', openPanelCatalog);
@@ -70,15 +70,58 @@ function openConfigForm(typeId, existing) {
     if (field.type === 'fields') buildFieldsControl(form, config, controls);
     else if (field.type === 'widget') buildWidgetControl(form, config, controls);
     else if (field.type === 'cameras') buildCamerasControl(form, config, controls);
+    else if (field.type === 'skills') buildSkillsControl(form, config, controls);
   }
+
+  // Universal option: accordion (click header to expand, pushing others aside).
+  const accWrap = document.createElement('label');
+  accWrap.className = 'cpanel-check';
+  accWrap.innerHTML = '<input type="checkbox"><span>Click header to expand — collapse others to make room</span>';
+  const accInput = accWrap.querySelector('input');
+  accInput.checked = existing ? !!existing.accordion : false;
+  form.appendChild(accWrap);
 
   openModal(existing ? 'Configure panel' : `Add ${type.title}`, form, () => {
     const newConfig = {};
     for (const k in controls) Object.assign(newConfig, controls[k]());
     const title = titleInput.value.trim() || type.defaultTitle(newConfig);
-    if (existing) updateOne(existing.instanceId, { title, config: newConfig });
-    else mountOne({ instanceId: genId(), type: typeId, title, config: newConfig });
+    const accordion = accInput.checked;
+    if (existing) updateOne(existing.instanceId, { title, config: newConfig, accordion });
+    else mountOne({ instanceId: genId(), type: typeId, title, config: newConfig, accordion });
   });
+}
+
+function buildSkillsControl(form, config, controls) {
+  const wrap = document.createElement('div');
+  wrap.className = 'cpanel-field';
+  wrap.innerHTML = '<span class="cpanel-field-label">Skills to show <em>(none = all)</em></span>';
+  const box = document.createElement('div');
+  box.className = 'cpanel-fieldpick';
+  const selected = new Set(config.skills || []);
+  const cat = getSkillsCatalog();
+  if (!cat.length) box.innerHTML = '<span class="cpanel-empty">Skill list not loaded yet.</span>';
+  const groups = {};
+  for (const s of cat) (groups[s.category] ||= []).push(s);
+  for (const [group, ss] of Object.entries(groups)) {
+    const g = document.createElement('div');
+    g.className = 'cpanel-fieldgroup';
+    g.innerHTML = `<div class="cpanel-fieldgroup-label">${esc(group)}</div>`;
+    for (const s of ss) {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'cpanel-chip' + (selected.has(s.id) ? ' on' : '');
+      chip.textContent = s.name;
+      chip.addEventListener('click', () => {
+        selected.has(s.id) ? selected.delete(s.id) : selected.add(s.id);
+        chip.classList.toggle('on');
+      });
+      g.appendChild(chip);
+    }
+    box.appendChild(g);
+  }
+  wrap.appendChild(box);
+  form.appendChild(wrap);
+  controls.skills = () => ({ skills: [...selected] });
 }
 
 function buildFieldsControl(form, config, controls) {

@@ -49,7 +49,7 @@ const AI_CONDITIONS = [
   { type: 'IN_ZONE',          label: 'In Zone',                 params: [{ key: 'zone_id', label: 'Zone ID',           type: 'text',   default: '' }] },
   { type: 'PLAYER_IN_ZONE',   label: 'Player In Zone',          params: [{ key: 'min',     label: 'Min players',       type: 'number', default: 1 }] },
   { type: 'TARGET_HP_BELOW',  label: "Target's HP Below %",     params: [{ key: 'pct',     label: 'Threshold %',       type: 'number', default: 30 }] },
-  { type: 'FACTION_MATCH',    label: 'Target Faction Matches',  params: [{ key: 'faction', label: 'Faction',           type: 'text',   default: '' }] },
+  { type: 'FACTION_MATCH',    label: 'Target In Org/Faction',   params: [{ key: 'faction', label: 'Org/Faction id',     type: 'text',   default: '' }] },
   { type: 'FLAG_SET',         label: 'Flag Is Set',             params: [{ key: 'flag',    label: 'Flag key',          type: 'text',   default: '' }, { key: 'scope', label: 'Scope', type: 'select', options: ['world', 'self'], default: 'self' }] },
   { type: 'RANDOM_CHANCE',    label: 'Random Chance',           params: [{ key: 'chance',  label: 'Probability 0–1',   type: 'number', default: 0.5 }] },
   { type: 'IS_DAYTIME',       label: 'Is Daytime',              params: [] },

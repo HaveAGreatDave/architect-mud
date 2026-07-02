@@ -298,15 +298,9 @@ export const SCHEMA_SQL = `
   ALTER TABLE doors ADD COLUMN IF NOT EXISTS name TEXT DEFAULT NULL;
   ALTER TABLE npcs ADD COLUMN IF NOT EXISTS wander_zones JSONB DEFAULT '[]';
 
-  CREATE TABLE IF NOT EXISTS factions (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    description TEXT NOT NULL,
-    color TEXT DEFAULT '#888888',
-    hostile_to JSONB DEFAULT '[]',
-    friendly_to JSONB DEFAULT '[]'
-  );
-
+  -- NPC factions folded into the unified orgs table (is_npc=1) — see the orgs
+  -- block below. The legacy factions table was dropped (npm run db:drop-factions).
+  -- player_faction_rep stays: faction_id now references orgs.id (ids preserved).
   CREATE TABLE IF NOT EXISTS player_faction_rep (
     player_id TEXT NOT NULL,
     faction_id TEXT NOT NULL,

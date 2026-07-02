@@ -74,9 +74,18 @@ console.log('UPSERT network net_police');
 
 let zones = process.argv.slice(2);
 if (zones.includes('safe')) {
-  const { rows } = await query(`SELECT id FROM zones WHERE danger_rating='safe' ORDER BY id`);
+  // Blanket every safe zone — but skip bathrooms (no cameras where people relieve themselves).
+  const { rows } = await query(
+    `SELECT id FROM zones z
+      WHERE danger_rating='safe'
+        AND z.name NOT ILIKE '%bathroom%' AND z.name NOT ILIKE '%restroom%'
+        AND z.name NOT ILIKE '%washroom%' AND z.name NOT ILIKE '%lavatory%'
+        AND z.name NOT ILIKE '%latrine%'
+        AND NOT EXISTS (SELECT 1 FROM furniture t WHERE t.zone_id=z.id AND t.object_type='toilet')
+      ORDER BY id`
+  );
   zones = rows.map(r => r.id);
-  console.log(`Expanding 'safe' → ${zones.length} safe zone(s).`);
+  console.log(`Expanding 'safe' → ${zones.length} safe zone(s) (bathrooms excluded).`);
 }
 for (const zone of zones) {
   const { rows: zrows } = await query('SELECT id FROM zones WHERE id=$1', [zone]);
