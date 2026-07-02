@@ -64,20 +64,18 @@ async function cmdButcher(targetStr, player, broadcast) {
 
 	setPosture(player, "butchering");
 	player.butcherState = { corpseId: corpse.id, completeAt: Date.now() + BUTCHER_MS };
-	sendToPlayer(player.id, {
-		type: "progress",
-		action: "butcher",
-		label: `Butchering ${corpse.name}`,
-		durationMs: BUTCHER_MS,
-	});
 	broadcast(
 		player.current_zone,
 		{ type: "zone_event", message: `${player.handle} starts butchering ${corpse.name}.` },
 		player.id,
 	);
-	// The client closes any open loot panel when it receives the `progress`
-	// message above; no closeLoot/look churn needed here.
-	return { type: "emote", message: `You set to work butchering ${corpse.name}.` };
+	// `butcherMs` tells the client to append an inline countdown bar to this line
+	// and close any open loot panel; `progress done` (from clearButcher) strips it.
+	return {
+		type: "emote",
+		message: `You set to work butchering ${corpse.name}.`,
+		butcherMs: BUTCHER_MS,
+	};
 }
 
 // Clear the butchering activity and hide the client progress bar.
