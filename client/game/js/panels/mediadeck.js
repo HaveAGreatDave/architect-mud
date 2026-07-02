@@ -1,6 +1,7 @@
 import { sendCmdSilent, sendRaw } from '../net.js';
 
 let deckData = null;
+let _wasPlaying = false;
 const MAX_PREVIEW_LINES = 20;
 
 function _lightLabel(lightState, activeCassetteId) {
@@ -13,31 +14,66 @@ function _lightLabel(lightState, activeCassetteId) {
 // panels/tv.js — tied to this panel's state, not shared multiplayer state.
 // category:'tv' so it answers to the TV Audio toggle/volume (this deck is
 // part of the broadcast system), not the generic Ambient slider.
+// A quiet, droney whir — the deck's idle motor. Lower and softer than before:
+// steady low tone (drone) with a gentle tremolo flutter (the whir) and a slow
+// analog pitch drift. Soft attack/release so it fades in/out smoothly. It runs
+// whenever the deck is powered, not just while a tape spins, and button presses
+// never stop it — only closing the panel does.
 const MEDIADECK_WHIR_DEF = {
   id: 'mediadeck_whir_local', category: 'tv', priority: 1, loop: true,
-  config: { waveform: 'triangle', freq: 180, gain: 0.12, noiseMix: 0.2,
-    filter: { type: 'lowpass', freq: 900, q: 1 },
-    tremolo: { rate: 4, depth: 0.3 },
-    adsr: { a: 0.3, d: 0.1, s: 1, r: 0.3 } },
+  config: { waveform: 'triangle', freq: 105, gain: 0.025, noiseMix: 0.16,
+    filter: { type: 'lowpass', freq: 620, q: 0.8 },
+    tremolo: { rate: 5.5, depth: 0.12 },
+    vibrato: { rate: 0.3, depth: 6 },
+    adsr: { a: 0.6, d: 0.1, s: 1, r: 0.6 } },
 };
 
+// Professional-grade, chunky transport SFX — layered servo whirr + friction +
+// a heavy low clunk, staggered with per-layer `delay` for a mechanical sequence.
+
+// EJECT: spring-release click → servo reversing → tape slides out → low pop.
 const MEDIADECK_EJECT_DEF = {
   id: 'mediadeck_eject_local', category: 'tv', priority: 4,
   config: { layers: [
-    { waveform: 'noise', noiseMix: 1, duration: 0.08, adsr: { a: 0.001, d: 0.05, s: 0, r: 0.03 }, filter: { type: 'highpass', freq: 1500, q: 1 } },
-    { waveform: 'triangle', freq: 150, duration: 0.3, gain: 0.5, pitchBend: { to: 60, time: 0.25 }, adsr: { a: 0.001, d: 0.15, s: 0.2, r: 0.15 }, filter: { type: 'lowpass', freq: 700, q: 1 } },
+    { waveform: 'square', freq: 200, duration: 0.05, gain: 0.3, adsr: { a: 0.001, d: 0.03, s: 0, r: 0.02 }, filter: { type: 'lowpass', freq: 1600, q: 1 } },
+    { waveform: 'sawtooth', freq: 200, duration: 0.3, gain: 0.2, delay: 0.03, pitchBend: { to: 90, time: 0.28 }, adsr: { a: 0.01, d: 0.24, s: 0.3, r: 0.06 }, filter: { type: 'lowpass', freq: 800, q: 1.2 }, tremolo: { rate: 22, depth: 0.3 } },
+    { waveform: 'noise', noiseMix: 1, duration: 0.12, gain: 0.28, delay: 0.03, adsr: { a: 0.01, d: 0.1, s: 0, r: 0.03 }, filter: { type: 'highpass', freq: 1400, q: 1 } },
+    { waveform: 'triangle', freq: 140, duration: 0.28, gain: 0.55, delay: 0.24, pitchBend: { to: 55, time: 0.22 }, adsr: { a: 0.001, d: 0.18, s: 0.2, r: 0.08 }, filter: { type: 'lowpass', freq: 600, q: 1 } },
   ] },
 };
 
-// The reverse gesture: a slide-in friction noise then a low clunk as the tape
-// locks into place (vs. eject's noise-burst + downward pitch drop).
+// INSERT: servo whirr pulling the tape in → friction → heavy seat clunk → latch click.
 const MEDIADECK_INSERT_DEF = {
   id: 'mediadeck_insert_local', category: 'tv', priority: 4,
   config: { layers: [
-    { waveform: 'noise', noiseMix: 1, duration: 0.12, adsr: { a: 0.01, d: 0.08, s: 0, r: 0.04 }, filter: { type: 'bandpass', freq: 1800, q: 1 } },
-    { waveform: 'triangle', freq: 90, duration: 0.15, gain: 0.6, adsr: { a: 0.001, d: 0.1, s: 0, r: 0.06 }, filter: { type: 'lowpass', freq: 600, q: 1 } },
+    { waveform: 'sawtooth', freq: 120, duration: 0.34, gain: 0.22, pitchBend: { to: 210, time: 0.3 }, adsr: { a: 0.02, d: 0.28, s: 0.3, r: 0.06 }, filter: { type: 'lowpass', freq: 800, q: 1.2 }, tremolo: { rate: 26, depth: 0.35 } },
+    { waveform: 'noise', noiseMix: 1, duration: 0.16, gain: 0.3, adsr: { a: 0.02, d: 0.12, s: 0, r: 0.04 }, filter: { type: 'bandpass', freq: 1800, q: 1 } },
+    { waveform: 'triangle', freq: 80, duration: 0.2, gain: 0.7, delay: 0.12, adsr: { a: 0.001, d: 0.14, s: 0, r: 0.06 }, filter: { type: 'lowpass', freq: 520, q: 1 } },
+    { waveform: 'square', freq: 180, duration: 0.05, gain: 0.25, delay: 0.3, adsr: { a: 0.001, d: 0.03, s: 0, r: 0.02 }, filter: { type: 'lowpass', freq: 1500, q: 1 } },
   ] },
 };
+
+// A chunky mechanical click for every transport/list button — snap + low thunk.
+const MEDIADECK_BUTTON_DEF = {
+  id: 'mediadeck_button_local', category: 'tv', priority: 5,
+  config: { layers: [
+    { waveform: 'square', freq: 220, duration: 0.05, gain: 0.35, pitchBend: { to: 90, time: 0.04 }, adsr: { a: 0.001, d: 0.03, s: 0, r: 0.02 }, filter: { type: 'lowpass', freq: 1200, q: 1 } },
+    { waveform: 'noise', noiseMix: 1, duration: 0.04, gain: 0.28, adsr: { a: 0.001, d: 0.03, s: 0, r: 0.01 }, filter: { type: 'bandpass', freq: 2500, q: 1.5 } },
+    { waveform: 'triangle', freq: 60, duration: 0.09, gain: 0.5, adsr: { a: 0.001, d: 0.06, s: 0, r: 0.03 }, filter: { type: 'lowpass', freq: 400, q: 1 } },
+  ] },
+};
+
+// Capstan spin-up — a rising motor swell when a tape actually starts playing.
+const MEDIADECK_SPINUP_DEF = {
+  id: 'mediadeck_spinup_local', category: 'tv', priority: 3,
+  config: { layers: [
+    { waveform: 'triangle', freq: 70, duration: 0.5, gain: 0.3, pitchBend: { to: 150, time: 0.45 }, adsr: { a: 0.05, d: 0.4, s: 0.4, r: 0.08 }, filter: { type: 'lowpass', freq: 700, q: 1 }, tremolo: { rate: 14, depth: 0.4 } },
+    { waveform: 'noise', noiseMix: 1, duration: 0.5, gain: 0.12, adsr: { a: 0.1, d: 0.3, s: 0.3, r: 0.1 }, filter: { type: 'bandpass', freq: 1200, q: 0.8 } },
+  ] },
+};
+
+// One-liner: chunky click for any deck button press. Never touches the whir.
+function _deckClick() { window.AudioEngine?.playSfx(MEDIADECK_BUTTON_DEF); }
 
 // Whirring plays only while a cassette is actively spinning (lightState
 // 'orange' — see _deckLightState in plugins/broadcast/index.js); not for
@@ -52,7 +88,9 @@ export function openMediaDeckPanel(data) {
   deckData = data;
   renderMediaDeckPanel(data);
   document.getElementById('mediadeck-panel').classList.add('active');
-  _setDeckWhir(data.lightState === 'orange');
+  // Whir runs whenever the deck is powered (any state but offline), so it's a
+  // constant idle drone rather than only-while-a-tape-spins.
+  _setDeckWhir(data.lightState !== 'red');
   // Clear preview on open and subscribe to channel broadcast
   const previewMsgs = document.getElementById('mediadeck-preview-msgs');
   if (previewMsgs) previewMsgs.innerHTML = '';
@@ -63,7 +101,11 @@ export function closeMediaDeckPanel() {
   sendRaw({ type: 'deck_unwatch' });
   document.getElementById('mediadeck-panel').classList.remove('active');
   document.getElementById('mediadeck-load-picker').hidden = true;
+  // Clear any drag offset so the deck re-centers next time it opens.
+  const box = document.getElementById('mediadeck-box');
+  if (box) { box.style.position = ''; box.style.left = ''; box.style.top = ''; box.style.margin = ''; }
   deckData = null;
+  _wasPlaying = false;
   _setDeckWhir(false);
 }
 
@@ -121,6 +163,11 @@ function renderMediaDeckPanel(data) {
   const cartridgeEl = document.getElementById('mediadeck-cartridge');
   const slotEl = document.getElementById('mediadeck-slot');
   const isPlaying = lightState === 'orange';
+  // Keep the idle whir in sync with power state (idempotent), and give a capstan
+  // spin-up swell the moment a tape actually starts rolling.
+  _setDeckWhir(lightState !== 'red');
+  if (isPlaying && !_wasPlaying) window.AudioEngine?.playSfx(MEDIADECK_SPINUP_DEF);
+  _wasPlaying = isPlaying;
   document.getElementById('mediadeck-reel-l')?.classList.toggle('spinning', isPlaying);
   document.getElementById('mediadeck-reel-r')?.classList.toggle('spinning', isPlaying);
   const labelStrip = document.getElementById('mediadeck-cassette-label-strip');
@@ -149,6 +196,7 @@ function renderMediaDeckPanel(data) {
         <span class="mediadeck-cassette-cat">${escapeHtml(c.category || '')}</span>
         ${isActive ? '<span class="mediadeck-playing-tag">▶ PLAY</span>' : ''}`;
       row.addEventListener('click', () => {
+        _deckClick();
         sendCmdSilent(`selectcassette ${c.id}`);
       });
       listEl.appendChild(row);
@@ -207,6 +255,7 @@ function showLoadPicker() {
       row.className = 'mediadeck-load-picker-item';
       row.textContent = c.name;
       row.addEventListener('click', () => {
+        _deckClick();
         window.AudioEngine?.playSfx(MEDIADECK_INSERT_DEF);
         _insertCassette();
         sendCmdSilent(`load cassette ${c.name}`);
@@ -237,16 +286,54 @@ export function initMediaDeckPanel() {
     }
   });
   document.getElementById('mediadeck-eject-btn').addEventListener('click', () => {
+    _deckClick();
     if (deckData?.activeCassetteId) {
       window.AudioEngine?.playSfx(MEDIADECK_EJECT_DEF);
       _ejectCassette();
     }
-    _setDeckWhir(false);
+    // Note: the whir keeps running through the press — it only stops on close
+    // or when the server reports the deck powered down (handled in render).
     sendCmdSilent('eject');
   });
-  document.getElementById('mediadeck-load-btn').addEventListener('click', showLoadPicker);
-  document.getElementById('mediadeck-load-picker-cancel').addEventListener('click', hideLoadPicker);
+  document.getElementById('mediadeck-load-btn').addEventListener('click', () => { _deckClick(); showLoadPicker(); });
+  document.getElementById('mediadeck-load-picker-cancel').addEventListener('click', () => { _deckClick(); hideLoadPicker(); });
   document.getElementById('mediadeck-restart-btn').addEventListener('click', () => {
+    _deckClick();
     sendCmdSilent('_restartbroadcast');
+  });
+
+  _makeDeckDraggable();
+}
+
+// Drag the deck around by its header — mirrors the AMP player's drag handling.
+function _makeDeckDraggable() {
+  const box = document.getElementById('mediadeck-box');
+  const handle = document.getElementById('mediadeck-header');
+  if (!box || !handle) return;
+  handle.style.cursor = 'grab';
+  let dragging = false, ox = 0, oy = 0;
+  handle.addEventListener('mousedown', e => {
+    if (e.target.closest('button')) return;
+    dragging = true;
+    const r = box.getBoundingClientRect();
+    ox = e.clientX - r.left;
+    oy = e.clientY - r.top;
+    // Break out of the panel's flex-centering so left/top take effect.
+    box.style.position = 'fixed';
+    box.style.margin = '0';
+    box.style.left = `${r.left}px`;
+    box.style.top = `${r.top}px`;
+    handle.style.cursor = 'grabbing';
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    box.style.left = `${Math.max(0, e.clientX - ox)}px`;
+    box.style.top  = `${Math.max(0, e.clientY - oy)}px`;
+  });
+  document.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    handle.style.cursor = 'grab';
   });
 }

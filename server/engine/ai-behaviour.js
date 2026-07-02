@@ -159,7 +159,7 @@ function isEnemy(entity) {
 const OPPOSITE_DIR = { north:'south', south:'north', east:'west', west:'east', up:'down', down:'up', in:'out', out:'in' };
 
 // Returns true if the move succeeded, false if blocked by a locked door.
-function moveEntity(entity, newZoneId, broadcast, query) {
+export function moveEntity(entity, newZoneId, broadcast, query) {
   const oldZoneId = entityZone(entity);
   if (oldZoneId === newZoneId) return true;
 
@@ -469,7 +469,7 @@ async function execAction(node, entity, ctx) {
             const { handlePlayerDeath } = await import('./gameLoop.js');
             await handlePlayerDeath(target, entity);
           } else {
-            if (!target.combatTargetId) target.combatTargetId = entity.instanceId;
+            if (!target.combatTargetId && !((target.disengagedUntil || 0) > Date.now())) target.combatTargetId = entity.instanceId;
           }
         } else {
           broadcast(null, { type: 'combat_miss', message: result.message }, null, entity.targetId);

@@ -26,13 +26,12 @@ function renderTimeWeatherPanel(data) {
     : `<div style="color:var(--text-dim)">No one has been struck by lightning so far!</div>`;
 
   const forecastGrid = forecast.slice(0,7).map((f,i) => `
-    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:12px;text-align:center;min-width:80px">
-      <div style="font-size:10px;color:var(--text-dim);margin-bottom:4px">${i===0?'Today':'Day '+(i+1)}</div>
-      <div style="font-size:24px;margin-bottom:4px">${f.icon||'?'}</div>
-      <div style="font-size:11px;color:var(--text)">${f.weatherType||'?'}</div>
-      ${f.tempC!=null?`<div style="font-size:10px;color:var(--text-dim);margin-top:2px">${f.tempC}°C</div>`:''}
-      ${f.windKph!=null?`<div style="font-size:10px;color:var(--text-dim);margin-top:2px" title="${windLabel(f.windKph)}">💨 ${f.windKph} km/h</div>`:''}
-      ${f.humidityPct!=null?`<div style="font-size:10px;color:var(--text-dim);margin-top:1px">💧 ${f.humidityPct}%</div>`:''}
+    <div title="${(f.weatherType||'?')}${f.tempC!=null?' · '+f.tempC+'°C':''}${f.windKph!=null?' · '+f.windKph+' km/h '+windLabel(f.windKph):''}${f.humidityPct!=null?' · '+f.humidityPct+'% humidity':''}" style="background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:8px 4px;text-align:center">
+      <div style="font-size:9px;font-weight:600;color:var(--text-dim);letter-spacing:.5px">${i===0?'TODAY':'DAY '+(i+1)}</div>
+      <div style="font-size:22px;line-height:1.2;margin:2px 0">${f.icon||'?'}</div>
+      <div style="font-size:10px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${f.weatherType||'?'}</div>
+      ${f.tempC!=null?`<div style="font-size:12px;color:var(--text-bright);font-weight:600;margin-top:2px">${f.tempC}°</div>`:''}
+      <div style="font-size:9px;color:var(--text-dim);margin-top:2px;white-space:nowrap">${f.windKph!=null?'💨'+f.windKph:''}${f.windKph!=null&&f.humidityPct!=null?' · ':''}${f.humidityPct!=null?'💧'+f.humidityPct+'%':''}</div>
     </div>`).join('');
 
   panel.innerHTML = `

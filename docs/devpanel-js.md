@@ -167,12 +167,16 @@ Thin editor for the `quests` table (consumed by the quests plugin). Objectives a
 - `questEditForm(rec, isNew)` / `saveQuest(existing)`
 
 ### `vine-suite.js`
-The VINE Suite hub panel (`noEdit`, custom render) — one launcher for every VINE graph across all schemas.
+The VINE Suite launch panel (`noEdit`, custom render) + the tabbed multi-editor **workspace** it opens.
 
 - `fetchVineSuite()` — parallel-fetches npcs, enemies, scripts, quests, broadcasts.
-- `renderVineSuite(data)` — sections per category with node-count badges.
-- `vineSuiteEdit(key, id)` — opens the right VINE modal and saves via the category's canonical API.
-- Holds `VINE_SUITE` (category registry), `_VS_ORDER`, `_vineSuiteData`.
+- `renderVineSuite(data)` — the launch screen: a "Launch VINE Suite" button + colour-coded per-schema chips.
+- `vineWorkspaceOpen(startKey)` / `vineWorkspaceClose()` — show/hide the `#vine-workspace` overlay.
+- `_vsBuildTabbar()` / `_vsActivateTab(key)` / `_vsEnsureTab(key)` — the colour-coded tab bar; each tab keeps its own live `VineEditor` in `_vwTabs`.
+- `vsLoadAsset(key, id)` / `vsSaveActive()` / `vsImportJSON()` — open/save/paste-JSON for the active tab.
+- Picker popup (`#vine-picker`): `vsOpenPicker(key)`, `vsClosePicker()`, `vsRenderPickerList()`, `vsNewAsset()` — the compact new/import/open card.
+- `vineJumpToQuest(questId)` — cross-editor jump; live tab-hop inside the workspace, modal-commit fallback outside it.
+- Holds `VINE_SUITE` (registry, now with `color`/`icon`/`entity`/`create`), `_VS_ORDER`, `_vineSuiteData`, `_vwTabs`, `_vwActive`, `_vwOpen`, `_vpKey`.
 
 `quests.js` also gained `questsOpenVine()` — opens the VINE quest editor seeded from the form fields; on save writes derived `objectives[]`/`rewards{}` back into them.
 

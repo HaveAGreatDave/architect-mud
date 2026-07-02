@@ -4526,79 +4526,324 @@ textarea {
 #atm-panel.active {
 	display: flex;
 }
+/* Chassis — a moulded terminal housing, not a flat bordered box. Accent is
+   network-branded: atm.js sets --atm-accent from network.color, and every
+   colour below derives from it via color-mix, so a red bank and a green bank
+   render as genuinely different machines. */
 #atm-box {
-	/* Accent is network-branded: atm.js sets --atm-accent from network.color.
-	   Every colour below is derived from it via color-mix, so a red bank and a
-	   green bank render as genuinely different machines. */
 	--atm-accent: #00ff88;
-	background:
-		repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.14) 3px, rgba(0,0,0,0.14) 4px),
-		radial-gradient(120% 80% at 50% -10%, color-mix(in srgb, var(--atm-accent) 10%, transparent), transparent 60%),
-		linear-gradient(160deg, #0a0f0d 0%, #05070a 55%, #000 100%);
-	border: 2px solid var(--atm-accent);
-	border-radius: 7px;
+	width: 340px;
+	background: linear-gradient(180deg, #2a2f33 0%, #1c2023 7%, #14181b 12%, #0d1013 100%);
+	border: 1px solid #05070a;
+	border-radius: 20px;
 	box-shadow:
-		0 0 0 1px rgba(0,0,0,0.8),
-		0 0 34px color-mix(in srgb, var(--atm-accent) 55%, transparent),
-		0 0 72px color-mix(in srgb, var(--atm-accent) 22%, transparent),
-		inset 0 0 80px rgba(0, 0, 0, 0.95);
+		inset 0 1px 0 rgba(255,255,255,0.06),
+		inset 0 0 0 1px rgba(0,0,0,0.5),
+		0 18px 50px rgba(0,0,0,0.7),
+		0 0 40px color-mix(in srgb, var(--atm-accent) 18%, transparent);
 	font-family: 'Courier New', Courier, monospace;
 	color: var(--atm-accent);
-	min-width: 340px;
-	max-width: 400px;
-	width: 100%;
-	padding: 22px 24px 18px;
+	padding: 14px 16px 16px;
 	position: relative;
-	overflow: hidden;
 }
-/* Sweeping scan sheen, like the deck's live glow. */
-#atm-box::before {
+/* Chassis head — brand plate + close, with moulded screws. */
+#atm-chassis-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 12px;
+	padding: 2px 2px 0;
+}
+.atm-brandplate { display: flex; align-items: center; gap: 8px; }
+.atm-brand-mark {
+	font-size: 15px;
+	color: var(--atm-accent);
+	text-shadow: 0 0 8px color-mix(in srgb, var(--atm-accent) 70%, transparent);
+}
+.atm-brand-text { display: flex; flex-direction: column; line-height: 1.15; }
+#atm-network-name {
+	font-size: 13px;
+	font-weight: bold;
+	letter-spacing: 2px;
+	color: var(--atm-accent);
+	text-shadow: 0 0 6px color-mix(in srgb, var(--atm-accent) 45%, transparent);
+}
+.atm-headbolts { display: flex; align-items: center; gap: 9px; }
+/* Phillips-head screw, moulded into the chassis. */
+.atm-screw {
+	width: 8px; height: 8px;
+	border-radius: 50%;
+	background: radial-gradient(circle at 35% 30%, #6b7075, #2a2d30 70%, #16181a);
+	box-shadow: inset 0 0 0 1px rgba(0,0,0,0.5), 0 1px 0 rgba(255,255,255,0.05);
+	position: relative;
+	flex-shrink: 0;
+}
+.atm-screw::after {
 	content: '';
 	position: absolute;
-	left: 0; right: 0; top: 0;
-	height: 40%;
-	background: linear-gradient(180deg, color-mix(in srgb, var(--atm-accent) 8%, transparent), transparent);
-	pointer-events: none;
-	animation: atm-sheen 6s ease-in-out infinite;
-}
-@keyframes atm-sheen {
-	0%, 100% { opacity: 0.25; transform: translateY(-20%); }
-	50% { opacity: 0.6; transform: translateY(10%); }
+	inset: 2px 1px;
+	border-top: 1px solid rgba(0,0,0,0.55);
+	transform: rotate(35deg);
 }
 #atm-close {
+	background: none;
+	border: none;
+	color: var(--text-dim, #7a8a83);
+	font-size: 14px;
+	cursor: pointer;
+	padding: 0 2px;
+	line-height: 1;
+	font-family: inherit;
+}
+#atm-close:hover { color: #ff4444; }
+
+/* CRT bezel — recessed dark frame that cradles the tube. */
+#atm-crt-bezel {
+	position: relative;
+	background: linear-gradient(160deg, #0a0c0e, #05070a);
+	border-radius: 14px;
+	padding: 16px;
+	box-shadow:
+		inset 0 2px 6px rgba(0,0,0,0.9),
+		inset 0 0 0 1px rgba(255,255,255,0.03);
+}
+#atm-crt-bezel .atm-screw { position: absolute; width: 7px; height: 7px; }
+.atm-screw-tl { top: 7px; left: 7px; }
+.atm-screw-tr { top: 7px; right: 7px; }
+.atm-screw-bl { bottom: 7px; left: 7px; }
+.atm-screw-br { bottom: 7px; right: 7px; }
+
+/* The tube — bulged glass faked with an elliptical radius + corner vignette. */
+#atm-crt {
+	position: relative;
+	height: 248px;
+	border-radius: 26px / 18px;
+	overflow: hidden;
+	background: radial-gradient(130% 130% at 50% 42%,
+		color-mix(in srgb, var(--atm-accent) 9%, #030a07) 55%, #020604 100%);
+	box-shadow:
+		inset 0 0 30px rgba(0,0,0,0.95),
+		inset 0 0 6px color-mix(in srgb, var(--atm-accent) 30%, transparent),
+		0 0 0 1px rgba(0,0,0,0.8);
+}
+#atm-box.atm-dark #atm-crt {
+	background: radial-gradient(130% 130% at 50% 42%, #0a0505 55%, #020202 100%);
+}
+/* Screen content sits above the tube glow, below the scanlines + glass. */
+#atm-crt-screen {
 	position: absolute;
-	top: 10px;
-	right: 12px;
+	inset: 0;
+	z-index: 2;
+	padding: 14px 16px;
+	display: flex;
+	flex-direction: column;
+	color: var(--atm-accent);
+	text-shadow: 0 0 5px color-mix(in srgb, var(--atm-accent) 55%, transparent);
+	overflow: hidden;
+}
+.atm-crt-scanlines {
+	position: absolute;
+	inset: 0;
+	z-index: 3;
+	border-radius: inherit;
+	pointer-events: none;
+	background: repeating-linear-gradient(0deg, transparent 0 2px, rgba(0,0,0,0.16) 2px 3px);
+}
+/* Glass — corner vignette + a diagonal sheen streak (borrowed from the AMP deck). */
+.atm-crt-glass {
+	position: absolute;
+	inset: 0;
+	z-index: 4;
+	border-radius: inherit;
+	pointer-events: none;
+	background:
+		linear-gradient(115deg,
+			transparent 0 40%,
+			rgba(220,255,245,0.10) 47%, rgba(220,255,245,0.03) 52%,
+			transparent 60% 100%),
+		radial-gradient(80% 55% at 26% 18%, rgba(255,255,255,0.12), transparent 60%),
+		radial-gradient(120% 120% at 50% 50%, transparent 62%, rgba(0,0,0,0.55) 100%);
+	box-shadow: inset 0 0 22px rgba(0,0,0,0.6);
+}
+
+/* ── CRT screen contents (rendered by atm.js) ── */
+.atm-scr-top {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	font-size: 10px;
+	letter-spacing: 1px;
+	margin-bottom: 8px;
+}
+.atm-scr-title { font-weight: bold; letter-spacing: 2px; font-size: 11px; }
+.atm-scr-online { font-size: 8px; letter-spacing: 1px; opacity: 0.85; animation: atm-flicker 8s infinite; }
+.atm-scr-bal {
+	border-top: 1px dashed color-mix(in srgb, var(--atm-accent) 30%, transparent);
+	border-bottom: 1px dashed color-mix(in srgb, var(--atm-accent) 30%, transparent);
+	padding: 7px 0;
+	margin-bottom: 9px;
+}
+.atm-scr-balrow {
+	display: flex;
+	justify-content: space-between;
+	align-items: baseline;
+	font-size: 10px;
+	letter-spacing: 1px;
+	margin: 2px 0;
+}
+.atm-scr-balrow span { opacity: 0.55; }
+.atm-scr-balrow b { font-size: 13px; }
+
+/* Home menu */
+.atm-menu { display: flex; flex-direction: column; gap: 5px; }
+.atm-menu-item {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	background: color-mix(in srgb, var(--atm-accent) 6%, transparent);
+	border: 1px solid color-mix(in srgb, var(--atm-accent) 25%, transparent);
+	border-radius: 4px;
+	color: var(--atm-accent);
+	font-family: inherit;
+	font-size: 11px;
+	letter-spacing: 1.5px;
+	padding: 6px 10px;
+	cursor: pointer;
+	text-align: left;
+	text-shadow: inherit;
+	transition: background 0.12s, border-color 0.12s, box-shadow 0.12s;
+}
+.atm-menu-item:hover:not(:disabled) {
+	background: color-mix(in srgb, var(--atm-accent) 16%, transparent);
+	border-color: var(--atm-accent);
+	box-shadow: 0 0 12px color-mix(in srgb, var(--atm-accent) 30%, transparent);
+}
+.atm-menu-item:disabled { opacity: 0.35; cursor: not-allowed; }
+.atm-menu-key { opacity: 0.8; }
+.atm-menu-hint { margin-left: auto; font-size: 8px; letter-spacing: 1px; opacity: 0.45; }
+.atm-menu-danger { color: #ff3b5c; border-color: rgba(255,59,92,0.35); }
+.atm-menu-danger:hover:not(:disabled) {
+	background: rgba(255,59,92,0.12);
+	border-color: #ff3b5c;
+	box-shadow: 0 0 12px rgba(255,59,92,0.3);
+}
+
+/* Transaction / account sub-screens */
+.atm-back {
 	background: none;
 	border: none;
 	color: var(--atm-accent);
-	font-size: 14px;
-	cursor: pointer;
-	opacity: 0.6;
-	padding: 2px 6px;
 	font-family: inherit;
-	z-index: 2;
+	font-size: 9px;
+	letter-spacing: 1px;
+	cursor: pointer;
+	opacity: 0.7;
+	padding: 0;
 }
-#atm-close:hover { opacity: 1; }
-#atm-header {
-	text-align: center;
-	margin-bottom: 16px;
-	padding-bottom: 12px;
-	border-bottom: 1px solid color-mix(in srgb, var(--atm-accent) 30%, transparent);
+.atm-back:hover { opacity: 1; }
+.atm-scr-avail { font-size: 10px; letter-spacing: 1px; opacity: 0.6; margin-bottom: 10px; }
+.atm-input-row { display: flex; gap: 8px; margin-bottom: 8px; }
+#atm-amount {
+	flex: 1;
+	min-width: 0;
+	background: color-mix(in srgb, var(--atm-accent) 8%, #000);
+	border: 1px solid color-mix(in srgb, var(--atm-accent) 40%, transparent);
+	color: var(--atm-accent);
+	font-family: inherit;
+	font-size: 14px;
+	letter-spacing: 1px;
+	padding: 7px 10px;
+	border-radius: 3px;
+	outline: none;
+}
+#atm-amount::placeholder { color: color-mix(in srgb, var(--atm-accent) 30%, transparent); }
+#atm-amount:focus { border-color: var(--atm-accent); box-shadow: 0 0 12px color-mix(in srgb, var(--atm-accent) 35%, transparent); }
+#atm-amount::-webkit-outer-spin-button,
+#atm-amount::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.atm-key-btn {
+	background: transparent;
+	border: 1px solid color-mix(in srgb, var(--atm-accent) 35%, transparent);
+	color: color-mix(in srgb, var(--atm-accent) 70%, transparent);
+	font-family: inherit;
+	font-size: 10px;
+	letter-spacing: 1px;
+	padding: 0 12px;
+	border-radius: 3px;
+	cursor: pointer;
+}
+.atm-key-btn:hover { border-color: var(--atm-accent); color: var(--atm-accent); }
+.atm-confirm {
+	margin-top: auto;
+	background: linear-gradient(180deg, color-mix(in srgb, var(--atm-accent) 22%, transparent), color-mix(in srgb, var(--atm-accent) 8%, transparent));
+	border: 1px solid var(--atm-accent);
+	color: var(--atm-accent);
+	font-family: inherit;
+	font-size: 11px;
+	letter-spacing: 2px;
+	padding: 9px;
+	border-radius: 4px;
+	cursor: pointer;
+	box-shadow: inset 0 -2px 0 rgba(0,0,0,0.4);
+	transition: filter 0.12s, box-shadow 0.12s, transform 0.05s;
+}
+.atm-confirm:hover { filter: brightness(1.2); box-shadow: 0 0 14px color-mix(in srgb, var(--atm-accent) 40%, transparent), inset 0 -2px 0 rgba(0,0,0,0.4); }
+.atm-confirm:active { transform: translateY(1px); }
+.atm-scr-fee { font-size: 9px; letter-spacing: 1px; opacity: 0.5; margin-bottom: 6px; }
+.atm-scr-reserve { margin-top: 4px; }
+.atm-scr-reserve-lbl { font-size: 9px; letter-spacing: 2px; opacity: 0.55; margin-bottom: 5px; }
+.atm-scr-reserve-val { font-size: 9px; letter-spacing: 1px; opacity: 0.7; margin-top: 5px; text-align: right; }
+
+/* Offline / damaged CRT */
+.atm-crt-offline { margin: auto; text-align: center; color: #ff3b5c; text-shadow: 0 0 8px rgba(255,59,92,0.5); }
+.atm-off-glyph { font-size: 30px; margin-bottom: 8px; }
+.atm-off-msg { font-size: 10px; letter-spacing: 2px; white-space: pre-line; line-height: 1.6; }
+
+/* Physical deck below the tube — power LED, card slot, cash tray. */
+#atm-deck { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding: 0 2px; }
+.atm-deck-led { display: flex; align-items: center; gap: 6px; font-size: 8px; letter-spacing: 1px; color: var(--text-dim, #7a8a83); }
+.atm-led {
+	width: 8px; height: 8px;
+	border-radius: 50%;
+	background: var(--atm-accent);
+	box-shadow: 0 0 6px var(--atm-accent), 0 0 2px #fff;
+	animation: atm-led-pulse 2.4s ease-in-out infinite;
+}
+.atm-led-off { background: #552027; box-shadow: none; animation: none; }
+@keyframes atm-led-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+.atm-cardslot {
+	flex: 1;
 	position: relative;
-	z-index: 2;
+	font-size: 7px;
+	letter-spacing: 2px;
+	color: rgba(255,255,255,0.28);
+	text-align: center;
+	padding: 8px 0 5px;
+	border-radius: 4px;
+	background: linear-gradient(180deg, #05070a, #0d1013);
+	box-shadow: inset 0 1px 3px rgba(0,0,0,0.8);
+}
+.atm-cardslot-lip {
+	position: absolute;
+	top: 4px; left: 14%; right: 14%;
+	height: 3px;
+	border-radius: 3px;
+	background: #000;
+	box-shadow: inset 0 1px 2px rgba(0,0,0,0.9), 0 1px 0 rgba(255,255,255,0.05);
+}
+.atm-cashtray {
+	font-size: 7px;
+	letter-spacing: 2px;
+	color: rgba(255,255,255,0.28);
+	padding: 6px 10px;
+	border-radius: 4px;
+	background: linear-gradient(180deg, #05070a, #0d1013);
+	box-shadow: inset 0 2px 5px rgba(0,0,0,0.85);
 }
 .atm-logo {
 	font-size: 11px;
 	letter-spacing: 4px;
 	opacity: 0.5;
 	margin-bottom: 4px;
-}
-#atm-network-name {
-	font-size: 17px;
-	font-weight: bold;
-	letter-spacing: 2px;
-	animation: atm-flicker 8s infinite;
 }
 .atm-subtitle {
 	font-size: 9px;
@@ -4610,9 +4855,6 @@ textarea {
 	0%, 92%, 94%, 96%, 100% { opacity: 1; }
 	93% { opacity: 0.7; }
 	95% { opacity: 0.9; }
-}
-#atm-status-block {
-	margin-bottom: 14px;
 }
 .atm-status-row {
 	display: flex;
@@ -4631,8 +4873,6 @@ textarea {
 	font-size: 11px;
 	letter-spacing: 1px;
 }
-.atm-online { color: var(--atm-accent); text-shadow: 0 0 8px color-mix(in srgb, var(--atm-accent) 60%, transparent); }
-.atm-offline { color: #ff3b5c; animation: none; }
 .atm-bar-wrap {
 	flex: 1;
 	height: 8px;
@@ -4663,117 +4903,12 @@ textarea {
 	100% { transform: translateX(400%); }
 }
 .atm-bar-fill.atm-bar-low { background: linear-gradient(90deg, #7a1526, #ff3b5c); box-shadow: 0 0 10px rgba(255,59,92,0.6); }
-#atm-cash-label {
-	min-width: 100px;
-	text-align: right;
-}
+/* .atm-divider is shared with the Media Deck panel below. */
 .atm-divider {
 	font-size: 9px;
 	letter-spacing: 1px;
 	opacity: 0.35;
 	margin: 10px 0 8px;
-}
-#atm-balance-block {
-	margin-bottom: 14px;
-}
-.atm-balance-row {
-	display: flex;
-	justify-content: space-between;
-	align-items: baseline;
-	margin-bottom: 5px;
-}
-.atm-amount {
-	font-size: 16px;
-	font-weight: bold;
-	letter-spacing: 1px;
-}
-#atm-tx-block {
-	margin-bottom: 10px;
-}
-.atm-tx-row {
-	display: flex;
-	gap: 8px;
-	margin-bottom: 8px;
-}
-#atm-amount {
-	flex: 1;
-	background: color-mix(in srgb, var(--atm-accent) 7%, #000);
-	border: 1px solid color-mix(in srgb, var(--atm-accent) 40%, transparent);
-	color: var(--atm-accent);
-	font-family: inherit;
-	font-size: 13px;
-	padding: 6px 10px;
-	outline: none;
-	letter-spacing: 1px;
-	min-width: 0;
-}
-#atm-amount::placeholder { color: color-mix(in srgb, var(--atm-accent) 30%, transparent); }
-#atm-amount:focus { border-color: var(--atm-accent); background: color-mix(in srgb, var(--atm-accent) 10%, #000); box-shadow: 0 0 12px color-mix(in srgb, var(--atm-accent) 35%, transparent); }
-/* Chrome/Safari number input arrows */
-#atm-amount::-webkit-outer-spin-button,
-#atm-amount::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-.atm-btn {
-	flex: 1;
-	background: linear-gradient(180deg, color-mix(in srgb, var(--atm-accent) 10%, transparent), transparent);
-	border: 1px solid color-mix(in srgb, var(--atm-accent) 50%, transparent);
-	color: var(--atm-accent);
-	font-family: inherit;
-	font-size: 11px;
-	letter-spacing: 2px;
-	padding: 8px 4px;
-	cursor: pointer;
-	transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
-	box-shadow: inset 0 -2px 0 rgba(0,0,0,0.5);
-}
-.atm-btn:hover:not(:disabled) {
-	background: color-mix(in srgb, var(--atm-accent) 20%, transparent);
-	border-color: var(--atm-accent);
-	box-shadow: inset 0 -1px 0 rgba(0,0,0,0.5), 0 0 14px color-mix(in srgb, var(--atm-accent) 40%, transparent);
-}
-.atm-btn:active:not(:disabled) { transform: translateY(1px); }
-.atm-btn:disabled {
-	opacity: 0.3;
-	cursor: not-allowed;
-}
-.atm-btn-small {
-	background: transparent;
-	border: 1px solid color-mix(in srgb, var(--atm-accent) 35%, transparent);
-	color: color-mix(in srgb, var(--atm-accent) 60%, transparent);
-	font-family: inherit;
-	font-size: 9px;
-	letter-spacing: 1px;
-	padding: 4px 8px;
-	cursor: pointer;
-	white-space: nowrap;
-}
-.atm-btn-small:hover { border-color: var(--atm-accent); color: var(--atm-accent); }
-/* Keep readouts above the animated header sheen. */
-#atm-status-block, #atm-balance-block, #atm-tx-block, #atm-hack-wrap, .atm-divider { position: relative; z-index: 2; }
-.atm-fee {
-	font-size: 10px;
-	opacity: 0.5;
-	letter-spacing: 1px;
-	margin-top: 2px;
-}
-#atm-hack-wrap {
-	text-align: center;
-}
-.atm-btn-danger {
-	color: #ff3b5c;
-	border-color: rgba(255, 59, 92, 0.4);
-	letter-spacing: 3px;
-	font-size: 11px;
-	width: 100%;
-}
-.atm-btn-danger:hover:not(:disabled) {
-	background: rgba(255, 59, 92, 0.12);
-	border-color: #ff3b5c;
-}
-.atm-btn-danger:disabled {
-	opacity: 0.6;
-	color: #ff3b5c;
-	border-color: rgba(255, 59, 92, 0.5);
-	cursor: not-allowed;
 }
 
 /* ── Media Deck Panel — cyberpunk 8-track ── */
@@ -5425,6 +5560,22 @@ textarea {
 	--tv-live-color: #ff4444;
 	--tv-ticker-color: #ff9900;
 }
+/* Station theme cross-fade — every themed element eases between colours when the
+   channel (and its theme) changes. The colour vars live on #tv-window; children
+   read them, so the transition sits on each element's concrete colour props.
+   applyTvTheme() routes changes through the neutral default theme, so tuning
+   between stations fades out to a default look and back in like a real dial. */
+#tv-window,
+#tv-header, #tv-footer, #tv-content,
+#tv-station-name, #tv-channel-num, #tv-program-name,
+#tv-messages .tv-msg, #tv-ticker-inner, #tv-freq-display,
+#tv-knob-wrap, .tv-knob-ring, .tv-knob-line,
+.tv-overlay-lower-third, .tv-overlay-lt-name, .tv-overlay-lt-sub,
+#tv-static {
+	transition: background-color 0.5s ease, border-color 0.5s ease,
+		outline-color 0.5s ease, color 0.5s ease, fill 0.5s ease, stroke 0.5s ease;
+}
+
 /* Header */
 #tv-header {
 	display: flex;
@@ -5731,7 +5882,7 @@ textarea {
 	inset: 0;
 	z-index: 20;
 	pointer-events: none;
-	background-color: #111;
+	background-color: var(--tv-bg, #111);
 	background-image:
 		url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
 	background-size: 180px 180px;
@@ -5785,7 +5936,7 @@ textarea {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	transition: filter 0.2s, background 0.15s;
+	transition: filter 0.2s, background 0.15s, color 0.5s ease, border-color 0.5s ease;
 }
 .tv-tune-btn:hover { filter: drop-shadow(0 0 6px var(--tv-header-color)); }
 .tv-tune-btn:active { background: var(--tv-header-color); color: var(--tv-bg); }

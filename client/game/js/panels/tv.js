@@ -4,11 +4,13 @@
 import { sendCmdSilent, sendRaw } from '../net.js';
 import { renderMarkup } from '../markup.js';
 
-// Wrap the NPC name in a say line with the TV accent color.
-// Matches: "Name says, "speech"" — name is everything before " says, "
-function _tvColorizeNpcSay(text) {
-  return text.replace(/^(.+?) says, "([\s\S]*)"$/, (_, name, speech) =>
-    `<span style="color:var(--tv-header-color,var(--accent))">${name}</span> says, "${speech}"`
+// Render an NPC say line in screenplay style: the speaker's name (in the TV
+// accent color) on its own line, their speech directly beneath it — no gap.
+// Runs on already-rendered (HTML-safe) markup, so the <span>/<br> we add here
+// survive instead of being escaped into visible tags. Matches "Name says, "…"".
+function _tvColorizeNpcSay(html) {
+  return html.replace(/^(.+?) says, "([\s\S]*)"$/, (_, name, speech) =>
+    `<span class="tv-speaker" style="color:var(--tv-header-color,var(--accent))">${name}:</span><br>"${speech}"`
   );
 }
 
@@ -37,8 +39,10 @@ const DIAL_SWEEP_SPEED = 4; // frequency-units per second — controls how long 
 // Local ids are fixed so AudioEngine can track the loops by id regardless of
 // what config the server supplies. Configs are replaced at open time if the
 // server sends registered defs (from audio_ambient / audio_sfx in the DB).
-const TV_HUM_DEF     = { id: 'tv_hum_local',     category: 'tv', priority: 1, loop: true, config: { waveform: 'sine',     freq: 60,  gain: 0.05, noiseMix: 0.15, filter: { type: 'lowpass',  freq: 400,  q: 0.7 }, adsr: { a: 0.5,   d: 0.1,  s: 1,   r: 0.5  } } };
-const TV_STATIC_DEF  = { id: 'tv_static_local',  category: 'tv', priority: 1, loop: true, config: { waveform: 'noise',    noiseMix: 1, gain: 0.6, filter: { type: 'highpass', freq: 700,  q: 0.5 }, tremolo: { rate: 35, depth: 0.6 }, adsr: { a: 0.02,  d: 0.02, s: 1,   r: 0.3  } } };
+// Gains kept deliberately low so hum/static sit as gentle background texture,
+// not foreground noise (they're still scaled by the TV-audio bus on top of this).
+const TV_HUM_DEF     = { id: 'tv_hum_local',     category: 'tv', priority: 1, loop: true, config: { waveform: 'sine',     freq: 60,  gain: 0.02, noiseMix: 0.15, filter: { type: 'lowpass',  freq: 400,  q: 0.7 }, adsr: { a: 0.5,   d: 0.1,  s: 1,   r: 0.5  } } };
+const TV_STATIC_DEF  = { id: 'tv_static_local',  category: 'tv', priority: 1, loop: true, config: { waveform: 'noise',    noiseMix: 1, gain: 0.03, filter: { type: 'highpass', freq: 700,  q: 0.5 }, tremolo: { rate: 35, depth: 0.6 }, adsr: { a: 0.02,  d: 0.02, s: 1,   r: 0.3  } } };
 const TV_POWER_ON_DEF  = { id: 'tv_power_on_local',  category: 'tv', priority: 3, config: { waveform: 'triangle', freq: 80,  duration: 0.35, noiseMix: 0.3, pitchBend: { to: 600, time: 0.25 }, filter: { type: 'lowpass', freq: 3000, q: 1 }, adsr: { a: 0.005, d: 0.15, s: 0.3, r: 0.15 } } };
 const TV_POWER_OFF_DEF = { id: 'tv_power_off_local', category: 'tv', priority: 3, config: { waveform: 'triangle', freq: 900, duration: 0.3,  noiseMix: 0.2, pitchBend: { to: 40,  time: 0.25 }, filter: { type: 'lowpass', freq: 4000, q: 1 }, adsr: { a: 0.001, d: 0.05, s: 0.2, r: 0.2  } } };
 
@@ -63,8 +67,10 @@ export function openTvPanel(data) {
   const isTuneEcho = wasAlreadyOn;
 
   if (data.sounds) {
-    if (data.sounds.hum)     _humDef     = { ...TV_HUM_DEF,      config: data.sounds.hum.config };
-    if (data.sounds.static)  _staticDef  = { ...TV_STATIC_DEF,   config: data.sounds.static.config };
+    // Adopt any server/DB-supplied configs, but cap the idle hum/static gain to a
+    // gentle background level so they can never come back as foreground noise.
+    if (data.sounds.hum)     _humDef     = { ...TV_HUM_DEF,      config: { ...data.sounds.hum.config,    gain: Math.min(data.sounds.hum.config?.gain    ?? 0.02, 0.02) } };
+    if (data.sounds.static)  _staticDef  = { ...TV_STATIC_DEF,   config: { ...data.sounds.static.config, gain: Math.min(data.sounds.static.config?.gain ?? 0.03, 0.03) } };
     if (data.sounds.powerOn) _powerOnDef = { ...TV_POWER_ON_DEF, config: data.sounds.powerOn.config };
     if (data.sounds.powerOff)_powerOffDef= { ...TV_POWER_OFF_DEF,config: data.sounds.powerOff.config };
   }
@@ -193,19 +199,15 @@ function _playCrtPowerOn() {
   win.addEventListener('animationend', () => win.classList.remove('tv-powering-on'), { once: true });
 }
 
-export function applyTvTheme(theme) {
-  const win = document.getElementById('tv-window');
-  if (!win) return;
+const _TV_THEME_VARS = ['--tv-bg', '--tv-border', '--tv-text', '--tv-header-color', '--tv-live-color', '--tv-ticker-color'];
+let _tvThemeKey = null;    // signature of the theme currently on-screen
+let _tvThemeTimer = null;  // pending fade-in-to-target timer
 
-  // Clear any inline CSS variable overrides
-  const vars = ['--tv-bg', '--tv-border', '--tv-text', '--tv-header-color', '--tv-live-color', '--tv-ticker-color'];
-  for (const v of vars) win.style.removeProperty(v);
-
-  if (!theme) {
-    win.dataset.theme = 'corporate';
-    return;
-  }
-
+// Low-level: write a theme's CSS variables onto #tv-window, or clear them for the
+// neutral default (corporate) look. CSS transitions animate the actual colour swap.
+function _writeTvTheme(win, theme) {
+  for (const v of _TV_THEME_VARS) win.style.removeProperty(v);
+  if (!theme) { win.dataset.theme = 'corporate'; return; }
   const map = {
     '--tv-bg': theme.bg_color,
     '--tv-border': theme.border_color,
@@ -214,10 +216,29 @@ export function applyTvTheme(theme) {
     '--tv-live-color': theme.live_color,
     '--tv-ticker-color': theme.ticker_color,
   };
-  for (const [k, v] of Object.entries(map)) {
-    if (v) win.style.setProperty(k, v);
-  }
+  for (const [k, v] of Object.entries(map)) if (v) win.style.setProperty(k, v);
   win.dataset.theme = theme.preset || 'corporate';
+}
+
+export function applyTvTheme(theme) {
+  const win = document.getElementById('tv-window');
+  if (!win) return;
+
+  const key = theme
+    ? JSON.stringify([theme.preset, theme.bg_color, theme.border_color, theme.text_color,
+        theme.header_color || theme.accent_color, theme.live_color, theme.ticker_color])
+    : 'default';
+  if (key === _tvThemeKey) return; // already showing this theme — don't restart the fade
+
+  if (_tvThemeTimer) { clearTimeout(_tvThemeTimer); _tvThemeTimer = null; }
+  _tvThemeKey = key;
+
+  // Fade out to the neutral default first (like tuning through the dial), then
+  // fade in to the target station's theme. Both steps are eased by the CSS
+  // transitions on the TV's themed elements.
+  _writeTvTheme(win, null);
+  if (key === 'default') return;
+  _tvThemeTimer = setTimeout(() => { _writeTvTheme(win, theme); _tvThemeTimer = null; }, 420);
 }
 
 export function closeTvPanel() {
@@ -226,6 +247,8 @@ export function closeTvPanel() {
   _tvPoweredOff = false;
   _tvActiveChannelId = null;
   _tvOffAir = false;
+  _tvThemeKey = null;
+  if (_tvThemeTimer) { clearTimeout(_tvThemeTimer); _tvThemeTimer = null; }
   sendRaw({ type: 'tv_unwatch' });
   if (_tuneTimer) { clearTimeout(_tuneTimer); _tuneTimer = null; }
   if (_sweepRaf) { cancelAnimationFrame(_sweepRaf); _sweepRaf = null; }
@@ -553,7 +576,7 @@ export function appendTvMessage(text, style, duration) {
       el.style.fontSize = `${finalPx.toFixed(1)}px`;
     });
   } else {
-    el.innerHTML = renderMarkup(_tvColorizeNpcSay(text));
+    el.innerHTML = _tvColorizeNpcSay(renderMarkup(text));
   }
   container.appendChild(el);
 

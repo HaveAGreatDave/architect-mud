@@ -2,11 +2,11 @@ import { world, tickSpawns, getRandomAmbient, getWeatherAmbient, getLivePlayer, 
 import { randomUUID } from 'crypto';
 import { propagateSound } from './sounds.js';
 import { enemyAttackPlayer, enemyAttackNpc, npcAttackPlayer, isOnCooldown, pvpSwing, formatBattleCry } from './combat.js';
-import { tickEntityAI } from './ai-behaviour.js';
+import { tickEntityAI, moveEntity } from './ai-behaviour.js';
 import { npcBanterTick } from './npc-banter.js';
 import { restockAllVendors } from './vendor.js';
 import { offlineSleepSwing } from './commands/combat.js';
-import { tickEffects } from './effects.js';
+import { tickEffects, applyEffect } from './effects.js';
 import { resolveAttack, resolveAttackNpc } from './commands/index.js';
 import { tickSleep, releaseApartment } from './apartments.js';
 import { fireHook } from './plugins.js';
@@ -132,7 +132,7 @@ async function tick() {
           // The player auto-attack loop in tick() sustains combat from here on.
           const currentCombatEnemy = target.combatTargetId ? world.enemies.get(target.combatTargetId) : null;
           const currentTargetAlive = currentCombatEnemy && currentCombatEnemy.zoneId === target.current_zone;
-          if (!currentTargetAlive) target.combatTargetId = enemy.instanceId;
+          if (!currentTargetAlive && !((target.disengagedUntil || 0) > Date.now())) target.combatTargetId = enemy.instanceId;
         } else {
           broadcastFn(null, { type:'combat_miss', message:result.message }, null, enemy.targetId);
         }
@@ -237,7 +237,7 @@ async function tick() {
         broadcastFn(null, { type: 'combat_incoming', message: result.message, player_update: { hp: target.hp, hp_max: target.hp_max } }, null, target.id);
         if (target.hp <= 0) {
           await handlePlayerDeath(target, null);
-        } else if (!target.npcCombatTargetId) {
+        } else if (!target.npcCombatTargetId && !((target.disengagedUntil || 0) > Date.now())) {
           target.npcCombatTargetId = npcId;
         }
       } else {
@@ -248,11 +248,20 @@ async function tick() {
 
   // Status effects + phased drug effects
   for (const [playerId, player] of world.players) {
+    const hpBefore = player.hp;
+    const stamBefore = player.stamina;
     const messages = [...tickEffects(player), ...tickDrugs(player)];
-    if (messages.length) {
-      broadcastFn(null, { type:'status_tick', messages }, null, playerId);
-      if (player.hp <= 0) await handlePlayerDeath(player, null);
+    if (messages.length) broadcastFn(null, { type:'status_tick', messages }, null, playerId);
+    // Effects mutate hp/stamina in memory but this per-second tick historically
+    // neither persisted nor pushed them — so effect damage was invisible on the
+    // HUD until the minute tick. Persist + broadcast when an effect changed them.
+    const hpChanged = player.hp !== hpBefore;
+    const stamChanged = player.stamina !== stamBefore;
+    if (hpChanged || stamChanged) {
+      await query('UPDATE players SET hp=$1, stamina=$2 WHERE id=$3', [player.hp, player.stamina, playerId]);
+      broadcastFn(null, { type:'resource_tick', messages:[], player_update:{ hp: player.hp, stamina: player.stamina } }, null, playerId);
     }
+    if ((messages.length || hpChanged) && player.hp <= 0) await handlePlayerDeath(player, null);
   }
 }
 
@@ -422,6 +431,12 @@ async function ambientTick() {
 
     const ambient = getRandomAmbient(zoneId);
     if (!ambient) continue;
+
+    // Directional ambients (a door "above you", footsteps "below you") only make
+    // sense when there's actually a room in that direction. Skip them otherwise.
+    const msgText = ambient.message || '';
+    if (/\babove you\b/i.test(msgText) && !zone.exits?.up) continue;
+    if (/\bbelow you\b/i.test(msgText) && !zone.exits?.down) continue;
 
     // Suppress this ambient if a louder sound recently fired in this zone.
     const interrupt = getInterruptLoudness(zoneId);
@@ -759,6 +774,16 @@ async function resourceTick() {
     const flavorMsg = tempFlavorMessage(tempC, player._tickCounter);
     if (flavorMsg) messages.push(flavorMsg);
 
+    // --- Ashfall breathing hazard ---
+    // Outdoors during ashfall with no sealed mask → choking (drains stamina, then
+    // HP). Re-applied each minute at 65-tick duration so it lapses ~5s after the
+    // player masks up or gets indoors. Ash is a global weather state, not localized.
+    const isIndoor = !!(zone?.flags?.is_interior || zone?.flags?.is_apartment || zone?.flags?.is_building);
+    if (!isIndoor && !player.sealed) {
+      let wx; try { wx = getEnvironmentState(); } catch { wx = null; }
+      if (wx?.weatherType === 'ash') applyEffect(player, 'choking', 65);
+    }
+
     // --- Stamina regen/drain ---
     const staminaMax = player.stamina_max ?? 100;
     player.stamina = player.stamina ?? staminaMax;
@@ -840,6 +865,7 @@ async function npcWanderTick() {
         const dest = npc.home_zone || npc.zone_id;
         npc.zone_id = dest;
         world.zones.get(dest)?.npcs.add(id);
+        broadcastFn(dest, { type: 'zone_event', message: `${npc.name} returns.`, refresh: true });
         query('UPDATE npcs SET zone_id=$1, hp=$2 WHERE id=$3', [dest, npc.hp, id]).catch(() => {});
       }
       continue;
@@ -865,11 +891,12 @@ async function npcWanderTick() {
     }
     if (!candidates.length) continue;
     const dest = candidates[Math.floor(Math.random() * candidates.length)];
-    // Update zone NPC sets
-    world.zones.get(npc.zone_id)?.npcs.delete(id);
-    npc.zone_id = dest;
-    world.zones.get(dest)?.npcs.add(id);
-    await query('UPDATE npcs SET zone_id=$1 WHERE id=$2', [dest, id]).catch(() => {});
+    // moveEntity handles the zone-set swap, door passage, and depart/arrive
+    // announcements (same path as graph-driven NPCs). Returns false if blocked
+    // by a locked door — only persist the new position if the move happened.
+    if (moveEntity(npc, dest, broadcastFn, query)) {
+      await query('UPDATE npcs SET zone_id=$1 WHERE id=$2', [dest, id]).catch(() => {});
+    }
   }
 }
 

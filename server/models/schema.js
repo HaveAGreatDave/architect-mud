@@ -845,6 +845,56 @@ export const SCHEMA_SQL = `
     is_broken INTEGER DEFAULT 0
   );
 
+  -- SPECTER surveillance: player/NPC-deployable spy networks. See docs/systems-surveillance.md.
+  -- Distinct from media_cameras (studio broadcast cams): these carry ownership, batteries,
+  -- device families, concealment, and network membership. A planted device also owns a
+  -- furniture row with the same id (mirrors atm_units <-> furniture).
+  CREATE TABLE IF NOT EXISTS security_networks (
+    id TEXT PRIMARY KEY,
+    owner_id TEXT,                    -- player id or npc/faction id that controls the net
+    name TEXT NOT NULL DEFAULT 'Unnamed Network',
+    color TEXT DEFAULT '#00ff88',    -- hub accent
+    is_police INTEGER DEFAULT 0,      -- 1 = an NPC-police network
+    encryption INTEGER DEFAULT 5     -- hack difficulty to join/hijack the whole net
+  );
+
+  CREATE TABLE IF NOT EXISTS security_devices (
+    id TEXT PRIMARY KEY,             -- matches furniture.id when planted
+    network_id TEXT REFERENCES security_networks(id),
+    owner_id TEXT,
+    device_kind TEXT DEFAULT 'sticky_cam', -- sticky_cam|relay|motion_sensor|audio_sensor|drone|jammer|spoofer
+    zone_id TEXT REFERENCES zones(id),
+    direction TEXT DEFAULT 'north',
+    tier INTEGER DEFAULT 1,
+    concealment INTEGER DEFAULT 5,   -- vs a finder's Security/Perception check
+    battery INTEGER DEFAULT 864,
+    battery_max INTEGER DEFAULT 864,
+    wired INTEGER DEFAULT 0,         -- 1 = taps zone power instead of battery
+    is_powered INTEGER DEFAULT 1,
+    is_damaged INTEGER DEFAULT 0,
+    is_recording INTEGER DEFAULT 0,
+    recording_buffer JSONB DEFAULT '[]',
+    storage_limit INTEGER DEFAULT 200,
+    status_flags JSONB DEFAULT '{}', -- { jammed, spoofed, hijacked_by, looping, blinded }
+    hack_difficulty INTEGER DEFAULT 5,
+    placed_at BIGINT DEFAULT 0
+  );
+
+  -- Exported evidence clips (the datachip payload). See Phase 3.
+  CREATE TABLE IF NOT EXISTS security_clips (
+    id TEXT PRIMARY KEY,             -- item_datachip_<id>; matches a spawned item
+    device_id TEXT,
+    zone_id TEXT,
+    owner_id TEXT,
+    frames JSONB DEFAULT '[]',
+    captured_at BIGINT DEFAULT 0,
+    crime_tags JSONB DEFAULT '[]'
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_security_devices_zone ON security_devices(zone_id);
+  CREATE INDEX IF NOT EXISTS idx_security_devices_network ON security_devices(network_id);
+  CREATE INDEX IF NOT EXISTS idx_security_devices_owner ON security_devices(owner_id);
+
   -- Procedural Audio system (browser-generated playback via Web Audio API).
   -- Wholly separate from the text-based "sounds" table above — that system
   -- produces ambient prose ("You hear footsteps nearby"), this system produces

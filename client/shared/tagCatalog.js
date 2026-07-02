@@ -71,6 +71,8 @@
       help: 'Vertical layer indices this item may occupy, { min, max }, where 1=skin and 5=outermost armor. Prevents armor going on the skin layer or underwear going over a vest.' },
     gets_wet: { label: 'Gets Wet', shape: 'flag', scope: 'class', group: 'Equipment',
       help: 'Accumulates wetness (0–100) when worn in rain or snow. Wet clothing lowers cooling thresholds and speeds heat loss.' },
+    sealed: { label: 'Sealed (Respirator)', shape: 'flag', scope: 'class', group: 'Equipment',
+      help: 'Seals the airway (gas mask / respirator). While equipped, blocks the ashfall choking hazard. Any one sealed item suffices.' },
     auto_equip: { label: 'Auto-Equip', shape: 'flag', scope: 'class', group: 'Equipment',
       help: 'When obtained, this item automatically equips to its designated slot if that slot is empty.' },
     stat_bonus: { label: 'Stat Bonus', shape: 'statmap', scope: 'class', group: 'Equipment',

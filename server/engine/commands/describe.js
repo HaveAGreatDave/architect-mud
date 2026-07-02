@@ -418,7 +418,7 @@ export async function describeZone(zone, player) {
 		const visibleFurniture = (isDark
 			? furniture.filter((f) => f.object_type === "light")
 			: furniture
-		).filter((f) => !suppress.has(f.id));
+		).filter((f) => !suppress.has(f.id) && !f.flags?.concealed);
 		if (visibleFurniture.length) {
 			const furnitureLinks = visibleFurniture.map((f) => {
 				const stateTag =
