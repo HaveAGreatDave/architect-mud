@@ -10,6 +10,7 @@ import { tickSleep, releaseApartment } from './apartments.js';
 import { fireHook } from './plugins.js';
 import { emit } from './events.js';
 import { schedule } from './scheduler.js';
+import { hasExit, neighborZoneIds } from './exits.js';
 import { setPosture, forceStand } from './posture.js';
 import { carryCapacity } from './commands/inventory.js';
 import { query, logActivity } from '../models/db.js';
@@ -445,8 +446,8 @@ async function ambientTick() {
     // Directional ambients (a door "above you", footsteps "below you") only make
     // sense when there's actually a room in that direction. Skip them otherwise.
     const msgText = ambient.message || '';
-    if (/\babove you\b/i.test(msgText) && !zone.exits?.up) continue;
-    if (/\bbelow you\b/i.test(msgText) && !zone.exits?.down) continue;
+    if (/\babove you\b/i.test(msgText) && !hasExit(zone, 'up')) continue;
+    if (/\bbelow you\b/i.test(msgText) && !hasExit(zone, 'down')) continue;
 
     // Suppress this ambient if a louder sound recently fired in this zone.
     const interrupt = getInterruptLoudness(zoneId);
@@ -884,7 +885,7 @@ async function npcWanderTick() {
       candidates = permitted.filter(z => z !== npc.zone_id);
     } else {
       const zone = world.zones.get(npc.zone_id);
-      candidates = zone ? Object.values(zone.exits || {}) : [];
+      candidates = zone ? neighborZoneIds(zone) : [];
     }
     if (!candidates.length) continue;
     const dest = candidates[Math.floor(Math.random() * candidates.length)];

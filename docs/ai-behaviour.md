@@ -137,7 +137,7 @@ Executes one action and stops the tick. The cursor is saved to the `next` port's
 | `BROADCAST_SAY` | `channel_id`, `text` | Inject a line of dialogue into a broadcast channel feed as this NPC |
 | `START_QUEST` | `quest_id`, `cooldown_s` | Offer a quest (dispatch the quests plugin's `START_QUEST`) to every player in the entity's zone. Per-player/per-quest cooldown via the blackboard so it fires once, not every tick; the plugin no-ops if the player already has it. Editor renders a jump into that quest's VINE editor. |
 | `GO_TO_WORK` | — | If scheduled (`IS_BROADCAST_SCHEDULED`) and not already at work zone, walk toward the studio; returns RUNNING while en route. No-ops otherwise. |
-| `HAVE_LIFE` | `waypoints?: [zone_id]` | If not scheduled, walk toward `home_zone` or a random waypoint. No-ops when scheduled. Does NOT return RUNNING — graph continues each tick. |
+| `HAVE_LIFE` | `waypoints?: [zone_id]` | If not scheduled, walk toward `home_zone` or a random waypoint. No-ops when scheduled. Does NOT return RUNNING — graph continues each tick. **Studio actors:** when off-shift and still inside their studio building (same interior map as their studio zone), walk out to the exterior world tile first — one step per tick — before any random activity; once outside, the normal wander resumes. |
 | `AT_WORK` | — | No-op that marks the "at work" position in the graph. Keeps NPC in place during scheduled hours; graph re-checks schedule on next loop. |
 | `GO_TO_WORK` (old) | `zone_id`, `arrive_by`, `depart_early_minutes` | Timed commute to a specific zone; superseded by the parameterless `GO_TO_WORK` above for studio NPCs |
 | `GO_HOME` | — | Walk toward `entity.home_zone`; returns RUNNING until arrived |
@@ -182,7 +182,7 @@ start → HAVE_LIFE → GO_TO_WORK → AT_WORK → wait(30) → loop
 ```
 
 Behaviour per cycle:
-- **Off-schedule**: `HAVE_LIFE` walks toward `home_zone` (or supplied waypoints). `GO_TO_WORK` and `AT_WORK` no-op.
+- **Off-schedule**: `HAVE_LIFE` walks toward `home_zone` (or supplied waypoints). If the actor is still inside the studio building it first walks out to the exterior tile (one step/tick), so only scheduled actors ever remain on the studio stage. `GO_TO_WORK` and `AT_WORK` no-op.
 - **Scheduled, not at studio**: `HAVE_LIFE` no-ops. `GO_TO_WORK` navigates one step toward studio (RUNNING until arrived). `AT_WORK` no-op.
 - **Scheduled, at studio**: All three no-op. NPC stays put.
 

@@ -5,6 +5,15 @@ import { adjustCredits } from "./economy.js";
 import { setPosture } from "./posture.js";
 import { registerProtectionProvider } from "./protection.js";
 import { hasPerm, PERM } from "./org-perms.js";
+import { exitTargets, neighborZoneIds } from "./exits.js";
+import { emit } from "./events.js";
+
+// The zone(s) on the far side of a door: its pinned target if it has one (a door
+// on a direction that holds multiple exits), else every exit in its direction.
+function doorFarIds(door) {
+	if (door.target_zone) return [door.target_zone];
+	return exitTargets(world.zones.get(door.zone_id), door.exit_dir);
+}
 
 const HOME_TUTORIAL = `<span style="color:var(--accent)">◈ HOLOLOCK BOUND ◈</span>
 
@@ -64,9 +73,7 @@ export async function activateForcefield(player, broadcastFn) {
 
 	// Lock all doors to/from this zone that have a lock tag and set forcefield_locked.
 	for (const door of world.doors.values()) {
-		const doorZone = world.zones.get(door.zone_id);
-		const targetId = doorZone?.exits?.[door.exit_dir];
-		if (door.zone_id !== zoneId && targetId !== zoneId) continue;
+		if (door.zone_id !== zoneId && !doorFarIds(door).includes(zoneId)) continue;
 		if (!Object.keys(door.tags || {}).some(k => k.startsWith('lock:'))) continue;
 		await query("UPDATE doors SET lock_state='locked', forcefield_locked=1 WHERE id=$1", [door.id]);
 		door.lock_state = 'locked';
@@ -127,9 +134,7 @@ export async function deactivateForcefield(playerId, zoneId, broadcastFn) {
 	const wantLocked = apt.is_locked ? 'locked' : 'unlocked';
 	for (const door of world.doors.values()) {
 		if (!door.forcefield_locked) continue;
-		const doorZone = world.zones.get(door.zone_id);
-		const targetId = doorZone?.exits?.[door.exit_dir];
-		if (door.zone_id !== zoneId && targetId !== zoneId) continue;
+		if (door.zone_id !== zoneId && !doorFarIds(door).includes(zoneId)) continue;
 		await query('UPDATE doors SET lock_state=$1, forcefield_locked=0 WHERE id=$2', [wantLocked, door.id]);
 		door.lock_state = wantLocked;
 		door.forcefield_locked = 0;
@@ -163,7 +168,7 @@ function getBuildingName(zone) {
   }
   if (cur && cur !== zone) return cur.flags?.building_name || cur.name;
   // No parent chain — fall back to the first adjacent non-apartment room.
-  for (const linkedId of Object.values(zone.exits || {})) {
+  for (const linkedId of neighborZoneIds(zone)) {
     const linked = getZone(linkedId);
     if (linked && !linked.flags?.is_apartment) return linked.name;
   }
@@ -241,6 +246,7 @@ export async function cmdRent(player) {
 		[zone.id, player.id, player.handle, BASE_LOCK_DIFFICULTY, cost, now, buildingName],
 	);
 	setApartmentCache(zone.id, updated.rows[0]);
+	emit('gossip.housing', { player: { id: player.id, handle: player.handle }, zoneId: zone.id });
 
 	const rentedDate = new Date(now * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 	const nextDueDate = new Date((now + 7 * 86400) * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -283,9 +289,7 @@ export async function releaseApartment(apt, zoneId) {
 
 	// Unlock the physical door so the next tenant can enter.
 	for (const door of world.doors.values()) {
-		const doorZone = world.zones.get(door.zone_id);
-		const targetId = doorZone?.exits?.[door.exit_dir];
-		if (door.zone_id === zoneId || targetId === zoneId) {
+		if (door.zone_id === zoneId || doorFarIds(door).includes(zoneId)) {
 			if (!Object.keys(door.tags || {}).some(k => k.startsWith('lock:'))) continue;
 			await query('UPDATE doors SET lock_state=$1 WHERE id=$2', ['unlocked', door.id]);
 			door.lock_state = 'unlocked';
@@ -336,9 +340,7 @@ export async function cmdLockDoor(player, wantLocked) {
 	// Sync the physical door's lock_state
 	const newLockState = wantLocked ? 'locked' : 'unlocked';
 	for (const door of world.doors.values()) {
-		const doorZone = world.zones.get(door.zone_id);
-		const targetId = doorZone?.exits?.[door.exit_dir];
-		if (door.zone_id === zone.id || targetId === zone.id) {
+		if (door.zone_id === zone.id || doorFarIds(door).includes(zone.id)) {
 			const hasLockTag = Object.keys(door.tags || {}).some(k => k.startsWith('lock:'));
 			if (!hasLockTag) continue;
 			await query('UPDATE doors SET lock_state=$1 WHERE id=$2', [newLockState, door.id]);

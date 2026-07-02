@@ -68,7 +68,7 @@ function _buildInteriorMapHtml() {
     for (const z of powerPanelAllZones) {
       if (networkIds.has(z.id)) continue;
       if (!(z.flags?.is_interior || z.flags?.is_apartment)) continue;
-      if (Object.values(z.exits || {}).some(id => networkIds.has(id))) {
+      if (flatNeighbors(z.exits).some(id => networkIds.has(id))) {
         networkIds.add(z.id);
         changed = true;
       }
@@ -378,7 +378,7 @@ function _buildJbByOutdoor() {
       const cur = queue.shift();
       const curZ = powerPanelAllZones.find(z => z.id === cur);
       if (!curZ) continue;
-      for (const exitId of Object.values(curZ.exits || {})) {
+      for (const exitId of flatNeighbors(curZ.exits)) {
         if (seen.has(exitId)) continue;
         seen.add(exitId);
         const neighbor = powerPanelAllZones.find(z => z.id === exitId);
@@ -395,9 +395,9 @@ function _buildJbByOutdoor() {
     };
     for (const oz of bigMapZones) {
       if (oz.flags?.is_building || oz.flags?.is_interior || oz.flags?.is_apartment) continue;
-      if (Object.values(oz.exits || {}).includes(entrance.id)) addJb(oz.id);
+      if (flatNeighbors(oz.exits).includes(entrance.id)) addJb(oz.id);
     }
-    for (const exitId of Object.values(entrance.exits || {})) {
+    for (const exitId of flatNeighbors(entrance.exits)) {
       const oz = bigMapZones.find(z => z.id === exitId && !z.flags?.is_building && !z.flags?.is_interior && !z.flags?.is_apartment);
       if (oz) addJb(oz.id);
     }

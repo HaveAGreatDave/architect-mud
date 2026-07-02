@@ -41,7 +41,7 @@ function renderFurniturePanel(data) {
   const _interiorParent = new Map(); // interiorZoneId -> buildingZoneId
   for (const z of zones) {
     if (z.flags?.is_building && z.exits) {
-      for (const exitZoneId of Object.values(z.exits)) {
+      for (const exitZoneId of flatNeighbors(z.exits)) {
         const exitZone = _zoneById.get(exitZoneId);
         if (exitZone?.flags?.is_interior) _interiorParent.set(exitZoneId, z.id);
       }

@@ -117,6 +117,7 @@ Full per-file detail lives in the audit transcripts; this is the classification 
 | `plugins.js`, `events.js`, `actions.js`, `flags.js`, `tags.js`, `supertags.js`, `specializedActions.js`, `scheduler.js`, `sift.js`, `graph.js` | The registries and buses — the coupling channels themselves |
 | `combat.js` | Combat *math* (swing rolls, soak, cooldown ledger, enemy AI swings) — a law layer; verbs already extracted to the weapon plugin per ADR-0001 |
 | `statmods.js` | Reversible stat-delta ledger. **Gold standard substrate API** — the model for posture, stains, cooldowns |
+| `exits.js` | Zone-exit accessor substrate: normalizes the polymorphic `exits[dir]` value (string \| array — one direction, multiple exits) so every reader (movement, describe, pathfinding, sounds, apartments, validators) shares one shape. `exitTargets`/`allExits`/`neighborZoneIds`/`primaryExits` + `addExit`/`removeExit` |
 | `skills.js`, `ip.js`, `economy.js`, `factions.js`, `crafting.js`, `vendor.js`, `vendor-session.js`, `furniture-shop.js`, `inventory.js` (engine), `locks.js`, `lockAuthHandlers.js`, `appearance.js` | Generic rule engines over DB-driven content; no hardcoded world knowledge |
 | `sounds.js`, `pathfinding.js`, `mapValidation.js`, `world.js` (store), `broadcast-bridge.js`, `motd.js`, mail/verification | Physics, graph traversal, state store, injection adapters |
 

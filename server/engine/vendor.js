@@ -15,6 +15,7 @@ import { randomUUID } from 'crypto';
 import { isStackable } from './tags.js';
 import { isConsumerFurniture } from './furniture-shop.js';
 import { getFlag, setFlag } from './flags.js';
+import { emit } from './events.js';
 
 // Trust-gated vendors (e.g. the covert shadow dealer). When an NPC's flags carry
 // a `trust_flag`, its shelf is not the random `vendor_stock` shelf but the full
@@ -142,6 +143,9 @@ export async function buyFromVendor(player, npc, itemId, quantity = 1) {
       }
     }
   }
+
+  // A conspicuous spend is street news.
+  if (price >= 500) emit('gossip.bigBuy', { player: { id: player.id, handle: player.handle }, itemName: item.name, price, zoneId: player.current_zone });
 
   return {
     success: true,

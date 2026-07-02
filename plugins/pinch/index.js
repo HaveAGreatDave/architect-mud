@@ -1,4 +1,5 @@
 import { getAllLivePlayers, getZone } from '../../server/engine/world.js';
+import { allExits } from '../../server/engine/exits.js';
 import { findPath } from '../../server/engine/pathfinding.js';
 import { query } from '../../server/models/db.js';
 import { sendToZone, sendToPlayer, getBroadcast } from '../../server/engine/messaging.js';
@@ -50,7 +51,7 @@ function nextStepToward(currentZone, homeZone) {
   if (!path || path.length < 2) return null;
   const nextZoneId = path[1];
   const zone = getZone(currentZone);
-  const direction = Object.entries(zone?.exits || {}).find(([, id]) => id === nextZoneId)?.[0];
+  const direction = allExits(zone).find(e => e.target === nextZoneId)?.dir;
   if (!direction) return null;
   return { nextZoneId, direction };
 }

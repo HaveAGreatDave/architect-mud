@@ -1,4 +1,5 @@
 import { world, getLivePlayer, getDoorForExit, setDoorCache, getZone, getZonePlayers, getPlayerMembership } from './world.js';
+import { allExits, neighborZoneIds, exitTargets } from './exits.js';
 import { findPath, getZonesInRadius } from './pathfinding.js';
 import { enemyAttackPlayer, enemyAttackNpc, enemyAttackEnemy } from './combat.js';
 import { getEnvironmentState } from './environment.js';
@@ -174,8 +175,8 @@ export function moveEntity(entity, newZoneId, broadcast, query) {
   // ── Door handling ────────────────────────────────────────────────────────────
   let doorWasClosed = false;
   if (departDir) {
-    const door = getDoorForExit(oldZoneId, departDir)
-              || getDoorForExit(newZoneId, OPPOSITE_DIR[departDir])
+    const door = getDoorForExit(oldZoneId, departDir, newZoneId)
+              || getDoorForExit(newZoneId, OPPOSITE_DIR[departDir], oldZoneId)
               || null;
 
     if (door && door.hp > 0) {
@@ -233,8 +234,8 @@ export function moveEntity(entity, newZoneId, broadcast, query) {
 
   // Lock the door when an NPC arrives at their home zone
   if (!isEnemy(entity) && entity.home_zone && entity.home_zone === newZoneId && departDir) {
-    const homeDoor = getDoorForExit(newZoneId, OPPOSITE_DIR[departDir])
-                  || getDoorForExit(oldZoneId, departDir)
+    const homeDoor = getDoorForExit(newZoneId, OPPOSITE_DIR[departDir], oldZoneId)
+                  || getDoorForExit(oldZoneId, departDir, newZoneId)
                   || null;
     if (homeDoor && homeDoor.tags && Object.keys(homeDoor.tags).some(k => k.startsWith('lock:'))) {
       homeDoor.is_open = 0;
@@ -252,8 +253,8 @@ export function moveEntity(entity, newZoneId, broadcast, query) {
     const arrivingAtWork = newZoneId === entity.work_zone_id;
     const leavingWork    = oldZoneId === entity.work_zone_id;
     if (arrivingAtWork || leavingWork) {
-      const shopDoor = getDoorForExit(newZoneId, OPPOSITE_DIR[departDir])
-                    || getDoorForExit(oldZoneId, departDir)
+      const shopDoor = getDoorForExit(newZoneId, OPPOSITE_DIR[departDir], oldZoneId)
+                    || getDoorForExit(oldZoneId, departDir, newZoneId)
                     || null;
       if (shopDoor && shopDoor.hp > 0) {
         if (arrivingAtWork && shopDoor.lock_state === 'locked') {
@@ -299,8 +300,8 @@ export function moveEntity(entity, newZoneId, broadcast, query) {
 
 // Find which exit direction connects fromZone → toZone, or null if none.
 function exitDirection(fromZoneId, toZoneId) {
-  const exits = world.zones.get(fromZoneId)?.exits || {};
-  return Object.keys(exits).find(dir => exits[dir] === toZoneId) || null;
+  const zone = world.zones.get(fromZoneId);
+  return allExits(zone).find(e => e.target === toZoneId)?.dir || null;
 }
 
 // Resolve an edge from a node (looks up fromNode+fromPort in edges array).
@@ -639,7 +640,7 @@ async function execAction(node, entity, ctx) {
       if (!ai) break;
       const targetPlayer = getLivePlayer(entity.targetId);
       const targetZoneId = targetPlayer?.current_zone;
-      const exits = Object.values(zone?.exits || {});
+      const exits = neighborZoneIds(zone);
       if (!exits.length) break;
 
       // Move to any adjacent zone that doesn't contain the target
@@ -683,7 +684,7 @@ async function execAction(node, entity, ctx) {
       }
 
       // No target — step to a random adjacent zone
-      const exits = Object.values(curZone?.exits || {});
+      const exits = neighborZoneIds(curZone);
       if (exits.length) {
         const dest = exits[Math.floor(Math.random() * exits.length)];
         moveEntity(entity, dest, broadcast, query);
@@ -882,6 +883,39 @@ async function execAction(node, entity, ctx) {
       if (isNpcScheduledNow(entity.id)) {
         ai._lifeActivity = null; // clear so next off-schedule period re-rolls
         break;
+      }
+      // Studio actors off-shift never linger in the building: if still inside
+      // the studio (same interior map as their studio zone), walk out to the
+      // exterior world tile first, one step per tick, before any random life
+      // activity begins. Once outside, this block is skipped and the normal
+      // wander below takes over. Studio zone resolves via the broadcast bridge
+      // (same lookup CHECK_WORK/AT_WORK use); non-studio NPCs skip it entirely.
+      const studioZone = entity.studio_zone_id || getNpcStudioZone(entity.id);
+      if (studioZone) {
+        const sz = world.zones.get(studioZone);
+        const cur = world.zones.get(zoneId);
+        if (sz && cur && sz.map_id && cur.map_id === sz.map_id) {
+          const exit = sz.flags?.world_exit_zone || exitTargets(sz, 'out')[0] || null;
+          if (exit) {
+            if (!ai.patrolPath.length || ai.patrolTarget !== exit) {
+              const path = findPath(zoneId, exit);
+              if (path && path.length >= 2) {
+                ai.patrolPath = path.slice(1);
+                ai.patrolTarget = exit;
+              }
+            }
+            const exitNext = ai.patrolPath.shift();
+            if (exitNext) {
+              const moved = moveEntity(entity, exitNext, broadcast, query);
+              if (!moved) { ai.patrolPath = []; ai.patrolTarget = null; }
+              else if (!isEnemy(entity) && query) {
+                query('UPDATE npcs SET zone_id=$1 WHERE id=$2', [entityZone(entity), entity.id]).catch(() => {});
+              }
+              ai._lifeActivity = null; // re-roll wander once clear of the building
+              break; // still exiting — don't start a life activity this tick
+            }
+          }
+        }
       }
       // Small per-tick chance to emote or say a chitchat line, independent of movement.
       if (Date.now() - ai.lastSay > 20000 && Math.random() < 0.05) {

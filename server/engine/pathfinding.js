@@ -1,4 +1,5 @@
 import { world } from './world.js';
+import { neighborZoneIds } from './exits.js';
 
 // BFS pathfinding over zone.exits adjacency graph.
 // Crosses map boundaries freely — interior→exterior traversal works naturally
@@ -30,7 +31,7 @@ export function findPath(startId, targetId, { maxDistance = 60 } = {}) {
     const zone = world.zones.get(current);
     if (!zone) continue;
 
-    for (const neighborId of Object.values(zone.exits || {})) {
+    for (const neighborId of neighborZoneIds(zone)) {
       if (!parent.has(neighborId)) {
         parent.set(neighborId, current);
         dist.set(neighborId, currentDist + 1);
@@ -51,7 +52,7 @@ export function getZonesInRadius(originId, maxHops) {
     if (dist >= maxHops) continue;
     const zone = world.zones.get(zoneId);
     if (!zone) continue;
-    for (const neighborId of Object.values(zone.exits || {})) {
+    for (const neighborId of neighborZoneIds(zone)) {
       if (!reach.has(neighborId)) {
         reach.set(neighborId, dist + 1);
         queue.push([neighborId, dist + 1]);

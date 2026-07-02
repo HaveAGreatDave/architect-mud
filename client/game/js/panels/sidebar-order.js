@@ -220,13 +220,18 @@ function applySizes() {
 
 function sizeSection(sec, px) {
   // Fix the panel's height; its .sidebar-section-body scrolls any overflow.
+  // min-height:0 lets the fixed basis win over the content's min-content size,
+  // so a panel can be shrunk past its content (hiding it) — the JS floor keeps
+  // a grabbable buffer so it can never collapse to an unresizable 0.
   sec.style.flex = `0 0 ${px}px`;
+  sec.style.minHeight = '0';
 }
 
 function resetSizes() {
   localStorage.removeItem(SIZE_KEY);
   document.querySelectorAll('#sidebar .sidebar-section').forEach(sec => {
     sec.style.flex = '';
+    sec.style.minHeight = '';
   });
 }
 

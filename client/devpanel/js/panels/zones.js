@@ -24,7 +24,7 @@ function renderZonesTable(records) {
   // heuristic, so studios and other unparented interiors still nest.
   for (const z of records) {
     if (!z.flags?.is_building) continue;
-    for (const exitZoneId of Object.values(z.exits || {})) {
+    for (const exitZoneId of flatNeighbors(z.exits)) {
       const exitZone = byId.get(exitZoneId);
       if ((exitZone?.flags?.is_interior || exitZone?.flags?.is_apartment) && !childIds.has(exitZoneId)) {
         addChild(z.id, exitZone);
@@ -34,7 +34,7 @@ function renderZonesTable(records) {
   // Apartment zones still unmatched — use their first exit as parent.
   for (const z of records) {
     if (childIds.has(z.id) || !z.flags?.is_apartment) continue;
-    const parentId = Object.values(z.exits || {})[0];
+    const parentId = flatNeighbors(z.exits)[0];
     if (parentId && byId.has(parentId)) addChild(parentId, z);
   }
 
@@ -120,7 +120,7 @@ function renderZonesTable(records) {
 async function deleteZoneRow(id) {
   const rec = allRecords.find(r => r.id === id);
   if (!rec) return;
-  const children = allRecords.filter(z => (z.flags?.is_apartment || z.flags?.is_interior) && Object.values(z.exits || {})[0] === id);
+  const children = allRecords.filter(z => (z.flags?.is_apartment || z.flags?.is_interior) && flatNeighbors(z.exits).includes(id));
   const childCount = children.length;
   const msg = childCount
     ? `Delete ${rec.name || id}? This will also queue ${childCount} attached room${childCount > 1 ? 's' : ''} for deletion.`
@@ -229,7 +229,7 @@ async function zoneEditForm(rec, isNew) {
         const cur = bfsQ.shift();
         const curZ = allRecords.find(z => z.id === cur);
         if (!curZ) continue;
-        for (const nId of Object.values(curZ.exits || {})) {
+        for (const nId of flatNeighbors(curZ.exits)) {
           if (visited.has(nId)) continue;
           const n = allRecords.find(z => z.id === nId);
           if (n && (n.flags?.is_interior || n.flags?.is_apartment)) {
@@ -258,13 +258,17 @@ async function zoneEditForm(rec, isNew) {
     zoneEditCurrentZoneId = rec.id;
     const childRooms = allRecords.filter(z =>
       (z.flags?.is_apartment || z.flags?.is_interior) &&
-      Object.values(z.exits || {})[0] === rec.id
+      flatNeighbors(z.exits).includes(rec.id)
     );
     const isExteriorZone = !flags.is_interior && !flags.is_apartment && !flags.is_building;
     const freeDirs = (isExteriorZone ? ['in','out','up','down'] : ['north','south','east','west','up','down','in','out']).filter(d => !zoneEditExitsState[d]);
 
-    const _dUsedDirs = new Set(zoneDoors.map(d => d.exit_dir));
-    const _dAvailExits = Object.keys(zoneEditExitsState).filter(d => zoneEditExitsState[d] && !_dUsedDirs.has(d));
+    // A door binds to one specific exit (exit_dir + target_zone). Offer every exit
+    // that doesn't already have a door; a legacy door with no target_zone occupies
+    // its whole direction. Value encodes "dir|targetId".
+    const _dUsedExits = new Set(zoneDoors.map(d => d.target_zone ? `${d.exit_dir}|${d.target_zone}` : d.exit_dir));
+    const _dAvailExits = allExits(zoneEditExitsState).filter(e =>
+      !_dUsedExits.has(`${e.dir}|${e.target}`) && !_dUsedExits.has(e.dir));
     subSectionsHtml = `
       <div class="zone-subsection">
         <div class="zone-subsection-header">Doors <span class="zone-subsection-count" id="zone-doors-count">${zoneDoors.length}</span></div>
@@ -291,7 +295,10 @@ async function zoneEditForm(rec, isNew) {
             <option value="blast">Blast Door (5000 HP)</option>
           </select>
           <select id="door-exit-select" style="flex:1;min-width:100px">
-            ${_dAvailExits.length ? _dAvailExits.map(d => `<option value="${d}">${d}</option>`).join('') : '<option value="">No free exits</option>'}
+            ${_dAvailExits.length ? _dAvailExits.map(e => {
+              const dest = allRecords.find(z => z.id === e.target);
+              return `<option value="${e.dir}|${e.target}">${e.dir} → ${dest ? dest.name : e.target}</option>`;
+            }).join('') : '<option value="">No free exits</option>'}
           </select>
           <button class="action-btn success" onclick='submitAddDoor(${JSON.stringify(rec.id)})'>Install Door</button>
         </div>
@@ -438,7 +445,7 @@ async function zoneEditForm(rec, isNew) {
               const cur = bfsQueue.shift();
               const curZone = allRecords.find(z => z.id === cur);
               if (!curZone) continue;
-              for (const nId of Object.values(curZone.exits || {})) {
+              for (const nId of flatNeighbors(curZone.exits)) {
                 if (visitedSet.has(nId)) continue;
                 const neighbor = allRecords.find(z => z.id === nId);
                 if (neighbor && (neighbor.flags?.is_interior || neighbor.flags?.is_apartment)) {
@@ -665,7 +672,7 @@ function toggleBuildingFields(show, zoneId) {
     if (!defaultExterior && zoneId) {
       const exteriorZone = (Array.isArray(allRecords) ? allRecords : []).find(z =>
         !z.flags?.is_interior && !z.flags?.is_building && !z.flags?.is_apartment &&
-        z.exits && Object.values(z.exits).includes(zoneId)
+        flatNeighbors(z.exits).includes(zoneId)
       );
       if (exteriorZone) defaultExterior = exteriorZone.id;
     }
@@ -768,26 +775,35 @@ async function removeZoneFromMap(zoneId) {
 // Exits — direction + destination-zone picker instead of hand-edited JSON.
 // zoneEditExitsState holds the working set for whichever zone is currently
 // open; saveZone() reads from it directly.
+
+// Only non-cardinal directions may hold multiple exits (SIFT disambiguates them
+// by destination name). Cardinals map to grid cells — two "north" exits can't
+// coexist geometrically — so they stay single-exit and are culled once used.
+const MULTI_EXIT_DIRS = ['in', 'out', 'up', 'down'];
+
 function renderExitsBuilder(selfId) {
-  const dirs = ['north','south','east','west','up','down','in','out'];
-  const freeDirs = dirs.filter(d => !zoneEditExitsState[d]);
+  // Offer in/out/up/down always (they can stack); offer a cardinal only while it
+  // is still free. Adding a second exit to a stackable direction stores an array
+  // for it (see the exits.js mirror in core/state.js).
+  const dirs = ['north','south','east','west','up','down','in','out']
+    .filter(d => MULTI_EXIT_DIRS.includes(d) || !exitTargets(zoneEditExitsState, d).length);
   const zoneOptions = allRecords.filter(z => z.id !== selfId)
     .map(z => `<option value="${z.id}">${z.name} (${z.id})</option>`).join('');
-  const rows = Object.entries(zoneEditExitsState).map(([dir, targetId]) => {
+  const rows = allExits(zoneEditExitsState).map(({ dir, target: targetId }) => {
     const target = allRecords.find(z => z.id === targetId);
     return `<div class="zone-subitem-row">
       <span>${dir} → ${target ? target.name : targetId}</span>
-      <span class="zone-subitem-actions"><button class="action-btn danger" onclick="removeExit('${dir}')">Remove</button></span>
+      <span class="zone-subitem-actions"><button class="action-btn danger" onclick="removeExit('${dir}','${targetId}')">Remove</button></span>
     </div>`;
   }).join('') || '<div class="zone-subitem-empty">No exits yet.</div>';
-  const addRow = freeDirs.length ? `
+  const addRow = `
     <div class="zone-inline-form" style="margin-top:6px">
       <div class="field-row">
-        <div class="field"><label>Direction</label><select id="exit-add-dir">${freeDirs.map(d=>`<option>${d}</option>`).join('')}</select></div>
+        <div class="field"><label>Direction</label><select id="exit-add-dir">${dirs.map(d=>`<option>${d}</option>`).join('')}</select></div>
         <div class="field"><label>Destination Zone</label><select id="exit-add-zone"><option value="">— select —</option>${zoneOptions}</select></div>
       </div>
       <button class="action-btn success" onclick='addExit(${JSON.stringify(selfId)})'>+ Add Exit</button>
-    </div>` : '<div class="zone-subitem-empty">All directions are already in use.</div>';
+    </div>`;
   return `<div id="exits-list">${rows}</div>${addRow}`;
 }
 
@@ -795,12 +811,15 @@ function addExit(selfId) {
   const dir = document.getElementById('exit-add-dir').value;
   const zoneId = document.getElementById('exit-add-zone').value;
   if (!zoneId) { toast('Pick a destination zone first', true); return; }
-  zoneEditExitsState[dir] = zoneId;
+  if (!MULTI_EXIT_DIRS.includes(dir) && exitTargets(zoneEditExitsState, dir).length) {
+    toast(`${dir} already has an exit — only in/out/up/down can have several.`, true); return;
+  }
+  addExitTo(zoneEditExitsState, dir, zoneId);
   document.getElementById('exits-builder-body').innerHTML = renderExitsBuilder(selfId);
 }
 
-function removeExit(dir) {
-  delete zoneEditExitsState[dir];
+function removeExit(dir, targetId) {
+  removeExitFrom(zoneEditExitsState, dir, targetId);
   document.getElementById('exits-builder-body').innerHTML = renderExitsBuilder(currentRecord?.id || '');
 }
 

@@ -27,6 +27,7 @@
 import { schedule } from './scheduler.js';
 import { emit } from './events.js';
 import { world } from './world.js';
+import { neighborZoneIds, allExits, addExit } from './exits.js';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -1511,7 +1512,9 @@ export async function getWeatherMap() {
 // local sample is weak bother looking; roofs and other open_sky zones are
 // never map_world so they never enter this path — they always get their own
 // (unmuffled) sample instead. Walked over the outdoor exit graph the same way
-// sounds.js walks zone exits for SFX/yell propagation.
+// sounds.js walks zone exits for SFX/yell propagation. Returns the winning
+// bleed rate and the hop distance it came from, so the audio layer can spread
+// the falloff out (a cell 2 tiles away reads quieter than one 1 tile away).
 const MUFFLE_LOCAL_THRESHOLD = 0.12;
 const MUFFLE_RADIUS = 2;
 const MUFFLE_FALLOFF = 0.45; // per-hop attenuation
@@ -1520,25 +1523,29 @@ function muffledNeighborPrecip(zoneId) {
   const visited = new Set([zoneId]);
   let frontier = [zoneId];
   let best = 0;
+  let bestHops = 0;
   for (let hop = 1; hop <= MUFFLE_RADIUS; hop++) {
     const next = [];
     for (const id of frontier) {
       const z = world.zones.get(id);
       if (!z) continue;
-      for (const neighborId of Object.values(z.exits || {})) {
+      for (const neighborId of neighborZoneIds(z)) {
         if (visited.has(neighborId)) continue;
         visited.add(neighborId);
         next.push(neighborId);
         const nz = world.zones.get(neighborId);
         if (nz && nz.map_id === 'map_world' && nz.grid_x != null && nz.grid_y != null) {
           const nf = sampleField(nz.grid_x, nz.grid_y);
-          if (nf && nf.precipRate > 0) best = Math.max(best, nf.precipRate * Math.pow(MUFFLE_FALLOFF, hop));
+          if (nf && nf.precipRate > 0) {
+            const bleed = nf.precipRate * Math.pow(MUFFLE_FALLOFF, hop);
+            if (bleed > best) { best = bleed; bestHops = hop; }
+          }
         }
       }
     }
     frontier = next;
   }
-  return best;
+  return { rate: best, hops: bestHops };
 }
 
 // Broadcast local outdoor weather to player-occupied outdoor zones. Additive to
@@ -1556,9 +1563,10 @@ function broadcastZoneWeather(occupied) {
     const f = sampleField(z.gridX, z.gridY);
     let precipRate = active ? f.precipRate : 0;
     let muffled = false;
+    let muffleHops = 0;
     if (active && precipRate < MUFFLE_LOCAL_THRESHOLD) {
-      const bleed = muffledNeighborPrecip(zoneId);
-      if (bleed > precipRate) { precipRate = bleed; muffled = true; }
+      const { rate: bleed, hops } = muffledNeighborPrecip(zoneId);
+      if (bleed > precipRate) { precipRate = bleed; muffled = true; muffleHops = hops; }
     }
     broadcast(zoneId, {
       type: 'environment.zoneTempTick',
@@ -1580,6 +1588,7 @@ function broadcastZoneWeather(occupied) {
       precipRate,
       windKph: state.forecast[0]?.windKph ?? 0,
       muffled,
+      muffleHops,
     });
   }
 }
@@ -1944,9 +1953,9 @@ async function getBuildingNetwork(query, startZoneId) {
     const id = queue.shift();
     const zone = byId.get(id);
     if (!zone) continue;
-    const neighbors = new Set(Object.values(zone.exits || {}));
+    const neighbors = new Set(neighborZoneIds(zone));
     for (const other of allZones) {
-      if (Object.values(other.exits || {}).includes(id)) neighbors.add(other.id);
+      if (neighborZoneIds(other).includes(id)) neighbors.add(other.id);
     }
     for (const nId of neighbors) {
       if (visited.has(nId)) continue;
@@ -2046,7 +2055,10 @@ export async function removeGenerator(generatorId) {
         `SELECT id, exits FROM zones WHERE exits::text LIKE $1`, [`%${zoneId}%`]
       );
       for (const p of parents) {
-        const newExits = Object.fromEntries(Object.entries(p.exits || {}).filter(([, v]) => v !== zoneId));
+        const newExits = {};
+        for (const { dir, target } of allExits(p)) {
+          if (target !== zoneId) addExit(newExits, dir, target);
+        }
         await query('UPDATE zones SET exits=$1 WHERE id=$2', [JSON.stringify(newExits), p.id]);
       }
       await query('DELETE FROM lighting_states WHERE zone_id=$1', [zoneId]);

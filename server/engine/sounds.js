@@ -1,4 +1,5 @@
 import { world, getDoorForExit } from './world.js';
+import { allExits } from './exits.js';
 
 // Minimum intensity for a sound to be heard at a given distance.
 const HEAR_THRESHOLD = 0.5;
@@ -7,11 +8,13 @@ const HEAR_THRESHOLD = 0.5;
 // distance: inverse-square attenuation both shortens the reach and drops more
 // words, so a closed door makes the room beyond you sound faint and clipped. A
 // smashed door (hp<=0) or an open one is just a hole — no muffling.
-const DOOR_MUFFLE_HOPS = 2;
+// Doubled so a closed door heavily deadens all crossing noise (weather ambience
+// included) — the room beyond stays at most barely audible, not merely faint.
+const DOOR_MUFFLE_HOPS = 4;
 const OPPOSITE = { north:'south', south:'north', east:'west', west:'east', up:'down', down:'up', in:'out', out:'in' };
 
 function edgeMuffle(zoneId, dir, neighborId) {
-  const door = getDoorForExit(zoneId, dir) || getDoorForExit(neighborId, OPPOSITE[dir]);
+  const door = getDoorForExit(zoneId, dir, neighborId) || getDoorForExit(neighborId, OPPOSITE[dir], zoneId);
   return door && door.hp > 0 && !door.is_open ? DOOR_MUFFLE_HOPS : 0;
 }
 
@@ -34,7 +37,7 @@ export function getSoundReach(originZoneId, loudness) {
     if (intensity(loudness, dist + 1) < HEAR_THRESHOLD) continue;
     const zone = world.zones.get(zoneId);
     if (!zone) continue;
-    for (const [dir, neighborId] of Object.entries(zone.exits || {})) {
+    for (const { dir, target: neighborId } of allExits(zone)) {
       const nd = dist + 1 + edgeMuffle(zoneId, dir, neighborId);
       if (!reach.has(neighborId) || nd < reach.get(neighborId)) {
         reach.set(neighborId, nd);
@@ -93,18 +96,27 @@ export function propagateSound(originZoneId, message, loudness, broadcastFn) {
 // Propagation stops when the gain falls below AUDIO_STOP_THRESHOLD.
 const AUDIO_STOP_THRESHOLD = 0.05;
 
+// A closed, intact door heavily deadens SFX crossing it: the crossing gain is
+// cut to a ninth (two extra 1/3 hops on top of the normal one), so the room
+// beyond a shut door is at most barely audible but not fully sealed off.
+const DOOR_MUFFLE_GAIN = 1 / 9;
+
 export function propagateAudio(originZoneId, sfxDef, loudness, broadcastFn) {
   const visited = new Map([[originZoneId, loudness]]);
   const queue = [[originZoneId, loudness]];
   while (queue.length) {
     const [zoneId, gain] = queue.shift();
     broadcastFn(zoneId, { type: 'audio_sfx', def: sfxDef, gain: Math.min(1, gain) });
-    const nextGain = gain / 3;
-    if (nextGain < AUDIO_STOP_THRESHOLD) continue;
+    const hopGain = gain / 3;
+    if (hopGain < AUDIO_STOP_THRESHOLD) continue;
     const zone = world.zones.get(zoneId);
     if (!zone) continue;
-    for (const neighborId of Object.values(zone.exits || {})) {
-      if (!visited.has(neighborId)) {
+    for (const { dir, target: neighborId } of allExits(zone)) {
+      // A closed door on this edge muffles the crossing further; relax on a
+      // louder path so an open route is still preferred over a doored one.
+      const nextGain = edgeMuffle(zoneId, dir, neighborId) ? hopGain * DOOR_MUFFLE_GAIN : hopGain;
+      if (nextGain < AUDIO_STOP_THRESHOLD) continue;
+      if (!visited.has(neighborId) || nextGain > visited.get(neighborId)) {
         visited.set(neighborId, nextGain);
         queue.push([neighborId, nextGain]);
       }

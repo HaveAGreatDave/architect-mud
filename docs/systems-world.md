@@ -21,12 +21,41 @@ dev panel's "reload" uses so editing a zone doesn't evict the players standing i
 
 ## Movement
 
-`cmdMove` ([movement.js](../server/engine/commands/movement.js)) validates `zone.exits[direction]`,
-updates the live membership and `players.current_zone`, persists the new zone, and broadcasts
-departure/arrival events (with the opposite-direction phrasing where applicable). Entry applies zone
-radiation (see [systems-survival.md](systems-survival.md)). `go <name>` resolves named building/room
-destinations via `resolveNamedDestination` ([describe.js](../server/engine/commands/describe.js)),
-handling exact, unique-prefix, and ambiguous matches.
+`cmdMove` ([movement.js](../server/engine/commands/movement.js)) resolves the destination via the exits
+substrate (below), updates the live membership and `players.current_zone`, persists the new zone, and
+broadcasts departure/arrival events (with the opposite-direction phrasing where applicable). Entry
+applies zone radiation (see [systems-survival.md](systems-survival.md)). `go <name>` resolves named
+building/room destinations via `resolveNamedDestination`
+([describe.js](../server/engine/commands/describe.js)), handling exact, unique-prefix, and ambiguous
+matches, and passes the resolved target back into `cmdMove` (`opts.targetZoneId`) so a name reaches a
+specific exit even when several share a direction.
+
+### The exits substrate
+
+A zone's `exits` is a direction-keyed map whose value is **either a zone-id string (the common single
+exit) or an array of zone-ids when a direction holds two or more exits** (e.g. two `north` exits to
+different zones). Storage stays backward compatible — single exits are bare strings and a direction only
+becomes an array when a second exit is added. **All reads go through
+[server/engine/exits.js](../server/engine/exits.js)** — never index `zone.exits[dir]` raw (that's the
+split-source bug class): `exitTargets(zone, dir)` → always an array; `allExits(zone)` → flat
+`[{dir, target}]`; `neighborZoneIds(zone)` → flat destination list; `primaryExits(zone)` → dir→first-id
+map for the client minimap (grids are spatial and can only place one cell per cardinal); mutation via
+`addExit`/`removeExit` (collapse to string at one target, expand to array at 2+). The dev panel keeps a
+byte-identical mirror in `client/devpanel/js/core/state.js`.
+
+**Only non-cardinal directions (`in`/`out`/`up`/`down`) may be authored with multiple exits** — cardinals
+(`north`/`south`/`east`/`west`) map to grid cells and can't hold two, so the dev-panel exit builder culls
+a cardinal once it has an exit and stacks only `in/out/up/down` (`MULTI_EXIT_DIRS` in
+`client/devpanel/js/panels/zones.js`). The accessor and movement law stay shape-agnostic (they handle an
+array on any direction), so this is an authoring policy, not an engine constraint.
+
+When a player types a bare direction that has 2+ exits, `cmdMove` returns an ambiguous prompt listing the
+destinations by name ("Several ways lead up: …") and the player picks with `go <name>`. Doors bind to
+one specific exit via `doors.target_zone` (NULL = legacy, resolves by `(zone_id, exit_dir)` alone); pass
+the resolved target to `getDoorForExit(zone, dir, targetId)`. **Known limits:** the map grid editor
+(`client/devpanel/js/panels/maps.js`) and the minimap are single-exit-per-direction by geometry; and
+player-facing door commands still disambiguate two doors sharing a direction by direction only, not
+destination name.
 
 NPC and enemy movement flows through the shared `moveEntity` ([ai-behaviour.js](../server/engine/ai-behaviour.js)),
 which mirrors `cmdMove`'s depart/arrive announcements (same phrasing, door handling, follower-drag) for

@@ -1,4 +1,5 @@
 import { getZone, getLivePlayer, getAllLivePlayers } from '../world.js';
+import { exitTargets } from '../exits.js';
 import { describeZone } from './describe.js';
 import { drainZonePower } from '../environment.js';
 import { query } from '../../models/db.js';
@@ -101,7 +102,7 @@ export async function cmdGhostLook(session) {
 export async function cmdGhostMove(direction, session) {
   const zone = getZone(session.ghostZoneId);
   if (!zone) return { type: 'ghost_error', message: 'Zone not found.' };
-  const targetId = zone.exits?.[direction];
+  const targetId = exitTargets(zone, direction)[0];
   if (!targetId) {
     const cardinal = ['north', 'south', 'east', 'west'].includes(direction);
     return { type: 'ghost_error', message: cardinal ? `No exit to the ${direction}.` : `No exit ${direction}.` };

@@ -3,6 +3,7 @@
 
 import { query } from '../../server/models/db.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
+import { emit } from '../../server/engine/events.js';
 import { getLivePlayer, getZonePlayers, getZoneNpcs } from '../../server/engine/world.js';
 import { moveEntity } from '../../server/engine/ai-behaviour.js';
 import { findPath } from '../../server/engine/pathfinding.js';
@@ -339,6 +340,11 @@ export class GameTable {
       const { rows } = await query('SELECT credits FROM players WHERE id=$1', [playerId]);
       if (rows.length) sendToPlayer(playerId, { type: 'player_update', credits: rows[0].credits });
       sendToPlayer(playerId, { type: 'output', message: `You cash out ₵ ${chips} from the table.` });
+      // A big cash-out is worth gossiping about (threshold, not net win — we don't track buy-in here).
+      if (chips >= 1000) {
+        const { rows: pr } = await query('SELECT handle FROM players WHERE id=$1', [playerId]);
+        if (pr.length) emit('gossip.pokerWin', { player: { id: playerId, handle: pr[0].handle }, amount: chips, zoneId: this.zoneId });
+      }
     }
 
     // A human leaving may strand a bot alone — bots don't play each other.

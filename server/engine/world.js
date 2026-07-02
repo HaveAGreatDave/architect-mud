@@ -1,4 +1,5 @@
 import { query } from '../models/db.js';
+import { neighborZoneIds, primaryExits } from './exits.js';
 
 // In-memory world state — same as before, DB is source of truth
 const world = {
@@ -140,7 +141,15 @@ async function loadDoors() {
 
 export function getDoorById(id) { return world.doors.get(id) || null; }
 export function getZoneDoors(zoneId) { return [...world.doors.values()].filter(d => d.zone_id === zoneId); }
-export function getDoorForExit(zoneId, exitDir) { return [...world.doors.values()].find(d => d.zone_id === zoneId && d.exit_dir === exitDir) || null; }
+export function getDoorForExit(zoneId, exitDir, targetId = null) {
+  const matches = [...world.doors.values()].filter(d => d.zone_id === zoneId && d.exit_dir === exitDir);
+  if (!matches.length) return null;
+  if (targetId) {
+    // Prefer a door pinned to this specific exit; else an unpinned (legacy) door.
+    return matches.find(d => d.target_zone === targetId) || matches.find(d => d.target_zone == null) || null;
+  }
+  return matches[0];
+}
 export function setDoorCache(id, door) { world.doors.set(id, door); }
 export function deleteDoorCache(id) { world.doors.delete(id); }
 
@@ -221,7 +230,7 @@ export function getMinimapData(centerZoneId, depth = 4) {
     if (distance >= depth) continue;
     const zone = world.zones.get(id);
     if (!zone) continue;
-    for (const neighborId of Object.values(zone.exits || {})) {
+    for (const neighborId of neighborZoneIds(zone)) {
       if (visited.has(neighborId)) continue;
       // Stay within the same map — prevents exterior zones bleeding into
       // an interior minimap and vice versa.
@@ -244,7 +253,7 @@ export function getMinimapData(centerZoneId, depth = 4) {
       danger_rating: zone.danger_rating,
       is_safe_zone: !!zone.is_safe_zone,
       pvp_enabled: !!zone.pvp_enabled,
-      exits: zone.exits || {},
+      exits: primaryExits(zone),
       map_id: zone.map_id || null,
       grid_x: zone.grid_x, grid_y: zone.grid_y, grid_z: zone.grid_z,
       marker: zone.marker || null, color: zone.color || null, bg_color: zone.bg_color || null,

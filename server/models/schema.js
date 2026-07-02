@@ -296,6 +296,10 @@ export const SCHEMA_SQL = `
   );
 
   ALTER TABLE doors ADD COLUMN IF NOT EXISTS name TEXT DEFAULT NULL;
+  -- Pins a door to one specific exit when its direction has multiple exits
+  -- (see server/engine/exits.js). NULL = legacy single-exit door, resolves by
+  -- (zone_id, exit_dir) alone.
+  ALTER TABLE doors ADD COLUMN IF NOT EXISTS target_zone TEXT DEFAULT NULL;
   ALTER TABLE npcs ADD COLUMN IF NOT EXISTS wander_zones JSONB DEFAULT '[]';
 
   -- NPC factions folded into the unified orgs table (is_npc=1) — see the orgs

@@ -6,6 +6,7 @@ import { getZonePowerStatus, recomputePower, recalcZoneLoad } from '../environme
 import { getPlayerSkills, SKILLS } from '../skills.js';
 import { describeZone } from './describe.js';
 import { getMinimapData, addPlayerToZone, removePlayerFromZone } from '../world.js';
+import { allExits, exitTargets } from '../exits.js';
 import { statCost, raiseStat, RAISABLE_STATS, getNetXp } from '../ip.js';
 import { ensureTunables } from '../tunables.js';
 import { physicalDescription } from '../appearance.js';
@@ -625,8 +626,10 @@ async function cmdExamine(targetStr, player, broadcast) {
     const zone = getZone(player.current_zone);
     let examDoor = getDoorForExit(player.current_zone, examDir);
     if (!examDoor) {
-      const targetId = zone?.exits?.[examDir];
-      if (targetId) examDoor = getDoorForExit(targetId, EXAM_OPP[examDir]) || null;
+      for (const targetId of exitTargets(zone, examDir)) {
+        examDoor = getDoorForExit(targetId, EXAM_OPP[examDir], player.current_zone);
+        if (examDoor) break;
+      }
     }
     if (examDoor) return describeDoor(examDoor, examDir);
   }
@@ -635,8 +638,8 @@ async function cmdExamine(targetStr, player, broadcast) {
     const zone = getZone(player.current_zone);
     const local = getZoneDoors(player.current_zone);
     const farSide = [];
-    for (const [dir, targetId] of Object.entries(zone?.exits || {})) {
-      const d = getDoorForExit(targetId, EXAM_OPP[dir]);
+    for (const { dir, target: targetId } of allExits(zone)) {
+      const d = getDoorForExit(targetId, EXAM_OPP[dir], zone?.id);
       if (d && !local.find(x => x.id === d.id)) farSide.push({ door: d, dir });
     }
     const localWithDir = local.map(d => ({ door: d, dir: d.exit_dir }));

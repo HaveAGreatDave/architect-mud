@@ -1,0 +1,14 @@
+{
+  "name": "gossip",
+  "version": "1.0.0",
+  "description": "Global rumor pool: NPCs recall real events; players ask, spread, and follow leads.",
+  "commands": ["gossip", "spread", "rumor"],
+  "routePrefix": "/gossip",
+  "hooks": [],
+  "actions": { "registers": ["gossip.ask_npc"] },
+  "events": {
+    "consumes": ["player.death", "enemy.killed", "npc.killed", "crime.witnessed", "police.dispatch", "player.drugUsed", "gossip.pokerWin", "gossip.bigBuy", "gossip.housing", "weather.thunder"],
+    "emits": ["gossip.leadFollowed"]
+  },
+  "ticks": []
+}

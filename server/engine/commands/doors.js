@@ -4,6 +4,7 @@ import { resolveLockAuth, getLockType, getAllLockTypes } from '../locks.js';
 import { propagateSound } from '../sounds.js';
 import { isOnCooldown, setCooldown, getCooldownRemaining } from '../combat.js';
 import { tagValue, tagsOf } from '../tags.js';
+import { exitTargets, allExits } from '../exits.js';
 
 const DIRECTIONS = ['north','south','east','west','up','down','in','out'];
 const OPPOSITE = { north:'south', south:'north', east:'west', west:'east', up:'down', down:'up', in:'out', out:'in' };
@@ -13,12 +14,15 @@ function findDoorEitherSide(zoneId, dir) {
   // Door in this zone going that direction (player is on the source side)
   const direct = getDoorForExit(zoneId, dir);
   if (direct) return direct;
-  // Door in the target zone going the opposite direction (door is installed on the far side)
-  // e.g. apt door goes south to lobby; from lobby going north, find getDoorForExit(apt, 'south')
+  // Door in a target zone going the opposite direction (door is installed on the
+  // far side). e.g. apt door goes south to lobby; from lobby going north, find
+  // getDoorForExit(apt, 'south'). A direction may hold several exits — check each.
   const zone = getZone(zoneId);
-  const targetId = zone?.exits?.[dir];
-  if (!targetId) return null;
-  return getDoorForExit(targetId, OPPOSITE[dir]) || null;
+  for (const targetId of exitTargets(zone, dir)) {
+    const far = getDoorForExit(targetId, OPPOSITE[dir], zoneId);
+    if (far) return far;
+  }
+  return null;
 }
 
 function resolveDoor(args, player) {
@@ -28,8 +32,8 @@ function resolveDoor(args, player) {
   const local = getZoneDoors(player.current_zone);
   const zone = getZone(player.current_zone);
   const farSide = [];
-  for (const [exitDir, targetId] of Object.entries(zone?.exits || {})) {
-    const d = getDoorForExit(targetId, OPPOSITE[exitDir]);
+  for (const { dir: exitDir, target: targetId } of allExits(zone)) {
+    const d = getDoorForExit(targetId, OPPOSITE[exitDir], zone?.id);
     if (d && !local.find(x => x.id === d.id)) farSide.push(d);
   }
   const all = [...local, ...farSide];
@@ -70,8 +74,8 @@ async function updateDoor(door, changes) {
 async function syncApartmentLock(door, lockState) {
   const isLocked = lockState === 'locked' ? 1 : 0;
   const zone = getZone(door.zone_id);
-  const targetId = zone?.exits?.[door.exit_dir];
-  for (const zid of [door.zone_id, targetId]) {
+  const farIds = door.target_zone ? [door.target_zone] : exitTargets(zone, door.exit_dir);
+  for (const zid of [door.zone_id, ...farIds]) {
     if (!zid) continue;
     const apt = getApartment(zid);
     if (!apt || apt.is_locked === isLocked) continue;

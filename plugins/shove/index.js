@@ -19,6 +19,7 @@ import {
   formatSelectionPage,
 } from '../../server/engine/sift.js';
 import { query } from '../../server/models/db.js';
+import { exitTargets } from '../../server/engine/exits.js';
 
 const DIR_ALIASES = {
   n: 'north', s: 'south', e: 'east', w: 'west', u: 'up', d: 'down',
@@ -76,7 +77,7 @@ async function cmdShove(args, raw, player, broadcast) {
   // Validate the exit BEFORE attempting the contested roll.
   const zone = getZone(player.current_zone);
   if (!zone) return { type: 'error', message: 'Your zone is missing.' };
-  const targetId = zone.exits?.[direction];
+  const targetId = exitTargets(zone, direction)[0];
   if (!targetId) {
     const cardinal = ['north', 'south', 'east', 'west'].includes(direction);
     return { type: 'error', message: cardinal ? `No exit to the ${direction}.` : `No exit ${direction}.` };
@@ -137,7 +138,7 @@ async function cmdShove(args, raw, player, broadcast) {
   broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} ${pastVerb} ${targetName} ${direction}!`, refresh: true }, player.id, null, targetPlayer ? targetPlayer.id : null);
 
   if (targetPlayer) {
-    const tRes = await cmdMove(direction, targetPlayer, broadcast, { bypassEncumbrance: true });
+    const tRes = await cmdMove(direction, targetPlayer, broadcast, { bypassEncumbrance: true, targetZoneId: targetId });
     broadcast(null, { type: 'output', message: `${player.handle} ${pastVerb} you ${direction}!` }, null, targetPlayer.id);
     if (tRes) broadcast(null, tRes, null, targetPlayer.id);
   } else if (sleeper) {
@@ -148,7 +149,7 @@ async function cmdShove(args, raw, player, broadcast) {
     broadcast(targetId, { type: 'zone_event', message: `${corpse.name} slides in.`, refresh: true });
   }
 
-  const res = await cmdMove(direction, player, broadcast, { bypassEncumbrance: true });
+  const res = await cmdMove(direction, player, broadcast, { bypassEncumbrance: true, targetZoneId: targetId });
   return res;
 }
 

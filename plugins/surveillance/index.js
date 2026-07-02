@@ -10,6 +10,7 @@
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
 import { getZone, getZonePlayers, getZoneNpcs, getZoneEnemies, getLivePlayer, spawnEnemySync, removeEnemyInstance, world } from '../../server/engine/world.js';
+import { exitTargets } from '../../server/engine/exits.js';
 import { skillCheck, awardSkillUse, effectiveSkill } from '../../server/engine/skills.js';
 import { getPowerMap } from '../../server/engine/environment.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
@@ -793,7 +794,7 @@ async function cmdPilot(args, raw, player) {
   if (!devicePowered(drone)) return { type: 'error', message: `${drone.name} is offline — dead battery.` };
 
   const zone = getZone(drone.zone_id);
-  const target = zone?.exits?.[dir];
+  const target = exitTargets(zone, dir)[0];
   if (!target) return { type: 'error', message: `${drone.name} can't go ${dir} — no exit that way.` };
 
   const chk = await skillCheck(player, 'drone_ops', 3);
@@ -989,6 +990,8 @@ async function raiseCrime(player, key, zoneId, suspectName) {
   recentCrime.set(dkey, now);
 
   const label = getCrimeLabel(key);
+  // Single-sourced witness gate: gossip listens here rather than re-deriving it.
+  emit('crime.witnessed', { player: { id: player.id, handle: player.handle }, key, zoneId, label });
   if (onCamera) flashCamera(zoneId, suspectName || player.handle, label);
   logCrime(zoneId, key);
   await raiseWanted(player, stars, label.toLowerCase());

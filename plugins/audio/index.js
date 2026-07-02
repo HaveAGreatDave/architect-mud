@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
-import { getZone, getZonePlayers } from '../../server/engine/world.js';
+import { getZone, getZonePlayers, getLivePlayer } from '../../server/engine/world.js';
+import { neighborZoneIds } from '../../server/engine/exits.js';
 import { sendToZone, sendToPlayer } from '../../server/engine/messaging.js';
 import { on, emit } from '../../server/engine/events.js';
 import { propagateAudio } from '../../server/engine/sounds.js';
@@ -129,6 +130,9 @@ on('player.login', ({ id }) => {
   const routes = eventRoutes.get('player.login');
   console.log(`[audio] player.login fired for ${id} — routes:`, routes?.length ?? 0, routes?.map(r => `scope=${r.scope} sfx=${r.sfx_id} sample=${r.sample_id}`));
   triggerEventRoute('player.login', null, id);
+  // zone.entered only fires on movement, so a freshly-connected player would
+  // hear no weather bed until their first step. Start it now, at connect.
+  reconcilePlayerWeatherAmbient(id, getLivePlayer(id)?.current_zone);
 });
 
 on('player.logout', ({ id }) => {
@@ -433,7 +437,7 @@ async function industrialBedFor(zoneId) {
   const dev = await liveDeviceInZone(zoneId);
   if (dev) return dev.object_type === 'generator' ? AMB_POWER_STATION : AMB_UTILITY_ROOM;
   const zone = getZone(zoneId);
-  for (const neighborId of new Set(Object.values(zone?.exits || {}))) {
+  for (const neighborId of new Set(neighborZoneIds(zone))) {
     const nDev = await liveDeviceInZone(neighborId);
     if (nDev?.object_type === 'generator') return AMB_POWER_STATION_FAINT;
   }
@@ -464,7 +468,7 @@ on('device.power.changed', ({ zoneId, operational, deviceType }) => {
   // must also start/stop that faint bleed for anyone standing next door.
   if (deviceType === 'generator') {
     const zone = getZone(zoneId);
-    for (const neighborId of new Set(Object.values(zone?.exits || {}))) {
+    for (const neighborId of new Set(neighborZoneIds(zone))) {
       for (const p of getZonePlayers(neighborId)) reconcileIndustrialAmbient(p.id, neighborId).catch(() => {});
     }
   }
@@ -499,10 +503,7 @@ on('item.dropped', ({ actor }) => {
 });
 
 on('weather.thunder', ({ zoneId }) => {
-  if (!triggerEventRoute('weather.thunder', zoneId, null)) {
-    const def = sfxByName('thunder');
-    if (def && zoneId) propagateAudio(zoneId, def, 1.0, (z, msg) => sendToZone(z, msg));
-  }
+  triggerEventRoute('weather.thunder', zoneId, null);
 });
 
 // ── Weather ambience (reactive) ───────────────────────────────────────────
@@ -588,7 +589,7 @@ function knownWeatherAmbientIds() {
 // competing with it; indoor mult muffles it to a "through the walls" murmur.
 const WEATHER_GAIN = 0.6;
 const INDOOR_GAIN_MULT = 0.25;
-const MUFFLE_GAIN_MULT = 0.5; // outdoor tile hearing a neighboring storm cell's rain, not its own
+const MUFFLE_GAIN_MULT = 0.5; // per-hop cut for an outdoor tile hearing a neighboring storm cell's rain, not its own — 1 tile away = 0.5, 2 tiles = 0.25, so it spreads out
 
 function isIndoorZone(zoneId) {
   const z = getZone(zoneId);
@@ -637,7 +638,7 @@ on('weather.zoneAmbience', (payload) => {
     if (desired.precip) desired.precip.gain *= INDOOR_GAIN_MULT;
     if (desired.wind)   desired.wind.gain   *= INDOOR_GAIN_MULT;
   } else if (payload.muffled && desired.precip) {
-    desired.precip.gain *= MUFFLE_GAIN_MULT;
+    desired.precip.gain *= Math.pow(MUFFLE_GAIN_MULT, payload.muffleHops || 1);
   }
   reconcileZoneSlot(zoneId, trackers, 'precip', desired.precip);
   reconcileZoneSlot(zoneId, trackers, 'wind',   desired.wind);

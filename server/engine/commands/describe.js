@@ -13,6 +13,7 @@ import {
 	getWeatherDescription,
 } from "../environment.js";
 import { getCustodianOutcastResponse } from "../mutations.js";
+import { allExits, exitTargets } from "../exits.js";
 import {
 	describeApartmentStatus,
 	describeRentStatus,
@@ -49,7 +50,7 @@ function getConnectedDestinations(zone) {
 	const buildings = [],
 		rooms = [],
 		plain = [];
-	for (const [direction, targetId] of Object.entries(zone.exits || {})) {
+	for (const { dir: direction, target: targetId } of allExits(zone)) {
 		const targetZone = getZone(targetId);
 		if (targetZone?.flags?.is_building) {
 			buildings.push({
@@ -168,6 +169,13 @@ function describeBuildingDiscovery(buildings) {
 		return template(b.name, dirPhrase);
 	});
 	return " " + sentences.join(" ");
+}
+
+// Destination display names for one direction, in stored order. Used by the
+// movement law to build the "several ways lead north" prompt when a direction
+// holds two or more exits. Falls back to the raw zone-id if a target is missing.
+export function exitDestinationNames(zone, direction) {
+	return exitTargets(zone, direction).map((id) => getZone(id)?.name || id);
 }
 
 export function resolveNamedDestination(zone, typedNameRaw) {

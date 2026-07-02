@@ -2,7 +2,8 @@ import { query } from '../../models/db.js';
 import { formatBattleCry } from '../combat.js';
 import { getZone, getMinimapData, addPlayerToZone, removePlayerFromZone, getDoorForExit, setDoorCache, getAllLivePlayers, getLivePlayer, getZoneEnemies, tryBattleCry } from '../world.js';
 import { getZoneVisibility, getWindowsForZone, getEnvironmentState, getZoneTemperature, getZoneSeverity } from '../environment.js';
-import { describeZone, resolveNamedDestination } from './describe.js';
+import { describeZone, resolveNamedDestination, exitDestinationNames } from './describe.js';
+import { exitTargets, allExits, primaryExits } from '../exits.js';
 import { checkLockAuth, getLockTagPublic } from './doors.js';
 import { emit } from '../events.js';
 import { closeShopSession } from '../vendor-session.js';
@@ -141,10 +142,10 @@ function cmdLookDistance(player) {
   if (vis.category === 'pitch_dark') return { type: 'examine', message: "It's too dark to make out anything in the distance." };
   const zone = getZone(player.current_zone);
   if (!zone) return { type: 'examine', message: 'You see nothing in the distance.' };
-  const exits = Object.entries(zone.exits || {});
+  const exits = allExits(zone);
   if (!exits.length) return { type: 'examine', message: 'No obvious exits lead away from here.' };
-  const parts = exits.map(([dir, id]) => {
-    const z = getZone(id);
+  const parts = exits.map(({ dir, target }) => {
+    const z = getZone(target);
     return z ? `to the ${dir}: ${z.name}` : `to the ${dir}: somewhere`;
   });
   return { type: 'examine', message: `Looking into the distance you can make out — ${parts.join('; ')}.` };
@@ -190,7 +191,7 @@ async function cmdGo(argText, player, broadcast) {
   const zone = getZone(player.current_zone);
   if (!zone) return { type: 'error', message: 'Your zone is missing.' };
   const resolved = resolveNamedDestination(zone, argText);
-  if (resolved.type === 'unique') return cmdMove(resolved.match.direction, player, broadcast);
+  if (resolved.type === 'unique') return cmdMove(resolved.match.direction, player, broadcast, { targetZoneId: resolved.match.targetId });
   if (resolved.type === 'ambiguous') {
     const names = resolved.candidates.map(c => c.name).join(', ');
     return { type: 'error', message: `That could mean several things here: ${names}. Try being more specific.` };
@@ -235,23 +236,36 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
   if (!direction) return { type:'error', message:'Go where? (north, south, east, west, up, down)' };
   const zone = getZone(player.current_zone);
   if (!zone) return { type:'error', message:'Your zone is missing.' };
-  let targetId = zone.exits[direction];
-  if (!targetId && (direction === 'in' || direction === 'out' || direction === 'exit')) {
-    const exitEntries = Object.entries(zone.exits || {});
-    if (exitEntries.length === 1) {
-      direction = exitEntries[0][0];
-      targetId = exitEntries[0][1];
+  let targets = exitTargets(zone, direction);
+  if (!targets.length && (direction === 'in' || direction === 'out' || direction === 'exit')) {
+    const all = allExits(zone);
+    if (all.length === 1) {
+      direction = all[0].dir;
+      targets = [all[0].target];
     }
   }
-  if (!targetId) {
+  if (!targets.length) {
     const cardinal = ['north', 'south', 'east', 'west'].includes(direction);
     return { type:'error', message: cardinal ? `No exit to the ${direction}.` : `No exit ${direction}.` };
+  }
+
+  // Resolve which exit when a direction holds several. An explicit target (from
+  // name-based navigation, e.g. `go bar`) picks directly; a bare ambiguous
+  // direction asks the player to name the destination.
+  let targetId;
+  if (opts.targetZoneId && targets.includes(opts.targetZoneId)) {
+    targetId = opts.targetZoneId;
+  } else if (targets.length === 1) {
+    targetId = targets[0];
+  } else {
+    const names = exitDestinationNames(zone, direction).join(', ');
+    return { type:'error', message: `Several ways lead ${direction}: ${names}. Try "go <name>".` };
   }
   const targetZone = getZone(targetId);
   if (!targetZone) return { type:'error', message:'That exit leads nowhere yet.' };
 
   // Door may be on either side: in this zone going out, or in the target zone going back
-  let door = getDoorForExit(zone.id, direction) || getDoorForExit(targetId, OPPOSITE[direction]) || null;
+  let door = getDoorForExit(zone.id, direction, targetId) || getDoorForExit(targetId, OPPOSITE[direction], zone.id) || null;
 
   // Gate chain: pure vetoes (engine laws below + plugin-registered gates) run
   // before anything mutates. Previously the door opened before the encumbrance
@@ -433,7 +447,7 @@ async function cmdMap(player) {
     const placed = new Set(onMap.map(z => z.id));
     const tiles = onMap.map(z => {
       const links = {};
-      for (const [dir, target] of Object.entries(z.exits || {})) {
+      for (const [dir, target] of Object.entries(primaryExits(z))) {
         if (placed.has(target)) links[dir] = target;
       }
       return {
@@ -456,7 +470,7 @@ async function cmdMap(player) {
     const zone = getZone(id);
     if (!zone) continue;
     const [cx, cy] = coords.get(id);
-    for (const [dir, targetId] of Object.entries(zone.exits || {})) {
+    for (const [dir, targetId] of Object.entries(primaryExits(zone))) {
       if (coords.has(targetId)) continue;
       const off = MAP_DIR_OFFSET[dir];
       if (!off) continue;
@@ -471,7 +485,7 @@ async function cmdMap(player) {
     const zone = getZone(id);
     if (!zone) continue;
     const links = {};
-    for (const [dir, target] of Object.entries(zone.exits || {})) {
+    for (const [dir, target] of Object.entries(primaryExits(zone))) {
       if (visited.has(target) && MAP_DIR_OFFSET[dir]) links[dir] = target;
     }
     tiles.push({

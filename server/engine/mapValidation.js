@@ -15,6 +15,7 @@
 // cell-flagging, but this is the gate every save passes through.
 
 import { OPPOSITE, DIR_OFFSET } from './directions.js';
+import { allExits, exitTargets } from './exits.js';
 
 // zones: array of { id, map_id, grid_x, grid_y, grid_z, exits }.
 // exitsOverride: optional { zoneId: exitsObj } applied on top of each zone's
@@ -36,7 +37,7 @@ export function validateMapLayout(zones, exitsOverride = {}) {
   const errors = [];
   const warnings = [];
   for (const z of byId.values()) {
-    for (const [dir, targetId] of Object.entries(z.exits || {})) {
+    for (const { dir, target: targetId } of allExits(z)) {
       const target = byId.get(targetId);
       if (!target) {
         errors.push({ zoneId: z.id, direction: dir, targetId, reason: 'dangling' });
@@ -56,7 +57,7 @@ export function validateMapLayout(zones, exitsOverride = {}) {
         // cross-map (portal) exits are exempt from the geometry rule.
       }
       const opp = OPPOSITE[dir];
-      if (opp && (target.exits || {})[opp] !== z.id) {
+      if (opp && !exitTargets(target, opp).includes(z.id)) {
         warnings.push({ zoneId: z.id, direction: dir, targetId, reason: 'missing-reciprocal' });
       }
     }

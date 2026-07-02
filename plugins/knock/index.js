@@ -1,5 +1,6 @@
 import { getZone } from '../../server/engine/world.js';
 import { sendToZone } from '../../server/engine/messaging.js';
+import { exitTargets } from '../../server/engine/exits.js';
 
 const DIR_ALIASES = {
   n: 'north', s: 'south', e: 'east', w: 'west', u: 'up', d: 'down',
@@ -74,7 +75,7 @@ async function cmdKnock(args, raw, player, broadcast) {
   const zone = getZone(player.current_zone);
   if (!zone) return { type: 'error', message: 'Your zone is missing.' };
 
-  const targetId = zone.exits?.[direction];
+  const targetId = exitTargets(zone, direction)[0];
   if (!targetId) {
     const cardinal = ['north', 'south', 'east', 'west'].includes(direction);
     return { type: 'error', message: cardinal ? `There's no door to the ${direction}.` : `There's no door ${direction}.` };

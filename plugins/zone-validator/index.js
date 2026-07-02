@@ -1,5 +1,6 @@
 import { query } from '../../server/models/db.js';
 import { world } from '../../server/engine/world.js';
+import { allExits, neighborZoneIds, addExit } from '../../server/engine/exits.js';
 
 async function fetchAllZones() {
   const { rows } = await query('SELECT id, exits, flags FROM zones');
@@ -20,7 +21,7 @@ function auditExits(zone, allZoneIds) {
   const seen = new Map(); // destId → first direction that claimed it
   const cleanedExits = {};
 
-  for (const [dir, destId] of Object.entries(exits)) {
+  for (const { dir, target: destId } of allExits(zone)) {
     let issueType = null;
 
     if (!destId) {
@@ -37,7 +38,7 @@ function auditExits(zone, allZoneIds) {
       issues.push({ type: issueType, dir, destId: destId || null, firstDir: issueType === 'duplicate_dest' ? seen.get(destId) : undefined });
     } else {
       seen.set(destId, dir);
-      cleanedExits[dir] = destId;
+      addExit(cleanedExits, dir, destId);
     }
   }
 
@@ -81,7 +82,7 @@ async function _runFull(opts = {}) {
   const needsManualReview = [];
 
   for (const zone of zones) {
-    totalExits += Object.keys(zone.exits || {}).length;
+    totalExits += allExits(zone).length;
     const result = await validateOne(zone, allZoneIds, autoRepair);
     allIssues.push(...result.issues);
     totalRepairs += result.repairsMade;
@@ -121,8 +122,7 @@ async function _runFull(opts = {}) {
       needsManualReview.push(b.id);
       continue;
     }
-    const exits = extZone.exits || {};
-    const hasLink = Object.values(exits).includes(b.id);
+    const hasLink = neighborZoneIds(extZone).includes(b.id);
     if (!hasLink) {
       allIssues.push({ type: 'building_entrance_broken', zoneId: b.id, dir: null, destId: b.world_exit_zone, repaired: false });
       needsManualReview.push(b.id);
@@ -239,7 +239,7 @@ async function runZone(zoneId, opts = {}) {
   const result = await validateOne(zone, allZoneIds, autoRepair);
   return {
     zonesScanned: 1,
-    exitsScanned: Object.keys(zone.exits || {}).length,
+    exitsScanned: allExits(zone).length,
     issues: result.issues,
     totalRepairs: result.repairsMade,
     needsManualReview: !autoRepair && result.issues.length > 0 ? [zoneId] : [],

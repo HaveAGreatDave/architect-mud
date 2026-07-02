@@ -11,7 +11,7 @@
 let canvas = null;
 let ctx = null;
 let running = false;
-let enabled = true;              // Settings gate (weatherFx on + motion on)
+let enabled = false;             // Settings gate (weatherFx on + motion on); default off until settings apply
 
 // Current effect descriptor: { effect, intensity, windKph }. `effect` is one of
 // 'rain' | 'snow' | 'ash' | 'fog' | 'none'; intensity is 0..1.
@@ -21,6 +21,21 @@ let particles = [];
 let fogBlobs = [];
 let lastT = 0;
 let paneRect = { left: 0, top: 0, width: 0, height: 0 };
+
+// Rain stroke colour, swapped by theme so drops stay legible on both dark and
+// light backgrounds (pale blue on dark, deep blue on light). Refreshed whenever
+// the loop (re)starts or reseeds, which covers storm-start and effect changes.
+let rainRGB = '178,203,235';
+function bgIsLight() {
+  const c = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+  const m = /^#?([0-9a-f]{6})$/i.exec(c);
+  if (!m) return false;
+  const n = parseInt(m[1], 16);
+  return (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) > 140;
+}
+function refreshThemeColors() {
+  rainRGB = bgIsLight() ? '54,88,132' : '178,203,235';
+}
 
 function ensureCanvas() {
   if (canvas) return canvas;
@@ -59,7 +74,9 @@ function syncRect() {
 function targetCount() {
   const area = paneRect.width * paneRect.height;
   const density = area / 9000; // ~1 particle per 9k px² at full intensity
-  if (cur.effect === 'rain') return Math.round(density * (0.35 + 0.9 * cur.intensity));
+  // Rain keeps a healthy floor (0.9·density) so even a light drizzle reads as
+  // rain, then scales up with intensity — always visible in every condition.
+  if (cur.effect === 'rain') return Math.round(density * (0.9 + 1.6 * cur.intensity));
   if (cur.effect === 'snow') return Math.round(density * (0.2 + 0.5 * cur.intensity));
   if (cur.effect === 'ash')  return Math.round(density * (0.15 + 0.35 * cur.intensity));
   if (cur.effect === 'wind') return Math.round(density * (0.03 + 0.05 * cur.intensity));
@@ -74,8 +91,8 @@ function spawnParticle(fromTop) {
   if (cur.effect === 'rain') {
     return {
       x: rand(-0.1 * w, w), y: fromTop ? rand(-h, 0) : rand(0, h),
-      len: rand(8, 16) * (0.7 + cur.intensity), vy: rand(600, 900) * (0.6 + cur.intensity),
-      vx: (120 + 300 * wind), a: rand(0.25, 0.5),
+      len: rand(10, 18) * (0.7 + cur.intensity), vy: rand(600, 900) * (0.6 + cur.intensity),
+      vx: (120 + 300 * wind), a: rand(0.45, 0.8),
     };
   }
   if (cur.effect === 'snow') {
@@ -105,6 +122,7 @@ function spawnParticle(fromTop) {
 }
 
 function reseed() {
+  refreshThemeColors();
   particles = [];
   fogBlobs = [];
   if (cur.effect === 'fog') {
@@ -149,8 +167,8 @@ function draw(dt) {
   if (particles.length > want) particles.length = want;
 
   if (cur.effect === 'rain') {
-    ctx.strokeStyle = 'rgba(150,180,210,0.5)';
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = `rgba(${rainRGB},1)`;   // per-particle alpha is the only attenuation
+    ctx.lineWidth = 1.4;
     for (const p of particles) {
       p.x += p.vx * dt; p.y += p.vy * dt;
       if (p.y > h || p.x > w + 20) { Object.assign(p, spawnParticle(true)); continue; }
@@ -241,7 +259,7 @@ export function setWeatherFx({ effect, intensity, windKph }) {
 export function setWeatherFxEnabled(on) {
   enabled = !!on;
   if (!enabled) stopLoop();
-  else startLoop();
+  else { refreshThemeColors(); startLoop(); }  // refresh even if already running (theme switch)
 }
 
 export function initWeatherFx() {

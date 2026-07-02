@@ -1,0 +1,322 @@
+// plugins/gossip/index.js
+//
+// Gossip — a global rumour pool fed by real in-game events. NPCs recall the
+// juiciest, most recent, most local item when a player asks; players can plant
+// their own rumours (true or false); and items carry optional "leads" (a dim
+// hint pointing at a zone/subject) so gossip is worth chasing, not just flavour.
+//
+// Propagation is "global pool + local recall": events drop into one shared pool
+// (pool.js) and locality is a recall-time weighting, never NPC-to-NPC travel.
+//
+// Seams used: the event bus (on/emit), formatChitchat for NPC speech, SIFT for
+// "ask <npc>", the deception skill for rumour believability, a player Flag for
+// the spread cooldown, and getPowerMap diffing in the tick for blackout news.
+
+import { on, emit } from '../../server/engine/events.js';
+import { getZone, getZoneNpcs, world } from '../../server/engine/world.js';
+import { formatChitchat } from '../../server/engine/ai-behaviour.js';
+import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
+import { registerInputMatcher } from '../../server/engine/plugins.js';
+import { registerAction } from '../../server/engine/actions.js';
+import { skillCheck } from '../../server/engine/skills.js';
+import { getFlag, setFlag } from '../../server/engine/flags.js';
+import { getPowerMap } from '../../server/engine/environment.js';
+import { neighborZoneIds } from '../../server/engine/exits.js';
+import { sendToZone } from '../../server/engine/messaging.js';
+import * as pool from './pool.js';
+import { TEMPLATES, renderItem } from './templates.js';
+
+// ── Tunables ────────────────────────────────────────────────────────────────
+const TICK_MS             = 60_000;   // gc + power-diff + ambient cadence
+const AMBIENT_CHANCE      = 0.06;     // per witnessed zone per tick, unprompted gossip
+const SPREAD_COOLDOWN_MS  = 60_000;   // between a player's own planted rumours
+const DEDUP_MS            = 10_000;   // collapse duplicate events for the same subject/zone
+
+const zn = (id) => getZone(id)?.name || 'somewhere';
+
+// Zone-graph BFS hop distance, bounded by maxHops (used for recall proximity).
+function hopDistance(fromZone, toZone, maxHops) {
+  if (fromZone === toZone) return 0;
+  const seen = new Set([fromZone]);
+  let frontier = [fromZone];
+  for (let d = 1; d <= maxHops; d++) {
+    const next = [];
+    for (const z of frontier) {
+      const zone = getZone(z);
+      if (!zone) continue;
+      for (const nb of neighborZoneIds(zone)) {
+        if (nb === toZone) return d;
+        if (seen.has(nb)) continue;
+        seen.add(nb);
+        next.push(nb);
+      }
+    }
+    frontier = next;
+    if (!frontier.length) break;
+  }
+  return Infinity;
+}
+
+// ── Ingestion ─────────────────────────────────────────────────────────────────
+const recent = new Map();
+function deduped(key) {
+  const now = Date.now();
+  if (now - (recent.get(key) || 0) < DEDUP_MS) return false;
+  recent.set(key, now);
+  return true;
+}
+
+function add(templateKey, { zoneId, subjectName, subjectId, vars, lead } = {}) {
+  const t = TEMPLATES[templateKey];
+  if (!t) return;
+  pool.addItem({ category: t.category, templateKey, reach: t.reach, heat: t.heat,
+    zoneId, subjectName, subjectId, vars, lead });
+}
+
+on('player.death', ({ player, killer }) => {
+  if (!player?.id) return;
+  const zoneId = player.current_zone;
+  if (!deduped(`kill_player:${player.id}`)) return;
+  add('kill_player', {
+    zoneId, subjectName: player.handle, subjectId: player.id,
+    vars: { victim: player.handle, killer: killer?.handle || killer?.name || 'someone', zone: zn(zoneId) },
+    lead: { kind: 'loot', zoneId, hint: `${player.handle} dropped everything around ${zn(zoneId)}` },
+  });
+});
+
+on('enemy.killed', ({ actor, enemy }) => {
+  if (!actor?.handle || !enemy) return;
+  const zoneId = actor.current_zone;
+  if (!deduped(`kill_enemy:${zoneId}`)) return;
+  add('kill_enemy', { zoneId, subjectName: actor.handle,
+    vars: { killer: actor.handle, victim: enemy.name, zone: zn(zoneId) } });
+});
+
+on('npc.killed', ({ actor, npc }) => {
+  if (!npc) return;
+  const zoneId = actor?.current_zone || npc.zone_id;
+  if (!deduped(`kill_npc:${npc.id}`)) return;
+  add('kill_npc', { zoneId, subjectName: npc.name,
+    vars: { killer: actor?.handle || 'someone', victim: npc.name, zone: zn(zoneId) } });
+});
+
+// Witness-gated in surveillance's raiseCrime — we only hear about ones that stuck.
+on('crime.witnessed', ({ player, key, zoneId, label }) => {
+  if (!player?.id) return;
+  if (!deduped(`crime:${player.id}:${key}`)) return;
+  add('crime', {
+    zoneId, subjectName: player.handle, subjectId: player.id,
+    vars: { suspect: player.handle, label: (label || 'a crime').toLowerCase(), zone: zn(zoneId) },
+    lead: { kind: 'target', targetId: player.id, zoneId, hint: `${player.handle} was last seen around ${zn(zoneId)}` },
+  });
+});
+
+on('police.dispatch', ({ zoneId, reason, suspect }) => {
+  if (!suspect) return;
+  if (!deduped(`dispatch:${suspect}:${zoneId}`)) return;
+  add('crime', {
+    zoneId, subjectName: suspect,
+    vars: { suspect, label: (reason || 'trouble').toLowerCase(), zone: zn(zoneId) },
+    lead: { kind: 'target', zoneId, hint: `${suspect} was last seen around ${zn(zoneId)}` },
+  });
+});
+
+on('player.drugUsed', ({ player, illegal, zoneId }) => {
+  if (!player?.id || !illegal) return;
+  const z = zoneId || player.current_zone;
+  if (!deduped(`drug:${player.id}`)) return;
+  add('crime', { zoneId: z, subjectName: player.handle, subjectId: player.id,
+    vars: { suspect: player.handle, label: 'using out in the open', zone: zn(z) } });
+});
+
+on('gossip.pokerWin', ({ player, amount, zoneId }) => {
+  if (!player?.id) return;
+  add('poker_win', { zoneId, subjectName: player.handle, subjectId: player.id,
+    vars: { subject: player.handle, amount, zone: zn(zoneId) } });
+});
+
+on('gossip.bigBuy', ({ player, itemName, price, zoneId }) => {
+  if (!player?.id) return;
+  add('big_buy', { zoneId, subjectName: player.handle, subjectId: player.id,
+    vars: { subject: player.handle, item: itemName, amount: price, zone: zn(zoneId) } });
+});
+
+on('gossip.housing', ({ player, zoneId }) => {
+  if (!player?.id) return;
+  add('housing', { zoneId, subjectName: player.handle, subjectId: player.id,
+    vars: { subject: player.handle, zone: zn(zoneId) } });
+});
+
+on('weather.thunder', ({ zoneId }) => {
+  if (!zoneId || !deduped(`storm:${zoneId}`)) return;
+  add('storm', { zoneId, vars: { zone: zn(zoneId) } });
+});
+
+// ── Telling ─────────────────────────────────────────────────────────────────
+const stripQuotes = (s) => s.trim().replace(/^"|"$/g, '');
+
+// An NPC eligible to gossip: alive, not fighting, not mid-shop, not muzzled.
+function gossipNpcs(zoneId) {
+  return (getZoneNpcs(zoneId) || []).filter(n =>
+    n && !n._dead && !n._combatTargetId && !n._ai?.shopPaused && !n.flags?.no_banter);
+}
+
+function spokenLine(item) {
+  let line = renderItem(item);
+  if (!line) return null;
+  // A poorly-planted (low-truth) rumour is repeated with an audible shrug.
+  if (item.planted && item.truth < 0.5) line = `"Somebody's been saying ${stripQuotes(line)}. Could be nothing."`;
+  return line;
+}
+
+// The dim follow-up hint that makes a lead worth chasing. Flavour only in v1;
+// FUTURE: a `follow`/bounty verb would consume the lead and emit gossip.leadFollowed.
+function leadHint(item) {
+  const hint = item.lead?.hint;
+  return hint ? { type: 'output', message: `<span class="text-dim">(${hint}.)</span>` } : null;
+}
+
+function speakGossip(player, npc, broadcast) {
+  const zoneId = player.current_zone;
+  const [item] = pool.recall(zoneId, { n: 1, distanceFn: hopDistance });
+  if (!item) {
+    const shrug = formatChitchat(npc.name, `shrugs. "Haven't heard anything worth repeating."`);
+    broadcast?.(zoneId, shrug, player.id);
+    return shrug;
+  }
+  const line = spokenLine(item);
+  const msg = formatChitchat(npc.name, line);
+  broadcast?.(zoneId, msg, player.id);
+  const hint = leadHint(item);
+  if (hint) return { type: 'output', message: `${msg.message}\n${hint.message}` };
+  return msg;
+}
+
+// ── Verbs ─────────────────────────────────────────────────────────────────────
+
+// gossip            → a random talkative NPC in the room shares the word
+// gossip <npc>      → ask a specific NPC
+function cmdGossip(args, raw, player, broadcast) {
+  const zoneId = player.current_zone;
+  const targetStr = args.join(' ').trim();
+
+  if (targetStr) {
+    const r = siftResolve(targetStr, getZoneNpcs(zoneId) || []);
+    if (r.type === 'none') return { type: 'error', message: `There's no "${targetStr}" here to ask.` };
+    if (r.type === 'ambiguous') {
+      createSelectionState(player.id, r.candidates, { dispatchType: 'gossip.ask_npc', dispatchParam: 'target' });
+      return { type: 'output', message: formatSelectionPage({ allCandidates: r.candidates, visibleIndex: 0, pageSize: 5 }) };
+    }
+    return speakGossip(player, r.candidate, broadcast);
+  }
+
+  const npcs = gossipNpcs(zoneId);
+  if (!npcs.length) return { type: 'output', message: "There's nobody around here to gossip with." };
+  return speakGossip(player, npcs[Math.floor(Math.random() * npcs.length)], broadcast);
+}
+
+// ask <npc> about gossip|rumours|news|word
+function cmdAskAbout(args, raw, player, broadcast) {
+  const m = raw.match(/^ask\s+(.+?)\s+about\s+(?:gossip|rumou?rs?|news|word)\s*$/i);
+  if (!m) return undefined;
+  const r = siftResolve(m[1], getZoneNpcs(player.current_zone) || []);
+  if (r.type === 'none') return { type: 'error', message: `There's no "${m[1]}" here.` };
+  if (r.type === 'ambiguous') {
+    createSelectionState(player.id, r.candidates, { dispatchType: 'gossip.ask_npc', dispatchParam: 'target' });
+    return { type: 'output', message: formatSelectionPage({ allCandidates: r.candidates, visibleIndex: 0, pageSize: 5 }) };
+  }
+  return speakGossip(player, r.candidate, broadcast);
+}
+
+// spread <text> / rumor <text> — plant a rumour. Believability rides a deception
+// check: a good con reads as true and gets repeated; a botch still plants, but weak.
+async function cmdSpread(args, raw, player, broadcast) {
+  const text = raw.replace(/^\s*(spread|rumou?r)\s+/i, '').trim();
+  if (!text) return { type: 'error', message: 'Spread what? Try: spread <the word on the street>.' };
+  if (text.length > 200) return { type: 'error', message: 'Keep it short — nobody repeats a speech.' };
+
+  const until = Number(await getFlag('player', 'gossip_spread_until', player)) || 0;
+  if (Date.now() < until) {
+    return { type: 'error', message: `You've been running your mouth too much. Give it ${Math.ceil((until - Date.now()) / 1000)}s.` };
+  }
+
+  const check = await skillCheck(player, 'deception', 5);
+  const truth = Math.max(0.1, Math.min(0.95, 0.3 + check.margin * 0.05));
+  pool.plant({ text, zoneId: player.current_zone, truth, subjectName: player.handle });
+  await setFlag('player', 'gossip_spread_until', String(Date.now() + SPREAD_COOLDOWN_MS), player);
+
+  broadcast?.(player.current_zone, { type: 'zone_event', message: `${player.handle} mutters something to the people nearby.` }, player.id);
+  return { type: 'output', message: check.success
+    ? 'You lean in and let it slip, just quiet enough to travel. It lands as true — people will pass it on.'
+    : 'You put the word out, but it comes out clumsy. Most who hear it just raise an eyebrow.' };
+}
+
+// Ambiguous "ask <npc>" / "gossip <npc>" replay lands here with the chosen NPC.
+registerAction({
+  type: 'gossip.ask_npc',
+  handler: ({ actor, params, context }) => speakGossip(actor, params.target, context.broadcast),
+});
+
+registerInputMatcher(/^ask\s+.+\s+about\s+(?:gossip|rumou?rs?|news|word)\s*$/i, cmdAskAbout, 'gossip');
+
+// ── Tick: gc + blackout news + ambient gossip ──────────────────────────────────
+const lastPower = new Map();
+
+function gossipTick() {
+  pool.gc();
+
+  // Blackout / power-restored news, derived by diffing the power map (no engine emit).
+  for (const e of getPowerMap()) {
+    const powered = (s) => s === 'powered' || s === 'overloaded';
+    const prev = lastPower.get(e.zoneId);
+    if (prev !== undefined && powered(prev) !== powered(e.status)) {
+      add(powered(e.status) ? 'power_back' : 'blackout', { zoneId: e.zoneId, vars: { zone: zn(e.zoneId) } });
+    }
+    lastPower.set(e.zoneId, e.status);
+  }
+
+  // Unprompted gossip — low chance, only in zones with a player watching.
+  if (AMBIENT_CHANCE <= 0) return;
+  for (const [zoneId, zone] of world.zones) {
+    if (!zone.players || zone.players.size === 0) continue;
+    if (Math.random() > AMBIENT_CHANCE) continue;
+    const npcs = gossipNpcs(zoneId);
+    if (!npcs.length) continue;
+    const [item] = pool.recall(zoneId, { n: 1, distanceFn: hopDistance });
+    if (!item) continue;
+    const line = spokenLine(item);
+    if (line) sendToZone(zoneId, formatChitchat(npcs[Math.floor(Math.random() * npcs.length)].name, line));
+  }
+}
+
+setInterval(() => { try { gossipTick(); } catch (e) { console.error('[gossip] tick error:', e.message); } }, TICK_MS);
+
+// ── Dev-panel route: live gossip pool inspector (read-only) ────────────────────
+const esc = (s) => String(s ?? '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+
+export const routeHandler = async (path, method, body, auth) => {
+  if (!path.startsWith('/gossip')) return null;
+  if (!auth || !['dev', 'admin', 'builder', 'designer'].includes(auth.role)) {
+    return { status: 403, body: { error: 'Dev access required' } };
+  }
+  if (path === '/gossip' && method === 'GET') {
+    const now = Date.now();
+    const rows = pool.all().map((i) => ({
+      id: i.id,
+      category: i.category,
+      subject: esc(i.subjectName || '—'),
+      zone: esc(getZone(i.zoneId)?.name || i.zoneId || '—'),
+      text: esc(renderItem(i) || ''),
+      strength: Number(pool.weight(i, i.zoneId, null, now).toFixed(3)),
+      reach: i.reach,
+      planted: i.planted,
+      truth: i.planted ? Number(i.truth.toFixed(2)) : null,
+      age_s: Math.round((now - i.ts) / 1000),
+      lead: i.lead?.kind || '',
+    })).sort((a, b) => b.strength - a.strength);
+    return { status: 200, body: rows };
+  }
+  return null;
+};
+
+export const commands = { gossip: cmdGossip, spread: cmdSpread, rumor: cmdSpread };

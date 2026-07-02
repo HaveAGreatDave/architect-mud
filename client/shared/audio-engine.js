@@ -418,7 +418,10 @@
 
     const naturalDuration = buf.duration / rate;
     const isLooping = (def.loop_end ?? 0) > 0;
-    const releaseTime = adsr.r ?? 0.3;
+    // Floor the release so a sample always fades out rather than snapping off at its
+    // buffer end — samples authored with r:0 (percussive one-shots, every MOD sample)
+    // would otherwise hard-cut. 60ms declicks the tail without eating the transient.
+    const releaseTime = Math.max(0.06, adsr.r ?? 0.3);
     const holdSec = isLooping
       ? (def.config?.duration ?? 4)
       : Math.max(0, naturalDuration - (adsr.a ?? 0.01) - (adsr.d ?? 0) - releaseTime);
@@ -446,7 +449,7 @@
     srcNode.start(schedTime);
     srcNode.stop(endAt);
 
-    gainNode.gain.setTargetAtTime(0, releaseAt, Math.max(0.01, (adsr.r ?? 0.3) / 3));
+    gainNode.gain.setTargetAtTime(0, releaseAt, Math.max(0.01, releaseTime / 3));
 
     const stopFn = () => {
       gainNode.gain.cancelScheduledValues(c.currentTime);

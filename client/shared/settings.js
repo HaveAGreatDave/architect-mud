@@ -1,6 +1,6 @@
 const SETTINGS_KEY = 'architect_settings';
 const DEFAULT_AUDIO_SETTINGS = { enabled: false, music: false, sfx: false, tv: false, masterVolume: 0.8, musicVolume: 0.7, sfxVolume: 0.9, ambientVolume: 0.5, tvVolume: 0.6, muteWhenHidden: true };
-const DEFAULT_SETTINGS = { theme: 'dark', fontSize: '14', density: 'comfortable', sidebarPosition: 'left', motion: 'on', weatherFx: 'on', tempUnit: 'C', contrast: 0, dpadSize: 'small', pokerFelt: 'green', pokerFeltColor: '#1a4a1a', audio: DEFAULT_AUDIO_SETTINGS };
+const DEFAULT_SETTINGS = { theme: 'dark', fontSize: '14', density: 'comfortable', sidebarPosition: 'left', motion: 'on', weatherFx: 'off', tempUnit: 'C', contrast: 0, dpadSize: 'small', pokerFelt: 'green', pokerFeltColor: '#1a4a1a', audio: DEFAULT_AUDIO_SETTINGS };
 
 const DEFAULT_FELT_GREEN = '#1a4a1a';
 
@@ -286,7 +286,7 @@ export function applySettings(settings) {
 
   // Weather FX overlay gate — off if the setting is off OR Motion is off (the FX
   // is animation). The game client registers the hook; other clients ignore it.
-  window._applyWeatherFx?.((settings.weatherFx || 'on') !== 'off' && (settings.motion || 'on') !== 'off');
+  window._applyWeatherFx?.((settings.weatherFx || 'off') !== 'off' && (settings.motion || 'on') !== 'off');
 
   const audio = settings.audio || DEFAULT_AUDIO_SETTINGS;
   window.AudioEngine?.applyVolumeSettings(audio);

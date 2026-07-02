@@ -23,7 +23,10 @@ import { readdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
-import { initWorld, setLivePlayer, removeLivePlayer, addPlayerToZone, removePlayerFromZone, getAllZones, getLivePlayer } from '../server/engine/world.js';
+import { initWorld, setLivePlayer, removeLivePlayer, addPlayerToZone, removePlayerFromZone, getAllZones, getLivePlayer, world } from '../server/engine/world.js';
+import { exitTargets, allExits, neighborZoneIds, addExit, removeExit } from '../server/engine/exits.js';
+import { cmdMove } from '../server/engine/commands/movement.js';
+import { resolveNamedDestination } from '../server/engine/commands/describe.js';
 import { loadPlugins, getLoadedPlugins, getRegisteredCommands, getRegisteredHooks } from '../server/engine/plugins.js';
 import { loadMisSettings } from '../server/engine/mis.js';
 import { handleCommand } from '../server/engine/commands/index.js';
@@ -141,6 +144,54 @@ check('blocked move does not relocate', getPlayer().current_zone === before, get
 getPlayer().stat_brawn = 5;
 r = await run(dir);
 check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current_zone !== before, `type=${r?.type} zone=${getPlayer().current_zone}`);
+
+// Multi-exit substrate: exits.js accessor normalizes the string|array split, and
+// the movement law asks the player to disambiguate a direction with 2+ exits.
+{
+  // Accessor unit checks (pure — the polymorphism contract lives in one file).
+  const single = { exits: { north: 'z_a' } };
+  const multi  = { exits: { north: ['z_a', 'z_b'], east: 'z_c' } };
+  check('exitTargets: string → [id]', JSON.stringify(exitTargets(single, 'north')) === '["z_a"]');
+  check('exitTargets: array passthrough', JSON.stringify(exitTargets(multi, 'north')) === '["z_a","z_b"]');
+  check('exitTargets: missing → []', exitTargets(single, 'south').length === 0);
+  check('allExits: flattens multi-dir', allExits(multi).length === 3);
+  check('neighborZoneIds: flat targets', JSON.stringify(neighborZoneIds(multi)) === '["z_a","z_b","z_c"]');
+  const m = { north: 'z_a' };
+  addExit(m, 'north', 'z_b');
+  check('addExit: single → array on second', Array.isArray(m.north) && m.north.length === 2);
+  removeExit(m, 'north', 'z_b');
+  check('removeExit: collapses back to string', m.north === 'z_a');
+  removeExit(m, 'north', 'z_a');
+  check('removeExit: empties the direction', !('north' in m));
+
+  // Behavioural: a synthetic origin with two "north" exits to real interior zones.
+  const interiors = zones.filter(z => (z.flags?.is_interior || z.flags?.is_apartment) && z.name);
+  const uniqByName = [...new Map(interiors.map(z => [z.name.toLowerCase(), z])).values()];
+  if (uniqByName.length >= 2) {
+    const [A, B] = uniqByName;
+    const originId = 'zone_regress_multiexit_' + process.pid;
+    world.zones.set(originId, {
+      id: originId, name: 'Regress Fork', flags: { is_interior: true },
+      exits: { north: [A.id, B.id] }, players: new Set(), npcs: new Set(), enemies: new Set(),
+    });
+    const mover = getPlayer();
+    const savedZone = mover.current_zone;
+    mover.current_zone = originId;
+
+    const amb = await cmdMove('north', mover, broadcast);
+    check('ambiguous direction → prompt', amb?.type === 'error' && /Several ways lead north/.test(amb.message || ''), amb?.message?.slice?.(0, 120));
+    check('ambiguous move does not relocate', mover.current_zone === originId, mover.current_zone);
+
+    // SIFT: naming the destination resolves to that specific same-direction exit.
+    const res = resolveNamedDestination(world.zones.get(originId), A.name);
+    check('name resolves to a specific same-dir exit', res?.type === 'unique' && res.match.targetId === A.id, JSON.stringify(res)?.slice?.(0, 120));
+
+    mover.current_zone = savedZone;
+    world.zones.delete(originId);
+  } else {
+    check('multi-exit behavioural (needs 2 named interiors)', true, 'skipped — insufficient interior zones');
+  }
+}
 
 // ── Layer 3: per-plugin suites (plugins/<name>/regress.js) ───────────────────
 console.log('— layer 3: plugin suites —');

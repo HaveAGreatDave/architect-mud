@@ -158,22 +158,29 @@ async function refreshDoorList(zoneId) {
     </div>`;
   }).join('') : '<div class="zone-subitem-empty">No doors here.</div>';
 
-  // Refresh the exit direction dropdown to reflect which exits are now used
+  // Refresh the exit dropdown to reflect which exits are now used. A door binds
+  // to one exit (dir + target); value encodes "dir|targetId". A legacy door with
+  // no target_zone occupies its whole direction.
   const exitSelect = document.getElementById('door-exit-select');
   if (exitSelect) {
-    const usedDirs = new Set(doors.map(d => d.exit_dir));
-    const availableExits = Object.keys(zoneEditExitsState).filter(d => zoneEditExitsState[d] && !usedDirs.has(d));
+    const usedExits = new Set(doors.map(d => d.target_zone ? `${d.exit_dir}|${d.target_zone}` : d.exit_dir));
+    const availableExits = allExits(zoneEditExitsState).filter(e =>
+      !usedExits.has(`${e.dir}|${e.target}`) && !usedExits.has(e.dir));
     exitSelect.innerHTML = availableExits.length
-      ? availableExits.map(d => `<option value="${d}">${d}</option>`).join('')
+      ? availableExits.map(e => {
+          const dest = (typeof allRecords !== 'undefined' ? allRecords : []).find(z => z.id === e.target);
+          return `<option value="${e.dir}|${e.target}">${e.dir} → ${dest ? dest.name : e.target}</option>`;
+        }).join('')
       : '<option value="">No free exits</option>';
   }
 }
 
 async function submitAddDoor(zoneId) {
   const doorType = document.getElementById('door-type-select')?.value;
-  const exitDir = document.getElementById('door-exit-select')?.value;
-  if (!exitDir) { toast('No free exits to install a door on', true); return; }
-  const result = await API('/doors', 'POST', { zone_id: zoneId, exit_dir: exitDir, door_type: doorType });
+  const raw = document.getElementById('door-exit-select')?.value;
+  if (!raw) { toast('No free exits to install a door on', true); return; }
+  const [exitDir, targetZone] = raw.split('|');
+  const result = await API('/doors', 'POST', { zone_id: zoneId, exit_dir: exitDir, target_zone: targetZone || null, door_type: doorType });
   if (result?.error) { toast(result.error, true); return; }
   toast('Door installed');
   await refreshDoorList(zoneId);
