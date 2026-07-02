@@ -18,7 +18,8 @@
  */
 import { query, withTransaction } from '../../server/models/db.js';
 import { getRecipeCache, findRecipeByName } from '../../server/engine/crafting.js';
-import { skillCheck, awardSkillUse, skillStatBonus } from '../../server/engine/skills.js';
+import { skillCheck, awardSkillUse, skillStatBonus, effectiveSkill } from '../../server/engine/skills.js';
+import { getDrugCache } from '../../server/engine/drugs.js';
 import { randomUUID } from 'crypto';
 
 const SYNTH_SKILL = 'chemistry';

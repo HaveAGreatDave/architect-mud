@@ -203,7 +203,12 @@ function openModal(title, contentEl, onSave) {
   }
 
   ov.appendChild(box);
-  ov.addEventListener('click', e => { if (e.target === ov) closeModal(ov); });
+  // Close on a backdrop click only when the press *started* on the backdrop —
+  // otherwise dragging inside the box (selecting text, resizing) and releasing
+  // outside would register as a backdrop click and close the dialog.
+  let downOnOverlay = false;
+  ov.addEventListener('mousedown', e => { downOnOverlay = e.target === ov; });
+  ov.addEventListener('click', e => { if (e.target === ov && downOnOverlay) closeModal(ov); });
   document.body.appendChild(ov);
   return ov;
 }

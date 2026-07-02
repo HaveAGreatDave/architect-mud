@@ -1642,23 +1642,24 @@ textarea {
 	background: var(--bg3);
 	border: 1px solid var(--border);
 	border-radius: 3px;
-	/* Tint the emoji glyph with a theme color instead of its stock colours */
-	color: transparent;
-	text-shadow: 0 0 0 var(--text-dim);
-	font-size: 16px;
+	/* Single-colour SVG padlock, drawn in the theme accent via currentColor.
+	   Lock/unlock state is shown by the open/closed glyph + the border. */
+	color: var(--accent);
+	display: flex;
+	align-items: center;
+	justify-content: center;
 	padding: 0;
-	line-height: 28px;
-	text-align: center;
 	cursor: pointer;
-	transition: border-color 0.1s, text-shadow 0.1s;
+	transition: border-color 0.1s, background 0.1s;
+}
+.sidebar-lock-btn svg {
+	display: block;
 }
 .sidebar-lock-btn:hover {
 	border-color: var(--accent);
-	text-shadow: 0 0 0 var(--accent);
 }
 .sidebar-lock-btn.unlocked {
 	border-color: var(--accent2);
-	text-shadow: 0 0 0 var(--accent2);
 	background: var(--bg2);
 }
 [data-sidebar="right"] .sidebar-header {
@@ -7836,9 +7837,10 @@ body.tripping #output {
 .cpanel-cam-jammed .cpanel-cam-status { color: var(--red); }
 
 /* Notes scratchpad */
-.cpanel-notes { width: 100%; min-height: 70px; resize: vertical; background: var(--bg2);
-	border: 1px solid var(--border); border-radius: 2px; color: var(--text); font-family: var(--font);
+.cpanel-notes { width: 100%; min-height: 70px; resize: vertical; background: var(--bg3);
+	border: 1px solid var(--border); border-radius: 2px; color: var(--text); font-family: var(--font-mono);
 	font-size: 11px; padding: 4px; box-sizing: border-box; }
+.cpanel-notes:focus { outline: none; border-color: var(--accent); }
 
 /* Builder modal */
 .cpanel-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 1000;
@@ -7871,7 +7873,8 @@ body.tripping #output {
 .cpanel-field { display: flex; flex-direction: column; gap: 4px; }
 .cpanel-field-label { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--text-dim); }
 .cpanel-input { background: var(--bg3); border: 1px solid var(--border); border-radius: 2px; color: var(--text);
-	font-size: 12px; padding: 5px 6px; }
+	font-family: var(--font-mono); font-size: 12px; padding: 5px 6px; }
+.cpanel-input:focus { outline: none; border-color: var(--accent); }
 .cpanel-fieldpick { display: flex; flex-direction: column; gap: 8px; }
 .cpanel-fieldgroup-label { font-size: 9px; letter-spacing: 1px; text-transform: uppercase; color: var(--text-dim); margin-bottom: 3px; }
 .cpanel-fieldgroup, .cpanel-widgetpick { display: flex; flex-wrap: wrap; gap: 4px; }

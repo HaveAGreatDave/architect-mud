@@ -80,12 +80,24 @@ export async function useDrug(player, drugId, broadcast, opts = {}) {
   // potency) that scales its effects AND its overdose weight. 1 = stock strength.
   const potencyMult = Math.max(0.1, Number(opts.potencyMult) || 1);
 
-  const eff = drug.effects || {};
+  // Inline drug: a spliced compound carries its whole composed effects blob on
+  // the inventory item (custom_data.effects) rather than a DB drugs row. When
+  // present it overrides the carrier drug's effects/name/thresholds. `doseWeight`
+  // is the overload penalty — a busy compound counts as extra doses.
+  const eff = opts.inlineEffects || drug.effects || {};
+  const displayName = opts.displayName || drug.name;
+  const odThreshold = opts.overdoseThreshold ?? drug.overdose_threshold ?? 3;
+  const durationSeconds = opts.durationSeconds ?? drug.duration_seconds ?? 300;
+  const extraDoseWeight = Math.max(0, Math.round(Number(opts.doseWeight) || 0));
+
   const structured = isStructured(eff);
   const instant = structured ? (eff.instant || {}) : eff;
   const phases = eff.phases;
   const tol = eff.tolerance || {};
   const wd = eff.withdrawal || {};
+  // Effects object exposed to hallucination hooks (so the trip plugin reads the
+  // composed hallucination, not the empty carrier's).
+  const drugForHooks = opts.inlineEffects ? { ...drug, effects: eff, name: displayName } : drug;
 
   const now = Math.floor(Date.now() / 1000);
   const { rows } = await query('SELECT * FROM player_drug_state WHERE player_id=$1 AND drug_id=$2', [player.id, drugId]);
@@ -102,13 +114,13 @@ export async function useDrug(player, drugId, broadcast, opts = {}) {
 
   // A stronger (synthesized) dose counts for more in the system — higher potency
   // means fewer doses to overdose.
-  const doseInc = Math.max(1, Math.round(potencyMult));
+  const doseInc = Math.max(1, Math.round(potencyMult), extraDoseWeight);
   // Combined potency drives phased-buff magnitude and hallucination intensity.
   const effPotency = potency * potencyMult;
 
   const dosesInSystem = (state?.doses_in_system || 0) + doseInc;
   const timesUsed = (state?.times_used || 0) + 1;
-  const overdosed = dosesInSystem >= (drug.overdose_threshold || 3);
+  const overdosed = dosesInSystem >= odThreshold;
 
   // Addiction: lazy decay since last use, then accumulate this dose.
   const addRec = wd.addiction_recovery_per_sec ?? (1 / 86400);
@@ -122,21 +134,21 @@ export async function useDrug(player, drugId, broadcast, opts = {}) {
     `INSERT INTO player_drug_state (player_id, drug_id, active_until, doses_in_system, times_used, is_addicted, last_used_at, tolerance, addiction)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
      ON CONFLICT (player_id, drug_id) DO UPDATE SET active_until=$3, doses_in_system=$4, times_used=$5, is_addicted=$6, last_used_at=$7, tolerance=$8, addiction=$9`,
-    [player.id, drugId, now + (drug.duration_seconds || 300), dosesInSystem, timesUsed, isAddicted ? 1 : 0, now, tolerance, addiction]
+    [player.id, drugId, now + durationSeconds, dosesInSystem, timesUsed, isAddicted ? 1 : 0, now, tolerance, addiction]
   );
 
   // Re-dosing clears any active withdrawal for this drug.
   reverseMods(player, `withdrawal:${drugId}`);
   player._withdrawalActive?.delete(drugId);
 
-  let message = `You take ${drug.name}. ${drug.description || ''}`.trim();
+  let message = `You take ${displayName}. ${(opts.inlineEffects ? '' : drug.description) || ''}`.trim();
 
   // --- Overdose --------------------------------------------------------------
   if (overdosed) {
     // Cancel any active buff + trip for this drug.
     reverseMods(player, `drug:${drugId}`);
     if (player.activeDrugs) player.activeDrugs = player.activeDrugs.filter(a => a.drugId !== drugId);
-    fireHook('drug.overdose', { player, drug, broadcast }).catch(() => {});
+    fireHook('drug.overdose', { player, drug: drugForHooks, broadcast }).catch(() => {});
 
     if (eff.overdose?.lethal) {
       const odMsg = eff.overdose.message || "You've taken too much. Everything stops.";
@@ -157,13 +169,13 @@ export async function useDrug(player, drugId, broadcast, opts = {}) {
 
   // --- Phased effects --------------------------------------------------------
   if (phases) {
-    startPhasedDrug(player, drug, phases, effPotency);
+    startPhasedDrug(player, drugForHooks, phases, effPotency);
     if (phases.comeup_message) result.message += `\n${phases.comeup_message}`;
   }
 
   // --- Hallucination ---------------------------------------------------------
   if (eff.hallucination) {
-    fireHook('drug.used', { player, drug, potency: effPotency, broadcast }).catch(() => {});
+    fireHook('drug.used', { player, drug: drugForHooks, potency: effPotency, broadcast }).catch(() => {});
   }
 
   return result;

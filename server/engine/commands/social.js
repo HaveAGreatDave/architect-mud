@@ -55,6 +55,17 @@ async function cmdTalk(targetStr, player, broadcast) {
   return { type:'dialogue', npcId:npc.id, npcName:npc.name, node:'root', text:root?.text || `${npc.name} glances up at you.`, options };
 }
 
+// If the player names an NPC in the room (any part of its name — first or last),
+// that NPC pipes up with a random chit-chat line. Broadcast to the whole zone,
+// including the speaker, so everyone sees the reaction.
+function npcsNamedInSpeech(text, zoneId) {
+  const lower = text.toLowerCase();
+  return getZoneNpcs(zoneId).filter(npc => {
+    const parts = String(npc.name || '').toLowerCase().split(/\s+/).filter(p => p.length >= 2);
+    return parts.some(p => new RegExp(`\\b${p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(lower));
+  });
+}
+
 function cmdSay(text, player, broadcast) {
   if (!text) return { type:'error', message:'Say what?' };
   if (text.length >= 3 && text === text.toUpperCase() && /[A-Z]/.test(text)) {
@@ -63,6 +74,10 @@ function cmdSay(text, player, broadcast) {
   broadcast(player.current_zone, { type:'say', message:`${player.handle} says: "${text}"` }, player.id);
   // Let plugins react to speech (e.g. the shadow dealer's passphrase). Fire-and-forget.
   fireHook('player.say', { player, text, zoneId: player.current_zone, broadcast }).catch(() => {});
+  for (const npc of npcsNamedInSpeech(text, player.current_zone)) {
+    const lines = getNpcChitchat(npc) || DEFAULT_CHITCHAT_LINES;
+    broadcast(player.current_zone, formatChitchat(npc.name, lines[Math.floor(Math.random() * lines.length)]));
+  }
   return { type:'say', message:`You say: "${text}"` };
 }
 

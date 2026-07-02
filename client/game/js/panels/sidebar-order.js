@@ -6,6 +6,12 @@ const DEFAULT_ORDER = ['minimap-section', 'vitals-section', 'location-section', 
 
 let locked = true;
 let mode = 'move'; // 'move' (drag to reorder) | 'resize' (drag edge to size) — only meaningful while unlocked
+
+// Single-colour padlock icons (Feather-style). Stroke = currentColor, so they
+// pick up the theme accent from CSS. Closed when locked, open when unlocked.
+const SVG_ATTRS = 'viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
+const LOCK_SVG = `<svg ${SVG_ATTRS}><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`;
+const UNLOCK_SVG = `<svg ${SVG_ATTRS}><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>`;
 let dragSrc = null;
 let dropInfo = null;
 let lastClientY = null;
@@ -20,7 +26,9 @@ export function initSidebarOrder() {
     if (el) park.appendChild(el);
   }
   applyLayout(loadLayout());
-  document.getElementById('sidebar-lock-btn').addEventListener('click', toggleLock);
+  const lockBtn = document.getElementById('sidebar-lock-btn');
+  lockBtn.innerHTML = LOCK_SVG;
+  lockBtn.addEventListener('click', toggleLock);
   document.getElementById('sidebar-reset-btn')?.addEventListener('click', resetOrder);
   document.getElementById('sidebar-move-btn')?.addEventListener('click', () => setMode('move'));
   document.getElementById('sidebar-resize-btn')?.addEventListener('click', () => setMode('resize'));
@@ -368,7 +376,7 @@ export function unmountSection(id) {
 function toggleLock() {
   locked = !locked;
   const btn = document.getElementById('sidebar-lock-btn');
-  btn.textContent = locked ? '🔒' : '🔓';
+  btn.innerHTML = locked ? LOCK_SVG : UNLOCK_SVG;
   btn.classList.toggle('unlocked', !locked);
   btn.title = locked ? 'Unlock to reorder sidebar sections' : 'Lock sidebar order';
 
