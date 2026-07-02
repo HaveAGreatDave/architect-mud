@@ -10,12 +10,11 @@ import { tickSleep, releaseApartment } from './apartments.js';
 import { fireHook } from './plugins.js';
 import { emit } from './events.js';
 import { schedule } from './scheduler.js';
+import { setPosture, forceStand } from './posture.js';
 import { carryCapacity } from './commands/inventory.js';
 import { query, logActivity } from '../models/db.js';
 import { getEnvironmentState, getZoneTemperature, getZoneApparentTemperature, recordLightningKill, getZoneStormIntensity } from './environment.js';
-import { tickBodily } from './bodily.js';
 import { tickDrugDecay, tickDrugs, tickWithdrawal } from './drugs.js';
-import { addHorniness } from './mis.js';
 
 // HP restored per sitting tick (every 15 seconds)
 const SIT_REGEN_HP = 5;
@@ -128,9 +127,7 @@ async function tick() {
         // Any hit attempt interrupts activity postures (sitting, lying,
         // kneeling, butchering, scavenging) — posture is the orchestrator; the
         // activity plugins' ticks see the change and discard their own state.
-        if ((target.posture || 'standing') !== 'standing') {
-          target.posture = 'standing';
-          target.sittingOn = null;
+        if (forceStand(target, 'attacked')) {
           broadcastFn(null, { type: 'output', message: `You scramble to your feet as the attack comes in!` }, null, target.id);
         }
         if (result.hit) {
@@ -192,9 +189,7 @@ async function tick() {
       if (!result) return;
       // Same rule as the PvE handler above: any hit attempt clears any
       // non-standing posture, not just sitting.
-      if ((pvpTarget.posture || 'standing') !== 'standing') {
-        pvpTarget.posture = 'standing';
-        pvpTarget.sittingOn = null;
+      if (forceStand(pvpTarget, 'attacked')) {
         broadcastFn(null, { type: 'output', message: `You scramble to your feet as the attack comes in!` }, null, pvpTarget.id);
       }
       broadcastFn(null, { type: 'combat', message: result.attackerMsg, auto: true }, null, playerId);
@@ -390,8 +385,7 @@ export async function handlePlayerDeath(player, killer) {
   player.clothing_contamination = {};
   player._dangerousTempTicks = 0;
   player.sleeping = null;
-  player.posture = 'standing';
-  player.sittingOn = null;
+  setPosture(player, 'standing');
   player.combatTargetId = null;
   player.pvpTargetId = null;
   player.offlinePvpTargetId = null;
@@ -821,20 +815,8 @@ async function resourceTick() {
 
     if (player.hp <= 0) await handlePlayerDeath(player, null);
 
-    // Bodily pressure tick
-    const bodilyMsgs = await tickBodily(player, broadcastFn);
-    if (bodilyMsgs.length) broadcastFn(null, { type:'resource_tick', messages: bodilyMsgs }, null, playerId);
-
-    // Horniness decay — only starts 5 minutes after last increase
-    if ((player.horniness || 0) > 0) {
-      const lastIncrease = player.horniness_last_increased || 0;
-      const decayDelayMs = 5 * 60 * 1000;
-      if (!lastIncrease || (Date.now() - lastIncrease) >= decayDelayMs) {
-        player.horniness = Math.max(0, player.horniness - 1);
-        await query('UPDATE players SET horniness=$1 WHERE id=$2', [player.horniness, playerId]);
-        broadcastFn(null, { type:'resource_tick', messages: [], player_update: { horniness: player.horniness, mis_enabled: player.mis_enabled } }, null, playerId);
-      }
-    }
+    // Bodily pressure lives in the bodily plugin; horniness decay in the MIS
+    // plugin (both on their own 1m ticks).
   }
 }
 
@@ -850,8 +832,7 @@ async function sittingRegenTick() {
   for (const [playerId, player] of world.players) {
     if (player.posture !== 'sitting') continue;
     if (player.combatTargetId || player.pvpTargetId) {
-      player.posture = 'standing';
-      player.sittingOn = null;
+      forceStand(player, 'combat');
       continue;
     }
     if (player.hp >= player.hp_max) continue;

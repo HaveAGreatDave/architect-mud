@@ -1,0 +1,7 @@
+{
+  "name": "commerce",
+  "version": "1.0.0",
+  "description": "Vendor shopping verbs (shop/browse/buy/sell) and balance display. Vendor services (stock, pricing, trust, restock) stay engine.",
+  "hooks": [],
+  "commands": ["shop", "browse", "buy", "sell", "balance"]
+}

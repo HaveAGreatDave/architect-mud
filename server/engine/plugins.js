@@ -6,6 +6,12 @@
  *   hooks         — fireHook(name, ...args): last non-undefined return wins
  *   commands      — registerCommand(name, handler): player-typed commands
  *   routes        — registerRoutes(prefix, handler): REST route handlers
+ *   inputMatchers — registerInputMatcher(pattern, handler): multi-word/raw-input verbs
+ *
+ * Manifest fields beyond name/version/hooks/commands/routePrefix:
+ *   after    — ["pluginName", …]: load after these plugins (explicit ordering;
+ *              without it, order is filesystem-alphabetical)
+ *   critical — true: a load failure aborts boot instead of logging and skipping
  */
 import { readdir, readFile } from 'fs/promises';
 import { join, dirname } from 'path';
@@ -23,11 +29,19 @@ const loadedPlugins = [];
 // Command registry: commandName -> handler(args, raw, player, broadcast)
 // Checked by commands.js before the built-in switch statement.
 const commands = new Map();
+// commandName -> owning plugin name (for collision warnings at load)
+const commandOwners = new Map();
 
 // Route registry: [{ prefix, handler(path, method, body, auth) }]
 // Checked by routes.js before built-in routes. Handler returns {status, body}
 // or null to fall through.
 const routeHandlers = [];
+
+// Input-matcher registry: [{ pattern, handler, owner }]. Matchers run against
+// the raw input line before single-word command routing — the extension point
+// for multi-word verbs ("jerk off on", "eat out") that a commandName can't
+// express. First matching pattern wins.
+const inputMatchers = [];
 
 export async function loadPlugins() {
   if (!existsSync(PLUGINS_DIR)) {
@@ -38,15 +52,49 @@ export async function loadPlugins() {
   const entries = await readdir(PLUGINS_DIR, { withFileTypes: true });
   const dirs = entries.filter(e => e.isDirectory());
 
+  // Read every manifest up front so `after` can order loads explicitly.
+  // Base order stays filesystem-alphabetical; a stable DFS floats declared
+  // dependencies ahead of their dependents. Cycles warn and fall back.
+  const candidates = [];
   for (const dir of dirs) {
     const pluginPath = join(PLUGINS_DIR, dir.name);
     const manifestPath = join(pluginPath, 'plugin.json');
     const indexPath = join(pluginPath, 'index.js');
-
     if (!existsSync(manifestPath) || !existsSync(indexPath)) continue;
-
+    let manifest;
     try {
-      const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+      manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+    } catch (e) {
+      console.error(`  ✗ Plugin ${dir.name}: unreadable plugin.json: ${e.message}`);
+      continue;
+    }
+    candidates.push({ dirName: dir.name, name: manifest.name || dir.name, indexPath, manifest });
+  }
+
+  const byName = new Map(candidates.map(c => [c.name, c]));
+  const ordered = [];
+  const visited = new Set();
+  const visiting = new Set();
+  function visit(c) {
+    if (visited.has(c.name)) return;
+    if (visiting.has(c.name)) {
+      console.warn(`  ⚠ Plugin load-order cycle involving "${c.name}" — falling back to alphabetical`);
+      return;
+    }
+    visiting.add(c.name);
+    for (const dep of (c.manifest.after || [])) {
+      const depC = byName.get(dep);
+      if (depC) visit(depC);
+      else console.warn(`  ⚠ Plugin ${c.name}: after:["${dep}"] names an unknown plugin`);
+    }
+    visiting.delete(c.name);
+    visited.add(c.name);
+    ordered.push(c);
+  }
+  for (const c of candidates) visit(c);
+
+  for (const { dirName, name, indexPath, manifest } of ordered) {
+    try {
       const mod = await import(pathToFileURL(indexPath).href);
 
       const hasHooks = mod.hooks && typeof mod.hooks === 'object';
@@ -54,14 +102,14 @@ export async function loadPlugins() {
       const hasRoute = manifest.routePrefix && typeof mod.routeHandler === 'function';
       const hasSpecialized = Array.isArray(mod.specializedActions) && mod.specializedActions.length > 0;
       if (!hasHooks && !hasCommands && !hasRoute && !hasSpecialized) {
-        console.warn(`  Plugin ${dir.name}: no hooks, commands, routeHandler, or specializedActions export, skipping`);
+        console.warn(`  Plugin ${name}: no hooks, commands, routeHandler, or specializedActions export, skipping`);
         continue;
       }
 
       for (const hookName of (manifest.hooks || [])) {
         if (typeof mod.hooks[hookName] === 'function') {
           if (!hooks.has(hookName)) hooks.set(hookName, []);
-          hooks.get(hookName).push({ pluginName: manifest.name || dir.name, handler: mod.hooks[hookName] });
+          hooks.get(hookName).push({ pluginName: name, handler: mod.hooks[hookName] });
         }
       }
 
@@ -70,7 +118,12 @@ export async function loadPlugins() {
       if (mod.commands && typeof mod.commands === 'object') {
         for (const cmdName of (manifest.commands || [])) {
           if (typeof mod.commands[cmdName] === 'function') {
+            const prevOwner = commandOwners.get(cmdName);
+            if (prevOwner) {
+              console.warn(`  ⚠ Verb collision: "${cmdName}" (${name}) overrides plugin ${prevOwner}${(manifest.after || []).includes(prevOwner) ? '' : ' — declare after:["' + prevOwner + '"] to make the order explicit'}`);
+            }
             commands.set(cmdName, mod.commands[cmdName]);
+            commandOwners.set(cmdName, name);
           }
         }
       }
@@ -85,20 +138,34 @@ export async function loadPlugins() {
       // Plugin exports { specializedActions: [{ verb, requiredTag?, handler }] }
       if (hasSpecialized) {
         for (const sa of mod.specializedActions) {
-          registerSpecializedAction({ ...sa, pluginName: manifest.name || dir.name });
+          registerSpecializedAction({ ...sa, pluginName: name });
         }
       }
 
-      loadedPlugins.push({ name: manifest.name || dir.name, version: manifest.version || '?', hooks: manifest.hooks || [], commands: manifest.commands || [], specializedActions: hasSpecialized ? mod.specializedActions.map(s => s.verb) : [] });
-      console.log(`  ✓ Plugin: ${manifest.name} v${manifest.version}`);
+      loadedPlugins.push({ name, version: manifest.version || '?', hooks: manifest.hooks || [], commands: manifest.commands || [], specializedActions: hasSpecialized ? mod.specializedActions.map(s => s.verb) : [] });
+      console.log(`  ✓ Plugin: ${name} v${manifest.version}`);
     } catch (e) {
-      console.error(`  ✗ Plugin ${dir.name} failed to load: ${e.message}`);
+      if (manifest.critical) {
+        throw new Error(`Critical plugin "${name}" failed to load: ${e.message}`);
+      }
+      console.error(`  ✗ Plugin ${dirName} failed to load: ${e.message}`);
     }
   }
 
   if (loadedPlugins.length) {
     console.log(`✓ Loaded ${loadedPlugins.length} plugin(s)`);
   }
+
+  // Report plugin verbs that shadow engine builtins — the shadowed builtin is
+  // dead code by dispatch order, which should be a visible fact, not a
+  // surprise. Dynamic import: commands/index.js imports this module.
+  try {
+    const { builtinCommandNames } = await import('./commands/index.js');
+    const shadowed = [...commands.keys()].filter(c => builtinCommandNames().includes(c));
+    if (shadowed.length) {
+      console.log(`  ℹ Plugin verbs shadowing engine builtins (builtin is dead code): ${shadowed.join(', ')}`);
+    }
+  } catch { /* commands module unavailable in isolated tests — skip the report */ }
 }
 
 /**
@@ -133,6 +200,26 @@ export async function fireCommand(cmd, args, raw, player, broadcast) {
   const handler = commands.get(cmd);
   if (!handler) return undefined;
   return handler(args, raw, player, broadcast);
+}
+
+// --- Input-matcher registration ---
+
+// pattern: RegExp tested against the raw input line. handler has the same
+// signature as a command handler: (args, raw, player, broadcast).
+export function registerInputMatcher(pattern, handler, owner = 'engine') {
+  if (!(pattern instanceof RegExp) || typeof handler !== 'function') {
+    throw new Error('registerInputMatcher: RegExp pattern and handler required');
+  }
+  inputMatchers.push({ pattern, handler, owner });
+}
+
+// Called from the command dispatcher before single-word routing. Returns the
+// handler's result, or undefined if no matcher claims the input.
+export async function fireInputMatchers(args, raw, player, broadcast) {
+  for (const { pattern, handler } of inputMatchers) {
+    if (pattern.test(raw)) return handler(args, raw, player, broadcast);
+  }
+  return undefined;
 }
 
 // --- Route registration ---

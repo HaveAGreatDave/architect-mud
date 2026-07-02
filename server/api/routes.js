@@ -14,6 +14,7 @@ import { randomAppearance } from '../engine/appearance.js';
 import { DEFAULT_CHITCHAT_LINES } from '../engine/ai-behaviour.js';
 import { npcTypeForPersonality, listPersonalityMeta } from '../engine/npc-personality.js';
 import { loadBanterLibrary } from '../engine/npc-banter.js';
+import { OPPOSITE } from '../engine/directions.js';
 
 const DEFAULT_VENDOR_SCHEDULE = {
   mon:[{from:10,to:22}], tue:[{from:10,to:22}], wed:[{from:10,to:22}],
@@ -554,7 +555,6 @@ export async function apiUpdateZone(id,body) {
 async function apiAddRoom(parentZoneId, body) {
   const { direction, name, description, is_building } = body || {};
   if (!direction || !name) return { status:400, body:{error:'direction and name are required'} };
-  const OPPOSITE = { north:'south', south:'north', east:'west', west:'east', up:'down', down:'up', in:'out', out:'in' };
   if (!OPPOSITE[direction]) return { status:400, body:{error:`Invalid direction "${direction}"`} };
 
   const { rows: parentRows } = await query('SELECT * FROM zones WHERE id=$1', [parentZoneId]);
@@ -736,7 +736,6 @@ async function apiLinkInterior(body, auth) {
   // Mark the entry zone as a building and record which exterior zone it exits to.
   const intFlags = JSON.stringify({ ...(intRows[0].flags || {}), is_interior: true, is_building: true, world_exit_zone: exteriorZoneId });
   // Add the return exit on the interior zone (opposite direction back to the exterior zone).
-  const OPPOSITE = { north:'south', south:'north', east:'west', west:'east', up:'down', down:'up', in:'out', out:'in' };
   const returnDir = OPPOSITE[direction] || 'out';
   const intExits = JSON.stringify({ ...(intRows[0].exits || {}), [returnDir]: exteriorZoneId });
   // Update exterior zone exits and interior zone map placement + return exit.

@@ -25,7 +25,9 @@ Post-singularity browser MUD in the HellMOO tradition. Text-driven, real-time, b
 - [docs/systems-broadcast.md](docs/systems-broadcast.md) — broadcast system: channels, playlists, dynamic news, VINE graph scripts, NPC hosts, camera feeds, broadcast-bridge, game client styling (as built)
 - [docs/systems-atm.md](docs/systems-atm.md) — ATM terminals: furniture integration, networks, fee/limit/faction logic, hacking, replenish tick, power dependency, dev panel routes (as built)
 - [docs/systems-scavenging.md](docs/systems-scavenging.md) — scavenging: posture-based perpetual search, per-zone loot tables + lazy replenish, the 2D8−2D8 Scavenging check, feedback state machine (as built)
+- [docs/systems-surveillance.md](docs/systems-surveillance.md) — SPECTER: player spy networks (plant/hub/record/counterplay/devices) + the witnessed-crime wanted system (as built)
 - [docs/systems-corps.md](docs/systems-corps.md) — **corporations & player orgs (design, not built)**: corp = faction + owner + treasury + members + territory; influence tug-of-war for zones, single membership, five power levers (economy/territory/subterfuge/aggression/diplomacy), NPC corp AI, Architect-reacts-to-concentration
+- [docs/proposals/engine-plugin-boundary.md](docs/proposals/engine-plugin-boundary.md) — **engine/plugin boundary strategy + implementation log**: substrates/laws/registries vs. systems, the litmus tests, and what's been migrated (Phases 0–2 done, Phase 3 partial). Read before deciding where new code lives.
 - [docs/audits/](docs/audits/README.md) — **audit suite**: reusable prompts that challenge the design at its silent seams (engine↔plugin source-of-truth, client↔server protocol, content↔engine fields, UI/CSS standardization, registry naming harmony). Start at the [index](docs/audits/README.md); the seminal one is [source-of-truth-audit.md](docs/audits/source-of-truth-audit.md) (the bug class behind the posture break).
 
 **Before touching any system, read the relevant doc section if there's one applicable to the request.**
@@ -43,6 +45,31 @@ Post-singularity browser MUD in the HellMOO tradition. Text-driven, real-time, b
     - The export deliberately excludes player/runtime rows (accounts, inventory, password hashes); it carries schema + world content only.
 - **Plugins for extensibility.** New behavior hooks belong in `/plugins/`, not in engine files, unless they're genuinely core.
 - **UTF-8, always.** Several files (especially `client/game/index.html`) use Unicode glyphs and box-drawing chars (`₵ ⚙ ⏻ ╱ █ ☢`). When editing, preserve UTF-8 without a BOM — never let a tool re-save as Windows-1252 or it double-encodes everything into `â•±â•²` mojibake. After editing such files, sanity-check that the glyphs are still intact.
+
+## Regression Testing — run it, and recommend it
+
+`npm run test:regress` ([tests/regress.js](tests/regress.js)) is the pre-deploy gate. It boots the
+world + all plugins (no server), sweeps every plugin manifest against the live registries (declared
+commands/hooks actually wired), then drives real commands end-to-end through `handleCommand` with a
+fake player — dispatch order, posture, move gates — plus every plugin's own `regress.js` suite.
+
+**Run it without being asked** after any of these, and say so in your summary:
+
+- editing the dispatch pipeline (`commands/index.js`), plugin loader, or any engine registry/seam
+  (actions, events, hooks, specialized actions, move gates, posture)
+- adding/removing/renaming a plugin verb, or changing a `plugin.json`
+- extracting or relocating a system (engine↔plugin moves)
+- **before any deploy/push of server code** — recommend it even for changes that look unrelated
+
+Never wire it into production boot (same principle as no startup migrations — boot stays deliberate).
+
+**When you add a plugin or a verb, add a `plugins/<name>/regress.js`** (default-export
+`async ({ run, check, getPlayer }) => { … }`; see [plugin-standard.md](docs/plugin-standard.md)).
+Test code lives with the plugin and never loads in production.
+
+Caveats: it shares the Supabase session pool (pool_size 15) — if it dies with `EMAXCONNSESSION`,
+check for orphaned local `node server/index.js` processes and kill them, or wait ~90 s. Player stat
+columns are `stat_brawn`/`stat_reflexes`/… (not `brawn`).
 
 ## VINE Graph Workflow
 

@@ -2,14 +2,14 @@ import { query, logActivity } from '../../models/db.js';
 import { getZone, getZoneEnemies, getZoneNpcs, getZonePlayers, getDoorForExit, getZoneDoors, spawnEnemySync, world } from '../world.js';
 import { getLockTagPublic } from './doors.js';
 import { sendToPlayer } from '../messaging.js';
-import { getZonePowerStatus, recomputePower, recalcZoneLoad, getEnvironmentState } from '../environment.js';
+import { getZonePowerStatus, recomputePower, recalcZoneLoad } from '../environment.js';
 import { getPlayerSkills, SKILLS } from '../skills.js';
 import { describeZone } from './describe.js';
 import { getMinimapData, addPlayerToZone, removePlayerFromZone } from '../world.js';
 import { statCost, raiseStat, RAISABLE_STATS, getNetXp } from '../ip.js';
 import { ensureTunables } from '../tunables.js';
-import { physicalDescription, ejaculateDescription, describeGenitals } from '../appearance.js';
-import { isMisActive, isAttractedTo, addHorniness, erectionVisibilityNote, breastVisibilityNote, NIPPLE_HARD, NIPPLE_SOFT } from '../mis.js';
+import { physicalDescription } from '../appearance.js';
+import { isMisActive } from '../mis.js';
 import { availableActions } from '../specializedActions.js';
 import { statusLabels } from '../effects.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../sift.js';
@@ -258,28 +258,9 @@ async function describePlayerAppearance(target, isSelf, viewer = null, broadcast
         ];
     msg += nakedLines[Math.floor(Math.random() * nakedLines.length)];
 
-    // MIS details when naked — gated on viewer's MIS (or self's MIS for self-look)
-    const viewerForMis = isSelf ? target : (viewer || null);
-    if (viewerForMis && isMisActive(viewerForMis)) {
-      const envState = getEnvironmentState();
-      const genitalDesc = describeGenitals(target, isSelf);
-      if (genitalDesc) msg += `\n${genitalDesc}`;
-      const ejacNote = ejaculateDescription(target, isSelf, new Set());
-      if (ejacNote) msg += `\n${ejacNote}`;
-      if (target.biological_sex === 'female') {
-        const hard = (target.horniness || 0) > 30 || (envState.tempC !== undefined && envState.tempC < 10);
-        const nipplePool = hard
-          ? (isSelf ? NIPPLE_HARD.map(s => s.replace(/^Her /i, 'Your ')) : NIPPLE_HARD)
-          : (isSelf ? NIPPLE_SOFT.map(s => s.replace(/^Her /i, 'Your ')) : NIPPLE_SOFT);
-        msg += `\n${nipplePool[Math.floor(Math.random() * nipplePool.length)]}`;
-      }
-    }
-
-    // Arousal on examine: viewer sees naked target they're attracted to
-    if (!isSelf && viewer && isMisActive(viewer) && isAttractedTo(viewer, target) && broadcast) {
-      const arouseMsgs = await addHorniness(viewer, 8, broadcast);
-      if (arouseMsgs.length) broadcast(null, { type:'resource_tick', messages: arouseMsgs, player_update: { horniness: viewer.horniness } }, null, viewer.id);
-    }
+    // MIS-gated body details + arousal-on-examine — MIS plugin hook.
+    const misNotes = await fireHook('player.appearanceMisNotes', { target, viewer, isSelf, broadcast, naked: true });
+    if (misNotes) msg += misNotes;
 
     return msg.trim();
   }
@@ -312,55 +293,9 @@ async function describePlayerAppearance(target, isSelf, viewer = null, broadcast
 
   msg += sentences.join(' ');
 
-  // MIS-gated details for clothed players — all gated on viewer's (or self's) MIS
-  const coveredSlots = new Set(Object.keys(bySlot));
-  if (viewerMis) {
-    const ejacNote = ejaculateDescription(target, isSelf, coveredSlots);
-    if (ejacNote) msg += `\n${ejacNote}`;
-    const envState = getEnvironmentState();
-    // Erection visible through ≤3 layers of tight clothing
-    const tightSlots = new Set(
-      Object.entries(bySlot).filter(([,v]) => v.tags?.bulkiness <= 2).map(([k]) => k)
-    );
-    const legsLayerCount = layerCounts['legs'] || 0;
-    const erectNote = erectionVisibilityNote(target, tightSlots, legsLayerCount);
-    if (erectNote) msg += `\n${erectNote}`;
-
-    // Breast/nipple visibility for females
-    const torsoLayerCount = layerCounts['torso'] || 0;
-    const torsoItem = bySlot['torso'];
-    const outermostBulkiness = torsoItem?.tags?.bulkiness || 0;
-    const outermostLayerMax = torsoItem?.tags?.allowed_layer_range?.max ?? 99;
-    const breastNote = breastVisibilityNote(target, torsoLayerCount, outermostBulkiness, outermostLayerMax, torsoItem?.name, envState.tempC);
-    if (breastNote) {
-      const breastNoteFixed = isSelf ? breastNote.replace(/\bHer\b/g, 'Your').replace(/\bher\b/g, 'your') : breastNote;
-      msg += `\n${breastNoteFixed}`;
-    }
-
-    // Show genitals/ass when legs are naked (no leg layer)
-    if (legsLayerCount === 0) {
-      const genitalDesc = describeGenitals(target, isSelf);
-      if (genitalDesc) msg += `\n${genitalDesc}`;
-    }
-
-    // Show nipple state for females when torso is naked
-    if (target.biological_sex === 'female' && torsoLayerCount === 0) {
-      const hard = (target.horniness || 0) > 30 || (envState.tempC !== undefined && envState.tempC < 10);
-      const nipplePool = hard
-        ? (isSelf ? NIPPLE_HARD.map(s => s.replace(/^Her /i, 'Your ')) : NIPPLE_HARD)
-        : (isSelf ? NIPPLE_SOFT.map(s => s.replace(/^Her /i, 'Your ')) : NIPPLE_SOFT);
-      msg += `\n${nipplePool[Math.floor(Math.random() * nipplePool.length)]}`;
-    }
-
-    // Arousal on examine: visible erection or nipples on attracted viewer
-    if (!isSelf && viewer && isMisActive(viewer) && isAttractedTo(viewer, target) && broadcast) {
-      const visibleSex = erectNote || breastNote || (legsLayerCount === 0 ? describeGenitals(target, false) : null);
-      if (visibleSex) {
-        const arouseMsgs = await addHorniness(viewer, 5, broadcast);
-        if (arouseMsgs.length) broadcast(null, { type:'resource_tick', messages: arouseMsgs, player_update: { horniness: viewer.horniness } }, null, viewer.id);
-      }
-    }
-  }
+  // MIS-gated details for clothed players + arousal-on-examine — MIS plugin hook.
+  const clothedMisNotes = await fireHook('player.appearanceMisNotes', { target, viewer, isSelf, broadcast, naked: false, bySlot, layerCounts });
+  if (clothedMisNotes) msg += clothedMisNotes;
 
   return msg.trim();
 }

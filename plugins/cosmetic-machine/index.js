@@ -1,5 +1,11 @@
 /**
- * Cosmetic machine (MORPHEX 9000) interaction handler.
+ * Cosmetic machine (MORPHEX 9000) plugin. Extracted from
+ * server/engine/commands/appearance.js (Phase 2) — this also removed the
+ * hardcoded `use` pre-intercept from the dispatch pipeline: `use morphex` now
+ * routes through a specialized action that self-gates on the machine names and
+ * falls through (undefined) otherwise. The engine furniture router reaches the
+ * panel via the `cosmetic.open` Action (no imports in either direction).
+ *
  * Free first change; 10₵ per attribute after. Genital size: 5₵/unit (MIS only).
  *
  * Usage:
@@ -14,10 +20,11 @@
  *   morphex penis <cm>            — set penis length (MIS only, 5₵/cm delta)
  *   morphex breast <size>         — set breast size (MIS only, 5₵/tier delta)
  */
-import { query } from '../../models/db.js';
-import { randomAppearance } from '../appearance.js';
-import { isMisActive } from '../mis.js';
-import { adjustCredits } from '../economy.js';
+import { query } from '../../server/models/db.js';
+import { randomAppearance } from '../../server/engine/appearance.js';
+import { isMisActive } from '../../server/engine/mis.js';
+import { adjustCredits } from '../../server/engine/economy.js';
+import { registerAction } from '../../server/engine/actions.js';
 
 const HAIR_COLORS  = ['black','dark brown','brown','auburn','dirty blonde','blonde','red','grey','white','silver','dyed blue','dyed green','dyed purple','dyed red'];
 const HAIR_LENGTHS = ['shaved','short','medium','long','very_long'];
@@ -253,24 +260,37 @@ async function cmdMorphex(args, raw, player) {
   return buildPanelData(player);
 }
 
-export async function openCosmeticMachine(player) {
+async function openCosmeticMachine(player) {
   if (!await getMachine(player.current_zone))
     return { type: 'error', message: `There's no MORPHEX 9000 terminal here.` };
   return buildPanelData(player);
 }
 
-export const handlers = {
-  use: async (args, raw, player) => {
-    // Only intercept if any word in args matches a machine name
+// The engine furniture router (`use <cosmetic_machine furniture>` in
+// commands/inventory.js) opens the panel through this Action.
+registerAction({
+  type: 'cosmetic.open',
+  handler: ({ actor }) => openCosmeticMachine(actor),
+});
+
+// `use morphex/biosculpt/makeover` — self-gated on the machine names; returns
+// undefined otherwise so the verb falls through to the inventory `use` builtin.
+export const specializedActions = [{
+  verb: 'use',
+  handler: async (args, raw, player) => {
     const target = args.join(' ').toLowerCase();
-    if (!MACHINE_NAMES.some(n => target.includes(n))) return null;
-    // Machine name matched — own the command from here, no fallthrough
+    if (!MACHINE_NAMES.some(n => target.includes(n))) return undefined;
     if (!await getMachine(player.current_zone)) {
       return { type: 'error', message: `There's no MORPHEX 9000 terminal here.` };
     }
     return buildPanelData(player);
   },
+}];
+
+export const commands = {
   morphex:  (args, raw, player) => cmdMorphex(args, raw, player),
   makeover: (args, raw, player) => cmdMorphex(args, raw, player),
   biosculpt:(args, raw, player) => cmdMorphex(args, raw, player),
 };
+
+console.log('[cosmetic-machine] Plugin loaded.');

@@ -2,10 +2,10 @@ import { world, getLivePlayer, getDoorForExit, setDoorCache, getZone, getZonePla
 import { findPath, getZonesInRadius } from './pathfinding.js';
 import { enemyAttackPlayer, enemyAttackNpc, enemyAttackEnemy } from './combat.js';
 import { getEnvironmentState } from './environment.js';
-import { emit } from './events.js';
-import { hasChannelViewers, isNpcScheduledNow, getNpcStudioZone } from './broadcast-bridge.js';
+import { isNpcScheduledNow, getNpcStudioZone } from './broadcast-bridge.js';
 import { getShopperForNpc, closeShopSession } from './vendor-session.js';
 import { getNpcChitchat } from './npc-personality.js';
+import { OPPOSITE as OPPOSITE_DIR } from './directions.js';
 
 // ── Vendor schedule helpers ──────────────────────────────────────────────────
 
@@ -156,8 +156,6 @@ function isEnemy(entity) {
   return entity.instanceId != null;
 }
 
-const OPPOSITE_DIR = { north:'south', south:'north', east:'west', west:'east', up:'down', down:'up', in:'out', out:'in' };
-
 // Returns true if the move succeeded, false if blocked by a locked door.
 export function moveEntity(entity, newZoneId, broadcast, query) {
   const oldZoneId = entityZone(entity);
@@ -300,6 +298,34 @@ function normalizeGraph(graph) {
   return { _start: graph._start, nodes, edges, _normalized: true };
 }
 
+// ── Plugin node registries ────────────────────────────────────────────────────
+// Plugins add behaviour-tree node types without editing the switches below
+// (docs/proposals/engine-plugin-boundary.md, E3). The broadcast plugin's
+// schedule/viewer nodes are the first users.
+//
+// Conditions are SYNC by contract (the evaluator is synchronous — read caches,
+// never the DB): fn(entity, params, { zone, zoneId }) → boolean.
+// Actions may be async: fn(entity, params, ctx) → port-string | 'RUNNING' |
+// undefined (undefined = continue to the node's default next edge). ctx
+// carries { broadcast, query, ai, zone, zoneId, node }.
+
+const pluginConditions = new Map();
+const pluginActions = new Map();
+
+export function registerAICondition(type, fn) {
+  if (!type || typeof fn !== 'function') throw new Error('registerAICondition: type and fn required');
+  pluginConditions.set(type, fn);
+}
+
+export function registerAIAction(type, fn) {
+  if (!type || typeof fn !== 'function') throw new Error('registerAIAction: type and fn required');
+  pluginActions.set(type, fn);
+}
+
+export function getRegisteredAINodes() {
+  return { conditions: [...pluginConditions.keys()], actions: [...pluginActions.keys()] };
+}
+
 // ── Condition evaluation ──────────────────────────────────────────────────────
 
 function evalCondition(node, entity) {
@@ -360,18 +386,8 @@ function evalCondition(node, entity) {
       return timePhase === 'day' || timePhase === 'dawn' || timePhase === 'dusk';
     }
 
-    case 'CHANNEL_HAS_VIEWERS':
-      return hasChannelViewers(params.channel_id);
-
-    // True if the NPC is in an active daily schedule slot right now
-    case 'IS_BROADCAST_SCHEDULED':
-      return isNpcScheduledNow(entity.id);
-
-    // True if the NPC is already in their assigned studio zone
-    case 'AT_WORK_ZONE': {
-      const studioZone = entity.studio_zone_id || getNpcStudioZone(entity.id);
-      return studioZone ? zoneId === studioZone : false;
-    }
+    // CHANNEL_HAS_VIEWERS / IS_BROADCAST_SCHEDULED / AT_WORK_ZONE are
+    // registered by the broadcast plugin via registerAICondition.
 
     case 'HOUR_RANGE': {
       const { hour } = getEnvironmentState();
@@ -388,8 +404,14 @@ function evalCondition(node, entity) {
     case 'AT_HOME':
       return !!(entity.home_zone && zoneId === entity.home_zone);
 
-    default:
+    default: {
+      const fn = pluginConditions.get(type);
+      if (fn) {
+        try { return !!fn(entity, params, { zone, zoneId }); }
+        catch (e) { console.error(`[ai:condition:${type}] ${e.message}`); return false; }
+      }
       return false;
+    }
   }
 }
 
@@ -743,12 +765,7 @@ async function execAction(node, entity, ctx) {
       return isNpcScheduledNow(entity.id) ? 'goToWork' : 'haveLife';
     }
 
-    case 'BROADCAST_SAY': {
-      const { channel_id, text } = params;
-      if (!text || !channel_id) break;
-      emit('npc.broadcast_say', { entity, channel_id, text: `[${entity.name}] ${text}` });
-      break;
-    }
+    // BROADCAST_SAY is registered by the broadcast plugin via registerAIAction.
 
     case 'GO_HOME': {
       if (!ai) break;
@@ -1081,8 +1098,14 @@ async function execAction(node, entity, ctx) {
       return 'RUNNING';
     }
 
-    default:
+    default: {
+      const fn = pluginActions.get(type);
+      if (fn) {
+        try { return await fn(entity, params, { broadcast, query, ai, zone, zoneId, node }); }
+        catch (e) { console.error(`[ai:action:${type}] ${e.message}`); }
+      }
       break;
+    }
   }
 }
 

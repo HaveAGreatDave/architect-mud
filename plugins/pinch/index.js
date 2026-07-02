@@ -3,6 +3,7 @@ import { findPath } from '../../server/engine/pathfinding.js';
 import { query } from '../../server/models/db.js';
 import { sendToZone, sendToPlayer } from '../../server/engine/messaging.js';
 import { cmdMove } from '../../server/engine/commands/movement.js';
+import { setPosture } from '../../server/engine/posture.js';
 
 // Offline players walking home after being pinched.
 // Map<playerId, { handle: string, homeZone: string }>
@@ -33,8 +34,7 @@ async function arriveSleepLive(player) {
   const spot = await findLieSpot(player.current_zone);
   const whereMsg = spot ? `onto the ${spot.name}` : 'onto the floor';
   player.sleeping = { restore: { hp: 0.18, sanity: 0.15 }, reason: 'home', minutesSlept: 0 };
-  player.posture = 'lying';
-  player.sittingOn = null;
+  setPosture(player, 'lying');
   player.goingHome = false;
   sendToZone(player.current_zone, {
     type: 'zone_event',

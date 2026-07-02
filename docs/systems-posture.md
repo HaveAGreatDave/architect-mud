@@ -22,36 +22,44 @@ truth; `player.sittingOn` is only meaningful while `posture === "sitting"`.
 ## Who sets it (the plugin)
 
 `plugins/interactions/index.js` registers the posture verbs `sit`, `stand`, `lie`, `kneel` (plus
-`pace`, which forces standing). They mutate state via `setLivePlayer(player.id, { ...player, posture,
-sittingOn })`:
+`pace`, which forces standing). **All posture writes go through the engine substrate API in
+`server/engine/posture.js`** — `setPosture(player, posture, { sittingOn })` and
+`forceStand(player, reason)`. Never assign `player.posture` directly and never clone-and-replace via
+`setLivePlayer` for posture: the game loop holds direct object references while it ticks, and a
+replaced object silently orphans them.
 
 - **`sit`** — optional furniture target (`sit on <name>` / `sit <name>`). Furniture must have the
   `sit` interaction flag (`flags.interactions` includes `"sit"`, set in the dev panel furniture
   editor). With no target it auto-picks any sittable furniture in the zone, else the ground.
   Sets `sittingOn` to the furniture name, or `null` for the ground.
-- **`stand` / `lie` / `kneel` / `pace`** — set their posture and clear `sittingOn` to `null`.
+- **`stand` / `lie` / `kneel` / `pace`** — set their posture; `setPosture` clears `sittingOn` unless
+  passed explicitly.
 
 The **scavenging** and **butchering** plugins set their activity postures the same way
-(`setLivePlayer` with `posture` + their companion state object) — see the
+(`setPosture` + their companion state object mutated in place) — see the
 [plugin index](plugins.md) rows for each.
 
-> `setLivePlayer` **replaces** the map entry with a fresh object (`{ ...player }`). That's fine because
-> every command re-fetches the live player from `world.players` at dispatch time, and the game loop
-> iterates the map directly — both always see the current object. Don't cache a player reference
-> across an `await` that might span a `setLivePlayer`.
+Every transition emits a `posture.changed` event (`{ player, from, to, forced?, reason? }`), so a
+system can react to being interrupted without polling; the activity plugins' 1s ticks also still
+notice the flip and discard their stale state.
+
+`forceStand(player, reason)` is **the** interruption trigger — attack initiation (weapon plugin),
+incoming hits (gameLoop PvE + PvP), movement (`cmdMove`), waking — and clears ANY non-standing
+posture. It returns the interrupted posture (or `null` if already standing), which callers use to
+gate their messaging.
 
 ## Who reacts (the engine)
 
 | Behaviour | Location | Rule |
 |---|---|---|
 | **HP regen** | `gameLoop.js` `sittingRegenTick` (`15s` cadence) | While `posture === "sitting"` and not in combat, heal `SIT_REGEN_HP` (5) up to `hp_max`. In combat (`combatTargetId`/`pvpTargetId` set) → force stand instead. |
-| **Stand when attacked (PvE)** | `gameLoop.js` enemy-attack handler | On any hit *attempt*, if `posture !== "standing"` (sitting, lying, kneeling, or an activity posture) → set standing, clear `sittingOn`, notify. Activity plugins' ticks then discard their own state. |
+| **Stand when attacked (PvE)** | `gameLoop.js` enemy-attack handler | On any hit *attempt*, `forceStand(target, 'attacked')` clears any non-standing posture and notifies. Activity plugins' ticks then discard their own state. |
 | **Stand when attacked (PvP)** | `gameLoop.js` `pvpSwing` handler | Same, against the defender. |
-| **Stand when you attack** | [`plugins/weapon/index.js`](../plugins/weapon/index.js) `cmdAttack` | Initiating an attack clears any non-standing posture. |
-| **Stand on zone change** | `commands/movement.js` `cmdMove` | Moving zones forces standing + clears `sittingOn` (unconditional). |
-| **Reset on death/respawn** | `gameLoop.js` death handler | `posture = "standing"`, `sittingOn = null`. |
+| **Stand when you attack** | [`plugins/weapon/index.js`](../plugins/weapon/index.js) `cmdAttack` | `forceStand(player, 'attacking')` on attack initiation. |
+| **Stand on zone change** | `commands/movement.js` `cmdMove` | `forceStand(player, 'moved')` (unconditional); the "stands up" room message fires only when the interrupted posture was `sitting`. |
+| **Reset on death/respawn** | `gameLoop.js` death handler | `setPosture(player, 'standing')`. |
 | **Look/examine description** | `commands/world.js` `describePlayerAppearance` | `"sitting"` → `"<X> is sitting on the <furniture|ground>."`; `"scavenging"` → rummaging line; `"butchering"` → elbow-deep-in-a-carcass line. |
-| **`poop on <player>` gate (MIS)** | `commands/bodily.js` `cmdPoop` | Target must be sleeping/offline-sleeping or `posture === "lying"`. |
+| **`poop on <player>` gate (MIS)** | `plugins/bodily/index.js` `poopOnPlayer` | Target must be sleeping/offline-sleeping or `posture === "lying"`. |
 
 ## Tunables
 

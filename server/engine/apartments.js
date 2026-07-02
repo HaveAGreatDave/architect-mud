@@ -2,6 +2,8 @@ import { query } from "../models/db.js";
 import { getApartment, setApartmentCache, getZone, world, setDoorCache } from "./world.js";
 import { skillCheck, awardSkillUse } from "./skills.js";
 import { adjustCredits } from "./economy.js";
+import { setPosture } from "./posture.js";
+import { registerProtectionProvider } from "./protection.js";
 
 const HOME_TUTORIAL = `<span style="color:var(--accent)">◈ HOLOLOCK BOUND ◈</span>
 
@@ -37,6 +39,14 @@ export async function cmdSetHome(player) {
 	}
 	return { type: 'output', message: `<span style="color:var(--accent)">Home set: ${zone.name}</span>` };
 }
+
+// An active forcefield protects the zone — published through the generic
+// protection substrate so the attack/loot/steal/shove laws never know about
+// apartments (engine/protection.js).
+registerProtectionProvider((zoneId) => {
+	const apt = getApartment(zoneId);
+	if (apt?.forcefield_active) return { reason: 'forcefield' };
+}, 'engine:apartments');
 
 // Activate the forcefield for a player's home zone.
 // broadcastFn is the server-level broadcast(zoneId, msg, excludeId) function.
@@ -464,8 +474,7 @@ export async function cmdSleep(player, broadcastFn) {
 		reason: elig.reason,
 		minutesSlept: 0,
 	};
-	player.posture = 'lying';
-	player.sittingOn = null;
+	setPosture(player, 'lying');
 
 	let selfMsg, roomMsg;
 	if (lieSpot) {
@@ -579,7 +588,7 @@ export async function tickSleep(player, broadcastFn) {
 				? "Your stomach and throat wake you up before you starve in your sleep."
 				: "You wake up, having slept as long as your body will allow in one go.";
 		player.sleeping = null;
-		player.posture = 'standing';
+		setPosture(player, 'standing');
 		await deactivateForcefield(player.id, player.home_zone, broadcastFn);
 		return {
 			type: "sleep_end",

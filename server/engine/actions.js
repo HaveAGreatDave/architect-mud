@@ -3,7 +3,7 @@
  * registerAction({type, requiredTag?, validate?, handler})
  * dispatchAction({type, actor, params, context}) → validates → handler → emits events
  */
-import { emit, on } from './events.js';
+import { emit } from './events.js';
 import * as inv from './inventory.js';
 
 // type -> { type, requiredTag?, validate?, handler }
@@ -40,14 +40,6 @@ export async function dispatchAction({ type, actor, params = {}, context = {} })
 }
 
 export function getRegisteredActions() { return [...registry.keys()]; }
-
-// Observable proof-of-life subscriber (Phase 1 smoke test — remove when events are tested)
-on('item.dropped', ({ actor, item, zone }) => {
-  console.log(`[event:item.dropped] ${actor.handle} dropped "${item.name}" in ${zone}`);
-});
-on('inventory.changed', ({ actor }) => {
-  console.log(`[event:inventory.changed] ${actor.handle}`);
-});
 
 // ---------------------------------------------------------------------------
 // Generic action scaffolding — TAKE DROP GIVE EQUIP UNEQUIP MOVE EXAMINE
@@ -122,10 +114,15 @@ registerAction({
 // combat path. The 1-second enemy-combat tick stays raw and never routes
 // through the dispatcher (ADR-0001 — latency-critical hot path).
 
+// MOVE routes through cmdMove, which runs the move-gate chain (movement-gates.js)
+// before mutating. Direction commands still call cmdMove directly — same path,
+// no double dispatch. params: { direction, opts? }. Dynamic import: movement.js
+// sits atop describe/world and importing it statically here would cycle.
 registerAction({
   type: 'MOVE',
-  handler: async ({ actor, params, emit }) => {
-    return { type: 'error', message: 'MOVE action not yet ported — use direction commands.' };
+  handler: async ({ actor, params, context }) => {
+    const { cmdMove } = await import('./commands/movement.js');
+    return cmdMove(params.direction, actor, context.broadcast, params.opts || {});
   },
 });
 

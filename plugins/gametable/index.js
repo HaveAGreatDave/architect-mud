@@ -147,10 +147,12 @@ async function cmdWatch(args, raw, player) {
   return { type: 'poker_update', html: renderPane(t, player.id) };
 }
 
-// ── `watch` router (poker table vs. TV disambiguation) ───────────────────────────
-// `watch` is owned by the broadcast plugin for TVs. gametable loads after it, so
-// it takes over `watch` and routes: TV-only rooms hand straight back to broadcast,
-// poker-only rooms spectate, and rooms with both ask via SIFT which to watch.
+// ── `watch` router (poker table vs. TV vs. furniture disambiguation) ─────────────
+// Three plugins want `watch`: broadcast (TVs), interactions (furniture flavor),
+// and gametable (spectating). gametable declares after:["broadcast","interactions"]
+// so it wins the verb and routes: poker rooms spectate, TV rooms hand back to
+// broadcast, rooms with both ask via SIFT, and plain rooms fall through to the
+// interactions furniture emote.
 
 const TV_WORDS    = ['tv', 'television', 'monitor', 'screen', 'tele', 'telly'];
 const POKER_WORDS = ['poker', 'table', 'cards', 'game', 'felt'];
@@ -169,9 +171,20 @@ async function watchTV(args, raw, player, broadcast) {
   return { type: 'error', message: 'There is nothing here to watch.' };
 }
 
+// Plain rooms (no table, no TV): the interactions plugin's furniture-flavor
+// watch ("You settle in and watch the …").
+async function watchFurniture(args, raw, player, broadcast) {
+  const ia = await import('../interactions/index.js').catch(() => null);
+  if (ia?.commands?.watch) return ia.commands.watch(args, raw, player, broadcast);
+  return { type: 'error', message: 'There is nothing here to watch.' };
+}
+
 async function cmdWatchRouter(args, raw, player, broadcast) {
   const table = tableInZone(player.current_zone);
-  if (!table) return watchTV(args, raw, player, broadcast); // no poker here — pure TV path
+  if (!table) {
+    if (await zoneHasTV(player.current_zone)) return watchTV(args, raw, player, broadcast);
+    return watchFurniture(args, raw, player, broadcast);
+  }
 
   const first = (args[0] || '').toLowerCase();
   if (POKER_WORDS.includes(first)) return cmdWatch([], raw, player);

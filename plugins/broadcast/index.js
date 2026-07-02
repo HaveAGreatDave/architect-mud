@@ -6,7 +6,8 @@ import { on, emit } from '../../server/engine/events.js';
 import { registerAction } from '../../server/engine/actions.js';
 import { registerCommand } from '../../server/engine/plugins.js';
 import { apiDeleteZone } from '../../server/api/routes.js';
-import { registerViewerChecker, registerNpcScheduleChecker, registerNpcStudioZoneLookup } from '../../server/engine/broadcast-bridge.js';
+import { registerViewerChecker, registerNpcScheduleChecker, registerNpcStudioZoneLookup, hasChannelViewers, isNpcScheduledNow, getNpcStudioZone } from '../../server/engine/broadcast-bridge.js';
+import { registerAICondition, registerAIAction } from '../../server/engine/ai-behaviour.js';
 import { getEnvironmentState, recomputePower, resyncAllLightingStates, fixZonePowerConnections, fixBuildingPowerConnections } from '../../server/engine/environment.js';
 import { getSongDefByName, getSfxDefByName, getAmbientDefByName } from '../audio/index.js';
 
@@ -751,6 +752,27 @@ registerNpcStudioZoneLookup((npcId) => {
     if (state.playlist.some(i => i.npcStaff?.includes(npcId))) return state.studioZoneId;
   }
   return null;
+});
+
+// ── Behaviour-tree nodes ──────────────────────────────────────────────────────
+// Broadcast-specific VINE nodes, registered into the AI runner (moved out of
+// the engine's ai-behaviour.js switch — registerAICondition/registerAIAction).
+// They go through the bridge getters so there's exactly one implementation of
+// each check (the lambdas registered above).
+
+registerAICondition('CHANNEL_HAS_VIEWERS', (entity, params) => hasChannelViewers(params.channel_id));
+
+registerAICondition('IS_BROADCAST_SCHEDULED', (entity) => isNpcScheduledNow(entity.id));
+
+registerAICondition('AT_WORK_ZONE', (entity, params, { zoneId }) => {
+  const studioZone = entity.studio_zone_id || getNpcStudioZone(entity.id);
+  return studioZone ? zoneId === studioZone : false;
+});
+
+registerAIAction('BROADCAST_SAY', (entity, params) => {
+  const { channel_id, text } = params;
+  if (!text || !channel_id) return;
+  emit('npc.broadcast_say', { entity, channel_id, text: `[${entity.name}] ${text}` });
 });
 
 // ── Studio zone relay ─────────────────────────────────────────────────────────

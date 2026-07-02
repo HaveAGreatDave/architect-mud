@@ -819,10 +819,6 @@ async function handleMisToggle(ws, session, msg) {
 	player.mis_enabled = enable ? 1 : 0;
 	player.horniness = enable ? (player.horniness || 0) : 0;
 	player.erect = enable ? (player.erect || 0) : 0;
-	if (!enable) {
-		const { stopMisEvent } = await import('./engine/mis.js');
-		stopMisEvent(player.id);
-	}
 	await query('UPDATE players SET mis_enabled=$1, horniness=$2, erect=$3 WHERE id=$4',
 		[player.mis_enabled, player.horniness, player.erect, player.id]);
 	ws.send(JSON.stringify({
@@ -830,12 +826,9 @@ async function handleMisToggle(ws, session, msg) {
 		mis_enabled: player.mis_enabled,
 		horniness: player.horniness,
 	}));
-	if (enable) {
-		const { MIS_TUTORIAL } = await import('./engine/mis.js');
-		ws.send(JSON.stringify({ type: 'output', message: MIS_TUTORIAL }));
-	} else {
-		ws.send(JSON.stringify({ type: 'output', message: 'MIS disabled.' }));
-	}
+	// The MIS plugin owns the consequences: stops ongoing events on disable,
+	// sends the tutorial / disabled message.
+	emit('mis.toggled', { player, enabled: enable });
 }
 
 async function handleGameCommand(ws, session, msg) {

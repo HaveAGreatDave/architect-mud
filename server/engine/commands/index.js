@@ -2,44 +2,31 @@ import { handlers as moveHandlers } from './movement.js';
 import { handlers as combatHandlers } from './combat.js';
 import { handlers as invHandlers } from './inventory.js';
 import { handlers as socialHandlers } from './social.js';
-import { handlers as economyHandlers } from './economy.js';
 import { handlers as housingHandlers } from './housing.js';
 import { handlers as worldHandlers } from './world.js';
-import { handlers as bodilyHandlers } from './bodily.js';
-import { handlers as misHandlers, handleJerkOffOn, handleEatOut } from './mis.js';
-import { handlers as appearanceHandlers } from './appearance.js';
-import { fireCommand } from '../plugins.js';
+import { fireCommand, fireInputMatchers } from '../plugins.js';
 import { deactivateForcefield } from '../apartments.js';
 import { fireSpecializedAction } from '../specializedActions.js';
 import { getSelectionState, advanceSelectionState, formatSelectionPage } from '../sift.js';
 import { getLivePlayer } from '../world.js';
-import { hasMisEvent, stopMisEvent } from '../mis.js';
 import { emit } from '../events.js';
+import { setPosture } from '../posture.js';
 
 export { describeZone, describeVoidTeleport } from './describe.js';
 export { recomputeArmor, recomputeInsulation, EQUIP_SLOTS } from './inventory.js';
-
-// Appearance handlers: `use` returns null when not targeting a cosmetic machine.
-// Strip it out here so we can try it as a pre-pass before falling back to inventory.
-const { use: appearanceUseHandler, ...appearanceOtherHandlers } = appearanceHandlers;
 
 const builtins = new Map([
   ...Object.entries(moveHandlers),
   ...Object.entries(combatHandlers),
   ...Object.entries(invHandlers),
   ...Object.entries(socialHandlers),
-  ...Object.entries(economyHandlers),
   ...Object.entries(housingHandlers),
   ...Object.entries(worldHandlers),
-  ...Object.entries(bodilyHandlers),
-  ...Object.entries(misHandlers),
-  ...Object.entries(appearanceOtherHandlers),
 ]);
 
 // Unified STOP: one verb ends every ongoing/recurring action at once — combat,
-// MIS (sexual) actions, and following. It overrides the per-system `stop`
-// handlers that combat.js and mis.js each register (whichever merged last would
-// otherwise win and stop only its own system).
+// following, and (via the player.stop event) every plugin's repeating actions
+// (scavenging, butchering, MIS events, …).
 async function cmdStopAll(args, raw, player, broadcast) {
   const stopped = [];
 
@@ -60,11 +47,6 @@ async function cmdStopAll(args, raw, player, broadcast) {
     stopped.push('fighting');
   }
 
-  if (hasMisEvent(player.id)) {
-    const meta = stopMisEvent(player.id);
-    stopped.push(meta?.action ? `${meta.action}ing${meta.target ? ` ${meta.target}` : ''}` : 'what you were doing');
-  }
-
   if (player.following) {
     player.following = null;
     stopped.push('following');
@@ -80,6 +62,10 @@ async function cmdStopAll(args, raw, player, broadcast) {
 
 builtins.set('stop', cmdStopAll);
 builtins.set('disengage', cmdStopAll);
+
+// Engine verb names, exposed so the plugin loader can report which builtins
+// are shadowed by plugin-registered verbs (dispatch order makes those dead).
+export function builtinCommandNames() { return [...builtins.keys()]; }
 
 export async function handleCommand(input, player, broadcast) {
   const raw = input.trim();
@@ -120,7 +106,7 @@ export async function handleCommand(input, player, broadcast) {
   if (player.sleeping && cmd !== 'sleep' && cmd !== 'rest') {
     const wasHome = player.sleeping.reason === 'home';
     player.sleeping = null;
-    player.posture = 'standing';
+    setPosture(player, 'standing');
     const WAKE_MESSAGES = [
       'jolts awake, eyes wild.',
       'snaps awake with a grunt.',
@@ -136,9 +122,9 @@ export async function handleCommand(input, player, broadcast) {
     return result;
   }
 
-  // Multi-word MIS commands
-  if (/^jerk\s+off\s+on\b/i.test(raw)) return handleJerkOffOn(args, raw, player, broadcast);
-  if (/^eat\s+out\b/i.test(raw)) return handleEatOut(args, raw, player, broadcast);
+  // Multi-word verbs (engine and plugin) — first matching pattern wins.
+  const matcherResult = await fireInputMatchers(args, raw, player, broadcast);
+  if (matcherResult !== undefined) return matcherResult;
 
   const pluginResult = await fireCommand(cmd, args, raw, player, broadcast);
   if (pluginResult !== undefined) return pluginResult;
@@ -148,12 +134,6 @@ export async function handleCommand(input, player, broadcast) {
   // the built-in handler below — keeping every verb playable mid-port.
   const specialResult = await fireSpecializedAction(cmd, args, raw, player, broadcast);
   if (specialResult !== undefined) return specialResult;
-
-  // Cosmetic machine pre-intercepts `use` before inventory gets it
-  if (cmd === 'use' && appearanceUseHandler) {
-    const appResult = await appearanceUseHandler(args, raw, player, broadcast);
-    if (appResult !== null) return appResult;
-  }
 
   const handler = builtins.get(cmd);
   if (handler) return handler(args, raw, player, broadcast);

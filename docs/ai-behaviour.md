@@ -71,6 +71,19 @@ Edges are looked up by `(fromNode, fromPort)` to find the `toNode`. This is the 
 
 ## Node Types
 
+**Plugin-registered nodes.** The runner has a node registry
+(`registerAICondition(type, fn)` / `registerAIAction(type, fn)` in
+`ai-behaviour.js`) — unknown `condition_type`/`action_type` values fall through
+to it, so plugins add node types without editing the engine switches.
+Conditions are **sync by contract** (`fn(entity, params, { zone, zoneId }) →
+boolean` — read caches, never the DB); actions may be async
+(`fn(entity, params, { broadcast, query, ai, zone, zoneId, node }) →
+port-string | 'RUNNING' | undefined`). The broadcast plugin registers
+`CHANNEL_HAS_VIEWERS`, `IS_BROADCAST_SCHEDULED`, `AT_WORK_ZONE`, and
+`BROADCAST_SAY` this way; the vendor work/home-life nodes are slated to move
+the same way (docs/proposals/engine-plugin-boundary.md, Phase 3).
+`getRegisteredAINodes()` lists what plugins have added.
+
 ### `start`
 
 Entry point. No data. Out port: `next`.

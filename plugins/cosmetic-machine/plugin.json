@@ -1,0 +1,7 @@
+{
+  "name": "cosmetic-machine",
+  "version": "1.0.0",
+  "description": "MORPHEX 9000 BioSculpt terminal — body customization panel and morphex/makeover/biosculpt verbs. Engine furniture router opens it via the cosmetic.open Action.",
+  "hooks": [],
+  "commands": ["morphex", "makeover", "biosculpt"]
+}

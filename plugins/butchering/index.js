@@ -13,13 +13,14 @@
 
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
-import { getLivePlayer, setLivePlayer, getAllLivePlayers, getCorpse, getZoneCorpses, removeCorpse } from '../../server/engine/world.js';
+import { getLivePlayer, getAllLivePlayers, getCorpse, getZoneCorpses, removeCorpse } from '../../server/engine/world.js';
 import { skillCheck, awardSkillUse } from '../../server/engine/skills.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { isStackable } from '../../server/engine/tags.js';
 import { stainClothing } from '../../server/engine/bodily.js';
 import { on } from '../../server/engine/events.js';
 import { registerAction, dispatchAction } from '../../server/engine/actions.js';
+import { setPosture } from '../../server/engine/posture.js';
 
 const BUTCHER_MS = 5000;
 
@@ -61,12 +62,8 @@ async function cmdButcher(targetStr, player, broadcast) {
 			message: "You need a butchering tool (a knife will do) to do that.",
 		};
 
-	setLivePlayer(player.id, {
-		...player,
-		posture: "butchering",
-		sittingOn: null,
-		butcherState: { corpseId: corpse.id, completeAt: Date.now() + BUTCHER_MS },
-	});
+	setPosture(player, "butchering");
+	player.butcherState = { corpseId: corpse.id, completeAt: Date.now() + BUTCHER_MS };
 	sendToPlayer(player.id, {
 		type: "progress",
 		action: "butcher",
@@ -86,10 +83,8 @@ async function cmdButcher(targetStr, player, broadcast) {
 // Clear the butchering activity and hide the client progress bar.
 function clearButcher(player, tellMsg) {
 	const cur = getLivePlayer(player.id) || player;
-	const next = { ...cur };
-	delete next.butcherState;
-	if (next.posture === "butchering") next.posture = "standing";
-	setLivePlayer(player.id, next);
+	delete cur.butcherState;
+	if (cur.posture === "butchering") setPosture(cur, "standing");
 	sendToPlayer(player.id, { type: "progress", action: "butcher", done: true });
 	if (tellMsg) sendToPlayer(player.id, { type: "emote", message: tellMsg });
 }

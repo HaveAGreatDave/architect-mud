@@ -3,9 +3,9 @@ import {
   getZonePlayers,
   getZoneCorpses,
   getLivePlayer,
-  getApartment,
   moveCorpse,
 } from '../../server/engine/world.js';
+import { getZoneProtection } from '../../server/engine/protection.js';
 import { cmdMove } from '../../server/engine/commands/movement.js';
 import { computeCarriedWeight } from '../../server/engine/commands/inventory.js';
 import {
@@ -108,9 +108,9 @@ async function cmdShove(args, raw, player, broadcast) {
     return { type: 'error', message: `Can't find "${targetStr}" here.` };
   }
 
-  // Mirror attack's effective PvP gating: forcefielded apartments block reach.
+  // Mirror attack's effective PvP gating: protected zones block reach.
   const blockedByField = targetPlayer ?? sleeper;
-  if (blockedByField && getApartment(blockedByField.current_zone)?.forcefield_active) {
+  if (blockedByField && getZoneProtection(blockedByField.current_zone)) {
     return { type: 'error', message: `A quantum forcefield crackles between you and ${blockedByField.handle}. You can't reach them.` };
   }
 
