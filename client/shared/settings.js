@@ -148,6 +148,14 @@ function _getBuiltinThemeColors(themeId) {
   return colors;
 }
 
+function _activeThemeName(settings) {
+  const id = settings.theme || 'dark';
+  const builtin = BUILTIN_THEMES.find(([v]) => v === id);
+  if (builtin) return builtin[1];
+  const custom = (settings.customThemes || []).find(t => t.id === id);
+  return custom ? custom.name : id;
+}
+
 function _getThemeColors(themeId, settings) {
   const custom = (settings.customThemes || []).find(t => t.id === themeId);
   return custom ? { ...custom.colors } : _getBuiltinThemeColors(themeId);
@@ -255,6 +263,9 @@ export function applySettings(settings) {
   }
 
   _populateThemeGrid(settings);
+
+  const _tn = document.getElementById('active-theme-name');
+  if (_tn) _tn.textContent = _activeThemeName(settings);
 
   const _cs = document.getElementById('opt-contrast');
   const _cl = document.getElementById('contrast-value-label');

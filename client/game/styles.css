@@ -2011,6 +2011,42 @@ body {
 	font-size: 14px;
 }
 
+/* Contrast slider — themed track + thumb so the saved level reads clearly
+   the moment settings opens, before any drag. */
+#opt-contrast {
+	-webkit-appearance: none;
+	appearance: none;
+	height: 6px;
+	border-radius: 3px;
+	background: var(--border);
+	outline: none;
+}
+#opt-contrast::-webkit-slider-thumb {
+	-webkit-appearance: none;
+	appearance: none;
+	width: 16px;
+	height: 16px;
+	border-radius: 50%;
+	background: var(--accent);
+	border: 2px solid var(--bg);
+	box-shadow: 0 0 0 1px var(--border);
+	cursor: pointer;
+}
+#opt-contrast::-moz-range-track {
+	height: 6px;
+	border-radius: 3px;
+	background: var(--border);
+}
+#opt-contrast::-moz-range-thumb {
+	width: 16px;
+	height: 16px;
+	border-radius: 50%;
+	background: var(--accent);
+	border: 2px solid var(--bg);
+	box-shadow: 0 0 0 1px var(--border);
+	cursor: pointer;
+}
+
 /* Map popup */
 #map-panel {
 	display: none;
