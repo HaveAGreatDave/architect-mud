@@ -21,6 +21,7 @@ import { openSurveillanceHub, updateSurveillanceHub } from './panels/surveillanc
 import { openDatachipReplay } from './panels/datachipreplay.js';
 import { openCircuitHack } from './panels/circuithack.js';
 import { openSynthMinigame } from './panels/synthlab.js';
+import { openSpliceDesigner, updateSplicePreview } from './panels/splicelab.js';
 import { updateWantedHud } from './panels/wanted.js';
 import { openTvPanel, isTvOpen, getTvActiveChannelId, appendTvMessage, updateTvTicker, applyTvOverlay, clearTvMessages, showTvOffAir, showTvOnAir, shutdownTvPanel } from './panels/tv.js';
 import { applyEspState, handleEspWarning } from './esp.js';
@@ -433,9 +434,16 @@ const handlers = {
       difficulty: msg.difficulty ?? 5,
       recipeName: msg.recipeName || 'COMPOUND',
       workspace: msg.workspace || '',
-      onResult: ({ score }) => sendCmdSilent(`synthresolve ${msg.recipeId} ${score}`),
+      hard: !!msg.hard,
+      instability: msg.instability,
+      onResult: ({ score }) => sendCmdSilent(
+        msg.kind === 'splice' ? `spliceresolve ${msg.token} ${score}` : `synthresolve ${msg.recipeId} ${score}`
+      ),
     });
   },
+
+  splice_designer: (msg) => { openSpliceDesigner(msg); },
+  splice_preview:  (msg) => { updateSplicePreview(msg); },
 
   esp_state:   (msg) => { applyEspState(msg); },
   esp_warning: (msg) => { handleEspWarning(msg); },

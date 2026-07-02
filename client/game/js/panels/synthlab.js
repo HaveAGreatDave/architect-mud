@@ -34,8 +34,9 @@ function ensureStyles() {
 export function openSynthMinigame(opts = {}) {
   ensureStyles();
   close();
-  _opts = { difficulty: 5, recipeName: 'COMPOUND', workspace: '', onResult: null, ...opts };
-  const diff = Math.max(1, Math.min(10, _opts.difficulty));
+  _opts = { difficulty: 5, recipeName: 'COMPOUND', workspace: '', hard: false, onResult: null, ...opts };
+  const hard = _opts.hard;
+  const diff = Math.max(1, Math.min(hard ? 16 : 10, _opts.difficulty));
 
   const overlay = document.createElement('div');
   overlay.id = 'synth-lab-overlay';
@@ -57,12 +58,12 @@ export function openSynthMinigame(opts = {}) {
   _st = {
     ctx, w: canvas.width, h: canvas.height,
     level: 0.5, vel: 0, holding: false,
-    t: 0, dur: 14, inBand: 0, last: performance.now(),
-    // difficulty tuning
-    gravity: 0.95 + diff * 0.04,
-    push: 1.9 + diff * 0.05,
-    bandHalf: Math.max(0.06, 0.17 - diff * 0.009),
-    bandSpeed: 0.18 + diff * 0.045,
+    t: 0, dur: hard ? 16 : 14, inBand: 0, last: performance.now(),
+    // difficulty tuning (harder splice mode = narrower, faster-drifting band)
+    gravity: (hard ? 1.1 : 0.95) + diff * 0.04,
+    push: (hard ? 2.05 : 1.9) + diff * 0.05,
+    bandHalf: Math.max(hard ? 0.045 : 0.06, (hard ? 0.14 : 0.17) - diff * (hard ? 0.007 : 0.009)),
+    bandSpeed: (hard ? 0.26 : 0.18) + diff * (hard ? 0.05 : 0.045),
     over: false,
   };
 

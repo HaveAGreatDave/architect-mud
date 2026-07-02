@@ -339,6 +339,26 @@ async function cmdSplice(args, raw, player, broadcast) {
   return { type: 'splice_designer', drugs, minSkill: SPLICE_MIN_SKILL, baseDifficulty: SPLICE_BASE_DIFF, hasStabilizer: await hasStabilizer(player.id) };
 }
 
+function summariseComposed(e) {
+  const lines = [];
+  if (e.instant && Object.keys(e.instant).length) lines.push('Instant: ' + summariseInstant(e.instant));
+  if (e.phases) lines.push('Phased: ' + summarisePhases(e.phases));
+  if (e.hallucination) lines.push('Trip: ' + summariseHall(e.hallucination));
+  return lines.join('\n') || 'No effects selected.';
+}
+
+// Live preview as the player designs (reuses composeSplice — authoritative math).
+async function cmdSplicePreview(args, raw, player) {
+  let payload; try { payload = JSON.parse(Buffer.from(args[0] || '', 'base64').toString('utf8')); } catch { return { type: 'noop' }; }
+  const cache = getDrugCache();
+  const baseDrug = cache[payload.base];
+  if (!baseDrug) return { type: 'splice_preview', ok: false };
+  const grafts = Array.isArray(payload.grafts) ? payload.grafts.filter(g => g && g.drug && BLOCKS.includes(g.block)) : [];
+  const srcEffById = {}; for (const g of grafts) srcEffById[g.drug] = cache[g.drug]?.effects;
+  const comp = composeSplice(baseDrug.effects, grafts, srcEffById, null);
+  return { type: 'splice_preview', ok: true, difficulty: comp.difficulty, instability: comp.instability, doseWeight: comp.doseWeight, odThreshold: comp.odThreshold, warnings: comp.warnings, summary: summariseComposed(comp.effects) };
+}
+
 async function cmdSpliceBegin(args, raw, player, broadcast) {
   let payload;
   try { payload = JSON.parse(Buffer.from(args[0] || '', 'base64').toString('utf8')); } catch { return { type: 'error', message: 'Malformed splice payload.' }; }
@@ -453,6 +473,7 @@ export const commands = {
   synthesize: cmdCook,
   synthresolve: cmdSynthResolve,
   splice: cmdSplice,
+  splicepreview: cmdSplicePreview,
   splicebegin: cmdSpliceBegin,
   spliceresolve: cmdSpliceResolve,
 };
