@@ -788,6 +788,7 @@ function renderExitsBuilder(selfId) {
   const dirs = ['north','south','east','west','up','down','in','out']
     .filter(d => MULTI_EXIT_DIRS.includes(d) || !exitTargets(zoneEditExitsState, d).length);
   const zoneOptions = allRecords.filter(z => z.id !== selfId)
+    .sort((a, b) => a.name.localeCompare(b.name))
     .map(z => `<option value="${z.id}">${z.name} (${z.id})</option>`).join('');
   const rows = allExits(zoneEditExitsState).map(({ dir, target: targetId }) => {
     const target = allRecords.find(z => z.id === targetId);
