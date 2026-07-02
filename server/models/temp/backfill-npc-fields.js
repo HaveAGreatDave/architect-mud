@@ -3,11 +3,14 @@
  *
  * What this checks:
  *   1. behaviour_graph = '{}'  → auto-assign default studio or vendor graph
- *   2. vendor_schedule = '{}' or '[]'  → assign default 10-22 schedule (vendors only)
- *   3. vendor graph uses old HAVE_LIFE nodes where AT_HOME_LIFE is now expected
+ *   2. vendor_schedule = '{}' or '[]'  → assign default 10-22 schedule (any employed,
+ *      non-actor NPC — vendor or not)
+ *   3. schedule graph uses old HAVE_LIFE nodes where AT_HOME_LIFE is now expected
  *      (home_idle / home_life_ps nodes)  → offer to rebuild graph
- *   4. npc_type = 'npc' but has a vendor_inventory  → flag for manual review
- *   5. npc_type = 'vendor' but work_zone_id is NULL  → flag (can't commute)
+ *   4. employed (non-actor) NPC has no work_zone_id  → flag (can't commute)
+ *   5. npc_type = 'npc' but has a vendor_inventory  → flag for manual review
+ *   6. employed (non-actor) NPC stuck on the old AT_WORK-based studio graph
+ *      (arrives at work, then immediately leaves) → offer to rebuild graph
  *
  * Dry-run by default (prints what it would do).
  * Pass --apply to actually write changes.
@@ -98,6 +101,14 @@ function vendorGraphHasOldHomeNodes(graph) {
   return homeNodes.some(k => nodes[k] && nodes[k].action_type === 'HAVE_LIFE');
 }
 
+// Check whether a graph is the old buildDefaultStudioGraph() shape (AT_WORK-based).
+// That graph only holds an NPC at work via isNpcScheduledNow (broadcast actors) — a
+// non-actor employed NPC stuck with it will walk to work and immediately walk home.
+function isOldStudioGraphShape(graph) {
+  if (!graph || !graph.nodes) return false;
+  return graph.nodes.at_work?.action_type === 'AT_WORK';
+}
+
 // Is the graph empty (no _start)?
 function isEmptyGraph(graph) {
   if (!graph) return true;
@@ -129,8 +140,9 @@ async function main() {
     emptyGraph: [],           // needs default graph
     emptySchedule: [],        // vendor needs default schedule
     oldHomeNodes: [],         // vendor graph uses HAVE_LIFE where AT_HOME_LIFE expected
-    noWorkZone: [],           // vendor has no work_zone_id (info only — can't auto-fix)
+    noWorkZone: [],           // employed (non-actor) has no work_zone_id (info only — can't auto-fix)
     mismatchedType: [],       // has vendor_inventory but npc_type != 'vendor' (info only)
+    staleStudioGraph: [],     // employed (non-actor) stuck on the old AT_WORK-based studio graph
   };
 
   for (const npc of npcs) {
@@ -146,25 +158,34 @@ async function main() {
 
     const isVendor     = npc.npc_type === 'vendor';
     const isUnemployed = npc.npc_type === 'unemployed';
+    const isActor      = !!npc.studio_zone_id;
+    // Anyone with a job who isn't a broadcast actor respects a manual schedule,
+    // same as vendors (buildDefaultVendorGraph / DEFAULT_VENDOR_SCHEDULE).
+    const isScheduled  = !isUnemployed && !isActor;
 
     // 1. Empty graph
     if (isEmptyGraph(graph)) {
-      fixes.emptyGraph.push({ id: npc.id, name: npc.name, isVendor, isUnemployed });
+      fixes.emptyGraph.push({ id: npc.id, name: npc.name, isUnemployed, isActor });
     }
 
-    // 2. Vendor with empty/missing schedule
-    if (isVendor && isEmptySchedule(sched)) {
+    // 2. Employed (non-actor) NPC with empty/missing schedule
+    if (isScheduled && isEmptySchedule(sched)) {
       fixes.emptySchedule.push({ id: npc.id, name: npc.name });
     }
 
     // 3. Vendor graph with old HAVE_LIFE home nodes
-    if (isVendor && !isEmptyGraph(graph) && vendorGraphHasOldHomeNodes(graph)) {
+    if (isScheduled && !isEmptyGraph(graph) && vendorGraphHasOldHomeNodes(graph)) {
       fixes.oldHomeNodes.push({ id: npc.id, name: npc.name });
     }
 
-    // 4. Vendor with no work_zone_id (info only)
-    if (isVendor && !npc.work_zone_id) {
+    // 4. Employed (non-actor) NPC with no work_zone_id (info only)
+    if (isScheduled && !npc.work_zone_id) {
       fixes.noWorkZone.push({ id: npc.id, name: npc.name });
+    }
+
+    // 6. Employed (non-actor) NPC stuck with the old studio graph (never holds at work)
+    if (isScheduled && !isEmptyGraph(graph) && isOldStudioGraphShape(graph)) {
+      fixes.staleStudioGraph.push({ id: npc.id, name: npc.name });
     }
 
     // 5. Has vendor inventory but npc_type is 'npc' (might have been created before npc_type existed)
@@ -180,12 +201,12 @@ async function main() {
     console.log('   ✓ None.');
   } else {
     for (const f of fixes.emptyGraph) {
-      const graphType = f.isVendor ? 'buildDefaultVendorGraph' : f.isUnemployed ? 'buildDefaultUnemployedGraph' : 'buildDefaultStudioGraph';
+      const graphType = f.isUnemployed ? 'buildDefaultUnemployedGraph' : f.isActor ? 'buildDefaultStudioGraph' : 'buildDefaultVendorGraph';
       console.log(`   ✗ ${f.id.padEnd(35)} (${f.name}) → assign ${graphType}()`);
     }
   }
 
-  console.log('\n── 2. Vendor with empty vendor_schedule (never goes to work) ────────────');
+  console.log('\n── 2. Employed NPC with empty vendor_schedule (never goes to work) ──────');
   if (!fixes.emptySchedule.length) {
     console.log('   ✓ None.');
   } else {
@@ -203,7 +224,7 @@ async function main() {
     }
   }
 
-  console.log('\n── 4. Vendor with no work_zone_id (info only — manual fix required) ─────');
+  console.log('\n── 4. Employed NPC with no work_zone_id (info only — manual fix required) ');
   if (!fixes.noWorkZone.length) {
     console.log('   ✓ None.');
   } else {
@@ -221,9 +242,18 @@ async function main() {
     }
   }
 
+  console.log('\n── 6. Employed NPC stuck on the old studio graph (arrives at work, leaves immediately) ');
+  if (!fixes.staleStudioGraph.length) {
+    console.log('   ✓ None.');
+  } else {
+    for (const f of fixes.staleStudioGraph) {
+      console.log(`   ✗ ${f.id.padEnd(35)} (${f.name}) → rebuild with buildDefaultVendorGraph()`);
+    }
+  }
+
   // ── Apply ───────────────────────────────────────────────────────────────────
 
-  const totalAuto = fixes.emptyGraph.length + fixes.emptySchedule.length + fixes.oldHomeNodes.length;
+  const totalAuto = fixes.emptyGraph.length + fixes.emptySchedule.length + fixes.oldHomeNodes.length + fixes.staleStudioGraph.length;
 
   if (!APPLY) {
     console.log(`\n${'─'.repeat(70)}`);
@@ -246,9 +276,9 @@ async function main() {
 
   // Fix 1: empty graphs
   for (const f of fixes.emptyGraph) {
-    const graph = f.isVendor ? buildDefaultVendorGraph() : f.isUnemployed ? buildDefaultUnemployedGraph() : buildDefaultStudioGraph();
+    const graph = f.isUnemployed ? buildDefaultUnemployedGraph() : f.isActor ? buildDefaultStudioGraph() : buildDefaultVendorGraph();
     await query('UPDATE npcs SET behaviour_graph=$1 WHERE id=$2', [JSON.stringify(graph), f.id]);
-    const label = f.isVendor ? 'vendor graph' : f.isUnemployed ? 'unemployed graph' : 'studio graph';
+    const label = f.isUnemployed ? 'unemployed graph' : f.isActor ? 'studio graph' : 'schedule graph';
     console.log(`  ✓ ${f.id} (${f.name}) → assigned ${label}`);
     changed++;
   }
@@ -265,6 +295,14 @@ async function main() {
     const graph = buildDefaultVendorGraph();
     await query('UPDATE npcs SET behaviour_graph=$1 WHERE id=$2', [JSON.stringify(graph), f.id]);
     console.log(`  ✓ ${f.id} (${f.name}) → rebuilt vendor graph with AT_HOME_LIFE nodes`);
+    changed++;
+  }
+
+  // Fix 6: employed NPCs stuck on the old AT_WORK-based studio graph
+  for (const f of fixes.staleStudioGraph) {
+    const graph = buildDefaultVendorGraph();
+    await query('UPDATE npcs SET behaviour_graph=$1 WHERE id=$2', [JSON.stringify(graph), f.id]);
+    console.log(`  ✓ ${f.id} (${f.name}) → rebuilt with schedule-respecting graph`);
     changed++;
   }
 

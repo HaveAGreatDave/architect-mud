@@ -414,4 +414,28 @@ export const hooks = {
   'environment.weatherFieldSync': async ({ forecast0 }) => {
     await reseedFromForecast0(forecast0);
   },
+
+  // Devpanel "schedule future weather" — edits a single upcoming forecast day
+  // (1-6) in place, ahead of it becoming today. Unlike the day-0 override this
+  // doesn't touch current conditions or the live field; it just rewrites the
+  // stored forecast row so the day arrives severe when it rolls around.
+  'environment.scheduleForecastDay': async ({ forecastDay, weatherType, tempC, windKph, humidityPct, setWeatherState, currentForecast }) => {
+    const idx = currentForecast.findIndex(f => f.forecastDay === forecastDay);
+    if (idx === -1) throw new Error('Forecast day not found');
+    const existing = currentForecast[idx];
+    const next = {
+      ...existing,
+      weatherType: weatherType ?? existing.weatherType,
+      tempC: tempC !== undefined ? Number(tempC) : existing.tempC,
+      windKph: windKph !== undefined ? Number(windKph) : existing.windKph,
+      humidityPct: humidityPct !== undefined ? Number(humidityPct) : existing.humidityPct,
+    };
+    next.severity = severityForForecast0(next.weatherType, next.tempC, next.windKph);
+    await query(
+      `UPDATE weather_forecast SET weather_type = $1, temp_c = $2, wind_kph = $3, humidity_pct = $4 WHERE forecast_day = $5`,
+      [next.weatherType, next.tempC, next.windKph ?? 0, next.humidityPct ?? 60, forecastDay]
+    );
+    const nextForecast = currentForecast.map((f, i) => (i === idx ? next : f));
+    setWeatherState(nextForecast[0].weatherType, nextForecast[0].tempC, nextForecast);
+  },
 };

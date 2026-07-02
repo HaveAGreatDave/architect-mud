@@ -144,6 +144,11 @@ export async function resolveAttackNpc(player, npc, broadcast) {
 	const result = await playerAttackNpc(player, npc.id, weaponStats);
 	if (!result.success) return { type: "error", message: result.message };
 
+	// Assaulting an NPC is a crime (and killing a police NPC a graver one) — the
+	// surveillance/wanted system charges it if witnessed. Emit the act, not the hit.
+	emit("npc.attacked", { actor: player, npc });
+	if (result.killed) emit("npc.killed", { actor: player, npc });
+
 	if (result.hit) broadcastNpcSpeech(npc, result.npcSpeech, player.current_zone, broadcast);
 	if (result.killed) {
 		player.npcCombatTargetId = null;
@@ -249,6 +254,7 @@ export async function cmdAttack(targetStr, player, broadcast) {
 			broadcast(null, { type: 'output', message: `${player.handle} is attacking you!` }, null, targetPlayer.id);
 		}
 		broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} engages ${targetPlayer.handle} in combat!` }, player.id, null, targetPlayer.id);
+		emit('player.attacked', { attacker: player, target: targetPlayer });
 		return { type: "combat", message: `You close in on ${targetPlayer.handle}. Combat begins.` };
 	}
 
@@ -265,6 +271,7 @@ export async function cmdAttack(targetStr, player, broadcast) {
 
 	player.offlinePvpTargetId = targetPlayer.id;
 	broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} attacks ${targetPlayer.handle} in their sleep!` }, player.id);
+	emit('player.attacked', { attacker: player, target: targetPlayer });
 	return { type: "combat", message: `You begin attacking ${targetPlayer.handle} while they sleep.` };
 }
 

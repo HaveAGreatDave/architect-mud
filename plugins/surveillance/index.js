@@ -15,6 +15,7 @@ import { getPowerMap } from '../../server/engine/environment.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { on, emit } from '../../server/engine/events.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
+import { getCrimeStars, getCrimeWitness, getCrimeLabel } from '../../server/engine/crimes.js';
 
 const COMPASS = new Set(['north', 'south', 'east', 'west', 'up', 'down', 'n', 's', 'e', 'w', 'u', 'd']);
 
@@ -759,10 +760,10 @@ async function cmdHijackResolve(args, raw, player) {
     );
     await awardSkillUse(player.id, 'hacking', 2);
     tamperPing(dev.owner_id, player.id, dev.name, dev.zone_name || dev.zone_id, 'was HIJACKED — you no longer control it.');
-    if (dev.is_police) {
-      await raiseWanted(player, 2, 'hijacking a PD unit');
-      dispatchPolice(dev.zone_id, 'a systems breach', player.handle);
-    }
+    // Breaching any live device is hacking (charged via the crimes registry if
+    // witnessed); a PD unit also puts patrols on you regardless.
+    emit('hack.success', { player, zoneId: dev.zone_id });
+    if (dev.is_police) dispatchPolice(dev.zone_id, 'a systems breach', player.handle);
     return { type: 'output', message: `<span class="ip-gain">BREACH SUCCESSFUL.</span> The ${dev.name} answers to you now. Pull up your hub.` };
   }
   hijackLockout.set(player.id, Date.now() + 5 * 60 * 1000);
@@ -894,7 +895,14 @@ function wantedState(id) {
   return s;
 }
 
-function starBar(n) { return '★'.repeat(n) + '☆'.repeat(MAX_STARS - n); }
+// Half-star aware: 2.5 → ★★½☆☆. Fractional heat (e.g. a single on-camera drug
+// hit at 0.5) shows a lone half star.
+function starBar(n) {
+  const full = Math.floor(n);
+  const half = (n - full) >= 0.5;
+  const empty = Math.max(0, MAX_STARS - full - (half ? 1 : 0));
+  return '★'.repeat(full) + (half ? '½' : '') + '☆'.repeat(empty);
+}
 function sendWantedHud(playerId, stars) { sendToPlayer(playerId, { type: 'wanted_level', stars }); }
 
 function despawnHunters(s) {
@@ -927,6 +935,84 @@ async function raiseWanted(player, amount, reason) {
     sendWantedHud(player.id, s.stars);
   }
 }
+
+// ── Crime → wanted routing ────────────────────────────────────────────────────
+// The data-driven path: a crime key (from crimes.js / the dev-panel `crimes`
+// table) is charged here — witness-gated, debounced, and (if a camera is live)
+// flashed to the whole room. Called from the combat/drug event listeners below.
+
+// Per-(player, crime) debounce so repeated swings of one ongoing act don't
+// ratchet stars every tick; a fresh act after the window re-charges.
+const recentCrime = new Map();
+const CRIME_DEBOUNCE_MS = 12000;
+
+// Is a live (powered, un-jammed) camera watching this zone right now? (Police or
+// player-owned — any lens counts for the red-flash callout.)
+async function cameraLiveInZone(zoneId) {
+  if (!zoneId) return false;
+  const { rows } = await query(
+    `SELECT zone_id, battery, wired, is_damaged FROM security_devices
+      WHERE zone_id=$1 AND device_kind IN ('sticky_cam','drone') AND is_damaged=0`,
+    [zoneId]
+  ).catch(() => ({ rows: [] }));
+  if (!rows.length) return false;
+  const fx = await getInterferenceZones();
+  if (fx.jammed.has(zoneId)) return false;
+  return rows.some(d => devicePowered(d));
+}
+
+// A camera catching a crime lights up red and calls the suspect out to everyone
+// in the room.
+function flashCamera(zoneId, suspectName, crimeLabel) {
+  sendToZone(zoneId, {
+    type: 'zone_event',
+    message: `<span class="camera-alert">⚠ A surveillance camera swivels, its lens flaring red — locking focus on ${suspectName}.</span>`,
+  });
+  sendToZone(zoneId, { type: 'camera_flash', suspect: suspectName, crime: crimeLabel });
+}
+
+async function raiseCrime(player, key, zoneId, suspectName) {
+  if (!player?.id || !player.handle) return;
+  const stars = getCrimeStars(key);
+  if (!stars) return;
+
+  const onCamera = await cameraLiveInZone(zoneId);
+  const witness = getCrimeWitness(key);
+  const seen = witness === 'always' ? true
+    : witness === 'camera' ? onCamera
+    : await isWitnessed(zoneId);
+  if (!seen) return;
+
+  const dkey = `${player.id}:${key}`;
+  const now = Date.now();
+  if (now - (recentCrime.get(dkey) || 0) < CRIME_DEBOUNCE_MS) return;
+  recentCrime.set(dkey, now);
+
+  const label = getCrimeLabel(key);
+  if (onCamera) flashCamera(zoneId, suspectName || player.handle, label);
+  logCrime(zoneId, key);
+  await raiseWanted(player, stars, label.toLowerCase());
+  await logPoliceEvidence(zoneId, [key], player.handle);
+  if (stars >= 1) dispatchPolice(zoneId, label, player.handle);  // no sirens over a half-star puff
+}
+
+// Combat (weapon plugin) and drug (engine) fire these; we charge the matching
+// crime. Witness-gating + debounce live in raiseCrime.
+on('player.attacked', ({ attacker }) => {
+  if (attacker?.id) raiseCrime(attacker, 'attack_player', attacker.current_zone, attacker.handle);
+});
+on('npc.attacked', ({ actor }) => {
+  if (actor?.id) raiseCrime(actor, 'attack_npc', actor.current_zone, actor.handle);
+});
+on('npc.killed', ({ actor, npc }) => {
+  if (actor?.id && npc?.flags?.police) raiseCrime(actor, 'kill_police', actor.current_zone, actor.handle);
+});
+on('player.drugUsed', ({ player, illegal, zoneId }) => {
+  if (player?.id && illegal) raiseCrime(player, 'drug_use', zoneId || player.current_zone, player.handle);
+});
+on('hack.success', ({ player, zoneId }) => {
+  if (player?.id) raiseCrime(player, 'hacking', zoneId || player.current_zone, player.handle);
+});
 
 // Set an online player's stars to an exact value (bribe/scrub). Rebuilds the
 // hunter roster to the new tier; clears entirely at 0.
@@ -986,7 +1072,7 @@ async function reconcileAndPursue(suspectId, s) {
   }
 
   let deployed = false;
-  for (const [tpl, n] of (TIERS[s.stars] || [])) {
+  for (const [tpl, n] of (TIERS[Math.floor(s.stars)] || [])) {
     const have = haveByTpl.get(tpl) || 0;
     for (let i = have; i < n; i++) {
       const template = await getEnemyTemplate(tpl);
@@ -1028,7 +1114,7 @@ setInterval(() => wantedTick().catch(e => console.error('[surveillance] wanted t
 on('player.login', async ({ id }) => {
   const p = getLivePlayer(id);
   if (!p) return;
-  const stars = parseInt(await getFlag('player', 'wanted', p) || '0', 10) || 0;
+  const stars = parseFloat(await getFlag('player', 'wanted', p) || '0') || 0;
   if (stars > 0) {
     const s = wantedState(id);
     s.stars = stars; s.lastSeenTs = Date.now(); s.lastCrimeTs = Date.now();
@@ -1039,7 +1125,7 @@ on('player.logout', ({ id }) => { const s = wantedRuntime.get(id); if (s) despaw
 
 // wanted — check your own heat.
 async function cmdWanted(args, raw, player) {
-  const stars = wantedRuntime.get(player.id)?.stars ?? (parseInt(await getFlag('player', 'wanted', player) || '0', 10) || 0);
+  const stars = wantedRuntime.get(player.id)?.stars ?? (parseFloat(await getFlag('player', 'wanted', player) || '0') || 0);
   return { type: 'output', message: stars > 0 ? `WANTED: <span class="text-red">${starBar(stars)}</span>` : "You're clean. For now." };
 }
 

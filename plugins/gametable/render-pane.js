@@ -156,10 +156,11 @@ export function renderPane(table, viewerId) {
   // Clickable command bar. Labels use the natural word; data-cmd carries the
   // real (collision-free) verb — `sit`→`seat`, `watch`→`spectate`. Amount verbs
   // prefill the input instead of firing. Disabled buttons show but don't relay.
-  function pbtn(label, cmd, { fill = false, disabled = false } = {}) {
+  function pbtn(label, cmd, { fill = false, disabled = false, highlight = false } = {}) {
     if (disabled) return `<button class="poker-cmd disabled" disabled>${label}</button>`;
     const attr = fill ? `data-fill="${cmd} "` : `data-cmd="${cmd}"`;
-    return `<button class="poker-cmd" ${attr}>${label}</button>`;
+    const cls = highlight ? 'poker-cmd highlight' : 'poker-cmd';
+    return `<button class="${cls}" ${attr}>${label}</button>`;
   }
   function cmdBarHTML() {
     const parts = [];
@@ -173,10 +174,14 @@ export function renderPane(table, viewerId) {
       parts.push(pbtn('raise', 'raise', { fill: true, disabled: !myTurn }));
       parts.push(pbtn('fold',  'fold',  { disabled: !myTurn }));
       parts.push(pbtn('all-in','allin', { disabled: !myTurn }));
+      // One-click ways to fill the table: an AI opponent, or the dealer if he's stepped away.
+      if (!game && table.openSeats() > 0) parts.push(pbtn('call AI', 'summon'));
+      if (!table.hasDealer()) parts.push(pbtn('call dealer', 'calldealer', { highlight: true }));
       parts.push(pbtn('leave', 'leave'));
     } else {
       parts.push(pbtn('sit',   'seat'));     // alias: shows "sit", relays `seat`
       parts.push(pbtn('watch', 'spectate')); // alias: shows "watch", relays `spectate`
+      if (!table.hasDealer()) parts.push(pbtn('call dealer', 'calldealer', { highlight: true }));
       if (table.spectators?.has?.(viewerId)) parts.push(pbtn('leave', 'leave'));
     }
     parts.push(pbtn('help', 'help'));
@@ -192,7 +197,10 @@ export function renderPane(table, viewerId) {
   const phaseLabel = PHASE_LABELS[phase] || '';
   // Between hands, show a status so a lone player knows why nothing's happening.
   const seatedCount = seats.filter(Boolean).length;
-  const waitLabel = game ? '' : (seatedCount < 2 ? 'WAITING FOR PLAYERS' : 'SHUFFLING UP…');
+  const waitLabel = game ? '' : (
+    table.phase === 'WaitingForDealer' ? 'NO DEALER — TABLE PAUSED' :
+    seatedCount < 2 ? 'WAITING FOR PLAYERS' : 'SHUFFLING UP…'
+  );
 
   const deckHTML = `
     <div class="poker-deck">
@@ -215,12 +223,15 @@ export function renderPane(table, viewerId) {
 
   const headerLabel = esc(table.name);
 
-  // Dealer figure with speech bubble (top-left, opening inward)
+  // Dealer figure with speech bubble (top-left, opening inward). When he's not
+  // at the table the avatar dims and a status replaces his speech bubble.
   const dealerText = table.dealerBubble;
+  const dealerPresent = table.hasDealer();
   const dealerHTML = `
-    <div class="poker-dealer">
+    <div class="poker-dealer${dealerPresent ? '' : ' dealer-absent'}">
       <span class="dealer-avatar">♠</span>
-      ${dealerText ? `<span class="dealer-speech">${esc(dealerText)}</span>` : ''}
+      ${dealerText ? `<span class="dealer-speech">${esc(dealerText)}</span>`
+        : !dealerPresent ? `<span class="dealer-speech dealer-absent-tag">NO DEALER</span>` : ''}
     </div>`;
 
   return `

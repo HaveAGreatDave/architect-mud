@@ -13,6 +13,22 @@ async function npcSendToWork(btn) {
   }
 }
 
+async function npcHouseUnhoused(btn) {
+  if (btn) { btn.disabled = true; btn.textContent = 'Housing…'; }
+  try {
+    const res = await API('/npcs/house-unhoused', 'POST');
+    if (res?.error) { toast(res.error, true); return; }
+    if (!res.count) { toast('No unhoused NPCs — everyone already has a home.'); return; }
+    const extra = res.remaining ? ` (${res.remaining} still unhoused — no vacant apartments left)` : '';
+    toast(`Housed ${res.count} NPC${res.count !== 1 ? 's' : ''} in vacant apartments.${extra}`, !!res.remaining);
+    await loadPanel('npcs');
+  } catch (e) {
+    toast(e.message, true);
+  } finally {
+    if (btn) { btn.disabled = false; }
+  }
+}
+
 async function deleteNpcRow(id) {
   const rec = allRecords.find(r => r.id === id);
   if (!rec || rec._stagingStatus === 'pending delete') return;
@@ -31,9 +47,37 @@ async function deleteNpcRow(id) {
   await loadPanel('npcs');
 }
 
+// Mirrors server isVendorWorkTime() (ai-behaviour.js) closely enough for a status badge —
+// today's schedule blocks vs. current hour. Broadcast actors and the unemployed are excluded.
+const _WS_DAYS = ['sun','mon','tue','wed','thu','fri','sat'];
+function _npcWorkStatus(npc, env) {
+  if (!npc || npc.npc_type === 'unemployed' || npc.studio_zone_id) return '';
+  if (!npc.work_zone_id) return '<span style="color:var(--text-dim)">not scheduled</span>';
+  const schedule = typeof npc.vendor_schedule === 'object' ? npc.vendor_schedule : JSON.parse(npc.vendor_schedule || '{}');
+  const hasAnySchedule = Object.values(schedule || {}).some(blocks => Array.isArray(blocks) && blocks.length);
+  if (!hasAnySchedule) return '<span style="color:var(--text-dim)">not scheduled</span>';
+  if (!env || env.dayOfWeek == null || env.hour == null) return '<span style="color:var(--text-dim)">unknown</span>';
+  const todayKey = _WS_DAYS[env.dayOfWeek % 7];
+  const blocks = schedule[todayKey] || [];
+  const working = blocks.some(b => env.hour >= (b.from ?? 0) && env.hour < (b.to ?? 24));
+  if (!working) return '<span style="color:var(--text-dim)">off shift</span>';
+  return npc.zone_id === npc.work_zone_id
+    ? '<span style="color:var(--safe-zone,#4caf50)">working</span>'
+    : '<span style="color:var(--danger)">late</span>';
+}
+
 function renderNpcsPanel(data) {
   const records = Array.isArray(data) ? data : [];
+  for (const r of records) r._work_status = _npcWorkStatus(r, window._lastEnv);
   allRecords = records;
+  // Environment state isn't fetched with this panel — pull it once (cached globally)
+  // and re-render the status column when it lands, so badges don't wait on a Dashboard visit.
+  if (!window._lastEnv) {
+    API('/environment/state').then(env => {
+      if (env && !env.error) window._lastEnv = env;
+      if (currentPanel === 'npcs') renderNpcsPanel(data);
+    }).catch(() => {});
+  }
   const panel = document.getElementById('list-panel');
   if (!records.length) { panel.innerHTML = '<div style="padding:24px;color:var(--text-dim)">No NPCs found.</div>'; return; }
 
@@ -84,12 +128,17 @@ function renderNpcsPanel(data) {
   }
   html += '</tbody></table>';
 
-  const lateCount = records.filter(r => r.work_zone_id && r.zone_id !== r.work_zone_id).length;
+  const lateCount = records.filter(r => r._work_status.includes('>late<')).length;
   const lateLabel = lateCount ? `Send to Work (${lateCount} late)` : 'Send to Work';
+  const unhousedCount = records.filter(r => !r.home_zone || r.home_zone === 'zone_residential_lobby').length;
+  const houseLabel = unhousedCount ? `🏠 House Unhoused (${unhousedCount})` : '🏠 House Unhoused';
   const toolbar = `<div style="padding:6px 12px;border-bottom:1px solid var(--border);background:var(--bg2);display:flex;align-items:center;gap:8px">
     <button class="action-btn" style="font-size:11px;padding:3px 10px" onclick="npcSendToWork(this)"
-      title="Teleport all NPCs with a work_zone who aren't there yet">${lateLabel}</button>
-    ${lateCount ? `<span style="font-size:11px;color:var(--text-dim)">${lateCount} NPC${lateCount !== 1 ? 's' : ''} not at their work zone</span>` : '<span style="font-size:11px;color:var(--text-dim)">All NPCs at work</span>'}
+      title="Teleport all scheduled-now NPCs who aren't at their work zone yet">${lateLabel}</button>
+    ${lateCount ? `<span style="font-size:11px;color:var(--text-dim)">${lateCount} NPC${lateCount !== 1 ? 's' : ''} scheduled but not at work</span>` : '<span style="font-size:11px;color:var(--text-dim)">All scheduled NPCs at work</span>'}
+    <button class="action-btn" style="font-size:11px;padding:3px 10px" onclick="npcHouseUnhoused(this)"
+      ${unhousedCount ? '' : 'disabled'}
+      title="Give every unhoused NPC (no home, or still on the default lobby) a vacant apartment to live in">${houseLabel}</button>
     <button class="action-btn" style="font-size:11px;padding:3px 10px;margin-left:auto" onclick="blOpen()"
       title="Edit the shared pool of NPC-to-NPC banter scenes">🗣 Banter Library</button>
   </div>`;
@@ -114,6 +163,10 @@ function npcApplyArchetype(slug) {
   const cfgEl = document.getElementById('vendor-config-section');
   if (shopEl) shopEl.style.display = sells ? '' : 'none';
   if (cfgEl) cfgEl.style.display = sells ? '' : 'none';
+  // Work schedule applies to anyone with a job — hide it only for the unemployed archetype.
+  // (Broadcast actors are gated separately, via studio_zone_id, set outside this form.)
+  const schedEl = document.getElementById('npc-schedule-section');
+  if (schedEl && !schedEl.dataset.isActor) schedEl.style.display = (p?.npcType === 'unemployed') ? 'none' : '';
   npcUpdateChitchatHint(slug);
   if (sells) {
     const ta = document.getElementById('f-dialogue_tree');
@@ -478,6 +531,27 @@ async function veRestockNow() {
   }
 }
 
+function veSplitterDown(e) {
+  e.preventDefault();
+  const grid = document.getElementById('ve-buckets-grid');
+  const leftPane = document.getElementById('ve-left-pane');
+  if (!grid || !leftPane) return;
+  const startX = e.clientX;
+  const startWidth = leftPane.getBoundingClientRect().width;
+  const minW = 120;
+  const maxW = grid.getBoundingClientRect().width - 8 - 42 - minW;
+  const onMove = ev => {
+    const newW = Math.max(minW, Math.min(maxW, startWidth + (ev.clientX - startX)));
+    leftPane.style.flex = `0 0 ${newW}px`;
+  };
+  const onUp = () => {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+  };
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+}
+
 function _veEditorHtml(rec) {
   const stockSize = rec.vendor_stock_size ?? 10;
   const restockRate = rec.vendor_restock_rate ?? 1;
@@ -496,9 +570,9 @@ function _veEditorHtml(rec) {
         style="flex:1;font-size:11px;padding:3px 8px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:2px;min-width:0">
     </div>
     <!-- buckets -->
-    <div style="display:grid;grid-template-columns:1fr 42px 1fr">
+    <div id="ve-buckets-grid" style="display:flex;align-items:stretch">
       <!-- left -->
-      <div style="display:flex;flex-direction:column">
+      <div id="ve-left-pane" style="display:flex;flex-direction:column;flex:1 1 0;min-width:120px">
         <div style="${hdr}">
           <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin:0;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim)">
             <input type="checkbox" onchange="veSelectAllLeft(this.checked)" style="accent-color:var(--accent)"> Item Pool
@@ -507,8 +581,13 @@ function _veEditorHtml(rec) {
         </div>
         <div id="ve-left-list" style="${list}"><div style="padding:24px;color:var(--text-dim);font-size:11px;text-align:center">Loading…</div></div>
       </div>
+      <!-- splitter -->
+      <div id="ve-splitter" onmousedown="veSplitterDown(event)" title="Drag to resize"
+        style="flex:0 0 8px;width:8px;cursor:col-resize;background:var(--bg3);border-left:1px solid var(--border);border-right:1px solid var(--border);display:flex;align-items:center;justify-content:center">
+        <div style="width:2px;height:28px;background:var(--border);border-radius:1px"></div>
+      </div>
       <!-- transfer -->
-      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:6px 3px;background:var(--bg3);border-left:1px solid var(--border);border-right:1px solid var(--border)">
+      <div style="flex:0 0 42px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:6px 3px;background:var(--bg3);border-right:1px solid var(--border)">
         <button class="action-btn primary" onclick="veMoveSelected()" title="Add selected → catalogue" style="padding:5px;width:34px;font-size:15px;line-height:1">→</button>
         <button class="action-btn" onclick="veMoveAll()" title="Add all visible → catalogue" style="padding:3px;width:34px;font-size:11px">⇒</button>
         <div style="height:10px"></div>
@@ -516,7 +595,7 @@ function _veEditorHtml(rec) {
         <button class="action-btn danger" onclick="veRemoveAll()" title="Clear entire catalogue" style="padding:3px;width:34px;font-size:11px">⇐</button>
       </div>
       <!-- right -->
-      <div style="display:flex;flex-direction:column">
+      <div id="ve-right-pane" style="display:flex;flex-direction:column;flex:1 1 0;min-width:120px">
         <div style="${hdr}">
           <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin:0;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim)">
             <input type="checkbox" onchange="veSelectAllRight(this.checked)" style="accent-color:var(--accent)"> Shop Catalogue
@@ -700,6 +779,8 @@ async function npcEditForm(rec, isNew) {
   const chitchat = Array.isArray(rec.chitchat) ? rec.chitchat : JSON.parse(rec.chitchat||'[]');
   const homeActivities = Array.isArray(rec.home_activities) ? rec.home_activities : JSON.parse(rec.home_activities||'[]');
   const npcType = rec.npc_type || 'npc';
+  const isActor = !!rec.studio_zone_id;
+  const isScheduled = npcType !== 'unemployed' && !isActor;
   const vendorSchedule = typeof rec.vendor_schedule === 'object' ? rec.vendor_schedule : JSON.parse(rec.vendor_schedule||'{}');
   const workZoneId = rec.work_zone_id || '';
   const vendorBankCredits = rec.vendor_bank_credits || 0;
@@ -779,6 +860,11 @@ async function npcEditForm(rec, isNew) {
         ${workZoneId ? `<span style="font-size:11px;color:var(--text-dim)">${workZoneId}</span>` : ''}
       </div>
     </div>
+    <div class="field" id="npc-schedule-section" ${isActor?'data-is-actor="1"':''} style="${isScheduled?'':'display:none'}">
+      <label>Work Schedule <span style="font-weight:400;color:var(--text-dim);font-size:11px">— click or drag to toggle hours; NPC commutes to the Work Zone above during scheduled blocks</span></label>
+      <div id="vendor-schedule-grid" style="overflow-x:auto;margin-top:6px"></div>
+    </div>
+    ${isActor ? `<div style="font-size:11px;color:var(--text-dim);margin:-6px 0 12px">This NPC follows a broadcast schedule (set in the Broadcast panel), not a manual work schedule.</div>` : ''}
     <div class="field">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
         <label>Chitchat Lines <span style="font-weight:400;color:var(--text-dim);font-size:11px">— one per line, spoken at random during idle</span></label>
@@ -826,11 +912,6 @@ async function npcEditForm(rec, isNew) {
         <div class="field">
           <label>Shop Name</label>
           <input id="f-vendor_shop_name" type="text" value="${vendorShopName}" placeholder="e.g. Neon Dreams Surplus">
-        </div>
-
-        <div class="field">
-          <label>Work Schedule <span style="font-weight:400;color:var(--text-dim);font-size:11px">— click or drag to toggle hours</span></label>
-          <div id="vendor-schedule-grid" style="overflow-x:auto;margin-top:6px"></div>
         </div>
 
         <div class="field">

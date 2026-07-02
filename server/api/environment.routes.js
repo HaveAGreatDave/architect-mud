@@ -97,6 +97,7 @@ export async function handleEnvironmentApi(path, method, body, auth) {
       if (path === '/environment/tick/force30') return { status: 200, body: await env.devForceTick30() };
       if (path === '/environment/tick/force24') { await dailyMaintenance(); return { status: 200, body: await env.devForceTick24() }; }
       if (path === '/environment/weather/override' && method === 'POST') return { status: 200, body: await env.devOverrideWeather(body || {}) };
+      if (path === '/environment/weather/schedule' && method === 'POST') return { status: 200, body: await env.devScheduleForecastDay(body || {}) };
       if (path === '/environment/weather/override' && method === 'DELETE') return { status: 200, body: await env.devClearWeatherOverride() };
       if (path === '/environment/weather/reset-building-temps' && method === 'POST') return { status: 200, body: env.devResetBuildingTemps() };
       if (path === '/environment/weather/maxstorm') return { status: 200, body: await env.devMaxStorm() };

@@ -25,6 +25,7 @@ export function updateAtmPanel(patch) {
   if (patch.cashStock != null) atmData.cashStock = patch.cashStock;
   if (patch.credits != null) atmData.player.credits = patch.credits;
   if (patch.bank_credits != null) atmData.player.bank_credits = patch.bank_credits;
+  if (patch.maintenanceUnlocked != null) atmData.maintenanceUnlocked = patch.maintenanceUnlocked;
   renderAtmPanel();
 }
 
@@ -75,8 +76,11 @@ function renderAtmPanel() {
 }
 
 function renderHome(data) {
-  const { player, cashStock } = data;
+  const { player, cashStock, maintenanceUnlocked } = data;
   const canJack = cashStock > 0;
+  const maintenanceItem = maintenanceUnlocked
+    ? `<button class="atm-menu-item atm-menu-danger" data-act="drain"><span class="atm-menu-key">☠</span>MAINTENANCE<span class="atm-menu-hint">eject all credits</span></button>`
+    : '';
   return `
     <div class="atm-scr-top">
       <span class="atm-scr-title">${esc(data.network.name)}</span>
@@ -91,6 +95,7 @@ function renderHome(data) {
       <button class="atm-menu-item" data-nav="withdraw"><span class="atm-menu-key">▸</span>WITHDRAW<span class="atm-menu-hint">bank → cash</span></button>
       <button class="atm-menu-item" data-nav="account"><span class="atm-menu-key">▸</span>ACCOUNT INFO<span class="atm-menu-hint">balances</span></button>
       <button class="atm-menu-item atm-menu-danger" data-act="jack"${canJack ? '' : ' disabled'}><span class="atm-menu-key">⚡</span>JACK TERMINAL<span class="atm-menu-hint">${canJack ? 'breach' : 'empty'}</span></button>
+      ${maintenanceItem}
     </div>`;
 }
 
@@ -185,12 +190,14 @@ function doAction(act) {
     // skillCheck, enforces lockout/power/faction, and pays out). When the breach
     // resolves we fire `jack` and the server decides the true outcome.
     openCircuitHack({
-      skill: 4,
-      difficulty: 4,
+      skill: atmData.hackingSkill ?? 4,
+      difficulty: atmData.hackDifficulty ?? 6,
       atmName: atmData.name,
       cashStock: atmData.cashStock,
       onResult: () => { sendCmdSilent('jack'); },
     });
+  } else if (act === 'drain') {
+    sendCmdSilent('drain');
   }
 }
 

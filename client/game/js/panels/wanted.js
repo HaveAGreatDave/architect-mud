@@ -21,12 +21,16 @@ export function updateWantedHud(n) {
   const el = document.getElementById('wanted-hud');
   if (!el) return;
   const rising = n > stars;
-  stars = Math.max(0, Math.min(5, n | 0));
+  stars = Math.max(0, Math.min(5, +n || 0));
   if (stars <= 0) { el.classList.remove('active', 'wanted-pulse'); el.innerHTML = ''; return; }
   el.classList.add('active');
+  // Half-star aware: 2.5 → ★★½. A lone on-camera drug hit (0.5) shows a half star.
+  const full = Math.floor(stars);
+  const half = (stars - full) >= 0.5;
+  const empty = Math.max(0, 5 - full - (half ? 1 : 0));
   el.innerHTML =
     `<span class="wanted-label">WANTED</span>` +
-    `<span class="wanted-stars">${'★'.repeat(stars)}<span class="wanted-empty">${'☆'.repeat(5 - stars)}</span></span>`;
+    `<span class="wanted-stars">${'★'.repeat(full)}${half ? '½' : ''}<span class="wanted-empty">${'☆'.repeat(empty)}</span></span>`;
   if (rising) {
     el.classList.remove('wanted-pulse');
     void el.offsetWidth;           // restart the animation
@@ -39,3 +43,7 @@ export function initWantedHud() {
   const el = document.getElementById('wanted-hud');
   if (el) { el.classList.remove('active'); el.innerHTML = ''; }
 }
+
+// Current wanted level (0–5, half-steps) — read by the optional "Wanted" custom
+// sidebar panel, which re-renders when a wanted_level push arrives.
+export function getWantedStars() { return stars; }

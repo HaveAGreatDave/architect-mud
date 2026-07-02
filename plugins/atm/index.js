@@ -1,7 +1,7 @@
 import { query, withTransaction } from '../../server/models/db.js';
 import { getZone } from '../../server/engine/world.js';
 import { transferCredits } from '../../server/engine/economy.js';
-import { skillCheck, awardSkillUse } from '../../server/engine/skills.js';
+import { skillCheck, awardSkillUse, effectiveSkill } from '../../server/engine/skills.js';
 import { getPowerMap } from '../../server/engine/environment.js';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -43,7 +43,7 @@ async function checkFactionAccess(player, atm) {
   return (rows[0]?.reputation ?? 0) >= atm.min_faction_rep;
 }
 
-function buildAtmPanel(atm, player, powered) {
+async function buildAtmPanel(atm, player, powered) {
   return {
     type: 'atm_panel',
     atmId: atm.id,
@@ -59,6 +59,9 @@ function buildAtmPanel(atm, player, powered) {
     cashMax: atm.cash_max ?? 5000,
     powered,
     isBroken: !!atm.is_broken,
+    hackDifficulty: atm.hack_difficulty ?? 6,
+    hackingSkill: await effectiveSkill(player, 'hacking'),
+    maintenanceUnlocked: hasMaintenanceAccess(atm.id, player.id),
     player: { credits: player.credits || 0, bank_credits: player.bank_credits || 0 },
   };
 }
@@ -81,7 +84,7 @@ async function cmdAtm(args, raw, player) {
     return { type: 'error', message: "There's no ATM here." };
   }
 
-  return buildAtmPanel(atm, player, isZonePowered(player.current_zone));
+  return await buildAtmPanel(atm, player, isZonePowered(player.current_zone));
 }
 
 // Specialized action: use <atm-named-furniture>
@@ -89,7 +92,7 @@ async function doUseAtm(args, raw, player) {
   const nameHint = args.join(' ') || null;
   const atm = await findAtmInZone(player.current_zone, nameHint);
   if (!atm) return undefined; // fall through to next handler
-  return buildAtmPanel(atm, player, isZonePowered(player.current_zone));
+  return await buildAtmPanel(atm, player, isZonePowered(player.current_zone));
 }
 
 async function cmdDeposit(args, raw, player) {
@@ -205,6 +208,24 @@ async function cmdWithdraw(args, raw, player) {
 // Per-player lockout after a failed hack (in-memory, resets on server restart)
 const jackLockout = new Map();
 
+// A successful jack drops the hacker into MAINTENANCE mode on that specific
+// terminal instead of paying out immediately — the ATM panel then shows an
+// "EJECT ALL CREDITS" option. In-memory, keyed by atm id -> Set of player ids.
+const atmMaintenanceAccess = new Map();
+
+function hasMaintenanceAccess(atmId, playerId) {
+  return !!atmMaintenanceAccess.get(atmId)?.has(playerId);
+}
+
+function grantMaintenanceAccess(atmId, playerId) {
+  if (!atmMaintenanceAccess.has(atmId)) atmMaintenanceAccess.set(atmId, new Set());
+  atmMaintenanceAccess.get(atmId).add(playerId);
+}
+
+function revokeMaintenanceAccess(atmId, playerId) {
+  atmMaintenanceAccess.get(atmId)?.delete(playerId);
+}
+
 async function cmdJack(args, raw, player) {
   const atm = await findAtmInZone(player.current_zone);
   if (!atm) return { type: 'error', message: "Nothing worth jacking here." };
@@ -223,18 +244,11 @@ async function cmdJack(args, raw, player) {
 
   if (result.success) {
     await awardSkillUse(player.id, 'hacking', result.margin);
-    const stolen = atm.cash_stock;
-    // Pay out the cash and brick the machine together, so a failure can't hand
-    // over credits while leaving the terminal live (or drain it for nothing).
-    await withTransaction(async (q) => {
-      const res = await q('UPDATE players SET credits = credits + $1 WHERE id = $2 RETURNING credits', [stolen, player.id]);
-      player.credits = res.rows[0].credits;
-      await q('UPDATE atm_units SET cash_stock=0, is_broken=1 WHERE id=$1', [atm.id]);
-    });
+    grantMaintenanceAccess(atm.id, player.id);
     return {
-      type: 'output',
-      message: `You burn through the handshake and spoof the dispense signal. The ATM vomits ${stolen}c in chips before going dark.\n<span class="ip-gain">Terminal compromised.</span>`,
-      player_update: { credits: player.credits },
+      type: 'jack',
+      message: `You burn through the handshake and drop into the diagnostic shell.\n<span class="ip-gain">MAINTENANCE mode unlocked.</span> Reopen the terminal to eject the cash reserve.`,
+      atm_maintenance: true,
     };
   }
 
@@ -251,6 +265,46 @@ async function cmdJack(args, raw, player) {
     type: 'error',
     message: `Authentication rejected. Handshake dropped. Lockout: 5 minutes.`,
   };
+}
+
+async function cmdDrain(args, raw, player) {
+  const atm = await findAtmInZone(player.current_zone);
+  if (!atm) return { type: 'error', message: "Nothing worth draining here." };
+  if (atm.is_broken) return { type: 'error', message: 'This terminal is already dead.' };
+  if (!isZonePowered(player.current_zone)) return { type: 'error', message: "The ATM is powered down." };
+  if (!hasMaintenanceAccess(atm.id, player.id)) return { type: 'error', message: 'MAINTENANCE access required. Jack the terminal first.' };
+  if (!atm.cash_stock || atm.cash_stock <= 0) return { type: 'error', message: 'Cash reserves empty. Nothing to eject.' };
+
+  const stolen = atm.cash_stock;
+  // Pay out the cash and brick the machine together, so a retry can't hand
+  // over credits twice (or drain an already-emptied terminal).
+  await withTransaction(async (q) => {
+    const res = await q('UPDATE players SET credits = credits + $1 WHERE id = $2 RETURNING credits', [stolen, player.id]);
+    player.credits = res.rows[0].credits;
+    await q('UPDATE atm_units SET cash_stock=0, is_broken=1 WHERE id=$1', [atm.id]);
+  });
+  revokeMaintenanceAccess(atm.id, player.id);
+
+  return {
+    type: 'drain',
+    message: `MAINTENANCE OVERRIDE: dispense hopper forced open. ${stolen}c in chips clatter into your bag before the terminal seizes and goes dark.`,
+    player_update: { credits: player.credits },
+    atm_cash_stock: 0,
+    atm_maintenance: false,
+  };
+}
+
+// Admin-only: preview the Circuit Breach overlay at an arbitrary difficulty/
+// skill without needing to find or reconfigure a real ATM. Reuses the same
+// `circuit_hack` client message the `hijack` command sends (see
+// plugins/surveillance/index.js), just with a fake device id so resolving it
+// is a harmless no-op server-side.
+const ADMIN_ROLES = new Set(['admin', 'dev', 'builder', 'designer']);
+function cmdHackPreview(args, raw, player) {
+  if (!ADMIN_ROLES.has(player.role)) return { type: 'error', message: 'Admin only.' };
+  const difficulty = Math.max(1, parseInt(args[0], 10) || 6);
+  const skill = Math.max(1, parseInt(args[1], 10) || 4);
+  return { type: 'circuit_hack', deviceId: 'preview', deviceName: 'PREVIEW TERMINAL', skill, difficulty };
 }
 
 // ── Cash replenishment tick ───────────────────────────────────────────────────
@@ -345,6 +399,7 @@ export const routeHandler = async (path, method, body, auth) => {
 
       if (id && sub === 'repair' && method === 'POST') {
         await query('UPDATE atm_units SET is_broken=0 WHERE id=$1', [id]);
+        atmMaintenanceAccess.delete(id);
         return { status: 200, body: { ok: true } };
       }
 
@@ -427,6 +482,8 @@ export const commands = {
   deposit: cmdDeposit,
   withdraw: cmdWithdraw,
   jack: cmdJack,
+  drain: cmdDrain,
+  '.hackpreview': cmdHackPreview,
 };
 
 export const specializedActions = [

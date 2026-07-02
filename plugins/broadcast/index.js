@@ -77,7 +77,43 @@ function _recordDeckMessage(channelId, message) {
 }
 
 on('tv.watch',   ({ playerId, channelId }) => tvWatchers.set(playerId, channelId));
-on('tv.unwatch', ({ playerId })           => tvWatchers.delete(playerId));
+on('tv.unwatch', ({ playerId }) => {
+  const channelId = tvWatchers.get(playerId);
+  tvWatchers.delete(playerId);
+  if (channelId) powerOffWatchedTv(playerId, channelId).catch(err => console.error('[broadcast] powerOffWatchedTv error:', err.message));
+});
+
+// Powering the TV off (closing the panel) turns the shared set off for the whole
+// room: untune the device so ambient TV lines stop, tell the room, and close any
+// co-watcher's still-open panel. Mirrors `tune 0` plus a room announcement.
+async function powerOffWatchedTv(playerId, channelId) {
+  const player = world.players.get(playerId);
+  const zoneId = player?.current_zone;
+  if (!zoneId) return;
+
+  // The tuned TV device(s) in this zone on this channel.
+  const deviceIds = [];
+  for (const [fid, entry] of furnitureChannelIndex) {
+    if (entry.zoneId === zoneId && entry.channelId === channelId && entry.deviceType === 'tv') deviceIds.push(fid);
+  }
+  if (!deviceIds.length) return; // nothing to power off (e.g. player already left the room)
+
+  for (const fid of deviceIds) {
+    const { rows } = await query('SELECT * FROM furniture WHERE id=$1', [fid]).catch(() => ({ rows: [] }));
+    if (rows.length) await _applyTuning(rows[0], 0, zoneId); // channel 0 = off — drops the zone from ambient ticks
+  }
+
+  // The physical set is now off — close any co-watcher's panel too.
+  for (const p of getZonePlayers(zoneId)) {
+    if (p.id !== playerId && tvWatchers.get(p.id) === channelId) {
+      tvWatchers.delete(p.id);
+      sendToPlayer(p.id, { type: 'tv_off' });
+    }
+  }
+
+  sendToPlayer(playerId, { type: 'output', message: 'You switch off the television.' });
+  sendToZone(zoneId, { type: 'zone_event', message: `${player.handle} switches off the television.` }, playerId);
+}
 on('deck.watch',   ({ playerId, channelId }) => {
   deckWatchers.set(playerId, channelId);
   // Seed the preview with recent lines so it isn't blank until the next tick.
@@ -634,11 +670,15 @@ async function broadcastTick() {
       state.wasActive = true;
       state.lastMsgKey = result.key;
 
-      // Overlay events (show_overlay / clear_overlay) go direct to TV watchers
+      // Overlay events (show_overlay / clear_overlay) go direct to TV watchers,
+      // and mirror to deck-preview watchers so the media deck shows on-screen
+      // graphics the same as a TV would.
       if (result.style === 'overlay') {
         for (const player of players) {
           if (tvWatchers.get(player.id) === channelId)
             sendToPlayer(player.id, { type: 'tv_overlay', channelId, overlay: result.overlay ?? null });
+          if (deckWatchers.get(player.id) === channelId)
+            sendToPlayer(player.id, { type: 'deck_overlay', channelId, overlay: result.overlay ?? null });
         }
         continue;
       }
@@ -1626,11 +1666,27 @@ async function cmdLoadCassette(args, raw, player) {
   return { type: 'output', message: `You slide the cassette into the deck. It clunks into place and starts playing.` };
 }
 
+function _slugify(name) {
+  return String(name || '').toLowerCase().trim()
+    .replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'untitled';
+}
+
 // Upsert the canonical cassette item for a broadcast (deterministic id
-// item_cassette_<id>) so the eject path and the dev-panel import path converge on one
-// item definition rather than creating duplicates. Returns the item id.
+// item_cassette_<showname>) so the eject path and the dev-panel import path converge on
+// one item definition rather than creating duplicates. Only one cassette may exist per
+// broadcast — no numbered variants — so a name collision with a *different* broadcast
+// throws instead of overwriting. Returns the item id.
 async function _ensureCassetteItem(broadcastId, broadcastName) {
-  const itemId = `item_cassette_${broadcastId}`;
+  const itemId = `item_cassette_${_slugify(broadcastName)}`;
+  const { rows: existing } = await query('SELECT tags FROM items WHERE id=$1', [itemId]);
+  if (existing.length) {
+    const existingBroadcastId = existing[0].tags?.broadcast_id;
+    if (existingBroadcastId && existingBroadcastId !== broadcastId) {
+      const err = new Error(`A cassette named "${broadcastName}" already exists for a different broadcast. Rename the broadcast to create a distinct cassette.`);
+      err.code = 'CASSETTE_NAME_COLLISION';
+      throw err;
+    }
+  }
   await query(
     `INSERT INTO items (id, name, description, type, subtype, weight, value, rarity, is_stackable, is_unique, tags)
      VALUES ($1,$2,$3,'media','cassette',100,0,'common',0,1,$4)
@@ -1652,7 +1708,7 @@ async function cmdEjectCassette(args, raw, player) {
   // Pop the cassette back into the player's hands — find it in the deck container first.
   const { rows: bcNameRows } = await query('SELECT name FROM media_broadcasts WHERE id=$1', [broadcastId]);
   const broadcastName = bcNameRows[0]?.name || 'Untitled';
-  const itemId = `item_cassette_${broadcastId}`;
+  const itemId = `item_cassette_${_slugify(broadcastName)}`;
 
   const { rows: deckInv } = await query(
     `SELECT pi.id FROM player_inventory pi WHERE pi.container_id=$1 AND pi.item_id=$2 LIMIT 1`,
@@ -1663,7 +1719,12 @@ async function cmdEjectCassette(args, raw, player) {
     await query('UPDATE player_inventory SET container_id=NULL, player_id=$1, is_equipped=0 WHERE id=$2', [player.id, deckInv[0].id]);
   } else {
     // Fallback for decks loaded before the container migration: create a fresh item.
-    await _ensureCassetteItem(broadcastId, broadcastName);
+    try {
+      await _ensureCassetteItem(broadcastId, broadcastName);
+    } catch (err) {
+      if (err.code === 'CASSETTE_NAME_COLLISION') return { type: 'error', message: err.message };
+      throw err;
+    }
     const { rows: existingInv } = await query(
       `SELECT id FROM player_inventory WHERE player_id=$1 AND item_id=$2 LIMIT 1`,
       [player.id, itemId]
@@ -1952,7 +2013,7 @@ async function doUseTv(args, raw, player) {
   // Find a tv furniture in the zone matching the name hint. A piece counts as a
   // TV if it carries the `tv` flag OR is simply named like a television.
   const { rows } = await query(
-    `SELECT id, name FROM furniture WHERE zone_id=$1 AND (jsonb_exists(flags,'tv') OR name ILIKE '%television%')${nameHint ? ' AND name ILIKE $2' : ''} LIMIT 1`,
+    `SELECT id, name FROM furniture WHERE zone_id=$1 AND (flags::text LIKE '%broadcast_receiver%' OR name ILIKE '%television%')${nameHint ? ' AND name ILIKE $2' : ''} LIMIT 1`,
     nameHint ? [player.current_zone, `%${nameHint}%`] : [player.current_zone]
   );
   if (!rows.length) return undefined;
@@ -1976,7 +2037,7 @@ async function cmdTv(args, raw, player) {
   // No tuned TV — check for any TV furniture in the zone (TV exists but is off).
   // Match the `tv` flag or anything simply named like a television.
   const { rows } = await query(
-    `SELECT id FROM furniture WHERE zone_id=$1 AND (jsonb_exists(flags,'tv') OR name ILIKE '%television%') LIMIT 1`,
+    `SELECT id FROM furniture WHERE zone_id=$1 AND (flags::text LIKE '%broadcast_receiver%' OR name ILIKE '%television%') LIMIT 1`,
     [player.current_zone]
   );
   if (rows.length) return buildTvOffPanel(player);
@@ -1987,7 +2048,7 @@ async function cmdWatch(args, raw, player) {
   if (!player) return { type: 'error', message: 'No character.' };
 
   const firstArg = (args[0] || '').toLowerCase();
-  if (['tv', 'television', 'monitor', 'screen', 'tele'].includes(firstArg)) {
+  if (['tv', 'television', 'monitor', 'screen', 'tele', 'telly'].includes(firstArg)) {
     return cmdTv([], raw, player);
   }
 
@@ -3104,7 +3165,13 @@ export const routeHandler = async (path, method, body, auth) => {
         if (!bcRows.length) return { status: 404, body: { error: 'Broadcast not found' } };
         const broadcastName = bcRows[0].name;
 
-        const itemId = await _ensureCassetteItem(broadcast_id, broadcastName);
+        let itemId;
+        try {
+          itemId = await _ensureCassetteItem(broadcast_id, broadcastName);
+        } catch (err) {
+          if (err.code === 'CASSETTE_NAME_COLLISION') return { status: 409, body: { error: err.message } };
+          throw err;
+        }
 
         let invId = null;
         if (channel_id) {

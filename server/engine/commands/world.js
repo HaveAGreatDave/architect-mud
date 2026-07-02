@@ -349,9 +349,19 @@ async function cmdExamine(targetStr, player, broadcast) {
     }
     return { type:'examine', message: msg };
   }
-  const { rows: furnitureRows } = await query(`SELECT * FROM furniture WHERE zone_id=$1 AND name ILIKE $2 LIMIT 1`, [player.current_zone, `%${targetStr}%`]);
+  const { rows: furnitureRows } = await query(`SELECT * FROM furniture WHERE zone_id=$1 AND name ILIKE $2`, [player.current_zone, `%${targetStr}%`]);
   if (furnitureRows.length) {
-    const f = furnitureRows[0];
+    let f = furnitureRows[0];
+    if (furnitureRows.length > 1) {
+      // Multiple furniture match (e.g. several street cams under "cam") — let SIFT
+      // disambiguate: prompt when they're distinct, auto-pick when interchangeable.
+      const fr = siftResolve(t, furnitureRows);
+      if (fr.type === 'ambiguous') {
+        createSelectionState(player.id, fr.candidates, { verb: 'examine' });
+        return { type:'output', message: formatSelectionPage({ allCandidates: fr.candidates, visibleIndex: 0, pageSize: 5 }) };
+      }
+      if (fr.type === 'match') f = fr.candidate;
+    }
     let msg = `${f.name}\n${f.description}`;
     const furnitureExtra = await fireHook('furniture.describe', f, player);
     if (furnitureExtra) msg += `\n${furnitureExtra}`;

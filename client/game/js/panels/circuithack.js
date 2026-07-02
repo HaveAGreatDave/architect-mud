@@ -4,15 +4,24 @@
 // until your skill-scaled sensor reveals them; stepping on one trips an alarm.
 // GATE vias are locked until you've collected their KEY; BOOST vias refund moves.
 //
-// A cosmetic breach overlay launched from the ATM JACK button (see panels/atm.js).
-// The win/lose result is reported via opts.onResult; the ATM panel uses that to
-// fire the server-side `jack` command, which is authoritative for the outcome
-// (the real hacking skillCheck decides the payout — the minigame is flavour).
+// A cosmetic breach overlay launched from the ATM JACK button (see panels/atm.js)
+// and from `hijack` (see plugins/surveillance/index.js via dispatch.js's
+// `circuit_hack` route). The win/lose result is reported via opts.onResult; the
+// caller fires the real server-side command (`jack` / `hijackresolve`), which is
+// authoritative for the outcome — the real hacking skillCheck decides the
+// payout. Both callers now pass the ATM/device's real hack_difficulty and the
+// player's real effective hacking skill, so difficulty genuinely scales instead
+// of always rendering the same mid-tier board.
 //
 // Generation is verified solvable before display: a firewall-free, gate-respecting
 // route to the core within the move budget always exists (state-space BFS over
 // (node, keysHeld)). Difficulty scales grid size + ICE density; skill scales
 // sensor range, alarms tolerated, and spare moves.
+//
+// Beyond plain node-to-node movement, two extra move types add real tactical
+// choice: PING (spend a move to pulse the sensor further out and reveal more
+// ICE without advancing) and FORCE (spend moves + alarm tolerance to smash a
+// locked GATE open without its KEY).
 
 const ri = (n) => Math.floor(Math.random() * n);
 const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = ri(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; };
@@ -24,23 +33,56 @@ let _overlay = null;
 let _keyHandler = null;
 let _state = null;
 let _opts = null;
+let _forceMode = false;
 
 // ── Audio ─────────────────────────────────────────────────────────────────
-// Tiny inline SFX through the shared engine's SFX bus. All guarded — silent if
-// the engine hasn't initialised.
+// Tiny inline SFX through the shared engine's SFX bus — same self-owned-synth
+// pattern as client/game/js/poker-sfx.js. All guarded — silent if the engine
+// hasn't initialised. Deliberately styled after the DB's `cyberpunk` sfx
+// category (square/triangle carriers, bandpass sweeps, tremolo) rather than
+// reusing the generic melodic fanfare other minigames use for "you win", so a
+// breach doesn't sound like a poker hand or a level-up chime.
 function sfx(def) { try { window.AudioEngine?.playSfx(def); } catch { /* no audio */ } }
+
+const SFX_ENTRY = { priority: 4, config: { duration: 0.5, layers: [
+  { waveform: 'triangle', freq: 90, pitchBend: { to: 480, time: 0.4 }, filter: { type: 'lowpass', freq: 2400, q: 1 }, adsr: { a: 0.02, d: 0.25, s: 0.3, r: 0.15 }, gain: 0.2 },
+  { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 3000, q: 0.8 }, adsr: { a: 0.001, d: 0.05, s: 0, r: 0.04 }, gain: 0.12 },
+] } };
 const SFX_MOVE  = { priority: 5, config: { duration: 0.05, layers: [ { waveform: 'square', freq: 620, adsr: { a: 0.002, d: 0.04, s: 0, r: 0.03 }, filter: { type: 'bandpass', freq: 640, q: 4 }, gain: 0.16 } ] } };
 const SFX_BOOST = { priority: 5, config: { duration: 0.16, layers: [ { waveform: 'square', freq: 740, pitchBend: { to: 1180, time: 0.12 }, adsr: { a: 0.003, d: 0.12, s: 0.1, r: 0.05 }, filter: { type: 'bandpass', freq: 1000, q: 3 }, gain: 0.16 } ] } };
 const SFX_ALARM = { priority: 6, config: { duration: 0.4, layers: [
   { waveform: 'sawtooth', freq: 300, pitchBend: { to: 90, time: 0.35 }, filter: { type: 'lowpass', freq: 1400, q: 1 }, adsr: { a: 0.005, d: 0.2, s: 0.3, r: 0.3 }, gain: 0.22 },
   { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 220, q: 2 }, adsr: { a: 0.001, d: 0.09, s: 0, r: 0.06 }, gain: 0.5 } ] } };
-const SFX_WIN   = { priority: 6, config: { duration: 0.5, layers: [
-  { waveform: 'square', freq: 523, adsr: { a: 0.005, d: 0.4, s: 0.4, r: 0.3 }, gain: 0.12 },
-  { waveform: 'square', freq: 784, delay: 0.09, adsr: { a: 0.005, d: 0.4, s: 0.4, r: 0.3 }, gain: 0.12 },
-  { waveform: 'square', freq: 1047, delay: 0.18, adsr: { a: 0.005, d: 0.5, s: 0.3, r: 0.4 }, gain: 0.12 } ] } };
-const SFX_LOSE  = { priority: 6, config: { duration: 0.7, layers: [
-  { waveform: 'sawtooth', freq: 160, pitchBend: { to: 40, time: 0.6 }, filter: { type: 'lowpass', freq: 800, q: 1 }, adsr: { a: 0.01, d: 0.3, s: 0.4, r: 0.4 }, gain: 0.24 },
-  { waveform: 'square', freq: 80, pitchBend: { to: 30, time: 0.6 }, adsr: { a: 0.01, d: 0.3, s: 0.4, r: 0.4 }, gain: 0.16 } ] } };
+// Sonar-style sweep out and back — a sensor pulse, not a move.
+const SFX_PING = { priority: 6, config: { duration: 0.5, layers: [
+  { waveform: 'sine', freq: 520, pitchBend: { to: 1400, time: 0.22 }, adsr: { a: 0.01, d: 0.2, s: 0.2, r: 0.2 }, gain: 0.22 },
+  { waveform: 'sine', freq: 1400, delay: 0.22, pitchBend: { to: 520, time: 0.24 }, adsr: { a: 0.01, d: 0.22, s: 0, r: 0.15 }, gain: 0.14 },
+  { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 2200, q: 3 }, adsr: { a: 0.002, d: 0.06, s: 0, r: 0.04 }, gain: 0.1 },
+] } };
+// A heavy mechanical clunk + crack — brute-forcing a locked gate, distinct from
+// the alarm's electronic shriek (this is physical, destructive).
+const SFX_FORCE = { priority: 7, config: { duration: 0.5, layers: [
+  { waveform: 'triangle', freq: 90, pitchBend: { to: 40, time: 0.2 }, adsr: { a: 0.001, d: 0.18, s: 0, r: 0.15 }, gain: 0.45 },
+  { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 500, q: 1.5 }, adsr: { a: 0.001, d: 0.1, s: 0, r: 0.1 }, gain: 0.4 },
+  { waveform: 'noise', noiseMix: 1, delay: 0.08, filter: { type: 'highpass', freq: 3500, q: 1 }, adsr: { a: 0.001, d: 0.05, s: 0, r: 0.05 }, gain: 0.2 },
+] } };
+// ACCESS GRANTED — a clinical rising sweep into a crisp double confirmation
+// chirp. Digital and terminal-flavoured (mirrors the DB's terminal_login/
+// scanner cyberpunk sfx) rather than a musical major-chord fanfare.
+const SFX_WIN = { priority: 8, config: { duration: 0.65, layers: [
+  { waveform: 'square', freq: 380, pitchBend: { to: 1600, time: 0.22 }, filter: { type: 'lowpass', freq: 5000, q: 1 }, adsr: { a: 0.005, d: 0.18, s: 0.1, r: 0.08 }, gain: 0.18 },
+  { waveform: 'square', freq: 1800, delay: 0.24, adsr: { a: 0.003, d: 0.07, s: 0, r: 0.05 }, filter: { type: 'bandpass', freq: 1800, q: 4 }, gain: 0.22 },
+  { waveform: 'square', freq: 2400, delay: 0.34, adsr: { a: 0.003, d: 0.09, s: 0, r: 0.08 }, filter: { type: 'bandpass', freq: 2400, q: 5 }, gain: 0.2 },
+  { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 4000, q: 0.6 }, adsr: { a: 0.001, d: 0.06, s: 0, r: 0.04 }, gain: 0.08 },
+] } };
+// CONNECTION SEVERED — a digital stutter/cutout rather than a sad trombone:
+// a falling sub thud plus two glitch-static bursts hacking the signal apart.
+const SFX_LOSE = { priority: 8, config: { duration: 0.6, layers: [
+  { waveform: 'sawtooth', freq: 160, pitchBend: { to: 40, time: 0.45 }, filter: { type: 'lowpass', freq: 800, q: 1 }, adsr: { a: 0.01, d: 0.25, s: 0.3, r: 0.3 }, gain: 0.22 },
+  { waveform: 'noise', noiseMix: 1, delay: 0.08, filter: { type: 'highpass', freq: 2800, q: 1 }, adsr: { a: 0.001, d: 0.05, s: 0, r: 0.03 }, gain: 0.3 },
+  { waveform: 'noise', noiseMix: 1, delay: 0.2, filter: { type: 'highpass', freq: 2000, q: 1 }, adsr: { a: 0.001, d: 0.06, s: 0, r: 0.04 }, gain: 0.26 },
+  { waveform: 'square', freq: 70, delay: 0.05, pitchBend: { to: 25, time: 0.4 }, adsr: { a: 0.01, d: 0.3, s: 0.2, r: 0.3 }, gain: 0.14 },
+] } };
 
 // ── Styles ──────────────────────────────────────────────────────────────────
 function ensureStyles() {
@@ -50,39 +92,54 @@ function ensureStyles() {
   s.textContent = `
     #circuit-hack-overlay { position:fixed; inset:0; z-index:9200; display:flex; align-items:center; justify-content:center;
       background:rgba(0,4,6,0.78); backdrop-filter:blur(3px); font-family:'Courier New',monospace; }
-    #circuit-hack-overlay .ch-panel { position:relative; width:min(760px,95vw); background:linear-gradient(160deg,#0a1416,#050a0b 70%,#02090a);
-      border:2px solid #1d4a48; border-radius:8px; box-shadow:0 0 0 1px #000, 0 0 40px rgba(55,245,219,0.25), inset 0 0 60px rgba(0,0,0,0.7);
-      padding:12px 14px 14px; animation:ch-boot .3s ease-out; }
+    #circuit-hack-overlay .ch-panel { position:relative; width:min(760px,95vw); background:linear-gradient(160deg,#0a1a16,#07120f 70%,#050d0b);
+      border:2px solid #1d4a3a; border-radius:8px;
+      box-shadow:0 0 0 1px #000, 0 0 40px rgba(55,245,150,0.2), inset 0 0 60px rgba(0,0,0,0.7);
+      padding:12px 14px 14px; animation:ch-boot .3s ease-out;
+      background-image:linear-gradient(160deg,#0a1a16,#07120f 70%,#050d0b),
+        repeating-linear-gradient(90deg, #d8b46a 0 6px, transparent 6px 26px);
+      background-blend-mode:normal, overlay; background-position:0 0, 0 0; background-size:auto, 26px 100%;
+      background-repeat:no-repeat, repeat-x; }
+    #circuit-hack-overlay .ch-panel::before, #circuit-hack-overlay .ch-panel::after {
+      content:''; position:absolute; left:10px; right:10px; height:6px; pointer-events:none; opacity:0.35;
+      background-image:repeating-linear-gradient(90deg, #d8b46a 0 5px, transparent 5px 22px); }
+    #circuit-hack-overlay .ch-panel::before { top:0; }
+    #circuit-hack-overlay .ch-panel::after { bottom:0; }
     @keyframes ch-boot { 0%{opacity:0;transform:scale(.985)} 100%{opacity:1;transform:scale(1)} }
     #circuit-hack-overlay .ch-close { position:absolute; top:9px; right:11px; z-index:3; width:26px; height:26px;
-      background:#0c1416; color:#8fb0bb; border:1px solid #2b4a48; border-radius:2px; cursor:pointer; font-size:13px; }
+      background:#0c1a15; color:#8fbba0; border:1px solid #2b4a3c; border-radius:2px; cursor:pointer; font-size:13px; }
     #circuit-hack-overlay .ch-close:hover { color:#ff4a5b; border-color:#ff4a5b; }
     #circuit-hack-overlay .ch-titlebar { display:flex; justify-content:space-between; align-items:center;
-      font-size:12px; letter-spacing:3px; color:#37f5db; font-weight:bold; padding:2px 2px 8px; border-bottom:1px solid #16302f; }
-    #circuit-hack-overlay .ch-titlebar .ch-target { color:#6f8792; font-weight:normal; letter-spacing:1px; }
-    #circuit-hack-overlay .ch-hud { display:flex; gap:16px; padding:8px 2px; font-size:12px; color:#6f8792; letter-spacing:1px; flex-wrap:wrap; }
+      font-size:12px; letter-spacing:3px; color:#4dffb0; font-weight:bold; padding:2px 2px 8px; border-bottom:1px solid #163025; }
+    #circuit-hack-overlay .ch-titlebar .ch-target { color:#7fa392; font-weight:normal; letter-spacing:1px; }
+    #circuit-hack-overlay .ch-hud { display:flex; gap:16px; padding:8px 2px; font-size:12px; color:#7fa392; letter-spacing:1px; flex-wrap:wrap; }
     #circuit-hack-overlay .ch-hud b { font-weight:bold; }
-    #circuit-hack-overlay .ch-hud .hv-moves { color:#37f5db; }
+    #circuit-hack-overlay .ch-hud .hv-moves { color:#4dffb0; }
     #circuit-hack-overlay .ch-hud .hv-alarm { color:#ffb23e; }
-    #circuit-hack-overlay .ch-hud .hv-sensor { color:#8fb0bb; }
-    #circuit-hack-overlay .ch-board { background:#040c0d; border:1px solid #16302f; border-radius:4px; overflow:hidden; }
+    #circuit-hack-overlay .ch-hud .hv-sensor { color:#8fbba0; }
+    #circuit-hack-overlay .ch-board { background:#051310; border:1px solid #163025; border-radius:4px; overflow:hidden; }
     #circuit-hack-overlay .ch-status { min-height:22px; padding:8px 2px 2px; font-size:13px; letter-spacing:1px; font-weight:bold; }
     #circuit-hack-overlay .ch-status .ch-win { color:#46e05a; }
     #circuit-hack-overlay .ch-status .ch-lose { color:#ff4a5b; }
     #circuit-hack-overlay .ch-status .ch-warn { color:#ffb23e; }
-    #circuit-hack-overlay .ch-actions { display:flex; gap:8px; margin-top:8px; }
-    #circuit-hack-overlay .ch-btn { flex:1; padding:9px 6px; background:#0c1416; color:#8fb0bb; border:1px solid #2b4a48;
+    #circuit-hack-overlay .ch-actions { display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; }
+    #circuit-hack-overlay .ch-btn { flex:1; min-width:88px; padding:9px 6px; background:#0c1a15; color:#8fbba0; border:1px solid #2b4a3c;
       border-radius:2px; cursor:pointer; font-family:'Courier New',monospace; font-size:12px; font-weight:bold; letter-spacing:2px;
       text-transform:uppercase; box-shadow:inset 0 -2px 0 rgba(0,0,0,0.5); transition:all .12s; }
-    #circuit-hack-overlay .ch-btn:hover { transform:translateY(1px); box-shadow:inset 0 -1px 0 rgba(0,0,0,0.5); color:#37f5db; border-color:#37f5db; }
+    #circuit-hack-overlay .ch-btn:hover { transform:translateY(1px); box-shadow:inset 0 -1px 0 rgba(0,0,0,0.5); color:#4dffb0; border-color:#4dffb0; }
     #circuit-hack-overlay .ch-btn-abort:hover { color:#ff4a5b; border-color:#ff4a5b; }
+    #circuit-hack-overlay .ch-btn-force:hover { color:#ffb23e; border-color:#ffb23e; }
+    #circuit-hack-overlay .ch-btn-active { color:#0a1a16; background:#ffb23e; border-color:#ffb23e; }
     /* SVG element classes */
     #circuit-hack-overlay .n-reach { cursor:pointer; }
     #circuit-hack-overlay .n-reach:hover .n-hit { stroke:#8ffbec; }
+    #circuit-hack-overlay .n-force:hover .n-hit { stroke:#ffb23e; }
     @keyframes ch-flow { to { stroke-dashoffset:-20; } }
     #circuit-hack-overlay .trace-live { animation:ch-flow 1s linear infinite; }
     @keyframes ch-pulse { 0%,100%{opacity:.35} 50%{opacity:1} }
     #circuit-hack-overlay .ch-reachring { animation:ch-pulse 1.1s infinite; }
+    @keyframes ch-forcering { 0%,100%{opacity:.3;stroke-width:1.2} 50%{opacity:.9;stroke-width:2} }
+    #circuit-hack-overlay .ch-forcering { animation:ch-forcering 0.7s infinite; }
     @keyframes ch-corepulse { 0%,100%{r:20px;opacity:.5} 50%{r:26px;opacity:.15} }
     #circuit-hack-overlay .ch-coreglow { animation:ch-corepulse 2s infinite; }
     @keyframes ch-meflick { 0%,100%{opacity:1} 90%{opacity:1} 94%{opacity:.5} }
@@ -228,14 +285,15 @@ function generate() {
 }
 function idxWith(nodes, r, c) { const n = nodes.find(x => x.r === r && x.c === c); return n ? n.id : 0; }
 
-// Reveal firewalls within `sensor` graph-hops of the current position.
-function sense(state) {
+// Reveal firewalls within `radius` graph-hops of the current position (defaults
+// to the puzzle's base sensor range; PING calls this with a boosted radius).
+function sense(state, radius = state.sensor) {
   const dist = new Map([[state.pos, 0]]);
   let frontier = [state.pos];
   while (frontier.length) {
     const next = [];
     for (const n of frontier) {
-      if (dist.get(n) >= state.sensor) continue;
+      if (dist.get(n) >= radius) continue;
       for (const nb of neighborsOf(state, n)) if (!dist.has(nb)) {
         dist.set(nb, dist.get(n) + 1);
         if (state.nodes[nb].type === 'firewall') state.seen.add(nb);
@@ -253,6 +311,15 @@ function isReachable(state, id) {
   const node = state.nodes[id];
   if (node.type === 'gate' && !(state.keys & node.gateBit)) return false; // locked
   return true;
+}
+
+// A locked gate adjacent to the current position — can't walk onto it, but can
+// be smashed open with FORCE.
+function isForceable(state, id) {
+  if (state.over) return false;
+  if (!neighborsOf(state, state.pos).has(id)) return false;
+  const node = state.nodes[id];
+  return node.type === 'gate' && !(state.keys & node.gateBit);
 }
 
 function moveTo(state, id) {
@@ -295,6 +362,43 @@ function moveTo(state, id) {
 }
 const edgeKey = (a, b) => a < b ? a + '-' + b : b + '-' + a;
 
+// PING — spend 1 move to pulse the sensor 2 hops further out without advancing.
+// Trades tempo for information; useful when every neighbor looks like a gamble.
+const PING_COST = 1, PING_BONUS_RADIUS = 2;
+function ping(state) {
+  if (state.over || state.movesLeft < PING_COST) { flashStatus('<span class="ch-warn">NOT ENOUGH CYCLES TO PING</span>'); return; }
+  state.movesLeft -= PING_COST;
+  sense(state, state.sensor + PING_BONUS_RADIUS);
+  sfx(SFX_PING);
+  flashStatus('<span class="ch-warn">&#8226; SENSOR PULSE — EXTENDED RANGE</span>');
+  if (state.movesLeft <= 0) return finish(state, false, 'TRACE EXPIRED — KICKED FROM SYSTEM');
+  renderBoard();
+  renderHud();
+}
+
+// FORCE — smash a locked GATE open without its KEY. Costs more moves and an
+// alarm-tolerance point (the brute-force approach trips sensors the smart key
+// route wouldn't), but unblocks a route when the key is unreachable or too risky.
+const FORCE_MOVE_COST = 3, FORCE_ALARM_COST = 1;
+function forceGate(state, id) {
+  if (!isForceable(state, id)) return;
+  if (state.movesLeft < FORCE_MOVE_COST || state.alarmsLeft < FORCE_ALARM_COST) {
+    flashStatus('<span class="ch-warn">NOT ENOUGH CYCLES/TOLERANCE TO FORCE</span>');
+    return;
+  }
+  state.movesLeft -= FORCE_MOVE_COST;
+  state.alarmsLeft -= FORCE_ALARM_COST;
+  state.keys |= state.nodes[id].gateBit;                // permanently unlocked
+  sfx(SFX_FORCE);
+  _forceMode = false;
+  flashStatus('<span class="ch-warn">&#128163; GATE FORCED OPEN</span>');
+  if (state.alarmsLeft <= 0) return finish(state, false, 'ICE LOCK — CONNECTION BURNED');
+  if (state.movesLeft <= 0) return finish(state, false, 'TRACE EXPIRED — KICKED FROM SYSTEM');
+  sense(state);
+  renderBoard();
+  renderHud();
+}
+
 function finish(state, won, text) {
   state.over = true; state.won = won;
   // Reveal all ICE on resolution.
@@ -313,6 +417,22 @@ function boardDims(state) {
   return { w: MARGIN * 2 + (state.cols - 1) * STEP_X, h: MARGIN * 2 + (state.rows - 1) * STEP_Y };
 }
 
+// Decorative copper trace veins behind the puzzle graph — right-angle PCB-style
+// segments and via pads, purely cosmetic (not the interactive node graph).
+function pcbDecorSvg(w, h) {
+  const segs = [];
+  const cellsX = Math.ceil(w / 60), cellsY = Math.ceil(h / 60);
+  for (let i = 0; i < 26; i++) {
+    const x0 = ri(cellsX) * 60, y0 = ri(cellsY) * 60;
+    const horizFirst = Math.random() < 0.5;
+    const dx = 60, dy = 60;
+    const mid = horizFirst ? `${x0 + dx},${y0}` : `${x0},${y0 + dy}`;
+    segs.push(`<path d="M${x0},${y0} L${mid} L${x0 + dx},${y0 + dy}" fill="none" stroke="#0f2a20" stroke-width="2"/>`);
+    segs.push(`<circle cx="${x0}" cy="${y0}" r="2.2" fill="#12352a"/>`);
+  }
+  return `<g opacity="0.6">${segs.join('')}</g>`;
+}
+
 function traceSvg(state) {
   const seen = new Set();
   let out = '';
@@ -322,7 +442,7 @@ function traceSvg(state) {
     const b = state.nodes[nbId];
     const live = state.traveled.has(k);
     const cls = live ? 'trace-live' : '';
-    const stroke = live ? '#37f5db' : '#123a38';
+    const stroke = live ? '#37f5db' : '#1b4536';
     const dash = live ? 'stroke-dasharray="6 6"' : '';
     out += `<line x1="${n.x.toFixed(1)}" y1="${n.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}" stroke="${stroke}" stroke-width="${live ? 2.4 : 1.6}" ${dash} class="${cls}" opacity="${live ? 0.95 : 0.6}"/>`;
   }
@@ -331,11 +451,13 @@ function traceSvg(state) {
 
 function nodeSvg(state, n) {
   const reach = isReachable(state, n.id);
+  const forceable = _forceMode && isForceable(state, n.id);
   const isPos = n.id === state.pos;
   const revealedIce = n.type === 'firewall' && state.seen.has(n.id);
   const g = [];
   // reachable pulse ring
   if (reach) g.push(`<circle class="ch-reachring" cx="${n.x}" cy="${n.y}" r="20" fill="none" stroke="#8ffbec" stroke-width="1.4"/>`);
+  if (forceable) g.push(`<circle class="ch-forcering" cx="${n.x}" cy="${n.y}" r="20" fill="none" stroke="#ffb23e" stroke-width="1.6" stroke-dasharray="4 3"/>`);
 
   if (n.type === 'core') {
     g.push(`<circle class="ch-coreglow" cx="${n.x}" cy="${n.y}" r="20" fill="#37f5db" opacity="0.4"/>`);
@@ -352,10 +474,10 @@ function nodeSvg(state, n) {
     g.push(label(n, 'ICE', '#ff6a78'));
   } else if (n.type === 'gate') {
     const open = !!(state.keys & n.gateBit);
-    const col = open ? '#46e05a' : '#ffb23e';
+    const col = open ? '#46e05a' : forceable ? '#ffb23e' : '#ffb23e';
     g.push(`<circle cx="${n.x}" cy="${n.y}" r="13" fill="#1a1608" stroke="${col}" stroke-width="2" stroke-dasharray="${open ? '0' : '4 3'}"/>`);
     g.push(`<text x="${n.x}" y="${n.y + 5}" text-anchor="middle" font-size="13" fill="${col}">${open ? '&#128275;' : '&#128274;'}</text>`);
-    g.push(label(n, open ? 'OPEN' : 'GATE', col));
+    g.push(label(n, open ? 'OPEN' : forceable ? 'GATE (FORCE?)' : 'GATE', col));
   } else if (n.type === 'key') {
     g.push(`<circle cx="${n.x}" cy="${n.y}" r="12" fill="#1a1608" stroke="#ffd75f" stroke-width="2"/>`);
     g.push(`<text x="${n.x}" y="${n.y + 5}" text-anchor="middle" font-size="13" fill="#ffd75f">&#9919;</text>`);
@@ -376,9 +498,11 @@ function nodeSvg(state, n) {
     g.push(`<g class="ch-me"><circle cx="${n.x}" cy="${n.y}" r="19" fill="none" stroke="#8ffbec" stroke-width="1.6"/>` +
       `<path d="M${n.x - 22},${n.y} h8 M${n.x + 14},${n.y} h8 M${n.x},${n.y - 22} v8 M${n.x},${n.y + 14} v8" stroke="#8ffbec" stroke-width="1.6"/></g>`);
   }
-  // Invisible fat hit-target for reachable nodes (easy clicking).
-  const hit = reach ? `<circle class="n-hit" cx="${n.x}" cy="${n.y}" r="22" fill="transparent" stroke="transparent" stroke-width="2"/>` : '';
-  const wrap = reach ? `<g class="n-reach" data-node="${n.id}">${hit}${g.join('')}</g>` : `<g>${g.join('')}</g>`;
+  // Invisible fat hit-target for reachable/forceable nodes (easy clicking).
+  const clickable = reach || forceable;
+  const hit = clickable ? `<circle class="n-hit" cx="${n.x}" cy="${n.y}" r="22" fill="transparent" stroke="transparent" stroke-width="2"/>` : '';
+  const cls = reach ? 'n-reach' : forceable ? 'n-reach n-force' : '';
+  const wrap = clickable ? `<g class="${cls}" data-node="${n.id}" data-force="${forceable && !reach ? '1' : '0'}">${hit}${g.join('')}</g>` : `<g>${g.join('')}</g>`;
   return wrap;
 }
 function label(n, text, color) {
@@ -399,10 +523,13 @@ function boardSvg(state) {
   const { w, h } = boardDims(state);
   return `<svg viewBox="0 0 ${w} ${h}" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="'Courier New',monospace">
     <defs>
-      <pattern id="ch-grid" width="24" height="24" patternUnits="userSpaceOnUse"><path d="M24,0 H0 V24" fill="none" stroke="#0c1e1d" stroke-width="1"/></pattern>
+      <pattern id="ch-grid" width="24" height="24" patternUnits="userSpaceOnUse"><path d="M24,0 H0 V24" fill="none" stroke="#0e241c" stroke-width="1"/></pattern>
       <radialGradient id="ch-vign" cx="50%" cy="50%" r="70%"><stop offset="60%" stop-color="#000" stop-opacity="0"/><stop offset="100%" stop-color="#000" stop-opacity="0.55"/></radialGradient>
+      <radialGradient id="ch-board-tint" cx="50%" cy="40%" r="75%"><stop offset="0%" stop-color="#0c2a1e"/><stop offset="100%" stop-color="#051310"/></radialGradient>
     </defs>
+    <rect width="${w}" height="${h}" fill="url(#ch-board-tint)"/>
     <rect width="${w}" height="${h}" fill="url(#ch-grid)"/>
+    ${pcbDecorSvg(w, h)}
     <g>${traceSvg(state)}</g>
     <g>${state.nodes.map(n => nodeSvg(state, n)).join('')}</g>
     <g>${packetSvg(state)}</g>
@@ -415,16 +542,18 @@ function renderBoard() {
   if (!el) return;
   el.innerHTML = boardSvg(_state);
   el.querySelectorAll('[data-node]').forEach(g => {
-    g.addEventListener('click', () => moveTo(_state, parseInt(g.getAttribute('data-node'), 10)));
+    const id = parseInt(g.getAttribute('data-node'), 10);
+    const forceOnly = g.getAttribute('data-force') === '1';
+    g.addEventListener('click', () => forceOnly ? forceGate(_state, id) : moveTo(_state, id));
   });
 }
 function renderHud() {
   const el = document.getElementById('ch-hud');
   if (!el) return;
   const s = _state;
-  const mv = s.movesLeft <= 2 ? '#ff4a5b' : s.movesLeft <= 4 ? '#ffb23e' : '#37f5db';
+  const mv = s.movesLeft <= 2 ? '#ff4a5b' : s.movesLeft <= 4 ? '#ffb23e' : '#4dffb0';
   el.innerHTML =
-    `<span>MOVES <b class="hv-moves" style="color:${mv}">${Math.max(0, s.movesLeft)}</b>/<span style="opacity:.6">${s.movesMax}</span></span>` +
+    `<span>CYCLES <b class="hv-moves" style="color:${mv}">${Math.max(0, s.movesLeft)}</b>/<span style="opacity:.6">${s.movesMax}</span></span>` +
     `<span>ALARM TOLERANCE <b class="hv-alarm">${'&#9670;'.repeat(Math.max(0, s.alarmsLeft))}${'&#9671;'.repeat(s.alarmsMax - Math.max(0, s.alarmsLeft))}</b></span>` +
     `<span>SENSOR <b class="hv-sensor">r${s.sensor}</b></span>` +
     (s.keys ? `<span style="color:#ffd75f">&#9919; KEY</span>` : '');
@@ -434,9 +563,10 @@ function flashStatus(html) { setStatus(html); }
 
 // ── Public API ────────────────────────────────────────────────────────────────
 function newPuzzle() {
+  _forceMode = false;
   _state = generate();
   if (!_state) { setStatus('<span class="ch-lose">generation failed</span>'); return; }
-  renderBoard(); renderHud(); setStatus('<span style="color:#6f8792">Route to the CORE. Watch for ICE.</span>');
+  renderBoard(); renderHud(); setStatus('<span style="color:#7fa392">Route to the CORE. Watch for ICE. PING to scout, FORCE to smash a locked GATE.</span>');
 }
 
 export function openCircuitHack(opts = {}) {
@@ -453,6 +583,8 @@ export function openCircuitHack(opts = {}) {
       <div class="ch-board" id="ch-board"></div>
       <div class="ch-status" id="ch-status"></div>
       <div class="ch-actions">
+        <button class="ch-btn ch-btn-ping" title="Spend 1 cycle to extend your sensor range without moving">&#8226; Ping</button>
+        <button class="ch-btn ch-btn-force" title="Spend 3 cycles + 1 alarm tolerance to smash open an adjacent locked gate">&#128163; Force</button>
         <button class="ch-btn ch-btn-rejack">&#8635; Re-Jack</button>
         <button class="ch-btn ch-btn-abort">Abort</button>
       </div>
@@ -461,11 +593,23 @@ export function openCircuitHack(opts = {}) {
   overlay.querySelector('.ch-close').addEventListener('click', close);
   overlay.querySelector('.ch-btn-abort').addEventListener('click', close);
   overlay.querySelector('.ch-btn-rejack').addEventListener('click', () => { window.AudioEngine?.init?.(); newPuzzle(); });
+  overlay.querySelector('.ch-btn-ping').addEventListener('click', () => { if (_state && !_state.over) ping(_state); });
+  const forceBtn = overlay.querySelector('.ch-btn-force');
+  forceBtn.addEventListener('click', () => {
+    if (!_state || _state.over) return;
+    _forceMode = !_forceMode;
+    forceBtn.classList.toggle('ch-btn-active', _forceMode);
+    flashStatus(_forceMode
+      ? '<span class="ch-warn">FORCE ARMED — click a locked GATE to smash it</span>'
+      : '<span style="color:#7fa392">Force disarmed.</span>');
+    renderBoard();
+  });
   _keyHandler = (e) => { if (e.key === 'Escape') close(); };
   window.addEventListener('keydown', _keyHandler);
   document.body.appendChild(overlay);
   _overlay = overlay;
   window.AudioEngine?.init?.();
+  sfx(SFX_ENTRY);
   newPuzzle();
 }
 
@@ -473,6 +617,7 @@ function close() {
   if (_keyHandler) { window.removeEventListener('keydown', _keyHandler); _keyHandler = null; }
   if (_overlay) { _overlay.remove(); _overlay = null; }
   _state = null;
+  _forceMode = false;
 }
 
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');

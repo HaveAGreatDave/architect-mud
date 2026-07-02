@@ -103,10 +103,20 @@ Hacking attack on the ATM. Requires hacking skill.
 1. ATM must exist, not broken, zone powered, and have cash stock > 0.
 2. Per-player lockout checked (`jackLockout` Map, in-memory, 5-minute cooldown after any failed attempt).
 3. `skillCheck(player, 'hacking', hack_difficulty)` — rolls against difficulty.
-4. **Success**: `cash_stock` emptied into player's carried credits; ATM set `is_broken = 1`. Skill use awarded (`awardSkillUse`).
+4. **Success**: no immediate payout. Grants that player MAINTENANCE access on that terminal (`atmMaintenanceAccess` Map, in-memory, keyed by atm id → Set of player ids). Skill use awarded (`awardSkillUse`). The ATM panel then shows an "EJECT ALL CREDITS" option for that player.
 5. **Failure**: player locked out for 5 minutes. Hard failure (margin ≥ 4) shows "INTRUSION DETECTED" with console-ID-flagged flavour text. Soft failure shows generic rejection message.
 
-Lockout is in-memory — it resets on server restart. The ATM itself is not permanently damaged by a soft failure, only by a successful hack.
+Lockout is in-memory — it resets on server restart. The ATM itself is not permanently damaged by a soft failure, only by a successful `drain`.
+
+### `drain`
+
+Cashes out a terminal the player has MAINTENANCE access on (from a prior successful `jack`). (Named `drain` server-side to avoid a verb collision with the broadcast plugin's cassette-`eject`; the ATM panel button is still labelled "EJECT ALL CREDITS".)
+
+1. ATM must exist, not broken, zone powered, cash stock > 0.
+2. Player must hold MAINTENANCE access for that specific atm id (`hasMaintenanceAccess`).
+3. Pays out the full `cash_stock` into the player's carried credits and bricks the terminal (`is_broken = 1`) in one atomic transaction, then revokes the player's MAINTENANCE access for that atm.
+
+MAINTENANCE access is per-player, per-terminal, in-memory (resets on server restart) and is also cleared by the dev-panel `repair` route.
 
 ---
 
@@ -186,4 +196,4 @@ This keeps zones built before the ATM plugin working without migration. New cont
 
 ## `transferCredits()` vs direct write
 
-`deposit` and `withdraw` use the engine's `transferCredits(player, amount, type)` for the basic credit movement — this enforces the "credits can't go negative" invariant in one place. The credit movement and the follow-on `cash_stock` update are now wrapped together in a single `withTransaction()` (see [systems-economy.md](systems-economy.md) → Transactions), so they commit or roll back as one unit — the credits-moved-but-stock-stale window is closed. The `withdraw` fee path uses a guarded `bank_credits >= amount` UPDATE inside that transaction so a concurrent second withdrawal can't overdraw. `jack` likewise wraps its cash payout + terminal-bricking. (The **legacy zone-flag fallback** paths do a single `transferCredits` with no follow-on write, so they're already atomic on their own.)
+`deposit` and `withdraw` use the engine's `transferCredits(player, amount, type)` for the basic credit movement — this enforces the "credits can't go negative" invariant in one place. The credit movement and the follow-on `cash_stock` update are now wrapped together in a single `withTransaction()` (see [systems-economy.md](systems-economy.md) → Transactions), so they commit or roll back as one unit — the credits-moved-but-stock-stale window is closed. The `withdraw` fee path uses a guarded `bank_credits >= amount` UPDATE inside that transaction so a concurrent second withdrawal can't overdraw. `drain` likewise wraps its cash payout + terminal-bricking. (The **legacy zone-flag fallback** paths do a single `transferCredits` with no follow-on write, so they're already atomic on their own.)

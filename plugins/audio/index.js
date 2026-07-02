@@ -588,6 +588,7 @@ function knownWeatherAmbientIds() {
 // competing with it; indoor mult muffles it to a "through the walls" murmur.
 const WEATHER_GAIN = 0.6;
 const INDOOR_GAIN_MULT = 0.25;
+const MUFFLE_GAIN_MULT = 0.5; // outdoor tile hearing a neighboring storm cell's rain, not its own
 
 function isIndoorZone(zoneId) {
   const z = getZone(zoneId);
@@ -635,6 +636,8 @@ on('weather.zoneAmbience', (payload) => {
   if (isIndoorZone(zoneId)) {
     if (desired.precip) desired.precip.gain *= INDOOR_GAIN_MULT;
     if (desired.wind)   desired.wind.gain   *= INDOOR_GAIN_MULT;
+  } else if (payload.muffled && desired.precip) {
+    desired.precip.gain *= MUFFLE_GAIN_MULT;
   }
   reconcileZoneSlot(zoneId, trackers, 'precip', desired.precip);
   reconcileZoneSlot(zoneId, trackers, 'wind',   desired.wind);

@@ -596,11 +596,39 @@ async function cmdFollow(args, raw, player, broadcast) {
 		getZoneNpcs(player.current_zone).find((n) =>
 			n.name.toLowerCase().includes(lower),
 		);
-	if (!found)
-		return {
-			type: "error",
-			message: `You don't see anyone called "${target}" here.`,
-		};
+
+	if (!found) {
+		// No live entity matched — check for an offline body sleeping in bed here.
+		const { rows: sleepers } = await query(
+			`SELECT id, handle FROM players WHERE LOWER(handle) LIKE $1 AND current_zone=$2 AND offline_sleeping=TRUE LIMIT 1`,
+			[`%${lower}%`, player.current_zone],
+		);
+		if (!sleepers.length)
+			return {
+				type: "error",
+				message: `You don't see anyone called "${target}" here.`,
+			};
+		const sleeper = sleepers[0];
+		setLivePlayer(player.id, { ...player, following: sleeper.id });
+		return doEmote(
+			`You crouch beside ${sleeper.handle}'s sleeping body, ready to tail their every move the instant they wake up. This could be a while.`,
+			`${player.handle} crouches beside ${sleeper.handle}, apparently intent on following them the moment they stir.`,
+			player,
+			broadcast,
+		);
+	}
+
+	// A live player can also be asleep in bed — still followable, same gag.
+	if (foundPlayer && foundPlayer.sleeping) {
+		setLivePlayer(player.id, { ...player, following: found.id });
+		return doEmote(
+			`You fall into step behind ${found.handle}, who is fast asleep and going nowhere. You'll be right here when they wake up.`,
+			`${player.handle} takes up position behind the sleeping ${found.handle}, poised to follow.`,
+			player,
+			broadcast,
+		);
+	}
+
 	const name = foundPlayer ? found.handle : found.name;
 	setLivePlayer(player.id, { ...player, following: found.id });
 	return doEmote(

@@ -11,6 +11,11 @@ let broadcastFn = null;
 
 export function setBroadcast(fn) { broadcastFn = fn; }
 
+// Raw broadcast function access for callers (e.g. scheduled tasks outside
+// gameLoop's tick.minute hook) that need the full broadcast(zoneId, message,
+// excludeId, targetId) signature rather than the sendToPlayer/sendToZone wrappers.
+export function getBroadcast() { return broadcastFn; }
+
 // Push a single server message to one player by id. No-op if not wired/connected.
 export function sendToPlayer(playerId, message) {
   if (broadcastFn && playerId) broadcastFn(null, message, null, playerId);

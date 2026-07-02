@@ -576,7 +576,7 @@ async function zoneEditForm(rec, isNew) {
       <div class="field"><label>Radiation Level</label><input type="number" id="f-radiation_level" value="${rec.radiation_level||0}" min="0" max="100"></div>
     </div>
     <div class="checkbox-field"><input type="checkbox" id="f-pvp_enabled" ${rec.pvp_enabled?'checked':''}><label>PvP Enabled</label></div>
-    <div class="checkbox-field"><input type="checkbox" id="f-is_safe_zone" ${rec.is_safe_zone?'checked':''}><label>Safe Zone (no PvP, anchor point)</label></div>
+    <div class="checkbox-field"><input type="checkbox" id="f-is_safe_zone" ${rec.is_safe_zone?'checked':''}><label>Safe Zone (police cameras present, anchor point)</label></div>
     <div class="checkbox-field"><input type="checkbox" id="f-is_apartment" ${flags.is_apartment?'checked':''}><label>Rentable Apartment (players can RENT, LOCK, SLEEP here)</label></div>
     <div class="checkbox-field"><input type="checkbox" id="f-is_building" ${flags.is_building?'checked':''} onchange="toggleBuildingFields(this.checked,${JSON.stringify(rec.id)})"><label>Building (appears in a "Buildings:" list and entrance-discovery text on zones that connect to it)</label></div>
     <div id="building-fields" style="display:${flags.is_building?'block':'none'}">

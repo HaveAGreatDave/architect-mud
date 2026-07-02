@@ -26,6 +26,7 @@
 
 import { schedule } from './scheduler.js';
 import { emit } from './events.js';
+import { world } from './world.js';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -1504,6 +1505,42 @@ export async function getWeatherMap() {
   return { bounds: snap.bounds, systems: snap.systems, zones };
 }
 
+// Muffled rain bleed: a tile that isn't directly under a storm cell but sits
+// exit-adjacent to one shouldn't go completely silent — it borrows a fainter
+// version of the loudest nearby cell, attenuated per hop. Only zones whose own
+// local sample is weak bother looking; roofs and other open_sky zones are
+// never map_world so they never enter this path — they always get their own
+// (unmuffled) sample instead. Walked over the outdoor exit graph the same way
+// sounds.js walks zone exits for SFX/yell propagation.
+const MUFFLE_LOCAL_THRESHOLD = 0.12;
+const MUFFLE_RADIUS = 2;
+const MUFFLE_FALLOFF = 0.45; // per-hop attenuation
+
+function muffledNeighborPrecip(zoneId) {
+  const visited = new Set([zoneId]);
+  let frontier = [zoneId];
+  let best = 0;
+  for (let hop = 1; hop <= MUFFLE_RADIUS; hop++) {
+    const next = [];
+    for (const id of frontier) {
+      const z = world.zones.get(id);
+      if (!z) continue;
+      for (const neighborId of Object.values(z.exits || {})) {
+        if (visited.has(neighborId)) continue;
+        visited.add(neighborId);
+        next.push(neighborId);
+        const nz = world.zones.get(neighborId);
+        if (nz && nz.map_id === 'map_world' && nz.grid_x != null && nz.grid_y != null) {
+          const nf = sampleField(nz.grid_x, nz.grid_y);
+          if (nf && nf.precipRate > 0) best = Math.max(best, nf.precipRate * Math.pow(MUFFLE_FALLOFF, hop));
+        }
+      }
+    }
+    frontier = next;
+  }
+  return best;
+}
+
 // Broadcast local outdoor weather to player-occupied outdoor zones. Additive to
 // the existing environment.zoneTempTick — old clients ignore the extra keys.
 // Iterates occupied zones only (via deps.getOccupiedZones) so cost scales with
@@ -1517,25 +1554,32 @@ function broadcastZoneWeather(occupied) {
     const z = state.zones.get(zoneId);
     if (!z || z.mapId !== 'map_world') continue;
     const f = sampleField(z.gridX, z.gridY);
+    let precipRate = active ? f.precipRate : 0;
+    let muffled = false;
+    if (active && precipRate < MUFFLE_LOCAL_THRESHOLD) {
+      const bleed = muffledNeighborPrecip(zoneId);
+      if (bleed > precipRate) { precipRate = bleed; muffled = true; }
+    }
     broadcast(zoneId, {
       type: 'environment.zoneTempTick',
       tempC: Math.round(base + f.tempOffset),
       cloudCover: f.cloudCover,
-      precipType: active && f.precipType !== 'none' ? f.precipType : 'none',
-      precipRate: active ? f.precipRate : 0,
+      precipType: precipRate > 0 ? state.currentPrecip : 'none',
+      precipRate,
       severity: f.severity,
     });
     // Signal the audio layer what weather ambience this tile is under. The audio
     // plugin runs two reactive beds off this: a precip bed (type from the full
     // taxonomy state.currentPrecip, gated + gain-scaled by this tile's local
-    // precipRate) and a wind bed (gain-scaled by the day's windKph).
-    const tileActive = active && f.precipType !== 'none';
+    // precipRate, further cut if `muffled`) and a wind bed (gain-scaled by the
+    // day's windKph).
     emit('weather.zoneAmbience', {
       zoneId,
       precipType: state.currentPrecip,
-      active: tileActive,
-      precipRate: tileActive ? f.precipRate : 0,
+      active: precipRate > 0,
+      precipRate,
       windKph: state.forecast[0]?.windKph ?? 0,
+      muffled,
     });
   }
 }
@@ -1811,8 +1855,26 @@ export async function devClearWeatherOverride() {
   return payload;
 }
 
-export async function devTriggerStorm() { return devOverrideWeather({ weatherType: 'storm' }); }
-export async function devTriggerSnow() { return devOverrideWeather({ weatherType: 'snow' }); }
+// Edits a single upcoming forecast day (1-6) directly — schedules an extreme
+// weather event ahead of time instead of forcing "now" like devOverrideWeather.
+// Day 0 (today) isn't valid here since that's what the override already owns.
+export async function devScheduleForecastDay({ forecastDay, weatherType, tempC, windKph, humidityPct }) {
+  const { broadcast, emitHook } = deps;
+  const day = Number(forecastDay);
+  if (!Number.isInteger(day) || day < 1 || day > 6) throw new Error('forecastDay must be 1-6 — use weather/override to force today (day 0)');
+  if (weatherType !== undefined && !WEATHER_TYPES.includes(weatherType)) throw new Error(`Unknown weather type: ${weatherType}`);
+  if (!emitHook) throw new Error('Weather plugin not loaded');
+  await emitHook('environment.scheduleForecastDay', { forecastDay: day, weatherType, tempC, windKph, humidityPct, setWeatherState, currentForecast: state.forecast });
+  const payload = { ...getHUDPayload(), forecast: getForecast() };
+  if (broadcast) broadcast({ type: 'environment.sync', ...payload });
+  return payload;
+}
+
+// precipChance: 1.0 forces the roll so the trigger actually precipitates — otherwise
+// it sets the weather type but rolls precip at the ambient (~5%) chance, so the sky
+// says "snow" while nothing falls and the client weather-FX overlay stays empty.
+export async function devTriggerStorm() { return devOverrideWeather({ weatherType: 'storm', precipChance: 1.0 }); }
+export async function devTriggerSnow() { return devOverrideWeather({ weatherType: 'snow', precipChance: 1.0 }); }
 
 export async function devMaxStorm() {
   const { broadcast } = deps;

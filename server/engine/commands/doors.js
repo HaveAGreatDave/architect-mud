@@ -88,7 +88,7 @@ async function cmdOpenDoor(args, raw, player, broadcast) {
   if (door.is_open) return { type:'error', message:'The door is already open.' };
   if (door.lock_state === 'locked') return { type:'error', message:'The door is locked.' };
   await updateDoor(door, { is_open: 1 });
-  broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} opens the door.` }, player.id);
+  broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} opens the door.`, refresh: true }, player.id);
   return { type:'output', message:'You open the door.' };
 }
 
@@ -99,7 +99,7 @@ async function cmdCloseDoor(args, raw, player, broadcast) {
   if (door.hp <= 0) return { type:'error', message:'That door is destroyed.' };
   if (!door.is_open) return { type:'error', message:'The door is already closed.' };
   await updateDoor(door, { is_open: 0 });
-  broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} closes the door.` }, player.id);
+  broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} closes the door.`, refresh: true }, player.id);
   return { type:'output', message:'You close the door.' };
 }
 
@@ -118,7 +118,7 @@ async function cmdLockDoor(args, raw, player, broadcast) {
   // Auto-close the door before locking if it's open
   if (door.is_open) {
     await updateDoor(door, { is_open: 0 });
-    broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} closes and locks the door.` }, player.id);
+    broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} closes and locks the door.`, refresh: true }, player.id);
   } else {
     broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} locks the door.` }, player.id);
   }
@@ -178,7 +178,7 @@ export async function cmdAttackDoor(dirStr, player, broadcast) {
     await query('UPDATE doors SET hp=0,is_open=1,lock_state=NULL WHERE id=$1', [door.id]);
     Object.assign(door, { hp: 0, is_open: 1, lock_state: null });
     setDoorCache(door.id, door);
-    broadcast(player.current_zone, { type:'zone_event', message:'The door splinters apart!' }, player.id);
+    broadcast(player.current_zone, { type:'zone_event', message:'The door splinters apart!', refresh: true }, player.id);
     propagateSound(player.current_zone, 'You hear a door being smashed apart nearby.', 2.5, broadcast);
     return { type:'combat', message:`You smash the door! It splinters apart! (${damage} damage)` };
   }

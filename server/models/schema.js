@@ -392,6 +392,15 @@ export const SCHEMA_SQL = `
     PRIMARY KEY (player_id, drug_id)
   );
 
+  -- Crime → wanted-star weights. Dev-panel editable; the engine ships defaults
+  -- (server/engine/crimes.js) so a fresh DB works before any rows are authored.
+  CREATE TABLE IF NOT EXISTS crimes (
+    id TEXT PRIMARY KEY,
+    label TEXT NOT NULL,
+    stars REAL NOT NULL DEFAULT 1,
+    description TEXT DEFAULT ''
+  );
+
   CREATE TABLE IF NOT EXISTS mutations (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,

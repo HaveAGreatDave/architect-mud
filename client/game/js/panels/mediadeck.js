@@ -2,6 +2,7 @@ import { sendCmdSilent, sendRaw } from '../net.js';
 
 let deckData = null;
 let _wasPlaying = false;
+let _overlayTimer = null;
 const MAX_PREVIEW_LINES = 20;
 
 function _lightLabel(lightState, activeCassetteId) {
@@ -94,11 +95,13 @@ export function openMediaDeckPanel(data) {
   // Clear preview on open and subscribe to channel broadcast
   const previewMsgs = document.getElementById('mediadeck-preview-msgs');
   if (previewMsgs) previewMsgs.innerHTML = '';
+  _clearOverlay();
   if (data.channelId) sendRaw({ type: 'deck_watch', channelId: data.channelId });
 }
 
 export function closeMediaDeckPanel() {
   sendRaw({ type: 'deck_unwatch' });
+  _clearOverlay();
   document.getElementById('mediadeck-panel').classList.remove('active');
   document.getElementById('mediadeck-load-picker').hidden = true;
   // Clear any drag offset so the deck re-centers next time it opens.
@@ -125,6 +128,47 @@ export function updateMediaDeckBroadcast(msg) {
     preview.removeChild(preview.firstChild);
   }
   preview.scrollTop = preview.scrollHeight;
+}
+
+// On-screen overlay/graphics, mirroring the TV panel's applyTvOverlay (see
+// panels/tv.js) but scaled into the small preview window. Music is deliberately
+// NOT mirrored here — only visual overlays. A null overlay clears (clear_overlay).
+export function applyMediaDeckOverlay(overlay) {
+  _clearOverlay();
+  const container = document.getElementById('mediadeck-overlay-container');
+  if (!container || !overlay) return;
+
+  let el;
+  if (overlay.overlayType === 'text_card') {
+    el = document.createElement('div');
+    el.className = 'mediadeck-overlay-text-card';
+    el.innerHTML = escapeHtml(overlay.text).replace(/\n/g, '<br>');
+  } else if (overlay.overlayType === 'lower_third') {
+    el = document.createElement('div');
+    el.className = 'mediadeck-overlay-lower-third';
+    el.innerHTML =
+      `<div class="mediadeck-overlay-lt-name">${escapeHtml(overlay.text)}</div>` +
+      (overlay.subtext ? `<div class="mediadeck-overlay-lt-sub">${escapeHtml(overlay.subtext)}</div>` : '');
+  } else if (overlay.overlayType === 'alert_flash') {
+    el = document.createElement('div');
+    el.className = 'mediadeck-overlay-alert';
+    el.innerHTML =
+      `<div class="mediadeck-overlay-alert-title">${escapeHtml(overlay.text)}</div>` +
+      (overlay.subtext ? `<div class="mediadeck-overlay-alert-sub">${escapeHtml(overlay.subtext)}</div>` : '');
+  }
+
+  if (el) {
+    container.appendChild(el);
+    if (overlay.duration > 0) {
+      _overlayTimer = setTimeout(_clearOverlay, overlay.duration * 1000);
+    }
+  }
+}
+
+function _clearOverlay() {
+  if (_overlayTimer) { clearTimeout(_overlayTimer); _overlayTimer = null; }
+  const container = document.getElementById('mediadeck-overlay-container');
+  if (container) container.innerHTML = '';
 }
 
 function formatTime(secondsSinceMidnight) {

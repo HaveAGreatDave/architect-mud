@@ -2,6 +2,6 @@
   "name": "pinch",
   "version": "1.0.0",
   "description": "Pinch a sleeping player awake; they stumble home and sleep there. Also adds .gohome for live players.",
-  "hooks": ["tick.minute"],
+  "hooks": [],
   "commands": ["pinch", ".gohome"]
 }

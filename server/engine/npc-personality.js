@@ -187,6 +187,51 @@ const DEFAULTS = {
     ],
   },
 
+  stripper: {
+    label: 'Stripper', icon: '💃', sells: false, mobile: false, npcType: 'npc',
+    chitchat: [
+      'catches your eye across the room and holds it a beat too long',
+      '"Tip rail\'s right there. I don\'t bite. Unless you ask."',
+      'traces a finger down the pole, bored, magnetic anyway',
+      '"You gonna stare all night or make it worth my while?"',
+      '"Everyone\'s somebody\'s tragedy in here. I just dance through mine."',
+      'leans over the rail, all promise, none of it free',
+      '"New face. I like new faces. They still tip like they mean it."',
+      '"I\'ve heard every line in this club. Yours is at least trying."',
+      'winks, then goes back to counting the crowd like inventory',
+      '"Song\'s almost over. Stick around for the next one."',
+      '"You want a private dance or you just here for the ambience?"',
+      'stretches against the pole with the flat professionalism of a shift, not a show',
+    ],
+    combat_lines: [
+      'Hey — HEY. Do you know what I paid for these heels?',
+      'BOUNCER. BOUNCER, NOW.',
+      'You do NOT touch the talent.',
+      'That\'s assault. I have witnesses. I have a WHOLE ROOM of witnesses.',
+      'Wrong club, wrong night, wrong dancer.',
+      'I will end your night before you end my shift.',
+      'You\'re getting banned so hard they\'ll frame your photo by the door.',
+      'GET OFF THE STAGE.',
+      'I dance for tips, not for this.',
+      'Security\'s about to make you very, very sad.',
+    ],
+    mis_willing: true,
+    mis_lines_ok: [
+      'Tip first, sweetheart. That\'s not negotiable.',
+      'Mm. Private booth. Follow the red light.',
+      'Careful — I charge extra for enthusiasm.',
+      'Slow down. We\'ve got the whole song.',
+      'Keep your hands where the bouncer can\'t see them not moving.',
+    ],
+    mis_lines_no: [
+      'Not what I\'m selling, honey.',
+      'Look, don\'t touch. House rules.',
+      'That\'ll get you thrown out on your ear.',
+      'I dance. That\'s the whole show.',
+      'Wrong idea, wrong girl. Back off.',
+    ],
+  },
+
   tv_host: {
     label: 'TV Host', icon: '📺', sells: false, mobile: false, npcType: 'npc',
     chitchat: [

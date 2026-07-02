@@ -612,6 +612,15 @@ export async function tickSleep(player, broadcastFn) {
 		player.sleeping = null;
 		setPosture(player, 'standing');
 		await deactivateForcefield(player.id, player.home_zone, broadcastFn);
+		const ROOM_WAKE = [
+			(h) => `${h} stirs and sits up.`,
+			(h) => `${h} blinks awake.`,
+			(h) => `${h} wakes and stretches.`,
+			(h) => `${h} opens their eyes and sits up slowly.`,
+			(h) => `${h} comes to, rubbing their eyes.`,
+		];
+		const roomMsg = ROOM_WAKE[Math.floor(Math.random() * ROOM_WAKE.length)](player.handle);
+		broadcastFn(player.current_zone, { type: 'zone_event', message: roomMsg }, player.id);
 		return {
 			type: "sleep_end",
 			message: reason,

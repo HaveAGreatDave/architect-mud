@@ -31,11 +31,12 @@ async function cmdStopAll(args, raw, player, broadcast) {
   const stopped = [];
 
   if (player.combatTargetId || player.pvpTargetId || player.npcCombatTargetId) {
+    // Only clear our own attack — the opponent's side of pvpTargetId is theirs to
+    // let go of. If they haven't stopped too, their auto-attack keeps landing on us.
     if (player.pvpTargetId) {
       const opponent = getLivePlayer(player.pvpTargetId);
       if (opponent) {
-        opponent.pvpTargetId = null;
-        broadcast(null, { type: 'output', message: `${player.handle} disengages. Combat ends.` }, null, opponent.id);
+        broadcast(null, { type: 'output', message: `${player.handle} disengages.` }, null, opponent.id);
       }
     }
     player.combatTargetId = null;

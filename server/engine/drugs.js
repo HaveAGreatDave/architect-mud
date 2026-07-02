@@ -21,6 +21,7 @@ import { query } from '../models/db.js';
 import { foodLoad, drinkLoad } from './bodily.js';
 import { applyMods, reverseMods } from './statmods.js';
 import { fireHook } from './plugins.js';
+import { emit } from './events.js';
 
 let DRUG_CACHE = {};
 
@@ -140,6 +141,11 @@ export async function useDrug(player, drugId, broadcast, opts = {}) {
   // Re-dosing clears any active withdrawal for this drug.
   reverseMods(player, `withdrawal:${drugId}`);
   player._withdrawalActive?.delete(drugId);
+
+  // Consumption happened — flag it for the crime/wanted system. Legal drugs
+  // (coffee, beer: drug.flags.legal) draw no police attention; controlled
+  // substances do, but only if a camera actually catches it (raiseCrime gates).
+  emit('player.drugUsed', { player, illegal: !drug.flags?.legal, zoneId: player.current_zone });
 
   let message = `You take ${displayName}. ${(opts.inlineEffects ? '' : drug.description) || ''}`.trim();
 

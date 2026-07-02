@@ -33,6 +33,7 @@ import { evalConditions } from "./engine/flags.js";
 import "./engine/graph.js";
 import { loadRecipes } from "./engine/crafting.js";
 import { loadDrugs } from "./engine/drugs.js";
+import { reloadCrimes } from "./engine/crimes.js";
 import { loadMutations } from "./engine/mutations.js";
 import { loadBanterLibrary } from "./engine/npc-banter.js";
 import {
@@ -702,7 +703,7 @@ async function finishAuth(ws, session, player) {
 
 	broadcast(
 		livePlayer.current_zone,
-		{ type: "zone_event", message: `${player.handle} has arrived.` },
+		{ type: "zone_event", message: `${player.handle} has arrived.`, refresh: true },
 		player.id,
 	);
 	for (const [zoneId, dist] of getSoundReach(livePlayer.current_zone, 2.0)) {
@@ -1080,6 +1081,7 @@ async function boot() {
 	).catch(() => {});
 	await loadRecipes();
 	await loadDrugs();
+	await reloadCrimes();
 	await loadMutations();
 	await loadBanterLibrary();
 	await loadPlugins();

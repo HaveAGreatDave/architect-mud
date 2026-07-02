@@ -36,6 +36,15 @@ async function renderValidatorPanel() {
           Click <strong>Check Map Geometry</strong> to scan all maps for exit/position issues.
         </div>
       </div>
+      <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border)">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+          <span style="font-size:13px;font-weight:600;color:var(--text-bright)">Item Integrity</span>
+          <button class="action-btn primary" onclick="runItemValidation()">Check Items</button>
+        </div>
+        <div id="validator-item-results" style="color:var(--text-dim);font-size:12px">
+          Click <strong>Check Items</strong> to scan every item for null values and malformed tags.
+        </div>
+      </div>
     </div>`;
 }
 
@@ -292,6 +301,175 @@ async function vFixGeometry(zoneId, x, y, z, mapId) {
   if (r?.error) { toast(r.error, true); return; }
   updateStagingBadge(); toast('Zone moved to correct position');
   runMapGeometryValidation();
+}
+
+// --- Item integrity validation ---
+// Detection runs client-side against the globally-loaded TAG_CATALOG (like Map
+// Geometry above). Resolutions route through the normal staged API: a Fix is a
+// full-object PUT to /items/:id (auto-staged as an item update); a Remove stages
+// an item delete. Both land in the Changes panel to publish.
+
+const VALID_RARITIES = ['common', 'uncommon', 'rare', 'very_rare'];
+let _itemIssues = [];
+const _itemIssuesById = new Map();
+
+const _isNum = n => typeof n === 'number' && !Number.isNaN(n);
+
+function _fmtBad(v) {
+  if (v === null || v === undefined) return 'null';
+  if (v === '') return 'empty';
+  return `"${v}"`;
+}
+
+function deriveItemName(id) {
+  const base = String(id || 'item').replace(/^item_/, '').replace(/_/g, ' ').trim();
+  return base ? base.replace(/\b\w/g, c => c.toUpperCase()) : String(id);
+}
+
+// Returns a human string if the tag value is malformed for its shape, else null.
+function tagValueError(def, v) {
+  switch (def.shape) {
+    case 'flag':    return v === true ? null : 'should be a flag';
+    case 'int':     return Number.isInteger(v) ? null : 'should be an integer';
+    case 'text':    return typeof v === 'string' ? null : 'should be text';
+    case 'enum':    return (def.options || []).includes(v) ? null : `is not one of ${(def.options || []).join('/')}`;
+    case 'range':   return (v && typeof v === 'object' && _isNum(v.min) && _isNum(v.max)) ? null : 'is missing min/max';
+    case 'hot':     return (v && typeof v === 'object' && _isNum(v.amount) && _isNum(v.duration_seconds)) ? null : 'is missing amount/duration';
+    case 'statmap': return (v && typeof v === 'object' && !Array.isArray(v) && Object.values(v).every(_isNum)) ? null : 'has non-numeric values';
+    default:        return null;
+  }
+}
+
+// Validate one item row. Returns null if clean, else { id, name, problems, fixedItem, fixable }.
+function validateItem(item) {
+  const problems = [];
+  let name = item.name, weight = item.weight, value = item.value, rarity = item.rarity;
+  const tagsIsObject = item.tags && typeof item.tags === 'object' && !Array.isArray(item.tags);
+  let nameFixable = true;
+
+  if (name === null || name === undefined || String(name).trim() === '') {
+    name = deriveItemName(item.id);
+    nameFixable = /[a-z]/i.test(name);
+    problems.push({ msg: 'Name is missing', fix: nameFixable ? `set to "${name}"` : 'no safe default — remove' });
+  }
+  if (weight === null || weight === undefined || !(Number(weight) > 0)) {
+    problems.push({ msg: `Weight is ${_fmtBad(weight)}`, fix: 'set to 1000g' });
+    weight = 1000;
+  }
+  if (value === null || value === undefined || Number.isNaN(Number(value)) || Number(value) < 0) {
+    problems.push({ msg: `Value is ${_fmtBad(value)}`, fix: 'set to 0' });
+    value = 0;
+  }
+  if (!VALID_RARITIES.includes(rarity)) {
+    problems.push({ msg: `Rarity is ${_fmtBad(rarity)}`, fix: 'set to common' });
+    rarity = 'common';
+  }
+  if (item.tags !== null && item.tags !== undefined && !tagsIsObject) {
+    problems.push({ msg: 'Tags is not a valid object', fix: 'reset to empty' });
+  }
+
+  // Own-tag scan: drop unknown or malformed authored tags. Supertag members are
+  // preserved by re-materializing with the item's existing __super keys.
+  const rawTags = tagsIsObject ? item.tags : {};
+  const own = itemOwnTags(rawTags);
+  const supers = itemSuperKeys(rawTags);
+  const cleanedOwn = { ...own };
+  for (const [k, v] of Object.entries(own)) {
+    if (k === 'description') continue;
+    const def = TAG_CATALOG[k];
+    if (!def) {
+      problems.push({ msg: `Unknown tag "${k}"`, fix: 'remove tag' });
+      delete cleanedOwn[k];
+      continue;
+    }
+    const err = tagValueError(def, v);
+    if (err) {
+      problems.push({ msg: `Tag "${k}" ${err}`, fix: 'remove tag' });
+      delete cleanedOwn[k];
+    }
+  }
+
+  if (!problems.length) return null;
+  return {
+    id: item.id,
+    name: item.name || item.id,
+    problems,
+    fixable: nameFixable,
+    fixedItem: { id: item.id, name, type: item.type || null, rarity, weight, value, tags: cleanedOwn, supertags: supers },
+  };
+}
+
+async function runItemValidation() {
+  const el = document.getElementById('validator-item-results');
+  if (el) el.innerHTML = '<span style="color:var(--text-dim)">Scanning items…</span>';
+  const itemsData = await API('/items').catch(() => null);
+  const items = Array.isArray(itemsData) ? itemsData : [];
+  _itemIssues = items.map(validateItem).filter(Boolean);
+  _itemIssuesById.clear();
+  for (const r of _itemIssues) _itemIssuesById.set(r.id, r);
+  if (el) el.innerHTML = renderItemValidatorResults(items.length);
+}
+
+function renderItemValidatorResults(scanned) {
+  if (!_itemIssues.length) {
+    return `<div style="color:var(--accent2)">✓ No item integrity issues found (${scanned} scanned).</div>`;
+  }
+  let html = `<div style="margin-bottom:10px;color:var(--warning);font-weight:600">${_itemIssues.length} item${_itemIssues.length !== 1 ? 's' : ''} with issues (${scanned} scanned)</div>`;
+  html += `<div style="border-top:1px solid var(--border)">`;
+  for (const r of _itemIssues) {
+    const problemList = r.problems.map(p => `<div>• ${p.msg} — <span style="color:var(--text-dim)">${p.fix}</span></div>`).join('');
+    html += `
+      <div class="item-issue-row" style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
+        <input type="checkbox" class="item-issue-cb" data-id="${r.id}" checked style="margin-top:3px;accent-color:var(--accent)">
+        <div style="flex:1;min-width:0">
+          <div style="margin-bottom:3px"><code>${r.id}</code> <span style="color:var(--text)">${r.name}</span></div>
+          <div style="font-size:11px;color:var(--text)">${problemList}</div>
+        </div>
+        <select class="item-issue-mode" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:11px;padding:3px 6px;border-radius:2px;outline:none">
+          <option value="fix"${r.fixable ? '' : ' disabled'}>Fix</option>
+          <option value="remove"${r.fixable ? '' : ' selected'}>Remove</option>
+        </select>
+      </div>`;
+  }
+  html += `</div>
+    <div style="display:flex;gap:8px;margin-top:12px;align-items:center">
+      <button class="action-btn" onclick="selectAllItemIssues(true)">Select All</button>
+      <button class="action-btn" onclick="selectAllItemIssues(false)">Select None</button>
+      <button class="action-btn success" onclick="resolveSelectedItemIssues()">Resolve Selected</button>
+      <span style="font-size:11px;color:var(--text-dim)">Fixes stage as changes — publish to apply.</span>
+    </div>`;
+  return html;
+}
+
+function selectAllItemIssues(checked) {
+  document.querySelectorAll('.item-issue-cb').forEach(el => { el.checked = checked; });
+}
+
+async function resolveSelectedItemIssues() {
+  const rows = [...document.querySelectorAll('.item-issue-row')].filter(row => row.querySelector('.item-issue-cb')?.checked);
+  if (!rows.length) { toast('Select at least one item', true); return; }
+  let staged = 0;
+  for (const row of rows) {
+    const id = row.querySelector('.item-issue-cb').dataset.id;
+    const mode = row.querySelector('.item-issue-mode')?.value || 'fix';
+    const rec = _itemIssuesById.get(id);
+    if (!rec) continue;
+    if (mode === 'remove') {
+      const res = await API('/staging/stage', 'POST', {
+        entityType: 'item', entityId: id, entityName: rec.name, changeType: 'delete',
+        method: 'DELETE', apiPath: `/items/${id}`, requestBody: {},
+        description: `Delete broken item ${id}`,
+      });
+      if (res?.error) { toast(res.error, true); continue; }
+    } else {
+      const res = await API(`/items/${id}`, 'PUT', rec.fixedItem);
+      if (res?.error) { toast(res.error, true); continue; }
+    }
+    staged++;
+  }
+  toast(`${staged} item resolution${staged !== 1 ? 's' : ''} staged — publish to apply`);
+  await updateStagingBadge();
+  runItemValidation();
 }
 
 function exportValidatorReport() {

@@ -6,6 +6,7 @@ import { renderDerived } from './types/derived.js';
 import { renderNotes } from './types/notes.js';
 import { renderSkills } from './types/skills.js';
 import { renderStickycam } from './types/stickycam.js';
+import { renderWanted } from './types/wanted.js';
 
 export const PANEL_TYPES = {
   derived: {
@@ -42,6 +43,14 @@ export const PANEL_TYPES = {
     defaultTitle: () => 'Notes',
     needs: () => ({ snapshot: [], watch: [] }),
     render: renderNotes,
+  },
+  wanted: {
+    id: 'wanted', title: 'Wanted level', icon: '🚨',
+    description: 'Your current wanted-star heat, pinned to the sidebar.',
+    configSchema: [],
+    defaultTitle: () => 'Wanted',
+    needs: () => ({ snapshot: [], watch: [] }),  // value arrives via wanted_level push
+    render: renderWanted,
   },
 };
 

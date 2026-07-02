@@ -5,6 +5,7 @@ import { query } from '../../server/models/db.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
 import { getLivePlayer, setLivePlayer, getZone, world } from '../../server/engine/world.js';
 import { GameTable, activeTables, MAX_SEATS } from './game-table.js';
+import { botId } from './bot-player.js';
 import { renderPane } from './render-pane.js';
 import { renderHandASCII } from './cards.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
@@ -166,6 +167,12 @@ async function zoneHasTV(zoneId) {
 }
 
 async function watchTV(args, raw, player, broadcast) {
+  // Switching to the TV without leaving the room shouldn't leave you a live
+  // poker spectator/seat holder — otherwise pushPaneAll keeps blasting the
+  // poker pane over the TV view on every dealer quip or opponent action.
+  const t = tableForPlayer(player);
+  if (t) await t.leaveTable(player.id).catch(e => console.error('[gametable] leave-on-watch-tv:', e.message));
+
   const bc = await import('../broadcast/index.js').catch(() => null);
   if (bc?.commands?.watch) return bc.commands.watch(args, raw, player, broadcast);
   return { type: 'error', message: 'There is nothing here to watch.' };
@@ -269,13 +276,17 @@ const cmdFold  = makeActionCmd('fold');
 const cmdAllIn = makeActionCmd('allin');
 
 // `call` is the in-hand "match the bet" action, but `call <name>` while you're
-// not in a live hand means "call a gambler over to the table" (summon). Route
+// not in a live hand means "call a gambler over to the table" (summon) — or,
+// for `call dealer`, rush the table's own dealer back to his post. Route
 // accordingly so the natural phrasing works without a separate verb.
 async function cmdCall(args, raw, player) {
   const t = tableForPlayer(player);
   const name = args.join(' ').trim();
   const inHand = t && t.phase === 'InProgress' && t.seatedIndex(player.id) >= 0;
-  if (name && !inHand) return cmdSummon(args, raw, player);
+  if (name && !inHand) {
+    if (/^(the\s+)?dealer$/i.test(name)) return cmdCallDealer(args, raw, player);
+    return cmdSummon(args, raw, player);
+  }
 
   if (!t || t.seatedIndex(player.id) < 0) return { type: 'error', message: 'You are not seated at a table.' };
   if (t.phase !== 'InProgress') return { type: 'error', message: 'No hand in progress.' };
@@ -300,7 +311,15 @@ async function cmdSummon(args, raw, player) {
   let npc;
   const name = args.join(' ').replace(/^in\s+/i, '').trim(); // allow "deal in <name>"
   if (!name) {
-    npc = gamblers[0];
+    // Bare `summon`/`deal`/the "call AI" button — no name needed. Prefer
+    // whoever's actually free (off cooldown, not already seated or walking
+    // over) so the one-click option doesn't just bounce off gamblers[0].
+    const free = gamblers.filter(n =>
+      !(n.flags?.poker_cooldown_until && Date.now() < n.flags.poker_cooldown_until)
+      && t.seatedIndex(botId(n.id)) < 0
+      && !t._incomingBots.some(w => w.npc.id === n.id));
+    const pool = free.length ? free : gamblers;
+    npc = pool[Math.floor(Math.random() * pool.length)];
   } else {
     const r = siftResolve(name, gamblers.map(n => ({ name: n.name, npc: n })));
     if (r.type !== 'match') return { type: 'error', message: 'No gambler you know by that name.' };
@@ -312,6 +331,39 @@ async function cmdSummon(args, raw, player) {
   if (result.walking) return { type: 'output', message: `<span style="color:var(--yellow)">Word goes out. ${npc.name} is on his way.</span>` };
   t.pushPaneAll();
   return { type: 'output', message: `<span style="color:var(--yellow)">${npc.name} pulls out a chair and sits down.</span>` };
+}
+
+// Find the NPC actually assigned to this table (explicit dealerNpcId, or
+// tagged flags.table_id) — searched world-wide so he can be called back even
+// if he's wandered off. Deliberately does NOT fall back to "any npc_type
+// dealer" the way GameTable._dealerNpc()'s in-room flavor lookup does — that
+// fallback is fine for zone-local narration, but summoning across the map
+// should only ever reach the table's own dealer, never an unrelated one.
+function findAssignedDealer(t) {
+  const alive = n => n && (n.hp == null || n.hp > 0);
+  if (t.dealerNpcId) return alive(world.npcs.get(t.dealerNpcId)) ? world.npcs.get(t.dealerNpcId) : null;
+  for (const n of world.npcs.values()) {
+    if (alive(n) && n.flags?.table_id === t.id) return n;
+  }
+  return null;
+}
+
+// `call dealer` / `calldealer` — rush the table's own dealer back to his post
+// if he's wandered off (and is free to come). Doesn't require a seat: calling
+// staff back is different from summoning an opponent to play.
+async function cmdCallDealer(args, raw, player) {
+  const t = tableForPlayer(player) || tableInZone(player.current_zone);
+  if (!t) return { type: 'error', message: 'No poker table here.' };
+  if (t.hasDealer()) return { type: 'error', message: `${t.dealerName()} is already at the table.` };
+
+  const npc = findAssignedDealer(t);
+  if (!npc) return { type: 'error', message: 'This table has no dealer to call.' };
+
+  const result = await t.summonDealer(npc);
+  if (!result.ok) return { type: 'error', message: result.error };
+  if (result.walking) return { type: 'output', message: `<span style="color:var(--yellow)">You call for ${npc.name}. He's rushing over.</span>` };
+  t.pushPaneAll();
+  return { type: 'output', message: `<span style="color:var(--yellow)">${npc.name} hurries back to his post.</span>` };
 }
 
 // Auto-invite: when a lone human has waited a while and no gambler is coming,
@@ -437,11 +489,16 @@ function pokerHelpHTML(t) {
     `  ${y('all-in')}       shove your whole stack`,
     `  <i>…or click the action buttons; </i>${y('bet')}<i>/</i>${y('raise')}<i> fill the box so you type the amount.</i>`,
     ``,
+    h(`NEED PEOPLE?`),
+    `  ${y('summon')}        call any gambler over — bare (or the</i> ${y('call AI')} <i>button) picks whoever's free`,
+    `  ${y('summon &lt;name&gt;')}  call a specific gambler by name (also: ${y('deal in &lt;name&gt;')})`,
+    `  ${y('call dealer')}   no dealer? call him back to his post (also: ${y('calldealer')})`,
+    ``,
     h(`INFO & OUT`),
     `  ${y('board')}  ${y('pot')}  ${y('players')}  ${y('showhand')}  ${y('table')}`,
     `  ${y('leave')}        cash your chips back to credits and stand up`,
     ``,
-    `<i>The dealer calls every hand; your money hits the felt as you bet.</i>`,
+    `<i>Hands can't be dealt without the dealer present. Your money hits the felt as you bet.</i>`,
   ].join('<br>');
 }
 
@@ -509,6 +566,8 @@ async function tableTick() {
     for (const table of activeTables.values()) {
       await table.maybePersist();
       table.stepIncomingBots(); // advance any gamblers walking in toward the table
+      table.stepIncomingDealer(); // advance a rushing dealer, if one was called
+      if (table.phase === 'WaitingForDealer' && table.hasDealer()) table._checkAutoStart();
       if (table.seatedCount() !== 1 || table.game) table._loneSince = null;
 
       // Ambient dealer chatter — a quip in the dealer's speech bubble now and
@@ -589,6 +648,7 @@ export const commands = {
   call:      cmdCall,
   deal:      cmdSummon,
   summon:    cmdSummon,
+  calldealer: cmdCallDealer,
   bet:       cmdBet,
   raise:     cmdRaise,
   fold:      cmdFold,

@@ -108,12 +108,19 @@ function getNextShiftWakeMs(entity) {
 // Format a chitchat line the same way as enemy battlecries:
 //   "quoted text"  → yellow say bubble    e.g. "You need something?"
 //   unquoted text  → zone_event emote      e.g. drums fingers on the counter.
+// A "says" line is ONLY a line that is a single quoted span end-to-end. A line
+// with an action verb outside the quote — `mutters: "..."`, or the over-quoted
+// `"mutters: "...""` — is an emote (`Name mutters: "..."`), not a says-bubble.
 export function formatChitchat(name, line) {
   const t = line.trim();
-  if (t.startsWith('"') && t.endsWith('"')) {
+  const wrapped = t.length >= 2 && t.startsWith('"') && t.endsWith('"');
+  if (wrapped && !t.slice(1, -1).includes('"')) {
     return { type: 'output', message: `<span style="color:var(--yellow)">${name} says: ${t}</span>` };
   }
-  return { type: 'zone_event', message: `${name} ${t}` };
+  // Emote: prepend the name. Strip a stray outer wrap so an over-quoted action
+  // line still reads `Name mutters: "..."` rather than keeping the outer quotes.
+  const body = wrapped ? t.slice(1, -1).trim() : t;
+  return { type: 'zone_event', message: `${name} ${body}` };
 }
 
 function pickChitchatLine(entity) {
@@ -187,7 +194,7 @@ export function moveEntity(entity, newZoneId, broadcast, query) {
         door.is_open = 1;
         setDoorCache(door.id, door);
         if (query) query('UPDATE doors SET is_open=1 WHERE id=$1', [door.id]).catch(() => {});
-        broadcast(oldZoneId, { type: 'zone_event', message: `${entity.name} opens the door.` });
+        broadcast(oldZoneId, { type: 'zone_event', message: `${entity.name} opens the door.`, refresh: true });
       }
     }
   }
@@ -234,7 +241,7 @@ export function moveEntity(entity, newZoneId, broadcast, query) {
       homeDoor.lock_state = 'locked';
       setDoorCache(homeDoor.id, homeDoor);
       if (query) query("UPDATE doors SET is_open=0, lock_state='locked' WHERE id=$1", [homeDoor.id]).catch(() => {});
-      broadcast(newZoneId, { type: 'zone_event', message: `The lock clicks as ${entity.name} secures the door.` });
+      broadcast(newZoneId, { type: 'zone_event', message: `The lock clicks as ${entity.name} secures the door.`, refresh: true });
     }
   }
 
@@ -260,8 +267,8 @@ export function moveEntity(entity, newZoneId, broadcast, query) {
           shopDoor.lock_state = 'locked';
           setDoorCache(shopDoor.id, shopDoor);
           if (query) query("UPDATE doors SET is_open=0, lock_state='locked' WHERE id=$1", [shopDoor.id]).catch(() => {});
-          broadcast(oldZoneId, { type: 'zone_event', message: `${entity.name} pulls the shop door shut and locks it on the way out.` });
-          broadcast(newZoneId, { type: 'zone_event', message: `${entity.name} locks up the shop.` });
+          broadcast(oldZoneId, { type: 'zone_event', message: `${entity.name} pulls the shop door shut and locks it on the way out.`, refresh: true });
+          broadcast(newZoneId, { type: 'zone_event', message: `${entity.name} locks up the shop.`, refresh: true });
         }
       }
     }
@@ -275,7 +282,7 @@ export function moveEntity(entity, newZoneId, broadcast, query) {
       door.is_open = 0;
       setDoorCache(door.id, door);
       if (query) query('UPDATE doors SET is_open=0 WHERE id=$1', [door.id]).catch(() => {});
-      broadcast(newZoneId, { type: 'zone_event', message: 'The door closes behind them.' });
+      broadcast(newZoneId, { type: 'zone_event', message: 'The door closes behind them.', refresh: true });
     }
   }
 
@@ -947,7 +954,8 @@ async function execAction(node, entity, ctx) {
 
     // ── Vendor-specific actions ──────────────────────────────────────────────
 
-    // CHECK_VENDOR_WORK: 4-way branch for vendor NPC daily routine.
+    // CHECK_VENDOR_WORK: 4-way branch for any scheduled NPC's daily routine
+    // (vendors and other employed NPCs alike — driven by entity.vendor_schedule).
     // Ports: goToWork | haveLife | endShift | offWork
     case 'CHECK_VENDOR_WORK': {
       const env = getEnvironmentState();
@@ -1170,11 +1178,15 @@ async function execAction(node, entity, ctx) {
   }
 }
 
-// ── Default vendor behaviour graph ───────────────────────────────────────────
+// ── Default vendor/schedule behaviour graph ──────────────────────────────────
 
 /**
- * Auto-generate a default VINE-compatible behaviour graph for vendor NPCs.
- * Stored in npcs.behaviour_graph and editable in the VINE editor.
+ * Auto-generate a default VINE-compatible behaviour graph for any NPC that
+ * respects a manual vendor_schedule (vendors and other employed NPCs alike).
+ * The vendor-only steps (collect_safe/go_to_atm/deposit) no-op harmlessly for
+ * non-selling jobs with no linked safe. Broadcast actors use
+ * buildDefaultStudioGraph() instead — they follow the broadcast schedule, not
+ * a manual one. Stored in npcs.behaviour_graph and editable in the VINE editor.
  */
 export function buildDefaultVendorGraph() {
   return {

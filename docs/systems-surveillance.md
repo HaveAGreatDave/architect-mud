@@ -258,6 +258,32 @@ existing **Arbiters** (`plugins/emergency/index.js`). All in the "Wanted system"
 - **Deviations**: pursuit is redeploy-not-pathfollow (no new engine AI action); disguise-clear
   deferred (needs the appearance system); "murder" = killing a *player* (only `player.death` fires).
 
+## Crime registry & camera catch (2026-07-02)
+
+The hardcoded per-crime star amounts were replaced with a **data-driven crime registry** plus a
+camera-catch reaction. Stars are now **fractional** (half-steps) so petty acts read as a half star.
+
+- **Crime registry** — [`server/engine/crimes.js`](../server/engine/crimes.js) ships the canonical
+  crime keys + default star weights (dev-panel editable via the new **`crimes`** table & panel).
+  Keys/witness-mode are engine constants; only the star value is content. Defaults:
+  `drug_use` 0.5 (camera-only), `attack_player` 3, `attack_npc` 3, `kill_police` 5 (always reported),
+  `hacking` 2. `getCrimeStars(key)` = DB override → shipped default → 0. Loaded at boot
+  (`reloadCrimes`), reloaded on each `PUT /crimes/:id`.
+- **`raiseCrime(player, key, zone, suspect)`** (surveillance) is the single charge path: witness-gates
+  (`camera` / `any` / `always`), debounces repeats of the same act (12s so swings don't ratchet),
+  charges `raiseWanted` by the crime's stars (additive, capped at 5), logs PD evidence, and dispatches
+  police for ≥1★ crimes.
+- **Triggers wire in via events**: the weapon plugin emits `player.attacked` / `npc.attacked` /
+  `npc.killed` (police kill → `kill_police`); `server/engine/drugs.js` emits `player.drugUsed`
+  (illegal only — legal drugs carry `flags.legal`); device breach emits `hack.success`. Surveillance
+  subscribes to all of these.
+- **Camera catch** — when a **live, un-jammed camera** (police or player-owned) is in the zone during a
+  crime, `flashCamera` broadcasts a red `camera-alert` line ("…locking focus on <suspect>") to the
+  whole room and pushes a `camera_flash` message; the game client flashes a red vignette
+  ([`dispatch.js`](../client/game/js/dispatch.js) `camera_flash`, styles `#camera-flash-overlay`).
+- **Legal drugs** — a drug with `flags.legal` (coffee, beer) draws no police heat and is sold by
+  ordinary vendors (no dealer/trust gate). Toggle it in the **Drugs** dev panel (Legality dropdown).
+
 ## Resolved forks
 
 All settled 2026-07-01 — see the two decision tables above. No open questions remain; ready for Phase 1.

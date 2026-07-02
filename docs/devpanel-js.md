@@ -128,7 +128,8 @@ The global enemies panel and enemy editor.
 The Items panel and item editor.
 
 - **Tag widget**: `itemTagWidget(name, value)`, `itemTagRow()`, `itemAddTagPicker()`, `refreshItemTagPicker()`, `addItemTag()`, `removeItemTag()`, `readItemTag()`.
-- **Panel render**: `renderItemsPanel()` — groups items by type with collapsible sections.
+- **Panel render**: `renderItemsPanel()` — groups items by type with collapsible sections; each row has a checkbox for bulk selection.
+- **Bulk delete**: `toggleItemChecked()`, `toggleAllItemsChecked()`, `deleteSelectedItems()` — "Select all" + "Delete Selected" toolbar above the list; routes each id through the same staged `DELETE /items/:id` as a single-item delete.
 - **Editor + save**: `itemEditForm(rec, isNew)`, `saveItem(existing)`.
 
 ### `npcs.js`
@@ -147,11 +148,12 @@ The global Furniture panel (all placed furniture across all zones).
 - Holds `_furnitureAllItems`, `_furnitureZoneNames`, `_furnitureExpandedZones`, `_furniturePublishedNames`.
 
 ### `simple-entities.js`
-Thin editors for mutations, drugs, and recipes — all follow the same pattern of a form function + an async save.
+Thin editors for mutations, drugs, recipes, and crimes — all follow the same pattern of a form function + an async save.
 
 - `mutationEditForm(rec, isNew)` / `saveMutation(existing)`
-- `drugEditForm(rec, isNew)` / `saveDrug(existing)` — the inline form keeps a raw-JSON `effects` fallback plus an **⚗ Open Structured Editor…** button → `openDrugEditorFromForm()` (see `drug-editor-modal.js`).
+- `drugEditForm(rec, isNew)` / `saveDrug(existing)` — the inline form keeps a raw-JSON `effects` fallback plus an **⚗ Open Structured Editor…** button → `openDrugEditorFromForm()` (see `drug-editor-modal.js`). A **Legality** dropdown sets `flags.legal` (legal drugs like coffee/beer sell at normal vendors and draw no police heat).
 - `recipeEditForm(rec, isNew)` / `saveRecipe(existing)`
+- `crimeEditForm(rec)` / `saveCrime(existing)` — the **Crimes** panel: tune the wanted-star weight per crime (`PUT /crimes/:id`). Crime keys + witness-mode are engine constants (`server/engine/crimes.js`); the panel is edit-only (New hidden), stars are additive and capped at 5.
 
 ### `drug-editor-modal.js`
 Pop-out structured editor for a drug's `effects` schema — sectioned controls (basics / instant / phases + peak-mod rows / tolerance / withdrawal + mod rows / overdose / hallucination + event rows) instead of raw JSON. Global-scope; self-builds its overlay (`.modal-overlay`/`.modal-card`). Seeds from the inline form's current field values, composes the `effects` object on save, and PUT/POSTs to `/drugs` via the shared `API` helper (staging applies), then `loadPanel('drugs')`.
@@ -309,7 +311,7 @@ The Time & Weather panel. Covers the world clock, weather overrides, and climate
 
 - `renderTimeWeatherPanel(data)` — renders all three sections.
 - **Clock**: `devApplyTime()`, `devToggleFreeze()`, `startPanelClock()`, `devSyncToMyClockNow()`, `devForceTick()`.
-- **Weather**: `devApplyWeather()`, `devClearWeatherOverride()`, `devRecalculateForecast()`, `devResetBuildingTemps()`.
+- **Weather**: `devApplyWeather()`, `devClearWeatherOverride()`, `devRecalculateForecast()`, `devResetBuildingTemps()`, `devScheduleForecastDay()` (edits an upcoming forecast day 1-6 in place, e.g. to schedule an extreme-weather event ahead of time; forecast grid also flags severe days with ⚠).
 - **Climate**: `devLoadClimatePreset()`, `devReadClimateInputs()`, `devSaveClimateProfile()`, `devSetActiveClimate()`, `devDeleteClimateProfile()`, `CLIMATE_PRESETS`.
 
 ### `worldstate.js`
@@ -329,6 +331,7 @@ The Zone Validator panel (data integrity checks).
 - **Orphan cleanup**: `deleteOrphan()`, `deleteAllOrphans()`.
 - **Map geometry**: `runMapGeometryValidation()`, `renderValidatorMapResults()`.
 - **Auto-fix helpers**: `vFixRemoveExit()`, `vFixAddReciprocal()`, `vFixGeometry()`.
+- **Item integrity**: `runItemValidation()` scans every item client-side against `TAG_CATALOG` for null columns (name/weight/value/rarity), non-object tags, and unknown/malformed tags. `validateItem()`/`tagValueError()`/`deriveItemName()` do detection; `renderItemValidatorResults()` renders a checkbox list (mirrors the Changes screen — Select All/None + per-row Fix/Remove select). `resolveSelectedItemIssues()` routes each choice through staging (Fix = full-object PUT to `/items/:id`; Remove = staged item delete), so resolutions land in the Changes panel to publish.
 - `toggleValidatorAutoRun()`, `exportValidatorReport()`.
 
 ### `tags.js`

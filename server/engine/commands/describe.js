@@ -296,6 +296,16 @@ export async function describeZone(zone, player) {
 		[zone.id],
 	);
 	const windows = getWindowsForZone(zone.id);
+	// PD street cams: woven into the room prose as a dim aside rather than listed
+	// as objects. Dark hides them (not a light source); concealed ones stay hidden.
+	const cameras = isDark
+		? []
+		: furniture.filter(
+				(f) => f.object_type === "security_device" && !f.flags?.concealed,
+			);
+	const cameraAside = !cameras.length
+		? ""
+		: ` <span class="text-dim">${cameras.length === 1 ? "A " : ""}<span class="action-link furniture-link" data-action="examine" data-target="cam" title="Examine camera">${cameras.length === 1 ? "camera" : "Cameras"}</span> ${cameras.length === 1 ? "watches" : "watch"}, unblinking.</span>`;
 
 	// Header line: name and the danger tag sit together so the [SAFE]/[LETHAL]
 	// chip reads as a label on the room rather than a separate line.
@@ -325,7 +335,7 @@ export async function describeZone(zone, player) {
 		if (wd) weatherLine = ` ${wd}`;
 	}
 	// Prose paragraph wrapped so the client can collapse/expand it independently.
-	desc += `\n<span class="room-desc">${zoneDesc}${weatherLine}${describeBuildingDiscovery(buildings)}</span>`;
+	desc += `\n<span class="room-desc">${zoneDesc}${weatherLine}${describeBuildingDiscovery(buildings)}${cameraAside}</span>`;
 	desc += await describeApartmentStatus(zone);
 	desc += describeRentStatus(zone, player);
 
@@ -419,10 +429,8 @@ export async function describeZone(zone, player) {
 			? furniture.filter((f) => f.object_type === "light")
 			: furniture
 		).filter((f) => !suppress.has(f.id) && !f.flags?.concealed);
-		// Visible surveillance devices (PD street cams) are pulled out of the plain
-		// Furniture list and mentioned as a dim aside, so they don't dominate the
-		// room the way a couch or vending machine does. Still examinable/smashable.
-		const cameras = visibleFurniture.filter((f) => f.object_type === "security_device");
+		// Surveillance devices (PD street cams) are excluded from the plain Furniture
+		// list — they're woven into the room description as a dim aside instead.
 		const plainFurniture = visibleFurniture.filter((f) => f.object_type !== "security_device");
 		if (plainFurniture.length) {
 			const furnitureLinks = plainFurniture.map((f) => {
@@ -438,12 +446,6 @@ export async function describeZone(zone, player) {
 				return `<span class="action-link furniture-link" data-action="examine" data-target="${f.name}" title="Examine ${f.name}">${f.name}</span>${stateTag}${extra}`;
 			});
 			desc += `\n<span class="furniture-label">Furniture:</span> ${furnitureLinks.join(", ")}`;
-		}
-		if (cameras.length) {
-			const camLinks = cameras.map((f) =>
-				`<span class="action-link furniture-link" data-action="examine" data-target="${f.name}" title="Examine ${f.name}">camera</span>`
-			);
-			desc += `\n<span class="text-dim">${camLinks.length === 1 ? `A ${camLinks[0]} watches, unblinking.` : `<span class="action-link furniture-link" data-action="examine" data-target="${cameras[0].name}" title="Examine camera">Cameras</span> watch, unblinking.`}</span>`;
 		}
 		if (panel?.html) desc += `\n${panel.html}`;
 	}

@@ -61,7 +61,15 @@ function drugEditForm(rec, isNew) {
       <div class="field"><label>Duration (seconds)</label><input type="number" id="f-duration_seconds" value="${rec.duration_seconds||300}"></div>
       <div class="field"><label>Overdose Threshold (doses in system)</label><input type="number" id="f-overdose_threshold" value="${rec.overdose_threshold||3}" min="1"></div>
     </div>
-    <div class="field"><label>Addiction Chance (0.0 - 1.0)</label><input type="number" id="f-addiction_chance" value="${rec.addiction_chance||0}" min="0" max="1" step="0.01"></div>
+    <div class="field-row">
+      <div class="field"><label>Addiction Chance (0.0 - 1.0)</label><input type="number" id="f-addiction_chance" value="${rec.addiction_chance||0}" min="0" max="1" step="0.01"></div>
+      <div class="field"><label>Legality (legal = coffee/beer: normal vendors, no police heat)</label>
+        <select id="f-is_legal">
+          <option value="0" ${!rec.flags?.legal?'selected':''}>Controlled (illegal)</option>
+          <option value="1" ${rec.flags?.legal?'selected':''}>Legal</option>
+        </select>
+      </div>
+    </div>
     <div class="field"><button type="button" class="action-btn primary" style="width:100%" onclick="openDrugEditorFromForm()">⚗ Open Structured Editor…</button><div class="hint" style="font-size:11px;opacity:0.7;margin-top:4px">Sectioned pop-out for instant / phased / tolerance / withdrawal / overdose / hallucination — no raw JSON. Seeds from the fields below.</div></div>
     <div class="field"><label>Effects (JSON — advanced / fallback)</label>
       <div class="hint" style="font-size:11px;line-height:1.5;opacity:0.75;margin:2px 0 4px">
@@ -83,6 +91,11 @@ async function saveDrug(existing) {
   let effects, withdrawal;
   try { effects = JSON.parse(document.getElementById('f-effects').value); } catch { return { error: 'Effects: invalid JSON' }; }
   try { withdrawal = JSON.parse(document.getElementById('f-withdrawal_effects').value); } catch { return { error: 'Overdose effects: invalid JSON' }; }
+  // Preserve any existing flags; just set/clear the `legal` bit from the dropdown.
+  const flags = (existing && typeof existing.flags === 'object' && existing.flags)
+    ? { ...existing.flags }
+    : (() => { try { return JSON.parse(existing?.flags || '{}'); } catch { return {}; } })();
+  flags.legal = document.getElementById('f-is_legal').value === '1';
   const body = {
     name: document.getElementById('f-name').value,
     description: document.getElementById('f-description').value,
@@ -90,10 +103,43 @@ async function saveDrug(existing) {
     duration_seconds: +document.getElementById('f-duration_seconds').value || 300,
     overdose_threshold: +document.getElementById('f-overdose_threshold').value || 3,
     addiction_chance: +document.getElementById('f-addiction_chance').value || 0,
-    effects, withdrawal_effects: withdrawal,
+    effects, withdrawal_effects: withdrawal, flags,
   };
   if (isNew) { body.id = document.getElementById('f-id').value.trim(); return API('/drugs', 'POST', body); }
   return API(`/drugs/${existing.id}`, 'PUT', body);
+}
+
+
+// --- Crime forms ---
+// Crime keys are engine constants (server/engine/crimes.js) — the panel only
+// tunes the star weight each act carries. Stars are additive across crimes and
+// capped at 5; how a crime is "caught" (camera / any witness / always) is fixed
+// in engine and shown read-only here.
+function crimeEditForm(rec) {
+  const caught = rec.witness === 'camera' ? 'a live camera only'
+    : rec.witness === 'always' ? 'always (self-reporting)'
+    : 'any witness — camera, on-duty cop, or another player';
+  return `
+    <div class="field"><label>Crime Key</label><input id="f-id" value="${rec.id||''}" readonly style="opacity:0.5"></div>
+    <div class="field"><label>Label</label><input id="f-label" value="${rec.label||''}"></div>
+    <div class="field"><label>Stars (0–5, half-steps allowed)</label><input type="number" id="f-stars" value="${rec.stars ?? 1}" min="0" max="5" step="0.5"></div>
+    <div class="field"><label>Description</label><textarea id="f-description" rows="2">${rec.description||''}</textarea></div>
+    <div class="hint" style="font-size:11px;opacity:0.75;line-height:1.5;margin-top:4px">
+      Caught by: <b>${caught}</b>.<br>
+      A camera that catches any crime flashes red and calls the suspect out to the whole room.<br>
+      Wanted stars are additive across crimes and capped at 5.
+    </div>
+  `;
+}
+
+async function saveCrime(existing) {
+  const id = existing?.id || document.getElementById('f-id').value.trim();
+  const body = {
+    label: document.getElementById('f-label').value,
+    stars: +document.getElementById('f-stars').value,
+    description: document.getElementById('f-description').value,
+  };
+  return API(`/crimes/${id}`, 'PUT', body);
 }
 
 

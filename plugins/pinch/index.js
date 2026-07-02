@@ -1,9 +1,10 @@
 import { getAllLivePlayers, getZone } from '../../server/engine/world.js';
 import { findPath } from '../../server/engine/pathfinding.js';
 import { query } from '../../server/models/db.js';
-import { sendToZone, sendToPlayer } from '../../server/engine/messaging.js';
+import { sendToZone, sendToPlayer, getBroadcast } from '../../server/engine/messaging.js';
 import { cmdMove } from '../../server/engine/commands/movement.js';
 import { setPosture } from '../../server/engine/posture.js';
+import { schedule } from '../../server/engine/scheduler.js';
 
 // Offline players walking home after being pinched.
 // Map<playerId, { handle: string, homeZone: string }>
@@ -55,64 +56,64 @@ function nextStepToward(currentZone, homeZone) {
 }
 
 // ---------------------------------------------------------------------------
-// tick.minute hook — step everyone walking home
+// 5s cadence — step everyone walking home
 // ---------------------------------------------------------------------------
 
-export const hooks = {
-  async 'tick.minute'({ broadcast }) {
-    // Offline walkers (pinched sleepers)
-    for (const [playerId, { handle, homeZone }] of offlineWalkers) {
-      try {
-        const { rows } = await query(`SELECT current_zone FROM players WHERE id=$1`, [playerId]);
-        if (!rows.length) { offlineWalkers.delete(playerId); continue; }
+schedule('5s', async () => {
+  // Offline walkers (pinched sleepers)
+  for (const [playerId, { handle, homeZone }] of offlineWalkers) {
+    try {
+      const { rows } = await query(`SELECT current_zone FROM players WHERE id=$1`, [playerId]);
+      if (!rows.length) { offlineWalkers.delete(playerId); continue; }
 
-        const currentZone = rows[0].current_zone;
-        if (currentZone === homeZone) {
-          offlineWalkers.delete(playerId);
-          await arriveSleepOffline(playerId, handle, homeZone);
-          continue;
-        }
-
-        const step = nextStepToward(currentZone, homeZone);
-        if (!step) { offlineWalkers.delete(playerId); continue; }
-
-        await query(`UPDATE players SET current_zone=$1 WHERE id=$2`, [step.nextZoneId, playerId]);
-        sendToZone(currentZone, { type: 'zone_event', message: `${handle} shuffles ${step.direction}, still in a daze.`, refresh: true });
-        sendToZone(step.nextZoneId, { type: 'zone_event', message: `${handle} stumbles in, eyes glazed, heading home.`, refresh: true });
-      } catch (e) {
-        console.error(`[pinch] offline walker tick error for ${playerId}:`, e.message);
+      const currentZone = rows[0].current_zone;
+      if (currentZone === homeZone) {
         offlineWalkers.delete(playerId);
+        await arriveSleepOffline(playerId, handle, homeZone);
+        continue;
       }
+
+      const step = nextStepToward(currentZone, homeZone);
+      if (!step) { offlineWalkers.delete(playerId); continue; }
+
+      await query(`UPDATE players SET current_zone=$1 WHERE id=$2`, [step.nextZoneId, playerId]);
+      sendToZone(currentZone, { type: 'zone_event', message: `${handle} shuffles ${step.direction}, still in a daze.`, refresh: true });
+      sendToZone(step.nextZoneId, { type: 'zone_event', message: `${handle} stumbles in, eyes glazed, heading home.`, refresh: true });
+    } catch (e) {
+      console.error(`[pinch] offline walker tick error for ${playerId}:`, e.message);
+      offlineWalkers.delete(playerId);
     }
+  }
 
-    // Live players using .gohome
-    for (const player of getAllLivePlayers()) {
-      if (!player.goingHome) continue;
-      if (!player.home_zone) { player.goingHome = false; continue; }
+  // Live players using .gohome
+  const broadcast = getBroadcast();
+  if (!broadcast) return;
+  for (const player of getAllLivePlayers()) {
+    if (!player.goingHome) continue;
+    if (!player.home_zone) { player.goingHome = false; continue; }
 
-      try {
-        if (player.current_zone === player.home_zone) {
-          player.goingHome = false;
-          await arriveSleepLive(player);
-          continue;
-        }
-
-        const step = nextStepToward(player.current_zone, player.home_zone);
-        if (!step) {
-          player.goingHome = false;
-          sendToPlayer(player.id, { type: 'output', message: "You can't find a path home from here. Going home cancelled." });
-          continue;
-        }
-
-        const result = await cmdMove(step.direction, player, broadcast, { bypassEncumbrance: true });
-        if (result) sendToPlayer(player.id, result);
-      } catch (e) {
-        console.error(`[pinch] live gohome tick error for ${player.id}:`, e.message);
+    try {
+      if (player.current_zone === player.home_zone) {
         player.goingHome = false;
+        await arriveSleepLive(player);
+        continue;
       }
+
+      const step = nextStepToward(player.current_zone, player.home_zone);
+      if (!step) {
+        player.goingHome = false;
+        sendToPlayer(player.id, { type: 'output', message: "You can't find a path home from here. Going home cancelled." });
+        continue;
+      }
+
+      const result = await cmdMove(step.direction, player, broadcast, { bypassEncumbrance: true });
+      if (result) sendToPlayer(player.id, result);
+    } catch (e) {
+      console.error(`[pinch] live gohome tick error for ${player.id}:`, e.message);
+      player.goingHome = false;
     }
-  },
-};
+  }
+});
 
 // ---------------------------------------------------------------------------
 // pinch command

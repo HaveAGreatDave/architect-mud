@@ -1586,7 +1586,8 @@ textarea {
 
 .sidebar-section {
 	padding: 12px;
-	border-bottom: 1px solid var(--border);
+	border: 1px solid var(--border);
+	margin-bottom: -1px;
 	position: relative;
 	display: flex;
 	flex-direction: column;
@@ -5561,6 +5562,82 @@ textarea {
 	0%, 100% { opacity: 1; }
 	50% { opacity: 0.4; }
 }
+/* On-screen overlays/graphics — the deck-preview counterpart to the TV's
+   #tv-overlay-container, scaled down to sit over the small preview window. */
+#mediadeck-overlay-container {
+	position: absolute;
+	left: 0;
+	right: 0;
+	top: 18px; /* below the preview header */
+	bottom: 0;
+	pointer-events: none;
+	overflow: hidden;
+	z-index: 5;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+.mediadeck-overlay-text-card {
+	text-align: center;
+	background: rgba(0, 0, 0, 0.9);
+	color: #e6f6f2;
+	font-size: 10px;
+	font-weight: 600;
+	line-height: 1.4;
+	letter-spacing: 0.04em;
+	padding: 6px 10px;
+	white-space: pre-wrap;
+	border: 1px solid rgba(0, 240, 255, 0.5);
+	max-width: 85%;
+}
+.mediadeck-overlay-lower-third {
+	position: absolute;
+	bottom: 4px;
+	left: 0;
+	right: 0;
+	background: rgba(0, 0, 0, 0.9);
+	border-top: 2px solid #18ffe0;
+	padding: 3px 8px 4px;
+}
+.mediadeck-overlay-lt-name {
+	font-size: 10px;
+	font-weight: bold;
+	color: #18ffe0;
+	text-transform: uppercase;
+	letter-spacing: 1px;
+}
+.mediadeck-overlay-lt-sub {
+	font-size: 8px;
+	color: #a0c8c0;
+	letter-spacing: 0.5px;
+	margin-top: 1px;
+	opacity: 0.8;
+}
+.mediadeck-overlay-alert {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	background: rgba(160, 0, 0, 0.92);
+	color: #fff;
+	text-align: center;
+	padding: 6px;
+}
+.mediadeck-overlay-alert-title {
+	font-size: 12px;
+	font-weight: bold;
+	letter-spacing: 2px;
+	text-transform: uppercase;
+	line-height: 1.2;
+}
+.mediadeck-overlay-alert-sub {
+	font-size: 9px;
+	letter-spacing: 0.5px;
+	margin-top: 3px;
+	opacity: 0.85;
+}
 .atm-divider {
 	color: #ff2fd6;
 	opacity: 0.75;
@@ -5913,6 +5990,26 @@ textarea {
 	box-shadow: 0 0 5px rgba(0, 240, 255, 0.3);
 	transition: opacity 0.3s;
 }
+/* Capstan/head sockets: a dark recessed cutout punched through the shell behind
+   each centre element, with an amber-rimmed edge matching the cassette border,
+   so the guides/head read as slotting down into holes in the tape rather than
+   floating on top of the shell. Positioned per-element so they self-align. */
+.mediadeck-tape-guide,
+.mediadeck-tape-head { position: relative; }
+.mediadeck-tape-guide::before,
+.mediadeck-tape-head::before {
+	content: '';
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	transform: translate(-50%, -50%);
+	border-radius: 3px;
+	background: #0c0603;
+	box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(200, 130, 40, 0.4);
+	z-index: -1;
+}
+.mediadeck-tape-guide::before { width: 9px; height: 30px; }
+.mediadeck-tape-head::before  { width: 15px; height: 24px; }
 .mediadeck-load-picker {
 	position: absolute;
 	inset: 0;
@@ -6822,6 +6919,26 @@ textarea {
 	border: 1px solid var(--border);
 	transition: opacity 0.3s;
 }
+/* Capstan/head sockets: a dark recessed cutout punched through the graphite
+   shell behind each centre element, rimmed to match the shell border, so the
+   guides/head read as slotting into holes in the tape. Self-aligning per
+   element (see the matching mediadeck sockets). */
+.amp-tape-guide,
+.amp-tape-head { position: relative; }
+.amp-tape-guide::before,
+.amp-tape-head::before {
+	content: '';
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	transform: translate(-50%, -50%);
+	border-radius: 3px;
+	background: var(--bg);
+	box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.85), 0 0 0 1px #3d4354;
+	z-index: -1;
+}
+.amp-tape-guide::before { width: 9px; height: 32px; }
+.amp-tape-head::before  { width: 16px; height: 24px; }
 
 /* LCD display */
 .amp-lcd {
@@ -7044,6 +7161,13 @@ body.esp-active #output {
 [data-theme="lavender"] #area-pane:has(.poker-table-wrap),
 [data-theme="fog"]      #area-pane:has(.poker-table-wrap) {
 	background: linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.4)), var(--text-bright);
+}
+
+/* The felt (460px) plus the header, dealer, and command bar under it need more
+   room than the default 65% cap gives — that clips the action buttons off the
+   bottom on shorter windows. Grow the pane specifically when a table is showing. */
+#area-pane:has(.poker-table-wrap) {
+	max-height: 88%;
 }
 
 /* --poker-felt is the base felt hue (set by settings.js: classic green, the
@@ -7397,6 +7521,15 @@ body.esp-active #output {
 	border-color: transparent #12121c transparent transparent;
 }
 
+/* No dealer at the table — dim the avatar and flag it plainly */
+.dealer-absent .dealer-avatar { opacity: 0.35; filter: grayscale(1); }
+.dealer-absent-tag {
+	color: var(--text-dim) !important;
+	border-color: var(--border) !important;
+	font-weight: bold;
+	letter-spacing: 0.5px;
+}
+
 /* Player chat speech bubbles (from `say`) — open inward toward table center */
 .poker-chat {
 	position: absolute;
@@ -7534,32 +7667,64 @@ body.esp-active #output {
 	to   { box-shadow: 0 0 14px 4px rgba(245,230,66,0.95); }
 }
 
-/* Clickable command bar under the poker table */
+/* Clickable command bar under the poker table — a distinct glass strip in the
+   theme's accent colour, separate from the felt above it. Text/fill stay
+   translucency-based (not theme text vars) because the pane behind the table
+   is forced dark on every theme (see the :has(.poker-table-wrap) override
+   above) — theme vars go dark-on-dark on light themes, translucent white doesn't. */
 .poker-cmdbar {
 	display: flex;
 	flex-wrap: wrap;
-	gap: 4px;
+	gap: 8px;
 	justify-content: center;
-	padding: 6px 4px 2px;
+	align-items: center;
+	padding: 10px 12px;
+	margin-top: 6px;
+	background: linear-gradient(180deg,
+		color-mix(in srgb, var(--accent) 18%, transparent),
+		color-mix(in srgb, var(--accent) 6%, transparent));
+	border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+	border-radius: 10px;
+	backdrop-filter: blur(6px);
+	-webkit-backdrop-filter: blur(6px);
+	box-shadow: 0 2px 10px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06);
 }
 .poker-cmd {
 	font-family: var(--font-mono);
 	font-size: 11px;
 	letter-spacing: 0.5px;
-	/* Button bg is always dark green, so pin text light — theme vars go dark-on-dark on light themes */
-	color: #dfeadf;
-	background: #14241a;
-	border: 1px solid #2a5a1a;
-	border-radius: 3px;
-	padding: 3px 10px;
+	color: #eef3ee;
+	background: linear-gradient(180deg, rgba(255,255,255,0.12), rgba(255,255,255,0.02));
+	border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+	border-radius: 6px;
+	padding: 5px 12px;
 	cursor: pointer;
-	transition: background 0.12s, border-color 0.12s;
+	backdrop-filter: blur(3px);
+	-webkit-backdrop-filter: blur(3px);
+	box-shadow: 0 1px 3px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.14);
+	transition: background 0.12s, border-color 0.12s, box-shadow 0.12s, transform 0.08s;
 }
 .poker-cmd:hover {
-	background: #1e3a26;
-	border-color: var(--green);
+	background: linear-gradient(180deg,
+		color-mix(in srgb, var(--accent) 35%, rgba(255,255,255,0.14)),
+		color-mix(in srgb, var(--accent) 12%, rgba(255,255,255,0.02)));
+	border-color: var(--accent);
+	box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 55%, transparent), inset 0 1px 0 rgba(255,255,255,0.16);
 }
-.poker-cmd:active { transform: translateY(1px); }
+.poker-cmd:active { transform: translateY(1px); box-shadow: 0 1px 2px rgba(0,0,0,0.3); }
+
+/* Highlighted buttons (call dealer) — solid accent fill so they stand out */
+.poker-cmd.highlight {
+	background: linear-gradient(180deg,
+		color-mix(in srgb, var(--accent) 75%, transparent),
+		color-mix(in srgb, var(--accent) 45%, transparent));
+	border-color: var(--accent);
+	color: #fff;
+	font-weight: bold;
+}
+.poker-cmd.highlight:hover {
+	background: linear-gradient(180deg, var(--accent), color-mix(in srgb, var(--accent) 60%, transparent));
+}
 
 /* ─── Poker table — mobile stacked layout ───────────────────────────────────
    Desktop renders an oval felt with four absolutely-positioned seats, which
@@ -7740,11 +7905,12 @@ body.esp-active #output {
 }
 .confirm-actions button:hover { border-color: var(--accent); }
 .poker-cmd.disabled {
-	color: #7f9686;
-	background: #10161288;
-	border-color: #24312a;
+	color: #8f9a91;
+	background: rgba(255,255,255,0.03);
+	border-color: rgba(255,255,255,0.1);
 	cursor: default;
 	opacity: 0.5;
+	box-shadow: none;
 }
 
 /* ── Drug "trip" FX ─────────────────────────────────────────────────────────
@@ -7877,6 +8043,13 @@ body.tripping #output {
 	font-size: 11px; padding: 4px; box-sizing: border-box; }
 .cpanel-notes:focus { outline: none; border-color: var(--accent); }
 
+/* Wanted-level readout panel */
+.cpanel-wanted { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
+.cpanel-wanted-stars { font-size: 18px; letter-spacing: 2px; color: var(--red); text-shadow: 0 0 6px var(--red); }
+.cpanel-wanted-empty { color: var(--text-dim); text-shadow: none; }
+.cpanel-wanted-clean .cpanel-wanted-stars { color: var(--text-dim); text-shadow: none; }
+.cpanel-wanted-note { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
+
 /* Builder modal */
 .cpanel-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 1000;
 	display: flex; align-items: center; justify-content: center; }
@@ -7932,3 +8105,12 @@ body.tripping #output {
 .cpanel-check { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text-dim); cursor: pointer; }
 .cpanel-check input { accent-color: var(--accent); flex-shrink: 0; }
 .cpanel-field-label em { color: var(--text-dim); font-style: italic; text-transform: none; letter-spacing: 0; }
+
+/* Surveillance-camera crime catch: a red vignette flash + the in-room callout line. */
+#camera-flash-overlay {
+	position: fixed; inset: 0; pointer-events: none; z-index: 9999; opacity: 0;
+	background: radial-gradient(circle, rgba(255,30,40,0) 45%, rgba(255,30,40,0.4) 100%);
+}
+#camera-flash-overlay.flash { animation: camera-flash-anim 0.7s ease-out; }
+@keyframes camera-flash-anim { 0% { opacity: 0; } 15% { opacity: 1; } 100% { opacity: 0; } }
+.camera-alert { color: var(--red); font-weight: bold; }

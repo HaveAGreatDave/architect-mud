@@ -475,8 +475,53 @@ let mapSelectedInteriorId = null;
 let mapInteriorsList = [];        // interior maps (parent_zone_id != null)
 let _exteriorBuildingZones = [];  // building zones from the exterior map, for interior tab dropdown
 let _mapPendingOverrides = new Map(); // zoneId → {color,bg_color,marker} for staged-but-unpublished zone edits
+let mapSafeZoneMode = false;   // true while the Safe Zone paint tool is active
+let mapSafeZonePainting = false; // mouse button down, actively dragging a paint stroke
+let mapSafeZonePaintValue = null; // the is_safe_zone value being painted this stroke
+let mapSafeZonePendingSaves = new Set(); // zoneIds with an in-flight/queued save, to avoid dupe PUTs mid-drag
 
 function mapsGuard() { return true; }
+
+function toggleSafeZoneMode() {
+  mapSafeZoneMode = !mapSafeZoneMode;
+  renderMapOverview();
+}
+
+// Persists a single zone's is_safe_zone flag. Fire-and-forget during a drag
+// stroke — the tile is already updated optimistically by the caller.
+async function _saveSafeZone(zoneId, value) {
+  if (mapSafeZonePendingSaves.has(zoneId)) return;
+  mapSafeZonePendingSaves.add(zoneId);
+  try {
+    const r = await API(`/zones/${zoneId}`, 'PUT', { is_safe_zone: value });
+    if (r?.error) toast(r.error, true);
+    else updateStagingBadge();
+  } finally {
+    mapSafeZonePendingSaves.delete(zoneId);
+  }
+}
+
+function safeZonePaintStart(e, zoneId) {
+  e.preventDefault();
+  const z = mapOverview?.zones.get(zoneId);
+  if (!z) return;
+  mapSafeZonePainting = true;
+  mapSafeZonePaintValue = !z.is_safe_zone;
+  z.is_safe_zone = mapSafeZonePaintValue;
+  renderMapOverview();
+  _saveSafeZone(zoneId, mapSafeZonePaintValue);
+}
+
+function safeZonePaintOver(zoneId) {
+  if (!mapSafeZonePainting) return;
+  const z = mapOverview?.zones.get(zoneId);
+  if (!z || z.is_safe_zone === mapSafeZonePaintValue) return;
+  z.is_safe_zone = mapSafeZonePaintValue;
+  renderMapOverview();
+  _saveSafeZone(zoneId, mapSafeZonePaintValue);
+}
+
+document.addEventListener('mouseup', () => { mapSafeZonePainting = false; });
 
 async function renderMapsPanel(data) {
   mapsList = Array.isArray(data) ? data : [];
@@ -623,6 +668,7 @@ function renderMapOverview() {
       <label>Interior</label>
       <select onchange="switchInteriorMap(this.value)">${intOpts}</select>
       <button class="action-btn danger" style="font-size:10px;padding:2px 8px" onclick="mapDeleteInterior()" title="Delete this interior map and all its zones">Delete Map</button>
+      <button class="action-btn${mapSafeZoneMode ? ' active' : ''}" style="font-size:10px;padding:2px 8px${mapSafeZoneMode ? ';background:var(--accent);color:#111' : ''}" onclick="toggleSafeZoneMode()" title="Paint zones as Safe (police cameras present) or not">${mapSafeZoneMode ? '✓ Painting Safe Zones' : 'Paint Safe Zones'}</button>
       <span style="margin-left:6px">Floor</span>
       <button class="action-btn" onclick="changeFloor(-1)">▾</button>
       <span style="min-width:60px;text-align:center">z = ${o.z}</span>
@@ -631,10 +677,16 @@ function renderMapOverview() {
   } else {
     html += `<div class="map-toolbar">
       <span style="color:var(--text-bright);font-weight:600;font-size:13px">${o.map.name}</span>
+      <button class="action-btn${mapSafeZoneMode ? ' active' : ''}" style="font-size:10px;padding:2px 8px;margin-left:12px${mapSafeZoneMode ? ';background:var(--accent);color:#111' : ''}" onclick="toggleSafeZoneMode()" title="Paint zones as Safe (police cameras present) or not">${mapSafeZoneMode ? '✓ Painting Safe Zones' : 'Paint Safe Zones'}</button>
       <span style="margin-left:auto">Floor</span>
       <button class="action-btn" onclick="changeFloor(-1)">▾</button>
       <span style="min-width:60px;text-align:center">z = ${o.z}</span>
       <button class="action-btn" onclick="changeFloor(1)">▴</button>
+    </div>`;
+  }
+  if (mapSafeZoneMode) {
+    html += `<div style="padding:4px 12px;font-size:11px;color:var(--text-dim);background:var(--bg3);border-bottom:1px solid var(--border)">
+      Click-drag across tiles to paint. <span style="color:#39ff8f">Green</span> = safe zone (police cameras present). <span style="color:#ff3b5c">Red</span> = not safe.
     </div>`;
   }
 
@@ -720,6 +772,16 @@ function renderMapOverview() {
       let cls = 'bigmap-tile bm-edit';
       if (broken.has(z.id)) cls += ' bm-broken';
       if (pendingDelete.has(z.id)) cls += ' bm-pending-delete';
+
+      if (mapSafeZoneMode) {
+        const safeStyle = (z.is_safe_zone
+          ? ';background:rgba(57,255,143,0.35);border-color:rgba(57,255,143,0.9)'
+          : ';background:rgba(255,59,92,0.25);border-color:rgba(255,59,92,0.75)') + ';cursor:crosshair';
+        const marker = z.marker ? `<span class="map-marker-badge">${z.marker}</span>` : '';
+        html += `<div class="${cls}" ${cellStyle(x, y, safeStyle)} data-map-cell="${x},${y}" title="${z.id}" onmousedown="safeZonePaintStart(event,'${z.id}')" onmouseenter="safeZonePaintOver('${z.id}')"><div>${marker}${z.name}</div></div>`;
+        continue;
+      }
+
       const colorStyle = zoneColorStyle(z);
       const child = o.children.find(c => c.parent_zone_id === z.id);
       const dive = child ? `<span class="map-dive-btn" title="Dive into ${child.name}" onclick="event.stopPropagation();diveInto('${z.id}')">⤵</span>` : '';

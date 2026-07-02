@@ -16,6 +16,7 @@
 // setInterval with no dispatch overhead.
 
 const CADENCE_MS = {
+  '5s':   5_000,
   '10s':  10_000,
   '15s':  15_000,
   '30s':  30_000,

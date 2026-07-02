@@ -66,6 +66,7 @@ const PANELS = {
       { key: 'name', label: 'Name' },
       { key: 'zone_id', label: 'Zone' },
       { key: 'faction', label: 'Faction' },
+      { key: '_work_status', label: 'Work Status', render: v => v || '—' },
     ],
     render: renderNpcsPanel,
     editForm: npcEditForm,
@@ -113,6 +114,20 @@ const PANELS = {
     editForm: drugEditForm,
     save: saveDrug,
     delete: id => API(`/drugs/${id}`, 'DELETE'),
+  },
+  crimes: {
+    title: 'Crimes',
+    description: 'Wanted-star weight per crime. Stars are additive and capped at 5. Click a crime to tune how many stars it adds; a camera that catches a crime flashes red and calls the suspect out to the room.',
+    idPrefix: 'crime',
+    fetch: () => API('/crimes'),
+    columns: [
+      { key: 'label', label: 'Crime' },
+      { key: 'stars', label: 'Stars', render: v => `<span class="text-red">${'★'.repeat(Math.floor(v))}${(v%1)>=0.5?'½':''}</span> <span style="color:var(--text-dim)">(${v})</span>` },
+      { key: 'witness', label: 'Caught by', render: v => v==='camera'?'📷 camera only':v==='always'?'always':'any witness' },
+      { key: 'is_default', label: 'Source', render: v => v ? '<span style="color:var(--text-dim);font-size:11px">default</span>' : '<span style="color:var(--accent);font-size:11px">custom</span>' },
+    ],
+    editForm: crimeEditForm,
+    save: saveCrime,
   },
   sounds: {
     title: 'SoundScript',
@@ -316,7 +331,7 @@ async function loadPanel(name) {
   if (!p) return;
   document.getElementById('panel-title').textContent = p.title;
   document.getElementById('panel-description').textContent = p.description || '';
-  document.getElementById('new-btn').style.display = p.noEdit || name === 'worldstate' || name === 'players' ? 'none' : '';
+  document.getElementById('new-btn').style.display = p.noEdit || name === 'worldstate' || name === 'players' || name === 'crimes' ? 'none' : '';
 
   let data;
   try {

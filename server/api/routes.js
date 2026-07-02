@@ -3,6 +3,7 @@ import { reloadZone, getAllZones, world, getAllLivePlayers, getZone, addPlayerTo
 import { describeZone, describeVoidTeleport } from '../engine/commands/index.js';
 import { loadRecipes } from '../engine/crafting.js';
 import { loadDrugs } from '../engine/drugs.js';
+import { getCrimeList, reloadCrimes, CRIME_DEFAULTS } from '../engine/crimes.js';
 import { loadMutations } from '../engine/mutations.js';
 import { randomUUID, createHash, randomBytes } from 'crypto';
 import { readFileSync, writeFileSync } from 'fs';
@@ -11,7 +12,7 @@ import vm from 'vm';
 import { sendPasswordResetEmail, sendVerificationEmail } from '../mailer.js';
 import { isEmailVerificationEnabled, setEmailVerificationEnabled } from '../engine/emailVerification.js';
 import { randomAppearance } from '../engine/appearance.js';
-import { DEFAULT_CHITCHAT_LINES } from '../engine/ai-behaviour.js';
+import { DEFAULT_CHITCHAT_LINES, isVendorWorkTime } from '../engine/ai-behaviour.js';
 import { npcTypeForPersonality, listPersonalityMeta } from '../engine/npc-personality.js';
 import { loadBanterLibrary } from '../engine/npc-banter.js';
 import { OPPOSITE } from '../engine/directions.js';
@@ -38,7 +39,7 @@ import { handleStagingApi } from './staging.routes.js';
 import { handleBackupApi } from './backup.routes.js';
 import { fireRoutes, fireHook } from '../engine/plugins.js';
 import { handlePlayerDeath } from '../engine/gameLoop.js';
-import { reloadWindows as reloadWindowsEnv, recomputePower } from '../engine/environment.js';
+import { reloadWindows as reloadWindowsEnv, recomputePower, getEnvironmentState } from '../engine/environment.js';
 import { ensureTunables } from '../engine/tunables.js';
 import { startingIp, statCost, RAISABLE_STATS, getNetXp, statSpent, maxHpForEndurance } from '../engine/ip.js';
 import { SKILLS } from '../engine/skills.js';
@@ -224,12 +225,14 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path==='/items' && method==='GET') return requireDev(auth, apiGetItems);
   if (path==='/items' && method==='POST') return requireDev(auth, ()=>apiCreateItem(body));
   if (path.startsWith('/items/') && method==='PUT') return requireDev(auth, ()=>apiUpdateItem(path.split('/')[2],body));
+  if (path.startsWith('/items/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteItem(path.split('/')[2]));
   if (path==='/npc-personalities' && method==='GET') return requireDev(auth, async () => ({ status:200, body: listPersonalityMeta() }));
   if (path==='/npc-banter' && method==='GET') return requireDev(auth, apiListBanter);
   if (path==='/npc-banter' && method==='PUT') return requireDev(auth, ()=>apiReplaceBanter(body));
   if (path==='/npcs' && method==='GET') return requireDev(auth, apiGetNpcs);
   if (path==='/npcs' && method==='POST') return requireDev(auth, ()=>apiCreateNpc(body));
   if (path==='/npcs/send-to-work' && method==='POST') return requireDev(auth, apiSendLateNpcsToWork);
+  if (path==='/npcs/house-unhoused' && method==='POST') return requireDev(auth, apiHouseUnhousedNpcs);
   if (path.startsWith('/npcs/') && method==='PUT') return requireDev(auth, ()=>apiUpdateNpc(path.split('/')[2],body));
   if (path.startsWith('/npcs/') && path.endsWith('/graph') && method==='PATCH') return requireDev(auth, ()=>apiPatchGraph('npcs',path.split('/')[2],body));
   if (path.startsWith('/broadcasts/') && path.endsWith('/graph') && method==='PATCH') return requireDev(auth, ()=>apiPatchGraph('media_broadcasts',path.split('/')[2],body));
@@ -274,6 +277,8 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path==='/drugs' && method==='POST') return requireDev(auth, ()=>apiCreateDrug(body));
   if (path.startsWith('/drugs/') && method==='PUT') return requireDev(auth, ()=>apiUpdateDrug(path.split('/')[2],body));
   if (path.startsWith('/drugs/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteDrug(path.split('/')[2]));
+  if (path==='/crimes' && method==='GET') return requireDev(auth, apiGetCrimes);
+  if (path.startsWith('/crimes/') && method==='PUT') return requireDev(auth, ()=>apiUpdateCrime(path.split('/')[2],body));
   if (path==='/mutations' && method==='GET') return requireDev(auth, apiGetMutations);
   if (path==='/mutations' && method==='POST') return requireDev(auth, ()=>apiCreateMutation(body));
   if (path.startsWith('/mutations/') && method==='PUT') return requireDev(auth, ()=>apiUpdateMutation(path.split('/')[2],body));
@@ -646,7 +651,7 @@ async function apiGetMap(id) {
   const { rows: mapRows } = await query('SELECT * FROM maps WHERE id=$1', [id]);
   if (!mapRows.length) return { status:404, body:{error:'Not found'} };
   const { rows: zones } = await query(
-    `SELECT id, name, danger_rating, grid_x, grid_y, grid_z, marker, color, bg_color, exits, flags, map_id
+    `SELECT id, name, danger_rating, grid_x, grid_y, grid_z, marker, color, bg_color, exits, flags, map_id, is_safe_zone
      FROM zones WHERE map_id=$1`, [id]
   );
   // Interior maps that hang off any of this map's zones, so the editor can
@@ -1169,6 +1174,12 @@ export async function apiUpdateItem(id,body) {
     return {status:200,body:{id}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
+export async function apiDeleteItem(id) {
+  try {
+    await query('DELETE FROM items WHERE id=$1', [id]);
+    return {status:200,body:{deleted:id}};
+  } catch(e) { return {status:400,body:{error:e.message}}; }
+}
 async function apiGetNpcs() { const {rows}=await query('SELECT * FROM npcs'); return {status:200,body:rows}; }
 
 // ── Shared ambient-banter library ─────────────────────────────────────────────
@@ -1194,9 +1205,29 @@ async function apiReplaceBanter(body) {
     return {status:200,body:{ok:true,count:i}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
+// Apartment units (flags.is_apartment) that no player owns and no other NPC
+// already calls home — the pool of places an NPC can be housed in. Ordered by
+// id so assignment is stable/repeatable. Excludes the generic residential lobby
+// implicitly (it isn't an apartment).
+async function listVacantApartmentZones() {
+  const { rows } = await query(
+    `SELECT z.id FROM zones z
+       LEFT JOIN apartments a ON a.zone_id = z.id
+      WHERE COALESCE((z.flags->>'is_apartment')::boolean, false) = true
+        AND a.owner_id IS NULL
+        AND z.id NOT IN (SELECT home_zone FROM npcs WHERE home_zone IS NOT NULL)
+      ORDER BY z.id`);
+  return rows.map(r => r.id);
+}
+
 export async function apiCreateNpc(body) {
   const id=body.id||`npc_${Date.now()}`;
-  const homeZone = body.home_zone || 'zone_residential_lobby';
+  // Auto-house new NPCs in a vacant apartment when the caller didn't pick a home;
+  // fall back to the generic residential lobby if none is free (a home is a nicety,
+  // not a requirement).
+  const homeZone = body.home_zone
+    || (await listVacantApartmentZones())[0]
+    || 'zone_residential_lobby';
   // Chitchat is now optional — empty means "use the archetype default" (resolved
   // at runtime via getNpcChitchat), so store exactly what the editor sent.
   const chitchat = Array.isArray(body.chitchat) ? body.chitchat : [];
@@ -1206,10 +1237,14 @@ export async function apiCreateNpc(body) {
   try {
     const hpMax = body.hp_max || 20;
     const { buildDefaultVendorGraph, buildDefaultStudioGraph, buildDefaultUnemployedGraph } = await import('../engine/ai-behaviour.js');
+    // Broadcast actors follow their studio's broadcast schedule instead of a manual
+    // work schedule — everyone else with a job (vendor or not) gets the generic
+    // schedule-respecting graph (CHECK_VENDOR_WORK branches on vendor_schedule).
+    const isActor = !!body.studio_zone_id;
     const rawGraph = body.behaviour_graph && Object.keys(body.behaviour_graph).length
       ? body.behaviour_graph
-      : (npcType === 'vendor' ? buildDefaultVendorGraph() : npcType === 'unemployed' ? buildDefaultUnemployedGraph() : buildDefaultStudioGraph());
-    const vendorSchedule = (npcType === 'vendor' && !Object.keys(body.vendor_schedule||{}).length)
+      : (npcType === 'unemployed' ? buildDefaultUnemployedGraph() : isActor ? buildDefaultStudioGraph() : buildDefaultVendorGraph());
+    const vendorSchedule = (npcType !== 'unemployed' && !isActor && !Object.keys(body.vendor_schedule||{}).length)
       ? DEFAULT_VENDOR_SCHEDULE : (body.vendor_schedule || {});
     const homeActivities = Array.isArray(body.home_activities) ? body.home_activities : [];
     const banter = Array.isArray(body.banter) ? body.banter : [];
@@ -1232,14 +1267,17 @@ export async function apiUpdateNpc(id,body) {
   try {
     const npcType = npcTypeForPersonality(body.flags?.personality) || body.npc_type || 'npc';
     const { buildDefaultVendorGraph, buildDefaultStudioGraph, buildDefaultUnemployedGraph } = await import('../engine/ai-behaviour.js');
+    // studio_zone_id isn't editable from this form — it's assigned via the Broadcast
+    // panel — so fall back to the existing in-memory/DB value to detect actors.
+    const { world: w } = await import('../engine/world.js');
+    const existing = w.npcs.get(id);
+    const isActor = !!(body.studio_zone_id || existing?.studio_zone_id);
     const rawGraph = body.behaviour_graph && Object.keys(body.behaviour_graph).length
       ? body.behaviour_graph
-      : (npcType === 'vendor' ? buildDefaultVendorGraph() : npcType === 'unemployed' ? buildDefaultUnemployedGraph() : buildDefaultStudioGraph());
+      : (npcType === 'unemployed' ? buildDefaultUnemployedGraph() : isActor ? buildDefaultStudioGraph() : buildDefaultVendorGraph());
     await query(`UPDATE npcs SET name=$1,description=$2,zone_id=$3,home_zone=$4,faction=$5,dialogue_tree=$6,vendor_inventory=$7,wanders=$8,wander_zones=$9,flags=$10,behaviour_graph=$11,work_zone_id=$12,chitchat=$13,hp_max=$14,hp=LEAST(hp,$14),vendor_stock_size=$16,vendor_restock_rate=$17,npc_type=$18,vendor_schedule=$19,vendor_shop_name=$20,home_activities=$21,banter=$22 WHERE id=$15`,
       [body.name,body.description,body.zone_id,body.home_zone||null,body.faction,JSON.stringify(body.dialogue_tree||{}),JSON.stringify(body.vendor_inventory||[]),body.wanders?1:0,JSON.stringify(body.wander_zones||[]),JSON.stringify(body.flags||{}),JSON.stringify(rawGraph),body.work_zone_id||null,JSON.stringify(body.chitchat||[]),body.hp_max||20,id,body.vendor_stock_size||10,body.vendor_restock_rate||1,npcType,JSON.stringify(body.vendor_schedule||{}),body.vendor_shop_name||null,JSON.stringify(body.home_activities||[]),JSON.stringify(Array.isArray(body.banter)?body.banter:[])]);
     // Update in-memory NPC and sync zone.npcs sets
-    const { world: w } = await import('../engine/world.js');
-    const existing = w.npcs.get(id);
     const oldZone = existing?.zone_id;
     const newZone = body.zone_id || null;
     const newHpMax = body.hp_max || 20;
@@ -1307,10 +1345,13 @@ async function apiRestockVendor(id) {
 async function apiSendLateNpcsToWork() {
   try {
     const { world: w } = await import('../engine/world.js');
+    const env = getEnvironmentState();
     const moved = [];
     for (const npc of w.npcs.values()) {
       const target = npc.work_zone_id;
       if (!target || npc.zone_id === target) continue;
+      if (npc.npc_type === 'unemployed' || npc.studio_zone_id) continue;
+      if (!isVendorWorkTime(npc, env).working) continue; // not scheduled right now — leave them be
       const oldZone = npc.zone_id;
       await query('UPDATE npcs SET zone_id=$1 WHERE id=$2', [target, npc.id]);
       if (oldZone) w.zones.get(oldZone)?.npcs.delete(npc.id);
@@ -1319,6 +1360,33 @@ async function apiSendLateNpcsToWork() {
       moved.push({ id: npc.id, name: npc.name, from: oldZone, to: target });
     }
     return { status: 200, body: { moved, count: moved.length } };
+  } catch (e) { return { status: 400, body: { error: e.message } }; }
+}
+
+// House every "unhoused" NPC — home_zone null/empty or still on the generic
+// zone_residential_lobby default — by handing each a distinct vacant apartment
+// unit. Stops when the vacant pool runs dry; unhoused NPCs left over are
+// reported so the dev knows to build more units.
+async function apiHouseUnhousedNpcs() {
+  try {
+    const { world: w } = await import('../engine/world.js');
+    const { rows: unhoused } = await query(
+      `SELECT id, name FROM npcs
+        WHERE home_zone IS NULL OR home_zone = '' OR home_zone = 'zone_residential_lobby'
+        ORDER BY id`);
+    if (!unhoused.length) return { status: 200, body: { housed: [], count: 0, remaining: 0 } };
+
+    const pool = await listVacantApartmentZones();
+    const housed = [];
+    for (const npc of unhoused) {
+      const zoneId = pool.shift();
+      if (!zoneId) break; // no more vacant apartments
+      await query('UPDATE npcs SET home_zone=$1 WHERE id=$2', [zoneId, npc.id]);
+      const live = w.npcs.get(npc.id);
+      if (live) live.home_zone = zoneId;
+      housed.push({ id: npc.id, name: npc.name, home: zoneId });
+    }
+    return { status: 200, body: { housed, count: housed.length, remaining: unhoused.length - housed.length } };
   } catch (e) { return { status: 400, body: { error: e.message } }; }
 }
 
@@ -1701,6 +1769,25 @@ export async function apiUpdateDrug(id,body) {
 async function apiDeleteDrug(id) {
   try { await query('DELETE FROM drugs WHERE id=$1',[id]); await loadDrugs(); return {status:200,body:{message:'Deleted'}}; }
   catch(e) { return {status:400,body:{error:e.message}}; }
+}
+
+// Crimes: canonical keys ship as engine defaults (crimes.js); the panel tunes the
+// star weight per key. GET returns defaults merged with DB overrides; PUT upserts
+// the override for one key.
+async function apiGetCrimes() { return {status:200,body:getCrimeList()}; }
+async function apiUpdateCrime(id,body) {
+  if (!(id in CRIME_DEFAULTS)) return {status:404,body:{error:`Unknown crime "${id}".`}};
+  const stars = Math.max(0, Math.min(5, Number(body.stars)));
+  if (Number.isNaN(stars)) return {status:400,body:{error:'stars must be a number 0–5.'}};
+  try {
+    await query(
+      `INSERT INTO crimes (id,label,stars,description) VALUES ($1,$2,$3,$4)
+       ON CONFLICT (id) DO UPDATE SET label=$2, stars=$3, description=$4`,
+      [id, body.label || CRIME_DEFAULTS[id].label, stars, body.description || CRIME_DEFAULTS[id].description || '']
+    );
+    await reloadCrimes();
+    return {status:200,body:{id,stars}};
+  } catch(e) { return {status:400,body:{error:e.message}}; }
 }
 
 async function apiGetMutations() { const {rows}=await query('SELECT * FROM mutations'); return {status:200,body:rows}; }

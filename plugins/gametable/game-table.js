@@ -143,6 +143,9 @@ export class GameTable {
     // Gambler NPCs walking in toward the table: [{ npc, path, step }]
     this._incomingBots = [];
 
+    // The table's assigned dealer, rushing in after a `call dealer` — { npc, path, step } | null
+    this._incomingDealer = null;
+
     // Pending board run-out timer (set when everyone remaining is all-in)
     this._runoutTimer = null;
 
@@ -359,6 +362,7 @@ export class GameTable {
 
   startHand() {
     if (this.phase === 'InProgress') return;
+    if (!this._dealerNpc()) { this.phase = 'WaitingForDealer'; this.pushPaneAll(); return; }
     const active = this.seats
       .filter(Boolean)
       .map(s => ({ seatIdx: s.seatIdx, playerId: s.playerId, handle: s.handle, chips: s.chips }));
@@ -610,13 +614,27 @@ export class GameTable {
   // Push a poker sound-effect cue. Without playerId it goes to everyone watching
   // the table (seated + spectators); with one it's private (e.g. going broke).
   // The client (poker-sfx.js) owns the actual synth def for each cue.
+  //
+  // Several cues legitimately resolve on the same tick — shuffle + deal at hand
+  // start, a hand-ending fold immediately followed by the win fanfare — and fired
+  // together they smear into one "doubled" sound. Space cues at least MIN_SFX_GAP_MS
+  // apart so each lands cleanly; cues already spread out (normal mid-hand actions)
+  // pass straight through with no delay.
   _pushSfx(cue, playerId = null) {
+    const MIN_SFX_GAP_MS = 260;
+    const now = Date.now();
+    const wait = Math.max(0, (this._lastSfxAt || 0) + MIN_SFX_GAP_MS - now);
+    this._lastSfxAt = now + wait;
+    if (wait > 0) { setTimeout(() => this._emitSfx(cue, playerId), wait); return; }
+    this._emitSfx(cue, playerId);
+  }
+
+  _emitSfx(cue, playerId = null) {
     if (playerId) { if (!isBotId(playerId)) sendToPlayer(playerId, { type: 'poker_sfx', cue }); return; }
     const recipients = [
       ...this.seats.filter(s => s && !s.isBot).map(s => s.playerId),
       ...this.spectators,
     ];
-    console.log(`[gametable] _pushSfx cue=${cue} recipients=[${recipients.join(',')}]`); // TEMP diagnostic — remove after debugging double-play
     for (const pid of recipients) sendToPlayer(pid, { type: 'poker_sfx', cue });
   }
 
@@ -637,6 +655,57 @@ export class GameTable {
   dealerName() {
     const npc = this._dealerNpc();
     return npc ? npc.name : null;
+  }
+
+  // Is a dealer physically present at the table right now? Hands can't be
+  // dealt without one (see startHand/_checkAutoStart).
+  hasDealer() {
+    return !!this._dealerNpc();
+  }
+
+  // Rush the table's assigned dealer to the felt if he's elsewhere and free.
+  // Only the NPC already tagged as this table's dealer may be summoned this
+  // way — the caller (index.js cmdCallDealer) resolves which NPC that is.
+  // Returns { ok, error, walking?, arrived? }.
+  async summonDealer(npc) {
+    if (this.phase === 'Closed') return { ok: false, error: 'This table is closed.' };
+    if (this._dealerNpc()?.id === npc.id) return { ok: false, error: `${npc.name} is already at the table.` };
+    if (this._incomingDealer?.npc.id === npc.id) return { ok: false, error: `${npc.name} is already on his way.` };
+    if (npc.hp != null && npc.hp <= 0) return { ok: false, error: `${npc.name} is in no condition to deal.` };
+    if (npc._ai?.waitUntil && Date.now() < npc._ai.waitUntil) {
+      return { ok: false, error: `${npc.name} is tied up right now — try again shortly.` };
+    }
+
+    if (npc.zone_id === this.zoneId) {
+      this._checkAutoStart();
+      this.pushPaneAll();
+      return { ok: true, arrived: true };
+    }
+
+    const path = findPath(npc.zone_id, this.zoneId, { maxDistance: 60 });
+    if (!path || path.length < 2) return { ok: false, error: `${npc.name} can't get here from where he is.` };
+    this._incomingDealer = { npc, path, step: 1 };
+    return { ok: true, walking: true };
+  }
+
+  // Advance the incoming dealer two zones per tick — he's rushing, not
+  // strolling. Called from the plugin tick.
+  stepIncomingDealer() {
+    const w = this._incomingDealer;
+    if (!w) return;
+    for (let hop = 0; hop < 2; hop++) {
+      const next = w.path[w.step];
+      if (!next) break;
+      if (!moveEntity(w.npc, next, sendToZone, query)) { this._incomingDealer = null; return; }
+      w.step++;
+      if (w.npc.zone_id === this.zoneId) break;
+    }
+    if (w.npc.zone_id === this.zoneId) {
+      this._incomingDealer = null;
+      this._checkAutoStart();
+      this._dealerSay("Sorry, folks. Let's get back to it.");
+      this.pushPaneAll();
+    }
   }
 
   _dealerSay(text) {
@@ -756,6 +825,17 @@ export class GameTable {
     if (this.phase === 'InProgress') return;
     const n = this.seatedCount();
     if (n < 2) { this.phase = 'WaitingForPlayers'; this.pushPaneAll(); return; }
+    if (!this._dealerNpc()) {
+      const wasWaiting = this.phase === 'WaitingForDealer';
+      this.phase = 'WaitingForDealer';
+      this.pushPaneAll();
+      if (!wasWaiting) {
+        for (const s of this.seats) {
+          if (s && !s.isBot) sendToPlayer(s.playerId, { type: 'output', message: 'There\'s no dealer to run this table. Try `call dealer`.' });
+        }
+      }
+      return;
+    }
     this.phase = 'Ready';
     this.pushPaneAll();
     const delay = (this.config.autoStartDelaySecs || 8) * 1000;

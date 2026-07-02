@@ -4,17 +4,9 @@ import { propagateYell } from '../sounds.js';
 import { canAccessChannel, sendToChatChannel } from '../channels.js';
 import { evalConditions } from '../flags.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../sift.js';
-import { DEFAULT_CHITCHAT_LINES } from '../ai-behaviour.js';
+import { DEFAULT_CHITCHAT_LINES, formatChitchat } from '../ai-behaviour.js';
 import { getNpcChitchat } from '../npc-personality.js';
 import { fireHook } from '../plugins.js';
-
-function formatChitchat(name, line) {
-  const t = line.trim();
-  if (t.startsWith('"') && t.endsWith('"')) {
-    return { type: 'output', message: `<span style="color:var(--yellow)">${name} says: ${t}</span>` };
-  }
-  return { type: 'zone_event', message: `${name} ${t}` };
-}
 
 async function cmdTalk(targetStr, player, broadcast) {
   if (!targetStr) return { type:'error', message:'Talk to whom?' };
@@ -71,6 +63,9 @@ function cmdSay(text, player, broadcast) {
   if (text.length >= 3 && text === text.toUpperCase() && /[A-Z]/.test(text)) {
     return cmdYell(text, player, broadcast);
   }
+  // Echo the speaker's own line first, then let the room hear it — so any NPC
+  // reaction below lands *after* the player's say line, never before it.
+  broadcast(null, { type:'say', message:`You say: "${text}"` }, null, player.id);
   broadcast(player.current_zone, { type:'say', message:`${player.handle} says: "${text}"` }, player.id);
   // Let plugins react to speech (e.g. the shadow dealer's passphrase). Fire-and-forget.
   fireHook('player.say', { player, text, zoneId: player.current_zone, broadcast }).catch(() => {});
@@ -78,7 +73,7 @@ function cmdSay(text, player, broadcast) {
     const lines = getNpcChitchat(npc) || DEFAULT_CHITCHAT_LINES;
     broadcast(player.current_zone, formatChitchat(npc.name, lines[Math.floor(Math.random() * lines.length)]));
   }
-  return { type:'say', message:`You say: "${text}"` };
+  return null;
 }
 
 function cmdYell(text, player, broadcast) {

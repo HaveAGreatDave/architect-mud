@@ -25,14 +25,19 @@ function renderTimeWeatherPanel(data) {
     ? lightningKills.slice().reverse().map(k => `<div style="padding:4px 0;border-bottom:1px solid var(--border)">⚡ <span style="color:var(--text-bright)">${k.handle}</span> <span style="color:var(--text-dim)">— ${k.date} ${k.time}</span></div>`).join('')
     : `<div style="color:var(--text-dim)">No one has been struck by lightning so far!</div>`;
 
-  const forecastGrid = forecast.slice(0,7).map((f,i) => `
-    <div title="${(f.weatherType||'?')}${f.tempC!=null?' · '+f.tempC+'°C':''}${f.windKph!=null?' · '+f.windKph+' km/h '+windLabel(f.windKph):''}${f.humidityPct!=null?' · '+f.humidityPct+'% humidity':''}" style="background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:8px 4px;text-align:center">
+  const SEVERE_THRESHOLD = 0.45;
+  const forecastGrid = forecast.slice(0,7).map((f,i) => {
+    const severe = (f.severity ?? 0) >= SEVERE_THRESHOLD;
+    return `
+    <div title="${(f.weatherType||'?')}${f.tempC!=null?' · '+f.tempC+'°C':''}${f.windKph!=null?' · '+f.windKph+' km/h '+windLabel(f.windKph):''}${f.humidityPct!=null?' · '+f.humidityPct+'% humidity':''}${severe?' · ⚠ severe (severity '+f.severity.toFixed(2)+')':''}" style="background:var(--bg3);border:1px solid ${severe?'var(--yellow)':'var(--border)'};border-radius:4px;padding:8px 4px;text-align:center;position:relative">
+      ${severe?`<div style="position:absolute;top:4px;right:6px;font-size:11px" title="Severe conditions">⚠</div>`:''}
       <div style="font-size:9px;font-weight:600;color:var(--text-dim);letter-spacing:.5px">${i===0?'TODAY':'DAY '+(i+1)}</div>
       <div style="font-size:22px;line-height:1.2;margin:2px 0">${f.icon||'?'}</div>
       <div style="font-size:10px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${f.weatherType||'?'}</div>
       ${f.tempC!=null?`<div style="font-size:12px;color:var(--text-bright);font-weight:600;margin-top:2px">${f.tempC}°</div>`:''}
       <div style="font-size:9px;color:var(--text-dim);margin-top:2px;white-space:nowrap">${f.windKph!=null?'💨'+f.windKph:''}${f.windKph!=null&&f.humidityPct!=null?' · ':''}${f.humidityPct!=null?'💧'+f.humidityPct+'%':''}</div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 
   panel.innerHTML = `
     <div style="padding:24px;max-width:700px;display:flex;flex-direction:column;gap:24px">
@@ -129,6 +134,30 @@ function renderTimeWeatherPanel(data) {
           <button class="action-btn" onclick="devRecalculateForecast()" title="Regenerate unlocked forecast days using the active climate profile">↻ Recalculate Forecast</button>
         </div>
         <div style="display:flex;gap:10px;flex-wrap:wrap">${forecastGrid||'<div style="color:var(--text-dim);font-size:12px">No forecast data.</div>'}</div>
+      </div>
+
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:20px">
+        <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:8px">Schedule Future Weather</div>
+        <div style="font-size:11px;color:var(--text-dim);margin-bottom:16px">Edit an upcoming forecast day directly so it arrives severe when it rolls around — unlike Override Weather above, this doesn't touch today or the live field.</div>
+        <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+          <label style="font-size:12px;color:var(--text-dim)">Day<br>
+            <select id="tw-sched-day" style="margin-top:4px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:5px 8px;border-radius:2px">
+              ${forecast.slice(1,7).map((f,i)=>`<option value="${f.forecastDay}">Day ${i+2} (${f.date||''})</option>`).join('')}
+            </select>
+          </label>
+          <label style="font-size:12px;color:var(--text-dim)">Type<br>
+            <select id="tw-sched-weather" style="margin-top:4px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:5px 8px;border-radius:2px">
+              ${WEATHER_TYPES.map(w=>`<option value="${w}">${w}</option>`).join('')}
+            </select>
+          </label>
+          <label style="font-size:12px;color:var(--text-dim)">Temperature (°C)<br>
+            <input id="tw-sched-temp" type="number" placeholder="—" style="margin-top:4px;width:80px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:5px 8px;border-radius:2px">
+          </label>
+          <label style="font-size:12px;color:var(--text-dim)">Wind (km/h)<br>
+            <input id="tw-sched-wind" type="number" min="0" placeholder="—" style="margin-top:4px;width:80px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:5px 8px;border-radius:2px">
+          </label>
+          <button class="action-btn" onclick="devScheduleForecastDay()">Schedule</button>
+        </div>
       </div>
 
       <div style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:20px">
@@ -482,6 +511,20 @@ async function devApplyWeather() {
   const r = await API('/environment/weather/override','POST',{weatherType,tempC,precipChance});
   if (r.error) { toast(r.error,true); return; }
   toast('Weather updated');
+  loadPanel('timeweather');
+}
+
+async function devScheduleForecastDay() {
+  const forecastDay = Number(document.getElementById('tw-sched-day').value);
+  const weatherType = document.getElementById('tw-sched-weather').value;
+  const tempVal = document.getElementById('tw-sched-temp').value;
+  const windVal = document.getElementById('tw-sched-wind').value;
+  const body = { forecastDay, weatherType };
+  if (tempVal !== '') body.tempC = Number(tempVal);
+  if (windVal !== '') body.windKph = Number(windVal);
+  const r = await API('/environment/weather/schedule', 'POST', body);
+  if (r.error) { toast(r.error, true); return; }
+  toast(`Day ${forecastDay + 1} scheduled: ${weatherType}`);
   loadPanel('timeweather');
 }
 

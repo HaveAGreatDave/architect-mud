@@ -15,7 +15,7 @@ import { openLightViewDialog } from './panels/lightview.js';
 import { openMorphexPanel } from './panels/morphex.js';
 import { updateForecast } from './panels/forecast.js';
 import { openAtmPanel, closeAtmPanel, updateAtmPanel } from './panels/atm.js';
-import { openMediaDeckPanel, updateMediaDeckBroadcast } from './panels/mediadeck.js';
+import { openMediaDeckPanel, updateMediaDeckBroadcast, applyMediaDeckOverlay } from './panels/mediadeck.js';
 import { openDeviceInspectPanel, consumeExamineLogSuppression } from './panels/deviceinspect.js';
 import { openSurveillanceHub, updateSurveillanceHub } from './panels/surveillancehub.js';
 import { openDatachipReplay } from './panels/datachipreplay.js';
@@ -28,7 +28,7 @@ import { applyEspState, handleEspWarning } from './esp.js';
 import { playPokerSfx } from './poker-sfx.js';
 import { showConfirmDialog } from './panels/confirm.js';
 import { renderMarkup } from './markup.js';
-import { onPanelData, onPanelFeed, onPanelCatalog, syncPanels } from './panels/custom/manager.js';
+import { onPanelData, onPanelFeed, onPanelCatalog, syncPanels, refreshCustomPanels } from './panels/custom/manager.js';
 
 
 const DEV_ROLES = ['admin', 'dev', 'builder', 'designer'];
@@ -372,6 +372,18 @@ const handlers = {
     if (msg.atm_cash_stock != null) updateAtmPanel({ cashStock: msg.atm_cash_stock, ...msg.player_update });
   },
 
+  jack: (msg) => {
+    appendHtml(msg.message, 'loot');
+    if (msg.atm_maintenance != null) updateAtmPanel({ maintenanceUnlocked: msg.atm_maintenance });
+  },
+
+  drain: (msg) => {
+    appendHtml(msg.message, 'loot');
+    if (msg.player_update && state.player) { Object.assign(state.player, msg.player_update); updateVitals(state.player); }
+    if (msg.atm_maintenance != null) updateAtmPanel({ maintenanceUnlocked: msg.atm_maintenance });
+    if (msg.atm_cash_stock != null) updateAtmPanel({ cashStock: msg.atm_cash_stock, ...msg.player_update });
+  },
+
   steal: (msg) => {
     appendHtml(msg.message, 'loot');
     if (msg.player_update && state.player) { Object.assign(state.player, msg.player_update); updateVitals(state.player); }
@@ -419,10 +431,18 @@ const handlers = {
   mediadeck_panel: (msg) => { openMediaDeckPanel(msg); },
   device_inspect_panel: (msg) => { openDeviceInspectPanel(msg); },
   deck_broadcast:  (msg) => { updateMediaDeckBroadcast(msg); },
+  deck_overlay:    (msg) => { applyMediaDeckOverlay(msg.overlay); },
   surveillance_hub: (msg) => { openSurveillanceHub(msg); },
   surveillance_hub_update: (msg) => { updateSurveillanceHub(msg); },
   datachip_replay: (msg) => { openDatachipReplay(msg); },
-  wanted_level: (msg) => { updateWantedHud(msg.stars || 0); },
+  wanted_level: (msg) => { updateWantedHud(msg.stars || 0); refreshCustomPanels(); },
+  camera_flash: () => {
+    // A camera in the room caught a crime — flash the screen red. The room also
+    // receives a zone_event line naming the suspect ("locking focus on …").
+    let el = document.getElementById('camera-flash-overlay');
+    if (!el) { el = document.createElement('div'); el.id = 'camera-flash-overlay'; document.body.appendChild(el); }
+    el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+  },
   circuit_hack: (msg) => {
     openCircuitHack({
       skill: msg.skill ?? 4,
