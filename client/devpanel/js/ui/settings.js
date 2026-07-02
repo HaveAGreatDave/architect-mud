@@ -286,14 +286,37 @@ function _makeThemeEditorDraggable() {
   });
 }
 
+let _themeEditLoaded = false;
+
 function openThemeEditor() {
   const overlay = document.getElementById('theme-editor-overlay');
   overlay.style.display = 'flex';
   _makeThemeEditorDraggable();
-  _populateThemeEditorDropdown();
-  const themeId = devSettings.theme || 'dark';
-  document.getElementById('theme-editor-base').value = themeId;
-  _loadBaseTheme(themeId);
+  _themeEditLoaded = false;
+  populateThemeGrid();
+  _showThemeTab('swatches');
+}
+
+// Swatches (theme picker) is the default view; the Edit pane lazy-loads the
+// current theme's colours the first time it's revealed this session.
+function _showThemeTab(name) {
+  const editing = name === 'edit';
+  if (editing && !_themeEditLoaded) {
+    _themeEditLoaded = true;
+    _populateThemeEditorDropdown();
+    const themeId = devSettings.theme || 'dark';
+    const sel = document.getElementById('theme-editor-base');
+    if (sel) sel.value = themeId;
+    _loadBaseTheme(themeId);
+  }
+  const sw = document.getElementById('tce-pane-swatches');
+  const ed = document.getElementById('tce-pane-edit');
+  if (sw) sw.style.display = editing ? 'none' : 'block';
+  if (ed) ed.style.display = editing ? 'flex' : 'none';
+  const tsw = document.getElementById('tce-tab-swatches');
+  const ted = document.getElementById('tce-tab-edit');
+  if (tsw) { tsw.style.color = editing ? 'var(--text-dim)' : 'var(--accent)'; tsw.style.borderBottomColor = editing ? 'transparent' : 'var(--accent)'; }
+  if (ted) { ted.style.color = editing ? 'var(--accent)' : 'var(--text-dim)'; ted.style.borderBottomColor = editing ? 'var(--accent)' : 'transparent'; }
 }
 
 function saveAsCustomTheme() {

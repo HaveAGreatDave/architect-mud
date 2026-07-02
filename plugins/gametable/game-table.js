@@ -6,6 +6,7 @@ import { sendToPlayer } from '../../server/engine/messaging.js';
 import { getLivePlayer, getZonePlayers, getZoneNpcs } from '../../server/engine/world.js';
 import { HoldemGame } from './games/holdem.js';
 import { renderPane } from './render-pane.js';
+import { botId, isBotId, decideBotAction } from './bot-player.js';
 
 export const MAX_SEATS = 4;
 const AUTO_START_DELAY_MS = 15_000; // wait this long after 2nd player joins before starting
@@ -134,6 +135,9 @@ export class GameTable {
     // Turn timer handles: { warnHandle, foldHandle, playerId }
     this._turnTimer = null;
 
+    // Pending bot-move timer (set when the action reaches a bot seat)
+    this._botMoveTimer = null;
+
     // Pending board run-out timer (set when everyone remaining is all-in)
     this._runoutTimer = null;
 
@@ -150,7 +154,12 @@ export class GameTable {
       }
     }
     if (state.game && this.phase === 'InProgress') {
-      this.game = HoldemGame.fromJSON(state.game, this.config);
+      const restored = HoldemGame.fromJSON(state.game, this.config);
+      // Bots aren't persisted (they're transient, like AI blackboards). A hand
+      // that still references one after a restart can't be resumed — abandon it
+      // and drop back to waiting rather than stalling on a driverless bot seat.
+      if (restored.seats.some(s => isBotId(s.playerId))) this.phase = 'WaitingForPlayers';
+      else this.game = restored;
     }
 
     activeTables.set(this.id, this);
@@ -194,6 +203,31 @@ export class GameTable {
     return { ok: true, seatIdx };
   }
 
+  // Seat a bot (gambler NPC) at the table. Draws the buy-in from the NPC's
+  // persistent bankroll (flags.poker_bankroll) instead of a player's credits.
+  // Returns { ok, error, seatIdx }.
+  async seatBot(npc, preferredSeat = null) {
+    if (this.phase === 'Closed') return { ok: false, error: 'This table is closed.' };
+    const id = botId(npc.id);
+    if (this.seatedIndex(id) >= 0) return { ok: false, error: `${npc.name} is already seated.` };
+    if (this.openSeats() === 0) return { ok: false, error: 'No seats available.' };
+
+    const persona = npc.flags?.poker_persona || {};
+    const buyIn = persona.buyIn || this.config.buyIn || this.config.minBuyIn || 100;
+    const bankroll = npc.flags?.poker_bankroll ?? persona.bankroll ?? 0;
+    if (bankroll < buyIn) return { ok: false, error: `${npc.name} is tapped out.` };
+
+    let seatIdx = preferredSeat !== null && this.seats[preferredSeat] === null ? preferredSeat : null;
+    if (seatIdx === null) seatIdx = this.seats.findIndex(s => s === null);
+
+    this.seats[seatIdx] = { playerId: id, npcId: npc.id, handle: npc.name, chips: buyIn, seatIdx, isBot: true, persona };
+    await this._saveBotBankroll(npc, bankroll - buyIn);
+
+    this._checkAutoStart();
+    await this._persist();
+    return { ok: true, seatIdx };
+  }
+
   async leaveTable(playerId) {
     const idx = this.seatedIndex(playerId);
     if (idx < 0) {
@@ -203,6 +237,7 @@ export class GameTable {
 
     const seat = this.seats[idx];
     const chips = seat.chips;
+    const wasBot = !!seat.isBot;
 
     // If game active, fold first
     if (this.game && this.phase === 'InProgress') {
@@ -217,13 +252,22 @@ export class GameTable {
     clearTimeout(this._retainTimers[playerId]);
     delete this._retainTimers[playerId];
 
-    // Return chips to credits
-    if (chips > 0) {
+    // Return chips: bots to their bankroll, players to their credits.
+    if (wasBot) {
+      if (chips > 0) {
+        const npc = getZoneNpcs(this.zoneId).find(n => n.id === seat.npcId);
+        const bankroll = (npc?.flags?.poker_bankroll ?? 0) + chips;
+        await this._saveBotBankroll(seat.npcId, bankroll);
+      }
+    } else if (chips > 0) {
       await query('UPDATE players SET credits = credits + $1 WHERE id = $2', [chips, playerId]);
       const { rows } = await query('SELECT credits FROM players WHERE id=$1', [playerId]);
       if (rows.length) sendToPlayer(playerId, { type: 'player_update', credits: rows[0].credits });
       sendToPlayer(playerId, { type: 'output', message: `You cash out ₵ ${chips} from the table.` });
     }
+
+    // A human leaving may strand a bot alone — bots don't play each other.
+    if (!wasBot) this._removeLonelyBots();
 
     this._checkGameViable();
     this.pushPaneAll();
@@ -332,12 +376,15 @@ export class GameTable {
         const seat = this.seats.find(s => s && s.playerId === gs.playerId);
         if (seat) seat.chips = gs.chips;
       }
-      // Remove broke players
+      // Remove broke players (and busted bots)
       for (let i = 0; i < this.seats.length; i++) {
         if (this.seats[i] && this.seats[i].chips === 0) {
-          this._pushSfx('broke', this.seats[i].playerId); // private sad send-off
-          sendToPlayer(this.seats[i].playerId, { type: 'output', message: 'You have no chips left. You leave the table.' });
-          this.leaveTable(this.seats[i].playerId);
+          const s = this.seats[i];
+          if (!s.isBot) {
+            this._pushSfx('broke', s.playerId); // private sad send-off
+            sendToPlayer(s.playerId, { type: 'output', message: 'You have no chips left. You leave the table.' });
+          }
+          this.leaveTable(s.playerId); // bot busting out just stands up (returns 0)
         }
       }
       // Auto-start next hand after delay
@@ -373,9 +420,15 @@ export class GameTable {
 
   _startTurnTimer() {
     this._clearTurnTimer();
-    const timerSecs = this.config.turnTimerSecs || 30;
     const actor = this.game?.getCurrentActor();
     if (!actor) return;
+
+    // Bot seats are driven by the server, not a socket — schedule their move
+    // instead of a fold timer, and skip the private "your turn" cue.
+    const seat = this.seats.find(s => s && s.playerId === actor.playerId);
+    if (seat?.isBot) { this._scheduleBotMove(seat); return; }
+
+    const timerSecs = this.config.turnTimerSecs || 30;
     const pid = actor.playerId;
 
     // Private prompt so the acting player notices the action has reached them.
@@ -395,10 +448,32 @@ export class GameTable {
   }
 
   _clearTurnTimer() {
+    clearTimeout(this._botMoveTimer);
+    this._botMoveTimer = null;
     if (!this._turnTimer) return;
     clearTimeout(this._turnTimer.warnHandle);
     clearTimeout(this._turnTimer.foldHandle);
     this._turnTimer = null;
+  }
+
+  // Drive a bot seat's action after a short "thinking" pause, so it reads like a
+  // deliberating opponent rather than an instant reflex.
+  _scheduleBotMove(seat) {
+    clearTimeout(this._botMoveTimer);
+    const delay = 900 + Math.floor(Math.random() * 1600);
+    this._botMoveTimer = setTimeout(() => {
+      if (!this.game || this.phase !== 'InProgress') return;
+      const actor = this.game.getCurrentActor();
+      if (!actor || actor.playerId !== seat.playerId) return; // the spot moved on
+      const { action, amount } = decideBotAction(this, seat);
+      const res = this.processAction(seat.playerId, action, amount || 0);
+      // Belt-and-suspenders: an illegal sizing must never leave the table stalled
+      // on a bot with no timer. Fall back to the always-legal check-or-fold.
+      if (!res.ok) {
+        const fallback = this.game.canCheck(seat.playerId) ? 'check' : 'fold';
+        this.processAction(seat.playerId, fallback, 0);
+      }
+    }, delay);
   }
 
   // ── Seat retention (disconnect) ────────────────────────────────────────────
@@ -423,7 +498,7 @@ export class GameTable {
 
   pushPaneAll() {
     const recipients = [
-      ...this.seats.filter(Boolean).map(s => s.playerId),
+      ...this.seats.filter(s => s && !s.isBot).map(s => s.playerId),
       ...this.spectators,
     ];
     for (const pid of recipients) {
@@ -439,9 +514,9 @@ export class GameTable {
   // the table (seated + spectators); with one it's private (e.g. going broke).
   // The client (poker-sfx.js) owns the actual synth def for each cue.
   _pushSfx(cue, playerId = null) {
-    if (playerId) { sendToPlayer(playerId, { type: 'poker_sfx', cue }); return; }
+    if (playerId) { if (!isBotId(playerId)) sendToPlayer(playerId, { type: 'poker_sfx', cue }); return; }
     const recipients = [
-      ...this.seats.filter(Boolean).map(s => s.playerId),
+      ...this.seats.filter(s => s && !s.isBot).map(s => s.playerId),
       ...this.spectators,
     ];
     for (const pid of recipients) sendToPlayer(pid, { type: 'poker_sfx', cue });
@@ -581,9 +656,29 @@ export class GameTable {
 
   // ── Persistence ────────────────────────────────────────────────────────────
 
+  // Persist the bot's bankroll back to its NPC row (flags.poker_bankroll) and to
+  // the in-memory world cache so a later re-seat sees the new balance.
+  async _saveBotBankroll(npcOrId, bankroll) {
+    const npcId = typeof npcOrId === 'string' ? npcOrId : npcOrId.id;
+    const value = Math.max(0, Math.floor(bankroll));
+    const npc = typeof npcOrId === 'object' ? npcOrId
+      : getZoneNpcs(this.zoneId).find(n => n.id === npcId);
+    if (npc) { npc.flags = npc.flags || {}; npc.flags.poker_bankroll = value; }
+    await query(
+      "UPDATE npcs SET flags = jsonb_set(coalesce(flags,'{}'::jsonb), '{poker_bankroll}', to_jsonb($1::bigint), true) WHERE id=$2",
+      [value, npcId]
+    ).catch(e => console.error('[gametable] bot bankroll persist:', e.message));
+  }
+
+  // Bots don't play each other — if no humans are left seated, any bots cash out.
+  _removeLonelyBots() {
+    if (this.seats.some(s => s && !s.isBot)) return;
+    for (const s of this.seats.filter(s => s && s.isBot)) this.leaveTable(s.playerId);
+  }
+
   async _persist() {
     const state = {
-      seats: this.seats.filter(Boolean),
+      seats: this.seats.filter(s => s && !s.isBot), // bots are transient (see constructor)
       game: this.game ? this.game.toJSON() : null,
     };
     await query(

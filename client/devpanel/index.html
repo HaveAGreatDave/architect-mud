@@ -280,10 +280,7 @@
     <h2 style="color:var(--accent);letter-spacing:2px;text-transform:uppercase;font-size:14px;margin-bottom:18px">Settings</h2>
     <div style="margin-bottom:18px">
       <label style="display:block;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:8px">Theme</label>
-      <div style="display:flex;gap:8px;align-items:flex-start">
-        <div id="dev-opt-theme-grid" class="theme-grid-wrap" role="listbox" aria-label="Theme" style="flex:1"></div>
-        <button class="action-btn" onclick="openThemeEditor()" title="Customise theme colors">🎨 Edit</button>
-      </div>
+      <button class="action-btn" onclick="openThemeEditor()" title="Choose or edit a theme" style="width:100%">🎨 Themes…</button>
     </div>
     <div style="margin-bottom:18px">
       <label style="display:block;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:8px">Contrast <span id="dev-contrast-label" style="text-transform:none;letter-spacing:0;color:var(--text-dim)">Base</span></label>
@@ -339,6 +336,14 @@
       <div style="font-size:12px;font-weight:bold;color:var(--accent);text-transform:uppercase;letter-spacing:2px">🎨 Theme Editor</div>
       <button onclick="closeThemeEditor()" style="background:none;border:none;color:var(--text-dim);font-size:18px;cursor:pointer;line-height:1;padding:0 2px">✕</button>
     </div>
+    <div id="tce-tabs" style="display:flex;flex-shrink:0;border-bottom:1px solid var(--border)">
+      <button id="tce-tab-swatches" onclick="_showThemeTab('swatches')" style="flex:1;background:transparent;border:none;border-bottom:2px solid var(--accent);color:var(--accent);font-family:var(--font);font-size:11px;letter-spacing:1px;padding:7px 0;cursor:pointer;text-transform:uppercase">Swatches</button>
+      <button id="tce-tab-edit" onclick="_showThemeTab('edit')" style="flex:1;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--text-dim);font-family:var(--font);font-size:11px;letter-spacing:1px;padding:7px 0;cursor:pointer;text-transform:uppercase">Edit</button>
+    </div>
+    <div id="tce-pane-swatches" style="flex:1;min-height:0;overflow-y:auto;padding:10px 12px">
+      <div id="dev-opt-theme-grid" class="theme-grid-wrap" role="listbox" aria-label="Theme"></div>
+    </div>
+    <div id="tce-pane-edit" style="display:none;flex:1;min-height:0;flex-direction:column">
     <div style="padding:6px 12px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;flex-shrink:0">
       <label style="font-size:11px;color:var(--text-dim);white-space:nowrap">Base:</label>
       <select id="theme-editor-base" onchange="_loadBaseTheme(this.value)" style="flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:4px 6px;border-radius:2px"></select>
@@ -352,6 +357,7 @@
     <div style="padding:8px 12px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:space-between;flex-shrink:0">
       <button class="action-btn danger" onclick="resetThemeColors()">Reset to Base</button>
       <button class="action-btn" onclick="closeThemeEditor()">Close</button>
+    </div>
     </div>
   </div>
 </div>
@@ -391,6 +397,7 @@
 <script src="/dev/js/panels/bank.js"></script>
 <script src="/dev/js/panels/sounds.js"></script>
 <script src="/shared/audio-engine.js"></script>
+<script src="/shared/mod-parser.js"></script>
 <script src="/dev/js/panels/audio.js"></script>
 <script src="/dev/js/bsm-compiler.js"></script>
 <script src="/dev/js/panels/broadcast.js"></script>

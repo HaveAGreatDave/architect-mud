@@ -1236,31 +1236,22 @@
 
 				<div class="settings-group">
 					<label class="group-label">Theme</label>
-					<div style="display: flex; gap: 8px; align-items: flex-start">
-						<div
-							id="opt-theme-grid"
-							class="theme-grid-wrap"
-							role="listbox"
-							aria-label="Theme"
-							style="flex: 1"></div>
-						<button
-							id="theme-edit-btn"
-							style="
-								background: transparent;
-								border: 1px solid var(--border);
-								color: var(--text-dim);
-								font-family: var(--font);
-								font-size: 11px;
-								padding: 4px 10px;
-								cursor: pointer;
-								border-radius: 2px;
-								white-space: nowrap;
-								flex-shrink: 0;
-							"
-							title="Open theme editor">
-							🎨 Edit
-						</button>
-					</div>
+					<button
+						id="theme-open-btn"
+						style="
+							width: 100%;
+							background: transparent;
+							border: 1px solid var(--border);
+							color: var(--text);
+							font-family: var(--font);
+							font-size: 12px;
+							padding: 7px 10px;
+							cursor: pointer;
+							border-radius: 2px;
+						"
+						title="Choose or edit a theme">
+						🎨 Themes…
+					</button>
 				</div>
 
 				<div class="settings-group">
@@ -1559,6 +1550,14 @@
 						✕
 					</button>
 				</div>
+				<div id="te-tabs" style="display:flex;flex-shrink:0;border-bottom:1px solid var(--border)">
+					<button id="te-tab-swatches" style="flex:1;background:transparent;border:none;border-bottom:2px solid var(--accent);color:var(--accent);font-family:var(--font);font-size:11px;letter-spacing:1px;padding:7px 0;cursor:pointer;text-transform:uppercase">Swatches</button>
+					<button id="te-tab-edit" style="flex:1;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--text-dim);font-family:var(--font);font-size:11px;letter-spacing:1px;padding:7px 0;cursor:pointer;text-transform:uppercase">Edit</button>
+				</div>
+				<div id="te-pane-swatches" style="flex:1;min-height:0;overflow-y:auto;padding:10px 12px">
+					<div id="opt-theme-grid" class="theme-grid-wrap" role="listbox" aria-label="Theme"></div>
+				</div>
+				<div id="te-pane-edit" style="display:none;flex:1;min-height:0;flex-direction:column">
 				<div
 					style="
 						padding: 6px 12px;
@@ -1689,6 +1688,7 @@
 						">
 						Close
 					</button>
+				</div>
 				</div>
 			</div>
 		</div>
@@ -2114,14 +2114,17 @@
 
 				<div class="amp-footer">
 					<span class="amp-footer-label">AMP-1</span>
+					<button class="amp-tracks-btn" id="amp-load-btn" title="Load a .MOD from your machine">＋ .MOD</button>
 					<button class="amp-tracks-btn" id="amp-tracks-btn">TRACKS ▼</button>
 				</div>
+				<input type="file" id="amp-load-file" accept=".mod,audio/mod" style="display:none">
 
 				<div class="amp-tracklist" id="amp-tracklist"></div>
 			</div>
 		</div>
 
 		<script src="/shared/audio-engine.js"></script>
+		<script src="/shared/mod-parser.js"></script>
 		<script type="module" src="js/main.js"></script>
 
 		<a

@@ -313,12 +313,13 @@ export function initSettingsUI(settings, saveAndApply, { sendCmd, notify } = {})
       if (!chip || !themeGrid.contains(chip)) return;
       settings.theme = chip.dataset.value;
       settings.customColors = {};
+      _teEditLoaded = false;
       saveAndApply();
     });
   }
 
-  const editBtn = document.getElementById('theme-edit-btn');
-  if (editBtn) editBtn.addEventListener('click', () => openThemeEditor(settings, saveAndApply));
+  const openBtn = document.getElementById('theme-open-btn');
+  if (openBtn) openBtn.addEventListener('click', () => openThemeEditor(settings, saveAndApply));
 
   document.querySelectorAll('#opt-fontsize .settings-opt').forEach(btn => {
     btn.addEventListener('click', () => { settings.fontSize = btn.dataset.value; saveAndApply(); });
@@ -458,6 +459,7 @@ export function listenForSettingsChanges(applyFn) {
 let _teSettings = null;
 let _teSaveAndApply = null;
 let _teEditingId = null;
+let _teEditLoaded = false;
 
 export function openThemeEditor(settings, saveAndApply) {
   _teSettings = settings;
@@ -465,10 +467,31 @@ export function openThemeEditor(settings, saveAndApply) {
   const overlay = document.getElementById('theme-editor-overlay');
   if (!overlay) return;
   overlay.style.display = 'flex';
-  _tePopulateBaseDropdown();
-  const baseId = settings.theme || 'dark';
-  document.getElementById('te-base-select').value = baseId;
-  _teLoadBase(baseId);
+  _teEditLoaded = false;
+  _populateThemeGrid(settings);
+  _teShowTab('swatches');
+}
+
+// Swatches (theme picker) is the default view; the Edit pane lazy-loads the
+// current theme's colours the first time it's revealed this session.
+function _teShowTab(name) {
+  const editing = name === 'edit';
+  if (editing && !_teEditLoaded) {
+    _teEditLoaded = true;
+    _tePopulateBaseDropdown();
+    const baseId = _teSettings.theme || 'dark';
+    const sel = document.getElementById('te-base-select');
+    if (sel) sel.value = baseId;
+    _teLoadBase(baseId);
+  }
+  const sw = document.getElementById('te-pane-swatches');
+  const ed = document.getElementById('te-pane-edit');
+  if (sw) sw.style.display = editing ? 'none' : 'block';
+  if (ed) ed.style.display = editing ? 'flex' : 'none';
+  const tsw = document.getElementById('te-tab-swatches');
+  const ted = document.getElementById('te-tab-edit');
+  if (tsw) { tsw.style.color = editing ? 'var(--text-dim)' : 'var(--accent)'; tsw.style.borderBottomColor = editing ? 'transparent' : 'var(--accent)'; }
+  if (ted) { ted.style.color = editing ? 'var(--accent)' : 'var(--text-dim)'; ted.style.borderBottomColor = editing ? 'var(--accent)' : 'transparent'; }
 }
 
 function _tePopulateBaseDropdown() {
@@ -643,6 +666,8 @@ export function initThemeEditorOverlay() {
   if (!overlay) return;
 
   _makeDraggable(document.getElementById('te-window'), document.getElementById('te-drag-header'));
+  document.getElementById('te-tab-swatches')?.addEventListener('click', () => _teShowTab('swatches'));
+  document.getElementById('te-tab-edit')?.addEventListener('click', () => _teShowTab('edit'));
   document.getElementById('te-close-btn')?.addEventListener('click', closeThemeEditor);
   document.getElementById('te-close-btn2')?.addEventListener('click', closeThemeEditor);
   document.getElementById('te-base-select')?.addEventListener('change', (e) => _teLoadBase(e.target.value));

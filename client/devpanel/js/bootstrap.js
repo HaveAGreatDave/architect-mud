@@ -57,6 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const val = chip.dataset.value;
       devSettings.theme = val;
       if (BUILTIN_THEME_VALUES.includes(val)) devSettings.customColors = {};
+      _themeEditLoaded = false;
       saveDevSettings(devSettings);
       applyDevSettings();
     });

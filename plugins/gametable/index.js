@@ -3,7 +3,7 @@
 
 import { query } from '../../server/models/db.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
-import { getLivePlayer, getZone } from '../../server/engine/world.js';
+import { getLivePlayer, getZone, getZoneNpcs } from '../../server/engine/world.js';
 import { GameTable, activeTables, MAX_SEATS } from './game-table.js';
 import { renderPane } from './render-pane.js';
 import { renderHandASCII } from './cards.js';
@@ -237,9 +237,54 @@ function makeActionCmd(action) {
 }
 
 const cmdCheck = makeActionCmd('check');
-const cmdCall  = makeActionCmd('call');
 const cmdFold  = makeActionCmd('fold');
 const cmdAllIn = makeActionCmd('allin');
+
+// `call` is the in-hand "match the bet" action, but `call <name>` while you're
+// not in a live hand means "call a gambler over to the table" (summon). Route
+// accordingly so the natural phrasing works without a separate verb.
+async function cmdCall(args, raw, player) {
+  const t = tableForPlayer(player);
+  const name = args.join(' ').trim();
+  const inHand = t && t.phase === 'InProgress' && t.seatedIndex(player.id) >= 0;
+  if (name && !inHand) return cmdSummon(args, raw, player);
+
+  if (!t || t.seatedIndex(player.id) < 0) return { type: 'error', message: 'You are not seated at a table.' };
+  if (t.phase !== 'InProgress') return { type: 'error', message: 'No hand in progress.' };
+  const result = t.processAction(player.id, 'call', 0);
+  if (!result.ok) return { type: 'error', message: result.error };
+  return null;
+}
+
+// Summon a gambler NPC to an open seat. `deal in <name>`, `summon <name>`, or
+// `call <name>`. Phase 1: the gambler must already be in the room; it sits
+// immediately. (Walking it in from elsewhere in the world is a later phase.)
+async function cmdSummon(args, raw, player) {
+  const t = tableInZone(player.current_zone);
+  if (!t) return { type: 'error', message: 'No poker table here.' };
+  // Sit down first — a gambler won't play an empty table (and shouldn't be left
+  // sitting alone). This also matches the intent: you call him over to join you.
+  if (t.seatedIndex(player.id) < 0) return { type: 'error', message: 'Take a seat first, then call a gambler over.' };
+  if (t.openSeats() === 0) return { type: 'error', message: 'The table is full.' };
+
+  const gamblers = getZoneNpcs(player.current_zone).filter(n => n.flags?.poker_player && (n.hp == null || n.hp > 0));
+  if (!gamblers.length) return { type: 'error', message: 'There is no one here willing to play.' };
+
+  let npc;
+  const name = args.join(' ').replace(/^in\s+/i, '').trim(); // allow "deal in <name>"
+  if (!name) {
+    npc = gamblers[0];
+  } else {
+    const r = siftResolve(name, gamblers.map(n => ({ name: n.name, npc: n })));
+    if (r.type !== 'match') return { type: 'error', message: 'No gambler here by that name.' };
+    npc = r.candidate.npc;
+  }
+
+  const result = await t.seatBot(npc);
+  if (!result.ok) return { type: 'error', message: result.error };
+  t.pushPaneAll();
+  return { type: 'output', message: `<span style="color:var(--yellow)">${npc.name} pulls out a chair and sits down.</span>` };
+}
 
 async function cmdBet(args, raw, player) {
   const t = tableForPlayer(player);
@@ -457,6 +502,8 @@ export const commands = {
   help:      cmdHelpRouter,
   check:     cmdCheck,
   call:      cmdCall,
+  deal:      cmdSummon,
+  summon:    cmdSummon,
   bet:       cmdBet,
   raise:     cmdRaise,
   fold:      cmdFold,

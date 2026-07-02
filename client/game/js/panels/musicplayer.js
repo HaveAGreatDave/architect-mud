@@ -5,6 +5,7 @@
 // window.AudioEngine locally.
 
 let _songs = [];
+let _localSongs = [];    // .MOD tapes imported from the player's machine this session
 let _instruments = {};   // id -> row
 let _samples = {};       // id -> sample metadata row
 let _currentIdx = -1;
@@ -80,6 +81,9 @@ async function _loadLibrary() {
     _songs = Array.isArray(songsData)
       ? songsData.filter(s => Array.isArray(s.channels) && s.channels.length > 0 && s.category === 'misc')
       : [];
+    // Keep any locally-imported tapes appended after the fetched library so they
+    // survive closing/reopening the panel (they're gone only on a full page reload).
+    _songs.push(..._localSongs);
     _instruments = {};
     if (Array.isArray(instsData)) for (const i of instsData) _instruments[i.id] = i;
     _samples = {};
@@ -91,10 +95,35 @@ async function _loadLibrary() {
   }
 }
 
+// ── Local .MOD import (personal jukebox) ───────────────────────────────────────
+// Load a .MOD chosen from the player's own machine, parse it in the browser (no
+// server round-trip, nothing stored), append it to the playlist and play it. These
+// personal tapes live for the session only — re-import after a reload. They can't
+// be shared in-game; players pass the raw .MOD files around themselves.
+async function _importLocalMod(file) {
+  if (!file) return;
+  const statusEl = document.getElementById('amp-lcd-status');
+  if (!window.ModParser) { if (statusEl) statusEl.textContent = '⚠  IMPORT UNAVAILABLE'; return; }
+  if (statusEl) statusEl.textContent = '…  READING TAPE';
+  try {
+    const buf = await file.arrayBuffer();
+    const { song } = window.ModParser.parseModToLocalSong(buf, file.name);
+    _localSongs.push(song);
+    _songs.push(song);
+    _renderTrackList();
+    _playIdx(_songs.length - 1);   // drop the new tape in and play it
+  } catch (e) {
+    if (statusEl) statusEl.textContent = '⚠  NOT A VALID .MOD';
+  }
+}
+
 // Attach each sample-backed instrument's `_sampleDef` so the song player uses the
 // actual sample instead of a synth waveform (mirrors the server's
 // resolveSongInstruments in plugins/audio/index.js).
 function _resolveSong(song) {
+  // Locally-imported tapes (Load .MOD) already carry their resolved instruments
+  // with inlined sample data — nothing to look up in the DB library.
+  if (song._local) return song;
   const _instrumentsById = {};
   for (const id of (song.instrument_ids || [])) {
     const inst = _instruments[id];
@@ -311,6 +340,16 @@ export function initMusicPlayerPanel() {
     _sfx(SFX.blip);
     _flashBtn('amp-next');
     _playIdx((_currentIdx + 1) % _songs.length);
+  });
+
+  // LOAD .MOD — pick a module off the player's own machine and play it locally.
+  const loadBtn = document.getElementById('amp-load-btn');
+  const loadFile = document.getElementById('amp-load-file');
+  loadBtn?.addEventListener('click', () => loadFile?.click());
+  loadFile?.addEventListener('change', () => {
+    const file = loadFile.files[0];
+    _importLocalMod(file);
+    loadFile.value = '';   // reset so re-picking the same file fires 'change' again
   });
 
   // TRACKS drawer toggle

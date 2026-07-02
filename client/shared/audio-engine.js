@@ -336,9 +336,14 @@
     const c = ensureContext();
     if (!c) return null;
     try {
-      const res = await fetch(`/api/audio/samples/${def.id}/data`);
-      const json = await res.json();
-      let data = json.data;
+      // Locally-imported samples (AMP jukebox) carry their base64 WAV inline, so
+      // there's no server row to fetch — decode the inline data directly.
+      let data = def.data;
+      if (!data) {
+        const res = await fetch(`/api/audio/samples/${def.id}/data`);
+        const json = await res.json();
+        data = json.data;
+      }
       if (!data) { console.warn('[audio] loadSample: no data for', def.id); return null; }
       // Strip data URL prefix if present (e.g. "data:audio/mpeg;base64,...")
       const comma = data.indexOf(',');

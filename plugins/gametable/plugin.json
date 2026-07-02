@@ -5,7 +5,7 @@
   "hooks": ["zone.furniturePanel"],
   "commands": [
     "join", "seat", "leave", "spectate", "watch", "say", "look", "help",
-    "check", "call", "bet", "raise", "fold", "allin",
+    "check", "call", "deal", "summon", "bet", "raise", "fold", "allin",
     "table", "board", "pot", "players", "showhand"
   ]
 }

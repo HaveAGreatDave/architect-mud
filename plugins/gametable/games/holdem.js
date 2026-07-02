@@ -77,7 +77,7 @@ function eval5(hand) {
 }
 
 // Best 5 from 7 cards (hole + community).
-function bestHand(cards) {
+export function bestHand(cards) {
   let best = null;
   for (const five of combinations(cards, 5)) {
     const result = eval5(five);
