@@ -561,30 +561,44 @@ function boardDims(state) {
 }
 
 // Decorative copper trace veins behind the puzzle graph — right-angle PCB-style
-// segments and via pads, purely cosmetic (not the interactive node graph).
+// segments, grey capacitors, and accent-lit LEDs, purely cosmetic (not the
+// interactive node graph). Traces are a fixed circuit-board green (not the
+// accent) and capacitors a fixed grey so the board always reads as a PCB
+// regardless of the target's accent colour; only the LEDs pick up the accent.
+const PCB_TRACE_GREEN = '#2f8f5e';
+const PCB_PAD_GREY = '#5c6b66';
+const PCB_CAP_GREY = '#7c8c87';
 function pcbDecorSvg(w, h) {
-  const segs = [];
+  const traceSegs = [];
+  const capSegs = [];
+  const lightSegs = [];
   const cellsX = Math.ceil(w / 60), cellsY = Math.ceil(h / 60);
   for (let i = 0; i < 34; i++) {
     const x0 = ri(cellsX) * 60, y0 = ri(cellsY) * 60;
     const horizFirst = Math.random() < 0.5;
     const dx = 60, dy = 60;
     const mid = horizFirst ? `${x0 + dx},${y0}` : `${x0},${y0 + dy}`;
-    segs.push(`<path d="M${x0},${y0} L${mid} L${x0 + dx},${y0 + dy}" fill="none" stroke="var(--ch-accent)" stroke-width="2"/>`);
-    segs.push(`<circle cx="${x0}" cy="${y0}" r="2.2" fill="var(--ch-accent)"/>`);
+    traceSegs.push(`<path d="M${x0},${y0} L${mid} L${x0 + dx},${y0 + dy}" fill="none" stroke="${PCB_TRACE_GREEN}" stroke-width="2"/>`);
+    traceSegs.push(`<circle cx="${x0}" cy="${y0}" r="2.2" fill="${PCB_PAD_GREY}"/>`);
   }
-  // A few schematic-style IC blocks with pin stubs, purely decorative.
+  // A few schematic-style capacitors (grey body, polarity stripe, two pins).
   for (let i = 0; i < 3; i++) {
     const x0 = ri(cellsX - 1) * 60 + 12, y0 = ri(cellsY - 1) * 60 + 12;
-    const cw = 34, ch2 = 20;
-    segs.push(`<rect x="${x0}" y="${y0}" width="${cw}" height="${ch2}" fill="none" stroke="var(--ch-accent)" stroke-width="1.4" opacity="0.8"/>`);
-    for (let p = 0; p < 3; p++) {
-      const px = x0 + 6 + p * 11;
-      segs.push(`<line x1="${px}" y1="${y0}" x2="${px}" y2="${y0 - 6}" stroke="var(--ch-accent)" stroke-width="1.4"/>`);
-      segs.push(`<line x1="${px}" y1="${y0 + ch2}" x2="${px}" y2="${y0 + ch2 + 6}" stroke="var(--ch-accent)" stroke-width="1.4"/>`);
-    }
+    const cw = 18, chh = 26;
+    capSegs.push(`<rect x="${x0}" y="${y0}" width="${cw}" height="${chh}" rx="3" fill="#1c2422" stroke="${PCB_CAP_GREY}" stroke-width="1.4" opacity="0.85"/>`);
+    capSegs.push(`<line x1="${x0 + 4}" y1="${y0 + 4}" x2="${x0 + 4}" y2="${y0 + chh - 4}" stroke="${PCB_CAP_GREY}" stroke-width="1" opacity="0.6"/>`);
+    capSegs.push(`<line x1="${x0 + 5}" y1="${y0 + chh}" x2="${x0 + 5}" y2="${y0 + chh + 8}" stroke="${PCB_CAP_GREY}" stroke-width="1.4"/>`);
+    capSegs.push(`<line x1="${x0 + cw - 5}" y1="${y0 + chh}" x2="${x0 + cw - 5}" y2="${y0 + chh + 8}" stroke="${PCB_CAP_GREY}" stroke-width="1.4"/>`);
   }
-  return `<g opacity="0.22">${segs.join('')}</g>`;
+  // A handful of accent-coloured LEDs scattered across the board — the only
+  // element that picks up the target's accent colour, so the board still
+  // reads as circuitry (green traces, grey components) with a coloured glow.
+  for (let i = 0; i < 5; i++) {
+    const x0 = ri(cellsX) * 60, y0 = ri(cellsY) * 60;
+    lightSegs.push(`<circle cx="${x0}" cy="${y0}" r="6" fill="var(--ch-accent)" opacity="0.35"/>`);
+    lightSegs.push(`<circle cx="${x0}" cy="${y0}" r="1.8" fill="var(--ch-accent)"/>`);
+  }
+  return `<g opacity="0.28">${traceSegs.join('')}</g><g opacity="0.4">${capSegs.join('')}</g><g opacity="0.8">${lightSegs.join('')}</g>`;
 }
 
 function traceSvg(state) {
