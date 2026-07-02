@@ -4,7 +4,9 @@
 Grows the **camera half of the [broadcast system](systems-broadcast.md)** into a player-deployable,
 PvP-capable surveillance layer. NPC police run the same tech to track crime.
 
-> Status: **planned, not built.** This doc is the agreed, build-ready design. All forks resolved.
+> Status: **Phases 1–6 code-complete** on branch `feature/surveillance-specter` (uncommitted; needs
+> live playtest). Phase 6 became a **witnessed-crime Wanted System** (below) rather than plain
+> evidence+dispatch — see [the Wanted System section](#wanted-system-phase-6).
 
 ---
 
@@ -197,10 +199,64 @@ Reuses TV rendering internals (ticker, SVG, off-air static) — the hub is "a TV
    Opened by the carried **Surveillance Deck** (`hub`, or `use deck`) or a `security_console` furniture.
    Server pushes `surveillance_hub` (open) then `surveillance_hub_update` every 5s to a `hubViewers`
    set; client sends `hubclose` on close; `player.logout` prunes. Frames = `feedSnapshot()`.
-3. **Records** — `record`, datachip export/replay/trade, `security_clips`.
-4. **Counterplay** — `sweep`→attack, Circuit Breach `hijack` (real wiring), jammer + spoofer.
-5. **Device variety** — relays, motion/audio sensors, drones (+`pilot`), tiers, vendor + crafting.
-6. **Police** — police network, evidence auto-log, VINE dispatch, tamper-a-cop-cam heat.
+3. **Records** — ✅ *code-complete (branch `feature/surveillance-specter`).*
+   `record`/`clip`/`clips`/`replay` commands + hub RECORD / CLIP→CHIP focus buttons. Recording banks a
+   frame per 5s tick into `recording_buffer` (capped at `storage_limit`); `clip` burns the buffer to a
+   `security_clips` row **and** a physical `item_datachip_<id>` (tradeable/sellable). Crimes witnessed
+   in-frame (in-memory `crimeLog` fed by `player.death`) auto-stamp `crime_tags` → the chip becomes
+   evidence (higher value/rarity). `use <datachip>` / `replay` opens the **Datachip Replay Deck**
+   ([`datachipreplay.js`](../client/game/js/panels/datachipreplay.js)) — an 80s VHS/cyberdeck: spinning
+   reels, amber timecode, VHS tracking band, scanlines, evidence sticker, transport controls + scrub.
+4. **Counterplay** — ✅ *code-complete (branch `feature/surveillance-specter`).*
+   **Find & destroy:** `smash <name>` rips a swept-out device off its mount (deletes it) and fires a
+   `⚠ TAMPER` **dead-man ping** to its owner. **Hack & hijack:** `hijack <name>` validates + arms a
+   breach and returns a `circuit_hack` message → the client opens the **Circuit Breach** minigame
+   (finally wired for real — real hacking skill + device `hack_difficulty`); on resolve it fires
+   `hijackresolve <id> <win>` → win **annexes** the device to your ownership (appears in your hub),
+   loss = 5-min rig lockout; either way the old owner gets a tamper ping. Server arms a
+   `pendingHijack` token so the resolve can't be spoofed without going through `hijack`.
+   **Jam & spoof:** `jammer`/`spoofer` are planted like any device; a live jammer statics every cam
+   in its zone (`jammed`), a spoofer feeds cams a clean empty-room frame (`spoofed`) — even into
+   recordings. Effect computed live in `deviceStatus`/`deviceFrame` via a cached `getInterferenceZones()`.
+5. **Device variety** — ✅ *code-complete (branch `feature/surveillance-specter`); crafting deferred.*
+   **Motion/audio sensors** push alerts (no video): motion via per-tick occupancy diffing (`pollSensors`),
+   audio via the `player.death` hook (gunfire/scream). Alerts land in a per-owner ring, ping the owner if
+   online, and render in a new **hub ALERTS strip** (with a chirp on arrival). **Drone piloting** —
+   `pilot [drone] <dir>` flies a drone through a zone exit (`drone_ops` check); both zones hear it (loud
+   → counterplay). **Relays** — a powered relay in a zone punches feeds through a jammer there.
+   **Tiers** surfaced on hub tiles (`kind·T2`). **Acquisition** — black-market vendor **Glitch** at *The
+   Blindspot* ([`seed-surveillance-vendor.js`](../scripts/seed-surveillance-vendor.js)) sells the full
+   kit; gear defs in [`seed-surveillance-gear.js`](../scripts/seed-surveillance-gear.js). **Crafting** —
+   [`seed-surveillance-crafting.js`](../scripts/seed-surveillance-crafting.js) adds 3 salvage components
+   (Optic Module / Signal Board / Micro Cell) + 6 `electronics` recipes (`craft <gear name>`, no station;
+   higher tiers need higher electronics rank); components also stock at Glitch.
+6. **Police / Wanted System** — ✅ *code-complete (branch `feature/surveillance-specter`).* See below.
+
+## Wanted System (Phase 6)
+
+A GTA-style **0–5 star** wanted level per player, driven by surveillance and topping out at the
+existing **Arbiters** (`plugins/emergency/index.js`). All in the "Wanted system" section of
+[`plugins/surveillance/index.js`](../plugins/surveillance/index.js).
+
+- **Witnessed-only** — `isWitnessed(zone)` = a live (un-jammed) PD cam, an on-duty `flags.police`
+  NPC, or another player present. Crime off-camera earns nothing. Triggers: witnessed homicide
+  (`player.death`, killer is a player, +2★), smashing a PD device (+1★), hijacking one (+2★).
+- **Escalation ladder** (`TIERS`, full roster per star): ★1 Patrol Officer · ★2 +Patrol Drone ·
+  ★3 ×2 Enforcement Trooper · ★4 Heavy Enforcer +Trooper · ★5 **Arbiters** (reuses
+  `enemy_arbiterclass_enforcement_unit`). Tiers 1–4 are new enemy templates
+  ([`seed-wanted-police.js`](../scripts/seed-wanted-police.js)).
+- **Pursuit = redeployment** — a 4s `wantedTick` reconciles the roster to the suspect's current zone
+  (spawns via `spawnEnemySync` + a local `WANTED_HUNTER_GRAPH` built on the Arbiter graph; units that
+  fall behind are despawned and respawned at the suspect). You can't outrun them by moving.
+- **Clears**: decay one star per 60s **unseen**; **death/arrest** wipes it; **`bribe`** an on-scene
+  cop (≤2★, `stars×250c`); **`scrub`** a `police_terminal` (hacking check). *(Disguise deferred.)*
+- **Evidence & bounty**: witnessed crimes auto-log a `security_clips` row to the PD network + an APB
+  (`sendToZone` sirens + `police.dispatch` event — the seam for real AI patrol routing later).
+  Players `submit` a crime-tagged datachip to a cop for a credit bounty.
+- **HUD**: server pushes `wanted_level`; client renders a neon ★-bar
+  ([`wanted.js`](../client/game/js/panels/wanted.js)) that pulses + stings on escalation.
+- **Deviations**: pursuit is redeploy-not-pathfollow (no new engine AI action); disguise-clear
+  deferred (needs the appearance system); "murder" = killing a *player* (only `player.death` fires).
 
 ## Resolved forks
 

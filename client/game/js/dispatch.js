@@ -18,6 +18,9 @@ import { openAtmPanel, closeAtmPanel, updateAtmPanel } from './panels/atm.js';
 import { openMediaDeckPanel, updateMediaDeckBroadcast } from './panels/mediadeck.js';
 import { openDeviceInspectPanel } from './panels/deviceinspect.js';
 import { openSurveillanceHub, updateSurveillanceHub } from './panels/surveillancehub.js';
+import { openDatachipReplay } from './panels/datachipreplay.js';
+import { openCircuitHack } from './panels/circuithack.js';
+import { updateWantedHud } from './panels/wanted.js';
 import { openTvPanel, isTvOpen, getTvActiveChannelId, appendTvMessage, updateTvTicker, applyTvOverlay, clearTvMessages, showTvOffAir, showTvOnAir, shutdownTvPanel } from './panels/tv.js';
 import { applyEspState, handleEspWarning } from './esp.js';
 import { playPokerSfx } from './poker-sfx.js';
@@ -391,6 +394,16 @@ const handlers = {
   deck_broadcast:  (msg) => { updateMediaDeckBroadcast(msg); },
   surveillance_hub: (msg) => { openSurveillanceHub(msg); },
   surveillance_hub_update: (msg) => { updateSurveillanceHub(msg); },
+  datachip_replay: (msg) => { openDatachipReplay(msg); },
+  wanted_level: (msg) => { updateWantedHud(msg.stars || 0); },
+  circuit_hack: (msg) => {
+    openCircuitHack({
+      skill: msg.skill ?? 4,
+      difficulty: msg.difficulty ?? 5,
+      atmName: msg.deviceName || 'DEVICE',
+      onResult: ({ won }) => sendCmdSilent(`hijackresolve ${msg.deviceId} ${won ? 1 : 0}`),
+    });
+  },
 
   esp_state:   (msg) => { applyEspState(msg); },
   esp_warning: (msg) => { handleEspWarning(msg); },
