@@ -7264,10 +7264,17 @@ body.esp-active #output {
 	background: #fff;
 	border: 1px solid #ccc;
 	border-radius: 8px;
+}
+.poker-deck-card::before {
+	content: '';
+	position: absolute;
+	inset: 6px;
+	border-radius: 4px;
 	background-image: repeating-linear-gradient(
-		45deg, rgba(0,0,0,0.04) 0px, rgba(0,0,0,0.04) 2px,
-		transparent 2px, transparent 8px
+		45deg, var(--accent-dim) 0px, var(--accent-dim) 4px,
+		transparent 4px, transparent 9px
 	);
+	opacity: 0.85;
 }
 .poker-deck-card:nth-child(1) { top: 0; left: 0; }
 .poker-deck-card:nth-child(2) { top: -3px; left: -3px; }
@@ -7380,11 +7387,18 @@ body.esp-active #output {
 .poker-card-back {
 	background: #fff;
 	border-color: #ccc;
-	background-image: repeating-linear-gradient(
-		45deg, rgba(0,0,0,0.04) 0px, rgba(0,0,0,0.04) 2px,
-		transparent 2px, transparent 8px
-	);
 	transform: rotateY(0deg);
+}
+.poker-card-back::before {
+	content: '';
+	position: absolute;
+	inset: 6px;
+	border-radius: 4px;
+	background-image: repeating-linear-gradient(
+		45deg, var(--accent-dim) 0px, var(--accent-dim) 4px,
+		transparent 4px, transparent 9px
+	);
+	opacity: 0.85;
 }
 .poker-card-front {
 	transform: rotateY(180deg);
