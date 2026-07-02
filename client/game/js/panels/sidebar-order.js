@@ -1,11 +1,21 @@
 const ORDER_KEY = 'architect_sidebar_order';
 const HIDDEN_KEY = 'architect_sidebar_hidden';
+const COLLAPSED_KEY = 'architect_sidebar_collapsed';
+const SIZE_KEY = 'architect_sidebar_sizes';
 const DEFAULT_ORDER = ['minimap-section', 'vitals-section', 'location-section', 'env-section', 'enemy-section', 'chat-section'];
 
 let locked = true;
+let mode = 'move'; // 'move' (drag to reorder) | 'resize' (drag edge to size) — only meaningful while unlocked
+
+// Single-colour padlock icons (Feather-style). Stroke = currentColor, so they
+// pick up the theme accent from CSS. Closed when locked, open when unlocked.
+const SVG_ATTRS = 'viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
+const LOCK_SVG = `<svg ${SVG_ATTRS}><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`;
+const UNLOCK_SVG = `<svg ${SVG_ATTRS}><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>`;
 let dragSrc = null;
 let dropInfo = null;
 let lastClientY = null;
+let lastClientX = null;
 let dropped = false; // true once onSidebarDrop fires, so onDragEnd doesn't double-execute
 let pendingHide = null; // section dragged out a side edge, hidden on release
 
@@ -17,9 +27,18 @@ export function initSidebarOrder() {
     if (el) park.appendChild(el);
   }
   applyLayout(loadLayout());
-  document.getElementById('sidebar-lock-btn').addEventListener('click', toggleLock);
+  const lockBtn = document.getElementById('sidebar-lock-btn');
+  lockBtn.innerHTML = LOCK_SVG;
+  lockBtn.addEventListener('click', toggleLock);
   document.getElementById('sidebar-reset-btn')?.addEventListener('click', resetOrder);
+  document.getElementById('sidebar-move-btn')?.addEventListener('click', () => setMode('move'));
+  document.getElementById('sidebar-resize-btn')?.addEventListener('click', () => setMode('resize'));
+  document.getElementById('sidebar-size-reset-btn')?.addEventListener('click', resetSizes);
   initRestoreControl();
+  initResizeHandles();
+  applySizes();
+  updateRestoreVisibility();
+  initCollapse();
   const sidebar = document.getElementById('sidebar');
   sidebar.addEventListener('dragover', onSidebarDragOver);
   sidebar.addEventListener('drop', onSidebarDrop);
@@ -48,6 +67,9 @@ function getHiddenPark() {
 }
 
 function sectionLabel(el) {
+  // Custom panels carry control glyphs (⚙ ✕ ▾) in their label; read the clean title.
+  const custom = el.querySelector('.cpanel-title');
+  if (custom) return custom.textContent.trim();
   return el.querySelector('.sidebar-label')?.textContent.trim() || el.id;
 }
 
@@ -59,6 +81,7 @@ function hideSection(el) {
   if (!ids.includes(el.id)) { ids.push(el.id); saveHidden(ids); }
   saveLayout();
   renderRestoreMenu();
+  updateRestoreVisibility();
 }
 
 function restoreSection(id) {
@@ -70,6 +93,19 @@ function restoreSection(id) {
   }
   saveLayout();
   renderRestoreMenu();
+  updateRestoreVisibility();
+}
+
+// The panels list only shows while the sidebar is unlocked — hiding and
+// re-adding are both edit-mode gestures. Locking clears it away.
+function updateRestoreVisibility() {
+  const restore = document.getElementById('sidebar-restore');
+  if (!restore) return;
+  restore.style.display = locked ? 'none' : '';
+  if (locked) {
+    const menu = document.getElementById('sidebar-restore-menu');
+    if (menu) menu.style.display = 'none';
+  }
 }
 
 function initRestoreControl() {
@@ -106,6 +142,143 @@ function renderRestoreMenu() {
   }
 }
 
+// --- collapsible panels ---
+
+function loadCollapsed() {
+  try { return JSON.parse(localStorage.getItem(COLLAPSED_KEY)) || []; } catch { return []; }
+}
+
+function saveCollapsed(ids) {
+  localStorage.setItem(COLLAPSED_KEY, JSON.stringify(ids));
+}
+
+function setCollapsed(section, btn, on) {
+  section.classList.toggle('collapsed', on);
+  btn.textContent = on ? '▸' : '▾';
+  btn.title = on ? 'Expand panel' : 'Collapse panel';
+}
+
+// Collapse/expand any section without persisting — used by the accordion
+// controller for transient "push others aside" behaviour. Updates whichever
+// caret the section has (standard collapse button or a custom accordion caret).
+export function collapseSection(section, on) {
+  section.classList.toggle('collapsed', on);
+  const btn = section.querySelector('.sidebar-collapse-btn');
+  if (btn) { btn.textContent = on ? '▸' : '▾'; btn.title = on ? 'Expand panel' : 'Collapse panel'; }
+  const caret = section.querySelector('.cpanel-caret');
+  if (caret) caret.textContent = on ? '▸' : '▾';
+}
+
+export function isSectionCollapsed(section) {
+  return section.classList.contains('collapsed');
+}
+
+// Wire one section's collapse button. Idempotent — safe to call again for a
+// late-mounted custom panel.
+function wireCollapse(section) {
+  const btn = section.querySelector('.sidebar-collapse-btn');
+  if (!btn || btn._collapseWired) return;
+  btn._collapseWired = true;
+  setCollapsed(section, btn, new Set(loadCollapsed()).has(section.id));
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const on = !section.classList.contains('collapsed');
+    setCollapsed(section, btn, on);
+    const ids = loadCollapsed().filter(x => x !== section.id);
+    if (on) ids.push(section.id);
+    saveCollapsed(ids);
+  });
+}
+
+function initCollapse() {
+  document.querySelectorAll('#sidebar .sidebar-section').forEach(wireCollapse);
+}
+
+// --- resizable panels ---
+
+let resizeSec = null, resizeStartY = 0, resizeStartH = 0;
+
+function loadSizes() {
+  try { return JSON.parse(localStorage.getItem(SIZE_KEY)) || {}; } catch { return {}; }
+}
+
+function saveSizes() {
+  const sizes = {};
+  document.querySelectorAll('#sidebar .sidebar-section').forEach(sec => {
+    const basis = sec.style.flexBasis;
+    if (sec.id && basis && basis.endsWith('px')) sizes[sec.id] = parseFloat(basis);
+  });
+  localStorage.setItem(SIZE_KEY, JSON.stringify(sizes));
+}
+
+function applySizes() {
+  const sizes = loadSizes();
+  document.querySelectorAll('#sidebar .sidebar-section').forEach(sec => {
+    if (sizes[sec.id]) sizeSection(sec, sizes[sec.id]);
+  });
+}
+
+function sizeSection(sec, px) {
+  // Fix the panel's height; its .sidebar-section-body scrolls any overflow.
+  sec.style.flex = `0 0 ${px}px`;
+}
+
+function resetSizes() {
+  localStorage.removeItem(SIZE_KEY);
+  document.querySelectorAll('#sidebar .sidebar-section').forEach(sec => {
+    sec.style.flex = '';
+  });
+}
+
+// Prepare one section for resizing: wrap its content (everything below the
+// label) in a scroll container, then add the resize handle. The handle sits
+// outside the scroller so it never scrolls away — a shrunk panel scrolls its
+// body instead of clipping. Idempotent.
+function wireResizeHandle(sec) {
+  if (sec.querySelector(':scope > .sidebar-resize-handle')) return;
+  const label = sec.querySelector(':scope > .sidebar-label');
+  const body = document.createElement('div');
+  body.className = 'sidebar-section-body';
+  [...sec.children].forEach(child => { if (child !== label) body.appendChild(child); });
+  if (label) label.after(body); else sec.prepend(body);
+  const handle = document.createElement('div');
+  handle.className = 'sidebar-resize-handle';
+  handle.addEventListener('mousedown', onResizeStart);
+  sec.appendChild(handle);
+}
+
+function initResizeHandles() {
+  document.querySelectorAll('#sidebar .sidebar-section').forEach(wireResizeHandle);
+}
+
+function onResizeStart(e) {
+  const sec = e.target.closest('.sidebar-section');
+  if (!sec) return;
+  e.preventDefault();
+  e.stopPropagation();
+  resizeSec = sec;
+  resizeStartY = e.clientY;
+  resizeStartH = sec.getBoundingClientRect().height;
+  sec.classList.add('resizing');
+  document.addEventListener('mousemove', onResizeMove);
+  document.addEventListener('mouseup', onResizeEnd);
+}
+
+function onResizeMove(e) {
+  if (!resizeSec) return;
+  const h = Math.max(40, resizeStartH + (e.clientY - resizeStartY));
+  sizeSection(resizeSec, h);
+}
+
+function onResizeEnd() {
+  if (!resizeSec) return;
+  resizeSec.classList.remove('resizing');
+  resizeSec = null;
+  document.removeEventListener('mousemove', onResizeMove);
+  document.removeEventListener('mouseup', onResizeEnd);
+  saveSizes();
+}
+
 function loadLayout() {
   try {
     const raw = JSON.parse(localStorage.getItem(ORDER_KEY));
@@ -117,8 +290,10 @@ function loadLayout() {
 
 function saveLayout() {
   const items = [];
-  document.querySelectorAll('#sidebar .sidebar-section, #sidebar .sidebar-spacer').forEach(el => {
-    if (el.classList.contains('sidebar-section') && el.id) {
+  document.querySelectorAll('#sidebar .sidebar-section, #sidebar .sidebar-spacer, #sidebar .sidebar-header').forEach(el => {
+    if (el.classList.contains('sidebar-header')) {
+      items.push({type: 'header'});
+    } else if (el.classList.contains('sidebar-section') && el.id) {
       items.push({type: 'section', id: el.id});
     } else if (el.classList.contains('sidebar-spacer')) {
       const flex = parseFloat(el.style.flexGrow) || 1;
@@ -136,14 +311,22 @@ function makeSpacer(flex = 1) {
 }
 
 function applyLayout(items) {
+  const sidebar = document.getElementById('sidebar');
   const dropEnd = document.getElementById('sidebar-drop-end');
+  const header = sidebar.querySelector('.sidebar-header');
   document.querySelectorAll('#sidebar .sidebar-spacer').forEach(s => s.remove());
+
+  // The header is movable, but a layout without a header entry (legacy or after a
+  // reset) defaults it back to the top of the sidebar.
+  if (header && !(items && items.some(it => it.type === 'header'))) sidebar.prepend(header);
 
   const hidden = new Set(loadHidden());
   const placed = new Set();
   if (items) {
     for (const item of items) {
-      if (item.type === 'section') {
+      if (item.type === 'header') {
+        if (header) dropEnd.before(header);
+      } else if (item.type === 'section') {
         if (hidden.has(item.id)) continue;
         const el = document.getElementById(item.id);
         if (el) { dropEnd.before(el); placed.add(item.id); }
@@ -164,31 +347,93 @@ export function resetOrder() {
   document.querySelectorAll('#sidebar .sidebar-spacer').forEach(s => s.remove());
   localStorage.removeItem(ORDER_KEY);
   saveHidden([]); // restore any hidden panels
+  saveCollapsed([]); // expand any collapsed panels
+  resetSizes(); // clear custom panel heights
+  document.querySelectorAll('#sidebar .sidebar-collapse-btn').forEach(btn => {
+    const section = btn.closest('.sidebar-section');
+    if (section) setCollapsed(section, btn, false);
+  });
   applyLayout(null);
   renderRestoreMenu();
+  updateRestoreVisibility();
+}
+
+// --- dynamic (custom) sections ---
+
+// Inject a runtime-built .sidebar-section and give it the full treatment the
+// hardcoded sections get: collapse button, resize handle, saved size, drag
+// state, and a slot in the persisted order. Idempotent and safe both during
+// boot (before initSidebarOrder lays out) and at runtime (after).
+// persist=false during boot: the section is inserted so initSidebarOrder's
+// applyLayout can find it by id and restore its saved slot — writing the order
+// here first would clobber that saved slot with the naive bottom position.
+export function mountSection(el, persist = true) {
+  const dropEnd = document.getElementById('sidebar-drop-end');
+  if (!document.getElementById(el.id)) {
+    if (loadHidden().includes(el.id)) getHiddenPark().appendChild(el);
+    else dropEnd.before(el);
+  }
+  wireCollapse(el);
+  wireResizeHandle(el);
+  const sizes = loadSizes();
+  if (sizes[el.id]) sizeSection(el, sizes[el.id]);
+  if (!locked && mode === 'move' && document.getElementById('sidebar').contains(el)) {
+    el.draggable = true;
+    attachDragHandlers(el);
+  }
+  if (persist) saveLayout();
+}
+
+// Remove a custom section and purge it from every layout store.
+export function unmountSection(id) {
+  document.getElementById(id)?.remove();
+  saveHidden(loadHidden().filter(x => x !== id));
+  saveCollapsed(loadCollapsed().filter(x => x !== id));
+  const sizes = loadSizes();
+  delete sizes[id];
+  localStorage.setItem(SIZE_KEY, JSON.stringify(sizes));
+  saveLayout();
+  renderRestoreMenu();
+  updateRestoreVisibility();
 }
 
 function toggleLock() {
   locked = !locked;
   const btn = document.getElementById('sidebar-lock-btn');
-  const sidebar = document.getElementById('sidebar');
-  btn.textContent = locked ? '🔒' : '🔓';
+  btn.innerHTML = locked ? LOCK_SVG : UNLOCK_SVG;
   btn.classList.toggle('unlocked', !locked);
   btn.title = locked ? 'Unlock to reorder sidebar sections' : 'Lock sidebar order';
-  sidebar.classList.toggle('drag-mode', !locked);
 
-  // The restore dropdown only exists while unlocked.
-  const restore = document.getElementById('sidebar-restore');
-  if (restore) {
-    restore.style.display = locked ? 'none' : '';
-    const menu = document.getElementById('sidebar-restore-menu');
-    if (locked) { if (menu) menu.style.display = 'none'; }
-    else renderRestoreMenu();
-  }
-  sidebar.querySelectorAll('.sidebar-section').forEach(sec => {
+  // Restore control: only shown while unlocked.
+  updateRestoreVisibility();
+  if (!locked) renderRestoreMenu();
+  applyEditState();
+}
+
+function setMode(m) {
+  if (locked || m === mode) return;
+  mode = m;
+  applyEditState();
+}
+
+// Reflect the current lock + mode onto the sidebar: which edit class is active,
+// whether the mode buttons show, and whether sections are drag-reorderable.
+function applyEditState() {
+  const sidebar = document.getElementById('sidebar');
+  const editing = !locked;
+  sidebar.classList.toggle('drag-mode', editing && mode === 'move');
+  sidebar.classList.toggle('resize-mode', editing && mode === 'resize');
+
+  const modes = document.getElementById('sidebar-modes');
+  if (modes) modes.style.display = editing ? '' : 'none';
+  document.getElementById('sidebar-move-btn')?.classList.toggle('active', mode === 'move');
+  document.getElementById('sidebar-resize-btn')?.classList.toggle('active', mode === 'resize');
+
+  const canDrag = editing && mode === 'move';
+  sidebar.querySelectorAll('.sidebar-section, .sidebar-header').forEach(sec => {
     if (!sidebar.contains(sec)) return;
-    sec.draggable = !locked;
-    if (!locked) attachDragHandlers(sec);
+    sec.draggable = canDrag;
+    if (canDrag) attachDragHandlers(sec);
     else detachDragHandlers(sec);
   });
 }
@@ -204,6 +449,12 @@ function detachDragHandlers(el) {
 }
 
 function onDragStart(e) {
+  // Grab the header by its bar, not by the lock/panels buttons on it, so those stay
+  // clickable while unlocked.
+  if (this.classList.contains('sidebar-header') && e.target.closest('button')) {
+    e.preventDefault();
+    return;
+  }
   dragSrc = this;
   dropped = false;
   e.dataTransfer.effectAllowed = 'move';
@@ -214,8 +465,8 @@ function onDragEnd() {
   this.classList.remove('dragging');
   hideDropIndicator();
 
-  // Cursor released outside the sidebar: either hide (dragged off a side edge)
-  // or execute the clamped drop (slipped off a vertical edge in dragleave).
+  // Cursor released outside the sidebar: either hide (dragged into the game view)
+  // or execute the clamped drop (slipped off the top/bottom edge in dragleave).
   if (!dropped) {
     if (pendingHide) hideSection(pendingHide);
     else if (dropInfo) { executeDrop(dropInfo); saveLayout(); }
@@ -225,6 +476,7 @@ function onDragEnd() {
   dropInfo = null;
   pendingHide = null;
   lastClientY = null;
+  lastClientX = null;
   dragSrc = null;
 }
 
@@ -237,7 +489,6 @@ function computeDropInfo(clientY) {
   const items = [...sidebar.children].filter(el =>
     el !== dragSrc &&
     el !== dropEnd &&
-    !el.classList.contains('sidebar-header') &&
     el.id !== 'sidebar-drop-indicator'
   );
 
@@ -246,7 +497,8 @@ function computeDropInfo(clientY) {
     const r = el.getBoundingClientRect();
     if (clientY > r.bottom) continue;
 
-    if (el.classList.contains('sidebar-section')) {
+    // The header bar snaps like a section (movable, but never a spacer target).
+    if (el.classList.contains('sidebar-section') || el.classList.contains('sidebar-header')) {
       // Snap to before/after only when cursor is actually over a section
       if (clientY <= r.top + r.height / 2) {
         return {kind: 'before', el, lineY: r.top - sr.top};
@@ -289,9 +541,18 @@ function onSidebarDragOver(e) {
   e.preventDefault();
   e.dataTransfer.dropEffect = 'move';
   lastClientY = e.clientY;
+  lastClientX = e.clientX;
   pendingHide = null; // back inside the sidebar — cancel any pending hide
   dropInfo = computeDropInfo(e.clientY);
   showDropIndicator(dropInfo.lineY, dropInfo.kind === 'before' || dropInfo.kind === 'after');
+}
+
+// The game view sits on whichever side of the sidebar has more room (handles the
+// sidebar being docked either left or right). A panel is only hidden when dragged
+// out through that inner, game-facing edge.
+function exitedTowardGame(sr, x) {
+  const gameOnLeft = sr.left >= (window.innerWidth - sr.right);
+  return gameOnLeft ? x <= sr.left : x >= sr.right;
 }
 
 function onSidebarDragLeave(e) {
@@ -300,20 +561,23 @@ function onSidebarDragLeave(e) {
   const sidebar = document.getElementById('sidebar');
   const sr = sidebar.getBoundingClientRect();
 
-  // Clamp to top/bottom if cursor exited via a vertical edge so the drop still
-  // fires at the boundary when the user releases outside the sidebar.
-  // Side exits (left/right) cancel the pending drop.
+  // What an exit means depends on which edge the cursor left through:
+  //  - Top/bottom: clamp to the boundary and still drop (place at start/end), so
+  //    dragging a panel off the bottom to make it last never deletes it.
+  //  - Toward the game screen (the inner, content-facing edge): hide the panel.
+  //    This is the only way to remove one — a deliberate drag into the game view.
+  //  - Away from the game (outer edge): cancel the drop, keep the panel in place.
+  dropInfo = null;
+  pendingHide = null;
   if (lastClientY !== null) {
     if (lastClientY >= sr.bottom) {
       dropInfo = computeDropInfo(sr.bottom); // snaps to 'end'
     } else if (lastClientY <= sr.top) {
       dropInfo = computeDropInfo(sr.top);    // snaps to before first section
-    } else {
-      dropInfo = null;      // side exit — drop is cancelled...
-      pendingHide = dragSrc; // ...and the section is hidden on release
+    } else if (lastClientX !== null && exitedTowardGame(sr, lastClientX)) {
+      // Never the header — you'd lose the lock control.
+      pendingHide = dragSrc && dragSrc.classList.contains('sidebar-section') ? dragSrc : null;
     }
-  } else {
-    dropInfo = null;
   }
 
   hideDropIndicator();

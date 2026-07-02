@@ -28,14 +28,14 @@ const SFX = {
     { waveform: 'noise', delay: 0.27, filter: { type: 'highpass', freq: 4200, q: 0.7 },
       adsr: { a: 0.001, d: 0.02, s: 0, r: 0.015 }, gain: 0.11 },
   ] } },
-  // Heavy low thud + plastic click as the cassette seats home.
+  // Dull "clunk" as the cassette seats home: a fast pitch drop reads as a body-
+  // thud (not a note), with filtered noise carrying the plastic knock. No held
+  // tone — the melodic mid-layer is gone so it lands flat and mechanical.
   thunk: { id: 'amp-thunk', category: 'sfx', priority: 7, config: { duration: 0.2, layers: [
-    { waveform: 'sine', freq: 120, pitchBend: { to: 52, time: 0.08 },
-      adsr: { a: 0.001, d: 0.12, s: 0, r: 0.05 }, gain: 0.6 },
-    { waveform: 'triangle', freq: 90, pitchBend: { to: 58, time: 0.06 },
-      adsr: { a: 0.001, d: 0.08, s: 0, r: 0.04 }, gain: 0.32 },
-    { waveform: 'noise', filter: { type: 'lowpass', freq: 850, q: 1 },
-      adsr: { a: 0.001, d: 0.03, s: 0, r: 0.02 }, gain: 0.28 },
+    { waveform: 'sine', freq: 100, pitchBend: { to: 38, time: 0.04 },
+      adsr: { a: 0.001, d: 0.1, s: 0, r: 0.04 }, gain: 0.55 },
+    { waveform: 'noise', filter: { type: 'lowpass', freq: 700, q: 1.2 },
+      adsr: { a: 0.001, d: 0.05, s: 0, r: 0.03 }, gain: 0.42 },
   ] } },
   // Tape sliding back out of the slot, ending on the spring-loaded latch pop.
   slide: { id: 'amp-slide', category: 'sfx', priority: 7, config: { duration: 0.5, layers: [
@@ -44,11 +44,14 @@ const SFX = {
     { waveform: 'triangle', freq: 480, delay: 0.3, pitchBend: { to: 260, time: 0.08 },
       adsr: { a: 0.001, d: 0.07, s: 0, r: 0.04 }, gain: 0.22 },
   ] } },
-  // Brief capstan spin-up as the reels engage and a song begins.
-  spin: { id: 'amp-spin', category: 'sfx', priority: 7, config: { duration: 0.34, layers: [
-    { waveform: 'sawtooth', freq: 38, pitchBend: { to: 118, time: 0.24 },
-      filter: { type: 'lowpass', freq: 760, q: 2 }, vibrato: { rate: 30, depth: 10 },
-      adsr: { a: 0.05, d: 0.05, s: 0.7, r: 0.12 }, gain: 0.12 },
+  // Steady "whirrrrrr" of the capstan as the reels engage and a song begins.
+  // A held low motor tone with vibrato flutter (no rising pitch glide, so it
+  // reads as a running motor rather than a musical whoop) plus reel hiss on top.
+  spin: { id: 'amp-spin', category: 'sfx', priority: 7, config: { duration: 0.6, layers: [
+    { waveform: 'sawtooth', freq: 80, filter: { type: 'lowpass', freq: 620, q: 2 },
+      vibrato: { rate: 26, depth: 12 }, adsr: { a: 0.08, d: 0.06, s: 0.75, r: 0.2 }, gain: 0.1 },
+    { waveform: 'noise', filter: { type: 'bandpass', freq: 1400, q: 0.9 },
+      adsr: { a: 0.08, d: 0.1, s: 0.5, r: 0.2 }, gain: 0.07 },
   ] } },
   // Short transport blip for Next / Prev.
   blip: { id: 'amp-blip', category: 'sfx', priority: 7, config: { duration: 0.08, layers: [
@@ -63,7 +66,8 @@ const T_EJECT   = 640;   // slide-out + glass swing (matches amp-cassette-rise C
 const T_SEAT    = 820;   // cassette lands home mid-drop → thunk
 const T_LABEL   = 380;   // update reels/label mid-drop so it reads as the new tape
 const T_INSERT  = 1050;  // drop finishes, glass closes (matches amp-cassette-drop CSS)
-const T_SPIN    = 180;   // capstan whir lead-in before the first note
+const T_REELS   = 1000;  // beat after the glass closes before the capstan whirs and the reels break inertia
+const T_ENGAGE  = 260;   // reels spin up, then the play key depresses and the music engages
 
 // ── Library fetch ─────────────────────────────────────────────────────────────
 
@@ -182,16 +186,23 @@ function _playIdx(idx) {
 
 // Spin up the capstan and start the already-seated tape. Shared by _playIdx (end
 // of the insert animation) and Play-from-stopped (tape already in the deck).
-function _startPlayback(token) {
+// After `reelDelay`, the capstan whirs and the reels break inertia; a moment
+// later the play key depresses and the music engages.
+function _startPlayback(token, reelDelay = T_REELS) {
   if (token !== _seq) return;
-  _sfx(SFX.spin);
+  const panel = document.getElementById('musicplayer-panel');
+  setTimeout(() => {
+    if (token !== _seq) return;
+    _sfx(SFX.spin);
+    panel?.querySelectorAll('.amp-reel').forEach(r => r.classList.add('spinning'));
+  }, reelDelay);
   setTimeout(() => {
     if (token !== _seq) return;
     _loaded = true;
     _playing = true;
     window.AudioEngine?.playMusic(_resolveSong(_songs[_currentIdx]));
     _updateDisplay();
-  }, T_SPIN);
+  }, reelDelay + T_ENGAGE);
 }
 
 function _stop() {
@@ -323,8 +334,9 @@ export function initMusicPlayerPanel() {
   document.getElementById('amp-play').addEventListener('click', () => {
     if (_playing) { _stop(); return; }
     if (!_songs.length) return;
-    // Tape already seated → just spin it back up; otherwise load one from scratch.
-    if (_loaded && _currentIdx >= 0) _startPlayback(++_seq);
+    // Tape already seated → just spin it back up (short capstan lead-in, no full
+    // insertion beat); otherwise load one from scratch.
+    if (_loaded && _currentIdx >= 0) _startPlayback(++_seq, 220);
     else _playIdx(_currentIdx < 0 ? 0 : _currentIdx);
   });
   document.getElementById('amp-stop').addEventListener('click', _stop);

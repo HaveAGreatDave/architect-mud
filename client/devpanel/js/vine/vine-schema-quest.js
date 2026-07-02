@@ -46,6 +46,21 @@ function _qHelp(nodeId, desc, example) {
     </div>`;
 }
 
+// Reverse-link helpers: does an NPC's dialogue_tree reference this quest anywhere?
+// Structure-agnostic deep scan for a matching `quest_id` (set by START_QUEST/TURN_IN/
+// COMPLETE/ADVANCE dialogue actions), so it can't drift from the dialogue node shape.
+function _qParseTree(t) {
+  if (!t) return null;
+  if (typeof t === 'string') { try { return JSON.parse(t); } catch { return null; } }
+  return t;
+}
+function _questReferencedIn(obj, questId) {
+  if (!obj || typeof obj !== 'object') return false;
+  if (Array.isArray(obj)) return obj.some(v => _questReferencedIn(v, questId));
+  if (obj.quest_id === questId) return true;
+  return Object.values(obj).some(v => v && typeof v === 'object' && _questReferencedIn(v, questId));
+}
+
 // The single target field's label + placeholder depend on the objective kind.
 const _Q_KINDS = [['kill', 'Kill'], ['give', 'Give / turn in'], ['visit', 'Visit']];
 function _qTargetLabel(kind) {
@@ -70,7 +85,30 @@ const _questNodeDefs = {
       ${_qField('Name', _qInput('data.name', n.data.name, 'Pest Control'))}
       ${_qField('Description', _qTextarea('data.description', n.data.description, 3))}
       ${_qField('Repeatable?', _qSelect('data.repeatable', [[false, 'One-time'], [true, 'Repeatable']], !!n.data.repeatable))}
+      <div id="q-offered-by-${id}"></div>
     `,
+    // Reverse cross-link: list NPCs whose dialogue offers this quest, each a jump into
+    // that NPC's dialogue editor. No stored field — scanned live from /npcs.
+    afterRenderProperties(propsEl, node, editor, nodeId) {
+      const questId = node.data._questId;
+      const host = propsEl.querySelector(`#q-offered-by-${nodeId}`);
+      if (!questId || !host) return;
+      directAPI('/npcs').then(npcs => {
+        if (!Array.isArray(npcs)) return;
+        const offerers = npcs.filter(npc => _questReferencedIn(_qParseTree(npc.dialogue_tree), questId));
+        if (!offerers.length) return;
+        host.innerHTML = `<label style="${_QL}">Offered by (dialogue)</label>`;
+        offerers.forEach(npc => {
+          const b = document.createElement('button');
+          b.className = 'action-btn';
+          b.style.cssText = 'font-size:10px;margin-bottom:5px;width:100%';
+          b.textContent = `💬 ${_escQ(npc.name || npc.id)} ▸`;
+          b.title = "Commit this graph and open this NPC's dialogue in VINE";
+          b.onclick = () => vineJumpTo('dialogue', npc.id);
+          host.appendChild(b);
+        });
+      }).catch(() => {});
+    },
   },
 
   objective: {
@@ -174,7 +212,9 @@ window.VineQuestSchema = {
     const nodes = {};
     const edges = [];
 
-    nodes.quest = { type: 'quest', x: 40, y: 40, data: { name: rec.name || '', description: rec.description || '', repeatable: !!rec.repeatable } };
+    // `_questId` is a non-persisted hint (toQuest ignores it) so the quest node can
+    // reverse-scan NPC dialogue for "offered by" links. Absent for brand-new quests.
+    nodes.quest = { type: 'quest', x: 40, y: 40, data: { name: rec.name || '', description: rec.description || '', repeatable: !!rec.repeatable, _questId: rec.id || '' } };
 
     // Objective nodes + gating edges.
     const dependedOn = new Set();

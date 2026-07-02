@@ -242,7 +242,16 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path==='/furniture' && method==='POST') return requireDev(auth, ()=>apiCreateFurniture(body));
   if (path.startsWith('/furniture/') && method==='PUT') return requireDev(auth, ()=>apiUpdateFurniture(path.split('/')[2],body));
   if (path.startsWith('/furniture/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteFurniture(path.split('/')[2]));
-  if (path==='/factions' && method==='GET') { const {rows}=await query('SELECT * FROM factions'); return {status:200,body:rows}; }
+  if (path==='/factions' && method==='GET') {
+    // NPC factions now live in the unified orgs table (is_npc=1). Reconstruct the
+    // legacy shape (incl. hostile_to/friendly_to) from orgs + org_relations.
+    const { rows } = await query(`
+      SELECT o.id, o.name, o.description, o.color,
+        COALESCE((SELECT jsonb_agg(r.other_org_id) FROM org_relations r WHERE r.org_id=o.id AND r.stance='hostile'), '[]'::jsonb) AS hostile_to,
+        COALESCE((SELECT jsonb_agg(r.other_org_id) FROM org_relations r WHERE r.org_id=o.id AND r.stance='friendly'), '[]'::jsonb) AS friendly_to
+      FROM orgs o WHERE o.is_npc = 1 ORDER BY o.name`);
+    return { status:200, body:rows };
+  }
   if (path==='/recipes' && method==='GET') return requireDev(auth, apiGetRecipes);
   if (path==='/recipes' && method==='POST') return requireDev(auth, ()=>apiCreateRecipe(body));
   if (path.startsWith('/recipes/') && method==='PUT') return requireDev(auth, ()=>apiUpdateRecipe(path.split('/')[2],body));

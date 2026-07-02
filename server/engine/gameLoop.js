@@ -946,7 +946,9 @@ async function rentCollectionTick() {
   if (todayHour !== 0 || todayMin !== 0) return;
 
   const { rows: apts } = await query(
-    `SELECT * FROM apartments WHERE owner_id IS NOT NULL AND date_rented IS NOT NULL`
+    // owner_type='player' excludes corp HQs — they have no weekly rent in Phase 0
+    // (and their owner_id is an org id, not a player, which the loop below assumes).
+    `SELECT * FROM apartments WHERE owner_id IS NOT NULL AND date_rented IS NOT NULL AND owner_type = 'player'`
   );
 
   for (const apt of apts) {

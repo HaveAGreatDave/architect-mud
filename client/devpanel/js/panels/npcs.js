@@ -920,8 +920,17 @@ function npcOpenVine() {
       const treeOut = VineDialogueSchema.toDialogueTree(savedGraph);
       document.getElementById('f-dialogue_tree').value = JSON.stringify(treeOut, null, 2);
       toast('Dialogue saved to form — click Save to persist.');
-    }
+    },
+    { label: '🧠 AI Behaviour ▸', title: "Commit and open this NPC's AI behaviour graph", onClick: () => npcJumpToSibling('ai') }
   );
+}
+
+// Hop between an NPC's dialogue and AI behaviour graphs without leaving the record:
+// commit the current graph to its form, then open the sibling editor (which re-reads
+// the same NPC edit form).
+function npcJumpToSibling(which) {
+  vineModalSave();
+  if (which === 'ai') npcOpenVineAI(); else npcOpenVine();
 }
 
 function npcOpenVineAI() {
@@ -937,7 +946,8 @@ function npcOpenVineAI() {
       const out = VineAISchema.toAiGraph(savedGraph);
       document.getElementById('f-behaviour_graph').value = JSON.stringify(out, null, 2);
       toast('Behaviour graph saved to form — click Save to persist.');
-    }
+    },
+    { label: '💬 Dialogue ▸', title: "Commit and open this NPC's dialogue graph", onClick: () => npcJumpToSibling('dialogue') }
   );
 }
 

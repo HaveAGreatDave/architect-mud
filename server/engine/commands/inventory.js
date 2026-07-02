@@ -274,15 +274,23 @@ async function cmdUse(targetStr, player, broadcast) {
     `SELECT pi.*, i.name, d.id as drug_id FROM player_inventory pi
      JOIN items i ON i.id = pi.item_id
      JOIN drugs d ON d.item_id = i.id
-     WHERE pi.player_id=$1 AND i.name ILIKE $2 LIMIT 1`,
+     WHERE pi.player_id=$1 AND (i.name ILIKE $2 OR pi.custom_data->>'name' ILIKE $2) LIMIT 1`,
     [player.id, `%${targetStr}%`]
   );
   if (drugRows.length) {
     const item = drugRows[0];
-    // Synthesized drugs carry a potency multiplier baked into the inventory row.
+    // Synthesized drugs carry a potency multiplier baked into the inventory row;
+    // spliced compounds also carry their whole composed effects blob inline.
     const cd = typeof item.custom_data === 'string' ? (() => { try { return JSON.parse(item.custom_data); } catch { return {}; } })() : (item.custom_data || {});
-    const potencyMult = Number(cd?.potency) || 1;
-    const result = await useDrug(player, item.drug_id, broadcast, { potencyMult });
+    const opts = { potencyMult: Number(cd?.potency) || 1 };
+    if (cd && cd.effects) {
+      opts.inlineEffects = cd.effects;
+      opts.displayName = cd.name || item.name;
+      opts.overdoseThreshold = cd.overdose_threshold;
+      opts.durationSeconds = cd.duration_seconds;
+      opts.doseWeight = cd.dose_weight;
+    }
+    const result = await useDrug(player, item.drug_id, broadcast, opts);
     if (!result.success) return { type:'error', message: result.message };
     if (item.quantity > 1) await query('UPDATE player_inventory SET quantity=quantity-1 WHERE id=$1', [item.id]);
     else await query('DELETE FROM player_inventory WHERE id=$1', [item.id]);

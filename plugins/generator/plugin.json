@@ -1,0 +1,8 @@
+{
+  "name": "generator",
+  "version": "1.0.0",
+  "description": "Portable fuel generators: DEPLOY a unit, REFUEL it from a fuel can, CONNECT it to a building junction box, and run it to back-feed power during an outage. Control hub verb is `generator`/`gen`.",
+  "hooks": ["furniture.describe"],
+  "commands": ["generator", "gen", "deploy", "connect", "plug", "refuel"],
+  "specializedActions": []
+}

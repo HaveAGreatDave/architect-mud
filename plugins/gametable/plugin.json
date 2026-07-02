@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "after": ["broadcast", "interactions"],
   "hooks": ["zone.furniturePanel"],
+  "routePrefix": "/gametable",
   "commands": [
     "join", "seat", "leave", "spectate", "watch", "say", "look", "help",
     "check", "call", "deal", "summon", "bet", "raise", "fold", "allin",

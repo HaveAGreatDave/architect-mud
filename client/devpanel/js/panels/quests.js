@@ -32,6 +32,7 @@ function questsOpenVine() {
   try { objectives = JSON.parse(document.getElementById('f-objectives').value || '[]'); } catch { return toast('Objectives: invalid JSON', true); }
   try { rewards = JSON.parse(document.getElementById('f-rewards').value || '{}'); } catch { return toast('Rewards: invalid JSON', true); }
   const rec = {
+    id: currentRecord?.id,
     name: document.getElementById('f-name').value,
     description: document.getElementById('f-description').value,
     repeatable: document.getElementById('f-repeatable').value === '1',

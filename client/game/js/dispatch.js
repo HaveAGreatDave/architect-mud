@@ -21,12 +21,14 @@ import { openSurveillanceHub, updateSurveillanceHub } from './panels/surveillanc
 import { openDatachipReplay } from './panels/datachipreplay.js';
 import { openCircuitHack } from './panels/circuithack.js';
 import { openSynthMinigame } from './panels/synthlab.js';
+import { openSpliceDesigner, updateSplicePreview } from './panels/splicelab.js';
 import { updateWantedHud } from './panels/wanted.js';
 import { openTvPanel, isTvOpen, getTvActiveChannelId, appendTvMessage, updateTvTicker, applyTvOverlay, clearTvMessages, showTvOffAir, showTvOnAir, shutdownTvPanel } from './panels/tv.js';
 import { applyEspState, handleEspWarning } from './esp.js';
 import { playPokerSfx } from './poker-sfx.js';
 import { showConfirmDialog } from './panels/confirm.js';
 import { renderMarkup } from './markup.js';
+import { onPanelData, onPanelFeed, onPanelCatalog, syncPanels } from './panels/custom/manager.js';
 
 
 const DEV_ROLES = ['admin', 'dev', 'builder', 'designer'];
@@ -60,6 +62,7 @@ const handlers = {
     initChannels(msg.channels || []);
     if (DEV_ROLES.includes(state.player.role)) showDevPanelButton();
     if (wasReconnect) appendMsg('Reconnected.', 'system');
+    syncPanels(); // request data + cam catalog for any custom panels
   },
 
   auth_fail: (msg) => {
@@ -230,6 +233,10 @@ const handlers = {
     renderSkillsPanel(msg);
     document.getElementById('skills-panel').classList.add('active');
   },
+
+  panel_data: (msg) => onPanelData(msg),
+  panel_feed: (msg) => onPanelFeed(msg),
+  panel_catalog: (msg) => onPanelCatalog(msg),
   who: (msg) => { appendHtml(msg.message, 'help'); },
   help: (msg) => { appendHtml(msg.message, 'help'); },
   examine: (msg) => { if (consumeExamineLogSuppression()) return; appendHtml(msg.message, 'help'); },
@@ -253,6 +260,22 @@ const handlers = {
   mutations: (msg) => { appendHtml(msg.message, 'help'); },
   factions: (msg) => { appendHtml(msg.message, 'help'); },
   shop: (msg) => { appendHtml(msg.message, 'help'); },
+
+  // Corps (org) command results. Most just render text; the ones that move the
+  // player's own credits also refresh the vitals HUD.
+  corp_info:        (msg) => { appendHtml(msg.message, 'help'); },
+  corp_roster:      (msg) => { appendHtml(msg.message, 'help'); },
+  corp_invite:      (msg) => { appendHtml(msg.message, 'help'); },
+  corp_joined:      (msg) => { appendHtml(msg.message, 'help'); },
+  corp_left:        (msg) => { appendHtml(msg.message, 'help'); },
+  corp_kick:        (msg) => { appendHtml(msg.message, 'help'); },
+  corp_edit:        (msg) => { appendHtml(msg.message, 'help'); },
+  corp_rank_update: (msg) => { appendHtml(msg.message, 'help'); },
+  corp_hq_claim:    (msg) => { appendHtml(msg.message, 'help'); },
+  corp_founded:     (msg) => { appendHtml(msg.message, 'help'); if (msg.player_update && state.player) { Object.assign(state.player, msg.player_update); updateVitals(state.player); } },
+  corp_contribute:  (msg) => { appendHtml(msg.message, 'help'); if (msg.player_update && state.player) { Object.assign(state.player, msg.player_update); updateVitals(state.player); } },
+  corp_withdraw:    (msg) => { appendHtml(msg.message, 'help'); if (msg.player_update && state.player) { Object.assign(state.player, msg.player_update); updateVitals(state.player); } },
+  corp_disband:     (msg) => { appendHtml(msg.message, 'help'); if (msg.player_update && state.player) { Object.assign(state.player, msg.player_update); updateVitals(state.player); } },
 
   map: (msg) => { openMapPopup(msg.tiles || []); },
 
@@ -411,9 +434,16 @@ const handlers = {
       difficulty: msg.difficulty ?? 5,
       recipeName: msg.recipeName || 'COMPOUND',
       workspace: msg.workspace || '',
-      onResult: ({ score }) => sendCmdSilent(`synthresolve ${msg.recipeId} ${score}`),
+      hard: !!msg.hard,
+      instability: msg.instability,
+      onResult: ({ score }) => sendCmdSilent(
+        msg.kind === 'splice' ? `spliceresolve ${msg.token} ${score}` : `synthresolve ${msg.recipeId} ${score}`
+      ),
     });
   },
+
+  splice_designer: (msg) => { openSpliceDesigner(msg); },
+  splice_preview:  (msg) => { updateSplicePreview(msg); },
 
   esp_state:   (msg) => { applyEspState(msg); },
   esp_warning: (msg) => { handleEspWarning(msg); },

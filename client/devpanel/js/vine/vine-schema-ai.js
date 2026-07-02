@@ -49,7 +49,7 @@ const AI_CONDITIONS = [
   { type: 'IN_ZONE',          label: 'In Zone',                 params: [{ key: 'zone_id', label: 'Zone ID',           type: 'text',   default: '' }] },
   { type: 'PLAYER_IN_ZONE',   label: 'Player In Zone',          params: [{ key: 'min',     label: 'Min players',       type: 'number', default: 1 }] },
   { type: 'TARGET_HP_BELOW',  label: "Target's HP Below %",     params: [{ key: 'pct',     label: 'Threshold %',       type: 'number', default: 30 }] },
-  { type: 'FACTION_MATCH',    label: 'Target Faction Matches',  params: [{ key: 'faction', label: 'Faction',           type: 'text',   default: '' }] },
+  { type: 'FACTION_MATCH',    label: 'Target In Org/Faction',   params: [{ key: 'faction', label: 'Org/Faction id',     type: 'text',   default: '' }] },
   { type: 'FLAG_SET',         label: 'Flag Is Set',             params: [{ key: 'flag',    label: 'Flag key',          type: 'text',   default: '' }, { key: 'scope', label: 'Scope', type: 'select', options: ['world', 'self'], default: 'self' }] },
   { type: 'RANDOM_CHANCE',    label: 'Random Chance',           params: [{ key: 'chance',  label: 'Probability 0–1',   type: 'number', default: 0.5 }] },
   { type: 'IS_DAYTIME',       label: 'Is Daytime',              params: [] },
@@ -96,6 +96,10 @@ const AI_ACTIONS = [
   { type: 'BROADCAST_SAY', label: 'Broadcast Say', params: [
     { key: 'channel_id', label: 'Channel ID', type: 'text',   default: '' },
     { key: 'text',       label: 'Text',       type: 'text',   default: '' },
+  ]},
+  { type: 'START_QUEST', label: 'Start Quest', params: [
+    { key: 'quest_id',   label: 'Quest ID',   type: 'text',   default: '' },
+    { key: 'cooldown_s', label: 'Cooldown (s)', type: 'number', default: 60 },
   ]},
   { type: 'GO_HOME',   label: 'Go Home',   params: [] },
   { type: 'HAVE_LIFE', label: 'Have Life', params: [] },
@@ -409,11 +413,30 @@ const _aiNodeDefs = {
     afterRenderProperties(propsEl, node, editor, nodeId) {
       const sel = propsEl.querySelector(`#ai-act-type-${nodeId}`);
       const paramContainer = propsEl.querySelector(`#ai-act-params-${nodeId}`);
+
+      // Cross-link: a START_QUEST action jumps into the referenced quest's editor.
+      const jumpHost = document.createElement('div');
+      if (paramContainer) paramContainer.after(jumpHost);
+      const refreshJump = () => {
+        jumpHost.innerHTML = '';
+        const qid = node.data.action_type === 'START_QUEST' ? node.data.params?.quest_id : '';
+        if (!qid) return;
+        const b = document.createElement('button');
+        b.className = 'action-btn';
+        b.style.cssText = 'font-size:10px;margin-top:6px;width:100%';
+        b.textContent = `🌿 Open quest ▸ ${qid}`;
+        b.title = 'Commit this graph and open the referenced quest in VINE';
+        b.onclick = () => vineJumpTo('quest', qid);
+        jumpHost.appendChild(b);
+      };
+
       const onChange = () => {
         editor._refreshNodeDisplay(nodeId);
         editor._fire('change');
+        refreshJump();
       };
       if (paramContainer) _renderParamFields(paramContainer, AI_ACTIONS, 'action_type', node.data, onChange);
+      refreshJump();
       if (sel) {
         sel.addEventListener('change', () => {
           node.data.action_type = sel.value;

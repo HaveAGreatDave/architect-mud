@@ -174,16 +174,14 @@ Thin editor for the `quests` table (consumed by the quests plugin). Objectives a
 - `questEditForm(rec, isNew)` / `saveQuest(existing)`
 
 ### `vine-suite.js`
-The VINE Suite launch panel (`noEdit`, custom render) + the tabbed multi-editor **workspace** it opens.
+The VINE Suite panel (`noEdit`, custom render): a cross-cutting **index** of every VINE graph. It owns no editor — it navigates to the owning panel and opens that record's real per-panel editor.
 
-- `fetchVineSuite()` — parallel-fetches npcs, enemies, scripts, quests, broadcasts.
-- `renderVineSuite(data)` — the launch screen: a "Launch VINE Suite" button + colour-coded per-schema chips.
-- `vineWorkspaceOpen(startKey)` / `vineWorkspaceClose()` — show/hide the `#vine-workspace` overlay.
-- `_vsBuildTabbar()` / `_vsActivateTab(key)` / `_vsEnsureTab(key)` — the colour-coded tab bar; each tab keeps its own live `VineEditor` in `_vwTabs`.
-- `vsLoadAsset(key, id)` / `vsSaveActive()` / `vsImportJSON()` — open/save/paste-JSON for the active tab.
-- Picker popup (`#vine-picker`): `vsOpenPicker(key)`, `vsClosePicker()`, `vsRenderPickerList()`, `vsNewAsset()` — the compact new/import/open card.
-- `vineJumpToQuest(questId)` — cross-editor jump; live tab-hop inside the workspace, modal-commit fallback outside it.
-- Holds `VINE_SUITE` (registry, now with `color`/`icon`/`entity`/`create`), `_VS_ORDER`, `_vineSuiteData`, `_vwTabs`, `_vwActive`, `_vwOpen`, `_vpKey`.
+- `fetchVineSuite()` — parallel-fetches npcs, enemies, scripts, quests.
+- `renderVineSuite(data)` / `vsRenderIndex()` — the searchable index: one colour-coded section per kind, each listing its assets (name, id, node-count badge). A row calls `vineOpenAsset`.
+- `vineOpenAsset(kind, id)` — the navigator: `activatePanelNav` + set `currentPanel`, `await loadPanel`, set `currentRecord`, `await openEdit`, then fire that panel's own VINE button (e.g. `npcOpenVineAI`). Reuses the core panel/edit helpers; opens nothing itself.
+- `vineJumpTo(kind, id)` — generic cross-editor jump fired from inside an editor: `vineModalSave()` (commit current graph to its form) then open the referenced asset in the standalone `#vine-modal`, saved straight to the DB via that kind's canonical route. Does **not** navigate panels, so the editor you jumped from stays behind it. Creates a quest stub on demand.
+- `vineJumpToQuest(questId)` — back-compat shim → `vineJumpTo('quest', …)`.
+- Holds `VINE_KINDS` (registry: index fields `label/icon/color/source/panel/opener/badge`; cross-jump fields `noun/schema/listRoute/toGraph/save[/createStub]`), `_VS_ORDER`, `_vineSuiteData`. Broadcasts are intentionally not in the index (the broadcast panel uses a custom selection flow, edited from its own panel).
 
 `quests.js` also gained `questsOpenVine()` — opens the VINE quest editor seeded from the form fields; on save writes derived `objectives[]`/`rewards{}` back into them.
 

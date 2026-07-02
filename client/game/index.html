@@ -652,12 +652,18 @@
 			</div>
 
 			<div id="sidebar">
-				<div class="sidebar-header">
-					<button id="sidebar-lock-btn" class="sidebar-lock-btn" title="Unlock to reorder sidebar sections">🔒</button>
+				<div id="sidebar-header" class="sidebar-header">
+					<button id="sidebar-lock-btn" class="sidebar-lock-btn" title="Unlock to reorder sidebar sections"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></button>
+					<div id="sidebar-modes" class="sidebar-modes" style="display:none">
+						<button id="sidebar-move-btn" class="sidebar-mode-btn active" title="Move mode — drag panels to reorder">✥</button>
+						<button id="sidebar-resize-btn" class="sidebar-mode-btn" title="Resize mode — drag a panel's bottom edge">⤢</button>
+						<button id="sidebar-size-reset-btn" class="sidebar-mode-btn" title="Reset panel sizes">↺</button>
+					</div>
 					<div id="sidebar-restore" class="sidebar-restore" style="display:none">
 						<button id="sidebar-restore-btn" class="sidebar-restore-btn" title="Restore hidden panels">panels ▾</button>
 						<div id="sidebar-restore-menu" class="sidebar-restore-menu" style="display:none"></div>
 					</div>
+					<button id="sidebar-add-panel" class="sidebar-add-panel" title="Add a custom panel">＋ panel</button>
 				</div>
 				<div class="sidebar-section" id="minimap-section">
 					<div class="sidebar-label">Map</div>
@@ -665,7 +671,10 @@
 				</div>
 
 				<div class="sidebar-section" id="vitals-section">
-					<div class="sidebar-label">Vitals</div>
+					<div class="sidebar-label sidebar-label-collapsible">
+						<span>Vitals</span>
+						<button class="sidebar-collapse-btn" title="Collapse panel">▾</button>
+					</div>
 					<div class="vital vital-hp">
 						<div class="vital-label">
 							<span>HP</span><span id="hp-val">—</span>
@@ -749,7 +758,7 @@
 				</div>
 
 				<div class="sidebar-section" id="location-section">
-					<div class="sidebar-label">Location</div>
+					<div class="sidebar-label">D-PAD</div>
 					<div id="zone-name-display">—</div>
 					<div id="loc-dpad" class="loc-dpad" data-dpad-mode="auto">
 						<button class="dpad-resize-btn" title="D-Pad size">⤢</button>

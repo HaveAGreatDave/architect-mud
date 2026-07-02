@@ -10,6 +10,8 @@ const world = {
   spawnTimers: new Map(),
   apartments: new Map(), // zoneId -> apartment row
   doors: new Map(),      // id -> door row
+  orgs: new Map(),       // orgId -> org row + { ranks: [...] }
+  orgMembers: new Map(), // playerId -> { org_id, rank_id, permissions }  (one corp per player)
 };
 
 // Global ambient event pool, keyed by theme.
@@ -34,8 +36,9 @@ export async function initWorld() {
   await loadApartments();
   await loadGlobalAmbients();
   await loadDoors();
+  await loadOrgs();
   await loadPlayerCorpses();
-  console.log(`✓ World loaded: ${world.zones.size} zones, ${world.npcs.size} NPCs, ${world.apartments.size} apartments, ${world.doors.size} doors`);
+  console.log(`✓ World loaded: ${world.zones.size} zones, ${world.npcs.size} NPCs, ${world.apartments.size} apartments, ${world.doors.size} doors, ${world.orgs.size} orgs`);
 }
 
 export async function loadPlayerCorpses() {
@@ -143,6 +146,63 @@ export function deleteDoorCache(id) { world.doors.delete(id); }
 
 export function getApartment(zoneId) { return world.apartments.get(zoneId) || null; }
 export function setApartmentCache(zoneId, apt) { world.apartments.set(zoneId, apt); }
+
+// ─── Orgs (corps) ──────────────────────────────────────────────────────────
+// world.orgs holds each org row plus its ranks[]; world.orgMembers maps a
+// player to their single membership with the rank's permission bitmask resolved
+// for O(1) gate checks. DB stays source of truth; every mutating corp command
+// re-syncs via reloadOrg()/removeOrgFromCache().
+
+async function loadOrgs() {
+  world.orgs.clear();
+  world.orgMembers.clear();
+  const { rows: orgs } = await query('SELECT * FROM orgs');
+  for (const o of orgs) world.orgs.set(o.id, { ...o, ranks: [] });
+  const { rows: ranks } = await query('SELECT * FROM org_ranks');
+  const rankById = new Map();
+  for (const r of ranks) {
+    rankById.set(r.id, r);
+    world.orgs.get(r.org_id)?.ranks.push(r);
+  }
+  const { rows: members } = await query('SELECT * FROM org_members');
+  for (const m of members) {
+    world.orgMembers.set(m.player_id, {
+      org_id: m.org_id, rank_id: m.rank_id, permissions: rankById.get(m.rank_id)?.permissions || 0,
+    });
+  }
+}
+
+// Re-read one org (row + ranks + members) into the cache after a mutation.
+export async function reloadOrg(orgId) {
+  const { rows: orgs } = await query('SELECT * FROM orgs WHERE id=$1', [orgId]);
+  if (!orgs.length) { removeOrgFromCache(orgId); return null; }
+  const { rows: ranks } = await query('SELECT * FROM org_ranks WHERE org_id=$1', [orgId]);
+  const org = { ...orgs[0], ranks };
+  world.orgs.set(orgId, org);
+  const rankById = new Map(ranks.map(r => [r.id, r]));
+  for (const [pid, m] of world.orgMembers) if (m.org_id === orgId) world.orgMembers.delete(pid);
+  const { rows: members } = await query('SELECT * FROM org_members WHERE org_id=$1', [orgId]);
+  for (const m of members) {
+    world.orgMembers.set(m.player_id, {
+      org_id: orgId, rank_id: m.rank_id, permissions: rankById.get(m.rank_id)?.permissions || 0,
+    });
+  }
+  return org;
+}
+
+export function removeOrgFromCache(orgId) {
+  world.orgs.delete(orgId);
+  for (const [pid, m] of world.orgMembers) if (m.org_id === orgId) world.orgMembers.delete(pid);
+}
+
+export function getOrg(orgId) { return world.orgs.get(orgId) || null; }
+export function getPlayerMembership(playerId) { return world.orgMembers.get(playerId) || null; }
+export function getOrgByName(name) {
+  const wanted = (name || '').trim().toLowerCase();
+  if (!wanted) return null;
+  for (const o of world.orgs.values()) if ((o.name || '').toLowerCase() === wanted) return o;
+  return null;
+}
 
 export function getZone(id) { return world.zones.get(id) || null; }
 

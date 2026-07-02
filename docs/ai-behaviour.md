@@ -104,7 +104,7 @@ Out ports: `ifTrue`, `ifFalse`.
 | `IN_ZONE` | `zone_id` | entity is in zone_id |
 | `PLAYER_IN_ZONE` | `min` (default 1) | zone has ≥ min players |
 | `TARGET_HP_BELOW` | `pct` (default 30) | target player HP% < pct |
-| `FACTION_MATCH` | `faction` | target player's faction === faction |
+| `FACTION_MATCH` | `faction` | target player is a member of org (corp/faction) `faction` — reads `org_members`, not a player field. NPC-faction-vs-player reactions key off reputation (a future condition), not this. |
 | `FLAG_SET` | `scope`, `flag` | blackboard flag is truthy (scope:self only; world flags fall back to blackboard) |
 | `RANDOM_CHANCE` | `chance` (default 0.5) | Math.random() < chance |
 | `IS_DAYTIME` | — | world timePhase is day/dawn/dusk |
@@ -135,6 +135,7 @@ Executes one action and stops the tick. The cursor is saved to the `next` port's
 | `SET_FLAG` | `scope: 'self'`, `flag`, `value` | Write to blackboard flags (self-scope only; world-scope is a no-op currently) |
 | `EMOTE` | `message` | Broadcast `"NpcName <message>"` to the NPC's current zone (e.g. `"waves at the camera"`) |
 | `BROADCAST_SAY` | `channel_id`, `text` | Inject a line of dialogue into a broadcast channel feed as this NPC |
+| `START_QUEST` | `quest_id`, `cooldown_s` | Offer a quest (dispatch the quests plugin's `START_QUEST`) to every player in the entity's zone. Per-player/per-quest cooldown via the blackboard so it fires once, not every tick; the plugin no-ops if the player already has it. Editor renders a jump into that quest's VINE editor. |
 | `GO_TO_WORK` | — | If scheduled (`IS_BROADCAST_SCHEDULED`) and not already at work zone, walk toward the studio; returns RUNNING while en route. No-ops otherwise. |
 | `HAVE_LIFE` | `waypoints?: [zone_id]` | If not scheduled, walk toward `home_zone` or a random waypoint. No-ops when scheduled. Does NOT return RUNNING — graph continues each tick. |
 | `AT_WORK` | — | No-op that marks the "at work" position in the graph. Keeps NPC in place during scheduled hours; graph re-checks schedule on next loop. |

@@ -1,27 +1,44 @@
-import { world } from './world.js';
+import { world, getDoorForExit } from './world.js';
 
 // Minimum intensity for a sound to be heard at a given distance.
 const HEAR_THRESHOLD = 0.5;
+
+// A closed, intact door on an edge muffles sound crossing it. Modeled as extra
+// distance: inverse-square attenuation both shortens the reach and drops more
+// words, so a closed door makes the room beyond you sound faint and clipped. A
+// smashed door (hp<=0) or an open one is just a hole — no muffling.
+const DOOR_MUFFLE_HOPS = 2;
+const OPPOSITE = { north:'south', south:'north', east:'west', west:'east', up:'down', down:'up', in:'out', out:'in' };
+
+function edgeMuffle(zoneId, dir, neighborId) {
+  const door = getDoorForExit(zoneId, dir) || getDoorForExit(neighborId, OPPOSITE[dir]);
+  return door && door.hp > 0 && !door.is_open ? DOOR_MUFFLE_HOPS : 0;
+}
 
 // Inverse-square intensity: loudness / (d² + 1). At d=0: loudness. Falls off quickly.
 function intensity(loudness, distance) {
   return loudness / (distance * distance + 1);
 }
 
-// BFS over zone exits out to the furthest tile where intensity > threshold.
+// Weighted shortest-path over zone exits out to the furthest tile where intensity
+// > threshold. Closed doors add muffle-distance to the edge they sit on, so a
+// path through one lands farther away (fainter). Relaxes distances (re-enqueues
+// on improvement) so an open route is still preferred over a doored one.
 // Returns Map<zoneId, distance>.
 export function getSoundReach(originZoneId, loudness) {
   const reach = new Map([[originZoneId, 0]]);
   const queue = [[originZoneId, 0]];
   while (queue.length) {
     const [zoneId, dist] = queue.shift();
+    if (dist > reach.get(zoneId)) continue;              // stale entry superseded by a shorter path
     if (intensity(loudness, dist + 1) < HEAR_THRESHOLD) continue;
     const zone = world.zones.get(zoneId);
     if (!zone) continue;
-    for (const neighborId of Object.values(zone.exits || {})) {
-      if (!reach.has(neighborId)) {
-        reach.set(neighborId, dist + 1);
-        queue.push([neighborId, dist + 1]);
+    for (const [dir, neighborId] of Object.entries(zone.exits || {})) {
+      const nd = dist + 1 + edgeMuffle(zoneId, dir, neighborId);
+      if (!reach.has(neighborId) || nd < reach.get(neighborId)) {
+        reach.set(neighborId, nd);
+        queue.push([neighborId, nd]);
       }
     }
   }

@@ -1,9 +1,10 @@
 import { query } from "../models/db.js";
-import { getApartment, setApartmentCache, getZone, world, setDoorCache } from "./world.js";
+import { getApartment, setApartmentCache, getZone, world, setDoorCache, getPlayerMembership } from "./world.js";
 import { skillCheck, awardSkillUse } from "./skills.js";
 import { adjustCredits } from "./economy.js";
 import { setPosture } from "./posture.js";
 import { registerProtectionProvider } from "./protection.js";
+import { hasPerm, PERM } from "./org-perms.js";
 
 const HOME_TUTORIAL = `<span style="color:var(--accent)">◈ HOLOLOCK BOUND ◈</span>
 
@@ -194,6 +195,19 @@ export function isApartmentZone(zone) {
 	return !!zone?.flags?.is_apartment;
 }
 
+// Whether the player may act as this unit's owner. A personal unit is controlled
+// by its owner; a corp HQ (owner_type='org') is controlled by any corp member
+// holding the manage_hq permission. Home-bind, forcefield and best-rest stay
+// strictly personal (they still test owner_id === player.id directly).
+export function playerControlsApt(player, apt) {
+	if (!apt?.owner_id) return false;
+	if (apt.owner_type === 'org') {
+		const m = getPlayerMembership(player.id);
+		return m?.org_id === apt.owner_org_id && hasPerm(player, PERM.MANAGE_HQ);
+	}
+	return apt.owner_id === player.id;
+}
+
 export async function cmdRent(player) {
 	const zone = getZone(player.current_zone);
 	if (!isApartmentZone(zone))
@@ -244,7 +258,7 @@ export async function cmdUnrent(player) {
 	const apt = getApartment(zone.id);
 	if (!apt?.owner_id)
 		return { type: "error", message: "Nobody owns this unit." };
-	if (apt.owner_id !== player.id)
+	if (!playerControlsApt(player, apt))
 		return { type: "error", message: "This isn't your place to give up." };
 
 	const cost = apt.rent_cost ?? 100;
@@ -262,7 +276,7 @@ export async function cmdUnrent(player) {
 // Shared teardown used by both cmdUnrent and the rent-collection tick.
 export async function releaseApartment(apt, zoneId) {
 	const updated = await query(
-		`UPDATE apartments SET owner_id=NULL, owner_handle=NULL, is_locked=0, date_rented=NULL, building_name=NULL WHERE zone_id=$1 RETURNING *`,
+		`UPDATE apartments SET owner_id=NULL, owner_handle=NULL, owner_type='player', owner_org_id=NULL, is_locked=0, date_rented=NULL, building_name=NULL WHERE zone_id=$1 RETURNING *`,
 		[zoneId],
 	);
 	setApartmentCache(zoneId, updated.rows[0]);
@@ -280,6 +294,14 @@ export async function releaseApartment(apt, zoneId) {
 	}
 }
 
+// Release a corp HQ back to vacant (clears org ownership + unlocks the door).
+// Used on disband and corp-HQ teardown. releaseApartment handles owner_type/
+// owner_org_id reset and door unlock, so this is a thin, cache-syncing wrapper.
+export async function releaseCorpHq(zoneId) {
+	const apt = getApartment(zoneId);
+	if (apt) await releaseApartment(apt, zoneId);
+}
+
 export async function cmdLockDoor(player, wantLocked) {
 	const zone = getZone(player.current_zone);
 	if (!isApartmentZone(zone))
@@ -291,7 +313,7 @@ export async function cmdLockDoor(player, wantLocked) {
 			type: "error",
 			message: "Nobody owns this unit yet — nothing to lock. Try RENT.",
 		};
-	if (apt.owner_id !== player.id)
+	if (!playerControlsApt(player, apt))
 		return {
 			type: "error",
 			message: "This isn't your place. You can't work the lock.",
@@ -341,7 +363,7 @@ export async function cmdUpgradeLock(player) {
 	const apt = getApartment(zone.id);
 	if (!apt?.owner_id)
 		return { type: "error", message: "You don't own a unit here." };
-	if (apt.owner_id !== player.id)
+	if (!playerControlsApt(player, apt))
 		return { type: "error", message: "Not your place, not your lock." };
 	if (apt.lock_difficulty >= MAX_LOCK_DIFFICULTY)
 		return {
@@ -380,7 +402,7 @@ export async function cmdPickLock(player) {
 			type: "error",
 			message: "This place is unowned — the door is already open.",
 		};
-	if (apt.owner_id === player.id)
+	if (playerControlsApt(player, apt))
 		return { type: "error", message: "It's your own door. Just open it." };
 	if (!apt.is_locked)
 		return { type: "error", message: "It's already unlocked." };
@@ -640,6 +662,9 @@ export async function describeApartmentStatus(zone) {
 		return `\n<span class="apartment-label">This unit is unowned.</span> (RENT to claim it for ${apt?.rent_cost ?? 100}c/week)`;
 	}
 	const lockState = apt.is_locked ? "locked" : "unlocked";
+	if (apt.owner_type === 'org') {
+		return `\n<span class="apartment-label">Corp HQ: ${apt.owner_handle}.</span> The door is ${lockState}.`;
+	}
 	const rentedDate = apt.date_rented ? new Date(apt.date_rented * 1000).toLocaleDateString() : '?';
 	let status = `\n<span class="apartment-label">Owner: ${apt.owner_handle}.</span> The door is ${lockState}. Rented since ${rentedDate}. (UNRENT to vacate)`;
 	if (apt.forcefield_active) {

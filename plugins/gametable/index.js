@@ -3,7 +3,7 @@
 
 import { query } from '../../server/models/db.js';
 import { sendToPlayer } from '../../server/engine/messaging.js';
-import { getLivePlayer, getZone, world } from '../../server/engine/world.js';
+import { getLivePlayer, setLivePlayer, getZone, world } from '../../server/engine/world.js';
 import { GameTable, activeTables, MAX_SEATS } from './game-table.js';
 import { renderPane } from './render-pane.js';
 import { renderHandASCII } from './cards.js';
@@ -538,6 +538,37 @@ async function tableTick() {
 setInterval(() => tableTick().catch(e => console.error('[gametable] tick:', e.message)), 1000);
 
 console.log('[gametable] Plugin loaded.');
+
+// ── Admin route ─────────────────────────────────────────────────────────────────
+// Dev panel "Clear all poker tables" — cash every seated player and bot out and
+// drop every spectator from every table. Recovers stuck/ghost seats.
+
+async function clearAllTables() {
+  let tables = 0, cleared = 0;
+  for (const t of activeTables.values()) {
+    const occupants = [...t.seats.filter(Boolean).map(s => s.playerId), ...t.spectators];
+    if (!occupants.length) continue;
+    tables++;
+    for (const pid of occupants) {
+      await t.leaveTable(pid);
+      cleared++;
+      // Cash-out clears the table seat, but not a sitting posture — stand them up too.
+      const lp = getLivePlayer(pid);
+      if (lp && lp.posture === 'sitting') {
+        setLivePlayer(pid, { ...lp, posture: 'standing', sittingOn: null });
+        sendToPlayer(pid, { type: 'output', message: 'You stand up from the table.' });
+      }
+    }
+  }
+  return { tables, cleared };
+}
+
+export async function routeHandler(path, method, body, auth) {
+  if (path !== '/gametable/clear-all' || method !== 'POST') return null;
+  if (!auth || auth.role !== 'admin') return { status: 403, body: { error: 'Admin access required' } };
+  const result = await clearAllTables();
+  return { status: 200, body: { ok: true, ...result } };
+}
 
 // ── Exports ────────────────────────────────────────────────────────────────────
 

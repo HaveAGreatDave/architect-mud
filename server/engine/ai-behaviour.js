@@ -1,7 +1,8 @@
-import { world, getLivePlayer, getDoorForExit, setDoorCache, getZone, getZonePlayers } from './world.js';
+import { world, getLivePlayer, getDoorForExit, setDoorCache, getZone, getZonePlayers, getPlayerMembership } from './world.js';
 import { findPath, getZonesInRadius } from './pathfinding.js';
 import { enemyAttackPlayer, enemyAttackNpc, enemyAttackEnemy } from './combat.js';
 import { getEnvironmentState } from './environment.js';
+import { dispatchAction } from './actions.js';
 import { isNpcScheduledNow, getNpcStudioZone } from './broadcast-bridge.js';
 import { getShopperForNpc, closeShopSession } from './vendor-session.js';
 import { getNpcChitchat } from './npc-personality.js';
@@ -171,7 +172,15 @@ export function moveEntity(entity, newZoneId, broadcast, query) {
               || null;
 
     if (door && door.hp > 0) {
-      if (door.lock_state === 'locked') return false; // blocked — entity can't pass
+      if (door.lock_state === 'locked') {
+        // An NPC carries the key to its own home or workplace, so it can pass its
+        // own lock — e.g. a vendor returning to a shop that auto-locked while they
+        // were away. Anyone else's lock still blocks it.
+        const ownsThisDoor = !isEnemy(entity) &&
+          (entity.home_zone === oldZoneId || entity.home_zone === newZoneId ||
+           entity.work_zone_id === oldZoneId || entity.work_zone_id === newZoneId);
+        if (!ownsThisDoor) return false; // blocked — entity can't pass
+      }
 
       if (!door.is_open) {
         doorWasClosed = true;
@@ -226,6 +235,35 @@ export function moveEntity(entity, newZoneId, broadcast, query) {
       setDoorCache(homeDoor.id, homeDoor);
       if (query) query("UPDATE doors SET is_open=0, lock_state='locked' WHERE id=$1", [homeDoor.id]).catch(() => {});
       broadcast(newZoneId, { type: 'zone_event', message: `The lock clicks as ${entity.name} secures the door.` });
+    }
+  }
+
+  // Vendor shops lock up when the vendor leaves work and reopen when they return.
+  // Keyed on the entrance door of the NPC's work_zone_id — so it only fires for
+  // genuine storefronts (which have such a door), never public hubs that don't.
+  if (!isEnemy(entity) && entity.work_zone_id && departDir) {
+    const arrivingAtWork = newZoneId === entity.work_zone_id;
+    const leavingWork    = oldZoneId === entity.work_zone_id;
+    if (arrivingAtWork || leavingWork) {
+      const shopDoor = getDoorForExit(newZoneId, OPPOSITE_DIR[departDir])
+                    || getDoorForExit(oldZoneId, departDir)
+                    || null;
+      if (shopDoor && shopDoor.hp > 0) {
+        if (arrivingAtWork && shopDoor.lock_state === 'locked') {
+          shopDoor.lock_state = null;
+          setDoorCache(shopDoor.id, shopDoor);
+          if (query) query('UPDATE doors SET lock_state=NULL WHERE id=$1', [shopDoor.id]).catch(() => {});
+          broadcast(newZoneId, { type: 'zone_event', message: `${entity.name} unlocks the shop and opens up for business.` });
+          broadcast(oldZoneId, { type: 'zone_event', message: `${entity.name} unlocks the shop.` });
+        } else if (leavingWork && shopDoor.lock_state !== 'locked') {
+          shopDoor.is_open = 0;
+          shopDoor.lock_state = 'locked';
+          setDoorCache(shopDoor.id, shopDoor);
+          if (query) query("UPDATE doors SET is_open=0, lock_state='locked' WHERE id=$1", [shopDoor.id]).catch(() => {});
+          broadcast(oldZoneId, { type: 'zone_event', message: `${entity.name} pulls the shop door shut and locks it on the way out.` });
+          broadcast(newZoneId, { type: 'zone_event', message: `${entity.name} locks up the shop.` });
+        }
+      }
     }
   }
 
@@ -368,9 +406,13 @@ function evalCondition(node, entity) {
     }
 
     case 'FACTION_MATCH': {
+      // True if the target player is a member of the org (corp or player-joinable
+      // faction) named by params.faction. Members of NPC factions don't exist in
+      // Phase 0, so this fires for player crews; NPC-faction-vs-player reactions
+      // key off reputation instead (a future async REP condition).
       const target = getLivePlayer(entity.targetId);
-      if (!target) return false;
-      return target.faction === params.faction;
+      if (!target || !params.faction) return false;
+      return getPlayerMembership(target.id)?.org_id === params.faction;
     }
 
     case 'FLAG_SET':
@@ -766,6 +808,25 @@ async function execAction(node, entity, ctx) {
     }
 
     // BROADCAST_SAY is registered by the broadcast plugin via registerAIAction.
+
+    case 'START_QUEST': {
+      // Offer a quest to players sharing this entity's zone. Per-player, per-quest
+      // cooldown (blackboard) so it fires once rather than every tick. The quests
+      // plugin's START_QUEST handler is a no-op if the player already has it.
+      if (!ai) break;
+      const questId = params.quest_id;
+      if (!questId || !zone) break;
+      const cooldown = (params.cooldown_s ?? 60) * 1000;
+      const offers = ai.questOffers || (ai.questOffers = {});
+      const players = [...zone.players].map(id => getLivePlayer(id)).filter(Boolean);
+      for (const p of players) {
+        const key = `${questId}:${p.id}`;
+        if (Date.now() - (offers[key] || 0) < cooldown) continue;
+        offers[key] = Date.now();
+        dispatchAction({ type: 'START_QUEST', actor: p, params: { quest_id: questId } }).catch(() => {});
+      }
+      break;
+    }
 
     case 'GO_HOME': {
       if (!ai) break;

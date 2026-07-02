@@ -316,6 +316,10 @@
   const _sampleCache = new Map(); // id -> processed AudioBuffer
 
   async function _processSnes(rawBuffer, snesRate, snesBits) {
+    // Full-quality bypass (snesBits = 0/off): play the decoded audio untouched — no
+    // downsample, no crush. Used for clean SFX (e.g. thunder) that a retro crush ruins.
+    if (!snesBits) return rawBuffer;
+
     const ratio = rawBuffer.sampleRate / snesRate;
     const outLen = Math.max(1, Math.ceil(rawBuffer.length / ratio));
     const off = new OfflineAudioContext(1, outLen, snesRate);
@@ -324,10 +328,17 @@
     src.connect(off.destination);
     src.start(0);
     const lo = await off.startRendering();
-    // Bit-crush: quantise to snesBits depth
+    // Bit-crush to snesBits depth, with TPDF dither. Hard rounding alone produces
+    // harsh, signal-correlated quantisation "grain" (the scratchiness); adding ±1 LSB
+    // triangular dither decorrelates it into a much lower, benign noise floor, so the
+    // retro character stays without the grit.
     const d = lo.getChannelData(0);
     const step = Math.pow(2, snesBits - 1);
-    for (let i = 0; i < d.length; i++) d[i] = Math.round(d[i] * step) / step;
+    for (let i = 0; i < d.length; i++) {
+      const dither = (Math.random() - Math.random()) / step; // TPDF, ±1 LSB
+      const v = Math.round((d[i] + dither) * step) / step;
+      d[i] = v < -1 ? -1 : v > 1 ? 1 : v;
+    }
     return lo;
   }
 
@@ -351,7 +362,7 @@
       const bytes = Uint8Array.from(atob(data), ch => ch.charCodeAt(0));
       console.log(`[audio] loadSample decoding ${def.id} (${bytes.length} bytes, mime: ${def.mime_type})`);
       const raw = await c.decodeAudioData(bytes.buffer);
-      const processed = await _processSnes(raw, def.snes_rate ?? 16000, def.snes_bits ?? 4);
+      const processed = await _processSnes(raw, def.snes_rate ?? 16000, def.snes_bits ?? 8);
       _sampleCache.set(def.id, processed);
       return processed;
     } catch (e) {

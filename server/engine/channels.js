@@ -1,5 +1,13 @@
-import { getAllLivePlayers } from './world.js';
+import { getAllLivePlayers, getPlayerMembership } from './world.js';
 import { query } from '../models/db.js';
+
+// A player's private corp channel id, or null if they're not in a corp.
+// Convention: '#corp:<orgId>'. Membership drives access (dynamic, unlike the
+// static CHANNEL_DEFS). channel_messages already keys on arbitrary text.
+function corpChannelIdFor(player) {
+  const m = getPlayerMembership(player.id);
+  return m ? `#corp:${m.org_id}` : null;
+}
 
 // How many recent messages to retain/replay per channel.
 const HISTORY_LIMIT = 50;
@@ -24,17 +32,30 @@ export const CHANNEL_DEFS = {
 };
 
 export function getPlayerChannels(player) {
-  return Object.values(CHANNEL_DEFS)
+  const list = Object.values(CHANNEL_DEFS)
     .filter(c => c.isMember(player))
     .map(c => ({ id: c.id, permanent: c.permanent, systemOnly: c.systemOnly || false }));
+  const corpId = corpChannelIdFor(player);
+  if (corpId) list.push({ id: corpId, permanent: true, systemOnly: false });
+  return list;
 }
 
 export function canAccessChannel(channelId, player) {
+  if (channelId.startsWith('#corp:')) return corpChannelIdFor(player) === channelId;
   const def = CHANNEL_DEFS[channelId.toLowerCase()];
   return def ? def.isMember(player) : false;
 }
 
 export function sendToChatChannel(channelId, msg, broadcast) {
+  // Dynamic per-corp channel: recipients are live players in the same corp.
+  if (channelId.startsWith('#corp:')) {
+    const orgId = channelId.slice('#corp:'.length);
+    for (const p of getAllLivePlayers()) {
+      if (getPlayerMembership(p.id)?.org_id === orgId) broadcast(null, msg, null, p.id);
+    }
+    if (msg.from && msg.message != null) storeChannelMessage(channelId, msg.from, msg.message);
+    return true;
+  }
   const def = CHANNEL_DEFS[channelId.toLowerCase()];
   if (!def) return false;
   for (const p of getAllLivePlayers().filter(p => def.isMember(p))) {
@@ -53,6 +74,8 @@ export async function getChannelMessagesSince(player, since) {
   const channelIds = Object.values(CHANNEL_DEFS)
     .filter(c => !c.systemOnly && c.isMember(player))
     .map(c => c.id);
+  const corpId = corpChannelIdFor(player);
+  if (corpId) channelIds.push(corpId);
   if (!channelIds.length) return {};
   const { rows } = await query(
     `SELECT channel_id, from_handle, message, created_at
@@ -98,6 +121,8 @@ export async function getChannelHistory(player) {
   const channelIds = Object.values(CHANNEL_DEFS)
     .filter(c => !c.systemOnly && c.isMember(player))
     .map(c => c.id);
+  const corpId = corpChannelIdFor(player);
+  if (corpId) channelIds.push(corpId);
   if (!channelIds.length) return {};
   const { rows } = await query(
     `SELECT channel_id, from_handle, message, created_at FROM (

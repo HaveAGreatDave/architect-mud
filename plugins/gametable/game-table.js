@@ -616,6 +616,7 @@ export class GameTable {
       ...this.seats.filter(s => s && !s.isBot).map(s => s.playerId),
       ...this.spectators,
     ];
+    console.log(`[gametable] _pushSfx cue=${cue} recipients=[${recipients.join(',')}]`); // TEMP diagnostic — remove after debugging double-play
     for (const pid of recipients) sendToPlayer(pid, { type: 'poker_sfx', cue });
   }
 

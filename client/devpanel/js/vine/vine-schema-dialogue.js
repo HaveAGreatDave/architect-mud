@@ -152,7 +152,18 @@ function _buildActionsEditor(container, actions, onChange) {
         jump.style.cssText = 'font-size:10px;margin-top:5px;width:100%';
         jump.textContent = `🌿 Open quest ▸ ${action.quest_id}`;
         jump.title = 'Commit this graph and open the referenced quest in VINE';
-        jump.onclick = () => vineJumpToQuest(action.quest_id);
+        jump.onclick = () => vineJumpTo('quest', action.quest_id);
+        card.appendChild(jump);
+      }
+
+      // Cross-link: EXECUTE_SCRIPT jumps into the referenced script's editor.
+      if (action.action === 'EXECUTE_SCRIPT' && action.scriptId) {
+        const jump = document.createElement('button');
+        jump.className = 'action-btn';
+        jump.style.cssText = 'font-size:10px;margin-top:5px;width:100%';
+        jump.textContent = `🌿 Open script ▸ ${action.scriptId}`;
+        jump.title = 'Commit this graph and open the referenced script in VINE';
+        jump.onclick = () => vineJumpTo('script', action.scriptId);
         card.appendChild(jump);
       }
 

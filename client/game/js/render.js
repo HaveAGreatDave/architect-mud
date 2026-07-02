@@ -1,5 +1,6 @@
 import { state } from './state.js';
 import { updateBodyTempHUD } from './panels/environment.js';
+import { refreshCustomPanels } from './panels/custom/manager.js';
 
 export function appendMsg(text, cls = '') {
   const el = document.createElement('div');
@@ -96,6 +97,8 @@ export function updateVitals(p) {
   if (p.body_temp_c !== undefined) {
     updateBodyTempHUD(p.body_temp_c);
   }
+  // Player-bound custom panels track the built-in vitals in lockstep.
+  refreshCustomPanels();
 }
 
 function setBar(id, val, max, inverse = false) {

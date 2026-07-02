@@ -298,15 +298,9 @@ export const SCHEMA_SQL = `
   ALTER TABLE doors ADD COLUMN IF NOT EXISTS name TEXT DEFAULT NULL;
   ALTER TABLE npcs ADD COLUMN IF NOT EXISTS wander_zones JSONB DEFAULT '[]';
 
-  CREATE TABLE IF NOT EXISTS factions (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    description TEXT NOT NULL,
-    color TEXT DEFAULT '#888888',
-    hostile_to JSONB DEFAULT '[]',
-    friendly_to JSONB DEFAULT '[]'
-  );
-
+  -- NPC factions folded into the unified orgs table (is_npc=1) — see the orgs
+  -- block below. The legacy factions table was dropped (npm run db:drop-factions).
+  -- player_faction_rep stays: faction_id now references orgs.id (ids preserved).
   CREATE TABLE IF NOT EXISTS player_faction_rep (
     player_id TEXT NOT NULL,
     faction_id TEXT NOT NULL,
@@ -1066,6 +1060,55 @@ export const SCHEMA_SQL = `
     phase       TEXT NOT NULL DEFAULT 'WaitingForPlayers',
     updated_at  TIMESTAMPTZ DEFAULT NOW()
   );
+
+  -- Organizations (corps). One unified table: NPC factions are owner-less rows
+  -- (is_npc=1); player crews have an owner. Player reputation continues to key
+  -- off orgs.id via player_faction_rep.faction_id (ids preserved by the fold).
+  CREATE TABLE IF NOT EXISTS orgs (
+    id          TEXT PRIMARY KEY,
+    name        TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    color       TEXT DEFAULT '#888888',
+    is_npc      INTEGER NOT NULL DEFAULT 0,   -- 1 = owner-less NPC faction
+    owner_id    TEXT,                          -- player id; NULL for NPC factions
+    treasury    INTEGER NOT NULL DEFAULT 0,    -- carried credits held by the org
+    founded_at  BIGINT DEFAULT EXTRACT(EPOCH FROM NOW()),
+    flags       JSONB NOT NULL DEFAULT '{}'
+  );
+  CREATE INDEX IF NOT EXISTS idx_orgs_owner ON orgs(owner_id);
+
+  -- Custom ranks per corp. permissions is an integer bitmask (see org-perms.js).
+  CREATE TABLE IF NOT EXISTS org_ranks (
+    id          TEXT PRIMARY KEY,
+    org_id      TEXT NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,
+    name        TEXT NOT NULL,
+    rank_order  INTEGER NOT NULL DEFAULT 0,    -- higher = more senior
+    permissions INTEGER NOT NULL DEFAULT 0,    -- bitmask
+    is_default  INTEGER NOT NULL DEFAULT 0     -- auto-assigned to new joiners
+  );
+  CREATE INDEX IF NOT EXISTS idx_org_ranks_org ON org_ranks(org_id);
+
+  CREATE TABLE IF NOT EXISTS org_members (
+    org_id    TEXT NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,
+    player_id TEXT NOT NULL,
+    rank_id   TEXT NOT NULL REFERENCES org_ranks(id),
+    joined_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW()),
+    PRIMARY KEY (org_id, player_id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_org_members_player ON org_members(player_id);
+
+  -- Inter-org stances (receives folded hostile_to/friendly_to). No Phase 0 runtime reader.
+  CREATE TABLE IF NOT EXISTS org_relations (
+    org_id       TEXT NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,
+    other_org_id TEXT NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,
+    stance       TEXT NOT NULL,   -- 'hostile' | 'friendly'
+    PRIMARY KEY (org_id, other_org_id)
+  );
+
+  -- HQ reuses the apartment ownership substrate. owner_type defaults 'player' so
+  -- every existing apartment row is unchanged; an org HQ sets owner_type='org'.
+  ALTER TABLE apartments ADD COLUMN IF NOT EXISTS owner_type TEXT NOT NULL DEFAULT 'player';
+  ALTER TABLE apartments ADD COLUMN IF NOT EXISTS owner_org_id TEXT REFERENCES orgs(id) ON DELETE SET NULL;
 `;
 
 export async function applySchema() {
