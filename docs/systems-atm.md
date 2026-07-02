@@ -96,17 +96,34 @@ Fee calculation: `fee = ceil(amount × fee_rate)`. The fee is deducted from bank
 
 After a successful withdrawal, `cash_stock` decreases by `amount` (not including the fee).
 
-### `jack`
+### `jack` / `jackresolve`
 
-Hacking attack on the ATM. Requires hacking skill.
+Hacking attack on the ATM. **No server-side skill roll gates this anymore** — the
+Circuit Breach minigame (client-side, [`client/game/js/panels/circuithack.js`](../client/game/js/panels/circuithack.js))
+is authoritative: winning it *is* the breach. The only server-side gate is
+physically carrying a hacking device.
 
+`jack` arms the attempt:
 1. ATM must exist, not broken, zone powered, and have cash stock > 0.
-2. Per-player lockout checked (`jackLockout` Map, in-memory, 5-minute cooldown after any failed attempt).
-3. `skillCheck(player, 'hacking', hack_difficulty)` — rolls against difficulty.
-4. **Success**: no immediate payout. Grants that player MAINTENANCE access on that terminal (`atmMaintenanceAccess` Map, in-memory, keyed by atm id → Set of player ids). Skill use awarded (`awardSkillUse`). The ATM panel then shows an "EJECT ALL CREDITS" option for that player.
-5. **Failure**: player locked out for 5 minutes. Hard failure (margin ≥ 4) shows "INTRUSION DETECTED" with console-ID-flagged flavour text. Soft failure shows generic rejection message.
+2. Player must be carrying `item_hack_deck` in inventory (`hasHackDevice()` —
+   plain `player_inventory` presence check, no roll). Seeded as **Hack Deck**.
+3. Per-player lockout checked (`jackLockout` Map, in-memory, 5-minute cooldown
+   after a failed attempt).
+4. Returns `{ type: 'circuit_hack', deviceId, deviceName, skill, difficulty, resolveCmd: 'jackresolve' }` —
+   `skill`/`difficulty` (effective hacking skill vs. `hack_difficulty`) only
+   scale the minigame board's harshness (grid size, hazard density, sensor
+   range, move budget — see `circuithack.js`), they don't gate the outcome.
+   The ATM panel's own JACK button opens the minigame directly client-side
+   from data already on the panel, skipping this arm step for snappier UX;
+   the typed `jack` command hits this path and goes through the client's
+   generic `circuit_hack` dispatch handler instead.
 
-Lockout is in-memory — it resets on server restart. The ATM itself is not permanently damaged by a soft failure, only by a successful `drain`.
+`jackresolve <atmId> <1|0>` — fired silently by the Circuit Breach overlay when it resolves:
+1. Re-validates ATM exists in the player's zone, not broken, zone powered, and the player still carries the hacking device (defense in depth in case the panel's client-side gate was stale or bypassed).
+2. **Win**: grants that player MAINTENANCE access on that terminal (`atmMaintenanceAccess` Map, in-memory, keyed by atm id → Set of player ids). Skill use awarded (`awardSkillUse`). The ATM panel then shows an "EJECT ALL CREDITS" option for that player. No immediate payout.
+3. **Loss**: player locked out for 5 minutes, "INTRUSION DETECTED" flavour text.
+
+Lockout is in-memory — it resets on server restart. The ATM itself is not permanently damaged by a failed attempt, only by a successful `drain`.
 
 ### `drain`
 

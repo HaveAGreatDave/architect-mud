@@ -445,11 +445,12 @@ const handlers = {
     el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
   },
   circuit_hack: (msg) => {
+    const resolveCmd = msg.resolveCmd || 'hijackresolve';
     openCircuitHack({
       skill: msg.skill ?? 4,
       difficulty: msg.difficulty ?? 5,
       atmName: msg.deviceName || 'DEVICE',
-      onResult: ({ won }) => sendCmdSilent(`hijackresolve ${msg.deviceId} ${won ? 1 : 0}`),
+      onResult: ({ won }) => sendCmdSilent(`${resolveCmd} ${msg.deviceId} ${won ? 1 : 0}`),
     });
   },
 

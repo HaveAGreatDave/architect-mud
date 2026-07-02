@@ -839,7 +839,7 @@ export class GameTable {
     this._shuffleAnim = true;
     clearInterval(this._shuffleSfxTimer);
     this._pushSfx('shuffle');
-    this._shuffleSfxTimer = setInterval(() => this._pushSfx('shuffle'), 1000);
+    this._shuffleSfxTimer = setInterval(() => this._pushSfx('shuffle'), 1800);
   }
 
   // Cut the shuffle loop — called the instant a hand actually deals, or if the

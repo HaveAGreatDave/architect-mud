@@ -7271,7 +7271,7 @@ body.esp-active #output {
 	inset: 6px;
 	border-radius: 4px;
 	background-image: repeating-linear-gradient(
-		45deg, var(--accent-dim) 0px, var(--accent-dim) 4px,
+		45deg, var(--accent) 0px, var(--accent) 4px,
 		transparent 4px, transparent 9px
 	);
 	opacity: 0.85;
@@ -7281,7 +7281,7 @@ body.esp-active #output {
 .poker-deck-card:nth-child(3) { top: -6px; left: -6px; }
 
 /* Riffle shuffle — loops for the whole "SHUFFLING UP…" countdown (one riffle
-   per repeated poker-shuffle synth cue, ~1s apart), cut the instant the hand
+   per repeated poker-shuffle synth cue, ~1.8s apart), cut the instant the hand
    actually deals. Cards fan out and snap back instead of a plain cut. */
 @keyframes poker-deck-riffle {
 	0%   { transform: translate(0, 0) rotate(0deg); }
@@ -7292,7 +7292,7 @@ body.esp-active #output {
 	100% { transform: translate(0, 0) rotate(0deg); }
 }
 .poker-deck.shuffling .poker-deck-card {
-	animation: poker-deck-riffle 1s ease-in-out infinite;
+	animation: poker-deck-riffle 1.8s ease-in-out infinite;
 }
 .poker-deck.shuffling .poker-deck-card:nth-child(2) { animation-delay: 0.03s; }
 .poker-deck.shuffling .poker-deck-card:nth-child(3) { animation-delay: 0.06s; }
@@ -7395,7 +7395,7 @@ body.esp-active #output {
 	inset: 6px;
 	border-radius: 4px;
 	background-image: repeating-linear-gradient(
-		45deg, var(--accent-dim) 0px, var(--accent-dim) 4px,
+		45deg, var(--accent) 0px, var(--accent) 4px,
 		transparent 4px, transparent 9px
 	);
 	opacity: 0.85;

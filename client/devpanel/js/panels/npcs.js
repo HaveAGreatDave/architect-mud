@@ -709,14 +709,48 @@ async function openVendorZonePicker() {
   window.bigMapTileClick = async (zoneId) => {
     window.bigMapTileClick = origClick;
     if (typeof closeBigMap === 'function') closeBigMap();
-    document.getElementById('f-work-zone-id').value = zoneId;
-    const zones = await API('/zones').catch(() => []);
-    const zone = Array.isArray(zones) ? zones.find(z => z.id === zoneId) : null;
-    const nameEl = document.getElementById('f-work-zone-name');
-    if (nameEl) nameEl.textContent = zone?.name || zoneId;
-    await npcRefreshSafeStatus();
+    await pickWorkplaceForZone(zoneId);
   };
   if (typeof openBigMap === 'function') openBigMap('normal');
+}
+
+// A clicked map tile may be an outdoor/exterior zone — nobody works "outside",
+// so if the tile itself isn't a building, look inside its linked interior map
+// for building zones and make the dev pick one instead of setting it directly.
+async function pickWorkplaceForZone(zoneId) {
+  const zone = bigMapOverlayData?.zones?.get(zoneId);
+  if (zone?.flags?.is_building) {
+    await setWorkZone(zoneId, zone.name);
+    return;
+  }
+  const childMap = bigMapOverlayData?.children?.find(c => c.parent_zone_id === zoneId);
+  if (!childMap) {
+    toast(`${zone?.name || zoneId} is an exterior zone with no buildings — pick a building tile instead.`, true);
+    return;
+  }
+  const mapData = await API(`/maps/${childMap.id}`).catch(() => null);
+  const buildings = (mapData?.zones || []).filter(z => z.flags?.is_building);
+  if (!buildings.length) {
+    toast(`No buildings found inside ${zone?.name || zoneId} — add one via the Zone Editor (+ Add Room → Building).`, true);
+    return;
+  }
+  openModal(`Pick a building in ${zone?.name || zoneId}`, `
+    <div style="max-height:320px;overflow-y:auto">
+      ${buildings.map(b => `<button type="button" class="action-btn" style="width:100%;text-align:left;margin-bottom:6px" onclick='selectWorkplaceBuilding(${JSON.stringify(b.id)}, ${JSON.stringify(b.name)})'>${b.name}</button>`).join('')}
+    </div>
+  `);
+}
+
+async function selectWorkplaceBuilding(zoneId, zoneName) {
+  closeModal();
+  await setWorkZone(zoneId, zoneName);
+}
+
+async function setWorkZone(zoneId, zoneName) {
+  document.getElementById('f-work-zone-id').value = zoneId;
+  const nameEl = document.getElementById('f-work-zone-name');
+  if (nameEl) nameEl.textContent = zoneName || zoneId;
+  await npcRefreshSafeStatus();
 }
 
 async function npcRefreshSafeStatus() {
