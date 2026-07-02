@@ -114,7 +114,7 @@ New helper `server/engine/tags.js` imports the catalog (relative import from `cl
 ### Engine cutover (read behavior from `tags`)
 Replace column reads with tag reads across the behavior touchpoints. Pattern: SELECT `i.tags` instead of the legacy columns; branch in JS, or gate in SQL with `jsonb_exists(i.tags,'<name>')` / `i.tags ->> '<key>'` (avoid the bare `?` operator — it collides with node-pg placeholders). Representative changes:
 - `server/engine/commands/inventory.js` — `recomputeArmor` sums `tags.armor`; `cmdInventory` reads instance flags; `cmdTake`/`cmdDrop` stack via `isStackable()` (default unless `tags.unique`) / `NOT jsonb_exists(i.tags,'quest_item')`; `cmdUse` gates on `jsonb_exists(i.tags,'consumable')` and reads `restore_*`/`heal_over_time`/`well_fed`/`hydrating`; `cmdEquip*` gate on `jsonb_exists(i.tags,'slot')`, read `tags.requires` and `tags.slot`.
-- `server/engine/commands/combat.js` — weapon lookup gates on `jsonb_exists(i.tags,'weapon')`; reads `tags.damage` and `tags.weapon_skill`. (`rollAttack` in `server/engine/combat.js` is field-agnostic — unchanged.)
+- `plugins/weapon/index.js` (formerly `server/engine/commands/combat.js`) — weapon lookup gates on `jsonb_exists(i.tags,'weapon')`; reads `tags.damage` and `tags.weapon_skill`. (`rollAttack` in `server/engine/combat.js` is field-agnostic — unchanged.)
 - `server/engine/vendor.js` — sell quest-block via `tags.quest_item`; buy stack via `isStackable()` (default unless `tags.unique`).
 - `server/engine/crafting.js` — output stacking via `isStackable()` (default unless `tags.unique`); `custom_data` quality match unchanged.
 
@@ -159,7 +159,7 @@ No schema change for instance flags — `custom_data` is already JSONB; `broken`
 - `server/engine/specializedActions.js` *(Tag→Action registry — the extensibility seam, ADR-0003)*
 - `server/models/schema.js` — declares the `tags` column (and the still-present legacy columns)
 - `server/engine/commands/inventory.js` — most behavior touchpoints
-- `server/engine/commands/combat.js`, `server/engine/vendor.js`, `server/engine/crafting.js`
+- `plugins/weapon/index.js` (weapon lookup), `server/engine/vendor.js`, `server/engine/crafting.js`
 - `server/api/routes.js` — `apiCreateItem`/`apiUpdateItem`
 - `client/devpanel/index.html` — `itemEditForm`/`saveItem`
 - `docs/items.md` — rewrite for the tag model

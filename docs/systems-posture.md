@@ -12,7 +12,7 @@ persisted to the `players` table:
 
 | Field | Type | Meaning |
 |---|---|---|
-| `player.posture` | `"standing"` \| `"sitting"` \| `"lying"` \| `"kneeling"` | current posture; absent = `"standing"` |
+| `player.posture` | `"standing"` \| `"sitting"` \| `"lying"` \| `"kneeling"` \| `"scavenging"` \| `"butchering"` | current posture; absent = `"standing"`. The last two are **activity postures** owned by their plugins ([scavenging](systems-scavenging.md), butchering) — the posture string is the authoritative activity flag, and a companion state object (`scavengeState` / `butcherState`) carries the bookkeeping; when posture stops reading the activity value, the owning plugin's tick discards the stale state. |
 | `player.sittingOn` | `string \| null` | furniture name when sitting on a piece; `null` = the ground |
 
 **Anything that reads or changes posture uses these two fields.** Do not reintroduce a parallel
@@ -31,6 +31,10 @@ sittingOn })`:
   Sets `sittingOn` to the furniture name, or `null` for the ground.
 - **`stand` / `lie` / `kneel` / `pace`** — set their posture and clear `sittingOn` to `null`.
 
+The **scavenging** and **butchering** plugins set their activity postures the same way
+(`setLivePlayer` with `posture` + their companion state object) — see the
+[plugin index](plugins.md) rows for each.
+
 > `setLivePlayer` **replaces** the map entry with a fresh object (`{ ...player }`). That's fine because
 > every command re-fetches the live player from `world.players` at dispatch time, and the game loop
 > iterates the map directly — both always see the current object. Don't cache a player reference
@@ -41,12 +45,12 @@ sittingOn })`:
 | Behaviour | Location | Rule |
 |---|---|---|
 | **HP regen** | `gameLoop.js` `sittingRegenTick` (`15s` cadence) | While `posture === "sitting"` and not in combat, heal `SIT_REGEN_HP` (5) up to `hp_max`. In combat (`combatTargetId`/`pvpTargetId` set) → force stand instead. |
-| **Stand when attacked (PvE)** | `gameLoop.js` enemy-attack handler | On any hit *attempt*, if `target.posture === "sitting"` → set standing, clear `sittingOn`, notify. |
+| **Stand when attacked (PvE)** | `gameLoop.js` enemy-attack handler | On any hit *attempt*, if `posture !== "standing"` (sitting, lying, kneeling, or an activity posture) → set standing, clear `sittingOn`, notify. Activity plugins' ticks then discard their own state. |
 | **Stand when attacked (PvP)** | `gameLoop.js` `pvpSwing` handler | Same, against the defender. |
-| **Stand when you attack** | `commands/combat.js` `cmdAttack` | Initiating an attack forces standing. |
-| **Stand on zone change** | `commands/movement.js` `cmdMove` | Moving zones forces standing + clears `sittingOn`. |
+| **Stand when you attack** | [`plugins/weapon/index.js`](../plugins/weapon/index.js) `cmdAttack` | Initiating an attack clears any non-standing posture. |
+| **Stand on zone change** | `commands/movement.js` `cmdMove` | Moving zones forces standing + clears `sittingOn` (unconditional). |
 | **Reset on death/respawn** | `gameLoop.js` death handler | `posture = "standing"`, `sittingOn = null`. |
-| **Look/examine description** | `commands/world.js` `describePlayerAppearance` | If `target.posture === "sitting"`, append `"<X> is sitting on the <furniture|ground>."` |
+| **Look/examine description** | `commands/world.js` `describePlayerAppearance` | `"sitting"` → `"<X> is sitting on the <furniture|ground>."`; `"scavenging"` → rummaging line; `"butchering"` → elbow-deep-in-a-carcass line. |
 | **`poop on <player>` gate (MIS)** | `commands/bodily.js` `cmdPoop` | Target must be sleeping/offline-sleeping or `posture === "lying"`. |
 
 ## Tunables

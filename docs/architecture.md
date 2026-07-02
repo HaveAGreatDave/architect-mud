@@ -221,7 +221,8 @@ Player types "attack mutant" or clicks the enemy's name in the room text
 
 Server (handleGameCommand in index.js)
   → Looks up the live player object by session
-  → handleCommand() parses + dispatches to cmdAttack()
+  → handleCommand() parses; the weapon plugin's specialized action wins
+    dispatch and fires the ATTACK Action → cmdAttack() (plugins/weapon/)
   → Combat engine resolves the hit (cooldown check, roll, damage)
   → Updates player/enemy state, persists relevant fields to DB
   → Returns a result object; if it includes player_update, that's

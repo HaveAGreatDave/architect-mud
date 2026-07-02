@@ -1,13 +1,11 @@
 import { world, tickSpawns, getRandomAmbient, getWeatherAmbient, getLivePlayer, getInterruptLoudness, registerInterrupt, createCorpse, removeCorpse, tryBattleCry } from './world.js';
 import { randomUUID } from 'crypto';
 import { propagateSound } from './sounds.js';
-import { enemyAttackPlayer, enemyAttackNpc, npcAttackPlayer, isOnCooldown, pvpSwing, formatBattleCry } from './combat.js';
+import { enemyAttackPlayer, enemyAttackNpc, npcAttackPlayer, isOnCooldown, pvpSwing, formatBattleCry, getPlayerCombat } from './combat.js';
 import { tickEntityAI, moveEntity } from './ai-behaviour.js';
 import { npcBanterTick } from './npc-banter.js';
 import { restockAllVendors } from './vendor.js';
-import { offlineSleepSwing } from './commands/combat.js';
 import { tickEffects, applyEffect } from './effects.js';
-import { resolveAttack, resolveAttackNpc } from './commands/index.js';
 import { tickSleep, releaseApartment } from './apartments.js';
 import { fireHook } from './plugins.js';
 import { emit } from './events.js';
@@ -23,6 +21,7 @@ import { addHorniness } from './mis.js';
 const SIT_REGEN_HP = 5;
 
 let broadcastFn = null;
+let lastNoCombatWarn = 0;
 let minuteTick = 0;
 
 export function startGameLoop(broadcast) {
@@ -42,6 +41,15 @@ export function startGameLoop(broadcast) {
 }
 
 async function tick() {
+  // Player-initiated combat lives in the weapon plugin (registerPlayerCombat).
+  // Raw function references — never the Action dispatcher (ADR-0001 hot path).
+  // If the plugin failed to load, players can't fight: shout, don't go silent.
+  const playerCombat = getPlayerCombat();
+  if (!playerCombat && Date.now() - lastNoCombatWarn > 10000) {
+    lastNoCombatWarn = Date.now();
+    console.error('[gameLoop] No player-combat provider registered — is the weapon plugin loaded? Player attacks are DEAD.');
+  }
+
   // Enemy AI
   for (const [instanceId, enemy] of world.enemies) {
     // Ambient threat escalation — runs for all enemies when no target yet
@@ -117,7 +125,10 @@ async function tick() {
 
       enemyAttackPlayer(enemy, target).then(async result => {
         if (!result) return;
-        if (target.posture === 'sitting') {
+        // Any hit attempt interrupts activity postures (sitting, lying,
+        // kneeling, butchering, scavenging) — posture is the orchestrator; the
+        // activity plugins' ticks see the change and discard their own state.
+        if ((target.posture || 'standing') !== 'standing') {
           target.posture = 'standing';
           target.sittingOn = null;
           broadcastFn(null, { type: 'output', message: `You scramble to your feet as the attack comes in!` }, null, target.id);
@@ -142,6 +153,7 @@ async function tick() {
 
   // Player auto-attack: sustain combat against combatTargetId each tick
   for (const [playerId, player] of world.players) {
+    if (!playerCombat) break;
     if (!player.combatTargetId) continue;
     const combatEnemy = world.enemies.get(player.combatTargetId);
     if (!combatEnemy || combatEnemy.zoneId !== player.current_zone) {
@@ -149,7 +161,7 @@ async function tick() {
       continue;
     }
     if (!isOnCooldown(playerId, 'attack')) {
-      resolveAttack(player, combatEnemy, broadcastFn)
+      playerCombat.resolveAttack(player, combatEnemy, broadcastFn)
         .then(atkResult => {
           if (atkResult?.type === 'combat') {
             broadcastFn(null, { ...atkResult, auto: true }, null, playerId);
@@ -178,7 +190,9 @@ async function tick() {
     if (isOnCooldown(playerId, 'attack')) continue;
     pvpSwing(player, pvpTarget).then(async result => {
       if (!result) return;
-      if (pvpTarget.posture === 'sitting') {
+      // Same rule as the PvE handler above: any hit attempt clears any
+      // non-standing posture, not just sitting.
+      if ((pvpTarget.posture || 'standing') !== 'standing') {
         pvpTarget.posture = 'standing';
         pvpTarget.sittingOn = null;
         broadcastFn(null, { type: 'output', message: `You scramble to your feet as the attack comes in!` }, null, pvpTarget.id);
@@ -195,13 +209,15 @@ async function tick() {
 
   // One-sided auto-attack against offline sleeping players
   for (const [playerId, player] of world.players) {
+    if (!playerCombat) break;
     if (!player.offlinePvpTargetId) continue;
     if (isOnCooldown(playerId, 'attack')) continue;
-    offlineSleepSwing(player, player.offlinePvpTargetId, broadcastFn).catch(() => {});
+    playerCombat.offlineSleepSwing(player, player.offlinePvpTargetId, broadcastFn).catch(() => {});
   }
 
   // Player auto-attack against NPC
   for (const [playerId, player] of world.players) {
+    if (!playerCombat) break;
     if (!player.npcCombatTargetId) continue;
     const npc = world.npcs.get(player.npcCombatTargetId);
     if (!npc || npc._dead || npc.zone_id !== player.current_zone) {
@@ -209,7 +225,7 @@ async function tick() {
       continue;
     }
     if (!isOnCooldown(playerId, 'attack')) {
-      resolveAttackNpc(player, npc, broadcastFn)
+      playerCombat.resolveAttackNpc(player, npc, broadcastFn)
         .then(atkResult => {
           if (atkResult?.type === 'combat') {
             broadcastFn(null, { ...atkResult, auto: true }, null, playerId);

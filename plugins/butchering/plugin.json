@@ -1,0 +1,6 @@
+{
+  "name": "butchering",
+  "version": "1.0.0",
+  "description": "Butchering — a timed, posture-based carve on butcherable corpses. Requires a butchering tool; the Butchering skill gates each cut; botches ruin the part and bloody the butcher.",
+  "commands": ["butcher"]
+}

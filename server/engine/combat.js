@@ -12,6 +12,15 @@ export function formatBattleCry(name, raw) {
     : `<span class="battle-cry">${raw}</span>`;
 }
 
+// Player-initiated combat provider — the weapon plugin registers its
+// { resolveAttack, resolveAttackNpc, offlineSleepSwing } here at load, and the
+// gameLoop auto-attack tick calls through it (raw function calls, per ADR-0001;
+// only the *ownership* moved to the plugin). If the plugin fails to load, the
+// tick guard logs loudly instead of silently dropping combat.
+let playerCombat = null;
+export function registerPlayerCombat(fns) { playerCombat = fns; }
+export function getPlayerCombat() { return playerCombat; }
+
 const COOLDOWNS = {
   attack: 3500,
   flee: 4000,

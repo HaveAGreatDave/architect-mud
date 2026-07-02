@@ -112,8 +112,9 @@ const target = result.candidate; // auto-selected by FATE, no UI
 
 | Command file | Entity type | Resolution |
 |---|---|---|
-| `combat.js` | Enemies (attack) | FATE via `resolveForCommand` |
-| `combat.js` | Players (attack, loot, steal) | SIFT with disambiguation UI |
+| `plugins/weapon/index.js` | Enemies (attack) | FATE via `resolveForCommand` |
+| `plugins/weapon/index.js` | Players (attack) | SIFT with disambiguation UI; replay via `dispatchType: 'ATTACK'` (plugin verbs aren't covered by the builtin replay path) |
+| `combat.js` | Players (loot, steal) | SIFT with disambiguation UI |
 | `social.js` | NPCs (talk) | SIFT with disambiguation UI |
 | `social.js` | Players (obama) | SIFT with disambiguation UI |
 | `economy.js` | NPCs (shop) | SIFT with disambiguation UI |

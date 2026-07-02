@@ -5,8 +5,13 @@ distinct from [combat-and-stats-plan.md](combat-and-stats-plan.md), which is the
 scope (continuous skills, IP-funded stats, per-part typed soak). Much of that plan is already
 shipped; where the running code diverges from the plan, this file is the source of truth.
 
-Primary files: [combat.js](../server/engine/combat.js), [commands/combat.js](../server/engine/commands/combat.js),
-[gameLoop.js](../server/engine/gameLoop.js), [skills.js](../server/engine/skills.js), [tunables.js](../server/engine/tunables.js).
+Primary files: [combat.js](../server/engine/combat.js) (combat math, cooldowns, enemy swings),
+[plugins/weapon/index.js](../plugins/weapon/index.js) (**player-initiated combat** — target resolution,
+player swing, kill/corpse handling, sleep-kills), [commands/combat.js](../server/engine/commands/combat.js)
+(loot/steal), [gameLoop.js](../server/engine/gameLoop.js), [skills.js](../server/engine/skills.js),
+[tunables.js](../server/engine/tunables.js). The gameLoop's 1s auto-attack tick reaches the plugin's
+swing functions through `registerPlayerCombat` (engine combat.js) — raw function references injected at
+plugin load, never the Action dispatcher (ADR-0001).
 
 ## To-hit
 
@@ -86,7 +91,7 @@ map if present, else the flat `armor` integer.
 
 ## Weapons
 
-`resolveAttack()` ([commands/combat.js](../server/engine/commands/combat.js)) reads the one equipped
+`resolveAttack()` ([plugins/weapon/index.js](../plugins/weapon/index.js)) reads the one equipped
 item tagged `weapon` and pulls `damage` (`{min,max}`), `weapon_skill`, `damage_type`, `status_chance`
 from its tags. Unarmed default: 2–4 kinetic, `brawling`. `status_chance` is read but **never used**
 (no code applies a weapon-triggered status effect — see the effects note below). Monsters carry
@@ -125,11 +130,14 @@ enemy behaviour:
 ## On kill
 
 `playerAttackEnemy` resolves loot via `resolveEnemyLoot` (per-entry `weight` is a 0–100 percent roll;
-`qty` may be a `[min,max]` range). `resolveAttack` then:
+`qty` may be a `[min,max]` range). `resolveAttack` (weapon plugin) then:
 
-- inserts each loot drop into `player_inventory` under the synthetic owner `_ground_<zoneId>` (i.e. it
-  drops on the **ground**, picked up with `take`),
-- broadcasts a zone kill event.
+- creates a corpse via `createCorpse()` ([world.js](../server/engine/world.js)) carrying the enemy's
+  `butcher_table`/`butcher_difficulty` (1h expiry),
+- inserts each loot drop into `player_inventory` under the **corpse id** — loot stays ON the corpse
+  until a player loots it via the loot GUI (`loot <corpse>` or the corpse link),
+- broadcasts a zone kill event with a clickable corpse link, and emits `enemy.killed`
+  (or `enemy.attacked` on a non-lethal swing) — quest objective tracking hangs off these.
 
 `xp_reward` and `credit_reward` no longer apply — enemies grant no direct XP or credits on death.
 (Advancement comes from *using* skills: IP earned per skill use, and 1 XP per IP — see
@@ -137,11 +145,10 @@ enemy behaviour:
 but the `enemies.xp_reward` column is not that path.) Both fields are dropped from the dev panel and
 no longer read by the engine; the columns linger in the DB but are vestigial.
 
-> **Partially disconnected system:** enemies do **not** create corpses. `createCorpse()` ([world.js](../server/engine/world.js))
-> has no callers, and the enemy-corpse path (`_corpse_<zone>` rendering, `cleanCorpses`) is dead — kill
-> loot reaches players only via `take` from the ground. The `loot` command itself is **not** dead,
-> though: `cmdLootCorpse`/`resolveCorpseOrPlayer` fall back to looting a **sleeping or offline player**
-> in the zone (see below).
+> Looting an **empty-but-butcherable** corpse dispatches the `BUTCHER` Action straight into the
+> [butchering plugin](plugins.md) (the coupling is purely through the action registry). The `loot`
+> command also falls back to looting a **sleeping or offline player** in the zone via
+> `cmdLootCorpse`/`resolveCorpseOrPlayer` (see below).
 
 ### Looting a sleeping player (Deception-gated)
 

@@ -118,15 +118,9 @@ registerAction({
   },
 });
 
-// Player-initiated combat. The 1-second enemy-combat tick stays raw and never
-// routes through the dispatcher (ADR-0001 — latency-critical hot path).
-registerAction({
-  type: 'ATTACK',
-  handler: async ({ actor, params, context }) => {
-    const { cmdAttack } = await import('./commands/combat.js');
-    return cmdAttack(params.targetStr, actor, context.broadcast);
-  },
-});
+// ATTACK is registered by the weapon plugin, which owns the player-initiated
+// combat path. The 1-second enemy-combat tick stays raw and never routes
+// through the dispatcher (ADR-0001 — latency-critical hot path).
 
 registerAction({
   type: 'MOVE',

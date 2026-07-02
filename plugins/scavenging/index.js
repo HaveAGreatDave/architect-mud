@@ -281,7 +281,7 @@ on('player.stop', ({ player, stopped }) => {
 async function cmdScavenge(args, raw, player, broadcast) {
   if (player.posture === 'scavenging')
     return { type: 'emote', message: 'You\'re already digging through this place.' };
-  if (player.combatTargetId || player.pvpTargetId)
+  if (player.combatTargetId || player.pvpTargetId || player.npcCombatTargetId)
     return { type: 'emote', message: 'You\'re too busy fighting to scavenge.' };
   if ((player.posture || 'standing') !== 'standing')
     return { type: 'emote', message: 'You need to be on your feet to scavenge.' };

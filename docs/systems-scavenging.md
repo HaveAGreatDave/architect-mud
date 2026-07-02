@@ -21,7 +21,7 @@ interruption code:
 | Trigger | Where | Effect on scavenging |
 |---|---|---|
 | Move to another zone | `commands/movement.js` `cmdMove` | posture → standing ⇒ scavenging ends |
-| Initiate an attack | `commands/combat.js` `cmdAttack` | posture → standing ⇒ can't attack *and* scavenge |
+| Initiate an attack | `plugins/weapon/index.js` `cmdAttack` | posture → standing ⇒ can't attack *and* scavenge |
 | Be attacked (PvE/PvP) | `gameLoop.js` | posture → standing ⇒ scavenging ends |
 | Sit / lie / kneel / stand | `interactions` plugin | posture overwritten ⇒ scavenging ends |
 | Death / respawn | `gameLoop.js` | posture reset ⇒ scavenging ends |
@@ -38,9 +38,10 @@ player.scavengeState = { zoneId, streak, lastAttempt }   // never persisted
 engine clears posture; the plugin never has to chase down interruption sites. This
 is the same contract that keeps posture/sitting honest — see
 [systems-posture.md](systems-posture.md). (Note the one asymmetry: combat lives in
-`player.combatTargetId`, *outside* the posture enum. Scavenging yields to combat
-because posture already does; folding combat into posture is flagged as future
-work.)
+`player.combatTargetId`/`pvpTargetId`/`npcCombatTargetId`, *outside* the posture
+enum — a deliberate decision: combat has too many entry/exit paths (aggro,
+retaliation, PvP defender, flee, death) to share one overwritable string. Posture
+orchestrates *activities*; combat force-clears any non-standing posture instead.)
 
 The only engine edit scavenging requires is one line in `describePlayerAppearance`
 ([commands/world.js](../server/engine/commands/world.js)): while
