@@ -77,15 +77,13 @@ function restoreSection(id) {
   updateRestoreVisibility();
 }
 
-// The panels list stays available whenever there are hidden panels — even when
-// the sidebar is locked — so a dropped-off panel can always be re-added. While
-// unlocked it's shown regardless (for discoverability of the drag-to-hide gesture).
+// The panels list only shows while the sidebar is unlocked — hiding and
+// re-adding are both edit-mode gestures. Locking clears it away.
 function updateRestoreVisibility() {
   const restore = document.getElementById('sidebar-restore');
   if (!restore) return;
-  const show = !locked || loadHidden().length > 0;
-  restore.style.display = show ? '' : 'none';
-  if (!show) {
+  restore.style.display = locked ? 'none' : '';
+  if (locked) {
     const menu = document.getElementById('sidebar-restore-menu');
     if (menu) menu.style.display = 'none';
   }
