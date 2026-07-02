@@ -24,10 +24,11 @@ dev panel's "reload" uses so editing a zone doesn't evict the players standing i
 `cmdMove` ([movement.js](../server/engine/commands/movement.js)) resolves the destination via the exits
 substrate (below), updates the live membership and `players.current_zone`, persists the new zone, and
 broadcasts departure/arrival events (with the opposite-direction phrasing where applicable). Entry
-applies zone radiation (see [systems-survival.md](systems-survival.md)). `go <name>` resolves named
-building/room destinations via `resolveNamedDestination`
-([describe.js](../server/engine/commands/describe.js)), handling exact, unique-prefix, and ambiguous
-matches, and passes the resolved target back into `cmdMove` (`opts.targetZoneId`) so a name reaches a
+applies zone radiation (see [systems-survival.md](systems-survival.md)). `go <name>` resolves **any named
+connected destination — building, interior room, or plain exit with a zone name** — via
+`resolveNamedDestination` ([describe.js](../server/engine/commands/describe.js)), handling exact,
+unique-prefix, and ambiguous matches, and passes the resolved target back into `cmdMove`
+(`opts.targetZoneId`) so a name reaches a
 specific exit even when several share a direction.
 
 ### The exits substrate
@@ -49,10 +50,20 @@ a cardinal once it has an exit and stacks only `in/out/up/down` (`MULTI_EXIT_DIR
 `client/devpanel/js/panels/zones.js`). The accessor and movement law stay shape-agnostic (they handle an
 array on any direction), so this is an authoring policy, not an engine constraint.
 
-When a player types a bare direction that has 2+ exits, `cmdMove` returns an ambiguous prompt listing the
-destinations by name ("Several ways lead up: …") and the player picks with `go <name>`. Doors bind to
-one specific exit via `doors.target_zone` (NULL = legacy, resolves by `(zone_id, exit_dir)` alone); pass
-the resolved target to `getDoorForExit(zone, dir, targetId)`. **Known limits:** the map grid editor
+When a player types a bare direction that has 2+ exits, `cmdMove` opens a **numbered SIFT picker**
+("Several ways lead up." → `[1] … [2] …`). The exits are numbered in a **stable order (destination
+name)** via `orderedExitCandidates`, so three inputs always agree on which is #2: replying `2` to the
+picker, the inline shortcut **`up 2`** (jump straight to the Nth exit without seeing the list —
+`exitIndexOpts` on the `in/out/up/down` handlers and in `cmdGo`/`go up 2`), and a repeated look. Picking a
+number moves **straight to that destination's zone id** (the selection state carries `moveDirection` +
+`candidate.id`; the intercept in `commands/index.js` calls `cmdMove(dir, …, { targetZoneId })`) — never a
+`go <name>` text round-trip, which fails on long or duplicate destination names. `go <name>` still works
+independently via `resolveNamedDestination`. **Clicking an exit link** in the game client sends
+`go <name>` (the link carries `data-dest`; `data-target` stays the raw direction for the dpad highlight),
+so a click lands on that specific location by name rather than firing the bare direction and reopening the
+picker. Doors bind to one specific exit via `doors.target_zone`
+(NULL = legacy, resolves by `(zone_id, exit_dir)` alone); pass the resolved target to
+`getDoorForExit(zone, dir, targetId)`. **Known limits:** the map grid editor
 (`client/devpanel/js/panels/maps.js`) and the minimap are single-exit-per-direction by geometry; and
 player-facing door commands still disambiguate two doors sharing a direction by direction only, not
 destination name.

@@ -189,6 +189,11 @@ async function cmdExamineFallback(targetStr, player, broadcast) {
 async function cmdGo(argText, player, broadcast) {
   if (!argText) return { type: 'error', message: 'Go where? (north, south, east, west, up, down, in, out — or a building/room name)' };
   if (RAW_DIRECTIONS.includes(argText)) return cmdMove(argText, player, broadcast);
+  // "go in 2" — a direction plus a numbered same-direction exit.
+  const goParts = argText.split(/\s+/);
+  if (goParts.length === 2 && RAW_DIRECTIONS.includes(goParts[0]) && /^\d+$/.test(goParts[1])) {
+    return cmdMove(goParts[0], player, broadcast, { exitIndex: Number(goParts[1]) });
+  }
   const zone = getZone(player.current_zone);
   if (!zone) return { type: 'error', message: 'Your zone is missing.' };
   const resolved = resolveNamedDestination(zone, argText);
@@ -233,6 +238,21 @@ function buildBattleCryMessages(enemies, playerHandle) {
   return lines;
 }
 
+// Same-direction exits numbered in a stable order (destination name), so a bare
+// direction's picker, an inline `in 2`, and any later `look` all agree on which
+// exit is #2. The order is independent of the stored exit-array order.
+function orderedExitCandidates(targets) {
+  return targets
+    .map((id) => ({ id, name: getZone(id)?.name || id }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+// A trailing number on a movement verb (`in 2`, `up 3`) selects the Nth exit of
+// a multi-exit direction. Non-numeric args are ignored (no exit index).
+function exitIndexOpts(args) {
+  return args?.length && /^\d+$/.test(args[0]) ? { exitIndex: Number(args[0]) } : {};
+}
+
 export async function cmdMove(direction, player, broadcast, opts = {}) {
   if (!direction) return { type:'error', message:'Go where? (north, south, east, west, up, down)' };
   const zone = getZone(player.current_zone);
@@ -251,19 +271,28 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
   }
 
   // Resolve which exit when a direction holds several. An explicit target (from
-  // name-based navigation, e.g. `go bar`) picks directly; a bare ambiguous
-  // direction asks the player to name the destination.
+  // name-based navigation, e.g. `go bar`) picks directly; an inline index
+  // (`in 2`) jumps straight to the Nth; otherwise open a numbered picker.
   let targetId;
   if (opts.targetZoneId && targets.includes(opts.targetZoneId)) {
     targetId = opts.targetZoneId;
   } else if (targets.length === 1) {
     targetId = targets[0];
   } else {
-    // Several exits share this direction — open a numbered SIFT picker. Selecting
-    // a number re-dispatches `go <name>`, which resolves the destination uniquely.
-    const candidates = targets.map((id) => ({ id, name: getZone(id)?.name || id }));
-    createSelectionState(player.id, candidates, { verb: 'go' });
-    return { type: 'output', message: `Several ways lead ${direction}.\n${formatSelectionPage(getSelectionState(player.id))}` };
+    // Same-direction exits are numbered in a stable order (below), so `in 2`, the
+    // picker's [2], and a repeated look all agree — you can jump to a numbered
+    // exit without seeing the list first.
+    const candidates = orderedExitCandidates(targets);
+    if (opts.exitIndex != null) {
+      const pick = candidates[opts.exitIndex - 1];
+      if (!pick) return { type:'error', message:`There ${candidates.length === 1 ? 'is' : 'are'} only ${candidates.length} way${candidates.length === 1 ? '' : 's'} ${direction} (you asked for #${opts.exitIndex}).` };
+      targetId = pick.id;
+    } else {
+      // Numbered SIFT picker. Selecting a number moves straight to that zone id
+      // (see the selection intercept in commands/index.js) — no name round-trip.
+      createSelectionState(player.id, candidates, { verb: 'go', moveDirection: direction });
+      return { type: 'output', message: `Several ways lead ${direction}.\n${formatSelectionPage(getSelectionState(player.id))}` };
+    }
   }
   const targetZone = getZone(targetId);
   if (!targetZone) return { type:'error', message:'That exit leads nowhere yet.' };
@@ -516,13 +545,13 @@ export const handlers = {
   e:     (args, raw, player, broadcast) => cmdMove('east', player, broadcast),
   west:  (args, raw, player, broadcast) => cmdMove('west', player, broadcast),
   w:     (args, raw, player, broadcast) => cmdMove('west', player, broadcast),
-  up:    (args, raw, player, broadcast) => cmdMove('up', player, broadcast),
-  u:     (args, raw, player, broadcast) => cmdMove('up', player, broadcast),
-  down:  (args, raw, player, broadcast) => cmdMove('down', player, broadcast),
-  d:     (args, raw, player, broadcast) => cmdMove('down', player, broadcast),
-  in:    (args, raw, player, broadcast) => cmdMove('in', player, broadcast),
-  out:   (args, raw, player, broadcast) => cmdMove('out', player, broadcast),
-  exit:  (args, raw, player, broadcast) => cmdMove('exit', player, broadcast),
+  up:    (args, raw, player, broadcast) => cmdMove('up', player, broadcast, exitIndexOpts(args)),
+  u:     (args, raw, player, broadcast) => cmdMove('up', player, broadcast, exitIndexOpts(args)),
+  down:  (args, raw, player, broadcast) => cmdMove('down', player, broadcast, exitIndexOpts(args)),
+  d:     (args, raw, player, broadcast) => cmdMove('down', player, broadcast, exitIndexOpts(args)),
+  in:    (args, raw, player, broadcast) => cmdMove('in', player, broadcast, exitIndexOpts(args)),
+  out:   (args, raw, player, broadcast) => cmdMove('out', player, broadcast, exitIndexOpts(args)),
+  exit:  (args, raw, player, broadcast) => cmdMove('exit', player, broadcast, exitIndexOpts(args)),
   map:      (args, raw, player) => cmdMap(player),
   follow:   (args, raw, player, broadcast) => cmdFollow(args, player, broadcast),
   unfollow: (args, raw, player, broadcast) => cmdUnfollow(player, broadcast),

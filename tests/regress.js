@@ -190,6 +190,18 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
     const res = resolveNamedDestination(world.zones.get(originId), A.name);
     check('name resolves to a specific same-dir exit', res?.type === 'unique' && res.match.targetId === A.id, JSON.stringify(res)?.slice?.(0, 120));
 
+    // Inline index (`in 2`): jumps straight to the Nth exit in stable name order,
+    // no picker needed. #1 is the alphabetically-first destination.
+    const ordered = [A, B].map(z => ({ id: z.id, name: z.name })).sort((a, b) => a.name.localeCompare(b.name));
+    mover.current_zone = originId;
+    const idx1 = await cmdMove('north', mover, broadcast, { exitIndex: 1 });
+    check('inline index moves to Nth exit', idx1?.type === 'move' && mover.current_zone === ordered[0].id, `zone=${mover.current_zone} want=${ordered[0].id}`);
+    check('inline index opens no picker', !getSelectionState(mover.id), JSON.stringify(getSelectionState(mover.id)));
+
+    mover.current_zone = originId;
+    const idxBad = await cmdMove('north', mover, broadcast, { exitIndex: 9 });
+    check('out-of-range index errors, no move', idxBad?.type === 'error' && mover.current_zone === originId, `${idxBad?.type} zone=${mover.current_zone}`);
+
     mover.current_zone = savedZone;
     world.zones.delete(originId);
   } else {

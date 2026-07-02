@@ -13,7 +13,7 @@ import {
 	getWeatherDescription,
 } from "../environment.js";
 import { getCustodianOutcastResponse } from "../mutations.js";
-import { allExits, exitTargets } from "../exits.js";
+import { allExits } from "../exits.js";
 import {
 	describeApartmentStatus,
 	describeRentStatus,
@@ -73,10 +73,16 @@ function getConnectedDestinations(zone) {
 }
 
 // Inline "[Direction] Name" link — Name is the clickable piece, click goes that way.
+// `data-target` stays the raw direction (the client dpad highlight reads it); when
+// the destination has a name we also emit `data-dest`, and the client clicks with
+// `go <name>` so SIFT lands on that specific exit even when several share a
+// direction. Unnamed exits fall back to `go <direction>`.
 function destLink(direction, name, cls) {
 	const dirLabel = direction.charAt(0).toUpperCase() + direction.slice(1);
 	const label = name || dirLabel;
-	return `<span class="dir-tag">[${dirLabel}]</span> <span class="action-link ${cls}" data-action="go" data-target="${direction}" title="Go ${direction}">${label}</span>`;
+	const destAttr = name ? ` data-dest="${String(name).replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"` : '';
+	const title = name ? `Go to ${name}` : `Go ${direction}`;
+	return `<span class="dir-tag">[${dirLabel}]</span> <span class="action-link ${cls}" data-action="go" data-target="${direction}"${destAttr} title="${title.replace(/"/g, '&quot;')}">${label}</span>`;
 }
 
 const DIRECTION_PHRASE = {
@@ -171,18 +177,14 @@ function describeBuildingDiscovery(buildings) {
 	return " " + sentences.join(" ");
 }
 
-// Destination display names for one direction, in stored order. Used by the
-// movement law to build the "several ways lead north" prompt when a direction
-// holds two or more exits. Falls back to the raw zone-id if a target is missing.
-export function exitDestinationNames(zone, direction) {
-	return exitTargets(zone, direction).map((id) => getZone(id)?.name || id);
-}
-
 export function resolveNamedDestination(zone, typedNameRaw) {
 	const typed = (typedNameRaw || "").trim().toLowerCase();
 	if (!typed) return { type: "none" };
-	const { buildings, rooms } = getConnectedDestinations(zone);
-	const candidates = [...buildings, ...rooms];
+	// Every named connected destination is resolvable — buildings, interior rooms,
+	// and plain exits with a zone name (so clicking "[North] Meridian Ave", or a
+	// specific one of several exits sharing a direction, lands there by name).
+	const { buildings, rooms, plain } = getConnectedDestinations(zone);
+	const candidates = [...buildings, ...rooms, ...plain.filter((p) => p.name)];
 	if (!candidates.length) return { type: "none" };
 
 	const exact = candidates.filter((c) => c.name.toLowerCase() === typed);

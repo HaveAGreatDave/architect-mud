@@ -607,9 +607,13 @@ function handleActionLinkClick(e) {
 	const action = el.dataset.action;
 	const target = el.dataset.target;
 	if (!action || !target) return;
-	const cmd = `${action} ${target.toLowerCase()}`;
+	// Exit/building/room links carry data-dest (the destination name) — click by
+	// name so SIFT reaches the specific location even when several exits share a
+	// direction. data-target stays the raw direction for the dpad highlight.
+	const dest = el.dataset.dest;
+	const cmd = dest ? `go ${dest.toLowerCase()}` : `${action} ${target.toLowerCase()}`;
 	const label = el.dataset.label;
-	sendCmd(cmd, label ? `${action} ${label}` : undefined);
+	sendCmd(cmd, label ? `${action} ${label}` : (dest ? `go ${dest}` : undefined));
 }
 document
 	.getElementById("output")

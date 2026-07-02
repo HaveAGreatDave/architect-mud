@@ -83,7 +83,13 @@ export async function handleCommand(input, player, broadcast) {
     } else if (adv.type === 'page') {
       return { type: 'output', message: formatSelectionPage(adv.state) };
     } else if (adv.type === 'selected') {
-      const { verb, dispatchType, dispatchParam } = _sel.context;
+      const { verb, dispatchType, dispatchParam, moveDirection } = _sel.context;
+      // Movement picker: the candidate carries the destination zone id, so move
+      // straight there — never a `go <name>` round-trip (long/duplicate names fail).
+      if (moveDirection && adv.candidate?.id) {
+        const { cmdMove } = await import('./movement.js');
+        return cmdMove(moveDirection, player, broadcast, { targetZoneId: adv.candidate.id });
+      }
       if (dispatchType && dispatchParam) {
         const { dispatchAction } = await import('../actions.js');
         return dispatchAction({
