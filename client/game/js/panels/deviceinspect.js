@@ -14,6 +14,16 @@ let _overlay = null;
 let _keyHandler = null;
 let _lastMsg = null;
 let _refreshTimer = null;
+let _lastSig = null;
+
+// Fields that actually change the rendered readout. The auto-refresh timer
+// re-runs `examine` every 2s regardless of whether anything moved; rebuilding
+// the SVG on every tick restarts all its <animate>/CSS-keyframe elements,
+// which reads as the whole panel flashing. Skip the rebuild when nothing the
+// readout displays has actually changed.
+function sigOf(msg) {
+  return JSON.stringify([msg.destroyed, msg.online, msg.integrityPct, msg.outputKw, msg.capacityKw, msg.deviceType, msg.name]);
+}
 
 function ensureStyles() {
   if (document.getElementById('device-inspect-styles')) return;
@@ -23,7 +33,9 @@ function ensureStyles() {
     #device-inspect-overlay { position:fixed; inset:0; z-index:9000; display:flex; align-items:center; justify-content:center;
       padding:2vh 2vw; box-sizing:border-box; overflow:auto;
       background:rgba(0,0,0,0.72); backdrop-filter:blur(2px); font-family:'Courier New',monospace; }
-    #device-inspect-overlay .di-panel { position:relative; width:min(720px,96vw); max-height:96vh; overflow-y:auto; }
+    #device-inspect-overlay .di-panel { position:relative; width:min(720px,96vw); max-height:96vh; overflow-y:auto;
+      scrollbar-width:none; }
+    #device-inspect-overlay .di-panel::-webkit-scrollbar { width:0; height:0; }
     #device-inspect-overlay .di-frame { animation:di-boot .28s ease-out; }
     #device-inspect-overlay .di-frame svg { display:block; width:100%; height:auto; }
     @keyframes di-boot { 0%{opacity:0; transform:scale(.985)} 100%{opacity:1; transform:scale(1)} }
@@ -62,6 +74,7 @@ function close() {
   if (_keyHandler) { window.removeEventListener('keydown', _keyHandler); _keyHandler = null; }
   if (_overlay) { _overlay.remove(); _overlay = null; }
   _lastMsg = null;
+  _lastSig = null;
 }
 
 function actionBar(msg) {
@@ -75,12 +88,18 @@ export function openDeviceInspectPanel(msg) {
   ensureStyles();
   const first = !_overlay;
   _lastMsg = msg;
+
+  // The panel auto-refreshes on a timer: each tick silently re-runs `examine`,
+  // which re-sends this message. If nothing the readout displays has actually
+  // changed, skip the rebuild entirely — otherwise every <animate>/keyframe
+  // element restarts from scratch each tick, which reads as the panel flashing.
+  const sig = sigOf(msg);
+  if (!first && sig === _lastSig) return;
+  _lastSig = sig;
+
   const svg = (msg.deviceType === 'junction_box') ? junctionSvg(msg) : generatorSvg(msg);
   const inner = `<div class="di-panel"><button class="di-close" title="Close">✕</button><div class="di-frame">${svg}</div>${actionBar(msg)}</div>`;
 
-  // The panel auto-refreshes on a timer: each tick silently re-runs `examine`,
-  // which re-sends this message — refresh in place rather than tearing down and
-  // rebuilding the overlay (no flash, no scroll).
   if (!first && _overlay) {
     _overlay.innerHTML = inner;
     wireControls(_overlay, msg);

@@ -498,6 +498,18 @@ body {
 	display: flex;
 	flex-direction: column;
 	overflow: hidden;
+	user-select: none;
+}
+
+/* Text selection is only meaningful in the scrollback pane and the command
+   input — everywhere else (panels, HUD, buttons, minimap, etc.) a click-drag
+   is almost always an accidental drag, not a copy attempt. */
+#output,
+#output *,
+#cmd-input,
+input,
+textarea {
+	user-select: text;
 }
 
 /* ─── HEADER ─── */
