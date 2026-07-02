@@ -477,6 +477,8 @@ function renderActionProgress(msg) {
     if (fill) { fill.style.transition = 'none'; fill.style.width = '0%'; }
     return;
   }
+  // Looting is done once the timed action starts — close any open loot panel.
+  if (msg.action === 'butcher') closeLootPanel();
   if (label) label.textContent = msg.label || '';
   el.style.display = '';
   if (fill) {

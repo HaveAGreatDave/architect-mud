@@ -615,8 +615,9 @@ async function cmdButcher(targetStr, player, broadcast) {
 		{ type: "zone_event", message: `${player.handle} starts butchering ${corpse.name}.` },
 		player.id,
 	);
-	// Close the loot panel immediately — looting is done, the timed carve takes over.
-	return { type: "loot", message: `You set to work butchering ${corpse.name}.`, closeLoot: true };
+	// The client closes any open loot panel when it receives the `progress`
+	// message above; no closeLoot/look churn needed here.
+	return { type: "emote", message: `You set to work butchering ${corpse.name}.` };
 }
 
 // Clear the butchering activity and hide the client progress bar.
