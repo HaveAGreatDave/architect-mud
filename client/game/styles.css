@@ -2706,6 +2706,100 @@ textarea {
 	border-left: 3px solid var(--green);
 }
 
+/* Inventory item detail popup (equipment.js showItemDetail) */
+.idp-box {
+	background: var(--bg2);
+	border: 1px solid var(--border);
+	border-radius: 3px;
+	padding: 18px;
+	width: 340px;
+	max-width: 90vw;
+	font-family: var(--font-mono);
+}
+.idp-header {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 10px;
+	margin-bottom: 8px;
+}
+.idp-name {
+	color: var(--accent);
+	font-size: 14px;
+	letter-spacing: 1px;
+}
+.idp-name .idp-qty {
+	color: var(--text-dim);
+	font-size: 12px;
+}
+.idp-close {
+	background: transparent;
+	border: none;
+	color: var(--text-dim);
+	font-size: 14px;
+	cursor: pointer;
+	padding: 0 2px;
+	line-height: 1;
+}
+.idp-close:hover { color: var(--text-bright); }
+.idp-badges {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 5px;
+	margin-bottom: 10px;
+}
+.idp-badge {
+	font-size: 9px;
+	text-transform: uppercase;
+	letter-spacing: 1px;
+	padding: 1px 6px;
+	border-radius: 2px;
+	border: 1px solid var(--border);
+	color: var(--text-dim);
+}
+.idp-badge.quality { border-color: var(--cyan); color: var(--cyan); }
+.idp-badge.equipped { border-color: var(--green); color: var(--green); }
+.idp-badge.flag { border-color: var(--red); color: var(--red); }
+.idp-desc {
+	font-size: 12px;
+	color: var(--text);
+	line-height: 1.5;
+	margin-bottom: 12px;
+}
+.idp-nodesc { color: var(--text-dim); font-style: italic; }
+.idp-stats {
+	border-top: 1px solid var(--border);
+	padding-top: 10px;
+	margin-bottom: 14px;
+}
+.idp-stat {
+	display: flex;
+	justify-content: space-between;
+	gap: 12px;
+	font-size: 11px;
+	padding: 2px 0;
+}
+.idp-stat-k { color: var(--text-dim); }
+.idp-stat-v { color: var(--text-bright); text-align: right; }
+.idp-verbs {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+.idp-verb {
+	background: transparent;
+	border: 1px solid var(--accent);
+	color: var(--accent);
+	font-family: var(--font-mono);
+	font-size: 11px;
+	padding: 5px 14px;
+	cursor: pointer;
+	border-radius: 2px;
+}
+.idp-verb:hover { background: rgba(0, 255, 255, 0.08); }
+.idp-verb.danger { border-color: var(--red); color: var(--red); }
+.idp-verb.danger:hover { background: rgba(255, 60, 60, 0.08); }
+
 #equip-credits {
 	margin-top: 12px;
 	font-size: 12px;

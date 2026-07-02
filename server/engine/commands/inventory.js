@@ -6,7 +6,8 @@ import { foodLoad, applyThirst } from '../bodily.js';
 import { dispatchAction } from '../actions.js';
 import { getZonePlayers } from '../world.js';
 import { resolve as siftResolve, matchAll as siftMatchAll, createSelectionState, formatSelectionPage } from '../sift.js';
-import { fireSpecializedAction } from '../specializedActions.js';
+import { fireSpecializedAction, availableActions } from '../specializedActions.js';
+import { computeSellUnitPrice } from '../vendor.js';
 import { resolveCorpseOrPlayer, buildLootView } from './combat.js';
 
 // Throttle: only broadcast "rummages in container" once per 30s per player.
@@ -69,7 +70,7 @@ export async function recomputeInsulation(player) {
 }
 
 async function cmdInventory(player) {
-  const { rows } = await query(`SELECT pi.*,i.name,i.tags,i.weight FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL ORDER BY i.name`, [player.id]);
+  const { rows } = await query(`SELECT pi.*,i.name,i.tags,i.weight,i.value FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL ORDER BY i.name`, [player.id]);
   if (!rows.length) return { type:'inventory', message:'Your inventory is empty.', items:[] };
   let msg = '<span class="inv-header">INVENTORY</span>\n';
   for (const item of rows) {
@@ -82,6 +83,9 @@ async function cmdInventory(player) {
       container = ` <span class="equipped">[${formatWeight(used)}/${formatWeight(tagValue(item, 'container', 0))}]</span>`;
     }
     msg += `  ${item.name}${item.quantity>1?` x${item.quantity}`:''}${quality}${instFlags}${container}${eq}\n`;
+    // Derived fields for the client item-detail panel (see equipment.js showItemDetail).
+    item.sell_value = computeSellUnitPrice(item.value, player.stat_cool);
+    item.actions = availableActions(item);
   }
   const weight = await computeCarriedWeight(player);
   const cap = carryCapacity(player);
