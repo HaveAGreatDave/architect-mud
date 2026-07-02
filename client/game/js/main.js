@@ -37,6 +37,7 @@ import {
 	toggleWhisperPanel,
 } from "./panels/whisper.js";
 import { initWho, openWhoModal } from "./panels/who.js";
+import { showAmountDialog } from "./panels/confirm.js";
 import { initSidebarOrder } from "./panels/sidebar-order.js";
 import { mountCustomPanels } from "./panels/custom/manager.js";
 import { initCustomPanelButton } from "./panels/custom/builder.js";
@@ -535,17 +536,18 @@ if (locDpad) {
 // Poker command bar — buttons live in the area pane (re-rendered on every poker
 // update, so this is delegated). data-cmd relays the real verb (labels may be
 // aliases, e.g. "sit"→seat, "watch"→spectate); data-fill is an amount verb
-// (bet/raise) — prompt for the amount and fire the full command.
+// (bet/raise) — collect the amount via the themed confirm-window dialog and
+// fire the full command.
 document.getElementById("area-content")?.addEventListener("click", (e) => {
 	const btn = e.target.closest(".poker-cmd");
 	if (!btn) return;
 	if (btn.dataset.fill != null) {
 		const cmd = btn.dataset.fill.trim();
-		const amount = window.prompt(`${cmd[0].toUpperCase()}${cmd.slice(1)} how much?`);
-		if (amount == null) return;
-		const n = parseInt(amount, 10);
-		if (!n) return;
-		sendCmd(`${cmd} ${n}`);
+		const label = `${cmd[0].toUpperCase()}${cmd.slice(1)}`;
+		showAmountDialog(
+			{ title: label, prompt: `${label} how much?`, confirmLabel: label, min: 1 },
+			(n) => sendCmd(`${cmd} ${n}`),
+		);
 	} else if (btn.dataset.cmd) {
 		sendCmd(btn.dataset.cmd);
 	}

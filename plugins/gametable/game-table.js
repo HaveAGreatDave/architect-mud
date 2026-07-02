@@ -128,7 +128,12 @@ export class GameTable {
     // One-render animation flags (consumed by pushPaneAll, like game.dealPhase)
     this._betAnimPlayer = null;  // playerId whose bet pile should toss in
     this._sweepAnim = false;     // pot pile plays the sweep-in animation
-    this._shuffleAnim = false;   // deck plays the riffle animation
+
+    // Deck riffle loop — runs for the whole "SHUFFLING UP…" countdown (not a
+    // one-render flag like the others above), started in _checkAutoStart and
+    // stopped the instant startHand actually deals.
+    this._shuffleAnim = false;
+    this._shuffleSfxTimer = null;
 
     // Auto-start timer handle
     this._autoStartTimer = null;
@@ -369,11 +374,11 @@ export class GameTable {
 
   startHand() {
     if (this.phase === 'InProgress') return;
-    if (!this._dealerNpc()) { this.phase = 'WaitingForDealer'; this.pushPaneAll(); return; }
+    if (!this._dealerNpc()) { this._stopShuffleLoop(); this.phase = 'WaitingForDealer'; this.pushPaneAll(); return; }
     const active = this.seats
       .filter(Boolean)
       .map(s => ({ seatIdx: s.seatIdx, playerId: s.playerId, handle: s.handle, chips: s.chips }));
-    if (active.length < 2) return;
+    if (active.length < 2) { this._stopShuffleLoop(); return; }
 
     // Tilt cools off over a few hands (Phase 3).
     for (const s of this.seats) if (s?.isBot && s.tilt) s.tilt = Math.max(0, s.tilt - 0.34);
@@ -392,9 +397,8 @@ export class GameTable {
     this._dealerSay(`${info.sbHandle} posts small blind ₵ ${this.game.smallBlind}. ${info.bbHandle} posts big blind ₵ ${this.game.bigBlind}.`);
     this._dealerSay(this._quip('newHand'));
 
-    this._pushSfx('shuffle');
+    this._stopShuffleLoop(); // shuffle's been running through the countdown — cut it the instant we deal
     this._pushSfx('deal');
-    this._shuffleAnim = true;
     this.pushPaneAll();
     this._promptOrRunout();
     this._lastPersist = 0; // force persist on next tick
@@ -613,11 +617,11 @@ export class GameTable {
     for (const pid of recipients) {
       sendToPlayer(pid, { type: 'poker_update', html: renderPane(this, pid) });
     }
-    // Clear one-render animation flags after first push
+    // Clear one-render animation flags after first push (_shuffleAnim is NOT
+    // one-shot — it spans the whole countdown, see _startShuffleLoop/_stopShuffleLoop)
     if (this.game) this.game.dealPhase = false;
     this._betAnimPlayer = null;
     this._sweepAnim = false;
-    this._shuffleAnim = false;
   }
 
   // Push a poker sound-effect cue. Without playerId it goes to everyone watching
@@ -829,13 +833,31 @@ export class GameTable {
     return 0;
   }
 
+  // Kick off the deck riffle loop for the "SHUFFLING UP…" countdown — repeats
+  // the shuffle sfx cue roughly on the animation's own beat until stopped.
+  _startShuffleLoop() {
+    this._shuffleAnim = true;
+    clearInterval(this._shuffleSfxTimer);
+    this._pushSfx('shuffle');
+    this._shuffleSfxTimer = setInterval(() => this._pushSfx('shuffle'), 1000);
+  }
+
+  // Cut the shuffle loop — called the instant a hand actually deals, or if the
+  // countdown is interrupted (a seat opens up, the dealer steps away, …).
+  _stopShuffleLoop() {
+    this._shuffleAnim = false;
+    clearInterval(this._shuffleSfxTimer);
+    this._shuffleSfxTimer = null;
+  }
+
   _checkAutoStart() {
     clearTimeout(this._autoStartTimer);
     if (this.phase === 'InProgress') return;
     const n = this.seatedCount();
-    if (n < 2) { this.phase = 'WaitingForPlayers'; this.pushPaneAll(); return; }
+    if (n < 2) { this._stopShuffleLoop(); this.phase = 'WaitingForPlayers'; this.pushPaneAll(); return; }
     if (!this._dealerNpc()) {
       const wasWaiting = this.phase === 'WaitingForDealer';
+      this._stopShuffleLoop();
       this.phase = 'WaitingForDealer';
       this.pushPaneAll();
       if (!wasWaiting) {
@@ -846,8 +868,9 @@ export class GameTable {
       return;
     }
     this.phase = 'Ready';
-    this.pushPaneAll();
     const delay = (this.config.autoStartDelaySecs || 8) * 1000;
+    this._startShuffleLoop();
+    this.pushPaneAll();
     this._autoStartTimer = setTimeout(() => this.startHand(), delay);
   }
 

@@ -64,3 +64,51 @@ export function showConfirmDialog(msg) {
   });
   el.querySelector('.confirm-ok').focus();
 }
+
+let _amountEl = null;
+
+function closeAmount() {
+  _amountEl?.remove();
+  _amountEl = null;
+}
+
+// Same themed window as showConfirmDialog, but collects a number instead of
+// firing a fixed command — used wherever we need an amount from the player
+// (poker bet/raise) instead of a plain browser prompt().
+// opts: { title?, prompt?, confirmLabel?, min? }, onConfirm: (amount) => void
+export function showAmountDialog(opts, onConfirm) {
+  closeAmount();
+  const el = document.createElement('div');
+  el.className = 'confirm-window';
+  el.innerHTML = `
+    <div class="confirm-drag-handle">
+      <span class="confirm-title">${opts.title || 'Enter amount'}</span>
+      <button class="confirm-x" title="Cancel">✕</button>
+    </div>
+    <div class="confirm-body">
+      <p class="confirm-prompt"></p>
+      <input class="confirm-input" type="number" min="${opts.min ?? 1}" step="1">
+      <div class="confirm-actions">
+        <button class="confirm-cancel">Cancel</button>
+        <button class="confirm-ok">${opts.confirmLabel || 'Confirm'}</button>
+      </div>
+    </div>`;
+  el.querySelector('.confirm-prompt').textContent = opts.prompt || 'How much?';
+  document.body.appendChild(el);
+  _amountEl = el;
+
+  const input = el.querySelector('.confirm-input');
+  const submit = () => {
+    const n = parseInt(input.value, 10);
+    if (!n || n < (opts.min ?? 1)) return;
+    onConfirm(n);
+    closeAmount();
+  };
+
+  makeDraggable(el, el.querySelector('.confirm-drag-handle'));
+  el.querySelector('.confirm-x').addEventListener('click', closeAmount);
+  el.querySelector('.confirm-cancel').addEventListener('click', closeAmount);
+  el.querySelector('.confirm-ok').addEventListener('click', submit);
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
+  input.focus();
+}

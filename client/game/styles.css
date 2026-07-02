@@ -7215,20 +7215,6 @@ body.esp-active #output {
 
 /* ── Poker / GameTable ──────────────────────────────────────────────────── */
 
-/* On light themes the parchment area-pane washes out the dark green felt and
-   the (always-dark) command bar. Behind the poker table only, swap the pane bg
-   to the theme's darkest colour (--text-bright), knocked a bit darker still. */
-[data-theme="light"]    #area-pane:has(.poker-table-wrap),
-[data-theme="inkwell"]  #area-pane:has(.poker-table-wrap),
-[data-theme="studio"]   #area-pane:has(.poker-table-wrap),
-[data-theme="arctic"]   #area-pane:has(.poker-table-wrap),
-[data-theme="solar"]    #area-pane:has(.poker-table-wrap),
-[data-theme="mint"]     #area-pane:has(.poker-table-wrap),
-[data-theme="lavender"] #area-pane:has(.poker-table-wrap),
-[data-theme="fog"]      #area-pane:has(.poker-table-wrap) {
-	background: linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.4)), var(--text-bright);
-}
-
 /* The felt (460px) plus the header, dealer, and command bar under it need more
    room than the default 65% cap gives — that clips the action buttons off the
    bottom on shorter windows. Grow the pane specifically when a table is showing. */
@@ -7244,9 +7230,9 @@ body.esp-active #output {
 	width: 100%;
 	height: 460px;
 	background: radial-gradient(ellipse at center,
-		var(--poker-felt, #1a4a1a) 0%,
-		color-mix(in srgb, var(--poker-felt, #1a4a1a) 56%, #000) 60%,
-		color-mix(in srgb, var(--poker-felt, #1a4a1a) 26%, #000) 100%);
+		color-mix(in srgb, var(--poker-felt, #1a4a1a) 85%, #fff) 0%,
+		color-mix(in srgb, var(--poker-felt, #1a4a1a) 75%, #000) 60%,
+		color-mix(in srgb, var(--poker-felt, #1a4a1a) 50%, #000) 100%);
 	border: 2px solid color-mix(in srgb, var(--poker-felt, #1a4a1a) 78%, #fff);
 	border-radius: 8px;
 	overflow: hidden;
@@ -7259,7 +7245,7 @@ body.esp-active #output {
 	inset: 18px 14px;
 	border-radius: 50%;
 	border: 3px solid color-mix(in srgb, var(--poker-felt, #1a4a1a) 82%, #fff);
-	box-shadow: inset 0 0 40px rgba(0,0,0,0.5);
+	box-shadow: inset 0 0 30px rgba(0,0,0,0.25);
 	pointer-events: none;
 }
 
@@ -7275,11 +7261,11 @@ body.esp-active #output {
 	position: absolute;
 	width: 68px;
 	height: 100px;
-	background: #1a1a2e;
-	border: 1px solid #3a3a5e;
+	background: #fff;
+	border: 1px solid #ccc;
 	border-radius: 8px;
 	background-image: repeating-linear-gradient(
-		45deg, rgba(255,255,255,0.03) 0px, rgba(255,255,255,0.03) 2px,
+		45deg, rgba(0,0,0,0.04) 0px, rgba(0,0,0,0.04) 2px,
 		transparent 2px, transparent 8px
 	);
 }
@@ -7287,9 +7273,9 @@ body.esp-active #output {
 .poker-deck-card:nth-child(2) { top: -3px; left: -3px; }
 .poker-deck-card:nth-child(3) { top: -6px; left: -6px; }
 
-/* Riffle shuffle — deck plays this for one render at the start of each hand,
-   timed to the poker-shuffle synth cue (~0.45s). Cards fan out and snap back
-   in a staggered riffle instead of a plain reshuffle-in-place cut. */
+/* Riffle shuffle — loops for the whole "SHUFFLING UP…" countdown (one riffle
+   per repeated poker-shuffle synth cue, ~1s apart), cut the instant the hand
+   actually deals. Cards fan out and snap back instead of a plain cut. */
 @keyframes poker-deck-riffle {
 	0%   { transform: translate(0, 0) rotate(0deg); }
 	20%  { transform: translate(-9px, -5px) rotate(-14deg); }
@@ -7299,7 +7285,7 @@ body.esp-active #output {
 	100% { transform: translate(0, 0) rotate(0deg); }
 }
 .poker-deck.shuffling .poker-deck-card {
-	animation: poker-deck-riffle 0.45s ease-in-out both;
+	animation: poker-deck-riffle 1s ease-in-out infinite;
 }
 .poker-deck.shuffling .poker-deck-card:nth-child(2) { animation-delay: 0.03s; }
 .poker-deck.shuffling .poker-deck-card:nth-child(3) { animation-delay: 0.06s; }
@@ -7392,10 +7378,10 @@ body.esp-active #output {
 	line-height: 1.1;
 }
 .poker-card-back {
-	background: #1a1a2e;
-	border-color: #3a3a5e;
+	background: #fff;
+	border-color: #ccc;
 	background-image: repeating-linear-gradient(
-		45deg, rgba(255,255,255,0.04) 0px, rgba(255,255,255,0.04) 2px,
+		45deg, rgba(0,0,0,0.04) 0px, rgba(0,0,0,0.04) 2px,
 		transparent 2px, transparent 8px
 	);
 	transform: rotateY(0deg);
@@ -7990,6 +7976,20 @@ body.esp-active #output {
 	color: var(--text-bright);
 }
 .confirm-actions button:hover { border-color: var(--accent); }
+.confirm-input {
+	width: 100%;
+	box-sizing: border-box;
+	background: var(--bg3);
+	border: 1px solid var(--border);
+	color: var(--text);
+	font-family: var(--font-mono);
+	font-size: 14px;
+	padding: 7px 10px;
+	outline: none;
+	border-radius: 2px;
+	margin: 0 0 16px;
+}
+.confirm-input:focus { border-color: var(--accent); }
 .poker-cmd.disabled {
 	color: #8f9a91;
 	background: rgba(255,255,255,0.03);
