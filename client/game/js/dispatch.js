@@ -20,6 +20,7 @@ import { openDeviceInspectPanel } from './panels/deviceinspect.js';
 import { openSurveillanceHub, updateSurveillanceHub } from './panels/surveillancehub.js';
 import { openDatachipReplay } from './panels/datachipreplay.js';
 import { openCircuitHack } from './panels/circuithack.js';
+import { openSynthMinigame } from './panels/synthlab.js';
 import { updateWantedHud } from './panels/wanted.js';
 import { openTvPanel, isTvOpen, getTvActiveChannelId, appendTvMessage, updateTvTicker, applyTvOverlay, clearTvMessages, showTvOffAir, showTvOnAir, shutdownTvPanel } from './panels/tv.js';
 import { applyEspState, handleEspWarning } from './esp.js';
@@ -402,6 +403,15 @@ const handlers = {
       difficulty: msg.difficulty ?? 5,
       atmName: msg.deviceName || 'DEVICE',
       onResult: ({ won }) => sendCmdSilent(`hijackresolve ${msg.deviceId} ${won ? 1 : 0}`),
+    });
+  },
+
+  synth_minigame: (msg) => {
+    openSynthMinigame({
+      difficulty: msg.difficulty ?? 5,
+      recipeName: msg.recipeName || 'COMPOUND',
+      workspace: msg.workspace || '',
+      onResult: ({ score }) => sendCmdSilent(`synthresolve ${msg.recipeId} ${score}`),
     });
   },
 

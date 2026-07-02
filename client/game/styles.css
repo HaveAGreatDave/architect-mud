@@ -1455,6 +1455,15 @@ textarea {
 	}
 }
 
+/* Weather FX overlay — decorative particle/haze layer pinned over the top pane.
+   Position/size are set in JS (synced to #area-pane's on-screen box each frame).
+   Never intercepts input; sits above the scene text but below modals/HUD. */
+#weather-fx-canvas {
+	position: fixed;
+	pointer-events: none;
+	z-index: 5;
+}
+
 /* ─── INPUT BAR ─── */
 #input-area {
 	border-top: 1px solid var(--border);

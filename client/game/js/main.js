@@ -39,6 +39,7 @@ import {
 import { initWho, openWhoModal } from "./panels/who.js";
 import { initSidebarOrder } from "./panels/sidebar-order.js";
 import { refreshTempDisplay } from "./panels/environment.js";
+import { initWeatherFx, setWeatherFxEnabled } from "./panels/weather-fx.js";
 import { initAtmPanel } from "./panels/atm.js";
 import { initSurveillanceHub } from "./panels/surveillancehub.js";
 import { initDatachipReplay } from "./panels/datachipreplay.js";
@@ -67,6 +68,11 @@ function applyMobileScale() {
 	const sz = Math.max(10, Math.min(18, byWidth));
 	document.documentElement.style.setProperty("--font-size-base", sz + "px");
 }
+
+// Weather FX overlay — register the Settings apply hook before the first
+// applySettings() so its initial enable/disable is honoured, then start it.
+initWeatherFx();
+window._applyWeatherFx = setWeatherFxEnabled;
 
 applySettings(settings);
 applyMobileScale();

@@ -453,7 +453,7 @@ on('weather.thunder', ({ zoneId }) => {
 });
 
 // ── Weather ambience (reactive) ───────────────────────────────────────────
-// Two independent looping outdoor beds run off the engine's `weather.zoneAmbience`
+// Two independent looping weather beds run off the engine's `weather.zoneAmbience`
 // signal (emitted per occupied outdoor tile every 30s field tick), plus a
 // per-player top-up on zone entry:
 //   • precip bed — rain / sleet / snow / blizzard, gated by the tile's local
@@ -531,10 +531,20 @@ function knownWeatherAmbientIds() {
   return ids;
 }
 
+// Master cut so weather ambience sits under gameplay sound rather than
+// competing with it; indoor mult muffles it to a "through the walls" murmur.
+const WEATHER_GAIN = 0.6;
+const INDOOR_GAIN_MULT = 0.25;
+
+function isIndoorZone(zoneId) {
+  const z = getZone(zoneId);
+  return !!(z?.flags?.is_interior || z?.flags?.is_apartment || z?.flags?.is_building);
+}
+
 // Intensity → loop gain fraction (multiplies the def's base gain client-side).
-function precipGainFor(rate) { return Math.max(0.3,  Math.min(1, 0.35 + (rate || 0) * 0.75)); }
-function windGainFor(kph)    { return Math.max(0.35, Math.min(1, (kph - WIND_MIN_KPH) / 45 + 0.4)); }
-function gainBucket(g)       { return Math.round(g * 10) / 10; } // avoid re-sending sub-0.1 gain nudges
+function precipGainFor(rate) { return WEATHER_GAIN * Math.max(0.3,  Math.min(1, 0.35 + (rate || 0) * 0.75)); }
+function windGainFor(kph)    { return WEATHER_GAIN * Math.max(0.35, Math.min(1, (kph - WIND_MIN_KPH) / 45 + 0.4)); }
+function gainBucket(g)       { return Math.round(g * 100) / 100; } // avoid re-sending sub-0.01 gain nudges
 
 // The beds a given tile should be running, as { def, gain } per slot (or null).
 function desiredBedsFor({ precipType, active, precipRate, windKph }) {
@@ -569,6 +579,10 @@ on('weather.zoneAmbience', (payload) => {
   const zoneId = payload.zoneId;
   const trackers = zoneBeds.get(zoneId) || { precip: null, wind: null };
   const desired = desiredBedsFor(payload);
+  if (isIndoorZone(zoneId)) {
+    if (desired.precip) desired.precip.gain *= INDOOR_GAIN_MULT;
+    if (desired.wind)   desired.wind.gain   *= INDOOR_GAIN_MULT;
+  }
   reconcileZoneSlot(zoneId, trackers, 'precip', desired.precip);
   reconcileZoneSlot(zoneId, trackers, 'wind',   desired.wind);
   if (trackers.precip || trackers.wind) zoneBeds.set(zoneId, trackers); else zoneBeds.delete(zoneId);
@@ -585,23 +599,20 @@ on('weather.thunder', ({ zoneId }) => {
 });
 
 // Top up a single player on zone entry: clear any weather beds, then start the
-// ones their new tile warrants (outdoors only), at the right reactive gains.
+// ones their new tile warrants at the right reactive gains — muffled indoors.
 function reconcilePlayerWeatherAmbient(playerId, zoneId) {
   if (!playerId || !zoneId) return;
-  const zone = getZone(zoneId);
-  const indoor = !!(zone?.flags?.is_interior || zone?.flags?.is_apartment || zone?.flags?.is_building);
+  const mult = isIndoorZone(zoneId) ? INDOOR_GAIN_MULT : 1;
   const desired = [];
-  if (!indoor) {
-    const { precipType, precipRate } = getZonePrecip(zoneId);
-    if (precipRate && precipType !== 'none') {
-      const d = weatherAmbientDef(getCurrentPrecipType());
-      if (d) desired.push({ def: d, gain: precipGainFor(precipRate) });
-    }
-    const kph = getWindKph();
-    if (kph >= WIND_MIN_KPH) {
-      const d = weatherAmbientDef('wind');
-      if (d) desired.push({ def: d, gain: windGainFor(kph) });
-    }
+  const { precipType, precipRate } = getZonePrecip(zoneId);
+  if (precipRate && precipType !== 'none') {
+    const d = weatherAmbientDef(getCurrentPrecipType());
+    if (d) desired.push({ def: d, gain: precipGainFor(precipRate) * mult });
+  }
+  const kph = getWindKph();
+  if (kph >= WIND_MIN_KPH) {
+    const d = weatherAmbientDef('wind');
+    if (d) desired.push({ def: d, gain: windGainFor(kph) * mult });
   }
   const desiredIds = new Set(desired.map(x => x.def.id));
   for (const id of knownWeatherAmbientIds()) {

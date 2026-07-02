@@ -1,5 +1,6 @@
 import { state } from '../state.js';
 import { formatTemp, formatTempPrecise } from '/shared/settings.js';
+import { setWeatherFx } from './weather-fx.js';
 
 const DAY_PHASES_CLIENT = [
   { name: 'dawn',  start: 5 * 60,  end: 7 * 60,  icon: '🌅' },
@@ -35,6 +36,34 @@ let envBodyTempC = null;
 let envWindKph = null;
 let envHumidity = null;
 let envFeelsLikeC = null;
+
+// --- Weather FX overlay driver ---
+// Tracked separately from the HUD labels because the overlay needs the raw
+// weather taxonomy + local precip rate + indoor flag, not the display strings.
+let fxIndoor = true;             // default suppressed until a visibility fetch confirms outdoors
+let fxWeatherType = null;        // headline type: fog/haze/ash/clear/...
+let fxPrecipType = 'none';       // active precip taxonomy (rain/snow/sleet/...)
+let fxPrecipRate = 0;            // 0..1 local precip intensity
+const WIND_FX_KPH = 40;          // gust streaks only show in genuinely windy weather
+
+function resolveWeatherFx() {
+  if (fxIndoor) return { effect: 'none', intensity: 0, windKph: envWindKph || 0 };
+  const pt = fxPrecipType;
+  if (pt === 'rain' || pt === 'sleet' || pt === 'thunderstorm' || pt === 'storm')
+    return { effect: 'rain', intensity: fxPrecipRate || 0.5, windKph: envWindKph || 0 };
+  if (pt === 'snow' || pt === 'blizzard')
+    return { effect: 'snow', intensity: fxPrecipRate || 0.5, windKph: envWindKph || 0 };
+  if (fxWeatherType === 'ash') return { effect: 'ash', intensity: 0.6, windKph: envWindKph || 0 };
+  if (fxWeatherType === 'fog' || fxWeatherType === 'haze')
+    return { effect: 'fog', intensity: fxWeatherType === 'fog' ? 0.85 : 0.5, windKph: envWindKph || 0 };
+  if ((envWindKph || 0) >= WIND_FX_KPH)
+    return { effect: 'wind', intensity: Math.min(1, ((envWindKph || 0) - 30) / 45), windKph: envWindKph || 0 };
+  return { effect: 'none', intensity: 0, windKph: envWindKph || 0 };
+}
+
+function refreshWeatherFx() {
+  setWeatherFx(resolveWeatherFx());
+}
 
 function bodyFeelLabel(tempC) {
   if (tempC === null) return '';
@@ -94,6 +123,9 @@ export function updateEnvironmentHUD(env) {
   if (env.windKph !== undefined) envWindKph = env.windKph;
   if (env.humidityPct !== undefined) envHumidity = env.humidityPct;
   if (env.feelsLikeC !== undefined) envFeelsLikeC = env.feelsLikeC;
+  // Headline weather type (carries fog/haze/ash) + wind feed the FX overlay; the
+  // visibility fetch below refines indoor/outdoor and local precip authoritatively.
+  if (env.currentWeatherType !== undefined) { fxWeatherType = env.currentWeatherType; refreshWeatherFx(); }
   _lastServerTick = Date.now();
   renderEnvironmentHUD();
   if (env.time) refreshZoneVisibility();
@@ -134,6 +166,18 @@ export function updateZoneTempHUD(tempC, local) {
       envCurrentWeatherType = local.cloudCover >= 0.5 ? 'overcast' : (local.cloudCover >= 0.2 ? 'cloudy' : 'clear');
       envCurrentPrecipIntensity = '';
     }
+  }
+  // Weather-FX side-channel. Only touch indoor/precip state when a real zoneTempTick
+  // carries `local` — the move handler calls us with tempC only, and the per-room
+  // visibility fetch is the authoritative indoor/outdoor source for that path.
+  if (local && local.cloudCover !== undefined) {          // outdoor tick
+    fxIndoor = false;
+    fxPrecipType = (local.precipType && local.precipType !== 'none') ? local.precipType : 'none';
+    fxPrecipRate = local.precipRate || 0;
+    refreshWeatherFx();
+  } else if (local) {                                       // indoor per-minute tick
+    fxIndoor = true;
+    refreshWeatherFx();
   }
   renderEnvironmentHUD();
 }
@@ -256,6 +300,18 @@ export function refreshZoneVisibility() {
         murk:       { label: 'Murky',      color: 'var(--purple)' },
         pitch_dark: { label: 'Pitch Dark', color: 'var(--text-dim)' },
       };
+      // Authoritative per-room weather for the FX overlay — drives it the instant
+      // a room is entered (old servers omit these keys; the periodic ticks still
+      // keep it live). `outdoor` present ⇒ new server; treat absent as "no change".
+      if (v.outdoor !== undefined) {
+        fxIndoor = !v.outdoor;
+        fxWeatherType = v.weatherType ?? fxWeatherType;
+        fxPrecipType = v.precipType ?? 'none';
+        fxPrecipRate = v.precipRate || 0;
+        if (v.windKph !== undefined) envWindKph = v.windKph;
+        refreshWeatherFx();
+      }
+
       const lc = LIGHT_CATS[v.category] || LIGHT_CATS.clear;
       const iconEl = document.getElementById('env-light-icon');
       const labelEl = document.getElementById('env-light-label');

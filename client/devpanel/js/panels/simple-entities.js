@@ -62,7 +62,8 @@ function drugEditForm(rec, isNew) {
       <div class="field"><label>Overdose Threshold (doses in system)</label><input type="number" id="f-overdose_threshold" value="${rec.overdose_threshold||3}" min="1"></div>
     </div>
     <div class="field"><label>Addiction Chance (0.0 - 1.0)</label><input type="number" id="f-addiction_chance" value="${rec.addiction_chance||0}" min="0" max="1" step="0.01"></div>
-    <div class="field"><label>Effects (JSON)</label>
+    <div class="field"><button type="button" class="action-btn primary" style="width:100%" onclick="openDrugEditorFromForm()">⚗ Open Structured Editor…</button><div class="hint" style="font-size:11px;opacity:0.7;margin-top:4px">Sectioned pop-out for instant / phased / tolerance / withdrawal / overdose / hallucination — no raw JSON. Seeds from the fields below.</div></div>
+    <div class="field"><label>Effects (JSON — advanced / fallback)</label>
       <div class="hint" style="font-size:11px;line-height:1.5;opacity:0.75;margin:2px 0 4px">
         All sub-blocks optional. A flat object (no keys below) is treated as <code>instant</code> for back-compat.<br>
         • <code>instant</code>: {hp, sanity, hunger, thirst, radiation, horniness_increase} one-shot deltas.<br>

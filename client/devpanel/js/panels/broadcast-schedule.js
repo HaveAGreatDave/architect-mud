@@ -574,8 +574,9 @@ function _schedResizeStart(e, idx) {
 function _schedOnMouseMove(e) {
   if (_schedResizeIdx == null) return;
   const dx  = e.clientX - _schedResizeStartX;
-  const dur = Math.max(SCHED_SNAP, _schedToSec(_schedResizeStartDur * _schedScale() + dx));
   const item = _schedItems[_schedResizeIdx];
+  // Cap growth so the block can't extend past 24:00.
+  const dur = Math.min(86400 - item.start_time, Math.max(SCHED_SNAP, _schedToSec(_schedResizeStartDur * _schedScale() + dx)));
   item.duration          = dur;
   item.duration_override = dur;
   _schedMarkDirty();
@@ -743,7 +744,7 @@ function _schedPopSetStart(idx, val) {
 }
 
 function _schedPopSetDur(idx, val) {
-  const dur = Math.max(60, parseInt(val) * 60);
+  const dur = Math.min(86400 - _schedItems[idx].start_time, Math.max(60, parseInt(val) * 60));
   _schedItems[idx].duration          = dur;
   _schedItems[idx].duration_override = dur;
   _schedMarkDirty();
@@ -804,7 +805,7 @@ function _schedAutoScheduleOpen() {
       </div>
 
       <div style="margin-bottom:16px">
-        <label style="font-size:10px;color:var(--text-dim);display:block;margin-bottom:4px">Loop count — how many times each show plays before advancing</label>
+        <label style="font-size:10px;color:var(--text-dim);display:block;margin-bottom:4px">Loop count — minimum times each show plays before advancing (each show also fills a minimum 2-hour block)</label>
         <div style="display:flex;align-items:center;gap:8px">
           <input id="as-loops" type="number" class="form-input" value="1" min="1" max="99" style="width:72px;font-size:12px">
           <span style="font-size:11px;color:var(--text-dim)">× per show</span>
@@ -868,11 +869,14 @@ function _schedAutoSchedule(startSec, endSec, loops) {
   // Remove existing items that fall within the target window, keep items outside it
   const outside = _schedItems.filter(item => item.start_time + item.duration <= startSec || item.start_time >= endSec);
 
+  const MIN_BLOCK = 7200; // each show fills a minimum 2-hour block by looping
+
   const newItems = [];
   let cursor  = startSec;
   let progIdx = 0;
   let commIdx = 0;
   let playCount = 0;
+  let blockElapsed = 0; // airtime accumulated for the current show's block
 
   while (cursor < endSec) {
     const prog = programs[progIdx % programs.length];
@@ -890,24 +894,30 @@ function _schedAutoSchedule(startSec, endSec, loops) {
     });
     cursor += dur;
     playCount++;
-    if (playCount >= loops) { playCount = 0; progIdx++; }
+    blockElapsed += dur;
 
-    if (commercials.length && cursor < endSec) {
-      const comm    = commercials[commIdx % commercials.length];
-      const commDur = makeDur(comm);
-      if (cursor + commDur <= endSec) {
-        newItems.push({
-          broadcast_id:       comm.id,
-          broadcast_name:     comm.name,
-          broadcast_category: comm.category || 'advertisement',
-          slot_type:          'broadcast',
-          start_time:         cursor,
-          duration:           commDur,
-          duration_override:  null,
-          npc_staff:          [],
-        });
-        cursor += commDur;
-        commIdx++;
+    // Advance to the next show only once its block has aired at least 2 hours
+    // (and satisfied the requested loop count). Between show blocks, play one
+    // commercial break, rotating through the pool across breaks.
+    if (playCount >= loops && blockElapsed >= MIN_BLOCK) {
+      playCount = 0; blockElapsed = 0; progIdx++;
+      if (commercials.length) {
+        const comm    = commercials[commIdx % commercials.length];
+        const commDur = makeDur(comm);
+        if (cursor + commDur <= endSec) {
+          newItems.push({
+            broadcast_id:       comm.id,
+            broadcast_name:     comm.name,
+            broadcast_category: comm.category || 'advertisement',
+            slot_type:          'broadcast',
+            start_time:         cursor,
+            duration:           commDur,
+            duration_override:  null,
+            npc_staff:          [],
+          });
+          cursor += commDur;
+          commIdx++;
+        }
       }
     }
   }

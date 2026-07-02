@@ -150,8 +150,15 @@ The global Furniture panel (all placed furniture across all zones).
 Thin editors for mutations, drugs, and recipes — all follow the same pattern of a form function + an async save.
 
 - `mutationEditForm(rec, isNew)` / `saveMutation(existing)`
-- `drugEditForm(rec, isNew)` / `saveDrug(existing)`
+- `drugEditForm(rec, isNew)` / `saveDrug(existing)` — the inline form keeps a raw-JSON `effects` fallback plus an **⚗ Open Structured Editor…** button → `openDrugEditorFromForm()` (see `drug-editor-modal.js`).
 - `recipeEditForm(rec, isNew)` / `saveRecipe(existing)`
+
+### `drug-editor-modal.js`
+Pop-out structured editor for a drug's `effects` schema — sectioned controls (basics / instant / phases + peak-mod rows / tolerance / withdrawal + mod rows / overdose / hallucination + event rows) instead of raw JSON. Global-scope; self-builds its overlay (`.modal-overlay`/`.modal-card`). Seeds from the inline form's current field values, composes the `effects` object on save, and PUT/POSTs to `/drugs` via the shared `API` helper (staging applies), then `loadPanel('drugs')`.
+
+- `openDrugEditorFromForm()` — reads the inline `f-*` fields, parses `effects` JSON, opens the modal.
+- `openDrugEditorModal(rec, isNew)` — builds the sectioned UI; `_dgSave()` collects + saves.
+- Row builders: `_modRow()` / `_eventRow()`, add via `_dgAddMod()` / `_dgAddEvt()`, remove via `_dgRemoveRow()`.
 
 ### `scavenging.js`
 The Scavenging Tables panel — CRUD for reusable scavenge loot templates (`scavenging_tables` + `scavenging_table_items`). Attached to zones via `flags.scavenging_table_id` from the zone editor.

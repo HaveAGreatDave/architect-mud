@@ -1,4 +1,4 @@
-import { query } from '../../server/models/db.js';
+import { query, withTransaction } from '../../server/models/db.js';
 import { getZone } from '../../server/engine/world.js';
 import { transferCredits } from '../../server/engine/economy.js';
 import { skillCheck, awardSkillUse } from '../../server/engine/skills.js';
@@ -112,10 +112,15 @@ async function cmdDeposit(args, raw, player) {
 
   const amount = amountStr === 'all' ? (player.credits || 0) : parseInt(amountStr, 10);
   if (!amount || amount <= 0) return { type: 'error', message: 'Deposit how much? Try "deposit 50" or "deposit all".' };
-  if (!await transferCredits(player, amount, 'deposit')) return { type: 'error', message: `You only have ${player.credits || 0}c on you.` };
 
+  // Move the credits and fill the machine as one atomic unit.
   const newStock = Math.min((atm.cash_max ?? 5000), (atm.cash_stock ?? 0) + amount);
-  await query('UPDATE atm_units SET cash_stock=$1 WHERE id=$2', [newStock, atm.id]);
+  const moved = await withTransaction(async (q) => {
+    if (!await transferCredits(player, amount, 'deposit', q)) return false;
+    await q('UPDATE atm_units SET cash_stock=$1 WHERE id=$2', [newStock, atm.id]);
+    return true;
+  });
+  if (!moved) return { type: 'error', message: `You only have ${player.credits || 0}c on you.` };
 
   return {
     type: 'deposit',
@@ -172,13 +177,21 @@ async function cmdWithdraw(args, raw, player) {
     return { type: 'error', message: `Need ${totalDebited}c${feeNote} but you only have ${banked}c banked.` };
   }
 
-  // Debit bank, credit only rawAmount carried (fee evaporates into the network)
-  player.bank_credits = banked - totalDebited;
-  player.credits = (player.credits || 0) + rawAmount;
-  await query('UPDATE players SET credits=$1, bank_credits=$2 WHERE id=$3', [player.credits, player.bank_credits, player.id]);
-
+  // Debit bank (raw + fee), credit only rawAmount carried (the fee evaporates
+  // into the network), and draw down the machine's cash — one atomic unit. The
+  // guarded UPDATE also blocks a concurrent second withdrawal from overdrawing.
   const newStock = Math.max(0, cashAvail - rawAmount);
-  await query('UPDATE atm_units SET cash_stock=$1 WHERE id=$2', [newStock, atm.id]);
+  const dispensed = await withTransaction(async (q) => {
+    const res = await q(
+      'UPDATE players SET bank_credits = bank_credits - $1, credits = credits + $2 WHERE id = $3 AND bank_credits >= $1 RETURNING credits, bank_credits',
+      [totalDebited, rawAmount, player.id]);
+    if (res.rowCount === 0) return false;
+    player.credits      = res.rows[0].credits;
+    player.bank_credits = res.rows[0].bank_credits;
+    await q('UPDATE atm_units SET cash_stock=$1 WHERE id=$2', [newStock, atm.id]);
+    return true;
+  });
+  if (!dispensed) return { type: 'error', message: `Need ${totalDebited}c but you only have ${player.bank_credits || 0}c banked.` };
 
   const feeMsg = fee > 0 ? ` (−${fee}c ${atm.network_name || 'network'} fee)` : '';
   return {
@@ -211,9 +224,13 @@ async function cmdJack(args, raw, player) {
   if (result.success) {
     await awardSkillUse(player.id, 'hacking', result.margin);
     const stolen = atm.cash_stock;
-    player.credits = (player.credits || 0) + stolen;
-    await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
-    await query('UPDATE atm_units SET cash_stock=0, is_broken=1 WHERE id=$1', [atm.id]);
+    // Pay out the cash and brick the machine together, so a failure can't hand
+    // over credits while leaving the terminal live (or drain it for nothing).
+    await withTransaction(async (q) => {
+      const res = await q('UPDATE players SET credits = credits + $1 WHERE id = $2 RETURNING credits', [stolen, player.id]);
+      player.credits = res.rows[0].credits;
+      await q('UPDATE atm_units SET cash_stock=0, is_broken=1 WHERE id=$1', [atm.id]);
+    });
     return {
       type: 'output',
       message: `You burn through the handshake and spoof the dispense signal. The ATM vomits ${stolen}c in chips before going dark.\n<span class="ip-gain">Terminal compromised.</span>`,

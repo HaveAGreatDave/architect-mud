@@ -6,27 +6,36 @@ import { query } from '../models/db.js';
 
 // Adjust carried credits by delta (positive = gain, negative = spend).
 // Returns false if the player can't afford it.
-export async function adjustCredits(player, delta) {
-  const next = (player.credits || 0) + delta;
-  if (next < 0) return false;
-  player.credits = next;
-  await query('UPDATE players SET credits=$1 WHERE id=$2', [player.credits, player.id]);
+//
+// The affordability check and the write are a single guarded UPDATE, so the
+// "credits can't go negative" invariant holds even under concurrent spends —
+// no read-modify-write off a possibly-stale cached balance. The in-memory
+// mirror is synced from the DB's RETURNING value, which stays the source of truth.
+//
+// `exec` defaults to the pooled `query`; pass a transaction runner (from
+// `withTransaction`) to make the debit part of a larger atomic op (debit + the
+// follow-on inventory write commit or roll back together).
+export async function adjustCredits(player, delta, exec = query) {
+  const res = await exec(
+    'UPDATE players SET credits = credits + $1 WHERE id = $2 AND credits + $1 >= 0 RETURNING credits',
+    [delta, player.id]);
+  if (res.rowCount === 0) return false;
+  player.credits = res.rows[0].credits;
   return true;
 }
 
 // Move credits between carried and banked (type: 'deposit' | 'withdraw').
-// Returns false if insufficient funds.
-export async function transferCredits(player, amount, type) {
-  if (type === 'deposit') {
-    if ((player.credits || 0) < amount) return false;
-    player.credits      = (player.credits     || 0) - amount;
-    player.bank_credits = (player.bank_credits || 0) + amount;
-  } else {
-    if ((player.bank_credits || 0) < amount) return false;
-    player.bank_credits = (player.bank_credits || 0) - amount;
-    player.credits      = (player.credits      || 0) + amount;
-  }
-  await query('UPDATE players SET credits=$1, bank_credits=$2 WHERE id=$3',
-    [player.credits, player.bank_credits, player.id]);
+// Returns false if insufficient funds. Like adjustCredits, the balance check
+// and both column writes happen in one atomic guarded UPDATE, and `exec` lets
+// the move join a caller's transaction.
+export async function transferCredits(player, amount, type, exec = query) {
+  if (!(amount >= 0)) return false;
+  const sql = type === 'deposit'
+    ? 'UPDATE players SET credits = credits - $1, bank_credits = bank_credits + $1 WHERE id = $2 AND credits >= $1 RETURNING credits, bank_credits'
+    : 'UPDATE players SET credits = credits + $1, bank_credits = bank_credits - $1 WHERE id = $2 AND bank_credits >= $1 RETURNING credits, bank_credits';
+  const res = await exec(sql, [amount, player.id]);
+  if (res.rowCount === 0) return false;
+  player.credits      = res.rows[0].credits;
+  player.bank_credits = res.rows[0].bank_credits;
   return true;
 }

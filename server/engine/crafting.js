@@ -6,7 +6,7 @@
  * in memory here, mirroring how world.js caches zones — read the cache on
  * every craft attempt, refresh it whenever the dev panel publishes a change.
  */
-import { query } from '../models/db.js';
+import { query, withTransaction } from '../models/db.js';
 import { awardSkillUse, skillCheck, skillStatBonus } from './skills.js';
 import { isStackable } from './tags.js';
 
@@ -108,28 +108,22 @@ export async function attemptCraft(player, recipeId, stationQuality = 'none') {
   const catastrophicFail = !skillResult.success && finalMargin < -4;
 
   if (catastrophicFail) {
-    // Consume ingredients anyway
-    for (const c of toConsume) {
-      if (c.currentQty <= c.quantity) {
-        await query('DELETE FROM player_inventory WHERE id = $1', [c.invId]);
-      } else {
-        await query('UPDATE player_inventory SET quantity = quantity - $1 WHERE id = $2', [c.quantity, c.invId]);
+    // Consume ingredients anyway — all-or-nothing so a partial consume can't
+    // eat some materials and spare others.
+    await withTransaction(async (q) => {
+      for (const c of toConsume) {
+        if (c.currentQty <= c.quantity) {
+          await q('DELETE FROM player_inventory WHERE id = $1', [c.invId]);
+        } else {
+          await q('UPDATE player_inventory SET quantity = quantity - $1 WHERE id = $2', [c.quantity, c.invId]);
+        }
       }
-    }
+    });
     return { success: false, message: `You catastrophically fail to craft ${recipe.name}. The ingredients are ruined.` };
   }
 
   if (!skillResult.success) {
     return { success: false, message: `You fail to craft ${recipe.name}. Your materials are intact — try again.` };
-  }
-
-  // Consume ingredients
-  for (const c of toConsume) {
-    if (c.currentQty <= c.quantity) {
-      await query('DELETE FROM player_inventory WHERE id = $1', [c.invId]);
-    } else {
-      await query('UPDATE player_inventory SET quantity = quantity - $1 WHERE id = $2', [c.quantity, c.invId]);
-    }
   }
 
   // Determine output quality based on margin
@@ -139,11 +133,7 @@ export async function attemptCraft(player, recipeId, stationQuality = 'none') {
   else if (finalMargin < 0) outputQuality = 'scrap';
   if (critical) outputQuality = 'pristine'; // crits always pristine
 
-  await awardSkillUse(player.id, recipe.skill_id, skillResult.margin);
-
-  // Insert output item — stacks onto an existing pile of the same item at
-  // the same quality tier (a pristine craft and a scrap craft of the same
-  // item are NOT the same stack; quality is part of what's being matched).
+  // Prep output details (pure work + reads) before the write transaction.
   const { randomUUID } = await import('crypto');
   const outputQty = recipe.base_output.quantity * (critical ? 2 : 1);
   const customData = { quality: outputQuality };
@@ -151,23 +141,39 @@ export async function attemptCraft(player, recipeId, stationQuality = 'none') {
   const { rows: outputItemRows } = await query('SELECT tags FROM items WHERE id=$1', [recipe.base_output.item_id]);
   const outputIsStackable = outputItemRows[0] ? isStackable(outputItemRows[0]) : false;
 
-  let existingStack = [];
-  if (outputIsStackable) {
-    const result = await query(
-      `SELECT id, quantity FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND is_equipped=0 AND custom_data=$3`,
-      [player.id, recipe.base_output.item_id, JSON.stringify(customData)]
-    );
-    existingStack = result.rows;
-  }
+  // Consume ingredients and produce the output atomically — a mid-craft failure
+  // must never eat the materials without yielding the result (or vice versa).
+  // Output stacks onto an existing pile of the same item at the same quality
+  // tier (a pristine craft and a scrap craft of the same item are NOT one stack).
+  await withTransaction(async (q) => {
+    for (const c of toConsume) {
+      if (c.currentQty <= c.quantity) {
+        await q('DELETE FROM player_inventory WHERE id = $1', [c.invId]);
+      } else {
+        await q('UPDATE player_inventory SET quantity = quantity - $1 WHERE id = $2', [c.quantity, c.invId]);
+      }
+    }
 
-  if (existingStack.length) {
-    await query('UPDATE player_inventory SET quantity = quantity + $1 WHERE id = $2', [outputQty, existingStack[0].id]);
-  } else {
-    await query(
-      'INSERT INTO player_inventory (id, player_id, item_id, quantity, condition, custom_data) VALUES ($1, $2, $3, $4, $5, $6)',
-      [randomUUID(), player.id, recipe.base_output.item_id, outputQty, 1.0, JSON.stringify(customData)]
-    );
-  }
+    let existingStack = [];
+    if (outputIsStackable) {
+      const result = await q(
+        `SELECT id, quantity FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND is_equipped=0 AND custom_data=$3`,
+        [player.id, recipe.base_output.item_id, JSON.stringify(customData)]
+      );
+      existingStack = result.rows;
+    }
+
+    if (existingStack.length) {
+      await q('UPDATE player_inventory SET quantity = quantity + $1 WHERE id = $2', [outputQty, existingStack[0].id]);
+    } else {
+      await q(
+        'INSERT INTO player_inventory (id, player_id, item_id, quantity, condition, custom_data) VALUES ($1, $2, $3, $4, $5, $6)',
+        [randomUUID(), player.id, recipe.base_output.item_id, outputQty, 1.0, JSON.stringify(customData)]
+      );
+    }
+  });
+
+  await awardSkillUse(player.id, recipe.skill_id, skillResult.margin);
 
   const critMsg = critical ? ' CRITICAL CRAFT — double output! ' : '';
   return {

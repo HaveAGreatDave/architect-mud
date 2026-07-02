@@ -1,6 +1,6 @@
 const SETTINGS_KEY = 'architect_settings';
 const DEFAULT_AUDIO_SETTINGS = { enabled: false, music: false, sfx: false, tv: false, masterVolume: 0.8, musicVolume: 0.7, sfxVolume: 0.9, ambientVolume: 0.5, tvVolume: 0.6, muteWhenHidden: true };
-const DEFAULT_SETTINGS = { theme: 'dark', fontSize: '14', density: 'comfortable', sidebarPosition: 'left', motion: 'on', tempUnit: 'C', contrast: 0, dpadSize: 'small', pokerFelt: 'green', pokerFeltColor: '#1a4a1a', audio: DEFAULT_AUDIO_SETTINGS };
+const DEFAULT_SETTINGS = { theme: 'dark', fontSize: '14', density: 'comfortable', sidebarPosition: 'left', motion: 'on', weatherFx: 'on', tempUnit: 'C', contrast: 0, dpadSize: 'small', pokerFelt: 'green', pokerFeltColor: '#1a4a1a', audio: DEFAULT_AUDIO_SETTINGS };
 
 const DEFAULT_FELT_GREEN = '#1a4a1a';
 
@@ -273,14 +273,18 @@ export function applySettings(settings) {
   if (_cs && _cs.value !== String(_cv)) _cs.value = _cv;
   if (_cl) _cl.textContent = _cv === 0 ? 'Base' : `+${_cv}%`;
 
-  for (const group of ['fontsize', 'density', 'sidebar', 'motion', 'tempunit', 'dpadsize']) {
+  for (const group of ['fontsize', 'density', 'sidebar', 'motion', 'weatherfx', 'tempunit', 'dpadsize']) {
     const container = document.getElementById(`opt-${group}`);
     if (!container) continue;
-    const key = group === 'fontsize' ? 'fontSize' : group === 'sidebar' ? 'sidebarPosition' : group === 'tempunit' ? 'tempUnit' : group === 'dpadsize' ? 'dpadSize' : group;
+    const key = group === 'fontsize' ? 'fontSize' : group === 'sidebar' ? 'sidebarPosition' : group === 'tempunit' ? 'tempUnit' : group === 'dpadsize' ? 'dpadSize' : group === 'weatherfx' ? 'weatherFx' : group;
     container.querySelectorAll('.settings-opt').forEach(btn => {
       btn.classList.toggle('selected', btn.dataset.value === String(settings[key]));
     });
   }
+
+  // Weather FX overlay gate — off if the setting is off OR Motion is off (the FX
+  // is animation). The game client registers the hook; other clients ignore it.
+  window._applyWeatherFx?.((settings.weatherFx || 'on') !== 'off' && (settings.motion || 'on') !== 'off');
 
   const audio = settings.audio || DEFAULT_AUDIO_SETTINGS;
   window.AudioEngine?.applyVolumeSettings(audio);
@@ -343,6 +347,9 @@ export function initSettingsUI(settings, saveAndApply, { sendCmd, notify } = {})
   });
   document.querySelectorAll('#opt-motion .settings-opt').forEach(btn => {
     btn.addEventListener('click', () => { settings.motion = btn.dataset.value; saveAndApply(); });
+  });
+  document.querySelectorAll('#opt-weatherfx .settings-opt').forEach(btn => {
+    btn.addEventListener('click', () => { settings.weatherFx = btn.dataset.value; saveAndApply(); });
   });
   document.querySelectorAll('#opt-dpadsize .settings-opt').forEach(btn => {
     btn.addEventListener('click', () => { settings.dpadSize = btn.dataset.value; saveAndApply(); });

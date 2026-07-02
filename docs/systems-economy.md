@@ -15,9 +15,28 @@ negative" invariant lives in one place.
 - **`transferCredits(player, amount, type)`** — moves between `credits` (carried) and `bank_credits`
   (banked). Both accept a number or `all`. The primary path is through the ATM plugin (see below); the engine's `transferCredits` handles only the credit ledger movement, not power/faction/stock checks.
 
-> **Note:** `adjustCredits` and `transferCredits` write directly with the single `query()` helper — no
-> transaction wraps the debit + the follow-on inventory write in `buy`/`sell`/`craft`. See the QA report
-> (non-atomic economy mutations).
+Both primitives are **individually atomic**: the affordability check and the write are a single guarded
+`UPDATE … WHERE … RETURNING` against the DB (no read-modify-write off the cached balance), so concurrent
+spends can't lose updates or drive a balance negative. The in-memory `player.credits`/`bank_credits`
+mirror is synced from the `RETURNING` row, which remains the source of truth. Both accept an optional
+`exec` executor (defaulting to the pooled `query`) so a debit/transfer can join a caller's transaction.
+
+### Transactions (`withTransaction`)
+
+`withTransaction(fn)` ([db.js](../server/models/db.js)) runs `fn` inside a single `BEGIN`/`COMMIT`,
+handing it a `q(text, params)` runner bound to the transaction's client (commit on resolve, rollback on
+throw). It's the seam for making **compound** money ops all-or-nothing, and the primitive a shared corp
+treasury will use.
+
+The compound economy paths now each wrap their debit + follow-on write in one transaction, so a crash or
+error between the two steps can't tear them:
+
+- **`buy`** — debit + inventory insert/stack + vendor-safe credit ([vendor.js](../server/engine/vendor.js)). (Trust-flag bookkeeping stays outside — it's not a money/item tear.)
+- **`sell`** — payout + inventory removal ([vendor.js](../server/engine/vendor.js)).
+- **`craft`** — ingredient consume + output insert, on both the success and catastrophic-fail paths ([crafting.js](../server/engine/crafting.js)).
+- **ATM `deposit`/`withdraw`** — `transferCredits` (or the fee-bearing bank debit) + the `cash_stock` update ([plugins/atm/index.js](../plugins/atm/index.js)).
+- **ATM `jack`** — cash payout + bricking the terminal ([plugins/atm/index.js](../plugins/atm/index.js)).
+- **`use`** — effect/credit application + item consumption ([commands/inventory.js](../server/engine/commands/inventory.js)).
 
 ## ATM terminals
 

@@ -8,7 +8,7 @@
  *   npc.vendor_restock_rate = items added per 24 h tick (default 1)
  *   npc.vendor_credits    = credits earned from sales; physically held in the zone's vendor safe
  */
-import { query } from '../models/db.js';
+import { query, withTransaction } from '../models/db.js';
 import { getFactionDiscount } from './factions.js';
 import { adjustCredits } from './economy.js';
 import { randomUUID } from 'crypto';
@@ -100,25 +100,32 @@ export async function buyFromVendor(player, npc, itemId, quantity = 1) {
   const basePrice = catalogueEntry?.price ?? item.value;
   const price = Math.max(1, Math.round(basePrice * (1 - discount))) * quantity;
 
-  if (!await adjustCredits(player, -price)) {
+  // Debit, deliver the item, and pay the vendor safe as one atomic unit so a
+  // failure between steps can't take credits without handing over the goods.
+  const paid = await withTransaction(async (q) => {
+    if (!await adjustCredits(player, -price, q)) return false;
+
+    const { rows: existing } = await q(
+      'SELECT id, quantity FROM player_inventory WHERE player_id = $1 AND item_id = $2 AND is_equipped = 0',
+      [player.id, itemId]
+    );
+    if (existing.length && isStackable(item)) {
+      await q('UPDATE player_inventory SET quantity = quantity + $1 WHERE id = $2', [quantity, existing[0].id]);
+    } else {
+      await q(
+        'INSERT INTO player_inventory (id, player_id, item_id, quantity, condition) VALUES ($1, $2, $3, $4, 1.0)',
+        [randomUUID(), player.id, itemId, quantity]
+      );
+    }
+
+    // Accumulate credits in vendor's safe
+    await q('UPDATE npcs SET vendor_credits = vendor_credits + $1 WHERE id = $2', [price, npc.id]);
+    return true;
+  });
+
+  if (!paid) {
     return { success: false, message: `You can't afford that. Need ${price} credits, have ${player.credits || 0}.` };
   }
-
-  const { rows: existing } = await query(
-    'SELECT id, quantity FROM player_inventory WHERE player_id = $1 AND item_id = $2 AND is_equipped = 0',
-    [player.id, itemId]
-  );
-  if (existing.length && isStackable(item)) {
-    await query('UPDATE player_inventory SET quantity = quantity + $1 WHERE id = $2', [quantity, existing[0].id]);
-  } else {
-    await query(
-      'INSERT INTO player_inventory (id, player_id, item_id, quantity, condition) VALUES ($1, $2, $3, $4, 1.0)',
-      [randomUUID(), player.id, itemId, quantity]
-    );
-  }
-
-  // Accumulate credits in vendor's safe
-  await query('UPDATE npcs SET vendor_credits = vendor_credits + $1 WHERE id = $2', [price, npc.id]);
 
   // Trust vendor: each purchase earns trust, unlocking higher tiers. Reaching
   // the cap sets an optional payoff flag (a hook for future content / the "lead").
@@ -197,13 +204,16 @@ export async function sellToVendor(player, npc, inventoryId, quantity = 1) {
   const discount = npc.faction ? await getFactionDiscount(player.id, npc.faction) : 0;
   const sellPrice = computeSellUnitPrice(invItem.value, invItem.stat_cool, discount) * sellQty;
 
-  await adjustCredits(player, sellPrice);
-
-  if (invItem.quantity <= sellQty) {
-    await query('DELETE FROM player_inventory WHERE id = $1', [inventoryId]);
-  } else {
-    await query('UPDATE player_inventory SET quantity = quantity - $1 WHERE id = $2', [sellQty, inventoryId]);
-  }
+  // Pay out and remove the sold item together, so a crash can't credit the
+  // player while leaving the item in their inventory (or vice versa).
+  await withTransaction(async (q) => {
+    await adjustCredits(player, sellPrice, q);
+    if (invItem.quantity <= sellQty) {
+      await q('DELETE FROM player_inventory WHERE id = $1', [inventoryId]);
+    } else {
+      await q('UPDATE player_inventory SET quantity = quantity - $1 WHERE id = $2', [sellQty, inventoryId]);
+    }
+  });
 
   return {
     success: true,

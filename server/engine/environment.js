@@ -1248,13 +1248,11 @@ export function getZoneVisibility(zoneId) {
   let envFactor = isInterior ? 1.0 : weatherFactor * fogFactor;
   // Outdoor zones under a local cloud/precip cell get extra attenuation so a
   // passing storm dims that tile specifically. Fog/ash/haze stay global.
-  if (!isInterior) {
-    const f = fieldAt(zoneId);
-    if (f) {
-      const activePrecip = state.currentPrecip !== 'none' ? f.precipRate : 0;
-      const localCloudFactor = clamp01(1 - 0.5 * f.cloudCover - 0.4 * activePrecip);
-      envFactor = Math.min(envFactor, localCloudFactor);
-    }
+  const f = isInterior ? null : fieldAt(zoneId);
+  if (!isInterior && f) {
+    const activePrecip = state.currentPrecip !== 'none' ? f.precipRate : 0;
+    const localCloudFactor = clamp01(1 - 0.5 * f.cloudCover - 0.4 * activePrecip);
+    envFactor = Math.min(envFactor, localCloudFactor);
   }
   const visibility = clamp01(effectiveLight * envFactor);
 
@@ -1272,7 +1270,20 @@ export function getZoneVisibility(zoneId) {
   else if (visibility >= 0.10) category = 'dark';
   else category = 'murk';
 
-  return { visibility, category, ambientLight: ambientContrib, artificialLight: artificial, windowLight };
+  // Local outdoor weather so the client can drive its immersion overlay the
+  // instant a room is entered (the 30s zoneTempTick still keeps it live). Indoor
+  // zones report outdoor:false → the client suppresses the effect. Additive keys;
+  // existing consumers read only visibility/category.
+  const precipActive = !isInterior && state.currentPrecip !== 'none';
+  return {
+    visibility, category, ambientLight: ambientContrib, artificialLight: artificial, windowLight,
+    outdoor: !isInterior,
+    weatherType: state.weatherType,
+    precipType: precipActive ? state.currentPrecip : 'none',
+    precipRate: precipActive && f ? f.precipRate : 0,
+    cloudCover: f ? f.cloudCover : 0,
+    windKph: state.forecast[0]?.windKph ?? 0,
+  };
 }
 
 // GDD §7.2 feedback lines, for room-description injection on a visibility

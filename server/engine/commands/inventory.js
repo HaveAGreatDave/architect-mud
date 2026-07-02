@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { query } from '../../models/db.js';
+import { query, withTransaction } from '../../models/db.js';
 import { useDrug } from '../drugs.js';
 import { hasTag, tagValue, hasFlag, isStackable, TAG_CATALOG } from '../tags.js';
 import { foodLoad, applyThirst } from '../bodily.js';
@@ -277,7 +277,10 @@ async function cmdUse(targetStr, player, broadcast) {
   );
   if (drugRows.length) {
     const item = drugRows[0];
-    const result = await useDrug(player, item.drug_id, broadcast);
+    // Synthesized drugs carry a potency multiplier baked into the inventory row.
+    const cd = typeof item.custom_data === 'string' ? (() => { try { return JSON.parse(item.custom_data); } catch { return {}; } })() : (item.custom_data || {});
+    const potencyMult = Number(cd?.potency) || 1;
+    const result = await useDrug(player, item.drug_id, broadcast, { potencyMult });
     if (!result.success) return { type:'error', message: result.message };
     if (item.quantity > 1) await query('UPDATE player_inventory SET quantity=quantity-1 WHERE id=$1', [item.id]);
     else await query('DELETE FROM player_inventory WHERE id=$1', [item.id]);
@@ -325,10 +328,14 @@ async function cmdUse(targetStr, player, broadcast) {
     player.hydratedUntil = Date.now() + 10 * 60 * 1000;
     messages.push(`Hydrated: radiation clears faster for a while.`);
   }
-  await query('UPDATE players SET hp=$1,hunger=$2,thirst=$3,radiation=$4,sanity=$5,credits=$6,digestive_load=$7,hydration_load=$8 WHERE id=$9',
-    [player.hp,player.hunger,player.thirst,player.radiation,player.sanity,player.credits,player.digestive_load||0,player.hydration_load||0,player.id]);
-  if (item.quantity > 1) await query('UPDATE player_inventory SET quantity=quantity-1 WHERE id=$1', [item.id]);
-  else await query('DELETE FROM player_inventory WHERE id=$1', [item.id]);
+  // Apply the item's effects and consume it as one atomic unit, so a failure
+  // between the two can't grant the effect (incl. credits) without spending the item.
+  await withTransaction(async (q) => {
+    await q('UPDATE players SET hp=$1,hunger=$2,thirst=$3,radiation=$4,sanity=$5,credits=$6,digestive_load=$7,hydration_load=$8 WHERE id=$9',
+      [player.hp,player.hunger,player.thirst,player.radiation,player.sanity,player.credits,player.digestive_load||0,player.hydration_load||0,player.id]);
+    if (item.quantity > 1) await q('UPDATE player_inventory SET quantity=quantity-1 WHERE id=$1', [item.id]);
+    else await q('DELETE FROM player_inventory WHERE id=$1', [item.id]);
+  });
   return { type:'use', message:messages.join('\n'), player_update:{hp:player.hp,hunger:player.hunger,thirst:player.thirst,radiation:player.radiation,sanity:player.sanity,credits:player.credits} };
 }
 

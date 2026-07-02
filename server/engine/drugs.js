@@ -58,11 +58,27 @@ function scaleMods(mods, factor) {
   return o;
 }
 
+// Scale an instant-effects block by a multiplier (synthesis potency), preserving
+// sign. Non-numeric keys pass through untouched.
+function scaleInstant(instant, mult) {
+  if (mult === 1) return instant;
+  const o = {};
+  for (const k in instant) {
+    const v = instant[k];
+    o[k] = typeof v === 'number' ? Math.round(v * mult) : v;
+  }
+  return o;
+}
+
 // --- consumption -------------------------------------------------------------
 
-export async function useDrug(player, drugId, broadcast) {
+export async function useDrug(player, drugId, broadcast, opts = {}) {
   const drug = DRUG_CACHE[drugId];
   if (!drug) return { success: false, message: 'Unknown substance.' };
+
+  // Synthesis potency: a cooked drug carries a strength multiplier (custom_data.
+  // potency) that scales its effects AND its overdose weight. 1 = stock strength.
+  const potencyMult = Math.max(0.1, Number(opts.potencyMult) || 1);
 
   const eff = drug.effects || {};
   const structured = isStructured(eff);
@@ -84,7 +100,13 @@ export async function useDrug(player, drugId, broadcast) {
   const potency = Math.max(0, 1 - tolerance * (tol.max_reduction ?? 0.7));
   tolerance = Math.min(1, tolerance + (tol.gain_per_dose ?? 0));
 
-  const dosesInSystem = (state?.doses_in_system || 0) + 1;
+  // A stronger (synthesized) dose counts for more in the system — higher potency
+  // means fewer doses to overdose.
+  const doseInc = Math.max(1, Math.round(potencyMult));
+  // Combined potency drives phased-buff magnitude and hallucination intensity.
+  const effPotency = potency * potencyMult;
+
+  const dosesInSystem = (state?.doses_in_system || 0) + doseInc;
   const timesUsed = (state?.times_used || 0) + 1;
   const overdosed = dosesInSystem >= (drug.overdose_threshold || 3);
 
@@ -122,7 +144,7 @@ export async function useDrug(player, drugId, broadcast) {
     }
     // Non-lethal overdose: burst of penalty (legacy behaviour + new overdose.mods).
     const odEffects = drug.withdrawal_effects?.overdose || eff.overdose?.mods || {};
-    return applyEffects(player, { ...instant, ...odEffects, overdose: true }, `${message}\n<span class="overdose-warning">⚠ You've taken too much, too fast. Your body revolts.</span>`);
+    return applyEffects(player, { ...scaleInstant(instant, potencyMult), ...odEffects, overdose: true }, `${message}\n<span class="overdose-warning">⚠ You've taken too much, too fast. Your body revolts.</span>`);
   }
 
   if (justAddicted) {
@@ -130,17 +152,18 @@ export async function useDrug(player, drugId, broadcast) {
   }
 
   // --- Instant block (existing path) -----------------------------------------
-  const result = applyEffects(player, instant, message);
+  const result = applyEffects(player, scaleInstant(instant, potencyMult), message);
+  if (potencyMult >= 1.25) result.message += `\n<span class="msg-system">This batch is strong. It hits harder than it should.</span>`;
 
   // --- Phased effects --------------------------------------------------------
   if (phases) {
-    startPhasedDrug(player, drug, phases, potency);
+    startPhasedDrug(player, drug, phases, effPotency);
     if (phases.comeup_message) result.message += `\n${phases.comeup_message}`;
   }
 
   // --- Hallucination ---------------------------------------------------------
   if (eff.hallucination) {
-    fireHook('drug.used', { player, drug, potency, broadcast }).catch(() => {});
+    fireHook('drug.used', { player, drug, potency: effPotency, broadcast }).catch(() => {});
   }
 
   return result;

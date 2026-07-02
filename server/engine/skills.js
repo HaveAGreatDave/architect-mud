@@ -16,6 +16,7 @@ export const SKILLS = {
   hacking:     { id:'hacking',     name:'Hacking',     category:'tech',     stats:['stat_brains'], desc:'Talking computers into betraying their owners. Locks, terminals, and ATMs all listen eventually.' },
   electronics: { id:'electronics', name:'Electronics', category:'tech',     stats:['stat_brains'], desc:'Wiring, circuits, and salvaged tech. Making dead gadgets twitch back to life.' },
   fabrication: { id:'fabrication', name:'Fabrication', category:'tech',     stats:['stat_brains'], desc:'Crafting and repairing gear from raw parts. The backbone of building anything worth having.' },
+  chemistry:   { id:'chemistry',   name:'Chemistry',   category:'tech',     stats:['stat_brains','stat_reflexes'], desc:'Cooking compounds and synthesizing drugs. Steady hands and a working knowledge of what not to mix. A good education, or a lot of scars.' },
   drone_ops:   { id:'drone_ops',   name:'Drone Ops',   category:'tech',     stats:['stat_reflexes','stat_brains'], desc:'Piloting and commanding drones. Doing your dirty work from a safe-ish distance.' },
   security:    { id:'security',    name:'Security',    category:'tech',     stats:['stat_brains','stat_reflexes'], desc:'Locks, alarms, and surveillance — cracking theirs and trusting none of your own.' },
   persuasion:  { id:'persuasion',  name:'Persuasion',  category:'social',   stats:['stat_cool','stat_brains'], desc:'Getting people to do what you want with words instead of violence. The expensive way is cheaper here.' },

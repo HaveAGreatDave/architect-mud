@@ -40,4 +40,26 @@ export async function getClient() {
   return pool.connect();
 }
 
+// Run fn inside a single DB transaction. fn receives a `q(text, params)` runner
+// bound to the transaction's client — pass it anywhere a `query`-shaped executor
+// is accepted (e.g. adjustCredits/transferCredits) so several writes commit as
+// one atomic unit. Commits if fn resolves, rolls back if it throws (the error
+// then propagates). Returning a value from fn (including a falsy "nothing
+// happened" result) commits normally.
+export async function withTransaction(fn) {
+  const client = await pool.connect();
+  const q = (text, params) => client.query(text, params);
+  try {
+    await client.query('BEGIN');
+    const result = await fn(q);
+    await client.query('COMMIT');
+    return result;
+  } catch (err) {
+    try { await client.query('ROLLBACK'); } catch { /* connection already broken */ }
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 export default pool;
