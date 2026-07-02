@@ -12,11 +12,11 @@ import { isStackable } from './tags.js';
 
 // Quality tiers: numeric 0–4, stored as text in item flags
 export const QUALITY_TIERS = {
-  scrap:           { label: 'Scrap',           multiplier: 0.5,  color: 'item-rarity-common' },
-  common:          { label: 'Common',          multiplier: 1.0,  color: 'item-rarity-common' },
-  refined:         { label: 'Refined',         multiplier: 1.5,  color: 'item-rarity-uncommon' },
-  pristine:        { label: 'Pristine',        multiplier: 2.0,  color: 'item-rarity-rare' },
-  architect_grade: { label: 'Architect-Grade', multiplier: 3.0,  color: 'item-rarity-very_rare' },
+  scrap:           { label: 'Scrap',           multiplier: 0.5 },
+  common:          { label: 'Common',          multiplier: 1.0 },
+  refined:         { label: 'Refined',         multiplier: 1.5 },
+  pristine:        { label: 'Pristine',        multiplier: 2.0 },
+  architect_grade: { label: 'Architect-Grade', multiplier: 3.0 },
 };
 
 // In-memory recipe cache. DB is the source of truth; this is just fast read access.

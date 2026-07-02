@@ -19,115 +19,115 @@ const FURNITURE_ITEMS = [
     id: 'item_furn_mag_lev_chair',
     name: 'Mag-Lev Chair',
     description: 'A glossy white chair with no legs, held half a metre off the floor by a repulsion field embedded in the base plate.',
-    value: 2400, weight: 8000, rarity: 'uncommon',
+    value: 2400, weight: 8000,
   },
   {
     id: 'item_furn_haptic_throne',
     name: 'Haptic Executive Throne',
     description: 'A massive contoured chair upholstered in self-healing polymer leather. Micro-actuators shift beneath you constantly, reading your weight distribution and adjusting lumbar support in real-time.',
-    value: 4800, weight: 28000, rarity: 'rare',
+    value: 4800, weight: 28000,
   },
   {
     id: 'item_furn_corpcore_bench',
     name: 'Corp-Issue Bench',
     description: 'Stamped aluminium, no back support, uncomfortable by design. A small pressure sensor on the seat surface logs duration of occupancy.',
-    value: 180, weight: 12000, rarity: 'common',
+    value: 180, weight: 12000,
   },
   {
     id: 'item_furn_diner_booth',
     name: 'Diner Booth',
     description: 'Vinyl bench seat and a laminate table in a faded checkerboard pattern. A design from 2019 preserved through sheer indifference.',
-    value: 650, weight: 22000, rarity: 'common',
+    value: 650, weight: 22000,
   },
   {
     id: 'item_furn_barstool_wreck',
     name: 'Wobbly Barstool',
     description: 'Three legs when it started life. Now two and a half, bridged by industrial epoxy. The seat rotates freely in both directions.',
-    value: 60, weight: 3000, rarity: 'common',
+    value: 60, weight: 3000,
   },
   {
     id: 'item_furn_pneumatic_stool',
     name: 'Pneumatic Lab Stool',
     description: 'A chrome-and-rubber height-adjustable stool, the kind found in clinical spaces from clinics to interrogation rooms.',
-    value: 320, weight: 5000, rarity: 'common',
+    value: 320, weight: 5000,
   },
   {
     id: 'item_furn_meditation_pod',
     name: 'Sensory Pod Seat',
     description: 'A curved half-shell of acoustic foam and matte black composite. Inside it is almost silent. The seat surface conforms to your body.',
-    value: 890, weight: 9000, rarity: 'uncommon',
+    value: 890, weight: 9000,
   },
   {
     id: 'item_furn_neural_couch',
     name: 'Neural Interface Couch',
     description: 'Long enough to lie flat in, upholstered in smart-foam that tracks your body temperature. Three data ports run along the headrest.',
-    value: 3200, weight: 35000, rarity: 'uncommon',
+    value: 3200, weight: 35000,
   },
   {
     id: 'item_furn_busted_sofa',
     name: 'Busted Sofa',
     description: 'Cracked pleather in a brown that was probably beige originally. There is a spring that will find you.',
-    value: 120, weight: 20000, rarity: 'common',
+    value: 120, weight: 20000,
   },
   {
     id: 'item_furn_sleep_pod',
     name: 'Sleep Pod',
     description: 'A coffin-shaped enclosure of brushed titanium with a frosted acrylic lid, climate-controlled and REM-monitored.',
-    value: 6500, weight: 60000, rarity: 'rare',
+    value: 6500, weight: 60000,
   },
   {
     id: 'item_furn_mil_surplus_cot',
     name: 'Surplus Cot',
     description: 'Military-issue folding cot from a conflict that ended badly. Smells like three previous people.',
-    value: 95, weight: 4000, rarity: 'common',
+    value: 95, weight: 4000,
   },
   {
     id: 'item_furn_pipe_railing',
     name: 'Pipe Railing',
     description: 'A length of galvanised steel pipe for bolting along a wall at hip height. The welds are lumpy and oxidised. It holds.',
-    value: 75, weight: 6000, rarity: 'common',
+    value: 75, weight: 6000,
   },
   {
     id: 'item_furn_payphone_husk',
     name: 'Dead Payphone',
     description: 'A payphone booth stripped of everything useful. The coin slot is blocked with concrete. Good for decoration.',
-    value: 40, weight: 18000, rarity: 'common',
+    value: 40, weight: 18000,
   },
   {
     id: 'item_furn_counter_slab',
     name: 'Concrete Counter',
     description: 'A poured-concrete service counter, surface scarred with knife gouges and ring stains.',
-    value: 780, weight: 80000, rarity: 'common',
+    value: 780, weight: 80000,
   },
   {
     id: 'item_furn_nano_desk',
     name: 'Self-Organizing Desk',
     description: 'A broad desk surface with embedded touchpads and holographic emitters projecting a ghost workspace thirty centimetres above the surface.',
-    value: 3600, weight: 18000, rarity: 'uncommon',
+    value: 3600, weight: 18000,
   },
   {
     id: 'item_furn_wallscreen',
     name: 'Neon Slab TV',
     description: 'A paper-thin display that runs floor to ceiling, laminated directly to the wall surface. The image quality is immaculate.',
-    value: 5200, weight: 4000, rarity: 'rare',
+    value: 5200, weight: 4000,
   },
   {
     id: 'item_furn_crt_relic',
     name: 'Cathode Box TV',
     description: 'A 24-inch cathode-ray tube set from the 2010s. The picture is warm and slightly wrong in a way that feels human.',
-    value: 280, weight: 22000, rarity: 'common',
+    value: 280, weight: 22000,
   },
   {
     id: 'item_furn_holo_projector',
     name: 'Ghost Screen TV',
     description: 'A hovering display unit kept aloft by a low-power gravity field. The projection leans three degrees left. The patch bricked the others.',
-    value: 4100, weight: 3000, rarity: 'rare',
+    value: 4100, weight: 3000,
   },
   {
     id: 'item_furn_ruggedized_monitor',
     name: 'Chrome Feed TV',
     description: 'A military-spec portable display, matte black, bolted to a repurposed equipment rack. The screen is scratched but perfectly legible.',
-    value: 1600, weight: 9000, rarity: 'uncommon',
+    value: 1600, weight: 9000,
   },
 ];
 
@@ -191,12 +191,12 @@ let created = 0, skipped = 0;
 // 1. Upsert furniture item records
 for (const item of FURNITURE_ITEMS) {
   await query(
-    `INSERT INTO items (id, name, description, type, weight, value, rarity, tags)
-     VALUES ($1,$2,$3,'furniture',$4,$5,$6,$7)
+    `INSERT INTO items (id, name, description, type, weight, value, tags)
+     VALUES ($1,$2,$3,'furniture',$4,$5,$6)
      ON CONFLICT (id) DO UPDATE SET
        name=EXCLUDED.name, description=EXCLUDED.description, weight=EXCLUDED.weight,
-       value=EXCLUDED.value, rarity=EXCLUDED.rarity`,
-    [item.id, item.name, item.description, item.weight, item.value, item.rarity, JSON.stringify({ description: item.description })]
+       value=EXCLUDED.value`,
+    [item.id, item.name, item.description, item.weight, item.value, JSON.stringify({ description: item.description })]
   );
   console.log(`UPSERT item ${item.id}`);
 }

@@ -1688,8 +1688,8 @@ async function _ensureCassetteItem(broadcastId, broadcastName) {
     }
   }
   await query(
-    `INSERT INTO items (id, name, description, type, subtype, weight, value, rarity, is_stackable, is_unique, tags)
-     VALUES ($1,$2,$3,'media','cassette',100,0,'common',0,1,$4)
+    `INSERT INTO items (id, name, description, type, subtype, weight, value, is_stackable, is_unique, tags)
+     VALUES ($1,$2,$3,'media','cassette',100,0,0,1,$4)
      ON CONFLICT (id) DO UPDATE SET name=$2, tags=$4`,
     [itemId, `Cassette: ${broadcastName}`, `A media cassette labeled "${broadcastName}".`,
      JSON.stringify({ media_cassette: true, broadcast_id: broadcastId })]

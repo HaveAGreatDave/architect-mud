@@ -19,10 +19,7 @@ function mutationEditForm(rec, isNew) {
         </select>
       </div>
     </div>
-    <div class="field-row">
-      <div class="field"><label>Rarity</label><input id="f-rarity" value="${rec.rarity||'uncommon'}"></div>
-      <div class="field"><label>Radiation Threshold</label><input type="number" id="f-radiation_threshold" value="${rec.radiation_threshold||40}" min="0" max="100"></div>
-    </div>
+    <div class="field"><label>Radiation Threshold</label><input type="number" id="f-radiation_threshold" value="${rec.radiation_threshold||40}" min="0" max="100"></div>
     <div class="field"><label>Stat Modifiers (JSON — permanent, applied once on grant)</label><textarea id="f-stat_modifiers" rows="2">${JSON.stringify(statMods, null, 2)}</textarea></div>
     <div class="field"><label>Effects (JSON — freeform, read by engine code as needed)</label><textarea id="f-effects" rows="3">${JSON.stringify(effects, null, 2)}</textarea></div>
     <div class="field"><label>Drawbacks (JSON array of strings, shown to the player)</label><textarea id="f-drawbacks" rows="2">${JSON.stringify(drawbacks, null, 2)}</textarea></div>
@@ -40,7 +37,6 @@ async function saveMutation(existing) {
     description: document.getElementById('f-description').value,
     polarity: document.getElementById('f-polarity').value,
     visible: document.getElementById('f-visible').value === '1',
-    rarity: document.getElementById('f-rarity').value || 'uncommon',
     radiation_threshold: +document.getElementById('f-radiation_threshold').value || 40,
     stat_modifiers: statMods, effects, drawbacks,
   };

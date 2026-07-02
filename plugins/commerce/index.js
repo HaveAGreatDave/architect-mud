@@ -33,7 +33,7 @@ async function openShopFor(npc, player) {
   let msg = `<span class="inv-header">${npc.name.toUpperCase()} — SHOP</span>\nCredits: ${player.credits||0}\n\n`;
   for (const item of stock) {
     const disc = item.discounted ? ' <span class="equipped">(rep discount)</span>' : '';
-    msg += `  [<span class="item-rarity-${item.rarity}">${item.name}</span>] ${item.price}cr${disc}\n    ${item.description}\n`;
+    msg += `  [${item.name}] ${item.price}cr${disc}\n    ${item.description}\n`;
   }
   msg += `\nUse: <span class="equipped">buy &lt;item name&gt;</span> or <span class="equipped">sell &lt;item name&gt;</span>`;
   return { type:'shop', message:msg, npc_id:npc.id, stock };

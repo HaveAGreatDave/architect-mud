@@ -297,12 +297,6 @@
       #ghost-feed .dmg-type    { color: var(--purple, #b86bff); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
       #ghost-area-content .crit-tag,
       #ghost-feed .crit-tag    { color: var(--yellow, #f5e642); font-weight: bold; }
-      #ghost-area-content .item-rarity-uncommon,
-      #ghost-feed .item-rarity-uncommon { color: var(--green, #39ff8f); }
-      #ghost-area-content .item-rarity-rare,
-      #ghost-feed .item-rarity-rare     { color: var(--cyan, #28e5ff); }
-      #ghost-area-content .item-rarity-very_rare,
-      #ghost-feed .item-rarity-very_rare { color: var(--purple, #b86bff); }
       #ghost-area-content .action-link,
       #ghost-feed .action-link {
         color: var(--accent, #ff2ec4);

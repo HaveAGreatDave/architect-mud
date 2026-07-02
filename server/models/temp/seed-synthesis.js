@@ -61,8 +61,8 @@ try {
 
   for (const it of ITEMS) {
     await client.query(
-      `INSERT INTO items (id, name, description, type, subtype, weight, value, rarity, is_stackable, tags)
-       VALUES ($1,$2,$3,'chemical','reagent',30,$4,'uncommon',$5,$6::jsonb)
+      `INSERT INTO items (id, name, description, type, subtype, weight, value, is_stackable, tags)
+       VALUES ($1,$2,$3,'chemical','reagent',30,$4,$5,$6::jsonb)
        ON CONFLICT (id) DO NOTHING`,
       [it.id, it.name, it.desc, it.value, it.tags.cook_kit ? 0 : 1, JSON.stringify(it.tags)]
     );
@@ -73,8 +73,8 @@ try {
   // inline drug that useDrug reads directly); this pair just lets the
   // item→drug join in cmdUse resolve. Non-stackable so batches never merge.
   await client.query(
-    `INSERT INTO items (id, name, description, type, subtype, weight, value, rarity, is_stackable, tags)
-     VALUES ('item_compound','hand-mixed compound','A hand-mixed compound in an unlabelled vial. Whatever it does, only its maker knows.','drug','compound',15,200,'rare',0,'{"drug":true}'::jsonb)
+    `INSERT INTO items (id, name, description, type, subtype, weight, value, is_stackable, tags)
+     VALUES ('item_compound','hand-mixed compound','A hand-mixed compound in an unlabelled vial. Whatever it does, only its maker knows.','drug','compound',15,200,0,'{"drug":true}'::jsonb)
      ON CONFLICT (id) DO NOTHING`
   );
   await client.query(

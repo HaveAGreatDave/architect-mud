@@ -18,16 +18,16 @@ const TABLES = [
     replenish: 180,
     zones: ['zone_deep_waste', 'zone_ruins', 'zone_badland_sw_outer', 'zone_badland_w_gate'],
     items: [
-      { id: 'item_mutated_bone',    name: 'Mutated Bone',       weight: 300, value: 6,  rarity: 'common',
+      { id: 'item_mutated_bone',    name: 'Mutated Bone',       weight: 300, value: 6,
         description: 'A femur that grew wrong — too many knobs, faintly warm to the touch. Someone in butchering might want it.',
         difficulty: 4, pw: 14, max: 3 },
-      { id: 'item_glowing_scrap',   name: 'Glowing Scrap',      weight: 600, value: 10, rarity: 'uncommon',
+      { id: 'item_glowing_scrap',   name: 'Glowing Scrap',      weight: 600, value: 10,
         description: 'A chunk of alloy that sweats a sickly green light. Handling it too long is a decision, not an accident.',
         difficulty: 6, pw: 10, max: 3 },
-      { id: 'item_cracked_fuel_rod', name: 'Cracked Fuel Rod',  weight: 900, value: 40, rarity: 'rare',
+      { id: 'item_cracked_fuel_rod', name: 'Cracked Fuel Rod',  weight: 900, value: 40,
         description: 'A stubby reactor rod, hairline-fractured and leaking. Absurdly valuable, mildly homicidal.',
         difficulty: 8, pw: 5,  max: 1 },
-      { id: 'item_hot_isotope',     name: 'Hot Isotope Pellet', weight: 60,  value: 90, rarity: 'very_rare',
+      { id: 'item_hot_isotope',     name: 'Hot Isotope Pellet', weight: 60,  value: 90,
         description: 'A pea of pure isotope in a lead bead. The bead is not thick enough. Nothing is thick enough.',
         difficulty: 10, pw: 2, max: 1 },
     ],
@@ -38,16 +38,16 @@ const TABLES = [
     replenish: 90,
     zones: ['zone_city_west', 'zone_city_north', 'zone_city_ne', 'zone_city_se'],
     items: [
-      { id: 'item_crushed_soda',   name: 'Crushed Soda Can',    weight: 40,  value: 1,  rarity: 'common',
+      { id: 'item_crushed_soda',   name: 'Crushed Soda Can',    weight: 40,  value: 1,
         description: 'A flattened can of something that was 90% sweetener and 10% legal threat. The aluminum still counts.',
         difficulty: 2, pw: 16, max: 3 },
-      { id: 'item_greasy_wrapper',  name: 'Greasy Wrapper',     weight: 20,  value: 1,  rarity: 'common',
+      { id: 'item_greasy_wrapper',  name: 'Greasy Wrapper',     weight: 20,  value: 1,
         description: 'Franchise-branded foil, still smelling faintly of whatever they called meat. Surprisingly useful tinder.',
         difficulty: 2, pw: 15, max: 3 },
-      { id: 'item_loyalty_chip',   name: 'Cracked Loyalty Chip', weight: 15, value: 8,  rarity: 'uncommon',
+      { id: 'item_loyalty_chip',   name: 'Cracked Loyalty Chip', weight: 15, value: 8,
         description: 'A consumer rewards chip, cracked but not wiped. There might still be points on it. There might still be debt.',
         difficulty: 5, pw: 9,  max: 2 },
-      { id: 'item_busted_datapad', name: 'Busted Datapad',      weight: 300, value: 25, rarity: 'rare',
+      { id: 'item_busted_datapad', name: 'Busted Datapad',      weight: 300, value: 25,
         description: 'A shattered slab of a personal terminal. The screen is dead but the storage might not be.',
         difficulty: 7, pw: 4,  max: 1 },
     ],
@@ -58,9 +58,9 @@ async function upsertItem(it) {
   const { rows } = await query('SELECT id FROM items WHERE id=$1', [it.id]);
   if (rows.length) { console.log(`  SKIP item ${it.id}`); return; }
   await query(
-    `INSERT INTO items (id,name,description,type,weight,value,rarity,is_stackable,is_unique,tags)
-     VALUES ($1,$2,$3,'misc',$4,$5,$6,1,0,$7)`,
-    [it.id, it.name, it.description, it.weight, it.value, it.rarity,
+    `INSERT INTO items (id,name,description,type,weight,value,is_stackable,is_unique,tags)
+     VALUES ($1,$2,$3,'misc',$4,$5,1,0,$6)`,
+    [it.id, it.name, it.description, it.weight, it.value,
      JSON.stringify({ description: it.description, misc: true })]
   );
   console.log(`  CREATED item ${it.id}`);

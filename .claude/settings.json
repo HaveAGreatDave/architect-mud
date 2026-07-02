@@ -1,13 +1,20 @@
 {
-  "mcpServers": {
-    "supabase": {
-      "type": "http",
-      "url": "https://mcp.supabase.com/mcp?project_ref=bisnwgayrmepxcxqhzhx&features=branching"
-    }
-  },
-  "permissions": {
-    "allow": [
-      "Bash(git push origin main)"
-    ]
-  }
+	"mcpServers": {
+		"supabase": {
+			"type": "http",
+			"url": "https://mcp.supabase.com/mcp?project_ref=bisnwgayrmepxcxqhzhx&features=branching"
+		}
+	},
+	"permissions": {
+		"allow": [
+			"Bash(git status)",
+			"Bash(git diff *)",
+			"Bash(npm run *)",
+			"Bash(npm test)",
+			"Read",
+			"Edit(src/**)",
+			"Bash(git push *)"
+		],
+		"ask": ["Bash(rm *)"]
+	}
 }

@@ -309,7 +309,6 @@ async function vFixGeometry(zoneId, x, y, z, mapId) {
 // full-object PUT to /items/:id (auto-staged as an item update); a Remove stages
 // an item delete. Both land in the Changes panel to publish.
 
-const VALID_RARITIES = ['common', 'uncommon', 'rare', 'very_rare'];
 let _itemIssues = [];
 const _itemIssuesById = new Map();
 
@@ -343,7 +342,7 @@ function tagValueError(def, v) {
 // Validate one item row. Returns null if clean, else { id, name, problems, fixedItem, fixable }.
 function validateItem(item) {
   const problems = [];
-  let name = item.name, weight = item.weight, value = item.value, rarity = item.rarity;
+  let name = item.name, weight = item.weight, value = item.value;
   const tagsIsObject = item.tags && typeof item.tags === 'object' && !Array.isArray(item.tags);
   let nameFixable = true;
 
@@ -359,10 +358,6 @@ function validateItem(item) {
   if (value === null || value === undefined || Number.isNaN(Number(value)) || Number(value) < 0) {
     problems.push({ msg: `Value is ${_fmtBad(value)}`, fix: 'set to 0' });
     value = 0;
-  }
-  if (!VALID_RARITIES.includes(rarity)) {
-    problems.push({ msg: `Rarity is ${_fmtBad(rarity)}`, fix: 'set to common' });
-    rarity = 'common';
   }
   if (item.tags !== null && item.tags !== undefined && !tagsIsObject) {
     problems.push({ msg: 'Tags is not a valid object', fix: 'reset to empty' });
@@ -395,7 +390,7 @@ function validateItem(item) {
     name: item.name || item.id,
     problems,
     fixable: nameFixable,
-    fixedItem: { id: item.id, name, type: item.type || null, rarity, weight, value, tags: cleanedOwn, supertags: supers },
+    fixedItem: { id: item.id, name, type: item.type || null, weight, value, tags: cleanedOwn, supertags: supers },
   };
 }
 

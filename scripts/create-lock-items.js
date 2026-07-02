@@ -10,7 +10,6 @@ const ITEMS = [
     type: 'misc',
     weight: 0.5,
     value: 150,
-    rarity: 'uncommon',
     tags: { lock_kit: 'lock:hololock' },
   },
   {
@@ -20,7 +19,6 @@ const ITEMS = [
     type: 'misc',
     weight: 0.3,
     value: 120,
-    rarity: 'uncommon',
     tags: { lock_kit: 'lock:keycardlock' },
   },
 ];
@@ -32,9 +30,9 @@ for (const item of ITEMS) {
     continue;
   }
   await query(
-    `INSERT INTO items (id,name,description,type,weight,value,rarity,is_stackable,is_unique,tags)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,0,0,$8)`,
-    [item.id, item.name, item.description, item.type, item.weight, item.value, item.rarity, JSON.stringify(item.tags)]
+    `INSERT INTO items (id,name,description,type,weight,value,is_stackable,is_unique,tags)
+     VALUES ($1,$2,$3,$4,$5,$6,0,0,$7)`,
+    [item.id, item.name, item.description, item.type, item.weight, item.value, JSON.stringify(item.tags)]
   );
   console.log(`CREATED ${item.id}`);
 }

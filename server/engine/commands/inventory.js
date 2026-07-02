@@ -69,7 +69,7 @@ export async function recomputeInsulation(player) {
 }
 
 async function cmdInventory(player) {
-  const { rows } = await query(`SELECT pi.*,i.name,i.rarity,i.tags,i.weight FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL ORDER BY i.name`, [player.id]);
+  const { rows } = await query(`SELECT pi.*,i.name,i.tags,i.weight FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL ORDER BY i.name`, [player.id]);
   if (!rows.length) return { type:'inventory', message:'Your inventory is empty.', items:[] };
   let msg = '<span class="inv-header">INVENTORY</span>\n';
   for (const item of rows) {
@@ -81,7 +81,7 @@ async function cmdInventory(player) {
       const used = await containerContentsWeight(item.id);
       container = ` <span class="equipped">[${formatWeight(used)}/${formatWeight(tagValue(item, 'container', 0))}]</span>`;
     }
-    msg += `  ${item.name}${item.quantity>1?` x${item.quantity}`:''}${quality}${instFlags}${container}${eq} — <span class="item-rarity-${item.rarity}">${item.rarity}</span>\n`;
+    msg += `  ${item.name}${item.quantity>1?` x${item.quantity}`:''}${quality}${instFlags}${container}${eq}\n`;
   }
   const weight = await computeCarriedWeight(player);
   const cap = carryCapacity(player);
@@ -485,8 +485,8 @@ async function buildContainerView(containerId, player) {
   if (!container) return { type:'error', message:'Container not found.' };
   const cap = containerCapacity(container);
   const used = await containerContentsWeight(container.id);
-  const { rows: invItems } = await query(`SELECT pi.*,i.name,i.rarity,i.tags,i.weight FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND pi.is_equipped=0 ORDER BY i.name`, [player.id]);
-  const { rows: containerItems } = await query(`SELECT pi.*,i.name,i.rarity,i.tags,i.weight FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.container_id=$1 ORDER BY i.name`, [container.id]);
+  const { rows: invItems } = await query(`SELECT pi.*,i.name,i.tags,i.weight FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND pi.is_equipped=0 ORDER BY i.name`, [player.id]);
+  const { rows: containerItems } = await query(`SELECT pi.*,i.name,i.tags,i.weight FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.container_id=$1 ORDER BY i.name`, [container.id]);
   return { type:'container_view', containerId: container.id, containerName: container.name, capacity: cap, usedWeight: round1(used), invItems, containerItems };
 }
 

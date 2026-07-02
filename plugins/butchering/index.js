@@ -104,7 +104,7 @@ async function resolveButcher(player) {
 	const difficulty = corpse.butcher_difficulty ?? 5;
 	const ids = table.map((e) => e.item);
 	const { rows: itemRows } = await query(
-		"SELECT id,name,rarity,tags FROM items WHERE id = ANY($1)",
+		"SELECT id,name,tags FROM items WHERE id = ANY($1)",
 		[ids],
 	);
 	const itemById = new Map(itemRows.map((r) => [r.id, r]));
@@ -139,9 +139,8 @@ async function resolveButcher(player) {
 				);
 			}
 			const label = qty > 1 ? `${qty}x ${itemName}` : itemName;
-			const rarity = meta?.rarity || "common";
 			carved.push(
-				`<span class="action-link room-item item-rarity-${rarity}" data-action="examine" data-target="${itemName}" title="Examine ${itemName}">${label}</span>`,
+				`<span class="action-link room-item" data-action="examine" data-target="${itemName}" title="Examine ${itemName}">${label}</span>`,
 			);
 		} else {
 			ruined.push(itemName);

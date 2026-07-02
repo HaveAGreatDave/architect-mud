@@ -295,7 +295,7 @@ export async function describeZone(zone, player) {
 	const { rows: groundItems } = hideItems
 		? { rows: [] }
 		: await query(
-				`SELECT pi.*, i.name, i.rarity, i.tags FROM player_inventory pi
+				`SELECT pi.*, i.name, i.tags FROM player_inventory pi
      JOIN items i ON i.id = pi.item_id
      WHERE pi.player_id = $1 AND pi.container_id IS NULL`,
 				[`_ground_${zone.id}`],
@@ -420,9 +420,8 @@ export async function describeZone(zone, player) {
 				}
 			}
 			const itemMentions = mentions.map(({ item, qty }) => {
-				const rarityClass = `item-rarity-${item.rarity}`;
 				const label = qty > 1 ? `${qty}x ${item.name}` : item.name;
-				return `<span class="action-link room-item ${rarityClass}" data-action="take" data-target="${item.name}" title="Take ${item.name}">${label}</span>`;
+				return `<span class="action-link room-item" data-action="take" data-target="${item.name}" title="Take ${item.name}">${label}</span>`;
 			});
 			desc += `\n<span class="items-label">Lying here:</span> ${itemMentions.join(", ")}`;
 		}

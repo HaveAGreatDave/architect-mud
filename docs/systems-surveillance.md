@@ -204,7 +204,7 @@ Reuses TV rendering internals (ticker, SVG, off-air static) — the hub is "a TV
    frame per 5s tick into `recording_buffer` (capped at `storage_limit`); `clip` burns the buffer to a
    `security_clips` row **and** a physical `item_datachip_<id>` (tradeable/sellable). Crimes witnessed
    in-frame (in-memory `crimeLog` fed by `player.death`) auto-stamp `crime_tags` → the chip becomes
-   evidence (higher value/rarity). `use <datachip>` / `replay` opens the **Datachip Replay Deck**
+   evidence (higher value). `use <datachip>` / `replay` opens the **Datachip Replay Deck**
    ([`datachipreplay.js`](../client/game/js/panels/datachipreplay.js)) — an 80s VHS/cyberdeck: spinning
    reels, amber timecode, VHS tracking band, scanlines, evidence sticker, transport controls + scrub.
 4. **Counterplay** — ✅ *code-complete (branch `feature/surveillance-specter`).*

@@ -128,7 +128,7 @@ async function cmdLookGround(player) {
   const zone = getZone(player.current_zone);
   const base = zone ? `You look at the ground around you in ${zone.name}.` : 'You look at the ground.';
   const { rows } = await query(
-    `SELECT pi.id, i.name, i.rarity FROM player_inventory pi
+    `SELECT pi.id, i.name FROM player_inventory pi
      JOIN items i ON i.id = pi.item_id
      WHERE pi.player_id = $1 AND pi.container_id IS NULL LIMIT 10`,
     [`_ground_${player.current_zone}`]
