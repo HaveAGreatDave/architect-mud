@@ -17,6 +17,7 @@ import { updateForecast } from './panels/forecast.js';
 import { openAtmPanel, closeAtmPanel, updateAtmPanel } from './panels/atm.js';
 import { openMediaDeckPanel, updateMediaDeckBroadcast } from './panels/mediadeck.js';
 import { openDeviceInspectPanel } from './panels/deviceinspect.js';
+import { openSurveillanceHub, updateSurveillanceHub } from './panels/surveillancehub.js';
 import { openTvPanel, isTvOpen, getTvActiveChannelId, appendTvMessage, updateTvTicker, applyTvOverlay, clearTvMessages, showTvOffAir, showTvOnAir, shutdownTvPanel } from './panels/tv.js';
 import { applyEspState, handleEspWarning } from './esp.js';
 import { playPokerSfx } from './poker-sfx.js';
@@ -387,6 +388,8 @@ const handlers = {
   mediadeck_panel: (msg) => { openMediaDeckPanel(msg); },
   device_inspect_panel: (msg) => { openDeviceInspectPanel(msg); },
   deck_broadcast:  (msg) => { updateMediaDeckBroadcast(msg); },
+  surveillance_hub: (msg) => { openSurveillanceHub(msg); },
+  surveillance_hub_update: (msg) => { updateSurveillanceHub(msg); },
 
   esp_state:   (msg) => { applyEspState(msg); },
   esp_warning: (msg) => { handleEspWarning(msg); },

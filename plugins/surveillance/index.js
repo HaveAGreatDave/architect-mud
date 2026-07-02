@@ -12,6 +12,8 @@ import { query } from '../../server/models/db.js';
 import { getZone, getZonePlayers, getZoneNpcs, getZoneEnemies } from '../../server/engine/world.js';
 import { skillCheck, awardSkillUse } from '../../server/engine/skills.js';
 import { getPowerMap } from '../../server/engine/environment.js';
+import { sendToPlayer } from '../../server/engine/messaging.js';
+import { on } from '../../server/engine/events.js';
 
 const COMPASS = new Set(['north', 'south', 'east', 'west', 'up', 'down', 'n', 's', 'e', 'w', 'u', 'd']);
 
@@ -230,6 +232,127 @@ async function cmdFeed(args, raw, player) {
   return { type: 'output', message: `${header}\n<span class="broadcast-ambient">${feedSnapshot(target.zone_id)}</span>` };
 }
 
+// ── Surveillance Hub (Phase 2) ───────────────────────────────────────────────
+// A carried spy-deck (or a fixed security_console furniture) opens a multi-feed
+// panel. While open, the player id sits in hubViewers and the tick pushes fresh
+// frames every 5s. Client re-renders on each push.
+
+const hubViewers = new Set(); // playerId
+
+function tileStatus(d) {
+  if (d.is_damaged) return 'damaged';
+  if (!devicePowered(d)) return 'offline';
+  const sf = d.status_flags || {};
+  if (sf.jammed) return 'jammed';
+  if (sf.spoofed) return 'spoofed';
+  return 'ok';
+}
+
+async function buildTiles(ownerId) {
+  const { rows } = await query(
+    `SELECT d.id, d.device_kind, d.zone_id, d.battery, d.battery_max, d.wired,
+            d.is_damaged, d.is_recording, d.status_flags, f.name, z.name AS zone_name
+       FROM security_devices d
+       JOIN furniture f ON f.id = d.id
+       LEFT JOIN zones z ON z.id = d.zone_id
+      WHERE d.owner_id = $1
+      ORDER BY f.name`,
+    [ownerId]
+  );
+  return rows.map(d => {
+    const status = tileStatus(d);
+    return {
+      id: d.id,
+      name: d.name,
+      kind: d.device_kind,
+      zone: d.zone_name || d.zone_id,
+      status,                                  // ok | offline | damaged | jammed | spoofed
+      battery: batteryPct(d),
+      recording: !!d.is_recording,
+      frame: status === 'ok' ? feedSnapshot(d.zone_id) : null,
+      ts: clock(),
+    };
+  });
+}
+
+async function buildHubPayload(player, open) {
+  return {
+    type: open ? 'surveillance_hub' : 'surveillance_hub_update',
+    net: { name: `SPECTER // ${player.handle || 'OPERATOR'}`, color: '#39ff9e' },
+    tiles: await buildTiles(player.id),
+  };
+}
+
+async function playerHasSpyDeck(playerId) {
+  const { rows } = await query(
+    `SELECT 1 FROM player_inventory pi JOIN items i ON i.id = pi.item_id
+      WHERE pi.player_id = $1 AND jsonb_exists(i.tags, 'spy_deck') LIMIT 1`,
+    [playerId]
+  );
+  return rows.length > 0;
+}
+
+async function openHubFor(player) {
+  const payload = await buildHubPayload(player, true);
+  sendToPlayer(player.id, payload);
+  hubViewers.add(player.id);
+  return payload;
+}
+
+// hub — open the Surveillance Hub (requires a carried spy-deck).
+async function cmdHub(args, raw, player) {
+  if (!await playerHasSpyDeck(player.id)) {
+    return { type: 'error', message: 'You need a surveillance deck to pull a feed. (No deck in hand.)' };
+  }
+  return openHubFor(player);
+}
+
+// hubclose — silent; client fires this when the panel closes.
+async function cmdHubClose(args, raw, player) {
+  hubViewers.delete(player.id);
+  return { type: 'noop' };
+}
+
+// use <deck> — carried spy-deck path.
+async function doUseSpyDeck(args, raw, player) {
+  if (!await playerHasSpyDeck(player.id)) return undefined; // fall through
+  const nameHint = args.join(' ').trim().toLowerCase();
+  if (nameHint) {
+    const { rows } = await query(
+      `SELECT i.name FROM player_inventory pi JOIN items i ON i.id = pi.item_id
+        WHERE pi.player_id = $1 AND jsonb_exists(i.tags, 'spy_deck') AND i.name ILIKE $2 LIMIT 1`,
+      [player.id, `%${nameHint}%`]
+    );
+    if (!rows.length) return undefined; // named something else — let other handlers try
+  }
+  return openHubFor(player);
+}
+
+// use <security console> — fixed furniture path.
+async function doUseConsole(args, raw, player) {
+  const nameHint = args.join(' ').trim();
+  const params = [player.current_zone];
+  let sql = `SELECT id FROM furniture WHERE zone_id=$1 AND jsonb_exists(flags,'security_console')`;
+  if (nameHint) { sql += ` AND name ILIKE $2`; params.push(`%${nameHint}%`); }
+  sql += ' LIMIT 1';
+  const { rows } = await query(sql, params);
+  if (!rows.length) return undefined;
+  return openHubFor(player);
+}
+
+async function surveillanceTick() {
+  if (!hubViewers.size) return;
+  for (const playerId of hubViewers) {
+    const { rows } = await query('SELECT id, handle FROM players WHERE id=$1', [playerId]);
+    if (!rows.length) { hubViewers.delete(playerId); continue; }
+    sendToPlayer(playerId, await buildHubPayload(rows[0], false));
+  }
+}
+
+setInterval(() => surveillanceTick().catch(e => console.error('[surveillance] hub tick error:', e.message)), 5000);
+
+on('player.logout', ({ id }) => hubViewers.delete(id));
+
 // ── Battery / power tick ─────────────────────────────────────────────────────
 async function batteryTick() {
   const { rows } = await query(
@@ -257,6 +380,13 @@ export const commands = {
   retrieve: cmdRetrieve,
   sweep: cmdSweep,
   feed: cmdFeed,
+  hub: cmdHub,
+  hubclose: cmdHubClose,
 };
+
+export const specializedActions = [
+  { verb: 'use', requiredTag: 'spy_deck', handler: doUseSpyDeck },
+  { verb: 'use', requiredTag: 'security_console', handler: doUseConsole },
+];
 
 console.log('[surveillance] Plugin loaded.');

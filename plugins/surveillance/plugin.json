@@ -1,6 +1,10 @@
 {
   "name": "surveillance",
-  "version": "0.1.0",
-  "description": "SPECTER — player-deployable spy networks. Phase 1: plant/retrieve/sweep covert devices + remote feed + battery/power tick.",
-  "commands": ["plant", "retrieve", "sweep", "feed"]
+  "version": "0.2.0",
+  "description": "SPECTER — player-deployable spy networks. Phase 1: plant/retrieve/sweep + feed + battery tick. Phase 2: multi-feed Surveillance Hub (spy-deck / security console).",
+  "commands": ["plant", "retrieve", "sweep", "feed", "hub", "hubclose"],
+  "specializedActions": [
+    { "verb": "use", "requiredTag": "spy_deck" },
+    { "verb": "use", "requiredTag": "security_console" }
+  ]
 }
