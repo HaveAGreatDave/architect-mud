@@ -784,13 +784,28 @@ function _applyVineIdentity(schema) {
   if (headEl) headEl.style.borderLeftColor = id.color;
 }
 
-function vineModalOpen(title, schema, graphData, onSave) {
+function vineModalOpen(title, schema, graphData, onSave, sibling) {
   const modal = document.getElementById('vine-modal');
   if (!modal) return;
   document.getElementById('vine-modal-title').textContent = title;
   _applyVineIdentity(schema);
   modal.style.display = 'flex';
   _vineModalOnSave = onSave;
+
+  // Optional same-entity jump (e.g. an NPC's dialogue ⇄ its AI behaviour). Commits
+  // the current graph to its form, then opens the sibling editor on the same record.
+  const sibEl = document.getElementById('vine-modal-sibling');
+  if (sibEl) {
+    if (sibling) {
+      sibEl.style.display = '';
+      sibEl.textContent = sibling.label;
+      sibEl.title = sibling.title || '';
+      sibEl.onclick = sibling.onClick;
+    } else {
+      sibEl.style.display = 'none';
+      sibEl.onclick = null;
+    }
+  }
 
   if (_vineModalEditor) { _vineModalEditor.destroy(); _vineModalEditor = null; }
   const body = document.getElementById('vine-modal-body');

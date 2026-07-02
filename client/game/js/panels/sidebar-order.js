@@ -21,6 +21,7 @@ export function initSidebarOrder() {
   document.getElementById('sidebar-lock-btn').addEventListener('click', toggleLock);
   document.getElementById('sidebar-reset-btn')?.addEventListener('click', resetOrder);
   initRestoreControl();
+  updateRestoreVisibility();
   initCollapse();
   const sidebar = document.getElementById('sidebar');
   sidebar.addEventListener('dragover', onSidebarDragOver);
@@ -61,6 +62,7 @@ function hideSection(el) {
   if (!ids.includes(el.id)) { ids.push(el.id); saveHidden(ids); }
   saveLayout();
   renderRestoreMenu();
+  updateRestoreVisibility();
 }
 
 function restoreSection(id) {
@@ -72,6 +74,21 @@ function restoreSection(id) {
   }
   saveLayout();
   renderRestoreMenu();
+  updateRestoreVisibility();
+}
+
+// The panels list stays available whenever there are hidden panels — even when
+// the sidebar is locked — so a dropped-off panel can always be re-added. While
+// unlocked it's shown regardless (for discoverability of the drag-to-hide gesture).
+function updateRestoreVisibility() {
+  const restore = document.getElementById('sidebar-restore');
+  if (!restore) return;
+  const show = !locked || loadHidden().length > 0;
+  restore.style.display = show ? '' : 'none';
+  if (!show) {
+    const menu = document.getElementById('sidebar-restore-menu');
+    if (menu) menu.style.display = 'none';
+  }
 }
 
 function initRestoreControl() {
@@ -206,6 +223,7 @@ export function resetOrder() {
   });
   applyLayout(null);
   renderRestoreMenu();
+  updateRestoreVisibility();
 }
 
 function toggleLock() {
@@ -217,14 +235,10 @@ function toggleLock() {
   btn.title = locked ? 'Unlock to reorder sidebar sections' : 'Lock sidebar order';
   sidebar.classList.toggle('drag-mode', !locked);
 
-  // The restore dropdown only exists while unlocked.
-  const restore = document.getElementById('sidebar-restore');
-  if (restore) {
-    restore.style.display = locked ? 'none' : '';
-    const menu = document.getElementById('sidebar-restore-menu');
-    if (locked) { if (menu) menu.style.display = 'none'; }
-    else renderRestoreMenu();
-  }
+  // Restore control: always available while unlocked, and while locked only if
+  // there are hidden panels to re-add.
+  updateRestoreVisibility();
+  if (!locked) renderRestoreMenu();
   sidebar.querySelectorAll('.sidebar-section').forEach(sec => {
     if (!sidebar.contains(sec)) return;
     sec.draggable = !locked;
