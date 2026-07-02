@@ -2,7 +2,7 @@ import { world, tickSpawns, getRandomAmbient, getWeatherAmbient, getLivePlayer, 
 import { randomUUID } from 'crypto';
 import { propagateSound } from './sounds.js';
 import { enemyAttackPlayer, enemyAttackNpc, npcAttackPlayer, isOnCooldown, pvpSwing, formatBattleCry } from './combat.js';
-import { tickEntityAI } from './ai-behaviour.js';
+import { tickEntityAI, moveEntity } from './ai-behaviour.js';
 import { npcBanterTick } from './npc-banter.js';
 import { restockAllVendors } from './vendor.js';
 import { offlineSleepSwing } from './commands/combat.js';
@@ -132,7 +132,7 @@ async function tick() {
           // The player auto-attack loop in tick() sustains combat from here on.
           const currentCombatEnemy = target.combatTargetId ? world.enemies.get(target.combatTargetId) : null;
           const currentTargetAlive = currentCombatEnemy && currentCombatEnemy.zoneId === target.current_zone;
-          if (!currentTargetAlive) target.combatTargetId = enemy.instanceId;
+          if (!currentTargetAlive && !((target.disengagedUntil || 0) > Date.now())) target.combatTargetId = enemy.instanceId;
         } else {
           broadcastFn(null, { type:'combat_miss', message:result.message }, null, enemy.targetId);
         }
@@ -237,7 +237,7 @@ async function tick() {
         broadcastFn(null, { type: 'combat_incoming', message: result.message, player_update: { hp: target.hp, hp_max: target.hp_max } }, null, target.id);
         if (target.hp <= 0) {
           await handlePlayerDeath(target, null);
-        } else if (!target.npcCombatTargetId) {
+        } else if (!target.npcCombatTargetId && !((target.disengagedUntil || 0) > Date.now())) {
           target.npcCombatTargetId = npcId;
         }
       } else {
@@ -422,6 +422,12 @@ async function ambientTick() {
 
     const ambient = getRandomAmbient(zoneId);
     if (!ambient) continue;
+
+    // Directional ambients (a door "above you", footsteps "below you") only make
+    // sense when there's actually a room in that direction. Skip them otherwise.
+    const msgText = ambient.message || '';
+    if (/\babove you\b/i.test(msgText) && !zone.exits?.up) continue;
+    if (/\bbelow you\b/i.test(msgText) && !zone.exits?.down) continue;
 
     // Suppress this ambient if a louder sound recently fired in this zone.
     const interrupt = getInterruptLoudness(zoneId);
@@ -840,6 +846,7 @@ async function npcWanderTick() {
         const dest = npc.home_zone || npc.zone_id;
         npc.zone_id = dest;
         world.zones.get(dest)?.npcs.add(id);
+        broadcastFn(dest, { type: 'zone_event', message: `${npc.name} returns.`, refresh: true });
         query('UPDATE npcs SET zone_id=$1, hp=$2 WHERE id=$3', [dest, npc.hp, id]).catch(() => {});
       }
       continue;
@@ -865,11 +872,12 @@ async function npcWanderTick() {
     }
     if (!candidates.length) continue;
     const dest = candidates[Math.floor(Math.random() * candidates.length)];
-    // Update zone NPC sets
-    world.zones.get(npc.zone_id)?.npcs.delete(id);
-    npc.zone_id = dest;
-    world.zones.get(dest)?.npcs.add(id);
-    await query('UPDATE npcs SET zone_id=$1 WHERE id=$2', [dest, id]).catch(() => {});
+    // moveEntity handles the zone-set swap, door passage, and depart/arrive
+    // announcements (same path as graph-driven NPCs). Returns false if blocked
+    // by a locked door — only persist the new position if the move happened.
+    if (moveEntity(npc, dest, broadcastFn, query)) {
+      await query('UPDATE npcs SET zone_id=$1 WHERE id=$2', [dest, id]).catch(() => {});
+    }
   }
 }
 

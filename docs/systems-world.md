@@ -28,6 +28,14 @@ radiation (see [systems-survival.md](systems-survival.md)). `go <name>` resolves
 destinations via `resolveNamedDestination` ([describe.js](../server/engine/commands/describe.js)),
 handling exact, unique-prefix, and ambiguous matches.
 
+NPC and enemy movement flows through the shared `moveEntity` ([ai-behaviour.js](../server/engine/ai-behaviour.js)),
+which mirrors `cmdMove`'s depart/arrive announcements (same phrasing, door handling, follower-drag) for
+both graph-driven and fallback-wander NPCs. Enemy spawns announce via `pickSpawnMessage` (scheduler and
+dev-panel spawn alike, gated on players present); NPC respawn and MIS flee-to-home announce arrival at the
+destination. Admin teleports (dev-panel and phase-shift) broadcast both departure and arrival. The intent
+is that **every** arrival/departure — player, NPC, or enemy, including spawn/respawn — emits a `zone_event`;
+the only silent path is corpse/enemy *expiry* (cleanup, not a move).
+
 `describeZone` is the heavy renderer: light level gating (8-step ladder blazing→bright→clear→dim→gloomy→dark→murk→pitch-dark; darker levels degrade what's visible — gloomy drops ground items, dark hides creatures/items, murk also hides NPCs, pitch-dark leaves only feel-for-exits — via the `LIGHT_GATE` table),
 danger/RAD/PVP tags, building-discovery flavour, apartment status, the Custodian outcast/turret
 response, ground items, furniture, windows, exits, other players, NPCs, enemies, and corpses. It fires

@@ -1086,6 +1086,9 @@ async function apiSpawnLiveEnemy(zoneId, body) {
     return { status:200, body:{ skipped: true, message: `Already at max_count (${maxCount}) for this zone` } };
   }
   const instance = spawnEnemySync(rows[0], zoneId);
+  if (broadcastFn && zone.players.size > 0) {
+    broadcastFn(zoneId, { type:'zone_event', message:`A ${instance.name} appears.`, refresh: true });
+  }
   return { status:201, body:{ instanceId: instance.instanceId, name: instance.name, hp: instance.hp, hp_max: instance.hp_max } };
 }
 function apiGetZoneLiveEnemies(zoneId) {
@@ -1618,7 +1621,8 @@ async function apiTeleportPlayer(id, body) {
   }
   const lookMsg = await describeZone(zone, live || {handle,current_zone:zoneId});
   broadcastFn(null,{type:'move',message:`<span style="color:var(--cyan)">An unseen force picks you up and deposits you elsewhere.</span>\n\n${lookMsg}`,zone:zoneId,minimap:getMinimapData(zoneId)},null,id);
-  broadcastFn(zoneId,{type:'zone_event',message:`${handle} materialises out of thin air.`},id);
+  if (current_zone && current_zone !== zoneId) broadcastFn(current_zone,{type:'zone_event',message:`${handle} vanishes into thin air.`,refresh:true},id);
+  broadcastFn(zoneId,{type:'zone_event',message:`${handle} materialises out of thin air.`,refresh:true},id);
   return {status:200,body:{teleported:true,handle,zoneId}};
 }
 
@@ -1642,7 +1646,8 @@ async function apiGotoPlayer(targetId, auth) {
   }
   const lookMsg = await describeZone(zone, adminLive || {handle:adminHandle,current_zone:zoneId});
   broadcastFn(null,{type:'move',message:`<span style="color:var(--cyan)">You phase-shift to ${targetHandle}'s location.</span>\n\n${lookMsg}`,zone:zoneId,minimap:getMinimapData(zoneId)},null,auth.playerId);
-  broadcastFn(zoneId,{type:'zone_event',message:`${adminHandle} materialises out of thin air.`},auth.playerId);
+  if (adminZone && adminZone !== zoneId) broadcastFn(adminZone,{type:'zone_event',message:`${adminHandle} vanishes into thin air.`,refresh:true},auth.playerId);
+  broadcastFn(zoneId,{type:'zone_event',message:`${adminHandle} materialises out of thin air.`,refresh:true},auth.playerId);
   return {status:200,body:{teleported:true,adminHandle,targetHandle,zoneId}};
 }
 
