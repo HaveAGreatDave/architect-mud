@@ -257,7 +257,7 @@
 
   /* Big Map / Settings modals */
   #bigmap-overlay, #settings-overlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 500;
+    position: fixed; inset: 0; background: transparent; z-index: 500;
     display: none; align-items: center; justify-content: center;
   }
   #bigmap-overlay.active, #settings-overlay.active { display: flex; }

@@ -351,16 +351,34 @@ const AMB_UTILITY_ROOM = {
   id: 'amb_utility_room', name: 'amb_utility_room', category: 'ambient', priority: 2,
   config: { gain: 0.4, layers: [
     { waveform: 'sine', freq: 60, adsr: { a: 1.5, d: 0, s: 1, r: 1.5 }, gain: 0.30 },
-    { waveform: 'sawtooth', freq: 120, filter: { type: 'lowpass', freq: 800, q: 1.0 }, tremolo: { rate: 12, depth: 0.2 }, adsr: { a: 1.5, d: 0, s: 1, r: 1.5 }, gain: 0.12 },
-    { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 5000, q: 0.8 }, tremolo: { rate: 30, depth: 0.6 }, adsr: { a: 1.5, d: 0, s: 0.4, r: 1.5 }, gain: 0.04 },
+    { waveform: 'sawtooth', freq: 120, filter: { type: 'lowpass', freq: 640, q: 1.0 }, tremolo: { rate: 12, depth: 0.15 }, adsr: { a: 1.5, d: 0, s: 1, r: 1.5 }, gain: 0.10 },
+    // Faint dielectric fizz — pulled well back and softened so it shimmers under
+    // the hum instead of rasping over it (the old "static").
+    { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 4200, q: 1.4 }, tremolo: { rate: 22, depth: 0.25 }, adsr: { a: 2, d: 0, s: 0.35, r: 2 }, gain: 0.018 },
   ], sparkle: [
-    // Capacitor / relay tick — dry, small.
-    { everyMin: 4, everyMax: 11, prob: 0.8, gain: 0.09, duration: 0.04, jitter: 0.12, layers: [
-      { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 3200, q: 3 }, adsr: { a: 0.001, d: 0.03, s: 0, r: 0.02 }, gain: 0.8 },
+    // Capacitor / relay tick — dry, small, and now sparser so it doesn't clatter.
+    { everyMin: 6, everyMax: 15, prob: 0.65, gain: 0.07, duration: 0.04, jitter: 0.12, layers: [
+      { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 3200, q: 3 }, adsr: { a: 0.001, d: 0.03, s: 0, r: 0.02 }, gain: 0.7 },
     ] },
     // Panel data-beep — softer and higher than the plant's telemetry.
     { everyMin: 7, everyMax: 18, prob: 0.7, gain: 0.06, duration: 0.05, jitter: 0.2, layers: [
       { waveform: 'square', freq: 1760, adsr: { a: 0.002, d: 0.035, s: 0, r: 0.03 }, filter: { type: 'bandpass', freq: 1760, q: 5 } },
+    ] },
+    // Electric arc twinkle — a bright bandpassed ping with a quick upward flick;
+    // the little crystalline "spark" that gives the box life.
+    { everyMin: 3, everyMax: 8, prob: 0.9, gain: 0.05, duration: 0.14, jitter: 0.16, layers: [
+      { waveform: 'sine', freq: 2637, pitchBend: { to: 3136, time: 0.05 }, adsr: { a: 0.001, d: 0.11, s: 0, r: 0.04 }, filter: { type: 'bandpass', freq: 2800, q: 3 }, gain: 0.9 },
+      { waveform: 'square', freq: 5274, adsr: { a: 0.001, d: 0.03, s: 0, r: 0.02 }, filter: { type: 'bandpass', freq: 5274, q: 6 }, gain: 0.25 },
+    ] },
+    // Crystal chime — two sine partials an octave apart, a soft bell ringing off
+    // in the distance. Sparse and pretty.
+    { everyMin: 9, everyMax: 22, prob: 0.7, gain: 0.045, duration: 0.55, jitter: 0.1, layers: [
+      { waveform: 'sine', freq: 1568, adsr: { a: 0.002, d: 0.4, s: 0.1, r: 0.4 }, gain: 0.8 },
+      { waveform: 'sine', freq: 3136, adsr: { a: 0.002, d: 0.28, s: 0, r: 0.3 }, gain: 0.3 },
+    ] },
+    // Rising shimmer — a faint glassy sweep upward, the sparkle's tail.
+    { everyMin: 12, everyMax: 28, prob: 0.6, gain: 0.035, duration: 0.22, jitter: 0.14, layers: [
+      { waveform: 'sine', freq: 3136, pitchBend: { to: 4699, time: 0.18 }, adsr: { a: 0.02, d: 0.14, s: 0.1, r: 0.08 }, filter: { type: 'bandpass', freq: 3800, q: 2 } },
     ] },
   ] },
 };

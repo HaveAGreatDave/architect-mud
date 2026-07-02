@@ -259,9 +259,37 @@ function _loadBaseTheme(themeId) {
   _renderThemeEditorRows();
 }
 
+// Make a floating window draggable by a handle, clamped to the viewport.
+function _makeThemeEditorDraggable() {
+  const win = document.getElementById('tce-window');
+  const handle = document.getElementById('tce-drag-header');
+  if (!win || !handle || handle._dragBound) return;
+  handle._dragBound = true;
+  handle.addEventListener('mousedown', (e) => {
+    if (e.target.closest('button,select,input')) return;
+    e.preventDefault();
+    const rect = win.getBoundingClientRect();
+    const offX = e.clientX - rect.left, offY = e.clientY - rect.top;
+    win.style.right = 'auto';
+    const move = (ev) => {
+      const x = Math.max(0, Math.min(ev.clientX - offX, window.innerWidth - 40));
+      const y = Math.max(0, Math.min(ev.clientY - offY, window.innerHeight - 40));
+      win.style.left = x + 'px';
+      win.style.top = y + 'px';
+    };
+    const up = () => {
+      document.removeEventListener('mousemove', move);
+      document.removeEventListener('mouseup', up);
+    };
+    document.addEventListener('mousemove', move);
+    document.addEventListener('mouseup', up);
+  });
+}
+
 function openThemeEditor() {
   const overlay = document.getElementById('theme-editor-overlay');
   overlay.style.display = 'flex';
+  _makeThemeEditorDraggable();
   _populateThemeEditorDropdown();
   const themeId = devSettings.theme || 'dark';
   document.getElementById('theme-editor-base').value = themeId;
@@ -328,19 +356,19 @@ function _renderThemeEditorRows() {
     const val = _themeEditorCurrentValue(v);
     const hex = val.startsWith('#') ? val : val;
     const safe = v.replace(/[^a-z-]/g, '');
-    return `<div style="display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)">
+    return `<div style="display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;padding:4px 0;border-bottom:1px solid var(--border)">
       <div>
         <div style="font-size:12px;color:var(--text)">${label}</div>
         <div style="font-size:10px;color:var(--text-dim)">${desc}</div>
       </div>
       <div style="display:flex;align-items:center;gap:6px">
         <input type="text" id="tce-hex-${safe}" value="${hex}" maxlength="7"
-          style="width:76px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:4px 6px;border-radius:2px;letter-spacing:1px"
+          style="width:70px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:3px 6px;border-radius:2px;letter-spacing:1px"
           oninput="onThemeColorHexInput('${safe}','${v}',this.value)">
       </div>
-      <div style="position:relative;width:28px;height:28px">
+      <div style="position:relative;width:24px;height:24px">
         <div id="tce-swatch-${safe}" onclick="document.getElementById('tce-picker-${safe}').click()"
-          style="width:28px;height:28px;border-radius:3px;border:1px solid var(--border);cursor:pointer;background:${hex}"></div>
+          style="width:24px;height:24px;border-radius:3px;border:1px solid var(--border);cursor:pointer;background:${hex}"></div>
         <input type="color" id="tce-picker-${safe}" value="${hex.startsWith('#') ? hex : '#888888'}"
           style="position:absolute;opacity:0;width:0;height:0;pointer-events:none"
           oninput="onThemeColorPickerInput('${safe}','${v}',this.value)">

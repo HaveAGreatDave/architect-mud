@@ -515,18 +515,18 @@ function _teRenderRows() {
   container.innerHTML = THEME_COLOR_VARS.map(({ v, label, desc }) => {
     const val = _teGetCurrentColor(v);
     const safe = v.replace(/[^a-z-]/g, '');
-    return `<div style="display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)">
+    return `<div style="display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;padding:4px 0;border-bottom:1px solid var(--border)">
       <div>
         <div style="font-size:12px;color:var(--text)">${label}</div>
         <div style="font-size:10px;color:var(--text-dim)">${desc}</div>
       </div>
       <div>
         <input type="text" data-var="${v}" data-safe="${safe}" class="te-hex" value="${val}" maxlength="7"
-          style="width:76px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:4px 6px;border-radius:2px;letter-spacing:1px">
+          style="width:70px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:3px 6px;border-radius:2px;letter-spacing:1px">
       </div>
-      <div style="position:relative;width:28px;height:28px">
+      <div style="position:relative;width:24px;height:24px">
         <div data-safe="${safe}" class="te-swatch"
-          style="width:28px;height:28px;border-radius:3px;border:1px solid var(--border);cursor:pointer;background:${val}"></div>
+          style="width:24px;height:24px;border-radius:3px;border:1px solid var(--border);cursor:pointer;background:${val}"></div>
         <input type="color" data-var="${v}" data-safe="${safe}" class="te-picker" value="${val.startsWith('#') ? val : '#888888'}"
           style="position:absolute;opacity:0;width:0;height:0;pointer-events:none">
       </div>
@@ -613,11 +613,36 @@ function _teResetToBase() {
   _teLoadBase(baseId);
 }
 
+// Make a floating window draggable by a handle, clamped to the viewport.
+function _makeDraggable(win, handle) {
+  if (!win || !handle || handle._dragBound) return;
+  handle._dragBound = true;
+  handle.addEventListener('mousedown', (e) => {
+    if (e.target.closest('button,select,input')) return;
+    e.preventDefault();
+    const rect = win.getBoundingClientRect();
+    const offX = e.clientX - rect.left, offY = e.clientY - rect.top;
+    win.style.right = 'auto';
+    const move = (ev) => {
+      const x = Math.max(0, Math.min(ev.clientX - offX, window.innerWidth - 40));
+      const y = Math.max(0, Math.min(ev.clientY - offY, window.innerHeight - 40));
+      win.style.left = x + 'px';
+      win.style.top = y + 'px';
+    };
+    const up = () => {
+      document.removeEventListener('mousemove', move);
+      document.removeEventListener('mouseup', up);
+    };
+    document.addEventListener('mousemove', move);
+    document.addEventListener('mouseup', up);
+  });
+}
+
 export function initThemeEditorOverlay() {
   const overlay = document.getElementById('theme-editor-overlay');
   if (!overlay) return;
 
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeThemeEditor(); });
+  _makeDraggable(document.getElementById('te-window'), document.getElementById('te-drag-header'));
   document.getElementById('te-close-btn')?.addEventListener('click', closeThemeEditor);
   document.getElementById('te-close-btn2')?.addEventListener('click', closeThemeEditor);
   document.getElementById('te-base-select')?.addEventListener('change', (e) => _teLoadBase(e.target.value));

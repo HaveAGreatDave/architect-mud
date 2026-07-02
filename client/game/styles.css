@@ -1282,7 +1282,7 @@ body {
 	display: none;
 	position: fixed;
 	inset: 0;
-	background: rgba(0, 0, 0, 0.75);
+	background: transparent;
 	z-index: 100;
 	align-items: center;
 	justify-content: center;
@@ -1943,7 +1943,7 @@ body {
 	display: none;
 	position: fixed;
 	inset: 0;
-	background: rgba(0, 0, 0, 0.75);
+	background: transparent;
 	z-index: 150;
 	align-items: center;
 	justify-content: center;
@@ -2016,7 +2016,7 @@ body {
 	display: none;
 	position: fixed;
 	inset: 0;
-	background: rgba(0, 0, 0, 0.75);
+	background: transparent;
 	z-index: 150;
 	align-items: center;
 	justify-content: center;
@@ -2150,7 +2150,7 @@ body {
 	display: none;
 	position: fixed;
 	inset: 0;
-	background: rgba(0, 0, 0, 0.75);
+	background: transparent;
 	z-index: 150;
 	align-items: center;
 	justify-content: center;
@@ -2434,7 +2434,7 @@ body {
 	display: none;
 	position: fixed;
 	inset: 0;
-	background: rgba(0, 0, 0, 0.75);
+	background: transparent;
 	z-index: 150;
 	align-items: center;
 	justify-content: center;
@@ -2627,7 +2627,7 @@ body {
 	display: none;
 	position: fixed;
 	inset: 0;
-	background: rgba(0, 0, 0, 0.75);
+	background: transparent;
 	z-index: 150;
 	align-items: center;
 	justify-content: center;
@@ -2790,7 +2790,7 @@ body {
 	display: none;
 	position: fixed;
 	inset: 0;
-	background: rgba(0, 0, 0, 0.75);
+	background: transparent;
 	z-index: 150;
 	align-items: center;
 	justify-content: center;
@@ -2942,7 +2942,7 @@ body {
 	display: none;
 	position: fixed;
 	inset: 0;
-	background: rgba(0, 0, 0, 0.75);
+	background: transparent;
 	z-index: 150;
 	align-items: center;
 	justify-content: center;
@@ -2954,7 +2954,7 @@ body {
 	display: none;
 	position: fixed;
 	inset: 0;
-	background: rgba(0, 0, 0, 0.75);
+	background: transparent;
 	z-index: 150;
 	align-items: center;
 	justify-content: center;
@@ -3309,7 +3309,7 @@ body {
 .qty-dialog-overlay {
 	position: fixed;
 	inset: 0;
-	background: rgba(0,0,0,0.6);
+	background: transparent;
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -3470,7 +3470,7 @@ body {
 	display: none;
 	position: fixed;
 	inset: 0;
-	background: rgba(0, 0, 0, 0.75);
+	background: transparent;
 	z-index: 100;
 	align-items: center;
 	justify-content: center;
@@ -4443,7 +4443,7 @@ body {
 	display: none;
 	position: fixed;
 	inset: 0;
-	background: rgba(0, 0, 0, 0.60);
+	background: transparent;
 	z-index: 200;
 	align-items: center;
 	justify-content: center;
@@ -4706,7 +4706,7 @@ body {
 	display: none;
 	position: fixed;
 	inset: 0;
-	background: rgba(5, 0, 10, 0.72);
+	background: transparent;
 	z-index: 200;
 	align-items: center;
 	justify-content: center;
