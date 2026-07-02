@@ -187,7 +187,10 @@ const handlers = {
       if (msg.refresh) { clearTimeout(_lookTimer); _lookTimer = setTimeout(() => sendCmdSilent('look'), 800); }
     };
   })(),
-  emote: (msg) => { appendMsg(msg.message, 'zone-event'); },
+  emote: (msg) => {
+    const el = appendMsg(msg.message, 'zone-event');
+    if (msg.butcherMs) { closeLootPanel(); attachInlineProgress(el, msg.butcherMs); }
+  },
   say: (msg) => { appendMsg(msg.message, 'say'); },
 
   inventory: (msg) => {
@@ -398,7 +401,7 @@ const handlers = {
   'lightning': () => { triggerLightningFlash(); },
 
   output: (msg) => { appendHtml(msg.message, 'help'); },
-  progress: (msg) => { renderActionProgress(msg); },
+  progress: (msg) => { if (msg.done) clearInlineProgress(); },
   confirm: (msg) => { showConfirmDialog(msg); },
   poker_update: (msg) => { setAreaPane(msg.html); },
   poker_sfx: (msg) => { playPokerSfx(msg.cue); },
@@ -521,30 +524,42 @@ export function handleServerMsg(msg) {
   if (handler) handler(msg);
 }
 
-// Timed-action progress bar (e.g. butchering). `done` hides it; otherwise the
-// fill animates 0→100% over durationMs via a CSS width transition.
-function renderActionProgress(msg) {
-  const el = document.getElementById('action-progress');
-  if (!el) return;
-  const fill = el.querySelector('.action-progress-fill');
-  const label = el.querySelector('.action-progress-label');
-  if (msg.done) {
-    el.style.display = 'none';
-    if (fill) { fill.style.transition = 'none'; fill.style.width = '0%'; }
-    return;
-  }
-  // Looting is done once the timed action starts — close any open loot panel.
-  if (msg.action === 'butcher') closeLootPanel();
-  if (label) label.textContent = msg.label || '';
-  el.style.display = '';
-  if (fill) {
-    fill.style.transition = 'none';
-    fill.style.width = '0%';
-    // Force reflow so the reset width is committed before we animate.
-    void fill.offsetWidth;
-    fill.style.transition = `width ${msg.durationMs || 5000}ms linear`;
-    fill.style.width = '100%';
-  }
+// Inline countdown bar appended to a timed-action line (e.g. butchering),
+// styled like the combat HP indicators: " [████░░░░░░] 3s". It fills 0→full over
+// durationMs and shows the remaining whole seconds, then removes itself — or a
+// `progress done` message (interruption/early completion) tears it down first.
+// Only one runs at a time; a new one clears any leftover.
+const INLINE_PROGRESS_SEGMENTS = 10;
+let inlineProgress = null;
+
+function attachInlineProgress(lineEl, durationMs) {
+  clearInlineProgress();
+  const bar = document.createElement('span');
+  bar.className = 'hpbar hp-high';
+  const time = document.createElement('span');
+  time.className = 'hp-count';
+  lineEl.append(document.createTextNode(' '), bar, document.createTextNode(' '), time);
+
+  const start = Date.now();
+  const render = () => {
+    const elapsed = Date.now() - start;
+    const ratio = Math.min(1, elapsed / durationMs);
+    const filled = Math.round(INLINE_PROGRESS_SEGMENTS * ratio);
+    bar.textContent = `[${'█'.repeat(filled)}${'░'.repeat(INLINE_PROGRESS_SEGMENTS - filled)}]`;
+    time.textContent = `${Math.max(0, Math.ceil((durationMs - elapsed) / 1000))}s`;
+    if (ratio >= 1) clearInlineProgress();
+  };
+  const timer = setInterval(render, 200);
+  inlineProgress = { bar, time, timer };
+  render();
+}
+
+function clearInlineProgress() {
+  if (!inlineProgress) return;
+  clearInterval(inlineProgress.timer);
+  inlineProgress.bar.remove();
+  inlineProgress.time.remove();
+  inlineProgress = null;
 }
 
 function openSoundPicker(sfxList) {

@@ -8,6 +8,7 @@ export function appendMsg(text, cls = '') {
   el.textContent = text;
   document.getElementById('output').appendChild(el);
   scrollOutput();
+  return el;
 }
 
 export function appendHtml(html, cls = '') {
