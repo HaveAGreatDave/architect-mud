@@ -80,6 +80,15 @@ export function updateVitals(p) {
   setBar('thi', p.thirst, 100);
   setBar('sta', p.stamina, p.stamina_max || 100);
   setBar('rad', p.radiation, 100, true);
+  // Radiation bar — only visible when the player is actually irradiated
+  if (p.radiation !== undefined) {
+    const showRad = (p.radiation || 0) > 0;
+    const desktop = document.getElementById('rad-bar-wrap');
+    if (desktop) desktop.style.display = showRad ? '' : 'none';
+    const mobileInner = document.getElementById('rad-bar-wrap-m');
+    const mobileRow = mobileInner && mobileInner.closest('.mob-bar-row');
+    if (mobileRow) mobileRow.style.display = showRad ? '' : 'none';
+  }
   if (p.credits !== undefined) {
     const el = document.getElementById('header-credits-val');
     if (el) el.textContent = p.credits;
