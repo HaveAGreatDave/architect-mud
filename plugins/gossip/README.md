@@ -20,6 +20,15 @@ weight = heat × 0.5^(age / 30min) × proximity(originZone, viewerZone) × credi
 (a `global` reach — kills, blackouts — is heard anywhere). `credibility` is 1 for
 real events and the planted `truth` for player rumours.
 
+**Coalescing.** A repeated real event (a storm that keeps thundering, an ongoing
+crime spree) refreshes one warm item — bumps its `ts`/`heat` — rather than piling
+near-duplicate rows. The identity is `templateKey|zoneId|subject` by default;
+callers pass a `coalesceKey` to widen it (weather keys by building/area so a storm
+across a whole block stays one rumour). Planted rumours never coalesce — each is
+its own claim. Weather gossip names the **building** (via the engine's
+`getBuildingName`), not the room, and is capped at **5** concurrent items
+(`GROUP_CAPS.weather` in pool.js — the weakest is evicted past the cap).
+
 ## Verbs
 
 | Verb | Effect |
@@ -40,6 +49,15 @@ The four `gossip.*` / `crime.witnessed` events are emitted by small additions at
 their seams (poker cash-out, vendor buy, apartment rent, surveillance
 `raiseCrime`) so gossip never re-implements witness logic or economy hooks.
 
+## Ask-only secrets
+
+Some gossip is too sensitive to blurt out unprompted. An item with `askOnly:true`
+is excluded from the ambient tick (via a `recall` filter) and only ever surfaces
+when a player asks. The **shadow dealer's passphrase** is one: rarely seeded in
+the tick (`PASSPHRASE_CHANCE`), read live off the covert-dealer NPC's
+`flags.passphrases` (content, not code — see [[project_shadow_dealer]]), category
+`secret`, coalesced to one, with a lead pointing at the dealer's haunt.
+
 ## Tick
 
 `setInterval` every 60s: `pool.gc()`, power-map diff → blackout/restore items,
@@ -52,6 +70,13 @@ Items may carry `lead: { kind, targetId?, zoneId?, hint }`, surfaced as a dim
 follow-up line when the gossip is told. v1 is flavour + a documented
 `gossip.leadFollowed` future hook (no payout wired) — a `follow`/bounty verb
 would consume the lead later.
+
+## Dev panel
+
+Read-only **💬 Gossip** inspector (Server nav section) via `routePrefix:"/gossip"`
++ `routeHandler`: `GET` returns the live pool (strength = decayed weight),
+`DELETE /gossip/:id` removes one item, `DELETE /gossip` clears the pool. All
+dev-role gated. Client panel: [client/devpanel/js/panels/gossip.js](../../client/devpanel/js/panels/gossip.js).
 
 ## Tunables
 

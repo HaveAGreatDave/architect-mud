@@ -85,6 +85,16 @@ export const TEMPLATES = {
     category: 'rumor', reach: 2, heat: 0.75,
     render: (v) => `"${v.text}"`,
   },
+  // The shadow dealer's passphrase — a secret worth whispering. Ask-only (never
+  // ambient), seeded rarely, so an NPC only lets it slip when a player pushes.
+  dealer_phrase: {
+    category: 'secret', reach: 'global', heat: 0.4,
+    render: (v) => pick([
+      `leans in, barely audible. "You want the figure in the dark? Get near him after nightfall and say '${v.phrase}'. You didn't hear it from me."`,
+      `glances around, then murmurs. "There's a way to the good stuff. Find the dealer at night, tell him '${v.phrase}'. That's all I'm saying."`,
+      `"Word is the shadow dealer opens up if you know the words — '${v.phrase}'. Only after dark, though. Keep it quiet."`,
+    ]),
+  },
 };
 
 export function renderItem(item) {

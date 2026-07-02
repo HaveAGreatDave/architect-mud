@@ -20,6 +20,27 @@ export default async function regress({ run, check, getPlayer }) {
   const r2 = await run('gossip');
   check('gossip verb dispatches', r2 && r2.type !== 'error', JSON.stringify(r2)?.slice(0, 120));
 
+  // coalescing: a repeated real event refreshes one warm item, never piles rows
+  pool.addItem({ templateKey: 'ctest', category: 'world', zoneId: 'zone_ctest', subjectName: 'x' });
+  pool.addItem({ templateKey: 'ctest', category: 'world', zoneId: 'zone_ctest', subjectName: 'x' });
+  check('repeated events coalesce', pool.all().filter(i => i.templateKey === 'ctest').length === 1, 'two identical adds → one item');
+
+  // planted rumours never coalesce — each is a distinct claim
+  pool.plant({ text: 'same lie', zoneId: 'zone_ctest', truth: 0.5, subjectName: 'x' });
+  pool.plant({ text: 'same lie', zoneId: 'zone_ctest', truth: 0.5, subjectName: 'x' });
+  check('planted rumours do not coalesce', pool.all().filter(i => i.category === 'rumor' && i.vars?.text === 'same lie').length === 2, 'two plants → two items');
+
+  // weather gossip is capped at 5 concurrent items (distinct areas, so no coalescing)
+  for (let i = 0; i < 6; i++) pool.addItem({ templateKey: 'storm', category: 'world', heat: 0.45, capGroup: 'weather', zoneId: `zone_w${i}`, coalesceKey: `storm|area${i}` });
+  check('weather gossip capped at 5', pool.all().filter(i => i.capGroup === 'weather').length === 5, `weather count = ${pool.all().filter(i => i.capGroup === 'weather').length}`);
+
+  // ask-only gossip (dealer passphrase) is hidden from ambient recall but askable
+  const secret = pool.addItem({ templateKey: 'dealer_phrase', category: 'secret', heat: 0.9, zoneId: p.current_zone, askOnly: true, vars: { phrase: 'open sesame' }, coalesceKey: 'dealer_phrase' });
+  const ambient = pool.recall(p.current_zone, { n: 50, filter: i => !i.askOnly });
+  check('ask-only gossip hidden from ambient', !ambient.some(i => i.id === secret.id), 'secret must not appear in ambient recall');
+  const asked = pool.recall(p.current_zone, { n: 50 });
+  check('ask-only gossip surfaces when asked', asked.some(i => i.id === secret.id), 'secret must appear in unfiltered recall');
+
   // gc prunes an item aged well past its half-life
   const stale = pool.addItem({ templateKey: 'storm', category: 'world', heat: 0.45, reach: 3, ts: Date.now() - 6 * 60 * 60 * 1000, zoneId: p.current_zone, vars: { zone: 'nowhere' } });
   pool.gc();

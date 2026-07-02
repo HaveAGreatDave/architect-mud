@@ -27,7 +27,7 @@ function buildDynamicMapGrid(zones, mode, powerById, clickable) {
       let powerStatus = null;
       if (mode === 'power') {
         const p = powerById?.get(z.id);
-        const cpGen = bigMapGenerators.find(g => g.zone_id === z.id && g.generator_type === 'city_plant');
+        const cpGen = bigMapGenerators.find(g => (g.map_zone_id || g.zone_id) === z.id && g.generator_type === 'city_plant');
         if (cpGen) {
           // Power plant tile: Draw Request / Capacity
           const totalDemand = Number(cpGen.total_demand_w ?? 0);
@@ -330,7 +330,7 @@ function renderBigMapOverlay() {
       if (bigMapOverlayMode === 'power') {
         colorStyle = '';
         const p = powerById.get(z.id);
-        const cpGen = bigMapGenerators.find(g => g.zone_id === z.id && g.generator_type === 'city_plant');
+        const cpGen = bigMapGenerators.find(g => (g.map_zone_id || g.zone_id) === z.id && g.generator_type === 'city_plant');
         if (cpGen) {
           const used = Number(cpGen.total_demand_w ?? 0);
           const overdrawn = used > Number(cpGen.capacity_kw);

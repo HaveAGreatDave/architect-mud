@@ -74,7 +74,10 @@ const FLAGS = {
   passphrases: PASSPHRASES,
 };
 
-const HINT_LINE = 'Scratched into the wall, half-legible: "when the static’s bad, ask the shadows."';
+// Generic breadcrumb — points you to his haunt after dark. The *exact* current
+// phrase is carried by the rotating graffiti the dealer plugin injects on entry
+// (it changes every 2 in-game days), so this static line stays deliberately vague.
+const HINT_LINE = 'Scratched into the wall, half-legible: "the words change. come after dark and read the wall."';
 
 const force = process.argv.includes('--force');
 const client = await getClient();

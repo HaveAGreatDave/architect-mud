@@ -154,7 +154,7 @@ export async function deactivateForcefield(playerId, zoneId, broadcastFn) {
 
 // Resolve the building name for an apartment zone by following its exits back
 // to a lobby (the first exit that points to a non-apartment zone).
-function getBuildingName(zone) {
+export function getBuildingName(zone) {
   // Walk the parent_zone chain to the building root and use its name — an
   // apartment reports the building it belongs to (e.g. "The Meridian"), not the
   // adjacent hallway. Guarded against cycles.

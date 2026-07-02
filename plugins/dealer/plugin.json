@@ -1,6 +1,6 @@
 {
   "name": "dealer",
   "version": "1.0.0",
-  "description": "Covert shadow drug-dealer: a spoken passphrase (not a menu) opens his trust-gated shop when he's present at night.",
-  "hooks": ["player.say"]
+  "description": "Covert shadow drug-dealer: a spoken passphrase (not a menu) opens his trust-gated shop when he's present at night. The passphrase is one-time — met customers can just talk to him.",
+  "hooks": ["player.say", "npc.talk"]
 }
