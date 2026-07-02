@@ -167,8 +167,10 @@ function loadLayout() {
 
 function saveLayout() {
   const items = [];
-  document.querySelectorAll('#sidebar .sidebar-section, #sidebar .sidebar-spacer').forEach(el => {
-    if (el.classList.contains('sidebar-section') && el.id) {
+  document.querySelectorAll('#sidebar .sidebar-section, #sidebar .sidebar-spacer, #sidebar .sidebar-header').forEach(el => {
+    if (el.classList.contains('sidebar-header')) {
+      items.push({type: 'header'});
+    } else if (el.classList.contains('sidebar-section') && el.id) {
       items.push({type: 'section', id: el.id});
     } else if (el.classList.contains('sidebar-spacer')) {
       const flex = parseFloat(el.style.flexGrow) || 1;
@@ -186,14 +188,22 @@ function makeSpacer(flex = 1) {
 }
 
 function applyLayout(items) {
+  const sidebar = document.getElementById('sidebar');
   const dropEnd = document.getElementById('sidebar-drop-end');
+  const header = sidebar.querySelector('.sidebar-header');
   document.querySelectorAll('#sidebar .sidebar-spacer').forEach(s => s.remove());
+
+  // The header is movable, but a layout without a header entry (legacy or after a
+  // reset) defaults it back to the top of the sidebar.
+  if (header && !(items && items.some(it => it.type === 'header'))) sidebar.prepend(header);
 
   const hidden = new Set(loadHidden());
   const placed = new Set();
   if (items) {
     for (const item of items) {
-      if (item.type === 'section') {
+      if (item.type === 'header') {
+        if (header) dropEnd.before(header);
+      } else if (item.type === 'section') {
         if (hidden.has(item.id)) continue;
         const el = document.getElementById(item.id);
         if (el) { dropEnd.before(el); placed.add(item.id); }
@@ -237,7 +247,7 @@ function toggleLock() {
   // there are hidden panels to re-add.
   updateRestoreVisibility();
   if (!locked) renderRestoreMenu();
-  sidebar.querySelectorAll('.sidebar-section').forEach(sec => {
+  sidebar.querySelectorAll('.sidebar-section, .sidebar-header').forEach(sec => {
     if (!sidebar.contains(sec)) return;
     sec.draggable = !locked;
     if (!locked) attachDragHandlers(sec);
@@ -256,6 +266,12 @@ function detachDragHandlers(el) {
 }
 
 function onDragStart(e) {
+  // Grab the header by its bar, not by the lock/panels buttons on it, so those stay
+  // clickable while unlocked.
+  if (this.classList.contains('sidebar-header') && e.target.closest('button')) {
+    e.preventDefault();
+    return;
+  }
   dragSrc = this;
   dropped = false;
   e.dataTransfer.effectAllowed = 'move';
@@ -289,7 +305,6 @@ function computeDropInfo(clientY) {
   const items = [...sidebar.children].filter(el =>
     el !== dragSrc &&
     el !== dropEnd &&
-    !el.classList.contains('sidebar-header') &&
     el.id !== 'sidebar-drop-indicator'
   );
 
@@ -298,7 +313,8 @@ function computeDropInfo(clientY) {
     const r = el.getBoundingClientRect();
     if (clientY > r.bottom) continue;
 
-    if (el.classList.contains('sidebar-section')) {
+    // The header bar snaps like a section (movable, but never a spacer target).
+    if (el.classList.contains('sidebar-section') || el.classList.contains('sidebar-header')) {
       // Snap to before/after only when cursor is actually over a section
       if (clientY <= r.top + r.height / 2) {
         return {kind: 'before', el, lineY: r.top - sr.top};
@@ -362,7 +378,9 @@ function onSidebarDragLeave(e) {
       dropInfo = computeDropInfo(sr.top);    // snaps to before first section
     } else {
       dropInfo = null;      // side exit — drop is cancelled...
-      pendingHide = dragSrc; // ...and the section is hidden on release
+      // ...and the section is hidden on release (but never the header — you'd lose
+      // the lock control).
+      pendingHide = dragSrc && dragSrc.classList.contains('sidebar-section') ? dragSrc : null;
     }
   } else {
     dropInfo = null;

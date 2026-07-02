@@ -217,7 +217,7 @@ function _sampleAudioRow(r, indent) {
   return `<tr>
     <td style="font-weight:600;color:${r.enabled !== 0 ? 'var(--text-bright)' : 'var(--text-dim)'}${indent ? ';padding-left:26px' : ''}">${r.name}</td>
     <td><span style="font-size:10px;background:var(--bg3);padding:2px 6px;border-radius:2px;color:var(--accent)">${r.category}</span></td>
-    <td style="font-size:11px;color:var(--text-dim)">${r.snes_rate || 16000}Hz · ${r.snes_bits || 4}-bit${r.echo_mix > 0 ? ' · echo' : ''}</td>
+    <td style="font-size:11px;color:var(--text-dim)">${r.snes_bits === 0 ? 'full quality' : `${r.snes_rate || 16000}Hz · ${r.snes_bits ?? 8}-bit`}${r.echo_mix > 0 ? ' · echo' : ''}</td>
     <td style="text-align:right;white-space:nowrap">
       <button class="action-btn" style="font-size:10px;padding:3px 8px" onclick="previewAudioAsset('samples','${r.id}')">▶</button>
       <button class="action-btn" style="font-size:10px;padding:3px 8px;margin-left:4px" onclick="editAudioAsset('samples','${r.id}')">✏</button>
@@ -1251,9 +1251,10 @@ function openAudioModal(tab, row) {
         <div class="field"><label>SNES Rate (Hz)${_help('Downsample rate — lower = grittier, more retro SNES flavour.')}</label><select id="smp-rate">
           ${[8000, 11025, 16000, 22050, 32000].map(r => `<option value="${r}" ${(row.snes_rate ?? 16000) == r ? 'selected' : ''}>${r}</option>`).join('')}
         </select></div>
-        <div class="field"><label>SNES Bits${_help('Bit-depth crush: 4-bit is BRR-like and lo-fi, 8-bit keeps more fidelity.')}</label><select id="smp-bits">
-          <option value="4" ${(row.snes_bits ?? 4) == 4 ? 'selected' : ''}>4-bit (BRR-like)</option>
-          <option value="8" ${row.snes_bits == 8 ? 'selected' : ''}>8-bit (more fidelity)</option>
+        <div class="field"><label>SNES Bits${_help('Bit-depth crush (dithered): 4-bit is BRR-like and lo-fi, 8-bit keeps more fidelity. "Off" plays the source untouched — use it for clean SFX like thunder.')}</label><select id="smp-bits">
+          <option value="0" ${row.snes_bits === 0 ? 'selected' : ''}>Off (full quality)</option>
+          <option value="4" ${row.snes_bits == 4 ? 'selected' : ''}>4-bit (BRR-like)</option>
+          <option value="8" ${(row.snes_bits ?? 8) == 8 ? 'selected' : ''}>8-bit (more fidelity)</option>
         </select></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:10px">
@@ -1281,7 +1282,8 @@ function openAudioModal(tab, row) {
         priority: parseInt(document.getElementById('smp-priority').value) || 5,
         base_note: parseInt(document.getElementById('smp-basenote').value) || 60,
         snes_rate: parseInt(document.getElementById('smp-rate').value) || 16000,
-        snes_bits: parseInt(document.getElementById('smp-bits').value) || 4,
+        // 0 = "Off (full quality)" is a valid value — don't let `|| 8` swallow it.
+        snes_bits: (() => { const b = parseInt(document.getElementById('smp-bits').value); return Number.isFinite(b) ? b : 8; })(),
         echo_mix: num('smp-echo', 0),
         loop_start: num('smp-loopstart', 0),
         loop_end: num('smp-loopend', 0),

@@ -1624,7 +1624,7 @@ textarea {
 	margin-bottom: 8px;
 }
 
-/* Fixed header bar — holds the lock button, cannot receive drops */
+/* Header bar — holds the lock button; movable like a section when unlocked */
 .sidebar-header {
 	flex: none;
 	display: flex;
@@ -1750,16 +1750,23 @@ textarea {
 	display: none !important;
 }
 
-/* Drag mode: sections get grab cursor */
-#sidebar.drag-mode .sidebar-section {
+/* Drag mode: sections and the header bar get grab cursor */
+#sidebar.drag-mode .sidebar-section,
+#sidebar.drag-mode .sidebar-header {
 	cursor: grab;
 }
-#sidebar.drag-mode .sidebar-section:active {
+#sidebar.drag-mode .sidebar-section:active,
+#sidebar.drag-mode .sidebar-header:active {
 	cursor: grabbing;
 }
+/* Buttons inside the draggable header keep a pointer cursor (grab the bar, not them) */
+#sidebar.drag-mode .sidebar-header button {
+	cursor: pointer;
+}
 
-/* Dragged section goes semi-transparent */
-.sidebar-section.dragging {
+/* Dragged section / header goes semi-transparent */
+.sidebar-section.dragging,
+.sidebar-header.dragging {
 	opacity: 0.4;
 }
 
