@@ -370,6 +370,7 @@ const handlers = {
   'lightning': () => { triggerLightningFlash(); },
 
   output: (msg) => { appendHtml(msg.message, 'help'); },
+  progress: (msg) => { renderActionProgress(msg); },
   confirm: (msg) => { showConfirmDialog(msg); },
   poker_update: (msg) => { setAreaPane(msg.html); },
   poker_sfx: (msg) => { playPokerSfx(msg.cue); },
@@ -462,6 +463,30 @@ function flashPowerChange(mode, deviceType) {
 export function handleServerMsg(msg) {
   const handler = handlers[msg.type];
   if (handler) handler(msg);
+}
+
+// Timed-action progress bar (e.g. butchering). `done` hides it; otherwise the
+// fill animates 0→100% over durationMs via a CSS width transition.
+function renderActionProgress(msg) {
+  const el = document.getElementById('action-progress');
+  if (!el) return;
+  const fill = el.querySelector('.action-progress-fill');
+  const label = el.querySelector('.action-progress-label');
+  if (msg.done) {
+    el.style.display = 'none';
+    if (fill) { fill.style.transition = 'none'; fill.style.width = '0%'; }
+    return;
+  }
+  if (label) label.textContent = msg.label || '';
+  el.style.display = '';
+  if (fill) {
+    fill.style.transition = 'none';
+    fill.style.width = '0%';
+    // Force reflow so the reset width is committed before we animate.
+    void fill.offsetWidth;
+    fill.style.transition = `width ${msg.durationMs || 5000}ms linear`;
+    fill.style.width = '100%';
+  }
 }
 
 function openSoundPicker(sfxList) {

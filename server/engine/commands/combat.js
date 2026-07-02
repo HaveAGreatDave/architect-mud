@@ -1,11 +1,12 @@
 import { query, logActivity } from "../../models/db.js";
-import { getZoneEnemies, getZoneCorpses, getZonePlayers, getZoneNpcs, getLivePlayer, createCorpse, getCorpse, removeCorpse, getApartment } from "../world.js";
+import { getZoneEnemies, getZoneCorpses, getZonePlayers, getZoneNpcs, getLivePlayer, setLivePlayer, getAllLivePlayers, createCorpse, getCorpse, removeCorpse, getApartment } from "../world.js";
+import { sendToPlayer, sendToZone } from "../messaging.js";
 import { playerAttackEnemy, playerAttackNpc, isOnCooldown, setCooldown, getCooldownRemaining, pvpSwingSleeping } from "../combat.js";
 import { resolveForCommand, resolve as siftResolve, createSelectionState, formatSelectionPage } from "../sift.js";
 import { awardSkillUse, skillCheck } from "../skills.js";
 import { hasTag, tagValue, isStackable } from "../tags.js";
 import { adjustCredits } from "../economy.js";
-import { emit } from "../events.js";
+import { emit, on } from "../events.js";
 import { randomUUID } from "crypto";
 import { stainClothing } from "../bodily.js";
 
@@ -568,22 +569,81 @@ async function cmdLootId(args, player) {
 	return view;
 }
 
+const BUTCHER_MS = 5000;
+
+async function hasButcheringTool(playerId) {
+	const { rows } = await query(
+		`SELECT i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND jsonb_exists(i.tags,'butchering') LIMIT 1`,
+		[playerId],
+	);
+	return rows.length > 0;
+}
+
 async function cmdButcher(targetStr, player, broadcast) {
+	if (player.posture === "butchering")
+		return { type: "emote", message: "You're already elbow-deep in that." };
+	if ((player.posture || "standing") !== "standing")
+		return { type: "emote", message: "You need to be on your feet to butcher." };
+	if (player.combatTargetId || player.pvpTargetId)
+		return { type: "emote", message: "You're too busy fighting to butcher." };
+
 	const corpse = resolveCorpse(targetStr, player);
 	if (!corpse) return { type: "error", message: "No corpse to butcher here." };
 	const table = corpse.butcher_table || [];
 	if (!table.length)
 		return { type: "error", message: `${corpse.name} can't be butchered.` };
-	const { rows: tools } = await query(
-		`SELECT i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND jsonb_exists(i.tags,'butchering') LIMIT 1`,
-		[player.id],
-	);
-	if (!tools.length)
+	if (!(await hasButcheringTool(player.id)))
 		return {
 			type: "error",
 			message: "You need a butchering tool (a knife will do) to do that.",
 		};
 
+	setLivePlayer(player.id, {
+		...player,
+		posture: "butchering",
+		sittingOn: null,
+		butcherState: { corpseId: corpse.id, completeAt: Date.now() + BUTCHER_MS },
+	});
+	sendToPlayer(player.id, {
+		type: "progress",
+		action: "butcher",
+		label: `Butchering ${corpse.name}`,
+		durationMs: BUTCHER_MS,
+	});
+	broadcast(
+		player.current_zone,
+		{ type: "zone_event", message: `${player.handle} starts butchering ${corpse.name}.` },
+		player.id,
+	);
+	// Close the loot panel immediately — looting is done, the timed carve takes over.
+	return { type: "loot", message: `You set to work butchering ${corpse.name}.`, closeLoot: true };
+}
+
+// Clear the butchering activity and hide the client progress bar.
+function clearButcher(player, tellMsg) {
+	const cur = getLivePlayer(player.id) || player;
+	const next = { ...cur };
+	delete next.butcherState;
+	if (next.posture === "butchering") next.posture = "standing";
+	setLivePlayer(player.id, next);
+	sendToPlayer(player.id, { type: "progress", action: "butcher", done: true });
+	if (tellMsg) sendToPlayer(player.id, { type: "emote", message: tellMsg });
+}
+
+// Runs the actual carve once the 5s bar completes. Delivers results out-of-band
+// (the start path already returned), and always hides the bar.
+async function resolveButcher(player) {
+	const st = player.butcherState;
+	const corpse = st ? getCorpse(st.corpseId) : null;
+	if (!corpse || !(corpse.butcher_table || []).length) {
+		clearButcher(player);
+		return;
+	}
+	if (!(await hasButcheringTool(player.id))) {
+		clearButcher(player, "You've lost your butchering tool.");
+		return;
+	}
+	const table = corpse.butcher_table;
 	const difficulty = corpse.butcher_difficulty ?? 5;
 	const ids = table.map((e) => e.item);
 	const { rows: itemRows } = await query(
@@ -642,18 +702,58 @@ async function cmdButcher(targetStr, player, broadcast) {
 		if (slotsToStain.length) await stainClothing(player, slotsToStain, 'blood');
 	}
 	await removeCorpse(corpse.id);
-	broadcast(
+	sendToZone(
 		player.current_zone,
 		{ type: "zone_event", message: `${player.handle} butchers ${corpse.name}.`, refresh: true },
 		player.id,
 	);
 
+	clearButcher(player);
 	let message = `You butcher ${corpse.name}.`;
 	if (carved.length) message += `\nYou carve free: ${carved.join(", ")}.`;
 	if (ruined.length) message += `\nYou botch and ruin: ${ruined.join(", ")}.`;
 	if (ruined.length) message += `\nYou're covered in blood.`;
-	return { type: "loot", message, closeLoot: true };
+	sendToPlayer(player.id, { type: "loot", message, closeLoot: true });
 }
+
+// ── Butchering tick: completes the 5s action, or cleans up if interrupted
+// (force-stood by movement/combat) — mirrors the scavenging plugin's tick.
+let butcherTicking = false;
+async function butcherTick() {
+	if (butcherTicking) return;
+	butcherTicking = true;
+	try {
+		const nowMs = Date.now();
+		for (const player of getAllLivePlayers()) {
+			const st = player.butcherState;
+			if (player.posture === "butchering") {
+				if (!st) continue;
+				if (nowMs >= st.completeAt) await resolveButcher(player);
+			} else if (st) {
+				clearButcher(player, "You stop butchering.");
+			}
+		}
+	} finally {
+		butcherTicking = false;
+	}
+}
+
+setInterval(
+	() => butcherTick().catch((e) => console.error("[butcher] tick error:", e.message)),
+	1000,
+);
+
+// The unified STOP command halts butchering like any other repeating action.
+on("player.stop", ({ player, stopped }) => {
+	if (player.posture !== "butchering") return;
+	clearButcher(player); // stop command prints "You stop butchering." from `stopped`
+	sendToZone(
+		player.current_zone,
+		{ type: "zone_event", message: `${player.handle} stops butchering.` },
+		player.id,
+	);
+	stopped.push("butchering");
+});
 
 const STEAL_COOLDOWN_MS = 60000;
 const stealCooldowns = new Map();
