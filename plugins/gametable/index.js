@@ -27,6 +27,21 @@ on('zone.entered', ({ actor, zone }) => {
   }
 });
 
+// A dropped connection shouldn't leave a ghost frozen in a seat. Drop them as a
+// spectator at once (nothing to hold there) and put any seat on the retention
+// timer, which cashes them out if they don't reconnect in time.
+on('player.logout', ({ id }) => {
+  for (const t of activeTables.values()) {
+    t.removeSpectator(id);
+    t.onPlayerDisconnect(id);
+  }
+});
+
+// Reconnected in time — cancel the pending seat cash-out.
+on('player.login', ({ id }) => {
+  for (const t of activeTables.values()) t.onPlayerReconnect(id);
+});
+
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 function out(pid, message) { sendToPlayer(pid, { type: 'output', message }); }

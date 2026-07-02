@@ -15,6 +15,18 @@ let _keyHandler = null;
 let _lastMsg = null;
 let _refreshTimer = null;
 let _lastSig = null;
+let _suppressExamineLog = false;
+
+// The auto-refresh polls with a silent `examine`, which the server answers with
+// BOTH a device_inspect_panel (drives this overlay) and an `examine` text reply.
+// Left alone, that text reply gets appended to the scrolling log every 2s —
+// the readout spamming the room. This flag lets the dispatch layer swallow the
+// one text reply that our poll provoked; a real user `examine` still logs.
+export function consumeExamineLogSuppression() {
+  if (!_suppressExamineLog) return false;
+  _suppressExamineLog = false;
+  return true;
+}
 
 // Fields that actually change the rendered readout. The auto-refresh timer
 // re-runs `examine` every 2s regardless of whether anything moved; rebuilding
@@ -75,6 +87,7 @@ function close() {
   if (_overlay) { _overlay.remove(); _overlay = null; }
   _lastMsg = null;
   _lastSig = null;
+  _suppressExamineLog = false;
 }
 
 function actionBar(msg) {
@@ -119,7 +132,7 @@ export function openDeviceInspectPanel(msg) {
   // Poll the live device state so integrity/power track without a manual rescan.
   _refreshTimer = setInterval(() => {
     const name = String(_lastMsg?.name || '').toLowerCase();
-    if (name) sendCmdSilent(`examine ${name}`);
+    if (name) { _suppressExamineLog = true; sendCmdSilent(`examine ${name}`); }
   }, 2000);
 }
 

@@ -191,6 +191,18 @@ on('player.death', ({ player }) => {
     const def = sfxByName('combat_death');
     if (def && player?.id) sendToPlayer(player.id, { type: 'audio_sfx', def });
   }
+  // Death yanks you to the clone vat without firing zone.entered, so the ambient
+  // loops (music + weather + industrial bed) from the zone you died in would
+  // keep droning in the new one. current_zone is already the respawn zone by the
+  // time this fires — re-establish audio for it: kill the old bed, start the
+  // right one. The reconcile helpers stop every non-desired loop themselves.
+  if (!player?.id || !player.current_zone) return;
+  const zoneId = player.current_zone;
+  const song = getZone(zoneId)?.audio_theme_id ? songs.get(getZone(zoneId).audio_theme_id) : null;
+  if (song) sendToPlayer(player.id, { type: 'audio_music', def: resolveSongInstruments(song) });
+  else sendToPlayer(player.id, { type: 'audio_stop', scope: 'music' });
+  reconcilePlayerWeatherAmbient(player.id, zoneId);
+  reconcileIndustrialAmbient(player.id, zoneId).catch(() => {});
 });
 
 // ── Clone-vat respawn SFX ─────────────────────────────────────────────────────

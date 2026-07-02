@@ -1527,8 +1527,7 @@ textarea {
 #sidebar {
 	display: flex;
 	flex-direction: column;
-	overflow-y: auto;
-	overflow-x: hidden;
+	overflow: hidden;
 	background: var(--bg2);
 	position: relative;
 	align-self: stretch;

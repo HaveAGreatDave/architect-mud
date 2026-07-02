@@ -16,7 +16,7 @@ import { openMorphexPanel } from './panels/morphex.js';
 import { updateForecast } from './panels/forecast.js';
 import { openAtmPanel, closeAtmPanel, updateAtmPanel } from './panels/atm.js';
 import { openMediaDeckPanel, updateMediaDeckBroadcast } from './panels/mediadeck.js';
-import { openDeviceInspectPanel } from './panels/deviceinspect.js';
+import { openDeviceInspectPanel, consumeExamineLogSuppression } from './panels/deviceinspect.js';
 import { openSurveillanceHub, updateSurveillanceHub } from './panels/surveillancehub.js';
 import { openDatachipReplay } from './panels/datachipreplay.js';
 import { openCircuitHack } from './panels/circuithack.js';
@@ -232,7 +232,7 @@ const handlers = {
   },
   who: (msg) => { appendHtml(msg.message, 'help'); },
   help: (msg) => { appendHtml(msg.message, 'help'); },
-  examine: (msg) => { appendHtml(msg.message, 'help'); },
+  examine: (msg) => { if (consumeExamineLogSuppression()) return; appendHtml(msg.message, 'help'); },
   take: (msg) => { appendHtml(msg.message, 'help'); sendCmdSilent('look'); },
   drop: (msg) => {
     appendHtml(msg.message, 'help');
