@@ -5138,8 +5138,11 @@ textarea {
 	flex-direction: column;
 	color: var(--atm-accent);
 	text-shadow: 0 0 5px color-mix(in srgb, var(--atm-accent) 55%, transparent);
-	overflow: hidden;
+	overflow-y: auto;
+	overflow-x: hidden;
+	scrollbar-width: none;
 }
+#atm-crt-screen::-webkit-scrollbar { width: 0; height: 0; }
 .atm-crt-scanlines {
 	position: absolute;
 	inset: 0;
@@ -5226,6 +5229,21 @@ textarea {
 	border-color: #ff3b5c;
 	box-shadow: 0 0 12px rgba(255,59,92,0.3);
 }
+/* Unlocked MAINTENANCE entry — pulses in the network's accent colour rather
+   than the flat danger red, so it reads as "newly unlocked", not "hazard". */
+.atm-menu-glow {
+	border-color: var(--atm-accent);
+	background: color-mix(in srgb, var(--atm-accent) 14%, transparent);
+	animation: atm-menu-glow-pulse 1.6s ease-in-out infinite;
+}
+.atm-menu-glow:hover:not(:disabled) {
+	background: color-mix(in srgb, var(--atm-accent) 24%, transparent);
+	box-shadow: 0 0 16px color-mix(in srgb, var(--atm-accent) 50%, transparent);
+}
+@keyframes atm-menu-glow-pulse {
+	0%, 100% { box-shadow: 0 0 6px color-mix(in srgb, var(--atm-accent) 25%, transparent); }
+	50% { box-shadow: 0 0 16px color-mix(in srgb, var(--atm-accent) 55%, transparent); }
+}
 
 /* Transaction / account sub-screens */
 .atm-back {
@@ -5287,6 +5305,13 @@ textarea {
 }
 .atm-confirm:hover { filter: brightness(1.2); box-shadow: 0 0 14px color-mix(in srgb, var(--atm-accent) 40%, transparent), inset 0 -2px 0 rgba(0,0,0,0.4); }
 .atm-confirm:active { transform: translateY(1px); }
+.atm-confirm:disabled { opacity: 0.35; cursor: not-allowed; }
+.atm-confirm-danger {
+	background: linear-gradient(180deg, rgba(255,59,92,0.28), rgba(255,59,92,0.1));
+	border-color: #ff3b5c;
+	color: #ff3b5c;
+}
+.atm-confirm-danger:hover:not(:disabled) { box-shadow: 0 0 14px rgba(255,59,92,0.4), inset 0 -2px 0 rgba(0,0,0,0.4); }
 .atm-scr-fee { font-size: 9px; letter-spacing: 1px; opacity: 0.5; margin-bottom: 6px; }
 .atm-scr-reserve { margin-top: 4px; }
 .atm-scr-reserve-lbl { font-size: 9px; letter-spacing: 2px; opacity: 0.55; margin-bottom: 5px; }

@@ -124,6 +124,49 @@ export function propagateAudio(originZoneId, sfxDef, loudness, broadcastFn) {
   }
 }
 
+// ── Weather leak-in ─────────────────────────────────────────────────────────
+// How much outdoor weather ambience (rain/wind loop gain) is audible at an
+// indoor zone. Floods outward from the zone toward the nearest outdoor
+// (map_world) tile, decaying gain per room crossed for plain walls, and much
+// harder across a closed, intact door — so closing a door significantly cuts
+// the weather noise, and a couple of rooms behind a shut door is barely audible.
+const WEATHER_ROOM_DECAY = 0.55;       // per room hop, walls alone
+const WEATHER_DOOR_DECAY = 0.15;       // extra multiplier crossing a closed, intact door
+const WEATHER_LEAK_MAX_HOPS = 6;
+const WEATHER_LEAK_STOP_THRESHOLD = 0.02;
+
+function isOutdoorZone(zoneId) {
+  return world.zones.get(zoneId)?.mapId === 'map_world';
+}
+
+export function getWeatherLeakGain(zoneId) {
+  if (isOutdoorZone(zoneId)) return 1;
+  const visited = new Map([[zoneId, 1]]);
+  const queue = [[zoneId, 1, 0]];
+  let best = 0;
+  while (queue.length) {
+    const [id, gain, hops] = queue.shift();
+    if ((visited.get(id) ?? 0) > gain) continue; // stale entry superseded by a stronger path
+    if (hops >= WEATHER_LEAK_MAX_HOPS) continue;
+    const zone = world.zones.get(id);
+    if (!zone) continue;
+    for (const { dir, target } of allExits(zone)) {
+      const closed = edgeMuffle(id, dir, target) > 0;
+      const nextGain = gain * (closed ? WEATHER_DOOR_DECAY : WEATHER_ROOM_DECAY);
+      if (nextGain < WEATHER_LEAK_STOP_THRESHOLD) continue;
+      if (isOutdoorZone(target)) {
+        if (nextGain > best) best = nextGain;
+        continue;
+      }
+      if (nextGain > (visited.get(target) || 0)) {
+        visited.set(target, nextGain);
+        queue.push([target, nextGain, hops + 1]);
+      }
+    }
+  }
+  return best;
+}
+
 // Yell variant: all-caps, word-drop muffling at distance.
 // senderId is excluded from the origin-zone broadcast (they get their own "You yell:" echo).
 export function propagateYell(originZoneId, senderId, senderHandle, text, broadcastFn) {

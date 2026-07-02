@@ -1,30 +1,46 @@
 // CIRCUIT BREACH — a node-graph hacking minigame rendered as a glowing cyberpunk
 // PCB. You start at the ENTRY via and hop node→node along conductive traces to
-// reach the CORE within a limited move budget. FIREWALL nodes (ICE) are hidden
-// until your skill-scaled sensor reveals them; stepping on one trips an alarm.
-// GATE vias are locked until you've collected their KEY; BOOST vias refund moves.
+// reach the CORE within a limited move budget. FIREWALL (ICE) and DECOY nodes
+// are hidden — indistinguishable from a plain via — until your skill-scaled
+// sensor or a SCAN reveals them. GATE vias are locked until you've collected
+// their KEY (or forced). SENTRY vias are always visible active guards that
+// block passage until DISABLED. BOOST vias refund moves.
 //
 // A cosmetic breach overlay launched from the ATM JACK button (see panels/atm.js)
 // and from `hijack` (see plugins/surveillance/index.js via dispatch.js's
 // `circuit_hack` route). The win/lose result is reported via opts.onResult; the
 // caller fires the real server-side command (`jack` / `hijackresolve`), which is
 // authoritative for the outcome — the real hacking skillCheck decides the
-// payout. Both callers now pass the ATM/device's real hack_difficulty and the
-// player's real effective hacking skill, so difficulty genuinely scales instead
-// of always rendering the same mid-tier board.
+// payout. Both callers pass the ATM/device's real hack_difficulty and the
+// player's real effective hacking skill, and the board weighs both heavily:
+// the gap between them (`edge = skill - difficulty`) drives grid size, hazard
+// density, sensor range, alarm tolerance, spare moves, and the TRACE meter
+// below — an outclassed player faces a genuinely brutal board, not a cosmetic
+// difference.
 //
-// Generation is verified solvable before display: a firewall-free, gate-respecting
-// route to the core within the move budget always exists (state-space BFS over
-// (node, keysHeld)). Difficulty scales grid size + ICE density; skill scales
-// sensor range, alarms tolerated, and spare moves.
+// Generation is verified solvable before display: a hazard-free (no firewall,
+// sentry, or decoy), gate-respecting route to the core within the move budget
+// always exists (state-space BFS over (node, keysHeld)) — the puzzle is always
+// fair with perfect information, even though the player never has perfect
+// information up front.
 //
-// Beyond plain node-to-node movement, two extra move types add real tactical
-// choice: PING (spend a move to pulse the sensor further out and reveal more
-// ICE without advancing) and FORCE (spend moves + alarm tolerance to smash a
-// locked GATE open without its KEY).
+// TRACE is a second, global fail condition alongside moves and alarm tolerance:
+// it fills every move (faster the more outclassed you are) and represents an
+// active intrusion-detection system homing in on you. Filling it ends the run
+// exactly like running out of cycles or alarm tolerance does.
+//
+// Beyond plain node-to-node movement, three extra actions add real tactical
+// choice: PING (spend a cycle to pulse the sensor further out and reveal more
+// hazards without advancing), SCAN (spend a cycle to positively identify one
+// adjacent unknown via without moving onto it), and BREACH (spend cycles on a
+// skill-weighted attempt to force a locked GATE, neutralize an adjacent
+// FIREWALL without stepping on it, or disable an adjacent SENTRY — success
+// isn't guaranteed and failure costs alarm tolerance + extra TRACE).
 
 const ri = (n) => Math.floor(Math.random() * n);
 const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = ri(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const clampInt = (v, lo, hi) => Math.max(lo, Math.min(hi, Math.round(v)));
+const clampNum = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
 // Layout constants (SVG user units).
 const STEP_X = 120, STEP_Y = 96, MARGIN = 74;
@@ -33,7 +49,7 @@ let _overlay = null;
 let _keyHandler = null;
 let _state = null;
 let _opts = null;
-let _forceMode = false;
+let _actionMode = null; // null | 'breach' | 'scan'
 
 // ── Audio ─────────────────────────────────────────────────────────────────
 // Tiny inline SFX through the shared engine's SFX bus — same self-owned-synth
@@ -90,11 +106,11 @@ function ensureStyles() {
   const s = document.createElement('style');
   s.id = 'circuit-hack-styles';
   s.textContent = `
-    #circuit-hack-overlay { position:fixed; inset:0; z-index:9200; display:flex; align-items:center; justify-content:center;
+    #circuit-hack-overlay { --ch-accent:#37f5db; position:fixed; inset:0; z-index:9200; display:flex; align-items:center; justify-content:center;
       background:rgba(0,4,6,0.78); backdrop-filter:blur(3px); font-family:'Courier New',monospace; }
     #circuit-hack-overlay .ch-panel { position:relative; width:min(760px,95vw); background:linear-gradient(160deg,#0a1a16,#07120f 70%,#050d0b);
-      border:2px solid #1d4a3a; border-radius:8px;
-      box-shadow:0 0 0 1px #000, 0 0 40px rgba(55,245,150,0.2), inset 0 0 60px rgba(0,0,0,0.7);
+      border:2px solid color-mix(in srgb, var(--ch-accent) 35%, #0a1a16); border-radius:8px;
+      box-shadow:0 0 0 1px #000, 0 0 40px color-mix(in srgb, var(--ch-accent) 22%, transparent), inset 0 0 60px rgba(0,0,0,0.7);
       padding:12px 14px 14px; animation:ch-boot .3s ease-out;
       background-image:linear-gradient(160deg,#0a1a16,#07120f 70%,#050d0b),
         repeating-linear-gradient(90deg, #d8b46a 0 6px, transparent 6px 26px);
@@ -110,13 +126,16 @@ function ensureStyles() {
       background:#0c1a15; color:#8fbba0; border:1px solid #2b4a3c; border-radius:2px; cursor:pointer; font-size:13px; }
     #circuit-hack-overlay .ch-close:hover { color:#ff4a5b; border-color:#ff4a5b; }
     #circuit-hack-overlay .ch-titlebar { display:flex; justify-content:space-between; align-items:center;
-      font-size:12px; letter-spacing:3px; color:#4dffb0; font-weight:bold; padding:2px 2px 8px; border-bottom:1px solid #163025; }
+      font-size:12px; letter-spacing:3px; color:var(--ch-accent); font-weight:bold; padding:2px 2px 8px; border-bottom:1px solid #163025; }
     #circuit-hack-overlay .ch-titlebar .ch-target { color:#7fa392; font-weight:normal; letter-spacing:1px; }
     #circuit-hack-overlay .ch-hud { display:flex; gap:16px; padding:8px 2px; font-size:12px; color:#7fa392; letter-spacing:1px; flex-wrap:wrap; }
     #circuit-hack-overlay .ch-hud b { font-weight:bold; }
-    #circuit-hack-overlay .ch-hud .hv-moves { color:#4dffb0; }
+    #circuit-hack-overlay .ch-hud .hv-moves { color:var(--ch-accent); }
     #circuit-hack-overlay .ch-hud .hv-alarm { color:#ffb23e; }
     #circuit-hack-overlay .ch-hud .hv-sensor { color:#8fbba0; }
+    #circuit-hack-overlay .ch-trace-wrap { display:inline-flex; align-items:center; gap:6px; }
+    #circuit-hack-overlay .ch-trace-bar { display:inline-block; width:64px; height:7px; background:#0c1a17; border:1px solid #2b4a3c; border-radius:3px; overflow:hidden; }
+    #circuit-hack-overlay .ch-trace-fill { display:block; height:100%; transition:width .15s, background .15s; }
     #circuit-hack-overlay .ch-board { background:#051310; border:1px solid #163025; border-radius:4px; overflow:hidden; }
     #circuit-hack-overlay .ch-status { min-height:22px; padding:8px 2px 2px; font-size:13px; letter-spacing:1px; font-weight:bold; }
     #circuit-hack-overlay .ch-status .ch-win { color:#46e05a; }
@@ -128,11 +147,12 @@ function ensureStyles() {
       text-transform:uppercase; box-shadow:inset 0 -2px 0 rgba(0,0,0,0.5); transition:all .12s; }
     #circuit-hack-overlay .ch-btn:hover { transform:translateY(1px); box-shadow:inset 0 -1px 0 rgba(0,0,0,0.5); color:#4dffb0; border-color:#4dffb0; }
     #circuit-hack-overlay .ch-btn-abort:hover { color:#ff4a5b; border-color:#ff4a5b; }
-    #circuit-hack-overlay .ch-btn-force:hover { color:#ffb23e; border-color:#ffb23e; }
+    #circuit-hack-overlay .ch-btn-breach:hover { color:#ffb23e; border-color:#ffb23e; }
+    #circuit-hack-overlay .ch-btn-scan:hover { color:#8fbba0; border-color:#8fbba0; }
     #circuit-hack-overlay .ch-btn-active { color:#0a1a16; background:#ffb23e; border-color:#ffb23e; }
     /* SVG element classes */
     #circuit-hack-overlay .n-reach { cursor:pointer; }
-    #circuit-hack-overlay .n-reach:hover .n-hit { stroke:#8ffbec; }
+    #circuit-hack-overlay .n-reach:hover .n-hit { stroke:var(--ch-accent); }
     #circuit-hack-overlay .n-force:hover .n-hit { stroke:#ffb23e; }
     @keyframes ch-flow { to { stroke-dashoffset:-20; } }
     #circuit-hack-overlay .trace-live { animation:ch-flow 1s linear infinite; }
@@ -140,6 +160,7 @@ function ensureStyles() {
     #circuit-hack-overlay .ch-reachring { animation:ch-pulse 1.1s infinite; }
     @keyframes ch-forcering { 0%,100%{opacity:.3;stroke-width:1.2} 50%{opacity:.9;stroke-width:2} }
     #circuit-hack-overlay .ch-forcering { animation:ch-forcering 0.7s infinite; }
+    #circuit-hack-overlay .ch-scanring { animation:ch-forcering 0.9s infinite; }
     @keyframes ch-corepulse { 0%,100%{r:20px;opacity:.5} 50%{r:26px;opacity:.15} }
     #circuit-hack-overlay .ch-coreglow { animation:ch-corepulse 2s infinite; }
     @keyframes ch-meflick { 0%,100%{opacity:1} 90%{opacity:1} 94%{opacity:.5} }
@@ -151,8 +172,10 @@ function ensureStyles() {
 // ── Generation ────────────────────────────────────────────────────────────────
 function neighborsOf(state, id) { return state.adj.get(id) || new Set(); }
 
-// Shortest firewall-free, gate-respecting route length ENTRY→CORE, or Infinity.
-// State = (node, keysMask). Keys are bit positions per key node.
+// Shortest hazard-free, gate-respecting route length ENTRY→CORE, or Infinity.
+// State = (node, keysMask). Keys are bit positions per key node. "Hazard" =
+// firewall/sentry/decoy — the guarantee is that a totally clean route exists
+// with perfect information, not that every hazard is avoidable blind.
 function minSafeMoves(state) {
   const start = 0 | keyBitAt(state, state.entry);
   const seen = new Set([state.entry + ':' + start]);
@@ -164,7 +187,7 @@ function minSafeMoves(state) {
       if (cur.n === state.core) return dist;
       for (const nb of neighborsOf(state, cur.n)) {
         const node = state.nodes[nb];
-        if (node.type === 'firewall') continue;                 // route must avoid ICE
+        if (node.type === 'firewall' || node.type === 'sentry' || node.type === 'decoy') continue; // route must avoid all hazards
         if (node.type === 'gate' && !(cur.mask & node.gateBit)) continue; // need key first
         const mask = cur.mask | keyBitAt(state, nb);
         const k = nb + ':' + mask;
@@ -225,15 +248,23 @@ function bfsDist(state, from) {
 }
 
 function generate() {
-  const skill = _opts.skill, diff = _opts.difficulty;
-  const cols = 4 + Math.floor(diff / 3);               // 4..6
-  const rows = 4 + Math.floor((diff + 1) / 3);         // 4..6
-  const sensor = 1 + Math.floor(skill / 3);            // 1..4 (graph hops)
-  const alarms = 1 + Math.floor(skill / 4);            // 1..3 ICE hits tolerated
-  const iceFrac = 0.14 + diff * 0.03;                  // share of nodes that are ICE
-  const wantGate = diff >= 5;
+  const skill = Math.max(0, _opts.skill);
+  const diff = Math.max(1, _opts.difficulty);
+  // Positive edge favors the player, negative favors the system. This single
+  // number is what makes the board "significantly" harder when a player is
+  // under-skilled for the target, not just cosmetically different.
+  const edge = skill - diff;
 
-  for (let attempt = 0; attempt < 120; attempt++) {
+  const cols = clampInt(4 + Math.floor(diff / 2), 4, 8);
+  const rows = clampInt(4 + Math.floor((diff + 1) / 2), 4, 8);
+  const sensor = clampInt(1 + Math.floor(skill / 3) + Math.floor(Math.min(0, edge) / 3), 0, 5);
+  const alarms = clampInt(1 + Math.floor(skill / 4) + Math.floor(Math.min(0, edge) / 4), 1, 5);
+  const iceFrac = clampNum(0.15 + diff * 0.032 - skill * 0.012, 0.10, 0.44);
+  const wantGate = diff >= 4;
+  const sentryTarget = diff >= 3 ? clampInt(1 + Math.floor(diff / 3) - Math.floor(Math.max(0, edge) / 4), 0, 5) : 0;
+  const decoyTarget = clampInt(1 + Math.floor(diff / 4), 0, 4);
+
+  for (let attempt = 0; attempt < 160; attempt++) {
     const g = buildGraph(cols, rows);
     const state = { ...g, cols, rows, sensor, entry: null, core: null };
     // Entry bottom-left, core top-right — far apart.
@@ -243,9 +274,11 @@ function generate() {
     g.nodes[state.core].type = 'core';
 
     const total = g.nodes.length;
-    // Decay ICE as retries climb so a very dense board always eventually yields a
-    // solvable layout rather than exhausting the attempt budget.
+    // Decay hazard counts as retries climb so a very dense board always
+    // eventually yields a solvable layout rather than exhausting the budget.
     const iceCount = Math.max(1, Math.round((total - 2) * iceFrac) - Math.floor(attempt / 20));
+    const sentryCount = Math.max(0, sentryTarget - Math.floor(attempt / 15));
+    const decoyCount = Math.max(0, decoyTarget - Math.floor(attempt / 25));
     const pool = g.nodes.filter(n => n.type === 'normal').map(n => n.id);
     shuffle(pool);
 
@@ -259,6 +292,15 @@ function generate() {
       g.nodes[keyId].type = 'key'; g.nodes[keyId].keyBit = keyBitNext;
       keyBitNext <<= 1;
     }
+    // Sentries — active guards, always visible, block passage until disabled.
+    for (let i = 0; i < sentryCount && pool.length; i++) {
+      const n = g.nodes[pool.pop()];
+      n.type = 'sentry';
+      n.disabled = false;
+    }
+    // Decoys — indistinguishable from a plain via until sensed/scanned; punish
+    // a blind step without tripping the alarm.
+    for (let i = 0; i < decoyCount && pool.length; i++) g.nodes[pool.pop()].type = 'decoy';
     // Boosts (help only — never a solvability risk).
     const boosts = 1 + Math.floor(diff / 4);
     for (let i = 0; i < boosts && pool.length; i++) g.nodes[pool.pop()].type = 'boost';
@@ -266,14 +308,23 @@ function generate() {
     const min = minSafeMoves(state);
     if (!isFinite(min)) continue;                       // unsolvable placement — retry
 
-    const slack = Math.max(2, Math.ceil(min * 0.5) + skill - Math.floor(diff / 2));
+    // Spare-move slack shrinks as difficulty climbs and grows/shrinks further
+    // with edge — an outclassed player gets a genuinely tight budget.
+    const slackFrac = clampNum(0.62 - diff * 0.02, 0.3, 0.62);
+    const slack = clampInt(Math.ceil(min * slackFrac) + Math.floor(edge / 2), 2, 24);
     state.movesMax = min + slack;
     state.movesLeft = state.movesMax;
     state.alarmsMax = alarms; state.alarmsLeft = alarms;
+    // TRACE — a second, global fail condition. Fills every move/scan/ping;
+    // faster the more outclassed the player is. Represents an active IDS
+    // homing in on the intrusion rather than a single passive trap.
+    state.traceRate = clampNum(0.7 + diff * 0.32 - skill * 0.2, 0.3, 3.2);
+    state.traceMax = clampInt(11 + skill * 1.4 - diff * 0.9, 6, 22);
+    state.trace = 0;
     state.pos = state.entry;
     state.keys = 0;
     state.visited = new Set([state.entry]);
-    state.seen = new Set();                              // firewalls the sensor has revealed
+    state.identified = new Set();                        // hidden firewalls/decoys the player has confirmed
     state.traveled = new Set();                          // "a-b" edge keys already walked
     state.lastEdge = null;
     state.over = false; state.won = false;
@@ -285,8 +336,9 @@ function generate() {
 }
 function idxWith(nodes, r, c) { const n = nodes.find(x => x.r === r && x.c === c); return n ? n.id : 0; }
 
-// Reveal firewalls within `radius` graph-hops of the current position (defaults
-// to the puzzle's base sensor range; PING calls this with a boosted radius).
+// Reveal hidden hazards (firewall/decoy) within `radius` graph-hops of the
+// current position (defaults to the puzzle's base sensor range; PING calls
+// this with a boosted radius). Sentries are always visible — nothing to reveal.
 function sense(state, radius = state.sensor) {
   const dist = new Map([[state.pos, 0]]);
   let frontier = [state.pos];
@@ -296,7 +348,8 @@ function sense(state, radius = state.sensor) {
       if (dist.get(n) >= radius) continue;
       for (const nb of neighborsOf(state, n)) if (!dist.has(nb)) {
         dist.set(nb, dist.get(n) + 1);
-        if (state.nodes[nb].type === 'firewall') state.seen.add(nb);
+        const t = state.nodes[nb].type;
+        if (t === 'firewall' || t === 'decoy') state.identified.add(nb);
         next.push(nb);
       }
     }
@@ -304,22 +357,63 @@ function sense(state, radius = state.sensor) {
   }
 }
 
+// Is this node's true nature known to the player (sensed/scanned/visited), or
+// does it still render as an indistinguishable neutral via?
+function isKnown(state, id) {
+  const n = state.nodes[id];
+  if (n.type !== 'firewall' && n.type !== 'decoy') return true; // never hidden
+  return state.identified.has(id) || state.visited.has(id);
+}
+
+// Skill-vs-difficulty win chance for a BREACH attempt, clamped so neither side
+// is ever a sure thing.
+const BREACH_BASE = { gate: 0.55, firewall: 0.42, sentry: 0.3 };
+function breachChance(kind) {
+  return clampNum(BREACH_BASE[kind] + (_opts.skill - _opts.difficulty) * 0.07, 0.08, 0.95);
+}
+
 // ── Interaction ───────────────────────────────────────────────────────────────
 function isReachable(state, id) {
   if (state.over) return false;
   if (!neighborsOf(state, state.pos).has(id)) return false;
   const node = state.nodes[id];
-  if (node.type === 'gate' && !(state.keys & node.gateBit)) return false; // locked
+  if (node.type === 'gate' && !(state.keys & node.gateBit)) return false;       // locked
+  if (node.type === 'sentry' && !node.disabled) return false;                   // active guard blocks passage
   return true;
 }
 
-// A locked gate adjacent to the current position — can't walk onto it, but can
-// be smashed open with FORCE.
-function isForceable(state, id) {
+// A locked GATE, an active SENTRY, or a FIREWALL adjacent to the current
+// position — none can be safely walked onto (well, firewall can, but at a
+// cost), all three can instead be targeted with BREACH.
+function breachKind(state, id) {
+  if (state.over) return null;
+  if (!neighborsOf(state, state.pos).has(id)) return null;
+  const node = state.nodes[id];
+  if (node.type === 'gate' && !(state.keys & node.gateBit)) return 'gate';
+  if (node.type === 'sentry' && !node.disabled) return 'sentry';
+  if (node.type === 'firewall') return 'firewall';
+  return null;
+}
+
+// Any adjacent via whose true nature (clear / firewall / decoy) isn't known
+// yet — SCAN spends a cycle to positively identify it without moving onto it.
+function isScannable(state, id) {
   if (state.over) return false;
   if (!neighborsOf(state, state.pos).has(id)) return false;
-  const node = state.nodes[id];
-  return node.type === 'gate' && !(state.keys & node.gateBit);
+  return !isKnown(state, id);
+}
+
+function bumpTrace(state, amount) {
+  state.trace = Math.min(state.traceMax, state.trace + amount);
+}
+
+// Shared post-action check: TRACE takes priority over running out of cycles
+// since it represents actively getting caught, not just running dry.
+function checkFailStates(state) {
+  if (state.over) return true;
+  if (state.trace >= state.traceMax) { finish(state, false, 'TRACE COMPLETE — INTRUSION LOGGED, CONNECTION SEVERED'); return true; }
+  if (state.movesLeft <= 0) { finish(state, false, 'CYCLES EXHAUSTED — KICKED FROM SYSTEM'); return true; }
+  return false;
 }
 
 function moveTo(state, id) {
@@ -328,18 +422,27 @@ function moveTo(state, id) {
   state.pos = id;
   state.movesLeft--;
   state.visited.add(id);
+  state.identified.add(id);
   state.traveled.add(edgeKey(from, id));
   state.lastEdge = { a: state.nodes[from], b: state.nodes[id] };
   state.moveTick++;
+  bumpTrace(state, state.traceRate);
   const node = state.nodes[id];
 
   if (node.type === 'firewall') {
-    state.seen.add(id);
     state.alarmsLeft--;
     state.movesLeft--;                                  // ICE also burns an extra move
+    bumpTrace(state, state.traceRate * 0.6);
     sfx(SFX_ALARM);
     if (state.alarmsLeft <= 0) return finish(state, false, 'ICE LOCK — CONNECTION BURNED');
     flashStatus(`<span class="ch-warn">&#9888; ALARM TRIPPED &mdash; ${state.alarmsLeft} tolerance left</span>`);
+  } else if (node.type === 'decoy') {
+    const penalty = 2 + Math.floor(_opts.difficulty / 3);
+    state.movesLeft -= penalty;
+    bumpTrace(state, state.traceRate * 0.4);
+    node.type = 'normal';                                // sprung — inert afterward
+    sfx(SFX_ALARM);
+    flashStatus(`<span class="ch-warn">&#9761; SNARE TRIPPED &mdash; ${penalty} cycles drained</span>`);
   } else if (node.type === 'key') {
     state.keys |= node.keyBit; node.type = 'normal';    // consumed
     sfx(SFX_BOOST);
@@ -355,45 +458,83 @@ function moveTo(state, id) {
     flashStatus('');
   }
 
-  if (!state.over && state.movesLeft <= 0) return finish(state, false, 'TRACE EXPIRED — KICKED FROM SYSTEM');
+  if (checkFailStates(state)) return;
   sense(state);
   renderBoard();
   renderHud();
 }
 const edgeKey = (a, b) => a < b ? a + '-' + b : b + '-' + a;
 
-// PING — spend 1 move to pulse the sensor 2 hops further out without advancing.
-// Trades tempo for information; useful when every neighbor looks like a gamble.
+// PING — spend 1 cycle to pulse the sensor 2 hops further out without
+// advancing. Trades tempo (and a little TRACE, the pulse is detectable) for
+// information; useful when every neighbor looks like a gamble.
 const PING_COST = 1, PING_BONUS_RADIUS = 2;
 function ping(state) {
   if (state.over || state.movesLeft < PING_COST) { flashStatus('<span class="ch-warn">NOT ENOUGH CYCLES TO PING</span>'); return; }
   state.movesLeft -= PING_COST;
+  bumpTrace(state, state.traceRate * 0.6);
   sense(state, state.sensor + PING_BONUS_RADIUS);
   sfx(SFX_PING);
   flashStatus('<span class="ch-warn">&#8226; SENSOR PULSE — EXTENDED RANGE</span>');
-  if (state.movesLeft <= 0) return finish(state, false, 'TRACE EXPIRED — KICKED FROM SYSTEM');
+  if (checkFailStates(state)) return;
   renderBoard();
   renderHud();
 }
 
-// FORCE — smash a locked GATE open without its KEY. Costs more moves and an
-// alarm-tolerance point (the brute-force approach trips sensors the smart key
-// route wouldn't), but unblocks a route when the key is unreachable or too risky.
-const FORCE_MOVE_COST = 3, FORCE_ALARM_COST = 1;
-function forceGate(state, id) {
-  if (!isForceable(state, id)) return;
-  if (state.movesLeft < FORCE_MOVE_COST || state.alarmsLeft < FORCE_ALARM_COST) {
-    flashStatus('<span class="ch-warn">NOT ENOUGH CYCLES/TOLERANCE TO FORCE</span>');
-    return;
+// SCAN — spend 1 cycle to positively identify one adjacent unknown via
+// (clear / firewall / decoy) without moving onto it. Always succeeds, no risk
+// beyond the tiny TRACE tick, but only ever confirms — never neutralizes.
+const SCAN_COST = 1;
+function scanNode(state, id) {
+  if (!isScannable(state, id)) return;
+  if (state.movesLeft < SCAN_COST) { flashStatus('<span class="ch-warn">NOT ENOUGH CYCLES TO SCAN</span>'); return; }
+  state.movesLeft -= SCAN_COST;
+  bumpTrace(state, state.traceRate * 0.4);
+  state.identified.add(id);
+  _actionMode = null;
+  const t = state.nodes[id].type;
+  sfx(SFX_PING);
+  flashStatus(t === 'normal'
+    ? '<span style="color:#7fa392">SCAN: via clear.</span>'
+    : `<span class="ch-warn">SCAN: ${t === 'firewall' ? 'ICE' : 'SNARE'} confirmed.</span>`);
+  if (checkFailStates(state)) return;
+  renderBoard();
+  renderHud();
+}
+
+// BREACH — a skill-weighted attempt to force a locked GATE, neutralize an
+// adjacent FIREWALL without stepping on it, or disable an adjacent SENTRY.
+// Unlike SCAN, success isn't guaranteed: failure still costs the cycles and
+// additionally costs alarm tolerance + extra TRACE (the attempt trips
+// sensors a clean route wouldn't), but the node can be re-targeted if
+// resources remain.
+const BREACH_MOVE_COST = { gate: 3, firewall: 2, sentry: 4 };
+const BREACH_FAIL_ALARM = { gate: 1, firewall: 1, sentry: 2 };
+const BREACH_LABEL = { gate: 'GATE', firewall: 'ICE', sentry: 'SENTRY' };
+function breach(state, id) {
+  const kind = breachKind(state, id);
+  if (!kind) return;
+  const cost = BREACH_MOVE_COST[kind];
+  if (state.movesLeft < cost) { flashStatus('<span class="ch-warn">NOT ENOUGH CYCLES TO BREACH</span>'); return; }
+  state.movesLeft -= cost;
+  const chance = breachChance(kind);
+  const success = Math.random() < chance;
+  bumpTrace(state, state.traceRate * (success ? 0.6 : 1.3));
+  _actionMode = null;
+  if (success) {
+    if (kind === 'gate') state.keys |= state.nodes[id].gateBit;
+    else if (kind === 'firewall') { state.nodes[id].type = 'normal'; state.identified.add(id); }
+    else if (kind === 'sentry') state.nodes[id].disabled = true;
+    sfx(SFX_FORCE);
+    flashStatus(`<span class="ch-warn">&#128163; ${BREACH_LABEL[kind]} BREACHED</span>`);
+  } else {
+    state.alarmsLeft -= BREACH_FAIL_ALARM[kind];
+    if (kind === 'firewall') state.identified.add(id);   // failed attempt reveals it for certain
+    sfx(SFX_ALARM);
+    if (state.alarmsLeft <= 0) return finish(state, false, 'ICE LOCK — CONNECTION BURNED');
+    flashStatus(`<span class="ch-warn">&#9888; BREACH FAILED &mdash; ${state.alarmsLeft} tolerance left</span>`);
   }
-  state.movesLeft -= FORCE_MOVE_COST;
-  state.alarmsLeft -= FORCE_ALARM_COST;
-  state.keys |= state.nodes[id].gateBit;                // permanently unlocked
-  sfx(SFX_FORCE);
-  _forceMode = false;
-  flashStatus('<span class="ch-warn">&#128163; GATE FORCED OPEN</span>');
-  if (state.alarmsLeft <= 0) return finish(state, false, 'ICE LOCK — CONNECTION BURNED');
-  if (state.movesLeft <= 0) return finish(state, false, 'TRACE EXPIRED — KICKED FROM SYSTEM');
+  if (checkFailStates(state)) return;
   sense(state);
   renderBoard();
   renderHud();
@@ -401,15 +542,17 @@ function forceGate(state, id) {
 
 function finish(state, won, text) {
   state.over = true; state.won = won;
-  // Reveal all ICE on resolution.
-  for (const n of state.nodes) if (n.type === 'firewall') state.seen.add(n.id);
+  // Reveal all hazards on resolution.
+  for (const n of state.nodes) if (n.type === 'firewall' || n.type === 'decoy') state.identified.add(n.id);
   sfx(won ? SFX_WIN : SFX_LOSE);
   renderBoard();
   renderHud();
   const cls = won ? 'ch-win' : 'ch-lose';
-  const tail = won && _opts.cashStock ? ` &mdash; &#8355; ${Number(_opts.cashStock).toLocaleString()} SIPHONED` : '';
-  setStatus(`<span class="${cls}">&gt;&gt; ${text}${tail}</span>`);
+  setStatus(`<span class="${cls}">&gt;&gt; ${text}</span>`);
   try { _opts.onResult && _opts.onResult({ won }); } catch { /* ignore */ }
+  // On a win the real outcome is reported server-side (see onResult); the
+  // overlay's job is done, so close it rather than leaving it sitting open.
+  if (won) setTimeout(() => close(), 1100);
 }
 
 // ── Rendering ─────────────────────────────────────────────────────────────────
@@ -422,15 +565,26 @@ function boardDims(state) {
 function pcbDecorSvg(w, h) {
   const segs = [];
   const cellsX = Math.ceil(w / 60), cellsY = Math.ceil(h / 60);
-  for (let i = 0; i < 26; i++) {
+  for (let i = 0; i < 34; i++) {
     const x0 = ri(cellsX) * 60, y0 = ri(cellsY) * 60;
     const horizFirst = Math.random() < 0.5;
     const dx = 60, dy = 60;
     const mid = horizFirst ? `${x0 + dx},${y0}` : `${x0},${y0 + dy}`;
-    segs.push(`<path d="M${x0},${y0} L${mid} L${x0 + dx},${y0 + dy}" fill="none" stroke="#0f2a20" stroke-width="2"/>`);
-    segs.push(`<circle cx="${x0}" cy="${y0}" r="2.2" fill="#12352a"/>`);
+    segs.push(`<path d="M${x0},${y0} L${mid} L${x0 + dx},${y0 + dy}" fill="none" stroke="var(--ch-accent)" stroke-width="2"/>`);
+    segs.push(`<circle cx="${x0}" cy="${y0}" r="2.2" fill="var(--ch-accent)"/>`);
   }
-  return `<g opacity="0.6">${segs.join('')}</g>`;
+  // A few schematic-style IC blocks with pin stubs, purely decorative.
+  for (let i = 0; i < 3; i++) {
+    const x0 = ri(cellsX - 1) * 60 + 12, y0 = ri(cellsY - 1) * 60 + 12;
+    const cw = 34, ch2 = 20;
+    segs.push(`<rect x="${x0}" y="${y0}" width="${cw}" height="${ch2}" fill="none" stroke="var(--ch-accent)" stroke-width="1.4" opacity="0.8"/>`);
+    for (let p = 0; p < 3; p++) {
+      const px = x0 + 6 + p * 11;
+      segs.push(`<line x1="${px}" y1="${y0}" x2="${px}" y2="${y0 - 6}" stroke="var(--ch-accent)" stroke-width="1.4"/>`);
+      segs.push(`<line x1="${px}" y1="${y0 + ch2}" x2="${px}" y2="${y0 + ch2 + 6}" stroke="var(--ch-accent)" stroke-width="1.4"/>`);
+    }
+  }
+  return `<g opacity="0.22">${segs.join('')}</g>`;
 }
 
 function traceSvg(state) {
@@ -442,7 +596,7 @@ function traceSvg(state) {
     const b = state.nodes[nbId];
     const live = state.traveled.has(k);
     const cls = live ? 'trace-live' : '';
-    const stroke = live ? '#37f5db' : '#1b4536';
+    const stroke = live ? 'var(--ch-accent)' : '#1b4536';
     const dash = live ? 'stroke-dasharray="6 6"' : '';
     out += `<line x1="${n.x.toFixed(1)}" y1="${n.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}" stroke="${stroke}" stroke-width="${live ? 2.4 : 1.6}" ${dash} class="${cls}" opacity="${live ? 0.95 : 0.6}"/>`;
   }
@@ -451,33 +605,44 @@ function traceSvg(state) {
 
 function nodeSvg(state, n) {
   const reach = isReachable(state, n.id);
-  const forceable = _forceMode && isForceable(state, n.id);
+  const breachable = _actionMode === 'breach' && breachKind(state, n.id) != null;
+  const scannable = _actionMode === 'scan' && isScannable(state, n.id);
   const isPos = n.id === state.pos;
-  const revealedIce = n.type === 'firewall' && state.seen.has(n.id);
+  const known = isKnown(state, n.id);
   const g = [];
-  // reachable pulse ring
-  if (reach) g.push(`<circle class="ch-reachring" cx="${n.x}" cy="${n.y}" r="20" fill="none" stroke="#8ffbec" stroke-width="1.4"/>`);
-  if (forceable) g.push(`<circle class="ch-forcering" cx="${n.x}" cy="${n.y}" r="20" fill="none" stroke="#ffb23e" stroke-width="1.6" stroke-dasharray="4 3"/>`);
+  // reachable / targetable pulse rings
+  if (reach) g.push(`<circle class="ch-reachring" cx="${n.x}" cy="${n.y}" r="20" fill="none" stroke="var(--ch-accent)" stroke-width="1.4"/>`);
+  if (breachable) g.push(`<circle class="ch-forcering" cx="${n.x}" cy="${n.y}" r="20" fill="none" stroke="#ffb23e" stroke-width="1.6" stroke-dasharray="4 3"/>`);
+  if (scannable) g.push(`<circle class="ch-scanring" cx="${n.x}" cy="${n.y}" r="20" fill="none" stroke="#8fbba0" stroke-width="1.6" stroke-dasharray="2 4"/>`);
 
   if (n.type === 'core') {
-    g.push(`<circle class="ch-coreglow" cx="${n.x}" cy="${n.y}" r="20" fill="#37f5db" opacity="0.4"/>`);
-    g.push(`<circle cx="${n.x}" cy="${n.y}" r="14" fill="#06201e" stroke="#37f5db" stroke-width="2"/>`);
-    g.push(`<rect x="${n.x - 5}" y="${n.y - 5}" width="10" height="10" fill="#37f5db"/>`);
-    g.push(label(n, 'CORE', '#8ffbec'));
+    g.push(`<circle class="ch-coreglow" cx="${n.x}" cy="${n.y}" r="20" fill="var(--ch-accent)" opacity="0.4"/>`);
+    g.push(`<circle cx="${n.x}" cy="${n.y}" r="14" fill="#06201e" stroke="var(--ch-accent)" stroke-width="2"/>`);
+    g.push(`<rect x="${n.x - 5}" y="${n.y - 5}" width="10" height="10" fill="var(--ch-accent)"/>`);
+    g.push(label(n, 'CORE', 'var(--ch-accent)'));
   } else if (n.type === 'entry') {
     g.push(`<circle cx="${n.x}" cy="${n.y}" r="13" fill="#20160a" stroke="#ffb23e" stroke-width="2"/>`);
     g.push(`<text x="${n.x}" y="${n.y + 5}" text-anchor="middle" font-size="15" fill="#ffb23e" font-weight="bold">&#9672;</text>`);
     g.push(label(n, 'ENTRY', '#ffb23e'));
-  } else if (revealedIce) {
+  } else if (n.type === 'sentry') {
+    const col = n.disabled ? '#46e05a' : '#ff8a3e';
+    g.push(`<circle cx="${n.x}" cy="${n.y}" r="13" fill="#241206" stroke="${col}" stroke-width="2" stroke-dasharray="${n.disabled ? '0' : '3 3'}"/>`);
+    g.push(`<text x="${n.x}" y="${n.y + 5}" text-anchor="middle" font-size="13" fill="${col}">${n.disabled ? '&#10003;' : '&#9873;'}</text>`);
+    g.push(label(n, n.disabled ? 'SENTRY (DOWN)' : 'SENTRY', col));
+  } else if (known && n.type === 'firewall') {
     g.push(`<circle cx="${n.x}" cy="${n.y}" r="13" fill="#230b0e" stroke="#ff4a5b" stroke-width="2"/>`);
     g.push(`<text x="${n.x}" y="${n.y + 5}" text-anchor="middle" font-size="14" fill="#ff4a5b" font-weight="bold">&#10006;</text>`);
     g.push(label(n, 'ICE', '#ff6a78'));
+  } else if (known && n.type === 'decoy') {
+    g.push(`<circle cx="${n.x}" cy="${n.y}" r="12" fill="#241a08" stroke="#ffb23e" stroke-width="2" stroke-dasharray="2 3"/>`);
+    g.push(`<text x="${n.x}" y="${n.y + 5}" text-anchor="middle" font-size="13" fill="#ffb23e">&#9761;</text>`);
+    g.push(label(n, 'SNARE', '#ffb23e'));
   } else if (n.type === 'gate') {
     const open = !!(state.keys & n.gateBit);
-    const col = open ? '#46e05a' : forceable ? '#ffb23e' : '#ffb23e';
+    const col = open ? '#46e05a' : '#ffb23e';
     g.push(`<circle cx="${n.x}" cy="${n.y}" r="13" fill="#1a1608" stroke="${col}" stroke-width="2" stroke-dasharray="${open ? '0' : '4 3'}"/>`);
     g.push(`<text x="${n.x}" y="${n.y + 5}" text-anchor="middle" font-size="13" fill="${col}">${open ? '&#128275;' : '&#128274;'}</text>`);
-    g.push(label(n, open ? 'OPEN' : forceable ? 'GATE (FORCE?)' : 'GATE', col));
+    g.push(label(n, open ? 'OPEN' : 'GATE', col));
   } else if (n.type === 'key') {
     g.push(`<circle cx="${n.x}" cy="${n.y}" r="12" fill="#1a1608" stroke="#ffd75f" stroke-width="2"/>`);
     g.push(`<text x="${n.x}" y="${n.y + 5}" text-anchor="middle" font-size="13" fill="#ffd75f">&#9919;</text>`);
@@ -487,7 +652,8 @@ function nodeSvg(state, n) {
     g.push(`<text x="${n.x}" y="${n.y + 5}" text-anchor="middle" font-size="16" fill="#46e05a" font-weight="bold">+</text>`);
     g.push(label(n, 'BOOST', '#46e05a'));
   } else {
-    // normal / unrevealed-ice both render as a neutral via (the gamble).
+    // normal / unidentified firewall / unidentified decoy all render as an
+    // indistinguishable neutral via (the gamble) until sensed or scanned.
     const visited = state.visited.has(n.id);
     g.push(`<circle cx="${n.x}" cy="${n.y}" r="9" fill="${visited ? '#0c1e1d' : '#0a1516'}" stroke="${visited ? '#2b4a48' : '#1d4a48'}" stroke-width="1.6"/>`);
     if (visited) g.push(`<circle cx="${n.x}" cy="${n.y}" r="3" fill="#2b4a48"/>`);
@@ -495,14 +661,15 @@ function nodeSvg(state, n) {
 
   // Current-position reticle over whatever node type we're on.
   if (isPos) {
-    g.push(`<g class="ch-me"><circle cx="${n.x}" cy="${n.y}" r="19" fill="none" stroke="#8ffbec" stroke-width="1.6"/>` +
-      `<path d="M${n.x - 22},${n.y} h8 M${n.x + 14},${n.y} h8 M${n.x},${n.y - 22} v8 M${n.x},${n.y + 14} v8" stroke="#8ffbec" stroke-width="1.6"/></g>`);
+    g.push(`<g class="ch-me"><circle cx="${n.x}" cy="${n.y}" r="19" fill="none" stroke="var(--ch-accent)" stroke-width="1.6"/>` +
+      `<path d="M${n.x - 22},${n.y} h8 M${n.x + 14},${n.y} h8 M${n.x},${n.y - 22} v8 M${n.x},${n.y + 14} v8" stroke="var(--ch-accent)" stroke-width="1.6"/></g>`);
   }
-  // Invisible fat hit-target for reachable/forceable nodes (easy clicking).
-  const clickable = reach || forceable;
+  // Invisible fat hit-target for reachable/breachable/scannable nodes.
+  const clickable = reach || breachable || scannable;
   const hit = clickable ? `<circle class="n-hit" cx="${n.x}" cy="${n.y}" r="22" fill="transparent" stroke="transparent" stroke-width="2"/>` : '';
-  const cls = reach ? 'n-reach' : forceable ? 'n-reach n-force' : '';
-  const wrap = clickable ? `<g class="${cls}" data-node="${n.id}" data-force="${forceable && !reach ? '1' : '0'}">${hit}${g.join('')}</g>` : `<g>${g.join('')}</g>`;
+  const kind = scannable ? 'scan' : breachable ? 'breach' : reach ? 'move' : '';
+  const cls = kind === 'move' ? 'n-reach' : kind ? 'n-reach n-force' : '';
+  const wrap = clickable ? `<g class="${cls}" data-node="${n.id}" data-kind="${kind}">${hit}${g.join('')}</g>` : `<g>${g.join('')}</g>`;
   return wrap;
 }
 function label(n, text, color) {
@@ -513,7 +680,7 @@ function packetSvg(state) {
   if (!state.lastEdge) return '';
   const { a, b } = state.lastEdge;
   // keyed by moveTick so a fresh animateMotion runs each move
-  return `<circle r="4" fill="#8ffbec" opacity="0.95">
+  return `<circle r="4" fill="var(--ch-accent)" opacity="0.95">
     <animate attributeName="opacity" values="0.95;0.95;0" dur="0.34s" begin="0s" fill="freeze"/>
     <animateMotion dur="0.28s" begin="0s" fill="freeze" path="M${a.x.toFixed(1)},${a.y.toFixed(1)} L${b.x.toFixed(1)},${b.y.toFixed(1)}"/>
   </circle>`;
@@ -525,7 +692,7 @@ function boardSvg(state) {
     <defs>
       <pattern id="ch-grid" width="24" height="24" patternUnits="userSpaceOnUse"><path d="M24,0 H0 V24" fill="none" stroke="#0e241c" stroke-width="1"/></pattern>
       <radialGradient id="ch-vign" cx="50%" cy="50%" r="70%"><stop offset="60%" stop-color="#000" stop-opacity="0"/><stop offset="100%" stop-color="#000" stop-opacity="0.55"/></radialGradient>
-      <radialGradient id="ch-board-tint" cx="50%" cy="40%" r="75%"><stop offset="0%" stop-color="#0c2a1e"/><stop offset="100%" stop-color="#051310"/></radialGradient>
+      <radialGradient id="ch-board-tint" cx="50%" cy="40%" r="75%"><stop offset="0%" stop-color="color-mix(in srgb, var(--ch-accent) 20%, #051310)"/><stop offset="100%" stop-color="#051310"/></radialGradient>
     </defs>
     <rect width="${w}" height="${h}" fill="url(#ch-board-tint)"/>
     <rect width="${w}" height="${h}" fill="url(#ch-grid)"/>
@@ -543,8 +710,12 @@ function renderBoard() {
   el.innerHTML = boardSvg(_state);
   el.querySelectorAll('[data-node]').forEach(g => {
     const id = parseInt(g.getAttribute('data-node'), 10);
-    const forceOnly = g.getAttribute('data-force') === '1';
-    g.addEventListener('click', () => forceOnly ? forceGate(_state, id) : moveTo(_state, id));
+    const kind = g.getAttribute('data-kind');
+    g.addEventListener('click', () => {
+      if (kind === 'scan') scanNode(_state, id);
+      else if (kind === 'breach') breach(_state, id);
+      else moveTo(_state, id);
+    });
   });
 }
 function renderHud() {
@@ -552,10 +723,13 @@ function renderHud() {
   if (!el) return;
   const s = _state;
   const mv = s.movesLeft <= 2 ? '#ff4a5b' : s.movesLeft <= 4 ? '#ffb23e' : '#4dffb0';
+  const tracePct = Math.round((s.trace / s.traceMax) * 100);
+  const traceCol = tracePct >= 75 ? '#ff4a5b' : tracePct >= 40 ? '#ffb23e' : '#8fbba0';
   el.innerHTML =
     `<span>CYCLES <b class="hv-moves" style="color:${mv}">${Math.max(0, s.movesLeft)}</b>/<span style="opacity:.6">${s.movesMax}</span></span>` +
     `<span>ALARM TOLERANCE <b class="hv-alarm">${'&#9670;'.repeat(Math.max(0, s.alarmsLeft))}${'&#9671;'.repeat(s.alarmsMax - Math.max(0, s.alarmsLeft))}</b></span>` +
     `<span>SENSOR <b class="hv-sensor">r${s.sensor}</b></span>` +
+    `<span class="ch-trace-wrap">TRACE <span class="ch-trace-bar"><span class="ch-trace-fill" style="width:${tracePct}%;background:${traceCol}"></span></span></span>` +
     (s.keys ? `<span style="color:#ffd75f">&#9919; KEY</span>` : '');
 }
 function setStatus(html) { const el = document.getElementById('ch-status'); if (el) el.innerHTML = html; }
@@ -563,18 +737,19 @@ function flashStatus(html) { setStatus(html); }
 
 // ── Public API ────────────────────────────────────────────────────────────────
 function newPuzzle() {
-  _forceMode = false;
+  _actionMode = null;
   _state = generate();
   if (!_state) { setStatus('<span class="ch-lose">generation failed</span>'); return; }
-  renderBoard(); renderHud(); setStatus('<span style="color:#7fa392">Route to the CORE. Watch for ICE. PING to scout, FORCE to smash a locked GATE.</span>');
+  renderBoard(); renderHud(); setStatus('<span style="color:#7fa392">Route to the CORE. PING/SCAN to scout, BREACH to force a GATE/ICE/SENTRY. Watch the TRACE meter.</span>');
 }
 
 export function openCircuitHack(opts = {}) {
   ensureStyles();
   close();
-  _opts = { skill: 4, difficulty: 4, cashStock: 0, atmName: 'TERMINAL', onResult: null, ...opts };
+  _opts = { skill: 4, difficulty: 4, atmName: 'TERMINAL', accent: '#37f5db', onResult: null, ...opts };
   const overlay = document.createElement('div');
   overlay.id = 'circuit-hack-overlay';
+  overlay.style.setProperty('--ch-accent', _opts.accent);
   overlay.innerHTML =
     `<div class="ch-panel">
       <button class="ch-close" title="Abort">&#10005;</button>
@@ -584,7 +759,8 @@ export function openCircuitHack(opts = {}) {
       <div class="ch-status" id="ch-status"></div>
       <div class="ch-actions">
         <button class="ch-btn ch-btn-ping" title="Spend 1 cycle to extend your sensor range without moving">&#8226; Ping</button>
-        <button class="ch-btn ch-btn-force" title="Spend 3 cycles + 1 alarm tolerance to smash open an adjacent locked gate">&#128163; Force</button>
+        <button class="ch-btn ch-btn-scan" title="Spend 1 cycle to identify one adjacent unknown via without moving onto it">&#9678; Scan</button>
+        <button class="ch-btn ch-btn-breach" title="Skill-weighted attempt to force a locked GATE, neutralize an adjacent ICE, or disable an adjacent SENTRY">&#128163; Breach</button>
         <button class="ch-btn ch-btn-rejack">&#8635; Re-Jack</button>
         <button class="ch-btn ch-btn-abort">Abort</button>
       </div>
@@ -594,16 +770,22 @@ export function openCircuitHack(opts = {}) {
   overlay.querySelector('.ch-btn-abort').addEventListener('click', close);
   overlay.querySelector('.ch-btn-rejack').addEventListener('click', () => { window.AudioEngine?.init?.(); newPuzzle(); });
   overlay.querySelector('.ch-btn-ping').addEventListener('click', () => { if (_state && !_state.over) ping(_state); });
-  const forceBtn = overlay.querySelector('.ch-btn-force');
-  forceBtn.addEventListener('click', () => {
+  const scanBtn = overlay.querySelector('.ch-btn-scan');
+  const breachBtn = overlay.querySelector('.ch-btn-breach');
+  const setMode = (mode, armedMsg, disarmedMsg) => {
     if (!_state || _state.over) return;
-    _forceMode = !_forceMode;
-    forceBtn.classList.toggle('ch-btn-active', _forceMode);
-    flashStatus(_forceMode
-      ? '<span class="ch-warn">FORCE ARMED — click a locked GATE to smash it</span>'
-      : '<span style="color:#7fa392">Force disarmed.</span>');
+    _actionMode = _actionMode === mode ? null : mode;
+    scanBtn.classList.toggle('ch-btn-active', _actionMode === 'scan');
+    breachBtn.classList.toggle('ch-btn-active', _actionMode === 'breach');
+    flashStatus(_actionMode === mode ? armedMsg : disarmedMsg);
     renderBoard();
-  });
+  };
+  scanBtn.addEventListener('click', () => setMode('scan',
+    '<span class="ch-warn">SCAN ARMED — click an adjacent unknown via</span>',
+    '<span style="color:#7fa392">Scan disarmed.</span>'));
+  breachBtn.addEventListener('click', () => setMode('breach',
+    '<span class="ch-warn">BREACH ARMED — click an adjacent GATE, ICE, or SENTRY</span>',
+    '<span style="color:#7fa392">Breach disarmed.</span>'));
   _keyHandler = (e) => { if (e.key === 'Escape') close(); };
   window.addEventListener('keydown', _keyHandler);
   document.body.appendChild(overlay);
@@ -617,7 +799,7 @@ function close() {
   if (_keyHandler) { window.removeEventListener('keydown', _keyHandler); _keyHandler = null; }
   if (_overlay) { _overlay.remove(); _overlay = null; }
   _state = null;
-  _forceMode = false;
+  _actionMode = null;
 }
 
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');

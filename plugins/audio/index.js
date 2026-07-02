@@ -4,7 +4,7 @@ import { getZone, getZonePlayers, getLivePlayer } from '../../server/engine/worl
 import { neighborZoneIds } from '../../server/engine/exits.js';
 import { sendToZone, sendToPlayer } from '../../server/engine/messaging.js';
 import { on, emit } from '../../server/engine/events.js';
-import { propagateAudio } from '../../server/engine/sounds.js';
+import { propagateAudio, getWeatherLeakGain } from '../../server/engine/sounds.js';
 import { getZonePrecip, getCurrentPrecipType, getWindKph } from '../../server/engine/environment.js';
 
 // ── In-memory library cache (loaded from DB at boot, refreshed after CRUD) ──
@@ -586,9 +586,9 @@ function knownWeatherAmbientIds() {
 }
 
 // Master cut so weather ambience sits under gameplay sound rather than
-// competing with it; indoor mult muffles it to a "through the walls" murmur.
+// competing with it; indoor zones are muffled by getWeatherLeakGain (room
+// depth + closed doors) instead of a flat mult.
 const WEATHER_GAIN = 0.6;
-const INDOOR_GAIN_MULT = 0.25;
 const MUFFLE_GAIN_MULT = 0.5; // per-hop cut for an outdoor tile hearing a neighboring storm cell's rain, not its own — 1 tile away = 0.5, 2 tiles = 0.25, so it spreads out
 
 function isIndoorZone(zoneId) {
@@ -635,8 +635,9 @@ on('weather.zoneAmbience', (payload) => {
   const trackers = zoneBeds.get(zoneId) || { precip: null, wind: null };
   const desired = desiredBedsFor(payload);
   if (isIndoorZone(zoneId)) {
-    if (desired.precip) desired.precip.gain *= INDOOR_GAIN_MULT;
-    if (desired.wind)   desired.wind.gain   *= INDOOR_GAIN_MULT;
+    const leak = getWeatherLeakGain(zoneId);
+    if (desired.precip) desired.precip.gain *= leak;
+    if (desired.wind)   desired.wind.gain   *= leak;
   } else if (payload.muffled && desired.precip) {
     desired.precip.gain *= Math.pow(MUFFLE_GAIN_MULT, payload.muffleHops || 1);
   }
@@ -659,7 +660,7 @@ on('weather.thunder', ({ zoneId }) => {
 // ones their new tile warrants at the right reactive gains — muffled indoors.
 function reconcilePlayerWeatherAmbient(playerId, zoneId) {
   if (!playerId || !zoneId) return;
-  const mult = isIndoorZone(zoneId) ? INDOOR_GAIN_MULT : 1;
+  const mult = isIndoorZone(zoneId) ? getWeatherLeakGain(zoneId) : 1;
   const desired = [];
   const { precipType, precipRate } = getZonePrecip(zoneId);
   if (precipRate && precipType !== 'none') {
@@ -680,6 +681,37 @@ function reconcilePlayerWeatherAmbient(playerId, zoneId) {
     sendToPlayer(playerId, { type: 'audio_loop_gain', id: def.id, gain, ramp: 0.4 });
   }
 }
+
+// Zones reachable from any of `startIds` within `maxHops` room-crossings (BFS,
+// door-agnostic — just needs to cover every zone whose weather leak-gain could
+// have shifted).
+function collectZonesWithinHops(startIds, maxHops) {
+  const seen = new Set(startIds);
+  let frontier = [...startIds];
+  for (let hop = 0; hop < maxHops && frontier.length; hop++) {
+    const next = [];
+    for (const zid of frontier) {
+      const zone = getZone(zid);
+      if (!zone) continue;
+      for (const nid of neighborZoneIds(zone)) {
+        if (!seen.has(nid)) { seen.add(nid); next.push(nid); }
+      }
+    }
+    frontier = next;
+  }
+  return seen;
+}
+
+// A door opening/closing changes the weather leak-gain for every room behind
+// it, live — not just for players who walk in after. Re-reconcile occupied
+// zones within reach of the toggled door.
+on('door.toggled', ({ zoneId, targetZoneId }) => {
+  const starts = [zoneId, targetZoneId].filter(Boolean);
+  if (!starts.length) return;
+  for (const zid of collectZonesWithinHops(starts, 5)) {
+    for (const p of getZonePlayers(zid)) reconcilePlayerWeatherAmbient(p.id, zid);
+  }
+});
 
 // device.tuned fires on every TV/radio channel change (plugins/broadcast).
 // The mechanical relay click of actually landing on a channel is shared

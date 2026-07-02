@@ -14,7 +14,7 @@ import { openLootPanel, closeLootPanel } from './panels/loot.js';
 import { openLightViewDialog } from './panels/lightview.js';
 import { openMorphexPanel } from './panels/morphex.js';
 import { updateForecast } from './panels/forecast.js';
-import { openAtmPanel, closeAtmPanel, updateAtmPanel } from './panels/atm.js';
+import { openAtmPanel, closeAtmPanel, updateAtmPanel, playAtmDrainSfx } from './panels/atm.js';
 import { openMediaDeckPanel, updateMediaDeckBroadcast, applyMediaDeckOverlay } from './panels/mediadeck.js';
 import { openDeviceInspectPanel, consumeExamineLogSuppression } from './panels/deviceinspect.js';
 import { openSurveillanceHub, updateSurveillanceHub } from './panels/surveillancehub.js';
@@ -379,6 +379,7 @@ const handlers = {
 
   drain: (msg) => {
     appendHtml(msg.message, 'loot');
+    playAtmDrainSfx();
     if (msg.player_update && state.player) { Object.assign(state.player, msg.player_update); updateVitals(state.player); }
     if (msg.atm_maintenance != null) updateAtmPanel({ maintenanceUnlocked: msg.atm_maintenance });
     if (msg.atm_cash_stock != null) updateAtmPanel({ cashStock: msg.atm_cash_stock, ...msg.player_update });

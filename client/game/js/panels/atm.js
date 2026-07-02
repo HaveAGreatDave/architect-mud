@@ -2,11 +2,42 @@ import { sendCmdSilent } from '../net.js';
 import { state } from '../state.js';
 import { openCircuitHack } from './circuithack.js';
 
+// ── Audio ─────────────────────────────────────────────────────────────────
+// Same self-owned-synth pattern as circuithack.js's sfx bus — silent if the
+// engine hasn't initialised.
+function sfx(def) { try { window.AudioEngine?.playSfx(def); } catch { /* no audio */ } }
+
+// MAINTENANCE EJECT — the hopper forced open, then a rapid metallic cascade
+// of chips clattering out (descending, irregularly-spaced clinks so it reads
+// as a tumble rather than a mechanical loop), capped by the terminal seizing
+// and dying mid-spark. Distinct from Circuit Breach's own SFX_FORCE/SFX_WIN:
+// this is the payout itself, not the breach that unlocked it.
+const SFX_DRAIN = { priority: 8, config: { duration: 1.05, layers: [
+  // Hopper punched open.
+  { waveform: 'triangle', freq: 85, pitchBend: { to: 32, time: 0.18 }, adsr: { a: 0.001, d: 0.16, s: 0, r: 0.12 }, gain: 0.42 },
+  { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 480, q: 1.4 }, adsr: { a: 0.001, d: 0.09, s: 0, r: 0.08 }, gain: 0.32 },
+  // Chip cascade — descending metallic clinks, tumbling out.
+  { waveform: 'square', freq: 1900, delay: 0.13, filter: { type: 'bandpass', freq: 1900, q: 6 }, adsr: { a: 0.001, d: 0.05, s: 0, r: 0.03 }, gain: 0.17 },
+  { waveform: 'triangle', freq: 1640, delay: 0.185, filter: { type: 'bandpass', freq: 1640, q: 6 }, adsr: { a: 0.001, d: 0.05, s: 0, r: 0.03 }, gain: 0.16 },
+  { waveform: 'square', freq: 1780, delay: 0.235, filter: { type: 'bandpass', freq: 1780, q: 6 }, adsr: { a: 0.001, d: 0.045, s: 0, r: 0.03 }, gain: 0.16 },
+  { waveform: 'triangle', freq: 1400, delay: 0.30, filter: { type: 'bandpass', freq: 1400, q: 5.5 }, adsr: { a: 0.001, d: 0.05, s: 0, r: 0.03 }, gain: 0.15 },
+  { waveform: 'square', freq: 1550, delay: 0.355, filter: { type: 'bandpass', freq: 1550, q: 5.5 }, adsr: { a: 0.001, d: 0.045, s: 0, r: 0.03 }, gain: 0.14 },
+  { waveform: 'triangle', freq: 1160, delay: 0.415, filter: { type: 'bandpass', freq: 1160, q: 5 }, adsr: { a: 0.001, d: 0.05, s: 0, r: 0.035 }, gain: 0.13 },
+  { waveform: 'square', freq: 1280, delay: 0.47, filter: { type: 'bandpass', freq: 1280, q: 5 }, adsr: { a: 0.001, d: 0.045, s: 0, r: 0.03 }, gain: 0.12 },
+  { waveform: 'triangle', freq: 940, delay: 0.53, filter: { type: 'bandpass', freq: 940, q: 4.5 }, adsr: { a: 0.001, d: 0.06, s: 0, r: 0.04 }, gain: 0.11 },
+  { waveform: 'square', freq: 1040, delay: 0.59, noiseMix: 0.35, filter: { type: 'bandpass', freq: 1040, q: 4 }, adsr: { a: 0.001, d: 0.065, s: 0, r: 0.05 }, gain: 0.1 },
+  { waveform: 'triangle', freq: 760, delay: 0.655, noiseMix: 0.3, filter: { type: 'bandpass', freq: 760, q: 4 }, adsr: { a: 0.001, d: 0.07, s: 0, r: 0.05 }, gain: 0.09 },
+  // Terminal seizes and dies — descending power-down whine + a last spark.
+  { waveform: 'sawtooth', freq: 260, delay: 0.62, pitchBend: { to: 28, time: 0.32 }, filter: { type: 'lowpass', freq: 1200, q: 1 }, adsr: { a: 0.01, d: 0.28, s: 0.15, r: 0.22 }, gain: 0.24 },
+  { waveform: 'noise', noiseMix: 1, delay: 0.66, filter: { type: 'highpass', freq: 3200, q: 1 }, adsr: { a: 0.001, d: 0.06, s: 0, r: 0.05 }, gain: 0.2 },
+] } };
+export function playAtmDrainSfx() { window.AudioEngine?.init?.(); sfx(SFX_DRAIN); }
+
 let atmData = null;
 // The CRT is menu-driven: 'home' shows the option list, the others are the
 // screens you drill into from it. Kept in module state so live balance pushes
 // (updateAtmPanel) re-render whatever screen the player is currently on.
-let screen = 'home'; // home | deposit | withdraw | account
+let screen = 'home'; // home | deposit | withdraw | account | maintenance
 
 export function openAtmPanel(data) {
   atmData = data;
@@ -69,6 +100,7 @@ function renderAtmPanel() {
   }
 
   if (screen === 'account') scr.innerHTML = renderAccount(data);
+  else if (screen === 'maintenance') scr.innerHTML = renderMaintenance(data);
   else if (screen === 'deposit' || screen === 'withdraw') scr.innerHTML = renderTx(data, screen);
   else scr.innerHTML = renderHome(data);
 
@@ -79,7 +111,7 @@ function renderHome(data) {
   const { player, cashStock, maintenanceUnlocked } = data;
   const canJack = cashStock > 0;
   const maintenanceItem = maintenanceUnlocked
-    ? `<button class="atm-menu-item atm-menu-danger" data-act="drain"><span class="atm-menu-key">☠</span>MAINTENANCE<span class="atm-menu-hint">eject all credits</span></button>`
+    ? `<button class="atm-menu-item atm-menu-glow" data-nav="maintenance"><span class="atm-menu-key">⚙</span>MAINTENANCE<span class="atm-menu-hint">access unlocked</span></button>`
     : '';
   return `
     <div class="atm-scr-top">
@@ -144,6 +176,23 @@ function renderAccount(data) {
     ${feeLine}`;
 }
 
+function renderMaintenance(data) {
+  const { cashStock } = data;
+  const has = cashStock > 0;
+  return `
+    <div class="atm-scr-top">
+      <button class="atm-back" data-nav="home">‹ BACK</button>
+      <span class="atm-scr-title">MAINTENANCE</span>
+      <span></span>
+    </div>
+    <div class="atm-scr-avail">Diagnostic shell access active. Cash reserve can be force-ejected from the hopper — this will brick the terminal.</div>
+    <div class="atm-scr-reserve">
+      <div class="atm-scr-reserve-lbl">CASH RESERVE</div>
+      <div class="atm-scr-reserve-val">${cashStock.toLocaleString()}c</div>
+    </div>
+    <button class="atm-confirm atm-confirm-danger" data-act="drain"${has ? '' : ' disabled'}>${has ? 'EJECT ALL CREDITS' : 'RESERVE EMPTY'}</button>`;
+}
+
 // Re-attach handlers after every render (innerHTML swap discards the old ones).
 function wireScreen() {
   const scr = document.getElementById('atm-crt-screen');
@@ -187,16 +236,18 @@ function doAction(act) {
   } else if (act === 'jack') {
     // JACK → Circuit Breach minigame overlay. The minigame is cosmetic flavour;
     // the server-side `jack` command is authoritative (runs the real hacking
-    // skillCheck, enforces lockout/power/faction, and pays out). When the breach
-    // resolves we fire `jack` and the server decides the true outcome.
+    // skillCheck and, on success, unlocks MAINTENANCE access — it never pays
+    // out directly). When the breach resolves we fire `jack` and the server
+    // decides the true outcome.
     openCircuitHack({
       skill: atmData.hackingSkill ?? 4,
       difficulty: atmData.hackDifficulty ?? 6,
       atmName: atmData.name,
-      cashStock: atmData.cashStock,
+      accent: atmData.network.color || '#00ff88',
       onResult: () => { sendCmdSilent('jack'); },
     });
   } else if (act === 'drain') {
+    screen = 'home';
     sendCmdSilent('drain');
   }
 }
