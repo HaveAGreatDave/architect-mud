@@ -14,6 +14,10 @@ const HALF_LIFE_MS  = 30 * 60 * 1000;      // a rumour loses half its heat every
 const MIN_KEEP      = 0.02;                 // below this an item is dead (gc drops it)
 const PROX_FLOOR    = 0.15;                 // weight floor for a distant-but-in-reach item
 
+// Per-group caps: at most N live items may share a capGroup; adding past the cap
+// evicts the weakest member. Weather is chatty and low-value, so hold it to a few.
+const GROUP_CAPS    = { weather: 5 };
+
 let seq = 0;
 const items = new Map();                    // id -> item
 
@@ -44,6 +48,24 @@ export function weight(item, viewerZoneId, distanceFn, now = Date.now()) {
 }
 
 export function addItem(partial) {
+  // Coalesce repeated real events (a storm that keeps thundering, an ongoing
+  // crime spree) into one item that stays warm — refresh its timestamp/heat
+  // instead of piling near-duplicate rows. Planted rumours never coalesce; each
+  // is its own claim. The key defaults to template+zone+subject, but callers can
+  // override it (weather keys by building/area so it collapses across rooms).
+  if (!partial.planted) {
+    const key = partial.coalesceKey || `${partial.templateKey}|${partial.zoneId}|${partial.subjectName || ''}`;
+    for (const it of items.values()) {
+      if (it._ck === key) {
+        it.ts = partial.ts ?? Date.now();
+        it.heat = Math.max(it.heat, partial.heat ?? it.heat);
+        if (partial.vars) it.vars = partial.vars;
+        if (partial.lead) it.lead = partial.lead;
+        return it;
+      }
+    }
+    partial = { ...partial, _ck: key };
+  }
   const id = partial.id || `gsp_${Date.now()}_${rand4()}_${seq++}`;
   const item = {
     id,
@@ -59,10 +81,29 @@ export function addItem(partial) {
     planted:     !!partial.planted,
     truth:       partial.truth ?? 1,
     lead:        partial.lead || null,
+    capGroup:    partial.capGroup || null,
+    askOnly:     !!partial.askOnly,   // hidden from ambient; surfaces only when a player asks
+    _ck:         partial._ck || null,
   };
   items.set(id, item);
+  enforceGroupCap(item.capGroup);
   if (items.size > CAP) evictWeakest();
   return item;
+}
+
+// Keep at most GROUP_CAPS[group] live items in a capped group, evicting the
+// weakest (coldest) members when a fresh one pushes the count over.
+function enforceGroupCap(group) {
+  const cap = GROUP_CAPS[group];
+  if (!cap) return;
+  const now = Date.now();
+  let members = [...items.values()].filter(i => i.capGroup === group);
+  while (members.length > cap) {
+    let weakest = members[0];
+    for (const it of members) if (baseWeight(it, now) < baseWeight(weakest, now)) weakest = it;
+    items.delete(weakest.id);
+    members = members.filter(i => i.id !== weakest.id);
+  }
 }
 
 // A player seeds a rumour. Believability (truth) is set by the caller from a
@@ -77,11 +118,12 @@ export function plant({ text, zoneId, truth = 0.5, subjectName = '', lead = null
 // Return up to n items most worth repeating in viewerZoneId. Weighted-random among
 // the strongest handful so different NPCs (and repeat asks) surface variety, not
 // always the single hottest item.
-export function recall(viewerZoneId, { n = 1, category = null, distanceFn = null } = {}) {
+export function recall(viewerZoneId, { n = 1, category = null, distanceFn = null, filter = null } = {}) {
   const now = Date.now();
   const scored = [];
   for (const item of items.values()) {
     if (category && item.category !== category) continue;
+    if (filter && !filter(item)) continue;
     const w = weight(item, viewerZoneId, distanceFn, now);
     if (w <= MIN_KEEP) continue;
     scored.push({ item, w });
@@ -118,6 +160,7 @@ export function gc(now = Date.now()) {
   while (items.size > CAP) evictWeakest();
 }
 
+export function remove(id) { return items.delete(id); }   // dev-panel delete
 export function size()  { return items.size; }
 export function all()   { return [...items.values()]; }
-export function clear() { items.clear(); }        // test hook
+export function clear() { items.clear(); }        // test hook / dev-panel clear-all

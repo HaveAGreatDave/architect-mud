@@ -2154,6 +2154,14 @@ export async function fixBuildingPowerConnections() {
       [network]
     );
 
+    // A network that houses the city plant itself (e.g. Coldwater's turbine hall)
+    // is powered at the source — it never needs its own junction box.
+    const { rows: cityPlantHere } = await query(
+      `SELECT 1 FROM generators WHERE zone_id = ANY($1::text[]) AND generator_type = 'city_plant' LIMIT 1`,
+      [network]
+    );
+    if (cityPlantHere.length) continue;
+
     // Representative name: prefer an is_building-flagged zone, else first alphabetically
     const { rows: namedRows } = await query(
       `SELECT name FROM zones WHERE id = ANY($1::text[])
@@ -2265,6 +2273,11 @@ export async function getGeneratorsList() {
   const { query } = deps;
   const { rows } = await query(`
     SELECT g.*, z.name as zone_name,
+      CASE
+        WHEN g.generator_type = 'city_plant' AND COALESCE((z.flags->>'is_interior')::boolean, false)
+          THEN COALESCE(z.parent_zone, z.flags->>'world_exit_zone', g.zone_id)
+        ELSE g.zone_id
+      END AS map_zone_id,
       COALESCE((
         SELECT SUM(pz.current_load_kw) FROM power_zones pz WHERE pz.generator_id = g.id
       ), 0) AS zone_load_w,

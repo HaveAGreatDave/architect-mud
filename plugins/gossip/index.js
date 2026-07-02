@@ -17,11 +17,12 @@ import { getZone, getZoneNpcs, world } from '../../server/engine/world.js';
 import { formatChitchat } from '../../server/engine/ai-behaviour.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
 import { registerInputMatcher } from '../../server/engine/plugins.js';
-import { registerAction } from '../../server/engine/actions.js';
+import { registerAction, dispatchAction } from '../../server/engine/actions.js';
 import { skillCheck } from '../../server/engine/skills.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { getPowerMap } from '../../server/engine/environment.js';
 import { neighborZoneIds } from '../../server/engine/exits.js';
+import { getBuildingName } from '../../server/engine/apartments.js';
 import { sendToZone } from '../../server/engine/messaging.js';
 import * as pool from './pool.js';
 import { TEMPLATES, renderItem } from './templates.js';
@@ -29,10 +30,20 @@ import { TEMPLATES, renderItem } from './templates.js';
 // ── Tunables ────────────────────────────────────────────────────────────────
 const TICK_MS             = 60_000;   // gc + power-diff + ambient cadence
 const AMBIENT_CHANCE      = 0.06;     // per witnessed zone per tick, unprompted gossip
+const PASSPHRASE_CHANCE   = 0.02;     // per tick chance to seed the (ask-only) dealer-passphrase rumour
 const SPREAD_COOLDOWN_MS  = 60_000;   // between a player's own planted rumours
-const DEDUP_MS            = 10_000;   // collapse duplicate events for the same subject/zone
 
 const zn = (id) => getZone(id)?.name || 'somewhere';
+
+// The broad area a zone belongs to — its building name for an interior room,
+// else the zone's own name. Weather is area-wide, so gossip reads "over the
+// Meridian" not "over Unit 1A". Reuses the engine's building resolver.
+function areaName(zoneId) {
+  const zone = getZone(zoneId);
+  if (!zone) return 'somewhere';
+  if (zone.flags?.is_apartment || zone.flags?.is_interior) return getBuildingName(zone) || zone.name;
+  return zone.name || 'somewhere';
+}
 
 // Zone-graph BFS hop distance, bounded by maxHops (used for recall proximity).
 function hopDistance(fromZone, toZone, maxHops) {
@@ -58,25 +69,19 @@ function hopDistance(fromZone, toZone, maxHops) {
 }
 
 // ── Ingestion ─────────────────────────────────────────────────────────────────
-const recent = new Map();
-function deduped(key) {
-  const now = Date.now();
-  if (now - (recent.get(key) || 0) < DEDUP_MS) return false;
-  recent.set(key, now);
-  return true;
-}
-
-function add(templateKey, { zoneId, subjectName, subjectId, vars, lead } = {}) {
+// Duplicate suppression is handled in pool.addItem by coalescing (a repeated
+// event refreshes one warm item rather than piling rows). Callers may pass a
+// `coalesceKey` to control what counts as "the same" story.
+function add(templateKey, { zoneId, subjectName, subjectId, vars, lead, coalesceKey, capGroup, askOnly } = {}) {
   const t = TEMPLATES[templateKey];
   if (!t) return;
   pool.addItem({ category: t.category, templateKey, reach: t.reach, heat: t.heat,
-    zoneId, subjectName, subjectId, vars, lead });
+    zoneId, subjectName, subjectId, vars, lead, coalesceKey, capGroup, askOnly });
 }
 
 on('player.death', ({ player, killer }) => {
   if (!player?.id) return;
   const zoneId = player.current_zone;
-  if (!deduped(`kill_player:${player.id}`)) return;
   add('kill_player', {
     zoneId, subjectName: player.handle, subjectId: player.id,
     vars: { victim: player.handle, killer: killer?.handle || killer?.name || 'someone', zone: zn(zoneId) },
@@ -87,7 +92,6 @@ on('player.death', ({ player, killer }) => {
 on('enemy.killed', ({ actor, enemy }) => {
   if (!actor?.handle || !enemy) return;
   const zoneId = actor.current_zone;
-  if (!deduped(`kill_enemy:${zoneId}`)) return;
   add('kill_enemy', { zoneId, subjectName: actor.handle,
     vars: { killer: actor.handle, victim: enemy.name, zone: zn(zoneId) } });
 });
@@ -95,7 +99,6 @@ on('enemy.killed', ({ actor, enemy }) => {
 on('npc.killed', ({ actor, npc }) => {
   if (!npc) return;
   const zoneId = actor?.current_zone || npc.zone_id;
-  if (!deduped(`kill_npc:${npc.id}`)) return;
   add('kill_npc', { zoneId, subjectName: npc.name,
     vars: { killer: actor?.handle || 'someone', victim: npc.name, zone: zn(zoneId) } });
 });
@@ -103,9 +106,8 @@ on('npc.killed', ({ actor, npc }) => {
 // Witness-gated in surveillance's raiseCrime — we only hear about ones that stuck.
 on('crime.witnessed', ({ player, key, zoneId, label }) => {
   if (!player?.id) return;
-  if (!deduped(`crime:${player.id}:${key}`)) return;
   add('crime', {
-    zoneId, subjectName: player.handle, subjectId: player.id,
+    zoneId, subjectName: player.handle, subjectId: player.id, coalesceKey: `crime|${player.id}|${key}`,
     vars: { suspect: player.handle, label: (label || 'a crime').toLowerCase(), zone: zn(zoneId) },
     lead: { kind: 'target', targetId: player.id, zoneId, hint: `${player.handle} was last seen around ${zn(zoneId)}` },
   });
@@ -113,9 +115,8 @@ on('crime.witnessed', ({ player, key, zoneId, label }) => {
 
 on('police.dispatch', ({ zoneId, reason, suspect }) => {
   if (!suspect) return;
-  if (!deduped(`dispatch:${suspect}:${zoneId}`)) return;
   add('crime', {
-    zoneId, subjectName: suspect,
+    zoneId, subjectName: suspect, coalesceKey: `crime|${suspect}|dispatch`,
     vars: { suspect, label: (reason || 'trouble').toLowerCase(), zone: zn(zoneId) },
     lead: { kind: 'target', zoneId, hint: `${suspect} was last seen around ${zn(zoneId)}` },
   });
@@ -124,8 +125,7 @@ on('police.dispatch', ({ zoneId, reason, suspect }) => {
 on('player.drugUsed', ({ player, illegal, zoneId }) => {
   if (!player?.id || !illegal) return;
   const z = zoneId || player.current_zone;
-  if (!deduped(`drug:${player.id}`)) return;
-  add('crime', { zoneId: z, subjectName: player.handle, subjectId: player.id,
+  add('crime', { zoneId: z, subjectName: player.handle, subjectId: player.id, coalesceKey: `crime|${player.id}|drug`,
     vars: { suspect: player.handle, label: 'using out in the open', zone: zn(z) } });
 });
 
@@ -148,8 +148,11 @@ on('gossip.housing', ({ player, zoneId }) => {
 });
 
 on('weather.thunder', ({ zoneId }) => {
-  if (!zoneId || !deduped(`storm:${zoneId}`)) return;
-  add('storm', { zoneId, vars: { zone: zn(zoneId) } });
+  if (!zoneId) return;
+  // Weather is area-wide: name the building, and coalesce by area so a storm
+  // that thunders across every room of a block stays one rumour, not twenty.
+  const area = areaName(zoneId);
+  add('storm', { zoneId, vars: { zone: area }, coalesceKey: `storm|${area}`, capGroup: 'weather' });
 });
 
 // ── Telling ─────────────────────────────────────────────────────────────────
@@ -259,8 +262,29 @@ registerAction({
 
 registerInputMatcher(/^ask\s+.+\s+about\s+(?:gossip|rumou?rs?|news|word)\s*$/i, cmdAskAbout, 'gossip');
 
-// ── Tick: gc + blackout news + ambient gossip ──────────────────────────────────
+// ── Tick: gc + blackout news + passphrase seed + ambient gossip ────────────────
 const lastPower = new Map();
+
+// Rarely put the shadow dealer's passphrase into circulation as an ask-only
+// secret. Asks the dealer plugin for the phrase live *this* rotation window
+// (dealer.passphrase action), so gossip never leaks a phrase that's already
+// expired. Falls back to the raw pool if the dealer plugin isn't loaded.
+async function seedPassphraseGossip() {
+  let dealer = null;
+  for (const npc of world.npcs.values()) {
+    if (npc?.npc_type === 'dealer' && npc.flags?.covert && Array.isArray(npc.flags?.passphrases) && npc.flags.passphrases.length) { dealer = npc; break; }
+  }
+  if (!dealer) return;
+  const rot = await dispatchAction({ type: 'dealer.passphrase', params: { npc: dealer } });
+  const phrase = rot?.active || dealer.flags.passphrases[0];
+  if (!phrase) return;
+  const dz = dealer.zone_id;
+  add('dealer_phrase', {
+    zoneId: dz, subjectName: 'the shadow dealer', coalesceKey: 'dealer_phrase', askOnly: true,
+    vars: { phrase },
+    lead: dz ? { kind: 'place', zoneId: dz, hint: `the figure works after dark around ${zn(dz)}` } : null,
+  });
+}
 
 function gossipTick() {
   pool.gc();
@@ -275,14 +299,17 @@ function gossipTick() {
     lastPower.set(e.zoneId, e.status);
   }
 
-  // Unprompted gossip — low chance, only in zones with a player watching.
+  if (Math.random() < PASSPHRASE_CHANCE) seedPassphraseGossip().catch(e => console.error('[gossip] passphrase seed:', e.message));
+
+  // Unprompted gossip — low chance, only in zones with a player watching. Ask-only
+  // items (e.g. the dealer passphrase) are excluded here; they surface only on ask.
   if (AMBIENT_CHANCE <= 0) return;
   for (const [zoneId, zone] of world.zones) {
     if (!zone.players || zone.players.size === 0) continue;
     if (Math.random() > AMBIENT_CHANCE) continue;
     const npcs = gossipNpcs(zoneId);
     if (!npcs.length) continue;
-    const [item] = pool.recall(zoneId, { n: 1, distanceFn: hopDistance });
+    const [item] = pool.recall(zoneId, { n: 1, distanceFn: hopDistance, filter: (i) => !i.askOnly });
     if (!item) continue;
     const line = spokenLine(item);
     if (line) sendToZone(zoneId, formatChitchat(npcs[Math.floor(Math.random() * npcs.length)].name, line));
@@ -299,6 +326,12 @@ export const routeHandler = async (path, method, body, auth) => {
   if (!auth || !['dev', 'admin', 'builder', 'designer'].includes(auth.role)) {
     return { status: 403, body: { error: 'Dev access required' } };
   }
+  if (method === 'DELETE') {
+    const parts = path.split('/').filter(Boolean);  // ['gossip', id?]
+    if (parts.length === 1) { const cleared = pool.size(); pool.clear(); return { status: 200, body: { ok: true, cleared } }; }
+    return { status: 200, body: { ok: pool.remove(decodeURIComponent(parts[1])) } };
+  }
+
   if (path === '/gossip' && method === 'GET') {
     const now = Date.now();
     const rows = pool.all().map((i) => ({

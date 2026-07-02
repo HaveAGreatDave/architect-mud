@@ -18,6 +18,11 @@ async function cmdTalk(targetStr, player, broadcast) {
     return { type:'output', message: formatSelectionPage({ allCandidates: r.candidates, visibleIndex: 0, pageSize: 5 }) };
   }
   const npc = r.candidate;
+  // Let a plugin claim this conversation (e.g. the shadow dealer waving in a
+  // returning customer who's already learned the passphrase). Returns undefined
+  // to fall through to normal dialogue/shop handling.
+  const talkHook = await fireHook('npc.talk', { player, npc, broadcast });
+  if (talkHook !== undefined) return talkHook;
   // A dealer away from their table's room (their work zone) won't run the poker
   // dialogue tree — off duty, they just make random dealer small talk instead.
   if (npc.npc_type === 'dealer' && npc.work_zone_id && npc.zone_id !== npc.work_zone_id) {

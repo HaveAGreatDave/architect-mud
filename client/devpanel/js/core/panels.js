@@ -17,17 +17,7 @@ const PANELS = {
     description: 'Live in-memory gossip — strongest (most recent + credible) first. Read-only; the pool clears on server restart.',
     noEdit: true,
     fetch: () => API('/gossip'),
-    columns: [
-      { key: 'strength', label: 'Str', render: v => (v ?? 0).toFixed(3) },
-      { key: 'category', label: 'Category' },
-      { key: 'subject', label: 'Subject' },
-      { key: 'zone', label: 'Zone' },
-      { key: 'text', label: 'On the street', render: v => `<span style="color:var(--text-dim)">${v || ''}</span>` },
-      { key: 'reach', label: 'Reach' },
-      { key: 'planted', label: 'Planted', render: v => v ? '🗣' : '' },
-      { key: 'truth', label: 'Truth', render: v => v == null ? '' : Number(v).toFixed(2) },
-      { key: 'age_s', label: 'Age', render: v => v >= 60 ? `${Math.floor(v / 60)}m ${v % 60}s` : `${v}s` },
-    ],
+    render: renderGossip,
   },
   zones: {
     title: 'Zones',
