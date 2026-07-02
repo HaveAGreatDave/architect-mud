@@ -7287,6 +7287,23 @@ body.esp-active #output {
 .poker-deck-card:nth-child(2) { top: -3px; left: -3px; }
 .poker-deck-card:nth-child(3) { top: -6px; left: -6px; }
 
+/* Riffle shuffle — deck plays this for one render at the start of each hand,
+   timed to the poker-shuffle synth cue (~0.45s). Cards fan out and snap back
+   in a staggered riffle instead of a plain reshuffle-in-place cut. */
+@keyframes poker-deck-riffle {
+	0%   { transform: translate(0, 0) rotate(0deg); }
+	20%  { transform: translate(-9px, -5px) rotate(-14deg); }
+	40%  { transform: translate(8px, -3px) rotate(11deg); }
+	60%  { transform: translate(-6px, 2px) rotate(-8deg); }
+	80%  { transform: translate(4px, 1px) rotate(5deg); }
+	100% { transform: translate(0, 0) rotate(0deg); }
+}
+.poker-deck.shuffling .poker-deck-card {
+	animation: poker-deck-riffle 0.45s ease-in-out both;
+}
+.poker-deck.shuffling .poker-deck-card:nth-child(2) { animation-delay: 0.03s; }
+.poker-deck.shuffling .poker-deck-card:nth-child(3) { animation-delay: 0.06s; }
+
 /* Seats — absolute positioned around the oval */
 .poker-seat {
 	position: absolute;
@@ -7631,9 +7648,12 @@ body.esp-active #output {
 }
 
 /* ── Money on the felt — bills & coins ─────────────────────────────────────── */
+/* Sized against the felt's own scale reference — the poker card (68x100px ≈ a
+   real 63.5x88.9mm card, so ~1.07px/mm). A real bill (156x66mm) and a large
+   coin (~30mm) come out to roughly these dimensions at that same scale. */
 .money-pile {
 	position: relative;
-	height: 16px;
+	height: 40px;
 	width: 0;          /* zero-width anchor; bills fan out from its center */
 	margin: 0 auto;
 }
@@ -7644,19 +7664,19 @@ body.esp-active #output {
 	top: 0;
 }
 .bill {
-	width: 22px;
-	height: 12px;
-	margin-left: -11px;
-	border-radius: 2px;
+	width: 60px;
+	height: 26px;
+	margin-left: -30px;
+	border-radius: 3px;
 	border: 1px solid rgba(0,0,0,0.6);
 	font-family: var(--font-mono);
-	font-size: 7px;
+	font-size: 13px;
 	font-weight: bold;
-	line-height: 12px;
+	line-height: 26px;
 	text-align: center;
 	color: rgba(255,255,255,0.95);
 	text-shadow: 0 1px 1px rgba(0,0,0,0.7);
-	box-shadow: 0 1px 2px rgba(0,0,0,0.5);
+	box-shadow: 0 2px 4px rgba(0,0,0,0.5);
 }
 .bill-100 { background: #2b2b3a; }
 .bill-50  { background: #6b3fa0; }
@@ -7664,14 +7684,14 @@ body.esp-active #output {
 .bill-10  { background: #2a6bb0; }
 .bill-5   { background: #b23b3b; }
 .coin {
-	width: 10px;
-	height: 10px;
-	margin-left: -5px;
-	margin-top: 1px;
+	width: 24px;
+	height: 24px;
+	margin-left: -12px;
+	margin-top: 2px;
 	border-radius: 50%;
 	background: radial-gradient(circle at 35% 30%, #ffe9a8, #c9962b 70%);
 	border: 1px solid #8a6a1e;
-	box-shadow: 0 1px 2px rgba(0,0,0,0.5);
+	box-shadow: 0 2px 4px rgba(0,0,0,0.5);
 }
 
 /* Bet piles — placed on the felt between each seat and the center */
@@ -7685,24 +7705,24 @@ body.esp-active #output {
 	pointer-events: none;
 }
 .bet-money .bet-amt {
-	font-size: 9px;
+	font-size: 11px;
 	color: var(--yellow);
 	text-shadow: 0 1px 2px #000;
 }
-.bet-north { top: 66px;    left: 50%; transform: translateX(-50%); }
-.bet-south { bottom: 66px; left: 50%; transform: translateX(-50%); }
-.bet-east  { right: 92px;  top: 50%;  transform: translateY(-50%); }
-.bet-west  { left: 92px;   top: 50%;  transform: translateY(-50%); }
+.bet-north { top: 84px;    left: 50%; transform: translateX(-50%); }
+.bet-south { bottom: 84px; left: 50%; transform: translateX(-50%); }
+.bet-east  { right: 116px; top: 50%;  transform: translateY(-50%); }
+.bet-west  { left: 116px;  top: 50%;  transform: translateY(-50%); }
 
 /* Center pot as a spread of bills */
 .poker-pot {
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	gap: 2px;
+	gap: 4px;
 }
 .pot-amt {
-	font-size: 11px;
+	font-size: 13px;
 	color: var(--yellow);
 	letter-spacing: 0.5px;
 }

@@ -23,13 +23,13 @@ function moneyPileHTML(amount, animClass = '') {
   const pieces = denominate(amount);
   if (!pieces.length) return '';
   const spreadCap = 11;
-  const step = 3;
+  const step = 7;
   const shown = Math.min(pieces.length, spreadCap);
   const base = -((shown - 1) * step) / 2;
   const items = pieces.map((v, i) => {
     const k = Math.min(i, spreadCap - 1);
     const dx = base + k * step;
-    const dy = -k * 1.5;
+    const dy = -k * 3;
     const rot = ((i * 47) % 15) - 7; // deterministic tilt — no jitter on re-render
     const style = `transform:translate(${dx}px,${dy}px) rotate(${rot}deg);z-index:${i};`;
     return v === 1
@@ -155,7 +155,8 @@ export function renderPane(table, viewerId) {
 
   // Clickable command bar. Labels use the natural word; data-cmd carries the
   // real (collision-free) verb — `sit`→`seat`, `watch`→`spectate`. Amount verbs
-  // prefill the input instead of firing. Disabled buttons show but don't relay.
+  // (data-fill) prompt for the amount before firing. Disabled buttons show but
+  // don't relay.
   function pbtn(label, cmd, { fill = false, disabled = false, highlight = false } = {}) {
     if (disabled) return `<button class="poker-cmd disabled" disabled>${label}</button>`;
     const attr = fill ? `data-fill="${cmd} "` : `data-cmd="${cmd}"`;
@@ -176,6 +177,7 @@ export function renderPane(table, viewerId) {
       parts.push(pbtn('all-in','allin', { disabled: !myTurn }));
       // One-click ways to fill the table: an AI opponent, or the dealer if he's stepped away.
       if (!game && table.openSeats() > 0) parts.push(pbtn('call AI', 'summon'));
+      if (!game && table.seats.some(s => s && s.isBot)) parts.push(pbtn('evict AI', 'evict'));
       if (!table.hasDealer()) parts.push(pbtn('call dealer', 'calldealer', { highlight: true }));
       parts.push(pbtn('leave', 'leave'));
     } else {
@@ -203,7 +205,7 @@ export function renderPane(table, viewerId) {
   );
 
   const deckHTML = `
-    <div class="poker-deck">
+    <div class="poker-deck${table._shuffleAnim ? ' shuffling' : ''}">
       <div class="poker-deck-card"></div>
       <div class="poker-deck-card"></div>
       <div class="poker-deck-card"></div>

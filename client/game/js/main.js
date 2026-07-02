@@ -534,17 +534,18 @@ if (locDpad) {
 
 // Poker command bar — buttons live in the area pane (re-rendered on every poker
 // update, so this is delegated). data-cmd relays the real verb (labels may be
-// aliases, e.g. "sit"→seat, "watch"→spectate); data-fill prefills the input for
-// amount verbs (bet/raise) rather than firing an incomplete command.
+// aliases, e.g. "sit"→seat, "watch"→spectate); data-fill is an amount verb
+// (bet/raise) — prompt for the amount and fire the full command.
 document.getElementById("area-content")?.addEventListener("click", (e) => {
 	const btn = e.target.closest(".poker-cmd");
 	if (!btn) return;
 	if (btn.dataset.fill != null) {
-		const input = document.getElementById("cmd-input");
-		if (input) {
-			input.value = btn.dataset.fill;
-			input.focus();
-		}
+		const cmd = btn.dataset.fill.trim();
+		const amount = window.prompt(`${cmd[0].toUpperCase()}${cmd.slice(1)} how much?`);
+		if (amount == null) return;
+		const n = parseInt(amount, 10);
+		if (!n) return;
+		sendCmd(`${cmd} ${n}`);
 	} else if (btn.dataset.cmd) {
 		sendCmd(btn.dataset.cmd);
 	}

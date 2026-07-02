@@ -11,6 +11,9 @@
 import { handlers as doorHandlers } from '../../server/engine/commands/doors.js';
 import { registerLockType } from '../../server/engine/locks.js';
 import { query } from '../../server/models/db.js';
+import { getApartment, getZone } from '../../server/engine/world.js';
+import { exitTargets } from '../../server/engine/exits.js';
+import { playerControlsApt } from '../../server/engine/apartments.js';
 
 registerLockType('hololock', {
   tagType: 'lock:hololock',
@@ -24,11 +27,14 @@ registerLockType('hololock', {
     },
   },
   authFn: async (lockTag, door, player) => {
-    const { rows } = await query(
-      'SELECT 1 FROM apartments WHERE zone_id=$1 AND owner_id=$2',
-      [door.zone_id, player.id]
-    );
-    return rows.length > 0;
+    // A door may be anchored on either side of the exit (see doorFarIds in
+    // apartments.js) — check the apartment whichever side it's on.
+    const farIds = door.target_zone ? [door.target_zone] : exitTargets(getZone(door.zone_id), door.exit_dir);
+    for (const zid of [door.zone_id, ...farIds]) {
+      const apt = getApartment(zid);
+      if (apt && playerControlsApt(player, apt)) return true;
+    }
+    return false;
   },
 });
 

@@ -333,6 +333,33 @@ async function cmdSummon(args, raw, player) {
   return { type: 'output', message: `<span style="color:var(--yellow)">${npc.name} pulls out a chair and sits down.</span>` };
 }
 
+// `evict` — send a seated AI opponent packing (between hands only; folding a
+// bot out mid-hand would just be a slower path to the same seat-clear, so
+// simplest to block it and let the hand finish first). Mirrors cmdSummon's
+// "take a seat first" gate for symmetry.
+async function cmdEvict(args, raw, player) {
+  const t = tableForPlayer(player);
+  if (!t || t.seatedIndex(player.id) < 0) return { type: 'error', message: 'Take a seat first, then evict a gambler.' };
+  if (t.phase === 'InProgress') return { type: 'error', message: "You can't evict anyone mid-hand." };
+
+  const bots = t.seats.filter(s => s && s.isBot);
+  if (!bots.length) return { type: 'error', message: 'No AI players at this table.' };
+
+  let seat;
+  const name = args.join(' ').trim();
+  if (name) {
+    const r = siftResolve(name, bots.map(s => ({ name: s.handle, seat: s })));
+    if (r.type !== 'match') return { type: 'error', message: 'No AI player you know by that name.' };
+    seat = r.candidate.seat;
+  } else {
+    seat = bots[0];
+  }
+
+  await t.leaveTable(seat.playerId);
+  t.pushPaneAll();
+  return { type: 'output', message: `<span style="color:var(--yellow)">${seat.handle} racks his chips and steps back from the table.</span>` };
+}
+
 // Find the NPC actually assigned to this table (explicit dealerNpcId, or
 // tagged flags.table_id) — searched world-wide so he can be called back even
 // if he's wandered off. Deliberately does NOT fall back to "any npc_type
@@ -487,11 +514,12 @@ function pokerHelpHTML(t) {
     `  ${y('raise &lt;amt&gt;')}  raise the bet to &lt;amt&gt;`,
     `  ${y('fold')}         throw your hand away`,
     `  ${y('all-in')}       shove your whole stack`,
-    `  <i>…or click the action buttons; </i>${y('bet')}<i>/</i>${y('raise')}<i> fill the box so you type the amount.</i>`,
+    `  <i>…or click the action buttons; </i>${y('bet')}<i>/</i>${y('raise')}<i> pop up a prompt for the amount.</i>`,
     ``,
     h(`NEED PEOPLE?`),
     `  ${y('summon')}        call any gambler over — bare (or the</i> ${y('call AI')} <i>button) picks whoever's free`,
     `  ${y('summon &lt;name&gt;')}  call a specific gambler by name (also: ${y('deal in &lt;name&gt;')})`,
+    `  ${y('evict')}         send the AI opponent packing (also: ${y('evict &lt;name&gt;')})`,
     `  ${y('call dealer')}   no dealer? call him back to his post (also: ${y('calldealer')})`,
     ``,
     h(`INFO & OUT`),
@@ -622,11 +650,53 @@ async function clearAllTables() {
   return { tables, cleared };
 }
 
+// Dev panel "Games" section — live table roster + blind editing.
+const DEVPANEL_ROLES = ['dev', 'admin', 'builder', 'designer'];
+
+function listTables() {
+  return [...activeTables.values()].map(t => ({
+    id: t.id,
+    name: t.name,
+    zoneId: t.zoneId,
+    zoneName: getZone(t.zoneId)?.name || t.zoneId,
+    phase: t.phase,
+    smallBlind: t.config.smallBlind || 10,
+    bigBlind: t.config.bigBlind || 20,
+    buyIn: t.config.buyIn || t.config.minBuyIn || 100,
+    dealerName: t.dealerName(),
+    spectatorCount: t.spectators.size,
+    seats: t.seats.map((s, seatIdx) => s && {
+      seatIdx, handle: s.handle, isBot: !!s.isBot, chips: s.chips,
+    }),
+  }));
+}
+
 export async function routeHandler(path, method, body, auth) {
-  if (path !== '/gametable/clear-all' || method !== 'POST') return null;
-  if (!auth || auth.role !== 'admin') return { status: 403, body: { error: 'Admin access required' } };
-  const result = await clearAllTables();
-  return { status: 200, body: { ok: true, ...result } };
+  if (path === '/gametable/clear-all' && method === 'POST') {
+    if (!auth || auth.role !== 'admin') return { status: 403, body: { error: 'Admin access required' } };
+    const result = await clearAllTables();
+    return { status: 200, body: { ok: true, ...result } };
+  }
+
+  if (path === '/gametable/tables' && method === 'GET') {
+    if (!auth || !DEVPANEL_ROLES.includes(auth.role)) return { status: 403, body: { error: 'Access required' } };
+    return { status: 200, body: listTables() };
+  }
+
+  const blindsMatch = path.match(/^\/gametable\/tables\/([^/]+)\/blinds$/);
+  if (blindsMatch && method === 'POST') {
+    if (!auth || auth.role !== 'admin') return { status: 403, body: { error: 'Admin access required' } };
+    const t = activeTables.get(blindsMatch[1]);
+    if (!t) return { status: 404, body: { error: 'Table not found' } };
+    const smallBlind = parseInt(body?.smallBlind, 10);
+    const bigBlind = parseInt(body?.bigBlind, 10);
+    if (!Number.isFinite(smallBlind) || smallBlind <= 0) return { status: 400, body: { error: 'Invalid small blind' } };
+    if (!Number.isFinite(bigBlind) || bigBlind <= smallBlind) return { status: 400, body: { error: 'Big blind must be greater than small blind' } };
+    await t.setConfig({ smallBlind, bigBlind });
+    return { status: 200, body: { ok: true } };
+  }
+
+  return null;
 }
 
 // ── Exports ────────────────────────────────────────────────────────────────────
@@ -648,6 +718,7 @@ export const commands = {
   call:      cmdCall,
   deal:      cmdSummon,
   summon:    cmdSummon,
+  evict:     cmdEvict,
   calldealer: cmdCallDealer,
   bet:       cmdBet,
   raise:     cmdRaise,

@@ -128,6 +128,7 @@ export class GameTable {
     // One-render animation flags (consumed by pushPaneAll, like game.dealPhase)
     this._betAnimPlayer = null;  // playerId whose bet pile should toss in
     this._sweepAnim = false;     // pot pile plays the sweep-in animation
+    this._shuffleAnim = false;   // deck plays the riffle animation
 
     // Auto-start timer handle
     this._autoStartTimer = null;
@@ -393,6 +394,7 @@ export class GameTable {
 
     this._pushSfx('shuffle');
     this._pushSfx('deal');
+    this._shuffleAnim = true;
     this.pushPaneAll();
     this._promptOrRunout();
     this._lastPersist = 0; // force persist on next tick
@@ -615,6 +617,7 @@ export class GameTable {
     if (this.game) this.game.dealPhase = false;
     this._betAnimPlayer = null;
     this._sweepAnim = false;
+    this._shuffleAnim = false;
   }
 
   // Push a poker sound-effect cue. Without playerId it goes to everyone watching
@@ -878,6 +881,14 @@ export class GameTable {
   _removeLonelyBots() {
     if (this.seats.some(s => s && !s.isBot)) return;
     for (const s of this.seats.filter(s => s && s.isBot)) this.leaveTable(s.playerId);
+  }
+
+  // Dev-panel config edit (blinds, buy-in, …) — merges into the live config so
+  // it takes effect on the next hand, and persists so it survives a restart.
+  async setConfig(patch) {
+    Object.assign(this.config, patch);
+    await query('UPDATE game_tables SET config=$1 WHERE id=$2', [JSON.stringify(this.config), this.id])
+      .catch(e => console.error('[gametable] config persist error:', e.message));
   }
 
   async _persist() {

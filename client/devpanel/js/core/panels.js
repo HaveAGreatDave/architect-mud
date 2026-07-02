@@ -279,6 +279,13 @@ const PANELS = {
     noEdit: true,
     render: renderPlayersPanel,
   },
+  games: {
+    title: 'Games',
+    description: 'Live poker tables — who\'s seated, blind levels, and table recovery.',
+    fetch: () => directAPI('/gametable/tables'),
+    noEdit: true,
+    render: renderGamesPanel,
+  },
   validator: {
     title: 'Zone Validator',
     description: 'Cross-reference zones and content for broken exits, missing references, and bad data.',

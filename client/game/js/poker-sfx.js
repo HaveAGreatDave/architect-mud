@@ -79,22 +79,23 @@ const FOLD = {
   },
 };
 
-// Ascending major fanfare that stacks into a bright chord — round winner.
+// Warm ascending chord that blooms softly — round winner. Triangle/sine only
+// (no square — that's what made the old fanfare buzzy/harsh), gentle attack
+// and a long tail so it feels muted and pleasant rather than jumping out.
 const WIN = {
   id: 'poker-win', name: 'poker win', category: 'sfx', priority: 8,
   config: {
-    duration: 0.85,
+    duration: 1.0,
     layers: [
       [523.25, 0],    // C5
-      [659.25, 0.11], // E5
-      [783.99, 0.22], // G5
-      [1046.5, 0.36], // C6
+      [659.25, 0.09], // E5
+      [783.99, 0.18], // G5
     ].flatMap(([freq, delay]) => ([
-      { waveform: 'square', freq, delay,
-        filter: { type: 'lowpass', freq: 5000, q: 0.7 },
-        adsr: { a: 0.01, d: 0.08, s: 0.45, r: 0.35 }, gain: 0.24 },
-      { waveform: 'triangle', freq: freq * 2, delay,
-        adsr: { a: 0.01, d: 0.1, s: 0.3, r: 0.3 }, gain: 0.12 },
+      { waveform: 'triangle', freq, delay,
+        filter: { type: 'lowpass', freq: 2200, q: 0.5 },
+        adsr: { a: 0.03, d: 0.18, s: 0.35, r: 0.55 }, gain: 0.2 },
+      { waveform: 'sine', freq: freq * 2, delay: delay + 0.02,
+        adsr: { a: 0.04, d: 0.2, s: 0.15, r: 0.45 }, gain: 0.07 },
     ])),
   },
 };
