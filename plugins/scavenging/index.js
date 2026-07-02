@@ -14,10 +14,11 @@
 
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
-import { getZone, getAllLivePlayers, getLivePlayer, setLivePlayer } from '../../server/engine/world.js';
+import { getZone, getAllLivePlayers, getLivePlayer } from '../../server/engine/world.js';
 import { effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { on } from '../../server/engine/events.js';
+import { setPosture, forceStand } from '../../server/engine/posture.js';
 
 const ATTEMPT_MS = 3500;   // per-attempt cadence, sibling to the attack cooldown
 const MAX_SWING = 14;      // best possible 2d8-2d8 roll — reachability ceiling
@@ -155,19 +156,20 @@ function flavorPools(table) {
 function out(pid, message) { sendToPlayer(pid, { type: 'output', message }); }
 
 // Advance scavengeState bookkeeping; no-op if the player is no longer scavenging.
+// Mutates in place — clone-and-replace would orphan references the game loop
+// (and our in-place posture writes) still hold.
 function advanceState(pid, patch) {
   const cur = getLivePlayer(pid);
   if (!cur || cur.posture !== 'scavenging') return;
-  setLivePlayer(pid, { ...cur, scavengeState: { ...cur.scavengeState, ...patch } });
+  cur.scavengeState = { ...cur.scavengeState, ...patch };
 }
 
 // End the action: drop back to standing, clear state, and tell the room.
 function stopScavenging(pid, zoneId, handle) {
   const cur = getLivePlayer(pid);
   if (!cur || cur.posture !== 'scavenging') return;
-  const next = { ...cur, posture: 'standing', sittingOn: null };
-  delete next.scavengeState;
-  setLivePlayer(pid, next);
+  forceStand(cur, 'scavenging.stop');
+  delete cur.scavengeState;
   sendToZone(zoneId, { type: 'zone_event', message: `${handle} stops scavenging.` }, pid);
 }
 
@@ -254,11 +256,7 @@ async function scavengeTick() {
       } else if (st) {
         // Posture was cleared out from under us (moved / attacked / stood). Clean up.
         const cur = getLivePlayer(player.id);
-        if (cur && cur.scavengeState) {
-          const next = { ...cur };
-          delete next.scavengeState;
-          setLivePlayer(player.id, next);
-        }
+        if (cur) delete cur.scavengeState;
         out(player.id, 'You stop scavenging.');
       }
     }
@@ -298,12 +296,8 @@ async function cmdScavenge(args, raw, player, broadcast) {
   const pools = flavorPools(loaded.table);
   // Enter the scavenging posture. lastAttempt is back-dated so the first attempt
   // fires on the very next tick (immediate feedback for empty / no-shot zones).
-  setLivePlayer(player.id, {
-    ...player,
-    posture: 'scavenging',
-    sittingOn: null,
-    scavengeState: { zoneId: player.current_zone, streak: 0, lastAttempt: Date.now() - ATTEMPT_MS },
-  });
+  setPosture(player, 'scavenging');
+  player.scavengeState = { zoneId: player.current_zone, streak: 0, lastAttempt: Date.now() - ATTEMPT_MS };
   broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} ${pick(pools.broadcast)}` }, player.id);
   return { type: 'emote', message: 'You start scavenging the area, digging for anything worth taking.' };
 }

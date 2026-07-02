@@ -53,7 +53,8 @@ error between the two steps can't tear them:
 
 ## Vendors
 
-[vendor.js](../server/engine/vendor.js), driven by `shop`/`buy`/`sell`.
+[vendor.js](../server/engine/vendor.js), driven by the `shop`/`buy`/`sell` verbs — owned by the
+**commerce plugin** ([plugins/commerce/index.js](../plugins/commerce/index.js)); vendor services stay engine.
 
 - **Stock** comes from the NPC's `vendor_inventory` JSON — an array of `{ "item_id": "<id>", "price"?: <int>, "stock"?: <int> }`.
   Only `item_id` is required (the exact snake_case key — a `itemId` typo silently yields no stock; the NPC editor

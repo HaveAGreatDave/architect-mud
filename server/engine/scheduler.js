@@ -48,6 +48,17 @@ export function schedule(cadence, callback) {
   cadences.get(cadence).callbacks.push(callback);
 }
 
+// Remove a previously scheduled callback (e.g. a plugin tearing down).
+// The shared interval keeps running for the cadence's other subscribers.
+export function unschedule(cadence, callback) {
+  const entry = cadences.get(cadence);
+  if (!entry) return false;
+  const idx = entry.callbacks.indexOf(callback);
+  if (idx === -1) return false;
+  entry.callbacks.splice(idx, 1);
+  return true;
+}
+
 export function stopAll() {
   for (const { timer } of cadences.values()) clearInterval(timer);
   cadences.clear();

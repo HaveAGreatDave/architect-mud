@@ -8,7 +8,7 @@ shipped; where the running code diverges from the plan, this file is the source 
 Primary files: [combat.js](../server/engine/combat.js) (combat math, cooldowns, enemy swings),
 [plugins/weapon/index.js](../plugins/weapon/index.js) (**player-initiated combat** — target resolution,
 player swing, kill/corpse handling, sleep-kills), [commands/combat.js](../server/engine/commands/combat.js)
-(loot/steal), [gameLoop.js](../server/engine/gameLoop.js), [skills.js](../server/engine/skills.js),
+(loot; `steal` lives in [plugins/thievery](../plugins/thievery/index.js)), [gameLoop.js](../server/engine/gameLoop.js), [skills.js](../server/engine/skills.js),
 [tunables.js](../server/engine/tunables.js). The gameLoop's 1s auto-attack tick reaches the plugin's
 swing functions through `registerPlayerCombat` (engine combat.js) — raw function references injected at
 plugin load, never the Action dispatcher (ADR-0001).

@@ -1,0 +1,12 @@
+{
+  "name": "mis",
+  "version": "1.0.0",
+  "description": "Mature Interaction System — opt-in sexual interaction verbs, horniness/arousal, climax events, wash, MIS-gated appearance notes. The engine keeps only the consent flag (server/engine/mis.js).",
+  "hooks": ["player.appearanceMisNotes"],
+  "commands": [
+    "mis", "touch", "grope", "squeeze", "kiss", "lick", "fondle", "slap",
+    "stroke", "masturbate", "jerkoff", "jackoff", "rubself", "fingerself",
+    "suck", "fuck", "sex", "screw", "rail", "bang", "breed",
+    "blowjob", "bj", "handjob", "hj", "ejaculate", "cum", "come", "wash"
+  ]
+}

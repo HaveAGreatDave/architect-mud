@@ -7,6 +7,9 @@ import { checkLockAuth, getLockTagPublic } from './doors.js';
 import { emit } from '../events.js';
 import { closeShopSession } from '../vendor-session.js';
 import { computeCarriedWeight, carryCapacity, formatWeight } from './inventory.js';
+import { OPPOSITE } from '../directions.js';
+import { forceStand } from '../posture.js';
+import { registerMoveGate, runMoveGates } from '../movement-gates.js';
 
 const RAW_DIRECTIONS = ['north', 'south', 'east', 'west', 'up', 'down', 'in', 'out', 'exit'];
 
@@ -17,6 +20,32 @@ const RAW_DIRECTIONS = ['north', 'south', 'east', 'west', 'up', 'down', 'in', 'o
 const WIND_MOVE_SEVERITY = 0.4;   // min local severity before a move costs extra
 const WIND_MOVE_BASE     = 4;
 const WIND_MOVE_SPAN     = 16;    // → ~10 stamina at sev 0.4, ~20 at sev 1.0
+
+// ── Engine move gates (the law layer) ────────────────────────────────────────
+// Registered through the same chain plugins use (registerMoveGate), so engine
+// laws and plugin gates run in one ordered, listable pipeline. Gates are pure;
+// door open/close side effects happen in cmdMove after every gate passes.
+
+// Locked doors block unless the player's lock auth clears them.
+registerMoveGate(async ({ player, direction, door }) => {
+  if (!door || door.hp <= 0 || door.lock_state !== 'locked') return;
+  const lockTag = getLockTagPublic(door);
+  const canPass = lockTag && await checkLockAuth(lockTag, door, player);
+  if (!canPass) return { block: true, message: `The door to the ${direction} is locked.` };
+}, 'engine:door-lock');
+
+// Encumbrance blocks the move — the law lives at movement, not acquisition
+// (you can hold the weight; you can't walk with it — that gap is what makes
+// the corpse-mule pattern possible). opts.bypassEncumbrance is the named
+// exemption system moves (shove, .gohome) pass.
+registerMoveGate(async ({ player, opts }) => {
+  if (opts?.bypassEncumbrance) return;
+  const carried = await computeCarriedWeight(player);
+  const cap = carryCapacity(player);
+  if (carried > cap) {
+    return { block: true, message: `You're carrying too much to move (${formatWeight(carried)}/${formatWeight(cap)}). Drop something.` };
+  }
+}, 'engine:encumbrance');
 
 function buildArriveMsg(name, arrivalDir, sourceZoneName) {
   if (arrivalDir === 'out') return `${name} arrives from outside.`;
@@ -221,31 +250,25 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
   const targetZone = getZone(targetId);
   if (!targetZone) return { type:'error', message:'That exit leads nowhere yet.' };
 
-  const OPPOSITE = { north:'south', south:'north', east:'west', west:'east', up:'down', down:'up', in:'out', out:'in' };
-  let doorWasClosed = false;
-  let doorWasLocked = false;
   // Door may be on either side: in this zone going out, or in the target zone going back
   let door = getDoorForExit(zone.id, direction) || getDoorForExit(targetId, OPPOSITE[direction]) || null;
+
+  // Gate chain: pure vetoes (engine laws below + plugin-registered gates) run
+  // before anything mutates. Previously the door opened before the encumbrance
+  // check could veto, leaving it standing open on a blocked move.
+  const veto = await runMoveGates({ player, from: zone, to: targetZone, direction, door, opts });
+  if (veto) return { type:'error', message: veto.message };
+
+  let doorWasClosed = false;
+  let doorWasLocked = false;
   if (door && door.hp > 0) {
-    if (door.lock_state === 'locked') {
-      const lockTag = getLockTagPublic(door);
-      const canPass = lockTag && await checkLockAuth(lockTag, door, player);
-      if (!canPass) return { type:'error', message:`The door to the ${direction} is locked.` };
-      doorWasLocked = true;
-    }
+    // Gates passed — a still-locked door means the player has auth to pass it.
+    doorWasLocked = door.lock_state === 'locked';
     if (!door.is_open) {
       doorWasClosed = true;
       door.is_open = 1;
       setDoorCache(door.id, door);
       await query('UPDATE doors SET is_open=1 WHERE id=$1', [door.id]);
-    }
-  }
-
-  if (!opts.bypassEncumbrance) {
-    const carried = await computeCarriedWeight(player);
-    const cap = carryCapacity(player);
-    if (carried > cap) {
-      return { type:'error', message:`You're carrying too much to move (${formatWeight(carried)}/${formatWeight(cap)}). Drop something.` };
     }
   }
 
@@ -257,10 +280,8 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
   player.current_zone = targetId;
   emit('zone.entered', { actor: player, zone: targetId, from: oldZoneId });
   player.combatTargetId = null;
-  const wasSitting = player.posture === 'sitting';
-  player.posture = 'standing';
-  player.sittingOn = null;
-  if (wasSitting) {
+  const interrupted = forceStand(player, 'moved');
+  if (interrupted === 'sitting') {
     broadcast(null, { type: 'emote', message: 'You stand up.' }, null, player.id);
     broadcast(oldZoneId, { type: 'zone_event', message: `${player.handle} stands up.` }, player.id);
   }

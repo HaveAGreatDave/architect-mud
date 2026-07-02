@@ -2,15 +2,16 @@
 
 ## Overview
 
-Commands enter via WebSocket (`{ type: "command", command: "..." }`), routed through `server/engine/commands/index.js`, which dispatches to domain handler files. The dispatch chain:
+Commands enter via WebSocket (`{ type: "command", command: "..." }`), routed through `server/engine/commands/index.js`. The dispatch chain:
 
 1. **SIFT intercept** — if the player has an active selection state, handle their response (number, next/prev, cancel).
 2. **Sleep intercept** — wake the player if sleeping, then re-run the command.
-3. **Multi-word MIS intercepts** (`jerk off on`, `eat out`) — regex-matched before normal parsing.
+3. **Input matchers** (`fireInputMatchers`) — regex against the raw line, for multi-word verbs (`registerInputMatcher`; e.g. the MIS plugin's `jerk off on` / `eat out`).
 4. **Plugin commands** (`fireCommand`).
-5. **Specialized actions** (`fireSpecializedAction`) — tag-gated (doors, containers, food, weapons, etc.).
-6. **Cosmetic machine pre-intercept** for `use`.
-7. **Builtins** — the `Map` built from all domain handler exports.
+5. **Specialized actions** (`fireSpecializedAction`) — tag- or self-gated (doors, containers, food, weapons, cosmetic machine, toilets…).
+6. **Builtins** — the `Map` built from the engine domain handler exports.
+
+There are no per-verb special cases in the pipeline; anything that used to be one (the cosmetic-machine `use` pre-intercept, the MIS regexes) now registers through steps 3–5.
 
 ---
 
@@ -38,12 +39,18 @@ Used for all non-combat entity lookup. Fuzzy scoring with a paged disambiguation
 ### Selection State (disambiguation UI)
 
 When SIFT returns `ambiguous`:
-1. Call `createSelectionState(player.id, candidates, { verb })` — stores state keyed by player id, expires after 60s.
+1. Call `createSelectionState(player.id, candidates, context)` — stores state keyed by player id, expires after 60s.
 2. Return the formatted page: `formatSelectionPage({ allCandidates, visibleIndex: 0, pageSize: 5 })`.
 3. The player types a number (1–5), `next`, `prev`, or `cancel`.
-4. `index.js` intercepts the next command via `advanceSelectionState` and replays the original command with the chosen candidate's name.
+4. `index.js` intercepts the next command via `advanceSelectionState` and replays the pick.
 
-The stored `verb` must be a key present in the `builtins` map so the handler can be looked up for replay. If it isn't (e.g. multi-word commands like `jerk off on`), skip the disambiguation UI and return a "be more specific" error instead.
+**Replay routes — pick the right context:**
+- **Plugin verbs (the default):** `{ dispatchType: 'myplugin.my_action', dispatchParam: 'target' }` —
+  the pick is dispatched as an Action with the chosen candidate object as `params.target`. Register the
+  Action in your plugin (examples: `thievery.steal`, `commerce.buy_item`, `bodily.pee_target`,
+  `gametable.watch_choice`).
+- **Engine builtins only:** `{ verb }` — replays through `builtins.get(verb)` with the candidate's
+  *name*. This route cannot reach plugin verbs; using it for one is the classic silent-breakage trap.
 
 ---
 
@@ -78,7 +85,7 @@ const pool = getZonePlayers(player.current_zone)
 const r = siftResolve(targetStr, pool);
 if (r.type === 'none')      return { type:'error', message:`Can't find "${targetStr}" here.` };
 if (r.type === 'ambiguous') {
-  createSelectionState(player.id, r.candidates, { verb: 'give' });
+  createSelectionState(player.id, r.candidates, { dispatchType: 'myplugin.my_action', dispatchParam: 'target' });
   return { type:'output', message: formatSelectionPage({ allCandidates: r.candidates, visibleIndex: 0, pageSize: 5 }) };
 }
 const target = r.candidate; // has .handle, .id, etc. — the spread preserves all player fields
@@ -112,27 +119,29 @@ const target = result.candidate; // auto-selected by FATE, no UI
 
 | Command file | Entity type | Resolution |
 |---|---|---|
-| `plugins/weapon/index.js` | Enemies (attack) | FATE via `resolveForCommand` |
-| `plugins/weapon/index.js` | Players (attack) | SIFT with disambiguation UI; replay via `dispatchType: 'ATTACK'` (plugin verbs aren't covered by the builtin replay path) |
-| `combat.js` | Players (loot, steal) | SIFT with disambiguation UI |
-| `social.js` | NPCs (talk) | SIFT with disambiguation UI |
-| `social.js` | Players (obama) | SIFT with disambiguation UI |
-| `economy.js` | NPCs (shop) | SIFT with disambiguation UI |
-| `economy.js` | Vendor stock items (buy) | SIFT with disambiguation UI |
+| `plugins/weapon` | Enemies (attack) | FATE via `resolveForCommand` |
+| `plugins/weapon` | Players (attack) | SIFT UI; replay via `dispatchType: 'ATTACK'` |
+| `plugins/thievery` | Players (steal) | SIFT UI; replay via `thievery.steal` Action |
+| `plugins/commerce` | NPCs (shop) / stock items (buy) | SIFT UI; replay via `commerce.shop_vendor` / `commerce.buy_item` Actions |
+| `plugins/bodily` | Players (pee/poop on target) | SIFT UI; replay via `bodily.pee_target` / `bodily.poop_target` Actions |
+| `plugins/mis` | Players (all MIS targeting) | SIFT via its `resolveTarget` helpers |
+| `combat.js` | Players (loot) | SIFT with disambiguation UI |
+| `social.js` | NPCs (talk), players (obama) | SIFT with disambiguation UI |
 | `world.js` | Enemies + NPCs + players (examine) | SIFT with disambiguation UI, combined pool |
 | `inventory.js` | Items (take, drop) | SIFT via `dispatchType/dispatchParam`; `drop all` → `confirm` result (`drop __allconfirm`, sheds everything incl. equipped); `drop all <filter>` → `matchAll`, drops every match with no prompt. Equipped items are included and `recomputeArmor`/`recomputeInsulation` re-run if any dropped item was equipped |
 | `inventory.js` | Players (give) | SIFT scoring only, error on ambiguous |
 | `housing.js` | Windows (open, close) | SIFT with disambiguation UI |
-| `bodily.js` | Players (pee, poop on target) | SIFT with disambiguation UI |
-| `mis.js` | Players (all MIS targeting) | SIFT via `resolveTarget`/`resolveTargetMis` |
 
 ---
 
 ## Adding a New Command
 
-1. Add a handler function to the appropriate domain file (or a new one).
-2. Export it in that file's `handlers` object.
-3. If it takes a named target: use `siftResolve` for the lookup, never `.find()` + `.includes()`.
-4. If targeting players specifically: map `handle → name` before passing to SIFT (see player pattern above).
+1. **New verbs belong in a plugin** (CLAUDE.md: engine builtins are for core verbs only). Export it in
+   the plugin's `commands` object and declare it in `plugin.json`; add a `regress.js` check.
+2. If it takes a named target: use `siftResolve` for the lookup, never `.find()` + `.includes()`.
+3. If targeting players specifically: map `handle → name` before passing to SIFT (see player pattern above).
+4. Ambiguous picks from a plugin verb replay via `dispatchType`/`dispatchParam` + a registered Action —
+   never `{ verb }` (that route only reaches builtins).
 5. If the command has complex args that would break on replay: use SIFT scoring but return "be more specific" on ambiguous.
 6. If it's a new combat verb (should use FATE): add it to `COMBAT_VERBS` in `sift.js` and use `resolveForCommand`.
+7. Run `npm run test:regress` before deploying.

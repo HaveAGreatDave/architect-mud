@@ -1,0 +1,7 @@
+{
+  "name": "thievery",
+  "version": "1.0.0",
+  "description": "Pocket-picking live players — Deception check, persistent 60s cooldown (Flag store).",
+  "hooks": [],
+  "commands": ["steal"]
+}

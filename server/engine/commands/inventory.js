@@ -8,7 +8,6 @@ import { getZonePlayers } from '../world.js';
 import { resolve as siftResolve, matchAll as siftMatchAll, createSelectionState, formatSelectionPage } from '../sift.js';
 import { fireSpecializedAction } from '../specializedActions.js';
 import { resolveCorpseOrPlayer, buildLootView } from './combat.js';
-import { openCosmeticMachine } from './appearance.js';
 
 // Throttle: only broadcast "rummages in container" once per 30s per player.
 const _ctrBroadcastTs = new Map();
@@ -260,7 +259,10 @@ async function cmdUseFurniture(targetStr, player, broadcast) {
     }
   }
 
-  if (f.object_type === 'cosmetic_machine') return openCosmeticMachine(player);
+  // Cosmetic machines open via the plugin-registered Action (no import coupling).
+  if (f.object_type === 'cosmetic_machine') {
+    return dispatchAction({ type: 'cosmetic.open', actor: player, params: {}, context: { broadcast } });
+  }
 
   return { type:'error', message:`You can't use ${f.name} like that.` };
 }

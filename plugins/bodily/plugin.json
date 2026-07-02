@@ -1,0 +1,7 @@
+{
+  "name": "bodily",
+  "version": "1.0.0",
+  "description": "Bowel/bladder pressure simulation (1m tick), involuntary release, pee/poop/flush verbs, toilet/sink use panels. Stains + digestion loads stay engine (server/engine/bodily.js substrate).",
+  "hooks": [],
+  "commands": ["pee", "urinate", "piss", "poop", "defecate", "shit", "flush"]
+}

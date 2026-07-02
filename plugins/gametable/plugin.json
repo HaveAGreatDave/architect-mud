@@ -2,6 +2,7 @@
   "name": "gametable",
   "description": "Multiplayer card game tables. Texas Hold'em is the first game; framework supports future expansion.",
   "version": "1.0.0",
+  "after": ["broadcast", "interactions"],
   "hooks": ["zone.furniturePanel"],
   "routePrefix": "/gametable",
   "commands": [

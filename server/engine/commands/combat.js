@@ -1,9 +1,9 @@
 import { query } from "../../models/db.js";
-import { getZoneCorpses, getZonePlayers, getLivePlayer, getCorpse, getApartment } from "../world.js";
+import { getZoneCorpses, getZonePlayers, getCorpse } from "../world.js";
+import { getZoneProtection } from "../protection.js";
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from "../sift.js";
 import { awardSkillUse, skillCheck } from "../skills.js";
 import { isStackable } from "../tags.js";
-import { adjustCredits } from "../economy.js";
 import { randomUUID } from "crypto";
 
 // Resolve a corpse in the player's current zone by id (preferred, from a click)
@@ -118,8 +118,7 @@ async function cmdLootCorpse(targetStr, player, broadcast) {
 		if (rows.length) targetPlayer = rows[0];
 	}
 	if (!targetPlayer) return { type: "error", message: "No corpse to loot here." };
-	const lootProtectedApt = getApartment(player.current_zone);
-	if (lootProtectedApt?.forcefield_active) {
+	if (getZoneProtection(player.current_zone)) {
 		return { type: "error", message: `A quantum forcefield crackles between you and ${targetPlayer.handle}. You can't touch them.` };
 	}
 
@@ -266,92 +265,14 @@ async function cmdLootId(args, player) {
 	return view;
 }
 
-const STEAL_COOLDOWN_MS = 60000;
-const stealCooldowns = new Map();
-
-async function cmdSteal(targetStr, player, broadcast) {
-	if (!targetStr) return { type: "error", message: "Steal from whom?" };
-	const last = stealCooldowns.get(player.id) || 0;
-	if (Date.now() - last < STEAL_COOLDOWN_MS) {
-		return {
-			type: "error",
-			message: `Too soon to try that again. (${Math.ceil((STEAL_COOLDOWN_MS - (Date.now() - last)) / 1000)}s)`,
-		};
-	}
-
-	const liveOthers = getZonePlayers(player.current_zone).filter((p) => p.id !== player.id);
-	const stealPool = liveOthers.map(p => ({ ...p, name: p.handle }));
-	const stlr = siftResolve(targetStr, stealPool);
-	if (stlr.type === 'ambiguous') {
-		createSelectionState(player.id, stlr.candidates, { verb: 'steal' });
-		return { type: 'output', message: formatSelectionPage({ allCandidates: stlr.candidates, visibleIndex: 0, pageSize: 5 }) };
-	}
-	let target = stlr.type === 'match' ? stlr.candidate : null;
-	if (!target) {
-		const { rows } = await query(
-			`SELECT * FROM players WHERE LOWER(handle) LIKE $1 AND current_zone=$2 AND id!=$3 LIMIT 1`,
-			[`%${targetStr.toLowerCase()}%`, player.current_zone, player.id],
-		);
-		if (rows.length) target = rows[0];
-	}
-	if (!target)
-		return { type: "error", message: `Can't find "${targetStr}" here.` };
-
-	stealCooldowns.set(player.id, Date.now());
-	if ((target.credits || 0) <= 0)
-		return { type: "error", message: `${target.handle} isn't carrying any credits.` };
-
-	const result = await skillCheck(player, "deception", 7);
-	if (!result.success) {
-		broadcast(
-			player.current_zone,
-			{ type: "zone_event", message: `${player.handle} tries to pick ${target.handle}'s pocket and gets caught red-handed.` },
-			player.id,
-		);
-		return { type: "error", message: `You go for ${target.handle}'s pocket. They notice immediately. Everyone noticed, actually.` };
-	}
-
-	const amount = Math.min(
-		target.credits,
-		Math.ceil(target.credits * (0.1 + Math.random() * 0.2)),
-	);
-	await adjustCredits(target, -amount);
-	await adjustCredits(player, amount);
-	return {
-		type: "steal",
-		message: `You lift ${amount}c off ${target.handle} without them noticing a thing.`,
-		player_update: { credits: player.credits },
-	};
-}
-
-function cmdStop(player, broadcast) {
-	if (!player.combatTargetId && !player.pvpTargetId && !player.npcCombatTargetId)
-		return { type: "output", message: "You aren't attacking anything." };
-	if (player.pvpTargetId) {
-		const opponent = getLivePlayer(player.pvpTargetId);
-		if (opponent) {
-			opponent.pvpTargetId = null;
-			broadcast(null, { type: 'output', message: `${player.handle} disengages. Combat ends.` }, null, opponent.id);
-		}
-		player.pvpTargetId = null;
-	}
-	player.combatTargetId = null;
-	player.npcCombatTargetId = null;
-	return { type: "output", message: "You disengage." };
-}
-
 export const handlers = {
 	repair: async (args, raw, player, broadcast) => {
 		const { cmdRepairDevice } = await import('./infrastructure.js');
 		return cmdRepairDevice(args.join(" "), player, broadcast);
 	},
-	stop: (args, raw, player, broadcast) => cmdStop(player, broadcast),
-	disengage: (args, raw, player, broadcast) => cmdStop(player, broadcast),
 	loot: (args, raw, player, broadcast) =>
 		cmdLootCorpse(args.join(" "), player, broadcast),
 	lootid: (args, raw, player) => cmdLootId(args, player),
 	lootall: (args, raw, player) => cmdLootAll(args, player),
 	closeloot: () => null,
-	steal: (args, raw, player, broadcast) =>
-		cmdSteal(args.join(" "), player, broadcast),
 };

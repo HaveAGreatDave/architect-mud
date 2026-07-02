@@ -14,8 +14,7 @@
 // The dev panel mirrors a lightweight version of these checks for live
 // cell-flagging, but this is the gate every save passes through.
 
-const DIR_OFFSET = { north:[0,-1,0], south:[0,1,0], east:[1,0,0], west:[-1,0,0], up:[0,0,1], down:[0,0,-1], in:[0,0,0], out:[0,0,0] };
-const OPPOSITE = { north:'south', south:'north', east:'west', west:'east', up:'down', down:'up', in:'out', out:'in' };
+import { OPPOSITE, DIR_OFFSET } from './directions.js';
 
 // zones: array of { id, map_id, grid_x, grid_y, grid_z, exits }.
 // exitsOverride: optional { zoneId: exitsObj } applied on top of each zone's

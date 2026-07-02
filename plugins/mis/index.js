@@ -1,22 +1,32 @@
 /**
- * MIS command handlers — sexual interaction commands, player opt-in toggle,
- * and the wash command.
+ * MIS plugin — sexual interaction commands, player opt-in toggle, the wash
+ * command, horniness decay, and the MIS-gated appearance notes. Extracted
+ * from the engine (Phase 2, docs/proposals/engine-plugin-boundary.md); the
+ * engine keeps only the consent substrate (server/engine/mis.js).
  *
  * All sexual commands require: server MIS enabled AND player.mis_enabled=1.
  * Players opt in via the hidden Maturity Slider in client settings.
  */
-import { query } from '../../models/db.js';
+import { query } from '../../server/models/db.js';
+import { isMisActive, isAttractedTo } from '../../server/engine/mis.js';
 import {
-  isMisActive, isAttractedTo, addHorniness, washEjaculate, MIS_TUTORIAL,
+  addHorniness, washEjaculate, MIS_TUTORIAL,
   startMisEvent, stopMisEvent, hasMisEvent, getMisEventMeta,
   triggerClimax, triggerGroundClimax,
+  erectionVisibilityNote, breastVisibilityNote, NIPPLE_HARD, NIPPLE_SOFT,
   MASTURBATE_EVENT_MALE, MASTURBATE_EVENT_FEMALE,
   FUCK_EVENT_MSGS, FUCK_EVENT_PLAYER_MSGS, FUCK_EVENT_TARGET_MSGS, EJACULATE_ZONE_MSGS,
-} from '../mis.js';
-import { world, getZonePlayers, getZoneNpcs, getLivePlayer } from '../world.js';
-import { stainZone, stainClothing } from '../bodily.js';
-import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../sift.js';
-import { isNpcMisWilling, getNpcMisLine, npcMisAttacks } from '../npc-personality.js';
+} from './mis-system.js';
+import { world, getZonePlayers, getZoneNpcs, getLivePlayer, getAllLivePlayers } from '../../server/engine/world.js';
+import { stainZone, stainClothing } from '../../server/engine/bodily.js';
+import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
+import { isNpcMisWilling, getNpcMisLine, npcMisAttacks } from '../../server/engine/npc-personality.js';
+import { registerInputMatcher } from '../../server/engine/plugins.js';
+import { on } from '../../server/engine/events.js';
+import { schedule } from '../../server/engine/scheduler.js';
+import { sendToPlayer } from '../../server/engine/messaging.js';
+import { describeGenitals, ejaculateDescription } from '../../server/engine/appearance.js';
+import { getEnvironmentState } from '../../server/engine/environment.js';
 
 function misGate(player, raw) {
   if (!isMisActive(player)) {
@@ -129,17 +139,6 @@ async function cmdMis(args, player, broadcast) {
     return { type:'output', message:`MIS disabled.`, player_update: { mis_enabled: 0, horniness: 0 } };
   }
   return { type:'error', message:`Usage: mis off` };
-}
-
-// Stop the current repeating MIS action
-async function cmdStop(args, player) {
-  if (!hasMisEvent(player.id)) return { type:'output', message:`You aren't doing anything to stop.` };
-  const meta = stopMisEvent(player.id);
-  if (meta?.action) {
-    const suffix = meta.target ? `ing ${meta.target}` : `ing`;
-    return { type:'output', message:`Stopped ${meta.action}${suffix}.` };
-  }
-  return { type:'output', message:`You stop.` };
 }
 
 // Resolve players only (no NPCs for MIS) — returns SIFT result
@@ -1142,9 +1141,8 @@ async function cmdWash(args, raw, player) {
   return { type:'output', message: msg };
 }
 
-export const handlers = {
+export const commands = {
   mis:          (args, raw, player, broadcast) => cmdMis(args, player, broadcast),
-  stop:         (args, raw, player)            => cmdStop(args, player),
   touch:        (args, raw, player, broadcast) => cmdTouch(args, raw, player, broadcast),
   grope:        (args, raw, player, broadcast) => cmdTouch(args, raw, player, broadcast),
   squeeze:      (args, raw, player, broadcast) => cmdSqueeze(args, raw, player, broadcast),
@@ -1175,12 +1173,130 @@ export const handlers = {
   wash:         (args, raw, player)            => cmdWash(args, raw, player),
 };
 
-// "jerk off on" needs special routing — handled in command index by checking raw input
-export function handleJerkOffOn(args, raw, player, broadcast) {
-  return cmdJerkOffOn(args, raw, player, broadcast);
+// Multi-word verbs — registered through the dispatcher's input-matcher chain.
+registerInputMatcher(/^jerk\s+off\s+on\b/i, (args, raw, player, broadcast) => cmdJerkOffOn(args, raw, player, broadcast), 'mis');
+registerInputMatcher(/^eat\s+out\b/i, (args, raw, player, broadcast) => cmdEatOut(args, raw, player, broadcast), 'mis');
+
+// The unified STOP command halts an ongoing MIS event like any other repeating action.
+on('player.stop', ({ player, stopped }) => {
+  if (!hasMisEvent(player.id)) return;
+  const meta = stopMisEvent(player.id);
+  stopped.push(meta?.action ? `${meta.action}ing${meta.target ? ` ${meta.target}` : ''}` : 'what you were doing');
+});
+
+// The WS-level Maturity Slider toggle (server/index.js) emits this after
+// flipping the player's fields; the plugin owns the consequences.
+on('mis.toggled', ({ player, enabled }) => {
+  if (enabled) {
+    sendToPlayer(player.id, { type: 'output', message: MIS_TUTORIAL });
+  } else {
+    stopMisEvent(player.id);
+    sendToPlayer(player.id, { type: 'output', message: 'MIS disabled.' });
+  }
+});
+
+// Horniness decay — only starts 5 minutes after the last increase.
+// (Moved from gameLoop's minute tick.)
+schedule('1m', async () => {
+  for (const player of getAllLivePlayers()) {
+    if ((player.horniness || 0) <= 0) continue;
+    const lastIncrease = player.horniness_last_increased || 0;
+    const decayDelayMs = 5 * 60 * 1000;
+    if (lastIncrease && (Date.now() - lastIncrease) < decayDelayMs) continue;
+    player.horniness = Math.max(0, player.horniness - 1);
+    await query('UPDATE players SET horniness=$1 WHERE id=$2', [player.horniness, player.id]);
+    sendToPlayer(player.id, { type: 'resource_tick', messages: [], player_update: { horniness: player.horniness, mis_enabled: player.mis_enabled } });
+  }
+});
+
+// ── MIS-gated appearance notes ────────────────────────────────────────────────
+// describePlayerAppearance (engine, commands/world.js) fires this hook at its
+// two MIS sites. Returns extra prose (or undefined), and applies the
+// arousal-on-examine side effect to an attracted viewer.
+
+async function appearanceMisNotes({ target, viewer, isSelf, broadcast, naked, bySlot = {}, layerCounts = {} }) {
+  const selfNipplePool = pool => (isSelf ? pool.map(s => s.replace(/^Her /i, 'Your ')) : pool);
+  let notes = '';
+
+  if (naked) {
+    const viewerForMis = isSelf ? target : (viewer || null);
+    if (viewerForMis && isMisActive(viewerForMis)) {
+      const envState = getEnvironmentState();
+      const genitalDesc = describeGenitals(target, isSelf);
+      if (genitalDesc) notes += `\n${genitalDesc}`;
+      const ejacNote = ejaculateDescription(target, isSelf, new Set());
+      if (ejacNote) notes += `\n${ejacNote}`;
+      if (target.biological_sex === 'female') {
+        const hard = (target.horniness || 0) > 30 || (envState.tempC !== undefined && envState.tempC < 10);
+        const nipplePool = selfNipplePool(hard ? NIPPLE_HARD : NIPPLE_SOFT);
+        notes += `\n${nipplePool[Math.floor(Math.random() * nipplePool.length)]}`;
+      }
+    }
+
+    // Arousal on examine: viewer sees naked target they're attracted to
+    if (!isSelf && viewer && isMisActive(viewer) && isAttractedTo(viewer, target) && broadcast) {
+      const arouseMsgs = await addHorniness(viewer, 8, broadcast);
+      if (arouseMsgs.length) broadcast(null, { type:'resource_tick', messages: arouseMsgs, player_update: { horniness: viewer.horniness } }, null, viewer.id);
+    }
+
+    return notes || undefined;
+  }
+
+  // Clothed branch — gated on viewer's (or self's) MIS
+  const viewerMis = isSelf ? isMisActive(target) : (viewer && isMisActive(viewer));
+  if (!viewerMis) return undefined;
+
+  const coveredSlots = new Set(Object.keys(bySlot));
+  const ejacNote = ejaculateDescription(target, isSelf, coveredSlots);
+  if (ejacNote) notes += `\n${ejacNote}`;
+  const envState = getEnvironmentState();
+
+  // Erection visible through ≤3 layers of tight clothing
+  const tightSlots = new Set(
+    Object.entries(bySlot).filter(([,v]) => v.tags?.bulkiness <= 2).map(([k]) => k)
+  );
+  const legsLayerCount = layerCounts['legs'] || 0;
+  const erectNote = erectionVisibilityNote(target, tightSlots, legsLayerCount);
+  if (erectNote) notes += `\n${erectNote}`;
+
+  // Breast/nipple visibility for females
+  const torsoLayerCount = layerCounts['torso'] || 0;
+  const torsoItem = bySlot['torso'];
+  const outermostBulkiness = torsoItem?.tags?.bulkiness || 0;
+  const outermostLayerMax = torsoItem?.tags?.allowed_layer_range?.max ?? 99;
+  const breastNote = breastVisibilityNote(target, torsoLayerCount, outermostBulkiness, outermostLayerMax, torsoItem?.name, envState.tempC);
+  if (breastNote) {
+    const breastNoteFixed = isSelf ? breastNote.replace(/\bHer\b/g, 'Your').replace(/\bher\b/g, 'your') : breastNote;
+    notes += `\n${breastNoteFixed}`;
+  }
+
+  // Show genitals/ass when legs are naked (no leg layer)
+  if (legsLayerCount === 0) {
+    const genitalDesc = describeGenitals(target, isSelf);
+    if (genitalDesc) notes += `\n${genitalDesc}`;
+  }
+
+  // Show nipple state for females when torso is naked
+  if (target.biological_sex === 'female' && torsoLayerCount === 0) {
+    const hard = (target.horniness || 0) > 30 || (envState.tempC !== undefined && envState.tempC < 10);
+    const nipplePool = selfNipplePool(hard ? NIPPLE_HARD : NIPPLE_SOFT);
+    notes += `\n${nipplePool[Math.floor(Math.random() * nipplePool.length)]}`;
+  }
+
+  // Arousal on examine: visible erection or nipples on attracted viewer
+  if (!isSelf && viewer && isMisActive(viewer) && isAttractedTo(viewer, target) && broadcast) {
+    const visibleSex = erectNote || breastNote || (legsLayerCount === 0 ? describeGenitals(target, false) : null);
+    if (visibleSex) {
+      const arouseMsgs = await addHorniness(viewer, 5, broadcast);
+      if (arouseMsgs.length) broadcast(null, { type:'resource_tick', messages: arouseMsgs, player_update: { horniness: viewer.horniness } }, null, viewer.id);
+    }
+  }
+
+  return notes || undefined;
 }
 
-// "eat out" needs special routing — two-word command
-export function handleEatOut(args, raw, player, broadcast) {
-  return cmdEatOut(args, raw, player, broadcast);
-}
+export const hooks = {
+  'player.appearanceMisNotes': appearanceMisNotes,
+};
+
+console.log('[mis] Plugin loaded.');

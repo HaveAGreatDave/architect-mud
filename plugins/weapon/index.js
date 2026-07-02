@@ -15,13 +15,15 @@
  */
 import { randomUUID } from 'crypto';
 import { query, logActivity } from '../../server/models/db.js';
-import { getZoneEnemies, getZonePlayers, getZoneNpcs, getLivePlayer, createCorpse, getApartment } from '../../server/engine/world.js';
+import { getZoneEnemies, getZonePlayers, getZoneNpcs, getLivePlayer, createCorpse } from '../../server/engine/world.js';
 import { playerAttackEnemy, playerAttackNpc, isOnCooldown, getCooldownRemaining, pvpSwingSleeping, registerPlayerCombat } from '../../server/engine/combat.js';
 import { resolveForCommand, resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
 import { awardSkillUse } from '../../server/engine/skills.js';
 import { tagValue } from '../../server/engine/tags.js';
 import { emit } from '../../server/engine/events.js';
 import { registerAction, dispatchAction } from '../../server/engine/actions.js';
+import { forceStand } from '../../server/engine/posture.js';
+import { getZoneProtection } from '../../server/engine/protection.js';
 
 export async function resolveAttack(player, target, broadcast) {
 	const { rows } = await query(
@@ -157,7 +159,7 @@ export async function cmdAttack(targetStr, player, broadcast) {
 	// Initiating an attack interrupts any activity posture (sitting, butchering,
 	// scavenging, …) — posture is the orchestrator; the activity plugins' ticks
 	// see the posture change and discard their own state.
-	if ((player.posture || 'standing') !== 'standing') { player.posture = 'standing'; player.sittingOn = null; }
+	forceStand(player, 'attacking');
 	if (targetStr === 'door' || targetStr.startsWith('door ')) {
 		const { cmdAttackDoor } = await import('../../server/engine/commands/doors.js');
 		return cmdAttackDoor(targetStr.replace(/^door\s*/,'').trim(), player, broadcast);
@@ -251,8 +253,7 @@ export async function cmdAttack(targetStr, player, broadcast) {
 	}
 
 	// Offline sleeping player: start a one-sided auto-attack loop.
-	const offlineApt = getApartment(targetPlayer.current_zone);
-	if (offlineApt?.forcefield_active) {
+	if (getZoneProtection(targetPlayer.current_zone)) {
 		return { type: "error", message: `A quantum forcefield crackles between you and ${targetPlayer.handle}. You can't reach them.` };
 	}
 
@@ -272,9 +273,8 @@ export async function offlineSleepSwing(attacker, targetId, broadcast) {
 	if (!rows.length) { attacker.offlinePvpTargetId = null; return; }
 	const target = rows[0];
 
-	// Forcefield protection: abort attack and notify attacker.
-	const protectedApt = getApartment(target.current_zone);
-	if (protectedApt?.forcefield_active) {
+	// Zone protection (forcefield): abort attack and notify attacker.
+	if (getZoneProtection(target.current_zone)) {
 		attacker.offlinePvpTargetId = null;
 		broadcast(null, { type: 'output', message: `A quantum forcefield repels your attack. ${target.handle} is protected.` }, null, attacker.id);
 		return;

@@ -44,15 +44,18 @@ The server **does not** touch the schema or world content on boot. The two are m
 │   ├── engine/
 │   │   ├── gameLoop.js       # Tick system: combat tick, minute tick, ambient tick, spawn tick
 │   │   ├── combat.js         # Combat resolution, cooldowns, enemy attack timers
-│   │   ├── commands/         # Command parser/dispatcher — index.js + per-domain files
-│   │   │   ├── index.js      #   Entry point: routes commands to domain handlers + plugin commands
-│   │   │   ├── combat.js     #   Attack, flee, steal
+│   │   ├── commands/         # Command dispatcher — index.js + per-domain builtin files
+│   │   │   ├── index.js      #   Dispatch pipeline: SIFT → input matchers → plugin commands → specialized actions → builtins
+│   │   │   ├── combat.js     #   Loot corpses/sleepers (steal lives in the thievery plugin)
 │   │   │   ├── describe.js   #   Room description renderer, look/examine
-│   │   │   ├── movement.js   #   Move, go (named destinations)
-│   │   │   ├── inventory.js  #   Take, drop, use, equip, craft; recomputeArmor
-│   │   │   ├── housing.js    #   Rent, lock, pick, upgrade lock, sleep
+│   │   │   ├── movement.js   #   Move/go + the engine move-gate laws (door lock, encumbrance)
+│   │   │   ├── inventory.js  #   Take, drop, use, equip, containers; recomputeArmor
+│   │   │   ├── housing.js    #   Rent, lock, pick, upgrade lock, sleep, curtains
 │   │   │   ├── social.js     #   Say, yell, whisper, talk, who
-│   │   │   └── world.js      #   Map, stats, skills, help, switch/flip, open/close windows
+│   │   │   ├── world.js      #   Examine, stats, skills, help, raise, admin tools
+│   │   │   ├── doors.js      #   Door open/close/lock/unlock + lock install
+│   │   │   ├── infrastructure.js  # Destructible power devices (attack/repair)
+│   │   │   └── ghost.js      #   Ghost session mode (driven from index.js WS layer, not the dispatcher)
 │   │   ├── world.js          # In-memory zone/entity cache, DB is still source of truth
 │   │   ├── environment.js    # Time/calendar, weather, ambient + artificial light, power grid simulation
 │   │   ├── skills.js         # Skill definitions, XP/rank curve, generic skillCheck()
@@ -73,12 +76,16 @@ The server **does not** touch the schema or world content on boot. The two are m
 │   │   ├── locks.js          # Lock type registry (registerLockType, resolveLockAuth)
 │   │   ├── lockAuthHandlers.js  # Auth handlers wired by the doors plugin
 │   │   ├── channels.js       # Radio channels: definitions, send, history (CHANNEL_DEFS)
-│   │   ├── effects.js        # Timed status effects framework (applyEffect, tickEffects)
-│   │   ├── bodily.js         # Digestive/bladder pressure system (tickBodily)
+│   │   ├── effects.js        # Timed status-effect registry (registerStatusEffect, applyEffect, tickEffects)
+│   │   ├── bodily.js         # Substrate: stains + digestion loads (pressure sim lives in plugins/bodily)
+│   │   ├── posture.js        # Substrate: setPosture/forceStand — the only sanctioned posture writes
+│   │   ├── protection.js     # Substrate: zone protection providers (forcefields; corps/wards later)
+│   │   ├── movement-gates.js # Move veto chain (registerMoveGate) — engine laws + plugin gates
+│   │   ├── directions.js     # Shared OPPOSITE/DIR_OFFSET constants
 │   │   ├── appearance.js     # Character appearance generation + description helpers
 │   │   ├── ip.js             # IP/XP: awardIp roll, raiseStat (spends Net XP), statCost, grantXp
-│   │   ├── mis.js            # Mature Interaction System — gated by server + player opt-in
-│   │   └── plugins.js        # Hook-based plugin loader
+│   │   ├── mis.js            # Consent substrate: isMisActive/isAttractedTo (the MIS system lives in plugins/mis)
+│   │   └── plugins.js        # Plugin loader: hooks, commands, routes, specialized actions, input matchers
 │   ├── models/
 │   │   ├── db.js             # pg.Pool connection, single query() export
 │   │   ├── schema.js         # SCHEMA_SQL — the single source of schema truth; `npm run db:schema`
@@ -97,21 +104,9 @@ The server **does not** touch the schema or world content on boot. The two are m
 │   └── shared/
 │       ├── tagCatalog.js     # Single source of truth for item tag definitions — read by both client and server
 │       └── tagSupertags.js   # Supertag registry (TAG_SUPERTAGS) — dual-mode file like tagCatalog.js
-├── plugins/
-│   ├── factions/             # Faction rep display (`factions`/`rep` commands)
-│   ├── mutations/            # Mutation display + radiation-tick mutation check (`mutations` command)
-│   ├── weather/              # Deterministic 7-day seeded weather forecast (environment.init + advanceWeather)
-│   ├── zone-validator/       # World integrity checks + broken exit repair (worldValidator hooks)
-│   ├── crafting/             # Recipe display and crafting (`craft`, `recipes` commands)
-│   ├── quests/               # Quest lifecycle (START_QUEST/TURN_IN actions, objective tracking, `quests` command)
-│   ├── interactions/         # Posture, emotes, social gestures (`sit`, `wave`, `examine`, etc.)
-│   ├── container/            # Container items — open/stow/pull via the OPEN specialized action
-│   ├── doors/                # Door open/close/lock/unlock specialized actions
-│   ├── weapon/               # ATTACK specialized action (player attack path)
-│   ├── food/                 # EAT specialized action for consumable-tagged items
-│   ├── drugs/                # USE/INJECT specialized actions for drug-tagged items
-│   ├── lighting/             # SWITCH/FLIP/TURN specialized actions for light fixtures
-│   └── clothing-wetness/     # Per-item wetness from rain/snow + temperature effects
+├── plugins/                   # One folder per plugin (38 as of 2026-07) — see docs/plugins.md
+│                              # for the authoritative catalogue; don't duplicate it here.
+├── tests/regress.js           # Pre-deploy regression gate (`npm run test:regress`) — see CLAUDE.md
 └── render.yaml                # Render free-plan service config
 ```
 

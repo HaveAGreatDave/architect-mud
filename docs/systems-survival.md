@@ -120,7 +120,10 @@ Applied by the `use`/`eat`/`drink` command from item tags ([inventory.js](../ser
 
 ## Bodily pressure
 
-[bodily.js](../server/engine/bodily.js), ticked once per minute by `resourceTick` for each awake player.
+Owned by the **bodily plugin** ([plugins/bodily/index.js](../plugins/bodily/index.js)) — its own 1m
+tick, skipping sleeping players. The engine keeps only the substrate half in
+[bodily.js](../server/engine/bodily.js): stains (`stainClothing`/`stainZone`) and the digestion loads
+(`foodLoad`/`drinkLoad`/`applyThirst`) that eating/drinking/drugs feed.
 
 Two hidden float columns on the `players` row — `digestive_load` (bowel) and `hydration_load` (bladder) — accumulate as the player eats and drinks:
 
