@@ -45,6 +45,7 @@ import { cmdGhostLook, cmdGhostMove, cmdGhostHaunt, cmdGhostPowerDrain, makeGhos
 import { activateForcefield, deactivateForcefield } from "./engine/apartments.js";
 import { startKeepalive } from "./keepalive.js";
 import { setBroadcast as setMessagingBroadcast } from "./engine/messaging.js";
+import { handlePanelData } from "./engine/panels.js";
 import pool, { query, logActivity } from "./models/db.js";
 import { loadMisSettings, isMisServerEnabled } from "./engine/mis.js";
 import { loadEmailVerificationSetting, isEmailVerificationEnabled } from "./engine/emailVerification.js";
@@ -276,6 +277,16 @@ wss.on("connection", (ws) => {
 			return;
 		}
 		if (msg.type === "mis_toggle") return handleMisToggle(ws, session, msg);
+		if (msg.type === "panel_data") return handlePanelData(session, msg);
+		if (msg.type === "panel_watch" || msg.type === "panel_unwatch") {
+			if (session.playerId)
+				emit("panel.watch", { playerId: session.playerId, feeds: msg.type === "panel_watch" ? (msg.feeds || []) : [] });
+			return;
+		}
+		if (msg.type === "panel_catalog") {
+			if (session.playerId) emit("panel.catalog", { playerId: session.playerId });
+			return;
+		}
 		if (msg.type === "tv_watch" || msg.type === "tv_unwatch") {
 			if (!session.playerId) return;
 			if (msg.type === "tv_watch" && msg.channelId)

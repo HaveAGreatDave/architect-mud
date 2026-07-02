@@ -1,9 +1,11 @@
 const ORDER_KEY = 'architect_sidebar_order';
 const HIDDEN_KEY = 'architect_sidebar_hidden';
 const COLLAPSED_KEY = 'architect_sidebar_collapsed';
+const SIZE_KEY = 'architect_sidebar_sizes';
 const DEFAULT_ORDER = ['minimap-section', 'vitals-section', 'location-section', 'env-section', 'enemy-section', 'chat-section'];
 
 let locked = true;
+let mode = 'move'; // 'move' (drag to reorder) | 'resize' (drag edge to size) — only meaningful while unlocked
 let dragSrc = null;
 let dropInfo = null;
 let lastClientY = null;
@@ -20,7 +22,12 @@ export function initSidebarOrder() {
   applyLayout(loadLayout());
   document.getElementById('sidebar-lock-btn').addEventListener('click', toggleLock);
   document.getElementById('sidebar-reset-btn')?.addEventListener('click', resetOrder);
+  document.getElementById('sidebar-move-btn')?.addEventListener('click', () => setMode('move'));
+  document.getElementById('sidebar-resize-btn')?.addEventListener('click', () => setMode('resize'));
+  document.getElementById('sidebar-size-reset-btn')?.addEventListener('click', resetSizes);
   initRestoreControl();
+  initResizeHandles();
+  applySizes();
   updateRestoreVisibility();
   initCollapse();
   const sidebar = document.getElementById('sidebar');
@@ -51,6 +58,9 @@ function getHiddenPark() {
 }
 
 function sectionLabel(el) {
+  // Custom panels carry control glyphs (⚙ ✕ ▾) in their label; read the clean title.
+  const custom = el.querySelector('.cpanel-title');
+  if (custom) return custom.textContent.trim();
   return el.querySelector('.sidebar-label')?.textContent.trim() || el.id;
 }
 
@@ -139,21 +149,102 @@ function setCollapsed(section, btn, on) {
   btn.title = on ? 'Expand panel' : 'Collapse panel';
 }
 
-function initCollapse() {
-  const collapsed = new Set(loadCollapsed());
-  document.querySelectorAll('#sidebar .sidebar-collapse-btn').forEach(btn => {
-    const section = btn.closest('.sidebar-section');
-    if (!section) return;
-    setCollapsed(section, btn, collapsed.has(section.id));
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const on = !section.classList.contains('collapsed');
-      setCollapsed(section, btn, on);
-      const ids = loadCollapsed().filter(x => x !== section.id);
-      if (on) ids.push(section.id);
-      saveCollapsed(ids);
-    });
+// Wire one section's collapse button. Idempotent — safe to call again for a
+// late-mounted custom panel.
+function wireCollapse(section) {
+  const btn = section.querySelector('.sidebar-collapse-btn');
+  if (!btn || btn._collapseWired) return;
+  btn._collapseWired = true;
+  setCollapsed(section, btn, new Set(loadCollapsed()).has(section.id));
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const on = !section.classList.contains('collapsed');
+    setCollapsed(section, btn, on);
+    const ids = loadCollapsed().filter(x => x !== section.id);
+    if (on) ids.push(section.id);
+    saveCollapsed(ids);
   });
+}
+
+function initCollapse() {
+  document.querySelectorAll('#sidebar .sidebar-section').forEach(wireCollapse);
+}
+
+// --- resizable panels ---
+
+let resizeSec = null, resizeStartY = 0, resizeStartH = 0;
+
+function loadSizes() {
+  try { return JSON.parse(localStorage.getItem(SIZE_KEY)) || {}; } catch { return {}; }
+}
+
+function saveSizes() {
+  const sizes = {};
+  document.querySelectorAll('#sidebar .sidebar-section').forEach(sec => {
+    const basis = sec.style.flexBasis;
+    if (sec.id && basis && basis.endsWith('px')) sizes[sec.id] = parseFloat(basis);
+  });
+  localStorage.setItem(SIZE_KEY, JSON.stringify(sizes));
+}
+
+function applySizes() {
+  const sizes = loadSizes();
+  document.querySelectorAll('#sidebar .sidebar-section').forEach(sec => {
+    if (sizes[sec.id]) sizeSection(sec, sizes[sec.id]);
+  });
+}
+
+function sizeSection(sec, px) {
+  sec.style.flex = `0 0 ${px}px`;
+  sec.style.overflow = 'hidden';
+}
+
+function resetSizes() {
+  localStorage.removeItem(SIZE_KEY);
+  document.querySelectorAll('#sidebar .sidebar-section').forEach(sec => {
+    sec.style.flex = '';
+    sec.style.overflow = '';
+  });
+}
+
+// Add a resize handle to one section. Idempotent.
+function wireResizeHandle(sec) {
+  if (sec.querySelector(':scope > .sidebar-resize-handle')) return;
+  const handle = document.createElement('div');
+  handle.className = 'sidebar-resize-handle';
+  handle.addEventListener('mousedown', onResizeStart);
+  sec.appendChild(handle);
+}
+
+function initResizeHandles() {
+  document.querySelectorAll('#sidebar .sidebar-section').forEach(wireResizeHandle);
+}
+
+function onResizeStart(e) {
+  const sec = e.target.closest('.sidebar-section');
+  if (!sec) return;
+  e.preventDefault();
+  resizeSec = sec;
+  resizeStartY = e.clientY;
+  resizeStartH = sec.getBoundingClientRect().height;
+  sec.classList.add('resizing');
+  document.addEventListener('mousemove', onResizeMove);
+  document.addEventListener('mouseup', onResizeEnd);
+}
+
+function onResizeMove(e) {
+  if (!resizeSec) return;
+  const h = Math.max(40, resizeStartH + (e.clientY - resizeStartY));
+  sizeSection(resizeSec, h);
+}
+
+function onResizeEnd() {
+  if (!resizeSec) return;
+  resizeSec.classList.remove('resizing');
+  resizeSec = null;
+  document.removeEventListener('mousemove', onResizeMove);
+  document.removeEventListener('mouseup', onResizeEnd);
+  saveSizes();
 }
 
 function loadLayout() {
@@ -225,6 +316,7 @@ export function resetOrder() {
   localStorage.removeItem(ORDER_KEY);
   saveHidden([]); // restore any hidden panels
   saveCollapsed([]); // expand any collapsed panels
+  resetSizes(); // clear custom panel heights
   document.querySelectorAll('#sidebar .sidebar-collapse-btn').forEach(btn => {
     const section = btn.closest('.sidebar-section');
     if (section) setCollapsed(section, btn, false);
@@ -234,23 +326,82 @@ export function resetOrder() {
   updateRestoreVisibility();
 }
 
+// --- dynamic (custom) sections ---
+
+// Inject a runtime-built .sidebar-section and give it the full treatment the
+// hardcoded sections get: collapse button, resize handle, saved size, drag
+// state, and a slot in the persisted order. Idempotent and safe both during
+// boot (before initSidebarOrder lays out) and at runtime (after).
+// persist=false during boot: the section is inserted so initSidebarOrder's
+// applyLayout can find it by id and restore its saved slot — writing the order
+// here first would clobber that saved slot with the naive bottom position.
+export function mountSection(el, persist = true) {
+  const dropEnd = document.getElementById('sidebar-drop-end');
+  if (!document.getElementById(el.id)) {
+    if (loadHidden().includes(el.id)) getHiddenPark().appendChild(el);
+    else dropEnd.before(el);
+  }
+  wireCollapse(el);
+  wireResizeHandle(el);
+  const sizes = loadSizes();
+  if (sizes[el.id]) sizeSection(el, sizes[el.id]);
+  if (!locked && mode === 'move' && document.getElementById('sidebar').contains(el)) {
+    el.draggable = true;
+    attachDragHandlers(el);
+  }
+  if (persist) saveLayout();
+}
+
+// Remove a custom section and purge it from every layout store.
+export function unmountSection(id) {
+  document.getElementById(id)?.remove();
+  saveHidden(loadHidden().filter(x => x !== id));
+  saveCollapsed(loadCollapsed().filter(x => x !== id));
+  const sizes = loadSizes();
+  delete sizes[id];
+  localStorage.setItem(SIZE_KEY, JSON.stringify(sizes));
+  saveLayout();
+  renderRestoreMenu();
+  updateRestoreVisibility();
+}
+
 function toggleLock() {
   locked = !locked;
   const btn = document.getElementById('sidebar-lock-btn');
-  const sidebar = document.getElementById('sidebar');
   btn.textContent = locked ? '🔒' : '🔓';
   btn.classList.toggle('unlocked', !locked);
   btn.title = locked ? 'Unlock to reorder sidebar sections' : 'Lock sidebar order';
-  sidebar.classList.toggle('drag-mode', !locked);
 
-  // Restore control: always available while unlocked, and while locked only if
-  // there are hidden panels to re-add.
+  // Restore control: only shown while unlocked.
   updateRestoreVisibility();
   if (!locked) renderRestoreMenu();
+  applyEditState();
+}
+
+function setMode(m) {
+  if (locked || m === mode) return;
+  mode = m;
+  applyEditState();
+}
+
+// Reflect the current lock + mode onto the sidebar: which edit class is active,
+// whether the mode buttons show, and whether sections are drag-reorderable.
+function applyEditState() {
+  const sidebar = document.getElementById('sidebar');
+  const editing = !locked;
+  sidebar.classList.toggle('drag-mode', editing && mode === 'move');
+  sidebar.classList.toggle('resize-mode', editing && mode === 'resize');
+
+  const modes = document.getElementById('sidebar-modes');
+  if (modes) modes.style.display = editing ? '' : 'none';
+  document.getElementById('sidebar-move-btn')?.classList.toggle('active', mode === 'move');
+  document.getElementById('sidebar-resize-btn')?.classList.toggle('active', mode === 'resize');
+
+  const canDrag = editing && mode === 'move';
   sidebar.querySelectorAll('.sidebar-section, .sidebar-header').forEach(sec => {
     if (!sidebar.contains(sec)) return;
-    sec.draggable = !locked;
-    if (!locked) attachDragHandlers(sec);
+    sec.draggable = canDrag;
+    if (canDrag) attachDragHandlers(sec);
     else detachDragHandlers(sec);
   });
 }

@@ -27,6 +27,7 @@ import { applyEspState, handleEspWarning } from './esp.js';
 import { playPokerSfx } from './poker-sfx.js';
 import { showConfirmDialog } from './panels/confirm.js';
 import { renderMarkup } from './markup.js';
+import { onPanelData, onPanelFeed, onPanelCatalog, syncPanels } from './panels/custom/manager.js';
 
 
 const DEV_ROLES = ['admin', 'dev', 'builder', 'designer'];
@@ -60,6 +61,7 @@ const handlers = {
     initChannels(msg.channels || []);
     if (DEV_ROLES.includes(state.player.role)) showDevPanelButton();
     if (wasReconnect) appendMsg('Reconnected.', 'system');
+    syncPanels(); // request data + cam catalog for any custom panels
   },
 
   auth_fail: (msg) => {
@@ -230,6 +232,10 @@ const handlers = {
     renderSkillsPanel(msg);
     document.getElementById('skills-panel').classList.add('active');
   },
+
+  panel_data: (msg) => onPanelData(msg),
+  panel_feed: (msg) => onPanelFeed(msg),
+  panel_catalog: (msg) => onPanelCatalog(msg),
   who: (msg) => { appendHtml(msg.message, 'help'); },
   help: (msg) => { appendHtml(msg.message, 'help'); },
   examine: (msg) => { if (consumeExamineLogSuppression()) return; appendHtml(msg.message, 'help'); },

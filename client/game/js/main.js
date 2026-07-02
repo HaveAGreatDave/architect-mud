@@ -38,6 +38,8 @@ import {
 } from "./panels/whisper.js";
 import { initWho, openWhoModal } from "./panels/who.js";
 import { initSidebarOrder } from "./panels/sidebar-order.js";
+import { mountCustomPanels } from "./panels/custom/manager.js";
+import { initCustomPanelButton } from "./panels/custom/builder.js";
 import { refreshTempDisplay } from "./panels/environment.js";
 import { initWeatherFx, setWeatherFxEnabled } from "./panels/weather-fx.js";
 import { initAtmPanel } from "./panels/atm.js";
@@ -194,7 +196,9 @@ window._setAudioEnabled = (enabled) => {
 };
 
 initThemeEditorOverlay();
+mountCustomPanels(); // inject custom sections before the layout engine lays out
 initSidebarOrder();
+initCustomPanelButton();
 
 // Net / WebSocket
 initNet(handleServerMsg);

@@ -1614,6 +1614,7 @@ textarea {
 .sidebar-section {
 	padding: 12px;
 	border-bottom: 1px solid var(--border);
+	position: relative;
 }
 
 .sidebar-label {
@@ -1641,25 +1642,56 @@ textarea {
 	background: var(--bg3);
 	border: 1px solid var(--border);
 	border-radius: 3px;
-	color: var(--text-dim);
+	/* Tint the emoji glyph with a theme color instead of its stock colours */
+	color: transparent;
+	text-shadow: 0 0 0 var(--text-dim);
 	font-size: 16px;
 	padding: 0;
 	line-height: 28px;
 	text-align: center;
 	cursor: pointer;
-	transition: border-color 0.1s, color 0.1s;
+	transition: border-color 0.1s, text-shadow 0.1s;
 }
 .sidebar-lock-btn:hover {
 	border-color: var(--accent);
-	color: var(--accent);
+	text-shadow: 0 0 0 var(--accent);
 }
 .sidebar-lock-btn.unlocked {
 	border-color: var(--accent2);
-	color: var(--accent2);
+	text-shadow: 0 0 0 var(--accent2);
 	background: var(--bg2);
 }
 [data-sidebar="right"] .sidebar-header {
 	justify-content: flex-end;
+}
+
+/* Move / resize / reset-sizes button group — only shown while unlocked */
+.sidebar-modes {
+	display: flex;
+	gap: 4px;
+	margin-left: 6px;
+}
+.sidebar-mode-btn {
+	width: 26px;
+	height: 28px;
+	background: var(--bg3);
+	border: 1px solid var(--border);
+	border-radius: 3px;
+	color: var(--text-dim);
+	font-family: var(--font-mono);
+	font-size: 13px;
+	padding: 0;
+	cursor: pointer;
+	transition: border-color 0.1s, color 0.1s;
+}
+.sidebar-mode-btn:hover {
+	border-color: var(--accent);
+	color: var(--accent);
+}
+.sidebar-mode-btn.active {
+	border-color: var(--accent2);
+	color: var(--accent2);
+	background: var(--bg2);
 }
 
 /* Restore-hidden-panels dropdown — only shown while the sidebar is unlocked */
@@ -1768,6 +1800,30 @@ textarea {
 .sidebar-section.dragging,
 .sidebar-header.dragging {
 	opacity: 0.4;
+}
+
+/* Resize mode: a grabbable strip on each panel's bottom edge */
+.sidebar-resize-handle {
+	display: none;
+	position: absolute;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	height: 7px;
+	cursor: ns-resize;
+	z-index: 6;
+}
+#sidebar.resize-mode .sidebar-resize-handle {
+	display: block;
+}
+#sidebar.resize-mode .sidebar-resize-handle:hover,
+.sidebar-section.resizing .sidebar-resize-handle {
+	background: var(--accent);
+	box-shadow: 0 0 8px var(--accent);
+}
+/* Highlight panel edges so it's clear what's resizable */
+#sidebar.resize-mode .sidebar-section {
+	border-bottom-color: var(--accent2);
 }
 
 /* Thin line showing where the dragged section will land */
@@ -7734,3 +7790,93 @@ body.tripping #output {
 	#trip-overlay, body.tripping #main, body.tripping #output, .trip-text { animation: none; }
 	body.tripping #main { transform: none; }
 }
+
+/* ============================================================
+   Custom sidebar panels (player-defined)
+   ============================================================ */
+
+/* "＋ panel" add button — mirrors the restore control: only shown while the
+   sidebar is unlocked (drag-mode / resize-mode set by sidebar-order.js). */
+.sidebar-add-panel { display: none; background: none; border: 1px solid var(--border);
+	color: var(--text-dim); font-size: 10px; padding: 2px 6px; border-radius: 2px; cursor: pointer; }
+.sidebar-add-panel:hover { color: var(--accent); border-color: var(--accent); }
+#sidebar.drag-mode .sidebar-add-panel, #sidebar.resize-mode .sidebar-add-panel { display: inline-block; }
+
+.cpanel-body { font-size: 11px; }
+.cpanel-title { display: flex; align-items: center; gap: 4px; }
+.cpanel-controls { display: flex; align-items: center; gap: 2px; }
+.cpanel-gear, .cpanel-remove { display: none; background: none; border: none; color: var(--text-dim);
+	font-size: 11px; cursor: pointer; padding: 0 2px; }
+.cpanel-gear:hover { color: var(--accent); }
+.cpanel-remove:hover { color: var(--red); }
+/* Config/remove controls only appear in edit mode, like the collapse buttons. */
+#sidebar.drag-mode .cpanel-gear, #sidebar.resize-mode .cpanel-gear,
+#sidebar.drag-mode .cpanel-remove, #sidebar.resize-mode .cpanel-remove { display: inline-block; }
+.cpanel-empty { color: var(--text-dim); font-size: 11px; font-style: italic; }
+
+/* Row list — shared by labeled-value / list widgets and skills */
+.cpanel-rows { display: flex; flex-direction: column; gap: 2px; }
+.cpanel-row { display: flex; justify-content: space-between; gap: 8px; }
+.cpanel-row-label { color: var(--text-dim); }
+.cpanel-row-val { color: var(--text); font-variant-numeric: tabular-nums; }
+.cpanel-subhead { font-size: 9px; letter-spacing: 1px; color: var(--text-dim); text-transform: uppercase; margin: 6px 0 2px; }
+.cpanel-skill-group:first-child .cpanel-subhead { margin-top: 0; }
+.cpanel-text { color: var(--text); }
+
+/* Sticky cam feed */
+.cpanel-cam { border: 1px solid var(--border); border-radius: 2px; margin-bottom: 6px; overflow: hidden; }
+.cpanel-cam-head { display: flex; justify-content: space-between; font-size: 10px; padding: 2px 4px;
+	background: var(--bg3); color: var(--text-dim); }
+.cpanel-cam-status { text-transform: uppercase; letter-spacing: 1px; }
+.cpanel-cam-frame { font-family: var(--font-mono); font-size: 10px; line-height: 1.3; padding: 4px;
+	white-space: pre-wrap; color: var(--text); }
+.cpanel-cam-offline .cpanel-cam-frame, .cpanel-cam-damaged .cpanel-cam-frame,
+.cpanel-cam-jammed .cpanel-cam-frame { color: var(--text-dim); }
+.cpanel-cam-offline .cpanel-cam-status, .cpanel-cam-damaged .cpanel-cam-status,
+.cpanel-cam-jammed .cpanel-cam-status { color: var(--red); }
+
+/* Notes scratchpad */
+.cpanel-notes { width: 100%; min-height: 70px; resize: vertical; background: var(--bg2);
+	border: 1px solid var(--border); border-radius: 2px; color: var(--text); font-family: var(--font);
+	font-size: 11px; padding: 4px; box-sizing: border-box; }
+
+/* Builder modal */
+.cpanel-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 1000;
+	display: flex; align-items: center; justify-content: center; }
+.cpanel-modal { background: var(--bg2); border: 1px solid var(--border); border-radius: 4px;
+	width: min(440px, 92vw); max-height: 84vh; display: flex; flex-direction: column; }
+.cpanel-modal-head { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px;
+	border-bottom: 1px solid var(--border); font-size: 13px; color: var(--text); }
+.cpanel-modal-x { background: none; border: none; color: var(--text-dim); font-size: 14px; cursor: pointer; }
+.cpanel-modal-x:hover { color: var(--red); }
+.cpanel-modal-body { padding: 12px; overflow-y: auto; }
+.cpanel-modal-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 10px 12px;
+	border-top: 1px solid var(--border); }
+.cpanel-modal-save { background: var(--accent); color: #fff; border: none; border-radius: 2px;
+	padding: 5px 14px; cursor: pointer; font-size: 12px; }
+.cpanel-modal-cancel { background: none; border: 1px solid var(--border); color: var(--text-dim);
+	border-radius: 2px; padding: 5px 12px; cursor: pointer; font-size: 12px; }
+
+/* Catalog grid */
+.cpanel-catalog { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.cpanel-catalog-item { display: flex; flex-direction: column; gap: 3px; text-align: left;
+	background: var(--bg3); border: 1px solid var(--border); border-radius: 3px; padding: 10px; cursor: pointer; }
+.cpanel-catalog-item:hover { border-color: var(--accent); }
+.cpanel-catalog-icon { font-size: 18px; }
+.cpanel-catalog-title { color: var(--text); font-size: 12px; }
+.cpanel-catalog-desc { color: var(--text-dim); font-size: 10px; }
+
+/* Config form */
+.cpanel-form { display: flex; flex-direction: column; gap: 12px; }
+.cpanel-field { display: flex; flex-direction: column; gap: 4px; }
+.cpanel-field-label { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--text-dim); }
+.cpanel-input { background: var(--bg3); border: 1px solid var(--border); border-radius: 2px; color: var(--text);
+	font-size: 12px; padding: 5px 6px; }
+.cpanel-fieldpick { display: flex; flex-direction: column; gap: 8px; }
+.cpanel-fieldgroup-label { font-size: 9px; letter-spacing: 1px; text-transform: uppercase; color: var(--text-dim); margin-bottom: 3px; }
+.cpanel-fieldgroup, .cpanel-widgetpick { display: flex; flex-wrap: wrap; gap: 4px; }
+.cpanel-fieldgroup { align-items: flex-start; }
+.cpanel-chip { background: var(--bg3); border: 1px solid var(--border); border-radius: 10px; color: var(--text-dim);
+	font-size: 11px; padding: 3px 9px; cursor: pointer; }
+.cpanel-chip:hover { border-color: var(--accent); }
+.cpanel-chip.on { background: var(--accent); color: #fff; border-color: var(--accent); }

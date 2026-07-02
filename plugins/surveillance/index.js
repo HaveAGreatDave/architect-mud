@@ -243,6 +243,7 @@ async function cmdFeed(args, raw, player) {
 // frames every 5s. Client re-renders on each push.
 
 const hubViewers = new Set(); // playerId
+const panelWatchers = new Map(); // playerId -> Set(deviceId) — sticky-cam sidebar panels
 
 const CAM_KINDS = new Set(['sticky_cam', 'drone']);
 
@@ -450,11 +451,40 @@ async function surveillanceTick() {
     if (!rows.length) { hubViewers.delete(playerId); continue; }
     sendToPlayer(playerId, await buildHubPayload(rows[0], false));
   }
+  for (const playerId of panelWatchers.keys()) await pushPanelFeeds(playerId);
 }
 
 setInterval(() => surveillanceTick().catch(e => console.error('[surveillance] hub tick error:', e.message)), 5000);
 
-on('player.logout', ({ id }) => hubViewers.delete(id));
+on('player.logout', ({ id }) => { hubViewers.delete(id); panelWatchers.delete(id); });
+
+// ── Sticky-cam sidebar panels ────────────────────────────────────────────────
+// The game client's custom "Sticky cams" panel pins device ids; we push a
+// per-cam frame on the same 5s cadence. Reuses buildTiles so status/frame logic
+// (power, jam, spoof, damage) stays in one place.
+async function camCatalog(playerId) {
+  const tiles = await buildTiles(playerId);
+  return tiles.filter(t => CAM_KINDS.has(t.kind)).map(t => ({ id: t.id, label: t.name }));
+}
+
+async function pushPanelFeeds(playerId) {
+  const want = panelWatchers.get(playerId);
+  if (!want || !want.size) { panelWatchers.delete(playerId); return; }
+  const tiles = await buildTiles(playerId);
+  for (const t of tiles) {
+    if (want.has(t.id)) sendToPlayer(playerId, { type: 'panel_feed', feed: t.id, status: t.status, frame: t.frame, label: t.name });
+  }
+}
+
+on('panel.catalog', async ({ playerId }) => {
+  sendToPlayer(playerId, { type: 'panel_catalog', cameras: await camCatalog(playerId) });
+});
+
+on('panel.watch', async ({ playerId, feeds }) => {
+  if (!feeds || !feeds.length) { panelWatchers.delete(playerId); return; }
+  panelWatchers.set(playerId, new Set(feeds));
+  await pushPanelFeeds(playerId); // immediate first frame, don't wait for the tick
+});
 
 // ── Recording & datachips (Phase 3) ──────────────────────────────────────────
 // A recording device banks a frame each tick into its ring buffer. `clip` exports
