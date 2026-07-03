@@ -118,18 +118,18 @@ export function renderMinimap(nodes, direction) {
 
 // Land-use / function colour key for the default map view. Keys match server mapFunc().
 const FUNC_LEGEND = {
-  corporate:   { label: 'Corporate / Uptown',   color: '#3f5fb0' },
-  civic:       { label: 'Civic / institutional', color: '#3fb58c' },
-  residential: { label: 'Residential',           color: '#5a8fb0' },
-  commercial:  { label: 'Commercial / trade',    color: '#33a0c4' },
-  nightlife:   { label: 'Nightlife / bars',      color: '#c05fd0' },
-  media:       { label: 'Media / studio',        color: '#8e6fd0' },
-  industrial:  { label: 'Industrial',            color: '#9a8a4f' },
-  wasteland:   { label: 'Wasteland / ruins',     color: '#7c6a4a' },
-  slum:        { label: 'Slum / Undermarket',    color: '#d08a3a' },
-  water:       { label: 'Water',                 color: '#2f77a8' },
-  hazard:      { label: 'Hazard / lethal',       color: '#e05555' },
-  other:       { label: 'Other',                 color: '#6b7280' },
+  corporate:   { label: 'Corporate / Uptown',   color: '#b0bde2' },
+  civic:       { label: 'Civic / institutional', color: '#b3e2cf' },
+  residential: { label: 'Residential',           color: '#a9c9dc' },
+  commercial:  { label: 'Commercial / trade',    color: '#a9dcea' },
+  nightlife:   { label: 'Nightlife / bars',      color: '#e2b8ea' },
+  media:       { label: 'Media / studio',        color: '#c6b6ec' },
+  industrial:  { label: 'Industrial',            color: '#d8cfa0' },
+  wasteland:   { label: 'Wasteland / ruins',     color: '#c9b89a' },
+  slum:        { label: 'Slum / Undermarket',    color: '#eccaa0' },
+  water:       { label: 'Water',                 color: '#a8cbe2' },
+  hazard:      { label: 'Hazard / lethal',       color: '#eeb0b0' },
+  other:       { label: 'Other',                 color: '#c2c8d0' },
 };
 
 export function openMapPopup(tiles, mode = 'function') {
