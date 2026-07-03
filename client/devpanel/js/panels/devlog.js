@@ -50,7 +50,9 @@ function _dlNoteCard(n) {
 }
 
 function _dlActivityHtml(commits, gitUnavailable) {
-  if (gitUnavailable) return `<div style="font-size:12px;color:var(--text-dim)">Git history unavailable on this server.</div>`;
+  if (gitUnavailable || _devlogGitInfo.gitError || (!commits.length && _devlogGitInfo.routeError)) {
+    return `<div style="font-size:12px;color:var(--text-dim)">${_dlUnavailableMsg()}</div>`;
+  }
   if (!commits.length) return `<div style="font-size:12px;color:var(--text-dim)">No commits in the last 14 days.</div>`;
 
   // Per-contributor summary, keyed on resolved handle when known.
@@ -109,11 +111,19 @@ function _dlCoreColor(tier) {
 // Cached per-range contribution stats, so the range toggle re-renders without a
 // server round trip. Set in renderDevLog.
 let _devlogContrib = null;
+let _devlogGitInfo = { gitError: null, routeError: null };
+
+// A specific, actionable message for why git data is missing.
+function _dlUnavailableMsg() {
+  if (_devlogGitInfo.gitError) return `Git history unavailable: ${_dlEsc(_devlogGitInfo.gitError)}`;
+  if (_devlogGitInfo.routeError) return `Dev Log routes aren't responding (“${_dlEsc(_devlogGitInfo.routeError)}”). Run <code>npm run db:schema</code> and restart the server so the new routes load.`;
+  return 'Git history unavailable on this server.';
+}
 const _DL_CONTRIB_COLORS = ['#2a78d6', '#eda100', '#199e70', '#e34948', '#9085e9', '#d95926'];
 const _DL_RANGE_LABELS = { '7d': 'Last 7 days', '30d': 'Last 30 days', 'all': 'All time' };
 
 function _dlContribSectionHtml() {
-  if (!_devlogContrib) return `<div style="font-size:12px;color:var(--text-dim)">Git history unavailable on this server.</div>`;
+  if (!_devlogContrib) return `<div style="font-size:12px;color:var(--text-dim)">${_dlUnavailableMsg()}</div>`;
   const btn = (r) => `<button data-range="${r}" onclick="devlogSetContribRange('${r}')" style="flex:1;background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font-mono);font-size:11px;padding:6px 8px;cursor:pointer;border-radius:2px">${_DL_RANGE_LABELS[r]}</button>`;
   return `
     <div id="devlog-contrib-toggle" style="display:flex;gap:6px;margin-bottom:14px">
@@ -217,6 +227,7 @@ function _dlIdentitiesHtml(commits, identities, players) {
 function renderDevLog(data) {
   const panel = document.getElementById('list-panel');
   _devlogContrib = data.contributions || null;
+  _devlogGitInfo = { gitError: data.gitError || null, routeError: data.routeError || null };
   const notes = data.notes || [];
   const active = notes.filter(n => !n.resolved);
   const resolved = notes.filter(n => n.resolved);

@@ -1663,6 +1663,24 @@ function coreIntensityTier(lines) {
   return 3;                     // heavy
 }
 
+// Run `git` in the repo root. Returns { ok, stdout } or { ok:false, reason }.
+// The reason string is safe to show a dev — it explains WHY git is unavailable
+// (binary missing, no .git checkout, etc.) instead of a silent empty feed.
+async function runGit(args) {
+  const repoRoot = fileURLToPath(new URL('../../', import.meta.url));
+  try {
+    const { stdout } = await execFileP('git', args, { cwd: repoRoot, maxBuffer: 64 * 1024 * 1024 });
+    return { ok: true, stdout };
+  } catch (err) {
+    const stderr = (err.stderr || '').toString();
+    const reason = err.code === 'ENOENT' ? 'git is not installed / not on this server\'s PATH'
+      : /not a git repository/i.test(stderr) ? 'this server has no .git checkout (deployed without git history)'
+      : (stderr || err.message || 'git failed').split('\n')[0].slice(0, 200);
+    console.error('[dev-log] git failed:', err.code || '', reason);
+    return { ok: false, reason };
+  }
+}
+
 // Recent code activity from git, for the Dev Log check-in view. Read-only; if
 // git isn't available (e.g. deployed from a tarball) it returns an empty list.
 async function apiGetDevActivity(fullUrl) {
@@ -1674,13 +1692,9 @@ async function apiGetDevActivity(fullUrl) {
     '--pretty=format:%x1e%H%x1f%an%x1f%ae%x1f%aI%x1f%s',
     '--numstat',
   ];
-  let stdout = '';
-  try {
-    const repoRoot = fileURLToPath(new URL('../../', import.meta.url));
-    ({ stdout } = await execFileP('git', args, { cwd: repoRoot, maxBuffer: 16 * 1024 * 1024 }));
-  } catch {
-    return { status: 200, body: { commits: [], gitUnavailable: true } };
-  }
+  const g = await runGit(args);
+  if (!g.ok) return { status: 200, body: { commits: [], gitUnavailable: true, gitError: g.reason } };
+  const stdout = g.stdout;
   // Resolve git identities → admin handles via the dev_identities map.
   const { rows: idRows } = await query(`SELECT git_key, handle FROM dev_identities`);
   const idMap = new Map(idRows.map(r => [r.git_key, r.handle]));
@@ -1813,17 +1827,13 @@ async function apiGetDevContributions() {
   const ranges = { '7d': '7.days.ago', '30d': '30.days.ago', 'all': null };
   const { rows: idRows } = await query(`SELECT git_key, handle FROM dev_identities`);
   const idMap = new Map(idRows.map(r => [r.git_key, r.handle]));
-  const repoRoot = fileURLToPath(new URL('../../', import.meta.url));
   const out = {};
   for (const [rk, since] of Object.entries(ranges)) {
     const args = ['log', '--no-merges', ...(since ? [`--since=${since}`] : []),
       '--pretty=format:%x1e%an%x1f%ae', '--numstat'];
-    let stdout = '';
-    try {
-      ({ stdout } = await execFileP('git', args, { cwd: repoRoot, maxBuffer: 64 * 1024 * 1024 }));
-    } catch {
-      return { status: 200, body: { gitUnavailable: true } };
-    }
+    const g = await runGit(args);
+    if (!g.ok) return { status: 200, body: { gitUnavailable: true, gitError: g.reason } };
+    const stdout = g.stdout;
     const byKey = new Map();
     for (const rec of stdout.split('\x1e')) {
       const t = rec.trim();
