@@ -183,7 +183,7 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
     check('ambiguous direction → numbered picker', amb?.type === 'output' && /Several ways lead north/.test(amb.message || '') && /\[1\]/.test(amb.message || ''), amb?.message?.slice?.(0, 120));
     check('ambiguous move does not relocate', mover.current_zone === originId, mover.current_zone);
     const sel = getSelectionState(mover.id);
-    check('ambiguous move opens SIFT selection', sel?.allCandidates?.length === 2 && sel.context?.verb === 'go', JSON.stringify(sel?.context));
+    check('ambiguous move opens SIFT selection', sel?.allCandidates?.length === 2 && sel.context?.verb === 'move', JSON.stringify(sel?.context));
     clearSelectionState(mover.id);
 
     // SIFT: naming the destination resolves to that specific same-direction exit.

@@ -114,7 +114,8 @@ export async function handleCommand(input, player, broadcast) {
   // command, not the alias. No-op when no alias applied.
   if (cmd !== parts[0]) raw = [cmd, ...raw.trim().split(/\s+/).slice(1)].join(' ');
 
-  if (player.sleeping && cmd !== 'sleep' && cmd !== 'rest') {
+  // `cmd` is already alias-resolved above, so `rest` has become `sleep` here.
+  if (player.sleeping && cmd !== 'sleep') {
     const wasHome = player.sleeping.reason === 'home';
     player.sleeping = null;
     setPosture(player, 'standing');

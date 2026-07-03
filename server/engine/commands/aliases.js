@@ -18,7 +18,6 @@ import { query } from '../../models/db.js';
 // open/close, get/take, …) stay as engine builtins on purpose so tag-gated
 // specialized handlers still win over them.
 export const ALIAS_DEFAULTS = {
-  scav: 'scavenge',
   // Movement
   n: 'north',
   s: 'south',
@@ -26,6 +25,8 @@ export const ALIAS_DEFAULTS = {
   w: 'west',
   u: 'up',
   d: 'down',
+  go: 'move',
+  enter: 'move',
   // Look / examine
   l: 'look',
   ex: 'examine',
@@ -33,12 +34,28 @@ export const ALIAS_DEFAULTS = {
   // Inventory
   i: 'inventory',
   inv: 'inventory',
+  get: 'take',
+  wear: 'equip',
+  remove: 'unequip',
+  put: 'stow',
+  throw: 'stow',
   // Info screens
   st: 'stats',
+  status: 'stats',
   '?': 'help',
-  // Misc
-  tp: 'teleport',
+  ip: 'raise',
+  xp: 'raise',
+  // Social
+  speak: 'talk',
   t: 'whisper',
+  tell: 'whisper',
+  shout: 'yell',
+  // Housing / misc
+  scav: 'scavenge',
+  tp: 'teleport',
+  vacate: 'unrent',
+  picklock: 'pick',
+  rest: 'sleep',
 };
 
 let overrides = {}; // alias → verb (from DB)

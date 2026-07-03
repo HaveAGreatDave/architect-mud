@@ -184,12 +184,9 @@ function cmdObama(targetStr, player, broadcast) {
 
 export const handlers = {
   talk:    (args, raw, player, broadcast) => cmdTalk(args.join(' '), player, broadcast),
-  speak:   (args, raw, player, broadcast) => cmdTalk(args.join(' '), player, broadcast),
   say:     (args, raw, player, broadcast) => cmdSay(raw.replace(/^say\s*/i,''), player, broadcast),
-  yell:    (args, raw, player, broadcast) => cmdYell(raw.replace(/^(yell|shout)\s*/i,''), player, broadcast),
-  shout:   (args, raw, player, broadcast) => cmdYell(raw.replace(/^(yell|shout)\s*/i,''), player, broadcast),
+  yell:    (args, raw, player, broadcast) => cmdYell(raw.replace(/^yell\s*/i,''), player, broadcast),
   whisper: (args, raw, player, broadcast) => cmdWhisper(args, raw, player, broadcast),
-  tell:    (args, raw, player, broadcast) => cmdWhisper(args, raw, player, broadcast),
   who:     () => cmdWho(),
   obama:   (args, raw, player, broadcast) => cmdObama(args.join(' '), player, broadcast),
   pet:     (args, raw, player, broadcast) => cmdPet(args.join(' '), player, broadcast),

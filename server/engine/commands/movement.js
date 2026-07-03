@@ -290,7 +290,7 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
     } else {
       // Numbered SIFT picker. Selecting a number moves straight to that zone id
       // (see the selection intercept in commands/index.js) — no name round-trip.
-      createSelectionState(player.id, candidates, { verb: 'go', moveDirection: direction });
+      createSelectionState(player.id, candidates, { verb: 'move', moveDirection: direction });
       return { type: 'output', message: `Several ways lead ${direction}.\n${formatSelectionPage(getSelectionState(player.id))}` };
     }
   }
@@ -533,9 +533,7 @@ async function cmdMap(player) {
 
 export const handlers = {
   look:  (args, raw, player, broadcast) => cmdLook(player, args.length ? args.join(' ') : undefined, broadcast),
-  go:    (args, raw, player, broadcast) => cmdGo(args.join(' '), player, broadcast),
   move:  (args, raw, player, broadcast) => cmdGo(args.join(' '), player, broadcast),
-  enter: (args, raw, player, broadcast) => cmdGo(args.join(' '), player, broadcast),
   north: (args, raw, player, broadcast) => cmdMove('north', player, broadcast),
   south: (args, raw, player, broadcast) => cmdMove('south', player, broadcast),
   east:  (args, raw, player, broadcast) => cmdMove('east', player, broadcast),
