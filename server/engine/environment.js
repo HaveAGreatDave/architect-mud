@@ -1769,6 +1769,10 @@ export async function devSetTime({ date, minutes }) {
   if (await syncStreetlights().catch(() => false)) await recomputePower().catch(() => {});
   const payload = getHUDPayload();
   if (broadcast) broadcast({ type: 'environment.sync', ...payload });
+  // A manual clock jump can move NPCs on or off shift — let the game loop force
+  // an immediate work re-check rather than waiting for the next wander tick
+  // (and, for a sleeping NPC, until its scheduled wake).
+  emit('environment.timeSet', { minutes: state.minutes, date: state.date, phase: state.phase });
   return payload;
 }
 

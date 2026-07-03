@@ -8,7 +8,7 @@ import { restockAllVendors } from './vendor.js';
 import { tickEffects, applyEffect } from './effects.js';
 import { tickSleep, releaseApartment } from './apartments.js';
 import { fireHook } from './plugins.js';
-import { emit } from './events.js';
+import { emit, on } from './events.js';
 import { schedule } from './scheduler.js';
 import { hasExit, neighborZoneIds } from './exits.js';
 import { setPosture, forceStand } from './posture.js';
@@ -37,7 +37,30 @@ export function startGameLoop(broadcast) {
   schedule('1m', npcWanderTick);
   schedule('30s', () => npcBanterTick({ broadcast: broadcastFn }));
   schedule('24h', dailyMaintenance);
+  // A dev-panel clock jump (environment.devSetTime) can put NPCs on or off shift.
+  // Force every employed NPC to re-check work now instead of waiting for the next
+  // wander tick — otherwise a sleeping NPC would stay asleep until its old
+  // scheduled wake and shops wouldn't open/close to match the new time.
+  on('environment.timeSet', () => { forceNpcWorkRecheck().catch(() => {}); });
   console.log('✓ Game loop started');
+}
+
+// Coalesced so spamming the time slider can't stack overlapping sweeps.
+let workRecheckInFlight = false;
+async function forceNpcWorkRecheck() {
+  if (workRecheckInFlight) return;
+  workRecheckInFlight = true;
+  try {
+    for (const [, npc] of world.npcs) {
+      if (npc._dead) continue;
+      const ai = npc._ai;
+      if (!ai || !npc.behaviour_graph?._start) continue;
+      ai.waitUntil = null; // drop any pending WAIT (work-wait, have-life, or sleep)
+      await tickEntityAI(npc, { broadcast: broadcastFn, query }).catch(() => {});
+    }
+  } finally {
+    workRecheckInFlight = false;
+  }
 }
 
 async function tick() {
