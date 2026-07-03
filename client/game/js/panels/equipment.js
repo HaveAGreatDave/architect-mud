@@ -272,12 +272,10 @@ const GEAR_LAYERS = [
   { key: 'armor', label: 'Armor', n: 3 },
 ];
 const GEAR_SLOT_LABELS = { head:'Head', torso:'Torso', hands:'Hands', legs:'Legs', feet:'Feet' };
-// Soak table regions. Combat maps the 'arms' body part to the hands armor slot.
-const SOAK_REGIONS = [
-  { slot:'head', label:'Head' }, { slot:'torso', label:'Torso' },
-  { slot:'hands', label:'Arms' }, { slot:'legs', label:'Legs' },
-  { slot:'feet', label:'Feet' },
-];
+// Armor table: one row per body slot (always all five), one column per damage type
+// (always all five). Cells show that slot's total soak summed across worn layers.
+const DAMAGE_TYPES = ['kinetic','edged','energy','fire','radiation'];
+const ARMOR_SLOTS = ['head','torso','hands','legs','feet'];
 // Filter categories (client-only toggles). All on by default.
 const GEAR_FILTERS = ['underwear','outerwear','armor','weapon','accessories'];
 let gearFilter = new Set(GEAR_FILTERS);
@@ -328,18 +326,27 @@ export function renderGearPanel(msg) {
     el.onclick = () => { const it = items.find(i => i.id == el.dataset.id); if (it) showItemDetail(it); };
   });
 
-  // Soak table (all five regions, including feet).
-  const soak = msg.soak || {};
-  const types = [...new Set(SOAK_REGIONS.flatMap(r => Object.keys(soak[r.slot]?.soak || {})))];
-  let soakHtml = '<div class="gear-section-label">Soak</div><table class="gear-soaktable"><tbody>';
-  for (const r of SOAK_REGIONS) {
-    const entry = soak[r.slot] || {};
-    const parts = types.map(t => `${t} ${entry.soak?.[t] || 0}`);
-    if (entry.flat) parts.push(`flat ${entry.flat}`);
-    const val = parts.length ? parts.join(' · ') : '—';
-    soakHtml += `<tr><td class="gear-soak-region">${r.label}</td><td class="gear-soak-val">${escapeHtml(val)}</td></tr>`;
+  // Armor table: a row per body slot (always all five), a column per damage type
+  // (always all five). Each cell is the slot's total soak, summed across every worn
+  // layer covering that slot. Empty slots read as zeroes.
+  const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+  const slotSoak = (slot) => {
+    const totals = {};
+    for (const p of equipped.filter(i => i.slot === slot)) {
+      const soak = p.tags?.armor_soak || {};
+      for (const t of DAMAGE_TYPES) totals[t] = (totals[t] || 0) + (Number(soak[t]) || 0);
+    }
+    return totals;
+  };
+  let armorHtml = '<div class="gear-section-label">Armor</div>' +
+    '<table class="gear-armortable"><thead><tr><th>Slot</th>' +
+    DAMAGE_TYPES.map(t => `<th>${escapeHtml(cap(t))}</th>`).join('') + '</tr></thead><tbody>';
+  for (const slot of ARMOR_SLOTS) {
+    const totals = slotSoak(slot);
+    armorHtml += `<tr><td class="gear-armor-slot">${escapeHtml(GEAR_SLOT_LABELS[slot])}</td>` +
+      DAMAGE_TYPES.map(t => `<td>${totals[t] || 0}</td>`).join('') + '</tr>';
   }
-  document.getElementById('gear-soak').innerHTML = soakHtml + '</tbody></table>';
+  document.getElementById('gear-armor').innerHTML = armorHtml + '</tbody></table>';
 
   // Passive effects block.
   const fx = msg.effects || {};
@@ -355,28 +362,23 @@ export function renderGearPanel(msg) {
     : '';
 
   // Equippable-item list (reuses the inventory card + detail modal).
+  // Only unequipped pieces — what's worn already shows in the layout/armor tables above.
   const list = document.getElementById('gear-inv-list');
   list.innerHTML = '';
-  for (const item of items) list.appendChild(buildItemCard(item));
-
-  document.getElementById('gear-credits-val').textContent = msg.credits ?? ((state.player && state.player.credits) || 0);
-  const wtEl = document.getElementById('gear-weight-val');
-  if (wtEl && msg.capacity != null) wtEl.textContent = `${formatWeight(msg.weight)}/${formatWeight(msg.capacity)}`;
+  for (const item of items.filter(i => !i.is_equipped)) list.appendChild(buildItemCard(item));
 
   applyGearFilter();
 }
 
-// Show/hide columns and strips per the active filter set; dim non-matching list rows.
+// Filter the equippable list per the active filter set. The worn layout/armor
+// tables above are never affected — filtering only narrows the list of pieces you
+// could equip.
 function applyGearFilter() {
   const on = (cat) => gearFilter.has(cat);
-  document.querySelectorAll('#gear-layout [data-cat]').forEach(el => {
-    el.classList.toggle('gear-hidden', !on(el.dataset.cat));
-  });
-  // List cards: dim those whose slot/layer category is filtered off.
   document.querySelectorAll('#gear-inv-list .equip-item-card').forEach(el => {
     const item = (lastGear?.items || []).find(i => i.id == el.dataset.id);
     const cat = itemCategory(item);
-    el.classList.toggle('gear-dim', cat && !on(cat));
+    el.classList.toggle('gear-hidden', cat && !on(cat));
   });
   document.querySelectorAll('#gear-filters .gear-filter-btn').forEach(b => {
     if (b.dataset.filter === 'all') return;
