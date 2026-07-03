@@ -67,8 +67,21 @@ Full model + the fallback table: [docs/npc-clothing.md](../../../docs/npc-clothi
 **Enemy:**
 - [ ] A zone spawn entry (`zones/<id>/spawns`) — an enemy with no spawn ships nothing
 - [ ] Loot table items exist
+- [ ] **Butcher yield decided, not defaulted.** Should the corpse be carvable? If yes, populate `butcher_table` (entries `{item, qty:[min,max]}`) and set `butcher_difficulty`; the yield items must exist as `items` rows. If no, leave `butcher_table: []`. A new enemy defaults to an *empty* table = non-butcherable — decide deliberately (see below).
 - [ ] Behaviour graph (or default AI is acceptable — say which)
 - [ ] Danger rating of the target zone matches enemy lethality
+
+### Butcherable enemies — `butcher_table` + `butcher_difficulty`
+
+Butchering is a **separate path from loot**: `loot_table` drops onto the corpse to be looted; `butcher_table` is carved with the Butchering skill (a knife-tagged tool required). An enemy can have both, either, or neither. On kill the corpse inherits both fields from the enemy row; if the corpse is **empty of loot but butcherable**, `loot <corpse>` starts the carve directly.
+
+Two enemy columns drive it:
+- `butcher_table` (JSONB, default `[]`) — array of entries `{ "item": "<item_id>", "qty": [min, max] }`. `qty` may also be a bare int.
+- `butcher_difficulty` (int, default `5`) — the skill-check target.
+
+The carve rolls an **independent Butchering skill check per entry** against `butcher_difficulty`: success carves a random `qty` in range into inventory, failure ruins that entry (and bloodies the player). **There is no per-entry drop chance** — to make a yield rare, raise `butcher_difficulty` or use a low `qty`, not a "chance" field (none exists). Difficulty guidance: copy from an exemplar enemy of similar tier; `0` = trivial, `5` = default, higher = needs a skilled butcher.
+
+The yield items are inserted by id, so **every `item` id must exist as an `items` row** — but unlike a craft component it needs no other "way into the world" (the corpse *is* its source). Pull an exemplar enemy that already has a populated `butcher_table` and copy its shape rather than inventing one.
 
 **Item:**
 - [ ] Tags from the catalog only (`client/shared/tagCatalog.js`) — check `docs/tags.md`
