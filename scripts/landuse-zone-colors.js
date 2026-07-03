@@ -18,8 +18,10 @@ const PREFIX_CAT = {
   drum: 'commercial', velk: 'commercial', weapons: 'commercial', furniture: 'commercial',
   mq: 'nightlife',
   media: 'media', prod: 'media', studio: 'media', util: 'media', ext: 'media',
-  coldwater: 'industrial', powerplantnew: 'industrial', slag: 'industrial', warehouse: 'industrial',
-  waste: 'wasteland', ashway: 'wasteland', badland: 'wasteland', outskirts: 'wasteland', ruins: 'wasteland',
+  coldwater: 'industrial', powerplantnew: 'industrial', warehouse: 'industrial',
+  slag: 'slaglands',
+  waste: 'wasteland', badland: 'wasteland', outskirts: 'wasteland', ruins: 'wasteland',
+  ashway: 'ashway',
   deep: 'slum', slums: 'slum', tunnels: 'slum',
 };
 
@@ -34,7 +36,9 @@ const COLORS = {
   nightlife:   '#e85aa0', // hot pink — Marquee
   media:       '#8e6fd0', // violet — studios
   industrial:  '#9a8a4f', // olive
+  slaglands:   '#e5822a', // orange — the Slagworks (molten/slag)
   wasteland:   '#7c6a4a', // brown
+  ashway:      '#8b9097', // grey — the Ashway (ash flats)
   slum:        '#cf6a2e', // burnt orange — Undermarket
   hazard:      '#e05555', // red — lethal
 };

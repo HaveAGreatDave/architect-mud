@@ -536,6 +536,7 @@ function mapsGuard() { return true; }
 
 function toggleSafeZoneMode() {
   mapSafeZoneMode = !mapSafeZoneMode;
+  if (mapSafeZoneMode) mapPaintMode = false;
   renderMapOverview();
 }
 
@@ -574,6 +575,206 @@ function safeZonePaintOver(zoneId) {
 }
 
 document.addEventListener('mouseup', () => { mapSafeZonePainting = false; });
+
+// ─── COLOUR PAINTER ────────────────────────────────────────────────────────
+// A floating paint tool over the map: brush + flood-fill-by-colour, a full
+// swatch palette + arbitrary picker, a whole-map luminance slider, and a
+// luminance normaliser. Parallels the Safe-Zone tool but writes zone bg_color.
+let mapPaintMode = false;
+let mapPaintTool = 'brush';       // 'brush' | 'fill'
+let mapPaintColor = '#e05555';    // the colour currently loaded on the brush
+let mapPainting = false;          // mouse down, dragging a brush stroke
+let mapPaintPending = new Set();  // zoneIds with an in-flight bg_color save
+let mapLumBase = null;            // Map(zoneId->hex) snapshot taken at slider drag start
+
+const PAINT_SWATCHES = [
+  '#2f86cc','#1fb5aa','#d9a83a','#b56fbf','#4bb36a','#c9a884','#e08a4a','#e85aa0',
+  '#8e6fd0','#9a8a4f','#e5822a','#7c6a4a','#8b9097','#cf6a2e','#e05555','#39ff8f',
+  '#ff9a3c','#f5e642','#7ed321','#28e5ff','#3f8fff','#9b59b6','#ff5ea8','#ffffff',
+  '#c8c8c8','#909090','#585858','#202020',
+];
+
+function togglePaintMode() {
+  mapPaintMode = !mapPaintMode;
+  if (mapPaintMode) mapSafeZoneMode = false;
+  renderMapOverview();
+}
+function setPaintTool(t) { mapPaintTool = t; renderMapOverview(); }
+function setPaintColor(hex) { mapPaintColor = hex; renderMapOverview(); }
+
+// Locate the live grid tile element for a zone (null if off-screen / a gap).
+function _tileEl(z) {
+  const g = document.getElementById('bigmap-grid-scroll');
+  const el = g && g.querySelector(`[data-map-cell="${z.grid_x},${z.grid_y}"]`);
+  return (el && el.classList.contains('bigmap-tile')) ? el : null;
+}
+
+// Paint a hex straight onto a tile's DOM (bg + auto border + auto text) without
+// a full re-render — keeps brush/slider strokes smooth.
+function _applyTileColor(el, hex) {
+  const rgb = hexToRgbArr(hex); if (!rgb) return;
+  const [r, g, b] = rgb;
+  el.style.background = hex;
+  el.style.borderColor = `rgb(${Math.min(255,Math.round(r+(255-r)*0.5))},${Math.min(255,Math.round(g+(255-g)*0.5))},${Math.min(255,Math.round(b+(255-b)*0.5))})`;
+  const lum = (0.299*r + 0.587*g + 0.114*b) / 255;
+  const t = Math.round((1 - lum) * 255);
+  el.style.color = `rgb(${t},${t},${t})`;
+}
+
+// Fire-and-forget single-tile save (brush).
+async function _savePaintColor(zoneId, hex) {
+  if (mapPaintPending.has(zoneId)) return;
+  mapPaintPending.add(zoneId);
+  try {
+    const r = await API(`/zones/${zoneId}`, 'PUT', { bg_color: hex });
+    if (r?.error) toast(r.error, true); else updateStagingBadge();
+  } finally { mapPaintPending.delete(zoneId); }
+}
+
+// Sequential bulk save (fill / luminance / normalise / text) — avoids a burst
+// of hundreds of concurrent PUTs. `field` is the zone column to persist.
+async function _saveColorsBulk(ids, field = 'bg_color') {
+  for (const id of ids) {
+    const z = mapOverview?.zones.get(id);
+    if (!z) continue;
+    const r = await API(`/zones/${id}`, 'PUT', { [field]: z[field] });
+    if (r?.error) { toast(r.error, true); break; }
+  }
+  updateStagingBadge();
+}
+
+function paintStart(e, zoneId) { e.preventDefault(); mapPainting = true; _brushTile(zoneId); }
+function paintOver(zoneId) { if (mapPainting) _brushTile(zoneId); }
+function _brushTile(zoneId) {
+  const z = mapOverview?.zones.get(zoneId);
+  if (!z || z.bg_color === mapPaintColor) return;
+  z.bg_color = mapPaintColor;
+  const el = _tileEl(z); if (el) _applyTileColor(el, mapPaintColor);
+  _savePaintColor(zoneId, mapPaintColor);
+}
+document.addEventListener('mouseup', () => { mapPainting = false; });
+
+// Flood-fill: from the clicked tile, spread to orthogonally-adjacent tiles that
+// share its colour, stopping at any different colour or empty cell (barrier).
+async function mapFloodFill(startId) {
+  const start = mapOverview?.zones.get(startId);
+  if (!start) return;
+  const from = (start.bg_color || '').toLowerCase();
+  if (from === mapPaintColor.toLowerCase()) return;
+  const z0 = mapOverview.z;
+  const byCoord = new Map();
+  for (const z of mapOverview.zones.values())
+    if ((z.grid_z ?? 0) === z0 && z.grid_x != null && z.grid_y != null)
+      byCoord.set(`${z.grid_x},${z.grid_y}`, z);
+  const queue = [start], seen = new Set([startId]), hit = [];
+  while (queue.length) {
+    const z = queue.shift(); hit.push(z);
+    for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+      const n = byCoord.get(`${z.grid_x+dx},${z.grid_y+dy}`);
+      if (n && !seen.has(n.id) && (n.bg_color || '').toLowerCase() === from) { seen.add(n.id); queue.push(n); }
+    }
+  }
+  for (const z of hit) z.bg_color = mapPaintColor;
+  renderMapOverview();
+  await _saveColorsBulk(hit.map(z => z.id));
+}
+
+// Shift a hex's HSL lightness by delta (clamped), returning a new hex.
+function adjustHexLightness(hex, delta) {
+  const rgb = hexToRgbArr(hex); if (!rgb) return hex;
+  const [h, s, l] = rgbToHsl(rgb);
+  return rgbArrToHex(hslToRgbArr(h, s, Math.max(0, Math.min(1, l + delta))));
+}
+
+// Whole-map luminance slider. Live-previews against a snapshot taken at drag
+// start (so dragging is non-cumulative), commits + resets on release.
+function mapLumInput(val) {
+  if (!mapOverview) return;
+  const delta = parseInt(val, 10) / 200; // -100..100 → -0.5..+0.5 lightness
+  const z0 = mapOverview.z;
+  if (!mapLumBase) {
+    mapLumBase = new Map();
+    for (const z of mapOverview.zones.values())
+      if ((z.grid_z ?? 0) === z0 && z.grid_x != null && z.grid_y != null && z.bg_color)
+        mapLumBase.set(z.id, z.bg_color);
+  }
+  for (const [id, base] of mapLumBase) {
+    const z = mapOverview.zones.get(id); if (!z) continue;
+    const hex = adjustHexLightness(base, delta);
+    z.bg_color = hex;
+    const el = _tileEl(z); if (el) _applyTileColor(el, hex);
+  }
+  const lbl = document.getElementById('map-lum-val');
+  if (lbl) lbl.textContent = (delta >= 0 ? '+' : '') + Math.round(delta * 100);
+}
+async function mapLumCommit() {
+  if (!mapLumBase) return;
+  const ids = [...mapLumBase.keys()];
+  mapLumBase = null;
+  const s = document.getElementById('map-lum-slider'); if (s) s.value = 0;
+  const lbl = document.getElementById('map-lum-val'); if (lbl) lbl.textContent = '0';
+  await _saveColorsBulk(ids);
+}
+
+// Normalise luminance: pull every tile's lightness to the map's mean, keeping
+// each tile's hue + saturation, so no tile reads much darker/lighter than another.
+async function mapNormalizeLum() {
+  if (!mapOverview) return;
+  const z0 = mapOverview.z;
+  const tiles = [...mapOverview.zones.values()].filter(z =>
+    (z.grid_z ?? 0) === z0 && z.grid_x != null && z.grid_y != null && z.bg_color);
+  if (!tiles.length) return;
+  let sum = 0;
+  for (const z of tiles) sum += rgbToHsl(hexToRgbArr(z.bg_color))[2];
+  const target = sum / tiles.length;
+  for (const z of tiles) {
+    const [h, s] = rgbToHsl(hexToRgbArr(z.bg_color));
+    z.bg_color = rgbArrToHex(hslToRgbArr(h, s, target));
+  }
+  renderMapOverview();
+  await _saveColorsBulk(tiles.map(z => z.id));
+}
+
+// Bake each tile's text colour to the readable black/white for its background
+// luminance (luminanceTextColor), replacing any custom fg colour. Persists the
+// `color` column so text renders identically everywhere (no auto-derive needed).
+async function mapRecalcText() {
+  if (!mapOverview) return;
+  const z0 = mapOverview.z;
+  const tiles = [...mapOverview.zones.values()].filter(z =>
+    (z.grid_z ?? 0) === z0 && z.grid_x != null && z.grid_y != null && z.bg_color);
+  if (!tiles.length) return;
+  for (const z of tiles) z.color = luminanceTextColor(z.bg_color);
+  renderMapOverview();
+  await _saveColorsBulk(tiles.map(z => z.id), 'color');
+}
+
+// The floating painter card (position:fixed so it hovers over the map).
+function paintPanelHtml() {
+  const sw = PAINT_SWATCHES.map(c =>
+    `<button onclick="setPaintColor('${c}')" title="${c}" style="width:100%;aspect-ratio:1;border-radius:3px;border:2px solid ${c.toLowerCase() === mapPaintColor.toLowerCase() ? '#fff' : 'transparent'};background:${c};cursor:pointer;padding:0"></button>`
+  ).join('');
+  const toolBtn = (t, label) => `<button onclick="setPaintTool('${t}')" style="flex:1;font-size:11px;padding:5px 6px;border-radius:4px;cursor:pointer;border:1px solid var(--border);background:${mapPaintTool === t ? 'var(--accent)' : 'var(--bg3)'};color:${mapPaintTool === t ? '#111' : 'var(--text)'}">${label}</button>`;
+  return `<div style="position:fixed;top:100px;right:28px;z-index:60;width:216px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 28px #000a;padding:11px;font-size:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px">
+      <strong style="font-size:12px;letter-spacing:.3px">🎨 Colour Painter</strong>
+      <button onclick="togglePaintMode()" title="Close painter" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:15px;line-height:1">✕</button>
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:9px">${toolBtn('brush', '🖌 Brush')}${toolBtn('fill', '🪣 Fill')}</div>
+    <div style="display:flex;align-items:center;gap:7px;margin-bottom:7px">
+      <span style="width:24px;height:24px;flex-shrink:0;border-radius:4px;background:${mapPaintColor};border:1px solid #0007"></span>
+      <input type="color" value="${mapPaintColor}" onchange="setPaintColor(this.value)" title="Pick any colour" style="width:100%;height:26px;background:none;border:none;cursor:pointer;padding:0">
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(8,1fr);gap:4px;margin-bottom:11px">${sw}</div>
+    <div style="border-top:1px solid var(--border);padding-top:9px">
+      <label style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-dim);margin-bottom:2px"><span>Map luminance</span><span id="map-lum-val" style="color:var(--text)">0</span></label>
+      <input id="map-lum-slider" type="range" min="-100" max="100" value="0" oninput="mapLumInput(this.value)" onchange="mapLumCommit()" style="width:100%">
+      <button onclick="mapNormalizeLum()" title="Pull every tile to the map's mean lightness (keeps hue)" style="width:100%;margin-top:9px;font-size:11px;padding:6px;border-radius:4px;border:1px solid var(--border);background:var(--bg3);color:var(--text);cursor:pointer">⚖ Normalise luminance</button>
+      <button onclick="mapRecalcText()" title="Set every tile's text colour to readable black/white by its background luminance" style="width:100%;margin-top:6px;font-size:11px;padding:6px;border-radius:4px;border:1px solid var(--border);background:var(--bg3);color:var(--text);cursor:pointer">🔤 Recalc text colours</button>
+    </div>
+    <div style="font-size:10px;color:var(--text-dim);margin-top:9px;line-height:1.45">${mapPaintTool === 'fill' ? 'Click a tile to flood-fill its same-colour region (stops at other colours).' : 'Click-drag across tiles to paint.'}</div>
+  </div>`;
+}
 
 async function renderMapsPanel(data) {
   mapsList = Array.isArray(data) ? data : [];
@@ -721,6 +922,7 @@ function renderMapOverview() {
       <select onchange="switchInteriorMap(this.value)">${intOpts}</select>
       <button class="action-btn danger" style="font-size:10px;padding:2px 8px" onclick="mapDeleteInterior()" title="Delete this interior map and all its zones">Delete Map</button>
       <button class="action-btn${mapSafeZoneMode ? ' active' : ''}" style="font-size:10px;padding:2px 8px${mapSafeZoneMode ? ';background:var(--accent);color:#111' : ''}" onclick="toggleSafeZoneMode()" title="Paint zones as Safe (police cameras present) or not">${mapSafeZoneMode ? '✓ Painting Safe Zones' : 'Paint Safe Zones'}</button>
+      <button class="action-btn${mapPaintMode ? ' active' : ''}" style="font-size:10px;padding:2px 8px;margin-left:6px${mapPaintMode ? ';background:var(--accent);color:#111' : ''}" onclick="togglePaintMode()" title="Paint zone colours with a floating palette (brush, fill, luminance)">${mapPaintMode ? '✓ Painting Colours' : '🎨 Paint Colours'}</button>
       <span style="margin-left:6px">Floor</span>
       <button class="action-btn" onclick="changeFloor(-1)">▾</button>
       <span style="min-width:60px;text-align:center">z = ${o.z}</span>
@@ -731,6 +933,7 @@ function renderMapOverview() {
     html += `<div class="map-toolbar">
       <span style="color:var(--text-bright);font-weight:600;font-size:13px">${o.map.name}</span>
       <button class="action-btn${mapSafeZoneMode ? ' active' : ''}" style="font-size:10px;padding:2px 8px;margin-left:12px${mapSafeZoneMode ? ';background:var(--accent);color:#111' : ''}" onclick="toggleSafeZoneMode()" title="Paint zones as Safe (police cameras present) or not">${mapSafeZoneMode ? '✓ Painting Safe Zones' : 'Paint Safe Zones'}</button>
+      <button class="action-btn${mapPaintMode ? ' active' : ''}" style="font-size:10px;padding:2px 8px;margin-left:6px${mapPaintMode ? ';background:var(--accent);color:#111' : ''}" onclick="togglePaintMode()" title="Paint zone colours with a floating palette (brush, fill, luminance)">${mapPaintMode ? '✓ Painting Colours' : '🎨 Paint Colours'}</button>
       <span style="margin-left:auto">Floor</span>
       <button class="action-btn" onclick="changeFloor(-1)">▾</button>
       <span style="min-width:60px;text-align:center">z = ${o.z}</span>
@@ -742,6 +945,11 @@ function renderMapOverview() {
     html += `<div style="padding:4px 12px;font-size:11px;color:var(--text-dim);background:var(--bg3);border-bottom:1px solid var(--border)">
       Click-drag across tiles to paint. <span style="color:#39ff8f">Green</span> = safe zone (police cameras present). <span style="color:#ff3b5c">Red</span> = not safe.
     </div>`;
+  }
+  if (mapPaintMode) {
+    html += `<div style="padding:4px 12px;font-size:11px;color:var(--text-dim);background:var(--bg3);border-bottom:1px solid var(--border)">
+      Colour painter active — use the floating palette (top-right). ${mapPaintTool === 'fill' ? 'Fill: click a tile to flood its same-colour region.' : 'Brush: click-drag to paint tiles.'}
+    </div>` + paintPanelHtml();
   }
 
   // Validation panel
@@ -833,6 +1041,15 @@ function renderMapOverview() {
           : ';background:rgba(255,59,92,0.25);border-color:rgba(255,59,92,0.75)') + ';cursor:crosshair';
         const marker = z.marker ? `<span class="map-marker-badge">${z.marker}</span>` : '';
         html += `<div class="${cls}" ${cellStyle(x, y, safeStyle)} data-map-cell="${x},${y}" title="${z.id}" onmousedown="safeZonePaintStart(event,'${z.id}')" onmouseenter="safeZonePaintOver('${z.id}')"><div>${marker}${z.name}</div></div>`;
+        continue;
+      }
+
+      if (mapPaintMode) {
+        const marker = z.marker ? `<span class="map-marker-badge">${z.marker}</span>` : '';
+        const handler = mapPaintTool === 'fill'
+          ? `onmousedown="mapFloodFill('${z.id}')"`
+          : `onmousedown="paintStart(event,'${z.id}')" onmouseenter="paintOver('${z.id}')"`;
+        html += `<div class="${cls}" ${cellStyle(x, y, zoneColorStyle(z) + ';cursor:crosshair')} data-map-cell="${x},${y}" title="${z.id}" ${handler}><div>${marker}${z.name}</div></div>`;
         continue;
       }
 

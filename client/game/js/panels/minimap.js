@@ -116,20 +116,24 @@ export function renderMinimap(nodes, direction) {
   if (direction) slideMinimap(direction);
 }
 
-// Land-use / function colour key for the default map view. Keys match server mapFunc().
+// Land-use / function colour key for the default map view. Keys + colours match
+// server mapFunc() (movement.js) and scripts/landuse-zone-colors.js — keep synced.
 const FUNC_LEGEND = {
-  corporate:   { label: 'Corporate / Uptown',   color: '#8a857c' },
-  civic:       { label: 'Civic / institutional', color: '#46b06a' },
-  residential: { label: 'Residential',           color: '#c4a98a' },
-  commercial:  { label: 'Commercial / trade',    color: '#26a5a0' },
-  nightlife:   { label: 'Nightlife / bars',      color: '#cf5bb8' },
+  northcity:   { label: 'North City / Uptown',   color: '#d9a83a' },
+  government:  { label: 'Government',             color: '#b56fbf' },
+  civic:       { label: 'Civic / institutional', color: '#4bb36a' },
+  residential: { label: 'Residential',           color: '#c9a884' },
+  commercial:  { label: 'Commercial / shops',    color: '#e08a4a' },
+  nightlife:   { label: 'Nightlife — Marquee',   color: '#e85aa0' },
   media:       { label: 'Media / studio',        color: '#8e6fd0' },
+  docks:       { label: 'Docks / waterfront',    color: '#1fb5aa' },
+  water:       { label: 'Water — Coldwater Bay',  color: '#2f86cc' },
   industrial:  { label: 'Industrial',            color: '#9a8a4f' },
+  slaglands:   { label: 'Slagworks',             color: '#e5822a' },
   wasteland:   { label: 'Wasteland / ruins',     color: '#7c6a4a' },
-  slum:        { label: 'Slum / Undermarket',    color: '#d9863a' },
-  water:       { label: 'Water',                 color: '#2f86cc' },
+  ashway:      { label: 'The Ashway',            color: '#8b9097' },
+  slum:        { label: 'Slum / Undermarket',    color: '#cf6a2e' },
   hazard:      { label: 'Hazard / lethal',       color: '#e05555' },
-  other:       { label: 'Other',                 color: '#9aa0a8' },
 };
 
 export function openMapPopup(tiles, mode = 'function') {
@@ -191,7 +195,7 @@ export function openMapPopup(tiles, mode = 'function') {
       if (!it) { html += `<span class="map-c"></span>`; continue; }
       if (it.kind === 'link') { html += `<span class="map-c map-link">${it.ch}</span>`; continue; }
       const t = it.tile;
-      const funcColor = FUNC_LEGEND[t.func]?.color || FUNC_LEGEND.other.color;
+      const funcColor = FUNC_LEGEND[t.func]?.color || FUNC_LEGEND.residential.color;
       const bg = mode === 'function' ? funcColor : t.bg_color;
       const styles = [];
       if (bg) styles.push(`background:${bg}`);
@@ -212,7 +216,7 @@ export function openMapPopup(tiles, mode = 'function') {
   let leg = `<div class="map-leg-row"><span class="map-leg-sym map-current">()</span> You are here</div>`;
   if (mode === 'function') {
     // Compact land-use key: one row per category actually present on the map.
-    const present = new Set(tiles.map(t => t.func || 'other'));
+    const present = new Set(tiles.map(t => t.func || 'residential'));
     for (const key of Object.keys(FUNC_LEGEND)) {
       if (!present.has(key)) continue;
       const f = FUNC_LEGEND[key];
