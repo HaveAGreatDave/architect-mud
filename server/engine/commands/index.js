@@ -11,6 +11,7 @@ import { getSelectionState, advanceSelectionState, formatSelectionPage } from '.
 import { getLivePlayer } from '../world.js';
 import { emit } from '../events.js';
 import { setPosture } from '../posture.js';
+import { getAlias } from './aliases.js';
 
 export { describeZone, describeVoidTeleport } from './describe.js';
 export { recomputeArmor, recomputeInsulation, EQUIP_SLOTS } from './inventory.js';
@@ -69,7 +70,7 @@ builtins.set('disengage', cmdStopAll);
 export function builtinCommandNames() { return [...builtins.keys()]; }
 
 export async function handleCommand(input, player, broadcast) {
-  const raw = input.trim();
+  let raw = input.trim();
   if (!raw) return null;
 
   // SIFT selection-state intercept — runs before all routing.
@@ -107,8 +108,11 @@ export async function handleCommand(input, player, broadcast) {
   }
 
   const parts = raw.toLowerCase().split(/\s+/);
-  const cmd = parts[0];
+  const cmd = getAlias(parts[0]) ?? parts[0];
   const args = parts.slice(1);
+  // Rebuild raw with the canonical verb so handlers that re-parse it see the real
+  // command, not the alias. No-op when no alias applied.
+  if (cmd !== parts[0]) raw = [cmd, ...raw.trim().split(/\s+/).slice(1)].join(' ');
 
   if (player.sleeping && cmd !== 'sleep' && cmd !== 'rest') {
     const wasHome = player.sleeping.reason === 'home';

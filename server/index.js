@@ -34,6 +34,7 @@ import "./engine/graph.js";
 import { loadRecipes } from "./engine/crafting.js";
 import { loadDrugs } from "./engine/drugs.js";
 import { reloadCrimes } from "./engine/crimes.js";
+import { reloadAliases } from "./engine/commands/aliases.js";
 import { loadMutations } from "./engine/mutations.js";
 import { loadBanterLibrary } from "./engine/npc-banter.js";
 import {
@@ -1082,6 +1083,7 @@ async function boot() {
 	await loadRecipes();
 	await loadDrugs();
 	await reloadCrimes();
+	await reloadAliases();
 	await loadMutations();
 	await loadBanterLibrary();
 	await loadPlugins();

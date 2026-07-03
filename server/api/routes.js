@@ -5,6 +5,7 @@ import { allExits } from '../engine/exits.js';
 import { loadRecipes } from '../engine/crafting.js';
 import { loadDrugs } from '../engine/drugs.js';
 import { getCrimeList, reloadCrimes, CRIME_DEFAULTS } from '../engine/crimes.js';
+import { getAliasList, reloadAliases, ALIAS_DEFAULTS } from '../engine/commands/aliases.js';
 import { loadMutations } from '../engine/mutations.js';
 import { randomUUID, createHash, randomBytes } from 'crypto';
 import { readFileSync, writeFileSync } from 'fs';
@@ -280,6 +281,9 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path.startsWith('/drugs/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteDrug(path.split('/')[2]));
   if (path==='/crimes' && method==='GET') return requireDev(auth, apiGetCrimes);
   if (path.startsWith('/crimes/') && method==='PUT') return requireDev(auth, ()=>apiUpdateCrime(path.split('/')[2],body));
+  if (path==='/command-aliases' && method==='GET') return requireDev(auth, apiGetAliases);
+  if (path==='/command-aliases' && method==='POST') return requireDev(auth, ()=>apiUpsertAlias(body));
+  if (path.startsWith('/command-aliases/') && method==='DELETE') return requireDev(auth, ()=>apiDeleteAlias(decodeURIComponent(path.split('/')[2])));
   if (path==='/mutations' && method==='GET') return requireDev(auth, apiGetMutations);
   if (path==='/mutations' && method==='POST') return requireDev(auth, ()=>apiCreateMutation(body));
   if (path.startsWith('/mutations/') && method==='PUT') return requireDev(auth, ()=>apiUpdateMutation(path.split('/')[2],body));
@@ -1788,6 +1792,37 @@ async function apiUpdateCrime(id,body) {
     );
     await reloadCrimes();
     return {status:200,body:{id,stars}};
+  } catch(e) { return {status:400,body:{error:e.message}}; }
+}
+
+// Command aliases: shortcut → canonical verb, rewritten before dispatch. Engine
+// ships defaults (aliases.js); the panel adds/removes DB rows. GET returns
+// defaults merged with DB rows; POST upserts one row; DELETE removes a DB row
+// (a shipped default reappears once its override row is gone).
+async function apiGetAliases() { return {status:200,body:getAliasList()}; }
+async function apiUpsertAlias(body) {
+  const alias = String(body.alias||'').trim().toLowerCase();
+  const verb  = String(body.verb||'').trim().toLowerCase();
+  if (!alias || !verb) return {status:400,body:{error:'alias and verb are required.'}};
+  if (/\s/.test(alias) || /\s/.test(verb)) return {status:400,body:{error:'alias and verb must be single words.'}};
+  if (alias === verb) return {status:400,body:{error:'alias and verb cannot be identical.'}};
+  try {
+    await query(
+      `INSERT INTO command_aliases (alias,verb) VALUES ($1,$2)
+       ON CONFLICT (alias) DO UPDATE SET verb=$2`,
+      [alias, verb]
+    );
+    await reloadAliases();
+    return {status:200,body:{alias,verb}};
+  } catch(e) { return {status:400,body:{error:e.message}}; }
+}
+async function apiDeleteAlias(alias) {
+  const key = String(alias||'').trim().toLowerCase();
+  try {
+    await query('DELETE FROM command_aliases WHERE alias=$1', [key]);
+    await reloadAliases();
+    // Report whether a shipped default still covers this alias after deletion.
+    return {status:200,body:{alias:key, reverted_to_default: key in ALIAS_DEFAULTS}};
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
 
