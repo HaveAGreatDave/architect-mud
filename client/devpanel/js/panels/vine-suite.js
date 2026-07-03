@@ -7,8 +7,9 @@
 // and writes the same field its owning panel does.
 //
 // The panel opens on a front page of 4 large family cards (VineQuest/VineDialogue/
-// VineAI/VineScripts). Picking "Existing" on a card drills into a compact list scoped
-// to that family; "+ New" jumps straight to the owning panel's blank record form.
+// VineAI/VineScripts), with a filterable master list of every graph (all kinds) below
+// them. Picking "Existing" on a card drills into a compact list scoped to that family;
+// a master-list row opens that asset directly; "+ New" jumps to the owning panel's form.
 // Every open VINE editor also carries a top-left tab strip (vineFamilyTabs): clicking
 // another family reopens the last asset you had open there (or, if none, opens that
 // family's host picker); clicking the active tab opens the picker so you can choose a
@@ -135,6 +136,7 @@ function vsRenderRoot() {
   if (!el) return;
   el.innerHTML = _vsView === 'existing' ? _vsExistingHtml() : _vsFrontHtml();
   if (_vsView === 'existing') vsRenderExisting();
+  else vsRenderMasterList();
 }
 
 function _vsFrontHtml() {
@@ -159,7 +161,55 @@ function _vsFrontHtml() {
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px">
         ${cards}
       </div>
+      <div style="display:flex;align-items:center;gap:10px;margin:20px 0 10px;flex-wrap:wrap">
+        <span style="font-size:12px;font-weight:bold;letter-spacing:1px;color:var(--text-dim);text-transform:uppercase">All graphs</span>
+        <input id="vine-master-search" placeholder="Filter every graph…" oninput="vsRenderMasterList()"
+          style="flex:1;min-width:200px;background:var(--bg2);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:5px 9px;border-radius:3px">
+      </div>
+      <div id="vine-master-body"></div>
     </div>`;
+}
+
+// Master list under the family cards: every VINE graph across all kinds, grouped by
+// kind, each row opening that asset in its owning panel's real editor (vineOpenAsset).
+function vsRenderMasterList() {
+  const body = document.getElementById('vine-master-body');
+  if (!body) return;
+  const q = (document.getElementById('vine-master-search')?.value || '').toLowerCase();
+  body.innerHTML = _VS_ORDER.map(kind => {
+    const cat = VINE_KINDS[kind];
+    const all = _vineSuiteData[cat.source] || [];
+    const recs = all
+      .filter(r => !q || String(r.name || '').toLowerCase().includes(q) || String(r.id).toLowerCase().includes(q))
+      .slice()
+      .sort((a, b) => (cat.badge(b) - cat.badge(a)) || String(a.name || a.id).localeCompare(String(b.name || b.id)));
+    if (q && !recs.length) return '';
+    const withGraphs = all.filter(r => cat.badge(r)).length;
+
+    const rows = recs.map(rec => {
+      const n = cat.badge(rec);
+      const badge = n
+        ? `<span style="color:${cat.color};font-size:11px;white-space:nowrap">● ${n}</span>`
+        : `<span style="color:var(--text-dim);font-size:11px">—</span>`;
+      return `<div onclick="vineOpenAsset('${kind}','${_vsEsc(rec.id)}')"
+        style="display:flex;gap:8px;align-items:center;padding:4px 12px;cursor:pointer;border-bottom:1px solid var(--border)"
+        onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background='none'">
+        <span style="flex:1;font-size:11px;color:var(--text-bright)">${_vsEsc(rec.name || '(unnamed)')}</span>
+        <code style="font-size:9px;color:var(--text-dim)">${_vsEsc(rec.id)}</code>
+        ${badge}
+      </div>`;
+    }).join('') || `<div style="padding:8px 12px;color:var(--text-dim);font-size:11px">None yet.</div>`;
+
+    return `
+      <div style="margin-bottom:12px;border:1px solid var(--border);border-left:3px solid ${cat.color};border-radius:4px;overflow:hidden">
+        <div style="display:flex;gap:8px;align-items:center;padding:6px 12px;background:var(--bg2)">
+          <span style="font-size:14px">${cat.icon}</span>
+          <span style="font-weight:bold;color:${cat.color};font-size:12px">${cat.label}</span>
+          <span style="color:var(--text-dim);font-size:11px;margin-left:auto">${withGraphs}/${all.length} with graphs</span>
+        </div>
+        ${rows}
+      </div>`;
+  }).join('');
 }
 
 function _vsExistingHtml() {
