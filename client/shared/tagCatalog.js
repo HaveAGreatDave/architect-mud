@@ -131,6 +131,10 @@
       help: 'Marks this item as a power cell. Consumed by RELOAD to recharge a flashlight (or other battery-powered device).' },
     hack_device: { label: 'Hacking Device', shape: 'flag', scope: 'class', group: 'Gear',
       help: 'Marks this item as an intrusion deck. Carrying one (in hand, not in a container) is the tool gate for HACK on hololocked doors and for jacking ATM terminals; it is also classed as contraband when jailed. Pair with the Unique tag so each deck keeps its own condition — failed breaches damage it.' },
+    fishing_rod: { label: 'Fishing Rod', shape: 'flag', scope: 'class', group: 'Gear',
+      help: 'Marks this item as a fishing rod. Carrying one (in hand, not in a container) is the tool gate for FISH at a water-adjacent zone. Pair with the Unique tag so each rod keeps its own condition — a botched reel can snap it.' },
+    bait: { label: 'Bait', shape: 'flag', scope: 'class', group: 'Gear',
+      help: 'Marks this item as fishing bait. Optional while FISHing: one is consumed per catch, shifting the odds toward better catches and unlocking bait-gated fish. A more specific sub-tag (e.g. bait_bloodworm) can gate particular catches.' },
 
     // --- Locks ---
     "lock:hololock": { label: 'Holographic Lock', shape: 'statmap', scope: 'class', group: 'Hardware', help: 'Electronic holographic authorization matrix.' },

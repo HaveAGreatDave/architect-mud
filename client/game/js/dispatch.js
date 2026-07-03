@@ -21,6 +21,7 @@ import { openSurveillanceHub, updateSurveillanceHub } from './panels/surveillanc
 import { openDatachipReplay } from './panels/datachipreplay.js';
 import { openCircuitHack } from './panels/circuithack.js';
 import { openHololock } from './panels/hololock.js';
+import { openFishing } from './panels/fishing.js';
 import { openVaultCrack } from './panels/vaultcrack.js';
 import { openSynthMinigame } from './panels/synthlab.js';
 import { openSpliceDesigner, updateSplicePreview } from './panels/splicelab.js';
@@ -504,6 +505,16 @@ const handlers = {
       difficulty: msg.difficulty ?? 5,
       deviceName: msg.deviceName || 'HOLOLOCK',
       onResult: ({ won }) => sendCmdSilent(`${resolveCmd} ${msg.doorId} ${won ? 1 : 0}`),
+    });
+  },
+
+  fishing_game: (msg) => {
+    const resolveCmd = msg.resolveCmd || 'fishresolve';
+    openFishing({
+      skill: msg.skill ?? 4,
+      difficulty: msg.difficulty ?? 5,
+      deviceName: msg.deviceName || 'THE LINE',
+      onResult: ({ won }) => sendCmdSilent(`${resolveCmd} ${msg.zoneId} ${won ? 1 : 0} ${msg.token}`),
     });
   },
 

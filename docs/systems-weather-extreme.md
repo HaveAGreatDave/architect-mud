@@ -124,6 +124,27 @@ whose `severity ≥ SEVERE_THRESHOLD (0.45)`, with the tooltip "Severe condition
 **boolean band, not the raw number** — warns without revealing exact timing or intensity. The **actual
 onset** is still the field roll on the 30s/30m tick — warned, not scheduled.
 
+## Named "hero" events *(step 7a built; 7b/7c pending)*
+
+Rare, announced events that ride **on top of** the forecast/field with an **approach→peak→passing**
+lifecycle, forcing a `severity` preset (and, for acid, a precip override) instead of deriving it. Per the
+[engine/plugin boundary](proposals/engine-plugin-boundary.md), they live **in the weather plugin** (the
+field owner) — the engine just *drives* them, mirroring how the field advance is injected.
+
+- **Definitions** (`NAMED_EVENTS` in [plugins/weather/index.js](../plugins/weather/index.js)): `ion_storm`
+  (severity 0.9) and `acid_rain` (severity 0.6, `precipOverride: 'acid'`). Each has per-phase durations +
+  announce lines. Severity ramps: half in approach/passing, full at peak.
+- **Lifecycle:** `stepWeatherEvent()` advances phases by wall-clock and auto-rolls a new event
+  (`AUTO_EVENT_CHANCE_PER_30S ≈ 1 per 2–3 game-days`). The engine calls it on the **30s tick** via the
+  `registerWeatherEventStep` provider seam and broadcasts returned lines sky-wide (`.weather-event`).
+- **Field integration:** `currentBaseSeverity() = max(field.baseSeverity, eventSeverity())` feeds both
+  `sampleWeatherAt` and the snapshot's `baseSeverity`, so **all four channels + the telegraph light up with
+  zero new wiring**. At peak, an acid event stamps `precipType: 'acid'` on any tile already under precip
+  (rides existing rain — no new weather type). 7b consumes that; 7c wires the EMP blackout.
+- **Trigger:** `devTriggerWeatherEvent(type)` (engine) → `registerWeatherEventTrigger` (plugin), exposed at
+  `POST /environment/weather/event {type}` (sibling to Max Storm). Plus the rare auto-roll.
+- **Telegraph:** the approach-phase announcement *is* the warning — the sky tells you it's coming.
+
 ## Build order
 
 1. ✅ **`severity` scalar** in the field + surfaced to the client (foundation for everything). *Built:* `severityForForecast0` + `field.baseSeverity` in [plugins/weather/index.js](../plugins/weather/index.js) (day-level floor, intensified per-tile by storm/precip in `sampleWeatherAt`); engine reads it via `getZoneSeverity(zoneId)` in [environment.js](../server/engine/environment.js) and surfaces it through `getWeatherMap` + the `environment.zoneTempTick` broadcast.
@@ -132,6 +153,9 @@ onset** is still the field roll on the 30s/30m tick — warned, not scheduled.
 4. ✅ **Wind stamina gate** (movement.js). *Built:* `cmdMove` drains `4 + severity×16` stamina (above severity 0.4) when moving into an exposed severe-weather zone — attrition, never blocks; interiors and `bypassEncumbrance` relocations exempt. First consumer of `getZoneSeverity`.
 5. ✅ **`effects.js` wiring + gear tags** (ash; acid deferred). *Built:* new `choking` effect (stamina→HP); ashfall hazard in `resourceTick` gated by `player.sealed` (new `sealed` flag tag in the shared catalog, computed in `recomputeInsulation`); first-ever `applyEffect` caller; per-second effect tick now persists/broadcasts hp+stamina. Acid rain + `waterproof` moved to step 7's named-events layer.
 6. ✅ **Telegraph band.** *Built:* per-day `severity` attached in the weather plugin's forecast builders (flows through `getForecast()`); client forecast panel shows an amber ⚠ (+tooltip) on days ≥ 0.45 severity — a vague band, not the number. The devpanel Time & Weather panel mirrors the ⚠ on its forecast grid and adds a **Schedule Future Weather** tool (`POST /environment/weather/schedule`, `env.devScheduleForecastDay`) that edits an upcoming forecast day (1-6) in place — the `environment.scheduleForecastDay` hook in [plugins/weather/index.js](../plugins/weather/index.js) rewrites that day's `weather_forecast` row and recomputes its severity, letting a GM schedule a severe day ahead of time without touching today's live weather/field. Day 0 stays owned by Override Weather.
-7. *Phase 2:* **EMP / ion storm** on the named-events layer.
+7. **Phase 2 — named "hero" events** (the layer above the tail):
+   - 7a. ✅ **Named-event framework** (in the weather plugin). *Built:* `NAMED_EVENTS` + approach→peak→passing lifecycle forcing a severity preset; `registerWeatherEventStep`/`registerWeatherEventTrigger` engine seams driven off the 30s tick; sky-wide announces; dev trigger route + rare auto-roll; `ion_storm` + `acid_rain` defined.
+   - 7b. ⬜ **Acid rain** — apply `burning` to outdoor players when `getZonePrecip` reports `precipType: 'acid'` unless `waterproof` (mirror the ashfall/`sealed` pattern); add the `waterproof` tag.
+   - 7c. ⬜ **EMP / ion storm** — `forceGridBlackout` engine seam fired at the ion storm's peak + a `weather.empPulse` event; device "fried" flag + repair loop; `atm`/`broadcast` subscribers go dark.
 
-Steps 1–2 alone give a playable, lethal cold snap.
+Steps 1–2 alone give a playable, lethal cold snap; 7a makes hero events stageable/emergent (severity + announce), with their teeth landing in 7b/7c.

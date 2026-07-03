@@ -1,0 +1,475 @@
+// Fishing plugin.
+//
+// A perpetual, posture-based cast-and-wait action — the water-side cousin of
+// scavenging (see plugins/scavenging/index.js and docs/systems-fishing.md).
+// `posture === "fishing"` is the authoritative activity flag, so it inherits
+// every engine force-stand interruption (moving, attacking, being attacked) for
+// free. A companion `player.fishState = { zoneId, streak, lastAttempt, pending, token }`
+// carries the bookkeeping the posture string can't.
+//
+// A zone opts in via zones.flags.fishing_table_id -> a reusable scavenging_tables
+// template (fishing reuses that schema; a separate flag keeps the two systems
+// from colliding). Normal catches live in scavenging_table_items with per-zone
+// stock + lazy replenish, exactly like scavenging. Fishing-only extras — monster
+// hooks and bait-gated catches — ride in the table's `messages.fishing` JSONB.
+//
+// The twist over scavenging: a bite doesn't grant instantly. It ARMS the
+// client-side tension-bar reel overlay (a `fishing_game` message). The overlay
+// is cosmetic-authoritative like Circuit Breach / Hololock — winning it is the
+// gate — and reports back via `fishresolve`, which the server validates
+// (anti-spoof token + still-fishing + still-carrying-a-rod) before applying the
+// catch, spawning a hooked monster, or snapping the rod on a botched reel.
+
+import { randomUUID } from 'crypto';
+import { query } from '../../server/models/db.js';
+import { getZone, getAllLivePlayers, getLivePlayer, spawnEnemySync } from '../../server/engine/world.js';
+import { effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
+import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
+import { on } from '../../server/engine/events.js';
+import { setPosture, forceStand } from '../../server/engine/posture.js';
+
+const ATTEMPT_MS = 4200;    // per-cast cadence — a touch slower than scavenging; fishing is patient
+const MAX_SWING = 14;       // best possible 2d8-2d8 roll — reachability ceiling
+const HINT_STREAK = 3;      // consecutive quiet casts before the "try another spot" nudge
+const BITE_CHANCE = 0.55;   // base chance a cast gets a bite; bait nudges it up
+const PENDING_TTL_MS = 30000; // if an armed overlay isn't resolved in time (player aborted), the fish gets away
+const ROD_SNAP_CHANCE = 0.18; // chance a botched reel damages the rod
+const ROD_SNAP_DAMAGE = 0.25; // condition lost per snap — four bad reels retire a rod
+
+// Default flavor pools. A table's `messages` JSONB may override `player` /
+// `broadcast`; empty/absent arrays fall back to these.
+const DEFAULT_PLAYER_FLAVOR = [
+  'You flick the line out over the black water and settle in to wait.',
+  'The float bobs on an oily swell. You watch it, and wait.',
+  'You reel in a little slack and cast again, further out this time.',
+  'Something breaks the surface out past your line — then nothing.',
+  'The water laps at the pilings. Your line hangs slack.',
+];
+const DEFAULT_QUIET = [
+  'Nothing\'s biting.',
+  'The line stays slack. Whatever\'s down there isn\'t interested.',
+  'You feel a nibble — then slack again. Missed it.',
+];
+const DEFAULT_BROADCAST = [
+  'casts a line out over the water and settles in to fish.',
+];
+
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function roll2d8() { return Math.floor(Math.random() * 8) + 1 + Math.floor(Math.random() * 8) + 1; }
+function nowSec() { return Math.floor(Date.now() / 1000); }
+
+function pickWeighted(entries) {
+  const total = entries.reduce((s, e) => s + Math.max(1, e.weight), 0);
+  let r = Math.random() * total;
+  for (const e of entries) {
+    r -= Math.max(1, e.weight);
+    if (r < 0) return e;
+  }
+  return entries[entries.length - 1];
+}
+
+// ── Gear: rod (required) + bait (optional) ────────────────────────────────────
+// Mirrors the ATM hack_device gate (plugins/atm/index.js): the gate is the
+// capability tag on a carried, uncontained item — not a specific item id.
+
+async function hasRod(playerId) {
+  const { rows } = await query(
+    `SELECT 1 FROM player_inventory pi JOIN items i ON i.id = pi.item_id
+     WHERE pi.player_id=$1 AND pi.container_id IS NULL AND jsonb_exists(i.tags,'fishing_rod') LIMIT 1`,
+    [playerId]
+  );
+  return rows.length > 0;
+}
+
+// A botched reel can snap the rod: shed condition, and retire it at zero.
+async function maybeSnapRod(playerId) {
+  if (Math.random() >= ROD_SNAP_CHANCE) return '';
+  const { rows } = await query(
+    `SELECT pi.id, pi.condition FROM player_inventory pi JOIN items i ON i.id = pi.item_id
+     WHERE pi.player_id=$1 AND pi.container_id IS NULL AND jsonb_exists(i.tags,'fishing_rod') LIMIT 1`,
+    [playerId]
+  );
+  const rod = rows[0];
+  if (!rod) return '';
+  const newCond = Math.max(0, (rod.condition ?? 1) - ROD_SNAP_DAMAGE);
+  if (newCond <= 0) {
+    await query('DELETE FROM player_inventory WHERE id=$1', [rod.id]);
+    return ' Your rod snaps clean in half and the pieces spin off into the water.';
+  }
+  await query('UPDATE player_inventory SET condition=$1 WHERE id=$2', [newCond, rod.id]);
+  return ' Your rod groans and takes a worrying bend — that nearly cost you it.';
+}
+
+// The set of bait sub-tags the player is currently carrying (for bait-gated
+// catches), plus whether they hold any generic bait at all.
+async function baitState(playerId) {
+  const { rows } = await query(
+    `SELECT i.tags FROM player_inventory pi JOIN items i ON i.id = pi.item_id
+     WHERE pi.player_id=$1 AND pi.container_id IS NULL AND jsonb_exists(i.tags,'bait')`,
+    [playerId]
+  );
+  const tags = new Set();
+  for (const r of rows) for (const t of Object.keys(r.tags || {})) tags.add(t);
+  return { hasBait: rows.length > 0, tags };
+}
+
+// Consume one bait item (decrement a stack, delete at zero). Called on a catch.
+async function consumeBait(playerId) {
+  const { rows } = await query(
+    `SELECT pi.id, pi.quantity FROM player_inventory pi JOIN items i ON i.id = pi.item_id
+     WHERE pi.player_id=$1 AND pi.container_id IS NULL AND jsonb_exists(i.tags,'bait')
+     ORDER BY pi.quantity ASC LIMIT 1`,
+    [playerId]
+  );
+  const b = rows[0];
+  if (!b) return;
+  if ((b.quantity ?? 1) > 1) await query('UPDATE player_inventory SET quantity=quantity-1 WHERE id=$1', [b.id]);
+  else await query('DELETE FROM player_inventory WHERE id=$1', [b.id]);
+}
+
+// ── Table + per-zone stock loading (lazy replenish) ───────────────────────────
+// Reuses the scavenging_tables / scavenging_table_items / scavenging_zone_stock /
+// scavenging_zone_state schema verbatim — a fishing table is just a scavenging
+// table pointed at by a different zone flag. Logic mirrors scavenging's
+// loadZoneTable (per-zone stock init on first touch, one weighted unit per
+// elapsed replenish interval).
+async function loadZoneTable(zoneId, tableId) {
+  const { rows: tRows } = await query(
+    'SELECT id, name, replenish_interval_seconds, messages FROM scavenging_tables WHERE id=$1',
+    [tableId]
+  );
+  if (!tRows.length) return null;
+  const table = tRows[0];
+
+  const { rows: entries } = await query(
+    `SELECT si.item_id, si.difficulty, si.weight, si.max_qty, it.name
+     FROM scavenging_table_items si JOIN items it ON it.id = si.item_id
+     WHERE si.table_id = $1`,
+    [tableId]
+  );
+  if (!entries.length) return { table, entries: [] };
+
+  const { rows: stateRows } = await query(
+    'SELECT last_replenish FROM scavenging_zone_state WHERE zone_id=$1',
+    [zoneId]
+  );
+  let lastReplenish;
+  if (!stateRows.length) {
+    lastReplenish = nowSec();
+    await query(
+      'INSERT INTO scavenging_zone_state (zone_id, table_id, last_replenish) VALUES ($1,$2,$3)',
+      [zoneId, tableId, lastReplenish]
+    );
+    for (const e of entries) {
+      await query(
+        `INSERT INTO scavenging_zone_stock (zone_id, item_id, current_qty) VALUES ($1,$2,$3)
+         ON CONFLICT (zone_id, item_id) DO NOTHING`,
+        [zoneId, e.item_id, e.max_qty]
+      );
+      e.current_qty = e.max_qty;
+    }
+    return { table, entries };
+  }
+  lastReplenish = Number(stateRows[0].last_replenish) || 0;
+
+  const { rows: stock } = await query(
+    'SELECT item_id, current_qty FROM scavenging_zone_stock WHERE zone_id=$1',
+    [zoneId]
+  );
+  const stockMap = new Map(stock.map(s => [s.item_id, s.current_qty]));
+  for (const e of entries) {
+    if (!stockMap.has(e.item_id)) {
+      await query(
+        `INSERT INTO scavenging_zone_stock (zone_id, item_id, current_qty) VALUES ($1,$2,0)
+         ON CONFLICT (zone_id, item_id) DO NOTHING`,
+        [zoneId, e.item_id]
+      );
+      e.current_qty = 0;
+    } else {
+      e.current_qty = stockMap.get(e.item_id);
+    }
+  }
+
+  const interval = Math.max(1, table.replenish_interval_seconds);
+  const steps = Math.floor((nowSec() - lastReplenish) / interval);
+  if (steps > 0) {
+    let applied = 0;
+    while (applied < steps) {
+      const room = entries.filter(e => e.current_qty < e.max_qty);
+      if (!room.length) break;
+      pickWeighted(room).current_qty++;
+      applied++;
+    }
+    if (applied > 0) {
+      for (const e of entries) {
+        await query(
+          'UPDATE scavenging_zone_stock SET current_qty=$1 WHERE zone_id=$2 AND item_id=$3',
+          [e.current_qty, zoneId, e.item_id]
+        );
+      }
+      await query(
+        'UPDATE scavenging_zone_state SET last_replenish=$1 WHERE zone_id=$2',
+        [lastReplenish + applied * interval, zoneId]
+      );
+    }
+  }
+  return { table, entries };
+}
+
+function flavorPools(table) {
+  const m = table.messages || {};
+  return {
+    player: Array.isArray(m.player) && m.player.length ? m.player : DEFAULT_PLAYER_FLAVOR,
+    quiet: Array.isArray(m.quiet) && m.quiet.length ? m.quiet : DEFAULT_QUIET,
+    broadcast: Array.isArray(m.broadcast) && m.broadcast.length ? m.broadcast : DEFAULT_BROADCAST,
+  };
+}
+
+// ── State bookkeeping (posture is authoritative — merge onto the live obj) ─────
+
+function out(pid, message) { sendToPlayer(pid, { type: 'output', message }); }
+
+function advanceState(pid, patch) {
+  const cur = getLivePlayer(pid);
+  if (!cur || cur.posture !== 'fishing') return;
+  cur.fishState = { ...cur.fishState, ...patch };
+}
+
+function stopFishing(pid, zoneId, handle) {
+  const cur = getLivePlayer(pid);
+  if (!cur || cur.posture !== 'fishing') return;
+  forceStand(cur, 'fishing.stop');
+  delete cur.fishState;
+  sendToZone(zoneId, { type: 'zone_event', message: `${handle} reels in and stops fishing.` }, pid);
+}
+
+// ── The perpetual cast ────────────────────────────────────────────────────────
+
+async function runAttempt(player, st, nowMs) {
+  const zone = getZone(st.zoneId);
+  const tableId = zone?.flags?.fishing_table_id;
+  if (!zone || !tableId) { stopFishing(player.id, st.zoneId, player.handle); return; }
+
+  if (!(await hasRod(player.id))) {
+    out(player.id, 'Without a rod there\'s nothing to fish with.');
+    stopFishing(player.id, st.zoneId, player.handle);
+    return;
+  }
+
+  const loaded = await loadZoneTable(st.zoneId, tableId);
+  if (!loaded || !loaded.entries.length) {
+    out(player.id, 'The water here is dead — nothing lives in it.');
+    stopFishing(player.id, st.zoneId, player.handle);
+    return;
+  }
+  const { table, entries } = loaded;
+  const pools = flavorPools(table);
+  const extras = (table.messages && table.messages.fishing) || {};
+  const bait = await baitState(player.id);
+
+  // Build the eligible bite pool: stocked normal catches (bait boosts the rarer,
+  // higher-difficulty ones), plus bait-gated catches whose bait the player holds,
+  // plus monster hooks. Each entry is normalised to { kind, item_id?, enemyTemplateId?, difficulty, weight, name }.
+  const pool = [];
+  for (const e of entries) {
+    if (e.current_qty <= 0) continue;
+    // Bait tilts the draw toward scarcer catches (higher difficulty ⇒ better).
+    const boost = bait.hasBait ? 1 + Math.max(0, e.difficulty - 4) * 0.35 : 1;
+    pool.push({ kind: 'catch', item_id: e.item_id, name: e.name, difficulty: e.difficulty, weight: Math.max(1, e.weight) * boost });
+  }
+  for (const bc of (extras.baitCatches || [])) {
+    if (bc.requiresBaitTag && !bait.tags.has(bc.requiresBaitTag)) continue;
+    pool.push({ kind: 'catch', item_id: bc.itemId, name: bc.name || 'catch', difficulty: bc.difficulty ?? 7, weight: bc.weight ?? 2, baitGated: true });
+  }
+  for (const mon of (extras.monsters || [])) {
+    pool.push({ kind: 'monster', enemyTemplateId: mon.enemyTemplateId, name: mon.name || 'something', difficulty: mon.difficulty ?? 9, weight: mon.weight ?? 2 });
+  }
+
+  if (!pool.length) {
+    out(player.id, 'You search the water, but there\'s nothing left here to catch.');
+    stopFishing(player.id, st.zoneId, player.handle);
+    return;
+  }
+
+  const effective = await effectiveSkill(player, 'fishing');
+  const flavor = pick(pools.player);
+
+  // Not every cast gets a bite — bait makes the water livelier.
+  const biteChance = BITE_CHANCE + (bait.hasBait ? 0.15 : 0);
+  if (Math.random() > biteChance) {
+    out(player.id, `${flavor} ${pick(pools.quiet)}`);
+    const streak = (st.streak || 0) + 1;
+    if (streak === HINT_STREAK) out(player.id, 'The fish here are wary. Might be worth trying a different spot — or better bait.');
+    advanceState(player.id, { lastAttempt: nowMs, streak });
+    return;
+  }
+
+  // A bite. Pick what's on the line and ARM the reel overlay — the tension bar
+  // decides whether it's landed. Difficulty is the entry's; skill tunes the board.
+  const target = pickWeighted(pool);
+  const token = randomUUID();
+  advanceState(player.id, { lastAttempt: nowMs, streak: 0, pending: { target, token, armedAt: nowMs } });
+  out(player.id, `${flavor}\n<span class="text-cyan">The line snaps taut — something\'s on!</span>`);
+  sendToPlayer(player.id, {
+    type: 'fishing_game',
+    zoneId: st.zoneId,
+    deviceName: 'THE LINE',
+    skill: effective,
+    difficulty: target.difficulty,
+    resolveCmd: 'fishresolve',
+    token,
+  });
+}
+
+// ── Tick ──────────────────────────────────────────────────────────────────────
+
+let ticking = false;
+async function fishTick() {
+  if (ticking) return;
+  ticking = true;
+  try {
+    const nowMs = Date.now();
+    for (const player of getAllLivePlayers()) {
+      const st = player.fishState;
+      if (player.posture === 'fishing') {
+        if (!st) continue;
+        // A bite is armed and waiting on the overlay — hold the loop. If the
+        // player abandoned the overlay, time it out (the fish gets away).
+        if (st.pending) {
+          if (nowMs - st.pending.armedAt > PENDING_TTL_MS) {
+            out(player.id, 'You wait too long — the line goes slack. Whatever it was, it\'s gone.');
+            advanceState(player.id, { pending: null, lastAttempt: nowMs });
+          }
+          continue;
+        }
+        if (nowMs - st.lastAttempt < ATTEMPT_MS) continue;
+        await runAttempt(player, st, nowMs);
+      } else if (st) {
+        const cur = getLivePlayer(player.id);
+        if (cur) delete cur.fishState;
+        out(player.id, 'You stop fishing.');
+      }
+    }
+  } finally {
+    ticking = false;
+  }
+}
+
+setInterval(() => fishTick().catch(e => console.error('[fishing] tick error:', e.message)), 1000);
+
+on('player.stop', ({ player, stopped }) => {
+  if (player.posture !== 'fishing') return;
+  stopFishing(player.id, player.current_zone, player.handle);
+  stopped.push('fishing');
+});
+
+// ── Resolve — the overlay reports its outcome here ────────────────────────────
+// fishresolve <zoneId> <1|0> <token> — silent; the tension-bar overlay fires it
+// with its own win/lose. That outcome is authoritative (like Circuit Breach);
+// the server only validates the token + posture + carried rod before acting.
+
+async function cmdFishResolve(args, raw, player, broadcast) {
+  const zoneId = args[0];
+  const won = args[1] === '1';
+  const token = args[2];
+  const cur = getLivePlayer(player.id);
+  const st = cur?.fishState;
+  if (!cur || cur.posture !== 'fishing' || !st || !st.pending) return { type: 'noop' };
+  if (st.pending.token !== token || st.zoneId !== zoneId) return { type: 'noop' };
+
+  const target = st.pending.target;
+  advanceState(player.id, { pending: null, lastAttempt: Date.now() });
+
+  if (!(await hasRod(player.id))) {
+    out(player.id, 'Your rod\'s gone — nothing to land it with.');
+    stopFishing(player.id, st.zoneId, player.handle);
+    return { type: 'noop' };
+  }
+
+  // Monster hook — the thing surfaces either way; winning just means you're
+  // braced when it does. It spawns into the zone and aggros; fishing ends.
+  if (target.kind === 'monster') {
+    if (target.enemyTemplateId) {
+      const { rows } = await query('SELECT * FROM enemies WHERE id=$1', [target.enemyTemplateId]);
+      if (rows[0]) {
+        const inst = spawnEnemySync(rows[0], st.zoneId);
+        broadcast(st.zoneId, { type: 'zone_event', message: `The water erupts as <b>${inst.name}</b> comes thrashing up the line onto the dock!`, refresh: true });
+      }
+    }
+    out(player.id, won
+      ? '<span class="text-yellow">You haul back hard — and something far bigger than a fish comes with it.</span>'
+      : '<span class="text-red">The line screams out — whatever took it is coming up whether you like it or not.</span>');
+    if (won) await awardSkillUse(player.id, 'fishing', 4);
+    stopFishing(player.id, st.zoneId, player.handle);
+    return { type: 'noop' };
+  }
+
+  // Ordinary / bait-gated catch.
+  if (won) {
+    // Bait-gated catches aren't zone-stocked; normal catches decrement stock.
+    if (!target.baitGated) {
+      const dec = await query(
+        'UPDATE scavenging_zone_stock SET current_qty=current_qty-1 WHERE zone_id=$1 AND item_id=$2 AND current_qty>0',
+        [st.zoneId, target.item_id]
+      );
+      if (!dec.rowCount) { out(player.id, 'It slips the hook at the last second and is gone.'); return { type: 'noop' }; }
+    }
+    await query(
+      'INSERT INTO player_inventory (id, player_id, item_id, quantity, condition) VALUES ($1,$2,$3,1,1.0)',
+      [randomUUID(), player.id, target.item_id]
+    );
+    const bait = await baitState(player.id);
+    if (bait.hasBait) await consumeBait(player.id);
+    const margin = Math.max(0, (await effectiveSkill(player, 'fishing')) - target.difficulty);
+    await awardSkillUse(player.id, 'fishing', margin);
+    const link = `<span class="action-link item-link" data-action="examine" data-target="${target.name}" title="Examine ${target.name}">${target.name}</span>`;
+    out(player.id, `<span class="item-grant">You work it in and swing ${link} up onto the dock.</span>`);
+    // A landed catch ends the action, mirroring scavenging — recast to keep going.
+    stopFishing(player.id, st.zoneId, player.handle);
+    return { type: 'noop' };
+  }
+
+  // Lost the reel — the line snapped or the fish threw the hook.
+  const snapMsg = await maybeSnapRod(player.id);
+  out(player.id, `<span class="text-red">The line goes slack — it\'s gone. The big ones always are.</span>${snapMsg}`);
+  if (snapMsg.includes('snaps clean')) { stopFishing(player.id, st.zoneId, player.handle); }
+  return { type: 'noop' };
+}
+
+// ── Command ───────────────────────────────────────────────────────────────────
+
+async function cmdFish(args, raw, player, broadcast) {
+  if (player.posture === 'fishing')
+    return { type: 'emote', message: 'You\'re already fishing.' };
+  if (player.combatTargetId || player.pvpTargetId || player.npcCombatTargetId)
+    return { type: 'emote', message: 'You\'re a little busy to be fishing right now.' };
+  if ((player.posture || 'standing') !== 'standing')
+    return { type: 'emote', message: 'You need to be on your feet to fish.' };
+
+  const zone = getZone(player.current_zone);
+  const tableId = zone?.flags?.fishing_table_id;
+  if (!zone || !tableId)
+    return { type: 'emote', message: 'There\'s no water here worth fishing.' };
+  if (!(await hasRod(player.id)))
+    return { type: 'emote', message: 'You need a fishing rod to fish.' };
+
+  const loaded = await loadZoneTable(player.current_zone, tableId);
+  if (!loaded || !loaded.entries.length)
+    return { type: 'emote', message: 'The water here is dead — nothing lives in it.' };
+
+  const pools = flavorPools(loaded.table);
+  setPosture(player, 'fishing');
+  player.fishState = { zoneId: player.current_zone, streak: 0, lastAttempt: Date.now() - ATTEMPT_MS, pending: null };
+  broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} ${pick(pools.broadcast)}` }, player.id);
+  return { type: 'emote', message: 'You bait the hook, cast your line out over the water, and settle in to fish.' };
+}
+
+export const commands = {
+  fish: cmdFish,
+  fishresolve: cmdFishResolve,
+};
+
+// Pure helpers exposed for the regression suite (never used in production).
+export const _test = { pickWeighted, BITE_CHANCE, ROD_SNAP_CHANCE, ATTEMPT_MS };
+
+console.log('[fishing] Plugin loaded.');

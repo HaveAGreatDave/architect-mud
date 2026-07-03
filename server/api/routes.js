@@ -319,6 +319,10 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path==='/dev/notes' && method==='POST') return requireDev(auth, ()=>apiCreateDevNote(body, auth));
   if (path.startsWith('/dev/notes/') && method==='PATCH') return requireDev(auth, ()=>apiUpdateDevNote(path.split('/')[3], body));
   if (path.startsWith('/dev/notes/') && method==='DELETE') return requireDev(auth, ()=>apiDeleteDevNote(path.split('/')[3]));
+  if (path==='/dev/contributions' && method==='GET') return requireDev(auth, apiGetDevContributions);
+  if (path==='/dev/identities/automatch' && method==='POST') return requireDev(auth, apiAutomatchDevIdentities);
+  if (path==='/dev/identities' && method==='GET') return requireDev(auth, apiGetDevIdentities);
+  if (path==='/dev/identities' && method==='POST') return requireDev(auth, ()=>apiSetDevIdentity(body));
   if (path==='/world/state' && method==='GET') return requireDev(auth, apiWorldState);
   if (path==='/world/reload' && method==='POST') return requireDev(auth, ()=>apiReloadZone(body));
   if (path==='/players/online' && method==='GET') {
@@ -1636,6 +1640,29 @@ async function apiGetPlayerCountLog(fullUrl) {
   );
   return {status:200, body:{rows}};
 }
+// The engine's sensitive substrate — the seams the regression gate cares about.
+// A commit touching any of these is flagged "core" so it gets noticed; intensity
+// scales with how many lines it changed in these files.
+const CORE_SEAM_FILES = new Set([
+  'server/engine/commands/index.js',   // command dispatch pipeline
+  'server/engine/plugins.js',          // plugin loader / route+hook registries
+  'server/engine/actions.js',          // action registry
+  'server/engine/events.js',           // event bus
+  'server/engine/specializedActions.js',
+  'server/engine/movement-gates.js',   // move gates
+  'server/engine/posture.js',          // posture substrate
+  'server/engine/exits.js',            // exits accessor
+  'server/engine/graph.js',            // script graph runner
+  'server/engine/flags.js',            // flag store
+  'server/models/schema.js',           // DB schema
+]);
+function coreIntensityTier(lines) {
+  if (lines <= 0) return 0;
+  if (lines <= 40) return 1;   // light
+  if (lines <= 200) return 2;  // medium
+  return 3;                     // heavy
+}
+
 // Recent code activity from git, for the Dev Log check-in view. Read-only; if
 // git isn't available (e.g. deployed from a tarball) it returns an empty list.
 async function apiGetDevActivity(fullUrl) {
@@ -1644,25 +1671,109 @@ async function apiGetDevActivity(fullUrl) {
     'log', '--no-merges',
     since ? `--since=${since}` : '--since=14.days.ago',
     '-n', '300',
-    '--pretty=format:%x1e%H%x1f%an%x1f%aI%x1f%s',
-    '--shortstat',
+    '--pretty=format:%x1e%H%x1f%an%x1f%ae%x1f%aI%x1f%s',
+    '--numstat',
   ];
   let stdout = '';
   try {
     const repoRoot = fileURLToPath(new URL('../../', import.meta.url));
-    ({ stdout } = await execFileP('git', args, { cwd: repoRoot, maxBuffer: 4 * 1024 * 1024 }));
+    ({ stdout } = await execFileP('git', args, { cwd: repoRoot, maxBuffer: 16 * 1024 * 1024 }));
   } catch {
     return { status: 200, body: { commits: [], gitUnavailable: true } };
   }
+  // Resolve git identities → admin handles via the dev_identities map.
+  const { rows: idRows } = await query(`SELECT git_key, handle FROM dev_identities`);
+  const idMap = new Map(idRows.map(r => [r.git_key, r.handle]));
   const commits = stdout.split('\x1e').map(r => r.trim()).filter(Boolean).map(rec => {
     const nl = rec.indexOf('\n');
     const head = nl === -1 ? rec : rec.slice(0, nl);
     const rest = nl === -1 ? '' : rec.slice(nl + 1);
-    const [hash, author, date, subject] = head.split('\x1f');
-    const m = rest.match(/(\d+) files? changed/);
-    return { hash: (hash||'').slice(0, 8), author: author||'?', date, subject: subject||'', filesChanged: m ? parseInt(m[1], 10) : 0 };
+    const [hash, author, email, date, subject] = head.split('\x1f');
+    let files = 0, coreLines = 0;
+    const coreFiles = [];
+    for (const line of rest.split('\n')) {
+      const p = line.split('\t');
+      if (p.length !== 3) continue;
+      files++;
+      if (CORE_SEAM_FILES.has(p[2])) {
+        const a = p[0] === '-' ? 0 : (parseInt(p[0], 10) || 0);
+        const d = p[1] === '-' ? 0 : (parseInt(p[1], 10) || 0);
+        coreLines += a + d;
+        coreFiles.push(p[2].replace(/^server\//, ''));
+      }
+    }
+    const authorKey = gitAuthorKey(email, author);
+    return { hash: (hash||'').slice(0, 8), author: author||'?', authorKey, handle: idMap.get(authorKey) || null,
+             date, subject: subject||'', filesChanged: files,
+             core: coreFiles.length > 0, coreLines, coreTier: coreIntensityTier(coreLines), coreFiles };
   });
   return { status: 200, body: { commits } };
+}
+
+// Stable per-contributor key: lowercased author email, or 'name:<name>' fallback.
+function gitAuthorKey(email, name) {
+  const e = (email||'').trim().toLowerCase();
+  if (e) return e;
+  return 'name:' + (name||'').trim().toLowerCase();
+}
+
+async function apiGetDevIdentities() {
+  const [ids, players] = await Promise.all([
+    query(`SELECT git_key, git_name, player_id, handle FROM dev_identities ORDER BY git_name`),
+    query(`SELECT id, handle, role FROM players WHERE role IN ('admin','dev','builder','designer') ORDER BY handle`),
+  ]);
+  return { status: 200, body: { identities: ids.rows, players: players.rows } };
+}
+
+async function apiSetDevIdentity(body) {
+  const gitKey = (body?.git_key || '').trim().toLowerCase();
+  if (!gitKey) return { status: 400, body: { error: 'git_key required' } };
+  const playerId = body?.player_id || null;
+  if (!playerId) {
+    await query(`DELETE FROM dev_identities WHERE git_key=$1`, [gitKey]);
+    return { status: 200, body: { ok: true, unbound: true } };
+  }
+  const { rows } = await query(`SELECT handle FROM players WHERE id=$1`, [playerId]);
+  if (!rows.length) return { status: 404, body: { error: 'player not found' } };
+  await query(
+    `INSERT INTO dev_identities (git_key, git_name, player_id, handle) VALUES ($1,$2,$3,$4)
+     ON CONFLICT (git_key) DO UPDATE SET git_name=EXCLUDED.git_name, player_id=EXCLUDED.player_id, handle=EXCLUDED.handle`,
+    [gitKey, (body?.git_name || '').trim(), playerId, rows[0].handle]
+  );
+  return { status: 200, body: { ok: true, handle: rows[0].handle } };
+}
+
+// Seed obvious mappings by matching git author email to players.email. Never
+// overrides an existing binding (ON CONFLICT DO NOTHING).
+async function apiAutomatchDevIdentities() {
+  let stdout = '';
+  try {
+    const repoRoot = fileURLToPath(new URL('../../', import.meta.url));
+    ({ stdout } = await execFileP('git', ['log', '--since=90.days.ago', '-n', '2000', '--pretty=format:%ae%x1f%an'], { cwd: repoRoot, maxBuffer: 4 * 1024 * 1024 }));
+  } catch {
+    return { status: 200, body: { added: 0, gitUnavailable: true } };
+  }
+  const seen = new Map(); // email → name
+  for (const line of stdout.split('\n')) {
+    const [email, name] = line.split('\x1f');
+    const e = (email || '').trim().toLowerCase();
+    if (e && !seen.has(e)) seen.set(e, (name || '').trim());
+  }
+  if (!seen.size) return { status: 200, body: { added: 0 } };
+  const { rows: matches } = await query(
+    `SELECT id, handle, LOWER(email) AS email FROM players WHERE email IS NOT NULL AND LOWER(email) = ANY($1)`,
+    [[...seen.keys()]]
+  );
+  let added = 0;
+  for (const m of matches) {
+    const r = await query(
+      `INSERT INTO dev_identities (git_key, git_name, player_id, handle) VALUES ($1,$2,$3,$4)
+       ON CONFLICT (git_key) DO NOTHING`,
+      [m.email, seen.get(m.email) || '', m.id, m.handle]
+    );
+    added += r.rowCount || 0;
+  }
+  return { status: 200, body: { added } };
 }
 
 async function apiGetDevNotes() {
@@ -1694,6 +1805,51 @@ async function apiUpdateDevNote(id, body) {
 async function apiDeleteDevNote(id) {
   await query(`DELETE FROM dev_notes WHERE id=$1`, [id]);
   return { status: 200, body: { ok: true } };
+}
+
+// Aggregated per-author contribution stats (commits/lines/files) for a few
+// ranges, for the Dev Log contributions charts. Handles resolved via dev_identities.
+async function apiGetDevContributions() {
+  const ranges = { '7d': '7.days.ago', '30d': '30.days.ago', 'all': null };
+  const { rows: idRows } = await query(`SELECT git_key, handle FROM dev_identities`);
+  const idMap = new Map(idRows.map(r => [r.git_key, r.handle]));
+  const repoRoot = fileURLToPath(new URL('../../', import.meta.url));
+  const out = {};
+  for (const [rk, since] of Object.entries(ranges)) {
+    const args = ['log', '--no-merges', ...(since ? [`--since=${since}`] : []),
+      '--pretty=format:%x1e%an%x1f%ae', '--numstat'];
+    let stdout = '';
+    try {
+      ({ stdout } = await execFileP('git', args, { cwd: repoRoot, maxBuffer: 64 * 1024 * 1024 }));
+    } catch {
+      return { status: 200, body: { gitUnavailable: true } };
+    }
+    const byKey = new Map();
+    for (const rec of stdout.split('\x1e')) {
+      const t = rec.trim();
+      if (!t) continue;
+      const nl = t.indexOf('\n');
+      const head = nl === -1 ? t : t.slice(0, nl);
+      const rest = nl === -1 ? '' : t.slice(nl + 1);
+      const [author, email] = head.split('\x1f');
+      const key = gitAuthorKey(email, author);
+      let e = byKey.get(key);
+      if (!e) { e = { author: author||'?', authorKey: key, handle: idMap.get(key)||null, commits: 0, add: 0, del: 0, files: new Set() }; byKey.set(key, e); }
+      e.commits++;
+      for (const line of rest.split('\n')) {
+        const p = line.split('\t');
+        if (p.length === 3) {
+          if (p[0] !== '-') e.add += (parseInt(p[0], 10) || 0);
+          if (p[1] !== '-') e.del += (parseInt(p[1], 10) || 0);
+          if (p[2]) e.files.add(p[2]);
+        }
+      }
+    }
+    out[rk] = [...byKey.values()]
+      .map(e => ({ author: e.author, authorKey: e.authorKey, handle: e.handle, commits: e.commits, add: e.add, del: e.del, files: e.files.size }))
+      .sort((a, b) => b.commits - a.commits);
+  }
+  return { status: 200, body: { ranges: out } };
 }
 
 async function apiWorldState() {

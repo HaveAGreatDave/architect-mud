@@ -755,6 +755,17 @@ export const SCHEMA_SQL = `
   );
   CREATE INDEX IF NOT EXISTS idx_dev_notes_time ON dev_notes(created_at DESC);
 
+  -- Maps a git author identity (lowercased author email, or 'name:<name>' when
+  -- no email) to an admin account, so the Dev Log shows handles (Cyd) instead of
+  -- raw git names (HaveAGreatDave).
+  CREATE TABLE IF NOT EXISTS dev_identities (
+    git_key    TEXT PRIMARY KEY,
+    git_name   TEXT,
+    player_id  TEXT REFERENCES players(id) ON DELETE CASCADE,
+    handle     TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+
   -- Kill / death counters
   ALTER TABLE players ADD COLUMN IF NOT EXISTS mob_kills INTEGER DEFAULT 0;
   ALTER TABLE players ADD COLUMN IF NOT EXISTS player_kills INTEGER DEFAULT 0;

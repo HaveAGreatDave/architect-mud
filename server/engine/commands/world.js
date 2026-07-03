@@ -295,6 +295,9 @@ async function describePlayerAppearance(target, isSelf, viewer = null, broadcast
   if (target.posture === 'butchering') {
     msg += `${isSelf ? 'You are' : `${handle} is`} elbow-deep in a carcass, butchering it.\n`;
   }
+  if (target.posture === 'fishing') {
+    msg += `${isSelf ? 'You are' : `${handle} is`} fishing, line cast out over the water.\n`;
+  }
   if (mutated) msg += `<span class="mutation-tag">Something about ${isSelf ? 'you' : 'them'} isn't quite human anymore.</span>\n`;
   if (target.covered_in_blood) msg += `<span style="color:var(--red)">${isSelf ? 'You are' : 'They are'} covered in blood.</span>\n`;
 

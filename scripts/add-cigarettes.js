@@ -14,8 +14,10 @@ import { query } from '../server/models/db.js';
 
 const ITEM_ID = 'item_cigarettes';
 const DRUG_ID = 'drug_cigarettes';
-const NAME = 'cigarettes';
-const DESC = 'You take out a soft pack of cheap cigarettes, removing one carefully. Each one shaves a little off your lungs and hands it to your image.';
+const ITEM_NAME = 'pack of cigarettes';
+const DRUG_NAME = 'a cigarette';   // what the "You take …" line reads
+const DESC = 'You slide one from the soft pack of cheap cigarettes and light it. Each one shaves a little off your lungs and hands it to your image. Ten to a pack.';
+const PACK_SIZE = 10;   // cigarettes per pack; the pack item is destroyed on the last one (see cmdUse)
 
 const EFFECTS = {
   // A drag settles the nerves a touch.
@@ -45,11 +47,11 @@ const FLAGS = { legal: true, smokeable: true, appetite_suppress_seconds: 900 };
 async function main() {
   await query(
     `INSERT INTO items (id, name, description, type, subtype, weight, value, is_stackable, tags)
-     VALUES ($1,$2,$3,'consumable','drug',20,15,1,$4::jsonb)
+     VALUES ($1,$2,$3,'consumable','drug',20,15,0,$4::jsonb)
      ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name, description=EXCLUDED.description,
        type=EXCLUDED.type, subtype=EXCLUDED.subtype, weight=EXCLUDED.weight,
        value=EXCLUDED.value, is_stackable=EXCLUDED.is_stackable, tags=EXCLUDED.tags`,
-    [ITEM_ID, NAME, DESC, JSON.stringify({ drug: true })]
+    [ITEM_ID, ITEM_NAME, DESC, JSON.stringify({ drug: true, pack_size: PACK_SIZE })]
   );
 
   await query(
@@ -59,10 +61,10 @@ async function main() {
        item_id=EXCLUDED.item_id, duration_seconds=EXCLUDED.duration_seconds, effects=EXCLUDED.effects,
        addiction_chance=EXCLUDED.addiction_chance, overdose_threshold=EXCLUDED.overdose_threshold,
        flags=EXCLUDED.flags`,
-    [DRUG_ID, NAME, DESC, ITEM_ID, JSON.stringify(EFFECTS), JSON.stringify(FLAGS)]
+    [DRUG_ID, DRUG_NAME, DESC, ITEM_ID, JSON.stringify(EFFECTS), JSON.stringify(FLAGS)]
   );
 
-  console.log(`✓ ${NAME} added (${DRUG_ID} + ${ITEM_ID}).`);
+  console.log(`✓ ${ITEM_NAME} added (${DRUG_ID} + ${ITEM_ID}).`);
   console.log('Restart the server (or /world/reload) so the drug cache picks it up.');
   console.log('Then spawn it via the dev panel to place it in a vendor / on the ground.');
   process.exit(0);

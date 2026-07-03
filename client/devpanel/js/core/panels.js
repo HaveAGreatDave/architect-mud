@@ -17,8 +17,9 @@ const PANELS = {
     description: 'Team heads-ups and recent code activity. Post important changes (server restarts, migrations, content scripts) so the next dev checking in sees them, alongside a feed of recent commits by author.',
     noEdit: true,
     fetch: async () => {
-      const [notes, activity] = await Promise.all([directAPI('/dev/notes'), directAPI('/dev/activity')]);
-      return { notes: notes?.notes || [], commits: activity?.commits || [], gitUnavailable: !!activity?.gitUnavailable };
+      const [notes, activity, ids, contrib] = await Promise.all([directAPI('/dev/notes'), directAPI('/dev/activity'), directAPI('/dev/identities'), directAPI('/dev/contributions')]);
+      return { notes: notes?.notes || [], commits: activity?.commits || [], gitUnavailable: !!activity?.gitUnavailable,
+               identities: ids?.identities || [], players: ids?.players || [], contributions: contrib?.ranges || null };
     },
     render: renderDevLog,
   },
