@@ -10,11 +10,13 @@ import { gameMsToReal } from '../../server/engine/gametime.js';
 
 // Jacking a terminal requires physically carrying this item — no skill roll
 // gates the attempt anymore, just possession of the tool.
-const HACK_DEVICE_ITEM_ID = 'item_hack_deck';
+// Any item tagged `hack_device` (see tagCatalog.js) is a valid deck — the gate
+// is the capability tag, not a specific item id.
 async function hasHackDevice(playerId) {
   const { rows } = await query(
-    'SELECT 1 FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND container_id IS NULL LIMIT 1',
-    [playerId, HACK_DEVICE_ITEM_ID]
+    `SELECT 1 FROM player_inventory pi JOIN items i ON i.id = pi.item_id
+     WHERE pi.player_id=$1 AND pi.container_id IS NULL AND jsonb_exists(i.tags,'hack_device') LIMIT 1`,
+    [playerId]
   );
   return rows.length > 0;
 }
@@ -24,8 +26,9 @@ async function hasHackDevice(playerId) {
 const HACK_DEVICE_DAMAGE_PER_FAIL = 0.2;
 async function damageHackDevice(playerId) {
   const { rows } = await query(
-    'SELECT id, condition FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND container_id IS NULL LIMIT 1',
-    [playerId, HACK_DEVICE_ITEM_ID]
+    `SELECT pi.id, pi.condition FROM player_inventory pi JOIN items i ON i.id = pi.item_id
+     WHERE pi.player_id=$1 AND pi.container_id IS NULL AND jsonb_exists(i.tags,'hack_device') LIMIT 1`,
+    [playerId]
   );
   const dev = rows[0];
   if (!dev) return '';

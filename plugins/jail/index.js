@@ -31,7 +31,6 @@ const CELL_ZONE = 'zone_mq_precinct_holding';   // the holding cell you wake in
 const RELEASE_ZONE = 'zone_mq_precinct_lobby';  // where the guard walks you out to
 const BUNK_ZONE = 'zone_mq_precinct_bullpen';   // where off-shift officers wait (their desks)
 const MINUTE = 60 * 1000;
-const HACK_DEVICE = 'item_hack_deck';           // classed contraband (see doors.js)
 const EVIDENCE_CAP = 50;                         // max rows in the shared locker
 const PURGE_MS = 3 * 24 * 60 * 60 * 1000;        // wipe evidence older than 3 days
 const FINE_PER_HALF_STAR = 50;                   // ₵ booking fine per half wanted-star
@@ -58,8 +57,9 @@ const releasing = new Set();    // playerIds mid-release (suppress escape detect
 // ── Confiscation ─────────────────────────────────────────────────────────────
 // An item is contraband if it's a weapon, a drug, or a hacking deck. Quest items
 // are never taken (they'd soft-lock a quest — same carve-out spawnPlayerCorpse makes).
+// Gated on the `hack_device` capability tag (see tagCatalog.js), not a specific id.
 function isContraband(itemId, tags) {
-  return ('weapon' in tags) || ('drug' in tags) || itemId === HACK_DEVICE;
+  return ('weapon' in tags) || ('drug' in tags) || ('hack_device' in tags);
 }
 
 // Bag confiscated contraband into the shared evidence locker, then evict the

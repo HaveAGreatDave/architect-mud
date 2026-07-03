@@ -129,6 +129,24 @@ async function _runFull(opts = {}) {
     }
   }
 
+  // Check for buildings sitting directly on an exterior/world map. A real building
+  // is its own interior map (maps.parent_zone_id set) reached through an entrance;
+  // an is_building zone whose map is exterior (parent_zone_id IS NULL) renders as a
+  // clickable "Buildings:" link on the open street — the Custodian-Row→"Meridian"
+  // pathology. Detection-only: the fix (unset the flag, or restructure into a real
+  // interior with an in/out entrance) is a human decision, so no auto-repair.
+  const { rows: buildingsOnWorldMap } = await query(`
+    SELECT z.id, z.name
+    FROM zones z
+    JOIN maps m ON z.map_id = m.id
+    WHERE m.parent_zone_id IS NULL
+      AND COALESCE((z.flags->>'is_building')::boolean, false) = true
+  `).catch(() => ({ rows: [] }));
+  for (const b of buildingsOnWorldMap) {
+    allIssues.push({ type: 'building_on_world_map', zoneId: b.id, zoneName: b.name, dir: null, destId: null, repaired: false });
+    if (!needsManualReview.includes(b.id)) needsManualReview.push(b.id);
+  }
+
   // Check for orphaned records in entity tables that reference non-existent zones.
   const orphanChecks = [
     { table: 'furniture',       col: 'zone_id',       label: 'furniture' },

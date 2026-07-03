@@ -289,16 +289,18 @@ export async function cmdAttackDoor(dirStr, player, broadcast) {
 // it is the only gate beyond carrying a hacking device, mirroring the ATM jack.
 // A successful breach unlocks the door persistently and reports `burglary`
 // (via the surveillance listener on `hololock.breached`).
-const HACK_DEVICE_ITEM_ID = 'item_hack_deck';
 const HACK_LOCKOUT_MS = 5 * 60 * 1000;
 const HACK_PENDING_TTL_MS = 180 * 1000;
 const hackLockout = new Map();  // playerId -> lockout-until ts
 const pendingHack = new Map();  // playerId -> { doorId, expires }
 
+// Any item tagged `hack_device` (see tagCatalog.js) is a valid deck — the gate
+// is the capability tag, not a specific item id.
 async function hasHackDevice(playerId) {
   const { rows } = await query(
-    'SELECT 1 FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND container_id IS NULL LIMIT 1',
-    [playerId, HACK_DEVICE_ITEM_ID]
+    `SELECT 1 FROM player_inventory pi JOIN items i ON i.id = pi.item_id
+     WHERE pi.player_id=$1 AND pi.container_id IS NULL AND jsonb_exists(i.tags,'hack_device') LIMIT 1`,
+    [playerId]
   );
   return rows.length > 0;
 }

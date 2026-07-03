@@ -129,6 +129,8 @@
       help: 'Marks this item as a battery-powered handheld flashlight. LIGHT / UNLIGHT toggle it; RELOAD swaps in a battery. A lit, charged flashlight makes dark rooms readable for the holder. Pair with the Unique tag so each unit keeps its own on/charge state.' },
     battery: { label: 'Battery', shape: 'flag', scope: 'class', group: 'Gear',
       help: 'Marks this item as a power cell. Consumed by RELOAD to recharge a flashlight (or other battery-powered device).' },
+    hack_device: { label: 'Hacking Device', shape: 'flag', scope: 'class', group: 'Gear',
+      help: 'Marks this item as an intrusion deck. Carrying one (in hand, not in a container) is the tool gate for HACK on hololocked doors and for jacking ATM terminals; it is also classed as contraband when jailed. Pair with the Unique tag so each deck keeps its own condition — failed breaches damage it.' },
 
     // --- Locks ---
     "lock:hololock": { label: 'Holographic Lock', shape: 'statmap', scope: 'class', group: 'Hardware', help: 'Electronic holographic authorization matrix.' },

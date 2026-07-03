@@ -19,6 +19,7 @@ posture/HP-regen break). The rest generalize that success to the other seams.
 | **Content (DB) ↔ Engine** | authored field never read (dead content); engine read never authorable (ghost read); tag-catalog drift | [content-engine-field-audit.md](content-engine-field-audit.md) |
 | **Presentation ↔ everything** | inline CSS/markup taxing every file read; glyph mojibake; eroded styles.css contract | [ui-presentation-standard-audit.md](ui-presentation-standard-audit.md) |
 | **String-keyed registries** | typo'd emit/consume key (dead link); inconsistent naming convention across registries | [naming-registry-harmony-audit.md](naming-registry-harmony-audit.md) |
+| **Capability ↔ Item** | a "you need a ⟨tool⟩" gate hardcodes one item id instead of reading a tag, so a correctly-tagged second item is silently rejected | [capability-tag-vs-itemid-audit.md](capability-tag-vs-itemid-audit.md) |
 
 Two flavors live here:
 

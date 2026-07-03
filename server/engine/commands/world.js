@@ -649,7 +649,10 @@ async function cmdExamine(targetStr, player, broadcast) {
   }
   if (er.type === 'match') {
     const c = er.candidate;
-    if (c._examType === 'enemy') return { type:'examine', message:`${c.name}\n${c.description}\nHP: ${c.hp}/${c.hp_max}` };
+    if (c._examType === 'enemy') {
+      const attackLink = `<span class="action-link" data-action="attack" data-target="${c.name}" title="Attack ${c.name}">attack</span>`;
+      return { type:'examine', message:`${c.name}\n${c.description}\nHP: ${c.hp}/${c.hp_max}\n<span class="text-dim">Actions:</span> ${attackLink}` };
+    }
     if (c._examType === 'npc') {
       let postureLine = '';
       if (c._ai?.homeSleeping) {
@@ -659,7 +662,9 @@ async function cmdExamine(targetStr, player, broadcast) {
         const where = c.sittingOn ? `the ${c.sittingOn}` : 'the floor';
         postureLine = `\n<span class="text-dim">${c.name} is lying on ${where}.</span>`;
       }
-      return { type:'examine', message:`${c.name}\n${c.description}${postureLine}${npcClothingLine(c, player)}` };
+      const talkLink   = `<span class="action-link" data-action="talk" data-target="${c.name}" title="Talk to ${c.name}">talk</span>`;
+      const attackLink = `<span class="action-link" data-action="attack" data-target="${c.name}" title="Attack ${c.name}">attack</span>`;
+      return { type:'examine', message:`${c.name}\n${c.description}${postureLine}${npcClothingLine(c, player)}\n<span class="text-dim">Actions:</span> ${talkLink}  ${attackLink}` };
     }
     if (c._examType === 'player') {
       const app = await describePlayerAppearance(c, false, player, broadcast);
