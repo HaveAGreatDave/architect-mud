@@ -126,13 +126,6 @@ async function cmdCook(args, raw, player, broadcast) {
   };
 }
 
-function qualityFor(margin) {
-  if (margin >= 6) return 'pristine';
-  if (margin >= 3) return 'refined';
-  if (margin < 0) return 'scrap';
-  return 'common';
-}
-
 async function cmdSynthResolve(args, raw, player, broadcast) {
   const recipeId = args[0];
   const score = Math.max(0, Math.min(100, parseInt(args[1], 10) || 0));
@@ -183,8 +176,7 @@ async function cmdSynthResolve(args, raw, player, broadcast) {
 
   // Potency baked into the produced drug item — a great cook makes stronger product.
   const potency = Math.max(0.5, Math.min(1.8, Math.round((0.6 + finalMargin * 0.09) * 100) / 100));
-  const quality = qualityFor(finalMargin);
-  const customData = { potency, quality, synthesized: true };
+  const customData = { potency, synthesized: true };
   const outQty = recipe.base_output?.quantity || 1;
   const outId = recipe.base_output?.item_id;
   const { rows: itemRows } = await query('SELECT name FROM items WHERE id=$1', [outId]);
@@ -204,7 +196,7 @@ async function cmdSynthResolve(args, raw, player, broadcast) {
   const pct = Math.round(potency * 100);
   return {
     type: 'output',
-    message: `<span class="ip-gain">The reaction settles clean.</span> You cook ${outQty}x <span class="item">${outName}</span> — <b>${pct}% potency</b> [${quality}].`,
+    message: `<span class="ip-gain">The reaction settles clean.</span> You cook ${outQty}x <span class="item">${outName}</span> — <b>${pct}% potency</b>.`,
   };
 }
 
@@ -450,7 +442,7 @@ async function cmdSpliceResolve(args, raw, player, broadcast) {
 
   // Bad batch — you still bottle something, but it's degraded and nasty.
   if (!success) {
-    const cd = { synthesized: true, spliced: true, potency: 0.4, quality: 'scrap', name: `unstable ${p.name}`, effects: badBatch(p.comp.effects), overdose_threshold: Math.max(2, p.comp.odThreshold - 1), dose_weight: p.comp.doseWeight + 1, duration_seconds: 300 };
+    const cd = { synthesized: true, spliced: true, potency: 0.4, name: `unstable ${p.name}`, effects: badBatch(p.comp.effects), overdose_threshold: Math.max(2, p.comp.odThreshold - 1), dose_weight: p.comp.doseWeight + 1, duration_seconds: 300 };
     await withTransaction(async (q) => { await consume(q); await insertCompound(q, cd); });
     return { type: 'output', message: `<span class="msg-system">The splice curdles into something wrong — cloudy, and it smells of solvent and regret. You bottle the <span class="item">unstable ${p.name}</span> anyway. (margin ${effectiveMargin})</span>` };
   }
@@ -458,14 +450,13 @@ async function cmdSpliceResolve(args, raw, player, broadcast) {
   // Success — potency capped by instability (overload caps power).
   const potencyCap = Math.max(0.6, 1.7 - p.comp.instability * 0.5);
   const potency = Math.max(0.5, Math.min(potencyCap, Math.round((0.6 + effectiveMargin * 0.08) * 100) / 100));
-  const quality = qualityFor(effectiveMargin);
-  const cd = { synthesized: true, spliced: true, potency, quality, name: p.name, effects: p.comp.effects, overdose_threshold: p.comp.odThreshold, dose_weight: p.comp.doseWeight, duration_seconds: 300 };
+  const cd = { synthesized: true, spliced: true, potency, name: p.name, effects: p.comp.effects, overdose_threshold: p.comp.odThreshold, dose_weight: p.comp.doseWeight, duration_seconds: 300 };
   await withTransaction(async (q) => { await consume(q); await insertCompound(q, cd); });
   await awardSkillUse(player.id, SYNTH_SKILL, skillResult.margin);
 
   const pct = Math.round(potency * 100);
   const riskNote = p.comp.doseWeight > 1 ? ` <span class="msg-system">(counts as ${p.comp.doseWeight} doses — go easy)</span>` : '';
-  return { type: 'output', message: `<span class="ip-gain">It holds.</span> You splice <span class="item">${p.name}</span> — <b>${pct}% potency</b> [${quality}].${riskNote}` };
+  return { type: 'output', message: `<span class="ip-gain">It holds.</span> You splice <span class="item">${p.name}</span> — <b>${pct}% potency</b>.${riskNote}` };
 }
 
 export const commands = {

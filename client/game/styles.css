@@ -2757,7 +2757,6 @@ textarea {
 	border: 1px solid var(--border);
 	color: var(--text-dim);
 }
-.idp-badge.quality { border-color: var(--cyan); color: var(--cyan); }
 .idp-badge.equipped { border-color: var(--green); color: var(--green); }
 .idp-badge.flag { border-color: var(--red); color: var(--red); }
 .idp-desc {

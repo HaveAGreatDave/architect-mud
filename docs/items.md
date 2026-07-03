@@ -104,8 +104,7 @@ Equip-eligibility is signaled by the **presence of a `slot` tag**, not by
 Presence-only flags on a single carried item, stored in
 `player_inventory.custom_data` (already JSONB). Currently `broken` and
 `cursed`. Written by game logic as `custom_data.<flag> = true` and read with
-`hasFlag(invRow, name)`. The crafting `custom_data.quality` value is unrelated
-and left untouched.
+`hasFlag(invRow, name)`.
 
 ---
 
