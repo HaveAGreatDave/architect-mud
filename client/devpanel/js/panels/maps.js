@@ -759,7 +759,7 @@ function renderMapOverview() {
   const col = x => 2 * (x - minX) + 1, row = y => 2 * (y - minY) + 1;
   const cellStyle = (x, y, extra = '') => `style="grid-column:${col(x)};grid-row:${row(y)}${extra}"`;
 
-  html += `<div style="padding:12px;overflow:auto" ondragover="event.preventDefault()" ondrop="mapGridDrop(event)"><div style="display:grid;grid-template-columns:${colTmpl};grid-template-rows:${rowTmpl}">`;
+  html += `<div id="bigmap-grid-scroll" style="padding:12px;overflow:auto" ondragover="event.preventDefault()" ondrop="mapGridDrop(event)"><div style="display:grid;grid-template-columns:${colTmpl};grid-template-rows:${rowTmpl}">`;
 
   // Cells (and empty/create slots)
   for (let y = minY; y <= maxY; y++) {
@@ -898,7 +898,16 @@ function renderMapOverview() {
       ` : ''}
     </div>`;
   }
+  // Preserve scroll across the full innerHTML rebuild so paint-drag strokes
+  // (which re-render on every tile) don't yank the view back to the top.
+  const prevPanelTop = panel.scrollTop, prevPanelLeft = panel.scrollLeft;
+  const prevGrid = document.getElementById('bigmap-grid-scroll');
+  const prevGridLeft = prevGrid?.scrollLeft || 0, prevGridTop = prevGrid?.scrollTop || 0;
   panel.innerHTML = html;
+  panel.scrollTop = prevPanelTop;
+  panel.scrollLeft = prevPanelLeft;
+  const newGrid = document.getElementById('bigmap-grid-scroll');
+  if (newGrid) { newGrid.scrollLeft = prevGridLeft; newGrid.scrollTop = prevGridTop; }
 }
 
 async function switchMap(id) {
