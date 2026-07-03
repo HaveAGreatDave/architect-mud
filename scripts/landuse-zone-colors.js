@@ -1,55 +1,59 @@
-// One-shot: recolor every zone's stored map colour to the land-use palette
-// keyed by its category (mirrors client FUNC_LEGEND + the coldwater-style SVG).
-// Water is the ONLY blue (vivid) so Coldwater Bay pops; its former blue-ish
-// neighbours (corporate, mixed-core) are re-hued to slate/sand, and the palette
-// is spread across the wheel so every district is distinct. Overwrites bg_color
-// for all zones and clears the foreground `color` so tiles auto-derive text.
+// One-shot: recolor every zone's stored map colour by land-use category, keyed
+// off the real zone-id prefix scheme (zone_<cat>_<name>). Water is the only
+// blue (Coldwater Bay); docks + North City get their own distinct colours; and
+// EVERY prefix maps to a real colour so no tile is left grey. Overwrites
+// bg_color for all zones and clears foreground `color` so tiles auto-derive text.
 import { query } from '../server/models/db.js';
 
-// Verbatim copy of server/engine/commands/movement.js mapFunc().
-function mapFunc(z) {
-  const id = z.id || '';
-  const d = z.danger_rating;
-  if (/water|_bay|coldwater_bay/.test(id)) return 'water';
-  if (id === 'zone_up_aid' || id.includes('precinct') || id === 'zone_city_se') return 'civic';
-  if (id.startsWith('zone_up_') || id.startsWith('zone_spire') || id === 'zone_city_ne') return 'corporate';
-  if (id.startsWith('zone_deep_') || id === 'zone_slums' || id === 'zone_tunnels' || id === 'zone_city_sw') return 'slum';
-  if (/cherry|pigeon|_sump/.test(id)) return 'nightlife';
-  if (id.startsWith('zone_slag_') || id === 'zone_powerplantnew' || id === 'zone_coldwater_turbine_hall' || id === 'zone_warehouse' || id === 'zone_city_east') return 'industrial';
-  if (id.startsWith('zone_ashway_') || id.startsWith('zone_badland_') || id === 'zone_ruins' || id === 'zone_deep_waste' || id === 'zone_outskirts') return 'wasteland';
-  if (/apt|residential|embassy|meridian_unit|meridian_floor|chrome_[123]0|chrome_f/.test(id)) return 'residential';
-  if (/studio|_prod_|zone_ext_/.test(id)) return 'media';
-  if (id.startsWith('zone_mq_') || id === 'zone_meridian' || id.startsWith('zone_velk') || id.startsWith('zone_drum') || id.startsWith('zone_weapons') || id.startsWith('zone_furniture') || id === 'zone_city_west' || id === 'zone_mq_marquee') return 'commercial';
-  if (id.startsWith('zone_city_') || id.startsWith('zone_threshold') || id === 'zone_threshold') return 'civic';
-  if (d === 'lethal') return 'hazard';
-  return 'other';
-}
+// zone-id prefix -> land-use category.
+const PREFIX_CAT = {
+  bay: 'water',
+  dock: 'docks',
+  nc: 'northcity', up: 'northcity',
+  gov: 'government',
+  civ: 'civic', city: 'civic', clone: 'civic', start: 'civic',
+  threshold: 'civic', thresholdeast: 'civic',
+  apt: 'residential', meridian: 'residential', embassy: 'residential',
+  residential: 'residential',
+  drum: 'commercial', velk: 'commercial', weapons: 'commercial', furniture: 'commercial',
+  mq: 'nightlife',
+  media: 'media', prod: 'media', studio: 'media', util: 'media', ext: 'media',
+  coldwater: 'industrial', powerplantnew: 'industrial', slag: 'industrial', warehouse: 'industrial',
+  waste: 'wasteland', ashway: 'wasteland', badland: 'wasteland', outskirts: 'wasteland', ruins: 'wasteland',
+  deep: 'slum', slums: 'slum', tunnels: 'slum',
+};
 
 const COLORS = {
-  corporate:   '#8a857c', // warm concrete gray (no blue at all) — was slate
-  civic:       '#46b06a', // green
-  residential: '#c4a98a', // warm sand (was steel-blue)
-  commercial:  '#26a5a0', // teal — waterfront/trade, clearly green of water's blue
-  nightlife:   '#cf5bb8', // pink-magenta
-  media:       '#8e6fd0', // violet
+  water:       '#2f86cc', // blue — the ONLY blue (Coldwater Bay)
+  docks:       '#1fb5aa', // teal — waterfront, clearly not the water blue
+  northcity:   '#d9a83a', // gold — affluent North City / Uptown
+  government:  '#b56fbf', // orchid purple
+  civic:       '#4bb36a', // green
+  residential: '#c9a884', // sand
+  commercial:  '#e08a4a', // pumpkin
+  nightlife:   '#e85aa0', // hot pink — Marquee
+  media:       '#8e6fd0', // violet — studios
   industrial:  '#9a8a4f', // olive
   wasteland:   '#7c6a4a', // brown
-  slum:        '#d9863a', // orange
-  water:       '#2f86cc', // the ONE blue — Coldwater Bay
-  hazard:      '#e05555', // red
-  other:       '#9aa0a8', // light neutral gray
+  slum:        '#cf6a2e', // burnt orange — Undermarket
+  hazard:      '#e05555', // red — lethal
 };
+
+function categorise(z) {
+  const p = (z.id || '').match(/^zone_([a-z0-9]+)/)?.[1] || '';
+  if (PREFIX_CAT[p]) return PREFIX_CAT[p];
+  if (z.danger_rating === 'lethal') return 'hazard';
+  return 'residential'; // non-grey urban default for any unknown prefix
+}
 
 const { rows } = await query(`SELECT id, danger_rating FROM zones`);
 const tally = {};
-let n = 0;
 for (const z of rows) {
-  const func = mapFunc(z);
-  await query(`UPDATE zones SET bg_color = $1, color = NULL WHERE id = $2`, [COLORS[func], z.id]);
-  tally[func] = (tally[func] || 0) + 1;
-  n++;
+  const cat = categorise(z);
+  await query(`UPDATE zones SET bg_color = $1, color = NULL WHERE id = $2`, [COLORS[cat], z.id]);
+  tally[cat] = (tally[cat] || 0) + 1;
 }
-console.log(`Recoloured ${n} zones:`);
+console.log(`Recoloured ${rows.length} zones:`);
 for (const [k, v] of Object.entries(tally).sort((a, b) => b[1] - a[1])) {
   console.log(`  ${k.padEnd(12)} ${COLORS[k]}  ×${v}`);
 }
