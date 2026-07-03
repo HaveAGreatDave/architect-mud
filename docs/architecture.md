@@ -69,7 +69,7 @@ The server **does not** touch the schema or world content on boot. The two are m
 │   │   ├── flags.js          # Player/world flag store + evalConditions; registers SET_FLAG/CLEAR_FLAG
 │   │   ├── graph.js          # Script graph runner (runGraph/runScriptById) + orchestration actions
 │   │   ├── tags.js           # Tag helpers (hasTag, tagValue, tagsOf) + re-exports TAG_CATALOG
-│   │   ├── supertags.js      # Supertag materialization helpers (materializeItemTags, ownTags)
+│   │   ├── supertags.js      # Legacy supertag bookkeeping-key stripping (ownTags) — see docs/tags.md
 │   │   ├── specializedActions.js  # Verb-first tag-gated action registry (registerSpecializedAction / fireSpecializedAction)
 │   │   ├── ai-behaviour.js   # VINE behaviour tree runtime (tickEntityAI, initBlackboard)
 │   │   ├── pathfinding.js    # BFS zone pathfinding (findPath, getZonesInRadius)

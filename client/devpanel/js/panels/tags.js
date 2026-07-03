@@ -198,7 +198,7 @@ function renderTagsPanel(data) {
     document.getElementById('tag-supertag-section').innerHTML = `
       <div style="padding:12px;overflow-x:auto;border-top:1px solid var(--border);margin-top:12px">
         <h3 style="margin:0 0 4px">Supertags</h3>
-        <div class="zone-subsection-note" style="margin-bottom:10px">Bundles of tags applied as a unit, e.g. a <code>weapon</code> supertag carrying its slot and combat tags. Applying one to an item stamps its members; editing a supertag re-applies it to every item using it.</div>
+        <div class="zone-subsection-note" style="margin-bottom:10px">Bundles of tags applied as a unit, e.g. a <code>weapon</code> supertag carrying its slot and combat tags. Applying one to an item is a one-time template: it pre-fills that item's own editable tag fields with the supertag's defaults. Editing a supertag here only changes future applications — it does not touch items already stamped with it.</div>
         <div style="margin-bottom:10px">
           <button class="action-btn success" onclick="superShowAdd()">+ New Supertag</button>
         </div>
@@ -347,13 +347,13 @@ function renderTagsPanel(data) {
     _supers[key] = fields;
     const r = await API('/tag-supertags', 'PUT', _supers);
     if (r?.error) { _supers[key] = prev; toast(r.error, true); return; }
-    toast(r?.rematerialized ? `Saved — ${r.rematerialized} item(s) updated` : 'Supertag saved');
+    toast('Supertag saved');
     closeModal();
     renderSupers();
   };
 
   window.superDeleteRow = async function(key) {
-    if (!(await dpConfirm(`Delete supertag "${key}"? Items already stamped keep their tags but lose the live link.`, { danger: true }))) return;
+    if (!(await dpConfirm(`Delete supertag "${key}"? Items already stamped with it keep their tags.`, { danger: true }))) return;
     const prev = _supers[key];
     delete _supers[key];
     if (!await commitSupers()) { _supers[key] = prev; return; }

@@ -48,7 +48,7 @@ import { reloadWindows as reloadWindowsEnv, recomputePower, getEnvironmentState 
 import { ensureTunables } from '../engine/tunables.js';
 import { startingIp, statCost, RAISABLE_STATS, getNetXp, statSpent, maxHpForEndurance } from '../engine/ip.js';
 import { SKILLS } from '../engine/skills.js';
-import { materializeItemTags, ownTags, superKeys } from '../engine/supertags.js';
+import { ownTags } from '../engine/supertags.js';
 import { getMotd, saveMotd } from '../engine/motd.js';
 import { isMisServerEnabled, setServerMisEnabled } from '../engine/mis.js';
 import { canAccessChannel, sendToChatChannel, getChannelMessagesSince } from '../engine/channels.js';
@@ -1170,12 +1170,11 @@ export async function apiDeleteEnemy(id) {
   } catch(e) { return {status:400,body:{error:e.message}}; }
 }
 async function apiGetItems() { const {rows}=await query('SELECT * FROM items'); return {status:200,body:rows}; }
-// Flatten authored tags + applied supertags into the stored `tags` object. The
-// client sends authored tags in `body.tags` and applied supertag keys in
-// `body.supertags`; replayed/legacy bodies are handled via the bookkeeping keys.
+// Strip any legacy supertag bookkeeping keys before storing. Supertags are a
+// dev-panel-only template now (see server/engine/supertags.js) — the client
+// sends flat authored tags, this just guards against stray leftovers.
 function itemTagsFor(body) {
-  const keys = Array.isArray(body.supertags) ? body.supertags : superKeys(body.tags);
-  return materializeItemTags(ownTags(body.tags), keys);
+  return ownTags(body.tags);
 }
 export async function apiCreateItem(body) {
   const id=body.id||`item_${Date.now()}`;
@@ -2539,17 +2538,7 @@ async function apiPutSupertags(body) {
   const src = `(function(global){\n  var TAG_SUPERTAGS = ${JSON.stringify(body, null, 2)};\n  global.TAG_SUPERTAGS = TAG_SUPERTAGS;\n})(typeof window !== 'undefined' ? window : globalThis);\n`;
   writeFileSync(SUPERTAGS_PATH, src, 'utf8');
   globalThis.TAG_SUPERTAGS = body;
-  // Live reference: re-materialize every item that references any supertag so a
-  // supertag edit propagates to all its items. Re-deriving each item from its own
-  // authored tags (__own) + current supertag members also drops members removed
-  // from the supertag and picks up newly added ones.
-  const { rows } = await query(`SELECT id, tags FROM items WHERE jsonb_exists(tags, '__super')`);
-  for (const r of rows) {
-    const tags = r.tags && typeof r.tags === 'object' ? r.tags : {};
-    const next = materializeItemTags(ownTags(tags), superKeys(tags), body);
-    await query('UPDATE items SET tags=$1 WHERE id=$2', [JSON.stringify(next), r.id]);
-  }
-  return { status:200, body:{ ok:true, rematerialized: rows.length } };
+  return { status:200, body:{ ok:true } };
 }
 
 async function apiSpawnItem(body) {
