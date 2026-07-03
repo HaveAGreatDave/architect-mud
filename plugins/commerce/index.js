@@ -6,14 +6,13 @@
 // commerce.buy_item Actions (builtin replay can't reach plugin verbs).
 import { query } from '../../server/models/db.js';
 import { getZoneNpcs, world } from '../../server/engine/world.js';
-import { getVendorStock, buyFromVendor, sellToVendor } from '../../server/engine/vendor.js';
+import { getVendorStock, getSellableInventory, buyFromVendor, sellToVendor } from '../../server/engine/vendor.js';
 import { buyFurniture } from '../../server/engine/furniture-shop.js';
 import { openShopSession, getNpcForShopper } from '../../server/engine/vendor-session.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
 import { registerAction } from '../../server/engine/actions.js';
 import { on } from '../../server/engine/events.js';
 import { vendorGrudgeRemaining, holdVendorGrudge, grudgeRefusal } from '../../server/engine/vendor-grudge.js';
-import { titleCaseName } from '../../server/engine/text.js';
 
 // Resolve which vendor a bare buy/sell targets: the one the player is actively
 // shopping with (if still in the zone), else the first vendor present. Without this,
@@ -35,13 +34,17 @@ async function openShopFor(npc, player) {
   const stock = await getVendorStock(npc, player.id);
   if (!stock.length) return { type:'error', message:`${npc.name} is out of stock.` };
   openShopSession(player.id, npc.id); // remember this vendor for bare buy/sell; pause its wandering
-  let msg = `<span class="inv-header">${npc.name.toUpperCase()} — SHOP</span>\nCredits: ${player.credits||0}\n\n`;
-  for (const item of stock) {
-    const disc = item.discounted ? ' <span class="equipped">(rep discount)</span>' : '';
-    msg += `  [${titleCaseName(item.name)}] ${item.price}cr${disc}\n    ${item.description}\n`;
-  }
-  msg += `\nUse: <span class="equipped">buy &lt;item name&gt;</span> or <span class="equipped">sell &lt;item name&gt;</span>`;
-  return { type:'shop', message:msg, npc_id:npc.id, stock };
+  // Open the GUI shop pane — same payload shape as the click-a-vendor dialogue path
+  // (server/index.js sendShopPanel), so the `shop <npc>` command and clicking share one UI.
+  const inventory = await getSellableInventory(player, npc);
+  return {
+    type: 'dialogue_shop',
+    npcId: npc.id,
+    npcName: npc.name,
+    stock,
+    inventory,
+    credits: player.credits || 0,
+  };
 }
 
 async function cmdShop(npcName, player) {

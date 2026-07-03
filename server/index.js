@@ -270,6 +270,7 @@ wss.on("connection", (ws) => {
 		if (msg.type === "shop_close") { if (session.playerId) closeShopSession(session.playerId); return; }
 		if (msg.type === "buy_npc") return handleBuyFromNpc(ws, session, msg);
 		if (msg.type === "sell_npc") return handleSellToNpc(ws, session, msg);
+		if (msg.type === "sell_all_npc") return handleSellAllToNpc(ws, session, msg);
 		if (msg.type === "auth_ghost") return handleGhostAuth(ws, session, msg);
 		if (msg.type === "ghost_command") return handleGhostCommand(ws, session, msg);
 		if (msg.type === "ghost_jump") return handleGhostJump(ws, session, msg);
@@ -1071,6 +1072,32 @@ async function handleSellToNpc(ws, session, msg) {
 	if (result.success) {
 		ws.send(JSON.stringify({ type: "player_update", credits: player.credits }));
 	}
+}
+
+async function handleSellAllToNpc(ws, session, msg) {
+	if (!session.playerId) return;
+	const player = getLivePlayer(session.playerId);
+	if (!player) return;
+	const { rows } = await query("SELECT * FROM npcs WHERE id=$1", [msg.npcId]);
+	if (!rows.length) { ws.send(JSON.stringify({ type: "error", message: "NPC not found." })); return; }
+	const npc = rows[0];
+	const { sellToVendor, getSellableInventory } = await import("./engine/vendor.js");
+	const sellable = await getSellableInventory(player, npc);
+	const creditsBefore = player.credits || 0;
+	let sold = 0, failMessage = null;
+	for (const item of sellable) {
+		const result = await sellToVendor(player, npc, item.inventory_id, item.quantity);
+		if (!result.success) { failMessage = result.message; break; }
+		sold += item.quantity;
+	}
+	const earned = (player.credits || 0) - creditsBefore;
+	const sellResult = failMessage
+		? failMessage
+		: sold
+			? `You sell ${sold} item${sold === 1 ? "" : "s"} for ${earned} credits. (${player.credits} total)`
+			: "Nothing to sell.";
+	await sendShopPanel(ws, npc, session.playerId, { sellResult, sellSuccess: !failMessage && sold > 0 });
+	if (sold) ws.send(JSON.stringify({ type: "player_update", credits: player.credits }));
 }
 
 // Safety net: a bug in any single request handler should never be able

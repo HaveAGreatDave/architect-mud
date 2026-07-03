@@ -66,6 +66,7 @@ export async function getVendorStock(npc, playerId) {
       name: item.name,
       description: item.tags?.description ?? item.description ?? '',
       type: item.type,
+      weight: item.weight,
       stock: 99,
       price: finalPrice,
       base_price: basePrice,
@@ -176,7 +177,7 @@ export function computeSellUnitPrice(value, statCool, discount = 0) {
 // sell price this vendor would pay. Drives the GUI shop's Sell tab.
 export async function getSellableInventory(player, npc) {
   const { rows } = await query(
-    `SELECT pi.id, pi.quantity, i.name, i.value, i.tags, p.stat_cool
+    `SELECT pi.id, pi.quantity, i.name, i.value, i.tags, i.description, i.weight, p.stat_cool
      FROM player_inventory pi
      JOIN items i ON i.id = pi.item_id
      JOIN players p ON p.id = pi.player_id
@@ -190,6 +191,8 @@ export async function getSellableInventory(player, npc) {
       inventory_id: r.id,
       name: r.name,
       quantity: r.quantity,
+      description: r.tags?.description ?? r.description ?? '',
+      weight: r.weight,
       price: computeSellUnitPrice(r.value, r.stat_cool, discount),
     }));
 }
