@@ -643,6 +643,15 @@ async function _saveColorsBulk(ids, field = 'bg_color') {
   updateStagingBadge();
 }
 
+// Eyedropper: sample a tile's colour onto the brush, then drop back to Brush.
+function mapPickColor(zoneId) {
+  const z = mapOverview?.zones.get(zoneId);
+  if (!z || !z.bg_color) return;
+  mapPaintColor = z.bg_color;
+  mapPaintTool = 'brush';
+  renderMapOverview();
+}
+
 function paintStart(e, zoneId) { e.preventDefault(); mapPainting = true; _brushTile(zoneId); }
 function paintOver(zoneId) { if (mapPainting) _brushTile(zoneId); }
 function _brushTile(zoneId) {
@@ -760,7 +769,7 @@ function paintPanelHtml() {
       <strong style="font-size:12px;letter-spacing:.3px">🎨 Colour Painter</strong>
       <button onclick="togglePaintMode()" title="Close painter" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:15px;line-height:1">✕</button>
     </div>
-    <div style="display:flex;gap:6px;margin-bottom:9px">${toolBtn('brush', '🖌 Brush')}${toolBtn('fill', '🪣 Fill')}</div>
+    <div style="display:flex;gap:6px;margin-bottom:9px">${toolBtn('brush', '🖌 Brush')}${toolBtn('fill', '🪣 Fill')}${toolBtn('pick', '💧 Pick')}</div>
     <div style="display:flex;align-items:center;gap:7px;margin-bottom:7px">
       <span style="width:24px;height:24px;flex-shrink:0;border-radius:4px;background:${mapPaintColor};border:1px solid #0007"></span>
       <input type="color" value="${mapPaintColor}" onchange="setPaintColor(this.value)" title="Pick any colour" style="width:100%;height:26px;background:none;border:none;cursor:pointer;padding:0">
@@ -772,7 +781,7 @@ function paintPanelHtml() {
       <button onclick="mapNormalizeLum()" title="Pull every tile to the map's mean lightness (keeps hue)" style="width:100%;margin-top:9px;font-size:11px;padding:6px;border-radius:4px;border:1px solid var(--border);background:var(--bg3);color:var(--text);cursor:pointer">⚖ Normalise luminance</button>
       <button onclick="mapRecalcText()" title="Set every tile's text colour to readable black/white by its background luminance" style="width:100%;margin-top:6px;font-size:11px;padding:6px;border-radius:4px;border:1px solid var(--border);background:var(--bg3);color:var(--text);cursor:pointer">🔤 Recalc text colours</button>
     </div>
-    <div style="font-size:10px;color:var(--text-dim);margin-top:9px;line-height:1.45">${mapPaintTool === 'fill' ? 'Click a tile to flood-fill its same-colour region (stops at other colours).' : 'Click-drag across tiles to paint.'}</div>
+    <div style="font-size:10px;color:var(--text-dim);margin-top:9px;line-height:1.45">${mapPaintTool === 'fill' ? 'Click a tile to flood-fill its same-colour region (stops at other colours).' : mapPaintTool === 'pick' ? 'Click a tile to sample its colour onto the brush.' : 'Click-drag across tiles to paint.'}</div>
   </div>`;
 }
 
@@ -948,7 +957,7 @@ function renderMapOverview() {
   }
   if (mapPaintMode) {
     html += `<div style="padding:4px 12px;font-size:11px;color:var(--text-dim);background:var(--bg3);border-bottom:1px solid var(--border)">
-      Colour painter active — use the floating palette (top-right). ${mapPaintTool === 'fill' ? 'Fill: click a tile to flood its same-colour region.' : 'Brush: click-drag to paint tiles.'}
+      Colour painter active — use the floating palette (top-right). ${mapPaintTool === 'fill' ? 'Fill: click a tile to flood its same-colour region.' : mapPaintTool === 'pick' ? 'Pick: click a tile to sample its colour.' : 'Brush: click-drag to paint tiles.'}
     </div>` + paintPanelHtml();
   }
 
@@ -1048,6 +1057,8 @@ function renderMapOverview() {
         const marker = z.marker ? `<span class="map-marker-badge">${z.marker}</span>` : '';
         const handler = mapPaintTool === 'fill'
           ? `onmousedown="mapFloodFill('${z.id}')"`
+          : mapPaintTool === 'pick'
+          ? `onmousedown="mapPickColor('${z.id}')"`
           : `onmousedown="paintStart(event,'${z.id}')" onmouseenter="paintOver('${z.id}')"`;
         html += `<div class="${cls}" ${cellStyle(x, y, zoneColorStyle(z) + ';cursor:crosshair')} data-map-cell="${x},${y}" title="${z.id}" ${handler}><div>${marker}${z.name}</div></div>`;
         continue;
