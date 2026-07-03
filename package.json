@@ -8,6 +8,7 @@
     "start": "node server/index.js",
     "test:regress": "node tests/regress.js",
     "sync:commits": "node scripts/sync-commits.js",
+    "hooks:install": "sh scripts/install-hooks.sh",
     "db:schema": "node server/models/schema.js",
     "db:restore": "node server/models/restore.js",
     "db:rename-admin": "node server/models/temp/rename-admin.js",

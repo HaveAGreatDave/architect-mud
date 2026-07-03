@@ -1,11 +1,13 @@
-// Sync the FULL git history into the dev_commits table so the Dev Log works on
-// hosts whose checkout is shallow (--depth 1) or absent. Run this from a full
-// clone (your dev machine), pointed at the same Supabase DB the server uses:
+// Sync git history into the dev_commits table so the Dev Log works on hosts
+// whose checkout is shallow (--depth 1) or absent. Run from a full clone,
+// pointed at the same Supabase DB the server uses:
 //
-//   npm run sync:commits          (or: DB_POOL_MAX=1 node scripts/sync-commits.js)
+//   npm run sync:commits           incremental — only commits not already stored
+//   npm run sync:commits -- --full  re-scan ALL commits (e.g. after changing the
+//                                    core-seam list, to recompute core flags)
 //
-// Re-run it to refresh (e.g. before a deploy, or from a post-commit git hook).
-// It upserts by commit hash, so re-runs are cheap and idempotent.
+// Installed as a git post-commit hook (scripts/git-hooks/post-commit) it runs
+// automatically & backgrounded after each commit. Upserts by hash — idempotent.
 
 import { execFile } from 'child_process';
 import { promisify } from 'util';
@@ -14,15 +16,12 @@ import { CORE_SEAM_FILES, gitAuthorKey } from '../server/engine/dev-history.js';
 
 const execFileP = promisify(execFile);
 const US = '\x1f', RS = '\x1e';
+const PRETTY = `--pretty=format:${RS}%H${US}%an${US}%ae${US}%aI${US}%s`;
+const full = process.argv.includes('--full');
 
-async function main() {
-  const { stdout } = await execFileP('git', [
-    'log', '--no-merges',
-    `--pretty=format:${RS}%H${US}%an${US}%ae${US}%aI${US}%s`,
-    '--numstat',
-  ], { cwd: process.cwd(), maxBuffer: 512 * 1024 * 1024 });
-
-  const commits = [];
+// Parse `git log … --numstat` output (with the PRETTY format above) into rows.
+function parseLog(stdout) {
+  const out = [];
   for (const rec of stdout.split(RS)) {
     const t = rec.replace(/^\n+/, '');
     if (!t.trim()) continue;
@@ -42,18 +41,18 @@ async function main() {
       add += a; del += d;
       if (CORE_SEAM_FILES.has(p[2])) { coreLines += a + d; coreFiles.push(p[2].replace(/^server\//, '')); }
     }
-    commits.push({ hash, name: name || '?', email: email || '', key: gitAuthorKey(email, name),
+    out.push({ hash, name: name || '?', email: email || '', key: gitAuthorKey(email, name),
       iso, subject: subject || '', files, add, del, coreLines, coreFiles });
   }
+  return out;
+}
 
-  console.log(`Parsed ${commits.length} commits from git. Upserting into dev_commits…`);
-
+async function upsert(commits) {
   const COLS = 11, CHUNK = 150;
   let done = 0;
   for (let i = 0; i < commits.length; i += CHUNK) {
     const chunk = commits.slice(i, i + CHUNK);
-    const values = [];
-    const params = [];
+    const values = [], params = [];
     chunk.forEach((c, idx) => {
       const b = idx * COLS;
       values.push(`($${b+1},$${b+2},$${b+3},$${b+4},$${b+5},$${b+6},$${b+7},$${b+8},$${b+9},$${b+10},$${b+11}::jsonb)`);
@@ -71,14 +70,41 @@ async function main() {
       params
     );
     done += chunk.length;
-    process.stdout.write(`\r  upserted ${done}/${commits.length}`);
+    if (commits.length > CHUNK) process.stdout.write(`\r  upserted ${done}/${commits.length}`);
+  }
+}
+
+async function main() {
+  const opts = { cwd: process.cwd(), maxBuffer: 512 * 1024 * 1024 };
+  let commits;
+
+  if (full) {
+    const { stdout } = await execFileP('git', ['log', '--no-merges', PRETTY, '--numstat'], opts);
+    commits = parseLog(stdout);
+    console.log(`Full sync: parsed ${commits.length} commits.`);
+  } else {
+    const [{ rows: existRows }, { stdout: hashOut }] = await Promise.all([
+      query(`SELECT hash FROM dev_commits`),
+      execFileP('git', ['log', '--no-merges', '--pretty=%H'], opts),
+    ]);
+    const existing = new Set(existRows.map(r => r.hash));
+    const allHashes = hashOut.split('\n').map(s => s.trim()).filter(Boolean);
+    const newHashes = allHashes.filter(h => !existing.has(h));
+    if (!newHashes.length) { console.log('dev_commits already up to date.'); process.exit(0); }
+    // A big backlog (empty table, or a large pull) is cheaper as one full walk.
+    if (existing.size === 0 || newHashes.length > 500) {
+      const { stdout } = await execFileP('git', ['log', '--no-merges', PRETTY, '--numstat'], opts);
+      commits = parseLog(stdout).filter(c => !existing.has(c.hash));
+    } else {
+      const { stdout } = await execFileP('git', ['log', '--no-walk', PRETTY, '--numstat', ...newHashes], opts);
+      commits = parseLog(stdout);
+    }
+    console.log(`Incremental sync: ${commits.length} new commit(s).`);
   }
 
-  const { rows } = await query(
-    `SELECT author_name, COUNT(*)::int AS c FROM dev_commits GROUP BY author_name ORDER BY c DESC LIMIT 10`
-  );
-  console.log(`\nDone. dev_commits now holds ${commits.length} commits.`);
-  console.log('Top authors:', rows.map(r => `${r.author_name} (${r.c})`).join(', '));
+  if (commits.length) await upsert(commits);
+  const { rows } = await query(`SELECT COUNT(*)::int AS c FROM dev_commits`);
+  console.log(`\nDone. dev_commits holds ${rows[0].c} commits.`);
   process.exit(0);
 }
 

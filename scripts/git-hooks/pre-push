@@ -1,0 +1,17 @@
+#!/bin/sh
+# Before pushing (which triggers the Render auto-deploy), make sure the Dev Log
+# commit history in the DB is complete. The deployed host has a shallow clone and
+# can't build the history itself, so we sync from this full clone first.
+# Incremental (hash-diff) so it's fast, and best-effort so it NEVER blocks a push.
+
+root="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+cd "$root" || exit 0
+
+echo "[dev-log] syncing commit history before push…"
+if node scripts/sync-commits.js >/dev/null 2>&1; then
+  echo "[dev-log] commit history synced."
+else
+  echo "[dev-log] sync skipped (DB unreachable) — push/deploy continues."
+fi
+
+exit 0

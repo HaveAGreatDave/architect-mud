@@ -1,0 +1,13 @@
+#!/bin/sh
+# Auto-refresh the Dev Log commit history after each commit.
+# Incremental + backgrounded, so it never blocks or slows the commit, and a DB
+# outage can't fail it. Enabled via: git config core.hooksPath scripts/git-hooks
+# (run scripts/install-hooks.sh once, or `npm run hooks:install`).
+
+root="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+cd "$root" || exit 0
+
+# Detach so `git commit` returns immediately; discard output.
+( node scripts/sync-commits.js >/dev/null 2>&1 & ) >/dev/null 2>&1
+
+exit 0
