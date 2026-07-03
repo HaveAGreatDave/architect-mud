@@ -8,6 +8,38 @@ import { hasPerm, PERM } from "./org-perms.js";
 import { exitTargets, neighborZoneIds } from "./exits.js";
 import { emit } from "./events.js";
 import { fireHook } from "./plugins.js";
+import { getEnvironmentState } from "./environment.js";
+
+// ── Rent runs on the GAME calendar ──────────────────────────────────────────
+// Rent is billed every RENT_PERIOD_DAYS *game* days, so it scales with the
+// game-speed knob (at 3× a "week" of rent is ~2⅓ real days). All the date math
+// below works off the game date (state.date) rather than the wall clock.
+export const RENT_PERIOD_DAYS = 7;
+
+// The current in-world date ('YYYY-MM-DD'), or null before the environment boots.
+export function gameToday() {
+  try { return ymd(getEnvironmentState().date); } catch { return null; }
+}
+// Normalise a DATE column (pg may hand back a Date or a string) → 'YYYY-MM-DD'.
+export function ymd(d) {
+  if (!d) return null;
+  if (typeof d === "string") return d.slice(0, 10);
+  return d.toISOString().slice(0, 10);
+}
+// Shift a 'YYYY-MM-DD' game date by n days (UTC, calendar-correct across months/years).
+export function addGameDays(ymdStr, n) {
+  const dt = new Date(`${ymdStr}T00:00:00Z`);
+  dt.setUTCDate(dt.getUTCDate() + n);
+  return dt.toISOString().slice(0, 10);
+}
+// Whole game-days from a→b (b − a); negative if b is before a.
+export function gameDaysBetween(a, b) {
+  return Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86400000);
+}
+// Pretty-print a 'YYYY-MM-DD' game date as e.g. "9 June 2087".
+function formatGameDate(ymdStr) {
+  return new Date(`${ymdStr}T00:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+}
 
 // The zone(s) on the far side of a door: its pinned target if it has one (a door
 // on a direction that holds multiple exits), else every exit in its direction.
@@ -300,22 +332,26 @@ export async function cmdRent(player) {
 
 	const buildingName = getBuildingName(zone) ?? 'the building';
 	const now = Math.floor(Date.now() / 1000);
+	// Anchor the rent cycle to the GAME calendar: first payment is due
+	// RENT_PERIOD_DAYS game-days from today. Falls back to null if the environment
+	// isn't ready (the rollover tick will lazily initialise it).
+	const gToday = gameToday();
+	const rentDue = gToday ? addGameDays(gToday, RENT_PERIOD_DAYS) : null;
 
 	const updated = await query(
-		`INSERT INTO apartments (zone_id, owner_id, owner_handle, is_locked, lock_difficulty, rent_cost, purchased_at, date_rented, building_name)
-     VALUES ($1,$2,$3,0,$4,$5,$6,$6,$7)
-     ON CONFLICT (zone_id) DO UPDATE SET owner_id=$2, owner_handle=$3, is_locked=0, lock_difficulty=$4, purchased_at=$6, date_rented=$6, building_name=$7
+		`INSERT INTO apartments (zone_id, owner_id, owner_handle, is_locked, lock_difficulty, rent_cost, purchased_at, date_rented, building_name, rent_due_date)
+     VALUES ($1,$2,$3,0,$4,$5,$6,$6,$7,$8)
+     ON CONFLICT (zone_id) DO UPDATE SET owner_id=$2, owner_handle=$3, is_locked=0, lock_difficulty=$4, purchased_at=$6, date_rented=$6, building_name=$7, rent_due_date=$8
      RETURNING *`,
-		[zone.id, player.id, player.handle, BASE_LOCK_DIFFICULTY, cost, now, buildingName],
+		[zone.id, player.id, player.handle, BASE_LOCK_DIFFICULTY, cost, now, buildingName, rentDue],
 	);
 	setApartmentCache(zone.id, updated.rows[0]);
 	emit('gossip.housing', { player: { id: player.id, handle: player.handle }, zoneId: zone.id });
 
-	const rentedDate = new Date(now * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
-	const nextDueDate = new Date((now + 7 * 86400) * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+	const nextDueStr = rentDue ? formatGameDate(rentDue) : 'next rent cycle';
 	return {
 		type: "rent",
-		message: `Congratulations — you are the proud new owner of <span style="color:var(--accent)">${zone.name}</span>!\n\n<span class="text-dim">Rented:</span> ${rentedDate}\n<span class="text-dim">Weekly rent:</span> <span style="color:var(--yellow)">${cost}c</span>\n<span class="text-dim">First payment due:</span> ${nextDueDate}\n\nType LOCK to secure the door when you leave. Type UNRENT to give the place up.`,
+		message: `Congratulations — you are the proud new owner of <span style="color:var(--accent)">${zone.name}</span>!\n\n<span class="text-dim">Rented:</span> ${gToday ? formatGameDate(gToday) : '—'}\n<span class="text-dim">Rent (per ${RENT_PERIOD_DAYS}-day cycle):</span> <span style="color:var(--yellow)">${cost}c</span>\n<span class="text-dim">First payment due:</span> ${nextDueStr}\n\nType LOCK to secure the door when you leave. Type UNRENT to give the place up.`,
 	};
 }
 
@@ -345,7 +381,7 @@ export async function cmdUnrent(player) {
 // Shared teardown used by both cmdUnrent and the rent-collection tick.
 export async function releaseApartment(apt, zoneId) {
 	const updated = await query(
-		`UPDATE apartments SET owner_id=NULL, owner_handle=NULL, owner_type='player', owner_org_id=NULL, is_locked=0, date_rented=NULL, building_name=NULL WHERE zone_id=$1 RETURNING *`,
+		`UPDATE apartments SET owner_id=NULL, owner_handle=NULL, owner_type='player', owner_org_id=NULL, is_locked=0, date_rented=NULL, rent_due_date=NULL, building_name=NULL WHERE zone_id=$1 RETURNING *`,
 		[zoneId],
 	);
 	setApartmentCache(zoneId, updated.rows[0]);
@@ -716,18 +752,17 @@ export function describeRentStatus(zone, player) {
 	const apt = getApartment(zone.id);
 	if (!apt?.owner_id || apt.owner_id !== player.id) return '';
 	const cost = apt.rent_cost ?? 100;
-	const now = Date.now();
-	const rentedAt = apt.date_rented * 1000;
-	const daysSince = Math.floor((now - rentedAt) / 86400000);
-	const daysUntilNext = 7 - (daysSince % 7);
-	const nextDue = new Date(rentedAt + (Math.floor(daysSince / 7) + 1) * 7 * 86400000);
-	const nextDueStr = nextDue.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+	// Days-until is measured on the GAME calendar so it counts down at game speed.
+	const today = gameToday();
+	const due = ymd(apt.rent_due_date);
+	if (!today || !due) return `\n<span class="text-dim">Rent: <span style="color:var(--yellow)">${cost}c</span> per ${RENT_PERIOD_DAYS}-day cycle.</span>`;
+	const daysUntilNext = Math.max(0, gameDaysBetween(today, due));
 	const urgency = daysUntilNext <= 1
 		? `<span style="color:var(--red)">due tomorrow</span>`
 		: daysUntilNext <= 3
 			? `<span style="color:var(--yellow)">${daysUntilNext} days</span>`
 			: `${daysUntilNext} days`;
-	return `\n<span class="text-dim">Rent: <span style="color:var(--yellow)">${cost}c</span> due ${nextDueStr} (${urgency}).</span>`;
+	return `\n<span class="text-dim">Rent: <span style="color:var(--yellow)">${cost}c</span> due ${formatGameDate(due)} (${urgency}).</span>`;
 }
 
 export async function describeApartmentStatus(zone) {

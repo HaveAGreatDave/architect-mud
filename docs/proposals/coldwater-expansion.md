@@ -22,8 +22,11 @@ The live world is a long east–west spine of **41 surface tiles** (Slagworks ·
 | [coldwater-style_danger.svg](coldwater-style_danger.svg) | **Danger** heatmap — safe → lethal |
 | [coldwater-style_function.svg](coldwater-style_function.svg) | **Land-use** — govt, port, freight, trade, industry, nightlife, hazard |
 | [coldwater-style_faction.svg](coldwater-style_faction.svg) | **Faction control** — corp, police, independents, gangs, mutants, scavengers |
+| [coldwater-style_existing.svg](coldwater-style_existing.svg) | **Existing vs Expansion** — two-colour overlay (built vs proposed) |
+| [coldwater-style_phases.svg](coldwater-style_phases.svg) | **Build phases** — 12 balanced ~15-tile regions, ordered outward from the core |
+| [coldwater-styles.gen.mjs](coldwater-styles.gen.mjs) | Generator for all six style lenses (imports the tile-map generator's data) |
 
-Borders use a fixed sin-hash (no RNG), so the maps are reproducible. The style lenses derive from the same data module, so editing the layout and re-running keeps everything in sync.
+Borders use a fixed sin-hash (no RNG), so the maps are reproducible. The style lenses import the tile-map generator's data, so editing the layout and re-running keeps everything in sync (`node coldwater-styles.gen.mjs`).
 
 ## Regions (surface)
 
@@ -54,23 +57,39 @@ A subterranean layer, shown as an inset on the tile map:
 
 ## Build phases
 
-Ship each phase playable and verified before the next. Attach points are existing live tiles.
+Phasing is **geometric, not thematic**: the 179 new tiles are split by median-cut into **12 balanced regions of ~15 tiles each** (see [coldwater-style_phases.svg](coldwater-style_phases.svg)), ordered **outward from the existing core (0,0)**. Each phase is a compact block ≈15 tiles; some blocks straddle already-built tiles (shown grey on the phase map — you only build the new ones). Ship each phase playable and verified before the next; **The Under** (z-1/z-2, 14 tiles) is the final phase.
 
-1. **The Yards** (east, ~22 tiles) — extends off the current Marquee edge (Muster Yard 5,0 → and Tin Lane 5,1 →). Self-contained, repetitive-but-simple, best pipeline shakedown. *See "Phase 1" below.*
-2. **The North** — North City + Spire + Civic + Coldwater Bay + The Docks. Attaches to the north edge (Threshold Plaza N, Custodian Row, Limelight Lot, Foundry Cut).
-3. **Undermarket / Deep Sprawl** (south) — attaches to The Sprawl (0,2).
-4. **The Redline + Outer Wastes** (NW + west/south fill) — attaches to Slagworks/Ashway; the wastes are largely connective terrain built alongside.
-5. **The Under** — metro + caverns (z-1/z-2), then optionally the train fast-travel plugin.
+| Phase | Footprint (grid) | New | Mostly |
+|---:|---|---:|---|
+| 1 | x −2..4, y −2..3 | 15 | Undermarket foot (south) + Uptown approach (north) — flanks the plaza |
+| 2 | x −5..−2, y −3..3 | 15 | West wastes + Civic edge + market fringe |
+| 3 | x −1..4, y −5..−3 | 15 | Coldwater Bay + the Docks + spire/civic shoreline |
+| 4 | x −8..−5, y −3..3 | 15 | Outer wastes (mid-west) |
+| 5 | x −1..4, y −7..−5 | 15 | North City + upper Bay |
+| 6 | x −5..−2, y −7..−4 | 15 | North buffer wastes + North City (west) |
+| 7 | x 4..8, y 0..3 | 14 | The Yards (south) + undermarket edge |
+| 8 | x 5..8, y −4..0 | 15 | The Yards (north) + spire east |
+| 9 | x 5..8, y −7..−4 | 15 | North City (east) |
+| 10 | x −8..−5, y −7..−3 | 15 | Upper-west wastes + Redline fringe |
+| 11 | x −11..−8, y −2..3 | 15 | Far-west wastes + Redline neck |
+| 12 | x −11..−9, y −7..−3 | 15 | **The Redline** core (lethal NW) |
+| U | z-1 / z-2 | 14 | The Under — metro + caverns |
 
-### Phase 1 — The Yards (build first)
+Every phase attaches to already-built tiles on at least one edge, so the world stays connected as it grows.
 
-Freight & warehousing quarter directly east of the Marquee.
+### Phase 1 — the core-adjacent square (build first)
 
-- **Geography:** ~22 tiles at grid x 6..8, y −1..2. New exits east from **Muster Yard** (`zone_mq_precinct`) and **Tin Lane** (`zone_mq_cage`).
-- **Zones:** container/warehouse streets, a **rail depot** (The Railhead / The Marshalling Yard / The Interchange), a loadout/weighbridge, a dock-worker **bar**, plus utility interiors.
-- **NPCs:** teamsters / dockhands (ambient), a **freight-fence vendor** (buys bulk & hot goods, sells salvage and containers), a yard foreman.
-- **Enemy + loot:** yard scrappers or junkyard dogs (low–med), on a new **industrial-salvage scav table** bound to the yard zones.
-- **Ties forward:** establishes the smuggling/freight theme that later links to the bay **Docks** (Phase 2) and the **Dockside Terminus** metro station (Phase 5).
+Phase 1 is the ~6×5 block wrapping the existing central plaza (`grid x −2..4, y −2..3`). Its 15 new tiles fall in **two clusters** flanking the already-built core, each attaching to a live edge:
+
+**A. Undermarket foot** — south of **The Sprawl** (10 tiles): The Warrens (−2,2), Cardboard Row (−1,2), Scab Alley (1,2), Gutter Market (2,2), Rot Row (−2,3), Wormtown (−1,3), The Maw (0,3), Bonepicker's End (1,3), Gasp Hollow (2,3), The Deep Maw (3,3).
+- **Attach:** south exit from **The Sprawl** (`zone_slums`, 0,2) → Ash Market/The Maw; lateral links across the row.
+- **Content:** medium→high danger shanty market; a **black-market vendor** (food/drug stalls) and a **ripperdoc**; a **sprawl-ganger enemy** on a new deep-sprawl scav table; ambient beggars/hustlers.
+
+**B. Uptown approach** — north of the plaza (5 tiles): Aid Station (−2,−2), Uptown Gate (1,−2), Spire Approach (2,−2), Skyway Landing (3,−2), Chrome Heights (4,−2).
+- **Attach:** north exits from **Custodian Row** (1,−1), **Halcyon Walk** (2,−1), **Cathode Row** (3,−1), **Foundry Cut** (4,−1).
+- **Content:** safe but high-security; an **Uptown Gate checkpoint** (armed guard NPC, wanted-system tie-in), corporate-drone ambient NPCs, an **Aid Station** (civic — medic/heal vendor).
+
+*Note: geometric phasing means Phase 1 mixes two themes (slum + corporate approach). If you'd rather build thematically-coherent districts, the phase map is only a suggested order — pick any single cluster to start.*
 
 ## Build method (when greenlit)
 

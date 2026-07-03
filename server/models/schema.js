@@ -381,6 +381,10 @@ export const SCHEMA_SQL = `
     FOREIGN KEY (zone_id) REFERENCES zones(id)
   );
   ALTER TABLE apartments ADD COLUMN IF NOT EXISTS date_rented BIGINT;
+  -- Rent billing runs on the GAME calendar (advances with the game-speed knob), not
+  -- real time: the game-date the next rent payment is due. Lazily initialised for
+  -- pre-existing rentals on the first game-day rollover after this column lands.
+  ALTER TABLE apartments ADD COLUMN IF NOT EXISTS rent_due_date DATE;
   ALTER TABLE apartments ADD COLUMN IF NOT EXISTS building_name TEXT;
   ALTER TABLE apartments ADD COLUMN IF NOT EXISTS forcefield_active INTEGER DEFAULT 0;
   ALTER TABLE doors ADD COLUMN IF NOT EXISTS forcefield_locked INTEGER DEFAULT 0;

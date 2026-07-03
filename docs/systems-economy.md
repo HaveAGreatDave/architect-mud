@@ -143,7 +143,7 @@ must be a round number.
 A zone is an apartment when `flags.is_apartment` is set; ownership/lock state lives in the `apartments`
 table, cached in `world.apartments`.
 
-- **`rent`:** claims an unowned unit for its `rent_cost` (default 100c), setting base lock difficulty 4.
+- **`rent`:** claims an unowned unit for its `rent_cost` (default 100c), setting base lock difficulty 4. Rent then recurs every `RENT_PERIOD_DAYS` (7) **game**-days on the game calendar — the next due date is stored in `apartments.rent_due_date` and charged on the `environment.dayRollover` event, so the billing cycle scales with the game-speed knob (`timeScale`). Non-payment auto-evicts. (Pre-existing rentals with no `rent_due_date` are lazily granted a fresh cycle on the first rollover.)
 - **`lock` / `unlock`:** owner-only toggle.
 - **`upgrade lock`:** +1 lock difficulty for 75c, up to a max of 14.
 - **`pick` / `picklock`:** a `security` check vs the unit's lock difficulty on someone else's locked door.

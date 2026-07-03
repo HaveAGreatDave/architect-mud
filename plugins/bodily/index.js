@@ -169,8 +169,11 @@ async function relieveBladder(player, hasFacility, broadcast, target = null) {
   }
 
   const covered = await equippedSlotsFor(player, ['legs']);
+  // A man just unzips and pushes his boxers aside — no need to undress and no
+  // stain. Anyone else soaks their legwear if there's no facility to sit at.
+  const unzips = player.biological_sex === 'male' && covered.length > 0;
   let stained = false;
-  if (!hasFacility && covered.length) {
+  if (!hasFacility && covered.length && !unzips) {
     await stainClothing(player, covered, 'urine');
     stained = true;
   }
@@ -188,6 +191,8 @@ async function relieveBladder(player, hasFacility, broadcast, target = null) {
     ok: true,
     message: stained
       ? `You go where you stand. Your ${covered[0] || 'clothing'} absorbs most of it.`
+      : unzips
+      ? `You unzip, push your boxers aside, and let go. No fuss, no mess.`
       : pick(GROUND_PEE_MSGS),
   };
 }

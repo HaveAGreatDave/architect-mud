@@ -1,4 +1,4 @@
-import { world, tickSpawns, getRandomAmbient, getWeatherAmbient, getLivePlayer, getInterruptLoudness, registerInterrupt, createCorpse, removeCorpse, tryBattleCry } from './world.js';
+import { world, tickSpawns, getRandomAmbient, getWeatherAmbient, getLivePlayer, getInterruptLoudness, registerInterrupt, createCorpse, removeCorpse, tryBattleCry, setApartmentCache } from './world.js';
 import { randomUUID } from 'crypto';
 import { propagateSound } from './sounds.js';
 import { enemyAttackPlayer, enemyAttackNpc, npcAttackPlayer, isOnCooldown, pvpSwing, formatBattleCry, getPlayerCombat } from './combat.js';
@@ -6,7 +6,7 @@ import { tickEntityAI, moveEntity } from './ai-behaviour.js';
 import { npcBanterTick } from './npc-banter.js';
 import { restockAllVendors } from './vendor.js';
 import { tickEffects, applyEffect } from './effects.js';
-import { tickSleep, releaseApartment } from './apartments.js';
+import { tickSleep, releaseApartment, gameToday, ymd, addGameDays, gameDaysBetween, RENT_PERIOD_DAYS } from './apartments.js';
 import { fireHook } from './plugins.js';
 import { emit, on } from './events.js';
 import { schedule } from './scheduler.js';
@@ -34,13 +34,14 @@ export function startGameLoop(broadcast) {
   schedule('1m', resourceTick);
   schedule('10s', () => tickSpawns(broadcastFn));
   schedule('15s', sittingRegenTick);
-  schedule('1m', rentCollectionTick);
   schedule('1m', npcWanderTick);
   schedule('30s', () => npcBanterTick({ broadcast: broadcastFn }));
-  // Once-per-GAME-day housekeeping. Driven by the environment's day-rollover
-  // event (not the real '24h' cadence) so it tracks the game-speed knob — at 3×
-  // it runs every 8 real hours, in lockstep with the calendar advancing.
+  // Once-per-GAME-day housekeeping + rent collection. Driven by the environment's
+  // day-rollover event (not the real '24h'/'1m' cadences) so both track the
+  // game-speed knob — at 3× they run every 8 real hours, in lockstep with the
+  // calendar advancing.
   on('environment.dayRollover', dailyMaintenance);
+  on('environment.dayRollover', rentCollectionTick);
   // A dev-panel clock jump (environment.devSetTime) can put NPCs on or off shift.
   // Force every employed NPC to re-check work now instead of waiting for the next
   // wander tick — otherwise a sleeping NPC would stay asleep until its old
@@ -1010,40 +1011,34 @@ export async function dailyMaintenance() {
   );
 }
 
-// Runs every real-world minute. Collects weekly rent from apartment owners
-// on the same day-of-month they first rented (or +7 days, clamped to the
-// same month/year). Evicts automatically if they can't pay.
+// Rent runs on the GAME calendar: due every RENT_PERIOD_DAYS *game* days, so it
+// scales with the game-speed knob. Driven by the environment's day-rollover event
+// (once per game-day) rather than a real-world midnight, so at 3× rent comes due
+// three times as often in real time. Evicts automatically if they can't pay.
 async function rentCollectionTick() {
-  const now = new Date();
-  const todayDay   = now.getDate();
-  const todayMonth = now.getMonth();
-  const todayYear  = now.getFullYear();
-  const todayHour  = now.getHours();
-  const todayMin   = now.getMinutes();
-
-  // Only fire once per day, at midnight (00:00).
-  if (todayHour !== 0 || todayMin !== 0) return;
+  const today = gameToday();
+  if (!today) return;
 
   const { rows: apts } = await query(
-    // owner_type='player' excludes corp HQs — they have no weekly rent in Phase 0
+    // owner_type='player' excludes corp HQs — they have no rent in Phase 0
     // (and their owner_id is an org id, not a player, which the loop below assumes).
-    `SELECT * FROM apartments WHERE owner_id IS NOT NULL AND date_rented IS NOT NULL AND owner_type = 'player'`
+    `SELECT * FROM apartments WHERE owner_id IS NOT NULL AND owner_type = 'player'`
   );
 
   for (const apt of apts) {
-    const rented = new Date(apt.date_rented * 1000);
-    const rentedDay   = rented.getDate();
-    const rentedMonth = rented.getMonth();
-    const rentedYear  = rented.getFullYear();
-
-    // Due on the same calendar day-of-month as when rented, 7 days later.
-    // Only collect if we're in the same month+year and the day matches day+7,
-    // or if the rent date was in a prior month and today's day matches.
-    const daysDiff = Math.round((now - rented) / (1000 * 60 * 60 * 24));
-    if (daysDiff === 0 || daysDiff % 7 !== 0) continue;
+    let due = ymd(apt.rent_due_date);
+    // Lazily anchor pre-existing rentals (rented before rent_due_date existed):
+    // grant a fresh full cycle from today rather than charging retroactively.
+    if (!due) {
+      const seeded = addGameDays(today, RENT_PERIOD_DAYS);
+      await query('UPDATE apartments SET rent_due_date=$1 WHERE zone_id=$2', [seeded, apt.zone_id]).catch(() => {});
+      setApartmentCache(apt.zone_id, { ...apt, rent_due_date: seeded });
+      continue;
+    }
+    // Not due yet — today is still before the due date.
+    if (gameDaysBetween(today, due) > 0) continue;
 
     const cost = apt.rent_cost ?? 100;
-    const roomName     = apt.zone_id;   // will be replaced by zone name below
     const buildingName = apt.building_name ?? 'the building';
 
     // Get the zone name for the message
@@ -1066,7 +1061,7 @@ async function rentCollectionTick() {
       await releaseApartment(apt, apt.zone_id);
       broadcastFn(null, {
         type: 'output',
-        message: `<span style="color:var(--red)">EVICTION NOTICE — You couldn't cover the ${cost}c weekly rent for <em>${zoneName}</em> in ${buildingName}. Your lease has been terminated and the unit re-listed. Next time, keep credits banked or on hand.</span>`,
+        message: `<span style="color:var(--red)">EVICTION NOTICE — You couldn't cover the ${cost}c rent for <em>${zoneName}</em> in ${buildingName}. Your lease has been terminated and the unit re-listed. Next time, keep credits banked or on hand.</span>`,
       }, null, p.id);
       continue;
     }
@@ -1075,6 +1070,15 @@ async function rentCollectionTick() {
     const fromBank = Math.min(banked, cost);
     const fromCarried = cost - fromBank;
     await query('UPDATE players SET bank_credits=bank_credits-$1, credits=credits-$2 WHERE id=$3', [fromBank, fromCarried, p.id]);
+
+    // Advance the due date by whole cycles until it's back in the future. Normally
+    // one cycle; the loop covers a dev date-jump that skipped several so the tenant
+    // is charged once, not once per skipped game-day.
+    let next = due;
+    do { next = addGameDays(next, RENT_PERIOD_DAYS); } while (gameDaysBetween(today, next) <= 0);
+    await query('UPDATE apartments SET rent_due_date=$1 WHERE zone_id=$2', [next, apt.zone_id]);
+    setApartmentCache(apt.zone_id, { ...apt, rent_due_date: next });
+
     const live = getLivePlayer(p.id);
     if (live) {
       live.bank_credits = Math.max(0, (live.bank_credits || 0) - fromBank);
