@@ -5,13 +5,14 @@
 Commands enter via WebSocket (`{ type: "command", command: "..." }`), routed through `server/engine/commands/index.js`. The dispatch chain:
 
 1. **SIFT intercept** — if the player has an active selection state, handle their response (number, next/prev, cancel).
-2. **Sleep intercept** — wake the player if sleeping, then re-run the command.
-3. **Input matchers** (`fireInputMatchers`) — regex against the raw line, for multi-word verbs (`registerInputMatcher`; e.g. the MIS plugin's `jerk off on` / `eat out`).
-4. **Plugin commands** (`fireCommand`).
-5. **Specialized actions** (`fireSpecializedAction`) — tag- or self-gated (doors, containers, food, weapons, cosmetic machine, toilets…).
-6. **Builtins** — the `Map` built from the engine domain handler exports.
+2. **Alias pre-pass** (`getAlias`, [aliases.js](../server/engine/commands/aliases.js)) — the first typed word is rewritten to its canonical verb *before any routing* (`go`→`move`, `l`→`look`, `n`→`north`, `scav`→`scavenge`…), and `raw` is rebuilt to match. This is a pure text substitution: everything downstream only ever sees canonical verbs, so each verb has one source of truth in code. Aliases ship as `ALIAS_DEFAULTS` and are DB-overridable via the dev panel; they're invisible to players. **Only pure synonyms/abbreviations are aliased** — tag-routed verbs that share an implementation (`eat`/`drink`/`use`, `open` on door-vs-container) stay distinct so the specialized layer can tell them apart.
+3. **Sleep intercept** — wake the player if sleeping, then re-run the command.
+4. **Input matchers** (`fireInputMatchers`) — regex against the raw line, for multi-word verbs (`registerInputMatcher`; e.g. the MIS plugin's `jerk off on` / `eat out`).
+5. **Plugin commands** (`fireCommand`).
+6. **Specialized actions** (`fireSpecializedAction`) — tag- or self-gated (doors, containers, food, weapons, cosmetic machine, toilets…).
+7. **Builtins** — the `Map` built from the engine domain handler exports.
 
-There are no per-verb special cases in the pipeline; anything that used to be one (the cosmetic-machine `use` pre-intercept, the MIS regexes) now registers through steps 3–5.
+There are no per-verb special cases in the pipeline; anything that used to be one (the cosmetic-machine `use` pre-intercept, the MIS regexes) now registers through steps 4–6.
 
 ---
 

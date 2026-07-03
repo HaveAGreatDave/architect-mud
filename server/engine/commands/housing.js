@@ -77,13 +77,10 @@ async function cmdLightView(player) {
 export const handlers = {
   rent:      (args, raw, player) => cmdRent(player),
   unrent:    (args, raw, player) => cmdUnrent(player),
-  vacate:    (args, raw, player) => cmdUnrent(player),
   lock:      (args, raw, player) => cmdLockDoor(player, true),
   unlock:    (args, raw, player) => cmdLockDoor(player, false),
   pick:      (args, raw, player) => cmdPickLock(player),
-  picklock:  (args, raw, player) => cmdPickLock(player),
   sleep:     (args, raw, player, broadcast) => cmdSleep(player, broadcast),
-  rest:      (args, raw, player, broadcast) => cmdSleep(player, broadcast),
   upgrade: (args, raw, player) => {
     if (args[0] === 'lock') return cmdUpgradeLock(player);
     return { type:'error', message:'Upgrade what? Try "upgrade lock".' };

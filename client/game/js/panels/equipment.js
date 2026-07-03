@@ -1,5 +1,5 @@
 import { state } from '../state.js';
-import { sendCmdSilent } from '../net.js';
+import { sendCmd, sendCmdSilent } from '../net.js';
 
 const EQUIP_SLOT_NAMES = ['head','torso','hands','weapon_hand','legs','feet','accessory'];
 const LAYER_NAMES = ['', 'Skin', 'Base', 'Mid', 'Outer', 'Shell'];
@@ -113,7 +113,7 @@ export function renderEquipPanel(items, weight, capacity) {
     card.innerHTML = `<span class="eic-name">${layerIcon}${item.name}${qty}</span><span class="eic-meta">${slotLabel}</span><button class="eic-drop-btn" title="Drop on ground"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="1" width="6" height="4" rx="0.5" stroke="currentColor" stroke-width="1.3"/><line x1="7" y1="5" x2="7" y2="8.5" stroke="currentColor" stroke-width="1.3"/><path d="M4.5 7.5 L7 10.5 L9.5 7.5" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linejoin="round" stroke-linecap="round"/><line x1="2" y1="13" x2="12" y2="13" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></button>`;
     card.ondragstart = (e) => onItemDragStart(e, item.id);
     card.ondragend = () => card.classList.remove('dragging');
-    if (equippable && layerOk) card.onclick = () => sendCmdSilent(`equipid ${item.id} ${currentLayer}`);
+    card.onclick = () => showItemDetail(item);
     card.querySelector('.eic-drop-btn').onclick = (e) => { e.stopPropagation(); dropItem(item); };
     list.appendChild(card);
   }
@@ -122,6 +122,127 @@ export function renderEquipPanel(items, weight, capacity) {
   const wtEl = document.getElementById('equip-weight-val');
   if (wtEl && lastCapacity != null) {
     wtEl.textContent = `${formatWeight(lastWeight)}/${formatWeight(lastCapacity)}`;
+  }
+}
+
+const SLOT_LABELS = {
+  head: 'Head', torso: 'Torso', hands: 'Hands', weapon_hand: 'Weapon hand',
+  legs: 'Legs', feet: 'Feet', accessory: 'Accessory',
+};
+
+// Human labels for verbs that come back from the server (availableActions).
+const VERB_LABELS = { eat: 'Eat', drink: 'Drink', use: 'Use', open: 'Open', read: 'Read' };
+
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+
+// Build the conditional stat rows for the detail panel from the item's tags.
+function itemStatRows(item) {
+  const t = item.tags || {};
+  const rows = [];
+  rows.push(['Weight', formatWeight(item.weight) + (item.quantity > 1 ? ` (each)` : '')]);
+  if (item.sell_value != null) rows.push(['Sell value', `₵${item.sell_value}${item.quantity > 1 ? ' each' : ''}`]);
+  if (t.slot) rows.push(['Slot', SLOT_LABELS[t.slot] || t.slot.replace('_', ' ')]);
+  if (t.armor != null) {
+    let soak = '';
+    if (t.armor_soak && typeof t.armor_soak === 'object') {
+      const parts = Object.entries(t.armor_soak).map(([k, v]) => `${k} ${v}`);
+      if (parts.length) soak = ` (${parts.join(', ')})`;
+    }
+    rows.push(['Armor', `${t.armor}${soak}`]);
+  }
+  if (t.damage && typeof t.damage === 'object' && (t.damage.min != null || t.damage.max != null)) {
+    rows.push(['Damage', `${t.damage.min ?? '?'}–${t.damage.max ?? '?'}`]);
+  }
+  if (t.container != null) rows.push(['Capacity', formatWeight(t.container)]);
+  const restores = [
+    ['restore_hp', 'HP'], ['restore_hunger', 'Hunger'], ['restore_thirst', 'Thirst'],
+    ['restore_radiation', 'Radiation'], ['restore_sanity', 'Sanity'],
+  ];
+  for (const [key, label] of restores) {
+    if (t[key] != null) rows.push([`Restores ${label}`, `${t[key] > 0 ? '+' : ''}${t[key]}`]);
+  }
+  if (t.stat_bonus && typeof t.stat_bonus === 'object') {
+    const parts = Object.entries(t.stat_bonus).map(([k, v]) => `${k.replace('stat_', '')} ${v > 0 ? '+' : ''}${v}`);
+    if (parts.length) rows.push(['Bonus', parts.join(', ')]);
+  }
+  if (t.requires && typeof t.requires === 'object') {
+    const parts = Object.entries(t.requires).map(([k, v]) => `${k.replace('stat_', '')} ${v}`);
+    if (parts.length) rows.push(['Requires', parts.join(', ')]);
+  }
+  return rows;
+}
+
+function closeItemDetail() {
+  const o = document.getElementById('item-detail-overlay');
+  if (o) o.style.display = 'none';
+}
+
+function showItemDetail(item) {
+  const tags = item.tags || {};
+  let overlay = document.getElementById('item-detail-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'item-detail-overlay';
+    overlay.classList.add('modal-overlay');
+    overlay.style.cssText = 'background:rgba(0,0,0,0.75);z-index:600;display:flex';
+    overlay.addEventListener('click', e => { if (e.target === overlay) closeItemDetail(); });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && overlay.style.display === 'flex') closeItemDetail();
+    });
+    document.body.appendChild(overlay);
+  }
+
+  // Header badges: quality, instance flags, equipped state.
+  const badges = [];
+  // 'common' is the baseline crafting tier — only badge the notable qualities.
+  if (item.custom_data?.quality && item.custom_data.quality !== 'common') badges.push(`<span class="idp-badge quality">${escapeHtml(item.custom_data.quality)}</span>`);
+  for (const f of ['broken', 'cursed']) {
+    if (item.custom_data && item.custom_data[f]) badges.push(`<span class="idp-badge flag">${f}</span>`);
+  }
+  if (item.is_equipped) badges.push(`<span class="idp-badge equipped">equipped</span>`);
+  const badgeHtml = badges.length ? `<div class="idp-badges">${badges.join('')}</div>` : '';
+
+  const desc = tags.description ? escapeHtml(tags.description) : '<span class="idp-nodesc">No description.</span>';
+  const statHtml = itemStatRows(item).map(([k, v]) =>
+    `<div class="idp-stat"><span class="idp-stat-k">${escapeHtml(k)}</span><span class="idp-stat-v">${escapeHtml(v)}</span></div>`
+  ).join('');
+
+  // Verb buttons: Equip (if equippable) + server-provided actions + Drop.
+  const verbs = [];
+  if (tags.slot && !item.is_equipped) verbs.push({ label: 'Equip', kind: 'equip' });
+  for (const v of (item.actions || [])) {
+    if (v === 'drop' || v === 'equip' || v === 'wear' || v === 'wield') continue;
+    verbs.push({ label: VERB_LABELS[v] || (v.charAt(0).toUpperCase() + v.slice(1)), kind: 'verb', verb: v });
+  }
+  verbs.push({ label: 'Drop', kind: 'drop' });
+
+  overlay.innerHTML = `
+    <div class="idp-box">
+      <div class="idp-header">
+        <span class="idp-name">${escapeHtml(item.name)}${item.quantity > 1 ? ` <span class="idp-qty">x${item.quantity}</span>` : ''}</span>
+        <button class="idp-close" title="Close">✕</button>
+      </div>
+      ${badgeHtml}
+      <div class="idp-desc">${desc}</div>
+      <div class="idp-stats">${statHtml}</div>
+      <div class="idp-verbs"></div>
+    </div>`;
+  overlay.style.display = 'flex';
+
+  overlay.querySelector('.idp-close').addEventListener('click', closeItemDetail);
+  const verbRow = overlay.querySelector('.idp-verbs');
+  for (const v of verbs) {
+    const btn = document.createElement('button');
+    btn.className = 'idp-verb' + (v.kind === 'drop' ? ' danger' : '');
+    btn.textContent = v.label;
+    btn.addEventListener('click', () => {
+      if (v.kind === 'equip') { closeItemDetail(); sendCmdSilent(`equipid ${item.id} ${currentLayer}`); }
+      else if (v.kind === 'drop') { closeItemDetail(); dropItem(item); }
+      else { closeItemDetail(); sendCmd(`${v.verb} ${item.name}`); }
+    });
+    verbRow.appendChild(btn);
   }
 }
 

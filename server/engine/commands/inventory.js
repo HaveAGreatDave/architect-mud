@@ -6,7 +6,8 @@ import { foodLoad, applyThirst } from '../bodily.js';
 import { dispatchAction } from '../actions.js';
 import { getZonePlayers } from '../world.js';
 import { resolve as siftResolve, matchAll as siftMatchAll, createSelectionState, formatSelectionPage } from '../sift.js';
-import { fireSpecializedAction } from '../specializedActions.js';
+import { fireSpecializedAction, availableActions } from '../specializedActions.js';
+import { computeSellUnitPrice } from '../vendor.js';
 import { resolveCorpseOrPlayer, buildLootView } from './combat.js';
 import { titleCaseName } from '../text.js';
 
@@ -70,7 +71,7 @@ export async function recomputeInsulation(player) {
 }
 
 async function cmdInventory(player) {
-  const { rows } = await query(`SELECT pi.*,i.name,i.tags,i.weight FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL ORDER BY i.name`, [player.id]);
+  const { rows } = await query(`SELECT pi.*,i.name,i.tags,i.weight,i.value FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL ORDER BY i.name`, [player.id]);
   if (!rows.length) return { type:'inventory', message:'Your inventory is empty.', items:[] };
   for (const r of rows) r.name = titleCaseName(r.name); // list display — Title Case
   let msg = '<span class="inv-header">INVENTORY</span>\n';
@@ -84,6 +85,9 @@ async function cmdInventory(player) {
       container = ` <span class="equipped">[${formatWeight(used)}/${formatWeight(tagValue(item, 'container', 0))}]</span>`;
     }
     msg += `  ${item.name}${item.quantity>1?` x${item.quantity}`:''}${quality}${instFlags}${container}${eq}\n`;
+    // Derived fields for the client item-detail panel (see equipment.js showItemDetail).
+    item.sell_value = computeSellUnitPrice(item.value, player.stat_cool);
+    item.actions = availableActions(item);
   }
   const weight = await computeCarriedWeight(player);
   const cap = carryCapacity(player);
@@ -782,10 +786,7 @@ function splitOn(str, sep) {
 
 export const handlers = {
   inventory: (args, raw, player) => cmdInventory(player),
-  inv: (args, raw, player) => cmdInventory(player),
-  i: (args, raw, player) => cmdInventory(player),
   take: (args, raw, player, broadcast) => cmdTake(args.join(' '), player, broadcast),
-  get:  (args, raw, player, broadcast) => cmdTake(args.join(' '), player, broadcast),
   drop: (args, raw, player, broadcast) => cmdDrop(args.join(' '), player, broadcast),
   dropid: (args, raw, player, broadcast) => cmdDropById(args[0], player, broadcast, parseInt(args[1]) || 0),
   give: (args, raw, player, broadcast) => cmdGive(args.join(' '), player, broadcast),
@@ -793,14 +794,10 @@ export const handlers = {
   eat:   (args, raw, player, broadcast) => cmdUse(args.join(' '), player, broadcast),
   drink: (args, raw, player, broadcast) => cmdUse(args.join(' '), player, broadcast),
   equip:    (args, raw, player) => cmdEquip(args.join(' '), player),
-  wear:     (args, raw, player) => cmdEquip(args.join(' '), player),
   unequip:  (args, raw, player) => cmdUnequip(args.join(' '), player),
-  remove:   (args, raw, player) => cmdUnequip(args.join(' '), player),
   equipid:   (args, raw, player) => cmdEquipById(args[0], player, parseInt(args[1]) || null),
   unequipid: (args, raw, player) => cmdUnequipById(args[0], player),
   stow:  (args, raw, player) => cmdStow(args.join(' '), player),
-  put:   (args, raw, player) => cmdStow(args.join(' '), player),
-  throw: (args, raw, player) => cmdStow(args.join(' '), player),
   pull:  (args, raw, player) => cmdPull(args.join(' '), player),
   stowid: (args, raw, player, broadcast) => cmdStowById(args.join(' '), player, broadcast),
   pullid: (args, raw, player, broadcast) => cmdPullById(args[0], args[1], player, broadcast),

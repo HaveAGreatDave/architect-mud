@@ -18,7 +18,7 @@ import { SCHEMA_SQL } from '../models/schema.js';
 const CONTENT_TABLES = [
   'zones', 'maps', 'items', 'enemies', 'zone_spawns',
   'npcs', 'furniture', 'doors', 'windows', 'sounds', 'global_ambient_events',
-  'loot_tables', 'recipes', 'drugs', 'mutations', 'combat_config',
+  'loot_tables', 'recipes', 'drugs', 'mutations', 'combat_config', 'command_aliases',
   // Only personal apartments are content; corp HQs (owner_type='org') reference a
   // player-crew org that isn't exported, which would break the restore's FK.
   { table: 'apartments', where: "owner_type = 'player'" },

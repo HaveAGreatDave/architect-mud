@@ -290,7 +290,7 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
     } else {
       // Numbered SIFT picker. Selecting a number moves straight to that zone id
       // (see the selection intercept in commands/index.js) — no name round-trip.
-      createSelectionState(player.id, candidates, { verb: 'go', moveDirection: direction });
+      createSelectionState(player.id, candidates, { verb: 'move', moveDirection: direction });
       return { type: 'output', message: `Several ways lead ${direction}.\n${formatSelectionPage(getSelectionState(player.id))}` };
     }
   }
@@ -533,22 +533,13 @@ async function cmdMap(player) {
 
 export const handlers = {
   look:  (args, raw, player, broadcast) => cmdLook(player, args.length ? args.join(' ') : undefined, broadcast),
-  l:     (args, raw, player, broadcast) => cmdLook(player, args.length ? args.join(' ') : undefined, broadcast),
-  go:    (args, raw, player, broadcast) => cmdGo(args.join(' '), player, broadcast),
   move:  (args, raw, player, broadcast) => cmdGo(args.join(' '), player, broadcast),
-  enter: (args, raw, player, broadcast) => cmdGo(args.join(' '), player, broadcast),
   north: (args, raw, player, broadcast) => cmdMove('north', player, broadcast),
-  n:     (args, raw, player, broadcast) => cmdMove('north', player, broadcast),
   south: (args, raw, player, broadcast) => cmdMove('south', player, broadcast),
-  s:     (args, raw, player, broadcast) => cmdMove('south', player, broadcast),
   east:  (args, raw, player, broadcast) => cmdMove('east', player, broadcast),
-  e:     (args, raw, player, broadcast) => cmdMove('east', player, broadcast),
   west:  (args, raw, player, broadcast) => cmdMove('west', player, broadcast),
-  w:     (args, raw, player, broadcast) => cmdMove('west', player, broadcast),
   up:    (args, raw, player, broadcast) => cmdMove('up', player, broadcast, exitIndexOpts(args)),
-  u:     (args, raw, player, broadcast) => cmdMove('up', player, broadcast, exitIndexOpts(args)),
   down:  (args, raw, player, broadcast) => cmdMove('down', player, broadcast, exitIndexOpts(args)),
-  d:     (args, raw, player, broadcast) => cmdMove('down', player, broadcast, exitIndexOpts(args)),
   in:    (args, raw, player, broadcast) => cmdMove('in', player, broadcast, exitIndexOpts(args)),
   out:   (args, raw, player, broadcast) => cmdMove('out', player, broadcast, exitIndexOpts(args)),
   exit:  (args, raw, player, broadcast) => cmdMove('exit', player, broadcast, exitIndexOpts(args)),
