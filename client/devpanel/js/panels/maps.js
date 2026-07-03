@@ -900,11 +900,12 @@ function renderMapOverview() {
   }
   // Preserve scroll across the full innerHTML rebuild so paint-drag strokes
   // (which re-render on every tile) don't yank the view back to the top.
-  const prevPanelTop = panel.scrollTop;
+  const prevPanelTop = panel.scrollTop, prevPanelLeft = panel.scrollLeft;
   const prevGrid = document.getElementById('bigmap-grid-scroll');
   const prevGridLeft = prevGrid?.scrollLeft || 0, prevGridTop = prevGrid?.scrollTop || 0;
   panel.innerHTML = html;
   panel.scrollTop = prevPanelTop;
+  panel.scrollLeft = prevPanelLeft;
   const newGrid = document.getElementById('bigmap-grid-scroll');
   if (newGrid) { newGrid.scrollLeft = prevGridLeft; newGrid.scrollTop = prevGridTop; }
 }
