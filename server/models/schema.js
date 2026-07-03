@@ -341,6 +341,21 @@ export const SCHEMA_SQL = `
     created_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())
   );
 
+  -- Append-only log of player deaths, catalogued by the deaths plugin from the
+  -- player.death broadcast. real_ts sorts; game_date/game_time are the in-world
+  -- stamp; cause_label is the human string shown by the deaths command.
+  CREATE TABLE IF NOT EXISTS player_deaths (
+    id BIGSERIAL PRIMARY KEY,
+    player_id TEXT NOT NULL,
+    real_ts BIGINT NOT NULL,
+    game_date TEXT,
+    game_time TEXT,
+    zone_id TEXT,
+    cause_type TEXT,
+    cause_label TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_player_deaths_player ON player_deaths(player_id, real_ts DESC);
+
   CREATE TABLE IF NOT EXISTS apartments (
     zone_id TEXT PRIMARY KEY,
     owner_id TEXT,

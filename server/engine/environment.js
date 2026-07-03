@@ -1726,6 +1726,12 @@ export function getPowerMap() {
   }));
 }
 
+// Current in-world date/time, formatted the same way the lightning-kill log
+// stamps its entries. Used by the deaths plugin to timestamp deaths in-fiction.
+export function getGameDateTime() {
+  return { date: state.date, time: formatHHMM(state.minutes) };
+}
+
 export function getEnvironmentState() {
   return { ...getHUDPayload(), minutes: state.minutes, hour: Math.floor(state.minutes / 60), ambientLight: state.ambientLight, forecast: getForecast(), powerMap: getPowerMap(), precipRate: state.precipRate, currentPrecip: state.currentPrecip, lightningKills: state.lightningKills };
 }
