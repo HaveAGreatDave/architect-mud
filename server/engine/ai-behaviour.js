@@ -8,6 +8,7 @@ import { isNpcScheduledNow, getNpcStudioZone } from './broadcast-bridge.js';
 import { getShopperForNpc, closeShopSession } from './vendor-session.js';
 import { getNpcChitchat } from './npc-personality.js';
 import { OPPOSITE as OPPOSITE_DIR } from './directions.js';
+import { setPosture } from './posture.js';
 
 // ── Vendor schedule helpers ──────────────────────────────────────────────────
 
@@ -1046,6 +1047,7 @@ async function execAction(node, entity, ctx) {
       // Waking up from sleep — waitUntil was already cleared by the tick
       if (ai.homeSleeping) {
         ai.homeSleeping = false;
+        setPosture(entity, 'standing');
         broadcast(zoneId, { type: 'zone_event', message: `${entity.name} stirs and wakes up.` });
         break;
       }
@@ -1057,18 +1059,22 @@ async function execAction(node, entity, ctx) {
       if (Math.random() < 0.15) {
         const wakeMs = getNextShiftWakeMs(entity);
         if (wakeMs !== null && wakeMs > now + 120000) {
-          // Find something to sleep on in the zone
-          let sleepOn = 'the floor';
+          // Find something to sleep on in the zone (prefer furniture, floor fallback)
+          let bedName = null;
           try {
             const BED_WORDS = /\b(bed|cot|couch|mattress|sofa|futon|bunk|hammock)\b/i;
             const { rows: furnRows } = await query(
               `SELECT name FROM furniture WHERE zone_id=$1 LIMIT 20`, [zoneId]
             );
             const bedFurn = furnRows.find(f => BED_WORDS.test(f.name));
-            if (bedFurn) sleepOn = `the ${bedFurn.name}`;
+            if (bedFurn) bedName = bedFurn.name;
           } catch (_) {}
+          const sleepOn = bedName ? `the ${bedName}` : 'the floor';
           ai.homeSleeping = true;
           ai.waitUntil = wakeMs;
+          // Real posture, same substrate as players: lying, bound to the furniture
+          // (sittingOn = furniture name, or null for the ground).
+          setPosture(entity, 'lying', { sittingOn: bedName });
           broadcast(zoneId, { type: 'zone_event', message: `${entity.name} lies down on ${sleepOn} and falls asleep.` });
           return 'RUNNING';
         }
@@ -1318,6 +1324,11 @@ export async function tickEntityAI(entity, ctx) {
 
   const ai = entity._ai;
   if (!ai) return;
+
+  // A break-in alarm (burglary plugin) has taken this NPC over — it drives the
+  // panic cop-call / flee sequence directly. Suspend the normal graph (and the
+  // passive home-life below) until the plugin clears the flag.
+  if (ai.alarm) return;
 
   // Don't tick while a player has this NPC's shop open.
   if (ai.shopPaused) return;

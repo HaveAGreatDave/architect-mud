@@ -409,6 +409,13 @@ export class GameTable {
     const result = this.game.handleAction(playerId, action, amount);
     if (!result.ok) return result;
 
+    // A genuine manual action clears the seat's inactivity strikes (the auto-fold
+    // path sets _turnExpired first, so its own processAction call doesn't reset).
+    if (!this._turnExpired) {
+      const st = this.seats.find(s => s && s.playerId === playerId);
+      if (st) st.autoFolds = 0;
+    }
+
     // Record bubble
     const labelMap = { fold: 'FOLD', check: 'CHECK', call: 'CALL', bet: `BET ${amount}`, raise: `RAISE ${amount}`, allin: 'ALL IN' };
     this.bubbles[playerId] = labelMap[action] || action.toUpperCase();
@@ -501,7 +508,7 @@ export class GameTable {
         this.game = null;
         this.bubbles = {};
         this._checkAutoStart();
-      }, (this.config.autoStartDelaySecs || 8) * 1000);
+      }, (this.config.autoStartDelaySecs || 5) * 1000);
     }
   }
 
@@ -524,7 +531,7 @@ export class GameTable {
       if (!this.game || this.phase !== 'InProgress') return;
       const pr = this.game._nextPhase();
       this._onPhaseResult(pr);
-    }, 1500);
+    }, 900);
   }
 
   _startTurnTimer() {
@@ -539,6 +546,7 @@ export class GameTable {
 
     const timerSecs = this.config.turnTimerSecs || 30;
     const pid = actor.playerId;
+    this._turnExpired = false; // distinguishes a manual action from the auto path
 
     // Private prompt so the acting player notices the action has reached them.
     this._pushSfx('turn', pid);
@@ -548,9 +556,11 @@ export class GameTable {
     }, (timerSecs - 10) * 1000);
 
     const foldHandle = setTimeout(() => {
+      this._turnExpired = true;
       const action = this.game?.canCheck(pid) ? 'check' : 'fold';
       this.processAction(pid, action, 0);
       sendToPlayer(pid, { type: 'output', message: `Time expired — you were auto-${action}ed.` });
+      this._registerAutoFold(pid);
     }, timerSecs * 1000);
 
     this._turnTimer = { warnHandle, foldHandle, playerId: pid };
@@ -565,11 +575,25 @@ export class GameTable {
     this._turnTimer = null;
   }
 
+  // Count consecutive inactivity time-outs per seat: warn on the 2nd, remove on
+  // the 3rd. A manual action (see processAction) resets the count to zero.
+  _registerAutoFold(pid) {
+    const seat = this.seats.find(s => s && s.playerId === pid);
+    if (!seat || seat.isBot) return;
+    seat.autoFolds = (seat.autoFolds || 0) + 1;
+    if (seat.autoFolds >= 3) {
+      sendToPlayer(pid, { type: 'output', message: 'Removed from the table — three auto-folds in a row. Sit back down when you\'re ready to play.' });
+      this.leaveTable(pid);
+    } else if (seat.autoFolds === 2) {
+      sendToPlayer(pid, { type: 'output', message: '⚠ Auto-folded twice in a row. Act on your next turn or you\'ll be removed from the table.' });
+    }
+  }
+
   // Drive a bot seat's action after a short "thinking" pause, so it reads like a
   // deliberating opponent rather than an instant reflex.
   _scheduleBotMove(seat) {
     clearTimeout(this._botMoveTimer);
-    const delay = 900 + Math.floor(Math.random() * 1600);
+    const delay = 500 + Math.floor(Math.random() * 900);
     this._botMoveTimer = setTimeout(() => {
       if (!this.game || this.phase !== 'InProgress') return;
       const actor = this.game.getCurrentActor();
@@ -868,7 +892,7 @@ export class GameTable {
       return;
     }
     this.phase = 'Ready';
-    const delay = (this.config.autoStartDelaySecs || 8) * 1000;
+    const delay = (this.config.autoStartDelaySecs || 5) * 1000;
     this._startShuffleLoop();
     this.pushPaneAll();
     this._autoStartTimer = setTimeout(() => this.startHand(), delay);

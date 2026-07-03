@@ -29,11 +29,18 @@ const WIND_MOVE_SPAN     = 16;    // → ~10 stamina at sev 0.4, ~20 at sev 1.0
 // door open/close side effects happen in cmdMove after every gate passes.
 
 // Locked doors block unless the player's lock auth clears them.
-registerMoveGate(async ({ player, direction, door }) => {
+// "in"/"out"/"exit" read badly as "the door to the out" — name the destination
+// zone instead (door to <exterior/interior zone name>). Cardinal directions keep
+// the natural "the door to the north" phrasing.
+const NAMED_LOCK_DIRS = new Set(['in', 'out', 'exit']);
+registerMoveGate(async ({ player, direction, door, to }) => {
   if (!door || door.hp <= 0 || door.lock_state !== 'locked') return;
   const lockTag = getLockTagPublic(door);
   const canPass = lockTag && await checkLockAuth(lockTag, door, player);
-  if (!canPass) return { block: true, message: `The door to the ${direction} is locked.` };
+  if (!canPass) {
+    const label = NAMED_LOCK_DIRS.has(direction) && to?.name ? to.name : `the ${direction}`;
+    return { block: true, message: `The door to ${label} is locked.` };
+  }
 }, 'engine:door-lock');
 
 // Encumbrance blocks the move — the law lives at movement, not acquisition

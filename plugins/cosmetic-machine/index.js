@@ -18,6 +18,8 @@
  *   morphex height <cm>           — change height (150–210)
  *   morphex weight <kg>           — change weight (40–150)
  *   morphex penis <cm>            — set penis length (MIS only, 5₵/cm delta)
+ *   morphex testicle <size>       — set testicle size (MIS only)
+ *   morphex ass <size>            — set ass size (MIS only, both sexes)
  *   morphex breast <size>         — set breast size (MIS only, 5₵/tier delta)
  */
 import { query } from '../../server/models/db.js';
@@ -33,6 +35,8 @@ const EYE_COLORS   = ['brown','dark brown','blue','light blue','green','hazel','
 const BREAST_SIZES = ['flat','small','medium','large','very large'];
 const BREAST_MAP   = { flat:0, small:1, medium:2, large:3, 'very large':4 };
 const TESTICLE_SIZES = ['small','average','large','very large'];
+const MALE_ASS_SIZES   = ['flat','small','average','round','large'];
+const FEMALE_ASS_SIZES = ['flat','small','average','round','large','enormous'];
 
 const MACHINE_NAMES = ['morphex', 'biosculpt', 'makeover', 'morphex 9000'];
 
@@ -217,6 +221,22 @@ async function cmdMorphex(args, raw, player) {
     if (!ok) return buildPanelData(player, `Insufficient funds — 10₵ required.`);
     const appData = player.appearance_data || {};
     appData.testicle_size = targetSize;
+    player.appearance_data = appData;
+    await applyCharge(player, cost);
+    await query('UPDATE players SET appearance_data=$1 WHERE id=$2', [JSON.stringify(appData), player.id]);
+    return buildPanelData(player, `Adjusted. ${cost ? `(-${cost}₵)` : '(free)'}`);
+  }
+
+  // ass size — MIS only (applies to both sexes)
+  if (sub === 'ass' || sub === 'butt') {
+    if (!isMisActive(player)) return buildPanelData(player, `That option isn't available.`);
+    const sizes = player.biological_sex === 'female' ? FEMALE_ASS_SIZES : MALE_ASS_SIZES;
+    const targetSize = rest.join(' ').toLowerCase();
+    if (!sizes.includes(targetSize)) return buildPanelData(player, `Valid sizes: ${sizes.join(', ')}`);
+    const { ok, cost } = chargeCheck(player);
+    if (!ok) return buildPanelData(player, `Insufficient funds — 10₵ required.`);
+    const appData = player.appearance_data || {};
+    appData.ass_size = targetSize;
     player.appearance_data = appData;
     await applyCharge(player, cost);
     await query('UPDATE players SET appearance_data=$1 WHERE id=$2', [JSON.stringify(appData), player.id]);

@@ -2368,8 +2368,30 @@ textarea {
 	border: 1px solid var(--accent);
 	padding: 24px;
 	border-radius: 2px;
-	max-height: 85vh;
-	overflow-y: auto;
+	max-width: 92vw;
+	max-height: 90vh;
+	overflow: auto;
+	scrollbar-width: thin;
+	scrollbar-color: var(--accent) var(--bg);
+}
+#map-box::-webkit-scrollbar {
+	width: 10px;
+	height: 10px;
+}
+#map-box::-webkit-scrollbar-track {
+	background: var(--bg);
+	border-radius: 2px;
+}
+#map-box::-webkit-scrollbar-thumb {
+	background: var(--accent);
+	border-radius: 2px;
+	border: 2px solid var(--bg);
+}
+#map-box::-webkit-scrollbar-thumb:hover {
+	background: var(--accent-dim);
+}
+#map-box::-webkit-scrollbar-corner {
+	background: var(--bg);
 }
 #map-box h2 {
 	color: var(--accent);
@@ -2380,8 +2402,9 @@ textarea {
 }
 #map-body {
 	display: flex;
-	gap: 28px;
-	align-items: flex-start;
+	flex-direction: column;
+	gap: 20px;
+	align-items: center;
 }
 #map-grid {
 	--map-room: 26px;
@@ -2433,20 +2456,43 @@ textarea {
 .map-room.map-current {
 	color: var(--accent);
 	background: none;
+	animation: map-current-pulse 1.3s ease-in-out infinite;
+}
+@keyframes map-current-pulse {
+	0%, 100% {
+		opacity: 0.55;
+		text-shadow: 0 0 2px var(--accent);
+	}
+	50% {
+		opacity: 1;
+		text-shadow: 0 0 8px var(--accent), 0 0 16px var(--accent);
+	}
+}
+[data-motion="off"] .map-room.map-current {
+	animation: none;
+	opacity: 1;
+	text-shadow: 0 0 6px var(--accent);
 }
 
 #map-legend {
 	font-family: "Courier New", monospace;
 	font-size: 12px;
 	color: var(--text);
-	min-width: 180px;
+	width: 100%;
+	display: flex;
+	flex-wrap: wrap;
+	align-content: flex-start;
+	justify-content: center;
+	gap: 4px 16px;
+	padding-top: 16px;
+	border-top: 1px solid var(--border);
 }
 .map-leg-row {
 	display: flex;
 	align-items: center;
 	gap: 8px;
-	margin-bottom: 5px;
 	white-space: nowrap;
+	flex: 0 0 auto;
 }
 .map-leg-sym {
 	flex: 0 0 auto;
@@ -5235,9 +5281,9 @@ textarea {
 }
 .wanted-stars {
 	font-size: 18px; letter-spacing: 3px; line-height: 1;
-	color: #ff3b3b; text-shadow: 0 0 10px #ff3b3b, 0 0 3px #fff;
+	color: var(--accent); text-shadow: 0 0 10px var(--accent), 0 0 3px #fff;
 }
-.wanted-empty { color: #5a1a1a; text-shadow: none; }
+.wanted-empty { color: var(--accent-dim); text-shadow: none; }
 .wanted-pulse { animation: wanted-pulse 0.6s ease-out; }
 @keyframes wanted-pulse {
 	0%   { transform: translateX(-50%) scale(1); box-shadow: 0 0 18px rgba(255,40,40,0.18); }
@@ -7211,6 +7257,11 @@ textarea {
 .amp-cassette-body.loaded ~ .amp-reel { opacity: 1; }
 .amp-cassette-body.loaded ~ .amp-tape-center .amp-tape-guide,
 .amp-cassette-body.loaded ~ .amp-tape-center .amp-tape-head { opacity: 1; }
+/* Locked in: the capstan/guides come up from background to their metallic colour. */
+.amp-cassette-body.loaded ~ .amp-tape-center .amp-tape-guide,
+.amp-cassette-body.loaded ~ .amp-tape-center .amp-tape-head {
+	background: linear-gradient(to bottom, var(--text-dim), var(--bg3));
+}
 .amp-cassette-label-strip {
 	/* Stuck-on paper label, off-white with dark hand-labelled text — its own
 	   material against the graphite shell. Pinned to the lower face of the shell
@@ -7295,24 +7346,28 @@ textarea {
 	gap: 6px;
 	padding: 0 4px;
 	position: relative;
-	/* Above the tape shell (z3) so the head/guides read as pressing into the
-	   cassette's centre notch rather than being hidden behind the shell. */
-	z-index: 4;
+	/* Behind the tape shell (z3), alongside the reels (z2), so the capstan/head
+	   cluster shows through the shell's punched centre hole only — the cassette
+	   slides in over it, not behind it. */
+	z-index: 2;
 }
 .amp-tape-guide {
 	width: 4px;
 	height: 28px;
-	background: linear-gradient(to bottom, var(--text-dim), var(--bg3));
+	/* Unloaded: reads as the recessed background so the empty slot shows nothing
+	   through the (absent) shell hole. On lock-in the .loaded rule below swaps this
+	   to the metallic capstan colour; eject reverses it. */
+	background: linear-gradient(to bottom, var(--bg2), var(--bg));
 	border-radius: 2px;
-	transition: opacity 0.3s;
+	transition: opacity 0.3s, background 0.4s ease;
 }
 .amp-tape-head {
 	width: 10px;
 	height: 20px;
-	background: linear-gradient(to bottom, var(--text-dim), var(--bg3));
+	background: linear-gradient(to bottom, var(--bg2), var(--bg));
 	border-radius: 2px;
 	border: 1px solid var(--border);
-	transition: opacity 0.3s;
+	transition: opacity 0.3s, background 0.4s ease;
 }
 /* Capstan/head sockets: a dark recessed cutout punched through the graphite
    shell behind each centre element, rimmed to match the shell border, so the
@@ -7616,6 +7671,7 @@ body.esp-active #output {
 }
 .poker-deck-pile .poker-deck-card:nth-child(1) { top: 0; left: 0; }
 .poker-deck-pile .poker-deck-card:nth-child(2) { top: -3px; left: -3px; }
+.poker-deck-pile .poker-deck-card:nth-child(3) { top: -6px; left: -6px; }
 
 /* Riffle bridge shuffle — loops for the whole "SHUFFLING UP…" countdown (one
    pass per repeated poker-shuffle synth cue, ~1.8s apart), cut the instant the
@@ -7647,6 +7703,25 @@ body.esp-active #output {
 .poker-deck.shuffling .poker-deck-pile-right {
 	animation: poker-deck-bridge-right 1.8s ease-in-out infinite;
 }
+/* Individual cards cascade as the riffle releases — each lifts and drops on a
+   slightly offset beat so they visibly slide over and under one another rather
+   than the two halves moving as solid blocks. The transform composes on top of
+   the parent pile's bridge motion (card offsets are relative to the pile). */
+@keyframes poker-card-riffle {
+	0%, 50%   { transform: translate(0, 0); }
+	60%       { transform: translate(2px, -8px); }
+	72%       { transform: translate(0, -2px); }
+	80%, 100% { transform: translate(0, 0); }
+}
+.poker-deck.shuffling .poker-deck-card {
+	animation: poker-card-riffle 1.8s ease-in-out infinite;
+}
+.poker-deck.shuffling .poker-deck-pile-left  .poker-deck-card:nth-child(1) { animation-delay: 0s; }
+.poker-deck.shuffling .poker-deck-pile-right .poker-deck-card:nth-child(1) { animation-delay: 0.05s; }
+.poker-deck.shuffling .poker-deck-pile-left  .poker-deck-card:nth-child(2) { animation-delay: 0.10s; }
+.poker-deck.shuffling .poker-deck-pile-right .poker-deck-card:nth-child(2) { animation-delay: 0.15s; }
+.poker-deck.shuffling .poker-deck-pile-left  .poker-deck-card:nth-child(3) { animation-delay: 0.20s; }
+.poker-deck.shuffling .poker-deck-pile-right .poker-deck-card:nth-child(3) { animation-delay: 0.25s; }
 
 /* Seats — absolute positioned around the oval */
 .poker-seat {
@@ -7688,6 +7763,26 @@ body.esp-active #output {
 	letter-spacing: 0.5px;
 }
 .seat-chips.empty { color: var(--text-dim); }
+/* Compact chip-disc stack beside a seat's name — a quick read of how deep their
+   remaining stack is (grows one disc per ~100 ₵, capped). Discs pile upward. */
+.chip-stack {
+	position: relative;
+	width: 22px;
+	height: 26px;
+	margin-top: 2px;
+}
+.chip-stack .chip-disc {
+	position: absolute;
+	left: 0;
+	width: 20px;
+	height: 6px;
+	border-radius: 50%;
+	border: 1px solid rgba(0, 0, 0, 0.45);
+	box-shadow: 0 1px 1px rgba(0, 0, 0, 0.4);
+}
+.chip-disc-0 { background: radial-gradient(circle at 50% 35%, #ff6b6b, #b02a2a); }
+.chip-disc-1 { background: radial-gradient(circle at 50% 35%, #5aa9ff, #1e5aa8); }
+.chip-disc-2 { background: radial-gradient(circle at 50% 35%, #56d06a, #1f7a34); }
 .seat-active-bet {
 	font-size: 10px;
 	color: var(--yellow);
@@ -8188,6 +8283,7 @@ body.esp-active #output {
 	#area-pane .poker-deck,
 	#area-pane .money-pile,
 	#area-pane .bet-money,
+	#area-pane .chip-stack,
 	#area-pane .poker-bubble,
 	#area-pane .poker-chat { display: none; }
 
@@ -8341,6 +8437,24 @@ body.esp-active #output {
 	color: var(--text-bright);
 }
 .confirm-actions button:hover { border-color: var(--accent); }
+
+/* Arrest booking record popup (arrest_notice) — reuses the confirm-window frame */
+.arrest-window { width: 440px; }
+.arrest-banner {
+	font-size: 12px; letter-spacing: 1px; color: var(--accent);
+	text-align: center; margin-bottom: 14px; padding-bottom: 12px;
+	border-bottom: 1px solid var(--border);
+}
+.arrest-stars { margin-left: 6px; letter-spacing: 2px; color: var(--accent); text-shadow: 0 0 8px var(--accent); }
+.arrest-stars-empty { color: var(--accent-dim); text-shadow: none; }
+.arrest-row { display: flex; gap: 12px; padding: 6px 0; font-size: 12px; line-height: 1.45; }
+.arrest-label {
+	flex: 0 0 84px; color: var(--text-dim); text-transform: uppercase;
+	letter-spacing: 1px; font-size: 10px; padding-top: 2px;
+}
+.arrest-val { flex: 1; color: var(--text); }
+.arrest-fine { color: var(--red); }
+.arrest-debt { color: var(--red); font-weight: bold; }
 .confirm-input {
 	width: 100%;
 	box-sizing: border-box;
@@ -8495,8 +8609,8 @@ body.tripping #output {
 .cpanel-notes:focus { outline: none; border-color: var(--accent); }
 
 /* Wanted-level readout panel */
-.cpanel-wanted { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
-.cpanel-wanted-stars { font-size: 18px; letter-spacing: 2px; color: var(--red); text-shadow: 0 0 6px var(--red); }
+.cpanel-wanted { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 2px 0; }
+.cpanel-wanted-stars { font-size: 32px; letter-spacing: 1px; line-height: 1; white-space: nowrap; color: var(--red); text-shadow: 0 0 6px var(--red); }
 .cpanel-wanted-empty { color: var(--text-dim); text-shadow: none; }
 .cpanel-wanted-clean .cpanel-wanted-stars { color: var(--text-dim); text-shadow: none; }
 .cpanel-wanted-note { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
@@ -8581,3 +8695,38 @@ body.tripping #output {
 	50%       { opacity: 0.15; }
 	70%       { opacity: 0.4; }
 }
+
+/* ── Reorderable lists (list-reorder.js) ─────────────────────────────────
+   Per-panel edit control (⇅ toggle + ⟲ reset) lets a player drag list rows to
+   reorder them and ✕ to remove them; state persists per list in localStorage. */
+.sidebar-label-controls { display: inline-flex; align-items: center; }
+.list-edit-controls { display: inline-flex; align-items: center; gap: 2px; margin-left: auto; }
+.list-edit-toggle, .list-edit-reset {
+	background: none; border: none; color: var(--text-dim);
+	font-size: 12px; line-height: 1; padding: 0 3px; cursor: pointer;
+}
+.list-edit-toggle:hover, .list-edit-reset:hover { color: var(--accent); }
+.list-edit-toggle.active { color: var(--accent); }
+/* Reset only appears once editing is engaged. */
+.list-edit-reset { display: none; }
+.list-edit-controls.editing .list-edit-reset { display: inline-block; }
+
+/* A hidden (deleted) row — hidden via class so app logic keeps owning any inline
+   display it uses for its own conditional visibility (e.g. radiation bar). */
+.list-row-hidden { display: none !important; }
+
+/* Row-level affordances only show while the owning list is in edit mode. */
+.list-row { position: relative; }
+.list-row-del {
+	display: none; position: absolute; top: 2px; right: 2px; z-index: 2;
+	background: none; border: none; color: var(--text-dim);
+	font-size: 11px; line-height: 1; padding: 0 2px; cursor: pointer;
+}
+.list-row-del:hover { color: var(--red); }
+.list-editing .list-row-del { display: inline-block; }
+.list-editing > .list-row {
+	cursor: grab;
+	outline: 1px dashed var(--border, rgba(255,255,255,0.15));
+	outline-offset: -1px;
+}
+.list-editing > .list-row-dragging { opacity: 0.45; cursor: grabbing; }

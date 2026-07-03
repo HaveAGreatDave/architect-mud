@@ -9,11 +9,13 @@
 
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
-import { getZone, getZonePlayers, getZoneNpcs, getZoneEnemies, getLivePlayer, spawnEnemySync, removeEnemyInstance, world } from '../../server/engine/world.js';
-import { exitTargets } from '../../server/engine/exits.js';
+import { getZone, getZonePlayers, getZoneNpcs, getZoneEnemies, getLivePlayer, getAllLivePlayers, spawnEnemySync, removeEnemyInstance, world } from '../../server/engine/world.js';
+import { exitTargets, neighborZoneIds } from '../../server/engine/exits.js';
+import { moveEntity } from '../../server/engine/ai-behaviour.js';
+import { findPath } from '../../server/engine/pathfinding.js';
 import { skillCheck, awardSkillUse, effectiveSkill } from '../../server/engine/skills.js';
 import { getPowerMap } from '../../server/engine/environment.js';
-import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
+import { sendToPlayer, sendToZone, getBroadcast } from '../../server/engine/messaging.js';
 import { on, emit } from '../../server/engine/events.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { registerAction } from '../../server/engine/actions.js';
@@ -449,6 +451,7 @@ async function doUseConsole(args, raw, player) {
 async function surveillanceTick() {
   await captureRecordings();
   await pollSensors();
+  await scanActiveCrimes();
   for (const playerId of hubViewers) {
     const { rows } = await query('SELECT id, handle FROM players WHERE id=$1', [playerId]);
     if (!rows.length) { hubViewers.delete(playerId); continue; }
@@ -865,19 +868,34 @@ const TIERS = {
   5: [['enemy_arbiterclass_enforcement_unit', 2]],
 };
 
-// Hunter behaviour: engage the assigned target (set directly), else acquire/roam.
-// Modeled on ARBITER_BEHAVIOUR_GRAPH but without the stand-down / long warning.
+// Arrival time scales with heat: petty stars get a lazy response, a full manhunt
+// is on you fast. Time from the start of a pursuit to the first units deploying.
+function responseDelayMs(stars) {
+  if (stars >= 5) return 10000;
+  if (stars >= 4) return 15000;
+  if (stars >= 3) return 20000;
+  if (stars >= 2) return 45000;
+  if (stars >= 1) return 90000;
+  return 180000;   // half-star heat — they'll get to it eventually
+}
+
+// Chance, per pursuit step, that a searching hunter wanders to a random adjacent
+// zone instead of stepping toward the suspect — the "little random" in the hunt.
+const HUNT_RANDOM = 0.35;
+
+// Hunter behaviour: only engages when `searchAndPursue` has physically caught the
+// suspect in the same zone and set targetId. The search movement itself (heading
+// to the crime scene, then hunting toward the suspect with some randomness) is
+// driven server-side in searchAndPursue, not by the graph — so an idle hunter
+// just loops here until it finds its quarry.
 const WANTED_HUNTER_GRAPH = {
   _start: 'check_target',
   nodes: {
-    check_target: { type: 'condition', condition_type: 'HAS_TARGET', params: {}, ifTrue: 'check_cried', ifFalse: 'scan' },
+    check_target: { type: 'condition', condition_type: 'HAS_TARGET', params: {}, ifTrue: 'check_cried', ifFalse: 'loop' },
     check_cried:  { type: 'condition', condition_type: 'FLAG_SET', params: { flag: 'cried', scope: 'self' }, ifTrue: 'attack', ifFalse: 'cry' },
     cry:          { type: 'action', action_type: 'SAY', params: { message: 'SPECTER-PD — STOP RESISTING. COMPLY.' }, next: 'set_cried' },
     set_cried:    { type: 'action', action_type: 'SET_FLAG', params: { flag: 'cried', scope: 'self', value: 'true' }, next: 'attack' },
     attack:       { type: 'action', action_type: 'ATTACK', params: {}, next: 'loop' },
-    scan:         { type: 'condition', condition_type: 'TARGETABLE_IN_ZONE', params: {}, ifTrue: 'acquire', ifFalse: 'roam' },
-    acquire:      { type: 'action', action_type: 'ACQUIRE_TARGET', params: {}, next: 'loop' },
-    roam:         { type: 'action', action_type: 'ROAM', params: { interval_s: 8 }, next: 'loop' },
     loop:         { type: 'loop', next: 'check_target' },
   },
 };
@@ -893,7 +911,7 @@ async function getEnemyTemplate(id) {
 
 function wantedState(id) {
   let s = wantedRuntime.get(id);
-  if (!s) { s = { stars: 0, lastCrimeTs: 0, lastSeenTs: 0, hunters: new Set(), deployedTier: 0 }; wantedRuntime.set(id, s); }
+  if (!s) { s = { stars: 0, maxStars: 0, lastCrimeTs: 0, lastSeenTs: 0, pursuitStartTs: 0, crimeZone: null, hunters: new Set(), deployedTier: 0, charges: [] }; wantedRuntime.set(id, s); }
   return s;
 }
 
@@ -924,13 +942,22 @@ async function isWitnessed(zoneId) {
   return false;
 }
 
-async function raiseWanted(player, amount, reason) {
+async function raiseWanted(player, amount, reason, zoneId) {
   if (!player?.id || !player.handle) return;    // players only
   const s = wantedState(player.id);
   const prev = s.stars;
   s.stars = Math.min(MAX_STARS, s.stars + amount);
+  s.maxStars = Math.max(s.maxStars || 0, s.stars);   // peak heat this spree — the charge you'll book on
   s.lastCrimeTs = Date.now();
   s.lastSeenTs = Date.now();
+  s.crimeZone = zoneId || player.current_zone || s.crimeZone;   // muster point = latest crime scene
+  if (prev <= 0) s.pursuitStartTs = Date.now();                 // fresh manhunt — start the arrival clock
+  // Rap sheet — the distinct reasons behind this heat, for the arrest booking
+  // record (read via the WANTED_CHARGES action). Newest last, capped at 6.
+  if (reason && !s.charges.includes(reason)) {
+    s.charges.push(reason);
+    if (s.charges.length > 6) s.charges.shift();
+  }
   await setFlag('player', 'wanted', s.stars, player);
   if (s.stars !== prev) {
     sendToPlayer(player.id, { type: 'system', message: `<span class="text-red">⚠ WANTED ${starBar(s.stars)}</span> — ${reason}.` });
@@ -945,6 +972,29 @@ registerAction({
   handler: async ({ actor, params }) => {
     await raiseWanted(actor, params?.amount ?? 1, params?.reason || 'a crime');
     return { type: 'wanted', stars: wantedState(actor.id).stars };
+  },
+});
+
+// Cross-plugin seam: read the suspect's current rap sheet (the reasons behind
+// their heat) without importing surveillance internals. Jail reads this on
+// booking to print the charge on the arrest record. Returns a copy of the
+// accumulated reason list (empty if no active heat).
+registerAction({
+  type: 'WANTED_CHARGES',
+  handler: ({ actor }) => {
+    const s = wantedRuntime.get(actor?.id);
+    return { type: 'charges', charges: s ? [...s.charges] : [] };
+  },
+});
+
+// Cross-plugin seam: read the PEAK wanted level reached this spree (not the
+// possibly-decayed current one). Jail books the arrest on this — decay 5★ → ½★
+// and you're still charged for the 5★ you earned. Falls back to current stars.
+registerAction({
+  type: 'WANTED_PEAK',
+  handler: ({ actor }) => {
+    const s = wantedRuntime.get(actor?.id);
+    return { type: 'peak', peak: s ? Math.max(s.maxStars || 0, s.stars) : 0 };
   },
 });
 
@@ -1025,6 +1075,41 @@ function crimeAlert(zoneId, def = SFX_CRIME_ALERT, { silent = false } = {}) {
 // `forced` short-circuits the witness gate: the caller already knows a specific
 // witness saw it (e.g. a vendor catching you cracking their own safe) that the
 // generic isWitnessed() sweep — cameras / cops / other players — wouldn't count.
+// ── Crime log (dev Emergency panel feed) ──────────────────────────────────────
+// Active rows are one-per-witnessed-crime; the panel polls them live. When a
+// suspect's wanted level clears (arrest / death / bribe / scrub / decay), all of
+// their active rows flush to history with the outcome noted.
+let _crimeSeq = 0;
+const crimeBoard = [];       // active: [{ id, playerId, perpetrator, zoneId, zone, crimeKey, crime, wanted, ts }]
+const crimeHistory = [];   // newest-first; same shape + { clearedTs, outcome }
+const CRIME_HISTORY_MAX = 100;
+
+function logActiveCrime(player, key, zoneId, label) {
+  crimeBoard.push({
+    id: ++_crimeSeq,
+    playerId: player.id,
+    perpetrator: player.handle,
+    zoneId,
+    zone: getZone(zoneId)?.name || zoneId || 'unknown',
+    crimeKey: key,
+    crime: label,
+    wanted: wantedState(player.id).stars,   // heat right after this crime charged
+    ts: Date.now(),
+  });
+}
+
+// Move all of a suspect's active crimes to history. Called from every wanted-clear
+// path so a cleared perpetrator's rap sheet leaves the live board.
+function flushCrimesToHistory(playerId, outcome) {
+  const now = Date.now();
+  for (let i = crimeBoard.length - 1; i >= 0; i--) {
+    if (crimeBoard[i].playerId !== playerId) continue;
+    crimeHistory.unshift({ ...crimeBoard[i], clearedTs: now, outcome: outcome || 'cleared' });
+    crimeBoard.splice(i, 1);
+  }
+  if (crimeHistory.length > CRIME_HISTORY_MAX) crimeHistory.length = CRIME_HISTORY_MAX;
+}
+
 async function raiseCrime(player, key, zoneId, suspectName, forced = false) {
   if (!player?.id || !player.handle) return;
   const stars = getCrimeStars(key);
@@ -1033,10 +1118,10 @@ async function raiseCrime(player, key, zoneId, suspectName, forced = false) {
   const onCamera = await cameraLiveInZone(zoneId);
   const pdCamera = (await getPoliceCamZones()).has(zoneId);
   const witness = getCrimeWitness(key);
-  const seen = forced ? true
-    : witness === 'always' ? true
-    : witness === 'camera' ? onCamera
-    : await isWitnessed(zoneId);
+  // Nobody catches a crime with certainty anymore: a camera rolls a (flat, for a
+  // one-shot act) catch chance, an on-scene cop is very likely to make you, and a
+  // bystander only rarely bothers to phone it in. `forced` still short-circuits.
+  const seen = forced ? true : await witnessRoll(zoneId, witness, onCamera, CAM_CATCH_BASE);
   if (!seen) return;
 
   const dkey = `${player.id}:${key}`;
@@ -1049,7 +1134,8 @@ async function raiseCrime(player, key, zoneId, suspectName, forced = false) {
   emit('crime.witnessed', { player: { id: player.id, handle: player.handle }, key, zoneId, label });
   if (onCamera) flashCamera(zoneId, suspectName || player.handle, label);
   logCrime(zoneId, key);
-  await raiseWanted(player, stars, label.toLowerCase());
+  await raiseWanted(player, stars, label.toLowerCase(), zoneId);
+  logActiveCrime(player, key, zoneId, label);
   await logPoliceEvidence(zoneId, [key], player.handle);
   if (stars >= 1) {  // no sirens over a half-star puff
     // ATM robbery is witness:'always', so this fires on every single drain —
@@ -1084,10 +1170,17 @@ on('atm.drained', ({ player, zoneId }) => {
 on('theft.caught', ({ player, zoneId }) => {
   if (player?.id) raiseCrime(player, 'theft', zoneId || player.current_zone, player.handle);
 });
-on('hololock.breached', ({ player, zoneId, ownerWitness }) => {
-  // A resident NPC watching you break into their own home always counts as a
-  // witness — they call it in on the spot — even with no camera/cop/bystander.
-  if (player?.id) raiseCrime(player, 'burglary', zoneId || player.current_zone, player.handle, !!ownerWitness);
+on('hololock.breached', ({ player, zoneId }) => {
+  // Breaching a lock is only a burglary charge here if a camera/cop/bystander
+  // witnesses it (the generic 'any' gate). A resident NPC who hears you no
+  // longer auto-charges on breach — the burglary plugin gates that on the NPC
+  // surviving their panic cop-call or fleeing, and reports it separately below.
+  if (player?.id) raiseCrime(player, 'burglary', zoneId || player.current_zone, player.handle);
+});
+// The burglary alarm plugin fires this once a resident NPC has actually raised
+// the alarm (survived their cop-call, or fled the unit) — a guaranteed witness.
+on('burglary.reported', ({ player, zoneId }) => {
+  if (player?.id) raiseCrime(player, 'burglary', zoneId || player.current_zone, player.handle, true);
 });
 // A vendor catching you cracking their safe is a guaranteed witness — charge
 // hacking even when no camera/cop/bystander is present (forced witness).
@@ -1097,6 +1190,126 @@ on('vendor.safeHackWitnessed', ({ player, zoneId }) => {
 on('player.death', ({ killer }) => {
   if (killer?.id && killer?.handle) raiseCrime(killer, 'murder', killer.current_zone, killer.handle);
 });
+// Relieving yourself anywhere but a toilet (bodily plugin) — indecent exposure.
+on('bodily.publicRelief', ({ player, zoneId }) => {
+  if (player?.id) raiseCrime(player, 'indecent_exposure', zoneId || player.current_zone, player.handle);
+});
+
+// ── Time-variable camera detection (ongoing crimes) ──────────────────────────
+// A camera doesn't make you the instant a crime starts. While an offence is
+// actively being committed — jacked into an ATM, or standing naked under a PD
+// lens — each 5s scan rolls a catch chance that ramps from CAM_CATCH_BASE toward
+// CAM_CATCH_MAX the longer it drags on. Quick jobs can slip past a lens; lingering
+// ones almost always get made. This is what makes cameras < 100% catch rate.
+const CAM_CATCH_BASE = 0.2;       // catch chance on the first scan of an offence
+const CAM_CATCH_MAX = 0.9;        // ceiling, no matter how long it runs
+const CAM_CATCH_RAMP_MS = 30000;  // reaches the ceiling after ~30s of offending
+const ATM_JACK_MAX_MS = 180000;   // safety cap: drop an abandoned ATM session
+const COP_CATCH = 0.9;            // an on-scene cop is very likely to make you
+const BYSTANDER_REPORT = 0.12;    // another player rarely bothers to phone it in
+
+function camCatchChance(elapsedMs) {
+  const t = Math.min(1, Math.max(0, elapsedMs) / CAM_CATCH_RAMP_MS);
+  return CAM_CATCH_BASE + (CAM_CATCH_MAX - CAM_CATCH_BASE) * t;
+}
+
+// The single probabilistic witness gate for every crime. A live camera rolls
+// `camChance` (flat for a one-shot act; time-ramped for an ongoing one). For an
+// `any`-witnessed crime an on-scene cop is very likely to catch it, while a mere
+// bystander only rarely reports. `camera`-only crimes ignore cops/bystanders;
+// `always` crimes are self-reporting.
+async function witnessRoll(zoneId, witness, onCamera, camChance) {
+  if (!zoneId) return false;
+  if (witness === 'always') return true;
+  if (onCamera && Math.random() < camChance) return true;
+  if (witness === 'camera') return false;
+  if ((getZoneNpcs(zoneId) || []).some(n => n.flags?.police) && Math.random() < COP_CATCH) return true;
+  if ((getZonePlayers(zoneId) || []).length > 1 && Math.random() < BYSTANDER_REPORT) return true;
+  return false;
+}
+
+// playerId -> Map(crimeKey -> { zoneId, startTs, cap })
+const activeCrimes = new Map();
+function beginActiveCrime(playerId, key, zoneId, cap = 0) {
+  if (!playerId || !zoneId) return;
+  let m = activeCrimes.get(playerId);
+  if (!m) { m = new Map(); activeCrimes.set(playerId, m); }
+  if (!m.has(key)) m.set(key, { zoneId, startTs: Date.now(), cap });
+}
+function endActiveCrime(playerId, key) {
+  const m = activeCrimes.get(playerId);
+  if (!m) return;
+  m.delete(key);
+  if (!m.size) activeCrimes.delete(playerId);
+}
+
+// ATM breach: crime chance runs for the whole jacked-in session (jack → resolve).
+on('atm.jacked', ({ player, zoneId }) => {
+  if (player?.id) beginActiveCrime(player.id, 'hacking', zoneId || player.current_zone, ATM_JACK_MAX_MS);
+});
+on('atm.jackResolved', ({ player }) => { if (player?.id) endActiveCrime(player.id, 'hacking'); });
+on('atm.drained', ({ player }) => { if (player?.id) endActiveCrime(player.id, 'hacking'); });
+
+// Which of these player ids are naked — nothing equipped on torso AND legs?
+async function nakedAmong(playerIds) {
+  if (!playerIds.length) return new Set();
+  const { rows } = await query(
+    `SELECT DISTINCT pi.player_id FROM player_inventory pi JOIN items i ON i.id = pi.item_id
+      WHERE pi.player_id = ANY($1) AND pi.is_equipped = 1 AND (i.tags->>'slot') IN ('torso','legs')`,
+    [playerIds]
+  ).catch(() => ({ rows: [] }));
+  const covered = new Set(rows.map(r => r.player_id));
+  return new Set(playerIds.filter(id => !covered.has(id)));
+}
+
+// Each tick: refresh the naked-in-view offences, then roll a witness catch on
+// every active offence, the camera odds ramping with how long it's been running.
+async function scanActiveCrimes() {
+  // 1. Derive indecent-exposure offences: players naked where a witness (a live
+  //    camera or an on-scene cop) could see them. Dedup camera lookups by zone.
+  const byZone = new Map();   // zoneId -> [player]
+  for (const p of getAllLivePlayers()) {
+    if (!p.current_zone) continue;
+    if (!byZone.has(p.current_zone)) byZone.set(p.current_zone, []);
+    byZone.get(p.current_zone).push(p);
+  }
+  const candidates = [];   // { id, zone }
+  for (const [zoneId, ps] of byZone) {
+    const cop = (getZoneNpcs(zoneId) || []).some(n => n.flags?.police);
+    if (!cop && !await cameraLiveInZone(zoneId)) continue;
+    for (const p of ps) candidates.push({ id: p.id, zone: zoneId });
+  }
+  const naked = await nakedAmong(candidates.map(c => c.id));
+  const nakedNow = new Set();
+  for (const c of candidates) {
+    if (!naked.has(c.id)) continue;
+    nakedNow.add(c.id);
+    beginActiveCrime(c.id, 'indecent_exposure', c.zone);
+    activeCrimes.get(c.id).get('indecent_exposure').zoneId = c.zone;   // follow them between zones
+  }
+  for (const [pid, m] of activeCrimes) {
+    if (m.has('indecent_exposure') && !nakedNow.has(pid)) endActiveCrime(pid, 'indecent_exposure');
+  }
+
+  // 2. Roll a witness catch on every active offence.
+  const now = Date.now();
+  for (const [pid, m] of [...activeCrimes]) {
+    const player = getLivePlayer(pid);
+    if (!player) { activeCrimes.delete(pid); continue; }
+    for (const [key, info] of [...m]) {
+      if (info.cap && now - info.startTs > info.cap) { m.delete(key); continue; }
+      if (player.current_zone !== info.zoneId) { m.delete(key); continue; }   // left the scene
+      const onCam = await cameraLiveInZone(info.zoneId);
+      if (await witnessRoll(info.zoneId, getCrimeWitness(key), onCam, camCatchChance(now - info.startTs))) {
+        await raiseCrime(player, key, info.zoneId, player.handle, true);
+        m.delete(key);   // caught; the 12s debounce covers a resumed streak
+      }
+    }
+    if (!m.size) activeCrimes.delete(pid);
+  }
+}
+
+on('player.logout', ({ id }) => { activeCrimes.delete(id); });
 
 // Set an online player's stars to an exact value (bribe/scrub). Rebuilds the
 // hunter roster to the new tier; clears entirely at 0.
@@ -1107,7 +1320,7 @@ async function setStars(player, stars, reason) {
   await setFlag('player', 'wanted', s.stars, player);
   sendWantedHud(player.id, s.stars);
   if (reason) sendToPlayer(player.id, { type: 'system', message: `<span class="text-dim">${reason}</span>` });
-  if (s.stars <= 0) wantedRuntime.delete(player.id);
+  if (s.stars <= 0) { wantedRuntime.delete(player.id); flushCrimesToHistory(player.id, reason || 'cleared'); }
 }
 
 // Clear by id — safe for offline players (death / decay-to-zero).
@@ -1115,6 +1328,7 @@ async function clearWanted(playerId, reason) {
   const s = wantedRuntime.get(playerId);
   if (s) despawnHunters(s);
   wantedRuntime.delete(playerId);
+  flushCrimesToHistory(playerId, reason || 'cleared');
   const p = getLivePlayer(playerId);
   if (p) {
     await setFlag('player', 'wanted', 0, p);
@@ -1130,47 +1344,75 @@ function spawnHunter(template, zoneId, suspectId) {
   inst.behaviour_graph = WANTED_HUNTER_GRAPH;
   inst.home_zone = zoneId;
   inst.flags = { ...(inst.flags || {}), hunter: true, suspect_id: suspectId };
-  inst.targetId = suspectId;
-  inst.aggroedAt = Date.now();
+  inst.targetId = null;         // acquired by searchAndPursue only once co-located
+  inst.aggroedAt = null;
   if (inst._ai) inst._ai.flags.cried = false;
   return inst.instanceId;
 }
 
-// Keep the roster deployed at the suspect's current location; redeploy stragglers.
-async function reconcileAndPursue(suspectId, s) {
+// One search step: usually pathfind a zone toward the suspect, but HUNT_RANDOM of
+// the time (or whenever there's no path) wander to a random neighbour instead —
+// that's the "little random" that lets a suspect give them the slip.
+function huntStep(e, targetZone, bc) {
+  let dest = null;
+  if (Math.random() >= HUNT_RANDOM) {
+    const path = findPath(e.zoneId, targetZone);
+    if (path && path.length >= 2) dest = path[1];
+  }
+  if (!dest) {
+    const nbrs = neighborZoneIds(getZone(e.zoneId));
+    if (nbrs.length) dest = nbrs[Math.floor(Math.random() * nbrs.length)];
+  }
+  if (dest && dest !== e.zoneId && bc) moveEntity(e, dest, bc, query);
+}
+
+// Deploy from the crime scene, then hunt: each tick a unit either engages (same
+// zone as the suspect) or takes one search step toward them. Units are NOT
+// teleported onto the suspect — you can lose them by moving and staying unseen.
+async function searchAndPursue(suspectId, s) {
   const suspect = getLivePlayer(suspectId);
   if (!suspect?.current_zone) return;
   const zone = suspect.current_zone;
+  const bc = getBroadcast();
 
-  // Prune dead, redeploy any hunter not in the suspect's zone.
+  // Prune dead.
   for (const iid of [...s.hunters]) {
-    const e = world.enemies.get(iid);
-    if (!e) { s.hunters.delete(iid); continue; }
-    if (e.zoneId !== zone) { removeEnemyInstance(iid); s.hunters.delete(iid); }
+    if (!world.enemies.get(iid)) s.hunters.delete(iid);
   }
 
+  // Maintain the roster for the current tier — reinforcements muster at the scene.
+  const spawnZone = s.crimeZone || zone;
   const haveByTpl = new Map();
   for (const iid of s.hunters) {
     const e = world.enemies.get(iid);
     if (e) haveByTpl.set(e.templateId, (haveByTpl.get(e.templateId) || 0) + 1);
   }
-
   let deployed = false;
   for (const [tpl, n] of (TIERS[Math.floor(s.stars)] || [])) {
     const have = haveByTpl.get(tpl) || 0;
     for (let i = have; i < n; i++) {
       const template = await getEnemyTemplate(tpl);
       if (!template) continue;   // template not seeded — skip tier gracefully
-      s.hunters.add(spawnHunter(template, zone, suspectId));
+      s.hunters.add(spawnHunter(template, spawnZone, suspectId));
       deployed = true;
     }
   }
-  // Keep targets locked on the suspect.
+  if (deployed) sendToZone(spawnZone, { type: 'ambient', message: 'Boots and servos — a SPECTER-PD unit fans out from the scene, hunting.' });
+
+  // Engage if co-located; otherwise step toward the suspect and re-check on arrival.
   for (const iid of s.hunters) {
     const e = world.enemies.get(iid);
-    if (e) { e.targetId = suspectId; if (!e.aggroedAt) e.aggroedAt = Date.now(); }
+    if (!e) { s.hunters.delete(iid); continue; }
+    if (e.zoneId !== zone) {
+      e.targetId = null;
+      e.aggroedAt = null;
+      huntStep(e, zone, bc);
+    }
+    if (e.zoneId === zone) {
+      e.targetId = suspectId;
+      if (!e.aggroedAt) e.aggroedAt = Date.now();
+    }
   }
-  if (deployed) sendToZone(zone, { type: 'ambient', message: 'Boots and servos in the corridor — SPECTER-PD has your position.' });
 }
 
 async function wantedTick() {
@@ -1190,7 +1432,10 @@ async function wantedTick() {
       sendWantedHud(pid, s.stars);
       sendToPlayer(pid, { type: 'system', message: `<span class="text-dim">The heat's dropping. ${starBar(s.stars)}</span>` });
     }
-    await reconcileAndPursue(pid, s);
+    // Units are still en route until the star-scaled response delay elapses —
+    // but once anything's deployed, keep pursuing without re-gating.
+    if (s.hunters.size === 0 && Date.now() - (s.pursuitStartTs || s.lastCrimeTs) < responseDelayMs(s.stars)) continue;
+    await searchAndPursue(pid, s);
   }
 }
 setInterval(() => wantedTick().catch(e => console.error('[surveillance] wanted tick error:', e.message)), 4000);
@@ -1201,7 +1446,9 @@ on('player.login', async ({ id }) => {
   const stars = parseFloat(await getFlag('player', 'wanted', p) || '0') || 0;
   if (stars > 0) {
     const s = wantedState(id);
-    s.stars = stars; s.lastSeenTs = Date.now(); s.lastCrimeTs = Date.now();
+    s.stars = stars; s.maxStars = Math.max(s.maxStars || 0, stars);
+    s.lastSeenTs = Date.now(); s.lastCrimeTs = Date.now(); s.pursuitStartTs = Date.now();
+    s.crimeZone = p.current_zone || null;
     sendWantedHud(id, stars);
   }
 });
@@ -1325,5 +1572,26 @@ export const specializedActions = [
   { verb: 'use', requiredTag: 'security_console', handler: doUseConsole },
   { verb: 'use', requiredTag: 'datachip', handler: doUseDatachip },
 ];
+
+// ── Dev route: live crime log for the Emergency panel ─────────────────────────
+function _devOk(auth) {
+  return auth && ['dev', 'admin', 'builder', 'designer'].includes(auth.role);
+}
+
+export const routeHandler = async (path, method, body, auth) => {
+  if (!path.startsWith('/surveillance')) return null;
+  if (!_devOk(auth)) return { status: 403, body: { error: 'Dev access required' } };
+
+  if (path === '/surveillance/crime-log' && method === 'GET') {
+    // Active rows carry the suspect's *live* heat so the panel reflects rises and
+    // decay between polls; history keeps the level captured at clear time.
+    const active = crimeBoard
+      .map(c => ({ ...c, wanted: wantedRuntime.get(c.playerId)?.stars ?? c.wanted }))
+      .sort((a, b) => b.ts - a.ts);
+    return { status: 200, body: { active, history: crimeHistory } };
+  }
+
+  return null;
+};
 
 console.log('[surveillance] Plugin loaded.');

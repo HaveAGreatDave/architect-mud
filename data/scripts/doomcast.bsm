@@ -1,0 +1,342 @@
+@broadcast "DOOMCAST — Seven-Day Outlook"
+@channel wx9
+@category weather
+@host npc_dex_rime
+@length 120
+@type weather
+@titlecard wx_doomcast_title
+
+::actors
+@actor npc_dex_rime
+@alias npc_dex_rime DEX
+::endactors
+
+::asset wx_doomcast_title
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" font-family="'Segoe UI',Helvetica,Arial,sans-serif">
+  <defs>
+    <linearGradient id="wxsky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0a1524"/>
+      <stop offset="0.55" stop-color="#0a1018"/>
+      <stop offset="1" stop-color="#05070c"/>
+    </linearGradient>
+    <radialGradient id="wxsweep" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#35e0d6" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#35e0d6" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="640" height="360" fill="url(#wxsky)"/>
+
+  <!-- scanlines -->
+  <g stroke="#0f2030" stroke-width="1" opacity="0.35">
+    <line x1="0" y1="60" x2="640" y2="60"/>
+    <line x1="0" y1="120" x2="640" y2="120"/>
+    <line x1="0" y1="180" x2="640" y2="180"/>
+    <line x1="0" y1="240" x2="640" y2="240"/>
+    <line x1="0" y1="300" x2="640" y2="300"/>
+  </g>
+
+  <!-- radar dish, upper-right -->
+  <g transform="translate(500,110)">
+    <circle r="78" fill="#07131c" stroke="#173444" stroke-width="1.5"/>
+    <circle r="52" fill="none" stroke="#173444" stroke-width="1"/>
+    <circle r="26" fill="none" stroke="#173444" stroke-width="1"/>
+    <line x1="-78" y1="0" x2="78" y2="0" stroke="#173444" stroke-width="1"/>
+    <line x1="0" y1="-78" x2="0" y2="78" stroke="#173444" stroke-width="1"/>
+    <g>
+      <path d="M0 0 L78 0 A78 78 0 0 0 55 -55 Z" fill="url(#wxsweep)"/>
+      <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="4s" repeatCount="indefinite"/>
+    </g>
+    <circle cx="34" cy="-20" r="3" fill="#f5a623"/>
+    <circle cx="-40" cy="14" r="2.5" fill="#ff4a4a"/>
+    <circle cx="10" cy="46" r="2" fill="#35e0d6"/>
+  </g>
+
+  <!-- lightning bolt accent, lower-left -->
+  <path d="M120 208 L96 262 L118 262 L100 316 L156 250 L132 250 L152 208 Z"
+        fill="#f5a623" opacity="0.92"/>
+
+  <!-- title -->
+  <text x="40" y="150" fill="#eaf4f8" font-size="76" font-weight="800" letter-spacing="4">DOOMCAST</text>
+  <rect x="42" y="168" width="300" height="3" fill="#35e0d6"/>
+  <text x="44" y="196" fill="#35e0d6" font-size="19" font-weight="600" letter-spacing="6">WX-9 · METEOWATCH</text>
+
+  <!-- footer band -->
+  <rect x="0" y="322" width="640" height="38" fill="#0c1a24"/>
+  <rect x="0" y="322" width="640" height="2" fill="#f5a623"/>
+  <text x="20" y="347" fill="#9fb8c4" font-size="15" font-weight="600" letter-spacing="3">SEVEN-DAY OUTLOOK</text>
+  <text x="620" y="347" fill="#eaf4f8" font-size="15" font-weight="600" letter-spacing="2" text-anchor="end">with DOPPLER DEX RIME</text>
+</svg>
+::endasset
+
+# ═══════════════════════════════════════════════════════════════════════════
+# DOOMCAST — line library for the weathercaster "Doppler" Dex Rime.
+# The runner assembles a fresh report each airing from the live 7-day forecast,
+# picking one line per matching pool and filling {tokens}. Weather forecasts are
+# acted live: Dex must be in the studio or the channel drops to camera-idle then
+# technical difficulties. See docs/bsm-format.md#weather-broadcasts-type-weather.
+# ═══════════════════════════════════════════════════════════════════════════
+
+# ── Sign-on (time-of-day preferred, generic fallback) ──────────────────────
+::lines intro.morning
+Morning, what's left of you. Doppler Dex Rime, DOOMCAST, and the sky's already made its mind up.
+Rise and shine — well, rise. This is the {season} outlook, and it owes you nothing.
+Up early? Bold. Dex Rime here with the forecast the Bureau doesn't want narrated.
+::endlines
+
+::lines intro.afternoon
+Afternoon, survivors. Dex Rime, DOOMCAST, halfway through another {season} the planet's clearly regretting.
+You made it to midday. Let's see what the atmosphere's charging you for the rest of it.
+::endlines
+
+::lines intro.evening
+Evening. Dex Rime with the DOOMCAST, because somebody has to tell you what's coming after dark.
+Good evening. The sun's clocking out, and I've got the overnight bad news ready to go.
+::endlines
+
+::lines intro.night
+Still awake? Same. Dex Rime, DOOMCAST, graveyard edition — here's the sky at this ungodly hour.
+Night owls, insomniacs, fugitives: Dex Rime here. The forecast doesn't sleep either.
+::endlines
+
+::lines intro
+Doppler Dex Rime, and this is the only DOOMCAST that still bothers to check.
+Dex Rime here. Let's find out what the atmosphere's planning to do to you.
+::endlines
+
+# ── Hand-off into current conditions ───────────────────────────────────────
+::lines today.lead
+Here's what's waiting the second you step outside.
+Current conditions — and I do mean conditions.
+Right now, out there, this is the situation.
+Let's start with the here, the now, and the regrettable.
+::endlines
+
+# ── Sky by weather type (today AND each forecast day) ──────────────────────
+::lines sky.clear
+Clear skies. Enjoy the exposure while the atmosphere pretends to be your friend.
+Not a cloud in it — just wide-open sky and whatever's still falling out of it.
+{day}: clear. Suspiciously clear. Trust nothing.
+::endlines
+
+::lines sky.fog
+Fog. Visibility measured in arm's-lengths. Walk into things carefully out there.
+A thick fog's rolled in — the city's gone, and honestly it's an improvement.
+{day}: fog, {humidity}% humidity, and the distinct sense you're being followed.
+::endlines
+
+::lines sky.haze
+Haze hanging over everything — that flat grey soup we call air these days.
+A dirty haze today. Breathe shallow, blink often.
+{day}: haze. The skyline's a rumour.
+::endlines
+
+::lines sky.cloudy
+Clouds, plural, doing that oppressive committee thing they do.
+Partly cloudy — the sky can't commit, same as everyone.
+{day}: cloud cover, {temp} degrees, mood grey.
+::endlines
+
+::lines sky.overcast
+Full overcast. A lid on the whole city. No sky, just ceiling.
+Overcast and staying that way — the sun filed for absence.
+{day}: solid overcast. Bring your own light.
+::endlines
+
+::lines sky.rain
+Rain, {precip}% of it, because of course. Bring something waterproof that isn't your skin.
+It's coming down out there. Not clean rain — is it ever — but rain.
+{day}: rain at {precip}%. Puddles with opinions.
+::endlines
+
+::lines sky.sleet
+Sleet. The worst of both worlds, arriving sideways.
+Half rain, half ice, all misery — that's sleet, and it's here.
+{day}: sleet, {temp} degrees. Dress for betrayal.
+::endlines
+
+::lines sky.snow
+Snow. Pretty from a window, lethal from a doorway.
+It's snowing — {temp} degrees of it settling on everything that stops moving.
+{day}: snow. Layer up or become part of the scenery.
+::endlines
+
+::lines sky.thunderstorm
+Thunderstorm rolling through. If you can count the gap to the thunder, you're too close.
+Lightning's on the menu. {precip}% chance of the sky picking a target.
+{day}: thunderstorms. Metal roofs, unlucky people — stay clear of both.
+::endlines
+
+::lines sky.blizzard
+A full blizzard. {temp} degrees, feels like {feels}, feels like the end.
+Whiteout conditions — if you can read this, you're indoors, and you should stay that way.
+{day}: blizzard. This one kills the unprepared. Don't audition.
+::endlines
+
+::lines sky.storm
+A proper storm — wind, water, and the power grid holding its breath.
+The whole system's dropped on us at once. {wind} km/h and climbing.
+{day}: storm-force everything. Tie down what you love.
+::endlines
+
+# ── Temperature bands ──────────────────────────────────────────────────────
+::lines temp.frigid
+{temp} degrees. Your extremities are officially on their own out there.
+{temp} — that's not weather, that's a warning. Exposed skin freezes fast.
+::endlines
+
+::lines temp.cold
+A biting {temp} degrees. Every gap in your coat is a mistake you'll feel.
+{temp} and cold enough to bite. Keep moving or keep warm; pick one.
+::endlines
+
+::lines temp.cool
+{temp} degrees, cool and grey. Jacket weather, if you own a jacket.
+A cool {temp}. Not cruel, just unwelcoming — the city's default setting.
+::endlines
+
+::lines temp.mild
+A frankly suspicious {temp} degrees. Enjoy it, distrust it.
+{temp} and mild — the atmosphere's clearly planning something. It always is.
+::endlines
+
+::lines temp.warm
+A warm {temp} degrees. Almost pleasant, if you don't think about why.
+{temp} and climbing into comfortable. Savour it before it curdles.
+::endlines
+
+::lines temp.hot
+{temp} degrees and hot. Hydrate, stay shaded, and don't touch the metal.
+A hard {temp}. The pavement's cooking. So are you, slower.
+::endlines
+
+::lines temp.scorching
+{temp} degrees — scorching. This is heatstroke weather. Treat the sun as hostile.
+{temp}. That's not summer, that's an oven with a schedule. Stay inside if you can.
+::endlines
+
+# ── Wind (only voiced when notable) ────────────────────────────────────────
+::lines wind.calm
+Dead calm, too — not a breath of wind, which fog and worse just love.
+::endlines
+
+::lines wind.windy
+Add a {wind} km/h wind to file the warmth right off you.
+And a steady {wind} km/h blow — {windLabel} — so mind the loose signage.
+::endlines
+
+::lines wind.strong
+Strong winds at {wind} km/h. Anything not bolted down is now airborne inventory.
+::endlines
+
+::lines wind.gale
+A {wind} km/h gale on top — {windLabel}. Lean into it and pray your boots hold.
+::endlines
+
+# ── Humidity (only voiced dry / oppressive) ────────────────────────────────
+::lines humid.dry
+Bone-dry air at {humidity}% — your lips will crack before your patience does.
+::endlines
+
+::lines humid.oppressive
+And {humidity}% humidity — the air's basically soup. You won't so much breathe as wade.
+::endlines
+
+# ── Severe-weather warnings (day severity ≥ 0.45) ──────────────────────────
+::lines warn.cold
+⚠ Bundle up {day} — {temp} degrees will stop your heart if the muggers don't.
+⚠ Cold warning for {day}. Thermal gear isn't optional; it's the difference.
+::endlines
+
+::lines warn.heat
+⚠ Heat warning, {day}. {temp} degrees. Shade, water, and don't be a hero at noon.
+⚠ {day} bakes at {temp}. Heatstroke's free and quick — decline it.
+::endlines
+
+::lines warn.wind
+⚠ Wind warning for {day} — {wind} km/h. Stay off the rooftops and away from the glass.
+⚠ {day}: gale-force gusts. If it can fall on you, assume it will.
+::endlines
+
+::lines warn.blizzard
+⚠ Severe: {day} is a killer. Thermal gear or a will — your call.
+⚠ Blizzard warning, {day}. {feels}-degree windchill. This one takes stragglers.
+::endlines
+
+::lines warn.storm
+⚠ Storm warning for {day}. Lightning, wind, and a grid that may not hold. Stay in.
+⚠ {day} brings the whole storm. Charge what you can now — power's not promised.
+::endlines
+
+::lines warn.generic
+⚠ Take {day} seriously — the numbers say severe, and the numbers don't flatter.
+::endlines
+
+# ── Hand-off into the week ─────────────────────────────────────────────────
+::lines forecast.lead
+Looking down the barrel of the week, and I use "looking" generously.
+Now the seven-day — brace accordingly.
+Here's the outlook, such as it is.
+Let's walk the week. Try not to make plans.
+::endlines
+
+# ── Forecast-day transitions ───────────────────────────────────────────────
+::lines ahead.tomorrow
+Tomorrow:
+Come tomorrow —
+::endlines
+
+::lines ahead.midweek
+Midweek, around {day} —
+By {day}:
+::endlines
+
+::lines ahead.weekend
+Come the weekend —
+Toward {day}, if we get there:
+::endlines
+
+::lines ahead.next
+Then {day} —
+::endlines
+
+# ── Week-arc trend ─────────────────────────────────────────────────────────
+::lines trend.warming
+Trend's upward — {loTemp} today crawling toward {hiTemp} by week's end. Make of that what you will.
+It warms as the week goes. {hiTemp} degrees waiting at the far side.
+::endlines
+
+::lines trend.cooling
+It's all downhill — we shed heat from {hiTemp} to {loTemp} before the week's out. Dig out the layers.
+Cooling trend. {loTemp} degrees is where this week is dragging us.
+::endlines
+
+::lines trend.clearing
+The good news, and I choke saying it — the wet clears as the week runs on.
+It dries out toward the weekend. Briefly. Don't get attached.
+::endlines
+
+::lines trend.deteriorating
+It gets worse. {severeCount} severe days ahead, {worstDay} the worst of them. Plan around it or pay for it.
+Deteriorating fast — {severeCount} days flagged severe this week. {worstDay}'s the one to fear.
+::endlines
+
+::lines trend.steady
+Steady as a flatline the whole week — same grey, same grind. Consistency, at least.
+No real change ahead. The sky's found its rut and it's staying in it.
+::endlines
+
+# ── Sign-off ───────────────────────────────────────────────────────────────
+::lines outro
+That's the DOOMCAST. The weather's still trying to kill you — I'm just the one who says so out loud.
+Doppler Dex Rime. Stay sealed, stay indoors, stay suspicious of clear skies. Back to you.
+That's your seven days. Dress for the worst of them. Rime, out.
+::endlines
+
+# ── Ad-libs (format-reserved; the current runner doesn't inject these yet) ──
+::lines adlib.grim
+...not that any of us are going far.
+...for whatever that's worth to a person your age.
+::endlines
+
+END

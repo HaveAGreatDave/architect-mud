@@ -161,6 +161,9 @@ function devOk(auth) {
 
 function broadcastDuration(bc) {
   if (bc.override_duration) return bc.override_duration;
+  // Weather graphs are assembled live from the forecast (not baked in the DB), so
+  // there's nothing to measure here — give the slot a sane default airtime.
+  if (bc.playback_mode === 'weather') return 120;
   if (bc.broadcast_graph) {
     const d = _vineDuration(bc.broadcast_graph, bc.message_interval || 5);
     if (d > 0) return d;
@@ -232,7 +235,7 @@ async function loadChannelRuntimes() {
         WHERE c.enabled = 1 ORDER BY c.number`
     );
     const { rows: playlist } = await query(
-      `SELECT p.*, b.name AS broadcast_name, b.playback_mode, b.messages, b.message_interval, b.override_duration, b.loop, b.broadcast_graph, b.fallback_messages
+      `SELECT p.*, b.name AS broadcast_name, b.playback_mode, b.messages, b.message_interval, b.override_duration, b.loop, b.broadcast_graph, b.fallback_messages, b.weather_pools
          FROM media_channel_playlist p
          LEFT JOIN media_broadcasts b ON b.id = p.broadcast_id
         ORDER BY p.channel_id, p.start_time`
@@ -279,6 +282,8 @@ async function loadChannelRuntimes() {
         broadcastGraph = null;
       }
       const cond = typeof item.conditions === 'object' ? item.conditions : (item.conditions ? JSON.parse(item.conditions) : {});
+      let weatherScript = item.weather_pools;
+      if (typeof weatherScript === 'string') { try { weatherScript = JSON.parse(weatherScript); } catch { weatherScript = null; } }
       playlistByChannel.get(item.channel_id).push({
         id: item.id,
         broadcastId: item.broadcast_id,
@@ -287,6 +292,9 @@ async function loadChannelRuntimes() {
         startTime: item.start_time,
         duration: dur,
         playback_mode: item.playback_mode,
+        weatherPools: weatherScript?.pools || null,
+        weatherHost: weatherScript?.host || null,
+        weatherTitle: weatherScript?.title || null,
         messages: Array.isArray(item.messages) ? item.messages : (item.messages ? JSON.parse(item.messages) : []),
         message_interval: item.message_interval || 5,
         loop: item.loop,
@@ -434,6 +442,164 @@ function _playCommercial(state, nowMs) {
   return null;
 }
 
+// ── Weather broadcasts ────────────────────────────────────────────────────────
+// A weather broadcast (playback_mode 'weather') stores line pools instead of a
+// baked graph. Each airing we read the live 7-day forecast and assemble a fresh
+// VINE graph: the weathercaster greets, covers today, walks the week, warns on
+// severe days, signs off — one random line per matching pool, {tokens} filled
+// from the forecast. The assembled graph is cached on the playlist item and
+// re-rolled only when the forecast's lead day advances (the date is folded into
+// the graph's _broadcastId so the walker's blackboard resets cleanly).
+// Spec: docs/bsm-format.md#weather-broadcasts-type-weather.
+
+const WX_SEVERE = 0.45;                                    // matches the forecast panel's ⚠ band
+const WX_WET = new Set(['rain', 'sleet', 'snow', 'thunderstorm', 'blizzard', 'storm']);
+const WX_TEMP_BANDS = [                                    // first band whose ceiling the temp is under
+  ['frigid', -10], ['cold', 3], ['cool', 12], ['mild', 20], ['warm', 28], ['hot', 36], ['scorching', Infinity],
+];
+const WX_DOW = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+function wxTempBand(t)  { return (WX_TEMP_BANDS.find(([, max]) => t < max) || WX_TEMP_BANDS[6])[0]; }
+function wxWindBand(k)  { if (k == null) return null; return k < 6 ? 'calm' : k < 20 ? 'breezy' : k < 39 ? 'windy' : k < 62 ? 'strong' : 'gale'; }
+function wxWindLabel(k) { return { calm: 'Calm', breezy: 'Breezy', windy: 'Windy', strong: 'Strong', gale: 'Gale' }[wxWindBand(k)] || ''; }
+function wxHumidBand(h) { if (h == null) return null; return h < 35 ? 'dry' : h <= 65 ? 'comfortable' : h <= 85 ? 'humid' : 'oppressive'; }
+
+function wxSevereChannel(d) {
+  if (d.weatherType === 'blizzard') return 'blizzard';
+  if (d.weatherType === 'thunderstorm' || d.weatherType === 'storm') return 'storm';
+  if (d.tempC <= -12) return 'cold';
+  if (d.tempC >= 38) return 'heat';
+  if ((d.windKph ?? 0) >= 62) return 'wind';
+  return 'generic';
+}
+function wxDayLabel(i, date) {
+  if (i === 0) return 'today';
+  if (i === 1) return 'tomorrow';
+  try { return WX_DOW[new Date(`${date}T00:00:00Z`).getUTCDay()]; } catch { return `day ${i}`; }
+}
+function wxLeadKey(i) { return i === 1 ? 'tomorrow' : i <= 4 ? 'midweek' : i <= 6 ? 'weekend' : 'next'; }
+function wxTimeOfDayKey(env) {
+  const h = env.hour ?? 12;
+  return h >= 5 && h < 12 ? 'morning' : h < 17 ? 'afternoon' : h < 21 ? 'evening' : 'night';
+}
+function wxTrendKey(fc) {
+  const first = fc[0].tempC, last = fc[fc.length - 1].tempC;
+  const severeAhead = fc.slice(1).some(f => (f.severity ?? 0) >= WX_SEVERE);
+  if (severeAhead && last <= first) return 'deteriorating';
+  if (WX_WET.has(fc[0].weatherType) && !WX_WET.has(fc[fc.length - 1].weatherType)) return 'clearing';
+  if (last - first >= 5) return 'warming';
+  if (first - last >= 5) return 'cooling';
+  if (severeAhead) return 'deteriorating';
+  return 'steady';
+}
+function wxPick(pools, ...keys) {
+  for (const k of keys) {
+    const arr = pools[k];
+    if (Array.isArray(arr) && arr.length) return arr[Math.floor(Math.random() * arr.length)];
+  }
+  return null;
+}
+function wxFill(line, tok, unknown) {
+  return line.replace(/\{(\w+)\}/g, (_, k) => {
+    if (tok[k] !== undefined && tok[k] !== null) return String(tok[k]);
+    unknown.add(k);
+    return '';
+  });
+}
+function wxTokens(day, i, week, env) {
+  return {
+    weather: (day.weatherType || '').replace(/_/g, ' '),
+    temp: Math.round(day.tempC),
+    feels: i === 0 && env.feelsLikeC != null ? Math.round(env.feelsLikeC) : Math.round(day.tempC),
+    wind: day.windKph ?? 0,
+    windLabel: wxWindLabel(day.windKph),
+    humidity: day.humidityPct ?? '',
+    precip: Math.round((day.precipChance ?? 0) * 100),
+    day: wxDayLabel(i, day.date),
+    date: (day.date || '').slice(5),
+    hiTemp: week.hi, loTemp: week.lo, season: env.season || '',
+    severeCount: week.severeCount, worstDay: week.worstDay, host: week.hostName,
+  };
+}
+
+function assembleWeatherGraph(pools, hostId, forecast, env, broadcastId, titleId) {
+  const nodes = {};
+  let n = 0, prevId = null, startId = null;
+  const unknown = new Set();
+  const add = (data) => {
+    const id = `wx_${n++}`;
+    nodes[id] = { ...data };
+    if (prevId) nodes[prevId].next = id;
+    if (startId === null) startId = id;
+    prevId = id;
+    return id;
+  };
+  add({ type: 'start' });
+  if (titleId) add({ type: 'title_card', graphic_id: titleId });   // show the show's title card first
+  if (hostId) add({ type: 'npc_anchor', npc_id: hostId });
+
+  const temps = forecast.map(f => Math.round(f.tempC));
+  const worstIdx = forecast.reduce((best, f, i) => (f.severity ?? 0) > (forecast[best].severity ?? 0) ? i : best, 0);
+  const week = {
+    hi: Math.max(...temps), lo: Math.min(...temps),
+    severeCount: forecast.filter(f => (f.severity ?? 0) >= WX_SEVERE).length,
+    worstDay: wxDayLabel(worstIdx, forecast[worstIdx].date),
+    hostName: world.npcs?.get(hostId)?.name || (hostId || '').replace(/^npc_/, '').replace(/_/g, ' '),
+  };
+  const say = (line, day, i, fallback) => {
+    const src = line || fallback;
+    if (!src) return;
+    const text = wxFill(src, wxTokens(day, i, week, env), unknown).trim();
+    if (text) add({ type: 'say', text, style: 'raw' });
+  };
+
+  const today = forecast[0];
+  say(wxPick(pools, `intro.${wxTimeOfDayKey(env)}`, 'intro'), today, 0);
+  say(wxPick(pools, 'today.lead'), today, 0);
+  say(wxPick(pools, `sky.${today.weatherType}`), today, 0, 'Conditions right now: {weather}, {temp} degrees.');
+  say(wxPick(pools, `temp.${wxTempBand(today.tempC)}`), today, 0);
+  const twBand = wxWindBand(today.windKph);
+  if (['calm', 'windy', 'strong', 'gale'].includes(twBand)) say(wxPick(pools, `wind.${twBand}`), today, 0);
+  const thBand = wxHumidBand(today.humidityPct);
+  if (thBand === 'dry' || thBand === 'oppressive') say(wxPick(pools, `humid.${thBand}`), today, 0);
+  if ((today.severity ?? 0) >= WX_SEVERE) say(wxPick(pools, `warn.${wxSevereChannel(today)}`, 'warn.generic'), today, 0);
+
+  say(wxPick(pools, 'forecast.lead'), today, 0);
+  for (let i = 1; i < forecast.length; i++) {
+    const day = forecast[i];
+    say(wxPick(pools, `ahead.${wxLeadKey(i)}`, 'ahead.next'), day, i);
+    say(wxPick(pools, `sky.${day.weatherType}`), day, i, '{day}: {weather}, around {temp} degrees.');
+    if ((day.severity ?? 0) >= WX_SEVERE) say(wxPick(pools, `warn.${wxSevereChannel(day)}`, 'warn.generic'), day, i);
+  }
+
+  say(wxPick(pools, `trend.${wxTrendKey(forecast)}`), today, 0);
+  say(wxPick(pools, 'outro'), today, 0);
+
+  if (unknown.size) console.warn('[broadcast] weather: unknown tokens', [...unknown]);
+  // When the chain ends the walker restarts at _start on its own (currentNode → null
+  // → _start), so the report loops without an explicit loop node.
+  // _normalizeBroadcastGraph strips _broadcastId, so stamp it after: folding the
+  // forecast date in makes the walker reset (re-roll) when the lead day advances.
+  const graph = _normalizeBroadcastGraph({ _start: startId, nodes });
+  graph._broadcastId = `${broadcastId}:wx:${today.date}`;
+  graph._requireHost = true;   // weather forecasts are acted live — the weathercaster must be in-studio
+  return graph;
+}
+
+// Return the assembled graph for a weather playlist item, (re)building it when the
+// forecast's lead day has advanced. Cached on the item between ticks.
+function getWeatherGraph(item) {
+  const env = getEnvironmentState();
+  const forecast = env.forecast || [];
+  if (!forecast.length || !item.weatherPools) return null;
+  const date0 = forecast[0].date;
+  if (!item._wxGraph || item._wxDate !== date0) {
+    item._wxGraph = assembleWeatherGraph(item.weatherPools, item.weatherHost, forecast, env, item.broadcastId, item.weatherTitle);
+    item._wxDate = date0;
+  }
+  return item._wxGraph;
+}
+
 async function getCurrentMessage(state, nowMs) {
   const { channelType, playlist, totalDuration, idleBroadcast, newsCategories, camera, loopOriginMs, scheduleMode } = state;
 
@@ -458,6 +624,14 @@ async function getCurrentMessage(state, nowMs) {
       state.currentFallbackMessages = item.fallbackMessages || [];
       state.currentProgramName = item.broadcastName || null;
       const segElapsed = gameSecondsSinceMidnight - item.startTime;
+      if (item.playback_mode === 'weather') {
+        const wxGraph = getWeatherGraph(item);
+        if (wxGraph) {
+          const r = tickBroadcastGraph(state.channelId, wxGraph, state, nowMs, segElapsed);
+          if (r) r.programName = item.broadcastName || null;
+          return r;
+        }
+      }
       if (item.broadcastGraph) {
         const r = tickBroadcastGraph(state.channelId, item.broadcastGraph, state, nowMs, segElapsed);
         if (r) r.programName = item.broadcastName || null;
@@ -534,6 +708,14 @@ async function getCurrentMessage(state, nowMs) {
           if (entry) return { text: entry.text, key: `rec:${camera.id}:${bufIdx}` };
         }
         return null;
+      }
+      // Weather — assemble a fresh graph from the live forecast, then walk it
+      if (item.playback_mode === 'weather') {
+        const wxGraph = getWeatherGraph(item);
+        if (wxGraph) {
+          state.currentFallbackMessages = item.fallbackMessages || [];
+          return tickBroadcastGraph(state.channelId, wxGraph, state, nowMs);
+        }
       }
       // VINE graph (scripted/news with broadcast_graph) — walker manages its own timing
       if (item.broadcastGraph) {
@@ -1147,8 +1329,14 @@ function _seekGraph(graph, bb, segElapsedMs, nowMs) {
 function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
   if (!state.graphBlackboard) return null;
   const bb = state.graphBlackboard;
-  // Scripted daily-schedule content always plays through — no host-presence gating
-  const skipPresence = state.scheduleMode === 'daily';
+  // A broadcast is "acted live" when it runs on a live channel OR the graph demands a
+  // present host (weather forecasts set graph._requireHost). Such broadcasts are
+  // presence-gated — the host NPC must be in the studio or the channel falls to
+  // camera-idle → technical difficulties — and their lines are spoken in the studio.
+  const liveActed = state.channelType === 'live' || !!graph._requireHost;
+  // Scripted daily-schedule content plays through with no host gating — unless the
+  // graph explicitly requires a present host (weather), which is gated everywhere.
+  const skipPresence = state.scheduleMode === 'daily' && !graph._requireHost;
 
   // Reset blackboard if a different broadcast is now active
   if (bb.activeBroadcastId !== graph._broadcastId) {
@@ -1222,7 +1410,7 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
         const style_say = node.data?.style || 'raw';
         const isNarration = style_say === 'narration';
         const isAmbient   = style_say === 'ambient';
-        if (state.channelType === 'live' && state.studioZoneId) {
+        if (liveActed && state.studioZoneId) {
           if (!isNarration && !isAmbient && bb.npcAnchor) {
             sendToZone(state.studioZoneId, {
               type: 'output',
@@ -1250,7 +1438,7 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
         const key_music = `music:${channelId}:${nodeId}:${nowMs}`;
         if (songDef) {
           bb.waitUntil = nowMs + nodeHoldMs(node);
-          if (state.channelType === 'live' && state.studioZoneId) {
+          if (liveActed && state.studioZoneId) {
             sendToZone(state.studioZoneId, { type: 'audio_music', def: songDef });
           }
           return { text, song: songDef, key: key_music, style: 'music' };
@@ -1289,8 +1477,8 @@ function tickBroadcastGraph(channelId, graph, state, nowMs, segElapsedSec = 0) {
           : npcId;
         bb.npcAnchor = npc?.name || fallbackName || null;
         bb.npcAnchorId = npcId || null;
-        // Presence check — only for truly-live unscripted channels
-        if (!skipPresence && npcId && state.channelType === 'live' && state.studioZoneId) {
+        // Presence check — for live channels and any host-required graph (weather)
+        if (!skipPresence && npcId && liveActed && state.studioZoneId) {
           const zone = getZone(state.studioZoneId);
           if (zone?.npcs?.has(npcId)) {
             bb.hostAbsent = false;
@@ -2140,30 +2328,32 @@ export const routeHandler = async (path, method, body, auth) => {
       if (!id && method === 'POST') {
         const bid = body.id || `bc_${Date.now()}`;
         const graph = body.broadcast_graph ? JSON.stringify(body.broadcast_graph) : null;
+        const wxPools = body.weather_pools ? JSON.stringify(body.weather_pools) : null;
         await query(
-          `INSERT INTO media_broadcasts (id,name,description,category,tags,playback_mode,messages,message_interval,override_duration,loop,enabled,created_by,updated_at,broadcast_graph,channel_id,fallback_messages)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,EXTRACT(EPOCH FROM NOW()),$13,$14,$15)`,
+          `INSERT INTO media_broadcasts (id,name,description,category,tags,playback_mode,messages,message_interval,override_duration,loop,enabled,created_by,updated_at,broadcast_graph,channel_id,fallback_messages,weather_pools)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,EXTRACT(EPOCH FROM NOW()),$13,$14,$15,$16)`,
           [bid, body.name || 'Untitled', body.description || '', body.category || 'general',
            JSON.stringify(body.tags || []), body.playback_mode || 'scripted',
            JSON.stringify(body.messages || []), body.message_interval || 5,
            body.override_duration || null, body.loop ? 1 : 0, body.enabled !== false ? 1 : 0,
            auth?.playerId || 'unknown', graph, body.channel_id || null,
-           JSON.stringify(body.fallback_messages || [])]
+           JSON.stringify(body.fallback_messages || []), wxPools]
         );
         await loadChannelRuntimes();
         return { status: 201, body: { id: bid } };
       }
       if (id && method === 'PUT') {
         const graph = body.broadcast_graph ? JSON.stringify(body.broadcast_graph) : null;
+        const wxPools = body.weather_pools ? JSON.stringify(body.weather_pools) : null;
         await query(
           `UPDATE media_broadcasts SET name=$1,description=$2,category=$3,tags=$4,playback_mode=$5,
            messages=$6,message_interval=$7,override_duration=$8,loop=$9,enabled=$10,broadcast_graph=$11,
-           channel_id=$12,fallback_messages=$13,updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$14`,
+           channel_id=$12,fallback_messages=$13,weather_pools=$14,updated_at=EXTRACT(EPOCH FROM NOW()) WHERE id=$15`,
           [body.name||'Untitled', body.description||'', body.category||'general',
            JSON.stringify(body.tags||[]), body.playback_mode||'scripted',
            JSON.stringify(body.messages||[]), body.message_interval||5,
            body.override_duration||null, body.loop?1:0, body.enabled!==false?1:0, graph,
-           body.channel_id||null, JSON.stringify(body.fallback_messages||[]), id]
+           body.channel_id||null, JSON.stringify(body.fallback_messages||[]), wxPools, id]
         );
         await loadChannelRuntimes();
         return { status: 200, body: { id } };

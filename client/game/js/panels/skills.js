@@ -1,5 +1,8 @@
+import { registerList, mountScopeToggle } from './list-reorder.js';
+
 export function initSkillsPanel() {
   document.getElementById('skills-close').addEventListener('click', closeSkillsPanel);
+  mountScopeToggle('skills', document.getElementById('skills-header'));
 }
 
 export function closeSkillsPanel() {
@@ -38,6 +41,7 @@ export function renderSkillsPanel(data) {
     for (const sk of group.skills) {
       const block = document.createElement('div');
       block.className = 'skills-block';
+      block.dataset.lrKey = sk.name;
 
       const row = document.createElement('div');
       row.className = 'skills-skill-row';
@@ -57,6 +61,8 @@ export function renderSkillsPanel(data) {
       sec.appendChild(block);
     }
 
+    // Reorderable within its category; survives each server-driven re-render.
+    registerList(sec, { scope: 'skills', key: 'skills-' + group.category, rowSelector: '.skills-block' });
     body.appendChild(sec);
   }
 }

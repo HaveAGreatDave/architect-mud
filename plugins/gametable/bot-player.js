@@ -183,9 +183,14 @@ export function decideBotAction(table, seat) {
   if (wantSemiBluffRaise) return tagged(sizeRaise(game, gs, p), 'semibluff');
   if (wantBluffRaise)     return tagged(sizeRaise(game, gs, p), 'bluff');
 
-  const cushion = 0.03 + tightness * 0.10; // tighter players demand a better price
+  const cushion = 0.02 + tightness * 0.06; // tighter players demand a better price
   if (callStrength >= potOdds + cushion) return { action: 'call', amount: 0, tag: strength > 0.85 ? 'trap' : 'call' };
-  if (potOdds < 0.15 && (strength > 0.25 || draw > 0.10)) return { action: 'call', amount: 0, tag: 'call' }; // cheap peel
+  // Peel cheap bets wide — don't nit out of a pot for a small price with any equity.
+  if (potOdds < 0.28 && (strength > 0.18 || draw > 0.08)) return { action: 'call', amount: 0, tag: 'call' };
+  // Preflop: call a modest open/raise with any half-playable holding rather than
+  // folding too early — keeps him in more pots and less easy to run over.
+  const community = game.community || [];
+  if (community.length === 0 && toCall <= (game.bigBlind || 20) * 3 && strength >= 0.16) return { action: 'call', amount: 0, tag: 'call' };
   return { action: 'fold', amount: 0, tag: 'fold' };
 }
 

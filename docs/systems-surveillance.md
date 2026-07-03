@@ -245,18 +245,33 @@ existing **Arbiters** (`plugins/emergency/index.js`). All in the "Wanted system"
   ★3 ×2 Enforcement Trooper · ★4 Heavy Enforcer +Trooper · ★5 **Arbiters** (reuses
   `enemy_arbiterclass_enforcement_unit`). Tiers 1–4 are new enemy templates
   ([`seed-wanted-police.js`](../scripts/seed-wanted-police.js)).
-- **Pursuit = redeployment** — a 4s `wantedTick` reconciles the roster to the suspect's current zone
-  (spawns via `spawnEnemySync` + a local `WANTED_HUNTER_GRAPH` built on the Arbiter graph; units that
-  fall behind are despawned and respawned at the suspect). You can't outrun them by moving.
+- **Pursuit = search from the scene** (`searchAndPursue`, 2026-07-03; was teleport-redeploy) — units
+  muster at the **crime scene** (`s.crimeZone`, the zone where the pursuit began) and then *hunt*: each
+  4s `wantedTick`, a hunter either engages (same zone as the suspect → `targetId` set, `WANTED_HUNTER_GRAPH`
+  cries once then attacks) or takes **one search step** — usually a `findPath` step toward the suspect's
+  current zone, but `HUNT_RANDOM` (0.35) of the time (or when there's no path) a random-neighbour wander.
+  Movement is server-driven via `moveEntity` (not the graph, which just idles until targeted), so there
+  are no innocent-bystander acquisitions and **you can now lose them** by moving and staying unseen.
+  Reinforcements after a kill re-muster at the scene.
+- **Arrival scales with heat** (`responseDelayMs`, 2026-07-03) — units don't deploy until a star-scaled
+  delay elapses from the start of the pursuit (`s.pursuitStartTs`, stamped when heat first goes above 0):
+  ★5 = 10s · ★4 = 15s · ★3 = 20s · ★2 = 45s · ★1 = 90s · ½★ = 180s (petty heat gets a lazy response).
+  Escalating stars mid-pursuit shortens the threshold, so they can arrive sooner. Once *any* unit has
+  deployed the gate is dropped — pursuit then continues every tick. (½★ has no `TIERS` roster anyway, so
+  in practice half-star heat draws only the delayed APB, not dedicated hunters.)
 - **Clears**: decay one star per 60s **unseen**; **death/arrest** wipes it; **`bribe`** an on-scene
   cop (≤2★, `stars×250c`); **`scrub`** a `police_terminal` (hacking check). *(Disguise deferred.)*
+- **Peak charge** (`WANTED_PEAK` action, `s.maxStars`, 2026-07-03) — the spree's highest star level is
+  tracked and exposed for booking. Jail books the arrest on the **peak**, not the decayed current level:
+  run 5★ down to ½★ and a downing still charges you the full 5★ (5-min sentence + fine). `maxStars`
+  resets only when the pursuit fully clears (runtime entry deleted at 0 stars).
 - **Evidence & bounty**: witnessed crimes auto-log a `security_clips` row to the PD network + an APB
   (`sendToZone` sirens + `police.dispatch` event — the seam for real AI patrol routing later).
   Players `submit` a crime-tagged datachip to a cop for a credit bounty.
 - **HUD**: server pushes `wanted_level`; client renders a neon ★-bar
   ([`wanted.js`](../client/game/js/panels/wanted.js)) that pulses + stings on escalation.
-- **Deviations**: pursuit is redeploy-not-pathfollow (no new engine AI action); disguise-clear
-  deferred (needs the appearance system); "murder" = killing a *player* (only `player.death` fires).
+- **Deviations**: disguise-clear deferred (needs the appearance system); "murder" = killing a *player*
+  (only `player.death` fires).
 
 ## Crime registry & camera catch (2026-07-02)
 
@@ -283,6 +298,39 @@ camera-catch reaction. Stars are now **fractional** (half-steps) so petty acts r
   ([`dispatch.js`](../client/game/js/dispatch.js) `camera_flash`, styles `#camera-flash-overlay`).
 - **Legal drugs** — a drug with `flags.legal` (coffee, beer) draws no police heat and is sold by
   ordinary vendors (no dealer/trust gate). Toggle it in the **Drugs** dev panel (Legality dropdown).
+
+## Probabilistic witness model + ongoing-crime catch (2026-07-03)
+
+No witness catches a crime with certainty anymore. **All** crimes route through one probabilistic
+gate, `witnessRoll(zone, witness, onCamera, camChance)` (surveillance), which replaced the old
+deterministic `witness === 'camera' ? onCamera : isWitnessed(zone)` branch inside `raiseCrime`:
+
+- **Camera** — rolls `camChance`: a flat `CAM_CATCH_BASE` (0.2) for a one-shot act, or the
+  duration-ramped `camCatchChance(elapsed)` (0.2 → `CAM_CATCH_MAX` 0.9 over `CAM_CATCH_RAMP_MS` ~30s)
+  for an ongoing one. Quick jobs can slip a lens; lingering ones almost always get made.
+- **Cop** (`any`-witnessed only) — an on-scene `flags.police` NPC catches you at `COP_CATCH` (0.9):
+  very high.
+- **Bystander** (`any`-witnessed only) — another player in the room reports at just `BYSTANDER_REPORT`
+  (0.12): rare. (`camera`-only crimes ignore cops/bystanders; `always` crimes self-report.)
+
+Because a failed roll returns *before* the 12s debounce is stamped, repeated acts (combat swings,
+repeat drug hits) simply re-roll — that's where "variability over time" comes from for one-shot acts.
+
+Ongoing offences additionally run through an **active-crime tracker** (`activeCrimes` map +
+`scanActiveCrimes`, on the 5s surveillance tick), which re-rolls `witnessRoll` each tick with the
+time-ramped camera odds and charges via `raiseCrime(..., forced=true)` on a hit (then drops the entry;
+the 12s debounce covers a resumed streak). Leaving the zone ends the offence. Two feed it:
+- **ATM breach** — the crime chance now starts **when you `jack` in, not on success**. `atm` emits
+  `atm.jacked` (begin, key `hacking`, 180s safety cap) and `atm.jackResolved` / `atm.drained` (end).
+  The old on-success `emit('hack.success')` charge was removed. `atm_robbery` (draining, `always`) is
+  unchanged.
+- **Indecent exposure** — a player **naked (nothing on torso *and* legs) where a witness (live camera
+  or on-scene cop) can see them** is a continuous offence; the scan derives it from equipment each
+  tick (`nakedAmong`) and charges `indecent_exposure` (0.5★) on a caught roll. Dressing or leaving
+  ends it.
+
+`isWitnessed(zone)` stays deterministic — it now serves only heat-decay/visibility (wanted tick,
+witnessed-homicide gate), not the catch roll.
 
 ## Resolved forks
 

@@ -2,6 +2,7 @@ import { query, logActivity } from '../models/db.js';
 import { reloadZone, getAllZones, world, getAllLivePlayers, getZone, addPlayerToZone, removePlayerFromZone, getMinimapData, reloadGlobalAmbients, spawnEnemySync, setDoorCache, deleteDoorCache, getZoneDoors } from '../engine/world.js';
 import { describeZone, describeVoidTeleport } from '../engine/commands/index.js';
 import { allExits } from '../engine/exits.js';
+import { detectBathroomSide } from '../engine/commands/doors.js';
 import { loadRecipes } from '../engine/crafting.js';
 import { loadDrugs } from '../engine/drugs.js';
 import { getCrimeList, reloadCrimes, CRIME_DEFAULTS } from '../engine/crimes.js';
@@ -1564,6 +1565,7 @@ async function apiBulkAddStreetlights(auth) {
     WHERE NOT COALESCE((z.flags->>'is_interior')::boolean, false)
       AND NOT COALESCE((z.flags->>'is_apartment')::boolean, false)
       AND NOT COALESCE((z.flags->>'is_building')::boolean, false)
+      AND z.is_safe_zone = 1
       AND z.id NOT IN (
         SELECT DISTINCT zone_id FROM furniture WHERE light_type='streetlight'
       )
@@ -2254,6 +2256,17 @@ async function apiUpdateDoor(id, body) {
   try {
     const tags = body.tags ?? [];
     const lock_state = body.lock_state ?? null;
+
+    // Privacy lock: if the builder left the side on Auto, resolve it to the
+    // bathroom side. When neither (or both) sides have a toilet we can't guess —
+    // make them pick a side explicitly via the lock-side switch.
+    const priv = (tags && !Array.isArray(tags)) ? tags['lock:privacylock'] : null;
+    if (priv && !priv.privacySide) {
+      const side = await detectBathroomSide({ zone_id: body.zone_id, target_zone: body.target_zone || null, exit_dir: body.exit_dir });
+      if (!side) return { status: 400, body: { error: 'No toilet on either side — choose which side the privacy lock is unlockable from (lock-side switch).' } };
+      priv.privacySide = side;
+    }
+
     await query(
       `UPDATE doors SET name=$1,zone_id=$2,exit_dir=$3,target_zone=$4,door_type=$5,is_open=$6,hp=$7,hp_max=$8,flags=$9,tags=$10,lock_state=$11 WHERE id=$12`,
       [body.name||null, body.zone_id, body.exit_dir, body.target_zone||null, body.door_type, body.is_open?1:0, body.hp, body.hp_max, JSON.stringify(body.flags||{}), JSON.stringify(tags), lock_state, id]

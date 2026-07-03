@@ -7,6 +7,7 @@ import { registerProtectionProvider } from "./protection.js";
 import { hasPerm, PERM } from "./org-perms.js";
 import { exitTargets, neighborZoneIds } from "./exits.js";
 import { emit } from "./events.js";
+import { fireHook } from "./plugins.js";
 
 // The zone(s) on the far side of a door: its pinned target if it has one (a door
 // on a direction that holds multiple exits), else every exit in its direction.
@@ -67,6 +68,24 @@ export async function activateForcefield(player, broadcastFn) {
 	const apt = getApartment(zoneId);
 	if (!apt?.owner_id || apt.owner_id !== player.id) return;
 	if (apt.forcefield_active) return; // already active
+
+	// A system can veto the safe-sleep forcefield — the burglary plugin denies it
+	// while a break-in is actually underway at this unit, so you can't wall
+	// yourself off (or disconnect to safety) with an intruder at the door.
+	const blockReason = await fireHook('forcefield.gate', { player, zoneId });
+	if (blockReason) {
+		if (broadcastFn) {
+			broadcastFn(zoneId, {
+				type: 'zone_event',
+				message: `<span style="color:var(--red)">${player.handle}'s HoloLock sputters and dies — the forcefield can't seal with an intruder at the door.</span>`,
+			}, player.id);
+			broadcastFn(null, {
+				type: 'output',
+				message: `<span style="color:var(--red)">◈ HoloLock REFUSED — ${typeof blockReason === 'string' ? blockReason : 'a break-in is in progress'}. No safe forcefield while they're breaching your home. You sleep exposed.</span>`,
+			}, null, player.id);
+		}
+		return;
+	}
 
 	await query('UPDATE apartments SET forcefield_active=1 WHERE zone_id=$1', [zoneId]);
 	setApartmentCache(zoneId, { ...apt, forcefield_active: 1 });

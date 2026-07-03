@@ -506,6 +506,78 @@ on('weather.thunder', ({ zoneId }) => {
   triggerEventRoute('weather.thunder', zoneId, null);
 });
 
+// ── Bodily SFX (pee/poop soundscript, driven by the bodily plugin's timers) ──
+// Inline synth defs — no DB row. The bodily plugin decides WHEN each cue fires
+// (farts, plops, stream bursts, the finale); this decides what they sound like.
+
+// A wet drop.
+const SFX_PLOP = {
+  id: 'sfx_plop', name: 'sfx_plop', category: 'sfx', priority: 4,
+  config: { duration: 0.28, layers: [
+    { waveform: 'sine', freq: 120, pitchBend: { to: 55, time: 0.2 }, adsr: { a: 0.004, d: 0.16, s: 0, r: 0.08 }, gain: 0.33 },
+    { noiseMix: 1, filter: { type: 'bandpass', freq: 900, q: 1.1 }, adsr: { a: 0.004, d: 0.12, s: 0, r: 0.06 }, gain: 0.15 },
+  ] },
+};
+
+// Pee stream — filtered noise with a soft fade in/out so spaced bursts read as a
+// near-constant stream with gaps rather than hard on/off blips. The surface it
+// hits shapes the splash: bright watery splash into a toilet, harsher spatter on
+// concrete, a duller absorbed hiss into furniture, a muffled patter on a body.
+const STREAM_SURFACES = {
+  water:    { main: 2200, high: 3200, hiGain: 0.10, body: 180 }, // toilet
+  concrete: { main: 2600, high: 4200, hiGain: 0.16, body: 140 }, // ground
+  soft:     { main: 1500, high: 2400, hiGain: 0.06, body: 160 }, // furniture
+  body:     { main: 1200, high: 2000, hiGain: 0.05, body: 150 }, // a person
+};
+function makePeeStream(surface) {
+  const s = STREAM_SURFACES[surface] || STREAM_SURFACES.water;
+  return {
+    id: 'sfx_pee_stream', name: 'sfx_pee_stream', category: 'sfx', priority: 3,
+    config: { duration: 1.6, layers: [
+      { noiseMix: 1, filter: { type: 'bandpass', freq: s.main, q: 0.9 }, adsr: { a: 0.28, d: 0.2, s: 0.85, r: 0.4 }, gain: 0.26 },
+      { noiseMix: 1, filter: { type: 'highpass', freq: s.high, q: 0.6 }, tremolo: { rate: 9, depth: 0.3 }, adsr: { a: 0.32, d: 0.2, s: 0.6, r: 0.4 }, gain: s.hiGain },
+      { waveform: 'sine', freq: s.body, adsr: { a: 0.3, d: 0.2, s: 0.5, r: 0.4 }, gain: 0.04 },
+    ] },
+  };
+}
+
+// A fart — a buzzy sawtooth "brap" with a tremolo flutter and a noise splatter,
+// pitch sagging as it goes. `big` makes it longer, lower, LOUDER (the rare poop
+// finale, so it earns the volume), with a plop tail. Normal farts are kept well
+// back — they broadcast to the whole room and repeat, so restraint reads better.
+// Freq jitters per call so no two are identical.
+function makeFart(big, seedFreq) {
+  const base = (big ? 78 : 92) + seedFreq;
+  const dur = big ? 1.2 : 0.5;
+  const layers = [
+    { waveform: 'sawtooth', freq: base, pitchBend: { to: base * 0.7, time: dur * 0.9 }, tremolo: { rate: big ? 15 : 23, depth: 0.9 }, filter: { type: 'lowpass', freq: big ? 620 : 720, q: 1.3 }, adsr: { a: 0.01, d: 0.15, s: 0.7, r: big ? 0.3 : 0.15 }, gain: big ? 0.52 : 0.35 },
+    { noiseMix: 1, filter: { type: 'bandpass', freq: big ? 340 : 420, q: 1.4 }, tremolo: { rate: big ? 13 : 19, depth: 0.7 }, adsr: { a: 0.01, d: 0.15, s: 0.5, r: 0.15 }, gain: big ? 0.2 : 0.13 },
+  ];
+  if (big) {
+    // Plop tail, delayed to land after the brap.
+    layers.push(
+      { waveform: 'sine', freq: 110, pitchBend: { to: 50, time: 0.2 }, delay: 0.85, adsr: { a: 0.004, d: 0.18, s: 0, r: 0.1 }, gain: 0.6 },
+      { noiseMix: 1, filter: { type: 'bandpass', freq: 1000, q: 1 }, delay: 0.85, adsr: { a: 0.004, d: 0.15, s: 0, r: 0.08 }, gain: 0.28 },
+    );
+  }
+  return { id: 'sfx_fart', name: 'sfx_fart', category: 'sfx', priority: 4, config: { duration: big ? 1.3 : 0.55, layers } };
+}
+
+on('bodily.sfx', ({ zoneId, playerId, cue, surface }) => {
+  // The stream is personal; farts/plops/finale carry to everyone in the room.
+  if (cue === 'stream') {
+    if (playerId) sendToPlayer(playerId, { type: 'audio_sfx', def: makePeeStream(surface), gain: 0.9 });
+    return;
+  }
+  if (!zoneId) return;
+  const jitter = Math.floor(Math.random() * 26) - 10; // -10..+15 Hz
+  let def;
+  if (cue === 'fart')        def = makeFart(false, jitter);
+  else if (cue === 'plop')   def = SFX_PLOP;
+  else if (cue === 'finale') def = makeFart(true, jitter);
+  if (def) sendToZone(zoneId, { type: 'audio_sfx', def });
+});
+
 // ── Weather ambience (reactive) ───────────────────────────────────────────
 // Two independent looping weather beds run off the engine's `weather.zoneAmbience`
 // signal (emitted per occupied outdoor tile every 30s field tick), plus a
@@ -847,6 +919,39 @@ export const routeHandler = async (path, method, body, auth) => {
         await query('DELETE FROM audio_samples WHERE id=$1', [id]);
         await loadAudioLibrary();
         return { status: 200, body: { message: 'Deleted' } };
+      }
+    } catch (e) {
+      return { status: 500, body: { error: e.message } };
+    }
+    return null;
+  }
+
+  // ── /audio/interface-sfx: overrides for the client SFX catalog ───────────
+  // The built-in cue defs live in client/shared/sfx-catalog.js; rows here are
+  // per-cue overrides keyed by catalog id. GET is public (the game client fetches
+  // it at boot); PUT/DELETE are dev-gated by the guard at the top of this handler.
+  if (resource === 'interface-sfx') {
+    try {
+      if (!id && method === 'GET') {
+        const { rows } = await query('SELECT * FROM interface_sfx ORDER BY grp, id');
+        return { status: 200, body: rows };
+      }
+      if (id && method === 'PUT') {
+        const name = (body.name ?? '').toString();
+        const grp = (body.grp ?? 'misc').toString();
+        const priority = Number.isFinite(body.priority) ? Math.round(body.priority) : 5;
+        const enabled = body.enabled === false || body.enabled === 0 ? 0 : 1;
+        const config = JSON.stringify(body.config ?? {});
+        await query(
+          `INSERT INTO interface_sfx (id, name, grp, config, priority, enabled) VALUES ($1,$2,$3,$4,$5,$6)
+           ON CONFLICT (id) DO UPDATE SET name=$2, grp=$3, config=$4, priority=$5, enabled=$6`,
+          [id, name, grp, config, priority, enabled],
+        );
+        return { status: 200, body: { id } };
+      }
+      if (id && method === 'DELETE') {
+        await query('DELETE FROM interface_sfx WHERE id=$1', [id]);
+        return { status: 200, body: { message: 'Reset to default' } };
       }
     } catch (e) {
       return { status: 500, body: { error: e.message } };

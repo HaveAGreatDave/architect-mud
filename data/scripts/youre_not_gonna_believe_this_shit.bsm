@@ -107,7 +107,7 @@ CAM 2 SIDE_PROFILE on Neil McManistan
 
 ACTION npc_neil_mcmanistan pulls out a Zippo lighter and ignites a cigarette with the ease of a man who has been doing this since before it was legal.
 
-TITLE graphic_1782871993202
+TITLE divorced	
 
 EVENT DISSOLVE
 
@@ -543,18 +543,10 @@ DIVORCE WINNER?!
 Neil Mcmanistan:
 Oh fuck off!
 
-Neil Mcmanistan:
-BIG GUY: Neil McManistan.
-
-Neil Mcmanistan:
-Captain Nguyen: Captain Nguyen.
-
 Captain Nguyen:
 YOU CAN'T JUST CREDIT Captain Nguyen AS THE Captain Nguyen! I'M THE Captain Nguyen!
 
 ACTION npc_nguyen flips to the next page of the flip chart.
-
-
 
 Captain Nguyen:
 Real mature, man. Real mature. Your buddy Nguyen couldn't captain a rowboat — whipping out his root on live television, what the fuck was that?! She was right to leave you, man.
@@ -566,9 +558,6 @@ ACTION npc_neil_mcmanistan pensively lights a cigarette, furrows his brow, and s
 
 Neil Mcmanistan:
 Join us next week when we are joined by our special guest — my wife's personal trainer — where we will fight a grudge match to the death!
-
-EVENT FADE_OUT
-
 
 
 EVENT FADE_OUT

@@ -39,6 +39,17 @@ function moneyPileHTML(amount, animClass = '') {
   return `<div class="money-pile ${animClass}">${items}</div>`;
 }
 
+// A compact stack of poker-chip discs showing how deep a seat's remaining stack
+// is (distinct from the denominated bet piles on the felt — this is just a
+// quick "how much money do they have" read beside the name). One disc per ~100 ₵,
+// capped so a very deep stack stays tidy.
+function chipStackHTML(chips) {
+  const n = Math.max(1, Math.min(9, Math.round((chips || 0) / 100)));
+  let discs = '';
+  for (let i = 0; i < n; i++) discs += `<span class="chip-disc chip-disc-${i % 3}" style="bottom:${i * 3}px"></span>`;
+  return `<div class="chip-stack">${discs}</div>`;
+}
+
 // Compass positions relative to viewer (south): by how many seats clockwise.
 // With 4 seats: +1 = east, +2 = north, +3 = west
 const OFFSET_TO_COMPASS = { 1: 'east', 2: 'north', 3: 'west' };
@@ -107,6 +118,7 @@ export function renderPane(table, viewerId) {
       inner += `<span class="seat-name">${esc(seat.handle)}${dealerBadge}</span>`;
       if (statusStr) inner += statusStr;
       inner += `<span class="seat-chips${chips === 0 ? ' empty' : ''}">₵ ${chips.toLocaleString()}</span>`;
+      inner += chipStackHTML(chips);
 
       // Cards
       if (game && gameSeat && !folded) {
@@ -209,8 +221,10 @@ export function renderPane(table, viewerId) {
       <div class="poker-deck-pile poker-deck-pile-left">
         <div class="poker-deck-card"></div>
         <div class="poker-deck-card"></div>
+        <div class="poker-deck-card"></div>
       </div>
       <div class="poker-deck-pile poker-deck-pile-right">
+        <div class="poker-deck-card"></div>
         <div class="poker-deck-card"></div>
         <div class="poker-deck-card"></div>
       </div>

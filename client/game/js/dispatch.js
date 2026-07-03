@@ -8,7 +8,7 @@ import { renderEquipPanel, renderGearPanel } from './panels/equipment.js';
 import { renderRecipesPanel } from './panels/recipes.js';
 import { renderStatsPanel } from './panels/stats.js';
 import { renderSkillsPanel } from './panels/skills.js';
-import { receiveWhisper, sentWhisper, receiveChannelMsg, initChannels, initChannelHistory, receiveMOTD, refreshOnlinePlayers } from './panels/whisper.js';
+import { receiveWhisper, sentWhisper, receiveChannelMsg, initChannels, initChannelHistory, receiveMOTD, refreshOnlinePlayers, rollbackSelfEcho } from './panels/whisper.js';
 import { openContainerPanel, refreshContainerPanel, getActiveContainerId, showContainerNotify } from './panels/container.js';
 import { openLootPanel, closeLootPanel } from './panels/loot.js';
 import { openLightViewDialog } from './panels/lightview.js';
@@ -29,6 +29,7 @@ import { openTvPanel, isTvOpen, getTvActiveChannelId, appendTvMessage, updateTvT
 import { applyEspState, handleEspWarning } from './esp.js';
 import { playPokerSfx } from './poker-sfx.js';
 import { showConfirmDialog } from './panels/confirm.js';
+import { showArrestNotice } from './panels/arrest.js';
 import { renderMarkup } from './markup.js';
 import { onPanelData, onPanelFeed, onPanelCatalog, syncPanels, refreshCustomPanels } from './panels/custom/manager.js';
 
@@ -158,7 +159,7 @@ const handlers = {
       applyTvOverlay(msg.overlay);
     }
   },
-  system: (msg) => { appendMsg(msg.message, 'system'); },
+  system: (msg) => { appendHtml(msg.message, 'system'); },
   ambient: (msg) => { appendHtml(msg.message, 'ambient'); },
   sleep: (msg) => { appendHtml(msg.message, 'system'); },
   rent:         (msg) => { appendHtml(msg.message, 'help'); },
@@ -338,6 +339,8 @@ const handlers = {
     // A `leave` issued from the poker bar when the server has no table for us:
     // the pane is stale, so drop it and re-show the room instead of the error.
     if (msg.closePoker) { sendCmdSilent('look'); return; }
+    // A whisper we already echoed optimistically was rejected — pull it back out.
+    if (msg.whisperFailed) rollbackSelfEcho(msg.whisperFailed);
     if (msg.player_update && state.player) { Object.assign(state.player, msg.player_update); updateVitals(state.player); }
     appendMsg(msg.message, 'error');
     if (document.getElementById('recipes-panel').classList.contains('active')) sendCmdSilent('recipes');
@@ -424,6 +427,7 @@ const handlers = {
   output: (msg) => { appendHtml(msg.message, 'help'); },
   progress: (msg) => { if (msg.done) clearInlineProgress(); },
   confirm: (msg) => { showConfirmDialog(msg); },
+  arrest_notice: (msg) => { showArrestNotice(msg); },
   poker_update: (msg) => { setAreaPane(msg.html); },
   poker_sfx: (msg) => { playPokerSfx(msg.cue); },
 

@@ -94,54 +94,12 @@ function filterItems(q) {
   renderItemsPanel(filtered);
 }
 
-const selectedItemIds = new Set();
-
-function itemSelectionCount() {
-  const el = document.getElementById('item-selection-count');
-  if (el) el.textContent = selectedItemIds.size ? `${selectedItemIds.size} selected` : '';
-  const btn = document.getElementById('item-delete-selected-btn');
-  if (btn) btn.disabled = !selectedItemIds.size;
-}
-
-function toggleItemChecked(id, checked) {
-  if (checked) selectedItemIds.add(id); else selectedItemIds.delete(id);
-  itemSelectionCount();
-}
-
-function toggleAllItemsChecked(checked) {
-  document.querySelectorAll('.item-del-cb').forEach(cb => {
-    cb.checked = checked;
-    if (checked) selectedItemIds.add(cb.dataset.id); else selectedItemIds.delete(cb.dataset.id);
-  });
-  itemSelectionCount();
-}
-
-async function deleteSelectedItems() {
-  const ids = [...selectedItemIds];
-  if (!ids.length) return;
-  if (!confirm(`Delete ${ids.length} item${ids.length > 1 ? 's' : ''}?`)) return;
-  const errors = [];
-  for (const id of ids) {
-    const result = await API(`/items/${id}`, 'DELETE');
-    if (result?.error) errors.push(`${id}: ${result.error}`);
-  }
-  selectedItemIds.clear();
-  if (errors.length) toast(`${errors.length} delete(s) failed — see console`, true);
-  else toast(stagingEnabled ? 'Marked for deletion — publish to apply' : `Deleted ${ids.length} item${ids.length > 1 ? 's' : ''}`);
-  if (errors.length) console.error('deleteSelectedItems failures:', errors);
-  await loadPanel('items');
-}
-
 function renderItemsPanel(records = allRecords) {
   const panel = document.getElementById('list-panel');
   if (!records.length) {
     panel.innerHTML = '<div style="padding:24px;color:var(--text-dim)">No items found.</div>';
     return;
   }
-
-  // Selection is per-render; drop any ids no longer in view.
-  const visibleIds = new Set(records.map(r => r.id));
-  for (const id of selectedItemIds) if (!visibleIds.has(id)) selectedItemIds.delete(id);
 
   const cols = [
     { key: 'name', label: 'Name', width: '35%' },
@@ -156,11 +114,7 @@ function renderItemsPanel(records = allRecords) {
     byType.get(t).push(r);
   }
 
-  let html = `<div class="item-bulk-toolbar" style="display:flex;align-items:center;gap:10px;padding:6px 4px;margin-bottom:6px">
-    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:11px"><input type="checkbox" onchange="toggleAllItemsChecked(this.checked)" style="accent-color:var(--accent)"> Select all</label>
-    <button class="action-btn danger" id="item-delete-selected-btn" onclick="deleteSelectedItems()" ${selectedItemIds.size ? '' : 'disabled'}>Delete Selected</button>
-    <span id="item-selection-count" style="font-size:11px;color:var(--text-dim)">${selectedItemIds.size ? `${selectedItemIds.size} selected` : ''}</span>
-  </div>`;
+  let html = '';
   for (const [type, items] of [...byType.entries()].sort(([a], [b]) => a.localeCompare(b))) {
     const collapsed = collapsedItemTypes.has(type);
     const typeSafe = type.replace(/'/g, "\\'");
@@ -171,14 +125,12 @@ function renderItemsPanel(records = allRecords) {
         <span class="item-type-hdr-count">${items.length}</span>
       </div>`;
     if (!collapsed) {
-      html += '<table style="table-layout:fixed"><thead><tr><th style="width:24px"></th>';
+      html += '<table style="table-layout:fixed"><thead><tr>';
       for (const col of cols) html += `<th style="width:${col.width}">${col.label}</th>`;
       html += '<th style="width:10%"></th></tr></thead><tbody>';
       for (const rec of [...items].sort((a, b) => (a.name || '').localeCompare(b.name || ''))) {
         const idSafe = rec.id.replace(/'/g, "\\'");
-        const checked = selectedItemIds.has(rec.id) ? 'checked' : '';
         html += `<tr onclick="editRecord('${idSafe}')">`;
-        html += `<td><input type="checkbox" class="item-del-cb" data-id="${rec.id}" ${checked} onclick="event.stopPropagation()" onchange="toggleItemChecked('${idSafe}', this.checked)" style="accent-color:var(--accent)"></td>`;
         for (const col of cols) {
           const val = col.key === 'name' ? `${rec.name ?? '—'} <span style="color:var(--text-dim);font-size:10px">(${rec.id})</span>` : (rec[col.key] ?? '—');
           html += `<td>${val}</td>`;

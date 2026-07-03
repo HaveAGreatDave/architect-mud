@@ -28,9 +28,11 @@ export function updateWantedHud(n) {
   const full = Math.floor(stars);
   const half = (stars - full) >= 0.5;
   const empty = Math.max(0, 5 - full - (half ? 1 : 0));
+  // Always a full 5-slot track of solid ★ in the theme accent colour: earned
+  // stars bright, the remainder dimmed (var(--accent-dim)) — never hollow ☆.
   el.innerHTML =
     `<span class="wanted-label">WANTED</span>` +
-    `<span class="wanted-stars">${'★'.repeat(full)}${half ? '½' : ''}<span class="wanted-empty">${'☆'.repeat(empty)}</span></span>`;
+    `<span class="wanted-stars">${'★'.repeat(full)}${half ? '½' : ''}<span class="wanted-empty">${'★'.repeat(empty)}</span></span>`;
   if (rising) {
     el.classList.remove('wanted-pulse');
     void el.offsetWidth;           // restart the animation

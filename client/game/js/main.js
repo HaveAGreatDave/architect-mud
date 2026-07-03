@@ -7,7 +7,7 @@ import {
 	listenForSettingsChanges,
 	SETTINGS_KEY,
 } from "/shared/settings.js";
-import { appendMsg } from "./render.js";
+import { appendMsg, initVitalsReorder } from "./render.js";
 import {
 	initNet,
 	setWhoModalHandler,
@@ -80,6 +80,14 @@ window._applyWeatherFx = setWeatherFxEnabled;
 applySettings(settings);
 applyMobileScale();
 window.addEventListener("resize", applyMobileScale);
+
+// Load any dev-panel overrides for the interface/game SFX catalog (the poker
+// table + the hacking/lock minigames) so tuned cues take effect. Fire-and-forget;
+// if it fails the built-in defaults from /shared/sfx-catalog.js stand.
+fetch("/api/audio/interface-sfx")
+	.then((r) => (r.ok ? r.json() : []))
+	.then((rows) => window.SFXCatalog?.applyOverrides(Array.isArray(rows) ? rows : []))
+	.catch(() => {});
 
 // Mobile area-pane: always starts collapsed. The resize-handle bar is always
 // visible and hosts the toggle button (▼/▲). No auto-open on content update.
@@ -199,6 +207,7 @@ window._setAudioEnabled = (enabled) => {
 initThemeEditorOverlay();
 mountCustomPanels(); // inject custom sections before the layout engine lays out
 initSidebarOrder();
+initVitalsReorder();
 initCustomPanelButton();
 
 // Net / WebSocket

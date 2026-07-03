@@ -111,6 +111,7 @@ function openDrugEditorModal(rec, isNew) {
         ${_num('duration_seconds', 'Duration (s)', rec.duration_seconds)}
         ${_num('overdose_threshold', 'OD threshold (doses)', rec.overdose_threshold)}
         ${_num('addiction_chance', 'Addiction/dose (0–1)', rec.addiction_chance, 0.01)}
+        ${_num('diuretic', 'Diuretic (1=neutral, >1 pees, <1 retains)', e.diuretic, 0.05, '1')}
       </div>
 
       ${_hdr('⚡ Instant (one-shot deltas)')}
@@ -230,6 +231,10 @@ async function _dgSave() {
 
   const instant = _pruneUndef({ hp: _n('i_hp'), sanity: _n('i_sanity'), hunger: _n('i_hunger'), thirst: _n('i_thirst'), radiation: _n('i_radiation'), horniness_increase: _n('i_horniness_increase') });
   if (Object.keys(instant).length) effects.instant = instant;
+
+  // Diuretic factor lives at the effects top level (survives structured/flat).
+  const diuretic = _n('diuretic');
+  if (diuretic !== undefined && diuretic !== 1) effects.diuretic = diuretic;
 
   if (document.getElementById('dg-phases_on').checked) {
     const peak_mods = _collectMods('dg-peakmods');

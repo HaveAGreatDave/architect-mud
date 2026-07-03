@@ -1,6 +1,31 @@
 const AMBIENT_THEMES = ['outdoors','city','indoors','forest','industrial','underground','waterfront','ruins','commercial','residential'];
 const SOUND_CATEGORIES = ['misc','gunshot','explosion','impact','animal','ambient','speech','mechanical','nature','electronic'];
 
+// Merged built-in-cue + DB-override list for the Interface / Game SFX section.
+// Cached at render time so the row buttons can preview/edit by id.
+let _sfxEntries = [];
+
+// Merge the built-in catalog defs (window.SFXCatalog, shipped in the page) with
+// the DB override rows returned by /audio/interface-sfx.
+function mergeInterfaceSfx(overrides) {
+  const defaults = (window.SFXCatalog && window.SFXCatalog.defaults) ? window.SFXCatalog.defaults() : [];
+  const ovById = {};
+  for (const r of (Array.isArray(overrides) ? overrides : [])) ovById[r.id] = r;
+  return defaults.map(d => {
+    const ov = ovById[d.id];
+    let config = d.config;
+    if (ov) { try { config = typeof ov.config === 'string' ? JSON.parse(ov.config) : (ov.config || d.config); } catch { config = d.config; } }
+    return {
+      id: d.id, group: d.group,
+      name: ov && ov.name ? ov.name : d.name, defaultName: d.name,
+      priority: ov && ov.priority != null ? ov.priority : d.priority, defaultPriority: d.priority,
+      enabled: ov ? ov.enabled !== 0 : true,
+      config, defaultConfig: d.config,
+      overridden: !!ov,
+    };
+  });
+}
+
 // ── Combined Sounds panel ────────────────────────────────────────────────────
 
 function renderSoundsPanel(data) {
@@ -60,7 +85,39 @@ function renderSoundsPanel(data) {
     </div>`;
   }).join('');
 
+  // Section 3: Interface / Game SFX (procedural cues for poker + minigames)
+  _sfxEntries = mergeInterfaceSfx(data?.interfaceSfx);
+  const GROUP_LABELS = (window.SFXCatalog && window.SFXCatalog.GROUPS) || {};
+  const sfxByGroup = {};
+  for (const e of _sfxEntries) { (sfxByGroup[e.group] = sfxByGroup[e.group] || []).push(e); }
+  const sfxSections = Object.keys(sfxByGroup).map(g => {
+    const rows = sfxByGroup[g].map(e => `<tr>
+      <td style="font-weight:600;color:${e.enabled?'var(--text-bright)':'var(--text-dim)'}">${e.name}${e.overridden?' <span style="font-size:9px;background:var(--accent);color:#000;padding:1px 5px;border-radius:2px;vertical-align:middle">EDITED</span>':''}</td>
+      <td><code style="font-size:10px;color:var(--text-dim)">${e.id}</code></td>
+      <td style="text-align:center;font-size:11px;color:var(--text-dim)">${e.priority}</td>
+      <td style="text-align:center;font-size:11px;color:${e.enabled?'var(--green)':'var(--red)'}">${e.enabled?'on':'muted'}</td>
+      <td style="text-align:right;white-space:nowrap">
+        <button class="action-btn" style="font-size:10px;padding:3px 8px" onclick="previewSfx('${e.id}')" title="Play">▶</button>
+        <button class="action-btn" style="font-size:10px;padding:3px 8px;margin-left:4px" onclick="editSfx('${e.id}')">✏</button>
+        ${e.overridden?`<button class="action-btn danger" style="font-size:10px;padding:3px 8px;margin-left:4px" onclick="resetSfx('${e.id}')" title="Reset to default">↺</button>`:''}
+      </td>
+    </tr>`).join('');
+    return `<div style="margin-bottom:12px">
+      <div style="padding:5px 16px;background:var(--bg3);border-top:1px solid var(--border);border-bottom:1px solid var(--border)">
+        <span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--accent)">${GROUP_LABELS[g]||g}</span>
+      </div>
+      <table><thead><tr><th>Cue</th><th>ID</th><th style="text-align:center;width:60px">Priority</th><th style="text-align:center;width:50px">State</th><th></th></tr></thead><tbody>${rows}</tbody></table>
+    </div>`;
+  }).join('');
+  const sfxSectionHTML = _sfxEntries.length ? `
+    <div style="padding:10px 16px;border-bottom:1px solid var(--border);background:var(--bg2);margin-top:4px">
+      <div style="font-size:13px;font-weight:600;color:var(--accent);letter-spacing:1px;text-transform:uppercase">Interface / Game SFX</div>
+      <div style="font-size:11px;color:var(--text-dim);margin-top:2px">${_sfxEntries.length} procedural cues — poker table &amp; the hacking / lock minigames. Edit the synth def; ▶ auditions it. Edits persist and reach every client.</div>
+    </div>
+    ${sfxSections}` : '';
+
   panel.innerHTML = `
+    ${sfxSectionHTML}
     <div style="padding:10px 16px;border-bottom:2px solid var(--border);background:var(--bg2)">
       <div style="font-size:13px;font-weight:600;color:var(--accent);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px">Sound Definitions</div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
@@ -200,6 +257,84 @@ function openAmbientEventModal(e) {
       : await API(`/ambient-events/${e.id}`,'PUT',body);
     if (r?.error) { toast(r.error, true); return; }
     toast(isNew ? 'Event created' : 'Event updated');
+    closeModal();
+    loadPanel('sounds');
+  };
+  modal.style.display = 'flex';
+}
+
+// ── Interface / Game SFX CRUD ────────────────────────────────────────────────
+
+function _sfxEntry(id) { return _sfxEntries.find(e => e.id === id); }
+
+// Play a synth def through the shared audio engine — a click is a valid gesture
+// to unlock the AudioContext. Priority + config come from the entry (or a live
+// edit passed as configOverride from the modal preview).
+function _playSfxDef(entry, configOverride) {
+  const def = { id: entry.id, category: 'sfx', priority: entry.priority || 5, config: configOverride || entry.config };
+  try { window.AudioEngine && window.AudioEngine.init && window.AudioEngine.init(); window.AudioEngine.playSfx(def); }
+  catch { toast('Audio engine not ready', true); }
+}
+
+function previewSfx(id) {
+  const e = _sfxEntry(id);
+  if (e) _playSfxDef(e);
+}
+
+async function resetSfx(id) {
+  const e = _sfxEntry(id);
+  if (!e) return;
+  if (!confirm(`Reset "${e.name}" to its built-in default? Your edits will be lost.`)) return;
+  const r = await API(`/audio/interface-sfx/${id}`, 'DELETE');
+  if (r?.error) { toast(r.error, true); return; }
+  toast('Reset to default');
+  loadPanel('sounds');
+}
+
+// Preview the (possibly unsaved) config currently in the modal textarea.
+function previewSfxEdit() {
+  let config;
+  try { config = JSON.parse(document.getElementById('sfx-config').value); }
+  catch { toast('Synth def is not valid JSON', true); return; }
+  const priority = parseInt(document.getElementById('sfx-priority').value) || 5;
+  _playSfxDef({ id: 'preview', priority }, config);
+}
+
+function editSfx(id) {
+  const e = _sfxEntry(id);
+  if (!e) return;
+  const modal = document.getElementById('generic-modal');
+  document.getElementById('modal-title').textContent = `Edit SFX: ${e.name}`;
+  document.getElementById('modal-body').innerHTML = `
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px">
+      <div class="field"><label>Name</label><input id="sfx-name" value="${(e.name||'').replace(/"/g,'&quot;')}"></div>
+      <div class="field"><label>Priority (1–10)</label><input id="sfx-priority" type="number" min="1" max="10" value="${e.priority}"></div>
+    </div>
+    <div class="field" style="display:flex;align-items:center;gap:10px">
+      <input type="checkbox" id="sfx-enabled" ${e.enabled?'checked':''}>
+      <label for="sfx-enabled" style="margin:0;cursor:pointer">Enabled <span style="color:var(--text-dim);font-weight:400">(uncheck to mute this cue for everyone)</span></label>
+    </div>
+    <div class="field"><label>Synth def <span style="color:var(--text-dim);font-weight:400">(JSON — { duration, layers:[…] }; each layer: waveform, freq, filter, adsr, gain, delay, pitchBend…)</span></label>
+      <textarea id="sfx-config" rows="14" style="resize:vertical;font-family:monospace;font-size:11px;line-height:1.4">${JSON.stringify(e.config, null, 2)}</textarea>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <button class="action-btn" onclick="previewSfxEdit()">▶ Preview edit</button>
+      <span style="font-size:11px;color:var(--text-dim)">Built-in default priority ${e.defaultPriority}. Use ↺ in the list to discard edits.</span>
+    </div>`;
+  document.getElementById('modal-save').onclick = async () => {
+    let config;
+    try { config = JSON.parse(document.getElementById('sfx-config').value); }
+    catch { toast('Synth def is not valid JSON', true); return; }
+    const body = {
+      name: document.getElementById('sfx-name').value.trim() || e.defaultName,
+      grp: e.group,
+      priority: parseInt(document.getElementById('sfx-priority').value) || e.defaultPriority,
+      enabled: document.getElementById('sfx-enabled').checked,
+      config,
+    };
+    const r = await API(`/audio/interface-sfx/${id}`, 'PUT', body);
+    if (r?.error) { toast(r.error, true); return; }
+    toast('SFX saved');
     closeModal();
     loadPanel('sounds');
   };

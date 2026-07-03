@@ -1,5 +1,6 @@
 // One-shot content update: give beer and coffee an overdose (both lethal) and
 // wire them into the intoxication plugin's meter.
+// (Diuretic behaviour lives in scripts/backfill-diuretic.js.)
 //   Run once:  node scripts/rework-beer-coffee.js
 //   Restart the server (or hit /world/reload) after — drugs are cached at boot.
 //

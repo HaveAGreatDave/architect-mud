@@ -15,6 +15,9 @@ export default async function regress({ run, check, getPlayer }) {
 
   p.thirst = savedThirst; p.hunger = savedHunger;
 
+  r = await run('pee on nobodyhere');
+  check('bodily target miss reports not-found', /don't see/i.test(r?.message || ''), r?.message);
+
   r = await run('flush');
   check('flush verb routed', /flush|no toilet/i.test(r?.message || ''), r?.message);
 }

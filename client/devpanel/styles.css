@@ -231,6 +231,15 @@
     gap: 8px;
   }
 
+  /* Mirror of .edit-footer pinned above the form body — same Save/Delete, so you
+     don't have to scroll to the bottom of a long editor to act. */
+  .edit-actions-top {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    gap: 8px;
+  }
+
   .msg-toast {
     position: fixed;
     bottom: 20px;

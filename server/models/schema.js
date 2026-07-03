@@ -249,6 +249,20 @@ export const SCHEMA_SQL = `
   );
   ALTER TABLE sounds ADD COLUMN IF NOT EXISTS propagation TEXT NOT NULL DEFAULT 'both';
 
+  -- Interface / game SFX overrides. The built-in procedural cues for the poker
+  -- table and the hacking/lock minigames live in client/shared/sfx-catalog.js;
+  -- rows here override a cue by its catalog id (edited via the dev panel's Sounds
+  -- tab → Interface / Game SFX). Only overridden cues have a row — the game boot
+  -- fetches these and layers them over the built-ins. grp is a display bucket.
+  CREATE TABLE IF NOT EXISTS interface_sfx (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL DEFAULT '',
+    grp TEXT NOT NULL DEFAULT 'misc',
+    config JSONB NOT NULL DEFAULT '{}',
+    priority INTEGER NOT NULL DEFAULT 5,
+    enabled INTEGER NOT NULL DEFAULT 1
+  );
+
   -- Global ambient event pool, organized by theme. Zones reference a theme
   -- via the ambient_theme column; the ambient tick pulls from this pool when
   -- zone-specific events would repeat too soon.
@@ -830,6 +844,8 @@ export const SCHEMA_SQL = `
   ALTER TABLE media_channels  ADD COLUMN IF NOT EXISTS studio_zone_id TEXT;
   ALTER TABLE media_channels  ADD COLUMN IF NOT EXISTS offline_graphic_id TEXT;
   ALTER TABLE media_broadcasts ADD COLUMN IF NOT EXISTS fallback_messages JSONB DEFAULT '[]';
+  -- Weather broadcasts (playback_mode='weather') store line pools here: { pools:{key:[…]}, host }
+  ALTER TABLE media_broadcasts ADD COLUMN IF NOT EXISTS weather_pools JSONB;
   ALTER TABLE media_channels ADD COLUMN IF NOT EXISTS commercial_pool JSONB DEFAULT '[]';
   ALTER TABLE media_channel_playlist ADD COLUMN IF NOT EXISTS slot_type TEXT DEFAULT 'broadcast';
 

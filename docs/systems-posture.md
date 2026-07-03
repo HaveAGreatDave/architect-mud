@@ -59,11 +59,25 @@ gate their messaging.
 | **Stand on zone change** | `commands/movement.js` `cmdMove` | `forceStand(player, 'moved')` (unconditional); the "stands up" room message fires only when the interrupted posture was `sitting`. |
 | **Reset on death/respawn** | `gameLoop.js` death handler | `setPosture(player, 'standing')`. |
 | **Look/examine description** | `commands/world.js` `describePlayerAppearance` | `"sitting"` → `"<X> is sitting on the <furniture|ground>."`; `"scavenging"` → rummaging line; `"butchering"` → elbow-deep-in-a-carcass line. |
-| **`poop on <player>` gate (MIS)** | `plugins/bodily/index.js` `poopOnPlayer` | Target must be sleeping/offline-sleeping or `posture === "lying"`. |
+| **`poop on <creature>` lying gate** | `plugins/bodily/index.js` `startRelief` / `isLyingTarget` | Pooping on a creature requires the target be sleeping/offline-sleeping or `posture === "lying"`. Qualifying targets: a lying/sleeping player, or a sleeping-at-home NPC (`AT_HOME_LIFE` sets `posture:"lying"`). Enemies have no posture, so they never qualify. No MIS gate. |
 
 ## Tunables
 
 - `SIT_REGEN_HP` = 5 HP per tick, `15s` cadence (`gameLoop.js`). 5 HP / 15 s.
+
+## NPCs use the same substrate
+
+Posture is not player-only. NPCs (live world-cache entities) carry the same
+`posture`/`sittingOn` fields, written through the same `server/engine/posture.js`
+API — never a parallel field. The [`AT_HOME_LIFE`](ai-behaviour.md) AI node sets
+`setPosture(entity, 'lying', { sittingOn })` when an NPC sleeps at home (bound to a
+bed/couch in the room, or `null` for the floor) and clears to `standing` on wake.
+Keep the two flags distinct: `entity._ai.homeSleeping` is *asleep* (mental);
+`entity.posture === 'lying'` is the *physical stance* — the seam for future
+"lie down but stay awake" cases. The room-look NPC list and `examine <npc>` both
+read these: `(sleeping)` when `homeSleeping`, else `(lying down)` for a bare
+`lying` posture. `posture.changed` has no consumers today, so emitting it for an
+NPC entity is harmless.
 
 ## History / why this doc exists
 

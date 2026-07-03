@@ -16,19 +16,40 @@
 
 import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
-import { getZone, getLivePlayer, getMinimapData } from '../../server/engine/world.js';
+import { world, getZone, getLivePlayer, getMinimapData } from '../../server/engine/world.js';
 import { getFlag } from '../../server/engine/flags.js';
 import { on } from '../../server/engine/events.js';
 import { dispatchAction } from '../../server/engine/actions.js';
 import { getBroadcast, sendToPlayer } from '../../server/engine/messaging.js';
 import { describeZone } from '../../server/engine/commands/describe.js';
+import { moveEntity } from '../../server/engine/ai-behaviour.js';
+import { getEnvironmentState } from '../../server/engine/environment.js';
+import { schedule } from '../../server/engine/scheduler.js';
 
 const CELL_ZONE = 'zone_mq_precinct_holding';   // the holding cell you wake in
 const RELEASE_ZONE = 'zone_mq_precinct_lobby';  // where the guard walks you out to
+const BUNK_ZONE = 'zone_mq_precinct_bullpen';   // where off-shift officers wait (their desks)
 const MINUTE = 60 * 1000;
 const HACK_DEVICE = 'item_hack_deck';           // classed contraband (see doors.js)
 const EVIDENCE_CAP = 50;                         // max rows in the shared locker
 const PURGE_MS = 3 * 24 * 60 * 60 * 1000;        // wipe evidence older than 3 days
+const FINE_PER_HALF_STAR = 50;                   // ₵ booking fine per half wanted-star
+
+// Duty roster, in shift order: officer[0] works 00:00–08:00, [1] 08:00–16:00,
+// [2] 16:00–24:00 (game time runs 1:1 with real time, so a shift = 8 real hours).
+// Kohl is the pre-existing detention officer; the other two are seeded by
+// scripts/create-jail-officers.js. Off-duty officers wait in the bullpen.
+const OFFICERS = ['npc_precinct_guard', 'npc_precinct_officer_2', 'npc_precinct_officer_3'];
+
+// Lines the on-duty officer says as they walk you out at the end of your stretch.
+const RELEASE_LINES = [
+  `"Time's served. Try to make it a week this time."`,
+  `"Sobered up? Good. The door's that way — don't make me see you again."`,
+  `"You're free to go. Your file says otherwise, but that's tomorrow's problem."`,
+  `"Up. Out. Sign for your things at the desk and stay off the cameras."`,
+  `"Congratulations, you're rehabilitated. Statistically, for about six hours."`,
+  `"On your feet. The city's forgotten you already — do it a favor and stay forgotten."`,
+];
 
 const timers = new Map();       // playerId -> release setTimeout handle
 const releasing = new Set();    // playerIds mid-release (suppress escape detection)
@@ -120,10 +141,67 @@ function scheduleRelease(playerId, ms) {
   }, Math.max(0, ms)));
 }
 
+// ── Duty roster / shifts ─────────────────────────────────────────────────────
+// The officer on duty right now, by the in-game hour (three 8-hour shifts).
+function onDutyOfficerId() {
+  const hour = getEnvironmentState().hour ?? 0;   // 0–23
+  return OFFICERS[Math.floor(hour / 8) % OFFICERS.length];
+}
+
+// Keep exactly the on-duty officer in the lobby and the rest in the bunk room.
+// Idempotent — moveEntity no-ops (and stays silent) when an officer is already
+// in place, so this is cheap to run every minute and safe against boot ordering.
+function syncShift() {
+  const bc = getBroadcast();
+  if (typeof bc !== 'function') return;   // broadcast not wired yet (or headless test harness)
+  const dutyId = onDutyOfficerId();
+  for (const id of OFFICERS) {
+    const npc = world.npcs.get(id);
+    if (!npc || npc._dead) continue;
+    const dest = id === dutyId ? RELEASE_ZONE : BUNK_ZONE;
+    if (npc.zone_id !== dest) moveEntity(npc, dest, bc, query);
+  }
+}
+
 // ── Jailing (the respawn hook) ───────────────────────────────────────────────
 async function onRespawnZone(player, killer) {
-  const stars = Math.floor(parseFloat(await getFlag('player', 'wanted', player) || '0') || 0);
+  const current = parseFloat(await getFlag('player', 'wanted', player) || '0') || 0;
+  // Book on the PEAK heat of this spree, not the current (possibly decayed) level:
+  // run 5★ and whittle it down to ½★ and you're still charged for the full 5★.
+  let wanted = current;
+  try {
+    const r = await dispatchAction({ type: 'WANTED_PEAK', actor: player });
+    if (typeof r?.peak === 'number') wanted = Math.max(wanted, r.peak);
+  } catch { /* surveillance not loaded — fall back to the current flag */ }
+  const stars = Math.floor(wanted);
   if (stars < 1) return undefined;  // clean death → normal clone-vat respawn
+
+  // Booking fine — ₵50 per half wanted-star. Debt is allowed (an owed fine), so
+  // bypass adjustCredits (which clamps at zero) with a direct un-clamped debit.
+  const halfStars = Math.round(wanted / 0.5);
+  const fine = halfStars * FINE_PER_HALF_STAR;
+  let balance = player.credits ?? 0;
+  if (fine > 0) {
+    const res = await query('UPDATE players SET credits = credits - $1 WHERE id = $2 RETURNING credits',
+      [fine, player.id]).catch(() => null);
+    if (res?.rows[0]) { balance = res.rows[0].credits; player.credits = balance; }
+  }
+
+  // Rap sheet for the booking record — read now, while surveillance still holds
+  // it (it clears the suspect's heat later in this same death, at player.death).
+  let charges = [];
+  try {
+    const r = await dispatchAction({ type: 'WANTED_CHARGES', actor: player });
+    if (Array.isArray(r?.charges)) charges = r.charges;
+  } catch { /* surveillance not loaded — fall back below */ }
+  const charge = charges.length ? charges.join(', ') : 'multiple outstanding warrants';
+
+  // Everything the cops take (contraband → evidence, the rest held for release).
+  const confiscated = (await query(
+    `SELECT COUNT(*)::int AS n FROM player_inventory pi JOIN items i ON i.id = pi.item_id
+      WHERE pi.player_id = $1 AND NOT (i.tags @> '{"quest_item":true}')`,
+    [player.id]
+  ).catch(() => ({ rows: [{ n: 0 }] }))).rows[0].n;
 
   const held = await confiscate(player.id, player.handle);
   const ms = stars * MINUTE;
@@ -138,6 +216,17 @@ async function onRespawnZone(player, killer) {
   scheduleRelease(player.id, ms);
 
   const mins = stars === 1 ? '1 minute' : `${stars} minutes`;
+  // Booking record popup + keep the wanted HUD showing your stars (it decays over
+  // the sentence via the minute tick). Deferred so it lands after the death/
+  // respawn render and after surveillance zeroes the HUD at player.death.
+  setTimeout(() => {
+    sendToPlayer(player.id, {
+      type: 'arrest_notice',
+      charge, stars, sentence: mins, confiscated, fine, balance,
+    });
+    sendToPlayer(player.id, { type: 'wanted_level', stars });
+  }, 700);
+
   const message = `<span class="clone-vat-message">You come to on a steel bench in Precinct 9's holding block — wrists zip-tied, pockets empty, a charge sheet taped to the bars. The desk sergeant doesn't look up: "${mins}. Sit tight." Anything the law calls contraband has been logged to evidence; you won't be seeing that again.</span>`;
   return { zone: CELL_ZONE, message };
 }
@@ -156,16 +245,22 @@ async function release(playerId) {
     const player = getLivePlayer(playerId);
     if (player) {
       const bc = getBroadcast();
-      // The guard enters the cell, calls the prisoner, and walks only them out —
-      // the lock re-engages behind, so no cellmate slips through.
+      // The officer on duty right now walks into the cell, says their piece, and
+      // walks only the prisoner out — the lock re-engages behind, so no cellmate
+      // slips through. Their name is whoever's shift it is.
+      const officer = world.npcs.get(onDutyOfficerId());
+      const officerName = officer?.name || 'The duty officer';
+      const line = RELEASE_LINES[Math.floor(Math.random() * RELEASE_LINES.length)];
+      // Clear the countdown HUD — you walk out clean.
+      sendToPlayer(playerId, { type: 'wanted_level', stars: 0 });
       bc?.(rec.cell_zone, {
         type: 'zone_event',
-        message: `<span class="text-yellow">A guard raps a baton across the bars. "${player.handle}. Time's served — on your feet."</span> The door buzzes open just long enough to walk ${player.handle} out, then clanks shut and re-locks behind them.`,
+        message: `<span class="text-yellow">${officerName} steps into the cell, keys jangling. "${player.handle}. ${line}"</span> The door buzzes open just long enough to walk ${player.handle} out, then clanks shut and re-locks behind them.`,
       }, playerId);
       await dispatchAction({ type: 'TELEPORT', actor: player, params: { zone_id: rec.release_zone }, context: { broadcast: bc } });
       const zone = getZone(rec.release_zone);
       if (zone) sendToPlayer(playerId, { type: 'move', message: await describeZone(zone, player), zone: rec.release_zone, minimap: getMinimapData(rec.release_zone) });
-      sendToPlayer(playerId, { type: 'output', message: `<span class="msg-system">The duty officer slides a plastic tub across the counter — your things, minus anything the law keeps. "Stay out of trouble."</span>` });
+      sendToPlayer(playerId, { type: 'output', message: `<span class="msg-system">${officerName} slides a plastic tub across the counter — your things, minus anything the law keeps. "Stay out of trouble."</span>` });
     } else {
       // Offline (e.g. released at boot after the deadline passed) — DB-only move.
       await query('UPDATE players SET current_zone = $1 WHERE id = $2', [rec.release_zone, playerId]);
@@ -197,6 +292,22 @@ on('zone.entered', async ({ actor, zone }) => {
   if (rows.length) await escape(actor).catch(e => console.error('[jail] escape error:', e.message));
 });
 
+// ── Minute tick: rotate shifts + decay the prison countdown HUD ──────────────
+// Your wanted stars ride the sentence down: each minute the HUD shows the stars
+// still left to serve (ceil of the remaining time), so it visibly declines and
+// hits zero right as the officer walks you out. Purely a HUD countdown — your
+// actual street heat was cleared on arrest.
+schedule('1m', async () => {
+  syncShift();
+  const { rows } = await query('SELECT player_id, release_at, stars FROM jail_prisoners').catch(() => ({ rows: [] }));
+  const now = Date.now();
+  for (const r of rows) {
+    if (!getLivePlayer(r.player_id)) continue;
+    const remaining = Math.max(0, Math.min(r.stars, Math.ceil((new Date(r.release_at).getTime() - now) / MINUTE)));
+    sendToPlayer(r.player_id, { type: 'wanted_level', stars: remaining });
+  }
+});
+
 // ── Evidence purge ───────────────────────────────────────────────────────────
 async function purgeEvidence() {
   await query(`DELETE FROM police_evidence WHERE created_at < NOW() - $1::interval`, [`${PURGE_MS} milliseconds`]).catch(() => {});
@@ -214,9 +325,12 @@ setInterval(() => purgeEvidence(), 60 * 60 * 1000);
   }
 })().catch(e => console.error('[jail] boot restore error:', e.message));
 
+// Place the duty roster once the world has loaded (the minute tick maintains it).
+setTimeout(() => { try { syncShift(); } catch (e) { console.error('[jail] shift sync error:', e.message); } }, 5000);
+
 export const hooks = { 'player.respawnZone': onRespawnZone };
 
 // Exposed for the regression harness.
-export const _test = { confiscate, restoreHeld, release, escape, onRespawnZone, isContraband, CELL_ZONE, RELEASE_ZONE };
+export const _test = { confiscate, restoreHeld, release, escape, onRespawnZone, isContraband, onDutyOfficerId, OFFICERS, CELL_ZONE, RELEASE_ZONE, BUNK_ZONE };
 
 console.log('[jail] Plugin loaded.');

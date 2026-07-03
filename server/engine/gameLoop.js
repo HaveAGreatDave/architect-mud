@@ -726,7 +726,11 @@ async function resourceTick() {
     let lethalCause = null;
 
     if (player._tickCounter % THIRST_DECAY_INTERVAL_MIN === 0 && player.thirst > 0) player.thirst = Math.max(0, player.thirst - 1);
-    if (player._tickCounter % HUNGER_DECAY_INTERVAL_MIN === 0 && player.hunger > 0) player.hunger = Math.max(0, player.hunger - 1);
+    // Appetite suppression (the smoking plugin's `appetiteSuppressedUntil`, ms): while
+    // active, hunger simply stops decaying. Plugin owns the field, engine reacts — the
+    // posture pattern. No login init needed: undefined > now is false, so decay runs normally.
+    const appetiteSuppressed = player.appetiteSuppressedUntil > Date.now();
+    if (player._tickCounter % HUNGER_DECAY_INTERVAL_MIN === 0 && player.hunger > 0 && !appetiteSuppressed) player.hunger = Math.max(0, player.hunger - 1);
 
     if (player.hunger > 0 && player.hunger <= 20) messages.push('You are very hungry.');
     if (player.thirst > 0 && player.thirst <= 20) messages.push('You are very thirsty.');

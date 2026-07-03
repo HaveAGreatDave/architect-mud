@@ -4,8 +4,15 @@
 // /api/audio/songs + /api/audio/instruments directly and drives
 // window.AudioEngine locally.
 
+import { registerList, mountScopeToggle } from './list-reorder.js';
+
+// localStorage key for the player's imported .MOD tapes (raw module bytes,
+// base64) so they survive a full page reload — see _hydrateLocalTapes.
+const TAPES_KEY = 'architect_amp_local_tapes';
+
 let _songs = [];
-let _localSongs = [];    // .MOD tapes imported from the player's machine this session
+let _localSongs = [];    // .MOD tapes imported from the player's machine (persisted)
+let _tapeSeq = 0;        // disambiguates tape keys minted within the same millisecond
 let _instruments = {};   // id -> row
 let _samples = {};       // id -> sample metadata row
 let _currentIdx = -1;
@@ -85,8 +92,9 @@ async function _loadLibrary() {
     _songs = Array.isArray(songsData)
       ? songsData.filter(s => Array.isArray(s.channels) && s.channels.length > 0 && s.category === 'misc')
       : [];
-    // Keep any locally-imported tapes appended after the fetched library so they
-    // survive closing/reopening the panel (they're gone only on a full page reload).
+    // Re-hydrate the player's imported .MOD tapes from localStorage (they persist
+    // across reloads) and append them after the fetched library.
+    _hydrateLocalTapes();
     _songs.push(..._localSongs);
     _instruments = {};
     if (Array.isArray(instsData)) for (const i of instsData) _instruments[i.id] = i;
@@ -101,9 +109,10 @@ async function _loadLibrary() {
 
 // ── Local .MOD import (personal jukebox) ───────────────────────────────────────
 // Load a .MOD chosen from the player's own machine, parse it in the browser (no
-// server round-trip, nothing stored), append it to the playlist and play it. These
-// personal tapes live for the session only — re-import after a reload. They can't
-// be shared in-game; players pass the raw .MOD files around themselves.
+// server round-trip), append it to the playlist and play it. The raw module bytes
+// are cached in localStorage so the tape survives a reload (re-parsed on next
+// open). They can't be shared in-game; players pass the raw .MOD files around
+// themselves.
 async function _importLocalMod(file) {
   if (!file) return;
   const statusEl = document.getElementById('amp-lcd-status');
@@ -112,13 +121,60 @@ async function _importLocalMod(file) {
   try {
     const buf = await file.arrayBuffer();
     const { song } = window.ModParser.parseModToLocalSong(buf, file.name);
+    // Stable key (independent of the parser's per-session id) so the curated
+    // playlist order/selection can reference this tape across reloads.
+    song._key = `tape_${Date.now().toString(36)}_${_tapeSeq++}`;
     _localSongs.push(song);
     _songs.push(song);
+    _persistTape(song._key, file.name, buf);
     _renderTrackList();
     _playIdx(_songs.length - 1);   // drop the new tape in and play it
   } catch (e) {
     if (statusEl) statusEl.textContent = '⚠  NOT A VALID .MOD';
   }
+}
+
+// ── Persisted tapes (localStorage) ─────────────────────────────────────────────
+
+function _loadStoredTapes() {
+  try { return JSON.parse(localStorage.getItem(TAPES_KEY)) || []; } catch { return []; }
+}
+function _saveStoredTapes(arr) {
+  try { localStorage.setItem(TAPES_KEY, JSON.stringify(arr)); } catch { /* quota — tape stays session-only */ }
+}
+function _bufToB64(buf) {
+  const b = new Uint8Array(buf);
+  let s = '';
+  for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i]);
+  return btoa(s);
+}
+function _b64ToBuf(b64) {
+  const bin = atob(b64);
+  const b = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) b[i] = bin.charCodeAt(i);
+  return b.buffer;
+}
+function _persistTape(key, fileName, buf) {
+  const tapes = _loadStoredTapes();
+  tapes.push({ key, fileName, b64: _bufToB64(buf) });
+  _saveStoredTapes(tapes);
+}
+
+// Rebuild _localSongs by re-parsing every stored tape's raw bytes. Corrupt or
+// no-longer-parseable entries are dropped (and pruned from storage).
+function _hydrateLocalTapes() {
+  _localSongs = [];
+  if (!window.ModParser) return;
+  const kept = [];
+  for (const tape of _loadStoredTapes()) {
+    try {
+      const { song } = window.ModParser.parseModToLocalSong(_b64ToBuf(tape.b64), tape.fileName);
+      song._key = tape.key;
+      _localSongs.push(song);
+      kept.push(tape);
+    } catch { /* drop unparseable tape */ }
+  }
+  if (kept.length !== _loadStoredTapes().length) _saveStoredTapes(kept);
 }
 
 // Attach each sample-backed instrument's `_sampleDef` so the song player uses the
@@ -277,8 +333,8 @@ function _updateDisplay() {
 
   panel?.querySelectorAll('.amp-reel').forEach(r =>
     r.classList.toggle('spinning', _playing));
-  panel?.querySelectorAll('.amp-track-row').forEach((row, i) =>
-    row.classList.toggle('current', i === _currentIdx));
+  panel?.querySelectorAll('.amp-track-row').forEach(row =>
+    row.classList.toggle('current', parseInt(row.dataset.idx) === _currentIdx));
   const cassetteBody = document.getElementById('amp-cassette-body');
   const cassetteLabel = document.getElementById('amp-cassette-label-strip');
   if (cassetteBody) cassetteBody.classList.toggle('loaded', _currentIdx >= 0);
@@ -293,13 +349,53 @@ function _renderTrackList() {
     return;
   }
   list.innerHTML = _songs.map((s, i) => `
-    <div class="amp-track-row${i === _currentIdx ? ' current' : ''}" data-idx="${i}">
+    <div class="amp-track-row${i === _currentIdx ? ' current' : ''}" data-idx="${i}" data-lr-key="${s._key || s.id || s.name}">
       <span class="amp-track-num">${String(i + 1).padStart(2, '0')}</span>
       <span class="amp-track-name">${s.name.replace(/_/g, ' ').toUpperCase()}</span>
       <span class="amp-track-bpm">${s.tempo} BPM</span>
     </div>`).join('');
   list.querySelectorAll('.amp-track-row').forEach(row =>
     row.addEventListener('click', () => _playIdx(parseInt(row.dataset.idx))));
+  // Wire (or re-wire, after this rebuild) the curated-playlist reorder/remove
+  // engine: saved order + removed tracks are re-applied, keyed per row above.
+  // ✕ hides library tracks (recoverable via ⟲); for an imported .MOD it also
+  // purges the cached bytes — that copy is the only one, so removal is permanent.
+  registerList(list, {
+    scope: 'amp-tracks', key: 'amp-tracks', rowSelector: '.amp-track-row',
+    onRemove: _purgeTape,
+  });
+}
+
+// Drop an imported tape's cached bytes from storage (no-op for library tracks,
+// whose keys never match a stored tape). The in-memory copy stays until the next
+// panel open re-hydrates from the now-purged store.
+function _purgeTape(key) {
+  const tapes = _loadStoredTapes();
+  const kept = tapes.filter(t => t.key !== key);
+  if (kept.length !== tapes.length) _saveStoredTapes(kept);
+}
+
+// The _songs indices in the on-screen curated order (after the reorder engine has
+// applied the saved arrangement), excluding tracks the player removed from the
+// list. Prev/Next walk this instead of the raw fetch order.
+function _visibleIdxs() {
+  const list = document.getElementById('amp-tracklist');
+  if (!list) return _songs.map((_, i) => i);
+  return [...list.querySelectorAll('.amp-track-row')]
+    .filter(r => !r.classList.contains('list-row-hidden'))
+    .map(r => parseInt(r.dataset.idx))
+    .filter(i => i >= 0 && i < _songs.length);
+}
+
+// Step to the next (dir=1) or previous (dir=-1) track in the curated order,
+// wrapping around; from a stopped/unknown state, start at the appropriate end.
+function _step(dir) {
+  const order = _visibleIdxs();
+  if (!order.length) return;
+  const pos = order.indexOf(_currentIdx);
+  const next = pos < 0 ? (dir > 0 ? 0 : order.length - 1)
+                       : (pos + dir + order.length) % order.length;
+  _playIdx(order[next]);
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -337,7 +433,7 @@ export function initMusicPlayerPanel() {
     // Tape already seated → just spin it back up (short capstan lead-in, no full
     // insertion beat); otherwise load one from scratch.
     if (_loaded && _currentIdx >= 0) _startPlayback(++_seq, 220);
-    else _playIdx(_currentIdx < 0 ? 0 : _currentIdx);
+    else _playIdx(_currentIdx < 0 ? (_visibleIdxs()[0] ?? 0) : _currentIdx);
   });
   document.getElementById('amp-stop').addEventListener('click', _stop);
   document.getElementById('amp-eject').addEventListener('click', _eject);
@@ -345,13 +441,13 @@ export function initMusicPlayerPanel() {
     if (!_songs.length) return;
     _sfx(SFX.blip);
     _flashBtn('amp-prev');
-    _playIdx((_currentIdx - 1 + _songs.length) % _songs.length);
+    _step(-1);
   });
   document.getElementById('amp-next').addEventListener('click', () => {
     if (!_songs.length) return;
     _sfx(SFX.blip);
     _flashBtn('amp-next');
-    _playIdx((_currentIdx + 1) % _songs.length);
+    _step(1);
   });
 
   // LOAD .MOD — pick a module off the player's own machine and play it locally.
@@ -371,6 +467,10 @@ export function initMusicPlayerPanel() {
     const open = trackList.classList.toggle('open');
     trackBtn.textContent = open ? 'TRACKS ▲' : 'TRACKS ▼';
   });
+
+  // Curated-playlist edit control (⇅ reorder / ✕ remove, ⟲ reset) — drives the
+  // tracklist's list-reorder scope. Order + removed tracks persist per-list.
+  mountScopeToggle('amp-tracks', panel.querySelector('.amp-footer'));
 
   // Draggable via header
   const header = document.getElementById('amp-header');

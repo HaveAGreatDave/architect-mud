@@ -132,7 +132,7 @@ async function bcSuiteRefresh(focusTab) {
 }
 
 const BROADCAST_CATEGORIES = ['general','news','advertisement','entertainment','emergency','weather','sport','music','documentary','surveillance'];
-const BROADCAST_MODES      = ['scripted','dynamic_news','live','recorded'];
+const BROADCAST_MODES      = ['scripted','dynamic_news','live','recorded','weather'];
 
 const BC_CAT_COLOR = {
   entertainment: 'var(--cyan)',    news: 'var(--yellow)',
@@ -767,6 +767,8 @@ async function saveBroadcast() {
     enabled: document.getElementById('bc-enabled')?.checked ? 1 : 0,
     messages,
     broadcast_graph: graph,
+    // Preserve weather line pools on manual save — they're only authored via BSM import.
+    weather_pools: _bcSelected?.weather_pools || null,
     channel_id: document.getElementById('bc-channel')?.value || null,
     fallback_messages: (document.getElementById('bc-fallback-msgs')?.value || '').split('\n').map(s => s.trim()).filter(Boolean),
   };
@@ -1648,7 +1650,7 @@ async function _bcDepFinish() {
   if (_bcDepCompiled) await _bcImportSave(_bcDepCompiled);
 }
 
-async function _bcImportSave({ meta, broadcastGraph, messages, assets, cameras, actorIds, npcIds }) {
+async function _bcImportSave({ meta, broadcastGraph, weatherScript, messages, assets, cameras, actorIds, npcIds }) {
   // Apply zone ID remaps to camera_cut nodes (BSM ID → real interior zone ID)
   for (const node of Object.values(broadcastGraph?.nodes || {})) {
     if (node.type === 'camera_cut') {
@@ -1675,12 +1677,16 @@ async function _bcImportSave({ meta, broadcastGraph, messages, assets, cameras, 
         ? (_bcChannels.find(c => c.id === meta.channel || String(c.number) === meta.channel)?.id || null)
         : null);
 
+  // @type weather → a line-library broadcast; the server assembles a fresh graph
+  // from these pools + the live 7-day forecast each airing. Loop so it re-airs.
+  const isWeather = meta.type === 'weather';
   const body = {
-    name: meta.name, category: meta.category || 'general',
-    playback_mode: 'scripted', message_interval: 5,
-    override_duration: meta.length || null, loop: 0, enabled: 1,
+    name: meta.name, category: meta.category || (isWeather ? 'weather' : 'general'),
+    playback_mode: isWeather ? 'weather' : 'scripted', message_interval: 5,
+    override_duration: meta.length || null, loop: isWeather ? 1 : 0, enabled: 1,
     messages: messages.map(t => ({ text: t })),
     broadcast_graph: broadcastGraph,
+    weather_pools: isWeather ? (weatherScript || { pools: {}, host: meta.host }) : null,
     channel_id: channelId,
   };
   try {
@@ -2187,6 +2193,9 @@ async function _bcNpcOpenSidebar(npcId) {
       <button class="action-btn success" style="flex:1" onclick="_bcNpcSaveSidebar('${escHtml(npcId)}')">Save NPC</button>
       <button class="action-btn" onclick="closeEdit()">Cancel</button>`;
   }
+  // The generic top Save/Delete bar doesn't apply to this custom sidebar — hide it.
+  const editTopBar = editPanel.querySelector('#edit-actions-top');
+  if (editTopBar) editTopBar.style.display = 'none';
   editPanel.classList.add('open');
 }
 

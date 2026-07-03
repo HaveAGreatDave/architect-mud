@@ -77,6 +77,14 @@ export async function handleCommand(input, player, broadcast) {
   let raw = input.trim();
   if (!raw) return null;
 
+  // Admin/OOC command prefix — a leading `.` or `/` is stripped so admin verbs
+  // can be typed as a namespace (`.tp`, `/spawn`). Cosmetic: the bare verb still
+  // works, and the rest of the pipeline only ever sees the clean command.
+  if (raw[0] === '.' || raw[0] === '/') {
+    raw = raw.slice(1).trim();
+    if (!raw) return null;
+  }
+
   // Blackout gate — while blacked out (heavy intoxication) the player can neither
   // see nor act; the state is time-based and lifts itself. Set by the intoxication
   // plugin, read here as a substrate law (mirrors the `sleeping` gate below).

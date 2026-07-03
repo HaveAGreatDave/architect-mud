@@ -48,18 +48,59 @@ const EMOJI_SHORTCODES = {
   money: '💰', cash: '💰',
 };
 
-// On input, replace a completed :code: token immediately before the cursor.
+// Classic text emoticons that auto-convert inline as you type (alongside the
+// :shortcode: syntax above). Ordered longest-first so multi-char faces win.
+const EMOTICONS = [
+  [":'(", "😭"],
+  [">:(", "😠"],
+  [":-)", "😊"],
+  [":-D", "😃"],
+  [":-(", "😢"],
+  [":-P", "😛"],
+  [":-p", "😛"],
+  [":-O", "😮"],
+  [":-o", "😮"],
+  [":-/", "😕"],
+  [";-)", "😉"],
+  [":)", "😊"],
+  [":D", "😃"],
+  [":(", "😢"],
+  [":P", "😛"],
+  [":p", "😛"],
+  [":O", "😮"],
+  [":o", "😮"],
+  [":/", "😕"],
+  [":|", "😐"],
+  [";)", "😉"],
+  ["<3", "❤️"],
+  ["xD", "😆"],
+  ["XD", "😆"],
+];
+
+// On input, replace a completed emoji token immediately before the cursor —
+// either a :shortcode: or a classic text emoticon.
 function _emojiAutoReplace(inp) {
   const pos = inp.selectionStart ?? inp.value.length;
   const before = inp.value.slice(0, pos);
+  const _swap = (len, emoji) => {
+    const start = pos - len;
+    inp.value = inp.value.slice(0, start) + emoji + inp.value.slice(pos);
+    inp.selectionStart = inp.selectionEnd = start + emoji.length;
+  };
+  // :shortcode: — a completed token ending in a colon.
   const m = before.match(/:([a-z0-9_+-]+):$/i);
-  if (!m) return;
-  const emoji = EMOJI_SHORTCODES[m[1].toLowerCase()];
-  if (!emoji) return;
-  const start = pos - m[0].length;
-  inp.value = inp.value.slice(0, start) + emoji + inp.value.slice(pos);
-  const newPos = start + emoji.length;
-  inp.selectionStart = inp.selectionEnd = newPos;
+  if (m) {
+    const emoji = EMOJI_SHORTCODES[m[1].toLowerCase()];
+    if (emoji) return _swap(m[0].length, emoji);
+  }
+  // Text emoticons — only when preceded by whitespace/start, so URLs (http://)
+  // and mid-word colons don't trip it.
+  for (const [token, emoji] of EMOTICONS) {
+    if (!before.endsWith(token)) continue;
+    const start = pos - token.length;
+    if (start > 0 && !/\s/.test(before[start - 1])) continue;
+    return _swap(token.length, emoji);
+  }
 }
 
 let _panelOpen = false;
@@ -241,6 +282,7 @@ function _setSystemMOTD(renderedText) {
   convo.messages = [{ from: 'SYSTEM', message: renderedText, isMOTD: true, ts: Date.now() }];
   convo.unread = 0;
   convo.scrollTop = 0;
+  convo.stickBottom = false; // MOTD reads from the top, never auto-scrolls
   if (_panelOpen && _activeTab === '#system') {
     _renderLog();
     const log = document.getElementById('whisper-log');
@@ -456,9 +498,9 @@ function _renderLog() {
   }
   const convo = _convos.get(_activeTab);
   if (!convo) return;
-  // Capture scroll target before innerHTML reset (clearing fires a scroll event
-  // that would overwrite convo.scrollTop before we can restore it).
-  const targetScroll = convo.scrollTop != null ? convo.scrollTop : log.scrollHeight;
+  // Was the view pinned to the bottom before this rebuild? A fresh convo
+  // (stickBottom undefined) defaults to pinned; #system pins to the top.
+  const stick = convo.stickBottom !== false;
   log.innerHTML = '';
   if (convo.messages.length === 0) {
     log.innerHTML = '<div style="color:var(--text-dim);font-size:11px;padding:8px 0">No messages yet.</div>';
@@ -477,7 +519,7 @@ function _renderLog() {
     }
     log.appendChild(el);
   }
-  log.scrollTop = targetScroll > 9000 ? log.scrollHeight : targetScroll;
+  log.scrollTop = stick ? log.scrollHeight : convo.scrollTop || 0;
   _checkScroll();
 }
 
@@ -578,9 +620,17 @@ async function _sendMessage() {
   const ch = CHANNELS.find(c => c.id === _activeTab);
   if (ch) {
     if (ch.systemOnly) return;
-    const r = await API(`/channels/${encodeURIComponent(_activeTab.replace(/^#/, ''))}/message`, 'POST', { message: msg, handle: _myHandle || 'Admin' });
+    const from = _myHandle || 'Admin';
+    const r = await API(`/channels/${encodeURIComponent(_activeTab.replace(/^#/, ''))}/message`, 'POST', { message: msg, handle: from });
     if (r?.error) { toast(r.error, true); return; }
     input.value = '';
+    // Echo locally right away instead of waiting for the next 3s poll; the
+    // back-to-back dedup in _receiveChannelMsg drops the poll's copy.
+    const convo = _getConvo(_activeTab);
+    convo.messages.push({ from, message: msg, ts: Date.now() });
+    if (convo.messages.length > WHISPER_MAX_MSGS) convo.messages.shift();
+    convo.stickBottom = true;
+    _renderLog();
     return;
   }
 
@@ -592,11 +642,10 @@ async function _sendMessage() {
   if (r?.error) { toast(r.error, true); return; }
   convo.messages.push({ from: 'You', message: msg, isMe: true, ts: Date.now() });
   if (convo.messages.length > WHISPER_MAX_MSGS) convo.messages.shift();
+  convo.stickBottom = true; // sending your own line re-pins to the bottom
   _saveConvos();
   input.value = '';
   _renderLog();
-  const log = document.getElementById('whisper-log');
-  if (log) log.scrollTop = log.scrollHeight;
 }
 
 // Append raw HTML into the active tab's log (used by .markup help).
@@ -622,10 +671,8 @@ function _receiveChannelMsg(channelId, from, message) {
   if (convo.messages.length > WHISPER_MAX_MSGS) convo.messages.shift();
   if (_panelOpen && _activeTab === channelId) {
     _renderLog();
-    const log = document.getElementById('whisper-log');
-    const nearBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 60;
-    if (nearBottom) _scrollToBottom();
-    else document.getElementById('whisper-new-msgs').style.display = 'block';
+    document.getElementById('whisper-new-msgs').style.display =
+      convo.stickBottom === false ? 'block' : 'none';
   } else {
     convo.unread++;
     _updateBadge();
@@ -685,7 +732,10 @@ function initWhisperPanel() {
     if (!_activeTab || _activeTab === USERS_TAB) return;
     const log = document.getElementById('whisper-log');
     const convo = _convos.get(_activeTab);
-    if (convo) convo.scrollTop = log.scrollTop;
+    if (convo) {
+      convo.scrollTop = log.scrollTop;
+      convo.stickBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 60;
+    }
     _checkScroll();
   });
 

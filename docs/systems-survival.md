@@ -83,6 +83,13 @@ for pre-existing drugs). Per-drug state lives in `player_drug_state` (`doses_in_
   `addiction_chance`) and decays over time; ≥ 0.5 marks the player addicted. `tickWithdrawal()` (minute
   cadence) applies `withdrawal.mods` through the ledger once time-since-last-use exceeds
   `withdrawal.onset_seconds`; re-dosing reverses it.
+- **Appetite suppression** — a drug flagged `flags.smokeable` (cigarettes) is driven by the **smoking
+  plugin** ([plugins/smoking/index.js](../plugins/smoking/index.js)) off the `player.drugUsed` event. On a
+  smoke the plugin sets `player.appetiteSuppressedUntil` (ms); the hunger-decay line in `resourceTick`
+  ([gameLoop.js](../server/engine/gameLoop.js)) reads that field and simply skips decay while it's in the
+  future — plugin owns the field, engine reacts (the posture pattern). The plugin also owns the hacking
+  cough and the onlooker "cool-reaction"; the Cool buff / Stamina debuff are plain `phases.peak_mods`
+  (`stat_cool` / `stamina_max`). See [plugins.md](plugins.md).
 - **Hallucinations** (`hallucination` block) — handled by the **trip plugin**
   ([plugins/trip](../plugins/trip/index.js)) off the engine's `drug.used` hook. `mode: "overlay"` streams
   scripted timed events + trippy client FX while the body stays in the real zone (attackable);

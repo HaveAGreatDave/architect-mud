@@ -1036,6 +1036,20 @@ async function handleBuyFromNpc(ws, session, msg) {
 	const { rows } = await query("SELECT * FROM npcs WHERE id=$1", [msg.npcId]);
 	if (!rows.length) { ws.send(JSON.stringify({ type: "error", message: "NPC not found." })); return; }
 	const npc = rows[0];
+	// Furniture is delivered to an owned apartment rather than carried in inventory
+	// (mirrors the `buy` command's furniture branch in the commerce plugin). Buying
+	// via the shop dialog must take the same path or it wrongly lands in inventory.
+	const { rows: itemRows } = await query("SELECT * FROM items WHERE id=$1", [msg.itemId]);
+	if (itemRows.length && itemRows[0].type === "furniture") {
+		const { buyFurniture } = await import("./engine/furniture-shop.js");
+		const catalogueEntry = (npc.vendor_inventory || []).find(e => e.item_id === msg.itemId);
+		const fr = await buyFurniture(player, npc, itemRows[0], catalogueEntry);
+		await sendShopPanel(ws, npc, session.playerId, { buyResult: fr.message, buySuccess: fr.type === "buy" });
+		if (fr.type === "buy") {
+			ws.send(JSON.stringify({ type: "player_update", credits: player.credits }));
+		}
+		return;
+	}
 	const { buyFromVendor } = await import("./engine/vendor.js");
 	const result = await buyFromVendor(player, npc, msg.itemId, 1);
 	await sendShopPanel(ws, npc, session.playerId, { buyResult: result.message, buySuccess: result.success });

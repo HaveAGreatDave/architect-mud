@@ -1,0 +1,6 @@
+{
+  "name": "weightbench",
+  "version": "1.0.0",
+  "description": "Weight bench — a posture-based workout on furniture flagged \"lift\". Lie back on a bench, then `lift` to grind out sets; enough reps slowly raise Brawn, with a rising cost per point and a soft cap. Gains are free of the XP economy (compensated into bonus_xp).",
+  "commands": ["lift"]
+}

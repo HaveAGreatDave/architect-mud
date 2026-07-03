@@ -1,5 +1,5 @@
 import { query } from '../../models/db.js';
-import { getDoorForExit, getDoorById, getZoneDoors, setDoorCache, getZone, world, getApartment, setApartmentCache, getZoneNpcs } from '../world.js';
+import { getDoorForExit, getDoorById, getZoneDoors, setDoorCache, getZone, world, getApartment, setApartmentCache } from '../world.js';
 import { resolveLockAuth, getLockType, getAllLockTypes } from '../locks.js';
 import { propagateSound } from '../sounds.js';
 import { isOnCooldown, setCooldown, getCooldownRemaining } from '../combat.js';
@@ -159,6 +159,21 @@ function doorFarZoneIds(door) {
   return door.target_zone ? [door.target_zone] : exitTargets(getZone(door.zone_id), door.exit_dir);
 }
 
+// The bathroom side of a door: the single zone touching it that holds a toilet.
+// A privacy lock is unlockable from that side ("connects to a bathroom" = the
+// far side is the bathroom). Returns null when NEITHER side has a toilet, or
+// BOTH do — the caller then makes the builder pick a side explicitly.
+export async function detectBathroomSide(door) {
+  const zids = [door.zone_id, ...doorFarZoneIds(door)].filter(Boolean);
+  if (!zids.length) return null;
+  const { rows } = await query(
+    `SELECT DISTINCT zone_id FROM furniture
+      WHERE zone_id = ANY($1) AND (object_type='toilet' OR jsonb_exists(flags,'toilet'))`,
+    [zids]
+  );
+  return rows.length === 1 ? rows[0].zone_id : null;
+}
+
 // Who owns the residence this door guards — whichever side is a claimed
 // apartment. Read straight from the table (authoritative on owner_type: an
 // apartment can be owned by a player, an NPC, or an org). Lets listeners on
@@ -183,6 +198,12 @@ export async function cmdAttackDoor(dirStr, player, broadcast) {
   if (door === 'ambiguous') return { type:'error', message:'Multiple doors here — specify a direction (e.g. attack door north).' };
   if (door.hp <= 0) return { type:'error', message:'That door is already destroyed.' };
 
+  // A quantum forcefield seals the whole unit — you can't hack it and you can't
+  // batter through it either. Reject the swing (before the cooldown) so a
+  // sleeping owner's shield is proof against brute force as well as the deck.
+  if (doorForcefieldActive(door))
+    return { type:'error', message:'A quantum forcefield sheathes the door — your blows just wash off it in blue ripples.' };
+
   if (isOnCooldown(player.id, 'attack')) {
     const remaining = getCooldownRemaining(player.id, 'attack');
     return { type:'error', message:`Not yet. (${(remaining/1000).toFixed(1)}s)` };
@@ -205,6 +226,15 @@ export async function cmdAttackDoor(dirStr, player, broadcast) {
 
   propagateSound(player.current_zone, 'You hear heavy banging against a door nearby.', 2.0, broadcast);
   broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} attacks the door.` }, player.id);
+
+  // Bashing a door is a loud break-in — the burglary alarm treats it as noise
+  // (an asleep resident on the far side wakes on the spot).
+  emit('breakin.attempt', {
+    intruderId: player.id,
+    entranceZoneId: player.current_zone,
+    unitZoneIds: [door.zone_id, ...doorFarZoneIds(door)].filter(z => z && z !== player.current_zone),
+    method: 'bash',
+  });
 
   if (door.hp <= 0) {
     await query('UPDATE doors SET hp=0,is_open=1,lock_state=NULL WHERE id=$1', [door.id]);
@@ -248,19 +278,6 @@ function doorForcefieldActive(door) {
   return false;
 }
 
-// A resident NPC of the room on the FAR side of the door — the residence you're
-// breaking into — who's currently home. Their `home_zone` pins them to that
-// specific unit, so this never matches an NPC just passing through (or one homed
-// to the shared lobby). If they're standing there, they witness the break-in.
-function residentOwnerInResidence(door, player) {
-  const otherSide = [door.zone_id, ...doorFarZoneIds(door)].filter(z => z && z !== player.current_zone);
-  for (const zid of otherSide) {
-    const owner = getZoneNpcs(zid).find(n => n.home_zone === zid);
-    if (owner) return { owner, zone: zid };
-  }
-  return null;
-}
-
 // hack [door] [dir] — arm a hololock breach. Self-gates (returns undefined) so a
 // zone-mate handler (e.g. vendor-safe's `hack`) can own the verb when there's no
 // hackable door. Returns the minigame launch payload; `hackresolve` reports back.
@@ -296,6 +313,15 @@ async function cmdHackLock(args, raw, player, broadcast) {
     broadcast(zid, { type:'zone_event', message:'A faint electronic whine buzzes from the door — someone is working the lock.' });
   }
   broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} jacks a deck into the door's hololock.` }, player.id);
+
+  // Signal the break-in to the burglary alarm system (picking phase begins now):
+  // residents on the far side may hear the lock being worked.
+  emit('breakin.attempt', {
+    intruderId: player.id,
+    entranceZoneId: player.current_zone,
+    unitZoneIds: [door.zone_id, ...doorFarZoneIds(door)].filter(z => z && z !== player.current_zone),
+    method: 'hack',
+  });
 
   pendingHack.set(player.id, { doorId: door.id, expires: Date.now() + HACK_PENDING_TTL_MS });
   return {
@@ -341,22 +367,20 @@ async function cmdHackResolve(args, raw, player, broadcast) {
   await awardSkillUse(player.id, 'hacking', 2);
   broadcast(player.current_zone, { type:'zone_event', message:'The hololock chirps and disengages.', refresh: true }, player.id);
 
-  // If the room's resident is home, they see the door give and call it in — a
-  // guaranteed witness (ownerWitness) even with no camera/cop/bystander around.
-  const resident = residentOwnerInResidence(door, player);
-  if (resident) {
-    broadcast(resident.zone, { type:'zone_event', message:`${resident.owner.name} sees the door give way — "Intruder!" — and stabs at a comm panel.` });
-  }
   // Attribute the break-in to whoever actually owns the place (from the table,
   // not just who's home) so an NPC-vendor owner holds a grudge whether or not
   // they witnessed it — they'll come back to a jimmied door and know.
   const owner = await burgledApartmentOwner(door);
-  emit('hololock.breached', { player, zoneId: player.current_zone, ownerWitness: !!resident, ...owner });
+  emit('hololock.breached', { player, zoneId: player.current_zone, ...owner });
 
-  const spotted = resident ? `\n<span class="text-red">${resident.owner.name} is home — they've seen you and called the cops.</span>` : '';
+  // Burglary is no longer charged on breach. A resident NPC who hears the
+  // intrusion (burglary plugin) must survive their panic cop-call — or flee the
+  // unit — for the stars to land; silence them first and you walk clean. With
+  // nobody home, breaching only charges if a camera/cop/bystander witnesses it
+  // (the generic witness gate on the hololock.breached listener).
   return {
     type: 'output',
-    message: `You spoof the hololock's handshake. It chirps green and the bolt slides back.\n<span class="ip-gain">Hacking improved.</span>${spotted}`,
+    message: `You spoof the hololock's handshake. It chirps green and the bolt slides back.\n<span class="ip-gain">Hacking improved.</span>`,
   };
 }
 

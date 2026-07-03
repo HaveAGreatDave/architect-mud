@@ -1,4 +1,5 @@
 import { sendCmdSilent } from '../net.js';
+import { registerList, mountScopeToggle } from './list-reorder.js';
 
 const RAISABLE = [
   { key: 'brawn', label: 'BRAWN', desc: 'Raises carrying capacity' },
@@ -10,6 +11,7 @@ const RAISABLE = [
 
 export function initStatsPanel() {
   document.getElementById('stats-close').addEventListener('click', closeStatsPanel);
+  mountScopeToggle('stats', document.getElementById('stats-header'));
 }
 
 export function closeStatsPanel() {
@@ -60,6 +62,7 @@ export function renderStatsPanel(s) {
   for (const stat of RAISABLE) {
     const block = document.createElement('div');
     block.className = 'stats-stat-block';
+    block.dataset.lrKey = stat.key;
     const row = document.createElement('div');
     row.className = 'stats-row';
     row.innerHTML = `<span class="stats-label">${stat.label}</span><span class="stats-val">${s[stat.key]}</span>`;
@@ -77,6 +80,7 @@ export function renderStatsPanel(s) {
     block.appendChild(desc);
     statSec.appendChild(block);
   }
+  registerList(statSec, { scope: 'stats', key: 'stats-core', rowSelector: '.stats-stat-block' });
   left.appendChild(statSec);
 
   const resSec = document.createElement('div');

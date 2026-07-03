@@ -4,6 +4,89 @@ function _arbiterDot(arbiters) {
   return { color: '#22c55e', label: 'READY' };
 }
 
+// ── Live crime log (perpetrator / zone / crime / wanted) ──────────────────────
+const _crimeEsc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+function _starBar(n) {
+  n = Number(n) || 0;
+  const full = Math.floor(n);
+  const half = (n - full) >= 0.5;
+  const empty = Math.max(0, 5 - full - (half ? 1 : 0));
+  return '★'.repeat(full) + (half ? '½' : '') + '☆'.repeat(empty);
+}
+
+function _ago(ts) {
+  const s = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m`;
+  return `${Math.floor(m / 60)}h`;
+}
+
+function _crimeRows(rows, isHistory) {
+  return rows.map(c => `
+    <tr>
+      <td style="padding:5px 12px 5px 0;color:var(--text);font-weight:600">${_crimeEsc(c.perpetrator)}</td>
+      <td style="padding:5px 12px 5px 0;color:var(--text-dim)">${_crimeEsc(c.zone)}</td>
+      <td style="padding:5px 12px 5px 0;color:var(--text-dim)">${_crimeEsc(c.crime)}</td>
+      <td style="padding:5px 12px 5px 0;color:#ff6b6b;letter-spacing:1px;white-space:nowrap">${_starBar(c.wanted)}</td>
+      <td style="padding:5px 0;color:var(--text-dim);text-align:right;white-space:nowrap">${isHistory ? `${_crimeEsc(c.outcome)} · ${_ago(c.clearedTs)} ago` : `${_ago(c.ts)} ago`}</td>
+    </tr>`).join('');
+}
+
+function _crimeTable(rows, isHistory) {
+  return `<table style="width:100%;border-collapse:collapse;font-size:11px">
+    <thead><tr style="color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;font-size:9px">
+      <th style="text-align:left;padding:0 12px 6px 0;font-weight:700">Perpetrator</th>
+      <th style="text-align:left;padding:0 12px 6px 0;font-weight:700">Zone</th>
+      <th style="text-align:left;padding:0 12px 6px 0;font-weight:700">Crime</th>
+      <th style="text-align:left;padding:0 12px 6px 0;font-weight:700">Wanted</th>
+      <th style="text-align:right;padding:0 0 6px 0;font-weight:700">${isHistory ? 'Outcome' : 'When'}</th>
+    </tr></thead>
+    <tbody>${_crimeRows(rows, isHistory)}</tbody>
+  </table>`;
+}
+
+function _crimeLogHtml(active, history) {
+  const activeHtml = active.length
+    ? _crimeTable(active, false)
+    : `<div style="font-size:11px;color:var(--text-dim);padding:6px 0">No active crimes — the streets are quiet.</div>`;
+  const historyHtml = history.length
+    ? `<div style="margin-top:18px">
+         <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-dim);margin-bottom:8px">Cleared — History (${history.length})</div>
+         ${_crimeTable(history.slice(0, 25), true)}
+       </div>`
+    : '';
+  return activeHtml + historyHtml;
+}
+
+let _crimeLogTimer = null;
+
+function _stopCrimeLogPoll() {
+  if (_crimeLogTimer) { clearInterval(_crimeLogTimer); _crimeLogTimer = null; }
+}
+
+async function _refreshCrimeLog() {
+  const body = document.getElementById('crime-log-body');
+  if (!body) { _stopCrimeLogPoll(); return; }   // navigated away from the panel
+  const data = await directAPI('/surveillance/crime-log');
+  if (!document.getElementById('crime-log-body')) { _stopCrimeLogPoll(); return; }
+  if (data?.error) {
+    body.innerHTML = `<div style="font-size:11px;color:var(--text-dim);padding:6px 0">${_crimeEsc(data.error)}</div>`;
+    return;
+  }
+  body.innerHTML = _crimeLogHtml(
+    Array.isArray(data?.active) ? data.active : [],
+    Array.isArray(data?.history) ? data.history : []
+  );
+}
+
+function _startCrimeLogPoll() {
+  _stopCrimeLogPoll();
+  _refreshCrimeLog();
+  _crimeLogTimer = setInterval(_refreshCrimeLog, 3000);
+}
+
 function renderEmergencyPanel(data) {
   const panel = document.getElementById('list-panel');
   const active  = !!data?.active;
@@ -30,6 +113,16 @@ function renderEmergencyPanel(data) {
           <div style="font-size:22px;font-weight:700;color:${statusColor};letter-spacing:2px">${active ? '⚠ ACTIVE' : '○ INACTIVE'}</div>
           ${active ? `<div style="font-size:11px;color:var(--text-dim)">${zones.length} streetlight zone(s) under alert</div>` : ''}
         </div>
+      </div>
+
+      <!-- Live Crime Log -->
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:20px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-dim)">Crime Log</div>
+          <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#22c55e;animation:esp-status-pulse 1.8s ease-in-out infinite"></span>
+          <span style="font-size:10px;color:var(--text-dim)">live — active crimes clear to history on arrest, death, or decay</span>
+        </div>
+        <div id="crime-log-body"><div style="font-size:11px;color:var(--text-dim);padding:6px 0">Loading…</div></div>
       </div>
 
       <!-- ESP Controls -->
@@ -90,6 +183,8 @@ function renderEmergencyPanel(data) {
       </div>
 
     </div>`;
+
+  _startCrimeLogPoll();
 }
 
 // ── ESP controls ──────────────────────────────────────────────────────────────

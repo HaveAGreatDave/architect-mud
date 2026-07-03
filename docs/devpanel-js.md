@@ -26,7 +26,7 @@ The shared list/edit lifecycle that every panel rides on:
 - `renderZonesTable(records)` — zones-specific override (grouped by building, collapsible).
 - `sortTableBy(key)` / `sortWorldStateBy(key)` / `filterTable()` — sort and search.
 - `selectRecord(id)` / `editRecord(id)` / `newRecord()` — record selection.
-- `openEdit(record, isNew)` / `closeEdit()` — open/close the right-hand edit panel.
+- `openEdit(record, isNew)` / `closeEdit()` — open/close the right-hand edit panel. The panel carries a **Save/Delete bar both above (`#edit-actions-top`) and below (`.edit-footer`) the form**; buttons share the `.js-save-btn`/`.js-delete-btn` classes so `openEdit`/`saveRecord` drive both. `openEdit` hides Delete on a new record; the broadcast NPC sidebar override hides the top bar (it swaps the footer for its own buttons).
 - `saveRecord()` / `deleteRecord()` — call the current panel's `save`/`delete` hooks.
 - `deleteFurnitureStaged(id, name)` — staged-delete shortcut used from furniture rows.
 
@@ -128,8 +128,7 @@ The global enemies panel and enemy editor.
 The Items panel and item editor.
 
 - **Tag widget**: `itemTagWidget(name, value)`, `itemTagRow()`, `itemAddTagPicker()`, `refreshItemTagPicker()`, `addItemTag()`, `removeItemTag()`, `readItemTag()`.
-- **Panel render**: `renderItemsPanel()` — groups items by type with collapsible sections; each row has a checkbox for bulk selection.
-- **Bulk delete**: `toggleItemChecked()`, `toggleAllItemsChecked()`, `deleteSelectedItems()` — "Select all" + "Delete Selected" toolbar above the list; routes each id through the same staged `DELETE /items/:id` as a single-item delete.
+- **Panel render**: `renderItemsPanel()` — groups items by type with collapsible sections; a row click opens the editor. Deletion is done from the editor's Delete button (like the other entity panels), not a per-row checkbox.
 - **Editor + save**: `itemEditForm(rec, isNew)`, `saveItem(existing)`.
 
 ### `npcs.js`

@@ -136,7 +136,12 @@ async function openEdit(record, isNew) {
   document.getElementById('edit-panel').classList.add('open');
   const singular = p.title.endsWith('ies') ? p.title.slice(0,-3)+'y' : p.title.slice(0,-1);
   document.getElementById('edit-title').textContent = isNew ? `New ${singular}` : `Edit: ${record.name || record.id}`;
-  document.getElementById('delete-btn').style.display = isNew ? 'none' : '';
+  // Top action bar is hidden by the broadcast NPC sidebar override — make sure a
+  // standard edit shows it. Toggle both (top + footer) Delete buttons: no Delete
+  // on a brand-new record.
+  const topBar = document.getElementById('edit-actions-top');
+  if (topBar) topBar.style.display = '';
+  document.querySelectorAll('#edit-panel .js-delete-btn').forEach(b => { b.style.display = isNew ? 'none' : ''; });
   document.getElementById('edit-body').innerHTML = '<div style="padding:24px;color:var(--text-dim)">Loading...</div>';
   document.getElementById('edit-body').innerHTML = await p.editForm(record, isNew);
   const idEl = document.getElementById('f-id');
@@ -174,9 +179,12 @@ function closeEdit() {
   const editFooter = document.querySelector('#edit-panel .edit-footer');
   if (editFooter) {
     editFooter.innerHTML = `
-      <button class="action-btn success" onclick="saveRecord()" style="flex:1">Save</button>
-      <button class="action-btn danger" id="delete-btn" onclick="deleteRecord()">Delete</button>`;
+      <button class="action-btn success js-save-btn" onclick="saveRecord()" style="flex:1">Save</button>
+      <button class="action-btn danger js-delete-btn" id="delete-btn" onclick="deleteRecord()">Delete</button>`;
   }
+  // Reset the top action bar (broadcast's NPC sidebar hides it).
+  const editTopBar = document.getElementById('edit-actions-top');
+  if (editTopBar) editTopBar.style.display = '';
   // Clean up VINE editor if active (removes document-level key listeners)
   if (window._vineActiveEditor) {
     window._vineActiveEditor.destroy();
@@ -189,8 +197,8 @@ function closeEdit() {
 async function saveRecord() {
   const p = PANELS[currentPanel];
   if (!p?.save) return;
-  const submitBtn = document.querySelector('.edit-footer .action-btn.success');
-  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Saving...'; }
+  const submitBtns = [...document.querySelectorAll('#edit-panel .js-save-btn')];
+  submitBtns.forEach(b => { b.disabled = true; b.textContent = 'Saving...'; });
   try {
     // Auto-generate ID from name if the ID field is still empty on a new record
     if (!currentRecord && p.idPrefix) {
@@ -234,7 +242,7 @@ async function saveRecord() {
     toast(`Unexpected error: ${err.message}`, true);
     console.error('saveRecord failed:', err);
   } finally {
-    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Save'; }
+    submitBtns.forEach(b => { b.disabled = false; b.textContent = 'Save'; });
   }
 }
 

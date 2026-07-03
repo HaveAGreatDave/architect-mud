@@ -47,18 +47,59 @@ const EMOJI_SHORTCODES = {
 	money: "💰", cash: "💰",
 };
 
-// On input, replace a completed :code: token immediately before the cursor.
+// Classic text emoticons that auto-convert inline as you type (alongside the
+// :shortcode: syntax above). Ordered longest-first so multi-char faces win.
+const EMOTICONS = [
+	[":'(", "😭"],
+	[">:(", "😠"],
+	[":-)", "😊"],
+	[":-D", "😃"],
+	[":-(", "😢"],
+	[":-P", "😛"],
+	[":-p", "😛"],
+	[":-O", "😮"],
+	[":-o", "😮"],
+	[":-/", "😕"],
+	[";-)", "😉"],
+	[":)", "😊"],
+	[":D", "😃"],
+	[":(", "😢"],
+	[":P", "😛"],
+	[":p", "😛"],
+	[":O", "😮"],
+	[":o", "😮"],
+	[":/", "😕"],
+	[":|", "😐"],
+	[";)", "😉"],
+	["<3", "❤️"],
+	["xD", "😆"],
+	["XD", "😆"],
+];
+
+// On input, replace a completed emoji token immediately before the cursor —
+// either a :shortcode: or a classic text emoticon.
 function _emojiAutoReplace(inp) {
 	const pos = inp.selectionStart ?? inp.value.length;
 	const before = inp.value.slice(0, pos);
+	const _swap = (len, emoji) => {
+		const start = pos - len;
+		inp.value = inp.value.slice(0, start) + emoji + inp.value.slice(pos);
+		inp.selectionStart = inp.selectionEnd = start + emoji.length;
+	};
+	// :shortcode: — a completed token ending in a colon.
 	const m = before.match(/:([a-z0-9_+-]+):$/i);
-	if (!m) return;
-	const emoji = EMOJI_SHORTCODES[m[1].toLowerCase()];
-	if (!emoji) return;
-	const start = pos - m[0].length;
-	inp.value = inp.value.slice(0, start) + emoji + inp.value.slice(pos);
-	const newPos = start + emoji.length;
-	inp.selectionStart = inp.selectionEnd = newPos;
+	if (m) {
+		const emoji = EMOJI_SHORTCODES[m[1].toLowerCase()];
+		if (emoji) return _swap(m[0].length, emoji);
+	}
+	// Text emoticons — only when preceded by whitespace/start, so URLs (http://)
+	// and mid-word colons don't trip it.
+	for (const [token, emoji] of EMOTICONS) {
+		if (!before.endsWith(token)) continue;
+		const start = pos - token.length;
+		if (start > 0 && !/\s/.test(before[start - 1])) continue;
+		return _swap(token.length, emoji);
+	}
 }
 const WHISPER_CONVO_KEY = "whisper_convos";
 const WHISPER_PERSIST_MAX = 100;
@@ -296,6 +337,7 @@ function _setSystemMOTD(renderedText) {
 	];
 	convo.unread = 0;
 	convo.scrollTop = 0;
+	convo.stickBottom = false; // MOTD reads from the top, never auto-scrolls
 	if (isFirst) {
 		_activeWhisperTab = channelId; // default to #system when panel is opened, but don't open it
 	} else if (_activeWhisperTab === channelId) {
@@ -583,10 +625,10 @@ function _renderWhisperLog() {
 	}
 	const convo = _whisperConvos.get(_activeWhisperTab);
 	if (!convo) return;
-	// Capture scroll target before innerHTML reset — clearing the DOM resets scrollTop to 0
-	// and fires a scroll event that overwrites convo.scrollTop before we can restore it.
-	const targetScroll =
-		convo.scrollTop != null ? convo.scrollTop : log.scrollHeight;
+	// Was the view pinned to the bottom before this rebuild? A fresh convo
+	// (stickBottom undefined) defaults to pinned so its first messages land at
+	// the bottom; #system pins to the top (stickBottom=false, scrollTop=0).
+	const stick = convo.stickBottom !== false;
 	log.innerHTML = "";
 	for (const m of convo.messages) {
 		const entry = document.createElement("div");
@@ -597,8 +639,7 @@ function _renderWhisperLog() {
 		entry.innerHTML = `<div style="color:${nameColor};margin-bottom:2px;font-style:${m.isMe ? "italic" : ""}">${_esc(m.from)}</div><div style="color:var(--text)">${body}</div>`;
 		log.appendChild(entry);
 	}
-	// Use ?? so scrollTop=0 (MOTD top) is respected; fall back to bottom for chat
-	log.scrollTop = targetScroll > 9000 ? log.scrollHeight : targetScroll;
+	log.scrollTop = stick ? log.scrollHeight : convo.scrollTop || 0;
 	_checkWhisperScroll();
 }
 
@@ -716,16 +757,82 @@ function whisperScrollToBottom() {
 
 // ── SEND / RECEIVE ────────────────────────────────────────────────────────────
 
+// Optimistic echo: your own line is rendered the instant you hit send, before
+// the server round-trips. The server still echoes it back (whisper_sent for a
+// DM, channel_msg for a channel); we record each optimistic line here and
+// consume the matching echo so it isn't shown twice. Entries self-expire.
+const _pendingSelfEchoes = [];
+const _SELF_ECHO_TTL = 10000;
+
+function _consumeSelfEcho(tab, message) {
+	const now = Date.now();
+	let matched = false;
+	for (let i = _pendingSelfEchoes.length - 1; i >= 0; i--) {
+		const e = _pendingSelfEchoes[i];
+		if (now - e.ts > _SELF_ECHO_TTL) { _pendingSelfEchoes.splice(i, 1); continue; }
+		if (!matched && e.tab === tab && e.message === message) {
+			_pendingSelfEchoes.splice(i, 1);
+			matched = true;
+		}
+	}
+	return matched;
+}
+
+// Render your own outgoing line locally (DMs label it "You"; channels label it
+// with your handle, matching how other members see it) and remember it so the
+// server's echo is dropped.
+function _echoOwnMessage(tab, message) {
+	if (!_whisperConvos.has(tab)) _whisperConvos.set(tab, _restoreOrCreate(tab));
+	const convo = _whisperConvos.get(tab);
+	const isChannel = _channels.has(tab);
+	const myHandle = state.player?.handle || "You";
+	convo.messages.push(
+		isChannel
+			? { from: myHandle, message, isMe: false, ts: Date.now() }
+			: { from: "You", message, isMe: true, ts: Date.now() },
+	);
+	if (convo.messages.length > WHISPER_MAX_MSGS) convo.messages.shift();
+	convo.stickBottom = true; // sending your own line re-pins to the bottom
+	_pendingSelfEchoes.push({ tab, message, ts: Date.now() });
+	_saveConvos();
+	if (_whisperPanelVisible && _activeWhisperTab === tab) _renderWhisperLog();
+}
+
 export function sentWhisper(handle, message) {
+	// Already shown optimistically on send — this is just the server's echo.
+	if (_consumeSelfEcho(handle, message)) return;
 	if (!_whisperConvos.has(handle))
 		_whisperConvos.set(handle, _restoreOrCreate(handle));
 	const convo = _whisperConvos.get(handle);
 	convo.messages.push({ from: "You", message, isMe: true, ts: Date.now() });
 	if (convo.messages.length > WHISPER_MAX_MSGS) convo.messages.shift();
+	convo.stickBottom = true; // sending your own line re-pins to the bottom
 	_saveConvos();
 	openWhisperTab(handle);
-	const log = document.getElementById("whisper-log");
-	if (log) log.scrollTop = log.scrollHeight;
+}
+
+// A whisper we optimistically rendered turned out to be undeliverable (the
+// server rejected it — e.g. the target went offline). `attempted` is the exact
+// "<tab> <message>" text the server echoes back; pull the matching optimistic
+// line back out so the pane never shows a message that wasn't sent.
+export function rollbackSelfEcho(attempted) {
+	const key = String(attempted).toLowerCase();
+	const idx = _pendingSelfEchoes.findIndex(
+		(e) => `${e.tab} ${e.message}`.toLowerCase() === key,
+	);
+	if (idx === -1) return;
+	const [pending] = _pendingSelfEchoes.splice(idx, 1);
+	const convo = _whisperConvos.get(pending.tab);
+	if (!convo) return;
+	for (let i = convo.messages.length - 1; i >= 0; i--) {
+		if (convo.messages[i].message === pending.message) {
+			convo.messages.splice(i, 1);
+			break;
+		}
+	}
+	_saveConvos();
+	if (_whisperPanelVisible && _activeWhisperTab === pending.tab)
+		_renderWhisperLog();
 }
 
 export function receiveWhisper(from, message) {
@@ -736,15 +843,11 @@ export function receiveWhisper(from, message) {
 	if (convo.messages.length > WHISPER_MAX_MSGS) convo.messages.shift();
 	_saveConvos();
 	if (_whisperPanelVisible && _activeWhisperTab === from) {
+		// _renderWhisperLog auto-pins to the bottom when we were already there;
+		// only surface the "new messages" pill when the reader had scrolled up.
 		_renderWhisperLog();
-		const log = document.getElementById("whisper-log");
-		const nearBottom =
-			log.scrollHeight - log.scrollTop - log.clientHeight < 60;
-		if (nearBottom) {
-			log.scrollTop = log.scrollHeight;
-			document.getElementById("whisper-new-msgs").style.display = "none";
-		} else
-			document.getElementById("whisper-new-msgs").style.display = "block";
+		document.getElementById("whisper-new-msgs").style.display =
+			convo.stickBottom === false ? "block" : "none";
 	} else {
 		convo.unread++;
 		_updateChatBadge();
@@ -777,6 +880,8 @@ export function initChannelHistory(history) {
 }
 
 export function receiveChannelMsg(channelId, from, message) {
+	// Our own channel line was already shown optimistically on send; drop the echo.
+	if (from === state.player?.handle && _consumeSelfEcho(channelId, message)) return;
 	if (!_whisperConvos.has(channelId))
 		_whisperConvos.set(channelId, {
 			messages: [],
@@ -788,14 +893,8 @@ export function receiveChannelMsg(channelId, from, message) {
 	if (convo.messages.length > WHISPER_MAX_MSGS) convo.messages.shift();
 	if (_whisperPanelVisible && _activeWhisperTab === channelId) {
 		_renderWhisperLog();
-		const log = document.getElementById("whisper-log");
-		const nearBottom =
-			log.scrollHeight - log.scrollTop - log.clientHeight < 60;
-		if (nearBottom) {
-			log.scrollTop = log.scrollHeight;
-			document.getElementById("whisper-new-msgs").style.display = "none";
-		} else
-			document.getElementById("whisper-new-msgs").style.display = "block";
+		document.getElementById("whisper-new-msgs").style.display =
+			convo.stickBottom === false ? "block" : "none";
 	} else {
 		convo.unread++;
 		_updateChatBadge();
@@ -870,17 +969,15 @@ function sendWhisperReply() {
 
 	if (_channels.has(_activeWhisperTab)) {
 		if (_isSystemOnly(_activeWhisperTab)) return;
+		_echoOwnMessage(_activeWhisperTab, expanded);
 		sendCmdSilent(`whisper ${_activeWhisperTab} ${expanded}`);
 		if (input) input.value = "";
-		const log = document.getElementById("whisper-log");
-		if (log) log.scrollTop = log.scrollHeight;
 		return;
 	}
 
+	_echoOwnMessage(_activeWhisperTab, expanded);
 	sendCmdSilent(`whisper ${_activeWhisperTab} ${expanded}`);
 	if (input) input.value = "";
-	const log = document.getElementById("whisper-log");
-	if (log) log.scrollTop = log.scrollHeight;
 }
 
 export function debugFakeWhisper() {
@@ -1049,7 +1146,11 @@ export function initWhisperPanel() {
 		if (!_activeWhisperTab || _activeWhisperTab === USERS_TAB) return;
 		const log = document.getElementById("whisper-log");
 		const convo = _whisperConvos.get(_activeWhisperTab);
-		if (convo) convo.scrollTop = log.scrollTop;
+		if (convo) {
+			convo.scrollTop = log.scrollTop;
+			convo.stickBottom =
+				log.scrollHeight - log.scrollTop - log.clientHeight < 60;
+		}
 		_checkWhisperScroll();
 	});
 

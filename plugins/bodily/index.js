@@ -15,11 +15,35 @@
 import { query } from '../../server/models/db.js';
 import { stainClothing, stainZone } from '../../server/engine/bodily.js';
 import { isMisActive } from '../../server/engine/mis.js';
-import { getZonePlayers, getAllLivePlayers } from '../../server/engine/world.js';
+import { getZonePlayers, getZoneEnemies, getZoneNpcs, getAllLivePlayers } from '../../server/engine/world.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
 import { registerAction } from '../../server/engine/actions.js';
 import { schedule } from '../../server/engine/scheduler.js';
+import { setPosture } from '../../server/engine/posture.js';
+import { emit, on } from '../../server/engine/events.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
+
+// Runtime-only state. A toilet stays fouled (poop) / full of piss until flushed;
+// toiletSessions guards against starting a toilet routine twice at once.
+const fouledToilets  = new Set(); // furniture id — unflushed poop
+const peedToilets    = new Set(); // furniture id — unflushed piss
+const toiletSessions = new Map(); // playerId -> { mode, target, zoneId, seated, sitOn, droppedLegs, timers }
+
+// Disconnecting mid-routine cleanly cancels it: the live player object is about
+// to be dropped (removeLivePlayer), so the setTimeout closures would otherwise
+// fire against a stale object and race the reconnect. Clear the timers, restore
+// any dropped legwear (don't leave them bottomless), and forget the session. No
+// load reduction — they didn't finish, so they're still full. The loads
+// themselves are persisted columns, so those survive reconnect regardless.
+on('player.logout', ({ id }) => {
+  const session = toiletSessions.get(id);
+  if (!session) return;
+  toiletSessions.delete(id);
+  for (const t of session.timers) clearTimeout(t);
+  for (const it of session.droppedLegs || []) {
+    query(`UPDATE player_inventory SET is_equipped=1, slot='legs', layer=$1 WHERE id=$2`, [it.layer, it.id]).catch(() => {});
+  }
+});
 
 // ── Pressure simulation (was engine tickBodily, on gameLoop's minute tick) ───
 
@@ -57,9 +81,9 @@ async function tickBodily(player) {
   let hydration  = player.hydration_load  || 0;
   let changed = false;
 
-  // Natural decay — slow bleed even without relief
-  if (digestive > 0)  { digestive  = Math.max(0, digestive  - 1);  changed = true; }
-  if (hydration > 0)  { hydration  = Math.max(0, hydration  - 2);  changed = true; }
+  // No natural decay: waste doesn't evaporate by waiting — the load only rises
+  // with intake (foodLoad/drinkLoad) and falls when you relieve yourself. The
+  // >110 involuntary-release valve below is the only automatic way down.
 
   // Threshold ambient messages (fire occasionally, not every tick).
   // _tickCounter is maintained by the engine resource tick.
@@ -72,9 +96,13 @@ async function tickBodily(player) {
     messages.push(pick(HYDRATION_PRESSURE));
   }
 
-  // Fart event for nearby zone — no source identified
-  if (digestive >= 90 && Math.random() < 0.15) {
-    sendToZone(player.current_zone, { type:'ambient', message:`<span class="msg-ambient">An embarrassing sound breaks the silence nearby.</span>` }, player.id);
+  // Involuntary fart — a growing warning as the pressure builds. Chance ramps
+  // from ~2%/min at 60 up to ~20%/min by 110 (no farts below 60).
+  if (digestive >= 60) {
+    const p = 0.02 + (Math.min(110, digestive) - 60) / 50 * 0.18;
+    if (Math.random() < p) {
+      sendToZone(player.current_zone, { type:'ambient', message:`<span class="msg-ambient">An embarrassing sound breaks the silence nearby.</span>` }, player.id);
+    }
   }
 
   // Overflow — involuntary release
@@ -115,18 +143,29 @@ async function relieveBladder(player, hasFacility, broadcast, target = null) {
     return { ok: false, message: `You're too dehydrated. There's nothing to release.` };
   }
 
-  // Pissing on a player
+  // Pissing on a creature (player / enemy / NPC)
   if (target?.type === 'player') {
     const tp = target.target;
+    const name = tp.handle || tp.name || 'them';
     const reduction = 55;
     player.hydration_load = Math.max(0, (player.hydration_load || 0) - reduction);
     await query('UPDATE players SET hydration_load=$1 WHERE id=$2', [player.hydration_load, player.id]);
     broadcast(player.current_zone, {
       type: 'zone_event',
-      message: `${player.handle} pisses on ${tp.handle}.`,
+      message: `${player.handle} pisses on ${name}.`,
     }, player.id, tp.id);
-    broadcast(null, { type: 'output', message: `${player.handle} pisses on you.` }, null, tp.id);
-    return { ok: true, message: `You piss on ${tp.handle}.` };
+    if (tp.handle) broadcast(null, { type: 'output', message: `${player.handle} pisses on you.` }, null, tp.id);
+    return { ok: true, message: `You piss on ${name}.` };
+  }
+
+  // Pissing on furniture
+  if (target?.type === 'furniture') {
+    const reduction = 55;
+    player.hydration_load = Math.max(0, (player.hydration_load || 0) - reduction);
+    await query('UPDATE players SET hydration_load=$1 WHERE id=$2', [player.hydration_load, player.id]);
+    await stainZone(player.current_zone, 'urine');
+    broadcast(player.current_zone, { type: 'zone_event', message: `The sharp smell of urine rises near the ${target.name}.` }, player.id);
+    return { ok: true, message: `You relieve yourself all over the ${target.name}. It didn't deserve that. Or maybe it did.` };
   }
 
   const covered = await equippedSlotsFor(player, ['legs']);
@@ -135,7 +174,8 @@ async function relieveBladder(player, hasFacility, broadcast, target = null) {
     await stainClothing(player, covered, 'urine');
     stained = true;
   }
-  const reduction = hasFacility ? 65 : 55;
+  // Sitting/standing at a toilet you fully void; a rushed pee elsewhere doesn't.
+  const reduction = hasFacility ? 90 : 55;
   player.hydration_load = Math.max(0, (player.hydration_load || 0) - reduction);
   await query('UPDATE players SET hydration_load=$1 WHERE id=$2', [player.hydration_load, player.id]);
 
@@ -157,18 +197,19 @@ async function relieveBowels(player, hasFacility, broadcast, target = null) {
     return { ok: false, message: `You haven't eaten enough to produce anything.` };
   }
 
-  // Shitting on a player (must be lying/sleeping)
+  // Shitting on a creature (player / enemy / NPC) — the lying gate is enforced upstream
   if (target?.type === 'player') {
     const tp = target.target;
+    const name = tp.handle || tp.name || 'them';
     const reduction = 60;
     player.digestive_load = Math.max(0, (player.digestive_load || 0) - reduction);
     await query('UPDATE players SET digestive_load=$1 WHERE id=$2', [player.digestive_load, player.id]);
     broadcast(player.current_zone, {
       type: 'zone_event',
-      message: `${player.handle} squats over ${tp.handle} and shits on them.`,
+      message: `${player.handle} squats over ${name} and shits on them.`,
     }, player.id, tp.id);
-    broadcast(null, { type: 'output', message: `${player.handle} squats over you and shits on you.` }, null, tp.id);
-    return { ok: true, message: `You squat over ${tp.handle} and do it. That's a statement.` };
+    if (tp.handle) broadcast(null, { type: 'output', message: `${player.handle} squats over you and shits on you.` }, null, tp.id);
+    return { ok: true, message: `You squat over ${name} and do it. That's a statement.` };
   }
 
   // Shitting on furniture
@@ -206,100 +247,289 @@ async function relieveBowels(player, hasFacility, broadcast, target = null) {
   };
 }
 
-// ── Verbs (was commands/bodily.js) ───────────────────────────────────────────
+// ── Relief routine (shared by every pee/poop, whatever the target) ───────────
+// Relief is never instant. You take a posture (pooping drops your legwear and
+// squats; peeing stands, or sits if you're a woman with something to sit on),
+// hold it for a timed spell punctuated by sound and the odd fart, and only then
+// does anything land. What changes per target is purely where it goes — a
+// toilet, the ground, a piece of furniture, or a hapless creature. No MIS gate.
 
-async function hasFacilityNearby(zoneId) {
+async function getToilet(zoneId) {
   const { rows } = await query(
-    `SELECT id FROM furniture WHERE zone_id=$1 AND (object_type='toilet' OR jsonb_exists(flags,'toilet')) LIMIT 1`,
+    `SELECT * FROM furniture WHERE zone_id=$1 AND (object_type='toilet' OR jsonb_exists(flags,'toilet')) LIMIT 1`,
     [zoneId]
   );
-  return rows.length > 0;
+  return rows[0] || null;
 }
 
-// Resolve an optional target from raw command args (e.g. "pee on alice" / "shit on bed")
+// Poop needs a lying victim: a player who's lying/sleeping, or a sleeping-at-home
+// NPC (the AI sets posture 'lying'). Enemies have no posture, so they never
+// qualify. Pee has no such gate.
+function isLyingTarget(being) {
+  return being?.posture === 'lying' || being?.sleeping || being?.offline_sleeping;
+}
+
+// True while the actor is still in position: a seated routine needs them still
+// sitting where they sat; a standing one only needs them not to have left.
+function stillInPosition(player, session) {
+  if (player.current_zone !== session.zoneId) return false;
+  if (!session.seated) return true;
+  return player.posture === 'sitting' && player.sittingOn === session.sitOn;
+}
+
+// A fart during the routine — private line, a zone noise, and the sound cue.
+function tickFart(player, session, chance) {
+  if (!toiletSessions.has(player.id) || !stillInPosition(player, session)) return;
+  if (Math.random() < chance) {
+    const f = pick(FART_LINES);
+    sendToPlayer(player.id, { type: 'output', message: `<span class="text-dim">${f.self}</span>` });
+    sendToZone(session.zoneId, { type: 'ambient', message: `<span class="msg-ambient">${f.zone}</span>` }, player.id);
+    emit('bodily.sfx', { zoneId: session.zoneId, playerId: player.id, cue: 'fart' });
+  }
+  session.timers.push(setTimeout(() => tickFart(player, session, chance), 5000 + Math.random() * 4000));
+}
+
+// Occasional wet plop while pooping — sound only, no text spam.
+function tickPlop(player, session) {
+  if (!toiletSessions.has(player.id) || !stillInPosition(player, session)) return;
+  if (Math.random() < 0.5) emit('bodily.sfx', { zoneId: session.zoneId, playerId: player.id, cue: 'plop' });
+  session.timers.push(setTimeout(() => tickPlop(player, session), 5000 + Math.random() * 4000));
+}
+
+// Pee stream — near-constant bursts with fade-in/out gaps for the 10s hold. The
+// surface tag varies the splash: water (toilet), concrete, soft (furniture), body.
+function tickStream(player, session) {
+  if (!toiletSessions.has(player.id) || !stillInPosition(player, session)) return;
+  emit('bodily.sfx', { zoneId: session.zoneId, playerId: player.id, cue: 'stream', surface: session.streamSurface });
+  session.timers.push(setTimeout(() => tickStream(player, session), 1800 + Math.random() * 900));
+}
+
+const STREAM_SURFACE = { toilet: 'water', ground: 'concrete', furniture: 'soft', creature: 'body' };
+
+// More bowel pressure → more escaping farts: a desperate poop is noisier than a
+// routine one. (digestive_load only drops at the finish, so this reads once at
+// the start — which is exactly the "how full were you" signal we want.)
+function poopFartChance(player) {
+  const load = player.digestive_load || 0;
+  return 0.5 * (0.5 + Math.min(1, load / 90) * 0.8); // ~0.29 near-empty → ~0.65 very full
+}
+
+// The waste's destination + how the actor stands/sits for it.
+// target: { kind:'toilet'|'furniture', furniture }
+//       | { kind:'ground' }
+//       | { kind:'creature', being, isNpc, isEnemy }
+async function startRelief(player, mode, target, broadcast) {
+  const isPoop = mode === 'poop';
+
+  // 1. Anything to release?
+  if (isPoop && (player.hunger || 0) === 0)
+    return { type: 'error', message: `You haven't eaten enough to produce anything.` };
+  if (!isPoop && (player.thirst || 0) === 0)
+    return { type: 'error', message: `You're too dehydrated. There's nothing to release.` };
+  // 2. Already mid-business?
+  if (toiletSessions.has(player.id))
+    return { type: 'error', message: `You're already busy, doing your business.` };
+  // 3. Poop needs a lying victim.
+  if (isPoop && target.kind === 'creature' && !isLyingTarget(target.being)) {
+    const who = target.being.name || target.being.handle || 'They';
+    return { type: 'error', message: `${who} would have to be lying down for that.` };
+  }
+
+  const surface = (target.kind === 'toilet' || target.kind === 'furniture') ? target.furniture.name : null;
+  // Pooping always squats (sitting). Peeing sits only for a woman with somewhere
+  // to sit; otherwise she — and every man — stands.
+  const seated = isPoop || (player.biological_sex === 'female' && !!surface);
+  const sitOn = seated ? surface : null;
+
+  // Poop drops every layer off the legs first — remembered so we can pull them
+  // back up when the deed is done (an interrupted run leaves you bottomless).
+  let dropped = '';
+  let droppedLegs = [];
+  if (isPoop) {
+    const { rows: legItems } = await query(
+      `SELECT pi.id, pi.layer, i.name FROM player_inventory pi JOIN items i ON i.id=pi.item_id
+       WHERE pi.player_id=$1 AND pi.is_equipped=1 AND pi.slot='legs'`, [player.id]);
+    await query(
+      `UPDATE player_inventory SET is_equipped=0, slot=NULL, layer=NULL, equipped_at=NULL
+       WHERE player_id=$1 AND slot='legs' AND is_equipped=1`, [player.id]);
+    droppedLegs = legItems.map(r => ({ id: r.id, layer: r.layer }));
+    dropped = legItems.length ? `You drop your ${legItems[legItems.length - 1].name}. ` : '';
+  }
+
+  if (seated) setPosture(player, 'sitting', { sittingOn: sitOn });
+
+  const streamSurface = STREAM_SURFACE[target.kind] || 'concrete';
+  const session = { mode, target, zoneId: player.current_zone, seated, sitOn, droppedLegs, streamSurface, timers: [], broadcast };
+  toiletSessions.set(player.id, session);
+
+  if (isPoop) {
+    const duration = 20000 + Math.floor(Math.random() * 20000); // 20–40s
+    const fartChance = poopFartChance(player);
+    session.timers.push(setTimeout(() => tickFart(player, session, fartChance), 4000));
+    session.timers.push(setTimeout(() => tickPlop(player, session), 6000));
+    session.timers.push(setTimeout(() => finishRelief(player, session).catch(logErr), duration));
+  } else {
+    session.timers.push(setTimeout(() => tickStream(player, session), 300));
+    session.timers.push(setTimeout(() => tickFart(player, session, 0.12), 5000));
+    session.timers.push(setTimeout(() => finishRelief(player, session).catch(logErr), 10000));
+  }
+
+  return { type: 'output', message: dropped + openingLine(mode, target, seated) };
+}
+
+function logErr(e) { console.error(`[bodily] relief error: ${e.message}`); }
+
+function targetLabel(target) {
+  if (target.kind === 'creature') return target.being.name || target.being.handle || 'them';
+  if (target.kind === 'ground') return null;
+  return target.furniture.name;
+}
+
+function openingLine(mode, target, seated) {
+  const t = targetLabel(target);
+  if (mode === 'pee') {
+    if (target.kind === 'creature') return `You aim at ${t} and let go.`;
+    if (t) return seated ? `You settle onto the ${t} and let go.` : `You step up to the ${t} and let go.`;
+    return `You plant your feet and let go where you stand.`;
+  }
+  if (target.kind === 'creature') return `You squat over ${t}. Nature will not be rushed.`;
+  if (t) return `You settle onto the ${t}. Nature will not be rushed.`;
+  return `You squat down where you stand. Nature will not be rushed.`;
+}
+
+// Land the result — reuse the target-specific effects in relieveBladder/Bowels,
+// then push the private line (they run delayed, so we can't return it).
+async function finishRelief(player, session) {
+  toiletSessions.delete(player.id);
+  for (const t of session.timers) clearTimeout(t);
+  if (!stillInPosition(player, session)) return; // interrupted — nothing lands
+
+  const { mode, target, broadcast } = session;
+  const isPoop = mode === 'poop';
+  const relieve = isPoop ? relieveBowels : relieveBladder;
+  let result;
+
+  if (target.kind === 'toilet') {
+    result = await relieve(player, true, broadcast);
+    (isPoop ? fouledToilets : peedToilets).add(target.furniture.id);
+  } else if (target.kind === 'furniture') {
+    result = await relieve(player, false, broadcast, { type: 'furniture', name: target.furniture.name });
+  } else if (target.kind === 'creature') {
+    result = await relieve(player, false, broadcast, { type: 'player', target: target.being });
+    if (target.isNpc) antagonizeNpc(player, target.being, mode, broadcast);
+  } else {
+    result = await relieve(player, false, broadcast); // ground
+  }
+
+  // Sometimes cap a poop with a big fart + plop.
+  if (isPoop && Math.random() < 0.55)
+    emit('bodily.sfx', { zoneId: session.zoneId, playerId: player.id, cue: 'finale' });
+
+  // Doing your business anywhere but a toilet is public indecency: disgusted
+  // bystanders + an indecent-exposure charge (surveillance witness-gates it, so
+  // it only heats you if a camera/cop/player actually caught you).
+  if (result?.ok && target.kind !== 'toilet') {
+    emit('bodily.publicRelief', { player, zoneId: session.zoneId });
+    if (target.kind !== 'creature') reactBystanderNpc(session.zoneId, mode, broadcast);
+  }
+
+  // Pull your clothes back up (we're here, so the run wasn't interrupted).
+  let restored = '';
+  if (session.droppedLegs?.length) {
+    for (const it of session.droppedLegs) {
+      await query(
+        `UPDATE player_inventory SET is_equipped=1, slot='legs', layer=$1 WHERE id=$2`,
+        [it.layer, it.id]
+      );
+    }
+    restored = ` You pull your clothes back up.`;
+  }
+
+  if (session.seated) setPosture(player, 'standing');
+  if (result) sendToPlayer(player.id, { type: result.ok ? 'output' : 'error', message: result.message + (result.ok ? restored : '') });
+}
+
+// A peed-/pooped-on NPC yells about it.
+function antagonizeNpc(player, npc, mode, broadcast) {
+  const line = pick(mode === 'pee' ? NPC_PEE_YELLS : NPC_POOP_YELLS);
+  broadcast(player.current_zone, { type: 'zone_event', message: `${npc.name} shouts, "${line}"` });
+}
+
+// A random bystander NPC recoils at a public elimination.
+function reactBystanderNpc(zoneId, mode, broadcast) {
+  const npcs = getZoneNpcs(zoneId).filter(n => !n._dead);
+  if (!npcs.length) return;
+  const npc = pick(npcs);
+  const line = pick(mode === 'pee' ? NPC_PEE_WITNESS : NPC_POOP_WITNESS);
+  broadcast(zoneId, { type: 'zone_event', message: `${npc.name} ${line}` });
+}
+
+// ── Target resolution ────────────────────────────────────────────────────────
+
+function creatureTarget(being) {
+  return { kind: 'creature', being, isNpc: being._bkind === 'npc', isEnemy: being._bkind === 'enemy' };
+}
+
+async function defaultTarget(player) {
+  const toilet = await getToilet(player.current_zone);
+  return toilet ? { kind: 'toilet', furniture: toilet } : { kind: 'ground' };
+}
+
+// Resolve "on <name>" / "in <name>" to a target descriptor. Returns null for no
+// args (caller falls back to the toilet-or-ground default), or a descriptor with
+// kind 'ambiguous' | 'notfound' | 'toilet' | 'furniture' | 'creature'.
 async function resolveBodilyTarget(args, player, dispatchType) {
-  // Expect "on <name>", "in <name>", or just no args
-  const str = args.join(' ').replace(/^(?:on|in)\s+/i, '').trim();
+  const str = args.join(' ').replace(/^(?:on|in|at)\s+/i, '').trim();
   if (!str) return null;
 
-  // Check for player target in zone using SIFT
-  const others = getZonePlayers(player.current_zone).filter(p => p.id !== player.id);
-  const candidates = others.map(p => ({ ...p, name: p.handle }));
+  // Any creature in the zone — players, enemies, NPCs — in one SIFT pass.
+  const candidates = [
+    ...getZonePlayers(player.current_zone).filter(p => p.id !== player.id)
+      .map(p => ({ ...p, name: p.handle, _bkind: 'player' })),
+    ...getZoneEnemies(player.current_zone).map(e => ({ ...e, name: e.name, _bkind: 'enemy' })),
+    ...getZoneNpcs(player.current_zone).filter(n => !n._dead).map(n => ({ ...n, name: n.name, _bkind: 'npc' })),
+  ];
   const r = siftResolve(str, candidates);
   if (r.type === 'ambiguous') {
     createSelectionState(player.id, r.candidates, { dispatchType, dispatchParam: 'target' });
-    return { type: 'ambiguous', selection: formatSelectionPage({ allCandidates: r.candidates, visibleIndex: 0, pageSize: 5 }) };
+    return { kind: 'ambiguous', selection: formatSelectionPage({ allCandidates: r.candidates, visibleIndex: 0, pageSize: 5 }) };
   }
-  if (r.type === 'match') return { type: 'player', target: r.candidate };
+  if (r.type === 'match') return creatureTarget(r.candidate);
 
-  // Check for sleeping body
+  // Offline sleeping body (a valid poop victim).
   const { rows: sleepers } = await query(
     `SELECT * FROM players WHERE LOWER(handle) LIKE $1 AND current_zone=$2 AND offline_sleeping=TRUE LIMIT 1`,
     [`%${str.toLowerCase()}%`, player.current_zone]
   );
-  if (sleepers.length) return { type: 'player', target: sleepers[0] };
+  if (sleepers.length) return creatureTarget({ ...sleepers[0], name: sleepers[0].handle, _bkind: 'player' });
 
-  // Check for furniture with sit command (for shit) or just any furniture (for pee)
+  // Furniture — a toilet gets the fouled/flush treatment; anything else is fair game.
   const { rows: furniture } = await query(
     `SELECT * FROM furniture WHERE zone_id=$1 AND name ILIKE $2 LIMIT 1`,
     [player.current_zone, `%${str}%`]
   );
-  if (furniture.length) return { type: 'furniture', target: furniture[0], name: furniture[0].name };
-
-  return null;
-}
-
-async function peeOnPlayer(player, tp, broadcast) {
-  if (!isMisActive(player)) return { type:'error', message:`That requires MIS to be enabled.` };
-  const result = await relieveBladder(player, false, broadcast, { type: 'player', target: tp });
-  return { type: result.ok ? 'output' : 'error', message: result.message };
-}
-
-async function poopOnPlayer(player, tp, broadcast) {
-  if (!isMisActive(player)) return { type:'error', message:`That requires MIS to be enabled.` };
-  // Target must be sleeping or lying down (posture substrate read)
-  if (!tp.sleeping && !tp.offline_sleeping && tp.posture !== 'lying') {
-    return { type:'error', message:`${tp.handle || 'They'} would have to be lying down for that.` };
-  }
-  const result = await relieveBowels(player, false, broadcast, { type: 'player', target: tp });
-  return { type: result.ok ? 'output' : 'error', message: result.message };
-}
-
-async function cmdPee(args, player, broadcast) {
-  const target = await resolveBodilyTarget(args, player, 'bodily.pee_target');
-  if (target?.type === 'ambiguous') return { type:'output', message: target.selection };
-  if (target?.type === 'player') return peeOnPlayer(player, target.target, broadcast);
-  if (target?.type === 'furniture') {
-    const f = target.target;
-    if (f.object_type !== 'toilet') return { type:'error', message:`You can't do that in the ${f.name}.` };
-    const result = await relieveBladder(player, true, broadcast);
-    return { type: result.ok ? 'output' : 'error', message: result.message };
-  }
-  const hasFacility = await hasFacilityNearby(player.current_zone);
-  const result = await relieveBladder(player, hasFacility, broadcast);
-  return { type: result.ok ? 'output' : 'error', message: result.message };
-}
-
-async function cmdPoop(args, player, broadcast) {
-  const target = await resolveBodilyTarget(args, player, 'bodily.poop_target');
-  if (target?.type === 'ambiguous') return { type:'output', message: target.selection };
-  if (target?.type === 'player') return poopOnPlayer(player, target.target, broadcast);
-  if (target?.type === 'furniture') {
-    const f = target.target;
+  if (furniture.length) {
+    const f = furniture[0];
     const isToilet = f.object_type === 'toilet' || f.flags?.toilet;
-    const hasSit = f.flags?.interactions?.includes?.('sit') || isToilet;
-    if (!hasSit) return { type:'error', message:`You can't do that on the ${f.name}.` };
-    if (isToilet) {
-      const result = await relieveBowels(player, true, broadcast);
-      return { type: result.ok ? 'output' : 'error', message: result.message };
-    }
-    const result = await relieveBowels(player, false, broadcast, { type: 'furniture', name: f.name });
-    return { type: result.ok ? 'output' : 'error', message: result.message };
+    return { kind: isToilet ? 'toilet' : 'furniture', furniture: f };
   }
-  const hasFacility = await hasFacilityNearby(player.current_zone);
-  const result = await relieveBowels(player, hasFacility, broadcast);
-  return { type: result.ok ? 'output' : 'error', message: result.message };
+
+  return { kind: 'notfound', str };
 }
+
+// ── Verbs (was commands/bodily.js) ───────────────────────────────────────────
+
+async function cmdRelief(mode, args, player, broadcast) {
+  const dispatchType = mode === 'pee' ? 'bodily.pee_target' : 'bodily.poop_target';
+  const res = await resolveBodilyTarget(args, player, dispatchType);
+  if (res?.kind === 'ambiguous') return { type: 'output', message: res.selection };
+  if (res?.kind === 'notfound')  return { type: 'error',  message: `You don't see "${res.str}" here.` };
+  const target = res || await defaultTarget(player);
+  return startRelief(player, mode, target, broadcast);
+}
+
+const cmdPee  = (args, player, broadcast) => cmdRelief('pee',  args, player, broadcast);
+const cmdPoop = (args, player, broadcast) => cmdRelief('poop', args, player, broadcast);
 
 async function cmdFlush(args, player) {
   const { rows } = await query(
@@ -307,17 +537,32 @@ async function cmdFlush(args, player) {
     [player.current_zone]
   );
   if (!rows.length) return { type:'error', message:`There's no toilet here to flush.` };
+  fouledToilets.delete(rows[0].id);
+  peedToilets.delete(rows[0].id);
   return { type:'output', message:`You flush. The sound is deeply satisfying.` };
 }
 
-// SIFT selection replays for the on-player variants.
+// An unflushed toilet reads that way on a look, until someone flushes it.
+export const hooks = {
+  'furniture.describe': (f) => {
+    const isToilet = f.object_type === 'toilet' || f.flags?.toilet;
+    if (!isToilet) return undefined;
+    const lines = [];
+    if (fouledToilets.has(f.id)) lines.push(`Someone left a grim deposit behind and never flushed.`);
+    if (peedToilets.has(f.id))   lines.push(`The bowl is full of stale, unflushed piss.`);
+    return lines.length ? `<span style="color:var(--red)">${lines.join(' ')}</span>` : undefined;
+  },
+};
+
+// SIFT selection replays for the on-creature variants (candidates are always
+// creatures — players/enemies/NPCs — so the pick is a creature target).
 registerAction({
   type: 'bodily.pee_target',
-  handler: ({ actor, params, context }) => peeOnPlayer(actor, params.target, context.broadcast),
+  handler: ({ actor, params, context }) => startRelief(actor, 'pee', creatureTarget(params.target), context.broadcast),
 });
 registerAction({
   type: 'bodily.poop_target',
-  handler: ({ actor, params, context }) => poopOnPlayer(actor, params.target, context.broadcast),
+  handler: ({ actor, params, context }) => startRelief(actor, 'poop', creatureTarget(params.target), context.broadcast),
 });
 
 // ── `use toilet` / `use sink` panels ─────────────────────────────────────────
@@ -409,6 +654,38 @@ const GROUND_POOP_MSGS = [
   `You squat and take care of business on the ground. No one can judge you. (You can judge yourself.)`,
   `You find a spot, crouch, and handle it. Desperate times.`,
   `You take a shit on the ground. The post-singularity hasn't improved this experience.`,
+];
+
+const NPC_PEE_YELLS = [
+  `What the — are you PISSING on me?! Get away, you animal!`,
+  `AGH! Stop! That is disgusting — someone call the enforcers!`,
+  `You filthy freak! I'll remember your face!`,
+  `Is this a joke to you?! You're urinating on a person!`,
+];
+const NPC_POOP_YELLS = [
+  `Oh god — are you... are you SHITTING on me?! GET OFF!`,
+  `This is the worst day of my life. You absolute monster!`,
+];
+
+// Bystander disgust at a public elimination (emote form — no name-prefix "says").
+const NPC_PEE_WITNESS = [
+  `gags and turns away. "Did that freak just piss in the open?!"`,
+  `stares in disgust. "There's a whole city and you pick HERE?"`,
+  `covers their nose. "Absolutely revolting. Someone report this."`,
+  `recoils. "Animals. We're surrounded by animals."`,
+];
+const NPC_POOP_WITNESS = [
+  `retches. "Oh that is VILE — they're actually doing it right there!"`,
+  `backs away, horrified. "I did not need to see that. Ever."`,
+  `shouts, "Public defecation! Someone call an enforcer!"`,
+  `dry-heaves. "The smell. Oh god, the smell."`,
+];
+
+const FART_LINES = [
+  { self: `A fart escapes you, echoing off the bowl.`,                 zone: `A wet, echoing sound comes from the toilet nearby.` },
+  { self: `You let one rip. No dignity in here anyway.`,               zone: `An unmistakable trumpeting noise rings out nearby.` },
+  { self: `A long, mournful fart announces your progress.`,            zone: `A long, mournful sound drifts from the direction of the toilet.` },
+  { self: `Something squeaks out. You wince.`,                         zone: `A brief squeak carries through the air nearby.` },
 ];
 
 const DIGESTIVE_PRESSURE = [

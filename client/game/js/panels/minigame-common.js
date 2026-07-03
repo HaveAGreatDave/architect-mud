@@ -6,9 +6,15 @@
 // the HTML escaper, and the fullscreen-overlay mount/teardown boilerplate.
 
 // Fire a one-shot SFX through the shared engine's bus, guarded — silent if the
-// audio engine hasn't initialised. Same self-owned-synth pattern the minigames
-// (and poker-sfx.js) use.
-export function sfx(def) { try { window.AudioEngine?.playSfx(def); } catch { /* no audio */ } }
+// audio engine hasn't initialised. Accepts either a catalog cue id (string) —
+// resolved through window.SFXCatalog so dev-panel overrides apply — or a raw
+// synth def object (for dynamic, parameterised one-shots that aren't catalogued).
+export function sfx(idOrDef) {
+  try {
+    const def = typeof idOrDef === 'string' ? window.SFXCatalog?.get(idOrDef) : idOrDef;
+    if (def) window.AudioEngine?.playSfx(def);
+  } catch { /* no audio */ }
+}
 
 export const clampInt = (v, lo, hi) => Math.max(lo, Math.min(hi, Math.round(v)));
 export const clampNum = (v, lo, hi) => Math.max(lo, Math.min(hi, v));

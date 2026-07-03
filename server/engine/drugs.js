@@ -149,6 +149,13 @@ export async function useDrug(player, drugId, broadcast, opts = {}) {
 
   let message = `You take ${displayName}. ${(opts.inlineEffects ? '' : drug.description) || ''}`.trim();
 
+  // Diuretic factor (effects.diuretic): how the substance shifts water balance.
+  // 1 = neutral (water). >1 diuretic (beer, coffee, stims) — pulls water into the
+  // bladder and dehydrates. <1 antidiuretic (opioids) — retention. Applied in
+  // applyEffects. Structured & flat effects both keep it at the effects top level.
+  const dv = Number(eff.diuretic);
+  const diuretic = dv > 0 ? dv : 1;
+
   // --- Overdose --------------------------------------------------------------
   if (overdosed) {
     // Cancel any active buff + trip for this drug.
@@ -162,7 +169,7 @@ export async function useDrug(player, drugId, broadcast, opts = {}) {
     }
     // Non-lethal overdose: burst of penalty (legacy behaviour + new overdose.mods).
     const odEffects = drug.withdrawal_effects?.overdose || eff.overdose?.mods || {};
-    return applyEffects(player, { ...scaleInstant(instant, potencyMult), ...odEffects, overdose: true }, `${message}\n<span class="overdose-warning">⚠ You've taken too much, too fast. Your body revolts.</span>`);
+    return applyEffects(player, { ...scaleInstant(instant, potencyMult), ...odEffects, overdose: true }, `${message}\n<span class="overdose-warning">⚠ You've taken too much, too fast. Your body revolts.</span>`, diuretic);
   }
 
   if (justAddicted) {
@@ -170,7 +177,7 @@ export async function useDrug(player, drugId, broadcast, opts = {}) {
   }
 
   // --- Instant block (existing path) -----------------------------------------
-  const result = applyEffects(player, scaleInstant(instant, potencyMult), message);
+  const result = applyEffects(player, scaleInstant(instant, potencyMult), message, diuretic);
   if (potencyMult >= 1.25) result.message += `\n<span class="msg-system">This batch is strong. It hits harder than it should.</span>`;
 
   // --- Phased effects --------------------------------------------------------
@@ -187,7 +194,13 @@ export async function useDrug(player, drugId, broadcast, opts = {}) {
   return result;
 }
 
-function applyEffects(player, effects, message) {
+// A diuretic factor of `d` pulls (d-1) worth of these into the bladder / out of
+// hydration per dose, on top of anything drunk. Antidiuretics (d<1) run negative:
+// bladder eases, thirst is retained.
+const DIURETIC_PRESSURE = 10;    // hydration_load added per +1.0 of diuretic factor
+const DIURETIC_DEHYDRATION = 5;  // thirst removed per +1.0 of diuretic factor
+
+function applyEffects(player, effects, message, diuretic = 1) {
   const statUpdates = {};
   if (effects.hp) statUpdates.hp = Math.max(0, Math.min(player.hp_max, player.hp + effects.hp));
   if (effects.sanity) statUpdates.sanity = Math.max(0, Math.min(player.sanity_max, player.sanity + effects.sanity));
@@ -198,6 +211,16 @@ function applyEffects(player, effects, message) {
   if (effects.thirst) {
     statUpdates.thirst = Math.max(0, Math.min(100, player.thirst + effects.thirst));
     if (effects.thirst > 0) statUpdates.hydration_load = Math.min(120, (player.hydration_load || 0) + drinkLoad(effects.thirst));
+  }
+  // Diuretic water shift — independent of whether the dose carried any fluid, so
+  // it bites on stims/pills as well as drinks. pull>0 fills the bladder and
+  // dehydrates; pull<0 (antidiuretic) does the reverse.
+  if (diuretic !== 1) {
+    const pull = diuretic - 1;
+    const hl0 = statUpdates.hydration_load ?? (player.hydration_load || 0);
+    statUpdates.hydration_load = Math.max(0, Math.min(120, hl0 + pull * DIURETIC_PRESSURE));
+    const th0 = statUpdates.thirst ?? player.thirst;
+    statUpdates.thirst = Math.max(0, Math.min(100, th0 - Math.round(pull * DIURETIC_DEHYDRATION)));
   }
   if (effects.radiation) statUpdates.radiation = Math.max(0, Math.min(100, (player.radiation||0) + effects.radiation));
   if (effects.horniness_increase) {

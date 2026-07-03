@@ -146,6 +146,8 @@ async function refreshDoorList(zoneId) {
     const lockLabel = lockTag
       ? (lockTag.type === 'lock:keycardlock'
           ? `keycardlock${d.lock_state === 'locked' ? ' 🔒' : ''}`
+          : lockTag.type === 'lock:privacylock'
+          ? `privacy${d.lock_state === 'locked' ? ' 🔒' : ''}`
           : `hololock diff:${lockTag.difficulty}${d.lock_state === 'locked' ? ' 🔒' : ''}`)
       : 'no lock';
     const dIdSafe = d.id.replace(/'/g, "\\'");
@@ -193,6 +195,11 @@ const LOCK_MESSAGES = {
     hackSuccess: 'You bypass the hololock\'s security matrix.',
     hackFail: 'The hololock resists your intrusion.'
   },
+  'lock:privacylock': {
+    lock: 'You slide the privacy bolt shut.',
+    unlock: 'You slide the privacy bolt open.',
+    denied: 'The privacy bolt only works from the other side.',
+  },
   'lock:keycardlock': {
     lock: 'The keycard reader beeps twice as the lock engages.',
     unlock: 'The keycard reader flashes green. The lock disengages.',
@@ -215,6 +222,16 @@ async function openEditDoorDialog(doorId, zoneId) {
   const lockKey = Object.keys(tagObj).find(k => k.startsWith('lock:'));
   const lockTag = lockKey ? { type: lockKey, ...tagObj[lockKey] } : null;
   const curLockType = lockTag?.type || 'none';
+
+  // Privacy-lock side switch: Auto (server picks the bathroom side) or an
+  // explicit side (the two zones this door touches).
+  const curSide = lockTag?.privacySide || '';
+  const sideChoices = [
+    { v: '', label: 'Auto — bathroom side' },
+    { v: door.zone_id, label: `This side (${door.zone_id})` },
+  ];
+  if (door.target_zone) sideChoices.push({ v: door.target_zone, label: `Other side (${door.target_zone})` });
+  const privSideOpts = sideChoices.map(o => `<option value="${o.v}" ${curSide===o.v?'selected':''}>${o.label}</option>`).join('');
 
   const typeOpts = DOOR_TYPE_OPTIONS.map(o =>
     `<option value="${o.value}" ${door.door_type === o.value ? 'selected' : ''}>${o.label} (${o.hp} HP)</option>`
@@ -239,6 +256,7 @@ async function openEditDoorDialog(doorId, zoneId) {
               <option value="none" ${curLockType==='none'?'selected':''}>None</option>
               <option value="lock:hololock" ${curLockType==='lock:hololock'?'selected':''}>Hololock</option>
               <option value="lock:keycardlock" ${curLockType==='lock:keycardlock'?'selected':''}>Keycard Lock</option>
+              <option value="lock:privacylock" ${curLockType==='lock:privacylock'?'selected':''}>Privacy Lock</option>
             </select>
           </div>
           <div class="field" id="de-lock-state-field" style="${curLockType==='none'?'display:none':''}">
@@ -254,6 +272,12 @@ async function openEditDoorDialog(doorId, zoneId) {
         <div id="de-keycard-opts" style="${curLockType==='lock:keycardlock'?'':'display:none'}">
           <div class="field" style="margin-top:6px"><label>Keycard Item ID</label><input id="de-keycard-id" value="${lockTag?.keyItemId||''}" placeholder="auto-created if blank"></div>
         </div>
+        <div id="de-privacy-opts" style="${curLockType==='lock:privacylock'?'':'display:none'}">
+          <div class="field" style="margin-top:6px"><label>Unlockable from (lock side)</label>
+            <select id="de-privacy-side">${privSideOpts}</select>
+            <div style="color:var(--text-dim);font-size:11px;margin-top:3px">Auto picks the side with a toilet. If neither side is a bathroom, choose a side explicitly.</div>
+          </div>
+        </div>
       </div>
     </div>
   `);
@@ -264,6 +288,7 @@ function onEditDoorLockTypeChange() {
   const type = document.getElementById('de-lock-type')?.value;
   document.getElementById('de-hololock-opts').style.display = type === 'lock:hololock' ? '' : 'none';
   document.getElementById('de-keycard-opts').style.display = type === 'lock:keycardlock' ? '' : 'none';
+  document.getElementById('de-privacy-opts').style.display = type === 'lock:privacylock' ? '' : 'none';
   document.getElementById('de-lock-state-field').style.display = type === 'none' ? 'none' : '';
 }
 
@@ -295,6 +320,11 @@ async function saveDoorEdit(doorId, zoneId) {
         keyItemId = res.id;
       }
       lockData.keyItemId = keyItemId;
+    } else if (lockType === 'lock:privacylock') {
+      // Empty = Auto: the server resolves the bathroom side (and rejects the
+      // save if neither side qualifies, prompting an explicit pick).
+      const side = document.getElementById('de-privacy-side').value;
+      if (side) lockData.privacySide = side;
     } else {
       lockData.difficulty = Math.max(1, Math.min(20, parseInt(document.getElementById('de-lock-diff').value) || 5));
       lockData.canHack = document.getElementById('de-lock-hack').checked;

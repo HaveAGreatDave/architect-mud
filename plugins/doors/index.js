@@ -11,9 +11,11 @@
 import { handlers as doorHandlers } from '../../server/engine/commands/doors.js';
 import { registerLockType } from '../../server/engine/locks.js';
 import { query } from '../../server/models/db.js';
-import { getApartment, getZone } from '../../server/engine/world.js';
+import { getApartment, getZone, getDoorById, setDoorCache } from '../../server/engine/world.js';
 import { exitTargets } from '../../server/engine/exits.js';
 import { playerControlsApt } from '../../server/engine/apartments.js';
+import { schedule } from '../../server/engine/scheduler.js';
+import { sendToZone } from '../../server/engine/messaging.js';
 
 registerLockType('hololock', {
   tagType: 'lock:hololock',
@@ -56,6 +58,42 @@ registerLockType('keycardlock', {
     );
     return rows.length > 0;
   },
+});
+
+// Privacy lock — a simple bathroom-stall bolt. Anyone standing on the door's
+// `privacySide` (the bathroom side, auto-detected at placement or set via the
+// zone editor's lock-side switch) can lock AND unlock it; the other side is
+// simply shut out while it's occupied. Not hackable — bashing the door is the
+// only forced entry, and the 10-minute auto-unlock sweep frees anyone who
+// nodded off in a public stall.
+registerLockType('privacylock', {
+  tagType: 'lock:privacylock',
+  kitTag:  'lockkit:privacylock',
+  defaults: {
+    messages: {
+      lock:   'You slide the privacy bolt shut.',
+      unlock: 'You slide the privacy bolt open.',
+      denied: 'The privacy bolt only works from the other side.',
+    },
+  },
+  authFn: async (lockTag, door, player) => player.current_zone === lockTag.privacySide,
+});
+
+// Every 10 minutes, spring every engaged privacy lock — a courtesy release so a
+// player who fell asleep on the toilet doesn't seal a public bathroom forever.
+schedule('10m', async () => {
+  const { rows } = await query(
+    `SELECT id, zone_id, target_zone FROM doors
+      WHERE lock_state='locked' AND jsonb_exists(tags,'lock:privacylock')`
+  );
+  for (const row of rows) {
+    await query('UPDATE doors SET lock_state=$1 WHERE id=$2', ['unlocked', row.id]);
+    const cached = getDoorById(row.id);
+    if (cached) setDoorCache(row.id, { ...cached, lock_state: 'unlocked' });
+    for (const zid of [row.zone_id, row.target_zone].filter(Boolean)) {
+      sendToZone(zid, { type: 'zone_event', message: 'The privacy bolt clicks open on its timer.', refresh: true });
+    }
+  }
 });
 
 export const specializedActions = [

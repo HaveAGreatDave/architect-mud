@@ -145,7 +145,7 @@ const PANELS = {
   sounds: {
     title: 'SoundScript',
     description: 'Named audio-text sound effects and ambient text events broadcast by zone theme.',
-    fetch: () => Promise.all([API('/sounds'), API('/ambient-events')]).then(([s, a]) => ({ sounds: s, ambients: a })),
+    fetch: () => Promise.all([API('/sounds'), API('/ambient-events'), API('/audio/interface-sfx')]).then(([s, a, sfx]) => ({ sounds: s, ambients: a, interfaceSfx: sfx })),
     noEdit: true,
     render: renderSoundsPanel,
   },

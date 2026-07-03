@@ -285,6 +285,11 @@ async function cmdJack(args, raw, player) {
     return { type: 'error', message: `Terminal lockout active. ${secs}s remaining.` };
   }
 
+  // The moment you jack in, the breach is underway — the crime chance starts
+  // here, not on success. Surveillance rolls a time-ramping camera catch over
+  // the length of the jacked-in session (see plugins/surveillance activeCrimes).
+  emit('atm.jacked', { player, zoneId: atm.zone_id });
+
   return {
     type: 'circuit_hack',
     deviceId: atm.id,
@@ -310,6 +315,10 @@ async function cmdJackResolve(args, raw, player, broadcast) {
   if (atm.is_broken) return { type: 'error', message: 'This terminal is already dead.' };
   if (!isZonePowered(player.current_zone)) return { type: 'error', message: 'The ATM is powered down.' };
   if (!(await hasHackDevice(player.id))) return { type: 'error', message: 'You need a hacking device to breach this terminal.' };
+
+  // The jacked-in session is over (win or lose) — stop the ongoing-crime roll
+  // that started at `jack`.
+  emit('atm.jackResolved', { player });
 
   if (!win) {
     jackLockout.set(player.id, Date.now() + 5 * 60 * 1000);
@@ -340,9 +349,9 @@ async function cmdJackResolve(args, raw, player, broadcast) {
 
   await awardSkillUse(player.id, 'hacking', 2);
   grantMaintenanceAccess(atm.id, player.id);
-  // Breaching any live device is hacking (charged via the crimes registry if
-  // witnessed) — mirrors the surveillance hijack path.
-  emit('hack.success', { player, zoneId: atm.zone_id });
+  // The hacking crime is no longer charged on success — it's now rolled over the
+  // whole jacked-in session that began at `jack` (see the atm.jacked handler in
+  // plugins/surveillance). Draining still charges atm_robbery separately.
   return {
     type: 'jack',
     message: `You burn through the handshake and drop into the diagnostic shell.\n<span class="ip-gain">MAINTENANCE mode unlocked.</span> Reopen the terminal to eject the cash reserve.`,

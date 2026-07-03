@@ -1,6 +1,17 @@
 import { state } from './state.js';
 import { updateBodyTempHUD } from './panels/environment.js';
 import { refreshCustomPanels } from './panels/custom/manager.js';
+import { registerList, mountScopeToggle } from './panels/list-reorder.js';
+
+// Make the Vitals list reorderable. Call after initSidebarOrder, which reparents
+// the section's rows into a .sidebar-section-body (the real row container).
+export function initVitalsReorder() {
+  const body = document.querySelector('#vitals-section .sidebar-section-body')
+    || document.getElementById('vitals-section');
+  if (!body) return;
+  mountScopeToggle('vitals', document.getElementById('vitals-edit-host'));
+  registerList(body, { scope: 'vitals', key: 'vitals', rowSelector: '.vital' });
+}
 
 export function appendMsg(text, cls = '') {
   const el = document.createElement('div');

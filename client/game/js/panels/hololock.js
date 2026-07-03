@@ -25,21 +25,9 @@ let _raf = 0;
 let _lastT = 0;
 
 // ── Audio ─────────────────────────────────────────────────────────────────
-// Tiny inline SFX through the shared engine's bus (same pattern as
-// circuithack.js / poker-sfx.js). All guarded — silent if audio isn't up.
-const SFX_ENTRY = { priority: 4, config: { duration: 0.4, layers: [
-  { waveform: 'triangle', freq: 120, pitchBend: { to: 520, time: 0.32 }, filter: { type: 'lowpass', freq: 2200, q: 1 }, adsr: { a: 0.02, d: 0.2, s: 0.2, r: 0.12 }, gain: 0.18 } ] } };
-const SFX_SET  = { priority: 6, config: { duration: 0.12, layers: [
-  { waveform: 'square', freq: 880, pitchBend: { to: 1320, time: 0.08 }, adsr: { a: 0.002, d: 0.09, s: 0, r: 0.04 }, filter: { type: 'bandpass', freq: 1200, q: 4 }, gain: 0.18 } ] } };
-const SFX_MISS = { priority: 6, config: { duration: 0.18, layers: [
-  { waveform: 'sawtooth', freq: 200, pitchBend: { to: 70, time: 0.16 }, filter: { type: 'lowpass', freq: 1000, q: 1 }, adsr: { a: 0.003, d: 0.12, s: 0, r: 0.06 }, gain: 0.2 },
-  { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 300, q: 2 }, adsr: { a: 0.001, d: 0.07, s: 0, r: 0.05 }, gain: 0.28 } ] } };
-const SFX_WIN  = { priority: 8, config: { duration: 0.6, layers: [
-  { waveform: 'square', freq: 420, pitchBend: { to: 1680, time: 0.22 }, filter: { type: 'lowpass', freq: 5000, q: 1 }, adsr: { a: 0.005, d: 0.16, s: 0.1, r: 0.08 }, gain: 0.16 },
-  { waveform: 'square', freq: 2000, delay: 0.24, adsr: { a: 0.003, d: 0.08, s: 0, r: 0.06 }, filter: { type: 'bandpass', freq: 2000, q: 5 }, gain: 0.2 } ] } };
-const SFX_LOSE = { priority: 8, config: { duration: 0.55, layers: [
-  { waveform: 'sawtooth', freq: 170, pitchBend: { to: 40, time: 0.42 }, filter: { type: 'lowpass', freq: 800, q: 1 }, adsr: { a: 0.01, d: 0.24, s: 0.3, r: 0.28 }, gain: 0.22 },
-  { waveform: 'noise', noiseMix: 1, delay: 0.06, filter: { type: 'highpass', freq: 2600, q: 1 }, adsr: { a: 0.001, d: 0.05, s: 0, r: 0.03 }, gain: 0.28 } ] } };
+// Cues resolve through window.SFXCatalog by id ('hololock-entry', …); the synth
+// defs live in client/shared/sfx-catalog.js so they're editable in the dev
+// panel's Sounds tab (Interface / Game SFX). Guarded — silent if audio isn't up.
 
 // ── Styles ──────────────────────────────────────────────────────────────────
 function ensureStyles() {
@@ -189,7 +177,7 @@ function trySet() {
   const pos = posOf(pin);
   if (Math.abs(pos - pin.center) <= pin.width / 2) {
     pin.set = true;
-    sfx(SFX_SET);
+    sfx('hololock-set');
     const next = _state.pins.findIndex(p => !p.set);
     if (next === -1) { renderChannels(); finish(true); return; }
     _state.active = next;
@@ -197,7 +185,7 @@ function trySet() {
     setStatus('<span style="color:#7f93ad">Pin set. Next channel armed.</span>');
   } else {
     _state.feedback = clampNum(_state.feedback + _state.missPenalty, 0, 1);
-    sfx(SFX_MISS);
+    sfx('hololock-miss');
     setStatus('<span style="color:#ffb23e">Missed the window — feedback spikes.</span>');
     if (_state.feedback >= 1) finish(false);
   }
@@ -207,7 +195,7 @@ function finish(won) {
   if (_state.over) return;
   _state.over = true; _state.won = won;
   cancelAnimationFrame(_raf); _raf = 0;
-  sfx(won ? SFX_WIN : SFX_LOSE);
+  sfx(won ? 'hololock-win' : 'hololock-lose');
   setStatus(won
     ? '<span class="hl-win">◇ LOCK DISENGAGED — access granted.</span>'
     : '<span class="hl-lose">✕ SEQUENCE RESET — deck flagged.</span>');
@@ -252,7 +240,7 @@ export function openHololock(opts = {}) {
   _overlay.querySelector('.hl-btn-abort').addEventListener('click', close);
   _overlay.querySelector('.hl-btn-set').addEventListener('click', trySet);
   window.AudioEngine?.init?.();
-  sfx(SFX_ENTRY);
+  sfx('hololock-entry');
 
   _state = generate(_opts.skill, _opts.difficulty);
   renderChannels();

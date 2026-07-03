@@ -29,6 +29,7 @@ function compileBsm(text) {
 
   const nodes = {};
   const assets = [];
+  const weatherPools = {};    // pool_key → [line, …]  (only meaningful for @type weather)
   const messages = [];
   const rooms = [];           // zone IDs from ROOM directives (ordered, deduplicated)
   const cameraNumbers = [];   // unique CAM numbers in order of first appearance
@@ -89,6 +90,9 @@ function compileBsm(text) {
 
     if (!ln) { i++; continue; }
 
+    // ── Line comment ─────────────────────────────────────────────────────────
+    if (ln.startsWith('#')) { i++; continue; }
+
     // ── EOF marker ───────────────────────────────────────────────────────────
     if (ln === 'END') break;
 
@@ -103,6 +107,7 @@ function compileBsm(text) {
         else if (key === 'host') meta.host = val;
         else if (key === 'length') meta.length = parseFloat(val);
         else if (key === 'type') meta.type = val.toLowerCase();
+        else if (key === 'titlecard') meta.titlecard = val;   // weather: graphic id shown before the report
         // @actor / @alias are pre-scanned from ::actors block; skip here
       }
       i++; continue;
@@ -114,6 +119,19 @@ function compileBsm(text) {
       i++;
       const content = collectBlock('::endasset');
       assets.push({ id: assetId, name: assetId, type: 'ascii', content });
+      continue;
+    }
+
+    // ── Weather line pool (::lines <key> … ::endlines) ──────────────────────
+    // Each non-empty line inside is one interchangeable alternative for that
+    // situation; the broadcast runner picks one at random per airing. Re-declared
+    // keys merge. See docs/bsm-format.md#weather-broadcasts-type-weather.
+    if (ln.startsWith('::lines ')) {
+      const key = ln.slice(8).trim();
+      i++;
+      const content = collectBlock('::endlines');
+      const opts = content.split('\n').map(s => s.trim()).filter(s => s && !s.startsWith('#'));
+      if (key && opts.length) (weatherPools[key] || (weatherPools[key] = [])).push(...opts);
       continue;
     }
 
@@ -343,5 +361,11 @@ function compileBsm(text) {
     if (firstContent) nodes[startId].next = firstContent;
   }
 
-  return { meta, broadcastGraph: { _start: startId, nodes }, messages, assets, rooms, cameras: cameraNumbers, npcIds: [...npcIds], actorIds, _debug };
+  // Weather broadcasts supply line pools, not a linear graph. Make sure the
+  // weathercaster host is declared so the importer creates/places it even if the
+  // file omitted an ::actors entry for it.
+  if (meta.type === 'weather' && meta.host) npcIds.add(meta.host);
+  const weatherScript = { pools: weatherPools, host: meta.host, title: meta.titlecard || '' };
+
+  return { meta, broadcastGraph: { _start: startId, nodes }, weatherScript, messages, assets, rooms, cameras: cameraNumbers, npcIds: [...npcIds], actorIds, _debug };
 }

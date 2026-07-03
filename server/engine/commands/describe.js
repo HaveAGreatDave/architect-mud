@@ -516,10 +516,12 @@ export async function describeZone(zone, player) {
 			desc += `\n<span class="npcs-label">Nearby:</span> <span style="color:var(--text-dim);font-style:italic">${figures.join(", ")}</span>`;
 		} else {
 			const npcLinks = npcs.map((n) => {
-				const sleepTag = n._ai?.homeSleeping
+				const postureTag = n._ai?.homeSleeping
 					? ` <span class="text-dim">(sleeping)</span>`
-					: '';
-				return `<span class="action-link npc-link" data-action="talk" data-target="${n.name}" title="Talk to ${n.name}">${n.name}</span>${sleepTag}`;
+					: n.posture === 'lying'
+						? ` <span class="text-dim">(lying down)</span>`
+						: '';
+				return `<span class="action-link npc-link" data-action="talk" data-target="${n.name}" title="Talk to ${n.name}">${n.name}</span>${postureTag}`;
 			});
 			desc += `\n<span class="npcs-label">NPCs here:</span> ${npcLinks.join(", ")}`;
 		}

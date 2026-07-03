@@ -5,6 +5,9 @@ const HAIR_LENGTHS = ['shaved','short','medium','long','very_long'];
 const HAIR_STYLES  = ['mohawk','shaved','dreadlocks','braided','messy','slicked-back','curly','wavy','undercut','fade','afro','cornrows','pompadour','pixie'];
 const EYE_COLORS   = ['brown','dark brown','blue','light blue','green','hazel','grey','amber'];
 const BREAST_SIZES  = ['flat','small','medium','large','very large'];
+const TESTICLE_SIZES= ['small','average','large','very large'];
+const MALE_ASS_SIZES  = ['flat','small','average','round','large'];
+const FEMALE_ASS_SIZES= ['flat','small','average','round','large','enormous'];
 const SEXUALITIES   = ['Male', 'Female', 'Male and Female'];
 
 function heightDesc(cm) {
@@ -120,11 +123,13 @@ function _render(d) {
     sheet += _sectionHeader('Biological');
     sheet += _statRow('Sexuality', sexuality);
     if (sex === 'male') {
-      sheet += _statRow('Penis',     `${app.penis_length_cm || 13}cm, ${app.penis_girth_cm || 12}cm girth`);
+      sheet += _statRow('Penis',     `${app.penis_length_cm || 13}cm`);
       sheet += _statRow('Testicles', app.testicle_size || 'average');
+      sheet += _statRow('Ass',       app.ass_size || 'average');
       sheet += _statRow('State',     d.erect ? 'erect' : 'flaccid', true);
     } else {
       sheet += _statRow('Breasts', app.breast_size || 'medium');
+      sheet += _statRow('Ass',     app.ass_size || 'average');
       sheet += _statRow('Labia',   app.labia_style || 'average');
     }
   }
@@ -166,10 +171,12 @@ function _render(d) {
     if (sex === 'male') {
       mods += _sectionHeader('Biological — 5₵/cm');
       mods += _modRow('Length (cm)', _numInput('mx-penis', app.penis_length_cm || 13, 7, 21));
-      mods += _modRow('Girth (cm)',  _numInput('mx-girth', app.penis_girth_cm || 12, 6, 18, 0.5));
+      mods += _modRow('Testicles',   _sel('mx-testicle', TESTICLE_SIZES, app.testicle_size || 'average'));
+      mods += _modRow('Ass Size',    _sel('mx-ass', MALE_ASS_SIZES, app.ass_size || 'average'));
     } else {
       mods += _sectionHeader('Biological — 5₵/tier');
       mods += _modRow('Breast Size', _sel('mx-breast', BREAST_SIZES, app.breast_size || 'medium'));
+      mods += _modRow('Ass Size',    _sel('mx-ass', FEMALE_ASS_SIZES, app.ass_size || 'average'));
     }
   }
 
@@ -256,12 +263,14 @@ function _render(d) {
       if (d.biological_sex === 'male') {
         const newPenis = parseInt(document.getElementById('mx-penis')?.value);
         if (!isNaN(newPenis) && newPenis !== (app.penis_length_cm || 13)) cmds.push(`morphex penis ${newPenis}`);
-        const newGirth = parseFloat(document.getElementById('mx-girth')?.value);
-        if (!isNaN(newGirth) && newGirth !== (app.penis_girth_cm || 12)) cmds.push(`morphex girth ${newGirth}`);
+        const newTesticle = document.getElementById('mx-testicle')?.value;
+        if (newTesticle && newTesticle !== (app.testicle_size || 'average')) cmds.push(`morphex testicle ${newTesticle}`);
       } else {
         const newBreast = document.getElementById('mx-breast')?.value;
         if (newBreast && newBreast !== (app.breast_size || 'medium')) cmds.push(`morphex breast ${newBreast}`);
       }
+      const newAss = document.getElementById('mx-ass')?.value;
+      if (newAss && newAss !== (app.ass_size || 'average')) cmds.push(`morphex ass ${newAss}`);
     }
 
     if (!cmds.length) {

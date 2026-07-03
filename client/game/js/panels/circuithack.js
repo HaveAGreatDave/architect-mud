@@ -50,53 +50,13 @@ let _close = null;
 let _state = null;
 let _opts = null;
 let _actionMode = null; // null | 'breach' | 'scan'
+let _introTimer = null; // pending "reveal board" timeout during the plug-in intro
 
 // ── Audio ─────────────────────────────────────────────────────────────────
-// Tiny inline SFX through the shared engine's SFX bus. Deliberately styled
-// after the DB's `cyberpunk` sfx category (square/triangle carriers, bandpass
-// sweeps, tremolo) rather than reusing the generic melodic fanfare other
-// minigames use for "you win", so a breach doesn't sound like a poker hand or
-// a level-up chime.
-
-const SFX_ENTRY = { priority: 4, config: { duration: 0.5, layers: [
-  { waveform: 'triangle', freq: 90, pitchBend: { to: 480, time: 0.4 }, filter: { type: 'lowpass', freq: 2400, q: 1 }, adsr: { a: 0.02, d: 0.25, s: 0.3, r: 0.15 }, gain: 0.2 },
-  { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 3000, q: 0.8 }, adsr: { a: 0.001, d: 0.05, s: 0, r: 0.04 }, gain: 0.12 },
-] } };
-const SFX_MOVE  = { priority: 5, config: { duration: 0.05, layers: [ { waveform: 'square', freq: 620, adsr: { a: 0.002, d: 0.04, s: 0, r: 0.03 }, filter: { type: 'bandpass', freq: 640, q: 4 }, gain: 0.16 } ] } };
-const SFX_BOOST = { priority: 5, config: { duration: 0.16, layers: [ { waveform: 'square', freq: 740, pitchBend: { to: 1180, time: 0.12 }, adsr: { a: 0.003, d: 0.12, s: 0.1, r: 0.05 }, filter: { type: 'bandpass', freq: 1000, q: 3 }, gain: 0.16 } ] } };
-const SFX_ALARM = { priority: 6, config: { duration: 0.4, layers: [
-  { waveform: 'sawtooth', freq: 300, pitchBend: { to: 90, time: 0.35 }, filter: { type: 'lowpass', freq: 1400, q: 1 }, adsr: { a: 0.005, d: 0.2, s: 0.3, r: 0.3 }, gain: 0.22 },
-  { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 220, q: 2 }, adsr: { a: 0.001, d: 0.09, s: 0, r: 0.06 }, gain: 0.5 } ] } };
-// Sonar-style sweep out and back — a sensor pulse, not a move.
-const SFX_PING = { priority: 6, config: { duration: 0.5, layers: [
-  { waveform: 'sine', freq: 520, pitchBend: { to: 1400, time: 0.22 }, adsr: { a: 0.01, d: 0.2, s: 0.2, r: 0.2 }, gain: 0.22 },
-  { waveform: 'sine', freq: 1400, delay: 0.22, pitchBend: { to: 520, time: 0.24 }, adsr: { a: 0.01, d: 0.22, s: 0, r: 0.15 }, gain: 0.14 },
-  { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 2200, q: 3 }, adsr: { a: 0.002, d: 0.06, s: 0, r: 0.04 }, gain: 0.1 },
-] } };
-// A heavy mechanical clunk + crack — brute-forcing a locked gate, distinct from
-// the alarm's electronic shriek (this is physical, destructive).
-const SFX_FORCE = { priority: 7, config: { duration: 0.5, layers: [
-  { waveform: 'triangle', freq: 90, pitchBend: { to: 40, time: 0.2 }, adsr: { a: 0.001, d: 0.18, s: 0, r: 0.15 }, gain: 0.45 },
-  { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 500, q: 1.5 }, adsr: { a: 0.001, d: 0.1, s: 0, r: 0.1 }, gain: 0.4 },
-  { waveform: 'noise', noiseMix: 1, delay: 0.08, filter: { type: 'highpass', freq: 3500, q: 1 }, adsr: { a: 0.001, d: 0.05, s: 0, r: 0.05 }, gain: 0.2 },
-] } };
-// ACCESS GRANTED — a clinical rising sweep into a crisp double confirmation
-// chirp. Digital and terminal-flavoured (mirrors the DB's terminal_login/
-// scanner cyberpunk sfx) rather than a musical major-chord fanfare.
-const SFX_WIN = { priority: 8, config: { duration: 0.65, layers: [
-  { waveform: 'square', freq: 380, pitchBend: { to: 1600, time: 0.22 }, filter: { type: 'lowpass', freq: 5000, q: 1 }, adsr: { a: 0.005, d: 0.18, s: 0.1, r: 0.08 }, gain: 0.18 },
-  { waveform: 'square', freq: 1800, delay: 0.24, adsr: { a: 0.003, d: 0.07, s: 0, r: 0.05 }, filter: { type: 'bandpass', freq: 1800, q: 4 }, gain: 0.22 },
-  { waveform: 'square', freq: 2400, delay: 0.34, adsr: { a: 0.003, d: 0.09, s: 0, r: 0.08 }, filter: { type: 'bandpass', freq: 2400, q: 5 }, gain: 0.2 },
-  { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 4000, q: 0.6 }, adsr: { a: 0.001, d: 0.06, s: 0, r: 0.04 }, gain: 0.08 },
-] } };
-// CONNECTION SEVERED — a digital stutter/cutout rather than a sad trombone:
-// a falling sub thud plus two glitch-static bursts hacking the signal apart.
-const SFX_LOSE = { priority: 8, config: { duration: 0.6, layers: [
-  { waveform: 'sawtooth', freq: 160, pitchBend: { to: 40, time: 0.45 }, filter: { type: 'lowpass', freq: 800, q: 1 }, adsr: { a: 0.01, d: 0.25, s: 0.3, r: 0.3 }, gain: 0.22 },
-  { waveform: 'noise', noiseMix: 1, delay: 0.08, filter: { type: 'highpass', freq: 2800, q: 1 }, adsr: { a: 0.001, d: 0.05, s: 0, r: 0.03 }, gain: 0.3 },
-  { waveform: 'noise', noiseMix: 1, delay: 0.2, filter: { type: 'highpass', freq: 2000, q: 1 }, adsr: { a: 0.001, d: 0.06, s: 0, r: 0.04 }, gain: 0.26 },
-  { waveform: 'square', freq: 70, delay: 0.05, pitchBend: { to: 25, time: 0.4 }, adsr: { a: 0.01, d: 0.3, s: 0.2, r: 0.3 }, gain: 0.14 },
-] } };
+// Cues resolve through window.SFXCatalog by id ('hack-entry', 'hack-move', …);
+// the synth defs live in client/shared/sfx-catalog.js so they're editable in the
+// dev panel's Sounds tab (Interface / Game SFX). Styled after the DB's
+// `cyberpunk` sfx category — a breach shouldn't sound like a poker hand.
 
 // ── Styles ──────────────────────────────────────────────────────────────────
 function ensureStyles() {
@@ -418,7 +378,7 @@ function moveTo(state, id) {
     state.alarmsLeft--;
     state.movesLeft--;                                  // ICE also burns an extra move
     bumpTrace(state, state.traceRate * 0.6);
-    sfx(SFX_ALARM);
+    sfx('hack-alarm');
     if (state.alarmsLeft <= 0) return finish(state, false, 'ICE LOCK — CONNECTION BURNED');
     flashStatus(`<span class="ch-warn">&#9888; ALARM TRIPPED &mdash; ${state.alarmsLeft} tolerance left</span>`);
   } else if (node.type === 'decoy') {
@@ -426,20 +386,20 @@ function moveTo(state, id) {
     state.movesLeft -= penalty;
     bumpTrace(state, state.traceRate * 0.4);
     node.type = 'normal';                                // sprung — inert afterward
-    sfx(SFX_ALARM);
+    sfx('hack-alarm');
     flashStatus(`<span class="ch-warn">&#9761; SNARE TRIPPED &mdash; ${penalty} cycles drained</span>`);
   } else if (node.type === 'key') {
     state.keys |= node.keyBit; node.type = 'normal';    // consumed
-    sfx(SFX_BOOST);
+    sfx('hack-boost');
     flashStatus('<span class="ch-warn">&#9670; CIPHER KEY ACQUIRED</span>');
   } else if (node.type === 'boost') {
     state.movesLeft += 3; node.type = 'normal';
-    sfx(SFX_BOOST);
+    sfx('hack-boost');
     flashStatus('<span class="ch-warn">&#43; CYCLES RECOVERED (+3 moves)</span>');
   } else if (id === state.core) {
     return finish(state, true, 'CORE BREACHED — ACCESS GRANTED');
   } else {
-    sfx(SFX_MOVE);
+    sfx('hack-move');
     flashStatus('');
   }
 
@@ -459,7 +419,7 @@ function ping(state) {
   state.movesLeft -= PING_COST;
   bumpTrace(state, state.traceRate * 0.6);
   sense(state, state.sensor + PING_BONUS_RADIUS);
-  sfx(SFX_PING);
+  sfx('hack-ping');
   flashStatus('<span class="ch-warn">&#8226; SENSOR PULSE — EXTENDED RANGE</span>');
   if (checkFailStates(state)) return;
   renderBoard();
@@ -478,7 +438,7 @@ function scanNode(state, id) {
   state.identified.add(id);
   _actionMode = null;
   const t = state.nodes[id].type;
-  sfx(SFX_PING);
+  sfx('hack-ping');
   flashStatus(t === 'normal'
     ? '<span style="color:#7fa392">SCAN: via clear.</span>'
     : `<span class="ch-warn">SCAN: ${t === 'firewall' ? 'ICE' : 'SNARE'} confirmed.</span>`);
@@ -510,12 +470,12 @@ function breach(state, id) {
     if (kind === 'gate') state.keys |= state.nodes[id].gateBit;
     else if (kind === 'firewall') { state.nodes[id].type = 'normal'; state.identified.add(id); }
     else if (kind === 'sentry') state.nodes[id].disabled = true;
-    sfx(SFX_FORCE);
+    sfx('hack-force');
     flashStatus(`<span class="ch-warn">&#128163; ${BREACH_LABEL[kind]} BREACHED</span>`);
   } else {
     state.alarmsLeft -= BREACH_FAIL_ALARM[kind];
     if (kind === 'firewall') state.identified.add(id);   // failed attempt reveals it for certain
-    sfx(SFX_ALARM);
+    sfx('hack-alarm');
     if (state.alarmsLeft <= 0) return finish(state, false, 'ICE LOCK — CONNECTION BURNED');
     flashStatus(`<span class="ch-warn">&#9888; BREACH FAILED &mdash; ${state.alarmsLeft} tolerance left</span>`);
   }
@@ -529,7 +489,7 @@ function finish(state, won, text) {
   state.over = true; state.won = won;
   // Reveal all hazards on resolution.
   for (const n of state.nodes) if (n.type === 'firewall' || n.type === 'decoy') state.identified.add(n.id);
-  sfx(won ? SFX_WIN : SFX_LOSE);
+  sfx(won ? 'hack-win' : 'hack-lose');
   renderBoard();
   renderHud();
   const cls = won ? 'ch-win' : 'ch-lose';
@@ -735,6 +695,74 @@ function renderHud() {
 function setStatus(html) { const el = document.getElementById('ch-status'); if (el) el.innerHTML = html; }
 function flashStatus(html) { setStatus(html); }
 
+// ── Plug-in intro ─────────────────────────────────────────────────────────────
+// A short cutscene played into the board area before the puzzle: the hack
+// deck's connector slides across and seats into the terminal's advanced data
+// port, the contact pins light up in the target's accent, and the link is
+// established — then the board boots. Pure SMIL/CSS so it needs no ticking.
+function plugInIntroSvg() {
+  const pins = [112, 124, 136, 148]
+    .map(y => `<rect x="332" y="${y - 3}" width="30" height="6" rx="2" fill="#5c6b66"><animate attributeName="fill" values="#5c6b66;var(--ch-accent)" begin="0.72s" dur="0.22s" fill="freeze"/></rect>`)
+    .join('');
+  const ribs = [166, 182, 198].map(x => `<rect x="${x}" y="98" width="6" height="64" fill="#0a1512" opacity="0.7"/>`).join('');
+  const prongs = [114, 130, 146].map(y => `<rect x="276" y="${y - 2.5}" width="34" height="5" rx="1.5" fill="#d8b24a"/>`).join('');
+  return `<svg viewBox="0 0 480 260" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="'Courier New',monospace">
+    <defs>
+      <pattern id="ch-intro-grid" width="24" height="24" patternUnits="userSpaceOnUse"><path d="M24,0 H0 V24" fill="none" stroke="#0e241c" stroke-width="1"/></pattern>
+      <radialGradient id="ch-intro-tint" cx="50%" cy="42%" r="75%"><stop offset="0%" stop-color="color-mix(in srgb, var(--ch-accent) 16%, #051310)"/><stop offset="100%" stop-color="#051310"/></radialGradient>
+      <linearGradient id="ch-plug-body" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#3a4a46"/><stop offset="45%" stop-color="#1c2a27"/><stop offset="100%" stop-color="#0c1613"/></linearGradient>
+      <linearGradient id="ch-port-metal" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#243430"/><stop offset="50%" stop-color="#14201d"/><stop offset="100%" stop-color="#0a1310"/></linearGradient>
+    </defs>
+    <rect width="480" height="260" fill="url(#ch-intro-tint)"/>
+    <rect width="480" height="260" fill="url(#ch-intro-grid)"/>
+
+    <!-- Terminal chassis + advanced data port (static) -->
+    <g>
+      <rect x="330" y="40" width="150" height="180" fill="url(#ch-port-metal)" stroke="#2b4a3c" stroke-width="1.5"/>
+      <path d="M300,130 L318,104 L360,104 L378,130 L360,156 L318,156 Z" fill="#04100d" stroke="var(--ch-accent)" stroke-width="2"/>
+      ${pins}
+      <text x="405" y="152" text-anchor="middle" font-size="9" letter-spacing="2" fill="var(--ch-accent)" opacity="0.7">DATA PORT</text>
+    </g>
+
+    <!-- Sliding connector plug (cable trails off the left edge) -->
+    <g>
+      <animateTransform attributeName="transform" attributeType="XML" type="translate"
+        values="-330,0; 6,0; 0,0" keyTimes="0;0.8;1" dur="0.9s"
+        calcMode="spline" keySplines="0.15 0.7 0.25 1; 0.5 0 0.5 1" fill="freeze"/>
+      <path d="M-80,130 H150" stroke="#0b1512" stroke-width="18" stroke-linecap="round"/>
+      <path d="M-80,130 H150" stroke="#1d3630" stroke-width="6" stroke-linecap="round" opacity="0.6" stroke-dasharray="3 9"/>
+      <rect x="150" y="98" width="110" height="64" rx="7" fill="url(#ch-plug-body)" stroke="#2b4a3c" stroke-width="1.5"/>
+      ${ribs}
+      <circle cx="230" cy="130" r="10" fill="#04100d" stroke="var(--ch-accent)" stroke-width="1.6"/>
+      <circle cx="230" cy="130" r="3.5" fill="var(--ch-accent)"><animate attributeName="opacity" values="0.4;1;0.4" dur="1.1s" repeatCount="indefinite"/></circle>
+      <rect x="260" y="106" width="16" height="48" rx="2" fill="#26332f" stroke="#2b4a3c" stroke-width="1"/>
+      ${prongs}
+    </g>
+
+    <!-- Handshake flash over the socket the instant the prongs seat -->
+    <rect x="298" y="90" width="92" height="80" fill="var(--ch-accent)" opacity="0">
+      <animate attributeName="opacity" values="0;0.75;0" keyTimes="0;0.4;1" begin="0.7s" dur="0.5s" fill="freeze"/>
+    </rect>
+
+    <text x="240" y="30" text-anchor="middle" font-size="10" letter-spacing="4" fill="#7fa392" opacity="0.8">JACKING IN&#8230;</text>
+    <text x="240" y="230" text-anchor="middle" font-size="13" letter-spacing="3" fill="var(--ch-accent)" font-weight="bold" opacity="0">&#9670; LINK ESTABLISHED &#9670;<animate attributeName="opacity" values="0;1" begin="0.9s" dur="0.3s" fill="freeze"/></text>
+  </svg>`;
+}
+
+function playPlugInIntro() {
+  const board = document.getElementById('ch-board');
+  if (!board) { sfx('hack-entry'); newPuzzle(); return; }
+  board.innerHTML = plugInIntroSvg();
+  setStatus('<span style="color:#7fa392">Establishing physical link&#8230;</span>');
+  sfx('hack-plug');
+  _introTimer = setTimeout(() => {
+    _introTimer = null;
+    if (!_overlay) return;          // overlay closed (Abort) mid-intro
+    sfx('hack-entry');
+    newPuzzle();
+  }, 1350);
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
 function newPuzzle() {
   _actionMode = null;
@@ -794,11 +822,11 @@ export function openCircuitHack(opts = {}) {
     '<span class="ch-warn">BREACH ARMED — click an adjacent GATE, ICE, or SENTRY</span>',
     '<span style="color:#7fa392">Breach disarmed.</span>'));
   window.AudioEngine?.init?.();
-  sfx(SFX_ENTRY);
-  newPuzzle();
+  playPlugInIntro();
 }
 
 function close() {
+  if (_introTimer) { clearTimeout(_introTimer); _introTimer = null; }
   if (_close) { _close(); _close = null; }
   _overlay = null;
 }

@@ -118,10 +118,14 @@
           <h3 id="edit-title">Edit</h3>
           <button class="action-btn" onclick="closeEdit()">✕</button>
         </div>
+        <div class="edit-actions-top" id="edit-actions-top">
+          <button class="action-btn success js-save-btn" onclick="saveRecord()" style="flex:1">Save</button>
+          <button class="action-btn danger js-delete-btn" id="delete-btn-top" onclick="deleteRecord()">Delete</button>
+        </div>
         <div class="edit-body" id="edit-body"></div>
         <div class="edit-footer">
-          <button class="action-btn success" onclick="saveRecord()" style="flex:1">Save</button>
-          <button class="action-btn danger" id="delete-btn" onclick="deleteRecord()">Delete</button>
+          <button class="action-btn success js-save-btn" onclick="saveRecord()" style="flex:1">Save</button>
+          <button class="action-btn danger js-delete-btn" id="delete-btn" onclick="deleteRecord()">Delete</button>
         </div>
       </div>
     </div>
@@ -404,6 +408,7 @@
 <script src="/dev/js/panels/bank.js"></script>
 <script src="/dev/js/panels/sounds.js"></script>
 <script src="/shared/audio-engine.js"></script>
+<script src="/shared/sfx-catalog.js"></script>
 <script src="/shared/mod-parser.js"></script>
 <script src="/dev/js/panels/audio.js"></script>
 <script src="/dev/js/bsm-compiler.js"></script>

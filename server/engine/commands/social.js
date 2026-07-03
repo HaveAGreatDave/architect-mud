@@ -7,6 +7,7 @@ import { resolve as siftResolve, createSelectionState, formatSelectionPage } fro
 import { DEFAULT_CHITCHAT_LINES, formatChitchat } from '../ai-behaviour.js';
 import { getNpcChitchat } from '../npc-personality.js';
 import { fireHook } from '../plugins.js';
+import { emit } from '../events.js';
 
 async function cmdTalk(targetStr, player, broadcast) {
   if (!targetStr) return { type:'error', message:'Talk to whom?' };
@@ -78,6 +79,9 @@ async function cmdSay(text, player, broadcast) {
   broadcast(player.current_zone, { type:'say', message:`${player.handle} says: "${spoken}"` }, player.id);
   // Let plugins react to speech (e.g. the shadow dealer's passphrase). Fire-and-forget.
   fireHook('player.say', { player, text, zoneId: player.current_zone, broadcast }).catch(() => {});
+  // Audible speech is noise — systems keying off sound (e.g. the burglary alarm)
+  // listen here rather than re-deriving it from the say path.
+  emit('player.spoke', { player, zoneId: player.current_zone, loud: false });
   for (const npc of npcsNamedInSpeech(text, player.current_zone)) {
     const lines = getNpcChitchat(npc) || DEFAULT_CHITCHAT_LINES;
     broadcast(player.current_zone, formatChitchat(npc.name, lines[Math.floor(Math.random() * lines.length)]));
@@ -88,6 +92,7 @@ async function cmdSay(text, player, broadcast) {
 function cmdYell(text, player, broadcast) {
   if (!text.trim()) return { type:'error', message:'Yell what?' };
   propagateYell(player.current_zone, player.id, player.handle, text.trim(), broadcast);
+  emit('player.spoke', { player, zoneId: player.current_zone, loud: true });
   return { type:'output', message:`<span style="color:var(--yellow);font-weight:bold">You yell: "${text.trim().toUpperCase()}"</span>` };
 }
 
@@ -100,8 +105,8 @@ function cmdWhisper(args, raw, player, broadcast) {
   if (targetWord.startsWith('#')) {
     const channelId = targetWord.toLowerCase();
     const msgText = afterCmd.slice(targetWord.length).trim();
-    if (!msgText) return { type:'error', message:`Usage: whisper ${channelId} <message>` };
-    if (!canAccessChannel(channelId, player)) return { type:'error', message:`No such channel: ${channelId}` };
+    if (!msgText) return { type:'error', message:`Usage: whisper ${channelId} <message>`, whisperFailed: afterCmd };
+    if (!canAccessChannel(channelId, player)) return { type:'error', message:`No such channel: ${channelId}`, whisperFailed: afterCmd };
     sendToChatChannel(channelId, { type:'channel_msg', channel: channelId, from: player.handle, message: msgText }, broadcast);
     return null;
   }
@@ -110,9 +115,9 @@ function cmdWhisper(args, raw, player, broadcast) {
   const livePlayers = getAllLivePlayers().filter(p => p.id !== player.id);
   const sorted = livePlayers.slice().sort((a,b) => b.handle.length - a.handle.length);
   const target = sorted.find(p => afterCmd.toLowerCase().startsWith(p.handle.toLowerCase()));
-  if (!target) return { type:'error', message:`No online player matches "${afterCmd.split(' ')[0]}…".` };
+  if (!target) return { type:'error', message:`No online player matches "${afterCmd.split(' ')[0]}…".`, whisperFailed: afterCmd };
   const msgText = afterCmd.slice(target.handle.length).trim();
-  if (!msgText) return { type:'error', message:'Usage: whisper <player> <message>' };
+  if (!msgText) return { type:'error', message:'Usage: whisper <player> <message>', whisperFailed: afterCmd };
   broadcast(null, { type:'whisper', from: player.handle, message: msgText }, null, target.id);
   return { type:'whisper_sent', to: target.handle, message: msgText };
 }

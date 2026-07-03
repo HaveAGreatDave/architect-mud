@@ -33,31 +33,9 @@ let _lastT = 0;
 let _drag = null; // { startAngle, startDial } while spinning the dial
 
 // ── Audio ─────────────────────────────────────────────────────────────────
-// Tiny inline SFX through the shared engine's bus (same pattern as
-// hololock.js / circuithack.js). All guarded — silent if audio isn't up.
-const SFX_ENTRY = { priority: 4, config: { duration: 0.5, layers: [
-  { waveform: 'triangle', freq: 70, pitchBend: { to: 300, time: 0.4 }, filter: { type: 'lowpass', freq: 1600, q: 1 }, adsr: { a: 0.02, d: 0.26, s: 0.2, r: 0.14 }, gain: 0.2 },
-  { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 900, q: 1.2 }, adsr: { a: 0.001, d: 0.4, s: 0, r: 0.1 }, gain: 0.06 } ] } };
-// A crisp mechanical dial tick as the wheel passes a graduation.
-const SFX_TICK = { priority: 3, config: { duration: 0.04, layers: [
-  { waveform: 'square', freq: 1500, adsr: { a: 0.001, d: 0.03, s: 0, r: 0.01 }, filter: { type: 'bandpass', freq: 1800, q: 6 }, gain: 0.06 } ] } };
-// A heavy tumbler dropping into its gate — a low, satisfying clunk.
-const SFX_SET  = { priority: 6, config: { duration: 0.2, layers: [
-  { waveform: 'triangle', freq: 220, pitchBend: { to: 90, time: 0.12 }, adsr: { a: 0.002, d: 0.16, s: 0, r: 0.05 }, filter: { type: 'lowpass', freq: 1400, q: 1 }, gain: 0.28 },
-  { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 260, q: 2 }, adsr: { a: 0.001, d: 0.08, s: 0, r: 0.04 }, gain: 0.22 } ] } };
-// The drive cam slipping off the wrong contact — a metallic scrape + tamper buzz.
-const SFX_SLIP = { priority: 6, config: { duration: 0.24, layers: [
-  { waveform: 'sawtooth', freq: 420, pitchBend: { to: 130, time: 0.2 }, filter: { type: 'bandpass', freq: 900, q: 2 }, adsr: { a: 0.002, d: 0.16, s: 0, r: 0.06 }, gain: 0.2 },
-  { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 2200, q: 1 }, adsr: { a: 0.001, d: 0.1, s: 0, r: 0.05 }, gain: 0.24 } ] } };
-// The bolt retracting — a rising sweep into a big vault clunk.
-const SFX_WIN  = { priority: 8, config: { duration: 0.7, layers: [
-  { waveform: 'square', freq: 320, pitchBend: { to: 1200, time: 0.24 }, filter: { type: 'lowpass', freq: 4200, q: 1 }, adsr: { a: 0.005, d: 0.18, s: 0.1, r: 0.08 }, gain: 0.16 },
-  { waveform: 'triangle', freq: 150, delay: 0.3, pitchBend: { to: 60, time: 0.22 }, adsr: { a: 0.002, d: 0.24, s: 0, r: 0.1 }, gain: 0.34 },
-  { waveform: 'noise', noiseMix: 1, delay: 0.3, filter: { type: 'bandpass', freq: 220, q: 1.5 }, adsr: { a: 0.001, d: 0.12, s: 0, r: 0.06 }, gain: 0.2 } ] } };
-// TAMPER LOCKOUT — the lock re-seating with a hard buzz + falling thud.
-const SFX_LOSE = { priority: 8, config: { duration: 0.55, layers: [
-  { waveform: 'sawtooth', freq: 180, pitchBend: { to: 44, time: 0.42 }, filter: { type: 'lowpass', freq: 800, q: 1 }, adsr: { a: 0.01, d: 0.24, s: 0.3, r: 0.26 }, gain: 0.22 },
-  { waveform: 'noise', noiseMix: 1, delay: 0.05, filter: { type: 'highpass', freq: 2600, q: 1 }, adsr: { a: 0.001, d: 0.06, s: 0, r: 0.04 }, gain: 0.28 } ] } };
+// Cues resolve through window.SFXCatalog by id ('vault-entry', 'vault-tick', …);
+// the synth defs live in client/shared/sfx-catalog.js so they're editable in the
+// dev panel's Sounds tab (Interface / Game SFX). Guarded — silent if audio isn't up.
 
 // ── Styles ──────────────────────────────────────────────────────────────────
 function ensureStyles() {
@@ -272,7 +250,7 @@ function tick(t) {
 function turn(delta) {
   if (!_state || _state.over) return;
   _state.dial = normDial(_state.dial + delta);
-  sfx(SFX_TICK);
+  sfx('vault-tick');
   paintDial();
   flarePointer();
 }
@@ -284,7 +262,7 @@ function trySet() {
   const d = circDist(_state.dial, w.target);
   if (d <= _state.tolerance) {
     w.set = true; w.setAt = _state.dial;
-    sfx(SFX_SET);
+    sfx('vault-set');
     paintDial();
     const next = _state.wheels.findIndex(x => !x.set);
     if (next === -1) { finish(true); return; }
@@ -293,7 +271,7 @@ function trySet() {
     setStatus('<span class="vc-warn">&#9679; Tumbler dropped. Hunt the next contact.</span>');
   } else {
     _state.heat = clampNum(_state.heat + _state.slipPenalty, 0, 1);
-    sfx(SFX_SLIP);
+    sfx('vault-slip');
     setStatus('<span class="vc-warn">Wrong contact — the cam slips and the tamper sensor spikes.</span>');
     renderHud();
     if (_state.heat >= 1) finish(false);
@@ -304,7 +282,7 @@ function finish(won) {
   if (_state.over) return;
   _state.over = true; _state.won = won;
   cancelAnimationFrame(_raf); _raf = 0;
-  sfx(won ? SFX_WIN : SFX_LOSE);
+  sfx(won ? 'vault-win' : 'vault-lose');
   setStatus(won
     ? '<span class="vc-win">&#9673; BOLT RETRACTED — safe open.</span>'
     : '<span class="vc-lose">&#10007; LOCK RE-SEATED — rig flagged.</span>');
@@ -337,7 +315,7 @@ function onDragMove(e) {
   while (delta < -180) delta += 360;
   const prev = _state.dial;
   _state.dial = normDial(_drag.startDial + delta / 360 * 100);
-  if (_state.dial !== prev) { sfx(SFX_TICK); paintDial(); flarePointer(); }
+  if (_state.dial !== prev) { sfx('vault-tick'); paintDial(); flarePointer(); }
 }
 function onDragEnd() {
   if (!_drag) return;
@@ -405,7 +383,7 @@ export function openVaultCrack(opts = {}) {
   window.addEventListener('pointerup', onDragEnd);
 
   window.AudioEngine?.init?.();
-  sfx(SFX_ENTRY);
+  sfx('vault-entry');
 
   // Position the green resonance band on the gauge (top slice above the
   // tolerance-edge amplitude) and paint the initial state.

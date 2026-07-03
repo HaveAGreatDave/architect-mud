@@ -575,7 +575,17 @@ async function cmdExamine(targetStr, player, broadcast) {
   if (er.type === 'match') {
     const c = er.candidate;
     if (c._examType === 'enemy') return { type:'examine', message:`${c.name}\n${c.description}\nHP: ${c.hp}/${c.hp_max}` };
-    if (c._examType === 'npc')   return { type:'examine', message:`${c.name}\n${c.description}` };
+    if (c._examType === 'npc') {
+      let postureLine = '';
+      if (c._ai?.homeSleeping) {
+        const where = c.sittingOn ? `the ${c.sittingOn}` : 'the floor';
+        postureLine = `\n<span class="text-dim">${c.name} is asleep on ${where}.</span>`;
+      } else if (c.posture === 'lying') {
+        const where = c.sittingOn ? `the ${c.sittingOn}` : 'the floor';
+        postureLine = `\n<span class="text-dim">${c.name} is lying on ${where}.</span>`;
+      }
+      return { type:'examine', message:`${c.name}\n${c.description}${postureLine}` };
+    }
     if (c._examType === 'player') {
       const app = await describePlayerAppearance(c, false, player, broadcast);
       const stealLink  = `<span class="action-link" data-action="steal" data-target="${c.handle}" title="Steal from ${c.handle}">steal</span>`;
@@ -807,7 +817,7 @@ function cmdHelp(player) {
 <span class="help-category">OBSERVE</span>     look sky  |  look ground  |  look distance  |  examine surroundings
 <span class="help-category">INFO</span>        look  |  look &lt;me/item/player&gt;  |  examine &lt;thing&gt;  help`;
   if (player?.role === 'admin') {
-    msg += `\n<span class="help-category">ADMIN</span>      teleport &lt;zone id&gt;  (tp)  |  spawn &lt;item id&gt; [zone|here]  |  spawnenemy &lt;enemy id&gt; [zone|here]`;
+    msg += `\n<span class="help-category">ADMIN</span>      .tp &lt;zone id&gt;  |  .spawn &lt;item id&gt; [zone|here]  |  .spawnenemy &lt;enemy id&gt; [zone|here]  |  .corpses   <span class="text-dim">(prefix admin verbs with . or /)</span>`;
   }
   return { type:'help', message: msg };
 }

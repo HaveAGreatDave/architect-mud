@@ -54,7 +54,6 @@ export function randomAppearance(sex) {
 
   // Genital appearance — sizes stored internally, never shown unless MIS active.
   // Length: Gaussian around 13cm (10–16 typical), ~10% chance of outlier (7–9 or 17–21).
-  // Girth: circumference in cm, Gaussian around 12cm (10–14 typical).
   function genLength() {
     const roll = Math.random();
     if (roll < 0.07) return randInRange(7, 9);   // small outlier

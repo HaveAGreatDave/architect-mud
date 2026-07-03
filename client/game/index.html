@@ -669,10 +669,10 @@
 
 				<div class="sidebar-section" id="vitals-section">
 					<div class="sidebar-label sidebar-label-collapsible">
-						<span>Vitals</span>
+						<span>Vitals</span><span class="sidebar-label-controls" id="vitals-edit-host"></span>
 						<button class="sidebar-collapse-btn" title="Collapse panel">▾</button>
 					</div>
-					<div class="vital vital-hp">
+					<div class="vital vital-hp" data-lr-key="hp">
 						<div class="vital-label">
 							<span>HP</span><span id="hp-val">—</span>
 						</div>
@@ -683,7 +683,7 @@
 								style="width: 100%"></div>
 						</div>
 					</div>
-					<div class="vital vital-sanity">
+					<div class="vital vital-sanity" data-lr-key="san">
 						<div class="vital-label">
 							<span>Sanity</span><span id="san-val">—</span>
 						</div>
@@ -694,7 +694,7 @@
 								style="width: 100%"></div>
 						</div>
 					</div>
-					<div class="vital vital-hunger">
+					<div class="vital vital-hunger" data-lr-key="hun">
 						<div class="vital-label">
 							<span>Hunger</span><span id="hun-val">—</span>
 						</div>
@@ -705,7 +705,7 @@
 								style="width: 100%"></div>
 						</div>
 					</div>
-					<div class="vital vital-thirst">
+					<div class="vital vital-thirst" data-lr-key="thi">
 						<div class="vital-label">
 							<span>Thirst</span><span id="thi-val">—</span>
 						</div>
@@ -716,7 +716,7 @@
 								style="width: 100%"></div>
 						</div>
 					</div>
-					<div class="vital vital-stamina">
+					<div class="vital vital-stamina" data-lr-key="sta">
 						<div class="vital-label">
 							<span>Stamina</span><span id="sta-val">—</span>
 						</div>
@@ -727,7 +727,7 @@
 								style="width: 100%"></div>
 						</div>
 					</div>
-					<div class="vital vital-radiation" id="rad-bar-wrap" style="display: none">
+					<div class="vital vital-radiation" id="rad-bar-wrap" data-lr-key="rad" style="display: none">
 						<div class="vital-label">
 							<span>☢ Radiation</span><span id="rad-val">—</span>
 						</div>
@@ -740,7 +740,7 @@
 					</div>
 					<div
 						class="vital vital-horny"
-						id="horny-bar-wrap"
+						id="horny-bar-wrap" data-lr-key="hor"
 						style="display: none">
 						<div class="vital-label">
 							<span>Horny</span><span id="hor-val">—</span>
@@ -2162,6 +2162,7 @@
 		</div>
 
 		<script src="/shared/audio-engine.js"></script>
+		<script src="/shared/sfx-catalog.js"></script>
 		<script src="/shared/mod-parser.js"></script>
 		<script type="module" src="js/main.js"></script>
 

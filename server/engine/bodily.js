@@ -9,10 +9,12 @@
 import { query } from '../models/db.js';
 import { world } from './world.js';
 
-// How much load consuming food/drink adds.
-// Scales with restore value: eating something with +25 hunger adds ~12 load.
-export function foodLoad(restoreHunger)  { return (restoreHunger || 0) * 0.5; }
-export function drinkLoad(restoreThirst) { return (restoreThirst || 0) * 0.6; }
+// How much load consuming food/drink adds. Scales with restore value. Tuned so
+// that, with no passive decay, steady eating/drinking builds a genuine urge:
+// bladder ~every 4h, bowel ~every 8h (eating +25 hunger adds ~17 load, drinking
+// +25 thirst adds ~25). See plugins/bodily/index.js tickBodily.
+export function foodLoad(restoreHunger)  { return (restoreHunger || 0) * 0.7; }
+export function drinkLoad(restoreThirst) { return (restoreThirst || 0) * 1.0; }
 
 // Apply a drink's thirst restore in-memory: bump the thirst meter (capped at 100)
 // and the bladder load. Shared by item consumption (cmdUse) and furniture water

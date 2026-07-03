@@ -147,7 +147,7 @@ Executes one action and stops the tick. The cursor is saved to the `next` port's
 | `VENDOR_COLLECT_SAFE` | — | Find linked vendor-safe furniture in `work_zone_id`, take 25% of `vendor_credits`, broadcast to zone |
 | `VENDOR_GO_TO_ATM` | — | Find nearest non-broken ATM furniture globally (BFS), walk toward it; returns RUNNING until arrived |
 | `VENDOR_DEPOSIT` | — | Add `blackboard.vendor_carrying` to `vendor_bank_credits` in DB; broadcast confirmation |
-| `AT_HOME_LIFE` | — | NPC does random home-life activities when players are watching; 15% chance/tick to fall asleep until 1h before next shift (or 7am for NPCs with no schedule). Handles wake-up on re-entry. |
+| `AT_HOME_LIFE` | — | NPC does random home-life activities when players are watching; 15% chance/tick to fall asleep until 1h before next shift (or 7am for NPCs with no schedule). On sleep it sets a real posture via the engine substrate — `setPosture(entity, 'lying', { sittingOn })` bound to a bed/couch/etc. in the room (floor fallback, `sittingOn=null`) — and clears back to `standing` on wake. `ai.homeSleeping` is the *asleep* flag; `entity.posture === 'lying'` is the *physical stance* (so a future "lie down but awake" case just sets posture). Handles wake-up on re-entry. |
 
 ### `wait`
 

@@ -1,0 +1,13 @@
+{
+  "name": "burglary",
+  "version": "1.0.0",
+  "description": "Intrusion alarm: resident NPCs hear break-ins, panic-call the cops, and flee when attacked. Gates the burglary charge on a completed call or an escape, and denies the safe-sleep forcefield while a break-in is underway.",
+  "commands": [],
+  "hooks": ["forcefield.gate"],
+  "events": {
+    "emits": ["burglary.reported"],
+    "consumes": ["breakin.attempt", "player.spoke", "player.attacked", "npc.attacked", "npc.killed"]
+  },
+  "ticks": ["5s"],
+  "dependencies": ["surveillance"]
+}

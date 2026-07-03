@@ -8,30 +8,67 @@ Owned by the **jail** plugin (`plugins/jail/`). Everything below is what ships.
 
 ## Flow
 
-1. **Takedown.** `handlePlayerDeath` (engine, `gameLoop.js`) fires the new
+1. **Takedown / booking.** `handlePlayerDeath` (engine, `gameLoop.js`) fires the
    `player.respawnZone` hook *before* it spawns the lootable corpse. The jail plugin
    reads the player's `wanted` flag; if ≥ 1 star it:
+   - Levies a **booking fine** of **₵50 per half-star** (`round(wanted / 0.5) × 50`).
+     Debt is allowed — the debit is un-clamped, so a broke player leaves owing the
+     city (negative credits).
+   - Pulls the **charge** off the suspect's surveillance rap sheet
+     (`WANTED_CHARGES` action; falls back to "multiple outstanding warrants"), read
+     *now* because surveillance clears the heat later in this same death.
    - **Confiscates** everything (quest items excepted): contraband (weapons, drugs,
      hacking decks) goes to the shared **police evidence locker**; the rest is
      snapshotted into `jail_prisoners.held_items` to hand back on release.
    - Writes a `jail_prisoners` row with `release_at = now + stars minutes`.
    - Returns `{ zone: cell, message }` — the engine respawns you in the cell, skips
-     the corpse (the cops bagged your gear, there's nothing to loot), and shows the
-     holding-cell flavor instead of the clone-vat text.
-   - Because the takedown already cleared your stars (surveillance's `player.death`
-     listener), you come out of holding **clean**.
-2. **Doing time.** You're locked in `zone_mq_precinct_holding`. Its only exit (`up`
-   → Lobby) is a **difficulty-10 hackable hololock** (`door_precinct_cell`). The
-   move gate blocks it; you wait.
-3. **Release.** A `setTimeout` fires at the deadline. A guard "walks you out": the
-   plugin broadcasts the guard line into the cell, TELEPORTs **only you** to the
-   Lobby (`zone_mq_precinct_lobby`) — no cellmate slips through, the door never
-   opens — restores your held legal items, and hands them back at the desk.
+     the corpse (the cops bagged your gear), and shows the holding-cell flavor.
+   - Fires an **arrest-notice popup** (`type:'arrest_notice'`) with the charge,
+     sentence, item count, fine, and new balance — a dismissible "Booking Record"
+     window client-side.
+2. **Doing time.** You're locked in `zone_mq_precinct_holding` (now furnished with a
+   toilet, sink, and cot — the bodily + posture systems work in the cell). Its only
+   exit (`up` → Lobby) is a **difficulty-10 hackable hololock** (`door_precinct_cell`).
+   Your **wanted HUD keeps your stars and visibly decays** over the sentence (the
+   minute tick pushes the remaining stars, computed from `release_at`), hitting zero
+   right as you're released. This is a cosmetic countdown — your street heat was
+   already cleared on arrest, so you leave clean.
+3. **Release.** A `setTimeout` fires at the deadline. The officer **on duty for the
+   current in-game hour** walks you out: the plugin names them, broadcasts a random
+   release line into the cell, zeroes your HUD, TELEPORTs **only you** to the Lobby
+   (`zone_mq_precinct_lobby`) — no cellmate slips through, the door never opens —
+   restores your held legal items, and hands them back at the desk.
 
 ## Timing
 
-`stars × 60 s`. 1★ = 1 minute … 5★ = 5 minutes. `stars` is `floor(wanted flag)` at
-takedown (half-stars round down, min 1).
+`stars × 60 s`. 1★ = 1 minute … 5★ = 5 minutes. `stars` is `floor(peak)` where `peak`
+is the spree's **highest** wanted level, read from surveillance via the `WANTED_PEAK`
+action (falling back to the current `wanted` flag if surveillance isn't loaded) — so
+decaying 5★ down to ½★ before the takedown still books a full 5★ sentence + fine.
+Half-stars round down; a peak under 1★ is a clean clone-vat death, not jail. Game time
+runs 1:1 with real time.
+
+## Duty roster / shifts
+
+Three detention officers cover the day in **8-hour shifts** (game hour `/ 8`):
+
+- `npc_precinct_guard` — **Detention Officer Kohl** (00:00–08:00), pre-existing.
+- `npc_precinct_officer_2` — **Detention Officer Pryce** (08:00–16:00), new.
+- `npc_precinct_officer_3` — **Detention Officer Marlow** (16:00–24:00), new.
+
+The lobby is their workplace. A minute tick (`syncShift`) keeps **only the on-duty
+officer in the lobby** and the other two in the **bullpen** (`zone_mq_precinct_bullpen`),
+via `moveEntity`. Whoever's on shift at release time is the one who walks you out and
+says the line. The pre-existing street cop **Sergeant Vale** (`npc_pd_officer`) is
+unrelated and untouched.
+
+## Cell fixtures
+
+`zone_mq_precinct_holding` has a `toilet` (steel combo), a `sink`
+(`flags.water_source`), and a `cot` (`interactions:['sit','lie']`). No engine
+changes — the **bodily** (relief/hygiene), **water**, and **posture** (sleep/regen)
+systems auto-detect these by `object_type`/flags, so `pee`/`poop`/`flush`/`use sink`/
+`wash` and lying down all work while you do time.
 
 ## The evidence locker (`police_evidence`)
 
@@ -76,13 +113,19 @@ Both are runtime tables (schema exported, rows not) in `SCHEMA_SQL` — apply wi
 
 ## Content
 
-`scripts/create-jail.js` (one-shot) adds the cell door and a flavor desk guard
-(`npc_precinct_guard`) to the existing Precinct 9. The cell (Holding) and release
-room (Lobby) are pre-existing zones. Run once, then restart / `POST /world/reload`.
+`scripts/create-jail.js` (one-shot) adds the cell door and Detention Officer Kohl
+(`npc_precinct_guard`) to the existing Precinct 9. The cell (Holding), release room
+(Lobby), and bullpen are pre-existing zones. Run once, then restart / `POST /world/reload`.
+
+`scripts/create-jail-officers.js` (one-shot, idempotent) adds the two new officers
+(**Pryce**, **Marlow**), flags Kohl as police, and adds the cell **toilet / sink /
+cot**. Run once, then restart / `POST /world/reload`.
 
 ## Files
 
-- `plugins/jail/index.js` — the whole system
+- `plugins/jail/index.js` — the whole system (fine, booking popup, shift roster, HUD decay)
 - `plugins/jail/regress.js` — contraband classification, clean-death passthrough, confiscate↔restore round-trip
+- `scripts/create-jail-officers.js` — the two new officers + cell fixtures (one-shot)
+- `client/game/js/panels/arrest.js` — the booking-record popup (`arrest_notice`)
 - engine seam: `server/engine/gameLoop.js` `handlePlayerDeath` (`player.respawnZone` hook + corpse skip)
-- action seam: `plugins/surveillance/index.js` (`WANTED_RAISE`)
+- action seam: `plugins/surveillance/index.js` (`WANTED_RAISE`, `WANTED_CHARGES` rap sheet)

@@ -108,10 +108,15 @@ function renderAtmPanel() {
 
 function renderHome(data) {
   const { player, cashStock, maintenanceUnlocked, hasHackDevice } = data;
-  const canJack = cashStock > 0 && hasHackDevice;
-  const jackHint = !hasHackDevice ? 'needs hacking device' : (cashStock > 0 ? 'breach' : 'empty');
+  // The breach port only appears when the player is physically carrying a
+  // hacking deck — no device, no port to plug into.
+  const jackItem = hasHackDevice
+    ? `<button class="atm-menu-item atm-menu-danger" data-act="jack"${cashStock > 0 ? '' : ' disabled'}><span class="atm-menu-key">⎔</span>DATAPORT<span class="atm-menu-hint">${cashStock > 0 ? 'jack in' : 'empty'}</span></button>`
+    : '';
+  // Unlocked MAINTENANCE glows in the player's own theme accent (not the
+  // network colour) to read as *their* illicit foothold on the terminal.
   const maintenanceItem = maintenanceUnlocked
-    ? `<button class="atm-menu-item atm-menu-glow" data-nav="maintenance"><span class="atm-menu-key">⚙</span>MAINTENANCE<span class="atm-menu-hint">access unlocked</span></button>`
+    ? `<button class="atm-menu-item atm-menu-glow" style="--atm-accent:var(--accent)" data-nav="maintenance"><span class="atm-menu-key">⚙</span>MAINTENANCE<span class="atm-menu-hint">access unlocked</span></button>`
     : '';
   return `
     <div class="atm-scr-top">
@@ -126,7 +131,7 @@ function renderHome(data) {
       <button class="atm-menu-item" data-nav="deposit"><span class="atm-menu-key">▸</span>DEPOSIT<span class="atm-menu-hint">cash → bank</span></button>
       <button class="atm-menu-item" data-nav="withdraw"><span class="atm-menu-key">▸</span>WITHDRAW<span class="atm-menu-hint">bank → cash</span></button>
       <button class="atm-menu-item" data-nav="account"><span class="atm-menu-key">▸</span>ACCOUNT INFO<span class="atm-menu-hint">balances</span></button>
-      <button class="atm-menu-item atm-menu-danger" data-act="jack"${canJack ? '' : ' disabled'}><span class="atm-menu-key">⚡</span>JACK TERMINAL<span class="atm-menu-hint">${jackHint}</span></button>
+      ${jackItem}
       ${maintenanceItem}
     </div>`;
 }
