@@ -1,0 +1,11 @@
+{
+  "name": "debug",
+  "version": "1.0.0",
+  "description": "Testing aid — `.debug` toggles a client-side reveal of hidden dice rolls. Starts with IP-award rolls.",
+  "commands": ["debug"],
+  "hooks": [],
+  "events": {
+    "emits": [],
+    "consumes": ["ip.roll"]
+  }
+}

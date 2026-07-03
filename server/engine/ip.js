@@ -1,5 +1,6 @@
 import { query } from '../models/db.js';
 import { ensureTunables, getTunable } from './tunables.js';
+import { emit } from './events.js';
 
 // Per-skill IP cap. Skill level = floor(ip/100), so 1000 IP == level 10.
 const SKILL_IP_CAP = 1000;
@@ -36,7 +37,10 @@ export async function awardIp(playerId, skillId, margin = 0) {
   const base = getTunable('ip_award_base_chance', 1.0);
   const scale = getTunable('ip_award_margin_scale', 2.0);
   const chance = (base / (1 + Math.max(0, margin) * scale)) * brainsMult;
-  if (Math.random() >= chance) return { awarded: 0, leveledUp: false };
+  const roll = Math.random();
+  // Fire-and-forget notification so the debug plugin can reveal the hidden roll.
+  emit('ip.roll', { playerId, skillId, margin, chance, roll, hit: roll < chance });
+  if (roll >= chance) return { awarded: 0, leveledUp: false };
 
   const newIp = current + 1;
   if (!rows.length) {

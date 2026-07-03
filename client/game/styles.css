@@ -1283,6 +1283,12 @@ textarea {
 	color: var(--green);
 	font-weight: bold;
 }
+.debug-roll {
+	color: var(--text-dim);
+	font-family: monospace;
+	font-size: 0.9em;
+	opacity: 0.8;
+}
 .death-message {
 	color: var(--red);
 	font-size: var(--font-size-base);

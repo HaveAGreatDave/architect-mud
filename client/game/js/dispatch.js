@@ -426,6 +426,17 @@ const handlers = {
   'lightning': () => { triggerLightningFlash(); },
 
   output: (msg) => { appendHtml(msg.message, 'help'); },
+
+  // `.debug` reveal — state lives only in localStorage. debug_toggle flips it;
+  // debug_roll lines are always sent by the server but rendered only when on.
+  debug_toggle: () => {
+    const next = localStorage.getItem('mud_debug') !== '1';
+    localStorage.setItem('mud_debug', next ? '1' : '0');
+    appendHtml(`<span class="debug-roll">[debug] Roll reveal ${next ? 'ENABLED' : 'disabled'}.</span>`, 'system');
+  },
+  debug_roll: (msg) => {
+    if (localStorage.getItem('mud_debug') === '1') appendHtml(msg.message, 'system');
+  },
   // AMP cassette unlocks: full set at login, single new track on insert. These
   // only update the (possibly open) music panel's library — the insert command's
   // own system message carries the player-facing feedback.
