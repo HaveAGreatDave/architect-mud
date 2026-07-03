@@ -1263,7 +1263,9 @@ async function appearanceMisNotes({ target, viewer, isSelf, broadcast, naked, by
   const torsoLayerCount = layerCounts['torso'] || 0;
   const torsoItem = bySlot['torso'];
   const outermostBulkiness = torsoItem?.tags?.bulkiness || 0;
-  const outermostLayerMax = torsoItem?.tags?.allowed_layer_range?.max ?? 99;
+  // New 3-layer model: an underwear-layer piece is the bra equivalent (1); anything
+  // else worn over the torso reads as clothing (2). Mirrors the old layer-max semantics.
+  const outermostLayerMax = torsoItem?.tags?.layer === 'underwear' ? 1 : 2;
   const breastNote = breastVisibilityNote(target, torsoLayerCount, outermostBulkiness, outermostLayerMax, torsoItem?.name, envState.tempC);
   if (breastNote) {
     const breastNoteFixed = isSelf ? breastNote.replace(/\bHer\b/g, 'Your').replace(/\bher\b/g, 'your') : breastNote;

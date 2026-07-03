@@ -77,6 +77,7 @@ tag model and the rationale behind it.
 | `drug` | flag | Drug marker (visibility/flavor). Mechanics still come from the `drugs` table joined by `item_id`. |
 | `material` / `currency` / `misc` | flag | Category markers (filtering/flavor). |
 | `slot` | enum | `head`·`torso`·`hands`·`legs`·`feet`·`weapon_hand`·`accessory`. **Presence of this tag is what makes an item equippable.** |
+| `layer` | enum | `underwear`·`outerwear`·`armor` — which of the three worn layers a **body-slot** piece occupies (innermost→outermost). One item per slot+layer; others see only your outermost layer. Ignored for `weapon_hand` (single) and `accessory` (3 slots, no layers). Defaults to `outerwear` when unset. |
 | `armor` | int | Flat damage reduction while equipped. Stacks across worn pieces. |
 | `stat_bonus` | statmap | Passive stat bumps, e.g. `{ "stat_str": 3 }`. |
 | `requires` | statmap | Stat gates to equip, e.g. `{ "stat_str": 6 }`. |
@@ -120,8 +121,8 @@ and left untouched.
 { "weapon":true, "weapon_skill":"energy", "slot":"weapon_hand",
   "damage":{"min":5,"max":8}, "status_chance":{"stunned":0.3}, "stat_bonus":{"stat_agi":4} }
 
-// Armor piece — Scrap Helmet (head). Add `"armor": N` for damage reduction.
-{ "description":"A motorcycle helmet with extra rivets.", "slot":"head" }
+// Armor piece — Scrap Helmet (head). `layer:"armor"` sits it over any hat/hood.
+{ "description":"A motorcycle helmet with extra rivets.", "slot":"head", "layer":"armor", "armor":3 }
 
 // Gradual heal — Trauma Kit
 { "consumable":true, "heal_over_time":{"amount":50,"duration_seconds":300} }
@@ -139,9 +140,10 @@ and left untouched.
 ## Quick Checklist for a New Armor Piece
 
 1. Add a `slot` tag — one of the seven canonical slots. (This is what makes it equippable.)
-2. Add an `armor` int tag for damage reduction. Without it the piece equips but reduces nothing.
-3. Optional `requires` to gate behind a stat; optional `stat_bonus` for passive bumps.
-4. Save & Publish in the dev panel — equip it, check `stats` shows the higher Armor number.
+2. For a body slot, add a `layer` tag (`underwear`/`outerwear`/`armor`); armor pieces are usually `armor`. Omit for weapon/accessory. Unset defaults to `outerwear`.
+3. Add an `armor` int (and/or `armor_soak` statmap) for damage reduction. Without it the piece equips but reduces nothing.
+4. Optional `requires` to gate behind a stat; optional `stat_bonus` for passive bumps.
+5. Save & Publish in the dev panel — `equip` it, then `gear` to see it placed on its layer with soak per region.
 
 ---
 

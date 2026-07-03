@@ -1,11 +1,10 @@
 import { state } from '../state.js';
 import { sendCmd, sendCmdSilent } from '../net.js';
 
-const EQUIP_SLOT_NAMES = ['head','torso','hands','weapon_hand','legs','feet','accessory'];
-const LAYER_NAMES = ['', 'Skin', 'Base', 'Mid', 'Outer', 'Shell'];
+const DROP_SVG = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="1" width="6" height="4" rx="0.5" stroke="currentColor" stroke-width="1.3"/><line x1="7" y1="5" x2="7" y2="8.5" stroke="currentColor" stroke-width="1.3"/><path d="M4.5 7.5 L7 10.5 L9.5 7.5" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linejoin="round" stroke-linecap="round"/><line x1="2" y1="13" x2="12" y2="13" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>`;
+
 let equipDraggedId = null;
 let dragHandled = false;
-let currentLayer = 1;
 let lastItems = [];
 let lastWeight = null;
 let lastCapacity = null;
@@ -29,94 +28,34 @@ export function closeEquipPanel() {
   document.getElementById('equip-panel').classList.remove('active');
 }
 
-function itemLayerRange(item) {
-  const lr = (item.tags || {}).allowed_layer_range;
-  if (lr && typeof lr === 'object') return lr;
-  return null;
+// Build a backpack item card (used by the plain inventory list). Click → detail,
+// drop button → ground, drag out → drop.
+function buildItemCard(item) {
+  const tags = item.tags || {};
+  const equippable = !!tags.slot;
+  const card = document.createElement('div');
+  card.className = 'equip-item-card' + (equippable ? ' equippable' : '');
+  card.setAttribute('draggable', 'true');
+  card.setAttribute('data-id', item.id);
+  const qty = item.quantity > 1 ? ` x${item.quantity}` : '';
+  const eq = item.is_equipped ? ' <span class="eic-eq">[equipped]</span>' : '';
+  const slotLabel = tags.slot ? ` · ${tags.slot.replace('_',' ')}` : '';
+  card.innerHTML = `<span class="eic-name">${item.name}${qty}${eq}</span><span class="eic-meta">${slotLabel}</span><button class="eic-drop-btn" title="Drop on ground">${DROP_SVG}</button>`;
+  card.ondragstart = (e) => onItemDragStart(e, item.id);
+  card.ondragend = () => card.classList.remove('dragging');
+  card.onclick = () => showItemDetail(item);
+  card.querySelector('.eic-drop-btn').onclick = (e) => { e.stopPropagation(); dropItem(item); };
+  return card;
 }
-
-// Returns 'bright' | 'dim' | 'hidden'
-function itemLayerVisibility(item, layer) {
-  const lr = itemLayerRange(item);
-  if (!lr) return 'bright';
-  if (layer === lr.max) return 'bright';
-  if (layer >= lr.min && layer < lr.max) return 'dim';
-  return 'hidden';
-}
-
-function updateLayerDisplay() {
-  document.getElementById('equip-layer-name').textContent = `Layer ${currentLayer} — ${LAYER_NAMES[currentLayer]}`;
-}
-
-function rerenderLayer() { renderEquipPanel(lastItems); }
 
 export function renderEquipPanel(items, weight, capacity) {
   lastItems = items;
   if (weight !== undefined) lastWeight = weight;
   if (capacity !== undefined) lastCapacity = capacity;
-  updateLayerDisplay();
-
-  for (const slotName of EQUIP_SLOT_NAMES) {
-    const slotEl = document.querySelector(`.equip-slot[data-slot="${slotName}"] .equip-slot-item`);
-    if (slotEl) {
-      slotEl.className = 'equip-slot-item empty';
-      slotEl.textContent = '(empty)';
-      slotEl.removeAttribute('draggable');
-      slotEl.removeAttribute('data-id');
-    }
-  }
-
-  // For slots with multiple layers, show the item at currentLayer if present,
-  // otherwise the highest-layer item at or below currentLayer.
-  const equippedBySlot = {};
-  const unequipped = [];
-  for (const item of items) {
-    if (item.is_equipped && item.slot) {
-      // Only show the item in the slot if it's on the current layer exactly
-      if ((item.layer || 1) === currentLayer) {
-        equippedBySlot[item.slot] = item;
-      }
-    } else {
-      unequipped.push(item);
-    }
-  }
-
-  for (const [slotName, item] of Object.entries(equippedBySlot)) {
-    const slotEl = document.querySelector(`.equip-slot[data-slot="${slotName}"] .equip-slot-item`);
-    if (slotEl) {
-      slotEl.className = 'equip-slot-item filled';
-      slotEl.textContent = item.name + (item.quantity > 1 ? ` x${item.quantity}` : '');
-      slotEl.setAttribute('draggable', 'true');
-      slotEl.setAttribute('data-id', item.id);
-      slotEl.ondragstart = (e) => onItemDragStart(e, item.id);
-      slotEl.onclick = () => sendCmdSilent(`unequipid ${item.id}`);
-      slotEl.title = 'Click or drag out to unequip';
-    }
-  }
 
   const list = document.getElementById('equip-inv-list');
   list.innerHTML = '';
-  for (const item of unequipped) {
-    const tags = item.tags || {};
-    const equippable = !!tags.slot;
-    const vis = itemLayerVisibility(item, currentLayer);
-    const layerOk = vis !== 'hidden';
-    const card = document.createElement('div');
-    card.className = 'equip-item-card' + (equippable ? ' equippable' : '') + (layerOk ? '' : ' layer-incompat');
-    card.setAttribute('draggable', 'true');
-    card.setAttribute('data-id', item.id);
-    const qty = item.quantity > 1 ? ` x${item.quantity}` : '';
-    const slotLabel = tags.slot ? ` · ${tags.slot.replace('_',' ')}` : '';
-    const layerIcon = equippable
-      ? `<span class="eic-layer-icon ${layerOk ? 'compat' : 'incompat'}" title="${layerOk ? 'Can equip on this layer' : 'Wrong layer'}">${layerOk ? '✓' : '✗'}</span>`
-      : '';
-    card.innerHTML = `<span class="eic-name">${layerIcon}${item.name}${qty}</span><span class="eic-meta">${slotLabel}</span><button class="eic-drop-btn" title="Drop on ground"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="1" width="6" height="4" rx="0.5" stroke="currentColor" stroke-width="1.3"/><line x1="7" y1="5" x2="7" y2="8.5" stroke="currentColor" stroke-width="1.3"/><path d="M4.5 7.5 L7 10.5 L9.5 7.5" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linejoin="round" stroke-linecap="round"/><line x1="2" y1="13" x2="12" y2="13" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></button>`;
-    card.ondragstart = (e) => onItemDragStart(e, item.id);
-    card.ondragend = () => card.classList.remove('dragging');
-    card.onclick = () => showItemDetail(item);
-    card.querySelector('.eic-drop-btn').onclick = (e) => { e.stopPropagation(); dropItem(item); };
-    list.appendChild(card);
-  }
+  for (const item of items) list.appendChild(buildItemCard(item));
 
   document.getElementById('equip-credits-val').textContent = (state.player && state.player.credits) || 0;
   const wtEl = document.getElementById('equip-weight-val');
@@ -209,9 +148,10 @@ function showItemDetail(item) {
     `<div class="idp-stat"><span class="idp-stat-k">${escapeHtml(k)}</span><span class="idp-stat-v">${escapeHtml(v)}</span></div>`
   ).join('');
 
-  // Verb buttons: Equip (if equippable) + server-provided actions + Drop.
+  // Verb buttons: Equip/Unequip (if equippable) + server-provided actions + Drop.
   const verbs = [];
   if (tags.slot && !item.is_equipped) verbs.push({ label: 'Equip', kind: 'equip' });
+  if (tags.slot && item.is_equipped) verbs.push({ label: 'Unequip', kind: 'unequip' });
   for (const v of (item.actions || [])) {
     if (v === 'drop' || v === 'equip' || v === 'wear' || v === 'wield') continue;
     verbs.push({ label: VERB_LABELS[v] || (v.charAt(0).toUpperCase() + v.slice(1)), kind: 'verb', verb: v });
@@ -238,7 +178,8 @@ function showItemDetail(item) {
     btn.className = 'idp-verb' + (v.kind === 'drop' ? ' danger' : '');
     btn.textContent = v.label;
     btn.addEventListener('click', () => {
-      if (v.kind === 'equip') { closeItemDetail(); sendCmdSilent(`equipid ${item.id} ${currentLayer}`); }
+      if (v.kind === 'equip') { closeItemDetail(); sendCmdSilent(`equipid ${item.id}`); }
+      else if (v.kind === 'unequip') { closeItemDetail(); sendCmdSilent(`unequipid ${item.id}`); }
       else if (v.kind === 'drop') { closeItemDetail(); dropItem(item); }
       else { closeItemDetail(); sendCmd(`${v.verb} ${item.name}`); }
     });
@@ -306,40 +247,7 @@ export function initEquipPanel() {
     if (e.target.id === 'equip-panel') closeEquipPanel();
   });
 
-  const btnUp = document.getElementById('equip-layer-up');
-  const btnDown = document.getElementById('equip-layer-down');
-  function updateLayerButtons() {
-    btnUp.disabled = currentLayer >= 5;
-    btnDown.disabled = currentLayer <= 1;
-  }
-  btnUp.addEventListener('click', () => {
-    if (currentLayer < 5) { currentLayer++; updateLayerDisplay(); updateLayerButtons(); rerenderLayer(); }
-  });
-  btnDown.addEventListener('click', () => {
-    if (currentLayer > 1) { currentLayer--; updateLayerDisplay(); updateLayerButtons(); rerenderLayer(); }
-  });
-  updateLayerButtons();
-
-  document.querySelectorAll('.equip-slot').forEach(slotEl => {
-    slotEl.addEventListener('dragover', e => e.preventDefault());
-    slotEl.addEventListener('drop', (e) => {
-      e.preventDefault();
-      dragHandled = true;
-      slotEl.classList.remove('drag-over');
-      if (equipDraggedId) sendCmdSilent(`equipid ${equipDraggedId} ${currentLayer}`);
-      equipDraggedId = null;
-    });
-    slotEl.addEventListener('dragenter', () => slotEl.classList.add('drag-over'));
-    slotEl.addEventListener('dragleave', () => slotEl.classList.remove('drag-over'));
-  });
-
   document.getElementById('equip-inv-list').addEventListener('dragover', e => e.preventDefault());
-  document.getElementById('equip-inv-list').addEventListener('drop', (e) => {
-    e.preventDefault();
-    dragHandled = true;
-    if (equipDraggedId) sendCmdSilent(`unequipid ${equipDraggedId}`);
-    equipDraggedId = null;
-  });
 
   // Drop outside any valid target → same behaviour as the drop button (prompt for stacks).
   document.addEventListener('dragend', () => {
@@ -351,4 +259,164 @@ export function initEquipPanel() {
     equipDraggedId = null;
     dragHandled = false;
   });
+
+  initGearPanel();
+}
+
+// ── Gear screen ────────────────────────────────────────────────────────────
+// Layered equipment view: a row per body slot × 3 layers, weapon, accessories,
+// a soak-per-region table, passive effects, and the equippable-item list.
+
+const GEAR_BODY_SLOTS = ['head','torso','hands','legs','feet'];
+const GEAR_LAYERS = [
+  { key: 'underwear', label: 'Underwear', n: 1 },
+  { key: 'outerwear', label: 'Outerwear', n: 2 },
+  { key: 'armor', label: 'Armor', n: 3 },
+];
+const GEAR_SLOT_LABELS = { head:'Head', torso:'Torso', hands:'Hands', legs:'Legs', feet:'Feet' };
+// Soak table regions. Combat maps the 'arms' body part to the hands armor slot.
+const SOAK_REGIONS = [
+  { slot:'head', label:'Head' }, { slot:'torso', label:'Torso' },
+  { slot:'hands', label:'Arms' }, { slot:'legs', label:'Legs' },
+  { slot:'feet', label:'Feet' },
+];
+// Filter categories (client-only toggles). All on by default.
+const GEAR_FILTERS = ['underwear','outerwear','armor','weapon','accessories'];
+let gearFilter = new Set(GEAR_FILTERS);
+let lastGear = null;
+
+export function openGearPanel() {
+  import('../net.js').then(m => m.sendCmd('gear'));
+}
+export function closeGearPanel() {
+  document.getElementById('gear-panel').classList.remove('active');
+}
+
+export function renderGearPanel(msg) {
+  lastGear = msg;
+  const items = msg.items || [];
+  const equipped = items.filter(i => i.is_equipped);
+  const cellItem = (slot, n) => equipped.find(i => i.slot === slot && (i.layer || 1) === n);
+
+  // Layered layout: body slots × layers, then weapon + accessories.
+  const layout = document.getElementById('gear-layout');
+  let html = '<table class="gear-grid"><thead><tr><th></th>' +
+    GEAR_LAYERS.map(l => `<th data-cat="${l.key}">${l.label}</th>`).join('') + '</tr></thead><tbody>';
+  for (const slot of GEAR_BODY_SLOTS) {
+    html += `<tr><th class="gear-rowlabel">${GEAR_SLOT_LABELS[slot]}</th>`;
+    for (const l of GEAR_LAYERS) {
+      const it = cellItem(slot, l.n);
+      html += `<td data-cat="${l.key}" class="gear-cell${it ? ' filled' : ''}"${it ? ` data-id="${it.id}"` : ''}>${it ? escapeHtml(it.name) : '·'}</td>`;
+    }
+    html += '</tr>';
+  }
+  layout.innerHTML = html + '</tbody></table>';
+
+  // Weapon + accessories strip.
+  const weapon = equipped.find(i => i.slot === 'weapon_hand');
+  const accessories = equipped.filter(i => i.slot === 'accessory').sort((a,b) => (a.layer||0)-(b.layer||0));
+  let strip = `<div class="gear-strip" data-cat="weapon"><span class="gear-striplabel">Weapon</span>` +
+    `<span class="gear-cell${weapon ? ' filled' : ''}"${weapon ? ` data-id="${weapon.id}"` : ''}>${weapon ? escapeHtml(weapon.name) : '·'}</span></div>`;
+  strip += `<div class="gear-strip" data-cat="accessories"><span class="gear-striplabel">Accessories</span>`;
+  for (let i = 0; i < 3; i++) {
+    const a = accessories[i];
+    strip += `<span class="gear-cell${a ? ' filled' : ''}"${a ? ` data-id="${a.id}"` : ''}>${a ? escapeHtml(a.name) : '·'}</span>`;
+  }
+  strip += '</div>';
+  layout.insertAdjacentHTML('beforeend', strip);
+
+  // Clicking a filled cell opens the item detail (same behaviour as inventory).
+  layout.querySelectorAll('[data-id]').forEach(el => {
+    el.onclick = () => { const it = items.find(i => i.id == el.dataset.id); if (it) showItemDetail(it); };
+  });
+
+  // Soak table (all five regions, including feet).
+  const soak = msg.soak || {};
+  const types = [...new Set(SOAK_REGIONS.flatMap(r => Object.keys(soak[r.slot]?.soak || {})))];
+  let soakHtml = '<div class="gear-section-label">Soak</div><table class="gear-soaktable"><tbody>';
+  for (const r of SOAK_REGIONS) {
+    const entry = soak[r.slot] || {};
+    const parts = types.map(t => `${t} ${entry.soak?.[t] || 0}`);
+    if (entry.flat) parts.push(`flat ${entry.flat}`);
+    const val = parts.length ? parts.join(' · ') : '—';
+    soakHtml += `<tr><td class="gear-soak-region">${r.label}</td><td class="gear-soak-val">${escapeHtml(val)}</td></tr>`;
+  }
+  document.getElementById('gear-soak').innerHTML = soakHtml + '</tbody></table>';
+
+  // Passive effects block.
+  const fx = msg.effects || {};
+  const fxParts = [];
+  const sb = fx.stat_bonus || {};
+  for (const [k,v] of Object.entries(sb)) fxParts.push(`${k.replace('stat_','')} ${v > 0 ? '+' : ''}${v}`);
+  if (fx.insulation) fxParts.push(`insulation ${fx.insulation}°C`);
+  if (fx.sealed) fxParts.push('sealed airway');
+  if (fx.exposurePenalty) fxParts.push(`exposure ${fx.exposurePenalty}`);
+  const fxEl = document.getElementById('gear-effects');
+  fxEl.innerHTML = fxParts.length
+    ? `<div class="gear-section-label">Effects</div><div class="gear-fx">${fxParts.map(escapeHtml).join(' · ')}</div>`
+    : '';
+
+  // Equippable-item list (reuses the inventory card + detail modal).
+  const list = document.getElementById('gear-inv-list');
+  list.innerHTML = '';
+  for (const item of items) list.appendChild(buildItemCard(item));
+
+  document.getElementById('gear-credits-val').textContent = msg.credits ?? ((state.player && state.player.credits) || 0);
+  const wtEl = document.getElementById('gear-weight-val');
+  if (wtEl && msg.capacity != null) wtEl.textContent = `${formatWeight(msg.weight)}/${formatWeight(msg.capacity)}`;
+
+  applyGearFilter();
+}
+
+// Show/hide columns and strips per the active filter set; dim non-matching list rows.
+function applyGearFilter() {
+  const on = (cat) => gearFilter.has(cat);
+  document.querySelectorAll('#gear-layout [data-cat]').forEach(el => {
+    el.classList.toggle('gear-hidden', !on(el.dataset.cat));
+  });
+  // List cards: dim those whose slot/layer category is filtered off.
+  document.querySelectorAll('#gear-inv-list .equip-item-card').forEach(el => {
+    const item = (lastGear?.items || []).find(i => i.id == el.dataset.id);
+    const cat = itemCategory(item);
+    el.classList.toggle('gear-dim', cat && !on(cat));
+  });
+  document.querySelectorAll('#gear-filters .gear-filter-btn').forEach(b => {
+    if (b.dataset.filter === 'all') return;
+    b.classList.toggle('off', !on(b.dataset.filter));
+  });
+}
+
+// Which filter category an item belongs to, for list dimming.
+function itemCategory(item) {
+  const t = item?.tags || {};
+  if (!t.slot) return null;
+  if (t.slot === 'weapon_hand') return 'weapon';
+  if (t.slot === 'accessory') return 'accessories';
+  const layer = t.layer || 'outerwear';
+  return GEAR_LAYERS.some(l => l.key === layer) ? layer : 'outerwear';
+}
+
+function initGearPanel() {
+  document.getElementById('gear-close').addEventListener('click', closeGearPanel);
+  document.getElementById('gear-panel').addEventListener('click', (e) => {
+    if (e.target.id === 'gear-panel') closeGearPanel();
+  });
+
+  // Build filter buttons: All + per-category toggles.
+  const bar = document.getElementById('gear-filters');
+  const mk = (filter, label) => {
+    const b = document.createElement('button');
+    b.className = 'gear-filter-btn';
+    b.dataset.filter = filter;
+    b.textContent = label;
+    bar.appendChild(b);
+    return b;
+  };
+  mk('all', 'All').onclick = () => { gearFilter = new Set(GEAR_FILTERS); applyGearFilter(); };
+  for (const f of GEAR_FILTERS) {
+    mk(f, f.charAt(0).toUpperCase() + f.slice(1)).onclick = () => {
+      if (gearFilter.has(f)) gearFilter.delete(f); else gearFilter.add(f);
+      applyGearFilter();
+    };
+  }
 }

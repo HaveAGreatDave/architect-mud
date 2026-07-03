@@ -70,7 +70,9 @@ monsters with no `body_parts`).
 
 The player's struck part maps to an armour slot via `PART_TO_SLOT`: head→head, torso→torso,
 arms→hands, legs→legs. **Feet have no body part in the weight table, so the `feet` armour slot
-never soaks anything in combat.**
+never soaks anything in combat** — even though the `gear` screen now lists a Feet soak row.
+Making feet a real targetable body part (adding it to `rollBodyPart` + `PART_TO_SLOT`) is
+tracked as a separate task.
 
 ### Soak (armour)
 

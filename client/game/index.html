@@ -605,6 +605,7 @@
 					</div>
 					<div id="quick-cmds">
 						<button class="qcmd" data-open-equip>inv</button>
+						<button class="qcmd" data-open-gear>gear</button>
 						<button class="qcmd" data-cmd="stats">stats</button>
 						<button class="qcmd" data-cmd="skills">skills</button>
 						<button class="qcmd" data-cmd="who">who</button>
@@ -1781,69 +1782,41 @@
 			</div>
 		</div>
 
-		<!-- EQUIPMENT PANEL -->
+		<!-- INVENTORY PANEL -->
 		<div id="equip-panel">
 			<div id="equip-box">
 				<div id="equip-header">
-					<h2>Inventory &amp; Equipment</h2>
+					<h2>Inventory</h2>
 					<button id="equip-close" aria-label="Close">✕</button>
 				</div>
 				<div id="equip-body">
-					<div id="equip-doll-col">
-						<div id="equip-layer-header">
-							<span id="equip-layer-name">Layer 1 — Skin</span>
-							<div id="equip-layer-arrows">
-								<button
-									id="equip-layer-up"
-									title="Higher layer">
-									▲
-								</button>
-								<button
-									id="equip-layer-down"
-									title="Lower layer">
-									▼
-								</button>
-							</div>
-						</div>
-						<div class="equip-section-label">Equipped</div>
-						<div id="equip-doll">
-							<div class="equip-slot" data-slot="head">
-								<span class="equip-slot-label">Head</span>
-								<div class="equip-slot-item"></div>
-							</div>
-							<div class="equip-slot" data-slot="torso">
-								<span class="equip-slot-label">Torso</span>
-								<div class="equip-slot-item"></div>
-							</div>
-							<div class="equip-slot" data-slot="hands">
-								<span class="equip-slot-label">Hands</span>
-								<div class="equip-slot-item"></div>
-							</div>
-							<div class="equip-slot" data-slot="weapon_hand">
-								<span class="equip-slot-label">Weapon</span>
-								<div class="equip-slot-item"></div>
-							</div>
-							<div class="equip-slot" data-slot="legs">
-								<span class="equip-slot-label">Legs</span>
-								<div class="equip-slot-item"></div>
-							</div>
-							<div class="equip-slot" data-slot="feet">
-								<span class="equip-slot-label">Feet</span>
-								<div class="equip-slot-item"></div>
-							</div>
-							<div class="equip-slot" data-slot="accessory">
-								<span class="equip-slot-label">Accessory</span>
-								<div class="equip-slot-item"></div>
-							</div>
-						</div>
-					</div>
 					<div id="equip-backpack-col">
-						<div class="equip-section-label">Backpack</div>
 						<div id="equip-inv-list"></div>
 					</div>
 				</div>
 				<div id="equip-credits">
 					Weight: <span id="equip-weight-val">—</span> · Credits: <span id="equip-credits-val">0</span>
+				</div>
+			</div>
+		</div>
+
+		<!-- GEAR PANEL -->
+		<div id="gear-panel">
+			<div id="gear-box">
+				<div id="gear-header">
+					<h2>Gear</h2>
+					<button id="gear-close" aria-label="Close">✕</button>
+				</div>
+				<div id="gear-filters"></div>
+				<div id="gear-body">
+					<div id="gear-layout"></div>
+					<div id="gear-soak"></div>
+					<div id="gear-effects"></div>
+					<div class="gear-section-label">Equipment</div>
+					<div id="gear-inv-list"></div>
+				</div>
+				<div id="gear-credits">
+					Weight: <span id="gear-weight-val">—</span> · Credits: <span id="gear-credits-val">0</span>
 				</div>
 			</div>
 		</div>

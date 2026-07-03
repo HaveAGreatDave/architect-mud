@@ -153,7 +153,7 @@ export const NIPPLE_SOFT = [
 
 // torsoLayerCount: number of equipped torso items
 // outermostBulkiness: bulkiness value of outermost torso layer (0 if none)
-// outermostLayerMax: allowed_layer_range.max of outermost item (1 = bra, 2+ = clothing)
+// outermostLayerMax: 1 = outermost torso piece is an underwear-layer item (bra), 2 = clothing
 // outermostName: display name of outermost torso item
 export function breastVisibilityNote(player, torsoLayerCount, outermostBulkiness, outermostLayerMax, outermostName, tempC) {
   if (!isMisActive(player)) return null;
