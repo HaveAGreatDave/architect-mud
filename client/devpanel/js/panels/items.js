@@ -144,54 +144,39 @@ function renderItemsPanel(records = allRecords) {
   panel.innerHTML = html;
 }
 
-// An item with supertags stores its flattened effective tags plus bookkeeping
-// keys (__own = its own authored tags, __super = applied supertag keys). The
-// editor only ever edits __own; supertag members are shown as inherited chips.
+// Items saved under the old supertag live-materialization model may still
+// carry bookkeeping keys (__own/__super) in their stored tags. Strip them so
+// the full effective tag set (their own tags + whatever a supertag stamped in)
+// surfaces as plain editable tags — supertags have no ongoing link anymore.
 function itemOwnTags(tags) {
-  if (tags && typeof tags.__own === 'object') return { ...tags.__own };
   const own = { ...(tags || {}) };
   delete own.__own; delete own.__super;
   return own;
 }
-function itemSuperKeys(tags) {
-  return Array.isArray(tags?.__super) ? tags.__super.slice() : [];
-}
 
-function itemSupertagPicker(presentKeys) {
+// Supertags are a one-time template: picking one and clicking Apply copies its
+// member tags into the item's own editable tag fields (below), pre-filled with
+// the supertag's defaults. There is no ongoing link to the supertag afterward.
+function itemSupertagPicker() {
   const reg = window.TAG_SUPERTAGS || {};
-  const opts = Object.keys(reg).sort().filter(k => !presentKeys.includes(k))
-    .map(k => `<option value="${k}">${reg[k].label || k}</option>`).join('');
+  const opts = Object.keys(reg).sort().map(k => `<option value="${k}">${reg[k].label || k}</option>`).join('');
   return `<div class="field-row" style="align-items:flex-end">
-    <div class="field"><label>Apply supertag</label><select id="item-add-super">${opts || '<option value="">— none defined —</option>'}</select></div>
+    <div class="field"><label>Apply supertag template</label><select id="item-add-super">${opts || '<option value="">— none defined —</option>'}</select></div>
     <button type="button" class="action-btn" onclick="applyItemSupertag()">Apply</button>
   </div>`;
 }
 
-function itemSupertagChip(key) {
-  const reg = window.TAG_SUPERTAGS || {};
-  const s = reg[key] || {};
-  const members = Object.keys(s.members || {}).map(m => `<code style="font-size:10px">${m}</code>`).join(' ');
-  return `<div class="field tag-row" data-super="${key}" style="background:var(--bg-alt,rgba(255,255,255,0.03));padding:6px 8px;border-radius:4px">
-    <label>${s.label || key} <span style="color:var(--text-dim);font-weight:normal;font-size:11px">(supertag)</span><button type="button" onclick="removeItemSupertag(this)" style="float:right;background:none;border:none;color:inherit;cursor:pointer;font-size:15px;line-height:1">×</button></label>
-    <div class="zone-subsection-note">Inherits: ${members || '(no member tags)'}. Your own tags below override these.</div>
-  </div>`;
-}
-
-function refreshItemSupertagPicker() {
-  const present = [...document.querySelectorAll('#item-supertags .tag-row')].map(r => r.dataset.super);
-  document.getElementById('item-supertag-picker').innerHTML = itemSupertagPicker(present);
-}
-
 function applyItemSupertag() {
   const key = document.getElementById('item-add-super')?.value;
-  if (!key) return;
-  document.getElementById('item-supertags').insertAdjacentHTML('beforeend', itemSupertagChip(key));
-  refreshItemSupertagPicker();
-}
-
-function removeItemSupertag(btn) {
-  btn.closest('.tag-row').remove();
-  refreshItemSupertagPicker();
+  const reg = window.TAG_SUPERTAGS || {};
+  const tpl = reg[key];
+  if (!tpl) return;
+  for (const [name, value] of Object.entries(tpl.members || {})) {
+    if (!TAG_CATALOG[name]) continue;
+    document.querySelector(`#item-tags .tag-row[data-tag="${name}"]`)?.remove();
+    document.getElementById('item-tags').insertAdjacentHTML('beforeend', itemTagRow(name, value));
+  }
+  refreshItemTagPicker();
 }
 
 // Default tag scaffolding per category — what fields appear when you pick a category.
@@ -247,20 +232,16 @@ function applyItemCopy() {
 
   const rawTags = (src.tags && typeof src.tags === 'object') ? src.tags : JSON.parse(src.tags||'{}');
   const tags = itemOwnTags(rawTags);
-  const superApplied = itemSuperKeys(rawTags);
   const tagNames = Object.keys(tags).filter(n => n !== 'description' && TAG_CATALOG[n]);
 
   document.getElementById('f-description').value = tags.description || '';
-  document.getElementById('item-supertags').innerHTML = superApplied.map(k => itemSupertagChip(k)).join('');
   document.getElementById('item-tags').innerHTML = tagNames.map(n => itemTagRow(n, tags[n])).join('');
-  refreshItemSupertagPicker();
   refreshItemTagPicker();
 }
 
 function itemEditForm(rec, isNew) {
   const rawTags = (rec.tags && typeof rec.tags === 'object') ? rec.tags : JSON.parse(rec.tags||'{}');
   const tags = itemOwnTags(rawTags);
-  const superApplied = itemSuperKeys(rawTags);
   const currentType = rec.type || 'clothing';
   // For new items with no existing tags, scaffold the category defaults.
   const scaffoldDefaults = CATEGORY_DEFAULT_TAGS[currentType] || {};
@@ -280,8 +261,7 @@ function itemEditForm(rec, isNew) {
       <div class="field"><label>Value</label><input type="number" id="f-value" value="${rec.value||0}"></div>
     </div>
     <div class="field"><label>Description</label><textarea id="f-description" rows="3">${tags.description||''}</textarea></div>
-    <div id="item-supertags">${superApplied.map(k => itemSupertagChip(k)).join('')}</div>
-    <div id="item-supertag-picker">${itemSupertagPicker(superApplied)}</div>
+    <div class="field" id="item-supertag-picker">${itemSupertagPicker()}</div>
     <div id="item-tags">${tagNames.map(n => itemTagRow(n, sourceTags[n])).join('')}</div>
     <div id="item-add-tag-picker">${itemAddTagPicker(tagNames)}</div>
     <div class="field" style="margin-top:8px">
@@ -299,14 +279,12 @@ async function saveItem(existing) {
   try {
     for (const row of document.querySelectorAll('#item-tags .tag-row')) tags[row.dataset.tag] = readItemTag(row);
   } catch (e) { return { error: e.message }; }
-  const supertags = [...document.querySelectorAll('#item-supertags .tag-row')].map(r => r.dataset.super);
   const body = {
     name: document.getElementById('f-name').value,
     type: document.getElementById('f-type').value,
     weight: parseInt(document.getElementById('f-weight').value)||1000,
     value: +document.getElementById('f-value').value,
     tags,
-    supertags,
   };
   if (isNew) { body.id = document.getElementById('f-id').value.trim(); return API('/items', 'POST', body); }
   return API(`/items/${existing.id}`, 'PUT', body);

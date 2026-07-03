@@ -364,11 +364,10 @@ function validateItem(item) {
     problems.push({ msg: 'Tags is not a valid object', fix: 'reset to empty' });
   }
 
-  // Own-tag scan: drop unknown or malformed authored tags. Supertag members are
-  // preserved by re-materializing with the item's existing __super keys.
+  // Own-tag scan: drop unknown or malformed tags (itemOwnTags already strips
+  // any legacy __own/__super bookkeeping keys, surfacing the full flat tag set).
   const rawTags = tagsIsObject ? item.tags : {};
   const own = itemOwnTags(rawTags);
-  const supers = itemSuperKeys(rawTags);
   const cleanedOwn = { ...own };
   for (const [k, v] of Object.entries(own)) {
     if (k === 'description') continue;
@@ -391,7 +390,7 @@ function validateItem(item) {
     name: item.name || item.id,
     problems,
     fixable: nameFixable,
-    fixedItem: { id: item.id, name, type: item.type || null, weight, value, tags: cleanedOwn, supertags: supers },
+    fixedItem: { id: item.id, name, type: item.type || null, weight, value, tags: cleanedOwn },
   };
 }
 

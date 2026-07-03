@@ -1,13 +1,15 @@
 /**
- * Item Supertag Registry — reusable bundles of tags ("classes" of items).
+ * Item Supertag Registry — reusable bundles of tags ("classes" of items), for
+ * dev-panel use only.
  *
  * A supertag groups a set of catalog tags (with values) under one name, e.g. a
  * "weapon" supertag carrying { weapon:true, slot:"weapon_hand", ... } so every
- * weapon is configured consistently. Applying a supertag to an item is a *live
- * reference*: the supertag's member tags are flattened onto the item's stored
- * `tags` (so the engine's SQL gates and tagsOf() read them with no special
- * casing), and editing the supertag re-materializes every item that references
- * it. The item's own authored tags always win over supertag-supplied ones.
+ * weapon starts from the same wiring. Applying a supertag to an item in the dev
+ * panel is a *one-time template*: its member tags are copied into the item's
+ * own editable tag fields once, pre-filled with the supertag's defaults, so the
+ * user can adjust sub-values (e.g. `damage`) before saving. There is no ongoing
+ * link — editing a supertag definition later does not change items that were
+ * already stamped with it.
  *
  * Dual-mode by design, exactly like tagCatalog.js: the dev panel loads this as a
  * classic <script>, while the Node engine imports it for its side effect. Both
