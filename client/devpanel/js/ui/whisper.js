@@ -139,6 +139,29 @@ function _getConvo(key) {
   return _convos.get(key);
 }
 
+// Optimistic echo bookkeeping: a channel line you send is rendered immediately,
+// then the 3s poll returns the server's stored copy. Record each optimistic line
+// here and consume the matching poll echo so it isn't shown twice. Entries
+// self-expire so a dropped echo can't wedge the list. (Back-to-back matching on
+// the last message alone was fragile — two quick sends echoed back together as a
+// batch each re-appended, producing a duplicated pair.)
+const _pendingSelfEchoes = [];
+const _SELF_ECHO_TTL = 15000;
+
+function _consumeSelfEcho(tab, message) {
+  const now = Date.now();
+  let matched = false;
+  for (let i = _pendingSelfEchoes.length - 1; i >= 0; i--) {
+    const e = _pendingSelfEchoes[i];
+    if (now - e.ts > _SELF_ECHO_TTL) { _pendingSelfEchoes.splice(i, 1); continue; }
+    if (!matched && e.tab === tab && e.message === message) {
+      _pendingSelfEchoes.splice(i, 1);
+      matched = true;
+    }
+  }
+  return matched;
+}
+
 // ── Persistence ─────────────────────────────────────────────────────────────────
 
 function _loadSettings() {
@@ -624,12 +647,13 @@ async function _sendMessage() {
     const r = await API(`/channels/${encodeURIComponent(_activeTab.replace(/^#/, ''))}/message`, 'POST', { message: msg, handle: from });
     if (r?.error) { toast(r.error, true); return; }
     input.value = '';
-    // Echo locally right away instead of waiting for the next 3s poll; the
-    // back-to-back dedup in _receiveChannelMsg drops the poll's copy.
+    // Echo locally right away instead of waiting for the next 3s poll; record it
+    // so _receiveChannelMsg drops the poll's copy of this exact line.
     const convo = _getConvo(_activeTab);
     convo.messages.push({ from, message: msg, ts: Date.now() });
     if (convo.messages.length > WHISPER_MAX_MSGS) convo.messages.shift();
     convo.stickBottom = true;
+    _pendingSelfEchoes.push({ tab: _activeTab, message: msg, ts: Date.now() });
     _renderLog();
     return;
   }
@@ -663,10 +687,9 @@ function _appendToLog(html) {
 
 function _receiveChannelMsg(channelId, from, message) {
   if (!_isChannel(channelId)) return;
+  // Your own optimistically-shown line is echoed back by the poll — drop that copy.
+  if (from === (_myHandle || 'Admin') && _consumeSelfEcho(channelId, message)) return;
   const convo = _getConvo(channelId);
-  // Skip duplicates (same from+message back-to-back — can happen on send echo)
-  const last = convo.messages[convo.messages.length - 1];
-  if (last && last.from === from && last.message === message) return;
   convo.messages.push({ from, message, ts: Date.now() });
   if (convo.messages.length > WHISPER_MAX_MSGS) convo.messages.shift();
   if (_panelOpen && _activeTab === channelId) {

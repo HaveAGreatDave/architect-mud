@@ -11,6 +11,7 @@ import { computeCarriedWeight, carryCapacity, formatWeight } from './inventory.j
 import { OPPOSITE } from '../directions.js';
 import { forceStand } from '../posture.js';
 import { registerMoveGate, runMoveGates } from '../movement-gates.js';
+import { doorGuardsOnlyUnownedApartment } from '../apartments.js';
 import { createSelectionState, getSelectionState, formatSelectionPage } from '../sift.js';
 
 const RAW_DIRECTIONS = ['north', 'south', 'east', 'west', 'up', 'down', 'in', 'out', 'exit'];
@@ -35,6 +36,7 @@ const WIND_MOVE_SPAN     = 16;    // → ~10 stamina at sev 0.4, ~20 at sev 1.0
 const NAMED_LOCK_DIRS = new Set(['in', 'out', 'exit']);
 registerMoveGate(async ({ player, direction, door, to }) => {
   if (!door || door.hp <= 0 || door.lock_state !== 'locked') return;
+  if (doorGuardsOnlyUnownedApartment(door)) return; // unrented unit — the lock is vestigial
   const lockTag = getLockTagPublic(door);
   const canPass = lockTag && await checkLockAuth(lockTag, door, player);
   if (!canPass) {

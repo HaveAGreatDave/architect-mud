@@ -219,6 +219,24 @@ export function isApartmentZone(zone) {
 	return !!zone?.flags?.is_apartment;
 }
 
+// Defensive invariant: an apartment's lock is meaningful only while the unit is
+// owned. Without an owner nobody holds lock auth, so a door left locked on an
+// unrented apartment (authored content, a stale admin lock, an eviction that
+// skipped cleanup) would seal it shut forever. This reports such a door as
+// effectively unlocked so every gate/read treats unrented units as open.
+// Returns true only when the door touches an apartment AND no apartment side of
+// it is owned — a door with any owned apartment side keeps its real lock.
+export function doorGuardsOnlyUnownedApartment(door) {
+	if (!door || door.lock_state !== 'locked') return false;
+	let touchesApartment = false;
+	for (const zid of [door.zone_id, ...doorFarIds(door)]) {
+		if (!isApartmentZone(getZone(zid))) continue;
+		touchesApartment = true;
+		if (getApartment(zid)?.owner_id) return false;
+	}
+	return touchesApartment;
+}
+
 // Whether the player may act as this unit's owner. A personal unit is controlled
 // by its owner; a corp HQ (owner_type='org') is controlled by any corp member
 // holding the manage_hq permission. Home-bind, forcefield and best-rest stay
@@ -455,8 +473,9 @@ export function getSleepEligibility(player, zone) {
 				reason: "home",
 			};
 		}
-		// Someone else's apartment — only sleepable if unlocked (you broke in or owner left it open)
-		if (apt?.is_locked) {
+		// Someone else's apartment — only sleepable if unlocked (you broke in or owner left it open).
+		// An unowned unit is always unlocked, so its lock never bars sleep.
+		if (apt?.owner_id && apt.is_locked) {
 			return { canSleep: false, reason: "locked" };
 		}
 		return {

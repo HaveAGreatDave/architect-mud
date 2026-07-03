@@ -8,6 +8,7 @@ import { exitTargets, allExits } from '../exits.js';
 import { emit } from '../events.js';
 import { effectiveSkill, awardSkillUse } from '../skills.js';
 import { getZoneProtection } from '../protection.js';
+import { doorGuardsOnlyUnownedApartment } from '../apartments.js';
 
 const DIRECTIONS = ['north','south','east','west','up','down','in','out'];
 const OPPOSITE = { north:'south', south:'north', east:'west', west:'east', up:'down', down:'up', in:'out', out:'in' };
@@ -93,7 +94,7 @@ async function cmdOpenDoor(args, raw, player, broadcast) {
   if (door === 'ambiguous') return { type:'error', message:'Multiple doors here — specify a direction (e.g. open door north).' };
   if (door.hp <= 0) return { type:'error', message:'That door is destroyed.' };
   if (door.is_open) return { type:'error', message:'The door is already open.' };
-  if (door.lock_state === 'locked') return { type:'error', message:'The door is locked.' };
+  if (door.lock_state === 'locked' && !doorGuardsOnlyUnownedApartment(door)) return { type:'error', message:'The door is locked.' };
   await updateDoor(door, { is_open: 1 });
   emit('door.toggled', { zoneId: door.zone_id, targetZoneId: door.target_zone });
   broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} opens the door.`, refresh: true }, player.id);
@@ -289,7 +290,7 @@ async function cmdHackLock(args, raw, player, broadcast) {
 
   const lockTag = getLockTag(door);
   if (!lockTag || lockTag.type !== 'lock:hololock' || !lockTag.canHack) return undefined;
-  if (door.lock_state !== 'locked') return { type:'error', message:'The hololock is already disengaged.' };
+  if (door.lock_state !== 'locked' || doorGuardsOnlyUnownedApartment(door)) return { type:'error', message:'The hololock is already disengaged.' };
 
   // You control this apartment — no need to break into your own place.
   if (await checkLockAuth(lockTag, door, player))
@@ -354,7 +355,7 @@ async function cmdHackResolve(args, raw, player, broadcast) {
   if (door.hp <= 0) return { type:'error', message:'That door is destroyed.' };
   const lockTag = getLockTag(door);
   if (!lockTag || lockTag.type !== 'lock:hololock') return { type:'noop' };
-  if (door.lock_state !== 'locked') return { type:'error', message:'The hololock is already disengaged.' };
+  if (door.lock_state !== 'locked' || doorGuardsOnlyUnownedApartment(door)) return { type:'error', message:'The hololock is already disengaged.' };
   if (doorForcefieldActive(door)) return { type:'error', message:'A quantum forcefield sheathes the lock — you cannot get a signal in.' };
   if (!(await hasHackDevice(player.id))) return { type:'error', message:'You need a hacking device to breach a hololock.' };
 

@@ -61,8 +61,8 @@ function renderDashboard(data) {
               <div id="pcl-peak" style="font-size:22px;font-weight:700;color:var(--text-bright)">—</div>
             </div>
             <div style="margin-left:auto;display:flex;gap:4px" id="pcl-range-toggle">
-              <button data-range="7d"  style="${btnStyle(true)}">7 Days</button>
-              <button data-range="30d" style="${btnStyle(false)}">30 Days</button>
+              <button data-range="7d"  style="${btnStyle(false)}">7 Days</button>
+              <button data-range="30d" style="${btnStyle(true)}">30 Days</button>
               <button data-range="all" style="${btnStyle(false)}">All Time</button>
             </div>
           </div>
@@ -276,7 +276,7 @@ async function _initActivityLog() {
   box.value = lines.join('\n');
 }
 
-async function _initPlayerCountChart(rangeKey = '7d') {
+async function _initPlayerCountChart(rangeKey = '30d') {
   const container = document.getElementById('pcl-chart');
   const peakEl    = document.getElementById('pcl-peak');
   const toggle    = document.getElementById('pcl-range-toggle');

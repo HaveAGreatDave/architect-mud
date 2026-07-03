@@ -2157,6 +2157,10 @@ async function _bcNpcLoad(data, el) {
   // Also include NPCs referenced via npc_staff in schedule conditions — these
   // are studio NPCs who may have no npc_anchor node in any broadcast graph.
   for (const npcId of npcSchedule.keys()) npcIdSet.add(npcId);
+  // And studio host NPCs created during BSM import (e.g. weather hosts) — they
+  // carry flags.studio_npc but loop rather than run on a schedule, so they have
+  // neither an anchor node nor an npc_staff entry to surface them.
+  for (const n of (data.npcs || [])) { if (n.flags?.studio_npc) npcIdSet.add(n.id); }
   const npcs    = (data.npcs || []).filter(n => npcIdSet.has(n.id));
 
   _bcNpcCache = { npcs, npcSchedule, zoneMap };
