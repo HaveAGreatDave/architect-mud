@@ -2828,6 +2828,129 @@ textarea {
 	font-size: 11px;
 	color: var(--text-bright);
 }
+
+/* Gear view toggle + paperdoll layer stepper */
+#gear-viewbar {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+.gear-view-btn {
+	background: transparent;
+	border: 1px solid var(--border);
+	color: var(--text-bright);
+	font-family: var(--font-mono);
+	font-size: 10px;
+	text-transform: uppercase;
+	letter-spacing: 1px;
+	padding: 4px 10px;
+	cursor: pointer;
+	border-radius: 2px;
+}
+.gear-view-btn:hover {
+	border-color: var(--accent);
+}
+.gear-view-btn.active {
+	border-color: var(--accent);
+	color: var(--accent);
+}
+.gear-layer-step {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin-left: auto;
+}
+.gls-btn {
+	background: transparent;
+	border: 1px solid var(--border);
+	color: var(--text-bright);
+	font-size: 10px;
+	width: 22px;
+	height: 22px;
+	cursor: pointer;
+	border-radius: 2px;
+}
+.gls-btn:hover {
+	border-color: var(--accent);
+	color: var(--accent);
+}
+.gls-label {
+	font-size: 10px;
+	color: var(--text-dim);
+	text-transform: uppercase;
+	letter-spacing: 1px;
+	min-width: 128px;
+	text-align: center;
+}
+
+/* Paperdoll: slot chips positioned over a silhouette */
+.gear-paperdoll {
+	position: relative;
+	display: grid;
+	grid-template-columns: 1fr 1fr 1fr;
+	grid-template-rows: repeat(5, auto);
+	gap: 8px 10px;
+	align-items: center;
+	justify-items: center;
+	padding: 8px 0;
+}
+.gear-doll-svg {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	fill: var(--border);
+	opacity: 0.18;
+	pointer-events: none;
+}
+.gear-doll-slot {
+	position: relative;
+	z-index: 1;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	border: 1px solid var(--border);
+	border-radius: 2px;
+	padding: 5px 8px;
+	min-width: 92px;
+	max-width: 130px;
+	text-align: center;
+	background: var(--bg2);
+	color: var(--text-dim);
+	font-size: 11px;
+}
+.gear-doll-slot.filled {
+	color: var(--text-bright);
+	background: var(--accent-dim);
+	cursor: pointer;
+}
+.gear-doll-slot.filled:hover {
+	outline: 1px solid var(--accent);
+}
+.gds-label {
+	font-size: 8px;
+	text-transform: uppercase;
+	letter-spacing: 1px;
+	color: var(--text-dim);
+}
+.gds-name {
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.gear-doll-head        { grid-column: 2; grid-row: 1; }
+.gear-doll-weapon_hand { grid-column: 1; grid-row: 2; }
+.gear-doll-torso       { grid-column: 2; grid-row: 2; }
+.gear-doll-accessory   { grid-column: 3; grid-row: 2; }
+.gear-doll-hands       { grid-column: 2; grid-row: 3; }
+.gear-doll-legs        { grid-column: 2; grid-row: 4; }
+.gear-doll-feet        { grid-column: 2; grid-row: 5; }
+
+/* Drop-to-equip highlight (grid cells + paperdoll chips) */
+.gear-drop-ok {
+	outline: 2px dashed var(--accent);
+	outline-offset: -2px;
+}
 #gear-inv-list {
 	display: grid;
 	grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
