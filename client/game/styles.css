@@ -4435,8 +4435,8 @@ textarea {
 }
 .shop-item {
 	border: 1px solid var(--border);
-	padding: 5px 8px;
-	margin-bottom: 4px;
+	padding: 9px 11px;
+	margin-bottom: 7px;
 	border-radius: 2px;
 }
 .shop-item-row {
@@ -4444,6 +4444,13 @@ textarea {
 	align-items: center;
 	justify-content: space-between;
 	gap: 8px;
+}
+.shop-item-btns {
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+	gap: 4px;
+	flex-shrink: 0;
 }
 .shop-item-name {
 	font-weight: bold;
