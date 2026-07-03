@@ -61,7 +61,7 @@ Tunable defaults (`tunables.js` / `combat.js`): `crit_threshold = 8`, `crit_mult
 
 `rollBodyPart(weights?)` does a weighted pick. The player (the defender when a monster swings)
 uses the global `body_part_weights` tunable
-(default `head:10, torso:40, left_arm:12, right_arm:12, left_leg:13, right_leg:13`). A **monster**
+(default `head:10, torso:40, left_arm:12, right_arm:12, left_leg:11, right_leg:11, feet:4`). A **monster**
 (the defender when a player swings) uses its own `body_parts`: a list of `{part, weight, soak}`
 entries editable per-monster in the dev panel, defaulting to that same standard spread. Each entry
 carries its own typed `soak` map, so a monster soaks the player's hit against the struck part's
@@ -69,8 +69,8 @@ armour — replacing the old single monster-wide `soak`/`armor` (still read as a
 monsters with no `body_parts`).
 
 The player's struck part maps to an armour slot via `PART_TO_SLOT`: head→head, torso→torso,
-arms→hands, legs→legs. **Feet have no body part in the weight table, so the `feet` armour slot
-never soaks anything in combat.**
+arms→hands, legs→legs, feet→feet. The low-weight `feet` part (weight 4) lets the `feet` armour
+slot's typed soak actually reduce damage when the feet are struck.
 
 ### Soak (armour)
 

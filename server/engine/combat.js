@@ -64,20 +64,22 @@ function randInt(min, max) {
   return Math.floor(Math.random() * (hi - lo + 1)) + lo;
 }
 
-const DEFAULT_BODY_PART_WEIGHTS = { head:10, torso:40, left_arm:12, right_arm:12, left_leg:13, right_leg:13 };
+const DEFAULT_BODY_PART_WEIGHTS = { head:10, torso:40, left_arm:12, right_arm:12, left_leg:11, right_leg:11, feet:4 };
 
 // Which equip slot covers each struck body part. Arms share the hands piece,
-// legs share the legs piece; feet has no dedicated body part in the weight table.
+// legs share the legs piece, feet has its own boots piece.
 const PART_TO_SLOT = {
   head: 'head', torso: 'torso',
   left_arm: 'hands', right_arm: 'hands',
   left_leg: 'legs', right_leg: 'legs',
+  feet: 'feet',
 };
 
 const PART_LABELS = {
   head: 'head', torso: 'torso',
   left_arm: 'left arm', right_arm: 'right arm',
   left_leg: 'left leg', right_leg: 'right leg',
+  feet: 'feet',
 };
 
 // ── Inline combat markup ──────────────────────────────────────────────
