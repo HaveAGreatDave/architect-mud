@@ -115,8 +115,10 @@ async function resolveButcher(player) {
 		const meta = itemById.get(entry.item);
 		const itemName = meta?.name || entry.item;
 		const check = await skillCheck(player, "butchering", difficulty);
+		// Every carve attempt trains Butchering — a near-miss teaches as much as a
+		// clean cut (abs margin, see awardIp).
+		await awardSkillUse(player.id, "butchering", check.margin);
 		if (check.success) {
-			await awardSkillUse(player.id, "butchering", check.margin);
 			const qty = Array.isArray(entry.qty)
 				? Math.floor(Math.random() * (entry.qty[1] - entry.qty[0] + 1)) +
 					entry.qty[0]

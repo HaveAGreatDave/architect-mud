@@ -85,7 +85,7 @@
     damage: { label: 'Damage', shape: 'range', scope: 'class', group: 'Combat',
       help: 'Weapon damage roll range { min, max }.' },
     weapon_skill: { label: 'Weapon Skill', shape: 'enum', scope: 'class', group: 'Combat',
-      options: ['blunt', 'bladed', 'energy'],
+      options: ['fists', 'blades', 'clubs', 'firearms', 'science'],
       help: 'Which combat skill earns XP and routes the attack.' },
     damage_type: { label: 'Damage Type', shape: 'enum', scope: 'class', group: 'Combat',
       options: ['kinetic', 'edged', 'energy', 'fire', 'radiation'],

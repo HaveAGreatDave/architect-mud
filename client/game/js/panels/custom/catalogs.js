@@ -33,6 +33,7 @@ export const FIELD_CATALOG = [
   { key: 'reflexes',  label: 'Reflexes',  group: 'Stats', valueType: 'number', source: 'player', get: p => p.stat_reflexes },
   { key: 'brains',    label: 'Brains',    group: 'Stats', valueType: 'number', source: 'player', get: p => p.stat_brains },
   { key: 'cool',      label: 'Cool',      group: 'Stats', valueType: 'number', source: 'player', get: p => p.stat_cool },
+  { key: 'senses',    label: 'Senses',    group: 'Stats', valueType: 'number', source: 'player', get: p => p.stat_senses },
   { key: 'endurance', label: 'Endurance', group: 'Stats', valueType: 'number', source: 'player', get: p => p.stat_endurance },
 
   // Economy / progression

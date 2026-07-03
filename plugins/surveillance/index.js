@@ -131,7 +131,9 @@ async function cmdPlant(args, raw, player) {
   if (gear.quantity > 1) await query('UPDATE player_inventory SET quantity=quantity-1 WHERE id=$1', [gear.inv_id]);
   else await query('DELETE FROM player_inventory WHERE id=$1', [gear.inv_id]);
 
-  if (chk.success) await awardSkillUse(player.id, 'security', chk.margin);
+  // Planting trains Security whether or not the concealment lands well — a
+  // near-miss teaches as much (abs margin, see awardIp).
+  await awardSkillUse(player.id, 'security', chk.margin);
 
   const quality = concealment >= 8 ? 'It all but vanishes.' : concealment >= 5 ? 'Nicely tucked away.' : 'It could be spotted by a careful eye.';
   return { type: 'output', message: `You conceal the ${gear.name} facing ${direction}. ${quality}` };
@@ -809,7 +811,8 @@ async function cmdPilot(args, raw, player) {
   const destName = getZone(target)?.name || target;
   sendToZone(drone.zone_id, { type: 'ambient', message: `A small drone whirrs and lifts away to the ${dir}.` });
   sendToZone(target, { type: 'ambient', message: `A small drone buzzes in from ${originName}.` });
-  if (chk.success) await awardSkillUse(player.id, 'drone_ops', chk.margin);
+  // Piloting trains Drone Ops whether the link holds clean or stutters (abs margin).
+  await awardSkillUse(player.id, 'drone_ops', chk.margin);
 
   return { type: 'output', message: `You pilot the ${drone.name} ${dir} into ${destName}.${chk.success ? '' : ' <span class="text-dim">(rough handling — the link stuttered.)</span>'}` };
 }

@@ -18,7 +18,28 @@
  * item's `tags` object uses.
  */
 (function (global) {
-  const TAG_SUPERTAGS = {};
+  const TAG_SUPERTAGS = {
+    // --- Weapon classes ---
+    // One per combat skill. Each supplies the shared weapon wiring (equippable in
+    // the weapon hand, a combat weapon, and which skill it trains) plus sensible
+    // default damage/type. A weapon's own `damage`/`damage_type` tags override the
+    // defaults, so applying a class never changes an authored weapon's numbers.
+    weapon_fists: { label: 'Fists Weapon', group: 'Weapons',
+      help: 'Knuckles, power fists, cesti — trains the Fists skill.',
+      members: { weapon: true, slot: 'weapon_hand', weapon_skill: 'fists', damage_type: 'kinetic', damage: { min: 2, max: 4 } } },
+    weapon_blades: { label: 'Bladed Weapon', group: 'Weapons',
+      help: 'Knives, machetes, swords — anything with an edge. Trains Blades.',
+      members: { weapon: true, slot: 'weapon_hand', weapon_skill: 'blades', damage_type: 'edged', damage: { min: 3, max: 7 } } },
+    weapon_clubs: { label: 'Club Weapon', group: 'Weapons',
+      help: 'Pipes, bats, sledges, and improvised cudgels. Trains Clubs.',
+      members: { weapon: true, slot: 'weapon_hand', weapon_skill: 'clubs', damage_type: 'kinetic', damage: { min: 4, max: 9 } } },
+    weapon_firearms: { label: 'Firearm', group: 'Weapons',
+      help: 'Pistols, rifles, and anything that chambers a round. Trains Firearms.',
+      members: { weapon: true, slot: 'weapon_hand', weapon_skill: 'firearms', damage_type: 'kinetic', damage: { min: 5, max: 10 } } },
+    weapon_science: { label: 'Science Weapon', group: 'Weapons',
+      help: 'Energy weapons, charges, and homemade bad ideas. Trains Science.',
+      members: { weapon: true, slot: 'weapon_hand', weapon_skill: 'science', damage_type: 'energy', damage: { min: 4, max: 9 } } },
+  };
 
   global.TAG_SUPERTAGS = TAG_SUPERTAGS;
 })(typeof window !== 'undefined' ? window : globalThis);

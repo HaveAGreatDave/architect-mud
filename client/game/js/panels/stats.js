@@ -7,6 +7,7 @@ const RAISABLE = [
   { key: 'brains', label: 'BRNS', desc: 'Raises IP gain rate' },
   { key: 'cool', label: 'COOL', desc: 'Raises sell prices' },
   { key: 'endurance', label: 'END', desc: 'Raises HP' },
+  { key: 'senses', label: 'SEN', desc: 'Raises dodge; spots hidden things' },
 ];
 
 export function initStatsPanel() {

@@ -510,8 +510,11 @@ export async function cmdPickLock(player) {
 
 	const result = await skillCheck(player, "security", apt.lock_difficulty);
 
+	// Every pick attempt trains Security — a near-miss teaches as much as a clean
+	// bypass (abs margin, see awardIp).
+	await awardSkillUse(player.id, "security", result.margin);
+
 	if (result.success) {
-		await awardSkillUse(player.id, "security", result.margin);
 		return {
 			type: "pick_success",
 			message: `You work the lock — click. It gives.`,

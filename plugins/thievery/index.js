@@ -10,7 +10,7 @@
 
 import { query } from '../../server/models/db.js';
 import { getZonePlayers } from '../../server/engine/world.js';
-import { skillCheck } from '../../server/engine/skills.js';
+import { skillCheck, awardSkillUse } from '../../server/engine/skills.js';
 import { adjustCredits } from '../../server/engine/economy.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
@@ -31,6 +31,9 @@ async function stealFrom(target, player, broadcast) {
 		return { type: "error", message: `${target.handle} isn't carrying any credits.` };
 
 	const result = await skillCheck(player, "deception", 7);
+	// Every attempt trains Deception — getting caught by a hair teaches as much as
+	// a clean lift (abs margin, see awardIp).
+	await awardSkillUse(player.id, "deception", result.margin);
 	if (!result.success) {
 		broadcast(
 			player.current_zone,

@@ -37,14 +37,14 @@ Players begin with a brief creation sequence that establishes:
 | Gutter Rat | Survived by stealing and hiding | reflexes / cool | Pickpocket |
 | Corpse Tech | Used to fix machines. Or people. | brains / endurance | Field Surgery |
 | True Believer | Devoted to something. Anything. | cool / brains | Intimidate |
-| Wrecker | Hits things. Very hard. | brawn / endurance | Brawling |
+| Wrecker | Hits things. Very hard. | brawn / endurance | Fists |
 | Ghost | Nobody sees you coming or going | reflexes / brains | Stealth |
 
 ---
 
 ## Stats (Light Layer)
 
-Five core stats, using HellMOO's grounded names. These make you *generally*
+Six core stats, using HellMOO's grounded names. These make you *generally*
 capable; skills do the heavy lifting. There is **no charisma stat** — social
 outcomes hang off skills.
 
@@ -55,6 +55,7 @@ outcomes hang off skills.
 | **endurance** | Health pool, fatigue, feeds physical skills |
 | **brains** | Tech use, crafting quality, perception/evaluation |
 | **cool** | Nerve under fire, stun/pain resistance |
+| **senses** | Perception; feeds dodge, and (later) spotting hidden things |
 
 Stats start at **0** (new characters assign ~6 points at creation) and are raised
 slowly by spending XP — earned 1:1 from the IP your skills mint — at an escalating
@@ -72,7 +73,7 @@ are (with XP). Each skill use can mint IP into that skill, and 100 IP = one skil
 Skills are grouped into categories but not locked — you can dabble in anything, but depth requires commitment. Skills don't depend on other skills; they pull only from their governing stats.
 
 ### Skill Categories
-- **Combat** — Brawling, Bladed, Firearms, Explosives, Energy Weapons
+- **Combat** — Fists, Blades, Clubs, Firearms, Science, Dodge
 - **Survival** — Scavenging, Cooking, Medicine, Navigation
 - **Tech** — Hacking, Electronics, Fabrication, Drone Ops, Security
 - **Social** — Persuasion, Intimidate, Deception, Faction Lore

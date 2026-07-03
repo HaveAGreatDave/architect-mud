@@ -93,7 +93,7 @@ map if present, else the flat `armor` integer.
 
 `resolveAttack()` ([plugins/weapon/index.js](../plugins/weapon/index.js)) reads the one equipped
 item tagged `weapon` and pulls `damage` (`{min,max}`), `weapon_skill`, `damage_type`, `status_chance`
-from its tags. Unarmed default: 2–4 kinetic, `brawling`. `status_chance` is read but **never used**
+from its tags. Unarmed default: 2–4 kinetic, `fists`. `status_chance` is read but **never used**
 (no code applies a weapon-triggered status effect — see the effects note below). Monsters carry
 their own `weapon` instead: a JSONB list of `{type, min, max}` damage components edited in the
 dev panel (falling back to the legacy `damage_min/damage_max` + `flags.damage_type` if empty).
@@ -160,11 +160,13 @@ witnesses it proceeds silently. This is the sneaky-loot seam the future Crime Sy
 
 ## Skill gain from combat
 
-On a hit, `resolveAttack` awards skill use. **Note:** it remaps the weapon skill to one of
-`bladed` / `electronics` (when `weapon_skill === 'energy'`) / `brawling` — so `firearms` and
-`explosives` are never trained through attacks even if a weapon declares them. `awardSkillUse`
-(`skills.js`) rolls for an IP award on a successful hit — best odds on a barely-won check (margin ≈ 0),
-falling off as the margin grows — and on a hit adds 1 IP to the skill (`awardIp`).
+On **every swing — hit or miss** — `resolveAttack` awards weapon-skill use. The `weapon_skill` tag is
+the combat skill id directly (`fists` / `blades` / `clubs` / `firearms` / `science`, validated with a
+`fists` fallback via `weaponSkillId()`), so the skill the weapon declares is the skill that trains.
+Defending trains **Dodge**: `enemyAttackPlayer` / `npcAttackPlayer` / `pvpSwing` award the defender
+Dodge on **every miss**. `awardSkillUse` (`skills.js`) rolls for a 1-IP award via `awardIp` — best odds
+when the check is close (margin ≈ 0) and falling off with the **absolute** margin, so barely-*failing*
+trains you nearly as well as barely-winning.
 
 ## Status effects (defined but inert)
 

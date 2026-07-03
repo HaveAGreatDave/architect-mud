@@ -1,6 +1,6 @@
 import { world, getEnemyInstance, removeEnemyInstance, getLivePlayer, getZonePlayers, tryBattleCry } from './world.js';
 import { getNpcCombatLine } from './npc-personality.js';
-import { effectiveSkill } from './skills.js';
+import { effectiveSkill, awardSkillUse } from './skills.js';
 import { ensureTunables, getTunable } from './tunables.js';
 import { query } from '../models/db.js';
 
@@ -190,7 +190,7 @@ export async function playerAttackEnemy(player, enemyInstanceId, weaponStats) {
 
   await ensureTunables();
 
-  const weaponSkillId = weaponStats?.weapon_skill || 'brawling';
+  const weaponSkillId = weaponStats?.weapon_skill || 'fists';
   const attackSkill = await effectiveSkill(player, weaponSkillId);
 
   const enemyDodge = enemy.dodge ?? 1;
@@ -287,6 +287,8 @@ export async function enemyAttackPlayer(enemy, player) {
     : '';
 
   if (!hit) {
+    // Evading trains Dodge — the closer the call, the better you learn (abs margin).
+    await awardSkillUse(player.id, 'dodge', margin);
     return { hit: false, message: `${cry}${enemy.name} attacks you and misses.` };
   }
 
@@ -356,7 +358,7 @@ export async function pvpSwing(attacker, defender) {
   );
   const equipped = rows[0];
   const dmg = equipped?.tags?.damage || {};
-  const weaponSkill = equipped?.tags?.weapon_skill || 'brawling';
+  const weaponSkill = equipped?.tags?.weapon_skill || 'fists';
   const damageType = equipped?.tags?.damage_type || 'kinetic';
   const damage_min = dmg.min ?? 2;
   const damage_max = dmg.max ?? 4;
@@ -367,6 +369,8 @@ export async function pvpSwing(attacker, defender) {
   const hit = margin >= 0;
 
   if (!hit) {
+    // Defender trains Dodge for evading — the closer the call, the better (abs margin).
+    await awardSkillUse(defender.id, 'dodge', margin);
     return {
       hit: false,
       killed: false,
@@ -414,7 +418,7 @@ export async function playerAttackNpc(player, npcId, weaponStats) {
   if (npc._dead) return { success: false, message: `${npc.name} is already dead.` };
 
   await ensureTunables();
-  const weaponSkillId = weaponStats?.weapon_skill || 'brawling';
+  const weaponSkillId = weaponStats?.weapon_skill || 'fists';
   const attackSkill = await effectiveSkill(player, weaponSkillId);
   const npcDodge = npc.flags?.dodge ?? 1;
   const margin = (attackSkill - npcDodge) + rollSwing();
@@ -574,6 +578,8 @@ export async function npcAttackPlayer(npc, player) {
   const hit = margin >= 0;
 
   if (!hit) {
+    // Evading trains Dodge — the closer the call, the better you learn (abs margin).
+    await awardSkillUse(player.id, 'dodge', margin);
     return { hit: false, message: `${npc.name} attacks you and misses.` };
   }
 
