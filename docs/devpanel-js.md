@@ -9,7 +9,7 @@ See `client/devpanel/js/README.md` for the load-order contract.
 ## `core/`
 
 ### `state.js`
-Top-level mutable globals shared across every other file. Includes the auth token, current panel name, the active record under edit, the full record list, the logged-in player's role/handle/id, the staging toggle flag, and the sort state for the list table. Also holds the `collapsedBuildings` and `collapsedItemTypes` sets used by the zones and items panels.
+Top-level mutable globals shared across every other file. Includes the auth token, current panel name, the active record under edit, the full record list, the logged-in player's role/handle/id, the staging toggle flag, and the sort state for the list table. Also holds the `collapsedItemTypes` set used by the items panel (the zones accordion keeps its own `_zonesExpanded` state in `panels/zones.js`).
 
 ### `api.js`
 The two HTTP helpers used everywhere:
@@ -23,7 +23,7 @@ Also holds `STAGED_ENTITY_TYPES` (the path→entityType map) and `getEntityType(
 The shared list/edit lifecycle that every panel rides on:
 
 - `renderTable(columns, records, noEdit)` — builds the sortable HTML table in `#list-panel`.
-- `renderZonesTable(records)` — zones-specific override (grouped by building, collapsible).
+- `renderZonesTable(records)` — zones-specific override: a furniture-panel-style accordion, not a table. Tiers: exterior zone → buildings (attached via exits / `world_exit_zone`) → floors grouped by `grid_z` (collapsible, skipped for single-floor buildings) → rooms. Building membership is BFS over exits from the entrance. `filterZones(q)` / `zToggle(header)` back its search and per-section expand/collapse (state in `_zonesExpanded`).
 - `sortTableBy(key)` / `sortWorldStateBy(key)` / `filterTable()` — sort and search.
 - `selectRecord(id)` / `editRecord(id)` / `newRecord()` — record selection.
 - `openEdit(record, isNew)` / `closeEdit()` — open/close the right-hand edit panel. The panel carries a **Save/Delete bar both above (`#edit-actions-top`) and below (`.edit-footer`) the form**; buttons share the `.js-save-btn`/`.js-delete-btn` classes so `openEdit`/`saveRecord` drive both. `openEdit` hides Delete on a new record; the broadcast NPC sidebar override hides the top bar (it swaps the footer for its own buttons).

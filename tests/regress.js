@@ -72,8 +72,19 @@ console.log('— layer 1: manifest contracts —');
 
 // ── Fake player setup ─────────────────────────────────────────────────────────
 const zones = getAllZones();
-const zone = zones.find(z => z.exits && Object.keys(z.exits).length > 0);
-if (!zone) { console.error('No zone with exits found; aborting.'); process.exit(1); }
+// The fake player's home zone must be door-free. The door regress fixtures anchor
+// synthetic doors on p.current_zone and its exits, and the move-gate tests expect
+// an unobstructed exit — a real door here (content drift) shadows the fixtures and
+// trips the door-lock gate. Exclude any zone a real door touches, on either side
+// or via a neighbour. (Was: first zone with an exit, which broke when a locked
+// hololock door landed on zone_meridian_unit_104, the first such zone.)
+const doorZones = new Set();
+for (const d of world.doors.values()) { if (d.zone_id) doorZones.add(d.zone_id); if (d.target_zone) doorZones.add(d.target_zone); }
+const zone = zones.find(z =>
+  z.exits && Object.keys(z.exits).length > 0 &&
+  !doorZones.has(z.id) &&
+  !neighborZoneIds(z).some(n => doorZones.has(n)));
+if (!zone) { console.error('No door-free zone with exits found; aborting.'); process.exit(1); }
 
 const P = {
   id: 'test_regress_' + process.pid,

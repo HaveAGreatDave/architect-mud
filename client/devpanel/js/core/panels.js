@@ -49,6 +49,7 @@ const PANELS = {
     save: saveZone,
     delete: id => API(`/zones/${id}`, 'DELETE'),
     render: () => renderZonesTable(allRecords),
+    filter: filterZones,
   },
   enemies: {
     title: 'Enemies',

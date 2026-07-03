@@ -1,120 +1,221 @@
+// Which accordion sections (exterior zones, building sub-trees, catch-all
+// bands) are expanded. Keyed by zone id; module-level so it survives the
+// re-renders that follow a toggle, edit, or refresh within the session.
+const _zonesExpanded = new Set();
+
+// Zones list, furniture-panel style: a three-tier accordion instead of a flat
+// sortable table. Tier 1 = every exterior (world-map) zone as a header band.
+// Tier 2 = the buildings whose entrance connects from that exterior zone, each
+// a collapsible tree. Tier 3 = the building's interior, derived live from its
+// exit graph (a spanning tree from the entrance — lobby › hallway › units falls
+// out of the walk topology, so no parent_zone bookkeeping is needed).
 function renderZonesTable(records) {
   const panel = document.getElementById('list-panel');
   if (!records.length) { panel.innerHTML = '<div style="padding:24px;color:var(--text-dim)">No records found.</div>'; return; }
 
   const byId = new Map(records.map(z => [z.id, z]));
-  const childrenByParent = new Map();
-  const childIds = new Set();
+  const isInterior = z => !!(z.flags?.is_interior || z.flags?.is_apartment);
+  const isBuilding = z => !!z.flags?.is_building;
+  const isExterior = z => !isInterior(z) && !isBuilding(z);
+  const byName = (a, b) => String(a.name || a.id).localeCompare(String(b.name || b.id));
 
-  const addChild = (parentId, childZone) => {
-    if (parentId === childZone.id) return;
-    if (!childrenByParent.has(parentId)) childrenByParent.set(parentId, []);
-    childrenByParent.get(parentId).push(childZone);
-    childIds.add(childZone.id);
-  };
-
-  // Primary: the explicit parent_zone field is the authoritative building
-  // hierarchy (building → lobby → hallways → units, any depth).
-  for (const z of records) {
-    const pid = z.parent_zone;
-    if (pid && byId.has(pid) && !childIds.has(z.id)) addChild(pid, z);
-  }
-
-  // Fallback for zones with no explicit parent_zone — the older exit/is_building
-  // heuristic, so studios and other unparented interiors still nest.
-  for (const z of records) {
-    if (!z.flags?.is_building) continue;
-    for (const exitZoneId of flatNeighbors(z.exits)) {
-      const exitZone = byId.get(exitZoneId);
-      if ((exitZone?.flags?.is_interior || exitZone?.flags?.is_apartment) && !childIds.has(exitZoneId)) {
-        addChild(z.id, exitZone);
+  // 1. Interior spanning tree per building. BFS over exits from each entrance,
+  //    claiming interior/apartment rooms; the first building to reach a room
+  //    owns it. treeKids[parentId] = ordered child rooms → DFS render nests
+  //    units under the hallway they hang off.
+  const claimed = new Set();
+  const buildingMembers = new Map();   // buildingId -> [interior zones], reachable via exits
+  for (const b of records.filter(isBuilding)) {
+    const members = [];
+    const queue = [b.id];
+    const seen = new Set([b.id]);
+    while (queue.length) {
+      const cur = queue.shift();
+      const curZ = byId.get(cur);
+      if (!curZ) continue;
+      for (const n of flatNeighbors(curZ.exits)
+        .map(id => byId.get(id))
+        .filter(z => z && isInterior(z) && !seen.has(z.id) && !claimed.has(z.id))) {
+        seen.add(n.id); claimed.add(n.id);
+        members.push(n); queue.push(n.id);
       }
     }
-  }
-  // Apartment zones still unmatched — use their first exit as parent.
-  for (const z of records) {
-    if (childIds.has(z.id) || !z.flags?.is_apartment) continue;
-    const parentId = flatNeighbors(z.exits)[0];
-    if (parentId && byId.has(parentId)) addChild(parentId, z);
+    buildingMembers.set(b.id, members);
   }
 
-  let topLevel = records.filter(z => !childIds.has(z.id));
-  if (sortState.key) {
-    topLevel = [...topLevel].sort((a, b) => {
-      let av = a[sortState.key], bv = b[sortState.key];
-      if (av == null) av = '';
-      if (bv == null) bv = '';
-      if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * sortState.dir;
-      if (sortState.key === 'danger_rating') {
-        const order = {safe:0,low:1,medium:2,high:3,lethal:4};
-        return ((order[av]??2) - (order[bv]??2)) * sortState.dir;
-      }
-      return String(av).localeCompare(String(bv)) * sortState.dir;
-    });
+  // 2. Attach each building to an exterior zone: primary is an exterior zone
+  //    whose exits point into it; fallback is flags.world_exit_zone. Buildings
+  //    with neither become their own top-level band.
+  const buildingsByExterior = new Map();
+  const attached = new Set();
+  const attach = (extId, b) => {
+    if (!buildingsByExterior.has(extId)) buildingsByExterior.set(extId, []);
+    buildingsByExterior.get(extId).push(b);
+    attached.add(b.id);
+  };
+  for (const ext of records.filter(isExterior)) {
+    for (const nId of flatNeighbors(ext.exits)) {
+      const n = byId.get(nId);
+      if (n && isBuilding(n) && !attached.has(n.id)) attach(ext.id, n);
+    }
+  }
+  const looseBuildings = [];
+  for (const b of records.filter(isBuilding)) {
+    if (attached.has(b.id)) continue;
+    const ext = b.flags?.world_exit_zone && byId.get(b.flags.world_exit_zone);
+    if (ext && isExterior(ext)) attach(ext.id, b);
+    else looseBuildings.push(b);
   }
 
-  const columns = PANELS.zones.columns;
-  const hasStagedRows = records.some(r => r._stagingStatus);
+  // --- Row / band builders (furniture-panel visual language) ---
+  const stBadge = s => !s ? '' :
+    s === 'pending delete'
+      ? `<span style="font-size:10px;color:var(--danger);margin-left:6px">!Marked for Deletion</span>`
+      : `<span style="font-size:10px;color:var(--warning);margin-left:6px">!Not Published</span>`;
+  const rowBtns = id => `
+    <button class="action-btn" style="font-size:10px;padding:2px 8px;margin-left:4px" onclick="event.stopPropagation();editRecord('${id}')">Edit</button>
+    <button class="action-btn" style="font-size:10px;padding:2px 8px;margin-left:4px" onclick="event.stopPropagation();cloneZoneRow('${id}')">Clone</button>
+    <button class="action-btn danger" style="font-size:10px;padding:2px 8px;margin-left:4px" onclick="event.stopPropagation();deleteZoneRow('${id}')">Delete</button>`;
+
+  const interiorRow = (z, pad) => {
+    const del = z._stagingStatus === 'pending delete';
+    return `<div style="display:flex;align-items:center;gap:8px;padding:5px 12px 5px ${pad}px;border-bottom:1px solid var(--border);background:var(--bg1);cursor:pointer;${del ? 'opacity:0.6;text-decoration:line-through' : ''}" onclick="editRecord('${z.id}')">
+      <div style="flex:1;min-width:0">
+        <span class="zone-child-indent" style="color:var(--text-dim)">↳</span>
+        <span style="color:var(--text-bright)">${z.name || z.id}</span>
+        <span style="font-size:10px;color:var(--text-dim);margin-left:6px">${z.id}</span>${stBadge(z._stagingStatus)}
+      </div>
+      ${rowBtns(z.id)}
+    </div>`;
+  };
+
+  // Interior rooms grouped by grid_z into collapsible floor sections; each floor
+  // is its own fold. A single-floor building skips the floor tier and lists its
+  // rooms directly. Floors read top-down (highest grid_z first).
+  const floorLabel = z => z === 0 ? 'Ground Floor' : z > 0 ? `Floor ${z}` : z === -1 ? 'Basement' : `Basement ${-z}`;
+  const floorGroup = (bId, z, rooms) => {
+    const key = `${bId}__z${z}`;
+    const inner = rooms.slice().sort(byName).map(r => interiorRow(r, 60)).join('');
+    return `<div>
+      <div data-zone-id="${key}" style="display:flex;align-items:center;gap:0;padding:5px 12px 5px 44px;background:var(--bg2);border-top:1px solid var(--border);cursor:pointer;user-select:none" onclick="zToggle(this)">
+        <span class="z-arrow" style="color:var(--text-dim);font-size:11px;width:14px;display:inline-block;flex-shrink:0">▸</span>
+        <span style="color:var(--accent2);font-weight:600">${floorLabel(z)}</span>
+        <span style="font-size:10px;color:var(--text-dim);margin-left:6px">z${z}</span>
+        <span style="margin-left:auto;font-size:10px;color:var(--text-dim)">${rooms.length} room${rooms.length !== 1 ? 's' : ''}</span>
+      </div>
+      <div class="z-children" style="display:none">${inner}</div>
+    </div>`;
+  };
+
+  const buildingBlock = b => {
+    const members = buildingMembers.get(b.id) || [];
+    const del = b._stagingStatus === 'pending delete';
+    const floors = new Map();
+    for (const m of members) {
+      const z = m.grid_z ?? 0;
+      (floors.get(z) || floors.set(z, []).get(z)).push(m);
+    }
+    let rows;
+    if (!members.length) {
+      rows = '<div style="padding:5px 12px 5px 44px;color:var(--text-dim);font-size:11px">No interior rooms.</div>';
+    } else if (floors.size <= 1) {
+      rows = members.slice().sort(byName).map(m => interiorRow(m, 44)).join('');
+    } else {
+      rows = [...floors.keys()].sort((a, b) => b - a).map(z => floorGroup(b.id, z, floors.get(z))).join('');
+    }
+    return `<div>
+      <div data-zone-id="${b.id}" style="display:flex;align-items:center;gap:0;padding:5px 12px 5px 28px;background:var(--bg2);border-top:1px solid var(--border);cursor:pointer;user-select:none;${del ? 'opacity:0.6;text-decoration:line-through' : ''}" onclick="zToggle(this)">
+        <span class="z-arrow" style="color:var(--text-dim);font-size:11px;width:14px;display:inline-block;flex-shrink:0">▸</span>
+        <span style="color:var(--accent)">↳ ${b.name || b.id}</span>
+        <span style="font-size:10px;color:var(--text-dim);margin-left:6px">${b.id}</span>${stBadge(b._stagingStatus)}
+        <span style="margin-left:auto;font-size:10px;color:var(--text-dim)">${members.length} room${members.length !== 1 ? 's' : ''}</span>
+        ${rowBtns(b.id)}
+      </div>
+      <div class="z-children" style="display:none">${rows}</div>
+    </div>`;
+  };
+
+  const HEAD_STYLE = 'display:flex;align-items:center;gap:0;padding:7px 12px;background:var(--bg3);border-top:2px solid var(--border);border-bottom:1px solid var(--border);cursor:pointer;user-select:none';
+  const exteriorBlock = ext => {
+    const blds = (buildingsByExterior.get(ext.id) || []).sort(byName);
+    const del = ext._stagingStatus === 'pending delete' ? 'opacity:0.6;text-decoration:line-through' : '';
+    const label = `<span style="color:var(--cyan);font-weight:700;font-size:13px">${ext.name || ext.id}</span>
+        <span style="color:var(--text-dim);font-size:10px;margin-left:6px">${ext.id}</span>${stBadge(ext._stagingStatus)}
+        <span style="margin-left:auto;font-size:10px;color:var(--text-dim)">${blds.length} building${blds.length !== 1 ? 's' : ''}</span>
+        ${rowBtns(ext.id)}`;
+    if (!blds.length) {
+      return `<div><div data-zone-id="${ext.id}" style="${HEAD_STYLE};${del}" onclick="editRecord('${ext.id}')">
+        <span class="z-arrow" style="width:14px;display:inline-block;flex-shrink:0"></span>${label}</div></div>`;
+    }
+    return `<div>
+      <div data-zone-id="${ext.id}" style="${HEAD_STYLE};${del}" onclick="zToggle(this)">
+        <span class="z-arrow" style="color:var(--text-dim);font-size:11px;width:14px;display:inline-block;flex-shrink:0">▸</span>${label}</div>
+      <div class="z-children" style="display:none">${blds.map(buildingBlock).join('')}</div>
+    </div>`;
+  };
+  const catchAllBand = (key, title, count, inner) => `<div>
+    <div data-zone-id="${key}" style="${HEAD_STYLE}" onclick="zToggle(this)">
+      <span class="z-arrow" style="color:var(--text-dim);font-size:11px;width:14px;display:inline-block;flex-shrink:0">▸</span>
+      <span style="color:var(--text-dim);font-style:italic;font-weight:700;font-size:13px">${title}</span>
+      <span style="margin-left:auto;font-size:10px;color:var(--text-dim)">${count}</span>
+    </div>
+    <div class="z-children" style="display:none">${inner}</div>
+  </div>`;
+
+  // --- Assemble ---
   let html = `<div style="padding:10px 12px"><button class="action-btn" onclick="openBigMap()">🗺 View Big Map</button></div>`;
-  html += '<table><thead><tr>';
-  for (const col of columns) {
-    const isSorted = sortState.key === col.key;
-    const arrow = isSorted ? (sortState.dir === 1 ? ' ▲' : ' ▼') : '';
-    html += `<th class="sortable-col${isSorted?' sorted':''}" onclick="sortTableBy('${col.key}')">${col.label}${arrow}</th>`;
+  html += records.filter(isExterior).sort(byName).map(exteriorBlock).join('');
+  if (looseBuildings.length) {
+    html += catchAllBand('__loose_buildings__', 'Buildings — no exterior entrance', looseBuildings.length,
+      looseBuildings.sort(byName).map(buildingBlock).join(''));
   }
-  if (hasStagedRows) html += '<th>Status</th>';
-  html += '<th></th></tr></thead><tbody>';
-
-  const stagingBadge = s => {
-    if (!s) return '';
-    if (s === 'pending delete') return `<span style="color:var(--danger);font-size:11px">!Marked for Deletion</span>`;
-    return `<span style="color:var(--warning);font-size:11px">!Not Published</span>`;
-  };
-
-  const renderRow = (rec, depth, hasKids, collapsed) => {
-    const isChild = depth > 0;
-    const isPendingDelete = rec._stagingStatus === 'pending delete';
-    const rowStyle = isPendingDelete
-      ? 'cursor:pointer;opacity:0.6;text-decoration:line-through'
-      : rec._stagingStatus ? 'cursor:pointer;border-left:3px solid var(--warning)' : 'cursor:pointer';
-    let row = `<tr class="${isChild ? 'zone-child-row' : ''}" style="${rowStyle}" onclick="editRecord('${rec.id}')">`;
-    columns.forEach((col, i) => {
-      const raw = rec[col.key];
-      let val = col.render ? col.render(raw) : (raw ?? '—');
-      if (i === 0 && isChild) val = `<span class="zone-child-indent" style="margin-left:${(depth - 1) * 14}px">↳</span>${val}`;
-      if (i === 0 && hasKids) {
-        val = `<span class="zone-collapse-toggle" title="${collapsed ? 'Expand' : 'Collapse'} rooms" onclick="event.stopPropagation();toggleBuildingCollapse('${rec.id}')">${collapsed ? '+' : '−'}</span>${val}`;
-      }
-      row += `<td>${val}</td>`;
-    });
-    if (hasStagedRows) row += `<td>${stagingBadge(rec._stagingStatus)}</td>`;
-    row += `<td style="white-space:nowrap">
-      <button class="action-btn" onclick="event.stopPropagation();editRecord('${rec.id}')">Edit</button>
-      <button class="action-btn" style="margin-left:3px" onclick="event.stopPropagation();cloneZoneRow('${rec.id}')">Clone</button>
-      ${isPendingDelete ? '' : `<button class="action-btn danger" style="margin-left:3px" onclick="event.stopPropagation();deleteZoneRow('${rec.id}')">Delete</button>`}
-    </td>`;
-    row += '</tr>';
-    return row;
-  };
-
-  const seen = new Set();
-  const renderTree = (rec, depth) => {
-    if (seen.has(rec.id)) return ''; // guard against parent_zone cycles
-    seen.add(rec.id);
-    const kids = childrenByParent.get(rec.id);
-    const hasKids = !!(kids && kids.length);
-    const collapsed = collapsedBuildings.has(rec.id);
-    let out = renderRow(rec, depth, hasKids, collapsed);
-    if (hasKids && !collapsed) {
-      kids.sort((a, b) => String(a.name).localeCompare(String(b.name)));
-      for (const kid of kids) out += renderTree(kid, depth + 1);
-    }
-    return out;
-  };
-
-  for (const rec of topLevel) html += renderTree(rec, 0);
-  html += '</tbody></table>';
+  const orphans = records.filter(z => isInterior(z) && !claimed.has(z.id)).sort(byName);
+  if (orphans.length) {
+    html += catchAllBand('__orphan_rooms__', 'Unattached rooms', orphans.length,
+      orphans.map(z => interiorRow(z, 28)).join(''));
+  }
   panel.innerHTML = html;
+
+  // Restore expanded sections from the session's toggle state.
+  for (const zid of _zonesExpanded) {
+    const header = panel.querySelector(`[data-zone-id="${zid}"]`);
+    const children = header && header.nextElementSibling;
+    if (children && children.classList.contains('z-children')) {
+      children.style.display = 'block';
+      const arrow = header.querySelector('.z-arrow');
+      if (arrow) arrow.textContent = '▾';
+    }
+  }
+}
+
+function zToggle(header) {
+  const children = header.nextElementSibling;
+  if (!children || !children.classList.contains('z-children')) return;
+  const arrow = header.querySelector('.z-arrow');
+  const open = children.style.display !== 'none';
+  children.style.display = open ? 'none' : 'block';
+  if (arrow) arrow.textContent = open ? '▸' : '▾';
+  const zid = header.dataset.zoneId;
+  if (zid) { if (open) _zonesExpanded.delete(zid); else _zonesExpanded.add(zid); }
+}
+
+// Search: flat matches by name / id / description, furniture-panel style.
+function filterZones(q) {
+  if (!q) { renderZonesTable(allRecords); return; }
+  const panel = document.getElementById('list-panel');
+  const matches = allRecords.filter(z =>
+    String(z.name || '').toLowerCase().includes(q) ||
+    String(z.id || '').toLowerCase().includes(q) ||
+    String(z.description || '').toLowerCase().includes(q)
+  ).sort((a, b) => String(a.name || a.id).localeCompare(String(b.name || b.id)));
+  if (!matches.length) { panel.innerHTML = '<div style="padding:24px;color:var(--text-dim)">No zones matching search.</div>'; return; }
+  panel.innerHTML = matches.map(z => `<div style="display:flex;align-items:center;gap:8px;padding:5px 12px;border-bottom:1px solid var(--border);background:var(--bg1);cursor:pointer" onclick="editRecord('${z.id}')">
+    <div style="flex:1;min-width:0">
+      <span style="color:var(--text-bright)">${z.name || z.id}</span>
+      <span style="font-size:10px;color:var(--text-dim);margin-left:8px">${z.id}</span>
+    </div>
+    <button class="action-btn" style="font-size:10px;padding:2px 8px" onclick="event.stopPropagation();editRecord('${z.id}')">Edit</button>
+  </div>`).join('');
 }
 
 async function deleteZoneRow(id) {

@@ -59,23 +59,8 @@ function renderTable(columns, records, noEdit = false) {
   panel.innerHTML = html;
 }
 
-// Zones-specific renderer: any zone flagged is_apartment is treated as a
-// unit belonging to whatever zone its (single) exit leads back to — that's
-// how apiBuildApartmentBlock wires units to their lobby, and how the
-// hand-seeded apartment zones are wired too. Units are listed immediately
-// under their parent building instead of the flat alphabetical/sorted list,
-// and excluded from the top-level rows so they don't appear twice. A unit
-// whose parent isn't in the current zone list (orphaned) just falls back
-// to a normal top-level row, sorted in as usual.
-// Tracks which buildings are collapsed in the Zones list (id -> true).
-// Module-level so it survives re-renders (sorting, refreshing after an
-// edit) within the session; not persisted across page loads.
-const collapsedBuildings = new Set();
-function toggleBuildingCollapse(id) {
-  if (collapsedBuildings.has(id)) collapsedBuildings.delete(id);
-  else collapsedBuildings.add(id);
-  renderZonesTable(allRecords);
-}
+// The Zones list is a furniture-panel-style accordion (see renderZonesTable in
+// panels/zones.js), which owns its own expand/collapse state.
 
 const collapsedItemTypes = new Set();
 function toggleItemTypeCollapse(type) {

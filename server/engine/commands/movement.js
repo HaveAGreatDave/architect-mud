@@ -484,24 +484,28 @@ function cmdUnfollow(player, broadcast) {
 
 const MAP_DIR_OFFSET = { north:[0,-1], south:[0,1], east:[1,0], west:[-1,0] };
 
-// Coarse land-use / function category for a zone, derived from its id + danger.
-// Drives the default "function" colouring of the full-screen map.
+// Coarse land-use / function category for a zone, derived from its id prefix
+// (zone_<cat>_<name>). Mirrors scripts/landuse-zone-colors.js and the client
+// FUNC_LEGEND in minimap.js — keep the three in sync. Drives the "function"
+// colouring of the full-screen map.
+const MAP_FUNC_PREFIX = {
+  bay: 'water', dock: 'docks', nc: 'northcity', up: 'northcity', gov: 'government',
+  civ: 'civic', city: 'civic', clone: 'civic', start: 'civic', threshold: 'civic', thresholdeast: 'civic',
+  apt: 'residential', meridian: 'residential', embassy: 'residential', residential: 'residential',
+  drum: 'commercial', velk: 'commercial', weapons: 'commercial', furniture: 'commercial',
+  mq: 'nightlife',
+  media: 'media', prod: 'media', studio: 'media', util: 'media', ext: 'media',
+  coldwater: 'industrial', powerplantnew: 'industrial', warehouse: 'industrial',
+  slag: 'slaglands',
+  waste: 'wasteland', badland: 'wasteland', outskirts: 'wasteland', ruins: 'wasteland',
+  ashway: 'ashway',
+  deep: 'slum', slums: 'slum', tunnels: 'slum',
+};
 function mapFunc(z) {
-  const id = z.id || '';
-  const d = z.danger_rating;
-  if (/water|_bay|coldwater_bay/.test(id)) return 'water';
-  if (id === 'zone_up_aid' || id.includes('precinct') || id === 'zone_city_se') return 'civic';
-  if (id.startsWith('zone_up_') || id.startsWith('zone_spire') || id === 'zone_city_ne') return 'corporate';
-  if (id.startsWith('zone_deep_') || id === 'zone_slums' || id === 'zone_tunnels' || id === 'zone_city_sw') return 'slum';
-  if (/cherry|pigeon|_sump/.test(id)) return 'nightlife';
-  if (id.startsWith('zone_slag_') || id === 'zone_powerplantnew' || id === 'zone_coldwater_turbine_hall' || id === 'zone_warehouse' || id === 'zone_city_east') return 'industrial';
-  if (id.startsWith('zone_ashway_') || id.startsWith('zone_badland_') || id === 'zone_ruins' || id === 'zone_deep_waste' || id === 'zone_outskirts') return 'wasteland';
-  if (/apt|residential|embassy|meridian_unit|meridian_floor|chrome_[123]0|chrome_f/.test(id)) return 'residential';
-  if (/studio|_prod_|zone_ext_/.test(id)) return 'media';
-  if (id.startsWith('zone_mq_') || id === 'zone_meridian' || id.startsWith('zone_velk') || id.startsWith('zone_drum') || id.startsWith('zone_weapons') || id.startsWith('zone_furniture') || id === 'zone_city_west' || id === 'zone_mq_marquee') return 'commercial';
-  if (id.startsWith('zone_city_') || id.startsWith('zone_threshold') || id === 'zone_threshold') return 'civic';
-  if (d === 'lethal') return 'hazard';
-  return 'other';
+  const p = (z.id || '').match(/^zone_([a-z0-9]+)/)?.[1] || '';
+  if (MAP_FUNC_PREFIX[p]) return MAP_FUNC_PREFIX[p];
+  if (z.danger_rating === 'lethal') return 'hazard';
+  return 'residential'; // non-grey urban default for any unknown prefix
 }
 
 const MAP_WINDOW_HALF = 5; // 11×11 window: dx,dy ∈ −5..+5
