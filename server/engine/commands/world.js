@@ -93,12 +93,11 @@ async function cmdSkills(player) {
 }
 
 const BODY_SLOTS = ['head','torso','hands','legs','feet'];
-// Returns name lowercased, preceded by "a"/"an" unless the last word is plural (ends in s, not ss).
+// Returns name (verbatim casing) preceded by "a"/"an" unless the last word is plural (ends in s, not ss).
 function withArticle(name) {
-  const n = name.toLowerCase();
-  const lastWord = n.trim().split(/\s+/).pop();
-  if (/s$/i.test(lastWord) && !/ss$/i.test(lastWord)) return n;
-  return (/^[aeiou]/.test(n) ? 'an ' : 'a ') + n;
+  const lastWord = name.trim().split(/\s+/).pop();
+  if (/s$/i.test(lastWord) && !/ss$/i.test(lastWord)) return name;
+  return (/^[aeiou]/i.test(name) ? 'an ' : 'a ') + name;
 }
 
 const STAIN_DESCS = {
@@ -855,20 +854,12 @@ async function cmdRaise(args, player) {
 
 export const handlers = {
   examine:  (args, raw, player, broadcast) => cmdExamine(args.join(' '), player, broadcast),
-  ex:       (args, raw, player, broadcast) => cmdExamine(args.join(' '), player, broadcast),
-  x:        (args, raw, player, broadcast) => cmdExamine(args.join(' '), player, broadcast),
   stats:    (args, raw, player) => cmdStats(player),
-  status:   (args, raw, player) => cmdStats(player),
-  st:       (args, raw, player) => cmdStats(player),
   skills:   (args, raw, player) => cmdSkills(player),
   help:     (args, raw, player) => cmdHelp(player),
-  '?':      (args, raw, player) => cmdHelp(player),
   corpses:  (args, raw, player) => cmdCorpses(player),
   teleport: (args, raw, player, broadcast) => cmdTeleport(args.join(' '), player, broadcast),
-  tp:       (args, raw, player, broadcast) => cmdTeleport(args.join(' '), player, broadcast),
   raise:    (args, raw, player) => cmdRaise(args, player),
-  ip:       (args, raw, player) => cmdRaise([], player),
-  xp:       (args, raw, player) => cmdRaise([], player),
   spawn:    (args, raw, player, broadcast) => cmdSpawn(args, player, broadcast),
   spawnenemy: (args, raw, player, broadcast) => cmdSpawnEnemy(args, player, broadcast),
 };

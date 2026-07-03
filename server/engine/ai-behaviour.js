@@ -174,6 +174,10 @@ export function moveEntity(entity, newZoneId, broadcast, query) {
 
   // ── Door handling ────────────────────────────────────────────────────────────
   let doorWasClosed = false;
+  // Set once the home-lock or shop lock/unlock steps below have taken charge of
+  // the door, so the generic "close behind them" step doesn't then clobber a
+  // shop the NPC just opened for business or double-announce a home they secured.
+  let doorHandled = false;
   if (departDir) {
     const door = getDoorForExit(oldZoneId, departDir, newZoneId)
               || getDoorForExit(newZoneId, OPPOSITE_DIR[departDir], oldZoneId)
@@ -243,6 +247,7 @@ export function moveEntity(entity, newZoneId, broadcast, query) {
       setDoorCache(homeDoor.id, homeDoor);
       if (query) query("UPDATE doors SET is_open=0, lock_state='locked' WHERE id=$1", [homeDoor.id]).catch(() => {});
       broadcast(newZoneId, { type: 'zone_event', message: `The lock clicks as ${entity.name} secures the door.`, refresh: true });
+      doorHandled = true;
     }
   }
 
@@ -263,6 +268,7 @@ export function moveEntity(entity, newZoneId, broadcast, query) {
           if (query) query('UPDATE doors SET lock_state=NULL WHERE id=$1', [shopDoor.id]).catch(() => {});
           broadcast(newZoneId, { type: 'zone_event', message: `${entity.name} unlocks the shop and opens up for business.` });
           broadcast(oldZoneId, { type: 'zone_event', message: `${entity.name} unlocks the shop.` });
+          doorHandled = true;   // leave it open for business — don't close behind them
         } else if (leavingWork && shopDoor.lock_state !== 'locked') {
           shopDoor.is_open = 0;
           shopDoor.lock_state = 'locked';
@@ -270,13 +276,16 @@ export function moveEntity(entity, newZoneId, broadcast, query) {
           if (query) query("UPDATE doors SET is_open=0, lock_state='locked' WHERE id=$1", [shopDoor.id]).catch(() => {});
           broadcast(oldZoneId, { type: 'zone_event', message: `${entity.name} pulls the shop door shut and locks it on the way out.`, refresh: true });
           broadcast(newZoneId, { type: 'zone_event', message: `${entity.name} locks up the shop.`, refresh: true });
+          doorHandled = true;
         }
       }
     }
   }
 
-  // Close the door behind them
-  if (doorWasClosed) {
+  // Close the door behind them — but only a plain transit door. If the home-lock
+  // or shop steps already took charge (secured home / opened shop / locked shop
+  // up), leave their result alone.
+  if (doorWasClosed && !doorHandled) {
     const door = getDoorForExit(oldZoneId, departDir)
               || getDoorForExit(newZoneId, OPPOSITE_DIR[departDir]);
     if (door) {
@@ -1056,7 +1065,7 @@ async function execAction(node, entity, ctx) {
               `SELECT name FROM furniture WHERE zone_id=$1 LIMIT 20`, [zoneId]
             );
             const bedFurn = furnRows.find(f => BED_WORDS.test(f.name));
-            if (bedFurn) sleepOn = `the ${bedFurn.name.toLowerCase()}`;
+            if (bedFurn) sleepOn = `the ${bedFurn.name}`;
           } catch (_) {}
           ai.homeSleeping = true;
           ai.waitUntil = wakeMs;

@@ -133,10 +133,8 @@ function showItemDetail(item) {
     document.body.appendChild(overlay);
   }
 
-  // Header badges: quality, instance flags, equipped state.
+  // Header badges: instance flags, equipped state.
   const badges = [];
-  // 'common' is the baseline crafting tier — only badge the notable qualities.
-  if (item.custom_data?.quality && item.custom_data.quality !== 'common') badges.push(`<span class="idp-badge quality">${escapeHtml(item.custom_data.quality)}</span>`);
   for (const f of ['broken', 'cursed']) {
     if (item.custom_data && item.custom_data[f]) badges.push(`<span class="idp-badge flag">${f}</span>`);
   }

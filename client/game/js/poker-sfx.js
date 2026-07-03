@@ -7,15 +7,18 @@
 // Per-note length is controlled by adsr (s:0 = percussive, s>0 = sustained ring);
 // `delay` staggers layers to sequence riffles, clinks, and melody notes.
 
-// Riffle of filtered-noise clicks — cards shuffling.
+// A slower, softer riffle — cards shuffling. Looped on a longer interval (see
+// game-table.js _startShuffleLoop), so grains are spaced and filtered gentler
+// than a one-shot sting: fewer sharp transients, more overlap between them so
+// it reads as one continuous swish instead of a repeating click train.
 const SHUFFLE = {
   id: 'poker-shuffle', name: 'poker shuffle', category: 'sfx', priority: 6,
   config: {
-    duration: 0.45,
-    layers: Array.from({ length: 11 }, (_, i) => ({
-      waveform: 'noise', delay: i * 0.038,
-      filter: { type: 'highpass', freq: 2400, q: 0.6 },
-      adsr: { a: 0.001, d: 0.022, s: 0, r: 0.012 }, gain: 0.2,
+    duration: 1.4,
+    layers: Array.from({ length: 14 }, (_, i) => ({
+      waveform: 'noise', delay: i * 0.09,
+      filter: { type: 'bandpass', freq: 1700, q: 1 },
+      adsr: { a: 0.015, d: 0.1, s: 0, r: 0.09 }, gain: 0.14,
     })),
   },
 };

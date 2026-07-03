@@ -275,13 +275,31 @@ icon, and left-border accent — so mid-edit you always know which VINE you're i
 colors match the VINE Suite badges. A schema without a `vineIdentity` falls back to the
 plain `VINE — Visual Interaction Node Editor` brand.
 
+The four "family" editors (quest/dialogue/AI/script — the ones with a Suite front-page
+card) use theme-adjustable CSS vars instead of fixed hex, so the color scheme follows
+whatever theme the dev panel is set to:
+
 | Schema | kind | colour |
 |---|---|---|
-| Dialogue | `dialogue` | `#4477aa` |
-| AI behaviour | `behaviour` | `#886622` |
-| Script | `script` | `#4455aa` |
-| Broadcast | `broadcast` | `#226644` |
-| Quest | `quest` | `#a04488` |
+| Dialogue | `dialogue` | `var(--accent2)` |
+| AI behaviour | `behaviour` | `var(--accent3)` |
+| Script | `script` | `var(--cyan)` |
+| Quest | `quest` | `var(--accent)` |
+| Broadcast | `broadcast` | `#226644` (not part of the family suite — see below) |
+
+### Family tabs
+
+`vineModalOpen(title, schema, graphData, onSave, sibling, tabs)` takes an optional 6th
+`tabs` argument — an array of `{ label, icon, color, active, onClick }` rendered into
+`#vine-modal-tabs` (top-left of the header, via `_renderVineTabs` in `vine-core.js`).
+`vine-core.js` knows nothing about what a "family" is; it just renders whatever tab
+descriptors it's handed. `vine-suite.js` supplies the actual 4-family strip via
+`vineFamilyTabs(activeFamilyKey)` — always in the order Quest/Dialogue/AI/Scripts,
+each colored to its family, the active one inert. Clicking any other tab calls
+`vineGoToFamily(key)`: commits + closes the current editor (`vineModalSave()`), then
+navigates to the VINE Suite panel opened straight into that family's compact existing
+list. Every family opener (`npcOpenVine`, `npcOpenVineAI`, `enemyOpenVineAI`,
+`scriptsOpenVine`, `questsOpenVine`, and `vineJumpTo`) passes its own `vineFamilyTabs(...)`.
 
 ---
 
@@ -371,16 +389,34 @@ actions the VINE action picker lists.
 
 ## VINE Suite (`panels/vine-suite.js`)
 
-The `🌿 VINE Suite` nav panel is a cross-cutting **index**, not an editor. It lists
-every VINE graph in the game — dialogue, NPC/enemy behaviour, scripts, quests — grouped
-into colour-coded, searchable sections (name, id, node-count badge). It owns no editor,
-no storage, and no save path of its own: clicking an asset opens the record's **real
-per-panel editor**. A registry `VINE_KINDS` maps each kind → index fields
+The `🌿 VINE Suite` nav panel is a cross-cutting **index**, not an editor. It owns no
+editor, no storage, and no save path of its own: clicking an asset opens the record's
+**real per-panel editor**. A registry `VINE_KINDS` maps each kind → index fields
 (`label/icon/color/source/panel/opener/badge`) plus, for jump targets, cross-jump fields
 (`noun/schema/listRoute/toGraph/save[/createStub]`).
 
 Broadcasts are deliberately **not** in the index — the broadcast panel uses a custom
 selection flow and is edited from its own panel.
+
+### Front page
+
+Opening the panel lands on a front page of 4 large family cards, always in the same
+order — **VineQuest / VineDialogue / VineAI / VineScripts** — each colored to its
+family (`VINE_FAMILIES`, keyed `quest`/`dialogue`/`ai`/`script`; `ai` covers both the
+`aiNpc` and `aiEnemy` VINE_KINDS since NPC and enemy behaviour share one family). Each
+card has:
+
+- **+ New [...]** — jumps straight to the owning panel's blank record form
+  (`vsNewRecord(panel)` → `activatePanelNav` + `loadPanel` + `newRecord()`). VineAI
+  shows two: "+ New NPC" and "+ New Enemy".
+- **📂 Existing** — drills into `vsOpenExisting(familyKey)`, a compact flat list scoped
+  to that family's kind(s) (`vsRenderExisting`), sorted by node-count badge then name.
+  Rows carry a small kind tag ("NPC Behaviour" vs "Enemy Behaviour") when the family
+  spans more than one VINE_KINDS entry. A "← Back" button returns to the front page.
+
+`renderVineSuite(data)` resets to the front page on every normal panel load, unless
+`_vsPendingOpen` was set by `vineGoToFamily` (see below) — consumed once, to land
+directly on a given family's existing list instead.
 
 ### Navigator (`vineOpenAsset(kind, id)`)
 

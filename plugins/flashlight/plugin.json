@@ -1,0 +1,15 @@
+{
+  "name": "flashlight",
+  "version": "1.0.0",
+  "description": "Battery-powered handheld flashlight: LIGHT it to see in dark rooms, UNLIGHT to save the cell, RELOAD it with a fresh battery. A lit flashlight raises how brightly the holder perceives an otherwise dim/dark zone; the battery drains a minute at a time and dies when empty.",
+  "hooks": ["visibility.perceive"],
+  "actions": {
+    "tagGated": [
+      { "verb": "light", "requiredTag": "flashlight" },
+      { "verb": "unlight", "requiredTag": "flashlight" },
+      { "verb": "reload", "requiredTag": "flashlight" }
+    ]
+  },
+  "ticks": ["1m"],
+  "dataSchema": []
+}

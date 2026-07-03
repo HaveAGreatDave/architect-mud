@@ -1,11 +1,9 @@
 import { sendCmdSilent } from '../net.js';
 import { state } from '../state.js';
 import { openCircuitHack } from './circuithack.js';
+import { sfx } from './minigame-common.js';
 
 // ── Audio ─────────────────────────────────────────────────────────────────
-// Same self-owned-synth pattern as circuithack.js's sfx bus — silent if the
-// engine hasn't initialised.
-function sfx(def) { try { window.AudioEngine?.playSfx(def); } catch { /* no audio */ } }
 
 // MAINTENANCE EJECT — the hopper forced open, then a rapid metallic cascade
 // of chips clattering out (descending, irregularly-spaced clinks so it reads
@@ -57,6 +55,7 @@ export function updateAtmPanel(patch) {
   if (patch.credits != null) atmData.player.credits = patch.credits;
   if (patch.bank_credits != null) atmData.player.bank_credits = patch.bank_credits;
   if (patch.maintenanceUnlocked != null) atmData.maintenanceUnlocked = patch.maintenanceUnlocked;
+  if (patch.hasHackDevice != null) atmData.hasHackDevice = patch.hasHackDevice;
   renderAtmPanel();
 }
 
@@ -108,8 +107,9 @@ function renderAtmPanel() {
 }
 
 function renderHome(data) {
-  const { player, cashStock, maintenanceUnlocked } = data;
-  const canJack = cashStock > 0;
+  const { player, cashStock, maintenanceUnlocked, hasHackDevice } = data;
+  const canJack = cashStock > 0 && hasHackDevice;
+  const jackHint = !hasHackDevice ? 'needs hacking device' : (cashStock > 0 ? 'breach' : 'empty');
   const maintenanceItem = maintenanceUnlocked
     ? `<button class="atm-menu-item atm-menu-glow" data-nav="maintenance"><span class="atm-menu-key">⚙</span>MAINTENANCE<span class="atm-menu-hint">access unlocked</span></button>`
     : '';
@@ -126,7 +126,7 @@ function renderHome(data) {
       <button class="atm-menu-item" data-nav="deposit"><span class="atm-menu-key">▸</span>DEPOSIT<span class="atm-menu-hint">cash → bank</span></button>
       <button class="atm-menu-item" data-nav="withdraw"><span class="atm-menu-key">▸</span>WITHDRAW<span class="atm-menu-hint">bank → cash</span></button>
       <button class="atm-menu-item" data-nav="account"><span class="atm-menu-key">▸</span>ACCOUNT INFO<span class="atm-menu-hint">balances</span></button>
-      <button class="atm-menu-item atm-menu-danger" data-act="jack"${canJack ? '' : ' disabled'}><span class="atm-menu-key">⚡</span>JACK TERMINAL<span class="atm-menu-hint">${canJack ? 'breach' : 'empty'}</span></button>
+      <button class="atm-menu-item atm-menu-danger" data-act="jack"${canJack ? '' : ' disabled'}><span class="atm-menu-key">⚡</span>JACK TERMINAL<span class="atm-menu-hint">${jackHint}</span></button>
       ${maintenanceItem}
     </div>`;
 }
@@ -234,17 +234,16 @@ function doAction(act) {
     }
     if (field) field.value = Math.max(0, max);
   } else if (act === 'jack') {
-    // JACK → Circuit Breach minigame overlay. The minigame is cosmetic flavour;
-    // the server-side `jack` command is authoritative (runs the real hacking
-    // skillCheck and, on success, unlocks MAINTENANCE access — it never pays
-    // out directly). When the breach resolves we fire `jack` and the server
-    // decides the true outcome.
+    // JACK → Circuit Breach minigame overlay. There is no server-side skill
+    // roll anymore: winning the minigame IS the breach. The only server-side
+    // gate is carrying a hacking device (checked again at `jackresolve` in
+    // case the panel's client-side `canJack` gate is stale or bypassed).
     openCircuitHack({
       skill: atmData.hackingSkill ?? 4,
       difficulty: atmData.hackDifficulty ?? 6,
       atmName: atmData.name,
       accent: atmData.network.color || '#00ff88',
-      onResult: () => { sendCmdSilent('jack'); },
+      onResult: ({ won }) => { sendCmdSilent(`jackresolve ${atmData.atmId} ${won ? 1 : 0}`); },
     });
   } else if (act === 'drain') {
     screen = 'home';

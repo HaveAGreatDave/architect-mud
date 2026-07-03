@@ -34,6 +34,7 @@ import "./engine/graph.js";
 import { loadRecipes } from "./engine/crafting.js";
 import { loadDrugs } from "./engine/drugs.js";
 import { reloadCrimes } from "./engine/crimes.js";
+import { reloadAliases } from "./engine/commands/aliases.js";
 import { loadMutations } from "./engine/mutations.js";
 import { loadBanterLibrary } from "./engine/npc-banter.js";
 import {
@@ -934,7 +935,7 @@ async function handleDialogue(ws, session, msg) {
 						type: a.action,
 						actor: player,
 						params: a.params || {},
-						context: { broadcast },
+						context: { broadcast, npc },
 					});
 					if (result?.type === "grant" && result.granted) {
 						appendMessage += `\n\n<span class="item-grant">You receive: ${result.name}${result.quantity > 1 ? ` x${result.quantity}` : ""}.</span>`;
@@ -973,10 +974,13 @@ async function handleDialogue(ws, session, msg) {
 				type: a.action,
 				actor: player,
 				params: a.params || {},
-				context: { broadcast },
+				context: { broadcast, npc },
 			});
 			if (result?.type === "grant" && result.granted) {
 				appendMessage += `\n\n<span class="item-grant">You receive: ${result.name}${result.quantity > 1 ? ` x${result.quantity}` : ""}.</span>`;
+			} else if (result?.type === "dialogue_line" && result.text) {
+				// e.g. GOSSIP_TELL: surface a live rumour as the NPC's spoken reply.
+				appendMessage += `\n\n${result.text}`;
 			} else if (result?.type === "error") {
 				console.warn(`[dialogue] action ${a.action} failed: ${result.message}`);
 			}
@@ -1082,6 +1086,7 @@ async function boot() {
 	await loadRecipes();
 	await loadDrugs();
 	await reloadCrimes();
+	await reloadAliases();
 	await loadMutations();
 	await loadBanterLibrary();
 	await loadPlugins();

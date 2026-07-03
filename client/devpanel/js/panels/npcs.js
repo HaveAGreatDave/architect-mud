@@ -628,9 +628,9 @@ function _veEditorHtml(rec) {
 
 const _VS_DAYS = ['mon','tue','wed','thu','fri','sat','sun'];
 const _VS_DAY_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-const _vs = { cells: {}, dragging: false, dragValue: null };
+const _vs = { cells: {}, dragging: false, dragValue: null, readonly: false, original: null };
 
-function _vsInit(schedule) {
+function _vsFill(schedule) {
   _vs.cells = {};
   const sched = typeof schedule === 'object' ? schedule : JSON.parse(schedule || '{}');
   for (const [day, blocks] of Object.entries(sched)) {
@@ -639,6 +639,21 @@ function _vsInit(schedule) {
       for (let h = (b.from ?? 0); h < (b.to ?? 24); h++) _vs.cells[`${day}_${h}`] = true;
     }
   }
+}
+
+function _vsInit(schedule) {
+  _vs.readonly = false;
+  _vs.original = null;
+  _vsFill(schedule);
+}
+
+// Read-only grid fed by the broadcast schedule. `original` is the NPC's own
+// vendor_schedule, preserved untouched so a save on a broadcast NPC never
+// overwrites it with the derived broadcast hours.
+function _vsInitReadonly(schedule, original) {
+  _vs.readonly = true;
+  _vs.original = original ?? {};
+  _vsFill(schedule);
 }
 
 function _vsToSchedule() {
@@ -669,24 +684,26 @@ function _vsToggleCell(day, hour, value) {
 function _vsRender() {
   const wrap = document.getElementById('vendor-schedule-grid');
   if (!wrap) return;
+  const ro = _vs.readonly;
   const hourLabels = Array.from({length:24},(_,h) =>
     `<div class="vs-hour-label">${String(h).padStart(2,'0')}</div>`
   ).join('');
-  let html = `<div class="vs-grid"><div class="vs-corner"></div><div class="vs-header">${hourLabels}</div>`;
+  let html = `<div class="vs-grid${ro?' vs-readonly':''}"><div class="vs-corner"></div><div class="vs-header">${hourLabels}</div>`;
   for (let d = 0; d < _VS_DAYS.length; d++) {
     const day = _VS_DAYS[d];
     html += `<div class="vs-day-label">${_VS_DAY_LABELS[d]}</div>`;
     for (let h = 0; h < 24; h++) {
       const key = `${day}_${h}`;
-      html += `<div class="vs-cell${_vs.cells[key]?' vs-on':''}" data-vs="${key}"
-        onmousedown="event.preventDefault();_vsDragStart('${day}',${h})"
-        onmouseover="_vsDragOver('${day}',${h})"></div>`;
+      const handlers = ro ? '' :
+        `onmousedown="event.preventDefault();_vsDragStart('${day}',${h})" onmouseover="_vsDragOver('${day}',${h})"`;
+      html += `<div class="vs-cell${_vs.cells[key]?' vs-on':''}" data-vs="${key}" ${handlers}></div>`;
     }
   }
   wrap.innerHTML = html + '</div>';
 }
 
 function _vsDragStart(day, hour) {
+  if (_vs.readonly) return;
   _vs.dragging = true;
   _vs.dragValue = !_vs.cells[`${day}_${hour}`];
   _vsToggleCell(day, hour, _vs.dragValue);
@@ -704,14 +721,48 @@ async function openVendorZonePicker() {
   window.bigMapTileClick = async (zoneId) => {
     window.bigMapTileClick = origClick;
     if (typeof closeBigMap === 'function') closeBigMap();
-    document.getElementById('f-work-zone-id').value = zoneId;
-    const zones = await API('/zones').catch(() => []);
-    const zone = Array.isArray(zones) ? zones.find(z => z.id === zoneId) : null;
-    const nameEl = document.getElementById('f-work-zone-name');
-    if (nameEl) nameEl.textContent = zone?.name || zoneId;
-    await npcRefreshSafeStatus();
+    await pickWorkplaceForZone(zoneId);
   };
   if (typeof openBigMap === 'function') openBigMap('normal');
+}
+
+// A clicked map tile may be an outdoor/exterior zone — nobody works "outside",
+// so if the tile itself isn't a building, look inside its linked interior map
+// for building zones and make the dev pick one instead of setting it directly.
+async function pickWorkplaceForZone(zoneId) {
+  const zone = bigMapOverlayData?.zones?.get(zoneId);
+  if (zone?.flags?.is_building) {
+    await setWorkZone(zoneId, zone.name);
+    return;
+  }
+  const childMap = bigMapOverlayData?.children?.find(c => c.parent_zone_id === zoneId);
+  if (!childMap) {
+    toast(`${zone?.name || zoneId} is an exterior zone with no buildings — pick a building tile instead.`, true);
+    return;
+  }
+  const mapData = await API(`/maps/${childMap.id}`).catch(() => null);
+  const buildings = (mapData?.zones || []).filter(z => z.flags?.is_building);
+  if (!buildings.length) {
+    toast(`No buildings found inside ${zone?.name || zoneId} — add one via the Zone Editor (+ Add Room → Building).`, true);
+    return;
+  }
+  openModal(`Pick a building in ${zone?.name || zoneId}`, `
+    <div style="max-height:320px;overflow-y:auto">
+      ${buildings.map(b => `<button type="button" class="action-btn" style="width:100%;text-align:left;margin-bottom:6px" onclick='selectWorkplaceBuilding(${JSON.stringify(b.id)}, ${JSON.stringify(b.name)})'>${b.name}</button>`).join('')}
+    </div>
+  `);
+}
+
+async function selectWorkplaceBuilding(zoneId, zoneName) {
+  closeModal();
+  await setWorkZone(zoneId, zoneName);
+}
+
+async function setWorkZone(zoneId, zoneName) {
+  document.getElementById('f-work-zone-id').value = zoneId;
+  const nameEl = document.getElementById('f-work-zone-name');
+  if (nameEl) nameEl.textContent = zoneName || zoneId;
+  await npcRefreshSafeStatus();
 }
 
 async function npcRefreshSafeStatus() {
@@ -775,19 +826,26 @@ async function npcEditForm(rec, isNew) {
   const homeActivities = Array.isArray(rec.home_activities) ? rec.home_activities : JSON.parse(rec.home_activities||'[]');
   const npcType = rec.npc_type || 'npc';
   const isActor = !!rec.studio_zone_id;
-  const isScheduled = npcType !== 'unemployed' && !isActor;
   const vendorSchedule = typeof rec.vendor_schedule === 'object' ? rec.vendor_schedule : JSON.parse(rec.vendor_schedule||'{}');
   const workZoneId = rec.work_zone_id || '';
   const vendorBankCredits = rec.vendor_bank_credits || 0;
   const vendorShopName = rec.vendor_shop_name || '';
 
-  const [zones, allItems, persMeta] = await Promise.all([
+  const [zones, allItems, persMeta, bcast] = await Promise.all([
     API('/zones').catch(() => []),
     API('/items').catch(() => []),
     API('/npc-personalities').catch(() => []),
+    rec.id ? API(`/npcs/${rec.id}/broadcast-schedule`).catch(() => null) : Promise.resolve(null),
   ]);
+  // A broadcast NPC (a studio actor, or anyone staffed on a daily broadcast slot)
+  // has its work hours driven by the Broadcast panel, not vendor_schedule. Show
+  // that schedule read-only here instead of a blank, editable manual grid.
+  const isBroadcast = isActor || !!(bcast && bcast.staffed);
+  const isScheduled = npcType !== 'unemployed' && !isActor;
+  const showSchedule = isScheduled || isBroadcast;
   _veInit(rec, Array.isArray(allItems) ? allItems : []);
-  _vsInit(vendorSchedule);
+  if (isBroadcast) _vsInitReadonly(bcast?.schedule || {}, vendorSchedule);
+  else _vsInit(vendorSchedule);
   _nbInit(rec);
 
   // Single archetype registry (server-driven): each entry = job + personality.
@@ -855,11 +913,13 @@ async function npcEditForm(rec, isNew) {
         ${workZoneId ? `<span style="font-size:11px;color:var(--text-dim)">${workZoneId}</span>` : ''}
       </div>
     </div>
-    <div class="field" id="npc-schedule-section" ${isActor?'data-is-actor="1"':''} style="${isScheduled?'':'display:none'}">
-      <label>Work Schedule <span style="font-weight:400;color:var(--text-dim);font-size:11px">— click or drag to toggle hours; NPC commutes to the Work Zone above during scheduled blocks</span></label>
+    <div class="field" id="npc-schedule-section" ${isBroadcast?'data-is-actor="1"':''} style="${showSchedule?'':'display:none'}">
+      <label>Work Schedule <span style="font-weight:400;color:var(--text-dim);font-size:11px">— ${isBroadcast
+        ? 'read-only — fed by the Broadcast panel schedule; edit it there'
+        : 'click or drag to toggle hours; NPC commutes to the Work Zone above during scheduled blocks'}</span></label>
       <div id="vendor-schedule-grid" style="overflow-x:auto;margin-top:6px"></div>
     </div>
-    ${isActor ? `<div style="font-size:11px;color:var(--text-dim);margin:-6px 0 12px">This NPC follows a broadcast schedule (set in the Broadcast panel), not a manual work schedule.</div>` : ''}
+    ${isBroadcast ? `<div style="font-size:11px;color:var(--text-dim);margin:-6px 0 12px">This NPC follows a broadcast schedule (set in the Broadcast panel), not a manual work schedule. The grid above mirrors the daily broadcast slots it's staffed on${bcast && bcast.staffed ? '' : ' — currently none, so nothing is highlighted'}.</div>` : ''}
     <div class="field">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
         <label>Chitchat Lines <span style="font-weight:400;color:var(--text-dim);font-size:11px">— one per line, spoken at random during idle</span></label>
@@ -973,7 +1033,7 @@ async function saveNpc(existing) {
     vendor_restock_rate: parseInt(document.getElementById('f-vendor_restock_rate')?.value) || 1,
     behaviour_graph,
     flags,
-    vendor_schedule: _vsToSchedule(),
+    vendor_schedule: _vs.readonly ? (_vs.original || {}) : _vsToSchedule(),
     vendor_shop_name: document.getElementById('f-vendor_shop_name')?.value || null,
     home_activities,
     work_zone_id: document.getElementById('f-work-zone-id')?.value || null,
@@ -997,7 +1057,8 @@ function npcOpenVine() {
       document.getElementById('f-dialogue_tree').value = JSON.stringify(treeOut, null, 2);
       toast('Dialogue saved to form — click Save to persist.');
     },
-    { label: '🧠 AI Behaviour ▸', title: "Commit and open this NPC's AI behaviour graph", onClick: () => npcJumpToSibling('ai') }
+    { label: '🧠 AI Behaviour ▸', title: "Commit and open this NPC's AI behaviour graph", onClick: () => npcJumpToSibling('ai') },
+    vineFamilyTabs('dialogue')
   );
 }
 
@@ -1023,7 +1084,8 @@ function npcOpenVineAI() {
       document.getElementById('f-behaviour_graph').value = JSON.stringify(out, null, 2);
       toast('Behaviour graph saved to form — click Save to persist.');
     },
-    { label: '💬 Dialogue ▸', title: "Commit and open this NPC's dialogue graph", onClick: () => npcJumpToSibling('dialogue') }
+    { label: '💬 Dialogue ▸', title: "Commit and open this NPC's dialogue graph", onClick: () => npcJumpToSibling('dialogue') },
+    vineFamilyTabs('ai')
   );
 }
 

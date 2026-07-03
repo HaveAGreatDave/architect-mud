@@ -49,7 +49,9 @@ function scriptsOpenVine() {
       _scriptGraph = VineScriptSchema.toScriptGraph(savedGraph);
       renderScriptEditor();
       toast('Script graph saved — click Save to persist.');
-    }
+    },
+    null,
+    vineFamilyTabs('script')
   );
 }
 

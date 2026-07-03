@@ -260,6 +260,44 @@ registerAction({
   handler: ({ actor, params, context }) => speakGossip(actor, params.target, context.broadcast),
 });
 
+// Dialogue hook: a "gossip"/"any news?" option on a chatty NPC (barkeeps, etc.)
+// dispatches this to surface one *live* pool rumour instead of canned text. The
+// dialogue handler appends the returned `dialogue_line` to the node's panel text.
+// Panel-only — a quiet word across the bar, not a zone-wide performance.
+//
+// Per-(player, NPC) cooldown: once an NPC gives up the word, they've got nothing
+// new for a while and say so. In-memory (resets on restart) — a cooldown this
+// short doesn't warrant a persisted Flag.
+const GOSSIP_TELL_COOLDOWN_MS = 90_000;
+const tellCooldowns = new Map();  // `${playerId}:${npcId}` -> expiry ts
+
+const DRY_LINES = [
+  `"That's all I've got right now. Check back later."`,
+  `"Nothing new since you asked. Give it a bit."`,
+  `"I've said my piece. Come back when the wind changes."`,
+  `"Wire's quiet on my end. Ask me again later."`,
+  `"You've had everything I know. For now."`,
+  `"Slow news hour. Try me again in a while."`,
+];
+const pickDry = () => DRY_LINES[Math.floor(Math.random() * DRY_LINES.length)];
+
+registerAction({
+  type: 'GOSSIP_TELL',
+  handler: ({ actor, context }) => {
+    const npcId = context?.npc?.id;
+    const key = `${actor?.id}:${npcId}`;
+    const now = Date.now();
+    if (npcId && now < (tellCooldowns.get(key) || 0)) {
+      return { type: 'dialogue_line', text: pickDry() };
+    }
+    const [item] = pool.recall(actor?.current_zone, { n: 1, distanceFn: hopDistance });
+    const line = item && spokenLine(item);
+    if (!line) return { type: 'dialogue_line', text: `"Quiet, for once. Nothing worth passing on."` };
+    if (npcId) tellCooldowns.set(key, now + GOSSIP_TELL_COOLDOWN_MS);
+    return { type: 'dialogue_line', text: line };
+  },
+});
+
 registerInputMatcher(/^ask\s+.+\s+about\s+(?:gossip|rumou?rs?|news|word)\s*$/i, cmdAskAbout, 'gossip');
 
 // ── Tick: gc + blackout news + passphrase seed + ambient gossip ────────────────
@@ -330,6 +368,20 @@ export const routeHandler = async (path, method, body, auth) => {
     const parts = path.split('/').filter(Boolean);  // ['gossip', id?]
     if (parts.length === 1) { const cleared = pool.size(); pool.clear(); return { status: 200, body: { ok: true, cleared } }; }
     return { status: 200, body: { ok: pool.remove(decodeURIComponent(parts[1])) } };
+  }
+
+  // Spread a rumour as a chosen NPC — a dev-side `spread`, planted into the pool
+  // at that NPC's zone (so it recalls locally there) and attributed to their name.
+  if (method === 'POST' && path === '/gossip') {
+    const npcId = String(body?.npcId || '').trim();
+    const text  = String(body?.text || '').trim();
+    if (!npcId) return { status: 400, body: { error: 'Pick an NPC to spread the rumour.' } };
+    if (!text)  return { status: 400, body: { error: 'Enter what the NPC should spread.' } };
+    if (text.length > 200) return { status: 400, body: { error: 'Keep it short — under 200 characters.' } };
+    const npc = world.npcs.get(npcId);
+    if (!npc) return { status: 404, body: { error: 'NPC not found.' } };
+    const item = pool.plant({ text, zoneId: npc.zone_id, truth: 0.9, subjectName: npc.name });
+    return { status: 200, body: { ok: true, id: item?.id } };
   }
 
   if (path === '/gossip' && method === 'GET') {

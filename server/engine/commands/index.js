@@ -11,6 +11,7 @@ import { getSelectionState, advanceSelectionState, formatSelectionPage } from '.
 import { getLivePlayer } from '../world.js';
 import { emit } from '../events.js';
 import { setPosture } from '../posture.js';
+import { getAlias } from './aliases.js';
 
 export { describeZone, describeVoidTeleport } from './describe.js';
 export { recomputeArmor, recomputeInsulation, EQUIP_SLOTS } from './inventory.js';
@@ -64,12 +65,16 @@ async function cmdStopAll(args, raw, player, broadcast) {
 builtins.set('stop', cmdStopAll);
 builtins.set('disengage', cmdStopAll);
 
+// Final fallback once every plugin's `hack` target (vendor safes, hackable
+// door locks, …) has had a chance to claim the verb and passed.
+builtins.set('hack', () => ({ type: 'error', message: "There's nothing worth hacking here." }));
+
 // Engine verb names, exposed so the plugin loader can report which builtins
 // are shadowed by plugin-registered verbs (dispatch order makes those dead).
 export function builtinCommandNames() { return [...builtins.keys()]; }
 
 export async function handleCommand(input, player, broadcast) {
-  const raw = input.trim();
+  let raw = input.trim();
   if (!raw) return null;
 
   // SIFT selection-state intercept — runs before all routing.
@@ -107,10 +112,14 @@ export async function handleCommand(input, player, broadcast) {
   }
 
   const parts = raw.toLowerCase().split(/\s+/);
-  const cmd = parts[0];
+  const cmd = getAlias(parts[0]) ?? parts[0];
   const args = parts.slice(1);
+  // Rebuild raw with the canonical verb so handlers that re-parse it see the real
+  // command, not the alias. No-op when no alias applied.
+  if (cmd !== parts[0]) raw = [cmd, ...raw.trim().split(/\s+/).slice(1)].join(' ');
 
-  if (player.sleeping && cmd !== 'sleep' && cmd !== 'rest') {
+  // `cmd` is already alias-resolved above, so `rest` has become `sleep` here.
+  if (player.sleeping && cmd !== 'sleep') {
     const wasHome = player.sleeping.reason === 'home';
     player.sleeping = null;
     setPosture(player, 'standing');

@@ -356,6 +356,48 @@ const DEFAULTS = {
     ],
   },
 
+  police: {
+    label: 'Police', icon: '👮', sells: false, mobile: false, npcType: 'npc',
+    chitchat: [
+      "Move along. Nothing here the department cares about.",
+      "You didn't see anything. Neither did I.",
+      "Permit for that? Didn't think so.",
+      "I'd run you in, but the cells are full and the paperwork's worse.",
+      "Crime's down. We stopped writing it up.",
+      "Badge still means something. Not much, but something.",
+      "You look guilty. Everyone looks guilty. It's the lighting.",
+      "Report it if you want. The form's forty pages.",
+      "Protect and serve. Mostly serve myself. Still counts.",
+      "Keep it civil and we both clock out in one piece.",
+    ],
+    combat_lines: [
+      'ASSAULTING AN OFFICER. Bold.',
+      'That\'s a felony. Add it to the pile.',
+      'You just made my night interesting.',
+      'STAY DOWN.',
+      'I called it in. They\'re not coming, but I called it in.',
+      'Resisting. Noted.',
+      'Wrong badge to swing at.',
+      'This goes in the report I\'ll never file.',
+      'You want to do this? Fine. We do this.',
+      'HANDS WHERE I CAN SEE THEM.',
+    ],
+    mis_willing: false,
+    mis_attack: true,
+    mis_lines_ok: [
+      'Off the clock. This never happened.',
+      'Make it quick, I\'m on my break.',
+      'Discretion costs extra.',
+      'Badge goes in the drawer for this one.',
+    ],
+    mis_lines_no: [
+      'That\'s a citation waiting to happen.',
+      'I\'m an officer of whatever this city has left. No.',
+      'Hands to yourself, or I keep them for you.',
+      'ABSOLUTELY NOT. Walk away.',
+    ],
+  },
+
   thug: {
     label: 'Thug', icon: '🔪', sells: false, mobile: false, npcType: 'npc',
     chitchat: [

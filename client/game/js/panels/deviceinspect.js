@@ -243,11 +243,18 @@ function generatorSvg(msg) {
   const load = loadPct(msg);
   const amp = 0.30 + (load == null ? 0.4 : load / 100) * 0.16;
   const wave = (p) => {
-    const n = 22, pts = [];
+    const n = 96, pts = [];
     for (let i = 0; i <= n; i++) {
-      const x = (i / n) * sW;
-      const y = sMid - Math.sin(i * 0.85 + p) * (sH * amp) - Math.sin(i * 2.4 + p * 1.7) * (sH * 0.14) - Math.sin(i * 5.1 + p * 0.5) * (sH * 0.05);
-      pts.push(`${x.toFixed(0)},${Math.max(4, Math.min(sH - 4, y)).toFixed(0)}`);
+      const t = i / n;
+      const x = t * sW;
+      const k = t * 22;   // preserve the base waveform; extra harmonics add fine grain
+      const y = sMid
+        - Math.sin(k * 0.85 + p) * (sH * amp)
+        - Math.sin(k * 2.4 + p * 1.7) * (sH * 0.14)
+        - Math.sin(k * 5.1 + p * 0.5) * (sH * 0.05)
+        - Math.sin(k * 11.3 + p * 2.2) * (sH * 0.03)
+        - Math.sin(k * 23.7 + p * 0.9) * (sH * 0.018);
+      pts.push(`${x.toFixed(1)},${Math.max(4, Math.min(sH - 4, y)).toFixed(1)}`);
     }
     return pts.join(' ');
   };
@@ -276,17 +283,24 @@ function generatorSvg(msg) {
       <pattern id="di-scopegrid" width="22" height="17.3" patternUnits="userSpaceOnUse"><path d="M22,0 H0 V17.3" fill="none" stroke="#0e2a28" stroke-width="1"/></pattern>
       <radialGradient id="di-core" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#8ffbec"/><stop offset="45%" stop-color="#23e0c8"/><stop offset="100%" stop-color="#0b3f39"/></radialGradient>
       <radialGradient id="di-glow" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#37f5db" stop-opacity="0.5"/><stop offset="100%" stop-color="#37f5db" stop-opacity="0"/></radialGradient>
-      <linearGradient id="di-metal" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#20272d"/><stop offset="100%" stop-color="#0d1013"/></linearGradient>
+      <linearGradient id="di-metal" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#2b343b"/><stop offset="6%" stop-color="#20272d"/><stop offset="55%" stop-color="#151a1e"/><stop offset="100%" stop-color="#0d1013"/></linearGradient>
       <filter id="di-soft"><feGaussianBlur stdDeviation="2.4"/></filter>
+      <!-- Phosphor text-glow + CRT glass/scanline/vignette layers, matched to the ATM. -->
+      <filter id="di-textglow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="0.8" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      <linearGradient id="di-sheen" x1="0" y1="0" x2="1" y2="1"><stop offset="38%" stop-color="#dfffef" stop-opacity="0"/><stop offset="47%" stop-color="#dfffef" stop-opacity="0.12"/><stop offset="54%" stop-color="#dfffef" stop-opacity="0.03"/><stop offset="63%" stop-color="#dfffef" stop-opacity="0"/></linearGradient>
+      <radialGradient id="di-vignette" cx="50%" cy="42%" r="62%"><stop offset="58%" stop-color="#000" stop-opacity="0"/><stop offset="100%" stop-color="#000" stop-opacity="0.5"/></radialGradient>
+      <pattern id="di-scanlines" width="3" height="3" patternUnits="userSpaceOnUse"><rect width="3" height="1" y="2" fill="#000" opacity="0.18"/></pattern>
+      <linearGradient id="di-toplight" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#ffffff" stop-opacity="0.12"/><stop offset="100%" stop-color="#ffffff" stop-opacity="0"/></linearGradient>
     </defs>
 
     <!-- cabinet shell -->
     <rect x="4" y="4" width="712" height="462" rx="7" fill="url(#di-metal)" stroke="#3a464e" stroke-width="2"/>
+    <rect x="7" y="7" width="706" height="16" rx="6" fill="url(#di-toplight)"/>
     <rect x="12" y="12" width="696" height="446" rx="4" fill="none" stroke="#000" stroke-width="1" opacity="0.5"/>
     <ellipse cx="160" cy="430" rx="130" ry="30" fill="#000" opacity="0.28"/>
     <rect x="16" y="16" width="688" height="20" fill="url(#di-haz)" opacity="0.9"/>
     <rect x="16" y="40" width="688" height="30" fill="#12171b" stroke="#2b353c"/>
-    <text x="28" y="61" fill="${dead ? '#ff4a5b' : '#37f5db'}" font-size="17" letter-spacing="2" font-weight="bold">${esc(msg.name).toUpperCase()}</text>
+    <text x="28" y="61" fill="${dead ? '#ff4a5b' : '#37f5db'}" font-size="17" letter-spacing="2" font-weight="bold" filter="url(#di-textglow)">${esc(msg.name).toUpperCase()}</text>
     <text x="690" y="60" fill="#6f8792" font-size="11" text-anchor="end">CLASS: CITY_PLANT</text>
     ${bolt(24, 84)}${bolt(696, 84)}${bolt(24, 448)}${bolt(696, 448)}
 
@@ -310,7 +324,7 @@ function generatorSvg(msg) {
       <rect x="0" y="0" width="404" height="20" fill="#161d22"/><text x="10" y="14" fill="#37f5db" font-size="11" letter-spacing="2">◢ TELEMETRY</text>
       <g fill="#8fb0bb"><text x="14" y="46">OUTPUT</text><text x="14" y="70">CAPACITY</text><text x="14" y="94">CORE TEMP</text><text x="14" y="118">LOAD</text></g>
       <g font-weight="bold" text-anchor="end">
-        <text x="192" y="46" fill="${offline ? '#5c6f79' : '#37f5db'}" ${offline ? '' : 'class="di-flick"'}>${offline ? '0 kW' : kw(msg.outputKw)}</text>
+        <text x="192" y="46" fill="${offline ? '#5c6f79' : '#37f5db'}" ${offline ? '' : 'class="di-flick" filter="url(#di-textglow)"'}>${offline ? '0 kW' : kw(msg.outputKw)}</text>
         <text x="192" y="70" fill="#e8f6f3">${kw(msg.capacityKw)}</text>
         <text x="192" y="94" fill="${dead ? '#5c6f79' : '#ffb23e'}">${temp}</text>
         <text x="192" y="118" fill="${loadColor}">${load == null ? '—' : load + '%'}</text>
@@ -320,6 +334,9 @@ function generatorSvg(msg) {
         <rect x="0" y="0" width="${sW}" height="${sH}" fill="url(#di-scopegrid)" opacity="0.6"/>
         <line x1="0" y1="${sMid}" x2="${sW}" y2="${sMid}" stroke="#1d4a48" stroke-width="1" opacity="0.5"/>
         ${scope}
+        <rect x="0" y="0" width="${sW}" height="${sH}" fill="url(#di-scanlines)"/>
+        <rect x="0" y="0" width="${sW}" height="${sH}" fill="url(#di-sheen)"/>
+        <rect x="0" y="0" width="${sW}" height="${sH}" fill="url(#di-vignette)"/>
         <text x="4" y="12" fill="#2f6f68" font-size="8" letter-spacing="1">OUTPUT WAVE</text>
       </g>
     </g>
@@ -405,14 +422,18 @@ function junctionSvg(msg) {
   const load = loadPct(msg);
   const amp = 0.30 + (load == null ? 0.4 : load / 100) * 0.16;     // busier line under heavier load
   const buildWave = (phase) => {
-    const n = 22, pts = [];
+    const n = 120, pts = [];
     for (let i = 0; i <= n; i++) {
-      const x = (i / n) * scopeW;
+      const t = i / n;
+      const x = t * scopeW;
+      const k = t * 22;   // preserve the base waveform; extra harmonics add fine grain
       const y = midY
-        - Math.sin(i * 0.85 + phase) * (scopeH * amp)
-        - Math.sin(i * 2.4 + phase * 1.7) * (scopeH * 0.14)
-        - Math.sin(i * 5.1 + phase * 0.5) * (scopeH * 0.05);
-      pts.push(`${x.toFixed(0)},${Math.max(4, Math.min(scopeH - 4, y)).toFixed(0)}`);
+        - Math.sin(k * 0.85 + phase) * (scopeH * amp)
+        - Math.sin(k * 2.4 + phase * 1.7) * (scopeH * 0.14)
+        - Math.sin(k * 5.1 + phase * 0.5) * (scopeH * 0.05)
+        - Math.sin(k * 11.3 + phase * 2.2) * (scopeH * 0.03)
+        - Math.sin(k * 23.7 + phase * 0.9) * (scopeH * 0.018);
+      pts.push(`${x.toFixed(1)},${Math.max(4, Math.min(scopeH - 4, y)).toFixed(1)}`);
     }
     return pts.join(' ');
   };
@@ -429,22 +450,29 @@ function junctionSvg(msg) {
   return `<svg viewBox="0 0 560 400" xmlns="http://www.w3.org/2000/svg" role="img" font-family="'Courier New',monospace">
     <title>${esc(msg.name)} inspection</title>
     <defs>
-      <linearGradient id="di-metal2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#232b31"/><stop offset="100%" stop-color="#10151a"/></linearGradient>
+      <linearGradient id="di-metal2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#2e363c"/><stop offset="6%" stop-color="#232b31"/><stop offset="55%" stop-color="#171d22"/><stop offset="100%" stop-color="#10151a"/></linearGradient>
       <linearGradient id="di-breaker" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1c242a"/><stop offset="100%" stop-color="#0c1013"/></linearGradient>
       <pattern id="di-haz2" width="24" height="14" patternUnits="userSpaceOnUse"><rect width="24" height="14" fill="#0e0f0c"/><path d="M-7,14 L7,0 M5,14 L19,0 M17,14 L31,0" stroke="#ffb23e" stroke-width="6" opacity="0.85"/></pattern>
       <pattern id="di-scopegrid" width="20" height="19.3" patternUnits="userSpaceOnUse"><path d="M20,0 H0 V19.3" fill="none" stroke="#0e2a28" stroke-width="1"/></pattern>
       <filter id="di-soft2"><feGaussianBlur stdDeviation="1.8"/></filter>
+      <!-- Phosphor text-glow + CRT glass/scanline/vignette layers, matched to the ATM. -->
+      <filter id="di-textglow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="0.8" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      <linearGradient id="di-sheen" x1="0" y1="0" x2="1" y2="1"><stop offset="38%" stop-color="#dfffef" stop-opacity="0"/><stop offset="47%" stop-color="#dfffef" stop-opacity="0.12"/><stop offset="54%" stop-color="#dfffef" stop-opacity="0.03"/><stop offset="63%" stop-color="#dfffef" stop-opacity="0"/></linearGradient>
+      <radialGradient id="di-vignette" cx="50%" cy="42%" r="62%"><stop offset="58%" stop-color="#000" stop-opacity="0"/><stop offset="100%" stop-color="#000" stop-opacity="0.5"/></radialGradient>
+      <pattern id="di-scanlines" width="3" height="3" patternUnits="userSpaceOnUse"><rect width="3" height="1" y="2" fill="#000" opacity="0.18"/></pattern>
+      <linearGradient id="di-toplight" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#ffffff" stop-opacity="0.12"/><stop offset="100%" stop-color="#ffffff" stop-opacity="0"/></linearGradient>
     </defs>
 
     <!-- cabinet shell + drop shadow -->
     <ellipse cx="280" cy="386" rx="230" ry="14" fill="#000" opacity="0.25"/>
     <rect x="4" y="4" width="552" height="392" rx="8" fill="url(#di-metal2)" stroke="#3a464e" stroke-width="2"/>
+    <rect x="7" y="7" width="546" height="16" rx="6" fill="url(#di-toplight)"/>
     <rect x="12" y="12" width="536" height="376" rx="5" fill="none" stroke="#000" stroke-width="1" opacity="0.5"/>
     ${bolt(20, 20)}${bolt(540, 20)}${bolt(20, 380)}${bolt(540, 380)}
 
     <!-- title + hazard stripe -->
     <rect x="24" y="22" width="512" height="26" fill="#12171b" stroke="#2b353c"/>
-    <text x="34" y="40" fill="${dead ? '#ff4a5b' : '#37f5db'}" font-size="14" letter-spacing="2" font-weight="bold">${esc(msg.name).toUpperCase()}</text>
+    <text x="34" y="40" fill="${dead ? '#ff4a5b' : '#37f5db'}" font-size="14" letter-spacing="2" font-weight="bold" filter="url(#di-textglow)">${esc(msg.name).toUpperCase()}</text>
     <text x="526" y="40" fill="#6f8792" font-size="10" text-anchor="end">JUNCTION_BOX</text>
     <rect x="24" y="52" width="512" height="12" fill="url(#di-haz2)" opacity="0.9"/>
 
@@ -473,6 +501,9 @@ function junctionSvg(msg) {
         <rect x="0" y="0" width="${scopeW}" height="${scopeH}" fill="url(#di-scopegrid)" opacity="0.6"/>
         <line x1="0" y1="${midY}" x2="${scopeW}" y2="${midY}" stroke="#1d4a48" stroke-width="1" opacity="0.5"/>
         ${trace}
+        <rect x="0" y="0" width="${scopeW}" height="${scopeH}" fill="url(#di-scanlines)"/>
+        <rect x="0" y="0" width="${scopeW}" height="${scopeH}" fill="url(#di-sheen)"/>
+        <rect x="0" y="0" width="${scopeW}" height="${scopeH}" fill="url(#di-vignette)"/>
       </g>
     </g>
 
@@ -488,7 +519,7 @@ function junctionSvg(msg) {
     <!-- readout + LEDs -->
     <g transform="translate(34,336)" font-size="12">
       <text x="0" y="0" fill="#8fb0bb">THROUGHPUT</text>
-      <text x="196" y="0" fill="${offline ? '#5c6f79' : '#37f5db'}" text-anchor="end" font-weight="bold" ${offline ? '' : 'class="di-flick"'}>${offline ? '0 kW' : kw(msg.capacityKw)}</text>
+      <text x="196" y="0" fill="${offline ? '#5c6f79' : '#37f5db'}" text-anchor="end" font-weight="bold" ${offline ? '' : 'class="di-flick" filter="url(#di-textglow)"'}>${offline ? '0 kW' : kw(msg.capacityKw)}</text>
     </g>
     <g transform="translate(34,356)">${led(8,'led-a','#46e05a')}${led(30,'led-b','#46e05a')}${led(52,'led-c','#ffb23e')}${led(74,'led-a','#37f5db')}
       <text x="94" y="12" fill="#4a5a63" font-size="8" letter-spacing="1">BUS · SYNC · THERM · NET</text>

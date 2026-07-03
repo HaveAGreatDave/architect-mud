@@ -186,7 +186,7 @@ function _autoLayoutQuest(objs, byId) {
 }
 
 window.VineQuestSchema = {
-  vineIdentity: { kind: 'quest', tagline: 'Objectives & rewards', color: '#a04488', icon: '❗' },
+  vineIdentity: { kind: 'quest', tagline: 'Objectives & rewards', color: 'var(--accent)', icon: '❗' },
   nodeTypes: _questNodeDefs,
 
   // Quest row → VINE graph. rec: { name, description, repeatable, objectives[], rewards{} }

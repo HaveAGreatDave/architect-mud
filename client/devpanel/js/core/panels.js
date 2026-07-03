@@ -14,7 +14,7 @@ const PANELS = {
   },
   gossip: {
     title: 'Gossip Pool',
-    description: 'Live in-memory gossip — strongest (most recent + credible) first. Read-only; the pool clears on server restart.',
+    description: 'Live in-memory gossip — strongest (most recent + credible) first. Spread a rumour as any NPC; the pool clears on server restart.',
     noEdit: true,
     fetch: () => API('/gossip'),
     render: renderGossip,
@@ -134,6 +134,13 @@ const PANELS = {
     ],
     editForm: crimeEditForm,
     save: saveCrime,
+  },
+  aliases: {
+    title: 'Aliases',
+    description: 'Verb shortcuts. The typed shortcut is rewritten to its canonical verb before the command runs — invisible to players. Engine-shipped defaults can be overridden; deleting an override restores the default.',
+    fetch: () => API('/command-aliases'),
+    noEdit: true,
+    render: renderAliasesPanel,
   },
   sounds: {
     title: 'SoundScript',

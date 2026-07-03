@@ -33,5 +33,5 @@ because those functions are only *called* at runtime after login.
   `whisper.js` (whisper chat).
 - `panels/` — one file per dev-panel section (zones, zone-subeditors, enemies, items,
   npcs, furniture, simple-entities, scripts, quests, maps, power, sounds, players,
-  timeweather, worldstate, validator, tags, dashboard).
+  timeweather, worldstate, validator, tags, aliases, dashboard).
 - `bootstrap.js` — all immediately-executing startup code; **loaded last**.

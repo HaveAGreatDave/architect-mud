@@ -124,6 +124,12 @@
     fillable: { label: 'Fillable Capacity', shape: 'int', scope: 'class', group: 'Container',
       help: 'Marks this item as a fillable fluid container. Value is the capacity in fluid units (a neutral volume). Fill at a water source; drink to consume the fluid. How much a fluid restores is a property of the fluid, not the container.' },
 
+    // --- Gear ---
+    flashlight: { label: 'Flashlight', shape: 'flag', scope: 'class', group: 'Gear',
+      help: 'Marks this item as a battery-powered handheld flashlight. LIGHT / UNLIGHT toggle it; RELOAD swaps in a battery. A lit, charged flashlight makes dark rooms readable for the holder. Pair with the Unique tag so each unit keeps its own on/charge state.' },
+    battery: { label: 'Battery', shape: 'flag', scope: 'class', group: 'Gear',
+      help: 'Marks this item as a power cell. Consumed by RELOAD to recharge a flashlight (or other battery-powered device).' },
+
     // --- Locks ---
     "lock:hololock": { label: 'Holographic Lock', shape: 'statmap', scope: 'class', group: 'Hardware', help: 'Electronic holographic authorization matrix.' },
     "lock:keycardlock": { label: 'Magnetic Keycard Reader', shape: 'statmap', scope: 'class', group: 'Hardware', help: 'Magnetic reader checking passcode clearance profiles.' },

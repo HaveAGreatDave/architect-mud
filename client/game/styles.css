@@ -533,8 +533,59 @@
 	--purple: #9a5586;
 }
 
+/* Highbeam — maximum-contrast light theme for direct sunlight / high glare:
+   pure white base, jet-black text, bold saturated signal colours */
+[data-theme="highbeam"] {
+	--bg: #ffffff;
+	--bg2: #f2f2f2;
+	--bg3: #e6e6e6;
+	--border: #333333;
+	--text: #000000;
+	--text-dim: #444444;
+	--text-bright: #000000;
+	--accent: #0b46ff;
+	--accent-dim: #c7d6ff;
+	--green: #006e1c;
+	--red: #cc0000;
+	--orange: #b34700;
+	--yellow: #6e5600;
+	--cyan: #005f73;
+	--purple: #6a12b0;
+}
+
+/* Solar Flare — sunlight-readable amber HUD: deep black base, high-luminance
+   amber text, bold signal colours. Glare-friendly like a hardened field display */
+[data-theme="solarflare"] {
+	--bg: #000000;
+	--bg2: #0b0b0b;
+	--bg3: #161616;
+	--border: #6b5600;
+	--text: #ffd23a;
+	--text-dim: #b38f2e;
+	--text-bright: #ffe680;
+	--accent: #ff9e00;
+	--accent-dim: #4a2f00;
+	--green: #57ff57;
+	--red: #ff5555;
+	--orange: #ffae2b;
+	--yellow: #ffe14d;
+	--cyan: #4ad0ff;
+	--purple: #cf8bff;
+}
+
 /* Theme swatch picker (settings) — replaces the flat theme <select> */
 .theme-grid-wrap { max-height: 300px; overflow-y: auto; }
+/* Theme-editor scroll areas honour the active theme instead of the OS default */
+#te-pane-swatches::-webkit-scrollbar,
+.theme-grid-wrap::-webkit-scrollbar,
+#theme-editor-rows::-webkit-scrollbar { width: 6px; }
+#te-pane-swatches::-webkit-scrollbar-track,
+.theme-grid-wrap::-webkit-scrollbar-track,
+#theme-editor-rows::-webkit-scrollbar-track { background: var(--bg2); }
+#te-pane-swatches::-webkit-scrollbar-thumb,
+.theme-grid-wrap::-webkit-scrollbar-thumb,
+#theme-editor-rows::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+#te-pane-swatches, .theme-grid-wrap, #theme-editor-rows { scrollbar-width: thin; scrollbar-color: var(--border) var(--bg2); }
 .theme-grid-head { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--text-dim); margin: 12px 0 6px; }
 .theme-grid-head:first-child { margin-top: 0; }
 .theme-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
@@ -1892,7 +1943,7 @@ textarea {
 	background: transparent;
 	border: 1px solid var(--border);
 	color: var(--text-dim);
-	font-family: var(--font);
+	font-family: var(--font-mono);
 	font-size: 11px;
 	padding: 4px 10px;
 	cursor: pointer;
@@ -2818,7 +2869,6 @@ textarea {
 	border: 1px solid var(--border);
 	color: var(--text-dim);
 }
-.idp-badge.quality { border-color: var(--cyan); color: var(--cyan); }
 .idp-badge.equipped { border-color: var(--green); color: var(--green); }
 .idp-badge.flag { border-color: var(--red); color: var(--red); }
 .idp-desc {
@@ -5289,7 +5339,7 @@ textarea {
 /* The tube — bulged glass faked with an elliptical radius + corner vignette. */
 #atm-crt {
 	position: relative;
-	height: 248px;
+	height: 288px;
 	border-radius: 26px / 18px;
 	overflow: hidden;
 	background: radial-gradient(130% 130% at 50% 42%,
@@ -6915,15 +6965,20 @@ textarea {
 	box-shadow: inset 0 0 12px rgba(0,0,0,0.6);
 	/* Reel-hub holes: transparent circles centred 40px in from each shell edge —
 	   exactly over the two deck reels — so the spinning plugs show through. The
-	   holes ride with the shell, so they line up onto the plugs during the drop. */
+	   holes ride with the shell, so they line up onto the plugs during the drop.
+	   A third, elliptical hole is punched in the centre over the capstan/tape-
+	   guide cluster so that section reads as an actual window in the shell too,
+	   instead of the shell sitting flush over it. */
 	-webkit-mask:
 		radial-gradient(circle 26px at 40px 50%, transparent 0 96%, #000 100%),
-		radial-gradient(circle 26px at calc(100% - 40px) 50%, transparent 0 96%, #000 100%);
-	-webkit-mask-composite: source-in;
+		radial-gradient(circle 26px at calc(100% - 40px) 50%, transparent 0 96%, #000 100%),
+		radial-gradient(ellipse 30px 20px at 50% 50%, transparent 0 90%, #000 100%);
+	-webkit-mask-composite: source-in, source-in;
 	mask:
 		radial-gradient(circle 26px at 40px 50%, transparent 0 96%, #000 100%),
-		radial-gradient(circle 26px at calc(100% - 40px) 50%, transparent 0 96%, #000 100%);
-	mask-composite: intersect;
+		radial-gradient(circle 26px at calc(100% - 40px) 50%, transparent 0 96%, #000 100%),
+		radial-gradient(ellipse 30px 20px at 50% 50%, transparent 0 90%, #000 100%);
+	mask-composite: intersect, intersect;
 	opacity: 0;
 	pointer-events: none;
 	transition: opacity 0.22s ease-out;
@@ -7387,8 +7442,17 @@ body.esp-active #output {
 	position: absolute;
 	top: 50%;
 	left: 50%;
-	transform: translate(-50%, -50%) rotate(-5deg);
+	width: 68px;
+	height: 100px;
+	transform: translate(-50%, -50%);
 	z-index: 2;
+}
+/* Two half-piles, each a couple of stacked cards, sitting exactly on top of
+   each other at rest — reads as one deck until .shuffling splits them. */
+.poker-deck-pile {
+	position: absolute;
+	inset: 0;
+	transform: rotate(-5deg);
 }
 .poker-deck-card {
 	position: absolute;
@@ -7404,31 +7468,44 @@ body.esp-active #output {
 	inset: 6px;
 	border-radius: 4px;
 	background-image: repeating-linear-gradient(
-		45deg, var(--accent-dim) 0px, var(--accent-dim) 4px,
+		45deg, var(--accent) 0px, var(--accent) 4px,
 		transparent 4px, transparent 9px
 	);
 	opacity: 0.85;
 }
-.poker-deck-card:nth-child(1) { top: 0; left: 0; }
-.poker-deck-card:nth-child(2) { top: -3px; left: -3px; }
-.poker-deck-card:nth-child(3) { top: -6px; left: -6px; }
+.poker-deck-pile .poker-deck-card:nth-child(1) { top: 0; left: 0; }
+.poker-deck-pile .poker-deck-card:nth-child(2) { top: -3px; left: -3px; }
 
-/* Riffle shuffle — loops for the whole "SHUFFLING UP…" countdown (one riffle
-   per repeated poker-shuffle synth cue, ~1s apart), cut the instant the hand
-   actually deals. Cards fan out and snap back instead of a plain cut. */
-@keyframes poker-deck-riffle {
-	0%   { transform: translate(0, 0) rotate(0deg); }
-	20%  { transform: translate(-9px, -5px) rotate(-14deg); }
-	40%  { transform: translate(8px, -3px) rotate(11deg); }
-	60%  { transform: translate(-6px, 2px) rotate(-8deg); }
-	80%  { transform: translate(4px, 1px) rotate(5deg); }
-	100% { transform: translate(0, 0) rotate(0deg); }
+/* Riffle bridge shuffle — loops for the whole "SHUFFLING UP…" countdown (one
+   pass per repeated poker-shuffle synth cue, ~1.8s apart), cut the instant the
+   hand actually deals. Bows the two half-piles apart into a bridge (25%), holds
+   and flutters them there while thumbs would riffle the cards down (55-69%),
+   then releases/cuts them back together into one deck (85-100%) — the classic
+   two-handed riffle shuffle, rather than the whole deck just jiggling in place. */
+@keyframes poker-deck-bridge-left {
+	0%   { transform: rotate(-5deg)  translate(0, 0); }
+	25%  { transform: rotate(-24deg) translate(-16px, -12px); }
+	55%  { transform: rotate(-22deg) translate(-15px, -11px); }
+	62%  { transform: rotate(-19deg) translate(-13px, -9px); }
+	69%  { transform: rotate(-24deg) translate(-16px, -12px); }
+	85%  { transform: rotate(-9deg)  translate(-3px, 1px); }
+	100% { transform: rotate(-5deg)  translate(0, 0); }
 }
-.poker-deck.shuffling .poker-deck-card {
-	animation: poker-deck-riffle 1s ease-in-out infinite;
+@keyframes poker-deck-bridge-right {
+	0%   { transform: rotate(-5deg) translate(0, 0); }
+	25%  { transform: rotate(14deg) translate(16px, -12px); }
+	55%  { transform: rotate(12deg) translate(15px, -11px); }
+	62%  { transform: rotate(16deg) translate(13px, -9px); }
+	69%  { transform: rotate(12deg) translate(16px, -12px); }
+	85%  { transform: rotate(-1deg) translate(3px, 1px); }
+	100% { transform: rotate(-5deg) translate(0, 0); }
 }
-.poker-deck.shuffling .poker-deck-card:nth-child(2) { animation-delay: 0.03s; }
-.poker-deck.shuffling .poker-deck-card:nth-child(3) { animation-delay: 0.06s; }
+.poker-deck.shuffling .poker-deck-pile-left {
+	animation: poker-deck-bridge-left 1.8s ease-in-out infinite;
+}
+.poker-deck.shuffling .poker-deck-pile-right {
+	animation: poker-deck-bridge-right 1.8s ease-in-out infinite;
+}
 
 /* Seats — absolute positioned around the oval */
 .poker-seat {
@@ -7528,7 +7605,7 @@ body.esp-active #output {
 	inset: 6px;
 	border-radius: 4px;
 	background-image: repeating-linear-gradient(
-		45deg, var(--accent-dim) 0px, var(--accent-dim) 4px,
+		45deg, var(--accent) 0px, var(--accent) 4px,
 		transparent 4px, transparent 9px
 	);
 	opacity: 0.85;
@@ -8347,3 +8424,19 @@ body.tripping #output {
 #camera-flash-overlay.flash { animation: camera-flash-anim 0.7s ease-out; }
 @keyframes camera-flash-anim { 0% { opacity: 0; } 15% { opacity: 1; } 100% { opacity: 0; } }
 .camera-alert { color: var(--red); font-weight: bold; }
+
+/* Crime charged nearby: a soft, noticeable double-pulse red glow — gentler and
+   quieter than the camera-catch flash above, and unlike the ESP lockdown it
+   doesn't loop. Paired with a faster-pitched siren one-shot (see crime_alert
+   in dispatch.js / SFX_CRIME_ALERT server-side). */
+#crime-alert-overlay {
+	position: fixed; inset: 0; pointer-events: none; z-index: 9998; opacity: 0;
+	background: radial-gradient(circle, rgba(255,40,40,0) 55%, rgba(255,30,30,0.22) 100%);
+}
+#crime-alert-overlay.flash { animation: crime-alert-anim 1.6s ease-in-out; }
+@keyframes crime-alert-anim {
+	0%, 100% { opacity: 0; }
+	20%       { opacity: 0.55; }
+	50%       { opacity: 0.15; }
+	70%       { opacity: 0.4; }
+}

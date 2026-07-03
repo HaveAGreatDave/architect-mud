@@ -37,28 +37,26 @@
 // FIREWALL without stepping on it, or disable an adjacent SENTRY — success
 // isn't guaranteed and failure costs alarm tolerance + extra TRACE).
 
+import { sfx, clampInt, clampNum, esc, mountOverlay, ensureChassisStyles, deviceHeader, bezelScrews, crtOverlays, deckStrip, setDeckLevel } from './minigame-common.js';
+
 const ri = (n) => Math.floor(Math.random() * n);
 const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = ri(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; };
-const clampInt = (v, lo, hi) => Math.max(lo, Math.min(hi, Math.round(v)));
-const clampNum = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
 // Layout constants (SVG user units).
 const STEP_X = 120, STEP_Y = 96, MARGIN = 74;
 
 let _overlay = null;
-let _keyHandler = null;
+let _close = null;
 let _state = null;
 let _opts = null;
 let _actionMode = null; // null | 'breach' | 'scan'
 
 // ── Audio ─────────────────────────────────────────────────────────────────
-// Tiny inline SFX through the shared engine's SFX bus — same self-owned-synth
-// pattern as client/game/js/poker-sfx.js. All guarded — silent if the engine
-// hasn't initialised. Deliberately styled after the DB's `cyberpunk` sfx
-// category (square/triangle carriers, bandpass sweeps, tremolo) rather than
-// reusing the generic melodic fanfare other minigames use for "you win", so a
-// breach doesn't sound like a poker hand or a level-up chime.
-function sfx(def) { try { window.AudioEngine?.playSfx(def); } catch { /* no audio */ } }
+// Tiny inline SFX through the shared engine's SFX bus. Deliberately styled
+// after the DB's `cyberpunk` sfx category (square/triangle carriers, bandpass
+// sweeps, tremolo) rather than reusing the generic melodic fanfare other
+// minigames use for "you win", so a breach doesn't sound like a poker hand or
+// a level-up chime.
 
 const SFX_ENTRY = { priority: 4, config: { duration: 0.5, layers: [
   { waveform: 'triangle', freq: 90, pitchBend: { to: 480, time: 0.4 }, filter: { type: 'lowpass', freq: 2400, q: 1 }, adsr: { a: 0.02, d: 0.25, s: 0.3, r: 0.15 }, gain: 0.2 },
@@ -106,28 +104,13 @@ function ensureStyles() {
   const s = document.createElement('style');
   s.id = 'circuit-hack-styles';
   s.textContent = `
-    #circuit-hack-overlay { --ch-accent:#37f5db; position:fixed; inset:0; z-index:9200; display:flex; align-items:center; justify-content:center;
+    #circuit-hack-overlay { --ch-accent:#37f5db; --mg-accent:#37f5db; position:fixed; inset:0; z-index:9200; display:flex; align-items:center; justify-content:center;
       background:rgba(0,4,6,0.78); backdrop-filter:blur(3px); font-family:'Courier New',monospace; }
-    #circuit-hack-overlay .ch-panel { position:relative; width:min(760px,95vw); background:linear-gradient(160deg,#0a1a16,#07120f 70%,#050d0b);
-      border:2px solid color-mix(in srgb, var(--ch-accent) 35%, #0a1a16); border-radius:8px;
-      box-shadow:0 0 0 1px #000, 0 0 40px color-mix(in srgb, var(--ch-accent) 22%, transparent), inset 0 0 60px rgba(0,0,0,0.7);
-      padding:12px 14px 14px; animation:ch-boot .3s ease-out;
-      background-image:linear-gradient(160deg,#0a1a16,#07120f 70%,#050d0b),
-        repeating-linear-gradient(90deg, #d8b46a 0 6px, transparent 6px 26px);
-      background-blend-mode:normal, overlay; background-position:0 0, 0 0; background-size:auto, 26px 100%;
-      background-repeat:no-repeat, repeat-x; }
-    #circuit-hack-overlay .ch-panel::before, #circuit-hack-overlay .ch-panel::after {
-      content:''; position:absolute; left:10px; right:10px; height:6px; pointer-events:none; opacity:0.35;
-      background-image:repeating-linear-gradient(90deg, #d8b46a 0 5px, transparent 5px 22px); }
-    #circuit-hack-overlay .ch-panel::before { top:0; }
-    #circuit-hack-overlay .ch-panel::after { bottom:0; }
+    /* Moulded teal-terminal chassis — top-lit multi-stop body (ATM #atm-box). */
+    #circuit-hack-overlay .ch-panel { width:min(760px,95vw); color:var(--ch-accent);
+      background:linear-gradient(180deg, #17332c 0%, #102821 7%, #0a1b16 12%, #05100d 100%);
+      padding:14px 16px 16px; animation:ch-boot .3s ease-out; }
     @keyframes ch-boot { 0%{opacity:0;transform:scale(.985)} 100%{opacity:1;transform:scale(1)} }
-    #circuit-hack-overlay .ch-close { position:absolute; top:9px; right:11px; z-index:3; width:26px; height:26px;
-      background:#0c1a15; color:#8fbba0; border:1px solid #2b4a3c; border-radius:2px; cursor:pointer; font-size:13px; }
-    #circuit-hack-overlay .ch-close:hover { color:#ff4a5b; border-color:#ff4a5b; }
-    #circuit-hack-overlay .ch-titlebar { display:flex; justify-content:space-between; align-items:center;
-      font-size:12px; letter-spacing:3px; color:var(--ch-accent); font-weight:bold; padding:2px 2px 8px; border-bottom:1px solid #163025; }
-    #circuit-hack-overlay .ch-titlebar .ch-target { color:#7fa392; font-weight:normal; letter-spacing:1px; }
     #circuit-hack-overlay .ch-hud { display:flex; gap:16px; padding:8px 2px; font-size:12px; color:#7fa392; letter-spacing:1px; flex-wrap:wrap; }
     #circuit-hack-overlay .ch-hud b { font-weight:bold; }
     #circuit-hack-overlay .ch-hud .hv-moves { color:var(--ch-accent); }
@@ -136,7 +119,9 @@ function ensureStyles() {
     #circuit-hack-overlay .ch-trace-wrap { display:inline-flex; align-items:center; gap:6px; }
     #circuit-hack-overlay .ch-trace-bar { display:inline-block; width:64px; height:7px; background:#0c1a17; border:1px solid #2b4a3c; border-radius:3px; overflow:hidden; }
     #circuit-hack-overlay .ch-trace-fill { display:block; height:100%; transition:width .15s, background .15s; }
-    #circuit-hack-overlay .ch-board { background:#051310; border:1px solid #163025; border-radius:4px; overflow:hidden; }
+    #circuit-hack-overlay .ch-bezel { margin:4px 0 2px; }
+    #circuit-hack-overlay .ch-screen { background:radial-gradient(130% 130% at 50% 42%, color-mix(in srgb, var(--ch-accent) 9%, #030f0c) 55%, #01060a 100%); }
+    #circuit-hack-overlay .ch-board { position:relative; z-index:2; }
     #circuit-hack-overlay .ch-status { min-height:22px; padding:8px 2px 2px; font-size:13px; letter-spacing:1px; font-weight:bold; }
     #circuit-hack-overlay .ch-status .ch-win { color:#46e05a; }
     #circuit-hack-overlay .ch-status .ch-lose { color:#ff4a5b; }
@@ -745,6 +730,7 @@ function renderHud() {
     `<span>SENSOR <b class="hv-sensor">r${s.sensor}</b></span>` +
     `<span class="ch-trace-wrap">TRACE <span class="ch-trace-bar"><span class="ch-trace-fill" style="width:${tracePct}%;background:${traceCol}"></span></span></span>` +
     (s.keys ? `<span style="color:#ffd75f">&#9919; KEY</span>` : '');
+  setDeckLevel(_overlay, s.traceMax ? s.trace / s.traceMax : 0);
 }
 function setStatus(html) { const el = document.getElementById('ch-status'); if (el) el.innerHTML = html; }
 function flashStatus(html) { setStatus(html); }
@@ -759,17 +745,15 @@ function newPuzzle() {
 
 export function openCircuitHack(opts = {}) {
   ensureStyles();
+  ensureChassisStyles();
   close();
   _opts = { skill: 4, difficulty: 4, atmName: 'TERMINAL', accent: '#37f5db', onResult: null, ...opts };
-  const overlay = document.createElement('div');
-  overlay.id = 'circuit-hack-overlay';
-  overlay.style.setProperty('--ch-accent', _opts.accent);
-  overlay.innerHTML =
-    `<div class="ch-panel">
-      <button class="ch-close" title="Abort">&#10005;</button>
-      <div class="ch-titlebar"><span>&#9702; CIRCUIT BREACH // INTRUSION</span><span class="ch-target">TARGET: ${esc(_opts.atmName).toUpperCase()}</span></div>
+  const html =
+    `<div class="ch-panel mg-chassis">
+      ${deviceHeader('&#9702;', 'CIRCUIT BREACH', 'TARGET &middot; ' + esc(_opts.atmName).toUpperCase())}
       <div class="ch-hud" id="ch-hud"></div>
-      <div class="ch-board" id="ch-board"></div>
+      <div class="ch-bezel mg-bezel">${bezelScrews()}<div class="ch-screen mg-screen" style="--mg-sweep-h:440px"><div class="ch-board" id="ch-board"></div>${crtOverlays()}</div></div>
+      ${deckStrip('ICE BUS', 'TRACE')}
       <div class="ch-status" id="ch-status"></div>
       <div class="ch-actions">
         <button class="ch-btn ch-btn-ping" title="Spend 1 cycle to extend your sensor range without moving">&#8226; Ping</button>
@@ -779,8 +763,17 @@ export function openCircuitHack(opts = {}) {
         <button class="ch-btn ch-btn-abort">Abort</button>
       </div>
     </div>`;
-  overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) close(); });
-  overlay.querySelector('.ch-close').addEventListener('click', close);
+  const mounted = mountOverlay({
+    id: 'circuit-hack-overlay',
+    html,
+    onClose: () => { _state = null; _actionMode = null; },
+  });
+  const overlay = mounted.overlay;
+  _overlay = overlay;
+  _close = mounted.close;
+  overlay.style.setProperty('--ch-accent', _opts.accent);
+  overlay.style.setProperty('--mg-accent', _opts.accent);
+  overlay.querySelector('.mg-close').addEventListener('click', close);
   overlay.querySelector('.ch-btn-abort').addEventListener('click', close);
   overlay.querySelector('.ch-btn-rejack').addEventListener('click', () => { window.AudioEngine?.init?.(); newPuzzle(); });
   overlay.querySelector('.ch-btn-ping').addEventListener('click', () => { if (_state && !_state.over) ping(_state); });
@@ -800,20 +793,12 @@ export function openCircuitHack(opts = {}) {
   breachBtn.addEventListener('click', () => setMode('breach',
     '<span class="ch-warn">BREACH ARMED — click an adjacent GATE, ICE, or SENTRY</span>',
     '<span style="color:#7fa392">Breach disarmed.</span>'));
-  _keyHandler = (e) => { if (e.key === 'Escape') close(); };
-  window.addEventListener('keydown', _keyHandler);
-  document.body.appendChild(overlay);
-  _overlay = overlay;
   window.AudioEngine?.init?.();
   sfx(SFX_ENTRY);
   newPuzzle();
 }
 
 function close() {
-  if (_keyHandler) { window.removeEventListener('keydown', _keyHandler); _keyHandler = null; }
-  if (_overlay) { _overlay.remove(); _overlay = null; }
-  _state = null;
-  _actionMode = null;
+  if (_close) { _close(); _close = null; }
+  _overlay = null;
 }
-
-const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');

@@ -206,9 +206,14 @@ export function renderPane(table, viewerId) {
 
   const deckHTML = `
     <div class="poker-deck${table._shuffleAnim ? ' shuffling' : ''}">
-      <div class="poker-deck-card"></div>
-      <div class="poker-deck-card"></div>
-      <div class="poker-deck-card"></div>
+      <div class="poker-deck-pile poker-deck-pile-left">
+        <div class="poker-deck-card"></div>
+        <div class="poker-deck-card"></div>
+      </div>
+      <div class="poker-deck-pile poker-deck-pile-right">
+        <div class="poker-deck-card"></div>
+        <div class="poker-deck-card"></div>
+      </div>
     </div>`;
 
   const boardInner = community.length

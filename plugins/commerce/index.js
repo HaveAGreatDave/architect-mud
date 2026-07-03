@@ -5,12 +5,15 @@
 // as combat math. SIFT ambiguous picks replay through the commerce.shop_vendor /
 // commerce.buy_item Actions (builtin replay can't reach plugin verbs).
 import { query } from '../../server/models/db.js';
-import { getZoneNpcs } from '../../server/engine/world.js';
+import { getZoneNpcs, world } from '../../server/engine/world.js';
 import { getVendorStock, buyFromVendor, sellToVendor } from '../../server/engine/vendor.js';
 import { buyFurniture } from '../../server/engine/furniture-shop.js';
 import { openShopSession, getNpcForShopper } from '../../server/engine/vendor-session.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
 import { registerAction } from '../../server/engine/actions.js';
+import { on } from '../../server/engine/events.js';
+import { vendorGrudgeRemaining, holdVendorGrudge, grudgeRefusal } from '../../server/engine/vendor-grudge.js';
+import { titleCaseName } from '../../server/engine/text.js';
 
 // Resolve which vendor a bare buy/sell targets: the one the player is actively
 // shopping with (if still in the zone), else the first vendor present. Without this,
@@ -27,13 +30,15 @@ function resolveVendor(player, npcs) {
 
 async function openShopFor(npc, player) {
   if (!npc.vendor_inventory?.length) return { type:'error', message:`${npc.name} isn't a vendor.` };
+  const grudge = await vendorGrudgeRemaining(player.id, npc.id);
+  if (grudge > 0) return { type:'error', message: grudgeRefusal(npc, grudge) };
   const stock = await getVendorStock(npc, player.id);
   if (!stock.length) return { type:'error', message:`${npc.name} is out of stock.` };
   openShopSession(player.id, npc.id); // remember this vendor for bare buy/sell; pause its wandering
   let msg = `<span class="inv-header">${npc.name.toUpperCase()} — SHOP</span>\nCredits: ${player.credits||0}\n\n`;
   for (const item of stock) {
     const disc = item.discounted ? ' <span class="equipped">(rep discount)</span>' : '';
-    msg += `  [${item.name}] ${item.price}cr${disc}\n    ${item.description}\n`;
+    msg += `  [${titleCaseName(item.name)}] ${item.price}cr${disc}\n    ${item.description}\n`;
   }
   msg += `\nUse: <span class="equipped">buy &lt;item name&gt;</span> or <span class="equipped">sell &lt;item name&gt;</span>`;
   return { type:'shop', message:msg, npc_id:npc.id, stock };
@@ -52,6 +57,8 @@ async function cmdShop(npcName, player) {
 }
 
 async function buyStockItem(item, vendor, player) {
+  const grudge = await vendorGrudgeRemaining(player.id, vendor.id);
+  if (grudge > 0) return { type:'error', message: grudgeRefusal(vendor, grudge) };
   // Furniture is delivered to an owned apartment rather than carried in inventory.
   if (item.type === 'furniture') {
     const { rows } = await query('SELECT * FROM items WHERE id=$1', [item.item_id]);
@@ -107,6 +114,20 @@ registerAction({
     if (!vendor) return { type:'error', message:'No vendor here.' };
     return buyStockItem(params.target, vendor, actor);
   },
+});
+
+// Burgle an apartment an NPC vendor owns and they hold it against you — refusing
+// to trade until the grudge lapses (7 in-game days). doors.js resolves the
+// break-in to the apartment's real owner (ownerId/ownerType from the table), so
+// this fires whether or not the owner was home. The safe-hack grudge is set
+// directly by the vendor-safe plugin; this covers their hololocked residence.
+on('hololock.breached', ({ player, ownerId }) => {
+  if (!player?.id || !ownerId) return;
+  // Attribute by resolving the owner id to an NPC vendor — player and NPC id
+  // namespaces don't collide, so this catches NPC-owned apartments even when the
+  // row's owner_type was never changed from the 'player' default.
+  const npc = world.npcs.get(ownerId);
+  if (npc?.vendor_inventory?.length) holdVendorGrudge(player, ownerId).catch(() => {});
 });
 
 export const commands = {

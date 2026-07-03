@@ -1,0 +1,219 @@
+@broadcast "Jackpot Protocol"
+@channel KSAB
+@category entertainment
+@host npc_lance_kessler
+@length 600
+@type scripted
+
+::actors
+@actor npc_lance_kessler
+@alias npc_lance_kessler LANCE
+@actor npc_stage_assistant
+@alias npc_stage_assistant ASSISTANT
+::endactors
+
+TITLE jackpot_protocol_logo
+
+2s
+
+MUSIC jackpot_theme
+Huge audience applause. Upbeat synth fanfare. Lights sweep across the studio.
+MUSIC_END
+
+CAM 1 Main Stage
+
+LOWER_THIRD
+JACKPOT PROTOCOL
+Hosted by Lance Kessler
+LOWER_THIRD_END
+
+NPC npc_lance_kessler
+
+LANCE:
+Good evening, Coldwater Basin!
+
+♪ Audience cheers ♪
+
+LANCE:
+I'm Lance Kessler, and tonight somebody's life is about to change!
+
+CAM 2 Audience
+
+SHOT
+The packed audience erupts into applause as holographic spotlights dance across the studio. Giant displays shimmer with spinning credit symbols while cameras glide effortlessly above the crowd.
+
+4s
+
+CAM 1 Main Stage
+
+LANCE:
+Welcome to Jackpot Protocol, KSAB's biggest night of entertainment, where everyday people compete for prizes beyond their wildest dreams.
+
+CAM 3 Prize Display
+
+OVERLAY grand_prize
+TONIGHT'S GRAND PRIZE
+
+250,000 CREDITS
+
+LUXURY SKYLOFT
+
+ONE YEAR CORPORATE PLATINUM STATUS
+OVERLAY_END
+
+5s
+
+CAM 1 Main Stage
+
+LANCE:
+Three contestants. Five rounds. Countless possibilities.
+
+LANCE:
+Every question answered correctly brings them one step closer to a brand-new life.
+
+♪ Audience applause ♪
+
+CAM 2 Contestants
+
+SHOT
+Three illuminated podiums rise from beneath the stage floor as the contestants wave nervously to the roaring crowd.
+
+4s
+
+CAM 1 Host
+
+LANCE:
+Let's meet tonight's challengers!
+
+ACTION npc_stage_assistant walks confidently across the stage.
+
+ASSISTANT:
+At podium one, maintenance technician Kara Holt!
+
+♪ Audience cheers ♪
+
+2s
+
+ASSISTANT:
+At podium two, independent courier Devon Marsh!
+
+♪ Audience cheers ♪
+
+2s
+
+ASSISTANT:
+And at podium three, systems analyst Mia Voss!
+
+♪ Audience cheers ♪
+
+3s
+
+CAM 1 Host
+
+LANCE:
+Contestants... welcome to Jackpot Protocol.
+
+LANCE:
+Are you ready to play?
+
+♪ Audience cheers loudly ♪
+
+CAM 3 Contestants
+
+SHOT
+All three contestants nod as the audience begins chanting.
+
+3s
+
+CAM 1 Host
+
+LANCE:
+Then let's begin.
+
+TITLE ROUND ONE
+
+2s
+
+OVERLAY
+ROUND ONE
+
+GENERAL KNOWLEDGE
+
+100 CREDITS PER CORRECT ANSWER
+OVERLAY_END
+
+CAM 1 Host
+
+LANCE:
+Here's your first question.
+
+OVERLAY
+QUESTION ONE
+
+Which corporation operates the majority of Coldwater Basin's maglev transit system?
+OVERLAY_END
+
+8s
+
+CAM 2 Contestants
+
+SHOT
+A countdown clock appears above the stage while contestants lock in their answers.
+
+5s
+
+CAM 1 Host
+
+LANCE:
+Time's up...
+
+2s
+
+OVERLAY
+CORRECT ANSWER
+
+METRODYNE TRANSIT
+OVERLAY_END
+
+♪ Audience applauds ♪
+
+CAM 3 Scoreboard
+
+OVERLAY
+CURRENT SCORES
+
+KARA      100
+
+DEVON       0
+
+MIA        100
+OVERLAY_END
+
+4s
+
+CAM 1 Host
+
+LANCE:
+An excellent start!
+
+LANCE:
+When we return, the stakes get even higher, and only one contestant can earn a place in the Jackpot Round.
+
+MUSIC commercial_sting
+Audience applause fades beneath an energetic synth bumper.
+MUSIC_END
+
+CREDITS 20
+JACKPOT PROTOCOL
+
+Hosted by
+Lance Kessler
+
+Produced by
+KSAB Entertainment
+
+Recorded Before a Live Studio Audience
+
+END_CREDITS
+
+END

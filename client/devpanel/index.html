@@ -84,6 +84,7 @@
     <div class="nav-item" data-panel="audio" onclick="showPanel('audio')">🎵 Audio</div>
     <div class="nav-item" data-panel="broadcasts" onclick="showPanel('broadcasts')">📺 Broadcasts</div>
     <div class="nav-item" data-panel="tags" onclick="showPanel('tags')">🏷 Tags</div>
+    <div class="nav-item" data-panel="aliases" onclick="showPanel('aliases')">⤴ Aliases</div>
     <div class="nav-section">Server</div>
     <div class="nav-item" data-panel="worldstate" onclick="showPanel('worldstate')">📡 World State</div>
     <div class="nav-item" data-panel="gossip" onclick="showPanel('gossip')">💬 Gossip</div>
@@ -166,6 +167,7 @@
 <!-- VINE MODAL (full-screen visual dialogue editor) -->
 <div id="vine-modal" style="display:none;position:fixed;inset:0;z-index:600;background:var(--bg);flex-direction:column">
   <div id="vine-modal-header" style="display:flex;gap:9px;padding:8px 12px;border-bottom:1px solid var(--border);border-left:4px solid var(--accent);align-items:center;flex-shrink:0;background:var(--bg2)">
+    <div id="vine-modal-tabs" style="display:flex;gap:2px"></div>
     <span id="vine-modal-icon" style="font-size:14px;line-height:1">🌿</span>
     <span style="font-size:13px;letter-spacing:1px;font-weight:bold;color:var(--accent)">VINE<span id="vine-modal-kind" style="color:var(--accent)"></span></span>
     <span id="vine-modal-tagline" style="font-size:10px;color:var(--text-dim);letter-spacing:1.5px;text-transform:uppercase"></span>
@@ -421,6 +423,7 @@
 <script src="/dev/js/panels/validator.js"></script>
 <script src="/dev/js/core/staging.js"></script>
 <script src="/dev/js/panels/tags.js"></script>
+<script src="/dev/js/panels/aliases.js"></script>
 <script src="/dev/js/core/panels.js"></script>
 <script src="/dev/js/core/auth.js"></script>
 <script src="/dev/js/bootstrap.js"></script>

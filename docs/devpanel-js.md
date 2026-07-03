@@ -340,6 +340,9 @@ The Zone Validator panel (data integrity checks).
 - **Tags**: the full tag list with an inline editor for adding/updating/deleting tag definitions (label, shape, scope, group, help text), persisted via `PUT /tag-catalog`.
 - **Supertags**: reusable bundles of tags ("classes" of items, e.g. a `weapon` supertag). Add/edit/delete supertags, each with a label/group/help and a member-tag builder that reuses the item editor's `itemTagWidget`/`readItemTag`. Persisted via `PUT /tag-supertags`, which re-materializes every item that references the edited supertag (live reference). Member-tag widgets read from the global `TAG_CATALOG`; the supertag registry is the global `TAG_SUPERTAGS` (loaded from `/shared/tagSupertags.js`).
 
+### `aliases.js`
+`renderAliasesPanel(data)` — the Aliases panel. CRUD over verb shortcuts (`command_aliases` table): a typed shortcut is rewritten to its canonical verb before command dispatch (invisible to players). Engine ships defaults (`server/engine/commands/aliases.js`); rows add/override, deleting an override restores the default. Writes go through `directAPI` (`POST`/`DELETE /command-aliases`) — applied live, not staged. Handlers: `window.aliasAdd`, `window.aliasDelete`.
+
 ### `dashboard.js`
 `renderDashboard(data)` — the landing screen shown on login. Displays server health, online player count, recent changes, and quick-links to the most-used panels.
 

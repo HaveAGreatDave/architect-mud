@@ -59,7 +59,7 @@ The server **does not** touch the schema or world content on boot. The two are m
 │   │   ├── world.js          # In-memory zone/entity cache, DB is still source of truth
 │   │   ├── environment.js    # Time/calendar, weather, ambient + artificial light, power grid simulation
 │   │   ├── skills.js         # Skill definitions, XP/rank curve, generic skillCheck()
-│   │   ├── crafting.js       # Recipes, quality tiers, station requirements
+│   │   ├── crafting.js       # Recipes, station requirements
 │   │   ├── mutations.js      # Radiation-triggered permanent mutations
 │   │   ├── factions.js       # Reputation tiers and effects
 │   │   ├── vendor.js         # Buy/sell with faction rep discounts

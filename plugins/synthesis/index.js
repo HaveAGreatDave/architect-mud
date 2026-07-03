@@ -126,13 +126,6 @@ async function cmdCook(args, raw, player, broadcast) {
   };
 }
 
-function qualityFor(margin) {
-  if (margin >= 6) return 'pristine';
-  if (margin >= 3) return 'refined';
-  if (margin < 0) return 'scrap';
-  return 'common';
-}
-
 async function cmdSynthResolve(args, raw, player, broadcast) {
   const recipeId = args[0];
   const score = Math.max(0, Math.min(100, parseInt(args[1], 10) || 0));
@@ -183,8 +176,7 @@ async function cmdSynthResolve(args, raw, player, broadcast) {
 
   // Potency baked into the produced drug item — a great cook makes stronger product.
   const potency = Math.max(0.5, Math.min(1.8, Math.round((0.6 + finalMargin * 0.09) * 100) / 100));
-  const quality = qualityFor(finalMargin);
-  const customData = { potency, quality, synthesized: true };
+  const customData = { potency, synthesized: true };
   const outQty = recipe.base_output?.quantity || 1;
   const outId = recipe.base_output?.item_id;
   const { rows: itemRows } = await query('SELECT name FROM items WHERE id=$1', [outId]);
@@ -204,7 +196,7 @@ async function cmdSynthResolve(args, raw, player, broadcast) {
   const pct = Math.round(potency * 100);
   return {
     type: 'output',
-    message: `<span class="ip-gain">The reaction settles clean.</span> You cook ${outQty}x <span class="item">${outName}</span> — <b>${pct}% potency</b> [${quality}].`,
+    message: `<span class="ip-gain">The reaction settles clean.</span> You cook ${outQty}x <span class="item">${outName}</span> — <b>${pct}% potency</b>.`,
   };
 }
 
@@ -450,7 +442,7 @@ async function cmdSpliceResolve(args, raw, player, broadcast) {
 
   // Bad batch — you still bottle something, but it's degraded and nasty.
   if (!success) {
-    const cd = { synthesized: true, spliced: true, potency: 0.4, quality: 'scrap', name: `unstable ${p.name}`, effects: badBatch(p.comp.effects), overdose_threshold: Math.max(2, p.comp.odThreshold - 1), dose_weight: p.comp.doseWeight + 1, duration_seconds: 300 };
+    const cd = { synthesized: true, spliced: true, potency: 0.4, name: `unstable ${p.name}`, effects: badBatch(p.comp.effects), overdose_threshold: Math.max(2, p.comp.odThreshold - 1), dose_weight: p.comp.doseWeight + 1, duration_seconds: 300 };
     await withTransaction(async (q) => { await consume(q); await insertCompound(q, cd); });
     return { type: 'output', message: `<span class="msg-system">The splice curdles into something wrong — cloudy, and it smells of solvent and regret. You bottle the <span class="item">unstable ${p.name}</span> anyway. (margin ${effectiveMargin})</span>` };
   }
@@ -458,14 +450,52 @@ async function cmdSpliceResolve(args, raw, player, broadcast) {
   // Success — potency capped by instability (overload caps power).
   const potencyCap = Math.max(0.6, 1.7 - p.comp.instability * 0.5);
   const potency = Math.max(0.5, Math.min(potencyCap, Math.round((0.6 + effectiveMargin * 0.08) * 100) / 100));
-  const quality = qualityFor(effectiveMargin);
-  const cd = { synthesized: true, spliced: true, potency, quality, name: p.name, effects: p.comp.effects, overdose_threshold: p.comp.odThreshold, dose_weight: p.comp.doseWeight, duration_seconds: 300 };
+  const cd = { synthesized: true, spliced: true, potency, name: p.name, effects: p.comp.effects, overdose_threshold: p.comp.odThreshold, dose_weight: p.comp.doseWeight, duration_seconds: 300 };
   await withTransaction(async (q) => { await consume(q); await insertCompound(q, cd); });
   await awardSkillUse(player.id, SYNTH_SKILL, skillResult.margin);
 
   const pct = Math.round(potency * 100);
   const riskNote = p.comp.doseWeight > 1 ? ` <span class="msg-system">(counts as ${p.comp.doseWeight} doses — go easy)</span>` : '';
-  return { type: 'output', message: `<span class="ip-gain">It holds.</span> You splice <span class="item">${p.name}</span> — <b>${pct}% potency</b> [${quality}].${riskNote}` };
+  return { type: 'output', message: `<span class="ip-gain">It holds.</span> You splice <span class="item">${p.name}</span> — <b>${pct}% potency</b>.${riskNote}` };
+}
+
+// Dev-only: launch the cook/splice minigame straight away with no recipe,
+// reagents, skill, or lab — just to see/feel it. The on-screen verdict shows
+// your score; the resolve is a harmless no-op (no pending entry).
+//   .cooktest            → normal cook minigame, difficulty 6
+//   .cooktest 12         → difficulty 12
+//   .cooktest 14 hard    → the harder splice-style minigame
+const DEV_ROLES = ['admin', 'dev', 'builder', 'designer'];
+function cmdCookTest(args, raw, player) {
+  if (!DEV_ROLES.includes(player.role)) return { type: 'error', message: 'Dev command.' };
+  const hard = /\b(hard|splice)\b/i.test(raw);
+  const difficulty = Math.max(1, Math.min(hard ? 16 : 10, parseInt(args[0], 10) || (hard ? 12 : 6)));
+  return {
+    type: 'synth_minigame', kind: 'test', recipeId: '__test__',
+    difficulty, hard, recipeName: hard ? 'TEST SPLICE' : 'TEST COOK', workspace: 'test bench',
+  };
+}
+
+// Dev-only: open the SPLICE designer seeded from real drugs (so the live
+// preview computes for real), in test mode — "Synthesize" launches the hard
+// minigame client-side without needing inventory / a Stabilizer / a lab, and
+// produces nothing. Requires ≥2 drugs with effects in the cache (seed-drugs).
+function cmdSpliceTest(args, raw, player) {
+  if (!DEV_ROLES.includes(player.role)) return { type: 'error', message: 'Dev command.' };
+  const cache = getDrugCache();
+  const drugs = [];
+  for (const d of Object.values(cache)) {
+    if (d.id === COMPOUND_DRUG) continue;
+    const e = normEff(d.effects);
+    const blocks = {};
+    if (Object.keys(e.instant).length) blocks.instant = summariseInstant(e.instant);
+    if (e.phases) blocks.phases = summarisePhases(e.phases);
+    if (e.hallucination) blocks.hallucination = summariseHall(e.hallucination);
+    if (Object.keys(blocks).length) drugs.push({ drug: d.id, name: d.name, blocks });
+    if (drugs.length >= 6) break;
+  }
+  if (drugs.length < 2) return { type: 'error', message: 'Need ≥2 drugs with effects in the cache — run seed-drugs.js first.' };
+  return { type: 'splice_designer', drugs, minSkill: SPLICE_MIN_SKILL, baseDifficulty: SPLICE_BASE_DIFF, hasStabilizer: true, test: true };
 }
 
 export const commands = {
@@ -476,4 +506,6 @@ export const commands = {
   splicepreview: cmdSplicePreview,
   splicebegin: cmdSpliceBegin,
   spliceresolve: cmdSpliceResolve,
+  '.cooktest': cmdCookTest,
+  '.splicetest': cmdSpliceTest,
 };

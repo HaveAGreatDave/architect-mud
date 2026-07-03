@@ -52,8 +52,8 @@ registerAction({
   handler: async ({ actor, params, context, emit }) => {
     const { row } = params;
     await inv.pickUp(row, actor);
-    const displayName = row.name.toLowerCase();
-    const article = /^[aeiou]/.test(displayName) ? 'an' : 'a';
+    const displayName = row.name;
+    const article = /^[aeiou]/i.test(displayName) ? 'an' : 'a';
     context.broadcast?.(actor.current_zone, { type:'zone_event', message:`${actor.handle} picks up ${article} ${displayName}.`, refresh: true }, actor.id);
     emit('item.taken', { actor, item: row, zone: actor.current_zone });
     emit('inventory.changed', { actor, zone: actor.current_zone });

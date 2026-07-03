@@ -10,6 +10,8 @@
 // margin (better cook → higher potency). Aborting (Esc) does NOT resolve — the
 // cook is simply abandoned, reagents intact.
 
+import { sfx } from './minigame-common.js';
+
 let _overlay = null, _raf = null, _keyDown = null, _keyUp = null, _opts = null, _st = null;
 
 function ensureStyles() {
@@ -168,7 +170,7 @@ function finish() {
     resEl.textContent = `${verdict} — ${score}% stable`;
   }
   const cb = _opts?.onResult;
-  window.AudioEngine?.playSfx?.({ priority: 6, config: { duration: 0.4, layers: [
+  sfx({ priority: 6, config: { duration: 0.4, layers: [
     { waveform: 'sine', freq: score >= 60 ? 520 : 200, pitchBend: { to: score >= 60 ? 780 : 120, time: 0.3 }, adsr: { a: 0.01, d: 0.3, s: 0.2, r: 0.1 }, gain: 0.14 } ] } });
   setTimeout(() => { close(); if (cb) cb({ score }); }, 950);
 }

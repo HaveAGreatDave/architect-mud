@@ -26,7 +26,7 @@ each tag does, so nothing gets silently forgotten as the list grows.
 | Column | Type | Notes |
 |---|---|---|
 | `id` | TEXT PK | e.g. `item_scrap_armor` |
-| `name` | TEXT | Display name. Commands fuzzy-match on this (`ILIKE %name%`). |
+| `name` | TEXT | Display name, stored in **prose-case** (see below). Commands fuzzy-match on this (`ILIKE %name%`). |
 | `weight` | REAL | Carry weight, **in grams**. Default 1000 (1kg). Displayed as `g` below 1000g, else `kg` (e.g. `750g`, `1.5kg`). |
 | `value` | INTEGER | Base price; vendors mark up/down from this. |
 | `tags` | JSONB | **Everything the item *does*.** A map of tag name → value. |
@@ -36,6 +36,26 @@ each tag does, so nothing gets silently forgotten as the list grows.
 > `flags`) are migrated into `tags` by `migrate.js`. They are dropped in a
 > separate later commit once the cutover is verified; until then they still
 > exist but are unused.
+
+---
+
+## Naming: prose-case
+
+The engine shows a name **verbatim** in prose ("You pick up a *name*."), so store
+the name exactly as it should read mid-sentence — **prose-case**:
+
+- **Generic words stay lowercase:** `pipe wrench`, `field bandage`, `raw meat`.
+- **Brand / proper words are capitalized:** `Nexis IX breacher`, `Rattlecan SMG`,
+  `Custodian ID badge`. Only the brand-ish token is capital; the generic tail stays down.
+
+There is no "brand-ness" auto-detection — the casing you type *is* the decision.
+The same applies to `furniture.name`. Model/acronym tokens (`IX`, `SMG`, `ID`, `V3`,
+`MK2`, camelCase like `SynthCorp`) read fine capitalized and should keep their case.
+
+> Legacy names were bulk-normalized once by
+> `server/models/temp/normalize-name-case.js`, which lowercases ordinary words but
+> preserves ALL-CAPS / digit / camelCase tokens. It **can't** detect a plain
+> Title-Case brand word (`Nexis`) — those were left lowercased and hand-fixed.
 
 ---
 
@@ -105,8 +125,7 @@ Equip-eligibility is signaled by the **presence of a `slot` tag**, not by
 Presence-only flags on a single carried item, stored in
 `player_inventory.custom_data` (already JSONB). Currently `broken` and
 `cursed`. Written by game logic as `custom_data.<flag> = true` and read with
-`hasFlag(invRow, name)`. The crafting `custom_data.quality` value is unrelated
-and left untouched.
+`hasFlag(invRow, name)`.
 
 ---
 

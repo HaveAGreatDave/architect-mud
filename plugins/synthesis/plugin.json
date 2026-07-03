@@ -3,5 +3,5 @@
   "version": "1.0.0",
   "description": "Drug synthesis: cook reagents into potency-scaled drugs via a chemistry skill check + a 'stabilize the reaction' minigame. Cook at a chem lab (bonus) or with a cook kit anywhere (penalty).",
   "hooks": [],
-  "commands": ["cook", "synthesize", "synthresolve", "splice", "splicepreview", "splicebegin", "spliceresolve"]
+  "commands": ["cook", "synthesize", "synthresolve", "splice", "splicepreview", "splicebegin", "spliceresolve", ".cooktest", ".splicetest"]
 }

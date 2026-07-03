@@ -1,10 +1,50 @@
 import { query, withTransaction } from '../../server/models/db.js';
 import { getZone } from '../../server/engine/world.js';
 import { transferCredits } from '../../server/engine/economy.js';
-import { skillCheck, awardSkillUse, effectiveSkill } from '../../server/engine/skills.js';
+import { awardSkillUse, effectiveSkill } from '../../server/engine/skills.js';
 import { getPowerMap } from '../../server/engine/environment.js';
+import { emit } from '../../server/engine/events.js';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
+
+// Jacking a terminal requires physically carrying this item — no skill roll
+// gates the attempt anymore, just possession of the tool.
+const HACK_DEVICE_ITEM_ID = 'item_hack_deck';
+async function hasHackDevice(playerId) {
+  const { rows } = await query(
+    'SELECT 1 FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND container_id IS NULL LIMIT 1',
+    [playerId, HACK_DEVICE_ITEM_ID]
+  );
+  return rows.length > 0;
+}
+
+// A failed breach fries the deck a little — five failures and it's slag.
+// Marked `unique` on the item so multiple decks don't share one condition.
+const HACK_DEVICE_DAMAGE_PER_FAIL = 0.2;
+async function damageHackDevice(playerId) {
+  const { rows } = await query(
+    'SELECT id, condition FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND container_id IS NULL LIMIT 1',
+    [playerId, HACK_DEVICE_ITEM_ID]
+  );
+  const dev = rows[0];
+  if (!dev) return '';
+  const newCond = Math.max(0, (dev.condition ?? 1) - HACK_DEVICE_DAMAGE_PER_FAIL);
+  if (newCond <= 0) {
+    await query('DELETE FROM player_inventory WHERE id=$1', [dev.id]);
+    return ' Your hack deck fries, sparks, and crumbles to slag in your hands.';
+  }
+  await query('UPDATE player_inventory SET condition=$1 WHERE id=$2', [newCond, dev.id]);
+  return ` Your hack deck takes damage (${Math.round(newCond * 100)}% integrity).`;
+}
+
+async function findAtmById(id) {
+  const { rows } = await query(`
+    SELECT f.id, f.name, f.zone_id,
+           a.network_id, a.cash_stock, a.cash_max, a.hack_difficulty, a.is_broken
+    FROM furniture f LEFT JOIN atm_units a ON a.id = f.id
+    WHERE f.id = $1`, [id]);
+  return rows[0] || null;
+}
 
 async function findAtmInZone(zoneId, nameHint) {
   let sql = `
@@ -61,6 +101,7 @@ async function buildAtmPanel(atm, player, powered) {
     isBroken: !!atm.is_broken,
     hackDifficulty: atm.hack_difficulty ?? 6,
     hackingSkill: await effectiveSkill(player, 'hacking'),
+    hasHackDevice: await hasHackDevice(player.id),
     maintenanceUnlocked: hasMaintenanceAccess(atm.id, player.id),
     player: { credits: player.credits || 0, bank_credits: player.bank_credits || 0 },
   };
@@ -226,12 +267,17 @@ function revokeMaintenanceAccess(atmId, playerId) {
   atmMaintenanceAccess.get(atmId)?.delete(playerId);
 }
 
+// jack — arms a breach attempt. No skill roll gates this: the Circuit Breach
+// minigame itself (client-side) is what decides success, reported back via
+// `jackresolve`. The only server-side gate is physically carrying a hacking
+// device (see HACK_DEVICE_ITEM_ID).
 async function cmdJack(args, raw, player) {
   const atm = await findAtmInZone(player.current_zone);
   if (!atm) return { type: 'error', message: "Nothing worth jacking here." };
   if (atm.is_broken) return { type: 'error', message: 'This terminal is already dead.' };
   if (!isZonePowered(player.current_zone)) return { type: 'error', message: "The ATM is powered down — nothing to jack." };
   if (!atm.cash_stock || atm.cash_stock <= 0) return { type: 'error', message: "Cash reserves empty. Not worth the risk." };
+  if (!(await hasHackDevice(player.id))) return { type: 'error', message: "You need a hacking device to breach this terminal." };
 
   const lockedUntil = jackLockout.get(player.id) || 0;
   if (Date.now() < lockedUntil) {
@@ -239,31 +285,68 @@ async function cmdJack(args, raw, player) {
     return { type: 'error', message: `Terminal lockout active. ${secs}s remaining.` };
   }
 
-  const difficulty = atm.hack_difficulty ?? 6;
-  const result = await skillCheck(player, 'hacking', difficulty);
+  return {
+    type: 'circuit_hack',
+    deviceId: atm.id,
+    deviceName: atm.name,
+    skill: await effectiveSkill(player, 'hacking'),
+    difficulty: atm.hack_difficulty ?? 6,
+    resolveCmd: 'jackresolve',
+  };
+}
 
-  if (result.success) {
-    await awardSkillUse(player.id, 'hacking', result.margin);
-    grantMaintenanceAccess(atm.id, player.id);
-    return {
-      type: 'jack',
-      message: `You burn through the handshake and drop into the diagnostic shell.\n<span class="ip-gain">MAINTENANCE mode unlocked.</span> Reopen the terminal to eject the cash reserve.`,
-      atm_maintenance: true,
-    };
-  }
+// A failed breach kicks a shock back up the cable — random 6-14 damage.
+const JACK_SHOCK_MIN = 6, JACK_SHOCK_RANGE = 9;
 
-  // Fail — set lockout and narrate severity by margin
-  jackLockout.set(player.id, Date.now() + 5 * 60 * 1000);
-  const badMargin = Math.abs(result.margin);
-  if (badMargin >= 4) {
+// jackresolve <atmId> <1|0> — silent; the Circuit Breach overlay fires this
+// with the minigame's own outcome. That outcome is authoritative: winning it
+// is the only gate on MAINTENANCE access beyond carrying the device.
+async function cmdJackResolve(args, raw, player, broadcast) {
+  const atmId = args[0];
+  const win = args[1] === '1';
+  if (!atmId) return { type: 'noop' };
+  const atm = await findAtmById(atmId);
+  if (!atm || atm.zone_id !== player.current_zone) return { type: 'noop' };
+  if (atm.is_broken) return { type: 'error', message: 'This terminal is already dead.' };
+  if (!isZonePowered(player.current_zone)) return { type: 'error', message: 'The ATM is powered down.' };
+  if (!(await hasHackDevice(player.id))) return { type: 'error', message: 'You need a hacking device to breach this terminal.' };
+
+  if (!win) {
+    jackLockout.set(player.id, Date.now() + 5 * 60 * 1000);
+    const deviceMsg = await damageHackDevice(player.id);
+
+    const shockDmg = JACK_SHOCK_MIN + Math.floor(Math.random() * JACK_SHOCK_RANGE);
+    const hp = Math.max(0, (player.hp || 0) - shockDmg);
+    player.hp = hp;
+    query('UPDATE players SET hp=$1 WHERE id=$2', [hp, player.id]).catch(() => {});
+
+    if (hp <= 0) {
+      broadcast(null, {
+        type: 'output',
+        message: `<span class="text-red">INTRUSION DETECTED.</span> The feedback surge stops your heart before the countermeasures even finish tracing you.${deviceMsg}`,
+        player_update: { hp },
+      }, null, player.id);
+      const { handlePlayerDeath } = await import('../../server/engine/gameLoop.js');
+      await handlePlayerDeath(player, null);
+      return { type: 'noop' };
+    }
+
     return {
       type: 'error',
-      message: `<span class="text-red">INTRUSION DETECTED.</span> Hard lockout. Security pulse traced the attempt. Your console ID is flagged. Lockout: 5 minutes.`,
+      message: `<span class="text-red">INTRUSION DETECTED.</span> Feedback surges up the line — you take ${shockDmg} damage.${deviceMsg} Security pulse traced the attempt. Lockout: 5 minutes.`,
+      player_update: { hp },
     };
   }
+
+  await awardSkillUse(player.id, 'hacking', 2);
+  grantMaintenanceAccess(atm.id, player.id);
+  // Breaching any live device is hacking (charged via the crimes registry if
+  // witnessed) — mirrors the surveillance hijack path.
+  emit('hack.success', { player, zoneId: atm.zone_id });
   return {
-    type: 'error',
-    message: `Authentication rejected. Handshake dropped. Lockout: 5 minutes.`,
+    type: 'jack',
+    message: `You burn through the handshake and drop into the diagnostic shell.\n<span class="ip-gain">MAINTENANCE mode unlocked.</span> Reopen the terminal to eject the cash reserve.`,
+    atm_maintenance: true,
   };
 }
 
@@ -284,6 +367,7 @@ async function cmdDrain(args, raw, player) {
     await q('UPDATE atm_units SET cash_stock=0, is_broken=1 WHERE id=$1', [atm.id]);
   });
   revokeMaintenanceAccess(atm.id, player.id);
+  emit('atm.drained', { player, zoneId: atm.zone_id });
 
   return {
     type: 'drain',
@@ -482,6 +566,7 @@ export const commands = {
   deposit: cmdDeposit,
   withdraw: cmdWithdraw,
   jack: cmdJack,
+  jackresolve: cmdJackResolve,
   drain: cmdDrain,
   '.hackpreview': cmdHackPreview,
 };

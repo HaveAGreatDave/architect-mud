@@ -5,8 +5,18 @@
 // (dialogue→quest/script, AI→quest, quest→dialogue) hop between the standalone editors
 // via vineJumpTo without navigating away. No storage of its own — every category reads
 // and writes the same field its owning panel does.
+//
+// The panel opens on a front page of 4 large family cards (VineQuest/VineDialogue/
+// VineAI/VineScripts). Picking "Existing" on a card drills into a compact list scoped
+// to that family; "+ New" jumps straight to the owning panel's blank record form.
+// Every open VINE editor also carries a top-left tab strip (vineFamilyTabs) wired to
+// vineGoToFamily so you can hop into another family's existing list without leaving
+// the modal manually first.
 
 let _vineSuiteData = { npcs: [], enemies: [], scripts: [], quests: [] };
+let _vsView = 'front';         // 'front' | 'existing'
+let _vsActiveFamily = null;
+let _vsPendingOpen = null;     // { family, view } — consumed once by the next renderVineSuite
 
 function _vsParse(g) {
   if (!g) return null;
@@ -25,11 +35,10 @@ function _vsEsc(s) {
 // the index list + the jump-to-owning-panel navigator. Cross-jump fields
 // (noun/schema/listRoute/toGraph/save[/createStub]) power vineJumpTo — opening a
 // referenced asset in the standalone modal, saved straight to the DB, without leaving
-// the editor you jumped from. Kinds nobody references (aiNpc/aiEnemy) carry index
-// fields only.
+// the editor you jumped from.
 const VINE_KINDS = {
   dialogue: {
-    label: 'NPC Dialogue', icon: '💬', color: '#4477aa', source: 'npcs', panel: 'npcs', opener: 'npcOpenVine',
+    label: 'NPC Dialogue', icon: '💬', color: 'var(--accent2)', source: 'npcs', panel: 'npcs', opener: 'npcOpenVine',
     badge: (r) => _vsNodeCount(r.dialogue_tree),
     noun: 'Dialogue',
     schema: () => VineDialogueSchema,
@@ -38,15 +47,15 @@ const VINE_KINDS = {
     save: (id, g) => directAPI(`/npcs/${id}/graph`, 'PATCH', { field: 'dialogue_tree', graph: VineDialogueSchema.toDialogueTree(g) }),
   },
   aiNpc: {
-    label: 'NPC Behaviour', icon: '🧠', color: '#886622', source: 'npcs', panel: 'npcs', opener: 'npcOpenVineAI',
+    label: 'NPC Behaviour', icon: '🧠', color: 'var(--accent3)', source: 'npcs', panel: 'npcs', opener: 'npcOpenVineAI',
     badge: (r) => _vsNodeCount(r.behaviour_graph),
   },
   aiEnemy: {
-    label: 'Enemy Behaviour', icon: '👾', color: '#aa4422', source: 'enemies', panel: 'enemies', opener: 'enemyOpenVineAI',
+    label: 'Enemy Behaviour', icon: '🧠', color: 'var(--accent3)', source: 'enemies', panel: 'enemies', opener: 'enemyOpenVineAI',
     badge: (r) => _vsNodeCount(r.behaviour_graph),
   },
   script: {
-    label: 'Scripts', icon: '⎇', color: '#4455aa', source: 'scripts', panel: 'scripts', opener: 'scriptsOpenVine',
+    label: 'Scripts', icon: '⎇', color: 'var(--cyan)', source: 'scripts', panel: 'scripts', opener: 'scriptsOpenVine',
     badge: (r) => _vsNodeCount(r.graph),
     noun: 'Script',
     schema: () => VineScriptSchema,
@@ -55,7 +64,7 @@ const VINE_KINDS = {
     save: (id, g, rec) => API(`/scripts/${id}`, 'PUT', { name: rec.name, description: rec.description || '', graph: VineScriptSchema.toScriptGraph(g) }),
   },
   quest: {
-    label: 'Quests', icon: '❗', color: '#a04488', source: 'quests', panel: 'quests', opener: 'questsOpenVine',
+    label: 'Quests', icon: '❗', color: 'var(--accent)', source: 'quests', panel: 'quests', opener: 'questsOpenVine',
     badge: (r) => (Array.isArray(r.objectives) ? r.objectives : _vsParse(r.objectives) || []).length,
     noun: 'Quest',
     schema: () => VineQuestSchema,
@@ -71,7 +80,20 @@ const VINE_KINDS = {
   },
 };
 
+// Families are what the front page shows: 4 large cards, always in this order. Each
+// maps to 1+ VINE_KINDS (VineAI covers both NPC and enemy behaviour graphs).
+const VINE_FAMILIES = {
+  quest:    { label: 'VineQuest',    icon: '❗', color: 'var(--accent)',  tagline: 'Objective DAGs & rewards', kinds: ['quest'],   newPanels: [{ panel: 'quests', label: '+ New' }] },
+  dialogue: { label: 'VineDialogue', icon: '💬', color: 'var(--accent2)', tagline: 'NPC conversation trees',   kinds: ['dialogue'], newPanels: [{ panel: 'npcs', label: '+ New NPC' }] },
+  ai:       { label: 'VineAI',       icon: '🧠', color: 'var(--accent3)', tagline: 'NPC & enemy behaviour',    kinds: ['aiNpc', 'aiEnemy'], newPanels: [{ panel: 'npcs', label: '+ New NPC' }, { panel: 'enemies', label: '+ New Enemy' }] },
+  script:   { label: 'VineScripts',  icon: '⎇', color: 'var(--cyan)',    tagline: 'Scripted events',          kinds: ['script'],  newPanels: [{ panel: 'scripts', label: '+ New' }] },
+};
+const _VF_ORDER = ['quest', 'dialogue', 'ai', 'script'];
 const _VS_ORDER = ['dialogue', 'aiNpc', 'aiEnemy', 'script', 'quest'];
+
+function _vsFamilyForKind(kind) {
+  return _VF_ORDER.find(f => VINE_FAMILIES[f].kinds.includes(kind)) || null;
+}
 
 // ── Data fetch ───────────────────────────────────────────────────────────────
 async function fetchVineSuite() {
@@ -86,62 +108,127 @@ async function fetchVineSuite() {
   };
 }
 
-// ── Index (the `vine` panel) ─────────────────────────────────────────────────
+// ── Root render — front page of 4 family cards, or a family's compact existing list ──
 function renderVineSuite(data) {
   _vineSuiteData = data || _vineSuiteData;
-  document.getElementById('list-panel').innerHTML = `
-    <div style="padding:6px 2px 14px">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
-        <input id="vine-index-search" placeholder="Filter every graph…" oninput="vsRenderIndex()"
-          style="flex:1;min-width:220px;background:var(--bg2);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:6px 10px;border-radius:3px">
-        <div style="color:var(--text-dim);font-size:11px;flex:1;min-width:220px">
-          Click any graph to open it in its own editor — you land on the owning panel with the record open.
-          Cross-references (dialogue→quest, AI→quest, …) jump straight between editors.
-        </div>
-      </div>
-      <div id="vine-index-body"></div>
-    </div>`;
-  vsRenderIndex();
+  if (_vsPendingOpen) {
+    _vsActiveFamily = _vsPendingOpen.family;
+    _vsView = _vsPendingOpen.view;
+    _vsPendingOpen = null;
+  } else {
+    _vsView = 'front';
+    _vsActiveFamily = null;
+  }
+  vsRenderRoot();
 }
 
-function vsRenderIndex() {
-  const q = (document.getElementById('vine-index-search')?.value || '').toLowerCase();
-  const body = document.getElementById('vine-index-body');
-  if (!body) return;
-  body.innerHTML = _VS_ORDER.map(kind => {
-    const cat = VINE_KINDS[kind];
-    const all = _vineSuiteData[cat.source] || [];
-    const recs = all
-      .filter(r => !q || String(r.name || '').toLowerCase().includes(q) || String(r.id).toLowerCase().includes(q))
-      .slice()
-      .sort((a, b) => (cat.badge(b) - cat.badge(a)) || String(a.name || a.id).localeCompare(String(b.name || b.id)));
-    if (q && !recs.length) return '';
-    const withGraphs = all.filter(r => cat.badge(r)).length;
+function vsRenderRoot() {
+  const el = document.getElementById('list-panel');
+  if (!el) return;
+  el.innerHTML = _vsView === 'existing' ? _vsExistingHtml() : _vsFrontHtml();
+  if (_vsView === 'existing') vsRenderExisting();
+}
 
-    const rows = recs.map(rec => {
-      const n = cat.badge(rec);
-      const badge = n
-        ? `<span style="color:${cat.color};font-size:11px;white-space:nowrap">● ${n}</span>`
-        : `<span style="color:var(--text-dim);font-size:11px">—</span>`;
-      return `<div onclick="vineOpenAsset('${kind}','${_vsEsc(rec.id)}')"
-        style="display:flex;gap:8px;align-items:center;padding:5px 12px;cursor:pointer;border-bottom:1px solid var(--border)"
-        onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background='none'">
-        <span style="flex:1;font-size:12px;color:var(--text-bright)">${_vsEsc(rec.name || '(unnamed)')}</span>
-        <code style="font-size:10px;color:var(--text-dim)">${_vsEsc(rec.id)}</code>
-        ${badge}
-      </div>`;
-    }).join('') || `<div style="padding:10px 12px;color:var(--text-dim);font-size:11px">None yet.</div>`;
-
+function _vsFrontHtml() {
+  const cards = _VF_ORDER.map(key => {
+    const fam = VINE_FAMILIES[key];
+    const newBtns = fam.newPanels.map(np =>
+      `<button class="action-btn" onclick="vsNewRecord('${np.panel}')">${np.label}</button>`
+    ).join('');
     return `
-      <div style="margin-bottom:14px;border:1px solid var(--border);border-left:3px solid ${cat.color};border-radius:4px;overflow:hidden">
-        <div style="display:flex;gap:8px;align-items:center;padding:7px 12px;background:var(--bg2)">
-          <span style="font-size:15px">${cat.icon}</span>
-          <span style="font-weight:bold;color:${cat.color};font-size:12px">${cat.label}</span>
-          <span style="color:var(--text-dim);font-size:11px;margin-left:auto">${withGraphs}/${all.length} with graphs</span>
+      <div style="border:1px solid var(--border);border-top:4px solid ${fam.color};border-radius:6px;padding:20px 14px;text-align:center;background:var(--bg2)">
+        <div style="font-size:40px;line-height:1">${fam.icon}</div>
+        <div style="font-weight:bold;font-size:14px;letter-spacing:1px;color:${fam.color};margin:10px 0 4px">${fam.label}</div>
+        <div style="font-size:11px;color:var(--text-dim);margin-bottom:14px">${fam.tagline}</div>
+        <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap">
+          ${newBtns}
+          <button class="action-btn" onclick="vsOpenExisting('${key}')">📂 Existing</button>
         </div>
-        ${rows}
       </div>`;
   }).join('');
+  return `
+    <div style="padding:10px 2px 14px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px">
+        ${cards}
+      </div>
+    </div>`;
+}
+
+function _vsExistingHtml() {
+  const fam = VINE_FAMILIES[_vsActiveFamily];
+  return `
+    <div style="padding:6px 2px 14px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
+        <button class="action-btn" onclick="vsBackToFront()">← Back</button>
+        <span style="font-size:13px;font-weight:bold;color:${fam.color};letter-spacing:1px">${fam.icon} ${fam.label}</span>
+        <input id="vine-index-search" placeholder="Filter…" oninput="vsRenderExisting()"
+          style="flex:1;min-width:180px;background:var(--bg2);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:5px 9px;border-radius:3px">
+      </div>
+      <div id="vine-index-body" style="border:1px solid var(--border);border-radius:4px;overflow:hidden"></div>
+    </div>`;
+}
+
+function vsOpenExisting(familyKey) {
+  _vsActiveFamily = familyKey;
+  _vsView = 'existing';
+  vsRenderRoot();
+}
+
+function vsBackToFront() {
+  _vsView = 'front';
+  _vsActiveFamily = null;
+  vsRenderRoot();
+}
+
+// Compact flat list (no per-kind section boxes) for the active family. Rows carry a
+// small kind tag when the family spans more than one VINE_KINDS entry (VineAI).
+function vsRenderExisting() {
+  const fam = VINE_FAMILIES[_vsActiveFamily];
+  const body = document.getElementById('vine-index-body');
+  if (!fam || !body) return;
+  const q = (document.getElementById('vine-index-search')?.value || '').toLowerCase();
+  const multi = fam.kinds.length > 1;
+
+  const rows = [];
+  for (const kind of fam.kinds) {
+    const cat = VINE_KINDS[kind];
+    const all = _vineSuiteData[cat.source] || [];
+    for (const rec of all) {
+      if (q && !String(rec.name || '').toLowerCase().includes(q) && !String(rec.id).toLowerCase().includes(q)) continue;
+      rows.push({ kind, cat, rec, n: cat.badge(rec) });
+    }
+  }
+  rows.sort((a, b) => (b.n - a.n) || String(a.rec.name || a.rec.id).localeCompare(String(b.rec.name || b.rec.id)));
+
+  if (!rows.length) {
+    body.innerHTML = `<div style="padding:14px 12px;color:var(--text-dim);font-size:11px">None yet.</div>`;
+    return;
+  }
+
+  body.innerHTML = rows.map(({ kind, cat, rec, n }) => {
+    const badge = n
+      ? `<span style="color:${cat.color};font-size:10px;white-space:nowrap">● ${n}</span>`
+      : `<span style="color:var(--text-dim);font-size:10px">—</span>`;
+    const tag = multi
+      ? `<span style="font-size:9px;color:var(--text-dim);border:1px solid var(--border);border-radius:2px;padding:0 4px;flex-shrink:0">${cat.label.replace(' Behaviour', '')}</span>`
+      : '';
+    return `<div onclick="vineOpenAsset('${kind}','${_vsEsc(rec.id)}')"
+      style="display:flex;gap:6px;align-items:center;padding:4px 10px;cursor:pointer;border-bottom:1px solid var(--border)"
+      onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background='none'">
+      ${tag}
+      <span style="flex:1;font-size:11px;color:var(--text-bright)">${_vsEsc(rec.name || '(unnamed)')}</span>
+      <code style="font-size:9px;color:var(--text-dim)">${_vsEsc(rec.id)}</code>
+      ${badge}
+    </div>`;
+  }).join('');
+}
+
+// "+ New" on a family card — jump to the owning panel and open its blank record form.
+async function vsNewRecord(panel) {
+  activatePanelNav(panel);
+  currentPanel = panel;
+  await loadPanel(panel);
+  newRecord();
 }
 
 // ── Navigator: open an asset in its owning panel's real editor ────────────────
@@ -162,9 +249,9 @@ async function vineOpenAsset(kind, id) {
 
 // ── Cross-editor jump: open a referenced asset in the standalone modal ─────────
 // Fired from inside an open editor (an action referencing a quest/script, a quest's
-// "offered by" NPC). Commits the current graph back to its form so nothing is lost,
-// then opens the target in the same modal, saved straight to the DB. Does NOT navigate
-// panels — the editor you jumped from stays behind it.
+// "offered by" NPC). Commits the current graph back to its form, then opens the
+// target in the same modal, saved straight to the DB. Does NOT navigate panels — the
+// editor you jumped from stays behind it.
 async function vineJumpTo(kind, id) {
   if (!id) return;
   const cat = VINE_KINDS[kind];
@@ -190,11 +277,38 @@ async function vineJumpTo(kind, id) {
       const res = await cat.save(rec.id, saved, rec);
       if (res && res.error) return toast(res.error, true);
       toast(`${cat.noun} '${rec.name || id}' saved.`);
-    }
+    },
+    null,
+    vineFamilyTabs(_vsFamilyForKind(kind))
   );
 }
 
 // Back-compat shim: dialogue's quest-action jump button still calls this.
 function vineJumpToQuest(questId) {
   return vineJumpTo('quest', questId);
+}
+
+// ── Family tabs (top-left of every VINE editor) ────────────────────────────────
+// Always the same 4, in the same order, each recolored to its family. The active
+// family is inert; the other 3 commit + close the current editor and open the Suite
+// straight into that family's compact existing list.
+function vineFamilyTabs(activeFamilyKey) {
+  return _VF_ORDER.map(key => {
+    const fam = VINE_FAMILIES[key];
+    return {
+      label: fam.label,
+      icon: fam.icon,
+      color: fam.color,
+      active: key === activeFamilyKey,
+      onClick: () => vineGoToFamily(key),
+    };
+  });
+}
+
+async function vineGoToFamily(familyKey) {
+  vineModalSave(); // commits the current graph to its form (if any) and closes the modal
+  _vsPendingOpen = { family: familyKey, view: 'existing' };
+  activatePanelNav('vine');
+  currentPanel = 'vine';
+  await loadPanel('vine');
 }

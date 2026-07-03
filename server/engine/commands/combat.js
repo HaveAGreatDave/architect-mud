@@ -4,6 +4,7 @@ import { getZoneProtection } from "../protection.js";
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from "../sift.js";
 import { awardSkillUse, skillCheck } from "../skills.js";
 import { isStackable } from "../tags.js";
+import { titleCaseName } from "../text.js";
 import { randomUUID } from "crypto";
 
 // Resolve a corpse in the player's current zone by id (preferred, from a click)
@@ -35,6 +36,8 @@ export async function buildLootView(corpse, player) {
 		[player.id],
 	);
 	const used = items.reduce((sum, r) => sum + (Number(r.weight) || 0) * (Number(r.quantity) || 0), 0);
+	for (const r of items) r.name = titleCaseName(r.name);       // list display — Title Case
+	for (const r of invItems) r.name = titleCaseName(r.name);
 	return {
 		type: "loot_view",
 		corpseId: corpse.id,

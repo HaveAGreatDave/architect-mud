@@ -51,7 +51,7 @@ function renderDashboard(data) {
       <div style="margin-top:28px">
         <div style="font-size:13px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">Active Players</div>
         <div style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:16px">
-          <div style="display:flex;gap:28px;margin-bottom:14px">
+          <div style="display:flex;align-items:flex-start;gap:28px;margin-bottom:14px">
             <div>
               <div style="font-size:11px;color:var(--text-dim);margin-bottom:2px">Active Now</div>
               <div id="pcl-active-now" style="font-size:22px;font-weight:700;color:var(--text-bright)">${online.length}</div>
@@ -59,6 +59,11 @@ function renderDashboard(data) {
             <div>
               <div style="font-size:11px;color:var(--text-dim);margin-bottom:2px">Peak Concurrent</div>
               <div id="pcl-peak" style="font-size:22px;font-weight:700;color:var(--text-bright)">—</div>
+            </div>
+            <div style="margin-left:auto;display:flex;gap:4px" id="pcl-range-toggle">
+              <button data-range="7d"  style="${btnStyle(true)}">7 Days</button>
+              <button data-range="30d" style="${btnStyle(false)}">30 Days</button>
+              <button data-range="all" style="${btnStyle(false)}">All Time</button>
             </div>
           </div>
           <div id="pcl-chart" style="width:100%;height:120px"></div>
@@ -271,12 +276,30 @@ async function _initActivityLog() {
   box.value = lines.join('\n');
 }
 
-async function _initPlayerCountChart() {
+async function _initPlayerCountChart(rangeKey = '7d') {
   const container = document.getElementById('pcl-chart');
   const peakEl    = document.getElementById('pcl-peak');
+  const toggle    = document.getElementById('pcl-range-toggle');
   if (!container) return;
 
-  const d = await directAPI('/player-count-log');
+  // Wire the range buttons once, on first render.
+  if (toggle && !toggle.dataset.wired) {
+    toggle.dataset.wired = '1';
+    toggle.querySelectorAll('button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        toggle.querySelectorAll('button').forEach(b => {
+          const active = b === btn;
+          b.style.background  = active ? 'var(--bg3)'    : 'transparent';
+          b.style.borderColor = active ? 'var(--accent)' : 'var(--border)';
+          b.style.color       = active ? 'var(--accent)' : 'var(--text-dim)';
+        });
+        _initPlayerCountChart(btn.dataset.range);
+      });
+    });
+  }
+
+  container.innerHTML = `<div style="height:120px;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--text-dim)">Loading…</div>`;
+  const d = await directAPI('/player-count-log?range=' + encodeURIComponent(rangeKey));
   const rows = (d.rows || []);
 
   const peak = rows.length ? Math.max(...rows.map(r => r.count)) : 0;

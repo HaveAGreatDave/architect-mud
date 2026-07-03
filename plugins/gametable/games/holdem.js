@@ -346,10 +346,13 @@ export class HoldemGame {
   _rundown(alive) {
     // Only one player left — they win everything.
     const winner = alive[0];
-    winner.chips += this.pot;
+    const potWon = this.pot;
+    winner.chips += potWon;
     this.pot = 0;
     this.phase = 'showdown';
-    return { phase: 'showdown', winners: [{ seat: winner, chips: winner.chips, reason: 'everyone folded', handName: null }] };
+    // winners[].chips is "amount won this hand" everywhere else (see _showdown's
+    // `share`) — use potWon, not winner.chips, which is now the player's whole stack.
+    return { phase: 'showdown', winners: [{ seat: winner, chips: potWon, reason: 'everyone folded', handName: null }] };
   }
 
   _showdown() {

@@ -471,6 +471,13 @@ export const SCHEMA_SQL = `
     category TEXT
   );
 
+  -- Verb aliases: shortcut → canonical verb, rewritten before command dispatch.
+  -- Engine ships defaults (server/engine/commands/aliases.js); rows add/override.
+  CREATE TABLE IF NOT EXISTS command_aliases (
+    alias TEXT PRIMARY KEY,
+    verb TEXT NOT NULL
+  );
+
   -- Item behavior consolidated into the single tags JSONB column.
   ALTER TABLE items ADD COLUMN IF NOT EXISTS tags JSONB DEFAULT '{}';
   ALTER TABLE items ALTER COLUMN description DROP NOT NULL;
