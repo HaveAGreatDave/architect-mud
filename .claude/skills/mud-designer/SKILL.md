@@ -67,12 +67,47 @@ Full model + the fallback table: [docs/npc-clothing.md](../../../docs/npc-clothi
 **Enemy:**
 - [ ] A zone spawn entry (`zones/<id>/spawns`) — an enemy with no spawn ships nothing
 - [ ] Loot table items exist
+- [ ] **Butcher yield decided, not defaulted.** Should the corpse be carvable? If yes, populate `butcher_table` (entries `{item, qty:[min,max]}`) and set `butcher_difficulty`; the yield items must exist as `items` rows. If no, leave `butcher_table: []`. A new enemy defaults to an *empty* table = non-butcherable — decide deliberately (see below).
 - [ ] Behaviour graph (or default AI is acceptable — say which)
 - [ ] Danger rating of the target zone matches enemy lethality
+
+### Butcherable enemies — `butcher_table` + `butcher_difficulty`
+
+Butchering is a **separate path from loot**: `loot_table` drops onto the corpse to be looted; `butcher_table` is carved with the Butchering skill (a knife-tagged tool required). An enemy can have both, either, or neither. On kill the corpse inherits both fields from the enemy row; if the corpse is **empty of loot but butcherable**, `loot <corpse>` starts the carve directly.
+
+Two enemy columns drive it:
+- `butcher_table` (JSONB, default `[]`) — array of entries `{ "item": "<item_id>", "qty": [min, max] }`. `qty` may also be a bare int.
+- `butcher_difficulty` (int, default `5`) — the skill-check target.
+
+The carve rolls an **independent Butchering skill check per entry** against `butcher_difficulty`: success carves a random `qty` in range into inventory, failure ruins that entry (and bloodies the player). **There is no per-entry drop chance** — to make a yield rare, raise `butcher_difficulty` or use a low `qty`, not a "chance" field (none exists). Difficulty guidance: copy from an exemplar enemy of similar tier; `0` = trivial, `5` = default, higher = needs a skilled butcher.
+
+The yield items are inserted by id, so **every `item` id must exist as an `items` row** — but unlike a craft component it needs no other "way into the world" (the corpse *is* its source). Pull an exemplar enemy that already has a populated `butcher_table` and copy its shape rather than inventing one.
 
 **Item:**
 - [ ] Tags from the catalog only (`client/shared/tagCatalog.js`) — check `docs/tags.md`
 - [ ] A way into the world: vendor stock, loot table, scavenging table, or placed spawn
+
+**Furniture light (`object_type:'light'`):**
+- [ ] **`lumen_output` is set** — this, NOT `light_on`, is what brightens the room. A lit fixture with no `lumen_output` emits zero lumens (see lighting section below).
+- [ ] `light_on: 1` if it should start on (defaults to 0 — an off light does nothing)
+- [ ] `light_type` picked (`lamp` | `overhead` | `streetlight` | ...) — also sets the fallback power draw
+- [ ] `power_draw_kw` if you want a non-default draw (else derived from `light_type`)
+
+### Lighting — set `lumen_output` or the room stays dim
+
+A zone's brightness comes from the **sum of `lumen_output` across its lights that are `light_on=1`** (`lighting_states.total_lumens`), run through a log curve. `light_on` is just an on/off switch — **`lumen_output` is the actual light**. Omit it and the fixture contributes 0 lumens; a *powered* room with 0 lumens falls back to `0.3` artificial light, which reads as **gloomy/dim** even though every light is "on". This is the #1 lighting failure.
+
+Reference lumen values (copy an existing light of the same `light_type`; these are the engine's fallback draws too):
+
+| light_type   | typical `lumen_output` | `power_draw_kw` (W) | one fixture reads as (indoor, powered, clear) |
+|--------------|------------------------|---------------------|-----------------------------------------------|
+| lamp         | ~400                   | 5                   | `clear` (~0.64)                               |
+| overhead     | ~1200                  | 20                  | `clear` (~0.73)                               |
+| (bright room)| ~3000                  | —                   | `bright` (~0.83)                              |
+| streetlight  | 8000                   | 200                 | `blazing` (~0.95)                             |
+| **unset (0)**| **null → 0**           | —                   | **gloomy/dim (~0.30) even when on** ← the bug |
+
+Lumens are **summed per zone**, so a room lit by several fixtures adds them up — to make a room read `bright`/`blazing`, either give one fixture a high `lumen_output` or place several. After creating/updating a light, the route resyncs `lighting_states` automatically; verify by fetching the zone's lighting (or just re-`look` in-world) and confirming the level label matches intent — don't trust `light_on:1` alone.
 
 **Zone:**
 - [ ] Exits connect both ways to existing zones
@@ -101,6 +136,7 @@ Ask only what exemplars + the request can't answer. Typical NPC batch:
 - **Scavenging table PUT is destructive:** `PUT /scavenging-tables/:id` deletes ALL entries and rewrites from `body.entries`. To *add* an item, GET the table first, map its entries to `{item_id,difficulty,weight,max_qty}`, append yours, and PUT the full set. Never PUT a partial entry list. (Same read-modify-write caution applies to any list-valued PUT.)
 - **A craft component needs its own way into the world** — the recipe is the coat's path in, but an invented ingredient is uncraftable air until it's placed too (scavenging table, loot, or vendor). Zones bind a table via `zones.flags.scavenging_table_id`; pick the table already on the thematically-right zone rather than making a new one.
 - **Scratchpad path escaping:** don't build Windows paths inside `node -e` bash strings (`\r`/`\\` get mangled). Write a `.mjs` helper in scratchpad and run it, using `new URL('file', import.meta.url)` for sibling paths.
+- **A "light" with no `lumen_output` emits nothing.** Zone brightness = the summed `lumen_output` of on-lights, not the count of lit fixtures. Create a light with `light_on:1` but no `lumen_output` and the room drops to the 0-lumen powered fallback (`0.3` → gloomy/dim) — the classic "all the lights are on but it's dark" bug. Always set `lumen_output` (lamp ~400, overhead ~1200, streetlight 8000); copy an existing light of the same `light_type`. `light_on` is only the switch. To fix existing dim rooms, PUT the offending lights with a real `lumen_output` (furniture PUT is create-column-aware — but re-fetch to confirm the resync landed).
 - **Item PUT is a full-object replace with NO merge/COALESCE** (`apiUpdateItem`): it writes `name,type,weight,value,tags` straight from the body, so a *partial* PUT (e.g. just `{tags}`) NULLs name/weight/value. Always PUT the complete item object — keep the create payload in scratchpad and edit it, never hand-write a diff. Note it also ignores `subtype/effects/flags/is_stackable` on update (those are create-only columns).
 - **"Verified" has two tiers — say which you did.** DB read-back (fetch the entity, confirm the field) proves the *data* is right. Behavioural verification (poll NPC `zone_id` to see it move) proves it *works*. Armor soak can only be data-verified cheaply: `recomputeArmor()` runs at login and there's no puppet player, so you can't observe combat soak from the CLI. Report "data verified, combat effect not observed" rather than implying it was play-tested.
 

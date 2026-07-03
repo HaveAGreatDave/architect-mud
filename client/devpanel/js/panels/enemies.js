@@ -186,7 +186,6 @@ function butcherRow(items, entry) {
     <div class="field" style="flex:2"><label>Item</label>
       <select class="butcher-item">${sel?'':'<option value="">— select item —</option>'}${lootItemOptions(items, sel)}</select>
     </div>
-    <div class="field" style="flex:0 0 78px"><label>Chance %</label><input type="number" class="butcher-weight" value="${e.weight ?? 100}" min="0" max="100" step="1"></div>
     <div class="field" style="flex:0 0 62px"><label>Qty min</label><input type="number" class="butcher-min" value="${min}" min="1" step="1"></div>
     <div class="field" style="flex:0 0 62px"><label>Qty max</label><input type="number" class="butcher-max" value="${max}" min="1" step="1"></div>
     <button type="button" class="action-btn" onclick="removeButcherRow(this)" style="flex:0 0 auto">×</button>
@@ -363,12 +362,11 @@ async function saveEnemy(existing) {
   for (const row of document.querySelectorAll('#butcher-rows .butcher-row')) {
     const item = row.querySelector('.butcher-item').value;
     if (!item) continue;
-    const weight = +row.querySelector('.butcher-weight').value || 0;
     let min = +row.querySelector('.butcher-min').value || 1;
     let max = +row.querySelector('.butcher-max').value || 1;
     if (min < 1) min = 1;
     if (max < min) max = min;
-    butcher_table.push({ item, weight, qty: [min, max] });
+    butcher_table.push({ item, qty: [min, max] });
   }
   const weapon = [];
   for (const row of document.querySelectorAll('#weapon-rows .weapon-row')) {

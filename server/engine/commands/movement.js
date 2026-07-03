@@ -39,10 +39,11 @@ registerMoveGate(async ({ player, direction, door, to }) => {
   if (!door || door.hp <= 0 || door.lock_state !== 'locked') return;
   if (doorGuardsOnlyUnownedApartment(door)) return; // unrented unit — the lock is vestigial
   const lockTag = getLockTagPublic(door);
+  if (!lockTag) return; // locked but no lock installed — a data glitch, not a wall; let it pass
   // A manual bolt (privacy latch) never opens while shut, even for the person who
   // set it — they must unlock it to leave, which is why it can't be locked from
   // the far side. Credentialled locks still let their auth-holder walk through.
-  const canPass = lockTag && lockTypePassesWhileLocked(lockTag.type)
+  const canPass = lockTypePassesWhileLocked(lockTag.type)
     && await checkLockAuth(lockTag, door, player);
   if (!canPass) {
     const label = NAMED_LOCK_DIRS.has(direction) && to?.name ? to.name : `the ${direction}`;
