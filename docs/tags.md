@@ -69,6 +69,32 @@ Class tags are a JSON object keyed by tag name → secondary attribute; `true` f
 | `broken`/`cursed` (instance) | `true` | new presence flags in `custom_data` |
 | `fillable` | int (capacity, fluid units) | new — fluid container. Instance `custom_data.fluid_amount`/`fluid_type` hold contents (absent/0 = empty); filling makes a unit unique. Verbs `fill`/`drink`/`empty` live in the **fillable** plugin (thirst-per-unit is a fluid property, not the container's) |
 
+## Gate capabilities on tags, not item ids
+
+The whole point of the tag system is that the engine and plugins reason about **what an item does**, never
+**which exact item it is**. A capability gate — any "you need a ⟨tool⟩ to do X" check — must read a tag, so
+that *any* item a designer tags that way satisfies it. **A plugin (or engine command) must never hardcode a
+specific item id to answer "can the player do X?"** Doing so couples the mechanic to one database row: the
+day someone authors a second item that should also work, it silently won't, with no error to explain why.
+
+The distinction:
+
+- **Capability / role gate → tag.** "Do you have a hacking device / a cutting tool / a welder?" Read a tag
+  (`hasTag`, or a `player_inventory ⋈ items` join filtered with `jsonb_exists(i.tags,'<tag>')`). This is
+  the item-side mirror of the furniture rule in [Furniture capability tags vs. `object_type`](#furniture-capability-tags-vs-object_type)
+  — capabilities live in tags, gated by verb plugins, never as a magic literal.
+- **Concrete-item reference → id is fine.** Granting, spawning, removing, or crafting *one named item* by
+  identity (starter gear, a specific quest object, a recipe's exact output). Here the id **is** the thing.
+
+Litmus test: *if a designer made a second item that should also work here, would they expect tagging it to
+be enough?* Yes → use a tag; a hardcoded id is a bug. No (you mean that exact row) → an id is correct.
+
+Known violation to converge (as of 2026-07): `item_hack_deck` is hardcoded as the hack gate in three
+places — `server/engine/commands/doors.js`, `plugins/atm/index.js`, `plugins/jail/index.js` — even though
+the same lock domain already gates *installation* by the `kitTag` tag (`lockkit:*`). These should become a
+single `hack_device` tag read through one shared helper. The reusable sweep for this whole bug class is
+[capability-tag-vs-itemid-audit.md](audits/capability-tag-vs-itemid-audit.md).
+
 ## Supertags (tags-of-tags)
 
 > **Status (as built, 2026-06).** Added after the original tag system shipped.

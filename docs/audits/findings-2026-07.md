@@ -6,7 +6,7 @@ silent seams: engine↔plugin dead code, content↔engine field drift, client↔
 drift, string-keyed registry typos, split source-of-truth, plus a simplification lens).
 
 **Areas covered:** NPC/AI · Broadcast · Vendor · Combat · Survival · Economy core ·
-World systems · UI/CSS standardization · Dev-panel↔REST.
+World systems · UI/CSS standardization · Dev-panel↔REST · Doors/Locks/Bypass (§10, 2026-07-03 deep-dive).
 **Only un-audited system:** Scavenging (deferred).
 
 All findings are static (read-by-reading); **none were runtime-verified**. Many were fixed
@@ -95,6 +95,74 @@ during the same sweep — those are tagged below and listed in the [changelog](#
 - ➖ **~7 orphaned `environment` dev endpoints** (implemented, no caller): `/environment/time/advance`, `/weather/storm`, `/weather/snow`, `/power/generator`, `/power/load`, `/power/fail`, `/power/city-generators` — superseded by other buttons. Flagged, not deleted (per CLAUDE.md).
 - ➖ `player_update` from `apiUpdatePlayer` emits **flat** vitals — the same flat-vs-nested shape the WS-protocol audit flags; an emitter feeding that known WS-seam drift.
 - **Simplify (open):** `API` vs `directAPI` near-duplicate wrappers (differ only in staging bypass + error richness) → one `API(path, method, body, {stage=true})`; repeated manual `path.split('/')` param extraction.
+
+## 10. Doors / Locks / Bypass (2026-07-03 deep-dive)
+
+Three-angle investigation of doors, locks, and lock-bypass skills (model+movement coupling ·
+lock types+installation · bypass skills/IP/NPC/targeting). Static, **not runtime-verified**. The
+lock-*type* registry (`server/engine/locks.js`, `registerLockType`) is a genuinely clean substrate;
+almost everything around it is a half-finished extraction. Findings below, correctness first.
+
+**Correctness / security**
+- ⬜ **Dual-master lock state + live drift path.** `doors.lock_state` and `apartments.is_locked` are two
+  writable masters mirrored by two functions (`doors.js:69,78` ↔ `apartments.js:397`). `cmdMove`'s inline
+  re-lock (`movement.js:376`) writes `lock_state` **without** the apartment mirror → a door re-locked
+  behind a walking player desyncs the flag. Textbook [source-of-truth](source-of-truth-audit.md) bug.
+- ⬜ **Spoofable breach.** Every hack surface (hololock/ATM/vendor-safe/camera) trusts the client `win`
+  flag; the anti-spoof only checks the attempt was *armed* (`pendingHack`, `doors.js:361,382`), not *won*.
+  A crafted `hackresolve <id> 1` bypasses any lock. Server has a real opposed-roll primitive (`skillCheck`,
+  `skills.js:57`, used by butcher/scavenge/synthesis) that **no lock path uses**.
+
+**Boundary cleanup (engine/plugin + tag-vs-hardcode)**
+- ⬜ **Capability + values hardcoded instead of tag/registry-driven.** This is the same class as the
+  [capability-tag-vs-itemid audit](capability-tag-vs-itemid-audit.md), found again here — the boundary
+  cleanup must include it:
+  - `HACK_DEVICE_ITEM_ID = 'item_hack_deck'` hardcoded as the hack gate in **three** places
+    (`doors.js:291`, `plugins/atm/index.js:12`, `plugins/jail/index.js:33`), while the *same* lock domain
+    already gates lock **installation** by tag via `kitTag` (`lockkit:*`). Should be one `hack_device` tag
+    read through one shared helper.
+  - **keycard minting is a hardcoded per-type `if (tagType==='lock:keycardlock')` branch in the engine
+    handler** (`doors.js:498-517`) — lock-type-specific install behavior that is NOT declared through
+    `registerLockType`. The registry has no `onInstall` hook, so any lock needing an install artifact
+    requires engine edits.
+  - **The entire hololock hack mechanic string-matches `'lock:hololock'`** (`doors.js:324,391`) and is
+    bespoke to the engine; `canHack` gates entry but the mechanic isn't generic. A second hackable lock
+    type inherits none of it. The registry needs a hack-mechanic hook the same way it needs `onInstall`.
+  - Net: the "add a lock type with no engine edits" promise (`plugins/doors/index.js:8-9`) holds only for a
+    *passive* lock (auth+messages). Install artifacts and bypass mechanics leaked into the engine as
+    hardcoded values/branches instead of registry hooks + tags.
+- ⬜ **`lock`/`unlock` verb collision resolved only by dispatch order.** Both the doors plugin
+  (specializedAction) and `housing.js` builtin claim the verbs; the apartment handler is shadowed dead
+  whenever a door row exists, and the two paths touch different masters with different messages.
+  Undocumented in [plugins.md](../plugins.md).
+- ⬜ **No single door-write path.** `updateDoor` (`doors.js:63`) is the intended chokepoint (fires the
+  mirror), but `movement.js` (327,376,381), `apartments.js` (105,175,357,409), and the privacy scheduler
+  (`plugins/doors/index.js:90`) all issue raw `UPDATE doors` + `setDoorCache`, so the mirror invariant
+  holds on only one path.
+- ➖ **`requiredTag: 'lockable'` is dead/decorative** — ignored at dispatch (`specializedActions.js:26-45`,
+  used only for UI hints) and never written onto any door by engine code.
+- ➖ **The "doors plugin" is a thin re-export shim** (`plugins/doors/index.js:11` imports engine handlers);
+  the door *system* lives in the engine. Registry is correctly a plugin; the command behavior is a system
+  left un-extracted.
+
+**Model / integrity**
+- ➖ **No `(zone_id, exit_dir)` uniqueness and no door↔exit referential integrity.** Door topology is a
+  hand-maintained shadow of exit topology; duplicate/orphan door rows resolve arbitrarily
+  (`getDoorForExit` returns `matches[0]`, `world.js:152`). A door with no matching exit is invisible to
+  `cmdMove` (movement bails at the exit check before the door lookup) yet still operable by the door verbs.
+
+**Design gaps you asked about (features, not bugs)**
+- ➖ **Lock-yourself-out protection absent.** `lock` has no side-check (`doors.js:116-139`) — you can lock
+  from the hallway. Saved from *permanent* lockout only incidentally (auth is credential-based), but a
+  **keycard** holder who locks up and loses the card on the far side is hard-locked-out (bash only).
+- ➖ **`hack <full-direction>` works and disambiguates; `hack s` does not** — `resolveDoor` matches full
+  words only (`doors.js:13,33`) and alias expansion is first-word-only (`aliases.js`). Widen `DIRECTIONS`
+  or expand abbreviations in `resolveDoor` to match movement.
+- ➖ **Skill is client-only; IP award is a damped constant.** No server skill roll; `skill`/`difficulty`
+  only tune the minigame. Success awards `awardSkillUse('hacking', 2)` with a **hardcoded** margin
+  (`doors.js:402`, atm:350, vendor-safe:139), so nail-biters and walkovers raise skill identically;
+  failure grants nothing. NPCs can open/lock their own home/shop doors via `moveEntity` but **cannot hack**
+  and have no VINE door action node.
 
 ---
 

@@ -86,6 +86,7 @@ const ISSUE_LABELS = {
   duplicate_dest:       'Duplicate destination',
   building_no_entrance:      'Building: no world-map entrance',
   building_entrance_broken:  'Building: exterior zone has no exit to this building',
+  building_on_world_map:     'Building on world map (should be its own interior)',
   orphaned_entity:           'Orphaned entity (zone deleted)',
   orphaned_room:             'Orphaned room (map deleted)',
 };
