@@ -199,5 +199,5 @@ No schema change for instance flags — `custom_data` is already JSONB; `broken`
 
 ## Verification
 No automated test harness exists — verify manually in-game and via dev-panel round-trips, plus read-only SQL spot-checks.
-- In-game: equip Pipe Wrench (str gate + slot), attack (damage range + blunt XP), eat a ration (hunger + well-fed buff), drink water (hydrated buff), use a bandage (heal-over-time ticks), drop a quest item (blocked), sell a quest item (blocked), take a stackable item + craft stacking, check `stats` Armor after equipping Scrap Vest.
+- In-game: equip Pipe Wrench (str gate + slot), attack (damage range + clubs XP), eat a ration (hunger + well-fed buff), drink water (hydrated buff), use a bandage (heal-over-time ticks), drop a quest item (blocked), sell a quest item (blocked), take a stackable item + craft stacking, check `stats` Armor after equipping Scrap Vest.
 - Dev panel: edit an item — add/remove tags of each shape, save through staging, confirm round-trip; create a new item; export/restore a `.sql` dump and spot-check `tags` survives.
