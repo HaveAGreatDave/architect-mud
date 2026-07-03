@@ -136,7 +136,7 @@ const WEATHER_LEAK_MAX_HOPS = 6;
 const WEATHER_LEAK_STOP_THRESHOLD = 0.02;
 
 function isOutdoorZone(zoneId) {
-  return world.zones.get(zoneId)?.mapId === 'map_world';
+  return world.zones.get(zoneId)?.map_id === 'map_world';
 }
 
 export function getWeatherLeakGain(zoneId) {
