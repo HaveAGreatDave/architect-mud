@@ -4,6 +4,7 @@ import { useDrug } from '../drugs.js';
 import { hasTag, tagValue, hasFlag, isStackable, TAG_CATALOG } from '../tags.js';
 import { foodLoad, applyThirst } from '../bodily.js';
 import { dispatchAction } from '../actions.js';
+import { burnCharge } from '../inventory.js';
 import { getZonePlayers, getZoneNpcs } from '../world.js';
 import { emit } from '../events.js';
 import { resolve as siftResolve, matchAll as siftMatchAll, createSelectionState, formatSelectionPage } from '../sift.js';
@@ -341,7 +342,7 @@ async function cmdUse(targetStr, player, broadcast) {
   if (!targetStr) return { type:'error', message:'Use what?' };
 
   const { rows: drugRows } = await query(
-    `SELECT pi.*, i.name, d.id as drug_id FROM player_inventory pi
+    `SELECT pi.*, i.name, i.tags, d.id as drug_id FROM player_inventory pi
      JOIN items i ON i.id = pi.item_id
      JOIN drugs d ON d.item_id = i.id
      WHERE pi.player_id=$1 AND (i.name ILIKE $2 OR pi.custom_data->>'name' ILIKE $2) LIMIT 1`,
@@ -362,7 +363,19 @@ async function cmdUse(targetStr, player, broadcast) {
     }
     const result = await useDrug(player, item.drug_id, broadcast, opts);
     if (!result.success) return { type:'error', message: result.message };
-    if (item.quantity > 1) await query('UPDATE player_inventory SET quantity=quantity-1 WHERE id=$1', [item.id]);
+    // A charged pack (item tag `pack_size` > 1, e.g. cigarettes) burns one dose
+    // per use and is only destroyed once the last one is gone (burnCharge owns the
+    // charge bookkeeping). Everything else keeps the one-item-per-dose behaviour.
+    const itemTags = typeof item.tags === 'string' ? (() => { try { return JSON.parse(item.tags); } catch { return {}; } })() : (item.tags || {});
+    const burn = result.overdose_death ? { charged: false } : await burnCharge(item, itemTags);
+    if (burn.charged) {
+      // A loose single (custom_data.loose — e.g. a bummed cigarette) was never a
+      // pack, so it gets its own end line instead of the "empty pack" one.
+      if (burn.destroyed && cd.loose) result.message += `\n<span class="msg-system">You take the last drag and grind out the butt.</span>`;
+      else if (burn.destroyed) result.message += `\n<span class="msg-system">That was the last one. You crush the empty pack and toss it.</span>`;
+      else if (burn.opened)    result.message += `\n<span class="msg-system">That was the last one. You crush the empty pack and crack open a fresh one.</span>`;
+      else                     result.message += `\n<span class="msg-system">${burn.remaining} left in the pack.</span>`;
+    } else if (item.quantity > 1) await query('UPDATE player_inventory SET quantity=quantity-1 WHERE id=$1', [item.id]);
     else await query('DELETE FROM player_inventory WHERE id=$1', [item.id]);
     if (result.overdose_death) {
       // Lethal overdose: show the take message, then run the full death path.

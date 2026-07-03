@@ -49,8 +49,8 @@ const WIND_FX_KPH = 40;          // gust streaks only show in genuinely windy we
 function resolveWeatherFx() {
   if (fxIndoor) return { effect: 'none', intensity: 0, windKph: envWindKph || 0 };
   const pt = fxPrecipType;
-  if (pt === 'rain' || pt === 'sleet' || pt === 'thunderstorm' || pt === 'storm')
-    return { effect: 'rain', intensity: fxPrecipRate || 0.5, windKph: envWindKph || 0 };
+  if (pt === 'rain' || pt === 'sleet' || pt === 'thunderstorm' || pt === 'storm' || pt === 'acid')
+    return { effect: 'rain', intensity: fxPrecipRate || 0.5, windKph: envWindKph || 0 };  // acid renders as rain; the green tint is the event overlay
   if (pt === 'snow' || pt === 'blizzard')
     return { effect: 'snow', intensity: fxPrecipRate || 0.5, windKph: envWindKph || 0 };
   if (fxWeatherType === 'ash') return { effect: 'ash', intensity: 0.6, windKph: envWindKph || 0 };

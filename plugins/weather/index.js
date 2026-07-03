@@ -222,6 +222,97 @@ const field = {
   bounds: null,       // { minX, maxX, minY, maxY } of map_world, cached
 };
 
+// ── Named "hero" weather events (step 7) ────────────────────────────────────
+// Rare, announced events that ride ON TOP of the forecast/field with an
+// approach→peak→passing lifecycle, forcing a severity preset (and, for acid
+// rain, a precip override) instead of deriving it. Owned here (the field owner);
+// the engine drives the lifecycle by calling stepWeatherEvent() on its 30s tick
+// and broadcasting the returned announce lines. See docs/systems-weather-extreme.md.
+const NAMED_EVENTS = {
+  ion_storm: {
+    label: 'ion storm', severity: 0.9,
+    phases: {
+      approach: { secs: 90,  line: 'A sick green glow crawls up the horizon and the air begins to hum with static.' },
+      peak:     { secs: 240, line: 'The ion storm breaks overhead — the sky screams white and every hair stands on end.' },
+      passing:  { secs: 90,  line: 'The screaming static bleeds away. The ion storm is passing.' },
+    },
+  },
+  acid_rain: {
+    label: 'acid rain', severity: 0.6, precipOverride: 'acid',
+    phases: {
+      approach: { secs: 90,  line: 'The rain thickens and takes on a yellow, chemical reek. Something is wrong with it.' },
+      peak:     { secs: 300, line: 'The downpour turns caustic — acid rain, hissing where it lands.' },
+      passing:  { secs: 90,  line: 'The rain loses its bite and washes clean again. The acid storm is passing.' },
+    },
+  },
+};
+const PHASE_ORDER = ['approach', 'peak', 'passing'];
+const AUTO_EVENT_CHANCE_PER_30S = 0.00012;   // ~1 auto-event per 2–3 game-days
+
+let activeEvent = null;   // { type, phase, phaseEndsAtMs } | null
+
+// Phase-ramped severity: half in approach/passing, full at peak.
+function eventSeverity() {
+  if (!activeEvent) return 0;
+  const mult = activeEvent.phase === 'peak' ? 1 : 0.5;
+  return NAMED_EVENTS[activeEvent.type].severity * mult;
+}
+// Acid precip override applies only at peak.
+function eventPrecipOverride() {
+  if (!activeEvent || activeEvent.phase !== 'peak') return null;
+  return NAMED_EVENTS[activeEvent.type].precipOverride ?? null;
+}
+// The severity floor the whole extreme-weather layer reads — the forecast-derived
+// day floor, lifted by any active named event.
+function currentBaseSeverity() {
+  return Math.min(1, Math.max(field.baseSeverity, eventSeverity()));
+}
+
+function startWeatherEvent(type) {
+  const def = NAMED_EVENTS[type];
+  if (!def) return null;
+  activeEvent = { type, phase: 'approach', phaseEndsAtMs: Date.now() + def.phases.approach.secs * 1000 };
+  return def.phases.approach.line;
+}
+
+// Current event as { type, phase } | null — the signal the engine broadcasts to
+// clients (FX overlay) and re-emits for the audio plugin (soundscape bed).
+function currentEventSnapshot() {
+  return activeEvent ? { type: activeEvent.type, phase: activeEvent.phase } : null;
+}
+
+// Advance the lifecycle by wall-clock and/or auto-roll a new event. Returns
+// { lines, event } — announce lines to broadcast + the current event snapshot.
+// Called by the engine every 30s.
+function stepWeatherEvent() {
+  const now = Date.now();
+  const lines = [];
+  if (!activeEvent) {
+    if (Math.random() < AUTO_EVENT_CHANCE_PER_30S) {
+      const types = Object.keys(NAMED_EVENTS);
+      const line = startWeatherEvent(types[Math.floor(Math.random() * types.length)]);
+      if (line) lines.push(line);
+    }
+    return { lines, event: currentEventSnapshot() };
+  }
+  const def = NAMED_EVENTS[activeEvent.type];
+  while (activeEvent && now >= activeEvent.phaseEndsAtMs) {
+    const next = PHASE_ORDER[PHASE_ORDER.indexOf(activeEvent.phase) + 1];
+    if (!next) { activeEvent = null; break; }
+    activeEvent.phase = next;
+    activeEvent.phaseEndsAtMs = now + def.phases[next].secs * 1000;
+    lines.push(def.phases[next].line);
+  }
+  return { lines, event: currentEventSnapshot() };
+}
+
+// Dev trigger (engine devTriggerWeatherEvent → here).
+function triggerWeatherEvent(type) {
+  if (!NAMED_EVENTS[type]) return { ok: false, error: `Unknown event "${type}". Options: ${Object.keys(NAMED_EVENTS).join(', ')}` };
+  const line = startWeatherEvent(type);
+  return { ok: true, line, label: NAMED_EVENTS[type].label, event: currentEventSnapshot() };
+}
+
 function smoothstep(t) {
   if (t <= 0) return 0;
   if (t >= 1) return 1;
@@ -323,7 +414,7 @@ function advectField() {
 function sampleWeatherAt(gx, gy) {
   let cloudCover = field.baseCloud, precipRate = 0, stormIntensity = 0, tempOffset = 0;
   let precipType = 'none';
-  if (gx == null || gy == null) return { cloudCover, precipRate, precipType, tempOffset, stormIntensity, severity: field.baseSeverity };
+  if (gx == null || gy == null) return { cloudCover, precipRate, precipType, tempOffset, stormIntensity, severity: currentBaseSeverity() };
   for (const s of field.systems) {
     const dist = Math.hypot(gx - s.x, gy - s.y);
     if (dist >= s.radius) continue;
@@ -336,10 +427,14 @@ function sampleWeatherAt(gx, gy) {
       if (s.type === 'storm') stormIntensity = Math.max(stormIntensity, f);
     }
   }
-  // Local severity: the day-level floor, intensified where a storm cell sits
-  // overhead or precip runs torrential on this tile.
+  // Local severity: the day-level floor (lifted by any named event), intensified
+  // where a storm cell sits overhead or precip runs torrential on this tile.
   const precipSev = precipRate >= PRECIP_SEVERE ? (precipRate - PRECIP_SEVERE) / (1 - PRECIP_SEVERE) : 0;
-  const severity = Math.min(1, Math.max(field.baseSeverity, stormIntensity, precipSev));
+  const severity = Math.min(1, Math.max(currentBaseSeverity(), stormIntensity, precipSev));
+  // Acid-rain overlay: an active acid event makes whatever precip is falling on
+  // this tile acidic (rides existing rain — no new weather type). 7b reads this.
+  const acid = eventPrecipOverride();
+  if (acid && precipRate > 0) precipType = acid;
   return {
     cloudCover: Math.min(1, cloudCover),
     precipRate: Math.min(1, precipRate),
@@ -353,7 +448,7 @@ function sampleWeatherAt(gx, gy) {
 function getWeatherFieldSnapshot() {
   return {
     bounds: field.bounds,
-    baseSeverity: field.baseSeverity,
+    baseSeverity: currentBaseSeverity(),
     systems: field.systems.map(s => ({
       x: s.x, y: s.y, radius: s.radius, vx: s.vx, vy: s.vy,
       type: s.type, intensity: s.intensity, precipType: s.precipType,
@@ -368,13 +463,15 @@ async function reseedFromForecast0(forecast0) {
 }
 
 export const hooks = {
-  'environment.init': async ({ setWeatherState, climateProfile, registerWeatherField, registerWeatherFieldSnapshot, registerWeatherFieldAdvance }) => {
+  'environment.init': async ({ setWeatherState, climateProfile, registerWeatherField, registerWeatherFieldSnapshot, registerWeatherFieldAdvance, registerWeatherEventStep, registerWeatherEventTrigger }) => {
     const forecast = await loadForecast(setWeatherState, climateProfile);
     const bounds = await computeBounds();
     seedField(forecast[0].date, forecast[0], bounds);
     if (registerWeatherField) registerWeatherField(sampleWeatherAt);
     if (registerWeatherFieldSnapshot) registerWeatherFieldSnapshot(getWeatherFieldSnapshot);
     if (registerWeatherFieldAdvance) registerWeatherFieldAdvance(advectField);
+    if (registerWeatherEventStep) registerWeatherEventStep(stepWeatherEvent);
+    if (registerWeatherEventTrigger) registerWeatherEventTrigger(triggerWeatherEvent);
   },
 
   'environment.advanceWeather': async ({ setWeatherState, rollAndSetCurrentPrecip, getHUDPayload, broadcast, currentForecast, climateProfile }) => {

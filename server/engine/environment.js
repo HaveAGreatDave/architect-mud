@@ -336,7 +336,7 @@ export async function initEnvironment({ query, emitHook, broadcast, getOccupiedZ
   // Weather plugin initializes the forecast via this hook. Must run before
   // loadZonePowerAndLighting + recalcAmbientAndVisibility so state.weatherType
   // is populated when those functions read it.
-  if (emitHook) await emitHook('environment.init', { setWeatherState, setCurrentPrecip, climateProfile: state.activeClimateProfile, registerWeatherField, registerWeatherFieldSnapshot, registerWeatherFieldAdvance });
+  if (emitHook) await emitHook('environment.init', { setWeatherState, setCurrentPrecip, climateProfile: state.activeClimateProfile, registerWeatherField, registerWeatherFieldSnapshot, registerWeatherFieldAdvance, registerWeatherEventStep, registerWeatherEventTrigger });
 
   await loadZonePowerAndLighting(query);
   await loadWindows(query);
@@ -414,6 +414,13 @@ function scheduleTicks() {
     flickerOverloadedZones();
     if (!state.frozen && advanceWeatherField) {
       advanceWeatherField();
+      // Drive the named-event lifecycle (approach→peak→passing) + auto-roll,
+      // announce phase transitions sky-wide, and signal FX + audio on any change.
+      if (weatherEventStep) {
+        const r = weatherEventStep() || {};
+        announceWeatherEvent(r.lines);
+        syncWeatherEventSignal(r.event ?? null);
+      }
       const occupied = deps.getOccupiedZones ? [...deps.getOccupiedZones()] : [];
       broadcastZoneWeather(occupied);
       // Snappy streetlights: reconcile only the zones players are standing in so
@@ -1484,6 +1491,42 @@ let advanceWeatherField = null;     // () => void — advect one step
 export function registerWeatherField(fn)          { sampleField = fn; }
 export function registerWeatherFieldSnapshot(fn)  { weatherFieldSnapshot = fn; }
 export function registerWeatherFieldAdvance(fn)   { advanceWeatherField = fn; }
+
+// Named-event lifecycle (step 7): the weather plugin owns the events; the engine
+// drives them. weatherEventStep() is called on the 30s tick and returns announce
+// lines to broadcast; weatherEventTrigger(type) starts one on demand (dev tool).
+let weatherEventStep = null;        // () => string[]  (announce lines this step)
+let weatherEventTrigger = null;     // (type) => { ok, line?, label?, error? }
+export function registerWeatherEventStep(fn)    { weatherEventStep = fn; }
+export function registerWeatherEventTrigger(fn) { weatherEventTrigger = fn; }
+
+// Broadcast weather-event announce lines to every player (sky-wide).
+function announceWeatherEvent(lines) {
+  if (!deps.broadcast || !lines?.length) return;
+  for (const line of lines) {
+    deps.broadcast({ type: 'zone_event', message: `<br><span class="weather-event">${line}</span><br>` });
+  }
+}
+
+// When the active named-event phase changes, tell clients (weather-FX overlay)
+// via a `weather_event` WS message and re-emit `weather.event` for the audio
+// plugin's event soundscape bed. Change-detected so it fires once per transition.
+let lastWeatherEventKey = 'none';
+function syncWeatherEventSignal(event) {
+  const key = event ? `${event.type}:${event.phase}` : 'none';
+  if (key === lastWeatherEventKey) return;
+  lastWeatherEventKey = key;
+  if (deps.broadcast) deps.broadcast({ type: 'weather_event', eventType: event?.type ?? null, phase: event?.phase ?? null });
+  emit('weather.event', { type: event?.type ?? null, phase: event?.phase ?? null });
+}
+
+// Dev tool: force a named weather event immediately (sibling to devMaxStorm).
+export function devTriggerWeatherEvent(type) {
+  if (!weatherEventTrigger) return { ok: false, error: 'Weather plugin not loaded' };
+  const res = weatherEventTrigger(type);
+  if (res?.ok) { announceWeatherEvent(res.line ? [res.line] : []); syncWeatherEventSignal(res.event ?? null); }
+  return res;
+}
 
 // Sample the field for an outdoor zone. Returns null for interiors / zones off
 // the outdoor map / null coords / when the field is disabled → callers fall back

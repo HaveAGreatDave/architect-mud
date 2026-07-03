@@ -14,8 +14,14 @@ let running = false;
 let enabled = false;             // Settings gate (weatherFx on + motion on); default off until settings apply
 
 // Current effect descriptor: { effect, intensity, windKph }. `effect` is one of
-// 'rain' | 'snow' | 'ash' | 'fog' | 'none'; intensity is 0..1.
+// 'rain' | 'snow' | 'ash' | 'fog' | 'wind' | 'none'; intensity is 0..1.
 let cur = { effect: 'none', intensity: 0, windKph: 0 };
+
+// Named "hero" weather event overlay, composited ON TOP of the base effect:
+// ion_storm (green tint + lightning flashes) / acid_rain (caustic yellow-green
+// wash). Driven by the `weather_event` WS message. `phase` scales intensity.
+let eventFx = { type: null, phase: null };
+let flashA = 0;   // current ion-storm flash alpha, decays each frame
 
 let particles = [];
 let fogBlobs = [];
@@ -140,10 +146,7 @@ function reseed() {
   for (let i = 0; i < n; i++) particles.push(spawnParticle(false));
 }
 
-function draw(dt) {
-  const w = paneRect.width, h = paneRect.height;
-  ctx.clearRect(0, 0, w, h);
-
+function drawBase(dt, w, h) {
   if (cur.effect === 'fog') {
     if (!fogBlobs.length) reseed();  // pane may have been collapsed at reseed time
     for (const b of fogBlobs) {
@@ -217,6 +220,34 @@ function draw(dt) {
   }
 }
 
+// A named-event colour overlay drawn over the base precip effect. Phase scales it:
+// full at peak, softer in approach/passing. Ion storm adds intermittent flashes.
+function drawEventOverlay(dt, w, h) {
+  const m = eventFx.phase === 'peak' ? 1 : 0.55;
+  if (eventFx.type === 'acid_rain') {
+    ctx.fillStyle = `rgba(150,200,40,${0.05 + 0.06 * m})`;   // caustic yellow-green wash
+    ctx.fillRect(0, 0, w, h);
+    return;
+  }
+  if (eventFx.type === 'ion_storm') {
+    ctx.fillStyle = `rgba(80,255,140,${0.04 + 0.06 * m})`;   // sickly green tint
+    ctx.fillRect(0, 0, w, h);
+    // Lightning: decay any live flash, randomly ignite a new one (rate/brightness
+    // scale with phase). dt-scaled so frequency is frame-rate independent.
+    flashA = Math.max(0, flashA - dt * 4);
+    const flashesPerSec = eventFx.phase === 'peak' ? 0.7 : 0.28;
+    if (Math.random() < flashesPerSec * dt) flashA = 0.3 + 0.4 * m;
+    if (flashA > 0.01) { ctx.fillStyle = `rgba(215,255,230,${flashA})`; ctx.fillRect(0, 0, w, h); }
+  }
+}
+
+function draw(dt) {
+  const w = paneRect.width, h = paneRect.height;
+  ctx.clearRect(0, 0, w, h);
+  drawBase(dt, w, h);
+  if (eventFx.type) drawEventOverlay(dt, w, h);
+}
+
 function frame(t) {
   if (!running) return;
   const dt = lastT ? Math.min((t - lastT) / 1000, 0.05) : 0;
@@ -226,7 +257,7 @@ function frame(t) {
 }
 
 function shouldRun() {
-  return enabled && cur.effect !== 'none' && !document.hidden;
+  return enabled && (cur.effect !== 'none' || !!eventFx.type) && !document.hidden;
 }
 
 function startLoop() {
@@ -252,6 +283,16 @@ export function setWeatherFx({ effect, intensity, windKph }) {
   cur = { effect: nextEffect, intensity: Math.max(0, Math.min(1, intensity || 0)), windKph: windKph || 0 };
   if (!shouldRun()) { stopLoop(); return; }
   if (running && changedEffect) reseed();
+  startLoop();
+}
+
+// Public: set/clear the active named-event overlay (ion_storm | acid_rain | null).
+// Driven by the `weather_event` WS message; independent of the base precip effect,
+// so an ion storm (no precip) still renders its overlay.
+export function setWeatherEventFx(type, phase) {
+  eventFx = { type: type || null, phase: phase || null };
+  if (type) flashA = 0;
+  if (!shouldRun()) { stopLoop(); return; }
   startLoop();
 }
 

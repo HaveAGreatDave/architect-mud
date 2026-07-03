@@ -1,0 +1,6 @@
+{
+  "name": "fishing",
+  "version": "1.0.0",
+  "description": "Fishing — a posture-based perpetual cast-and-wait action for water-adjacent zones. A bite arms the client tension-bar reel overlay (fishing_game); landing it pulls a catch from a reused scavenging loot table, gated by the Fishing skill. Rod required, bait optional; rare monster hooks spawn a live enemy, botched reels can snap the rod.",
+  "commands": ["fish", "fishresolve"]
+}

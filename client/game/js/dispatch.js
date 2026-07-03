@@ -3,6 +3,7 @@ import { appendMsg, appendHtml, appendPre, updateVitals, parseZoneInfo, showDevP
 import { sendCmd, sendCmdSilent, closeConnection, attemptAutoReauth, showVerifyScreen } from './net.js';
 import { renderMinimap, openMapPopup } from './panels/minimap.js';
 import { updateEnvironmentHUD, updateZoneTempHUD, refreshZoneVisibility, signalPowerOut } from './panels/environment.js';
+import { setWeatherEventFx } from './panels/weather-fx.js';
 import { openDialogue, closeDialogue, openShop, flashShopResult } from './panels/dialogue.js';
 import { renderEquipPanel, renderGearPanel } from './panels/equipment.js';
 import { renderRecipesPanel } from './panels/recipes.js';
@@ -21,6 +22,7 @@ import { openSurveillanceHub, updateSurveillanceHub } from './panels/surveillanc
 import { openDatachipReplay } from './panels/datachipreplay.js';
 import { openCircuitHack } from './panels/circuithack.js';
 import { openHololock } from './panels/hololock.js';
+import { openFishing } from './panels/fishing.js';
 import { openVaultCrack } from './panels/vaultcrack.js';
 import { openSynthMinigame } from './panels/synthlab.js';
 import { openSpliceDesigner, updateSplicePreview } from './panels/splicelab.js';
@@ -429,6 +431,7 @@ const handlers = {
   'environment.sync': (msg) => { updateEnvironmentHUD(msg); updateForecast(msg.forecast); },
   'environment.daily': (msg) => { updateEnvironmentHUD(msg); updateForecast(msg.forecast); },
   'environment.weatherOverride': (msg) => { updateEnvironmentHUD(msg); },
+  'weather_event': (msg) => { setWeatherEventFx(msg.eventType, msg.phase); },
   'lightning': () => { triggerLightningFlash(); },
 
   output: (msg) => { appendHtml(msg.message, 'help'); },
@@ -504,6 +507,16 @@ const handlers = {
       difficulty: msg.difficulty ?? 5,
       deviceName: msg.deviceName || 'HOLOLOCK',
       onResult: ({ won }) => sendCmdSilent(`${resolveCmd} ${msg.doorId} ${won ? 1 : 0}`),
+    });
+  },
+
+  fishing_game: (msg) => {
+    const resolveCmd = msg.resolveCmd || 'fishresolve';
+    openFishing({
+      skill: msg.skill ?? 4,
+      difficulty: msg.difficulty ?? 5,
+      deviceName: msg.deviceName || 'THE LINE',
+      onResult: ({ won }) => sendCmdSilent(`${resolveCmd} ${msg.zoneId} ${won ? 1 : 0} ${msg.token}`),
     });
   },
 

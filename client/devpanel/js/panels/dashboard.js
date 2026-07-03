@@ -157,7 +157,10 @@ async function _initCheckinBanner() {
     directAPI('/dev/activity' + (last ? `?since=${encodeURIComponent(last)}` : '')),
     directAPI('/dev/notes'),
   ]);
-  const commits   = (act && act.commits) || [];
+  const allCommits = (act && act.commits) || [];
+  // "By others" — exclude commits resolved to this dev's own handle. Unmapped
+  // authors count as others (can't prove they're you).
+  const commits   = allCommits.filter(c => !(c.handle && c.handle === handle));
   const notes     = (notesResp && notesResp.notes) || [];
   const actionReq = notes.filter(n => n.kind === 'action-required' && !n.resolved);
 
@@ -166,13 +169,15 @@ async function _initCheckinBanner() {
     return;
   }
 
-  const authors = [...new Set(commits.map(c => c.author))];
+  const authors = [...new Set(commits.map(c => c.handle || c.author))];
   const sinceLabel = last
     ? `since ${new Date(last).toLocaleString(undefined, { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' })}`
     : 'in the last 14 days';
 
+  const coreCount = commits.filter(c => c.core).length;
   const bits = [];
   if (commits.length) bits.push(`<strong style="color:var(--text-bright)">${commits.length}</strong> commit${commits.length===1?'':'s'}${authors.length ? ` by ${authors.slice(0,4).map(a=>_dashEsc(a)).join(', ')}${authors.length>4?'…':''}` : ''}`);
+  if (coreCount) bits.push(`<strong style="color:var(--red)">⚙ ${coreCount}</strong> core-engine change${coreCount===1?'':'s'}`);
   if (actionReq.length) bits.push(`<strong style="color:var(--red)">${actionReq.length}</strong> action-required note${actionReq.length===1?'':'s'}`);
   const summary = bits.length ? bits.join(' · ') : 'Welcome — no code activity yet.';
 

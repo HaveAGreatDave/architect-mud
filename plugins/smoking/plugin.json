@@ -4,7 +4,7 @@
   "description": "Behavioural layer of smoking: appetite suppression, hacking cough, and onlooker cool-reactions. Driven by drug-row flag flags.smokeable.",
   "hooks": [],
   "commands": [],
-  "specializedActions": ["smoke"],
+  "specializedActions": ["smoke", "give", "accept", "refuse"],
   "events": {
     "consumes": ["player.drugUsed", "player.death", "player.logout"]
   }

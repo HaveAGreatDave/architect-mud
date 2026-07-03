@@ -95,6 +95,12 @@ join on `jsonb_exists(i.tags,'hack_device')`) and `plugins/jail/index.js` (`'hac
 contraband). Any item tagged `hack_device` now works; the blessed deck was tagged in content. The reusable
 sweep for this whole bug class is [capability-tag-vs-itemid-audit.md](audits/capability-tag-vs-itemid-audit.md).
 
+The `fishing_rod` and `bait` tags (Gear group) follow the same pattern: `plugins/fishing/index.js` gates
+`fish` on carrying any uncontained item tagged `fishing_rod` (`jsonb_exists(i.tags,'fishing_rod')`), and
+treats any `bait`-tagged item as optional bait (a sub-tag like `bait_bloodworm` gates specific catches).
+Pair `fishing_rod` with `unique` so each rod keeps its own condition — a botched reel can snap it. See
+[systems-fishing.md](systems-fishing.md).
+
 ## Supertags (tags-of-tags)
 
 > **Status (as built, 2026-06).** Added after the original tag system shipped.

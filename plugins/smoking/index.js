@@ -24,9 +24,12 @@
  * Smoking state is in-memory and cleared on death/logout, like the trip and
  * intoxication runtime fields.
  */
+import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
 import { cmdUse } from '../../server/engine/commands/inventory.js';
-import { getAllLivePlayers } from '../../server/engine/world.js';
+import { getAllLivePlayers, getZonePlayers, getZoneNpcs } from '../../server/engine/world.js';
+import { resolve as siftResolve } from '../../server/engine/sift.js';
+import { burnCharge } from '../../server/engine/inventory.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { on } from '../../server/engine/events.js';
 
@@ -81,8 +84,135 @@ async function smoke(args, raw, player, broadcast) {
   return cmdUse(targetStr, player, broadcast);
 }
 
+// --- give a cigarette (bum one to a player/NPC) ------------------------------
+//
+// Recipient-first grammar layered over the engine give verb: `give <who> a
+// cigarette` / `give <who> cigarette`. It takes ONE cigarette off the giver's
+// pack (burnCharge — destroying the pack on the last one) and hands the recipient
+// a single loose cigarette. Any other give (`give <item> to <who>`, non-cigarette
+// items) returns undefined and falls straight through to the engine handler.
+//
+//   • NPCs always accept and thank on the spot.
+//   • Players get a timed offer they can `accept` or `refuse`; the giver's pack is
+//     only touched on accept. Offers expire after OFFER_TTL_MS.
+
+const OFFER_TTL_MS = 30000;
+const pendingOffers = new Map();   // recipient playerId -> { fromId, fromHandle, timer }
+
+const NPC_THANKS = [
+  "Thanks — you're a lifesaver.",
+  'Appreciated, friend.',
+  "Been gasping for one of these.",
+  'Cheers. I owe you.',
+];
+
+const parseTags = (t) => typeof t === 'string' ? (() => { try { return JSON.parse(t); } catch { return {}; } })() : (t || {});
+
+// The trailing token must be "cigarette" for this to be a bum-a-smoke. Returns
+// the recipient string, '' when none was named, or null to fall through to the
+// engine give (a `... to ...` phrasing, or a non-cigarette item).
+function parseCigGive(args) {
+  const lower = args.map(a => a.toLowerCase());
+  if (lower.includes('to')) return null;                 // engine grammar: give <item> to <who>
+  let end = lower.length;
+  if (end === 0 || lower[end - 1] !== 'cigarette') return null;
+  end--;
+  if (end > 0 && (lower[end - 1] === 'a' || lower[end - 1] === 'an')) end--;
+  return args.slice(0, end).join(' ').trim();
+}
+
+// A held cigarette pack (or loose single) — the same item_id, tagged pack_size.
+async function findPack(player) {
+  const { rows } = await query(
+    `SELECT pi.*, i.name, i.tags FROM player_inventory pi
+       JOIN items i ON i.id = pi.item_id
+      WHERE pi.player_id=$1 AND pi.container_id IS NULL AND pi.is_equipped=0
+        AND i.name ILIKE '%cigarette%' AND jsonb_exists(i.tags, 'pack_size')
+      ORDER BY pi.quantity DESC LIMIT 1`,
+    [player.id]
+  );
+  return rows[0] || null;
+}
+
+async function giveCigarette(args, raw, player, broadcast) {
+  const who = parseCigGive(args);
+  if (who === null) return undefined;                    // not a cigarette bum → engine give
+  if (!who) return { type: 'action', message: 'Give a cigarette to whom?' };
+
+  const pack = await findPack(player);
+  if (!pack) return { type: 'action', message: "You don't have a cigarette to give." };
+
+  // Player in the room → timed offer they can accept/refuse.
+  const players = getZonePlayers(player.current_zone).filter(p => p.id !== player.id).map(p => ({ ...p, name: p.handle }));
+  const pr = siftResolve(who, players);
+  if (pr.type === 'ambiguous') return { type: 'action', message: `Multiple people match "${who}" — be more specific.` };
+  if (pr.type !== 'none') {
+    const target = pr.candidate;
+    const existing = pendingOffers.get(target.id);
+    if (existing) clearTimeout(existing.timer);
+    const timer = setTimeout(() => {
+      const o = pendingOffers.get(target.id);
+      if (!o || o.fromId !== player.id) return;
+      pendingOffers.delete(target.id);
+      sendToPlayer(target.id, { type: 'output', message: `<span class="msg-system">The cigarette ${player.handle} offered goes unclaimed.</span>` });
+      sendToPlayer(player.id, { type: 'output', message: `<span class="msg-system">${target.handle} never took the cigarette. You pocket it again.</span>` });
+    }, OFFER_TTL_MS);
+    pendingOffers.set(target.id, { fromId: player.id, fromHandle: player.handle, timer });
+    sendToPlayer(target.id, { type: 'output', message: `<span class="msg-system">${player.handle} offers you a cigarette. Type <b>accept</b> or <b>refuse</b>.</span>` });
+    return { type: 'action', message: `You hold out a cigarette to ${target.handle}.` };
+  }
+
+  // NPC → always accepts and thanks.
+  const nr = siftResolve(who, getZoneNpcs(player.current_zone));
+  if (nr.type === 'ambiguous') return { type: 'action', message: `Multiple people match "${who}" — be more specific.` };
+  if (nr.type !== 'none') {
+    const npc = nr.candidate;
+    await burnCharge(pack, parseTags(pack.tags));
+    sendToZone(player.current_zone, { type: 'zone_event', message: `${npc.name} takes a cigarette from ${player.handle} with a nod of thanks.` }, player.id);
+    return { type: 'action', message: `You give ${npc.name} a cigarette. "${pick(NPC_THANKS)}"` };
+  }
+
+  return { type: 'action', message: `There's no "${who}" here to give a cigarette to.` };
+}
+
+async function acceptOffer(args, raw, player, broadcast) {
+  const offer = pendingOffers.get(player.id);
+  if (!offer) return undefined;                          // nothing pending → fall through
+  clearTimeout(offer.timer);
+  pendingOffers.delete(player.id);
+
+  const giver = getAllLivePlayers().find(p => p.id === offer.fromId);
+  if (!giver) return { type: 'action', message: 'Whoever offered you that cigarette is gone.' };
+  const pack = await findPack(giver);
+  if (!pack) return { type: 'action', message: `${offer.fromHandle} doesn't have a cigarette anymore.` };
+
+  await burnCharge(pack, parseTags(pack.tags));
+  // Hand the recipient a single loose cigarette — a 1-charge instance of the same
+  // item. `loose` marks it as a lone smoke (not a pack) for the end-of-use line.
+  await query(
+    `INSERT INTO player_inventory (id, player_id, item_id, quantity, is_equipped, custom_data)
+     VALUES ($1,$2,$3,1,0,$4::jsonb)`,
+    [randomUUID(), player.id, pack.item_id, JSON.stringify({ charges: 1, name: 'cigarette', loose: true })]
+  );
+  sendToPlayer(giver.id, { type: 'output', message: `<span class="msg-system">${player.handle} takes the cigarette you offered.</span>` });
+  return { type: 'action', message: `You take the cigarette from ${offer.fromHandle}.` };
+}
+
+async function refuseOffer(args, raw, player, broadcast) {
+  const offer = pendingOffers.get(player.id);
+  if (!offer) return undefined;                          // nothing pending → fall through
+  clearTimeout(offer.timer);
+  pendingOffers.delete(player.id);
+  const giver = getAllLivePlayers().find(p => p.id === offer.fromId);
+  if (giver) sendToPlayer(giver.id, { type: 'output', message: `<span class="msg-system">${player.handle} waves off the cigarette you offered.</span>` });
+  return { type: 'action', message: `You decline ${offer.fromHandle}'s cigarette.` };
+}
+
 export const specializedActions = [
   { verb: 'smoke', requiredTag: 'drug', handler: smoke },
+  { verb: 'give', handler: giveCigarette },
+  { verb: 'accept', handler: acceptOffer },
+  { verb: 'refuse', handler: refuseOffer },
 ];
 
 // --- on light-up: appetite suppression + cool-reaction -----------------------
@@ -114,6 +244,12 @@ function clearSmoking(player) {
   if (!player) return;
   player._lastSmokeAt = 0;
   player.appetiteSuppressedUntil = 0;
+  // Drop any cigarette offer this player is part of (as recipient or giver).
+  const own = pendingOffers.get(player.id);
+  if (own) { clearTimeout(own.timer); pendingOffers.delete(player.id); }
+  for (const [rid, o] of pendingOffers) {
+    if (o.fromId === player.id) { clearTimeout(o.timer); pendingOffers.delete(rid); }
+  }
 }
 
 on('player.death',  ({ player }) => clearSmoking(player));

@@ -47,6 +47,33 @@ export async function dropToGround(row, zoneId, qty) {
   return dropQty;
 }
 
+// Burn one charge from a charged-pack row (item tag `pack_size` > 1, e.g. a pack
+// of cigarettes). Remaining charges ride on the row's custom_data.charges; a
+// sealed pack (no `charges` key) counts as full. The row is destroyed only on the
+// last charge — unless a fresh sealed pack is stacked behind it (quantity > 1), in
+// which case that next one is opened. Non-pack rows are left untouched.
+// Returns { charged, remaining, opened, destroyed }.
+export async function burnCharge(row, itemTags) {
+  const packSize = Math.max(0, Number(itemTags?.pack_size) || 0);
+  if (packSize <= 1) return { charged: false };
+  const cd = typeof row.custom_data === 'string'
+    ? (() => { try { return JSON.parse(row.custom_data); } catch { return {}; } })()
+    : (row.custom_data || {});
+  const remaining = (cd.charges != null ? Number(cd.charges) : packSize) - 1;
+  if (remaining > 0) {
+    cd.charges = remaining;
+    await query('UPDATE player_inventory SET custom_data=$1 WHERE id=$2', [JSON.stringify(cd), row.id]);
+    return { charged: true, remaining, opened: false, destroyed: false };
+  }
+  if (row.quantity > 1) {
+    delete cd.charges;   // finished this one; a fresh sealed pack is stacked behind it
+    await query('UPDATE player_inventory SET quantity=quantity-1, custom_data=$1 WHERE id=$2', [JSON.stringify(cd), row.id]);
+    return { charged: true, remaining: 0, opened: true, destroyed: false };
+  }
+  await query('DELETE FROM player_inventory WHERE id=$1', [row.id]);
+  return { charged: true, remaining: 0, opened: false, destroyed: true };
+}
+
 // Hand a player's inventory row to another player. Stacking-aware, mirroring pickUp.
 export async function giveToPlayer(row, toPlayer) {
   if (isStackable(row) && !rowHasFluid(row)) {

@@ -1514,6 +1514,12 @@ textarea {
 	color: var(--warning, #e8a13a);
 	cursor: help;
 }
+/* Sky-wide named weather-event announcements (ion storm, acid rain). */
+.weather-event {
+	color: var(--warning, #e8a13a);
+	font-weight: bold;
+	letter-spacing: 0.02em;
+}
 .forecast-day-row .fd-humid {
 	color: var(--text-dim);
 	font-size: 12px;
