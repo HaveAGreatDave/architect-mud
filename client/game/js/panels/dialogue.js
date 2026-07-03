@@ -107,7 +107,10 @@ export function openShop(msg, page = 0, mode, sort) {
       const desc = item.description ? `<div class="shop-item-desc">${item.description}</div>` : '';
       if (mode === 'sell') {
         const qty = item.quantity > 1 ? ` <span class="shop-item-desc">×${item.quantity}</span>` : '';
-        html += `<div class="shop-item"><div class="shop-item-row"><span class="shop-item-name">${item.name}${qty}${weight}</span><button class="dialogue-opt shop-buy-btn shop-sell-btn" data-inventory-id="${item.inventory_id}" data-npc-id="${msg.npcId}">${item.price}₵ — Sell</button></div>${desc}</div>`;
+        const sellStack = item.quantity > 1
+          ? `<button class="dialogue-opt shop-buy-btn shop-sell-btn shop-sell-stack-btn" data-inventory-id="${item.inventory_id}" data-npc-id="${msg.npcId}" data-quantity="${item.quantity}"><span>Sell All</span><span>${item.price * item.quantity}₵</span></button>`
+          : '';
+        html += `<div class="shop-item"><div class="shop-item-row"><span class="shop-item-name">${item.name}${qty}${weight}</span><div class="shop-item-btns"><button class="dialogue-opt shop-buy-btn shop-sell-btn" data-inventory-id="${item.inventory_id}" data-npc-id="${msg.npcId}"><span>Sell 1</span><span>${item.price}₵</span></button>${sellStack}</div></div>${desc}</div>`;
       } else {
         html += `<div class="shop-item"><div class="shop-item-row"><span class="shop-item-name">${item.name}${weight}</span><button class="dialogue-opt shop-buy-btn" data-item-id="${item.item_id}" data-npc-id="${msg.npcId}">${item.price}₵ — Buy</button></div>${item.discounted ? '<span class="shop-discount">(rep discount applied)</span>' : ''}${desc}</div>`;
       }
@@ -123,7 +126,9 @@ export function openShop(msg, page = 0, mode, sort) {
     html += `<div style="color:var(--text-dim)">${mode === 'sell' ? 'Nothing to sell.' : 'Nothing in stock.'}</div>`;
   }
   if (mode === 'sell' && list.length) {
-    html += `<button class="dialogue-opt shop-sell-all-btn" data-npc-id="${msg.npcId}">Sell All (${list.length} item${list.length === 1 ? '' : 's'})</button>`;
+    const totalQty = list.reduce((n, it) => n + (it.quantity || 1), 0);
+    const totalValue = list.reduce((n, it) => n + (it.price || 0) * (it.quantity || 1), 0);
+    html += `<button class="dialogue-opt shop-sell-all-btn" data-npc-id="${msg.npcId}">Sell All (${totalQty} item${totalQty === 1 ? '' : 's'}) — ${totalValue}₵</button>`;
   }
   html += `</div>`;
 
@@ -145,8 +150,12 @@ export function openShop(msg, page = 0, mode, sort) {
     btn.addEventListener('click', () => openShop(shopState.msg, 0, mode, btn.dataset.sort));
   });
 
-  document.querySelectorAll('.shop-sell-btn').forEach(btn => {
+  document.querySelectorAll('.shop-sell-btn:not(.shop-sell-stack-btn)').forEach(btn => {
     btn.addEventListener('click', () => sellToNpc(btn.dataset.npcId, btn.dataset.inventoryId));
+  });
+
+  document.querySelectorAll('.shop-sell-stack-btn').forEach(btn => {
+    btn.addEventListener('click', () => sellToNpc(btn.dataset.npcId, btn.dataset.inventoryId, Number(btn.dataset.quantity)));
   });
 
   const sellAllBtn = document.querySelector('.shop-sell-all-btn');

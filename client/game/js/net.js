@@ -99,8 +99,8 @@ export function buyFromNpc(npcId, itemId) {
   _connection?.send({ type: 'buy_npc', npcId, itemId });
 }
 
-export function sellToNpc(npcId, inventoryId) {
-  _connection?.send({ type: 'sell_npc', npcId, inventoryId });
+export function sellToNpc(npcId, inventoryId, quantity = 1) {
+  _connection?.send({ type: 'sell_npc', npcId, inventoryId, quantity });
 }
 
 export function sellAllToNpc(npcId) {
