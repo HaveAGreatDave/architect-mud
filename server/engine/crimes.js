@@ -16,11 +16,31 @@ import { query } from '../models/db.js';
 //   'any'     — any witness: camera, on-duty cop, or another player in the room
 //   'always'  — self-reporting; heat applies even with nobody watching
 export const CRIME_DEFAULTS = {
-  drug_use:      { label: 'Illegal drug use (on camera)', stars: 0.5, witness: 'camera', description: 'Using a controlled substance in view of a camera.' },
-  attack_player: { label: 'Attacking a player',           stars: 3,   witness: 'any',    description: 'Opening fire on another player.' },
-  attack_npc:    { label: 'Attacking an NPC',             stars: 3,   witness: 'any',    description: 'Assaulting a non-player character.' },
-  kill_police:   { label: 'Killing police',               stars: 5,   witness: 'always', description: 'Killing a law-enforcement NPC.' },
-  hacking:       { label: 'Hacking',                       stars: 2,   witness: 'any',    description: 'Breaching a device or terminal.' },
+  drug_use:            { label: 'Illegal drug use (on camera)', stars: 0.5, witness: 'camera', description: 'Using a controlled substance in view of a camera.' },
+  attack_player:       { label: 'Attacking a player',           stars: 3,   witness: 'any',    description: 'Opening fire on another player.' },
+  attack_npc:          { label: 'Attacking an NPC',             stars: 3,   witness: 'any',    description: 'Assaulting a non-player character.' },
+  kill_police:         { label: 'Killing police',               stars: 5,   witness: 'always', description: 'Killing a law-enforcement NPC.' },
+  hacking:             { label: 'Hacking',                      stars: 2,   witness: 'any',    description: 'Breaching a device or terminal.' },
+  murder:              { label: 'Murder',                       stars: 5,   witness: 'always', description: 'Killing another player outright.' },
+  theft:               { label: 'Theft',                        stars: 1.5, witness: 'any',    description: 'Pickpocketing or stealing a personal item.' },
+  robbery:             { label: 'Robbery',                      stars: 2.5, witness: 'any',    description: 'Forcibly robbing another player at gunpoint.' },
+  atm_robbery:         { label: 'ATM robbery',                  stars: 2,   witness: 'always', description: "Draining a compromised ATM's cash reserve." },
+  burglary:            { label: 'Burglary',                     stars: 2,   witness: 'any',    description: 'Breaking into a private residence.' },
+  vandalism:           { label: 'Vandalism',                    stars: 1,   witness: 'any',    description: 'Destroying or defacing property.' },
+  graffiti:            { label: 'Graffiti',                     stars: 0.3, witness: 'any',    description: 'Tagging a wall or surface.' },
+  arson:               { label: 'Arson',                        stars: 4,   witness: 'any',    description: 'Setting a fire in an occupied structure.' },
+  kidnapping:          { label: 'Kidnapping',                   stars: 4,   witness: 'any',    description: 'Restraining another player against their will.' },
+  resisting_arrest:    { label: 'Resisting arrest',              stars: 2,   witness: 'always', description: 'Fighting or fleeing a lawful police detainment.' },
+  evading_police:      { label: 'Evading police',                stars: 1,   witness: 'any',    description: 'Fleeing an active police pursuit.' },
+  weapon_brandish:     { label: 'Brandishing a weapon',          stars: 1,   witness: 'any',    description: 'Drawing a weapon in public.' },
+  public_intoxication: { label: 'Public intoxication',           stars: 0.5, witness: 'any',    description: 'Stumbling drunk or high in plain view.' },
+  indecent_exposure:   { label: 'Indecent exposure',             stars: 0.5, witness: 'any',    description: 'Public indecency.' },
+  curfew_violation:    { label: 'Curfew violation',              stars: 1,   witness: 'any',    description: 'Wandering outdoors during an active lockdown.' },
+  looting:             { label: 'Looting',                       stars: 1,   witness: 'any',    description: 'Looting a corpse in view of a witness.' },
+  contraband_possession: { label: 'Contraband possession',       stars: 1,   witness: 'any',    description: 'Carrying illicit goods past a checkpoint or scanner.' },
+  trespassing:         { label: 'Trespassing',                   stars: 0.5, witness: 'any',    description: 'Entering restricted or private property uninvited.' },
+  jamming_signal:      { label: 'Signal jamming',                stars: 1.5, witness: 'camera', description: "Jamming a security network's transmission." },
+  bribery_attempt:     { label: 'Attempted bribery',              stars: 0.5, witness: 'camera', description: 'Attempting to bribe an officer on camera.' },
 };
 
 let overrides = {}; // key → stars (from DB)

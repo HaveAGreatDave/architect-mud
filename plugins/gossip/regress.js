@@ -1,6 +1,7 @@
 // Gossip plugin regression suite — run by tests/regress.js (never loaded in production).
 import * as pool from './pool.js';
 import { emit } from '../../server/engine/events.js';
+import { dispatchAction } from '../../server/engine/actions.js';
 
 export default async function regress({ run, check, getPlayer }) {
   const p = getPlayer();
@@ -45,4 +46,16 @@ export default async function regress({ run, check, getPlayer }) {
   const stale = pool.addItem({ templateKey: 'storm', category: 'world', heat: 0.45, reach: 3, ts: Date.now() - 6 * 60 * 60 * 1000, zoneId: p.current_zone, vars: { zone: 'nowhere' } });
   pool.gc();
   check('gc prunes decayed items', !pool.all().some(i => i.id === stale.id), 'stale storm item should be gone');
+
+  // GOSSIP_TELL dialogue action: delivers a live rumour, then goes dry per-NPC.
+  // One known rumour in an isolated pool makes the cooldown deterministic.
+  pool.clear();
+  pool.plant({ text: 'COOLDOWN-PROBE', zoneId: p.current_zone, truth: 0.9, subjectName: 'x' });
+  const tell = (npcId) => dispatchAction({ type: 'GOSSIP_TELL', actor: p, params: {}, context: { npc: { id: npcId } } });
+  const t1 = await tell('gtest-a');
+  check('GOSSIP_TELL delivers a live rumour', t1?.type === 'dialogue_line' && t1.text.includes('COOLDOWN-PROBE'), JSON.stringify(t1)?.slice(0, 120));
+  const t2 = await tell('gtest-a');
+  check('GOSSIP_TELL goes dry on cooldown (same NPC)', t2?.type === 'dialogue_line' && !t2.text.includes('COOLDOWN-PROBE'), JSON.stringify(t2)?.slice(0, 120));
+  const t3 = await tell('gtest-b');
+  check('GOSSIP_TELL cooldown is per-NPC (fresh NPC delivers)', t3?.type === 'dialogue_line' && t3.text.includes('COOLDOWN-PROBE'), JSON.stringify(t3)?.slice(0, 120));
 }

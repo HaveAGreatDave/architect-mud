@@ -1,5 +1,6 @@
 import { query } from '../models/db.js';
 import { neighborZoneIds, primaryExits } from './exits.js';
+import { titleCaseName } from './text.js';
 
 // In-memory world state — same as before, DB is source of truth
 const world = {
@@ -346,7 +347,7 @@ export function spawnEnemySync(template, zoneId) {
   const flags = template.flags || {};
   const instance = {
     instanceId: id, templateId: template.id,
-    name: template.name, description: template.description,
+    name: titleCaseName(template.name), description: template.description,
     hp: template.hp_max, hp_max: template.hp_max,
     hit: template.hit ?? 1, dodge: template.dodge ?? 1,
     weapon: Array.isArray(template.weapon) ? template.weapon : [],

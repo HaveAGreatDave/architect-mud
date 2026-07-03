@@ -281,7 +281,9 @@ function enemyOpenVineAI() {
       _enemyBehaviourGraph = out;
       document.getElementById('f-behaviour_graph').value = JSON.stringify(out, null, 2);
       toast('Behaviour graph saved to form — click Save to persist.');
-    }
+    },
+    null,
+    vineFamilyTabs('ai')
   );
 }
 

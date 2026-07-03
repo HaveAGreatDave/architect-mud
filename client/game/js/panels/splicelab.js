@@ -9,8 +9,9 @@
 // each source drug + a Stabilizer on resolve.
 
 import { sendCmdSilent } from '../net.js';
+import { openSynthMinigame } from './synthlab.js';
 
-let _overlay = null, _drugs = [], _base = null, _grafts = new Set(), _hasStab = false, _previewTimer = null;
+let _overlay = null, _drugs = [], _base = null, _grafts = new Set(), _hasStab = false, _previewTimer = null, _test = false, _lastDiff = 0;
 
 function ensureStyles() {
   if (document.getElementById('splice-lab-styles')) return;
@@ -55,7 +56,8 @@ export function openSpliceDesigner(msg) {
   closeSplice();
   _drugs = msg.drugs || [];
   _hasStab = !!msg.hasStabilizer;
-  _base = null; _grafts = new Set();
+  _test = !!msg.test;
+  _base = null; _grafts = new Set(); _lastDiff = msg.baseDifficulty || 8;
 
   const overlay = document.createElement('div');
   overlay.id = 'splice-lab-overlay';
@@ -135,6 +137,7 @@ export function updateSplicePreview(msg) {
   const el = _overlay.querySelector('#sp-preview');
   if (!el) return;
   if (!msg.ok) { el.innerHTML = 'Pick a base drug to begin.'; return; }
+  _lastDiff = msg.difficulty || _lastDiff;
   const instPct = Math.round((msg.instability || 0) * 100);
   const warns = (msg.warnings || []).map(w => `<div class="sp-warn">⚠ ${esc(w)}</div>`).join('');
   el.innerHTML = `
@@ -148,6 +151,13 @@ export function updateSplicePreview(msg) {
 
 function _synth() {
   if (!_base || !_hasStab) return;
+  const name = (_overlay.querySelector('#sp-name').value || '').trim();
+  if (_test) {
+    // Dev feel-test: launch the hard minigame directly, no server resolve.
+    closeSplice();
+    openSynthMinigame({ difficulty: _lastDiff || 12, hard: true, recipeName: name || 'TEST SPLICE', workspace: 'test bench', onResult: () => {} });
+    return;
+  }
   sendCmdSilent('splicebegin ' + b64(_payload(true)));
   closeSplice(); // server replies with synth_minigame → the stabilize game opens
 }

@@ -296,7 +296,7 @@ function _buildOptionsEditor(container, node, editor, nodeId) {
 // ── Schema definition ─────────────────────────────────────────────────────────
 
 window.VineDialogueSchema = {
-  vineIdentity: { kind: 'dialogue', tagline: 'NPC conversation tree', color: '#4477aa', icon: '💬' },
+  vineIdentity: { kind: 'dialogue', tagline: 'NPC conversation tree', color: 'var(--accent2)', icon: '💬' },
   nodeTypes: {
     dialogue: {
       label: 'Dialogue Node',
@@ -326,11 +326,14 @@ window.VineDialogueSchema = {
       },
 
       renderProperties(node, editor, nodeId) {
+        const mentionsQuest = /quest/i.test(node.data.text || '') ||
+          (node.data.options || []).some(o => /quest/i.test(o.text || o.label || ''));
         return `
           ${_dialogueHelpBox(nodeId,
             'One beat of NPC dialogue. The NPC Text is what the character says. Each Option is a choice shown to the player — draw an edge from an option\'s output port to the next dialogue node. Node Actions fire the moment this node is entered, before the player sees the text.',
             'NPC Text: "You look lost, stranger."\n\nOption 1: "I\'m looking for the docks."  → node: give_directions\nOption 2: "None of your business."     → node: npc_offended\n\nNode Action: SET_FLAG  flag=met_harker'
           )}
+          ${mentionsQuest ? `<button class="action-btn" style="font-size:10px;margin-bottom:10px;width:100%" onclick="vineGoToFamily('quest')" title="This node's text mentions &quot;quest&quot; — commit and jump to VineQuest">🌿 Mentions "quest" → Open VineQuest ▸</button>` : ''}
           <div style="margin-bottom:12px">
             <label style="${_LS}">NPC Text</label>
             <textarea data-vine-field="data.text" data-vine-instant rows="5"

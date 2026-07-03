@@ -63,6 +63,11 @@ export const specializedActions = [
   { verb: 'close',     handler: doorHandlers.close },
   { verb: 'lock',      requiredTag: 'lockable', handler: doorHandlers.lock },
   { verb: 'unlock',    requiredTag: 'lockable', handler: doorHandlers.unlock },
+  { verb: 'hack',      handler: doorHandlers.hack },
   { verb: 'install',   handler: doorHandlers.install },
   { verb: 'uninstall', handler: doorHandlers.uninstall },
 ];
+
+export const commands = {
+  hackresolve: doorHandlers.hackresolve,
+};

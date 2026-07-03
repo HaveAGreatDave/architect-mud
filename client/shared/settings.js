@@ -30,13 +30,13 @@ const LIGHT_THEMES = [
   ['light','Parchment'],['inkwell','Inkwell'],['studio','Studio'],
   ['arctic','Arctic'],['solar','Solar'],['mint','Mint'],['lavender','Lavender'],['fog','Fog'],
   ['latte','Latte'],['rose','Rosewater'],['papertape','Papertape'],['bubblegum','Bubblegum'],
-  ['meadow','Meadow'],['clay','Clay'],
+  ['meadow','Meadow'],['clay','Clay'],['highbeam','Highbeam'],
 ];
 const DARK_THEMES = [
   ['dark','Void'],['eclipse','Eclipse'],['iron','Iron'],
   ['contrast','Terminal'],['phosphor','Phosphor Green'],['synthwave','Synthwave'],['bloodmoon','Blood Moon'],['slate','Slate'],
   ['aurora','Aurora'],['neon','Neon'],['cathode','Cathode'],['grove','Grove'],
-  ['tide','Tide'],['dusk','Dusk'],
+  ['tide','Tide'],['dusk','Dusk'],['solarflare','Solar Flare'],
 ];
 const BUILTIN_THEMES = [...LIGHT_THEMES, ...DARK_THEMES];
 
@@ -487,9 +487,34 @@ export function openThemeEditor(settings, saveAndApply) {
   const overlay = document.getElementById('theme-editor-overlay');
   if (!overlay) return;
   overlay.style.display = 'flex';
+  _teCenterWindow();
   _teEditLoaded = false;
   _populateThemeGrid(settings);
   _teShowTab('swatches');
+  _teScrollToSelected();
+}
+
+// Open centred over the viewport (near the settings dialog) rather than pinned
+// to the corner. Runs each open, so it resets even after the window's been dragged.
+function _teCenterWindow() {
+  const win = document.getElementById('te-window');
+  if (!win) return;
+  const w = win.offsetWidth || 340;
+  const h = win.offsetHeight || Math.min(window.innerHeight * 0.82, 560);
+  win.style.right = 'auto';
+  win.style.left = Math.max(8, (window.innerWidth - w) / 2) + 'px';
+  win.style.top = Math.max(8, (window.innerHeight - h) / 2) + 'px';
+}
+
+// Bring the active theme's chip into view (centred) when the editor opens, so
+// the current selection isn't hidden below the fold of the swatch list.
+function _teScrollToSelected() {
+  const grid = document.getElementById('opt-theme-grid');
+  const sel = grid && grid.querySelector('.theme-chip.selected');
+  if (!grid || !sel) return;
+  const gRect = grid.getBoundingClientRect();
+  const sRect = sel.getBoundingClientRect();
+  grid.scrollTop += (sRect.top - gRect.top) - (grid.clientHeight - sel.clientHeight) / 2;
 }
 
 // Swatches (theme picker) is the default view; the Edit pane lazy-loads the

@@ -16,6 +16,7 @@ import { isStackable } from './tags.js';
 import { isConsumerFurniture } from './furniture-shop.js';
 import { getFlag, setFlag } from './flags.js';
 import { emit } from './events.js';
+import { vendorGrudgeRemaining, grudgeRefusal } from './vendor-grudge.js';
 
 // Trust-gated vendors (e.g. the covert shadow dealer). When an NPC's flags carry
 // a `trust_flag`, its shelf is not the random `vendor_stock` shelf but the full
@@ -76,6 +77,9 @@ export async function getVendorStock(npc, playerId) {
 // ─── Buy ─────────────────────────────────────────────────────────────────────
 
 export async function buyFromVendor(player, npc, itemId, quantity = 1) {
+  const grudge = await vendorGrudgeRemaining(player.id, npc.id);
+  if (grudge > 0) return { success: false, message: grudgeRefusal(npc, grudge) };
+
   const catalogue = npc.vendor_inventory || [];
   const activeStock = npc.vendor_stock || [];
 
@@ -188,6 +192,9 @@ export async function getSellableInventory(player, npc) {
 }
 
 export async function sellToVendor(player, npc, inventoryId, quantity = 1) {
+  const grudge = await vendorGrudgeRemaining(player.id, npc.id);
+  if (grudge > 0) return { success: false, message: grudgeRefusal(npc, grudge) };
+
   const { rows } = await query(
     `SELECT pi.*, i.name, i.value, i.tags, p.stat_cool FROM player_inventory pi
      JOIN items i ON i.id = pi.item_id

@@ -93,12 +93,11 @@ async function cmdSkills(player) {
 }
 
 const BODY_SLOTS = ['head','torso','hands','legs','feet'];
-// Returns name lowercased, preceded by "a"/"an" unless the last word is plural (ends in s, not ss).
+// Returns name (verbatim casing) preceded by "a"/"an" unless the last word is plural (ends in s, not ss).
 function withArticle(name) {
-  const n = name.toLowerCase();
-  const lastWord = n.trim().split(/\s+/).pop();
-  if (/s$/i.test(lastWord) && !/ss$/i.test(lastWord)) return n;
-  return (/^[aeiou]/.test(n) ? 'an ' : 'a ') + n;
+  const lastWord = name.trim().split(/\s+/).pop();
+  if (/s$/i.test(lastWord) && !/ss$/i.test(lastWord)) return name;
+  return (/^[aeiou]/i.test(name) ? 'an ' : 'a ') + name;
 }
 
 const STAIN_DESCS = {

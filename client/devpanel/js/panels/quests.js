@@ -50,7 +50,9 @@ function questsOpenVine() {
       document.getElementById('f-objectives').value = JSON.stringify(q.objectives, null, 2);
       document.getElementById('f-rewards').value = JSON.stringify(q.rewards, null, 2);
       toast('Quest graph applied — click Save to persist.');
-    }
+    },
+    null,
+    vineFamilyTabs('quest')
   );
 }
 

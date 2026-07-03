@@ -20,6 +20,8 @@ import { openDeviceInspectPanel, consumeExamineLogSuppression } from './panels/d
 import { openSurveillanceHub, updateSurveillanceHub } from './panels/surveillancehub.js';
 import { openDatachipReplay } from './panels/datachipreplay.js';
 import { openCircuitHack } from './panels/circuithack.js';
+import { openHololock } from './panels/hololock.js';
+import { openVaultCrack } from './panels/vaultcrack.js';
 import { openSynthMinigame } from './panels/synthlab.js';
 import { openSpliceDesigner, updateSplicePreview } from './panels/splicelab.js';
 import { updateWantedHud } from './panels/wanted.js';
@@ -331,6 +333,7 @@ const handlers = {
     // A `leave` issued from the poker bar when the server has no table for us:
     // the pane is stale, so drop it and re-show the room instead of the error.
     if (msg.closePoker) { sendCmdSilent('look'); return; }
+    if (msg.player_update && state.player) { Object.assign(state.player, msg.player_update); updateVitals(state.player); }
     appendMsg(msg.message, 'error');
     if (document.getElementById('recipes-panel').classList.contains('active')) sendCmdSilent('recipes');
   },
@@ -444,6 +447,14 @@ const handlers = {
     if (!el) { el = document.createElement('div'); el.id = 'camera-flash-overlay'; document.body.appendChild(el); }
     el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
   },
+  crime_alert: () => {
+    // A crime was charged nearby — a soft, low red pulse (not the hard camera
+    // flash, not the full ESP lockdown). Paired with a short server-sent siren
+    // one-shot (audio_sfx) that pitches faster than the ESP/tornado siren.
+    let el = document.getElementById('crime-alert-overlay');
+    if (!el) { el = document.createElement('div'); el.id = 'crime-alert-overlay'; document.body.appendChild(el); }
+    el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+  },
   circuit_hack: (msg) => {
     const resolveCmd = msg.resolveCmd || 'hijackresolve';
     openCircuitHack({
@@ -454,6 +465,26 @@ const handlers = {
     });
   },
 
+  hololock_game: (msg) => {
+    const resolveCmd = msg.resolveCmd || 'hackresolve';
+    openHololock({
+      skill: msg.skill ?? 4,
+      difficulty: msg.difficulty ?? 5,
+      deviceName: msg.deviceName || 'HOLOLOCK',
+      onResult: ({ won }) => sendCmdSilent(`${resolveCmd} ${msg.doorId} ${won ? 1 : 0}`),
+    });
+  },
+
+  vault_crack: (msg) => {
+    const resolveCmd = msg.resolveCmd || 'safecrackresolve';
+    openVaultCrack({
+      skill: msg.skill ?? 4,
+      difficulty: msg.difficulty ?? 5,
+      deviceName: msg.deviceName || 'VENDOR SAFE',
+      onResult: ({ won }) => sendCmdSilent(`${resolveCmd} ${msg.safeId} ${won ? 1 : 0}`),
+    });
+  },
+
   synth_minigame: (msg) => {
     openSynthMinigame({
       difficulty: msg.difficulty ?? 5,
@@ -461,9 +492,10 @@ const handlers = {
       workspace: msg.workspace || '',
       hard: !!msg.hard,
       instability: msg.instability,
-      onResult: ({ score }) => sendCmdSilent(
-        msg.kind === 'splice' ? `spliceresolve ${msg.token} ${score}` : `synthresolve ${msg.recipeId} ${score}`
-      ),
+      onResult: ({ score }) => {
+        if (msg.kind === 'test') return; // dev feel-test — verdict shown on-screen, no server resolve
+        sendCmdSilent(msg.kind === 'splice' ? `spliceresolve ${msg.token} ${score}` : `synthresolve ${msg.recipeId} ${score}`);
+      },
     });
   },
 

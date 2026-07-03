@@ -1,11 +1,13 @@
 import { query } from '../../models/db.js';
-import { getDoorForExit, getZoneDoors, setDoorCache, getZone, world, getApartment, setApartmentCache } from '../world.js';
+import { getDoorForExit, getDoorById, getZoneDoors, setDoorCache, getZone, world, getApartment, setApartmentCache, getZoneNpcs } from '../world.js';
 import { resolveLockAuth, getLockType, getAllLockTypes } from '../locks.js';
 import { propagateSound } from '../sounds.js';
 import { isOnCooldown, setCooldown, getCooldownRemaining } from '../combat.js';
 import { tagValue, tagsOf } from '../tags.js';
 import { exitTargets, allExits } from '../exits.js';
 import { emit } from '../events.js';
+import { effectiveSkill, awardSkillUse } from '../skills.js';
+import { getZoneProtection } from '../protection.js';
 
 const DIRECTIONS = ['north','south','east','west','up','down','in','out'];
 const OPPOSITE = { north:'south', south:'north', east:'west', west:'east', up:'down', down:'up', in:'out', out:'in' };
@@ -152,6 +154,28 @@ async function cmdUnlockDoor(args, raw, player, broadcast) {
   return { type:'output', message: lockTag.messages?.unlock ?? 'The lock disengages.' };
 }
 
+// The zone(s) on the other side of a door from wherever it's anchored.
+function doorFarZoneIds(door) {
+  return door.target_zone ? [door.target_zone] : exitTargets(getZone(door.zone_id), door.exit_dir);
+}
+
+// Who owns the residence this door guards — whichever side is a claimed
+// apartment. Read straight from the table (authoritative on owner_type: an
+// apartment can be owned by a player, an NPC, or an org). Lets listeners on
+// `hololock.breached` react to *whose* place was broken into (e.g. an NPC
+// vendor holding a grudge), not just where the breach was witnessed.
+async function burgledApartmentOwner(door) {
+  for (const zid of [door.zone_id, ...doorFarZoneIds(door)]) {
+    if (!zid) continue;
+    const { rows } = await query(
+      'SELECT owner_id, owner_type FROM apartments WHERE zone_id=$1 AND owner_id IS NOT NULL',
+      [zid]
+    );
+    if (rows.length) return { ownerId: rows[0].owner_id, ownerType: rows[0].owner_type || 'player', apartmentZone: zid };
+  }
+  return {};
+}
+
 export async function cmdAttackDoor(dirStr, player, broadcast) {
   const args = dirStr ? dirStr.split(/\s+/) : [];
   const door = resolveDoor(args, player);
@@ -193,6 +217,147 @@ export async function cmdAttackDoor(dirStr, player, broadcast) {
   }
 
   return { type:'combat', message:`You hit the door for ${damage} damage. (${door.hp}/${door.hp_max} HP remaining)` };
+}
+
+// ── Hololock hacking ────────────────────────────────────────────────────────
+// Breaking into a residence by defeating its hololock. The client-side
+// "hololock bypass" minigame (electronic lockpick) is authoritative — winning
+// it is the only gate beyond carrying a hacking device, mirroring the ATM jack.
+// A successful breach unlocks the door persistently and reports `burglary`
+// (via the surveillance listener on `hololock.breached`).
+const HACK_DEVICE_ITEM_ID = 'item_hack_deck';
+const HACK_LOCKOUT_MS = 5 * 60 * 1000;
+const HACK_PENDING_TTL_MS = 180 * 1000;
+const hackLockout = new Map();  // playerId -> lockout-until ts
+const pendingHack = new Map();  // playerId -> { doorId, expires }
+
+async function hasHackDevice(playerId) {
+  const { rows } = await query(
+    'SELECT 1 FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND container_id IS NULL LIMIT 1',
+    [playerId, HACK_DEVICE_ITEM_ID]
+  );
+  return rows.length > 0;
+}
+
+// The zone the door protects — whichever side is an apartment. Used for the
+// forcefield gate (a sleeping owner's quantum shield makes the lock unhackable).
+function doorForcefieldActive(door) {
+  for (const zid of [door.zone_id, ...doorFarZoneIds(door)]) {
+    if (zid && getZoneProtection(zid)) return true;
+  }
+  return false;
+}
+
+// A resident NPC of the room on the FAR side of the door — the residence you're
+// breaking into — who's currently home. Their `home_zone` pins them to that
+// specific unit, so this never matches an NPC just passing through (or one homed
+// to the shared lobby). If they're standing there, they witness the break-in.
+function residentOwnerInResidence(door, player) {
+  const otherSide = [door.zone_id, ...doorFarZoneIds(door)].filter(z => z && z !== player.current_zone);
+  for (const zid of otherSide) {
+    const owner = getZoneNpcs(zid).find(n => n.home_zone === zid);
+    if (owner) return { owner, zone: zid };
+  }
+  return null;
+}
+
+// hack [door] [dir] — arm a hololock breach. Self-gates (returns undefined) so a
+// zone-mate handler (e.g. vendor-safe's `hack`) can own the verb when there's no
+// hackable door. Returns the minigame launch payload; `hackresolve` reports back.
+async function cmdHackLock(args, raw, player, broadcast) {
+  const door = resolveDoor(args, player);
+  if (!door) return undefined;  // no door — let another `hack` handler try
+  if (door === 'ambiguous') return { type:'error', message:'Multiple doors here — specify a direction (e.g. hack door north).' };
+  if (door.hp <= 0) return { type:'error', message:'That door is destroyed.' };
+
+  const lockTag = getLockTag(door);
+  if (!lockTag || lockTag.type !== 'lock:hololock' || !lockTag.canHack) return undefined;
+  if (door.lock_state !== 'locked') return { type:'error', message:'The hololock is already disengaged.' };
+
+  // You control this apartment — no need to break into your own place.
+  if (await checkLockAuth(lockTag, door, player))
+    return { type:'error', message:'Your credentials open this lock — just UNLOCK it.' };
+
+  if (doorForcefieldActive(door))
+    return { type:'error', message:'A quantum forcefield sheathes the lock — you cannot get a signal in.' };
+
+  if (!(await hasHackDevice(player.id)))
+    return { type:'error', message:'You need a hacking device to breach a hololock.' };
+
+  const lockedUntil = hackLockout.get(player.id) || 0;
+  if (Date.now() < lockedUntil) {
+    const secs = Math.ceil((lockedUntil - Date.now()) / 1000);
+    return { type:'error', message:`Your deck is still flagged from the last attempt. Lockout expires in ${secs}s.` };
+  }
+
+  // Working the panel whines audibly — the far side hears it even through a
+  // closed door (it's the lock itself buzzing, not sound crossing the gap).
+  for (const zid of doorFarZoneIds(door)) {
+    broadcast(zid, { type:'zone_event', message:'A faint electronic whine buzzes from the door — someone is working the lock.' });
+  }
+  broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} jacks a deck into the door's hololock.` }, player.id);
+
+  pendingHack.set(player.id, { doorId: door.id, expires: Date.now() + HACK_PENDING_TTL_MS });
+  return {
+    type: 'hololock_game',
+    doorId: door.id,
+    deviceName: door.name || 'hololock',
+    skill: await effectiveSkill(player, 'hacking'),
+    difficulty: lockTag.difficulty ?? 5,
+    resolveCmd: 'hackresolve',
+  };
+}
+
+// hackresolve <doorId> <1|0> — silent; the hololock overlay fires its own
+// outcome. That outcome is authoritative (winning the minigame is the gate).
+async function cmdHackResolve(args, raw, player, broadcast) {
+  const doorId = args[0];
+  const win = args[1] === '1';
+  if (!doorId) return { type:'noop' };
+
+  // Must match a breach this player actually armed (anti-spoof), still fresh.
+  const pending = pendingHack.get(player.id);
+  pendingHack.delete(player.id);
+  if (!pending || pending.doorId !== doorId || Date.now() > pending.expires) return { type:'noop' };
+
+  const door = getDoorById(doorId);
+  if (!door) return { type:'noop' };
+  // The door must still touch this zone and still be a locked hololock.
+  if (door.zone_id !== player.current_zone && !doorFarZoneIds(door).includes(player.current_zone))
+    return { type:'noop' };
+  if (door.hp <= 0) return { type:'error', message:'That door is destroyed.' };
+  const lockTag = getLockTag(door);
+  if (!lockTag || lockTag.type !== 'lock:hololock') return { type:'noop' };
+  if (door.lock_state !== 'locked') return { type:'error', message:'The hololock is already disengaged.' };
+  if (doorForcefieldActive(door)) return { type:'error', message:'A quantum forcefield sheathes the lock — you cannot get a signal in.' };
+  if (!(await hasHackDevice(player.id))) return { type:'error', message:'You need a hacking device to breach a hololock.' };
+
+  if (!win) {
+    hackLockout.set(player.id, Date.now() + HACK_LOCKOUT_MS);
+    return { type:'error', message:"The hololock's key sequence resets mid-spoof. Your deck is flagged — five-minute lockout." };
+  }
+
+  await updateDoor(door, { lock_state: 'unlocked' });
+  await awardSkillUse(player.id, 'hacking', 2);
+  broadcast(player.current_zone, { type:'zone_event', message:'The hololock chirps and disengages.', refresh: true }, player.id);
+
+  // If the room's resident is home, they see the door give and call it in — a
+  // guaranteed witness (ownerWitness) even with no camera/cop/bystander around.
+  const resident = residentOwnerInResidence(door, player);
+  if (resident) {
+    broadcast(resident.zone, { type:'zone_event', message:`${resident.owner.name} sees the door give way — "Intruder!" — and stabs at a comm panel.` });
+  }
+  // Attribute the break-in to whoever actually owns the place (from the table,
+  // not just who's home) so an NPC-vendor owner holds a grudge whether or not
+  // they witnessed it — they'll come back to a jimmied door and know.
+  const owner = await burgledApartmentOwner(door);
+  emit('hololock.breached', { player, zoneId: player.current_zone, ownerWitness: !!resident, ...owner });
+
+  const spotted = resident ? `\n<span class="text-red">${resident.owner.name} is home — they've seen you and called the cops.</span>` : '';
+  return {
+    type: 'output',
+    message: `You spoof the hololock's handshake. It chirps green and the bolt slides back.\n<span class="ip-gain">Hacking improved.</span>${spotted}`,
+  };
 }
 
 // These handlers activate when args starts with "door", a bare direction,
@@ -353,10 +518,12 @@ async function cmdUninstallLock(args, raw, player, broadcast) {
 }
 
 export const handlers = {
-  open:      doorPrePass(cmdOpenDoor),
-  close:     doorPrePass(cmdCloseDoor),
-  lock:      doorPrePass(cmdLockDoor),
-  unlock:    doorPrePass(cmdUnlockDoor),
-  install:   cmdInstallLock,
-  uninstall: cmdUninstallLock,
+  open:        doorPrePass(cmdOpenDoor),
+  close:       doorPrePass(cmdCloseDoor),
+  lock:        doorPrePass(cmdLockDoor),
+  unlock:      doorPrePass(cmdUnlockDoor),
+  hack:        doorPrePass(cmdHackLock),
+  hackresolve: cmdHackResolve,
+  install:     cmdInstallLock,
+  uninstall:   cmdUninstallLock,
 };

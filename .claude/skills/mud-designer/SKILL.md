@@ -97,3 +97,5 @@ If you started a server earlier in the session, it's probably still running — 
 ## Tone
 
 Post-singularity decay, HellMOO lineage: dark, funny, concrete. Descriptions name specific damage, habits, smells — not vibes. Read `docs/story.md` + `docs/design.md` once per session if writing prose. When in doubt, steal the register from the best existing NPC description you pulled in step 1.
+
+**Name casing = prose-case.** Item/furniture `name` is shown verbatim mid-sentence ("You pick up a *name*."), so store generic words lowercase and only capitalize brand/proper tokens: `pipe wrench`, but `Nexis IX breacher`, `Rattlecan SMG`. No auto-capitalization exists — the casing you write is the final display. See `docs/items.md` → *Naming: prose-case*.

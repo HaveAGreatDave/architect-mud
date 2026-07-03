@@ -972,14 +972,58 @@ function flashCamera(zoneId, suspectName, crimeLabel) {
   sendToZone(zoneId, { type: 'camera_flash', suspect: suspectName, crime: crimeLabel });
 }
 
-async function raiseCrime(player, key, zoneId, suspectName) {
+// A soft, low-level "something's wrong nearby" cue — a faint red pulse plus a
+// short siren chirp, distinct from the full-screen camera flash (which only
+// fires when a camera catches the suspect) and the ESP lockdown siren (which
+// loops continuously). Pitch cycles ~6x faster than the tornado/ESP siren
+// (0.6Hz vibrato vs its 0.1Hz) so the two are never mistaken for each other.
+// General case (no PD camera involved, e.g. an ATM breach caught by nobody's lens).
+const SFX_CRIME_ALERT = {
+  id: 'sfx_crime_alert', name: 'sfx_crime_alert', category: 'sfx', priority: 6,
+  config: {
+    duration: 1.6,
+    layers: [
+      { waveform: 'sine', freq: 700, vibrato: { rate: 0.6, depth: 380 },
+        filter: { type: 'lowpass', freq: 2600, q: 0.7 },
+        adsr: { a: 0.12, d: 0.1, s: 0.75, r: 0.5 }, gain: 0.34 },
+    ],
+  },
+};
+
+// PD-network camera specifically caught it — same soft red pulse, but a
+// crisper square-wave "dispatch ping" instead of the sine wail above, so
+// players can tell an eye-in-the-sky spotted them apart from any other route
+// into the crime system (ATM breach, drug use, etc).
+const SFX_PD_ALERT = {
+  id: 'sfx_pd_alert', name: 'sfx_pd_alert', category: 'sfx', priority: 6,
+  config: {
+    duration: 1.2,
+    layers: [
+      { waveform: 'square', freq: 900, vibrato: { rate: 0.9, depth: 260 },
+        filter: { type: 'lowpass', freq: 3200, q: 0.9 },
+        adsr: { a: 0.08, d: 0.08, s: 0.7, r: 0.4 }, gain: 0.26 },
+    ],
+  },
+};
+
+function crimeAlert(zoneId, def = SFX_CRIME_ALERT, { silent = false } = {}) {
+  sendToZone(zoneId, { type: 'crime_alert' });
+  if (!silent) sendToZone(zoneId, { type: 'audio_sfx', def, gain: 0.55 });
+}
+
+// `forced` short-circuits the witness gate: the caller already knows a specific
+// witness saw it (e.g. a vendor catching you cracking their own safe) that the
+// generic isWitnessed() sweep — cameras / cops / other players — wouldn't count.
+async function raiseCrime(player, key, zoneId, suspectName, forced = false) {
   if (!player?.id || !player.handle) return;
   const stars = getCrimeStars(key);
   if (!stars) return;
 
   const onCamera = await cameraLiveInZone(zoneId);
+  const pdCamera = (await getPoliceCamZones()).has(zoneId);
   const witness = getCrimeWitness(key);
-  const seen = witness === 'always' ? true
+  const seen = forced ? true
+    : witness === 'always' ? true
     : witness === 'camera' ? onCamera
     : await isWitnessed(zoneId);
   if (!seen) return;
@@ -996,7 +1040,14 @@ async function raiseCrime(player, key, zoneId, suspectName) {
   logCrime(zoneId, key);
   await raiseWanted(player, stars, label.toLowerCase());
   await logPoliceEvidence(zoneId, [key], player.handle);
-  if (stars >= 1) dispatchPolice(zoneId, label, player.handle);  // no sirens over a half-star puff
+  if (stars >= 1) {  // no sirens over a half-star puff
+    // ATM robbery is witness:'always', so this fires on every single drain —
+    // right on top of the ATM's own drain sfx. That reads as a broken echo
+    // (quiet drain clatter, then ~1s later a loud siren) rather than a layered
+    // effect, so skip just the tone; the visual alert + wanted stars still fire.
+    crimeAlert(zoneId, pdCamera ? SFX_PD_ALERT : SFX_CRIME_ALERT, { silent: key === 'atm_robbery' });
+    dispatchPolice(zoneId, label, player.handle);
+  }
 }
 
 // Combat (weapon plugin) and drug (engine) fire these; we charge the matching
@@ -1015,6 +1066,25 @@ on('player.drugUsed', ({ player, illegal, zoneId }) => {
 });
 on('hack.success', ({ player, zoneId }) => {
   if (player?.id) raiseCrime(player, 'hacking', zoneId || player.current_zone, player.handle);
+});
+on('atm.drained', ({ player, zoneId }) => {
+  if (player?.id) raiseCrime(player, 'atm_robbery', zoneId || player.current_zone, player.handle);
+});
+on('theft.caught', ({ player, zoneId }) => {
+  if (player?.id) raiseCrime(player, 'theft', zoneId || player.current_zone, player.handle);
+});
+on('hololock.breached', ({ player, zoneId, ownerWitness }) => {
+  // A resident NPC watching you break into their own home always counts as a
+  // witness — they call it in on the spot — even with no camera/cop/bystander.
+  if (player?.id) raiseCrime(player, 'burglary', zoneId || player.current_zone, player.handle, !!ownerWitness);
+});
+// A vendor catching you cracking their safe is a guaranteed witness — charge
+// hacking even when no camera/cop/bystander is present (forced witness).
+on('vendor.safeHackWitnessed', ({ player, zoneId }) => {
+  if (player?.id) raiseCrime(player, 'hacking', zoneId || player.current_zone, player.handle, true);
+});
+on('player.death', ({ killer }) => {
+  if (killer?.id && killer?.handle) raiseCrime(killer, 'murder', killer.current_zone, killer.handle);
 });
 
 // Set an online player's stars to an exact value (bribe/scrub). Rebuilds the

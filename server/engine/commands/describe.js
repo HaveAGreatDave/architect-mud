@@ -21,6 +21,7 @@ import {
 } from "../apartments.js";
 import { fireHook } from "../plugins.js";
 import { isStackable } from "../tags.js";
+import { titleCaseName } from "../text.js";
 
 const turretCooldowns = new Map();
 
@@ -233,6 +234,15 @@ const LIGHT_GATE = {
 
 export async function describeZone(zone, player) {
 	const vis = getZoneVisibility(zone.id);
+	// Per-player perception seam: a carried light source (e.g. a lit flashlight)
+	// can raise how bright THIS player sees the room, applied before any darkness
+	// gating below. A plugin returns an adjusted visibility object, or undefined
+	// to leave the zone visibility as-is.
+	const perceived = await fireHook("visibility.perceive", player, vis, zone);
+	if (perceived) {
+		vis.category = perceived.category;
+		vis.visibility = perceived.visibility;
+	}
 	if (vis.category === "pitch_dark") {
 		const windows = getWindowsForZone(zone.id);
 		const windowHint = windows.length
@@ -420,8 +430,9 @@ export async function describeZone(zone, player) {
 				}
 			}
 			const itemMentions = mentions.map(({ item, qty }) => {
-				const label = qty > 1 ? `${qty}x ${item.name}` : item.name;
-				return `<span class="action-link room-item" data-action="take" data-target="${item.name}" title="Take ${item.name}">${label}</span>`;
+				const disp = titleCaseName(item.name);
+				const label = qty > 1 ? `${qty}x ${disp}` : disp;
+				return `<span class="action-link room-item" data-action="take" data-target="${item.name}" title="Take ${disp}">${label}</span>`;
 			});
 			desc += `\n<span class="items-label">Lying here:</span> ${itemMentions.join(", ")}`;
 		}
@@ -452,7 +463,7 @@ export async function describeZone(zone, player) {
 					extra = ` <span class="action-link" data-action="poop" data-target="${f.name}" title="Poop in ${f.name}">[poop]</span>`
 						+ ` <span class="action-link" data-action="pee" data-target="${f.name}" title="Pee in ${f.name}">[pee]</span>`;
 				}
-				return `<span class="action-link furniture-link" data-action="examine" data-target="${f.name}" title="Examine ${f.name}">${f.name}</span>${stateTag}${extra}`;
+				return `<span class="action-link furniture-link" data-action="examine" data-target="${f.name}" title="Examine ${f.name}">${titleCaseName(f.name)}</span>${stateTag}${extra}`;
 			});
 			desc += `\n<span class="furniture-label">Furniture:</span> ${furnitureLinks.join(", ")}`;
 		}
@@ -466,7 +477,7 @@ export async function describeZone(zone, player) {
 		if (zoneGens.length) {
 			const genLinks = zoneGens.map(
 				(g) =>
-					`<span class="furniture-link">${g.name || "Junction Box"}</span> <span class="text-dim">(${g.status})</span>`,
+					`<span class="furniture-link">${titleCaseName(g.name) || "Junction Box"}</span> <span class="text-dim">(${g.status})</span>`,
 			);
 			desc += `\n<span class="furniture-label">Installed:</span> ${genLinks.join(", ")}`;
 		}
@@ -480,7 +491,7 @@ export async function describeZone(zone, player) {
 				w.glass_state === "broken"
 					? ' <span style="color:var(--red)">(broken)</span>'
 					: "";
-			return `<span class="action-link furniture-link" data-action="look" data-target="through ${w.name}" title="Look through ${w.name}">${w.name}</span>${curtainTag}${glassTag}`;
+			return `<span class="action-link furniture-link" data-action="look" data-target="through ${w.name}" title="Look through ${w.name}">${titleCaseName(w.name)}</span>${curtainTag}${glassTag}`;
 		});
 		desc += `\n<span class="furniture-label">Windows:</span> ${windowLinks.join(", ")}`;
 	}

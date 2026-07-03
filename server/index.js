@@ -934,7 +934,7 @@ async function handleDialogue(ws, session, msg) {
 						type: a.action,
 						actor: player,
 						params: a.params || {},
-						context: { broadcast },
+						context: { broadcast, npc },
 					});
 					if (result?.type === "grant" && result.granted) {
 						appendMessage += `\n\n<span class="item-grant">You receive: ${result.name}${result.quantity > 1 ? ` x${result.quantity}` : ""}.</span>`;
@@ -973,10 +973,13 @@ async function handleDialogue(ws, session, msg) {
 				type: a.action,
 				actor: player,
 				params: a.params || {},
-				context: { broadcast },
+				context: { broadcast, npc },
 			});
 			if (result?.type === "grant" && result.granted) {
 				appendMessage += `\n\n<span class="item-grant">You receive: ${result.name}${result.quantity > 1 ? ` x${result.quantity}` : ""}.</span>`;
+			} else if (result?.type === "dialogue_line" && result.text) {
+				// e.g. GOSSIP_TELL: surface a live rumour as the NPC's spoken reply.
+				appendMessage += `\n\n${result.text}`;
 			} else if (result?.type === "error") {
 				console.warn(`[dialogue] action ${a.action} failed: ${result.message}`);
 			}

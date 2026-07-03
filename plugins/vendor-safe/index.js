@@ -5,18 +5,27 @@
  * flags.vendor_npc_id pointing to the vendor NPC whose credits they hold.
  * Credits accumulate in npc.vendor_credits as players make purchases.
  *
- * `hack safe` — attempt to crack the rotating holo-lock and drain the credits.
- * Requires the hacking skill. Difficulty is set by flags.hack_difficulty (default 5).
- * Failed attempts trigger a 5-minute lockout per player.
+ * `hack safe` — arm a VAULT CRACK breach of the rotating combination lock. No
+ * skill roll gates arming it: the client-side minigame (see panels/vaultcrack.js
+ * via dispatch.js's `vault_crack` route) is what decides success, reported back
+ * via `safecrackresolve`, which is authoritative for the outcome AND re-reads
+ * the credits server-side so the payout can't be spoofed. A failed attempt
+ * triggers a 5-minute lockout per player.
  */
 import { query } from '../../server/models/db.js';
-import { getZone } from '../../server/engine/world.js';
-import { skillCheck, awardSkillUse } from '../../server/engine/skills.js';
+import { getZone, getZoneNpcs } from '../../server/engine/world.js';
+import { effectiveSkill, awardSkillUse } from '../../server/engine/skills.js';
 import { adjustCredits } from '../../server/engine/economy.js';
+import { emit } from '../../server/engine/events.js';
+import { holdVendorGrudge } from '../../server/engine/vendor-grudge.js';
 
 // Per-player lockout: Map<playerId, timestampMs>
 const _lockout = new Map();
 const LOCKOUT_MS = 5 * 60 * 1000;
+
+// Per-player armed breach (anti-spoof): Map<playerId, { safeId, expires }>
+const _pending = new Map();
+const PENDING_TTL_MS = 180 * 1000;
 
 async function findSafeInZone(zoneId, nameHint) {
   let sql = `SELECT id, name, flags FROM furniture WHERE zone_id=$1 AND flags @> '{"vendor_safe":true}'`;
@@ -27,16 +36,24 @@ async function findSafeInZone(zoneId, nameHint) {
   return rows[0] || null;
 }
 
-async function cmdHack(args, raw, player) {
+async function findSafeById(safeId, zoneId) {
+  const { rows } = await query(
+    `SELECT id, name, flags FROM furniture WHERE id=$1 AND zone_id=$2 AND flags @> '{"vendor_safe":true}' LIMIT 1`,
+    [safeId, zoneId]
+  );
+  return rows[0] || null;
+}
+
+async function cmdHack(args, raw, player, broadcast) {
   const zone = getZone(player.current_zone);
   if (!zone) return { type: 'error', message: "You're nowhere." };
 
   const nameHint = args.join(' ') || null;
   const safe = await findSafeInZone(player.current_zone, nameHint);
 
-  if (!safe) {
-    return { type: 'error', message: "There's nothing worth hacking here." };
-  }
+  // No safe here — fall through so other `hack` targets (e.g. a hackable
+  // hololock door, the doors plugin's `hack` action) get a chance to claim it.
+  if (!safe) return undefined;
 
   const flags = safe.flags || {};
   const npcId = flags.vendor_npc_id;
@@ -46,7 +63,7 @@ async function cmdHack(args, raw, player) {
   const lockedUntil = _lockout.get(player.id) || 0;
   if (Date.now() < lockedUntil) {
     const secs = Math.ceil((lockedUntil - Date.now()) / 1000);
-    return { type: 'error', message: `Your console is still flagged from the last attempt. Lockout expires in ${secs}s.` };
+    return { type: 'error', message: `Your rig is still flagged from the last attempt. Lockout expires in ${secs}s.` };
   }
 
   // Check if there's anything to take
@@ -55,47 +72,86 @@ async function cmdHack(args, raw, player) {
   const npc = npcRows[0];
 
   if (!npc.vendor_credits || npc.vendor_credits <= 0) {
-    return { type: 'output', message: `You probe the lock frequency — the ${safe.name} cycles through its rotation. The accounts are dry. Nothing to take.` };
+    return { type: 'output', message: `You put an ear to the ${safe.name} and spin the dial — the tumblers are the least of it. The accounts are dry. Nothing to take.` };
   }
 
-  const difficulty = flags.hack_difficulty ?? 5;
-  const result = await skillCheck(player, 'hacking', difficulty);
-
-  if (result.success) {
-    await awardSkillUse(player.id, 'hacking', result.margin);
-    const stolen = npc.vendor_credits;
-    await adjustCredits(player, stolen);
-    await query('UPDATE npcs SET vendor_credits=0 WHERE id=$1', [npcId]);
-
-    const margin = result.margin;
-    const flavor = margin >= 4
-      ? 'The lock sequence collapses in under two rotations. Clean. No trace.'
-      : margin >= 2
-        ? 'The frequency pattern gives way after a few cycles. Fast enough.'
-        : 'You catch the key on the third rotation. Sloppy, but it opens.';
-
-    return {
-      type: 'output',
-      message: `You synchronise with the holo-lock's frequency band and spoof the confirm handshake. ${flavor}\n` +
-        `The ${safe.name} opens. You extract ${stolen}c from ${npc.name}'s accounts and close it clean.\n` +
-        `<span class="ip-gain">+${stolen} credits. Hacking improved.</span>`,
-      player_update: { credits: player.credits },
-    };
+  // If the safe's owner is standing right here, they catch you jacking in — a
+  // shopkeeper does not calmly watch someone crack their strongbox. They lose
+  // it, and as a guaranteed witness they raise the alarm (→ hacking wanted
+  // stars, routed through surveillance's `vendor.safeHackWitnessed` listener).
+  // The breach still launches — you're doing it brazenly, in their face.
+  const vendorHere = (getZoneNpcs(player.current_zone) || []).some(n => n.id === npcId);
+  if (vendorHere) {
+    broadcast(player.current_zone, {
+      type: 'zone_event',
+      message: `<span class="text-red">${npc.name} catches ${player.handle} jacking a deck into the ${safe.name} and completely loses it: "HEY! THIEF! Get AWAY from that!"</span>`,
+    });
+    emit('vendor.safeHackWitnessed', { player, zoneId: player.current_zone });
+    await holdVendorGrudge(player, npcId);   // caught in the act — they won't trade with you
+  } else {
+    broadcast(player.current_zone, { type: 'zone_event', message: `${player.handle} jacks a deck into the ${safe.name} and starts working the dial.` }, player.id);
   }
 
-  // Failure
-  _lockout.set(player.id, Date.now() + LOCKOUT_MS);
-  const badMargin = Math.abs(result.margin);
-  if (badMargin >= 4) {
-    return {
-      type: 'error',
-      message: `<span class="text-red">LOCK TRIGGERED.</span> The frequency rotation detected the intrusion pattern and escalated. Your console signature is burned. Five-minute lockout.`,
-    };
-  }
+  _pending.set(player.id, { safeId: safe.id, expires: Date.now() + PENDING_TTL_MS });
   return {
-    type: 'error',
-    message: `The holo-lock's key shifts mid-attempt. You lose the thread. The rotation completes and resets. Five-minute lockout.`,
+    type: 'vault_crack',
+    safeId: safe.id,
+    deviceName: safe.name,
+    skill: await effectiveSkill(player, 'hacking'),
+    difficulty: flags.hack_difficulty ?? 5,
+    resolveCmd: 'safecrackresolve',
   };
 }
 
-export const commands = { hack: cmdHack };
+// safecrackresolve <safeId> <1|0> — silent; the Vault Crack overlay fires this
+// with the minigame's own outcome. That outcome is authoritative (winning the
+// minigame is the gate); the credits are re-read here so the payout is honest.
+async function cmdSafeCrackResolve(args, raw, player) {
+  const safeId = args[0];
+  const win = args[1] === '1';
+  if (!safeId) return { type: 'noop' };
+
+  // Must match a breach this player actually armed (anti-spoof), still fresh.
+  const pending = _pending.get(player.id);
+  _pending.delete(player.id);
+  if (!pending || pending.safeId !== safeId || Date.now() > pending.expires) return { type: 'noop' };
+
+  const safe = await findSafeById(safeId, player.current_zone);
+  if (!safe) return { type: 'noop' };
+  const npcId = (safe.flags || {}).vendor_npc_id;
+  if (!npcId) return { type: 'noop' };
+
+  if (!win) {
+    _lockout.set(player.id, Date.now() + LOCKOUT_MS);
+    return { type: 'error', message: `The combination re-seats mid-spin and the tamper sensor logs the attempt. Your rig is flagged — five-minute lockout.` };
+  }
+
+  const { rows: npcRows } = await query('SELECT id, name, vendor_credits FROM npcs WHERE id=$1', [npcId]);
+  if (!npcRows.length) return { type: 'noop' };
+  const npc = npcRows[0];
+  if (!npc.vendor_credits || npc.vendor_credits <= 0) {
+    return { type: 'output', message: `The ${safe.name} swings open — but the accounts ran dry before you cracked it. Nothing to take.` };
+  }
+
+  const stolen = npc.vendor_credits;
+  await adjustCredits(player, stolen);
+  await query('UPDATE npcs SET vendor_credits=0 WHERE id=$1', [npcId]);
+  await awardSkillUse(player.id, 'hacking', 2);
+  // Robbed blind — the vendor holds a grudge even if they never caught you in
+  // the act (they come back to a drained safe and know exactly who to blame).
+  await holdVendorGrudge(player, npcId);
+  // Breaching a live device is hacking — charged (witness-gated) if a camera,
+  // cop, or bystander catches the completed crack, mirroring the ATM/hololock
+  // path. The owner-present case is already charged at arm time (forced witness).
+  emit('hack.success', { player, zoneId: player.current_zone });
+
+  return {
+    type: 'output',
+    message: `The last tumbler drops and the bolt slides back. The ${safe.name} swings open.\n` +
+      `You extract ${stolen}c from ${npc.name}'s accounts and ease it shut behind you.\n` +
+      `<span class="ip-gain">+${stolen} credits. Hacking improved.</span>`,
+    player_update: { credits: player.credits },
+  };
+}
+
+export const commands = { hack: cmdHack, safecrackresolve: cmdSafeCrackResolve };

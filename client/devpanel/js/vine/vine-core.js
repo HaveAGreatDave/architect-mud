@@ -784,11 +784,31 @@ function _applyVineIdentity(schema) {
   if (headEl) headEl.style.borderLeftColor = id.color;
 }
 
-function vineModalOpen(title, schema, graphData, onSave, sibling) {
+// Generic top-left tab strip, one per VINE family (Quest/Dialogue/AI/Scripts). vine-core
+// knows nothing about what a "family" is — callers (vine-suite.js) hand it plain
+// { label, icon, color, active, onClick } descriptors and this just renders them.
+function _renderVineTabs(tabs) {
+  const el = document.getElementById('vine-modal-tabs');
+  if (!el) return;
+  el.innerHTML = '';
+  if (!tabs || !tabs.length) return;
+  tabs.forEach(t => {
+    const b = document.createElement('button');
+    b.textContent = `${t.icon || ''} ${t.label}`.trim();
+    b.style.cssText = `background:none;border:none;border-bottom:2px solid ${t.active ? t.color : 'transparent'};` +
+      `color:${t.active ? t.color : 'var(--text-dim)'};font-family:var(--font);font-size:11px;` +
+      `padding:4px 8px;cursor:${t.active ? 'default' : 'pointer'};white-space:nowrap`;
+    if (!t.active && typeof t.onClick === 'function') b.onclick = t.onClick;
+    el.appendChild(b);
+  });
+}
+
+function vineModalOpen(title, schema, graphData, onSave, sibling, tabs) {
   const modal = document.getElementById('vine-modal');
   if (!modal) return;
   document.getElementById('vine-modal-title').textContent = title;
   _applyVineIdentity(schema);
+  _renderVineTabs(tabs);
   modal.style.display = 'flex';
   _vineModalOnSave = onSave;
 
@@ -818,6 +838,7 @@ function vineModalOpen(title, schema, graphData, onSave, sibling) {
 
 function vineModalClose() {
   document.getElementById('vine-modal').style.display = 'none';
+  _renderVineTabs(null);
   if (_vineModalEditor) { _vineModalEditor.destroy(); _vineModalEditor = null; }
   window._vineActiveEditor = null;
 }

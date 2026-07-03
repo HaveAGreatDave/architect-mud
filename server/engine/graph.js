@@ -268,6 +268,9 @@ registerAction({
     if (!rows.length) return { type: 'error', message: `NPC not found: ${npcId}` };
     const npc = rows[0];
     if (!npc.vendor_inventory?.length) return { type: 'error', message: `${npc.name} has nothing to sell.` };
+    const { vendorGrudgeRemaining, grudgeRefusal } = await import('./vendor-grudge.js');
+    const grudge = await vendorGrudgeRemaining(actor.id, npc.id);
+    if (grudge > 0) return { type: 'error', message: grudgeRefusal(npc, grudge) };
     const { getVendorStock } = await import('./vendor.js');
     const stock = await getVendorStock(npc, actor.id);
     openShopSession(actor.id, npc.id);

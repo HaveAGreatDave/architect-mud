@@ -16,6 +16,7 @@ import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
 import { registerAction, dispatchAction } from '../../server/engine/actions.js';
 import { getZoneProtection } from '../../server/engine/protection.js';
+import { emit } from '../../server/engine/events.js';
 
 const STEAL_COOLDOWN_MS = 60000;
 
@@ -36,6 +37,7 @@ async function stealFrom(target, player, broadcast) {
 			{ type: "zone_event", message: `${player.handle} tries to pick ${target.handle}'s pocket and gets caught red-handed.` },
 			player.id,
 		);
+		emit('theft.caught', { player, zoneId: player.current_zone });
 		return { type: "error", message: `You go for ${target.handle}'s pocket. They notice immediately. Everyone noticed, actually.` };
 	}
 

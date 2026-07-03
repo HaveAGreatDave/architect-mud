@@ -64,6 +64,10 @@ async function cmdStopAll(args, raw, player, broadcast) {
 builtins.set('stop', cmdStopAll);
 builtins.set('disengage', cmdStopAll);
 
+// Final fallback once every plugin's `hack` target (vendor safes, hackable
+// door locks, …) has had a chance to claim the verb and passed.
+builtins.set('hack', () => ({ type: 'error', message: "There's nothing worth hacking here." }));
+
 // Engine verb names, exposed so the plugin loader can report which builtins
 // are shadowed by plugin-registered verbs (dispatch order makes those dead).
 export function builtinCommandNames() { return [...builtins.keys()]; }

@@ -468,6 +468,45 @@ async function cmdSpliceResolve(args, raw, player, broadcast) {
   return { type: 'output', message: `<span class="ip-gain">It holds.</span> You splice <span class="item">${p.name}</span> — <b>${pct}% potency</b> [${quality}].${riskNote}` };
 }
 
+// Dev-only: launch the cook/splice minigame straight away with no recipe,
+// reagents, skill, or lab — just to see/feel it. The on-screen verdict shows
+// your score; the resolve is a harmless no-op (no pending entry).
+//   .cooktest            → normal cook minigame, difficulty 6
+//   .cooktest 12         → difficulty 12
+//   .cooktest 14 hard    → the harder splice-style minigame
+const DEV_ROLES = ['admin', 'dev', 'builder', 'designer'];
+function cmdCookTest(args, raw, player) {
+  if (!DEV_ROLES.includes(player.role)) return { type: 'error', message: 'Dev command.' };
+  const hard = /\b(hard|splice)\b/i.test(raw);
+  const difficulty = Math.max(1, Math.min(hard ? 16 : 10, parseInt(args[0], 10) || (hard ? 12 : 6)));
+  return {
+    type: 'synth_minigame', kind: 'test', recipeId: '__test__',
+    difficulty, hard, recipeName: hard ? 'TEST SPLICE' : 'TEST COOK', workspace: 'test bench',
+  };
+}
+
+// Dev-only: open the SPLICE designer seeded from real drugs (so the live
+// preview computes for real), in test mode — "Synthesize" launches the hard
+// minigame client-side without needing inventory / a Stabilizer / a lab, and
+// produces nothing. Requires ≥2 drugs with effects in the cache (seed-drugs).
+function cmdSpliceTest(args, raw, player) {
+  if (!DEV_ROLES.includes(player.role)) return { type: 'error', message: 'Dev command.' };
+  const cache = getDrugCache();
+  const drugs = [];
+  for (const d of Object.values(cache)) {
+    if (d.id === COMPOUND_DRUG) continue;
+    const e = normEff(d.effects);
+    const blocks = {};
+    if (Object.keys(e.instant).length) blocks.instant = summariseInstant(e.instant);
+    if (e.phases) blocks.phases = summarisePhases(e.phases);
+    if (e.hallucination) blocks.hallucination = summariseHall(e.hallucination);
+    if (Object.keys(blocks).length) drugs.push({ drug: d.id, name: d.name, blocks });
+    if (drugs.length >= 6) break;
+  }
+  if (drugs.length < 2) return { type: 'error', message: 'Need ≥2 drugs with effects in the cache — run seed-drugs.js first.' };
+  return { type: 'splice_designer', drugs, minSkill: SPLICE_MIN_SKILL, baseDifficulty: SPLICE_BASE_DIFF, hasStabilizer: true, test: true };
+}
+
 export const commands = {
   cook: cmdCook,
   synthesize: cmdCook,
@@ -476,4 +515,6 @@ export const commands = {
   splicepreview: cmdSplicePreview,
   splicebegin: cmdSpliceBegin,
   spliceresolve: cmdSpliceResolve,
+  '.cooktest': cmdCookTest,
+  '.splicetest': cmdSpliceTest,
 };

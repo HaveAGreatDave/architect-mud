@@ -8,6 +8,7 @@ import { getZonePlayers } from '../world.js';
 import { resolve as siftResolve, matchAll as siftMatchAll, createSelectionState, formatSelectionPage } from '../sift.js';
 import { fireSpecializedAction } from '../specializedActions.js';
 import { resolveCorpseOrPlayer, buildLootView } from './combat.js';
+import { titleCaseName } from '../text.js';
 
 // Throttle: only broadcast "rummages in container" once per 30s per player.
 const _ctrBroadcastTs = new Map();
@@ -71,6 +72,7 @@ export async function recomputeInsulation(player) {
 async function cmdInventory(player) {
   const { rows } = await query(`SELECT pi.*,i.name,i.tags,i.weight FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL ORDER BY i.name`, [player.id]);
   if (!rows.length) return { type:'inventory', message:'Your inventory is empty.', items:[] };
+  for (const r of rows) r.name = titleCaseName(r.name); // list display — Title Case
   let msg = '<span class="inv-header">INVENTORY</span>\n';
   for (const item of rows) {
     const eq = item.is_equipped ? ' <span class="equipped">[equipped]</span>' : '';
@@ -487,7 +489,9 @@ async function buildContainerView(containerId, player) {
   const used = await containerContentsWeight(container.id);
   const { rows: invItems } = await query(`SELECT pi.*,i.name,i.tags,i.weight FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND pi.is_equipped=0 ORDER BY i.name`, [player.id]);
   const { rows: containerItems } = await query(`SELECT pi.*,i.name,i.tags,i.weight FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.container_id=$1 ORDER BY i.name`, [container.id]);
-  return { type:'container_view', containerId: container.id, containerName: container.name, capacity: cap, usedWeight: round1(used), invItems, containerItems };
+  for (const r of invItems) r.name = titleCaseName(r.name);       // list display — Title Case
+  for (const r of containerItems) r.name = titleCaseName(r.name);
+  return { type:'container_view', containerId: container.id, containerName: titleCaseName(container.name), capacity: cap, usedWeight: round1(used), invItems, containerItems };
 }
 
 async function cmdOpenContainer(nameStr, player, broadcast) {
@@ -525,8 +529,8 @@ async function cmdCloseContainer(idStr, player, broadcast) {
     // Cascade: delete contents of any containers inside the trash bin before deleting the containers themselves
     await query('DELETE FROM player_inventory WHERE container_id IN (SELECT id FROM player_inventory WHERE container_id=$1)', [container.id]);
     await query('DELETE FROM player_inventory WHERE container_id=$1', [container.id]);
-    broadcast?.(player.current_zone, { type: 'zone_event', message: `The ${name.toLowerCase()} grinds and swallows its contents with a wet CRUNCH.` });
-    return { type: 'action', message: `You slam the ${name.toLowerCase()} shut. It grinds its contents into slurry — gone for good.` };
+    broadcast?.(player.current_zone, { type: 'zone_event', message: `The ${name} grinds and swallows its contents with a wet CRUNCH.` });
+    return { type: 'action', message: `You slam the ${name} shut. It grinds its contents into slurry — gone for good.` };
   }
   broadcast?.(player.current_zone, { type: 'zone_event', message: `${player.handle} closes ${withArticle(name)}.` }, player.id);
   return { type: 'action', message: `You close ${withArticle(name)}.` };

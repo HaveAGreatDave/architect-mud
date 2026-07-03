@@ -104,8 +104,8 @@ schedule('1m', async () => {
     count = parseInt(rows[0].n, 10);
   }
   await query(`INSERT INTO player_count_log (count) VALUES ($1)`, [count]);
-  // Prune rows older than 7 days
-  await query(`DELETE FROM player_count_log WHERE recorded_at < NOW() - INTERVAL '7 days'`);
+  // Retain ~1 year so the dashboard's 30-day / All-Time ranges have data to show.
+  await query(`DELETE FROM player_count_log WHERE recorded_at < NOW() - INTERVAL '1 year'`);
 });
 
 function verifyToken(headers) {
@@ -240,6 +240,7 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path.startsWith('/npcs/') && path.endsWith('/restock') && method==='POST') return requireDev(auth, ()=>apiRestockVendor(path.split('/')[2]));
   if (path.startsWith('/npcs/') && path.endsWith('/place-safe') && method==='POST') return requireDev(auth, ()=>apiPlaceSafe(path.split('/')[2]));
   if (path.startsWith('/npcs/') && path.endsWith('/safe-status') && method==='GET') return requireDev(auth, ()=>apiGetSafeStatus(path.split('/')[2]));
+  if (path.startsWith('/npcs/') && path.endsWith('/broadcast-schedule') && method==='GET') return requireDev(auth, ()=>apiGetNpcBroadcastSchedule(path.split('/')[2]));
   if (path.startsWith('/npcs/') && method==='DELETE') return requireAdmin(auth, ()=>apiDeleteNpc(path.split('/')[2]));
   if (path==='/furniture' && method==='GET') return requireDev(auth, ()=>apiGetFurniture(url));
   if (path==='/furniture/bulk/streetlights' && method==='POST') return requireDev(auth, ()=>apiBulkAddStreetlights(auth));
@@ -302,7 +303,7 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path.startsWith('/sounds/') && method==='PUT') return requireDev(auth, ()=>apiUpdateSound(path.split('/')[2],body));
   if (path.startsWith('/sounds/') && method==='DELETE') return requireDev(auth, ()=>apiDeleteSound(path.split('/')[2]));
   if (path==='/server-activity-log' && method==='GET') return requireDev(auth, apiGetActivityLog);
-  if (path==='/player-count-log' && method==='GET') return requireDev(auth, apiGetPlayerCountLog);
+  if (path==='/player-count-log' && method==='GET') return requireDev(auth, ()=>apiGetPlayerCountLog(url));
   if (path==='/world/state' && method==='GET') return requireDev(auth, apiWorldState);
   if (path==='/world/reload' && method==='POST') return requireDev(auth, ()=>apiReloadZone(body));
   if (path==='/players/online' && method==='GET') {
@@ -1183,6 +1184,53 @@ export async function apiDeleteItem(id) {
 }
 async function apiGetNpcs() { const {rows}=await query('SELECT * FROM npcs'); return {status:200,body:rows}; }
 
+// Derive an NPC's work hours from the broadcast schedule (daily-mode channels only).
+// A studio/broadcast NPC's real "at work" state is driven by whether it appears in a
+// playlist item's conditions.npc_staff during that item's game-time window (see the
+// broadcast plugin's isNpcScheduledNow). This surfaces that same source, read-only,
+// for the NPC editor's Work Schedule grid — the vendor_schedule column is never used
+// for these NPCs, so it stays untouched. Broadcasts loop daily, so the same hour
+// blocks apply to every weekday.
+async function apiGetNpcBroadcastSchedule(id) {
+  const { rows } = await query(`
+    SELECT p.start_time, p.duration_override, p.conditions,
+           b.name AS broadcast_name, b.messages, b.message_interval, b.override_duration,
+           c.name AS channel_name, c.schedule_mode
+    FROM media_channel_playlist p
+    JOIN media_broadcasts b ON b.id = p.broadcast_id
+    LEFT JOIN media_channels c ON c.id = p.channel_id
+  `);
+  const hours = new Array(24).fill(false);
+  const slots = [];
+  for (const r of rows) {
+    if ((r.schedule_mode || 'loop') !== 'daily') continue; // only daily maps to hours-of-day
+    let cond = r.conditions;
+    if (typeof cond === 'string') { try { cond = JSON.parse(cond); } catch { cond = {}; } }
+    const staff = Array.isArray(cond?.npc_staff) ? cond.npc_staff : [];
+    if (!staff.includes(id)) continue;
+    const msgs = Array.isArray(r.messages) ? r.messages.length : 0;
+    const dur = r.duration_override || r.override_duration || (msgs * (r.message_interval || 5)) || 3600;
+    const start = r.start_time || 0;
+    const end = start + dur;
+    for (let h = Math.floor(start / 3600); h < Math.min(24, Math.ceil(end / 3600)); h++) {
+      if (h >= 0 && h < 24) hours[h] = true;
+    }
+    slots.push({ channel: r.channel_name || null, broadcast: r.broadcast_name || null, from: start, to: end });
+  }
+  // Coalesce lit hours into contiguous blocks, apply to every day (daily loop).
+  const blocks = [];
+  for (let h = 0; h < 24; ) {
+    if (!hours[h]) { h++; continue; }
+    let to = h + 1;
+    while (to < 24 && hours[to]) to++;
+    blocks.push({ from: h, to });
+    h = to;
+  }
+  const schedule = {};
+  for (const d of ['mon','tue','wed','thu','fri','sat','sun']) schedule[d] = blocks;
+  return { status: 200, body: { staffed: slots.length > 0, schedule, slots } };
+}
+
 // ── Shared ambient-banter library ─────────────────────────────────────────────
 async function apiListBanter() {
   const {rows}=await query('SELECT id,personality,lines,enabled,sort_order FROM npc_banter_threads ORDER BY sort_order, id');
@@ -1539,8 +1587,26 @@ async function apiGetActivityLog() {
   const {rows} = await query(`SELECT event_type, handle, admin_handle, occurred_at FROM server_activity_log ORDER BY occurred_at DESC LIMIT 50`);
   return {status:200, body:{rows}};
 }
-async function apiGetPlayerCountLog() {
-  const {rows} = await query(`SELECT recorded_at, count FROM player_count_log ORDER BY recorded_at ASC`);
+async function apiGetPlayerCountLog(fullUrl) {
+  const range = new URL('http://x' + (fullUrl||'')).searchParams.get('range') || '7d';
+  // For long ranges the 1-minute samples are too dense to chart raw, so bucket
+  // them server-side (max concurrent per bucket keeps peaks visible).
+  if (range === 'all' || range === '30d') {
+    const window = range === 'all' ? null : `NOW() - INTERVAL '30 days'`;
+    const bucket = range === 'all' ? '1 hour' : '15 minutes';
+    const {rows} = await query(
+      `SELECT date_bin($1, recorded_at, TIMESTAMPTZ 'epoch') AS recorded_at, MAX(count)::int AS count
+         FROM player_count_log
+         ${window ? `WHERE recorded_at >= ${window}` : ''}
+        GROUP BY 1 ORDER BY 1 ASC`,
+      [bucket]
+    );
+    return {status:200, body:{rows}};
+  }
+  const {rows} = await query(
+    `SELECT recorded_at, count FROM player_count_log
+      WHERE recorded_at >= NOW() - INTERVAL '7 days' ORDER BY recorded_at ASC`
+  );
   return {status:200, body:{rows}};
 }
 async function apiWorldState() {

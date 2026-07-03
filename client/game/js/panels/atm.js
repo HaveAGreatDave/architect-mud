@@ -1,11 +1,9 @@
 import { sendCmdSilent } from '../net.js';
 import { state } from '../state.js';
 import { openCircuitHack } from './circuithack.js';
+import { sfx } from './minigame-common.js';
 
 // ── Audio ─────────────────────────────────────────────────────────────────
-// Same self-owned-synth pattern as circuithack.js's sfx bus — silent if the
-// engine hasn't initialised.
-function sfx(def) { try { window.AudioEngine?.playSfx(def); } catch { /* no audio */ } }
 
 // MAINTENANCE EJECT — the hopper forced open, then a rapid metallic cascade
 // of chips clattering out (descending, irregularly-spaced clinks so it reads

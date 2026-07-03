@@ -3,6 +3,6 @@
   "version": "1.0.0",
   "description": "Door domain: OPEN/CLOSE/LOCK/UNLOCK specialized actions for doors (lockable interactables).",
   "hooks": [],
-  "commands": [],
-  "specializedActions": ["open", "close", "lock", "unlock"]
+  "commands": ["hackresolve"],
+  "specializedActions": ["open", "close", "lock", "unlock", "hack"]
 }

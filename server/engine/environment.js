@@ -1346,6 +1346,23 @@ export function getZoneVisibility(zoneId) {
   };
 }
 
+// Ordered light ladder (dimmest → brightest), matching the category thresholds
+// in getZoneVisibility. Exposed so a per-player light source (a carried, lit
+// flashlight) can raise how bright THIS player perceives a room without
+// duplicating the ladder. See plugins/flashlight.
+export const LIGHT_LADDER = ['pitch_dark', 'murk', 'dark', 'gloomy', 'dim', 'clear', 'bright', 'blazing'];
+// The visibility value at the bottom of each category band (from getZoneVisibility).
+const CATEGORY_MIN_VIS = { pitch_dark: 0, murk: 0.05, dark: 0.10, gloomy: 0.26, dim: 0.42, clear: 0.60, bright: 0.75, blazing: 0.90 };
+
+// Return a copy of `vis` raised to at least `floorCategory`. If it's already that
+// bright or brighter (or either category is unknown), returns `vis` unchanged.
+export function floorVisibility(vis, floorCategory) {
+  const cur = LIGHT_LADDER.indexOf(vis.category);
+  const tgt = LIGHT_LADDER.indexOf(floorCategory);
+  if (cur < 0 || tgt < 0 || tgt <= cur) return vis;
+  return { ...vis, category: floorCategory, visibility: Math.max(vis.visibility || 0, CATEGORY_MIN_VIS[floorCategory]) };
+}
+
 // GDD §7.2 feedback lines, for room-description injection on a visibility
 // category change (wire into commands.js room rendering / zone.describeAmbient).
 export function describeVisibilityTransition(prevCategory, nextCategory) {

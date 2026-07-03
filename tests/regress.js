@@ -23,7 +23,8 @@ import { readdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
-import { initWorld, setLivePlayer, removeLivePlayer, addPlayerToZone, removePlayerFromZone, getAllZones, getLivePlayer, world } from '../server/engine/world.js';
+import { initWorld, setLivePlayer, removeLivePlayer, addPlayerToZone, removePlayerFromZone, getAllZones, getLivePlayer, world, setDoorCache, deleteDoorCache, getDoorForExit } from '../server/engine/world.js';
+import { moveEntity } from '../server/engine/ai-behaviour.js';
 import { exitTargets, allExits, neighborZoneIds, addExit, removeExit } from '../server/engine/exits.js';
 import { cmdMove } from '../server/engine/commands/movement.js';
 import { resolveNamedDestination } from '../server/engine/commands/describe.js';
@@ -207,6 +208,53 @@ check('move succeeds when gates pass', r?.type === 'move' && getPlayer().current
   } else {
     check('multi-exit behavioural (needs 2 named interiors)', true, 'skipped — insufficient interior zones');
   }
+}
+
+// NPC home-door lifecycle (moveEntity): a resident passes its own locked door,
+// secures the home on arrival, can leave again, and non-owners are blocked.
+// moveEntity guards every DB write behind `query` — pass undefined for a pure
+// in-memory check on synthetic zones + a cached door.
+{
+  const hallId = 'zone_regress_hall_' + process.pid;
+  const homeId = 'zone_regress_home_' + process.pid;
+  world.zones.set(hallId, { id: hallId, name: 'Regress Hall', flags: {}, exits: { north: homeId }, players: new Set(), npcs: new Set(), enemies: new Set() });
+  world.zones.set(homeId, { id: homeId, name: 'Regress Flat', flags: { is_apartment: true }, exits: { south: hallId }, players: new Set(), npcs: new Set(), enemies: new Set() });
+  const doorId = 'door_regress_home_' + process.pid;
+  const mkDoor = (lock_state, is_open) => setDoorCache(doorId, {
+    id: doorId, zone_id: hallId, exit_dir: 'north', target_zone: homeId,
+    hp: 100, hp_max: 100, is_open, lock_state, tags: { 'lock:hololock': {} },
+  });
+
+  // Someone else's locked door blocks a passer-by, who does not relocate.
+  mkDoor('locked', 0);
+  const stranger = { id: 'npc_rg_stranger_' + process.pid, name: 'Stranger', zone_id: hallId, home_zone: 'zone_elsewhere' };
+  const blocked = moveEntity(stranger, homeId, broadcast, undefined);
+  check('NPC blocked by another\'s locked door', blocked === false && stranger.zone_id === hallId, `moved=${blocked} zone=${stranger.zone_id}`);
+
+  // The resident (home_zone === the flat) passes even a shut door and secures the
+  // home behind them — locked + closed — with no redundant "closes behind them".
+  mkDoor('unlocked', 0);
+  const resident = { id: 'npc_rg_resident_' + process.pid, name: 'Resident', zone_id: hallId, home_zone: homeId };
+  const before = sent.length;
+  const entered = moveEntity(resident, homeId, broadcast, undefined);
+  const homeDoor = getDoorForExit(hallId, 'north', homeId);
+  const arrivalMsgs = sent.slice(before).map(s => s.payload?.message || '').join(' | ');
+  check('resident secures home on arrival (locked + shut)',
+    entered === true && resident.zone_id === homeId && homeDoor.lock_state === 'locked' && homeDoor.is_open === 0,
+    `entered=${entered} zone=${resident.zone_id} lock=${homeDoor.lock_state} open=${homeDoor.is_open}`);
+  check('home-secure does not double-fire "closes behind them"',
+    /secures the door/.test(arrivalMsgs) && !/closes behind them/.test(arrivalMsgs), arrivalMsgs.slice(0, 140));
+
+  // The resident can leave their own locked home (owner bypass); it stays locked.
+  const left = moveEntity(resident, hallId, broadcast, undefined);
+  const afterDoor = getDoorForExit(hallId, 'north', homeId);
+  check('resident leaves; home stays locked',
+    left === true && resident.zone_id === hallId && afterDoor.lock_state === 'locked',
+    `left=${left} zone=${resident.zone_id} lock=${afterDoor.lock_state}`);
+
+  deleteDoorCache(doorId);
+  world.zones.delete(hallId);
+  world.zones.delete(homeId);
 }
 
 // ── Layer 3: per-plugin suites (plugins/<name>/regress.js) ───────────────────

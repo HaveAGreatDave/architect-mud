@@ -14,7 +14,7 @@ const PANELS = {
   },
   gossip: {
     title: 'Gossip Pool',
-    description: 'Live in-memory gossip — strongest (most recent + credible) first. Read-only; the pool clears on server restart.',
+    description: 'Live in-memory gossip — strongest (most recent + credible) first. Spread a rumour as any NPC; the pool clears on server restart.',
     noEdit: true,
     fetch: () => API('/gossip'),
     render: renderGossip,

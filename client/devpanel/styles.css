@@ -743,6 +743,11 @@
 .vs-cell:hover { background: var(--bg2); border-color: var(--accent); }
 .vs-cell.vs-on { background: var(--accent2); border-color: var(--accent2); }
 .vs-cell.vs-on:hover { filter: brightness(1.2); }
+/* Read-only grid (schedule fed by the broadcast system) — no pointer affordance. */
+.vs-grid.vs-readonly .vs-cell { cursor: default; }
+.vs-grid.vs-readonly .vs-cell:hover { background: var(--bg3); border-color: transparent; }
+.vs-grid.vs-readonly .vs-cell.vs-on { opacity: 0.85; }
+.vs-grid.vs-readonly .vs-cell.vs-on:hover { background: var(--accent2); border-color: var(--accent2); filter: none; }
 
 /* Emergency Security Protocol status pulse */
 @keyframes esp-status-pulse {
