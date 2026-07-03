@@ -6,7 +6,7 @@ export default async function regress({ run, check, getPlayer }) {
   // ── Contraband classification (pure) ──────────────────────────────────────
   check('weapon is contraband', _test.isContraband('item_x', { weapon: {} }) === true);
   check('drug is contraband', _test.isContraband('item_x', { drug: {} }) === true);
-  check('hack deck is contraband', _test.isContraband('item_hack_deck', {}) === true);
+  check('hack deck is contraband', _test.isContraband('item_x', { hack_device: {} }) === true);
   check('plain clothing is not contraband', _test.isContraband('item_basic_shirt', {}) === false);
 
   // ── Clean death does not jail ─────────────────────────────────────────────
@@ -23,7 +23,7 @@ export default async function regress({ run, check, getPlayer }) {
   // Needs one real weapon item and one real non-contraband item to exist.
   const wpn = (await query(`SELECT id FROM items WHERE jsonb_exists(tags,'weapon') LIMIT 1`).catch(() => ({ rows: [] }))).rows[0]?.id;
   const misc = (await query(
-    `SELECT id FROM items WHERE NOT jsonb_exists(tags,'weapon') AND NOT jsonb_exists(tags,'drug') AND id<>'item_hack_deck' LIMIT 1`
+    `SELECT id FROM items WHERE NOT jsonb_exists(tags,'weapon') AND NOT jsonb_exists(tags,'drug') AND NOT jsonb_exists(tags,'hack_device') LIMIT 1`
   ).catch(() => ({ rows: [] }))).rows[0]?.id;
 
   if (wpn && misc) {

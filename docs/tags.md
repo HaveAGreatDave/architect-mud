@@ -89,11 +89,11 @@ The distinction:
 Litmus test: *if a designer made a second item that should also work here, would they expect tagging it to
 be enough?* Yes → use a tag; a hardcoded id is a bug. No (you mean that exact row) → an id is correct.
 
-Known violation to converge (as of 2026-07): `item_hack_deck` is hardcoded as the hack gate in three
-places — `server/engine/commands/doors.js`, `plugins/atm/index.js`, `plugins/jail/index.js` — even though
-the same lock domain already gates *installation* by the `kitTag` tag (`lockkit:*`). These should become a
-single `hack_device` tag read through one shared helper. The reusable sweep for this whole bug class is
-[capability-tag-vs-itemid-audit.md](audits/capability-tag-vs-itemid-audit.md).
+Converged (2026-07): the hack gate now reads the `hack_device` capability tag, not `item_hack_deck`, in all
+three places — `server/engine/commands/doors.js` and `plugins/atm/index.js` (a `player_inventory ⋈ items`
+join on `jsonb_exists(i.tags,'hack_device')`) and `plugins/jail/index.js` (`'hack_device' in tags` for
+contraband). Any item tagged `hack_device` now works; the blessed deck was tagged in content. The reusable
+sweep for this whole bug class is [capability-tag-vs-itemid-audit.md](audits/capability-tag-vs-itemid-audit.md).
 
 ## Supertags (tags-of-tags)
 
