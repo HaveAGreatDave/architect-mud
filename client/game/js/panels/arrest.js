@@ -35,12 +35,15 @@ function esc(s) {
   return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 }
 
-// msg: { charge, stars, sentence, confiscated, fine, balance }
+// msg: { charge, stars, sentence, confiscated, fine, held }
 export function showArrestNotice(msg) {
   close();
   const stars = Math.max(0, Math.min(5, msg.stars || 0));
   const starBar = `<span class="arrest-stars">${'★'.repeat(stars)}<span class="arrest-stars-empty">${'★'.repeat(5 - stars)}</span></span>`;
-  const balanceCls = (msg.balance || 0) < 0 ? 'arrest-debt' : '';
+  const held = msg.held || 0;
+  const fine = msg.fine || 0;
+  const refund = held - fine;
+  const refundCls = refund < 0 ? 'arrest-debt' : '';
 
   const el = document.createElement('div');
   el.className = 'confirm-window arrest-window';
@@ -54,8 +57,9 @@ export function showArrestNotice(msg) {
       <div class="arrest-row"><span class="arrest-label">Charge</span><span class="arrest-val">${esc(msg.charge || 'multiple outstanding warrants')}</span></div>
       <div class="arrest-row"><span class="arrest-label">Sentence</span><span class="arrest-val">${esc(msg.sentence || '—')}</span></div>
       <div class="arrest-row"><span class="arrest-label">Property</span><span class="arrest-val">${msg.confiscated || 0} item(s) seized — contraband logged to evidence, the rest returned on release</span></div>
-      <div class="arrest-row"><span class="arrest-label">Fine levied</span><span class="arrest-val arrest-fine">−₵${(msg.fine || 0).toLocaleString()}</span></div>
-      <div class="arrest-row"><span class="arrest-label">Balance</span><span class="arrest-val ${balanceCls}">₵${(msg.balance || 0).toLocaleString()}</span></div>
+      <div class="arrest-row"><span class="arrest-label">Cash seized</span><span class="arrest-val">₵${held.toLocaleString()} — held at the desk</span></div>
+      <div class="arrest-row"><span class="arrest-label">Fine (on release)</span><span class="arrest-val arrest-fine">−₵${fine.toLocaleString()}</span></div>
+      <div class="arrest-row"><span class="arrest-label">Returned on release</span><span class="arrest-val ${refundCls}">₵${refund.toLocaleString()}</span></div>
       <div class="confirm-actions">
         <button class="confirm-ok">Acknowledge</button>
       </div>

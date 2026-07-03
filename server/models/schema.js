@@ -742,6 +742,19 @@ export const SCHEMA_SQL = `
   );
   CREATE INDEX IF NOT EXISTS idx_player_count_log_time ON player_count_log(recorded_at DESC);
 
+  -- Dev Log: team heads-ups / important changes shown at check-in.
+  -- kind: change | heads-up | action-required (the last needs an action, e.g. restart/migration).
+  CREATE TABLE IF NOT EXISTS dev_notes (
+    id         BIGSERIAL PRIMARY KEY,
+    author     TEXT NOT NULL,
+    title      TEXT NOT NULL,
+    body       TEXT DEFAULT '',
+    kind       TEXT NOT NULL DEFAULT 'change',
+    resolved   BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  CREATE INDEX IF NOT EXISTS idx_dev_notes_time ON dev_notes(created_at DESC);
+
   -- Kill / death counters
   ALTER TABLE players ADD COLUMN IF NOT EXISTS mob_kills INTEGER DEFAULT 0;
   ALTER TABLE players ADD COLUMN IF NOT EXISTS player_kills INTEGER DEFAULT 0;
@@ -1169,7 +1182,9 @@ export const SCHEMA_SQL = `
   -- Runtime tables: schema is exported, rows are not. Written by plugins/jail.
   -- A jailed player's legal gear is snapshotted into held_items (JSONB array of
   -- player_inventory rows) and returned when the guard releases them; contraband
-  -- goes to police_evidence instead. release_at is the timed-release deadline.
+  -- goes to police_evidence instead. On-hand cash is emptied at booking into
+  -- held_credits and returned (minus the fine) at release. release_at is the
+  -- timed-release deadline.
   CREATE TABLE IF NOT EXISTS jail_prisoners (
     player_id   TEXT PRIMARY KEY,
     cell_zone   TEXT NOT NULL,
@@ -1177,8 +1192,12 @@ export const SCHEMA_SQL = `
     release_at  TIMESTAMPTZ NOT NULL,
     stars       INTEGER NOT NULL DEFAULT 1,
     held_items  JSONB NOT NULL DEFAULT '[]',
+    held_credits INTEGER NOT NULL DEFAULT 0,
+    fine        INTEGER NOT NULL DEFAULT 0,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
+  ALTER TABLE jail_prisoners ADD COLUMN IF NOT EXISTS held_credits INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE jail_prisoners ADD COLUMN IF NOT EXISTS fine INTEGER NOT NULL DEFAULT 0;
 
   -- Global police evidence locker: confiscated contraband (weapons/drugs/hacking
   -- gear). Capped at 50 rows (oldest evicted on insert); the whole locker purges

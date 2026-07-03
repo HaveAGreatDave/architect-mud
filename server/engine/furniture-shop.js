@@ -18,6 +18,7 @@ import { getFactionDiscount } from './factions.js';
 import { adjustCredits } from './economy.js';
 import { registerAction } from './actions.js';
 import { createSelectionState, formatSelectionPage } from './sift.js';
+import { vendorBuyReaction } from './vendor-reactions.js';
 import { randomUUID } from 'crypto';
 
 const CONSUMER_INTERACTIONS = ['sit', 'lean', 'lie', 'watch', 'lift'];
@@ -80,7 +81,7 @@ async function placeFurniture(item, base, zoneId) {
 // Charge the player, place the piece, credit the vendor.
 async function finalizePurchase(player, npc, item, price, base, aptZone, aptName, buildingName) {
   if (!await adjustCredits(player, -price)) {
-    return { type: 'error', message: `You can't afford that. Need ${price} credits, have ${player.credits || 0}.` };
+    return { type: 'error', message: `You can't afford that. Need ${price} credits, have ${player.credits || 0}.\n${vendorBuyReaction(npc, 'poor')}` };
   }
   await placeFurniture(item, base, aptZone);
   if (npc?.id) await query('UPDATE npcs SET vendor_credits = vendor_credits + $1 WHERE id = $2', [price, npc.id]);

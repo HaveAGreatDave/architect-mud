@@ -1,7 +1,7 @@
 async function npcSendToWork(btn) {
   if (btn) { btn.disabled = true; btn.textContent = 'Moving…'; }
   try {
-    const res = await API('/npcs/send-to-work', 'POST');
+    const res = await directAPI('/npcs/send-to-work', 'POST');
     if (res?.error) { toast(res.error, true); return; }
     if (!res.count) { toast('All NPCs already at their work zone.'); return; }
     toast(`Moved ${res.count} NPC${res.count !== 1 ? 's' : ''} to their work zones.`);
@@ -16,7 +16,7 @@ async function npcSendToWork(btn) {
 async function npcHouseUnhoused(btn) {
   if (btn) { btn.disabled = true; btn.textContent = 'Housing…'; }
   try {
-    const res = await API('/npcs/house-unhoused', 'POST');
+    const res = await directAPI('/npcs/house-unhoused', 'POST');
     if (res?.error) { toast(res.error, true); return; }
     if (!res.count) { toast('No unhoused NPCs — everyone already has a home.'); return; }
     const extra = res.remaining ? ` (${res.remaining} still unhoused — no vacant apartments left)` : '';
@@ -788,7 +788,7 @@ async function npcPlaceSafe() {
   const btn = document.getElementById('f-place-safe-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Placing…'; }
   try {
-    const result = await API(`/npcs/${npcId}/place-safe`, 'POST');
+    const result = await directAPI(`/npcs/${npcId}/place-safe`, 'POST');
     if (result?.error) toast(result.error, true);
     else if (result?.already_exists) toast('Safe already exists in this work zone.');
     else toast('Safe placed in work zone.');

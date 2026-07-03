@@ -80,5 +80,7 @@ async function cmdDressCyd(args, raw, player) {
 }
 
 export const commands = {
-  '.dresscyd': cmdDressCyd,
+  // NB: register the BARE verb — the dispatcher strips a leading `.`/`/` before
+  // matching, so a `.dresscyd` key would never fire.
+  dresscyd: cmdDressCyd,
 };

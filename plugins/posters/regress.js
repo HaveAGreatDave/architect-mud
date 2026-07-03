@@ -46,6 +46,18 @@ export default async function regress({ run, check, getPlayer }) {
 
     r = await run('putup regress');
     check('putup hangs it back on the wall', /smooth it onto the wall/i.test(r?.message || ''), r?.message);
+
+    // ── `take <poster>` — the natural verb peels it too, and falls through otherwise ─
+    r = await run('take regress');
+    check('take peels a hanging poster', /roll it into a tube/i.test(r?.message || ''), r?.message);
+    f = await query(`SELECT 1 FROM furniture WHERE id='furn_hero_poster_regress'`);
+    check('take removed the wall poster', f.rows.length === 0);
+    // Not a poster → plugin returns undefined so the engine take runs (no ground items here).
+    r = await run('take nonexistent-thing');
+    check('take of a non-poster falls through to engine', /Nothing here to take|Can't find/i.test(r?.message || ''), r?.message);
+
+    // Re-hang so the seam-reveal section below has the poster back on the wall.
+    await run('putup regress');
     f = await query(`SELECT zone_id FROM furniture WHERE id='furn_hero_poster_regress'`);
     check('furniture recreated in current zone', f.rows.length === 1 && f.rows[0].zone_id === zone, JSON.stringify(f.rows));
     inv = await query(`SELECT 1 FROM player_inventory WHERE player_id=$1 AND item_id='item_poster_regress'`, [p.id]);
@@ -54,10 +66,13 @@ export default async function regress({ run, check, getPlayer }) {
     r = await run('putup');
     check('putup at home with nothing carried reports it', /no posters to put up/i.test(r?.message || ''), r?.message);
 
-    // ── Seam reveal: hook stays silent alone, fires when the partner is present ─
+    // ── Examine telegraph: every hero poster advertises a clickable `take` ─────
     const kiyo = { zone_id: zone, name: 'hero poster: KIYO, THE GRID-BREAKER', flags: { hero_poster: true, poster_key: 'kiyo' } };
     let extra = await hooks['furniture.describe'](kiyo);
-    check('no GRU reveal without the partner', extra === undefined, String(extra));
+    check('examine telegraphs a clickable take link', /data-action="take"/.test(extra || '') && /peel it down/i.test(extra || ''), extra);
+
+    // ── Seam reveal: hint only alone, GRU appended when the partner is present ─
+    check('no GRU reveal without the partner', !/G R U/.test(extra || ''), String(extra));
 
     await query(
       `INSERT INTO furniture (id, zone_id, name, description, object_type, flags)

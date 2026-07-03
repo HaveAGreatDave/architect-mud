@@ -24,6 +24,18 @@ function formatWeight(g) {
   return `${(Math.round(g / 100) / 10)}kg`;
 }
 
+// Reactive purchase feedback: a green pulse when a buy/sell lands, a red shake
+// when it bounces (no credits). Fired from the dispatch handler on a fresh
+// server result only, so tab/sort/page re-renders don't re-trigger it.
+export function flashShopResult(ok) {
+  const el = document.getElementById('dialogue-text');
+  if (!el) return;
+  el.classList.remove('shop-flash-ok', 'shop-flash-bad');
+  void el.offsetWidth; // reflow so the animation restarts on repeat purchases
+  el.classList.add(ok ? 'shop-flash-ok' : 'shop-flash-bad');
+  setTimeout(() => el.classList.remove('shop-flash-ok', 'shop-flash-bad'), 650);
+}
+
 function formatOptionLabel(raw) {
   const stripped = raw.replace(/^\[gated\]\s*/i, '');
   const wasGated = stripped !== raw;

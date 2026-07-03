@@ -38,6 +38,7 @@ function renderDashboard(data) {
 
   panel.innerHTML = `
     <div style="padding:24px;max-width:1000px">
+      <div id="checkin-banner" style="margin-bottom:22px"></div>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px;margin-bottom:28px">
         ${card('👥', 'Players Online', online.length, online.length ? online.map(p=>p.handle).join(', ') : 'None', "showPanel('players')")}
         ${card('🛡', 'Admins Online', admins.length, admins.length ? admins.map(p=>p.handle).join(', ') : 'None', "showPanel('players')")}
@@ -136,6 +137,72 @@ function renderDashboard(data) {
   _initMotdEditor();
   _initActivityLog();
   _initPlayerCountChart();
+  _initCheckinBanner();
+}
+
+// ── "Since you last checked in" banner ────────────────────────────────────────
+// Surfaces what other contributors added since this dev last cleared the banner:
+// recent commits + any unresolved action-required Dev Log notes. Last-seen is a
+// per-handle localStorage marker (nothing server-side to keep in sync).
+
+async function _initCheckinBanner() {
+  const el = document.getElementById('checkin-banner');
+  if (!el) return;
+  const handle = (typeof devHandle !== 'undefined' && devHandle) || 'dev';
+  const key = 'devLastSeen:' + handle;
+  const last = localStorage.getItem(key);
+  const firstVisit = !last;
+
+  const [act, notesResp] = await Promise.all([
+    directAPI('/dev/activity' + (last ? `?since=${encodeURIComponent(last)}` : '')),
+    directAPI('/dev/notes'),
+  ]);
+  const commits   = (act && act.commits) || [];
+  const notes     = (notesResp && notesResp.notes) || [];
+  const actionReq = notes.filter(n => n.kind === 'action-required' && !n.resolved);
+
+  if (!commits.length && !actionReq.length && !firstVisit) {
+    el.innerHTML = `<div style="font-size:12px;color:var(--text-dim);border:1px solid var(--border);border-radius:4px;padding:10px 14px;background:var(--bg2)">✓ You're up to date — nothing new since your last check-in.</div>`;
+    return;
+  }
+
+  const authors = [...new Set(commits.map(c => c.author))];
+  const sinceLabel = last
+    ? `since ${new Date(last).toLocaleString(undefined, { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' })}`
+    : 'in the last 14 days';
+
+  const bits = [];
+  if (commits.length) bits.push(`<strong style="color:var(--text-bright)">${commits.length}</strong> commit${commits.length===1?'':'s'}${authors.length ? ` by ${authors.slice(0,4).map(a=>_dashEsc(a)).join(', ')}${authors.length>4?'…':''}` : ''}`);
+  if (actionReq.length) bits.push(`<strong style="color:var(--red)">${actionReq.length}</strong> action-required note${actionReq.length===1?'':'s'}`);
+  const summary = bits.length ? bits.join(' · ') : 'Welcome — no code activity yet.';
+
+  const noteList = actionReq.slice(0, 4).map(n =>
+    `<div style="font-size:11px;color:var(--text);margin-top:4px">⚠ <strong>${_dashEsc(n.title)}</strong><span style="color:var(--text-dim)"> — ${_dashEsc(n.author)}</span></div>`
+  ).join('');
+
+  const accent = actionReq.length ? 'var(--red)' : 'var(--accent)';
+  el.innerHTML = `
+    <div style="border:1px solid var(--border);border-left:3px solid ${accent};border-radius:4px;padding:12px 16px;background:var(--bg2)">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <span style="font-size:12px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px">Since you last checked in</span>
+        <span style="font-size:12px;color:var(--text)">${summary} <span style="color:var(--text-dim)">${sinceLabel}</span></span>
+        <span style="margin-left:auto;display:flex;gap:8px">
+          <button onclick="showPanel('devlog')" style="background:transparent;border:1px solid var(--border);color:var(--accent);font-family:var(--font-mono);font-size:10px;padding:3px 10px;cursor:pointer;border-radius:2px">Open Dev Log</button>
+          <button onclick="_checkinMarkRead()" style="background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font-mono);font-size:10px;padding:3px 10px;cursor:pointer;border-radius:2px">Mark all read</button>
+        </span>
+      </div>
+      ${noteList}
+    </div>`;
+}
+
+function _dashEsc(s) {
+  return String(s ?? '').replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+}
+
+function _checkinMarkRead() {
+  const handle = (typeof devHandle !== 'undefined' && devHandle) || 'dev';
+  localStorage.setItem('devLastSeen:' + handle, new Date().toISOString());
+  _initCheckinBanner();
 }
 
 // ── MOTD editor logic ────────────────────────────────────────────────────────

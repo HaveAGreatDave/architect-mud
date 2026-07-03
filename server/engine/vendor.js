@@ -18,6 +18,7 @@ import { getFlag, setFlag } from './flags.js';
 import { emit } from './events.js';
 import { vendorGrudgeRemaining, grudgeRefusal } from './vendor-grudge.js';
 import { markSessionPurchase } from './vendor-session.js';
+import { vendorBuyReaction } from './vendor-reactions.js';
 
 // Trust-gated vendors (e.g. the covert shadow dealer). When an NPC's flags carry
 // a `trust_flag`, its shelf is not the random `vendor_stock` shelf but the full
@@ -130,7 +131,7 @@ export async function buyFromVendor(player, npc, itemId, quantity = 1) {
   });
 
   if (!paid) {
-    return { success: false, message: `You can't afford that. Need ${price} credits, have ${player.credits || 0}.` };
+    return { success: false, message: `You can't afford that. Need ${price} credits, have ${player.credits || 0}.\n${vendorBuyReaction(npc, 'poor')}` };
   }
 
   markSessionPurchase(player.id); // for the vendor's closing-time farewell line
@@ -156,7 +157,7 @@ export async function buyFromVendor(player, npc, itemId, quantity = 1) {
 
   return {
     success: true,
-    message: `You buy ${quantity}x ${item.name} for ${price} credits. (${player.credits} remaining)${trustLine}`,
+    message: `You buy ${quantity}x ${item.name} for ${price} credits. (${player.credits} remaining)\n${vendorBuyReaction(npc, 'success')}${trustLine}`,
     credits_remaining: player.credits,
   };
 }

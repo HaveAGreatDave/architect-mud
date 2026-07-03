@@ -15,7 +15,7 @@ import { query } from '../server/models/db.js';
 const ITEM_ID = 'item_cigarettes';
 const DRUG_ID = 'drug_cigarettes';
 const NAME = 'cigarettes';
-const DESC = 'A soft pack of cheap cigarettes. Each one shaves a little off your lungs and hands it to your image.';
+const DESC = 'You take out a soft pack of cheap cigarettes, removing one carefully. Each one shaves a little off your lungs and hands it to your image.';
 
 const EFFECTS = {
   // A drag settles the nerves a touch.
@@ -27,7 +27,7 @@ const EFFECTS = {
     peak_mods: { stat_cool: 2, stamina_max: -15 },
     comeup_message: '<span class="msg-system">You light up and draw deep. Your shoulders drop; the edge comes off your hunger.</span>',
     peak_message: '<span class="msg-system">Nicotine hums through you. You feel, briefly, extremely cool and very slightly winded.</span>',
-    end_message: '<span class="msg-system">The cigarette burns down to the filter. The cool goes with it; the craving stays.</span>',
+    end_message: '<span class="msg-system">The cigarette burns down to the filter. The cool fades with the last of the smoke; the craving lingers.</span>',
   },
   tolerance: { gain_per_dose: 0.1, max_reduction: 0.5 },
   // Highly addictive (addiction_chance 0.4 → hooked after ~2). Withdrawal bites soon.
