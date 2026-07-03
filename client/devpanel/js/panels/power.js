@@ -116,7 +116,7 @@ function _buildInteriorMapHtml() {
 
   const STATUS_CLS = { powered: 'bm-power-powered', overloaded: 'bm-power-overloaded', offline: 'bm-power-offline' };
 
-  let gridHtml = `<div style="overflow:auto"><div style="display:grid;grid-template-columns:${colTmpl};grid-template-rows:${rowTmpl}">`;
+  let gridHtml = `<div style="display:grid;grid-template-columns:${colTmpl};grid-template-rows:${rowTmpl}">`;
 
   for (let y = minY; y <= maxY; y++) {
     for (let x = minX; x <= maxX; x++) {
@@ -163,7 +163,7 @@ function _buildInteriorMapHtml() {
     }
   }
 
-  gridHtml += `</div></div>`;
+  gridHtml = wrapMapScale(gridHtml + `</div>`);
 
   return buildingDropdown + floorNav + gridHtml + `<div style="margin-top:10px;display:flex;gap:14px;flex-wrap:wrap;font-size:10px;color:var(--text-dim)">${mapLegendHtml('power')}</div>`;
 }
@@ -172,9 +172,10 @@ function renderPowerPanelBody() {
   const panel = document.getElementById('list-panel');
   const powerById = new Map(bigMapPowerData.map(p => [p.zoneId, p]));
 
-  const tabBar = `<div style="display:flex;gap:8px;margin-bottom:12px">
+  const tabBar = `<div style="display:flex;gap:8px;margin-bottom:12px;align-items:center">
     <button class="action-btn${powerPanelView === 'city' ? ' primary' : ''}" onclick="setPowerPanelView('city')">⚡ City Grid</button>
     <button class="action-btn${powerPanelView === 'interior' ? ' primary' : ''}" onclick="setPowerPanelView('interior')">🏢 Building Interior</button>
+    <div style="margin-left:auto">${mapScaleControlHtml()}</div>
   </div>`;
 
   let html;
@@ -183,7 +184,7 @@ function renderPowerPanelBody() {
   } else {
     html = `<div style="padding:12px">
     ${tabBar}
-    ${buildDynamicMapGrid(bigMapZones, powerPanelMode, powerById, true)}
+    ${wrapMapScale(buildDynamicMapGrid(bigMapZones, powerPanelMode, powerById, true))}
     <div style="margin-top:10px;display:flex;gap:14px;flex-wrap:wrap;font-size:10px;color:var(--text-dim)">${mapLegendHtml(powerPanelMode)}</div>
   </div>`;
   }
@@ -191,6 +192,7 @@ function renderPowerPanelBody() {
   html += `<div style="padding:12px">
     <h3 style="color:var(--accent);font-size:12px;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">Power Tools</h3>
     <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+      <button class="action-btn primary" onclick="autoResolvePower()">🛠 Auto-Resolve Power</button>
       <button class="action-btn" onclick="fixZonePowerConnections()">🔌 Fix Zone Connections</button>
       <button class="action-btn" onclick="fixBuildingPowerConnections()">🏢 Fix Building Connections</button>
       <button class="action-btn" onclick="resyncAllLighting()">💡 Resync Lighting</button>
@@ -279,6 +281,7 @@ function renderPowerPanelBody() {
   html += '</div>';
 
   panel.innerHTML = html;
+  applyMapScale(panel);
 }
 
 function powerToolLog(lines) {
@@ -308,6 +311,16 @@ async function fixBuildingPowerConnections() {
   powerToolLog(['⏳ Checking building power connections...']);
   const result = await API('/environment/power/fix-buildings', 'POST').catch(e => ({ error: e.message }));
   if (result?.error) { powerToolLog([`❌ Error: ${result.error}`]); return; }
+  const lines = _buildingFixLines(result);
+  powerToolLog(lines);
+  if (result.connected.length || result.created?.length) {
+    await _refreshPowerMapData();
+    renderPowerPanelBody();
+    powerToolLog(lines);
+  }
+}
+
+function _buildingFixLines(result) {
   const lines = [];
   if (result.connected.length) {
     lines.push(`✅ Connected ${result.connected.length} building(s):`);
@@ -315,9 +328,15 @@ async function fixBuildingPowerConnections() {
       lines.push(`&nbsp;&nbsp;• ${b.buildingName} → ${b.generatorName} (${b.zonesCount} zone(s) fixed)`);
     }
   }
+  if (result.created?.length) {
+    lines.push(`🛠 Built ${result.created.length} utility room(s) + junction box(es):`);
+    for (const b of result.created) {
+      lines.push(`&nbsp;&nbsp;• ${b.buildingName} → ${b.utilityRoomId}`);
+    }
+  }
   if (result.needsGenerator.length) {
     for (const b of result.needsGenerator) {
-      lines.push(`⚠️ ${b.buildingName} has no junction box — install one from the building zone's editor`);
+      lines.push(`⚠️ ${b.buildingName}: could not auto-fix${b.error ? ' — ' + b.error : ''}`);
     }
   }
   if (result.multipleGenerators.length) {
@@ -326,12 +345,25 @@ async function fixBuildingPowerConnections() {
     }
   }
   if (!lines.length) lines.push('✅ All buildings already correctly connected.');
+  return lines;
+}
+
+async function autoResolvePower() {
+  powerToolLog(['⏳ Auto-resolving power: zones, buildings, utility rooms, recompute...']);
+  const result = await API('/environment/power/auto-resolve', 'POST').catch(e => ({ error: e.message }));
+  if (result?.error) { powerToolLog([`❌ Error: ${result.error}`]); return; }
+  const lines = [];
+  const zc = result.zones?.connected?.length || 0;
+  lines.push(zc
+    ? `🔌 Connected ${zc} outdoor zone(s) to the city grid.`
+    : '🔌 All outdoor zones already on the city grid.');
+  lines.push('—');
+  lines.push(..._buildingFixLines(result.buildings || { connected: [], created: [], needsGenerator: [], multipleGenerators: [] }));
+  lines.push('—');
+  lines.push('↺ Power network recomputed.');
+  await _refreshPowerMapData();
+  renderPowerPanelBody();
   powerToolLog(lines);
-  if (result.connected.length) {
-    await _refreshPowerMapData();
-    renderPowerPanelBody();
-    powerToolLog(lines);
-  }
 }
 
 async function resyncAllLighting() {

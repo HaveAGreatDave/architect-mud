@@ -2064,6 +2064,17 @@ export async function installGenerator({ zoneId, generatorType = 'junction_box',
   if (!zoneRows.length) throw new Error(`Zone ${zoneId} does not exist`);
   const zone = zoneRows[0];
 
+  // Junction boxes serve building interiors only. Every external/outdoor tile is
+  // fed straight from a city power plant (city_grid), so a JB there is meaningless
+  // and would double-power the tile. Guard it out.
+  if (generatorType === 'junction_box') {
+    const f = zone.flags || {};
+    if (!f.is_interior && !f.is_apartment)
+      throw new Error(
+        `${zone.name || zoneId} is an external tile — it's served by the city power plant. ` +
+        `Junction boxes go in building interiors only.`);
+  }
+
   const id = `gen_${zoneId}_${Date.now()}`;
   // city_plant: 10 000 W. junction_box: 5 000 W default throughput (enough
   // for a multi-room building with several lights).
@@ -2217,9 +2228,79 @@ export async function fixZonePowerConnections() {
   return { connected };
 }
 
+// Junction-box furniture HP (matches setup-destructible-power.js so auto-created
+// boxes are as damageable as retrofitted ones).
+const UTILITY_JBOX_HP = 1200;
+
+// Auto-create a below-grade utility room (grid_z − 1 by default) wired into a
+// building network via up/down, then install a junction box in it. Used by
+// fixBuildingPowerConnections to self-heal buildings that have no power source.
+// Idempotent by zone id (re-running just refreshes the room + box).
+async function createUtilityRoomWithJunctionBox(query, network, root) {
+  // Anchor on the building's own interior map: prefer the is_building entry room,
+  // else the network root. Both are interior zones already in the network.
+  const { rows: anchorRows } = await query(
+    `SELECT id, name, map_id, parent_zone, grid_x, grid_y, grid_z, flags
+       FROM zones WHERE id = ANY($1::text[])
+       ORDER BY COALESCE((flags->>'is_building')::boolean, false) DESC
+       LIMIT 1`,
+    [network]
+  );
+  const anchor = anchorRows[0];
+  if (!anchor) throw new Error(`No anchor zone for building network ${root.id}`);
+
+  const utilId = `zone_util_${anchor.id}`;
+  const gx = anchor.grid_x ?? 0;
+  const gy = anchor.grid_y ?? 0;
+  const gz = (anchor.grid_z ?? 0) - 1;                       // z-1 by default
+  const worldExit = anchor.flags?.world_exit_zone || anchor.parent_zone || null;
+
+  await query(
+    `INSERT INTO zones (id, name, description, danger_rating, map_id, parent_zone, grid_x, grid_y, grid_z, flags, exits)
+     VALUES ($1,$2,$3,'safe',$4,$5,$6,$7,$8,$9,$10)
+     ON CONFLICT (id) DO UPDATE SET map_id=$4, parent_zone=$5, grid_x=$6, grid_y=$7, grid_z=$8, flags=$9`,
+    [utilId, `${anchor.name} — Utility Room`,
+     'A cramped below-grade utility room: bare concrete, sweating pipes, and the building junction box humming in its steel cabinet.',
+     anchor.map_id || null, anchor.parent_zone || null, gx, gy, gz,
+     JSON.stringify({ is_interior: true, utility_room: true, ...(worldExit ? { world_exit_zone: worldExit } : {}) }),
+     JSON.stringify({ up: anchor.id })]
+  );
+
+  // Wire the anchor down into the utility room (preserve its existing exits).
+  const { rows: aRows } = await query('SELECT exits FROM zones WHERE id=$1', [anchor.id]);
+  const anchorExits = addExit(aRows[0]?.exits || {}, 'down', utilId);
+  await query('UPDATE zones SET exits=$1 WHERE id=$2', [JSON.stringify(anchorExits), anchor.id]);
+
+  // A worklight, so the room reads and has a load to power.
+  await query(
+    `INSERT INTO furniture (id,zone_id,name,description,object_type,light_type,light_on,light_on_intended,power_draw_kw,lumen_output,flags)
+     VALUES ($1,$2,'Caged Worklight','A dust-caked worklight in a wire cage, throwing hard shadows.','light','overhead',1,1,0.02,900,'{}')
+     ON CONFLICT (id) DO NOTHING`,
+    [`furn_light_${utilId}`, utilId]
+  );
+
+  // Install the junction box — the room is interior so the install guard passes.
+  // This wires the whole building network's power_zones and links the nearest
+  // city plant, then recomputes.
+  const gen = await installGenerator({ zoneId: utilId, generatorType: 'junction_box' });
+
+  // Destructible junction-box furniture linked to the generator row (so attack /
+  // repair work on it like every other box).
+  await query(
+    `INSERT INTO furniture (id,zone_id,name,description,object_type,flags,hp,hp_max)
+     VALUES ($1,$2,'Junction Box',$3,'junction_box',$4,$5,$5)
+     ON CONFLICT (id) DO UPDATE SET zone_id=$2, flags=$4, hp_max=$5`,
+    [`furn_jbox_${utilId}`, utilId,
+     'A grey steel junction cabinet of breakers and humming busbars, feeding the building. A small sealed hacking port sits below the latch.',
+     JSON.stringify({ destructible: true, generator_id: gen.id }), UTILITY_JBOX_HP]
+  );
+
+  return { utilityRoomId: utilId, generatorId: gen.id, anchorId: anchor.id };
+}
+
 // For each distinct building cluster (is_apartment/is_interior zone network),
-// checks how many generators serve it and either connects (1 gen), logs missing
-// (0 gens), or returns an error (2+ gens with both names).
+// checks how many generators serve it and either connects (1 gen), auto-creates
+// a utility room + junction box (0 gens), or returns an error (2+ gens).
 export async function fixBuildingPowerConnections() {
   const { query } = deps;
 
@@ -2230,7 +2311,7 @@ export async function fixBuildingPowerConnections() {
   `);
 
   const visited = new Set();
-  const results = { connected: [], needsGenerator: [], multipleGenerators: [] };
+  const results = { connected: [], created: [], needsGenerator: [], multipleGenerators: [] };
 
   for (const root of interiorZones) {
     if (visited.has(root.id)) continue;
@@ -2260,7 +2341,14 @@ export async function fixBuildingPowerConnections() {
     const buildingName = namedRows[0]?.name || root.name;
 
     if (gens.length === 0) {
-      results.needsGenerator.push({ buildingName, rootId: root.id });
+      // Self-heal: dig a utility room below the building and drop a junction box.
+      try {
+        const made = await createUtilityRoomWithJunctionBox(query, network, root);
+        visited.add(made.utilityRoomId);
+        results.created.push({ buildingName, utilityRoomId: made.utilityRoomId, generatorId: made.generatorId });
+      } catch (e) {
+        results.needsGenerator.push({ buildingName, rootId: root.id, error: e.message });
+      }
     } else if (gens.length >= 2) {
       results.multipleGenerators.push({ buildingName, generators: gens.map(g => g.name) });
     } else {
@@ -2319,8 +2407,18 @@ export async function fixBuildingPowerConnections() {
     results.connected.push({ buildingName: jb.id, generatorName: `linked to city plant ${nearest.id}`, zonesCount: 0 });
   }
 
-  if (results.connected.length) await recomputePower();
+  if (results.connected.length || results.created.length) await recomputePower();
   return results;
+}
+
+// One-click power repair: connect every outdoor zone to the city grid, then
+// give every building a junction box (auto-digging a utility room where one is
+// missing), then recompute the whole grid.
+export async function autoResolvePower() {
+  const zones = await fixZonePowerConnections();
+  const buildings = await fixBuildingPowerConnections();
+  await recomputePower();
+  return { zones, buildings };
 }
 
 export async function toggleGeneratorStatus(generatorId) {
