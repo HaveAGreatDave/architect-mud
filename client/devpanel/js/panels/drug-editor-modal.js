@@ -59,10 +59,10 @@ function _dgAddEvt(id) { document.getElementById(id).insertAdjacentHTML('beforee
 // ── open ─────────────────────────────────────────────────────────────────────
 // Launched by the inline form button: read its current field values so the modal
 // works for both new and existing drugs without threading the record through.
-function openDrugEditorFromForm() {
+async function openDrugEditorFromForm() {
   const g = (id) => document.getElementById(id);
   let effects = {};
-  try { effects = JSON.parse(g('f-effects')?.value || '{}'); } catch { alert('Effects JSON is invalid — fix it before using the structured editor.'); return; }
+  try { effects = JSON.parse(g('f-effects')?.value || '{}'); } catch { await dpAlert('Effects JSON is invalid — fix it before using the structured editor.'); return; }
   const rec = {
     id: g('f-id')?.value || '',
     name: g('f-name')?.value || '',

@@ -8,14 +8,14 @@
 //
 // Gains model (HellMOO-flavoured): each tick is one "set" of reps. Completing
 // `needed` sets grants +1 Brawn; `needed` rises with your current Brawn, so it's
-// quick at first and brutal near the top, and a soft cap (BRAWN_SOFT_CAP) means a
-// free bench can't take you all the way — the last stretch is bought with XP.
+// quick at first and a longer grind near the top.
 //
-// The XP economy: raising a stat directly increases the implicit `statSpent`
-// (see server/engine/ip.js), which would silently drain a player's Net XP and
-// block future `raise`s. So each gym point is compensated back into bonus_xp,
-// leaving Net XP flat — the bench is a genuinely *free* source of Brawn, earned
-// with reps rather than XP.
+// The XP economy (HellMOO-faithful): the gym is where you *convert XP into Brawn*,
+// not a free source of it. Raising the stat increases the implicit `statSpent`
+// (see server/engine/ip.js), spending the point straight out of Net XP — the same
+// cost as a `raise brawn`. Reps are the time-gate; XP is the real gate. If you
+// can't afford the next point, the bench racks itself and sends you out to earn
+// more. No refund, no soft cap — your XP is the ceiling.
 
 import { query } from '../../server/models/db.js';
 import { getAllLivePlayers, getLivePlayer } from '../../server/engine/world.js';
@@ -23,22 +23,44 @@ import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { on } from '../../server/engine/events.js';
 import { getPosture, setPosture, forceStand } from '../../server/engine/posture.js';
 import { ensureTunables } from '../../server/engine/tunables.js';
-import { statCost, grantXp } from '../../server/engine/ip.js';
+import { statCost, getNetXp } from '../../server/engine/ip.js';
+import { registerStatusEffect, applyEffect } from '../../server/engine/effects.js';
 
 const SET_MS = 8000;          // one set of reps every 8s — a slow, deliberate grind
-const BRAWN_SOFT_CAP = 10;    // the most Brawn a bench alone will build you to
 const REPS_BASE = 4;          // sets for the very first point...
 const REPS_PER_LEVEL = 2;     // ...plus this many more for each point you already have
+
+const STA_PER_SET = 12;       // each set burns this much stamina — ~8 sets on a full tank
+const EXHAUSTED_TICKS = 45;   // ~45s locked out of the bench after you gas out completely
 
 // Sets required to earn the next Brawn point at your current level.
 function repsForBrawn(brawn) { return REPS_BASE + Math.max(0, brawn) * REPS_PER_LEVEL; }
 function brawnOf(player) { return Number(player.stat_brawn) || 0; }
 function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 function out(pid, message) { sendToPlayer(pid, { type: 'output', message }); }
+function isExhausted(player) { return (player.statuses || []).some(s => s.name === 'exhausted'); }
+
+// Burn stamina for a set, persist + push it to the HUD. Returns the new value.
+function drainStamina(player, amount) {
+  const max = player.stamina_max ?? 100;
+  const before = player.stamina ?? max;
+  player.stamina = Math.max(0, before - amount);
+  if (player.stamina !== before) {
+    query('UPDATE players SET stamina=$1 WHERE id=$2', [player.stamina, player.id]).catch(() => {});
+    sendToPlayer(player.id, { type: 'resource_tick', messages: [], player_update: { stamina: player.stamina } });
+  }
+  return player.stamina;
+}
+
+// "Exhausted" is a pure lockout timer — no per-tick bite, the penalty is being
+// unable to touch the bench (see cmdLift) while your arms come back to life.
+registerStatusEffect({ name: 'exhausted', label: 'Exhausted', onTick() {} });
 
 // ── Pumping-iron flavour ──────────────────────────────────────────────────────
 
-const SET_FLAVOR = [
+// Set flavour comes in three tiers of fatigue, chosen by how much gas is left in
+// the tank (see setFlavor). Fresh and strong → laboured → gassed and shaking.
+const SET_FLAVOR_STRONG = [
   'You grind out another set, veins standing up like cabling.',
   'The bar bends. You do not. Another rep bangs home.',
   'You punch out a set, breath hissing through your teeth. Somewhere, a shirt sleeve dies.',
@@ -52,6 +74,32 @@ const SET_FLAVOR = [
   'You stare at the ceiling and will the bar back up. It obeys, eventually.',
   'One more. Always one more. Your shoulders hate this and love it.',
 ];
+
+const SET_FLAVOR_LABORED = [
+  'Your arms are getting heavy now — the bar comes up slower than it went down.',
+  'Sweat sheets down your face. You blink it away and grind out another set.',
+  'The burn is setting in deep. You push through it, jaw clenched.',
+  'Breath coming ragged now, you muscle the bar up one more time.',
+  'Your shirt is soaked through. The reps are getting ugly, but they still count.',
+  'You blow out a hard breath and force another set. Legs starting to tremble.',
+];
+
+const SET_FLAVOR_GASSED = [
+  'Your arms are shaking. Each rep is a small war now.',
+  'You can barely lock out the bar. Lungs heaving, you claw for one more.',
+  'Every rep feels like it might be the last. You gasp and grind on anyway.',
+  'Spots swim at the edge of your vision. The bar wobbles up, barely.',
+  "You're running on fumes and spite now. Mostly spite.",
+  'Your whole body screams to quit. You spit, grit your teeth, and press.',
+];
+
+// Pick a set line by remaining stamina fraction — the emptier the tank, the
+// more the reps visibly hurt. This is the progressive-exhaustion telegraph.
+function setFlavor(staFrac) {
+  if (staFrac > 0.6) return pick(SET_FLAVOR_STRONG);
+  if (staFrac > 0.3) return pick(SET_FLAVOR_LABORED);
+  return pick(SET_FLAVOR_GASSED);
+}
 
 const GAIN_LINES = [
   'Something in your shoulders shifts and settles heavier.',
@@ -77,29 +125,42 @@ function stopWorkout(pid, handle, zoneId, playerLine) {
 async function runSet(player, st, nowMs) {
   st.lastSet = nowMs;
   st.reps += 1;
-  if (st.reps < st.needed) {
-    out(player.id, pick(SET_FLAVOR));
-    return;
+
+  // Every set costs stamina. The tank is the time-gate on a single session: a
+  // full 100 buys ~8 sets before you gas out entirely.
+  const max = player.stamina_max ?? 100;
+  const sta = drainStamina(player, STA_PER_SET);
+
+  // Earned a point this set? It's paid for out of Net XP, same as `raise brawn`.
+  // Do this before the exhaustion check so a last-gasp set still banks the point.
+  if (st.reps >= st.needed) {
+    st.reps = 0;
+    const current = brawnOf(player);
+    await ensureTunables();
+    const cost = statCost(current);
+    const { net } = await getNetXp(player.id);
+    if (net < cost) {
+      stopWorkout(player.id, player.handle, player.current_zone,
+        `You've hit the wall — raising Brawn to ${current + 1} costs ${cost} XP and you're ${cost - Math.floor(net)} short. Go earn it out in the world.`);
+      return;
+    }
+    // Raising the stat implicitly spends `cost` off Net XP (see ip.js statSpent).
+    await query('UPDATE players SET stat_brawn = stat_brawn + 1 WHERE id=$1', [player.id]);
+    player.stat_brawn = current + 1;
+    st.needed = repsForBrawn(current + 1);
+    out(player.id, `<span class="item-grant">${pick(GAIN_LINES)} <b>Your Brawn climbs to ${current + 1}.</b></span>`);
+  } else {
+    // A plain set — flavour scales with how much gas is left (progressive burn).
+    out(player.id, setFlavor(sta / max));
   }
 
-  // Earned a point. If the bench has already given all it can, bow out.
-  st.reps = 0;
-  const current = brawnOf(player);
-  if (current >= BRAWN_SOFT_CAP) {
+  // Tank's empty → you're done, and you're wrecked. Rack it and slap on the
+  // exhausted lockout so you can't just flop back down and keep grinding.
+  if (sta <= 0 && getPosture(player) === 'working_out') {
+    applyEffect(player, 'exhausted', EXHAUSTED_TICKS);
     stopWorkout(player.id, player.handle, player.current_zone,
-      'You\'ve wrung every ounce of gains this bench has to give — the rest you earn out in the world.');
-    return;
+      "Your arms give out mid-press. The bar clatters back into the rack and you slump off the bench, utterly spent. <b>You're exhausted.</b>");
   }
-
-  await ensureTunables();
-  const cost = statCost(current);
-  await query('UPDATE players SET stat_brawn = stat_brawn + 1 WHERE id=$1', [player.id]);
-  await grantXp(player.id, cost); // keep Net XP flat — the point is free (see header)
-  player.stat_brawn = current + 1;
-  st.needed = repsForBrawn(current + 1);
-  out(player.id, `<span class="item-grant">${pick(GAIN_LINES)} <b>Your Brawn climbs to ${current + 1}.</b></span>`);
-  if (current + 1 >= BRAWN_SOFT_CAP)
-    out(player.id, 'That\'s about all this old bench has left to teach your body.');
 }
 
 // ── Tick ───────────────────────────────────────────────────────────────────────
@@ -144,6 +205,10 @@ async function cmdLift(args, raw, player, broadcast) {
     return { type: 'emote', message: 'You\'re already mid-set. Grit your teeth and keep pushing.' };
   if (player.combatTargetId || player.pvpTargetId || player.npcCombatTargetId)
     return { type: 'emote', message: 'You\'re a little busy fighting to be lifting weights.' };
+  if (isExhausted(player))
+    return { type: 'emote', message: 'You\'re still wrecked from your last set — give your arms a minute to come back before you touch the bar.' };
+  if ((player.stamina ?? (player.stamina_max ?? 100)) < STA_PER_SET)
+    return { type: 'emote', message: 'You\'re too winded to lift — you can barely make a fist right now. Catch your breath first.' };
 
   // Need a bench in the room.
   const { rows } = await query(
@@ -158,8 +223,13 @@ async function cmdLift(args, raw, player, broadcast) {
   if (getPosture(player) !== 'lying')
     return { type: 'emote', message: `Lie back on the ${bench} first (try: lie on ${bench}).` };
 
-  if (brawnOf(player) >= BRAWN_SOFT_CAP)
-    return { type: 'emote', message: `You've already got all the muscle a ${bench} can build. Real gains are out in the world now.` };
+  // HellMOO-style: the gym spends XP. Don't let them lie down if they can't even
+  // afford the next point.
+  await ensureTunables();
+  const cost = statCost(brawnOf(player));
+  const { net } = await getNetXp(player.id);
+  if (net < cost)
+    return { type: 'emote', message: `You size up the ${bench}, but raising Brawn costs ${cost} XP and you've only banked ${Math.floor(net)}. Come back when you've earned it.` };
 
   // lastSet is back-dated so the first set fires on the next tick — quick feedback.
   setPosture(player, 'working_out', { sittingOn: bench });
@@ -172,6 +242,6 @@ export const commands = {
   lift: cmdLift,
 };
 
-export const _test = { repsForBrawn, BRAWN_SOFT_CAP, REPS_BASE, REPS_PER_LEVEL };
+export const _test = { repsForBrawn, REPS_BASE, REPS_PER_LEVEL };
 
 console.log('[weightbench] Plugin loaded.');

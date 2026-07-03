@@ -41,17 +41,27 @@ function posture(player) {
 	return player.posture || "standing";
 }
 
-// Returns a short environmental modifier string appended to descriptions.
-function envMod(env, vis) {
+// Indoors = no open sky above. Matches the engine's isInteriorZone (describe.js)
+// so weather is suppressed in exactly the same rooms.
+function isInterior(zone) {
+	return !!(zone?.flags?.is_interior || zone?.flags?.is_apartment || zone?.flags?.is_building);
+}
+
+// Returns a short environmental modifier string appended to descriptions. Precip
+// and storms are outdoor-only — under a roof you don't sit down "amid crashing
+// thunder", so they're gated on the room being exterior (light/darkness is not).
+function envMod(env, vis, zone) {
 	const parts = [];
 	if (vis.category === "pitch_dark") parts.push("in complete darkness");
 	else if (vis.category === "dark") parts.push("in the dim light");
-	if (env.currentPrecip === "rain") parts.push("as rain falls around you");
-	else if (env.currentPrecip === "snow") parts.push("as snow drifts down");
-	if (["storm", "thunderstorm"].includes(env.weatherType))
-		parts.push("amid crashing thunder");
-	else if (env.weatherType === "blizzard")
-		parts.push("against the howling blizzard");
+	if (!isInterior(zone)) {
+		if (env.currentPrecip === "rain") parts.push("as rain falls around you");
+		else if (env.currentPrecip === "snow") parts.push("as snow drifts down");
+		if (["storm", "thunderstorm"].includes(env.weatherType))
+			parts.push("amid crashing thunder");
+		else if (env.weatherType === "blizzard")
+			parts.push("against the howling blizzard");
+	}
 	return parts.length ? ` — ${parts.join(", ")}` : "";
 }
 
@@ -111,8 +121,8 @@ async function maybeSitAtPoker(target, player, broadcast) {
 }
 
 async function cmdSit(args, raw, player, broadcast) {
-	const { env, vis } = getCtx(player);
-	const mod = envMod(env, vis);
+	const { env, vis, zone } = getCtx(player);
+	const mod = envMod(env, vis, zone);
 
 	const target = stripPrep(args, ["on", "at", "in"]);
 	const floorTarget = ["floor", "ground", "down"].includes(
@@ -181,8 +191,8 @@ async function cmdSit(args, raw, player, broadcast) {
 }
 
 async function cmdLie(args, raw, player, broadcast) {
-	const { env, vis } = getCtx(player);
-	const mod = envMod(env, vis);
+	const { env, vis, zone } = getCtx(player);
+	const mod = envMod(env, vis, zone);
 
 	const target = stripPrep(args, ["on", "down", "in"]);
 	if (target) {
@@ -252,8 +262,8 @@ function cmdStand(args, raw, player, broadcast) {
 }
 
 function cmdKneel(args, raw, player, broadcast) {
-	const { env, vis } = getCtx(player);
-	const mod = envMod(env, vis);
+	const { env, vis, zone } = getCtx(player);
+	const mod = envMod(env, vis, zone);
 	if (posture(player) === "kneeling")
 		return { type: "emote", message: "You are already kneeling." };
 	setPosture(player, "kneeling");
@@ -270,8 +280,8 @@ function cmdKneel(args, raw, player, broadcast) {
 // ---------------------------------------------------------------------------
 
 function cmdStretch(args, raw, player, broadcast) {
-	const { env, vis } = getCtx(player);
-	const mod = envMod(env, vis);
+	const { env, vis, zone } = getCtx(player);
+	const mod = envMod(env, vis, zone);
 	const postureNote =
 		posture(player) !== "standing"
 			? ` from your ${posture(player)} position`
@@ -416,11 +426,12 @@ const DANCE_VARIANTS = [
 ];
 
 function cmdDance(args, raw, player, broadcast) {
-	const { env, vis } = getCtx(player);
+	const { env, vis, zone: room } = getCtx(player);
 	const [self, zone] =
 		DANCE_VARIANTS[Math.floor(Math.random() * DANCE_VARIANTS.length)];
-	const precipNote =
-		env.currentPrecip === "rain"
+	const precipNote = isInterior(room)
+		? ""
+		: env.currentPrecip === "rain"
 			? " in the rain"
 			: env.currentPrecip === "snow"
 				? " in the falling snow"
@@ -458,8 +469,8 @@ function cmdPace(args, raw, player, broadcast) {
 // ---------------------------------------------------------------------------
 
 async function cmdLean(args, raw, player, broadcast) {
-	const { env, vis } = getCtx(player);
-	const mod = envMod(env, vis);
+	const { env, vis, zone } = getCtx(player);
+	const mod = envMod(env, vis, zone);
 	const target = stripPrep(args, ["on", "against", "at"]);
 	if (target) {
 		const { rows } = await query(
@@ -507,8 +518,8 @@ async function cmdLean(args, raw, player, broadcast) {
 // ---------------------------------------------------------------------------
 
 async function cmdWatch(args, raw, player, broadcast) {
-	const { env, vis } = getCtx(player);
-	const mod = envMod(env, vis);
+	const { env, vis, zone } = getCtx(player);
+	const mod = envMod(env, vis, zone);
 	const target = stripPrep(args, ["on", "at"]);
 	if (target) {
 		const { rows } = await query(
@@ -644,7 +655,7 @@ async function cmdFollow(args, raw, player, broadcast) {
 // ---------------------------------------------------------------------------
 
 function cmdReflect(args, raw, player, broadcast) {
-	const { env, vis } = getCtx(player);
+	const { env, vis, zone } = getCtx(player);
 	const lines = [
 		`You pause and take stock of yourself. You are ${posture(player)}.`,
 	];
@@ -691,20 +702,23 @@ async function cmdExamineSurroundings(player) {
 		parts.push("The light is dim but you can make out your surroundings.");
 	else parts.push("You take in the area around you.");
 
-	if (env.currentPrecip === "rain") {
-		const intensity =
-			env.precipRate > 0.6
-				? "heavily"
-				: env.precipRate > 0.3
-					? "steadily"
-					: "lightly";
-		parts.push(`Rain falls ${intensity}.`);
-	} else if (env.currentPrecip === "snow") {
-		parts.push("Snow drifts down quietly.");
+	// Weather is outdoor-only — under a roof you don't see rain, thunder or fog.
+	if (!isInterior(zone)) {
+		if (env.currentPrecip === "rain") {
+			const intensity =
+				env.precipRate > 0.6
+					? "heavily"
+					: env.precipRate > 0.3
+						? "steadily"
+						: "lightly";
+			parts.push(`Rain falls ${intensity}.`);
+		} else if (env.currentPrecip === "snow") {
+			parts.push("Snow drifts down quietly.");
+		}
+		if (["storm", "thunderstorm"].includes(env.weatherType))
+			parts.push("Thunder rumbles in the distance.");
+		if (env.weatherType === "fog") parts.push("Thick fog limits visibility.");
 	}
-	if (["storm", "thunderstorm"].includes(env.weatherType))
-		parts.push("Thunder rumbles in the distance.");
-	if (env.weatherType === "fog") parts.push("Thick fog limits visibility.");
 
 	if (env.tempC !== undefined) {
 		const t = env.tempC;
@@ -757,8 +771,8 @@ registerAction({
 		if (params.choice?.kind === "poker") {
 			return dispatchAction({ type: "gametable.take_seat", actor, params: {}, context });
 		}
-		const { env, vis } = getCtx(actor);
-		const mod = envMod(env, vis);
+		const { env, vis, zone } = getCtx(actor);
+		const mod = envMod(env, vis, zone);
 		setPosture(actor, "sitting");
 		return doEmote(
 			`You lower yourself and sit on the floor${mod}.`,

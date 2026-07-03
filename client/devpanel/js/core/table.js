@@ -272,7 +272,7 @@ async function deleteRecord() {
     const childCount = allRecords.filter(z => (z.flags?.is_apartment || z.flags?.is_interior) && flatNeighbors(z.exits).includes(currentRecord.id)).length;
     if (childCount) confirmMsg = `Delete ${currentRecord.name || currentRecord.id}? This will also delete ${childCount} attached room${childCount > 1 ? 's' : ''}.`;
   }
-  if (!confirm(confirmMsg)) return;
+  if (!(await dpConfirm(confirmMsg, { danger: true }))) return;
   const p = PANELS[currentPanel];
   if (!p?.delete) return;
   try {

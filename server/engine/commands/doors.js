@@ -9,6 +9,7 @@ import { emit } from '../events.js';
 import { effectiveSkill, awardSkillUse } from '../skills.js';
 import { getZoneProtection } from '../protection.js';
 import { doorGuardsOnlyUnownedApartment } from '../apartments.js';
+import { gameMsToReal } from '../gametime.js';
 
 const DIRECTIONS = ['north','south','east','west','up','down','in','out'];
 const OPPOSITE = { north:'south', south:'north', east:'west', west:'east', up:'down', down:'up', in:'out', out:'in' };
@@ -394,7 +395,10 @@ async function cmdHackResolve(args, raw, player, broadcast) {
   if (!(await hasHackDevice(player.id))) return { type:'error', message:'You need a hacking device to breach a hololock.' };
 
   if (!win) {
-    hackLockout.set(player.id, Date.now() + HACK_LOCKOUT_MS);
+    // In-world lockout (the deck stays flagged) — scale the 5 game-minute cooldown
+    // to real ms via the game-speed knob. (The pending-hack TTL above stays real:
+    // it's the player's live minigame-completion window, not a world duration.)
+    hackLockout.set(player.id, Date.now() + gameMsToReal(HACK_LOCKOUT_MS));
     return { type:'error', message:"The hololock's key sequence resets mid-spoof. Your deck is flagged — five-minute lockout." };
   }
 

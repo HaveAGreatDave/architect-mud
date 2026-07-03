@@ -17,6 +17,76 @@ import { resolve as siftResolve, createSelectionState, formatSelectionPage } fro
 import { carryCapacity, formatWeight } from './inventory.js';
 import { fireHook } from '../plugins.js';
 
+// Naked body descriptions shown when every clothing layer is peeled. Split by sex
+// and gated by the viewer's MIS opt-in: MIS-off gets a plain "they're naked" line,
+// MIS-on gets an explicit one. tame[i] and graphic[i] describe the SAME body, so a
+// given NPC reads consistently in either mode. The variant is chosen by a stable
+// hash of the NPC id, so repeated looks at the same NPC always show the same line.
+const NAKED_DESC = {
+  female: {
+    tame: [
+      (n) => `${n} is completely naked, standing bare and unselfconscious.`,
+      (n) => `${n} wears nothing at all, skin cool under the light.`,
+      (n) => `${n} is stripped down to nothing, arms loose at their sides.`,
+      (n) => `${n} stands fully nude, unbothered by the exposure.`,
+      (n) => `${n} is naked as the day they were born.`,
+    ],
+    graphic: [
+      (n) => `${n} is completely naked — full breasts, stiff nipples, a neat thatch of hair between their thighs.`,
+      (n) => `${n} wears nothing at all, heavy breasts swaying, hips bare down to the smooth curve of their sex.`,
+      (n) => `${n} is stripped down to nothing, soft breasts and a flat stomach above the shadow of hair at their thighs.`,
+      (n) => `${n} stands fully nude, nipples tight in the cool air, thighs parting on a glimpse of everything.`,
+      (n) => `${n} is naked as the day they were born, breasts and bare cunt on open display.`,
+    ],
+  },
+  male: {
+    tame: [
+      (n) => `${n} is completely naked, not a stitch on them.`,
+      (n) => `${n} wears nothing at all, standing entirely unbothered.`,
+      (n) => `${n} is stripped down to nothing, arms loose at their sides.`,
+      (n) => `${n} stands fully nude, exposed and indifferent to it.`,
+      (n) => `${n} is naked as the day they were born.`,
+    ],
+    graphic: [
+      (n) => `${n} is completely naked — broad chest, a trail of hair down a flat stomach, cock hanging heavy between their thighs.`,
+      (n) => `${n} wears nothing at all, everything on display, soft and uncut against one thigh.`,
+      (n) => `${n} is stripped down to nothing, bare from the chest to the blunt weight of their cock.`,
+      (n) => `${n} stands fully nude, muscle and old scars and a thick length swinging as they shift.`,
+      (n) => `${n} is naked as the day they were born, cock and balls out in the open air.`,
+    ],
+  },
+};
+
+// Stable non-negative hash of a string, so an NPC's naked-line variant never
+// changes between looks.
+function stableHash(s) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+
+function nakedDescLine(npc, viewer) {
+  const bucket = NAKED_DESC[npc.sex === 'female' ? 'female' : 'male'];
+  const pool = bucket[viewer && isMisActive(viewer) ? 'graphic' : 'tame'];
+  const idx = stableHash(npc.id || npc.name || '') % pool.length;
+  return pool[idx](npc.name);
+}
+
+// Descriptive layered clothing for NPCs. `flags.clothing_layers` is an authored,
+// ordered outfit (outermost → innermost). Runtime `_clothingPeeled` (in-memory,
+// e.g. managed by the strippers plugin as tips escalate) is how many outer layers
+// are currently off. Others see only the outermost still-on garment — or, once
+// every layer is peeled, a sex- and MIS-appropriate naked description. NPCs
+// without the flag get no line at all (their static description covers them).
+function npcClothingLine(npc, viewer) {
+  const layers = Array.isArray(npc.flags?.clothing_layers) ? npc.flags.clothing_layers : null;
+  if (!layers || !layers.length) return '';
+  const peeled = Math.max(0, Math.min(layers.length, npc._clothingPeeled || 0));
+  const visible = layers.slice(peeled);
+  if (!visible.length) return `\n<span class="text-dim">${nakedDescLine(npc, viewer)}</span>`;
+  return `\n<span class="text-dim">${npc.name} is wearing ${visible[0]}.</span>`;
+}
+
 async function cmdStats(player) {
   const { rows } = await query('SELECT * FROM players WHERE id=$1', [player.id]);
   const p = rows[0];
@@ -227,6 +297,11 @@ async function describePlayerAppearance(target, isSelf, viewer = null, broadcast
   }
   if (mutated) msg += `<span class="mutation-tag">Something about ${isSelf ? 'you' : 'them'} isn't quite human anymore.</span>\n`;
   if (target.covered_in_blood) msg += `<span style="color:var(--red)">${isSelf ? 'You are' : 'They are'} covered in blood.</span>\n`;
+
+  // Transient appearance notes from plugins (e.g. cannabis red eyes). Mirrors the
+  // player.appearanceMisNotes hook below; plugin returns a line or undefined.
+  const notes = await fireHook('player.appearanceNotes', { target, viewer, isSelf });
+  if (notes) msg += `${notes}\n`;
 
   // MIS gate — used for ejaculate stains and MIS-gated body details below
   const viewerMis = isSelf ? isMisActive(target) : (viewer && isMisActive(viewer));
@@ -584,7 +659,7 @@ async function cmdExamine(targetStr, player, broadcast) {
         const where = c.sittingOn ? `the ${c.sittingOn}` : 'the floor';
         postureLine = `\n<span class="text-dim">${c.name} is lying on ${where}.</span>`;
       }
-      return { type:'examine', message:`${c.name}\n${c.description}${postureLine}` };
+      return { type:'examine', message:`${c.name}\n${c.description}${postureLine}${npcClothingLine(c, player)}` };
     }
     if (c._examType === 'player') {
       const app = await describePlayerAppearance(c, false, player, broadcast);

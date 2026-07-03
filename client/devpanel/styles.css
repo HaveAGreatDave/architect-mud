@@ -258,6 +258,38 @@
   .msg-toast.error { border-color: var(--red); color: var(--red); }
   .msg-toast.visible { opacity: 1; }
 
+  /* In-browser confirm/prompt/alert dialogs (dpConfirm/dpPrompt/dpAlert) */
+  .dp-dialog-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 1000;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .dp-dialog-card {
+    background: var(--bg2); border: 1px solid var(--accent);
+    padding: 20px 22px; border-radius: 2px; width: 380px; max-width: 92vw;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+  }
+  .dp-dialog-card.danger { border-color: var(--red); }
+  .dp-dialog-title {
+    color: var(--accent); font-size: 12px; letter-spacing: 2px;
+    text-transform: uppercase; margin-bottom: 12px;
+  }
+  .dp-dialog-card.danger .dp-dialog-title { color: var(--red); }
+  .dp-dialog-msg { color: var(--text); font-size: 13px; line-height: 1.5; white-space: pre-wrap; }
+  .dp-dialog-input {
+    width: 100%; margin-top: 14px; padding: 8px 10px; box-sizing: border-box;
+    background: var(--bg); border: 1px solid var(--border); color: var(--text);
+    font-family: inherit; font-size: 13px; border-radius: 2px;
+  }
+  .dp-dialog-input:focus { outline: none; border-color: var(--accent); }
+  .dp-dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+  .dp-dialog-actions button {
+    padding: 7px 16px; cursor: pointer; font-size: 12px; font-family: inherit;
+    background: var(--bg3, var(--bg)); border: 1px solid var(--border); color: var(--text-dim); border-radius: 2px;
+  }
+  .dp-dialog-actions button:hover { border-color: var(--accent); }
+  .dp-dialog-actions .dp-dialog-ok { background: var(--accent); border-color: var(--accent); color: #000; }
+  .dp-dialog-actions .dp-dialog-ok.danger { background: var(--red); border-color: var(--red); color: #000; }
+
   /* Auth overlay */
   #auth-overlay {
     position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 500;

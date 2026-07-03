@@ -506,6 +506,6 @@ export const commands = {
   splicepreview: cmdSplicePreview,
   splicebegin: cmdSpliceBegin,
   spliceresolve: cmdSpliceResolve,
-  '.cooktest': cmdCookTest,
-  '.splicetest': cmdSpliceTest,
+  cooktest: cmdCookTest,
+  splicetest: cmdSpliceTest,
 };

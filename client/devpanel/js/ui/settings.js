@@ -346,12 +346,12 @@ function saveAsCustomTheme() {
   toast('Theme saved: ' + name);
 }
 
-function deleteCustomTheme() {
+async function deleteCustomTheme() {
   const customThemes = devSettings.customThemes || [];
   const idx = customThemes.findIndex(t => t.id === _themeEditorEditingId);
   if (idx === -1) return;
   const name = customThemes[idx].name;
-  if (!confirm(`Delete custom theme "${name}"?`)) return;
+  if (!(await dpConfirm(`Delete custom theme "${name}"?`, { danger: true }))) return;
   customThemes.splice(idx, 1);
   devSettings.customThemes = customThemes;
   if (devSettings.theme === _themeEditorEditingId) devSettings.theme = 'dark';

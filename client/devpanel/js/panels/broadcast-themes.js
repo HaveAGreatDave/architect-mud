@@ -275,7 +275,7 @@ async function saveTheme() {
 }
 
 async function deleteTheme(id, name) {
-  if (!confirm(`Delete theme "${name}"?`)) return;
+  if (!(await dpConfirm(`Delete theme "${name}"?`, { danger: true }))) return;
   try {
     await directAPI(`/broadcast/themes/${id}`, 'DELETE');
     toast('Theme deleted.');

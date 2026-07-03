@@ -65,6 +65,38 @@ export function showConfirmDialog(msg) {
   el.querySelector('.confirm-ok').focus();
 }
 
+// A high-stakes confirm: red danger banners top and bottom, each with a skull
+// and crossbones, and a client-side callback instead of a server command (used
+// for the sign-out warning). opts: { title?, prompt?, confirmLabel? }
+export function showDangerDialog(opts, onConfirm) {
+  close();
+  const el = document.createElement('div');
+  el.className = 'confirm-window confirm-danger';
+  el.innerHTML = `
+    <div class="confirm-danger-banner">☠ DANGER ☠</div>
+    <div class="confirm-drag-handle">
+      <span class="confirm-title">${opts.title || 'Warning'}</span>
+      <button class="confirm-x" title="Cancel">✕</button>
+    </div>
+    <div class="confirm-body">
+      <p class="confirm-prompt"></p>
+      <div class="confirm-actions">
+        <button class="confirm-cancel">Cancel</button>
+        <button class="confirm-ok confirm-ok-danger">${opts.confirmLabel || 'Confirm'}</button>
+      </div>
+    </div>
+    <div class="confirm-danger-banner">☠ DANGER ☠</div>`;
+  el.querySelector('.confirm-prompt').textContent = opts.prompt || 'Are you sure?';
+  document.body.appendChild(el);
+  _el = el;
+
+  makeDraggable(el, el.querySelector('.confirm-drag-handle'));
+  el.querySelector('.confirm-x').addEventListener('click', close);
+  el.querySelector('.confirm-cancel').addEventListener('click', close);
+  el.querySelector('.confirm-ok').addEventListener('click', () => { close(); onConfirm(); });
+  el.querySelector('.confirm-cancel').focus();
+}
+
 let _amountEl = null;
 
 function closeAmount() {

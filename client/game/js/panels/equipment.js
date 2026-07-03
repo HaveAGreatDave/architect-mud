@@ -282,10 +282,17 @@ let gearFilter = new Set(GEAR_FILTERS);
 let lastGear = null;
 // Layout view: 'grid' (layers × slots table) or 'paperdoll' (human silhouette,
 // one layer at a time). gearDollLayer indexes GEAR_LAYERS (0..2).
-let gearView = 'grid';
+// The view to open on when Gear is chosen (user-set via the "Default" checkbox).
+function loadDefaultView() {
+  return localStorage.getItem('gearDefaultView') === 'paperdoll' ? 'paperdoll' : 'grid';
+}
+let gearView = loadDefaultView();
 let gearDollLayer = GEAR_LAYERS.length - 1; // default to Armor (top layer)
+// Show per-part armor/insulation ratings on the paperdoll chips.
+let gearShowRatings = localStorage.getItem('gearShowRatings') === '1';
 
 export function openGearPanel() {
+  gearView = loadDefaultView(); // always open on the user's chosen default view
   import('../net.js').then(m => m.sendCmd('gear'));
 }
 export function closeGearPanel() {
@@ -312,8 +319,7 @@ export function renderGearPanel(msg) {
     }
     return totals;
   };
-  let armorHtml = '<div class="gear-section-label">Armor</div>' +
-    '<table class="gear-armortable"><thead><tr><th>Slot</th>' +
+  let armorHtml = '<table class="gear-armortable"><thead><tr><th>Slot</th>' +
     DAMAGE_TYPES.map(t => `<th>${escapeHtml(cap(t))}</th>`).join('') + '</tr></thead><tbody>';
   for (const slot of ARMOR_SLOTS) {
     const totals = slotSoak(slot);
@@ -332,8 +338,8 @@ export function renderGearPanel(msg) {
   if (fx.exposurePenalty) fxParts.push(`exposure ${fx.exposurePenalty}`);
   const fxEl = document.getElementById('gear-effects');
   fxEl.innerHTML = fxParts.length
-    ? `<div class="gear-section-label">Effects</div><div class="gear-fx">${fxParts.map(escapeHtml).join(' · ')}</div>`
-    : '';
+    ? `<div class="gear-fx">${fxParts.map(escapeHtml).join(' · ')}</div>`
+    : '<div class="gear-fx gear-fx-empty">None.</div>';
 
   // Equippable-item list (reuses the inventory card + detail modal).
   // Only unequipped pieces — what's worn already shows in the layout/armor tables above.
@@ -396,9 +402,20 @@ function renderGearGrid(layout, equipped) {
 function renderPaperdoll(layout, equipped) {
   const layer = GEAR_LAYERS[gearDollLayer];
   const bodyItem = (slot) => equipped.find(i => i.slot === slot && (i.layer || 1) === layer.n);
+  // Per-part protection, summed across every worn layer on that slot (not just the
+  // displayed one) — shown under the chip name when "Ratings" is on.
+  const ratingRow = (slot) => {
+    if (!gearShowRatings || !GEAR_BODY_SLOTS.includes(slot)) return '';
+    let armor = 0, insul = 0;
+    for (const p of equipped.filter(i => i.slot === slot)) {
+      armor += Number(p.tags?.armor) || 0;
+      insul += Number(p.tags?.insulation) || 0;
+    }
+    return `<span class="gds-rating">🛡${armor} · ❄${insul % 1 ? insul.toFixed(1) : insul}</span>`;
+  };
   const chip = (slot, it, label) =>
     `<div class="gear-doll-slot gear-doll-${slot}${it ? ' filled' : ''}" data-slot="${slot}"${it ? ` data-id="${it.id}"` : ''}>` +
-    `<span class="gds-label">${label}</span><span class="gds-name">${it ? escapeHtml(it.name) : '·'}</span></div>`;
+    `<span class="gds-label">${label}</span><span class="gds-name">${it ? escapeHtml(it.name) : '·'}</span>${ratingRow(slot)}</div>`;
 
   let html = '<div class="gear-paperdoll">';
   html += `<svg class="gear-doll-svg" viewBox="0 0 120 260" aria-hidden="true">` +
@@ -418,11 +435,16 @@ function updateViewbar() {
   const bar = document.getElementById('gear-viewbar');
   if (!bar) return;
   const layer = GEAR_LAYERS[gearDollLayer];
+  const isDefault = gearView === loadDefaultView();
   bar.innerHTML =
     `<button class="gear-view-btn" data-view="grid">Grid</button>` +
     `<button class="gear-view-btn" data-view="paperdoll">Paperdoll</button>` +
+    `<label class="gear-check" title="Open Gear on this view by default">` +
+      `<input type="checkbox" class="gear-default-check"${isDefault ? ' checked' : ''}> Default</label>` +
     (gearView === 'paperdoll'
-      ? `<div class="gear-layer-step"><button class="gls-btn" data-dir="up" title="Layer up">▲</button>` +
+      ? `<label class="gear-check" title="Show armor/insulation on each body part">` +
+          `<input type="checkbox" class="gear-ratings-check"${gearShowRatings ? ' checked' : ''}> Ratings</label>` +
+        `<div class="gear-layer-step"><button class="gls-btn" data-dir="up" title="Layer up">▲</button>` +
         `<span class="gls-label">${layer.label} (${gearDollLayer + 1}/${GEAR_LAYERS.length})</span>` +
         `<button class="gls-btn" data-dir="down" title="Layer down">▼</button></div>`
       : '');
@@ -430,6 +452,20 @@ function updateViewbar() {
     b.classList.toggle('active', b.dataset.view === gearView);
     b.onclick = () => { gearView = b.dataset.view; renderGearLayout(); updateViewbar(); };
   });
+  // "Default" marks the current view as the one Gear opens on. With only two views,
+  // unchecking necessarily makes the other view the default.
+  const defCheck = bar.querySelector('.gear-default-check');
+  if (defCheck) defCheck.onchange = () => {
+    const def = defCheck.checked ? gearView : (gearView === 'grid' ? 'paperdoll' : 'grid');
+    localStorage.setItem('gearDefaultView', def);
+    updateViewbar();
+  };
+  const rateCheck = bar.querySelector('.gear-ratings-check');
+  if (rateCheck) rateCheck.onchange = () => {
+    gearShowRatings = rateCheck.checked;
+    localStorage.setItem('gearShowRatings', gearShowRatings ? '1' : '0');
+    renderGearLayout();
+  };
   bar.querySelectorAll('.gls-btn').forEach(b => {
     b.onclick = () => { stepDollLayer(b.dataset.dir === 'up' ? 1 : -1); };
   });
@@ -492,6 +528,17 @@ function initGearPanel() {
   document.getElementById('gear-close').addEventListener('click', closeGearPanel);
   document.getElementById('gear-panel').addEventListener('click', (e) => {
     if (e.target.id === 'gear-panel') closeGearPanel();
+  });
+
+  // Collapsible Armor / Insulation sections: collapsed by default, state persisted.
+  document.querySelectorAll('#gear-body .gear-collapse').forEach(sec => {
+    const key = `gearCollapse_${sec.dataset.collapse}`;
+    // Default collapsed; only an explicit '0' expands.
+    sec.classList.toggle('collapsed', localStorage.getItem(key) !== '0');
+    sec.querySelector('.gear-collapse-head').addEventListener('click', () => {
+      const collapsed = sec.classList.toggle('collapsed');
+      localStorage.setItem(key, collapsed ? '1' : '0');
+    });
   });
 
   // Build filter buttons: All + per-category toggles.

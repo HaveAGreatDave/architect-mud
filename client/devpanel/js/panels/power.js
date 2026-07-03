@@ -433,7 +433,7 @@ async function viewGeneratorZones(generatorId) {
 
 async function editZoneMaxCapacity(zoneId) {
   const current = bigMapPowerData.find(p => p.zoneId === zoneId)?.maxCapacityKw ?? 1000;
-  const input = prompt(`Max capacity (W) for zone ${zoneId}:`, current);
+  const input = await dpPrompt(`Max capacity (W) for zone ${zoneId}:`, current);
   if (input === null) return;
   const kw = parseFloat(input);
   if (isNaN(kw) || kw < 0) { toast('Invalid capacity value', true); return; }
@@ -501,7 +501,7 @@ async function setJunctionBoxCityGen(jbId, zoneId) {
 }
 
 async function removeGeneratorFromPowerPanel(generatorId) {
-  if (!confirm('Remove this generator? Every zone it powers will go dark.')) return;
+  if (!(await dpConfirm('Remove this generator? Every zone it powers will go dark.', { danger: true }))) return;
   const result = await API(`/environment/power/generators/${generatorId}`, 'DELETE');
   if (result?.error) { toast(result.error, true); return; }
   toast('Generator removed');

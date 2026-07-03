@@ -78,7 +78,7 @@ async function deleteGossipItem(id) {
 }
 
 async function clearGossip() {
-  if (!confirm('Clear the entire gossip pool?')) return;
+  if (!(await dpConfirm('Clear the entire gossip pool?', { danger: true }))) return;
   const r = await API('/gossip', 'DELETE');
   if (r?.error) { toast(r.error, true); return; }
   toast(`Cleared ${r.cleared ?? 0} item(s)`);

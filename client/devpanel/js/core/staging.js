@@ -22,7 +22,7 @@ function _resolveReturnPanel() {
 }
 
 async function publishAll() {
-  if (!confirm(`Publish all ${pendingChanges.length} staged change${pendingChanges.length !== 1 ? 's' : ''} to the live world?`)) return;
+  if (!(await dpConfirm(`Publish all ${pendingChanges.length} staged change${pendingChanges.length !== 1 ? 's' : ''} to the live world?`))) return;
   const stagedFurnitureNames = _furnitureAllItems.filter(f => f._staged).map(f => f.name);
   const hasFurnitureChanges = _furnitureAllItems.some(f => f._staged || f._markedForDeletion);
   const result = await API('/staging/publish', 'POST', { all: true });
@@ -44,7 +44,7 @@ async function publishAll() {
 }
 
 async function rejectAll() {
-  if (!confirm(`Discard all ${pendingChanges.length} staged change${pendingChanges.length !== 1 ? 's' : ''}? This cannot be undone.`)) return;
+  if (!(await dpConfirm(`Discard all ${pendingChanges.length} staged change${pendingChanges.length !== 1 ? 's' : ''}? This cannot be undone.`, { danger: true }))) return;
   const result = await API('/staging/reject', 'POST', { all: true });
   if (result.error) { toast(result.error, true); return; }
   _mapPendingOverrides.clear();
@@ -56,7 +56,7 @@ async function rejectAll() {
 async function publishSelected() {
   const checked = [...document.querySelectorAll('.change-cb:checked')].map(el => el.dataset.id);
   if (!checked.length) { toast('Select at least one change', true); return; }
-  if (!confirm(`Publish ${checked.length} selected change${checked.length !== 1 ? 's' : ''}?`)) return;
+  if (!(await dpConfirm(`Publish ${checked.length} selected change${checked.length !== 1 ? 's' : ''}?`))) return;
   const result = await API('/staging/publish', 'POST', { ids: checked });
   if (result.error) { toast(result.error, true); return; }
   for (const c of pendingChanges) {
@@ -99,7 +99,7 @@ function buildPublishLog(result, sourceChanges) {
 }
 
 async function rejectOne(id, name) {
-  if (!confirm(`Discard staged change for "${name}"?`)) return;
+  if (!(await dpConfirm(`Discard staged change for "${name}"?`, { danger: true }))) return;
   const result = await API('/staging/reject', 'POST', { ids: [id] });
   if (result.error) { toast(result.error, true); return; }
   toast(result.message);
@@ -110,7 +110,7 @@ async function rejectOne(id, name) {
 async function rejectSelected() {
   const checked = [...document.querySelectorAll('.change-cb:checked')].map(el => el.dataset.id);
   if (!checked.length) { toast('Select at least one change', true); return; }
-  if (!confirm(`Discard ${checked.length} selected change${checked.length !== 1 ? 's' : ''}?`)) return;
+  if (!(await dpConfirm(`Discard ${checked.length} selected change${checked.length !== 1 ? 's' : ''}?`, { danger: true }))) return;
   const result = await API('/staging/reject', 'POST', { ids: checked });
   if (result.error) { toast(result.error, true); return; }
   // Remove overrides for any rejected zone changes

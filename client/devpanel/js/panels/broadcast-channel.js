@@ -604,10 +604,10 @@ function tlRemoveItem(idx) {
   tlRender();
 }
 
-function tlEditItem(idx) {
+async function tlEditItem(idx) {
   const item = _channelPlaylist[idx];
   if (!item) return;
-  const newTime = prompt(`Start time for "${item.broadcast_name}" (seconds):`, item.start_time);
+  const newTime = await dpPrompt(`Start time for "${item.broadcast_name}" (seconds):`, item.start_time);
   if (newTime !== null) {
     const t = parseInt(newTime, 10);
     if (!isNaN(t)) { item.start_time = Math.max(0, t); tlRender(); }
@@ -672,7 +672,7 @@ async function saveChannel() {
 
 async function deleteChannel(ch) {
   const { id, name } = ch;
-  if (!confirm(`Delete channel "${name}" and its playlist? This cannot be undone.`)) return;
+  if (!(await dpConfirm(`Delete channel "${name}" and its playlist? This cannot be undone.`, { danger: true }))) return;
   try {
     // Collect candidate zones and NPCs to offer cleanup
     const [allChannels, allNpcs, allZones] = await Promise.all([
@@ -848,7 +848,7 @@ async function openCameraEditor(rec) {
 }
 
 async function deleteCamera(id) {
-  if (!confirm('Delete this camera?')) return;
+  if (!(await dpConfirm('Delete this camera?', { danger: true }))) return;
   try {
     const res = await directAPI(`/broadcast/cameras/${id}`, 'DELETE');
     if (res?.error) { toast(res.error, true); return; }
@@ -858,7 +858,7 @@ async function deleteCamera(id) {
 }
 
 async function clearCameraBuffer(id) {
-  if (!confirm('Clear the recording buffer for this camera?')) return;
+  if (!(await dpConfirm('Clear the recording buffer for this camera?', { danger: true }))) return;
   try {
     await directAPI(`/broadcast/cameras/${id}/clear-buffer`, 'POST');
     toast('Buffer cleared.');
@@ -866,7 +866,7 @@ async function clearCameraBuffer(id) {
 }
 
 async function cameraTobroadcast(id) {
-  const name = prompt('Name for the new broadcast:');
+  const name = await dpPrompt('Name for the new broadcast:');
   if (!name) return;
   try {
     const res = await directAPI(`/broadcast/cameras/${id}/to-broadcast`, 'POST', { name });

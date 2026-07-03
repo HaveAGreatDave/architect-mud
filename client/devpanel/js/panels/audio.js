@@ -584,7 +584,7 @@ function editEventRoute(id) {
 }
 
 async function deleteAudioAsset(tab, id, name) {
-  if (!confirm(`Delete "${name}"?`)) return;
+  if (!(await dpConfirm(`Delete "${name}"?`, { danger: true }))) return;
   await API(`/audio/${tab}/${id}`, 'DELETE');
   toast(`"${name}" deleted`);
   loadPanel('audio');
@@ -592,7 +592,7 @@ async function deleteAudioAsset(tab, id, name) {
 
 async function deleteEventRoute(id) {
   const row = _audioData.events.find(r => r.id === id);
-  if (!confirm(`Remove this route for "${row?.event_name || id}"?`)) return;
+  if (!(await dpConfirm(`Remove this route for "${row?.event_name || id}"?`, { danger: true }))) return;
   await API(`/audio/events/${encodeURIComponent(id)}`, 'DELETE');
   toast('Route removed');
   loadPanel('audio');

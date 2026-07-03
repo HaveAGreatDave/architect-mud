@@ -539,6 +539,7 @@ async function cmdFlush(args, player) {
   if (!rows.length) return { type:'error', message:`There's no toilet here to flush.` };
   fouledToilets.delete(rows[0].id);
   peedToilets.delete(rows[0].id);
+  emit('bodily.sfx', { zoneId: player.current_zone, cue: 'flush' });
   return { type:'output', message:`You flush. The sound is deeply satisfying.` };
 }
 

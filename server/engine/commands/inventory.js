@@ -4,7 +4,8 @@ import { useDrug } from '../drugs.js';
 import { hasTag, tagValue, hasFlag, isStackable, TAG_CATALOG } from '../tags.js';
 import { foodLoad, applyThirst } from '../bodily.js';
 import { dispatchAction } from '../actions.js';
-import { getZonePlayers } from '../world.js';
+import { getZonePlayers, getZoneNpcs } from '../world.js';
+import { emit } from '../events.js';
 import { resolve as siftResolve, matchAll as siftMatchAll, createSelectionState, formatSelectionPage } from '../sift.js';
 import { fireSpecializedAction, availableActions } from '../specializedActions.js';
 import { computeSellUnitPrice } from '../vendor.js';
@@ -283,14 +284,29 @@ async function cmdDropById(inventoryId, player, broadcast, qty) {
 async function cmdGive(argStr, player, broadcast) {
   const [itemPart, who] = splitOn(argStr, ' to ');
   if (!itemPart || !who) return { type:'error', message:'Usage: give <item> to <player>.' };
+  const { rows } = await query(`SELECT pi.*,i.name,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND pi.is_equipped=0 AND i.name ILIKE $2 AND NOT jsonb_exists(i.tags,'quest_item') LIMIT 1`, [player.id, `%${itemPart}%`]);
+
+  // Prefer a player recipient standing in the room…
   const givePool = getZonePlayers(player.current_zone).filter(p => p.id !== player.id).map(p => ({ ...p, name: p.handle }));
   const gr = siftResolve(who, givePool);
-  if (gr.type === 'none') return { type:'error', message:`There's no "${who}" here to give to.` };
   if (gr.type === 'ambiguous') return { type:'error', message:`Multiple people match "${who}" — be more specific.` };
-  const target = gr.candidate;
-  const { rows } = await query(`SELECT pi.*,i.name,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.container_id IS NULL AND pi.is_equipped=0 AND i.name ILIKE $2 AND NOT jsonb_exists(i.tags,'quest_item') LIMIT 1`, [player.id, `%${itemPart}%`]);
-  if (!rows.length) return { type:'error', message:`You don't have "${itemPart}".` };
-  return dispatchAction({ type:'GIVE', actor: player, params: { row: rows[0], toPlayer: target }, context: { broadcast } });
+  if (gr.type !== 'none') {
+    if (!rows.length) return { type:'error', message:`You don't have "${itemPart}".` };
+    return dispatchAction({ type:'GIVE', actor: player, params: { row: rows[0], toPlayer: gr.candidate }, context: { broadcast } });
+  }
+
+  // …otherwise it may be an NPC. Giving to an NPC fires the npc.gift event;
+  // interested plugins own the reaction and any item transfer. An unclaimed gift
+  // just acknowledges the offer and leaves the item with the giver.
+  const nr = siftResolve(who, getZoneNpcs(player.current_zone));
+  if (nr.type === 'ambiguous') return { type:'error', message:`Multiple people match "${who}" — be more specific.` };
+  if (nr.type !== 'none') {
+    if (!rows.length) return { type:'error', message:`You don't have "${itemPart}".` };
+    emit('npc.gift', { actor: player, npc: nr.candidate, item: rows[0], broadcast });
+    return { type:'give', message:`You offer ${rows[0].name} to ${nr.candidate.name}.` };
+  }
+
+  return { type:'error', message:`There's no "${who}" here to give to.` };
 }
 
 // Flag → native verb for furniture types with dedicated handlers.

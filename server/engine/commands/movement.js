@@ -382,6 +382,10 @@ export async function cmdMove(direction, player, broadcast, opts = {}) {
       broadcast(zone.id, { type:'zone_event', message:'The door swings closed.' }, player.id);
       broadcast(targetId, { type:'zone_event', message:'The door swings closed.' }, player.id);
     }
+    // Now that the door has shut behind the player, recompute the weather
+    // leak-in so the rain/wind they hear is the muffled, door-closed level —
+    // zone.entered above ran while the door was still open (louder).
+    emit('door.toggled', { zoneId: door.zone_id, targetZoneId: door.target_zone });
   }
 
   let radGain = 0;

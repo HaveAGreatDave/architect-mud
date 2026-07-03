@@ -25,6 +25,8 @@
 // 24-hour world tick).
 
 import { schedule } from './scheduler.js';
+import { setTimeScale, getTimeScale } from './gametime.js';
+import { logActivity } from '../models/db.js';
 import { emit } from './events.js';
 import { world } from './world.js';
 import { neighborZoneIds, allExits, addExit } from './exits.js';
@@ -34,9 +36,9 @@ import { neighborZoneIds, allExits, addExit } from './exits.js';
 // ---------------------------------------------------------------------------
 
 // Used only for boot catch-up logic (have we missed a tick since last restart?).
-// The actual intervals are now managed by scheduler.js.
+// The actual intervals are now managed by scheduler.js; boot catch-up derives
+// missed game-minutes from the game-speed knob (see initEnvironment).
 const TICK_30M_MS = 30 * 60 * 1000;
-const TICK_24H_MS = 24 * 60 * 60 * 1000;
 // Boot catch-up ceiling: replay at most this many missed days after a long
 // outage so a very stale clock can't stall startup with day-by-day sims.
 const MAX_CATCHUP_DAYS = 30;
@@ -201,6 +203,7 @@ const state = {
   lastTick1m: 0,           // epoch ms anchor for the last whole game-minute advanced; drives elapsed-based clock
   lastTick30m: 0,
   lastTick24h: 0,
+  timeScale: 1,            // game minutes per real minute (1 = 1:1 clock; 3 = 8-hour game day). See gametime.js.
   activeClimateProfileId: null,
   activeClimateProfile: null,  // { monthly_temp_c: [...12], monthly_precip_chance: [...12], monthly_wind_kph: [...12], monthly_humidity: [...12] }
   currentPrecip: 'none',       // 'none' | 'rain' | 'snow' — live state, updated each 30-min tick
@@ -319,6 +322,11 @@ export async function initEnvironment({ query, emitHook, broadcast, getOccupiedZ
   state.weatherOverrideBackup = clockRow.weather_override_backup || null;
   state.lightningKills = clockRow.lightning_kills || [];
 
+  // Game-speed knob: how many game minutes elapse per real minute (default 1).
+  // Publish to gametime.js so every duration-scaling consumer reads one value.
+  state.timeScale = (clockRow.time_scale && clockRow.time_scale > 0) ? clockRow.time_scale : 1;
+  setTimeScale(state.timeScale);
+
   state.activeClimateProfileId = clockRow.active_climate_profile_id || null;
   if (state.activeClimateProfileId) {
     const { rows: cpRows } = await query('SELECT * FROM climate_profiles WHERE id = $1', [state.activeClimateProfileId]);
@@ -335,29 +343,31 @@ export async function initEnvironment({ query, emitHook, broadcast, getOccupiedZ
   recalcAmbientAndVisibility();
   initIndoorTemps();
 
-  // Catch up on time missed during downtime. Game time runs 1:1 with real time,
-  // so advance by the FULL elapsed interval — not a single tick. (The old
-  // once-each version under-counted: a 3-hour outage only added 30 minutes,
-  // leaving the world clock permanently behind after every cold start.)
+  // Catch up on time missed during downtime. Advance by the FULL elapsed interval
+  // scaled by the game-speed knob — not a single tick. (The old once-each version
+  // under-counted: a 3-hour outage only added 30 minutes, leaving the world clock
+  // permanently behind after every cold start.)
   const now = Date.now();
 
-  // Whole missed days: replay one tick24h per day so the weather plugin's
-  // rolling forecast and the power sim advance day-by-day. Capped for sanity.
-  const missed24h = Math.floor((now - state.lastTick24h) / TICK_24H_MS);
-  if (missed24h > 0) {
-    for (let i = 0; i < Math.min(missed24h, MAX_CATCHUP_DAYS); i++) await tick24h();
-    state.lastTick24h = now;
-  }
-
   // Time-of-day: jump straight to the correct minute based on elapsed real time
-  // since the last 1-minute clock tick. This is exact for any outage length.
+  // since the last 1-minute clock tick, scaled by the game-speed knob. This is
+  // exact for any outage length. Day rollover is derived from the minute wrap
+  // (one tick24h per game-day crossed), matching the runtime driver — so the
+  // date and time-of-day can never disagree after a cold start.
+  const msPerGameMin = 60_000 / state.timeScale;
   let anchor1m = lastTick1m;
-  const missedMinutes = Math.floor((now - anchor1m) / 60_000);
-  if (missedMinutes > 0) {
-    state.minutes = (state.minutes + missedMinutes) % (24 * 60);
-    // Advance the anchor by whole minutes only, keeping the sub-minute
+  const missedGameMin = Math.floor((now - anchor1m) / msPerGameMin);
+  if (missedGameMin > 0) {
+    const sum = state.minutes + missedGameMin;
+    // Replay one tick24h per game-day so the weather plugin's rolling forecast
+    // and the power sim advance day-by-day. Capped for sanity.
+    const dayCrosses = Math.floor(sum / 1440);
+    for (let i = 0; i < Math.min(dayCrosses, MAX_CATCHUP_DAYS); i++) await tick24h(true);
+    if (dayCrosses > 0) state.lastTick24h = now;
+    state.minutes = sum % 1440;
+    // Advance the anchor by whole game-minutes only, keeping the sub-minute
     // remainder, so restarts can't shed a fraction of a minute each time.
-    anchor1m += missedMinutes * 60_000;
+    anchor1m += missedGameMin * msPerGameMin;
     recalcAmbientAndVisibility();
     await query(
       `UPDATE world_clock SET game_time_minutes = $1, last_tick_1m = to_timestamp($2) WHERE id = 1`,
@@ -377,9 +387,12 @@ export async function initEnvironment({ query, emitHook, broadcast, getOccupiedZ
 function scheduleTicks() {
   if (ticksScheduled) return; // schedule() is append-only; guard against double-init
   ticksScheduled = true;
+  // Single time driver: advances the game clock (scaled by state.timeScale) and
+  // fires the 30-minute environmental tick and 24-hour world tick on GAME-minute
+  // boundaries — not on fixed real intervals — so the date, day-phase and
+  // streetlights stay in lockstep with the sped-up day. (tick30m/tick24h are no
+  // longer registered on the real '30m'/'24h' cadences.)
   schedule('1m',  () => { if (!state.frozen) tick1m().catch(logError); });
-  schedule('30m', () => { if (!state.frozen) tick30m().catch(logError); });
-  schedule('24h', () => { if (!state.frozen) tick24h().catch(logError); });
 
   // 5-minute brownout rotation: only runs the full power redistribution when
   // at least one zone is overloaded, so there's zero cost on a healthy grid.
@@ -630,26 +643,39 @@ async function flickerOverloadedZones() {
 }
 
 // ---------------------------------------------------------------------------
-// 1-Minute Clock Tick
-// Increments game time by 1 minute, saves to DB, broadcasts to all clients.
+// Time Driver (runs on the '1m' cadence)
+// Advances game time by the scaled game-minutes elapsed, persists, and fires the
+// 30-minute environmental tick and 24-hour world tick on GAME-minute boundaries
+// so the whole environment scales with state.timeScale in lockstep. Then does the
+// per-real-minute work (indoor temps, clock broadcast, flicker).
 // ---------------------------------------------------------------------------
 
 async function tick1m() {
   const { query, broadcast } = deps;
-  // Advance by however many whole minutes of real time have actually elapsed,
-  // not a blind +1. setInterval only ever fires late (event-loop lag, GC), so
-  // counting fires makes the clock drift permanently behind real time; anchoring
-  // to the wall clock makes a late or delayed tick self-correcting. The
-  // sub-minute remainder is carried in the anchor so nothing is lost.
+  // Advance by however many whole GAME-minutes of (scaled) real time have actually
+  // elapsed, not a blind +1. setInterval only ever fires late (event-loop lag, GC),
+  // so counting fires makes the clock drift permanently behind; anchoring to the
+  // wall clock makes a late or delayed tick self-correcting. The sub-minute
+  // remainder is carried in the anchor so nothing is lost.
   const now = Date.now();
-  const elapsedMin = Math.floor((now - state.lastTick1m) / 60_000);
+  const msPerGameMin = 60_000 / state.timeScale;
+  const elapsedMin = Math.floor((now - state.lastTick1m) / msPerGameMin);
   if (elapsedMin >= 1) {
-    state.minutes = (state.minutes + elapsedMin) % (24 * 60);
-    state.lastTick1m += elapsedMin * 60_000;
+    const prevMinutes = state.minutes;
+    const sum = prevMinutes + elapsedMin;
+    // Crossing a 30-game-minute boundary drives the environmental recalc; each
+    // whole day (1440 game-min) crossed advances the calendar. elapsedMin is
+    // small, so dayCrosses is 0 or 1 in practice.
+    const crossed30 = Math.floor(sum / 30) !== Math.floor(prevMinutes / 30);
+    const dayCrosses = Math.floor(sum / 1440);
+    state.minutes = sum % 1440;
+    state.lastTick1m += elapsedMin * msPerGameMin;
     await query(
       `UPDATE world_clock SET game_time_minutes = $1, last_tick_1m = to_timestamp($2) WHERE id = 1`,
       [state.minutes, state.lastTick1m / 1000]
     );
+    for (let i = 0; i < dayCrosses; i++) await tick24h().catch(logError);
+    if (crossed30) await tick30m().catch(logError);
   }
   stepIndoorTemps();
   if (broadcast) {
@@ -798,7 +824,7 @@ function recalcAmbientAndVisibility() {
 // Calendar → forecast → weather/temp model → power simulation → lighting
 // ---------------------------------------------------------------------------
 
-async function tick24h() {
+async function tick24h(fromCatchup = false) {
   const { query, emitHook, broadcast } = deps;
 
   state.date = addDays(state.date, 1);
@@ -825,6 +851,12 @@ async function tick24h() {
     await emitHook('environment.tick24h', payload);
     await emitHook('environment.weatherChange', { weatherType: state.weatherType, tempC: state.tempC });
   }
+
+  // Engine-side once-per-GAME-day housekeeping (corpse/ground-item/stain cleanup,
+  // vendor restock) subscribes to this on the events bus, so it now runs per game
+  // day rather than per real day. Suppressed during boot catch-up — replaying it
+  // once per missed day would needlessly restock every vendor N times on startup.
+  if (!fromCatchup) emit('environment.dayRollover', payload);
 }
 
 // advanceForecast has moved to plugins/weather/index.js (environment.advanceWeather hook).
@@ -1396,6 +1428,7 @@ export function getHUDPayload() {
     timePhase: phase.name,
     timeIcon: phase.icon,
     frozen: state.frozen,
+    timeScale: state.timeScale,
     weatherOverrideActive: state.weatherOverrideActive,
     activeClimateProfileId: state.activeClimateProfileId,
     currentWeatherType: state.currentPrecip !== 'none'
@@ -1778,6 +1811,34 @@ export async function devSetTime({ date, minutes }) {
 
 export async function devAdvanceTime(minutesToAdd) {
   return devSetTime({ minutes: state.minutes + Number(minutesToAdd || 0) });
+}
+
+// Game-speed knob: game minutes elapsed per real minute. 1 = the historical 1:1
+// clock; 3 = an 8-hour game day. Re-anchors lastTick1m to now so the change in
+// rate takes effect from this instant with NO discontinuity — the clock neither
+// jumps forward nor rewinds. Every in-world duration reads the new value through
+// gametime.js on its next tick/write. `actor` is the dev auth ({ playerId, role })
+// so the change is attributed in the server activity log.
+export async function devSetTimeScale(scale, actor = null) {
+  const s = Number(scale);
+  const prev = state.timeScale;
+  state.timeScale = (Number.isFinite(s) && s > 0) ? s : 1;
+  setTimeScale(state.timeScale);
+  state.lastTick1m = Date.now();
+  await deps.query(`UPDATE world_clock SET time_scale = $1 WHERE id = 1`, [state.timeScale]);
+
+  // Announce in the game logs, attributed to whoever submitted it. Resolve the
+  // handle server-side from the auth token's playerId so it can't be spoofed.
+  let who = 'a developer';
+  if (actor?.playerId) {
+    const { rows } = await deps.query(`SELECT handle FROM players WHERE id = $1`, [actor.playerId]).catch(() => ({ rows: [] }));
+    if (rows[0]?.handle) who = rows[0].handle;
+  }
+  logActivity('timescale', who, null, `changed game speed ${prev}× → ${state.timeScale}× (24h day = ${(24 / state.timeScale).toFixed(1)}h real)`);
+
+  const payload = getHUDPayload();
+  if (deps.broadcast) deps.broadcast({ type: 'environment.sync', ...payload });
+  return payload;
 }
 
 export function devFreeze(frozen) {

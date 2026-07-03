@@ -47,24 +47,26 @@ function renderPlayersPanel(data) {
 }
 
 async function confirmSmite(id, handle) {
-  if (!confirm(`Smite ${handle} with lightning? This will kill them instantly.`)) return;
+  if (!(await dpConfirm(`Smite ${handle} with lightning? This will kill them instantly.`, { danger: true }))) return;
   const r = await API(`/players/${id}/smite`, 'POST');
   if (r.error) { toast(r.error, true); return; }
   toast(`⚡ ${handle} has been smitten`);
 }
 
 async function confirmDelete(id, handle) {
-  if (!confirm(`Permanently delete ${handle}? This cannot be undone.`)) return;
-  if (!confirm(`Are you sure? All data for "${handle}" will be erased.`)) return;
-  const r = await API(`/players/${id}`, 'DELETE');
-  if (r.error) { toast(r.error, true); return; }
-  toast(`${handle} deleted`);
-  loadPanel('players');
+  if (await dpConfirm(`Permanently delete ${handle}? This cannot be undone.`, { danger: true })) {
+    if (await dpConfirm(`Are you sure? All data for "${handle}" will be erased.`, { danger: true })) {
+      const r = await API(`/players/${id}`, 'DELETE');
+      if (r.error) { toast(r.error, true); return; }
+      toast(`${handle} deleted`);
+      loadPanel('players');
+    }
+  }
 }
 
 async function setPlayerRole(id, handle, role) {
   if (!role) return;
-  if (!confirm(`Set ${handle}'s role to "${role}"?`)) return;
+  if (!(await dpConfirm(`Set ${handle}'s role to "${role}"?`))) return;
   const r = await API(`/players/${id}/role`, 'PUT', { role });
   if (r.error) { toast(r.error, true); return; }
   toast(`${handle} is now ${role}`);
@@ -199,7 +201,7 @@ async function gotoPlayer(id, handle) {
 }
 
 async function sendPlayerToZone(id, handle, currentZone) {
-  const zoneId = prompt(`Send ${handle} to zone:\n(currently in: ${currentZone || 'unknown'})`)?.trim();
+  const zoneId = (await dpPrompt(`Send ${handle} to zone:\n(currently in: ${currentZone || 'unknown'})`))?.trim();
   if (!zoneId) return;
   const r = await API(`/players/${id}/teleport`, 'POST', { zoneId });
   if (r?.error) { toast(r.error, true); return; }

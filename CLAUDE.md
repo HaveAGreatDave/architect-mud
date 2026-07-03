@@ -22,6 +22,7 @@ Post-singularity browser MUD in the HellMOO tradition. Text-driven, real-time, b
 - [docs/ai-behaviour.md](docs/ai-behaviour.md) — VINE-powered behaviour trees for enemies and NPCs; node types, condition/action catalogue, blackboard, pathfinding
 - [docs/plugins.md](docs/plugins.md) — **plugin index**: which plugin owns each verb/mechanic, and the command-precedence rule (plugins win over engine builtins). Check this before editing any player command.
 - [docs/systems-posture.md](docs/systems-posture.md) — posture/sitting (split engine+plugin system): the `player.posture`/`sittingOn` contract, HP regen, stand-up triggers, look description (as built)
+- [docs/npc-clothing.md](docs/npc-clothing.md) — personality-based NPC outfits: the `CLOTHING` table in `npc-personality.js`, auto-injection at `apiCreateNpc` (all future NPCs quietly clothed), the descriptive `flags.clothing_layers` model, and the backfill script
 - [docs/systems-broadcast.md](docs/systems-broadcast.md) — broadcast system: channels, playlists, dynamic news, VINE graph scripts, NPC hosts, camera feeds, broadcast-bridge, game client styling (as built)
 - [docs/systems-atm.md](docs/systems-atm.md) — ATM terminals: furniture integration, networks, fee/limit/faction logic, hacking, replenish tick, power dependency, dev panel routes (as built)
 - [docs/systems-scavenging.md](docs/systems-scavenging.md) — scavenging: posture-based perpetual search, per-zone loot tables + lazy replenish, the 2D8−2D8 Scavenging check, feedback state machine (as built)

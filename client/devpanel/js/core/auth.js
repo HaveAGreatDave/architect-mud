@@ -21,8 +21,8 @@ async function devLogin() {
   initWhisperPanel();
 }
 
-function devpanelLogout() {
-  if (!confirm('Log out of the dev panel?')) return;
+async function devpanelLogout() {
+  if (!(await dpConfirm('Log out of the dev panel?'))) return;
   token = null;
   sessionStorage.removeItem('devpanel-token');
   location.reload();

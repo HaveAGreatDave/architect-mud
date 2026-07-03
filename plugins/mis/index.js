@@ -15,9 +15,11 @@ import {
   triggerClimax, triggerGroundClimax,
   erectionVisibilityNote, breastVisibilityNote, NIPPLE_HARD, NIPPLE_SOFT,
   MASTURBATE_EVENT_MALE, MASTURBATE_EVENT_FEMALE,
+  MASTURBATE_EVENT_SELF_MALE, MASTURBATE_EVENT_SELF_FEMALE,
+  NPC_WITNESS_AROUSED, NPC_WITNESS_DISGUST,
   FUCK_EVENT_MSGS, FUCK_EVENT_PLAYER_MSGS, FUCK_EVENT_TARGET_MSGS, EJACULATE_ZONE_MSGS,
 } from './mis-system.js';
-import { world, getZonePlayers, getZoneNpcs, getLivePlayer, getAllLivePlayers } from '../../server/engine/world.js';
+import { world, getZone, getZonePlayers, getZoneNpcs, getLivePlayer, getAllLivePlayers } from '../../server/engine/world.js';
 import { stainZone, stainClothing } from '../../server/engine/bodily.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
 import { isNpcMisWilling, getNpcMisLine, npcMisAttacks } from '../../server/engine/npc-personality.js';
@@ -45,6 +47,20 @@ function broadcastMis(zoneId, message, broadcast, excludePlayerId = null, alsoTa
   }
 }
 
+// NPCs present when a MIS act happens react to it: willing NPCs (mis_willing)
+// with arousal/interest, everyone else with disgust/confusion. Per-NPC `chance`
+// keeps ongoing events from spamming a reaction every tick.
+function npcWitnessMis(zoneId, broadcast, chance = 1) {
+  for (const npc of getZoneNpcs(zoneId)) {
+    if (npc._dead) continue;
+    if (chance < 1 && Math.random() > chance) continue;
+    const willing = isNpcMisWilling(npc);
+    const pool = willing ? NPC_WITNESS_AROUSED : NPC_WITNESS_DISGUST;
+    const msg = pool[Math.floor(Math.random() * pool.length)].replace('{npc}', npc.name);
+    broadcastMis(zoneId, { type: 'zone_event', message: msg }, broadcast);
+  }
+}
+
 // Resolve an NPC in the player's zone by name substring.
 function resolveNpcForMis(nameStr, zoneId) {
   const npcs = getZoneNpcs(zoneId).filter(n => !n._dead);
@@ -68,6 +84,22 @@ function fleeNpcToHome(npc, broadcast) {
 // Shared NPC MIS reaction handler. verb is the action name for actor message copy.
 // opts.isStrip = true broadcasts a clothing strip message (for penetrative commands).
 async function handleNpcMis(player, npc, verb, broadcast, opts = {}) {
+  // Zone-gated consent: an NPC with flags.mis_requires_zone_flag only accepts
+  // MIS in a room carrying that flag (e.g. a club dancer who'll only play in the
+  // VIP room). Anywhere else they just wave you off — no fleeing, no fight, so
+  // the main-room rule is "tip and watch". VIP rooms set the flag on the zone.
+  const zoneGate = npc.flags?.mis_requires_zone_flag;
+  if (zoneGate && !getZone(player.current_zone)?.flags?.[zoneGate]) {
+    const refusal = getNpcMisLine(npc, false);
+    if (refusal) {
+      broadcastMis(player.current_zone, {
+        type: 'zone_event',
+        message: `${npc.name} says, "${refusal}"`,
+      }, broadcast);
+    }
+    return { type: 'output', message: `Not here. ${npc.name} won't — take it somewhere private.` };
+  }
+
   const willing = isNpcMisWilling(npc);
   const line = getNpcMisLine(npc, willing);
 
@@ -537,6 +569,7 @@ async function cmdMasturbate(args, raw, player, broadcast) {
       broadcastMis(live.current_zone, { type: 'zone_event', message: zoneText }, broadcast, live.id);
       // Player sees the zone message too
       broadcast(null, { type: 'zone_event', message: zoneText }, null, playerId);
+      npcWitnessMis(live.current_zone, broadcast, 0.7);
       broadcast(null, {
         type: 'resource_tick',
         messages: msg,
@@ -545,10 +578,13 @@ async function cmdMasturbate(args, raw, player, broadcast) {
       return;
     }
 
-    const zoneMsg = eventPool[Math.floor(Math.random() * eventPool.length)].replace('{name}', live.handle);
+    const idx = Math.floor(Math.random() * eventPool.length);
+    const zoneMsg = eventPool[idx].replace('{name}', live.handle);
     broadcastMis(live.current_zone, { type: 'zone_event', message: zoneMsg }, broadcast, live.id);
-    // Player sees their own zone message
-    broadcast(null, { type: 'zone_event', message: zoneMsg }, null, playerId);
+    // Player sees a "you" version of the same line, not the third-person zone message
+    const selfPool = isMale ? MASTURBATE_EVENT_SELF_MALE : MASTURBATE_EVENT_SELF_FEMALE;
+    broadcast(null, { type: 'zone_event', message: selfPool[idx] || selfPool[0] }, null, playerId);
+    npcWitnessMis(live.current_zone, broadcast, 0.2);
 
     const climaxMsgs = await addHorniness(live, tickArousal, broadcast);
     broadcast(null, {
@@ -560,6 +596,8 @@ async function cmdMasturbate(args, raw, player, broadcast) {
 
   const msgs = await addHorniness(player, 10, broadcast);
   if (msgs.length) broadcast(null, { type:'resource_tick', messages: msgs, player_update: { horniness: player.horniness } }, null, player.id);
+
+  npcWitnessMis(player.current_zone, broadcast, 0.5);
 
   return { type:'output', message: startMsg };
 }
@@ -613,6 +651,8 @@ async function cmdJerkOffOn(args, raw, player, broadcast) {
     type: 'zone_event',
     message: `${player.handle} is masturbating in front of ${name}.`,
   }, player.id, res.type === 'player' ? res.target.id : null);
+
+  npcWitnessMis(player.current_zone, broadcast, 0.5);
 
   return { type:'output', message: actorMsgs[Math.floor(Math.random() * actorMsgs.length)] };
 }
@@ -744,6 +784,7 @@ async function cmdFuck(args, raw, player, broadcast) {
 
   if (msgs.length) broadcast(null, { type:'resource_tick', messages: msgs, player_update: { horniness: player.horniness } }, null, player.id);
   broadcastMis(player.current_zone, { type:'zone_event', message: `${player.handle} and ${name} start having sex.` }, broadcast, player.id, res.target.id);
+  npcWitnessMis(player.current_zone, broadcast, 0.5);
 
   // Start ongoing event
   const playerId = player.id;
@@ -766,6 +807,7 @@ async function cmdFuck(args, raw, player, broadcast) {
         .replace(/\{target\}/g, name)
         .replace(/\{part\}/g, ejacPart);
       broadcastMis(live.current_zone, { type: 'zone_event', message: ejacText }, broadcast, live.id, targetId);
+      npcWitnessMis(live.current_zone, broadcast, 0.7);
       broadcast(null, {
         type: 'resource_tick',
         messages: climaxMsgs,
@@ -786,6 +828,7 @@ async function cmdFuck(args, raw, player, broadcast) {
     const zoneTpl = zonePool[Math.floor(Math.random() * zonePool.length)];
     const zoneMsg = zoneTpl.replace(/\{name\}/g, live.handle).replace(/\{target\}/g, name);
     broadcastMis(live.current_zone, { type: 'zone_event', message: zoneMsg }, broadcast, live.id, targetId);
+    npcWitnessMis(live.current_zone, broadcast, 0.2);
 
     // Private message to actor
     const actorTpl = actorPool[Math.floor(Math.random() * actorPool.length)];
@@ -854,6 +897,7 @@ async function cmdEjaculate(args, raw, player, broadcast) {
       type: 'zone_event',
       message: zonePool[Math.floor(Math.random() * zonePool.length)].replace('{name}', player.handle),
     }, player.id);
+    npcWitnessMis(player.current_zone, broadcast, 0.6);
     broadcast(null, {
       type: 'resource_tick',
       messages: msg,
@@ -867,6 +911,46 @@ async function cmdEjaculate(args, raw, player, broadcast) {
   if (playerPartMatch) {
     const targetStr = playerPartMatch[1].trim();
     const part = playerPartMatch[2].trim();
+
+    // NPC target — willing NPCs get finished on; unwilling ones react (flee/attack).
+    const cumNpc = resolveNpcForMis(targetStr, player.current_zone);
+    if (cumNpc) {
+      if (!isNpcMisWilling(cumNpc)) return handleNpcMis(player, cumNpc, 'jerk off on', broadcast);
+
+      player.horniness = 0;
+      player.erect = 0;
+      player.sanity = Math.min(player.sanity_max || 100, (player.sanity || 50) + 10);
+      player.horniness_last_increased = null;
+      if (!player.appearance_data) player.appearance_data = {};
+      player.appearance_data.ejaculate_state = { locations: ['penis'] };
+      await query('UPDATE players SET horniness=$1, erect=$2, sanity=$3, appearance_data=$4 WHERE id=$5',
+        [player.horniness, player.erect, player.sanity, JSON.stringify(player.appearance_data), player.id]);
+      await stainZone(player.current_zone, 'ejaculate');
+
+      const line = getNpcMisLine(cumNpc, true);
+      if (line) {
+        const upper = line.replace(/[^A-Za-z]/g, '');
+        const shout = upper.length > 3 && upper === upper.toUpperCase();
+        broadcastMis(player.current_zone, { type:'zone_event', message: `${cumNpc.name} ${shout ? 'shouts' : 'says'}, "${line}"` }, broadcast);
+      }
+
+      const npcZonePool = EJACULATE_ZONE_MSGS.on_player;
+      broadcast(player.current_zone, {
+        type: 'zone_event',
+        message: npcZonePool[Math.floor(Math.random() * npcZonePool.length)]
+          .replace(/\{name\}/g, player.handle)
+          .replace(/\{target\}/g, cumNpc.name)
+          .replace(/\{part\}/g, part),
+      }, player.id);
+      npcWitnessMis(player.current_zone, broadcast, 0.6);
+      broadcast(null, {
+        type: 'resource_tick',
+        messages: [],
+        player_update: { horniness: player.horniness, erect: player.erect, sanity: player.sanity },
+      }, null, player.id);
+      return { type:'output', message: `You come on ${cumNpc.name}'s ${part}.` };
+    }
+
     const { res, error, ambiguous } = resolveTargetMis(targetStr, player, 'ejaculate');
     if (ambiguous) return ambiguous;
     if (error) return { type:'error', message: error };
@@ -908,6 +992,7 @@ async function cmdEjaculate(args, raw, player, broadcast) {
       }, null, res.target.id);
     }
 
+    npcWitnessMis(player.current_zone, broadcast, 0.6);
     broadcast(null, {
       type: 'resource_tick',
       messages: [],
@@ -944,6 +1029,7 @@ async function cmdEjaculate(args, raw, player, broadcast) {
         .replace('{name}', player.handle)
         .replace('{target}', fname),
     }, player.id);
+    npcWitnessMis(player.current_zone, broadcast, 0.6);
 
     broadcast(null, {
       type: 'resource_tick',
@@ -961,6 +1047,7 @@ async function cmdEjaculate(args, raw, player, broadcast) {
     type: 'zone_event',
     message: EJACULATE_ZONE_MSGS.ground[0].replace('{name}', player.handle),
   }, player.id);
+  npcWitnessMis(player.current_zone, broadcast, 0.6);
   broadcast(null, {
     type: 'resource_tick',
     messages: msg,

@@ -164,8 +164,11 @@ function gossipNpcs(zoneId) {
     n && !n._dead && !n._combatTargetId && !n._ai?.shopPaused && !n.flags?.no_banter);
 }
 
-function spokenLine(item) {
-  let line = renderItem(item);
+// listener (optional): the player hearing the line. When they ARE the rumour's
+// subject, the NPC turns it on them — second person, to their face.
+function spokenLine(item, listener = null) {
+  const aboutYou = !!(item.subjectId && listener && listener.id === item.subjectId);
+  let line = renderItem(item, aboutYou);
   if (!line) return null;
   // A poorly-planted (low-truth) rumour is repeated with an audible shrug.
   if (item.planted && item.truth < 0.5) line = `"Somebody's been saying ${stripQuotes(line)}. Could be nothing."`;
@@ -187,7 +190,7 @@ function speakGossip(player, npc, broadcast) {
     broadcast?.(zoneId, shrug, player.id);
     return shrug;
   }
-  const line = spokenLine(item);
+  const line = spokenLine(item, player);
   const msg = formatChitchat(npc.name, line);
   broadcast?.(zoneId, msg, player.id);
   const hint = leadHint(item);
@@ -291,7 +294,7 @@ registerAction({
       return { type: 'dialogue_line', text: pickDry() };
     }
     const [item] = pool.recall(actor?.current_zone, { n: 1, distanceFn: hopDistance });
-    const line = item && spokenLine(item);
+    const line = item && spokenLine(item, actor);
     if (!line) return { type: 'dialogue_line', text: `"Quiet, for once. Nothing worth passing on."` };
     if (npcId) tellCooldowns.set(key, now + GOSSIP_TELL_COOLDOWN_MS);
     return { type: 'dialogue_line', text: line };

@@ -90,6 +90,17 @@ for pre-existing drugs). Per-drug state lives in `player_drug_state` (`doses_in_
   future — plugin owns the field, engine reacts (the posture pattern). The plugin also owns the hacking
   cough and the onlooker "cool-reaction"; the Cool buff / Stamina debuff are plain `phases.peak_mods`
   (`stat_cool` / `stamina_max`). See [plugins.md](plugins.md).
+- **Being stoned** — a drug flagged `flags.cannabis` (joints) is driven by the **cannabis plugin**
+  ([plugins/cannabis/index.js](../plugins/cannabis/index.js)) off `player.drugUsed`. It sets an
+  in-memory `player._cannabisHighUntil` (ms) and owns the four things that aren't stat deltas:
+  a **global audio echo** (client `audio_echo` → `AudioEngine.setEcho`, a master-bus delay send so
+  all sound shimmers), the **munchies** (its own tick drains hunger + narrates cravings — the deliberate
+  inverse of cigarette appetite-suppression, which is why a joint is **not** `flags.smokeable`), the
+  **giggles**, and **red eyes** on examine (the `player.appearanceNotes` fireHook in
+  [commands/world.js](../server/engine/commands/world.js), mirroring `player.appearanceMisNotes`). The
+  mellow itself (relaxation, cotton-mouth, dulled reflexes) is plain content on the drug row; joints are
+  non-addictive (`addiction_chance 0`, no withdrawal) with a non-lethal green-out overdose. See
+  [plugins.md](plugins.md).
 - **Hallucinations** (`hallucination` block) — handled by the **trip plugin**
   ([plugins/trip](../plugins/trip/index.js)) off the engine's `drug.used` hook. `mode: "overlay"` streams
   scripted timed events + trippy client FX while the body stays in the real zone (attackable);

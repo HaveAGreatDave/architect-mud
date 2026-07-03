@@ -17,6 +17,7 @@ import { isConsumerFurniture } from './furniture-shop.js';
 import { getFlag, setFlag } from './flags.js';
 import { emit } from './events.js';
 import { vendorGrudgeRemaining, grudgeRefusal } from './vendor-grudge.js';
+import { markSessionPurchase } from './vendor-session.js';
 
 // Trust-gated vendors (e.g. the covert shadow dealer). When an NPC's flags carry
 // a `trust_flag`, its shelf is not the random `vendor_stock` shelf but the full
@@ -130,6 +131,8 @@ export async function buyFromVendor(player, npc, itemId, quantity = 1) {
   if (!paid) {
     return { success: false, message: `You can't afford that. Need ${price} credits, have ${player.credits || 0}.` };
   }
+
+  markSessionPurchase(player.id); // for the vendor's closing-time farewell line
 
   // Trust vendor: each purchase earns trust, unlocking higher tiers. Reaching
   // the cap sets an optional payoff flag (a hook for future content / the "lead").

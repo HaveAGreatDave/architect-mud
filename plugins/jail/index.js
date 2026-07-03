@@ -25,6 +25,7 @@ import { describeZone } from '../../server/engine/commands/describe.js';
 import { moveEntity } from '../../server/engine/ai-behaviour.js';
 import { getEnvironmentState } from '../../server/engine/environment.js';
 import { schedule } from '../../server/engine/scheduler.js';
+import { gameMsToReal, realMsToGame } from '../../server/engine/gametime.js';
 
 const CELL_ZONE = 'zone_mq_precinct_holding';   // the holding cell you wake in
 const RELEASE_ZONE = 'zone_mq_precinct_lobby';  // where the guard walks you out to
@@ -204,7 +205,10 @@ async function onRespawnZone(player, killer) {
   ).catch(() => ({ rows: [{ n: 0 }] }))).rows[0].n;
 
   const held = await confiscate(player.id, player.handle);
-  const ms = stars * MINUTE;
+  // Sentence is stars game-minutes; convert to real ms via the game-speed knob so
+  // the cell time scales with the sped-up day (release_at + the release timer both
+  // use this real duration).
+  const ms = gameMsToReal(stars * MINUTE);
   await query(
     `INSERT INTO jail_prisoners (player_id, cell_zone, release_zone, release_at, stars, held_items)
      VALUES ($1,$2,$3, NOW() + ($4 || ' milliseconds')::interval, $5,$6)
@@ -303,14 +307,14 @@ schedule('1m', async () => {
   const now = Date.now();
   for (const r of rows) {
     if (!getLivePlayer(r.player_id)) continue;
-    const remaining = Math.max(0, Math.min(r.stars, Math.ceil((new Date(r.release_at).getTime() - now) / MINUTE)));
+    const remaining = Math.max(0, Math.min(r.stars, Math.ceil(realMsToGame(new Date(r.release_at).getTime() - now) / MINUTE)));
     sendToPlayer(r.player_id, { type: 'wanted_level', stars: remaining });
   }
 });
 
 // ── Evidence purge ───────────────────────────────────────────────────────────
 async function purgeEvidence() {
-  await query(`DELETE FROM police_evidence WHERE created_at < NOW() - $1::interval`, [`${PURGE_MS} milliseconds`]).catch(() => {});
+  await query(`DELETE FROM police_evidence WHERE created_at < NOW() - $1::interval`, [`${gameMsToReal(PURGE_MS)} milliseconds`]).catch(() => {});
 }
 setInterval(() => purgeEvidence(), 60 * 60 * 1000);
 

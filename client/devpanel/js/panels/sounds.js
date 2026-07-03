@@ -146,7 +146,7 @@ function newSound() { openSoundModal({}); }
 function editSound(s) { openSoundModal(s); }
 
 async function deleteSound(id, name) {
-  if (!confirm(`Delete sound "${name}"?`)) return;
+  if (!(await dpConfirm(`Delete sound "${name}"?`, { danger: true }))) return;
   await API(`/sounds/${id}`, 'DELETE');
   toast(`"${name}" deleted`);
   loadPanel('sounds');
@@ -212,7 +212,7 @@ async function toggleAmbientEvent(id, enabled) {
 }
 
 async function deleteAmbientEvent(id) {
-  if (!confirm('Delete this ambient event?')) return;
+  if (!(await dpConfirm('Delete this ambient event?', { danger: true }))) return;
   await API(`/ambient-events/${id}`, 'DELETE');
   toast('Event deleted');
   loadPanel('sounds');
@@ -284,7 +284,7 @@ function previewSfx(id) {
 async function resetSfx(id) {
   const e = _sfxEntry(id);
   if (!e) return;
-  if (!confirm(`Reset "${e.name}" to its built-in default? Your edits will be lost.`)) return;
+  if (!(await dpConfirm(`Reset "${e.name}" to its built-in default? Your edits will be lost.`, { danger: true }))) return;
   const r = await API(`/audio/interface-sfx/${id}`, 'DELETE');
   if (r?.error) { toast(r.error, true); return; }
   toast('Reset to default');

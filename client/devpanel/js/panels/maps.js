@@ -1093,9 +1093,9 @@ async function mapDeleteInterior() {
   if (!o?.map?.id || !o.map.parent_zone_id) return; // only for interior maps
   const mapId = o.map.id;
   const mapName = o.map.name;
-  if (!confirm(`Delete "${mapName}" and all its zones? This cannot be undone.`)) return;
+  if (!(await dpConfirm(`Delete "${mapName}" and all its zones? This cannot be undone.`, { danger: true }))) return;
   const res = await directAPI(`/maps/${mapId}`, 'DELETE');
-  if (res?.error) { alert(res.error); return; }
+  if (res?.error) { await dpAlert(res.error); return; }
   // Switch back to the world map and refresh
   mapSelectedInteriorId = null;
   mapsList = mapsList.filter(m => m.id !== mapId);

@@ -26,6 +26,7 @@ import { openSynthMinigame } from './panels/synthlab.js';
 import { openSpliceDesigner, updateSplicePreview } from './panels/splicelab.js';
 import { updateWantedHud } from './panels/wanted.js';
 import { openTvPanel, isTvOpen, getTvActiveChannelId, appendTvMessage, updateTvTicker, applyTvOverlay, clearTvMessages, showTvOffAir, showTvOnAir, shutdownTvPanel } from './panels/tv.js';
+import { applyAmpUnlocks, addAmpUnlock } from './panels/musicplayer.js';
 import { applyEspState, handleEspWarning } from './esp.js';
 import { playPokerSfx } from './poker-sfx.js';
 import { showConfirmDialog } from './panels/confirm.js';
@@ -425,6 +426,11 @@ const handlers = {
   'lightning': () => { triggerLightningFlash(); },
 
   output: (msg) => { appendHtml(msg.message, 'help'); },
+  // AMP cassette unlocks: full set at login, single new track on insert. These
+  // only update the (possibly open) music panel's library — the insert command's
+  // own system message carries the player-facing feedback.
+  amp_unlocks: (msg) => applyAmpUnlocks(msg.songIds),
+  amp_unlock:  (msg) => addAmpUnlock(msg.songId),
   progress: (msg) => { if (msg.done) clearInlineProgress(); },
   confirm: (msg) => { showConfirmDialog(msg); },
   arrest_notice: (msg) => { showArrestNotice(msg); },
@@ -521,6 +527,7 @@ const handlers = {
   audio_loop_gain: (msg) => { window.AudioEngine?.setLoopGain(msg.id, msg.gain, msg.ramp ?? 0.4); },
   audio_duck: (msg) => { window.AudioEngine?.duckLoop?.(msg.id, msg.fraction, msg.hold); },
   audio_stop: (msg) => { window.AudioEngine?.stop(msg.scope, msg.id); },
+  audio_echo: (msg) => { window.AudioEngine?.setEcho?.(!!msg.on, msg); },
 
   sound_picker: (msg) => { openSoundPicker(msg.sfx || []); },
 

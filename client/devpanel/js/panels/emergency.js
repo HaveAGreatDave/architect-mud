@@ -199,7 +199,7 @@ async function espActivate() {
 }
 
 async function espDeactivate() {
-  if (!confirm('Stand down Emergency Security Protocol? This will silence the siren and clear all alerts.')) return;
+  if (!(await dpConfirm('Stand down Emergency Security Protocol? This will silence the siren and clear all alerts.', { danger: true }))) return;
   const r = await directAPI('/emergency/deactivate', 'POST', {});
   if (r.error) { toast(r.error, true); return; }
   toast('Emergency Security Protocol stood down');
@@ -225,7 +225,7 @@ async function arbitersActivate() {
 }
 
 async function arbitersStandDown() {
-  if (!confirm('Order all Arbiters to stand down and return to their bays?')) return;
+  if (!(await dpConfirm('Order all Arbiters to stand down and return to their bays?', { danger: true }))) return;
   const r = await directAPI('/emergency/arbiters/standdown', 'POST', {});
   if (r.error) { toast(r.error, true); return; }
   toast(`↩ Arbiters standing down — ${r.count} unit(s) en route`);

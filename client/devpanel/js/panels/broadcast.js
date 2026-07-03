@@ -796,7 +796,7 @@ async function saveBroadcast() {
 
 async function deleteBroadcast(id, name) {
   if (!id) return;
-  if (!confirm(`Delete broadcast "${name}"? This cannot be undone.`)) return;
+  if (!(await dpConfirm(`Delete broadcast "${name}"? This cannot be undone.`, { danger: true }))) return;
   try {
     const res = await directAPI(`/broadcast/broadcasts/${id}`, 'DELETE');
     if (res?.error) { toast(res.error, true); return; }
@@ -831,7 +831,7 @@ async function cloneBroadcast(rec) {
 
 let _bcImportInProgress = false;
 async function bcCleanOrphans() {
-  if (!confirm('Scan for and remove orphaned broadcast references?\n\nThis will:\n• Delete playlist slots pointing at deleted broadcasts\n• Null out channel/zone refs on broadcasts, channels, and cameras that point at deleted entities\n\nNo broadcasts or channels will be deleted.')) return;
+  if (!(await dpConfirm('Scan for and remove orphaned broadcast references?\n\nThis will:\n• Delete playlist slots pointing at deleted broadcasts\n• Null out channel/zone refs on broadcasts, channels, and cameras that point at deleted entities\n\nNo broadcasts or channels will be deleted.'))) return;
   const res = await directAPI('/broadcast/cleanup-orphans', 'POST');
   if (res?.error) { toast(res.error, true); return; }
   toast(res.message || 'Done');
@@ -1164,7 +1164,7 @@ async function _bcPickerDeleteZone() {
   const zoneId = btn.dataset.zoneId;
   const zoneName = btn.dataset.zoneName || zoneId;
   if (!zoneId) return;
-  if (!confirm(`Delete "${zoneName}" and all its studio rooms? This cannot be undone.`)) return;
+  if (!(await dpConfirm(`Delete "${zoneName}" and all its studio rooms? This cannot be undone.`, { danger: true }))) return;
   btn.disabled = true;
   btn.textContent = 'Deleting…';
   try {
@@ -1666,7 +1666,7 @@ async function _bcImportSave({ meta, broadcastGraph, weatherScript, messages, as
   let method = 'POST', path = '/broadcast/broadcasts';
   const existing = _broadcastList.find(b => b.name === meta.name);
   if (existing) {
-    const overwrite = confirm(`A broadcast named "${meta.name}" already exists.\n\nOK = overwrite it   Cancel = create new copy`);
+    const overwrite = await dpConfirm(`A broadcast named "${meta.name}" already exists.\n\nOK = overwrite it   Cancel = create new copy`, { okLabel: 'Overwrite' });
     if (overwrite) { method = 'PUT'; path = `/broadcast/broadcasts/${existing.id}`; }
     else { meta.name += ' (imported)'; }
   }
@@ -1968,7 +1968,7 @@ async function saveCommercialCanvas() {
 
 async function deleteCommercialCanvas(id, name) {
   if (!id) return;
-  if (!confirm(`Delete commercial "${name}"? This cannot be undone.`)) return;
+  if (!(await dpConfirm(`Delete commercial "${name}"? This cannot be undone.`, { danger: true }))) return;
   try {
     const res = await directAPI(`/broadcast/broadcasts/${id}`, 'DELETE');
     if (res?.error) { toast(res.error, true); return; }
@@ -2005,7 +2005,7 @@ async function _bcCommSaveBsm({ meta, broadcastGraph, messages, assets }) {
   const ads = (_bcSuiteData?.broadcasts || []).filter(b => b.category === 'advertisement');
   const existing = ads.find(b => b.name === meta.name);
   if (existing) {
-    const overwrite = confirm(`A commercial named "${meta.name}" already exists.\n\nOK = overwrite   Cancel = create copy`);
+    const overwrite = await dpConfirm(`A commercial named "${meta.name}" already exists.\n\nOK = overwrite   Cancel = create copy`, { okLabel: 'Overwrite' });
     if (overwrite) { method = 'PUT'; path = `/broadcast/broadcasts/${existing.id}`; }
     else meta.name += ' (imported)';
   }
@@ -2067,7 +2067,7 @@ async function _bcCommDelMsg(bcId, idx) {
 }
 
 async function _bcCommDelete(bcId) {
-  if (!confirm('Delete this commercial?')) return;
+  if (!(await dpConfirm('Delete this commercial?', { danger: true }))) return;
   const res = await directAPI(`/broadcast/broadcasts/${bcId}`, 'DELETE');
   if (res?.error) { toast(res.error, true); return; }
   _bcCommSelected = null;

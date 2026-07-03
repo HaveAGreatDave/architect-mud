@@ -794,6 +794,236 @@ export function npcTypeForPersonality(personality) {
   return DEFAULTS[personality]?.npcType ?? null;
 }
 
+// ── Clothing ────────────────────────────────────────────────────────────────
+// Personality-appropriate outfits, split by sex ({ male, female }). Each sex has
+// several VARIANTS for variety; a variant is an ordered clothing_layers array
+// (outermost → innermost), the same shape the strippers plugin authors and
+// engine/commands/world.js `npcClothingLine()` renders on examine. The innermost
+// layer is gendered underwear (mirrors the player starter kit's boxers vs bra +
+// panties). Injected into `flags.clothing_layers` at NPC creation (apiCreateNpc)
+// from the NPC's sex when a personality is set and no layers were authored, and
+// used by the backfill script. Documented in docs/npc-clothing.md — keep the two
+// in sync. Others normally see only the outermost still-on garment, so lead each
+// variant with its signature piece.
+const CLOTHING = {
+  vendor: {
+    male: [
+      ['a grease-stained merchant\'s apron', 'a padded vest', 'a sweat-yellowed undershirt and boxers'],
+      ['a many-pocketed utility coat', 'a faded company polo', 'grey boxer-briefs'],
+      ['a patched flak jacket hung with a vendor\'s badge', 'a stained tank top', 'threadbare briefs'],
+    ],
+    female: [
+      ['a grease-stained merchant\'s apron', 'a fitted work blouse', 'a plain cotton bra and panties'],
+      ['a many-pocketed utility coat', 'a faded company tee knotted at the waist', 'a worn bra and briefs'],
+      ['a patched flak jacket hung with a vendor\'s badge', 'a snug tank top', 'a lace-trimmed bra and panties'],
+    ],
+  },
+  travelling_vendor: {
+    male: [
+      ['a dust-caked longcoat hung with trinkets', 'a road-worn wool jumper', 'long johns and boxers'],
+      ['a battered oilskin poncho', 'a layered thermal shirt', 'grey briefs'],
+      ['a wide-brimmed hat and a travel-stained duster', 'a patched flannel shirt', 'faded boxers'],
+    ],
+    female: [
+      ['a dust-caked longcoat hung with trinkets', 'a road-worn wool jumper', 'a thermal camisole and panties'],
+      ['a battered oilskin poncho', 'a layered thermal top', 'a plain bra and briefs'],
+      ['a wide-brimmed hat and a travel-stained duster', 'a patched flannel shirt tied at the waist', 'a worn bra and panties'],
+    ],
+  },
+  bartender: {
+    male: [
+      ['a stained bar apron over rolled shirtsleeves', 'a plain white undershirt', 'grey boxers'],
+      ['a black waistcoat with a bottle-opener on a chain', 'a yellowing dress shirt', 'striped boxer shorts'],
+      ['a worn leather bar-apron', 'a tight black tee', 'black briefs'],
+    ],
+    female: [
+      ['a stained bar apron over a fitted black top', 'a snug camisole', 'a black bra and panties'],
+      ['a black waistcoat over a halter top', 'a slim tank', 'a lace bra and briefs'],
+      ['a worn leather bar-apron', 'a tight black tee', 'a plain bra and panties'],
+    ],
+  },
+  dealer: {
+    male: [
+      ['a crisp house-issue waistcoat and armbands', 'a starched white shirt', 'pressed boxer shorts'],
+      ['a slightly-too-tight dealer\'s vest', 'a monogrammed shirt', 'grey briefs'],
+      ['a red-trimmed croupier\'s jacket', 'a pressed collar shirt', 'black boxer-briefs'],
+    ],
+    female: [
+      ['a crisp house-issue waistcoat and armbands', 'a fitted white blouse', 'a satin bra and panties'],
+      ['a slim red-trimmed croupier\'s jacket', 'a monogrammed blouse', 'a lace bra and briefs'],
+      ['a sharp dealer\'s vest over a pencil skirt', 'a pressed blouse', 'a plain bra and panties'],
+    ],
+  },
+  stripper: {
+    male: [
+      ['an unbuttoned satin shirt', 'a leather harness', 'a sequinned thong'],
+      ['tearaway trousers over an open vest', 'a mesh tank', 'a snug G-string'],
+      ['a bow tie and cuffs', 'an open mesh vest', 'a satin thong'],
+    ],
+    female: [
+      ['a sequinned robe barely closed', 'a rhinestone bikini top', 'a matching G-string'],
+      ['a sheer wrap and thigh-high boots', 'a lace bra', 'a lace thong'],
+      ['an unbuttoned satin shirt', 'a bejewelled bra', 'a sequinned thong'],
+    ],
+  },
+  tv_host: {
+    male: [
+      ['an immaculate on-air blazer with a network pin', 'a pressed shirt and tie', 'pressed boxer shorts'],
+      ['a garish primetime suit jacket', 'a silk shirt open at the collar', 'silk boxers'],
+      ['a too-shiny anchor\'s suit', 'a starched white shirt', 'grey briefs'],
+    ],
+    female: [
+      ['an immaculate on-air blazer with a network pin', 'a silk blouse', 'a satin bra and panties'],
+      ['a garish primetime dress jacket', 'a sleek sheath top', 'a lace bra and briefs'],
+      ['a too-shiny anchor\'s blazer over a pencil skirt', 'a pressed blouse', 'a plain bra and panties'],
+    ],
+  },
+  unemployed: {
+    male: [
+      ['a fraying interview blazer gone shapeless', 'a coffee-stained dress shirt', 'greying boxers'],
+      ['a hand-me-down windbreaker', 'a washed-out band tee', 'threadbare briefs'],
+      ['an oversized charity-bin coat', 'a threadbare jumper', 'baggy boxer shorts'],
+    ],
+    female: [
+      ['a fraying interview blazer gone shapeless', 'a coffee-stained blouse', 'a plain bra and worn panties'],
+      ['a hand-me-down windbreaker', 'a washed-out band tee', 'a mismatched bra and briefs'],
+      ['an oversized charity-bin coat', 'a threadbare cardigan', 'a faded bra and panties'],
+    ],
+  },
+  guard: {
+    male: [
+      ['a scuffed polymer security vest', 'a black uniform undershirt', 'issue boxer-briefs'],
+      ['a riot-surplus flak jacket stencilled SECURITY', 'a sweat-stained tee', 'grey boxers'],
+      ['a private-security softshell with a clip-on badge', 'a compression shirt', 'black briefs'],
+    ],
+    female: [
+      ['a scuffed polymer security vest', 'a black uniform tee', 'a sports bra and briefs'],
+      ['a riot-surplus flak jacket stencilled SECURITY', 'a fitted compression top', 'a sports bra and panties'],
+      ['a private-security softshell with a clip-on badge', 'a snug base layer', 'a plain bra and briefs'],
+    ],
+  },
+  police: {
+    male: [
+      ['a patched patrol jacket with a dulled badge', 'a department-issue undershirt', 'issue boxer shorts'],
+      ['a surplus tac-vest stencilled POLICE', 'a navy uniform shirt', 'grey briefs'],
+      ['a rain-slick officer\'s longcoat', 'a body-armor carrier', 'navy boxer-briefs'],
+    ],
+    female: [
+      ['a patched patrol jacket with a dulled badge', 'a fitted department blouse', 'a sports bra and briefs'],
+      ['a surplus tac-vest stencilled POLICE', 'a navy uniform shirt', 'a plain bra and panties'],
+      ['a rain-slick officer\'s longcoat', 'a body-armor carrier', 'a sports bra and briefs'],
+    ],
+  },
+  thug: {
+    male: [
+      ['a battered leather jacket stiff with old blood', 'a stained wife-beater', 'baggy boxers'],
+      ['a crew-colours hoodie', 'a grubby tank top', 'sagging boxer shorts'],
+      ['a studded denim vest', 'a bare, tattooed chest', 'ripped briefs'],
+    ],
+    female: [
+      ['a battered leather jacket stiff with old blood', 'a cropped tank top', 'a black bra and panties'],
+      ['a crew-colours hoodie', 'a grubby crop top', 'a sports bra and briefs'],
+      ['a studded denim vest', 'a tattoo-baring bralette', 'a lace thong'],
+    ],
+  },
+  doctor: {
+    male: [
+      ['a grubby lab coat', 'a set of faded surgical scrubs', 'plain boxers'],
+      ['a plastic surgical smock', 'greyed-out green scrubs', 'grey briefs'],
+      ['a lead-lined apron over a clinic coat', 'a scrub top', 'boxer-briefs'],
+    ],
+    female: [
+      ['a grubby lab coat', 'a set of faded surgical scrubs', 'a plain bra and panties'],
+      ['a plastic surgical smock', 'greyed-out green scrubs', 'a sports bra and briefs'],
+      ['a lead-lined apron over a clinic coat', 'a fitted scrub top', 'a plain bra and panties'],
+    ],
+  },
+  politician: {
+    male: [
+      ['a sharp but fraying tailored suit', 'a monogrammed dress shirt', 'silk boxer shorts'],
+      ['an expensive overcoat with a lapel pin', 'a silk tie and pressed shirt', 'pressed boxers'],
+      ['a campaign blazer over a discreet vest', 'a crisp white shirt', 'grey briefs'],
+    ],
+    female: [
+      ['a sharp but fraying tailored skirt-suit', 'a silk blouse', 'a satin bra and panties'],
+      ['an expensive overcoat with a lapel pin', 'a tailored blouse', 'a lace bra and briefs'],
+      ['a campaign blazer over a pencil skirt', 'a crisp blouse', 'a plain bra and panties'],
+    ],
+  },
+  preacher: {
+    male: [
+      ['a threadbare black cassock', 'a grey undershirt', 'plain white briefs'],
+      ['a patchwork robe hung with charms', 'a rough hair shirt', 'coarse linen shorts'],
+      ['a sandwich-board over a stained surplice', 'a plain tunic', 'threadbare boxers'],
+    ],
+    female: [
+      ['a threadbare black habit', 'a grey shift', 'plain cotton underthings'],
+      ['a patchwork robe hung with charms', 'a rough hair shift', 'coarse linen underthings'],
+      ['a sandwich-board over a stained surplice', 'a plain tunic', 'a plain bra and panties'],
+    ],
+  },
+  vagrant: {
+    male: [
+      ['a rope-belted heap of coats', 'layers of unwashed rags', 'grey, holey boxers'],
+      ['a mildewed sleeping-bag worn as a cloak', 'a filthy thermal top', 'threadbare briefs'],
+      ['a bin-bag poncho', 'newspaper-stuffed rags', 'stiff, forgotten underwear'],
+    ],
+    female: [
+      ['a rope-belted heap of coats', 'layers of unwashed rags', 'a greying bra and holey panties'],
+      ['a mildewed sleeping-bag worn as a cloak', 'a filthy thermal top', 'threadbare underthings'],
+      ['a bin-bag poncho', 'newspaper-stuffed rags', 'a mismatched bra and panties'],
+    ],
+  },
+  mercenary: {
+    male: [
+      ['a modular plate carrier over fatigues', 'a moisture-wick combat shirt', 'tactical boxer-briefs'],
+      ['a weathered tactical longcoat', 'a compression base layer', 'grey briefs'],
+      ['mismatched scavenged armor plates', 'a grease-stained undershirt', 'worn boxers'],
+    ],
+    female: [
+      ['a modular plate carrier over fatigues', 'a moisture-wick compression top', 'a sports bra and briefs'],
+      ['a weathered tactical longcoat', 'a fitted base layer', 'a sports bra and panties'],
+      ['mismatched scavenged armor plates', 'a snug undershirt', 'a plain bra and briefs'],
+    ],
+  },
+  scientist: {
+    male: [
+      ['a burn-marked lab coat', 'a rumpled collared shirt', 'plain boxers'],
+      ['a hazmat smock pushed down to the waist', 'a sweat-damp undershirt', 'grey briefs'],
+      ['a lead apron over a lab coat', 'a wrinkled polo', 'boxer shorts'],
+    ],
+    female: [
+      ['a burn-marked lab coat', 'a rumpled blouse', 'a plain bra and panties'],
+      ['a hazmat smock pushed down to the waist', 'a sweat-damp camisole', 'a sports bra and briefs'],
+      ['a lead apron over a lab coat', 'a wrinkled blouse', 'a plain bra and panties'],
+    ],
+  },
+  cult_member: {
+    male: [
+      ['a rough hooded robe stained with ash', 'a coarse hair shirt', 'plain linen shorts'],
+      ['a sackcloth shroud marked with an open eye', 'bare, scarred skin', 'a coarse loincloth'],
+      ['a tattered ceremonial cloak', 'a plain acolyte\'s tunic', 'rough linen underthings'],
+    ],
+    female: [
+      ['a rough hooded robe stained with ash', 'a coarse hair shift', 'plain linen underthings'],
+      ['a sackcloth shroud marked with an open eye', 'bare, scarred skin', 'a coarse wrap'],
+      ['a tattered ceremonial cloak', 'a plain acolyte\'s shift', 'rough linen underthings'],
+    ],
+  },
+};
+
+// A random outfit (clothing_layers array) for a personality + sex, or null if the
+// archetype has no wardrobe / the personality is unknown. Sex 'female' picks the
+// female wardrobe; anything else (male / other / unset) falls back to male.
+// Consumed by apiCreateNpc and the backfill script.
+export function pickClothingForPersonality(personality, sex) {
+  const bucket = CLOTHING[personality];
+  if (!bucket) return null;
+  const variants = (sex === 'female' ? bucket.female : bucket.male) || bucket.male || bucket.female;
+  if (!variants || !variants.length) return null;
+  return variants[Math.floor(Math.random() * variants.length)].slice();
+}
+
 // Lightweight metadata for the dev-panel dropdown (no line arrays). Insertion
 // order defines dropdown order: jobs first, then behavioural personalities.
 export function listPersonalityMeta() {

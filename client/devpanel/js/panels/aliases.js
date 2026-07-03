@@ -55,7 +55,7 @@ window.aliasAdd = async function() {
 };
 
 window.aliasDelete = async function(alias) {
-  if (!confirm(`Delete alias "${alias}"?`)) return;
+  if (!(await dpConfirm(`Delete alias "${alias}"?`, { danger: true }))) return;
   const r = await directAPI(`/command-aliases/${encodeURIComponent(alias)}`, 'DELETE');
   if (r?.error) { toast(r.error, true); return; }
   toast(r?.reverted_to_default ? `"${alias}" reverted to engine default` : `Alias "${alias}" deleted`);

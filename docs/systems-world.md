@@ -126,20 +126,22 @@ The environmental runtime lives in [environment.js](../server/engine/environment
 
 ### Game clock
 
-The clock is a single `world_clock` row (`id = 1`). `state.minutes` is minutes-since-midnight (server-authoritative), advanced 1:1 with real time. On boot `initEnvironment` catches up on downtime: whole missed days replay `tick24h` (capped at `MAX_CATCHUP_DAYS = 30`), then `state.minutes` jumps forward by the exact elapsed minutes.
+The clock is a single `world_clock` row (`id = 1`). `state.minutes` is minutes-since-midnight (server-authoritative). It advances at `state.timeScale` **game minutes per real minute** — the game-speed knob (default `1` = the historical 1:1 clock; `3` = an 8-hour real day). On boot `initEnvironment` catches up on downtime: elapsed real time is scaled to game-minutes, whole missed game-days replay `tick24h` (capped at `MAX_CATCHUP_DAYS = 30`), then `state.minutes` jumps to the exact game-minute.
+
+**Game speed (`timeScale`).** Persisted in `world_clock.time_scale`, published to [gametime.js](../server/engine/gametime.js) — the single source of truth every duration-scaling system reads (`getTimeScale` / `gameMsToReal` / `realMsToGame`). Set live from the dev panel's Time/Weather → **Game Speed** card (`POST /environment/time/scale` → `devSetTimeScale`), which re-anchors the clock with no time jump. The whole world scales off this one value: the day/night clock and calendar, weather ticks, NPC shift scheduling, survival decay (hunger/thirst/body-temp), drug tolerance/addiction recovery, jail sentences & evidence purge, vendor grudges, ATM refills, the hololock lockout, and once-per-day housekeeping (`dailyMaintenance`, now driven by the `environment.dayRollover` event rather than a real-24h timer). Deliberately left on **real-world** cadence: the 1s combat tick, ambient/flicker/banter pacing, minigame windows (hololock pending-TTL), and **apartment rent** (a real-world weekly billing rhythm decoupled from the game clock).
 
 - **Phase** (`phaseForMinutes`): `dawn` 05:00–07:00, `day` 07:00–17:00, `dusk` 17:00–20:00, `night` 20:00–05:00 (wraps midnight). `ambientLightForMinutes` returns 1.0 in day, 0.0 at night, and ramps 0↔1 across dawn/dusk. `diurnalOffset` is a cosine temp swing peaking +5°C at 14:00, troughing −12°C at 02:00 (amplitude 8.5, midpoint −3.5), added to the base `state.tempC` everywhere temperature is read.
 - **Season** (`seasonForDate`): derived from calendar month via `SEASON_BY_MONTH`.
 
 ### Tick cadences
 
-Scheduled in `scheduleTicks` off [scheduler.js](../server/engine/scheduler.js):
+Scheduled in `scheduleTicks` off [scheduler.js](../server/engine/scheduler.js). The **`1m` driver is the single time engine**: it advances the clock by the scaled game-minutes elapsed and fires the environmental (`tick30m`) and world (`tick24h`) ticks on **game-minute boundaries** — every 30 game-minutes and every game-day crossed — so they scale with `timeScale` and the date/phase/streetlights can never desync from the sped-up day. (`tick30m`/`tick24h` are no longer registered on the real `30m`/`24h` cadences.)
 
-- **1m** (`tick1m`) — increment minute, persist, `stepIndoorTemps`, broadcast `environment.clockTick` + per-zone `environment.zoneTempTick`, flicker overloaded zones.
+- **1m** (`tick1m` driver) — advance `state.minutes` by elapsed game-minutes, persist, fire `tick24h` per game-day and `tick30m` per 30-game-minute boundary crossed, `stepIndoorTemps`, broadcast `environment.clockTick` + per-zone `environment.zoneTempTick`, flicker overloaded zones.
 - **30s** — `advanceWeatherField()` (advect the field one step), `broadcastZoneWeather(occupied)` to occupied outdoor zones, and snap streetlights for those zones (in-memory; no DB writes).
 - **5m** (`tick5m`) — brownout redistribution; only runs when ≥1 zone is `overloaded`.
-- **30m** (`tick30m`) — recompute `ambientLight`/`phase`, reconcile streetlights map-wide (`syncStreetlights` → lights on where powered and `zoneAmbientVisibility < VISIBILITY_DIM = 0.35`), roll global precip on/off against `forecast[0].precipChance`, broadcast `environment.sync`, fire `environment.tick30m` / sunrise / sunset hooks.
-- **24h** (`tick24h`) — advance calendar, fire `environment.advanceWeather` (plugin shifts the forecast and re-seeds the field), run the power sim, broadcast `environment.daily`.
+- **tick30m** (per 30 game-min) — recompute `ambientLight`/`phase`, reconcile streetlights map-wide (`syncStreetlights` → lights on where powered and `zoneAmbientVisibility < VISIBILITY_DIM = 0.35`), roll global precip on/off against `forecast[0].precipChance`, broadcast `environment.sync`, fire `environment.tick30m` / sunrise / sunset hooks.
+- **tick24h** (per game-day) — advance calendar, fire `environment.advanceWeather` (plugin shifts the forecast and re-seeds the field), run the power sim, broadcast `environment.daily`, emit `environment.dayRollover` (drives engine `dailyMaintenance`).
 
 ### Forecast (plugin-owned, seeded, 7-day)
 

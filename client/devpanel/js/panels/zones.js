@@ -125,7 +125,7 @@ async function deleteZoneRow(id) {
   const msg = childCount
     ? `Delete ${rec.name || id}? This will also queue ${childCount} attached room${childCount > 1 ? 's' : ''} for deletion.`
     : `Delete ${rec.name || id}?`;
-  if (!confirm(msg)) return;
+  if (!(await dpConfirm(msg, { danger: true }))) return;
   currentRecord = rec;
   const result = await API(`/zones/${id}`, 'DELETE');
   if (result?.error) { currentRecord = null; toast(result.error, true); return; }
@@ -756,7 +756,7 @@ async function refreshZoneEditPanel(zoneId) {
 }
 
 async function removeZoneFromMap(zoneId) {
-  if (!confirm(`Remove "${zoneId}" from its map? The zone and its exits are unchanged — only the grid placement is erased.`)) return;
+  if (!(await dpConfirm(`Remove "${zoneId}" from its map? The zone and its exits are unchanged — only the grid placement is erased.`, { danger: true }))) return;
   const d = await API(`/zones/${zoneId}`, 'PUT', { map_id: null, grid_x: null, grid_y: null, grid_z: null });
   if (d.error) { toast(d.error || 'Failed to remove from map', true); return; }
   // Sync mapOverview in-memory so the tile disappears immediately
@@ -918,7 +918,7 @@ async function reassignZoneGenerator(zoneId) {
 }
 
 async function removeGeneratorQuick(generatorId, zoneId) {
-  if (!confirm('Remove this generator? Stage for deletion — publish to apply.')) return;
+  if (!(await dpConfirm('Remove this generator? Stage for deletion — publish to apply.', { danger: true }))) return;
   const result = await API('/staging/stage', 'POST', {
     entityType: 'generator',
     entityId: generatorId,

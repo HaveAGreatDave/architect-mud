@@ -22,6 +22,7 @@ import { foodLoad, drinkLoad } from './bodily.js';
 import { applyMods, reverseMods } from './statmods.js';
 import { fireHook } from './plugins.js';
 import { emit } from './events.js';
+import { getTimeScale } from './gametime.js';
 
 let DRUG_CACHE = {};
 
@@ -108,8 +109,10 @@ export async function useDrug(player, drugId, broadcast, opts = {}) {
 
   // Tolerance: lazy recovery since last use, then gain this dose.
   // Potency is locked to tolerance BEFORE this dose's gain is added.
+  // Recovery rates are authored per real-world second at 1× — scale the elapsed
+  // span by the game-speed knob so tolerance/addiction fade over game time.
   const recPerSec = tol.recovery_per_sec ?? (1 / 3600);
-  let tolerance = Math.max(0, Math.min(1, (state?.tolerance || 0) - recPerSec * elapsed));
+  let tolerance = Math.max(0, Math.min(1, (state?.tolerance || 0) - recPerSec * elapsed * getTimeScale()));
   const potency = Math.max(0, 1 - tolerance * (tol.max_reduction ?? 0.7));
   tolerance = Math.min(1, tolerance + (tol.gain_per_dose ?? 0));
 
@@ -125,7 +128,7 @@ export async function useDrug(player, drugId, broadcast, opts = {}) {
 
   // Addiction: lazy decay since last use, then accumulate this dose.
   const addRec = wd.addiction_recovery_per_sec ?? (1 / 86400);
-  let addiction = Math.max(0, (state?.addiction || 0) - addRec * elapsed);
+  let addiction = Math.max(0, (state?.addiction || 0) - addRec * elapsed * getTimeScale());
   addiction = Math.min(1, addiction + (wd.addiction_per_dose ?? drug.addiction_chance ?? 0));
   let justAddicted = false;
   let isAddicted = state?.is_addicted ? true : false;
@@ -341,8 +344,9 @@ export async function tickWithdrawal(player) {
     const elapsed = Math.max(0, now - (state.last_used_at || now));
     const source = `withdrawal:${state.drug_id}`;
 
-    // Decay addiction over time; persist so sobriety sticks.
-    const newAddiction = Math.max(0, (state.addiction || 0) - addRec * 60);
+    // Decay addiction over time; persist so sobriety sticks. Per-minute decay,
+    // scaled by the game-speed knob so it tracks the sped-up day.
+    const newAddiction = Math.max(0, (state.addiction || 0) - addRec * 60 * getTimeScale());
     const stillAddicted = newAddiction >= 0.5;
     if (newAddiction !== state.addiction || (!stillAddicted && state.is_addicted)) {
       query('UPDATE player_drug_state SET addiction=$1, is_addicted=$2 WHERE player_id=$3 AND drug_id=$4',

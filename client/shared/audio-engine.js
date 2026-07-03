@@ -43,6 +43,7 @@
   let _noiseBuffer = null;
   let _settings = { enabled: true, music: true, sfx: true, tv: true, masterVolume: 0.8, musicVolume: 0.7, sfxVolume: 0.9, ambientVolume: 0.3, tvVolume: 0.6, muteWhenHidden: true };
   let _hiddenDucked = false;
+  let echoNodes = null; // global master-bus echo send (weed) — { wet, delay, fb }
 
   function ensureContext() {
     if (ctx) return ctx;
@@ -937,6 +938,43 @@
     setTimeout(() => { if (activeLoops.has(id)) setLoopGain(id, 1, 0.4); }, holdSeconds * 1000);
   }
 
+  // ── Global echo send (master bus) ───────────────────────────────────────────
+  // A parallel delay+feedback tap off masterGain, so EVERY sound — music, SFX,
+  // ambience — picks up a shimmering echo at once. Used by the cannabis high:
+  // "the music is unbelievable." The dry masterGain→destination path is untouched;
+  // this only adds a wet return. Gently ramped in/out so it never clicks.
+  //   setEcho(true,  { mix, delay, feedback })  — turn it on (or retune)
+  //   setEcho(false)                            — fade out and tear down
+  function setEcho(on, opts = {}) {
+    const c = ensureContext();
+    if (!c) return;
+    if (on) {
+      const mix = Math.max(0, Math.min(0.8, opts.mix ?? 0.28));
+      if (!echoNodes) {
+        const delay = c.createDelay(2.0);
+        delay.delayTime.value = opts.delay ?? 0.16;
+        const fb = c.createGain(); fb.gain.value = Math.min(0.85, opts.feedback ?? 0.32);
+        const wet = c.createGain(); wet.gain.value = 0;
+        masterGain.connect(wet);
+        wet.connect(delay);
+        delay.connect(fb).connect(delay);
+        delay.connect(masterGain.context.destination);
+        echoNodes = { wet, delay, fb };
+      } else {
+        echoNodes.delay.delayTime.setTargetAtTime(opts.delay ?? 0.16, c.currentTime, 0.05);
+        echoNodes.fb.gain.setTargetAtTime(Math.min(0.85, opts.feedback ?? 0.32), c.currentTime, 0.05);
+      }
+      echoNodes.wet.gain.setTargetAtTime(mix, c.currentTime, 0.4);
+    } else if (echoNodes) {
+      const n = echoNodes;
+      echoNodes = null;
+      n.wet.gain.setTargetAtTime(0, c.currentTime, 0.5);
+      // Let the tail ring out, then fully disconnect (incl. the masterGain→wet
+      // send) so repeated toggles don't leave orphaned nodes on the master bus.
+      setTimeout(() => { try { masterGain.disconnect(n.wet); n.wet.disconnect(); n.delay.disconnect(); n.fb.disconnect(); } catch { /* already gone */ } }, 3000);
+    }
+  }
+
   // ── Generic stop (WS audio_stop messages) ──────────────────────────────────
 
   function stop(scope, id) {
@@ -953,7 +991,7 @@
   global.AudioEngine = {
     init, applyVolumeSettings,
     playSfx, playSample, clearSampleCache,
-    loopSound, stopLoop, setLoopGain, duckLoop,
+    loopSound, stopLoop, setLoopGain, duckLoop, setEcho,
     playMusic, stopMusic, pauseMusic, resumeMusic, queueMusic, fadeTo, crossFade, setLayerWeight,
     stop,
     noteToFreq,

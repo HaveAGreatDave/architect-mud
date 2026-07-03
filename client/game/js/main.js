@@ -37,7 +37,7 @@ import {
 	toggleWhisperPanel,
 } from "./panels/whisper.js";
 import { initWho, openWhoModal } from "./panels/who.js";
-import { showAmountDialog } from "./panels/confirm.js";
+import { showAmountDialog, showDangerDialog } from "./panels/confirm.js";
 import { initSidebarOrder } from "./panels/sidebar-order.js";
 import { mountCustomPanels } from "./panels/custom/manager.js";
 import { initCustomPanelButton } from "./panels/custom/builder.js";
@@ -446,17 +446,25 @@ initMusicPlayerPanel();
 window.addEventListener('game-disconnect', () => stopMusicPlayer());
 
 // Wire signout
-document.getElementById("signout-btn").addEventListener("click", () => {
-	const confirmed = confirm(
-		"Sign out?\n\nYour body stays asleep exactly where you log out — it will remain in the world, vulnerable to anyone who finds it, until you return.\n\nMake sure you're somewhere safe (your apartment, locked) before signing out.",
-	);
-	if (!confirmed) return;
+function doSignout() {
 	// Flag to prevent auto-login on next page load
 	sessionStorage.setItem("signed-out", "1");
 	sessionStorage.removeItem("reconnect-token");
 	sessionStorage.removeItem("game-switch-token");
 	closeConnection();
 	location.reload();
+}
+document.getElementById("signout-btn").addEventListener("click", () => {
+	// Safe at home (your own locked apartment) — no warning, just log out.
+	if (state.currentZone && state.currentZone === state.player?.home_zone) {
+		doSignout();
+		return;
+	}
+	showDangerDialog({
+		title: "Sign Out",
+		prompt: "Your body stays asleep exactly where you log out — it will remain in the world, vulnerable to anyone who finds it, until you return. Get somewhere safe (your apartment, locked) before signing out here.",
+		confirmLabel: "Sign Out Anyway",
+	}, doSignout);
 });
 
 // Mobile command fan-out: toggle the quick-cmds popup above the bar.

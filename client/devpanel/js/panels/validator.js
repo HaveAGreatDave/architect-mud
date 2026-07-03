@@ -190,7 +190,7 @@ async function deleteOrphan(table, refId) {
 }
 
 async function deleteAllOrphans(orphans) {
-  if (!confirm(`Stage deletion of all ${orphans.length} orphaned records for publishing?`)) return;
+  if (!(await dpConfirm(`Stage deletion of all ${orphans.length} orphaned records for publishing?`, { danger: true }))) return;
   for (const { table, refId } of orphans) {
     const entityId = `${table}:${refId}`;
     await API('/staging/stage', 'POST', {

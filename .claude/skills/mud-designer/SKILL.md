@@ -45,6 +45,24 @@ You are the content designer for Architect MUD. Your job: turn a rough idea into
 - [ ] Dialogue tree if players can talk to them
 - [ ] Vendor? → stock items must exist; shop name; restock
 - [ ] Personality/banter fit (see `/npc-personalities`)
+- [ ] Clothing — **author a bespoke `flags.clothing_layers` outfit** for every NPC you create; don't rely on the generic fallback (see below).
+
+### NPC clothing — author it, don't leave it generic
+
+When **you** create an NPC, design its outfit yourself from the character — its personality/archetype, job, name, and description — and put it in `flags.clothing_layers`. The static per-archetype table in `apiCreateNpc` is only a **fallback for NPCs made directly in the dev panel**; anything you author is respected and never overwritten. A bespoke outfit ("a bloodstained abattoir apron over a string vest" for a specific butcher) beats a generic archetype pick every time.
+
+Format — an ordered array of descriptive garment strings, **outermost → innermost**:
+- Lead with the signature outer garment (examine normally shows only the outermost still-on layer).
+- The **innermost layer is underwear, gendered to the NPC's `sex`** — men: boxers/briefs/etc.; women: bra + panties/camisole/etc. (mirrors the player starter kit).
+- 2–3 layers is plenty. Match the HellMOO register: specific, grimy, a little funny.
+
+Set the NPC's `sex` in the payload too (`'male'`/`'female'`) so the underwear and pronouns agree — infer it from the name/description you wrote. Example:
+```json
+"sex": "female",
+"flags": { "personality": "bartender",
+  "clothing_layers": ["a whiskey-stained corset vest", "a sheer black blouse", "a lace bra and panties"] }
+```
+Full model + the fallback table: [docs/npc-clothing.md](../../../docs/npc-clothing.md).
 
 **Enemy:**
 - [ ] A zone spawn entry (`zones/<id>/spawns`) — an enemy with no spawn ships nothing

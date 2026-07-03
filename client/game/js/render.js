@@ -146,15 +146,23 @@ export function parseZoneInfo(html) {
     if (bar) bar.textContent = zoneName;
   }
 
-  const exitLinks = tmp.querySelectorAll('.action-link.exit-link, .action-link.building-link, .action-link.room-nav-link');
+  const exitLinks = tmp.querySelectorAll('.action-link.exit-link, .action-link.building-link, .action-link.room-nav-link, .action-link.door-link');
   const availDirs = new Set();
+  const lockByDir = {}; // direction -> 'locked' | 'owned' (door-links only)
   for (const link of exitLinks) {
-    if (link.dataset.target) availDirs.add(link.dataset.target);
+    if (!link.dataset.target) continue;
+    // door-links carry "door <dir>"; plain exits carry the raw direction
+    const dir = link.dataset.target.replace(/^door /, '');
+    availDirs.add(dir);
+    if (link.dataset.lock) lockByDir[dir] = link.dataset.lock;
   }
 
-  // Light up dpad buttons for available exits
+  // Light up dpad buttons for available exits, tinting locked/owned doors
   for (const btn of document.querySelectorAll('#mob-dpad .dpad-btn[data-cmd], #loc-dpad .dpad-btn[data-cmd]')) {
-    btn.classList.toggle('dpad-available', availDirs.has(_DPAD_DIR[btn.dataset.cmd] || btn.dataset.cmd));
+    const dir = _DPAD_DIR[btn.dataset.cmd] || btn.dataset.cmd;
+    btn.classList.toggle('dpad-available', availDirs.has(dir));
+    btn.classList.toggle('dpad-locked', lockByDir[dir] === 'locked');
+    btn.classList.toggle('dpad-owned', lockByDir[dir] === 'owned');
   }
 }
 

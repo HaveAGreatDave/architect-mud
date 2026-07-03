@@ -768,9 +768,9 @@ function _schedDeleteItem(idx) {
 
 // ── Clear schedule ────────────────────────────────────────────────────────────
 
-function _schedClear() {
+async function _schedClear() {
   if (!_schedItems.length) return;
-  if (!confirm('Remove all items from this schedule?')) return;
+  if (!(await dpConfirm('Remove all items from this schedule?', { danger: true }))) return;
   _schedItems = [];
   _schedMarkDirty();
   _schedRenderTimeline();

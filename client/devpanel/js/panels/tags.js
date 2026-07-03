@@ -139,7 +139,7 @@ function renderTagsPanel(data) {
 
   window.tagDeleteRow = async function(i) {
     const key = window._tagRows[i].key;
-    if (!confirm(`Delete tag "${key}" from the catalog? Existing items with this tag are unaffected.`)) return;
+    if (!(await dpConfirm(`Delete tag "${key}" from the catalog? Existing items with this tag are unaffected.`, { danger: true }))) return;
     delete window._tagCatalog[key];
     const r = await API('/tag-catalog', 'PUT', window._tagCatalog);
     if (r?.error) { toast(r.error, true); return; }
@@ -353,7 +353,7 @@ function renderTagsPanel(data) {
   };
 
   window.superDeleteRow = async function(key) {
-    if (!confirm(`Delete supertag "${key}"? Items already stamped keep their tags but lose the live link.`)) return;
+    if (!(await dpConfirm(`Delete supertag "${key}"? Items already stamped keep their tags but lose the live link.`, { danger: true }))) return;
     const prev = _supers[key];
     delete _supers[key];
     if (!await commitSupers()) { _supers[key] = prev; return; }

@@ -3,12 +3,28 @@ import { allExits, neighborZoneIds, exitTargets } from './exits.js';
 import { findPath, getZonesInRadius } from './pathfinding.js';
 import { enemyAttackPlayer, enemyAttackNpc, enemyAttackEnemy } from './combat.js';
 import { getEnvironmentState } from './environment.js';
+import { gameMsToReal } from './gametime.js';
 import { dispatchAction } from './actions.js';
 import { isNpcScheduledNow, getNpcStudioZone } from './broadcast-bridge.js';
-import { getShopperForNpc, closeShopSession } from './vendor-session.js';
+import { getShopperForNpc, closeShopSession, didBuyThisSession } from './vendor-session.js';
 import { getNpcChitchat } from './npc-personality.js';
 import { OPPOSITE as OPPOSITE_DIR } from './directions.js';
 import { setPosture } from './posture.js';
+
+// Vendor closing-time farewells — picked when the vendor shuts up shop while a
+// player is mid-session. Warm if they bought, needling if they didn't.
+const VENDOR_CLOSE_HAPPY = [
+  `Hope you're happy with your purchase. Come back soon, yeah?`,
+  `Pleasure doing business. Enjoy it while it lasts.`,
+  `Good doing business with you. Don't be a stranger.`,
+  `That's me done for the day. Thanks for the custom.`,
+];
+const VENDOR_CLOSE_WHINE = [
+  `All that browsing and you buy nothing? Get out, I'm closing.`,
+  `Tch. Window shopper. My time's worth more than this.`,
+  `Come in, poke around, buy nothing. Story of my life. We're closed.`,
+  `Not even one credit? Don't let the door hit you.`,
+];
 
 // ── Vendor schedule helpers ──────────────────────────────────────────────────
 
@@ -84,27 +100,36 @@ const DEFAULT_HOME_ACTIVITIES = [
   'taps at a broken light fixture without fixing it.',
 ];
 
-// Returns the ms timestamp to wake up before the next scheduled shift, or null.
+// Returns the real (wall-clock) ms timestamp to wake up before the next scheduled
+// shift, or null. The shift schedule is keyed to GAME day-of-week + game hours —
+// the same clock isVendorWorkTime reads — so the gap is computed in game-minutes
+// and converted to real ms via the game-speed knob. (Previously it walked the real
+// calendar, which desynced from the game clock at any speed ≠ 1×.)
 function getNextShiftWakeMs(entity) {
   const schedule = entity.vendor_schedule;
-  const now = Date.now();
+  const env = getEnvironmentState();
+  const nowMinutes = env.minutes;             // game minute-of-day, 0..1439
+  const todayIdx = env.dayOfWeek % 7;         // ISO 1=Mon…7=Sun → 0=Sun…6=Sat (DAY_KEYS)
+  const WAKE_LEAD_MIN = 60;                    // wake one game-hour before the shift
+  const MIN_GAP_MIN = 2;                       // ignore shifts essentially upon us
+
+  // gap = game-minutes from now until the wake moment; convert to a real deadline.
+  const realDeadline = (gapGameMin) => Date.now() + gameMsToReal(gapGameMin * 60_000);
+
   if (schedule && Object.keys(schedule).length) {
     for (let dayOffset = 0; dayOffset <= 6; dayOffset++) {
-      const checkDate = new Date(now + dayOffset * 86400000);
-      const dayKey = DAY_KEYS[checkDate.getDay()]; // 0=Sun…6=Sat maps to DAY_KEYS
-      const blocks = schedule[dayKey] || [];
+      const blocks = schedule[DAY_KEYS[(todayIdx + dayOffset) % 7]] || [];
       for (const block of blocks) {
-        const shiftStartMs = new Date(checkDate).setHours(block.from ?? 10, 0, 0, 0);
-        const wakeMs = shiftStartMs - 60 * 60 * 1000; // 1 hour before shift
-        if (wakeMs > now + 120000) return wakeMs;
+        const wakeMin = (block.from ?? 10) * 60 - WAKE_LEAD_MIN;
+        const gap = dayOffset * 1440 + wakeMin - nowMinutes;
+        if (gap > MIN_GAP_MIN) return realDeadline(gap);
       }
     }
   }
-  // No vendor schedule — wake at 7am
-  const tomorrow = new Date(now);
-  if (new Date(now).getHours() >= 7) tomorrow.setDate(tomorrow.getDate() + 1);
-  tomorrow.setHours(7, 0, 0, 0);
-  return tomorrow.getTime() > now + 120000 ? tomorrow.getTime() : null;
+  // No vendor schedule — wake at 07:00 game time (today if still ahead, else tomorrow).
+  let gap = 7 * 60 - nowMinutes;
+  if (gap <= MIN_GAP_MIN) gap += 1440;
+  return realDeadline(gap);
 }
 
 // Format a chitchat line the same way as enemy battlecries:
@@ -217,6 +242,10 @@ export function moveEntity(entity, newZoneId, broadcast, query) {
   else if (arriveDir)            arriveMsg = `${entity.name} arrives from the ${arriveDir}.`;
   else                           arriveMsg = `${entity.name} arrives.`;
 
+  // Captured before the shop session is torn down below; used by the shop-close
+  // branch for the vendor's farewell line (happy if they bought, whiny if not).
+  let shopperId = null, shopperBought = false;
+
   if (isEnemy(entity)) {
     world.zones.get(oldZoneId)?.enemies.delete(entity.instanceId);
     entity.zoneId = newZoneId;
@@ -225,8 +254,9 @@ export function moveEntity(entity, newZoneId, broadcast, query) {
     broadcast(oldZoneId, { type: 'zone_event', message: departMsg, refresh: true });
   } else {
     // If a player has this NPC's shop open, close it before the NPC leaves.
-    const shopperId = getShopperForNpc(entity.id);
+    shopperId = getShopperForNpc(entity.id);
     if (shopperId) {
+      shopperBought = didBuyThisSession(shopperId);
       closeShopSession(shopperId);
       broadcast(null, { type: 'dialogue_end', message: `${entity.name} has walked away.` }, null, shopperId);
     }
@@ -278,6 +308,13 @@ export function moveEntity(entity, newZoneId, broadcast, query) {
           broadcast(oldZoneId, { type: 'zone_event', message: `${entity.name} pulls the shop door shut and locks it on the way out.`, refresh: true });
           broadcast(newZoneId, { type: 'zone_event', message: `${entity.name} locks up the shop.`, refresh: true });
           doorHandled = true;
+          // If someone was shopping as the vendor closed up, send them off — warm
+          // if they bought something, sour if they wasted the vendor's time.
+          if (shopperId) {
+            const lines = shopperBought ? VENDOR_CLOSE_HAPPY : VENDOR_CLOSE_WHINE;
+            const line = lines[Math.floor(Math.random() * lines.length)];
+            broadcast(oldZoneId, { type: 'output', message: `<span style="color:var(--yellow)">${entity.name} says, "${line}"</span>` });
+          }
         }
       }
     }

@@ -329,7 +329,7 @@ async function vineJumpTo(kind, id) {
 
   if (!rec) {
     if (!cat.createStub) return toast(`${cat.noun}: "${id}" not found — create it in its panel first.`, true);
-    if (!confirm(`${cat.noun} "${id}" doesn't exist yet. Create a stub and open it?`)) return;
+    if (!(await dpConfirm(`${cat.noun} "${id}" doesn't exist yet. Create a stub and open it?`))) return;
     rec = await cat.createStub(id);
     if (!rec) return;
   }

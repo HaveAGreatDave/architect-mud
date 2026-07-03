@@ -62,7 +62,7 @@ async function saveBlinds(tableId) {
 }
 
 async function clearAllGameTables() {
-  if (!confirm('Clear all players from every poker table? Seated players and bots are cashed out and stood up.')) return;
+  if (!(await dpConfirm('Clear all players from every poker table? Seated players and bots are cashed out and stood up.', { danger: true }))) return;
   const r = await directAPI('/gametable/clear-all', 'POST', {});
   if (r.error) { toast(r.error, true); return; }
   toast(`🃏 Cleared ${r.cleared} occupant(s) from ${r.tables} table(s)`);

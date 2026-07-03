@@ -16,6 +16,7 @@ import { carryCapacity } from './commands/inventory.js';
 import { query, logActivity } from '../models/db.js';
 import { getEnvironmentState, getZoneTemperature, getZoneApparentTemperature, recordLightningKill, getZoneStormIntensity } from './environment.js';
 import { tickDrugDecay, tickDrugs, tickWithdrawal } from './drugs.js';
+import { getTimeScale } from './gametime.js';
 
 // HP restored per sitting tick (every 15 seconds)
 const SIT_REGEN_HP = 5;
@@ -36,7 +37,10 @@ export function startGameLoop(broadcast) {
   schedule('1m', rentCollectionTick);
   schedule('1m', npcWanderTick);
   schedule('30s', () => npcBanterTick({ broadcast: broadcastFn }));
-  schedule('24h', dailyMaintenance);
+  // Once-per-GAME-day housekeeping. Driven by the environment's day-rollover
+  // event (not the real '24h' cadence) so it tracks the game-speed knob — at 3×
+  // it runs every 8 real hours, in lockstep with the calendar advancing.
+  on('environment.dayRollover', dailyMaintenance);
   // A dev-panel clock jump (environment.devSetTime) can put NPCs on or off shift.
   // Force every employed NPC to re-check work now instead of waiting for the next
   // wander tick — otherwise a sleeping NPC would stay asleep until its old
@@ -718,19 +722,34 @@ async function resourceTick() {
       continue;
     }
 
-    player._tickCounter = (player._tickCounter || 0) + 1;
+    // Game-minutes elapsed this real tick, per the game-speed knob (state.timeScale).
+    // A fractional scale (e.g. 1.5×) is carried in _gmAccum so no partial minute is
+    // ever lost between ticks. At 1× this is exactly 1 per tick — unchanged behaviour.
+    const gm = (() => {
+      player._gmAccum = (player._gmAccum || 0) + getTimeScale();
+      const whole = Math.floor(player._gmAccum);
+      player._gmAccum -= whole;
+      return whole;
+    })();
+    player._tickCounter = (player._tickCounter || 0) + gm;
     const messages = [];
     let hpChanged = false;
     // The survival system labels its own kill: whichever hazard last dealt
     // damage this tick is what the deaths catalogue is told killed the player.
     let lethalCause = null;
 
-    if (player._tickCounter % THIRST_DECAY_INTERVAL_MIN === 0 && player.thirst > 0) player.thirst = Math.max(0, player.thirst - 1);
+    // Thirst/hunger drain one point per N GAME-minutes — accumulate the game-minutes
+    // elapsed and drain whole points, so the pacing holds at any speed.
+    player._thirstAccum = (player._thirstAccum || 0) + gm;
+    while (player._thirstAccum >= THIRST_DECAY_INTERVAL_MIN) { player._thirstAccum -= THIRST_DECAY_INTERVAL_MIN; if (player.thirst > 0) player.thirst = Math.max(0, player.thirst - 1); }
     // Appetite suppression (the smoking plugin's `appetiteSuppressedUntil`, ms): while
     // active, hunger simply stops decaying. Plugin owns the field, engine reacts — the
     // posture pattern. No login init needed: undefined > now is false, so decay runs normally.
     const appetiteSuppressed = player.appetiteSuppressedUntil > Date.now();
-    if (player._tickCounter % HUNGER_DECAY_INTERVAL_MIN === 0 && player.hunger > 0 && !appetiteSuppressed) player.hunger = Math.max(0, player.hunger - 1);
+    if (!appetiteSuppressed) {
+      player._hungerAccum = (player._hungerAccum || 0) + gm;
+      while (player._hungerAccum >= HUNGER_DECAY_INTERVAL_MIN) { player._hungerAccum -= HUNGER_DECAY_INTERVAL_MIN; if (player.hunger > 0) player.hunger = Math.max(0, player.hunger - 1); }
+    }
 
     if (player.hunger > 0 && player.hunger <= 20) messages.push('You are very hungry.');
     if (player.thirst > 0 && player.thirst <= 20) messages.push('You are very thirsty.');
@@ -789,23 +808,27 @@ async function resourceTick() {
     const HOT_THRESHOLD = 35;
     const cooling = warmthTemp < COLD_THRESHOLD;
     const heating = heatTemp > HOT_THRESHOLD;
+    // Drift rates are °C per GAME-minute, so multiply by the game-minutes elapsed
+    // this tick (gm) — at 3× the core cools/warms three times as fast per real
+    // minute, keeping thermal exposure proportional to the sped-up day.
     if (cooling) {
       const absDiff = COLD_THRESHOLD - warmthTemp;
       const baseDrift = 0.002 * Math.pow(absDiff, 1.75); // °C per minute
       const wetMult = 1 + (playerWetness / 100);
-      player.body_temp_c = (player.body_temp_c ?? 37.0) - baseDrift * wetMult;
+      player.body_temp_c = (player.body_temp_c ?? 37.0) - baseDrift * wetMult * gm;
     } else if (heating) {
       const absDiff = heatTemp - HOT_THRESHOLD;
       const baseDrift = 0.002 * Math.pow(absDiff, 1.75); // °C per minute
       const wetMult = Math.max(0.70, 1 - playerWetness * 0.003);
-      player.body_temp_c = (player.body_temp_c ?? 37.0) + baseDrift * wetMult;
+      player.body_temp_c = (player.body_temp_c ?? 37.0) + baseDrift * wetMult * gm;
     } else {
       // Comfort band: metabolic thermoregulation pulls core back to 37°C.
       // Exponential relaxation (~0.05/min): a 3°C deficit recovers in ~35 min —
-      // enough to warm up indoors without trivializing cold exposure.
+      // enough to warm up indoors without trivializing cold exposure. Compounded
+      // over gm game-minutes so it tracks the game-speed knob.
       const cur = player.body_temp_c ?? 37.0;
       const diff = 37.0 - cur;
-      player.body_temp_c = Math.abs(diff) < 0.1 ? 37.0 : cur + diff * 0.05;
+      player.body_temp_c = Math.abs(diff) < 0.1 ? 37.0 : cur + diff * (1 - Math.pow(0.95, gm));
     }
 
     // Clamp to survivable range; prevents runaway values on extreme ticks.
@@ -822,7 +845,7 @@ async function resourceTick() {
     // continuous exposure — short spells in the extreme cold/heat don't kill.
     const isDangerous = isFreezing || isOverheating;
     if (isDangerous) {
-      player._dangerousTempTicks = (player._dangerousTempTicks ?? 0) + 1;
+      player._dangerousTempTicks = (player._dangerousTempTicks ?? 0) + gm;
     } else {
       player._dangerousTempTicks = 0;
     }

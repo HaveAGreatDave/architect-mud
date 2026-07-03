@@ -1,0 +1,11 @@
+{
+  "name": "amp",
+  "version": "1.0.0",
+  "description": "AMP cassette economy: insert tapes to unlock personal-music tracks; NPCs trade cassettes for gifts.",
+  "commands": ["insert"],
+  "events": {
+    "emits": ["amp.unlocked"],
+    "consumes": ["npc.gift", "player.login"]
+  },
+  "extensionPoints": ["npcs.flags.gift_trade"]
+}

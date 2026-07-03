@@ -48,3 +48,62 @@ function toast(msg, isError = false) {
   setTimeout(() => el.classList.remove('visible'), 5000);
 }
 
+// ── In-browser confirm/prompt/alert ─────────────────────────────────────────
+// Promise-based, themed replacements for the native browser dialogs. Callers
+// `await` them: dpConfirm → bool, dpPrompt → string|null (null on cancel),
+// dpAlert → void. Only one shows at a time. Enter = OK, Escape/backdrop = cancel.
+function _dpDialog({ title, message, kind, defaultValue, okLabel, danger }) {
+  return new Promise((resolve) => {
+    document.getElementById('dp-dialog')?.remove();
+    const isPrompt = kind === 'prompt';
+    const isAlert  = kind === 'alert';
+    const overlay = document.createElement('div');
+    overlay.id = 'dp-dialog';
+    overlay.className = 'dp-dialog-overlay';
+    overlay.innerHTML = `
+      <div class="dp-dialog-card${danger ? ' danger' : ''}">
+        <div class="dp-dialog-title"></div>
+        <div class="dp-dialog-msg"></div>
+        ${isPrompt ? '<input class="dp-dialog-input" type="text">' : ''}
+        <div class="dp-dialog-actions">
+          ${isAlert ? '' : '<button class="dp-dialog-cancel">Cancel</button>'}
+          <button class="dp-dialog-ok${danger ? ' danger' : ''}"></button>
+        </div>
+      </div>`;
+    overlay.querySelector('.dp-dialog-title').textContent = title;
+    overlay.querySelector('.dp-dialog-msg').textContent = message || '';
+    overlay.querySelector('.dp-dialog-ok').textContent = okLabel || 'OK';
+    document.body.appendChild(overlay);
+
+    const input = overlay.querySelector('.dp-dialog-input');
+    if (input) { input.value = defaultValue != null ? String(defaultValue) : ''; input.focus(); input.select(); }
+    else overlay.querySelector('.dp-dialog-ok').focus();
+
+    const done = (val) => { overlay.remove(); document.removeEventListener('keydown', onKey); resolve(val); };
+    const onOk = () => done(isPrompt ? (input ? input.value : '') : true);
+    const onCancel = () => done(isPrompt ? null : false);
+
+    overlay.querySelector('.dp-dialog-ok').addEventListener('click', onOk);
+    overlay.querySelector('.dp-dialog-cancel')?.addEventListener('click', onCancel);
+    // Backdrop click = cancel (mousedown and click must both land on the overlay).
+    let downSelf = false;
+    overlay.addEventListener('mousedown', (e) => { downSelf = e.target === overlay; });
+    overlay.addEventListener('click', (e) => { if (downSelf && e.target === overlay) onCancel(); });
+    function onKey(e) {
+      if (e.key === 'Escape') { e.preventDefault(); onCancel(); }
+      else if (e.key === 'Enter') { e.preventDefault(); onOk(); }
+    }
+    document.addEventListener('keydown', onKey);
+  });
+}
+
+function dpConfirm(message, opts = {}) {
+  return _dpDialog({ kind: 'confirm', message, title: opts.title || 'Confirm', okLabel: opts.okLabel || 'OK', danger: opts.danger });
+}
+function dpPrompt(message, defaultValue = '', opts = {}) {
+  return _dpDialog({ kind: 'prompt', message, defaultValue, title: opts.title || 'Input', okLabel: opts.okLabel || 'OK' });
+}
+function dpAlert(message, opts = {}) {
+  return _dpDialog({ kind: 'alert', message, title: opts.title || 'Notice', okLabel: opts.okLabel || 'OK' });
+}
+

@@ -22,6 +22,18 @@ import {
 import { fireHook } from "../plugins.js";
 import { isStackable } from "../tags.js";
 import { titleCaseName } from "../text.js";
+import { getLockTagPublic, checkLockAuth } from "./doors.js";
+
+// Emits a `data-lock` attribute the client dpad reads to colour the direction:
+// "owned" (the player controls this lock), "locked" (engaged, not theirs), or
+// nothing (no lock / lock disengaged). Priority: owned > locked.
+async function doorLockAttr(door, player) {
+	const lockTag = getLockTagPublic(door);
+	if (!lockTag) return "";
+	if (player && (await checkLockAuth(lockTag, door, player))) return ' data-lock="owned"';
+	if (door.lock_state === "locked") return ' data-lock="locked"';
+	return "";
+}
 
 const turretCooldowns = new Map();
 
@@ -458,12 +470,7 @@ export async function describeZone(zone, player) {
 					f.object_type === "light"
 						? ` <span class="light-state ${f.light_on ? "light-on" : "light-off"}">(${f.light_on ? "on" : "off"})</span>`
 						: "";
-				let extra = "";
-				if (f.object_type === "toilet") {
-					extra = ` <span class="action-link" data-action="poop" data-target="${f.name}" title="Poop in ${f.name}">[poop]</span>`
-						+ ` <span class="action-link" data-action="pee" data-target="${f.name}" title="Pee in ${f.name}">[pee]</span>`;
-				}
-				return `<span class="action-link furniture-link" data-action="examine" data-target="${f.name}" title="Examine ${f.name}">${titleCaseName(f.name)}</span>${stateTag}${extra}`;
+				return `<span class="action-link furniture-link" data-action="examine" data-target="${f.name}" title="Examine ${f.name}">${titleCaseName(f.name)}</span>${stateTag}`;
 			});
 			desc += `\n<span class="furniture-label">Furniture:</span> ${furnitureLinks.join(", ")}`;
 		}
@@ -541,16 +548,17 @@ export async function describeZone(zone, player) {
 		desc += `\n<span class="corpses-label">Corpses:</span> ${corpseLinks.join(", ")}`;
 	}
 	if (plain.length) {
-		const exitLinks = plain.map((p) => {
+		const exitLinks = await Promise.all(plain.map(async (p) => {
 			const door = getDoorForExit(zone.id, p.direction);
 			if (door && !door.is_open && door.hp > 0) {
 				const dirLabel =
 					p.direction.charAt(0).toUpperCase() + p.direction.slice(1);
 				const doorName = door.name || "Door";
-				return `<span class="dir-tag">[${dirLabel}]</span> <span class="action-link door-link" data-action="open" data-target="door ${p.direction}" title="Open ${doorName}">${doorName}</span>${describeDoorForcefield(door)}`;
+				const lockAttr = await doorLockAttr(door, player);
+				return `<span class="dir-tag">[${dirLabel}]</span> <span class="action-link door-link" data-action="open" data-target="door ${p.direction}"${lockAttr} title="Open ${doorName}">${doorName}</span>${describeDoorForcefield(door)}`;
 			}
 			return destLink(p.direction, p.name, "exit-link");
-		});
+		}));
 		desc += `\n<span class="exits-label">Exits:</span> ${exitLinks.join(", ")}`;
 	}
 	if (buildings.length) {

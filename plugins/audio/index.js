@@ -519,27 +519,53 @@ const SFX_PLOP = {
   ] },
 };
 
-// Pee stream — filtered noise with a soft fade in/out so spaced bursts read as a
-// near-constant stream with gaps rather than hard on/off blips. The surface it
-// hits shapes the splash: bright watery splash into a toilet, harsher spatter on
-// concrete, a duller absorbed hiss into furniture, a muffled patter on a body.
+// Pee stream — a solid, steady stream, NOT a splashy patter. Each burst is broad
+// filtered noise held at near-full sustain with no tremolo flutter, so it reads
+// as one continuous jet; the gaps between the bodily plugin's spaced bursts give
+// the natural "breaks". An occasional trailing drip lands in that break. The
+// surface it hits shapes the tone: watery into a toilet, harsher on concrete, a
+// duller absorbed hiss into furniture, a muffled patter on a body.
 const STREAM_SURFACES = {
-  water:    { main: 2200, high: 3200, hiGain: 0.10, body: 180 }, // toilet
-  concrete: { main: 2600, high: 4200, hiGain: 0.16, body: 140 }, // ground
-  soft:     { main: 1500, high: 2400, hiGain: 0.06, body: 160 }, // furniture
-  body:     { main: 1200, high: 2000, hiGain: 0.05, body: 150 }, // a person
+  water:    { main: 2200, high: 3200, hiGain: 0.08, body: 180 }, // toilet
+  concrete: { main: 2600, high: 4200, hiGain: 0.12, body: 140 }, // ground
+  soft:     { main: 1500, high: 2400, hiGain: 0.05, body: 160 }, // furniture
+  body:     { main: 1200, high: 2000, hiGain: 0.04, body: 150 }, // a person
 };
-function makePeeStream(surface) {
+function makePeeStream(surface, withDrip) {
   const s = STREAM_SURFACES[surface] || STREAM_SURFACES.water;
+  const layers = [
+    // Stream body — broad, low-Q noise held steady (sustain 0.95, no tremolo) so
+    // it's a solid jet, not a spatter.
+    { noiseMix: 1, filter: { type: 'bandpass', freq: s.main, q: 0.55 }, adsr: { a: 0.12, d: 0.1, s: 0.95, r: 0.22 }, gain: 0.27 },
+    // A thin steady edge on top — still no flutter.
+    { noiseMix: 1, filter: { type: 'highpass', freq: s.high, q: 0.5 }, adsr: { a: 0.14, d: 0.1, s: 0.92, r: 0.22 }, gain: s.hiGain },
+    // Low pressure of the stream hitting the surface.
+    { waveform: 'sine', freq: s.body, adsr: { a: 0.12, d: 0.1, s: 0.9, r: 0.22 }, gain: 0.05 },
+  ];
+  if (withDrip) {
+    // A single high droplet in the tail — lands as the stream falters, selling the
+    // "occasional breaks and drips" feel.
+    layers.push(
+      { waveform: 'sine', freq: s.body * 4, pitchBend: { to: s.body * 2, time: 0.12 }, delay: 1.35, adsr: { a: 0.003, d: 0.1, s: 0, r: 0.05 }, gain: 0.13 },
+      { noiseMix: 1, filter: { type: 'bandpass', freq: 1800, q: 1.3 }, delay: 1.36, adsr: { a: 0.003, d: 0.08, s: 0, r: 0.04 }, gain: 0.06 },
+    );
+  }
   return {
     id: 'sfx_pee_stream', name: 'sfx_pee_stream', category: 'sfx', priority: 3,
-    config: { duration: 1.6, layers: [
-      { noiseMix: 1, filter: { type: 'bandpass', freq: s.main, q: 0.9 }, adsr: { a: 0.28, d: 0.2, s: 0.85, r: 0.4 }, gain: 0.26 },
-      { noiseMix: 1, filter: { type: 'highpass', freq: s.high, q: 0.6 }, tremolo: { rate: 9, depth: 0.3 }, adsr: { a: 0.32, d: 0.2, s: 0.6, r: 0.4 }, gain: s.hiGain },
-      { waveform: 'sine', freq: s.body, adsr: { a: 0.3, d: 0.2, s: 0.5, r: 0.4 }, gain: 0.04 },
-    ] },
+    config: { duration: withDrip ? 1.7 : 1.6, layers },
   };
 }
+
+// Toilet flush — the initial water rush swells then drains, a low swirling gurgle
+// pitches down as the bowl empties, and a high tank-refill trickle lingers after.
+const SFX_FLUSH = {
+  id: 'sfx_flush', name: 'sfx_flush', category: 'sfx', priority: 3,
+  config: { duration: 2.6, layers: [
+    { noiseMix: 1, filter: { type: 'bandpass', freq: 1400, q: 0.5 }, adsr: { a: 0.22, d: 0.6, s: 0.6, r: 1.1 }, gain: 0.3 },
+    { waveform: 'sine', freq: 220, pitchBend: { to: 90, time: 1.6 }, tremolo: { rate: 7, depth: 0.6 }, adsr: { a: 0.2, d: 0.4, s: 0.5, r: 0.8 }, gain: 0.12 },
+    { noiseMix: 1, filter: { type: 'highpass', freq: 3200, q: 0.6 }, delay: 1.4, adsr: { a: 0.3, d: 0.3, s: 0.7, r: 0.9 }, gain: 0.05 },
+  ] },
+};
 
 // A fart — a buzzy sawtooth "brap" with a tremolo flutter and a noise splatter,
 // pitch sagging as it goes. `big` makes it longer, lower, LOUDER (the rare poop
@@ -564,12 +590,13 @@ function makeFart(big, seedFreq) {
 }
 
 on('bodily.sfx', ({ zoneId, playerId, cue, surface }) => {
-  // The stream is personal; farts/plops/finale carry to everyone in the room.
+  // The stream is personal; farts/plops/finale/flush carry to everyone in the room.
   if (cue === 'stream') {
-    if (playerId) sendToPlayer(playerId, { type: 'audio_sfx', def: makePeeStream(surface), gain: 0.9 });
+    if (playerId) sendToPlayer(playerId, { type: 'audio_sfx', def: makePeeStream(surface, Math.random() < 0.4), gain: 0.9 });
     return;
   }
   if (!zoneId) return;
+  if (cue === 'flush') { sendToZone(zoneId, { type: 'audio_sfx', def: SFX_FLUSH }); return; }
   const jitter = Math.floor(Math.random() * 26) - 10; // -10..+15 Hz
   let def;
   if (cue === 'fart')        def = makeFart(false, jitter);

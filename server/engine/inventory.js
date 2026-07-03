@@ -42,7 +42,7 @@ export async function dropToGround(row, zoneId, qty) {
     await query('UPDATE player_inventory SET quantity=quantity-$1 WHERE id=$2', [dropQty, row.id]);
     await query('INSERT INTO player_inventory (id,player_id,item_id,quantity,is_equipped) VALUES ($1,$2,$3,$4,0)', [randomUUID(), groundOwner(zoneId), row.item_id, dropQty]);
   } else {
-    await query('UPDATE player_inventory SET player_id=$1, is_equipped=0, slot=NULL, container_id=NULL WHERE id=$2', [groundOwner(zoneId), row.id]);
+    await query('UPDATE player_inventory SET player_id=$1, is_equipped=0, slot=NULL, layer=NULL, container_id=NULL WHERE id=$2', [groundOwner(zoneId), row.id]);
   }
   return dropQty;
 }

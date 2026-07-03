@@ -1,0 +1,10 @@
+{
+  "name": "cannabis",
+  "version": "1.0.0",
+  "description": "Behavioural layer of being stoned: global audio echo, the munchies, the giggles, and bloodshot red eyes on examine. Driven by drug-row flag flags.cannabis.",
+  "hooks": ["player.appearanceNotes"],
+  "commands": [],
+  "events": {
+    "consumes": ["player.drugUsed", "player.death", "player.logout"]
+  }
+}

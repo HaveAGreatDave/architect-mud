@@ -23,5 +23,18 @@ export default async function regress({ run, check, getPlayer }) {
   r = await run('lift');
   check('lift with no bench reports it', /weight bench/i.test(r?.message || ''), r?.message);
 
+  // ── Stamina/exhaustion gates (checked before the bench lookup) ──────────────
+  const savedStatuses = p.statuses, savedStamina = p.stamina;
+
+  p.statuses = [{ name: 'exhausted', duration: 10 }];
+  r = await run('lift');
+  check('lift blocked while exhausted', /wrecked|exhaust/i.test(r?.message || ''), r?.message);
+
+  p.statuses = [];
+  p.stamina = 3;   // below one set's worth — too winded to start
+  r = await run('lift');
+  check('lift blocked when winded', /winded|breath/i.test(r?.message || ''), r?.message);
+
+  p.statuses = savedStatuses; p.stamina = savedStamina;
   p.posture = savedPosture; p.stat_brawn = savedBrawn; p.npcCombatTargetId = savedCombat;
 }

@@ -2991,6 +2991,72 @@ textarea {
 .gear-doll-hands       { grid-column: 2; grid-row: 3; }
 .gear-doll-legs        { grid-column: 2; grid-row: 4; }
 .gear-doll-feet        { grid-column: 2; grid-row: 5; }
+.gds-rating {
+	margin-top: 2px;
+	font-size: 9px;
+	letter-spacing: 1px;
+	color: var(--text-dim);
+	white-space: nowrap;
+}
+
+/* Viewbar checkboxes (Default view / paperdoll Ratings) */
+.gear-check {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	font-size: 9px;
+	text-transform: uppercase;
+	letter-spacing: 1px;
+	color: var(--text-dim);
+	cursor: pointer;
+	user-select: none;
+}
+.gear-check input {
+	accent-color: var(--accent);
+	cursor: pointer;
+	margin: 0;
+}
+/* The Default checkbox anchors to the right; a following control (Ratings) sits
+   left of the layer stepper, which keeps its own margin-left:auto. */
+.gear-view-btn ~ .gear-check:first-of-type {
+	margin-left: auto;
+}
+
+/* Collapsible Armor / Insulation sections below the equipment list */
+.gear-collapse {
+	margin-top: 10px;
+	border-top: 1px solid var(--border);
+}
+.gear-collapse-head {
+	width: 100%;
+	background: transparent;
+	border: none;
+	color: var(--text-dim);
+	font-family: var(--font-mono);
+	font-size: 9px;
+	text-transform: uppercase;
+	letter-spacing: 2px;
+	text-align: left;
+	padding: 8px 0 6px;
+	cursor: pointer;
+}
+.gear-collapse-head:hover {
+	color: var(--accent);
+}
+.gcl-caret {
+	display: inline-block;
+	transition: transform 0.12s ease;
+	transform: rotate(90deg);
+}
+.gear-collapse.collapsed .gcl-caret {
+	transform: rotate(0deg);
+}
+.gear-collapse.collapsed .gear-collapse-body {
+	display: none;
+}
+.gear-fx-empty {
+	color: var(--text-dim);
+}
 
 /* Drop-to-equip highlight (grid cells + paperdoll chips) */
 .gear-drop-ok {
@@ -4919,6 +4985,20 @@ textarea {
 	background: var(--accent-dim);
 }
 
+/* Locked exit we can't pass — red. Overrides plain available. */
+.dpad-btn.dpad-locked {
+	border-color: var(--red);
+	color: var(--red);
+	background: color-mix(in srgb, var(--red) 18%, transparent);
+}
+
+/* Locked exit whose lock we control — green. Highest priority. */
+.dpad-btn.dpad-owned {
+	border-color: var(--green);
+	color: var(--green);
+	background: color-mix(in srgb, var(--green) 18%, transparent);
+}
+
 .dpad-blank {
 	background: transparent;
 	border-color: transparent;
@@ -6246,7 +6326,15 @@ textarea {
 	align-items: center;
 	justify-content: center;
 	z-index: 2;
-	box-shadow: inset 0 0 12px rgba(0,0,0,0.7), 0 0 8px rgba(180, 110, 20, 0.12);
+	/* Chunky, thick-shell read: a top bevel highlight + deep bottom inner shade,
+	   plus an outer drop shadow so the cassette floats above the deck floor and
+	   reads as a solid 3D block rather than a flat sticker. */
+	box-shadow:
+		inset 0 2px 0 rgba(255, 210, 150, 0.10),
+		inset 0 -3px 5px rgba(0,0,0,0.6),
+		inset 0 0 12px rgba(0,0,0,0.7),
+		0 5px 7px rgba(0,0,0,0.55),
+		0 0 8px rgba(180, 110, 20, 0.14);
 	opacity: 0;
 	pointer-events: none;
 	transition: opacity 0.22s ease-out;
@@ -6256,24 +6344,29 @@ textarea {
 	pointer-events: auto;
 }
 /* Cassette drop-in / pop-out choreography (see .inserting / .ejecting below) */
+/* The tape tips forward (top toward viewer) as it comes down, then flattens as it
+   slides home behind the glass — hinging on its bottom edge for the 3D lean. */
 @keyframes mediadeck-cassette-drop {
-	0%   { opacity: 0; transform: translateY(-150%); }
+	0%   { opacity: 0; transform: translateY(-150%) rotateX(-34deg); }
 	12%  { opacity: 1; }
-	72%  { transform: translateY(7%); }
-	88%  { transform: translateY(-2%); }
-	100% { opacity: 1; transform: translateY(0); }
+	58%  { transform: translateY(-6%) rotateX(-30deg); }
+	76%  { transform: translateY(7%) rotateX(-7deg); }
+	90%  { transform: translateY(-2%) rotateX(0deg); }
+	100% { opacity: 1; transform: translateY(0) rotateX(0deg); }
 }
 @keyframes mediadeck-cassette-rise {
-	0%   { opacity: 1; transform: translateY(0); }
-	20%  { transform: translateY(6%); }
-	100% { opacity: 0; transform: translateY(-150%); }
+	0%   { opacity: 1; transform: translateY(0) rotateX(0deg); }
+	25%  { transform: translateY(6%) rotateX(-10deg); }
+	100% { opacity: 0; transform: translateY(-150%) rotateX(-34deg); }
 }
 #mediadeck-slot.inserting .mediadeck-cassette-body {
 	opacity: 1;
+	transform-origin: center bottom;
 	animation: mediadeck-cassette-drop 0.8s cubic-bezier(.34,1.3,.5,1) both;
 }
 #mediadeck-slot.ejecting .mediadeck-cassette-body {
 	opacity: 1;
+	transform-origin: center bottom;
 	animation: mediadeck-cassette-rise 0.6s cubic-bezier(.5,-0.2,.7,0.5) both;
 }
 #mediadeck-slot.inserting .mediadeck-empty-hint,
@@ -6337,8 +6430,14 @@ textarea {
 .mediadeck-tape-guide,
 .mediadeck-tape-head { opacity: 0.4; }
 #mediadeck-slot.loaded .mediadeck-reel { opacity: 1; }
+/* Locked in: the capstan/guides rise up proud out of their recessed sockets,
+   top-lit, as the tape seats; eject reverses it. */
 #mediadeck-slot.loaded .mediadeck-tape-guide,
-#mediadeck-slot.loaded .mediadeck-tape-head { opacity: 1; }
+#mediadeck-slot.loaded .mediadeck-tape-head {
+	opacity: 1;
+	transform: translateY(0) scaleY(1);
+	box-shadow: 0 1px 2px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.2), 0 0 5px rgba(0, 240, 255, 0.25);
+}
 .mediadeck-cassette-label-strip {
 	/* Pinned to the lower face of the shell so it clears the centred reels/head
 	   and rides with the drop-in animation. */
@@ -6431,7 +6530,12 @@ textarea {
    so the guides/head read as slotting down into holes in the tape rather than
    floating on top of the shell. Positioned per-element so they self-align. */
 .mediadeck-tape-guide,
-.mediadeck-tape-head { position: relative; }
+.mediadeck-tape-head {
+	position: relative;
+	/* Recessed by default: sunk down into their sockets until a tape lifts them. */
+	transform: translateY(2px) scaleY(0.8);
+	transition: opacity 0.3s, transform 0.4s ease, box-shadow 0.4s ease;
+}
 .mediadeck-tape-guide::before,
 .mediadeck-tape-head::before {
 	content: '';
@@ -7149,7 +7253,13 @@ textarea {
 	   two spool-window holes are punched through it (below) so the fixed reel
 	   plugs show through, and slide into alignment as the tape drops in. */
 	z-index: 3;
-	box-shadow: inset 0 0 12px rgba(0,0,0,0.6);
+	/* Chunky, thick-shell read: a top bevel highlight + a deep bottom inner shade
+	   give the graphite shell real depth so it reads as a solid 3D block, not a
+	   flat panel. (Outer drop-shadow is omitted here — the mask below would clip it.) */
+	box-shadow:
+		inset 0 2px 0 rgba(255,255,255,0.10),
+		inset 0 -3px 5px rgba(0,0,0,0.55),
+		inset 0 0 12px rgba(0,0,0,0.6);
 	/* Reel-hub holes: transparent circles centred 40px in from each shell edge —
 	   exactly over the two deck reels — so the spinning plugs show through. The
 	   holes ride with the shell, so they line up onto the plugs during the drop.
@@ -7175,24 +7285,29 @@ textarea {
 	pointer-events: auto;
 }
 /* Cassette drop-in / pop-out choreography (see .inserting / .ejecting below) */
+/* The tape tips forward (top toward viewer) as it comes down, then flattens as it
+   slides home behind the glass — hinging on its bottom edge for the 3D lean. */
 @keyframes amp-cassette-drop {
-	0%   { opacity: 0; transform: translateY(-150%); }
+	0%   { opacity: 0; transform: translateY(-150%) rotateX(-34deg); }
 	12%  { opacity: 1; }
-	72%  { transform: translateY(7%); }
-	88%  { transform: translateY(-2%); }
-	100% { opacity: 1; transform: translateY(0); }
+	58%  { transform: translateY(-6%) rotateX(-30deg); }
+	76%  { transform: translateY(7%) rotateX(-7deg); }
+	90%  { transform: translateY(-2%) rotateX(0deg); }
+	100% { opacity: 1; transform: translateY(0) rotateX(0deg); }
 }
 @keyframes amp-cassette-rise {
-	0%   { opacity: 1; transform: translateY(0); }
-	20%  { transform: translateY(6%); }
-	100% { opacity: 0; transform: translateY(-150%); }
+	0%   { opacity: 1; transform: translateY(0) rotateX(0deg); }
+	25%  { transform: translateY(6%) rotateX(-10deg); }
+	100% { opacity: 0; transform: translateY(-150%) rotateX(-34deg); }
 }
 .amp-cassette-window.inserting .amp-cassette-body {
 	opacity: 1;
+	transform-origin: center bottom;
 	animation: amp-cassette-drop 1.05s cubic-bezier(.34,1.3,.5,1) both;
 }
 .amp-cassette-window.ejecting .amp-cassette-body {
 	opacity: 1;
+	transform-origin: center bottom;
 	animation: amp-cassette-rise 0.64s cubic-bezier(.5,-0.2,.7,0.5) both;
 }
 .amp-cassette-window.inserting .amp-empty-hint,
@@ -7257,10 +7372,14 @@ textarea {
 .amp-cassette-body.loaded ~ .amp-reel { opacity: 1; }
 .amp-cassette-body.loaded ~ .amp-tape-center .amp-tape-guide,
 .amp-cassette-body.loaded ~ .amp-tape-center .amp-tape-head { opacity: 1; }
-/* Locked in: the capstan/guides come up from background to their metallic colour. */
+/* Locked in: the capstan/guides rise up out of their recessed sockets — from the
+   sunken background state to a proud, metallic, top-lit pin — as the tape seats;
+   eject reverses it. */
 .amp-cassette-body.loaded ~ .amp-tape-center .amp-tape-guide,
 .amp-cassette-body.loaded ~ .amp-tape-center .amp-tape-head {
 	background: linear-gradient(to bottom, var(--text-dim), var(--bg3));
+	transform: translateY(0) scaleY(1);
+	box-shadow: 0 1px 2px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.22);
 }
 .amp-cassette-label-strip {
 	/* Stuck-on paper label, off-white with dark hand-labelled text — its own
@@ -7374,7 +7493,13 @@ textarea {
    guides/head read as slotting into holes in the tape. Self-aligning per
    element (see the matching mediadeck sockets). */
 .amp-tape-guide,
-.amp-tape-head { position: relative; }
+.amp-tape-head {
+	position: relative;
+	/* Recessed by default: the capstan/guides sit sunk down into their sockets
+	   (dropped + foreshortened) until a tape locks in and lifts them proud. */
+	transform: translateY(2px) scaleY(0.8);
+	transition: opacity 0.3s, background 0.4s ease, transform 0.4s ease, box-shadow 0.4s ease;
+}
 .amp-tape-guide::before,
 .amp-tape-head::before {
 	content: '';
@@ -8438,6 +8563,26 @@ body.esp-active #output {
 }
 .confirm-actions button:hover { border-color: var(--accent); }
 
+/* High-stakes confirm (sign-out warning) — danger banners top and bottom */
+.confirm-danger { border-color: var(--red); box-shadow: 0 4px 32px rgba(255, 40, 40, 0.35); }
+.confirm-danger .confirm-title { color: var(--red); }
+.confirm-danger-banner {
+	background: var(--red);
+	color: #000;
+	font-weight: bold;
+	text-align: center;
+	letter-spacing: 6px;
+	font-size: 12px;
+	padding: 5px 0;
+	text-transform: uppercase;
+}
+.confirm-danger .confirm-actions .confirm-ok-danger {
+	background: var(--red);
+	border-color: var(--red);
+	color: #000;
+	font-weight: bold;
+}
+
 /* Arrest booking record popup (arrest_notice) — reuses the confirm-window frame */
 .arrest-window { width: 440px; }
 .arrest-banner {
@@ -8610,8 +8755,8 @@ body.tripping #output {
 
 /* Wanted-level readout panel */
 .cpanel-wanted { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 2px 0; }
-.cpanel-wanted-stars { font-size: 32px; letter-spacing: 1px; line-height: 1; white-space: nowrap; color: var(--red); text-shadow: 0 0 6px var(--red); }
-.cpanel-wanted-empty { color: var(--text-dim); text-shadow: none; }
+.cpanel-wanted-stars { font-size: 32px; letter-spacing: 1px; line-height: 1; white-space: nowrap; color: var(--accent); text-shadow: 0 0 6px var(--accent); }
+.cpanel-wanted-empty { color: var(--accent-dim); text-shadow: none; }
 .cpanel-wanted-clean .cpanel-wanted-stars { color: var(--text-dim); text-shadow: none; }
 .cpanel-wanted-note { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
 

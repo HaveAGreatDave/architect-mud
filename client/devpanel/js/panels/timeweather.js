@@ -8,7 +8,12 @@ function windLabel(kph) {
   return 'Gale';
 }
 
+// Game-speed control is gated behind a deliberate unlock (below) so the world
+// clock can't be re-rated by a stray click. Re-locks on every panel render.
+let _gameSpeedUnlocked = false;
+
 function renderTimeWeatherPanel(data) {
+  _gameSpeedUnlocked = false;
   const panel = document.getElementById('list-panel');
   const env = data?.env || {};
   const forecast = data?.forecast || [];
@@ -54,6 +59,7 @@ function renderTimeWeatherPanel(data) {
           <div><div style="color:var(--text-dim);font-size:10px;margin-bottom:2px">HUMIDITY</div><div style="color:var(--text)">${env.humidityPct!=null?'💧 '+env.humidityPct+'%':'—'}</div></div>
           <div><div style="color:var(--text-dim);font-size:10px;margin-bottom:2px">INTENSITY</div><div style="color:var(--text)">${env.currentIntensity||'—'}</div></div>
           <div><div style="color:var(--text-dim);font-size:10px;margin-bottom:2px">STATUS</div><div style="color:${env.frozen?'var(--red)':'var(--accent2)'}">${env.frozen?'⏸ Frozen':'▶ Running'}</div></div>
+          <div><div style="color:var(--text-dim);font-size:10px;margin-bottom:2px">SPEED</div><div style="color:var(--text)">${(env.timeScale||1)}× <span style="color:var(--text-dim);font-size:11px">· 24h day = ${(24/(env.timeScale||1)).toFixed(1)}h real</span></div></div>
         </div>
       </div>
 
@@ -97,6 +103,31 @@ function renderTimeWeatherPanel(data) {
           <button class="action-btn" onclick="devForceTick('force5')" title="Run 5-minute power tick">5 min</button>
           <button class="action-btn" onclick="devForceTick('force30')" title="Run 30-minute time/weather tick">30 min</button>
           <button class="action-btn" onclick="devForceTick('force24')" title="Run 24-hour daily tick">24 hr</button>
+        </div>
+      </div>
+
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:20px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:8px;flex-wrap:wrap">
+          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim)">Game Speed</div>
+          <span id="tw-scale-lockbadge" style="font-size:11px;color:var(--red)">🔒 Locked</span>
+        </div>
+        <div style="font-size:11px;color:var(--text-dim);margin-bottom:16px">Game minutes per real minute. Higher = shorter real day. Scales the whole world — day/night, calendar, weather, NPC schedules, survival, jail, drugs. Applies live with no clock jump. (Rent stays on a real-world weekly cycle by design.)</div>
+
+        <div id="tw-scale-locked" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+          <button class="action-btn danger" onclick="devUnlockGameSpeed()">🔓 Unlock Speed Control</button>
+          <span style="font-size:11px;color:var(--text-dim)">Changing the time scale re-rates the entire world clock. Unlock to proceed.</span>
+        </div>
+
+        <div id="tw-scale-controls" style="display:none;gap:10px;align-items:flex-end;flex-wrap:wrap">
+          <label style="font-size:12px;color:var(--text-dim)">Multiplier (×)<br>
+            <input id="tw-scale" type="number" min="0.1" max="60" step="0.5" value="${env.timeScale||1}" style="margin-top:4px;width:90px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:5px 8px;border-radius:2px">
+          </label>
+          <button class="action-btn" onclick="devApplyGameSpeed()">Apply</button>
+          <span style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-left:4px">Presets:</span>
+          <button class="action-btn" onclick="devApplyGameSpeed(1)" title="24h day = 24h real">1×</button>
+          <button class="action-btn" onclick="devApplyGameSpeed(2)" title="24h day = 12h real">2×</button>
+          <button class="action-btn" onclick="devApplyGameSpeed(3)" title="24h day = 8h real">3×</button>
+          <button class="action-btn" onclick="devApplyGameSpeed(6)" title="24h day = 4h real">6×</button>
         </div>
       </div>
 
@@ -374,6 +405,29 @@ async function devToggleFreeze() {
   loadPanel('timeweather');
 }
 
+async function devUnlockGameSpeed() {
+  const ok = await dpConfirm(
+    'Changing the game speed re-rates the entire world clock: day/night, calendar, weather, NPC schedules, and every in-world timer (survival, jail, drugs, grudges) will run faster or slower from this point on. In-flight timers set before the change keep their original length. Proceed to unlock the control?',
+    { title: '⚠ Unlock Game Speed', okLabel: 'Unlock', danger: true }
+  );
+  if (!ok) return;
+  _gameSpeedUnlocked = true;
+  document.getElementById('tw-scale-locked').style.display = 'none';
+  document.getElementById('tw-scale-controls').style.display = 'flex';
+  const badge = document.getElementById('tw-scale-lockbadge');
+  if (badge) { badge.textContent = '🔓 Unlocked'; badge.style.color = 'var(--accent2)'; }
+}
+
+async function devApplyGameSpeed(preset) {
+  if (!_gameSpeedUnlocked) { toast('Unlock the speed control first', true); return; }
+  const scale = (preset != null) ? preset : Number(document.getElementById('tw-scale')?.value);
+  if (!Number.isFinite(scale) || scale <= 0) { toast('Enter a positive multiplier', true); return; }
+  const r = await API('/environment/time/scale','POST',{scale});
+  if (r.error) { toast(r.error,true); return; }
+  toast(`Game speed set to ${scale}× — a 24h day now takes ${(24/scale).toFixed(1)}h real`);
+  loadPanel('timeweather');
+}
+
 function startPanelClock() {
   if (_panelClockTimeout)  { clearTimeout(_panelClockTimeout);   _panelClockTimeout  = null; }
   if (_panelClockInterval) { clearInterval(_panelClockInterval); _panelClockInterval = null; }
@@ -546,7 +600,7 @@ async function devDeleteClimateProfile() {
   const id = sel?.value;
   if (!id || id.startsWith('__')) { toast('Select a saved profile to delete', true); return; }
   const name = window._twClimateProfiles?.find(p => p.id === id)?.name || id;
-  if (!confirm(`Delete climate profile "${name}"?`)) return;
+  if (!(await dpConfirm(`Delete climate profile "${name}"?`, { danger: true }))) return;
   const r = await API(`/environment/climate/profiles/${encodeURIComponent(id)}`, 'DELETE');
   if (r.error) { toast(r.error, true); return; }
   toast(`Profile "${name}" deleted`);

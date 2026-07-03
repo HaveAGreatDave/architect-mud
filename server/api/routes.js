@@ -16,7 +16,8 @@ import { sendPasswordResetEmail, sendVerificationEmail } from '../mailer.js';
 import { isEmailVerificationEnabled, setEmailVerificationEnabled } from '../engine/emailVerification.js';
 import { randomAppearance } from '../engine/appearance.js';
 import { DEFAULT_CHITCHAT_LINES, isVendorWorkTime } from '../engine/ai-behaviour.js';
-import { npcTypeForPersonality, listPersonalityMeta } from '../engine/npc-personality.js';
+import { npcTypeForPersonality, listPersonalityMeta, pickClothingForPersonality } from '../engine/npc-personality.js';
+import { decideSex } from '../engine/npc-sex.js';
 import { loadBanterLibrary } from '../engine/npc-banter.js';
 import { OPPOSITE } from '../engine/directions.js';
 
@@ -1302,12 +1303,23 @@ export async function apiCreateNpc(body) {
       ? DEFAULT_VENDOR_SCHEDULE : (body.vendor_schedule || {});
     const homeActivities = Array.isArray(body.home_activities) ? body.home_activities : [];
     const banter = Array.isArray(body.banter) ? body.banter : [];
-    await query(`INSERT INTO npcs (id,name,description,zone_id,home_zone,faction,dialogue_tree,vendor_inventory,wanders,wander_zones,flags,behaviour_graph,chitchat,studio_zone_id,work_zone_id,hp,hp_max,npc_type,vendor_schedule,vendor_shop_name,home_activities,banter) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)`,
-      [id,body.name,body.description,body.zone_id||null,homeZone,body.faction||null,JSON.stringify(body.dialogue_tree||{}),JSON.stringify(body.vendor_inventory||[]),body.wanders?1:0,JSON.stringify(body.wander_zones||[]),JSON.stringify(body.flags||{}),JSON.stringify(rawGraph),JSON.stringify(chitchat),body.studio_zone_id||null,body.work_zone_id||null,hpMax,hpMax,npcType,JSON.stringify(vendorSchedule),body.vendor_shop_name||null,JSON.stringify(homeActivities),JSON.stringify(banter)]);
+    // Decide the NPC's sex once (caller value → inferred from the description →
+    // coin flip) and persist it, so clothing, pronouns and the naked-look lines
+    // all agree. The dev-panel editor doesn't send sex, so this is where it's set.
+    const sex = decideSex(body.sex, body.name, body.description, id);
+    // Give the NPC a sex-appropriate outfit unless the caller authored one
+    // (e.g. strippers set their own clothing_layers). Descriptive text only.
+    const flags = body.flags || {};
+    if (flags.personality && !Array.isArray(flags.clothing_layers)) {
+      const outfit = pickClothingForPersonality(flags.personality, sex);
+      if (outfit) flags.clothing_layers = outfit;
+    }
+    await query(`INSERT INTO npcs (id,name,description,zone_id,home_zone,faction,dialogue_tree,vendor_inventory,wanders,wander_zones,flags,behaviour_graph,chitchat,studio_zone_id,work_zone_id,hp,hp_max,npc_type,vendor_schedule,vendor_shop_name,home_activities,banter,sex) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)`,
+      [id,body.name,body.description,body.zone_id||null,homeZone,body.faction||null,JSON.stringify(body.dialogue_tree||{}),JSON.stringify(body.vendor_inventory||[]),body.wanders?1:0,JSON.stringify(body.wander_zones||[]),JSON.stringify(flags),JSON.stringify(rawGraph),JSON.stringify(chitchat),body.studio_zone_id||null,body.work_zone_id||null,hpMax,hpMax,npcType,JSON.stringify(vendorSchedule),body.vendor_shop_name||null,JSON.stringify(homeActivities),JSON.stringify(banter),sex]);
     // Register in world memory so the NPC is immediately visible
     const { world: w } = await import('../engine/world.js');
     const { initBlackboard } = await import('../engine/ai-behaviour.js');
-    w.npcs.set(id, { id, name:body.name, description:body.description, zone_id:body.zone_id||null, home_zone:homeZone, faction:body.faction||null, dialogue_tree:body.dialogue_tree||{}, vendor_inventory:body.vendor_inventory||[], wanders:body.wanders?1:0, wander_zones:body.wander_zones||[], flags:body.flags||{}, behaviour_graph:rawGraph, chitchat, studio_zone_id:body.studio_zone_id||null, work_zone_id:body.work_zone_id||null, hp:hpMax, hp_max:hpMax, npc_type:npcType, vendor_schedule:vendorSchedule, vendor_bank_credits:0, vendor_shop_name:body.vendor_shop_name||null, home_activities:homeActivities, banter, _ai:initBlackboard() });
+    w.npcs.set(id, { id, name:body.name, description:body.description, sex, zone_id:body.zone_id||null, home_zone:homeZone, faction:body.faction||null, dialogue_tree:body.dialogue_tree||{}, vendor_inventory:body.vendor_inventory||[], wanders:body.wanders?1:0, wander_zones:body.wander_zones||[], flags, behaviour_graph:rawGraph, chitchat, studio_zone_id:body.studio_zone_id||null, work_zone_id:body.work_zone_id||null, hp:hpMax, hp_max:hpMax, npc_type:npcType, vendor_schedule:vendorSchedule, vendor_bank_credits:0, vendor_shop_name:body.vendor_shop_name||null, home_activities:homeActivities, banter, _ai:initBlackboard() });
     if (body.zone_id) w.zones.get(body.zone_id)?.npcs.add(id);
     if (npcType === 'vendor' && body.work_zone_id) {
       const npcForBoard = { name: body.name, vendor_schedule: vendorSchedule, vendor_shop_name: body.vendor_shop_name||null };

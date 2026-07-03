@@ -271,6 +271,7 @@ async function _initActivityLog() {
     if (row.event_type === 'pvp_kill')     return `[${ts}] ☠ ${row.handle} killed ${row.detail || '???'}`;
     if (row.event_type === 'char_created') return `[${ts}] ✦ ${row.handle} created`;
     if (row.event_type === 'admin_cmd')    return `[${ts}] [ADMIN] ${row.handle}: ${row.detail || ''}`;
+    if (row.event_type === 'timescale')    return `[${ts}] ⏱ [ADMIN] ${row.handle} ${row.detail || 'changed game speed'}`;
     return `[${ts}] ${row.event_type}: ${row.handle}`;
   });
   box.value = lines.join('\n');

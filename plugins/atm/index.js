@@ -4,6 +4,7 @@ import { transferCredits } from '../../server/engine/economy.js';
 import { awardSkillUse, effectiveSkill } from '../../server/engine/skills.js';
 import { getPowerMap } from '../../server/engine/environment.js';
 import { emit } from '../../server/engine/events.js';
+import { gameMsToReal } from '../../server/engine/gametime.js';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -409,7 +410,9 @@ async function replenishTick() {
      FROM atm_units WHERE cash_stock < cash_max AND is_broken = 0`
   );
   for (const atm of rows) {
-    const intervalSec = (atm.replenish_interval_hours || 6) * 3600;
+    // Authored in game-hours — convert to the real seconds to actually wait via
+    // the game-speed knob so refills track the sped-up day.
+    const intervalSec = gameMsToReal((atm.replenish_interval_hours || 6) * 3600 * 1000) / 1000;
     if (nowSec - (atm.last_replenish || 0) >= intervalSec) {
       await query(
         'UPDATE atm_units SET cash_stock=cash_max, last_replenish=$1 WHERE id=$2',

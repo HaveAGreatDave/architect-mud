@@ -23,7 +23,7 @@ async function submitAddRoom(zoneId, isBuilding) {
   await refreshZoneEditPanel(zoneId);
 }
 async function deleteRoomQuick(roomId, parentZoneId) {
-  if (!confirm(`Delete this room? This cannot be undone.`)) return;
+  if (!(await dpConfirm(`Delete this room? This cannot be undone.`, { danger: true }))) return;
   const result = await API(`/zones/${roomId}`, 'DELETE');
   if (result?.error) { toast(result.error, true); return; }
   toast(result.message || 'Room deleted');
@@ -123,7 +123,7 @@ async function submitEditNpcQuick(npcId) {
   await refreshZoneEditPanel(npc.zone_id);
 }
 async function deleteNpcQuick(npcId, zoneId) {
-  if (!confirm('Delete this NPC?')) return;
+  if (!(await dpConfirm('Delete this NPC?', { danger: true }))) return;
   const result = await API(`/npcs/${npcId}`, 'DELETE');
   if (result?.error) { toast(result.error, true); return; }
   toast(result.message || 'NPC deleted');
@@ -342,7 +342,7 @@ async function saveDoorEdit(doorId, zoneId) {
 }
 
 async function deleteDoorQuick(doorId, zoneId) {
-  if (!confirm('Remove this door?')) return;
+  if (!(await dpConfirm('Remove this door?', { danger: true }))) return;
   const result = await API(`/doors/${doorId}`, 'DELETE');
   if (result?.error) { toast(result.error, true); return; }
   toast('Door removed');
@@ -439,7 +439,7 @@ async function submitEditFurnitureQuick(itemId) {
   await refreshZoneEditPanel(item.zone_id);
 }
 async function deleteFurnitureQuick(furnitureId, zoneId) {
-  if (!confirm('Delete this furniture?')) return;
+  if (!(await dpConfirm('Delete this furniture?', { danger: true }))) return;
   const result = await API(`/furniture/${furnitureId}`, 'DELETE');
   if (result?.error) { toast(result.error, true); return; }
   toast(result.message || 'Furniture deleted');
@@ -489,7 +489,7 @@ async function zoneWindowsRefresh(zoneId) {
 }
 
 async function zoneWindowDelete(id, name, zoneId) {
-  if (!confirm(`Stage window "${name}" for deletion? Publish to apply.`)) return;
+  if (!(await dpConfirm(`Stage window "${name}" for deletion? Publish to apply.`, { danger: true }))) return;
   const r = await API('/staging/stage', 'POST', {
     entityType: 'window', entityId: id, entityName: name,
     changeType: 'delete', method: 'DELETE', apiPath: `/windows/${id}`,

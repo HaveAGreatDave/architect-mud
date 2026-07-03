@@ -32,7 +32,7 @@ async function npcHouseUnhoused(btn) {
 async function deleteNpcRow(id) {
   const rec = allRecords.find(r => r.id === id);
   if (!rec || rec._stagingStatus === 'pending delete') return;
-  if (!confirm(`Delete ${rec.name || id}?`)) return;
+  if (!(await dpConfirm(`Delete ${rec.name || id}?`, { danger: true }))) return;
   const prev = currentRecord;
   currentRecord = rec;
   const result = await API(`/npcs/${id}`, 'DELETE');
@@ -475,9 +475,9 @@ function veRemoveSelected() {
   veRenderBuckets();
 }
 
-function veRemoveAll() {
+async function veRemoveAll() {
   if (!_ve.catalogue.length) return;
-  if (!confirm('Remove all items from this vendor\'s catalogue?')) return;
+  if (!(await dpConfirm('Remove all items from this vendor\'s catalogue?', { danger: true }))) return;
   _ve.catalogue = []; _ve.rightSel.clear();
   veRenderBuckets();
 }

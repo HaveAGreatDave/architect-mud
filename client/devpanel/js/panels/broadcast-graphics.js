@@ -476,8 +476,8 @@ function _grResize() {
   _grRedraw();
 }
 
-function _grClear() {
-  if (!confirm('Clear the canvas?')) return;
+async function _grClear() {
+  if (!(await dpConfirm('Clear the canvas?', { danger: true }))) return;
   _ce.cells  = Array.from({ length: _ce.rows }, () => Array(_ce.cols).fill(' '));
   _ce.colors = Array.from({ length: _ce.rows }, () => Array(_ce.cols).fill(null));
   _grRedraw();
@@ -648,7 +648,7 @@ async function saveGraphic() {
 }
 
 async function deleteGraphic(id, name) {
-  if (!confirm(`Delete graphic "${name}"?`)) return;
+  if (!(await dpConfirm(`Delete graphic "${name}"?`, { danger: true }))) return;
   try {
     await directAPI(`/broadcast/graphics/${id}`, 'DELETE');
     toast('Graphic deleted.');
@@ -805,8 +805,8 @@ function _svInit(content) {
   _svRefreshList();
 }
 
-function _svClearAll() {
-  if (!confirm('Clear all shapes?')) return;
+async function _svClearAll() {
+  if (!(await dpConfirm('Clear all shapes?', { danger: true }))) return;
   _sv.shapes = []; _sv.selectedId = null;
   _svRender(); _svRefreshProps(); _svRefreshList();
 }
@@ -983,7 +983,7 @@ function _svZoomFit() {
 
 // ── Mouse down handlers ───────────────────────────────────────────────────────
 
-function _svOnCanvasDown(e) {
+async function _svOnCanvasDown(e) {
   if (e.target.classList.contains('sv-handle')) return;
   if (e.target.classList.contains('sv-shape') && _sv.tool === 'select') return;
 
@@ -991,7 +991,7 @@ function _svOnCanvasDown(e) {
   const pt = _svPt(e);
 
   if (_sv.tool === 'text') {
-    const text = prompt('Enter text:');
+    const text = await dpPrompt('Enter text:');
     if (!text) return;
     const s = { id: _svId(), type: 'text', x: pt.x, y: pt.y, text, ..._SV_DEFAULTS.text };
     _sv.shapes.push(s); _sv.selectedId = s.id;

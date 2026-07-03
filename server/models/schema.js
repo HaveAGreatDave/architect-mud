@@ -619,6 +619,7 @@ export const SCHEMA_SQL = `
   ALTER TABLE world_clock ADD COLUMN IF NOT EXISTS weather_override_active BOOLEAN NOT NULL DEFAULT FALSE;
   ALTER TABLE world_clock ADD COLUMN IF NOT EXISTS weather_override_backup JSONB;
   ALTER TABLE world_clock ADD COLUMN IF NOT EXISTS lightning_kills JSONB NOT NULL DEFAULT '[]';
+  ALTER TABLE world_clock ADD COLUMN IF NOT EXISTS time_scale REAL NOT NULL DEFAULT 1;
 
   CREATE TABLE IF NOT EXISTS climate_profiles (
     id TEXT PRIMARY KEY,

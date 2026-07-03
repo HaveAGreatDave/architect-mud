@@ -16,7 +16,6 @@
 //     if (envResult) return envResult;
 
 import * as env from '../engine/environment.js';
-import { dailyMaintenance } from '../engine/gameLoop.js';
 
 const DEV_ROLES = ['dev', 'admin', 'builder', 'designer'];
 
@@ -86,6 +85,7 @@ export async function handleEnvironmentApi(path, method, body, auth) {
       if (path === '/environment/time/set') return { status: 200, body: await env.devSetTime(body || {}) };
       if (path === '/environment/time/advance') return { status: 200, body: await env.devAdvanceTime(body?.minutes) };
       if (path === '/environment/time/freeze') return { status: 200, body: env.devFreeze(body?.frozen ? 1 : 0) };
+      if (path === '/environment/time/scale') return { status: 200, body: await env.devSetTimeScale(Number(body?.scale), auth) };
       if (path === '/environment/climate/profiles' && method === 'POST') return { status: 200, body: await env.devSaveClimateProfile(body || {}) };
       if (path === '/environment/climate/active' && method === 'POST') return { status: 200, body: await env.devSetActiveClimate(body?.id || null) };
       if (path === '/environment/climate/recalculate' && method === 'POST') return { status: 200, body: await env.devRecalculateForecast(body || {}) };
@@ -95,7 +95,7 @@ export async function handleEnvironmentApi(path, method, body, auth) {
       }
       if (path === '/environment/tick/force5')  return { status: 200, body: await env.devForceTick5() };
       if (path === '/environment/tick/force30') return { status: 200, body: await env.devForceTick30() };
-      if (path === '/environment/tick/force24') { await dailyMaintenance(); return { status: 200, body: await env.devForceTick24() }; }
+      if (path === '/environment/tick/force24') return { status: 200, body: await env.devForceTick24() };
       if (path === '/environment/weather/override' && method === 'POST') return { status: 200, body: await env.devOverrideWeather(body || {}) };
       if (path === '/environment/weather/schedule' && method === 'POST') return { status: 200, body: await env.devScheduleForecastDay(body || {}) };
       if (path === '/environment/weather/override' && method === 'DELETE') return { status: 200, body: await env.devClearWeatherOverride() };

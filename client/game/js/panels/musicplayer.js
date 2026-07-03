@@ -11,6 +11,8 @@ import { registerList, mountScopeToggle } from './list-reorder.js';
 const TAPES_KEY = 'architect_amp_local_tapes';
 
 let _songs = [];
+let _libraryAll = [];    // all fetched misc songs, before per-player unlock gating
+const _unlocks = new Set(); // song ids the player has unlocked (via inserted cassettes)
 let _localSongs = [];    // .MOD tapes imported from the player's machine (persisted)
 let _tapeSeq = 0;        // disambiguates tape keys minted within the same millisecond
 let _instruments = {};   // id -> row
@@ -93,23 +95,56 @@ async function _loadLibrary() {
     const [songsData, instsData, samplesData] = await Promise.all([sr.json(), ir.json(), smr.json()]);
     // AMP is a personal-music Walkman: only surface songs filed under the 'misc'
     // category (the others — ui/combat/cyberpunk/environment/tv — are engine cues,
-    // not listenable tracks).
-    _songs = Array.isArray(songsData)
+    // not listenable tracks). The full misc catalogue is fetched, but the player
+    // only *sees* tracks they've unlocked by feeding the deck the cassette —
+    // _rebuildSongs() gates on _unlocks (seeded from the server at login/insert).
+    _libraryAll = Array.isArray(songsData)
       ? songsData.filter(s => Array.isArray(s.channels) && s.channels.length > 0 && s.category === 'misc')
       : [];
     // Re-hydrate the player's imported .MOD tapes from localStorage (they persist
-    // across reloads) and append them after the fetched library.
+    // across reloads); they're personal files and always available.
     _hydrateLocalTapes();
-    _songs.push(..._localSongs);
+    _rebuildSongs();
     _instruments = {};
     if (Array.isArray(instsData)) for (const i of instsData) _instruments[i.id] = i;
     _samples = {};
     if (Array.isArray(samplesData)) for (const s of samplesData) _samples[s.id] = s;
   } catch {
+    _libraryAll = [];
     _songs = [];
     _instruments = {};
     _samples = {};
   }
+}
+
+// Recompute the visible playlist: unlocked server tracks first (gated on
+// _unlocks), then the player's own imported .MOD tapes (always available).
+function _rebuildSongs() {
+  _songs = _libraryAll.filter(s => _unlocks.has(s.id));
+  _songs.push(..._localSongs);
+}
+
+// Re-render the panel if it's open (after an unlock set change from the server).
+function _refreshIfOpen() {
+  const panel = document.getElementById('musicplayer-panel');
+  if (!panel?.classList.contains('active')) return;
+  _rebuildSongs();
+  _renderTrackList();
+  _updateDisplay();
+}
+
+// Server → client unlock sync. applyAmpUnlocks replaces the whole set (sent at
+// login); addAmpUnlock adds one (sent when a cassette is inserted). Both are
+// wired from dispatch.js.
+export function applyAmpUnlocks(ids) {
+  _unlocks.clear();
+  for (const id of (Array.isArray(ids) ? ids : [])) _unlocks.add(id);
+  _refreshIfOpen();
+}
+export function addAmpUnlock(songId) {
+  if (!songId) return;
+  _unlocks.add(songId);
+  _refreshIfOpen();
 }
 
 // ── Local .MOD import (personal jukebox) ───────────────────────────────────────
@@ -350,7 +385,7 @@ function _renderTrackList() {
   const list = document.getElementById('amp-tracklist');
   if (!list) return;
   if (!_songs.length) {
-    list.innerHTML = '<div class="amp-no-tracks">NO TRACKS FOUND</div>';
+    list.innerHTML = '<div class="amp-no-tracks">NO TAPES — FIND CASSETTES TO FILL THE DECK</div>';
     return;
   }
   list.innerHTML = _songs.map((s, i) => `

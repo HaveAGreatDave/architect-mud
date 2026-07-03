@@ -237,6 +237,46 @@ export const MASTURBATE_EVENT_FEMALE = [
   `{name} pleasures themselves with slow, deliberate circles.`,
 ];
 
+// Self ("you") versions of the masturbation event lines, index-aligned with the
+// zone-visible pools above so the actor's private message matches what onlookers see.
+export const MASTURBATE_EVENT_SELF_MALE = [
+  `You stroke yourself slowly, lost in it.`,
+  `You jerk off against the wall, breath catching.`,
+  `You work your cock with increasing urgency.`,
+  `You masturbate, completely absorbed.`,
+  `You pump your fist in long, deliberate strokes.`,
+  `You edge yourself, fingers tight, pace building.`,
+];
+
+export const MASTURBATE_EVENT_SELF_FEMALE = [
+  `You touch yourself slowly, eyes half-closed.`,
+  `You finger yourself against the wall, quietly.`,
+  `You rub between your legs with increasing focus.`,
+  `You masturbate, breath coming in short pulls.`,
+  `You work your fingers faster, thighs pressing together.`,
+  `You pleasure yourself with slow, deliberate circles.`,
+];
+
+// Passive-witness reaction lines for NPCs who see a MIS act happen in their zone.
+// Willing NPCs (mis_willing) react with arousal/interest; the rest with disgust/confusion.
+export const NPC_WITNESS_AROUSED = [
+  `{npc} watches, wetting their lips.`,
+  `{npc} stares, openly interested.`,
+  `{npc} shifts closer, eyes fixed on the show.`,
+  `{npc} bites their lip, watching.`,
+  `{npc} doesn't look away — they like what they see.`,
+  `{npc} lets out a low, appreciative sound.`,
+];
+
+export const NPC_WITNESS_DISGUST = [
+  `{npc} recoils in disgust.`,
+  `{npc} stares in open confusion.`,
+  `{npc} looks away, revolted.`,
+  `{npc} mutters something and grimaces.`,
+  `{npc} shoots a horrified look their way.`,
+  `{npc} wrinkles their nose and turns away.`,
+];
+
 // Ongoing fucking event messages by location
 export const FUCK_EVENT_PLAYER_MSGS = {
   mouth: [

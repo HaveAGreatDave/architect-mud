@@ -184,8 +184,8 @@ async function bankRepairAtm(id) {
   renderBankPanel();
 }
 
-function bankSetStock(id, current, max) {
-  const val = prompt(`Set cash stock for ATM (max ${max}):`, current);
+async function bankSetStock(id, current, max) {
+  const val = await dpPrompt(`Set cash stock for ATM (max ${max}):`, current);
   if (val === null) return;
   const amount = parseInt(val, 10);
   if (isNaN(amount) || amount < 0) { toast('Invalid amount.', true); return; }
@@ -243,7 +243,7 @@ async function bankReplenishAll() {
 }
 
 async function bankRenameAtm(id, currentName) {
-  const val = prompt('New name for this ATM terminal:', currentName);
+  const val = await dpPrompt('New name for this ATM terminal:', currentName);
   if (val === null || val.trim() === '') return;
   directAPI(`/atm/units/${id}`, 'PUT', { name: val.trim() })
     .then(() => { toast('ATM renamed.'); renderBankPanel(); })
@@ -251,7 +251,7 @@ async function bankRenameAtm(id, currentName) {
 }
 
 async function bankDeleteAtm(id, name) {
-  if (!confirm(`Delete ATM terminal "${name}"? This removes the furniture and ATM unit permanently.`)) return;
+  if (!(await dpConfirm(`Delete ATM terminal "${name}"? This removes the furniture and ATM unit permanently.`, { danger: true }))) return;
   try {
     await directAPI(`/atm/units/${id}`, 'DELETE');
     toast('ATM terminal deleted.');
@@ -424,7 +424,7 @@ async function bankSaveNetwork(isEdit) {
 }
 
 async function bankDeleteNetwork(id, name) {
-  if (!confirm(`Delete network "${name}"? All linked ATMs will become unaffiliated.`)) return;
+  if (!(await dpConfirm(`Delete network "${name}"? All linked ATMs will become unaffiliated.`, { danger: true }))) return;
   try {
     await directAPI(`/atm/networks/${id}`, 'DELETE');
     toast('Network deleted.');
