@@ -328,7 +328,7 @@ export async function offlineSleepSwing(attacker, targetId, broadcast) {
 		logActivity('pvp_kill', attacker.handle, null, target.handle);
 		// Fire the same death signals the live path does, so murder news, death SFX, and
 		// admin-protection retaliation apply to sleep-kills too (previously skipped).
-		emit('player.death', { player: target, killer: attacker });
+		emit('player.death', { player: target, killer: attacker, cause: { type: 'pvp', label: `Killed by ${attacker.handle}` }, deathZone: attacker.current_zone });
 		fireHook('player.death', target, attacker).catch(() => {});
 		const corpseLink = `<span class="action-link corpse-link" data-action="loot" data-target="${corpseId}" data-label="${corpseName}" title="Loot ${corpseName}">${corpseName}</span>`;
 		broadcast(attacker.current_zone, { type: "zone_event", message: `${target.handle} has died. ${corpseLink}`, refresh: true }, attacker.id);

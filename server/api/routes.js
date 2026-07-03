@@ -1724,7 +1724,7 @@ async function apiSmitePlayer(id) {
   broadcastFn(current_zone, {type:'zone_event', message:zoneMsg}, id);
   broadcastFn(null, {type:'output', message:selfMsg}, null, id);
 
-  handlePlayerDeath(player, null);
+  handlePlayerDeath(player, null, { type: 'admin', label: 'Smitten by the Architect' });
   return {status:200,body:{smited:true,handle}};
 }
 

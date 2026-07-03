@@ -248,7 +248,7 @@ async function tick() {
         query('UPDATE players SET hp=$1 WHERE id=$2', [target.hp, target.id]).catch(() => {});
         broadcastFn(null, { type: 'combat_incoming', message: result.message, player_update: { hp: target.hp, hp_max: target.hp_max } }, null, target.id);
         if (target.hp <= 0) {
-          await handlePlayerDeath(target, null);
+          await handlePlayerDeath(target, null, { type: 'combat', label: `Killed by ${npc.name}` });
         } else if (!target.npcCombatTargetId && !((target.disengagedUntil || 0) > Date.now())) {
           target.npcCombatTargetId = npcId;
         }
@@ -273,7 +273,7 @@ async function tick() {
       await query('UPDATE players SET hp=$1, stamina=$2 WHERE id=$3', [player.hp, player.stamina, playerId]);
       broadcastFn(null, { type:'resource_tick', messages:[], player_update:{ hp: player.hp, stamina: player.stamina } }, null, playerId);
     }
-    if ((messages.length || hpChanged) && player.hp <= 0) await handlePlayerDeath(player, null);
+    if ((messages.length || hpChanged) && player.hp <= 0) await handlePlayerDeath(player, null, { type: 'survival', label: 'Succumbed to your condition' });
   }
 }
 
@@ -345,7 +345,7 @@ export function equipStarterOutfit(victimId, sex) {
   for (const [itemId, slot] of [['item_basic_shirt','torso'],['item_basic_pants','legs'],['item_basic_shoes','feet']]) equip(itemId, slot, 2);
 }
 
-export async function handlePlayerDeath(player, killer) {
+export async function handlePlayerDeath(player, killer, cause = null) {
   // Re-entrancy guard: several attacks can resolve in the same tick and each land a
   // "killing" blow on an already-dead player. Without this, each call inserts another
   // corpse and increments deaths again. The flag clears once respawn completes below.
@@ -377,6 +377,16 @@ export async function handlePlayerDeath(player, killer) {
   // A truthy return { zone, message } routes respawn there and skips the corpse.
   const respawnOverride = await fireHook('player.respawnZone', player, killer);
   const respawnZone = respawnOverride?.zone || player.anchor_zone || 'zone_start';
+
+  // Resolve the cause the systems broadcast to any listeners (e.g. the deaths
+  // catalogue). A caller that knows the specific cause passes it explicitly;
+  // otherwise derive from the killer — a player killer (has .id) is pvp, an
+  // enemy (has .name, no .id) is combat — falling back to unknown when the
+  // death is environmental and unlabelled.
+  const resolvedCause = cause
+    || (killer
+      ? { type: killer.id ? 'pvp' : 'combat', label: `Killed by ${killer.name || killer.handle}` }
+      : { type: 'unknown', label: 'Unknown causes' });
 
   // No corpse when a plugin took custody of the body (the cops bagged your gear).
   const { corpseId, corpseName } = respawnOverride
@@ -432,7 +442,7 @@ export async function handlePlayerDeath(player, killer) {
 
   logActivity('death', player.handle);
   fireHook('player.death', player, killer).catch(()=>{});
-  emit('player.death', { player, killer });
+  emit('player.death', { player, killer, cause: resolvedCause, deathZone });
 
   player._dying = false; // respawn complete — a future death may process again
 }
@@ -526,7 +536,7 @@ async function stormTick() {
         broadcastFn(zoneId, { type: 'zone_event', message: `A bolt of lightning strikes ${victim.handle} dead.` }, victim.id);
         const kill = await recordLightningKill(victim.handle);
         console.log(`[weather] Lightning killed ${victim.handle} in zone ${zoneId} at ${kill.date} ${kill.time}.`);
-        await handlePlayerDeath(victim, null);
+        await handlePlayerDeath(victim, null, { type: 'weather', label: 'Lightning Strike' });
       }
     }
 
@@ -688,6 +698,9 @@ async function resourceTick() {
     player._tickCounter = (player._tickCounter || 0) + 1;
     const messages = [];
     let hpChanged = false;
+    // The survival system labels its own kill: whichever hazard last dealt
+    // damage this tick is what the deaths catalogue is told killed the player.
+    let lethalCause = null;
 
     if (player._tickCounter % THIRST_DECAY_INTERVAL_MIN === 0 && player.thirst > 0) player.thirst = Math.max(0, player.thirst - 1);
     if (player._tickCounter % HUNGER_DECAY_INTERVAL_MIN === 0 && player.hunger > 0) player.hunger = Math.max(0, player.hunger - 1);
@@ -698,8 +711,8 @@ async function resourceTick() {
     // Starvation/dehydration are slow but genuinely lethal if ignored —
     // small, steady damage rather than a hard floor that can never kill.
     // Thirst kills faster than hunger, same as the decay pacing above.
-    if (player.hunger === 0) { player.hp = Math.max(0, player.hp - 1); messages.push('Starvation is taking its toll. (-1 HP)'); hpChanged = true; }
-    if (player.thirst === 0) { player.hp = Math.max(0, player.hp - 2); messages.push('Dehydration is killing you. (-2 HP)'); hpChanged = true; }
+    if (player.hunger === 0) { player.hp = Math.max(0, player.hp - 1); messages.push('Starvation is taking its toll. (-1 HP)'); hpChanged = true; lethalCause = { type: 'survival', label: 'Starvation' }; }
+    if (player.thirst === 0) { player.hp = Math.max(0, player.hp - 2); messages.push('Dehydration is killing you. (-2 HP)'); hpChanged = true; lethalCause = { type: 'survival', label: 'Dehydration' }; }
 
     // Heal-over-time from bandages and similar items — process each active
     // application, dropping any that have finished.
@@ -789,8 +802,8 @@ async function resourceTick() {
     if (isDangerous && player._dangerousTempTicks >= 5) {
       player.hp = Math.max(0, player.hp - 10);
       hpChanged = true;
-      if (isFreezing) messages.push(`Hypothermia is damaging your body. (-10 HP) [${player.hp}/${player.hp_max ?? 100} HP]`);
-      else messages.push(`Heat stroke is damaging your body. (-10 HP) [${player.hp}/${player.hp_max ?? 100} HP]`);
+      if (isFreezing) { messages.push(`Hypothermia is damaging your body. (-10 HP) [${player.hp}/${player.hp_max ?? 100} HP]`); lethalCause = { type: 'survival', label: 'Exposure (cold)' }; }
+      else { messages.push(`Heat stroke is damaging your body. (-10 HP) [${player.hp}/${player.hp_max ?? 100} HP]`); lethalCause = { type: 'survival', label: 'Exposure (heat)' }; }
     }
     // Hot/overheating: increased thirst drain
     if ((isHot || isOverheating) && Math.random() < 0.5) {
@@ -829,7 +842,7 @@ async function resourceTick() {
     const bodyTempChanged = player.body_temp_c !== prevBodyTemp;
     if (messages.length || bodyTempChanged) broadcastFn(null, { type:'resource_tick', messages, player_update:{hunger:player.hunger,thirst:player.thirst,hp:player.hp,stamina:player.stamina,body_temp_c:player.body_temp_c} }, null, playerId);
 
-    if (player.hp <= 0) await handlePlayerDeath(player, null);
+    if (player.hp <= 0) await handlePlayerDeath(player, null, lethalCause);
 
     // Bodily pressure lives in the bodily plugin; horniness decay in the MIS
     // plugin (both on their own 1m ticks).

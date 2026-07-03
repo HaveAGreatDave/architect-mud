@@ -48,6 +48,7 @@ every manifest against the live registries and runs each plugin's `regress.js` s
 | **factions** | Faction reputation display | `factions rep` | — |
 | **mutations** | Radiation-triggered mutations | `mutations` | tick check |
 | **quests** | Quest lifecycle + objective tracking | `quests quest ql` | Actions + event consumers; owns `quests`, `player_quests` tables |
+| **deaths** | Personal death log — timestamped list of what/where each death was, plus total reclones | `deaths` | Pure `player.death` event consumer; owns the `player_deaths` table. Knows nothing about what can kill you — the killing systems (combat, weather, survival, pvp) enrich the `player.death` broadcast with `{ cause, deathZone }`; this plugin only catalogues. Total reclone count stays on `players.deaths` |
 | **dev-tools** | Admin/dev utilities | `.dresscyd` | admin-only |
 | **container** | OPEN on containers | — | specialized action (tag-gated) |
 | **fillable** | FILL/EMPTY fluid containers; DRINK from them | `fill empty` | specialized actions gated on the `fillable` capacity tag. Holds fluid amount + type in `player_inventory.custom_data`. `drink <container>` lands here; bare `drink`/`drink from <source>` falls through to the **water** plugin. Filling a non-empty unit splits it off the stack (filled = unique). Thirst-per-unit is a fluid property (`FLUID_RATES`, water=1), applied on DRINK |
