@@ -2,7 +2,7 @@ import { randomUUID } from 'crypto';
 import { query } from '../../server/models/db.js';
 import { getZone, getZonePlayers, getLivePlayer } from '../../server/engine/world.js';
 import { neighborZoneIds } from '../../server/engine/exits.js';
-import { sendToZone, sendToPlayer } from '../../server/engine/messaging.js';
+import { sendToZone, sendToPlayer, getBroadcast } from '../../server/engine/messaging.js';
 import { on, emit } from '../../server/engine/events.js';
 import { propagateAudio, getWeatherLeakGain } from '../../server/engine/sounds.js';
 import { getZonePrecip, getCurrentPrecipType, getWindKph } from '../../server/engine/environment.js';
@@ -755,6 +755,68 @@ on('weather.thunder', ({ zoneId }) => {
   }
 });
 
+// ── Named weather-event soundscape (ion storm / acid rain) ─────────────────
+// A single sky-wide ambience bed, phase-scaled, driven by the engine's
+// `weather.event` signal (fired on each approach→peak→passing transition).
+// Separate from the per-zone precip/wind beds so an ion storm — which has no
+// precip — still has a voice. Route-overridable via the event-route table; a
+// synthesized bed plays out of the box otherwise. See systems-weather-extreme.md.
+const WEATHER_EVENT_ROUTES = { ion_storm: 'weather.event.ion', acid_rain: 'weather.event.acid' };
+const WEATHER_EVENT_FALLBACK = {
+  // Electrical hum + high crackle, with random arcing zaps (sparkle one-shots).
+  ion_storm: { id: 'wx_ev_ion', name: 'wx_ev_ion', category: 'ambient', priority: 3, config: { gain: 0.6,
+    layers: [
+      { waveform: 'sawtooth', freq: 58, filter: { type: 'lowpass', freq: 380, q: 0.7 }, tremolo: { rate: 0.5, depth: 0.4 }, adsr: { a: 2, d: 0, s: 1, r: 2 }, gain: 0.22 },
+      { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 2600, q: 1.3 }, tremolo: { rate: 7, depth: 0.7 }, adsr: { a: 1.5, d: 0, s: 1, r: 1.5 }, gain: 0.18 },
+    ],
+    sparkle: [
+      { everyMin: 1.5, everyMax: 5, prob: 0.85, gain: 0.4, duration: 0.16, layers: [
+        { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 3500, q: 0.7 }, adsr: { a: 0.001, d: 0.05, s: 0.2, r: 0.1 }, gain: 0.5 },
+        { waveform: 'square', freq: 1900, pitchBend: { to: 380, time: 0.14 }, adsr: { a: 0.001, d: 0.04, s: 0.1, r: 0.08 }, gain: 0.18 },
+      ] },
+    ],
+  } },
+  // Caustic hiss/sizzle — high, corrosive filtered noise.
+  acid_rain: { id: 'wx_ev_acid', name: 'wx_ev_acid', category: 'ambient', priority: 3, config: { gain: 0.5,
+    layers: [
+      { waveform: 'noise', noiseMix: 1, filter: { type: 'highpass', freq: 2800, q: 0.7 }, adsr: { a: 1.5, d: 0, s: 1, r: 1.5 }, gain: 0.34 },
+      { waveform: 'noise', noiseMix: 1, filter: { type: 'bandpass', freq: 5200, q: 1.4 }, tremolo: { rate: 3, depth: 0.3 }, adsr: { a: 1.5, d: 0, s: 0.7, r: 1.5 }, gain: 0.2 },
+    ],
+  } },
+};
+
+function weatherEventDef(type) {
+  if (!type) return null;
+  const routes = eventRoutes.get(WEATHER_EVENT_ROUTES[type]);
+  const routed = routes?.find(r => r.ambient_id);
+  if (routed) { const d = ambient.get(routed.ambient_id); if (d) return d; }
+  return WEATHER_EVENT_FALLBACK[type] || null;
+}
+function weatherEventGain(phase) { return phase === 'peak' ? 0.6 : 0.32; }  // full at peak, softer in approach/passing
+
+let weatherEventBed = null;       // { id } currently playing globally | null
+let currentWeatherEvent = null;   // { type, phase } | null — for late-joiner top-up
+
+function reconcileWeatherEventBed(type, phase) {
+  currentWeatherEvent = type ? { type, phase } : null;
+  const def = weatherEventDef(type);
+  const desiredId = def?.id || null;
+  const bc = getBroadcast();
+  if (!bc) { weatherEventBed = desiredId ? { id: desiredId } : null; return; }
+  if (desiredId !== (weatherEventBed?.id || null)) {
+    if (weatherEventBed) bc(null, { type: 'audio_stop', scope: 'ambience', id: weatherEventBed.id });
+    if (def) {
+      bc(null, { type: 'audio_ambience', def });
+      bc(null, { type: 'audio_loop_gain', id: desiredId, gain: weatherEventGain(phase), ramp: 1.5 });
+    }
+    weatherEventBed = desiredId ? { id: desiredId } : null;
+  } else if (desiredId) {
+    bc(null, { type: 'audio_loop_gain', id: desiredId, gain: weatherEventGain(phase), ramp: 2.5 });
+  }
+}
+
+on('weather.event', ({ type, phase }) => reconcileWeatherEventBed(type, phase));
+
 // Top up a single player on zone entry: clear any weather beds, then start the
 // ones their new tile warrants at the right reactive gains — muffled indoors.
 function reconcilePlayerWeatherAmbient(playerId, zoneId) {
@@ -778,6 +840,14 @@ function reconcilePlayerWeatherAmbient(playerId, zoneId) {
   for (const { def, gain } of desired) {
     sendToPlayer(playerId, { type: 'audio_ambience', def });
     sendToPlayer(playerId, { type: 'audio_loop_gain', id: def.id, gain, ramp: 0.4 });
+  }
+  // A sky-wide named event is in progress — start its bed for this joiner too.
+  if (currentWeatherEvent) {
+    const d = weatherEventDef(currentWeatherEvent.type);
+    if (d) {
+      sendToPlayer(playerId, { type: 'audio_ambience', def: d });
+      sendToPlayer(playerId, { type: 'audio_loop_gain', id: d.id, gain: weatherEventGain(currentWeatherEvent.phase), ramp: 0.4 });
+    }
   }
 }
 

@@ -144,6 +144,18 @@ field owner) — the engine just *drives* them, mirroring how the field advance 
 - **Trigger:** `devTriggerWeatherEvent(type)` (engine) → `registerWeatherEventTrigger` (plugin), exposed at
   `POST /environment/weather/event {type}` (sibling to Max Storm). Plus the rare auto-roll.
 - **Telegraph:** the approach-phase announcement *is* the warning — the sky tells you it's coming.
+- **FX + audio signal:** on every phase change, `syncWeatherEventSignal` (environment.js) fires a
+  `weather_event` WS message (`{eventType, phase}`) for the client **visual FX** *and* re-emits
+  `weather.event` for the **audio plugin**:
+  - *Visual* — [weather-fx.js](../client/game/js/panels/weather-fx.js) `setWeatherEventFx(type, phase)`
+    composites an overlay over the base precip effect: **ion storm** = sickly-green tint + phase-scaled
+    lightning flashes (renders even with no precip); **acid rain** = caustic yellow-green wash over rain
+    (acid `precipType` maps to the rain effect in `resolveWeatherFx`, tint on top).
+  - *Audio* — the [audio plugin](../plugins/audio/index.js) runs a single sky-wide event bed
+    (`reconcileWeatherEventBed`, global via `getBroadcast`): **ion storm** = electrical hum + crackle +
+    random arc-zaps (sparkle); **acid rain** = caustic hiss. Route-overridable
+    (`weather.event.ion`/`weather.event.acid`) with synth fallbacks; gain full at peak, softer in
+    approach/passing; late joiners topped up in `reconcilePlayerWeatherAmbient`.
 
 ## Build order
 

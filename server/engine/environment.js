@@ -414,9 +414,13 @@ function scheduleTicks() {
     flickerOverloadedZones();
     if (!state.frozen && advanceWeatherField) {
       advanceWeatherField();
-      // Drive the named-event lifecycle (approach→peak→passing) + auto-roll, and
-      // announce any phase transitions sky-wide.
-      if (weatherEventStep) announceWeatherEvent(weatherEventStep());
+      // Drive the named-event lifecycle (approach→peak→passing) + auto-roll,
+      // announce phase transitions sky-wide, and signal FX + audio on any change.
+      if (weatherEventStep) {
+        const r = weatherEventStep() || {};
+        announceWeatherEvent(r.lines);
+        syncWeatherEventSignal(r.event ?? null);
+      }
       const occupied = deps.getOccupiedZones ? [...deps.getOccupiedZones()] : [];
       broadcastZoneWeather(occupied);
       // Snappy streetlights: reconcile only the zones players are standing in so
@@ -1504,11 +1508,23 @@ function announceWeatherEvent(lines) {
   }
 }
 
+// When the active named-event phase changes, tell clients (weather-FX overlay)
+// via a `weather_event` WS message and re-emit `weather.event` for the audio
+// plugin's event soundscape bed. Change-detected so it fires once per transition.
+let lastWeatherEventKey = 'none';
+function syncWeatherEventSignal(event) {
+  const key = event ? `${event.type}:${event.phase}` : 'none';
+  if (key === lastWeatherEventKey) return;
+  lastWeatherEventKey = key;
+  if (deps.broadcast) deps.broadcast({ type: 'weather_event', eventType: event?.type ?? null, phase: event?.phase ?? null });
+  emit('weather.event', { type: event?.type ?? null, phase: event?.phase ?? null });
+}
+
 // Dev tool: force a named weather event immediately (sibling to devMaxStorm).
 export function devTriggerWeatherEvent(type) {
   if (!weatherEventTrigger) return { ok: false, error: 'Weather plugin not loaded' };
   const res = weatherEventTrigger(type);
-  if (res?.ok && res.line) announceWeatherEvent([res.line]);
+  if (res?.ok) { announceWeatherEvent(res.line ? [res.line] : []); syncWeatherEventSignal(res.event ?? null); }
   return res;
 }
 

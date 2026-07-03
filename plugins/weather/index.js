@@ -275,20 +275,27 @@ function startWeatherEvent(type) {
   return def.phases.approach.line;
 }
 
-// Advance the lifecycle by wall-clock and/or auto-roll a new event. Returns the
-// announce lines to broadcast this step. Called by the engine every 30s.
+// Current event as { type, phase } | null — the signal the engine broadcasts to
+// clients (FX overlay) and re-emits for the audio plugin (soundscape bed).
+function currentEventSnapshot() {
+  return activeEvent ? { type: activeEvent.type, phase: activeEvent.phase } : null;
+}
+
+// Advance the lifecycle by wall-clock and/or auto-roll a new event. Returns
+// { lines, event } — announce lines to broadcast + the current event snapshot.
+// Called by the engine every 30s.
 function stepWeatherEvent() {
   const now = Date.now();
+  const lines = [];
   if (!activeEvent) {
     if (Math.random() < AUTO_EVENT_CHANCE_PER_30S) {
       const types = Object.keys(NAMED_EVENTS);
       const line = startWeatherEvent(types[Math.floor(Math.random() * types.length)]);
-      return line ? [line] : [];
+      if (line) lines.push(line);
     }
-    return [];
+    return { lines, event: currentEventSnapshot() };
   }
   const def = NAMED_EVENTS[activeEvent.type];
-  const lines = [];
   while (activeEvent && now >= activeEvent.phaseEndsAtMs) {
     const next = PHASE_ORDER[PHASE_ORDER.indexOf(activeEvent.phase) + 1];
     if (!next) { activeEvent = null; break; }
@@ -296,13 +303,14 @@ function stepWeatherEvent() {
     activeEvent.phaseEndsAtMs = now + def.phases[next].secs * 1000;
     lines.push(def.phases[next].line);
   }
-  return lines;
+  return { lines, event: currentEventSnapshot() };
 }
 
-// Dev trigger (engine devTriggerWeatherEvent → here). Returns the approach line.
+// Dev trigger (engine devTriggerWeatherEvent → here).
 function triggerWeatherEvent(type) {
   if (!NAMED_EVENTS[type]) return { ok: false, error: `Unknown event "${type}". Options: ${Object.keys(NAMED_EVENTS).join(', ')}` };
-  return { ok: true, line: startWeatherEvent(type), label: NAMED_EVENTS[type].label };
+  const line = startWeatherEvent(type);
+  return { ok: true, line, label: NAMED_EVENTS[type].label, event: currentEventSnapshot() };
 }
 
 function smoothstep(t) {
