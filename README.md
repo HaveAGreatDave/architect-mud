@@ -41,7 +41,7 @@ The world runs a live environmental simulation around the clock: a 30-minute day
 - Survival meters: HP, Sanity, Hunger, Thirst, Radiation — balanced for multi-hour real-time depletion, genuinely lethal if neglected
 - Full-loot PvP — corpses are lootable by anyone for 10 minutes
 - Death & respawn via cloning vat — all skills retained, body reset
-- Crafting — quality tiers, skill checks, station requirements, crit crafts
+- Crafting — skill checks, station requirements, crit crafts
 - Mutation system — radiation triggers permanent mutations with buffs and drawbacks
 - Drug system — timed effects, addiction rolls, overdose/withdrawal
 - Quest system — START/ADVANCE/COMPLETE/TURN_IN lifecycle, kill/give/visit objectives, repeatable quests, credit/item/flag rewards

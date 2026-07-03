@@ -100,11 +100,8 @@ credits, failure broadcasts a public "caught red-handed" event. Uses `adjustCred
   levels (`floor(player_skills.ip / 100)`) before crafting.
 - **Station gate:** `requires_station` recipes need a matching station (`stationQuality !== 'none'`).
 - **Resolution:** a `skillCheck` against `base_difficulty`, plus a station bonus (refined +2, pristine +4).
-  Output quality from final margin: `<0` scrap, `≥3` refined, `≥6` pristine; crits always pristine and
-  double output. Catastrophic failure (`margin < −4`) consumes ingredients for nothing; ordinary failure
-  leaves materials intact.
-- **Quality tiers** (`QUALITY_TIERS`): scrap 0.5× → common 1.0× → refined 1.5× → pristine 2.0× →
-  architect-grade 3.0× (a multiplier on output stats; tier is stored in the item instance's `custom_data`).
+  Crits (rare) yield double output. Catastrophic failure (`margin < −4`) consumes ingredients for nothing;
+  ordinary failure leaves materials intact.
 
 Both `recipes` (the availability list) and `craft` (the actual gate) derive skill rank the same way —
 `floor(player_skills.ip / 100)` — so the list and what you can build always agree. (Previously

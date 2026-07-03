@@ -77,14 +77,13 @@ async function cmdInventory(player) {
   let msg = '<span class="inv-header">INVENTORY</span>\n';
   for (const item of rows) {
     const eq = item.is_equipped ? ' <span class="equipped">[equipped]</span>' : '';
-    const quality = item.custom_data?.quality ? ` [${item.custom_data.quality}]` : '';
     const instFlags = INSTANCE_FLAGS.filter(n => hasFlag(item, n)).map(n => ` [${n}]`).join('');
     let container = '';
     if (hasTag(item, 'container')) {
       const used = await containerContentsWeight(item.id);
       container = ` <span class="equipped">[${formatWeight(used)}/${formatWeight(tagValue(item, 'container', 0))}]</span>`;
     }
-    msg += `  ${item.name}${item.quantity>1?` x${item.quantity}`:''}${quality}${instFlags}${container}${eq}\n`;
+    msg += `  ${item.name}${item.quantity>1?` x${item.quantity}`:''}${instFlags}${container}${eq}\n`;
     // Derived fields for the client item-detail panel (see equipment.js showItemDetail).
     item.sell_value = computeSellUnitPrice(item.value, player.stat_cool);
     item.actions = availableActions(item);
