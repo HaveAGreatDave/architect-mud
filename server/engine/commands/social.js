@@ -63,15 +63,19 @@ function npcsNamedInSpeech(text, zoneId) {
   });
 }
 
-function cmdSay(text, player, broadcast) {
+async function cmdSay(text, player, broadcast) {
   if (!text) return { type:'error', message:'Say what?' };
   if (text.length >= 3 && text === text.toUpperCase() && /[A-Z]/.test(text)) {
     return cmdYell(text, player, broadcast);
   }
+  // Let a plugin mangle the *spoken* line (e.g. drunk slurring). The transform
+  // only affects what's displayed — NPC-name detection below still keys off the
+  // real text. Returns undefined (unchanged) when no plugin claims it.
+  const spoken = (await fireHook('speech.transform', { player, text })) ?? text;
   // Echo the speaker's own line first, then let the room hear it — so any NPC
   // reaction below lands *after* the player's say line, never before it.
-  broadcast(null, { type:'say', message:`You say: "${text}"` }, null, player.id);
-  broadcast(player.current_zone, { type:'say', message:`${player.handle} says: "${text}"` }, player.id);
+  broadcast(null, { type:'say', message:`You say: "${spoken}"` }, null, player.id);
+  broadcast(player.current_zone, { type:'say', message:`${player.handle} says: "${spoken}"` }, player.id);
   // Let plugins react to speech (e.g. the shadow dealer's passphrase). Fire-and-forget.
   fireHook('player.say', { player, text, zoneId: player.current_zone, broadcast }).catch(() => {});
   for (const npc of npcsNamedInSpeech(text, player.current_zone)) {

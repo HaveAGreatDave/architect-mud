@@ -181,7 +181,7 @@
 </div>
 
 <!-- VENDOR SHOP EDITOR MODAL (pop-out) -->
-<div id="ve-modal" style="display:none;position:fixed;inset:0;z-index:500;background:transparent;align-items:center;justify-content:center" onclick="if(event.target===this)veCloseModal()">
+<div id="ve-modal" style="display:none;position:fixed;inset:0;z-index:500;background:transparent;align-items:center;justify-content:center" onmousedown="backdropDown(event,this)" onclick="backdropClose(event,this,veCloseModal)">
   <div class="modal-card" style="width:min(880px,94vw);max-height:90vh;display:flex;flex-direction:column;overflow:hidden">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
       <h2 style="margin:0;color:var(--accent);letter-spacing:2px;text-transform:uppercase;font-size:14px">🛒 <span id="ve-modal-title">Vendor Shop</span></h2>
@@ -193,7 +193,7 @@
 </div>
 
 <!-- PER-NPC BANTER SCRIPTS -->
-<div id="nb-modal" style="display:none;position:fixed;inset:0;z-index:520;background:transparent;align-items:center;justify-content:center" onclick="if(event.target===this)nbCloseModal()">
+<div id="nb-modal" style="display:none;position:fixed;inset:0;z-index:520;background:transparent;align-items:center;justify-content:center" onmousedown="backdropDown(event,this)" onclick="backdropClose(event,this,nbCloseModal)">
   <div class="modal-card" style="width:min(680px,94vw);max-height:90vh;display:flex;flex-direction:column;overflow:hidden">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
       <h2 style="margin:0;color:var(--accent);letter-spacing:2px;text-transform:uppercase;font-size:14px">🗣 <span id="nb-modal-title">Banter Scripts</span></h2>
@@ -206,7 +206,7 @@
 </div>
 
 <!-- SHARED BANTER LIBRARY -->
-<div id="bl-modal" style="display:none;position:fixed;inset:0;z-index:520;background:transparent;align-items:center;justify-content:center" onclick="if(event.target===this)blClose()">
+<div id="bl-modal" style="display:none;position:fixed;inset:0;z-index:520;background:transparent;align-items:center;justify-content:center" onmousedown="backdropDown(event,this)" onclick="backdropClose(event,this,blClose)">
   <div class="modal-card" style="width:min(780px,94vw);max-height:90vh;display:flex;flex-direction:column;overflow:hidden">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
       <h2 style="margin:0;color:var(--accent);letter-spacing:2px;text-transform:uppercase;font-size:14px">🗣 Banter Library</h2>
@@ -220,7 +220,7 @@
 </div>
 
 <!-- BIG MAP -->
-<div id="bigmap-overlay" onclick="if(event.target===this) closeBigMap()">
+<div id="bigmap-overlay" onmousedown="backdropDown(event,this)" onclick="backdropClose(event,this,closeBigMap)">
   <div class="modal-card bigmap-modal">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
       <h2 id="bigmap-title" style="margin-bottom:0">City Map</h2>
@@ -270,7 +270,7 @@
   </div>
 </div>
 
-<div id="generic-modal" style="display:none;position:fixed;inset:0;background:transparent;z-index:200;align-items:center;justify-content:center" onmousedown="_modalBdMd=event.target===this" onclick="if(_modalBdMd&&event.target===this)closeModal()">
+<div id="generic-modal" style="display:none;position:fixed;inset:0;background:transparent;z-index:200;align-items:center;justify-content:center" onmousedown="backdropDown(event,this)" onclick="backdropClose(event,this,closeModal)">
   <div class="modal-card" style="width:520px;max-height:85vh;overflow-y:auto">
     <h2 id="modal-title" style="color:var(--accent);letter-spacing:2px;text-transform:uppercase;font-size:14px;margin-bottom:18px"></h2>
     <div id="modal-body"></div>
@@ -281,7 +281,7 @@
   </div>
 </div>
 
-<div id="settings-overlay" onclick="if(event.target===this) closeSettingsPanel()">
+<div id="settings-overlay" onmousedown="backdropDown(event,this)" onclick="backdropClose(event,this,closeSettingsPanel)">
   <div class="modal-card" style="width:360px">
     <h2 style="color:var(--accent);letter-spacing:2px;text-transform:uppercase;font-size:14px;margin-bottom:18px">Settings</h2>
     <div style="margin-bottom:18px">

@@ -145,7 +145,7 @@ export async function useDrug(player, drugId, broadcast, opts = {}) {
   // Consumption happened — flag it for the crime/wanted system. Legal drugs
   // (coffee, beer: drug.flags.legal) draw no police attention; controlled
   // substances do, but only if a camera actually catches it (raiseCrime gates).
-  emit('player.drugUsed', { player, illegal: !drug.flags?.legal, zoneId: player.current_zone });
+  emit('player.drugUsed', { player, drug, potency: effPotency, illegal: !drug.flags?.legal, zoneId: player.current_zone });
 
   let message = `You take ${displayName}. ${(opts.inlineEffects ? '' : drug.description) || ''}`.trim();
 

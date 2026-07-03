@@ -526,7 +526,33 @@ const handlers = {
   trip_event: (msg) => { appendHtml(renderMarkup(msg.text || ''), 'trip'); if (msg.palette || msg.intensity != null) updateTripFx(msg); },
   trip_fx:    (msg) => { updateTripFx(msg); },
   trip_end:   () => { endTripFx(); },
+
+  blackout_start: () => { startBlackoutFx(); },
+  blackout_end:   () => { endBlackoutFx(); },
 };
+
+// ── Blackout FX ──────────────────────────────────────────────────────────────
+// Heavy intoxication drops a full-screen opaque black curtain: you can't see the
+// room and the server refuses every command until it lifts (10–30s). Inline-styled
+// like flashPowerChange so it needs no CSS. Fades in fast, out slow.
+function startBlackoutFx() {
+  let el = document.getElementById('blackout-overlay');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'blackout-overlay';
+    el.style.cssText = 'position:fixed;inset:0;z-index:9999;pointer-events:none;background:#000;opacity:0;transition:opacity .6s ease-in';
+    document.body.appendChild(el);
+  }
+  requestAnimationFrame(() => { el.style.opacity = '1'; });
+}
+
+function endBlackoutFx() {
+  const el = document.getElementById('blackout-overlay');
+  if (!el) return;
+  el.style.transition = 'opacity 1.4s ease-out';
+  el.style.opacity = '0';
+  setTimeout(() => el.remove(), 1500);
+}
 
 // ── Drug "trip" visual FX ────────────────────────────────────────────────────
 // A persistent full-screen overlay (hue drift + pulse) plus a `tripping` body

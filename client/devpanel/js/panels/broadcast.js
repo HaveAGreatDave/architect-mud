@@ -2411,7 +2411,8 @@ function bcPreviewBroadcast() {
     </div>`;
 
   document.body.appendChild(modal);
-  modal.addEventListener('click', e => { if (e.target === modal) _bcpvClose(); });
+  modal.addEventListener('mousedown', e => backdropDown(e, modal));
+  modal.addEventListener('click', e => backdropClose(e, modal, _bcpvClose));
   _bcpvCrtOn();
 
   _bcpvStep();
@@ -2658,7 +2659,8 @@ function bcLivePreview(channelId, channelName, studioZoneId) {
     </div>`;
 
   document.body.appendChild(modal);
-  modal.addEventListener('click', e => { if (e.target === modal) _bcLiveClose(); });
+  modal.addEventListener('mousedown', e => backdropDown(e, modal));
+  modal.addEventListener('click', e => backdropClose(e, modal, _bcLiveClose));
   _bcpvCrtOn();
 
   _bcLiveConnect(channelId, studioZoneId);

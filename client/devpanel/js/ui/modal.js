@@ -16,6 +16,15 @@ function closeSettingsPanel() {
   document.getElementById('settings-overlay').classList.remove('active');
 }
 
+// Backdrop-safe close for overlays: only fire close() when BOTH the mousedown
+// and the click land on the backdrop element itself. A click-drag that starts
+// inside the dialog and releases on the backdrop would otherwise close it.
+let _bdDownOnSelf = false;
+function backdropDown(e, el) { _bdDownOnSelf = e.target === el; }
+function backdropClose(e, el, close) {
+  if (_bdDownOnSelf && e.target === el) { _bdDownOnSelf = false; close(); }
+}
+
 function openModal(title, bodyHtml) {
   document.getElementById('modal-title').textContent = title;
   document.getElementById('modal-body').innerHTML = bodyHtml;

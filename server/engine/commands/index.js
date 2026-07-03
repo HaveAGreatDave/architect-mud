@@ -77,6 +77,13 @@ export async function handleCommand(input, player, broadcast) {
   let raw = input.trim();
   if (!raw) return null;
 
+  // Blackout gate — while blacked out (heavy intoxication) the player can neither
+  // see nor act; the state is time-based and lifts itself. Set by the intoxication
+  // plugin, read here as a substrate law (mirrors the `sleeping` gate below).
+  if (player.blackedOutUntil && Date.now() < player.blackedOutUntil) {
+    return { type: 'error', message: "Everything's black. You can't do anything but ride it out." };
+  }
+
   // SIFT selection-state intercept — runs before all routing.
   const _sel = getSelectionState(player.id);
   if (_sel) {

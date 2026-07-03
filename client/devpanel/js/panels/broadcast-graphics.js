@@ -722,7 +722,8 @@ function _grTvPreview() {
   tvWin.appendChild(contentEl);
   overlay.appendChild(tvWin);
 
-  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  overlay.addEventListener('mousedown', e => backdropDown(e, overlay));
+  overlay.addEventListener('click', e => backdropClose(e, overlay, () => overlay.remove()));
   const escClose = e => { if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', escClose); } };
   document.addEventListener('keydown', escClose);
 
