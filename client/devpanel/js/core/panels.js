@@ -18,8 +18,8 @@ const PANELS = {
     noEdit: true,
     fetch: async () => {
       const [notes, activity, ids, contrib] = await Promise.all([directAPI('/dev/notes'), directAPI('/dev/activity'), directAPI('/dev/identities'), directAPI('/dev/contributions')]);
-      return { notes: notes?.notes || [], commits: activity?.commits || [], gitUnavailable: !!activity?.gitUnavailable,
-               gitError: activity?.gitError || contrib?.gitError || null,
+      return { notes: notes?.notes || [], commits: activity?.commits || [],
+               needsSync: !!(activity?.needsSync || contrib?.needsSync),
                routeError: (activity?.error || contrib?.error || (notes?.error && notes.error)) || null,
                identities: ids?.identities || [], players: ids?.players || [], contributions: contrib?.ranges || null };
     },

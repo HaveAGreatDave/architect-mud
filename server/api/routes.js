@@ -10,11 +10,8 @@ import { getAliasList, reloadAliases, ALIAS_DEFAULTS } from '../engine/commands/
 import { loadMutations } from '../engine/mutations.js';
 import { randomUUID, createHash, randomBytes } from 'crypto';
 import { readFileSync, writeFileSync } from 'fs';
-import { execFile } from 'child_process';
-import { promisify } from 'util';
 import { fileURLToPath } from 'url';
-
-const execFileP = promisify(execFile);
+import { CORE_SEAM_FILES, coreIntensityTier, gitAuthorKey } from '../engine/dev-history.js';
 import vm from 'vm';
 import { sendPasswordResetEmail, sendVerificationEmail } from '../mailer.js';
 import { isEmailVerificationEnabled, setEmailVerificationEnabled } from '../engine/emailVerification.js';
@@ -1640,118 +1637,34 @@ async function apiGetPlayerCountLog(fullUrl) {
   );
   return {status:200, body:{rows}};
 }
-// The engine's sensitive substrate — the seams the regression gate cares about.
-// A commit touching any of these is flagged "core" so it gets noticed; intensity
-// scales with how many lines it changed in these files.
-const CORE_SEAM_FILES = new Set([
-  'server/engine/commands/index.js',   // command dispatch pipeline
-  'server/engine/plugins.js',          // plugin loader / route+hook registries
-  'server/engine/actions.js',          // action registry
-  'server/engine/events.js',           // event bus
-  'server/engine/specializedActions.js',
-  'server/engine/movement-gates.js',   // move gates
-  'server/engine/posture.js',          // posture substrate
-  'server/engine/exits.js',            // exits accessor
-  'server/engine/graph.js',            // script graph runner
-  'server/engine/flags.js',            // flag store
-  'server/models/schema.js',           // DB schema
-]);
-function coreIntensityTier(lines) {
-  if (lines <= 0) return 0;
-  if (lines <= 40) return 1;   // light
-  if (lines <= 200) return 2;  // medium
-  return 3;                     // heavy
-}
-
-// Locate the git binary once and cache it. The server may be launched from a
-// shell whose PATH lacks git (common on Windows when git is only on the Git Bash
-// PATH), so fall back to the standard install locations. Override with GIT_BINARY.
-let _gitBin = null;
-const GIT_CANDIDATES = [
-  'git',
-  'C:\\Program Files\\Git\\cmd\\git.exe',
-  'C:\\Program Files (x86)\\Git\\cmd\\git.exe',
-  '/usr/bin/git',
-];
-async function resolveGitBin() {
-  if (_gitBin) return _gitBin;
-  for (const bin of [process.env.GIT_BINARY, ...GIT_CANDIDATES].filter(Boolean)) {
-    try {
-      await execFileP(bin, ['--version'], { maxBuffer: 1 << 20 });
-      _gitBin = bin;
-      return bin;
-    } catch { /* try next candidate */ }
-  }
-  return null;
-}
-
-// Run `git` in the repo root. Returns { ok, stdout } or { ok:false, reason }.
-// The reason string is safe to show a dev — it explains WHY git is unavailable
-// (binary missing, no .git checkout, etc.) instead of a silent empty feed.
-async function runGit(args) {
-  const bin = await resolveGitBin();
-  if (!bin) return { ok: false, reason: "git binary not found — install git or set the GIT_BINARY env var to git's full path" };
-  const repoRoot = fileURLToPath(new URL('../../', import.meta.url));
-  try {
-    const { stdout } = await execFileP(bin, args, { cwd: repoRoot, maxBuffer: 64 * 1024 * 1024 });
-    return { ok: true, stdout };
-  } catch (err) {
-    const stderr = (err.stderr || '').toString();
-    const reason = /not a git repository/i.test(stderr) ? 'this server has no .git checkout (deployed without git history)'
-      : (stderr || err.message || 'git failed').split('\n')[0].slice(0, 200);
-    console.error('[dev-log] git failed:', err.code || '', reason);
-    return { ok: false, reason };
-  }
-}
-
-// Recent code activity from git, for the Dev Log check-in view. Read-only; if
-// git isn't available (e.g. deployed from a tarball) it returns an empty list.
+// Recent code activity for the Dev Log check-in view, read from the synced
+// dev_commits table (populated by scripts/sync-commits.js). Host-independent —
+// no runtime git needed. `needsSync` tells the client the table is empty.
 async function apiGetDevActivity(fullUrl) {
   const since = new URL('http://x' + (fullUrl||'')).searchParams.get('since');
-  const args = [
-    'log', '--no-merges',
-    since ? `--since=${since}` : '--since=14.days.ago',
-    '-n', '300',
-    '--pretty=format:%x1e%H%x1f%an%x1f%ae%x1f%aI%x1f%s',
-    '--numstat',
-  ];
-  const g = await runGit(args);
-  if (!g.ok) return { status: 200, body: { commits: [], gitUnavailable: true, gitError: g.reason } };
-  const stdout = g.stdout;
-  // Resolve git identities → admin handles via the dev_identities map.
   const { rows: idRows } = await query(`SELECT git_key, handle FROM dev_identities`);
   const idMap = new Map(idRows.map(r => [r.git_key, r.handle]));
-  const commits = stdout.split('\x1e').map(r => r.trim()).filter(Boolean).map(rec => {
-    const nl = rec.indexOf('\n');
-    const head = nl === -1 ? rec : rec.slice(0, nl);
-    const rest = nl === -1 ? '' : rec.slice(nl + 1);
-    const [hash, author, email, date, subject] = head.split('\x1f');
-    let files = 0, coreLines = 0;
-    const coreFiles = [];
-    for (const line of rest.split('\n')) {
-      const p = line.split('\t');
-      if (p.length !== 3) continue;
-      files++;
-      if (CORE_SEAM_FILES.has(p[2])) {
-        const a = p[0] === '-' ? 0 : (parseInt(p[0], 10) || 0);
-        const d = p[1] === '-' ? 0 : (parseInt(p[1], 10) || 0);
-        coreLines += a + d;
-        coreFiles.push(p[2].replace(/^server\//, ''));
-      }
-    }
-    const authorKey = gitAuthorKey(email, author);
-    return { hash: (hash||'').slice(0, 8), author: author||'?', authorKey, handle: idMap.get(authorKey) || null,
-             date, subject: subject||'', filesChanged: files,
-             core: coreFiles.length > 0, coreLines, coreTier: coreIntensityTier(coreLines), coreFiles };
+  const params = [];
+  let where = `WHERE authored_at >= NOW() - INTERVAL '14 days'`;
+  if (since) { params.push(since); where = `WHERE authored_at >= $1`; }
+  const { rows } = await query(
+    `SELECT hash, author_name, author_key, authored_at, subject, files_changed, core_lines, core_files
+       FROM dev_commits ${where} ORDER BY authored_at DESC LIMIT 300`,
+    params
+  );
+  const commits = rows.map(r => {
+    const coreLines = r.core_lines || 0;
+    return { hash: (r.hash||'').slice(0, 8), author: r.author_name||'?', authorKey: r.author_key,
+             handle: idMap.get(r.author_key) || null, date: r.authored_at, subject: r.subject||'',
+             filesChanged: r.files_changed || 0, core: coreLines > 0, coreLines,
+             coreTier: coreIntensityTier(coreLines), coreFiles: r.core_files || [] };
   });
-  return { status: 200, body: { commits } };
-}
-
-// Stable per-contributor key: lowercased author email, or 'name:<name>' fallback.
-function gitAuthorKey(email, name) {
-  const e = (email||'').trim().toLowerCase();
-  if (e) return e;
-  return 'name:' + (name||'').trim().toLowerCase();
+  let needsSync = false;
+  if (!commits.length) {
+    const { rows: any } = await query(`SELECT 1 FROM dev_commits LIMIT 1`);
+    needsSync = any.length === 0;
+  }
+  return { status: 200, body: { commits, needsSync } };
 }
 
 async function apiGetDevIdentities() {
@@ -1783,16 +1696,12 @@ async function apiSetDevIdentity(body) {
 // Seed obvious mappings by matching git author email to players.email. Never
 // overrides an existing binding (ON CONFLICT DO NOTHING).
 async function apiAutomatchDevIdentities() {
-  const g = await runGit(['log', '--since=90.days.ago', '-n', '2000', '--pretty=format:%ae%x1f%an']);
-  if (!g.ok) return { status: 200, body: { added: 0, gitUnavailable: true, gitError: g.reason } };
-  const stdout = g.stdout;
-  const seen = new Map(); // email → name
-  for (const line of stdout.split('\n')) {
-    const [email, name] = line.split('\x1f');
-    const e = (email || '').trim().toLowerCase();
-    if (e && !seen.has(e)) seen.set(e, (name || '').trim());
-  }
-  if (!seen.size) return { status: 200, body: { added: 0 } };
+  const { rows: authors } = await query(
+    `SELECT LOWER(author_email) AS email, MAX(author_name) AS name
+       FROM dev_commits WHERE author_email <> '' GROUP BY LOWER(author_email)`
+  );
+  if (!authors.length) return { status: 200, body: { added: 0, needsSync: true } };
+  const seen = new Map(authors.map(a => [a.email, a.name || '']));
   const { rows: matches } = await query(
     `SELECT id, handle, LOWER(email) AS email FROM players WHERE email IS NOT NULL AND LOWER(email) = ANY($1)`,
     [[...seen.keys()]]
@@ -1840,45 +1749,25 @@ async function apiDeleteDevNote(id) {
   return { status: 200, body: { ok: true } };
 }
 
-// Aggregated per-author contribution stats (commits/lines/files) for a few
-// ranges, for the Dev Log contributions charts. Handles resolved via dev_identities.
+// Aggregated per-author contribution stats (commits/lines/file-changes) for a
+// few ranges, from the synced dev_commits table. Handles resolved via dev_identities.
 async function apiGetDevContributions() {
-  const ranges = { '7d': '7.days.ago', '30d': '30.days.ago', 'all': null };
+  const ranges = { '7d': `NOW() - INTERVAL '7 days'`, '30d': `NOW() - INTERVAL '30 days'`, 'all': null };
   const { rows: idRows } = await query(`SELECT git_key, handle FROM dev_identities`);
   const idMap = new Map(idRows.map(r => [r.git_key, r.handle]));
   const out = {};
-  for (const [rk, since] of Object.entries(ranges)) {
-    const args = ['log', '--no-merges', ...(since ? [`--since=${since}`] : []),
-      '--pretty=format:%x1e%an%x1f%ae', '--numstat'];
-    const g = await runGit(args);
-    if (!g.ok) return { status: 200, body: { gitUnavailable: true, gitError: g.reason } };
-    const stdout = g.stdout;
-    const byKey = new Map();
-    for (const rec of stdout.split('\x1e')) {
-      const t = rec.trim();
-      if (!t) continue;
-      const nl = t.indexOf('\n');
-      const head = nl === -1 ? t : t.slice(0, nl);
-      const rest = nl === -1 ? '' : t.slice(nl + 1);
-      const [author, email] = head.split('\x1f');
-      const key = gitAuthorKey(email, author);
-      let e = byKey.get(key);
-      if (!e) { e = { author: author||'?', authorKey: key, handle: idMap.get(key)||null, commits: 0, add: 0, del: 0, files: new Set() }; byKey.set(key, e); }
-      e.commits++;
-      for (const line of rest.split('\n')) {
-        const p = line.split('\t');
-        if (p.length === 3) {
-          if (p[0] !== '-') e.add += (parseInt(p[0], 10) || 0);
-          if (p[1] !== '-') e.del += (parseInt(p[1], 10) || 0);
-          if (p[2]) e.files.add(p[2]);
-        }
-      }
-    }
-    out[rk] = [...byKey.values()]
-      .map(e => ({ author: e.author, authorKey: e.authorKey, handle: e.handle, commits: e.commits, add: e.add, del: e.del, files: e.files.size }))
-      .sort((a, b) => b.commits - a.commits);
+  for (const [rk, floor] of Object.entries(ranges)) {
+    const { rows } = await query(
+      `SELECT author_key, MAX(author_name) AS author_name, COUNT(*)::int AS commits,
+              COALESCE(SUM(lines_added),0)::int AS add, COALESCE(SUM(lines_deleted),0)::int AS del,
+              COALESCE(SUM(files_changed),0)::int AS files
+         FROM dev_commits ${floor ? `WHERE authored_at >= ${floor}` : ''}
+        GROUP BY author_key ORDER BY commits DESC`
+    );
+    out[rk] = rows.map(r => ({ author: r.author_name||'?', authorKey: r.author_key, handle: idMap.get(r.author_key)||null,
+      commits: r.commits, add: r.add, del: r.del, files: r.files }));
   }
-  return { status: 200, body: { ranges: out } };
+  return { status: 200, body: { ranges: out, needsSync: out.all.length === 0 } };
 }
 
 async function apiWorldState() {

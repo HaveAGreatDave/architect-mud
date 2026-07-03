@@ -767,6 +767,24 @@ export const SCHEMA_SQL = `
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
 
+  -- Synced git commit history, so the Dev Log works on hosts whose checkout is
+  -- shallow or absent (populated by scripts/sync-commits.js from a full repo).
+  CREATE TABLE IF NOT EXISTS dev_commits (
+    hash          TEXT PRIMARY KEY,
+    author_name   TEXT NOT NULL,
+    author_email  TEXT DEFAULT '',
+    author_key    TEXT NOT NULL,
+    authored_at   TIMESTAMPTZ NOT NULL,
+    subject       TEXT DEFAULT '',
+    files_changed INTEGER DEFAULT 0,
+    lines_added   INTEGER DEFAULT 0,
+    lines_deleted INTEGER DEFAULT 0,
+    core_lines    INTEGER DEFAULT 0,
+    core_files    JSONB DEFAULT '[]'
+  );
+  CREATE INDEX IF NOT EXISTS idx_dev_commits_time ON dev_commits(authored_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_dev_commits_author ON dev_commits(author_key);
+
   -- Kill / death counters
   ALTER TABLE players ADD COLUMN IF NOT EXISTS mob_kills INTEGER DEFAULT 0;
   ALTER TABLE players ADD COLUMN IF NOT EXISTS player_kills INTEGER DEFAULT 0;

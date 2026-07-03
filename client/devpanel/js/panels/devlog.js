@@ -50,7 +50,7 @@ function _dlNoteCard(n) {
 }
 
 function _dlActivityHtml(commits, gitUnavailable) {
-  if (gitUnavailable || _devlogGitInfo.gitError || (!commits.length && _devlogGitInfo.routeError)) {
+  if (!commits.length && (_devlogGitInfo.needsSync || _devlogGitInfo.routeError)) {
     return `<div style="font-size:12px;color:var(--text-dim)">${_dlUnavailableMsg()}</div>`;
   }
   if (!commits.length) return `<div style="font-size:12px;color:var(--text-dim)">No commits in the last 14 days.</div>`;
@@ -111,13 +111,13 @@ function _dlCoreColor(tier) {
 // Cached per-range contribution stats, so the range toggle re-renders without a
 // server round trip. Set in renderDevLog.
 let _devlogContrib = null;
-let _devlogGitInfo = { gitError: null, routeError: null };
+let _devlogGitInfo = { needsSync: false, routeError: null };
 
-// A specific, actionable message for why git data is missing.
+// A specific, actionable message for why commit history is missing.
 function _dlUnavailableMsg() {
-  if (_devlogGitInfo.gitError) return `Git history unavailable: ${_dlEsc(_devlogGitInfo.gitError)}`;
   if (_devlogGitInfo.routeError) return `Dev Log routes aren't responding (“${_dlEsc(_devlogGitInfo.routeError)}”). Run <code>npm run db:schema</code> and restart the server so the new routes load.`;
-  return 'Git history unavailable on this server.';
+  if (_devlogGitInfo.needsSync) return `No commit history synced yet. From a full clone of the repo, run <code>npm run sync:commits</code> to populate it (re-run to refresh).`;
+  return 'Commit history unavailable.';
 }
 const _DL_CONTRIB_COLORS = ['#2a78d6', '#eda100', '#199e70', '#e34948', '#9085e9', '#d95926'];
 const _DL_RANGE_LABELS = { '7d': 'Last 7 days', '30d': 'Last 30 days', 'all': 'All time' };
@@ -188,15 +188,21 @@ function devlogSetContribRange(range) {
 }
 
 function _dlIdentitiesHtml(commits, identities, players) {
-  // Distinct git authors seen in the recent feed.
-  const byKey = new Map();
-  for (const c of commits) {
-    if (!c.authorKey) continue;
-    if (!byKey.has(c.authorKey)) byKey.set(c.authorKey, { key: c.authorKey, name: c.author, count: 0 });
-    byKey.get(c.authorKey).count++;
+  // Prefer the full author list from the all-time contributions (every
+  // contributor is bindable); fall back to the recent activity feed.
+  let authors;
+  if (_devlogContrib && _devlogContrib.all && _devlogContrib.all.length) {
+    authors = _devlogContrib.all.map(a => ({ key: a.authorKey, name: a.author, count: a.commits }));
+  } else {
+    const byKey = new Map();
+    for (const c of commits) {
+      if (!c.authorKey) continue;
+      if (!byKey.has(c.authorKey)) byKey.set(c.authorKey, { key: c.authorKey, name: c.author, count: 0 });
+      byKey.get(c.authorKey).count++;
+    }
+    authors = [...byKey.values()].sort((a, b) => b.count - a.count);
   }
-  const authors = [...byKey.values()].sort((a, b) => b.count - a.count);
-  if (!authors.length) return `<div style="font-size:12px;color:var(--text-dim)">No git authors in recent history to map.</div>`;
+  if (!authors.length) return `<div style="font-size:12px;color:var(--text-dim)">No git authors to map yet.</div>`;
 
   const idMap = new Map(identities.map(i => [i.git_key, i]));
   const optionsFor = (selPid) =>
@@ -227,7 +233,7 @@ function _dlIdentitiesHtml(commits, identities, players) {
 function renderDevLog(data) {
   const panel = document.getElementById('list-panel');
   _devlogContrib = data.contributions || null;
-  _devlogGitInfo = { gitError: data.gitError || null, routeError: data.routeError || null };
+  _devlogGitInfo = { needsSync: !!data.needsSync, routeError: data.routeError || null };
   const notes = data.notes || [];
   const active = notes.filter(n => !n.resolved);
   const resolved = notes.filter(n => n.resolved);
