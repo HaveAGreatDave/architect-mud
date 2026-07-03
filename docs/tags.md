@@ -29,7 +29,7 @@ The item system's behavior is currently spread across 11 columns on the `items` 
 - **Full unification** — tags become the single source of truth for behavior. The 3 booleans, the behavioral parts of `type`/`subtype`, and all 4 JSONB fields migrate into one `tags` JSONB column.
 - Identity/economy scalar columns stay as columns: `id`, `name`, `value`, `weight`.
 - `description` becomes a **literal `description` tag** (free text), always present in the editor.
-- **Instance tags are presence-only flags** (e.g. `broken`, `cursed`) stored in `player_inventory.custom_data`, no secondary value. Class tags carry the valued attributes. (The existing `custom_data.quality` from crafting is the one valued exception and is left untouched.)
+- **Instance tags are presence-only flags** (e.g. `broken`, `cursed`) stored in `player_inventory.custom_data`, no secondary value. Class tags carry the valued attributes.
 
 ## Tag Model
 

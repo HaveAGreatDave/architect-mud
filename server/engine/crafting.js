@@ -10,15 +10,6 @@ import { query, withTransaction } from '../models/db.js';
 import { awardSkillUse, skillCheck, skillStatBonus } from './skills.js';
 import { isStackable } from './tags.js';
 
-// Quality tiers: numeric 0–4, stored as text in item flags
-export const QUALITY_TIERS = {
-  scrap:           { label: 'Scrap',           multiplier: 0.5 },
-  common:          { label: 'Common',          multiplier: 1.0 },
-  refined:         { label: 'Refined',         multiplier: 1.5 },
-  pristine:        { label: 'Pristine',        multiplier: 2.0 },
-  architect_grade: { label: 'Architect-Grade', multiplier: 3.0 },
-};
-
 // In-memory recipe cache. DB is the source of truth; this is just fast read access.
 let RECIPE_CACHE = {};
 
@@ -126,25 +117,15 @@ export async function attemptCraft(player, recipeId, stationQuality = 'none') {
     return { success: false, message: `You fail to craft ${recipe.name}. Your materials are intact — try again.` };
   }
 
-  // Determine output quality based on margin
-  let outputQuality = 'common';
-  if (finalMargin >= 6) outputQuality = 'pristine';
-  else if (finalMargin >= 3) outputQuality = 'refined';
-  else if (finalMargin < 0) outputQuality = 'scrap';
-  if (critical) outputQuality = 'pristine'; // crits always pristine
-
   // Prep output details (pure work + reads) before the write transaction.
   const { randomUUID } = await import('crypto');
   const outputQty = recipe.base_output.quantity * (critical ? 2 : 1);
-  const customData = { quality: outputQuality };
 
   const { rows: outputItemRows } = await query('SELECT tags FROM items WHERE id=$1', [recipe.base_output.item_id]);
   const outputIsStackable = outputItemRows[0] ? isStackable(outputItemRows[0]) : false;
 
   // Consume ingredients and produce the output atomically — a mid-craft failure
   // must never eat the materials without yielding the result (or vice versa).
-  // Output stacks onto an existing pile of the same item at the same quality
-  // tier (a pristine craft and a scrap craft of the same item are NOT one stack).
   await withTransaction(async (q) => {
     for (const c of toConsume) {
       if (c.currentQty <= c.quantity) {
@@ -157,8 +138,8 @@ export async function attemptCraft(player, recipeId, stationQuality = 'none') {
     let existingStack = [];
     if (outputIsStackable) {
       const result = await q(
-        `SELECT id, quantity FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND is_equipped=0 AND custom_data=$3`,
-        [player.id, recipe.base_output.item_id, JSON.stringify(customData)]
+        `SELECT id, quantity FROM player_inventory WHERE player_id=$1 AND item_id=$2 AND is_equipped=0`,
+        [player.id, recipe.base_output.item_id]
       );
       existingStack = result.rows;
     }
@@ -167,8 +148,8 @@ export async function attemptCraft(player, recipeId, stationQuality = 'none') {
       await q('UPDATE player_inventory SET quantity = quantity + $1 WHERE id = $2', [outputQty, existingStack[0].id]);
     } else {
       await q(
-        'INSERT INTO player_inventory (id, player_id, item_id, quantity, condition, custom_data) VALUES ($1, $2, $3, $4, $5, $6)',
-        [randomUUID(), player.id, recipe.base_output.item_id, outputQty, 1.0, JSON.stringify(customData)]
+        'INSERT INTO player_inventory (id, player_id, item_id, quantity, condition) VALUES ($1, $2, $3, $4, $5)',
+        [randomUUID(), player.id, recipe.base_output.item_id, outputQty, 1.0]
       );
     }
   });
@@ -179,8 +160,7 @@ export async function attemptCraft(player, recipeId, stationQuality = 'none') {
   return {
     success: true,
     critical,
-    outputQuality,
-    message: `${critMsg}You craft ${outputQty}x ${recipe.name} [${QUALITY_TIERS[outputQuality].label}].`,
+    message: `${critMsg}You craft ${outputQty}x ${recipe.name}.`,
     item_id: recipe.base_output.item_id,
     quantity: outputQty,
   };

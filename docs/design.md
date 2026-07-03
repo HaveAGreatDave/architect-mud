@@ -237,24 +237,19 @@ Corpses persist for 10 minutes real-time. A timer is shown to the dead player so
 
 ## Crafting System
 
-Crafting is a deep simulation. Material quality and tool skill both affect output. This is a primary progression path, not a side system.
+Crafting is a deep simulation. Tool skill drives output. This is a primary progression path, not a side system.
 
 ### How It Works
-- **Materials have quality tiers** — Scrap / Common / Refined / Pristine / Architect-Grade
 - **Tools have condition** — a degraded workbench produces worse results than a maintained one
-- **Skill governs outcomes** — Fabrication (and sub-skills) determine success rate, quality ceiling, and what recipes are available
+- **Skill governs outcomes** — Fabrication (and sub-skills) determine success rate and what recipes are available
 - **Recipes are discovered** — found in the world, traded, or unlocked through faction rep. Some are faction-exclusive.
 
 ### Output Variability
-The same recipe with the same materials produces different results based on skill roll + material quality:
-- Low skill + scrap materials = functional but poor quality (lower durability, weaker stats)
-- High skill + pristine materials = exceptional output (top-tier stats, sometimes bonus properties)
-- Critical success (rare): unique named item with a randomly generated bonus property
+The same recipe produces different results based on the skill roll:
+- Critical success (rare): double output
 
 ### Crafting Stations
 Some recipes require specific stations — a weapons bench, a chemistry set, an Architect terminal. Stations exist in the world and are sometimes contested, controlled by factions, or hidden in dangerous zones.
-
-Players can build and own portable stations (lower quality ceiling than world stations).
 
 ---
 
