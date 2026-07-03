@@ -108,9 +108,9 @@ export function openShop(msg, page = 0, mode, sort) {
       if (mode === 'sell') {
         const qty = item.quantity > 1 ? ` <span class="shop-item-desc">×${item.quantity}</span>` : '';
         const sellStack = item.quantity > 1
-          ? `<button class="dialogue-opt shop-buy-btn shop-sell-btn shop-sell-stack-btn" data-inventory-id="${item.inventory_id}" data-npc-id="${msg.npcId}" data-quantity="${item.quantity}">Sell all (${item.quantity}) — ${item.price * item.quantity}₵</button>`
+          ? `<button class="dialogue-opt shop-buy-btn shop-sell-btn shop-sell-stack-btn" data-inventory-id="${item.inventory_id}" data-npc-id="${msg.npcId}" data-quantity="${item.quantity}"><span>Sell All</span><span>${item.price * item.quantity}₵</span></button>`
           : '';
-        html += `<div class="shop-item"><div class="shop-item-row"><span class="shop-item-name">${item.name}${qty}${weight}</span><div class="shop-item-btns"><button class="dialogue-opt shop-buy-btn shop-sell-btn" data-inventory-id="${item.inventory_id}" data-npc-id="${msg.npcId}">${item.price}₵ — Sell</button>${sellStack}</div></div>${desc}</div>`;
+        html += `<div class="shop-item"><div class="shop-item-row"><span class="shop-item-name">${item.name}${qty}${weight}</span><div class="shop-item-btns"><button class="dialogue-opt shop-buy-btn shop-sell-btn" data-inventory-id="${item.inventory_id}" data-npc-id="${msg.npcId}"><span>Sell 1</span><span>${item.price}₵</span></button>${sellStack}</div></div>${desc}</div>`;
       } else {
         html += `<div class="shop-item"><div class="shop-item-row"><span class="shop-item-name">${item.name}${weight}</span><button class="dialogue-opt shop-buy-btn" data-item-id="${item.item_id}" data-npc-id="${msg.npcId}">${item.price}₵ — Buy</button></div>${item.discounted ? '<span class="shop-discount">(rep discount applied)</span>' : ''}${desc}</div>`;
       }

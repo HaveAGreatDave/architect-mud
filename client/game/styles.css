@@ -4461,6 +4461,11 @@ textarea {
 	font-size: 10px !important;
 	flex-shrink: 0;
 }
+.shop-sell-btn {
+	display: flex;
+	justify-content: space-between;
+	gap: 12px;
+}
 .shop-discount {
 	font-size: 10px;
 	color: var(--green, #4ade80);
