@@ -855,17 +855,12 @@ async function cmdRaise(args, player) {
 
 export const handlers = {
   examine:  (args, raw, player, broadcast) => cmdExamine(args.join(' '), player, broadcast),
-  ex:       (args, raw, player, broadcast) => cmdExamine(args.join(' '), player, broadcast),
-  x:        (args, raw, player, broadcast) => cmdExamine(args.join(' '), player, broadcast),
   stats:    (args, raw, player) => cmdStats(player),
   status:   (args, raw, player) => cmdStats(player),
-  st:       (args, raw, player) => cmdStats(player),
   skills:   (args, raw, player) => cmdSkills(player),
   help:     (args, raw, player) => cmdHelp(player),
-  '?':      (args, raw, player) => cmdHelp(player),
   corpses:  (args, raw, player) => cmdCorpses(player),
   teleport: (args, raw, player, broadcast) => cmdTeleport(args.join(' '), player, broadcast),
-  tp:       (args, raw, player, broadcast) => cmdTeleport(args.join(' '), player, broadcast),
   raise:    (args, raw, player) => cmdRaise(args, player),
   ip:       (args, raw, player) => cmdRaise([], player),
   xp:       (args, raw, player) => cmdRaise([], player),

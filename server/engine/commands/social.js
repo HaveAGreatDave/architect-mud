@@ -190,7 +190,6 @@ export const handlers = {
   shout:   (args, raw, player, broadcast) => cmdYell(raw.replace(/^(yell|shout)\s*/i,''), player, broadcast),
   whisper: (args, raw, player, broadcast) => cmdWhisper(args, raw, player, broadcast),
   tell:    (args, raw, player, broadcast) => cmdWhisper(args, raw, player, broadcast),
-  t:       (args, raw, player, broadcast) => cmdWhisper(args, raw, player, broadcast),
   who:     () => cmdWho(),
   obama:   (args, raw, player, broadcast) => cmdObama(args.join(' '), player, broadcast),
   pet:     (args, raw, player, broadcast) => cmdPet(args.join(' '), player, broadcast),

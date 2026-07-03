@@ -12,8 +12,33 @@
 import { query } from '../../models/db.js';
 
 // alias → canonical verb. These ship with the engine; DB rows override by alias.
+// Only pure abbreviations belong here — each target is an independently
+// dispatchable verb, and the abbreviation isn't a specialized/plugin verb (which
+// would change its pipeline precedence). Context-layered synonyms (eat/use,
+// open/close, get/take, …) stay as engine builtins on purpose so tag-gated
+// specialized handlers still win over them.
 export const ALIAS_DEFAULTS = {
   scav: 'scavenge',
+  // Movement
+  n: 'north',
+  s: 'south',
+  e: 'east',
+  w: 'west',
+  u: 'up',
+  d: 'down',
+  // Look / examine
+  l: 'look',
+  ex: 'examine',
+  x: 'examine',
+  // Inventory
+  i: 'inventory',
+  inv: 'inventory',
+  // Info screens
+  st: 'stats',
+  '?': 'help',
+  // Misc
+  tp: 'teleport',
+  t: 'whisper',
 };
 
 let overrides = {}; // alias → verb (from DB)

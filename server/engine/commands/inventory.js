@@ -782,8 +782,6 @@ function splitOn(str, sep) {
 
 export const handlers = {
   inventory: (args, raw, player) => cmdInventory(player),
-  inv: (args, raw, player) => cmdInventory(player),
-  i: (args, raw, player) => cmdInventory(player),
   take: (args, raw, player, broadcast) => cmdTake(args.join(' '), player, broadcast),
   get:  (args, raw, player, broadcast) => cmdTake(args.join(' '), player, broadcast),
   drop: (args, raw, player, broadcast) => cmdDrop(args.join(' '), player, broadcast),
