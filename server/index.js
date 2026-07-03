@@ -1067,7 +1067,7 @@ async function handleSellToNpc(ws, session, msg) {
 	if (!rows.length) { ws.send(JSON.stringify({ type: "error", message: "NPC not found." })); return; }
 	const npc = rows[0];
 	const { sellToVendor } = await import("./engine/vendor.js");
-	const result = await sellToVendor(player, npc, msg.inventoryId, 1);
+	const result = await sellToVendor(player, npc, msg.inventoryId, msg.quantity || 1);
 	await sendShopPanel(ws, npc, session.playerId, { sellResult: result.message, sellSuccess: result.success });
 	if (result.success) {
 		ws.send(JSON.stringify({ type: "player_update", credits: player.credits }));

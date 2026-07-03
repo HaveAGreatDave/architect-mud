@@ -107,7 +107,10 @@ export function openShop(msg, page = 0, mode, sort) {
       const desc = item.description ? `<div class="shop-item-desc">${item.description}</div>` : '';
       if (mode === 'sell') {
         const qty = item.quantity > 1 ? ` <span class="shop-item-desc">×${item.quantity}</span>` : '';
-        html += `<div class="shop-item"><div class="shop-item-row"><span class="shop-item-name">${item.name}${qty}${weight}</span><button class="dialogue-opt shop-buy-btn shop-sell-btn" data-inventory-id="${item.inventory_id}" data-npc-id="${msg.npcId}">${item.price}₵ — Sell</button></div>${desc}</div>`;
+        const sellStack = item.quantity > 1
+          ? `<button class="dialogue-opt shop-buy-btn shop-sell-btn shop-sell-stack-btn" data-inventory-id="${item.inventory_id}" data-npc-id="${msg.npcId}" data-quantity="${item.quantity}">Sell all (${item.quantity}) — ${item.price * item.quantity}₵</button>`
+          : '';
+        html += `<div class="shop-item"><div class="shop-item-row"><span class="shop-item-name">${item.name}${qty}${weight}</span><button class="dialogue-opt shop-buy-btn shop-sell-btn" data-inventory-id="${item.inventory_id}" data-npc-id="${msg.npcId}">${item.price}₵ — Sell</button>${sellStack}</div>${desc}</div>`;
       } else {
         html += `<div class="shop-item"><div class="shop-item-row"><span class="shop-item-name">${item.name}${weight}</span><button class="dialogue-opt shop-buy-btn" data-item-id="${item.item_id}" data-npc-id="${msg.npcId}">${item.price}₵ — Buy</button></div>${item.discounted ? '<span class="shop-discount">(rep discount applied)</span>' : ''}${desc}</div>`;
       }
@@ -147,8 +150,12 @@ export function openShop(msg, page = 0, mode, sort) {
     btn.addEventListener('click', () => openShop(shopState.msg, 0, mode, btn.dataset.sort));
   });
 
-  document.querySelectorAll('.shop-sell-btn').forEach(btn => {
+  document.querySelectorAll('.shop-sell-btn:not(.shop-sell-stack-btn)').forEach(btn => {
     btn.addEventListener('click', () => sellToNpc(btn.dataset.npcId, btn.dataset.inventoryId));
+  });
+
+  document.querySelectorAll('.shop-sell-stack-btn').forEach(btn => {
+    btn.addEventListener('click', () => sellToNpc(btn.dataset.npcId, btn.dataset.inventoryId, Number(btn.dataset.quantity)));
   });
 
   const sellAllBtn = document.querySelector('.shop-sell-all-btn');
