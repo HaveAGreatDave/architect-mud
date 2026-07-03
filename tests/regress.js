@@ -82,7 +82,7 @@ const P = {
   current_zone: zone.id,
   hp: 100, hp_max: 100, stamina: 100, stamina_max: 100,
   sanity: 50, sanity_max: 100,
-  stat_brawn: 5, stat_reflexes: 5, stat_endurance: 5, stat_brains: 5, stat_cool: 5,
+  stat_brawn: 5, stat_reflexes: 5, stat_endurance: 5, stat_brains: 5, stat_cool: 5, stat_senses: 5,
   credits: 0, radiation: 0, hunger: 100, thirst: 100,
   mis_enabled: 0,
   biological_sex: 'male',

@@ -25,6 +25,14 @@ import { registerAction, dispatchAction } from '../../server/engine/actions.js';
 import { forceStand } from '../../server/engine/posture.js';
 import { getZoneProtection } from '../../server/engine/protection.js';
 
+// The weapon_skill tag now carries the combat skill id directly. Guard against
+// stale/garbage values (and the old blunt/bladed/energy strings on un-migrated
+// weapons) by falling back to fists.
+const COMBAT_WEAPON_SKILLS = new Set(['fists', 'blades', 'clubs', 'firearms', 'science']);
+function weaponSkillId(wskill) {
+	return COMBAT_WEAPON_SKILLS.has(wskill) ? wskill : 'fists';
+}
+
 export async function resolveAttack(player, target, broadcast) {
 	const { rows } = await query(
 		`SELECT i.* FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND pi.is_equipped=1 AND jsonb_exists(i.tags,'weapon') LIMIT 1`,
@@ -33,8 +41,8 @@ export async function resolveAttack(player, target, broadcast) {
 	const equipped = rows[0];
 	const dmg = equipped ? tagValue(equipped, "damage", {}) || {} : {};
 	const wskill = equipped
-		? tagValue(equipped, "weapon_skill") || "brawling"
-		: "brawling";
+		? tagValue(equipped, "weapon_skill") || "fists"
+		: "fists";
 	const weaponStats = equipped
 		? {
 				damage_min: dmg.min,
@@ -46,7 +54,7 @@ export async function resolveAttack(player, target, broadcast) {
 		: {
 				damage_min: 2,
 				damage_max: 4,
-				weapon_skill: "brawling",
+				weapon_skill: "fists",
 				damage_type: "kinetic",
 			};
 	const result = await playerAttackEnemy(
@@ -56,15 +64,10 @@ export async function resolveAttack(player, target, broadcast) {
 	);
 	if (!result.success) return { type: "error", message: result.message };
 
-	if (result.hit) {
-		const skillId =
-			wskill === "bladed"
-				? "bladed"
-				: wskill === "energy"
-					? "electronics"
-					: "brawling";
-		await awardSkillUse(player.id, skillId, result.margin ?? 1);
-	}
+	// The weapon_skill tag is the skill id directly (fists/blades/clubs/firearms/
+	// science). Train it on every swing — hit or miss — the closer the roll, the
+	// better you learn (abs margin, see awardIp).
+	await awardSkillUse(player.id, weaponSkillId(wskill), result.margin ?? 1);
 
 	// Emit the player→enemy outcome here — the single chokepoint every player
 	// swing passes through: manual `attack`/`kill` and the auto-attack loop in
@@ -136,10 +139,10 @@ export async function resolveAttackNpc(player, npc, broadcast) {
 	);
 	const equipped = rows[0];
 	const dmg = equipped ? tagValue(equipped, "damage", {}) || {} : {};
-	const wskill = equipped ? tagValue(equipped, "weapon_skill") || "brawling" : "brawling";
+	const wskill = equipped ? tagValue(equipped, "weapon_skill") || "fists" : "fists";
 	const weaponStats = equipped
 		? { damage_min: dmg.min, damage_max: dmg.max, weapon_skill: wskill, damage_type: tagValue(equipped, "damage_type") || "kinetic" }
-		: { damage_min: 2, damage_max: 4, weapon_skill: "brawling", damage_type: "kinetic" };
+		: { damage_min: 2, damage_max: 4, weapon_skill: "fists", damage_type: "kinetic" };
 
 	const result = await playerAttackNpc(player, npc.id, weaponStats);
 	if (!result.success) return { type: "error", message: result.message };

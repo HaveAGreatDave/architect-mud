@@ -210,6 +210,10 @@ async function runAttempt(player, st, nowMs) {
   const margin = (effective - target.difficulty) + (roll2d8() - roll2d8());
   const flavor = pick(pools.player);
 
+  // Every search attempt trains Scavenging — a near-miss teaches as much as a
+  // find (abs margin, see awardIp), so coming up empty still improves you.
+  await awardSkillUse(player.id, 'scavenging', margin);
+
   if (margin >= 0) {
     const dec = await query(
       'UPDATE scavenging_zone_stock SET current_qty=current_qty-1 WHERE zone_id=$1 AND item_id=$2 AND current_qty>0',
@@ -220,7 +224,6 @@ async function runAttempt(player, st, nowMs) {
       'INSERT INTO player_inventory (id, player_id, item_id, quantity, condition) VALUES ($1,$2,$3,1,1.0)',
       [randomUUID(), player.id, target.item_id]
     );
-    await awardSkillUse(player.id, 'scavenging', margin);
     const link = `<span class="action-link item-link" data-action="examine" data-target="${target.name}" title="Examine ${target.name}">${target.name}</span>`;
     out(player.id, `${flavor}\n<span class="item-grant">You turn up ${link} and pocket it.</span>`);
     if (totalStock - 1 === 0)

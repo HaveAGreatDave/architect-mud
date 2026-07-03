@@ -12,9 +12,10 @@ export function maxHpForEndurance(endurance) {
   return BASE_HP_MAX + 2 * (Number(endurance) || 0);
 }
 
-// Roll for an IP award on a *successful* skill check. Chance is highest when the
-// margin is ≈ 0 (barely won) and falls off as the margin grows. On a hit, award
-// exactly 1 IP to the skill. 1 IP silently = 1 XP (XP is aggregated from skill IP).
+// Roll for an IP award on a skill check (success OR failure). Chance is highest
+// when the margin is ≈ 0 (barely won *or* barely lost) and falls off as the
+// absolute margin grows — you learn most at the edge of your ability, in either
+// direction. On a hit, award exactly 1 IP to the skill. 1 IP silently = 1 XP.
 // Returns { awarded, leveledUp } — leveledUp is true when this point crossed a
 // 100-IP (skill-level) boundary.
 export async function awardIp(playerId, skillId, margin = 0) {
@@ -30,13 +31,16 @@ export async function awardIp(playerId, skillId, margin = 0) {
   // the default 0.05 a survivor with 21 brains has double the per-roll odds, and
   // 1 brain (the starting value) gets the unmodified base rate.
   const { rows: pr } = await query('SELECT stat_brains FROM players WHERE id=$1', [playerId]);
+  // No such player (e.g. a transient/corpse actor, or the regress harness's fake
+  // player): skip silently — the player_skills insert would violate the FK.
+  if (!pr.length) return { awarded: 0, leveledUp: false };
   const brains = Number(pr[0]?.stat_brains) || 1;
   const perPoint = getTunable('ip_brains_bonus_per_point', 0.05);
   const brainsMult = 1 + Math.max(0, brains - 1) * perPoint;
 
   const base = getTunable('ip_award_base_chance', 1.0);
   const scale = getTunable('ip_award_margin_scale', 2.0);
-  const chance = (base / (1 + Math.max(0, margin) * scale)) * brainsMult;
+  const chance = (base / (1 + Math.abs(margin) * scale)) * brainsMult;
   const roll = Math.random();
   // Fire-and-forget notification so the debug plugin can reveal the hidden roll.
   emit('ip.roll', { playerId, skillId, margin, chance, roll, hit: roll < chance });
@@ -57,7 +61,7 @@ export function statCost(currentValue) {
   return getTunable('stat_cost_flat', 100);
 }
 
-export const RAISABLE_STATS = ['brawn', 'reflexes', 'endurance', 'brains', 'cool'];
+export const RAISABLE_STATS = ['brawn', 'reflexes', 'endurance', 'brains', 'cool', 'senses'];
 
 // Total XP cost to reach a player's current stat levels, on the current curve.
 // This is the implicit "spent" side of Net XP — it grows when a stat is raised.
@@ -88,7 +92,7 @@ export async function getTotalXp(playerId) {
 export async function getNetXp(playerId) {
   await ensureTunables();
   const { rows } = await query(
-    `SELECT stat_brawn, stat_reflexes, stat_endurance, stat_brains, stat_cool,
+    `SELECT stat_brawn, stat_reflexes, stat_endurance, stat_brains, stat_cool, stat_senses,
             COALESCE(bonus_xp, 0) AS bonus_xp,
             COALESCE((SELECT SUM(ip) FROM player_skills WHERE player_id=$1), 0) AS skill_ip
      FROM players WHERE id=$1`,
@@ -124,7 +128,7 @@ export async function raiseStat(playerId, statName) {
   }
   const col = `stat_${statName}`;
   const { rows } = await query(
-    `SELECT stat_brawn, stat_reflexes, stat_endurance, stat_brains, stat_cool,
+    `SELECT stat_brawn, stat_reflexes, stat_endurance, stat_brains, stat_cool, stat_senses,
             COALESCE(bonus_xp, 0) AS bonus_xp,
             COALESCE((SELECT SUM(ip) FROM player_skills WHERE player_id=$1), 0) AS skill_ip
      FROM players WHERE id=$1`,

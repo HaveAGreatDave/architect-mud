@@ -94,7 +94,7 @@ async function cmdStats(player) {
   const { total, net } = await getNetXp(player.id);
 
   const playerSkills = await getPlayerSkills(player.id);
-  const STAT_ABBR = { stat_brawn:'BRW', stat_reflexes:'REF', stat_brains:'BRN', stat_cool:'COO', stat_endurance:'END' };
+  const STAT_ABBR = { stat_brawn:'BRW', stat_reflexes:'REF', stat_brains:'BRN', stat_cool:'COO', stat_endurance:'END', stat_senses:'SEN' };
   const skillGroups = ['combat','survival','tech','social','arcane'].map(cat => ({
     category: cat,
     skills: Object.values(SKILLS).filter(s => s.category === cat)
@@ -119,7 +119,7 @@ async function cmdStats(player) {
       handle: p.handle,
       archetype: p.archetype || 'No Archetype',
       brawn: p.stat_brawn, reflexes: p.stat_reflexes, brains: p.stat_brains,
-      cool: p.stat_cool, endurance: p.stat_endurance,
+      cool: p.stat_cool, endurance: p.stat_endurance, senses: p.stat_senses,
       carry: formatWeight(carryCapacity(p)),
       net_xp: Math.floor(net), total_xp: total, credits: p.credits,
       stat_cost: statCost(0),
@@ -136,7 +136,7 @@ async function cmdSkills(player) {
   const p = rows[0];
   if (!p) return { type:'error', message:'Could not load skills.' };
   const playerSkills = await getPlayerSkills(player.id);
-  const STAT_LABEL = { stat_brawn:'BRW', stat_reflexes:'RFL', stat_brains:'BRN', stat_cool:'COO', stat_endurance:'END' };
+  const STAT_LABEL = { stat_brawn:'BRW', stat_reflexes:'RFL', stat_brains:'BRN', stat_cool:'COO', stat_endurance:'END', stat_senses:'SEN' };
 
   const groups = ['combat','survival','tech','social','arcane'].map(cat => ({
     category: cat,
@@ -907,7 +907,7 @@ async function cmdRaise(args, player) {
   const statName = args[0]?.toLowerCase();
 
   const { rows } = await query(
-    'SELECT stat_brawn, stat_reflexes, stat_endurance, stat_brains, stat_cool FROM players WHERE id=$1',
+    'SELECT stat_brawn, stat_reflexes, stat_endurance, stat_brains, stat_cool, stat_senses FROM players WHERE id=$1',
     [player.id]
   );
   const p = rows[0];

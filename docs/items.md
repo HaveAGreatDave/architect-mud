@@ -102,7 +102,7 @@ tag model and the rationale behind it.
 | `stat_bonus` | statmap | Passive stat bumps, e.g. `{ "stat_str": 3 }`. |
 | `requires` | statmap | Stat gates to equip, e.g. `{ "stat_str": 6 }`. |
 | `damage` | range | Weapon damage roll `{ min, max }`. |
-| `weapon_skill` | enum | `blunt`·`bladed`·`energy` — routes attack XP. |
+| `weapon_skill` | enum | `fists`·`blades`·`clubs`·`firearms`·`science` — the combat skill this weapon trains and routes attack XP to. |
 | `status_chance` | statmap | On-hit status, e.g. `{ "stunned": 0.3 }`. |
 | `restore_hp` / `restore_hunger` / `restore_thirst` / `restore_radiation` / `restore_sanity` | int | Consumable stat changes (can be negative). |
 | `grants_credits` | int | Credits granted on use (credit chips). |
@@ -132,13 +132,13 @@ Presence-only flags on a single carried item, stored in
 ## Worked Examples
 
 ```jsonc
-// Weapon — Pipe Wrench
-{ "description":"Heavy. Reliable. Pre-used.", "weapon":true, "weapon_skill":"blunt",
-  "slot":"weapon_hand", "damage":{"min":4,"max":9}, "stat_bonus":{"stat_str":3} }
+// Weapon — Pipe Wrench (a club)
+{ "description":"Heavy. Reliable. Pre-used.", "weapon":true, "weapon_skill":"clubs",
+  "slot":"weapon_hand", "damage":{"min":4,"max":9}, "stat_bonus":{"stat_brawn":3} }
 
-// Energy weapon with on-hit status — Custodian Taser
-{ "weapon":true, "weapon_skill":"energy", "slot":"weapon_hand",
-  "damage":{"min":5,"max":8}, "status_chance":{"stunned":0.3}, "stat_bonus":{"stat_agi":4} }
+// Energy weapon with on-hit status — Custodian Taser (trains Science)
+{ "weapon":true, "weapon_skill":"science", "slot":"weapon_hand",
+  "damage":{"min":5,"max":8}, "status_chance":{"stunned":0.3}, "stat_bonus":{"stat_reflexes":4} }
 
 // Armor piece — Scrap Helmet (head). `layer:"armor"` sits it over any hat/hood.
 { "description":"A motorcycle helmet with extra rivets.", "slot":"head", "layer":"armor", "armor":3 }

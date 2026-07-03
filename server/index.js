@@ -655,6 +655,7 @@ async function finishAuth(ws, session, player) {
 		stat_endurance: player.stat_endurance,
 		stat_brains: player.stat_brains,
 		stat_cool: player.stat_cool,
+		stat_senses: player.stat_senses,
 		xp: 0,
 		total_xp: 0,
 		armor: 0,

@@ -390,9 +390,9 @@ async function apiRegister(body) {
     const startHp = maxHpForEndurance(1);
     await query(
       `INSERT INTO players
-        (id,username,password_hash,handle,role,bonus_xp,hp,hp_max,stat_brawn,stat_reflexes,stat_endurance,stat_brains,stat_cool,
+        (id,username,password_hash,handle,role,bonus_xp,hp,hp_max,stat_brawn,stat_reflexes,stat_endurance,stat_brains,stat_cool,stat_senses,
          biological_sex,hair_style,hair_length,hair_color,eye_color,height_cm,weight_kg,appearance_data,email,sexuality)
-       VALUES ($1,$2,$3,$4,'player',$5,${startHp},${startHp},1,1,1,1,1,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+       VALUES ($1,$2,$3,$4,'player',$5,${startHp},${startHp},1,1,1,1,1,1,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
       [id, username.toLowerCase(), hashPassword(password), handle, bonusXp,
        biological_sex, app.hair_style, app.hair_length, app.hair_color, app.eye_color,
        app.height_cm, app.weight_kg, JSON.stringify(app.appearance_data), email.toLowerCase().trim(),
@@ -1708,7 +1708,7 @@ async function apiReloadZone(body) {
 async function apiGetPlayers() {
   const {rows}=await query(`SELECT id,username,handle,role,current_zone,anchor_zone,credits,bank_credits,
     hp,hp_max,sanity,sanity_max,hunger,thirst,radiation,stamina,stamina_max,body_temp_c,
-    stat_brawn,stat_reflexes,stat_endurance,stat_brains,stat_cool,bonus_xp,
+    stat_brawn,stat_reflexes,stat_endurance,stat_brains,stat_cool,stat_senses,bonus_xp,
     origin_fragment,archetype,visibly_mutated,offline_sleeping,created_at,last_seen FROM players`);
   const online = new Set(getAllLivePlayers().map(p=>p.id));
   return {status:200,body:rows.map(r=>({...r,online:online.has(r.id)}))};
@@ -1716,7 +1716,7 @@ async function apiGetPlayers() {
 
 async function apiGetPlayerProgression(id) {
   await ensureTunables();
-  const {rows}=await query('SELECT id,stat_brawn,stat_reflexes,stat_endurance,stat_brains,stat_cool,COALESCE(bonus_xp,0) AS bonus_xp FROM players WHERE id=$1',[id]);
+  const {rows}=await query('SELECT id,stat_brawn,stat_reflexes,stat_endurance,stat_brains,stat_cool,stat_senses,COALESCE(bonus_xp,0) AS bonus_xp FROM players WHERE id=$1',[id]);
   if (!rows.length) return {status:404,body:{error:'Player not found'}};
   const p = rows[0];
   const {rows:skillRows}=await query('SELECT skill_id,ip FROM player_skills WHERE player_id=$1 ORDER BY ip DESC',[id]);
@@ -1742,7 +1742,7 @@ async function apiUpdatePlayer(id, body) {
     'handle','username','role','current_zone','anchor_zone',
     'credits','bank_credits','hp','hp_max','sanity','sanity_max',
     'hunger','thirst','radiation','stamina','stamina_max','body_temp_c',
-    'stat_brawn','stat_reflexes','stat_endurance','stat_brains','stat_cool','bonus_xp',
+    'stat_brawn','stat_reflexes','stat_endurance','stat_brains','stat_cool','stat_senses','bonus_xp',
     'origin_fragment','archetype','visibly_mutated','covered_in_blood',
   ];
   const {rows:existing}=await query('SELECT * FROM players WHERE id=$1',[id]);
@@ -1770,7 +1770,7 @@ async function apiUpdatePlayer(id, body) {
   if (live) {
     const LIVE_FIELDS=['handle','role','current_zone','anchor_zone','credits','bank_credits',
       'hp','hp_max','sanity','sanity_max','hunger','thirst','radiation','stamina','stamina_max',
-      'body_temp_c','stat_brawn','stat_reflexes','stat_endurance','stat_brains','stat_cool','bonus_xp',
+      'body_temp_c','stat_brawn','stat_reflexes','stat_endurance','stat_brains','stat_cool','stat_senses','bonus_xp',
       'origin_fragment','archetype','visibly_mutated','covered_in_blood'];
     for (const f of LIVE_FIELDS) if (f in body) live[f]=updated[f];
     if ('stat_endurance' in body && !('hp_max' in body)) live.hp_max=updated.hp_max;

@@ -18,7 +18,7 @@ import { formatChitchat } from '../../server/engine/ai-behaviour.js';
 import { resolve as siftResolve, createSelectionState, formatSelectionPage } from '../../server/engine/sift.js';
 import { registerInputMatcher } from '../../server/engine/plugins.js';
 import { registerAction, dispatchAction } from '../../server/engine/actions.js';
-import { skillCheck } from '../../server/engine/skills.js';
+import { skillCheck, awardSkillUse } from '../../server/engine/skills.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
 import { getPowerMap } from '../../server/engine/environment.js';
 import { neighborZoneIds } from '../../server/engine/exits.js';
@@ -253,6 +253,8 @@ async function cmdSpread(args, raw, player, broadcast) {
   }
 
   const check = await skillCheck(player, 'deception', 5);
+  // Spreading word trains Deception whether it lands true or clumsy (abs margin).
+  await awardSkillUse(player.id, 'deception', check.margin);
   const truth = Math.max(0.1, Math.min(0.95, 0.3 + check.margin * 0.05));
   pool.plant({ text, zoneId: player.current_zone, truth, subjectName: player.handle });
   await setFlag('player', 'gossip_spread_until', String(Date.now() + SPREAD_COOLDOWN_MS), player);

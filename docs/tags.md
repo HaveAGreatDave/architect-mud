@@ -36,9 +36,9 @@ The item system's behavior is currently spread across 11 columns on the `items` 
 Class tags are a JSON object keyed by tag name → secondary attribute; `true` for valueless tags. Example (Pipe Wrench):
 
 ```json
-{ "description":"Heavy. Reliable. Pre-used.", "weapon":true, "weapon_skill":"blunt",
+{ "description":"Heavy. Reliable. Pre-used.", "weapon":true, "weapon_skill":"clubs",
   "slot":"weapon_hand", "damage":{"min":4,"max":9},
-  "requires":{"stat_str":6}, "stat_bonus":{"stat_str":3} }
+  "requires":{"stat_brawn":6}, "stat_bonus":{"stat_brawn":3} }
 ```
 
 **Name-collision resolution:** equip-eligibility is signaled by the presence of a `slot` tag (not a separate `armor`/`weapon` marker for that purpose); `armor` is purely the integer damage-reduction tag. `weapon` remains a marker tag (combat reads it to find the equipped weapon).
@@ -56,7 +56,7 @@ Class tags are a JSON object keyed by tag name → secondary attribute; `true` f
 | `unique` | `true` | `is_unique`; prevents stacking (items stack by default) |
 | `slot` | enum (`head`/`torso`/`hands`/`legs`/`feet`/`weapon_hand`/`accessory`) | `flags.slot` (+ weapon fallback made explicit); presence = equippable |
 | `damage` | `{min,max}` | `effects.damage_min/max` |
-| `weapon_skill` | enum (`blunt`/`bladed`/`energy`) | `subtype` → combat skill routing |
+| `weapon_skill` | enum (`fists`/`blades`/`clubs`/`firearms`/`science`) | `subtype` → combat skill routing |
 | `armor` | int | `effects.armor` |
 | `status_chance` | `{status:float}` | `effects.status_chance` |
 | `restore_hp`/`restore_hunger`/`restore_thirst`/`restore_radiation`/`restore_sanity` | int | `effects.hp`/`hunger`/`thirst`/`radiation`/`sanity` |
@@ -99,9 +99,10 @@ sweep for this whole bug class is [capability-tag-vs-itemid-audit.md](audits/cap
 
 > **Status (as built, 2026-06).** Added after the original tag system shipped.
 
-A **supertag** is a named bundle of catalog tags — a reusable "class" of item. A
-`weapon` supertag might carry `{ weapon:true, slot:"weapon_hand", weapon_skill:"blunt" }`
-so every weapon is configured the same way. Supertags are edited in the dev panel's
+A **supertag** is a named bundle of catalog tags — a reusable "class" of item. The
+`weapon_clubs` supertag, for instance, carries `{ weapon:true, slot:"weapon_hand", weapon_skill:"clubs", … }`
+so every club is configured the same way (the five `weapon_*` supertags — one per
+combat skill — are the seeded set). Supertags are edited in the dev panel's
 **Tags** screen (Supertags section) and live in `client/shared/tagSupertags.js`
 (`globalThis.TAG_SUPERTAGS`), a dual-mode file mirroring `tagCatalog.js`. Routes
 `GET`/`PUT /tag-supertags` read/write it.

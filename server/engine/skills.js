@@ -3,11 +3,12 @@ import { awardIp } from './ip.js';
 import { sendToPlayer } from './messaging.js';
 
 export const SKILLS = {
-  brawling:    { id:'brawling',    name:'Brawling',    category:'combat',   stats:['stat_brawn','stat_reflexes'], desc:'Fists, boots, and improvised cudgels. The art of hurting things up close with whatever God gave you.' },
-  bladed:      { id:'bladed',      name:'Bladed',      category:'combat',   stats:['stat_reflexes','stat_brawn'], desc:'Knives, machetes, and anything with an edge. Quiet, personal, and very hard to wash out of fabric.' },
-  firearms:    { id:'firearms',    name:'Firearms',    category:'combat',   stats:['stat_reflexes','stat_cool'], desc:'Pistols, rifles, and whatever still chambers a round. Pointing the loud end at the problem.' },
-  explosives:  { id:'explosives',  name:'Explosives',  category:'combat',   stats:['stat_brains'], desc:'Grenades, charges, and homemade bad ideas. Solves problems and several adjacent ones at once.' },
-  dodge:       { id:'dodge',       name:'Dodge',       category:'combat',   stats:['stat_reflexes','stat_cool'], desc:'Not being where the bad thing is. Your single most important survival habit.' },
+  fists:       { id:'fists',       name:'Fists',       category:'combat',   stats:['stat_brawn','stat_reflexes'], desc:'Bare knuckles, boots, and whatever God gave you. The art of hurting things up close and personal.' },
+  blades:      { id:'blades',      name:'Blades',      category:'combat',   stats:['stat_cool','stat_reflexes'], desc:'Knives, machetes, and anything with an edge. Quiet, personal, and very hard to wash out of fabric.' },
+  clubs:       { id:'clubs',       name:'Clubs',       category:'combat',   stats:['stat_brawn','stat_reflexes'], desc:'Pipes, bats, sledges, and improvised cudgels. Heavy, reliable, and deeply satisfying.' },
+  firearms:    { id:'firearms',    name:'Firearms',    category:'combat',   stats:['stat_cool','stat_reflexes'], desc:'Pistols, rifles, and whatever still chambers a round. Pointing the loud end at the problem.' },
+  science:     { id:'science',     name:'Science',     category:'combat',   stats:['stat_brains'], desc:'Energy weapons, charges, and homemade bad ideas. Turning physics into other peoples’ problems.' },
+  dodge:       { id:'dodge',       name:'Dodge',       category:'combat',   stats:['stat_reflexes','stat_senses'], desc:'Not being where the bad thing is. Your single most important survival habit.' },
   scavenging:  { id:'scavenging',  name:'Scavenging',  category:'survival', stats:['stat_brains','stat_reflexes'], desc:'Finding the good stuff in the garbage. One survivor’s trash is your entire economy.' },
   cooking:     { id:'cooking',     name:'Cooking',     category:'survival', stats:['stat_brains'], desc:'Turning questionable ingredients into food that heals instead of kills. Usually.' },
   medicine:    { id:'medicine',    name:'Medicine',    category:'survival', stats:['stat_brains','stat_reflexes'], desc:'Patching wounds, treating sickness, and pretending you went to med school.' },
