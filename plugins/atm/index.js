@@ -327,7 +327,7 @@ async function cmdJackResolve(args, raw, player, broadcast) {
         player_update: { hp },
       }, null, player.id);
       const { handlePlayerDeath } = await import('../../server/engine/gameLoop.js');
-      await handlePlayerDeath(player, null);
+      await handlePlayerDeath(player, null, { type: 'security', label: 'Electrocuted hacking an ATM' });
       return { type: 'noop' };
     }
 

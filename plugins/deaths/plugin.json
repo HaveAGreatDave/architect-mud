@@ -1,0 +1,12 @@
+{
+  "name": "deaths",
+  "version": "1.0.0",
+  "description": "Catalogues each player death from the player.death broadcast and reports it via the `deaths` command. Knows nothing about what can kill you — the killing systems broadcast the cause.",
+  "commands": ["deaths"],
+  "hooks": [],
+  "events": {
+    "emits": [],
+    "consumes": ["player.death"]
+  },
+  "dataSchema": ["player_deaths"]
+}

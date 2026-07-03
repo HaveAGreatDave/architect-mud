@@ -173,7 +173,7 @@ function syncPhantom(playerId) {
 
 async function killTripPlayer(player) {
   const { handlePlayerDeath } = await import('../../server/engine/gameLoop.js');
-  await handlePlayerDeath(player, null);
+  await handlePlayerDeath(player, null, { type: 'drug', label: 'Died in a hallucination' });
 }
 
 function despawnPhantom(state) {

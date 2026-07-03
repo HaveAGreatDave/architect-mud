@@ -352,7 +352,7 @@ async function cmdUse(targetStr, player, broadcast) {
       // Lethal overdose: show the take message, then run the full death path.
       broadcast(null, { type: 'output', message: result.message }, null, player.id);
       const { handlePlayerDeath } = await import('../gameLoop.js');
-      await handlePlayerDeath(player, null);
+      await handlePlayerDeath(player, null, { type: 'drug', label: 'Overdose' });
       return { type: 'use', message: '' };
     }
     return { type:'use', message: result.message, player_update: result.player_update };

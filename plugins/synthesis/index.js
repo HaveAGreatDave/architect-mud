@@ -164,7 +164,7 @@ async function cmdSynthResolve(args, raw, player, broadcast) {
     if (hp <= 0) {
       broadcast(null, { type: 'output', message: `<span class="overdose-warning">The mixture detonates in your hands. The last thing you smell is burning.</span>`, player_update: { hp, sanity } }, null, player.id);
       const { handlePlayerDeath } = await import('../../server/engine/gameLoop.js');
-      await handlePlayerDeath(player, null);
+      await handlePlayerDeath(player, null, { type: 'drug', label: 'Killed by a botched cook' });
       return { type: 'noop' };
     }
     return { type: 'output', message: `<span class="overdose-warning">The reaction runs away from you — a flash of heat, a gout of acrid smoke. The batch is ruined and you're burned.</span>`, player_update: { hp, sanity } };
@@ -430,7 +430,7 @@ async function cmdSpliceResolve(args, raw, player, broadcast) {
     if (hp <= 0) {
       broadcast(null, { type: 'output', message: `<span class="overdose-warning">The splice goes critical — a white flash, a wall of heat. It takes you with it.</span>`, player_update: { hp, sanity } }, null, player.id);
       const { handlePlayerDeath } = await import('../../server/engine/gameLoop.js');
-      await handlePlayerDeath(player, null);
+      await handlePlayerDeath(player, null, { type: 'drug', label: 'Killed by a splice gone critical' });
       return { type: 'noop' };
     }
     return { type: 'output', message: `<span class="overdose-warning">The reaction blows back in your face — the compound is destroyed and you're badly burned (−${dmg} HP).</span>`, player_update: { hp, sanity } };
