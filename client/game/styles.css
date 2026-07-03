@@ -2713,6 +2713,18 @@ textarea {
 	display: flex;
 	flex-direction: column;
 	gap: 14px;
+	scrollbar-width: thin;
+	scrollbar-color: var(--border) var(--bg2);
+}
+#gear-body::-webkit-scrollbar {
+	width: 6px;
+}
+#gear-body::-webkit-scrollbar-track {
+	background: var(--bg2);
+}
+#gear-body::-webkit-scrollbar-thumb {
+	background: var(--border);
+	border-radius: 3px;
 }
 .gear-section-label {
 	font-size: 9px;
@@ -2723,6 +2735,7 @@ textarea {
 }
 .gear-grid {
 	width: 100%;
+	table-layout: fixed;
 	border-collapse: collapse;
 	font-size: 11px;
 }
@@ -2781,22 +2794,35 @@ textarea {
 .gear-hidden {
 	display: none;
 }
-.gear-soaktable {
+.gear-armortable {
+	width: 100%;
+	table-layout: fixed;
 	border-collapse: collapse;
 	font-size: 11px;
 }
-.gear-soaktable td {
+.gear-armortable th,
+.gear-armortable td {
 	border: 1px solid var(--border);
 	padding: 4px 10px;
+	text-align: center;
+	color: var(--text-bright);
 }
-.gear-soak-region {
+.gear-armortable thead th {
 	color: var(--text-dim);
 	text-transform: uppercase;
 	font-size: 9px;
 	letter-spacing: 1px;
+	font-weight: normal;
 }
-.gear-soak-val {
-	color: var(--text-bright);
+.gear-armortable th:first-child,
+.gear-armor-slot {
+	text-align: left;
+}
+.gear-armor-slot {
+	color: var(--text-dim);
+	text-transform: uppercase;
+	font-size: 9px;
+	letter-spacing: 1px;
 }
 .gear-fx {
 	font-size: 11px;
@@ -2808,14 +2834,6 @@ textarea {
 	gap: 8px;
 	align-content: start;
 	padding: 2px;
-}
-#gear-inv-list .equip-item-card.gear-dim {
-	opacity: 0.3;
-}
-#gear-credits {
-	margin-top: 12px;
-	font-size: 11px;
-	color: var(--text-dim);
 }
 
 /* Inventory item detail popup (equipment.js showItemDetail) */
