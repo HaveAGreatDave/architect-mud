@@ -1,0 +1,10 @@
+{
+  "name": "intoxication",
+  "version": "1.0.0",
+  "description": "Alcohol drunkenness: a decaying BAC meter fed by alcoholic drinks, with slurred speech, wobbly movement, and heavy-drunk blackouts. Coffee sobers you up.",
+  "hooks": ["speech.transform"],
+  "events": {
+    "consumes": ["player.drugUsed", "zone.entered", "player.death", "player.logout"]
+  },
+  "ticks": ["self-4s"]
+}

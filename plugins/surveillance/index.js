@@ -16,6 +16,7 @@ import { getPowerMap } from '../../server/engine/environment.js';
 import { sendToPlayer, sendToZone } from '../../server/engine/messaging.js';
 import { on, emit } from '../../server/engine/events.js';
 import { getFlag, setFlag } from '../../server/engine/flags.js';
+import { registerAction } from '../../server/engine/actions.js';
 import { getCrimeStars, getCrimeWitness, getCrimeLabel } from '../../server/engine/crimes.js';
 
 const COMPASS = new Set(['north', 'south', 'east', 'west', 'up', 'down', 'n', 's', 'e', 'w', 'u', 'd']);
@@ -936,6 +937,16 @@ async function raiseWanted(player, amount, reason) {
     sendWantedHud(player.id, s.stars);
   }
 }
+
+// Cross-plugin seam: let another system (e.g. jail, on a jailbreak) put heat on a
+// player without importing surveillance internals. See docs/scripting.md actions.
+registerAction({
+  type: 'WANTED_RAISE',
+  handler: async ({ actor, params }) => {
+    await raiseWanted(actor, params?.amount ?? 1, params?.reason || 'a crime');
+    return { type: 'wanted', stars: wantedState(actor.id).stars };
+  },
+});
 
 // ── Crime → wanted routing ────────────────────────────────────────────────────
 // The data-driven path: a crime key (from crimes.js / the dev-panel `crimes`

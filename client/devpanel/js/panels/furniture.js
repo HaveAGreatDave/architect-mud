@@ -10,13 +10,13 @@ function furnitureItemRow(f, paddingLeft = '28px') {
         ? `<span style="font-size:10px;background:rgba(57,255,143,0.12);border:1px solid var(--accent2);color:var(--accent2);padding:1px 6px;border-radius:2px;margin-left:6px;letter-spacing:0.5px">✓ Published</span>`
         : '';
   const nameColor = f._markedForDeletion ? 'var(--red)' : f._staged ? 'var(--yellow)' : _furniturePublishedNames.has(f.name) ? 'var(--accent2)' : 'var(--text-bright)';
-  return `<div style="display:flex;align-items:center;gap:8px;padding:5px 12px 5px ${paddingLeft};border-bottom:1px solid var(--border);background:var(--bg1)">
+  return `<div style="display:flex;align-items:center;gap:8px;padding:5px 12px 5px ${paddingLeft};border-bottom:1px solid var(--border);background:var(--bg1);cursor:pointer" onclick="editRecord('${f.id}')">
     <div style="flex:1;min-width:0">
       <span style="color:${nameColor}">${f.name}</span>${lightBadge}${stagedBadge}
       ${f.description ? `<div style="font-size:11px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:500px">${f.description}</div>` : ''}
     </div>
-    <button class="action-btn" style="font-size:10px;padding:2px 8px" onclick="editRecord('${f.id}')">Edit</button>
-    <button class="action-btn danger" style="font-size:10px;padding:2px 8px" data-fid="${f.id}" data-fname="${f.name.replace(/"/g,'&quot;')}" onclick="deleteFurnitureStaged(this.dataset.fid,this.dataset.fname)">Del</button>
+    <button class="action-btn" style="font-size:10px;padding:2px 8px" onclick="event.stopPropagation();editRecord('${f.id}')">Edit</button>
+    <button class="action-btn danger" style="font-size:10px;padding:2px 8px" data-fid="${f.id}" data-fname="${f.name.replace(/"/g,'&quot;')}" onclick="event.stopPropagation();deleteFurnitureStaged(this.dataset.fid,this.dataset.fname)">Del</button>
   </div>`;
 }
 
@@ -231,12 +231,12 @@ function openFurnitureRoomModal(zoneId) {
     ? ` <span style="font-size:10px;color:${f.light_on?'var(--yellow)':'var(--text-dim)'}">💡${f.light_type||''}</span>`
     : '';
 
-  const tableRows = items.map(f => `<tr>
+  const tableRows = items.map(f => `<tr style="cursor:pointer" onclick="closeModal();editRecord('${f.id}')">
     <td style="color:var(--text-bright);font-weight:600">${f.name}${lightBadge(f)}</td>
     <td style="color:var(--text-dim);font-size:11px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.description||''}</td>
     <td style="text-align:right;white-space:nowrap">
-      <button class="action-btn" style="font-size:10px;padding:2px 6px" onclick="closeModal();editRecord('${f.id}')">Edit</button>
-      <button class="action-btn danger" style="font-size:10px;padding:2px 6px;margin-left:2px" onclick="closeModal();deleteFurnitureStaged('${f.id}','${f.name.replace(/'/g,"\\'")}')">Del</button>
+      <button class="action-btn" style="font-size:10px;padding:2px 6px" onclick="event.stopPropagation();closeModal();editRecord('${f.id}')">Edit</button>
+      <button class="action-btn danger" style="font-size:10px;padding:2px 6px;margin-left:2px" onclick="event.stopPropagation();closeModal();deleteFurnitureStaged('${f.id}','${f.name.replace(/'/g,"\\'")}')">Del</button>
     </td>
   </tr>`).join('');
 
@@ -497,14 +497,14 @@ function filterFurniture(q) {
   }
   panel.innerHTML = matches.map(f => {
     const zoneName = f.zone_id ? (_furnitureZoneNames.get(f.zone_id) || f.zone_id) : 'Unplaced';
-    return `<div style="display:flex;align-items:center;gap:8px;padding:5px 12px;border-bottom:1px solid var(--border);background:var(--bg1)">
+    return `<div style="display:flex;align-items:center;gap:8px;padding:5px 12px;border-bottom:1px solid var(--border);background:var(--bg1);cursor:pointer" onclick="editRecord('${f.id}')">
       <div style="flex:1;min-width:0">
         <span style="color:var(--text-bright)">${f.name}</span>
         <span style="font-size:10px;color:var(--text-dim);margin-left:8px">${zoneName}</span>
         ${f.description ? `<div style="font-size:11px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:500px">${f.description}</div>` : ''}
       </div>
-      <button class="action-btn" style="font-size:10px;padding:2px 8px" onclick="editRecord('${f.id}')">Edit</button>
-      <button class="action-btn danger" style="font-size:10px;padding:2px 8px" data-fid="${f.id}" data-fname="${f.name.replace(/"/g,'&quot;')}" onclick="deleteFurnitureStaged(this.dataset.fid,this.dataset.fname)">Del</button>
+      <button class="action-btn" style="font-size:10px;padding:2px 8px" onclick="event.stopPropagation();editRecord('${f.id}')">Edit</button>
+      <button class="action-btn danger" style="font-size:10px;padding:2px 8px" data-fid="${f.id}" data-fname="${f.name.replace(/"/g,'&quot;')}" onclick="event.stopPropagation();deleteFurnitureStaged(this.dataset.fid,this.dataset.fname)">Del</button>
     </div>`;
   }).join('');
 }

@@ -280,11 +280,11 @@ async function zoneEditForm(rec, isNew) {
             ? (dLockTag.type === 'lock:keycardlock' ? `keycardlock${d.lock_state === 'locked' ? ' 🔒' : ''}` : `hololock diff:${dLockTag.difficulty}${d.lock_state === 'locked' ? ' 🔒' : ''}`)
             : 'no lock';
           const dIdSafe = d.id.replace(/'/g, "\\'");
-          return `<div class="zone-subitem-row" id="door-row-${d.id}">
+          return `<div class="zone-subitem-row" id="door-row-${d.id}" style="cursor:pointer" onclick="openEditDoorDialog('${dIdSafe}','${rec.id}')">
             <span style="display:flex;align-items:center;gap:6px"><strong>${d.name || d.id}</strong> <span style="color:var(--text-dim);font-size:11px">${d.door_type} · ${d.exit_dir||'?'} · ${d.hp}/${d.hp_max}HP · ${dLockLabel}</span></span>
             <span class="zone-subitem-actions">
-              <button class="action-btn" onclick="openEditDoorDialog('${dIdSafe}','${rec.id}')" style="padding:2px 8px;font-size:11px">Edit</button>
-              <button class="action-btn danger" onclick="deleteDoorQuick('${dIdSafe}','${rec.id}')" style="padding:2px 8px;font-size:14px;font-weight:bold">−</button>
+              <button class="action-btn" onclick="event.stopPropagation();openEditDoorDialog('${dIdSafe}','${rec.id}')" style="padding:2px 8px;font-size:11px">Edit</button>
+              <button class="action-btn danger" onclick="event.stopPropagation();deleteDoorQuick('${dIdSafe}','${rec.id}')" style="padding:2px 8px;font-size:14px;font-weight:bold">−</button>
             </span>
           </div>`;
         }).join('') : '<div class="zone-subitem-empty">No doors here.</div>'}</div>
@@ -307,11 +307,11 @@ async function zoneEditForm(rec, isNew) {
       <div class="zone-subsection">
         <div class="zone-subsection-header">Rooms <span class="zone-subsection-count">${childRooms.length}</span></div>
         <div id="zone-rooms-list">${childRooms.length ? childRooms.map(r => `
-          <div class="zone-subitem-row">
+          <div class="zone-subitem-row" style="cursor:pointer" onclick="editRecord('${r.id}')">
             <span>${r.name}</span>
             <span class="zone-subitem-actions">
-              <button class="action-btn" onclick="editRecord('${r.id}')">Edit</button>
-              <button class="action-btn danger" onclick="deleteRoomQuick('${r.id}','${rec.id}')">Delete</button>
+              <button class="action-btn" onclick="event.stopPropagation();editRecord('${r.id}')">Edit</button>
+              <button class="action-btn danger" onclick="event.stopPropagation();deleteRoomQuick('${r.id}','${rec.id}')">Delete</button>
             </span>
           </div>`).join('') : '<div class="zone-subitem-empty">No rooms yet.</div>'}</div>
         <div id="zone-add-room-form"></div>
@@ -323,11 +323,11 @@ async function zoneEditForm(rec, isNew) {
       <div class="zone-subsection">
         <div class="zone-subsection-header">NPCs <span class="zone-subsection-count">${zoneNpcs.length}</span></div>
         <div id="zone-npcs-list">${zoneNpcs.length ? zoneNpcs.map(n => `
-          <div class="zone-subitem-row" id="npc-row-${n.id}">
+          <div class="zone-subitem-row" id="npc-row-${n.id}" style="cursor:pointer" onclick="openEditNpcQuick('${n.id}')">
             <span>${n.name}</span>
             <span class="zone-subitem-actions">
-              <button class="action-btn" onclick="openEditNpcQuick('${n.id}')">Edit</button>
-              <button class="action-btn danger" onclick="deleteNpcQuick('${n.id}','${rec.id}')">Delete</button>
+              <button class="action-btn" onclick="event.stopPropagation();openEditNpcQuick('${n.id}')">Edit</button>
+              <button class="action-btn danger" onclick="event.stopPropagation();deleteNpcQuick('${n.id}','${rec.id}')">Delete</button>
             </span>
           </div>`).join('') : '<div class="zone-subitem-empty">No NPCs here.</div>'}</div>
         <div id="zone-add-npc-form"></div>
@@ -362,11 +362,11 @@ async function zoneEditForm(rec, isNew) {
       <div class="zone-subsection">
         <div class="zone-subsection-header">Furniture <span class="zone-subsection-count">${zoneFurniture.length}</span></div>
         <div id="zone-furniture-list">${zoneFurniture.length ? zoneFurniture.map(f => `
-          <div class="zone-subitem-row" id="furniture-row-${f.id}">
+          <div class="zone-subitem-row" id="furniture-row-${f.id}" style="cursor:pointer" onclick="openEditFurnitureQuick('${f.id}')">
             <span>${f.name}</span>
             <span class="zone-subitem-actions">
-              <button class="action-btn" onclick="openEditFurnitureQuick('${f.id}')">Edit</button>
-              <button class="action-btn danger" onclick="deleteFurnitureQuick('${f.id}','${rec.id}')">Delete</button>
+              <button class="action-btn" onclick="event.stopPropagation();openEditFurnitureQuick('${f.id}')">Edit</button>
+              <button class="action-btn danger" onclick="event.stopPropagation();deleteFurnitureQuick('${f.id}','${rec.id}')">Delete</button>
             </span>
           </div>`).join('') : '<div class="zone-subitem-empty">No furniture here.</div>'}</div>
         <div id="zone-add-furniture-form"></div>

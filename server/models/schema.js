@@ -1128,6 +1128,35 @@ export const SCHEMA_SQL = `
   -- every existing apartment row is unchanged; an org HQ sets owner_type='org'.
   ALTER TABLE apartments ADD COLUMN IF NOT EXISTS owner_type TEXT NOT NULL DEFAULT 'player';
   ALTER TABLE apartments ADD COLUMN IF NOT EXISTS owner_org_id TEXT REFERENCES orgs(id) ON DELETE SET NULL;
+
+  -- ── Jail system (jail plugin) ──────────────────────────────────────────────
+  -- Runtime tables: schema is exported, rows are not. Written by plugins/jail.
+  -- A jailed player's legal gear is snapshotted into held_items (JSONB array of
+  -- player_inventory rows) and returned when the guard releases them; contraband
+  -- goes to police_evidence instead. release_at is the timed-release deadline.
+  CREATE TABLE IF NOT EXISTS jail_prisoners (
+    player_id   TEXT PRIMARY KEY,
+    cell_zone   TEXT NOT NULL,
+    release_zone TEXT NOT NULL,
+    release_at  TIMESTAMPTZ NOT NULL,
+    stars       INTEGER NOT NULL DEFAULT 1,
+    held_items  JSONB NOT NULL DEFAULT '[]',
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+
+  -- Global police evidence locker: confiscated contraband (weapons/drugs/hacking
+  -- gear). Capped at 50 rows (oldest evicted on insert); the whole locker purges
+  -- rows older than 3 days on a timer. No reclaim path — this is a graveyard.
+  CREATE TABLE IF NOT EXISTS police_evidence (
+    id          TEXT PRIMARY KEY,
+    item_id     TEXT NOT NULL,
+    quantity    INTEGER NOT NULL DEFAULT 1,
+    condition   REAL NOT NULL DEFAULT 1.0,
+    custom_data JSONB NOT NULL DEFAULT '{}',
+    source_handle TEXT,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+  CREATE INDEX IF NOT EXISTS idx_police_evidence_time ON police_evidence(created_at ASC);
 `;
 
 export async function applySchema() {

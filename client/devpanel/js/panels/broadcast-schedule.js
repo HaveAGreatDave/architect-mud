@@ -819,7 +819,8 @@ function _schedAutoScheduleOpen() {
     </div>`;
 
   document.body.appendChild(modal);
-  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+  modal.addEventListener('mousedown', e => backdropDown(e, modal));
+  modal.addEventListener('click', e => backdropClose(e, modal, () => modal.remove()));
 }
 
 function _schedAsWholeDay(checked) {

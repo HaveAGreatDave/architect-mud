@@ -177,7 +177,7 @@ function renderItemsPanel(records = allRecords) {
       for (const rec of [...items].sort((a, b) => (a.name || '').localeCompare(b.name || ''))) {
         const idSafe = rec.id.replace(/'/g, "\\'");
         const checked = selectedItemIds.has(rec.id) ? 'checked' : '';
-        html += `<tr onclick="selectRecord('${idSafe}')">`;
+        html += `<tr onclick="editRecord('${idSafe}')">`;
         html += `<td><input type="checkbox" class="item-del-cb" data-id="${rec.id}" ${checked} onclick="event.stopPropagation()" onchange="toggleItemChecked('${idSafe}', this.checked)" style="accent-color:var(--accent)"></td>`;
         for (const col of cols) {
           const val = col.key === 'name' ? `${rec.name ?? '—'} <span style="color:var(--text-dim);font-size:10px">(${rec.id})</span>` : (rec[col.key] ?? '—');

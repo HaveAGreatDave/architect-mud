@@ -44,7 +44,9 @@ function renderTable(columns, records, noEdit = false) {
   html += '</tr></thead><tbody>';
 
   for (const rec of sorted) {
-    html += `<tr onclick="selectRecord('${rec.id}')">`;
+    // Whole row opens the editor when the panel is editable; otherwise just select.
+    const rowClick = noEdit ? `selectRecord('${rec.id}')` : `editRecord('${rec.id}')`;
+    html += `<tr onclick="${rowClick}">`;
     for (const col of columns) {
       const raw = rec[col.key];
       const val = col.render ? col.render(raw) : (raw ?? '—');

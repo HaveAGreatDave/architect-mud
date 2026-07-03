@@ -368,10 +368,20 @@ export async function handlePlayerDeath(player, killer) {
   ];
   const msg = msgs[Math.floor(Math.random() * msgs.length)];
   const killerMsg = killer ? ` Killed by: ${killer.name}.` : '';
-  const respawnZone = player.anchor_zone || 'zone_start';
   const deathZone = player.current_zone;
 
-  const { corpseId, corpseName } = await spawnPlayerCorpse(player, deathZone);
+  // Respawn override seam: a plugin (e.g. jail) may divert a downed player
+  // somewhere other than their anchor and take custody of their body/gear.
+  // The hook runs while inventory is still intact — before spawnPlayerCorpse
+  // strips it — so it can confiscate rather than drop into a lootable corpse.
+  // A truthy return { zone, message } routes respawn there and skips the corpse.
+  const respawnOverride = await fireHook('player.respawnZone', player, killer);
+  const respawnZone = respawnOverride?.zone || player.anchor_zone || 'zone_start';
+
+  // No corpse when a plugin took custody of the body (the cops bagged your gear).
+  const { corpseId, corpseName } = respawnOverride
+    ? { corpseId: null, corpseName: null }
+    : await spawnPlayerCorpse(player, deathZone);
 
   // Full restore on respawn — you come out of the vat whole, not wounded.
   // Skills/rank/xp live in a separate table untouched by any of this, so
@@ -391,21 +401,26 @@ export async function handlePlayerDeath(player, killer) {
   player.pvpTargetId = null;
   player.offlinePvpTargetId = null;
 
+  const vatLine = respawnOverride?.message
+    || `<span class="clone-vat-message">A vending-machine-shaped cloning vat hums, dispenses a fresh you, and prints a receipt nobody asked for. Everything you knew, you still know. Everything that hurt, doesn't anymore.</span>`;
   broadcastFn(null, {
     type:'player_death',
-    message:`\n<span class="death-message">☠ ${msg}${killerMsg}</span>\n<span class="clone-vat-message">A vending-machine-shaped cloning vat hums, dispenses a fresh you, and prints a receipt nobody asked for. Everything you knew, you still know. Everything that hurt, doesn't anymore.</span>`,
+    message:`\n<span class="death-message">☠ ${msg}${killerMsg}</span>\n${vatLine}`,
     respawn_zone: respawnZone,
     player_update: { hp:player.hp, sanity:player.sanity, hunger:player.hunger, thirst:player.thirst, radiation:player.radiation, stamina:player.stamina, body_temp_c:player.body_temp_c },
   }, null, player.id);
 
   emit('player.respawn', { player });
 
-  // Notify others in the zone that a corpse has appeared
-  const corpseLink = `<span class="action-link corpse-link" data-action="loot" data-target="${corpseId}" data-label="${corpseName}" title="Loot ${corpseName}">${corpseName}</span>`;
-  broadcastFn(deathZone, { type:'zone_event', message:`${player.handle} has died. ${corpseLink}`, refresh: true }, player.id);
+  // Notify others in the death zone that a corpse has appeared (skipped when a
+  // plugin took custody of the body — there's no corpse to loot).
+  if (corpseId) {
+    const corpseLink = `<span class="action-link corpse-link" data-action="loot" data-target="${corpseId}" data-label="${corpseName}" title="Loot ${corpseName}">${corpseName}</span>`;
+    broadcastFn(deathZone, { type:'zone_event', message:`${player.handle} has died. ${corpseLink}`, refresh: true }, player.id);
+  }
 
-  query('UPDATE players SET hp=$1, sanity=$2, hunger=$3, thirst=$4, radiation=$5, stamina=$6, body_temp_c=$7, clothing_contamination=$8, current_zone=anchor_zone WHERE id=$9',
-    [player.hp, player.sanity, player.hunger, player.thirst, player.radiation, player.stamina, player.body_temp_c, JSON.stringify({}), player.id]).catch(()=>{});
+  query('UPDATE players SET hp=$1, sanity=$2, hunger=$3, thirst=$4, radiation=$5, stamina=$6, body_temp_c=$7, clothing_contamination=$8, current_zone=$9 WHERE id=$10',
+    [player.hp, player.sanity, player.hunger, player.thirst, player.radiation, player.stamina, player.body_temp_c, JSON.stringify({}), respawnZone, player.id]).catch(()=>{});
 
   // Move player back to anchor in memory
   for (const [,zone] of world.zones) zone.players.delete(player.id);
