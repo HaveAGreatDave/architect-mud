@@ -1663,18 +1663,41 @@ function coreIntensityTier(lines) {
   return 3;                     // heavy
 }
 
+// Locate the git binary once and cache it. The server may be launched from a
+// shell whose PATH lacks git (common on Windows when git is only on the Git Bash
+// PATH), so fall back to the standard install locations. Override with GIT_BINARY.
+let _gitBin = null;
+const GIT_CANDIDATES = [
+  'git',
+  'C:\\Program Files\\Git\\cmd\\git.exe',
+  'C:\\Program Files (x86)\\Git\\cmd\\git.exe',
+  '/usr/bin/git',
+];
+async function resolveGitBin() {
+  if (_gitBin) return _gitBin;
+  for (const bin of [process.env.GIT_BINARY, ...GIT_CANDIDATES].filter(Boolean)) {
+    try {
+      await execFileP(bin, ['--version'], { maxBuffer: 1 << 20 });
+      _gitBin = bin;
+      return bin;
+    } catch { /* try next candidate */ }
+  }
+  return null;
+}
+
 // Run `git` in the repo root. Returns { ok, stdout } or { ok:false, reason }.
 // The reason string is safe to show a dev — it explains WHY git is unavailable
 // (binary missing, no .git checkout, etc.) instead of a silent empty feed.
 async function runGit(args) {
+  const bin = await resolveGitBin();
+  if (!bin) return { ok: false, reason: "git binary not found — install git or set the GIT_BINARY env var to git's full path" };
   const repoRoot = fileURLToPath(new URL('../../', import.meta.url));
   try {
-    const { stdout } = await execFileP('git', args, { cwd: repoRoot, maxBuffer: 64 * 1024 * 1024 });
+    const { stdout } = await execFileP(bin, args, { cwd: repoRoot, maxBuffer: 64 * 1024 * 1024 });
     return { ok: true, stdout };
   } catch (err) {
     const stderr = (err.stderr || '').toString();
-    const reason = err.code === 'ENOENT' ? 'git is not installed / not on this server\'s PATH'
-      : /not a git repository/i.test(stderr) ? 'this server has no .git checkout (deployed without git history)'
+    const reason = /not a git repository/i.test(stderr) ? 'this server has no .git checkout (deployed without git history)'
       : (stderr || err.message || 'git failed').split('\n')[0].slice(0, 200);
     console.error('[dev-log] git failed:', err.code || '', reason);
     return { ok: false, reason };
@@ -1760,13 +1783,9 @@ async function apiSetDevIdentity(body) {
 // Seed obvious mappings by matching git author email to players.email. Never
 // overrides an existing binding (ON CONFLICT DO NOTHING).
 async function apiAutomatchDevIdentities() {
-  let stdout = '';
-  try {
-    const repoRoot = fileURLToPath(new URL('../../', import.meta.url));
-    ({ stdout } = await execFileP('git', ['log', '--since=90.days.ago', '-n', '2000', '--pretty=format:%ae%x1f%an'], { cwd: repoRoot, maxBuffer: 4 * 1024 * 1024 }));
-  } catch {
-    return { status: 200, body: { added: 0, gitUnavailable: true } };
-  }
+  const g = await runGit(['log', '--since=90.days.ago', '-n', '2000', '--pretty=format:%ae%x1f%an']);
+  if (!g.ok) return { status: 200, body: { added: 0, gitUnavailable: true, gitError: g.reason } };
+  const stdout = g.stdout;
   const seen = new Map(); // email → name
   for (const line of stdout.split('\n')) {
     const [email, name] = line.split('\x1f');
