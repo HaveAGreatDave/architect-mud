@@ -1,3 +1,51 @@
+// --- Map scale (shared by the Maps big-map overlay and the Power panel grids) ---
+// 'fit'  = shrink the whole grid so every tile is visible on screen without scrolling (default)
+// 'full' = native tile size (scroll to see the rest)
+let mapScaleMode = (() => { try { return localStorage.getItem('devMapScaleMode') || 'fit'; } catch { return 'fit'; } })();
+
+function setMapScaleMode(mode) {
+  mapScaleMode = mode;
+  try { localStorage.setItem('devMapScaleMode', mode); } catch {}
+  const overlay = document.getElementById('bigmap-overlay');
+  if (overlay && overlay.classList.contains('active')) renderBigMapOverlay();
+  else if (typeof currentPanel !== 'undefined' && currentPanel === 'power') renderPowerPanelBody();
+}
+
+function mapScaleControlHtml() {
+  const fit = mapScaleMode === 'fit';
+  return `<div class="map-scale-ctrl" style="display:flex;align-items:center;gap:4px">
+    <span style="font-size:10px;color:var(--text-dim);letter-spacing:1px">SCALE</span>
+    <button class="action-btn${fit ? ' primary' : ''}" onclick="setMapScaleMode('fit')" title="Shrink the map so every tile fits on screen">Fit</button>
+    <button class="action-btn${fit ? '' : ' primary'}" onclick="setMapScaleMode('full')" title="Native tile size (scroll to see the rest)">Full</button>
+  </div>`;
+}
+
+function wrapMapScale(gridHtml) {
+  return `<div class="map-scale-viewport"><div class="map-scale-inner">${gridHtml}</div></div>`;
+}
+
+// Post-render: in 'fit' mode, measure each grid and CSS-transform it down to fit its container.
+function applyMapScale(root) {
+  const scope = root || document;
+  scope.querySelectorAll('.map-scale-viewport').forEach(vp => {
+    const inner = vp.querySelector('.map-scale-inner');
+    if (!inner) return;
+    inner.style.transform = 'none';
+    if (mapScaleMode !== 'fit') { vp.style.height = ''; vp.style.overflow = 'auto'; return; }
+    const natW = inner.scrollWidth, natH = inner.scrollHeight;
+    if (!natW || !natH) return;
+    const availW = vp.clientWidth || (vp.parentElement && vp.parentElement.clientWidth) || natW;
+    const availH = Math.max(200, window.innerHeight - vp.getBoundingClientRect().top - 90);
+    const factor = Math.min(availW / natW, availH / natH, 1);
+    inner.style.transformOrigin = 'top left';
+    inner.style.transform = `scale(${factor})`;
+    vp.style.height = (natH * factor) + 'px';
+    vp.style.overflow = 'hidden';
+  });
+}
+
+window.addEventListener('resize', () => applyMapScale(document));
+
 function buildDynamicMapGrid(zones, mode, powerById, clickable) {
   const placed = zones.filter(z => z.grid_x != null && z.grid_y != null);
   if (!placed.length) return '<div style="padding:12px;color:var(--text-dim)">No zones have been placed on a map yet.</div>';
@@ -281,11 +329,12 @@ function renderBigMapOverlay() {
   // Floor selector
   const floorCtrl = document.getElementById('bigmap-floor-ctrl');
   if (floorCtrl) {
-    floorCtrl.innerHTML = floors.length > 1
+    const floorBtns = floors.length > 1
       ? `<button class="action-btn" onclick="changeBigMapFloor(-1)">▾</button>
          <span style="font-size:11px;color:var(--text-dim);min-width:48px;text-align:center">z = ${bigMapOverlayZ}</span>
          <button class="action-btn" onclick="changeBigMapFloor(1)">▴</button>`
       : '';
+    floorCtrl.innerHTML = mapScaleControlHtml() + floorBtns;
   }
 
   if (!onFloor.length) {
@@ -377,8 +426,10 @@ function renderBigMapOverlay() {
   }
 
   html += '</div>';
-  document.getElementById('bigmap-grid').innerHTML = html;
+  const gridEl = document.getElementById('bigmap-grid');
+  gridEl.innerHTML = wrapMapScale(html);
   document.getElementById('bigmap-legend').innerHTML = mapLegendHtml(bigMapOverlayMode);
+  applyMapScale(gridEl);
 }
 
 function changeBigMapFloor(delta) {

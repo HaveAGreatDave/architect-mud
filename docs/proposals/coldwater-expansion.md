@@ -91,6 +91,23 @@ Phase 1 is the ~6×5 block wrapping the existing central plaza (`grid x −2..4,
 
 *Note: geometric phasing means Phase 1 mixes two themes (slum + corporate approach). If you'd rather build thematically-coherent districts, the phase map is only a suggested order — pick any single cluster to start.*
 
+**Phase 1 STATUS: BUILT & LIVE 2026-07-03.** 15 zones + exits live (161 zones), `enemy_sprawl_ganger` + 5 spawns in DB (live on restart), regress 171/171. Remaining: Undermarket vendor + ripperdoc, Uptown Gate guard, Aid Station medic, ambient drones.
+
+### Phase 2 — The Municipal Fringe & the West Wastes
+
+The western transitional band (grid **x −5..−2, y −3..3**, 15 zones) bridging the city's west edge + Phase 1 into the badlands. **Decisions (locked):** fully populated · Civic North = a *functioning municipal fringe* · new Phase-2 enemies + loot.
+
+**Sub-clusters:**
+- **Civic North (4, safe/low):** `zone_civ_commons` (The Commons — breadline/square), `zone_civ_ledger` (Ledger Hall — records office), `zone_civ_meltwater` (Meltwater Row — water distribution), `zone_civ_sortation` (Sortation Yard — dead-letter depot).
+- **Outer Wastes (9, low→med):** `zone_waste_{windrow,gravel,endcut,verge,grit,coalsack,nadir,grime,bailey}`.
+- **Undermarket edge (2, med):** `zone_deep_tarpit`, `zone_deep_sink`.
+
+**Attach seams (8):** Ledger Hall→Aid Station(P1,S); Meltwater→Aid Station(P1,E); Endcut→Old Coldwater(S); Sortation→Rust Quarter W(S)+Loading Bay West(E); Verge→Haul Road(N); Grit→Old Coldwater(N)+The Falloff(E); Tarpit→The Falloff(N)+The Warrens(P1,E); The Sink→Rot Row(P1,E). Plus internal grid.
+
+**New content:** enemies `enemy_wire_jackal` (~14hp pack, low wastes) + `enemy_slag_wight` (~34hp, deep SW wastes, low rad); reuse `enemy_sprawl_ganger` on the edge. New table `scav_west_wastes` (existing scrap + 2 new items `item_cracked_capacitor`, `item_salvaged_wiring`) on all 9 wastes tiles. NPCs/vendors: **Meltwater Tap** (water dispensary vendor), **The Registrar** (records clerk + quest giver), **The Almoner** (breadline charity NPC), **Sorting Bot** (salvage/lost-parcel), **The Clinkerman** (west-wastes salvage broker vendor). Quest `quest_paper_trail` (VINE DAG): Registrar → recover a records spool from the wastes (guarded by slag_wight) → credits+IP+permit.
+
+**Build order:** items+scav table → zones+exits+reload+verify → enemies+spawns → NPCs/vendors → quest → regress + walkthrough. New enemy templates/items live on restart; pre-seed `vendor_stock`.
+
 ## Build method (when greenlit)
 
 Per [reference-mud-content-build] practice: **direct-DB writes + `POST /api/world/reload`** (the dev API is flaky at scale and its exit auto-repair strips exits to not-yet-created zones). `tools/design-cli.mjs` needs `CLAUDE_MUD_USER/PASS` in `.env` (absent) — mint an unsigned admin token instead. Follow the **Marquee District** as the district exemplar. Pre-seed `vendor_stock` for any shop. ~100 of the wastes/Redline tiles are auto-named placeholders — give them real descriptions or accept them as thin connective terrain.
