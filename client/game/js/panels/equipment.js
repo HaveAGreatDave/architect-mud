@@ -280,6 +280,10 @@ const ARMOR_SLOTS = ['head','torso','hands','legs','feet'];
 const GEAR_FILTERS = ['underwear','outerwear','armor','weapon','accessories'];
 let gearFilter = new Set(GEAR_FILTERS);
 let lastGear = null;
+// Layout view: 'grid' (layers × slots table) or 'paperdoll' (human silhouette,
+// one layer at a time). gearDollLayer indexes GEAR_LAYERS (0..2).
+let gearView = 'grid';
+let gearDollLayer = GEAR_LAYERS.length - 1; // default to Armor (top layer)
 
 export function openGearPanel() {
   import('../net.js').then(m => m.sendCmd('gear'));
@@ -292,39 +296,9 @@ export function renderGearPanel(msg) {
   lastGear = msg;
   const items = msg.items || [];
   const equipped = items.filter(i => i.is_equipped);
-  const cellItem = (slot, n) => equipped.find(i => i.slot === slot && (i.layer || 1) === n);
 
-  // Layered layout: body slots × layers, then weapon + accessories.
-  const layout = document.getElementById('gear-layout');
-  let html = '<table class="gear-grid"><thead><tr><th></th>' +
-    GEAR_LAYERS.map(l => `<th data-cat="${l.key}">${l.label}</th>`).join('') + '</tr></thead><tbody>';
-  for (const slot of GEAR_BODY_SLOTS) {
-    html += `<tr><th class="gear-rowlabel">${GEAR_SLOT_LABELS[slot]}</th>`;
-    for (const l of GEAR_LAYERS) {
-      const it = cellItem(slot, l.n);
-      html += `<td data-cat="${l.key}" class="gear-cell${it ? ' filled' : ''}"${it ? ` data-id="${it.id}"` : ''}>${it ? escapeHtml(it.name) : '·'}</td>`;
-    }
-    html += '</tr>';
-  }
-  layout.innerHTML = html + '</tbody></table>';
-
-  // Weapon + accessories strip.
-  const weapon = equipped.find(i => i.slot === 'weapon_hand');
-  const accessories = equipped.filter(i => i.slot === 'accessory').sort((a,b) => (a.layer||0)-(b.layer||0));
-  let strip = `<div class="gear-strip" data-cat="weapon"><span class="gear-striplabel">Weapon</span>` +
-    `<span class="gear-cell${weapon ? ' filled' : ''}"${weapon ? ` data-id="${weapon.id}"` : ''}>${weapon ? escapeHtml(weapon.name) : '·'}</span></div>`;
-  strip += `<div class="gear-strip" data-cat="accessories"><span class="gear-striplabel">Accessories</span>`;
-  for (let i = 0; i < 3; i++) {
-    const a = accessories[i];
-    strip += `<span class="gear-cell${a ? ' filled' : ''}"${a ? ` data-id="${a.id}"` : ''}>${a ? escapeHtml(a.name) : '·'}</span>`;
-  }
-  strip += '</div>';
-  layout.insertAdjacentHTML('beforeend', strip);
-
-  // Clicking a filled cell opens the item detail (same behaviour as inventory).
-  layout.querySelectorAll('[data-id]').forEach(el => {
-    el.onclick = () => { const it = items.find(i => i.id == el.dataset.id); if (it) showItemDetail(it); };
-  });
+  renderGearLayout();
+  updateViewbar();
 
   // Armor table: a row per body slot (always all five), a column per damage type
   // (always all five). Each cell is the slot's total soak, summed across every worn
@@ -370,6 +344,124 @@ export function renderGearPanel(msg) {
   applyGearFilter();
 }
 
+// Render #gear-layout in the active view (grid or paperdoll). Reads lastGear so
+// the view toggle / layer stepper can re-render without a server round-trip.
+function renderGearLayout() {
+  const layout = document.getElementById('gear-layout');
+  if (!layout || !lastGear) return;
+  const items = lastGear.items || [];
+  const equipped = items.filter(i => i.is_equipped);
+  if (gearView === 'paperdoll') renderPaperdoll(layout, equipped);
+  else renderGearGrid(layout, equipped);
+
+  // Clicking a filled cell opens the item detail (same behaviour as inventory).
+  layout.querySelectorAll('[data-id]').forEach(el => {
+    el.onclick = () => { const it = items.find(i => i.id == el.dataset.id); if (it) showItemDetail(it); };
+  });
+  // Any cell carrying a data-slot accepts a dragged inventory item → equip.
+  layout.querySelectorAll('[data-slot]').forEach(wireEquipDropTarget);
+}
+
+// Grid view: body slots × layers table, then a weapon + accessories strip.
+function renderGearGrid(layout, equipped) {
+  const cellItem = (slot, n) => equipped.find(i => i.slot === slot && (i.layer || 1) === n);
+  let html = '<table class="gear-grid"><thead><tr><th></th>' +
+    GEAR_LAYERS.map(l => `<th data-cat="${l.key}">${l.label}</th>`).join('') + '</tr></thead><tbody>';
+  for (const slot of GEAR_BODY_SLOTS) {
+    html += `<tr><th class="gear-rowlabel">${GEAR_SLOT_LABELS[slot]}</th>`;
+    for (const l of GEAR_LAYERS) {
+      const it = cellItem(slot, l.n);
+      html += `<td data-cat="${l.key}" data-slot="${slot}" class="gear-cell${it ? ' filled' : ''}"${it ? ` data-id="${it.id}"` : ''}>${it ? escapeHtml(it.name) : '·'}</td>`;
+    }
+    html += '</tr>';
+  }
+  layout.innerHTML = html + '</tbody></table>';
+
+  const weapon = equipped.find(i => i.slot === 'weapon_hand');
+  const accessories = equipped.filter(i => i.slot === 'accessory').sort((a,b) => (a.layer||0)-(b.layer||0));
+  let strip = `<div class="gear-strip" data-cat="weapon"><span class="gear-striplabel">Weapon</span>` +
+    `<span class="gear-cell${weapon ? ' filled' : ''}" data-slot="weapon_hand"${weapon ? ` data-id="${weapon.id}"` : ''}>${weapon ? escapeHtml(weapon.name) : '·'}</span></div>`;
+  strip += `<div class="gear-strip" data-cat="accessories"><span class="gear-striplabel">Accessories</span>`;
+  for (let i = 0; i < 3; i++) {
+    const a = accessories[i];
+    strip += `<span class="gear-cell${a ? ' filled' : ''}" data-slot="accessory"${a ? ` data-id="${a.id}"` : ''}>${a ? escapeHtml(a.name) : '·'}</span>`;
+  }
+  strip += '</div>';
+  layout.insertAdjacentHTML('beforeend', strip);
+}
+
+// Paperdoll view: slot chips positioned in a human silhouette. Body slots show
+// the piece worn in the currently-selected layer (gearDollLayer); weapon and
+// accessories (which aren't layered) always show.
+function renderPaperdoll(layout, equipped) {
+  const layer = GEAR_LAYERS[gearDollLayer];
+  const bodyItem = (slot) => equipped.find(i => i.slot === slot && (i.layer || 1) === layer.n);
+  const chip = (slot, it, label) =>
+    `<div class="gear-doll-slot gear-doll-${slot}${it ? ' filled' : ''}" data-slot="${slot}"${it ? ` data-id="${it.id}"` : ''}>` +
+    `<span class="gds-label">${label}</span><span class="gds-name">${it ? escapeHtml(it.name) : '·'}</span></div>`;
+
+  let html = '<div class="gear-paperdoll">';
+  html += `<svg class="gear-doll-svg" viewBox="0 0 120 260" aria-hidden="true">` +
+    `<circle cx="60" cy="26" r="18"/>` +
+    `<path d="M42 46 h36 l8 60 h-14 l-4 -34 v78 h-8 v-46 h-2 v46 h-8 v-78 l-4 34 h-14 z"/>` +
+    `<rect x="34" y="46" width="52" height="4"/></svg>`;
+  for (const slot of GEAR_BODY_SLOTS) html += chip(slot, bodyItem(slot), GEAR_SLOT_LABELS[slot]);
+  html += chip('weapon_hand', equipped.find(i => i.slot === 'weapon_hand'), 'Weapon');
+  const acc = equipped.filter(i => i.slot === 'accessory').sort((a,b) => (a.layer||0)-(b.layer||0))[0];
+  html += chip('accessory', acc, 'Accessory');
+  html += '</div>';
+  layout.innerHTML = html;
+}
+
+// Build/refresh the view toggle + layer stepper above the layout.
+function updateViewbar() {
+  const bar = document.getElementById('gear-viewbar');
+  if (!bar) return;
+  const layer = GEAR_LAYERS[gearDollLayer];
+  bar.innerHTML =
+    `<button class="gear-view-btn" data-view="grid">Grid</button>` +
+    `<button class="gear-view-btn" data-view="paperdoll">Paperdoll</button>` +
+    (gearView === 'paperdoll'
+      ? `<div class="gear-layer-step"><button class="gls-btn" data-dir="up" title="Layer up">▲</button>` +
+        `<span class="gls-label">${layer.label} (${gearDollLayer + 1}/${GEAR_LAYERS.length})</span>` +
+        `<button class="gls-btn" data-dir="down" title="Layer down">▼</button></div>`
+      : '');
+  bar.querySelectorAll('.gear-view-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.view === gearView);
+    b.onclick = () => { gearView = b.dataset.view; renderGearLayout(); updateViewbar(); };
+  });
+  bar.querySelectorAll('.gls-btn').forEach(b => {
+    b.onclick = () => { stepDollLayer(b.dataset.dir === 'up' ? 1 : -1); };
+  });
+}
+
+function stepDollLayer(delta) {
+  const n = GEAR_LAYERS.length;
+  gearDollLayer = (gearDollLayer + delta + n) % n;
+  renderGearLayout();
+  updateViewbar();
+}
+
+// Wire an element carrying data-slot as a drop target: an equippable inventory
+// item whose natural slot matches is equipped on drop.
+function wireEquipDropTarget(el) {
+  const slot = el.dataset.slot;
+  el.addEventListener('dragover', e => {
+    const item = equipDraggedId != null && (lastGear?.items || []).find(i => i.id == equipDraggedId);
+    if (item && (item.tags?.slot) === slot) { e.preventDefault(); el.classList.add('gear-drop-ok'); }
+  });
+  el.addEventListener('dragleave', () => el.classList.remove('gear-drop-ok'));
+  el.addEventListener('drop', e => {
+    el.classList.remove('gear-drop-ok');
+    const id = equipDraggedId;
+    const item = id != null && (lastGear?.items || []).find(i => i.id == id);
+    if (!item || (item.tags?.slot) !== slot) return;
+    e.preventDefault();
+    dragHandled = true;
+    sendCmdSilent(`equipid ${id}`);
+  });
+}
+
 // Filter the equippable list per the active filter set. The worn layout/armor
 // tables above are never affected — filtering only narrows the list of pieces you
 // could equip.
@@ -412,6 +504,14 @@ function initGearPanel() {
     bar.appendChild(b);
     return b;
   };
+  // Up/Down arrows cycle paperdoll layers while the gear panel is open.
+  document.addEventListener('keydown', e => {
+    const panel = document.getElementById('gear-panel');
+    if (!panel || !panel.classList.contains('active') || gearView !== 'paperdoll') return;
+    if (e.key === 'ArrowUp') { e.preventDefault(); stepDollLayer(1); }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); stepDollLayer(-1); }
+  });
+
   mk('all', 'All').onclick = () => { gearFilter = new Set(GEAR_FILTERS); applyGearFilter(); };
   for (const f of GEAR_FILTERS) {
     mk(f, f.charAt(0).toUpperCase() + f.slice(1)).onclick = () => {
