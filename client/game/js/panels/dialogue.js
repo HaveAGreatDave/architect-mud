@@ -111,7 +111,9 @@ export function openShop(msg, page = 0, mode, sort) {
     html += `<div style="color:var(--text-dim)">${mode === 'sell' ? 'Nothing to sell.' : 'Nothing in stock.'}</div>`;
   }
   if (mode === 'sell' && list.length) {
-    html += `<button class="dialogue-opt shop-sell-all-btn" data-npc-id="${msg.npcId}">Sell All (${list.length} item${list.length === 1 ? '' : 's'})</button>`;
+    const totalQty = list.reduce((n, it) => n + (it.quantity || 1), 0);
+    const totalValue = list.reduce((n, it) => n + (it.price || 0) * (it.quantity || 1), 0);
+    html += `<button class="dialogue-opt shop-sell-all-btn" data-npc-id="${msg.npcId}">Sell All (${totalQty} item${totalQty === 1 ? '' : 's'}) — ${totalValue}₵</button>`;
   }
   html += `</div>`;
 

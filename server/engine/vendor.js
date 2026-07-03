@@ -222,7 +222,9 @@ export async function sellToVendor(player, npc, inventoryId, quantity = 1) {
   // Pay out and remove the sold item together, so a crash can't credit the
   // player while leaving the item in their inventory (or vice versa).
   await withTransaction(async (q) => {
-    await adjustCredits(player, sellPrice, q);
+    // Never remove the item unless the payout actually landed — a false return
+    // rolls the whole transaction back so a sale can't destroy goods for free.
+    if (!(await adjustCredits(player, sellPrice, q))) throw new Error('payout failed');
     if (invItem.quantity <= sellQty) {
       await q('DELETE FROM player_inventory WHERE id = $1', [inventoryId]);
     } else {

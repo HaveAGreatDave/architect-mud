@@ -16,8 +16,12 @@ import { query } from '../models/db.js';
 // `withTransaction`) to make the debit part of a larger atomic op (debit + the
 // follow-on inventory write commit or roll back together).
 export async function adjustCredits(player, delta, exec = query) {
+  // The floor only applies to spends. A gain (delta >= 0) must always succeed —
+  // otherwise a player already in the red (e.g. from rent) can never be paid,
+  // and the guarded UPDATE silently rejects the payout while the caller's
+  // transaction still removes the sold item.
   const res = await exec(
-    'UPDATE players SET credits = credits + $1 WHERE id = $2 AND credits + $1 >= 0 RETURNING credits',
+    'UPDATE players SET credits = credits + $1 WHERE id = $2 AND (credits + $1 >= 0 OR $1 >= 0) RETURNING credits',
     [delta, player.id]);
   if (res.rowCount === 0) return false;
   player.credits = res.rows[0].credits;
