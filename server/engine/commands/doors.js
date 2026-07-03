@@ -160,6 +160,26 @@ function doorFarZoneIds(door) {
   return door.target_zone ? [door.target_zone] : exitTargets(getZone(door.zone_id), door.exit_dir);
 }
 
+// The zone(s) on the far side of a door *relative to where the actor stands* —
+// which side the door is anchored to doesn't matter. Used to reach the person on
+// the other side: the resident hears the break-in; the hacker never hears their
+// own lock-whine echoed back at them.
+function doorOppositeZoneIds(door, fromZoneId) {
+  return [door.zone_id, ...doorFarZoneIds(door)].filter(z => z && z !== fromZoneId);
+}
+
+// Clear, un-muffled alert heard on the far side of a door under attack — tuned to
+// what's being swung, and always reading as "someone is trying to break in" (the
+// resident hears the specific threat, not propagateSound's clipped banging).
+const DOOR_ATTACK_ALERT = {
+  fists:     `Fists HAMMER against the door — someone's trying to break in!`,
+  kinetic:   `Something heavy SLAMS against the door — someone's trying to force their way in!`,
+  edged:     `A blade bites into the door with a splintering CRACK — someone's trying to cut their way in!`,
+  energy:    `The door shudders under a searing crackle of energy — someone's trying to blast their way in!`,
+  fire:      `Heat blooms against the door, the surface hissing and blistering — someone's trying to burn their way in!`,
+  radiation: `The door rattles under a strange, humming assault — someone's trying to force their way in!`,
+};
+
 // The bathroom side of a door: the single zone touching it that holds a toilet.
 // A privacy lock is unlockable from that side ("connects to a bathroom" = the
 // far side is the bathroom). Returns null when NEITHER side has a toilet, or
@@ -220,11 +240,20 @@ export async function cmdAttackDoor(dirStr, player, broadcast) {
   const dmin = dmg.min ?? (equipped ? 3 : 2);
   const dmax = dmg.max ?? (equipped ? 8 : 4);
   const damage = Math.floor(Math.random() * (dmax - dmin + 1)) + dmin;
+  const damageType = equipped ? (tagValue(equipped, 'damage_type') || 'kinetic') : 'fists';
 
   door.hp = Math.max(0, door.hp - damage);
   setDoorCache(door.id, door);
   await query('UPDATE doors SET hp=$1 WHERE id=$2', [door.hp, door.id]);
 
+  // The person on the far side hears exactly what's being used on their door, in
+  // the clear (bypassing propagateSound's muffling — it's their own door being
+  // battered, not a distant noise). propagateSound still carries a clipped bang
+  // to the wider neighbourhood.
+  const alert = DOOR_ATTACK_ALERT[damageType] || DOOR_ATTACK_ALERT.kinetic;
+  for (const zid of doorOppositeZoneIds(door, player.current_zone)) {
+    broadcast(zid, { type:'zone_event', message: alert });
+  }
   propagateSound(player.current_zone, 'You hear heavy banging against a door nearby.', 2.0, broadcast);
   broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} attacks the door.` }, player.id);
 
@@ -243,6 +272,9 @@ export async function cmdAttackDoor(dirStr, player, broadcast) {
     setDoorCache(door.id, door);
     emit('door.toggled', { zoneId: door.zone_id, targetZoneId: door.target_zone });
     broadcast(player.current_zone, { type:'zone_event', message:'The door splinters apart!', refresh: true }, player.id);
+    for (const zid of doorOppositeZoneIds(door, player.current_zone)) {
+      broadcast(zid, { type:'zone_event', message:'The door BURSTS off its frame — someone has broken in!', refresh: true });
+    }
     propagateSound(player.current_zone, 'You hear a door being smashed apart nearby.', 2.5, broadcast);
     return { type:'combat', message:`You smash the door! It splinters apart! (${damage} damage)` };
   }
@@ -309,8 +341,10 @@ async function cmdHackLock(args, raw, player, broadcast) {
   }
 
   // Working the panel whines audibly — the far side hears it even through a
-  // closed door (it's the lock itself buzzing, not sound crossing the gap).
-  for (const zid of doorFarZoneIds(door)) {
+  // closed door (it's the lock itself buzzing, not sound crossing the gap). The
+  // far side is relative to the *hacker*, not the door's anchor, so the resident
+  // hears it and the hacker never gets their own whine echoed back.
+  for (const zid of doorOppositeZoneIds(door, player.current_zone)) {
     broadcast(zid, { type:'zone_event', message:'A faint electronic whine buzzes from the door — someone is working the lock.' });
   }
   broadcast(player.current_zone, { type:'zone_event', message:`${player.handle} jacks a deck into the door's hololock.` }, player.id);

@@ -16,6 +16,12 @@ function doorFarIds(door) {
 	return exitTargets(world.zones.get(door.zone_id), door.exit_dir);
 }
 
+// The zone(s) this door touches other than `fromZoneId` — i.e. the side facing an
+// onlooker in the hallway when the field seals the unit. Anchor-agnostic.
+function doorOtherSide(door, fromZoneId) {
+	return [door.zone_id, ...doorFarIds(door)].filter(z => z && z !== fromZoneId);
+}
+
 const HOME_TUTORIAL = `<span style="color:var(--accent)">◈ HOLOLOCK BOUND ◈</span>
 
 Your HoloLock is now bound to your biometric signature. Here's what that means:
@@ -91,6 +97,8 @@ export async function activateForcefield(player, broadcastFn) {
 	setApartmentCache(zoneId, { ...apt, forcefield_active: 1 });
 
 	// Lock all doors to/from this zone that have a lock tag and set forcefield_locked.
+	// Track the far side of each so a bystander in the hallway sees the lock light up.
+	const farSideZones = new Set();
 	for (const door of world.doors.values()) {
 		if (door.zone_id !== zoneId && !doorFarIds(door).includes(zoneId)) continue;
 		if (!Object.keys(door.tags || {}).some(k => k.startsWith('lock:'))) continue;
@@ -98,6 +106,7 @@ export async function activateForcefield(player, broadcastFn) {
 		door.lock_state = 'locked';
 		door.forcefield_locked = 1;
 		setDoorCache(door.id, door);
+		for (const z of doorOtherSide(door, zoneId)) farSideZones.add(z);
 	}
 
 	if (broadcastFn) {
@@ -106,6 +115,13 @@ export async function activateForcefield(player, broadcastFn) {
 			type: 'zone_event',
 			message: `<span style="color:var(--cyan)">A low hum fills the air as ${player.handle}'s HoloLock pulses with blue light. A <strong>quantum forcefield</strong> shimmers into existence around the unit — ${player.handle} is protected.</span>`,
 		}, player.id);
+		// Anyone standing at the door from the far side watches the lock come alive.
+		for (const z of farSideZones) {
+			broadcastFn(z, {
+				type: 'zone_event',
+				message: `<span style="color:var(--cyan)">The HoloLock on the door flickers, then flares steady blue — the unit beyond has sealed itself for the night.</span>`,
+			});
+		}
 		// Owner gets a first-person confirmation.
 		const FORCEFIELD_UP_OWNER = [
 			`<span style="color:var(--cyan)">◈ HoloLock engaged. A quantum forcefield seals the unit around you. Sleep easy.</span>`,
@@ -150,7 +166,9 @@ export async function deactivateForcefield(playerId, zoneId, broadcastFn) {
 	setApartmentCache(zoneId, { ...apt, forcefield_active: 0 });
 
 	// Release forcefield-locked doors; respect the apartment's own lock state.
+	// Track far sides so the hallway sees the lock go dark, mirroring activation.
 	const wantLocked = apt.is_locked ? 'locked' : 'unlocked';
+	const farSideZones = new Set();
 	for (const door of world.doors.values()) {
 		if (!door.forcefield_locked) continue;
 		if (door.zone_id !== zoneId && !doorFarIds(door).includes(zoneId)) continue;
@@ -158,6 +176,7 @@ export async function deactivateForcefield(playerId, zoneId, broadcastFn) {
 		door.lock_state = wantLocked;
 		door.forcefield_locked = 0;
 		setDoorCache(door.id, door);
+		for (const z of doorOtherSide(door, zoneId)) farSideZones.add(z);
 	}
 
 	if (broadcastFn) {
@@ -165,6 +184,13 @@ export async function deactivateForcefield(playerId, zoneId, broadcastFn) {
 		const ownerMsg = FORCEFIELD_DOWN_OWNER[Math.floor(Math.random() * FORCEFIELD_DOWN_OWNER.length)];
 		// Bystanders see the field collapse from outside.
 		broadcastFn(zoneId, { type: 'zone_event', message: bystanderMsg }, playerId);
+		// The far side watches the HoloLock's glow die back to idle.
+		for (const z of farSideZones) {
+			broadcastFn(z, {
+				type: 'zone_event',
+				message: `<span style="color:var(--cyan)">The HoloLock on the door dims from blue to dead black — the unit beyond is no longer sealed.</span>`,
+			});
+		}
 		// Owner gets a personal confirmation.
 		broadcastFn(null, { type: 'output', message: ownerMsg }, null, playerId);
 		broadcastFn(zoneId, { type: 'sound', sound: 'hololock_deactivate' });

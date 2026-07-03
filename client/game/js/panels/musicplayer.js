@@ -44,21 +44,26 @@ const SFX = {
     { waveform: 'noise', filter: { type: 'lowpass', freq: 700, q: 1.2 },
       adsr: { a: 0.001, d: 0.05, s: 0, r: 0.03 }, gain: 0.42 },
   ] } },
-  // Tape sliding back out of the slot, ending on the spring-loaded latch pop.
+  // Tape sliding back out of the slot, ending on a spring-loaded latch clunk.
+  // The pop is a low percussive click-chunk (fast pitch-drop into filtered noise)
+  // rather than a pitched tone, so it never rings out above the glass door.
   slide: { id: 'amp-slide', category: 'sfx', priority: 7, config: { duration: 0.5, layers: [
     { waveform: 'noise', filter: { type: 'bandpass', freq: 1700, q: 0.8 },
       adsr: { a: 0.03, d: 0.34, s: 0.15, r: 0.14 }, gain: 0.2 },
-    { waveform: 'triangle', freq: 480, delay: 0.3, pitchBend: { to: 260, time: 0.08 },
-      adsr: { a: 0.001, d: 0.07, s: 0, r: 0.04 }, gain: 0.22 },
+    { waveform: 'sine', freq: 70, delay: 0.3, pitchBend: { to: 32, time: 0.025 },
+      adsr: { a: 0.001, d: 0.05, s: 0, r: 0.03 }, gain: 0.4 },
+    { waveform: 'noise', delay: 0.3, filter: { type: 'lowpass', freq: 900, q: 1 },
+      adsr: { a: 0.001, d: 0.04, s: 0, r: 0.02 }, gain: 0.24 },
   ] } },
   // Steady "whirrrrrr" of the capstan as the reels engage and a song begins.
-  // A held low motor tone with vibrato flutter (no rising pitch glide, so it
-  // reads as a running motor rather than a musical whoop) plus reel hiss on top.
+  // A held low motor rumble sitting below the glass door's fundamental, with just
+  // enough flutter to read as a running motor rather than a musical tone, plus
+  // reel hiss on top.
   spin: { id: 'amp-spin', category: 'sfx', priority: 7, config: { duration: 0.6, layers: [
-    { waveform: 'sawtooth', freq: 80, filter: { type: 'lowpass', freq: 620, q: 2 },
-      vibrato: { rate: 26, depth: 12 }, adsr: { a: 0.08, d: 0.06, s: 0.75, r: 0.2 }, gain: 0.1 },
+    { waveform: 'sawtooth', freq: 52, filter: { type: 'lowpass', freq: 360, q: 1.6 },
+      vibrato: { rate: 22, depth: 6 }, adsr: { a: 0.08, d: 0.06, s: 0.75, r: 0.2 }, gain: 0.05 },
     { waveform: 'noise', filter: { type: 'bandpass', freq: 1400, q: 0.9 },
-      adsr: { a: 0.08, d: 0.1, s: 0.5, r: 0.2 }, gain: 0.07 },
+      adsr: { a: 0.08, d: 0.1, s: 0.5, r: 0.2 }, gain: 0.09 },
   ] } },
   // Short transport blip for Next / Prev.
   blip: { id: 'amp-blip', category: 'sfx', priority: 7, config: { duration: 0.08, layers: [

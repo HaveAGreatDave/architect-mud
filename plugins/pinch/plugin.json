@@ -1,7 +1,7 @@
 {
   "name": "pinch",
   "version": "1.0.0",
-  "description": "Pinch a sleeping player awake; they stumble home and sleep there. Also adds .gohome for live players.",
+  "description": "Pinch a sleeping player awake; they stumble home and sleep there. Also adds the home verb: bind your home in an apartment you own, or walk yourself home from anywhere.",
   "hooks": [],
-  "commands": ["pinch", ".gohome"]
+  "commands": ["pinch", "home"]
 }

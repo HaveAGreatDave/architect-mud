@@ -1,4 +1,5 @@
-import { getAllLivePlayers, getZone } from '../../server/engine/world.js';
+import { getAllLivePlayers, getZone, getApartment } from '../../server/engine/world.js';
+import { cmdSetHome, isApartmentZone } from '../../server/engine/apartments.js';
 import { allExits } from '../../server/engine/exits.js';
 import { findPath } from '../../server/engine/pathfinding.js';
 import { query } from '../../server/models/db.js';
@@ -164,12 +165,22 @@ async function cmdPinch(args, raw, player, broadcast) {
 }
 
 // ---------------------------------------------------------------------------
-// .gohome command
+// home command — one verb, two jobs. Standing in a place you own, it binds your
+// HoloLock (set home). Anywhere else, it makes your own way home the same way
+// pinch walks an offline sleeper — a repeat press cancels.
 // ---------------------------------------------------------------------------
+
+async function cmdHome(args, raw, player, broadcast) {
+  const zone = getZone(player.current_zone);
+  const apt = isApartmentZone(zone) ? getApartment(zone.id) : null;
+  // In an apartment you own → (re)bind home here. Otherwise → head home.
+  if (apt?.owner_id === player.id) return cmdSetHome(player);
+  return cmdGoHome(args, raw, player, broadcast);
+}
 
 async function cmdGoHome(args, raw, player, broadcast) {
   if (!player.home_zone) {
-    return { type: 'error', message: "You don't have a home set. Use .home in your apartment to bind it." };
+    return { type: 'error', message: "You don't have a home set. Use home in an apartment you own to bind it." };
   }
   if (player.current_zone === player.home_zone) {
     return { type: 'error', message: "You're already home." };
@@ -191,7 +202,7 @@ async function cmdGoHome(args, raw, player, broadcast) {
     { type: 'zone_event', message: `${player.handle} starts heading home.` },
     player.id,
   );
-  return { type: 'output', message: "You start making your way home. (Type .gohome again to cancel.)" };
+  return { type: 'output', message: "You start making your way home. (Type home again to cancel.)" };
 }
 
 // ---------------------------------------------------------------------------
@@ -200,5 +211,5 @@ async function cmdGoHome(args, raw, player, broadcast) {
 
 export const commands = {
   pinch: cmdPinch,
-  '.gohome': cmdGoHome,
+  home: cmdHome,
 };
