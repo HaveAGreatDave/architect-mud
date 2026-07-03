@@ -220,12 +220,20 @@ async function _fetchOnline() {
 
 async function _poll() {
   const since = _lastPollTs;
-  _lastPollTs = Date.now();
   try {
     const data = await API(`/channels/messages?since=${since}`);
+    let maxTs = since;
     for (const [channelId, messages] of Object.entries(data || {})) {
-      for (const m of messages) _receiveChannelMsg(channelId, m.from, m.message);
+      for (const m of messages) {
+        _receiveChannelMsg(channelId, m.from, m.message);
+        if (m.ts > maxTs) maxTs = m.ts;
+      }
     }
+    // Advance the cursor by the newest *server* timestamp we actually saw — never
+    // the local clock. `created_at` is DB-stamped; a browser clock running behind
+    // the DB would keep the last row `> since` on every poll, re-fetching it
+    // forever (the last line repeats over and over).
+    _lastPollTs = maxTs;
   } catch {}
 }
 
@@ -888,13 +896,18 @@ function initWhisperPanel() {
 async function _loadChannelHistory() {
   try {
     const data = await API('/channels/messages?since=0');
+    let maxTs = 0;
     for (const [channelId, messages] of Object.entries(data || {})) {
       const convo = _getConvo(channelId);
       if (convo.messages.length === 0) {
         for (const m of messages) convo.messages.push({ from: m.from, message: m.message, ts: m.ts });
       }
+      for (const m of messages) if (m.ts > maxTs) maxTs = m.ts;
     }
-    _lastPollTs = Date.now();
+    // Seed the poll cursor from the newest *server* timestamp we loaded, not the
+    // local clock — otherwise a browser clock behind the DB re-fetches the last
+    // history line on the first poll. Fall back to now() when there's no history.
+    _lastPollTs = Math.max(Date.now(), maxTs);
     if (_panelOpen && _isChannel(_activeTab)) _renderLog();
   } catch {}
 }

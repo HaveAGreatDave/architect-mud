@@ -32,25 +32,32 @@ const MEDIADECK_WHIR_DEF = {
 // Professional-grade, chunky transport SFX — layered servo whirr + friction +
 // a heavy low clunk, staggered with per-layer `delay` for a mechanical sequence.
 
-// EJECT: spring-release click → servo reversing → tape slides out → low pop.
+// EJECT: hard mechanical spring-release + servo reverse + seat pop, then the
+// capstans whirr up as the mechanism spools out. Gains halved from the old,
+// louder pass; leading transients tightened so the clunks read as machinery.
 const MEDIADECK_EJECT_DEF = {
   id: 'mediadeck_eject_local', category: 'tv', priority: 4,
   config: { layers: [
-    { waveform: 'square', freq: 200, duration: 0.05, gain: 0.3, adsr: { a: 0.001, d: 0.03, s: 0, r: 0.02 }, filter: { type: 'lowpass', freq: 1600, q: 1 } },
-    { waveform: 'sawtooth', freq: 200, duration: 0.3, gain: 0.2, delay: 0.03, pitchBend: { to: 90, time: 0.28 }, adsr: { a: 0.01, d: 0.24, s: 0.3, r: 0.06 }, filter: { type: 'lowpass', freq: 800, q: 1.2 }, tremolo: { rate: 22, depth: 0.3 } },
-    { waveform: 'noise', noiseMix: 1, duration: 0.12, gain: 0.28, delay: 0.03, adsr: { a: 0.01, d: 0.1, s: 0, r: 0.03 }, filter: { type: 'highpass', freq: 1400, q: 1 } },
-    { waveform: 'triangle', freq: 140, duration: 0.28, gain: 0.55, delay: 0.24, pitchBend: { to: 55, time: 0.22 }, adsr: { a: 0.001, d: 0.18, s: 0.2, r: 0.08 }, filter: { type: 'lowpass', freq: 600, q: 1 } },
+    { waveform: 'square', freq: 210, duration: 0.04, gain: 0.15, adsr: { a: 0.001, d: 0.025, s: 0, r: 0.015 }, filter: { type: 'lowpass', freq: 1800, q: 1.2 } },
+    { waveform: 'sawtooth', freq: 200, duration: 0.22, gain: 0.1, delay: 0.02, pitchBend: { to: 85, time: 0.2 }, adsr: { a: 0.004, d: 0.18, s: 0.25, r: 0.05 }, filter: { type: 'lowpass', freq: 700, q: 1.4 }, tremolo: { rate: 30, depth: 0.4 } },
+    { waveform: 'noise', noiseMix: 1, duration: 0.1, gain: 0.14, delay: 0.02, adsr: { a: 0.004, d: 0.09, s: 0, r: 0.02 }, filter: { type: 'highpass', freq: 1500, q: 1.2 } },
+    { waveform: 'triangle', freq: 140, duration: 0.22, gain: 0.275, delay: 0.2, pitchBend: { to: 52, time: 0.18 }, adsr: { a: 0.001, d: 0.15, s: 0.15, r: 0.06 }, filter: { type: 'lowpass', freq: 560, q: 1 } },
+    // whirring capstans spooling up as the mechanism runs out
+    { waveform: 'triangle', freq: 60, duration: 0.42, gain: 0.15, delay: 0.28, pitchBend: { to: 130, time: 0.38 }, adsr: { a: 0.06, d: 0.32, s: 0.3, r: 0.08 }, filter: { type: 'lowpass', freq: 650, q: 1 }, tremolo: { rate: 16, depth: 0.45 } },
   ] },
 };
 
-// INSERT: servo whirr pulling the tape in → friction → heavy seat clunk → latch click.
+// INSERT: servo grabs + shell friction + heavy seat clunk + latch, then the
+// capstans whirr up to speed. Gains halved; transients sharpened for machinery.
 const MEDIADECK_INSERT_DEF = {
   id: 'mediadeck_insert_local', category: 'tv', priority: 4,
   config: { layers: [
-    { waveform: 'sawtooth', freq: 120, duration: 0.34, gain: 0.22, pitchBend: { to: 210, time: 0.3 }, adsr: { a: 0.02, d: 0.28, s: 0.3, r: 0.06 }, filter: { type: 'lowpass', freq: 800, q: 1.2 }, tremolo: { rate: 26, depth: 0.35 } },
-    { waveform: 'noise', noiseMix: 1, duration: 0.16, gain: 0.3, adsr: { a: 0.02, d: 0.12, s: 0, r: 0.04 }, filter: { type: 'bandpass', freq: 1800, q: 1 } },
-    { waveform: 'triangle', freq: 80, duration: 0.2, gain: 0.7, delay: 0.12, adsr: { a: 0.001, d: 0.14, s: 0, r: 0.06 }, filter: { type: 'lowpass', freq: 520, q: 1 } },
-    { waveform: 'square', freq: 180, duration: 0.05, gain: 0.25, delay: 0.3, adsr: { a: 0.001, d: 0.03, s: 0, r: 0.02 }, filter: { type: 'lowpass', freq: 1500, q: 1 } },
+    { waveform: 'sawtooth', freq: 120, duration: 0.24, gain: 0.11, pitchBend: { to: 200, time: 0.22 }, adsr: { a: 0.01, d: 0.2, s: 0.25, r: 0.05 }, filter: { type: 'lowpass', freq: 750, q: 1.4 }, tremolo: { rate: 32, depth: 0.45 } },
+    { waveform: 'noise', noiseMix: 1, duration: 0.14, gain: 0.15, adsr: { a: 0.01, d: 0.11, s: 0, r: 0.03 }, filter: { type: 'bandpass', freq: 1800, q: 1.1 } },
+    { waveform: 'triangle', freq: 80, duration: 0.18, gain: 0.35, delay: 0.12, pitchBend: { to: 55, time: 0.14 }, adsr: { a: 0.001, d: 0.13, s: 0, r: 0.05 }, filter: { type: 'lowpass', freq: 500, q: 1 } },
+    { waveform: 'square', freq: 190, duration: 0.04, gain: 0.125, delay: 0.26, adsr: { a: 0.001, d: 0.025, s: 0, r: 0.015 }, filter: { type: 'lowpass', freq: 1700, q: 1.2 } },
+    // whirring capstans spooling up to playback speed after it seats
+    { waveform: 'triangle', freq: 70, duration: 0.44, gain: 0.16, delay: 0.3, pitchBend: { to: 150, time: 0.4 }, adsr: { a: 0.06, d: 0.34, s: 0.35, r: 0.08 }, filter: { type: 'lowpass', freq: 700, q: 1 }, tremolo: { rate: 15, depth: 0.45 } },
   ] },
 };
 

@@ -35,6 +35,12 @@ const SPREAD_COOLDOWN_MS  = 60_000;   // between a player's own planted rumours
 
 const zn = (id) => getZone(id)?.name || 'somewhere';
 
+// Player handles are proper nouns that land mid-sentence in rumour templates —
+// capitalize the first letter so "dave" reads as "Dave". Idempotent on names
+// that are already cased; returns falsy input untouched so `pc(x) || 'someone'`
+// fallbacks still work.
+const pc = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+
 // The broad area a zone belongs to — its building name for an interior room,
 // else the zone's own name. Weather is area-wide, so gossip reads "over the
 // Meridian" not "over Unit 1A". Reuses the engine's building resolver.
@@ -84,7 +90,7 @@ on('player.death', ({ player, killer }) => {
   const zoneId = player.current_zone;
   add('kill_player', {
     zoneId, subjectName: player.handle, subjectId: player.id,
-    vars: { victim: player.handle, killer: killer?.handle || killer?.name || 'someone', zone: zn(zoneId) },
+    vars: { victim: pc(player.handle), killer: pc(killer?.handle) || killer?.name || 'someone', zone: zn(zoneId) },
     lead: { kind: 'loot', zoneId, hint: `${player.handle} dropped everything around ${zn(zoneId)}` },
   });
 });
@@ -93,14 +99,14 @@ on('enemy.killed', ({ actor, enemy }) => {
   if (!actor?.handle || !enemy) return;
   const zoneId = actor.current_zone;
   add('kill_enemy', { zoneId, subjectName: actor.handle,
-    vars: { killer: actor.handle, victim: enemy.name, zone: zn(zoneId) } });
+    vars: { killer: pc(actor.handle), victim: enemy.name, zone: zn(zoneId) } });
 });
 
 on('npc.killed', ({ actor, npc }) => {
   if (!npc) return;
   const zoneId = actor?.current_zone || npc.zone_id;
   add('kill_npc', { zoneId, subjectName: npc.name,
-    vars: { killer: actor?.handle || 'someone', victim: npc.name, zone: zn(zoneId) } });
+    vars: { killer: pc(actor?.handle) || 'someone', victim: npc.name, zone: zn(zoneId) } });
 });
 
 // Witness-gated in surveillance's raiseCrime — we only hear about ones that stuck.
@@ -108,7 +114,7 @@ on('crime.witnessed', ({ player, key, zoneId, label }) => {
   if (!player?.id) return;
   add('crime', {
     zoneId, subjectName: player.handle, subjectId: player.id, coalesceKey: `crime|${player.id}|${key}`,
-    vars: { suspect: player.handle, label: (label || 'a crime').toLowerCase(), zone: zn(zoneId) },
+    vars: { suspect: pc(player.handle), label: (label || 'a crime').toLowerCase(), zone: zn(zoneId) },
     lead: { kind: 'target', targetId: player.id, zoneId, hint: `${player.handle} was last seen around ${zn(zoneId)}` },
   });
 });
@@ -117,7 +123,7 @@ on('police.dispatch', ({ zoneId, reason, suspect }) => {
   if (!suspect) return;
   add('crime', {
     zoneId, subjectName: suspect, coalesceKey: `crime|${suspect}|dispatch`,
-    vars: { suspect, label: (reason || 'trouble').toLowerCase(), zone: zn(zoneId) },
+    vars: { suspect: pc(suspect), label: (reason || 'trouble').toLowerCase(), zone: zn(zoneId) },
     lead: { kind: 'target', zoneId, hint: `${suspect} was last seen around ${zn(zoneId)}` },
   });
 });
@@ -126,25 +132,25 @@ on('player.drugUsed', ({ player, illegal, zoneId }) => {
   if (!player?.id || !illegal) return;
   const z = zoneId || player.current_zone;
   add('crime', { zoneId: z, subjectName: player.handle, subjectId: player.id, coalesceKey: `crime|${player.id}|drug`,
-    vars: { suspect: player.handle, label: 'using out in the open', zone: zn(z) } });
+    vars: { suspect: pc(player.handle), label: 'using out in the open', zone: zn(z) } });
 });
 
 on('gossip.pokerWin', ({ player, amount, zoneId }) => {
   if (!player?.id) return;
   add('poker_win', { zoneId, subjectName: player.handle, subjectId: player.id,
-    vars: { subject: player.handle, amount, zone: zn(zoneId) } });
+    vars: { subject: pc(player.handle), amount, zone: zn(zoneId) } });
 });
 
 on('gossip.bigBuy', ({ player, itemName, price, zoneId }) => {
   if (!player?.id) return;
   add('big_buy', { zoneId, subjectName: player.handle, subjectId: player.id,
-    vars: { subject: player.handle, item: itemName, amount: price, zone: zn(zoneId) } });
+    vars: { subject: pc(player.handle), item: itemName, amount: price, zone: zn(zoneId) } });
 });
 
 on('gossip.housing', ({ player, zoneId }) => {
   if (!player?.id) return;
   add('housing', { zoneId, subjectName: player.handle, subjectId: player.id,
-    vars: { subject: player.handle, zone: zn(zoneId) } });
+    vars: { subject: pc(player.handle), zone: zn(zoneId) } });
 });
 
 on('weather.thunder', ({ zoneId }) => {

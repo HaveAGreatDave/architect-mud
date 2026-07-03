@@ -63,12 +63,15 @@ registerLockType('keycardlock', {
 // Privacy lock — a simple bathroom-stall bolt. Anyone standing on the door's
 // `privacySide` (the bathroom side, auto-detected at placement or set via the
 // zone editor's lock-side switch) can lock AND unlock it; the other side is
-// simply shut out while it's occupied. Not hackable — bashing the door is the
-// only forced entry, and the 10-minute auto-unlock sweep frees anyone who
-// nodded off in a public stall.
+// simply shut out while it's occupied. It's a manual bolt, so the door won't
+// open for anyone while it's shut (passWhileLocked:false) — you slide it open to
+// leave, which means you can't lock it behind you from the far side. Not
+// hackable — bashing the door is the only forced entry, and the 10-minute
+// auto-unlock sweep frees anyone who nodded off in a public stall.
 registerLockType('privacylock', {
   tagType: 'lock:privacylock',
   kitTag:  'lockkit:privacylock',
+  passWhileLocked: false,
   defaults: {
     messages: {
       lock:   'You slide the privacy bolt shut.',

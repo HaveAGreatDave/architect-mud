@@ -9,6 +9,7 @@ function setMapScaleMode(mode) {
   const overlay = document.getElementById('bigmap-overlay');
   if (overlay && overlay.classList.contains('active')) renderBigMapOverlay();
   else if (typeof currentPanel !== 'undefined' && currentPanel === 'power') renderPowerPanelBody();
+  else if (typeof currentPanel !== 'undefined' && currentPanel === 'maps') renderMapOverview();
 }
 
 function mapScaleControlHtml() {
@@ -724,6 +725,7 @@ function renderMapOverview() {
       <button class="action-btn" onclick="changeFloor(-1)">▾</button>
       <span style="min-width:60px;text-align:center">z = ${o.z}</span>
       <button class="action-btn" onclick="changeFloor(1)">▴</button>
+      <span style="margin-left:14px">${mapScaleControlHtml()}</span>
     </div>`;
   } else {
     html += `<div class="map-toolbar">
@@ -733,6 +735,7 @@ function renderMapOverview() {
       <button class="action-btn" onclick="changeFloor(-1)">▾</button>
       <span style="min-width:60px;text-align:center">z = ${o.z}</span>
       <button class="action-btn" onclick="changeFloor(1)">▴</button>
+      <span style="margin-left:14px">${mapScaleControlHtml()}</span>
     </div>`;
   }
   if (mapSafeZoneMode) {
@@ -810,7 +813,7 @@ function renderMapOverview() {
   const col = x => 2 * (x - minX) + 1, row = y => 2 * (y - minY) + 1;
   const cellStyle = (x, y, extra = '') => `style="grid-column:${col(x)};grid-row:${row(y)}${extra}"`;
 
-  html += `<div id="bigmap-grid-scroll" style="padding:12px;overflow:auto" ondragover="event.preventDefault()" ondrop="mapGridDrop(event)"><div style="display:grid;grid-template-columns:${colTmpl};grid-template-rows:${rowTmpl}">`;
+  html += `<div id="bigmap-grid-scroll" style="padding:12px;overflow:auto" ondragover="event.preventDefault()" ondrop="mapGridDrop(event)"><div class="map-scale-viewport"><div class="map-scale-inner"><div style="display:grid;grid-template-columns:${colTmpl};grid-template-rows:${rowTmpl}">`;
 
   // Cells (and empty/create slots)
   for (let y = minY; y <= maxY; y++) {
@@ -868,7 +871,7 @@ function renderMapOverview() {
   for (let y = minY; y < maxY; y++) for (let x = minX; x <= maxX; x++) {
     html += connHtml(byCoord.get(`${x},${y}`), byCoord.get(`${x},${y + 1}`), 'south', 'v', `grid-column:${col(x)};grid-row:${row(y) + 1}`);
   }
-  html += `</div></div>`;
+  html += `</div></div></div></div>`;
 
   // Unplaced-zones tray:
   const trayChip = (z, dragFn) => `<span class="bigmap-tile bm-edit" style="width:auto;height:auto;padding:4px 8px;cursor:grab;flex-shrink:0${zoneColorStyle(z)}" draggable="true" ondragstart="${dragFn}(event,'${z.id}')" title="${z.id}">${z.name}</span>`;
@@ -959,6 +962,7 @@ function renderMapOverview() {
   panel.scrollLeft = prevPanelLeft;
   const newGrid = document.getElementById('bigmap-grid-scroll');
   if (newGrid) { newGrid.scrollLeft = prevGridLeft; newGrid.scrollTop = prevGridTop; }
+  applyMapScale(panel);
 }
 
 async function switchMap(id) {

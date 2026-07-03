@@ -5,6 +5,7 @@
 // needs a real hacking device + witnessed crime and is covered by manual QA.
 import { setDoorCache, deleteDoorCache, getZone, getApartment, setApartmentCache } from '../../server/engine/world.js';
 import { on, off, emit } from '../../server/engine/events.js';
+import { lockTypePassesWhileLocked } from '../../server/engine/locks.js';
 
 export default async function regress({ run, check, getPlayer }) {
   const p = getPlayer();
@@ -42,6 +43,35 @@ export default async function regress({ run, check, getPlayer }) {
   // routing chain is wired.
   r = await run(`hack ${dir}`);
   check('hack routes to hololock and hits the device gate', /hacking device/.test(r?.message || ''), JSON.stringify(r)?.slice(0, 120));
+
+  // SIFT resolution: filler words, word order, and direction abbreviations all
+  // resolve to the same door — every phrasing reaches the device gate.
+  const ABBR = { north:'n', south:'s', east:'e', west:'w', up:'u', down:'d' };
+  const ab = ABBR[dir];
+  const phrasings = [`hack door ${dir}`, `hack ${dir} door`, `hack door to ${dir}`];
+  if (ab) phrasings.push(`hack ${ab}`, `hack ${ab} door`, `hack door ${ab}`, `hack door to ${ab}`);
+  for (const cmd of phrasings) {
+    r = await run(cmd);
+    check(`"${cmd}" resolves the same door`, /hacking device/.test(r?.message || ''), JSON.stringify(r)?.slice(0, 100));
+  }
+
+  // Abbreviation path, decoupled from the zone's real exits: a local door tagged
+  // exit_dir='west' is reachable by every "w"/"west" phrasing. (A local door
+  // needs no matching zone.exits entry — getZoneDoors returns it by zone.)
+  setDoorCache(doorId, {
+    id: doorId, zone_id: p.current_zone, exit_dir: 'west', target_zone: null,
+    is_open: 0, hp: 100, hp_max: 100, lock_state: 'locked',
+    tags: { 'lock:hololock': { canHack: true, difficulty: 5, messages: { unlock: 'click' } } },
+  });
+  for (const cmd of ['hack w', 'hack w door', 'hack door w', 'hack door to w', 'hack west door']) {
+    r = await run(cmd);
+    check(`"${cmd}" resolves the west door`, /hacking device/.test(r?.message || ''), JSON.stringify(r)?.slice(0, 100));
+  }
+  setDoorCache(doorId, {
+    id: doorId, zone_id: p.current_zone, exit_dir: dir, target_zone: null,
+    is_open: 0, hp: 100, hp_max: 100, lock_state: 'locked',
+    tags: { 'lock:hololock': { canHack: true, difficulty: 5, messages: { unlock: 'click' } } },
+  });
 
   // A door protecting a sleep-forcefielded unit refuses the hack outright (before
   // the device gate) — you can't breach a HoloLock while the owner's shield is up.
@@ -85,6 +115,12 @@ export default async function regress({ run, check, getPlayer }) {
   mkPrivacy('__regress_other_side_' + p.id, 'unlocked');
   r = await run(`lock ${dir}`);
   check('privacy lock: denied from the wrong side', /other side/i.test(r?.message || ''), JSON.stringify(r)?.slice(0, 90));
+
+  // A privacy bolt is manual: the door won't open while it's shut, so nobody
+  // (not even the person on privacySide) walks through it locked — that's what
+  // stops it being re-bolted from the far side. Credentialled locks still pass.
+  check('privacy lock: not passable while locked', lockTypePassesWhileLocked('lock:privacylock') === false);
+  check('privacy lock: credentialled locks stay passable', lockTypePassesWhileLocked('lock:hololock') === true);
 
   deleteDoorCache(privDoorId);
   p.role = savedRole;

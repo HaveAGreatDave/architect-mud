@@ -5,6 +5,7 @@ import { getZoneVisibility, getWindowsForZone, getEnvironmentState, getZoneTempe
 import { describeZone, resolveNamedDestination } from './describe.js';
 import { exitTargets, allExits, primaryExits } from '../exits.js';
 import { checkLockAuth, getLockTagPublic } from './doors.js';
+import { lockTypePassesWhileLocked } from '../locks.js';
 import { emit } from '../events.js';
 import { closeShopSession } from '../vendor-session.js';
 import { computeCarriedWeight, carryCapacity, formatWeight } from './inventory.js';
@@ -39,7 +40,11 @@ registerMoveGate(async ({ player, direction, door, to }) => {
   if (doorGuardsOnlyUnownedApartment(door)) return; // unrented unit — the lock is vestigial
   const lockTag = getLockTagPublic(door);
   if (!lockTag) return; // locked but no lock installed — a data glitch, not a wall; let it pass
-  const canPass = await checkLockAuth(lockTag, door, player);
+  // A manual bolt (privacy latch) never opens while shut, even for the person who
+  // set it — they must unlock it to leave, which is why it can't be locked from
+  // the far side. Credentialled locks still let their auth-holder walk through.
+  const canPass = lockTypePassesWhileLocked(lockTag.type)
+    && await checkLockAuth(lockTag, door, player);
   if (!canPass) {
     const label = NAMED_LOCK_DIRS.has(direction) && to?.name ? to.name : `the ${direction}`;
     return { block: true, message: `The door to ${label} is locked.` };

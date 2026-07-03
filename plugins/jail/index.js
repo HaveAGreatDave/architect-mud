@@ -1,6 +1,7 @@
 // Jail — get downed while WANTED and the cops scrape you up instead of the
 // cloning vat. You wake in Precinct 9's holding cell, gear confiscated, and do
-// 1 minute per wanted star. A guard then walks you out to the lobby and hands
+// 1 base-minute per wanted star, scaled up by the world clock (so at 3× a 5★
+// stretch is 15 real minutes). A guard then walks you out to the lobby and hands
 // back your legal property; contraband (weapons/drugs/hacking decks) is logged to
 // a shared police evidence locker and never returned. The cell door is a very
 // high-difficulty hololock — breaking out is a jailbreak (heat comes back) and
@@ -25,7 +26,7 @@ import { describeZone } from '../../server/engine/commands/describe.js';
 import { moveEntity } from '../../server/engine/ai-behaviour.js';
 import { getEnvironmentState } from '../../server/engine/environment.js';
 import { schedule } from '../../server/engine/scheduler.js';
-import { gameMsToReal, realMsToGame } from '../../server/engine/gametime.js';
+import { gameMsToReal, realMsToGame, getTimeScale } from '../../server/engine/gametime.js';
 
 const CELL_ZONE = 'zone_mq_precinct_holding';   // the holding cell you wake in
 const RELEASE_ZONE = 'zone_mq_precinct_lobby';  // where the guard walks you out to
@@ -177,16 +178,16 @@ async function onRespawnZone(player, killer) {
   const stars = Math.floor(wanted);
   if (stars < 1) return undefined;  // clean death → normal clone-vat respawn
 
-  // Booking fine — ₵50 per half wanted-star. Debt is allowed (an owed fine), so
-  // bypass adjustCredits (which clamps at zero) with a direct un-clamped debit.
+  // Booking fine — ₵50 per half wanted-star, collected on RELEASE. The desk empties
+  // your pockets now: all on-hand cash is held (with your gear) and returned at
+  // release minus the fine. A fine bigger than what you were carrying leaves you
+  // owing (debt allowed). Escaping forfeits the held cash along with the gear.
   const halfStars = Math.round(wanted / 0.5);
   const fine = halfStars * FINE_PER_HALF_STAR;
-  let balance = player.credits ?? 0;
-  if (fine > 0) {
-    const res = await query('UPDATE players SET credits = credits - $1 WHERE id = $2 RETURNING credits',
-      [fine, player.id]).catch(() => null);
-    if (res?.rows[0]) { balance = res.rows[0].credits; player.credits = balance; }
-  }
+  const cap = await query('SELECT credits FROM players WHERE id = $1', [player.id]).catch(() => null);
+  const heldCredits = cap?.rows[0]?.credits ?? player.credits ?? 0;
+  await query('UPDATE players SET credits = 0 WHERE id = $1', [player.id]).catch(() => {});
+  player.credits = 0;
 
   // Rap sheet for the booking record — read now, while surveillance still holds
   // it (it clears the suspect's heat later in this same death, at player.death).
@@ -205,28 +206,31 @@ async function onRespawnZone(player, killer) {
   ).catch(() => ({ rows: [{ n: 0 }] }))).rows[0].n;
 
   const held = await confiscate(player.id, player.handle);
-  // Sentence is stars game-minutes; convert to real ms via the game-speed knob so
-  // the cell time scales with the sped-up day (release_at + the release timer both
-  // use this real duration).
-  const ms = gameMsToReal(stars * MINUTE);
+  // Sentence is stars base-minutes, scaled UP by the game-speed knob so a faster
+  // world clock means a proportionally longer lockout (at 3× a 5★ stretch is 15
+  // real minutes). release_at + the release timer both use this real duration.
+  const ms = realMsToGame(stars * MINUTE);
   await query(
-    `INSERT INTO jail_prisoners (player_id, cell_zone, release_zone, release_at, stars, held_items)
-     VALUES ($1,$2,$3, NOW() + ($4 || ' milliseconds')::interval, $5,$6)
+    `INSERT INTO jail_prisoners (player_id, cell_zone, release_zone, release_at, stars, held_items, held_credits, fine)
+     VALUES ($1,$2,$3, NOW() + ($4 || ' milliseconds')::interval, $5,$6,$7,$8)
      ON CONFLICT (player_id) DO UPDATE SET
        cell_zone=$2, release_zone=$3, release_at=NOW() + ($4 || ' milliseconds')::interval,
-       stars=$5, held_items=$6, created_at=NOW()`,
-    [player.id, CELL_ZONE, RELEASE_ZONE, String(ms), stars, JSON.stringify(held)]
+       stars=$5, held_items=$6, held_credits=$7, fine=$8, created_at=NOW()`,
+    [player.id, CELL_ZONE, RELEASE_ZONE, String(ms), stars, JSON.stringify(held), heldCredits, fine]
   );
   scheduleRelease(player.id, ms);
 
-  const mins = stars === 1 ? '1 minute' : `${stars} minutes`;
+  // Label the sentence in the real minutes actually served (base stars × the
+  // world-clock scale), so the desk sergeant and booking notice don't undersell it.
+  const realMins = Math.max(1, Math.round(stars * getTimeScale()));
+  const mins = realMins === 1 ? '1 minute' : `${realMins} minutes`;
   // Booking record popup + keep the wanted HUD showing your stars (it decays over
   // the sentence via the minute tick). Deferred so it lands after the death/
   // respawn render and after surveillance zeroes the HUD at player.death.
   setTimeout(() => {
     sendToPlayer(player.id, {
       type: 'arrest_notice',
-      charge, stars, sentence: mins, confiscated, fine, balance,
+      charge, stars, sentence: mins, confiscated, fine, held: heldCredits,
     });
     sendToPlayer(player.id, { type: 'wanted_level', stars });
   }, 700);
@@ -246,8 +250,16 @@ async function release(playerId) {
     await query('DELETE FROM jail_prisoners WHERE player_id = $1', [playerId]);
     await restoreHeld(playerId, rec.held_items);
 
+    // Return the cash the desk was holding, minus the booking fine. A fine larger
+    // than what you were carrying leaves you owing (un-clamped, debt allowed).
+    const refund = (rec.held_credits || 0) - (rec.fine || 0);
+    const balRes = refund !== 0
+      ? await query('UPDATE players SET credits = credits + $1 WHERE id = $2 RETURNING credits', [refund, playerId]).catch(() => null)
+      : null;
+
     const player = getLivePlayer(playerId);
     if (player) {
+      if (balRes?.rows[0]) player.credits = balRes.rows[0].credits;
       const bc = getBroadcast();
       // The officer on duty right now walks into the cell, says their piece, and
       // walks only the prisoner out — the lock re-engages behind, so no cellmate
@@ -265,6 +277,12 @@ async function release(playerId) {
       const zone = getZone(rec.release_zone);
       if (zone) sendToPlayer(playerId, { type: 'move', message: await describeZone(zone, player), zone: rec.release_zone, minimap: getMinimapData(rec.release_zone) });
       sendToPlayer(playerId, { type: 'output', message: `<span class="msg-system">${officerName} slides a plastic tub across the counter — your things, minus anything the law keeps. "Stay out of trouble."</span>` });
+      if (rec.held_credits || rec.fine) {
+        const ledger = rec.fine > 0
+          ? `₵${rec.held_credits} seized, ₵${rec.fine} kept for your fine — ₵${Math.max(0, refund)} back${refund < 0 ? ` and you're ₵${-refund} in the hole` : ''}.`
+          : `₵${rec.held_credits} returned in full.`;
+        sendToPlayer(playerId, { type: 'output', message: `<span class="msg-system">A receipt is stapled to the tub: ${ledger}</span>` });
+      }
     } else {
       // Offline (e.g. released at boot after the deadline passed) — DB-only move.
       await query('UPDATE players SET current_zone = $1 WHERE id = $2', [rec.release_zone, playerId]);
@@ -307,7 +325,9 @@ schedule('1m', async () => {
   const now = Date.now();
   for (const r of rows) {
     if (!getLivePlayer(r.player_id)) continue;
-    const remaining = Math.max(0, Math.min(r.stars, Math.ceil(realMsToGame(new Date(r.release_at).getTime() - now) / MINUTE)));
+    // Each star == MINUTE of real time × the world-clock scale (matching the
+    // scaled-up sentence), so divide the remaining real time back down by scale.
+    const remaining = Math.max(0, Math.min(r.stars, Math.ceil(gameMsToReal(new Date(r.release_at).getTime() - now) / MINUTE)));
     sendToPlayer(r.player_id, { type: 'wanted_level', stars: remaining });
   }
 });

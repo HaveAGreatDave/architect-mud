@@ -10,40 +10,66 @@ import { effectiveSkill, awardSkillUse } from '../skills.js';
 import { getZoneProtection } from '../protection.js';
 import { doorGuardsOnlyUnownedApartment } from '../apartments.js';
 import { gameMsToReal } from '../gametime.js';
+import { resolve as siftResolve, createSelectionState, formatSelectionPage, getSelectionState } from '../sift.js';
+import { registerAction } from '../actions.js';
 
 const DIRECTIONS = ['north','south','east','west','up','down','in','out'];
 const OPPOSITE = { north:'south', south:'north', east:'west', west:'east', up:'down', down:'up', in:'out', out:'in' };
+const DIR_ABBR = { n:'north', s:'south', e:'east', w:'west', u:'up', d:'down' };
 const WINDOW_WORDS = new Set(['window', 'windows', 'curtain', 'curtains']);
+// Filler words stripped before matching, so "door to west" == "west door" == "door west".
+const DOOR_NOISE = new Set(['door', 'doors', 'to', 'the']);
 
-function findDoorEitherSide(zoneId, dir) {
-  // Door in this zone going that direction (player is on the source side)
-  const direct = getDoorForExit(zoneId, dir);
-  if (direct) return direct;
-  // Door in a target zone going the opposite direction (door is installed on the
-  // far side). e.g. apt door goes south to lobby; from lobby going north, find
-  // getDoorForExit(apt, 'south'). A direction may hold several exits — check each.
-  const zone = getZone(zoneId);
-  for (const targetId of exitTargets(zone, dir)) {
-    const far = getDoorForExit(targetId, OPPOSITE[dir], zoneId);
-    if (far) return far;
-  }
-  return null;
+// A direction token in full or abbreviated form (west | w), else undefined.
+function dirToken(word) {
+  if (DIRECTIONS.includes(word)) return word;
+  return DIR_ABBR[word];
+}
+function isDirToken(word) {
+  return dirToken(word) !== undefined;
 }
 
-function resolveDoor(args, player) {
-  const dir = args.find(a => DIRECTIONS.includes(a));
-  if (dir) return findDoorEitherSide(player.current_zone, dir);
-  // No direction given — collect all doors touching this zone
-  const local = getZoneDoors(player.current_zone);
+// Normalize the arg words into a direction query: drop filler words and expand
+// abbreviations. "door to w" / "w door" / "door west" all collapse to "west".
+function doorQuery(args) {
+  return args.filter(a => !DOOR_NOISE.has(a)).map(a => dirToken(a) || a).join(' ');
+}
+
+// Every door touching the player's zone as a SIFT candidate, each tagged with the
+// direction it lies in from the player and a "<dir> door" display name. Local
+// doors are anchored on this side; far-side doors are anchored in the neighbour
+// and reached by moving `dir`. Local wins on id collision (stable pick order).
+function doorCandidates(player) {
   const zone = getZone(player.current_zone);
-  const farSide = [];
+  const cands = getZoneDoors(player.current_zone).map(d => ({ door: d, dir: d.exit_dir }));
+  const seen = new Set(cands.map(c => c.door.id));
   for (const { dir: exitDir, target: targetId } of allExits(zone)) {
     const d = getDoorForExit(targetId, OPPOSITE[exitDir], zone?.id);
-    if (d && !local.find(x => x.id === d.id)) farSide.push(d);
+    if (d && !seen.has(d.id)) { seen.add(d.id); cands.push({ door: d, dir: exitDir }); }
   }
-  const all = [...local, ...farSide];
-  if (all.length === 1) return all[0];
-  if (all.length > 1) return 'ambiguous';
+  return cands.map(c => ({ ...c, name: `${c.dir} door` }));
+}
+
+// SIFT-based door resolution. Returns { type:'match', door }, { type:'ambiguous',
+// candidates } (many doors, no direction to pick one), or { type:'none' }.
+// `filter` optionally restricts the pool (hack only cares about hackable locks).
+function siftDoor(args, player, filter) {
+  let cands = doorCandidates(player);
+  if (filter) cands = cands.filter(c => filter(c.door));
+  if (!cands.length) return { type: 'none' };
+  const q = doorQuery(args);
+  if (!q) return cands.length === 1 ? { type: 'match', door: cands[0].door } : { type: 'ambiguous', candidates: cands };
+  const r = siftResolve(q, cands);
+  if (r.type === 'none') return { type: 'none' };
+  if (r.type === 'match') return { type: 'match', door: r.candidate.door };
+  return { type: 'ambiguous', candidates: r.candidates };
+}
+
+// Legacy contract for the non-hack door verbs: door object, null, or 'ambiguous'.
+function resolveDoor(args, player) {
+  const r = siftDoor(args, player);
+  if (r.type === 'match') return r.door;
+  if (r.type === 'ambiguous') return 'ambiguous';
   return null;
 }
 
@@ -314,13 +340,48 @@ function doorForcefieldActive(door) {
   return false;
 }
 
-// hack [door] [dir] — arm a hololock breach. Self-gates (returns undefined) so a
-// zone-mate handler (e.g. vendor-safe's `hack`) can own the verb when there's no
-// hackable door. Returns the minigame launch payload; `hackresolve` reports back.
+// A door a hack could plausibly target: an intact, locked, still-hackable
+// hololock. The picker pool is built from these; the per-door gates below give
+// the final verdict (auth/forcefield/device).
+function isHackableHololock(door) {
+  if (!door || door.hp <= 0) return false;
+  const lockTag = getLockTag(door);
+  return !!lockTag && lockTag.type === 'lock:hololock' && !!lockTag.canHack
+    && door.lock_state === 'locked' && !doorGuardsOnlyUnownedApartment(door);
+}
+
+// hack [door] [dir] — arm a hololock breach. Resolution runs through SIFT, so
+// "hack door to w", "hack west door", "hack door west", "hack w door" and
+// "hack door w" all pick the same door. With several hackable doors and no
+// direction given ("hack door"), SIFT opens a numbered picker. Self-gates
+// (returns undefined) so a zone-mate handler (e.g. vendor-safe's `hack`) can own
+// the verb when there's no hackable door here.
 async function cmdHackLock(args, raw, player, broadcast) {
-  const door = resolveDoor(args, player);
-  if (!door) return undefined;  // no door — let another `hack` handler try
-  if (door === 'ambiguous') return { type:'error', message:'Multiple doors here — specify a direction (e.g. hack door north).' };
+  if (doorQuery(args)) {
+    // A direction/name was typed — resolve against ALL doors so a plain or
+    // already-open door still gets its specific message, then gate in hackDoor.
+    const r = siftDoor(args, player);
+    if (r.type === 'none') return undefined;  // no such door — let another `hack` handler try
+    if (r.type === 'ambiguous') return hackPicker(r.candidates, player);
+    return hackDoor(r.door, player, broadcast);
+  }
+  // No direction — offer only the doors actually worth hacking here.
+  const hackable = doorCandidates(player).filter(c => isHackableHololock(c.door));
+  if (hackable.length === 0) return undefined;  // nothing to hack — fall through
+  if (hackable.length === 1) return hackDoor(hackable[0].door, player, broadcast);
+  return hackPicker(hackable, player);
+}
+
+// Open a numbered SIFT picker over door candidates; the pick replays through the
+// `doors.hack` action (see index.js selection-state dispatch).
+function hackPicker(candidates, player) {
+  createSelectionState(player.id, candidates, { dispatchType: 'doors.hack', dispatchParam: 'sel' });
+  return { type: 'output', message: `Which door do you want to hack?\n${formatSelectionPage(getSelectionState(player.id))}` };
+}
+
+// Arm the breach on an already-resolved door. All the hack gates live here so
+// both the direct path and the picker replay share one verdict.
+async function hackDoor(door, player, broadcast) {
   if (door.hp <= 0) return { type:'error', message:'That door is destroyed.' };
 
   const lockTag = getLockTag(door);
@@ -371,6 +432,12 @@ async function cmdHackLock(args, raw, player, broadcast) {
     resolveCmd: 'hackresolve',
   };
 }
+
+// SIFT picker replay for `hack` — the chosen candidate carries the resolved door.
+registerAction({
+  type: 'doors.hack',
+  handler: ({ actor, params, context }) => hackDoor(params.sel.door, actor, context.broadcast),
+});
 
 // hackresolve <doorId> <1|0> — silent; the hololock overlay fires its own
 // outcome. That outcome is authoritative (winning the minigame is the gate).
@@ -425,14 +492,18 @@ async function cmdHackResolve(args, raw, player, broadcast) {
   };
 }
 
-// These handlers activate when args starts with "door", a bare direction,
-// or no args at all if there is exactly one door in the zone.
+// These handlers activate when the phrase names a door ("door …", or any
+// direction token in full or abbreviated form, in any position), or with no args
+// at all if there is exactly one door in the zone.
 // Returning undefined falls through to the next handler (e.g. apartment lock).
 function doorPrePass(fn) {
   return (args, raw, player, broadcast) => {
-    if (args[0] === 'door') return fn(args.slice(1), raw, player, broadcast);
-    if (DIRECTIONS.includes(args[0])) return fn(args, raw, player, broadcast);
     if (WINDOW_WORDS.has(args[0])) return undefined;
+    // Explicitly a door: leading "door", or a direction mentioned anywhere.
+    if (args[0] === 'door' || args.some(isDirToken)) {
+      const rest = args[0] === 'door' ? args.slice(1) : args;
+      return fn(rest, raw, player, broadcast);
+    }
     // Bare command — only intercept if there's exactly one door here.
     const door = resolveDoor([], player);
     if (!door || door === 'ambiguous') return undefined;

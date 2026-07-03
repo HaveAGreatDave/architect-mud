@@ -10,7 +10,11 @@ import { getAliasList, reloadAliases, ALIAS_DEFAULTS } from '../engine/commands/
 import { loadMutations } from '../engine/mutations.js';
 import { randomUUID, createHash, randomBytes } from 'crypto';
 import { readFileSync, writeFileSync } from 'fs';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 import { fileURLToPath } from 'url';
+
+const execFileP = promisify(execFile);
 import vm from 'vm';
 import { sendPasswordResetEmail, sendVerificationEmail } from '../mailer.js';
 import { isEmailVerificationEnabled, setEmailVerificationEnabled } from '../engine/emailVerification.js';
@@ -310,6 +314,11 @@ export async function handleApiRequest(url, method, body, headers) {
   if (path.startsWith('/sounds/') && method==='DELETE') return requireDev(auth, ()=>apiDeleteSound(path.split('/')[2]));
   if (path==='/server-activity-log' && method==='GET') return requireDev(auth, apiGetActivityLog);
   if (path==='/player-count-log' && method==='GET') return requireDev(auth, ()=>apiGetPlayerCountLog(url));
+  if (path==='/dev/activity' && method==='GET') return requireDev(auth, ()=>apiGetDevActivity(url));
+  if (path==='/dev/notes' && method==='GET') return requireDev(auth, apiGetDevNotes);
+  if (path==='/dev/notes' && method==='POST') return requireDev(auth, ()=>apiCreateDevNote(body, auth));
+  if (path.startsWith('/dev/notes/') && method==='PATCH') return requireDev(auth, ()=>apiUpdateDevNote(path.split('/')[3], body));
+  if (path.startsWith('/dev/notes/') && method==='DELETE') return requireDev(auth, ()=>apiDeleteDevNote(path.split('/')[3]));
   if (path==='/world/state' && method==='GET') return requireDev(auth, apiWorldState);
   if (path==='/world/reload' && method==='POST') return requireDev(auth, ()=>apiReloadZone(body));
   if (path==='/players/online' && method==='GET') {
@@ -1627,6 +1636,66 @@ async function apiGetPlayerCountLog(fullUrl) {
   );
   return {status:200, body:{rows}};
 }
+// Recent code activity from git, for the Dev Log check-in view. Read-only; if
+// git isn't available (e.g. deployed from a tarball) it returns an empty list.
+async function apiGetDevActivity(fullUrl) {
+  const since = new URL('http://x' + (fullUrl||'')).searchParams.get('since');
+  const args = [
+    'log', '--no-merges',
+    since ? `--since=${since}` : '--since=14.days.ago',
+    '-n', '300',
+    '--pretty=format:%x1e%H%x1f%an%x1f%aI%x1f%s',
+    '--shortstat',
+  ];
+  let stdout = '';
+  try {
+    const repoRoot = fileURLToPath(new URL('../../', import.meta.url));
+    ({ stdout } = await execFileP('git', args, { cwd: repoRoot, maxBuffer: 4 * 1024 * 1024 }));
+  } catch {
+    return { status: 200, body: { commits: [], gitUnavailable: true } };
+  }
+  const commits = stdout.split('\x1e').map(r => r.trim()).filter(Boolean).map(rec => {
+    const nl = rec.indexOf('\n');
+    const head = nl === -1 ? rec : rec.slice(0, nl);
+    const rest = nl === -1 ? '' : rec.slice(nl + 1);
+    const [hash, author, date, subject] = head.split('\x1f');
+    const m = rest.match(/(\d+) files? changed/);
+    return { hash: (hash||'').slice(0, 8), author: author||'?', date, subject: subject||'', filesChanged: m ? parseInt(m[1], 10) : 0 };
+  });
+  return { status: 200, body: { commits } };
+}
+
+async function apiGetDevNotes() {
+  const { rows } = await query(`SELECT id, author, title, body, kind, resolved, created_at FROM dev_notes ORDER BY created_at DESC LIMIT 100`);
+  return { status: 200, body: { notes: rows } };
+}
+
+async function apiCreateDevNote(body, auth) {
+  const title = (body?.title || '').trim();
+  if (!title) return { status: 400, body: { error: 'title required' } };
+  const kind = ['change','heads-up','action-required'].includes(body?.kind) ? body.kind : 'change';
+  const text = (body?.body || '').trim();
+  const { rows: p } = await query(`SELECT handle FROM players WHERE id=$1`, [auth.playerId]);
+  const author = p[0]?.handle || 'unknown';
+  const { rows } = await query(
+    `INSERT INTO dev_notes (author, title, body, kind) VALUES ($1,$2,$3,$4)
+     RETURNING id, author, title, body, kind, resolved, created_at`,
+    [author, title, text, kind]
+  );
+  return { status: 200, body: { note: rows[0] } };
+}
+
+async function apiUpdateDevNote(id, body) {
+  if (typeof body?.resolved !== 'boolean') return { status: 400, body: { error: 'resolved boolean required' } };
+  await query(`UPDATE dev_notes SET resolved=$1 WHERE id=$2`, [body.resolved, id]);
+  return { status: 200, body: { ok: true } };
+}
+
+async function apiDeleteDevNote(id) {
+  await query(`DELETE FROM dev_notes WHERE id=$1`, [id]);
+  return { status: 200, body: { ok: true } };
+}
+
 async function apiWorldState() {
   const players = getAllLivePlayers().map(p => ({ handle: p.handle, role: p.role, current_zone: p.current_zone }));
   return {status:200,body:{zones:getAllZones(),online_players:players,live_enemies:world.enemies.size,live_corpses:world.corpses.size}};

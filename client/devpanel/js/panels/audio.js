@@ -50,6 +50,10 @@ function renderAudioPanel(data) {
     ambient: Array.isArray(data?.ambient) ? data.ambient : [],
     events: Array.isArray(data?.events) ? data.events : [],
     samples: Array.isArray(data?.samples) ? data.samples : [],
+    // Overrides for the built-in client SFX catalog (poker + minigame procedural
+    // cues). Kept as raw rows here; merged with the shipped defaults at render
+    // time in the Sound Effects tab. Preserved across setAudioTab re-renders.
+    interfaceSfx: Array.isArray(data?.interfaceSfx) ? data.interfaceSfx : [],
   };
   const panel = document.getElementById('list-panel');
   const tabs = [
@@ -134,6 +138,16 @@ function renderAudioTabBody() {
     return;
   }
 
+  // Sound Effects: the DB-backed audio_sfx clips, then the built-in Interface /
+  // Game SFX catalog (poker + minigame procedural cues) below.
+  if (_audioTab === 'sfx') {
+    const clips = rows.length
+      ? `<table><thead><tr><th>Name</th><th>Category</th><th></th><th></th></tr></thead><tbody>${rows.map(r => _genericAudioRow(r, false)).join('')}</tbody></table>`
+      : '<div style="padding:24px;color:var(--text-dim)">No SFX clips yet.</div>';
+    body.innerHTML = clips + renderInterfaceSfxSection();
+    return;
+  }
+
   if (!rows.length) { body.innerHTML = '<div style="padding:24px;color:var(--text-dim)">Nothing here yet.</div>'; return; }
 
   // Instruments cluster MOD-import batches under their song; other tabs stay flat.
@@ -145,6 +159,149 @@ function renderAudioTabBody() {
 }
 
 function findAudioAsset(tab, id) { return _audioData[tab].find(r => r.id === id); }
+
+// ── Interface / Game SFX (built-in catalog + DB overrides) ───────────────────
+// Distinct from the audio_sfx clips above: these are the procedural cues shipped
+// in client/shared/sfx-catalog.js (window.SFXCatalog) for the poker table and the
+// hacking / lock minigames. The DB only stores overrides (/audio/interface-sfx);
+// this section merges the shipped defaults with those and renders under the
+// Sound Effects tab.
+
+// Merged built-in-cue + DB-override list, cached at render time so the row
+// buttons can preview/edit by id.
+let _sfxEntries = [];
+
+function mergeInterfaceSfx(overrides) {
+  const defaults = (window.SFXCatalog && window.SFXCatalog.defaults) ? window.SFXCatalog.defaults() : [];
+  const ovById = {};
+  for (const r of (Array.isArray(overrides) ? overrides : [])) ovById[r.id] = r;
+  return defaults.map(d => {
+    const ov = ovById[d.id];
+    let config = d.config;
+    if (ov) { try { config = typeof ov.config === 'string' ? JSON.parse(ov.config) : (ov.config || d.config); } catch { config = d.config; } }
+    return {
+      id: d.id, group: d.group,
+      name: ov && ov.name ? ov.name : d.name, defaultName: d.name,
+      priority: ov && ov.priority != null ? ov.priority : d.priority, defaultPriority: d.priority,
+      enabled: ov ? ov.enabled !== 0 : true,
+      config, defaultConfig: d.config,
+      overridden: !!ov,
+    };
+  });
+}
+
+function renderInterfaceSfxSection() {
+  _sfxEntries = mergeInterfaceSfx(_audioData.interfaceSfx);
+  if (!_sfxEntries.length) return '';
+  const GROUP_LABELS = (window.SFXCatalog && window.SFXCatalog.GROUPS) || {};
+  const sfxByGroup = {};
+  for (const e of _sfxEntries) { (sfxByGroup[e.group] = sfxByGroup[e.group] || []).push(e); }
+  const sfxSections = Object.keys(sfxByGroup).map(g => {
+    const rows = sfxByGroup[g].map(e => `<tr>
+      <td style="font-weight:600;color:${e.enabled ? 'var(--text-bright)' : 'var(--text-dim)'}">${e.name}${e.overridden ? ' <span style="font-size:9px;background:var(--accent);color:#000;padding:1px 5px;border-radius:2px;vertical-align:middle">EDITED</span>' : ''}</td>
+      <td><code style="font-size:10px;color:var(--text-dim)">${e.id}</code></td>
+      <td style="text-align:center;font-size:11px;color:var(--text-dim)">${e.priority}</td>
+      <td style="text-align:center;font-size:11px;color:${e.enabled ? 'var(--green)' : 'var(--red)'}">${e.enabled ? 'on' : 'muted'}</td>
+      <td style="text-align:right;white-space:nowrap">
+        <button class="action-btn" style="font-size:10px;padding:3px 8px" onclick="previewSfx('${e.id}')" title="Play">▶</button>
+        <button class="action-btn" style="font-size:10px;padding:3px 8px;margin-left:4px" onclick="editSfx('${e.id}')">✏</button>
+        ${e.overridden ? `<button class="action-btn danger" style="font-size:10px;padding:3px 8px;margin-left:4px" onclick="resetSfx('${e.id}')" title="Reset to default">↺</button>` : ''}
+      </td>
+    </tr>`).join('');
+    return `<div style="margin-bottom:12px">
+      <div style="padding:5px 16px;background:var(--bg3);border-top:1px solid var(--border);border-bottom:1px solid var(--border)">
+        <span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--accent)">${GROUP_LABELS[g] || g}</span>
+      </div>
+      <table><thead><tr><th>Cue</th><th>ID</th><th style="text-align:center;width:60px">Priority</th><th style="text-align:center;width:50px">State</th><th></th></tr></thead><tbody>${rows}</tbody></table>
+    </div>`;
+  }).join('');
+  return `
+    <div style="padding:10px 16px;border-top:2px solid var(--border);border-bottom:1px solid var(--border);background:var(--bg2);margin-top:8px">
+      <div style="font-size:13px;font-weight:600;color:var(--accent);letter-spacing:1px;text-transform:uppercase">Interface / Game SFX</div>
+      <div style="font-size:11px;color:var(--text-dim);margin-top:2px">${_sfxEntries.length} procedural cues — poker table &amp; the hacking / lock minigames. Edit the synth def; ▶ auditions it. Edits persist and reach every client.</div>
+    </div>
+    ${sfxSections}`;
+}
+
+function _sfxEntry(id) { return _sfxEntries.find(e => e.id === id); }
+
+// Play a synth def through the shared audio engine — a click is a valid gesture
+// to unlock the AudioContext. Priority + config come from the entry (or a live
+// edit passed as configOverride from the modal preview).
+function _playSfxDef(entry, configOverride) {
+  const def = { id: entry.id, category: 'sfx', priority: entry.priority || 5, config: configOverride || entry.config };
+  try { window.AudioEngine && window.AudioEngine.init && window.AudioEngine.init(); window.AudioEngine.playSfx(def); }
+  catch { toast('Audio engine not ready', true); }
+}
+
+function previewSfx(id) {
+  const e = _sfxEntry(id);
+  if (e) _playSfxDef(e);
+}
+
+async function resetSfx(id) {
+  const e = _sfxEntry(id);
+  if (!e) return;
+  if (!(await dpConfirm(`Reset "${e.name}" to its built-in default? Your edits will be lost.`, { danger: true }))) return;
+  const r = await API(`/audio/interface-sfx/${id}`, 'DELETE');
+  if (r?.error) { toast(r.error, true); return; }
+  toast('Reset to default');
+  loadPanel('audio');
+}
+
+// Edit an interface SFX cue with the SAME multi-layer editor the audio_sfx clips
+// use (openAudioModal's 'sfx' branch), so both tables share one sound editor.
+// The only differences are the header (catalog id + group are fixed, no category)
+// and the save path (/audio/interface-sfx, body { name, grp, priority, enabled,
+// config }). Reuses the layer machinery + _previewSfxForm via the same field ids.
+function editSfx(id) {
+  const e = _sfxEntry(id);
+  if (!e) return;
+  document.querySelector('#generic-modal .modal-card').style.width = '';
+  const modal = document.getElementById('generic-modal');
+  const GROUP_LABELS = (window.SFXCatalog && window.SFXCatalog.GROUPS) || {};
+  document.getElementById('modal-title').textContent = `Edit SFX: ${e.name}`;
+  _sfxInitLayers(e.config);
+  document.getElementById('modal-body').innerHTML = `
+    <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:12px;margin-bottom:6px">
+      <div class="field"><label>Name</label><input id="am-name" value="${(e.name || '').replace(/"/g, '&quot;')}"></div>
+      <div class="field"><label>Priority (1-10)${_help('When too many sounds play at once, lower-priority SFX are dropped first (voice-stealing).')}</label><input id="am-priority" type="number" min="1" max="10" value="${e.priority}"></div>
+      <div class="field"><label>Duration (sec)${_help('Total length of the SFX; layers play within this window.')}</label><input id="am-sfx-duration" type="number" step="0.05" min="0.05" value="${e.config?.duration ?? 0.4}"></div>
+    </div>
+    <div style="font-size:11px;color:var(--text-dim);margin-bottom:12px">
+      <code style="color:var(--text-dim)">${e.id}</code> · group <span style="color:var(--accent)">${GROUP_LABELS[e.group] || e.group}</span> · built-in default priority ${e.defaultPriority}. Use ↺ in the list to discard edits.
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+      <span style="font-size:11px;font-weight:600;color:var(--accent);letter-spacing:1px;text-transform:uppercase">Layers</span>
+      <button class="action-btn" style="font-size:10px;padding:3px 10px" onclick="_sfxAddLayer()">+ Add Layer</button>
+    </div>
+    <div id="sfx-layers-container"></div>
+    <div class="field" style="display:flex;align-items:center;gap:14px;margin-top:10px">
+      <button type="button" class="action-btn" id="am-preview" style="padding:4px 14px" title="Play the full multi-layer sound with the current unsaved values">▶ Preview</button>
+      <span><input type="checkbox" id="am-enabled" ${e.enabled ? 'checked' : ''}>
+      <label for="am-enabled" style="margin:0;cursor:pointer">Enabled <span style="color:var(--text-dim);font-weight:400">(uncheck to mute this cue for everyone)</span></label></span>
+    </div>`;
+  _sfxRenderLayers();
+  document.getElementById('am-preview').onclick = _previewSfxForm;
+  document.getElementById('modal-save').onclick = async () => {
+    const layers = _sfxReadAllLayers();
+    const duration = parseFloat(document.getElementById('am-sfx-duration').value) || 0.4;
+    const config = layers.length === 1 ? { ...layers[0], duration } : { layers, duration };
+    const body = {
+      name: document.getElementById('am-name').value.trim() || e.defaultName,
+      grp: e.group,
+      priority: parseInt(document.getElementById('am-priority').value) || e.defaultPriority,
+      enabled: document.getElementById('am-enabled').checked,
+      config,
+    };
+    const r = await API(`/audio/interface-sfx/${id}`, 'PUT', body);
+    if (r?.error) { toast(r.error, true); return; }
+    toast('SFX saved');
+    closeModal();
+    loadPanel('audio');
+  };
+  modal.style.display = 'flex';
+}
 
 // ── MOD-batch grouping (Instruments / Samples lists) ─────────────────────────
 // A .MOD import creates one instrument + sample per used module sample, all named

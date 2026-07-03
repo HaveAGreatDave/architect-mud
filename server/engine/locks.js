@@ -15,9 +15,20 @@ export async function resolveLockAuth(lockTag, door, player) {
 // Lock type registry: shortName ('hololock') → { tagType, kitTag, defaults }
 const lockTypeRegistry = new Map();
 
-export function registerLockType(shortName, { tagType, kitTag, defaults, authFn }) {
+// tagType → whether an authorised actor may walk THROUGH the door while it's
+// still locked. True for credentialled locks (the door recognises you and opens
+// itself); false for manual bolts like a privacy latch, which must be physically
+// undone before the door will open.
+const passWhileLockedRegistry = new Map();
+
+export function registerLockType(shortName, { tagType, kitTag, defaults, authFn, passWhileLocked = true }) {
   lockTypeRegistry.set(shortName, { tagType, kitTag, defaults });
   registerLockAuth(tagType, authFn);
+  passWhileLockedRegistry.set(tagType, passWhileLocked);
+}
+
+export function lockTypePassesWhileLocked(tagType) {
+  return passWhileLockedRegistry.get(tagType) !== false;
 }
 
 export function getLockType(shortName) {

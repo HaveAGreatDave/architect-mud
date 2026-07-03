@@ -12,6 +12,16 @@ const PANELS = {
     noEdit: true,
     render: renderDashboard,
   },
+  devlog: {
+    title: 'Dev Log',
+    description: 'Team heads-ups and recent code activity. Post important changes (server restarts, migrations, content scripts) so the next dev checking in sees them, alongside a feed of recent commits by author.',
+    noEdit: true,
+    fetch: async () => {
+      const [notes, activity] = await Promise.all([directAPI('/dev/notes'), directAPI('/dev/activity')]);
+      return { notes: notes?.notes || [], commits: activity?.commits || [], gitUnavailable: !!activity?.gitUnavailable };
+    },
+    render: renderDevLog,
+  },
   gossip: {
     title: 'Gossip Pool',
     description: 'Live in-memory gossip — strongest (most recent + credible) first. Spread a rumour as any NPC; the pool clears on server restart.',
@@ -145,15 +155,15 @@ const PANELS = {
   sounds: {
     title: 'SoundScript',
     description: 'Named audio-text sound effects and ambient text events broadcast by zone theme.',
-    fetch: () => Promise.all([API('/sounds'), API('/ambient-events'), API('/audio/interface-sfx')]).then(([s, a, sfx]) => ({ sounds: s, ambients: a, interfaceSfx: sfx })),
+    fetch: () => Promise.all([API('/sounds'), API('/ambient-events')]).then(([s, a]) => ({ sounds: s, ambients: a })),
     noEdit: true,
     render: renderSoundsPanel,
   },
   audio: {
     title: 'Audio',
     description: 'Music instruments, songs, SFX clips, ambient tracks, and audio event bindings.',
-    fetch: () => Promise.all([API('/audio/instruments'), API('/audio/songs'), API('/audio/sfx'), API('/audio/ambient'), API('/audio/events'), API('/audio/samples')])
-      .then(([instruments, songs, sfx, ambient, events, samples]) => ({ instruments, songs, sfx, ambient, events, samples })),
+    fetch: () => Promise.all([API('/audio/instruments'), API('/audio/songs'), API('/audio/sfx'), API('/audio/ambient'), API('/audio/events'), API('/audio/samples'), API('/audio/interface-sfx')])
+      .then(([instruments, songs, sfx, ambient, events, samples, interfaceSfx]) => ({ instruments, songs, sfx, ambient, events, samples, interfaceSfx })),
     noEdit: true,
     render: renderAudioPanel,
   },

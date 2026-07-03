@@ -3,7 +3,7 @@ import { appendMsg, appendHtml, appendPre, updateVitals, parseZoneInfo, showDevP
 import { sendCmd, sendCmdSilent, closeConnection, attemptAutoReauth, showVerifyScreen } from './net.js';
 import { renderMinimap, openMapPopup } from './panels/minimap.js';
 import { updateEnvironmentHUD, updateZoneTempHUD, refreshZoneVisibility, signalPowerOut } from './panels/environment.js';
-import { openDialogue, closeDialogue, openShop } from './panels/dialogue.js';
+import { openDialogue, closeDialogue, openShop, flashShopResult } from './panels/dialogue.js';
 import { renderEquipPanel, renderGearPanel } from './panels/equipment.js';
 import { renderRecipesPanel } from './panels/recipes.js';
 import { renderStatsPanel } from './panels/stats.js';
@@ -305,7 +305,13 @@ const handlers = {
   },
 
   dialogue: (msg) => { openDialogue(msg); },
-  dialogue_shop: (msg) => { openShop(msg); },
+  dialogue_shop: (msg) => {
+    openShop(msg);
+    // A fresh server result (buy/sell) carries a *Result string — pulse the panel
+    // green on success, shake it red on failure. Bare re-opens have no result.
+    if (msg.buyResult) flashShopResult(!!msg.buySuccess);
+    else if (msg.sellResult) flashShopResult(!!msg.sellSuccess);
+  },
 
   dialogue_end: (msg) => {
     closeDialogue();
