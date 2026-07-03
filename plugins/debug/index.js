@@ -24,7 +24,7 @@ on('ip.roll', ({ playerId, skillId, chance, roll, hit }) => {
   const need = (Math.min(1, chance) * 100).toFixed(1);
   sendToPlayer(playerId, {
     type: 'debug_roll',
-    message: `<span class="debug-roll">[debug] IP roll — ${name}: rolled ${rolled} vs ${need}% → ${hit ? 'HIT (+1 IP)' : 'miss'}</span>`,
+    message: `<span class="debug-roll">[debug] IP roll — ${name}: rolled ${rolled}% (need <${need}%) → ${hit ? 'HIT (+1 IP)' : 'miss'}</span>`,
   });
 });
 
