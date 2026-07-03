@@ -786,19 +786,37 @@ function _applyVineIdentity(schema) {
 
 // Generic top-left tab strip, one per VINE family (Quest/Dialogue/AI/Scripts). vine-core
 // knows nothing about what a "family" is — callers (vine-suite.js) hand it plain
-// { label, icon, color, active, onClick } descriptors and this just renders them.
+// { label, icon, color, active, onClick } descriptors and this just renders them as
+// colour-coded folder tabs: the active one is tinted its family colour and rises above
+// the inactive tabs (which sit lower and muted, as if stacked behind it).
 function _renderVineTabs(tabs) {
   const el = document.getElementById('vine-modal-tabs');
   if (!el) return;
   el.innerHTML = '';
-  if (!tabs || !tabs.length) return;
+  if (!tabs || !tabs.length) { el.style.marginRight = '0'; return; }
+  // Bottom-align so the taller active tab overlaps the header's lower edge.
+  el.style.alignSelf = 'stretch';
+  el.style.alignItems = 'flex-end';
+  el.style.gap = '3px';
+  el.style.marginRight = '6px';
   tabs.forEach(t => {
     const b = document.createElement('button');
     b.textContent = `${t.icon || ''} ${t.label}`.trim();
-    b.style.cssText = `background:none;border:none;border-bottom:2px solid ${t.active ? t.color : 'transparent'};` +
-      `color:${t.active ? t.color : 'var(--text-dim)'};font-family:var(--font);font-size:11px;` +
-      `padding:4px 8px;cursor:${t.active ? 'default' : 'pointer'};white-space:nowrap`;
-    if (!t.active && typeof t.onClick === 'function') b.onclick = t.onClick;
+    if (t.active) {
+      b.title = 'Choose a different record in this family';
+      b.style.cssText =
+        `position:relative;z-index:2;background:color-mix(in srgb,${t.color} 22%,var(--bg2));` +
+        `color:${t.color};font-weight:bold;border:1px solid ${t.color};border-bottom:none;` +
+        `border-top:3px solid ${t.color};border-radius:6px 6px 0 0;box-shadow:0 -3px 8px rgba(0,0,0,.35);` +
+        `font-family:var(--font);font-size:11px;padding:8px 12px 9px;margin-bottom:-1px;cursor:pointer;white-space:nowrap`;
+    } else {
+      b.style.cssText =
+        `position:relative;z-index:1;background:var(--bg3);color:var(--text-dim);` +
+        `border:1px solid var(--border);border-bottom:none;border-top:3px solid ${t.color};` +
+        `border-radius:5px 5px 0 0;font-family:var(--font);font-size:11px;padding:4px 10px 5px;` +
+        `opacity:.8;cursor:pointer;white-space:nowrap`;
+    }
+    if (typeof t.onClick === 'function') b.onclick = t.onClick;
     el.appendChild(b);
   });
 }

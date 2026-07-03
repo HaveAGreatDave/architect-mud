@@ -9,14 +9,17 @@
 // The panel opens on a front page of 4 large family cards (VineQuest/VineDialogue/
 // VineAI/VineScripts). Picking "Existing" on a card drills into a compact list scoped
 // to that family; "+ New" jumps straight to the owning panel's blank record form.
-// Every open VINE editor also carries a top-left tab strip (vineFamilyTabs) wired to
-// vineGoToFamily so you can hop into another family's existing list without leaving
-// the modal manually first.
+// Every open VINE editor also carries a top-left tab strip (vineFamilyTabs): clicking
+// another family reopens the last asset you had open there (or, if none, opens that
+// family's host picker); clicking the active tab opens the picker so you can choose a
+// different record. You hop between editors without ever touching the Suite list.
 
 let _vineSuiteData = { npcs: [], enemies: [], scripts: [], quests: [] };
 let _vsView = 'front';         // 'front' | 'existing'
 let _vsActiveFamily = null;
-let _vsPendingOpen = null;     // { family, view } — consumed once by the next renderVineSuite
+// Last asset opened per family { family -> { kind, id } }. A family tab reopens this
+// instead of dumping you back on the Suite's existing-list.
+let _vsLastOpen = {};
 
 function _vsParse(g) {
   if (!g) return null;
@@ -35,7 +38,8 @@ function _vsEsc(s) {
 // the index list + the jump-to-owning-panel navigator. Cross-jump fields
 // (noun/schema/listRoute/toGraph/save[/createStub]) power vineJumpTo — opening a
 // referenced asset in the standalone modal, saved straight to the DB, without leaving
-// the editor you jumped from.
+// the editor you jumped from. Every kind now carries the cross-jump fields so a family
+// tab can reopen the last asset you had open in it (including AI behaviour graphs).
 const VINE_KINDS = {
   dialogue: {
     label: 'NPC Dialogue', icon: '💬', color: 'var(--accent2)', source: 'npcs', panel: 'npcs', opener: 'npcOpenVine',
@@ -49,10 +53,20 @@ const VINE_KINDS = {
   aiNpc: {
     label: 'NPC Behaviour', icon: '🧠', color: 'var(--accent3)', source: 'npcs', panel: 'npcs', opener: 'npcOpenVineAI',
     badge: (r) => _vsNodeCount(r.behaviour_graph),
+    noun: 'NPC Behaviour',
+    schema: () => VineAISchema,
+    listRoute: () => directAPI('/npcs'),
+    toGraph: (r) => VineAISchema.fromAiGraph(_vsParse(r.behaviour_graph) || {}),
+    save: (id, g) => directAPI(`/npcs/${id}/graph`, 'PATCH', { field: 'behaviour_graph', graph: VineAISchema.toAiGraph(g) }),
   },
   aiEnemy: {
     label: 'Enemy Behaviour', icon: '🧠', color: 'var(--accent3)', source: 'enemies', panel: 'enemies', opener: 'enemyOpenVineAI',
     badge: (r) => _vsNodeCount(r.behaviour_graph),
+    noun: 'Enemy Behaviour',
+    schema: () => VineAISchema,
+    listRoute: () => directAPI('/enemies'),
+    toGraph: (r) => VineAISchema.fromAiGraph(_vsParse(r.behaviour_graph) || {}),
+    save: (id, g) => directAPI(`/enemies/${id}/graph`, 'PATCH', { field: 'behaviour_graph', graph: VineAISchema.toAiGraph(g) }),
   },
   script: {
     label: 'Scripts', icon: '⎇', color: 'var(--cyan)', source: 'scripts', panel: 'scripts', opener: 'scriptsOpenVine',
@@ -111,14 +125,8 @@ async function fetchVineSuite() {
 // ── Root render — front page of 4 family cards, or a family's compact existing list ──
 function renderVineSuite(data) {
   _vineSuiteData = data || _vineSuiteData;
-  if (_vsPendingOpen) {
-    _vsActiveFamily = _vsPendingOpen.family;
-    _vsView = _vsPendingOpen.view;
-    _vsPendingOpen = null;
-  } else {
-    _vsView = 'front';
-    _vsActiveFamily = null;
-  }
+  _vsView = 'front';
+  _vsActiveFamily = null;
   vsRenderRoot();
 }
 
@@ -245,6 +253,13 @@ async function vineOpenAsset(kind, id) {
   await openEdit(currentRecord, false);
   const opener = window[cat.opener];
   if (typeof opener === 'function') opener();
+  _vsRememberOpen(kind, id);
+}
+
+// Record the last asset opened in a family so its tab can reopen it later.
+function _vsRememberOpen(kind, id) {
+  const fam = _vsFamilyForKind(kind);
+  if (fam) _vsLastOpen[fam] = { kind, id };
 }
 
 // ── Cross-editor jump: open a referenced asset in the standalone modal ─────────
@@ -281,6 +296,7 @@ async function vineJumpTo(kind, id) {
     null,
     vineFamilyTabs(_vsFamilyForKind(kind))
   );
+  _vsRememberOpen(kind, rec.id);
 }
 
 // Back-compat shim: dialogue's quest-action jump button still calls this.
@@ -290,25 +306,131 @@ function vineJumpToQuest(questId) {
 
 // ── Family tabs (top-left of every VINE editor) ────────────────────────────────
 // Always the same 4, in the same order, each recolored to its family. The active
-// family is inert; the other 3 commit + close the current editor and open the Suite
-// straight into that family's compact existing list.
+// tab opens the host picker (choose a different record in this family); clicking
+// another family reopens that family's last-opened asset, or — if none — opens its
+// host picker so you can choose a record (or make a new one) without leaving.
 function vineFamilyTabs(activeFamilyKey) {
   return _VF_ORDER.map(key => {
+    const active = key === activeFamilyKey;
     const fam = VINE_FAMILIES[key];
     return {
       label: fam.label,
       icon: fam.icon,
       color: fam.color,
-      active: key === activeFamilyKey,
-      onClick: () => vineGoToFamily(key),
+      active,
+      onClick: active ? () => vsHostPicker(key) : () => vineGoToFamily(key),
     };
   });
 }
 
-async function vineGoToFamily(familyKey) {
-  vineModalSave(); // commits the current graph to its form (if any) and closes the modal
-  _vsPendingOpen = { family: familyKey, view: 'existing' };
-  activatePanelNav('vine');
-  currentPanel = 'vine';
-  await loadPanel('vine');
+// Switch to another family without going back to the Suite list: reopen whatever you
+// last had open in that family, or — if nothing — open its host picker. Reopening
+// runs through vineJumpTo, which commits+closes the current editor and opens the
+// target in the same modal.
+function vineGoToFamily(familyKey) {
+  const last = _vsLastOpen[familyKey];
+  if (last) return vineJumpTo(last.kind, last.id);
+  vsHostPicker(familyKey);
+}
+
+// ── Host picker (choose which record to edit within a family) ──────────────────
+// A compact popup over the editor (z above the modal). Lists that family's records
+// fetched live (across its kinds — VineAI spans NPC + enemy), plus "+ New" buttons.
+// Picking a record commits the current editor and opens that record's graph; the
+// picker is non-destructive if dismissed (the editor behind it stays as-is).
+let _vsPickerFamily = null;
+let _vsPickerData = {}; // kind -> records[]
+
+async function vsHostPicker(familyKey) {
+  const fam = VINE_FAMILIES[familyKey];
+  if (!fam) return;
+  _vsPickerFamily = familyKey;
+  _vsPickerData = {};
+  for (const kind of fam.kinds) {
+    const list = await VINE_KINDS[kind].listRoute();
+    _vsPickerData[kind] = Array.isArray(list) ? list : [];
+  }
+
+  let ov = document.getElementById('vine-host-picker');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'vine-host-picker';
+    ov.style.cssText = 'display:none;position:fixed;inset:0;z-index:650;background:color-mix(in srgb,var(--bg) 72%,transparent);align-items:center;justify-content:center';
+    ov.addEventListener('mousedown', (e) => { if (e.target === ov) vsHostPickerClose(); });
+    document.body.appendChild(ov);
+  }
+  const newBtns = fam.newPanels.map(np =>
+    `<button class="action-btn success" onclick="vsHostPickerNew('${np.panel}')">${np.label}</button>`
+  ).join('');
+  ov.innerHTML = `
+    <div style="width:min(520px,92vw);max-height:80vh;display:flex;flex-direction:column;background:var(--bg2);border:1px solid var(--border);border-top:4px solid ${fam.color};border-radius:6px;overflow:hidden">
+      <div style="display:flex;gap:8px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--border)">
+        <span style="font-size:16px">${fam.icon}</span>
+        <span style="font-weight:bold;font-size:13px;color:${fam.color};flex:1">${fam.label} — choose a record</span>
+        <button class="action-btn" onclick="vsHostPickerClose()">✕</button>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;padding:9px 12px;border-bottom:1px solid var(--border)">
+        ${newBtns}
+        <input id="vhp-search" placeholder="Filter…" oninput="vsHostPickerRender()"
+          style="flex:1;min-width:140px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:12px;padding:5px 9px;border-radius:3px">
+      </div>
+      <div id="vhp-list" style="overflow-y:auto;padding:2px 0"></div>
+    </div>`;
+  ov.style.display = 'flex';
+  vsHostPickerRender();
+  setTimeout(() => document.getElementById('vhp-search')?.focus(), 0);
+}
+
+function vsHostPickerClose() {
+  const ov = document.getElementById('vine-host-picker');
+  if (ov) ov.style.display = 'none';
+}
+
+function vsHostPickerRender() {
+  const fam = VINE_FAMILIES[_vsPickerFamily];
+  const list = document.getElementById('vhp-list');
+  if (!fam || !list) return;
+  const q = (document.getElementById('vhp-search')?.value || '').toLowerCase();
+  const multi = fam.kinds.length > 1;
+
+  const rows = [];
+  for (const kind of fam.kinds) {
+    const cat = VINE_KINDS[kind];
+    for (const rec of (_vsPickerData[kind] || [])) {
+      if (q && !String(rec.name || '').toLowerCase().includes(q) && !String(rec.id).toLowerCase().includes(q)) continue;
+      rows.push({ kind, cat, rec, n: cat.badge(rec) });
+    }
+  }
+  rows.sort((a, b) => (b.n - a.n) || String(a.rec.name || a.rec.id).localeCompare(String(b.rec.name || b.rec.id)));
+
+  if (!rows.length) {
+    list.innerHTML = `<div style="padding:14px 12px;color:var(--text-dim);font-size:11px">No records yet — use "${fam.newPanels[0].label}" above.</div>`;
+    return;
+  }
+  list.innerHTML = rows.map(({ kind, cat, rec, n }) => {
+    const badge = n
+      ? `<span style="color:${cat.color};font-size:10px;white-space:nowrap">● ${n}</span>`
+      : `<span style="color:var(--text-dim);font-size:10px">—</span>`;
+    const tag = multi
+      ? `<span style="font-size:9px;color:var(--text-dim);border:1px solid var(--border);border-radius:2px;padding:0 4px;flex-shrink:0">${cat.label.replace(' Behaviour', '')}</span>`
+      : '';
+    return `<div onclick="vsHostPickerPick('${kind}','${_vsEsc(rec.id)}')"
+      style="display:flex;gap:6px;align-items:center;padding:5px 12px;cursor:pointer;border-bottom:1px solid var(--border)"
+      onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background='none'">
+      ${tag}
+      <span style="flex:1;font-size:11px;color:var(--text-bright)">${_vsEsc(rec.name || '(unnamed)')}</span>
+      <code style="font-size:9px;color:var(--text-dim)">${_vsEsc(rec.id)}</code>
+      ${badge}
+    </div>`;
+  }).join('');
+}
+
+function vsHostPickerPick(kind, id) {
+  vsHostPickerClose();
+  vineJumpTo(kind, id);
+}
+
+function vsHostPickerNew(panel) {
+  vsHostPickerClose();
+  vsNewRecord(panel);
 }
