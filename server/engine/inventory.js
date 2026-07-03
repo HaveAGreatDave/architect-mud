@@ -65,9 +65,10 @@ export async function giveToPlayer(row, toPlayer) {
 }
 
 // Equip a row into a slot/layer, first clearing whatever occupies that slot+layer.
+// equipped_at orders the worn set (used to evict the oldest accessory when full).
 export async function equipRow(row, player, slot, layer) {
-  await query('UPDATE player_inventory SET is_equipped=0, slot=NULL, layer=NULL WHERE player_id=$1 AND slot=$2 AND layer=$3', [player.id, slot, layer]);
-  await query('UPDATE player_inventory SET is_equipped=1, slot=$1, layer=$2 WHERE id=$3', [slot, layer, row.id]);
+  await query('UPDATE player_inventory SET is_equipped=0, slot=NULL, layer=NULL, equipped_at=NULL WHERE player_id=$1 AND slot=$2 AND layer=$3 AND id<>$4', [player.id, slot, layer, row.id]);
+  await query('UPDATE player_inventory SET is_equipped=1, slot=$1, layer=$2, equipped_at=now() WHERE id=$3', [slot, layer, row.id]);
 }
 
 export async function unequipRow(row) {

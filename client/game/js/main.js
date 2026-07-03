@@ -481,6 +481,11 @@ document
 		import("./panels/equipment.js").then((m) => m.openEquipPanel());
 	});
 document
+	.querySelector(".qcmd[data-open-gear]")
+	?.addEventListener("click", () => {
+		import("./panels/equipment.js").then((m) => m.openGearPanel());
+	});
+document
 	.getElementById("debug-whisper-btn")
 	?.addEventListener("click", debugFakeWhisper);
 window._sendRaw = sendRaw;

@@ -68,9 +68,9 @@ carries its own typed `soak` map, so a monster soaks the player's hit against th
 armour — replacing the old single monster-wide `soak`/`armor` (still read as a fallback for
 monsters with no `body_parts`).
 
-The player's struck part maps to an armour slot via `PART_TO_SLOT`: head→head, torso→torso,
 arms→hands, legs→legs, feet→feet. The low-weight `feet` part (weight 4) lets the `feet` armour
-slot's typed soak actually reduce damage when the feet are struck.
+slot's typed soak actually reduce damage when the feet are struck — surfaced per-region in the
+`gear` screen.
 
 ### Soak (armour)
 

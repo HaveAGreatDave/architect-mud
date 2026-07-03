@@ -111,6 +111,13 @@ check('stand resets posture', getPlayer().posture === 'standing', `posture=${get
 r = await run('stop');
 check('bare stop → nothing to stop', /aren't doing anything/.test(r?.message || ''), r?.message);
 
+// Gear/equip wiring (DB writes are no-ops for the fake player, so this checks the
+// command surface: dispatch, argument guards, and the gear payload shape).
+r = await run('equip');
+check('bare equip → prompt', r?.type === 'error' && /Equip what/.test(r.message || ''), r?.message);
+r = await run('gear');
+check('gear returns a gear payload', r?.type === 'gear' && Array.isArray(r.items) && r.soak !== undefined && r.effects !== undefined, JSON.stringify(r)?.slice(0, 120));
+
 const gateOwners = getRegisteredMoveGates();
 check('engine law gates registered', gateOwners.includes('engine:door-lock') && gateOwners.includes('engine:encumbrance'), gateOwners.join(','));
 

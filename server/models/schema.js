@@ -129,6 +129,7 @@ export const SCHEMA_SQL = `
   );
   ALTER TABLE player_inventory ADD COLUMN IF NOT EXISTS container_id TEXT;
   ALTER TABLE player_inventory ADD COLUMN IF NOT EXISTS layer INTEGER DEFAULT 1;
+  ALTER TABLE player_inventory ADD COLUMN IF NOT EXISTS equipped_at TIMESTAMPTZ;
 
   CREATE TABLE IF NOT EXISTS enemies (
     id TEXT PRIMARY KEY,

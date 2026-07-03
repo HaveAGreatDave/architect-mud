@@ -29,6 +29,26 @@ export const EQUIP_SLOTS = {
   weapon_hand: 'Weapon Hand', accessory: 'Accessory',
 };
 
+// The five body slots wear up to three stacked layers, one item per (slot, layer).
+export const BODY_SLOTS = ['head', 'torso', 'hands', 'legs', 'feet'];
+// Layer name <-> stored integer. Higher = more outward = what others see.
+export const LAYERS = { underwear: 1, outerwear: 2, armor: 3 };
+export const LAYER_NAMES = { 1: 'underwear', 2: 'outerwear', 3: 'armor' };
+// Accessories: no layers, a fixed number of slots (index kept in `layer`).
+export const ACCESSORY_MAX = 3;
+
+// The layer an equipped body-slot item sits on, from its `layer` tag. Weapon and
+// accessory slots ignore this. Defaults to outerwear when a piece has no tag.
+function bodyLayer(item) {
+  return LAYERS[tagValue(item, 'layer')] || LAYERS.outerwear;
+}
+
+// Room-facing verb for the equip broadcast, by slot.
+const EQUIP_VERBS = {
+  head: 'puts on', torso: 'pulls on', hands: 'pulls on', legs: 'pulls on',
+  feet: 'pulls on', weapon_hand: 'readies', accessory: 'puts on',
+};
+
 // Build a per-slot typed-soak structure for the player from equipped armor.
 // player.soak[slot] = { soak: { kinetic:4, ... }, flat: <legacy armor int> }.
 // Combat routes the weapon's damage_type through the struck part's slot here.
@@ -93,6 +113,35 @@ async function cmdInventory(player) {
   msg += `\nWeight: ${formatWeight(weight)}/${formatWeight(cap)}`;
   msg += `\nCredits: ${player.credits||0}`;
   return { type:'inventory', message:msg, items:rows, weight, capacity:cap };
+}
+
+// The gear screen: the equippable subset of inventory (anything with a `slot` tag)
+// plus derived per-region soak and the summed passive effects, so the client can
+// render the layered layout, soak table, and effects block without re-deriving.
+async function cmdGear(player) {
+  const { rows } = await query(
+    `SELECT pi.*,i.name,i.tags,i.weight,i.value FROM player_inventory pi JOIN items i ON i.id=pi.item_id
+     WHERE pi.player_id=$1 AND pi.container_id IS NULL AND jsonb_exists(i.tags,'slot') ORDER BY i.name`,
+    [player.id]
+  );
+  await recomputeArmor(player);
+  await recomputeInsulation(player);
+  const effects = {
+    insulation: player.insulation || 0,
+    sealed: !!player.sealed,
+    exposurePenalty: player.exposurePenalty || 0,
+    stat_bonus: {},
+  };
+  for (const item of rows) {
+    item.sell_value = computeSellUnitPrice(item.value, player.stat_cool);
+    item.actions = availableActions(item);
+    if (item.is_equipped) {
+      const sb = tagValue(item, 'stat_bonus');
+      if (sb && typeof sb === 'object') for (const [k,v] of Object.entries(sb)) effects.stat_bonus[k] = (effects.stat_bonus[k]||0) + (Number(v)||0);
+    }
+  }
+  const weight = await computeCarriedWeight(player);
+  return { type:'gear', items:rows, soak:player.soak||{}, effects, weight, capacity:carryCapacity(player), credits:player.credits||0 };
 }
 
 function round1(n) { return Math.round(n * 10) / 10; }
@@ -354,17 +403,6 @@ async function cmdUse(targetStr, player, broadcast) {
   return { type:'use', message:messages.join('\n'), player_update:{hp:player.hp,hunger:player.hunger,thirst:player.thirst,radiation:player.radiation,sanity:player.sanity,credits:player.credits} };
 }
 
-function resolveEquipLayer(item, requestedLayer) {
-  const lr = tagValue(item, 'allowed_layer_range');
-  const minLayer = (lr && typeof lr === 'object' && lr.min) ? lr.min : 1;
-  const maxLayer = (lr && typeof lr === 'object' && lr.max) ? lr.max : 5;
-  const layer = (requestedLayer && Number.isInteger(requestedLayer) && requestedLayer >= 1 && requestedLayer <= 5)
-    ? requestedLayer
-    : minLayer;
-  if (layer < minLayer || layer > maxLayer) return { error: `${item.name} can only be worn on layer${minLayer === maxLayer ? ` ${minLayer}` : `s ${minLayer}–${maxLayer}`}.` };
-  return { layer };
-}
-
 // Equip/unequip changes the worn set, so refresh derived armor + insulation
 // (the inventory.changed event handler doesn't). Keeps typed soak and the
 // nakedness/cold penalty current the moment gear goes on or comes off.
@@ -375,11 +413,41 @@ async function dispatchEquip(action, player) {
   return result;
 }
 
-async function cmdEquip(targetStr, player) {
-  if (!targetStr) return { type:'error', message:'Equip what?' };
-  const { rows } = await query(`SELECT pi.*,i.name,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND i.name ILIKE $2 AND jsonb_exists(i.tags,'slot') LIMIT 1`, [player.id, `%${targetStr}%`]);
-  if (!rows.length) return { type:'error', message:`Can't equip "${targetStr}".` };
-  const item = rows[0];
+// After equipping, is `item` the visible outermost piece in its slot — so the room
+// should be told what it is? Weapon/accessory always show; a body-slot piece shows
+// only when nothing sits on a higher layer over it.
+async function isVisibleEquip(player, slot, layer) {
+  if (slot === 'weapon_hand' || slot === 'accessory') return true;
+  const { rows } = await query(
+    `SELECT MAX(pi.layer) AS m FROM player_inventory pi WHERE pi.player_id=$1 AND pi.is_equipped=1 AND pi.slot=$2`,
+    [player.id, slot]
+  );
+  return (rows[0]?.m ?? layer) <= layer;
+}
+
+// Equip an accessory into a free accessory index (kept in `layer`, 1..ACCESSORY_MAX).
+// When all indices are full, evict the oldest-equipped accessory and reuse its index.
+async function equipAccessory(item, player) {
+  const { rows: worn } = await query(
+    `SELECT id, layer FROM player_inventory
+     WHERE player_id=$1 AND is_equipped=1 AND slot='accessory' AND id<>$2
+     ORDER BY equipped_at ASC NULLS FIRST`,
+    [player.id, item.id]
+  );
+  const used = new Set(worn.map(w => w.layer));
+  let index = null;
+  for (let i = 1; i <= ACCESSORY_MAX; i++) { if (!used.has(i)) { index = i; break; } }
+  if (index === null) {
+    const oldest = worn[0];   // ordered oldest-first
+    await query('UPDATE player_inventory SET is_equipped=0, slot=NULL, layer=NULL, equipped_at=NULL WHERE id=$1', [oldest.id]);
+    index = oldest.layer;
+  }
+  return dispatchEquip({ type:'EQUIP', actor: player, params: { row: item, slot: 'accessory', layer: index } }, player);
+}
+
+// Shared equip path: validate stat requirements + slot, route to the right slot
+// discipline, then broadcast the piece to the room if it's now visibly outermost.
+async function equipResolved(item, player, broadcast) {
   const reqs = tagValue(item, 'requires', {}) || {};
   for (const [stat,val] of Object.entries(reqs)) {
     if ((player[stat]||0) < val) return { type:'error', message:`Need ${stat.replace('stat_','')} ${val} to use this.` };
@@ -387,9 +455,28 @@ async function cmdEquip(targetStr, player) {
   const slotName = tagValue(item, 'slot');
   const slot = EQUIP_SLOTS[slotName] ? slotName : null;
   if (!slot) return { type:'error', message:`${item.name} doesn't have a valid equip slot configured.` };
-  const { layer, error } = resolveEquipLayer(item);
-  if (error) return { type:'error', message: error };
-  return dispatchEquip({ type:'EQUIP', actor: player, params: { row: item, slot, layer } }, player);
+
+  let result;
+  if (slot === 'accessory') {
+    result = await equipAccessory(item, player);
+  } else {
+    const layer = slot === 'weapon_hand' ? 1 : bodyLayer(item);
+    result = await dispatchEquip({ type:'EQUIP', actor: player, params: { row: item, slot, layer } }, player);
+  }
+  if (result?.type === 'equip' && broadcast) {
+    const layer = slot === 'weapon_hand' ? 1 : bodyLayer(item);
+    if (await isVisibleEquip(player, slot, layer)) {
+      broadcast(player.current_zone, { type:'zone_event', message: `${player.handle} ${EQUIP_VERBS[slot] || 'puts on'} ${withArticle(item.name)}.` }, player.id);
+    }
+  }
+  return result;
+}
+
+async function cmdEquip(targetStr, player, broadcast) {
+  if (!targetStr) return { type:'error', message:'Equip what?' };
+  const { rows } = await query(`SELECT pi.*,i.name,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.player_id=$1 AND i.name ILIKE $2 AND jsonb_exists(i.tags,'slot') LIMIT 1`, [player.id, `%${targetStr}%`]);
+  if (!rows.length) return { type:'error', message:`Can't equip "${targetStr}".` };
+  return equipResolved(rows[0], player, broadcast);
 }
 
 async function cmdUnequip(targetStr, player) {
@@ -399,21 +486,11 @@ async function cmdUnequip(targetStr, player) {
   return dispatchEquip({ type:'UNEQUIP', actor: player, params: { row: rows[0] } }, player);
 }
 
-async function cmdEquipById(inventoryId, player, requestedLayer) {
+async function cmdEquipById(inventoryId, player, broadcast) {
   if (!inventoryId) return { type:'error', message:'Nothing selected to equip.' };
   const { rows } = await query(`SELECT pi.*,i.name,i.tags FROM player_inventory pi JOIN items i ON i.id=pi.item_id WHERE pi.id=$1 AND pi.player_id=$2 AND jsonb_exists(i.tags,'slot') LIMIT 1`, [inventoryId, player.id]);
   if (!rows.length) return { type:'error', message:`Can't equip that.` };
-  const item = rows[0];
-  const reqs = tagValue(item, 'requires', {}) || {};
-  for (const [stat,val] of Object.entries(reqs)) {
-    if ((player[stat]||0) < val) return { type:'error', message:`Need ${stat.replace('stat_','')} ${val} to use this.` };
-  }
-  const slotName = tagValue(item, 'slot');
-  const slot = EQUIP_SLOTS[slotName] ? slotName : null;
-  if (!slot) return { type:'error', message:`${item.name} doesn't have a valid equip slot configured.` };
-  const { layer, error } = resolveEquipLayer(item, requestedLayer);
-  if (error) return { type:'error', message: error };
-  return dispatchEquip({ type:'EQUIP', actor: player, params: { row: item, slot, layer } }, player);
+  return equipResolved(rows[0], player, broadcast);
 }
 
 async function cmdUnequipById(inventoryId, player) {
@@ -785,6 +862,7 @@ function splitOn(str, sep) {
 
 export const handlers = {
   inventory: (args, raw, player) => cmdInventory(player),
+  gear: (args, raw, player) => cmdGear(player),
   take: (args, raw, player, broadcast) => cmdTake(args.join(' '), player, broadcast),
   drop: (args, raw, player, broadcast) => cmdDrop(args.join(' '), player, broadcast),
   dropid: (args, raw, player, broadcast) => cmdDropById(args[0], player, broadcast, parseInt(args[1]) || 0),
@@ -792,9 +870,9 @@ export const handlers = {
   use:   (args, raw, player, broadcast) => cmdUse(args.join(' '), player, broadcast),
   eat:   (args, raw, player, broadcast) => cmdUse(args.join(' '), player, broadcast),
   drink: (args, raw, player, broadcast) => cmdUse(args.join(' '), player, broadcast),
-  equip:    (args, raw, player) => cmdEquip(args.join(' '), player),
+  equip:    (args, raw, player, broadcast) => cmdEquip(args.join(' '), player, broadcast),
   unequip:  (args, raw, player) => cmdUnequip(args.join(' '), player),
-  equipid:   (args, raw, player) => cmdEquipById(args[0], player, parseInt(args[1]) || null),
+  equipid:   (args, raw, player, broadcast) => cmdEquipById(args[0], player, broadcast),
   unequipid: (args, raw, player) => cmdUnequipById(args[0], player),
   stow:  (args, raw, player) => cmdStow(args.join(' '), player),
   pull:  (args, raw, player) => cmdPull(args.join(' '), player),

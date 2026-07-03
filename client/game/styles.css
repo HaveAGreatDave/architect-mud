@@ -2543,141 +2543,12 @@ textarea {
 	min-height: 0;
 }
 
-.equip-section-label {
-	font-size: 9px;
-	text-transform: uppercase;
-	letter-spacing: 2px;
-	color: var(--text-dim);
-	margin-bottom: 8px;
-}
-
-#equip-layer-header {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	margin-bottom: 6px;
-}
-#equip-layer-name {
-	font-size: 10px;
-	text-transform: uppercase;
-	letter-spacing: 1px;
-	color: var(--accent);
-}
-#equip-layer-arrows {
-	display: flex;
-	gap: 4px;
-}
-#equip-layer-arrows button {
-	background: transparent;
-	border: 1px solid var(--border);
-	color: var(--text-dim);
-	width: 20px;
-	height: 20px;
-	cursor: pointer;
-	border-radius: 2px;
-	font-size: 9px;
-	line-height: 1;
-	padding: 0;
-}
-#equip-layer-arrows button:hover {
-	border-color: var(--accent);
-	color: var(--accent);
-}
-#equip-layer-arrows button:disabled {
-	opacity: 0.3;
-	cursor: default;
-}
-
-.equip-slot-item.layer-bright,
-.equip-item-card.layer-bright {
-	opacity: 1;
-}
-.equip-slot-item.layer-dim,
-.equip-item-card.layer-dim {
-	opacity: 0.35;
-}
-.equip-slot-item.layer-hidden,
-.equip-item-card.layer-hidden {
-	display: none;
-}
-.equip-item-card.layer-incompat {
-	opacity: 0.45;
-}
-.eic-layer-icon {
-	font-size: 10px;
-	font-weight: bold;
-	margin-right: 3px;
-	display: inline;
-}
-.eic-layer-icon.compat {
-	color: var(--green, #4caf50);
-}
-.eic-layer-icon.incompat {
-	color: var(--red, #e53935);
-}
-
-#equip-doll-col {
-	flex-shrink: 0;
-	display: flex;
-	flex-direction: column;
-}
-
 #equip-backpack-col {
 	flex: 1;
 	min-width: 160px;
 	display: flex;
 	flex-direction: column;
 	overflow: hidden;
-	border-left: 1px solid var(--border);
-	padding-left: 18px;
-}
-
-#equip-doll {
-	display: grid;
-	grid-template-columns: 1fr 1fr;
-	gap: 8px;
-	width: 240px;
-	align-content: start;
-}
-.equip-slot {
-	background: var(--bg3);
-	border: 1px dashed var(--border);
-	border-radius: 3px;
-	padding: 8px;
-	min-height: 56px;
-	display: flex;
-	flex-direction: column;
-	gap: 4px;
-	transition:
-		border-color 0.15s,
-		background 0.15s;
-}
-.equip-slot.drag-over {
-	border-color: var(--cyan);
-	border-style: solid;
-	background: var(--bg);
-}
-.equip-slot-label {
-	font-size: 9px;
-	text-transform: uppercase;
-	letter-spacing: 1px;
-	color: var(--text-dim);
-}
-.equip-slot-item {
-	font-size: 11px;
-	color: var(--text-bright);
-	cursor: grab;
-	min-height: 16px;
-}
-.equip-slot-item.filled {
-	background: var(--accent-dim);
-	border: 1px solid var(--accent);
-	border-radius: 2px;
-	padding: 4px 6px;
-}
-.equip-slot-item.empty {
-	color: var(--text-dim);
-	font-style: italic;
 }
 
 #equip-inv-list {
@@ -2755,6 +2626,196 @@ textarea {
 }
 .equip-item-card.is-equipped {
 	border-left: 3px solid var(--green);
+}
+.eic-eq {
+	color: var(--green, #4caf50);
+	font-size: 10px;
+}
+
+/* ── Gear panel (equipment.js renderGearPanel) ─────────────────────────── */
+#gear-panel {
+	display: none;
+	position: fixed;
+	inset: 0;
+	background: transparent;
+	z-index: 150;
+	align-items: center;
+	justify-content: center;
+}
+#gear-panel.active {
+	display: flex;
+}
+#gear-box {
+	background: var(--bg2);
+	border: 1px solid var(--accent);
+	padding: 20px;
+	max-width: 720px;
+	width: 94%;
+	border-radius: 2px;
+	height: 82vh;
+	max-height: 90vh;
+	display: flex;
+	flex-direction: column;
+}
+#gear-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 12px;
+}
+#gear-header h2 {
+	color: var(--accent);
+	font-size: 14px;
+	letter-spacing: 2px;
+	text-transform: uppercase;
+}
+#gear-close {
+	background: transparent;
+	border: 1px solid var(--border);
+	color: var(--text-dim);
+	width: 26px;
+	height: 26px;
+	cursor: pointer;
+	border-radius: 2px;
+}
+#gear-close:hover {
+	border-color: var(--red);
+	color: var(--red);
+}
+#gear-filters {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin-bottom: 12px;
+}
+.gear-filter-btn {
+	background: transparent;
+	border: 1px solid var(--border);
+	color: var(--text-bright);
+	font-family: var(--font-mono);
+	font-size: 10px;
+	text-transform: uppercase;
+	letter-spacing: 1px;
+	padding: 4px 10px;
+	cursor: pointer;
+	border-radius: 2px;
+}
+.gear-filter-btn:hover {
+	border-color: var(--accent);
+}
+.gear-filter-btn.off {
+	opacity: 0.4;
+}
+#gear-body {
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+}
+.gear-section-label {
+	font-size: 9px;
+	text-transform: uppercase;
+	letter-spacing: 2px;
+	color: var(--text-dim);
+	margin-bottom: 6px;
+}
+.gear-grid {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 11px;
+}
+.gear-grid th,
+.gear-grid td {
+	border: 1px solid var(--border);
+	padding: 6px 8px;
+	text-align: left;
+}
+.gear-grid thead th {
+	color: var(--text-dim);
+	font-size: 9px;
+	text-transform: uppercase;
+	letter-spacing: 1px;
+	font-weight: normal;
+}
+.gear-rowlabel {
+	color: var(--text-dim);
+	font-size: 9px;
+	text-transform: uppercase;
+	letter-spacing: 1px;
+	width: 60px;
+}
+.gear-cell {
+	color: var(--text-dim);
+}
+.gear-cell.filled {
+	color: var(--text-bright);
+	background: var(--accent-dim);
+	cursor: pointer;
+}
+.gear-cell.filled:hover {
+	outline: 1px solid var(--accent);
+}
+.gear-strip {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-top: 8px;
+	font-size: 11px;
+}
+.gear-striplabel {
+	color: var(--text-dim);
+	font-size: 9px;
+	text-transform: uppercase;
+	letter-spacing: 1px;
+	width: 82px;
+	flex-shrink: 0;
+}
+.gear-strip .gear-cell {
+	border: 1px solid var(--border);
+	border-radius: 2px;
+	padding: 4px 8px;
+	min-width: 60px;
+}
+.gear-hidden {
+	display: none;
+}
+.gear-soaktable {
+	border-collapse: collapse;
+	font-size: 11px;
+}
+.gear-soaktable td {
+	border: 1px solid var(--border);
+	padding: 4px 10px;
+}
+.gear-soak-region {
+	color: var(--text-dim);
+	text-transform: uppercase;
+	font-size: 9px;
+	letter-spacing: 1px;
+}
+.gear-soak-val {
+	color: var(--text-bright);
+}
+.gear-fx {
+	font-size: 11px;
+	color: var(--text-bright);
+}
+#gear-inv-list {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+	gap: 8px;
+	align-content: start;
+	padding: 2px;
+}
+#gear-inv-list .equip-item-card.gear-dim {
+	opacity: 0.3;
+}
+#gear-credits {
+	margin-top: 12px;
+	font-size: 11px;
+	color: var(--text-dim);
 }
 
 /* Inventory item detail popup (equipment.js showItemDetail) */
@@ -3357,14 +3418,8 @@ textarea {
 		flex-direction: column;
 		overflow-y: auto;
 	}
-	#equip-doll {
-		width: 100%;
-	}
-	#equip-doll-col,
 	#equip-backpack-col {
 		width: 100%;
-	}
-	#equip-backpack-col {
 		overflow: visible;
 	}
 }

@@ -4,7 +4,7 @@ import { sendCmd, sendCmdSilent, closeConnection, attemptAutoReauth, showVerifyS
 import { renderMinimap, openMapPopup } from './panels/minimap.js';
 import { updateEnvironmentHUD, updateZoneTempHUD, refreshZoneVisibility, signalPowerOut } from './panels/environment.js';
 import { openDialogue, closeDialogue, openShop } from './panels/dialogue.js';
-import { renderEquipPanel } from './panels/equipment.js';
+import { renderEquipPanel, renderGearPanel } from './panels/equipment.js';
 import { renderRecipesPanel } from './panels/recipes.js';
 import { renderStatsPanel } from './panels/stats.js';
 import { renderSkillsPanel } from './panels/skills.js';
@@ -200,6 +200,11 @@ const handlers = {
     document.getElementById('equip-panel').classList.add('active');
   },
 
+  gear: (msg) => {
+    renderGearPanel(msg);
+    document.getElementById('gear-panel').classList.add('active');
+  },
+
   container_view: (msg) => {
     if (msg.mainMsg) appendHtml(msg.mainMsg, 'help');
     openContainerPanel(msg);
@@ -285,11 +290,11 @@ const handlers = {
   map: (msg) => { openMapPopup(msg.tiles || []); },
 
   equip: (msg) => {
-    if (document.getElementById('equip-panel').classList.contains('active')) {
-      sendCmdSilent('inventory');
-    } else {
-      appendHtml(msg.message, 'help');
-    }
+    const invOpen = document.getElementById('equip-panel').classList.contains('active');
+    const gearOpen = document.getElementById('gear-panel').classList.contains('active');
+    if (gearOpen) sendCmdSilent('gear');
+    if (invOpen) sendCmdSilent('inventory');
+    if (!invOpen && !gearOpen) appendHtml(msg.message, 'help');
   },
 
   use: (msg) => {
