@@ -116,7 +116,23 @@ export function renderMinimap(nodes, direction) {
   if (direction) slideMinimap(direction);
 }
 
-export function openMapPopup(tiles) {
+// Land-use / function colour key for the default map view. Keys match server mapFunc().
+const FUNC_LEGEND = {
+  corporate:   { label: 'Corporate / Uptown',   color: '#3f5fb0' },
+  civic:       { label: 'Civic / institutional', color: '#3fb58c' },
+  residential: { label: 'Residential',           color: '#5a8fb0' },
+  commercial:  { label: 'Commercial / trade',    color: '#33a0c4' },
+  nightlife:   { label: 'Nightlife / bars',      color: '#c05fd0' },
+  media:       { label: 'Media / studio',        color: '#8e6fd0' },
+  industrial:  { label: 'Industrial',            color: '#9a8a4f' },
+  wasteland:   { label: 'Wasteland / ruins',     color: '#7c6a4a' },
+  slum:        { label: 'Slum / Undermarket',    color: '#d08a3a' },
+  water:       { label: 'Water',                 color: '#2f77a8' },
+  hazard:      { label: 'Hazard / lethal',       color: '#e05555' },
+  other:       { label: 'Other',                 color: '#6b7280' },
+};
+
+export function openMapPopup(tiles, mode = 'function') {
   const grid = document.getElementById('map-grid');
   const legend = document.getElementById('map-legend');
   if (!tiles.length) {
@@ -175,29 +191,48 @@ export function openMapPopup(tiles) {
       if (!it) { html += `<span class="map-c"></span>`; continue; }
       if (it.kind === 'link') { html += `<span class="map-c map-link">${it.ch}</span>`; continue; }
       const t = it.tile;
+      const funcColor = FUNC_LEGEND[t.func]?.color || FUNC_LEGEND.other.color;
+      const bg = mode === 'function' ? funcColor : t.bg_color;
       const styles = [];
-      if (t.bg_color) styles.push(`background:${t.bg_color}`);
-      const tColor = t.color || (t.bg_color ? luminanceTextColor(t.bg_color) : null);
+      if (bg) styles.push(`background:${bg}`);
+      const tColor = mode === 'function'
+        ? luminanceTextColor(bg)
+        : (t.color || (t.bg_color ? luminanceTextColor(t.bg_color) : null));
       if (tColor) styles.push(`color:${tColor}`);
       const cls = `map-c map-room danger-${t.danger || 'safe'}` +
         (t.isCurrent ? ' map-current' : '') +
-        (t.bg_color || t.color ? ' map-styled' : '');
+        (mode === 'function' || t.bg_color || t.color ? ' map-styled' : '');
       const style = styles.length ? ` style="${styles.join(';')}"` : '';
-      html += `<span class="${cls}"${style} title="${t.name}">${symFor(t)}</span>`;
+      const tip = mode === 'function' ? `${t.name} — ${FUNC_LEGEND[t.func]?.label || 'Other'}` : t.name;
+      html += `<span class="${cls}"${style} title="${tip}">${symFor(t)}</span>`;
     }
   }
   grid.innerHTML = html;
 
   let leg = `<div class="map-leg-row"><span class="map-leg-sym map-current">()</span> You are here</div>`;
-  for (const t of tiles) {
-    if (t.isCurrent) continue;
-    const styles = [];
-    if (t.bg_color) styles.push(`background:${t.bg_color}`);
-    const legColor = t.color || (t.bg_color ? luminanceTextColor(t.bg_color) : null);
-    if (legColor) styles.push(`color:${legColor}`);
-    const cls = `map-leg-sym danger-${t.danger || 'safe'}` + (t.bg_color || t.color ? ' map-styled' : '');
-    const style = styles.length ? ` style="${styles.join(';')}"` : '';
-    leg += `<div class="map-leg-row"><span class="${cls}"${style}>${symFor(t)}</span> ${t.name}</div>`;
+  if (mode === 'function') {
+    // Compact land-use key: one row per category actually present on the map.
+    const present = new Set(tiles.map(t => t.func || 'other'));
+    for (const key of Object.keys(FUNC_LEGEND)) {
+      if (!present.has(key)) continue;
+      const f = FUNC_LEGEND[key];
+      const style = `background:${f.color};color:${luminanceTextColor(f.color)}`;
+      leg += `<div class="map-leg-row"><span class="map-leg-sym map-styled" style="${style}">&nbsp;&nbsp;</span> ${f.label}</div>`;
+    }
+    leg += `<div class="map-leg-row map-leg-hint">Type <b>map zones</b> for the per-zone view.</div>`;
+  } else {
+    // Per-zone view: every room by name with its own colour.
+    for (const t of tiles) {
+      if (t.isCurrent) continue;
+      const styles = [];
+      if (t.bg_color) styles.push(`background:${t.bg_color}`);
+      const legColor = t.color || (t.bg_color ? luminanceTextColor(t.bg_color) : null);
+      if (legColor) styles.push(`color:${legColor}`);
+      const cls = `map-leg-sym danger-${t.danger || 'safe'}` + (t.bg_color || t.color ? ' map-styled' : '');
+      const style = styles.length ? ` style="${styles.join(';')}"` : '';
+      leg += `<div class="map-leg-row"><span class="${cls}"${style}>${symFor(t)}</span> ${t.name}</div>`;
+    }
+    leg += `<div class="map-leg-row map-leg-hint">Type <b>map</b> for the land-use view.</div>`;
   }
   legend.innerHTML = leg;
 

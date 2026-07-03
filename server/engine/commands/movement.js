@@ -478,10 +478,33 @@ function cmdUnfollow(player, broadcast) {
 
 const MAP_DIR_OFFSET = { north:[0,-1], south:[0,1], east:[1,0], west:[-1,0] };
 
-async function cmdMap(player) {
+// Coarse land-use / function category for a zone, derived from its id + danger.
+// Drives the default "function" colouring of the full-screen map.
+function mapFunc(z) {
+  const id = z.id || '';
+  const d = z.danger_rating;
+  if (/water|_bay|coldwater_bay/.test(id)) return 'water';
+  if (id === 'zone_up_aid' || id.includes('precinct') || id === 'zone_city_se') return 'civic';
+  if (id.startsWith('zone_up_') || id.startsWith('zone_spire') || id === 'zone_city_ne') return 'corporate';
+  if (id.startsWith('zone_deep_') || id === 'zone_slums' || id === 'zone_tunnels' || id === 'zone_city_sw') return 'slum';
+  if (/cherry|pigeon|_sump/.test(id)) return 'nightlife';
+  if (id.startsWith('zone_slag_') || id === 'zone_powerplantnew' || id === 'zone_coldwater_turbine_hall' || id === 'zone_warehouse' || id === 'zone_city_east') return 'industrial';
+  if (id.startsWith('zone_ashway_') || id.startsWith('zone_badland_') || id === 'zone_ruins' || id === 'zone_deep_waste' || id === 'zone_outskirts') return 'wasteland';
+  if (/apt|residential|embassy|meridian_unit|meridian_floor|chrome_[123]0|chrome_f/.test(id)) return 'residential';
+  if (/studio|_prod_|zone_ext_/.test(id)) return 'media';
+  if (id.startsWith('zone_mq_') || id === 'zone_meridian' || id.startsWith('zone_velk') || id.startsWith('zone_drum') || id.startsWith('zone_weapons') || id.startsWith('zone_furniture') || id === 'zone_city_west' || id === 'zone_mq_marquee') return 'commercial';
+  if (id.startsWith('zone_city_') || id.startsWith('zone_threshold') || id === 'zone_threshold') return 'civic';
+  if (d === 'lethal') return 'hazard';
+  return 'other';
+}
+
+async function cmdMap(player, args = []) {
   const { getAllZones } = await import('../world.js');
   const current = getZone(player.current_zone);
   if (!current) return { type:'map', tiles: [] };
+  // `map` → function/land-use view (default); `map zones` → per-zone colours + full legend.
+  const arg = (Array.isArray(args) ? (args[0] || '') : '').toLowerCase();
+  const mode = ['zones','zone','rooms','raw','default','legacy'].includes(arg) ? 'zones' : 'function';
 
   // Placed zone: show all rooms on the same map/floor using grid coords.
   if (current.map_id && current.grid_x != null && current.grid_y != null) {
@@ -500,10 +523,11 @@ async function cmdMap(player) {
         id: z.id, x: z.grid_x, y: z.grid_y, name: z.name,
         danger: z.danger_rating || null, marker: z.marker || null,
         color: z.color || null, bg_color: z.bg_color || null,
+        func: mapFunc(z),
         exits: links, isCurrent: z.id === player.current_zone,
       };
     });
-    return { type:'map', tiles };
+    return { type:'map', mode, tiles };
   }
 
   // Unplaced zone: BFS outward up to 8 hops using cardinal exits to compute a virtual grid.
@@ -538,10 +562,11 @@ async function cmdMap(player) {
       id, x, y, name: zone.name,
       danger: zone.danger_rating || null, marker: zone.marker || null,
       color: zone.color || null, bg_color: zone.bg_color || null,
+      func: mapFunc(zone),
       exits: links, isCurrent: id === player.current_zone,
     });
   }
-  return { type:'map', tiles };
+  return { type:'map', mode, tiles };
 }
 
 export const handlers = {
@@ -556,7 +581,7 @@ export const handlers = {
   in:    (args, raw, player, broadcast) => cmdMove('in', player, broadcast, exitIndexOpts(args)),
   out:   (args, raw, player, broadcast) => cmdMove('out', player, broadcast, exitIndexOpts(args)),
   exit:  (args, raw, player, broadcast) => cmdMove('exit', player, broadcast, exitIndexOpts(args)),
-  map:      (args, raw, player) => cmdMap(player),
+  map:      (args, raw, player) => cmdMap(player, args),
   follow:   (args, raw, player, broadcast) => cmdFollow(args, player, broadcast),
   unfollow: (args, raw, player, broadcast) => cmdUnfollow(player, broadcast),
 };
