@@ -38,7 +38,8 @@ registerMoveGate(async ({ player, direction, door, to }) => {
   if (!door || door.hp <= 0 || door.lock_state !== 'locked') return;
   if (doorGuardsOnlyUnownedApartment(door)) return; // unrented unit — the lock is vestigial
   const lockTag = getLockTagPublic(door);
-  const canPass = lockTag && await checkLockAuth(lockTag, door, player);
+  if (!lockTag) return; // locked but no lock installed — a data glitch, not a wall; let it pass
+  const canPass = await checkLockAuth(lockTag, door, player);
   if (!canPass) {
     const label = NAMED_LOCK_DIRS.has(direction) && to?.name ? to.name : `the ${direction}`;
     return { block: true, message: `The door to ${label} is locked.` };
