@@ -50,7 +50,7 @@ export function describeVoidTeleport() {
 	return `\n<span class="zone-name">— VOID —</span>\n${msg}`;
 }
 
-function isInteriorZone(z) {
+export function isInteriorZone(z) {
 	return !!(
 		z?.flags?.is_interior ||
 		z?.flags?.is_apartment ||

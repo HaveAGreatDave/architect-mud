@@ -1717,9 +1717,12 @@
 		<!-- MAP POPUP -->
 		<div id="map-panel">
 			<div id="map-box">
-				<h2>City Map</h2>
+				<div id="map-header">
+					<h2 id="map-title">City Map</h2>
+					<button id="map-toggle" type="button">View</button>
+				</div>
 				<div id="map-body">
-					<div id="map-grid"></div>
+					<div id="map-viewport"><div id="map-grid"></div></div>
 					<div id="map-legend"></div>
 				</div>
 				<button id="map-close" style="margin-top: 14px">Close</button>

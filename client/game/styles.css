@@ -2378,9 +2378,9 @@ textarea {
 #map-box {
 	background: var(--bg2);
 	border: 1px solid var(--accent);
-	padding: 24px;
+	padding: 18px;
 	border-radius: 2px;
-	max-width: 92vw;
+	max-width: 94vw;
 	max-height: 90vh;
 	overflow: auto;
 	scrollbar-width: thin;
@@ -2412,27 +2412,74 @@ textarea {
 	text-transform: uppercase;
 	margin-bottom: 16px;
 }
+#map-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 16px;
+	margin-bottom: 16px;
+}
+#map-header h2 {
+	margin-bottom: 0;
+}
+#map-toggle {
+	flex: 0 0 auto;
+	font-family: "Courier New", monospace;
+	font-size: 12px;
+	letter-spacing: 1px;
+	color: var(--accent);
+	background: var(--bg);
+	border: 1px solid var(--accent);
+	border-radius: 2px;
+	padding: 5px 12px;
+	cursor: pointer;
+}
+#map-toggle:hover {
+	background: var(--accent);
+	color: var(--bg);
+}
 #map-body {
 	display: flex;
-	flex-direction: column;
-	gap: 20px;
-	align-items: center;
+	flex-direction: row;
+	gap: 24px;
+	align-items: flex-start;
+}
+/* Fixed 11-room window (11×22 rooms + 10×11 gaps wide; 21 rows × 16px tall).
+   The grid inside can be larger (regional view) — you drag to pan it. */
+#map-viewport {
+	--map-room: 22px;
+	--map-gap: 11px;
+	width: calc(11 * var(--map-room) + 10 * var(--map-gap));
+	height: calc(21 * 16px);
+	overflow: hidden;
+	position: relative;
+	flex: 0 0 auto;
+	cursor: grab;
+	user-select: none;
+	touch-action: none;
+}
+#map-viewport.grabbing {
+	cursor: grabbing;
 }
 #map-grid {
-	--map-room: 26px;
-	--map-gap: 14px;
+	--map-room: 22px;
+	--map-gap: 11px;
 	display: grid;
 	justify-content: start;
 	align-content: start;
+	position: absolute;
+	top: 0;
+	left: 0;
+	will-change: transform;
 	font-family: "Courier New", monospace;
-	font-size: 15px;
+	font-size: 13px;
 	line-height: 1;
 }
 .map-c {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	height: 22px;
+	height: 16px;
 	white-space: pre;
 }
 .map-link {
@@ -2490,14 +2537,55 @@ textarea {
 	font-family: "Courier New", monospace;
 	font-size: 12px;
 	color: var(--text);
-	width: 100%;
+	flex: 0 0 auto;
+	min-width: 220px;
+	max-width: 300px;
+	/* Match the 11-row map viewport height so the list bottom lines up. */
+	max-height: calc(21 * 16px);
 	display: flex;
-	flex-wrap: wrap;
+	flex-direction: column;
 	align-content: flex-start;
-	justify-content: center;
-	gap: 4px 16px;
-	padding-top: 16px;
-	border-top: 1px solid var(--border);
+	gap: 6px;
+	padding-left: 20px;
+	border-left: 1px solid var(--border);
+}
+.map-leg-head {
+	color: var(--accent);
+	padding-bottom: 6px;
+	border-bottom: 1px solid var(--border);
+}
+/* Alphabetical room list (interior/zone views) — wraps into columns rather
+   than scrolling when it outgrows the map's height. */
+.map-list {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	flex: 1 1 auto;
+	min-height: 0;
+	/* Vertical scroll only — the explicit `hidden` on the x-axis stops the
+	   overflow-y:auto quirk from also spawning a horizontal scrollbar. */
+	overflow: hidden auto;
+	scrollbar-gutter: stable;
+	scrollbar-width: thin;
+	scrollbar-color: var(--accent) var(--bg);
+	padding-right: 4px;
+}
+.map-list-row {
+	cursor: default;
+	padding: 0 3px;
+	border-radius: 2px;
+	line-height: 1.4;
+	white-space: nowrap;
+}
+.map-list .map-leg-sym {
+	min-width: 20px;
+	padding: 0 2px;
+}
+.map-list-row:hover {
+	background: var(--bg);
+}
+.map-list-current {
+	color: var(--accent);
 }
 .map-leg-row {
 	display: flex;
@@ -2505,6 +2593,34 @@ textarea {
 	gap: 8px;
 	white-space: nowrap;
 	flex: 0 0 auto;
+}
+#map-tooltip {
+	display: none;
+	position: fixed;
+	z-index: 400;
+	max-width: 300px;
+	background: var(--bg2);
+	border: 1px solid var(--accent);
+	border-radius: 2px;
+	padding: 8px 10px;
+	font-family: "Courier New", monospace;
+	font-size: 12px;
+	color: var(--text);
+	pointer-events: none;
+	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+#map-tooltip .map-tt-name {
+	color: var(--accent);
+	font-weight: bold;
+	margin-bottom: 4px;
+}
+#map-tooltip .map-tt-desc {
+	color: var(--text-dim);
+	white-space: normal;
+	margin-bottom: 4px;
+}
+#map-tooltip .map-tt-bld {
+	white-space: normal;
 }
 .map-leg-sym {
 	flex: 0 0 auto;
