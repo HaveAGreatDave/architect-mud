@@ -1,8 +1,8 @@
 import { query } from '../../models/db.js';
 import { formatBattleCry } from '../combat.js';
-import { getZone, getMinimapData, addPlayerToZone, removePlayerFromZone, getDoorForExit, setDoorCache, getAllLivePlayers, getLivePlayer, getZoneEnemies, tryBattleCry } from '../world.js';
+import { getZone, getMinimapData, getAllZones, getMap, addPlayerToZone, removePlayerFromZone, getDoorForExit, setDoorCache, getAllLivePlayers, getLivePlayer, getZoneEnemies, tryBattleCry } from '../world.js';
 import { getZoneVisibility, getWindowsForZone, getEnvironmentState, getZoneTemperature, getZoneSeverity } from '../environment.js';
-import { describeZone, resolveNamedDestination } from './describe.js';
+import { describeZone, resolveNamedDestination, isInteriorZone } from './describe.js';
 import { exitTargets, allExits, primaryExits } from '../exits.js';
 import { checkLockAuth, getLockTagPublic } from './doors.js';
 import { lockTypePassesWhileLocked } from '../locks.js';
@@ -508,75 +508,125 @@ function mapFunc(z) {
   return 'residential'; // non-grey urban default for any unknown prefix
 }
 
-async function cmdMap(player, args = []) {
-  const { getAllZones } = await import('../world.js');
-  const current = getZone(player.current_zone);
-  if (!current) return { type:'map', tiles: [] };
-  // `map` → function/land-use view (default); `map zones` → per-zone colours + full legend.
-  const arg = (Array.isArray(args) ? (args[0] || '') : '').toLowerCase();
-  const mode = ['zones','zone','rooms','raw','default','legacy'].includes(arg) ? 'zones' : 'function';
+const MAP_WINDOW_HALF = 5; // 11×11 window: dx,dy ∈ −5..+5
 
-  // Placed zone: show all rooms on the same map/floor using grid coords.
-  if (current.map_id && current.grid_x != null && current.grid_y != null) {
-    const currentZ = current.grid_z ?? 0;
+// Building names at a tile: exits leading to an is_building zone (same rule as
+// describe.js's "Buildings:" line). Data for the map's hover tooltip.
+function buildingsAt(zone) {
+  const names = [];
+  for (const { target } of allExits(zone)) {
+    const t = getZone(target);
+    if (t?.flags?.is_building) names.push(t.flags.building_name || t.name);
+  }
+  return names;
+}
+
+// One tile snapshot, positioned at (x,y) relative to the map's origin.
+function mapTile(zone, x, y, placed, currentId) {
+  const links = {};
+  for (const [dir, target] of Object.entries(primaryExits(zone))) {
+    if (placed.has(target) && MAP_DIR_OFFSET[dir]) links[dir] = target;
+  }
+  return {
+    id: zone.id, x, y, name: zone.name,
+    danger: zone.danger_rating || null, marker: zone.marker || null,
+    color: zone.color || null, bg_color: zone.bg_color || null,
+    func: mapFunc(zone),
+    description: zone.description || '',
+    buildings: buildingsAt(zone),
+    exits: links, isCurrent: zone.id === currentId,
+  };
+}
+
+// 11×11 window centered on centerId, tiles positioned relative to it (center at 0,0).
+// Placed centers use grid coords; unplaced (coordless interior) centers fall back to a
+// BFS virtual grid clamped to the window.
+function window11(centerId) {
+  const center = getZone(centerId);
+  if (!center) return [];
+  const H = MAP_WINDOW_HALF;
+
+  if (center.map_id && center.grid_x != null && center.grid_y != null) {
+    const cx = center.grid_x, cy = center.grid_y, cz = center.grid_z ?? 0;
     const onMap = getAllZones().filter(z =>
-      z.map_id === current.map_id &&
-      (z.grid_z ?? 0) === currentZ &&
-      z.grid_x != null && z.grid_y != null);
+      z.map_id === center.map_id && (z.grid_z ?? 0) === cz &&
+      z.grid_x != null && z.grid_y != null &&
+      Math.abs(z.grid_x - cx) <= H && Math.abs(z.grid_y - cy) <= H);
     const placed = new Set(onMap.map(z => z.id));
-    const tiles = onMap.map(z => {
-      const links = {};
-      for (const [dir, target] of Object.entries(primaryExits(z))) {
-        if (placed.has(target)) links[dir] = target;
-      }
-      return {
-        id: z.id, x: z.grid_x, y: z.grid_y, name: z.name,
-        danger: z.danger_rating || null, marker: z.marker || null,
-        color: z.color || null, bg_color: z.bg_color || null,
-        func: mapFunc(z),
-        exits: links, isCurrent: z.id === player.current_zone,
-      };
-    });
-    return { type:'map', mode, tiles };
+    return onMap.map(z => mapTile(z, z.grid_x - cx, z.grid_y - cy, placed, centerId));
   }
 
-  // Unplaced zone: BFS outward up to 8 hops using cardinal exits to compute a virtual grid.
-  const coords = new Map([[player.current_zone, [0, 0]]]);
-  const dist = new Map([[player.current_zone, 0]]);
-  const queue = [player.current_zone];
+  const coords = new Map([[centerId, [0, 0]]]);
+  const dist = new Map([[centerId, 0]]);
+  const queue = [centerId];
   while (queue.length) {
     const id = queue.shift();
     if (dist.get(id) >= 8) continue;
     const zone = getZone(id);
     if (!zone) continue;
-    const [cx, cy] = coords.get(id);
+    const [x, y] = coords.get(id);
     for (const [dir, targetId] of Object.entries(primaryExits(zone))) {
       if (coords.has(targetId)) continue;
       const off = MAP_DIR_OFFSET[dir];
       if (!off) continue;
-      coords.set(targetId, [cx + off[0], cy + off[1]]);
+      coords.set(targetId, [x + off[0], y + off[1]]);
       dist.set(targetId, dist.get(id) + 1);
       queue.push(targetId);
     }
   }
-  const visited = new Set(coords.keys());
-  const tiles = [];
+  const inWindow = new Map();
   for (const [id, [x, y]] of coords) {
-    const zone = getZone(id);
-    if (!zone) continue;
-    const links = {};
-    for (const [dir, target] of Object.entries(primaryExits(zone))) {
-      if (visited.has(target) && MAP_DIR_OFFSET[dir]) links[dir] = target;
-    }
-    tiles.push({
-      id, x, y, name: zone.name,
-      danger: zone.danger_rating || null, marker: zone.marker || null,
-      color: zone.color || null, bg_color: zone.bg_color || null,
-      func: mapFunc(zone),
-      exits: links, isCurrent: id === player.current_zone,
-    });
+    if (Math.abs(x) <= H && Math.abs(y) <= H) inWindow.set(id, [x, y]);
   }
-  return { type:'map', mode, tiles };
+  const placed = new Set(inWindow.keys());
+  const tiles = [];
+  for (const [id, [x, y]] of inWindow) {
+    const zone = getZone(id);
+    if (zone) tiles.push(mapTile(zone, x, y, placed, centerId));
+  }
+  return tiles;
+}
+
+// Full overworld (map_world, floor 0), absolute coords — the regional land-use view.
+function regionalTiles(currentOverworldId) {
+  const onMap = getAllZones().filter(z =>
+    z.map_id === 'map_world' && (z.grid_z ?? 0) === 0 &&
+    z.grid_x != null && z.grid_y != null);
+  const placed = new Set(onMap.map(z => z.id));
+  return onMap.map(z => mapTile(z, z.grid_x, z.grid_y, placed, currentOverworldId));
+}
+
+// The overworld tile the player occupies: their own tile on the surface, or the
+// building's parent_zone_id tile when they're inside an interior.
+function overworldTileId(current) {
+  if (!current) return null;
+  if (current.map_id === 'map_world') return current.id;
+  return getMap(current.map_id)?.parent_zone_id || null;
+}
+
+// Three zoom levels — interior (your floor), zone (overworld 11×11 at your tile),
+// regional (full overworld). Interior only exists when you're inside one.
+function cmdMap(player, args = []) {
+  const current = getZone(player.current_zone);
+  if (!current) return { type:'map', mode:'zone', tiles: [], insideInterior: false };
+  const inside = isInteriorZone(current);
+  const arg = (Array.isArray(args) ? (args[0] || '') : '').toLowerCase();
+
+  let mode;
+  if (arg === 'regional') mode = 'regional';
+  else if (arg === 'interior') mode = inside ? 'interior' : 'zone';
+  else if (['zone','zones','rooms','raw','default','legacy'].includes(arg)) mode = 'zone';
+  else mode = inside ? 'interior' : 'zone'; // bare `map`
+
+  if (mode === 'interior') {
+    return { type:'map', mode, tiles: window11(current.id), insideInterior: inside };
+  }
+  const owId = overworldTileId(current);
+  if (mode === 'regional') {
+    return { type:'map', mode, tiles: regionalTiles(owId), insideInterior: inside };
+  }
+  // zone: 11×11 overworld centered on your surface tile (owId), or current if unresolved.
+  return { type:'map', mode:'zone', tiles: window11(owId || current.id), insideInterior: inside };
 }
 
 export const handlers = {

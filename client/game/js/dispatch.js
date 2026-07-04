@@ -292,7 +292,7 @@ const handlers = {
   corp_withdraw:    (msg) => { appendHtml(msg.message, 'help'); if (msg.player_update && state.player) { Object.assign(state.player, msg.player_update); updateVitals(state.player); } },
   corp_disband:     (msg) => { appendHtml(msg.message, 'help'); if (msg.player_update && state.player) { Object.assign(state.player, msg.player_update); updateVitals(state.player); } },
 
-  map: (msg) => { openMapPopup(msg.tiles || [], msg.mode || 'function'); },
+  map: (msg) => { openMapPopup(msg.tiles || [], msg.mode || 'zone', !!msg.insideInterior); },
 
   equip: (msg) => {
     const invOpen = document.getElementById('equip-panel').classList.contains('active');

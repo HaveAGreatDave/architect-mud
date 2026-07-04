@@ -14,6 +14,7 @@ const world = {
   doors: new Map(),      // id -> door row
   orgs: new Map(),       // orgId -> org row + { ranks: [...] }
   orgMembers: new Map(), // playerId -> { org_id, rank_id, permissions }  (one corp per player)
+  maps: new Map(),       // mapId -> maps row (parent_zone_id links an interior to its overworld tile)
 };
 
 // Global ambient event pool, keyed by theme.
@@ -39,9 +40,18 @@ export async function initWorld() {
   await loadGlobalAmbients();
   await loadDoors();
   await loadOrgs();
+  await loadMaps();
   await loadPlayerCorpses();
   console.log(`✓ World loaded: ${world.zones.size} zones, ${world.npcs.size} NPCs, ${world.apartments.size} apartments, ${world.doors.size} doors, ${world.orgs.size} orgs`);
 }
+
+async function loadMaps() {
+  const { rows } = await query('SELECT * FROM maps').catch(() => ({ rows: [] }));
+  world.maps.clear();
+  for (const row of rows) world.maps.set(row.id, row);
+}
+
+export function getMap(mapId) { return world.maps.get(mapId) || null; }
 
 export async function loadPlayerCorpses() {
   const now = Date.now();
