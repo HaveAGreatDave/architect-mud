@@ -264,7 +264,14 @@ const server = createServer(async (req, res) => {
       }
       booting = false; // detach: keep listeners (draining) but drop the buffer
       child.unref();
-      return res.end(`🏚  Architect launching on http://localhost:${GAME_PORT} …\nGive it a second to boot, then use the ▶ Architect link. Stop it with:  npm run kill:orphans`);
+      return res.end(`🏚  Architect launching on http://localhost:${GAME_PORT} …\nGive it a second to boot, then use the ▶ Architect link. Stop it with the ⏹ Stop server button (or npm run kill:orphans).`);
+    }
+
+    // Stop the game server — sweep this project's orphaned node processes (same
+    // scoped signature match as the predev/pretest hook). Handy because the launch
+    // above is detached and windowless, so it's easy to leave running.
+    if (req.url === '/api/kill' && req.method === 'POST') {
+      return streamSeq([['Stop server (sweep orphans)', NODE, ['scripts/kill-orphans.js']]], res);
     }
 
     // World lane — publish seed (guarded to localhost).
@@ -414,6 +421,7 @@ const PAGE = `<!DOCTYPE html>
     </div>
     <div class="links">
       <button id="launch">🏚 Launch server</button>
+      <button class="ghost" id="stop">⏹ Stop server</button>
       <a class="linkbtn" href="http://localhost:3000" target="_blank" rel="noopener">▶ Architect</a>
       <a class="linkbtn" href="http://localhost:3000/dev" target="_blank" rel="noopener">⚙ Devpanel</a>
     </div>
@@ -541,6 +549,7 @@ async function refreshInner() {
   $('ship').disabled = !canShip;
   $('launch').disabled = sv.running;
   $('launch').textContent = sv.running ? '🏚 Server up' : '🏚 Launch server';
+  $('stop').disabled = !sv.running;
   const canDeploy = d.isLocal && p.ready && !g.diverged;
   $('deploy').disabled = !canDeploy;
   $('prodHint').textContent = !p.ready
@@ -638,6 +647,7 @@ $('launch').onclick = async () => {
 setInterval(() => { if (!streaming) refresh(false); }, 15000);
 
 $('refresh').onclick = () => refresh(true);
+$('stop').onclick = () => runStream('/api/kill', {}, 'Stopping server');
 $('publish').onclick = () => runStream('/api/publish', { message: $('msg').value }, 'Publishing');
 $('sync').onclick = () => runStream('/api/sync', {}, 'Syncing');
 $('regress').onclick = () => runStream('/api/regress', {}, 'Running regress');
